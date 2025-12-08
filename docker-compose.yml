@@ -1,0 +1,175 @@
+services:
+  # Global Database
+  global-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: vetchium_global
+      POSTGRES_USER: vetchium
+      POSTGRES_PASSWORD: vetchium_dev
+    volumes:
+      - global-db-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vetchium -d vetchium_global"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Regional Database - India
+  regional-db-ind1:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: vetchium_ind1
+      POSTGRES_USER: vetchium
+      POSTGRES_PASSWORD: vetchium_dev
+    volumes:
+      - regional-db-ind1-data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vetchium -d vetchium_ind1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Regional Database - USA
+  regional-db-usa1:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: vetchium_usa1
+      POSTGRES_USER: vetchium
+      POSTGRES_PASSWORD: vetchium_dev
+    volumes:
+      - regional-db-usa1-data:/var/lib/postgresql/data
+    ports:
+      - "5434:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vetchium -d vetchium_usa1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Regional Database - Germany
+  regional-db-deu1:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: vetchium_deu1
+      POSTGRES_USER: vetchium
+      POSTGRES_PASSWORD: vetchium_dev
+    volumes:
+      - regional-db-deu1-data:/var/lib/postgresql/data
+    ports:
+      - "5435:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vetchium -d vetchium_deu1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Database migrations
+  migrate:
+    build:
+      context: ./api-server
+      dockerfile: Dockerfile.migrate
+    depends_on:
+      global-db:
+        condition: service_healthy
+      regional-db-ind1:
+        condition: service_healthy
+      regional-db-usa1:
+        condition: service_healthy
+      regional-db-deu1:
+        condition: service_healthy
+    environment:
+      GLOBAL_DB_URL: postgres://vetchium:vetchium_dev@global-db:5432/vetchium_global?sslmode=disable
+      REGIONAL_DB_IND1_URL: postgres://vetchium:vetchium_dev@regional-db-ind1:5432/vetchium_ind1?sslmode=disable
+      REGIONAL_DB_USA1_URL: postgres://vetchium:vetchium_dev@regional-db-usa1:5432/vetchium_usa1?sslmode=disable
+      REGIONAL_DB_DEU1_URL: postgres://vetchium:vetchium_dev@regional-db-deu1:5432/vetchium_deu1?sslmode=disable
+
+  # API Server - India Region
+  api-server-ind1:
+    build:
+      context: ./api-server
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      REGION: ind1
+      GLOBAL_DB_CONN: postgres://vetchium:vetchium_dev@global-db:5432/vetchium_global?sslmode=disable
+      REGIONAL_DB_IND1_CONN: postgres://vetchium:vetchium_dev@regional-db-ind1:5432/vetchium_ind1?sslmode=disable
+      REGIONAL_DB_USA1_CONN: postgres://vetchium:vetchium_dev@regional-db-usa1:5432/vetchium_usa1?sslmode=disable
+      REGIONAL_DB_DEU1_CONN: postgres://vetchium:vetchium_dev@regional-db-deu1:5432/vetchium_deu1?sslmode=disable
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # API Server - USA Region
+  api-server-usa1:
+    build:
+      context: ./api-server
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      REGION: usa1
+      GLOBAL_DB_CONN: postgres://vetchium:vetchium_dev@global-db:5432/vetchium_global?sslmode=disable
+      REGIONAL_DB_IND1_CONN: postgres://vetchium:vetchium_dev@regional-db-ind1:5432/vetchium_ind1?sslmode=disable
+      REGIONAL_DB_USA1_CONN: postgres://vetchium:vetchium_dev@regional-db-usa1:5432/vetchium_usa1?sslmode=disable
+      REGIONAL_DB_DEU1_CONN: postgres://vetchium:vetchium_dev@regional-db-deu1:5432/vetchium_deu1?sslmode=disable
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # API Server - Germany Region
+  api-server-deu1:
+    build:
+      context: ./api-server
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      REGION: deu1
+      GLOBAL_DB_CONN: postgres://vetchium:vetchium_dev@global-db:5432/vetchium_global?sslmode=disable
+      REGIONAL_DB_IND1_CONN: postgres://vetchium:vetchium_dev@regional-db-ind1:5432/vetchium_ind1?sslmode=disable
+      REGIONAL_DB_USA1_CONN: postgres://vetchium:vetchium_dev@regional-db-usa1:5432/vetchium_usa1?sslmode=disable
+      REGIONAL_DB_DEU1_CONN: postgres://vetchium:vetchium_dev@regional-db-deu1:5432/vetchium_deu1?sslmode=disable
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Load Balancer for API Servers
+  api-lb:
+    image: nginx:alpine
+    volumes:
+      - ./nginx/api-lb.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "8080:80"
+    depends_on:
+      api-server-ind1:
+        condition: service_healthy
+      api-server-usa1:
+        condition: service_healthy
+      api-server-deu1:
+        condition: service_healthy
+
+  # Hub UI Frontend
+  hub-ui:
+    build:
+      context: ./hub-ui
+    ports:
+      - "3000:80"
+    depends_on:
+      - api-lb
+
+volumes:
+  global-db-data:
+  regional-db-ind1-data:
+  regional-db-usa1-data:
+  regional-db-deu1-data:

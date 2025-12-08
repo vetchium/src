@@ -1,0 +1,6 @@
+# Generated sqlc files
+internal/db/globaldb/
+internal/db/regionaldb/
+
+# Binary
+api-server
