@@ -1,4 +1,4 @@
-Status: DRAFT
+Status: IN_PROGRESS
 Authors: @psankar
 Dependencies: None
 
@@ -11,7 +11,7 @@ Dependencies: None
 
 ## Scope
 
-- Create directories for the backend, frontend sources
+- Create directories for the `api-server` golang backend, `hub-ui` vite frontend sources
 - Create Dockerfiles for containerizing them and a docker-compose file to bring up all the required containers
 - Document the steps to bring up the setup in a README.md file on the top-level directory
 - One Global Database running
@@ -19,7 +19,10 @@ Dependencies: None
 - Three replicas of the APIServer running on Three different regions
 - Each replica of the APIServer can connect to the global and all the regional databases
 - The connection strings for each region should be made available to each replica of the APIServer via its own config values which get mounted as environment variables
+- The database queries and migrations should come from [sqlc](https://sqlc.dev/)
+- github.com/golang-migrate should be used for migrations in conjunction with sqlc
 - A container to route the traffic from the frontends to load-balance across the three replicas of the APIServers
+- The backend APIServer can expose a simple / endpoint, which can take a hardcoded SQL response and can return the value. The `hub-ui` application can call this endpoint and render the returned hardcoded value from the backend.
 
 ### Database Schema
 
