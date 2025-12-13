@@ -1,5 +1,4 @@
 services:
-  # Global Database
   global-db:
     image: postgres:17-alpine
     environment:
@@ -16,7 +15,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # Regional Database - India
   regional-db-ind1:
     image: postgres:17-alpine
     environment:
@@ -33,7 +31,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # Regional Database - USA
   regional-db-usa1:
     image: postgres:17-alpine
     environment:
@@ -50,7 +47,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # Regional Database - Germany
   regional-db-deu1:
     image: postgres:17-alpine
     environment:
@@ -103,7 +99,6 @@ services:
         condition: service_healthy
     command: ["-dir", "/migrations/regional", "postgres", "postgres://vetchium:vetchium_dev@regional-db-deu1:5432/vetchium_deu1?sslmode=disable", "up"]
 
-  # API Server - India Region
   api-server-ind1:
     build:
       context: ./api-server
@@ -128,7 +123,6 @@ services:
       timeout: 5s
       retries: 3
 
-  # API Server - USA Region
   api-server-usa1:
     build:
       context: ./api-server
@@ -153,7 +147,6 @@ services:
       timeout: 5s
       retries: 3
 
-  # API Server - Germany Region
   api-server-deu1:
     build:
       context: ./api-server
@@ -178,7 +171,6 @@ services:
       timeout: 5s
       retries: 3
 
-  # Load Balancer for API Servers
   api-lb:
     image: nginx:alpine
     volumes:
@@ -193,7 +185,6 @@ services:
       api-server-deu1:
         condition: service_healthy
 
-  # Hub UI Frontend
   hub-ui:
     build:
       context: ./hub-ui
