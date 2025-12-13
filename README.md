@@ -17,13 +17,12 @@ A multi-region application with global and regional databases.
 ## Quick Start
 
 ```bash
-# Start all services
 docker compose up --build
-
-# Access the services:
-# - Frontend: http://localhost:3000
-# - API (load balanced): http://localhost:8080
 ```
+
+Access the services:
+- Frontend: http://localhost:3000
+- API (load balanced): http://localhost:8080
 
 ## Services
 
@@ -41,7 +40,7 @@ docker compose up --build
 
 ## Database Migrations
 
-Migrations are automatically applied when starting the services. The `migrate` container runs before API servers start.
+Migrations run automatically via [goose](https://github.com/pressly/goose) before API servers start.
 
 Migration files are located in:
 - `api-server/db/migrations/global/` - Global database schema
@@ -53,7 +52,7 @@ Migration files are located in:
 
 The Go API server uses:
 - [sqlc](https://sqlc.dev/) for type-safe SQL queries
-- [golang-migrate](https://github.com/golang-migrate/migrate) for database migrations
+- [goose](https://github.com/pressly/goose) for database migrations
 - [pgx](https://github.com/jackc/pgx) for PostgreSQL connectivity
 
 sqlc code generation happens during Docker build.

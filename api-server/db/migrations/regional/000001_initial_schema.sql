@@ -1,5 +1,4 @@
--- Regional database initial schema
-
+-- +goose Up
 -- Hub users table (regional)
 CREATE TABLE hub_users (
     hub_user_id UUID PRIMARY KEY,
@@ -9,5 +8,5 @@ CREATE TABLE hub_users (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
--- Index for faster lookups by global ID
-CREATE INDEX idx_hub_users_global_id ON hub_users(hub_user_global_id);
+-- +goose Down
+DROP TABLE IF EXISTS hub_users;

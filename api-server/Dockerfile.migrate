@@ -1,17 +1,11 @@
-# Migration runner
-FROM golang:1.25-alpine
+# Migration runner using goose
+FROM golang:alpine
 
-# Install migrate tool
-RUN go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
+RUN go install github.com/pressly/goose/v3/cmd/goose@latest
 
 WORKDIR /migrations
 
-# Copy both global and regional migration files
 COPY db/migrations/global ./global
 COPY db/migrations/regional ./regional
 
-# Copy and run migration script
-COPY migrate.sh /migrate.sh
-RUN chmod +x /migrate.sh
-
-CMD ["/migrate.sh"]
+ENTRYPOINT ["goose"]

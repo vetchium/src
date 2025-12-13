@@ -67,32 +67,54 @@ services:
       timeout: 5s
       retries: 5
 
-  # Database migrations
-  migrate:
+  migrate-global:
     build:
       context: ./api-server
       dockerfile: Dockerfile.migrate
     depends_on:
       global-db:
         condition: service_healthy
+    command: ["-dir", "/migrations/global", "postgres", "postgres://vetchium:vetchium_dev@global-db:5432/vetchium_global?sslmode=disable", "up"]
+
+  migrate-ind1:
+    build:
+      context: ./api-server
+      dockerfile: Dockerfile.migrate
+    depends_on:
       regional-db-ind1:
         condition: service_healthy
+    command: ["-dir", "/migrations/regional", "postgres", "postgres://vetchium:vetchium_dev@regional-db-ind1:5432/vetchium_ind1?sslmode=disable", "up"]
+
+  migrate-usa1:
+    build:
+      context: ./api-server
+      dockerfile: Dockerfile.migrate
+    depends_on:
       regional-db-usa1:
         condition: service_healthy
+    command: ["-dir", "/migrations/regional", "postgres", "postgres://vetchium:vetchium_dev@regional-db-usa1:5432/vetchium_usa1?sslmode=disable", "up"]
+
+  migrate-deu1:
+    build:
+      context: ./api-server
+      dockerfile: Dockerfile.migrate
+    depends_on:
       regional-db-deu1:
         condition: service_healthy
-    environment:
-      GLOBAL_DB_URL: postgres://vetchium:vetchium_dev@global-db:5432/vetchium_global?sslmode=disable
-      REGIONAL_DB_IND1_URL: postgres://vetchium:vetchium_dev@regional-db-ind1:5432/vetchium_ind1?sslmode=disable
-      REGIONAL_DB_USA1_URL: postgres://vetchium:vetchium_dev@regional-db-usa1:5432/vetchium_usa1?sslmode=disable
-      REGIONAL_DB_DEU1_URL: postgres://vetchium:vetchium_dev@regional-db-deu1:5432/vetchium_deu1?sslmode=disable
+    command: ["-dir", "/migrations/regional", "postgres", "postgres://vetchium:vetchium_dev@regional-db-deu1:5432/vetchium_deu1?sslmode=disable", "up"]
 
   # API Server - India Region
   api-server-ind1:
     build:
       context: ./api-server
     depends_on:
-      migrate:
+      migrate-global:
+        condition: service_completed_successfully
+      migrate-ind1:
+        condition: service_completed_successfully
+      migrate-usa1:
+        condition: service_completed_successfully
+      migrate-deu1:
         condition: service_completed_successfully
     environment:
       REGION: ind1
@@ -111,7 +133,13 @@ services:
     build:
       context: ./api-server
     depends_on:
-      migrate:
+      migrate-global:
+        condition: service_completed_successfully
+      migrate-ind1:
+        condition: service_completed_successfully
+      migrate-usa1:
+        condition: service_completed_successfully
+      migrate-deu1:
         condition: service_completed_successfully
     environment:
       REGION: usa1
@@ -130,7 +158,13 @@ services:
     build:
       context: ./api-server
     depends_on:
-      migrate:
+      migrate-global:
+        condition: service_completed_successfully
+      migrate-ind1:
+        condition: service_completed_successfully
+      migrate-usa1:
+        condition: service_completed_successfully
+      migrate-deu1:
         condition: service_completed_successfully
     environment:
       REGION: deu1
