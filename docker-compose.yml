@@ -177,6 +177,8 @@ services:
       dockerfile: hub-ui/Dockerfile
     ports:
       - "3000:80"
+    environment:
+      API_URL: http://localhost:8080
 
   admin-ui:
     build:
@@ -184,6 +186,8 @@ services:
       dockerfile: admin-ui/Dockerfile
     ports:
       - "3001:80"
+    environment:
+      API_URL: http://localhost:8080
 
 volumes:
   global-db-data:

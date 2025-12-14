@@ -22,6 +22,7 @@ import {
   PASSWORD_MIN_LENGTH,
   PASSWORD_MAX_LENGTH,
 } from 'vetchium-specs/common/common'
+import { getApiBaseUrl } from './config'
 
 const { Content } = Layout
 const { Title } = Typography
@@ -49,7 +50,8 @@ function App() {
     }
 
     try {
-      const response = await fetch('/api/hub/login', {
+      const apiBaseUrl = await getApiBaseUrl()
+      const response = await fetch(`${apiBaseUrl}/hub/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
