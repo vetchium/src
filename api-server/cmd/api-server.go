@@ -15,10 +15,22 @@ import (
 )
 
 func main() {
-	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+	// Configure log level from environment (default: INFO)
+	logLevel := slog.LevelInfo
+	switch os.Getenv("LOG_LEVEL") {
+	case "DEBUG", "debug":
+		logLevel = slog.LevelDebug
+	case "WARN", "warn":
+		logLevel = slog.LevelWarn
+	case "ERROR", "error":
+		logLevel = slog.LevelError
+	}
+
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		AddSource: true,
+		Level:     logLevel,
 	}))
-	logger.Info("starting server")
+	logger.Info("starting server", "log_level", logLevel.String())
 
 	region := os.Getenv("REGION")
 	if region == "" {

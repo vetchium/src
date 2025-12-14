@@ -114,6 +114,7 @@ services:
         condition: service_completed_successfully
     environment:
       REGION: ind1
+      LOG_LEVEL: DEBUG
       GLOBAL_DB_CONN: postgres://vetchium:vetchium_dev@global-db:5432/vetchium_global?sslmode=disable
       REGIONAL_DB_IND1_CONN: postgres://vetchium:vetchium_dev@regional-db-ind1:5432/vetchium_ind1?sslmode=disable
       REGIONAL_DB_USA1_CONN: postgres://vetchium:vetchium_dev@regional-db-usa1:5432/vetchium_usa1?sslmode=disable
@@ -133,6 +134,7 @@ services:
         condition: service_completed_successfully
     environment:
       REGION: usa1
+      LOG_LEVEL: DEBUG
       GLOBAL_DB_CONN: postgres://vetchium:vetchium_dev@global-db:5432/vetchium_global?sslmode=disable
       REGIONAL_DB_IND1_CONN: postgres://vetchium:vetchium_dev@regional-db-ind1:5432/vetchium_ind1?sslmode=disable
       REGIONAL_DB_USA1_CONN: postgres://vetchium:vetchium_dev@regional-db-usa1:5432/vetchium_usa1?sslmode=disable
@@ -152,6 +154,7 @@ services:
         condition: service_completed_successfully
     environment:
       REGION: deu1
+      LOG_LEVEL: DEBUG
       GLOBAL_DB_CONN: postgres://vetchium:vetchium_dev@global-db:5432/vetchium_global?sslmode=disable
       REGIONAL_DB_IND1_CONN: postgres://vetchium:vetchium_dev@regional-db-ind1:5432/vetchium_ind1?sslmode=disable
       REGIONAL_DB_USA1_CONN: postgres://vetchium:vetchium_dev@regional-db-usa1:5432/vetchium_usa1?sslmode=disable
