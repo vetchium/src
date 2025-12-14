@@ -35,6 +35,7 @@ CREATE TABLE hub_users (
     hashing_algorithm email_address_hashing_algorithm NOT NULL,
     status hub_user_status NOT NULL,
     preferred_language language NOT NULL,
+    home_region region NOT NULL,
     created_at TIMESTAMP DEFAULT NOW()
 );
 

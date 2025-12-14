@@ -101,7 +101,8 @@ services:
 
   api-server-ind1:
     build:
-      context: ./api-server
+      context: .
+      dockerfile: api-server/Dockerfile
     depends_on:
       migrate-global:
         condition: service_completed_successfully
@@ -117,15 +118,10 @@ services:
       REGIONAL_DB_IND1_CONN: postgres://vetchium:vetchium_dev@regional-db-ind1:5432/vetchium_ind1?sslmode=disable
       REGIONAL_DB_USA1_CONN: postgres://vetchium:vetchium_dev@regional-db-usa1:5432/vetchium_usa1?sslmode=disable
       REGIONAL_DB_DEU1_CONN: postgres://vetchium:vetchium_dev@regional-db-deu1:5432/vetchium_deu1?sslmode=disable
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-
   api-server-usa1:
     build:
-      context: ./api-server
+      context: .
+      dockerfile: api-server/Dockerfile
     depends_on:
       migrate-global:
         condition: service_completed_successfully
@@ -141,15 +137,10 @@ services:
       REGIONAL_DB_IND1_CONN: postgres://vetchium:vetchium_dev@regional-db-ind1:5432/vetchium_ind1?sslmode=disable
       REGIONAL_DB_USA1_CONN: postgres://vetchium:vetchium_dev@regional-db-usa1:5432/vetchium_usa1?sslmode=disable
       REGIONAL_DB_DEU1_CONN: postgres://vetchium:vetchium_dev@regional-db-deu1:5432/vetchium_deu1?sslmode=disable
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-
   api-server-deu1:
     build:
-      context: ./api-server
+      context: .
+      dockerfile: api-server/Dockerfile
     depends_on:
       migrate-global:
         condition: service_completed_successfully
@@ -165,11 +156,6 @@ services:
       REGIONAL_DB_IND1_CONN: postgres://vetchium:vetchium_dev@regional-db-ind1:5432/vetchium_ind1?sslmode=disable
       REGIONAL_DB_USA1_CONN: postgres://vetchium:vetchium_dev@regional-db-usa1:5432/vetchium_usa1?sslmode=disable
       REGIONAL_DB_DEU1_CONN: postgres://vetchium:vetchium_dev@regional-db-deu1:5432/vetchium_deu1?sslmode=disable
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
 
   api-lb:
     image: nginx:alpine
@@ -178,16 +164,14 @@ services:
     ports:
       - "8080:80"
     depends_on:
-      api-server-ind1:
-        condition: service_healthy
-      api-server-usa1:
-        condition: service_healthy
-      api-server-deu1:
-        condition: service_healthy
+      - api-server-ind1
+      - api-server-usa1
+      - api-server-deu1
 
   hub-ui:
     build:
-      context: ./hub-ui
+      context: .
+      dockerfile: hub-ui/Dockerfile
     ports:
       - "3000:80"
     depends_on:

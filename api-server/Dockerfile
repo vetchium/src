@@ -6,12 +6,15 @@ RUN go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
 
 WORKDIR /app
 
+# Copy specs first (needed for go mod)
+COPY specs/typespec /specs/typespec
+
 # Copy go mod files first for caching
-COPY go.mod go.sum ./
+COPY api-server/go.mod api-server/go.sum ./
 RUN go mod download
 
 # Copy source code
-COPY . .
+COPY api-server/ .
 
 # Generate sqlc code
 RUN sqlc generate

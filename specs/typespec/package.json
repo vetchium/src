@@ -1,8 +1,11 @@
 {
-  "name": "vetchium",
+  "name": "vetchium-specs",
   "version": "0.1.0",
   "type": "module",
   "private": true,
+  "exports": {
+    "./hub": "./hub/hubusers.ts"
+  },
   "dependencies": {
     "@typespec/compiler": "latest",
     "@typespec/http": "latest",

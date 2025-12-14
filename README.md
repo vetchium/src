@@ -71,19 +71,8 @@ docker compose down
 docker compose down -v
 ```
 
-## API Endpoints
+## Test Users
 
-### GET /
-Returns health status from all connected databases.
-
-**Response:**
-```json
-{
-  "status": "ok",
-  "region": "ind1",
-  "global_db": 1,
-  "regional_ind1": 1,
-  "regional_usa1": 1,
-  "regional_deu1": 1
-}
-```
+For development, the following test users are available:
+- `testuser1@example.com` / `password123` (region: ind1)
+- `testuser2@example.com` / `password456` (region: usa1)

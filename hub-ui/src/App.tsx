@@ -1,71 +1,66 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import {
   ConfigProvider,
   Layout,
   Card,
-  Descriptions,
+  Form,
+  Input,
   Button,
   Typography,
-  Spin,
   Alert,
-  Tag,
-  Space,
   theme,
 } from 'antd'
-import {
-  ReloadOutlined,
-  CheckCircleOutlined,
-  CloseCircleOutlined,
-  DatabaseOutlined,
-  GlobalOutlined,
-} from '@ant-design/icons'
+import { UserOutlined, LockOutlined } from '@ant-design/icons'
+import type { HubLoginRequest, HubLoginResponse } from 'vetchium-specs/hub/hubusers.ts'
 
-const { Header, Content } = Layout
+const { Content } = Layout
 const { Title } = Typography
 
-interface HealthResponse {
-  status: string
-  region: string
-  global_db: number
-  regional_ind1: number
-  regional_usa1: number
-  regional_deu1: number
-}
-
 function App() {
-  const [health, setHealth] = useState<HealthResponse | null>(null)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [token, setToken] = useState<string | null>(null)
 
-  const fetchHealth = async () => {
+  const onFinish = async (values: { email: string; password: string }) => {
     setLoading(true)
     setError(null)
+
+    const loginRequest: HubLoginRequest = {
+      email_address: values.email,
+      password: values.password,
+    }
+
     try {
-      const response = await fetch('/api/')
+      const response = await fetch('/api/hub/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(loginRequest),
+      })
+
+      if (response.status === 401) {
+        setError('Invalid credentials')
+        return
+      }
+
+      if (response.status === 422) {
+        setError('Account is not in a valid state to login')
+        return
+      }
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
-      const data = await response.json()
-      setHealth(data)
+
+      const data: HubLoginResponse = await response.json()
+      setToken(data.token)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch health status')
+      setError(err instanceof Error ? err.message : 'Login failed')
     } finally {
       setLoading(false)
     }
   }
-
-  useEffect(() => {
-    fetchHealth()
-  }, [])
-
-  const renderDbStatus = (value: number) => (
-    <Tag
-      icon={value === 1 ? <CheckCircleOutlined /> : <CloseCircleOutlined />}
-      color={value === 1 ? 'success' : 'error'}
-    >
-      {value === 1 ? 'Connected' : 'Error'}
-    </Tag>
-  )
 
   return (
     <ConfigProvider
@@ -77,80 +72,72 @@ function App() {
       }}
     >
       <Layout style={{ minHeight: '100vh' }}>
-        <Header style={{ display: 'flex', alignItems: 'center' }}>
-          <Title level={3} style={{ color: 'white', margin: 0 }}>
-            Vetchium Hub
-          </Title>
-        </Header>
-        <Content style={{ padding: '24px', display: 'flex', justifyContent: 'center', alignItems: 'flex-start' }}>
-          <Card
-            title={
-              <Space>
-                <DatabaseOutlined />
-                System Health
-              </Space>
-            }
-            extra={
-              <Button
-                type="primary"
-                icon={<ReloadOutlined />}
-                onClick={fetchHealth}
-                loading={loading}
-              >
-                Refresh
-              </Button>
-            }
-            style={{ width: '100%', maxWidth: 600 }}
-          >
-            {loading && !health && (
-              <div style={{ textAlign: 'center', padding: '40px' }}>
-                <Spin size="large" />
-              </div>
-            )}
+        <Content style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+          <Card style={{ width: 400 }}>
+            <Title level={3} style={{ textAlign: 'center', marginBottom: 24 }}>
+              Vetchium Hub
+            </Title>
 
-            {error && (
+            {token ? (
               <Alert
-                message="Connection Error"
-                description={error}
-                type="error"
+                message="Login Successful"
+                description={`Token: ${token.substring(0, 16)}...`}
+                type="success"
                 showIcon
-                action={
-                  <Button size="small" danger onClick={fetchHealth}>
-                    Retry
-                  </Button>
-                }
-                style={{ marginBottom: 16 }}
               />
-            )}
+            ) : (
+              <Form
+                name="login"
+                onFinish={onFinish}
+                layout="vertical"
+                requiredMark={false}
+              >
+                {error && (
+                  <Alert
+                    message={error}
+                    type="error"
+                    showIcon
+                    style={{ marginBottom: 16 }}
+                  />
+                )}
 
-            {health && (
-              <Descriptions column={1} bordered size="small">
-                <Descriptions.Item label="Status">
-                  <Tag
-                    icon={health.status === 'ok' ? <CheckCircleOutlined /> : <CloseCircleOutlined />}
-                    color={health.status === 'ok' ? 'success' : 'error'}
+                <Form.Item
+                  name="email"
+                  rules={[
+                    { required: true, message: 'Please enter your email' },
+                    { type: 'email', message: 'Please enter a valid email' },
+                  ]}
+                >
+                  <Input
+                    prefix={<UserOutlined />}
+                    placeholder="Email"
+                    size="large"
+                  />
+                </Form.Item>
+
+                <Form.Item
+                  name="password"
+                  rules={[{ required: true, message: 'Please enter your password' }]}
+                >
+                  <Input.Password
+                    prefix={<LockOutlined />}
+                    placeholder="Password"
+                    size="large"
+                  />
+                </Form.Item>
+
+                <Form.Item>
+                  <Button
+                    type="primary"
+                    htmlType="submit"
+                    loading={loading}
+                    block
+                    size="large"
                   >
-                    {health.status.toUpperCase()}
-                  </Tag>
-                </Descriptions.Item>
-                <Descriptions.Item label="Region">
-                  <Tag icon={<GlobalOutlined />} color="blue">
-                    {health.region.toUpperCase()}
-                  </Tag>
-                </Descriptions.Item>
-                <Descriptions.Item label="Global Database">
-                  {renderDbStatus(health.global_db)}
-                </Descriptions.Item>
-                <Descriptions.Item label="Regional DB (IND1)">
-                  {renderDbStatus(health.regional_ind1)}
-                </Descriptions.Item>
-                <Descriptions.Item label="Regional DB (USA1)">
-                  {renderDbStatus(health.regional_usa1)}
-                </Descriptions.Item>
-                <Descriptions.Item label="Regional DB (DEU1)">
-                  {renderDbStatus(health.regional_deu1)}
-                </Descriptions.Item>
-              </Descriptions>
+                    Login
+                  </Button>
+                </Form.Item>
+              </Form>
             )}
           </Card>
         </Content>

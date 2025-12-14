@@ -2,12 +2,17 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"log"
 	"net/http"
 	"os"
 
 	"github.com/jackc/pgx/v5"
+	"golang.org/x/crypto/bcrypt"
+	"vetchium-api-server.typespec/hub"
 )
 
 type DBConnections struct {
@@ -17,13 +22,17 @@ type DBConnections struct {
 	RegionalDEU1 *pgx.Conn
 }
 
-type HealthResponse struct {
-	Status       string `json:"status"`
-	Region       string `json:"region"`
-	GlobalDB     int    `json:"global_db"`
-	RegionalIND1 int    `json:"regional_ind1"`
-	RegionalUSA1 int    `json:"regional_usa1"`
-	RegionalDEU1 int    `json:"regional_deu1"`
+func (dbs *DBConnections) getRegionalDB(region string) *pgx.Conn {
+	switch region {
+	case "ind1":
+		return dbs.RegionalIND1
+	case "usa1":
+		return dbs.RegionalUSA1
+	case "deu1":
+		return dbs.RegionalDEU1
+	default:
+		return nil
+	}
 }
 
 func main() {
@@ -74,54 +83,97 @@ func main() {
 		RegionalDEU1: regionalDEU1,
 	}
 
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		// CORS headers for frontend
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("OPTIONS /hub/login", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		w.WriteHeader(http.StatusOK)
+	})
+
+	mux.HandleFunc("POST /hub/login", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 		w.Header().Set("Content-Type", "application/json")
 
-		if r.Method == "OPTIONS" {
-			w.WriteHeader(http.StatusOK)
+		var loginRequest hub.HubLoginRequest
+		if err := json.NewDecoder(r.Body).Decode(&loginRequest); err != nil {
+			log.Printf("Failed to decode login request: %v", err)
+			http.Error(w, "Invalid request body", http.StatusBadRequest)
 			return
 		}
 
 		ctx := r.Context()
 
-		// Query each database with a simple SELECT 1
-		var globalVal, ind1Val, usa1Val, deu1Val int
+		// Hash email to query global database
+		emailHash := sha256.Sum256([]byte(loginRequest.EmailAddress))
 
-		if err := dbs.Global.QueryRow(ctx, "SELECT 1").Scan(&globalVal); err != nil {
-			log.Printf("Global DB query error: %v", err)
-			http.Error(w, "Global DB error", http.StatusInternalServerError)
+		// Query global database for user status and home region
+		var status, homeRegion string
+		err := dbs.Global.QueryRow(ctx,
+			"SELECT status, home_region FROM hub_users WHERE email_address_hash = $1",
+			emailHash[:],
+		).Scan(&status, &homeRegion)
+
+		if err == pgx.ErrNoRows {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		if err != nil {
+			log.Printf("Failed to query global DB: %v", err)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
 			return
 		}
 
-		if err := dbs.RegionalIND1.QueryRow(ctx, "SELECT 1").Scan(&ind1Val); err != nil {
-			log.Printf("Regional IND1 DB query error: %v", err)
-			http.Error(w, "Regional IND1 DB error", http.StatusInternalServerError)
+		if status != "active" {
+			w.WriteHeader(http.StatusUnprocessableEntity)
 			return
 		}
 
-		if err := dbs.RegionalUSA1.QueryRow(ctx, "SELECT 1").Scan(&usa1Val); err != nil {
-			log.Printf("Regional USA1 DB query error: %v", err)
-			http.Error(w, "Regional USA1 DB error", http.StatusInternalServerError)
+		// Get the regional database for this user
+		regionalDB := dbs.getRegionalDB(homeRegion)
+		if regionalDB == nil {
+			log.Printf("Unknown region: %s", homeRegion)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
 			return
 		}
 
-		if err := dbs.RegionalDEU1.QueryRow(ctx, "SELECT 1").Scan(&deu1Val); err != nil {
-			log.Printf("Regional DEU1 DB query error: %v", err)
-			http.Error(w, "Regional DEU1 DB error", http.StatusInternalServerError)
+		// Query regional database for password hash
+		var passwordHash []byte
+		err = regionalDB.QueryRow(ctx,
+			"SELECT password_hash FROM hub_users WHERE email_address = $1",
+			string(loginRequest.EmailAddress),
+		).Scan(&passwordHash)
+
+		if err == pgx.ErrNoRows {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		if err != nil {
+			log.Printf("Failed to query regional DB: %v", err)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
 			return
 		}
 
-		response := HealthResponse{
-			Status:       "ok",
-			Region:       region,
-			GlobalDB:     globalVal,
-			RegionalIND1: ind1Val,
-			RegionalUSA1: usa1Val,
-			RegionalDEU1: deu1Val,
+		// Verify password
+		if err := bcrypt.CompareHashAndPassword(passwordHash, []byte(loginRequest.Password)); err != nil {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		// Generate token
+		tokenBytes := make([]byte, 32)
+		if _, err := rand.Read(tokenBytes); err != nil {
+			log.Printf("Failed to generate token: %v", err)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+		token := hex.EncodeToString(tokenBytes)
+
+		response := hub.HubLoginResponse{
+			Token: token,
 		}
 
 		if err := json.NewEncoder(w).Encode(response); err != nil {
@@ -132,7 +184,7 @@ func main() {
 	})
 
 	log.Printf("Server starting on :8080 (region: %s)", region)
-	if err := http.ListenAndServe(":8080", nil); err != nil {
+	if err := http.ListenAndServe(":8080", mux); err != nil {
 		log.Fatalf("Server failed: %v", err)
 	}
 }

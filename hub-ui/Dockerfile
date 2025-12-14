@@ -3,13 +3,16 @@ FROM node:22-alpine AS builder
 
 WORKDIR /app
 
+# Copy specs first (needed for vetchium-specs dependency)
+COPY specs/typespec /specs/typespec
+
 # Copy package files first for caching
-COPY package.json package-lock.json ./
+COPY hub-ui/package.json hub-ui/package-lock.json ./
 
 RUN npm ci
 
 # Copy source code
-COPY . .
+COPY hub-ui/ .
 
 # Build the app
 RUN npm run build
@@ -21,7 +24,7 @@ FROM nginx:alpine
 COPY --from=builder /app/dist /usr/share/nginx/html
 
 # Copy nginx config for SPA routing
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY hub-ui/nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80
 
