@@ -47,5 +47,5 @@ $ sqlc generate
 
 For development, the following test users are available:
 
-- `testuser1@example.com` / `password123` (region: ind1)
-- `testuser2@example.com` / `password456` (region: usa1)
+- `testuser1@example.com` / `password1234` (region: ind1)
+- `testuser2@example.com` / `password4567` (region: usa1)

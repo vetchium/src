@@ -132,6 +132,7 @@ function App() {
 
                 <Form.Item
                   name="email"
+                  validateFirst
                   rules={[
                     { required: true, message: 'Please enter your email' },
                     { type: 'email', message: 'Please enter a valid email' },
@@ -148,6 +149,7 @@ function App() {
 
                 <Form.Item
                   name="password"
+                  validateFirst
                   rules={[
                     { required: true, message: 'Please enter your password' },
                     { min: PASSWORD_MIN_LENGTH, message: `Password must be at least ${PASSWORD_MIN_LENGTH} characters` },
