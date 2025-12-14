@@ -13,6 +13,7 @@ A multi-region application with global and regional databases.
 ## Prerequisites
 
 - Docker and Docker Compose
+- [sqlc](https://sqlc.dev/) if you want to navigate through sources in IDE
 
 ## Quick Start
 
@@ -25,45 +26,6 @@ Access the services:
 - Frontend: http://localhost:3000
 - API (load balanced): http://localhost:8080
 
-## Services
-
-| Service          | Port | Description                   |
-| ---------------- | ---- | ----------------------------- |
-| hub-ui           | 3000 | Frontend application          |
-| api-lb           | 8080 | Load balancer for API servers |
-| api-server-ind1  | -    | API server (India region)     |
-| api-server-usa1  | -    | API server (USA region)       |
-| api-server-deu1  | -    | API server (Germany region)   |
-| global-db        | 5432 | Global PostgreSQL database    |
-| regional-db-ind1 | 5433 | Regional PostgreSQL (India)   |
-| regional-db-usa1 | 5434 | Regional PostgreSQL (USA)     |
-| regional-db-deu1 | 5435 | Regional PostgreSQL (Germany) |
-
-## Database Migrations
-
-Migrations run automatically via [goose](https://github.com/pressly/goose) before API servers start.
-
-Migration files are located in:
-
-- `api-server/db/migrations/global/` - Global database schema
-- `api-server/db/migrations/regional/` - Regional database schema
-
-## Development
-
-### API Server
-
-The Go API server uses:
-
-- [sqlc](https://sqlc.dev/) for type-safe SQL queries
-- [goose](https://github.com/pressly/goose) for database migrations
-- [pgx](https://github.com/jackc/pgx) for PostgreSQL connectivity
-
-sqlc code generation happens during Docker build.
-
-### Frontend
-
-The React frontend uses Vite and calls `/api/` to reach the backend through the nginx proxy.
-
 ## Stopping Services
 
 ```bash
@@ -72,6 +34,13 @@ docker compose down
 
 # Stop and remove volumes (clears database data)
 docker compose down -v
+```
+
+## IDE support for navigation
+
+```bash
+$ cd api-server
+$ sqlc generate
 ```
 
 ## Test Users
