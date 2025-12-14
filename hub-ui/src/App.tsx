@@ -11,7 +11,17 @@ import {
   theme,
 } from 'antd'
 import { UserOutlined, LockOutlined } from '@ant-design/icons'
-import type { HubLoginRequest, HubLoginResponse } from 'vetchium-specs/hub/hubusers.ts'
+import {
+  type HubLoginRequest,
+  type HubLoginResponse,
+  validateHubLoginRequest,
+} from 'vetchium-specs/hub/hubusers'
+import {
+  EMAIL_MIN_LENGTH,
+  EMAIL_MAX_LENGTH,
+  PASSWORD_MIN_LENGTH,
+  PASSWORD_MAX_LENGTH,
+} from 'vetchium-specs/common/common'
 
 const { Content } = Layout
 const { Title } = Typography
@@ -30,6 +40,14 @@ function App() {
       password: values.password,
     }
 
+    // Validate using shared validation logic
+    const validationErrors = validateHubLoginRequest(loginRequest)
+    if (validationErrors.length > 0) {
+      setError(validationErrors.map(e => `${e.field}: ${e.message}`).join(', '))
+      setLoading(false)
+      return
+    }
+
     try {
       const response = await fetch('/api/hub/login', {
         method: 'POST',
@@ -38,6 +56,17 @@ function App() {
         },
         body: JSON.stringify(loginRequest),
       })
+
+      if (response.status === 400) {
+        // Handle validation errors from backend
+        const errors = await response.json()
+        if (Array.isArray(errors)) {
+          setError(errors.map((e: { field: string; message: string }) => `${e.field}: ${e.message}`).join(', '))
+        } else {
+          setError('Invalid request')
+        }
+        return
+      }
 
       if (response.status === 401) {
         setError('Invalid credentials')
@@ -106,6 +135,8 @@ function App() {
                   rules={[
                     { required: true, message: 'Please enter your email' },
                     { type: 'email', message: 'Please enter a valid email' },
+                    { min: EMAIL_MIN_LENGTH, message: `Email must be at least ${EMAIL_MIN_LENGTH} characters` },
+                    { max: EMAIL_MAX_LENGTH, message: `Email must be at most ${EMAIL_MAX_LENGTH} characters` },
                   ]}
                 >
                   <Input
@@ -117,7 +148,11 @@ function App() {
 
                 <Form.Item
                   name="password"
-                  rules={[{ required: true, message: 'Please enter your password' }]}
+                  rules={[
+                    { required: true, message: 'Please enter your password' },
+                    { min: PASSWORD_MIN_LENGTH, message: `Password must be at least ${PASSWORD_MIN_LENGTH} characters` },
+                    { max: PASSWORD_MAX_LENGTH, message: `Password must be at most ${PASSWORD_MAX_LENGTH} characters` },
+                  ]}
                 >
                   <Input.Password
                     prefix={<LockOutlined />}

@@ -32,6 +32,16 @@ func Login(s *server.Server) http.HandlerFunc {
 		ctx := r.Context()
 		log := s.Logger(ctx)
 
+		// Validate request
+		if validationErrors := loginRequest.Validate(); len(validationErrors) > 0 {
+			log.Debug("validation failed", "errors", validationErrors)
+			w.WriteHeader(http.StatusBadRequest)
+			if err := json.NewEncoder(w).Encode(validationErrors); err != nil {
+				log.Error("failed to encode validation errors", "error", err)
+			}
+			return
+		}
+
 		// Hash email to query global database
 		emailHash := sha256.Sum256([]byte(loginRequest.EmailAddress))
 
