@@ -24,12 +24,13 @@ func Login(s *server.Server) http.HandlerFunc {
 
 		var loginRequest hub.HubLoginRequest
 		if err := json.NewDecoder(r.Body).Decode(&loginRequest); err != nil {
-			s.Log.Debug("failed to decode login request", "error", err)
+			s.Logger(r.Context()).Debug("failed to decode login request", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		ctx := r.Context()
+		log := s.Logger(ctx)
 
 		// Hash email to query global database
 		emailHash := sha256.Sum256([]byte(loginRequest.EmailAddress))
@@ -38,18 +39,18 @@ func Login(s *server.Server) http.HandlerFunc {
 		globalUser, err := s.Global.GetHubUserByEmailHash(ctx, emailHash[:])
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				s.Log.Debug("invalid credentials")
+				log.Debug("invalid credentials")
 				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
 
-			s.Log.Error("failed to query global DB", "error", err)
+			log.Error("failed to query global DB", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
 		if globalUser.Status != globaldb.HubUserStatusActive {
-			s.Log.Debug("disabled user")
+			log.Debug("disabled user")
 			w.WriteHeader(http.StatusUnprocessableEntity)
 			return
 		}
@@ -57,7 +58,7 @@ func Login(s *server.Server) http.HandlerFunc {
 		// Get the regional database for this user
 		regionalDB := s.GetRegionalDB(globalUser.HomeRegion)
 		if regionalDB == nil {
-			s.Log.Error("unknown region", "region", globalUser.HomeRegion)
+			log.Error("unknown region", "region", globalUser.HomeRegion)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -69,7 +70,7 @@ func Login(s *server.Server) http.HandlerFunc {
 			return
 		}
 		if err != nil {
-			s.Log.Error("failed to query regional DB", "error", err)
+			log.Error("failed to query regional DB", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -83,7 +84,7 @@ func Login(s *server.Server) http.HandlerFunc {
 		// Generate token
 		tokenBytes := make([]byte, 32)
 		if _, err := rand.Read(tokenBytes); err != nil {
-			s.Log.Error("failed to generate token", "error", err)
+			log.Error("failed to generate token", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -94,7 +95,7 @@ func Login(s *server.Server) http.HandlerFunc {
 		}
 
 		if err := json.NewEncoder(w).Encode(response); err != nil {
-			s.Log.Error("JSON encoding error", "error", err)
+			log.Error("JSON encoding error", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}

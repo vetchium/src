@@ -10,6 +10,7 @@ import (
 	"vetchium-api-server.gomodule/handlers/hub"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
+	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
 )
 
@@ -73,8 +74,11 @@ func main() {
 	mux.HandleFunc("OPTIONS /hub/login", hub.LoginOptions)
 	mux.HandleFunc("POST /hub/login", hub.Login(s))
 
+	// Wrap mux with request ID middleware
+	handler := middleware.RequestID(logger)(mux)
+
 	logger.Info("server starting", "port", 8080, "region", region)
-	if err := http.ListenAndServe(":8080", mux); err != nil {
+	if err := http.ListenAndServe(":8080", handler); err != nil {
 		logger.Error("server failed", "error", err)
 		os.Exit(1)
 	}

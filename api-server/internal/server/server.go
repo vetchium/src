@@ -1,10 +1,12 @@
 package server
 
 import (
+	"context"
 	"log/slog"
 
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
+	"vetchium-api-server.gomodule/internal/middleware"
 )
 
 type Server struct {
@@ -26,4 +28,9 @@ func (s *Server) GetRegionalDB(region globaldb.Region) *regionaldb.Queries {
 	default:
 		return nil
 	}
+}
+
+// Logger returns the logger from context with request ID, or falls back to base logger.
+func (s *Server) Logger(ctx context.Context) *slog.Logger {
+	return middleware.LoggerFromContext(ctx, s.Log)
 }
