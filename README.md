@@ -21,21 +21,22 @@ docker compose up --build
 ```
 
 Access the services:
+
 - Frontend: http://localhost:3000
 - API (load balanced): http://localhost:8080
 
 ## Services
 
-| Service | Port | Description |
-|---------|------|-------------|
-| hub-ui | 3000 | Frontend application |
-| api-lb | 8080 | Load balancer for API servers |
-| api-server-ind1 | - | API server (India region) |
-| api-server-usa1 | - | API server (USA region) |
-| api-server-deu1 | - | API server (Germany region) |
-| global-db | 5432 | Global PostgreSQL database |
-| regional-db-ind1 | 5433 | Regional PostgreSQL (India) |
-| regional-db-usa1 | 5434 | Regional PostgreSQL (USA) |
+| Service          | Port | Description                   |
+| ---------------- | ---- | ----------------------------- |
+| hub-ui           | 3000 | Frontend application          |
+| api-lb           | 8080 | Load balancer for API servers |
+| api-server-ind1  | -    | API server (India region)     |
+| api-server-usa1  | -    | API server (USA region)       |
+| api-server-deu1  | -    | API server (Germany region)   |
+| global-db        | 5432 | Global PostgreSQL database    |
+| regional-db-ind1 | 5433 | Regional PostgreSQL (India)   |
+| regional-db-usa1 | 5434 | Regional PostgreSQL (USA)     |
 | regional-db-deu1 | 5435 | Regional PostgreSQL (Germany) |
 
 ## Database Migrations
@@ -43,6 +44,7 @@ Access the services:
 Migrations run automatically via [goose](https://github.com/pressly/goose) before API servers start.
 
 Migration files are located in:
+
 - `api-server/db/migrations/global/` - Global database schema
 - `api-server/db/migrations/regional/` - Regional database schema
 
@@ -51,6 +53,7 @@ Migration files are located in:
 ### API Server
 
 The Go API server uses:
+
 - [sqlc](https://sqlc.dev/) for type-safe SQL queries
 - [goose](https://github.com/pressly/goose) for database migrations
 - [pgx](https://github.com/jackc/pgx) for PostgreSQL connectivity
@@ -74,5 +77,6 @@ docker compose down -v
 ## Test Users
 
 For development, the following test users are available:
+
 - `testuser1@example.com` / `password123` (region: ind1)
 - `testuser2@example.com` / `password456` (region: usa1)

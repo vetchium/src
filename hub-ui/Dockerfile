@@ -1,5 +1,5 @@
 # Build stage
-FROM node:22-alpine AS builder
+FROM oven/bun:1-alpine AS builder
 
 WORKDIR /app
 
@@ -7,15 +7,15 @@ WORKDIR /app
 COPY specs/typespec /specs/typespec
 
 # Copy package files first for caching
-COPY hub-ui/package.json hub-ui/package-lock.json ./
+COPY hub-ui/package.json hub-ui/bun.lock ./
 
-RUN npm ci
+RUN bun install --frozen-lockfile
 
 # Copy source code
 COPY hub-ui/ .
 
 # Build the app
-RUN npm run build
+RUN bun run build
 
 # Runtime stage - serve with nginx
 FROM nginx:alpine
