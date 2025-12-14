@@ -9,6 +9,7 @@
     "start": "NODE_ENV=production bun src/index.ts"
   },
   "dependencies": {
+    "antd": "^6.1.0",
     "react": "^19",
     "react-dom": "^19"
   },

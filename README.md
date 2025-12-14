@@ -8,7 +8,8 @@ A multi-region application with global and regional databases.
 - **3 Regional Databases**: Store regional user data (IND1, USA1, DEU1)
 - **3 API Server Replicas**: One per region, each connecting to all databases
 - **Load Balancer**: nginx distributing traffic across API servers
-- **Frontend**: Vite + React application
+- **Hub UI**: Vite + React application for professionals/employers
+- **Admin UI**: React application for platform administration
 
 ## Prerequisites
 
@@ -23,7 +24,8 @@ docker compose up --build
 
 Access the services:
 
-- Frontend: http://localhost:3000
+- Hub UI: http://localhost:3000
+- Admin UI: http://localhost:3001
 - API (load balanced): http://localhost:8080
 
 ## Stopping Services

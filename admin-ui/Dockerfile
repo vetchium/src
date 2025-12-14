@@ -3,16 +3,13 @@ FROM oven/bun:1-alpine AS builder
 
 WORKDIR /app
 
-# Copy specs first (needed for vetchium-specs dependency)
-COPY specs/typespec /specs/typespec
-
 # Copy package files first for caching
-COPY hub-ui/package.json hub-ui/bun.lock ./
+COPY admin-ui/package.json admin-ui/bun.lock ./
 
 RUN bun install --frozen-lockfile
 
 # Copy source code
-COPY hub-ui/ .
+COPY admin-ui/ .
 
 # Build the app
 RUN bun run build
@@ -24,7 +21,7 @@ WORKDIR /app
 
 # Copy built assets and serve script
 COPY --from=builder /app/dist ./dist
-COPY hub-ui/serve.ts ./
+COPY admin-ui/serve.ts ./
 
 EXPOSE 80
 

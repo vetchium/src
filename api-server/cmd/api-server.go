@@ -83,11 +83,10 @@ func main() {
 
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("OPTIONS /hub/login", hub.LoginOptions)
 	mux.HandleFunc("POST /hub/login", hub.Login(s))
 
-	// Wrap mux with request ID middleware
-	handler := middleware.RequestID(logger)(mux)
+	// Wrap mux with middleware (CORS must be outermost to handle preflight)
+	handler := middleware.CORS()(middleware.RequestID(logger)(mux))
 
 	logger.Info("server starting", "port", 8080, "region", region)
 	if err := http.ListenAndServe(":8080", handler); err != nil {

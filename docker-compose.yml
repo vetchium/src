@@ -177,8 +177,13 @@ services:
       dockerfile: hub-ui/Dockerfile
     ports:
       - "3000:80"
-    depends_on:
-      - api-lb
+
+  admin-ui:
+    build:
+      context: .
+      dockerfile: admin-ui/Dockerfile
+    ports:
+      - "3001:80"
 
 volumes:
   global-db-data:
