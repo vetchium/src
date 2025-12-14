@@ -70,3 +70,40 @@ Migrations are in `api-server/db/migrations/{global,regional}/`.
 - Implement the backend and frontend code changes
 - All the database related SQL should be under [db](./api-server/db/) directory on `.sql` files with reference for these on the `.go` code via [sqlc](./api-server/sqlc.yaml)
 - No SQL statements should exist in `.go` files
+
+### Handler Organization
+
+Handlers are organized under `api-server/handlers/` in subdirectories based on API path and/or functionality:
+
+- `handlers/hub/` - HubUser (Professional) handlers
+- `handlers/org/` - OrgUser (Employer) handlers
+- `handlers/agency/` - AgencyUser handlers
+
+**Dependencies**: All handlers receive dependencies via `*server.Server` from `api-server/internal/server/server.go`. This struct contains:
+
+- Database connections (Global, RegionalIND1, RegionalUSA1, RegionalDEU1)
+- Logger (`*slog.Logger`)
+
+**Handler Pattern**: Handlers are functions that take `*server.Server` and return `http.HandlerFunc`:
+
+```go
+func MyHandler(s *server.Server) http.HandlerFunc {
+    return func(w http.ResponseWriter, r *http.Request) {
+        s.Log.Info("handling request", "key", value)
+        // handler logic using s.Global, s.GetRegionalDB(), etc.
+    }
+}
+```
+
+**Logging**: Use `slog` with structured key-value pairs:
+
+```go
+s.Log.Error("failed to query", "error", err)
+s.Log.Info("user logged in", "user_id", userID)
+```
+
+**Registration** in `cmd/api-server.go`:
+
+```go
+mux.HandleFunc("POST /hub/endpoint", hub.MyHandler(s))
+```
