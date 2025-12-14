@@ -6,29 +6,32 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 	"os"
 
 	"github.com/jackc/pgx/v5"
 	"golang.org/x/crypto/bcrypt"
+	"vetchium-api-server.gomodule/internal/db/globaldb"
+	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.typespec/hub"
 )
 
 type DBConnections struct {
-	Global       *pgx.Conn
-	RegionalIND1 *pgx.Conn
-	RegionalUSA1 *pgx.Conn
-	RegionalDEU1 *pgx.Conn
+	Global       *globaldb.Queries
+	RegionalIND1 *regionaldb.Queries
+	RegionalUSA1 *regionaldb.Queries
+	RegionalDEU1 *regionaldb.Queries
 }
 
-func (dbs *DBConnections) getRegionalDB(region string) *pgx.Conn {
+func (dbs *DBConnections) getRegionalDB(region globaldb.Region) *regionaldb.Queries {
 	switch region {
-	case "ind1":
+	case globaldb.RegionInd1:
 		return dbs.RegionalIND1
-	case "usa1":
+	case globaldb.RegionUsa1:
 		return dbs.RegionalUSA1
-	case "deu1":
+	case globaldb.RegionDeu1:
 		return dbs.RegionalDEU1
 	default:
 		return nil
@@ -77,10 +80,10 @@ func main() {
 	log.Println("Connected to regional database DEU1")
 
 	dbs := &DBConnections{
-		Global:       globalConn,
-		RegionalIND1: regionalIND1,
-		RegionalUSA1: regionalUSA1,
-		RegionalDEU1: regionalDEU1,
+		Global:       globaldb.New(globalConn),
+		RegionalIND1: regionaldb.New(regionalIND1),
+		RegionalUSA1: regionaldb.New(regionalUSA1),
+		RegionalDEU1: regionaldb.New(regionalDEU1),
 	}
 
 	mux := http.NewServeMux()
@@ -111,13 +114,8 @@ func main() {
 		emailHash := sha256.Sum256([]byte(loginRequest.EmailAddress))
 
 		// Query global database for user status and home region
-		var status, homeRegion string
-		err := dbs.Global.QueryRow(ctx,
-			"SELECT status, home_region FROM hub_users WHERE email_address_hash = $1",
-			emailHash[:],
-		).Scan(&status, &homeRegion)
-
-		if err == pgx.ErrNoRows {
+		globalUser, err := dbs.Global.GetHubUserByEmailHash(ctx, emailHash[:])
+		if errors.Is(err, pgx.ErrNoRows) {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
@@ -127,27 +125,22 @@ func main() {
 			return
 		}
 
-		if status != "active" {
+		if globalUser.Status != globaldb.HubUserStatusActive {
 			w.WriteHeader(http.StatusUnprocessableEntity)
 			return
 		}
 
 		// Get the regional database for this user
-		regionalDB := dbs.getRegionalDB(homeRegion)
+		regionalDB := dbs.getRegionalDB(globalUser.HomeRegion)
 		if regionalDB == nil {
-			log.Printf("Unknown region: %s", homeRegion)
+			log.Printf("Unknown region: %s", globalUser.HomeRegion)
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
 			return
 		}
 
 		// Query regional database for password hash
-		var passwordHash []byte
-		err = regionalDB.QueryRow(ctx,
-			"SELECT password_hash FROM hub_users WHERE email_address = $1",
-			string(loginRequest.EmailAddress),
-		).Scan(&passwordHash)
-
-		if err == pgx.ErrNoRows {
+		regionalUser, err := regionalDB.GetHubUserByEmail(ctx, string(loginRequest.EmailAddress))
+		if errors.Is(err, pgx.ErrNoRows) {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
@@ -158,7 +151,7 @@ func main() {
 		}
 
 		// Verify password
-		if err := bcrypt.CompareHashAndPassword(passwordHash, []byte(loginRequest.Password)); err != nil {
+		if err := bcrypt.CompareHashAndPassword(regionalUser.PasswordHash, []byte(loginRequest.Password)); err != nil {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}

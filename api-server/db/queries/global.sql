@@ -6,3 +6,6 @@ SELECT * FROM hub_users WHERE handle = $1;
 
 -- name: GetHubUserByGlobalID :one
 SELECT * FROM hub_users WHERE hub_user_global_id = $1;
+
+-- name: GetHubUserByEmailHash :one
+SELECT * FROM hub_users WHERE email_address_hash = $1;
