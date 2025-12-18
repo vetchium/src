@@ -1,4 +1,4 @@
-Status: DRAFT
+Status: IN_PROGRESS
 Authors: @psankar
 Dependencies: 1-project-scaffolding
 
@@ -8,7 +8,7 @@ Dependencies: 1-project-scaffolding
 - Email delivery survives process crashes, restarts, and SIGKILL
 - Each regional api-server processes emails for users in its region
 - Emails contain both plain text and HTML parts (RFC 2045, RFC 822)
-- Each email type (forgot-password, welcome, etc.) has distinct templates per portal (Hub, Employer, Agency)
+- Each email type (forgot-password, welcome, etc.) has distinct templates per portal (Hub, Employer, Agency). We will start with only one email tfa for Admin portal. Valid users will be sent a numerical code of 6 digits in email after they sign in with their password successfully. Only after this, will the admin users be able to do any operations.
 - Failed emails are retried with exponential backoff
 - Development environment includes Mailpit for email testing
 
@@ -33,6 +33,7 @@ Follows the [transactional outbox pattern](https://www.gmhafiz.com/blog/transact
 4. Worker marks email as sent (or failed with retry info)
 
 This ensures:
+
 - Email is never lost if process crashes between business logic and send
 - At-least-once delivery guarantee
 - No external message broker (Redis, RabbitMQ) required
@@ -101,6 +102,7 @@ FOR UPDATE SKIP LOCKED;
 ### Email Templates
 
 Templates are **not reusable across portals**. Each email type has its own template with portal-specific:
+
 - Branding (logo, colors)
 - Tone and wording
 - Footer links
@@ -126,6 +128,7 @@ templates/
 ```
 
 Each template file defines:
+
 - Subject line
 - HTML body (using hermes or html/template)
 - Plain text body
@@ -194,13 +197,13 @@ func (w *EmailWorker) Run(ctx context.Context) {
 
 Exponential backoff with jitter:
 
-| Attempt | Delay |
-|---------|-------|
-| 1 | immediate |
-| 2 | 1 minute |
-| 3 | 5 minutes |
-| 4 | 30 minutes |
-| 5 | 2 hours |
+| Attempt | Delay      |
+| ------- | ---------- |
+| 1       | immediate  |
+| 2       | 1 minute   |
+| 3       | 5 minutes  |
+| 4       | 30 minutes |
+| 5       | 2 hours    |
 
 After 5 failed attempts, status becomes `failed` permanently. Operations team can manually retry or investigate.
 
@@ -264,14 +267,14 @@ Add Mailpit service:
 mailpit:
   image: axllent/mailpit:latest
   ports:
-    - "8025:8025"  # Web UI
-    - "1025:1025"  # SMTP
+    - "8025:8025" # Web UI
+    - "1025:1025" # SMTP
   environment:
     MP_SMTP_AUTH_ACCEPT_ANY: "true"
     MP_SMTP_AUTH_ALLOW_INSECURE: "true"
 ```
 
-Add environment variables to api-server-* services:
+Add environment variables to api-server-\* services:
 
 ```yaml
 SMTP_HOST: mailpit
@@ -345,6 +348,7 @@ func buildMIMEMessage(email *Email) []byte {
 ### No External Pub/Sub Required
 
 PostgreSQL with `FOR UPDATE SKIP LOCKED` provides:
+
 - Reliable job queue without Redis/RabbitMQ
 - Concurrent worker support
 - Automatic retry on crash
