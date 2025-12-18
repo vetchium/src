@@ -63,6 +63,15 @@ services:
       timeout: 5s
       retries: 5
 
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "8025:8025"  # Web UI
+      - "1025:1025"  # SMTP
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: "true"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "true"
+
   migrate-global:
     build:
       context: ./api-server
@@ -112,6 +121,8 @@ services:
         condition: service_completed_successfully
       migrate-deu1:
         condition: service_completed_successfully
+      mailpit:
+        condition: service_started
     environment:
       REGION: ind1
       LOG_LEVEL: DEBUG
@@ -119,6 +130,11 @@ services:
       REGIONAL_DB_IND1_CONN: postgres://vetchium:vetchium_dev@regional-db-ind1:5432/vetchium_ind1?sslmode=disable
       REGIONAL_DB_USA1_CONN: postgres://vetchium:vetchium_dev@regional-db-usa1:5432/vetchium_usa1?sslmode=disable
       REGIONAL_DB_DEU1_CONN: postgres://vetchium:vetchium_dev@regional-db-deu1:5432/vetchium_deu1?sslmode=disable
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+      SMTP_FROM_ADDRESS: noreply@vetchium.com
+      SMTP_FROM_NAME: Vetchium
+
   api-server-usa1:
     build:
       context: .
@@ -132,6 +148,8 @@ services:
         condition: service_completed_successfully
       migrate-deu1:
         condition: service_completed_successfully
+      mailpit:
+        condition: service_started
     environment:
       REGION: usa1
       LOG_LEVEL: DEBUG
@@ -139,6 +157,11 @@ services:
       REGIONAL_DB_IND1_CONN: postgres://vetchium:vetchium_dev@regional-db-ind1:5432/vetchium_ind1?sslmode=disable
       REGIONAL_DB_USA1_CONN: postgres://vetchium:vetchium_dev@regional-db-usa1:5432/vetchium_usa1?sslmode=disable
       REGIONAL_DB_DEU1_CONN: postgres://vetchium:vetchium_dev@regional-db-deu1:5432/vetchium_deu1?sslmode=disable
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+      SMTP_FROM_ADDRESS: noreply@vetchium.com
+      SMTP_FROM_NAME: Vetchium
+
   api-server-deu1:
     build:
       context: .
@@ -152,6 +175,8 @@ services:
         condition: service_completed_successfully
       migrate-deu1:
         condition: service_completed_successfully
+      mailpit:
+        condition: service_started
     environment:
       REGION: deu1
       LOG_LEVEL: DEBUG
@@ -159,6 +184,10 @@ services:
       REGIONAL_DB_IND1_CONN: postgres://vetchium:vetchium_dev@regional-db-ind1:5432/vetchium_ind1?sslmode=disable
       REGIONAL_DB_USA1_CONN: postgres://vetchium:vetchium_dev@regional-db-usa1:5432/vetchium_usa1?sslmode=disable
       REGIONAL_DB_DEU1_CONN: postgres://vetchium:vetchium_dev@regional-db-deu1:5432/vetchium_deu1?sslmode=disable
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+      SMTP_FROM_ADDRESS: noreply@vetchium.com
+      SMTP_FROM_NAME: Vetchium
 
   api-lb:
     image: nginx:alpine

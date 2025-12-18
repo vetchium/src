@@ -6,6 +6,7 @@ import (
 
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
+	"vetchium-api-server.gomodule/internal/email"
 	"vetchium-api-server.gomodule/internal/middleware"
 )
 
@@ -15,6 +16,7 @@ type Server struct {
 	RegionalUSA1 *regionaldb.Queries
 	RegionalDEU1 *regionaldb.Queries
 	Log          *slog.Logger
+	SMTPConfig   *email.SMTPConfig
 }
 
 func (s *Server) GetRegionalDB(region globaldb.Region) *regionaldb.Queries {

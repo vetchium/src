@@ -16,7 +16,9 @@ sql:
 
   - name: "regional"
     engine: "postgresql"
-    queries: "db/queries/regional.sql"
+    queries:
+      - "db/queries/regional.sql"
+      - "db/queries/emails.sql"
     schema: "db/migrations/regional"
     gen:
       go:

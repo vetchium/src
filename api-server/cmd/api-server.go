@@ -5,11 +5,15 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"vetchium-api-server.gomodule/handlers/hub"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
+	"vetchium-api-server.gomodule/internal/email"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
 )
@@ -73,12 +77,33 @@ func main() {
 	defer regionalDEU1.Close(ctx)
 	logger.Info("connected to regional database DEU1")
 
+	// Load SMTP config
+	smtpConfig := email.SMTPConfigFromEnv()
+
 	s := &server.Server{
 		Global:       globaldb.New(globalConn),
 		RegionalIND1: regionaldb.New(regionalIND1),
 		RegionalUSA1: regionaldb.New(regionalUSA1),
 		RegionalDEU1: regionaldb.New(regionalDEU1),
 		Log:          logger,
+		SMTPConfig:   smtpConfig,
+	}
+
+	// Setup graceful shutdown context
+	ctx, cancel := signal.NotifyContext(context.Background(),
+		syscall.SIGTERM, syscall.SIGINT)
+	defer cancel()
+
+	// Start email worker for this region
+	currentRegion := globaldb.Region(region)
+	regionalQueries := s.GetRegionalDB(currentRegion)
+	if regionalQueries != nil {
+		workerConfig := email.WorkerConfigFromEnv()
+		emailSender := email.NewSender(smtpConfig)
+		worker := email.NewWorker(regionalQueries, emailSender, workerConfig, logger, region)
+		go worker.Run(ctx)
+	} else {
+		logger.Warn("unknown region, email worker will not start", "region", region)
 	}
 
 	mux := http.NewServeMux()
@@ -88,9 +113,32 @@ func main() {
 	// Wrap mux with middleware (CORS must be outermost to handle preflight)
 	handler := middleware.CORS()(middleware.RequestID(logger)(mux))
 
-	logger.Info("server starting", "port", 8080, "region", region)
-	if err := http.ListenAndServe(":8080", handler); err != nil {
-		logger.Error("server failed", "error", err)
-		os.Exit(1)
+	// Create HTTP server for graceful shutdown
+	httpServer := &http.Server{
+		Addr:    ":8080",
+		Handler: handler,
 	}
+
+	// Start HTTP server in goroutine
+	go func() {
+		logger.Info("server starting", "port", 8080, "region", region)
+		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.Error("server failed", "error", err)
+			os.Exit(1)
+		}
+	}()
+
+	// Wait for shutdown signal
+	<-ctx.Done()
+	logger.Info("shutting down server")
+
+	// Graceful shutdown with timeout
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer shutdownCancel()
+
+	if err := httpServer.Shutdown(shutdownCtx); err != nil {
+		logger.Error("server shutdown error", "error", err)
+	}
+
+	logger.Info("server stopped")
 }
