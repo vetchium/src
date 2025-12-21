@@ -134,6 +134,7 @@ services:
       SMTP_PORT: "1025"
       SMTP_FROM_ADDRESS: noreply@vetchium.com
       SMTP_FROM_NAME: Vetchium
+      EMAIL_WORKER_POLL_INTERVAL: 10s
 
   api-server-usa1:
     build:
@@ -161,6 +162,7 @@ services:
       SMTP_PORT: "1025"
       SMTP_FROM_ADDRESS: noreply@vetchium.com
       SMTP_FROM_NAME: Vetchium
+      EMAIL_WORKER_POLL_INTERVAL: 10s
 
   api-server-deu1:
     build:
@@ -188,6 +190,7 @@ services:
       SMTP_PORT: "1025"
       SMTP_FROM_ADDRESS: noreply@vetchium.com
       SMTP_FROM_NAME: Vetchium
+      EMAIL_WORKER_POLL_INTERVAL: 10s
 
   api-lb:
     image: nginx:alpine

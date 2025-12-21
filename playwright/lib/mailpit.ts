@@ -8,6 +8,31 @@
 const MAILPIT_API_URL = "http://localhost:8025/api/v1";
 
 // ============================================================================
+// Configuration
+// ============================================================================
+
+/**
+ * Configuration for email waiting with exponential backoff.
+ */
+export interface WaitForEmailConfig {
+  /** Maximum number of retry attempts (default: 5) */
+  maxRetries: number;
+  /** Initial delay in milliseconds before first retry (default: 1000) */
+  initialDelayMs: number;
+  /** Maximum delay between retries in milliseconds (default: 15000) */
+  maxDelayMs: number;
+  /** Multiplier for exponential backoff (default: 2) */
+  backoffMultiplier: number;
+}
+
+const DEFAULT_WAIT_CONFIG: WaitForEmailConfig = {
+  maxRetries: 5,
+  initialDelayMs: 1000,
+  maxDelayMs: 15000,
+  backoffMultiplier: 2,
+};
+
+// ============================================================================
 // Mailpit API Types
 // ============================================================================
 
@@ -92,32 +117,56 @@ export function extractTfaCode(emailText: string): string {
 }
 
 /**
- * Waits for an email to arrive for the specified recipient.
- * Polls mailpit until an email is found or timeout is reached.
+ * Waits for an email to arrive for the specified recipient using exponential backoff.
+ * Retries with increasing delays until email is found or max retries exceeded.
  *
  * @param toEmail - Email address to wait for
- * @param timeoutMs - Maximum time to wait in milliseconds (default: 10000)
- * @param pollIntervalMs - Interval between polls in milliseconds (default: 500)
+ * @param config - Optional configuration for retry behavior
  * @returns The first matching message summary
- * @throws Error if no email arrives within timeout
+ * @throws Error if no email arrives after all retries
+ *
+ * @example
+ * // Use defaults (5 retries, 1s initial delay, 2x backoff)
+ * const email = await waitForEmail("test@example.com");
+ *
+ * @example
+ * // Custom config for slower email delivery
+ * const email = await waitForEmail("test@example.com", {
+ *   maxRetries: 8,
+ *   initialDelayMs: 2000,
+ *   maxDelayMs: 30000,
+ *   backoffMultiplier: 2,
+ * });
  */
 export async function waitForEmail(
   toEmail: string,
-  timeoutMs: number = 10000,
-  pollIntervalMs: number = 500
+  config: Partial<WaitForEmailConfig> = {}
 ): Promise<MailpitMessageSummary> {
-  const startTime = Date.now();
+  const cfg = { ...DEFAULT_WAIT_CONFIG, ...config };
 
-  while (Date.now() - startTime < timeoutMs) {
+  let delay = cfg.initialDelayMs;
+  let totalWaitTime = 0;
+
+  for (let attempt = 1; attempt <= cfg.maxRetries; attempt++) {
     const messages = await searchEmails(toEmail);
     if (messages.length > 0) {
       // Return the most recent message (first in the list)
       return messages[0];
     }
-    await sleep(pollIntervalMs);
+
+    if (attempt < cfg.maxRetries) {
+      // Wait before next attempt
+      await sleep(delay);
+      totalWaitTime += delay;
+
+      // Calculate next delay with exponential backoff, capped at maxDelayMs
+      delay = Math.min(delay * cfg.backoffMultiplier, cfg.maxDelayMs);
+    }
   }
 
-  throw new Error(`No email received for ${toEmail} within ${timeoutMs}ms`);
+  throw new Error(
+    `No email received for ${toEmail} after ${cfg.maxRetries} attempts (waited ~${Math.round(totalWaitTime / 1000)}s)`
+  );
 }
 
 /**
@@ -125,14 +174,14 @@ export async function waitForEmail(
  * This is a convenience function that combines waiting for email and extracting the code.
  *
  * @param toEmail - Email address to get TFA code for
- * @param timeoutMs - Maximum time to wait for email
+ * @param config - Optional configuration for retry behavior
  * @returns The 6-digit TFA code
  */
 export async function getTfaCodeFromEmail(
   toEmail: string,
-  timeoutMs: number = 10000
+  config: Partial<WaitForEmailConfig> = {}
 ): Promise<string> {
-  const message = await waitForEmail(toEmail, timeoutMs);
+  const message = await waitForEmail(toEmail, config);
   const fullMessage = await getEmailContent(message.ID);
   return extractTfaCode(fullMessage.Text);
 }
