@@ -11,12 +11,13 @@ import (
 )
 
 type Server struct {
-	Global       *globaldb.Queries
-	RegionalIND1 *regionaldb.Queries
-	RegionalUSA1 *regionaldb.Queries
-	RegionalDEU1 *regionaldb.Queries
-	Log          *slog.Logger
-	SMTPConfig   *email.SMTPConfig
+	Global        *globaldb.Queries
+	RegionalIND1  *regionaldb.Queries
+	RegionalUSA1  *regionaldb.Queries
+	RegionalDEU1  *regionaldb.Queries
+	Log           *slog.Logger
+	SMTPConfig    *email.SMTPConfig
+	CurrentRegion globaldb.Region
 }
 
 func (s *Server) GetRegionalDB(region globaldb.Region) *regionaldb.Queries {
@@ -30,6 +31,11 @@ func (s *Server) GetRegionalDB(region globaldb.Region) *regionaldb.Queries {
 	default:
 		return nil
 	}
+}
+
+// GetCurrentRegionalDB returns the regional database for the current server's region
+func (s *Server) GetCurrentRegionalDB() *regionaldb.Queries {
+	return s.GetRegionalDB(s.CurrentRegion)
 }
 
 // Logger returns the logger from context with request ID, or falls back to base logger.

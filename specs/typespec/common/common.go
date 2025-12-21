@@ -21,11 +21,14 @@ var emailPattern = regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-
 
 // Validation errors for base types (no field context - that's the caller's job)
 var (
-	ErrEmailTooShort      = errors.New("must be at least 3 characters")
-	ErrEmailTooLong       = errors.New("must be at most 256 characters")
-	ErrEmailInvalidFormat = errors.New("must be a valid email address")
-	ErrPasswordTooShort   = errors.New("must be at least 12 characters")
-	ErrPasswordTooLong    = errors.New("must be at most 64 characters")
+	ErrEmailTooShort        = errors.New("must be at least 3 characters")
+	ErrEmailTooLong         = errors.New("must be at most 256 characters")
+	ErrEmailInvalidFormat   = errors.New("must be a valid email address")
+	ErrPasswordTooShort     = errors.New("must be at least 12 characters")
+	ErrPasswordTooLong      = errors.New("must be at most 64 characters")
+	ErrRequired             = errors.New("is required")
+	ErrTFACodeInvalidLength = errors.New("must be exactly 6 characters")
+	ErrTFACodeInvalidFormat = errors.New("must contain only digits")
 )
 
 // ValidationError represents a validation failure with field context

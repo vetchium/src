@@ -15,6 +15,9 @@ export const ERR_EMAIL_TOO_LONG = "must be at most 256 characters";
 export const ERR_EMAIL_INVALID_FORMAT = "must be a valid email address";
 export const ERR_PASSWORD_TOO_SHORT = "must be at least 12 characters";
 export const ERR_PASSWORD_TOO_LONG = "must be at most 64 characters";
+export const ERR_REQUIRED = "is required";
+export const ERR_TFA_CODE_INVALID_LENGTH = "must be exactly 6 characters";
+export const ERR_TFA_CODE_INVALID_FORMAT = "must contain only digits";
 
 // ValidationError represents a validation failure with field context
 export interface ValidationError {

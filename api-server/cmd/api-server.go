@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"vetchium-api-server.gomodule/handlers/hub"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/email"
@@ -80,13 +79,16 @@ func main() {
 	// Load SMTP config
 	smtpConfig := email.SMTPConfigFromEnv()
 
+	currentRegion := globaldb.Region(region)
+
 	s := &server.Server{
-		Global:       globaldb.New(globalConn),
-		RegionalIND1: regionaldb.New(regionalIND1),
-		RegionalUSA1: regionaldb.New(regionalUSA1),
-		RegionalDEU1: regionaldb.New(regionalDEU1),
-		Log:          logger,
-		SMTPConfig:   smtpConfig,
+		Global:        globaldb.New(globalConn),
+		RegionalIND1:  regionaldb.New(regionalIND1),
+		RegionalUSA1:  regionaldb.New(regionalUSA1),
+		RegionalDEU1:  regionaldb.New(regionalDEU1),
+		Log:           logger,
+		SMTPConfig:    smtpConfig,
+		CurrentRegion: currentRegion,
 	}
 
 	// Setup graceful shutdown context
@@ -95,7 +97,6 @@ func main() {
 	defer cancel()
 
 	// Start email worker for this region
-	currentRegion := globaldb.Region(region)
 	regionalQueries := s.GetRegionalDB(currentRegion)
 	if regionalQueries != nil {
 		workerConfig := email.WorkerConfigFromEnv()
@@ -108,7 +109,9 @@ func main() {
 
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("POST /hub/login", hub.Login(s))
+	// Register routes from separate files
+	registerHubRoutes(mux, s)
+	registerAdminRoutes(mux, s)
 
 	// Wrap mux with middleware (CORS must be outermost to handle preflight)
 	handler := middleware.CORS()(middleware.RequestID(logger)(mux))

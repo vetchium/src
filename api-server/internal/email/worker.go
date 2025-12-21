@@ -50,7 +50,20 @@ func WorkerConfigFromEnv() *WorkerConfig {
 	}
 }
 
-// Worker processes the email queue
+// Worker processes the email queue for a single region.
+//
+// IMPORTANT: There must be exactly ONE Worker instance per region. The email
+// queue uses SELECT ... FOR UPDATE SKIP LOCKED which only prevents concurrent
+// row selection while the transaction is held. Since each email is processed
+// outside the selection transaction, running multiple workers for the same
+// region would cause race conditions:
+//
+//   - Worker A selects email X (lock released after SELECT returns)
+//   - Worker B selects email X (still 'pending', not locked)
+//   - Both workers send email X → DUPLICATE EMAIL
+//
+// The current architecture runs one Worker goroutine per API server instance,
+// and each instance handles a single region (set via REGION env var).
 type Worker struct {
 	queries    *regionaldb.Queries
 	sender     *Sender
