@@ -1,8 +1,9 @@
-This file contains some of the potential new feature requests
+This file contains some of the potential things to do:
 
-- Org Users
-- Hub Users
+- i18n support
 - Openings
-- Candidacies
 - Applications
+- Candidacies
+- Interviews
+- Hub Users
 - Connections
