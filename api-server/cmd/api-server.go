@@ -9,7 +9,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/email"
@@ -44,37 +44,37 @@ func main() {
 	ctx := context.Background()
 
 	// Connect to global database
-	globalConn, err := pgx.Connect(ctx, os.Getenv("GLOBAL_DB_CONN"))
+	globalConn, err := pgxpool.New(ctx, os.Getenv("GLOBAL_DB_CONN"))
 	if err != nil {
 		logger.Error("failed to connect to global DB", "error", err)
 		os.Exit(1)
 	}
-	defer globalConn.Close(ctx)
+	defer globalConn.Close()
 	logger.Info("connected to global database")
 
 	// Connect to regional databases
-	regionalIND1, err := pgx.Connect(ctx, os.Getenv("REGIONAL_DB_IND1_CONN"))
+	regionalIND1, err := pgxpool.New(ctx, os.Getenv("REGIONAL_DB_IND1_CONN"))
 	if err != nil {
 		logger.Error("failed to connect to regional DB IND1", "error", err)
 		os.Exit(1)
 	}
-	defer regionalIND1.Close(ctx)
+	defer regionalIND1.Close()
 	logger.Info("connected to regional database IND1")
 
-	regionalUSA1, err := pgx.Connect(ctx, os.Getenv("REGIONAL_DB_USA1_CONN"))
+	regionalUSA1, err := pgxpool.New(ctx, os.Getenv("REGIONAL_DB_USA1_CONN"))
 	if err != nil {
 		logger.Error("failed to connect to regional DB USA1", "error", err)
 		os.Exit(1)
 	}
-	defer regionalUSA1.Close(ctx)
+	defer regionalUSA1.Close()
 	logger.Info("connected to regional database USA1")
 
-	regionalDEU1, err := pgx.Connect(ctx, os.Getenv("REGIONAL_DB_DEU1_CONN"))
+	regionalDEU1, err := pgxpool.New(ctx, os.Getenv("REGIONAL_DB_DEU1_CONN"))
 	if err != nil {
 		logger.Error("failed to connect to regional DB DEU1", "error", err)
 		os.Exit(1)
 	}
-	defer regionalDEU1.Close(ctx)
+	defer regionalDEU1.Close()
 	logger.Info("connected to regional database DEU1")
 
 	// Load SMTP config
