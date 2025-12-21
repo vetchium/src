@@ -47,3 +47,18 @@ DELETE FROM admin_sessions WHERE session_token = $1;
 
 -- name: DeleteExpiredAdminSessions :exec
 DELETE FROM admin_sessions WHERE expires_at <= NOW();
+
+-- Supported languages queries
+
+-- name: GetSupportedLanguages :many
+SELECT language_code, language_name, native_name, is_default
+FROM supported_languages
+ORDER BY is_default DESC, language_name ASC;
+
+-- name: GetDefaultLanguage :one
+SELECT language_code FROM supported_languages WHERE is_default = TRUE;
+
+-- name: GetSupportedLanguage :one
+SELECT language_code, language_name, native_name, is_default
+FROM supported_languages
+WHERE language_code = $1;

@@ -1,0 +1,6 @@
+{
+  "_description": "Common strings used across multiple templates",
+
+  "company_name": "Vetchium",
+  "automated_message_notice": "இது ஒரு தானியங்கி செய்தி. தயவுசெய்து பதிலளிக்க வேண்டாம்."
+}

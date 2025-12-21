@@ -16,6 +16,8 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
+	"vetchium-api-server.gomodule/internal/email/templates"
+	"vetchium-api-server.gomodule/internal/i18n"
 	"vetchium-api-server.gomodule/internal/server"
 	"vetchium-api-server.typespec/admin"
 )
@@ -118,7 +120,9 @@ func Login(s *server.Server) http.HandlerFunc {
 		}
 
 		// Enqueue TFA email in regional database
-		err = sendTFAEmail(ctx, regionalDB, adminUser.EmailAddress, tfaCode)
+		// Match user's preferred language to best available translation
+		lang := i18n.Match(adminUser.PreferredLanguage)
+		err = sendTFAEmail(ctx, regionalDB, adminUser.EmailAddress, tfaCode, lang)
 		if err != nil {
 			log.Error("failed to enqueue TFA email", "error", err)
 			// Compensating transaction: delete the TFA token we just created
@@ -153,27 +157,18 @@ func generateTFACode() (string, error) {
 	return fmt.Sprintf("%06d", n.Int64()), nil
 }
 
-func sendTFAEmail(ctx context.Context, db *regionaldb.Queries, to string, tfaCode string) error {
-	subject := "Vetchium Admin - Login Verification Code"
-	textBody := fmt.Sprintf("Your verification code is: %s\n\nThis code will expire in 10 minutes.\n\nIf you did not request this code, please ignore this email.", tfaCode)
-	htmlBody := fmt.Sprintf(`
-<!DOCTYPE html>
-<html>
-<head><title>Login Verification</title></head>
-<body>
-<h2>Vetchium Admin - Login Verification</h2>
-<p>Your verification code is: <strong>%s</strong></p>
-<p>This code will expire in 10 minutes.</p>
-<p>If you did not request this code, please ignore this email.</p>
-</body>
-</html>`, tfaCode)
+func sendTFAEmail(ctx context.Context, db *regionaldb.Queries, to string, tfaCode string, lang string) error {
+	data := templates.AdminTFAData{
+		Code:    tfaCode,
+		Minutes: int(tfaTokenExpiry.Minutes()),
+	}
 
 	_, err := db.EnqueueEmail(ctx, regionaldb.EnqueueEmailParams{
 		EmailType:     regionaldb.EmailTemplateTypeAdminTfa,
 		EmailTo:       to,
-		EmailSubject:  subject,
-		EmailTextBody: textBody,
-		EmailHtmlBody: htmlBody,
+		EmailSubject:  templates.AdminTFASubject(lang),
+		EmailTextBody: templates.AdminTFATextBody(lang, data),
+		EmailHtmlBody: templates.AdminTFAHTMLBody(lang, data),
 	})
 	return err
 }

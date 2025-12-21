@@ -3,40 +3,62 @@ package templates
 import (
 	"fmt"
 	"html"
+
+	"vetchium-api-server.gomodule/internal/i18n"
 )
+
+const nsAdminTFA = "emails/admin_tfa"
 
 // AdminTFAData contains data for the admin TFA email
 type AdminTFAData struct {
-	Code string // 6-digit verification code
+	Code    string // 6-digit verification code
+	Minutes int    // Expiry time in minutes
 }
 
-// AdminTFASubject returns the email subject for admin TFA
-func AdminTFASubject() string {
-	return "Your Vetchium Admin Verification Code"
+// AdminTFASubject returns the localized email subject for admin TFA
+func AdminTFASubject(lang string) string {
+	return i18n.T(lang, nsAdminTFA, "subject")
 }
 
-// AdminTFATextBody returns the plain text body for admin TFA email
-func AdminTFATextBody(data AdminTFAData) string {
-	return fmt.Sprintf(`Vetchium Admin Portal - Verification Code
+// AdminTFATextBody returns the localized plain text body for admin TFA email
+func AdminTFATextBody(lang string, data AdminTFAData) string {
+	portalName := i18n.T(lang, nsAdminTFA, "portal_name")
+	intro := i18n.T(lang, nsAdminTFA, "body_intro")
+	expiry := i18n.TF(lang, nsAdminTFA, "body_expiry", data)
+	ignore := i18n.T(lang, nsAdminTFA, "body_ignore")
+	footer := i18n.T(lang, nsAdminTFA, "footer")
 
-Your verification code is: %s
+	return fmt.Sprintf(`%s - Verification Code
 
-This code will expire in 10 minutes.
+%s %s
 
-If you did not request this code, please ignore this email or contact support if you have concerns about your account security.
+%s
+
+%s
 
 ---
-Vetchium Admin Portal
-This is an automated message. Please do not reply.
-`, data.Code)
+%s
+%s
+`, portalName, intro, data.Code, expiry, ignore, portalName, footer)
 }
 
-// AdminTFAHTMLBody returns the HTML body for admin TFA email
-func AdminTFAHTMLBody(data AdminTFAData) string {
+// AdminTFAHTMLBody returns the localized HTML body for admin TFA email
+func AdminTFAHTMLBody(lang string, data AdminTFAData) string {
 	escapedCode := html.EscapeString(data.Code)
+	portalName := html.EscapeString(i18n.T(lang, nsAdminTFA, "portal_name"))
+	intro := html.EscapeString(i18n.T(lang, nsAdminTFA, "body_intro"))
+	expiry := html.EscapeString(i18n.TF(lang, nsAdminTFA, "body_expiry", data))
+	ignore := html.EscapeString(i18n.T(lang, nsAdminTFA, "body_ignore"))
+	footer := html.EscapeString(i18n.T(lang, nsAdminTFA, "footer"))
+
+	// Determine lang attribute for HTML
+	htmlLang := "en"
+	if len(lang) >= 2 {
+		htmlLang = lang[:2]
+	}
 
 	return fmt.Sprintf(`<!DOCTYPE html>
-<html lang="en">
+<html lang="%s">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -50,23 +72,23 @@ func AdminTFAHTMLBody(data AdminTFAData) string {
                     <!-- Header -->
                     <tr>
                         <td style="padding: 32px 32px 24px; text-align: center; border-bottom: 1px solid #eee;">
-                            <h1 style="margin: 0; font-size: 24px; font-weight: 600; color: #1a1a1a;">Vetchium Admin Portal</h1>
+                            <h1 style="margin: 0; font-size: 24px; font-weight: 600; color: #1a1a1a;">%s</h1>
                         </td>
                     </tr>
                     <!-- Content -->
                     <tr>
                         <td style="padding: 32px;">
                             <p style="margin: 0 0 24px; font-size: 16px; line-height: 24px; color: #333333;">
-                                Your verification code is:
+                                %s
                             </p>
                             <div style="text-align: center; margin: 24px 0;">
                                 <span style="display: inline-block; font-size: 36px; font-weight: 700; letter-spacing: 8px; color: #1a1a1a; background-color: #f0f0f0; padding: 16px 32px; border-radius: 8px; font-family: 'Courier New', monospace;">%s</span>
                             </div>
                             <p style="margin: 24px 0 0; font-size: 14px; line-height: 20px; color: #666666;">
-                                This code will expire in <strong>10 minutes</strong>.
+                                %s
                             </p>
                             <p style="margin: 16px 0 0; font-size: 14px; line-height: 20px; color: #666666;">
-                                If you did not request this code, please ignore this email or contact support if you have concerns about your account security.
+                                %s
                             </p>
                         </td>
                     </tr>
@@ -74,8 +96,7 @@ func AdminTFAHTMLBody(data AdminTFAData) string {
                     <tr>
                         <td style="padding: 24px 32px; text-align: center; border-top: 1px solid #eee; background-color: #fafafa; border-radius: 0 0 8px 8px;">
                             <p style="margin: 0; font-size: 12px; color: #999999;">
-                                This is an automated message from Vetchium Admin Portal.<br>
-                                Please do not reply to this email.
+                                %s
                             </p>
                         </td>
                     </tr>
@@ -84,5 +105,5 @@ func AdminTFAHTMLBody(data AdminTFAData) string {
         </tr>
     </table>
 </body>
-</html>`, escapedCode)
+</html>`, htmlLang, portalName, intro, escapedCode, expiry, ignore, footer)
 }

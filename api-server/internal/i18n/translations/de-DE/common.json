@@ -1,0 +1,6 @@
+{
+  "_description": "Common strings used across multiple templates",
+
+  "company_name": "Vetchium",
+  "automated_message_notice": "Dies ist eine automatische Nachricht. Bitte antworten Sie nicht."
+}

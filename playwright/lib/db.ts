@@ -17,26 +17,46 @@ const pool = new Pool({
 export type AdminUserStatus = "active" | "disabled";
 
 /**
+ * Supported language codes (BCP 47 format)
+ */
+export type LanguageCode = "en-US" | "de-DE" | "ta-IN" | string;
+
+/**
+ * Options for creating a test admin user
+ */
+export interface CreateTestAdminUserOptions {
+  status?: AdminUserStatus;
+  preferredLanguage?: LanguageCode;
+}
+
+/**
  * Creates a test admin user in the global database.
  * Each test should create its own unique user to ensure parallel test isolation.
  *
  * @param email - Unique email for the test user (use UUID to ensure uniqueness)
  * @param password - Plain text password (will be hashed with bcrypt)
- * @param status - User status, defaults to 'active'
+ * @param options - Optional settings: status (default: 'active'), preferredLanguage (default: 'en-US')
+ *                  For backwards compatibility, also accepts AdminUserStatus string directly
  * @returns The created admin user ID
  */
 export async function createTestAdminUser(
   email: string,
   password: string,
-  status: AdminUserStatus = "active"
+  options: CreateTestAdminUserOptions | AdminUserStatus = "active"
 ): Promise<string> {
   const adminUserId = randomUUID();
   const passwordHash = await bcrypt.hash(password, 10);
 
+  // Handle both old signature (status string) and new signature (options object)
+  const opts: CreateTestAdminUserOptions =
+    typeof options === "string" ? { status: options } : options;
+  const status = opts.status ?? "active";
+  const preferredLanguage = opts.preferredLanguage ?? "en-US";
+
   await pool.query(
-    `INSERT INTO admin_users (admin_user_id, email_address, password_hash, status)
-     VALUES ($1, $2, $3, $4)`,
-    [adminUserId, email, passwordHash, status]
+    `INSERT INTO admin_users (admin_user_id, email_address, password_hash, status, preferred_language)
+     VALUES ($1, $2, $3, $4, $5)`,
+    [adminUserId, email, passwordHash, status, preferredLanguage]
   );
 
   return adminUserId;
@@ -68,16 +88,35 @@ export async function updateTestAdminUserStatus(
 }
 
 /**
+ * Updates the preferred language of a test admin user.
+ *
+ * @param email - Email of the admin user to update
+ * @param preferredLanguage - New preferred language (BCP 47 format)
+ */
+export async function updateTestAdminUserLanguage(
+  email: string,
+  preferredLanguage: LanguageCode
+): Promise<void> {
+  await pool.query(`UPDATE admin_users SET preferred_language = $1 WHERE email_address = $2`, [
+    preferredLanguage,
+    email,
+  ]);
+}
+
+/**
  * Gets admin user details by email.
  *
  * @param email - Email of the admin user
  * @returns Admin user record or null if not found
  */
-export async function getTestAdminUser(
-  email: string
-): Promise<{ admin_user_id: string; email_address: string; status: AdminUserStatus } | null> {
+export async function getTestAdminUser(email: string): Promise<{
+  admin_user_id: string;
+  email_address: string;
+  status: AdminUserStatus;
+  preferred_language: LanguageCode;
+} | null> {
   const result = await pool.query(
-    `SELECT admin_user_id, email_address, status FROM admin_users WHERE email_address = $1`,
+    `SELECT admin_user_id, email_address, status, preferred_language FROM admin_users WHERE email_address = $1`,
     [email]
   );
   return result.rows[0] || null;
