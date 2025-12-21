@@ -15,7 +15,7 @@ import {
   type HubLoginRequest,
   type HubLoginResponse,
   validateHubLoginRequest,
-} from 'vetchium-specs/hub/hubusers'
+} from 'vetchium-specs/hub/hub-users'
 import {
   EMAIL_MIN_LENGTH,
   EMAIL_MAX_LENGTH,
