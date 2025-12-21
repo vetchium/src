@@ -156,23 +156,27 @@ playwright/
 
 ```typescript
 import { test, expect } from "@playwright/test";
-import { createTestAdminUser, deleteTestAdminUser, generateTestEmail } from "../../../lib/db";
+import {
+	createTestAdminUser,
+	deleteTestAdminUser,
+	generateTestEmail,
+} from "../../../lib/db";
 import { AdminAPIClient } from "../../../lib/api-client";
 
 test("example test with isolated user", async ({ request }) => {
-  const api = new AdminAPIClient(request);
-  const email = generateTestEmail("my-test");  // Generates unique email
-  const password = "ValidPassword123$";
+	const api = new AdminAPIClient(request);
+	const email = generateTestEmail("my-test"); // Generates unique email
+	const password = "Password123$";
 
-  await createTestAdminUser(email, password);
-  try {
-    // Test logic here
-    const response = await api.login(email, password);
-    expect(response.status).toBe(200);
-  } finally {
-    // Always cleanup
-    await deleteTestAdminUser(email);
-  }
+	await createTestAdminUser(email, password);
+	try {
+		// Test logic here
+		const response = await api.login(email, password);
+		expect(response.status).toBe(200);
+	} finally {
+		// Always cleanup
+		await deleteTestAdminUser(email);
+	}
 });
 ```
 

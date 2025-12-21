@@ -11,7 +11,7 @@ test.describe("POST /admin/tfa", () => {
 	test("valid TFA code returns session token", async ({ request }) => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("tfa-success");
-		const password = "ValidPassword123$";
+		const password = "Password123$";
 
 		await createTestAdminUser(email, password);
 		try {
@@ -50,7 +50,7 @@ test.describe("POST /admin/tfa", () => {
 	test("wrong TFA code returns 403", async ({ request }) => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("tfa-wrong-code");
-		const password = "ValidPassword123$";
+		const password = "Password123$";
 
 		await createTestAdminUser(email, password);
 		try {
@@ -145,7 +145,7 @@ test.describe("POST /admin/tfa", () => {
 	test("TFA token can be reused for retry", async ({ request }) => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("tfa-retry");
-		const password = "ValidPassword123$";
+		const password = "Password123$";
 
 		await createTestAdminUser(email, password);
 		try {

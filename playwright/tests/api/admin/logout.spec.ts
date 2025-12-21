@@ -34,7 +34,7 @@ test.describe("POST /admin/logout", () => {
 	test("valid session token logout returns 200", async ({ request }) => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("logout-success");
-		const password = "ValidPassword123$";
+		const password = "Password123$";
 
 		await createTestAdminUser(email, password);
 		try {
@@ -79,7 +79,7 @@ test.describe("POST /admin/logout", () => {
 	test("double logout - second attempt returns 401", async ({ request }) => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("logout-double");
-		const password = "ValidPassword123$";
+		const password = "Password123$";
 
 		await createTestAdminUser(email, password);
 		try {

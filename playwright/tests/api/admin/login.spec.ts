@@ -14,7 +14,7 @@ test.describe("POST /admin/login", () => {
 	}) => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("login-success");
-		const password = "ValidPassword123$";
+		const password = "Password123$";
 
 		await createTestAdminUser(email, password);
 		try {
@@ -39,7 +39,7 @@ test.describe("POST /admin/login", () => {
 
 		const response = await api.loginRaw({
 			email: "not-an-email",
-			password: "ValidPassword123$",
+			password: "Password123$",
 		});
 
 		expect(response.status).toBe(400);
@@ -49,7 +49,7 @@ test.describe("POST /admin/login", () => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("nonexistent");
 
-		const response = await api.login(email, "ValidPassword123$");
+		const response = await api.login(email, "Password123$");
 
 		expect(response.status).toBe(401);
 	});
@@ -57,7 +57,7 @@ test.describe("POST /admin/login", () => {
 	test("wrong password returns 401", async ({ request }) => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("wrong-password");
-		const password = "ValidPassword123$";
+		const password = "Password123$";
 
 		await createTestAdminUser(email, password);
 		try {
@@ -72,7 +72,7 @@ test.describe("POST /admin/login", () => {
 	test("disabled admin returns 422", async ({ request }) => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("disabled-admin");
-		const password = "ValidPassword123$";
+		const password = "Password123$";
 
 		await createTestAdminUser(email, password, "disabled");
 		try {
@@ -88,7 +88,7 @@ test.describe("POST /admin/login", () => {
 		const api = new AdminAPIClient(request);
 
 		const response = await api.loginRaw({
-			password: "ValidPassword123$",
+			password: "Password123$",
 		});
 
 		expect(response.status).toBe(400);
@@ -110,7 +110,7 @@ test.describe("POST /admin/login", () => {
 
 		const response = await api.loginRaw({
 			email: "",
-			password: "ValidPassword123$",
+			password: "Password123$",
 		});
 
 		expect(response.status).toBe(400);
