@@ -1,4 +1,4 @@
-package main
+package routes
 
 import (
 	"net/http"
@@ -7,6 +7,6 @@ import (
 	"vetchium-api-server.gomodule/internal/server"
 )
 
-func registerHubRoutes(mux *http.ServeMux, s *server.Server) {
+func RegisterHubRoutes(mux *http.ServeMux, s *server.Server) {
 	mux.HandleFunc("POST /hub/login", hub.Login(s))
 }

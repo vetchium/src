@@ -1,4 +1,4 @@
-package main
+package routes
 
 import (
 	"net/http"
@@ -7,7 +7,7 @@ import (
 	"vetchium-api-server.gomodule/internal/server"
 )
 
-func registerAdminRoutes(mux *http.ServeMux, s *server.Server) {
+func RegisterAdminRoutes(mux *http.ServeMux, s *server.Server) {
 	mux.HandleFunc("POST /admin/login", admin.Login(s))
 	mux.HandleFunc("POST /admin/tfa", admin.TFA(s))
 	mux.HandleFunc("POST /admin/logout", admin.Logout(s))

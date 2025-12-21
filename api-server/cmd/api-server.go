@@ -14,6 +14,7 @@ import (
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/email"
 	"vetchium-api-server.gomodule/internal/middleware"
+	"vetchium-api-server.gomodule/internal/routes"
 	"vetchium-api-server.gomodule/internal/server"
 )
 
@@ -110,8 +111,8 @@ func main() {
 	mux := http.NewServeMux()
 
 	// Register routes from separate files
-	registerHubRoutes(mux, s)
-	registerAdminRoutes(mux, s)
+	routes.RegisterHubRoutes(mux, s)
+	routes.RegisterAdminRoutes(mux, s)
 
 	// Wrap mux with middleware (CORS must be outermost to handle preflight)
 	handler := middleware.CORS()(middleware.RequestID(logger)(mux))

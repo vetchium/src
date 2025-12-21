@@ -107,3 +107,78 @@ s.Log.Info("user logged in", "user_id", userID)
 ```go
 mux.HandleFunc("POST /hub/endpoint", hub.MyHandler(s))
 ```
+
+## Testing
+
+### Playwright Tests (playwright/)
+
+Playwright is used for both API and UI testing across all portals.
+
+```bash
+cd playwright
+npm install              # Install dependencies
+npm test                 # Run all tests
+npm run test:api         # Run API tests only
+npm run test:api:admin   # Run admin API tests
+```
+
+**Prerequisites**: All Docker services must be running via `docker compose up` from `src/`.
+
+### Test Architecture Principles
+
+1. **Full Parallelization**: All tests run in parallel. Each test must be completely independent.
+
+2. **Isolated Test Data**: Each test creates its own unique test data using UUID-based identifiers (e.g., `admin-{uuid}@test.vetchium.com`).
+
+3. **No Test Data in Migrations**: Test users are created dynamically via the `lib/db.ts` helper, not in migration files. Migration files are used for production.
+
+4. **Cleanup in Finally Blocks**: Always clean up test data in `finally` blocks or `afterEach` hooks to ensure cleanup even on test failures.
+
+5. **Region Awareness**: The API runs behind a load balancer (`localhost:8080`) that routes to regional servers. Tests don't need to specify regions explicitly.
+
+### Test File Organization
+
+```
+playwright/
+├── lib/
+│   ├── db.ts           # Database helpers (create/delete test users)
+│   ├── api-client.ts   # Type-safe API client
+│   └── mailpit.ts      # Email retrieval for TFA codes
+└── tests/
+    └── api/
+        └── admin/      # Admin API tests
+            ├── login.spec.ts
+            ├── tfa.spec.ts
+            └── logout.spec.ts
+```
+
+### Writing New Tests
+
+```typescript
+import { test, expect } from "@playwright/test";
+import { createTestAdminUser, deleteTestAdminUser, generateTestEmail } from "../../../lib/db";
+import { AdminAPIClient } from "../../../lib/api-client";
+
+test("example test with isolated user", async ({ request }) => {
+  const api = new AdminAPIClient(request);
+  const email = generateTestEmail("my-test");  // Generates unique email
+  const password = "ValidPassword123$";
+
+  await createTestAdminUser(email, password);
+  try {
+    // Test logic here
+    const response = await api.login(email, password);
+    expect(response.status).toBe(200);
+  } finally {
+    // Always cleanup
+    await deleteTestAdminUser(email);
+  }
+});
+```
+
+### Key Test Utilities
+
+- `generateTestEmail(prefix)`: Creates unique email like `prefix-{uuid}@test.vetchium.com`
+- `createTestAdminUser(email, password, status?)`: Creates admin in global DB
+- `deleteTestAdminUser(email)`: Removes admin and cascades to sessions/tokens
+- `getTfaCodeFromEmail(email)`: Waits for and extracts 6-digit TFA code from mailpit
