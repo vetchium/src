@@ -1,0 +1,9 @@
+# Development seed data runner using psql
+FROM postgres:17-alpine
+
+WORKDIR /seed
+
+COPY db/dev-seed/global.sql ./global.sql
+COPY db/dev-seed/regional.sql ./regional.sql
+
+ENTRYPOINT ["psql"]

@@ -14,7 +14,18 @@ A multi-region application with global and regional databases.
 ## Prerequisites
 
 - Docker and Docker Compose
-- [sqlc](https://sqlc.dev/) if you want to navigate through sources in IDE
+
+For local development (optional):
+- [sqlc](https://sqlc.dev/) - for IDE navigation through generated SQL code
+- [goose](https://github.com/pressly/goose) - for creating new database migrations
+
+```bash
+# Install sqlc
+go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
+
+# Install goose
+go install github.com/pressly/goose/v3/cmd/goose@latest
+```
 
 ## Quick Start
 
@@ -38,16 +49,37 @@ docker compose down
 docker compose down -v
 ```
 
-## IDE support for navigation
+## Development Tools
 
 ```bash
-$ cd api-server
-$ sqlc generate
+cd api-server
+
+# Generate Go code from SQL (for IDE navigation)
+sqlc generate
+
+# Create a new migration
+cd db/migrations/global   # or regional
+goose create migration_name sql
 ```
+
+## Running Tests
+
+```bash
+cd playwright
+npm install
+npm test
+```
+
+Tests require all Docker services to be running (`docker compose up`).
 
 ## Test Users
 
-For development, the following test users are available:
+For development, the following test users are available (password: `Password123$`):
 
-- `testuser1@example.com` / `password1234` (region: ind1)
-- `testuser2@example.com` / `password4567` (region: usa1)
+**Hub Users:**
+- `testuser1@example.com` (region: ind1)
+- `testuser2@example.com` (region: usa1)
+
+**Admin Users:**
+- `admin1@vetchium.com`
+- `admin2@vetchium.com`
