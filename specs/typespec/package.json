@@ -4,7 +4,9 @@
   "type": "module",
   "private": true,
   "exports": {
-    "./hub": "./hub/hubusers.ts"
+    "./hub/hub-users": "./hub/hub-users.ts",
+    "./admin/admin-users": "./admin/admin-users.ts",
+    "./common/common": "./common/common.ts"
   },
   "dependencies": {
     "@typespec/compiler": "latest",
