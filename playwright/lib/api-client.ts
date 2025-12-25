@@ -1,37 +1,12 @@
 import { APIRequestContext } from "@playwright/test";
+import {
+  AdminLoginResponse,
+  AdminTFAResponse,
+} from "../../specs/typespec/admin/admin-users";
 
 /**
- * Base URL for the API server (via nginx load balancer)
+ * Generic API response wrapper for test assertions.
  */
-export const API_BASE_URL = "http://localhost:8080";
-
-// ============================================================================
-// Request/Response Types
-// ============================================================================
-
-export interface AdminLoginRequest {
-  email: string;
-  password: string;
-}
-
-export interface AdminLoginResponse {
-  tfa_token: string;
-}
-
-export interface AdminTFARequest {
-  tfa_token: string;
-  tfa_code: string;
-}
-
-export interface AdminTFAResponse {
-  session_token: string;
-  preferred_language: string;
-}
-
-export interface AdminLogoutRequest {
-  session_token: string;
-}
-
 export interface APIResponse<T> {
   status: number;
   body: T;
