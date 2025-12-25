@@ -77,17 +77,49 @@ INSERT INTO approved_domains (domain_name, created_by_admin_id)
 VALUES ($1, $2)
 RETURNING *;
 
--- name: ListApprovedDomains :many
-SELECT * FROM approved_domains
-WHERE deleted_at IS NULL
-ORDER BY domain_name ASC;
+-- name: ListApprovedDomainsFirstPage :many
+SELECT ad.domain_id, ad.domain_name, ad.created_by_admin_id,
+       ad.created_at, ad.updated_at, ad.deleted_at,
+       au.email_address AS admin_email
+FROM approved_domains ad
+JOIN admin_users au ON ad.created_by_admin_id = au.admin_user_id
+WHERE ad.deleted_at IS NULL
+ORDER BY ad.domain_name ASC
+LIMIT $1;
 
--- name: SearchApprovedDomains :many
-SELECT * FROM approved_domains
-WHERE deleted_at IS NULL
-  AND domain_name % $1
-ORDER BY similarity(domain_name, $1) DESC, domain_name ASC
-LIMIT $2 OFFSET $3;
+-- name: ListApprovedDomainsAfterCursor :many
+SELECT ad.domain_id, ad.domain_name, ad.created_by_admin_id,
+       ad.created_at, ad.updated_at, ad.deleted_at,
+       au.email_address AS admin_email
+FROM approved_domains ad
+JOIN admin_users au ON ad.created_by_admin_id = au.admin_user_id
+WHERE ad.deleted_at IS NULL AND ad.domain_name > $1
+ORDER BY ad.domain_name ASC
+LIMIT $2;
+
+-- name: SearchApprovedDomainsFirstPage :many
+SELECT ad.domain_id, ad.domain_name, ad.created_by_admin_id,
+       ad.created_at, ad.updated_at, ad.deleted_at,
+       au.email_address AS admin_email,
+       similarity(ad.domain_name, @search_term) AS sim_score
+FROM approved_domains ad
+JOIN admin_users au ON ad.created_by_admin_id = au.admin_user_id
+WHERE ad.deleted_at IS NULL AND ad.domain_name % @search_term
+ORDER BY sim_score DESC, ad.domain_name ASC
+LIMIT @limit_count;
+
+-- name: SearchApprovedDomainsAfterCursor :many
+SELECT ad.domain_id, ad.domain_name, ad.created_by_admin_id,
+       ad.created_at, ad.updated_at, ad.deleted_at,
+       au.email_address AS admin_email,
+       similarity(ad.domain_name, @search_term) AS sim_score
+FROM approved_domains ad
+JOIN admin_users au ON ad.created_by_admin_id = au.admin_user_id
+WHERE ad.deleted_at IS NULL
+  AND ad.domain_name % @search_term
+  AND (similarity(ad.domain_name, @search_term), ad.domain_name) < (@cursor_score::float4, @cursor_domain)
+ORDER BY sim_score DESC, ad.domain_name ASC
+LIMIT @limit_count;
 
 -- name: GetApprovedDomainByID :one
 SELECT * FROM approved_domains
@@ -96,6 +128,14 @@ WHERE domain_id = $1;
 -- name: GetApprovedDomainByName :one
 SELECT * FROM approved_domains
 WHERE domain_name = $1 AND deleted_at IS NULL;
+
+-- name: GetApprovedDomainWithAdminByName :one
+SELECT ad.domain_id, ad.domain_name, ad.created_by_admin_id,
+       ad.created_at, ad.updated_at, ad.deleted_at,
+       au.email_address AS admin_email
+FROM approved_domains ad
+JOIN admin_users au ON ad.created_by_admin_id = au.admin_user_id
+WHERE ad.domain_name = $1 AND ad.deleted_at IS NULL;
 
 -- name: SoftDeleteApprovedDomain :one
 UPDATE approved_domains
@@ -114,12 +154,33 @@ INSERT INTO approved_domains_audit_log (
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 RETURNING *;
 
--- name: GetAuditLogsByDomainID :many
-SELECT * FROM approved_domains_audit_log
-WHERE target_domain_id = $1
-ORDER BY created_at DESC;
+-- name: GetAuditLogsByDomainIDFirstPage :many
+SELECT al.*, au.email_address AS admin_email
+FROM approved_domains_audit_log al
+LEFT JOIN admin_users au ON al.admin_id = au.admin_user_id
+WHERE al.target_domain_id = $1
+ORDER BY al.created_at DESC
+LIMIT $2;
 
--- name: GetAuditLogs :many
-SELECT * FROM approved_domains_audit_log
-ORDER BY created_at DESC
-LIMIT $1 OFFSET $2;
+-- name: GetAuditLogsByDomainIDAfterCursor :many
+SELECT al.*, au.email_address AS admin_email
+FROM approved_domains_audit_log al
+LEFT JOIN admin_users au ON al.admin_id = au.admin_user_id
+WHERE al.target_domain_id = $1 AND al.created_at < $2
+ORDER BY al.created_at DESC
+LIMIT $3;
+
+-- name: GetAuditLogsFirstPage :many
+SELECT al.*, au.email_address AS admin_email
+FROM approved_domains_audit_log al
+LEFT JOIN admin_users au ON al.admin_id = au.admin_user_id
+ORDER BY al.created_at DESC
+LIMIT $1;
+
+-- name: GetAuditLogsAfterCursor :many
+SELECT al.*, au.email_address AS admin_email
+FROM approved_domains_audit_log al
+LEFT JOIN admin_users au ON al.admin_id = au.admin_user_id
+WHERE al.created_at < $1
+ORDER BY al.created_at DESC
+LIMIT $2;

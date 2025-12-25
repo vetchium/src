@@ -89,9 +89,9 @@ model AuditLogsResponse {
 interface ApprovedDomains {
     @route("/")
     @post
-    @doc("Add a domain to the approved list")
+    @doc("Add a domain to the approved list. Domain names are normalized to lowercase.")
     createDomain(@body request: CreateApprovedDomainRequest): {
-        @statusCode statusCode: 200;
+        @statusCode statusCode: 201;
         @body response: ApprovedDomain;
     } | {
         @doc("Domain already exists")
@@ -152,7 +152,7 @@ interface ApprovedDomains {
     @delete
     @doc("Remove a domain from the approved list (soft delete)")
     deleteDomain(@path domain_name: DomainName): {
-        @statusCode statusCode: 200;
+        @statusCode statusCode: 204;
     } | {
         @doc("Domain not found")
         @statusCode

@@ -6,17 +6,62 @@ import { LoginPage } from "./pages/LoginPage";
 import { TFAPage } from "./pages/TFAPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { ApprovedDomainsPage } from "./pages/ApprovedDomainsPage";
-import { useState } from "react";
+import {
+	BrowserRouter,
+	Routes,
+	Route,
+	Navigate,
+	useLocation,
+} from "react-router-dom";
 import "./i18n";
 
 const { Content } = Layout;
 
-type Page = "dashboard" | "approved-domains";
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+	const { authState } = useAuth();
+	const location = useLocation();
+
+	if (authState === "login") {
+		return <Navigate to="/login" state={{ from: location }} replace />;
+	}
+
+	if (authState === "tfa") {
+		return <Navigate to="/tfa" replace />;
+	}
+
+	return <>{children}</>;
+}
+
+function AuthRoute({ children }: { children: React.ReactNode }) {
+	const { authState } = useAuth();
+
+	if (authState === "authenticated") {
+		return <Navigate to="/" replace />;
+	}
+
+	if (authState === "tfa") {
+		return <Navigate to="/tfa" replace />;
+	}
+
+	return <>{children}</>;
+}
+
+function TFARoute({ children }: { children: React.ReactNode }) {
+	const { authState } = useAuth();
+
+	if (authState === "login") {
+		return <Navigate to="/login" replace />;
+	}
+
+	if (authState === "authenticated") {
+		return <Navigate to="/" replace />;
+	}
+
+	return <>{children}</>;
+}
 
 function AppContent() {
 	const { theme } = useTheme();
-	const { authState } = useAuth();
-	const [currentPage, setCurrentPage] = useState<Page>("dashboard");
 
 	return (
 		<ConfigProvider
@@ -38,15 +83,41 @@ function AppContent() {
 						flex: 1,
 					}}
 				>
-					{authState === "login" && <LoginPage />}
-					{authState === "tfa" && <TFAPage />}
-					{authState === "authenticated" && currentPage === "dashboard" && (
-						<DashboardPage onNavigate={(page) => setCurrentPage(page)} />
-					)}
-					{authState === "authenticated" &&
-						currentPage === "approved-domains" && (
-							<ApprovedDomainsPage onBack={() => setCurrentPage("dashboard")} />
-						)}
+					<Routes>
+						<Route
+							path="/login"
+							element={
+								<AuthRoute>
+									<LoginPage />
+								</AuthRoute>
+							}
+						/>
+						<Route
+							path="/tfa"
+							element={
+								<TFARoute>
+									<TFAPage />
+								</TFARoute>
+							}
+						/>
+						<Route
+							path="/"
+							element={
+								<ProtectedRoute>
+									<DashboardPage />
+								</ProtectedRoute>
+							}
+						/>
+						<Route
+							path="/approved-domains"
+							element={
+								<ProtectedRoute>
+									<ApprovedDomainsPage />
+								</ProtectedRoute>
+							}
+						/>
+						<Route path="*" element={<Navigate to="/" replace />} />
+					</Routes>
 				</Content>
 			</Layout>
 		</ConfigProvider>
@@ -55,11 +126,13 @@ function AppContent() {
 
 function App() {
 	return (
-		<ThemeProvider>
-			<AuthProvider>
-				<AppContent />
-			</AuthProvider>
-		</ThemeProvider>
+		<BrowserRouter>
+			<ThemeProvider>
+				<AuthProvider>
+					<AppContent />
+				</AuthProvider>
+			</ThemeProvider>
+		</BrowserRouter>
 	);
 }
 

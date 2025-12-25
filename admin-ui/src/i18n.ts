@@ -50,17 +50,17 @@ const resources = {
 	"en-US": {
 		common: enUSCommon,
 		auth: enUSAuth,
-		"approved-domains": enUSApprovedDomains,
+		approvedDomains: enUSApprovedDomains,
 	},
 	"de-DE": {
 		common: deDECommon,
 		auth: deDEAuth,
-		"approved-domains": deDEApprovedDomains,
+		approvedDomains: deDEApprovedDomains,
 	},
 	"ta-IN": {
 		common: taINCommon,
 		auth: taINAuth,
-		"approved-domains": taINApprovedDomains,
+		approvedDomains: taINApprovedDomains,
 	},
 };
 
@@ -69,7 +69,7 @@ i18n.use(initReactI18next).init({
 	lng: getStoredLanguage(),
 	fallbackLng: DEFAULT_LANGUAGE,
 	defaultNS: "common",
-	ns: ["common", "auth", "approved-domains"],
+	ns: ["common", "auth", "approvedDomains"],
 	interpolation: {
 		escapeValue: false, // React already escapes
 	},

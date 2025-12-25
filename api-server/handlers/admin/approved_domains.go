@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"net/netip"
+	"strconv"
 	"strings"
 	"time"
 
@@ -23,8 +24,18 @@ import (
 
 const (
 	defaultLimit = 50
-	maxLimit    = 100
+	maxLimit     = 100
 )
+
+// ErrorResponse represents a JSON error response body.
+type ErrorResponse struct {
+	Error string `json:"error"`
+}
+
+func writeErrorResponse(w http.ResponseWriter, statusCode int, message string) {
+	w.WriteHeader(statusCode)
+	json.NewEncoder(w).Encode(ErrorResponse{Error: message})
+}
 
 // CreateApprovedDomain handles POST /admin/approved-domains
 func CreateApprovedDomain(s *server.Server) http.HandlerFunc {
@@ -34,7 +45,6 @@ func CreateApprovedDomain(s *server.Server) http.HandlerFunc {
 		ctx := r.Context()
 		log := s.Logger(ctx)
 
-		// Get admin user from auth middleware context
 		adminUser := middleware.AdminUserFromContext(ctx)
 		if adminUser == nil {
 			log.Debug("admin user not found in context")
@@ -42,15 +52,16 @@ func CreateApprovedDomain(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Decode request
 		var request admin.CreateApprovedDomainRequest
 		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 			log.Debug("failed to decode request", "error", err)
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			writeErrorResponse(w, http.StatusBadRequest, "invalid JSON request body")
 			return
 		}
 
-		// Validate request
+		// Normalize domain name to lowercase before validation
+		request.DomainName = common.DomainName(strings.ToLower(string(request.DomainName)))
+
 		if validationErrors := request.Validate(); len(validationErrors) > 0 {
 			log.Debug("validation failed", "errors", validationErrors)
 			w.WriteHeader(http.StatusBadRequest)
@@ -64,7 +75,7 @@ func CreateApprovedDomain(s *server.Server) http.HandlerFunc {
 		_, err := s.Global.GetApprovedDomainByName(ctx, domainName)
 		if err == nil {
 			log.Debug("domain already exists", "domain_name", domainName)
-			w.WriteHeader(http.StatusConflict)
+			writeErrorResponse(w, http.StatusConflict, "domain already exists")
 			return
 		} else if !errors.Is(err, pgx.ErrNoRows) {
 			log.Error("failed to check existing domain", "error", err)
@@ -72,7 +83,6 @@ func CreateApprovedDomain(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Create domain
 		domain, err := s.Global.CreateApprovedDomain(ctx, globaldb.CreateApprovedDomainParams{
 			DomainName:       domainName,
 			CreatedByAdminID: adminUser.AdminUserID,
@@ -83,18 +93,16 @@ func CreateApprovedDomain(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Create audit log
-		createAuditLog(ctx, s, adminUser.AdminUserID, adminUser.EmailAddress, "created", &domain.DomainID, &domainName, nil, domainToJSON(domain), r)
+		createAuditLog(ctx, s, adminUser.AdminUserID, "created", &domain.DomainID, &domainName, nil, domainToJSON(domain), r)
 
 		log.Info("approved domain created", "domain_name", domainName, "admin_user_id", adminUser.AdminUserID)
 
-		// Return response
 		w.WriteHeader(http.StatusCreated)
 		response := admin.ApprovedDomain{
-			DomainName:         common.DomainName(domainName),
+			DomainName:          common.DomainName(domainName),
 			CreatedByAdminEmail: common.EmailAddress(adminUser.EmailAddress),
-			CreatedAt:          domain.CreatedAt.Time.UTC().Format(time.RFC3339),
-			UpdatedAt:          domain.UpdatedAt.Time.UTC().Format(time.RFC3339),
+			CreatedAt:           domain.CreatedAt.Time.UTC().Format(time.RFC3339),
+			UpdatedAt:           domain.UpdatedAt.Time.UTC().Format(time.RFC3339),
 		}
 
 		if err := json.NewEncoder(w).Encode(response); err != nil {
@@ -111,83 +119,36 @@ func ListApprovedDomains(s *server.Server) http.HandlerFunc {
 		ctx := r.Context()
 		log := s.Logger(ctx)
 
-		// Get admin user from auth middleware context
 		adminUser := middleware.AdminUserFromContext(ctx)
 		if adminUser == nil {
 			log.Debug("admin user not found in context")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
-		_ = adminUser // Auth verified, no further use needed
 
-		// Parse query params
 		search := r.URL.Query().Get("search")
 		limit := parseLimit(r.URL.Query().Get("limit"), defaultLimit, maxLimit)
 		cursor := r.URL.Query().Get("cursor")
 
-		var domains []globaldb.ApprovedDomain
+		var domainResponses []admin.ApprovedDomain
+		var nextCursor string
+		var hasMore bool
 		var err error
 
 		if search != "" {
-			// Fuzzy search using pg_trgm
-			var cursorDomain string
-			if cursor != "" {
-				cursorDomain, err = decodeDomainCursor(cursor)
-				if err != nil {
-					log.Debug("invalid cursor", "error", err)
-					w.WriteHeader(http.StatusBadRequest)
-					return
-				}
-			}
-			domains, err = searchApprovedDomainsWithCursor(ctx, s, search, limit+1, cursorDomain)
+			domainResponses, nextCursor, hasMore, err = listDomainsWithSearch(ctx, s, search, limit, cursor)
 		} else {
-			// List all domains
-			var cursorDomain string
-			if cursor != "" {
-				cursorDomain, err = decodeDomainCursor(cursor)
-				if err != nil {
-					log.Debug("invalid cursor", "error", err)
-					w.WriteHeader(http.StatusBadRequest)
-					return
-				}
-			}
-			domains, err = listApprovedDomainsWithCursor(ctx, s, limit+1, cursorDomain)
+			domainResponses, nextCursor, hasMore, err = listDomainsWithoutSearch(ctx, s, limit, cursor)
 		}
 
 		if err != nil {
+			if err.Error() == "invalid cursor format" {
+				writeErrorResponse(w, http.StatusBadRequest, "invalid cursor format")
+				return
+			}
 			log.Error("failed to query approved domains", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
-		}
-
-		// Check if there are more pages
-		hasMore := len(domains) > limit
-		if hasMore {
-			domains = domains[:limit]
-		}
-
-		var nextCursor string
-		if hasMore && len(domains) > 0 {
-			lastDomain := domains[len(domains)-1]
-			nextCursor = encodeDomainCursor(lastDomain.DomainName)
-		}
-
-		// Build response
-		domainResponses := make([]admin.ApprovedDomain, len(domains))
-		for i, d := range domains {
-			// Get admin email for each domain
-			adminUser, err := s.Global.GetAdminUserByID(ctx, d.CreatedByAdminID)
-			adminEmail := d.CreatedByAdminID.String()
-			if err == nil {
-				adminEmail = adminUser.EmailAddress
-			}
-
-			domainResponses[i] = admin.ApprovedDomain{
-				DomainName:         common.DomainName(d.DomainName),
-				CreatedByAdminEmail: common.EmailAddress(adminEmail),
-				CreatedAt:          d.CreatedAt.Time.UTC().Format(time.RFC3339),
-				UpdatedAt:          d.UpdatedAt.Time.UTC().Format(time.RFC3339),
-			}
 		}
 
 		response := admin.ApprovedDomainListResponse{
@@ -202,6 +163,128 @@ func ListApprovedDomains(s *server.Server) http.HandlerFunc {
 	}
 }
 
+func listDomainsWithoutSearch(ctx context.Context, s *server.Server, limit int, cursor string) ([]admin.ApprovedDomain, string, bool, error) {
+	var rows []globaldb.ListApprovedDomainsFirstPageRow
+
+	if cursor == "" {
+		var err error
+		rows, err = s.Global.ListApprovedDomainsFirstPage(ctx, int32(limit+1))
+		if err != nil {
+			return nil, "", false, err
+		}
+	} else {
+		cursorDomain, err := decodeDomainCursor(cursor)
+		if err != nil {
+			return nil, "", false, err
+		}
+		afterRows, err := s.Global.ListApprovedDomainsAfterCursor(ctx, globaldb.ListApprovedDomainsAfterCursorParams{
+			DomainName: cursorDomain,
+			Limit:      int32(limit + 1),
+		})
+		if err != nil {
+			return nil, "", false, err
+		}
+		for _, r := range afterRows {
+			rows = append(rows, globaldb.ListApprovedDomainsFirstPageRow{
+				DomainID:         r.DomainID,
+				DomainName:       r.DomainName,
+				CreatedByAdminID: r.CreatedByAdminID,
+				CreatedAt:        r.CreatedAt,
+				UpdatedAt:        r.UpdatedAt,
+				DeletedAt:        r.DeletedAt,
+				AdminEmail:       r.AdminEmail,
+			})
+		}
+	}
+
+	hasMore := len(rows) > limit
+	if hasMore {
+		rows = rows[:limit]
+	}
+
+	var nextCursor string
+	if hasMore && len(rows) > 0 {
+		lastRow := rows[len(rows)-1]
+		nextCursor = encodeDomainCursor(lastRow.DomainName)
+	}
+
+	domainResponses := make([]admin.ApprovedDomain, len(rows))
+	for i, r := range rows {
+		domainResponses[i] = admin.ApprovedDomain{
+			DomainName:          common.DomainName(r.DomainName),
+			CreatedByAdminEmail: common.EmailAddress(r.AdminEmail),
+			CreatedAt:           r.CreatedAt.Time.UTC().Format(time.RFC3339),
+			UpdatedAt:           r.UpdatedAt.Time.UTC().Format(time.RFC3339),
+		}
+	}
+
+	return domainResponses, nextCursor, hasMore, nil
+}
+
+func listDomainsWithSearch(ctx context.Context, s *server.Server, search string, limit int, cursor string) ([]admin.ApprovedDomain, string, bool, error) {
+	var rows []globaldb.SearchApprovedDomainsFirstPageRow
+
+	if cursor == "" {
+		var err error
+		rows, err = s.Global.SearchApprovedDomainsFirstPage(ctx, globaldb.SearchApprovedDomainsFirstPageParams{
+			SearchTerm: search,
+			LimitCount: int32(limit + 1),
+		})
+		if err != nil {
+			return nil, "", false, err
+		}
+	} else {
+		cursorScore, cursorDomain, err := decodeSearchCursor(cursor)
+		if err != nil {
+			return nil, "", false, err
+		}
+		afterRows, err := s.Global.SearchApprovedDomainsAfterCursor(ctx, globaldb.SearchApprovedDomainsAfterCursorParams{
+			SearchTerm:   search,
+			CursorScore:  cursorScore,
+			CursorDomain: cursorDomain,
+			LimitCount:   int32(limit + 1),
+		})
+		if err != nil {
+			return nil, "", false, err
+		}
+		for _, r := range afterRows {
+			rows = append(rows, globaldb.SearchApprovedDomainsFirstPageRow{
+				DomainID:         r.DomainID,
+				DomainName:       r.DomainName,
+				CreatedByAdminID: r.CreatedByAdminID,
+				CreatedAt:        r.CreatedAt,
+				UpdatedAt:        r.UpdatedAt,
+				DeletedAt:        r.DeletedAt,
+				AdminEmail:       r.AdminEmail,
+				SimScore:         r.SimScore,
+			})
+		}
+	}
+
+	hasMore := len(rows) > limit
+	if hasMore {
+		rows = rows[:limit]
+	}
+
+	var nextCursor string
+	if hasMore && len(rows) > 0 {
+		lastRow := rows[len(rows)-1]
+		nextCursor = encodeSearchCursor(lastRow.SimScore, lastRow.DomainName)
+	}
+
+	domainResponses := make([]admin.ApprovedDomain, len(rows))
+	for i, r := range rows {
+		domainResponses[i] = admin.ApprovedDomain{
+			DomainName:          common.DomainName(r.DomainName),
+			CreatedByAdminEmail: common.EmailAddress(r.AdminEmail),
+			CreatedAt:           r.CreatedAt.Time.UTC().Format(time.RFC3339),
+			UpdatedAt:           r.UpdatedAt.Time.UTC().Format(time.RFC3339),
+		}
+	}
+
+	return domainResponses, nextCursor, hasMore, nil
+}
+
 // GetApprovedDomain handles GET /admin/approved-domains/{domain_name}
 func GetApprovedDomain(s *server.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -210,20 +293,16 @@ func GetApprovedDomain(s *server.Server) http.HandlerFunc {
 		ctx := r.Context()
 		log := s.Logger(ctx)
 
-		// Get admin user from auth middleware context
 		adminUser := middleware.AdminUserFromContext(ctx)
 		if adminUser == nil {
 			log.Debug("admin user not found in context")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
-		_ = adminUser // Auth verified, no further use needed
 
-		// Get domain name from URL path variable
 		domainName := r.PathValue("domainName")
 
-		// Get domain
-		domain, err := s.Global.GetApprovedDomainByName(ctx, domainName)
+		domain, err := s.Global.GetApprovedDomainWithAdminByName(ctx, domainName)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				log.Debug("domain not found", "domain_name", domainName)
@@ -235,42 +314,32 @@ func GetApprovedDomain(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Get admin email
-		domainAdmin, err := s.Global.GetAdminUserByID(ctx, domain.CreatedByAdminID)
-		adminEmail := domain.CreatedByAdminID.String()
-		if err == nil {
-			adminEmail = domainAdmin.EmailAddress
-		}
-
-		// Get audit logs with pagination
 		auditLimit := parseLimit(r.URL.Query().Get("audit_limit"), defaultLimit, maxLimit)
 		auditCursor := r.URL.Query().Get("audit_cursor")
 
-		auditLogs, nextAuditCursor, hasMoreAudit, err := getAuditLogsWithCursor(ctx, s, &domain.DomainID, auditLimit+1, auditCursor)
+		auditLogs, nextAuditCursor, hasMoreAudit, err := getAuditLogsForDomain(ctx, s, domain.DomainID, auditLimit, auditCursor)
 		if err != nil {
+			if err.Error() == "invalid cursor format" {
+				writeErrorResponse(w, http.StatusBadRequest, "invalid audit cursor format")
+				return
+			}
 			log.Error("failed to get audit logs", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		// Build response
 		domainResponse := admin.ApprovedDomain{
-			DomainName:         common.DomainName(domain.DomainName),
-			CreatedByAdminEmail: common.EmailAddress(adminEmail),
-			CreatedAt:          domain.CreatedAt.Time.UTC().Format(time.RFC3339),
-			UpdatedAt:          domain.UpdatedAt.Time.UTC().Format(time.RFC3339),
-		}
-
-		auditResponses := make([]admin.ApprovedDomainAuditLog, len(auditLogs))
-		for i, al := range auditLogs {
-			auditResponses[i] = auditLogToResponse(ctx, s, al)
+			DomainName:          common.DomainName(domain.DomainName),
+			CreatedByAdminEmail: common.EmailAddress(domain.AdminEmail),
+			CreatedAt:           domain.CreatedAt.Time.UTC().Format(time.RFC3339),
+			UpdatedAt:           domain.UpdatedAt.Time.UTC().Format(time.RFC3339),
 		}
 
 		response := admin.ApprovedDomainDetailResponse{
-			Domain:           domainResponse,
-			AuditLogs:        auditResponses,
-			NextAuditCursor:  nextAuditCursor,
-			HasMoreAudit:     hasMoreAudit,
+			Domain:          domainResponse,
+			AuditLogs:       auditLogs,
+			NextAuditCursor: nextAuditCursor,
+			HasMoreAudit:    hasMoreAudit,
 		}
 
 		if err := json.NewEncoder(w).Encode(response); err != nil {
@@ -287,7 +356,6 @@ func DeleteApprovedDomain(s *server.Server) http.HandlerFunc {
 		ctx := r.Context()
 		log := s.Logger(ctx)
 
-		// Get admin user from auth middleware context
 		adminUser := middleware.AdminUserFromContext(ctx)
 		if adminUser == nil {
 			log.Debug("admin user not found in context")
@@ -295,10 +363,8 @@ func DeleteApprovedDomain(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Get domain name from URL path variable
 		domainName := r.PathValue("domainName")
 
-		// Get domain before deletion for audit log
 		domain, err := s.Global.GetApprovedDomainByName(ctx, domainName)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
@@ -311,7 +377,6 @@ func DeleteApprovedDomain(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Soft delete domain
 		deletedDomain, err := s.Global.SoftDeleteApprovedDomain(ctx, domain.DomainID)
 		if err != nil {
 			log.Error("failed to delete approved domain", "error", err)
@@ -319,12 +384,11 @@ func DeleteApprovedDomain(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Create audit log with old value
 		oldValue := domainToJSON(domain)
 		newValue := map[string]interface{}{
 			"deleted_at": deletedDomain.DeletedAt.Time.UTC().Format(time.RFC3339),
 		}
-		createAuditLog(ctx, s, adminUser.AdminUserID, adminUser.EmailAddress, "deleted", &domain.DomainID, &domainName, oldValue, newValue, r)
+		createAuditLog(ctx, s, adminUser.AdminUserID, "deleted", &domain.DomainID, &domainName, oldValue, newValue, r)
 
 		log.Info("approved domain deleted", "domain_name", domainName, "admin_user_id", adminUser.AdminUserID)
 
@@ -340,35 +404,29 @@ func GetAuditLogs(s *server.Server) http.HandlerFunc {
 		ctx := r.Context()
 		log := s.Logger(ctx)
 
-		// Get admin user from auth middleware context
 		adminUser := middleware.AdminUserFromContext(ctx)
 		if adminUser == nil {
 			log.Debug("admin user not found in context")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
-		_ = adminUser // Auth verified, no further use needed
 
-		// Parse query params
 		limit := parseLimit(r.URL.Query().Get("limit"), defaultLimit, maxLimit)
 		cursor := r.URL.Query().Get("cursor")
 
-		// Get audit logs with pagination
-		auditLogs, nextCursor, hasMore, err := getAuditLogsWithCursor(ctx, s, nil, limit+1, cursor)
+		auditLogs, nextCursor, hasMore, err := getAllAuditLogs(ctx, s, limit, cursor)
 		if err != nil {
+			if err.Error() == "invalid cursor format" {
+				writeErrorResponse(w, http.StatusBadRequest, "invalid cursor format")
+				return
+			}
 			log.Error("failed to get audit logs", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		// Build response
-		auditResponses := make([]admin.ApprovedDomainAuditLog, len(auditLogs))
-		for i, al := range auditLogs {
-			auditResponses[i] = auditLogToResponse(ctx, s, al)
-		}
-
 		response := admin.AuditLogsResponse{
-			Logs:       auditResponses,
+			Logs:       auditLogs,
 			NextCursor: nextCursor,
 			HasMore:    hasMore,
 		}
@@ -381,7 +439,7 @@ func GetAuditLogs(s *server.Server) http.HandlerFunc {
 
 // Helper functions
 
-func createAuditLog(ctx context.Context, s *server.Server, adminID pgtype.UUID, adminEmail string, action string, targetDomainID *pgtype.UUID, targetDomainName *string, oldValue, newValue map[string]interface{}, r *http.Request) {
+func createAuditLog(ctx context.Context, s *server.Server, adminID pgtype.UUID, action string, targetDomainID *pgtype.UUID, targetDomainName *string, oldValue, newValue map[string]interface{}, r *http.Request) {
 	var targetIDPtr pgtype.UUID
 	if targetDomainID != nil {
 		targetIDPtr = *targetDomainID
@@ -395,13 +453,8 @@ func createAuditLog(ctx context.Context, s *server.Server, adminID pgtype.UUID, 
 	oldJSON, _ := json.Marshal(oldValue)
 	newJSON, _ := json.Marshal(newValue)
 
-	// Get IP address
 	ipAddress := getIPAddress(r)
-
-	// Get user agent
 	userAgent := pgtype.Text{String: r.Header.Get("User-Agent"), Valid: true}
-
-	// Get request ID
 	requestID := pgtype.Text{String: r.Header.Get("X-Request-ID"), Valid: true}
 
 	_, err := s.Global.CreateAuditLog(ctx, globaldb.CreateAuditLogParams{
@@ -424,28 +477,21 @@ func getIPAddress(r *http.Request) *netip.Addr {
 	// Check X-Forwarded-For header first (for proxies)
 	forwardedFor := r.Header.Get("X-Forwarded-For")
 	if forwardedFor != "" {
-		// Take the first IP from the list
 		ips := strings.Split(forwardedFor, ",")
-		ip := net.ParseIP(strings.TrimSpace(ips[0]))
-		if ip != nil {
-			addr, ok := netip.AddrFromSlice(ip.To4())
-			if ok {
-				return &addr
-			}
+		ipStr := strings.TrimSpace(ips[0])
+		if addr, err := netip.ParseAddr(ipStr); err == nil {
+			return &addr
 		}
 	}
 
 	// Fall back to RemoteAddr
 	ipStr, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
-		return nil
+		// RemoteAddr might not have port
+		ipStr = r.RemoteAddr
 	}
-	ip := net.ParseIP(ipStr)
-	if ip != nil {
-		addr, ok := netip.AddrFromSlice(ip.To4())
-		if ok {
-			return &addr
-		}
+	if addr, err := netip.ParseAddr(ipStr); err == nil {
+		return &addr
 	}
 	return nil
 }
@@ -460,218 +506,273 @@ func domainToJSON(domain globaldb.ApprovedDomain) map[string]interface{} {
 	}
 }
 
-func auditLogToResponse(ctx context.Context, s *server.Server, log globaldb.ApprovedDomainsAuditLog) admin.ApprovedDomainAuditLog {
-	response := admin.ApprovedDomainAuditLog{
-		Action:    admin.AuditAction(log.Action),
-		CreatedAt: log.CreatedAt.Time.UTC().Format(time.RFC3339),
-	}
+func getAuditLogsForDomain(ctx context.Context, s *server.Server, domainID pgtype.UUID, limit int, cursor string) ([]admin.ApprovedDomainAuditLog, string, bool, error) {
+	var rows []globaldb.GetAuditLogsByDomainIDFirstPageRow
 
-	// Get admin email from admin ID
-	if log.AdminID.Valid {
-		adminUser, err := s.Global.GetAdminUserByID(ctx, log.AdminID)
-		if err == nil {
-			response.AdminEmail = common.EmailAddress(adminUser.EmailAddress)
+	if cursor == "" {
+		var err error
+		rows, err = s.Global.GetAuditLogsByDomainIDFirstPage(ctx, globaldb.GetAuditLogsByDomainIDFirstPageParams{
+			TargetDomainID: domainID,
+			Limit:          int32(limit + 1),
+		})
+		if err != nil {
+			return nil, "", false, err
+		}
+	} else {
+		cursorTime, err := decodeAuditCursor(cursor)
+		if err != nil {
+			return nil, "", false, err
+		}
+		afterRows, err := s.Global.GetAuditLogsByDomainIDAfterCursor(ctx, globaldb.GetAuditLogsByDomainIDAfterCursorParams{
+			TargetDomainID: domainID,
+			CreatedAt:      pgtype.Timestamptz{Time: cursorTime, Valid: true},
+			Limit:          int32(limit + 1),
+		})
+		if err != nil {
+			return nil, "", false, err
+		}
+		for _, r := range afterRows {
+			rows = append(rows, globaldb.GetAuditLogsByDomainIDFirstPageRow{
+				AuditID:          r.AuditID,
+				AdminID:          r.AdminID,
+				Action:           r.Action,
+				TargetDomainID:   r.TargetDomainID,
+				TargetDomainName: r.TargetDomainName,
+				OldValue:         r.OldValue,
+				NewValue:         r.NewValue,
+				IpAddress:        r.IpAddress,
+				UserAgent:        r.UserAgent,
+				RequestID:        r.RequestID,
+				CreatedAt:        r.CreatedAt,
+				AdminEmail:       r.AdminEmail,
+			})
 		}
 	}
 
-	if log.TargetDomainName.Valid {
-		targetName := log.TargetDomainName.String
-		domainName := common.DomainName(targetName)
-		response.TargetDomainName = &domainName
+	hasMore := len(rows) > limit
+	if hasMore {
+		rows = rows[:limit]
 	}
 
-	if log.OldValue != nil {
+	var nextCursor string
+	if hasMore && len(rows) > 0 {
+		lastRow := rows[len(rows)-1]
+		nextCursor = encodeAuditCursor(lastRow.CreatedAt.Time)
+	}
+
+	auditLogs := make([]admin.ApprovedDomainAuditLog, len(rows))
+	for i, r := range rows {
+		auditLogs[i] = auditLogRowToResponse(r)
+	}
+
+	return auditLogs, nextCursor, hasMore, nil
+}
+
+func getAllAuditLogs(ctx context.Context, s *server.Server, limit int, cursor string) ([]admin.ApprovedDomainAuditLog, string, bool, error) {
+	var rows []globaldb.GetAuditLogsFirstPageRow
+
+	if cursor == "" {
+		var err error
+		rows, err = s.Global.GetAuditLogsFirstPage(ctx, int32(limit+1))
+		if err != nil {
+			return nil, "", false, err
+		}
+	} else {
+		cursorTime, err := decodeAuditCursor(cursor)
+		if err != nil {
+			return nil, "", false, err
+		}
+		afterRows, err := s.Global.GetAuditLogsAfterCursor(ctx, globaldb.GetAuditLogsAfterCursorParams{
+			CreatedAt: pgtype.Timestamptz{Time: cursorTime, Valid: true},
+			Limit:     int32(limit + 1),
+		})
+		if err != nil {
+			return nil, "", false, err
+		}
+		for _, r := range afterRows {
+			rows = append(rows, globaldb.GetAuditLogsFirstPageRow{
+				AuditID:          r.AuditID,
+				AdminID:          r.AdminID,
+				Action:           r.Action,
+				TargetDomainID:   r.TargetDomainID,
+				TargetDomainName: r.TargetDomainName,
+				OldValue:         r.OldValue,
+				NewValue:         r.NewValue,
+				IpAddress:        r.IpAddress,
+				UserAgent:        r.UserAgent,
+				RequestID:        r.RequestID,
+				CreatedAt:        r.CreatedAt,
+				AdminEmail:       r.AdminEmail,
+			})
+		}
+	}
+
+	hasMore := len(rows) > limit
+	if hasMore {
+		rows = rows[:limit]
+	}
+
+	var nextCursor string
+	if hasMore && len(rows) > 0 {
+		lastRow := rows[len(rows)-1]
+		nextCursor = encodeAuditCursor(lastRow.CreatedAt.Time)
+	}
+
+	auditLogs := make([]admin.ApprovedDomainAuditLog, len(rows))
+	for i, r := range rows {
+		auditLogs[i] = auditLogFirstPageRowToResponse(r)
+	}
+
+	return auditLogs, nextCursor, hasMore, nil
+}
+
+func auditLogRowToResponse(r globaldb.GetAuditLogsByDomainIDFirstPageRow) admin.ApprovedDomainAuditLog {
+	response := admin.ApprovedDomainAuditLog{
+		Action:    admin.AuditAction(r.Action),
+		CreatedAt: r.CreatedAt.Time.UTC().Format(time.RFC3339),
+	}
+
+	if r.AdminEmail.Valid {
+		response.AdminEmail = common.EmailAddress(r.AdminEmail.String)
+	}
+
+	if r.TargetDomainName.Valid {
+		targetName := common.DomainName(r.TargetDomainName.String)
+		response.TargetDomainName = &targetName
+	}
+
+	if r.OldValue != nil {
 		var oldVal map[string]interface{}
-		json.Unmarshal(log.OldValue, &oldVal)
+		json.Unmarshal(r.OldValue, &oldVal)
 		response.OldValue = oldVal
 	}
 
-	if log.NewValue != nil {
+	if r.NewValue != nil {
 		var newVal map[string]interface{}
-		json.Unmarshal(log.NewValue, &newVal)
+		json.Unmarshal(r.NewValue, &newVal)
 		response.NewValue = newVal
 	}
 
-	if log.IpAddress != nil {
-		ipAddr := log.IpAddress.String()
+	if r.IpAddress != nil {
+		ipAddr := r.IpAddress.String()
 		response.IpAddress = &ipAddr
 	}
 
-	if log.UserAgent.Valid {
-		ua := log.UserAgent.String
+	if r.UserAgent.Valid {
+		ua := r.UserAgent.String
 		response.UserAgent = &ua
 	}
 
-	if log.RequestID.Valid {
-		rid := log.RequestID.String
+	if r.RequestID.Valid {
+		rid := r.RequestID.String
 		response.RequestID = &rid
 	}
 
 	return response
 }
 
-func listApprovedDomainsWithCursor(ctx context.Context, s *server.Server, limit int, cursor string) ([]globaldb.ApprovedDomain, error) {
-	if cursor == "" {
-		// First page - no cursor
-		rows, err := s.Global.ListApprovedDomains(ctx)
-		if err != nil {
-			return nil, err
-		}
-		if len(rows) <= limit {
-			return rows, nil
-		}
-		return rows[:limit], nil
+func auditLogFirstPageRowToResponse(r globaldb.GetAuditLogsFirstPageRow) admin.ApprovedDomainAuditLog {
+	response := admin.ApprovedDomainAuditLog{
+		Action:    admin.AuditAction(r.Action),
+		CreatedAt: r.CreatedAt.Time.UTC().Format(time.RFC3339),
 	}
 
-	// Cursor pagination: WHERE domain_name > cursor ORDER BY domain_name ASC
-	rows, err := s.Global.ListApprovedDomains(ctx)
-	if err != nil {
-		return nil, err
+	if r.AdminEmail.Valid {
+		response.AdminEmail = common.EmailAddress(r.AdminEmail.String)
 	}
 
-	// Filter rows after cursor
-	var result []globaldb.ApprovedDomain
-	for _, row := range rows {
-		if row.DomainName > cursor {
-			result = append(result, row)
-		}
+	if r.TargetDomainName.Valid {
+		targetName := common.DomainName(r.TargetDomainName.String)
+		response.TargetDomainName = &targetName
 	}
 
-	if len(result) <= limit {
-		return result, nil
+	if r.OldValue != nil {
+		var oldVal map[string]interface{}
+		json.Unmarshal(r.OldValue, &oldVal)
+		response.OldValue = oldVal
 	}
-	return result[:limit], nil
+
+	if r.NewValue != nil {
+		var newVal map[string]interface{}
+		json.Unmarshal(r.NewValue, &newVal)
+		response.NewValue = newVal
+	}
+
+	if r.IpAddress != nil {
+		ipAddr := r.IpAddress.String()
+		response.IpAddress = &ipAddr
+	}
+
+	if r.UserAgent.Valid {
+		ua := r.UserAgent.String
+		response.UserAgent = &ua
+	}
+
+	if r.RequestID.Valid {
+		rid := r.RequestID.String
+		response.RequestID = &rid
+	}
+
+	return response
 }
 
-func searchApprovedDomainsWithCursor(ctx context.Context, s *server.Server, search string, limit int, cursor string) ([]globaldb.ApprovedDomain, error) {
-	// For cursor-based pagination with similarity search, we fetch more and filter in memory
-	// This is a limitation of similarity-based search with keyset pagination
-	offset := int32(0)
-	if cursor != "" {
-		// Find the cursor position
-		allRows, err := s.Global.SearchApprovedDomains(ctx, globaldb.SearchApprovedDomainsParams{
-			DomainName: search,
-			Limit:      1000,
-			Offset:     0,
-		})
-		if err != nil {
-			return nil, err
-		}
-		for i, row := range allRows {
-			if row.DomainName == cursor {
-				offset = int32(i + 1)
-				break
-			}
-		}
-	}
-
-	// Fetch results with offset
-	allRows, err := s.Global.SearchApprovedDomains(ctx, globaldb.SearchApprovedDomainsParams{
-		DomainName: search,
-		Limit:      int32(limit * 2),
-		Offset:     offset,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	if len(allRows) <= limit {
-		return allRows, nil
-	}
-	return allRows[:limit], nil
-}
-
-func getAuditLogsWithCursor(ctx context.Context, s *server.Server, targetDomainID *pgtype.UUID, limit int, cursor string) ([]globaldb.ApprovedDomainsAuditLog, string, bool, error) {
-	var logs []globaldb.ApprovedDomainsAuditLog
-
-	// Parse cursor timestamp
-	var cursorTime time.Time
-	if cursor != "" {
-		decoded, err := base64.StdEncoding.DecodeString(cursor)
-		if err == nil {
-			cursorTime, _ = time.Parse(time.RFC3339, string(decoded))
-		}
-	}
-
-	if targetDomainID != nil {
-		// Get logs for specific domain
-		allLogs, err := s.Global.GetAuditLogsByDomainID(ctx, *targetDomainID)
-		if err != nil {
-			return nil, "", false, err
-		}
-
-		// Filter by cursor (logs are ordered DESC, so we want logs < cursorTime)
-		if !cursorTime.IsZero() {
-			var filtered []globaldb.ApprovedDomainsAuditLog
-			for _, log := range allLogs {
-				if log.CreatedAt.Time.Before(cursorTime) {
-					filtered = append(filtered, log)
-				}
-			}
-			logs = filtered
-		} else {
-			logs = allLogs
-		}
-	} else {
-		// Get all audit logs
-		allLogs, err := s.Global.GetAuditLogs(ctx, globaldb.GetAuditLogsParams{
-			Limit:  int32(limit * 10),
-			Offset: 0,
-		})
-		if err != nil {
-			return nil, "", false, err
-		}
-
-		// Filter by cursor
-		if !cursorTime.IsZero() {
-			var filtered []globaldb.ApprovedDomainsAuditLog
-			for _, log := range allLogs {
-				if log.CreatedAt.Time.Before(cursorTime) {
-					filtered = append(filtered, log)
-				}
-			}
-			logs = filtered
-		} else {
-			logs = allLogs
-		}
-	}
-
-	hasMore := len(logs) > limit
-	if hasMore {
-		logs = logs[:limit]
-	}
-
-	var nextCursor string
-	if hasMore && len(logs) > 0 {
-		lastLog := logs[len(logs)-1]
-		nextCursor = base64.StdEncoding.EncodeToString([]byte(lastLog.CreatedAt.Time.UTC().Format(time.RFC3339)))
-	}
-
-	return logs, nextCursor, hasMore, nil
-}
+// Cursor encoding/decoding functions
 
 func encodeDomainCursor(domainName string) string {
-	// Encode as base64 for URL safety
-	return base64.StdEncoding.EncodeToString([]byte(domainName))
+	return base64.URLEncoding.EncodeToString([]byte(domainName))
 }
 
 func decodeDomainCursor(cursor string) (string, error) {
-	decoded, err := base64.StdEncoding.DecodeString(cursor)
+	decoded, err := base64.URLEncoding.DecodeString(cursor)
 	if err != nil {
 		return "", fmt.Errorf("invalid cursor format")
 	}
 	return string(decoded), nil
 }
 
+func encodeSearchCursor(score float32, domainName string) string {
+	data := fmt.Sprintf("%f|%s", score, domainName)
+	return base64.URLEncoding.EncodeToString([]byte(data))
+}
+
+func decodeSearchCursor(cursor string) (float32, string, error) {
+	decoded, err := base64.URLEncoding.DecodeString(cursor)
+	if err != nil {
+		return 0, "", fmt.Errorf("invalid cursor format")
+	}
+	parts := strings.SplitN(string(decoded), "|", 2)
+	if len(parts) != 2 {
+		return 0, "", fmt.Errorf("invalid cursor format")
+	}
+	score, err := strconv.ParseFloat(parts[0], 32)
+	if err != nil {
+		return 0, "", fmt.Errorf("invalid cursor format")
+	}
+	return float32(score), parts[1], nil
+}
+
+func encodeAuditCursor(t time.Time) string {
+	return base64.URLEncoding.EncodeToString([]byte(t.UTC().Format(time.RFC3339Nano)))
+}
+
+func decodeAuditCursor(cursor string) (time.Time, error) {
+	decoded, err := base64.URLEncoding.DecodeString(cursor)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("invalid cursor format")
+	}
+	t, err := time.Parse(time.RFC3339Nano, string(decoded))
+	if err != nil {
+		return time.Time{}, fmt.Errorf("invalid cursor format")
+	}
+	return t, nil
+}
+
 func parseLimit(limitStr string, defaultLimit, maxLimit int) int {
 	if limitStr == "" {
 		return defaultLimit
 	}
-	var limit int
-	if _, err := fmt.Sscanf(limitStr, "%d", &limit); err != nil {
-		return defaultLimit
-	}
-	if limit <= 0 {
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil || limit <= 0 {
 		return defaultLimit
 	}
 	if limit > maxLimit {

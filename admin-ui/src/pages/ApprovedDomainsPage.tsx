@@ -27,6 +27,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
 import { getApiBaseUrl } from "../config";
+import { Link } from "react-router-dom";
 import type {
 	CreateApprovedDomainRequest,
 	ApprovedDomain,
@@ -38,11 +39,7 @@ import { validateCreateApprovedDomainRequest } from "vetchium-specs/admin/approv
 
 const { Title } = Typography;
 
-interface ApprovedDomainsPageProps {
-	onBack: () => void;
-}
-
-export function ApprovedDomainsPage({ onBack }: ApprovedDomainsPageProps) {
+export function ApprovedDomainsPage() {
 	const { t } = useTranslation("approvedDomains");
 	const { sessionToken } = useAuth();
 
@@ -61,6 +58,7 @@ export function ApprovedDomainsPage({ onBack }: ApprovedDomainsPageProps) {
 	const [domainDetail, setDomainDetail] =
 		useState<ApprovedDomainDetailResponse | null>(null);
 	const [loadingDetail, setLoadingDetail] = useState(false);
+	const [loadingMoreAuditLogs, setLoadingMoreAuditLogs] = useState(false);
 
 	const fetchDomains = useCallback(
 		async (cursor: string | null = null, query: string = searchQuery) => {
@@ -70,7 +68,7 @@ export function ApprovedDomainsPage({ onBack }: ApprovedDomainsPageProps) {
 				const params = new URLSearchParams();
 				params.append("limit", "50");
 				if (cursor) params.append("cursor", cursor);
-				if (query) params.append("query", query);
+				if (query) params.append("search", query);
 
 				const response = await fetch(
 					`${apiBaseUrl}/admin/approved-domains?${params.toString()}`,
@@ -273,6 +271,47 @@ export function ApprovedDomainsPage({ onBack }: ApprovedDomainsPageProps) {
 		}
 	};
 
+	const loadMoreAuditLogs = async () => {
+		if (!selectedDomain || !domainDetail?.next_audit_cursor) return;
+
+		setLoadingMoreAuditLogs(true);
+		try {
+			const apiBaseUrl = await getApiBaseUrl();
+			const params = new URLSearchParams();
+			params.append("audit_cursor", domainDetail.next_audit_cursor);
+
+			const response = await fetch(
+				`${apiBaseUrl}/admin/approved-domains/${encodeURIComponent(selectedDomain)}?${params.toString()}`,
+				{
+					headers: {
+						Authorization: `Bearer ${sessionToken}`,
+					},
+				}
+			);
+
+			if (!response.ok) {
+				throw new Error(`HTTP error! status: ${response.status}`);
+			}
+
+			const data: ApprovedDomainDetailResponse = await response.json();
+			setDomainDetail((prev) =>
+				prev
+					? {
+							...prev,
+							audit_logs: [...prev.audit_logs, ...data.audit_logs],
+							next_audit_cursor: data.next_audit_cursor,
+							has_more_audit: data.has_more_audit,
+						}
+					: null
+			);
+		} catch (err) {
+			console.error("Failed to load more audit logs:", err);
+			message.error(t("errors.loadMoreAuditFailed"));
+		} finally {
+			setLoadingMoreAuditLogs(false);
+		}
+	};
+
 	const columns = [
 		{
 			title: t("table.domainName"),
@@ -343,9 +382,9 @@ export function ApprovedDomainsPage({ onBack }: ApprovedDomainsPageProps) {
 			<Card style={{ width: "100%" }}>
 				<Space direction="vertical" size="large" style={{ width: "100%" }}>
 					<Space style={{ justifyContent: "space-between", width: "100%" }}>
-						<Button icon={<ArrowLeftOutlined />} onClick={onBack}>
-							{t("actions.back")}
-						</Button>
+						<Link to="/">
+							<Button icon={<ArrowLeftOutlined />}>{t("actions.back")}</Button>
+						</Link>
 						<Button
 							type="primary"
 							icon={<PlusOutlined />}
@@ -493,9 +532,12 @@ export function ApprovedDomainsPage({ onBack }: ApprovedDomainsPageProps) {
 								)}
 								{domainDetail.has_more_audit && (
 									<div style={{ textAlign: "center", marginTop: 8 }}>
-										<Tooltip title={t("detailDrawer.moreAuditLogsHint")}>
-											<Tag color="blue">{t("detailDrawer.moreAuditLogs")}</Tag>
-										</Tooltip>
+										<Button
+											onClick={loadMoreAuditLogs}
+											loading={loadingMoreAuditLogs}
+										>
+											{t("actions.loadMoreAuditLogs")}
+										</Button>
 									</div>
 								)}
 							</div>

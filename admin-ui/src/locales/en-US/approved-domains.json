@@ -7,7 +7,8 @@
 		"delete": "Delete",
 		"back": "Back to Dashboard",
 		"viewDetails": "View details",
-		"loadMore": "Load More"
+		"loadMore": "Load More",
+		"loadMoreAuditLogs": "Load More Audit Logs"
 	},
 	"search": {
 		"placeholder": "Search domains..."
@@ -65,6 +66,7 @@
 		"domainNotFound": "Domain not found",
 		"addFailed": "Failed to add domain",
 		"deleteFailed": "Failed to delete domain",
-		"fetchDetailFailed": "Failed to fetch domain details"
+		"fetchDetailFailed": "Failed to fetch domain details",
+		"loadMoreAuditFailed": "Failed to load more audit logs"
 	}
 }

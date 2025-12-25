@@ -15,5 +15,11 @@
 		"en-US": "English",
 		"de-DE": "Deutsch",
 		"ta-IN": "தமிழ்"
+	},
+	"dashboard": {
+		"title": "நிர்வாக டாஷ்போர்டு"
+	},
+	"logout": {
+		"button": "வெளியேறு"
 	}
 }
