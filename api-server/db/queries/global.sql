@@ -69,3 +69,57 @@ WHERE language_code = $1;
 UPDATE admin_users
 SET preferred_language = $2
 WHERE admin_user_id = $1;
+
+-- Approved domains queries
+
+-- name: CreateApprovedDomain :one
+INSERT INTO approved_domains (domain_name, created_by_admin_id)
+VALUES ($1, $2)
+RETURNING *;
+
+-- name: ListApprovedDomains :many
+SELECT * FROM approved_domains
+WHERE deleted_at IS NULL
+ORDER BY domain_name ASC;
+
+-- name: SearchApprovedDomains :many
+SELECT * FROM approved_domains
+WHERE deleted_at IS NULL
+  AND domain_name % $1
+ORDER BY similarity(domain_name, $1) DESC, domain_name ASC
+LIMIT $2 OFFSET $3;
+
+-- name: GetApprovedDomainByID :one
+SELECT * FROM approved_domains
+WHERE domain_id = $1;
+
+-- name: GetApprovedDomainByName :one
+SELECT * FROM approved_domains
+WHERE domain_name = $1 AND deleted_at IS NULL;
+
+-- name: SoftDeleteApprovedDomain :one
+UPDATE approved_domains
+SET deleted_at = NOW()
+WHERE domain_id = $1 AND deleted_at IS NULL
+RETURNING *;
+
+-- name: CountApprovedDomains :one
+SELECT COUNT(*) FROM approved_domains WHERE deleted_at IS NULL;
+
+-- name: CreateAuditLog :one
+INSERT INTO approved_domains_audit_log (
+    admin_id, action, target_domain_id, target_domain_name,
+    old_value, new_value, ip_address, user_agent, request_id
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING *;
+
+-- name: GetAuditLogsByDomainID :many
+SELECT * FROM approved_domains_audit_log
+WHERE target_domain_id = $1
+ORDER BY created_at DESC;
+
+-- name: GetAuditLogs :many
+SELECT * FROM approved_domains_audit_log
+ORDER BY created_at DESC
+LIMIT $1 OFFSET $2;

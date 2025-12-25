@@ -13,6 +13,11 @@ type ctxKey string
 
 const loggerKey ctxKey = "logger"
 
+const (
+	adminSessionKey ctxKey = "adminSession"
+	adminUserKey    ctxKey = "adminUser"
+)
+
 // responseWriter wraps http.ResponseWriter to capture status code
 type responseWriter struct {
 	http.ResponseWriter

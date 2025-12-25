@@ -16,3 +16,9 @@ scalar Password extends string;
 @maxLength(10)
 @pattern("^[a-z]{2}(-[A-Z]{2})?$")
 scalar LanguageCode extends string;
+
+@minLength(3)
+@maxLength(255)
+@pattern("^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$")
+@doc("A valid domain name in lowercase (e.g., example.com)")
+scalar DomainName extends string;

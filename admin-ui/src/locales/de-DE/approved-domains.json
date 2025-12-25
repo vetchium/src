@@ -1,0 +1,70 @@
+{
+	"title": "Zugelassene Domains",
+	"dashboardTitle": "Zugelassene Domains",
+	"dashboardDescription": "Verwalten Sie zulässige E-Mail-Domains für die Benutzerregistrierung",
+	"actions": {
+		"add": "Domain hinzufügen",
+		"delete": "Löschen",
+		"back": "Zurück zum Dashboard",
+		"viewDetails": "Details anzeigen",
+		"loadMore": "Mehr laden"
+	},
+	"search": {
+		"placeholder": "Domains suchen..."
+	},
+	"table": {
+		"domainName": "Domain-Name",
+		"createdBy": "Erstellt von",
+		"createdAt": "Erstellt am",
+		"actions": "Aktionen",
+		"empty": "Keine zugelassenen Domains gefunden"
+	},
+	"addModal": {
+		"title": "Zugelassene Domain hinzufügen",
+		"domainLabel": "Domain-Name",
+		"domainPlaceholder": "beispiel.de",
+		"domainRequired": "Bitte geben Sie einen Domain-Namen ein",
+		"domainInvalid": "Bitte geben Sie eine gültige Domain ein",
+		"confirm": "Hinzufügen",
+		"cancel": "Abbrechen"
+	},
+	"confirmDelete": {
+		"title": "Domain löschen",
+		"message": "Sind Sie sicher, dass Sie {{domain}} löschen möchten?",
+		"confirm": "Löschen",
+		"cancel": "Abbrechen"
+	},
+	"detailDrawer": {
+		"title": "Domain-Details: {{domain}}",
+		"domainInfo": "Domain-Informationen",
+		"domainName": "Domain-Name",
+		"createdBy": "Erstellt von",
+		"createdAt": "Erstellt am",
+		"updatedAt": "Aktualisiert am",
+		"auditLogs": "Audit-Protokolle",
+		"noAuditLogs": "Keine Audit-Protokolle verfügbar",
+		"admin": "Administrator",
+		"targetDomain": "Ziel-Domain",
+		"ipAddress": "IP-Adresse",
+		"moreAuditLogs": "Weitere Protokolle verfügbar",
+		"moreAuditLogsHint": "Nur die neuesten Audit-Protokolle werden angezeigt"
+	},
+	"auditActions": {
+		"created": "Erstellt",
+		"deleted": "Gelöscht"
+	},
+	"success": {
+		"added": "Domain erfolgreich hinzugefügt",
+		"deleted": "Domain erfolgreich gelöscht"
+	},
+	"errors": {
+		"unauthorized": "Nicht autorisiert. Bitte melden Sie sich erneut an.",
+		"invalidRequest": "Ungültige Anfrage",
+		"fetchFailed": "Fehler beim Abrufen der zugelassenen Domains",
+		"domainExists": "Diese Domain existiert bereits",
+		"domainNotFound": "Domain nicht gefunden",
+		"addFailed": "Fehler beim Hinzufügen der Domain",
+		"deleteFailed": "Fehler beim Löschen der Domain",
+		"fetchDetailFailed": "Fehler beim Abrufen der Domain-Details"
+	}
+}

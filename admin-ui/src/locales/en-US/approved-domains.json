@@ -1,0 +1,70 @@
+{
+	"title": "Approved Domains",
+	"dashboardTitle": "Approved Domains",
+	"dashboardDescription": "Manage allowed email domains for user registration",
+	"actions": {
+		"add": "Add Domain",
+		"delete": "Delete",
+		"back": "Back to Dashboard",
+		"viewDetails": "View details",
+		"loadMore": "Load More"
+	},
+	"search": {
+		"placeholder": "Search domains..."
+	},
+	"table": {
+		"domainName": "Domain Name",
+		"createdBy": "Created By",
+		"createdAt": "Created At",
+		"actions": "Actions",
+		"empty": "No approved domains found"
+	},
+	"addModal": {
+		"title": "Add Approved Domain",
+		"domainLabel": "Domain Name",
+		"domainPlaceholder": "example.com",
+		"domainRequired": "Please enter a domain name",
+		"domainInvalid": "Please enter a valid domain name",
+		"confirm": "Add",
+		"cancel": "Cancel"
+	},
+	"confirmDelete": {
+		"title": "Delete Domain",
+		"message": "Are you sure you want to delete {{domain}}?",
+		"confirm": "Delete",
+		"cancel": "Cancel"
+	},
+	"detailDrawer": {
+		"title": "Domain Details: {{domain}}",
+		"domainInfo": "Domain Information",
+		"domainName": "Domain Name",
+		"createdBy": "Created By",
+		"createdAt": "Created At",
+		"updatedAt": "Updated At",
+		"auditLogs": "Audit Logs",
+		"noAuditLogs": "No audit logs available",
+		"admin": "Admin",
+		"targetDomain": "Target Domain",
+		"ipAddress": "IP Address",
+		"moreAuditLogs": "More logs available",
+		"moreAuditLogsHint": "Only the most recent audit logs are shown"
+	},
+	"auditActions": {
+		"created": "Created",
+		"deleted": "Deleted"
+	},
+	"success": {
+		"added": "Domain added successfully",
+		"deleted": "Domain deleted successfully"
+	},
+	"errors": {
+		"unauthorized": "Unauthorized. Please login again.",
+		"invalidRequest": "Invalid request",
+		"fetchFailed": "Failed to fetch approved domains",
+		"domainExists": "This domain already exists",
+		"domainNotFound": "Domain not found",
+		"addFailed": "Failed to add domain",
+		"deleteFailed": "Failed to delete domain",
+		"fetchDetailFailed": "Failed to fetch domain details"
+	}
+}

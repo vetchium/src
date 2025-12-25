@@ -4,11 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"strings"
 )
 
 type EmailAddress string
 type Password string
 type LanguageCode string
+type DomainName string
 
 // Validation constraints matching common.tsp
 const (
@@ -18,10 +20,13 @@ const (
 	PasswordMaxLength     = 64
 	LanguageCodeMinLength = 2
 	LanguageCodeMaxLength = 10
+	DomainMinLength       = 3
+	DomainMaxLength       = 255
 )
 
 var emailPattern = regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
 var languageCodePattern = regexp.MustCompile(`^[a-z]{2}(-[A-Z]{2})?$`)
+var domainNamePattern = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$`)
 
 // Supported languages (BCP 47 tags)
 var SupportedLanguages = []LanguageCode{"en-US", "de-DE", "ta-IN"}
@@ -40,6 +45,9 @@ var (
 	ErrTFACodeInvalidFormat   = errors.New("must contain only digits")
 	ErrLanguageCodeInvalid    = errors.New("must be a valid language code")
 	ErrLanguageNotSupported   = errors.New("language not supported")
+	ErrDomainTooShort         = errors.New("must be at least 3 characters")
+	ErrDomainTooLong          = errors.New("must be at most 255 characters")
+	ErrDomainInvalidFormat    = errors.New("must be a valid domain name in lowercase")
 )
 
 // ValidationError represents a validation failure with field context
@@ -93,4 +101,23 @@ func (l LanguageCode) Validate() error {
 		}
 	}
 	return ErrLanguageNotSupported
+}
+
+// Validate checks if the domain name meets constraints (returns error without field context)
+func (d DomainName) Validate() error {
+	domainStr := string(d)
+	if len(domainStr) < DomainMinLength {
+		return ErrDomainTooShort
+	}
+	if len(domainStr) > DomainMaxLength {
+		return ErrDomainTooLong
+	}
+	// Check if lowercase
+	if domainStr != strings.ToLower(domainStr) {
+		return ErrDomainInvalidFormat
+	}
+	if !domainNamePattern.MatchString(domainStr) {
+		return ErrDomainInvalidFormat
+	}
+	return nil
 }

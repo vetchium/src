@@ -1,6 +1,7 @@
 export type EmailAddress = string;
 export type Password = string;
 export type LanguageCode = string;
+export type DomainName = string;
 
 // Validation constraints matching common.tsp
 export const EMAIL_MIN_LENGTH = 3;
@@ -9,9 +10,12 @@ export const PASSWORD_MIN_LENGTH = 12;
 export const PASSWORD_MAX_LENGTH = 64;
 export const LANGUAGE_CODE_MIN_LENGTH = 2;
 export const LANGUAGE_CODE_MAX_LENGTH = 10;
+export const DOMAIN_MIN_LENGTH = 3;
+export const DOMAIN_MAX_LENGTH = 255;
 
 const EMAIL_PATTERN = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 const LANGUAGE_CODE_PATTERN = /^[a-z]{2}(-[A-Z]{2})?$/;
+const DOMAIN_NAME_PATTERN = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$/;
 
 // Supported languages (BCP 47 tags)
 export const SUPPORTED_LANGUAGES = ["en-US", "de-DE", "ta-IN"] as const;
@@ -29,6 +33,9 @@ export const ERR_TFA_CODE_INVALID_LENGTH = "must be exactly 6 characters";
 export const ERR_TFA_CODE_INVALID_FORMAT = "must contain only digits";
 export const ERR_LANGUAGE_CODE_INVALID = "must be a valid language code";
 export const ERR_LANGUAGE_NOT_SUPPORTED = "language not supported";
+export const ERR_DOMAIN_TOO_SHORT = "must be at least 3 characters";
+export const ERR_DOMAIN_TOO_LONG = "must be at most 255 characters";
+export const ERR_DOMAIN_INVALID_FORMAT = "must be a valid domain name in lowercase";
 
 // ValidationError represents a validation failure with field context
 export interface ValidationError {
@@ -76,6 +83,24 @@ export function validateLanguageCode(code: LanguageCode): string | null {
 	}
 	if (!SUPPORTED_LANGUAGES.includes(code as SupportedLanguage)) {
 		return ERR_LANGUAGE_NOT_SUPPORTED;
+	}
+	return null;
+}
+
+// Validates domain name, returns error message or null (no field context)
+export function validateDomainName(domain: DomainName): string | null {
+	if (domain.length < DOMAIN_MIN_LENGTH) {
+		return ERR_DOMAIN_TOO_SHORT;
+	}
+	if (domain.length > DOMAIN_MAX_LENGTH) {
+		return ERR_DOMAIN_TOO_LONG;
+	}
+	// Check if lowercase
+	if (domain !== domain.toLowerCase()) {
+		return ERR_DOMAIN_INVALID_FORMAT;
+	}
+	if (!DOMAIN_NAME_PATTERN.test(domain)) {
+		return ERR_DOMAIN_INVALID_FORMAT;
 	}
 	return null;
 }

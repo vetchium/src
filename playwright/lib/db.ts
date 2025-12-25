@@ -140,3 +140,95 @@ export function generateTestEmail(prefix: string = "admin"): string {
 export async function closePool(): Promise<void> {
   await pool.end();
 }
+
+// ============================================================================
+// Approved Domains Test Helpers
+// ============================================================================
+
+/**
+ * Creates a test approved domain in the global database.
+ *
+ * @param domainName - Domain name to approve
+ * @param adminEmail - Email of the admin creating this domain
+ * @returns The created domain ID
+ */
+export async function createTestApprovedDomain(domainName: string, adminEmail: string): Promise<string> {
+  // Get admin user ID
+  const adminResult = await pool.query(
+    `SELECT admin_user_id FROM admin_users WHERE email_address = $1`,
+    [adminEmail]
+  );
+  if (adminResult.rows.length === 0) {
+    throw new Error(`Admin user not found: ${adminEmail}`);
+  }
+  const adminId = adminResult.rows[0].admin_user_id;
+
+  const result = await pool.query(
+    `INSERT INTO approved_domains (domain_name, created_by_admin_id)
+     VALUES ($1, $2)
+     RETURNING domain_id`,
+    [domainName.toLowerCase(), adminId]
+  );
+  return result.rows[0].domain_id;
+}
+
+/**
+ * Deletes a test approved domain.
+ * This should be called in afterEach/finally blocks to clean up test data.
+ *
+ * @param domainName - Domain name to delete (will be soft-deleted)
+ */
+export async function deleteTestApprovedDomain(domainName: string): Promise<void> {
+  await pool.query(
+    `UPDATE approved_domains SET deleted_at = NOW() WHERE domain_name = $1`,
+    [domainName.toLowerCase()]
+  );
+}
+
+/**
+ * Permanently deletes a test approved domain (hard delete).
+ * Use this for cleanup when soft delete is not desired.
+ *
+ * @param domainName - Domain name to permanently delete
+ */
+export async function permanentlyDeleteTestApprovedDomain(domainName: string): Promise<void> {
+  await pool.query(`DELETE FROM approved_domains WHERE domain_name = $1`, [
+    domainName.toLowerCase(),
+  ]);
+}
+
+/**
+ * Gets audit logs for a specific domain.
+ *
+ * @param domainName - Domain name to get audit logs for
+ * @returns Array of audit log records
+ */
+export async function getApprovedDomainAuditLogs(domainName: string): Promise<
+  Array<{
+    audit_id: string;
+    admin_id: string;
+    action: string;
+    target_domain_name: string;
+    created_at: Date;
+  }>
+> {
+  const result = await pool.query(
+    `SELECT audit_id, admin_id, action, target_domain_name, created_at
+     FROM approved_domains_audit_log
+     WHERE target_domain_name = $1
+     ORDER BY created_at DESC`,
+    [domainName.toLowerCase()]
+  );
+  return result.rows;
+}
+
+/**
+ * Generates a unique test domain name with UUID.
+ * Use this to ensure each test has an isolated approved domain.
+ *
+ * @param prefix - Optional prefix for the domain (default: 'test')
+ * @returns A unique domain name like 'test-{uuid}.example.com'
+ */
+export function generateTestDomainName(prefix: string = "test"): string {
+  return `${prefix}-${randomUUID().substring(0, 8)}.example.com`;
+}
