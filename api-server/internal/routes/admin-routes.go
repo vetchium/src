@@ -18,8 +18,8 @@ func RegisterAdminRoutes(mux *http.ServeMux, s *server.Server) {
 	// Note: Go 1.22+ ServeMux matches more specific patterns first.
 	// The /audit route must be registered before /{domainName} to avoid conflicts.
 	authMiddleware := middleware.AdminAuth(s.Global)
-	mux.Handle("POST /admin/approved-domains/", authMiddleware(admin.CreateApprovedDomain(s)))
-	mux.Handle("GET /admin/approved-domains/", authMiddleware(admin.ListApprovedDomains(s)))
+	mux.Handle("POST /admin/approved-domains", authMiddleware(admin.CreateApprovedDomain(s)))
+	mux.Handle("GET /admin/approved-domains", authMiddleware(admin.ListApprovedDomains(s)))
 	mux.Handle("GET /admin/approved-domains/audit", authMiddleware(admin.GetAuditLogs(s)))
 	mux.Handle("GET /admin/approved-domains/{domainName}", authMiddleware(admin.GetApprovedDomain(s)))
 	mux.Handle("DELETE /admin/approved-domains/{domainName}", authMiddleware(admin.DeleteApprovedDomain(s)))
