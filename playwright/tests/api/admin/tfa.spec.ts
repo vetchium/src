@@ -4,11 +4,14 @@ import {
 	createTestAdminUser,
 	deleteTestAdminUser,
 	generateTestEmail,
+	LanguageCode,
 } from "../../../lib/db";
 import { getTfaCodeFromEmail } from "../../../lib/mailpit";
 
 test.describe("POST /admin/tfa", () => {
-	test("valid TFA code returns session token", async ({ request }) => {
+	test("valid TFA code returns session token and preferred_language", async ({
+		request,
+	}) => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("tfa-success");
 		const password = "Password123$";
@@ -31,6 +34,8 @@ test.describe("POST /admin/tfa", () => {
 			expect(tfaResponse.body.session_token).toBeDefined();
 			// Session token should be 64-character hex string (32 bytes hex-encoded)
 			expect(tfaResponse.body.session_token).toMatch(/^[a-f0-9]{64}$/);
+			// Default preferred_language should be en-US
+			expect(tfaResponse.body.preferred_language).toBe("en-US");
 		} finally {
 			await deleteTestAdminUser(email);
 		}
@@ -165,6 +170,79 @@ test.describe("POST /admin/tfa", () => {
 			const correctResponse = await api.verifyTFA(tfaToken, tfaCode);
 			expect(correctResponse.status).toBe(200);
 			expect(correctResponse.body.session_token).toBeDefined();
+		} finally {
+			await deleteTestAdminUser(email);
+		}
+	});
+
+	test("TFA response returns German (de-DE) preferred_language", async ({
+		request,
+	}) => {
+		const api = new AdminAPIClient(request);
+		const email = generateTestEmail("tfa-lang-de");
+		const password = "Password123$";
+
+		await createTestAdminUser(email, password, { preferredLanguage: "de-DE" });
+		try {
+			const loginResponse = await api.login(email, password);
+			expect(loginResponse.status).toBe(200);
+			const tfaToken = loginResponse.body.tfa_token;
+
+			const tfaCode = await getTfaCodeFromEmail(email);
+			const tfaResponse = await api.verifyTFA(tfaToken, tfaCode);
+
+			expect(tfaResponse.status).toBe(200);
+			expect(tfaResponse.body.preferred_language).toBe("de-DE");
+		} finally {
+			await deleteTestAdminUser(email);
+		}
+	});
+
+	test("TFA response returns Tamil (ta-IN) preferred_language", async ({
+		request,
+	}) => {
+		const api = new AdminAPIClient(request);
+		const email = generateTestEmail("tfa-lang-ta");
+		const password = "Password123$";
+
+		await createTestAdminUser(email, password, { preferredLanguage: "ta-IN" });
+		try {
+			const loginResponse = await api.login(email, password);
+			expect(loginResponse.status).toBe(200);
+			const tfaToken = loginResponse.body.tfa_token;
+
+			const tfaCode = await getTfaCodeFromEmail(email);
+			const tfaResponse = await api.verifyTFA(tfaToken, tfaCode);
+
+			expect(tfaResponse.status).toBe(200);
+			expect(tfaResponse.body.preferred_language).toBe("ta-IN");
+		} finally {
+			await deleteTestAdminUser(email);
+		}
+	});
+
+	test("TFA response returns stored preferred_language for unsupported language", async ({
+		request,
+	}) => {
+		const api = new AdminAPIClient(request);
+		const email = generateTestEmail("tfa-lang-unsupported");
+		const password = "Password123$";
+
+		// Create user with unsupported language - API should still return what's stored
+		await createTestAdminUser(email, password, {
+			preferredLanguage: "fr-FR" as LanguageCode,
+		});
+		try {
+			const loginResponse = await api.login(email, password);
+			expect(loginResponse.status).toBe(200);
+			const tfaToken = loginResponse.body.tfa_token;
+
+			const tfaCode = await getTfaCodeFromEmail(email);
+			const tfaResponse = await api.verifyTFA(tfaToken, tfaCode);
+
+			expect(tfaResponse.status).toBe(200);
+			// The API should return the stored language preference
+			expect(tfaResponse.body.preferred_language).toBe("fr-FR");
 		} finally {
 			await deleteTestAdminUser(email);
 		}

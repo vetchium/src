@@ -25,6 +25,7 @@ export interface AdminTFARequest {
 
 export interface AdminTFAResponse {
   session_token: string;
+  preferred_language: string;
 }
 
 export interface AdminLogoutRequest {
