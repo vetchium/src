@@ -119,6 +119,10 @@ src/
 - Implement the backend and frontend code changes
 - All the database related SQL should be under [db](./api-server/db/) directory on `.sql` files with reference for these on the `.go` code via [sqlc](./api-server/sqlc.yaml)
 - No SQL statements should exist in `.go` files
+- Implement tests for the API and UI as needed under the [playwright](./playwright/) directory with unique user for each test. Test exhaustively for all possible return codes and scenarios
+- All .go files should be formatted by [goimports](https://pkg.go.dev/golang.org/x/tools/cmd/goimports)
+- All .md, .ts, .tsx, .json, .yaml files should be formatted with [prettier](https://prettier.io/docs/)
+- Prefer to use JSON instead of YAML wherever possible
 
 ### Handler Organization
 
