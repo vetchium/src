@@ -13,6 +13,7 @@ import (
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/server"
 	"vetchium-api-server.typespec/admin"
+	"vetchium-api-server.typespec/common"
 )
 
 const (
@@ -97,10 +98,19 @@ func TFA(s *server.Server) http.HandlerFunc {
 			return
 		}
 
+		// Fetch admin user to get preferred language
+		adminUser, err := s.Global.GetAdminUserByID(ctx, tfaTokenRecord.AdminUserID)
+		if err != nil {
+			log.Error("failed to fetch admin user", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
 		log.Info("admin TFA verified, session created", "admin_user_id", tfaTokenRecord.AdminUserID)
 
 		response := admin.AdminTFAResponse{
-			SessionToken: admin.AdminSessionToken(sessionToken),
+			SessionToken:      admin.AdminSessionToken(sessionToken),
+			PreferredLanguage: common.LanguageCode(adminUser.PreferredLanguage),
 		}
 
 		if err := json.NewEncoder(w).Encode(response); err != nil {

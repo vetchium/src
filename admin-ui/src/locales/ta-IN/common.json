@@ -1,0 +1,19 @@
+{
+	"appName": "Vetchium நிர்வாகம்",
+	"loading": "ஏற்றுகிறது...",
+	"error": "பிழை",
+	"success": "வெற்றி",
+	"cancel": "ரத்துசெய்",
+	"save": "சேமி",
+	"close": "மூடு",
+	"theme": {
+		"light": "ஒளி",
+		"dark": "இருள்"
+	},
+	"language": {
+		"label": "மொழி",
+		"en-US": "English",
+		"de-DE": "Deutsch",
+		"ta-IN": "தமிழ்"
+	}
+}

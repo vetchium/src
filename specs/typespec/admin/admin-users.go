@@ -67,7 +67,8 @@ func (r AdminTFARequest) Validate() []common.ValidationError {
 }
 
 type AdminTFAResponse struct {
-	SessionToken AdminSessionToken `json:"session_token"`
+	SessionToken      AdminSessionToken   `json:"session_token"`
+	PreferredLanguage common.LanguageCode `json:"preferred_language"`
 }
 
 type AdminLogoutRequest struct {
@@ -79,6 +80,26 @@ func (r AdminLogoutRequest) Validate() []common.ValidationError {
 
 	if r.SessionToken == "" {
 		errs = append(errs, common.NewValidationError("session_token", common.ErrRequired))
+	}
+
+	return errs
+}
+
+type UpdatePreferencesRequest struct {
+	SessionToken      AdminSessionToken   `json:"session_token"`
+	PreferredLanguage common.LanguageCode `json:"preferred_language"`
+}
+
+func (r UpdatePreferencesRequest) Validate() []common.ValidationError {
+	var errs []common.ValidationError
+
+	if r.SessionToken == "" {
+		errs = append(errs, common.NewValidationError("session_token", common.ErrRequired))
+	}
+	if r.PreferredLanguage == "" {
+		errs = append(errs, common.NewValidationError("preferred_language", common.ErrRequired))
+	} else if err := r.PreferredLanguage.Validate(); err != nil {
+		errs = append(errs, common.NewValidationError("preferred_language", err))
 	}
 
 	return errs

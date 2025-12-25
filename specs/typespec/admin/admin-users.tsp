@@ -40,11 +40,20 @@ model AdminTFARequest {
 model AdminTFAResponse {
     @doc("Session token for authenticated admin requests")
     session_token: AdminSessionToken;
+    @doc("User's preferred language (BCP 47 tag)")
+    preferred_language: LanguageCode;
 }
 
 model AdminLogoutRequest {
     @doc("Session token to invalidate")
     session_token: AdminSessionToken;
+}
+
+model UpdatePreferencesRequest {
+    @doc("Session token for authentication")
+    session_token: AdminSessionToken;
+    @doc("Preferred language (BCP 47 tag)")
+    preferred_language: LanguageCode;
 }
 
 @route("/admin/login")
@@ -93,5 +102,22 @@ interface AdminLogout {
         @doc("Invalid or expired session token")
         @statusCode
         statusCode: 401;
+    };
+}
+
+@route("/admin/preferences")
+interface AdminPreferences {
+    @tag("AdminUsers")
+    @post
+    updatePreferences(@body request: UpdatePreferencesRequest): {
+        @statusCode statusCode: 200;
+    } | {
+        @doc("Invalid or expired session token")
+        @statusCode
+        statusCode: 401;
+    } | {
+        @doc("Invalid preference values")
+        @statusCode
+        statusCode: 400;
     };
 }

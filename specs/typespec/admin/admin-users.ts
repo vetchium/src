@@ -1,16 +1,18 @@
 import {
 	type EmailAddress,
 	type Password,
+	type LanguageCode,
 	type ValidationError,
 	newValidationError,
 	validateEmailAddress,
 	validatePassword,
+	validateLanguageCode,
 	ERR_REQUIRED,
 	ERR_TFA_CODE_INVALID_LENGTH,
 	ERR_TFA_CODE_INVALID_FORMAT,
 } from "../common/common";
 
-export type { EmailAddress, Password, ValidationError };
+export type { EmailAddress, Password, LanguageCode, ValidationError };
 
 export type AdminTFAToken = string;
 export type AdminSessionToken = string;
@@ -82,6 +84,7 @@ export function validateAdminTFARequest(
 
 export interface AdminTFAResponse {
 	session_token: AdminSessionToken;
+	preferred_language: LanguageCode;
 }
 
 export interface AdminLogoutRequest {
@@ -95,6 +98,32 @@ export function validateAdminLogoutRequest(
 
 	if (!request.session_token) {
 		errs.push(newValidationError("session_token", ERR_REQUIRED));
+	}
+
+	return errs;
+}
+
+export interface UpdatePreferencesRequest {
+	session_token: AdminSessionToken;
+	preferred_language: LanguageCode;
+}
+
+export function validateUpdatePreferencesRequest(
+	request: UpdatePreferencesRequest,
+): ValidationError[] {
+	const errs: ValidationError[] = [];
+
+	if (!request.session_token) {
+		errs.push(newValidationError("session_token", ERR_REQUIRED));
+	}
+
+	if (!request.preferred_language) {
+		errs.push(newValidationError("preferred_language", ERR_REQUIRED));
+	} else {
+		const langErr = validateLanguageCode(request.preferred_language);
+		if (langErr) {
+			errs.push(newValidationError("preferred_language", langErr));
+		}
 	}
 
 	return errs;

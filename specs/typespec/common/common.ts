@@ -1,13 +1,22 @@
 export type EmailAddress = string;
 export type Password = string;
+export type LanguageCode = string;
 
 // Validation constraints matching common.tsp
 export const EMAIL_MIN_LENGTH = 3;
 export const EMAIL_MAX_LENGTH = 256;
 export const PASSWORD_MIN_LENGTH = 12;
 export const PASSWORD_MAX_LENGTH = 64;
+export const LANGUAGE_CODE_MIN_LENGTH = 2;
+export const LANGUAGE_CODE_MAX_LENGTH = 10;
 
 const EMAIL_PATTERN = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+const LANGUAGE_CODE_PATTERN = /^[a-z]{2}(-[A-Z]{2})?$/;
+
+// Supported languages (BCP 47 tags)
+export const SUPPORTED_LANGUAGES = ["en-US", "de-DE", "ta-IN"] as const;
+export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
+export const DEFAULT_LANGUAGE: SupportedLanguage = "en-US";
 
 // Validation error messages (no field context - that's the caller's job)
 export const ERR_EMAIL_TOO_SHORT = "must be at least 3 characters";
@@ -18,6 +27,8 @@ export const ERR_PASSWORD_TOO_LONG = "must be at most 64 characters";
 export const ERR_REQUIRED = "is required";
 export const ERR_TFA_CODE_INVALID_LENGTH = "must be exactly 6 characters";
 export const ERR_TFA_CODE_INVALID_FORMAT = "must contain only digits";
+export const ERR_LANGUAGE_CODE_INVALID = "must be a valid language code";
+export const ERR_LANGUAGE_NOT_SUPPORTED = "language not supported";
 
 // ValidationError represents a validation failure with field context
 export interface ValidationError {
@@ -54,6 +65,17 @@ export function validatePassword(password: Password): string | null {
 	}
 	if (password.length > PASSWORD_MAX_LENGTH) {
 		return ERR_PASSWORD_TOO_LONG;
+	}
+	return null;
+}
+
+// Validates language code format and checks if it's supported
+export function validateLanguageCode(code: LanguageCode): string | null {
+	if (!LANGUAGE_CODE_PATTERN.test(code)) {
+		return ERR_LANGUAGE_CODE_INVALID;
+	}
+	if (!SUPPORTED_LANGUAGES.includes(code as SupportedLanguage)) {
+		return ERR_LANGUAGE_NOT_SUPPORTED;
 	}
 	return null;
 }

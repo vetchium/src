@@ -55,6 +55,55 @@ docker compose down -v          # Stop all services
 
 Migrations are in `api-server/db/migrations/{global,regional}/`.
 
+## Frontend Architecture
+
+### Directory Structure
+
+All frontend applications (hub-ui, admin-ui, org-ui, agency-ui) follow this structure:
+
+```
+src/
+├── components/     # Reusable UI components (buttons, modals, etc.)
+├── pages/          # Page components corresponding to URL paths
+├── forms/          # Form components with input fields and submission logic
+├── contexts/       # React contexts (theme, auth, i18n)
+├── hooks/          # Custom React hooks
+├── locales/        # Translation files organized by language
+│   ├── en-US/
+│   │   ├── common.json
+│   │   └── auth.json
+│   ├── de-DE/
+│   │   ├── common.json
+│   │   └── auth.json
+│   └── ta-IN/
+│       ├── common.json
+│       └── auth.json
+├── config.ts       # API configuration
+└── App.tsx         # Main app with providers
+```
+
+### Internationalization (i18n)
+
+- Use `react-i18next` for translations
+- **Supported Languages**: en-US (default), de-DE, ta-IN (BCP 47 tags)
+- Translations organized by language directory, then by feature file
+- Language preference:
+  - Stored on server (via user preferences API) when authenticated
+  - Cached locally for persistence across sessions
+  - Falls back to browser locale or en-US
+
+### Theme Management
+
+- Support dark/light mode toggle using Ant Design's `ConfigProvider`
+- Theme preference stored in localStorage (client-side only)
+- Default: system preference or light mode
+
+### Component Guidelines
+
+- **Pages**: Handle routing, data fetching, layout. Import forms and components.
+- **Forms**: Handle form state, validation, submission. Use Ant Design Form.
+- **Components**: Stateless/minimal state, reusable across pages/forms.
+
 ## Development Conventions
 
 ### Code Style

@@ -10,3 +10,9 @@ scalar EmailAddress extends string;
 @minLength(12)
 @maxLength(64)
 scalar Password extends string;
+
+@doc("BCP 47 language tag (e.g., en-US, de-DE, ta-IN)")
+@minLength(2)
+@maxLength(10)
+@pattern("^[a-z]{2}(-[A-Z]{2})?$")
+scalar LanguageCode extends string;

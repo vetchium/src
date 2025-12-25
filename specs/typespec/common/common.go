@@ -8,27 +8,38 @@ import (
 
 type EmailAddress string
 type Password string
+type LanguageCode string
 
 // Validation constraints matching common.tsp
 const (
-	EmailMinLength    = 3
-	EmailMaxLength    = 256
-	PasswordMinLength = 12
-	PasswordMaxLength = 64
+	EmailMinLength        = 3
+	EmailMaxLength        = 256
+	PasswordMinLength     = 12
+	PasswordMaxLength     = 64
+	LanguageCodeMinLength = 2
+	LanguageCodeMaxLength = 10
 )
 
 var emailPattern = regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
+var languageCodePattern = regexp.MustCompile(`^[a-z]{2}(-[A-Z]{2})?$`)
+
+// Supported languages (BCP 47 tags)
+var SupportedLanguages = []LanguageCode{"en-US", "de-DE", "ta-IN"}
+
+const DefaultLanguage LanguageCode = "en-US"
 
 // Validation errors for base types (no field context - that's the caller's job)
 var (
-	ErrEmailTooShort        = errors.New("must be at least 3 characters")
-	ErrEmailTooLong         = errors.New("must be at most 256 characters")
-	ErrEmailInvalidFormat   = errors.New("must be a valid email address")
-	ErrPasswordTooShort     = errors.New("must be at least 12 characters")
-	ErrPasswordTooLong      = errors.New("must be at most 64 characters")
-	ErrRequired             = errors.New("is required")
-	ErrTFACodeInvalidLength = errors.New("must be exactly 6 characters")
-	ErrTFACodeInvalidFormat = errors.New("must contain only digits")
+	ErrEmailTooShort          = errors.New("must be at least 3 characters")
+	ErrEmailTooLong           = errors.New("must be at most 256 characters")
+	ErrEmailInvalidFormat     = errors.New("must be a valid email address")
+	ErrPasswordTooShort       = errors.New("must be at least 12 characters")
+	ErrPasswordTooLong        = errors.New("must be at most 64 characters")
+	ErrRequired               = errors.New("is required")
+	ErrTFACodeInvalidLength   = errors.New("must be exactly 6 characters")
+	ErrTFACodeInvalidFormat   = errors.New("must contain only digits")
+	ErrLanguageCodeInvalid    = errors.New("must be a valid language code")
+	ErrLanguageNotSupported   = errors.New("language not supported")
 )
 
 // ValidationError represents a validation failure with field context
@@ -69,4 +80,17 @@ func (p Password) Validate() error {
 		return ErrPasswordTooLong
 	}
 	return nil
+}
+
+// Validate checks if the language code meets constraints (returns error without field context)
+func (l LanguageCode) Validate() error {
+	if !languageCodePattern.MatchString(string(l)) {
+		return ErrLanguageCodeInvalid
+	}
+	for _, supported := range SupportedLanguages {
+		if l == supported {
+			return nil
+		}
+	}
+	return ErrLanguageNotSupported
 }

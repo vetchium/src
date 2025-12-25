@@ -1,0 +1,19 @@
+{
+	"appName": "Vetchium Admin",
+	"loading": "Laden...",
+	"error": "Fehler",
+	"success": "Erfolg",
+	"cancel": "Abbrechen",
+	"save": "Speichern",
+	"close": "Schließen",
+	"theme": {
+		"light": "Hell",
+		"dark": "Dunkel"
+	},
+	"language": {
+		"label": "Sprache",
+		"en-US": "English",
+		"de-DE": "Deutsch",
+		"ta-IN": "தமிழ்"
+	}
+}

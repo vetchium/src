@@ -62,3 +62,10 @@ SELECT language_code FROM supported_languages WHERE is_default = TRUE;
 SELECT language_code, language_name, native_name, is_default
 FROM supported_languages
 WHERE language_code = $1;
+
+-- Admin preferences queries
+
+-- name: UpdateAdminPreferredLanguage :exec
+UPDATE admin_users
+SET preferred_language = $2
+WHERE admin_user_id = $1;
