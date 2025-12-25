@@ -16,6 +16,7 @@ A multi-region application with global and regional databases.
 - Docker and Docker Compose
 
 For local development (optional):
+
 - [sqlc](https://sqlc.dev/) - for IDE navigation through generated SQL code
 - [goose](https://github.com/pressly/goose) - for creating new database migrations
 
@@ -30,7 +31,7 @@ go install github.com/pressly/goose/v3/cmd/goose@latest
 ## Quick Start
 
 ```bash
-docker compose up --build
+docker compose -f docker-compose-full.yaml up --build
 ```
 
 Access the services:
@@ -43,11 +44,27 @@ Access the services:
 
 ```bash
 # Stop all services
-docker compose down
+docker compose -f docker-compose-full.yaml down
 
 # Stop and remove volumes (clears database data)
-docker compose down -v
+docker compose -f docker-compose-full.yaml down -v
 ```
+
+## Local Frontend Development
+
+For faster frontend iteration, run only the backend services in Docker and the frontend locally:
+
+```bash
+# Start backend services (databases, API servers, load balancer)
+docker compose -f docker-compose-backend.yaml up --build
+
+# In a separate terminal, run the frontend locally
+cd admin-ui && bun dev   # Admin UI at http://localhost:3000
+# or
+cd hub-ui && bun dev     # Hub UI at http://localhost:5173
+```
+
+This approach provides hot module reloading and faster rebuild times compared to running frontends in containers.
 
 ## Development Tools
 
@@ -70,16 +87,18 @@ npm install
 npm test
 ```
 
-Tests require all Docker services to be running (`docker compose up`).
+Tests require all Docker services to be running (`docker compose -f docker-compose-full.yaml  up`).
 
 ## Test Users
 
 For development, the following test users are available (password: `Password123$`):
 
 **Hub Users:**
+
 - `testuser1@example.com` (region: ind1)
 - `testuser2@example.com` (region: usa1)
 
 **Admin Users:**
+
 - `admin1@vetchium.com`
 - `admin2@vetchium.com`
