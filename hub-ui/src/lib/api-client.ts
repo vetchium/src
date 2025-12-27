@@ -1,9 +1,5 @@
 import { getApiBaseUrl } from "../config";
 import type {
-  Region,
-  SupportedLanguage,
-  CheckDomainRequest,
-  CheckDomainResponse,
   RequestSignupRequest,
   RequestSignupResponse,
   CompleteSignupRequest,
@@ -11,9 +7,15 @@ import type {
   HubLoginRequest,
   HubLoginResponse,
   ValidationError,
+} from "vetchium-specs/hub/hub-users";
+import type {
+  Region,
+  SupportedLanguage,
+  CheckDomainRequest,
+  CheckDomainResponse,
   GetRegionsResponse,
   GetSupportedLanguagesResponse,
-} from "vetchium-specs/hub/hub-users";
+} from "vetchium-specs/global/global";
 
 export interface APIResponse<T> {
   status: number;
@@ -26,7 +28,7 @@ export interface APIResponse<T> {
  */
 export async function getRegions(): Promise<APIResponse<Region[]>> {
   const apiBaseUrl = await getApiBaseUrl();
-  const response = await fetch(`${apiBaseUrl}/hub/get-regions`, {
+  const response = await fetch(`${apiBaseUrl}/global/get-regions`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -49,7 +51,7 @@ export async function getSupportedLanguages(): Promise<
   APIResponse<SupportedLanguage[]>
 > {
   const apiBaseUrl = await getApiBaseUrl();
-  const response = await fetch(`${apiBaseUrl}/hub/get-supported-languages`, {
+  const response = await fetch(`${apiBaseUrl}/global/get-supported-languages`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -74,7 +76,7 @@ export async function checkDomain(
   const apiBaseUrl = await getApiBaseUrl();
   const requestBody: CheckDomainRequest = { domain };
 
-  const response = await fetch(`${apiBaseUrl}/hub/check-domain`, {
+  const response = await fetch(`${apiBaseUrl}/global/check-domain`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

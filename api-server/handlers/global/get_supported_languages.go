@@ -1,11 +1,11 @@
-package hub
+package global
 
 import (
 	"encoding/json"
 	"net/http"
 
 	"vetchium-api-server.gomodule/internal/server"
-	"vetchium-api-server.typespec/hub"
+	"vetchium-api-server.typespec/global"
 )
 
 func GetSupportedLanguages(s *server.Server) http.HandlerFunc {
@@ -21,12 +21,12 @@ func GetSupportedLanguages(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		response := hub.GetSupportedLanguagesResponse{
-			Languages: make([]hub.SupportedLanguage, 0, len(languages)),
+		response := global.GetSupportedLanguagesResponse{
+			Languages: make([]global.SupportedLanguage, 0, len(languages)),
 		}
 
 		for _, lang := range languages {
-			response.Languages = append(response.Languages, hub.SupportedLanguage{
+			response.Languages = append(response.Languages, global.SupportedLanguage{
 				LanguageCode: lang.LanguageCode,
 				LanguageName: lang.LanguageName,
 				NativeName:   lang.NativeName,

@@ -1,11 +1,11 @@
-package hub
+package global
 
 import (
 	"encoding/json"
 	"net/http"
 
 	"vetchium-api-server.gomodule/internal/server"
-	"vetchium-api-server.typespec/hub"
+	"vetchium-api-server.typespec/global"
 )
 
 func GetRegions(s *server.Server) http.HandlerFunc {
@@ -21,12 +21,12 @@ func GetRegions(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		response := hub.GetRegionsResponse{
-			Regions: make([]hub.Region, 0, len(regions)),
+		response := global.GetRegionsResponse{
+			Regions: make([]global.Region, 0, len(regions)),
 		}
 
 		for _, region := range regions {
-			response.Regions = append(response.Regions, hub.Region{
+			response.Regions = append(response.Regions, global.Region{
 				RegionCode: string(region.RegionCode),
 				RegionName: region.RegionName,
 			})

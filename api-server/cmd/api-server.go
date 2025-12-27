@@ -111,6 +111,7 @@ func main() {
 	mux := http.NewServeMux()
 
 	// Register routes from separate files
+	routes.RegisterGlobalRoutes(mux, s)
 	routes.RegisterHubRoutes(mux, s)
 	routes.RegisterAdminRoutes(mux, s)
 

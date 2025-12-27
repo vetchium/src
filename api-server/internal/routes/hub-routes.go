@@ -10,9 +10,6 @@ import (
 
 func RegisterHubRoutes(mux *http.ServeMux, s *server.Server) {
 	// Unauthenticated routes
-	mux.HandleFunc("POST /hub/get-regions", hub.GetRegions(s))
-	mux.HandleFunc("POST /hub/get-supported-languages", hub.GetSupportedLanguages(s))
-	mux.HandleFunc("POST /hub/check-domain", hub.CheckDomain(s))
 	mux.HandleFunc("POST /hub/request-signup", hub.RequestSignup(s))
 	mux.HandleFunc("POST /hub/complete-signup", hub.CompleteSignup(s))
 	mux.HandleFunc("POST /hub/login", hub.Login(s))

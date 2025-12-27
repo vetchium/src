@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { randomUUID } from "crypto";
 import { HubAPIClient } from "../../../lib/hub-api-client";
+import { GlobalAPIClient } from "../../../lib/global-api-client";
 import {
 	createTestApprovedDomain,
 	createTestAdminUser,
@@ -15,14 +16,14 @@ import { waitForEmail, getEmailContent } from "../../../lib/mailpit";
 import type {
 	CompleteSignupRequest,
 	HubLoginRequest,
-	CheckDomainRequest,
 	RequestSignupRequest,
 	HubLogoutRequest,
 } from "vetchium-specs/hub/hub-users";
+import type { CheckDomainRequest } from "vetchium-specs/global/global";
 
-test.describe("POST /hub/get-regions", () => {
+test.describe("POST /global/get-regions", () => {
 	test("returns active regions", async ({ request }) => {
-		const api = new HubAPIClient(request);
+		const api = new GlobalAPIClient(request);
 
 		const response = await api.getRegions();
 
@@ -39,9 +40,9 @@ test.describe("POST /hub/get-regions", () => {
 	});
 });
 
-test.describe("POST /hub/get-supported-languages", () => {
+test.describe("POST /global/get-supported-languages", () => {
 	test("returns supported languages with default flag", async ({ request }) => {
-		const api = new HubAPIClient(request);
+		const api = new GlobalAPIClient(request);
 
 		const response = await api.getSupportedLanguages();
 
@@ -60,9 +61,9 @@ test.describe("POST /hub/get-supported-languages", () => {
 	});
 });
 
-test.describe("POST /hub/check-domain", () => {
+test.describe("POST /global/check-domain", () => {
 	test("returns true for approved domain", async ({ request }) => {
-		const api = new HubAPIClient(request);
+		const api = new GlobalAPIClient(request);
 		const adminEmail = generateTestEmail("admin");
 		const domain = generateTestDomainName("approved");
 
@@ -82,7 +83,7 @@ test.describe("POST /hub/check-domain", () => {
 	});
 
 	test("returns false for unapproved domain", async ({ request }) => {
-		const api = new HubAPIClient(request);
+		const api = new GlobalAPIClient(request);
 		const domain = "unapproved-" + Date.now() + ".com";
 
 		const checkRequest: CheckDomainRequest = { domain };
@@ -93,7 +94,7 @@ test.describe("POST /hub/check-domain", () => {
 	});
 
 	test("returns 400 for invalid domain format", async ({ request }) => {
-		const api = new HubAPIClient(request);
+		const api = new GlobalAPIClient(request);
 
 		const response = await api.checkDomainRaw({ domain: "not a domain" });
 
@@ -101,7 +102,7 @@ test.describe("POST /hub/check-domain", () => {
 	});
 
 	test("returns 400 for missing domain", async ({ request }) => {
-		const api = new HubAPIClient(request);
+		const api = new GlobalAPIClient(request);
 
 		const response = await api.checkDomainRaw({});
 

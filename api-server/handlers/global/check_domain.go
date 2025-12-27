@@ -1,4 +1,4 @@
-package hub
+package global
 
 import (
 	"encoding/json"
@@ -7,7 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"vetchium-api-server.gomodule/internal/server"
-	"vetchium-api-server.typespec/hub"
+	"vetchium-api-server.typespec/global"
 )
 
 func CheckDomain(s *server.Server) http.HandlerFunc {
@@ -16,7 +16,7 @@ func CheckDomain(s *server.Server) http.HandlerFunc {
 		ctx := r.Context()
 		log := s.Logger(ctx)
 
-		var req hub.CheckDomainRequest
+		var req global.CheckDomainRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			log.Debug("failed to decode request", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -40,7 +40,7 @@ func CheckDomain(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		response := hub.CheckDomainResponse{
+		response := global.CheckDomainResponse{
 			IsApproved: isApproved,
 		}
 

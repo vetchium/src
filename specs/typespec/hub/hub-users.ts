@@ -1,16 +1,24 @@
 import {
 	type EmailAddress,
 	type Password,
-	type DomainName,
 	type ValidationError,
 	newValidationError,
 	validateEmailAddress,
 	validatePassword,
-	validateDomainName,
 	ERR_REQUIRED,
 } from "../common/common";
 
-export type { EmailAddress, Password, DomainName, ValidationError };
+// Re-export global types for backward compatibility
+export type {
+	Region,
+	SupportedLanguage,
+	CheckDomainRequest,
+	CheckDomainResponse,
+	GetRegionsResponse,
+	GetSupportedLanguagesResponse,
+} from "../global/global";
+
+export type { EmailAddress, Password, ValidationError };
 
 // Type aliases for signup
 export type HubSignupToken = string;
@@ -108,26 +116,6 @@ export interface DisplayNameEntry {
 	is_preferred: boolean;
 }
 
-export interface Region {
-	region_code: string;
-	region_name: string;
-}
-
-export interface SupportedLanguage {
-	language_code: string;
-	language_name: string;
-	native_name: string;
-	is_default: boolean;
-}
-
-export interface CheckDomainRequest {
-	domain: DomainName;
-}
-
-export interface CheckDomainResponse {
-	is_approved: boolean;
-}
-
 export interface RequestSignupRequest {
 	email_address: EmailAddress;
 }
@@ -165,19 +153,6 @@ export interface HubLogoutRequest {
 }
 
 // Request validators
-
-export function validateCheckDomainRequest(
-	request: CheckDomainRequest,
-): ValidationError[] {
-	const errs: ValidationError[] = [];
-
-	const domainErr = validateDomainName(request.domain);
-	if (domainErr) {
-		errs.push(newValidationError("domain", domainErr));
-	}
-
-	return errs;
-}
 
 export function validateRequestSignupRequest(
 	request: RequestSignupRequest,
@@ -275,12 +250,4 @@ export function validateHubLogoutRequest(
 	}
 
 	return errs;
-}
-
-export interface GetRegionsResponse {
-	regions: Region[];
-}
-
-export interface GetSupportedLanguagesResponse {
-	languages: SupportedLanguage[];
 }
