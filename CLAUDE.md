@@ -303,6 +303,85 @@ generate as below
 
 Types are defined in `specs/typespec/` under `.tsp` files and the corresponding `.ts` and `.go` files should also be updated. The `.tsp` compilation would generate only an openAPI spec and does NOT generate the Go or Typescript structs.
 
+### TypeSpec Type Import Requirements
+
+**CRITICAL**: All API request/response types MUST be imported from `specs/typespec/`. NEVER define API schemas locally in UI code, test code, or API client code.
+
+#### Rules:
+
+1. **All API types come from typespec** - Request types, response types, and field types must be imported from the typespec library
+2. **No inline type definitions** - Never create inline objects or interfaces for API requests/responses
+3. **No local type duplication** - Don't copy typespec types into local files
+4. **Applies everywhere** - This rule applies to:
+   - Frontend UI code (`hub-ui/`, `admin-ui/`, etc.)
+   - Test code (`playwright/`)
+   - API client code (`playwright/lib/api-client.ts`)
+   - All TypeScript/JavaScript code that interacts with APIs
+
+#### What's Allowed Locally:
+
+- **Wrapper types** for non-API purposes (e.g., `APIResponse<T>` wrapper for test assertions)
+- **UI-specific types** that don't represent API contracts (e.g., `Country` interface for dropdown options)
+- **Component props** that aren't API request/response types
+
+#### Examples:
+
+**✅ CORRECT:**
+```typescript
+// Import from typespec
+import type {
+  HubLoginRequest,
+  HubLoginResponse,
+  CompleteSignupRequest,
+} from "vetchium-specs/hub/hub-users";
+
+// Use imported types
+const loginRequest: HubLoginRequest = {
+  email_address: email,
+  password: password,
+};
+
+const response = await api.login(loginRequest);
+
+// Function accepting typespec type
+async function login(request: HubLoginRequest): Promise<HubLoginResponse> {
+  // ...
+}
+```
+
+**❌ WRONG:**
+```typescript
+// ❌ Don't define API types inline
+const response = await api.login({
+  email_address: email,
+  password: password,
+});
+
+// ❌ Don't create local interfaces for API types
+interface LoginRequest {
+  email_address: string;
+  password: string;
+}
+
+// ❌ Don't accept individual parameters instead of request objects
+async function login(email: string, password: string) {
+  // ...
+}
+
+// ❌ Don't define response shapes locally
+interface LoginResponse {
+  session_token: string;
+}
+```
+
+#### Benefits:
+
+1. **Single source of truth** - All API schemas defined once in typespec
+2. **Type safety** - TypeScript catches mismatches at compile time
+3. **Automatic propagation** - Schema changes automatically update everywhere
+4. **No duplication** - Eliminates sync issues between definitions
+5. **Better IDE support** - Full autocomplete and type hints from typespec
+
 ### TypeScript Validation Pattern
 
 ```typescript
@@ -485,9 +564,15 @@ headers: {
 2. Document the required API endpoints and schemas under [typespec](./specs/typespec/) in appropriate `.ts` and `.go` files
 3. All the validations should happen on the [typespec](./specs/typespec/) in appropriate `.ts` files and `.go` files
 4. Implement the backend and frontend code changes
+   - **CRITICAL**: All API request/response types MUST be imported from `specs/typespec/`
+   - NEVER define API types locally in UI code, test code, or API client code
+   - API client methods must accept typespec request objects, not individual parameters
 5. All the database related SQL should be under [db](./api-server/db/) directory on `.sql` files with reference for these on the `.go` code via [sqlc](./api-server/sqlc.yaml)
 6. No SQL statements should exist in `.go` files
-7. Implement tests for the API and UI as needed under the [playwright](./playwright/) directory with unique user for each test. Test exhaustively for all possible return codes and scenarios
+7. Implement tests for the API and UI as needed under the [playwright](./playwright/) directory with unique user for each test
+   - **CRITICAL**: Import all request/response types from `specs/typespec/` in test files
+   - Use typed request objects when calling API client methods
+   - Test exhaustively for all possible return codes and scenarios
 8. All .go files should be formatted by [goimports](https://pkg.go.dev/golang.org/x/tools/cmd/goimports)
 9. All .md, .ts, .tsx, .json, .yaml files should be formatted with [prettier](https://prettier.io/docs/)
 10. Prefer to use JSON instead of YAML wherever possible
@@ -582,16 +667,22 @@ test("example test with isolated user", async ({ request }) => {
 
 ### API Client Pattern (Tests)
 
+**IMPORTANT**: API client methods must accept typespec request objects, not individual parameters.
+
 ```typescript
+// Import types from typespec
+import {
+	AdminLoginRequest,
+	AdminLoginResponse,
+} from "../../specs/typespec/admin/admin-users";
+
 export class AdminAPIClient {
 	constructor(private request: APIRequestContext) {}
 
-	async login(
-		email: string,
-		password: string
-	): Promise<APIResponse<AdminLoginResponse>> {
+	// ✅ CORRECT: Accept typespec request object
+	async login(request: AdminLoginRequest): Promise<APIResponse<AdminLoginResponse>> {
 		const response = await this.request.post("/admin/login", {
-			data: { email, password }, // snake_case in API
+			data: request,
 		});
 
 		const body = await response.json().catch(() => ({}));
@@ -607,9 +698,30 @@ export class AdminAPIClient {
 		const response = await this.request.post("/admin/login", {
 			data: body,
 		});
-		// ...
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as AdminLoginResponse,
+			errors: responseBody.errors,
+		};
 	}
 }
+```
+
+**Usage in tests:**
+```typescript
+// Import types from typespec
+import type { AdminLoginRequest } from "../../../specs/typespec/admin/admin-users";
+
+// ✅ CORRECT: Create typed request object
+const loginRequest: AdminLoginRequest = {
+	email: "admin@example.com",
+	password: "Password123$",
+};
+const response = await api.login(loginRequest);
+
+// ❌ WRONG: Don't pass individual parameters
+// const response = await api.login(email, password);
 ```
 
 ### Key Test Utilities

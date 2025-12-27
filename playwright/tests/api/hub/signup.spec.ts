@@ -12,6 +12,13 @@ import {
   extractSignupTokenFromEmail,
 } from "../../../lib/db";
 import { waitForEmail, getEmailContent } from "../../../lib/mailpit";
+import type {
+  CompleteSignupRequest,
+  HubLoginRequest,
+  CheckDomainRequest,
+  RequestSignupRequest,
+  HubLogoutRequest,
+} from "../../../../specs/typespec/hub/hub-users";
 
 test.describe("POST /hub/get-regions", () => {
   test("returns active regions", async ({ request }) => {
@@ -61,7 +68,8 @@ test.describe("POST /hub/check-domain", () => {
     await createTestApprovedDomain(domain, adminEmail);
 
     try {
-      const response = await api.checkDomain(domain);
+      const checkRequest: CheckDomainRequest = { domain };
+      const response = await api.checkDomain(checkRequest);
 
       expect(response.status).toBe(200);
       expect(response.body.is_approved).toBe(true);
@@ -75,7 +83,8 @@ test.describe("POST /hub/check-domain", () => {
     const api = new HubAPIClient(request);
     const domain = "unapproved-" + Date.now() + ".com";
 
-    const response = await api.checkDomain(domain);
+    const checkRequest: CheckDomainRequest = { domain };
+    const response = await api.checkDomain(checkRequest);
 
     expect(response.status).toBe(200);
     expect(response.body.is_approved).toBe(false);
@@ -109,7 +118,8 @@ test.describe("POST /hub/request-signup", () => {
     await createTestApprovedDomain(domain, adminEmail);
 
     try {
-      const response = await api.requestSignup(email);
+      const signupRequest: RequestSignupRequest = { email_address: email };
+      const response = await api.requestSignup(signupRequest);
 
       expect(response.status).toBe(200);
       expect(response.body.message).toBeDefined();
@@ -134,7 +144,8 @@ test.describe("POST /hub/request-signup", () => {
     const api = new HubAPIClient(request);
     const email = `user-${Date.now()}@unapproved-domain.com`;
 
-    const response = await api.requestSignup(email);
+    const signupRequest: RequestSignupRequest = { email_address: email };
+    const response = await api.requestSignup(signupRequest);
 
     expect(response.status).toBe(403);
   });
@@ -151,21 +162,24 @@ test.describe("POST /hub/request-signup", () => {
 
     try {
       // Create user through signup API
-      await api.requestSignup(email);
+      const initialSignupRequest: RequestSignupRequest = { email_address: email };
+      await api.requestSignup(initialSignupRequest);
       const emailSummary = await waitForEmail(email);
       const emailMessage = await getEmailContent(emailSummary.ID);
       const signupToken = extractSignupTokenFromEmail(emailMessage);
-      await api.completeSignup({
+      const completeRequest: CompleteSignupRequest = {
         signup_token: signupToken!,
         password,
         preferred_display_name: "Existing User",
         home_region: "ind1",
         preferred_language: "en-US",
         resident_country_code: "US",
-      });
+      };
+      await api.completeSignup(completeRequest);
 
       // Now try to signup again with same email
-      const response = await api.requestSignup(email);
+      const retrySignupRequest: RequestSignupRequest = { email_address: email };
+      const response = await api.requestSignup(retrySignupRequest);
       expect(response.status).toBe(409);
     } finally {
       await deleteTestHubUser(email);
@@ -204,7 +218,8 @@ test.describe("POST /hub/complete-signup", () => {
 
     try {
       // Request signup
-      await api.requestSignup(email);
+      const requestSignup: RequestSignupRequest = { email_address: email };
+      await api.requestSignup(requestSignup);
 
       // Get token from email
       const emailSummary = await waitForEmail(email);
@@ -213,14 +228,15 @@ test.describe("POST /hub/complete-signup", () => {
       expect(signupToken).toBeDefined();
 
       // Complete signup
-      const response = await api.completeSignup({
+      const completeSignup: CompleteSignupRequest = {
         signup_token: signupToken!,
         password,
         preferred_display_name: "Test User",
         home_region: "ind1",
         preferred_language: "en-US",
         resident_country_code: "US",
-      });
+      };
+      const response = await api.completeSignup(completeSignup);
 
       expect(response.status).toBe(201);
       expect(response.body.session_token).toBeDefined();
@@ -229,7 +245,11 @@ test.describe("POST /hub/complete-signup", () => {
       expect(response.body.handle).toMatch(/^[a-z0-9-]+$/);
 
       // Verify can login with created account
-      const loginResponse = await api.login(email, password);
+      const loginRequest: HubLoginRequest = {
+        email_address: email,
+        password,
+      };
+      const loginResponse = await api.login(loginRequest);
       expect(loginResponse.status).toBe(200);
       expect(loginResponse.body.session_token).toBeDefined();
     } finally {
@@ -250,23 +270,25 @@ test.describe("POST /hub/complete-signup", () => {
     await createTestApprovedDomain(domain, adminEmail);
 
     try {
-      await api.requestSignup(email);
+      const requestSignup: RequestSignupRequest = { email_address: email };
+      await api.requestSignup(requestSignup);
       const emailSummary = await waitForEmail(email);
       const emailMessage = await getEmailContent(emailSummary.ID);
       const signupToken = extractSignupTokenFromEmail(emailMessage);
 
-      const response = await api.completeSignup({
+      const completeSignup: CompleteSignupRequest = {
         signup_token: signupToken!,
         password,
         preferred_display_name: "Test User",
         other_display_names: [
-          { language_code: "de-DE", display_name: "Testbenutzer" },
-          { language_code: "ta-IN", display_name: "சோதனை பயனர்" },
+          { language_code: "de-DE", display_name: "Testbenutzer", is_preferred: false },
+          { language_code: "ta-IN", display_name: "சோதனை பயனர்", is_preferred: false },
         ],
         home_region: "ind1",
         preferred_language: "en-US",
         resident_country_code: "US",
-      });
+      };
+      const response = await api.completeSignup(completeSignup);
 
       expect(response.status).toBe(201);
       expect(response.body.session_token).toBeDefined();
@@ -281,14 +303,15 @@ test.describe("POST /hub/complete-signup", () => {
     const api = new HubAPIClient(request);
     const email = "test@example.com";
 
-    const response = await api.completeSignup({
+    const signupRequest: CompleteSignupRequest = {
       signup_token: "0".repeat(64), // Invalid token
       password: "Password123$",
       preferred_display_name: "Test User",
       home_region: "ind1",
       preferred_language: "en-US",
       resident_country_code: "US",
-    });
+    };
+    const response = await api.completeSignup(signupRequest);
 
     expect(response.status).toBe(401);
   });
@@ -305,34 +328,38 @@ test.describe("POST /hub/complete-signup", () => {
 
     try {
       // Create user through first signup
-      await api.requestSignup(email);
+      const firstRequestSignup: RequestSignupRequest = { email_address: email };
+      await api.requestSignup(firstRequestSignup);
       const firstEmailSummary = await waitForEmail(email);
       const firstEmailMessage = await getEmailContent(firstEmailSummary.ID);
       const firstSignupToken = extractSignupTokenFromEmail(firstEmailMessage);
-      await api.completeSignup({
+      const firstCompleteSignup: CompleteSignupRequest = {
         signup_token: firstSignupToken!,
         password,
         preferred_display_name: "First User",
         home_region: "ind1",
         preferred_language: "en-US",
         resident_country_code: "US",
-      });
+      };
+      await api.completeSignup(firstCompleteSignup);
 
       // Request signup again with same email
-      await api.requestSignup(email);
+      const secondRequestSignup: RequestSignupRequest = { email_address: email };
+      await api.requestSignup(secondRequestSignup);
       const secondEmailSummary = await waitForEmail(email);
       const secondEmailMessage = await getEmailContent(secondEmailSummary.ID);
       const secondSignupToken = extractSignupTokenFromEmail(secondEmailMessage);
 
       // Try to complete signup again - should return 409
-      const response = await api.completeSignup({
+      const secondCompleteSignup: CompleteSignupRequest = {
         signup_token: secondSignupToken!,
         password,
         preferred_display_name: "Test User",
         home_region: "ind1",
         preferred_language: "en-US",
         resident_country_code: "US",
-      });
+      };
+      const response = await api.completeSignup(secondCompleteSignup);
 
       expect(response.status).toBe(409);
     } finally {
@@ -427,21 +454,27 @@ test.describe("POST /hub/login", () => {
 
     try {
       // Create user through signup
-      await api.requestSignup(email);
+      const requestSignup: RequestSignupRequest = { email_address: email };
+      await api.requestSignup(requestSignup);
       const emailSummary = await waitForEmail(email);
       const emailMessage = await getEmailContent(emailSummary.ID);
       const signupToken = extractSignupTokenFromEmail(emailMessage);
-      await api.completeSignup({
+      const completeSignup: CompleteSignupRequest = {
         signup_token: signupToken!,
         password,
         preferred_display_name: "Test User",
         home_region: "ind1",
         preferred_language: "en-US",
         resident_country_code: "US",
-      });
+      };
+      await api.completeSignup(completeSignup);
 
       // Now test login
-      const response = await api.login(email, password);
+      const loginRequest: HubLoginRequest = {
+        email_address: email,
+        password,
+      };
+      const response = await api.login(loginRequest);
 
       expect(response.status).toBe(200);
       expect(response.body.session_token).toBeDefined();
@@ -465,21 +498,27 @@ test.describe("POST /hub/login", () => {
 
     try {
       // Create user through signup
-      await api.requestSignup(email);
+      const requestSignup: RequestSignupRequest = { email_address: email };
+      await api.requestSignup(requestSignup);
       const emailSummary = await waitForEmail(email);
       const emailMessage = await getEmailContent(emailSummary.ID);
       const signupToken = extractSignupTokenFromEmail(emailMessage);
-      await api.completeSignup({
+      const completeSignup: CompleteSignupRequest = {
         signup_token: signupToken!,
         password,
         preferred_display_name: "Test User",
         home_region: "ind1",
         preferred_language: "en-US",
         resident_country_code: "US",
-      });
+      };
+      await api.completeSignup(completeSignup);
 
       // Try login with wrong password
-      const response = await api.login(email, "WrongPassword456!");
+      const loginRequest: HubLoginRequest = {
+        email_address: email,
+        password: "WrongPassword456!",
+      };
+      const response = await api.login(loginRequest);
 
       expect(response.status).toBe(401);
     } finally {
@@ -491,9 +530,12 @@ test.describe("POST /hub/login", () => {
 
   test("returns 401 for non-existent user", async ({ request }) => {
     const api = new HubAPIClient(request);
-    const email = "nonexistent@example.com";
+    const loginRequest: HubLoginRequest = {
+      email_address: "nonexistent@example.com",
+      password: "Password123$",
+    };
 
-    const response = await api.login(email, "Password123$");
+    const response = await api.login(loginRequest);
 
     expect(response.status).toBe(401);
   });
@@ -539,30 +581,38 @@ test.describe("POST /hub/logout", () => {
 
     try {
       // Create user through signup
-      await api.requestSignup(email);
+      const requestSignup: RequestSignupRequest = { email_address: email };
+      await api.requestSignup(requestSignup);
       const emailSummary = await waitForEmail(email);
       const emailMessage = await getEmailContent(emailSummary.ID);
       const signupToken = extractSignupTokenFromEmail(emailMessage);
-      await api.completeSignup({
+      const completeSignup: CompleteSignupRequest = {
         signup_token: signupToken!,
         password,
         preferred_display_name: "Logout Test User",
         home_region: "ind1",
         preferred_language: "en-US",
         resident_country_code: "US",
-      });
+      };
+      await api.completeSignup(completeSignup);
 
       // Login
-      const loginResponse = await api.login(email, password);
+      const loginRequest: HubLoginRequest = {
+        email_address: email,
+        password,
+      };
+      const loginResponse = await api.login(loginRequest);
       expect(loginResponse.status).toBe(200);
       const sessionToken = loginResponse.body.session_token;
 
       // Logout
-      const response = await api.logout(sessionToken);
+      const logoutRequest: HubLogoutRequest = { session_token: sessionToken };
+      const response = await api.logout(logoutRequest);
       expect(response.status).toBe(200);
 
       // Verify session is invalidated (logout again should fail)
-      const secondLogout = await api.logout(sessionToken);
+      const secondLogoutRequest: HubLogoutRequest = { session_token: sessionToken };
+      const secondLogout = await api.logout(secondLogoutRequest);
       expect(secondLogout.status).toBe(401);
     } finally {
       await deleteTestHubUser(email);
@@ -574,7 +624,8 @@ test.describe("POST /hub/logout", () => {
   test("returns 401 for invalid session token", async ({ request }) => {
     const api = new HubAPIClient(request);
 
-    const response = await api.logout("0".repeat(64));
+    const logoutRequest: HubLogoutRequest = { session_token: "0".repeat(64) };
+    const response = await api.logout(logoutRequest);
 
     expect(response.status).toBe(401);
   });

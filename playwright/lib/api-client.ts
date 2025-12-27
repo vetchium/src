@@ -15,6 +15,19 @@ import type {
   ApprovedDomainListResponse,
   ApprovedDomainDetailResponse,
 } from "../../specs/typespec/admin/approved-domains";
+import type {
+  GetRegionsResponse,
+  GetSupportedLanguagesResponse,
+  CheckDomainRequest,
+  CheckDomainResponse,
+  RequestSignupRequest,
+  RequestSignupResponse,
+  CompleteSignupRequest,
+  CompleteSignupResponse,
+  HubLoginRequest,
+  HubLoginResponse,
+  HubLogoutRequest,
+} from "../../specs/typespec/hub/hub-users";
 
 /**
  * Generic API response wrapper for test assertions.
@@ -390,7 +403,7 @@ export class HubAPIClient {
    * POST /hub/get-regions
    * Returns list of active regions for dropdown
    */
-  async getRegions(): Promise<APIResponse<{ regions: Array<{ region_code: string; region_name: string }> }>> {
+  async getRegions(): Promise<APIResponse<GetRegionsResponse>> {
     const response = await this.request.post("/hub/get-regions", {
       data: {},
     });
@@ -398,7 +411,7 @@ export class HubAPIClient {
     const body = await response.json().catch(() => ({}));
     return {
       status: response.status(),
-      body,
+      body: body as GetRegionsResponse,
       errors: body.errors,
     };
   }
@@ -407,7 +420,7 @@ export class HubAPIClient {
    * POST /hub/get-supported-languages
    * Returns list of supported languages
    */
-  async getSupportedLanguages(): Promise<APIResponse<{ languages: Array<any> }>> {
+  async getSupportedLanguages(): Promise<APIResponse<GetSupportedLanguagesResponse>> {
     const response = await this.request.post("/hub/get-supported-languages", {
       data: {},
     });
@@ -415,7 +428,7 @@ export class HubAPIClient {
     const body = await response.json().catch(() => ({}));
     return {
       status: response.status(),
-      body,
+      body: body as GetSupportedLanguagesResponse,
       errors: body.errors,
     };
   }
@@ -424,15 +437,15 @@ export class HubAPIClient {
    * POST /hub/check-domain
    * Checks if a domain is approved for signup
    */
-  async checkDomain(domain: string): Promise<APIResponse<{ is_approved: boolean }>> {
+  async checkDomain(request: CheckDomainRequest): Promise<APIResponse<CheckDomainResponse>> {
     const response = await this.request.post("/hub/check-domain", {
-      data: { domain },
+      data: request,
     });
 
     const body = await response.json().catch(() => ({}));
     return {
       status: response.status(),
-      body,
+      body: body as CheckDomainResponse,
       errors: body.errors,
     };
   }
@@ -440,7 +453,7 @@ export class HubAPIClient {
   /**
    * POST /hub/check-domain with raw body for testing invalid payloads
    */
-  async checkDomainRaw(body: unknown): Promise<APIResponse<{ is_approved: boolean }>> {
+  async checkDomainRaw(body: unknown): Promise<APIResponse<CheckDomainResponse>> {
     const response = await this.request.post("/hub/check-domain", {
       data: body,
     });
@@ -448,7 +461,7 @@ export class HubAPIClient {
     const responseBody = await response.json().catch(() => ({}));
     return {
       status: response.status(),
-      body: responseBody,
+      body: responseBody as CheckDomainResponse,
       errors: responseBody.errors,
     };
   }
@@ -457,15 +470,15 @@ export class HubAPIClient {
    * POST /hub/request-signup
    * Requests signup verification email
    */
-  async requestSignup(email_address: string): Promise<APIResponse<{ message: string }>> {
+  async requestSignup(request: RequestSignupRequest): Promise<APIResponse<RequestSignupResponse>> {
     const response = await this.request.post("/hub/request-signup", {
-      data: { email_address },
+      data: request,
     });
 
     const body = await response.json().catch(() => ({}));
     return {
       status: response.status(),
-      body,
+      body: body as RequestSignupResponse,
       errors: body.errors,
     };
   }
@@ -473,7 +486,7 @@ export class HubAPIClient {
   /**
    * POST /hub/request-signup with raw body for testing invalid payloads
    */
-  async requestSignupRaw(body: unknown): Promise<APIResponse<{ message: string }>> {
+  async requestSignupRaw(body: unknown): Promise<APIResponse<RequestSignupResponse>> {
     const response = await this.request.post("/hub/request-signup", {
       data: body,
     });
@@ -481,7 +494,7 @@ export class HubAPIClient {
     const responseBody = await response.json().catch(() => ({}));
     return {
       status: response.status(),
-      body: responseBody,
+      body: responseBody as RequestSignupResponse,
       errors: responseBody.errors,
     };
   }
@@ -490,15 +503,7 @@ export class HubAPIClient {
    * POST /hub/complete-signup
    * Completes signup with verification token
    */
-  async completeSignup(request: {
-    signup_token: string;
-    password: string;
-    preferred_display_name: string;
-    other_display_names?: Array<{ language_code: string; display_name: string }>;
-    home_region: string;
-    preferred_language: string;
-    resident_country_code: string;
-  }): Promise<APIResponse<{ session_token: string; handle: string }>> {
+  async completeSignup(request: CompleteSignupRequest): Promise<APIResponse<CompleteSignupResponse>> {
     const response = await this.request.post("/hub/complete-signup", {
       data: request,
     });
@@ -506,7 +511,7 @@ export class HubAPIClient {
     const body = await response.json().catch(() => ({}));
     return {
       status: response.status(),
-      body,
+      body: body as CompleteSignupResponse,
       errors: body.errors,
     };
   }
@@ -514,7 +519,7 @@ export class HubAPIClient {
   /**
    * POST /hub/complete-signup with raw body for testing invalid payloads
    */
-  async completeSignupRaw(body: unknown): Promise<APIResponse<{ session_token: string; handle: string }>> {
+  async completeSignupRaw(body: unknown): Promise<APIResponse<CompleteSignupResponse>> {
     const response = await this.request.post("/hub/complete-signup", {
       data: body,
     });
@@ -522,7 +527,7 @@ export class HubAPIClient {
     const responseBody = await response.json().catch(() => ({}));
     return {
       status: response.status(),
-      body: responseBody,
+      body: responseBody as CompleteSignupResponse,
       errors: responseBody.errors,
     };
   }
@@ -531,15 +536,15 @@ export class HubAPIClient {
    * POST /hub/login
    * Login with email and password
    */
-  async login(email_address: string, password: string): Promise<APIResponse<{ session_token: string }>> {
+  async login(request: HubLoginRequest): Promise<APIResponse<HubLoginResponse>> {
     const response = await this.request.post("/hub/login", {
-      data: { email_address, password },
+      data: request,
     });
 
     const body = await response.json().catch(() => ({}));
     return {
       status: response.status(),
-      body,
+      body: body as HubLoginResponse,
       errors: body.errors,
     };
   }
@@ -547,7 +552,7 @@ export class HubAPIClient {
   /**
    * POST /hub/login with raw body for testing invalid payloads
    */
-  async loginRaw(body: unknown): Promise<APIResponse<{ session_token: string }>> {
+  async loginRaw(body: unknown): Promise<APIResponse<HubLoginResponse>> {
     const response = await this.request.post("/hub/login", {
       data: body,
     });
@@ -555,7 +560,7 @@ export class HubAPIClient {
     const responseBody = await response.json().catch(() => ({}));
     return {
       status: response.status(),
-      body: responseBody,
+      body: responseBody as HubLoginResponse,
       errors: responseBody.errors,
     };
   }
@@ -564,10 +569,10 @@ export class HubAPIClient {
    * POST /hub/logout
    * Logout (authenticated)
    */
-  async logout(session_token: string): Promise<APIResponse<void>> {
+  async logout(request: HubLogoutRequest): Promise<APIResponse<void>> {
     const response = await this.request.post("/hub/logout", {
-      headers: { Authorization: `Bearer ${session_token}` },
-      data: { session_token },
+      headers: { Authorization: `Bearer ${request.session_token}` },
+      data: request,
     });
 
     const body = await response.json().catch(() => ({}));
