@@ -6,8 +6,7 @@ const API_URL = process.env.API_URL || "http://localhost:8080";
 const server = serve({
 	routes: {
 		// Serve runtime config
-		"/config.json": () =>
-			Response.json({ apiBaseUrl: API_URL }),
+		"/config.json": () => Response.json({ apiBaseUrl: API_URL }),
 
 		// Serve index.html for all unmatched routes.
 		"/*": index,

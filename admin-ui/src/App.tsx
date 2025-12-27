@@ -70,6 +70,23 @@ function AppContent() {
 					theme === "dark" ? antTheme.darkAlgorithm : antTheme.defaultAlgorithm,
 				token: {
 					colorPrimary: "#1890ff",
+					// Dark theme improvements
+					...(theme === "dark" && {
+						colorBgBase: "#1a1a1a",
+						colorBgContainer: "#262626",
+						colorBgElevated: "#2f2f2f",
+						colorBorder: "#434343",
+						colorBorderSecondary: "#303030",
+						colorText: "rgba(255, 255, 255, 0.88)",
+						colorTextSecondary: "rgba(255, 255, 255, 0.65)",
+						colorTextTertiary: "rgba(255, 255, 255, 0.45)",
+					}),
+					// Light theme refinements
+					...(theme === "light" && {
+						colorBgContainer: "#ffffff",
+						colorBgLayout: "#f5f5f5",
+						borderRadius: 6,
+					}),
 				},
 			}}
 		>

@@ -165,7 +165,10 @@ export function ApprovedDomainsPage() {
 			const validationErrors = validateAddApprovedDomainRequest(request);
 			if (validationErrors.length > 0) {
 				const errorMsg = validationErrors
-					.map((e: {field: string; message: string}) => `${e.field}: ${e.message}`)
+					.map(
+						(e: { field: string; message: string }) =>
+							`${e.field}: ${e.message}`
+					)
 					.join(", ");
 				message.error(errorMsg);
 				return;
@@ -396,17 +399,14 @@ export function ApprovedDomainsPage() {
 			const request: GetApprovedDomainRequest = {
 				domain_name: domainName,
 			};
-			const response = await fetch(
-				`${apiBaseUrl}/admin/get-approved-domain`,
-				{
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-						Authorization: `Bearer ${sessionToken}`,
-					},
-					body: JSON.stringify(request),
-				}
-			);
+			const response = await fetch(`${apiBaseUrl}/admin/get-approved-domain`, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${sessionToken}`,
+				},
+				body: JSON.stringify(request),
+			});
 
 			if (response.status === 401) {
 				message.error(t("errors.unauthorized"));
@@ -445,17 +445,14 @@ export function ApprovedDomainsPage() {
 				domain_name: selectedDomain,
 				audit_cursor: domainDetail.next_audit_cursor,
 			};
-			const response = await fetch(
-				`${apiBaseUrl}/admin/get-approved-domain`,
-				{
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-						Authorization: `Bearer ${sessionToken}`,
-					},
-					body: JSON.stringify(request),
-				}
-			);
+			const response = await fetch(`${apiBaseUrl}/admin/get-approved-domain`, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${sessionToken}`,
+				},
+				body: JSON.stringify(request),
+			});
 
 			if (!response.ok) {
 				throw new Error(`HTTP error! status: ${response.status}`);
@@ -690,9 +687,7 @@ export function ApprovedDomainsPage() {
 				okButtonProps={{ danger: true }}
 			>
 				<Space direction="vertical" style={{ width: "100%" }}>
-					<div>
-						{t("disableModal.message", { domain: domainToDisable })}
-					</div>
+					<div>{t("disableModal.message", { domain: domainToDisable })}</div>
 					<Form form={disableForm} layout="vertical">
 						<Form.Item
 							name="reason"
@@ -730,9 +725,7 @@ export function ApprovedDomainsPage() {
 				cancelText={t("enableModal.cancel")}
 			>
 				<Space direction="vertical" style={{ width: "100%" }}>
-					<div>
-						{t("enableModal.message", { domain: domainToEnable })}
-					</div>
+					<div>{t("enableModal.message", { domain: domainToEnable })}</div>
 					<Form form={enableForm} layout="vertical">
 						<Form.Item
 							name="reason"
@@ -777,7 +770,9 @@ export function ApprovedDomainsPage() {
 									<Descriptions.Item label={t("detailDrawer.status")}>
 										<Tag
 											color={
-												domainDetail.domain.status === "active" ? "green" : "red"
+												domainDetail.domain.status === "active"
+													? "green"
+													: "red"
 											}
 										>
 											{t(`status.${domainDetail.domain.status}`)}
@@ -834,7 +829,8 @@ export function ApprovedDomainsPage() {
 													</div>
 													{log.reason && (
 														<div>
-															<strong>{t("detailDrawer.reason")}:</strong> {log.reason}
+															<strong>{t("detailDrawer.reason")}:</strong>{" "}
+															{log.reason}
 														</div>
 													)}
 													{log.target_domain_name && (
