@@ -85,7 +85,7 @@ function App() {
       }
 
       const data: HubLoginResponse = await response.json()
-      setToken(data.token)
+      setToken(data.session_token)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed')
     } finally {

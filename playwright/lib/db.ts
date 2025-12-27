@@ -233,3 +233,90 @@ export async function getApprovedDomainAuditLogs(domainName: string): Promise<
 export function generateTestDomainName(prefix: string = "test"): string {
   return `${prefix}-${randomUUID().substring(0, 8)}.example.com`;
 }
+
+// ============================================================================
+// Hub User Test Helpers
+// ============================================================================
+
+/**
+ * Hub user status enum matching the database enum
+ */
+export type HubUserStatus = "active" | "disabled";
+
+/**
+ * Region code enum matching the database enum
+ */
+export type RegionCode = "ind1" | "usa1" | "deu1" | "sgp1";
+
+/**
+ * Creates a test hub user in both global and regional databases.
+ *
+ * NOTE: This function requires regional databases to be available.
+ * For API tests, use the signup API flow instead of this helper.
+ * This is kept for potential integration tests with full multi-region setup.
+ *
+ * @param email - Unique email for the test user (use generateTestEmail)
+ * @param password - Plain text password (will be hashed with bcrypt)
+ * @param homeRegion - Home region for the user (default: 'ind1')
+ * @param status - User status (default: 'active')
+ * @returns The created hub user global ID
+ */
+export async function createTestHubUser(
+  email: string,
+  password: string,
+  homeRegion: RegionCode = "ind1",
+  status: HubUserStatus = "active"
+): Promise<string> {
+  throw new Error(
+    "createTestHubUser requires regional databases which are not available in test environment. " +
+    "Use the signup API flow (requestSignup + completeSignup) instead to create test users."
+  );
+}
+
+/**
+ * Deletes a test hub user by email.
+ * Deletes from global DB only (CASCADE handles related records).
+ * Regional DB cleanup is handled by the backend.
+ *
+ * @param email - Email of the hub user to delete
+ */
+export async function deleteTestHubUser(email: string): Promise<void> {
+  const crypto = require("crypto");
+  const emailHash = crypto.createHash("sha256").update(email).digest();
+
+  // Delete from global DB (CASCADE will handle sessions, display names, tokens, etc.)
+  await pool.query(
+    `DELETE FROM hub_users WHERE email_address_hash = $1`,
+    [emailHash]
+  );
+}
+
+/**
+ * Gets a regional database pool based on region code.
+ *
+ * @param region - Region code
+ * @returns PostgreSQL connection pool for the region
+ */
+function getRegionalPool(region: RegionCode): Pool {
+  const dbName = `vetchium_regional_${region}`;
+  return new Pool({
+    host: "localhost",
+    port: 5432,
+    database: dbName,
+    user: "vetchium",
+    password: "vetchium_dev",
+  });
+}
+
+/**
+ * Extracts the signup link (token) from a signup verification email.
+ *
+ * @param emailMessage - Email message from mailpit
+ * @returns The signup token extracted from the link
+ */
+export function extractSignupTokenFromEmail(emailMessage: any): string | null {
+  const html = emailMessage.HTML || "";
+  // Look for the signup link pattern: /signup/verify?token=...
+  const match = html.match(/token=([a-f0-9]{64})/);
+  return match ? match[1] : null;
+}

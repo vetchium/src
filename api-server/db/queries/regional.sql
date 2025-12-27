@@ -8,8 +8,8 @@ SELECT * FROM hub_users WHERE email_address = $1;
 SELECT * FROM hub_users WHERE hub_user_global_id = $1;
 
 -- name: CreateHubUser :one
-INSERT INTO hub_users (hub_user_global_id, email_address, password_hash)
-VALUES ($1, $2, $3)
+INSERT INTO hub_users (hub_user_id, hub_user_global_id, email_address, password_hash)
+VALUES (gen_random_uuid(), $1, $2, $3)
 RETURNING *;
 
 -- name: DeleteHubUser :exec

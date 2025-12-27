@@ -374,3 +374,225 @@ export class AdminAPIClient {
     };
   }
 }
+
+// ============================================================================
+// Hub API Client
+// ============================================================================
+
+/**
+ * Hub API client for testing hub user signup and authentication endpoints.
+ * Wraps Playwright's request context for type-safe API calls.
+ */
+export class HubAPIClient {
+  constructor(private request: APIRequestContext) {}
+
+  /**
+   * POST /hub/get-regions
+   * Returns list of active regions for dropdown
+   */
+  async getRegions(): Promise<APIResponse<{ regions: Array<{ region_code: string; region_name: string }> }>> {
+    const response = await this.request.post("/hub/get-regions", {
+      data: {},
+    });
+
+    const body = await response.json().catch(() => ({}));
+    return {
+      status: response.status(),
+      body,
+      errors: body.errors,
+    };
+  }
+
+  /**
+   * POST /hub/get-supported-languages
+   * Returns list of supported languages
+   */
+  async getSupportedLanguages(): Promise<APIResponse<{ languages: Array<any> }>> {
+    const response = await this.request.post("/hub/get-supported-languages", {
+      data: {},
+    });
+
+    const body = await response.json().catch(() => ({}));
+    return {
+      status: response.status(),
+      body,
+      errors: body.errors,
+    };
+  }
+
+  /**
+   * POST /hub/check-domain
+   * Checks if a domain is approved for signup
+   */
+  async checkDomain(domain: string): Promise<APIResponse<{ is_approved: boolean }>> {
+    const response = await this.request.post("/hub/check-domain", {
+      data: { domain },
+    });
+
+    const body = await response.json().catch(() => ({}));
+    return {
+      status: response.status(),
+      body,
+      errors: body.errors,
+    };
+  }
+
+  /**
+   * POST /hub/check-domain with raw body for testing invalid payloads
+   */
+  async checkDomainRaw(body: unknown): Promise<APIResponse<{ is_approved: boolean }>> {
+    const response = await this.request.post("/hub/check-domain", {
+      data: body,
+    });
+
+    const responseBody = await response.json().catch(() => ({}));
+    return {
+      status: response.status(),
+      body: responseBody,
+      errors: responseBody.errors,
+    };
+  }
+
+  /**
+   * POST /hub/request-signup
+   * Requests signup verification email
+   */
+  async requestSignup(email_address: string): Promise<APIResponse<{ message: string }>> {
+    const response = await this.request.post("/hub/request-signup", {
+      data: { email_address },
+    });
+
+    const body = await response.json().catch(() => ({}));
+    return {
+      status: response.status(),
+      body,
+      errors: body.errors,
+    };
+  }
+
+  /**
+   * POST /hub/request-signup with raw body for testing invalid payloads
+   */
+  async requestSignupRaw(body: unknown): Promise<APIResponse<{ message: string }>> {
+    const response = await this.request.post("/hub/request-signup", {
+      data: body,
+    });
+
+    const responseBody = await response.json().catch(() => ({}));
+    return {
+      status: response.status(),
+      body: responseBody,
+      errors: responseBody.errors,
+    };
+  }
+
+  /**
+   * POST /hub/complete-signup
+   * Completes signup with verification token
+   */
+  async completeSignup(request: {
+    signup_token: string;
+    email_address: string;
+    password: string;
+    preferred_display_name: string;
+    other_display_names?: Array<{ language_code: string; display_name: string }>;
+    home_region: string;
+    preferred_language: string;
+    resident_country_code: string;
+  }): Promise<APIResponse<{ session_token: string; handle: string }>> {
+    const response = await this.request.post("/hub/complete-signup", {
+      data: request,
+    });
+
+    const body = await response.json().catch(() => ({}));
+    return {
+      status: response.status(),
+      body,
+      errors: body.errors,
+    };
+  }
+
+  /**
+   * POST /hub/complete-signup with raw body for testing invalid payloads
+   */
+  async completeSignupRaw(body: unknown): Promise<APIResponse<{ session_token: string; handle: string }>> {
+    const response = await this.request.post("/hub/complete-signup", {
+      data: body,
+    });
+
+    const responseBody = await response.json().catch(() => ({}));
+    return {
+      status: response.status(),
+      body: responseBody,
+      errors: responseBody.errors,
+    };
+  }
+
+  /**
+   * POST /hub/login
+   * Login with email and password
+   */
+  async login(email_address: string, password: string): Promise<APIResponse<{ session_token: string }>> {
+    const response = await this.request.post("/hub/login", {
+      data: { email_address, password },
+    });
+
+    const body = await response.json().catch(() => ({}));
+    return {
+      status: response.status(),
+      body,
+      errors: body.errors,
+    };
+  }
+
+  /**
+   * POST /hub/login with raw body for testing invalid payloads
+   */
+  async loginRaw(body: unknown): Promise<APIResponse<{ session_token: string }>> {
+    const response = await this.request.post("/hub/login", {
+      data: body,
+    });
+
+    const responseBody = await response.json().catch(() => ({}));
+    return {
+      status: response.status(),
+      body: responseBody,
+      errors: responseBody.errors,
+    };
+  }
+
+  /**
+   * POST /hub/logout
+   * Logout (authenticated)
+   */
+  async logout(session_token: string): Promise<APIResponse<void>> {
+    const response = await this.request.post("/hub/logout", {
+      headers: { Authorization: `Bearer ${session_token}` },
+      data: { session_token },
+    });
+
+    const body = await response.json().catch(() => ({}));
+    return {
+      status: response.status(),
+      body: undefined,
+      errors: body.errors,
+    };
+  }
+
+  /**
+   * POST /hub/logout with raw body for testing invalid payloads
+   */
+  async logoutRaw(session_token: string, body: unknown): Promise<APIResponse<void>> {
+    const response = await this.request.post("/hub/logout", {
+      headers: { Authorization: `Bearer ${session_token}` },
+      data: body,
+    });
+
+    const responseBody = await response.json().catch(() => ({}));
+    return {
+      status: response.status(),
+      body: undefined,
+      errors: responseBody.errors,
+    };
+  }
+}

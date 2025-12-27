@@ -290,10 +290,10 @@ LIMIT 1;
 
 -- name: CreateHubUser :one
 INSERT INTO hub_users (
-    handle, email_address_hash, hashing_algorithm,
+    hub_user_global_id, handle, email_address_hash, hashing_algorithm,
     status, preferred_language, home_region, resident_country_code
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7)
 RETURNING *;
 
 -- name: CreateHubUserDisplayName :exec
