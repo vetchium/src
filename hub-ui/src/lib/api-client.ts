@@ -11,6 +11,8 @@ import type {
   HubLoginRequest,
   HubLoginResponse,
   ValidationError,
+  GetRegionsResponse,
+  GetSupportedLanguagesResponse,
 } from "vetchium-specs/hub/hub-users";
 
 export interface APIResponse<T> {
@@ -33,8 +35,8 @@ export async function getRegions(): Promise<APIResponse<Region[]>> {
 
   const status = response.status;
   if (status === 200) {
-    const data = await response.json();
-    return { status, data };
+    const responseData: GetRegionsResponse = await response.json();
+    return { status, data: responseData.regions };
   }
 
   return { status };
@@ -56,8 +58,8 @@ export async function getSupportedLanguages(): Promise<
 
   const status = response.status;
   if (status === 200) {
-    const data = await response.json();
-    return { status, data };
+    const responseData: GetSupportedLanguagesResponse = await response.json();
+    return { status, data: responseData.languages };
   }
 
   return { status };

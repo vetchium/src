@@ -21,9 +21,7 @@ func GetRegions(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		response := struct {
-			Regions []hub.Region `json:"regions"`
-		}{
+		response := hub.GetRegionsResponse{
 			Regions: make([]hub.Region, 0, len(regions)),
 		}
 

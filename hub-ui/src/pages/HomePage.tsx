@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Layout, Card, Typography, Button, Alert } from "antd";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
@@ -9,13 +10,18 @@ export function HomePage() {
   const navigate = useNavigate();
   const { sessionToken, handle, logout, isAuthenticated } = useAuth();
 
+  useEffect(() => {
+    if (!isAuthenticated) {
+      navigate("/login");
+    }
+  }, [isAuthenticated, navigate]);
+
   const handleLogout = async () => {
     await logout();
     navigate("/login");
   };
 
   if (!isAuthenticated) {
-    navigate("/login");
     return null;
   }
 

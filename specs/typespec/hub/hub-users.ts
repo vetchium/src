@@ -138,7 +138,6 @@ export interface RequestSignupResponse {
 
 export interface CompleteSignupRequest {
 	signup_token: HubSignupToken;
-	email_address: EmailAddress;
 	password: Password;
 	preferred_display_name: DisplayName;
 	other_display_names?: DisplayNameEntry[];
@@ -200,11 +199,6 @@ export function validateCompleteSignupRequest(
 
 	if (!request.signup_token) {
 		errs.push(newValidationError("signup_token", ERR_REQUIRED));
-	}
-
-	const emailErr = validateEmailAddress(request.email_address);
-	if (emailErr) {
-		errs.push(newValidationError("email_address", emailErr));
 	}
 
 	const passwordErr = validatePassword(request.password);
@@ -281,4 +275,12 @@ export function validateHubLogoutRequest(
 	}
 
 	return errs;
+}
+
+export interface GetRegionsResponse {
+	regions: Region[];
+}
+
+export interface GetSupportedLanguagesResponse {
+	languages: SupportedLanguage[];
 }

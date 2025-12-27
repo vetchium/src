@@ -1,13 +1,10 @@
 import { useState, useEffect } from "react";
 import { Form, Input, Button, Alert, Select, Space } from "antd";
-import { UserOutlined, LockOutlined, MinusCircleOutlined, PlusOutlined } from "@ant-design/icons";
+import { LockOutlined, MinusCircleOutlined, PlusOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import {
-  validateEmailAddress,
   validatePassword,
-  EMAIL_MIN_LENGTH,
-  EMAIL_MAX_LENGTH,
   PASSWORD_MIN_LENGTH,
   PASSWORD_MAX_LENGTH,
 } from "vetchium-specs/common/common";
@@ -74,8 +71,8 @@ export function SignupCompleteForm({ signupToken }: SignupCompleteFormProps) {
   }, [form, t]);
 
   const onFinish = async (values: {
-    email: string;
     password: string;
+    confirm_password: string;
     preferred_display_name: string;
     other_display_names?: Array<{
       language_code: string;
@@ -98,7 +95,6 @@ export function SignupCompleteForm({ signupToken }: SignupCompleteFormProps) {
 
       const request: CompleteSignupRequest = {
         signup_token: signupToken,
-        email_address: values.email,
         password: values.password,
         preferred_display_name: values.preferred_display_name,
         other_display_names: otherNames,
@@ -140,32 +136,6 @@ export function SignupCompleteForm({ signupToken }: SignupCompleteFormProps) {
       )}
 
       <Form.Item
-        name="email"
-        label={t("signup:emailLabel")}
-        validateFirst
-        rules={[
-          { required: true, message: t("common:required") },
-          { type: "email", message: t("common:invalidEmail") },
-          { min: EMAIL_MIN_LENGTH, message: t("common:invalidEmail") },
-          { max: EMAIL_MAX_LENGTH, message: t("common:invalidEmail") },
-          {
-            validator: (_, value) => {
-              if (!value) return Promise.resolve();
-              const err = validateEmailAddress(value);
-              if (err) return Promise.reject(new Error(err));
-              return Promise.resolve();
-            },
-          },
-        ]}
-      >
-        <Input
-          prefix={<UserOutlined />}
-          placeholder={t("signup:emailPlaceholder")}
-          size="large"
-        />
-      </Form.Item>
-
-      <Form.Item
         name="password"
         label={t("signup:passwordLabel")}
         validateFirst
@@ -186,6 +156,30 @@ export function SignupCompleteForm({ signupToken }: SignupCompleteFormProps) {
         <Input.Password
           prefix={<LockOutlined />}
           placeholder={t("signup:passwordPlaceholder")}
+          size="large"
+        />
+      </Form.Item>
+
+      <Form.Item
+        name="confirm_password"
+        label={t("signup:confirmPasswordLabel")}
+        dependencies={["password"]}
+        validateFirst
+        rules={[
+          { required: true, message: t("common:required") },
+          ({ getFieldValue }) => ({
+            validator(_, value) {
+              if (!value || getFieldValue("password") === value) {
+                return Promise.resolve();
+              }
+              return Promise.reject(new Error(t("signup:passwordMismatch")));
+            },
+          }),
+        ]}
+      >
+        <Input.Password
+          prefix={<LockOutlined />}
+          placeholder={t("signup:confirmPasswordPlaceholder")}
           size="large"
         />
       </Form.Item>

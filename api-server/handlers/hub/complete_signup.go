@@ -2,7 +2,6 @@ package hub
 
 import (
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -58,16 +57,12 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Verify email matches token
-		emailHash := sha256.Sum256([]byte(req.EmailAddress))
-		if !compareByteSlices(emailHash[:], tokenRecord.EmailAddressHash) {
-			log.Debug("email does not match signup token")
-			w.WriteHeader(http.StatusUnauthorized)
-			return
-		}
+		// Use email from token record (already verified when token was created)
+		email := tokenRecord.EmailAddress
+		emailHash := tokenRecord.EmailAddressHash
 
 		// Check if email already registered (duplicate signup during token lifetime)
-		_, err = s.Global.GetHubUserByEmailHash(ctx, emailHash[:])
+		_, err = s.Global.GetHubUserByEmailHash(ctx, emailHash)
 		if err == nil {
 			log.Debug("email already registered")
 			w.WriteHeader(http.StatusConflict)
@@ -106,7 +101,7 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 		}
 
 		// Generate handle from email
-		handle := generateHandle(string(req.EmailAddress))
+		handle := generateHandle(email)
 
 		// Hash password
 		passwordHash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
@@ -119,7 +114,7 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 		// Create user in global DB first (database generates hub_user_global_id)
 		globalUser, err := s.Global.CreateHubUser(ctx, globaldb.CreateHubUserParams{
 			Handle:              handle,
-			EmailAddressHash:    emailHash[:],
+			EmailAddressHash:    emailHash,
 			HashingAlgorithm:    globaldb.EmailAddressHashingAlgorithmSHA256,
 			Status:              globaldb.HubUserStatusActive,
 			PreferredLanguage:   req.PreferredLanguage,
@@ -167,7 +162,7 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 		// Create user in regional DB (database generates hub_user_id)
 		regionalUser, err := regionalDB.CreateHubUser(ctx, regionaldb.CreateHubUserParams{
 			HubUserGlobalID: hubUserGlobalID,
-			EmailAddress:    string(req.EmailAddress),
+			EmailAddress:    email,
 			PasswordHash:    passwordHash,
 		})
 		if err != nil {
@@ -267,16 +262,4 @@ func generateRandomHandle() string {
 	rand.Read(randomBytes)
 	suffix := hex.EncodeToString(randomBytes)
 	return "user-" + suffix
-}
-
-// compareByteSlices performs constant-time comparison of two byte slices
-func compareByteSlices(a, b []byte) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	result := 0
-	for i := 0; i < len(a); i++ {
-		result |= int(a[i] ^ b[i])
-	}
-	return result == 0
 }

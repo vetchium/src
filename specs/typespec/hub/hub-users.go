@@ -121,7 +121,6 @@ type RequestSignupResponse struct {
 
 type CompleteSignupRequest struct {
 	SignupToken          HubSignupToken     `json:"signup_token"`
-	EmailAddress         common.EmailAddress `json:"email_address"`
 	Password             common.Password     `json:"password"`
 	PreferredDisplayName DisplayName         `json:"preferred_display_name"`
 	OtherDisplayNames    []DisplayNameEntry  `json:"other_display_names,omitempty"`
@@ -135,10 +134,6 @@ func (r CompleteSignupRequest) Validate() []common.ValidationError {
 
 	if r.SignupToken == "" {
 		errs = append(errs, common.NewValidationError("signup_token", common.ErrRequired))
-	}
-
-	if err := r.EmailAddress.Validate(); err != nil {
-		errs = append(errs, common.NewValidationError("email_address", err))
 	}
 
 	if err := r.Password.Validate(); err != nil {
@@ -219,4 +214,12 @@ func (r HubLogoutRequest) Validate() []common.ValidationError {
 	}
 
 	return errs
+}
+
+type GetRegionsResponse struct {
+	Regions []Region `json:"regions"`
+}
+
+type GetSupportedLanguagesResponse struct {
+	Languages []SupportedLanguage `json:"languages"`
 }

@@ -492,7 +492,6 @@ export class HubAPIClient {
    */
   async completeSignup(request: {
     signup_token: string;
-    email_address: string;
     password: string;
     preferred_display_name: string;
     other_display_names?: Array<{ language_code: string; display_name: string }>;

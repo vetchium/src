@@ -21,9 +21,7 @@ func GetSupportedLanguages(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		response := struct {
-			Languages []hub.SupportedLanguage `json:"languages"`
-		}{
+		response := hub.GetSupportedLanguagesResponse{
 			Languages: make([]hub.SupportedLanguage, 0, len(languages)),
 		}
 

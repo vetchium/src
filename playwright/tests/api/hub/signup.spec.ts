@@ -157,7 +157,6 @@ test.describe("POST /hub/request-signup", () => {
       const signupToken = extractSignupTokenFromEmail(emailMessage);
       await api.completeSignup({
         signup_token: signupToken!,
-        email_address: email,
         password,
         preferred_display_name: "Existing User",
         home_region: "ind1",
@@ -216,7 +215,6 @@ test.describe("POST /hub/complete-signup", () => {
       // Complete signup
       const response = await api.completeSignup({
         signup_token: signupToken!,
-        email_address: email,
         password,
         preferred_display_name: "Test User",
         home_region: "ind1",
@@ -259,7 +257,6 @@ test.describe("POST /hub/complete-signup", () => {
 
       const response = await api.completeSignup({
         signup_token: signupToken!,
-        email_address: email,
         password,
         preferred_display_name: "Test User",
         other_display_names: [
@@ -286,7 +283,6 @@ test.describe("POST /hub/complete-signup", () => {
 
     const response = await api.completeSignup({
       signup_token: "0".repeat(64), // Invalid token
-      email_address: email,
       password: "Password123$",
       preferred_display_name: "Test User",
       home_region: "ind1",
@@ -295,40 +291,6 @@ test.describe("POST /hub/complete-signup", () => {
     });
 
     expect(response.status).toBe(401);
-  });
-
-  test("returns 401 when email doesn't match token", async ({ request }) => {
-    const api = new HubAPIClient(request);
-    const adminEmail = generateTestEmail("admin");
-    const domain = generateTestDomainName();
-    const email = `test-${randomUUID().substring(0, 8)}@${domain}`;
-    const wrongEmail = `wrong@${domain}`;  // Same domain, different local part
-
-    await createTestAdminUser(adminEmail, "Password123$");
-    await createTestApprovedDomain(domain, adminEmail);
-
-    try {
-      await api.requestSignup(email);
-      const emailSummary = await waitForEmail(email);
-      const emailMessage = await getEmailContent(emailSummary.ID);
-      const signupToken = extractSignupTokenFromEmail(emailMessage);
-
-      // Try to complete with different email
-      const response = await api.completeSignup({
-        signup_token: signupToken!,
-        email_address: wrongEmail,
-        password: "Password123$",
-        preferred_display_name: "Test User",
-        home_region: "ind1",
-        preferred_language: "en-US",
-        resident_country_code: "US",
-      });
-
-      expect(response.status).toBe(401);
-    } finally {
-      await permanentlyDeleteTestApprovedDomain(domain);
-      await deleteTestAdminUser(adminEmail);
-    }
   });
 
   test("returns 409 if user already exists", async ({ request }) => {
@@ -349,7 +311,6 @@ test.describe("POST /hub/complete-signup", () => {
       const firstSignupToken = extractSignupTokenFromEmail(firstEmailMessage);
       await api.completeSignup({
         signup_token: firstSignupToken!,
-        email_address: email,
         password,
         preferred_display_name: "First User",
         home_region: "ind1",
@@ -366,7 +327,6 @@ test.describe("POST /hub/complete-signup", () => {
       // Try to complete signup again - should return 409
       const response = await api.completeSignup({
         signup_token: secondSignupToken!,
-        email_address: email,
         password,
         preferred_display_name: "Test User",
         home_region: "ind1",
@@ -398,7 +358,6 @@ test.describe("POST /hub/complete-signup", () => {
 
     const response = await api.completeSignupRaw({
       signup_token: "a".repeat(64),
-      email_address: "test@example.com",
       password: "weak", // Too short
       preferred_display_name: "Test User",
       home_region: "ind1",
@@ -414,7 +373,6 @@ test.describe("POST /hub/complete-signup", () => {
 
     const response = await api.completeSignupRaw({
       signup_token: "a".repeat(64),
-      email_address: "test@example.com",
       password: "Password123$",
       preferred_display_name: "Test User",
       home_region: "ind1",
@@ -430,7 +388,6 @@ test.describe("POST /hub/complete-signup", () => {
 
     const response = await api.completeSignupRaw({
       signup_token: "a".repeat(64),
-      email_address: "test@example.com",
       password: "Password123$",
       preferred_display_name: "", // Empty
       home_region: "ind1",
@@ -446,7 +403,6 @@ test.describe("POST /hub/complete-signup", () => {
 
     const response = await api.completeSignupRaw({
       signup_token: "a".repeat(64),
-      email_address: "test@example.com",
       password: "Password123$",
       preferred_display_name: "a".repeat(101), // Max 100
       home_region: "ind1",
@@ -477,7 +433,6 @@ test.describe("POST /hub/login", () => {
       const signupToken = extractSignupTokenFromEmail(emailMessage);
       await api.completeSignup({
         signup_token: signupToken!,
-        email_address: email,
         password,
         preferred_display_name: "Test User",
         home_region: "ind1",
@@ -516,7 +471,6 @@ test.describe("POST /hub/login", () => {
       const signupToken = extractSignupTokenFromEmail(emailMessage);
       await api.completeSignup({
         signup_token: signupToken!,
-        email_address: email,
         password,
         preferred_display_name: "Test User",
         home_region: "ind1",
@@ -591,7 +545,6 @@ test.describe("POST /hub/logout", () => {
       const signupToken = extractSignupTokenFromEmail(emailMessage);
       await api.completeSignup({
         signup_token: signupToken!,
-        email_address: email,
         password,
         preferred_display_name: "Logout Test User",
         home_region: "ind1",
