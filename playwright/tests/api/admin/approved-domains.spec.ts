@@ -126,7 +126,7 @@ test.describe("POST /admin/approved-domains", () => {
 			const sessionToken = tfaResponse.body.session_token;
 
 			// Try with raw request to send empty domain_name
-			const response = await request.post("/admin/approved-domains/", {
+			const response = await request.post("/admin/approved-domains", {
 				headers: { Authorization: `Bearer ${sessionToken}` },
 				data: { domain_name: "" },
 			});

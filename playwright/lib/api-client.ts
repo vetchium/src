@@ -155,7 +155,7 @@ export class AdminAPIClient {
     sessionToken: string,
     domainName: string
   ): Promise<APIResponse<ApprovedDomainDetailResponse["domain"]>> {
-    const response = await this.request.post("/admin/approved-domains/", {
+    const response = await this.request.post("/admin/approved-domains", {
       headers: { Authorization: `Bearer ${sessionToken}` },
       data: { domain_name: domainName },
     });
@@ -185,7 +185,9 @@ export class AdminAPIClient {
     if (options?.cursor) params.append("cursor", options.cursor);
     if (options?.query) params.append("query", options.query);
 
-    const url = `/admin/approved-domains/${params.toString() ? `?${params.toString()}` : ""}`;
+    const url = params.toString()
+      ? `/admin/approved-domains?${params.toString()}`
+      : `/admin/approved-domains`;
     const response = await this.request.get(url, {
       headers: { Authorization: `Bearer ${sessionToken}` },
     });
