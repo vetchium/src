@@ -264,3 +264,77 @@ LEFT JOIN admin_users au ON al.admin_id = au.admin_user_id
 WHERE al.target_domain_id = $1 AND al.created_at < $2
 ORDER BY al.created_at DESC
 LIMIT $3;
+
+-- Hub signup tokens
+
+-- name: CreateHubSignupToken :exec
+INSERT INTO hub_signup_tokens (signup_token, email_address, email_address_hash, hashing_algorithm, expires_at)
+VALUES ($1, $2, $3, $4, $5);
+
+-- name: GetHubSignupToken :one
+SELECT * FROM hub_signup_tokens WHERE signup_token = $1 AND expires_at > NOW();
+
+-- name: MarkHubSignupTokenConsumed :exec
+UPDATE hub_signup_tokens SET consumed_at = NOW() WHERE signup_token = $1;
+
+-- name: DeleteExpiredHubSignupTokens :exec
+DELETE FROM hub_signup_tokens WHERE expires_at <= NOW();
+
+-- name: GetActiveHubSignupTokenByEmailHash :one
+SELECT * FROM hub_signup_tokens
+WHERE email_address_hash = $1 AND expires_at > NOW()
+ORDER BY created_at DESC
+LIMIT 1;
+
+-- Hub user creation
+
+-- name: CreateHubUser :one
+INSERT INTO hub_users (
+    handle, email_address_hash, hashing_algorithm,
+    status, preferred_language, home_region, resident_country_code
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING *;
+
+-- name: CreateHubUserDisplayName :exec
+INSERT INTO hub_user_display_names (hub_user_global_id, language_code, display_name, is_preferred)
+VALUES ($1, $2, $3, $4);
+
+-- name: GetHubUserDisplayNames :many
+SELECT * FROM hub_user_display_names WHERE hub_user_global_id = $1
+ORDER BY is_preferred DESC, language_code ASC;
+
+-- name: GetHubUserPreferredDisplayName :one
+SELECT display_name FROM hub_user_display_names
+WHERE hub_user_global_id = $1 AND is_preferred = TRUE;
+
+-- name: DeleteHubUser :exec
+DELETE FROM hub_users WHERE hub_user_global_id = $1;
+
+-- Regions
+
+-- name: GetActiveRegions :many
+SELECT * FROM available_regions WHERE is_active = TRUE ORDER BY region_name ASC;
+
+-- name: GetRegionByCode :one
+SELECT * FROM available_regions WHERE region_code = $1;
+
+-- Hub sessions
+
+-- name: CreateHubSession :exec
+INSERT INTO hub_sessions (session_token, hub_user_global_id, expires_at)
+VALUES ($1, $2, $3);
+
+-- name: GetHubSession :one
+SELECT * FROM hub_sessions WHERE session_token = $1 AND expires_at > NOW();
+
+-- name: DeleteHubSession :exec
+DELETE FROM hub_sessions WHERE session_token = $1;
+
+-- name: DeleteExpiredHubSessions :exec
+DELETE FROM hub_sessions WHERE expires_at <= NOW();
+
+-- Domain validation (uses existing approved_domains table)
+
+-- name: GetActiveDomainByName :one
+SELECT * FROM approved_domains WHERE domain_name = $1 AND status = 'active';

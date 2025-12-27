@@ -16,6 +16,8 @@ const loggerKey ctxKey = "logger"
 const (
 	adminSessionKey ctxKey = "adminSession"
 	adminUserKey    ctxKey = "adminUser"
+	hubSessionKey   ctxKey = "hubSession"
+	hubUserKey      ctxKey = "hubUser"
 )
 
 // responseWriter wraps http.ResponseWriter to capture status code

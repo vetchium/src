@@ -1,0 +1,10 @@
+{
+	"subject": "Vervollständigen Sie Ihre Vetchium-Anmeldung",
+	"portal_name": "Vetchium",
+	"body_intro": "Vielen Dank für Ihre Anmeldung! Klicken Sie auf die Schaltfläche unten, um Ihre Kontoeinrichtung abzuschließen.",
+	"button_text": "Anmeldung abschließen",
+	"body_click_here": "Klicken Sie hier, um Ihre Anmeldung abzuschließen",
+	"body_expiry": "Dieser Link läuft in {{.Hours}} Stunden ab.",
+	"body_ignore": "Wenn Sie diese Anmeldung nicht angefordert haben, ignorieren Sie diese E-Mail bitte.",
+	"footer": "Dies ist eine automatische Nachricht, bitte antworten Sie nicht."
+}

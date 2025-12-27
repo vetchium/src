@@ -1,0 +1,10 @@
+{
+	"subject": "Complete your Vetchium signup",
+	"portal_name": "Vetchium",
+	"body_intro": "Thank you for signing up! Click the button below to complete your account setup.",
+	"button_text": "Complete Signup",
+	"body_click_here": "Click here to complete your signup",
+	"body_expiry": "This link will expire in {{.Hours}} hours.",
+	"body_ignore": "If you didn't request this signup, please ignore this email.",
+	"footer": "This is an automated message, please do not reply."
+}

@@ -7,12 +7,18 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"golang.org/x/crypto/bcrypt"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/server"
 	"vetchium-api-server.typespec/hub"
+)
+
+const (
+	hubSessionTokenExpiry = 24 * time.Hour
 )
 
 func Login(s *server.Server) http.HandlerFunc {
@@ -88,17 +94,32 @@ func Login(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Generate token
-		tokenBytes := make([]byte, 32)
-		if _, err := rand.Read(tokenBytes); err != nil {
-			log.Error("failed to generate token", "error", err)
+		// Generate session token
+		sessionTokenBytes := make([]byte, 32)
+		if _, err := rand.Read(sessionTokenBytes); err != nil {
+			log.Error("failed to generate session token", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
-		token := hex.EncodeToString(tokenBytes)
+		sessionToken := hex.EncodeToString(sessionTokenBytes)
+
+		// Create session in global DB
+		sessionExpiresAt := pgtype.Timestamp{Time: time.Now().Add(hubSessionTokenExpiry), Valid: true}
+		err = s.Global.CreateHubSession(ctx, globaldb.CreateHubSessionParams{
+			SessionToken:    sessionToken,
+			HubUserGlobalID: globalUser.HubUserGlobalID,
+			ExpiresAt:       sessionExpiresAt,
+		})
+		if err != nil {
+			log.Error("failed to create session", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
+		log.Info("hub user login successful", "hub_user_global_id", globalUser.HubUserGlobalID)
 
 		response := hub.HubLoginResponse{
-			Token: token,
+			SessionToken: hub.HubSessionToken(sessionToken),
 		}
 
 		if err := json.NewEncoder(w).Encode(response); err != nil {
