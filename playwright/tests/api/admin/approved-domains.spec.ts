@@ -349,7 +349,7 @@ test.describe("POST /admin/list-approved-domains", () => {
 			await api.createApprovedDomain(sessionToken, { domain_name: domainName1, reason: "Test domain for automated testing" });
 			await api.createApprovedDomain(sessionToken, { domain_name: domainName2, reason: "Test domain for automated testing" });
 
-			// Search for first domain
+			// Search for first domain - "search" should find "search-test-12345678.example.com"
 			const response = await api.listApprovedDomains(sessionToken, {
 				search: domainName1.split("-")[0],
 			});

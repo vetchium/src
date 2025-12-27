@@ -143,7 +143,7 @@ SELECT ad.domain_id, ad.domain_name, ad.created_by_admin_id,
        similarity(ad.domain_name, @search_term) AS sim_score
 FROM approved_domains ad
 JOIN admin_users au ON ad.created_by_admin_id = au.admin_user_id
-WHERE ad.status = 'active' AND ad.domain_name % @search_term
+WHERE ad.status = 'active' AND ad.domain_name ILIKE '%' || @search_term || '%'
 ORDER BY sim_score DESC, ad.domain_name ASC
 LIMIT @limit_count;
 
@@ -155,7 +155,7 @@ SELECT ad.domain_id, ad.domain_name, ad.created_by_admin_id,
 FROM approved_domains ad
 JOIN admin_users au ON ad.created_by_admin_id = au.admin_user_id
 WHERE ad.status = 'active'
-  AND ad.domain_name % @search_term
+  AND ad.domain_name ILIKE '%' || @search_term || '%'
   AND (similarity(ad.domain_name, @search_term), ad.domain_name) < (@cursor_score::float4, @cursor_domain)
 ORDER BY sim_score DESC, ad.domain_name ASC
 LIMIT @limit_count;
@@ -167,7 +167,7 @@ SELECT ad.domain_id, ad.domain_name, ad.created_by_admin_id,
        similarity(ad.domain_name, @search_term) AS sim_score
 FROM approved_domains ad
 JOIN admin_users au ON ad.created_by_admin_id = au.admin_user_id
-WHERE ad.status = 'inactive' AND ad.domain_name % @search_term
+WHERE ad.status = 'inactive' AND ad.domain_name ILIKE '%' || @search_term || '%'
 ORDER BY sim_score DESC, ad.domain_name ASC
 LIMIT @limit_count;
 
@@ -179,7 +179,7 @@ SELECT ad.domain_id, ad.domain_name, ad.created_by_admin_id,
 FROM approved_domains ad
 JOIN admin_users au ON ad.created_by_admin_id = au.admin_user_id
 WHERE ad.status = 'inactive'
-  AND ad.domain_name % @search_term
+  AND ad.domain_name ILIKE '%' || @search_term || '%'
   AND (similarity(ad.domain_name, @search_term), ad.domain_name) < (@cursor_score::float4, @cursor_domain)
 ORDER BY sim_score DESC, ad.domain_name ASC
 LIMIT @limit_count;
@@ -191,7 +191,7 @@ SELECT ad.domain_id, ad.domain_name, ad.created_by_admin_id,
        similarity(ad.domain_name, @search_term) AS sim_score
 FROM approved_domains ad
 JOIN admin_users au ON ad.created_by_admin_id = au.admin_user_id
-WHERE ad.domain_name % @search_term
+WHERE ad.domain_name ILIKE '%' || @search_term || '%'
 ORDER BY sim_score DESC, ad.domain_name ASC
 LIMIT @limit_count;
 
@@ -202,7 +202,7 @@ SELECT ad.domain_id, ad.domain_name, ad.created_by_admin_id,
        similarity(ad.domain_name, @search_term) AS sim_score
 FROM approved_domains ad
 JOIN admin_users au ON ad.created_by_admin_id = au.admin_user_id
-WHERE ad.domain_name % @search_term
+WHERE ad.domain_name ILIKE '%' || @search_term || '%'
   AND (similarity(ad.domain_name, @search_term), ad.domain_name) < (@cursor_score::float4, @cursor_domain)
 ORDER BY sim_score DESC, ad.domain_name ASC
 LIMIT @limit_count;

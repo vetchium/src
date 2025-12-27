@@ -115,18 +115,18 @@ if hasMore {
 
 ### HTTP Response Conventions
 
-| Scenario          | Status Code | Response Body                 |
-| ----------------- | ----------- | ----------------------------- |
+| Scenario          | Status Code | Response Body                    |
+| ----------------- | ----------- | -------------------------------- |
 | Validation errors | 400         | JSON array: `[{field, message}]` |
-| Unauthenticated   | 401         | Empty                         |
-| Forbidden         | 403         | Empty                         |
-| Not found         | 404         | Empty                         |
-| Conflict          | 409         | Optional JSON                 |
-| Invalid state     | 422         | Empty                         |
-| Server error      | 500         | Empty                         |
-| Created           | 201         | JSON resource                 |
-| Deleted           | 204         | Empty                         |
-| Success           | 200         | JSON                          |
+| Unauthenticated   | 401         | Empty                            |
+| Forbidden         | 403         | Empty                            |
+| Not found         | 404         | Empty                            |
+| Conflict          | 409         | Optional JSON                    |
+| Invalid state     | 422         | Empty                            |
+| Server error      | 500         | Empty                            |
+| Created           | 201         | JSON resource                    |
+| Deleted           | 204         | Empty                            |
+| Success           | 200         | JSON                             |
 
 ### Handler Implementation Pattern
 
@@ -271,14 +271,37 @@ type Response struct {
 ```typescript
 // TypeScript interface
 interface Response {
-  tfa_token: string;
-  created_at: string;
+	tfa_token: string;
+	created_at: string;
 }
+```
+
+## API endpoints Convention
+
+Use POST as the method type as much as possible and pass any value needed in the request body with a schema. Avoid using path parameters. Query parameters should be sparingly used.
+Use DELETE method for operations that may delete data. But ideally most APIs should be marking as disabled instead of delete.
+
+Avoid using common endpoint prefixes to avoid wrong handlers getting called accidentally. For example, Instead of
+
+```go
+  mux.Handle("POST /admin/approved-domains", authMiddleware(admin.AddApprovedDomain(s)))
+	mux.Handle("GET /admin/approved-domains", authMiddleware(admin.ListApprovedDomains(s)))
+	mux.Handle("GET /admin/approved-domains/{domain}", authMiddleware(admin.GetApprovedDomain(s)))
+  mux.Handle("DELETE /admin/approved-domains/{domain}", authMiddleware(admin.DeleteApprovedDomain(s)))
+```
+
+generate as below
+
+```go
+  mux.Handle("POST /admin/add-approved-domain", authMiddleware(admin.AddApprovedDomain(s)))
+	mux.Handle("POST /admin/list-approved-domains", authMiddleware(admin.ListApprovedDomains(s)))
+	mux.Handle("POST /admin/get-approved-domain", authMiddleware(admin.GetApprovedDomain(s)))
+  mux.Handle("DELETE /admin/delete-approved-domains", authMiddleware(admin.DeleteApprovedDomain(s)))
 ```
 
 ## TypeSpec Validation
 
-Types are defined in `specs/typespec/` with corresponding `.ts` validation files and `.go` generated code.
+Types are defined in `specs/typespec/` under `.tsp` files and the corresponding `.ts` and `.go` files should also be updated. The `.tsp` compilation would generate only an openAPI spec and does NOT generate the Go or Typescript structs.
 
 ### TypeScript Validation Pattern
 
@@ -293,37 +316,37 @@ const TFA_CODE_PATTERN = /^[0-9]{6}$/;
 
 // Field validator (returns error message or null, no field context)
 export function validateTFACode(code: TFACode): string | null {
-  if (code.length !== TFA_CODE_LENGTH) {
-    return ERR_TFA_CODE_INVALID_LENGTH;
-  }
-  if (!TFA_CODE_PATTERN.test(code)) {
-    return ERR_TFA_CODE_INVALID_FORMAT;
-  }
-  return null;
+	if (code.length !== TFA_CODE_LENGTH) {
+		return ERR_TFA_CODE_INVALID_LENGTH;
+	}
+	if (!TFA_CODE_PATTERN.test(code)) {
+		return ERR_TFA_CODE_INVALID_FORMAT;
+	}
+	return null;
 }
 
 // Request interface
 export interface AdminTFARequest {
-  tfa_token: AdminTFAToken;
-  tfa_code: TFACode;
+	tfa_token: AdminTFAToken;
+	tfa_code: TFACode;
 }
 
 // Request validator (always named validate{TypeName})
 export function validateAdminTFARequest(
-  request: AdminTFARequest
+	request: AdminTFARequest
 ): ValidationError[] {
-  const errs: ValidationError[] = [];
+	const errs: ValidationError[] = [];
 
-  if (!request.tfa_token) {
-    errs.push(newValidationError("tfa_token", ERR_REQUIRED));
-  }
+	if (!request.tfa_token) {
+		errs.push(newValidationError("tfa_token", ERR_REQUIRED));
+	}
 
-  const tfaCodeErr = validateTFACode(request.tfa_code);
-  if (tfaCodeErr) {
-    errs.push(newValidationError("tfa_code", tfaCodeErr));
-  }
+	const tfaCodeErr = validateTFACode(request.tfa_code);
+	if (tfaCodeErr) {
+		errs.push(newValidationError("tfa_code", tfaCodeErr));
+	}
 
-  return errs;
+	return errs;
 }
 ```
 
@@ -399,20 +422,20 @@ Auth state machine: `"login"` → `"tfa"` → `"authenticated"`
 ```typescript
 // Handle specific HTTP status codes with appropriate error messages
 switch (response.status) {
-  case 400:
-    setError(parseValidationErrors(body));
-    break;
-  case 401:
-    setError(t("invalidCredentials"));
-    break;
-  case 403:
-    setError(t("invalidCode"));
-    break;
-  case 422:
-    setError(t("accountDisabled"));
-    break;
-  default:
-    setError(t("serverError"));
+	case 400:
+		setError(parseValidationErrors(body));
+		break;
+	case 401:
+		setError(t("invalidCredentials"));
+		break;
+	case 403:
+		setError(t("invalidCode"));
+		break;
+	case 422:
+		setError(t("accountDisabled"));
+		break;
+	default:
+		setError(t("serverError"));
 }
 ```
 
@@ -424,19 +447,19 @@ Use native `fetch()` with explicit status code handling:
 
 ```typescript
 const response = await fetch(`${API_BASE}/admin/login`, {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ email, password }),
+	method: "POST",
+	headers: { "Content-Type": "application/json" },
+	body: JSON.stringify({ email, password }),
 });
 
 // Don't just check response.ok - handle each status explicitly
 if (response.status === 200) {
-  const data = await response.json();
-  // success
+	const data = await response.json();
+	// success
 } else if (response.status === 401) {
-  // invalid credentials
+	// invalid credentials
 } else if (response.status === 422) {
-  // account disabled
+	// account disabled
 }
 ```
 
@@ -501,17 +524,17 @@ npm run test:api:admin   # Run admin API tests
 
 Every API endpoint test MUST cover these scenarios:
 
-| Scenario                    | Expected Status | Example                            |
-| --------------------------- | --------------- | ---------------------------------- |
-| Success case                | 200/201/204     | Valid request with valid auth      |
-| Missing required fields     | 400             | `{ password: "..." }` (no email)   |
-| Invalid field format        | 400             | Invalid email format, wrong length |
-| Empty string fields         | 400             | `{ email: "", password: "..." }`   |
-| Boundary conditions         | 400             | Min/max length violations          |
-| Non-existent resource       | 401 or 404      | Unknown user, invalid token        |
-| Wrong credentials/code      | 401 or 403      | Wrong password, wrong TFA code     |
-| Disabled/invalid state      | 422             | Disabled user account              |
-| Expired tokens              | 401             | Expired TFA or session token       |
+| Scenario                | Expected Status | Example                            |
+| ----------------------- | --------------- | ---------------------------------- |
+| Success case            | 200/201/204     | Valid request with valid auth      |
+| Missing required fields | 400             | `{ password: "..." }` (no email)   |
+| Invalid field format    | 400             | Invalid email format, wrong length |
+| Empty string fields     | 400             | `{ email: "", password: "..." }`   |
+| Boundary conditions     | 400             | Min/max length violations          |
+| Non-existent resource   | 401 or 404      | Unknown user, invalid token        |
+| Wrong credentials/code  | 401 or 403      | Wrong password, wrong TFA code     |
+| Disabled/invalid state  | 422             | Disabled user account              |
+| Expired tokens          | 401             | Expired TFA or session token       |
 
 ### Test File Organization
 
@@ -534,26 +557,26 @@ playwright/
 ```typescript
 import { test, expect } from "@playwright/test";
 import {
-  createTestAdminUser,
-  deleteTestAdminUser,
-  generateTestEmail,
+	createTestAdminUser,
+	deleteTestAdminUser,
+	generateTestEmail,
 } from "../../../lib/db";
 import { AdminAPIClient } from "../../../lib/api-client";
 
 test("example test with isolated user", async ({ request }) => {
-  const api = new AdminAPIClient(request);
-  const email = generateTestEmail("my-test"); // Generates unique email
-  const password = "Password123$";
+	const api = new AdminAPIClient(request);
+	const email = generateTestEmail("my-test"); // Generates unique email
+	const password = "Password123$";
 
-  await createTestAdminUser(email, password);
-  try {
-    // Test logic here
-    const response = await api.login(email, password);
-    expect(response.status).toBe(200);
-  } finally {
-    // Always cleanup
-    await deleteTestAdminUser(email);
-  }
+	await createTestAdminUser(email, password);
+	try {
+		// Test logic here
+		const response = await api.login(email, password);
+		expect(response.status).toBe(200);
+	} finally {
+		// Always cleanup
+		await deleteTestAdminUser(email);
+	}
 });
 ```
 
@@ -561,31 +584,31 @@ test("example test with isolated user", async ({ request }) => {
 
 ```typescript
 export class AdminAPIClient {
-  constructor(private request: APIRequestContext) {}
+	constructor(private request: APIRequestContext) {}
 
-  async login(
-    email: string,
-    password: string
-  ): Promise<APIResponse<AdminLoginResponse>> {
-    const response = await this.request.post("/admin/login", {
-      data: { email, password }, // snake_case in API
-    });
+	async login(
+		email: string,
+		password: string
+	): Promise<APIResponse<AdminLoginResponse>> {
+		const response = await this.request.post("/admin/login", {
+			data: { email, password }, // snake_case in API
+		});
 
-    const body = await response.json().catch(() => ({}));
-    return {
-      status: response.status(),
-      body: body as AdminLoginResponse,
-      errors: body.errors,
-    };
-  }
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as AdminLoginResponse,
+			errors: body.errors,
+		};
+	}
 
-  // For testing invalid payloads
-  async loginRaw(body: unknown): Promise<APIResponse<AdminLoginResponse>> {
-    const response = await this.request.post("/admin/login", {
-      data: body,
-    });
-    // ...
-  }
+	// For testing invalid payloads
+	async loginRaw(body: unknown): Promise<APIResponse<AdminLoginResponse>> {
+		const response = await this.request.post("/admin/login", {
+			data: body,
+		});
+		// ...
+	}
 }
 ```
 
