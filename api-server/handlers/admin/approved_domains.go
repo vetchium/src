@@ -37,8 +37,8 @@ func writeErrorResponse(w http.ResponseWriter, statusCode int, message string) {
 	json.NewEncoder(w).Encode(ErrorResponse{Error: message})
 }
 
-// CreateApprovedDomain handles POST /admin/approved-domains
-func CreateApprovedDomain(s *server.Server) http.HandlerFunc {
+// AddApprovedDomain handles POST /admin/add-approved-domain
+func AddApprovedDomain(s *server.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
@@ -52,7 +52,7 @@ func CreateApprovedDomain(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		var request admin.CreateApprovedDomainRequest
+		var request admin.AddApprovedDomainRequest
 		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 			log.Debug("failed to decode request", "error", err)
 			writeErrorResponse(w, http.StatusBadRequest, "invalid JSON request body")
@@ -93,7 +93,7 @@ func CreateApprovedDomain(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		createAuditLog(ctx, s, adminUser.AdminUserID, "created", &domain.DomainID, &domainName, nil, domainToJSON(domain), r)
+		createAuditLog(ctx, s, adminUser.AdminUserID, "created", &domain.DomainID, &domainName, nil, nil, domainToJSON(domain), r)
 
 		log.Info("approved domain created", "domain_name", domainName, "admin_user_id", adminUser.AdminUserID)
 
@@ -101,6 +101,7 @@ func CreateApprovedDomain(s *server.Server) http.HandlerFunc {
 		response := admin.ApprovedDomain{
 			DomainName:          common.DomainName(domainName),
 			CreatedByAdminEmail: common.EmailAddress(adminUser.EmailAddress),
+			Status:              admin.DomainStatus(domain.Status),
 			CreatedAt:           domain.CreatedAt.Time.UTC().Format(time.RFC3339),
 			UpdatedAt:           domain.UpdatedAt.Time.UTC().Format(time.RFC3339),
 		}
@@ -111,7 +112,7 @@ func CreateApprovedDomain(s *server.Server) http.HandlerFunc {
 	}
 }
 
-// ListApprovedDomains handles GET /admin/approved-domains
+// ListApprovedDomains handles POST /admin/list-approved-domains
 func ListApprovedDomains(s *server.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -126,9 +127,39 @@ func ListApprovedDomains(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		search := r.URL.Query().Get("search")
-		limit := parseLimit(r.URL.Query().Get("limit"), defaultLimit, maxLimit)
-		cursor := r.URL.Query().Get("cursor")
+		var request admin.ListApprovedDomainsRequest
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+			log.Debug("failed to decode request", "error", err)
+			writeErrorResponse(w, http.StatusBadRequest, "invalid JSON request body")
+			return
+		}
+
+		if validationErrors := request.Validate(); len(validationErrors) > 0 {
+			log.Debug("validation failed", "errors", validationErrors)
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(validationErrors)
+			return
+		}
+
+		search := ""
+		if request.Search != nil {
+			search = *request.Search
+		}
+
+		filter := admin.DomainFilterActive
+		if request.Filter != nil {
+			filter = *request.Filter
+		}
+
+		limit := defaultLimit
+		if request.Limit != nil {
+			limit = int(*request.Limit)
+		}
+
+		cursor := ""
+		if request.Cursor != nil {
+			cursor = *request.Cursor
+		}
 
 		var domainResponses []admin.ApprovedDomain
 		var nextCursor string
@@ -136,9 +167,9 @@ func ListApprovedDomains(s *server.Server) http.HandlerFunc {
 		var err error
 
 		if search != "" {
-			domainResponses, nextCursor, hasMore, err = listDomainsWithSearch(ctx, s, search, limit, cursor)
+			domainResponses, nextCursor, hasMore, err = listDomainsWithSearch(ctx, s, search, filter, limit, cursor)
 		} else {
-			domainResponses, nextCursor, hasMore, err = listDomainsWithoutSearch(ctx, s, limit, cursor)
+			domainResponses, nextCursor, hasMore, err = listDomainsWithoutSearch(ctx, s, filter, limit, cursor)
 		}
 
 		if err != nil {
@@ -163,37 +194,134 @@ func ListApprovedDomains(s *server.Server) http.HandlerFunc {
 	}
 }
 
-func listDomainsWithoutSearch(ctx context.Context, s *server.Server, limit int, cursor string) ([]admin.ApprovedDomain, string, bool, error) {
-	var rows []globaldb.ListApprovedDomainsFirstPageRow
+func listDomainsWithoutSearch(ctx context.Context, s *server.Server, filter admin.DomainFilter, limit int, cursor string) ([]admin.ApprovedDomain, string, bool, error) {
+	type DomainRow struct {
+		DomainID         pgtype.UUID
+		DomainName       string
+		CreatedByAdminID pgtype.UUID
+		CreatedAt        pgtype.Timestamptz
+		UpdatedAt        pgtype.Timestamptz
+		Status           globaldb.DomainStatus
+		AdminEmail       string
+	}
+
+	var rows []DomainRow
 
 	if cursor == "" {
-		var err error
-		rows, err = s.Global.ListApprovedDomainsFirstPage(ctx, int32(limit+1))
-		if err != nil {
-			return nil, "", false, err
+		switch filter {
+		case admin.DomainFilterActive:
+			dbRows, err := s.Global.ListApprovedDomainsActiveFirstPage(ctx, int32(limit+1))
+			if err != nil {
+				return nil, "", false, err
+			}
+			for _, r := range dbRows {
+				rows = append(rows, DomainRow{
+					DomainID:         r.DomainID,
+					DomainName:       r.DomainName,
+					CreatedByAdminID: r.CreatedByAdminID,
+					CreatedAt:        r.CreatedAt,
+					UpdatedAt:        r.UpdatedAt,
+					Status:           r.Status,
+					AdminEmail:       r.AdminEmail,
+				})
+			}
+		case admin.DomainFilterInactive:
+			dbRows, err := s.Global.ListApprovedDomainsInactiveFirstPage(ctx, int32(limit+1))
+			if err != nil {
+				return nil, "", false, err
+			}
+			for _, r := range dbRows {
+				rows = append(rows, DomainRow{
+					DomainID:         r.DomainID,
+					DomainName:       r.DomainName,
+					CreatedByAdminID: r.CreatedByAdminID,
+					CreatedAt:        r.CreatedAt,
+					UpdatedAt:        r.UpdatedAt,
+					Status:           r.Status,
+					AdminEmail:       r.AdminEmail,
+				})
+			}
+		case admin.DomainFilterAll:
+			dbRows, err := s.Global.ListApprovedDomainsAllFirstPage(ctx, int32(limit+1))
+			if err != nil {
+				return nil, "", false, err
+			}
+			for _, r := range dbRows {
+				rows = append(rows, DomainRow{
+					DomainID:         r.DomainID,
+					DomainName:       r.DomainName,
+					CreatedByAdminID: r.CreatedByAdminID,
+					CreatedAt:        r.CreatedAt,
+					UpdatedAt:        r.UpdatedAt,
+					Status:           r.Status,
+					AdminEmail:       r.AdminEmail,
+				})
+			}
 		}
 	} else {
 		cursorDomain, err := decodeDomainCursor(cursor)
 		if err != nil {
 			return nil, "", false, err
 		}
-		afterRows, err := s.Global.ListApprovedDomainsAfterCursor(ctx, globaldb.ListApprovedDomainsAfterCursorParams{
-			DomainName: cursorDomain,
-			Limit:      int32(limit + 1),
-		})
-		if err != nil {
-			return nil, "", false, err
-		}
-		for _, r := range afterRows {
-			rows = append(rows, globaldb.ListApprovedDomainsFirstPageRow{
-				DomainID:         r.DomainID,
-				DomainName:       r.DomainName,
-				CreatedByAdminID: r.CreatedByAdminID,
-				CreatedAt:        r.CreatedAt,
-				UpdatedAt:        r.UpdatedAt,
-				DeletedAt:        r.DeletedAt,
-				AdminEmail:       r.AdminEmail,
+
+		switch filter {
+		case admin.DomainFilterActive:
+			dbRows, err := s.Global.ListApprovedDomainsActiveAfterCursor(ctx, globaldb.ListApprovedDomainsActiveAfterCursorParams{
+				DomainName: cursorDomain,
+				Limit:      int32(limit + 1),
 			})
+			if err != nil {
+				return nil, "", false, err
+			}
+			for _, r := range dbRows {
+				rows = append(rows, DomainRow{
+					DomainID:         r.DomainID,
+					DomainName:       r.DomainName,
+					CreatedByAdminID: r.CreatedByAdminID,
+					CreatedAt:        r.CreatedAt,
+					UpdatedAt:        r.UpdatedAt,
+					Status:           r.Status,
+					AdminEmail:       r.AdminEmail,
+				})
+			}
+		case admin.DomainFilterInactive:
+			dbRows, err := s.Global.ListApprovedDomainsInactiveAfterCursor(ctx, globaldb.ListApprovedDomainsInactiveAfterCursorParams{
+				DomainName: cursorDomain,
+				Limit:      int32(limit + 1),
+			})
+			if err != nil {
+				return nil, "", false, err
+			}
+			for _, r := range dbRows {
+				rows = append(rows, DomainRow{
+					DomainID:         r.DomainID,
+					DomainName:       r.DomainName,
+					CreatedByAdminID: r.CreatedByAdminID,
+					CreatedAt:        r.CreatedAt,
+					UpdatedAt:        r.UpdatedAt,
+					Status:           r.Status,
+					AdminEmail:       r.AdminEmail,
+				})
+			}
+		case admin.DomainFilterAll:
+			dbRows, err := s.Global.ListApprovedDomainsAllAfterCursor(ctx, globaldb.ListApprovedDomainsAllAfterCursorParams{
+				DomainName: cursorDomain,
+				Limit:      int32(limit + 1),
+			})
+			if err != nil {
+				return nil, "", false, err
+			}
+			for _, r := range dbRows {
+				rows = append(rows, DomainRow{
+					DomainID:         r.DomainID,
+					DomainName:       r.DomainName,
+					CreatedByAdminID: r.CreatedByAdminID,
+					CreatedAt:        r.CreatedAt,
+					UpdatedAt:        r.UpdatedAt,
+					Status:           r.Status,
+					AdminEmail:       r.AdminEmail,
+				})
+			}
 		}
 	}
 
@@ -213,6 +341,7 @@ func listDomainsWithoutSearch(ctx context.Context, s *server.Server, limit int, 
 		domainResponses[i] = admin.ApprovedDomain{
 			DomainName:          common.DomainName(r.DomainName),
 			CreatedByAdminEmail: common.EmailAddress(r.AdminEmail),
+			Status:              admin.DomainStatus(r.Status),
 			CreatedAt:           r.CreatedAt.Time.UTC().Format(time.RFC3339),
 			UpdatedAt:           r.UpdatedAt.Time.UTC().Format(time.RFC3339),
 		}
@@ -221,43 +350,156 @@ func listDomainsWithoutSearch(ctx context.Context, s *server.Server, limit int, 
 	return domainResponses, nextCursor, hasMore, nil
 }
 
-func listDomainsWithSearch(ctx context.Context, s *server.Server, search string, limit int, cursor string) ([]admin.ApprovedDomain, string, bool, error) {
-	var rows []globaldb.SearchApprovedDomainsFirstPageRow
+func listDomainsWithSearch(ctx context.Context, s *server.Server, search string, filter admin.DomainFilter, limit int, cursor string) ([]admin.ApprovedDomain, string, bool, error) {
+	type SearchRow struct {
+		DomainID         pgtype.UUID
+		DomainName       string
+		CreatedByAdminID pgtype.UUID
+		CreatedAt        pgtype.Timestamptz
+		UpdatedAt        pgtype.Timestamptz
+		Status           globaldb.DomainStatus
+		AdminEmail       string
+		SimScore         float32
+	}
+
+	var rows []SearchRow
 
 	if cursor == "" {
-		var err error
-		rows, err = s.Global.SearchApprovedDomainsFirstPage(ctx, globaldb.SearchApprovedDomainsFirstPageParams{
-			SearchTerm: search,
-			LimitCount: int32(limit + 1),
-		})
-		if err != nil {
-			return nil, "", false, err
+		switch filter {
+		case admin.DomainFilterActive:
+			dbRows, err := s.Global.SearchApprovedDomainsActiveFirstPage(ctx, globaldb.SearchApprovedDomainsActiveFirstPageParams{
+				SearchTerm: search,
+				LimitCount: int32(limit + 1),
+			})
+			if err != nil {
+				return nil, "", false, err
+			}
+			for _, r := range dbRows {
+				rows = append(rows, SearchRow{
+					DomainID:         r.DomainID,
+					DomainName:       r.DomainName,
+					CreatedByAdminID: r.CreatedByAdminID,
+					CreatedAt:        r.CreatedAt,
+					UpdatedAt:        r.UpdatedAt,
+					Status:           r.Status,
+					AdminEmail:       r.AdminEmail,
+					SimScore:         r.SimScore,
+				})
+			}
+		case admin.DomainFilterInactive:
+			dbRows, err := s.Global.SearchApprovedDomainsInactiveFirstPage(ctx, globaldb.SearchApprovedDomainsInactiveFirstPageParams{
+				SearchTerm: search,
+				LimitCount: int32(limit + 1),
+			})
+			if err != nil {
+				return nil, "", false, err
+			}
+			for _, r := range dbRows {
+				rows = append(rows, SearchRow{
+					DomainID:         r.DomainID,
+					DomainName:       r.DomainName,
+					CreatedByAdminID: r.CreatedByAdminID,
+					CreatedAt:        r.CreatedAt,
+					UpdatedAt:        r.UpdatedAt,
+					Status:           r.Status,
+					AdminEmail:       r.AdminEmail,
+					SimScore:         r.SimScore,
+				})
+			}
+		case admin.DomainFilterAll:
+			dbRows, err := s.Global.SearchApprovedDomainsAllFirstPage(ctx, globaldb.SearchApprovedDomainsAllFirstPageParams{
+				SearchTerm: search,
+				LimitCount: int32(limit + 1),
+			})
+			if err != nil {
+				return nil, "", false, err
+			}
+			for _, r := range dbRows {
+				rows = append(rows, SearchRow{
+					DomainID:         r.DomainID,
+					DomainName:       r.DomainName,
+					CreatedByAdminID: r.CreatedByAdminID,
+					CreatedAt:        r.CreatedAt,
+					UpdatedAt:        r.UpdatedAt,
+					Status:           r.Status,
+					AdminEmail:       r.AdminEmail,
+					SimScore:         r.SimScore,
+				})
+			}
 		}
 	} else {
 		cursorScore, cursorDomain, err := decodeSearchCursor(cursor)
 		if err != nil {
 			return nil, "", false, err
 		}
-		afterRows, err := s.Global.SearchApprovedDomainsAfterCursor(ctx, globaldb.SearchApprovedDomainsAfterCursorParams{
-			SearchTerm:   search,
-			CursorScore:  cursorScore,
-			CursorDomain: cursorDomain,
-			LimitCount:   int32(limit + 1),
-		})
-		if err != nil {
-			return nil, "", false, err
-		}
-		for _, r := range afterRows {
-			rows = append(rows, globaldb.SearchApprovedDomainsFirstPageRow{
-				DomainID:         r.DomainID,
-				DomainName:       r.DomainName,
-				CreatedByAdminID: r.CreatedByAdminID,
-				CreatedAt:        r.CreatedAt,
-				UpdatedAt:        r.UpdatedAt,
-				DeletedAt:        r.DeletedAt,
-				AdminEmail:       r.AdminEmail,
-				SimScore:         r.SimScore,
+
+		switch filter {
+		case admin.DomainFilterActive:
+			dbRows, err := s.Global.SearchApprovedDomainsActiveAfterCursor(ctx, globaldb.SearchApprovedDomainsActiveAfterCursorParams{
+				SearchTerm:   search,
+				CursorScore:  cursorScore,
+				CursorDomain: cursorDomain,
+				LimitCount:   int32(limit + 1),
 			})
+			if err != nil {
+				return nil, "", false, err
+			}
+			for _, r := range dbRows {
+				rows = append(rows, SearchRow{
+					DomainID:         r.DomainID,
+					DomainName:       r.DomainName,
+					CreatedByAdminID: r.CreatedByAdminID,
+					CreatedAt:        r.CreatedAt,
+					UpdatedAt:        r.UpdatedAt,
+					Status:           r.Status,
+					AdminEmail:       r.AdminEmail,
+					SimScore:         r.SimScore,
+				})
+			}
+		case admin.DomainFilterInactive:
+			dbRows, err := s.Global.SearchApprovedDomainsInactiveAfterCursor(ctx, globaldb.SearchApprovedDomainsInactiveAfterCursorParams{
+				SearchTerm:   search,
+				CursorScore:  cursorScore,
+				CursorDomain: cursorDomain,
+				LimitCount:   int32(limit + 1),
+			})
+			if err != nil {
+				return nil, "", false, err
+			}
+			for _, r := range dbRows {
+				rows = append(rows, SearchRow{
+					DomainID:         r.DomainID,
+					DomainName:       r.DomainName,
+					CreatedByAdminID: r.CreatedByAdminID,
+					CreatedAt:        r.CreatedAt,
+					UpdatedAt:        r.UpdatedAt,
+					Status:           r.Status,
+					AdminEmail:       r.AdminEmail,
+					SimScore:         r.SimScore,
+				})
+			}
+		case admin.DomainFilterAll:
+			dbRows, err := s.Global.SearchApprovedDomainsAllAfterCursor(ctx, globaldb.SearchApprovedDomainsAllAfterCursorParams{
+				SearchTerm:   search,
+				CursorScore:  cursorScore,
+				CursorDomain: cursorDomain,
+				LimitCount:   int32(limit + 1),
+			})
+			if err != nil {
+				return nil, "", false, err
+			}
+			for _, r := range dbRows {
+				rows = append(rows, SearchRow{
+					DomainID:         r.DomainID,
+					DomainName:       r.DomainName,
+					CreatedByAdminID: r.CreatedByAdminID,
+					CreatedAt:        r.CreatedAt,
+					UpdatedAt:        r.UpdatedAt,
+					Status:           r.Status,
+					AdminEmail:       r.AdminEmail,
+					SimScore:         r.SimScore,
+				})
+			}
 		}
 	}
 
@@ -277,6 +519,7 @@ func listDomainsWithSearch(ctx context.Context, s *server.Server, search string,
 		domainResponses[i] = admin.ApprovedDomain{
 			DomainName:          common.DomainName(r.DomainName),
 			CreatedByAdminEmail: common.EmailAddress(r.AdminEmail),
+			Status:              admin.DomainStatus(r.Status),
 			CreatedAt:           r.CreatedAt.Time.UTC().Format(time.RFC3339),
 			UpdatedAt:           r.UpdatedAt.Time.UTC().Format(time.RFC3339),
 		}
@@ -285,7 +528,7 @@ func listDomainsWithSearch(ctx context.Context, s *server.Server, search string,
 	return domainResponses, nextCursor, hasMore, nil
 }
 
-// GetApprovedDomain handles GET /admin/approved-domains/{domain_name}
+// GetApprovedDomain handles POST /admin/get-approved-domain
 func GetApprovedDomain(s *server.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -300,7 +543,21 @@ func GetApprovedDomain(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		domainName := r.PathValue("domainName")
+		var request admin.GetApprovedDomainRequest
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+			log.Debug("failed to decode request", "error", err)
+			writeErrorResponse(w, http.StatusBadRequest, "invalid JSON request body")
+			return
+		}
+
+		if validationErrors := request.Validate(); len(validationErrors) > 0 {
+			log.Debug("validation failed", "errors", validationErrors)
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(validationErrors)
+			return
+		}
+
+		domainName := string(request.DomainName)
 
 		domain, err := s.Global.GetApprovedDomainWithAdminByName(ctx, domainName)
 		if err != nil {
@@ -314,8 +571,15 @@ func GetApprovedDomain(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		auditLimit := parseLimit(r.URL.Query().Get("audit_limit"), defaultLimit, maxLimit)
-		auditCursor := r.URL.Query().Get("audit_cursor")
+		auditLimit := defaultLimit
+		if request.AuditLimit != nil {
+			auditLimit = int(*request.AuditLimit)
+		}
+
+		auditCursor := ""
+		if request.AuditCursor != nil {
+			auditCursor = *request.AuditCursor
+		}
 
 		auditLogs, nextAuditCursor, hasMoreAudit, err := getAuditLogsForDomain(ctx, s, domain.DomainID, auditLimit, auditCursor)
 		if err != nil {
@@ -331,6 +595,7 @@ func GetApprovedDomain(s *server.Server) http.HandlerFunc {
 		domainResponse := admin.ApprovedDomain{
 			DomainName:          common.DomainName(domain.DomainName),
 			CreatedByAdminEmail: common.EmailAddress(domain.AdminEmail),
+			Status:              admin.DomainStatus(domain.Status),
 			CreatedAt:           domain.CreatedAt.Time.UTC().Format(time.RFC3339),
 			UpdatedAt:           domain.UpdatedAt.Time.UTC().Format(time.RFC3339),
 		}
@@ -348,8 +613,8 @@ func GetApprovedDomain(s *server.Server) http.HandlerFunc {
 	}
 }
 
-// DeleteApprovedDomain handles DELETE /admin/approved-domains/{domain_name}
-func DeleteApprovedDomain(s *server.Server) http.HandlerFunc {
+// DisableApprovedDomain handles POST /admin/disable-approved-domain
+func DisableApprovedDomain(s *server.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
@@ -363,7 +628,21 @@ func DeleteApprovedDomain(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		domainName := r.PathValue("domainName")
+		var request admin.DisableApprovedDomainRequest
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+			log.Debug("failed to decode request", "error", err)
+			writeErrorResponse(w, http.StatusBadRequest, "invalid JSON request body")
+			return
+		}
+
+		if validationErrors := request.Validate(); len(validationErrors) > 0 {
+			log.Debug("validation failed", "errors", validationErrors)
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(validationErrors)
+			return
+		}
+
+		domainName := string(request.DomainName)
 
 		domain, err := s.Global.GetApprovedDomainByName(ctx, domainName)
 		if err != nil {
@@ -377,29 +656,150 @@ func DeleteApprovedDomain(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		deletedDomain, err := s.Global.SoftDeleteApprovedDomain(ctx, domain.DomainID)
-		if err != nil {
-			log.Error("failed to delete approved domain", "error", err)
-			http.Error(w, "", http.StatusInternalServerError)
+		// Check if domain is already inactive
+		if domain.Status == globaldb.DomainStatusInactive {
+			log.Debug("domain already inactive", "domain_name", domainName)
+			w.WriteHeader(http.StatusUnprocessableEntity)
 			return
 		}
 
 		oldValue := domainToJSON(domain)
-		newValue := map[string]interface{}{
-			"deleted_at": deletedDomain.DeletedAt.Time.UTC().Format(time.RFC3339),
+
+		disabledDomain, err := s.Global.DisableApprovedDomain(ctx, domain.DomainID)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				log.Debug("domain not found or already inactive", "domain_name", domainName)
+				w.WriteHeader(http.StatusUnprocessableEntity)
+				return
+			}
+			log.Error("failed to disable approved domain", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
 		}
-		createAuditLog(ctx, s, adminUser.AdminUserID, "deleted", &domain.DomainID, &domainName, oldValue, newValue, r)
 
-		log.Info("approved domain deleted", "domain_name", domainName, "admin_user_id", adminUser.AdminUserID)
+		newValue := domainToJSON(disabledDomain)
+		createAuditLog(ctx, s, adminUser.AdminUserID, "disabled", &domain.DomainID, &domainName, &request.Reason, oldValue, newValue, r)
 
-		w.WriteHeader(http.StatusNoContent)
+		log.Info("approved domain disabled", "domain_name", domainName, "admin_user_id", adminUser.AdminUserID)
+
+		// Get admin email for response
+		adminEmail, err := s.Global.GetAdminUserByID(ctx, adminUser.AdminUserID)
+		if err != nil {
+			log.Error("failed to get admin email", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		response := admin.ApprovedDomain{
+			DomainName:          common.DomainName(domainName),
+			CreatedByAdminEmail: common.EmailAddress(adminEmail.EmailAddress),
+			Status:              admin.DomainStatus(disabledDomain.Status),
+			CreatedAt:           disabledDomain.CreatedAt.Time.UTC().Format(time.RFC3339),
+			UpdatedAt:           disabledDomain.UpdatedAt.Time.UTC().Format(time.RFC3339),
+		}
+
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			log.Error("failed to encode response", "error", err)
+		}
 	}
 }
 
+// EnableApprovedDomain handles POST /admin/enable-approved-domain
+func EnableApprovedDomain(s *server.Server) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		ctx := r.Context()
+		log := s.Logger(ctx)
+
+		adminUser := middleware.AdminUserFromContext(ctx)
+		if adminUser == nil {
+			log.Debug("admin user not found in context")
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		var request admin.EnableApprovedDomainRequest
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+			log.Debug("failed to decode request", "error", err)
+			writeErrorResponse(w, http.StatusBadRequest, "invalid JSON request body")
+			return
+		}
+
+		if validationErrors := request.Validate(); len(validationErrors) > 0 {
+			log.Debug("validation failed", "errors", validationErrors)
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(validationErrors)
+			return
+		}
+
+		domainName := string(request.DomainName)
+
+		domain, err := s.Global.GetApprovedDomainByName(ctx, domainName)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				log.Debug("domain not found", "domain_name", domainName)
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			log.Error("failed to get approved domain", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
+		// Check if domain is already active
+		if domain.Status == globaldb.DomainStatusActive {
+			log.Debug("domain already active", "domain_name", domainName)
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			return
+		}
+
+		oldValue := domainToJSON(domain)
+
+		enabledDomain, err := s.Global.EnableApprovedDomain(ctx, domain.DomainID)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				log.Debug("domain not found or already active", "domain_name", domainName)
+				w.WriteHeader(http.StatusUnprocessableEntity)
+				return
+			}
+			log.Error("failed to enable approved domain", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
+		newValue := domainToJSON(enabledDomain)
+		createAuditLog(ctx, s, adminUser.AdminUserID, "enabled", &domain.DomainID, &domainName, &request.Reason, oldValue, newValue, r)
+
+		log.Info("approved domain enabled", "domain_name", domainName, "admin_user_id", adminUser.AdminUserID)
+
+		// Get admin email for response
+		adminEmail, err := s.Global.GetAdminUserByID(ctx, adminUser.AdminUserID)
+		if err != nil {
+			log.Error("failed to get admin email", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		response := admin.ApprovedDomain{
+			DomainName:          common.DomainName(domainName),
+			CreatedByAdminEmail: common.EmailAddress(adminEmail.EmailAddress),
+			Status:              admin.DomainStatus(enabledDomain.Status),
+			CreatedAt:           enabledDomain.CreatedAt.Time.UTC().Format(time.RFC3339),
+			UpdatedAt:           enabledDomain.UpdatedAt.Time.UTC().Format(time.RFC3339),
+		}
+
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			log.Error("failed to encode response", "error", err)
+		}
+	}
+}
 
 // Helper functions
 
-func createAuditLog(ctx context.Context, s *server.Server, adminID pgtype.UUID, action string, targetDomainID *pgtype.UUID, targetDomainName *string, oldValue, newValue map[string]interface{}, r *http.Request) {
+func createAuditLog(ctx context.Context, s *server.Server, adminID pgtype.UUID, action string, targetDomainID *pgtype.UUID, targetDomainName, reason *string, oldValue, newValue map[string]interface{}, r *http.Request) {
 	var targetIDPtr pgtype.UUID
 	if targetDomainID != nil {
 		targetIDPtr = *targetDomainID
@@ -408,6 +808,11 @@ func createAuditLog(ctx context.Context, s *server.Server, adminID pgtype.UUID, 
 	var targetNamePtr pgtype.Text
 	if targetDomainName != nil {
 		targetNamePtr = pgtype.Text{String: *targetDomainName, Valid: true}
+	}
+
+	var reasonPtr pgtype.Text
+	if reason != nil {
+		reasonPtr = pgtype.Text{String: *reason, Valid: true}
 	}
 
 	oldJSON, _ := json.Marshal(oldValue)
@@ -424,6 +829,7 @@ func createAuditLog(ctx context.Context, s *server.Server, adminID pgtype.UUID, 
 		TargetDomainName: targetNamePtr,
 		OldValue:         oldJSON,
 		NewValue:         newJSON,
+		Reason:           reasonPtr,
 		IpAddress:        ipAddress,
 		UserAgent:        userAgent,
 		RequestID:        requestID,
@@ -461,6 +867,7 @@ func domainToJSON(domain globaldb.ApprovedDomain) map[string]interface{} {
 		"domain_id":           domain.DomainID.String(),
 		"domain_name":         domain.DomainName,
 		"created_by_admin_id": domain.CreatedByAdminID.String(),
+		"status":              string(domain.Status),
 		"created_at":          domain.CreatedAt.Time.UTC().Format(time.RFC3339),
 		"updated_at":          domain.UpdatedAt.Time.UTC().Format(time.RFC3339),
 	}
@@ -500,6 +907,7 @@ func getAuditLogsForDomain(ctx context.Context, s *server.Server, domainID pgtyp
 				TargetDomainName: r.TargetDomainName,
 				OldValue:         r.OldValue,
 				NewValue:         r.NewValue,
+				Reason:           r.Reason,
 				IpAddress:        r.IpAddress,
 				UserAgent:        r.UserAgent,
 				RequestID:        r.RequestID,
@@ -541,6 +949,11 @@ func auditLogRowToResponse(r globaldb.GetAuditLogsByDomainIDFirstPageRow) admin.
 	if r.TargetDomainName.Valid {
 		targetName := common.DomainName(r.TargetDomainName.String)
 		response.TargetDomainName = &targetName
+	}
+
+	if r.Reason.Valid {
+		reason := r.Reason.String
+		response.Reason = &reason
 	}
 
 	if r.OldValue != nil {

@@ -209,11 +209,12 @@ export async function getApprovedDomainAuditLogs(domainName: string): Promise<
     admin_id: string;
     action: string;
     target_domain_name: string;
+    reason: string | null;
     created_at: Date;
   }>
 > {
   const result = await pool.query(
-    `SELECT audit_id, admin_id, action, target_domain_name, created_at
+    `SELECT audit_id, admin_id, action, target_domain_name, reason, created_at
      FROM approved_domains_audit_log
      WHERE target_domain_name = $1
      ORDER BY created_at DESC`,

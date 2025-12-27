@@ -10,7 +10,7 @@ import {
 } from "../../../lib/db";
 import { getTfaCodeFromEmail } from "../../../lib/mailpit";
 
-test.describe("POST /admin/approved-domains", () => {
+test.describe("POST /admin/add-approved-domain", () => {
 	test("successful domain creation returns 201 with domain details", async ({
 		request,
 	}) => {
@@ -37,6 +37,7 @@ test.describe("POST /admin/approved-domains", () => {
 			expect(response.body.domain_name).toBe(domainName.toLowerCase());
 			expect(response.body.created_by_admin_email).toBe(email);
 			expect(response.body.created_at).toBeDefined();
+			expect(response.body.status).toBe("active");
 
 			// Verify audit log was created
 			const auditLogs = await getApprovedDomainAuditLogs(domainName);
@@ -94,7 +95,10 @@ test.describe("POST /admin/approved-domains", () => {
 			const sessionToken = tfaResponse.body.session_token;
 
 			// Try to create domain with invalid name
-			const response = await api.createApprovedDomain(sessionToken, "not-a-domain");
+			const response = await api.createApprovedDomain(
+				sessionToken,
+				"not-a-domain"
+			);
 			expect(response.status).toBe(400);
 		} finally {
 			await deleteTestAdminUser(email);
@@ -126,7 +130,7 @@ test.describe("POST /admin/approved-domains", () => {
 			const sessionToken = tfaResponse.body.session_token;
 
 			// Try with raw request to send empty domain_name
-			const response = await request.post("/admin/approved-domains", {
+			const response = await request.post("/admin/add-approved-domain", {
 				headers: { Authorization: `Bearer ${sessionToken}` },
 				data: { domain_name: "" },
 			});
@@ -138,8 +142,8 @@ test.describe("POST /admin/approved-domains", () => {
 	});
 });
 
-test.describe("GET /admin/approved-domains", () => {
-	test("list domains returns 200 with valid response structure", async ({
+test.describe("POST /admin/list-approved-domains", () => {
+	test("list active domains returns 200 with valid response structure", async ({
 		request,
 	}) => {
 		const api = new AdminAPIClient(request);
@@ -157,7 +161,7 @@ test.describe("GET /admin/approved-domains", () => {
 			);
 			const sessionToken = tfaResponse.body.session_token;
 
-			// List domains - note: with parallel tests, other domains may exist
+			// List active domains (default filter)
 			const response = await api.listApprovedDomains(sessionToken);
 
 			expect(response.status).toBe(200);
@@ -168,11 +172,13 @@ test.describe("GET /admin/approved-domains", () => {
 		}
 	});
 
-	test("list domains returns created domains", async ({ request }) => {
+	test("list domains with filter=active returns only active domains", async ({
+		request,
+	}) => {
 		const api = new AdminAPIClient(request);
-		const email = generateTestEmail("list-domains");
+		const email = generateTestEmail("list-active");
 		const password = "Password123$";
-		const domainName = generateTestDomainName("list");
+		const domainName = generateTestDomainName("active");
 
 		await createTestAdminUser(email, password);
 		try {
@@ -188,18 +194,119 @@ test.describe("GET /admin/approved-domains", () => {
 			// Create domain
 			await api.createApprovedDomain(sessionToken, domainName);
 
-			// List domains
-			const response = await api.listApprovedDomains(sessionToken);
+			// List active domains
+			const response = await api.listApprovedDomains(sessionToken, {
+				filter: "active",
+			});
 
 			expect(response.status).toBe(200);
-			expect(response.body.domains.length).toBeGreaterThanOrEqual(1);
 			expect(
 				response.body.domains.some(
 					(d) => d.domain_name === domainName.toLowerCase()
 				)
 			).toBe(true);
+			// All domains should have status='active'
+			expect(response.body.domains.every((d) => d.status === "active")).toBe(
+				true
+			);
 		} finally {
 			await permanentlyDeleteTestApprovedDomain(domainName);
+			await deleteTestAdminUser(email);
+		}
+	});
+
+	test("list domains with filter=inactive returns only inactive domains", async ({
+		request,
+	}) => {
+		const api = new AdminAPIClient(request);
+		const email = generateTestEmail("list-inactive");
+		const password = "Password123$";
+		const domainName = generateTestDomainName("inactive");
+
+		await createTestAdminUser(email, password);
+		try {
+			// Login and get session token
+			const loginResponse = await api.login(email, password);
+			const tfaCode = await getTfaCodeFromEmail(email);
+			const tfaResponse = await api.verifyTFA(
+				loginResponse.body.tfa_token,
+				tfaCode
+			);
+			const sessionToken = tfaResponse.body.session_token;
+
+			// Create and disable domain
+			await api.createApprovedDomain(sessionToken, domainName);
+			await api.disableApprovedDomain(sessionToken, domainName, "Test disable");
+
+			// List inactive domains
+			const response = await api.listApprovedDomains(sessionToken, {
+				filter: "inactive",
+			});
+
+			expect(response.status).toBe(200);
+			expect(
+				response.body.domains.some(
+					(d) => d.domain_name === domainName.toLowerCase()
+				)
+			).toBe(true);
+			// All domains should have status='inactive'
+			expect(response.body.domains.every((d) => d.status === "inactive")).toBe(
+				true
+			);
+		} finally {
+			await permanentlyDeleteTestApprovedDomain(domainName);
+			await deleteTestAdminUser(email);
+		}
+	});
+
+	test("list domains with filter=all returns both active and inactive domains", async ({
+		request,
+	}) => {
+		const api = new AdminAPIClient(request);
+		const email = generateTestEmail("list-all");
+		const password = "Password123$";
+		const activeDomain = generateTestDomainName("all-active");
+		const inactiveDomain = generateTestDomainName("all-inactive");
+
+		await createTestAdminUser(email, password);
+		try {
+			// Login and get session token
+			const loginResponse = await api.login(email, password);
+			const tfaCode = await getTfaCodeFromEmail(email);
+			const tfaResponse = await api.verifyTFA(
+				loginResponse.body.tfa_token,
+				tfaCode
+			);
+			const sessionToken = tfaResponse.body.session_token;
+
+			// Create two domains, disable one
+			await api.createApprovedDomain(sessionToken, activeDomain);
+			await api.createApprovedDomain(sessionToken, inactiveDomain);
+			await api.disableApprovedDomain(
+				sessionToken,
+				inactiveDomain,
+				"Test disable"
+			);
+
+			// List all domains
+			const response = await api.listApprovedDomains(sessionToken, {
+				filter: "all",
+			});
+
+			expect(response.status).toBe(200);
+			expect(
+				response.body.domains.some(
+					(d) => d.domain_name === activeDomain.toLowerCase()
+				)
+			).toBe(true);
+			expect(
+				response.body.domains.some(
+					(d) => d.domain_name === inactiveDomain.toLowerCase()
+				)
+			).toBe(true);
+		} finally {
+			await permanentlyDeleteTestApprovedDomain(activeDomain);
+			await permanentlyDeleteTestApprovedDomain(inactiveDomain);
 			await deleteTestAdminUser(email);
 		}
 	});
@@ -253,7 +360,7 @@ test.describe("GET /admin/approved-domains", () => {
 	});
 });
 
-test.describe("GET /admin/approved-domains/:domainName", () => {
+test.describe("POST /admin/get-approved-domain", () => {
 	test("get domain details returns 200 with audit logs", async ({
 		request,
 	}) => {
@@ -282,6 +389,7 @@ test.describe("GET /admin/approved-domains/:domainName", () => {
 			expect(response.status).toBe(200);
 			expect(response.body.domain.domain_name).toBe(domainName.toLowerCase());
 			expect(response.body.domain.created_by_admin_email).toBe(email);
+			expect(response.body.domain.status).toBe("active");
 			expect(response.body.audit_logs.length).toBe(1);
 			expect(response.body.audit_logs[0].action).toBe("created");
 		} finally {
@@ -324,14 +432,45 @@ test.describe("GET /admin/approved-domains/:domainName", () => {
 		const response = await api.getApprovedDomain("", "example.com");
 		expect(response.status).toBe(401);
 	});
+
+	test("missing domain_name returns 400", async ({ request }) => {
+		const api = new AdminAPIClient(request);
+		const email = generateTestEmail("get-missing-domain");
+		const password = "Password123$";
+
+		await createTestAdminUser(email, password);
+		try {
+			// Login and get session token
+			const loginResponse = await api.login(email, password);
+			const tfaCode = await getTfaCodeFromEmail(email);
+			const tfaResponse = await api.verifyTFA(
+				loginResponse.body.tfa_token,
+				tfaCode
+			);
+			const sessionToken = tfaResponse.body.session_token;
+
+			// Try with raw request to send empty domain_name
+			const response = await request.post("/admin/get-approved-domain", {
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: { domain_name: "" },
+			});
+
+			expect(response.status()).toBe(400);
+		} finally {
+			await deleteTestAdminUser(email);
+		}
+	});
 });
 
-test.describe("DELETE /admin/approved-domains/:domainName", () => {
-	test("delete domain returns 204", async ({ request }) => {
+test.describe("POST /admin/disable-approved-domain", () => {
+	test("disable active domain returns 200 and creates audit log", async ({
+		request,
+	}) => {
 		const api = new AdminAPIClient(request);
-		const email = generateTestEmail("delete-domain");
+		const email = generateTestEmail("disable-domain");
 		const password = "Password123$";
-		const domainName = generateTestDomainName("delete");
+		const domainName = generateTestDomainName("disable");
+		const reason = "No longer needed for testing";
 
 		await createTestAdminUser(email, password);
 		try {
@@ -347,18 +486,30 @@ test.describe("DELETE /admin/approved-domains/:domainName", () => {
 			// Create domain
 			await api.createApprovedDomain(sessionToken, domainName);
 
-			// Delete domain
-			const response = await api.deleteApprovedDomain(sessionToken, domainName);
+			// Disable domain
+			const response = await api.disableApprovedDomain(
+				sessionToken,
+				domainName,
+				reason
+			);
 
-			expect(response.status).toBe(204);
+			expect(response.status).toBe(200);
 
 			// Verify audit log was created
 			const auditLogs = await getApprovedDomainAuditLogs(domainName);
-			expect(auditLogs.length).toBe(2); // created + deleted
-			expect(auditLogs.some((log) => log.action === "deleted")).toBe(true);
+			expect(auditLogs.length).toBe(2); // created + disabled
+			expect(auditLogs.some((log) => log.action === "disabled")).toBe(true);
+			const disableLog = auditLogs.find((log) => log.action === "disabled");
+			expect(disableLog?.reason).toBe(reason);
 
-			// Verify domain is soft-deleted (should not appear in list)
-			const listResponse = await api.listApprovedDomains(sessionToken);
+			// Verify domain status changed to inactive
+			const getResponse = await api.getApprovedDomain(sessionToken, domainName);
+			expect(getResponse.body.domain.status).toBe("inactive");
+
+			// Verify domain doesn't appear in active list
+			const listResponse = await api.listApprovedDomains(sessionToken, {
+				filter: "active",
+			});
 			expect(
 				listResponse.body.domains.some(
 					(d) => d.domain_name === domainName.toLowerCase()
@@ -370,9 +521,9 @@ test.describe("DELETE /admin/approved-domains/:domainName", () => {
 		}
 	});
 
-	test("delete non-existent domain returns 404", async ({ request }) => {
+	test("disable non-existent domain returns 404", async ({ request }) => {
 		const api = new AdminAPIClient(request);
-		const email = generateTestEmail("delete-404");
+		const email = generateTestEmail("disable-404");
 		const password = "Password123$";
 
 		await createTestAdminUser(email, password);
@@ -386,10 +537,11 @@ test.describe("DELETE /admin/approved-domains/:domainName", () => {
 			);
 			const sessionToken = tfaResponse.body.session_token;
 
-			// Delete non-existent domain
-			const response = await api.deleteApprovedDomain(
+			// Disable non-existent domain
+			const response = await api.disableApprovedDomain(
 				sessionToken,
-				"nonexistent.example.com"
+				"nonexistent.example.com",
+				"Test reason"
 			);
 
 			expect(response.status).toBe(404);
@@ -398,10 +550,325 @@ test.describe("DELETE /admin/approved-domains/:domainName", () => {
 		}
 	});
 
+	test("disable already inactive domain returns 422", async ({ request }) => {
+		const api = new AdminAPIClient(request);
+		const email = generateTestEmail("disable-422");
+		const password = "Password123$";
+		const domainName = generateTestDomainName("already-inactive");
+
+		await createTestAdminUser(email, password);
+		try {
+			// Login and get session token
+			const loginResponse = await api.login(email, password);
+			const tfaCode = await getTfaCodeFromEmail(email);
+			const tfaResponse = await api.verifyTFA(
+				loginResponse.body.tfa_token,
+				tfaCode
+			);
+			const sessionToken = tfaResponse.body.session_token;
+
+			// Create and disable domain
+			await api.createApprovedDomain(sessionToken, domainName);
+			await api.disableApprovedDomain(
+				sessionToken,
+				domainName,
+				"First disable"
+			);
+
+			// Try to disable again
+			const response = await api.disableApprovedDomain(
+				sessionToken,
+				domainName,
+				"Second disable"
+			);
+
+			expect(response.status).toBe(422);
+		} finally {
+			await permanentlyDeleteTestApprovedDomain(domainName);
+			await deleteTestAdminUser(email);
+		}
+	});
+
+	test("missing reason returns 400", async ({ request }) => {
+		const api = new AdminAPIClient(request);
+		const email = generateTestEmail("disable-no-reason");
+		const password = "Password123$";
+		const domainName = generateTestDomainName("no-reason");
+
+		await createTestAdminUser(email, password);
+		try {
+			// Login and get session token
+			const loginResponse = await api.login(email, password);
+			const tfaCode = await getTfaCodeFromEmail(email);
+			const tfaResponse = await api.verifyTFA(
+				loginResponse.body.tfa_token,
+				tfaCode
+			);
+			const sessionToken = tfaResponse.body.session_token;
+
+			// Create domain
+			await api.createApprovedDomain(sessionToken, domainName);
+
+			// Try to disable without reason
+			const response = await request.post("/admin/disable-approved-domain", {
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: { domain_name: domainName, reason: "" },
+			});
+
+			expect(response.status()).toBe(400);
+		} finally {
+			await permanentlyDeleteTestApprovedDomain(domainName);
+			await deleteTestAdminUser(email);
+		}
+	});
+
+	test("reason longer than 256 chars returns 400", async ({ request }) => {
+		const api = new AdminAPIClient(request);
+		const email = generateTestEmail("disable-long-reason");
+		const password = "Password123$";
+		const domainName = generateTestDomainName("long-reason");
+
+		await createTestAdminUser(email, password);
+		try {
+			// Login and get session token
+			const loginResponse = await api.login(email, password);
+			const tfaCode = await getTfaCodeFromEmail(email);
+			const tfaResponse = await api.verifyTFA(
+				loginResponse.body.tfa_token,
+				tfaCode
+			);
+			const sessionToken = tfaResponse.body.session_token;
+
+			// Create domain
+			await api.createApprovedDomain(sessionToken, domainName);
+
+			// Try to disable with reason > 256 chars
+			const longReason = "a".repeat(257);
+			const response = await request.post("/admin/disable-approved-domain", {
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: { domain_name: domainName, reason: longReason },
+			});
+
+			expect(response.status()).toBe(400);
+		} finally {
+			await permanentlyDeleteTestApprovedDomain(domainName);
+			await deleteTestAdminUser(email);
+		}
+	});
+
 	test("unauthenticated request returns 401", async ({ request }) => {
 		const api = new AdminAPIClient(request);
 
-		const response = await api.deleteApprovedDomain("", "example.com");
+		const response = await api.disableApprovedDomain(
+			"",
+			"example.com",
+			"Test reason"
+		);
+		expect(response.status).toBe(401);
+	});
+});
+
+test.describe("POST /admin/enable-approved-domain", () => {
+	test("enable inactive domain returns 200 and creates audit log", async ({
+		request,
+	}) => {
+		const api = new AdminAPIClient(request);
+		const email = generateTestEmail("enable-domain");
+		const password = "Password123$";
+		const domainName = generateTestDomainName("enable");
+		const disableReason = "Temporarily disabled";
+		const enableReason = "Re-enabling for production use";
+
+		await createTestAdminUser(email, password);
+		try {
+			// Login and get session token
+			const loginResponse = await api.login(email, password);
+			const tfaCode = await getTfaCodeFromEmail(email);
+			const tfaResponse = await api.verifyTFA(
+				loginResponse.body.tfa_token,
+				tfaCode
+			);
+			const sessionToken = tfaResponse.body.session_token;
+
+			// Create and disable domain
+			await api.createApprovedDomain(sessionToken, domainName);
+			await api.disableApprovedDomain(sessionToken, domainName, disableReason);
+
+			// Enable domain
+			const response = await api.enableApprovedDomain(
+				sessionToken,
+				domainName,
+				enableReason
+			);
+
+			expect(response.status).toBe(200);
+
+			// Verify audit log was created
+			const auditLogs = await getApprovedDomainAuditLogs(domainName);
+			expect(auditLogs.length).toBe(3); // created + disabled + enabled
+			expect(auditLogs.some((log) => log.action === "enabled")).toBe(true);
+			const enableLog = auditLogs.find((log) => log.action === "enabled");
+			expect(enableLog?.reason).toBe(enableReason);
+
+			// Verify domain status changed to active
+			const getResponse = await api.getApprovedDomain(sessionToken, domainName);
+			expect(getResponse.body.domain.status).toBe("active");
+
+			// Verify domain appears in active list
+			const listResponse = await api.listApprovedDomains(sessionToken, {
+				filter: "active",
+			});
+			expect(
+				listResponse.body.domains.some(
+					(d) => d.domain_name === domainName.toLowerCase()
+				)
+			).toBe(true);
+		} finally {
+			await permanentlyDeleteTestApprovedDomain(domainName);
+			await deleteTestAdminUser(email);
+		}
+	});
+
+	test("enable non-existent domain returns 404", async ({ request }) => {
+		const api = new AdminAPIClient(request);
+		const email = generateTestEmail("enable-404");
+		const password = "Password123$";
+
+		await createTestAdminUser(email, password);
+		try {
+			// Login and get session token
+			const loginResponse = await api.login(email, password);
+			const tfaCode = await getTfaCodeFromEmail(email);
+			const tfaResponse = await api.verifyTFA(
+				loginResponse.body.tfa_token,
+				tfaCode
+			);
+			const sessionToken = tfaResponse.body.session_token;
+
+			// Enable non-existent domain
+			const response = await api.enableApprovedDomain(
+				sessionToken,
+				"nonexistent.example.com",
+				"Test reason"
+			);
+
+			expect(response.status).toBe(404);
+		} finally {
+			await deleteTestAdminUser(email);
+		}
+	});
+
+	test("enable already active domain returns 422", async ({ request }) => {
+		const api = new AdminAPIClient(request);
+		const email = generateTestEmail("enable-422");
+		const password = "Password123$";
+		const domainName = generateTestDomainName("already-active");
+
+		await createTestAdminUser(email, password);
+		try {
+			// Login and get session token
+			const loginResponse = await api.login(email, password);
+			const tfaCode = await getTfaCodeFromEmail(email);
+			const tfaResponse = await api.verifyTFA(
+				loginResponse.body.tfa_token,
+				tfaCode
+			);
+			const sessionToken = tfaResponse.body.session_token;
+
+			// Create domain (active by default)
+			await api.createApprovedDomain(sessionToken, domainName);
+
+			// Try to enable already active domain
+			const response = await api.enableApprovedDomain(
+				sessionToken,
+				domainName,
+				"Test enable"
+			);
+
+			expect(response.status).toBe(422);
+		} finally {
+			await permanentlyDeleteTestApprovedDomain(domainName);
+			await deleteTestAdminUser(email);
+		}
+	});
+
+	test("missing reason returns 400", async ({ request }) => {
+		const api = new AdminAPIClient(request);
+		const email = generateTestEmail("enable-no-reason");
+		const password = "Password123$";
+		const domainName = generateTestDomainName("no-reason");
+
+		await createTestAdminUser(email, password);
+		try {
+			// Login and get session token
+			const loginResponse = await api.login(email, password);
+			const tfaCode = await getTfaCodeFromEmail(email);
+			const tfaResponse = await api.verifyTFA(
+				loginResponse.body.tfa_token,
+				tfaCode
+			);
+			const sessionToken = tfaResponse.body.session_token;
+
+			// Create and disable domain
+			await api.createApprovedDomain(sessionToken, domainName);
+			await api.disableApprovedDomain(sessionToken, domainName, "Disable");
+
+			// Try to enable without reason
+			const response = await request.post("/admin/enable-approved-domain", {
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: { domain_name: domainName, reason: "" },
+			});
+
+			expect(response.status()).toBe(400);
+		} finally {
+			await permanentlyDeleteTestApprovedDomain(domainName);
+			await deleteTestAdminUser(email);
+		}
+	});
+
+	test("reason longer than 256 chars returns 400", async ({ request }) => {
+		const api = new AdminAPIClient(request);
+		const email = generateTestEmail("enable-long-reason");
+		const password = "Password123$";
+		const domainName = generateTestDomainName("long-reason");
+
+		await createTestAdminUser(email, password);
+		try {
+			// Login and get session token
+			const loginResponse = await api.login(email, password);
+			const tfaCode = await getTfaCodeFromEmail(email);
+			const tfaResponse = await api.verifyTFA(
+				loginResponse.body.tfa_token,
+				tfaCode
+			);
+			const sessionToken = tfaResponse.body.session_token;
+
+			// Create and disable domain
+			await api.createApprovedDomain(sessionToken, domainName);
+			await api.disableApprovedDomain(sessionToken, domainName, "Disable");
+
+			// Try to enable with reason > 256 chars
+			const longReason = "a".repeat(257);
+			const response = await request.post("/admin/enable-approved-domain", {
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: { domain_name: domainName, reason: longReason },
+			});
+
+			expect(response.status()).toBe(400);
+		} finally {
+			await permanentlyDeleteTestApprovedDomain(domainName);
+			await deleteTestAdminUser(email);
+		}
+	});
+
+	test("unauthenticated request returns 401", async ({ request }) => {
+		const api = new AdminAPIClient(request);
+
+		const response = await api.enableApprovedDomain(
+			"",
+			"example.com",
+			"Test reason"
+		);
 		expect(response.status).toBe(401);
 	});
 });

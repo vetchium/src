@@ -8,18 +8,76 @@ using TypeSpec.Http;
 
 namespace Vetchium;
 
+// Domain status
+@doc("Domain status in the approved list")
+enum DomainStatus {
+    @doc("Domain is active and users can sign up")
+    active: "active",
+    @doc("Domain is disabled and users cannot sign up")
+    inactive: "inactive",
+}
+
+// Filter for listing domains
+@doc("Filter for listing domains")
+enum DomainFilter {
+    @doc("Show only active domains")
+    active: "active",
+    @doc("Show only inactive domains")
+    inactive: "inactive",
+    @doc("Show all domains (active and inactive)")
+    all: "all",
+}
+
 // Audit action types - only for modifications, not reads
 @doc("Audit log action types")
 enum AuditAction {
     @doc("Domain was created")
     created: "created",
-    @doc("Domain was deleted (soft delete)")
-    deleted: "deleted",
+    @doc("Domain was disabled")
+    disabled: "disabled",
+    @doc("Domain was enabled")
+    enabled: "enabled",
 }
 
-model CreateApprovedDomainRequest {
+model AddApprovedDomainRequest {
     @doc("Domain name to add to approved list")
     domain_name: DomainName;
+}
+
+model ListApprovedDomainsRequest {
+    @doc("Optional search term for fuzzy domain search")
+    search?: string;
+    @doc("Filter for active/inactive/all domains (default: active)")
+    filter?: DomainFilter;
+    @doc("Number of items to return (default 50, max 100)")
+    limit?: int32;
+    @doc("Cursor from previous page - base64 encoded value")
+    cursor?: string;
+}
+
+model GetApprovedDomainRequest {
+    @doc("Domain name to retrieve")
+    domain_name: DomainName;
+    @doc("Cursor for audit log pagination - base64 encoded timestamp")
+    audit_cursor?: string;
+    @doc("Number of audit logs to return (default 50, max 100)")
+    audit_limit?: int32;
+}
+
+model DisableApprovedDomainRequest {
+    @doc("Domain name to disable")
+    domain_name: DomainName;
+    @doc("Reason for disabling (max 256 characters)")
+    @maxLength(256)
+    reason: string;
+}
+
+model EnableApprovedDomainRequest {
+    @doc("Domain name to enable")
+    domain_name: DomainName;
+    @doc("Reason for enabling (max 256 characters)")
+    @maxLength(256)
+    reason: string;
 }
 
 model ApprovedDomain {
@@ -27,6 +85,8 @@ model ApprovedDomain {
     domain_name: DomainName;
     @doc("Email of admin who added this domain")
     created_by_admin_email: EmailAddress;
+    @doc("Current status of the domain")
+    status: DomainStatus;
     @doc("ISO 8601 timestamp when domain was added")
     created_at: string;
     @doc("ISO 8601 timestamp when domain was last updated")
@@ -60,10 +120,12 @@ model ApprovedDomainAuditLog {
     action: AuditAction;
     @doc("Name of affected domain")
     target_domain_name?: DomainName;
+    @doc("Reason provided for the action (for enable/disable)")
+    reason?: string;
     @doc("Previous state before modification")
-    old_value?: object;
+    old_value?: {};
     @doc("New state after modification")
-    new_value?: object;
+    new_value?: {};
     @doc("IP address of the request")
     ip_address?: string;
     @doc("User agent of the request")
@@ -74,14 +136,13 @@ model ApprovedDomainAuditLog {
     created_at: string;
 }
 
-@route("/admin/approved-domains")
+@route("/admin")
 @tag("ApprovedDomains")
-@authentication(Authorization)
 interface ApprovedDomains {
-    @route("/")
+    @route("/add-approved-domain")
     @post
-    @doc("Add a domain to the approved list. Domain names are normalized to lowercase.")
-    createDomain(@body request: CreateApprovedDomainRequest): {
+    @doc("Add a domain to the approved list. Domain names are normalized to lowercase. Starts as active.")
+    addDomain(@body request: AddApprovedDomainRequest): {
         @statusCode statusCode: 201;
         @body response: ApprovedDomain;
     } | {
@@ -89,7 +150,7 @@ interface ApprovedDomains {
         @statusCode
         statusCode: 409;
     } | {
-        @doc("Invalid domain format")
+        @doc("Invalid domain format or validation errors")
         @statusCode
         statusCode: 400;
     } | {
@@ -98,35 +159,26 @@ interface ApprovedDomains {
         statusCode: 401;
     };
 
-    @route("/")
-    @get
-    @doc("List all approved domains with optional search (keyset pagination)")
-    listDomains(
-        @doc("Optional search term for fuzzy domain search")
-        @query search?: string,
-        @doc("Number of items to return (default 50, max 100)")
-        @query limit?: int32,
-        @doc("Cursor from previous page - base64 encoded value")
-        @query cursor?: string,
-    ): {
+    @route("/list-approved-domains")
+    @post
+    @doc("List approved domains with optional search and status filter (keyset pagination)")
+    listDomains(@body request: ListApprovedDomainsRequest): {
         @statusCode statusCode: 200;
         @body response: ApprovedDomainListResponse;
+    } | {
+        @doc("Invalid request parameters")
+        @statusCode
+        statusCode: 400;
     } | {
         @doc("Unauthorized - invalid or expired session")
         @statusCode
         statusCode: 401;
     };
 
-    @route("/{domain_name}")
-    @get
+    @route("/get-approved-domain")
+    @post
     @doc("Get details of a specific domain including audit logs")
-    getDomain(
-        @path domain_name: DomainName,
-        @doc("Cursor for audit log pagination - base64 encoded timestamp")
-        @query audit_cursor?: string,
-        @doc("Number of audit logs to return (default 50, max 100)")
-        @query audit_limit?: int32,
-    ): {
+    getDomain(@body request: GetApprovedDomainRequest): {
         @statusCode statusCode: 200;
         @body response: ApprovedDomainDetailResponse;
     } | {
@@ -134,20 +186,49 @@ interface ApprovedDomains {
         @statusCode
         statusCode: 404;
     } | {
+        @doc("Invalid request parameters")
+        @statusCode
+        statusCode: 400;
+    } | {
         @doc("Unauthorized - invalid or expired session")
         @statusCode
         statusCode: 401;
     };
 
-    @route("/{domain_name}")
-    @delete
-    @doc("Remove a domain from the approved list (soft delete)")
-    deleteDomain(@path domain_name: DomainName): {
-        @statusCode statusCode: 204;
+    @route("/disable-approved-domain")
+    @post
+    @doc("Disable a domain in the approved list (prevents new signups)")
+    disableDomain(@body request: DisableApprovedDomainRequest): {
+        @statusCode statusCode: 200;
+        @body response: ApprovedDomain;
     } | {
-        @doc("Domain not found")
+        @doc("Domain not found or already inactive")
         @statusCode
         statusCode: 404;
+    } | {
+        @doc("Invalid request parameters or validation errors")
+        @statusCode
+        statusCode: 400;
+    } | {
+        @doc("Unauthorized - invalid or expired session")
+        @statusCode
+        statusCode: 401;
+    };
+
+    @route("/enable-approved-domain")
+    @post
+    @doc("Enable a previously disabled domain (allows new signups)")
+    enableDomain(@body request: EnableApprovedDomainRequest): {
+        @statusCode statusCode: 200;
+        @body response: ApprovedDomain;
+    } | {
+        @doc("Domain not found or already active")
+        @statusCode
+        statusCode: 404;
+    } | {
+        @doc("Invalid request parameters or validation errors")
+        @statusCode
+        statusCode: 400;
     } | {
         @doc("Unauthorized - invalid or expired session")
         @statusCode

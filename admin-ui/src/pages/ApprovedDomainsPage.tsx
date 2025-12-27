@@ -16,12 +16,14 @@ import {
 	Tooltip,
 	Drawer,
 	Descriptions,
+	Tabs,
 } from "antd";
 import {
 	PlusOutlined,
 	SearchOutlined,
 	ArrowLeftOutlined,
-	DeleteOutlined,
+	StopOutlined,
+	CheckCircleOutlined,
 	InfoCircleOutlined,
 } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
@@ -29,15 +31,21 @@ import { useAuth } from "../contexts/AuthContext";
 import { getApiBaseUrl } from "../config";
 import { Link } from "react-router-dom";
 import type {
-	CreateApprovedDomainRequest,
+	AddApprovedDomainRequest,
 	ApprovedDomain,
 	ApprovedDomainListResponse,
 	ApprovedDomainDetailResponse,
 	ApprovedDomainAuditLog,
+	DomainFilter,
 } from "vetchium-specs/admin/approved-domains";
-import { validateCreateApprovedDomainRequest } from "vetchium-specs/admin/approved-domains";
+import {
+	validateAddApprovedDomainRequest,
+	validateDisableApprovedDomainRequest,
+	validateEnableApprovedDomainRequest,
+} from "vetchium-specs/admin/approved-domains";
 
 const { Title } = Typography;
+const { TextArea } = Input;
 
 export function ApprovedDomainsPage() {
 	const { t } = useTranslation("approvedDomains");
@@ -48,10 +56,21 @@ export function ApprovedDomainsPage() {
 	const [searchQuery, setSearchQuery] = useState("");
 	const [nextCursor, setNextCursor] = useState<string | null>(null);
 	const [hasMore, setHasMore] = useState(false);
+	const [filter, setFilter] = useState<DomainFilter>("active");
 
 	const [addModalVisible, setAddModalVisible] = useState(false);
 	const [addingDomain, setAddingDomain] = useState(false);
 	const [form] = Form.useForm();
+
+	const [disableModalVisible, setDisableModalVisible] = useState(false);
+	const [disablingDomain, setDisablingDomain] = useState(false);
+	const [domainToDisable, setDomainToDisable] = useState<string | null>(null);
+	const [disableForm] = Form.useForm();
+
+	const [enableModalVisible, setEnableModalVisible] = useState(false);
+	const [enablingDomain, setEnablingDomain] = useState(false);
+	const [domainToEnable, setDomainToEnable] = useState<string | null>(null);
+	const [enableForm] = Form.useForm();
 
 	const [detailDrawerVisible, setDetailDrawerVisible] = useState(false);
 	const [selectedDomain, setSelectedDomain] = useState<string | null>(null);
@@ -61,21 +80,36 @@ export function ApprovedDomainsPage() {
 	const [loadingMoreAuditLogs, setLoadingMoreAuditLogs] = useState(false);
 
 	const fetchDomains = useCallback(
-		async (cursor: string | null = null, query: string = searchQuery) => {
+		async (
+			cursor: string | null = null,
+			query: string = searchQuery,
+			currentFilter: DomainFilter = filter
+		) => {
 			setLoading(true);
 			try {
 				const apiBaseUrl = await getApiBaseUrl();
-				const params = new URLSearchParams();
-				params.append("limit", "50");
-				if (cursor) params.append("cursor", cursor);
-				if (query) params.append("search", query);
+				const requestBody: {
+					limit?: number;
+					cursor?: string;
+					query?: string;
+					filter: DomainFilter;
+				} = {
+					limit: 50,
+					filter: currentFilter,
+				};
+
+				if (cursor) requestBody.cursor = cursor;
+				if (query) requestBody.query = query;
 
 				const response = await fetch(
-					`${apiBaseUrl}/admin/approved-domains?${params.toString()}`,
+					`${apiBaseUrl}/admin/list-approved-domains`,
 					{
+						method: "POST",
 						headers: {
+							"Content-Type": "application/json",
 							Authorization: `Bearer ${sessionToken}`,
 						},
+						body: JSON.stringify(requestBody),
 					}
 				);
 
@@ -105,7 +139,7 @@ export function ApprovedDomainsPage() {
 				setLoading(false);
 			}
 		},
-		[sessionToken, searchQuery, t]
+		[sessionToken, searchQuery, filter, t]
 	);
 
 	useEffect(() => {
@@ -127,14 +161,14 @@ export function ApprovedDomainsPage() {
 	const handleAddDomain = async () => {
 		try {
 			const values = await form.validateFields();
-			const request: CreateApprovedDomainRequest = {
+			const request: AddApprovedDomainRequest = {
 				domain_name: values.domain_name,
 			};
 
-			const validationErrors = validateCreateApprovedDomainRequest(request);
+			const validationErrors = validateAddApprovedDomainRequest(request);
 			if (validationErrors.length > 0) {
 				const errorMsg = validationErrors
-					.map((e) => `${e.field}: ${e.message}`)
+					.map((e: {field: string; message: string}) => `${e.field}: ${e.message}`)
 					.join(", ");
 				message.error(errorMsg);
 				return;
@@ -142,7 +176,7 @@ export function ApprovedDomainsPage() {
 
 			setAddingDomain(true);
 			const apiBaseUrl = await getApiBaseUrl();
-			const response = await fetch(`${apiBaseUrl}/admin/approved-domains`, {
+			const response = await fetch(`${apiBaseUrl}/admin/add-approved-domain`, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
@@ -183,7 +217,7 @@ export function ApprovedDomainsPage() {
 				form.resetFields();
 				setSearchQuery("");
 				setNextCursor(null);
-				fetchDomains(null, "");
+				fetchDomains(null, "", filter);
 			}
 		} catch (err) {
 			console.error("Failed to add domain:", err);
@@ -193,18 +227,54 @@ export function ApprovedDomainsPage() {
 		}
 	};
 
-	const handleDeleteDomain = async (domainName: string) => {
+	const handleDisableDomain = async () => {
+		if (!domainToDisable) return;
+
 		try {
+			const values = await disableForm.validateFields();
+			const request = {
+				domain_name: domainToDisable,
+				reason: values.reason,
+			};
+
+			const validationErrors = validateDisableApprovedDomainRequest(request);
+			if (validationErrors.length > 0) {
+				const errorMsg = validationErrors
+					.map((e) => `${e.field}: ${e.message}`)
+					.join(", ");
+				message.error(errorMsg);
+				return;
+			}
+
+			setDisablingDomain(true);
 			const apiBaseUrl = await getApiBaseUrl();
 			const response = await fetch(
-				`${apiBaseUrl}/admin/approved-domains/${encodeURIComponent(domainName)}`,
+				`${apiBaseUrl}/admin/disable-approved-domain`,
 				{
-					method: "DELETE",
+					method: "POST",
 					headers: {
+						"Content-Type": "application/json",
 						Authorization: `Bearer ${sessionToken}`,
 					},
+					body: JSON.stringify(request),
 				}
 			);
+
+			if (response.status === 400) {
+				const errors: unknown = await response.json();
+				if (Array.isArray(errors)) {
+					const errorMsg = errors
+						.map(
+							(e: { field: string; message: string }) =>
+								`${e.field}: ${e.message}`
+						)
+						.join(", ");
+					message.error(errorMsg);
+				} else {
+					message.error(t("errors.invalidRequest"));
+				}
+				return;
+			}
 
 			if (response.status === 401) {
 				message.error(t("errors.unauthorized"));
@@ -216,15 +286,106 @@ export function ApprovedDomainsPage() {
 				return;
 			}
 
-			if (response.status === 204) {
-				message.success(t("success.deleted"));
+			if (response.status === 422) {
+				message.error(t("errors.domainAlreadyInactive"));
+				return;
+			}
+
+			if (response.status === 200) {
+				message.success(t("success.disabled"));
+				setDisableModalVisible(false);
+				setDomainToDisable(null);
+				disableForm.resetFields();
 				setSearchQuery("");
 				setNextCursor(null);
-				fetchDomains(null, "");
+				fetchDomains(null, "", filter);
 			}
 		} catch (err) {
-			console.error("Failed to delete domain:", err);
-			message.error(t("errors.deleteFailed"));
+			console.error("Failed to disable domain:", err);
+			message.error(t("errors.disableFailed"));
+		} finally {
+			setDisablingDomain(false);
+		}
+	};
+
+	const handleEnableDomain = async () => {
+		if (!domainToEnable) return;
+
+		try {
+			const values = await enableForm.validateFields();
+			const request = {
+				domain_name: domainToEnable,
+				reason: values.reason,
+			};
+
+			const validationErrors = validateEnableApprovedDomainRequest(request);
+			if (validationErrors.length > 0) {
+				const errorMsg = validationErrors
+					.map((e) => `${e.field}: ${e.message}`)
+					.join(", ");
+				message.error(errorMsg);
+				return;
+			}
+
+			setEnablingDomain(true);
+			const apiBaseUrl = await getApiBaseUrl();
+			const response = await fetch(
+				`${apiBaseUrl}/admin/enable-approved-domain`,
+				{
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${sessionToken}`,
+					},
+					body: JSON.stringify(request),
+				}
+			);
+
+			if (response.status === 400) {
+				const errors: unknown = await response.json();
+				if (Array.isArray(errors)) {
+					const errorMsg = errors
+						.map(
+							(e: { field: string; message: string }) =>
+								`${e.field}: ${e.message}`
+						)
+						.join(", ");
+					message.error(errorMsg);
+				} else {
+					message.error(t("errors.invalidRequest"));
+				}
+				return;
+			}
+
+			if (response.status === 401) {
+				message.error(t("errors.unauthorized"));
+				return;
+			}
+
+			if (response.status === 404) {
+				message.error(t("errors.domainNotFound"));
+				return;
+			}
+
+			if (response.status === 422) {
+				message.error(t("errors.domainAlreadyActive"));
+				return;
+			}
+
+			if (response.status === 200) {
+				message.success(t("success.enabled"));
+				setEnableModalVisible(false);
+				setDomainToEnable(null);
+				enableForm.resetFields();
+				setSearchQuery("");
+				setNextCursor(null);
+				fetchDomains(null, "", filter);
+			}
+		} catch (err) {
+			console.error("Failed to enable domain:", err);
+			message.error(t("errors.enableFailed"));
+		} finally {
+			setEnablingDomain(false);
 		}
 	};
 
@@ -236,11 +397,14 @@ export function ApprovedDomainsPage() {
 		try {
 			const apiBaseUrl = await getApiBaseUrl();
 			const response = await fetch(
-				`${apiBaseUrl}/admin/approved-domains/${encodeURIComponent(domainName)}`,
+				`${apiBaseUrl}/admin/get-approved-domain`,
 				{
+					method: "POST",
 					headers: {
+						"Content-Type": "application/json",
 						Authorization: `Bearer ${sessionToken}`,
 					},
+					body: JSON.stringify({ domain_name: domainName }),
 				}
 			);
 
@@ -277,15 +441,18 @@ export function ApprovedDomainsPage() {
 		setLoadingMoreAuditLogs(true);
 		try {
 			const apiBaseUrl = await getApiBaseUrl();
-			const params = new URLSearchParams();
-			params.append("audit_cursor", domainDetail.next_audit_cursor);
-
 			const response = await fetch(
-				`${apiBaseUrl}/admin/approved-domains/${encodeURIComponent(selectedDomain)}?${params.toString()}`,
+				`${apiBaseUrl}/admin/get-approved-domain`,
 				{
+					method: "POST",
 					headers: {
+						"Content-Type": "application/json",
 						Authorization: `Bearer ${sessionToken}`,
 					},
+					body: JSON.stringify({
+						domain_name: selectedDomain,
+						audit_cursor: domainDetail.next_audit_cursor,
+					}),
 				}
 			);
 
@@ -332,6 +499,16 @@ export function ApprovedDomainsPage() {
 			),
 		},
 		{
+			title: t("table.status"),
+			dataIndex: "status",
+			key: "status",
+			render: (status: string) => (
+				<Tag color={status === "active" ? "green" : "red"}>
+					{t(`status.${status}`)}
+				</Tag>
+			),
+		},
+		{
 			title: t("table.createdBy"),
 			dataIndex: "created_by_admin_email",
 			key: "created_by_admin_email",
@@ -346,19 +523,31 @@ export function ApprovedDomainsPage() {
 			title: t("table.actions"),
 			key: "actions",
 			render: (_: unknown, record: ApprovedDomain) => (
-				<Popconfirm
-					title={t("confirmDelete.title")}
-					description={t("confirmDelete.message", {
-						domain: record.domain_name,
-					})}
-					onConfirm={() => handleDeleteDomain(record.domain_name)}
-					okText={t("confirmDelete.confirm")}
-					cancelText={t("confirmDelete.cancel")}
-				>
-					<Button danger icon={<DeleteOutlined />}>
-						{t("actions.delete")}
-					</Button>
-				</Popconfirm>
+				<Space>
+					{record.status === "active" ? (
+						<Button
+							danger
+							icon={<StopOutlined />}
+							onClick={() => {
+								setDomainToDisable(record.domain_name);
+								setDisableModalVisible(true);
+							}}
+						>
+							{t("actions.disable")}
+						</Button>
+					) : (
+						<Button
+							type="primary"
+							icon={<CheckCircleOutlined />}
+							onClick={() => {
+								setDomainToEnable(record.domain_name);
+								setEnableModalVisible(true);
+							}}
+						>
+							{t("actions.enable")}
+						</Button>
+					)}
+				</Space>
 			),
 		},
 	];
@@ -393,6 +582,21 @@ export function ApprovedDomainsPage() {
 							{t("actions.add")}
 						</Button>
 					</Space>
+
+					<Tabs
+						activeKey={filter}
+						onChange={(key) => {
+							setFilter(key as DomainFilter);
+							setSearchQuery("");
+							setNextCursor(null);
+							fetchDomains(null, "", key as DomainFilter);
+						}}
+						items={[
+							{ key: "active", label: t("filters.active") },
+							{ key: "inactive", label: t("filters.inactive") },
+							{ key: "all", label: t("filters.all") },
+						]}
+					/>
 
 					<Input
 						prefix={<SearchOutlined />}
@@ -452,6 +656,87 @@ export function ApprovedDomainsPage() {
 				</Form>
 			</Modal>
 
+			<Modal
+				title={t("disableModal.title")}
+				open={disableModalVisible}
+				onOk={handleDisableDomain}
+				onCancel={() => {
+					setDisableModalVisible(false);
+					setDomainToDisable(null);
+					disableForm.resetFields();
+				}}
+				confirmLoading={disablingDomain}
+				okText={t("disableModal.confirm")}
+				cancelText={t("disableModal.cancel")}
+				okButtonProps={{ danger: true }}
+			>
+				<Space direction="vertical" style={{ width: "100%" }}>
+					<div>
+						{t("disableModal.message", { domain: domainToDisable })}
+					</div>
+					<Form form={disableForm} layout="vertical">
+						<Form.Item
+							name="reason"
+							label={t("disableModal.reasonLabel")}
+							rules={[
+								{ required: true, message: t("disableModal.reasonRequired") },
+								{
+									max: 256,
+									message: t("disableModal.reasonMaxLength"),
+								},
+							]}
+						>
+							<TextArea
+								rows={4}
+								placeholder={t("disableModal.reasonPlaceholder")}
+								maxLength={256}
+								showCount
+							/>
+						</Form.Item>
+					</Form>
+				</Space>
+			</Modal>
+
+			<Modal
+				title={t("enableModal.title")}
+				open={enableModalVisible}
+				onOk={handleEnableDomain}
+				onCancel={() => {
+					setEnableModalVisible(false);
+					setDomainToEnable(null);
+					enableForm.resetFields();
+				}}
+				confirmLoading={enablingDomain}
+				okText={t("enableModal.confirm")}
+				cancelText={t("enableModal.cancel")}
+			>
+				<Space direction="vertical" style={{ width: "100%" }}>
+					<div>
+						{t("enableModal.message", { domain: domainToEnable })}
+					</div>
+					<Form form={enableForm} layout="vertical">
+						<Form.Item
+							name="reason"
+							label={t("enableModal.reasonLabel")}
+							rules={[
+								{ required: true, message: t("enableModal.reasonRequired") },
+								{
+									max: 256,
+									message: t("enableModal.reasonMaxLength"),
+								},
+							]}
+						>
+							<TextArea
+								rows={4}
+								placeholder={t("enableModal.reasonPlaceholder")}
+								maxLength={256}
+								showCount
+							/>
+						</Form.Item>
+					</Form>
+				</Space>
+			</Modal>
+
 			<Drawer
 				title={t("detailDrawer.title", { domain: selectedDomain })}
 				open={detailDrawerVisible}
@@ -469,6 +754,15 @@ export function ApprovedDomainsPage() {
 								<Descriptions bordered column={1}>
 									<Descriptions.Item label={t("detailDrawer.domainName")}>
 										{domainDetail.domain.domain_name}
+									</Descriptions.Item>
+									<Descriptions.Item label={t("detailDrawer.status")}>
+										<Tag
+											color={
+												domainDetail.domain.status === "active" ? "green" : "red"
+											}
+										>
+											{t(`status.${domainDetail.domain.status}`)}
+										</Tag>
 									</Descriptions.Item>
 									<Descriptions.Item label={t("detailDrawer.createdBy")}>
 										{domainDetail.domain.created_by_admin_email}
@@ -501,7 +795,13 @@ export function ApprovedDomainsPage() {
 												>
 													<Space>
 														<Tag
-															color={log.action === "created" ? "green" : "red"}
+															color={
+																log.action === "created"
+																	? "green"
+																	: log.action === "disabled"
+																		? "red"
+																		: "blue"
+															}
 														>
 															{t(`auditActions.${log.action}`)}
 														</Tag>
@@ -513,6 +813,11 @@ export function ApprovedDomainsPage() {
 														<strong>{t("detailDrawer.admin")}:</strong>{" "}
 														{log.admin_email}
 													</div>
+													{log.reason && (
+														<div>
+															<strong>{t("detailDrawer.reason")}:</strong> {log.reason}
+														</div>
+													)}
 													{log.target_domain_name && (
 														<div>
 															<strong>{t("detailDrawer.targetDomain")}:</strong>{" "}

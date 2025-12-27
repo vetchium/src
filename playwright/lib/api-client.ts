@@ -144,7 +144,7 @@ export class AdminAPIClient {
   // ============================================================================
 
   /**
-   * POST /admin/approved-domains
+   * POST /admin/add-approved-domain
    * Creates a new approved domain.
    *
    * @param sessionToken - Session token for authentication
@@ -155,7 +155,7 @@ export class AdminAPIClient {
     sessionToken: string,
     domainName: string
   ): Promise<APIResponse<ApprovedDomainDetailResponse["domain"]>> {
-    const response = await this.request.post("/admin/approved-domains", {
+    const response = await this.request.post("/admin/add-approved-domain", {
       headers: { Authorization: `Bearer ${sessionToken}` },
       data: { domain_name: domainName },
     });
@@ -169,27 +169,25 @@ export class AdminAPIClient {
   }
 
   /**
-   * GET /admin/approved-domains
-   * Lists all approved domains with optional search.
+   * POST /admin/list-approved-domains
+   * Lists approved domains with optional filtering and search.
    *
    * @param sessionToken - Session token for authentication
-   * @param options - Optional query parameters (limit, cursor, query)
+   * @param options - Optional parameters (limit, cursor, query, filter)
    * @returns API response with list of domains
    */
   async listApprovedDomains(
     sessionToken: string,
-    options?: { limit?: number; cursor?: string; query?: string }
+    options?: { limit?: number; cursor?: string; query?: string; filter?: "active" | "inactive" | "all" }
   ): Promise<APIResponse<ApprovedDomainListResponse>> {
-    const params = new URLSearchParams();
-    if (options?.limit) params.append("limit", String(options.limit));
-    if (options?.cursor) params.append("cursor", options.cursor);
-    if (options?.query) params.append("query", options.query);
-
-    const url = params.toString()
-      ? `/admin/approved-domains?${params.toString()}`
-      : `/admin/approved-domains`;
-    const response = await this.request.get(url, {
+    const response = await this.request.post("/admin/list-approved-domains", {
       headers: { Authorization: `Bearer ${sessionToken}` },
+      data: {
+        limit: options?.limit,
+        cursor: options?.cursor,
+        query: options?.query,
+        filter: options?.filter || "active",
+      },
     });
 
     const body = await response.json().catch(() => ({}));
@@ -201,7 +199,7 @@ export class AdminAPIClient {
   }
 
   /**
-   * GET /admin/approved-domains/:domainName
+   * POST /admin/get-approved-domain
    * Gets details of a specific approved domain including audit logs.
    *
    * @param sessionToken - Session token for authentication
@@ -212,8 +210,9 @@ export class AdminAPIClient {
     sessionToken: string,
     domainName: string
   ): Promise<APIResponse<ApprovedDomainDetailResponse>> {
-    const response = await this.request.get(`/admin/approved-domains/${encodeURIComponent(domainName)}`, {
+    const response = await this.request.post("/admin/get-approved-domain", {
       headers: { Authorization: `Bearer ${sessionToken}` },
+      data: { domain_name: domainName },
     });
 
     const body = await response.json().catch(() => ({}));
@@ -225,24 +224,56 @@ export class AdminAPIClient {
   }
 
   /**
-   * DELETE /admin/approved-domains/:domainName
-   * Soft deletes an approved domain.
+   * POST /admin/disable-approved-domain
+   * Disables an approved domain (changes status to inactive).
    *
    * @param sessionToken - Session token for authentication
-   * @param domainName - Domain name to delete
-   * @returns API response (204 on success, no body)
+   * @param domainName - Domain name to disable
+   * @param reason - Reason for disabling (max 256 chars)
+   * @returns API response (200 on success)
    */
-  async deleteApprovedDomain(sessionToken: string, domainName: string): Promise<APIResponse<void>> {
-    const response = await this.request.delete(
-      `/admin/approved-domains/${encodeURIComponent(domainName)}`,
-      {
-        headers: { Authorization: `Bearer ${sessionToken}` },
-      }
-    );
+  async disableApprovedDomain(
+    sessionToken: string,
+    domainName: string,
+    reason: string
+  ): Promise<APIResponse<void>> {
+    const response = await this.request.post("/admin/disable-approved-domain", {
+      headers: { Authorization: `Bearer ${sessionToken}` },
+      data: { domain_name: domainName, reason },
+    });
 
+    const body = await response.json().catch(() => ({}));
     return {
       status: response.status(),
       body: undefined,
+      errors: body.errors,
+    };
+  }
+
+  /**
+   * POST /admin/enable-approved-domain
+   * Re-enables a disabled approved domain (changes status to active).
+   *
+   * @param sessionToken - Session token for authentication
+   * @param domainName - Domain name to enable
+   * @param reason - Reason for enabling (max 256 chars)
+   * @returns API response (200 on success)
+   */
+  async enableApprovedDomain(
+    sessionToken: string,
+    domainName: string,
+    reason: string
+  ): Promise<APIResponse<void>> {
+    const response = await this.request.post("/admin/enable-approved-domain", {
+      headers: { Authorization: `Bearer ${sessionToken}` },
+      data: { domain_name: domainName, reason },
+    });
+
+    const body = await response.json().catch(() => ({}));
+    return {
+      status: response.status(),
+      body: undefined,
+      errors: body.errors,
     };
   }
 }

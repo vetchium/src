@@ -16,8 +16,9 @@ func RegisterAdminRoutes(mux *http.ServeMux, s *server.Server) {
 
 	// Approved domains routes (require authentication)
 	authMiddleware := middleware.AdminAuth(s.Global)
-	mux.Handle("POST /admin/approved-domains", authMiddleware(admin.CreateApprovedDomain(s)))
-	mux.Handle("GET /admin/approved-domains", authMiddleware(admin.ListApprovedDomains(s)))
-	mux.Handle("GET /admin/approved-domains/{domainName}", authMiddleware(admin.GetApprovedDomain(s)))
-	mux.Handle("DELETE /admin/approved-domains/{domainName}", authMiddleware(admin.DeleteApprovedDomain(s)))
+	mux.Handle("POST /admin/add-approved-domain", authMiddleware(admin.AddApprovedDomain(s)))
+	mux.Handle("POST /admin/list-approved-domains", authMiddleware(admin.ListApprovedDomains(s)))
+	mux.Handle("POST /admin/get-approved-domain", authMiddleware(admin.GetApprovedDomain(s)))
+	mux.Handle("POST /admin/disable-approved-domain", authMiddleware(admin.DisableApprovedDomain(s)))
+	mux.Handle("POST /admin/enable-approved-domain", authMiddleware(admin.EnableApprovedDomain(s)))
 }
