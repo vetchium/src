@@ -1,0 +1,13 @@
+{
+  "appName": "Vetchium Hub",
+  "loading": "Laden...",
+  "submit": "Absenden",
+  "cancel": "Abbrechen",
+  "back": "Zurück",
+  "next": "Weiter",
+  "required": "Dieses Feld ist erforderlich",
+  "invalidEmail": "Bitte geben Sie eine gültige E-Mail-Adresse ein",
+  "invalidPassword": "Das Passwort muss mindestens 8 Zeichen mit Groß-, Kleinbuchstaben, Zahl und Sonderzeichen enthalten",
+  "serverError": "Ein Fehler ist aufgetreten. Bitte versuchen Sie es später erneut.",
+  "networkError": "Netzwerkfehler. Bitte überprüfen Sie Ihre Verbindung."
+}

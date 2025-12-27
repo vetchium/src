@@ -1,0 +1,66 @@
+import { Layout, Card, Typography, Button, Alert } from "antd";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
+
+const { Content } = Layout;
+const { Title, Text } = Typography;
+
+export function HomePage() {
+  const navigate = useNavigate();
+  const { sessionToken, handle, logout, isAuthenticated } = useAuth();
+
+  const handleLogout = async () => {
+    await logout();
+    navigate("/login");
+  };
+
+  if (!isAuthenticated) {
+    navigate("/login");
+    return null;
+  }
+
+  return (
+    <Layout style={{ minHeight: "100vh" }}>
+      <Content
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
+        <Card style={{ width: 500 }}>
+          <Title level={3} style={{ textAlign: "center", marginBottom: 24 }}>
+            Welcome to Vetchium Hub
+          </Title>
+
+          <Alert
+            message="Login Successful"
+            description={
+              <div>
+                {handle && (
+                  <Text>
+                    Handle: <strong>{handle}</strong>
+                    <br />
+                  </Text>
+                )}
+                <Text>Session Token: {sessionToken?.substring(0, 16)}...</Text>
+              </div>
+            }
+            type="success"
+            showIcon
+            style={{ marginBottom: 16 }}
+          />
+
+          <Button
+            type="primary"
+            onClick={handleLogout}
+            block
+            size="large"
+          >
+            Logout
+          </Button>
+        </Card>
+      </Content>
+    </Layout>
+  );
+}
