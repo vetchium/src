@@ -58,9 +58,3 @@ type ApprovedDomainAuditLog struct {
 	RequestID        *string            `json:"request_id,omitempty"`
 	CreatedAt        string             `json:"created_at"`
 }
-
-type AuditLogsResponse struct {
-	Logs       []ApprovedDomainAuditLog `json:"logs"`
-	NextCursor string                   `json:"next_cursor"`
-	HasMore    bool                     `json:"has_more"`
-}

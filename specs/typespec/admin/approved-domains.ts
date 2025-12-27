@@ -63,9 +63,3 @@ export interface ApprovedDomainDetailResponse {
 	next_audit_cursor: string;
 	has_more_audit: boolean;
 }
-
-export interface AuditLogsResponse {
-	logs: ApprovedDomainAuditLog[];
-	next_cursor: string;
-	has_more: boolean;
-}

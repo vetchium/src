@@ -1,6 +1,8 @@
-Status: DRAFT
+Status: COMPLETED
 Authors: @psankar
 Dependencies: 3-emails-sending
+
+Note: This is not a good example of a specification. This was generated from an open-source AI and it caused more rework than needed.
 
 ## Acceptance Criteria
 
@@ -20,6 +22,7 @@ Dependencies: 3-emails-sending
 The Admin Portal home page (`/`) will display a new card alongside the logout button:
 
 **Card Design:**
+
 - Icon: Safety/Security icon (shield)
 - Title: "Approved Domains"
 - Subtitle: "Manage permitted email domains for HubUser signup"
@@ -28,24 +31,28 @@ The Admin Portal home page (`/`) will display a new card alongside the logout bu
 **Approved Domains Page (`/approved-domains`):**
 
 1. **Header Section**
+
    - Page title: "Approved Domains"
    - Search bar with autocomplete: "Search domains..."
    - "Add Domain" button (primary action)
 
 2. **Domains Table**
    Columns:
+
    - Domain Name (sortable, clickable to view details)
    - Added On (timestamp, sortable)
    - Added By (admin ID)
    - Actions (View Details, Delete)
 
 3. **Add Domain Modal**
+
    - Input field: "Enter domain (e.g., example.com)"
    - Auto-converts to lowercase on input
    - Validates domain format
    - "Add" and "Cancel" buttons
 
 4. **Domain Details Modal** (accessed via clicking domain name)
+
    - Domain information card:
      - Domain name
      - Added on (timestamp)
@@ -168,18 +175,6 @@ model ApprovedDomainAuditLog {
   created_at: ISO8601Timestamp;
 }
 
-// Request: Audit logs listing
-model AuditLogsRequest {
-  page?: int32;
-  page_size?: int32;
-}
-
-// Response: Audit logs listing
-model AuditLogsResponse {
-  logs: ApprovedDomainAuditLog[];
-  total_count: int32;
-}
-
 // Endpoints
 @route("/api/admin/approved-domains")
 @post
@@ -196,10 +191,6 @@ op getApprovedDomain: ApprovedDomainDetailResponse;
 @route("/api/admin/approved-domains/{domain_id}")
 @delete
 op deleteApprovedDomain: void;
-
-@route("/api/admin/approved-domains/audit")
-@get
-op getAuditLogs: AuditLogsRequest => AuditLogsResponse;
 
 // Validation rules (implemented in typespec validation)
 DomainName@pattern("^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$");
@@ -222,11 +213,11 @@ Located in `api-server/db/queries/approved_domains.sql`:
 - `CountApprovedDomains` - Total count WHERE deleted_at IS NULL
 - `CreateAuditLog` - Insert audit entry
 - `GetAuditLogsByDomainID` - Select logs for specific domain
-- `GetAuditLogs` - Select all logs with pagination
 
 **Handler Pattern:**
 
 Each handler:
+
 1. Validates request using TypeSpec validation
 2. Extracts admin_id from session
 3. Extracts request context (IP, user_agent, request_id) from headers/middleware
@@ -235,6 +226,7 @@ Each handler:
 6. Returns response
 
 **Audit Log Fields:**
+
 - For "created": `new_value` contains the full domain object (without deleted_at which is null)
 - For "deleted": `old_value` contains the domain before soft delete, `new_value` contains `deleted_at` timestamp
 - No audit logs for read operations (list, get details)
@@ -242,6 +234,7 @@ Each handler:
 ### Frontend Implementation Notes
 
 **Files to modify:**
+
 - `admin-ui/src/pages/DashboardPage.tsx` - Add new card
 - `admin-ui/src/pages/ApprovedDomainsPage.tsx` - New page
 - `admin-ui/src/App.tsx` - Add routing
@@ -250,11 +243,13 @@ Each handler:
 - `admin-ui/src/locales/ta-IN/approved-domains.json` - Translations
 
 **State Management:**
+
 - Use React state for modal visibility, search text, selected domain
 - Use Ant Design Table for domain list with sorting
 - Use Ant Design Modal for add domain and domain details
 
 **Search Implementation:**
+
 - Debounced search input (300ms delay)
 - Fuzzy matching on domain_name via search query param
 - Real-time filtering as user types
@@ -264,28 +259,33 @@ Each handler:
 **API Tests (`playwright/tests/api/admin/approved-domains.spec.ts`):**
 
 1. **Create Domain**
+
    - Successfully add a valid domain
    - Reject duplicate domain (409 Conflict)
    - Reject invalid domain format (400 Bad Request)
    - Normalize uppercase to lowercase
 
 2. **List Domains**
+
    - Return empty list when no domains
    - Return all domains sorted by name
    - Search filters correctly (uses search query param)
    - Pagination works
 
 3. **Get Domain Details**
+
    - Return domain + audit logs
    - Audit log includes all required fields
    - 404 for non-existent domain
 
 4. **Delete Domain**
+
    - Successfully delete domain
    - Audit log captures old_value
    - 404 for non-existent domain
 
 5. **Audit Logging**
+
    - Create action creates audit log with new_value
    - Delete action creates audit log with old_value
    - IP address captured
@@ -300,16 +300,19 @@ Each handler:
 **UI Tests (`playwright/tests/ui/admin/approved-domains.spec.ts`):**
 
 1. **Dashboard Card**
+
    - Card is visible
    - Click navigates to /approved-domains
 
 2. **List Page**
+
    - Domains display correctly
    - Search filters list (calls API with search param)
    - Add button opens modal
    - Delete shows confirmation
 
 3. **Add Domain**
+
    - Valid domain adds successfully
    - Duplicate shows error message
    - Invalid format shows validation error
@@ -334,33 +337,33 @@ When HubUser signup is implemented (future work), add validation:
 
 ```json
 {
-  "title": "Approved Domains",
-  "addDomain": "Add Domain",
-  "addSuccess": "Domain added successfully",
-  "addError": "Failed to add domain",
-  "deleteSuccess": "Domain removed successfully",
-  "deleteError": "Failed to remove domain",
-  "deleteConfirm": "Are you sure you want to remove this domain?",
-  "fetchError": "Failed to fetch domains",
-  "detailsError": "Failed to fetch domain details",
-  "domainName": "Domain",
-  "createdAt": "Added On",
-  "createdBy": "Added By",
-  "updatedAt": "Last Updated",
-  "actions": "Actions",
-  "searchPlaceholder": "Search domains...",
-  "domainPlaceholder": "example.com",
-  "domainDetails": "Domain Details",
-  "domainInfo": "Domain Information",
-  "auditLogs": "Audit Logs",
-  "auditAction": "Action",
-  "auditAdmin": "Admin",
-  "auditTimestamp": "Timestamp",
-  "auditIpAddress": "IP Address",
-  "noDomains": "No approved domains found",
-  "domainExists": "This domain is already approved",
-  "invalidDomain": "Invalid domain format",
-  "dashboardTitle": "Approved Domains",
-  "dashboardDescription": "Manage permitted email domains for HubUser signup"
+	"title": "Approved Domains",
+	"addDomain": "Add Domain",
+	"addSuccess": "Domain added successfully",
+	"addError": "Failed to add domain",
+	"deleteSuccess": "Domain removed successfully",
+	"deleteError": "Failed to remove domain",
+	"deleteConfirm": "Are you sure you want to remove this domain?",
+	"fetchError": "Failed to fetch domains",
+	"detailsError": "Failed to fetch domain details",
+	"domainName": "Domain",
+	"createdAt": "Added On",
+	"createdBy": "Added By",
+	"updatedAt": "Last Updated",
+	"actions": "Actions",
+	"searchPlaceholder": "Search domains...",
+	"domainPlaceholder": "example.com",
+	"domainDetails": "Domain Details",
+	"domainInfo": "Domain Information",
+	"auditLogs": "Audit Logs",
+	"auditAction": "Action",
+	"auditAdmin": "Admin",
+	"auditTimestamp": "Timestamp",
+	"auditIpAddress": "IP Address",
+	"noDomains": "No approved domains found",
+	"domainExists": "This domain is already approved",
+	"invalidDomain": "Invalid domain format",
+	"dashboardTitle": "Approved Domains",
+	"dashboardDescription": "Manage permitted email domains for HubUser signup"
 }
 ```

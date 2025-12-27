@@ -169,18 +169,3 @@ LEFT JOIN admin_users au ON al.admin_id = au.admin_user_id
 WHERE al.target_domain_id = $1 AND al.created_at < $2
 ORDER BY al.created_at DESC
 LIMIT $3;
-
--- name: GetAuditLogsFirstPage :many
-SELECT al.*, au.email_address AS admin_email
-FROM approved_domains_audit_log al
-LEFT JOIN admin_users au ON al.admin_id = au.admin_user_id
-ORDER BY al.created_at DESC
-LIMIT $1;
-
--- name: GetAuditLogsAfterCursor :many
-SELECT al.*, au.email_address AS admin_email
-FROM approved_domains_audit_log al
-LEFT JOIN admin_users au ON al.admin_id = au.admin_user_id
-WHERE al.created_at < $1
-ORDER BY al.created_at DESC
-LIMIT $2;

@@ -74,15 +74,6 @@ model ApprovedDomainAuditLog {
     created_at: string;
 }
 
-model AuditLogsResponse {
-    @doc("List of audit log entries")
-    logs: ApprovedDomainAuditLog[];
-    @doc("Cursor for next page - base64 encoded timestamp (empty if no more pages)")
-    next_cursor: string;
-    @doc("Whether there are more pages available")
-    has_more: boolean;
-}
-
 @route("/admin/approved-domains")
 @tag("ApprovedDomains")
 @authentication(Authorization)
@@ -157,28 +148,6 @@ interface ApprovedDomains {
         @doc("Domain not found")
         @statusCode
         statusCode: 404;
-    } | {
-        @doc("Unauthorized - invalid or expired session")
-        @statusCode
-        statusCode: 401;
-    };
-}
-
-@route("/admin/approved-domains/audit")
-@tag("ApprovedDomains")
-@authentication(Authorization)
-interface ApprovedDomainsAudit {
-    @route("/")
-    @get
-    @doc("Get all audit logs for approved domains (keyset pagination)")
-    getAuditLogs(
-        @doc("Number of items to return (default 50, max 100)")
-        @query limit?: int32,
-        @doc("Cursor from previous page - base64 encoded timestamp")
-        @query cursor?: string,
-    ): {
-        @statusCode statusCode: 200;
-        @body response: AuditLogsResponse;
     } | {
         @doc("Unauthorized - invalid or expired session")
         @statusCode
