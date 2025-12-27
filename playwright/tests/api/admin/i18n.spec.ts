@@ -37,7 +37,7 @@ test.describe("Email i18n - Language-specific email content", () => {
 				preferredLanguage: "en-US",
 			});
 			try {
-				const response = await api.login(email, password);
+				const response = await api.login({ email: email, password: password });
 				expect(response.status).toBe(200);
 
 				const emailMessage = await waitForEmail(email);
@@ -57,7 +57,7 @@ test.describe("Email i18n - Language-specific email content", () => {
 				preferredLanguage: "en-US",
 			});
 			try {
-				const response = await api.login(email, password);
+				const response = await api.login({ email: email, password: password });
 				expect(response.status).toBe(200);
 
 				const emailSummary = await waitForEmail(email);
@@ -84,7 +84,7 @@ test.describe("Email i18n - Language-specific email content", () => {
 				preferredLanguage: "en-US",
 			});
 			try {
-				const response = await api.login(email, password);
+				const response = await api.login({ email: email, password: password });
 				expect(response.status).toBe(200);
 
 				const emailSummary = await waitForEmail(email);
@@ -115,7 +115,7 @@ test.describe("Email i18n - Language-specific email content", () => {
 				preferredLanguage: "de-DE",
 			});
 			try {
-				const response = await api.login(email, password);
+				const response = await api.login({ email: email, password: password });
 				expect(response.status).toBe(200);
 
 				const emailMessage = await waitForEmail(email);
@@ -135,7 +135,7 @@ test.describe("Email i18n - Language-specific email content", () => {
 				preferredLanguage: "de-DE",
 			});
 			try {
-				const response = await api.login(email, password);
+				const response = await api.login({ email: email, password: password });
 				expect(response.status).toBe(200);
 
 				const emailSummary = await waitForEmail(email);
@@ -161,7 +161,7 @@ test.describe("Email i18n - Language-specific email content", () => {
 				preferredLanguage: "de-DE",
 			});
 			try {
-				const response = await api.login(email, password);
+				const response = await api.login({ email: email, password: password });
 				expect(response.status).toBe(200);
 
 				const emailSummary = await waitForEmail(email);
@@ -192,7 +192,7 @@ test.describe("Email i18n - Language-specific email content", () => {
 				preferredLanguage: "ta-IN",
 			});
 			try {
-				const response = await api.login(email, password);
+				const response = await api.login({ email: email, password: password });
 				expect(response.status).toBe(200);
 
 				const emailMessage = await waitForEmail(email);
@@ -212,7 +212,7 @@ test.describe("Email i18n - Language-specific email content", () => {
 				preferredLanguage: "ta-IN",
 			});
 			try {
-				const response = await api.login(email, password);
+				const response = await api.login({ email: email, password: password });
 				expect(response.status).toBe(200);
 
 				const emailSummary = await waitForEmail(email);
@@ -238,7 +238,7 @@ test.describe("Email i18n - Language-specific email content", () => {
 				preferredLanguage: "ta-IN",
 			});
 			try {
-				const response = await api.login(email, password);
+				const response = await api.login({ email: email, password: password });
 				expect(response.status).toBe(200);
 
 				const emailSummary = await waitForEmail(email);
@@ -270,7 +270,7 @@ test.describe("Email i18n - Language-specific email content", () => {
 				preferredLanguage: "fr-FR",
 			});
 			try {
-				const response = await api.login(email, password);
+				const response = await api.login({ email: email, password: password });
 				expect(response.status).toBe(200);
 
 				const emailSummary = await waitForEmail(email);
@@ -297,7 +297,7 @@ test.describe("Email i18n - Language-specific email content", () => {
 				preferredLanguage: "ja-JP",
 			});
 			try {
-				const response = await api.login(email, password);
+				const response = await api.login({ email: email, password: password });
 				expect(response.status).toBe(200);
 
 				const emailSummary = await waitForEmail(email);
@@ -323,7 +323,7 @@ test.describe("Email i18n - Language-specific email content", () => {
 				preferredLanguage: "en-GB",
 			});
 			try {
-				const response = await api.login(email, password);
+				const response = await api.login({ email: email, password: password });
 				expect(response.status).toBe(200);
 
 				const emailSummary = await waitForEmail(email);
@@ -349,7 +349,7 @@ test.describe("Email i18n - Language-specific email content", () => {
 				preferredLanguage: "de-AT",
 			});
 			try {
-				const response = await api.login(email, password);
+				const response = await api.login({ email: email, password: password });
 				expect(response.status).toBe(200);
 
 				const emailSummary = await waitForEmail(email);
@@ -371,7 +371,7 @@ test.describe("Email i18n - Language-specific email content", () => {
 			// Empty language should use default (en-US)
 			await createTestAdminUser(email, password, { preferredLanguage: "" });
 			try {
-				const response = await api.login(email, password);
+				const response = await api.login({ email: email, password: password });
 				expect(response.status).toBe(200);
 
 				const emailSummary = await waitForEmail(email);
@@ -394,7 +394,7 @@ test.describe("Email i18n - Language-specific email content", () => {
 				preferredLanguage: "xyz-123",
 			});
 			try {
-				const response = await api.login(email, password);
+				const response = await api.login({ email: email, password: password });
 				expect(response.status).toBe(200);
 
 				const emailSummary = await waitForEmail(email);
@@ -423,7 +423,7 @@ test.describe("Email i18n - Language-specific email content", () => {
 			// Create user with just status (no explicit language - uses default en-US)
 			await createTestAdminUser(email, password, "active");
 			try {
-				const response = await api.login(email, password);
+				const response = await api.login({ email: email, password: password });
 				expect(response.status).toBe(200);
 
 				const emailSummary = await waitForEmail(email);
@@ -447,7 +447,7 @@ test.describe("Email i18n - Language-specific email content", () => {
 			// Create user with empty options (uses defaults)
 			await createTestAdminUser(email, password, {});
 			try {
-				const response = await api.login(email, password);
+				const response = await api.login({ email: email, password: password });
 				expect(response.status).toBe(200);
 
 				const emailSummary = await waitForEmail(email);
@@ -477,7 +477,7 @@ test.describe("Email i18n - Language-specific email content", () => {
 				preferredLanguage: "en-US",
 			});
 			try {
-				const response = await api.login(email, password);
+				const response = await api.login({ email: email, password: password });
 				expect(response.status).toBe(200);
 
 				const emailSummary = await waitForEmail(email);
@@ -503,7 +503,7 @@ test.describe("Email i18n - Language-specific email content", () => {
 				preferredLanguage: "de-DE",
 			});
 			try {
-				const response = await api.login(email, password);
+				const response = await api.login({ email: email, password: password });
 				expect(response.status).toBe(200);
 
 				const emailSummary = await waitForEmail(email);
@@ -529,7 +529,7 @@ test.describe("Email i18n - Language-specific email content", () => {
 				preferredLanguage: "ta-IN",
 			});
 			try {
-				const response = await api.login(email, password);
+				const response = await api.login({ email: email, password: password });
 				expect(response.status).toBe(200);
 
 				const emailSummary = await waitForEmail(email);
@@ -578,7 +578,7 @@ test.describe("Email i18n - Language-specific email content", () => {
 			try {
 				// Login all concurrently
 				const loginPromises = testCases.map((tc) =>
-					api.login(tc.email, password)
+					api.login({ email: tc.email, password: password })
 				);
 				const responses = await Promise.all(loginPromises);
 				for (const response of responses) {
@@ -648,7 +648,7 @@ test.describe("Email i18n - Language-specific email content", () => {
 			try {
 				// Login all users concurrently
 				const loginPromises = users.map((user) =>
-					api.login(user.email, password)
+					api.login({ email: user.email, password: password })
 				);
 				const responses = await Promise.all(loginPromises);
 

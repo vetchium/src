@@ -18,7 +18,7 @@ test.describe("POST /admin/login", () => {
 
 		await createTestAdminUser(email, password);
 		try {
-			const response = await api.login(email, password);
+			const response = await api.login({ email, password });
 
 			expect(response.status).toBe(200);
 			expect(response.body.tfa_token).toBeDefined();
@@ -49,7 +49,7 @@ test.describe("POST /admin/login", () => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("nonexistent");
 
-		const response = await api.login(email, "Password123$");
+		const response = await api.login({ email, password: "Password123$" });
 
 		expect(response.status).toBe(401);
 	});
@@ -61,7 +61,7 @@ test.describe("POST /admin/login", () => {
 
 		await createTestAdminUser(email, password);
 		try {
-			const response = await api.login(email, "WrongPassword456!");
+			const response = await api.login({ email, password: "WrongPassword456!" });
 
 			expect(response.status).toBe(401);
 		} finally {
@@ -76,7 +76,7 @@ test.describe("POST /admin/login", () => {
 
 		await createTestAdminUser(email, password, "disabled");
 		try {
-			const response = await api.login(email, password);
+			const response = await api.login({ email, password });
 
 			expect(response.status).toBe(422);
 		} finally {

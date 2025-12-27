@@ -16,7 +16,7 @@ async function getSessionToken(
 	password: string
 ): Promise<string> {
 	// Login
-	const loginResponse = await api.login(email, password);
+	const loginResponse = await api.login({ email, password });
 	expect(loginResponse.status).toBe(200);
 	const tfaToken = loginResponse.body.tfa_token;
 
@@ -24,7 +24,7 @@ async function getSessionToken(
 	const tfaCode = await getTfaCodeFromEmail(email);
 
 	// Verify TFA
-	const tfaResponse = await api.verifyTFA(tfaToken, tfaCode);
+	const tfaResponse = await api.verifyTFA({ tfa_token: tfaToken, tfa_code: tfaCode });
 	expect(tfaResponse.status).toBe(200);
 
 	return tfaResponse.body.session_token;
@@ -40,7 +40,7 @@ test.describe("POST /admin/logout", () => {
 		try {
 			const sessionToken = await getSessionToken(api, email, password);
 
-			const response = await api.logout(sessionToken);
+			const response = await api.logout({ session_token: sessionToken });
 
 			expect(response.status).toBe(200);
 		} finally {
@@ -51,9 +51,9 @@ test.describe("POST /admin/logout", () => {
 	test("invalid session token returns 401", async ({ request }) => {
 		const api = new AdminAPIClient(request);
 
-		const response = await api.logout(
-			"0000000000000000000000000000000000000000000000000000000000000000"
-		);
+		const response = await api.logout({
+			session_token: "0000000000000000000000000000000000000000000000000000000000000000",
+		});
 
 		expect(response.status).toBe(401);
 	});
@@ -86,11 +86,11 @@ test.describe("POST /admin/logout", () => {
 			const sessionToken = await getSessionToken(api, email, password);
 
 			// First logout should succeed
-			const firstResponse = await api.logout(sessionToken);
+			const firstResponse = await api.logout({ session_token: sessionToken });
 			expect(firstResponse.status).toBe(200);
 
 			// Second logout should fail (session already invalidated)
-			const secondResponse = await api.logout(sessionToken);
+			const secondResponse = await api.logout({ session_token: sessionToken });
 			expect(secondResponse.status).toBe(401);
 		} finally {
 			await deleteTestAdminUser(email);

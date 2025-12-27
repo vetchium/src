@@ -22,16 +22,13 @@ test.describe("POST /admin/add-approved-domain", () => {
 		await createTestAdminUser(email, password);
 		try {
 			// Login and get session token
-			const loginResponse = await api.login(email, password);
+			const loginResponse = await api.login({ email, password });
 			const tfaCode = await getTfaCodeFromEmail(email);
-			const tfaResponse = await api.verifyTFA(
-				loginResponse.body.tfa_token,
-				tfaCode
-			);
+			const tfaResponse = await api.verifyTFA({ tfa_token: loginResponse.body.tfa_token, tfa_code: tfaCode });
 			const sessionToken = tfaResponse.body.session_token;
 
 			// Create approved domain
-			const response = await api.createApprovedDomain(sessionToken, domainName, "Test domain for automated testing");
+			const response = await api.createApprovedDomain(sessionToken, { domain_name: domainName, reason: "Test domain for automated testing" });
 
 			expect(response.status).toBe(201);
 			expect(response.body.domain_name).toBe(domainName.toLowerCase());
@@ -58,19 +55,16 @@ test.describe("POST /admin/add-approved-domain", () => {
 		await createTestAdminUser(email, password);
 		try {
 			// Login and get session token
-			const loginResponse = await api.login(email, password);
+			const loginResponse = await api.login({ email, password });
 			const tfaCode = await getTfaCodeFromEmail(email);
-			const tfaResponse = await api.verifyTFA(
-				loginResponse.body.tfa_token,
-				tfaCode
-			);
+			const tfaResponse = await api.verifyTFA({ tfa_token: loginResponse.body.tfa_token, tfa_code: tfaCode });
 			const sessionToken = tfaResponse.body.session_token;
 
 			// Create domain first time
-			await api.createApprovedDomain(sessionToken, domainName, "Test domain for automated testing");
+			await api.createApprovedDomain(sessionToken, { domain_name: domainName, reason: "Test domain for automated testing" });
 
 			// Try to create same domain again
-			const response = await api.createApprovedDomain(sessionToken, domainName, "Test domain for automated testing");
+			const response = await api.createApprovedDomain(sessionToken, { domain_name: domainName, reason: "Test domain for automated testing" });
 			expect(response.status).toBe(409);
 		} finally {
 			await permanentlyDeleteTestApprovedDomain(domainName);
@@ -86,16 +80,13 @@ test.describe("POST /admin/add-approved-domain", () => {
 		await createTestAdminUser(email, password);
 		try {
 			// Login and get session token
-			const loginResponse = await api.login(email, password);
+			const loginResponse = await api.login({ email, password });
 			const tfaCode = await getTfaCodeFromEmail(email);
-			const tfaResponse = await api.verifyTFA(
-				loginResponse.body.tfa_token,
-				tfaCode
-			);
+			const tfaResponse = await api.verifyTFA({ tfa_token: loginResponse.body.tfa_token, tfa_code: tfaCode });
 			const sessionToken = tfaResponse.body.session_token;
 
 			// Try to create domain with invalid name
-			const response = await api.createApprovedDomain(sessionToken, "not-a-domain", "Test domain for automated testing");
+			const response = await api.createApprovedDomain(sessionToken, { domain_name: "not-a-domain", reason: "Test domain for automated testing" });
 			expect(response.status).toBe(400);
 		} finally {
 			await deleteTestAdminUser(email);
@@ -106,7 +97,7 @@ test.describe("POST /admin/add-approved-domain", () => {
 		const api = new AdminAPIClient(request);
 		const domainName = generateTestDomainName("no-auth");
 
-		const response = await api.createApprovedDomain("", domainName, "Test domain for automated testing");
+		const response = await api.createApprovedDomain("", { domain_name: domainName, reason: "Test domain for automated testing" });
 		expect(response.status).toBe(401);
 	});
 
@@ -118,12 +109,9 @@ test.describe("POST /admin/add-approved-domain", () => {
 		await createTestAdminUser(email, password);
 		try {
 			// Login and get session token
-			const loginResponse = await api.login(email, password);
+			const loginResponse = await api.login({ email, password });
 			const tfaCode = await getTfaCodeFromEmail(email);
-			const tfaResponse = await api.verifyTFA(
-				loginResponse.body.tfa_token,
-				tfaCode
-			);
+			const tfaResponse = await api.verifyTFA({ tfa_token: loginResponse.body.tfa_token, tfa_code: tfaCode });
 			const sessionToken = tfaResponse.body.session_token;
 
 			// Try with raw request to send empty domain_name
@@ -146,12 +134,9 @@ test.describe("POST /admin/add-approved-domain", () => {
 
 		await createTestAdminUser(email, password);
 		try {
-			const loginResponse = await api.login(email, password);
+			const loginResponse = await api.login({ email, password });
 			const tfaCode = await getTfaCodeFromEmail(email);
-			const tfaResponse = await api.verifyTFA(
-				loginResponse.body.tfa_token,
-				tfaCode
-			);
+			const tfaResponse = await api.verifyTFA({ tfa_token: loginResponse.body.tfa_token, tfa_code: tfaCode });
 			const sessionToken = tfaResponse.body.session_token;
 
 			const response = await request.post("/admin/add-approved-domain", {
@@ -173,12 +158,9 @@ test.describe("POST /admin/add-approved-domain", () => {
 
 		await createTestAdminUser(email, password);
 		try {
-			const loginResponse = await api.login(email, password);
+			const loginResponse = await api.login({ email, password });
 			const tfaCode = await getTfaCodeFromEmail(email);
-			const tfaResponse = await api.verifyTFA(
-				loginResponse.body.tfa_token,
-				tfaCode
-			);
+			const tfaResponse = await api.verifyTFA({ tfa_token: loginResponse.body.tfa_token, tfa_code: tfaCode });
 			const sessionToken = tfaResponse.body.session_token;
 
 			const longReason = "a".repeat(257);
@@ -206,12 +188,9 @@ test.describe("POST /admin/list-approved-domains", () => {
 		await createTestAdminUser(email, password);
 		try {
 			// Login and get session token
-			const loginResponse = await api.login(email, password);
+			const loginResponse = await api.login({ email, password });
 			const tfaCode = await getTfaCodeFromEmail(email);
-			const tfaResponse = await api.verifyTFA(
-				loginResponse.body.tfa_token,
-				tfaCode
-			);
+			const tfaResponse = await api.verifyTFA({ tfa_token: loginResponse.body.tfa_token, tfa_code: tfaCode });
 			const sessionToken = tfaResponse.body.session_token;
 
 			// List active domains (default filter)
@@ -236,16 +215,13 @@ test.describe("POST /admin/list-approved-domains", () => {
 		await createTestAdminUser(email, password);
 		try {
 			// Login and get session token
-			const loginResponse = await api.login(email, password);
+			const loginResponse = await api.login({ email, password });
 			const tfaCode = await getTfaCodeFromEmail(email);
-			const tfaResponse = await api.verifyTFA(
-				loginResponse.body.tfa_token,
-				tfaCode
-			);
+			const tfaResponse = await api.verifyTFA({ tfa_token: loginResponse.body.tfa_token, tfa_code: tfaCode });
 			const sessionToken = tfaResponse.body.session_token;
 
 			// Create domain
-			await api.createApprovedDomain(sessionToken, domainName, "Test domain for automated testing");
+			await api.createApprovedDomain(sessionToken, { domain_name: domainName, reason: "Test domain for automated testing" });
 
 			// List active domains
 			const response = await api.listApprovedDomains(sessionToken, {
@@ -279,17 +255,14 @@ test.describe("POST /admin/list-approved-domains", () => {
 		await createTestAdminUser(email, password);
 		try {
 			// Login and get session token
-			const loginResponse = await api.login(email, password);
+			const loginResponse = await api.login({ email, password });
 			const tfaCode = await getTfaCodeFromEmail(email);
-			const tfaResponse = await api.verifyTFA(
-				loginResponse.body.tfa_token,
-				tfaCode
-			);
+			const tfaResponse = await api.verifyTFA({ tfa_token: loginResponse.body.tfa_token, tfa_code: tfaCode });
 			const sessionToken = tfaResponse.body.session_token;
 
 			// Create and disable domain
-			await api.createApprovedDomain(sessionToken, domainName, "Test domain for automated testing");
-			await api.disableApprovedDomain(sessionToken, domainName, "Test disable");
+			await api.createApprovedDomain(sessionToken, { domain_name: domainName, reason: "Test domain for automated testing" });
+			await api.disableApprovedDomain(sessionToken, { domain_name: domainName, reason: "Test disable" });
 
 			// List inactive domains
 			const response = await api.listApprovedDomains(sessionToken, {
@@ -324,22 +297,15 @@ test.describe("POST /admin/list-approved-domains", () => {
 		await createTestAdminUser(email, password);
 		try {
 			// Login and get session token
-			const loginResponse = await api.login(email, password);
+			const loginResponse = await api.login({ email, password });
 			const tfaCode = await getTfaCodeFromEmail(email);
-			const tfaResponse = await api.verifyTFA(
-				loginResponse.body.tfa_token,
-				tfaCode
-			);
+			const tfaResponse = await api.verifyTFA({ tfa_token: loginResponse.body.tfa_token, tfa_code: tfaCode });
 			const sessionToken = tfaResponse.body.session_token;
 
 			// Create two domains, disable one
-			await api.createApprovedDomain(sessionToken, activeDomain, "Test domain for automated testing");
-			await api.createApprovedDomain(sessionToken, inactiveDomain, "Test domain for automated testing");
-			await api.disableApprovedDomain(
-				sessionToken,
-				inactiveDomain,
-				"Test disable"
-			);
+			await api.createApprovedDomain(sessionToken, { domain_name: activeDomain, reason: "Test domain for automated testing" });
+			await api.createApprovedDomain(sessionToken, { domain_name: inactiveDomain, reason: "Test domain for automated testing" });
+			await api.disableApprovedDomain(sessionToken, { domain_name: inactiveDomain, reason: "Test disable" });
 
 			// List all domains
 			const response = await api.listApprovedDomains(sessionToken, {
@@ -374,21 +340,18 @@ test.describe("POST /admin/list-approved-domains", () => {
 		await createTestAdminUser(email, password);
 		try {
 			// Login and get session token
-			const loginResponse = await api.login(email, password);
+			const loginResponse = await api.login({ email, password });
 			const tfaCode = await getTfaCodeFromEmail(email);
-			const tfaResponse = await api.verifyTFA(
-				loginResponse.body.tfa_token,
-				tfaCode
-			);
+			const tfaResponse = await api.verifyTFA({ tfa_token: loginResponse.body.tfa_token, tfa_code: tfaCode });
 			const sessionToken = tfaResponse.body.session_token;
 
 			// Create two domains
-			await api.createApprovedDomain(sessionToken, domainName1, "Test domain for automated testing");
-			await api.createApprovedDomain(sessionToken, domainName2, "Test domain for automated testing");
+			await api.createApprovedDomain(sessionToken, { domain_name: domainName1, reason: "Test domain for automated testing" });
+			await api.createApprovedDomain(sessionToken, { domain_name: domainName2, reason: "Test domain for automated testing" });
 
 			// Search for first domain
 			const response = await api.listApprovedDomains(sessionToken, {
-				query: domainName1.split("-")[0],
+				search: domainName1.split("-")[0],
 			});
 
 			expect(response.status).toBe(200);
@@ -425,19 +388,16 @@ test.describe("POST /admin/get-approved-domain", () => {
 		await createTestAdminUser(email, password);
 		try {
 			// Login and get session token
-			const loginResponse = await api.login(email, password);
+			const loginResponse = await api.login({ email, password });
 			const tfaCode = await getTfaCodeFromEmail(email);
-			const tfaResponse = await api.verifyTFA(
-				loginResponse.body.tfa_token,
-				tfaCode
-			);
+			const tfaResponse = await api.verifyTFA({ tfa_token: loginResponse.body.tfa_token, tfa_code: tfaCode });
 			const sessionToken = tfaResponse.body.session_token;
 
 			// Create domain
-			await api.createApprovedDomain(sessionToken, domainName, "Test domain for automated testing");
+			await api.createApprovedDomain(sessionToken, { domain_name: domainName, reason: "Test domain for automated testing" });
 
 			// Get domain details
-			const response = await api.getApprovedDomain(sessionToken, domainName);
+			const response = await api.getApprovedDomain(sessionToken, { domain_name: domainName });
 
 			expect(response.status).toBe(200);
 			expect(response.body.domain.domain_name).toBe(domainName.toLowerCase());
@@ -459,19 +419,13 @@ test.describe("POST /admin/get-approved-domain", () => {
 		await createTestAdminUser(email, password);
 		try {
 			// Login and get session token
-			const loginResponse = await api.login(email, password);
+			const loginResponse = await api.login({ email, password });
 			const tfaCode = await getTfaCodeFromEmail(email);
-			const tfaResponse = await api.verifyTFA(
-				loginResponse.body.tfa_token,
-				tfaCode
-			);
+			const tfaResponse = await api.verifyTFA({ tfa_token: loginResponse.body.tfa_token, tfa_code: tfaCode });
 			const sessionToken = tfaResponse.body.session_token;
 
 			// Get non-existent domain
-			const response = await api.getApprovedDomain(
-				sessionToken,
-				"nonexistent.example.com"
-			);
+			const response = await api.getApprovedDomain(sessionToken, { domain_name: "nonexistent.example.com" });
 
 			expect(response.status).toBe(404);
 		} finally {
@@ -482,7 +436,7 @@ test.describe("POST /admin/get-approved-domain", () => {
 	test("unauthenticated request returns 401", async ({ request }) => {
 		const api = new AdminAPIClient(request);
 
-		const response = await api.getApprovedDomain("", "example.com");
+		const response = await api.getApprovedDomain("", { domain_name: "example.com" });
 		expect(response.status).toBe(401);
 	});
 
@@ -494,12 +448,9 @@ test.describe("POST /admin/get-approved-domain", () => {
 		await createTestAdminUser(email, password);
 		try {
 			// Login and get session token
-			const loginResponse = await api.login(email, password);
+			const loginResponse = await api.login({ email, password });
 			const tfaCode = await getTfaCodeFromEmail(email);
-			const tfaResponse = await api.verifyTFA(
-				loginResponse.body.tfa_token,
-				tfaCode
-			);
+			const tfaResponse = await api.verifyTFA({ tfa_token: loginResponse.body.tfa_token, tfa_code: tfaCode });
 			const sessionToken = tfaResponse.body.session_token;
 
 			// Try with raw request to send empty domain_name
@@ -528,23 +479,16 @@ test.describe("POST /admin/disable-approved-domain", () => {
 		await createTestAdminUser(email, password);
 		try {
 			// Login and get session token
-			const loginResponse = await api.login(email, password);
+			const loginResponse = await api.login({ email, password });
 			const tfaCode = await getTfaCodeFromEmail(email);
-			const tfaResponse = await api.verifyTFA(
-				loginResponse.body.tfa_token,
-				tfaCode
-			);
+			const tfaResponse = await api.verifyTFA({ tfa_token: loginResponse.body.tfa_token, tfa_code: tfaCode });
 			const sessionToken = tfaResponse.body.session_token;
 
 			// Create domain
-			await api.createApprovedDomain(sessionToken, domainName, "Test domain for automated testing");
+			await api.createApprovedDomain(sessionToken, { domain_name: domainName, reason: "Test domain for automated testing" });
 
 			// Disable domain
-			const response = await api.disableApprovedDomain(
-				sessionToken,
-				domainName,
-				reason
-			);
+			const response = await api.disableApprovedDomain(sessionToken, { domain_name: domainName, reason: reason });
 
 			expect(response.status).toBe(200);
 
@@ -556,7 +500,7 @@ test.describe("POST /admin/disable-approved-domain", () => {
 			expect(disableLog?.reason).toBe(reason);
 
 			// Verify domain status changed to inactive
-			const getResponse = await api.getApprovedDomain(sessionToken, domainName);
+			const getResponse = await api.getApprovedDomain(sessionToken, { domain_name: domainName });
 			expect(getResponse.body.domain.status).toBe("inactive");
 
 			// Verify domain doesn't appear in active list
@@ -582,20 +526,13 @@ test.describe("POST /admin/disable-approved-domain", () => {
 		await createTestAdminUser(email, password);
 		try {
 			// Login and get session token
-			const loginResponse = await api.login(email, password);
+			const loginResponse = await api.login({ email, password });
 			const tfaCode = await getTfaCodeFromEmail(email);
-			const tfaResponse = await api.verifyTFA(
-				loginResponse.body.tfa_token,
-				tfaCode
-			);
+			const tfaResponse = await api.verifyTFA({ tfa_token: loginResponse.body.tfa_token, tfa_code: tfaCode });
 			const sessionToken = tfaResponse.body.session_token;
 
 			// Disable non-existent domain
-			const response = await api.disableApprovedDomain(
-				sessionToken,
-				"nonexistent.example.com",
-				"Test reason"
-			);
+			const response = await api.disableApprovedDomain(sessionToken, { domain_name: "nonexistent.example.com", reason: "Test reason" });
 
 			expect(response.status).toBe(404);
 		} finally {
@@ -612,28 +549,17 @@ test.describe("POST /admin/disable-approved-domain", () => {
 		await createTestAdminUser(email, password);
 		try {
 			// Login and get session token
-			const loginResponse = await api.login(email, password);
+			const loginResponse = await api.login({ email, password });
 			const tfaCode = await getTfaCodeFromEmail(email);
-			const tfaResponse = await api.verifyTFA(
-				loginResponse.body.tfa_token,
-				tfaCode
-			);
+			const tfaResponse = await api.verifyTFA({ tfa_token: loginResponse.body.tfa_token, tfa_code: tfaCode });
 			const sessionToken = tfaResponse.body.session_token;
 
 			// Create and disable domain
-			await api.createApprovedDomain(sessionToken, domainName, "Test domain for automated testing");
-			await api.disableApprovedDomain(
-				sessionToken,
-				domainName,
-				"First disable"
-			);
+			await api.createApprovedDomain(sessionToken, { domain_name: domainName, reason: "Test domain for automated testing" });
+			await api.disableApprovedDomain(sessionToken, { domain_name: domainName, reason: "First disable" });
 
 			// Try to disable again
-			const response = await api.disableApprovedDomain(
-				sessionToken,
-				domainName,
-				"Second disable"
-			);
+			const response = await api.disableApprovedDomain(sessionToken, { domain_name: domainName, reason: "Second disable" });
 
 			expect(response.status).toBe(422);
 		} finally {
@@ -651,16 +577,13 @@ test.describe("POST /admin/disable-approved-domain", () => {
 		await createTestAdminUser(email, password);
 		try {
 			// Login and get session token
-			const loginResponse = await api.login(email, password);
+			const loginResponse = await api.login({ email, password });
 			const tfaCode = await getTfaCodeFromEmail(email);
-			const tfaResponse = await api.verifyTFA(
-				loginResponse.body.tfa_token,
-				tfaCode
-			);
+			const tfaResponse = await api.verifyTFA({ tfa_token: loginResponse.body.tfa_token, tfa_code: tfaCode });
 			const sessionToken = tfaResponse.body.session_token;
 
 			// Create domain
-			await api.createApprovedDomain(sessionToken, domainName, "Test domain for automated testing");
+			await api.createApprovedDomain(sessionToken, { domain_name: domainName, reason: "Test domain for automated testing" });
 
 			// Try to disable without reason
 			const response = await request.post("/admin/disable-approved-domain", {
@@ -684,16 +607,13 @@ test.describe("POST /admin/disable-approved-domain", () => {
 		await createTestAdminUser(email, password);
 		try {
 			// Login and get session token
-			const loginResponse = await api.login(email, password);
+			const loginResponse = await api.login({ email, password });
 			const tfaCode = await getTfaCodeFromEmail(email);
-			const tfaResponse = await api.verifyTFA(
-				loginResponse.body.tfa_token,
-				tfaCode
-			);
+			const tfaResponse = await api.verifyTFA({ tfa_token: loginResponse.body.tfa_token, tfa_code: tfaCode });
 			const sessionToken = tfaResponse.body.session_token;
 
 			// Create domain
-			await api.createApprovedDomain(sessionToken, domainName, "Test domain for automated testing");
+			await api.createApprovedDomain(sessionToken, { domain_name: domainName, reason: "Test domain for automated testing" });
 
 			// Try to disable with reason > 256 chars
 			const longReason = "a".repeat(257);
@@ -712,11 +632,7 @@ test.describe("POST /admin/disable-approved-domain", () => {
 	test("unauthenticated request returns 401", async ({ request }) => {
 		const api = new AdminAPIClient(request);
 
-		const response = await api.disableApprovedDomain(
-			"",
-			"example.com",
-			"Test reason"
-		);
+		const response = await api.disableApprovedDomain("", { domain_name: "example.com", reason: "Test reason" });
 		expect(response.status).toBe(401);
 	});
 });
@@ -735,24 +651,17 @@ test.describe("POST /admin/enable-approved-domain", () => {
 		await createTestAdminUser(email, password);
 		try {
 			// Login and get session token
-			const loginResponse = await api.login(email, password);
+			const loginResponse = await api.login({ email, password });
 			const tfaCode = await getTfaCodeFromEmail(email);
-			const tfaResponse = await api.verifyTFA(
-				loginResponse.body.tfa_token,
-				tfaCode
-			);
+			const tfaResponse = await api.verifyTFA({ tfa_token: loginResponse.body.tfa_token, tfa_code: tfaCode });
 			const sessionToken = tfaResponse.body.session_token;
 
 			// Create and disable domain
-			await api.createApprovedDomain(sessionToken, domainName, "Test domain for automated testing");
-			await api.disableApprovedDomain(sessionToken, domainName, disableReason);
+			await api.createApprovedDomain(sessionToken, { domain_name: domainName, reason: "Test domain for automated testing" });
+			await api.disableApprovedDomain(sessionToken, { domain_name: domainName, reason: disableReason });
 
 			// Enable domain
-			const response = await api.enableApprovedDomain(
-				sessionToken,
-				domainName,
-				enableReason
-			);
+			const response = await api.enableApprovedDomain(sessionToken, { domain_name: domainName, reason: enableReason });
 
 			expect(response.status).toBe(200);
 
@@ -764,7 +673,7 @@ test.describe("POST /admin/enable-approved-domain", () => {
 			expect(enableLog?.reason).toBe(enableReason);
 
 			// Verify domain status changed to active
-			const getResponse = await api.getApprovedDomain(sessionToken, domainName);
+			const getResponse = await api.getApprovedDomain(sessionToken, { domain_name: domainName });
 			expect(getResponse.body.domain.status).toBe("active");
 
 			// Verify domain appears in active list
@@ -790,20 +699,13 @@ test.describe("POST /admin/enable-approved-domain", () => {
 		await createTestAdminUser(email, password);
 		try {
 			// Login and get session token
-			const loginResponse = await api.login(email, password);
+			const loginResponse = await api.login({ email, password });
 			const tfaCode = await getTfaCodeFromEmail(email);
-			const tfaResponse = await api.verifyTFA(
-				loginResponse.body.tfa_token,
-				tfaCode
-			);
+			const tfaResponse = await api.verifyTFA({ tfa_token: loginResponse.body.tfa_token, tfa_code: tfaCode });
 			const sessionToken = tfaResponse.body.session_token;
 
 			// Enable non-existent domain
-			const response = await api.enableApprovedDomain(
-				sessionToken,
-				"nonexistent.example.com",
-				"Test reason"
-			);
+			const response = await api.enableApprovedDomain(sessionToken, { domain_name: "nonexistent.example.com", reason: "Test reason" });
 
 			expect(response.status).toBe(404);
 		} finally {
@@ -820,23 +722,16 @@ test.describe("POST /admin/enable-approved-domain", () => {
 		await createTestAdminUser(email, password);
 		try {
 			// Login and get session token
-			const loginResponse = await api.login(email, password);
+			const loginResponse = await api.login({ email, password });
 			const tfaCode = await getTfaCodeFromEmail(email);
-			const tfaResponse = await api.verifyTFA(
-				loginResponse.body.tfa_token,
-				tfaCode
-			);
+			const tfaResponse = await api.verifyTFA({ tfa_token: loginResponse.body.tfa_token, tfa_code: tfaCode });
 			const sessionToken = tfaResponse.body.session_token;
 
 			// Create domain (active by default)
-			await api.createApprovedDomain(sessionToken, domainName, "Test domain for automated testing");
+			await api.createApprovedDomain(sessionToken, { domain_name: domainName, reason: "Test domain for automated testing" });
 
 			// Try to enable already active domain
-			const response = await api.enableApprovedDomain(
-				sessionToken,
-				domainName,
-				"Test enable"
-			);
+			const response = await api.enableApprovedDomain(sessionToken, { domain_name: domainName, reason: "Test enable" });
 
 			expect(response.status).toBe(422);
 		} finally {
@@ -854,17 +749,14 @@ test.describe("POST /admin/enable-approved-domain", () => {
 		await createTestAdminUser(email, password);
 		try {
 			// Login and get session token
-			const loginResponse = await api.login(email, password);
+			const loginResponse = await api.login({ email, password });
 			const tfaCode = await getTfaCodeFromEmail(email);
-			const tfaResponse = await api.verifyTFA(
-				loginResponse.body.tfa_token,
-				tfaCode
-			);
+			const tfaResponse = await api.verifyTFA({ tfa_token: loginResponse.body.tfa_token, tfa_code: tfaCode });
 			const sessionToken = tfaResponse.body.session_token;
 
 			// Create and disable domain
-			await api.createApprovedDomain(sessionToken, domainName, "Test domain for automated testing");
-			await api.disableApprovedDomain(sessionToken, domainName, "Disable");
+			await api.createApprovedDomain(sessionToken, { domain_name: domainName, reason: "Test domain for automated testing" });
+			await api.disableApprovedDomain(sessionToken, { domain_name: domainName, reason: "Disable" });
 
 			// Try to enable without reason
 			const response = await request.post("/admin/enable-approved-domain", {
@@ -888,17 +780,14 @@ test.describe("POST /admin/enable-approved-domain", () => {
 		await createTestAdminUser(email, password);
 		try {
 			// Login and get session token
-			const loginResponse = await api.login(email, password);
+			const loginResponse = await api.login({ email, password });
 			const tfaCode = await getTfaCodeFromEmail(email);
-			const tfaResponse = await api.verifyTFA(
-				loginResponse.body.tfa_token,
-				tfaCode
-			);
+			const tfaResponse = await api.verifyTFA({ tfa_token: loginResponse.body.tfa_token, tfa_code: tfaCode });
 			const sessionToken = tfaResponse.body.session_token;
 
 			// Create and disable domain
-			await api.createApprovedDomain(sessionToken, domainName, "Test domain for automated testing");
-			await api.disableApprovedDomain(sessionToken, domainName, "Disable");
+			await api.createApprovedDomain(sessionToken, { domain_name: domainName, reason: "Test domain for automated testing" });
+			await api.disableApprovedDomain(sessionToken, { domain_name: domainName, reason: "Disable" });
 
 			// Try to enable with reason > 256 chars
 			const longReason = "a".repeat(257);
@@ -917,11 +806,7 @@ test.describe("POST /admin/enable-approved-domain", () => {
 	test("unauthenticated request returns 401", async ({ request }) => {
 		const api = new AdminAPIClient(request);
 
-		const response = await api.enableApprovedDomain(
-			"",
-			"example.com",
-			"Test reason"
-		);
+		const response = await api.enableApprovedDomain("", { domain_name: "example.com", reason: "Test reason" });
 		expect(response.status).toBe(401);
 	});
 });

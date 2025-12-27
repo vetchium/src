@@ -19,7 +19,7 @@ test.describe("POST /admin/tfa", () => {
 		await createTestAdminUser(email, password);
 		try {
 			// Step 1: Login to get TFA token
-			const loginResponse = await api.login(email, password);
+			const loginResponse = await api.login({ email, password });
 			expect(loginResponse.status).toBe(200);
 			const tfaToken = loginResponse.body.tfa_token;
 
@@ -28,7 +28,7 @@ test.describe("POST /admin/tfa", () => {
 			expect(tfaCode).toMatch(/^\d{6}$/);
 
 			// Step 3: Verify TFA code
-			const tfaResponse = await api.verifyTFA(tfaToken, tfaCode);
+			const tfaResponse = await api.verifyTFA({ tfa_token: tfaToken, tfa_code: tfaCode });
 
 			expect(tfaResponse.status).toBe(200);
 			expect(tfaResponse.body.session_token).toBeDefined();
@@ -44,10 +44,10 @@ test.describe("POST /admin/tfa", () => {
 	test("invalid TFA token returns 401", async ({ request }) => {
 		const api = new AdminAPIClient(request);
 
-		const response = await api.verifyTFA(
-			"0000000000000000000000000000000000000000000000000000000000000000",
-			"123456"
-		);
+		const response = await api.verifyTFA({
+			tfa_token: "0000000000000000000000000000000000000000000000000000000000000000",
+			tfa_code: "123456",
+		});
 
 		expect(response.status).toBe(401);
 	});
@@ -60,12 +60,12 @@ test.describe("POST /admin/tfa", () => {
 		await createTestAdminUser(email, password);
 		try {
 			// Login to get TFA token
-			const loginResponse = await api.login(email, password);
+			const loginResponse = await api.login({ email, password });
 			expect(loginResponse.status).toBe(200);
 			const tfaToken = loginResponse.body.tfa_token;
 
 			// Try with wrong code
-			const tfaResponse = await api.verifyTFA(tfaToken, "000000");
+			const tfaResponse = await api.verifyTFA({ tfa_token: tfaToken, tfa_code: "000000" });
 
 			expect(tfaResponse.status).toBe(403);
 		} finally {
@@ -155,7 +155,7 @@ test.describe("POST /admin/tfa", () => {
 		await createTestAdminUser(email, password);
 		try {
 			// Login to get TFA token
-			const loginResponse = await api.login(email, password);
+			const loginResponse = await api.login({ email, password });
 			expect(loginResponse.status).toBe(200);
 			const tfaToken = loginResponse.body.tfa_token;
 
@@ -163,11 +163,11 @@ test.describe("POST /admin/tfa", () => {
 			const tfaCode = await getTfaCodeFromEmail(email);
 
 			// First attempt with wrong code
-			const wrongResponse = await api.verifyTFA(tfaToken, "000000");
+			const wrongResponse = await api.verifyTFA({ tfa_token: tfaToken, tfa_code: "000000" });
 			expect(wrongResponse.status).toBe(403);
 
 			// Second attempt with correct code should still work
-			const correctResponse = await api.verifyTFA(tfaToken, tfaCode);
+			const correctResponse = await api.verifyTFA({ tfa_token: tfaToken, tfa_code: tfaCode });
 			expect(correctResponse.status).toBe(200);
 			expect(correctResponse.body.session_token).toBeDefined();
 		} finally {
@@ -184,12 +184,12 @@ test.describe("POST /admin/tfa", () => {
 
 		await createTestAdminUser(email, password, { preferredLanguage: "de-DE" });
 		try {
-			const loginResponse = await api.login(email, password);
+			const loginResponse = await api.login({ email, password });
 			expect(loginResponse.status).toBe(200);
 			const tfaToken = loginResponse.body.tfa_token;
 
 			const tfaCode = await getTfaCodeFromEmail(email);
-			const tfaResponse = await api.verifyTFA(tfaToken, tfaCode);
+			const tfaResponse = await api.verifyTFA({ tfa_token: tfaToken, tfa_code: tfaCode });
 
 			expect(tfaResponse.status).toBe(200);
 			expect(tfaResponse.body.preferred_language).toBe("de-DE");
@@ -207,12 +207,12 @@ test.describe("POST /admin/tfa", () => {
 
 		await createTestAdminUser(email, password, { preferredLanguage: "ta-IN" });
 		try {
-			const loginResponse = await api.login(email, password);
+			const loginResponse = await api.login({ email, password });
 			expect(loginResponse.status).toBe(200);
 			const tfaToken = loginResponse.body.tfa_token;
 
 			const tfaCode = await getTfaCodeFromEmail(email);
-			const tfaResponse = await api.verifyTFA(tfaToken, tfaCode);
+			const tfaResponse = await api.verifyTFA({ tfa_token: tfaToken, tfa_code: tfaCode });
 
 			expect(tfaResponse.status).toBe(200);
 			expect(tfaResponse.body.preferred_language).toBe("ta-IN");
@@ -233,12 +233,12 @@ test.describe("POST /admin/tfa", () => {
 			preferredLanguage: "fr-FR" as LanguageCode,
 		});
 		try {
-			const loginResponse = await api.login(email, password);
+			const loginResponse = await api.login({ email, password });
 			expect(loginResponse.status).toBe(200);
 			const tfaToken = loginResponse.body.tfa_token;
 
 			const tfaCode = await getTfaCodeFromEmail(email);
-			const tfaResponse = await api.verifyTFA(tfaToken, tfaCode);
+			const tfaResponse = await api.verifyTFA({ tfa_token: tfaToken, tfa_code: tfaCode });
 
 			expect(tfaResponse.status).toBe(200);
 			// The API should return the stored language preference
