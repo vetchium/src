@@ -11,7 +11,7 @@ import type {
 	HubLoginRequest,
 	HubLoginResponse,
 	HubLogoutRequest,
-} from "../../specs/typespec/hub/hub-users";
+} from "vetchium-specs/hub/hub-users";
 import type { APIResponse } from "./api-client";
 
 /**

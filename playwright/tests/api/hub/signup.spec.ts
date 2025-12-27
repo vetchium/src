@@ -18,7 +18,7 @@ import type {
 	CheckDomainRequest,
 	RequestSignupRequest,
 	HubLogoutRequest,
-} from "../../../../specs/typespec/hub/hub-users";
+} from "vetchium-specs/hub/hub-users";
 
 test.describe("POST /hub/get-regions", () => {
 	test("returns active regions", async ({ request }) => {

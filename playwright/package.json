@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "bcrypt": "^5.1.1",
-    "pg": "^8.13.1"
+    "pg": "^8.13.1",
+    "vetchium-specs": "file:../specs/typespec"
   }
 }

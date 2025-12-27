@@ -5,7 +5,7 @@ import {
 	AdminTFARequest,
 	AdminTFAResponse,
 	AdminLogoutRequest,
-} from "../../specs/typespec/admin/admin-users";
+} from "vetchium-specs/admin/admin-users";
 import type {
 	AddApprovedDomainRequest,
 	ListApprovedDomainsRequest,
@@ -14,7 +14,7 @@ import type {
 	EnableApprovedDomainRequest,
 	ApprovedDomainListResponse,
 	ApprovedDomainDetailResponse,
-} from "../../specs/typespec/admin/approved-domains";
+} from "vetchium-specs/admin/approved-domains";
 import type { APIResponse } from "./api-client";
 
 /**
