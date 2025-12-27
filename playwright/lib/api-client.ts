@@ -149,15 +149,17 @@ export class AdminAPIClient {
    *
    * @param sessionToken - Session token for authentication
    * @param domainName - Domain name to approve
+   * @param reason - Reason for adding this domain (max 256 chars)
    * @returns API response with created domain on success (201)
    */
   async createApprovedDomain(
     sessionToken: string,
-    domainName: string
+    domainName: string,
+    reason: string
   ): Promise<APIResponse<ApprovedDomainDetailResponse["domain"]>> {
     const response = await this.request.post("/admin/add-approved-domain", {
       headers: { Authorization: `Bearer ${sessionToken}` },
-      data: { domain_name: domainName },
+      data: { domain_name: domainName, reason },
     });
 
     const body = await response.json().catch(() => ({}));

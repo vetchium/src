@@ -163,6 +163,7 @@ export function ApprovedDomainsPage() {
 			const values = await form.validateFields();
 			const request: AddApprovedDomainRequest = {
 				domain_name: values.domain_name,
+				reason: values.reason,
 			};
 
 			const validationErrors = validateAddApprovedDomainRequest(request);
@@ -652,6 +653,24 @@ export function ApprovedDomainsPage() {
 						]}
 					>
 						<Input placeholder={t("addModal.domainPlaceholder")} />
+					</Form.Item>
+					<Form.Item
+						name="reason"
+						label={t("addModal.reasonLabel")}
+						rules={[
+							{ required: true, message: t("addModal.reasonRequired") },
+							{
+								max: 256,
+								message: t("addModal.reasonMaxLength"),
+							},
+						]}
+					>
+						<TextArea
+							rows={4}
+							placeholder={t("addModal.reasonPlaceholder")}
+							maxLength={256}
+							showCount
+						/>
 					</Form.Item>
 				</Form>
 			</Modal>

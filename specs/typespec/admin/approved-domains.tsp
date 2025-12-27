@@ -42,6 +42,9 @@ enum AuditAction {
 model AddApprovedDomainRequest {
     @doc("Domain name to add to approved list")
     domain_name: DomainName;
+    @doc("Reason for adding this domain (max 256 characters)")
+    @maxLength(256)
+    reason: string;
 }
 
 model ListApprovedDomainsRequest {

@@ -5,16 +5,28 @@
 	"actions": {
 		"add": "Add Domain",
 		"delete": "Delete",
+		"disable": "Disable",
+		"enable": "Enable",
 		"back": "Back to Dashboard",
 		"viewDetails": "View details",
 		"loadMore": "Load More",
 		"loadMoreAuditLogs": "Load More Audit Logs"
+	},
+	"filters": {
+		"active": "Active",
+		"inactive": "Inactive",
+		"all": "All"
+	},
+	"status": {
+		"active": "Active",
+		"inactive": "Inactive"
 	},
 	"search": {
 		"placeholder": "Search domains..."
 	},
 	"table": {
 		"domainName": "Domain Name",
+		"status": "Status",
 		"createdBy": "Created By",
 		"createdAt": "Created At",
 		"actions": "Actions",
@@ -26,7 +38,31 @@
 		"domainPlaceholder": "example.com",
 		"domainRequired": "Please enter a domain name",
 		"domainInvalid": "Please enter a valid domain name",
+		"reasonLabel": "Reason for adding",
+		"reasonPlaceholder": "Enter the reason for adding this domain...",
+		"reasonRequired": "Please provide a reason",
+		"reasonMaxLength": "Reason must not exceed 256 characters",
 		"confirm": "Add",
+		"cancel": "Cancel"
+	},
+	"disableModal": {
+		"title": "Disable Domain",
+		"message": "Are you sure you want to disable {{domain}}?",
+		"reasonLabel": "Reason for disabling",
+		"reasonPlaceholder": "Enter the reason for disabling this domain...",
+		"reasonRequired": "Please provide a reason",
+		"reasonMaxLength": "Reason must not exceed 256 characters",
+		"confirm": "Disable",
+		"cancel": "Cancel"
+	},
+	"enableModal": {
+		"title": "Enable Domain",
+		"message": "Are you sure you want to enable {{domain}}?",
+		"reasonLabel": "Reason for enabling",
+		"reasonPlaceholder": "Enter the reason for enabling this domain...",
+		"reasonRequired": "Please provide a reason",
+		"reasonMaxLength": "Reason must not exceed 256 characters",
+		"confirm": "Enable",
 		"cancel": "Cancel"
 	},
 	"confirmDelete": {
@@ -39,12 +75,14 @@
 		"title": "Domain Details: {{domain}}",
 		"domainInfo": "Domain Information",
 		"domainName": "Domain Name",
+		"status": "Status",
 		"createdBy": "Created By",
 		"createdAt": "Created At",
 		"updatedAt": "Updated At",
 		"auditLogs": "Audit Logs",
 		"noAuditLogs": "No audit logs available",
 		"admin": "Admin",
+		"reason": "Reason",
 		"targetDomain": "Target Domain",
 		"ipAddress": "IP Address",
 		"moreAuditLogs": "More logs available",
@@ -52,10 +90,14 @@
 	},
 	"auditActions": {
 		"created": "Created",
+		"disabled": "Disabled",
+		"enabled": "Enabled",
 		"deleted": "Deleted"
 	},
 	"success": {
 		"added": "Domain added successfully",
+		"disabled": "Domain disabled successfully",
+		"enabled": "Domain enabled successfully",
 		"deleted": "Domain deleted successfully"
 	},
 	"errors": {
@@ -64,7 +106,11 @@
 		"fetchFailed": "Failed to fetch approved domains",
 		"domainExists": "This domain already exists",
 		"domainNotFound": "Domain not found",
+		"domainAlreadyActive": "Domain is already active",
+		"domainAlreadyInactive": "Domain is already inactive",
 		"addFailed": "Failed to add domain",
+		"disableFailed": "Failed to disable domain",
+		"enableFailed": "Failed to enable domain",
 		"deleteFailed": "Failed to delete domain",
 		"fetchDetailFailed": "Failed to fetch domain details",
 		"loadMoreAuditFailed": "Failed to load more audit logs"

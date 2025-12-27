@@ -5,16 +5,28 @@
 	"actions": {
 		"add": "Domain hinzufügen",
 		"delete": "Löschen",
+		"disable": "Deaktivieren",
+		"enable": "Aktivieren",
 		"back": "Zurück zum Dashboard",
 		"viewDetails": "Details anzeigen",
 		"loadMore": "Mehr laden",
 		"loadMoreAuditLogs": "Weitere Audit-Protokolle laden"
+	},
+	"filters": {
+		"active": "Aktiv",
+		"inactive": "Inaktiv",
+		"all": "Alle"
+	},
+	"status": {
+		"active": "Aktiv",
+		"inactive": "Inaktiv"
 	},
 	"search": {
 		"placeholder": "Domains suchen..."
 	},
 	"table": {
 		"domainName": "Domain-Name",
+		"status": "Status",
 		"createdBy": "Erstellt von",
 		"createdAt": "Erstellt am",
 		"actions": "Aktionen",
@@ -26,7 +38,31 @@
 		"domainPlaceholder": "beispiel.de",
 		"domainRequired": "Bitte geben Sie einen Domain-Namen ein",
 		"domainInvalid": "Bitte geben Sie eine gültige Domain ein",
+		"reasonLabel": "Grund für das Hinzufügen",
+		"reasonPlaceholder": "Geben Sie den Grund für das Hinzufügen dieser Domain ein...",
+		"reasonRequired": "Bitte geben Sie einen Grund an",
+		"reasonMaxLength": "Der Grund darf 256 Zeichen nicht überschreiten",
 		"confirm": "Hinzufügen",
+		"cancel": "Abbrechen"
+	},
+	"disableModal": {
+		"title": "Domain deaktivieren",
+		"message": "Möchten Sie {{domain}} wirklich deaktivieren?",
+		"reasonLabel": "Grund für die Deaktivierung",
+		"reasonPlaceholder": "Geben Sie den Grund für die Deaktivierung dieser Domain ein...",
+		"reasonRequired": "Bitte geben Sie einen Grund an",
+		"reasonMaxLength": "Der Grund darf 256 Zeichen nicht überschreiten",
+		"confirm": "Deaktivieren",
+		"cancel": "Abbrechen"
+	},
+	"enableModal": {
+		"title": "Domain aktivieren",
+		"message": "Möchten Sie {{domain}} wirklich aktivieren?",
+		"reasonLabel": "Grund für die Aktivierung",
+		"reasonPlaceholder": "Geben Sie den Grund für die Aktivierung dieser Domain ein...",
+		"reasonRequired": "Bitte geben Sie einen Grund an",
+		"reasonMaxLength": "Der Grund darf 256 Zeichen nicht überschreiten",
+		"confirm": "Aktivieren",
 		"cancel": "Abbrechen"
 	},
 	"confirmDelete": {
@@ -39,12 +75,14 @@
 		"title": "Domain-Details: {{domain}}",
 		"domainInfo": "Domain-Informationen",
 		"domainName": "Domain-Name",
+		"status": "Status",
 		"createdBy": "Erstellt von",
 		"createdAt": "Erstellt am",
 		"updatedAt": "Aktualisiert am",
 		"auditLogs": "Audit-Protokolle",
 		"noAuditLogs": "Keine Audit-Protokolle verfügbar",
 		"admin": "Administrator",
+		"reason": "Grund",
 		"targetDomain": "Ziel-Domain",
 		"ipAddress": "IP-Adresse",
 		"moreAuditLogs": "Weitere Protokolle verfügbar",
@@ -52,10 +90,14 @@
 	},
 	"auditActions": {
 		"created": "Erstellt",
+		"disabled": "Deaktiviert",
+		"enabled": "Aktiviert",
 		"deleted": "Gelöscht"
 	},
 	"success": {
 		"added": "Domain erfolgreich hinzugefügt",
+		"disabled": "Domain erfolgreich deaktiviert",
+		"enabled": "Domain erfolgreich aktiviert",
 		"deleted": "Domain erfolgreich gelöscht"
 	},
 	"errors": {
@@ -64,7 +106,11 @@
 		"fetchFailed": "Fehler beim Abrufen der zugelassenen Domains",
 		"domainExists": "Diese Domain existiert bereits",
 		"domainNotFound": "Domain nicht gefunden",
+		"domainAlreadyActive": "Domain ist bereits aktiv",
+		"domainAlreadyInactive": "Domain ist bereits inaktiv",
 		"addFailed": "Fehler beim Hinzufügen der Domain",
+		"disableFailed": "Fehler beim Deaktivieren der Domain",
+		"enableFailed": "Fehler beim Aktivieren der Domain",
 		"deleteFailed": "Fehler beim Löschen der Domain",
 		"fetchDetailFailed": "Fehler beim Abrufen der Domain-Details",
 		"loadMoreAuditFailed": "Fehler beim Laden weiterer Audit-Protokolle"

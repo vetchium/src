@@ -93,7 +93,7 @@ func AddApprovedDomain(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		createAuditLog(ctx, s, adminUser.AdminUserID, "created", &domain.DomainID, &domainName, nil, nil, domainToJSON(domain), r)
+		createAuditLog(ctx, s, adminUser.AdminUserID, "created", &domain.DomainID, &domainName, &request.Reason, nil, domainToJSON(domain), r)
 
 		log.Info("approved domain created", "domain_name", domainName, "admin_user_id", adminUser.AdminUserID)
 

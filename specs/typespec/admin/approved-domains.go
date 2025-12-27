@@ -37,6 +37,7 @@ const (
 
 type AddApprovedDomainRequest struct {
 	DomainName common.DomainName `json:"domain_name"`
+	Reason     string            `json:"reason"`
 }
 
 func (r AddApprovedDomainRequest) Validate() []common.ValidationError {
@@ -46,6 +47,12 @@ func (r AddApprovedDomainRequest) Validate() []common.ValidationError {
 		errs = append(errs, common.NewValidationError("domain_name", common.ErrRequired))
 	} else if err := r.DomainName.Validate(); err != nil {
 		errs = append(errs, common.NewValidationError("domain_name", err))
+	}
+
+	if r.Reason == "" {
+		errs = append(errs, common.NewValidationError("reason", fmt.Errorf(errReasonRequired)))
+	} else if len(r.Reason) > 256 {
+		errs = append(errs, common.NewValidationError("reason", fmt.Errorf(errReasonTooLong)))
 	}
 
 	return errs

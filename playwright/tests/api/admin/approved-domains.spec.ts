@@ -31,7 +31,7 @@ test.describe("POST /admin/add-approved-domain", () => {
 			const sessionToken = tfaResponse.body.session_token;
 
 			// Create approved domain
-			const response = await api.createApprovedDomain(sessionToken, domainName);
+			const response = await api.createApprovedDomain(sessionToken, domainName, "Test domain for automated testing");
 
 			expect(response.status).toBe(201);
 			expect(response.body.domain_name).toBe(domainName.toLowerCase());
@@ -67,10 +67,10 @@ test.describe("POST /admin/add-approved-domain", () => {
 			const sessionToken = tfaResponse.body.session_token;
 
 			// Create domain first time
-			await api.createApprovedDomain(sessionToken, domainName);
+			await api.createApprovedDomain(sessionToken, domainName, "Test domain for automated testing");
 
 			// Try to create same domain again
-			const response = await api.createApprovedDomain(sessionToken, domainName);
+			const response = await api.createApprovedDomain(sessionToken, domainName, "Test domain for automated testing");
 			expect(response.status).toBe(409);
 		} finally {
 			await permanentlyDeleteTestApprovedDomain(domainName);
@@ -95,10 +95,7 @@ test.describe("POST /admin/add-approved-domain", () => {
 			const sessionToken = tfaResponse.body.session_token;
 
 			// Try to create domain with invalid name
-			const response = await api.createApprovedDomain(
-				sessionToken,
-				"not-a-domain"
-			);
+			const response = await api.createApprovedDomain(sessionToken, "not-a-domain", "Test domain for automated testing");
 			expect(response.status).toBe(400);
 		} finally {
 			await deleteTestAdminUser(email);
@@ -109,7 +106,7 @@ test.describe("POST /admin/add-approved-domain", () => {
 		const api = new AdminAPIClient(request);
 		const domainName = generateTestDomainName("no-auth");
 
-		const response = await api.createApprovedDomain("", domainName);
+		const response = await api.createApprovedDomain("", domainName, "Test domain for automated testing");
 		expect(response.status).toBe(401);
 	});
 
@@ -133,6 +130,62 @@ test.describe("POST /admin/add-approved-domain", () => {
 			const response = await request.post("/admin/add-approved-domain", {
 				headers: { Authorization: `Bearer ${sessionToken}` },
 				data: { domain_name: "" },
+			});
+
+			expect(response.status()).toBe(400);
+		} finally {
+			await deleteTestAdminUser(email);
+		}
+	});
+
+	test("missing reason returns 400", async ({ request }) => {
+		const api = new AdminAPIClient(request);
+		const email = generateTestEmail("missing-reason");
+		const password = "Password123$";
+		const domainName = generateTestDomainName("missing-reason");
+
+		await createTestAdminUser(email, password);
+		try {
+			const loginResponse = await api.login(email, password);
+			const tfaCode = await getTfaCodeFromEmail(email);
+			const tfaResponse = await api.verifyTFA(
+				loginResponse.body.tfa_token,
+				tfaCode
+			);
+			const sessionToken = tfaResponse.body.session_token;
+
+			const response = await request.post("/admin/add-approved-domain", {
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: { domain_name: domainName, reason: "" },
+			});
+
+			expect(response.status()).toBe(400);
+		} finally {
+			await deleteTestAdminUser(email);
+		}
+	});
+
+	test("reason longer than 256 chars returns 400", async ({ request }) => {
+		const api = new AdminAPIClient(request);
+		const email = generateTestEmail("long-reason");
+		const password = "Password123$";
+		const domainName = generateTestDomainName("long-reason");
+
+		await createTestAdminUser(email, password);
+		try {
+			const loginResponse = await api.login(email, password);
+			const tfaCode = await getTfaCodeFromEmail(email);
+			const tfaResponse = await api.verifyTFA(
+				loginResponse.body.tfa_token,
+				tfaCode
+			);
+			const sessionToken = tfaResponse.body.session_token;
+
+			const longReason = "a".repeat(257);
+
+			const response = await request.post("/admin/add-approved-domain", {
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: { domain_name: domainName, reason: longReason },
 			});
 
 			expect(response.status()).toBe(400);
@@ -192,7 +245,7 @@ test.describe("POST /admin/list-approved-domains", () => {
 			const sessionToken = tfaResponse.body.session_token;
 
 			// Create domain
-			await api.createApprovedDomain(sessionToken, domainName);
+			await api.createApprovedDomain(sessionToken, domainName, "Test domain for automated testing");
 
 			// List active domains
 			const response = await api.listApprovedDomains(sessionToken, {
@@ -235,7 +288,7 @@ test.describe("POST /admin/list-approved-domains", () => {
 			const sessionToken = tfaResponse.body.session_token;
 
 			// Create and disable domain
-			await api.createApprovedDomain(sessionToken, domainName);
+			await api.createApprovedDomain(sessionToken, domainName, "Test domain for automated testing");
 			await api.disableApprovedDomain(sessionToken, domainName, "Test disable");
 
 			// List inactive domains
@@ -280,8 +333,8 @@ test.describe("POST /admin/list-approved-domains", () => {
 			const sessionToken = tfaResponse.body.session_token;
 
 			// Create two domains, disable one
-			await api.createApprovedDomain(sessionToken, activeDomain);
-			await api.createApprovedDomain(sessionToken, inactiveDomain);
+			await api.createApprovedDomain(sessionToken, activeDomain, "Test domain for automated testing");
+			await api.createApprovedDomain(sessionToken, inactiveDomain, "Test domain for automated testing");
 			await api.disableApprovedDomain(
 				sessionToken,
 				inactiveDomain,
@@ -330,8 +383,8 @@ test.describe("POST /admin/list-approved-domains", () => {
 			const sessionToken = tfaResponse.body.session_token;
 
 			// Create two domains
-			await api.createApprovedDomain(sessionToken, domainName1);
-			await api.createApprovedDomain(sessionToken, domainName2);
+			await api.createApprovedDomain(sessionToken, domainName1, "Test domain for automated testing");
+			await api.createApprovedDomain(sessionToken, domainName2, "Test domain for automated testing");
 
 			// Search for first domain
 			const response = await api.listApprovedDomains(sessionToken, {
@@ -381,7 +434,7 @@ test.describe("POST /admin/get-approved-domain", () => {
 			const sessionToken = tfaResponse.body.session_token;
 
 			// Create domain
-			await api.createApprovedDomain(sessionToken, domainName);
+			await api.createApprovedDomain(sessionToken, domainName, "Test domain for automated testing");
 
 			// Get domain details
 			const response = await api.getApprovedDomain(sessionToken, domainName);
@@ -484,7 +537,7 @@ test.describe("POST /admin/disable-approved-domain", () => {
 			const sessionToken = tfaResponse.body.session_token;
 
 			// Create domain
-			await api.createApprovedDomain(sessionToken, domainName);
+			await api.createApprovedDomain(sessionToken, domainName, "Test domain for automated testing");
 
 			// Disable domain
 			const response = await api.disableApprovedDomain(
@@ -568,7 +621,7 @@ test.describe("POST /admin/disable-approved-domain", () => {
 			const sessionToken = tfaResponse.body.session_token;
 
 			// Create and disable domain
-			await api.createApprovedDomain(sessionToken, domainName);
+			await api.createApprovedDomain(sessionToken, domainName, "Test domain for automated testing");
 			await api.disableApprovedDomain(
 				sessionToken,
 				domainName,
@@ -607,7 +660,7 @@ test.describe("POST /admin/disable-approved-domain", () => {
 			const sessionToken = tfaResponse.body.session_token;
 
 			// Create domain
-			await api.createApprovedDomain(sessionToken, domainName);
+			await api.createApprovedDomain(sessionToken, domainName, "Test domain for automated testing");
 
 			// Try to disable without reason
 			const response = await request.post("/admin/disable-approved-domain", {
@@ -640,7 +693,7 @@ test.describe("POST /admin/disable-approved-domain", () => {
 			const sessionToken = tfaResponse.body.session_token;
 
 			// Create domain
-			await api.createApprovedDomain(sessionToken, domainName);
+			await api.createApprovedDomain(sessionToken, domainName, "Test domain for automated testing");
 
 			// Try to disable with reason > 256 chars
 			const longReason = "a".repeat(257);
@@ -691,7 +744,7 @@ test.describe("POST /admin/enable-approved-domain", () => {
 			const sessionToken = tfaResponse.body.session_token;
 
 			// Create and disable domain
-			await api.createApprovedDomain(sessionToken, domainName);
+			await api.createApprovedDomain(sessionToken, domainName, "Test domain for automated testing");
 			await api.disableApprovedDomain(sessionToken, domainName, disableReason);
 
 			// Enable domain
@@ -776,7 +829,7 @@ test.describe("POST /admin/enable-approved-domain", () => {
 			const sessionToken = tfaResponse.body.session_token;
 
 			// Create domain (active by default)
-			await api.createApprovedDomain(sessionToken, domainName);
+			await api.createApprovedDomain(sessionToken, domainName, "Test domain for automated testing");
 
 			// Try to enable already active domain
 			const response = await api.enableApprovedDomain(
@@ -810,7 +863,7 @@ test.describe("POST /admin/enable-approved-domain", () => {
 			const sessionToken = tfaResponse.body.session_token;
 
 			// Create and disable domain
-			await api.createApprovedDomain(sessionToken, domainName);
+			await api.createApprovedDomain(sessionToken, domainName, "Test domain for automated testing");
 			await api.disableApprovedDomain(sessionToken, domainName, "Disable");
 
 			// Try to enable without reason
@@ -844,7 +897,7 @@ test.describe("POST /admin/enable-approved-domain", () => {
 			const sessionToken = tfaResponse.body.session_token;
 
 			// Create and disable domain
-			await api.createApprovedDomain(sessionToken, domainName);
+			await api.createApprovedDomain(sessionToken, domainName, "Test domain for automated testing");
 			await api.disableApprovedDomain(sessionToken, domainName, "Disable");
 
 			// Try to enable with reason > 256 chars

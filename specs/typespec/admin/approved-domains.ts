@@ -22,6 +22,7 @@ const ERR_INVALID_FILTER = "Filter must be 'active', 'inactive', or 'all'";
 
 export interface AddApprovedDomainRequest {
 	domain_name: DomainName;
+	reason: string;
 }
 
 export function validateAddApprovedDomainRequest(
@@ -36,6 +37,12 @@ export function validateAddApprovedDomainRequest(
 		if (domainErr) {
 			errs.push(newValidationError("domain_name", domainErr));
 		}
+	}
+
+	if (!request.reason) {
+		errs.push(newValidationError("reason", ERR_REASON_REQUIRED));
+	} else if (request.reason.length > 256) {
+		errs.push(newValidationError("reason", ERR_REASON_TOO_LONG));
 	}
 
 	return errs;
