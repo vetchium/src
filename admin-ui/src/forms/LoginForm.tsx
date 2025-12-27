@@ -1,11 +1,11 @@
-import { Form, Input, Button, Alert } from "antd";
-import { UserOutlined, LockOutlined } from "@ant-design/icons";
+import { LockOutlined, UserOutlined } from "@ant-design/icons";
+import { Alert, Button, Form, Input } from "antd";
 import { useTranslation } from "react-i18next";
 import {
-	EMAIL_MIN_LENGTH,
 	EMAIL_MAX_LENGTH,
-	PASSWORD_MIN_LENGTH,
+	EMAIL_MIN_LENGTH,
 	PASSWORD_MAX_LENGTH,
+	PASSWORD_MIN_LENGTH,
 } from "vetchium-specs/common/common";
 import { useAuth } from "../contexts/AuthContext";
 

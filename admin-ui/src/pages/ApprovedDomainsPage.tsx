@@ -1,48 +1,49 @@
-import { useState, useEffect, useCallback } from "react";
 import {
-	Card,
-	Table,
-	Button,
-	Input,
-	Modal,
-	message,
-	Space,
-	Typography,
-	Tag,
-	Form,
-	Spin,
-	Empty,
-	Popconfirm,
-	Tooltip,
-	Drawer,
-	Descriptions,
-	Tabs,
-} from "antd";
-import {
-	PlusOutlined,
-	SearchOutlined,
 	ArrowLeftOutlined,
-	StopOutlined,
 	CheckCircleOutlined,
 	InfoCircleOutlined,
+	PlusOutlined,
+	SearchOutlined,
+	StopOutlined,
 } from "@ant-design/icons";
+import {
+	Button,
+	Card,
+	Descriptions,
+	Drawer,
+	Empty,
+	Form,
+	Input,
+	message,
+	Modal,
+	Space,
+	Spin,
+	Table,
+	Tabs,
+	Tag,
+	Tooltip,
+	Typography,
+} from "antd";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useAuth } from "../contexts/AuthContext";
-import { getApiBaseUrl } from "../config";
 import { Link } from "react-router-dom";
 import type {
 	AddApprovedDomainRequest,
 	ApprovedDomain,
-	ApprovedDomainListResponse,
-	ApprovedDomainDetailResponse,
 	ApprovedDomainAuditLog,
+	ApprovedDomainDetailResponse,
+	ApprovedDomainListResponse,
 	DomainFilter,
+	GetApprovedDomainRequest,
+	ListApprovedDomainsRequest,
 } from "vetchium-specs/admin/approved-domains";
 import {
 	validateAddApprovedDomainRequest,
 	validateDisableApprovedDomainRequest,
 	validateEnableApprovedDomainRequest,
 } from "vetchium-specs/admin/approved-domains";
+import { getApiBaseUrl } from "../config";
+import { useAuth } from "../contexts/AuthContext";
 
 const { Title } = Typography;
 const { TextArea } = Input;
@@ -88,18 +89,13 @@ export function ApprovedDomainsPage() {
 			setLoading(true);
 			try {
 				const apiBaseUrl = await getApiBaseUrl();
-				const requestBody: {
-					limit?: number;
-					cursor?: string;
-					query?: string;
-					filter: DomainFilter;
-				} = {
+				const requestBody: ListApprovedDomainsRequest = {
 					limit: 50,
 					filter: currentFilter,
 				};
 
 				if (cursor) requestBody.cursor = cursor;
-				if (query) requestBody.query = query;
+				if (query) requestBody.search = query;
 
 				const response = await fetch(
 					`${apiBaseUrl}/admin/list-approved-domains`,
@@ -397,6 +393,9 @@ export function ApprovedDomainsPage() {
 
 		try {
 			const apiBaseUrl = await getApiBaseUrl();
+			const request: GetApprovedDomainRequest = {
+				domain_name: domainName,
+			};
 			const response = await fetch(
 				`${apiBaseUrl}/admin/get-approved-domain`,
 				{
@@ -405,7 +404,7 @@ export function ApprovedDomainsPage() {
 						"Content-Type": "application/json",
 						Authorization: `Bearer ${sessionToken}`,
 					},
-					body: JSON.stringify({ domain_name: domainName }),
+					body: JSON.stringify(request),
 				}
 			);
 
@@ -442,6 +441,10 @@ export function ApprovedDomainsPage() {
 		setLoadingMoreAuditLogs(true);
 		try {
 			const apiBaseUrl = await getApiBaseUrl();
+			const request: GetApprovedDomainRequest = {
+				domain_name: selectedDomain,
+				audit_cursor: domainDetail.next_audit_cursor,
+			};
 			const response = await fetch(
 				`${apiBaseUrl}/admin/get-approved-domain`,
 				{
@@ -450,10 +453,7 @@ export function ApprovedDomainsPage() {
 						"Content-Type": "application/json",
 						Authorization: `Bearer ${sessionToken}`,
 					},
-					body: JSON.stringify({
-						domain_name: selectedDomain,
-						audit_cursor: domainDetail.next_audit_cursor,
-					}),
+					body: JSON.stringify(request),
 				}
 			);
 
