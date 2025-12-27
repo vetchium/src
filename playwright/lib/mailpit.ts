@@ -15,21 +15,21 @@ const MAILPIT_API_URL = "http://localhost:8025/api/v1";
  * Configuration for email waiting with exponential backoff.
  */
 export interface WaitForEmailConfig {
-  /** Maximum number of retry attempts (default: 5) */
-  maxRetries: number;
-  /** Initial delay in milliseconds before first retry (default: 1000) */
-  initialDelayMs: number;
-  /** Maximum delay between retries in milliseconds (default: 15000) */
-  maxDelayMs: number;
-  /** Multiplier for exponential backoff (default: 2) */
-  backoffMultiplier: number;
+	/** Maximum number of retry attempts (default: 5) */
+	maxRetries: number;
+	/** Initial delay in milliseconds before first retry (default: 1000) */
+	initialDelayMs: number;
+	/** Maximum delay between retries in milliseconds (default: 15000) */
+	maxDelayMs: number;
+	/** Multiplier for exponential backoff (default: 2) */
+	backoffMultiplier: number;
 }
 
 const DEFAULT_WAIT_CONFIG: WaitForEmailConfig = {
-  maxRetries: 5,
-  initialDelayMs: 1000,
-  maxDelayMs: 15000,
-  backoffMultiplier: 2,
+	maxRetries: 5,
+	initialDelayMs: 1000,
+	maxDelayMs: 15000,
+	backoffMultiplier: 2,
 };
 
 // ============================================================================
@@ -37,28 +37,28 @@ const DEFAULT_WAIT_CONFIG: WaitForEmailConfig = {
 // ============================================================================
 
 interface MailpitMessageSummary {
-  ID: string;
-  MessageID: string;
-  From: { Address: string; Name: string };
-  To: Array<{ Address: string; Name: string }>;
-  Subject: string;
-  Created: string;
-  Size: number;
+	ID: string;
+	MessageID: string;
+	From: { Address: string; Name: string };
+	To: Array<{ Address: string; Name: string }>;
+	Subject: string;
+	Created: string;
+	Size: number;
 }
 
 interface MailpitSearchResponse {
-  messages: MailpitMessageSummary[];
-  total: number;
+	messages: MailpitMessageSummary[];
+	total: number;
 }
 
 interface MailpitMessage {
-  ID: string;
-  MessageID: string;
-  From: { Address: string; Name: string };
-  To: Array<{ Address: string; Name: string }>;
-  Subject: string;
-  Text: string;
-  HTML: string;
+	ID: string;
+	MessageID: string;
+	From: { Address: string; Name: string };
+	To: Array<{ Address: string; Name: string }>;
+	Subject: string;
+	Text: string;
+	HTML: string;
 }
 
 // ============================================================================
@@ -71,16 +71,20 @@ interface MailpitMessage {
  * @param toEmail - Email address to search for in the To field
  * @returns Array of message summaries
  */
-export async function searchEmails(toEmail: string): Promise<MailpitMessageSummary[]> {
-  const query = encodeURIComponent(`to:${toEmail}`);
-  const response = await fetch(`${MAILPIT_API_URL}/search?query=${query}`);
+export async function searchEmails(
+	toEmail: string
+): Promise<MailpitMessageSummary[]> {
+	const query = encodeURIComponent(`to:${toEmail}`);
+	const response = await fetch(`${MAILPIT_API_URL}/search?query=${query}`);
 
-  if (!response.ok) {
-    throw new Error(`Mailpit search failed: ${response.status} ${response.statusText}`);
-  }
+	if (!response.ok) {
+		throw new Error(
+			`Mailpit search failed: ${response.status} ${response.statusText}`
+		);
+	}
 
-  const data = (await response.json()) as MailpitSearchResponse;
-  return data.messages || [];
+	const data = (await response.json()) as MailpitSearchResponse;
+	return data.messages || [];
 }
 
 /**
@@ -89,14 +93,18 @@ export async function searchEmails(toEmail: string): Promise<MailpitMessageSumma
  * @param messageId - The message ID from search results
  * @returns Full message with text and HTML content
  */
-export async function getEmailContent(messageId: string): Promise<MailpitMessage> {
-  const response = await fetch(`${MAILPIT_API_URL}/message/${messageId}`);
+export async function getEmailContent(
+	messageId: string
+): Promise<MailpitMessage> {
+	const response = await fetch(`${MAILPIT_API_URL}/message/${messageId}`);
 
-  if (!response.ok) {
-    throw new Error(`Mailpit get message failed: ${response.status} ${response.statusText}`);
-  }
+	if (!response.ok) {
+		throw new Error(
+			`Mailpit get message failed: ${response.status} ${response.statusText}`
+		);
+	}
 
-  return (await response.json()) as MailpitMessage;
+	return (await response.json()) as MailpitMessage;
 }
 
 /**
@@ -108,12 +116,14 @@ export async function getEmailContent(messageId: string): Promise<MailpitMessage
  * @throws Error if no TFA code is found
  */
 export function extractTfaCode(emailText: string): string {
-  // Look for a 6-digit number that stands alone (TFA code pattern)
-  const match = emailText.match(/\b(\d{6})\b/);
-  if (!match) {
-    throw new Error(`No TFA code found in email: ${emailText.substring(0, 200)}...`);
-  }
-  return match[1];
+	// Look for a 6-digit number that stands alone (TFA code pattern)
+	const match = emailText.match(/\b(\d{6})\b/);
+	if (!match) {
+		throw new Error(
+			`No TFA code found in email: ${emailText.substring(0, 200)}...`
+		);
+	}
+	return match[1];
 }
 
 /**
@@ -139,34 +149,36 @@ export function extractTfaCode(emailText: string): string {
  * });
  */
 export async function waitForEmail(
-  toEmail: string,
-  config: Partial<WaitForEmailConfig> = {}
+	toEmail: string,
+	config: Partial<WaitForEmailConfig> = {}
 ): Promise<MailpitMessageSummary> {
-  const cfg = { ...DEFAULT_WAIT_CONFIG, ...config };
+	const cfg = { ...DEFAULT_WAIT_CONFIG, ...config };
 
-  let delay = cfg.initialDelayMs;
-  let totalWaitTime = 0;
+	let delay = cfg.initialDelayMs;
+	let totalWaitTime = 0;
 
-  for (let attempt = 1; attempt <= cfg.maxRetries; attempt++) {
-    const messages = await searchEmails(toEmail);
-    if (messages.length > 0) {
-      // Return the most recent message (first in the list)
-      return messages[0];
-    }
+	for (let attempt = 1; attempt <= cfg.maxRetries; attempt++) {
+		const messages = await searchEmails(toEmail);
+		if (messages.length > 0) {
+			// Return the most recent message (first in the list)
+			return messages[0];
+		}
 
-    if (attempt < cfg.maxRetries) {
-      // Wait before next attempt
-      await sleep(delay);
-      totalWaitTime += delay;
+		if (attempt < cfg.maxRetries) {
+			// Wait before next attempt
+			await sleep(delay);
+			totalWaitTime += delay;
 
-      // Calculate next delay with exponential backoff, capped at maxDelayMs
-      delay = Math.min(delay * cfg.backoffMultiplier, cfg.maxDelayMs);
-    }
-  }
+			// Calculate next delay with exponential backoff, capped at maxDelayMs
+			delay = Math.min(delay * cfg.backoffMultiplier, cfg.maxDelayMs);
+		}
+	}
 
-  throw new Error(
-    `No email received for ${toEmail} after ${cfg.maxRetries} attempts (waited ~${Math.round(totalWaitTime / 1000)}s)`
-  );
+	throw new Error(
+		`No email received for ${toEmail} after ${
+			cfg.maxRetries
+		} attempts (waited ~${Math.round(totalWaitTime / 1000)}s)`
+	);
 }
 
 /**
@@ -178,12 +190,12 @@ export async function waitForEmail(
  * @returns The 6-digit TFA code
  */
 export async function getTfaCodeFromEmail(
-  toEmail: string,
-  config: Partial<WaitForEmailConfig> = {}
+	toEmail: string,
+	config: Partial<WaitForEmailConfig> = {}
 ): Promise<string> {
-  const message = await waitForEmail(toEmail, config);
-  const fullMessage = await getEmailContent(message.ID);
-  return extractTfaCode(fullMessage.Text);
+	const message = await waitForEmail(toEmail, config);
+	const fullMessage = await getEmailContent(message.ID);
+	return extractTfaCode(fullMessage.Text);
 }
 
 /**
@@ -192,13 +204,15 @@ export async function getTfaCodeFromEmail(
  * this is usually not necessary.
  */
 export async function deleteAllEmails(): Promise<void> {
-  const response = await fetch(`${MAILPIT_API_URL}/messages`, {
-    method: "DELETE",
-  });
+	const response = await fetch(`${MAILPIT_API_URL}/messages`, {
+		method: "DELETE",
+	});
 
-  if (!response.ok) {
-    throw new Error(`Mailpit delete all failed: ${response.status} ${response.statusText}`);
-  }
+	if (!response.ok) {
+		throw new Error(
+			`Mailpit delete all failed: ${response.status} ${response.statusText}`
+		);
+	}
 }
 
 /**
@@ -208,17 +222,17 @@ export async function deleteAllEmails(): Promise<void> {
  * @param toEmail - Email address to delete messages for
  */
 export async function deleteEmailsFor(toEmail: string): Promise<void> {
-  const messages = await searchEmails(toEmail);
-  for (const msg of messages) {
-    await fetch(`${MAILPIT_API_URL}/messages`, {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ IDs: [msg.ID] }),
-    });
-  }
+	const messages = await searchEmails(toEmail);
+	for (const msg of messages) {
+		await fetch(`${MAILPIT_API_URL}/messages`, {
+			method: "DELETE",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ IDs: [msg.ID] }),
+		});
+	}
 }
 
 // Helper function for async sleep
 function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+	return new Promise((resolve) => setTimeout(resolve, ms));
 }

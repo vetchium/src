@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { AdminAPIClient } from "../../../lib/api-client";
+import { AdminAPIClient } from "../../../lib/admin-api-client";
 import {
 	createTestAdminUser,
 	deleteTestAdminUser,
@@ -61,7 +61,10 @@ test.describe("POST /admin/login", () => {
 
 		await createTestAdminUser(email, password);
 		try {
-			const response = await api.login({ email, password: "WrongPassword456!" });
+			const response = await api.login({
+				email,
+				password: "WrongPassword456!",
+			});
 
 			expect(response.status).toBe(401);
 		} finally {

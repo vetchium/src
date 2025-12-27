@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { AdminAPIClient } from "../../../lib/api-client";
+import { AdminAPIClient } from "../../../lib/admin-api-client";
 import {
 	createTestAdminUser,
 	deleteTestAdminUser,
@@ -24,7 +24,10 @@ async function getSessionToken(
 	const tfaCode = await getTfaCodeFromEmail(email);
 
 	// Verify TFA
-	const tfaResponse = await api.verifyTFA({ tfa_token: tfaToken, tfa_code: tfaCode });
+	const tfaResponse = await api.verifyTFA({
+		tfa_token: tfaToken,
+		tfa_code: tfaCode,
+	});
 	expect(tfaResponse.status).toBe(200);
 
 	return tfaResponse.body.session_token;
@@ -52,7 +55,8 @@ test.describe("POST /admin/logout", () => {
 		const api = new AdminAPIClient(request);
 
 		const response = await api.logout({
-			session_token: "0000000000000000000000000000000000000000000000000000000000000000",
+			session_token:
+				"0000000000000000000000000000000000000000000000000000000000000000",
 		});
 
 		expect(response.status).toBe(401);

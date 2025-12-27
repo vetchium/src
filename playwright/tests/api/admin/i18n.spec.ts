@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { AdminAPIClient } from "../../../lib/api-client";
+import { AdminAPIClient } from "../../../lib/admin-api-client";
 import {
 	createTestAdminUser,
 	deleteTestAdminUser,

@@ -4,11 +4,11 @@ import { randomUUID } from "crypto";
 
 // Database connection configuration
 const pool = new Pool({
-  host: "localhost",
-  port: 5432,
-  database: "vetchium_global",
-  user: "vetchium",
-  password: "vetchium_dev",
+	host: "localhost",
+	port: 5432,
+	database: "vetchium_global",
+	user: "vetchium",
+	password: "vetchium_dev",
 });
 
 /**
@@ -25,8 +25,8 @@ export type LanguageCode = "en-US" | "de-DE" | "ta-IN" | string;
  * Options for creating a test admin user
  */
 export interface CreateTestAdminUserOptions {
-  status?: AdminUserStatus;
-  preferredLanguage?: LanguageCode;
+	status?: AdminUserStatus;
+	preferredLanguage?: LanguageCode;
 }
 
 /**
@@ -40,26 +40,26 @@ export interface CreateTestAdminUserOptions {
  * @returns The created admin user ID
  */
 export async function createTestAdminUser(
-  email: string,
-  password: string,
-  options: CreateTestAdminUserOptions | AdminUserStatus = "active"
+	email: string,
+	password: string,
+	options: CreateTestAdminUserOptions | AdminUserStatus = "active"
 ): Promise<string> {
-  const adminUserId = randomUUID();
-  const passwordHash = await bcrypt.hash(password, 10);
+	const adminUserId = randomUUID();
+	const passwordHash = await bcrypt.hash(password, 10);
 
-  // Handle both old signature (status string) and new signature (options object)
-  const opts: CreateTestAdminUserOptions =
-    typeof options === "string" ? { status: options } : options;
-  const status = opts.status ?? "active";
-  const preferredLanguage = opts.preferredLanguage ?? "en-US";
+	// Handle both old signature (status string) and new signature (options object)
+	const opts: CreateTestAdminUserOptions =
+		typeof options === "string" ? { status: options } : options;
+	const status = opts.status ?? "active";
+	const preferredLanguage = opts.preferredLanguage ?? "en-US";
 
-  await pool.query(
-    `INSERT INTO admin_users (admin_user_id, email_address, password_hash, status, preferred_language)
+	await pool.query(
+		`INSERT INTO admin_users (admin_user_id, email_address, password_hash, status, preferred_language)
      VALUES ($1, $2, $3, $4, $5)`,
-    [adminUserId, email, passwordHash, status, preferredLanguage]
-  );
+		[adminUserId, email, passwordHash, status, preferredLanguage]
+	);
 
-  return adminUserId;
+	return adminUserId;
 }
 
 /**
@@ -69,8 +69,8 @@ export async function createTestAdminUser(
  * @param email - Email of the admin user to delete
  */
 export async function deleteTestAdminUser(email: string): Promise<void> {
-  // CASCADE delete will handle admin_sessions and admin_tfa_tokens
-  await pool.query(`DELETE FROM admin_users WHERE email_address = $1`, [email]);
+	// CASCADE delete will handle admin_sessions and admin_tfa_tokens
+	await pool.query(`DELETE FROM admin_users WHERE email_address = $1`, [email]);
 }
 
 /**
@@ -81,10 +81,13 @@ export async function deleteTestAdminUser(email: string): Promise<void> {
  * @param status - New status to set
  */
 export async function updateTestAdminUserStatus(
-  email: string,
-  status: AdminUserStatus
+	email: string,
+	status: AdminUserStatus
 ): Promise<void> {
-  await pool.query(`UPDATE admin_users SET status = $1 WHERE email_address = $2`, [status, email]);
+	await pool.query(
+		`UPDATE admin_users SET status = $1 WHERE email_address = $2`,
+		[status, email]
+	);
 }
 
 /**
@@ -94,13 +97,13 @@ export async function updateTestAdminUserStatus(
  * @param preferredLanguage - New preferred language (BCP 47 format)
  */
 export async function updateTestAdminUserLanguage(
-  email: string,
-  preferredLanguage: LanguageCode
+	email: string,
+	preferredLanguage: LanguageCode
 ): Promise<void> {
-  await pool.query(`UPDATE admin_users SET preferred_language = $1 WHERE email_address = $2`, [
-    preferredLanguage,
-    email,
-  ]);
+	await pool.query(
+		`UPDATE admin_users SET preferred_language = $1 WHERE email_address = $2`,
+		[preferredLanguage, email]
+	);
 }
 
 /**
@@ -110,16 +113,16 @@ export async function updateTestAdminUserLanguage(
  * @returns Admin user record or null if not found
  */
 export async function getTestAdminUser(email: string): Promise<{
-  admin_user_id: string;
-  email_address: string;
-  status: AdminUserStatus;
-  preferred_language: LanguageCode;
+	admin_user_id: string;
+	email_address: string;
+	status: AdminUserStatus;
+	preferred_language: LanguageCode;
 } | null> {
-  const result = await pool.query(
-    `SELECT admin_user_id, email_address, status, preferred_language FROM admin_users WHERE email_address = $1`,
-    [email]
-  );
-  return result.rows[0] || null;
+	const result = await pool.query(
+		`SELECT admin_user_id, email_address, status, preferred_language FROM admin_users WHERE email_address = $1`,
+		[email]
+	);
+	return result.rows[0] || null;
 }
 
 /**
@@ -130,7 +133,7 @@ export async function getTestAdminUser(email: string): Promise<{
  * @returns A unique email address like 'admin-{uuid}@test.vetchium.com'
  */
 export function generateTestEmail(prefix: string = "admin"): string {
-  return `${prefix}-${randomUUID()}@test.vetchium.com`;
+	return `${prefix}-${randomUUID()}@test.vetchium.com`;
 }
 
 /**
@@ -138,7 +141,7 @@ export function generateTestEmail(prefix: string = "admin"): string {
  * Should be called when tests are complete.
  */
 export async function closePool(): Promise<void> {
-  await pool.end();
+	await pool.end();
 }
 
 // ============================================================================
@@ -152,24 +155,27 @@ export async function closePool(): Promise<void> {
  * @param adminEmail - Email of the admin creating this domain
  * @returns The created domain ID
  */
-export async function createTestApprovedDomain(domainName: string, adminEmail: string): Promise<string> {
-  // Get admin user ID
-  const adminResult = await pool.query(
-    `SELECT admin_user_id FROM admin_users WHERE email_address = $1`,
-    [adminEmail]
-  );
-  if (adminResult.rows.length === 0) {
-    throw new Error(`Admin user not found: ${adminEmail}`);
-  }
-  const adminId = adminResult.rows[0].admin_user_id;
+export async function createTestApprovedDomain(
+	domainName: string,
+	adminEmail: string
+): Promise<string> {
+	// Get admin user ID
+	const adminResult = await pool.query(
+		`SELECT admin_user_id FROM admin_users WHERE email_address = $1`,
+		[adminEmail]
+	);
+	if (adminResult.rows.length === 0) {
+		throw new Error(`Admin user not found: ${adminEmail}`);
+	}
+	const adminId = adminResult.rows[0].admin_user_id;
 
-  const result = await pool.query(
-    `INSERT INTO approved_domains (domain_name, created_by_admin_id)
+	const result = await pool.query(
+		`INSERT INTO approved_domains (domain_name, created_by_admin_id)
      VALUES ($1, $2)
      RETURNING domain_id`,
-    [domainName.toLowerCase(), adminId]
-  );
-  return result.rows[0].domain_id;
+		[domainName.toLowerCase(), adminId]
+	);
+	return result.rows[0].domain_id;
 }
 
 /**
@@ -178,11 +184,13 @@ export async function createTestApprovedDomain(domainName: string, adminEmail: s
  *
  * @param domainName - Domain name to delete (will be soft-deleted)
  */
-export async function deleteTestApprovedDomain(domainName: string): Promise<void> {
-  await pool.query(
-    `UPDATE approved_domains SET deleted_at = NOW() WHERE domain_name = $1`,
-    [domainName.toLowerCase()]
-  );
+export async function deleteTestApprovedDomain(
+	domainName: string
+): Promise<void> {
+	await pool.query(
+		`UPDATE approved_domains SET deleted_at = NOW() WHERE domain_name = $1`,
+		[domainName.toLowerCase()]
+	);
 }
 
 /**
@@ -191,10 +199,12 @@ export async function deleteTestApprovedDomain(domainName: string): Promise<void
  *
  * @param domainName - Domain name to permanently delete
  */
-export async function permanentlyDeleteTestApprovedDomain(domainName: string): Promise<void> {
-  await pool.query(`DELETE FROM approved_domains WHERE domain_name = $1`, [
-    domainName.toLowerCase(),
-  ]);
+export async function permanentlyDeleteTestApprovedDomain(
+	domainName: string
+): Promise<void> {
+	await pool.query(`DELETE FROM approved_domains WHERE domain_name = $1`, [
+		domainName.toLowerCase(),
+	]);
 }
 
 /**
@@ -204,23 +214,23 @@ export async function permanentlyDeleteTestApprovedDomain(domainName: string): P
  * @returns Array of audit log records
  */
 export async function getApprovedDomainAuditLogs(domainName: string): Promise<
-  Array<{
-    audit_id: string;
-    admin_id: string;
-    action: string;
-    target_domain_name: string;
-    reason: string | null;
-    created_at: Date;
-  }>
+	Array<{
+		audit_id: string;
+		admin_id: string;
+		action: string;
+		target_domain_name: string;
+		reason: string | null;
+		created_at: Date;
+	}>
 > {
-  const result = await pool.query(
-    `SELECT audit_id, admin_id, action, target_domain_name, reason, created_at
+	const result = await pool.query(
+		`SELECT audit_id, admin_id, action, target_domain_name, reason, created_at
      FROM approved_domains_audit_log
      WHERE target_domain_name = $1
      ORDER BY created_at DESC`,
-    [domainName.toLowerCase()]
-  );
-  return result.rows;
+		[domainName.toLowerCase()]
+	);
+	return result.rows;
 }
 
 /**
@@ -231,7 +241,7 @@ export async function getApprovedDomainAuditLogs(domainName: string): Promise<
  * @returns A unique domain name like 'test-{uuid}.example.com'
  */
 export function generateTestDomainName(prefix: string = "test"): string {
-  return `${prefix}-${randomUUID().substring(0, 8)}.example.com`;
+	return `${prefix}-${randomUUID().substring(0, 8)}.example.com`;
 }
 
 // ============================================================================
@@ -262,15 +272,15 @@ export type RegionCode = "ind1" | "usa1" | "deu1" | "sgp1";
  * @returns The created hub user global ID
  */
 export async function createTestHubUser(
-  email: string,
-  password: string,
-  homeRegion: RegionCode = "ind1",
-  status: HubUserStatus = "active"
+	email: string,
+	password: string,
+	homeRegion: RegionCode = "ind1",
+	status: HubUserStatus = "active"
 ): Promise<string> {
-  throw new Error(
-    "createTestHubUser requires regional databases which are not available in test environment. " +
-    "Use the signup API flow (requestSignup + completeSignup) instead to create test users."
-  );
+	throw new Error(
+		"createTestHubUser requires regional databases which are not available in test environment. " +
+			"Use the signup API flow (requestSignup + completeSignup) instead to create test users."
+	);
 }
 
 /**
@@ -281,14 +291,13 @@ export async function createTestHubUser(
  * @param email - Email of the hub user to delete
  */
 export async function deleteTestHubUser(email: string): Promise<void> {
-  const crypto = require("crypto");
-  const emailHash = crypto.createHash("sha256").update(email).digest();
+	const crypto = require("crypto");
+	const emailHash = crypto.createHash("sha256").update(email).digest();
 
-  // Delete from global DB (CASCADE will handle sessions, display names, tokens, etc.)
-  await pool.query(
-    `DELETE FROM hub_users WHERE email_address_hash = $1`,
-    [emailHash]
-  );
+	// Delete from global DB (CASCADE will handle sessions, display names, tokens, etc.)
+	await pool.query(`DELETE FROM hub_users WHERE email_address_hash = $1`, [
+		emailHash,
+	]);
 }
 
 /**
@@ -298,14 +307,14 @@ export async function deleteTestHubUser(email: string): Promise<void> {
  * @returns PostgreSQL connection pool for the region
  */
 function getRegionalPool(region: RegionCode): Pool {
-  const dbName = `vetchium_regional_${region}`;
-  return new Pool({
-    host: "localhost",
-    port: 5432,
-    database: dbName,
-    user: "vetchium",
-    password: "vetchium_dev",
-  });
+	const dbName = `vetchium_regional_${region}`;
+	return new Pool({
+		host: "localhost",
+		port: 5432,
+		database: dbName,
+		user: "vetchium",
+		password: "vetchium_dev",
+	});
 }
 
 /**
@@ -315,8 +324,8 @@ function getRegionalPool(region: RegionCode): Pool {
  * @returns The signup token extracted from the link
  */
 export function extractSignupTokenFromEmail(emailMessage: any): string | null {
-  const html = emailMessage.HTML || "";
-  // Look for the signup link pattern: /signup/verify?token=...
-  const match = html.match(/token=([a-f0-9]{64})/);
-  return match ? match[1] : null;
+	const html = emailMessage.HTML || "";
+	// Look for the signup link pattern: /signup/verify?token=...
+	const match = html.match(/token=([a-f0-9]{64})/);
+	return match ? match[1] : null;
 }
