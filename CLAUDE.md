@@ -16,16 +16,42 @@ Vetchium is a multi-region job search and hiring platform with distributed regio
 - **Migrations**: Goose v3
 - **Containers**: Docker Compose
 
+## Development Conventions
+
+### Code Style
+
+- LF line endings, UTF-8 encoding
+- Trim trailing whitespace
+
+### Development Process
+
+1. First write the Specifications under [specs](./specs/) by creating a new directory and a README.md file under that using the [specification template](./specs/spec-template-README.md)
+2. Document the required API endpoints and schemas under [typespec](./specs/typespec/) in appropriate `.ts` and `.go` files
+3. All the validations should happen on the [typespec](./specs/typespec/) in appropriate `.ts` files and `.go` files
+4. Implement the backend and frontend code changes
+   - **CRITICAL**: All API request/response types MUST be imported from `specs/typespec/`
+   - NEVER define API types locally in UI code, test code, or API client code
+   - API client methods must accept typespec request objects, not individual parameters
+5. All the database related SQL should be under [db](./api-server/db/) directory on `.sql` files with reference for these on the `.go` code via [sqlc](./api-server/sqlc.yaml)
+6. No SQL statements should exist in `.go` files
+7. Implement tests for the API and UI as needed under the [playwright](./playwright/) directory with unique user for each test
+   - **CRITICAL**: Import all request/response types from `specs/typespec/` in test files
+   - Use typed request objects when calling API client methods
+   - Test exhaustively for all possible return codes and scenarios
+8. All .go files should be formatted by [goimports](https://pkg.go.dev/golang.org/x/tools/cmd/goimports)
+9. All .md, .ts, .tsx, .json, .yaml files should be formatted with [prettier](https://prettier.io/docs/)
+10. Prefer to use JSON instead of YAML wherever possible
+
 ## Build Commands
 
 ### TypeSpec (specs/typespec/)
 
 ```bash
 bun install
-tsp compile .            # Generate OpenAPI specs
+tsp compile . # Generate OpenAPI specs
 ```
 
-### Frontend (hub-ui/)
+### Frontend
 
 ```bash
 bun install          # Install dependencies
@@ -44,8 +70,8 @@ go build -o api-server ./cmd/api-server.go       # Build binary
 ### Docker (from src/)
 
 ```bash
-docker compose up --build       # Start all services
-docker compose down -v          # Stop all services
+docker compose -f docker-compose-full.yaml up --build   # Start all services
+docker compose -f docker-compose-full.yaml down -v      # Stop all services
 ```
 
 ## Database Architecture
@@ -81,35 +107,17 @@ if err != nil {
 }
 ```
 
-### Cursor-Based Pagination
+### Regional Database Selection
 
-```go
-// Query with limit+1 to detect if more results exist
-rows, err := db.ListItems(ctx, ListItemsParams{
-    Limit:  int32(limit + 1),
-    Cursor: cursor,
-})
+- Users and organizations sign up in a specific region (IND1, USA1, or DEU1)
+- Their data is stored in that region's database for data sovereignty and compliance
+- All backend instances can access any regional database connection
+- The region is determined at signup and stored in the global database
+- Use `s.GetRegionalDB(region)` to get the appropriate regional database connection
 
-hasMore := len(rows) > limit
-if hasMore {
-    rows = rows[:limit]
-}
+### Keyset Pagination
 
-nextCursor := ""
-if hasMore {
-    lastRow := rows[len(rows)-1]
-    nextCursor = base64.URLEncoding.EncodeToString([]byte(lastRow.SortKey))
-}
-```
-
-### Standard Limits
-
-| Item                     | Value      |
-| ------------------------ | ---------- |
-| TFA token expiry         | 10 minutes |
-| Session token expiry     | 24 hours   |
-| Pagination default limit | 50         |
-| Pagination max limit     | 100        |
+**CRITICAL**: All list APIs MUST use keyset pagination. Never use OFFSET-based pagination.
 
 ## Backend Conventions
 
@@ -117,16 +125,24 @@ if hasMore {
 
 | Scenario          | Status Code | Response Body                    |
 | ----------------- | ----------- | -------------------------------- |
+| JSON decode error | 400         | Error message string             |
 | Validation errors | 400         | JSON array: `[{field, message}]` |
 | Unauthenticated   | 401         | Empty                            |
 | Forbidden         | 403         | Empty                            |
 | Not found         | 404         | Empty                            |
-| Conflict          | 409         | Optional JSON                    |
+| Conflict          | 409         | Optional JSON with error message |
 | Invalid state     | 422         | Empty                            |
 | Server error      | 500         | Empty                            |
 | Created           | 201         | JSON resource                    |
 | Deleted           | 204         | Empty                            |
 | Success           | 200         | JSON                             |
+
+**Status Code Decision Tree**:
+
+- **404**: Resource doesn't exist (unknown domain, user, job posting)
+- **401**: Authentication failure (wrong credentials, expired session/TFA token, invalid token)
+- **403**: Authenticated but forbidden (wrong TFA code for valid token, insufficient permissions)
+- **422**: Resource exists but in wrong state (account disabled, domain inactive)
 
 ### Handler Implementation Pattern
 
@@ -216,40 +232,34 @@ Handlers are organized under `api-server/handlers/` in subdirectories based on A
 
 ### Middleware Structure
 
-Middleware ordering in route registration:
+**Global middleware** (applied in `cmd/api-server.go`):
 
-1. **CORS** (outermost) - handles preflight requests
-2. **RequestID** - injects logger with request_id into context
-3. **Auth middleware** (route-specific) - validates session tokens
+- **CORS**: Handles preflight requests
+- **RequestID**: Injects logger with request_id into context
+
+**Route-specific middleware** (applied per-route):
+
+- **Auth middleware**: Validates session tokens for protected endpoints
 
 ```go
 // Routes WITHOUT auth (login, public endpoints)
 mux.HandleFunc("POST /admin/login", admin.Login(s))
 
 // Routes WITH auth (protected endpoints)
-mux.Handle("POST /admin/protected",
-    middleware.AdminAuth(s.Global)(http.HandlerFunc(admin.ProtectedHandler(s))))
+mux.Handle("POST /admin/list-approved-domains",
+    middleware.AdminAuth(s.Global)(http.HandlerFunc(admin.ListApprovedDomains(s))))
 ```
 
-Extract authenticated data in handlers:
+**Extract authenticated data in handlers**:
 
 ```go
-session := middleware.AdminSessionFromContext(ctx)
 adminUser := middleware.AdminUserFromContext(ctx)
-```
-
-### Email Queue Pattern
-
-Emails are queued asynchronously via regional database, not sent synchronously:
-
-```go
-err = regionalDB.EnqueueEmail(ctx, regionaldb.EnqueueEmailParams{
-    EmailType:     regionaldb.EmailTemplateTypeAdminTfa,
-    EmailTo:       recipient,
-    EmailSubject:  templates.Subject(lang),
-    EmailTextBody: templates.TextBody(lang, data),
-    EmailHtmlBody: templates.HTMLBody(lang, data),
-})
+if adminUser == nil {
+    log.Debug("admin user not found in context")
+    w.WriteHeader(http.StatusUnauthorized)
+    return
+}
+// Use adminUser.AdminUserID, adminUser.EmailAddress, etc.
 ```
 
 ## API Naming Convention
@@ -285,8 +295,8 @@ Avoid using common endpoint prefixes to avoid wrong handlers getting called acci
 
 ```go
   mux.Handle("POST /admin/approved-domains", authMiddleware(admin.AddApprovedDomain(s)))
-	mux.Handle("GET /admin/approved-domains", authMiddleware(admin.ListApprovedDomains(s)))
-	mux.Handle("GET /admin/approved-domains/{domain}", authMiddleware(admin.GetApprovedDomain(s)))
+  mux.Handle("GET /admin/approved-domains", authMiddleware(admin.ListApprovedDomains(s)))
+  mux.Handle("GET /admin/approved-domains/{domain}", authMiddleware(admin.GetApprovedDomain(s)))
   mux.Handle("DELETE /admin/approved-domains/{domain}", authMiddleware(admin.DeleteApprovedDomain(s)))
 ```
 
@@ -294,14 +304,24 @@ generate as below
 
 ```go
   mux.Handle("POST /admin/add-approved-domain", authMiddleware(admin.AddApprovedDomain(s)))
-	mux.Handle("POST /admin/list-approved-domains", authMiddleware(admin.ListApprovedDomains(s)))
-	mux.Handle("POST /admin/get-approved-domain", authMiddleware(admin.GetApprovedDomain(s)))
+  mux.Handle("POST /admin/list-approved-domains", authMiddleware(admin.ListApprovedDomains(s)))
+  mux.Handle("POST /admin/get-approved-domain", authMiddleware(admin.GetApprovedDomain(s)))
   mux.Handle("DELETE /admin/delete-approved-domains", authMiddleware(admin.DeleteApprovedDomain(s)))
 ```
 
 ## TypeSpec Validation
 
-Types are defined in `specs/typespec/` under `.tsp` files and the corresponding `.ts` and `.go` files should also be updated. The `.tsp` compilation would generate only an openAPI spec and does NOT generate the Go or Typescript structs.
+**Source of Truth**: `.tsp` files define the API contract. The `.ts` and `.go` files must be kept in sync.
+
+**Workflow**:
+
+1. Define types in `.tsp` files (TypeSpec format)
+2. Implement matching `.ts` types with validation functions
+3. Implement matching `.go` types with validation methods
+4. Run `tsp compile .` to generate OpenAPI specs
+5. Verify all three files (.tsp, .ts, .go) are consistent
+
+The `.tsp` compilation generates OpenAPI specs for documentation, but does NOT generate Go or TypeScript code. Developers must maintain consistency across all three files manually.
 
 ### TypeSpec Type Import Requirements
 
@@ -327,60 +347,54 @@ Types are defined in `specs/typespec/` under `.tsp` files and the corresponding 
 #### Examples:
 
 **✅ CORRECT:**
+
 ```typescript
 // Import from typespec
 import type {
-  HubLoginRequest,
-  HubLoginResponse,
-  CompleteSignupRequest,
+	HubLoginRequest,
+	HubLoginResponse,
+	CompleteSignupRequest,
 } from "vetchium-specs/hub/hub-users";
 
 // Use imported types
-const loginRequest: HubLoginRequest = {
-  email_address: email,
-  password: password,
+const hubLoginRequest: HubLoginRequest = {
+	email_address: email,
+	password: password,
 };
 
-const response = await api.login(loginRequest);
+const response = await api.login(hubLoginRequest);
 
 // Function accepting typespec type
 async function login(request: HubLoginRequest): Promise<HubLoginResponse> {
-  // ...
+	// ...
 }
 ```
 
 **❌ WRONG:**
+
 ```typescript
 // ❌ Don't define API types inline
 const response = await api.login({
-  email_address: email,
-  password: password,
+	email_address: email,
+	password: password,
 });
 
 // ❌ Don't create local interfaces for API types
 interface LoginRequest {
-  email_address: string;
-  password: string;
+	email_address: string;
+	password: string;
 }
 
 // ❌ Don't accept individual parameters instead of request objects
 async function login(email: string, password: string) {
-  // ...
+	// ...
 }
 
 // ❌ Don't define response shapes locally
 interface LoginResponse {
-  session_token: string;
+	session_token: string;
 }
 ```
-
-#### Benefits:
-
-1. **Single source of truth** - All API schemas defined once in typespec
-2. **Type safety** - TypeScript catches mismatches at compile time
-3. **Automatic propagation** - Schema changes automatically update everywhere
-4. **No duplication** - Eliminates sync issues between definitions
-5. **Better IDE support** - Full autocomplete and type hints from typespec
 
 ### TypeScript Validation Pattern
 
@@ -482,53 +496,54 @@ src/
   - Cached locally for persistence across sessions
   - Falls back to browser locale or en-US
 
-### Theme Management
-
-- Support dark/light mode toggle using Ant Design's `ConfigProvider`
-- Theme preference stored in localStorage (client-side only)
-- Default: system preference or light mode
-
 ### Component Guidelines
 
 - **Pages**: Handle routing, data fetching, layout. Import forms and components.
 - **Forms**: Handle form state, validation, submission. Use Ant Design Form.
 - **Components**: Stateless/minimal state, reusable across pages/forms.
 
-### Auth Context Pattern
+### Auth Flow and Error Handling
 
-Auth state machine: `"login"` → `"tfa"` → `"authenticated"`
+**Auth state machine**: `"login"` → `"tfa"` → `"authenticated"`
+
+1. User submits credentials → API returns TFA token
+2. User submits TFA code → API returns session token
+3. Session token stored in cookie for subsequent requests
+
+**HTTP error handling pattern**:
 
 ```typescript
-// Handle specific HTTP status codes with appropriate error messages
+// Map HTTP status codes to user-friendly error messages
 switch (response.status) {
 	case 400:
-		setError(parseValidationErrors(body));
+		setError(parseValidationErrors(body)); // Field-level errors
 		break;
 	case 401:
-		setError(t("invalidCredentials"));
+		setError(t("invalidCredentials")); // Wrong password, expired token
 		break;
 	case 403:
-		setError(t("invalidCode"));
+		setError(t("invalidCode")); // Wrong TFA code
 		break;
 	case 422:
-		setError(t("accountDisabled"));
+		setError(t("accountDisabled")); // Account in wrong state
 		break;
 	default:
 		setError(t("serverError"));
 }
 ```
 
-Session stored in cookie: `vetchium_{app}_session` with 24h expiry, SameSite=Strict.
+**Session storage**: Session token stored in cookie `vetchium_{app}_session` with 24h expiry, SameSite=Strict, HttpOnly.
 
 ### API Client Pattern (Frontend)
 
 Use native `fetch()` with explicit status code handling:
 
 ```typescript
+var loginRequest: LoginRequest;
 const response = await fetch(`${API_BASE}/admin/login`, {
 	method: "POST",
 	headers: { "Content-Type": "application/json" },
-	body: JSON.stringify({ email, password }),
+	body: JSON.stringify(loginRequest),
 });
 
 // Don't just check response.ok - handle each status explicitly
@@ -551,31 +566,40 @@ headers: {
 }
 ```
 
-## Development Conventions
+## Security Best Practices
 
-### Code Style
+### Input Validation
 
-- LF line endings, UTF-8 encoding
-- Trim trailing whitespace
+- Always validate request bodies using TypeSpec validators before processing
+- TypeSpec validators handle length limits, format validation, and pattern matching
+- Database layer uses parameterized queries via sqlc (no raw SQL in handlers)
 
-### Development Process
+### What NOT to Log
 
-1. First write the Specifications under [specs](./specs/) by creating a new directory and a README.md file under that using the [specification template](./specs/spec-template-README.md)
-2. Document the required API endpoints and schemas under [typespec](./specs/typespec/) in appropriate `.ts` and `.go` files
-3. All the validations should happen on the [typespec](./specs/typespec/) in appropriate `.ts` files and `.go` files
-4. Implement the backend and frontend code changes
-   - **CRITICAL**: All API request/response types MUST be imported from `specs/typespec/`
-   - NEVER define API types locally in UI code, test code, or API client code
-   - API client methods must accept typespec request objects, not individual parameters
-5. All the database related SQL should be under [db](./api-server/db/) directory on `.sql` files with reference for these on the `.go` code via [sqlc](./api-server/sqlc.yaml)
-6. No SQL statements should exist in `.go` files
-7. Implement tests for the API and UI as needed under the [playwright](./playwright/) directory with unique user for each test
-   - **CRITICAL**: Import all request/response types from `specs/typespec/` in test files
-   - Use typed request objects when calling API client methods
-   - Test exhaustively for all possible return codes and scenarios
-8. All .go files should be formatted by [goimports](https://pkg.go.dev/golang.org/x/tools/cmd/goimports)
-9. All .md, .ts, .tsx, .json, .yaml files should be formatted with [prettier](https://prettier.io/docs/)
-10. Prefer to use JSON instead of YAML wherever possible
+Never log sensitive data:
+
+- Passwords (plaintext or hashed)
+- Session tokens or TFA tokens
+- TFA codes
+- Full email addresses in error messages (use hashes or IDs instead)
+- Credit card numbers, personal identification numbers
+
+### Safe Logging Examples
+
+```go
+// ✅ GOOD: Log IDs and hashes
+log.Info("user login successful", "admin_user_id", adminUser.AdminUserID)
+log.Debug("session created", "session_token_hash", hashPrefix(token))
+
+// ❌ BAD: Don't log sensitive data
+log.Info("user logged in", "password", password)  // Never!
+log.Debug("tfa code", "code", tfaCode)  // Never!
+```
+
+### Database Security
+
+- All queries use sqlc parameterization (prevents SQL injection)
+- No raw SQL string concatenation allowed
 
 ## Testing
 
@@ -591,7 +615,7 @@ npm run test:api         # Run API tests only
 npm run test:api:admin   # Run admin API tests
 ```
 
-**Prerequisites**: All Docker services must be running via `docker compose up` from `src/`.
+**Prerequisites**: All Docker services must be running via `docker compose up -f docker-compose-full.yaml` from `src/`.
 
 ### Test Architecture Principles
 
@@ -609,17 +633,20 @@ npm run test:api:admin   # Run admin API tests
 
 Every API endpoint test MUST cover these scenarios:
 
-| Scenario                | Expected Status | Example                            |
-| ----------------------- | --------------- | ---------------------------------- |
-| Success case            | 200/201/204     | Valid request with valid auth      |
-| Missing required fields | 400             | `{ password: "..." }` (no email)   |
-| Invalid field format    | 400             | Invalid email format, wrong length |
-| Empty string fields     | 400             | `{ email: "", password: "..." }`   |
-| Boundary conditions     | 400             | Min/max length violations          |
-| Non-existent resource   | 401 or 404      | Unknown user, invalid token        |
-| Wrong credentials/code  | 401 or 403      | Wrong password, wrong TFA code     |
-| Disabled/invalid state  | 422             | Disabled user account              |
-| Expired tokens          | 401             | Expired TFA or session token       |
+| Scenario                | Expected Status | Example                                |
+| ----------------------- | --------------- | -------------------------------------- |
+| Success case            | 200/201/204     | Valid request with valid auth          |
+| Missing required fields | 400             | `{ password: "..." }` (no email)       |
+| Invalid field format    | 400             | Invalid email format, wrong length     |
+| Empty string fields     | 400             | `{ email: "", password: "..." }`       |
+| Boundary conditions     | 400             | Min/max length violations              |
+| Non-existent resource   | 404             | Unknown domain, unknown job posting    |
+| Auth: Unknown user      | 401             | Login with non-existent email          |
+| Auth: Invalid token     | 401             | Expired/invalid session or TFA token   |
+| Wrong credentials       | 401             | Correct email, wrong password          |
+| Wrong TFA code          | 403             | Valid TFA token, wrong code            |
+| Disabled/invalid state  | 422             | Disabled user account, inactive domain |
+| Expired tokens          | 401             | Expired TFA or session token           |
 
 ### Test File Organization
 
@@ -656,7 +683,8 @@ test("example test with isolated user", async ({ request }) => {
 	await createTestAdminUser(email, password);
 	try {
 		// Test logic here
-		const response = await api.login(email, password);
+		var adminLoginRequest: AdminLoginRequest;
+		const response = await api.login(adminLoginRequest);
 		expect(response.status).toBe(200);
 	} finally {
 		// Always cleanup
@@ -680,7 +708,9 @@ export class AdminAPIClient {
 	constructor(private request: APIRequestContext) {}
 
 	// ✅ CORRECT: Accept typespec request object
-	async login(request: AdminLoginRequest): Promise<APIResponse<AdminLoginResponse>> {
+	async login(
+		request: AdminLoginRequest
+	): Promise<APIResponse<AdminLoginResponse>> {
 		const response = await this.request.post("/admin/login", {
 			data: request,
 		});
@@ -709,6 +739,7 @@ export class AdminAPIClient {
 ```
 
 **Usage in tests:**
+
 ```typescript
 // Import types from typespec
 import type { AdminLoginRequest } from "../../../specs/typespec/admin/admin-users";
