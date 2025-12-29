@@ -8,6 +8,10 @@ import {
 	ERR_REQUIRED,
 } from "../common/common";
 
+// Import TFA types from common for hub TFA functionality
+import type { TFACode, LanguageCode } from "../common/common";
+import { validateTFACode } from "../common/common";
+
 // Re-export global types for backward compatibility
 export type {
 	Region,
@@ -22,6 +26,7 @@ export type { EmailAddress, Password, ValidationError };
 
 // Type aliases for signup
 export type HubSignupToken = string;
+export type HubTFAToken = string;
 export type HubSessionToken = string;
 export type DisplayName = string;
 export type CountryCode = string;
@@ -145,7 +150,18 @@ export interface HubLoginRequest {
 }
 
 export interface HubLoginResponse {
+	tfa_token: HubTFAToken;
+}
+
+export interface HubTFARequest {
+	tfa_token: HubTFAToken;
+	tfa_code: TFACode;
+	remember_me: boolean;
+}
+
+export interface HubTFAResponse {
 	session_token: HubSessionToken;
+	preferred_language: LanguageCode;
 }
 
 export interface HubLogoutRequest {
@@ -236,6 +252,25 @@ export function validateHubLoginRequest(
 	if (passwordErr) {
 		errs.push(newValidationError("password", passwordErr));
 	}
+
+	return errs;
+}
+
+export function validateHubTFARequest(
+	request: HubTFARequest,
+): ValidationError[] {
+	const errs: ValidationError[] = [];
+
+	if (!request.tfa_token) {
+		errs.push(newValidationError("tfa_token", ERR_REQUIRED));
+	}
+
+	const tfaCodeErr = validateTFACode(request.tfa_code);
+	if (tfaCodeErr) {
+		errs.push(newValidationError("tfa_code", tfaCodeErr));
+	}
+
+	// remember_me is boolean, no validation needed
 
 	return errs;
 }

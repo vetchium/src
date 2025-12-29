@@ -8,6 +8,7 @@ import { HomePage } from "./pages/HomePage";
 import { LoginPage } from "./pages/LoginPage";
 import { SignupPage } from "./pages/SignupPage";
 import { SignupVerifyPage } from "./pages/SignupVerifyPage";
+import { TFAPage } from "./pages/TFAPage";
 
 function AppContent() {
 	const { theme } = useTheme();
@@ -32,6 +33,7 @@ function AppContent() {
 			<Routes>
 				<Route path="/" element={<HomePage />} />
 				<Route path="/login" element={<LoginPage />} />
+				<Route path="/tfa" element={<TFAPage />} />
 				<Route path="/signup" element={<SignupPage />} />
 				<Route path="/signup/verify" element={<SignupVerifyPage />} />
 				<Route path="*" element={<Navigate to="/" replace />} />

@@ -1,11 +1,14 @@
 package hub
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"math/big"
 	"net/http"
 	"time"
 
@@ -13,12 +16,17 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"golang.org/x/crypto/bcrypt"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
+	"vetchium-api-server.gomodule/internal/db/regionaldb"
+	"vetchium-api-server.gomodule/internal/email/templates"
+	"vetchium-api-server.gomodule/internal/i18n"
 	"vetchium-api-server.gomodule/internal/server"
 	"vetchium-api-server.typespec/hub"
 )
 
 const (
+	tfaTokenExpiry        = 10 * time.Minute
 	hubSessionTokenExpiry = 24 * time.Hour
+	rememberMeExpiry      = 365 * 24 * time.Hour
 )
 
 func Login(s *server.Server) http.HandlerFunc {
@@ -90,36 +98,62 @@ func Login(s *server.Server) http.HandlerFunc {
 
 		// Verify password
 		if err := bcrypt.CompareHashAndPassword(regionalUser.PasswordHash, []byte(loginRequest.Password)); err != nil {
+			log.Debug("invalid credentials - password mismatch")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 
-		// Generate session token
-		sessionTokenBytes := make([]byte, 32)
-		if _, err := rand.Read(sessionTokenBytes); err != nil {
-			log.Error("failed to generate session token", "error", err)
+		// Generate TFA token
+		tfaTokenBytes := make([]byte, 32)
+		if _, err := rand.Read(tfaTokenBytes); err != nil {
+			log.Error("failed to generate TFA token", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
-		sessionToken := hex.EncodeToString(sessionTokenBytes)
+		tfaToken := hex.EncodeToString(tfaTokenBytes)
 
-		// Create session in global DB
-		sessionExpiresAt := pgtype.Timestamp{Time: time.Now().Add(hubSessionTokenExpiry), Valid: true}
-		err = s.Global.CreateHubSession(ctx, globaldb.CreateHubSessionParams{
-			SessionToken:    sessionToken,
-			HubUserGlobalID: globalUser.HubUserGlobalID,
-			ExpiresAt:       sessionExpiresAt,
+		// Generate 6-digit TFA code
+		tfaCode, err := generateTFACode()
+		if err != nil {
+			log.Error("failed to generate TFA code", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
+		// Store TFA token in regional database
+		// NOTE: This spans two operations in regional database (token, email).
+		// We use a compensating transaction: if email enqueue fails, we delete the TFA token.
+		expiresAt := pgtype.Timestamp{Time: time.Now().Add(tfaTokenExpiry), Valid: true}
+		err = regionalDB.CreateHubTFAToken(ctx, regionaldb.CreateHubTFATokenParams{
+			TfaToken:  tfaToken,
+			HubUserID: regionalUser.HubUserID,
+			TfaCode:   tfaCode,
+			ExpiresAt: expiresAt,
 		})
 		if err != nil {
-			log.Error("failed to create session", "error", err)
+			log.Error("failed to store TFA token", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		log.Info("hub user login successful", "hub_user_global_id", globalUser.HubUserGlobalID)
+		// Enqueue TFA email in regional database
+		// Match user's preferred language to best available translation
+		lang := i18n.Match(globalUser.PreferredLanguage)
+		err = sendTFAEmail(ctx, regionalDB, regionalUser.EmailAddress, tfaCode, lang)
+		if err != nil {
+			log.Error("failed to enqueue TFA email", "error", err)
+			// Compensating transaction: delete the TFA token we just created
+			if delErr := regionalDB.DeleteHubTFAToken(ctx, tfaToken); delErr != nil {
+				log.Error("failed to delete TFA token after email enqueue failure", "error", delErr)
+			}
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
+		log.Info("hub user login initiated, TFA email sent", "hub_user_global_id", globalUser.HubUserGlobalID)
 
 		response := hub.HubLoginResponse{
-			SessionToken: hub.HubSessionToken(sessionToken),
+			TFAToken: hub.HubTFAToken(tfaToken),
 		}
 
 		if err := json.NewEncoder(w).Encode(response); err != nil {
@@ -128,4 +162,30 @@ func Login(s *server.Server) http.HandlerFunc {
 			return
 		}
 	}
+}
+
+func generateTFACode() (string, error) {
+	// Generate a random 6-digit code
+	max := big.NewInt(1000000)
+	n, err := rand.Int(rand.Reader, max)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%06d", n.Int64()), nil
+}
+
+func sendTFAEmail(ctx context.Context, db *regionaldb.Queries, to string, tfaCode string, lang string) error {
+	data := templates.HubTFAData{
+		Code:    tfaCode,
+		Minutes: int(tfaTokenExpiry.Minutes()),
+	}
+
+	_, err := db.EnqueueEmail(ctx, regionaldb.EnqueueEmailParams{
+		EmailType:     regionaldb.EmailTemplateTypeHubTfa,
+		EmailTo:       to,
+		EmailSubject:  templates.HubTFASubject(lang),
+		EmailTextBody: templates.HubTFATextBody(lang, data),
+		EmailHtmlBody: templates.HubTFAHTMLBody(lang, data),
+	})
+	return err
 }

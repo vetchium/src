@@ -2,6 +2,7 @@ export type EmailAddress = string;
 export type Password = string;
 export type LanguageCode = string;
 export type DomainName = string;
+export type TFACode = string;
 
 // Validation constraints matching common.tsp
 export const EMAIL_MIN_LENGTH = 3;
@@ -12,10 +13,12 @@ export const LANGUAGE_CODE_MIN_LENGTH = 2;
 export const LANGUAGE_CODE_MAX_LENGTH = 10;
 export const DOMAIN_MIN_LENGTH = 3;
 export const DOMAIN_MAX_LENGTH = 255;
+export const TFA_CODE_LENGTH = 6;
 
 const EMAIL_PATTERN = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 const LANGUAGE_CODE_PATTERN = /^[a-z]{2}(-[A-Z]{2})?$/;
 const DOMAIN_NAME_PATTERN = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$/;
+const TFA_CODE_PATTERN = /^[0-9]{6}$/;
 
 // Supported languages (BCP 47 tags)
 export const SUPPORTED_LANGUAGES = ["en-US", "de-DE", "ta-IN"] as const;
@@ -101,6 +104,17 @@ export function validateDomainName(domain: DomainName): string | null {
 	}
 	if (!DOMAIN_NAME_PATTERN.test(domain)) {
 		return ERR_DOMAIN_INVALID_FORMAT;
+	}
+	return null;
+}
+
+// Validates TFA code, returns error message or null (no field context)
+export function validateTFACode(code: TFACode): string | null {
+	if (code.length !== TFA_CODE_LENGTH) {
+		return ERR_TFA_CODE_INVALID_LENGTH;
+	}
+	if (!TFA_CODE_PATTERN.test(code)) {
+		return ERR_TFA_CODE_INVALID_FORMAT;
 	}
 	return null;
 }

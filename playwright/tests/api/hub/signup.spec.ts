@@ -12,14 +12,55 @@ import {
 	generateTestDomainName,
 	extractSignupTokenFromEmail,
 } from "../../../lib/db";
-import { waitForEmail, getEmailContent } from "../../../lib/mailpit";
+import {
+	waitForEmail,
+	getEmailContent,
+	searchEmails,
+	extractTfaCode,
+} from "../../../lib/mailpit";
 import type {
 	CompleteSignupRequest,
 	HubLoginRequest,
+	HubTFARequest,
 	RequestSignupRequest,
 	HubLogoutRequest,
 } from "vetchium-specs/hub/hub-users";
 import type { CheckDomainRequest } from "vetchium-specs/global/global";
+
+/**
+ * Helper function to get TFA code from the most recent TFA email.
+ * For hub users, there may be multiple emails (signup, TFA, etc.)
+ * so we need to search for the one containing a 6-digit code.
+ * Uses exponential backoff to handle delays under parallel test load.
+ */
+async function getTfaCodeForHubUser(email: string): Promise<string> {
+	const maxRetries = 15;
+	let delay = 1000; // Start with 1 second
+	const maxDelay = 5000; // Cap at 5 seconds
+	const backoffMultiplier = 1.5;
+
+	for (let attempt = 1; attempt <= maxRetries; attempt++) {
+		const messages = await searchEmails(email);
+
+		// Check messages from most recent to oldest
+		for (const msgSummary of messages) {
+			const fullMessage = await getEmailContent(msgSummary.ID);
+			try {
+				const code = extractTfaCode(fullMessage.Text);
+				return code;
+			} catch (e) {
+				// This email doesn't contain a TFA code, try next one
+			}
+		}
+
+		if (attempt < maxRetries) {
+			// Wait before retrying with exponential backoff
+			await new Promise((resolve) => setTimeout(resolve, delay));
+			delay = Math.min(delay * backoffMultiplier, maxDelay);
+		}
+	}
+	throw new Error(`No TFA code found in any emails for ${email} after ${maxRetries} attempts`);
+}
 
 test.describe("POST /global/get-regions", () => {
 	test("returns active regions", async ({ request }) => {
@@ -253,14 +294,14 @@ test.describe("POST /hub/complete-signup", () => {
 			expect(response.body.handle).toBeDefined();
 			expect(response.body.handle).toMatch(/^[a-z0-9-]+$/);
 
-			// Verify can login with created account
+			// Verify can login with created account (login returns TFA token)
 			const loginRequest: HubLoginRequest = {
 				email_address: email,
 				password,
 			};
 			const loginResponse = await api.login(loginRequest);
 			expect(loginResponse.status).toBe(200);
-			expect(loginResponse.body.session_token).toBeDefined();
+			expect(loginResponse.body.tfa_token).toBeDefined();
 		} finally {
 			await deleteTestHubUser(email);
 			await permanentlyDeleteTestApprovedDomain(domain);
@@ -318,7 +359,6 @@ test.describe("POST /hub/complete-signup", () => {
 
 	test("returns 401 for invalid signup token", async ({ request }) => {
 		const api = new HubAPIClient(request);
-		const email = "test@example.com";
 
 		const signupRequest: CompleteSignupRequest = {
 			signup_token: "0".repeat(64), // Invalid token
@@ -461,7 +501,9 @@ test.describe("POST /hub/complete-signup", () => {
 });
 
 test.describe("POST /hub/login", () => {
-	test("successful login returns session token", async ({ request }) => {
+	test("successful login returns TFA token and sends email", async ({
+		request,
+	}) => {
 		const api = new HubAPIClient(request);
 		const adminEmail = generateTestEmail("admin");
 		const domain = generateTestDomainName();
@@ -496,8 +538,28 @@ test.describe("POST /hub/login", () => {
 			const response = await api.login(loginRequest);
 
 			expect(response.status).toBe(200);
-			expect(response.body.session_token).toBeDefined();
-			expect(response.body.session_token).toMatch(/^[a-f0-9]{64}$/);
+			expect(response.body.tfa_token).toBeDefined();
+			// TFA token should be 64-character hex string (32 bytes hex-encoded)
+			expect(response.body.tfa_token).toMatch(/^[a-f0-9]{64}$/);
+
+			// Verify TFA email was sent - wait for it with exponential backoff
+			let messages: Awaited<ReturnType<typeof searchEmails>> = [];
+			const maxRetries = 15;
+			let delay = 1000;
+			const maxDelay = 5000;
+			const backoffMultiplier = 1.5;
+
+			for (let attempt = 1; attempt <= maxRetries; attempt++) {
+				messages = await searchEmails(email);
+				if (messages.length >= 2) break; // Found both signup and TFA emails
+				if (attempt < maxRetries) {
+					await new Promise((resolve) => setTimeout(resolve, delay));
+					delay = Math.min(delay * backoffMultiplier, maxDelay);
+				}
+			}
+			expect(messages.length).toBeGreaterThanOrEqual(2); // Signup + TFA emails
+			// Most recent email should be the TFA email
+			expect(messages[0].To[0].Address).toBe(email);
 		} finally {
 			await deleteTestHubUser(email);
 			await permanentlyDeleteTestApprovedDomain(domain);
@@ -615,14 +677,25 @@ test.describe("POST /hub/logout", () => {
 			};
 			await api.completeSignup(completeSignup);
 
-			// Login
+			// Login to get TFA token
 			const loginRequest: HubLoginRequest = {
 				email_address: email,
 				password,
 			};
 			const loginResponse = await api.login(loginRequest);
 			expect(loginResponse.status).toBe(200);
-			const sessionToken = loginResponse.body.session_token;
+			const tfaToken = loginResponse.body.tfa_token;
+
+			// Verify TFA to get session token
+			const tfaCode = await getTfaCodeForHubUser(email);
+			const tfaRequest: HubTFARequest = {
+				tfa_token: tfaToken,
+				tfa_code: tfaCode,
+				remember_me: false,
+			};
+			const tfaResponse = await api.verifyTFA(tfaRequest);
+			expect(tfaResponse.status).toBe(200);
+			const sessionToken = tfaResponse.body.session_token;
 
 			// Logout
 			const logoutRequest: HubLogoutRequest = { session_token: sessionToken };

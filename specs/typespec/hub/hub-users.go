@@ -9,6 +9,7 @@ import (
 
 // Type aliases
 type HubSignupToken string
+type HubTFAToken string
 type HubSessionToken string
 type DisplayName string
 type CountryCode string
@@ -169,7 +170,32 @@ func (r HubLoginRequest) Validate() []common.ValidationError {
 }
 
 type HubLoginResponse struct {
-	SessionToken HubSessionToken `json:"session_token"`
+	TFAToken HubTFAToken `json:"tfa_token"`
+}
+
+type HubTFARequest struct {
+	TFAToken   HubTFAToken    `json:"tfa_token"`
+	TFACode    common.TFACode `json:"tfa_code"`
+	RememberMe bool           `json:"remember_me"`
+}
+
+func (r HubTFARequest) Validate() []common.ValidationError {
+	var errs []common.ValidationError
+
+	if r.TFAToken == "" {
+		errs = append(errs, common.NewValidationError("tfa_token", common.ErrRequired))
+	}
+	if err := r.TFACode.Validate(); err != nil {
+		errs = append(errs, common.NewValidationError("tfa_code", err))
+	}
+	// remember_me is boolean, no validation needed
+
+	return errs
+}
+
+type HubTFAResponse struct {
+	SessionToken      HubSessionToken     `json:"session_token"`
+	PreferredLanguage common.LanguageCode `json:"preferred_language"`
 }
 
 type HubLogoutRequest struct {

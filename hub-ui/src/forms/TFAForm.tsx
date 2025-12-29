@@ -1,4 +1,4 @@
-import { Form, Input, Button, Alert, Space } from "antd";
+import { Form, Input, Button, Alert, Space, Checkbox } from "antd";
 import { SafetyOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { TFA_CODE_LENGTH } from "vetchium-specs/common/common";
@@ -6,22 +6,26 @@ import { useAuth } from "../contexts/AuthContext";
 
 interface TFAFormValues {
 	tfa_code: string;
+	remember_me: boolean;
 }
 
 export function TFAForm() {
 	const { t } = useTranslation("auth");
 	const { verifyTFA, backToLogin, loading, error } = useAuth();
+	const [form] = Form.useForm();
 
 	const handleFinish = async (values: TFAFormValues) => {
-		await verifyTFA(values.tfa_code);
+		await verifyTFA(values.tfa_code, values.remember_me);
 	};
 
 	return (
 		<Form<TFAFormValues>
+			form={form}
 			name="tfa"
 			onFinish={handleFinish}
 			layout="vertical"
 			requiredMark={false}
+			initialValues={{ remember_me: false }}
 		>
 			{error && (
 				<Alert
@@ -53,6 +57,10 @@ export function TFAForm() {
 					size="large"
 					maxLength={TFA_CODE_LENGTH}
 				/>
+			</Form.Item>
+
+			<Form.Item name="remember_me" valuePropName="checked">
+				<Checkbox>{t("tfa.rememberMe")}</Checkbox>
 			</Form.Item>
 
 			<Form.Item>

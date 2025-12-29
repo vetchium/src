@@ -13,6 +13,7 @@ func RegisterHubRoutes(mux *http.ServeMux, s *server.Server) {
 	mux.HandleFunc("POST /hub/request-signup", hub.RequestSignup(s))
 	mux.HandleFunc("POST /hub/complete-signup", hub.CompleteSignup(s))
 	mux.HandleFunc("POST /hub/login", hub.Login(s))
+	mux.HandleFunc("POST /hub/tfa", hub.TFA(s))
 
 	// Authenticated routes
 	authMiddleware := middleware.HubAuth(s.Global)

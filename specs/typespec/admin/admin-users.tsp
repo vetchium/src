@@ -14,12 +14,6 @@ scalar AdminTFAToken extends string;
 // Admin Session Token - returned after successful TFA verification
 scalar AdminSessionToken extends string;
 
-// TFA Code - code sent via email
-@minLength(6)
-@maxLength(6)
-@pattern("^[0-9]{6}$")
-scalar TFACode extends string;
-
 model AdminLoginRequest {
     email: EmailAddress;
     password: Password;

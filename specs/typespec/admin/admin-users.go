@@ -6,25 +6,6 @@ import (
 
 type AdminTFAToken string
 type AdminSessionToken string
-type TFACode string
-
-// Validation constraints matching admin-users.tsp
-const (
-	TFACodeLength = 6
-)
-
-// Validate checks if the TFA code meets constraints
-func (c TFACode) Validate() error {
-	if len(c) != TFACodeLength {
-		return common.ErrTFACodeInvalidLength
-	}
-	for _, ch := range c {
-		if ch < '0' || ch > '9' {
-			return common.ErrTFACodeInvalidFormat
-		}
-	}
-	return nil
-}
 
 type AdminLoginRequest struct {
 	EmailAddress common.EmailAddress `json:"email"`
@@ -49,8 +30,8 @@ type AdminLoginResponse struct {
 }
 
 type AdminTFARequest struct {
-	TFAToken AdminTFAToken `json:"tfa_token"`
-	TFACode  TFACode       `json:"tfa_code"`
+	TFAToken AdminTFAToken  `json:"tfa_token"`
+	TFACode  common.TFACode `json:"tfa_code"`
 }
 
 func (r AdminTFARequest) Validate() []common.ValidationError {

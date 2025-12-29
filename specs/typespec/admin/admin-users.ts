@@ -2,36 +2,20 @@ import {
 	type EmailAddress,
 	type Password,
 	type LanguageCode,
+	type TFACode,
 	type ValidationError,
 	newValidationError,
 	validateEmailAddress,
 	validatePassword,
 	validateLanguageCode,
+	validateTFACode,
 	ERR_REQUIRED,
-	ERR_TFA_CODE_INVALID_LENGTH,
-	ERR_TFA_CODE_INVALID_FORMAT,
 } from "../common/common";
 
-export type { EmailAddress, Password, LanguageCode, ValidationError };
+export type { EmailAddress, Password, LanguageCode, TFACode, ValidationError };
 
 export type AdminTFAToken = string;
 export type AdminSessionToken = string;
-export type TFACode = string;
-
-// Validation constraints matching admin-users.tsp
-export const TFA_CODE_LENGTH = 6;
-const TFA_CODE_PATTERN = /^[0-9]{6}$/;
-
-// Validates TFA code, returns error message or null (no field context)
-export function validateTFACode(code: TFACode): string | null {
-	if (code.length !== TFA_CODE_LENGTH) {
-		return ERR_TFA_CODE_INVALID_LENGTH;
-	}
-	if (!TFA_CODE_PATTERN.test(code)) {
-		return ERR_TFA_CODE_INVALID_FORMAT;
-	}
-	return null;
-}
 
 export interface AdminLoginRequest {
 	email: EmailAddress;

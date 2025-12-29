@@ -11,6 +11,7 @@ type EmailAddress string
 type Password string
 type LanguageCode string
 type DomainName string
+type TFACode string
 
 // Validation constraints matching common.tsp
 const (
@@ -22,6 +23,7 @@ const (
 	LanguageCodeMaxLength = 10
 	DomainMinLength       = 3
 	DomainMaxLength       = 255
+	TFACodeLength         = 6
 )
 
 var emailPattern = regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
@@ -118,6 +120,19 @@ func (d DomainName) Validate() error {
 	}
 	if !domainNamePattern.MatchString(domainStr) {
 		return ErrDomainInvalidFormat
+	}
+	return nil
+}
+
+// Validate checks if the TFA code meets constraints (returns error without field context)
+func (c TFACode) Validate() error {
+	if len(c) != TFACodeLength {
+		return ErrTFACodeInvalidLength
+	}
+	for _, ch := range c {
+		if ch < '0' || ch > '9' {
+			return ErrTFACodeInvalidFormat
+		}
 	}
 	return nil
 }

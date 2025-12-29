@@ -22,3 +22,9 @@ scalar LanguageCode extends string;
 @pattern("^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$")
 @doc("A valid domain name in lowercase (e.g., example.com)")
 scalar DomainName extends string;
+
+@minLength(6)
+@maxLength(6)
+@pattern("^[0-9]{6}$")
+@doc("6-digit two-factor authentication code sent via email")
+scalar TFACode extends string;

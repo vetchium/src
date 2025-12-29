@@ -6,6 +6,8 @@ import type {
 	CompleteSignupResponse,
 	HubLoginRequest,
 	HubLoginResponse,
+	HubTFARequest,
+	HubTFAResponse,
 	HubLogoutRequest,
 } from "vetchium-specs/hub/hub-users";
 import type { APIResponse } from "./api-client";
@@ -122,6 +124,41 @@ export class HubAPIClient {
 		return {
 			status: response.status(),
 			body: responseBody as HubLoginResponse,
+			errors: responseBody.errors,
+		};
+	}
+
+	/**
+	 * POST /hub/tfa
+	 * Verify TFA code and get session token
+	 */
+	async verifyTFA(
+		request: HubTFARequest
+	): Promise<APIResponse<HubTFAResponse>> {
+		const response = await this.request.post("/hub/tfa", {
+			data: request,
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as HubTFAResponse,
+			errors: body.errors,
+		};
+	}
+
+	/**
+	 * POST /hub/tfa with raw body for testing invalid payloads
+	 */
+	async verifyTFARaw(body: unknown): Promise<APIResponse<HubTFAResponse>> {
+		const response = await this.request.post("/hub/tfa", {
+			data: body,
+		});
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as HubTFAResponse,
 			errors: responseBody.errors,
 		};
 	}
