@@ -17,7 +17,8 @@ export const TFA_CODE_LENGTH = 6;
 
 const EMAIL_PATTERN = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 const LANGUAGE_CODE_PATTERN = /^[a-z]{2}(-[A-Z]{2})?$/;
-const DOMAIN_NAME_PATTERN = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$/;
+const DOMAIN_NAME_PATTERN =
+	/^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$/;
 const TFA_CODE_PATTERN = /^[0-9]{6}$/;
 
 // Supported languages (BCP 47 tags)
@@ -38,7 +39,8 @@ export const ERR_LANGUAGE_CODE_INVALID = "must be a valid language code";
 export const ERR_LANGUAGE_NOT_SUPPORTED = "language not supported";
 export const ERR_DOMAIN_TOO_SHORT = "must be at least 3 characters";
 export const ERR_DOMAIN_TOO_LONG = "must be at most 255 characters";
-export const ERR_DOMAIN_INVALID_FORMAT = "must be a valid domain name in lowercase";
+export const ERR_DOMAIN_INVALID_FORMAT =
+	"must be a valid domain name in lowercase";
 
 // ValidationError represents a validation failure with field context
 export interface ValidationError {
@@ -49,7 +51,7 @@ export interface ValidationError {
 // Helper to create a ValidationError by combining field name with an error message
 export function newValidationError(
 	field: string,
-	message: string,
+	message: string
 ): ValidationError {
 	return { field, message };
 }

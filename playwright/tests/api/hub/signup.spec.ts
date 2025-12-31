@@ -58,7 +58,9 @@ async function getTfaCodeForHubUser(email: string): Promise<string> {
 			delay = Math.min(delay * backoffMultiplier, maxDelay);
 		}
 	}
-	throw new Error(`No TFA code found in any emails for ${email} after ${maxRetries} attempts`);
+	throw new Error(
+		`No TFA code found in any emails for ${email} after ${maxRetries} attempts`
+	);
 }
 
 test.describe("POST /global/get-regions", () => {

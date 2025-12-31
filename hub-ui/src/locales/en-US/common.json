@@ -1,13 +1,13 @@
 {
-  "appName": "Vetchium Hub",
-  "loading": "Loading...",
-  "submit": "Submit",
-  "cancel": "Cancel",
-  "back": "Back",
-  "next": "Next",
-  "required": "This field is required",
-  "invalidEmail": "Please enter a valid email address",
-  "invalidPassword": "Password must be at least 8 characters with uppercase, lowercase, number, and special character",
-  "serverError": "An error occurred. Please try again later.",
-  "networkError": "Network error. Please check your connection."
+	"appName": "Vetchium Hub",
+	"loading": "Loading...",
+	"submit": "Submit",
+	"cancel": "Cancel",
+	"back": "Back",
+	"next": "Next",
+	"required": "This field is required",
+	"invalidEmail": "Please enter a valid email address",
+	"invalidPassword": "Password must be at least 8 characters with uppercase, lowercase, number, and special character",
+	"serverError": "An error occurred. Please try again later.",
+	"networkError": "Network error. Please check your connection."
 }

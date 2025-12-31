@@ -92,10 +92,7 @@ export function validateCountryCode(code: CountryCode): string | null {
 }
 
 export function validateHandle(handle: Handle): string | null {
-	if (
-		handle.length < HANDLE_MIN_LENGTH ||
-		handle.length > HANDLE_MAX_LENGTH
-	) {
+	if (handle.length < HANDLE_MIN_LENGTH || handle.length > HANDLE_MAX_LENGTH) {
 		return ERR_HANDLE_INVALID_FORMAT;
 	}
 	if (!/^[a-z0-9-]+$/.test(handle)) {
@@ -171,7 +168,7 @@ export interface HubLogoutRequest {
 // Request validators
 
 export function validateRequestSignupRequest(
-	request: RequestSignupRequest,
+	request: RequestSignupRequest
 ): ValidationError[] {
 	const errs: ValidationError[] = [];
 
@@ -184,7 +181,7 @@ export function validateRequestSignupRequest(
 }
 
 export function validateCompleteSignupRequest(
-	request: CompleteSignupRequest,
+	request: CompleteSignupRequest
 ): ValidationError[] {
 	const errs: ValidationError[] = [];
 
@@ -208,15 +205,18 @@ export function validateCompleteSignupRequest(
 				errs.push(
 					newValidationError(
 						`other_display_names[${idx}].language_code`,
-						ERR_REQUIRED,
-					),
+						ERR_REQUIRED
+					)
 				);
 			}
 
 			const nameErr = validateDisplayName(entry.display_name);
 			if (nameErr) {
 				errs.push(
-					newValidationError(`other_display_names[${idx}].display_name`, nameErr),
+					newValidationError(
+						`other_display_names[${idx}].display_name`,
+						nameErr
+					)
 				);
 			}
 		});
@@ -239,7 +239,7 @@ export function validateCompleteSignupRequest(
 }
 
 export function validateHubLoginRequest(
-	request: HubLoginRequest,
+	request: HubLoginRequest
 ): ValidationError[] {
 	const errs: ValidationError[] = [];
 
@@ -257,7 +257,7 @@ export function validateHubLoginRequest(
 }
 
 export function validateHubTFARequest(
-	request: HubTFARequest,
+	request: HubTFARequest
 ): ValidationError[] {
 	const errs: ValidationError[] = [];
 
@@ -276,7 +276,7 @@ export function validateHubTFARequest(
 }
 
 export function validateHubLogoutRequest(
-	_request: HubLogoutRequest,
+	_request: HubLogoutRequest
 ): ValidationError[] {
 	// No fields to validate
 	return [];

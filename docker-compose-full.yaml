@@ -66,8 +66,8 @@ services:
   mailpit:
     image: axllent/mailpit:latest
     ports:
-      - "8025:8025"  # Web UI
-      - "1025:1025"  # SMTP
+      - "8025:8025" # Web UI
+      - "1025:1025" # SMTP
     environment:
       MP_SMTP_AUTH_ACCEPT_ANY: "true"
       MP_SMTP_AUTH_ALLOW_INSECURE: "true"
@@ -79,7 +79,14 @@ services:
     depends_on:
       global-db:
         condition: service_healthy
-    command: ["-dir", "/migrations/global", "postgres", "postgres://vetchium:vetchium_dev@global-db:5432/vetchium_global?sslmode=disable", "up"]
+    command:
+      [
+        "-dir",
+        "/migrations/global",
+        "postgres",
+        "postgres://vetchium:vetchium_dev@global-db:5432/vetchium_global?sslmode=disable",
+        "up",
+      ]
 
   migrate-ind1:
     build:
@@ -88,7 +95,14 @@ services:
     depends_on:
       regional-db-ind1:
         condition: service_healthy
-    command: ["-dir", "/migrations/regional", "postgres", "postgres://vetchium:vetchium_dev@regional-db-ind1:5432/vetchium_ind1?sslmode=disable", "up"]
+    command:
+      [
+        "-dir",
+        "/migrations/regional",
+        "postgres",
+        "postgres://vetchium:vetchium_dev@regional-db-ind1:5432/vetchium_ind1?sslmode=disable",
+        "up",
+      ]
 
   migrate-usa1:
     build:
@@ -97,7 +111,14 @@ services:
     depends_on:
       regional-db-usa1:
         condition: service_healthy
-    command: ["-dir", "/migrations/regional", "postgres", "postgres://vetchium:vetchium_dev@regional-db-usa1:5432/vetchium_usa1?sslmode=disable", "up"]
+    command:
+      [
+        "-dir",
+        "/migrations/regional",
+        "postgres",
+        "postgres://vetchium:vetchium_dev@regional-db-usa1:5432/vetchium_usa1?sslmode=disable",
+        "up",
+      ]
 
   migrate-deu1:
     build:
@@ -106,7 +127,14 @@ services:
     depends_on:
       regional-db-deu1:
         condition: service_healthy
-    command: ["-dir", "/migrations/regional", "postgres", "postgres://vetchium:vetchium_dev@regional-db-deu1:5432/vetchium_deu1?sslmode=disable", "up"]
+    command:
+      [
+        "-dir",
+        "/migrations/regional",
+        "postgres",
+        "postgres://vetchium:vetchium_dev@regional-db-deu1:5432/vetchium_deu1?sslmode=disable",
+        "up",
+      ]
 
   seed-global:
     build:
@@ -115,7 +143,12 @@ services:
     depends_on:
       migrate-global:
         condition: service_completed_successfully
-    command: ["postgres://vetchium:vetchium_dev@global-db:5432/vetchium_global?sslmode=disable", "-f", "/seed/global.sql"]
+    command:
+      [
+        "postgres://vetchium:vetchium_dev@global-db:5432/vetchium_global?sslmode=disable",
+        "-f",
+        "/seed/global.sql",
+      ]
 
   seed-ind1:
     build:
@@ -124,7 +157,12 @@ services:
     depends_on:
       migrate-ind1:
         condition: service_completed_successfully
-    command: ["postgres://vetchium:vetchium_dev@regional-db-ind1:5432/vetchium_ind1?sslmode=disable", "-f", "/seed/regional.sql"]
+    command:
+      [
+        "postgres://vetchium:vetchium_dev@regional-db-ind1:5432/vetchium_ind1?sslmode=disable",
+        "-f",
+        "/seed/regional.sql",
+      ]
 
   seed-usa1:
     build:
@@ -133,7 +171,12 @@ services:
     depends_on:
       migrate-usa1:
         condition: service_completed_successfully
-    command: ["postgres://vetchium:vetchium_dev@regional-db-usa1:5432/vetchium_usa1?sslmode=disable", "-f", "/seed/regional.sql"]
+    command:
+      [
+        "postgres://vetchium:vetchium_dev@regional-db-usa1:5432/vetchium_usa1?sslmode=disable",
+        "-f",
+        "/seed/regional.sql",
+      ]
 
   seed-deu1:
     build:
@@ -142,7 +185,12 @@ services:
     depends_on:
       migrate-deu1:
         condition: service_completed_successfully
-    command: ["postgres://vetchium:vetchium_dev@regional-db-deu1:5432/vetchium_deu1?sslmode=disable", "-f", "/seed/regional.sql"]
+    command:
+      [
+        "postgres://vetchium:vetchium_dev@regional-db-deu1:5432/vetchium_deu1?sslmode=disable",
+        "-f",
+        "/seed/regional.sql",
+      ]
 
   api-server-ind1:
     build:

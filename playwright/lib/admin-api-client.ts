@@ -128,7 +128,10 @@ export class AdminAPIClient {
 	 * POST /admin/logout with raw body for testing invalid payloads
 	 * Note: Session token must still be in header for auth
 	 */
-	async logoutRaw(sessionToken: string, body: unknown): Promise<APIResponse<void>> {
+	async logoutRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<void>> {
 		const response = await this.request.post("/admin/logout", {
 			headers: {
 				Authorization: `Bearer ${sessionToken}`,

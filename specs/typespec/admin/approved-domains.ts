@@ -26,7 +26,7 @@ export interface AddApprovedDomainRequest {
 }
 
 export function validateAddApprovedDomainRequest(
-	request: AddApprovedDomainRequest,
+	request: AddApprovedDomainRequest
 ): ValidationError[] {
 	const errs: ValidationError[] = [];
 
@@ -56,11 +56,14 @@ export interface ListApprovedDomainsRequest {
 }
 
 export function validateListApprovedDomainsRequest(
-	request: ListApprovedDomainsRequest,
+	request: ListApprovedDomainsRequest
 ): ValidationError[] {
 	const errs: ValidationError[] = [];
 
-	if (request.filter && !["active", "inactive", "all"].includes(request.filter)) {
+	if (
+		request.filter &&
+		!["active", "inactive", "all"].includes(request.filter)
+	) {
 		errs.push(newValidationError("filter", ERR_INVALID_FILTER));
 	}
 
@@ -82,7 +85,7 @@ export interface GetApprovedDomainRequest {
 }
 
 export function validateGetApprovedDomainRequest(
-	request: GetApprovedDomainRequest,
+	request: GetApprovedDomainRequest
 ): ValidationError[] {
 	const errs: ValidationError[] = [];
 
@@ -98,11 +101,14 @@ export function validateGetApprovedDomainRequest(
 	if (request.audit_limit !== undefined) {
 		if (typeof request.audit_limit !== "number" || request.audit_limit <= 0) {
 			errs.push(
-				newValidationError("audit_limit", "Audit limit must be a positive number"),
+				newValidationError(
+					"audit_limit",
+					"Audit limit must be a positive number"
+				)
 			);
 		} else if (request.audit_limit > 100) {
 			errs.push(
-				newValidationError("audit_limit", "Audit limit cannot exceed 100"),
+				newValidationError("audit_limit", "Audit limit cannot exceed 100")
 			);
 		}
 	}
@@ -116,7 +122,7 @@ export interface DisableApprovedDomainRequest {
 }
 
 export function validateDisableApprovedDomainRequest(
-	request: DisableApprovedDomainRequest,
+	request: DisableApprovedDomainRequest
 ): ValidationError[] {
 	const errs: ValidationError[] = [];
 
@@ -144,7 +150,7 @@ export interface EnableApprovedDomainRequest {
 }
 
 export function validateEnableApprovedDomainRequest(
-	request: EnableApprovedDomainRequest,
+	request: EnableApprovedDomainRequest
 ): ValidationError[] {
 	const errs: ValidationError[] = [];
 

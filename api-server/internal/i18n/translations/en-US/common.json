@@ -1,6 +1,6 @@
 {
-  "_description": "Common strings used across multiple templates",
+	"_description": "Common strings used across multiple templates",
 
-  "company_name": "Vetchium",
-  "automated_message_notice": "This is an automated message. Please do not reply."
+	"company_name": "Vetchium",
+	"automated_message_notice": "This is an automated message. Please do not reply."
 }

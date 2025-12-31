@@ -10,55 +10,55 @@ import { defineConfig } from "@playwright/test";
  * - Global DB: postgresql://vetchium:vetchium_dev@localhost:5432/vetchium_global
  */
 export default defineConfig({
-  testDir: "./tests",
+	testDir: "./tests",
 
-  // Run all tests in parallel - each test is fully independent
-  fullyParallel: true,
+	// Run all tests in parallel - each test is fully independent
+	fullyParallel: true,
 
-  // Fail the build on CI if you accidentally left test.only in the source code
-  forbidOnly: !!process.env.CI,
+	// Fail the build on CI if you accidentally left test.only in the source code
+	forbidOnly: !!process.env.CI,
 
-  // Retry on CI only
-  retries: process.env.CI ? 2 : 0,
+	// Retry on CI only
+	retries: process.env.CI ? 2 : 0,
 
-  // Use multiple workers for parallel execution
-  workers: process.env.CI ? 4 : undefined,
+	// Use multiple workers for parallel execution
+	workers: process.env.CI ? 4 : undefined,
 
-  // Reporter configuration
-  reporter: [["html", { open: "never" }], ["list"]],
+	// Reporter configuration
+	reporter: [["html", { open: "never" }], ["list"]],
 
-  // Global timeout for each test
-  timeout: 30000,
+	// Global timeout for each test
+	timeout: 30000,
 
-  // Shared settings for all projects
-  use: {
-    // Base URL for API requests
-    baseURL: "http://localhost:8080",
+	// Shared settings for all projects
+	use: {
+		// Base URL for API requests
+		baseURL: "http://localhost:8080",
 
-    // Collect trace when retrying the failed test
-    trace: "on-first-retry",
+		// Collect trace when retrying the failed test
+		trace: "on-first-retry",
 
-    // Extra HTTP headers for API requests
-    extraHTTPHeaders: {
-      "Content-Type": "application/json",
-    },
-  },
+		// Extra HTTP headers for API requests
+		extraHTTPHeaders: {
+			"Content-Type": "application/json",
+		},
+	},
 
-  // Define test projects
-  projects: [
-    {
-      name: "api",
-      testMatch: /.*\/api\/.*\.spec\.ts/,
-      // API tests don't need a browser
-      use: {
-        // No browser configuration needed for API tests
-      },
-    },
-    // UI tests can be added here later with browser configurations
-    // {
-    //   name: 'chromium',
-    //   testMatch: /.*\/ui\/.*\.spec\.ts/,
-    //   use: { ...devices['Desktop Chrome'] },
-    // },
-  ],
+	// Define test projects
+	projects: [
+		{
+			name: "api",
+			testMatch: /.*\/api\/.*\.spec\.ts/,
+			// API tests don't need a browser
+			use: {
+				// No browser configuration needed for API tests
+			},
+		},
+		// UI tests can be added here later with browser configurations
+		// {
+		//   name: 'chromium',
+		//   testMatch: /.*\/ui\/.*\.spec\.ts/,
+		//   use: { ...devices['Desktop Chrome'] },
+		// },
+	],
 });

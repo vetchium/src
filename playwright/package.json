@@ -1,27 +1,27 @@
 {
-  "name": "vetchium-playwright-tests",
-  "version": "1.0.0",
-  "description": "Playwright tests for Vetchium API and UI",
-  "main": "index.js",
-  "scripts": {
-    "test": "playwright test",
-    "test:api": "playwright test tests/api/",
-    "test:api:admin": "playwright test tests/api/admin/"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
-  "devDependencies": {
-    "@playwright/test": "^1.57.0",
-    "@types/bcrypt": "^5.0.2",
-    "@types/node": "^25.0.3",
-    "@types/pg": "^8.11.6",
-    "typescript": "^5.9.3"
-  },
-  "dependencies": {
-    "bcrypt": "^5.1.1",
-    "pg": "^8.13.1",
-    "vetchium-specs": "file:../specs/typespec"
-  }
+	"name": "vetchium-playwright-tests",
+	"version": "1.0.0",
+	"description": "Playwright tests for Vetchium API and UI",
+	"main": "index.js",
+	"scripts": {
+		"test": "playwright test",
+		"test:api": "playwright test tests/api/",
+		"test:api:admin": "playwright test tests/api/admin/"
+	},
+	"keywords": [],
+	"author": "",
+	"license": "ISC",
+	"type": "commonjs",
+	"devDependencies": {
+		"@playwright/test": "^1.57.0",
+		"@types/bcrypt": "^5.0.2",
+		"@types/node": "^25.0.3",
+		"@types/pg": "^8.11.6",
+		"typescript": "^5.9.3"
+	},
+	"dependencies": {
+		"bcrypt": "^5.1.1",
+		"pg": "^8.13.1",
+		"vetchium-specs": "file:../specs/typespec"
+	}
 }

@@ -1,212 +1,212 @@
 import { getApiBaseUrl } from "../config";
 import type {
-  RequestSignupRequest,
-  RequestSignupResponse,
-  CompleteSignupRequest,
-  CompleteSignupResponse,
-  HubLoginRequest,
-  HubLoginResponse,
-  ValidationError,
+	RequestSignupRequest,
+	RequestSignupResponse,
+	CompleteSignupRequest,
+	CompleteSignupResponse,
+	HubLoginRequest,
+	HubLoginResponse,
+	ValidationError,
 } from "vetchium-specs/hub/hub-users";
 import type {
-  Region,
-  SupportedLanguage,
-  CheckDomainRequest,
-  CheckDomainResponse,
-  GetRegionsResponse,
-  GetSupportedLanguagesResponse,
+	Region,
+	SupportedLanguage,
+	CheckDomainRequest,
+	CheckDomainResponse,
+	GetRegionsResponse,
+	GetSupportedLanguagesResponse,
 } from "vetchium-specs/global/global";
 
 export interface APIResponse<T> {
-  status: number;
-  data?: T;
-  errors?: ValidationError[];
+	status: number;
+	data?: T;
+	errors?: ValidationError[];
 }
 
 /**
  * Get list of active regions
  */
 export async function getRegions(): Promise<APIResponse<Region[]>> {
-  const apiBaseUrl = await getApiBaseUrl();
-  const response = await fetch(`${apiBaseUrl}/global/get-regions`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-  });
+	const apiBaseUrl = await getApiBaseUrl();
+	const response = await fetch(`${apiBaseUrl}/global/get-regions`, {
+		method: "POST",
+		headers: {
+			"Content-Type": "application/json",
+		},
+	});
 
-  const status = response.status;
-  if (status === 200) {
-    const responseData: GetRegionsResponse = await response.json();
-    return { status, data: responseData.regions };
-  }
+	const status = response.status;
+	if (status === 200) {
+		const responseData: GetRegionsResponse = await response.json();
+		return { status, data: responseData.regions };
+	}
 
-  return { status };
+	return { status };
 }
 
 /**
  * Get list of supported languages
  */
 export async function getSupportedLanguages(): Promise<
-  APIResponse<SupportedLanguage[]>
+	APIResponse<SupportedLanguage[]>
 > {
-  const apiBaseUrl = await getApiBaseUrl();
-  const response = await fetch(`${apiBaseUrl}/global/get-supported-languages`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-  });
+	const apiBaseUrl = await getApiBaseUrl();
+	const response = await fetch(`${apiBaseUrl}/global/get-supported-languages`, {
+		method: "POST",
+		headers: {
+			"Content-Type": "application/json",
+		},
+	});
 
-  const status = response.status;
-  if (status === 200) {
-    const responseData: GetSupportedLanguagesResponse = await response.json();
-    return { status, data: responseData.languages };
-  }
+	const status = response.status;
+	if (status === 200) {
+		const responseData: GetSupportedLanguagesResponse = await response.json();
+		return { status, data: responseData.languages };
+	}
 
-  return { status };
+	return { status };
 }
 
 /**
  * Check if a domain is approved for signup
  */
 export async function checkDomain(
-  domain: string,
+	domain: string
 ): Promise<APIResponse<CheckDomainResponse>> {
-  const apiBaseUrl = await getApiBaseUrl();
-  const requestBody: CheckDomainRequest = { domain };
+	const apiBaseUrl = await getApiBaseUrl();
+	const requestBody: CheckDomainRequest = { domain };
 
-  const response = await fetch(`${apiBaseUrl}/global/check-domain`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(requestBody),
-  });
+	const response = await fetch(`${apiBaseUrl}/global/check-domain`, {
+		method: "POST",
+		headers: {
+			"Content-Type": "application/json",
+		},
+		body: JSON.stringify(requestBody),
+	});
 
-  const status = response.status;
-  if (status === 200) {
-    const data = await response.json();
-    return { status, data };
-  }
+	const status = response.status;
+	if (status === 200) {
+		const data = await response.json();
+		return { status, data };
+	}
 
-  if (status === 400) {
-    const errors = await response.json();
-    return { status, errors };
-  }
+	if (status === 400) {
+		const errors = await response.json();
+		return { status, errors };
+	}
 
-  return { status };
+	return { status };
 }
 
 /**
  * Request signup verification email
  */
 export async function requestSignup(
-  email: string,
+	email: string
 ): Promise<APIResponse<RequestSignupResponse>> {
-  const apiBaseUrl = await getApiBaseUrl();
-  const requestBody: RequestSignupRequest = { email_address: email };
+	const apiBaseUrl = await getApiBaseUrl();
+	const requestBody: RequestSignupRequest = { email_address: email };
 
-  const response = await fetch(`${apiBaseUrl}/hub/request-signup`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(requestBody),
-  });
+	const response = await fetch(`${apiBaseUrl}/hub/request-signup`, {
+		method: "POST",
+		headers: {
+			"Content-Type": "application/json",
+		},
+		body: JSON.stringify(requestBody),
+	});
 
-  const status = response.status;
-  if (status === 200) {
-    const data = await response.json();
-    return { status, data };
-  }
+	const status = response.status;
+	if (status === 200) {
+		const data = await response.json();
+		return { status, data };
+	}
 
-  if (status === 400) {
-    const errors = await response.json();
-    return { status, errors };
-  }
+	if (status === 400) {
+		const errors = await response.json();
+		return { status, errors };
+	}
 
-  return { status };
+	return { status };
 }
 
 /**
  * Complete signup with verification token
  */
 export async function completeSignup(
-  request: CompleteSignupRequest,
+	request: CompleteSignupRequest
 ): Promise<APIResponse<CompleteSignupResponse>> {
-  const apiBaseUrl = await getApiBaseUrl();
+	const apiBaseUrl = await getApiBaseUrl();
 
-  const response = await fetch(`${apiBaseUrl}/hub/complete-signup`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(request),
-  });
+	const response = await fetch(`${apiBaseUrl}/hub/complete-signup`, {
+		method: "POST",
+		headers: {
+			"Content-Type": "application/json",
+		},
+		body: JSON.stringify(request),
+	});
 
-  const status = response.status;
-  if (status === 201) {
-    const data = await response.json();
-    return { status, data };
-  }
+	const status = response.status;
+	if (status === 201) {
+		const data = await response.json();
+		return { status, data };
+	}
 
-  if (status === 400) {
-    const errors = await response.json();
-    return { status, errors };
-  }
+	if (status === 400) {
+		const errors = await response.json();
+		return { status, errors };
+	}
 
-  return { status };
+	return { status };
 }
 
 /**
  * Login with email and password
  */
 export async function login(
-  email: string,
-  password: string,
+	email: string,
+	password: string
 ): Promise<APIResponse<HubLoginResponse>> {
-  const apiBaseUrl = await getApiBaseUrl();
-  const requestBody: HubLoginRequest = {
-    email_address: email,
-    password,
-  };
+	const apiBaseUrl = await getApiBaseUrl();
+	const requestBody: HubLoginRequest = {
+		email_address: email,
+		password,
+	};
 
-  const response = await fetch(`${apiBaseUrl}/hub/login`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(requestBody),
-  });
+	const response = await fetch(`${apiBaseUrl}/hub/login`, {
+		method: "POST",
+		headers: {
+			"Content-Type": "application/json",
+		},
+		body: JSON.stringify(requestBody),
+	});
 
-  const status = response.status;
-  if (status === 200) {
-    const data = await response.json();
-    return { status, data };
-  }
+	const status = response.status;
+	if (status === 200) {
+		const data = await response.json();
+		return { status, data };
+	}
 
-  if (status === 400) {
-    const errors = await response.json();
-    return { status, errors };
-  }
+	if (status === 400) {
+		const errors = await response.json();
+		return { status, errors };
+	}
 
-  return { status };
+	return { status };
 }
 
 /**
  * Logout with session token
  */
 export async function logout(sessionToken: string): Promise<APIResponse<void>> {
-  const apiBaseUrl = await getApiBaseUrl();
+	const apiBaseUrl = await getApiBaseUrl();
 
-  const response = await fetch(`${apiBaseUrl}/hub/logout`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${sessionToken}`,
-    },
-  });
+	const response = await fetch(`${apiBaseUrl}/hub/logout`, {
+		method: "POST",
+		headers: {
+			"Content-Type": "application/json",
+			Authorization: `Bearer ${sessionToken}`,
+		},
+	});
 
-  return { status: response.status };
+	return { status: response.status };
 }

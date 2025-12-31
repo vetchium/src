@@ -66,13 +66,13 @@ do
                 if command -v bunx >/dev/null 2>&1; then
                     if ! bunx prettier --check $files_to_check; then
                         echo "❌ Prettier check failed!"
-                        echo "Run 'bun run format' to fix formatting issues"
+                        echo "Fix with: bun run format"
                         exit 1
                     fi
                 elif command -v npx >/dev/null 2>&1; then
                     if ! npx prettier --check $files_to_check; then
                         echo "❌ Prettier check failed!"
-                        echo "Run 'npm run format' to fix formatting issues"
+                        echo "Fix with: npm run format"
                         exit 1
                     fi
                 else

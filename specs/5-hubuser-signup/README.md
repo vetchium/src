@@ -368,6 +368,7 @@ func generateHandle(email string) string {
 ### Language Code Mapping
 
 The system uses two language code formats:
+
 - **BCP 47 tags** (en-US, de-DE, ta-IN) in APIs and TypeScript
 - **Short codes** (en, de, ta) in database enum
 
@@ -399,6 +400,7 @@ The `supported_languages` table provides the mapping via `db_enum_value` column.
 Since we cannot use a single transaction across global and regional databases:
 
 **Pattern for CompleteSignup:**
+
 ```go
 // 1. Create in global DB first (3 operations)
 globalUser, err := s.Global.CreateHubUser(ctx, globalParams)
@@ -447,13 +449,29 @@ s.Global.MarkHubSignupTokenConsumed(ctx, signupToken)
 ### Frontend Client-Side Optimizations
 
 **Common Email Domains (hardcoded in TypeScript):**
+
 ```typescript
 export const COMMON_EMAIL_DOMAINS = [
-    "gmail.com", "yahoo.com", "outlook.com", "hotmail.com",
-    "icloud.com", "live.com", "msn.com", "aol.com",
-    "protonmail.com", "mail.com", "yandex.com", "gmx.com",
-    "zoho.com", "inbox.com", "fastmail.com", "hey.com",
-    "tutanota.com", "mailfence.com", "posteo.de", "runbox.com"
+	"gmail.com",
+	"yahoo.com",
+	"outlook.com",
+	"hotmail.com",
+	"icloud.com",
+	"live.com",
+	"msn.com",
+	"aol.com",
+	"protonmail.com",
+	"mail.com",
+	"yandex.com",
+	"gmx.com",
+	"zoho.com",
+	"inbox.com",
+	"fastmail.com",
+	"hey.com",
+	"tutanota.com",
+	"mailfence.com",
+	"posteo.de",
+	"runbox.com",
 ];
 ```
 
@@ -464,6 +482,7 @@ When user enters email, extract domain and check against this list. If match, sh
 ### API Tests (Playwright)
 
 **Request Signup:**
+
 - ✓ Success: approved domain sends email
 - ✓ 403: unapproved domain rejected
 - ✓ 409: already registered email rejected
@@ -471,6 +490,7 @@ When user enters email, extract domain and check against this list. If match, sh
 - ✓ 400: missing email field rejected
 
 **Complete Signup:**
+
 - ✓ Success: creates user and returns session token
 - ✓ 401: invalid/expired token rejected
 - ✓ 409: duplicate email during token lifetime rejected
@@ -483,27 +503,33 @@ When user enters email, extract domain and check against this list. If match, sh
 - ✓ Multiple display names stored correctly
 
 **Get Regions:**
+
 - ✓ Returns only active regions
 - ✓ Returns correct structure
 
 **Get Supported Languages:**
+
 - ✓ Returns all languages with default flag
 - ✓ Default language is en-US
 
 **Check Domain:**
+
 - ✓ Returns true for approved active domain
 - ✓ Returns false for unapproved domain
 - ✓ Returns false for approved inactive domain
 
 **Login (Fixed):**
+
 - ✓ Success after signup creates session
 - ✓ Session token can be used for authenticated requests
 
 **Logout:**
+
 - ✓ Deletes session successfully
 - ✓ Session token invalid after logout
 
 **Token Reusability:**
+
 - ✓ Can visit signup link multiple times
 - ✓ Can only complete signup once (409 on second attempt)
 

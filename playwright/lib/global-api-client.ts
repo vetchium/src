@@ -38,9 +38,12 @@ export class GlobalAPIClient {
 	async getSupportedLanguages(): Promise<
 		APIResponse<GetSupportedLanguagesResponse>
 	> {
-		const response = await this.request.post("/global/get-supported-languages", {
-			data: {},
-		});
+		const response = await this.request.post(
+			"/global/get-supported-languages",
+			{
+				data: {},
+			}
+		);
 
 		const body = await response.json().catch(() => ({}));
 		return {

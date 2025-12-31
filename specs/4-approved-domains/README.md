@@ -31,28 +31,24 @@ The Admin Portal home page (`/`) will display a new card alongside the logout bu
 **Approved Domains Page (`/approved-domains`):**
 
 1. **Header Section**
-
    - Page title: "Approved Domains"
    - Search bar with autocomplete: "Search domains..."
    - "Add Domain" button (primary action)
 
 2. **Domains Table**
    Columns:
-
    - Domain Name (sortable, clickable to view details)
    - Added On (timestamp, sortable)
    - Added By (admin ID)
    - Actions (View Details, Delete)
 
 3. **Add Domain Modal**
-
    - Input field: "Enter domain (e.g., example.com)"
    - Auto-converts to lowercase on input
    - Validates domain format
    - "Add" and "Cancel" buttons
 
 4. **Domain Details Modal** (accessed via clicking domain name)
-
    - Domain information card:
      - Domain name
      - Added on (timestamp)
@@ -259,33 +255,28 @@ Each handler:
 **API Tests (`playwright/tests/api/admin/approved-domains.spec.ts`):**
 
 1. **Create Domain**
-
    - Successfully add a valid domain
    - Reject duplicate domain (409 Conflict)
    - Reject invalid domain format (400 Bad Request)
    - Normalize uppercase to lowercase
 
 2. **List Domains**
-
    - Return empty list when no domains
    - Return all domains sorted by name
    - Search filters correctly (uses search query param)
    - Pagination works
 
 3. **Get Domain Details**
-
    - Return domain + audit logs
    - Audit log includes all required fields
    - 404 for non-existent domain
 
 4. **Delete Domain**
-
    - Successfully delete domain
    - Audit log captures old_value
    - 404 for non-existent domain
 
 5. **Audit Logging**
-
    - Create action creates audit log with new_value
    - Delete action creates audit log with old_value
    - IP address captured
@@ -300,19 +291,16 @@ Each handler:
 **UI Tests (`playwright/tests/ui/admin/approved-domains.spec.ts`):**
 
 1. **Dashboard Card**
-
    - Card is visible
    - Click navigates to /approved-domains
 
 2. **List Page**
-
    - Domains display correctly
    - Search filters list (calls API with search param)
    - Add button opens modal
    - Delete shows confirmation
 
 3. **Add Domain**
-
    - Valid domain adds successfully
    - Duplicate shows error message
    - Invalid format shows validation error

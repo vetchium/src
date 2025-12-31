@@ -23,7 +23,7 @@ export interface AdminLoginRequest {
 }
 
 export function validateAdminLoginRequest(
-	request: AdminLoginRequest,
+	request: AdminLoginRequest
 ): ValidationError[] {
 	const errs: ValidationError[] = [];
 
@@ -50,7 +50,7 @@ export interface AdminTFARequest {
 }
 
 export function validateAdminTFARequest(
-	request: AdminTFARequest,
+	request: AdminTFARequest
 ): ValidationError[] {
 	const errs: ValidationError[] = [];
 
@@ -76,7 +76,7 @@ export interface AdminLogoutRequest {
 }
 
 export function validateAdminLogoutRequest(
-	request: AdminLogoutRequest,
+	request: AdminLogoutRequest
 ): ValidationError[] {
 	// No fields to validate
 	return [];
@@ -87,7 +87,7 @@ export interface UpdatePreferencesRequest {
 }
 
 export function validateUpdatePreferencesRequest(
-	request: UpdatePreferencesRequest,
+	request: UpdatePreferencesRequest
 ): ValidationError[] {
 	const errs: ValidationError[] = [];
 

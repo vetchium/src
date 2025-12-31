@@ -1,11 +1,11 @@
 {
-  "_description": "Admin Two-Factor Authentication Email",
-  "_note": "Sent when admin logs in and needs to verify with a code",
+	"_description": "Admin Two-Factor Authentication Email",
+	"_note": "Sent when admin logs in and needs to verify with a code",
 
-  "subject": "Ihr Vetchium Admin Bestaetigungscode",
-  "portal_name": "Vetchium Admin Portal",
-  "body_intro": "Ihr Bestaetigungscode lautet:",
-  "body_expiry": "Dieser Code laeuft in {{.Minutes}} Minuten ab.",
-  "body_ignore": "Falls Sie diesen Code nicht angefordert haben, ignorieren Sie diese E-Mail oder kontaktieren Sie den Support, wenn Sie Bedenken bezueglich der Sicherheit Ihres Kontos haben.",
-  "footer": "Dies ist eine automatische Nachricht. Bitte antworten Sie nicht."
+	"subject": "Ihr Vetchium Admin Bestaetigungscode",
+	"portal_name": "Vetchium Admin Portal",
+	"body_intro": "Ihr Bestaetigungscode lautet:",
+	"body_expiry": "Dieser Code laeuft in {{.Minutes}} Minuten ab.",
+	"body_ignore": "Falls Sie diesen Code nicht angefordert haben, ignorieren Sie diese E-Mail oder kontaktieren Sie den Support, wenn Sie Bedenken bezueglich der Sicherheit Ihres Kontos haben.",
+	"footer": "Dies ist eine automatische Nachricht. Bitte antworten Sie nicht."
 }

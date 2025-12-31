@@ -39,7 +39,7 @@ export interface GetSupportedLanguagesResponse {
 // Request validators
 
 export function validateCheckDomainRequest(
-	request: CheckDomainRequest,
+	request: CheckDomainRequest
 ): ValidationError[] {
 	const errs: ValidationError[] = [];
 

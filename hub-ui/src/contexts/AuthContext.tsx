@@ -292,12 +292,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
 		setError(null);
 	}, []);
 
-	const setAuthData = useCallback((newSessionToken: string, newHandle: string) => {
-		setSessionToken(newSessionToken, false); // Default to 24h for signup
-		setSessionTokenState(newSessionToken);
-		setHandle(newHandle);
-		setAuthState("authenticated");
-	}, []);
+	const setAuthData = useCallback(
+		(newSessionToken: string, newHandle: string) => {
+			setSessionToken(newSessionToken, false); // Default to 24h for signup
+			setSessionTokenState(newSessionToken);
+			setHandle(newHandle);
+			setAuthState("authenticated");
+		},
+		[]
+	);
 
 	return (
 		<AuthContext.Provider

@@ -26,17 +26,18 @@ Each language folder must mirror the `en-US` structure exactly.
 
 We use BCP 47 language tags in the format: `language-REGION`
 
-| Folder | Language | Region |
-|--------|----------|--------|
-| `en-US` | English | United States |
-| `de-DE` | German | Germany |
-| `ta-IN` | Tamil | India |
+| Folder  | Language | Region        |
+| ------- | -------- | ------------- |
+| `en-US` | English  | United States |
+| `de-DE` | German   | Germany       |
+| `ta-IN` | Tamil    | India         |
 
 ### Finding Language Codes
 
 Look up codes at: https://www.iana.org/assignments/language-subtag-registry
 
 Common examples:
+
 - `en-GB` - English (United Kingdom)
 - `en-IN` - English (India)
 - `fr-FR` - French (France)
@@ -65,24 +66,27 @@ Common examples:
 ### Example
 
 **English (`en-US/emails/admin_tfa.json`):**
+
 ```json
 {
-  "_description": "Admin Two-Factor Authentication Email",
-  "subject": "Your Verification Code",
-  "body_expiry": "This code will expire in {{.Minutes}} minutes."
+	"_description": "Admin Two-Factor Authentication Email",
+	"subject": "Your Verification Code",
+	"body_expiry": "This code will expire in {{.Minutes}} minutes."
 }
 ```
 
 **German translation (`de-DE/emails/admin_tfa.json`):**
+
 ```json
 {
-  "_description": "Admin Two-Factor Authentication Email",
-  "subject": "Ihr Bestaetigungscode",
-  "body_expiry": "Dieser Code laeuft in {{.Minutes}} Minuten ab."
+	"_description": "Admin Two-Factor Authentication Email",
+	"subject": "Ihr Bestaetigungscode",
+	"body_expiry": "Dieser Code laeuft in {{.Minutes}} Minuten ab."
 }
 ```
 
 Notice:
+
 - `"subject"` key stays the same, only the value changes
 - `{{.Minutes}}` placeholder stays exactly the same
 - `_description` can stay in English (it's just a comment)
@@ -90,12 +94,14 @@ Notice:
 ### Adding a New Language
 
 1. Create a new folder with the BCP 47 language code:
+
    ```
    mkdir fr-FR
    mkdir fr-FR/emails
    ```
 
 2. Copy all files from `en-US/` to your new folder:
+
    ```
    cp en-US/common.json fr-FR/
    cp en-US/emails/*.json fr-FR/emails/
@@ -110,45 +116,47 @@ Notice:
 Before submitting, validate your JSON files to catch syntax errors:
 
 **Option 1: Online validator**
+
 1. Go to https://jsonlint.com/
 2. Paste your file content
 3. Click "Validate JSON"
 4. Fix any errors shown
 
 **Option 2: Command line (if available)**
+
 ```bash
 python -m json.tool your_file.json
 ```
 
 ### Common JSON Mistakes
 
-| Mistake | Problem | Fix |
-|---------|---------|-----|
-| `"key": "value"` (no comma) | Missing comma after line | Add `,` after each line except the last |
-| `"key": "value",` (last line) | Extra comma on last item | Remove the trailing comma |
-| `"key": 'value'` | Single quotes | Use double quotes `"` only |
-| `"key": "It's here"` | Unescaped quote | Use `\"` for quotes inside strings |
-| Missing `"` | Unclosed string | Ensure all strings have opening and closing `"` |
+| Mistake                       | Problem                  | Fix                                             |
+| ----------------------------- | ------------------------ | ----------------------------------------------- |
+| `"key": "value"` (no comma)   | Missing comma after line | Add `,` after each line except the last         |
+| `"key": "value",` (last line) | Extra comma on last item | Remove the trailing comma                       |
+| `"key": 'value'`              | Single quotes            | Use double quotes `"` only                      |
+| `"key": "It's here"`          | Unescaped quote          | Use `\"` for quotes inside strings              |
+| Missing `"`                   | Unclosed string          | Ensure all strings have opening and closing `"` |
 
 ### Placeholder Reference
 
 Placeholders are variables that get replaced with actual values. Keep them exactly as shown.
 
-| Placeholder | Description | Example Output |
-|-------------|-------------|----------------|
-| `{{.Code}}` | Verification code | `123456` |
-| `{{.Minutes}}` | Time duration in minutes | `10` |
-| `{{.Email}}` | Email address | `user@example.com` |
-| `{{.Name}}` | Person's name | `John` |
-| `{{.CompanyName}}` | Company name | `Acme Inc` |
-| `{{.URL}}` | Web link | `https://vetchium.com/...` |
+| Placeholder        | Description              | Example Output             |
+| ------------------ | ------------------------ | -------------------------- |
+| `{{.Code}}`        | Verification code        | `123456`                   |
+| `{{.Minutes}}`     | Time duration in minutes | `10`                       |
+| `{{.Email}}`       | Email address            | `user@example.com`         |
+| `{{.Name}}`        | Person's name            | `John`                     |
+| `{{.CompanyName}}` | Company name             | `Acme Inc`                 |
+| `{{.URL}}`         | Web link                 | `https://vetchium.com/...` |
 
 ### File Descriptions
 
-| File | Purpose |
-|------|---------|
-| `common.json` | Shared strings used across multiple templates |
-| `emails/admin_tfa.json` | Admin login verification code email |
+| File                    | Purpose                                       |
+| ----------------------- | --------------------------------------------- |
+| `common.json`           | Shared strings used across multiple templates |
+| `emails/admin_tfa.json` | Admin login verification code email           |
 
 ## For Developers
 
@@ -178,10 +186,10 @@ matchedLang := i18n.Match("en-IN")  // Returns "en-US" if en-IN not available
 
 Namespaces are derived from file paths relative to the language folder:
 
-| File Path | Namespace |
-|-----------|-----------|
-| `en-US/common.json` | `common` |
-| `en-US/emails/admin_tfa.json` | `emails/admin_tfa` |
+| File Path                          | Namespace               |
+| ---------------------------------- | ----------------------- |
+| `en-US/common.json`                | `common`                |
+| `en-US/emails/admin_tfa.json`      | `emails/admin_tfa`      |
 | `en-US/emails/password_reset.json` | `emails/password_reset` |
 
 ## Questions?
