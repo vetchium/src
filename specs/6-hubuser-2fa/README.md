@@ -1,4 +1,4 @@
-Status: DRAFT
+Status: COMPLETED
 Authors: @psankar
 Dependencies: 5-hubuser-signup
 
