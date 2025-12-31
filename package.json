@@ -1,0 +1,12 @@
+{
+  "name": "vetchium-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Vetchium monorepo - manages git hooks and repo-wide tooling",
+  "scripts": {
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7"
+  }
+}

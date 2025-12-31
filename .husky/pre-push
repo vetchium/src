@@ -1,0 +1,120 @@
+#!/bin/sh
+
+# Git pre-push hook managed by husky
+# Checks prettier and goimports formatting before push
+
+remote="$1"
+url="$2"
+
+z40=0000000000000000000000000000000000000000
+
+# Read stdin to get push details
+while read local_ref local_sha remote_ref remote_sha
+do
+    if [ "$local_sha" = "$z40" ]; then
+        # Handle delete
+        continue
+    else
+        if [ "$remote_sha" = "$z40" ]; then
+            # New branch, examine all commits
+            range="$local_sha"
+        else
+            # Update to existing branch, examine new commits
+            range="$remote_sha..$local_sha"
+        fi
+
+        # Get list of changed files
+        changed_files=$(git diff --name-only --diff-filter=ACM "$range" 2>/dev/null || echo "")
+
+        if [ -z "$changed_files" ]; then
+            continue
+        fi
+
+        # Arrays to store files by type
+        prettier_files=""
+        go_files=""
+
+        # Categorize files
+        echo "$changed_files" | while IFS= read -r file; do
+            # Check if file still exists (not deleted)
+            if [ -f "$file" ]; then
+                case "$file" in
+                    *.ts|*.js|*.jsx|*.json|*.yaml|*.yml)
+                        prettier_files="$prettier_files $file"
+                        ;;
+                    *.go)
+                        go_files="$go_files $file"
+                        ;;
+                esac
+            fi
+        done
+
+        # Check prettier formatting
+        prettier_check_files=$(echo "$changed_files" | grep -E '\.(ts|js|jsx|json|ya?ml)$' || true)
+        if [ -n "$prettier_check_files" ]; then
+            echo "Checking prettier formatting..."
+
+            # Convert to array for prettier
+            files_to_check=""
+            for file in $prettier_check_files; do
+                if [ -f "$file" ]; then
+                    files_to_check="$files_to_check $file"
+                fi
+            done
+
+            if [ -n "$files_to_check" ]; then
+                if command -v bunx >/dev/null 2>&1; then
+                    if ! bunx prettier --check $files_to_check; then
+                        echo "❌ Prettier check failed!"
+                        echo "Run 'bun run format' to fix formatting issues"
+                        exit 1
+                    fi
+                elif command -v npx >/dev/null 2>&1; then
+                    if ! npx prettier --check $files_to_check; then
+                        echo "❌ Prettier check failed!"
+                        echo "Run 'npm run format' to fix formatting issues"
+                        exit 1
+                    fi
+                else
+                    echo "⚠️  Warning: prettier not found, skipping check"
+                fi
+                echo "✓ Prettier check passed"
+            fi
+        fi
+
+        # Check goimports formatting
+        go_check_files=$(echo "$changed_files" | grep -E '\.go$' || true)
+        if [ -n "$go_check_files" ]; then
+            echo "Checking goimports formatting..."
+
+            if command -v goimports >/dev/null 2>&1; then
+                failed_files=""
+                for file in $go_check_files; do
+                    if [ -f "$file" ]; then
+                        # Check if goimports would make changes
+                        tmp_file=$(mktemp)
+                        goimports "$file" > "$tmp_file"
+                        if ! diff -u "$file" "$tmp_file" >/dev/null 2>&1; then
+                            failed_files="$failed_files $file"
+                        fi
+                        rm -f "$tmp_file"
+                    fi
+                done
+
+                if [ -n "$failed_files" ]; then
+                    echo "❌ goimports check failed for the following files:"
+                    for file in $failed_files; do
+                        echo "  $file"
+                    done
+                    echo "Run 'goimports -w <file>' to fix formatting issues"
+                    exit 1
+                fi
+                echo "✓ goimports check passed"
+            else
+                echo "⚠️  Warning: goimports not found, skipping check"
+            fi
+        fi
+    fi
+done
+
+exit 0

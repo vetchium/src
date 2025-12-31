@@ -79,6 +79,45 @@ cd db/migrations/global   # or regional
 goose create migration_name sql
 ```
 
+## Git Hooks & Code Formatting
+
+The repository uses [Husky](https://typicode.github.io/husky/) to automatically enforce code formatting before pushing. Git hooks are set up automatically when you run:
+
+```bash
+bun install
+```
+
+### Pre-Push Hook
+
+The pre-push hook checks code formatting for all files being pushed:
+
+- **Prettier** checks: `.ts`, `.js`, `.jsx`, `.json`, `.yaml`, `.yml` files
+- **Goimports** checks: `.go` files
+
+If formatting issues are found, the push will be blocked with a message like:
+
+```
+❌ Prettier check failed!
+Run 'bun run format' to fix formatting issues
+```
+
+### Fixing Formatting Issues
+
+**For frontend code (TypeScript, JSON, YAML):**
+
+```bash
+cd admin-ui    # or hub-ui, specs/typespec
+bun run format
+```
+
+**For backend code (Go):**
+
+```bash
+goimports -w api-server/path/to/file.go
+```
+
+The hook only checks files that are being pushed, not the entire codebase.
+
 ## Running Tests
 
 ```bash
