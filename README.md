@@ -19,7 +19,7 @@ A multi-region application with global and regional databases.
 - [goimports](https://pkg.go.dev/golang.org/x/tools/cmd/goimports) - **Required** for git pre-push hooks
 
 ```bash
-# Install goimports (required)
+# Install goimports
 go install golang.org/x/tools/cmd/goimports@latest
 ```
 
@@ -83,7 +83,7 @@ cd api-server
 sqlc generate
 
 # Create a new migration
-cd db/migrations/global   # or regional
+cd db/migrations/global # or regional
 goose create migration_name sql
 ```
 
@@ -119,8 +119,8 @@ Run 'bun format' to fix formatting issues
 bun format              # Format ALL files (prettier + goimports)
 bun format:check        # Check formatting without modifying
 bun format:prettier     # Only JS/TS/JSON/YAML/MD files
-bun format:go            # Only Go files
-bun format:go:check      # Check Go files only
+bun format:go           # Only Go files
+bun format:go:check     # Check Go files only
 ```
 
 **Or format from subdirectories:**
