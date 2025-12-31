@@ -1,4 +1,4 @@
-import { ConfigProvider, Layout, theme as antTheme } from "antd";
+import { App as AntApp, ConfigProvider, Layout, theme as antTheme } from "antd";
 import { ThemeProvider, useTheme } from "./contexts/ThemeContext";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { AppHeader } from "./components/AppHeader";
@@ -80,53 +80,55 @@ function AppContent() {
 				},
 			}}
 		>
-			<Layout style={{ minHeight: "100vh" }}>
-				<AppHeader />
-				<Content
-					style={{
-						display: "flex",
-						justifyContent: "center",
-						alignItems: "center",
-						flex: 1,
-					}}
-				>
-					<Routes>
-						<Route
-							path="/login"
-							element={
-								<AuthRoute>
-									<LoginPage />
-								</AuthRoute>
-							}
-						/>
-						<Route
-							path="/tfa"
-							element={
-								<TFARoute>
-									<TFAPage />
-								</TFARoute>
-							}
-						/>
-						<Route
-							path="/"
-							element={
-								<ProtectedRoute>
-									<DashboardPage />
-								</ProtectedRoute>
-							}
-						/>
-						<Route
-							path="/approved-domains"
-							element={
-								<ProtectedRoute>
-									<ApprovedDomainsPage />
-								</ProtectedRoute>
-							}
-						/>
-						<Route path="*" element={<Navigate to="/" replace />} />
-					</Routes>
-				</Content>
-			</Layout>
+			<AntApp>
+				<Layout style={{ minHeight: "100vh" }}>
+					<AppHeader />
+					<Content
+						style={{
+							display: "flex",
+							justifyContent: "center",
+							alignItems: "center",
+							flex: 1,
+						}}
+					>
+						<Routes>
+							<Route
+								path="/login"
+								element={
+									<AuthRoute>
+										<LoginPage />
+									</AuthRoute>
+								}
+							/>
+							<Route
+								path="/tfa"
+								element={
+									<TFARoute>
+										<TFAPage />
+									</TFARoute>
+								}
+							/>
+							<Route
+								path="/"
+								element={
+									<ProtectedRoute>
+										<DashboardPage />
+									</ProtectedRoute>
+								}
+							/>
+							<Route
+								path="/approved-domains"
+								element={
+									<ProtectedRoute>
+										<ApprovedDomainsPage />
+									</ProtectedRoute>
+								}
+							/>
+							<Route path="*" element={<Navigate to="/" replace />} />
+						</Routes>
+					</Content>
+				</Layout>
+			</AntApp>
 		</ConfigProvider>
 	);
 }

@@ -1,4 +1,13 @@
-import { Layout, Card, Form, Input, Button, Typography, Alert } from "antd";
+import {
+	Layout,
+	Card,
+	Form,
+	Input,
+	Button,
+	Typography,
+	Alert,
+	Spin,
+} from "antd";
 import { UserOutlined, LockOutlined } from "@ant-design/icons";
 import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -23,6 +32,7 @@ export function LoginPage() {
 	const { t } = useTranslation(["common", "signup", "auth"]);
 	const { login, loading, error, authState } = useAuth();
 	const navigate = useNavigate();
+	const [form] = Form.useForm<LoginFormValues>();
 
 	useEffect(() => {
 		if (authState === "authenticated") {
@@ -50,86 +60,96 @@ export function LoginPage() {
 						{t("auth:login.title")}
 					</Title>
 
-					<Form<LoginFormValues>
-						name="login"
-						onFinish={handleFinish}
-						layout="vertical"
-						requiredMark={false}
-					>
-						{error && (
-							<Alert
-								message={error}
-								type="error"
-								showIcon
-								style={{ marginBottom: 16 }}
-							/>
-						)}
+					<Spin spinning={loading}>
+						<Form<LoginFormValues>
+							form={form}
+							name="login"
+							onFinish={handleFinish}
+							layout="vertical"
+							requiredMark={false}
+						>
+							{error && (
+								<Alert
+									description={error}
+									type="error"
+									showIcon
+									style={{ marginBottom: 16 }}
+								/>
+							)}
 
-						<Form.Item
-							name="email"
-							validateFirst
-							rules={[
-								{ required: true, message: t("auth:login.emailRequired") },
-								{ type: "email", message: t("auth:login.emailInvalid") },
-								{
-									min: EMAIL_MIN_LENGTH,
-									message: t("auth:login.emailMinLength", {
+							<Form.Item
+								name="email"
+								validateFirst
+								rules={[
+									{ required: true, message: t("auth:login.emailRequired") },
+									{ type: "email", message: t("auth:login.emailInvalid") },
+									{
 										min: EMAIL_MIN_LENGTH,
-									}),
-								},
-								{
-									max: EMAIL_MAX_LENGTH,
-									message: t("auth:login.emailMaxLength", {
+										message: t("auth:login.emailMinLength", {
+											min: EMAIL_MIN_LENGTH,
+										}),
+									},
+									{
 										max: EMAIL_MAX_LENGTH,
-									}),
-								},
-							]}
-						>
-							<Input
-								prefix={<UserOutlined />}
-								placeholder={t("auth:login.email")}
-								size="large"
-							/>
-						</Form.Item>
-
-						<Form.Item
-							name="password"
-							validateFirst
-							rules={[
-								{ required: true, message: t("auth:login.passwordRequired") },
-								{
-									min: PASSWORD_MIN_LENGTH,
-									message: t("auth:login.passwordMinLength", {
-										min: PASSWORD_MIN_LENGTH,
-									}),
-								},
-								{
-									max: PASSWORD_MAX_LENGTH,
-									message: t("auth:login.passwordMaxLength", {
-										max: PASSWORD_MAX_LENGTH,
-									}),
-								},
-							]}
-						>
-							<Input.Password
-								prefix={<LockOutlined />}
-								placeholder={t("auth:login.password")}
-								size="large"
-							/>
-						</Form.Item>
-
-						<Form.Item>
-							<Button
-								type="primary"
-								htmlType="submit"
-								loading={loading}
-								block
-								size="large"
+										message: t("auth:login.emailMaxLength", {
+											max: EMAIL_MAX_LENGTH,
+										}),
+									},
+								]}
 							>
-								{t("auth:login.submit")}
-							</Button>
-						</Form.Item>
-					</Form>
+								<Input
+									prefix={<UserOutlined />}
+									placeholder={t("auth:login.email")}
+									size="large"
+								/>
+							</Form.Item>
+
+							<Form.Item
+								name="password"
+								validateFirst
+								rules={[
+									{ required: true, message: t("auth:login.passwordRequired") },
+									{
+										min: PASSWORD_MIN_LENGTH,
+										message: t("auth:login.passwordMinLength", {
+											min: PASSWORD_MIN_LENGTH,
+										}),
+									},
+									{
+										max: PASSWORD_MAX_LENGTH,
+										message: t("auth:login.passwordMaxLength", {
+											max: PASSWORD_MAX_LENGTH,
+										}),
+									},
+								]}
+							>
+								<Input.Password
+									prefix={<LockOutlined />}
+									placeholder={t("auth:login.password")}
+									size="large"
+								/>
+							</Form.Item>
+
+							<Form.Item shouldUpdate style={{ marginBottom: 0 }}>
+								{() => (
+									<Button
+										type="primary"
+										htmlType="submit"
+										disabled={
+											!form.isFieldsTouched(true) ||
+											form
+												.getFieldsError()
+												.some(({ errors }) => errors.length > 0)
+										}
+										block
+										size="large"
+									>
+										{t("auth:login.submit")}
+									</Button>
+								)}
+							</Form.Item>
+						</Form>
+					</Spin>
 
 					<div style={{ textAlign: "center", marginTop: 16 }}>
 						<Text>

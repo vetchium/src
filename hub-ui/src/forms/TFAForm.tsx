@@ -1,4 +1,4 @@
-import { Form, Input, Button, Alert, Space, Checkbox } from "antd";
+import { Form, Input, Button, Alert, Space, Checkbox, Spin } from "antd";
 import { SafetyOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { TFA_CODE_LENGTH } from "vetchium-specs/common/common";
@@ -19,66 +19,78 @@ export function TFAForm() {
 	};
 
 	return (
-		<Form<TFAFormValues>
-			form={form}
-			name="tfa"
-			onFinish={handleFinish}
-			layout="vertical"
-			requiredMark={false}
-			initialValues={{ remember_me: false }}
-		>
-			{error && (
-				<Alert
-					message={error}
-					type="error"
-					showIcon
-					style={{ marginBottom: 16 }}
-				/>
-			)}
-
-			<Form.Item
-				name="tfa_code"
-				validateFirst
-				rules={[
-					{ required: true, message: t("tfa.codeRequired") },
-					{
-						len: TFA_CODE_LENGTH,
-						message: t("tfa.codeLength", { length: TFA_CODE_LENGTH }),
-					},
-					{
-						pattern: /^[0-9]+$/,
-						message: t("tfa.codeDigitsOnly"),
-					},
-				]}
+		<Spin spinning={loading}>
+			<Form<TFAFormValues>
+				form={form}
+				name="tfa"
+				onFinish={handleFinish}
+				layout="vertical"
+				requiredMark={false}
+				initialValues={{ remember_me: false }}
 			>
-				<Input
-					prefix={<SafetyOutlined />}
-					placeholder={t("tfa.code")}
-					size="large"
-					maxLength={TFA_CODE_LENGTH}
-				/>
-			</Form.Item>
+				{error && (
+					<Alert
+						description={error}
+						type="error"
+						showIcon
+						style={{ marginBottom: 16 }}
+					/>
+				)}
 
-			<Form.Item name="remember_me" valuePropName="checked">
-				<Checkbox>{t("tfa.rememberMe")}</Checkbox>
-			</Form.Item>
-
-			<Form.Item>
-				<Space direction="vertical" style={{ width: "100%" }}>
-					<Button
-						type="primary"
-						htmlType="submit"
-						loading={loading}
-						block
+				<Form.Item
+					name="tfa_code"
+					validateFirst
+					rules={[
+						{ required: true, message: t("tfa.codeRequired") },
+						{
+							len: TFA_CODE_LENGTH,
+							message: t("tfa.codeLength", { length: TFA_CODE_LENGTH }),
+						},
+						{
+							pattern: /^[0-9]+$/,
+							message: t("tfa.codeDigitsOnly"),
+						},
+					]}
+				>
+					<Input
+						prefix={<SafetyOutlined />}
+						placeholder={t("tfa.code")}
 						size="large"
-					>
-						{t("tfa.submit")}
-					</Button>
-					<Button type="link" onClick={backToLogin} block disabled={loading}>
-						{t("tfa.backToLogin")}
-					</Button>
-				</Space>
-			</Form.Item>
-		</Form>
+						maxLength={TFA_CODE_LENGTH}
+					/>
+				</Form.Item>
+
+				<Form.Item name="remember_me" valuePropName="checked">
+					<Checkbox>{t("tfa.rememberMe")}</Checkbox>
+				</Form.Item>
+
+				<Form.Item shouldUpdate style={{ marginBottom: 0 }}>
+					{() => (
+						<Space orientation="vertical" style={{ width: "100%" }}>
+							<Button
+								type="primary"
+								htmlType="submit"
+								disabled={
+									!form.isFieldsTouched(["tfa_code"], true) ||
+									form.getFieldsError().some(({ errors }) => errors.length > 0)
+								}
+								block
+								size="large"
+							>
+								{t("tfa.submit")}
+							</Button>
+							<Button
+								type="link"
+								onClick={backToLogin}
+								block
+								disabled={loading}
+							>
+								{t("tfa.backToLogin")}
+							</Button>
+						</Space>
+					)}
+				</Form.Item>
+			</Form>
+		</Spin>
 	);
 }

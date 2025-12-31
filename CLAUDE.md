@@ -41,6 +41,7 @@ Vetchium is a multi-region job search and hiring platform with distributed regio
 8. All .go files should be formatted by [goimports](https://pkg.go.dev/golang.org/x/tools/cmd/goimports)
 9. All .md, .ts, .tsx, .json, .yaml files should be formatted with [prettier](https://prettier.io/docs/)
 10. Prefer to use JSON instead of YAML wherever possible
+11. Do not use any deprecated functions from the libraries that you import
 
 ## Build Commands
 
@@ -502,6 +503,19 @@ src/
 - **Pages**: Handle routing, data fetching, layout. Import forms and components.
 - **Forms**: Handle form state, validation, submission. Use Ant Design Form.
 - **Components**: Stateless/minimal state, reusable across pages/forms.
+
+### Form Validation and Loading States
+
+**Submit Button Behavior**:
+
+- Disable submit buttons when form has validation errors (use `Form.Item` with `shouldUpdate` to check `form.getFieldsError()`)
+- Button should only be enabled when all required fields are touched and have no errors
+
+**Network Call Handling**:
+
+- Wrap all forms with Ant Design's `Spin` component during network calls
+- The spinner prevents double-submission and blocks all user interaction while loading
+- Set `spinning={loading}` where `loading` state tracks the network call progress
 
 ### Auth Flow and Error Handling
 

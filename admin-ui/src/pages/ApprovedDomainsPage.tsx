@@ -7,6 +7,7 @@ import {
 	StopOutlined,
 } from "@ant-design/icons";
 import {
+	App,
 	Button,
 	Card,
 	Descriptions,
@@ -14,7 +15,6 @@ import {
 	Empty,
 	Form,
 	Input,
-	message,
 	Modal,
 	Space,
 	Spin,
@@ -51,6 +51,7 @@ const { TextArea } = Input;
 export function ApprovedDomainsPage() {
 	const { t } = useTranslation("approvedDomains");
 	const { sessionToken } = useAuth();
+	const { message } = App.useApp();
 
 	const [domains, setDomains] = useState<ApprovedDomain[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -61,16 +62,19 @@ export function ApprovedDomainsPage() {
 
 	const [addModalVisible, setAddModalVisible] = useState(false);
 	const [addingDomain, setAddingDomain] = useState(false);
+	const [addFormValid, setAddFormValid] = useState(false);
 	const [form] = Form.useForm();
 
 	const [disableModalVisible, setDisableModalVisible] = useState(false);
 	const [disablingDomain, setDisablingDomain] = useState(false);
 	const [domainToDisable, setDomainToDisable] = useState<string | null>(null);
+	const [disableFormValid, setDisableFormValid] = useState(false);
 	const [disableForm] = Form.useForm();
 
 	const [enableModalVisible, setEnableModalVisible] = useState(false);
 	const [enablingDomain, setEnablingDomain] = useState(false);
 	const [domainToEnable, setDomainToEnable] = useState<string | null>(null);
+	const [enableFormValid, setEnableFormValid] = useState(false);
 	const [enableForm] = Form.useForm();
 
 	const [detailDrawerVisible, setDetailDrawerVisible] = useState(false);
@@ -135,7 +139,7 @@ export function ApprovedDomainsPage() {
 				setLoading(false);
 			}
 		},
-		[sessionToken, searchQuery, filter, t]
+		[sessionToken, searchQuery, filter, t, message]
 	);
 
 	useEffect(() => {
@@ -567,7 +571,7 @@ export function ApprovedDomainsPage() {
 			</Card>
 
 			<Card style={{ width: "100%" }}>
-				<Space direction="vertical" size="large" style={{ width: "100%" }}>
+				<Space orientation="vertical" size="large" style={{ width: "100%" }}>
 					<Space style={{ justifyContent: "space-between", width: "100%" }}>
 						<Link to="/">
 							<Button icon={<ArrowLeftOutlined />}>{t("actions.back")}</Button>
@@ -632,44 +636,61 @@ export function ApprovedDomainsPage() {
 				onCancel={() => {
 					setAddModalVisible(false);
 					form.resetFields();
+					setAddFormValid(false);
 				}}
 				confirmLoading={addingDomain}
 				okText={t("addModal.confirm")}
 				cancelText={t("addModal.cancel")}
+				okButtonProps={{ disabled: !addFormValid }}
 			>
-				<Form form={form} layout="vertical">
-					<Form.Item
-						name="domain_name"
-						label={t("addModal.domainLabel")}
-						rules={[
-							{ required: true, message: t("addModal.domainRequired") },
-							{
-								pattern: /^[a-z0-9]+([-.]{1}[a-z0-9]+)*\.[a-z]{2,}$/i,
-								message: t("addModal.domainInvalid"),
-							},
-						]}
+				<Spin spinning={addingDomain}>
+					<Form
+						form={form}
+						layout="vertical"
+						onFieldsChange={() => {
+							const hasErrors = form
+								.getFieldsError()
+								.some(({ errors }) => errors.length > 0);
+							const allTouched = form.isFieldsTouched(
+								["domain_name", "reason"],
+								true
+							);
+							setAddFormValid(allTouched && !hasErrors);
+						}}
 					>
-						<Input placeholder={t("addModal.domainPlaceholder")} />
-					</Form.Item>
-					<Form.Item
-						name="reason"
-						label={t("addModal.reasonLabel")}
-						rules={[
-							{ required: true, message: t("addModal.reasonRequired") },
-							{
-								max: 256,
-								message: t("addModal.reasonMaxLength"),
-							},
-						]}
-					>
-						<TextArea
-							rows={4}
-							placeholder={t("addModal.reasonPlaceholder")}
-							maxLength={256}
-							showCount
-						/>
-					</Form.Item>
-				</Form>
+						<Form.Item
+							name="domain_name"
+							label={t("addModal.domainLabel")}
+							rules={[
+								{ required: true, message: t("addModal.domainRequired") },
+								{
+									pattern: /^[a-z0-9]+([-.]{1}[a-z0-9]+)*\.[a-z]{2,}$/i,
+									message: t("addModal.domainInvalid"),
+								},
+							]}
+						>
+							<Input placeholder={t("addModal.domainPlaceholder")} />
+						</Form.Item>
+						<Form.Item
+							name="reason"
+							label={t("addModal.reasonLabel")}
+							rules={[
+								{ required: true, message: t("addModal.reasonRequired") },
+								{
+									max: 256,
+									message: t("addModal.reasonMaxLength"),
+								},
+							]}
+						>
+							<TextArea
+								rows={4}
+								placeholder={t("addModal.reasonPlaceholder")}
+								maxLength={256}
+								showCount
+							/>
+						</Form.Item>
+					</Form>
+				</Spin>
 			</Modal>
 
 			<Modal
@@ -680,35 +701,51 @@ export function ApprovedDomainsPage() {
 					setDisableModalVisible(false);
 					setDomainToDisable(null);
 					disableForm.resetFields();
+					setDisableFormValid(false);
 				}}
 				confirmLoading={disablingDomain}
 				okText={t("disableModal.confirm")}
 				cancelText={t("disableModal.cancel")}
-				okButtonProps={{ danger: true }}
+				okButtonProps={{ danger: true, disabled: !disableFormValid }}
 			>
-				<Space direction="vertical" style={{ width: "100%" }}>
-					<div>{t("disableModal.message", { domain: domainToDisable })}</div>
-					<Form form={disableForm} layout="vertical">
-						<Form.Item
-							name="reason"
-							label={t("disableModal.reasonLabel")}
-							rules={[
-								{ required: true, message: t("disableModal.reasonRequired") },
-								{
-									max: 256,
-									message: t("disableModal.reasonMaxLength"),
-								},
-							]}
+				<Spin spinning={disablingDomain}>
+					<Space orientation="vertical" style={{ width: "100%" }}>
+						<div>{t("disableModal.message", { domain: domainToDisable })}</div>
+						<Form
+							form={disableForm}
+							layout="vertical"
+							onFieldsChange={() => {
+								const hasErrors = disableForm
+									.getFieldsError()
+									.some(({ errors }) => errors.length > 0);
+								const allTouched = disableForm.isFieldsTouched(
+									["reason"],
+									true
+								);
+								setDisableFormValid(allTouched && !hasErrors);
+							}}
 						>
-							<TextArea
-								rows={4}
-								placeholder={t("disableModal.reasonPlaceholder")}
-								maxLength={256}
-								showCount
-							/>
-						</Form.Item>
-					</Form>
-				</Space>
+							<Form.Item
+								name="reason"
+								label={t("disableModal.reasonLabel")}
+								rules={[
+									{ required: true, message: t("disableModal.reasonRequired") },
+									{
+										max: 256,
+										message: t("disableModal.reasonMaxLength"),
+									},
+								]}
+							>
+								<TextArea
+									rows={4}
+									placeholder={t("disableModal.reasonPlaceholder")}
+									maxLength={256}
+									showCount
+								/>
+							</Form.Item>
+						</Form>
+					</Space>
+				</Spin>
 			</Modal>
 
 			<Modal
@@ -719,34 +756,48 @@ export function ApprovedDomainsPage() {
 					setEnableModalVisible(false);
 					setDomainToEnable(null);
 					enableForm.resetFields();
+					setEnableFormValid(false);
 				}}
 				confirmLoading={enablingDomain}
 				okText={t("enableModal.confirm")}
 				cancelText={t("enableModal.cancel")}
+				okButtonProps={{ disabled: !enableFormValid }}
 			>
-				<Space direction="vertical" style={{ width: "100%" }}>
-					<div>{t("enableModal.message", { domain: domainToEnable })}</div>
-					<Form form={enableForm} layout="vertical">
-						<Form.Item
-							name="reason"
-							label={t("enableModal.reasonLabel")}
-							rules={[
-								{ required: true, message: t("enableModal.reasonRequired") },
-								{
-									max: 256,
-									message: t("enableModal.reasonMaxLength"),
-								},
-							]}
+				<Spin spinning={enablingDomain}>
+					<Space orientation="vertical" style={{ width: "100%" }}>
+						<div>{t("enableModal.message", { domain: domainToEnable })}</div>
+						<Form
+							form={enableForm}
+							layout="vertical"
+							onFieldsChange={() => {
+								const hasErrors = enableForm
+									.getFieldsError()
+									.some(({ errors }) => errors.length > 0);
+								const allTouched = enableForm.isFieldsTouched(["reason"], true);
+								setEnableFormValid(allTouched && !hasErrors);
+							}}
 						>
-							<TextArea
-								rows={4}
-								placeholder={t("enableModal.reasonPlaceholder")}
-								maxLength={256}
-								showCount
-							/>
-						</Form.Item>
-					</Form>
-				</Space>
+							<Form.Item
+								name="reason"
+								label={t("enableModal.reasonLabel")}
+								rules={[
+									{ required: true, message: t("enableModal.reasonRequired") },
+									{
+										max: 256,
+										message: t("enableModal.reasonMaxLength"),
+									},
+								]}
+							>
+								<TextArea
+									rows={4}
+									placeholder={t("enableModal.reasonPlaceholder")}
+									maxLength={256}
+									showCount
+								/>
+							</Form.Item>
+						</Form>
+					</Space>
+				</Spin>
 			</Modal>
 
 			<Drawer
@@ -756,11 +807,15 @@ export function ApprovedDomainsPage() {
 					setDetailDrawerVisible(false);
 					setDomainDetail(null);
 				}}
-				width={600}
+				size="large"
 			>
 				<Spin spinning={loadingDetail}>
 					{domainDetail && (
-						<Space direction="vertical" size="large" style={{ width: "100%" }}>
+						<Space
+							orientation="vertical"
+							size="large"
+							style={{ width: "100%" }}
+						>
 							<div>
 								<Title level={5}>{t("detailDrawer.domainInfo")}</Title>
 								<Descriptions bordered column={1}>
@@ -803,7 +858,7 @@ export function ApprovedDomainsPage() {
 												style={{ marginBottom: 8 }}
 											>
 												<Space
-													direction="vertical"
+													orientation="vertical"
 													size="small"
 													style={{ width: "100%" }}
 												>
