@@ -266,7 +266,7 @@ if adminUser == nil {
 
 API uses **snake_case** for all JSON fields:
 
-- Request/response fields: `tfa_token`, `session_token`, `domain_name`, `created_at`
+- Request/response fields: `tfa_token`, `domain_name`, `created_at`
 - Go struct tags: `json:"tfa_token"`
 - TypeScript interfaces: `tfa_token: string`
 
@@ -290,6 +290,7 @@ interface Response {
 
 Use POST as the method type as much as possible and pass any value needed in the request body with a schema. Avoid using path parameters. Query parameters should be sparingly used.
 Use DELETE method for operations that may delete data. But ideally most APIs should be marking as disabled instead of delete.
+Use Authorization Header for passing session tokens. Do not pass session tokens in request bodies.
 
 Avoid using common endpoint prefixes to avoid wrong handlers getting called accidentally. For example, Instead of
 
