@@ -5,8 +5,12 @@
 	"description": "Vetchium monorepo - manages git hooks and repo-wide tooling",
 	"scripts": {
 		"prepare": "husky",
-		"format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,yaml,yml,md}\"",
-		"format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,yaml,yml,md}\""
+		"format:prettier": "git ls-files '*.ts' '*.tsx' '*.js' '*.jsx' '*.json' '*.yaml' '*.yml' '*.md' | xargs prettier --write",
+		"format:prettier:check": "git ls-files '*.ts' '*.tsx' '*.js' '*.jsx' '*.json' '*.yaml' '*.yml' '*.md' | xargs prettier --check",
+		"format:go": "git ls-files '*.go' | xargs goimports -w",
+		"format:go:check": "sh -c 'OUTPUT=$(git ls-files \"*.go\" | xargs goimports -l); if [ -n \"$OUTPUT\" ]; then echo \"$OUTPUT\"; exit 1; fi'",
+		"format": "bun run format:prettier && bun run format:go",
+		"format:check": "bun run format:prettier:check && bun run format:go:check"
 	},
 	"devDependencies": {
 		"husky": "^9.1.7",

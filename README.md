@@ -14,6 +14,14 @@ A multi-region application with global and regional databases.
 ## Prerequisites
 
 - Docker and Docker Compose
+- [Bun](https://bun.sh/) - JavaScript runtime and package manager
+- [Go](https://go.dev/) - For backend development
+- [goimports](https://pkg.go.dev/golang.org/x/tools/cmd/goimports) - **Required** for git pre-push hooks
+
+```bash
+# Install goimports (required)
+go install golang.org/x/tools/cmd/goimports@latest
+```
 
 For local development (optional):
 
@@ -91,8 +99,10 @@ bun install
 
 The pre-push hook checks code formatting for all files being pushed:
 
-- **Prettier** checks: `.ts`, `.js`, `.jsx`, `.json`, `.yaml`, `.yml`, `.md` files
-- **Goimports** checks: `.go` files
+- **Prettier** checks: `.ts`, `.js`, `.jsx`, `.json`, `.yaml`, `.yml`, `.md` files (auto-installed via `bun install`)
+- **Goimports** checks: `.go` files (**must be installed separately**, see Prerequisites)
+
+**Important**: The hook will **fail** if you're pushing `.go` files and `goimports` is not installed.
 
 If formatting issues are found, the push will be blocked with a message like:
 
@@ -103,17 +113,31 @@ Run 'bun run format' to fix formatting issues
 
 ### Fixing Formatting Issues
 
-**For frontend code (TypeScript, JSON, YAML, Markdown):**
+**Format all code (from project root):**
 
 ```bash
-cd admin-ui    # or hub-ui, specs/typespec
-bun run format
+bun run format        # Format ALL files (prettier + goimports)
+bun run format:check  # Check formatting without modifying
 ```
 
-**For backend code (Go):**
+This runs:
+
+- **Prettier** for `.ts`, `.tsx`, `.js`, `.jsx`, `.json`, `.yaml`, `.yml`, `.md` files
+- **Goimports** for `.go` files
+
+**Format specific types:**
 
 ```bash
-goimports -w api-server/path/to/file.go
+bun run format:prettier      # Only JS/TS/JSON/YAML/MD files
+bun run format:go            # Only Go files
+bun run format:go:check      # Check Go files only
+```
+
+**Or format from subdirectories:**
+
+```bash
+cd admin-ui && bun run format:prettier
+cd api-server && goimports -w ./path/to/file.go
 ```
 
 The hook only checks files that are being pushed, not the entire codebase.

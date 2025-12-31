@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+
 	"vetchium-api-server.typespec/common"
 )
 
@@ -26,12 +27,12 @@ const (
 
 // Validation errors
 var (
-	ErrDisplayNameTooShort   = errors.New("must be at least 1 character")
-	ErrDisplayNameTooLong    = errors.New("must be at most 100 characters")
-	ErrCountryCodeInvalid    = errors.New("must be 2 uppercase letters")
-	ErrHandleInvalidFormat   = errors.New("must contain only lowercase letters, numbers, and hyphens")
-	countryCodePattern       = regexp.MustCompile(`^[A-Z]{2}$`)
-	handlePattern            = regexp.MustCompile(`^[a-z0-9-]+$`)
+	ErrDisplayNameTooShort = errors.New("must be at least 1 character")
+	ErrDisplayNameTooLong  = errors.New("must be at most 100 characters")
+	ErrCountryCodeInvalid  = errors.New("must be 2 uppercase letters")
+	ErrHandleInvalidFormat = errors.New("must contain only lowercase letters, numbers, and hyphens")
+	countryCodePattern     = regexp.MustCompile(`^[A-Z]{2}$`)
+	handlePattern          = regexp.MustCompile(`^[a-z0-9-]+$`)
 )
 
 // Validation functions
@@ -92,12 +93,12 @@ type RequestSignupResponse struct {
 
 type CompleteSignupRequest struct {
 	SignupToken          HubSignupToken     `json:"signup_token"`
-	Password             common.Password     `json:"password"`
-	PreferredDisplayName DisplayName         `json:"preferred_display_name"`
-	OtherDisplayNames    []DisplayNameEntry  `json:"other_display_names,omitempty"`
-	HomeRegion           string              `json:"home_region"`
-	PreferredLanguage    string              `json:"preferred_language"`
-	ResidentCountryCode  CountryCode         `json:"resident_country_code"`
+	Password             common.Password    `json:"password"`
+	PreferredDisplayName DisplayName        `json:"preferred_display_name"`
+	OtherDisplayNames    []DisplayNameEntry `json:"other_display_names,omitempty"`
+	HomeRegion           string             `json:"home_region"`
+	PreferredLanguage    string             `json:"preferred_language"`
+	ResidentCountryCode  CountryCode        `json:"resident_country_code"`
 }
 
 func (r CompleteSignupRequest) Validate() []common.ValidationError {

@@ -87,32 +87,34 @@ do
         if [ -n "$go_check_files" ]; then
             echo "Checking goimports formatting..."
 
-            if command -v goimports >/dev/null 2>&1; then
-                failed_files=""
-                for file in $go_check_files; do
-                    if [ -f "$file" ]; then
-                        # Check if goimports would make changes
-                        tmp_file=$(mktemp)
-                        goimports "$file" > "$tmp_file"
-                        if ! diff -u "$file" "$tmp_file" >/dev/null 2>&1; then
-                            failed_files="$failed_files $file"
-                        fi
-                        rm -f "$tmp_file"
-                    fi
-                done
-
-                if [ -n "$failed_files" ]; then
-                    echo "❌ goimports check failed for the following files:"
-                    for file in $failed_files; do
-                        echo "  $file"
-                    done
-                    echo "Run 'goimports -w <file>' to fix formatting issues"
-                    exit 1
-                fi
-                echo "✓ goimports check passed"
-            else
-                echo "⚠️  Warning: goimports not found, skipping check"
+            if ! command -v goimports >/dev/null 2>&1; then
+                echo "❌ goimports not found!"
+                echo "Install it with: go install golang.org/x/tools/cmd/goimports@latest"
+                exit 1
             fi
+
+            failed_files=""
+            for file in $go_check_files; do
+                if [ -f "$file" ]; then
+                    # Check if goimports would make changes
+                    tmp_file=$(mktemp)
+                    goimports "$file" > "$tmp_file"
+                    if ! diff -u "$file" "$tmp_file" >/dev/null 2>&1; then
+                        failed_files="$failed_files $file"
+                    fi
+                    rm -f "$tmp_file"
+                fi
+            done
+
+            if [ -n "$failed_files" ]; then
+                echo "❌ goimports check failed for the following files:"
+                for file in $failed_files; do
+                    echo "  $file"
+                done
+                echo "Fix with: goimports -w <file>"
+                exit 1
+            fi
+            echo "✓ goimports check passed"
         fi
     fi
 done
