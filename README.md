@@ -108,7 +108,7 @@ If formatting issues are found, the push will be blocked with a message like:
 
 ```
 ❌ Prettier check failed!
-Run 'bun run format' to fix formatting issues
+Run 'bun format' to fix formatting issues
 ```
 
 ### Fixing Formatting Issues
@@ -116,21 +116,11 @@ Run 'bun run format' to fix formatting issues
 **Format all code (from project root):**
 
 ```bash
-bun run format        # Format ALL files (prettier + goimports)
-bun run format:check  # Check formatting without modifying
-```
-
-This runs:
-
-- **Prettier** for `.ts`, `.tsx`, `.js`, `.jsx`, `.json`, `.yaml`, `.yml`, `.md` files
-- **Goimports** for `.go` files
-
-**Format specific types:**
-
-```bash
-bun run format:prettier      # Only JS/TS/JSON/YAML/MD files
-bun run format:go            # Only Go files
-bun run format:go:check      # Check Go files only
+bun format              # Format ALL files (prettier + goimports)
+bun format:check        # Check formatting without modifying
+bun format:prettier     # Only JS/TS/JSON/YAML/MD files
+bun format:go            # Only Go files
+bun format:go:check      # Check Go files only
 ```
 
 **Or format from subdirectories:**
@@ -139,20 +129,6 @@ bun run format:go:check      # Check Go files only
 cd admin-ui && bun run format:prettier
 cd api-server && goimports -w ./path/to/file.go
 ```
-
-The hook only checks files that are being pushed, not the entire codebase.
-
-### Docker Builds
-
-Docker builds automatically exclude development files via `.dockerignore`:
-
-- `.husky/` - Git hooks (not needed in containers)
-- `node_modules/` - Rebuilt inside container
-- `.git/` - Source control history
-- Test files and documentation
-- Editor configs and OS files
-
-This keeps Docker images minimal and build times fast.
 
 ## Running Tests
 
