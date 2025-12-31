@@ -23,7 +23,6 @@ import type {
 	HubLoginRequest,
 	HubTFARequest,
 	RequestSignupRequest,
-	HubLogoutRequest,
 } from "vetchium-specs/hub/hub-users";
 import type { CheckDomainRequest } from "vetchium-specs/global/global";
 
@@ -698,15 +697,11 @@ test.describe("POST /hub/logout", () => {
 			const sessionToken = tfaResponse.body.session_token;
 
 			// Logout
-			const logoutRequest: HubLogoutRequest = { session_token: sessionToken };
-			const response = await api.logout(logoutRequest);
+			const response = await api.logout(sessionToken);
 			expect(response.status).toBe(200);
 
 			// Verify session is invalidated (logout again should fail)
-			const secondLogoutRequest: HubLogoutRequest = {
-				session_token: sessionToken,
-			};
-			const secondLogout = await api.logout(secondLogoutRequest);
+			const secondLogout = await api.logout(sessionToken);
 			expect(secondLogout.status).toBe(401);
 		} finally {
 			await deleteTestHubUser(email);
@@ -718,16 +713,15 @@ test.describe("POST /hub/logout", () => {
 	test("returns 401 for invalid session token", async ({ request }) => {
 		const api = new HubAPIClient(request);
 
-		const logoutRequest: HubLogoutRequest = { session_token: "0".repeat(64) };
-		const response = await api.logout(logoutRequest);
+		const response = await api.logout("0".repeat(64));
 
 		expect(response.status).toBe(401);
 	});
 
-	test("returns 401 for invalid auth header", async ({ request }) => {
+	test("returns 401 for missing auth header", async ({ request }) => {
 		const api = new HubAPIClient(request);
 
-		const response = await api.logoutRaw("fakesession", {});
+		const response = await api.logoutWithoutAuth({});
 
 		expect(response.status).toBe(401);
 	});

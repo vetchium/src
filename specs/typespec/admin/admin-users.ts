@@ -72,23 +72,17 @@ export interface AdminTFAResponse {
 }
 
 export interface AdminLogoutRequest {
-	session_token: AdminSessionToken;
+	// Empty interface - session token passed in Authorization header
 }
 
 export function validateAdminLogoutRequest(
 	request: AdminLogoutRequest,
 ): ValidationError[] {
-	const errs: ValidationError[] = [];
-
-	if (!request.session_token) {
-		errs.push(newValidationError("session_token", ERR_REQUIRED));
-	}
-
-	return errs;
+	// No fields to validate
+	return [];
 }
 
 export interface UpdatePreferencesRequest {
-	session_token: AdminSessionToken;
 	preferred_language: LanguageCode;
 }
 
@@ -96,10 +90,6 @@ export function validateUpdatePreferencesRequest(
 	request: UpdatePreferencesRequest,
 ): ValidationError[] {
 	const errs: ValidationError[] = [];
-
-	if (!request.session_token) {
-		errs.push(newValidationError("session_token", ERR_REQUIRED));
-	}
 
 	if (!request.preferred_language) {
 		errs.push(newValidationError("preferred_language", ERR_REQUIRED));

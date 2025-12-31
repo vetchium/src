@@ -4,7 +4,7 @@ import {
 	AdminLoginResponse,
 	AdminTFARequest,
 	AdminTFAResponse,
-	AdminLogoutRequest,
+	UpdatePreferencesRequest,
 } from "vetchium-specs/admin/admin-users";
 import type {
 	AddApprovedDomainRequest,
@@ -59,7 +59,7 @@ export class AdminAPIClient {
 		return {
 			status: response.status(),
 			body: responseBody as AdminLoginResponse,
-			errors: responseBody.errors,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
 		};
 	}
 
@@ -97,20 +97,23 @@ export class AdminAPIClient {
 		return {
 			status: response.status(),
 			body: responseBody as AdminTFAResponse,
-			errors: responseBody.errors,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
 		};
 	}
 
 	/**
 	 * POST /admin/logout
-	 * Invalidates the session token.
+	 * Invalidates the session token via Authorization header.
 	 *
-	 * @param request - Logout request with session_token
+	 * @param sessionToken - Session token to invalidate
 	 * @returns API response (empty body on success)
 	 */
-	async logout(request: AdminLogoutRequest): Promise<APIResponse<void>> {
+	async logout(sessionToken: string): Promise<APIResponse<void>> {
 		const response = await this.request.post("/admin/logout", {
-			data: request,
+			headers: {
+				Authorization: `Bearer ${sessionToken}`,
+			},
+			data: {},
 		});
 
 		const body = await response.json().catch(() => ({}));
@@ -123,8 +126,28 @@ export class AdminAPIClient {
 
 	/**
 	 * POST /admin/logout with raw body for testing invalid payloads
+	 * Note: Session token must still be in header for auth
 	 */
-	async logoutRaw(body: unknown): Promise<APIResponse<void>> {
+	async logoutRaw(sessionToken: string, body: unknown): Promise<APIResponse<void>> {
+		const response = await this.request.post("/admin/logout", {
+			headers: {
+				Authorization: `Bearer ${sessionToken}`,
+			},
+			data: body,
+		});
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: undefined,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	/**
+	 * POST /admin/logout without Authorization header (for testing 401)
+	 */
+	async logoutWithoutAuth(body: unknown = {}): Promise<APIResponse<void>> {
 		const response = await this.request.post("/admin/logout", {
 			data: body,
 		});
@@ -133,7 +156,51 @@ export class AdminAPIClient {
 		return {
 			status: response.status(),
 			body: undefined,
-			errors: responseBody.errors,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	/**
+	 * POST /admin/preferences with Authorization header
+	 */
+	async updatePreferences(
+		sessionToken: string,
+		request: UpdatePreferencesRequest
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/admin/preferences", {
+			headers: {
+				Authorization: `Bearer ${sessionToken}`,
+			},
+			data: request,
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: undefined,
+			errors: body.errors,
+		};
+	}
+
+	/**
+	 * POST /admin/preferences with raw body for testing invalid payloads
+	 */
+	async updatePreferencesRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/admin/preferences", {
+			headers: {
+				Authorization: `Bearer ${sessionToken}`,
+			},
+			data: body,
+		});
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: undefined,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
 		};
 	}
 
@@ -182,7 +249,7 @@ export class AdminAPIClient {
 		return {
 			status: response.status(),
 			body: responseBody as ApprovedDomainDetailResponse["domain"],
-			errors: responseBody.errors,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
 		};
 	}
 
@@ -229,7 +296,7 @@ export class AdminAPIClient {
 		return {
 			status: response.status(),
 			body: responseBody as ApprovedDomainListResponse,
-			errors: responseBody.errors,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
 		};
 	}
 
@@ -274,7 +341,7 @@ export class AdminAPIClient {
 		return {
 			status: response.status(),
 			body: responseBody as ApprovedDomainDetailResponse,
-			errors: responseBody.errors,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
 		};
 	}
 
@@ -319,7 +386,7 @@ export class AdminAPIClient {
 		return {
 			status: response.status(),
 			body: undefined,
-			errors: responseBody.errors,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
 		};
 	}
 
@@ -364,7 +431,7 @@ export class AdminAPIClient {
 		return {
 			status: response.status(),
 			body: undefined,
-			errors: responseBody.errors,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
 		};
 	}
 }

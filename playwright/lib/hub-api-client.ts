@@ -8,7 +8,6 @@ import type {
 	HubLoginResponse,
 	HubTFARequest,
 	HubTFAResponse,
-	HubLogoutRequest,
 } from "vetchium-specs/hub/hub-users";
 import type { APIResponse } from "./api-client";
 
@@ -52,7 +51,7 @@ export class HubAPIClient {
 		return {
 			status: response.status(),
 			body: responseBody as RequestSignupResponse,
-			errors: responseBody.errors,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
 		};
 	}
 
@@ -89,7 +88,7 @@ export class HubAPIClient {
 		return {
 			status: response.status(),
 			body: responseBody as CompleteSignupResponse,
-			errors: responseBody.errors,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
 		};
 	}
 
@@ -124,7 +123,7 @@ export class HubAPIClient {
 		return {
 			status: response.status(),
 			body: responseBody as HubLoginResponse,
-			errors: responseBody.errors,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
 		};
 	}
 
@@ -159,18 +158,23 @@ export class HubAPIClient {
 		return {
 			status: response.status(),
 			body: responseBody as HubTFAResponse,
-			errors: responseBody.errors,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
 		};
 	}
 
 	/**
 	 * POST /hub/logout
-	 * Logout (authenticated)
+	 * Invalidates the session token via Authorization header.
+	 *
+	 * @param sessionToken - Session token to invalidate
+	 * @returns API response (empty body on success)
 	 */
-	async logout(request: HubLogoutRequest): Promise<APIResponse<void>> {
+	async logout(sessionToken: string): Promise<APIResponse<void>> {
 		const response = await this.request.post("/hub/logout", {
-			headers: { Authorization: `Bearer ${request.session_token}` },
-			data: request,
+			headers: {
+				Authorization: `Bearer ${sessionToken}`,
+			},
+			data: {},
 		});
 
 		const body = await response.json().catch(() => ({}));
@@ -183,13 +187,16 @@ export class HubAPIClient {
 
 	/**
 	 * POST /hub/logout with raw body for testing invalid payloads
+	 * Note: Session token must still be in header for auth
 	 */
 	async logoutRaw(
-		session_token: string,
+		sessionToken: string,
 		body: unknown
 	): Promise<APIResponse<void>> {
 		const response = await this.request.post("/hub/logout", {
-			headers: { Authorization: `Bearer ${session_token}` },
+			headers: {
+				Authorization: `Bearer ${sessionToken}`,
+			},
 			data: body,
 		});
 
@@ -197,7 +204,23 @@ export class HubAPIClient {
 		return {
 			status: response.status(),
 			body: undefined,
-			errors: responseBody.errors,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	/**
+	 * POST /hub/logout without Authorization header (for testing 401)
+	 */
+	async logoutWithoutAuth(body: unknown = {}): Promise<APIResponse<void>> {
+		const response = await this.request.post("/hub/logout", {
+			data: body,
+		});
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: undefined,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
 		};
 	}
 }

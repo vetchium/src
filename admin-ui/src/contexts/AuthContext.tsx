@@ -10,7 +10,6 @@ import { useTranslation } from "react-i18next";
 import {
 	type AdminLoginRequest,
 	type AdminTFARequest,
-	type AdminLogoutRequest,
 	validateAdminLoginRequest,
 	validateAdminTFARequest,
 } from "vetchium-specs/admin/admin-users";
@@ -246,16 +245,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
 			return;
 		}
 
-		const logoutRequest: AdminLogoutRequest = {
-			session_token: currentSessionToken,
-		};
-
 		try {
 			const apiBaseUrl = await getApiBaseUrl();
 			const response = await fetch(`${apiBaseUrl}/admin/logout`, {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify(logoutRequest),
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${currentSessionToken}`,
+				},
+				body: JSON.stringify({}),
 			});
 
 			clearSessionToken();

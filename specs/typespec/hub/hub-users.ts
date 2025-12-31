@@ -165,7 +165,7 @@ export interface HubTFAResponse {
 }
 
 export interface HubLogoutRequest {
-	session_token: HubSessionToken;
+	// Empty interface - session token passed in Authorization header
 }
 
 // Request validators
@@ -276,13 +276,8 @@ export function validateHubTFARequest(
 }
 
 export function validateHubLogoutRequest(
-	request: HubLogoutRequest,
+	_request: HubLogoutRequest,
 ): ValidationError[] {
-	const errs: ValidationError[] = [];
-
-	if (!request.session_token) {
-		errs.push(newValidationError("session_token", ERR_REQUIRED));
-	}
-
-	return errs;
+	// No fields to validate
+	return [];
 }

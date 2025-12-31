@@ -39,13 +39,10 @@ model AdminTFAResponse {
 }
 
 model AdminLogoutRequest {
-    @doc("Session token to invalidate")
-    session_token: AdminSessionToken;
+    // Empty model - session token passed in Authorization header
 }
 
 model UpdatePreferencesRequest {
-    @doc("Session token for authentication")
-    session_token: AdminSessionToken;
     @doc("Preferred language (BCP 47 tag)")
     preferred_language: LanguageCode;
 }

@@ -105,8 +105,7 @@ model HubTFAResponse {
 }
 
 model HubLogoutRequest {
-    @doc("Session token to invalidate")
-    session_token: HubSessionToken;
+    // Empty model - session token passed in Authorization header
 }
 
 @route("/hub/login")

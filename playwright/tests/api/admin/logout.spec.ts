@@ -43,7 +43,7 @@ test.describe("POST /admin/logout", () => {
 		try {
 			const sessionToken = await getSessionToken(api, email, password);
 
-			const response = await api.logout({ session_token: sessionToken });
+			const response = await api.logout(sessionToken);
 
 			expect(response.status).toBe(200);
 		} finally {
@@ -54,30 +54,27 @@ test.describe("POST /admin/logout", () => {
 	test("invalid session token returns 401", async ({ request }) => {
 		const api = new AdminAPIClient(request);
 
-		const response = await api.logout({
-			session_token:
-				"0000000000000000000000000000000000000000000000000000000000000000",
-		});
+		const response = await api.logout(
+			"0000000000000000000000000000000000000000000000000000000000000000"
+		);
 
 		expect(response.status).toBe(401);
 	});
 
-	test("missing session token returns 400", async ({ request }) => {
+	test("missing Authorization header returns 401", async ({ request }) => {
 		const api = new AdminAPIClient(request);
 
-		const response = await api.logoutRaw({});
+		const response = await api.logoutWithoutAuth({});
 
-		expect(response.status).toBe(400);
+		expect(response.status).toBe(401);
 	});
 
-	test("empty session token returns 400", async ({ request }) => {
+	test("empty session token returns 401", async ({ request }) => {
 		const api = new AdminAPIClient(request);
 
-		const response = await api.logoutRaw({
-			session_token: "",
-		});
+		const response = await api.logout("");
 
-		expect(response.status).toBe(400);
+		expect(response.status).toBe(401);
 	});
 
 	test("double logout - second attempt returns 401", async ({ request }) => {
@@ -90,11 +87,11 @@ test.describe("POST /admin/logout", () => {
 			const sessionToken = await getSessionToken(api, email, password);
 
 			// First logout should succeed
-			const firstResponse = await api.logout({ session_token: sessionToken });
+			const firstResponse = await api.logout(sessionToken);
 			expect(firstResponse.status).toBe(200);
 
 			// Second logout should fail (session already invalidated)
-			const secondResponse = await api.logout({ session_token: sessionToken });
+			const secondResponse = await api.logout(sessionToken);
 			expect(secondResponse.status).toBe(401);
 		} finally {
 			await deleteTestAdminUser(email);
@@ -105,16 +102,13 @@ test.describe("POST /admin/logout", () => {
 		const api = new AdminAPIClient(request);
 
 		// Token too short - treated as invalid (not found), returns 401
-		const response1 = await api.logoutRaw({
-			session_token: "abc123",
-		});
+		const response1 = await api.logout("abc123");
 		expect(response1.status).toBe(401);
 
 		// Token with invalid hex characters - treated as invalid (not found), returns 401
-		const response2 = await api.logoutRaw({
-			session_token:
-				"zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
-		});
+		const response2 = await api.logout(
+			"zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"
+		);
 		expect(response2.status).toBe(401);
 	});
 });

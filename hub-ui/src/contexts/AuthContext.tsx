@@ -10,7 +10,6 @@ import { useTranslation } from "react-i18next";
 import {
 	type HubLoginRequest,
 	type HubTFARequest,
-	type HubLogoutRequest,
 	validateHubLoginRequest,
 	validateHubTFARequest,
 } from "vetchium-specs/hub/hub-users";
@@ -255,16 +254,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
 			return;
 		}
 
-		const logoutRequest: HubLogoutRequest = {
-			session_token: currentSessionToken,
-		};
-
 		try {
 			const apiBaseUrl = await getApiBaseUrl();
 			const response = await fetch(`${apiBaseUrl}/hub/logout`, {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify(logoutRequest),
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${currentSessionToken}`,
+				},
+				body: JSON.stringify({}),
 			});
 
 			clearSessionToken();

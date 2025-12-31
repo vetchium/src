@@ -27,9 +27,11 @@ export function AppHeader() {
 				const apiBaseUrl = await getApiBaseUrl();
 				await fetch(`${apiBaseUrl}/admin/preferences`, {
 					method: "POST",
-					headers: { "Content-Type": "application/json" },
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${sessionToken}`,
+					},
 					body: JSON.stringify({
-						session_token: sessionToken,
 						preferred_language: value,
 					}),
 				});

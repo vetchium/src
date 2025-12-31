@@ -199,15 +199,10 @@ type HubTFAResponse struct {
 }
 
 type HubLogoutRequest struct {
-	SessionToken HubSessionToken `json:"session_token"`
+	// Empty struct - session token passed in Authorization header
 }
 
 func (r HubLogoutRequest) Validate() []common.ValidationError {
-	var errs []common.ValidationError
-
-	if r.SessionToken == "" {
-		errs = append(errs, common.NewValidationError("session_token", common.ErrRequired))
-	}
-
-	return errs
+	// No fields to validate
+	return nil
 }
