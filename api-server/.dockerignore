@@ -1,0 +1,27 @@
+# Go binaries
+api-server
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Go test files
+*_test.go
+
+# Testing
+coverage.txt
+coverage.html
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

@@ -142,6 +142,18 @@ cd api-server && goimports -w ./path/to/file.go
 
 The hook only checks files that are being pushed, not the entire codebase.
 
+### Docker Builds
+
+Docker builds automatically exclude development files via `.dockerignore`:
+
+- `.husky/` - Git hooks (not needed in containers)
+- `node_modules/` - Rebuilt inside container
+- `.git/` - Source control history
+- Test files and documentation
+- Editor configs and OS files
+
+This keeps Docker images minimal and build times fast.
+
 ## Running Tests
 
 ```bash

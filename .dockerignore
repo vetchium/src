@@ -1,0 +1,71 @@
+# Git
+.git/
+.gitignore
+
+# Husky hooks (not needed in containers)
+.husky/
+
+# Dependencies (rebuilt in container)
+node_modules/
+**/node_modules/
+
+# Build outputs (rebuilt in container)
+dist/
+build/
+**/dist/
+**/build/
+
+# Development tools
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Testing
+playwright/
+playwright-report/
+test-results/
+coverage/
+.nyc_output/
+
+# Documentation
+*.md
+!README.md
+CLAUDE.md
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor configs
+.editorconfig
+.prettierrc
+.prettierignore
+.eslintrc*
+eslint.config.js
+
+# CI/CD
+.github/
+
+# Package manager files (copied explicitly when needed)
+package-lock.json
+yarn.lock
+bun.lock
+
+# Go binaries and test files
+api-server/api-server
+**/*_test.go
