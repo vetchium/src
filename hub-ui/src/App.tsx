@@ -3,7 +3,7 @@ import { ConfigProvider, theme as antTheme } from "antd";
 import { I18nextProvider } from "react-i18next";
 import { ThemeProvider, useTheme } from "./contexts/ThemeContext";
 import { AuthProvider } from "./contexts/AuthContext";
-import i18n from "./lib/i18n";
+import i18n from "./i18n";
 import { HomePage } from "./pages/HomePage";
 import { LoginPage } from "./pages/LoginPage";
 import { SignupPage } from "./pages/SignupPage";

@@ -25,7 +25,9 @@ export function LoginPage() {
 	const navigate = useNavigate();
 
 	useEffect(() => {
-		if (authState === "tfa") {
+		if (authState === "authenticated") {
+			navigate("/");
+		} else if (authState === "tfa") {
 			navigate("/tfa");
 		}
 	}, [authState, navigate]);

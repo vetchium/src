@@ -10,6 +10,15 @@ export async function getConfig(): Promise<Config> {
   }
 
   const response = await fetch("/config.json");
+  if (!response.ok) {
+    throw new Error(`Failed to load config: ${response.status} ${response.statusText}`);
+  }
+
+  const contentType = response.headers.get("content-type");
+  if (!contentType || !contentType.includes("application/json")) {
+    throw new Error(`Invalid config response: expected JSON, got ${contentType}`);
+  }
+
   config = await response.json();
   return config!;
 }
