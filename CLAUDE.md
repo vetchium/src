@@ -39,7 +39,7 @@ Vetchium is a multi-region job search and hiring platform with distributed regio
    - Use typed request objects when calling API client methods
    - Test exhaustively for all possible return codes and scenarios
 8. All .go files should be formatted by [goimports](https://pkg.go.dev/golang.org/x/tools/cmd/goimports)
-9. All .md, .ts, .tsx, .json, .yaml files should be formatted with [prettier](https://prettier.io/docs/)
+9. All .md, .ts, .tsx, .js, .jsx, .json, .yaml, .yml files should be formatted with [prettier](https://prettier.io/docs/)
 10. Prefer to use JSON instead of YAML wherever possible
 11. Do not use any deprecated functions from the libraries that you import
 

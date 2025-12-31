@@ -91,7 +91,7 @@ bun install
 
 The pre-push hook checks code formatting for all files being pushed:
 
-- **Prettier** checks: `.ts`, `.js`, `.jsx`, `.json`, `.yaml`, `.yml` files
+- **Prettier** checks: `.ts`, `.js`, `.jsx`, `.json`, `.yaml`, `.yml`, `.md` files
 - **Goimports** checks: `.go` files
 
 If formatting issues are found, the push will be blocked with a message like:
@@ -103,7 +103,7 @@ Run 'bun run format' to fix formatting issues
 
 ### Fixing Formatting Issues
 
-**For frontend code (TypeScript, JSON, YAML):**
+**For frontend code (TypeScript, JSON, YAML, Markdown):**
 
 ```bash
 cd admin-ui    # or hub-ui, specs/typespec

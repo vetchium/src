@@ -39,7 +39,7 @@ do
             # Check if file still exists (not deleted)
             if [ -f "$file" ]; then
                 case "$file" in
-                    *.ts|*.js|*.jsx|*.json|*.yaml|*.yml)
+                    *.ts|*.js|*.jsx|*.json|*.yaml|*.yml|*.md)
                         prettier_files="$prettier_files $file"
                         ;;
                     *.go)
@@ -50,7 +50,7 @@ do
         done
 
         # Check prettier formatting
-        prettier_check_files=$(echo "$changed_files" | grep -E '\.(ts|js|jsx|json|ya?ml)$' || true)
+        prettier_check_files=$(echo "$changed_files" | grep -E '\.(ts|js|jsx|json|ya?ml|md)$' || true)
         if [ -n "$prettier_check_files" ]; then
             echo "Checking prettier formatting..."
 
