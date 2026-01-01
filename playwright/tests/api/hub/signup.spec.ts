@@ -292,7 +292,9 @@ test.describe("POST /hub/complete-signup", () => {
 
 			expect(response.status).toBe(201);
 			expect(response.body.session_token).toBeDefined();
-			expect(response.body.session_token).toMatch(/^(IND1|USA1|DEU1)-[a-f0-9]{64}$/);
+			expect(response.body.session_token).toMatch(
+				/^(IND1|USA1|DEU1)-[a-f0-9]{64}$/
+			);
 			expect(response.body.handle).toBeDefined();
 			expect(response.body.handle).toMatch(/^[a-z0-9-]+$/);
 
@@ -542,7 +544,9 @@ test.describe("POST /hub/login", () => {
 			expect(response.status).toBe(200);
 			expect(response.body.tfa_token).toBeDefined();
 			// TFA token should be region-prefixed: e.g., IND1-{64-char-hex}
-			expect(response.body.tfa_token).toMatch(/^(IND1|USA1|DEU1)-[a-f0-9]{64}$/);
+			expect(response.body.tfa_token).toMatch(
+				/^(IND1|USA1|DEU1)-[a-f0-9]{64}$/
+			);
 
 			// Verify TFA email was sent - wait for it with exponential backoff
 			let messages: Awaited<ReturnType<typeof searchEmails>> = [];

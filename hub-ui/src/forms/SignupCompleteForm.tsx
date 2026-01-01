@@ -247,7 +247,8 @@ export function SignupCompleteForm({ signupToken }: SignupCompleteFormProps) {
 													if (!value) return Promise.resolve();
 
 													// Check against preferred language
-													const preferredLang = getFieldValue("preferred_language");
+													const preferredLang =
+														getFieldValue("preferred_language");
 													if (value === preferredLang) {
 														return Promise.reject(
 															new Error(
@@ -257,7 +258,8 @@ export function SignupCompleteForm({ signupToken }: SignupCompleteFormProps) {
 													}
 
 													// Check for duplicates in other_display_names
-													const otherNames = getFieldValue("other_display_names") || [];
+													const otherNames =
+														getFieldValue("other_display_names") || [];
 													const duplicateCount = otherNames.filter(
 														(name: { language_code: string }) =>
 															name?.language_code === value

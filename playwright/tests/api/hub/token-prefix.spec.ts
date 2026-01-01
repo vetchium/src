@@ -133,9 +133,7 @@ test.describe("Hub Token Prefix Validation", () => {
 		expect(response.status).toBe(400);
 	});
 
-	test("TFA token with lowercase region prefix works", async ({
-		request,
-	}) => {
+	test("TFA token with lowercase region prefix works", async ({ request }) => {
 		const api = new HubAPIClient(request);
 		const adminEmail = generateTestEmail("admin");
 		const domain = generateTestDomainName();
