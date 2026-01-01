@@ -11,9 +11,9 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/server"
+	"vetchium-api-server.gomodule/internal/tokens"
 	"vetchium-api-server.typespec/common"
 	"vetchium-api-server.typespec/hub"
 )
@@ -42,40 +42,42 @@ func TFA(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// We need to find which regional database has this TFA token
-		// Try each regional database until we find the token
-		var tfaTokenRecord *struct {
-			HubUserID pgtype.UUID
-			TfaCode   string
-		}
-		var regionalDB *regionaldb.Queries
-
-		for _, region := range []globaldb.Region{globaldb.RegionInd1, globaldb.RegionUsa1, globaldb.RegionDeu1} {
-			db := s.GetRegionalDB(region)
-			if db == nil {
-				continue
+		// Extract region from TFA token prefix
+		region, rawTFAToken, err := tokens.ExtractRegionFromToken(string(tfaRequest.TFAToken))
+		if err != nil {
+			if errors.Is(err, tokens.ErrMissingPrefix) || errors.Is(err, tokens.ErrInvalidTokenFormat) {
+				log.Debug("invalid TFA token format", "error", err)
+				w.WriteHeader(http.StatusBadRequest)
+				return
 			}
-
-			record, err := db.GetHubTFAToken(ctx, string(tfaRequest.TFAToken))
-			if err == nil {
-				tfaTokenRecord = &struct {
-					HubUserID pgtype.UUID
-					TfaCode   string
-				}{
-					HubUserID: record.HubUserID,
-					TfaCode:   record.TfaCode,
-				}
-				regionalDB = db
-				break
+			if errors.Is(err, tokens.ErrUnknownRegion) {
+				log.Debug("unknown region in TFA token", "error", err)
+				w.WriteHeader(http.StatusBadRequest)
+				return
 			}
-			if !errors.Is(err, pgx.ErrNoRows) {
-				log.Error("failed to query TFA token", "region", region, "error", err)
-			}
+			log.Error("failed to extract region from TFA token", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
 		}
 
-		if tfaTokenRecord == nil {
-			log.Debug("invalid or expired TFA token")
-			w.WriteHeader(http.StatusUnauthorized)
+		// Get the regional database for this region
+		regionalDB := s.GetRegionalDB(region)
+		if regionalDB == nil {
+			log.Error("regional database not available", "region", region)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
+		// Query the specific regional database using raw token
+		tfaTokenRecord, err := regionalDB.GetHubTFAToken(ctx, rawTFAToken)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				log.Debug("invalid or expired TFA token")
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+			log.Error("failed to query TFA token", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
@@ -121,7 +123,10 @@ func TFA(s *server.Server) http.HandlerFunc {
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
-		sessionToken := hex.EncodeToString(sessionTokenBytes)
+		rawSessionToken := hex.EncodeToString(sessionTokenBytes)
+
+		// Add region prefix to session token
+		sessionToken := tokens.AddRegionPrefix(region, rawSessionToken)
 
 		// Determine session expiry based on remember_me flag
 		var sessionExpiry time.Duration
@@ -131,12 +136,12 @@ func TFA(s *server.Server) http.HandlerFunc {
 			sessionExpiry = hubSessionTokenExpiry
 		}
 
-		// Store session in global database
+		// Store session in regional database (raw token without prefix)
 		expiresAt := pgtype.Timestamp{Time: time.Now().Add(sessionExpiry), Valid: true}
-		err = s.Global.CreateHubSession(ctx, globaldb.CreateHubSessionParams{
-			SessionToken:    sessionToken,
-			HubUserGlobalID: globalUser.HubUserGlobalID,
-			ExpiresAt:       expiresAt,
+		err = regionalDB.CreateHubSession(ctx, regionaldb.CreateHubSessionParams{
+			SessionToken: rawSessionToken,
+			HubUserID:    regionalUser.HubUserID,
+			ExpiresAt:    expiresAt,
 		})
 		if err != nil {
 			log.Error("failed to store session", "error", err)
@@ -144,7 +149,7 @@ func TFA(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		log.Info("hub user TFA verified, session created", "hub_user_global_id", globalUser.HubUserGlobalID, "remember_me", tfaRequest.RememberMe)
+		log.Info("hub user TFA verified, session created", "hub_user_global_id", globalUser.HubUserGlobalID, "region", region, "remember_me", tfaRequest.RememberMe)
 
 		response := hub.HubTFAResponse{
 			SessionToken:      hub.HubSessionToken(sessionToken),

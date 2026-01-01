@@ -32,3 +32,18 @@ DELETE FROM hub_tfa_tokens WHERE tfa_token = $1;
 
 -- name: DeleteExpiredHubTFATokens :exec
 DELETE FROM hub_tfa_tokens WHERE expires_at <= NOW();
+
+-- Hub session queries
+
+-- name: CreateHubSession :exec
+INSERT INTO hub_sessions (session_token, hub_user_id, expires_at)
+VALUES ($1, $2, $3);
+
+-- name: GetHubSession :one
+SELECT * FROM hub_sessions WHERE session_token = $1 AND expires_at > NOW();
+
+-- name: DeleteHubSession :exec
+DELETE FROM hub_sessions WHERE session_token = $1;
+
+-- name: DeleteExpiredHubSessions :exec
+DELETE FROM hub_sessions WHERE expires_at <= NOW();

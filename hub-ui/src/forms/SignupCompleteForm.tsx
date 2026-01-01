@@ -61,6 +61,13 @@ export function SignupCompleteForm({ signupToken }: SignupCompleteFormProps) {
 					const defaultLang = languagesResp.data.find((l) => l.is_default);
 					if (defaultLang) {
 						form.setFieldValue("preferred_language", defaultLang.language_code);
+						// Mark the field as touched so the submit button can be enabled
+						form.setFields([
+							{
+								name: "preferred_language",
+								touched: true,
+							},
+						]);
 					}
 				}
 			} catch {
@@ -233,7 +240,39 @@ export function SignupCompleteForm({ signupToken }: SignupCompleteFormProps) {
 									<Form.Item
 										{...field}
 										name={[field.name, "language_code"]}
-										rules={[{ required: true, message: t("common:required") }]}
+										rules={[
+											{ required: true, message: t("common:required") },
+											({ getFieldValue }) => ({
+												validator(_, value) {
+													if (!value) return Promise.resolve();
+
+													// Check against preferred language
+													const preferredLang = getFieldValue("preferred_language");
+													if (value === preferredLang) {
+														return Promise.reject(
+															new Error(
+																t("signup:duplicateLanguageWithPreferred")
+															)
+														);
+													}
+
+													// Check for duplicates in other_display_names
+													const otherNames = getFieldValue("other_display_names") || [];
+													const duplicateCount = otherNames.filter(
+														(name: { language_code: string }) =>
+															name?.language_code === value
+													).length;
+
+													if (duplicateCount > 1) {
+														return Promise.reject(
+															new Error(t("signup:duplicateLanguage"))
+														);
+													}
+
+													return Promise.resolve();
+												},
+											}),
+										]}
 										style={{ marginBottom: 0, width: 200 }}
 									>
 										<Select

@@ -3,6 +3,7 @@ package hub
 import (
 	"net/http"
 
+	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
 )
@@ -21,14 +22,30 @@ func Logout(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Delete the session
-		if err := s.Global.DeleteHubSession(ctx, session.SessionToken); err != nil {
+		// Get region from context
+		region := middleware.HubRegionFromContext(ctx)
+		if region == "" {
+			log.Error("region not found in context")
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
+		// Get regional database
+		regionalDB := s.GetRegionalDB(globaldb.Region(region))
+		if regionalDB == nil {
+			log.Error("regional database not available", "region", region)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
+		// Delete the session from regional database
+		if err := regionalDB.DeleteHubSession(ctx, session.SessionToken); err != nil {
 			log.Error("failed to delete session", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		log.Info("hub user logged out", "hub_user_global_id", session.HubUserGlobalID)
+		log.Info("hub user logged out", "hub_user_id", session.HubUserID, "region", region)
 		w.WriteHeader(http.StatusOK)
 	}
 }

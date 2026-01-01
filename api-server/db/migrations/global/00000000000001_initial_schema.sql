@@ -1,0 +1,203 @@
+-- +goose Up
+
+-- Extensions
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
+-- Region enum
+CREATE TYPE region AS ENUM (
+    'ind1',
+    'usa1',
+    'deu1',
+    'sgp1'
+);
+
+-- Hub user status enum
+CREATE TYPE hub_user_status AS ENUM (
+    'active',
+    'disabled',
+    'deleted'
+);
+
+-- Email address hashing algorithm enum
+CREATE TYPE email_address_hashing_algorithm AS ENUM (
+    'SHA-256'
+);
+
+-- Admin user status enum
+CREATE TYPE admin_user_status AS ENUM (
+    'active',
+    'disabled'
+);
+
+-- Domain status enum
+CREATE TYPE domain_status AS ENUM ('active', 'inactive');
+
+-- Hub users table (global)
+CREATE TABLE hub_users (
+    hub_user_global_id UUID PRIMARY KEY NOT NULL,
+    handle TEXT NOT NULL UNIQUE,
+    email_address_hash BYTEA NOT NULL UNIQUE,
+    hashing_algorithm email_address_hashing_algorithm NOT NULL,
+    status hub_user_status NOT NULL,
+    preferred_language TEXT NOT NULL DEFAULT 'en-US',
+    home_region region NOT NULL,
+    resident_country_code TEXT,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Admin users table (global only - admins are platform-wide, not regional)
+CREATE TABLE admin_users (
+    admin_user_id UUID PRIMARY KEY NOT NULL,
+    email_address TEXT NOT NULL UNIQUE,
+    password_hash BYTEA NOT NULL,
+    status admin_user_status NOT NULL,
+    preferred_language TEXT NOT NULL DEFAULT 'en-US',
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Admin TFA tokens for email-based two-factor authentication
+CREATE TABLE admin_tfa_tokens (
+    tfa_token TEXT PRIMARY KEY NOT NULL,
+    admin_user_id UUID NOT NULL REFERENCES admin_users(admin_user_id) ON DELETE CASCADE,
+    tfa_code TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMP NOT NULL
+);
+
+-- Admin sessions
+CREATE TABLE admin_sessions (
+    session_token TEXT PRIMARY KEY NOT NULL,
+    admin_user_id UUID NOT NULL REFERENCES admin_users(admin_user_id) ON DELETE CASCADE,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMP NOT NULL
+);
+
+-- Supported languages table for UI dropdowns
+CREATE TABLE supported_languages (
+    language_code TEXT PRIMARY KEY,
+    language_name TEXT NOT NULL,
+    native_name TEXT NOT NULL,
+    is_default BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- Ensure only one default language
+CREATE UNIQUE INDEX idx_supported_languages_default
+ON supported_languages (is_default)
+WHERE is_default = TRUE;
+
+-- Initial supported languages
+INSERT INTO supported_languages (language_code, language_name, native_name, is_default) VALUES
+    ('en-US', 'English (United States)', 'English', TRUE),
+    ('de-DE', 'German (Germany)', 'Deutsch', FALSE),
+    ('ta-IN', 'Tamil (India)', 'தமிழ்', FALSE);
+
+-- Approved domains table
+CREATE TABLE approved_domains (
+    domain_id UUID PRIMARY KEY NOT NULL DEFAULT gen_random_uuid(),
+    domain_name VARCHAR(255) NOT NULL UNIQUE,
+    status domain_status NOT NULL DEFAULT 'active',
+    created_by_admin_id UUID NOT NULL REFERENCES admin_users(admin_user_id) ON DELETE RESTRICT,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+-- Trigger for approved_domains updated_at
+-- +goose StatementBegin
+CREATE OR REPLACE FUNCTION update_approved_domains_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+-- +goose StatementEnd
+
+CREATE TRIGGER approved_domains_updated_at
+    BEFORE UPDATE ON approved_domains
+    FOR EACH ROW
+    EXECUTE FUNCTION update_approved_domains_updated_at();
+
+-- Audit log for approved domains management
+CREATE TABLE approved_domains_audit_log (
+    audit_id UUID PRIMARY KEY NOT NULL DEFAULT gen_random_uuid(),
+    admin_id UUID REFERENCES admin_users(admin_user_id) ON DELETE SET NULL,
+    action VARCHAR(50) NOT NULL,
+    target_domain_id UUID REFERENCES approved_domains(domain_id) ON DELETE SET NULL,
+    target_domain_name VARCHAR(255),
+    old_value JSONB,
+    new_value JSONB,
+    reason VARCHAR(256),
+    ip_address INET,
+    user_agent TEXT,
+    request_id VARCHAR(255),
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+-- Hub signup tokens
+CREATE TABLE hub_signup_tokens (
+    signup_token TEXT PRIMARY KEY NOT NULL,
+    email_address TEXT NOT NULL,
+    email_address_hash BYTEA NOT NULL,
+    hashing_algorithm email_address_hashing_algorithm NOT NULL DEFAULT 'SHA-256',
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMP NOT NULL,
+    consumed_at TIMESTAMP
+);
+
+-- Hub user display names
+CREATE TABLE hub_user_display_names (
+    hub_user_global_id UUID NOT NULL REFERENCES hub_users(hub_user_global_id) ON DELETE CASCADE,
+    language_code TEXT NOT NULL,
+    display_name TEXT NOT NULL CHECK (char_length(display_name) BETWEEN 1 AND 100),
+    is_preferred BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (hub_user_global_id, language_code)
+);
+
+-- Available regions
+CREATE TABLE available_regions (
+    region_code region PRIMARY KEY,
+    region_name TEXT NOT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+INSERT INTO available_regions (region_code, region_name, is_active) VALUES
+    ('ind1', 'India - Chennai', TRUE),
+    ('usa1', 'USA - California', TRUE),
+    ('deu1', 'Germany - Frankfurt', TRUE),
+    ('sgp1', 'Singapore', FALSE);
+
+-- Indexes
+CREATE INDEX idx_admin_tfa_tokens_expires_at ON admin_tfa_tokens(expires_at);
+CREATE INDEX idx_admin_sessions_expires_at ON admin_sessions(expires_at);
+CREATE INDEX idx_hub_signup_tokens_expires_at ON hub_signup_tokens(expires_at);
+CREATE INDEX idx_hub_signup_tokens_email_hash ON hub_signup_tokens(email_address_hash);
+CREATE UNIQUE INDEX idx_hub_user_display_names_preferred
+ON hub_user_display_names (hub_user_global_id) WHERE is_preferred = TRUE;
+
+-- +goose Down
+DROP INDEX IF EXISTS idx_hub_user_display_names_preferred;
+DROP INDEX IF EXISTS idx_hub_signup_tokens_email_hash;
+DROP INDEX IF EXISTS idx_hub_signup_tokens_expires_at;
+DROP INDEX IF EXISTS idx_admin_sessions_expires_at;
+DROP INDEX IF EXISTS idx_admin_tfa_tokens_expires_at;
+DROP TABLE IF EXISTS available_regions;
+DROP TABLE IF EXISTS hub_user_display_names;
+DROP TABLE IF EXISTS hub_signup_tokens;
+DROP TABLE IF EXISTS approved_domains_audit_log;
+DROP TRIGGER IF EXISTS approved_domains_updated_at ON approved_domains;
+DROP FUNCTION IF EXISTS update_approved_domains_updated_at();
+DROP TABLE IF EXISTS approved_domains;
+DROP TABLE IF EXISTS supported_languages;
+DROP TABLE IF EXISTS admin_sessions;
+DROP TABLE IF EXISTS admin_tfa_tokens;
+DROP TABLE IF EXISTS admin_users;
+DROP TABLE IF EXISTS hub_users;
+DROP TYPE IF EXISTS domain_status;
+DROP TYPE IF EXISTS admin_user_status;
+DROP TYPE IF EXISTS email_address_hashing_algorithm;
+DROP TYPE IF EXISTS hub_user_status;
+DROP TYPE IF EXISTS region;
+DROP EXTENSION IF EXISTS pg_trgm;

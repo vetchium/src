@@ -31,5 +31,7 @@
 	"userAlreadyExists": "An account with this email already exists.",
 	"loginLink": "Already have an account? Login",
 	"signupLink": "Don't have an account? Sign up",
-	"emailMismatch": "Email address doesn't match the verification token."
+	"emailMismatch": "Email address doesn't match the verification token.",
+	"duplicateLanguage": "This language is already used for another display name",
+	"duplicateLanguageWithPreferred": "This language is the same as your preferred language"
 }

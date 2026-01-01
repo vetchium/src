@@ -23,6 +23,13 @@ func SetLanguage(s *server.Server) http.HandlerFunc {
 			return
 		}
 
+		hubUser := middleware.HubUserFromContext(ctx)
+		if hubUser == nil {
+			log.Debug("hub user not found in context")
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
 		var request hub.HubSetLanguageRequest
 		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 			log.Debug("failed to decode set language request", "error", err)
@@ -40,7 +47,7 @@ func SetLanguage(s *server.Server) http.HandlerFunc {
 		}
 
 		err := s.Global.UpdateHubUserPreferredLanguage(ctx, globaldb.UpdateHubUserPreferredLanguageParams{
-			HubUserGlobalID:   session.HubUserGlobalID,
+			HubUserGlobalID:   hubUser.HubUserGlobalID,
 			PreferredLanguage: string(request.Language),
 		})
 		if err != nil {
@@ -49,7 +56,7 @@ func SetLanguage(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		log.Info("hub language updated", "hub_user_global_id", session.HubUserGlobalID, "language", request.Language)
+		log.Info("hub language updated", "hub_user_global_id", hubUser.HubUserGlobalID, "language", request.Language)
 		w.WriteHeader(http.StatusOK)
 	}
 }

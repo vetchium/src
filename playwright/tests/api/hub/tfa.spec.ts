@@ -132,8 +132,10 @@ test.describe("POST /hub/tfa", () => {
 
 			expect(tfaResponse.status).toBe(200);
 			expect(tfaResponse.body.session_token).toBeDefined();
-			// Session token should be 64-character hex string (32 bytes hex-encoded)
-			expect(tfaResponse.body.session_token).toMatch(/^[a-f0-9]{64}$/);
+			// Session token should be region-prefixed: e.g., IND1-{64-char-hex}
+			expect(tfaResponse.body.session_token).toMatch(
+				/^(IND1|USA1|DEU1)-[a-f0-9]{64}$/
+			);
 			// Default preferred_language should be en-US
 			expect(tfaResponse.body.preferred_language).toBe("en-US");
 		} finally {
@@ -182,7 +184,9 @@ test.describe("POST /hub/tfa", () => {
 
 			expect(tfaResponse.status).toBe(200);
 			expect(tfaResponse.body.session_token).toBeDefined();
-			expect(tfaResponse.body.session_token).toMatch(/^[a-f0-9]{64}$/);
+			expect(tfaResponse.body.session_token).toMatch(
+				/^(IND1|USA1|DEU1)-[a-f0-9]{64}$/
+			);
 			expect(tfaResponse.body.preferred_language).toBe("en-US");
 		} finally {
 			await deleteTestHubUser(email);
@@ -196,7 +200,7 @@ test.describe("POST /hub/tfa", () => {
 
 		const tfaRequest: HubTFARequest = {
 			tfa_token:
-				"0000000000000000000000000000000000000000000000000000000000000000",
+				"IND1-0000000000000000000000000000000000000000000000000000000000000000",
 			tfa_code: "123456",
 			remember_me: false,
 		};
@@ -260,7 +264,7 @@ test.describe("POST /hub/tfa", () => {
 
 		const response = await api.verifyTFARaw({
 			tfa_token:
-				"0000000000000000000000000000000000000000000000000000000000000000",
+				"IND1-0000000000000000000000000000000000000000000000000000000000000000",
 			remember_me: false,
 		});
 
@@ -275,7 +279,7 @@ test.describe("POST /hub/tfa", () => {
 		// Code too short
 		const response1 = await api.verifyTFARaw({
 			tfa_token:
-				"0000000000000000000000000000000000000000000000000000000000000000",
+				"IND1-0000000000000000000000000000000000000000000000000000000000000000",
 			tfa_code: "12345",
 			remember_me: false,
 		});
@@ -284,7 +288,7 @@ test.describe("POST /hub/tfa", () => {
 		// Code too long
 		const response2 = await api.verifyTFARaw({
 			tfa_token:
-				"0000000000000000000000000000000000000000000000000000000000000000",
+				"IND1-0000000000000000000000000000000000000000000000000000000000000000",
 			tfa_code: "1234567",
 			remember_me: false,
 		});
@@ -293,7 +297,7 @@ test.describe("POST /hub/tfa", () => {
 		// Code with letters
 		const response3 = await api.verifyTFARaw({
 			tfa_token:
-				"0000000000000000000000000000000000000000000000000000000000000000",
+				"IND1-0000000000000000000000000000000000000000000000000000000000000000",
 			tfa_code: "12345a",
 			remember_me: false,
 		});
@@ -317,7 +321,7 @@ test.describe("POST /hub/tfa", () => {
 
 		const response = await api.verifyTFARaw({
 			tfa_token:
-				"0000000000000000000000000000000000000000000000000000000000000000",
+				"IND1-0000000000000000000000000000000000000000000000000000000000000000",
 			tfa_code: "",
 			remember_me: false,
 		});

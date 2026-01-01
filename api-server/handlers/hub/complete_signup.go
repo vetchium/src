@@ -17,6 +17,7 @@ import (
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/server"
+	"vetchium-api-server.gomodule/internal/tokens"
 	"vetchium-api-server.typespec/hub"
 )
 
@@ -42,6 +43,39 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(errs)
 			return
+		}
+
+		// Additional validation: check for duplicate language codes
+		// Preferred language cannot appear in other_display_names
+		for _, displayName := range req.OtherDisplayNames {
+			if displayName.LanguageCode == req.PreferredLanguage {
+				log.Debug("duplicate language code in other_display_names", "language", displayName.LanguageCode)
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode([]map[string]string{
+					{
+						"field":   "other_display_names",
+						"message": "Language code cannot be the same as preferred language",
+					},
+				})
+				return
+			}
+		}
+
+		// Check for duplicate language codes within other_display_names
+		seenLanguages := make(map[string]bool)
+		for _, displayName := range req.OtherDisplayNames {
+			if seenLanguages[displayName.LanguageCode] {
+				log.Debug("duplicate language code in other_display_names", "language", displayName.LanguageCode)
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode([]map[string]string{
+					{
+						"field":   "other_display_names",
+						"message": "Duplicate language codes are not allowed",
+					},
+				})
+				return
+			}
+			seenLanguages[displayName.LanguageCode] = true
 		}
 
 		// Verify signup token
@@ -183,14 +217,17 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
-		sessionToken := hex.EncodeToString(sessionTokenBytes)
+		rawSessionToken := hex.EncodeToString(sessionTokenBytes)
 
-		// Create session in global DB
+		// Add region prefix to session token
+		sessionToken := tokens.AddRegionPrefix(globaldb.Region(req.HomeRegion), rawSessionToken)
+
+		// Create session in regional DB (raw token without prefix)
 		sessionExpiresAt := pgtype.Timestamp{Time: time.Now().Add(sessionTokenExpiry), Valid: true}
-		err = s.Global.CreateHubSession(ctx, globaldb.CreateHubSessionParams{
-			SessionToken:    sessionToken,
-			HubUserGlobalID: hubUserGlobalID,
-			ExpiresAt:       sessionExpiresAt,
+		err = regionalDB.CreateHubSession(ctx, regionaldb.CreateHubSessionParams{
+			SessionToken: rawSessionToken,
+			HubUserID:    regionalUser.HubUserID,
+			ExpiresAt:    sessionExpiresAt,
 		})
 		if err != nil {
 			log.Error("failed to create session", "error", err)

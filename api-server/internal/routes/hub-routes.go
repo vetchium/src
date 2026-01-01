@@ -16,7 +16,7 @@ func RegisterHubRoutes(mux *http.ServeMux, s *server.Server) {
 	mux.HandleFunc("POST /hub/tfa", hub.TFA(s))
 
 	// Authenticated routes (require Authorization header)
-	authMiddleware := middleware.HubAuth(s.Global)
-	mux.Handle("POST /hub/logout", authMiddleware(hub.Logout(s)))
-	mux.Handle("POST /hub/set-language", authMiddleware(hub.SetLanguage(s)))
+	hubAuth := middleware.HubAuth(s.Global, s.GetRegionalDB)
+	mux.Handle("POST /hub/logout", hubAuth(hub.Logout(s)))
+	mux.Handle("POST /hub/set-language", hubAuth(hub.SetLanguage(s)))
 }

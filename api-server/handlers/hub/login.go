@@ -20,6 +20,7 @@ import (
 	"vetchium-api-server.gomodule/internal/email/templates"
 	"vetchium-api-server.gomodule/internal/i18n"
 	"vetchium-api-server.gomodule/internal/server"
+	"vetchium-api-server.gomodule/internal/tokens"
 	"vetchium-api-server.typespec/hub"
 )
 
@@ -110,7 +111,10 @@ func Login(s *server.Server) http.HandlerFunc {
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
-		tfaToken := hex.EncodeToString(tfaTokenBytes)
+		rawTFAToken := hex.EncodeToString(tfaTokenBytes)
+
+		// Add region prefix to TFA token
+		tfaToken := tokens.AddRegionPrefix(globalUser.HomeRegion, rawTFAToken)
 
 		// Generate 6-digit TFA code
 		tfaCode, err := generateTFACode()
@@ -125,7 +129,7 @@ func Login(s *server.Server) http.HandlerFunc {
 		// We use a compensating transaction: if email enqueue fails, we delete the TFA token.
 		expiresAt := pgtype.Timestamp{Time: time.Now().Add(tfaTokenExpiry), Valid: true}
 		err = regionalDB.CreateHubTFAToken(ctx, regionaldb.CreateHubTFATokenParams{
-			TfaToken:  tfaToken,
+			TfaToken:  rawTFAToken,
 			HubUserID: regionalUser.HubUserID,
 			TfaCode:   tfaCode,
 			ExpiresAt: expiresAt,
@@ -143,7 +147,7 @@ func Login(s *server.Server) http.HandlerFunc {
 		if err != nil {
 			log.Error("failed to enqueue TFA email", "error", err)
 			// Compensating transaction: delete the TFA token we just created
-			if delErr := regionalDB.DeleteHubTFAToken(ctx, tfaToken); delErr != nil {
+			if delErr := regionalDB.DeleteHubTFAToken(ctx, rawTFAToken); delErr != nil {
 				log.Error("failed to delete TFA token after email enqueue failure", "error", delErr)
 			}
 			http.Error(w, "", http.StatusInternalServerError)

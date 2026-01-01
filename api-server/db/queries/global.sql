@@ -319,21 +319,6 @@ SELECT * FROM available_regions WHERE is_active = TRUE ORDER BY region_name ASC;
 -- name: GetRegionByCode :one
 SELECT * FROM available_regions WHERE region_code = $1;
 
--- Hub sessions
-
--- name: CreateHubSession :exec
-INSERT INTO hub_sessions (session_token, hub_user_global_id, expires_at)
-VALUES ($1, $2, $3);
-
--- name: GetHubSession :one
-SELECT * FROM hub_sessions WHERE session_token = $1 AND expires_at > NOW();
-
--- name: DeleteHubSession :exec
-DELETE FROM hub_sessions WHERE session_token = $1;
-
--- name: DeleteExpiredHubSessions :exec
-DELETE FROM hub_sessions WHERE expires_at <= NOW();
-
 -- Domain validation (uses existing approved_domains table)
 
 -- name: GetActiveDomainByName :one
