@@ -497,6 +497,7 @@ src/
   - Stored on server (via user preferences API) when authenticated
   - Cached locally for persistence across sessions
   - Falls back to browser locale or en-US
+  - All user visible strings should be marked for internationalization
 
 ### Component Guidelines
 
