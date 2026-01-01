@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Layout, Card, Typography, Button, Alert } from "antd";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import { AppHeader } from "../components/AppHeader";
 
 const { Content } = Layout;
 const { Title, Text } = Typography;
@@ -27,6 +28,7 @@ export function HomePage() {
 
 	return (
 		<Layout style={{ minHeight: "100vh" }}>
+			<AppHeader />
 			<Content
 				style={{
 					display: "flex",

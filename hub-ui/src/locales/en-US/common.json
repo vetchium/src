@@ -9,5 +9,14 @@
 	"invalidEmail": "Please enter a valid email address",
 	"invalidPassword": "Password must be at least 8 characters with uppercase, lowercase, number, and special character",
 	"serverError": "An error occurred. Please try again later.",
-	"networkError": "Network error. Please check your connection."
+	"networkError": "Network error. Please check your connection.",
+	"language": {
+		"en-US": "English",
+		"de-DE": "Deutsch",
+		"ta-IN": "தமிழ்"
+	},
+	"theme": {
+		"light": "Light",
+		"dark": "Dark"
+	}
 }

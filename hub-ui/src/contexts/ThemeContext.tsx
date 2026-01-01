@@ -12,9 +12,9 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
 	const [theme, setTheme] = useState<Theme>(() => {
-		// Get theme from localStorage or default to dark (matching current App.tsx)
+		// Get theme from localStorage or default to light
 		const stored = localStorage.getItem("vetchium_hub_theme");
-		return (stored as Theme) || "dark";
+		return (stored as Theme) || "light";
 	});
 
 	useEffect(() => {

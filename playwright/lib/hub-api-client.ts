@@ -8,6 +8,7 @@ import type {
 	HubLoginResponse,
 	HubTFARequest,
 	HubTFAResponse,
+	HubSetLanguageRequest,
 } from "vetchium-specs/hub/hub-users";
 import type { APIResponse } from "./api-client";
 
@@ -213,6 +214,50 @@ export class HubAPIClient {
 	 */
 	async logoutWithoutAuth(body: unknown = {}): Promise<APIResponse<void>> {
 		const response = await this.request.post("/hub/logout", {
+			data: body,
+		});
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: undefined,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	/**
+	 * POST /hub/set-language
+	 * Update user's preferred language
+	 */
+	async setLanguage(
+		sessionToken: string,
+		request: HubSetLanguageRequest
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/hub/set-language", {
+			headers: {
+				Authorization: `Bearer ${sessionToken}`,
+			},
+			data: request,
+		});
+
+		return {
+			status: response.status(),
+			body: undefined,
+			errors: undefined,
+		};
+	}
+
+	/**
+	 * POST /hub/set-language with raw body for testing invalid payloads
+	 */
+	async setLanguageRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/hub/set-language", {
+			headers: {
+				Authorization: `Bearer ${sessionToken}`,
+			},
 			data: body,
 		});
 

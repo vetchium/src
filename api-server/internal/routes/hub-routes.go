@@ -18,4 +18,5 @@ func RegisterHubRoutes(mux *http.ServeMux, s *server.Server) {
 	// Authenticated routes (require Authorization header)
 	authMiddleware := middleware.HubAuth(s.Global)
 	mux.Handle("POST /hub/logout", authMiddleware(hub.Logout(s)))
+	mux.Handle("POST /hub/set-language", authMiddleware(hub.SetLanguage(s)))
 }

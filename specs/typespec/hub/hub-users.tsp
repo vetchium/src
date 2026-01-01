@@ -108,6 +108,11 @@ model HubLogoutRequest {
     // Empty model - session token passed in Authorization header
 }
 
+model HubSetLanguageRequest {
+    @doc("Preferred language (BCP 47 tag)")
+    language: LanguageCode;
+}
+
 @route("/hub/login")
 interface HubLogin {
     @tag("HubUsers")

@@ -207,3 +207,17 @@ func (r HubLogoutRequest) Validate() []common.ValidationError {
 	// No fields to validate
 	return nil
 }
+
+type HubSetLanguageRequest struct {
+	Language common.LanguageCode `json:"language"`
+}
+
+func (r HubSetLanguageRequest) Validate() []common.ValidationError {
+	var errs []common.ValidationError
+	if r.Language == "" {
+		errs = append(errs, common.NewValidationError("language", common.ErrRequired))
+	} else if err := r.Language.Validate(); err != nil {
+		errs = append(errs, common.NewValidationError("language", err))
+	}
+	return errs
+}

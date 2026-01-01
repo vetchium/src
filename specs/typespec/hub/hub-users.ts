@@ -10,7 +10,7 @@ import {
 
 // Import TFA types from common for hub TFA functionality
 import type { TFACode, LanguageCode } from "../common/common";
-import { validateTFACode } from "../common/common";
+import { validateTFACode, validateLanguageCode } from "../common/common";
 
 // Re-export global types for backward compatibility
 export type {
@@ -280,4 +280,23 @@ export function validateHubLogoutRequest(
 ): ValidationError[] {
 	// No fields to validate
 	return [];
+}
+
+export interface HubSetLanguageRequest {
+	language: LanguageCode;
+}
+
+export function validateHubSetLanguageRequest(
+	request: HubSetLanguageRequest
+): ValidationError[] {
+	const errs: ValidationError[] = [];
+	if (!request.language) {
+		errs.push(newValidationError("language", ERR_REQUIRED));
+	} else {
+		const langErr = validateLanguageCode(request.language);
+		if (langErr) {
+			errs.push(newValidationError("language", langErr));
+		}
+	}
+	return errs;
 }

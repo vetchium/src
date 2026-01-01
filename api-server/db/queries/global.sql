@@ -338,3 +338,10 @@ DELETE FROM hub_sessions WHERE expires_at <= NOW();
 
 -- name: GetActiveDomainByName :one
 SELECT * FROM approved_domains WHERE domain_name = $1 AND status = 'active';
+
+-- Hub preferences queries
+
+-- name: UpdateHubUserPreferredLanguage :exec
+UPDATE hub_users
+SET preferred_language = $2
+WHERE hub_user_global_id = $1;
