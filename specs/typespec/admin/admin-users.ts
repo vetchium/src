@@ -12,8 +12,6 @@ import {
 	ERR_REQUIRED,
 } from "../common/common";
 
-export type { EmailAddress, Password, LanguageCode, TFACode, ValidationError };
-
 export type AdminTFAToken = string;
 export type AdminSessionToken = string;
 

@@ -5,8 +5,6 @@ import {
 	validateDomainName,
 } from "../common/common";
 
-export type { DomainName, ValidationError };
-
 // Interfaces
 export interface Region {
 	region_code: string;

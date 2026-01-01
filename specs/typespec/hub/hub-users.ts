@@ -12,18 +12,6 @@ import {
 import type { TFACode, LanguageCode } from "../common/common";
 import { validateTFACode, validateLanguageCode } from "../common/common";
 
-// Re-export global types for backward compatibility
-export type {
-	Region,
-	SupportedLanguage,
-	CheckDomainRequest,
-	CheckDomainResponse,
-	GetRegionsResponse,
-	GetSupportedLanguagesResponse,
-} from "../global/global";
-
-export type { EmailAddress, Password, ValidationError };
-
 // Type aliases for signup
 export type HubSignupToken = string;
 export type HubTFAToken = string;

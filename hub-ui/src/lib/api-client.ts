@@ -6,8 +6,8 @@ import type {
 	CompleteSignupResponse,
 	HubLoginRequest,
 	HubLoginResponse,
-	ValidationError,
 } from "vetchium-specs/hub/hub-users";
+import type { ValidationError } from "vetchium-specs/common/common";
 import type {
 	Region,
 	SupportedLanguage,

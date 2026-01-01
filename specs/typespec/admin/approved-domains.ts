@@ -7,8 +7,6 @@ import {
 	ERR_REQUIRED,
 } from "../common/common";
 
-export type { EmailAddress, DomainName, ValidationError };
-
 export type DomainStatus = "active" | "inactive";
 
 export type DomainFilter = "active" | "inactive" | "all";
