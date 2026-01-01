@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { randomUUID } from "crypto";
 import {
 	deleteTestHubUser,
 	generateTestEmail,
@@ -6,8 +7,11 @@ import {
 	generateTestDomainName,
 	permanentlyDeleteTestApprovedDomain,
 	extractSignupTokenFromEmail,
+	createTestAdminUser,
+	deleteTestAdminUser,
 } from "../../../lib/db";
 import { HubAPIClient } from "../../../lib/hub-api-client";
+import { TEST_PASSWORD } from "../../../lib/constants";
 import {
 	waitForEmail,
 	getEmailContent,
@@ -59,15 +63,18 @@ test.describe("Hub Set Language API", () => {
 	let password: string;
 	let sessionToken: string;
 	let api: HubAPIClient;
+	let adminEmail: string;
 
 	test.beforeEach(async ({ request }) => {
 		api = new HubAPIClient(request);
-		email = generateTestEmail("set-language");
 		domainName = generateTestDomainName("set-language");
-		password = "Password123$";
+		email = `test-${randomUUID().substring(0, 8)}@${domainName}`;
+		password = TEST_PASSWORD;
+		adminEmail = generateTestEmail("admin-set-language");
 
-		// Create approved domain
-		await createTestApprovedDomain(domainName);
+		// Create admin user and approved domain
+		await createTestAdminUser(adminEmail, TEST_PASSWORD);
+		await createTestApprovedDomain(domainName, adminEmail);
 
 		// Request signup
 		const requestSignup: RequestSignupRequest = { email_address: email };
@@ -110,6 +117,7 @@ test.describe("Hub Set Language API", () => {
 	test.afterEach(async () => {
 		await deleteTestHubUser(email);
 		await permanentlyDeleteTestApprovedDomain(domainName);
+		await deleteTestAdminUser(adminEmail);
 	});
 
 	test("should update language successfully", async () => {

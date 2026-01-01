@@ -7,6 +7,7 @@ import {
 	updateTestAdminUserStatus,
 } from "../../../lib/db";
 import { waitForEmail } from "../../../lib/mailpit";
+import { TEST_PASSWORD } from "../../../lib/constants";
 
 test.describe("POST /admin/login", () => {
 	test("successful login returns TFA token and sends email", async ({
@@ -14,7 +15,7 @@ test.describe("POST /admin/login", () => {
 	}) => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("login-success");
-		const password = "Password123$";
+		const password = TEST_PASSWORD;
 
 		await createTestAdminUser(email, password);
 		try {
@@ -39,7 +40,7 @@ test.describe("POST /admin/login", () => {
 
 		const response = await api.loginRaw({
 			email: "not-an-email",
-			password: "Password123$",
+			password: TEST_PASSWORD,
 		});
 
 		expect(response.status).toBe(400);
@@ -49,7 +50,7 @@ test.describe("POST /admin/login", () => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("nonexistent");
 
-		const response = await api.login({ email, password: "Password123$" });
+		const response = await api.login({ email, password: TEST_PASSWORD });
 
 		expect(response.status).toBe(401);
 	});
@@ -57,7 +58,7 @@ test.describe("POST /admin/login", () => {
 	test("wrong password returns 401", async ({ request }) => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("wrong-password");
-		const password = "Password123$";
+		const password = TEST_PASSWORD;
 
 		await createTestAdminUser(email, password);
 		try {
@@ -75,7 +76,7 @@ test.describe("POST /admin/login", () => {
 	test("disabled admin returns 422", async ({ request }) => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("disabled-admin");
-		const password = "Password123$";
+		const password = TEST_PASSWORD;
 
 		await createTestAdminUser(email, password, "disabled");
 		try {
@@ -91,7 +92,7 @@ test.describe("POST /admin/login", () => {
 		const api = new AdminAPIClient(request);
 
 		const response = await api.loginRaw({
-			password: "Password123$",
+			password: TEST_PASSWORD,
 		});
 
 		expect(response.status).toBe(400);
@@ -113,7 +114,7 @@ test.describe("POST /admin/login", () => {
 
 		const response = await api.loginRaw({
 			email: "",
-			password: "Password123$",
+			password: TEST_PASSWORD,
 		});
 
 		expect(response.status).toBe(400);

@@ -6,6 +6,7 @@ import {
 	generateTestEmail,
 } from "../../../lib/db";
 import { getTfaCodeFromEmail } from "../../../lib/mailpit";
+import { TEST_PASSWORD } from "../../../lib/constants";
 
 /**
  * Helper to perform full login flow and get session token.
@@ -37,7 +38,7 @@ test.describe("POST /admin/logout", () => {
 	test("valid session token logout returns 200", async ({ request }) => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("logout-success");
-		const password = "Password123$";
+		const password = TEST_PASSWORD;
 
 		await createTestAdminUser(email, password);
 		try {
@@ -80,7 +81,7 @@ test.describe("POST /admin/logout", () => {
 	test("double logout - second attempt returns 401", async ({ request }) => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("logout-double");
-		const password = "Password123$";
+		const password = TEST_PASSWORD;
 
 		await createTestAdminUser(email, password);
 		try {

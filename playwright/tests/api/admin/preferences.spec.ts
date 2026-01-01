@@ -6,6 +6,7 @@ import {
 	generateTestEmail,
 } from "../../../lib/db";
 import { getTfaCodeFromEmail } from "../../../lib/mailpit";
+import { TEST_PASSWORD } from "../../../lib/constants";
 
 /**
  * Helper to perform full login flow and get session token.
@@ -37,7 +38,7 @@ test.describe("POST /admin/preferences", () => {
 	test("valid preference update returns 200", async ({ request }) => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("prefs-success");
-		const password = "Password123$";
+		const password = TEST_PASSWORD;
 
 		await createTestAdminUser(email, password);
 		try {
@@ -77,7 +78,7 @@ test.describe("POST /admin/preferences", () => {
 	test("missing preferred_language returns 400", async ({ request }) => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("prefs-missing-lang");
-		const password = "Password123$";
+		const password = TEST_PASSWORD;
 
 		await createTestAdminUser(email, password);
 		try {
@@ -97,7 +98,7 @@ test.describe("POST /admin/preferences", () => {
 	test("invalid language code returns 400", async ({ request }) => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("prefs-invalid-lang");
-		const password = "Password123$";
+		const password = TEST_PASSWORD;
 
 		await createTestAdminUser(email, password);
 		try {
@@ -119,7 +120,7 @@ test.describe("POST /admin/preferences", () => {
 	test("empty language code returns 400", async ({ request }) => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("prefs-empty-lang");
-		const password = "Password123$";
+		const password = TEST_PASSWORD;
 
 		await createTestAdminUser(email, password);
 		try {
@@ -143,7 +144,7 @@ test.describe("POST /admin/preferences", () => {
 	}) => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("prefs-multi-lang");
-		const password = "Password123$";
+		const password = TEST_PASSWORD;
 
 		await createTestAdminUser(email, password);
 		try {

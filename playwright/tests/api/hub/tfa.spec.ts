@@ -17,6 +17,7 @@ import {
 	extractTfaCode,
 } from "../../../lib/mailpit";
 import { extractSignupTokenFromEmail } from "../../../lib/db";
+import { TEST_PASSWORD } from "../../../lib/constants";
 import type {
 	RequestSignupRequest,
 	CompleteSignupRequest,
@@ -99,9 +100,9 @@ test.describe("POST /hub/tfa", () => {
 		const adminEmail = generateTestEmail("admin");
 		const domain = generateTestDomainName();
 		const email = `test-${randomUUID().substring(0, 8)}@${domain}`;
-		const password = "Password123$";
+		const password = TEST_PASSWORD;
 
-		await createTestAdminUser(adminEmail, "Password123$");
+		await createTestAdminUser(adminEmail, TEST_PASSWORD);
 		await createTestApprovedDomain(domain, adminEmail);
 
 		try {
@@ -149,9 +150,9 @@ test.describe("POST /hub/tfa", () => {
 		const adminEmail = generateTestEmail("admin");
 		const domain = generateTestDomainName();
 		const email = `test-${randomUUID().substring(0, 8)}@${domain}`;
-		const password = "Password123$";
+		const password = TEST_PASSWORD;
 
-		await createTestAdminUser(adminEmail, "Password123$");
+		await createTestAdminUser(adminEmail, TEST_PASSWORD);
 		await createTestApprovedDomain(domain, adminEmail);
 
 		try {
@@ -209,9 +210,9 @@ test.describe("POST /hub/tfa", () => {
 		const adminEmail = generateTestEmail("admin");
 		const domain = generateTestDomainName();
 		const email = `test-${randomUUID().substring(0, 8)}@${domain}`;
-		const password = "Password123$";
+		const password = TEST_PASSWORD;
 
-		await createTestAdminUser(adminEmail, "Password123$");
+		await createTestAdminUser(adminEmail, TEST_PASSWORD);
 		await createTestApprovedDomain(domain, adminEmail);
 
 		try {
@@ -329,9 +330,9 @@ test.describe("POST /hub/tfa", () => {
 		const adminEmail = generateTestEmail("admin");
 		const domain = generateTestDomainName();
 		const email = `test-${randomUUID().substring(0, 8)}@${domain}`;
-		const password = "Password123$";
+		const password = TEST_PASSWORD;
 
-		await createTestAdminUser(adminEmail, "Password123$");
+		await createTestAdminUser(adminEmail, TEST_PASSWORD);
 		await createTestApprovedDomain(domain, adminEmail);
 
 		try {
@@ -382,9 +383,9 @@ test.describe("POST /hub/tfa", () => {
 		const adminEmail = generateTestEmail("admin");
 		const domain = generateTestDomainName();
 		const email = `test-${randomUUID().substring(0, 8)}@${domain}`;
-		const password = "Password123$";
+		const password = TEST_PASSWORD;
 
-		await createTestAdminUser(adminEmail, "Password123$");
+		await createTestAdminUser(adminEmail, TEST_PASSWORD);
 		await createTestApprovedDomain(domain, adminEmail);
 
 		try {
@@ -423,9 +424,9 @@ test.describe("POST /hub/tfa", () => {
 		const adminEmail = generateTestEmail("admin");
 		const domain = generateTestDomainName();
 		const email = `test-${randomUUID().substring(0, 8)}@${domain}`;
-		const password = "Password123$";
+		const password = TEST_PASSWORD;
 
-		await createTestAdminUser(adminEmail, "Password123$");
+		await createTestAdminUser(adminEmail, TEST_PASSWORD);
 		await createTestApprovedDomain(domain, adminEmail);
 
 		try {
@@ -464,9 +465,9 @@ test.describe("POST /hub/tfa", () => {
 		const adminEmail = generateTestEmail("admin");
 		const domain = generateTestDomainName();
 		const email = `test-${randomUUID().substring(0, 8)}@${domain}`;
-		const password = "Password123$";
+		const password = TEST_PASSWORD;
 
-		await createTestAdminUser(adminEmail, "Password123$");
+		await createTestAdminUser(adminEmail, TEST_PASSWORD);
 		await createTestApprovedDomain(domain, adminEmail);
 
 		try {

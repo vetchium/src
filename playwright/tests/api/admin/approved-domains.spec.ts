@@ -9,6 +9,7 @@ import {
 	generateTestDomainName,
 } from "../../../lib/db";
 import { getTfaCodeFromEmail } from "../../../lib/mailpit";
+import { TEST_PASSWORD } from "../../../lib/constants";
 
 test.describe("POST /admin/add-approved-domain", () => {
 	test("successful domain creation returns 201 with domain details", async ({
@@ -16,7 +17,7 @@ test.describe("POST /admin/add-approved-domain", () => {
 	}) => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("create-domain");
-		const password = "Password123$";
+		const password = TEST_PASSWORD;
 		const domainName = generateTestDomainName("create");
 
 		await createTestAdminUser(email, password);
@@ -55,7 +56,7 @@ test.describe("POST /admin/add-approved-domain", () => {
 	test("duplicate domain returns 409", async ({ request }) => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("duplicate-domain");
-		const password = "Password123$";
+		const password = TEST_PASSWORD;
 		const domainName = generateTestDomainName("duplicate");
 
 		await createTestAdminUser(email, password);
@@ -90,7 +91,7 @@ test.describe("POST /admin/add-approved-domain", () => {
 	test("invalid domain name returns 400", async ({ request }) => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("invalid-domain");
-		const password = "Password123$";
+		const password = TEST_PASSWORD;
 
 		await createTestAdminUser(email, password);
 		try {
@@ -128,7 +129,7 @@ test.describe("POST /admin/add-approved-domain", () => {
 	test("missing domain_name returns 400", async ({ request }) => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("missing-domain");
-		const password = "Password123$";
+		const password = TEST_PASSWORD;
 
 		await createTestAdminUser(email, password);
 		try {
@@ -156,7 +157,7 @@ test.describe("POST /admin/add-approved-domain", () => {
 	test("missing reason returns 400", async ({ request }) => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("missing-reason");
-		const password = "Password123$";
+		const password = TEST_PASSWORD;
 		const domainName = generateTestDomainName("missing-reason");
 
 		await createTestAdminUser(email, password);
@@ -183,7 +184,7 @@ test.describe("POST /admin/add-approved-domain", () => {
 	test("reason longer than 256 chars returns 400", async ({ request }) => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("long-reason");
-		const password = "Password123$";
+		const password = TEST_PASSWORD;
 		const domainName = generateTestDomainName("long-reason");
 
 		await createTestAdminUser(email, password);
@@ -216,7 +217,7 @@ test.describe("POST /admin/list-approved-domains", () => {
 	}) => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("list-structure");
-		const password = "Password123$";
+		const password = TEST_PASSWORD;
 
 		await createTestAdminUser(email, password);
 		try {
@@ -245,7 +246,7 @@ test.describe("POST /admin/list-approved-domains", () => {
 	}) => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("list-active");
-		const password = "Password123$";
+		const password = TEST_PASSWORD;
 		const domainName = generateTestDomainName("active");
 
 		await createTestAdminUser(email, password);
@@ -291,7 +292,7 @@ test.describe("POST /admin/list-approved-domains", () => {
 	}) => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("list-inactive");
-		const password = "Password123$";
+		const password = TEST_PASSWORD;
 		const domainName = generateTestDomainName("inactive");
 
 		await createTestAdminUser(email, password);
@@ -341,7 +342,7 @@ test.describe("POST /admin/list-approved-domains", () => {
 	}) => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("list-all");
-		const password = "Password123$";
+		const password = TEST_PASSWORD;
 		const activeDomain = generateTestDomainName("all-active");
 		const inactiveDomain = generateTestDomainName("all-inactive");
 
@@ -396,7 +397,7 @@ test.describe("POST /admin/list-approved-domains", () => {
 	test("search domains finds matching results", async ({ request }) => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("search-domains");
-		const password = "Password123$";
+		const password = TEST_PASSWORD;
 		const domainName1 = generateTestDomainName("search-test");
 		const domainName2 = generateTestDomainName("other");
 
@@ -454,7 +455,7 @@ test.describe("POST /admin/get-approved-domain", () => {
 	}) => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("get-domain");
-		const password = "Password123$";
+		const password = TEST_PASSWORD;
 		const domainName = generateTestDomainName("get");
 
 		await createTestAdminUser(email, password);
@@ -494,7 +495,7 @@ test.describe("POST /admin/get-approved-domain", () => {
 	test("get non-existent domain returns 404", async ({ request }) => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("get-404");
-		const password = "Password123$";
+		const password = TEST_PASSWORD;
 
 		await createTestAdminUser(email, password);
 		try {
@@ -530,7 +531,7 @@ test.describe("POST /admin/get-approved-domain", () => {
 	test("missing domain_name returns 400", async ({ request }) => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("get-missing-domain");
-		const password = "Password123$";
+		const password = TEST_PASSWORD;
 
 		await createTestAdminUser(email, password);
 		try {
@@ -562,7 +563,7 @@ test.describe("POST /admin/disable-approved-domain", () => {
 	}) => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("disable-domain");
-		const password = "Password123$";
+		const password = TEST_PASSWORD;
 		const domainName = generateTestDomainName("disable");
 		const reason = "No longer needed for testing";
 
@@ -622,7 +623,7 @@ test.describe("POST /admin/disable-approved-domain", () => {
 	test("disable non-existent domain returns 404", async ({ request }) => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("disable-404");
-		const password = "Password123$";
+		const password = TEST_PASSWORD;
 
 		await createTestAdminUser(email, password);
 		try {
@@ -650,7 +651,7 @@ test.describe("POST /admin/disable-approved-domain", () => {
 	test("disable already inactive domain returns 422", async ({ request }) => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("disable-422");
-		const password = "Password123$";
+		const password = TEST_PASSWORD;
 		const domainName = generateTestDomainName("already-inactive");
 
 		await createTestAdminUser(email, password);
@@ -690,7 +691,7 @@ test.describe("POST /admin/disable-approved-domain", () => {
 	test("missing reason returns 400", async ({ request }) => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("disable-no-reason");
-		const password = "Password123$";
+		const password = TEST_PASSWORD;
 		const domainName = generateTestDomainName("no-reason");
 
 		await createTestAdminUser(email, password);
@@ -726,7 +727,7 @@ test.describe("POST /admin/disable-approved-domain", () => {
 	test("reason longer than 256 chars returns 400", async ({ request }) => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("disable-long-reason");
-		const password = "Password123$";
+		const password = TEST_PASSWORD;
 		const domainName = generateTestDomainName("long-reason");
 
 		await createTestAdminUser(email, password);
@@ -777,7 +778,7 @@ test.describe("POST /admin/enable-approved-domain", () => {
 	}) => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("enable-domain");
-		const password = "Password123$";
+		const password = TEST_PASSWORD;
 		const domainName = generateTestDomainName("enable");
 		const disableReason = "Temporarily disabled";
 		const enableReason = "Re-enabling for production use";
@@ -842,7 +843,7 @@ test.describe("POST /admin/enable-approved-domain", () => {
 	test("enable non-existent domain returns 404", async ({ request }) => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("enable-404");
-		const password = "Password123$";
+		const password = TEST_PASSWORD;
 
 		await createTestAdminUser(email, password);
 		try {
@@ -870,7 +871,7 @@ test.describe("POST /admin/enable-approved-domain", () => {
 	test("enable already active domain returns 422", async ({ request }) => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("enable-422");
-		const password = "Password123$";
+		const password = TEST_PASSWORD;
 		const domainName = generateTestDomainName("already-active");
 
 		await createTestAdminUser(email, password);
@@ -906,7 +907,7 @@ test.describe("POST /admin/enable-approved-domain", () => {
 	test("missing reason returns 400", async ({ request }) => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("enable-no-reason");
-		const password = "Password123$";
+		const password = TEST_PASSWORD;
 		const domainName = generateTestDomainName("no-reason");
 
 		await createTestAdminUser(email, password);
@@ -946,7 +947,7 @@ test.describe("POST /admin/enable-approved-domain", () => {
 	test("reason longer than 256 chars returns 400", async ({ request }) => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("enable-long-reason");
-		const password = "Password123$";
+		const password = TEST_PASSWORD;
 		const domainName = generateTestDomainName("long-reason");
 
 		await createTestAdminUser(email, password);

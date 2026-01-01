@@ -7,6 +7,7 @@ import {
 	LanguageCode,
 } from "../../../lib/db";
 import { waitForEmail, getEmailContent } from "../../../lib/mailpit";
+import { TEST_PASSWORD } from "../../../lib/constants";
 
 /**
  * i18n Email Tests
@@ -31,7 +32,7 @@ test.describe("Email i18n - Language-specific email content", () => {
 		}) => {
 			const api = new AdminAPIClient(request);
 			const email = generateTestEmail("i18n-en-subject");
-			const password = "Password123$";
+			const password = TEST_PASSWORD;
 
 			await createTestAdminUser(email, password, {
 				preferredLanguage: "en-US",
@@ -51,7 +52,7 @@ test.describe("Email i18n - Language-specific email content", () => {
 		test("TFA email body is in English for en-US user", async ({ request }) => {
 			const api = new AdminAPIClient(request);
 			const email = generateTestEmail("i18n-en-body");
-			const password = "Password123$";
+			const password = TEST_PASSWORD;
 
 			await createTestAdminUser(email, password, {
 				preferredLanguage: "en-US",
@@ -78,7 +79,7 @@ test.describe("Email i18n - Language-specific email content", () => {
 		}) => {
 			const api = new AdminAPIClient(request);
 			const email = generateTestEmail("i18n-en-html");
-			const password = "Password123$";
+			const password = TEST_PASSWORD;
 
 			await createTestAdminUser(email, password, {
 				preferredLanguage: "en-US",
@@ -109,7 +110,7 @@ test.describe("Email i18n - Language-specific email content", () => {
 		}) => {
 			const api = new AdminAPIClient(request);
 			const email = generateTestEmail("i18n-de-subject");
-			const password = "Password123$";
+			const password = TEST_PASSWORD;
 
 			await createTestAdminUser(email, password, {
 				preferredLanguage: "de-DE",
@@ -129,7 +130,7 @@ test.describe("Email i18n - Language-specific email content", () => {
 		test("TFA email body is in German for de-DE user", async ({ request }) => {
 			const api = new AdminAPIClient(request);
 			const email = generateTestEmail("i18n-de-body");
-			const password = "Password123$";
+			const password = TEST_PASSWORD;
 
 			await createTestAdminUser(email, password, {
 				preferredLanguage: "de-DE",
@@ -155,7 +156,7 @@ test.describe("Email i18n - Language-specific email content", () => {
 		}) => {
 			const api = new AdminAPIClient(request);
 			const email = generateTestEmail("i18n-de-html");
-			const password = "Password123$";
+			const password = TEST_PASSWORD;
 
 			await createTestAdminUser(email, password, {
 				preferredLanguage: "de-DE",
@@ -186,7 +187,7 @@ test.describe("Email i18n - Language-specific email content", () => {
 		}) => {
 			const api = new AdminAPIClient(request);
 			const email = generateTestEmail("i18n-ta-subject");
-			const password = "Password123$";
+			const password = TEST_PASSWORD;
 
 			await createTestAdminUser(email, password, {
 				preferredLanguage: "ta-IN",
@@ -206,7 +207,7 @@ test.describe("Email i18n - Language-specific email content", () => {
 		test("TFA email body is in Tamil for ta-IN user", async ({ request }) => {
 			const api = new AdminAPIClient(request);
 			const email = generateTestEmail("i18n-ta-body");
-			const password = "Password123$";
+			const password = TEST_PASSWORD;
 
 			await createTestAdminUser(email, password, {
 				preferredLanguage: "ta-IN",
@@ -232,7 +233,7 @@ test.describe("Email i18n - Language-specific email content", () => {
 		}) => {
 			const api = new AdminAPIClient(request);
 			const email = generateTestEmail("i18n-ta-html");
-			const password = "Password123$";
+			const password = TEST_PASSWORD;
 
 			await createTestAdminUser(email, password, {
 				preferredLanguage: "ta-IN",
@@ -263,7 +264,7 @@ test.describe("Email i18n - Language-specific email content", () => {
 		}) => {
 			const api = new AdminAPIClient(request);
 			const email = generateTestEmail("i18n-fallback-fr");
-			const password = "Password123$";
+			const password = TEST_PASSWORD;
 
 			// French is not supported, should fall back to English
 			await createTestAdminUser(email, password, {
@@ -290,7 +291,7 @@ test.describe("Email i18n - Language-specific email content", () => {
 		}) => {
 			const api = new AdminAPIClient(request);
 			const email = generateTestEmail("i18n-fallback-ja");
-			const password = "Password123$";
+			const password = TEST_PASSWORD;
 
 			// Japanese is not supported, should fall back to English
 			await createTestAdminUser(email, password, {
@@ -316,7 +317,7 @@ test.describe("Email i18n - Language-specific email content", () => {
 		}) => {
 			const api = new AdminAPIClient(request);
 			const email = generateTestEmail("i18n-fallback-en-gb");
-			const password = "Password123$";
+			const password = TEST_PASSWORD;
 
 			// en-GB is not explicitly supported, should match en-US
 			await createTestAdminUser(email, password, {
@@ -342,7 +343,7 @@ test.describe("Email i18n - Language-specific email content", () => {
 		}) => {
 			const api = new AdminAPIClient(request);
 			const email = generateTestEmail("i18n-fallback-de-at");
-			const password = "Password123$";
+			const password = TEST_PASSWORD;
 
 			// Austrian German (de-AT) not supported, should fall back to de-DE
 			await createTestAdminUser(email, password, {
@@ -366,7 +367,7 @@ test.describe("Email i18n - Language-specific email content", () => {
 		test("empty language falls back to English", async ({ request }) => {
 			const api = new AdminAPIClient(request);
 			const email = generateTestEmail("i18n-fallback-empty");
-			const password = "Password123$";
+			const password = TEST_PASSWORD;
 
 			// Empty language should use default (en-US)
 			await createTestAdminUser(email, password, { preferredLanguage: "" });
@@ -387,7 +388,7 @@ test.describe("Email i18n - Language-specific email content", () => {
 		test("invalid language code falls back to English", async ({ request }) => {
 			const api = new AdminAPIClient(request);
 			const email = generateTestEmail("i18n-fallback-invalid");
-			const password = "Password123$";
+			const password = TEST_PASSWORD;
 
 			// Invalid language code should use default (en-US)
 			await createTestAdminUser(email, password, {
@@ -418,7 +419,7 @@ test.describe("Email i18n - Language-specific email content", () => {
 		}) => {
 			const api = new AdminAPIClient(request);
 			const email = generateTestEmail("i18n-default-lang");
-			const password = "Password123$";
+			const password = TEST_PASSWORD;
 
 			// Create user with just status (no explicit language - uses default en-US)
 			await createTestAdminUser(email, password, "active");
@@ -442,7 +443,7 @@ test.describe("Email i18n - Language-specific email content", () => {
 		}) => {
 			const api = new AdminAPIClient(request);
 			const email = generateTestEmail("i18n-default-empty-opts");
-			const password = "Password123$";
+			const password = TEST_PASSWORD;
 
 			// Create user with empty options (uses defaults)
 			await createTestAdminUser(email, password, {});
@@ -471,7 +472,7 @@ test.describe("Email i18n - Language-specific email content", () => {
 		}) => {
 			const api = new AdminAPIClient(request);
 			const email = generateTestEmail("i18n-code-en");
-			const password = "Password123$";
+			const password = TEST_PASSWORD;
 
 			await createTestAdminUser(email, password, {
 				preferredLanguage: "en-US",
@@ -497,7 +498,7 @@ test.describe("Email i18n - Language-specific email content", () => {
 		}) => {
 			const api = new AdminAPIClient(request);
 			const email = generateTestEmail("i18n-code-de");
-			const password = "Password123$";
+			const password = TEST_PASSWORD;
 
 			await createTestAdminUser(email, password, {
 				preferredLanguage: "de-DE",
@@ -523,7 +524,7 @@ test.describe("Email i18n - Language-specific email content", () => {
 		}) => {
 			const api = new AdminAPIClient(request);
 			const email = generateTestEmail("i18n-code-ta");
-			const password = "Password123$";
+			const password = TEST_PASSWORD;
 
 			await createTestAdminUser(email, password, {
 				preferredLanguage: "ta-IN",
@@ -548,7 +549,7 @@ test.describe("Email i18n - Language-specific email content", () => {
 			// This test verifies the {{.Minutes}} placeholder is replaced correctly
 			// Run all 3 languages concurrently to avoid timeout
 			const api = new AdminAPIClient(request);
-			const password = "Password123$";
+			const password = TEST_PASSWORD;
 
 			const testCases = [
 				{
@@ -620,7 +621,7 @@ test.describe("Email i18n - Language-specific email content", () => {
 			request,
 		}) => {
 			const api = new AdminAPIClient(request);
-			const password = "Password123$";
+			const password = TEST_PASSWORD;
 
 			// Create users with different languages
 			const users = [

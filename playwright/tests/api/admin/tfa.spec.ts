@@ -7,6 +7,7 @@ import {
 	LanguageCode,
 } from "../../../lib/db";
 import { getTfaCodeFromEmail } from "../../../lib/mailpit";
+import { TEST_PASSWORD } from "../../../lib/constants";
 
 test.describe("POST /admin/tfa", () => {
 	test("valid TFA code returns session token and preferred_language", async ({
@@ -14,7 +15,7 @@ test.describe("POST /admin/tfa", () => {
 	}) => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("tfa-success");
-		const password = "Password123$";
+		const password = TEST_PASSWORD;
 
 		await createTestAdminUser(email, password);
 		try {
@@ -59,7 +60,7 @@ test.describe("POST /admin/tfa", () => {
 	test("wrong TFA code returns 403", async ({ request }) => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("tfa-wrong-code");
-		const password = "Password123$";
+		const password = TEST_PASSWORD;
 
 		await createTestAdminUser(email, password);
 		try {
@@ -157,7 +158,7 @@ test.describe("POST /admin/tfa", () => {
 	test("TFA token can be reused for retry", async ({ request }) => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("tfa-retry");
-		const password = "Password123$";
+		const password = TEST_PASSWORD;
 
 		await createTestAdminUser(email, password);
 		try {
@@ -193,7 +194,7 @@ test.describe("POST /admin/tfa", () => {
 	}) => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("tfa-lang-de");
-		const password = "Password123$";
+		const password = TEST_PASSWORD;
 
 		await createTestAdminUser(email, password, { preferredLanguage: "de-DE" });
 		try {
@@ -219,7 +220,7 @@ test.describe("POST /admin/tfa", () => {
 	}) => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("tfa-lang-ta");
-		const password = "Password123$";
+		const password = TEST_PASSWORD;
 
 		await createTestAdminUser(email, password, { preferredLanguage: "ta-IN" });
 		try {
@@ -245,7 +246,7 @@ test.describe("POST /admin/tfa", () => {
 	}) => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("tfa-lang-unsupported");
-		const password = "Password123$";
+		const password = TEST_PASSWORD;
 
 		// Create user with unsupported language - API should still return what's stored
 		await createTestAdminUser(email, password, {

@@ -18,6 +18,7 @@ import {
 	searchEmails,
 	extractTfaCode,
 } from "../../../lib/mailpit";
+import { TEST_PASSWORD } from "../../../lib/constants";
 import type {
 	CompleteSignupRequest,
 	HubLoginRequest,
@@ -159,7 +160,7 @@ test.describe("POST /hub/request-signup", () => {
 		const domain = generateTestDomainName();
 		const email = `test-${randomUUID().substring(0, 8)}@${domain}`;
 
-		await createTestAdminUser(adminEmail, "Password123$");
+		await createTestAdminUser(adminEmail, TEST_PASSWORD);
 		await createTestApprovedDomain(domain, adminEmail);
 
 		try {
@@ -200,9 +201,9 @@ test.describe("POST /hub/request-signup", () => {
 		const adminEmail = generateTestEmail("admin");
 		const domain = generateTestDomainName();
 		const email = `test-${randomUUID().substring(0, 8)}@${domain}`;
-		const password = "Password123$";
+		const password = TEST_PASSWORD;
 
-		await createTestAdminUser(adminEmail, "Password123$");
+		await createTestAdminUser(adminEmail, TEST_PASSWORD);
 		await createTestApprovedDomain(domain, adminEmail);
 
 		try {
@@ -262,9 +263,9 @@ test.describe("POST /hub/complete-signup", () => {
 		const adminEmail = generateTestEmail("admin");
 		const domain = generateTestDomainName();
 		const email = `test-${randomUUID().substring(0, 8)}@${domain}`;
-		const password = "Password123$";
+		const password = TEST_PASSWORD;
 
-		await createTestAdminUser(adminEmail, "Password123$");
+		await createTestAdminUser(adminEmail, TEST_PASSWORD);
 		await createTestApprovedDomain(domain, adminEmail);
 
 		try {
@@ -315,9 +316,9 @@ test.describe("POST /hub/complete-signup", () => {
 		const adminEmail = generateTestEmail("admin");
 		const domain = generateTestDomainName();
 		const email = `test-${randomUUID().substring(0, 8)}@${domain}`;
-		const password = "Password123$";
+		const password = TEST_PASSWORD;
 
-		await createTestAdminUser(adminEmail, "Password123$");
+		await createTestAdminUser(adminEmail, TEST_PASSWORD);
 		await createTestApprovedDomain(domain, adminEmail);
 
 		try {
@@ -379,9 +380,9 @@ test.describe("POST /hub/complete-signup", () => {
 		const adminEmail = generateTestEmail("admin");
 		const domain = generateTestDomainName();
 		const email = `test-${randomUUID().substring(0, 8)}@${domain}`;
-		const password = "Password123$";
+		const password = TEST_PASSWORD;
 
-		await createTestAdminUser(adminEmail, "Password123$");
+		await createTestAdminUser(adminEmail, TEST_PASSWORD);
 		await createTestApprovedDomain(domain, adminEmail);
 
 		try {
@@ -509,9 +510,9 @@ test.describe("POST /hub/login", () => {
 		const adminEmail = generateTestEmail("admin");
 		const domain = generateTestDomainName();
 		const email = `test-${randomUUID().substring(0, 8)}@${domain}`;
-		const password = "Password123$";
+		const password = TEST_PASSWORD;
 
-		await createTestAdminUser(adminEmail, "Password123$");
+		await createTestAdminUser(adminEmail, TEST_PASSWORD);
 		await createTestApprovedDomain(domain, adminEmail);
 
 		try {
@@ -573,9 +574,9 @@ test.describe("POST /hub/login", () => {
 		const adminEmail = generateTestEmail("admin");
 		const domain = generateTestDomainName();
 		const email = `test-${randomUUID().substring(0, 8)}@${domain}`;
-		const password = "Password123$";
+		const password = TEST_PASSWORD;
 
-		await createTestAdminUser(adminEmail, "Password123$");
+		await createTestAdminUser(adminEmail, TEST_PASSWORD);
 		await createTestApprovedDomain(domain, adminEmail);
 
 		try {
@@ -614,7 +615,7 @@ test.describe("POST /hub/login", () => {
 		const api = new HubAPIClient(request);
 		const loginRequest: HubLoginRequest = {
 			email_address: "nonexistent@example.com",
-			password: "Password123$",
+			password: TEST_PASSWORD,
 		};
 
 		const response = await api.login(loginRequest);
@@ -627,7 +628,7 @@ test.describe("POST /hub/login", () => {
 
 		const response = await api.loginRaw({
 			email_address: "not-an-email",
-			password: "Password123$",
+			password: TEST_PASSWORD,
 		});
 
 		expect(response.status).toBe(400);
@@ -636,7 +637,7 @@ test.describe("POST /hub/login", () => {
 	test("returns 400 for missing email", async ({ request }) => {
 		const api = new HubAPIClient(request);
 
-		const response = await api.loginRaw({ password: "Password123$" });
+		const response = await api.loginRaw({ password: TEST_PASSWORD });
 
 		expect(response.status).toBe(400);
 	});
@@ -656,9 +657,9 @@ test.describe("POST /hub/logout", () => {
 		const adminEmail = generateTestEmail("admin");
 		const domain = generateTestDomainName();
 		const email = `test-${randomUUID().substring(0, 8)}@${domain}`;
-		const password = "Password123$";
+		const password = TEST_PASSWORD;
 
-		await createTestAdminUser(adminEmail, "Password123$");
+		await createTestAdminUser(adminEmail, TEST_PASSWORD);
 		await createTestApprovedDomain(domain, adminEmail);
 
 		try {
