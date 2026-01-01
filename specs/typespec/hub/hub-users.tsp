@@ -162,6 +162,24 @@ interface HubLogout {
     };
 }
 
+@route("/hub/set-language")
+interface HubSetLanguage {
+    @tag("HubUsers")
+    @post
+    @doc("Update the authenticated hub user's preferred language")
+    setLanguage(@body request: HubSetLanguageRequest): {
+        @statusCode statusCode: 200;
+    } | {
+        @doc("Invalid request parameters or validation errors")
+        @statusCode
+        statusCode: 400;
+    } | {
+        @doc("Invalid or expired session token")
+        @statusCode
+        statusCode: 401;
+    };
+}
+
 @route("/hub/request-signup")
 interface HubRequestSignup {
     @tag("HubUsers")
