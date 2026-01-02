@@ -33,5 +33,6 @@
 	"signupLink": "Sie haben noch kein Konto? Registrieren",
 	"emailMismatch": "E-Mail-Adresse stimmt nicht mit dem Bestätigungstoken überein.",
 	"duplicateLanguage": "Diese Sprache wird bereits für einen anderen Anzeigenamen verwendet",
-	"duplicateLanguageWithPreferred": "Diese Sprache ist identisch mit Ihrer bevorzugten Sprache"
+	"duplicateLanguageWithPreferred": "Diese Sprache ist identisch mit Ihrer bevorzugten Sprache",
+	"atLeastOneDisplayName": "Mindestens ein Anzeigename ist erforderlich"
 }

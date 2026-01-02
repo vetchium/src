@@ -33,5 +33,6 @@
 	"signupLink": "Don't have an account? Sign up",
 	"emailMismatch": "Email address doesn't match the verification token.",
 	"duplicateLanguage": "This language is already used for another display name",
-	"duplicateLanguageWithPreferred": "This language is the same as your preferred language"
+	"duplicateLanguageWithPreferred": "This language is the same as your preferred language",
+	"atLeastOneDisplayName": "At least one display name is required"
 }

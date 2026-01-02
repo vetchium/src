@@ -13,7 +13,6 @@ import {
 	PASSWORD_MAX_LENGTH,
 } from "vetchium-specs/common/common";
 import {
-	validateDisplayName,
 	validateCountryCode,
 	DISPLAY_NAME_MIN_LENGTH,
 	DISPLAY_NAME_MAX_LENGTH,
@@ -61,10 +60,18 @@ export function SignupCompleteForm({ signupToken }: SignupCompleteFormProps) {
 					const defaultLang = languagesResp.data.find((l) => l.is_default);
 					if (defaultLang) {
 						form.setFieldValue("preferred_language", defaultLang.language_code);
-						// Mark the field as touched so the submit button can be enabled
+						// Initialize display_names with first entry using preferred language
+						form.setFieldValue("display_names", [
+							{ language_code: defaultLang.language_code },
+						]);
+						// Mark the fields as touched so the submit button can be enabled
 						form.setFields([
 							{
 								name: "preferred_language",
+								touched: true,
+							},
+							{
+								name: ["display_names", 0, "language_code"],
 								touched: true,
 							},
 						]);
@@ -83,8 +90,7 @@ export function SignupCompleteForm({ signupToken }: SignupCompleteFormProps) {
 	const onFinish = async (values: {
 		password: string;
 		confirm_password: string;
-		preferred_display_name: string;
-		other_display_names?: Array<{
+		display_names: Array<{
 			language_code: string;
 			display_name: string;
 		}>;
@@ -96,17 +102,24 @@ export function SignupCompleteForm({ signupToken }: SignupCompleteFormProps) {
 		setError(null);
 
 		try {
+			// Transform display_names to API format
+			// First entry is the preferred display name
+			const preferredDisplayName = values.display_names[0]?.display_name || "";
+
+			// Rest are other display names
 			const otherNames: DisplayNameEntry[] | undefined =
-				values.other_display_names?.map((name) => ({
-					language_code: name.language_code,
-					display_name: name.display_name,
-					is_preferred: false,
-				}));
+				values.display_names.length > 1
+					? values.display_names.slice(1).map((name) => ({
+							language_code: name.language_code,
+							display_name: name.display_name,
+							is_preferred: false,
+					  }))
+					: undefined;
 
 			const request: CompleteSignupRequest = {
 				signup_token: signupToken,
 				password: values.password,
-				preferred_display_name: values.preferred_display_name,
+				preferred_display_name: preferredDisplayName,
 				other_display_names: otherNames,
 				home_region: values.home_region,
 				preferred_language: values.preferred_language,
@@ -206,119 +219,128 @@ export function SignupCompleteForm({ signupToken }: SignupCompleteFormProps) {
 				</Form.Item>
 
 				<Form.Item
-					name="preferred_display_name"
-					label={t("signup:displayNameLabel")}
-					validateFirst
-					rules={[
-						{ required: true, message: t("common:required") },
-						{ min: DISPLAY_NAME_MIN_LENGTH, max: DISPLAY_NAME_MAX_LENGTH },
-						{
-							validator: (_, value) => {
-								if (!value) return Promise.resolve();
-								const err = validateDisplayName(value);
-								if (err) return Promise.reject(new Error(err));
-								return Promise.resolve();
-							},
-						},
-					]}
+					name="preferred_language"
+					label={t("signup:preferredLanguageLabel")}
+					rules={[{ required: true, message: t("common:required") }]}
 				>
-					<Input
-						placeholder={t("signup:displayNamePlaceholder")}
+					<Select
+						placeholder={t("signup:preferredLanguagePlaceholder")}
 						size="large"
+						onChange={(value) => {
+							// Update the first display name entry's language when preferred language changes
+							const displayNames = form.getFieldValue("display_names") || [];
+							if (displayNames.length > 0) {
+								form.setFieldValue(["display_names", 0, "language_code"], value);
+							} else {
+								// Initialize with first entry
+								form.setFieldValue("display_names", [{ language_code: value }]);
+							}
+						}}
+						options={languages.map((lang) => ({
+							label: `${lang.native_name} (${lang.language_name})`,
+							value: lang.language_code,
+						}))}
 					/>
 				</Form.Item>
 
-				<Form.List name="other_display_names">
-					{(fields, { add, remove }) => (
-						<>
-							{fields.map((field) => (
-								<Space
-									key={field.key}
-									style={{ display: "flex", marginBottom: 8 }}
-									align="baseline"
-								>
-									<Form.Item
-										{...field}
-										name={[field.name, "language_code"]}
-										rules={[
-											{ required: true, message: t("common:required") },
-											({ getFieldValue }) => ({
-												validator(_, value) {
-													if (!value) return Promise.resolve();
+				<Form.Item label={t("signup:displayNameLabel")} required>
+					<Form.List
+						name="display_names"
+						rules={[
+							{
+								validator: async (_, names) => {
+									if (!names || names.length < 1) {
+										return Promise.reject(
+											new Error(t("signup:atLeastOneDisplayName"))
+										);
+									}
+								},
+							},
+						]}
+					>
+						{(fields, { add, remove }) => (
+							<>
+								{fields.map((field, index) => (
+									<Space
+										key={field.key}
+										style={{ display: "flex", marginBottom: 8 }}
+										align="baseline"
+									>
+										<Form.Item
+											{...field}
+											name={[field.name, "language_code"]}
+											rules={[
+												{ required: true, message: t("common:required") },
+												({ getFieldValue }) => ({
+													validator(_, value) {
+														if (!value) return Promise.resolve();
 
-													// Check against preferred language
-													const preferredLang =
-														getFieldValue("preferred_language");
-													if (value === preferredLang) {
-														return Promise.reject(
-															new Error(
-																t("signup:duplicateLanguageWithPreferred")
-															)
-														);
-													}
+														// Check for duplicates in display_names
+														const displayNames =
+															getFieldValue("display_names") || [];
+														const duplicateCount = displayNames.filter(
+															(name: { language_code: string }) =>
+																name?.language_code === value
+														).length;
 
-													// Check for duplicates in other_display_names
-													const otherNames =
-														getFieldValue("other_display_names") || [];
-													const duplicateCount = otherNames.filter(
-														(name: { language_code: string }) =>
-															name?.language_code === value
-													).length;
+														if (duplicateCount > 1) {
+															return Promise.reject(
+																new Error(t("signup:duplicateLanguage"))
+															);
+														}
 
-													if (duplicateCount > 1) {
-														return Promise.reject(
-															new Error(t("signup:duplicateLanguage"))
-														);
-													}
-
-													return Promise.resolve();
+														return Promise.resolve();
+													},
+												}),
+											]}
+											style={{ marginBottom: 0, width: 200 }}
+										>
+											<Select
+												placeholder={t("signup:languageLabel")}
+												size="large"
+												disabled={index === 0}
+												options={languages.map((lang) => ({
+													label: `${lang.native_name} (${lang.language_name})`,
+													value: lang.language_code,
+												}))}
+											/>
+										</Form.Item>
+										<Form.Item
+											{...field}
+											name={[field.name, "display_name"]}
+											rules={[
+												{ required: true, message: t("common:required") },
+												{
+													min: DISPLAY_NAME_MIN_LENGTH,
+													max: DISPLAY_NAME_MAX_LENGTH,
 												},
-											}),
-										]}
-										style={{ marginBottom: 0, width: 200 }}
+											]}
+											style={{ marginBottom: 0, flex: 1 }}
+										>
+											<Input
+												placeholder={t("signup:displayNamePlaceholder")}
+												size="large"
+											/>
+										</Form.Item>
+										{index > 0 && (
+											<MinusCircleOutlined onClick={() => remove(field.name)} />
+										)}
+									</Space>
+								))}
+								<Form.Item>
+									<Button
+										type="dashed"
+										onClick={() => add()}
+										block
+										icon={<PlusOutlined />}
 									>
-										<Select
-											placeholder={t("signup:languageLabel")}
-											size="large"
-											options={languages.map((lang) => ({
-												label: `${lang.native_name} (${lang.language_name})`,
-												value: lang.language_code,
-											}))}
-										/>
-									</Form.Item>
-									<Form.Item
-										{...field}
-										name={[field.name, "display_name"]}
-										rules={[
-											{ required: true, message: t("common:required") },
-											{
-												min: DISPLAY_NAME_MIN_LENGTH,
-												max: DISPLAY_NAME_MAX_LENGTH,
-											},
-										]}
-										style={{ marginBottom: 0, flex: 1 }}
-									>
-										<Input
-											placeholder={t("signup:displayNamePlaceholder")}
-											size="large"
-										/>
-									</Form.Item>
-									<MinusCircleOutlined onClick={() => remove(field.name)} />
-								</Space>
-							))}
-							<Form.Item>
-								<Button
-									type="dashed"
-									onClick={() => add()}
-									block
-									icon={<PlusOutlined />}
-								>
-									{t("signup:addDisplayName")}
-								</Button>
-							</Form.Item>
-						</>
-					)}
-				</Form.List>
+										{t("signup:addDisplayName")}
+									</Button>
+								</Form.Item>
+							</>
+						)}
+					</Form.List>
+				</Form.Item>
 
 				<Form.Item
 					name="home_region"
@@ -331,21 +353,6 @@ export function SignupCompleteForm({ signupToken }: SignupCompleteFormProps) {
 						options={regions.map((region) => ({
 							label: region.region_name,
 							value: region.region_code,
-						}))}
-					/>
-				</Form.Item>
-
-				<Form.Item
-					name="preferred_language"
-					label={t("signup:preferredLanguageLabel")}
-					rules={[{ required: true, message: t("common:required") }]}
-				>
-					<Select
-						placeholder={t("signup:preferredLanguagePlaceholder")}
-						size="large"
-						options={languages.map((lang) => ({
-							label: `${lang.native_name} (${lang.language_name})`,
-							value: lang.language_code,
 						}))}
 					/>
 				</Form.Item>
