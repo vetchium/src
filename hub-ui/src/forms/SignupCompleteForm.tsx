@@ -113,7 +113,7 @@ export function SignupCompleteForm({ signupToken }: SignupCompleteFormProps) {
 							language_code: name.language_code,
 							display_name: name.display_name,
 							is_preferred: false,
-					  }))
+						}))
 					: undefined;
 
 			const request: CompleteSignupRequest = {
@@ -230,7 +230,10 @@ export function SignupCompleteForm({ signupToken }: SignupCompleteFormProps) {
 							// Update the first display name entry's language when preferred language changes
 							const displayNames = form.getFieldValue("display_names") || [];
 							if (displayNames.length > 0) {
-								form.setFieldValue(["display_names", 0, "language_code"], value);
+								form.setFieldValue(
+									["display_names", 0, "language_code"],
+									value
+								);
 							} else {
 								// Initialize with first entry
 								form.setFieldValue("display_names", [{ language_code: value }]);
