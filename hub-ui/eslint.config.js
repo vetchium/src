@@ -18,6 +18,15 @@ export default defineConfig([
 		languageOptions: {
 			ecmaVersion: 2020,
 			globals: globals.browser,
+			parserOptions: {
+				projectService: {
+					allowDefaultProject: ["*.ts"],
+				},
+				tsconfigRootDir: import.meta.dirname,
+			},
+		},
+		rules: {
+			"@typescript-eslint/no-deprecated": "warn",
 		},
 	},
 ]);

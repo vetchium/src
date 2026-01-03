@@ -409,12 +409,12 @@ export function SignupCompleteForm({ signupToken }: SignupCompleteFormProps) {
 						<Select
 							placeholder={t("signup:countryPlaceholder")}
 							size="large"
-							showSearch
-							filterOption={(input, option) =>
-								(option?.label ?? "")
-									.toLowerCase()
-									.includes(input.toLowerCase())
-							}
+							showSearch={{
+								filterOption: (input, option) =>
+									(option?.label ?? "")
+										.toLowerCase()
+										.includes(input.toLowerCase()),
+							}}
 							options={COUNTRIES.map((country) => ({
 								label: country.name,
 								value: country.code,
@@ -570,8 +570,7 @@ export function SignupCompleteForm({ signupToken }: SignupCompleteFormProps) {
 					type="error"
 					showIcon
 					style={{ marginBottom: 16 }}
-					closable
-					onClose={() => setError(null)}
+					closable={{ onClose: () => setError(null) }}
 				/>
 			)}
 
