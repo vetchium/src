@@ -30,7 +30,9 @@ test.describe("Signup Complete Form Auto Test", () => {
 		const firstOption = page.locator(".ant-select-item-option").first();
 		await firstOption.click();
 		await page.waitForTimeout(500);
-		await page.screenshot({ path: "screenshots/auto-step1-language-selected.png" });
+		await page.screenshot({
+			path: "screenshots/auto-step1-language-selected.png",
+		});
 
 		// Log form state
 		const languageValue = await page.evaluate(() => {
@@ -70,8 +72,14 @@ test.describe("Signup Complete Form Auto Test", () => {
 
 			// Try to find what's on the page
 			const pageContent = await page.content();
-			console.log("Page contains 'display_name':", pageContent.includes("display_name"));
-			console.log("Page contains 'display-name':", pageContent.includes("display-name"));
+			console.log(
+				"Page contains 'display_name':",
+				pageContent.includes("display_name")
+			);
+			console.log(
+				"Page contains 'display-name':",
+				pageContent.includes("display-name")
+			);
 		}
 
 		await page.screenshot({
@@ -90,7 +98,12 @@ test.describe("Signup Complete Form Auto Test", () => {
 		await page.locator('[id="signup-complete_home_region"]').click();
 		await page.waitForTimeout(300);
 		// Click the first visible option in the active dropdown
-		await page.locator('.ant-select-dropdown:not(.ant-select-dropdown-hidden) .ant-select-item-option').first().click();
+		await page
+			.locator(
+				".ant-select-dropdown:not(.ant-select-dropdown-hidden) .ant-select-item-option"
+			)
+			.first()
+			.click();
 		await page.waitForTimeout(300);
 		console.log("Selected region");
 
@@ -99,7 +112,12 @@ test.describe("Signup Complete Form Auto Test", () => {
 		await page.waitForTimeout(300);
 		await page.keyboard.type("United States");
 		await page.waitForTimeout(500);
-		await page.locator('.ant-select-dropdown:not(.ant-select-dropdown-hidden) .ant-select-item-option').first().click();
+		await page
+			.locator(
+				".ant-select-dropdown:not(.ant-select-dropdown-hidden) .ant-select-item-option"
+			)
+			.first()
+			.click();
 		await page.waitForTimeout(300);
 		console.log("Selected country");
 
@@ -168,7 +186,9 @@ test.describe("Signup Complete Form Auto Test", () => {
 			await submitBtn.click();
 			console.log("Clicked submit button");
 			await page.waitForTimeout(3000);
-			await page.screenshot({ path: "screenshots/auto-step6-after-submit.png" });
+			await page.screenshot({
+				path: "screenshots/auto-step6-after-submit.png",
+			});
 
 			// Check for errors
 			const errorAlert = page.locator(".ant-alert-error");
