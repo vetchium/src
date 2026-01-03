@@ -34,5 +34,20 @@
 	"emailMismatch": "Email address doesn't match the verification token.",
 	"duplicateLanguage": "This language is already used for another display name",
 	"duplicateLanguageWithPreferred": "This language is the same as your preferred language",
-	"atLeastOneDisplayName": "At least one display name is required"
+	"atLeastOneDisplayName": "At least one display name is required",
+	"languageStepTitle": "Choose Your Language",
+	"languageStepDescription": "Select your preferred language for the application. This can be changed later in settings.",
+	"displayNameStepTitle": "Set Your Display Name",
+	"displayNameStepDescription": "Enter your name in your preferred language. You can add additional names in other languages if needed.",
+	"regionStepTitle": "Select Region and Country",
+	"regionStepDescription": "Choose where your data will be stored and your country of residence.",
+	"regionHelp": "Your data will be stored in this region for compliance and performance. This cannot be changed later.",
+	"countryHelp": "Your country of residence for legal and regulatory purposes.",
+	"passwordStepTitle": "Set Your Password",
+	"passwordStepDescription": "Choose a strong password to secure your account.",
+	"summaryStepTitle": "Review and Confirm",
+	"summaryStepDescription": "Please review your information before creating your account.",
+	"previous": "Previous",
+	"next": "Next",
+	"preferred": "Preferred"
 }

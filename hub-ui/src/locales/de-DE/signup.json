@@ -34,5 +34,20 @@
 	"emailMismatch": "E-Mail-Adresse stimmt nicht mit dem Bestätigungstoken überein.",
 	"duplicateLanguage": "Diese Sprache wird bereits für einen anderen Anzeigenamen verwendet",
 	"duplicateLanguageWithPreferred": "Diese Sprache ist identisch mit Ihrer bevorzugten Sprache",
-	"atLeastOneDisplayName": "Mindestens ein Anzeigename ist erforderlich"
+	"atLeastOneDisplayName": "Mindestens ein Anzeigename ist erforderlich",
+	"languageStepTitle": "Wählen Sie Ihre Sprache",
+	"languageStepDescription": "Wählen Sie Ihre bevorzugte Sprache für die Anwendung. Diese kann später in den Einstellungen geändert werden.",
+	"displayNameStepTitle": "Legen Sie Ihren Anzeigenamen fest",
+	"displayNameStepDescription": "Geben Sie Ihren Namen in Ihrer bevorzugten Sprache ein. Sie können bei Bedarf weitere Namen in anderen Sprachen hinzufügen.",
+	"regionStepTitle": "Region und Land auswählen",
+	"regionStepDescription": "Wählen Sie, wo Ihre Daten gespeichert werden sollen und Ihr Wohnsitzland.",
+	"regionHelp": "Ihre Daten werden in dieser Region gespeichert, um Compliance und Leistung zu gewährleisten. Dies kann später nicht geändert werden.",
+	"countryHelp": "Ihr Wohnsitzland für rechtliche und regulatorische Zwecke.",
+	"passwordStepTitle": "Legen Sie Ihr Passwort fest",
+	"passwordStepDescription": "Wählen Sie ein starkes Passwort, um Ihr Konto zu sichern.",
+	"summaryStepTitle": "Überprüfen und bestätigen",
+	"summaryStepDescription": "Bitte überprüfen Sie Ihre Informationen, bevor Sie Ihr Konto erstellen.",
+	"previous": "Zurück",
+	"next": "Weiter",
+	"preferred": "Bevorzugt"
 }
