@@ -7,6 +7,7 @@ A multi-region application with global and regional databases.
 - **1 Global Database**: Stores globally unique data (user handles, hashed emails)
 - **3 Regional Databases**: Store regional user data (IND1, USA1, DEU1)
 - **3 API Server Replicas**: One per region, each connecting to all databases
+- **1 Global API Server**: Runs background jobs for global database cleanup (expired tokens, sessions)
 - **Load Balancer**: nginx distributing traffic across API servers
 - **Hub UI**: Vite + React application for professionals/employers
 - **Admin UI**: React application for platform administration

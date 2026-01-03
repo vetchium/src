@@ -3,12 +3,18 @@ package server
 import (
 	"context"
 	"log/slog"
+	"time"
 
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/email"
 	"vetchium-api-server.gomodule/internal/middleware"
 )
+
+// TokenConfig holds token validity durations used by handlers
+type TokenConfig struct {
+	HubSignupTokenExpiry time.Duration // Default: 24h
+}
 
 type Server struct {
 	Global        *globaldb.Queries
@@ -18,6 +24,7 @@ type Server struct {
 	Log           *slog.Logger
 	SMTPConfig    *email.SMTPConfig
 	CurrentRegion globaldb.Region
+	TokenConfig   *TokenConfig
 }
 
 func (s *Server) GetRegionalDB(region globaldb.Region) *regionaldb.Queries {

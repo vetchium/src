@@ -280,6 +280,9 @@ UPDATE hub_signup_tokens SET consumed_at = NOW() WHERE signup_token = $1;
 -- name: DeleteExpiredHubSignupTokens :exec
 DELETE FROM hub_signup_tokens WHERE expires_at <= NOW();
 
+-- name: DeleteHubSignupToken :exec
+DELETE FROM hub_signup_tokens WHERE signup_token = $1;
+
 -- name: GetActiveHubSignupTokenByEmailHash :one
 SELECT * FROM hub_signup_tokens
 WHERE email_address_hash = $1 AND expires_at > NOW()

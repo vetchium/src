@@ -22,10 +22,6 @@ import (
 	"vetchium-api-server.typespec/hub"
 )
 
-const (
-	signupTokenExpiry = 24 * time.Hour
-)
-
 func RequestSignup(s *server.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -101,7 +97,7 @@ func RequestSignup(s *server.Server) http.HandlerFunc {
 		}
 
 		// Store token in global DB
-		expiresAt := pgtype.Timestamp{Time: time.Now().Add(signupTokenExpiry), Valid: true}
+		expiresAt := pgtype.Timestamp{Time: time.Now().Add(s.TokenConfig.HubSignupTokenExpiry), Valid: true}
 		err = s.Global.CreateHubSignupToken(ctx, globaldb.CreateHubSignupTokenParams{
 			SignupToken:      signupToken,
 			EmailAddress:     string(req.EmailAddress),
@@ -118,11 +114,12 @@ func RequestSignup(s *server.Server) http.HandlerFunc {
 		// Send verification email
 		lang := i18n.Match("en-US") // Default language for signup
 		signupLink := fmt.Sprintf("https://hub.vetchium.com/signup/verify?token=%s", signupToken)
-		err = sendSignupEmail(ctx, regionalDB, string(req.EmailAddress), signupLink, lang)
+		expiryHours := int(s.TokenConfig.HubSignupTokenExpiry.Hours())
+		err = sendSignupEmail(ctx, regionalDB, string(req.EmailAddress), signupLink, lang, expiryHours)
 		if err != nil {
 			log.Error("failed to enqueue signup email", "error", err)
-			// Compensating transaction: delete signup token
-			if delErr := s.Global.DeleteExpiredHubSignupTokens(ctx); delErr != nil {
+			// Compensating transaction: delete the signup token we just created
+			if delErr := s.Global.DeleteHubSignupToken(ctx, signupToken); delErr != nil {
 				log.Error("failed to cleanup signup token", "error", delErr)
 			}
 			http.Error(w, "", http.StatusInternalServerError)
@@ -139,10 +136,10 @@ func RequestSignup(s *server.Server) http.HandlerFunc {
 	}
 }
 
-func sendSignupEmail(ctx context.Context, db *regionaldb.Queries, to string, signupLink string, lang string) error {
+func sendSignupEmail(ctx context.Context, db *regionaldb.Queries, to string, signupLink string, lang string, expiryHours int) error {
 	data := templates.HubSignupData{
 		SignupLink: signupLink,
-		Hours:      24,
+		Hours:      expiryHours,
 	}
 
 	_, err := db.EnqueueEmail(ctx, regionaldb.EnqueueEmailParams{
