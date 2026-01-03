@@ -18,5 +18,11 @@
 	"theme": {
 		"light": "Hell",
 		"dark": "Dunkel"
+	},
+	"action": {
+		"backHome": "Zur Startseite"
+	},
+	"errors": {
+		"pageNotFound": "Die angeforderte Seite existiert leider nicht."
 	}
 }

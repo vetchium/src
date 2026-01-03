@@ -15,6 +15,7 @@ import {
 	Navigate,
 	useLocation,
 } from "react-router-dom";
+import { NotFoundPage } from "./pages/NotFoundPage";
 import "./i18n";
 
 const { Content } = Layout;
@@ -126,7 +127,7 @@ function AppContent() {
 									</ProtectedRoute>
 								}
 							/>
-							<Route path="*" element={<Navigate to="/" replace />} />
+							<Route path="*" element={<NotFoundPage />} />
 						</Routes>
 					</Content>
 				</Layout>

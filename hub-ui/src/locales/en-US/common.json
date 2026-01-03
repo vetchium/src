@@ -18,5 +18,11 @@
 	"theme": {
 		"light": "Light",
 		"dark": "Dark"
+	},
+	"action": {
+		"backHome": "Back Home"
+	},
+	"errors": {
+		"pageNotFound": "Sorry, the page you visited does not exist."
 	}
 }

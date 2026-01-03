@@ -1,4 +1,6 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { NotFoundPage } from "./pages/NotFoundPage";
+
 import { ConfigProvider, theme as antTheme } from "antd";
 import { I18nextProvider } from "react-i18next";
 import { ThemeProvider } from "./contexts/ThemeProvider";
@@ -37,7 +39,7 @@ function AppContent() {
 				<Route path="/tfa" element={<TFAPage />} />
 				<Route path="/signup" element={<SignupPage />} />
 				<Route path="/signup/verify" element={<SignupVerifyPage />} />
-				<Route path="*" element={<Navigate to="/" replace />} />
+				<Route path="*" element={<NotFoundPage />} />
 			</Routes>
 		</ConfigProvider>
 	);

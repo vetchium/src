@@ -21,5 +21,11 @@
 	},
 	"logout": {
 		"button": "Abmelden"
+	},
+	"action": {
+		"backHome": "Zur Startseite"
+	},
+	"errors": {
+		"pageNotFound": "Die angeforderte Seite existiert leider nicht."
 	}
 }

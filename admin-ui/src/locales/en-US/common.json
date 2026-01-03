@@ -21,5 +21,11 @@
 	},
 	"logout": {
 		"button": "Logout"
+	},
+	"action": {
+		"backHome": "Back Home"
+	},
+	"errors": {
+		"pageNotFound": "Sorry, the page you visited does not exist."
 	}
 }
