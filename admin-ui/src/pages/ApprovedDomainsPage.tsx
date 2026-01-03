@@ -43,7 +43,7 @@ import {
 	validateEnableApprovedDomainRequest,
 } from "vetchium-specs/admin/approved-domains";
 import { getApiBaseUrl } from "../config";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../hooks/useAuth";
 
 const { Title } = Typography;
 const { TextArea } = Input;

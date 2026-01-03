@@ -1,6 +1,8 @@
 import { App as AntApp, ConfigProvider, Layout, theme as antTheme } from "antd";
-import { ThemeProvider, useTheme } from "./contexts/ThemeContext";
-import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { ThemeProvider } from "./contexts/ThemeProvider";
+import { useTheme } from "./hooks/useTheme";
+import { AuthProvider } from "./contexts/AuthProvider";
+import { useAuth } from "./hooks/useAuth";
 import { AppHeader } from "./components/AppHeader";
 import { LoginPage } from "./pages/LoginPage";
 import { TFAPage } from "./pages/TFAPage";

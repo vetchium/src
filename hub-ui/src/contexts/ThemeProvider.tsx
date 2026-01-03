@@ -1,14 +1,6 @@
-/* eslint-disable react-refresh/only-export-components */
-import { createContext, useContext, useState, useEffect } from "react";
 
-type Theme = "light" | "dark";
-
-interface ThemeContextType {
-	theme: Theme;
-	toggleTheme: () => void;
-}
-
-const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
+import { useState, useEffect } from "react";
+import { ThemeContext, type Theme } from "./ThemeContext";
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
 	const [theme, setTheme] = useState<Theme>(() => {
@@ -33,10 +25,4 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 	);
 }
 
-export function useTheme() {
-	const context = useContext(ThemeContext);
-	if (!context) {
-		throw new Error("useTheme must be used within ThemeProvider");
-	}
-	return context;
-}
+

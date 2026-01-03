@@ -38,7 +38,7 @@ import type {
 import type { Region, SupportedLanguage } from "vetchium-specs/global/global";
 import * as api from "../lib/api-client";
 import { COUNTRIES } from "../lib/countries";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../hooks/useAuth";
 
 const { Text } = Typography;
 

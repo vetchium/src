@@ -1,13 +1,13 @@
 import { Layout, Space, Switch, Select } from "antd";
 import { BulbOutlined, BulbFilled, GlobalOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
-import { useTheme } from "../contexts/ThemeContext";
+import { useTheme } from "../hooks/useTheme";
 import {
 	SUPPORTED_LANGUAGES,
 	setStoredLanguage,
 	type SupportedLanguage,
 } from "../i18n";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../hooks/useAuth";
 import { getApiBaseUrl } from "../config";
 
 const { Header } = Layout;

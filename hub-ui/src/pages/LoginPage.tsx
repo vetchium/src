@@ -18,7 +18,7 @@ import {
 	PASSWORD_MIN_LENGTH,
 	PASSWORD_MAX_LENGTH,
 } from "vetchium-specs/common/common";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../hooks/useAuth";
 
 const { Content } = Layout;
 const { Title, Text } = Typography;

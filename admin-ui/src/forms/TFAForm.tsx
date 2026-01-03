@@ -2,7 +2,7 @@ import { Form, Input, Button, Alert, Space, Spin } from "antd";
 import { SafetyOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { TFA_CODE_LENGTH } from "vetchium-specs/common/common";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../hooks/useAuth";
 
 interface TFAFormValues {
 	tfa_code: string;

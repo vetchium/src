@@ -1,20 +1,8 @@
+import { useState, useEffect, type ReactNode } from "react";
 import {
-	createContext,
-	useContext,
-	useState,
-	useEffect,
-	type ReactNode,
-} from "react";
-
-export type ThemeMode = "light" | "dark";
-
-interface ThemeContextType {
-	theme: ThemeMode;
-	setTheme: (theme: ThemeMode) => void;
-	toggleTheme: () => void;
-}
-
-const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
+	ThemeContext,
+	type ThemeMode,
+} from "./ThemeContext";
 
 const THEME_STORAGE_KEY = "vetchium_admin_theme";
 
@@ -71,12 +59,4 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
 			{children}
 		</ThemeContext.Provider>
 	);
-}
-
-export function useTheme(): ThemeContextType {
-	const context = useContext(ThemeContext);
-	if (context === undefined) {
-		throw new Error("useTheme must be used within a ThemeProvider");
-	}
-	return context;
 }

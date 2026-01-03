@@ -3,7 +3,7 @@ import { Layout, Card, Typography } from "antd";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { TFAForm } from "../forms/TFAForm";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../hooks/useAuth";
 
 const { Content } = Layout;
 const { Title, Text } = Typography;

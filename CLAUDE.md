@@ -23,6 +23,24 @@ Vetchium is a multi-region job search and hiring platform with distributed regio
 - LF line endings, UTF-8 encoding
 - Trim trailing whitespace
 
+### Avoiding Deprecated APIs
+
+**CRITICAL**: Do NOT use deprecated functions from any library. Follow these guidelines:
+
+1. **IDE Warnings**: Always check your IDE for deprecation warnings (strikethrough text, yellow underlines)
+2. **ESLint Rule**: All UI projects (`hub-ui`, `admin-ui`) have `@typescript-eslint/no-deprecated` enabled to catch deprecated usage
+3. **Before implementing**:
+   - Check library documentation for the current version (e.g., https://ant.design/llms-full.txt for Ant Design)
+   - Verify prop/method names in TypeScript definitions (look for `@deprecated` JSDoc tags in `node_modules`)
+   - When unsure, search the library's changelog or migration guides
+4. **Common deprecations in Ant Design v6**:
+   - Alert: Use `closable={{ onClose: ... }}` instead of separate `closable` + `onClose` props
+   - Alert: Use `closable={{ afterClose: ... }}` instead of separate `afterClose` prop
+   - Alert: Use `closable={{ closeIcon: ... }}` instead of separate `closeIcon` prop
+   - Select: Use `showSearch={{ filterOption: ... }}` instead of separate `filterOption` prop
+   - Alert: Use `title` instead of `message` prop
+5. **Run linter before commits**: In each UI project directory, run `bun run lint` to check for deprecated usage warnings
+
 ### Development Process
 
 1. First write the Specifications under [specs](./specs/) by creating a new directory and a README.md file under that using the [specification template](./specs/spec-template-README.md)

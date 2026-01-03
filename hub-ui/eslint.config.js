@@ -6,7 +6,7 @@ import tseslint from "typescript-eslint";
 import { defineConfig, globalIgnores } from "eslint/config";
 
 export default defineConfig([
-	globalIgnores(["dist"]),
+	globalIgnores(["dist", "serve.ts"]),
 	{
 		files: ["**/*.{ts,tsx}"],
 		extends: [
@@ -19,9 +19,7 @@ export default defineConfig([
 			ecmaVersion: 2020,
 			globals: globals.browser,
 			parserOptions: {
-				projectService: {
-					allowDefaultProject: ["*.ts"],
-				},
+				projectService: true,
 				tsconfigRootDir: import.meta.dirname,
 			},
 		},

@@ -1,7 +1,7 @@
 import { Card, Typography, Button } from "antd";
 import { SafetyOutlined, LogoutOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../hooks/useAuth";
 import { Link } from "react-router-dom";
 
 const { Title, Text } = Typography;

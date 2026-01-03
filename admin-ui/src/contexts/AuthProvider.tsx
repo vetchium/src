@@ -1,6 +1,4 @@
 import {
-	createContext,
-	useContext,
 	useState,
 	useEffect,
 	useCallback,
@@ -8,15 +6,19 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import {
-	type HubLoginRequest,
-	type HubTFARequest,
-	validateHubLoginRequest,
-	validateHubTFARequest,
-} from "vetchium-specs/hub/hub-users";
+	type AdminLoginRequest,
+	type AdminTFARequest,
+	validateAdminLoginRequest,
+	validateAdminTFARequest,
+} from "vetchium-specs/admin/admin-users";
 import { getApiBaseUrl } from "../config";
 import { setStoredLanguage, type SupportedLanguage } from "../i18n";
+import {
+	AuthContext,
+	type AuthState,
+} from "./AuthContext";
 
-const SESSION_COOKIE_NAME = "vetchium_hub_session";
+const SESSION_COOKIE_NAME = "vetchium_admin_session";
 
 function getSessionToken(): string | null {
 	const cookies = document.cookie.split(";");
@@ -31,11 +33,9 @@ function getSessionToken(): string | null {
 	return null;
 }
 
-function setSessionToken(token: string, rememberMe: boolean): void {
+function setSessionToken(token: string): void {
 	const expires = new Date();
-	// If remember_me, session lasts 365 days; otherwise 24 hours
-	const expiryHours = rememberMe ? 365 * 24 : 24;
-	expires.setTime(expires.getTime() + expiryHours * 60 * 60 * 1000);
+	expires.setTime(expires.getTime() + 24 * 60 * 60 * 1000);
 	document.cookie = `${SESSION_COOKIE_NAME}=${encodeURIComponent(token)}; expires=${expires.toUTCString()}; path=/; SameSite=Strict`;
 }
 
@@ -43,24 +43,7 @@ function clearSessionToken(): void {
 	document.cookie = `${SESSION_COOKIE_NAME}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Strict`;
 }
 
-export type AuthState = "login" | "tfa" | "authenticated";
 
-interface AuthContextType {
-	authState: AuthState;
-	loading: boolean;
-	error: string | null;
-	sessionToken: string | null;
-	handle: string | null;
-	isAuthenticated: boolean;
-	login: (email: string, password: string) => Promise<void>;
-	verifyTFA: (tfaCode: string, rememberMe: boolean) => Promise<void>;
-	setAuthData: (sessionToken: string, handle: string) => void;
-	logout: () => Promise<void>;
-	backToLogin: () => void;
-	clearError: () => void;
-}
-
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 interface AuthProviderProps {
 	children: ReactNode;
@@ -73,9 +56,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
 	const [error, setError] = useState<string | null>(null);
 	const [tfaToken, setTfaToken] = useState<string | null>(null);
 	const [sessionToken, setSessionTokenState] = useState<string | null>(null);
-	const [handle, setHandle] = useState<string | null>(null);
-
-	const isAuthenticated = authState === "authenticated";
 
 	useEffect(() => {
 		const existingSession = getSessionToken();
@@ -96,8 +76,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
 			setLoading(true);
 			setError(null);
 
-			const loginRequest: HubLoginRequest = { email_address: email, password };
-			const validationErrors = validateHubLoginRequest(loginRequest);
+			const loginRequest: AdminLoginRequest = { email, password };
+			const validationErrors = validateAdminLoginRequest(loginRequest);
 			if (validationErrors.length > 0) {
 				setError(formatValidationErrors(validationErrors));
 				setLoading(false);
@@ -106,7 +86,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
 			try {
 				const apiBaseUrl = await getApiBaseUrl();
-				const response = await fetch(`${apiBaseUrl}/hub/login`, {
+				const response = await fetch(`${apiBaseUrl}/admin/login`, {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify(loginRequest),
@@ -156,7 +136,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 	);
 
 	const verifyTFA = useCallback(
-		async (tfaCode: string, rememberMe: boolean) => {
+		async (tfaCode: string) => {
 			if (!tfaToken) {
 				setError(t("tfa.tokenMissing"));
 				setAuthState("login");
@@ -166,13 +146,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
 			setLoading(true);
 			setError(null);
 
-			const tfaRequest: HubTFARequest = {
+			const tfaRequest: AdminTFARequest = {
 				tfa_token: tfaToken,
 				tfa_code: tfaCode,
-				remember_me: rememberMe,
 			};
 
-			const validationErrors = validateHubTFARequest(tfaRequest);
+			const validationErrors = validateAdminTFARequest(tfaRequest);
 			if (validationErrors.length > 0) {
 				setError(formatValidationErrors(validationErrors));
 				setLoading(false);
@@ -181,7 +160,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
 			try {
 				const apiBaseUrl = await getApiBaseUrl();
-				const response = await fetch(`${apiBaseUrl}/hub/tfa`, {
+				const response = await fetch(`${apiBaseUrl}/admin/tfa`, {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify(tfaRequest),
@@ -221,7 +200,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 				}
 
 				const data = await response.json();
-				setSessionToken(data.session_token, rememberMe);
+				setSessionToken(data.session_token);
 				setSessionTokenState(data.session_token);
 				setTfaToken(null);
 				setAuthState("authenticated");
@@ -256,7 +235,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
 		try {
 			const apiBaseUrl = await getApiBaseUrl();
-			const response = await fetch(`${apiBaseUrl}/hub/logout`, {
+			const response = await fetch(`${apiBaseUrl}/admin/logout`, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
@@ -292,16 +271,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
 		setError(null);
 	}, []);
 
-	const setAuthData = useCallback(
-		(newSessionToken: string, newHandle: string) => {
-			setSessionToken(newSessionToken, false); // Default to 24h for signup
-			setSessionTokenState(newSessionToken);
-			setHandle(newHandle);
-			setAuthState("authenticated");
-		},
-		[]
-	);
-
 	return (
 		<AuthContext.Provider
 			value={{
@@ -309,11 +278,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
 				loading,
 				error,
 				sessionToken,
-				handle,
-				isAuthenticated,
 				login,
 				verifyTFA,
-				setAuthData,
 				logout,
 				backToLogin,
 				clearError,
@@ -322,12 +288,4 @@ export function AuthProvider({ children }: AuthProviderProps) {
 			{children}
 		</AuthContext.Provider>
 	);
-}
-
-export function useAuth(): AuthContextType {
-	const context = useContext(AuthContext);
-	if (context === undefined) {
-		throw new Error("useAuth must be used within an AuthProvider");
-	}
-	return context;
 }
