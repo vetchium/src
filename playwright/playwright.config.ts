@@ -1,4 +1,4 @@
-import { defineConfig } from "@playwright/test";
+import { defineConfig, devices } from "@playwright/test";
 
 /**
  * Playwright configuration for Vetchium API and UI tests.
@@ -54,11 +54,10 @@ export default defineConfig({
 				// No browser configuration needed for API tests
 			},
 		},
-		// UI tests can be added here later with browser configurations
-		// {
-		//   name: 'chromium',
-		//   testMatch: /.*\/ui\/.*\.spec\.ts/,
-		//   use: { ...devices['Desktop Chrome'] },
-		// },
+		{
+			name: "chromium",
+			testMatch: /.*\/ui\/.*\.spec\.ts/,
+			use: { ...devices["Desktop Chrome"] },
+		},
 	],
 });
