@@ -1,9 +1,4 @@
-import {
-	useState,
-	useEffect,
-	useCallback,
-	type ReactNode,
-} from "react";
+import { useState, useEffect, useCallback, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
 	type AdminLoginRequest,
@@ -13,10 +8,7 @@ import {
 } from "vetchium-specs/admin/admin-users";
 import { getApiBaseUrl } from "../config";
 import { setStoredLanguage, type SupportedLanguage } from "../i18n";
-import {
-	AuthContext,
-	type AuthState,
-} from "./AuthContext";
+import { AuthContext, type AuthState } from "./AuthContext";
 
 const SESSION_COOKIE_NAME = "vetchium_admin_session";
 
@@ -42,8 +34,6 @@ function setSessionToken(token: string): void {
 function clearSessionToken(): void {
 	document.cookie = `${SESSION_COOKIE_NAME}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Strict`;
 }
-
-
 
 interface AuthProviderProps {
 	children: ReactNode;

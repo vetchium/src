@@ -1,8 +1,5 @@
 import { useState, useEffect, type ReactNode } from "react";
-import {
-	ThemeContext,
-	type ThemeMode,
-} from "./ThemeContext";
+import { ThemeContext, type ThemeMode } from "./ThemeContext";
 
 const THEME_STORAGE_KEY = "vetchium_admin_theme";
 

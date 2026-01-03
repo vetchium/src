@@ -1,9 +1,4 @@
-import {
-	useState,
-	useEffect,
-	useCallback,
-	type ReactNode,
-} from "react";
+import { useState, useEffect, useCallback, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
 	type HubLoginRequest,
@@ -13,10 +8,7 @@ import {
 } from "vetchium-specs/hub/hub-users";
 import { getApiBaseUrl } from "../config";
 import { setStoredLanguage, type SupportedLanguage } from "../i18n";
-import {
-	AuthContext,
-	type AuthState,
-} from "./AuthContext";
+import { AuthContext, type AuthState } from "./AuthContext";
 
 const SESSION_COOKIE_NAME = "vetchium_hub_session";
 

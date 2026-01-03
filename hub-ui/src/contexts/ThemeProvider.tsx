@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { ThemeContext, type Theme } from "./ThemeContext";
 
@@ -24,5 +23,3 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 		</ThemeContext.Provider>
 	);
 }
-
-

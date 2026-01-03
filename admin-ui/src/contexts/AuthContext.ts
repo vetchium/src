@@ -3,17 +3,17 @@ import { createContext } from "react";
 export type AuthState = "login" | "tfa" | "authenticated";
 
 export interface AuthContextType {
-    authState: AuthState;
-    loading: boolean;
-    error: string | null;
-    sessionToken: string | null;
-    login: (email: string, password: string) => Promise<void>;
-    verifyTFA: (tfaCode: string) => Promise<void>;
-    logout: () => Promise<void>;
-    backToLogin: () => void;
-    clearError: () => void;
+	authState: AuthState;
+	loading: boolean;
+	error: string | null;
+	sessionToken: string | null;
+	login: (email: string, password: string) => Promise<void>;
+	verifyTFA: (tfaCode: string) => Promise<void>;
+	logout: () => Promise<void>;
+	backToLogin: () => void;
+	clearError: () => void;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(
-    undefined
+	undefined
 );
