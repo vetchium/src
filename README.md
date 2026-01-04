@@ -183,13 +183,13 @@ For development, the following test users are available (password: `Password123$
 
 The global API server runs background cleanup jobs. It only needs the global database connection.
 
-| Variable                                     | Default | CI Value | Description                                    |
-| -------------------------------------------- | ------- | -------- | ---------------------------------------------- |
-| `GLOBAL_DB_CONN`                             | -       | -        | PostgreSQL connection string for global DB     |
-| `LOG_LEVEL`                                  | INFO    | DEBUG    | Log level (DEBUG, INFO, WARN, ERROR)           |
-| `EXPIRED_ADMIN_TFA_TOKENS_CLEANUP_INTERVAL`  | 1h      | 5s       | Cleanup interval for expired admin TFA tokens  |
-| `EXPIRED_ADMIN_SESSIONS_CLEANUP_INTERVAL`    | 1h      | 5s       | Cleanup interval for expired admin sessions    |
-| `EXPIRED_HUB_SIGNUP_TOKENS_CLEANUP_INTERVAL` | 1h      | 5s       | Cleanup interval for expired hub signup tokens |
+| Variable                            | Default | CI Value | Description                                    |
+| ----------------------------------- | ------- | -------- | ---------------------------------------------- |
+| `GLOBAL_DB_CONN`                    | -       | -        | PostgreSQL connection string for global DB     |
+| `LOG_LEVEL`                         | INFO    | DEBUG    | Log level (DEBUG, INFO, WARN, ERROR)           |
+| `ADMIN_TFA_TOKEN_CLEANUP_INTERVAL`  | 1h      | 5s       | Cleanup interval for expired admin TFA tokens  |
+| `ADMIN_SESSION_CLEANUP_INTERVAL`    | 1h      | 5s       | Cleanup interval for expired admin sessions    |
+| `HUB_SIGNUP_TOKEN_CLEANUP_INTERVAL` | 1h      | 5s       | Cleanup interval for expired hub signup tokens |
 
 ### Regional API Servers
 
@@ -218,10 +218,10 @@ Regional API servers handle HTTP requests and run regional background jobs. They
 
 **Regional Cleanup Configuration:**
 
-| Variable                                  | Default | CI Value | Description                                 |
-| ----------------------------------------- | ------- | -------- | ------------------------------------------- |
-| `EXPIRED_HUB_TFA_TOKENS_CLEANUP_INTERVAL` | 1h      | 5s       | Cleanup interval for expired hub TFA tokens |
-| `EXPIRED_HUB_SESSIONS_CLEANUP_INTERVAL`   | 1h      | 5s       | Cleanup interval for expired hub sessions   |
+| Variable                         | Default | CI Value | Description                                 |
+| -------------------------------- | ------- | -------- | ------------------------------------------- |
+| `HUB_TFA_TOKEN_CLEANUP_INTERVAL` | 1h      | 5s       | Cleanup interval for expired hub TFA tokens |
+| `HUB_SESSION_CLEANUP_INTERVAL`   | 1h      | 5s       | Cleanup interval for expired hub sessions   |
 
 **Email Configuration:**
 

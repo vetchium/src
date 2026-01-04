@@ -23,17 +23,17 @@ type RegionalBgJobsConfig struct {
 // GlobalConfigFromEnv creates a GlobalBgJobsConfig from environment variables
 func GlobalConfigFromEnv() *GlobalBgJobsConfig {
 	adminTFAInterval := parseDurationOrDefault(
-		os.Getenv("EXPIRED_ADMIN_TFA_TOKENS_CLEANUP_INTERVAL"),
+		os.Getenv("ADMIN_TFA_TOKEN_CLEANUP_INTERVAL"),
 		1*time.Hour,
 	)
 
 	adminSessionsInterval := parseDurationOrDefault(
-		os.Getenv("EXPIRED_ADMIN_SESSIONS_CLEANUP_INTERVAL"),
+		os.Getenv("ADMIN_SESSION_CLEANUP_INTERVAL"),
 		1*time.Hour,
 	)
 
 	hubSignupInterval := parseDurationOrDefault(
-		os.Getenv("EXPIRED_HUB_SIGNUP_TOKENS_CLEANUP_INTERVAL"),
+		os.Getenv("HUB_SIGNUP_TOKEN_CLEANUP_INTERVAL"),
 		1*time.Hour,
 	)
 
@@ -47,12 +47,12 @@ func GlobalConfigFromEnv() *GlobalBgJobsConfig {
 // RegionalConfigFromEnv creates a RegionalBgJobsConfig from environment variables
 func RegionalConfigFromEnv() *RegionalBgJobsConfig {
 	hubTFAInterval := parseDurationOrDefault(
-		os.Getenv("EXPIRED_HUB_TFA_TOKENS_CLEANUP_INTERVAL"),
+		os.Getenv("HUB_TFA_TOKEN_CLEANUP_INTERVAL"),
 		1*time.Hour,
 	)
 
 	hubSessionsInterval := parseDurationOrDefault(
-		os.Getenv("EXPIRED_HUB_SESSIONS_CLEANUP_INTERVAL"),
+		os.Getenv("HUB_SESSION_CLEANUP_INTERVAL"),
 		1*time.Hour,
 	)
 

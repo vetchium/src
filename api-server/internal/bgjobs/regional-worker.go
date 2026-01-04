@@ -55,26 +55,21 @@ func (w *RegionalWorker) Run(ctx context.Context) {
 }
 
 // runPeriodicJob runs a job function in a loop with the given interval.
-// The ticker interval is set to half the configured interval to ensure more
-// responsive execution.
 func (w *RegionalWorker) runPeriodicJob(
 	ctx context.Context,
 	jobName string,
 	interval time.Duration,
 	jobFn func(context.Context),
 ) {
-	// Use half the interval for more responsive execution
-	tickerInterval := interval / 2
-	if tickerInterval < time.Second {
-		tickerInterval = time.Second // Minimum 1 second to avoid busy-looping
+	if interval < time.Second {
+		interval = time.Second // Minimum 1 second to avoid busy-looping
 	}
 
 	w.log.Debug("starting periodic job",
 		"job", jobName,
-		"configured_interval", interval,
-		"ticker_interval", tickerInterval)
+		"interval", interval)
 
-	ticker := time.NewTicker(tickerInterval)
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
 	// Run job immediately on start
