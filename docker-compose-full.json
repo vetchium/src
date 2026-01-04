@@ -338,7 +338,11 @@
 			"image": "nginx:alpine",
 			"volumes": ["./nginx/api-lb.conf:/etc/nginx/nginx.conf:ro"],
 			"ports": ["8080:80"],
-			"depends_on": ["regional-api-server-ind1", "regional-api-server-usa1", "regional-api-server-deu1"]
+			"depends_on": [
+				"regional-api-server-ind1",
+				"regional-api-server-usa1",
+				"regional-api-server-deu1"
+			]
 		},
 		"hub-ui": {
 			"build": {

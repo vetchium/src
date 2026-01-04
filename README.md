@@ -197,38 +197,38 @@ Regional API servers handle HTTP requests and run regional background jobs. They
 
 **Database Connections:**
 
-| Variable               | Description                                    |
-| ---------------------- | ---------------------------------------------- |
-| `REGION`               | Region identifier (ind1, usa1, deu1)           |
-| `GLOBAL_DB_CONN`       | PostgreSQL connection string for global DB     |
-| `REGIONAL_DB_IND1_CONN`| PostgreSQL connection string for IND1 regional DB |
-| `REGIONAL_DB_USA1_CONN`| PostgreSQL connection string for USA1 regional DB |
-| `REGIONAL_DB_DEU1_CONN`| PostgreSQL connection string for DEU1 regional DB |
+| Variable                | Description                                       |
+| ----------------------- | ------------------------------------------------- |
+| `REGION`                | Region identifier (ind1, usa1, deu1)              |
+| `GLOBAL_DB_CONN`        | PostgreSQL connection string for global DB        |
+| `REGIONAL_DB_IND1_CONN` | PostgreSQL connection string for IND1 regional DB |
+| `REGIONAL_DB_USA1_CONN` | PostgreSQL connection string for USA1 regional DB |
+| `REGIONAL_DB_DEU1_CONN` | PostgreSQL connection string for DEU1 regional DB |
 
 **Token Expiry Configuration:**
 
-| Variable                   | Default | CI Value | Description                          |
-| -------------------------- | ------- | -------- | ------------------------------------ |
-| `ADMIN_TFA_TOKEN_EXPIRY`   | 10m     | 15s      | Admin TFA token validity duration    |
-| `ADMIN_SESSION_TOKEN_EXPIRY`| 24h    | 30s      | Admin session token validity duration|
-| `HUB_TFA_TOKEN_EXPIRY`     | 10m     | 15s      | Hub user TFA token validity duration |
-| `HUB_SESSION_TOKEN_EXPIRY` | 24h     | 30s      | Hub user session token validity      |
-| `HUB_SIGNUP_TOKEN_EXPIRY`  | 24h     | 30s      | Hub signup token validity duration   |
-| `HUB_REMEMBER_ME_EXPIRY`   | 365d    | 60s      | Hub remember-me session validity     |
+| Variable                     | Default | CI Value | Description                           |
+| ---------------------------- | ------- | -------- | ------------------------------------- |
+| `ADMIN_TFA_TOKEN_EXPIRY`     | 10m     | 15s      | Admin TFA token validity duration     |
+| `ADMIN_SESSION_TOKEN_EXPIRY` | 24h     | 30s      | Admin session token validity duration |
+| `HUB_TFA_TOKEN_EXPIRY`       | 10m     | 15s      | Hub user TFA token validity duration  |
+| `HUB_SESSION_TOKEN_EXPIRY`   | 24h     | 30s      | Hub user session token validity       |
+| `HUB_SIGNUP_TOKEN_EXPIRY`    | 24h     | 30s      | Hub signup token validity duration    |
+| `HUB_REMEMBER_ME_EXPIRY`     | 365d    | 60s      | Hub remember-me session validity      |
 
 **Regional Cleanup Configuration:**
 
-| Variable                                   | Default | CI Value | Description                                  |
-| ------------------------------------------ | ------- | -------- | -------------------------------------------- |
-| `EXPIRED_HUB_TFA_TOKENS_CLEANUP_INTERVAL`  | 1h      | 5s       | Cleanup interval for expired hub TFA tokens  |
-| `EXPIRED_HUB_SESSIONS_CLEANUP_INTERVAL`    | 1h      | 5s       | Cleanup interval for expired hub sessions    |
+| Variable                                  | Default | CI Value | Description                                 |
+| ----------------------------------------- | ------- | -------- | ------------------------------------------- |
+| `EXPIRED_HUB_TFA_TOKENS_CLEANUP_INTERVAL` | 1h      | 5s       | Cleanup interval for expired hub TFA tokens |
+| `EXPIRED_HUB_SESSIONS_CLEANUP_INTERVAL`   | 1h      | 5s       | Cleanup interval for expired hub sessions   |
 
 **Email Configuration:**
 
-| Variable                    | Default | Description                        |
-| --------------------------- | ------- | ---------------------------------- |
-| `SMTP_HOST`                 | -       | SMTP server hostname               |
-| `SMTP_PORT`                 | -       | SMTP server port                   |
-| `SMTP_FROM_ADDRESS`         | -       | From email address                 |
-| `SMTP_FROM_NAME`            | -       | From name for emails               |
-| `EMAIL_WORKER_POLL_INTERVAL`| 10s     | Email worker polling interval      |
+| Variable                     | Default | Description                   |
+| ---------------------------- | ------- | ----------------------------- |
+| `SMTP_HOST`                  | -       | SMTP server hostname          |
+| `SMTP_PORT`                  | -       | SMTP server port              |
+| `SMTP_FROM_ADDRESS`          | -       | From email address            |
+| `SMTP_FROM_NAME`             | -       | From name for emails          |
+| `EMAIL_WORKER_POLL_INTERVAL` | 10s     | Email worker polling interval |
