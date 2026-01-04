@@ -229,7 +229,7 @@
 		"regional-api-server-ind1": {
 			"build": {
 				"context": ".",
-				"dockerfile": "api-server/Dockerfile"
+				"dockerfile": "api-server/Dockerfile.regional"
 			},
 			"depends_on": {
 				"migrate-global": {
@@ -273,7 +273,7 @@
 		"regional-api-server-usa1": {
 			"build": {
 				"context": ".",
-				"dockerfile": "api-server/Dockerfile"
+				"dockerfile": "api-server/Dockerfile.regional"
 			},
 			"depends_on": {
 				"migrate-global": {
@@ -317,7 +317,7 @@
 		"regional-api-server-deu1": {
 			"build": {
 				"context": ".",
-				"dockerfile": "api-server/Dockerfile"
+				"dockerfile": "api-server/Dockerfile.regional"
 			},
 			"depends_on": {
 				"migrate-global": {
