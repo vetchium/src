@@ -35,33 +35,58 @@ func NewRegionalWorker(
 	}
 }
 
-// Run starts the regional background jobs worker. It blocks until ctx is cancelled.
+// Run starts the regional background jobs worker. It launches goroutines for each
+// job and returns immediately. Each job runs in its own goroutine with an
+// independent ticker to prevent starvation. Goroutines exit when ctx is cancelled.
 func (w *RegionalWorker) Run(ctx context.Context) {
 	w.log.Info("starting regional background jobs worker",
 		"hub_tfa_cleanup_interval", w.config.ExpiredHubTFATokensCleanupInterval,
 		"hub_sessions_cleanup_interval", w.config.ExpiredHubSessionsCleanupInterval,
 	)
 
-	// Create independent tickers for each cleanup job
-	hubTFATicker := time.NewTicker(w.config.ExpiredHubTFATokensCleanupInterval)
-	hubSessionsTicker := time.NewTicker(w.config.ExpiredHubSessionsCleanupInterval)
+	// Launch each job in its own goroutine
+	go w.runPeriodicJob(ctx, "hub-tfa-tokens",
+		w.config.ExpiredHubTFATokensCleanupInterval,
+		w.cleanupExpiredHubTFATokens)
 
-	defer hubTFATicker.Stop()
-	defer hubSessionsTicker.Stop()
+	go w.runPeriodicJob(ctx, "hub-sessions",
+		w.config.ExpiredHubSessionsCleanupInterval,
+		w.cleanupExpiredHubSessions)
+}
 
-	// Run cleanup immediately on start
-	w.cleanupExpiredHubTFATokens(ctx)
-	w.cleanupExpiredHubSessions(ctx)
+// runPeriodicJob runs a job function in a loop with the given interval.
+// The ticker interval is set to half the configured interval to ensure more
+// responsive execution.
+func (w *RegionalWorker) runPeriodicJob(
+	ctx context.Context,
+	jobName string,
+	interval time.Duration,
+	jobFn func(context.Context),
+) {
+	// Use half the interval for more responsive execution
+	tickerInterval := interval / 2
+	if tickerInterval < time.Second {
+		tickerInterval = time.Second // Minimum 1 second to avoid busy-looping
+	}
+
+	w.log.Debug("starting periodic job",
+		"job", jobName,
+		"configured_interval", interval,
+		"ticker_interval", tickerInterval)
+
+	ticker := time.NewTicker(tickerInterval)
+	defer ticker.Stop()
+
+	// Run job immediately on start
+	jobFn(ctx)
 
 	for {
 		select {
 		case <-ctx.Done():
-			w.log.Info("regional background jobs worker stopping")
+			w.log.Debug("periodic job stopping", "job", jobName)
 			return
-		case <-hubTFATicker.C:
-			w.cleanupExpiredHubTFATokens(ctx)
-		case <-hubSessionsTicker.C:
-			w.cleanupExpiredHubSessions(ctx)
+		case <-ticker.C:
+			jobFn(ctx)
 		}
 	}
 }
