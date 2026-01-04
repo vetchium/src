@@ -202,7 +202,7 @@ test.describe("Hub Token Expiry Tests", () => {
 
 			// Verify session works before expiry
 			const preExpiryResponse = await api.setLanguage(sessionToken, {
-				preferred_language: "en-US",
+				language: "en-US",
 			});
 			expect(preExpiryResponse.status).toBe(200);
 
@@ -211,7 +211,7 @@ test.describe("Hub Token Expiry Tests", () => {
 
 			// Try to use expired session token
 			const postExpiryResponse = await api.setLanguage(sessionToken, {
-				preferred_language: "de-DE",
+				language: "de-DE",
 			});
 
 			// Expired session should return 401
@@ -400,9 +400,9 @@ test.describe("Hub Token Expiry Tests", () => {
 			// Wait for normal session expiry time
 			await sleep(SESSION_TOKEN_EXPIRY_MS + EXPIRY_BUFFER_MS);
 
-			// Session with remember_me should still be valid (20s in CI vs 10s normal)
+			// Session with remember_me should still be valid (60s in CI vs 30s normal)
 			const response = await api.setLanguage(sessionToken, {
-				preferred_language: "de-DE",
+				language: "de-DE",
 			});
 
 			// Remember-me session should still be valid

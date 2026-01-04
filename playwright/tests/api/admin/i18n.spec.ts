@@ -548,6 +548,7 @@ test.describe("Email i18n - Language-specific email content", () => {
 		test("expiry time is mentioned in all languages", async ({ request }) => {
 			// This test verifies the {{.Minutes}} placeholder is replaced correctly
 			// Run all 3 languages concurrently to avoid timeout
+			// Note: Patterns match any digit(s) to work in both dev (10 min) and CI (0 min) environments
 			const api = new AdminAPIClient(request);
 			const password = TEST_PASSWORD;
 
@@ -555,17 +556,17 @@ test.describe("Email i18n - Language-specific email content", () => {
 				{
 					email: generateTestEmail("i18n-expiry-en"),
 					lang: "en-US" as LanguageCode,
-					expectedPattern: /10 minutes/,
+					expectedPattern: /\d+ minutes?/,
 				},
 				{
 					email: generateTestEmail("i18n-expiry-de"),
 					lang: "de-DE" as LanguageCode,
-					expectedPattern: /10 Minuten/,
+					expectedPattern: /\d+ Minuten?/,
 				},
 				{
 					email: generateTestEmail("i18n-expiry-ta"),
 					lang: "ta-IN" as LanguageCode,
-					expectedPattern: /10 நிமிடங்களில்/,
+					expectedPattern: /\d+ நிமிடங்களில்/,
 				},
 			];
 

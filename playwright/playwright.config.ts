@@ -8,9 +8,18 @@ import { defineConfig, devices } from "@playwright/test";
  * - API Server: http://localhost:8080 (nginx load balancer)
  * - Mailpit API: http://localhost:8025
  * - Global DB: postgresql://vetchium:vetchium_dev@localhost:5432/vetchium_global
+ * - Hub UI: Started automatically by Playwright via webServer config
  */
 export default defineConfig({
 	testDir: "./tests",
+
+	// Web server configuration to start hub-ui dev server before running UI tests
+	webServer: {
+		command: "cd ../hub-ui && bun run dev",
+		url: "http://localhost:5173",
+		reuseExistingServer: !process.env.CI,
+		timeout: 120000,
+	},
 
 	// Run all tests in parallel - each test is fully independent
 	fullyParallel: true,

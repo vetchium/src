@@ -1,206 +1,176 @@
 import { test, expect } from "@playwright/test";
+import { randomUUID } from "crypto";
+import {
+	createTestAdminUser,
+	deleteTestAdminUser,
+	deleteTestHubUser,
+	generateTestDomainName,
+	createTestApprovedDomain,
+	permanentlyDeleteTestApprovedDomain,
+	extractSignupTokenFromEmail,
+} from "../../../lib/db";
+import { waitForEmail, getEmailContent } from "../../../lib/mailpit";
+import { TEST_PASSWORD } from "../../../lib/constants";
+
+// Hub UI base URL
+const HUB_UI_URL = "http://localhost:5173";
 
 test.describe("Signup Complete Form Auto Test", () => {
-	test("automated signup flow test", async ({ page }) => {
-		// Use the test token provided
-		const testUrl =
-			"http://localhost:5173/signup/verify?token=2552508bb21a6cd866e4777dd82bbdc13328596330217004202d4745cd476d2c";
+	test("automated signup flow test", async ({ page, request }) => {
+		// Set up test data
+		const adminEmail = `admin-signup-ui-${randomUUID()}@test.vetchium.com`;
+		const domain = generateTestDomainName("signup-ui");
+		const userEmail = `test-${randomUUID().substring(0, 8)}@${domain}`;
 
-		// Listen for console messages
-		page.on("console", (msg) => {
-			console.log(`BROWSER CONSOLE [${msg.type()}]:`, msg.text());
-		});
+		// Create admin and approved domain
+		await createTestAdminUser(adminEmail, TEST_PASSWORD);
+		await createTestApprovedDomain(domain, adminEmail);
 
-		await page.goto(testUrl);
-		await page.waitForLoadState("networkidle");
-		await page.waitForTimeout(1000);
+		let signupToken: string | null = null;
 
-		console.log("\n=== STEP 0: Initial Page ===");
-		await page.screenshot({ path: "screenshots/auto-step0-initial.png" });
-
-		// Step 1: Select Language
-		console.log("\n=== STEP 1: Selecting Language ===");
-
-		// Click on the language select dropdown
-		await page.click('[id="signup-complete_preferred_language"]');
-		await page.waitForTimeout(500);
-		await page.screenshot({ path: "screenshots/auto-step1-dropdown-open.png" });
-
-		// Select the first language option (English)
-		const firstOption = page.locator(".ant-select-item-option").first();
-		await firstOption.click();
-		await page.waitForTimeout(500);
-		await page.screenshot({
-			path: "screenshots/auto-step1-language-selected.png",
-		});
-
-		// Log form state
-		const languageValue = await page.evaluate(() => {
-			const form = document.querySelector("form");
-			const input = form?.querySelector(
-				'[id="signup-complete_preferred_language"]'
+		try {
+			// Request signup via API to get a valid token
+			const signupResponse = await request.post(
+				"http://localhost:8080/hub/request-signup",
+				{
+					data: { email_address: userEmail },
+				}
 			);
-			return (input as HTMLInputElement)?.value || "not found";
-		});
-		console.log("Selected language value:", languageValue);
+			expect(signupResponse.status()).toBe(200);
 
-		// Click Next
-		await page.click('button:has-text("Next")');
-		await page.waitForTimeout(500);
-		await page.screenshot({ path: "screenshots/auto-step2-display-name.png" });
+			// Get token from email
+			const emailSummary = await waitForEmail(userEmail);
+			const emailMessage = await getEmailContent(emailSummary.ID);
+			signupToken = extractSignupTokenFromEmail(emailMessage);
+			expect(signupToken).not.toBeNull();
 
-		// Step 2: Enter Display Name
-		console.log("\n=== STEP 2: Display Name ===");
+			// Build the test URL with the dynamic token
+			const testUrl = `${HUB_UI_URL}/signup/verify?token=${signupToken}`;
 
-		// Check if the display name input is visible
-		const displayNameInput = page.locator(
-			'input[placeholder="Your name as you\'d like it displayed"]'
-		);
-		const isVisible = await displayNameInput.isVisible();
-		console.log("Display name input visible:", isVisible);
+			// Listen for console messages (for debugging)
+			page.on("console", (msg) => {
+				if (msg.type() === "error") {
+					console.log(`BROWSER ERROR:`, msg.text());
+				}
+			});
 
-		if (isVisible) {
-			await displayNameInput.fill("Test User Name");
+			await page.goto(testUrl);
+			await page.waitForLoadState("networkidle");
+			await page.waitForTimeout(1000);
+
+			// Step 1: Select Language
+			await page.click('[id="signup-complete_preferred_language"]');
 			await page.waitForTimeout(500);
-			console.log("Filled display name: Test User Name");
-		} else {
-			console.log("ERROR: Display name input not visible!");
-			// Take a screenshot of the current state
-			await page.screenshot({
-				path: "screenshots/auto-step2-error-no-input.png",
-			});
 
-			// Try to find what's on the page
-			const pageContent = await page.content();
-			console.log(
-				"Page contains 'display_name':",
-				pageContent.includes("display_name")
+			// Select the first language option (English)
+			const firstOption = page.locator(".ant-select-item-option").first();
+			await firstOption.click();
+			await page.waitForTimeout(500);
+
+			// Click Next
+			await page.click('button:has-text("Next")');
+			await page.waitForTimeout(500);
+
+			// Step 2: Enter Display Name
+			const displayNameInput = page.locator(
+				'input[placeholder="Your name as you\'d like it displayed"]'
 			);
-			console.log(
-				"Page contains 'display-name':",
-				pageContent.includes("display-name")
-			);
-		}
+			const isVisible = await displayNameInput.isVisible();
+			expect(isVisible).toBe(true);
 
-		await page.screenshot({
-			path: "screenshots/auto-step2-display-name-filled.png",
-		});
-
-		// Click Next
-		await page.click('button:has-text("Next")');
-		await page.waitForTimeout(500);
-		await page.screenshot({ path: "screenshots/auto-step3-region.png" });
-
-		// Step 3: Select Region and Country
-		console.log("\n=== STEP 3: Region and Country ===");
-
-		// Select Region using Ant Design select
-		await page.locator('[id="signup-complete_home_region"]').click();
-		await page.waitForTimeout(300);
-		// Click the first visible option in the active dropdown
-		await page
-			.locator(
-				".ant-select-dropdown:not(.ant-select-dropdown-hidden) .ant-select-item-option"
-			)
-			.first()
-			.click();
-		await page.waitForTimeout(300);
-		console.log("Selected region");
-
-		// Select Country
-		await page.locator('[id="signup-complete_resident_country_code"]').click();
-		await page.waitForTimeout(300);
-		await page.keyboard.type("United States");
-		await page.waitForTimeout(500);
-		await page
-			.locator(
-				".ant-select-dropdown:not(.ant-select-dropdown-hidden) .ant-select-item-option"
-			)
-			.first()
-			.click();
-		await page.waitForTimeout(300);
-		console.log("Selected country");
-
-		await page.screenshot({ path: "screenshots/auto-step3-region-filled.png" });
-
-		// Click Next
-		await page.click('button:has-text("Next")');
-		await page.waitForTimeout(500);
-		await page.screenshot({ path: "screenshots/auto-step4-password.png" });
-
-		// Step 4: Password
-		console.log("\n=== STEP 4: Password ===");
-
-		const passwordInput = page.locator(
-			'input[placeholder="Choose a strong password"]'
-		);
-		if (await passwordInput.isVisible()) {
-			await passwordInput.fill("TestPassword123!");
-			console.log("Filled password");
-		}
-
-		const confirmInput = page.locator(
-			'input[placeholder="Re-enter your password"]'
-		);
-		if (await confirmInput.isVisible()) {
-			await confirmInput.fill("TestPassword123!");
-			console.log("Filled confirm password");
-		}
-		await page.waitForTimeout(500);
-		await page.screenshot({
-			path: "screenshots/auto-step4-password-filled.png",
-		});
-
-		// Click Next to go to Summary
-		await page.click('button:has-text("Next")');
-		await page.waitForTimeout(1000);
-		await page.screenshot({ path: "screenshots/auto-step5-summary.png" });
-
-		// Step 5: Summary
-		console.log("\n=== STEP 5: Summary ===");
-
-		// Get the summary content - use .ant-descriptions for the summary table
-		const summaryCard = page.locator(".ant-descriptions").first();
-		if (await summaryCard.isVisible({ timeout: 3000 })) {
-			const summaryText = await summaryCard.textContent();
-			console.log("Summary card content:", summaryText);
-		} else {
-			console.log("Summary descriptions not visible, checking page...");
-			await page.screenshot({ path: "screenshots/auto-step5-debug.png" });
-		}
-
-		// Check for the descriptions
-		const descriptions = page.locator(".ant-descriptions-item-content");
-		const count = await descriptions.count();
-		console.log("Number of description items:", count);
-
-		for (let i = 0; i < count; i++) {
-			const text = await descriptions.nth(i).textContent();
-			console.log(`  Item ${i}:`, text);
-		}
-
-		// Try to submit
-		console.log("\n=== Attempting Submit ===");
-		const submitBtn = page.locator('button:has-text("Create Account")');
-		if (await submitBtn.isVisible()) {
-			await submitBtn.click();
-			console.log("Clicked submit button");
-			await page.waitForTimeout(3000);
-			await page.screenshot({
-				path: "screenshots/auto-step6-after-submit.png",
-			});
-
-			// Check for errors
-			const errorAlert = page.locator(".ant-alert-error");
-			if (await errorAlert.isVisible()) {
-				const errorText = await errorAlert.textContent();
-				console.log("ERROR ALERT:", errorText);
+			if (isVisible) {
+				await displayNameInput.fill("Test User Name");
+				await page.waitForTimeout(500);
 			}
-		} else {
-			console.log("Submit button not visible!");
-		}
 
-		console.log("\n=== Test Complete ===");
-		await page.waitForTimeout(2000);
+			// Click Next
+			await page.click('button:has-text("Next")');
+			await page.waitForTimeout(500);
+
+			// Step 3: Select Region and Country
+			// Select Region using Ant Design select
+			await page.locator('[id="signup-complete_home_region"]').click();
+			await page.waitForTimeout(300);
+			// Click the first visible option in the active dropdown
+			await page
+				.locator(
+					".ant-select-dropdown:not(.ant-select-dropdown-hidden) .ant-select-item-option"
+				)
+				.first()
+				.click();
+			await page.waitForTimeout(300);
+
+			// Select Country
+			await page
+				.locator('[id="signup-complete_resident_country_code"]')
+				.click();
+			await page.waitForTimeout(300);
+			await page.keyboard.type("United States");
+			await page.waitForTimeout(500);
+			await page
+				.locator(
+					".ant-select-dropdown:not(.ant-select-dropdown-hidden) .ant-select-item-option"
+				)
+				.first()
+				.click();
+			await page.waitForTimeout(300);
+
+			// Click Next
+			await page.click('button:has-text("Next")');
+			await page.waitForTimeout(500);
+
+			// Step 4: Password
+			const passwordInput = page.locator(
+				'input[placeholder="Choose a strong password"]'
+			);
+			if (await passwordInput.isVisible()) {
+				await passwordInput.fill(TEST_PASSWORD);
+			}
+
+			const confirmInput = page.locator(
+				'input[placeholder="Re-enter your password"]'
+			);
+			if (await confirmInput.isVisible()) {
+				await confirmInput.fill(TEST_PASSWORD);
+			}
+			await page.waitForTimeout(500);
+
+			// Click Next to go to Summary
+			await page.click('button:has-text("Next")');
+			await page.waitForTimeout(1000);
+
+			// Step 5: Summary - Verify summary is displayed
+			const summaryCard = page.locator(".ant-descriptions").first();
+			await expect(summaryCard).toBeVisible({ timeout: 5000 });
+
+			// Verify some summary content exists
+			const descriptions = page.locator(".ant-descriptions-item-content");
+			const count = await descriptions.count();
+			expect(count).toBeGreaterThan(0);
+
+			// Submit the form
+			const submitBtn = page.locator('button:has-text("Create Account")');
+			await expect(submitBtn).toBeVisible();
+			await submitBtn.click();
+			await page.waitForTimeout(3000);
+
+			// Check for success - should redirect to login or show success message
+			// Check for absence of error alerts
+			const errorAlert = page.locator(".ant-alert-error");
+			const hasError = await errorAlert.isVisible().catch(() => false);
+
+			if (hasError) {
+				const errorText = await errorAlert.textContent();
+				console.log("Error during signup:", errorText);
+			}
+
+			// Expect no errors after submit
+			expect(hasError).toBe(false);
+		} finally {
+			// Cleanup
+			await deleteTestHubUser(userEmail).catch(() => {});
+			await permanentlyDeleteTestApprovedDomain(domain);
+			await deleteTestAdminUser(adminEmail);
+		}
 	});
 });
