@@ -20,7 +20,7 @@ COPY api-server/ .
 RUN sqlc generate
 
 # Build the binary
-RUN CGO_ENABLED=0 GOOS=linux go build -o api-server ./cmd/api-server
+RUN CGO_ENABLED=0 GOOS=linux go build -o regional-api-server ./cmd/regional-api-server
 
 # Runtime stage
 FROM alpine:3.19
@@ -29,8 +29,8 @@ RUN apk --no-cache add ca-certificates
 
 WORKDIR /app
 
-COPY --from=builder /app/api-server .
+COPY --from=builder /app/regional-api-server .
 
 EXPOSE 8080
 
-CMD ["./api-server"]
+CMD ["./regional-api-server"]

@@ -16,10 +16,6 @@ import (
 	"vetchium-api-server.typespec/common"
 )
 
-const (
-	sessionTokenExpiry = 24 * time.Hour
-)
-
 func TFA(s *server.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -86,7 +82,7 @@ func TFA(s *server.Server) http.HandlerFunc {
 		sessionToken := hex.EncodeToString(sessionTokenBytes)
 
 		// Store session in database
-		expiresAt := pgtype.Timestamp{Time: time.Now().Add(sessionTokenExpiry), Valid: true}
+		expiresAt := pgtype.Timestamp{Time: time.Now().Add(s.TokenConfig.AdminSessionTokenExpiry), Valid: true}
 		err = s.Global.CreateAdminSession(ctx, globaldb.CreateAdminSessionParams{
 			SessionToken: sessionToken,
 			AdminUserID:  tfaTokenRecord.AdminUserID,

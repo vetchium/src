@@ -1,0 +1,374 @@
+{
+	"services": {
+		"global-db": {
+			"image": "postgres:17-alpine",
+			"environment": {
+				"POSTGRES_DB": "vetchium_global",
+				"POSTGRES_USER": "vetchium",
+				"POSTGRES_PASSWORD": "vetchium_dev"
+			},
+			"volumes": ["global-db-data:/var/lib/postgresql/data"],
+			"ports": ["5432:5432"],
+			"healthcheck": {
+				"test": ["CMD-SHELL", "pg_isready -U vetchium -d vetchium_global"],
+				"interval": "5s",
+				"timeout": "5s",
+				"retries": 5
+			}
+		},
+		"regional-db-ind1": {
+			"image": "postgres:17-alpine",
+			"environment": {
+				"POSTGRES_DB": "vetchium_ind1",
+				"POSTGRES_USER": "vetchium",
+				"POSTGRES_PASSWORD": "vetchium_dev"
+			},
+			"volumes": ["regional-db-ind1-data:/var/lib/postgresql/data"],
+			"ports": ["5433:5432"],
+			"healthcheck": {
+				"test": ["CMD-SHELL", "pg_isready -U vetchium -d vetchium_ind1"],
+				"interval": "5s",
+				"timeout": "5s",
+				"retries": 5
+			}
+		},
+		"regional-db-usa1": {
+			"image": "postgres:17-alpine",
+			"environment": {
+				"POSTGRES_DB": "vetchium_usa1",
+				"POSTGRES_USER": "vetchium",
+				"POSTGRES_PASSWORD": "vetchium_dev"
+			},
+			"volumes": ["regional-db-usa1-data:/var/lib/postgresql/data"],
+			"ports": ["5434:5432"],
+			"healthcheck": {
+				"test": ["CMD-SHELL", "pg_isready -U vetchium -d vetchium_usa1"],
+				"interval": "5s",
+				"timeout": "5s",
+				"retries": 5
+			}
+		},
+		"regional-db-deu1": {
+			"image": "postgres:17-alpine",
+			"environment": {
+				"POSTGRES_DB": "vetchium_deu1",
+				"POSTGRES_USER": "vetchium",
+				"POSTGRES_PASSWORD": "vetchium_dev"
+			},
+			"volumes": ["regional-db-deu1-data:/var/lib/postgresql/data"],
+			"ports": ["5435:5432"],
+			"healthcheck": {
+				"test": ["CMD-SHELL", "pg_isready -U vetchium -d vetchium_deu1"],
+				"interval": "5s",
+				"timeout": "5s",
+				"retries": 5
+			}
+		},
+		"mailpit": {
+			"image": "axllent/mailpit:latest",
+			"ports": ["8025:8025", "1025:1025"],
+			"environment": {
+				"MP_SMTP_AUTH_ACCEPT_ANY": "true",
+				"MP_SMTP_AUTH_ALLOW_INSECURE": "true"
+			}
+		},
+		"migrate-global": {
+			"build": {
+				"context": "./api-server",
+				"dockerfile": "Dockerfile.migrate"
+			},
+			"depends_on": {
+				"global-db": {
+					"condition": "service_healthy"
+				}
+			},
+			"command": [
+				"-dir",
+				"/migrations/global",
+				"postgres",
+				"postgres://vetchium:vetchium_dev@global-db:5432/vetchium_global?sslmode=disable",
+				"up"
+			]
+		},
+		"migrate-ind1": {
+			"build": {
+				"context": "./api-server",
+				"dockerfile": "Dockerfile.migrate"
+			},
+			"depends_on": {
+				"regional-db-ind1": {
+					"condition": "service_healthy"
+				}
+			},
+			"command": [
+				"-dir",
+				"/migrations/regional",
+				"postgres",
+				"postgres://vetchium:vetchium_dev@regional-db-ind1:5432/vetchium_ind1?sslmode=disable",
+				"up"
+			]
+		},
+		"migrate-usa1": {
+			"build": {
+				"context": "./api-server",
+				"dockerfile": "Dockerfile.migrate"
+			},
+			"depends_on": {
+				"regional-db-usa1": {
+					"condition": "service_healthy"
+				}
+			},
+			"command": [
+				"-dir",
+				"/migrations/regional",
+				"postgres",
+				"postgres://vetchium:vetchium_dev@regional-db-usa1:5432/vetchium_usa1?sslmode=disable",
+				"up"
+			]
+		},
+		"migrate-deu1": {
+			"build": {
+				"context": "./api-server",
+				"dockerfile": "Dockerfile.migrate"
+			},
+			"depends_on": {
+				"regional-db-deu1": {
+					"condition": "service_healthy"
+				}
+			},
+			"command": [
+				"-dir",
+				"/migrations/regional",
+				"postgres",
+				"postgres://vetchium:vetchium_dev@regional-db-deu1:5432/vetchium_deu1?sslmode=disable",
+				"up"
+			]
+		},
+		"seed-global": {
+			"build": {
+				"context": "./api-server",
+				"dockerfile": "Dockerfile.seed"
+			},
+			"depends_on": {
+				"migrate-global": {
+					"condition": "service_completed_successfully"
+				}
+			},
+			"command": [
+				"postgres://vetchium:vetchium_dev@global-db:5432/vetchium_global?sslmode=disable",
+				"-f",
+				"/seed/global.sql"
+			]
+		},
+		"seed-ind1": {
+			"build": {
+				"context": "./api-server",
+				"dockerfile": "Dockerfile.seed"
+			},
+			"depends_on": {
+				"migrate-ind1": {
+					"condition": "service_completed_successfully"
+				}
+			},
+			"command": [
+				"postgres://vetchium:vetchium_dev@regional-db-ind1:5432/vetchium_ind1?sslmode=disable",
+				"-f",
+				"/seed/regional.sql"
+			]
+		},
+		"seed-usa1": {
+			"build": {
+				"context": "./api-server",
+				"dockerfile": "Dockerfile.seed"
+			},
+			"depends_on": {
+				"migrate-usa1": {
+					"condition": "service_completed_successfully"
+				}
+			},
+			"command": [
+				"postgres://vetchium:vetchium_dev@regional-db-usa1:5432/vetchium_usa1?sslmode=disable",
+				"-f",
+				"/seed/regional.sql"
+			]
+		},
+		"seed-deu1": {
+			"build": {
+				"context": "./api-server",
+				"dockerfile": "Dockerfile.seed"
+			},
+			"depends_on": {
+				"migrate-deu1": {
+					"condition": "service_completed_successfully"
+				}
+			},
+			"command": [
+				"postgres://vetchium:vetchium_dev@regional-db-deu1:5432/vetchium_deu1?sslmode=disable",
+				"-f",
+				"/seed/regional.sql"
+			]
+		},
+		"global-api-server": {
+			"build": {
+				"context": ".",
+				"dockerfile": "api-server/Dockerfile.global"
+			},
+			"depends_on": {
+				"migrate-global": {
+					"condition": "service_completed_successfully"
+				}
+			},
+			"environment": {
+				"LOG_LEVEL": "DEBUG",
+				"GLOBAL_DB_CONN": "postgres://vetchium:vetchium_dev@global-db:5432/vetchium_global?sslmode=disable",
+				"EXPIRED_ADMIN_TFA_TOKENS_CLEANUP_INTERVAL": "5s",
+				"EXPIRED_ADMIN_SESSIONS_CLEANUP_INTERVAL": "5s",
+				"EXPIRED_HUB_SIGNUP_TOKENS_CLEANUP_INTERVAL": "5s"
+			}
+		},
+		"regional-api-server-ind1": {
+			"build": {
+				"context": ".",
+				"dockerfile": "api-server/Dockerfile"
+			},
+			"depends_on": {
+				"migrate-global": {
+					"condition": "service_completed_successfully"
+				},
+				"migrate-ind1": {
+					"condition": "service_completed_successfully"
+				},
+				"migrate-usa1": {
+					"condition": "service_completed_successfully"
+				},
+				"migrate-deu1": {
+					"condition": "service_completed_successfully"
+				},
+				"mailpit": {
+					"condition": "service_started"
+				}
+			},
+			"environment": {
+				"REGION": "ind1",
+				"LOG_LEVEL": "DEBUG",
+				"GLOBAL_DB_CONN": "postgres://vetchium:vetchium_dev@global-db:5432/vetchium_global?sslmode=disable",
+				"REGIONAL_DB_IND1_CONN": "postgres://vetchium:vetchium_dev@regional-db-ind1:5432/vetchium_ind1?sslmode=disable",
+				"REGIONAL_DB_USA1_CONN": "postgres://vetchium:vetchium_dev@regional-db-usa1:5432/vetchium_usa1?sslmode=disable",
+				"REGIONAL_DB_DEU1_CONN": "postgres://vetchium:vetchium_dev@regional-db-deu1:5432/vetchium_deu1?sslmode=disable",
+				"SMTP_HOST": "mailpit",
+				"SMTP_PORT": "1025",
+				"SMTP_FROM_ADDRESS": "noreply@vetchium.com",
+				"SMTP_FROM_NAME": "Vetchium",
+				"EMAIL_WORKER_POLL_INTERVAL": "1s",
+				"EXPIRED_HUB_TFA_TOKENS_CLEANUP_INTERVAL": "5s",
+				"EXPIRED_HUB_SESSIONS_CLEANUP_INTERVAL": "5s",
+				"ADMIN_TFA_TOKEN_EXPIRY": "15s",
+				"ADMIN_SESSION_TOKEN_EXPIRY": "30s",
+				"HUB_TFA_TOKEN_EXPIRY": "15s",
+				"HUB_SESSION_TOKEN_EXPIRY": "30s",
+				"HUB_SIGNUP_TOKEN_EXPIRY": "30s",
+				"HUB_REMEMBER_ME_EXPIRY": "60s"
+			}
+		},
+		"regional-api-server-usa1": {
+			"build": {
+				"context": ".",
+				"dockerfile": "api-server/Dockerfile"
+			},
+			"depends_on": {
+				"migrate-global": {
+					"condition": "service_completed_successfully"
+				},
+				"migrate-ind1": {
+					"condition": "service_completed_successfully"
+				},
+				"migrate-usa1": {
+					"condition": "service_completed_successfully"
+				},
+				"migrate-deu1": {
+					"condition": "service_completed_successfully"
+				},
+				"mailpit": {
+					"condition": "service_started"
+				}
+			},
+			"environment": {
+				"REGION": "usa1",
+				"LOG_LEVEL": "DEBUG",
+				"GLOBAL_DB_CONN": "postgres://vetchium:vetchium_dev@global-db:5432/vetchium_global?sslmode=disable",
+				"REGIONAL_DB_IND1_CONN": "postgres://vetchium:vetchium_dev@regional-db-ind1:5432/vetchium_ind1?sslmode=disable",
+				"REGIONAL_DB_USA1_CONN": "postgres://vetchium:vetchium_dev@regional-db-usa1:5432/vetchium_usa1?sslmode=disable",
+				"REGIONAL_DB_DEU1_CONN": "postgres://vetchium:vetchium_dev@regional-db-deu1:5432/vetchium_deu1?sslmode=disable",
+				"SMTP_HOST": "mailpit",
+				"SMTP_PORT": "1025",
+				"SMTP_FROM_ADDRESS": "noreply@vetchium.com",
+				"SMTP_FROM_NAME": "Vetchium",
+				"EMAIL_WORKER_POLL_INTERVAL": "1s",
+				"EXPIRED_HUB_TFA_TOKENS_CLEANUP_INTERVAL": "5s",
+				"EXPIRED_HUB_SESSIONS_CLEANUP_INTERVAL": "5s",
+				"ADMIN_TFA_TOKEN_EXPIRY": "15s",
+				"ADMIN_SESSION_TOKEN_EXPIRY": "30s",
+				"HUB_TFA_TOKEN_EXPIRY": "15s",
+				"HUB_SESSION_TOKEN_EXPIRY": "30s",
+				"HUB_SIGNUP_TOKEN_EXPIRY": "30s",
+				"HUB_REMEMBER_ME_EXPIRY": "60s"
+			}
+		},
+		"regional-api-server-deu1": {
+			"build": {
+				"context": ".",
+				"dockerfile": "api-server/Dockerfile"
+			},
+			"depends_on": {
+				"migrate-global": {
+					"condition": "service_completed_successfully"
+				},
+				"migrate-ind1": {
+					"condition": "service_completed_successfully"
+				},
+				"migrate-usa1": {
+					"condition": "service_completed_successfully"
+				},
+				"migrate-deu1": {
+					"condition": "service_completed_successfully"
+				},
+				"mailpit": {
+					"condition": "service_started"
+				}
+			},
+			"environment": {
+				"REGION": "deu1",
+				"LOG_LEVEL": "DEBUG",
+				"GLOBAL_DB_CONN": "postgres://vetchium:vetchium_dev@global-db:5432/vetchium_global?sslmode=disable",
+				"REGIONAL_DB_IND1_CONN": "postgres://vetchium:vetchium_dev@regional-db-ind1:5432/vetchium_ind1?sslmode=disable",
+				"REGIONAL_DB_USA1_CONN": "postgres://vetchium:vetchium_dev@regional-db-usa1:5432/vetchium_usa1?sslmode=disable",
+				"REGIONAL_DB_DEU1_CONN": "postgres://vetchium:vetchium_dev@regional-db-deu1:5432/vetchium_deu1?sslmode=disable",
+				"SMTP_HOST": "mailpit",
+				"SMTP_PORT": "1025",
+				"SMTP_FROM_ADDRESS": "noreply@vetchium.com",
+				"SMTP_FROM_NAME": "Vetchium",
+				"EMAIL_WORKER_POLL_INTERVAL": "1s",
+				"EXPIRED_HUB_TFA_TOKENS_CLEANUP_INTERVAL": "5s",
+				"EXPIRED_HUB_SESSIONS_CLEANUP_INTERVAL": "5s",
+				"ADMIN_TFA_TOKEN_EXPIRY": "15s",
+				"ADMIN_SESSION_TOKEN_EXPIRY": "30s",
+				"HUB_TFA_TOKEN_EXPIRY": "15s",
+				"HUB_SESSION_TOKEN_EXPIRY": "30s",
+				"HUB_SIGNUP_TOKEN_EXPIRY": "30s",
+				"HUB_REMEMBER_ME_EXPIRY": "60s"
+			}
+		},
+		"api-lb": {
+			"image": "nginx:alpine",
+			"volumes": ["./nginx/api-lb.conf:/etc/nginx/nginx.conf:ro"],
+			"ports": ["8080:80"],
+			"depends_on": ["regional-api-server-ind1", "regional-api-server-usa1", "regional-api-server-deu1"]
+		}
+	},
+	"volumes": {
+		"global-db-data": {},
+		"regional-db-ind1-data": {},
+		"regional-db-usa1-data": {},
+		"regional-db-deu1-data": {}
+	}
+}

@@ -40,7 +40,7 @@ go install github.com/pressly/goose/v3/cmd/goose@latest
 ## Quick Start
 
 ```bash
-docker compose -f docker-compose-full.yaml up --build
+docker compose -f docker-compose-full.json up --build
 ```
 
 Access the services:
@@ -53,10 +53,10 @@ Access the services:
 
 ```bash
 # Stop all services
-docker compose -f docker-compose-full.yaml down
+docker compose -f docker-compose-full.json down
 
 # Stop and remove volumes (clears database data)
-docker compose -f docker-compose-full.yaml down -v
+docker compose -f docker-compose-full.json down -v
 ```
 
 ## Local Frontend Development
@@ -65,7 +65,7 @@ For faster frontend iteration, run only the backend services in Docker and the f
 
 ```bash
 # Start backend services (databases, API servers, load balancer)
-docker compose -f docker-compose-backend.yaml up --build
+docker compose -f docker-compose-backend.json up --build
 
 # In a separate terminal, run the frontend locally
 cd admin-ui && bun dev   # Admin UI at http://localhost:3000
@@ -100,7 +100,7 @@ bun install
 
 The pre-push hook checks code formatting for all files being pushed:
 
-- **Prettier** checks: `.ts`, `.js`, `.jsx`, `.json`, `.yaml`, `.yml`, `.md` files (auto-installed via `bun install`)
+- **Prettier** checks: `.ts`, `.js`, `.jsx`, `.json`, `.md` files (auto-installed via `bun install`)
 - **Goimports** checks: `.go` files (**must be installed separately**, see Prerequisites)
 
 **Important**: The hook will **fail** if you're pushing `.go` files and `goimports` is not installed.
@@ -119,7 +119,7 @@ Run 'bun format' to fix formatting issues
 ```bash
 bun format              # Format ALL files (prettier + goimports)
 bun format:check        # Check formatting without modifying
-bun format:prettier     # Only JS/TS/JSON/YAML/MD files
+bun format:prettier     # Only JS/TS/JSON/MD files
 bun format:go           # Only Go files
 bun format:go:check     # Check Go files only
 ```
@@ -133,13 +133,35 @@ cd api-server && goimports -w ./path/to/file.go
 
 ## Running Tests
 
+All tests should be run using the CI configuration which has appropriate token durations for testing:
+
 ```bash
+# Start services
+docker compose -f docker-compose-ci.json up --build
+
+# In a separate terminal
 cd playwright
 npm install
 npm test
 ```
 
-Tests require all Docker services to be running (`docker compose -f docker-compose-full.yaml  up`).
+The CI configuration uses shortened token durations to allow testing of token expiry scenarios:
+
+- **TFA tokens**: 15 seconds
+- **Session tokens**: 30 seconds
+- **Signup tokens**: 30 seconds
+- **Remember-me sessions**: 60 seconds
+- **Cleanup interval**: 5 seconds
+
+The token expiry tests (`token-expiry.spec.ts`) verify that expired tokens are properly rejected.
+
+## Docker Compose Configurations
+
+| File                          | Description                                            |
+| ----------------------------- | ------------------------------------------------------ |
+| `docker-compose-full.json`    | Full stack with UI frontends (development)             |
+| `docker-compose-backend.json` | Backend only for local frontend development            |
+| `docker-compose-ci.json`      | CI/testing with short token durations for expiry tests |
 
 ## Test Users
 
@@ -154,3 +176,59 @@ For development, the following test users are available (password: `Password123$
 
 - `admin1@vetchium.com`
 - `admin2@vetchium.com`
+
+## Environment Variables
+
+### Global API Server
+
+The global API server runs background cleanup jobs. It only needs the global database connection.
+
+| Variable                                     | Default | CI Value | Description                                    |
+| -------------------------------------------- | ------- | -------- | ---------------------------------------------- |
+| `GLOBAL_DB_CONN`                             | -       | -        | PostgreSQL connection string for global DB     |
+| `LOG_LEVEL`                                  | INFO    | DEBUG    | Log level (DEBUG, INFO, WARN, ERROR)           |
+| `EXPIRED_ADMIN_TFA_TOKENS_CLEANUP_INTERVAL`  | 1h      | 5s       | Cleanup interval for expired admin TFA tokens  |
+| `EXPIRED_ADMIN_SESSIONS_CLEANUP_INTERVAL`    | 1h      | 5s       | Cleanup interval for expired admin sessions    |
+| `EXPIRED_HUB_SIGNUP_TOKENS_CLEANUP_INTERVAL` | 1h      | 5s       | Cleanup interval for expired hub signup tokens |
+
+### Regional API Servers
+
+Regional API servers handle HTTP requests and run regional background jobs. They need connections to all databases.
+
+**Database Connections:**
+
+| Variable               | Description                                    |
+| ---------------------- | ---------------------------------------------- |
+| `REGION`               | Region identifier (ind1, usa1, deu1)           |
+| `GLOBAL_DB_CONN`       | PostgreSQL connection string for global DB     |
+| `REGIONAL_DB_IND1_CONN`| PostgreSQL connection string for IND1 regional DB |
+| `REGIONAL_DB_USA1_CONN`| PostgreSQL connection string for USA1 regional DB |
+| `REGIONAL_DB_DEU1_CONN`| PostgreSQL connection string for DEU1 regional DB |
+
+**Token Expiry Configuration:**
+
+| Variable                   | Default | CI Value | Description                          |
+| -------------------------- | ------- | -------- | ------------------------------------ |
+| `ADMIN_TFA_TOKEN_EXPIRY`   | 10m     | 15s      | Admin TFA token validity duration    |
+| `ADMIN_SESSION_TOKEN_EXPIRY`| 24h    | 30s      | Admin session token validity duration|
+| `HUB_TFA_TOKEN_EXPIRY`     | 10m     | 15s      | Hub user TFA token validity duration |
+| `HUB_SESSION_TOKEN_EXPIRY` | 24h     | 30s      | Hub user session token validity      |
+| `HUB_SIGNUP_TOKEN_EXPIRY`  | 24h     | 30s      | Hub signup token validity duration   |
+| `HUB_REMEMBER_ME_EXPIRY`   | 365d    | 60s      | Hub remember-me session validity     |
+
+**Regional Cleanup Configuration:**
+
+| Variable                                   | Default | CI Value | Description                                  |
+| ------------------------------------------ | ------- | -------- | -------------------------------------------- |
+| `EXPIRED_HUB_TFA_TOKENS_CLEANUP_INTERVAL`  | 1h      | 5s       | Cleanup interval for expired hub TFA tokens  |
+| `EXPIRED_HUB_SESSIONS_CLEANUP_INTERVAL`    | 1h      | 5s       | Cleanup interval for expired hub sessions    |
+
+**Email Configuration:**
+
+| Variable                    | Default | Description                        |
+| --------------------------- | ------- | ---------------------------------- |
+| `SMTP_HOST`                 | -       | SMTP server hostname               |
+| `SMTP_PORT`                 | -       | SMTP server port                   |
+| `SMTP_FROM_ADDRESS`         | -       | From email address                 |
+| `SMTP_FROM_NAME`            | -       | From name for emails               |
+| `EMAIL_WORKER_POLL_INTERVAL`| 10s     | Email worker polling interval      |

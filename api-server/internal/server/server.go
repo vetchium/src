@@ -13,7 +13,15 @@ import (
 
 // TokenConfig holds token validity durations used by handlers
 type TokenConfig struct {
-	HubSignupTokenExpiry time.Duration // Default: 24h
+	// Hub tokens
+	HubSignupTokenExpiry  time.Duration // Default: 24h
+	HubTFATokenExpiry     time.Duration // Default: 10m
+	HubSessionTokenExpiry time.Duration // Default: 24h
+	HubRememberMeExpiry   time.Duration // Default: 365 days
+
+	// Admin tokens
+	AdminTFATokenExpiry     time.Duration // Default: 10m
+	AdminSessionTokenExpiry time.Duration // Default: 24h
 }
 
 type Server struct {

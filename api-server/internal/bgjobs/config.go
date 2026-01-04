@@ -64,13 +64,41 @@ func RegionalConfigFromEnv() *RegionalBgJobsConfig {
 
 // TokenConfigFromEnv creates a TokenConfig from environment variables
 func TokenConfigFromEnv() *server.TokenConfig {
+	// Hub token expiry durations
 	hubSignupExpiry := parseDurationOrDefault(
 		os.Getenv("HUB_SIGNUP_TOKEN_EXPIRY"),
 		24*time.Hour,
 	)
+	hubTFAExpiry := parseDurationOrDefault(
+		os.Getenv("HUB_TFA_TOKEN_EXPIRY"),
+		10*time.Minute,
+	)
+	hubSessionExpiry := parseDurationOrDefault(
+		os.Getenv("HUB_SESSION_TOKEN_EXPIRY"),
+		24*time.Hour,
+	)
+	hubRememberMeExpiry := parseDurationOrDefault(
+		os.Getenv("HUB_REMEMBER_ME_EXPIRY"),
+		365*24*time.Hour,
+	)
+
+	// Admin token expiry durations
+	adminTFAExpiry := parseDurationOrDefault(
+		os.Getenv("ADMIN_TFA_TOKEN_EXPIRY"),
+		10*time.Minute,
+	)
+	adminSessionExpiry := parseDurationOrDefault(
+		os.Getenv("ADMIN_SESSION_TOKEN_EXPIRY"),
+		24*time.Hour,
+	)
 
 	return &server.TokenConfig{
-		HubSignupTokenExpiry: hubSignupExpiry,
+		HubSignupTokenExpiry:    hubSignupExpiry,
+		HubTFATokenExpiry:       hubTFAExpiry,
+		HubSessionTokenExpiry:   hubSessionExpiry,
+		HubRememberMeExpiry:     hubRememberMeExpiry,
+		AdminTFATokenExpiry:     adminTFAExpiry,
+		AdminSessionTokenExpiry: adminSessionExpiry,
 	}
 }
 

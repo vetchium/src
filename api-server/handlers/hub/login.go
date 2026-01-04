@@ -24,12 +24,6 @@ import (
 	"vetchium-api-server.typespec/hub"
 )
 
-const (
-	tfaTokenExpiry        = 10 * time.Minute
-	hubSessionTokenExpiry = 24 * time.Hour
-	rememberMeExpiry      = 365 * 24 * time.Hour
-)
-
 func Login(s *server.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -127,6 +121,7 @@ func Login(s *server.Server) http.HandlerFunc {
 		// Store TFA token in regional database
 		// NOTE: This spans two operations in regional database (token, email).
 		// We use a compensating transaction: if email enqueue fails, we delete the TFA token.
+		tfaTokenExpiry := s.TokenConfig.HubTFATokenExpiry
 		expiresAt := pgtype.Timestamp{Time: time.Now().Add(tfaTokenExpiry), Valid: true}
 		err = regionalDB.CreateHubTFAToken(ctx, regionaldb.CreateHubTFATokenParams{
 			TfaToken:  rawTFAToken,
@@ -143,7 +138,7 @@ func Login(s *server.Server) http.HandlerFunc {
 		// Enqueue TFA email in regional database
 		// Match user's preferred language to best available translation
 		lang := i18n.Match(globalUser.PreferredLanguage)
-		err = sendTFAEmail(ctx, regionalDB, regionalUser.EmailAddress, tfaCode, lang)
+		err = sendTFAEmail(ctx, regionalDB, regionalUser.EmailAddress, tfaCode, lang, tfaTokenExpiry)
 		if err != nil {
 			log.Error("failed to enqueue TFA email", "error", err)
 			// Compensating transaction: delete the TFA token we just created
@@ -178,7 +173,7 @@ func generateTFACode() (string, error) {
 	return fmt.Sprintf("%06d", n.Int64()), nil
 }
 
-func sendTFAEmail(ctx context.Context, db *regionaldb.Queries, to string, tfaCode string, lang string) error {
+func sendTFAEmail(ctx context.Context, db *regionaldb.Queries, to string, tfaCode string, lang string, tfaTokenExpiry time.Duration) error {
 	data := templates.HubTFAData{
 		Code:    tfaCode,
 		Minutes: int(tfaTokenExpiry.Minutes()),

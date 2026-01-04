@@ -22,10 +22,6 @@ import (
 	"vetchium-api-server.typespec/admin"
 )
 
-const (
-	tfaTokenExpiry = 10 * time.Minute
-)
-
 func Login(s *server.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -106,6 +102,7 @@ func Login(s *server.Server) http.HandlerFunc {
 		// NOTE: This spans two databases (global for token, regional for email).
 		// We cannot use a single transaction. Instead, we use a compensating
 		// transaction: if email enqueue fails, we delete the TFA token.
+		tfaTokenExpiry := s.TokenConfig.AdminTFATokenExpiry
 		expiresAt := pgtype.Timestamp{Time: time.Now().Add(tfaTokenExpiry), Valid: true}
 		err = s.Global.CreateAdminTFAToken(ctx, globaldb.CreateAdminTFATokenParams{
 			TfaToken:    tfaToken,
@@ -122,7 +119,7 @@ func Login(s *server.Server) http.HandlerFunc {
 		// Enqueue TFA email in regional database
 		// Match user's preferred language to best available translation
 		lang := i18n.Match(adminUser.PreferredLanguage)
-		err = sendTFAEmail(ctx, regionalDB, adminUser.EmailAddress, tfaCode, lang)
+		err = sendTFAEmail(ctx, regionalDB, adminUser.EmailAddress, tfaCode, lang, tfaTokenExpiry)
 		if err != nil {
 			log.Error("failed to enqueue TFA email", "error", err)
 			// Compensating transaction: delete the TFA token we just created
@@ -157,7 +154,7 @@ func generateTFACode() (string, error) {
 	return fmt.Sprintf("%06d", n.Int64()), nil
 }
 
-func sendTFAEmail(ctx context.Context, db *regionaldb.Queries, to string, tfaCode string, lang string) error {
+func sendTFAEmail(ctx context.Context, db *regionaldb.Queries, to string, tfaCode string, lang string, tfaTokenExpiry time.Duration) error {
 	data := templates.AdminTFAData{
 		Code:    tfaCode,
 		Minutes: int(tfaTokenExpiry.Minutes()),
