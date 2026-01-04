@@ -1,17 +1,21 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { NotFoundPage } from "./pages/NotFoundPage";
 
-import { ConfigProvider, theme as antTheme } from "antd";
+import { App as AntApp, ConfigProvider, Layout, theme as antTheme } from "antd";
 import { I18nextProvider } from "react-i18next";
 import { ThemeProvider } from "./contexts/ThemeProvider";
 import { useTheme } from "./hooks/useTheme";
 import { AuthProvider } from "./contexts/AuthProvider";
+import { LanguageProvider } from "./contexts/LanguageProvider";
+import { AppHeader } from "./components/AppHeader";
 import i18n from "./i18n";
 import { HomePage } from "./pages/HomePage";
 import { LoginPage } from "./pages/LoginPage";
 import { SignupPage } from "./pages/SignupPage";
 import { SignupVerifyPage } from "./pages/SignupVerifyPage";
 import { TFAPage } from "./pages/TFAPage";
+
+const { Content } = Layout;
 
 function AppContent() {
 	const { theme } = useTheme();
@@ -33,14 +37,28 @@ function AppContent() {
 				},
 			}}
 		>
-			<Routes>
-				<Route path="/" element={<HomePage />} />
-				<Route path="/login" element={<LoginPage />} />
-				<Route path="/tfa" element={<TFAPage />} />
-				<Route path="/signup" element={<SignupPage />} />
-				<Route path="/signup/verify" element={<SignupVerifyPage />} />
-				<Route path="*" element={<NotFoundPage />} />
-			</Routes>
+			<AntApp>
+				<Layout style={{ minHeight: "100vh" }}>
+					<AppHeader />
+					<Content
+						style={{
+							display: "flex",
+							justifyContent: "center",
+							alignItems: "center",
+							flex: 1,
+						}}
+					>
+						<Routes>
+							<Route path="/" element={<HomePage />} />
+							<Route path="/login" element={<LoginPage />} />
+							<Route path="/tfa" element={<TFAPage />} />
+							<Route path="/signup" element={<SignupPage />} />
+							<Route path="/signup/verify" element={<SignupVerifyPage />} />
+							<Route path="*" element={<NotFoundPage />} />
+						</Routes>
+					</Content>
+				</Layout>
+			</AntApp>
 		</ConfigProvider>
 	);
 }
@@ -48,13 +66,15 @@ function AppContent() {
 function App() {
 	return (
 		<I18nextProvider i18n={i18n}>
-			<ThemeProvider>
-				<AuthProvider>
-					<BrowserRouter>
-						<AppContent />
-					</BrowserRouter>
-				</AuthProvider>
-			</ThemeProvider>
+			<LanguageProvider>
+				<ThemeProvider>
+					<AuthProvider>
+						<BrowserRouter>
+							<AppContent />
+						</BrowserRouter>
+					</AuthProvider>
+				</ThemeProvider>
+			</LanguageProvider>
 		</I18nextProvider>
 	);
 }

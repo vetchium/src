@@ -3,6 +3,7 @@ import { ThemeProvider } from "./contexts/ThemeProvider";
 import { useTheme } from "./hooks/useTheme";
 import { AuthProvider } from "./contexts/AuthProvider";
 import { useAuth } from "./hooks/useAuth";
+import { LanguageProvider } from "./contexts/LanguageProvider";
 import { AppHeader } from "./components/AppHeader";
 import { LoginPage } from "./pages/LoginPage";
 import { TFAPage } from "./pages/TFAPage";
@@ -139,11 +140,13 @@ function AppContent() {
 function App() {
 	return (
 		<BrowserRouter>
-			<ThemeProvider>
-				<AuthProvider>
-					<AppContent />
-				</AuthProvider>
-			</ThemeProvider>
+			<LanguageProvider>
+				<ThemeProvider>
+					<AuthProvider>
+						<AppContent />
+					</AuthProvider>
+				</ThemeProvider>
+			</LanguageProvider>
 		</BrowserRouter>
 	);
 }

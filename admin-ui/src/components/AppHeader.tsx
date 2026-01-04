@@ -2,6 +2,7 @@ import { Layout, Space, Switch, Select } from "antd";
 import { BulbOutlined, BulbFilled, GlobalOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { useTheme } from "../hooks/useTheme";
+import { useLanguage } from "../hooks/useLanguage";
 import {
 	SUPPORTED_LANGUAGES,
 	setStoredLanguage,
@@ -16,6 +17,7 @@ export function AppHeader() {
 	const { t, i18n } = useTranslation("common");
 	const { theme, toggleTheme } = useTheme();
 	const { authState, sessionToken } = useAuth();
+	const { languages, loading: languagesLoading } = useLanguage();
 
 	const handleLanguageChange = async (value: SupportedLanguage) => {
 		setStoredLanguage(value);
@@ -41,10 +43,17 @@ export function AppHeader() {
 		}
 	};
 
-	const languageOptions = SUPPORTED_LANGUAGES.map((lang) => ({
-		value: lang,
-		label: t(`language.${lang}`),
-	}));
+	// Use server-provided languages if available, fallback to hardcoded list
+	const languageOptions =
+		languages.length > 0
+			? languages.map((lang) => ({
+					value: lang.language_code,
+					label: lang.native_name,
+				}))
+			: SUPPORTED_LANGUAGES.map((lang) => ({
+					value: lang,
+					label: t(`language.${lang}`),
+				}));
 
 	return (
 		<Header
@@ -65,6 +74,7 @@ export function AppHeader() {
 						options={languageOptions}
 						style={{ width: 120 }}
 						size="small"
+						loading={languagesLoading}
 					/>
 				</Space>
 				<Space>
