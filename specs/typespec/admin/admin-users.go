@@ -61,17 +61,17 @@ func (r AdminLogoutRequest) Validate() []common.ValidationError {
 	return nil
 }
 
-type UpdatePreferencesRequest struct {
-	PreferredLanguage common.LanguageCode `json:"preferred_language"`
+type AdminSetLanguageRequest struct {
+	Language common.LanguageCode `json:"language"`
 }
 
-func (r UpdatePreferencesRequest) Validate() []common.ValidationError {
+func (r AdminSetLanguageRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
 
-	if r.PreferredLanguage == "" {
-		errs = append(errs, common.NewValidationError("preferred_language", common.ErrRequired))
-	} else if err := r.PreferredLanguage.Validate(); err != nil {
-		errs = append(errs, common.NewValidationError("preferred_language", err))
+	if r.Language == "" {
+		errs = append(errs, common.NewValidationError("language", common.ErrRequired))
+	} else if err := r.Language.Validate(); err != nil {
+		errs = append(errs, common.NewValidationError("language", err))
 	}
 
 	return errs

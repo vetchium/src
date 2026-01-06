@@ -27,14 +27,14 @@ export function AppHeader() {
 		if (authState === "authenticated" && sessionToken) {
 			try {
 				const apiBaseUrl = await getApiBaseUrl();
-				await fetch(`${apiBaseUrl}/admin/preferences`, {
+				await fetch(`${apiBaseUrl}/admin/set-language`, {
 					method: "POST",
 					headers: {
 						"Content-Type": "application/json",
 						Authorization: `Bearer ${sessionToken}`,
 					},
 					body: JSON.stringify({
-						preferred_language: value,
+						language: value,
 					}),
 				});
 			} catch (err) {

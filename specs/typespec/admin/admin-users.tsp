@@ -42,9 +42,9 @@ model AdminLogoutRequest {
     // Empty model - session token passed in Authorization header
 }
 
-model UpdatePreferencesRequest {
+model AdminSetLanguageRequest {
     @doc("Preferred language (BCP 47 tag)")
-    preferred_language: LanguageCode;
+    language: LanguageCode;
 }
 
 @route("/admin/login")
@@ -96,19 +96,20 @@ interface AdminLogout {
     };
 }
 
-@route("/admin/preferences")
-interface AdminPreferences {
+@route("/admin/set-language")
+interface AdminSetLanguage {
     @tag("AdminUsers")
     @post
-    updatePreferences(@body request: UpdatePreferencesRequest): {
+    @doc("Update the authenticated admin user's preferred language")
+    setLanguage(@body request: AdminSetLanguageRequest): {
         @statusCode statusCode: 200;
+    } | {
+        @doc("Invalid request parameters or validation errors")
+        @statusCode
+        statusCode: 400;
     } | {
         @doc("Invalid or expired session token")
         @statusCode
         statusCode: 401;
-    } | {
-        @doc("Invalid preference values")
-        @statusCode
-        statusCode: 400;
     };
 }

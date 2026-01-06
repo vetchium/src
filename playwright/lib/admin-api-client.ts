@@ -4,7 +4,7 @@ import {
 	AdminLoginResponse,
 	AdminTFARequest,
 	AdminTFAResponse,
-	UpdatePreferencesRequest,
+	AdminSetLanguageRequest,
 } from "vetchium-specs/admin/admin-users";
 import type {
 	AddApprovedDomainRequest,
@@ -164,13 +164,13 @@ export class AdminAPIClient {
 	}
 
 	/**
-	 * POST /admin/preferences with Authorization header
+	 * POST /admin/set-language with Authorization header
 	 */
-	async updatePreferences(
+	async setLanguage(
 		sessionToken: string,
-		request: UpdatePreferencesRequest
+		request: AdminSetLanguageRequest
 	): Promise<APIResponse<void>> {
-		const response = await this.request.post("/admin/preferences", {
+		const response = await this.request.post("/admin/set-language", {
 			headers: {
 				Authorization: `Bearer ${sessionToken}`,
 			},
@@ -186,13 +186,13 @@ export class AdminAPIClient {
 	}
 
 	/**
-	 * POST /admin/preferences with raw body for testing invalid payloads
+	 * POST /admin/set-language with raw body for testing invalid payloads
 	 */
-	async updatePreferencesRaw(
+	async setLanguageRaw(
 		sessionToken: string,
 		body: unknown
 	): Promise<APIResponse<void>> {
-		const response = await this.request.post("/admin/preferences", {
+		const response = await this.request.post("/admin/set-language", {
 			headers: {
 				Authorization: `Bearer ${sessionToken}`,
 			},

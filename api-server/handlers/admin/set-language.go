@@ -10,7 +10,7 @@ import (
 	"vetchium-api-server.typespec/admin"
 )
 
-func UpdatePreferences(s *server.Server) http.HandlerFunc {
+func SetLanguage(s *server.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()
@@ -24,9 +24,9 @@ func UpdatePreferences(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		var request admin.UpdatePreferencesRequest
+		var request admin.AdminSetLanguageRequest
 		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-			log.Debug("failed to decode preferences request", "error", err)
+			log.Debug("failed to decode set-language request", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -44,7 +44,7 @@ func UpdatePreferences(s *server.Server) http.HandlerFunc {
 		// Update preferred language using session from context
 		err := s.Global.UpdateAdminPreferredLanguage(ctx, globaldb.UpdateAdminPreferredLanguageParams{
 			AdminUserID:       session.AdminUserID,
-			PreferredLanguage: string(request.PreferredLanguage),
+			PreferredLanguage: string(request.Language),
 		})
 		if err != nil {
 			log.Error("failed to update preferred language", "error", err)
@@ -52,7 +52,7 @@ func UpdatePreferences(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		log.Info("admin preferences updated", "admin_user_id", session.AdminUserID, "preferred_language", request.PreferredLanguage)
+		log.Info("admin language updated", "admin_user_id", session.AdminUserID, "language", request.Language)
 		w.WriteHeader(http.StatusOK)
 	}
 }

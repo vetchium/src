@@ -80,21 +80,21 @@ export function validateAdminLogoutRequest(
 	return [];
 }
 
-export interface UpdatePreferencesRequest {
-	preferred_language: LanguageCode;
+export interface AdminSetLanguageRequest {
+	language: LanguageCode;
 }
 
-export function validateUpdatePreferencesRequest(
-	request: UpdatePreferencesRequest
+export function validateAdminSetLanguageRequest(
+	request: AdminSetLanguageRequest
 ): ValidationError[] {
 	const errs: ValidationError[] = [];
 
-	if (!request.preferred_language) {
-		errs.push(newValidationError("preferred_language", ERR_REQUIRED));
+	if (!request.language) {
+		errs.push(newValidationError("language", ERR_REQUIRED));
 	} else {
-		const langErr = validateLanguageCode(request.preferred_language);
+		const langErr = validateLanguageCode(request.language);
 		if (langErr) {
-			errs.push(newValidationError("preferred_language", langErr));
+			errs.push(newValidationError("language", langErr));
 		}
 	}
 
