@@ -148,7 +148,7 @@ test.describe("Admin Token Expiry Tests", () => {
 		}
 	});
 
-	test("expired session token returns 401 for preferences update", async ({
+	test("expired session token returns 401 for set-language", async ({
 		request,
 	}) => {
 		const api = new AdminAPIClient(request);
@@ -173,13 +173,13 @@ test.describe("Admin Token Expiry Tests", () => {
 			// Wait for session to expire
 			await sleep(SESSION_TOKEN_EXPIRY_MS + EXPIRY_BUFFER_MS);
 
-			// Try to update preferences with expired session
-			const prefsResponse = await api.updatePreferences(sessionToken, {
-				preferred_language: "de-DE",
+			// Try to set language with expired session
+			const setLanguageResp = await api.setLanguage(sessionToken, {
+				language: "de-DE",
 			});
 
 			// Expired session should return 401
-			expect(prefsResponse.status).toBe(401);
+			expect(setLanguageResp.status).toBe(401);
 		} finally {
 			await deleteTestAdminUser(email);
 		}
