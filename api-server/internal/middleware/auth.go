@@ -157,21 +157,9 @@ func HubAuth(globalDB *globaldb.Queries, getRegionalDB func(globaldb.Region) *re
 				return
 			}
 
-			// Get hub user from regional DB
-			regionalUser, err := regionalDB.GetHubUserByID(ctx, session.HubUserID)
-			if err != nil {
-				if errors.Is(err, pgx.ErrNoRows) {
-					log.Debug("hub user not found in regional DB")
-					w.WriteHeader(http.StatusUnauthorized)
-					return
-				}
-				log.Error("failed to get regional hub user", "error", err)
-				http.Error(w, "", http.StatusInternalServerError)
-				return
-			}
-
 			// Get hub user from global DB (for status, preferred_language, etc.)
-			hubUser, err := globalDB.GetHubUserByGlobalID(ctx, regionalUser.HubUserGlobalID)
+			// Session contains hub_user_global_id directly, so we can query global DB
+			hubUser, err := globalDB.GetHubUserByGlobalID(ctx, session.HubUserGlobalID)
 			if err != nil {
 				if errors.Is(err, pgx.ErrNoRows) {
 					log.Debug("hub user not found in global DB")

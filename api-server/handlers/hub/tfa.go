@@ -2,7 +2,6 @@ package hub
 
 import (
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -99,17 +98,9 @@ func TFA(s *server.Server) http.HandlerFunc {
 		// protection. Reusing a valid token just creates another session for the
 		// same authenticated user - not a security issue.
 
-		// Get hub user from regional database to get email address
-		regionalUser, err := regionalDB.GetHubUserByID(ctx, tfaTokenRecord.HubUserID)
-		if err != nil {
-			log.Error("failed to fetch regional hub user", "error", err)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-
 		// Get hub user from global database to get preferred language
-		emailHash := sha256.Sum256([]byte(regionalUser.EmailAddress))
-		globalUser, err := s.Global.GetHubUserByEmailHash(ctx, emailHash[:])
+		// TFA token contains hub_user_global_id directly, so we can query global DB
+		globalUser, err := s.Global.GetHubUserByGlobalID(ctx, tfaTokenRecord.HubUserGlobalID)
 		if err != nil {
 			log.Error("failed to fetch global hub user", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
@@ -139,9 +130,9 @@ func TFA(s *server.Server) http.HandlerFunc {
 		// Store session in regional database (raw token without prefix)
 		expiresAt := pgtype.Timestamp{Time: time.Now().Add(sessionExpiry), Valid: true}
 		err = regionalDB.CreateHubSession(ctx, regionaldb.CreateHubSessionParams{
-			SessionToken: rawSessionToken,
-			HubUserID:    regionalUser.HubUserID,
-			ExpiresAt:    expiresAt,
+			SessionToken:    rawSessionToken,
+			HubUserGlobalID: tfaTokenRecord.HubUserGlobalID,
+			ExpiresAt:       expiresAt,
 		})
 		if err != nil {
 			log.Error("failed to store session", "error", err)

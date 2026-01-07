@@ -124,10 +124,10 @@ func Login(s *server.Server) http.HandlerFunc {
 		tfaTokenExpiry := s.TokenConfig.HubTFATokenExpiry
 		expiresAt := pgtype.Timestamp{Time: time.Now().Add(tfaTokenExpiry), Valid: true}
 		err = regionalDB.CreateHubTFAToken(ctx, regionaldb.CreateHubTFATokenParams{
-			TfaToken:  rawTFAToken,
-			HubUserID: regionalUser.HubUserID,
-			TfaCode:   tfaCode,
-			ExpiresAt: expiresAt,
+			TfaToken:        rawTFAToken,
+			HubUserGlobalID: regionalUser.HubUserGlobalID,
+			TfaCode:         tfaCode,
+			ExpiresAt:       expiresAt,
 		})
 		if err != nil {
 			log.Error("failed to store TFA token", "error", err)

@@ -57,12 +57,9 @@ Table global.hub_users {
 }
 
 Table regional.hub_users {
-  hub_user_id uuid [primary key, note: 'Regional ID']
-  hub_user_global_id uuid [not null, note: 'Link to global identity']
+  hub_user_global_id uuid [primary key, note: 'Same ID as global table']
   email_address text [not null, unique, note: 'Primary login email']
   password_hash bytea [note: 'Only if using email/password']
   created_at timestamp
 }
-
-Ref: regional.hub_users.hub_user_global_id > global.hub_users.hub_user_global_id
 ```

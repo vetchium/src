@@ -174,9 +174,8 @@ Table hub_sessions {
 // Regional Database
 
 Table hub_users {
-  // Existing columns - no changes, just adding notes
-  hub_user_id UUID [pk]
-  hub_user_global_id UUID [not null, note: 'Links to global hub_users']
+  // Uses same ID as global table for simplicity
+  hub_user_global_id UUID [pk, note: 'Same ID as global hub_users']
   email_address TEXT [not null, unique, note: 'Plaintext PII']
   password_hash BYTEA [note: 'Bcrypt hash']
   created_at TIMESTAMP [default: `NOW()`]

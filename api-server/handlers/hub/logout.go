@@ -45,7 +45,7 @@ func Logout(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		log.Info("hub user logged out", "hub_user_id", session.HubUserID, "region", region)
+		log.Info("hub user logged out", "hub_user_global_id", session.HubUserGlobalID, "region", region)
 		w.WriteHeader(http.StatusOK)
 	}
 }

@@ -193,8 +193,8 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 			}
 		}
 
-		// Create user in regional DB (database generates hub_user_id)
-		regionalUser, err := regionalDB.CreateHubUser(ctx, regionaldb.CreateHubUserParams{
+		// Create user in regional DB (uses same hub_user_global_id as primary key)
+		_, err = regionalDB.CreateHubUser(ctx, regionaldb.CreateHubUserParams{
 			HubUserGlobalID: hubUserGlobalID,
 			EmailAddress:    email,
 			PasswordHash:    passwordHash,
@@ -212,7 +212,7 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 		if _, err := rand.Read(sessionTokenBytes); err != nil {
 			log.Error("failed to generate session token", "error", err)
 			// Cleanup
-			regionalDB.DeleteHubUser(ctx, regionalUser.HubUserID)
+			regionalDB.DeleteHubUser(ctx, hubUserGlobalID)
 			s.Global.DeleteHubUser(ctx, hubUserGlobalID)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
@@ -225,14 +225,14 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 		// Create session in regional DB (raw token without prefix)
 		sessionExpiresAt := pgtype.Timestamp{Time: time.Now().Add(sessionTokenExpiry), Valid: true}
 		err = regionalDB.CreateHubSession(ctx, regionaldb.CreateHubSessionParams{
-			SessionToken: rawSessionToken,
-			HubUserID:    regionalUser.HubUserID,
-			ExpiresAt:    sessionExpiresAt,
+			SessionToken:    rawSessionToken,
+			HubUserGlobalID: hubUserGlobalID,
+			ExpiresAt:       sessionExpiresAt,
 		})
 		if err != nil {
 			log.Error("failed to create session", "error", err)
 			// Cleanup
-			regionalDB.DeleteHubUser(ctx, regionalUser.HubUserID)
+			regionalDB.DeleteHubUser(ctx, hubUserGlobalID)
 			s.Global.DeleteHubUser(ctx, hubUserGlobalID)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
