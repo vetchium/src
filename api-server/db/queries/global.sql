@@ -333,3 +333,94 @@ SELECT * FROM approved_domains WHERE domain_name = $1 AND status = 'active';
 UPDATE hub_users
 SET preferred_language = $2
 WHERE hub_user_global_id = $1;
+
+-- ============================================
+-- Org User Queries
+-- ============================================
+
+-- name: GetOrgUserByEmailHash :one
+SELECT * FROM org_users WHERE email_address_hash = $1;
+
+-- name: GetOrgUserByID :one
+SELECT * FROM org_users WHERE org_user_id = $1;
+
+-- name: CreateOrgUser :one
+INSERT INTO org_users (
+    email_address_hash, hashing_algorithm, employer_id,
+    status, preferred_language, home_region
+)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING *;
+
+-- name: DeleteOrgUser :exec
+DELETE FROM org_users WHERE org_user_id = $1;
+
+-- name: UpdateOrgUserPreferredLanguage :exec
+UPDATE org_users
+SET preferred_language = $2
+WHERE org_user_id = $1;
+
+-- ============================================
+-- Org Signup Token Queries
+-- ============================================
+
+-- name: CreateOrgSignupToken :exec
+INSERT INTO org_signup_tokens (signup_token, email_address, email_address_hash, hashing_algorithm, expires_at)
+VALUES ($1, $2, $3, $4, $5);
+
+-- name: GetOrgSignupToken :one
+SELECT * FROM org_signup_tokens WHERE signup_token = $1 AND expires_at > NOW();
+
+-- name: MarkOrgSignupTokenConsumed :exec
+UPDATE org_signup_tokens SET consumed_at = NOW() WHERE signup_token = $1;
+
+-- name: DeleteExpiredOrgSignupTokens :exec
+DELETE FROM org_signup_tokens WHERE expires_at <= NOW();
+
+-- name: DeleteOrgSignupToken :exec
+DELETE FROM org_signup_tokens WHERE signup_token = $1;
+
+-- name: GetActiveOrgSignupTokenByEmailHash :one
+SELECT * FROM org_signup_tokens
+WHERE email_address_hash = $1 AND expires_at > NOW()
+ORDER BY created_at DESC
+LIMIT 1;
+
+-- ============================================
+-- Employer Queries
+-- ============================================
+
+-- name: CreateEmployer :one
+INSERT INTO employers (employer_name, region)
+VALUES ($1, $2)
+RETURNING *;
+
+-- name: GetEmployerByID :one
+SELECT * FROM employers WHERE employer_id = $1;
+
+-- name: DeleteEmployer :exec
+DELETE FROM employers WHERE employer_id = $1;
+
+-- ============================================
+-- Global Employer Domain Queries
+-- ============================================
+
+-- name: CreateGlobalEmployerDomain :exec
+INSERT INTO global_employer_domains (domain, region, employer_id, status)
+VALUES ($1, $2, $3, $4);
+
+-- name: GetGlobalEmployerDomain :one
+SELECT * FROM global_employer_domains WHERE domain = $1;
+
+-- name: UpdateGlobalEmployerDomainStatus :exec
+UPDATE global_employer_domains
+SET status = $2
+WHERE domain = $1;
+
+-- name: DeleteGlobalEmployerDomain :exec
+DELETE FROM global_employer_domains WHERE domain = $1;
+
+-- name: GetGlobalEmployerDomainsByEmployer :many
+SELECT * FROM global_employer_domains
+WHERE employer_id = $1
+ORDER BY domain ASC;

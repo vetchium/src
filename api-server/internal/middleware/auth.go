@@ -205,3 +205,122 @@ func HubUserFromContext(ctx context.Context) *globaldb.HubUser {
 	}
 	return nil
 }
+
+// OrgAuth is a middleware that verifies org session tokens from the Authorization header.
+// It extracts the region-prefixed session token, queries the appropriate regional database,
+// and stores the session, org user, and region in the request context.
+func OrgAuth(globalDB *globaldb.Queries, getRegionalDB func(globaldb.Region) *regionaldb.Queries) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx := r.Context()
+			log := LoggerFromContext(ctx, nil)
+
+			// Get Authorization header
+			auth := r.Header.Get("Authorization")
+			if auth == "" {
+				log.Debug("missing authorization header")
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+
+			// Strip "Bearer " prefix if present
+			prefixedToken := auth
+			if strings.HasPrefix(auth, "Bearer ") {
+				prefixedToken = auth[7:]
+			}
+
+			// Extract region from token prefix
+			region, rawToken, err := tokens.ExtractRegionFromToken(prefixedToken)
+			if err != nil {
+				if errors.Is(err, tokens.ErrMissingPrefix) || errors.Is(err, tokens.ErrInvalidTokenFormat) {
+					log.Debug("invalid session token format", "error", err)
+					w.WriteHeader(http.StatusUnauthorized)
+					return
+				}
+				if errors.Is(err, tokens.ErrUnknownRegion) {
+					log.Debug("unknown region in session token", "error", err)
+					w.WriteHeader(http.StatusUnauthorized)
+					return
+				}
+				log.Error("failed to extract region from session token", "error", err)
+				http.Error(w, "", http.StatusInternalServerError)
+				return
+			}
+
+			// Get regional database for this region
+			regionalDB := getRegionalDB(region)
+			if regionalDB == nil {
+				log.Error("regional database not available", "region", region)
+				http.Error(w, "", http.StatusInternalServerError)
+				return
+			}
+
+			// Verify session in regional DB using raw token
+			session, err := regionalDB.GetOrgSession(ctx, rawToken)
+			if err != nil {
+				if errors.Is(err, pgx.ErrNoRows) {
+					log.Debug("invalid or expired session")
+					w.WriteHeader(http.StatusUnauthorized)
+					return
+				}
+				log.Error("failed to verify session", "error", err)
+				http.Error(w, "", http.StatusInternalServerError)
+				return
+			}
+
+			// Get org user from global DB (for status, preferred_language, employer_id, etc.)
+			orgUser, err := globalDB.GetOrgUserByID(ctx, session.OrgUserID)
+			if err != nil {
+				if errors.Is(err, pgx.ErrNoRows) {
+					log.Debug("org user not found in global DB")
+					w.WriteHeader(http.StatusUnauthorized)
+					return
+				}
+				log.Error("failed to get global org user", "error", err)
+				http.Error(w, "", http.StatusInternalServerError)
+				return
+			}
+
+			// Check org user status
+			if orgUser.Status != globaldb.OrgUserStatusActive {
+				log.Debug("org user is not active", "status", orgUser.Status)
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+
+			// Store session, org user, and region in context
+			ctx = context.WithValue(ctx, orgSessionKey, session)
+			ctx = context.WithValue(ctx, orgUserKey, &orgUser)
+			ctx = context.WithValue(ctx, orgRegionKey, string(region))
+
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
+
+// OrgSessionFromContext retrieves the org session from the context.
+// Returns zero value if not found (should only happen in tests or unauthenticated requests).
+func OrgSessionFromContext(ctx context.Context) regionaldb.OrgSession {
+	if session, ok := ctx.Value(orgSessionKey).(regionaldb.OrgSession); ok {
+		return session
+	}
+	return regionaldb.OrgSession{}
+}
+
+// OrgUserFromContext retrieves the org user from the context.
+// Returns nil if not found (should only happen in tests or unauthenticated requests).
+func OrgUserFromContext(ctx context.Context) *globaldb.OrgUser {
+	if user, ok := ctx.Value(orgUserKey).(*globaldb.OrgUser); ok {
+		return user
+	}
+	return nil
+}
+
+// OrgRegionFromContext retrieves the org user's region from the context.
+// Returns empty string if not found.
+func OrgRegionFromContext(ctx context.Context) string {
+	if region, ok := ctx.Value(orgRegionKey).(string); ok {
+		return region
+	}
+	return ""
+}

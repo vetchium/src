@@ -32,6 +32,19 @@ CREATE TYPE admin_user_status AS ENUM (
 -- Domain status enum
 CREATE TYPE domain_status AS ENUM ('active', 'inactive');
 
+-- Org user status enum
+CREATE TYPE org_user_status AS ENUM (
+    'active',
+    'disabled'
+);
+
+-- Domain verification status enum
+CREATE TYPE domain_verification_status AS ENUM (
+    'PENDING',
+    'VERIFIED',
+    'FAILING'
+);
+
 -- Hub users table (global)
 CREATE TABLE hub_users (
     hub_user_global_id UUID PRIMARY KEY NOT NULL,
@@ -169,6 +182,47 @@ INSERT INTO available_regions (region_code, region_name, is_active) VALUES
     ('deu1', 'Germany - Frankfurt', TRUE),
     ('sgp1', 'Singapore', FALSE);
 
+-- Employers table (global - for cross-region uniqueness and routing)
+CREATE TABLE employers (
+    employer_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    employer_name TEXT NOT NULL,
+    region region NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- Global employer domains table (for cross-region uniqueness and routing)
+-- Per spec section 3.4: ensures domain is claimed by ONLY ONE region/employer
+CREATE TABLE global_employer_domains (
+    domain TEXT PRIMARY KEY,
+    region region NOT NULL,
+    employer_id UUID NOT NULL REFERENCES employers(employer_id) ON DELETE CASCADE,
+    status domain_verification_status NOT NULL DEFAULT 'PENDING',
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- Org users table (global)
+CREATE TABLE org_users (
+    org_user_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email_address_hash BYTEA NOT NULL UNIQUE,
+    hashing_algorithm email_address_hashing_algorithm NOT NULL DEFAULT 'SHA-256',
+    employer_id UUID NOT NULL REFERENCES employers(employer_id) ON DELETE CASCADE,
+    status org_user_status NOT NULL DEFAULT 'active',
+    preferred_language TEXT NOT NULL DEFAULT 'en-US',
+    home_region region NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- Org signup tokens (global - for signup verification)
+CREATE TABLE org_signup_tokens (
+    signup_token TEXT PRIMARY KEY NOT NULL,
+    email_address TEXT NOT NULL,
+    email_address_hash BYTEA NOT NULL,
+    hashing_algorithm email_address_hashing_algorithm NOT NULL DEFAULT 'SHA-256',
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMP NOT NULL,
+    consumed_at TIMESTAMP
+);
+
 -- Indexes
 CREATE INDEX idx_admin_tfa_tokens_expires_at ON admin_tfa_tokens(expires_at);
 CREATE INDEX idx_admin_sessions_expires_at ON admin_sessions(expires_at);
@@ -176,13 +230,25 @@ CREATE INDEX idx_hub_signup_tokens_expires_at ON hub_signup_tokens(expires_at);
 CREATE INDEX idx_hub_signup_tokens_email_hash ON hub_signup_tokens(email_address_hash);
 CREATE UNIQUE INDEX idx_hub_user_display_names_preferred
 ON hub_user_display_names (hub_user_global_id) WHERE is_preferred = TRUE;
+CREATE INDEX idx_org_signup_tokens_expires_at ON org_signup_tokens(expires_at);
+CREATE INDEX idx_org_signup_tokens_email_hash ON org_signup_tokens(email_address_hash);
+CREATE INDEX idx_org_users_employer_id ON org_users(employer_id);
+CREATE INDEX idx_global_employer_domains_employer_id ON global_employer_domains(employer_id);
 
 -- +goose Down
+DROP INDEX IF EXISTS idx_global_employer_domains_employer_id;
+DROP INDEX IF EXISTS idx_org_users_employer_id;
+DROP INDEX IF EXISTS idx_org_signup_tokens_email_hash;
+DROP INDEX IF EXISTS idx_org_signup_tokens_expires_at;
 DROP INDEX IF EXISTS idx_hub_user_display_names_preferred;
 DROP INDEX IF EXISTS idx_hub_signup_tokens_email_hash;
 DROP INDEX IF EXISTS idx_hub_signup_tokens_expires_at;
 DROP INDEX IF EXISTS idx_admin_sessions_expires_at;
 DROP INDEX IF EXISTS idx_admin_tfa_tokens_expires_at;
+DROP TABLE IF EXISTS org_signup_tokens;
+DROP TABLE IF EXISTS org_users;
+DROP TABLE IF EXISTS global_employer_domains;
+DROP TABLE IF EXISTS employers;
 DROP TABLE IF EXISTS available_regions;
 DROP TABLE IF EXISTS hub_user_display_names;
 DROP TABLE IF EXISTS hub_signup_tokens;
@@ -195,6 +261,8 @@ DROP TABLE IF EXISTS admin_sessions;
 DROP TABLE IF EXISTS admin_tfa_tokens;
 DROP TABLE IF EXISTS admin_users;
 DROP TABLE IF EXISTS hub_users;
+DROP TYPE IF EXISTS domain_verification_status;
+DROP TYPE IF EXISTS org_user_status;
 DROP TYPE IF EXISTS domain_status;
 DROP TYPE IF EXISTS admin_user_status;
 DROP TYPE IF EXISTS email_address_hashing_algorithm;

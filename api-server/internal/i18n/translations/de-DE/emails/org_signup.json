@@ -1,0 +1,10 @@
+{
+	"subject": "Schließen Sie Ihre Vetchium-Arbeitgeber-Registrierung ab",
+	"portal_name": "Vetchium Arbeitgeber-Portal",
+	"body_intro": "Vielen Dank für Ihre Registrierung beim Vetchium Arbeitgeber-Portal! Klicken Sie auf die Schaltfläche unten, um Ihre Kontoeinrichtung abzuschließen.",
+	"button_text": "Registrierung abschließen",
+	"body_click_here": "Klicken Sie hier, um Ihre Registrierung abzuschließen",
+	"body_expiry": "Dieser Link läuft in {{.Hours}} Stunden ab.",
+	"body_ignore": "Wenn Sie diese Registrierung nicht angefordert haben, ignorieren Sie bitte diese E-Mail.",
+	"footer": "Dies ist eine automatische Nachricht, bitte antworten Sie nicht."
+}

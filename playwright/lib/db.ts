@@ -329,3 +329,116 @@ export function extractSignupTokenFromEmail(emailMessage: any): string | null {
 	const match = html.match(/token=([a-f0-9]{64})/);
 	return match ? match[1] : null;
 }
+
+// ============================================================================
+// Org User Test Helpers
+// ============================================================================
+
+/**
+ * Org user status enum matching the database enum
+ */
+export type OrgUserStatus = "active" | "disabled";
+
+/**
+ * Deletes a test org user by email.
+ * Deletes from global DB only (CASCADE handles related records).
+ * Regional DB cleanup is handled by the backend.
+ *
+ * @param email - Email of the org user to delete
+ */
+export async function deleteTestOrgUser(email: string): Promise<void> {
+	const crypto = require("crypto");
+	const emailHash = crypto.createHash("sha256").update(email).digest();
+
+	// Get the org user to find their employer ID
+	const userResult = await pool.query(
+		`SELECT org_user_id, employer_id FROM org_users WHERE email_address_hash = $1`,
+		[emailHash]
+	);
+
+	if (userResult.rows.length > 0) {
+		const employerId = userResult.rows[0].employer_id;
+
+		// Delete the org user (CASCADE handles sessions, etc.)
+		await pool.query(`DELETE FROM org_users WHERE email_address_hash = $1`, [
+			emailHash,
+		]);
+
+		// Delete the employer and associated domains
+		// This will CASCADE delete global_employer_domains as well
+		await pool.query(`DELETE FROM employers WHERE employer_id = $1`, [
+			employerId,
+		]);
+	}
+}
+
+/**
+ * Deletes a test employer and all associated data.
+ *
+ * @param employerId - Employer UUID to delete
+ */
+export async function deleteTestEmployer(employerId: string): Promise<void> {
+	// CASCADE delete will handle org_users and global_employer_domains
+	await pool.query(`DELETE FROM employers WHERE employer_id = $1`, [
+		employerId,
+	]);
+}
+
+/**
+ * Deletes a test global employer domain.
+ *
+ * @param domain - Domain name to delete
+ */
+export async function deleteTestGlobalEmployerDomain(
+	domain: string
+): Promise<void> {
+	await pool.query(
+		`DELETE FROM global_employer_domains WHERE domain = $1`,
+		[domain.toLowerCase()]
+	);
+}
+
+/**
+ * Gets a test employer by domain.
+ *
+ * @param domain - Domain name
+ * @returns Employer record or null if not found
+ */
+export async function getTestEmployerByDomain(domain: string): Promise<{
+	employer_id: string;
+	employer_name: string;
+	region: RegionCode;
+} | null> {
+	const result = await pool.query(
+		`SELECT e.employer_id, e.employer_name, e.region
+     FROM employers e
+     JOIN global_employer_domains ged ON e.employer_id = ged.employer_id
+     WHERE ged.domain = $1`,
+		[domain.toLowerCase()]
+	);
+	return result.rows[0] || null;
+}
+
+/**
+ * Gets a test org user by email.
+ *
+ * @param email - Email of the org user
+ * @returns Org user record or null if not found
+ */
+export async function getTestOrgUser(email: string): Promise<{
+	org_user_id: string;
+	employer_id: string;
+	status: OrgUserStatus;
+	preferred_language: LanguageCode;
+	home_region: RegionCode;
+} | null> {
+	const crypto = require("crypto");
+	const emailHash = crypto.createHash("sha256").update(email).digest();
+
+	const result = await pool.query(
+		`SELECT org_user_id, employer_id, status, preferred_language, home_region
+     FROM org_users WHERE email_address_hash = $1`,
+		[emailHash]
+	);
+	return result.rows[0] || null;
+}
