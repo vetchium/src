@@ -1,0 +1,31 @@
+{
+	"appName": "Vetchium Employer",
+	"loading": "Loading...",
+	"error": "Error",
+	"success": "Success",
+	"cancel": "Cancel",
+	"save": "Save",
+	"close": "Close",
+	"theme": {
+		"light": "Light",
+		"dark": "Dark"
+	},
+	"language": {
+		"label": "Language",
+		"en-US": "English",
+		"de-DE": "Deutsch",
+		"ta-IN": "தமிழ்"
+	},
+	"dashboard": {
+		"title": "Employer Dashboard"
+	},
+	"logout": {
+		"button": "Logout"
+	},
+	"action": {
+		"backHome": "Back Home"
+	},
+	"errors": {
+		"pageNotFound": "Sorry, the page you visited does not exist."
+	}
+}

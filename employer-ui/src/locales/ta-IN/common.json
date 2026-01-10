@@ -1,0 +1,31 @@
+{
+	"appName": "வெட்சியம் முதலாளி",
+	"loading": "ஏற்றுகிறது...",
+	"error": "பிழை",
+	"success": "வெற்றி",
+	"cancel": "ரத்து செய்",
+	"save": "சேமி",
+	"close": "மூடு",
+	"theme": {
+		"light": "ஒளி",
+		"dark": "இருள்"
+	},
+	"language": {
+		"label": "மொழி",
+		"en-US": "English",
+		"de-DE": "Deutsch",
+		"ta-IN": "தமிழ்"
+	},
+	"dashboard": {
+		"title": "முதலாளி டாஷ்போர்டு"
+	},
+	"logout": {
+		"button": "வெளியேறு"
+	},
+	"action": {
+		"backHome": "முகப்புக்குத் திரும்பு"
+	},
+	"errors": {
+		"pageNotFound": "மன்னிக்கவும், நீங்கள் பார்வையிட்ட பக்கம் இல்லை."
+	}
+}

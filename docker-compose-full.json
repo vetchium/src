@@ -363,6 +363,16 @@
 			"environment": {
 				"API_URL": "http://localhost:8080"
 			}
+		},
+		"employer-ui": {
+			"build": {
+				"context": ".",
+				"dockerfile": "employer-ui/Dockerfile"
+			},
+			"ports": ["3002:80"],
+			"environment": {
+				"API_URL": "http://localhost:8080"
+			}
 		}
 	},
 	"volumes": {

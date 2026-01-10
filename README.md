@@ -9,8 +9,9 @@ A multi-region application with global and regional databases.
 - **3 API Server Replicas**: One per region, each connecting to all databases
 - **1 Global API Server**: Runs background jobs for global database cleanup (expired tokens, sessions)
 - **Load Balancer**: nginx distributing traffic across API servers
-- **Hub UI**: Vite + React application for professionals/employers
+- **Hub UI**: Vite + React application for professionals
 - **Admin UI**: React application for platform administration
+- **Employer UI**: React application for employers (organizations)
 
 ## Prerequisites
 
@@ -47,6 +48,7 @@ Access the services:
 
 - Hub UI: http://localhost:3000
 - Admin UI: http://localhost:3001
+- Employer UI: http://localhost:3002
 - API (load balanced): http://localhost:8080
 
 ## Stopping Services
@@ -68,9 +70,11 @@ For faster frontend iteration, run only the backend services in Docker and the f
 docker compose -f docker-compose-backend.json up --build
 
 # In a separate terminal, run the frontend locally
-cd admin-ui && bun dev   # Admin UI at http://localhost:3000
+cd admin-ui && bun dev     # Admin UI at http://localhost:3000
 # or
-cd hub-ui && bun dev     # Hub UI at http://localhost:5173
+cd hub-ui && bun dev       # Hub UI at http://localhost:5173
+# or
+cd employer-ui && bun dev  # Employer UI at http://localhost:3000
 ```
 
 This approach provides hot module reloading and faster rebuild times compared to running frontends in containers.
