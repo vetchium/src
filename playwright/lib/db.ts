@@ -392,10 +392,9 @@ export async function deleteTestEmployer(employerId: string): Promise<void> {
 export async function deleteTestGlobalEmployerDomain(
 	domain: string
 ): Promise<void> {
-	await pool.query(
-		`DELETE FROM global_employer_domains WHERE domain = $1`,
-		[domain.toLowerCase()]
-	);
+	await pool.query(`DELETE FROM global_employer_domains WHERE domain = $1`, [
+		domain.toLowerCase(),
+	]);
 }
 
 /**
