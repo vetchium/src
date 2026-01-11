@@ -33,6 +33,7 @@ async function createOrgUserAndGetSession(
 	// Init signup
 	const initRequest: OrgInitSignupRequest = {
 		email: userEmail,
+		home_region: "ind1",
 	};
 	const initResponse = await api.initSignup(initRequest);
 	expect(initResponse.status).toBe(200);

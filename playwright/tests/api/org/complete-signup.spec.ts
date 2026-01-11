@@ -36,6 +36,7 @@ test.describe("POST /org/complete-signup", () => {
 			// Init signup first
 			const initRequest: OrgInitSignupRequest = {
 				email: userEmail,
+				home_region: "ind1",
 			};
 			const initResponse = await api.initSignup(initRequest);
 			expect(initResponse.status).toBe(200);
@@ -155,6 +156,7 @@ test.describe("POST /org/complete-signup", () => {
 			// Init signup first
 			const initRequest: OrgInitSignupRequest = {
 				email: userEmail,
+				home_region: "ind1",
 			};
 			const initResponse = await api.initSignup(initRequest);
 			expect(initResponse.status).toBe(200);

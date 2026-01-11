@@ -29,6 +29,7 @@ test.describe("POST /org/init-signup", () => {
 		try {
 			const initRequest: OrgInitSignupRequest = {
 				email: userEmail,
+				home_region: "ind1",
 			};
 			const response = await api.initSignup(initRequest);
 
@@ -59,6 +60,7 @@ test.describe("POST /org/init-signup", () => {
 
 		const initRequest: OrgInitSignupRequest = {
 			email: email,
+			home_region: "ind1",
 		};
 		const response = await api.initSignup(initRequest);
 
@@ -109,6 +111,7 @@ test.describe("POST /org/init-signup", () => {
 			// First signup
 			const initRequest: OrgInitSignupRequest = {
 				email: userEmail,
+				home_region: "ind1",
 			};
 			const response1 = await api.initSignup(initRequest);
 			expect(response1.status).toBe(200);
