@@ -89,8 +89,8 @@ go build -o api-server ./cmd/api-server.go       # Build binary
 ### Docker (from src/)
 
 ```bash
-docker compose -f docker-compose-full.yaml up --build   # Start all services
-docker compose -f docker-compose-full.yaml down -v      # Stop all services
+docker compose -f docker-compose-full.json up --build   # Start all services
+docker compose -f docker-compose-full.json down -v      # Stop all services
 ```
 
 ## Database Architecture
@@ -649,7 +649,7 @@ npm run test:api         # Run API tests only
 npm run test:api:admin   # Run admin API tests
 ```
 
-**Prerequisites**: All Docker services must be running via `docker compose up -f docker-compose-full.yaml` from `src/`.
+**Prerequisites**: All Docker services must be running via `docker compose up -f docker-compose-ci.json` from `src/`.
 
 ### Test Architecture Principles
 
