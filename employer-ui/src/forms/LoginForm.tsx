@@ -1,5 +1,5 @@
 import { Form, Input, Button, Alert, Spin } from "antd";
-import { UserOutlined, LockOutlined } from "@ant-design/icons";
+import { UserOutlined, LockOutlined, GlobalOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../hooks/useAuth";
 import {
@@ -7,10 +7,13 @@ import {
 	EMAIL_MAX_LENGTH,
 	PASSWORD_MIN_LENGTH,
 	PASSWORD_MAX_LENGTH,
+	DOMAIN_MIN_LENGTH,
+	DOMAIN_MAX_LENGTH,
 } from "vetchium-specs/common/common";
 
 interface LoginFormValues {
 	email: string;
+	domain: string;
 	password: string;
 }
 
@@ -20,7 +23,7 @@ export function LoginForm() {
 	const [form] = Form.useForm<LoginFormValues>();
 
 	const handleSubmit = async (values: LoginFormValues) => {
-		await login(values.email, values.password);
+		await login(values.email, values.domain, values.password);
 	};
 
 	return (
@@ -61,6 +64,31 @@ export function LoginForm() {
 						placeholder={t("login.email")}
 						size="large"
 						autoComplete="email"
+					/>
+				</Form.Item>
+
+				<Form.Item
+					name="domain"
+					rules={[
+						{ required: true, message: t("login.domainRequired") },
+						{
+							min: DOMAIN_MIN_LENGTH,
+							message: t("login.domainMinLength", {
+								min: DOMAIN_MIN_LENGTH,
+							}),
+						},
+						{
+							max: DOMAIN_MAX_LENGTH,
+							message: t("login.domainMaxLength", {
+								max: DOMAIN_MAX_LENGTH,
+							}),
+						},
+					]}
+				>
+					<Input
+						prefix={<GlobalOutlined />}
+						placeholder={t("login.domain")}
+						size="large"
 					/>
 				</Form.Item>
 

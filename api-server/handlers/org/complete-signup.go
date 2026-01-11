@@ -130,10 +130,11 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Create org user in regional DB
+		// Create org user in regional DB (with employer_id for multi-employer support)
 		_, err = regionalDB.CreateOrgUser(ctx, regionaldb.CreateOrgUserParams{
 			OrgUserID:    globalUser.OrgUserID,
 			EmailAddress: email,
+			EmployerID:   employer.EmployerID,
 			PasswordHash: passwordHash,
 		})
 		if err != nil {

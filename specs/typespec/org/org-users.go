@@ -7,6 +7,7 @@ import (
 // Token types
 type OrgSignupToken string
 type OrgSessionToken string
+type OrgTFAToken string
 
 // ============================================
 // Signup Flow
@@ -63,3 +64,72 @@ type OrgCompleteSignupResponse struct {
 	SessionToken OrgSessionToken `json:"session_token"`
 	OrgUserID    string          `json:"org_user_id"`
 }
+
+// ============================================
+// Login Flow
+// ============================================
+
+type OrgLoginRequest struct {
+	Email    common.EmailAddress `json:"email"`
+	Domain   common.DomainName   `json:"domain"`
+	Password common.Password     `json:"password"`
+}
+
+func (r OrgLoginRequest) Validate() []common.ValidationError {
+	var errs []common.ValidationError
+
+	if r.Email == "" {
+		errs = append(errs, common.NewValidationError("email", common.ErrRequired))
+	} else if err := r.Email.Validate(); err != nil {
+		errs = append(errs, common.NewValidationError("email", err))
+	}
+
+	if r.Domain == "" {
+		errs = append(errs, common.NewValidationError("domain", common.ErrRequired))
+	} else if err := r.Domain.Validate(); err != nil {
+		errs = append(errs, common.NewValidationError("domain", err))
+	}
+
+	if r.Password == "" {
+		errs = append(errs, common.NewValidationError("password", common.ErrRequired))
+	} else if err := r.Password.Validate(); err != nil {
+		errs = append(errs, common.NewValidationError("password", err))
+	}
+
+	return errs
+}
+
+type OrgLoginResponse struct {
+	TFAToken OrgTFAToken `json:"tfa_token"`
+}
+
+type OrgTFARequest struct {
+	TFAToken   OrgTFAToken    `json:"tfa_token"`
+	TFACode    common.TFACode `json:"tfa_code"`
+	RememberMe bool           `json:"remember_me"`
+}
+
+func (r OrgTFARequest) Validate() []common.ValidationError {
+	var errs []common.ValidationError
+
+	if r.TFAToken == "" {
+		errs = append(errs, common.NewValidationError("tfa_token", common.ErrRequired))
+	}
+
+	if r.TFACode == "" {
+		errs = append(errs, common.NewValidationError("tfa_code", common.ErrRequired))
+	} else if err := r.TFACode.Validate(); err != nil {
+		errs = append(errs, common.NewValidationError("tfa_code", err))
+	}
+
+	return errs
+}
+
+type OrgTFAResponse struct {
+	SessionToken      OrgSessionToken     `json:"session_token"`
+	PreferredLanguage common.LanguageCode `json:"preferred_language"`
+	EmployerName      string              `json:"employer_name"`
+}
+
+// OrgLogoutRequest is empty - session token passed via Authorization header
+type OrgLogoutRequest struct{}

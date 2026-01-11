@@ -1,0 +1,11 @@
+{
+	"_description": "Org User Two-Factor Authentication Email",
+	"_note": "Sent when an org/employer user logs in and needs to verify with a code",
+
+	"subject": "Ihr Vetchium Arbeitgeber-Portal Bestaetigungscode",
+	"portal_name": "Vetchium Arbeitgeber-Portal",
+	"body_intro": "Ihr Bestaetigungscode lautet:",
+	"body_expiry": "Dieser Code laeuft in {{.Minutes}} Minuten ab.",
+	"body_ignore": "Falls Sie diesen Code nicht angefordert haben, ignorieren Sie diese E-Mail oder kontaktieren Sie den Support, wenn Sie Bedenken bezueglich der Sicherheit Ihres Kontos haben.",
+	"footer": "Dies ist eine automatische Nachricht. Bitte antworten Sie nicht."
+}

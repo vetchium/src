@@ -7,7 +7,7 @@ export interface AuthContextType {
 	loading: boolean;
 	error: string | null;
 	sessionToken: string | null;
-	login: (email: string, password: string) => Promise<void>;
+	login: (email: string, domain: string, password: string) => Promise<void>;
 	verifyTFA: (tfaCode: string) => Promise<void>;
 	logout: () => Promise<void>;
 	backToLogin: () => void;

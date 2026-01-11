@@ -1,0 +1,11 @@
+{
+	"_description": "Org User Two-Factor Authentication Email",
+	"_note": "Sent when an org/employer user logs in and needs to verify with a code",
+
+	"subject": "உங்கள் Vetchium முதலாளி போர்டல் சரிபார்ப்பு குறியீடு",
+	"portal_name": "Vetchium முதலாளி போர்டல்",
+	"body_intro": "உங்கள் சரிபார்ப்பு குறியீடு:",
+	"body_expiry": "இந்த குறியீடு {{.Minutes}} நிமிடங்களில் காலாவதியாகிவிடும்.",
+	"body_ignore": "இந்த குறியீட்டை நீங்கள் கோரவில்லை என்றால், தயவுசெய்து இந்த மின்னஞ்சலைப் புறக்கணிக்கவும் அல்லது உங்கள் கணக்கு பாதுகாப்பு பற்றி கவலைகள் இருந்தால் ஆதரவைத் தொடர்பு கொள்ளவும்.",
+	"footer": "இது ஒரு தானியங்கி செய்தி. தயவுசெய்து பதிலளிக்க வேண்டாம்."
+}

@@ -13,7 +13,8 @@ CREATE TYPE email_template_type AS ENUM (
     'admin_tfa',
     'hub_signup_verification',
     'hub_tfa',
-    'org_signup_verification'
+    'org_signup_verification',
+    'org_tfa'
 );
 
 -- Domain verification status enum
@@ -71,11 +72,15 @@ CREATE TABLE hub_sessions (
 );
 
 -- Org users table (regional - stores credentials and PII)
+-- Note: email_address is NOT unique alone - one email can belong to multiple employers
+-- (contractor scenario). Uniqueness is enforced per (email_address, employer_id).
 CREATE TABLE org_users (
     org_user_id UUID PRIMARY KEY,
-    email_address TEXT NOT NULL UNIQUE,
+    email_address TEXT NOT NULL,
+    employer_id UUID NOT NULL,
     password_hash BYTEA,
-    created_at TIMESTAMP DEFAULT NOW()
+    created_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE (email_address, employer_id)
 );
 
 -- Org TFA tokens for email-based two-factor authentication
@@ -115,12 +120,16 @@ CREATE INDEX idx_hub_sessions_hub_user_global_id ON hub_sessions(hub_user_global
 CREATE INDEX idx_org_tfa_tokens_expires_at ON org_tfa_tokens(expires_at);
 CREATE INDEX idx_org_sessions_expires_at ON org_sessions(expires_at);
 CREATE INDEX idx_org_sessions_org_user_id ON org_sessions(org_user_id);
+CREATE INDEX idx_org_users_email_address ON org_users(email_address);
+CREATE INDEX idx_org_users_employer_id ON org_users(employer_id);
 CREATE INDEX idx_employer_domains_employer_id ON employer_domains(employer_id);
 CREATE INDEX idx_employer_domains_status ON employer_domains(status);
 
 -- +goose Down
 DROP INDEX IF EXISTS idx_employer_domains_status;
 DROP INDEX IF EXISTS idx_employer_domains_employer_id;
+DROP INDEX IF EXISTS idx_org_users_employer_id;
+DROP INDEX IF EXISTS idx_org_users_email_address;
 DROP INDEX IF EXISTS idx_org_sessions_org_user_id;
 DROP INDEX IF EXISTS idx_org_sessions_expires_at;
 DROP INDEX IF EXISTS idx_org_tfa_tokens_expires_at;

@@ -339,7 +339,22 @@ WHERE hub_user_global_id = $1;
 -- ============================================
 
 -- name: GetOrgUserByEmailHash :one
+-- Note: This returns ONE user but may fail if email exists for multiple employers.
+-- Prefer GetOrgUserByEmailHashAndEmployer for login flows.
 SELECT * FROM org_users WHERE email_address_hash = $1;
+
+-- name: GetOrgUserByEmailHashAndEmployer :one
+-- Composite lookup for login flow - email + employer uniquely identifies user
+SELECT * FROM org_users
+WHERE email_address_hash = $1 AND employer_id = $2;
+
+-- name: GetOrgUsersByEmailHash :many
+-- Returns all org_users for a given email hash (for multi-employer scenarios)
+SELECT ou.*, e.employer_name
+FROM org_users ou
+JOIN employers e ON ou.employer_id = e.employer_id
+WHERE ou.email_address_hash = $1 AND ou.status = 'active'
+ORDER BY e.employer_name;
 
 -- name: GetOrgUserByID :one
 SELECT * FROM org_users WHERE org_user_id = $1;
@@ -397,6 +412,12 @@ RETURNING *;
 
 -- name: GetEmployerByID :one
 SELECT * FROM employers WHERE employer_id = $1;
+
+-- name: GetEmployerByDomain :one
+-- Find employer by verified domain name (for login flow)
+SELECT e.* FROM employers e
+JOIN global_employer_domains ged ON e.employer_id = ged.employer_id
+WHERE ged.domain = $1 AND ged.status = 'VERIFIED';
 
 -- name: DeleteEmployer :exec
 DELETE FROM employers WHERE employer_id = $1;

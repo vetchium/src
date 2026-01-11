@@ -56,7 +56,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 	};
 
 	const login = useCallback(
-		async (email: string, password: string) => {
+		async (email: string, domain: string, password: string) => {
 			setLoading(true);
 			setError(null);
 
@@ -65,7 +65,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 				const response = await fetch(`${apiBaseUrl}/employer/login`, {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ email, password }),
+					body: JSON.stringify({ email, domain, password }),
 				});
 
 				if (response.status === 400) {
@@ -87,6 +87,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
 				if (response.status === 401) {
 					setError(t("login.invalidCredentials"));
+					return;
+				}
+
+				if (response.status === 404) {
+					setError(t("login.domainNotFound"));
 					return;
 				}
 

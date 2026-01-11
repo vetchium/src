@@ -50,14 +50,21 @@ DELETE FROM hub_sessions WHERE expires_at <= NOW();
 -- ============================================
 
 -- name: GetOrgUserByEmail :one
+-- Note: This returns ONE user but may fail if email exists for multiple employers.
+-- Prefer GetOrgUserByEmailAndEmployer for login flows.
 SELECT * FROM org_users WHERE email_address = $1;
+
+-- name: GetOrgUserByEmailAndEmployer :one
+-- Composite lookup for login flow - email + employer uniquely identifies user
+SELECT * FROM org_users
+WHERE email_address = $1 AND employer_id = $2;
 
 -- name: GetOrgUserByID :one
 SELECT * FROM org_users WHERE org_user_id = $1;
 
 -- name: CreateOrgUser :one
-INSERT INTO org_users (org_user_id, email_address, password_hash)
-VALUES ($1, $2, $3)
+INSERT INTO org_users (org_user_id, email_address, employer_id, password_hash)
+VALUES ($1, $2, $3, $4)
 RETURNING *;
 
 -- name: DeleteOrgUser :exec
