@@ -3,7 +3,7 @@ import {
 	type Password,
 	type ValidationError,
 	newValidationError,
-	validateEmailAddress,
+	validateEmployerEmail,
 	validatePassword,
 	ERR_REQUIRED,
 } from "../common/common";
@@ -29,7 +29,8 @@ export function validateOrgInitSignupRequest(
 	if (!request.email) {
 		errs.push(newValidationError("email", ERR_REQUIRED));
 	} else {
-		const emailErr = validateEmailAddress(request.email);
+		// Use employer email validation which blocks personal email domains
+		const emailErr = validateEmployerEmail(request.email);
 		if (emailErr) {
 			errs.push(newValidationError("email", emailErr));
 		}

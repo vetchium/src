@@ -50,7 +50,86 @@ var (
 	ErrDomainTooShort       = errors.New("must be at least 3 characters")
 	ErrDomainTooLong        = errors.New("must be at most 255 characters")
 	ErrDomainInvalidFormat  = errors.New("must be a valid domain name in lowercase")
+	ErrPersonalEmailDomain  = errors.New("personal email addresses are not allowed for employer signup")
 )
+
+// PersonalEmailDomains contains major free email providers that should not be used for professional accounts
+var PersonalEmailDomains = []string{
+	"gmail.com",
+	"googlemail.com",
+	"yahoo.com",
+	"yahoo.co.in",
+	"yahoo.co.uk",
+	"yahoo.de",
+	"yahoo.fr",
+	"yahoo.ca",
+	"yahoo.com.au",
+	"yahoo.com.br",
+	"yahoo.co.jp",
+	"ymail.com",
+	"hotmail.com",
+	"hotmail.co.uk",
+	"hotmail.de",
+	"hotmail.fr",
+	"outlook.com",
+	"outlook.in",
+	"live.com",
+	"live.in",
+	"msn.com",
+	"aol.com",
+	"protonmail.com",
+	"proton.me",
+	"icloud.com",
+	"me.com",
+	"mac.com",
+	"mail.com",
+	"zoho.com",
+	"yandex.com",
+	"yandex.ru",
+	"gmx.com",
+	"gmx.de",
+	"gmx.net",
+	"web.de",
+	"rediffmail.com",
+	"fastmail.com",
+	"tutanota.com",
+	"hey.com",
+}
+
+// GetEmailDomain extracts the domain from an email address (returns lowercase)
+func GetEmailDomain(email EmailAddress) string {
+	atIndex := strings.Index(string(email), "@")
+	if atIndex == -1 {
+		return ""
+	}
+	return strings.ToLower(string(email)[atIndex+1:])
+}
+
+// IsPersonalEmailDomain checks if the email domain is a personal email provider
+func IsPersonalEmailDomain(email EmailAddress) bool {
+	domain := GetEmailDomain(email)
+	for _, blocked := range PersonalEmailDomains {
+		if domain == blocked {
+			return true
+		}
+	}
+	return false
+}
+
+// ValidateEmployerEmail validates email for employer signup (blocks personal email domains)
+func ValidateEmployerEmail(email EmailAddress) error {
+	// First run standard email validation
+	if err := email.Validate(); err != nil {
+		return err
+	}
+
+	// Then check for personal email domains
+	if IsPersonalEmailDomain(email) {
+		return ErrPersonalEmailDomain
+	}
+
+	return nil
+}
 
 // ValidationError represents a validation failure with field context
 type ValidationError struct {

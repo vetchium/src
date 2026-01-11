@@ -6,6 +6,8 @@
 	"exports": {
 		"./hub/hub-users": "./hub/hub-users.ts",
 		"./admin/admin-users": "./admin/admin-users.ts",
+		"./org/org-users": "./org/org-users.ts",
+		"./global/global": "./global/global.ts",
 		"./common/common": "./common/common.ts"
 	},
 	"dependencies": {

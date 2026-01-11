@@ -41,6 +41,85 @@ export const ERR_DOMAIN_TOO_SHORT = "must be at least 3 characters";
 export const ERR_DOMAIN_TOO_LONG = "must be at most 255 characters";
 export const ERR_DOMAIN_INVALID_FORMAT =
 	"must be a valid domain name in lowercase";
+export const ERR_PERSONAL_EMAIL_DOMAIN =
+	"personal email addresses are not allowed for employer signup";
+
+// List of blocked personal email domains for employer signup
+// This list contains major free email providers that should not be used for professional accounts
+export const PERSONAL_EMAIL_DOMAINS = [
+	"gmail.com",
+	"googlemail.com",
+	"yahoo.com",
+	"yahoo.co.in",
+	"yahoo.co.uk",
+	"yahoo.de",
+	"yahoo.fr",
+	"yahoo.ca",
+	"yahoo.com.au",
+	"yahoo.com.br",
+	"yahoo.co.jp",
+	"ymail.com",
+	"hotmail.com",
+	"hotmail.co.uk",
+	"hotmail.de",
+	"hotmail.fr",
+	"outlook.com",
+	"outlook.in",
+	"live.com",
+	"live.in",
+	"msn.com",
+	"aol.com",
+	"protonmail.com",
+	"proton.me",
+	"icloud.com",
+	"me.com",
+	"mac.com",
+	"mail.com",
+	"zoho.com",
+	"yandex.com",
+	"yandex.ru",
+	"gmx.com",
+	"gmx.de",
+	"gmx.net",
+	"web.de",
+	"rediffmail.com",
+	"fastmail.com",
+	"tutanota.com",
+	"hey.com",
+] as const;
+
+// Extracts domain from email address (returns lowercase)
+export function getEmailDomain(email: EmailAddress): string {
+	const atIndex = email.indexOf("@");
+	if (atIndex === -1) {
+		return "";
+	}
+	return email.substring(atIndex + 1).toLowerCase();
+}
+
+// Checks if email domain is a personal email provider
+export function isPersonalEmailDomain(email: EmailAddress): boolean {
+	const domain = getEmailDomain(email);
+	return PERSONAL_EMAIL_DOMAINS.includes(
+		domain as (typeof PERSONAL_EMAIL_DOMAINS)[number]
+	);
+}
+
+// Validates email for employer signup (blocks personal email domains)
+export function validateEmployerEmail(email: EmailAddress): string | null {
+	// First run standard email validation
+	const emailErr = validateEmailAddress(email);
+	if (emailErr) {
+		return emailErr;
+	}
+
+	// Then check for personal email domains
+	if (isPersonalEmailDomain(email)) {
+		return ERR_PERSONAL_EMAIL_DOMAIN;
+	}
+
+	return null;
+}
 
 // ValidationError represents a validation failure with field context
 export interface ValidationError {

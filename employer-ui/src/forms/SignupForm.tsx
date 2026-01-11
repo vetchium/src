@@ -6,6 +6,7 @@ import { getApiBaseUrl } from "../config";
 import {
 	EMAIL_MIN_LENGTH,
 	EMAIL_MAX_LENGTH,
+	isPersonalEmailDomain,
 } from "vetchium-specs/common/common";
 import type { OrgInitSignupRequest } from "vetchium-specs/org/org-users";
 import type { Region } from "vetchium-specs/global/global";
@@ -138,6 +139,14 @@ export function SignupForm() {
 						{
 							max: EMAIL_MAX_LENGTH,
 							message: t("signup.emailMaxLength", { max: EMAIL_MAX_LENGTH }),
+						},
+						{
+							validator: (_, value) => {
+								if (value && isPersonalEmailDomain(value)) {
+									return Promise.reject(t("signup.emailPersonalDomain"));
+								}
+								return Promise.resolve();
+							},
 						},
 					]}
 				>
