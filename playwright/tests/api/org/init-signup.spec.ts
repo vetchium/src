@@ -1,30 +1,17 @@
 import { test, expect } from "@playwright/test";
 import { OrgAPIClient } from "../../../lib/org-api-client";
-import {
-	createTestAdminUser,
-	deleteTestAdminUser,
-	createTestApprovedDomain,
-	permanentlyDeleteTestApprovedDomain,
-	generateTestEmail,
-	generateTestDomainName,
-	deleteTestOrgUser,
-} from "../../../lib/db";
+import { generateTestEmail, deleteTestOrgUser } from "../../../lib/db";
 import { waitForEmail, getEmailContent } from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
 import type { OrgInitSignupRequest } from "vetchium-specs/org/org-users";
 
 test.describe("POST /org/init-signup", () => {
-	test("successful signup sends verification email", async ({ request }) => {
+	test("successful signup sends verification email for any domain", async ({
+		request,
+	}) => {
 		const api = new OrgAPIClient(request);
-		const domainName = generateTestDomainName("init-signup");
-		const adminEmail = generateTestEmail("init-signup-admin");
-
-		// Create admin user and approved domain
-		await createTestAdminUser(adminEmail, TEST_PASSWORD);
-		await createTestApprovedDomain(domainName, adminEmail);
-
-		// Email with the approved domain
-		const userEmail = `user-${Date.now()}@${domainName}`;
+		// Use any random domain - org signup should work for any domain
+		const userEmail = generateTestEmail("init-signup");
 
 		try {
 			const initRequest: OrgInitSignupRequest = {
@@ -47,24 +34,30 @@ test.describe("POST /org/init-signup", () => {
 			const tokenMatch = fullEmail.HTML.match(/token=([a-f0-9]{64})/);
 			expect(tokenMatch).toBeDefined();
 		} finally {
-			// Cleanup in reverse order
-			await permanentlyDeleteTestApprovedDomain(domainName);
-			await deleteTestAdminUser(adminEmail);
+			// No cleanup needed - user not fully registered
 		}
 	});
 
-	test("unapproved domain returns 403", async ({ request }) => {
+	test("signup works with different regions", async ({ request }) => {
 		const api = new OrgAPIClient(request);
-		// Use a domain that is not approved
-		const email = `test-${Date.now()}@unapproved-domain-${Date.now()}.com`;
+		const regions = ["ind1", "usa1", "deu1"];
 
-		const initRequest: OrgInitSignupRequest = {
-			email: email,
-			home_region: "ind1",
-		};
-		const response = await api.initSignup(initRequest);
+		for (const region of regions) {
+			const userEmail = generateTestEmail(`signup-${region}`);
 
-		expect(response.status).toBe(403);
+			const initRequest: OrgInitSignupRequest = {
+				email: userEmail,
+				home_region: region,
+			};
+			const response = await api.initSignup(initRequest);
+
+			expect(response.status).toBe(200);
+			expect(response.body.message).toBeDefined();
+
+			// Verify email was sent
+			const emailMessage = await waitForEmail(userEmail);
+			expect(emailMessage).toBeDefined();
+		}
 	});
 
 	test("invalid email format returns 400", async ({ request }) => {
@@ -72,6 +65,7 @@ test.describe("POST /org/init-signup", () => {
 
 		const response = await api.initSignupRaw({
 			email: "not-an-email",
+			home_region: "ind1",
 		});
 
 		expect(response.status).toBe(400);
@@ -80,7 +74,9 @@ test.describe("POST /org/init-signup", () => {
 	test("missing email returns 400", async ({ request }) => {
 		const api = new OrgAPIClient(request);
 
-		const response = await api.initSignupRaw({});
+		const response = await api.initSignupRaw({
+			home_region: "ind1",
+		});
 
 		expect(response.status).toBe(400);
 	});
@@ -90,6 +86,30 @@ test.describe("POST /org/init-signup", () => {
 
 		const response = await api.initSignupRaw({
 			email: "",
+			home_region: "ind1",
+		});
+
+		expect(response.status).toBe(400);
+	});
+
+	test("missing home_region returns 400", async ({ request }) => {
+		const api = new OrgAPIClient(request);
+		const userEmail = generateTestEmail("missing-region");
+
+		const response = await api.initSignupRaw({
+			email: userEmail,
+		});
+
+		expect(response.status).toBe(400);
+	});
+
+	test("invalid home_region returns 400", async ({ request }) => {
+		const api = new OrgAPIClient(request);
+		const userEmail = generateTestEmail("invalid-region");
+
+		const response = await api.initSignupRaw({
+			email: userEmail,
+			home_region: "invalid_region",
 		});
 
 		expect(response.status).toBe(400);
@@ -97,15 +117,7 @@ test.describe("POST /org/init-signup", () => {
 
 	test("duplicate signup returns 409", async ({ request }) => {
 		const api = new OrgAPIClient(request);
-		const domainName = generateTestDomainName("dup-signup");
-		const adminEmail = generateTestEmail("dup-signup-admin");
-
-		// Create admin user and approved domain
-		await createTestAdminUser(adminEmail, TEST_PASSWORD);
-		await createTestApprovedDomain(domainName, adminEmail);
-
-		// Email with the approved domain
-		const userEmail = `dup-user-${Date.now()}@${domainName}`;
+		const userEmail = generateTestEmail("dup-signup");
 
 		try {
 			// First signup
@@ -136,8 +148,6 @@ test.describe("POST /org/init-signup", () => {
 		} finally {
 			// Cleanup
 			await deleteTestOrgUser(userEmail);
-			await permanentlyDeleteTestApprovedDomain(domainName);
-			await deleteTestAdminUser(adminEmail);
 		}
 	});
 });

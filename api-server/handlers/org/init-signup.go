@@ -42,33 +42,11 @@ func InitSignup(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Extract domain from email
-		parts := strings.Split(string(req.Email), "@")
-		if len(parts) != 2 {
-			log.Debug("invalid email format")
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-		domain := strings.ToLower(parts[1])
-
-		// Check if domain is approved
-		_, err := s.Global.GetActiveDomainByName(ctx, domain)
-		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				log.Debug("domain not approved", "domain", domain)
-				w.WriteHeader(http.StatusForbidden)
-				return
-			}
-			log.Error("failed to query domain", "error", err)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-
 		// Hash email
 		emailHash := sha256.Sum256([]byte(req.Email))
 
 		// Check if email already registered
-		_, err = s.Global.GetOrgUserByEmailHash(ctx, emailHash[:])
+		_, err := s.Global.GetOrgUserByEmailHash(ctx, emailHash[:])
 		if err == nil {
 			log.Debug("email already registered")
 			w.WriteHeader(http.StatusConflict)
