@@ -365,8 +365,8 @@ WHERE org_user_id = $1;
 -- ============================================
 
 -- name: CreateOrgSignupToken :exec
-INSERT INTO org_signup_tokens (signup_token, email_address, email_address_hash, hashing_algorithm, expires_at)
-VALUES ($1, $2, $3, $4, $5);
+INSERT INTO org_signup_tokens (signup_token, email_address, email_address_hash, hashing_algorithm, expires_at, home_region)
+VALUES ($1, $2, $3, $4, $5, $6);
 
 -- name: GetOrgSignupToken :one
 SELECT * FROM org_signup_tokens WHERE signup_token = $1 AND expires_at > NOW();

@@ -13,7 +13,8 @@ type OrgSessionToken string
 // ============================================
 
 type OrgInitSignupRequest struct {
-	Email common.EmailAddress `json:"email"`
+	Email      common.EmailAddress `json:"email"`
+	HomeRegion string              `json:"home_region"`
 }
 
 func (r OrgInitSignupRequest) Validate() []common.ValidationError {
@@ -23,6 +24,10 @@ func (r OrgInitSignupRequest) Validate() []common.ValidationError {
 		errs = append(errs, common.NewValidationError("email", common.ErrRequired))
 	} else if err := r.Email.Validate(); err != nil {
 		errs = append(errs, common.NewValidationError("email", err))
+	}
+
+	if r.HomeRegion == "" {
+		errs = append(errs, common.NewValidationError("home_region", common.ErrRequired))
 	}
 
 	return errs

@@ -81,8 +81,8 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 		}
 		domain := strings.ToLower(parts[1])
 
-		// Use current region for the org user
-		region := s.CurrentRegion
+		// Use region from signup token (user selected during init-signup)
+		region := tokenRecord.HomeRegion
 
 		// Get regional DB for the current region
 		regionalDB := s.GetRegionalDB(region)

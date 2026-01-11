@@ -88,10 +88,20 @@ func InitSignup(s *server.Server) http.HandlerFunc {
 		}
 		signupToken := hex.EncodeToString(tokenBytes)
 
-		// Get regional DB for current region
-		regionalDB := s.GetCurrentRegionalDB()
+		// Validate and get regional DB for selected region
+		homeRegion := globaldb.Region(strings.ToLower(req.HomeRegion))
+		switch homeRegion {
+		case globaldb.RegionInd1, globaldb.RegionUsa1, globaldb.RegionDeu1:
+			// Valid region
+		default:
+			log.Debug("invalid home region", "region", req.HomeRegion)
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode([]map[string]string{{"field": "home_region", "message": "invalid region"}})
+			return
+		}
+		regionalDB := s.GetRegionalDB(homeRegion)
 		if regionalDB == nil {
-			log.Error("no regional database available")
+			log.Error("regional database not available", "region", homeRegion)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -104,6 +114,7 @@ func InitSignup(s *server.Server) http.HandlerFunc {
 			EmailAddressHash: emailHash[:],
 			HashingAlgorithm: globaldb.EmailAddressHashingAlgorithmSHA256,
 			ExpiresAt:        expiresAt,
+			HomeRegion:       homeRegion,
 		})
 		if err != nil {
 			log.Error("failed to store signup token", "error", err)

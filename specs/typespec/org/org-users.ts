@@ -18,6 +18,7 @@ export type OrgSessionToken = string;
 
 export interface OrgInitSignupRequest {
 	email: EmailAddress;
+	home_region: string;
 }
 
 export function validateOrgInitSignupRequest(
@@ -32,6 +33,10 @@ export function validateOrgInitSignupRequest(
 		if (emailErr) {
 			errs.push(newValidationError("email", emailErr));
 		}
+	}
+
+	if (!request.home_region) {
+		errs.push(newValidationError("home_region", ERR_REQUIRED));
 	}
 
 	return errs;

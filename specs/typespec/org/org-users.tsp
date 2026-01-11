@@ -21,6 +21,9 @@ scalar OrgSessionToken extends string;
 model OrgInitSignupRequest {
   @doc("Email address to sign up with")
   email: EmailAddress;
+
+  @doc("Home region for the organization (e.g., ind1, usa1, deu1)")
+  home_region: string;
 }
 
 model OrgInitSignupResponse {

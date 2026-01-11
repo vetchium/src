@@ -8,6 +8,8 @@ import { AppHeader } from "./components/AppHeader";
 import { LoginPage } from "./pages/LoginPage";
 import { TFAPage } from "./pages/TFAPage";
 import { DashboardPage } from "./pages/DashboardPage";
+import { SignupPage } from "./pages/SignupPage";
+import { SignupCompletePage } from "./pages/SignupCompletePage";
 import {
 	BrowserRouter,
 	Routes,
@@ -100,6 +102,22 @@ function AppContent() {
 								element={
 									<AuthRoute>
 										<LoginPage />
+									</AuthRoute>
+								}
+							/>
+							<Route
+								path="/signup"
+								element={
+									<AuthRoute>
+										<SignupPage />
+									</AuthRoute>
+								}
+							/>
+							<Route
+								path="/signup/verify"
+								element={
+									<AuthRoute>
+										<SignupCompletePage />
 									</AuthRoute>
 								}
 							/>

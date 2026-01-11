@@ -2,6 +2,7 @@ import { Card, Typography, Button } from "antd";
 import { LogoutOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../hooks/useAuth";
+import { DomainVerificationSection } from "../components/DomainVerificationSection";
 
 const { Title } = Typography;
 
@@ -16,11 +17,12 @@ export function DashboardPage() {
 				flexDirection: "column",
 				alignItems: "center",
 				gap: 24,
-				maxWidth: 800,
+				maxWidth: 600,
 				width: "100%",
+				padding: "0 16px",
 			}}
 		>
-			<Card style={{ width: 400, textAlign: "center" }}>
+			<Card style={{ width: "100%", textAlign: "center" }}>
 				<Title level={3} style={{ marginBottom: 24 }}>
 					{t("dashboard.title")}
 				</Title>
@@ -37,6 +39,10 @@ export function DashboardPage() {
 					{t("logout.button")}
 				</Button>
 			</Card>
+
+			<div style={{ width: "100%" }}>
+				<DomainVerificationSection />
+			</div>
 		</div>
 	);
 }

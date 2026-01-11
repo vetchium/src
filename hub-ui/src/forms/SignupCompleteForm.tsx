@@ -46,11 +46,25 @@ interface SignupCompleteFormProps {
 	signupToken: string;
 }
 
+// UI-specific form values type - includes confirm_password for validation
+// and uses simplified display_names structure for Form.List
+interface SignupCompleteFormValues {
+	password: string;
+	confirm_password: string;
+	display_names?: Array<{
+		language_code: string;
+		display_name: string;
+	}>;
+	home_region: string;
+	preferred_language: string;
+	resident_country_code: string;
+}
+
 export function SignupCompleteForm({ signupToken }: SignupCompleteFormProps) {
 	const { t, i18n } = useTranslation(["signup", "common"]);
 	const navigate = useNavigate();
 	const { setAuthData } = useAuth();
-	const [form] = Form.useForm();
+	const [form] = Form.useForm<SignupCompleteFormValues>();
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [regions, setRegions] = useState<Region[]>([]);
@@ -150,17 +164,7 @@ export function SignupCompleteForm({ signupToken }: SignupCompleteFormProps) {
 		setError(null);
 	};
 
-	const onFinish = async (values: {
-		password: string;
-		confirm_password: string;
-		display_names?: Array<{
-			language_code: string;
-			display_name: string;
-		}>;
-		home_region: string;
-		preferred_language: string;
-		resident_country_code: string;
-	}) => {
+	const onFinish = async (values: SignupCompleteFormValues) => {
 		setLoading(true);
 		setError(null);
 
