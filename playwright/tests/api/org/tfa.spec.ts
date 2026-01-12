@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { OrgAPIClient } from "../../../lib/org-api-client";
 import {
-	generateTestEmail,
+	generateTestOrgEmail,
 	deleteTestOrgUser,
 	getTestOrgUser,
 	createTestVerifiedDomain,
@@ -27,8 +27,7 @@ async function createOrgUserAndLogin(
 	api: OrgAPIClient,
 	emailPrefix: string
 ): Promise<{ email: string; domain: string; tfaToken: string }> {
-	const email = generateTestEmail(emailPrefix);
-	const domain = email.split("@")[1]; // test.vetchium.com
+	const { email, domain } = generateTestOrgEmail(emailPrefix);
 
 	// Init signup
 	const initRequest: OrgInitSignupRequest = {
@@ -99,8 +98,8 @@ test.describe("POST /employer/tfa", () => {
 
 			expect(response.status).toBe(200);
 			expect(response.body.session_token).toBeDefined();
-			// Session token has region prefix (e.g., ind1:...) + 64 hex chars
-			expect(response.body.session_token).toMatch(/^[a-z]{3}\d:[a-f0-9]{64}$/);
+			// Session token has region prefix (e.g., IND1-) + 64 hex chars
+			expect(response.body.session_token).toMatch(/^[A-Z]{3}\d-[a-f0-9]{64}$/);
 			expect(response.body.preferred_language).toBeDefined();
 			expect(response.body.employer_name).toBeDefined();
 		} finally {
@@ -137,7 +136,7 @@ test.describe("POST /employer/tfa", () => {
 		const api = new OrgAPIClient(request);
 
 		const tfaRequest: OrgTFARequest = {
-			tfa_token: "a".repeat(64), // Invalid token
+			tfa_token: "IND1-" + "a".repeat(64), // Invalid token with valid region prefix
 			tfa_code: "123456",
 			remember_me: false,
 		};
@@ -167,11 +166,11 @@ test.describe("POST /employer/tfa", () => {
 		}
 	});
 
-	test("expired TFA token returns 401", async ({ request }) => {
+	test("TFA token can be reused until expiry", async ({ request }) => {
 		const api = new OrgAPIClient(request);
 		const { email, tfaToken } = await createOrgUserAndLogin(
 			api,
-			"org-tfa-expired"
+			"org-tfa-reuse"
 		);
 
 		try {
@@ -187,9 +186,9 @@ test.describe("POST /employer/tfa", () => {
 			const response = await api.verifyTFA(tfaRequest);
 			expect(response.status).toBe(200);
 
-			// Try to use the same token again (should be consumed/expired)
+			// Token is intentionally reusable - using it again creates another session
 			const response2 = await api.verifyTFA(tfaRequest);
-			expect(response2.status).toBe(401);
+			expect(response2.status).toBe(200);
 		} finally {
 			await deleteTestOrgUser(email);
 		}

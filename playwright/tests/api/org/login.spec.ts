@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { OrgAPIClient } from "../../../lib/org-api-client";
 import {
 	generateTestEmail,
+	generateTestOrgEmail,
 	deleteTestOrgUser,
 	getTestOrgUser,
 	createTestVerifiedDomain,
@@ -22,8 +23,7 @@ async function createTestOrgUserWithVerifiedDomain(
 	api: OrgAPIClient,
 	emailPrefix: string
 ): Promise<{ email: string; domain: string }> {
-	const email = generateTestEmail(emailPrefix);
-	const domain = email.split("@")[1]; // test.vetchium.com
+	const { email, domain } = generateTestOrgEmail(emailPrefix);
 
 	// Init signup
 	const initRequest: OrgInitSignupRequest = {
@@ -77,8 +77,8 @@ test.describe("POST /employer/login", () => {
 
 			expect(response.status).toBe(200);
 			expect(response.body.tfa_token).toBeDefined();
-			// TFA token should be 64-character hex string (32 bytes hex-encoded)
-			expect(response.body.tfa_token).toMatch(/^[a-f0-9]{64}$/);
+			// TFA token has region prefix (e.g., IND1-) + 64-character hex string
+			expect(response.body.tfa_token).toMatch(/^[A-Z]{3}\d-[a-f0-9]{64}$/);
 
 			// Verify TFA email was sent (uses exponential backoff)
 			const emailMessage = await waitForEmail(email);

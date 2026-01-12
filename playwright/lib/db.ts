@@ -519,3 +519,20 @@ export async function updateTestOrgUserStatus(
 		[status, emailHash]
 	);
 }
+
+/**
+ * Generates a unique test email address for org users with a unique domain.
+ * Each test gets its own domain to avoid collisions when tests run in parallel.
+ *
+ * @param prefix - Optional prefix for the email (default: 'org')
+ * @returns An object with email and domain, e.g., 'user@org-{uuid}.test.vetchium.com'
+ */
+export function generateTestOrgEmail(prefix: string = "org"): {
+	email: string;
+	domain: string;
+} {
+	const uuid = randomUUID().substring(0, 8);
+	const domain = `${prefix}-${uuid}.test.vetchium.com`;
+	const email = `user@${domain}`;
+	return { email, domain };
+}

@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { OrgAPIClient } from "../../../lib/org-api-client";
 import {
-	generateTestEmail,
+	generateTestOrgEmail,
 	deleteTestOrgUser,
 	getTestOrgUser,
 	createTestVerifiedDomain,
@@ -27,8 +27,7 @@ async function createOrgUserAndGetSession(
 	api: OrgAPIClient,
 	emailPrefix: string
 ): Promise<{ email: string; sessionToken: string }> {
-	const email = generateTestEmail(emailPrefix);
-	const domain = email.split("@")[1]; // test.vetchium.com
+	const { email, domain } = generateTestOrgEmail(emailPrefix);
 
 	// Init signup
 	const initRequest: OrgInitSignupRequest = {
