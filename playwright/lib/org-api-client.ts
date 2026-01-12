@@ -301,7 +301,9 @@ export class OrgAPIClient {
 	 * @param request - Login request with email, domain, and password
 	 * @returns API response with TFA token on success
 	 */
-	async login(request: OrgLoginRequest): Promise<APIResponse<OrgLoginResponse>> {
+	async login(
+		request: OrgLoginRequest
+	): Promise<APIResponse<OrgLoginResponse>> {
 		const response = await this.request.post("/employer/login", {
 			data: request,
 		});
@@ -337,7 +339,9 @@ export class OrgAPIClient {
 	 * @param request - TFA request with tfa_token, tfa_code, and remember_me
 	 * @returns API response with session token on success
 	 */
-	async verifyTFA(request: OrgTFARequest): Promise<APIResponse<OrgTFAResponse>> {
+	async verifyTFA(
+		request: OrgTFARequest
+	): Promise<APIResponse<OrgTFAResponse>> {
 		const response = await this.request.post("/employer/tfa", {
 			data: request,
 		});
