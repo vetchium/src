@@ -441,3 +441,81 @@ export async function getTestOrgUser(email: string): Promise<{
 	);
 	return result.rows[0] || null;
 }
+
+/**
+ * Domain verification status enum matching the database enum
+ */
+export type DomainVerificationStatus = "PENDING" | "VERIFIED" | "FAILING";
+
+/**
+ * Creates a verified global employer domain for testing.
+ * This allows testing the login flow which requires a verified domain.
+ *
+ * @param domain - Domain name to create
+ * @param employerId - UUID of the employer to associate the domain with
+ * @param region - Region code where the employer is registered
+ */
+export async function createTestVerifiedDomain(
+	domain: string,
+	employerId: string,
+	region: RegionCode
+): Promise<void> {
+	await pool.query(
+		`INSERT INTO global_employer_domains (domain, region, employer_id, status)
+     VALUES ($1, $2, $3, 'VERIFIED')
+     ON CONFLICT (domain) DO UPDATE SET status = 'VERIFIED'`,
+		[domain.toLowerCase(), region, employerId]
+	);
+}
+
+/**
+ * Verifies an existing global employer domain for testing.
+ * Use this after claiming a domain through the API.
+ *
+ * @param domain - Domain name to verify
+ */
+export async function verifyTestDomain(domain: string): Promise<void> {
+	await pool.query(
+		`UPDATE global_employer_domains SET status = 'VERIFIED' WHERE domain = $1`,
+		[domain.toLowerCase()]
+	);
+}
+
+/**
+ * Gets global employer domain by domain name.
+ *
+ * @param domain - Domain name
+ * @returns Domain record or null if not found
+ */
+export async function getTestGlobalEmployerDomain(domain: string): Promise<{
+	domain: string;
+	region: RegionCode;
+	employer_id: string;
+	status: DomainVerificationStatus;
+} | null> {
+	const result = await pool.query(
+		`SELECT domain, region, employer_id, status
+     FROM global_employer_domains WHERE domain = $1`,
+		[domain.toLowerCase()]
+	);
+	return result.rows[0] || null;
+}
+
+/**
+ * Updates the status of a test org user.
+ *
+ * @param email - Email of the org user to update
+ * @param status - New status to set
+ */
+export async function updateTestOrgUserStatus(
+	email: string,
+	status: OrgUserStatus
+): Promise<void> {
+	const crypto = require("crypto");
+	const emailHash = crypto.createHash("sha256").update(email).digest();
+
+	await pool.query(
+		`UPDATE org_users SET status = $1 WHERE email_address_hash = $2`,
+		[status, emailHash]
+	);
+}
