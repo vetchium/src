@@ -1,0 +1,13 @@
+{
+	"subject": "Complete Your Vetchium Employer Signup - Private Link",
+	"portal_name": "Vetchium Employer Portal",
+	"warning_do_not_forward": "DO NOT FORWARD THIS EMAIL - This contains your personal signup link. Only you should complete the signup.",
+	"body_intro": "This is your personal signup link for {{.Domain}}.",
+	"body_dns_note": "DNS setup instructions have been sent in a separate email, which you can safely forward to your IT team if needed.",
+	"body_click_here": "Once the DNS record is configured, click here to set your password and complete signup:",
+	"body_or_use_token": "Or enter this code manually on the signup completion page:",
+	"button_text": "Complete Signup",
+	"body_expiry": "This signup link will expire in {{.Hours}} hours.",
+	"body_ignore": "If you didn't request this signup, please ignore this email.",
+	"footer": "This is an automated message, please do not reply."
+}

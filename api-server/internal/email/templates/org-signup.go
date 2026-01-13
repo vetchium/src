@@ -26,6 +26,7 @@ func OrgSignupSubject(lang string) string {
 func OrgSignupTextBody(lang string, data OrgSignupData) string {
 	portalName := i18n.T(lang, nsOrgSignup, "portal_name")
 	intro := i18n.T(lang, nsOrgSignup, "body_intro")
+	separateEmailNote := i18n.T(lang, nsOrgSignup, "body_separate_email_note")
 	dnsInstructions := i18n.TF(lang, nsOrgSignup, "body_dns_instructions", data)
 	step1 := i18n.T(lang, nsOrgSignup, "step1")
 	step2 := i18n.T(lang, nsOrgSignup, "step2")
@@ -42,6 +43,8 @@ func OrgSignupTextBody(lang string, data OrgSignupData) string {
 	footer := i18n.T(lang, nsOrgSignup, "footer")
 
 	return fmt.Sprintf(`%s - Domain Verification Instructions
+
+%s
 
 %s
 
@@ -73,7 +76,7 @@ DNS RECORD DETAILS:
 ---
 %s
 %s
-`, portalName, intro, dnsInstructions,
+`, portalName, intro, dnsInstructions, separateEmailNote,
 		step1, step2, step3, step4, step5,
 		recordTypeLabel, hostLabel, data.Domain, valueLabel, data.DNSRecordValue, ttlLabel,
 		propagationNote, expiry, ignore, portalName, footer)
@@ -85,6 +88,7 @@ func OrgSignupHTMLBody(lang string, data OrgSignupData) string {
 	escapedDomain := html.EscapeString(data.Domain)
 	portalName := html.EscapeString(i18n.T(lang, nsOrgSignup, "portal_name"))
 	intro := html.EscapeString(i18n.T(lang, nsOrgSignup, "body_intro"))
+	separateEmailNote := html.EscapeString(i18n.T(lang, nsOrgSignup, "body_separate_email_note"))
 	dnsInstructions := html.EscapeString(i18n.TF(lang, nsOrgSignup, "body_dns_instructions", data))
 	step1 := html.EscapeString(i18n.T(lang, nsOrgSignup, "step1"))
 	step2 := html.EscapeString(i18n.T(lang, nsOrgSignup, "step2"))
@@ -130,6 +134,12 @@ func OrgSignupHTMLBody(lang string, data OrgSignupData) string {
                             <p style="margin: 0 0 24px; font-size: 16px; line-height: 24px; color: #333333;">
                                 %s
                             </p>
+                            <!-- Separate Email Note -->
+                            <div style="background-color: #e8f5e9; border: 1px solid #a5d6a7; border-radius: 6px; padding: 16px; margin: 0 0 24px 0;">
+                                <p style="margin: 0; font-size: 14px; line-height: 20px; color: #2e7d32;">
+                                    <strong>Note:</strong> %s
+                                </p>
+                            </div>
                             <p style="margin: 0 0 16px; font-size: 14px; line-height: 20px; color: #666666;">
                                 %s
                             </p>
@@ -203,7 +213,7 @@ func OrgSignupHTMLBody(lang string, data OrgSignupData) string {
         </tr>
     </table>
 </body>
-</html>`, htmlLang, portalName, intro, dnsInstructions,
+</html>`, htmlLang, portalName, intro, separateEmailNote, dnsInstructions,
 		step1, step2, step3, step4, step5,
 		recordTypeLabel, hostLabel, escapedDomain, valueLabel, escapedDNSValue, ttlLabel,
 		propagationNote, expiry, ignore, footer)

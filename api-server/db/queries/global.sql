@@ -380,14 +380,19 @@ WHERE org_user_id = $1;
 -- ============================================
 
 -- name: CreateOrgSignupToken :exec
-INSERT INTO org_signup_tokens (signup_token, email_address, email_address_hash, hashing_algorithm, expires_at, home_region, domain)
-VALUES ($1, $2, $3, $4, $5, $6, $7);
+INSERT INTO org_signup_tokens (signup_token, email_token, email_address, email_address_hash, hashing_algorithm, expires_at, home_region, domain)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
 
 -- name: GetOrgSignupToken :one
 SELECT * FROM org_signup_tokens WHERE signup_token = $1 AND expires_at > NOW();
 
+-- name: GetOrgSignupTokenByEmailToken :one
+-- Get pending signup by email token (for complete-signup flow - proves email access)
+SELECT * FROM org_signup_tokens
+WHERE email_token = $1 AND expires_at > NOW() AND consumed_at IS NULL;
+
 -- name: GetOrgSignupTokenByEmail :one
--- Get pending signup by email address (for complete-signup flow)
+-- Get pending signup by email address (for resend email flow)
 SELECT * FROM org_signup_tokens
 WHERE email_address = $1 AND expires_at > NOW() AND consumed_at IS NULL
 ORDER BY created_at DESC

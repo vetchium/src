@@ -221,10 +221,10 @@ test.describe("Hub Token Prefix Validation", () => {
 
 		// Session token without prefix should fail
 		const response = await api.setLanguageRaw(
+			"0000000000000000000000000000000000000000000000000000000000000000",
 			{
 				language: "de-DE",
-			},
-			"0000000000000000000000000000000000000000000000000000000000000000"
+			}
 		);
 
 		expect(response.status).toBe(401);
@@ -237,10 +237,10 @@ test.describe("Hub Token Prefix Validation", () => {
 
 		// Session token with unknown region should fail
 		const response = await api.setLanguageRaw(
+			"XXX1-0000000000000000000000000000000000000000000000000000000000000000",
 			{
 				language: "de-DE",
-			},
-			"XXX1-0000000000000000000000000000000000000000000000000000000000000000"
+			}
 		);
 
 		expect(response.status).toBe(401);
@@ -282,12 +282,9 @@ test.describe("Hub Token Prefix Validation", () => {
 			const wrongRegionToken = `USA1-${parts[1]}`;
 
 			// Try to use session with wrong region
-			const response = await api.setLanguageRaw(
-				{
-					language: "de-DE",
-				},
-				wrongRegionToken
-			);
+			const response = await api.setLanguageRaw(wrongRegionToken, {
+				language: "de-DE",
+			});
 
 			expect(response.status).toBe(401);
 		} finally {

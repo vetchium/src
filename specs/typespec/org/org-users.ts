@@ -18,6 +18,7 @@ import {
 export type OrgSessionToken = string;
 export type OrgTFAToken = string;
 export type DNSVerificationToken = string;
+export type OrgSignupToken = string;
 
 // ============================================
 // Signup Flow (DNS-based Domain Verification)
@@ -53,13 +54,12 @@ export function validateOrgInitSignupRequest(
 export interface OrgInitSignupResponse {
 	domain: DomainName;
 	dns_record_name: string;
-	dns_record_value: DNSVerificationToken;
 	token_expires_at: string;
 	message: string;
 }
 
 export interface OrgCompleteSignupRequest {
-	email: EmailAddress;
+	signup_token: OrgSignupToken;
 	password: Password;
 }
 
@@ -68,14 +68,8 @@ export function validateOrgCompleteSignupRequest(
 ): ValidationError[] {
 	const errs: ValidationError[] = [];
 
-	if (!request.email) {
-		errs.push(newValidationError("email", ERR_REQUIRED));
-	} else {
-		// Use employer email validation which blocks personal email domains
-		const emailErr = validateEmployerEmail(request.email);
-		if (emailErr) {
-			errs.push(newValidationError("email", emailErr));
-		}
+	if (!request.signup_token) {
+		errs.push(newValidationError("signup_token", ERR_REQUIRED));
 	}
 
 	if (!request.password) {

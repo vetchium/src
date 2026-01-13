@@ -14,6 +14,7 @@ CREATE TYPE email_template_type AS ENUM (
     'hub_signup_verification',
     'hub_tfa',
     'org_signup_verification',
+    'org_signup_token',
     'org_tfa'
 );
 

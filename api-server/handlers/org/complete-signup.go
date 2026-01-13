@@ -44,15 +44,15 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Look up pending signup by email
-		tokenRecord, err := s.Global.GetOrgSignupTokenByEmail(ctx, string(req.Email))
+		// Look up pending signup by email_token (proves email access)
+		tokenRecord, err := s.Global.GetOrgSignupTokenByEmailToken(ctx, string(req.SignupToken))
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				log.Debug("no pending signup found for email")
+				log.Debug("no pending signup found for token")
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
-			log.Error("failed to query signup token by email", "error", err)
+			log.Error("failed to query signup token", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -61,7 +61,7 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 		emailHash := tokenRecord.EmailAddressHash
 		domain := tokenRecord.Domain
 		region := tokenRecord.HomeRegion
-		expectedToken := tokenRecord.SignupToken
+		dnsVerificationToken := tokenRecord.SignupToken
 
 		// Perform DNS TXT lookup to verify domain ownership
 		dnsRecordName := dnsRecordPrefix + domain
@@ -72,19 +72,19 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Check if any TXT record matches the expected verification token
+		// Check if any TXT record matches the DNS verification token
 		tokenFound := false
 		for _, record := range txtRecords {
 			// TXT records may have quotes stripped or present, handle both
 			cleanRecord := strings.Trim(record, "\"")
-			if cleanRecord == expectedToken {
+			if cleanRecord == dnsVerificationToken {
 				tokenFound = true
 				break
 			}
 		}
 
 		if !tokenFound {
-			log.Debug("DNS verification failed - token not found in TXT records", "domain", domain, "expected_token_prefix", expectedToken[:8])
+			log.Debug("DNS verification failed - token not found in TXT records", "domain", domain, "expected_token_prefix", dnsVerificationToken[:8])
 			w.WriteHeader(http.StatusUnprocessableEntity)
 			return
 		}
@@ -207,7 +207,8 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 		}
 
 		// Mark signup token as consumed (best effort, non-critical)
-		_ = s.Global.MarkOrgSignupTokenConsumed(ctx, expectedToken)
+		// Use the DNS verification token (signup_token) as the primary key
+		_ = s.Global.MarkOrgSignupTokenConsumed(ctx, dnsVerificationToken)
 
 		log.Info("org user signup completed via DNS verification", "org_user_id", globalUser.OrgUserID, "employer_id", employer.EmployerID, "domain", domain)
 

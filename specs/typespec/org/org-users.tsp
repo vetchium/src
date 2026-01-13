@@ -36,9 +36,6 @@ model OrgInitSignupResponse {
   @doc("DNS TXT record name to create (e.g., _vetchium-verify.example.com)")
   dns_record_name: string;
 
-  @doc("DNS TXT record value - the verification token to add")
-  dns_record_value: DNSVerificationToken;
-
   @doc("ISO 8601 timestamp when the verification token expires")
   token_expires_at: string;
 
@@ -46,9 +43,12 @@ model OrgInitSignupResponse {
   message: string;
 }
 
+// Org Signup Token - secret token sent via email to complete signup
+scalar OrgSignupToken extends string;
+
 model OrgCompleteSignupRequest {
-  @doc("Email address used in init-signup - used to look up pending verification")
-  email: EmailAddress;
+  @doc("Signup token received via email - proves email access")
+  signup_token: OrgSignupToken;
 
   @doc("User's chosen password")
   password: Password;

@@ -1,7 +1,8 @@
 {
-	"subject": "Verifizieren Sie Ihre Domain für das Vetchium Arbeitgeber-Portal",
+	"subject": "DNS-Einrichtung erforderlich - Vetchium Arbeitgeber-Registrierung",
 	"portal_name": "Vetchium Arbeitgeber-Portal",
 	"body_intro": "Vielen Dank für Ihre Registrierung beim Vetchium Arbeitgeber-Portal! Um den Besitz Ihrer Domain zu verifizieren, fügen Sie bitte den folgenden DNS TXT-Eintrag hinzu.",
+	"body_separate_email_note": "Eine separate E-Mail mit Ihrem persönlichen Registrierungslink wurde gesendet. Leiten Sie diese E-Mail NICHT weiter - sie enthält Ihren privaten Registrierungscode.",
 	"body_dns_instructions": "Fügen Sie einen TXT-Eintrag zu Ihren DNS-Einstellungen für {{.Domain}} mit den unten angezeigten Werten hinzu.",
 	"step1": "Melden Sie sich bei Ihrem Domain-Registrar oder DNS-Anbieter an (z.B. GoDaddy, Cloudflare, Namecheap, Route 53)",
 	"step2": "Navigieren Sie zum DNS-Verwaltungs- oder DNS-Einträge-Bereich für Ihre Domain",

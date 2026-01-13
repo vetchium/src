@@ -1,11 +1,34 @@
 import { test, expect } from "@playwright/test";
 import { OrgAPIClient } from "../../../lib/org-api-client";
 import { generateTestOrgEmail } from "../../../lib/db";
-import { waitForEmail, getEmailContent } from "../../../lib/mailpit";
+import {
+	searchEmails,
+	getEmailContent,
+	extractOrgSignupToken,
+	waitForEmail,
+} from "../../../lib/mailpit";
 import type { OrgInitSignupRequest } from "vetchium-specs/org/org-users";
 
+// Helper to wait for both signup emails
+async function waitForBothSignupEmails(
+	userEmail: string,
+	maxRetries = 10,
+	delayMs = 1000
+) {
+	for (let i = 0; i < maxRetries; i++) {
+		const messages = await searchEmails(userEmail);
+		if (messages.length >= 2) {
+			return messages;
+		}
+		await new Promise((resolve) => setTimeout(resolve, delayMs));
+	}
+	throw new Error(
+		`Expected 2 emails for ${userEmail}, but got ${(await searchEmails(userEmail)).length}`
+	);
+}
+
 test.describe("POST /org/init-signup", () => {
-	test("successful signup returns DNS verification instructions", async ({
+	test("successful signup returns DNS verification instructions and sends two emails", async ({
 		request,
 	}) => {
 		const api = new OrgAPIClient(request);
@@ -24,29 +47,66 @@ test.describe("POST /org/init-signup", () => {
 			// Verify DNS verification response fields
 			expect(response.body.domain).toBeDefined();
 			expect(response.body.dns_record_name).toBeDefined();
-			expect(response.body.dns_record_value).toBeDefined();
 			expect(response.body.token_expires_at).toBeDefined();
 			expect(response.body.message).toBeDefined();
 
+			// SECURITY: dns_record_value should NOT be in the response
+			// It's only sent via email to prevent attackers from seeing it
+			expect(response.body).not.toHaveProperty("dns_record_value");
+
 			// DNS record name should be _vetchium-verify.<domain>
 			expect(response.body.dns_record_name).toMatch(/^_vetchium-verify\..+$/);
-
-			// DNS record value should be a 64-character hex token
-			expect(response.body.dns_record_value).toMatch(/^[a-f0-9]{64}$/);
 
 			// Token expiry should be a valid ISO 8601 timestamp
 			const expiryDate = new Date(response.body.token_expires_at);
 			expect(expiryDate.getTime()).toBeGreaterThan(Date.now());
 
-			// Verify email was sent with DNS instructions
-			const emailMessage = await waitForEmail(userEmail);
-			expect(emailMessage).toBeDefined();
-			expect(emailMessage.To[0].Address).toBe(userEmail);
+			// Wait for BOTH emails (DNS instructions + signup token)
+			const emails = await waitForBothSignupEmails(userEmail);
+			expect(emails.length).toBeGreaterThanOrEqual(2);
 
-			// Check email contains DNS instructions
-			const fullEmail = await getEmailContent(emailMessage.ID);
-			expect(fullEmail.HTML).toContain(response.body.dns_record_name);
-			expect(fullEmail.HTML).toContain(response.body.dns_record_value);
+			// Get full content of both emails
+			const emailContents = await Promise.all(
+				emails.map((msg) => getEmailContent(msg.ID))
+			);
+
+			// Find the DNS instructions email (contains dns_record_name)
+			const dnsEmail = emailContents.find(
+				(email) =>
+					email.HTML.includes(response.body.dns_record_name) &&
+					email.Subject.includes("DNS")
+			);
+			expect(dnsEmail).toBeDefined();
+			expect(dnsEmail!.To[0].Address).toBe(userEmail);
+
+			// DNS email should contain the DNS record value (64-char hex token)
+			const dnsTokenMatch = dnsEmail!.Text.match(/\b([a-f0-9]{64})\b/);
+			expect(dnsTokenMatch).toBeTruthy();
+			const dnsVerificationToken = dnsTokenMatch![1];
+
+			// Find the signup token email (contains "Private Link" or "DO NOT FORWARD")
+			const tokenEmail = emailContents.find(
+				(email) =>
+					email.Subject.includes("Private Link") ||
+					email.Text.includes("DO NOT FORWARD")
+			);
+			expect(tokenEmail).toBeDefined();
+			expect(tokenEmail!.To[0].Address).toBe(userEmail);
+
+			// Token email should contain a different 64-char hex token (signup token)
+			const signupToken = extractOrgSignupToken(tokenEmail!.Text);
+			expect(signupToken).toMatch(/^[a-f0-9]{64}$/);
+
+			// The two tokens should be DIFFERENT (DNS token vs signup token)
+			expect(signupToken).not.toBe(dnsVerificationToken);
+
+			// DNS email should NOT contain the signup token
+			expect(dnsEmail!.Text).not.toContain(signupToken);
+			expect(dnsEmail!.HTML).not.toContain(signupToken);
+
+			// Token email should NOT contain the DNS verification token
+			expect(tokenEmail!.Text).not.toContain(dnsVerificationToken);
+			expect(tokenEmail!.HTML).not.toContain(dnsVerificationToken);
 		} finally {
 			// No cleanup needed - user not fully registered
 		}
@@ -68,11 +128,12 @@ test.describe("POST /org/init-signup", () => {
 			expect(response.status).toBe(200);
 			expect(response.body.domain).toBeDefined();
 			expect(response.body.dns_record_name).toBeDefined();
-			expect(response.body.dns_record_value).toBeDefined();
+			// dns_record_value is no longer in the response (security fix)
+			expect(response.body).not.toHaveProperty("dns_record_value");
 
-			// Verify email was sent
-			const emailMessage = await waitForEmail(userEmail);
-			expect(emailMessage).toBeDefined();
+			// Verify both emails were sent
+			const emails = await waitForBothSignupEmails(userEmail);
+			expect(emails.length).toBeGreaterThanOrEqual(2);
 		}
 	});
 

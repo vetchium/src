@@ -216,8 +216,11 @@ CREATE TABLE org_users (
 );
 
 -- Org signup tokens (global - for DNS-based signup verification)
+-- signup_token: DNS verification token (goes in TXT record, public)
+-- email_token: Secret token sent via email only (proves email access)
 CREATE TABLE org_signup_tokens (
     signup_token TEXT PRIMARY KEY NOT NULL,
+    email_token TEXT NOT NULL UNIQUE,
     email_address TEXT NOT NULL,
     email_address_hash BYTEA NOT NULL,
     hashing_algorithm email_address_hashing_algorithm NOT NULL DEFAULT 'SHA-256',

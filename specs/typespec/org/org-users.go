@@ -8,6 +8,7 @@ import (
 type OrgSessionToken string
 type OrgTFAToken string
 type DNSVerificationToken string
+type OrgSignupToken string
 
 // ============================================
 // Signup Flow (DNS-based Domain Verification)
@@ -36,26 +37,22 @@ func (r OrgInitSignupRequest) Validate() []common.ValidationError {
 }
 
 type OrgInitSignupResponse struct {
-	Domain         common.DomainName    `json:"domain"`
-	DNSRecordName  string               `json:"dns_record_name"`
-	DNSRecordValue DNSVerificationToken `json:"dns_record_value"`
-	TokenExpiresAt string               `json:"token_expires_at"`
-	Message        string               `json:"message"`
+	Domain         common.DomainName `json:"domain"`
+	DNSRecordName  string            `json:"dns_record_name"`
+	TokenExpiresAt string            `json:"token_expires_at"`
+	Message        string            `json:"message"`
 }
 
 type OrgCompleteSignupRequest struct {
-	Email    common.EmailAddress `json:"email"`
-	Password common.Password     `json:"password"`
+	SignupToken OrgSignupToken  `json:"signup_token"`
+	Password    common.Password `json:"password"`
 }
 
 func (r OrgCompleteSignupRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
 
-	if r.Email == "" {
-		errs = append(errs, common.NewValidationError("email", common.ErrRequired))
-	} else if err := common.ValidateEmployerEmail(r.Email); err != nil {
-		// Use employer email validation which blocks personal email domains
-		errs = append(errs, common.NewValidationError("email", err))
+	if r.SignupToken == "" {
+		errs = append(errs, common.NewValidationError("signup_token", common.ErrRequired))
 	}
 
 	if r.Password == "" {

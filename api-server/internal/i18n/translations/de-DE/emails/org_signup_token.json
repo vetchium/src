@@ -1,0 +1,13 @@
+{
+	"subject": "Vervollständigen Sie Ihre Vetchium Arbeitgeber-Registrierung - Privater Link",
+	"portal_name": "Vetchium Arbeitgeber-Portal",
+	"warning_do_not_forward": "DIESE E-MAIL NICHT WEITERLEITEN - Sie enthält Ihren persönlichen Registrierungslink. Nur Sie sollten die Registrierung abschließen.",
+	"body_intro": "Dies ist Ihr persönlicher Registrierungslink für {{.Domain}}.",
+	"body_dns_note": "DNS-Einrichtungsanweisungen wurden in einer separaten E-Mail gesendet, die Sie bei Bedarf sicher an Ihr IT-Team weiterleiten können.",
+	"body_click_here": "Sobald der DNS-Eintrag konfiguriert ist, klicken Sie hier, um Ihr Passwort festzulegen und die Registrierung abzuschließen:",
+	"body_or_use_token": "Oder geben Sie diesen Code manuell auf der Registrierungsabschlussseite ein:",
+	"button_text": "Registrierung abschließen",
+	"body_expiry": "Dieser Registrierungslink läuft in {{.Hours}} Stunden ab.",
+	"body_ignore": "Wenn Sie diese Registrierung nicht angefordert haben, ignorieren Sie bitte diese E-Mail.",
+	"footer": "Dies ist eine automatische Nachricht, bitte antworten Sie nicht."
+}

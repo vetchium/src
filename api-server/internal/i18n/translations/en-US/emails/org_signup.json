@@ -1,7 +1,8 @@
 {
-	"subject": "Verify your domain for Vetchium Employer Portal",
+	"subject": "DNS Setup Required - Vetchium Employer Signup",
 	"portal_name": "Vetchium Employer Portal",
 	"body_intro": "Thank you for signing up for Vetchium Employer Portal! To verify your domain ownership, please add the following DNS TXT record.",
+	"body_separate_email_note": "A separate email with your personal signup link has been sent. Do NOT forward that email to anyone - it contains your private signup code.",
 	"body_dns_instructions": "Add a TXT record to your DNS settings for {{.Domain}} with the values shown below.",
 	"step1": "Log in to your domain registrar or DNS provider (e.g., GoDaddy, Cloudflare, Namecheap, Route 53)",
 	"step2": "Navigate to the DNS management or DNS records section for your domain",

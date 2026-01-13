@@ -95,14 +95,24 @@ func InitSignup(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Generate verification token (will be used as DNS TXT value)
-		tokenBytes := make([]byte, 32)
-		if _, err := rand.Read(tokenBytes); err != nil {
-			log.Error("failed to generate token", "error", err)
+		// Generate two tokens:
+		// 1. DNS verification token (goes in TXT record, public)
+		// 2. Email token (secret, sent only via email to prove email access)
+		dnsTokenBytes := make([]byte, 32)
+		if _, err := rand.Read(dnsTokenBytes); err != nil {
+			log.Error("failed to generate DNS verification token", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
-		verificationToken := hex.EncodeToString(tokenBytes)
+		dnsVerificationToken := hex.EncodeToString(dnsTokenBytes)
+
+		emailTokenBytes := make([]byte, 32)
+		if _, err := rand.Read(emailTokenBytes); err != nil {
+			log.Error("failed to generate email token", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+		emailToken := hex.EncodeToString(emailTokenBytes)
 
 		// Validate and get regional DB for selected region
 		homeRegion := globaldb.Region(strings.ToLower(req.HomeRegion))
@@ -122,11 +132,12 @@ func InitSignup(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Store token in global DB
+		// Store tokens in global DB
 		tokenExpiry := s.TokenConfig.HubSignupTokenExpiry
 		expiresAt := pgtype.Timestamp{Time: time.Now().Add(tokenExpiry), Valid: true}
 		err = s.Global.CreateOrgSignupToken(ctx, globaldb.CreateOrgSignupTokenParams{
-			SignupToken:      verificationToken,
+			SignupToken:      dnsVerificationToken,
+			EmailToken:       emailToken,
 			EmailAddress:     string(req.Email),
 			EmailAddressHash: emailHash[:],
 			HashingAlgorithm: globaldb.EmailAddressHashingAlgorithmSHA256,
@@ -144,37 +155,55 @@ func InitSignup(s *server.Server) http.HandlerFunc {
 		dnsRecordName := dnsRecordPrefix + domain
 		expiryHours := int(tokenExpiry.Hours())
 
-		// Send verification email with DNS instructions
-		lang := i18n.Match("en-US") // Default language for signup
-		err = sendOrgSignupEmail(ctx, regionalDB, string(req.Email), domain, dnsRecordName, verificationToken, lang, expiryHours)
+		// Default language for signup
+		lang := i18n.Match("en-US")
+
+		// Send Email 1: DNS instructions (safe to forward)
+		err = sendOrgSignupDNSEmail(ctx, regionalDB, string(req.Email), domain, dnsRecordName, dnsVerificationToken, lang, expiryHours)
 		if err != nil {
-			log.Error("failed to enqueue signup email", "error", err)
+			log.Error("failed to enqueue DNS instructions email", "error", err)
 			// Compensating transaction: delete the signup token we just created
-			if delErr := s.Global.DeleteOrgSignupToken(ctx, verificationToken); delErr != nil {
+			if delErr := s.Global.DeleteOrgSignupToken(ctx, dnsVerificationToken); delErr != nil {
 				log.Error("failed to cleanup signup token", "error", delErr)
 			}
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		log.Info("org signup DNS verification email sent", "email_hash", hex.EncodeToString(emailHash[:]), "domain", domain)
+		// Send Email 2: Signup token (private - DO NOT FORWARD)
+		// TODO: Update signup link URL when employer-ui is ready
+		signupLink := fmt.Sprintf("https://employer.vetchium.com/complete-signup?token=%s", emailToken)
+		err = sendOrgSignupTokenEmail(ctx, regionalDB, string(req.Email), domain, emailToken, signupLink, lang, expiryHours)
+		if err != nil {
+			log.Error("failed to enqueue signup token email", "error", err)
+			// Compensating transaction: delete the signup token we just created
+			if delErr := s.Global.DeleteOrgSignupToken(ctx, dnsVerificationToken); delErr != nil {
+				log.Error("failed to cleanup signup token", "error", delErr)
+			}
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
+		log.Info("org signup emails sent (DNS + token)", "email_hash", hex.EncodeToString(emailHash[:]), "domain", domain)
 
 		// Calculate expiry timestamp
 		tokenExpiresAt := time.Now().Add(tokenExpiry).Format(time.RFC3339)
 
+		// Note: dns_record_value is NOT returned - it's only sent via email
+		// This prevents attackers from seeing the DNS token in the API response
 		response := org.OrgInitSignupResponse{
 			Domain:         common.DomainName(domain),
 			DNSRecordName:  dnsRecordName,
-			DNSRecordValue: org.DNSVerificationToken(verificationToken),
 			TokenExpiresAt: tokenExpiresAt,
-			Message:        fmt.Sprintf("Please add a TXT record to your DNS settings. The verification token expires in %d hours.", expiryHours),
+			Message:        fmt.Sprintf("Please check your email for DNS setup instructions and signup link. The verification token expires in %d hours.", expiryHours),
 		}
 
 		json.NewEncoder(w).Encode(response)
 	}
 }
 
-func sendOrgSignupEmail(ctx context.Context, db *regionaldb.Queries, to string, domain string, dnsRecordName string, dnsRecordValue string, lang string, expiryHours int) error {
+// sendOrgSignupDNSEmail sends the DNS instructions email (safe to forward to IT team)
+func sendOrgSignupDNSEmail(ctx context.Context, db *regionaldb.Queries, to string, domain string, dnsRecordName string, dnsRecordValue string, lang string, expiryHours int) error {
 	data := templates.OrgSignupData{
 		Domain:         domain,
 		DNSRecordName:  dnsRecordName,
@@ -188,6 +217,25 @@ func sendOrgSignupEmail(ctx context.Context, db *regionaldb.Queries, to string, 
 		EmailSubject:  templates.OrgSignupSubject(lang),
 		EmailTextBody: templates.OrgSignupTextBody(lang, data),
 		EmailHtmlBody: templates.OrgSignupHTMLBody(lang, data),
+	})
+	return err
+}
+
+// sendOrgSignupTokenEmail sends the secret signup token email (DO NOT FORWARD)
+func sendOrgSignupTokenEmail(ctx context.Context, db *regionaldb.Queries, to string, domain string, signupToken string, signupLink string, lang string, expiryHours int) error {
+	data := templates.OrgSignupTokenData{
+		Domain:      domain,
+		SignupToken: signupToken,
+		SignupLink:  signupLink,
+		Hours:       expiryHours,
+	}
+
+	_, err := db.EnqueueEmail(ctx, regionaldb.EnqueueEmailParams{
+		EmailType:     regionaldb.EmailTemplateTypeOrgSignupToken,
+		EmailTo:       to,
+		EmailSubject:  templates.OrgSignupTokenSubject(lang),
+		EmailTextBody: templates.OrgSignupTokenTextBody(lang, data),
+		EmailHtmlBody: templates.OrgSignupTokenHTMLBody(lang, data),
 	})
 	return err
 }
