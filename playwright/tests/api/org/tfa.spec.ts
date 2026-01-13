@@ -3,18 +3,11 @@ import { OrgAPIClient } from "../../../lib/org-api-client";
 import {
 	generateTestOrgEmail,
 	deleteTestOrgUser,
-	getTestOrgUser,
-	createTestVerifiedDomain,
+	createTestOrgUserDirect,
 } from "../../../lib/db";
-import {
-	waitForEmail,
-	getEmailContent,
-	getTfaCodeFromEmail,
-	deleteEmailsFor,
-} from "../../../lib/mailpit";
+import { getTfaCodeFromEmail, deleteEmailsFor } from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
 import type {
-	OrgInitSignupRequest,
 	OrgLoginRequest,
 	OrgTFARequest,
 } from "vetchium-specs/org/org-users";
@@ -29,36 +22,10 @@ async function createOrgUserAndLogin(
 ): Promise<{ email: string; domain: string; tfaToken: string }> {
 	const { email, domain } = generateTestOrgEmail(emailPrefix);
 
-	// Init signup
-	const initRequest: OrgInitSignupRequest = {
-		email,
-		home_region: "ind1",
-	};
-	const initResponse = await api.initSignup(initRequest);
-	expect(initResponse.status).toBe(200);
+	// Create test org user directly in the database
+	await createTestOrgUserDirect(email, TEST_PASSWORD);
 
-	// Wait for signup email and extract token
-	const signupEmail = await waitForEmail(email);
-	const fullSignupEmail = await getEmailContent(signupEmail.ID);
-	const tokenMatch = fullSignupEmail.HTML.match(/token=([a-f0-9]{64})/);
-	expect(tokenMatch).toBeDefined();
-	const signupToken = tokenMatch![1];
-
-	// Complete signup
-	const completeResponse = await api.completeSignup({
-		signup_token: signupToken,
-		password: TEST_PASSWORD,
-	});
-	expect(completeResponse.status).toBe(201);
-
-	// Get the org user to find employer ID
-	const orgUser = await getTestOrgUser(email);
-	expect(orgUser).toBeDefined();
-
-	// Create a verified domain for the employer
-	await createTestVerifiedDomain(domain, orgUser!.employer_id, "ind1");
-
-	// Clear emails to prepare for login TFA email
+	// Clear any existing emails for this address
 	await deleteEmailsFor(email);
 
 	// Login to get TFA token

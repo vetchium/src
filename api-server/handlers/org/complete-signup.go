@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -43,46 +44,52 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Verify signup token
-		tokenRecord, err := s.Global.GetOrgSignupToken(ctx, string(req.SignupToken))
+		// Look up pending signup by email
+		tokenRecord, err := s.Global.GetOrgSignupTokenByEmail(ctx, string(req.Email))
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				log.Debug("invalid or expired signup token")
-				w.WriteHeader(http.StatusUnauthorized)
+				log.Debug("no pending signup found for email")
+				w.WriteHeader(http.StatusNotFound)
 				return
 			}
-			log.Error("failed to query signup token", "error", err)
+			log.Error("failed to query signup token by email", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		// Use email from token record (already verified when token was created)
 		email := tokenRecord.EmailAddress
 		emailHash := tokenRecord.EmailAddressHash
-
-		// Check if email already registered (duplicate signup during token lifetime)
-		_, err = s.Global.GetOrgUserByEmailHash(ctx, emailHash)
-		if err == nil {
-			log.Debug("email already registered")
-			w.WriteHeader(http.StatusConflict)
-			return
-		} else if !errors.Is(err, pgx.ErrNoRows) {
-			log.Error("failed to query user", "error", err)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-
-		// Extract domain from email to use as employer name
-		parts := strings.Split(email, "@")
-		if len(parts) != 2 {
-			log.Debug("invalid email format in token")
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-		domain := strings.ToLower(parts[1])
-
-		// Use region from signup token (user selected during init-signup)
+		domain := tokenRecord.Domain
 		region := tokenRecord.HomeRegion
+		expectedToken := tokenRecord.SignupToken
+
+		// Perform DNS TXT lookup to verify domain ownership
+		dnsRecordName := dnsRecordPrefix + domain
+		txtRecords, err := net.LookupTXT(dnsRecordName)
+		if err != nil {
+			log.Debug("DNS lookup failed", "error", err, "record_name", dnsRecordName)
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			return
+		}
+
+		// Check if any TXT record matches the expected verification token
+		tokenFound := false
+		for _, record := range txtRecords {
+			// TXT records may have quotes stripped or present, handle both
+			cleanRecord := strings.Trim(record, "\"")
+			if cleanRecord == expectedToken {
+				tokenFound = true
+				break
+			}
+		}
+
+		if !tokenFound {
+			log.Debug("DNS verification failed - token not found in TXT records", "domain", domain, "expected_token_prefix", expectedToken[:8])
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			return
+		}
+
+		log.Info("DNS verification successful", "domain", domain)
 
 		// Get regional DB for the current region
 		regionalDB := s.GetRegionalDB(region)
@@ -103,11 +110,27 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 			return
 		}
 
+		// Create global employer domain record (marks domain as VERIFIED)
+		err = s.Global.CreateGlobalEmployerDomain(ctx, globaldb.CreateGlobalEmployerDomainParams{
+			Domain:     domain,
+			Region:     region,
+			EmployerID: employer.EmployerID,
+			Status:     globaldb.DomainVerificationStatusVERIFIED,
+		})
+		if err != nil {
+			log.Error("failed to create global employer domain", "error", err)
+			// Compensating transaction: delete employer
+			s.Global.DeleteEmployer(ctx, employer.EmployerID)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
 		// Hash password
 		passwordHash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 		if err != nil {
 			log.Error("failed to hash password", "error", err)
-			// Compensating transaction: delete employer
+			// Compensating transaction: delete domain and employer
+			s.Global.DeleteGlobalEmployerDomain(ctx, domain)
 			s.Global.DeleteEmployer(ctx, employer.EmployerID)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
@@ -124,7 +147,8 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 		})
 		if err != nil {
 			log.Error("failed to create org user in global DB", "error", err)
-			// Compensating transaction: delete employer
+			// Compensating transaction: delete domain and employer
+			s.Global.DeleteGlobalEmployerDomain(ctx, domain)
 			s.Global.DeleteEmployer(ctx, employer.EmployerID)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
@@ -141,6 +165,7 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 			log.Error("failed to create org user in regional DB", "error", err)
 			// Compensating transaction: delete from global
 			s.Global.DeleteOrgUser(ctx, globalUser.OrgUserID)
+			s.Global.DeleteGlobalEmployerDomain(ctx, domain)
 			s.Global.DeleteEmployer(ctx, employer.EmployerID)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
@@ -153,6 +178,7 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 			// Cleanup
 			regionalDB.DeleteOrgUser(ctx, globalUser.OrgUserID)
 			s.Global.DeleteOrgUser(ctx, globalUser.OrgUserID)
+			s.Global.DeleteGlobalEmployerDomain(ctx, domain)
 			s.Global.DeleteEmployer(ctx, employer.EmployerID)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
@@ -174,15 +200,16 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 			// Cleanup
 			regionalDB.DeleteOrgUser(ctx, globalUser.OrgUserID)
 			s.Global.DeleteOrgUser(ctx, globalUser.OrgUserID)
+			s.Global.DeleteGlobalEmployerDomain(ctx, domain)
 			s.Global.DeleteEmployer(ctx, employer.EmployerID)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
 		// Mark signup token as consumed (best effort, non-critical)
-		_ = s.Global.MarkOrgSignupTokenConsumed(ctx, string(req.SignupToken))
+		_ = s.Global.MarkOrgSignupTokenConsumed(ctx, expectedToken)
 
-		log.Info("org user signup completed", "org_user_id", globalUser.OrgUserID, "employer_id", employer.EmployerID)
+		log.Info("org user signup completed via DNS verification", "org_user_id", globalUser.OrgUserID, "employer_id", employer.EmployerID, "domain", domain)
 
 		w.WriteHeader(http.StatusCreated)
 		response := org.OrgCompleteSignupResponse{

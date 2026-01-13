@@ -8,21 +8,21 @@ using TypeSpec.Http;
 
 namespace Vetchium;
 
-// Org Signup Token - returned after requesting signup via email
-scalar OrgSignupToken extends string;
-
 // Org Session Token - returned after successful signup completion
 scalar OrgSessionToken extends string;
 
 // Org TFA Token - returned after successful login, before TFA verification
 scalar OrgTFAToken extends string;
 
+// DNS Verification Token - used for domain ownership verification
+scalar DNSVerificationToken extends string;
+
 // ============================================
-// Signup Flow
+// Signup Flow (DNS-based Domain Verification)
 // ============================================
 
 model OrgInitSignupRequest {
-  @doc("Email address to sign up with")
+  @doc("Email address to sign up with - domain will be extracted for verification")
   email: EmailAddress;
 
   @doc("Home region for the organization (e.g., ind1, usa1, deu1)")
@@ -30,13 +30,25 @@ model OrgInitSignupRequest {
 }
 
 model OrgInitSignupResponse {
-  @doc("Confirmation message about signup email")
+  @doc("The domain being verified (extracted from email)")
+  domain: DomainName;
+
+  @doc("DNS TXT record name to create (e.g., _vetchium-verify.example.com)")
+  dns_record_name: string;
+
+  @doc("DNS TXT record value - the verification token to add")
+  dns_record_value: DNSVerificationToken;
+
+  @doc("ISO 8601 timestamp when the verification token expires")
+  token_expires_at: string;
+
+  @doc("Human-readable instructions")
   message: string;
 }
 
 model OrgCompleteSignupRequest {
-  @doc("Signup token received via email")
-  signup_token: OrgSignupToken;
+  @doc("Email address used in init-signup - used to look up pending verification")
+  email: EmailAddress;
 
   @doc("User's chosen password")
   password: Password;
@@ -104,16 +116,16 @@ model OrgLogoutRequest {
 interface OrgInitSignup {
   @tag("OrgUsers")
   @post
-  @doc("Request signup for a new org user. Sends a signup token via email.")
+  @doc("Initialize signup for a new employer. Claims the domain (extracted from email) and returns DNS verification instructions. An email is also sent with the same instructions.")
   initSignup(@body request: OrgInitSignupRequest): {
     @statusCode statusCode: 200;
     @body response: OrgInitSignupResponse;
   } | {
-    @doc("Invalid email format or validation errors")
+    @doc("Invalid email format, personal email domain, or validation errors")
     @statusCode
     statusCode: 400;
   } | {
-    @doc("Email already registered")
+    @doc("Domain already claimed by another employer")
     @statusCode
     statusCode: 409;
   };
@@ -123,7 +135,7 @@ interface OrgInitSignup {
 interface OrgCompleteSignup {
   @tag("OrgUsers")
   @post
-  @doc("Complete signup using the token received via email. Creates the org user account.")
+  @doc("Complete signup by verifying the DNS record. Looks up the pending verification by email, checks DNS for the verification token, and creates the employer and user account if verification passes.")
   completeSignup(@body request: OrgCompleteSignupRequest): {
     @statusCode statusCode: 201;
     @body response: OrgCompleteSignupResponse;
@@ -132,9 +144,13 @@ interface OrgCompleteSignup {
     @statusCode
     statusCode: 400;
   } | {
-    @doc("Invalid or expired signup token")
+    @doc("No pending signup found for this email or verification token expired")
     @statusCode
-    statusCode: 401;
+    statusCode: 404;
+  } | {
+    @doc("DNS verification failed - token not found in DNS TXT records")
+    @statusCode
+    statusCode: 422;
   };
 }
 

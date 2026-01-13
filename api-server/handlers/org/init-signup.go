@@ -19,7 +19,12 @@ import (
 	"vetchium-api-server.gomodule/internal/email/templates"
 	"vetchium-api-server.gomodule/internal/i18n"
 	"vetchium-api-server.gomodule/internal/server"
+	"vetchium-api-server.typespec/common"
 	"vetchium-api-server.typespec/org"
+)
+
+const (
+	dnsRecordPrefix = "_vetchium-verify."
 )
 
 func InitSignup(s *server.Server) http.HandlerFunc {
@@ -42,10 +47,19 @@ func InitSignup(s *server.Server) http.HandlerFunc {
 			return
 		}
 
+		// Extract domain from email
+		parts := strings.Split(string(req.Email), "@")
+		if len(parts) != 2 {
+			log.Debug("invalid email format")
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		domain := strings.ToLower(parts[1])
+
 		// Hash email
 		emailHash := sha256.Sum256([]byte(req.Email))
 
-		// Check if email already registered
+		// Check if email already registered as org user
 		_, err := s.Global.GetOrgUserByEmailHash(ctx, emailHash[:])
 		if err == nil {
 			log.Debug("email already registered")
@@ -57,14 +71,38 @@ func InitSignup(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Generate signup token
+		// Check if domain is already claimed by an existing employer
+		_, err = s.Global.GetGlobalEmployerDomain(ctx, domain)
+		if err == nil {
+			log.Debug("domain already claimed by existing employer", "domain", domain)
+			w.WriteHeader(http.StatusConflict)
+			return
+		} else if !errors.Is(err, pgx.ErrNoRows) {
+			log.Error("failed to query global employer domain", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
+		// Check if domain has a pending (non-expired, non-consumed) signup
+		_, err = s.Global.GetPendingSignupByDomain(ctx, domain)
+		if err == nil {
+			log.Debug("domain has pending signup", "domain", domain)
+			w.WriteHeader(http.StatusConflict)
+			return
+		} else if !errors.Is(err, pgx.ErrNoRows) {
+			log.Error("failed to query pending signup by domain", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
+		// Generate verification token (will be used as DNS TXT value)
 		tokenBytes := make([]byte, 32)
 		if _, err := rand.Read(tokenBytes); err != nil {
 			log.Error("failed to generate token", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
-		signupToken := hex.EncodeToString(tokenBytes)
+		verificationToken := hex.EncodeToString(tokenBytes)
 
 		// Validate and get regional DB for selected region
 		homeRegion := globaldb.Region(strings.ToLower(req.HomeRegion))
@@ -85,14 +123,16 @@ func InitSignup(s *server.Server) http.HandlerFunc {
 		}
 
 		// Store token in global DB
-		expiresAt := pgtype.Timestamp{Time: time.Now().Add(s.TokenConfig.HubSignupTokenExpiry), Valid: true}
+		tokenExpiry := s.TokenConfig.HubSignupTokenExpiry
+		expiresAt := pgtype.Timestamp{Time: time.Now().Add(tokenExpiry), Valid: true}
 		err = s.Global.CreateOrgSignupToken(ctx, globaldb.CreateOrgSignupTokenParams{
-			SignupToken:      signupToken,
+			SignupToken:      verificationToken,
 			EmailAddress:     string(req.Email),
 			EmailAddressHash: emailHash[:],
 			HashingAlgorithm: globaldb.EmailAddressHashingAlgorithmSHA256,
 			ExpiresAt:        expiresAt,
 			HomeRegion:       homeRegion,
+			Domain:           domain,
 		})
 		if err != nil {
 			log.Error("failed to store signup token", "error", err)
@@ -100,35 +140,46 @@ func InitSignup(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Send verification email
+		// Prepare DNS record info
+		dnsRecordName := dnsRecordPrefix + domain
+		expiryHours := int(tokenExpiry.Hours())
+
+		// Send verification email with DNS instructions
 		lang := i18n.Match("en-US") // Default language for signup
-		signupLink := fmt.Sprintf("https://org.vetchium.com/signup/verify?token=%s", signupToken)
-		expiryHours := int(s.TokenConfig.HubSignupTokenExpiry.Hours())
-		err = sendOrgSignupEmail(ctx, regionalDB, string(req.Email), signupLink, lang, expiryHours)
+		err = sendOrgSignupEmail(ctx, regionalDB, string(req.Email), domain, dnsRecordName, verificationToken, lang, expiryHours)
 		if err != nil {
 			log.Error("failed to enqueue signup email", "error", err)
 			// Compensating transaction: delete the signup token we just created
-			if delErr := s.Global.DeleteOrgSignupToken(ctx, signupToken); delErr != nil {
+			if delErr := s.Global.DeleteOrgSignupToken(ctx, verificationToken); delErr != nil {
 				log.Error("failed to cleanup signup token", "error", delErr)
 			}
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		log.Info("org signup verification email sent", "email_hash", hex.EncodeToString(emailHash[:]))
+		log.Info("org signup DNS verification email sent", "email_hash", hex.EncodeToString(emailHash[:]), "domain", domain)
+
+		// Calculate expiry timestamp
+		tokenExpiresAt := time.Now().Add(tokenExpiry).Format(time.RFC3339)
 
 		response := org.OrgInitSignupResponse{
-			Message: "Verification email sent. Please check your inbox.",
+			Domain:         common.DomainName(domain),
+			DNSRecordName:  dnsRecordName,
+			DNSRecordValue: org.DNSVerificationToken(verificationToken),
+			TokenExpiresAt: tokenExpiresAt,
+			Message:        fmt.Sprintf("Please add a TXT record to your DNS settings. The verification token expires in %d hours.", expiryHours),
 		}
 
 		json.NewEncoder(w).Encode(response)
 	}
 }
 
-func sendOrgSignupEmail(ctx context.Context, db *regionaldb.Queries, to string, signupLink string, lang string, expiryHours int) error {
+func sendOrgSignupEmail(ctx context.Context, db *regionaldb.Queries, to string, domain string, dnsRecordName string, dnsRecordValue string, lang string, expiryHours int) error {
 	data := templates.OrgSignupData{
-		SignupLink: signupLink,
-		Hours:      expiryHours,
+		Domain:         domain,
+		DNSRecordName:  dnsRecordName,
+		DNSRecordValue: dnsRecordValue,
+		Hours:          expiryHours,
 	}
 
 	_, err := db.EnqueueEmail(ctx, regionaldb.EnqueueEmailParams{

@@ -376,15 +376,28 @@ SET preferred_language = $2
 WHERE org_user_id = $1;
 
 -- ============================================
--- Org Signup Token Queries
+-- Org Signup Token Queries (DNS-based domain verification)
 -- ============================================
 
 -- name: CreateOrgSignupToken :exec
-INSERT INTO org_signup_tokens (signup_token, email_address, email_address_hash, hashing_algorithm, expires_at, home_region)
-VALUES ($1, $2, $3, $4, $5, $6);
+INSERT INTO org_signup_tokens (signup_token, email_address, email_address_hash, hashing_algorithm, expires_at, home_region, domain)
+VALUES ($1, $2, $3, $4, $5, $6, $7);
 
 -- name: GetOrgSignupToken :one
 SELECT * FROM org_signup_tokens WHERE signup_token = $1 AND expires_at > NOW();
+
+-- name: GetOrgSignupTokenByEmail :one
+-- Get pending signup by email address (for complete-signup flow)
+SELECT * FROM org_signup_tokens
+WHERE email_address = $1 AND expires_at > NOW() AND consumed_at IS NULL
+ORDER BY created_at DESC
+LIMIT 1;
+
+-- name: GetPendingSignupByDomain :one
+-- Check if a domain has a pending (non-expired, non-consumed) signup
+SELECT * FROM org_signup_tokens
+WHERE domain = $1 AND expires_at > NOW() AND consumed_at IS NULL
+LIMIT 1;
 
 -- name: MarkOrgSignupTokenConsumed :exec
 UPDATE org_signup_tokens SET consumed_at = NOW() WHERE signup_token = $1;

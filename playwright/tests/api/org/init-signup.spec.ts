@@ -1,17 +1,16 @@
 import { test, expect } from "@playwright/test";
 import { OrgAPIClient } from "../../../lib/org-api-client";
-import { generateTestEmail, deleteTestOrgUser } from "../../../lib/db";
+import { generateTestOrgEmail } from "../../../lib/db";
 import { waitForEmail, getEmailContent } from "../../../lib/mailpit";
-import { TEST_PASSWORD } from "../../../lib/constants";
 import type { OrgInitSignupRequest } from "vetchium-specs/org/org-users";
 
 test.describe("POST /org/init-signup", () => {
-	test("successful signup sends verification email for any domain", async ({
+	test("successful signup returns DNS verification instructions", async ({
 		request,
 	}) => {
 		const api = new OrgAPIClient(request);
-		// Use any random domain - org signup should work for any domain
-		const userEmail = generateTestEmail("init-signup");
+		// Use unique domain for each test to avoid 409 conflicts
+		const { email: userEmail } = generateTestOrgEmail("init-signup");
 
 		try {
 			const initRequest: OrgInitSignupRequest = {
@@ -21,18 +20,33 @@ test.describe("POST /org/init-signup", () => {
 			const response = await api.initSignup(initRequest);
 
 			expect(response.status).toBe(200);
+
+			// Verify DNS verification response fields
+			expect(response.body.domain).toBeDefined();
+			expect(response.body.dns_record_name).toBeDefined();
+			expect(response.body.dns_record_value).toBeDefined();
+			expect(response.body.token_expires_at).toBeDefined();
 			expect(response.body.message).toBeDefined();
 
-			// Verify email was sent
+			// DNS record name should be _vetchium-verify.<domain>
+			expect(response.body.dns_record_name).toMatch(/^_vetchium-verify\..+$/);
+
+			// DNS record value should be a 64-character hex token
+			expect(response.body.dns_record_value).toMatch(/^[a-f0-9]{64}$/);
+
+			// Token expiry should be a valid ISO 8601 timestamp
+			const expiryDate = new Date(response.body.token_expires_at);
+			expect(expiryDate.getTime()).toBeGreaterThan(Date.now());
+
+			// Verify email was sent with DNS instructions
 			const emailMessage = await waitForEmail(userEmail);
 			expect(emailMessage).toBeDefined();
 			expect(emailMessage.To[0].Address).toBe(userEmail);
 
-			// Check email contains signup link with token
+			// Check email contains DNS instructions
 			const fullEmail = await getEmailContent(emailMessage.ID);
-			expect(fullEmail.HTML).toContain("token=");
-			const tokenMatch = fullEmail.HTML.match(/token=([a-f0-9]{64})/);
-			expect(tokenMatch).toBeDefined();
+			expect(fullEmail.HTML).toContain(response.body.dns_record_name);
+			expect(fullEmail.HTML).toContain(response.body.dns_record_value);
 		} finally {
 			// No cleanup needed - user not fully registered
 		}
@@ -43,7 +57,7 @@ test.describe("POST /org/init-signup", () => {
 		const regions = ["ind1", "usa1", "deu1"];
 
 		for (const region of regions) {
-			const userEmail = generateTestEmail(`signup-${region}`);
+			const { email: userEmail } = generateTestOrgEmail(`signup-${region}`);
 
 			const initRequest: OrgInitSignupRequest = {
 				email: userEmail,
@@ -52,7 +66,9 @@ test.describe("POST /org/init-signup", () => {
 			const response = await api.initSignup(initRequest);
 
 			expect(response.status).toBe(200);
-			expect(response.body.message).toBeDefined();
+			expect(response.body.domain).toBeDefined();
+			expect(response.body.dns_record_name).toBeDefined();
+			expect(response.body.dns_record_value).toBeDefined();
 
 			// Verify email was sent
 			const emailMessage = await waitForEmail(userEmail);
@@ -94,7 +110,7 @@ test.describe("POST /org/init-signup", () => {
 
 	test("missing home_region returns 400", async ({ request }) => {
 		const api = new OrgAPIClient(request);
-		const userEmail = generateTestEmail("missing-region");
+		const { email: userEmail } = generateTestOrgEmail("missing-region");
 
 		const response = await api.initSignupRaw({
 			email: userEmail,
@@ -105,7 +121,7 @@ test.describe("POST /org/init-signup", () => {
 
 	test("invalid home_region returns 400", async ({ request }) => {
 		const api = new OrgAPIClient(request);
-		const userEmail = generateTestEmail("invalid-region");
+		const { email: userEmail } = generateTestOrgEmail("invalid-region");
 
 		const response = await api.initSignupRaw({
 			email: userEmail,
@@ -115,39 +131,34 @@ test.describe("POST /org/init-signup", () => {
 		expect(response.status).toBe(400);
 	});
 
-	test("duplicate signup returns 409", async ({ request }) => {
+	test("same domain pending signup returns 409", async ({ request }) => {
 		const api = new OrgAPIClient(request);
-		const userEmail = generateTestEmail("dup-signup");
+		// Use unique domain prefix but same domain for both emails
+		const domain = `dup-domain-${Date.now()}.test.com`;
+		const userEmail1 = `user1@${domain}`;
+		const userEmail2 = `user2@${domain}`;
 
 		try {
-			// First signup
-			const initRequest: OrgInitSignupRequest = {
-				email: userEmail,
+			// First signup for the domain
+			const initRequest1: OrgInitSignupRequest = {
+				email: userEmail1,
 				home_region: "ind1",
 			};
-			const response1 = await api.initSignup(initRequest);
+			const response1 = await api.initSignup(initRequest1);
 			expect(response1.status).toBe(200);
 
-			// Wait for email
-			const emailMessage = await waitForEmail(userEmail);
-			const fullEmail = await getEmailContent(emailMessage.ID);
-			const tokenMatch = fullEmail.HTML.match(/token=([a-f0-9]{64})/);
-			expect(tokenMatch).toBeDefined();
-			const signupToken = tokenMatch![1];
+			// Wait for email to confirm first signup succeeded
+			await waitForEmail(userEmail1);
 
-			// Complete signup to register the user
-			const completeResponse = await api.completeSignup({
-				signup_token: signupToken,
-				password: TEST_PASSWORD,
-			});
-			expect(completeResponse.status).toBe(201);
-
-			// Try to signup again with same email
-			const response2 = await api.initSignup(initRequest);
+			// Second signup for the same domain should fail with 409
+			const initRequest2: OrgInitSignupRequest = {
+				email: userEmail2,
+				home_region: "ind1",
+			};
+			const response2 = await api.initSignup(initRequest2);
 			expect(response2.status).toBe(409);
 		} finally {
-			// Cleanup
-			await deleteTestOrgUser(userEmail);
+			// No cleanup needed - users not fully registered
 		}
 	});
 
@@ -364,9 +375,9 @@ test.describe("POST /org/init-signup", () => {
 
 		test("company email domain is allowed", async ({ request }) => {
 			const api = new OrgAPIClient(request);
-			const userEmail = generateTestEmail("company-email");
+			// Use unique domain for each test to avoid 409 conflicts
+			const { email: userEmail } = generateTestOrgEmail("company-email");
 
-			// This uses test.vetchium.com which is a company domain
 			const initRequest: OrgInitSignupRequest = {
 				email: userEmail,
 				home_region: "ind1",
@@ -375,7 +386,8 @@ test.describe("POST /org/init-signup", () => {
 
 			// Should succeed - company domains are allowed
 			expect(response.status).toBe(200);
-			expect(response.body.message).toBeDefined();
+			expect(response.body.domain).toBeDefined();
+			expect(response.body.dns_record_name).toBeDefined();
 		});
 
 		test("custom company domain is allowed", async ({ request }) => {

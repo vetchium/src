@@ -4,68 +4,22 @@ import {
 	generateTestEmail,
 	generateTestOrgEmail,
 	deleteTestOrgUser,
-	getTestOrgUser,
-	createTestVerifiedDomain,
+	createTestOrgUserDirect,
 	updateTestOrgUserStatus,
 } from "../../../lib/db";
-import { waitForEmail, getEmailContent } from "../../../lib/mailpit";
+import { waitForEmail } from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
-import type {
-	OrgInitSignupRequest,
-	OrgLoginRequest,
-} from "vetchium-specs/org/org-users";
-
-/**
- * Helper function to create a test org user with a verified domain.
- * Returns the email and domain for use in login tests.
- */
-async function createTestOrgUserWithVerifiedDomain(
-	api: OrgAPIClient,
-	emailPrefix: string
-): Promise<{ email: string; domain: string }> {
-	const { email, domain } = generateTestOrgEmail(emailPrefix);
-
-	// Init signup
-	const initRequest: OrgInitSignupRequest = {
-		email,
-		home_region: "ind1",
-	};
-	const initResponse = await api.initSignup(initRequest);
-	expect(initResponse.status).toBe(200);
-
-	// Wait for email and extract token
-	const emailMessage = await waitForEmail(email);
-	const fullEmail = await getEmailContent(emailMessage.ID);
-	const tokenMatch = fullEmail.HTML.match(/token=([a-f0-9]{64})/);
-	expect(tokenMatch).toBeDefined();
-	const signupToken = tokenMatch![1];
-
-	// Complete signup
-	const completeResponse = await api.completeSignup({
-		signup_token: signupToken,
-		password: TEST_PASSWORD,
-	});
-	expect(completeResponse.status).toBe(201);
-
-	// Get the org user to find employer ID
-	const orgUser = await getTestOrgUser(email);
-	expect(orgUser).toBeDefined();
-
-	// Create a verified domain for the employer
-	await createTestVerifiedDomain(domain, orgUser!.employer_id, "ind1");
-
-	return { email, domain };
-}
+import type { OrgLoginRequest } from "vetchium-specs/org/org-users";
 
 test.describe("POST /employer/login", () => {
 	test("successful login returns TFA token and sends email", async ({
 		request,
 	}) => {
 		const api = new OrgAPIClient(request);
-		const { email, domain } = await createTestOrgUserWithVerifiedDomain(
-			api,
-			"org-login-success"
-		);
+		const { email, domain } = generateTestOrgEmail("org-login-success");
+
+		// Create test org user directly in the database
+		await createTestOrgUserDirect(email, TEST_PASSWORD);
 
 		try {
 			const loginRequest: OrgLoginRequest = {
@@ -91,10 +45,10 @@ test.describe("POST /employer/login", () => {
 
 	test("login with non-existent domain returns 404", async ({ request }) => {
 		const api = new OrgAPIClient(request);
-		const { email, domain } = await createTestOrgUserWithVerifiedDomain(
-			api,
-			"org-login-no-domain"
-		);
+		const { email } = generateTestOrgEmail("org-login-no-domain");
+
+		// Create test org user directly in the database
+		await createTestOrgUserDirect(email, TEST_PASSWORD);
 
 		try {
 			const loginRequest: OrgLoginRequest = {
@@ -112,10 +66,10 @@ test.describe("POST /employer/login", () => {
 
 	test("login with wrong password returns 401", async ({ request }) => {
 		const api = new OrgAPIClient(request);
-		const { email, domain } = await createTestOrgUserWithVerifiedDomain(
-			api,
-			"org-login-wrong-pw"
-		);
+		const { email, domain } = generateTestOrgEmail("org-login-wrong-pw");
+
+		// Create test org user directly in the database
+		await createTestOrgUserDirect(email, TEST_PASSWORD);
 
 		try {
 			const loginRequest: OrgLoginRequest = {
@@ -133,10 +87,10 @@ test.describe("POST /employer/login", () => {
 
 	test("login with non-existent email returns 401", async ({ request }) => {
 		const api = new OrgAPIClient(request);
-		const { email, domain } = await createTestOrgUserWithVerifiedDomain(
-			api,
-			"org-login-no-user"
-		);
+		const { email, domain } = generateTestOrgEmail("org-login-no-user");
+
+		// Create test org user directly in the database
+		await createTestOrgUserDirect(email, TEST_PASSWORD);
 
 		try {
 			const loginRequest: OrgLoginRequest = {
@@ -154,10 +108,10 @@ test.describe("POST /employer/login", () => {
 
 	test("login with disabled account returns 422", async ({ request }) => {
 		const api = new OrgAPIClient(request);
-		const { email, domain } = await createTestOrgUserWithVerifiedDomain(
-			api,
-			"org-login-disabled"
-		);
+		const { email, domain } = generateTestOrgEmail("org-login-disabled");
+
+		// Create test org user directly in the database
+		await createTestOrgUserDirect(email, TEST_PASSWORD);
 
 		try {
 			// Disable the user

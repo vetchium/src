@@ -302,15 +302,27 @@ export async function deleteTestHubUser(email: string): Promise<void> {
 
 /**
  * Gets a regional database pool based on region code.
+ * Uses the correct port for each regional database:
+ * - ind1: port 5433
+ * - usa1: port 5434
+ * - deu1: port 5435
  *
  * @param region - Region code
  * @returns PostgreSQL connection pool for the region
  */
 function getRegionalPool(region: RegionCode): Pool {
-	const dbName = `vetchium_regional_${region}`;
+	const portMap: Record<RegionCode, number> = {
+		ind1: 5433,
+		usa1: 5434,
+		deu1: 5435,
+		sgp1: 5436, // Reserved for future use
+	};
+	const port = portMap[region] || 5433;
+	// Database name is vetchium_<region> (e.g., vetchium_ind1)
+	const dbName = `vetchium_${region}`;
 	return new Pool({
 		host: "localhost",
-		port: 5432,
+		port: port,
 		database: dbName,
 		user: "vetchium",
 		password: "vetchium_dev",
@@ -535,4 +547,79 @@ export function generateTestOrgEmail(prefix: string = "org"): {
 	const domain = `${prefix}-${uuid}.test.vetchium.com`;
 	const email = `user@${domain}`;
 	return { email, domain };
+}
+
+/**
+ * Creates a test org user directly in the database (bypassing the API).
+ * This is necessary because the org signup flow requires DNS verification
+ * which cannot be performed in tests without a mock DNS server.
+ *
+ * Creates:
+ * - An employer in the global database
+ * - A verified domain in global_employer_domains
+ * - An org user in the global database
+ * - An org user with password hash in the regional database
+ *
+ * @param email - Email address for the org user
+ * @param password - Plain text password (will be hashed with bcrypt)
+ * @param region - Home region for the user (default: 'ind1')
+ * @returns Object with email, domain, employerId, and orgUserId
+ */
+export async function createTestOrgUserDirect(
+	email: string,
+	password: string,
+	region: RegionCode = "ind1"
+): Promise<{
+	email: string;
+	domain: string;
+	employerId: string;
+	orgUserId: string;
+}> {
+	const crypto = require("crypto");
+	const emailHash = crypto.createHash("sha256").update(email).digest();
+	const passwordHash = await bcrypt.hash(password, 10);
+
+	// Extract domain from email
+	const parts = email.split("@");
+	if (parts.length !== 2) {
+		throw new Error(`Invalid email format: ${email}`);
+	}
+	const domain = parts[1].toLowerCase();
+
+	// 1. Create employer in global DB
+	const employerId = randomUUID();
+	await pool.query(
+		`INSERT INTO employers (employer_id, employer_name, region)
+     VALUES ($1, $2, $3)`,
+		[employerId, domain, region]
+	);
+
+	// 2. Create verified domain in global DB
+	await pool.query(
+		`INSERT INTO global_employer_domains (domain, region, employer_id, status)
+     VALUES ($1, $2, $3, 'VERIFIED')`,
+		[domain, region, employerId]
+	);
+
+	// 3. Create org user in global DB
+	const orgUserId = randomUUID();
+	await pool.query(
+		`INSERT INTO org_users (org_user_id, email_address_hash, hashing_algorithm, employer_id, status, preferred_language, home_region)
+     VALUES ($1, $2, 'SHA-256', $3, 'active', 'en-US', $4)`,
+		[orgUserId, emailHash, employerId, region]
+	);
+
+	// 4. Create org user in regional DB
+	const regionalPool = getRegionalPool(region);
+	try {
+		await regionalPool.query(
+			`INSERT INTO org_users (org_user_id, email_address, employer_id, password_hash)
+       VALUES ($1, $2, $3, $4)`,
+			[orgUserId, email, employerId, passwordHash]
+		);
+	} finally {
+		await regionalPool.end();
+	}
+
+	return { email, domain, employerId, orgUserId };
 }

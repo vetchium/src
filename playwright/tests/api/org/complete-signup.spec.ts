@@ -1,11 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { OrgAPIClient } from "../../../lib/org-api-client";
-import {
-	generateTestEmail,
-	deleteTestOrgUser,
-	getTestOrgUser,
-} from "../../../lib/db";
-import { waitForEmail, getEmailContent } from "../../../lib/mailpit";
+import { generateTestEmail } from "../../../lib/db";
+import { waitForEmail } from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
 import type {
 	OrgInitSignupRequest,
@@ -13,65 +9,29 @@ import type {
 } from "vetchium-specs/org/org-users";
 
 test.describe("POST /org/complete-signup", () => {
-	test("successful signup completion returns session token", async ({
-		request,
-	}) => {
+	// NOTE: Successful signup completion requires actual DNS verification.
+	// In a real test environment, you would need either:
+	// 1. A mock DNS server that returns expected TXT records
+	// 2. A test mode that bypasses DNS verification
+	// 3. Actually setting up DNS records for test domains
+	//
+	// For now, we test the validation and error cases that don't require DNS.
+
+	test("no pending signup returns 404", async ({ request }) => {
 		const api = new OrgAPIClient(request);
-		const userEmail = generateTestEmail("complete-signup");
+		const userEmail = generateTestEmail("no-pending");
 
-		try {
-			// Init signup first
-			const initRequest: OrgInitSignupRequest = {
-				email: userEmail,
-				home_region: "ind1",
-			};
-			const initResponse = await api.initSignup(initRequest);
-			expect(initResponse.status).toBe(200);
-
-			// Wait for email and extract token
-			const emailMessage = await waitForEmail(userEmail);
-			const fullEmail = await getEmailContent(emailMessage.ID);
-			const tokenMatch = fullEmail.HTML.match(/token=([a-f0-9]{64})/);
-			expect(tokenMatch).toBeDefined();
-			const signupToken = tokenMatch![1];
-
-			// Complete signup
-			const completeRequest: OrgCompleteSignupRequest = {
-				signup_token: signupToken,
-				password: TEST_PASSWORD,
-			};
-			const response = await api.completeSignup(completeRequest);
-
-			expect(response.status).toBe(201);
-			expect(response.body.session_token).toBeDefined();
-			expect(response.body.org_user_id).toBeDefined();
-
-			// Session token should be region-prefixed (e.g., "IND1-...")
-			expect(response.body.session_token).toMatch(/^[A-Z]{3}\d-[a-f0-9]{64}$/);
-
-			// Verify user was created in database
-			const dbUser = await getTestOrgUser(userEmail);
-			expect(dbUser).toBeDefined();
-			expect(dbUser?.status).toBe("active");
-		} finally {
-			// Cleanup
-			await deleteTestOrgUser(userEmail);
-		}
-	});
-
-	test("invalid token returns 401", async ({ request }) => {
-		const api = new OrgAPIClient(request);
-
+		// Try to complete signup without init-signup first
 		const completeRequest: OrgCompleteSignupRequest = {
-			signup_token: "a".repeat(64), // Valid format but non-existent token
+			email: userEmail,
 			password: TEST_PASSWORD,
 		};
 		const response = await api.completeSignup(completeRequest);
 
-		expect(response.status).toBe(401);
+		expect(response.status).toBe(404);
 	});
 
-	test("missing signup_token returns 400", async ({ request }) => {
+	test("missing email returns 400", async ({ request }) => {
 		const api = new OrgAPIClient(request);
 
 		const response = await api.completeSignupRaw({
@@ -83,19 +43,20 @@ test.describe("POST /org/complete-signup", () => {
 
 	test("missing password returns 400", async ({ request }) => {
 		const api = new OrgAPIClient(request);
+		const userEmail = generateTestEmail("missing-pwd");
 
 		const response = await api.completeSignupRaw({
-			signup_token: "a".repeat(64),
+			email: userEmail,
 		});
 
 		expect(response.status).toBe(400);
 	});
 
-	test("empty signup_token returns 400", async ({ request }) => {
+	test("empty email returns 400", async ({ request }) => {
 		const api = new OrgAPIClient(request);
 
 		const response = await api.completeSignupRaw({
-			signup_token: "",
+			email: "",
 			password: TEST_PASSWORD,
 		});
 
@@ -104,9 +65,10 @@ test.describe("POST /org/complete-signup", () => {
 
 	test("empty password returns 400", async ({ request }) => {
 		const api = new OrgAPIClient(request);
+		const userEmail = generateTestEmail("empty-pwd");
 
 		const response = await api.completeSignupRaw({
-			signup_token: "a".repeat(64),
+			email: userEmail,
 			password: "",
 		});
 
@@ -115,19 +77,49 @@ test.describe("POST /org/complete-signup", () => {
 
 	test("weak password returns 400", async ({ request }) => {
 		const api = new OrgAPIClient(request);
+		const userEmail = generateTestEmail("weak-pwd");
 
 		// Password doesn't meet requirements (too short, no special char, etc.)
 		const response = await api.completeSignupRaw({
-			signup_token: "a".repeat(64),
+			email: userEmail,
 			password: "weak",
 		});
 
 		expect(response.status).toBe(400);
 	});
 
-	test("reusing token returns 401 or 409", async ({ request }) => {
+	test("invalid email format returns 400", async ({ request }) => {
 		const api = new OrgAPIClient(request);
-		const userEmail = generateTestEmail("reuse-token");
+
+		const response = await api.completeSignupRaw({
+			email: "not-an-email",
+			password: TEST_PASSWORD,
+		});
+
+		expect(response.status).toBe(400);
+	});
+
+	test("personal email domain returns 400", async ({ request }) => {
+		const api = new OrgAPIClient(request);
+
+		const response = await api.completeSignupRaw({
+			email: "testuser@gmail.com",
+			password: TEST_PASSWORD,
+		});
+
+		expect(response.status).toBe(400);
+		expect(response.errors).toBeDefined();
+
+		const emailError = response.errors!.find(
+			(e: { field: string }) => e.field === "email"
+		);
+		expect(emailError).toBeDefined();
+		expect(emailError!.message).toContain("personal email");
+	});
+
+	test("DNS verification failure returns 422", async ({ request }) => {
+		const api = new OrgAPIClient(request);
+		const userEmail = generateTestEmail("dns-fail");
 
 		try {
 			// Init signup first
@@ -138,27 +130,21 @@ test.describe("POST /org/complete-signup", () => {
 			const initResponse = await api.initSignup(initRequest);
 			expect(initResponse.status).toBe(200);
 
-			// Wait for email and extract token
-			const emailMessage = await waitForEmail(userEmail);
-			const fullEmail = await getEmailContent(emailMessage.ID);
-			const tokenMatch = fullEmail.HTML.match(/token=([a-f0-9]{64})/);
-			expect(tokenMatch).toBeDefined();
-			const signupToken = tokenMatch![1];
+			// Wait for email to confirm init succeeded
+			await waitForEmail(userEmail);
 
-			// First complete signup
+			// Try to complete signup - DNS verification will fail
+			// because there's no actual DNS record for the test domain
 			const completeRequest: OrgCompleteSignupRequest = {
-				signup_token: signupToken,
+				email: userEmail,
 				password: TEST_PASSWORD,
 			};
-			const response1 = await api.completeSignup(completeRequest);
-			expect(response1.status).toBe(201);
+			const response = await api.completeSignup(completeRequest);
 
-			// Try to reuse the same token - returns 401 (token deleted) or 409 (email exists)
-			const response2 = await api.completeSignup(completeRequest);
-			expect([401, 409]).toContain(response2.status);
+			// Should fail with 422 because DNS verification fails
+			expect(response.status).toBe(422);
 		} finally {
-			// Cleanup
-			await deleteTestOrgUser(userEmail);
+			// No cleanup needed - user not fully registered
 		}
 	});
 });

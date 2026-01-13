@@ -1,10 +1,9 @@
 {
-	"subject": "Complete your Vetchium Employer signup",
+	"subject": "Verify your domain for Vetchium Employer Portal",
 	"portal_name": "Vetchium Employer Portal",
-	"body_intro": "Thank you for signing up for Vetchium Employer Portal! Click the button below to complete your account setup.",
-	"button_text": "Complete Signup",
-	"body_click_here": "Click here to complete your signup",
-	"body_expiry": "This link will expire in {{.Hours}} hours.",
+	"body_intro": "Thank you for signing up for Vetchium Employer Portal! To verify your domain ownership, please add the following DNS TXT record.",
+	"body_dns_instructions": "Add a TXT record to your DNS settings for {{.Domain}} with the values shown below.",
+	"body_expiry": "This verification token will expire in {{.Hours}} hours.",
 	"body_ignore": "If you didn't request this signup, please ignore this email.",
 	"footer": "This is an automated message, please do not reply."
 }

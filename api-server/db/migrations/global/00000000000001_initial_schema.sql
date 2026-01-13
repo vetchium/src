@@ -215,12 +215,14 @@ CREATE TABLE org_users (
     UNIQUE (email_address_hash, employer_id)
 );
 
--- Org signup tokens (global - for signup verification)
+-- Org signup tokens (global - for DNS-based signup verification)
 CREATE TABLE org_signup_tokens (
     signup_token TEXT PRIMARY KEY NOT NULL,
     email_address TEXT NOT NULL,
     email_address_hash BYTEA NOT NULL,
     hashing_algorithm email_address_hashing_algorithm NOT NULL DEFAULT 'SHA-256',
+    domain TEXT NOT NULL,
+    home_region region NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     expires_at TIMESTAMP NOT NULL,
     consumed_at TIMESTAMP
@@ -235,6 +237,7 @@ CREATE UNIQUE INDEX idx_hub_user_display_names_preferred
 ON hub_user_display_names (hub_user_global_id) WHERE is_preferred = TRUE;
 CREATE INDEX idx_org_signup_tokens_expires_at ON org_signup_tokens(expires_at);
 CREATE INDEX idx_org_signup_tokens_email_hash ON org_signup_tokens(email_address_hash);
+CREATE INDEX idx_org_signup_tokens_domain ON org_signup_tokens(domain);
 CREATE INDEX idx_org_users_employer_id ON org_users(employer_id);
 CREATE INDEX idx_org_users_email_hash ON org_users(email_address_hash);
 CREATE INDEX idx_global_employer_domains_employer_id ON global_employer_domains(employer_id);
@@ -243,6 +246,7 @@ CREATE INDEX idx_global_employer_domains_employer_id ON global_employer_domains(
 DROP INDEX IF EXISTS idx_global_employer_domains_employer_id;
 DROP INDEX IF EXISTS idx_org_users_email_hash;
 DROP INDEX IF EXISTS idx_org_users_employer_id;
+DROP INDEX IF EXISTS idx_org_signup_tokens_domain;
 DROP INDEX IF EXISTS idx_org_signup_tokens_email_hash;
 DROP INDEX IF EXISTS idx_org_signup_tokens_expires_at;
 DROP INDEX IF EXISTS idx_hub_user_display_names_preferred;

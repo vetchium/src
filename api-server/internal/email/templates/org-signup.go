@@ -9,10 +9,12 @@ import (
 
 const nsOrgSignup = "emails/org_signup"
 
-// OrgSignupData contains data for the org signup verification email
+// OrgSignupData contains data for the org signup DNS verification email
 type OrgSignupData struct {
-	SignupLink string // Full URL to complete signup
-	Hours      int    // Expiry time in hours
+	Domain         string // The domain being verified
+	DNSRecordName  string // DNS TXT record name (e.g., _vetchium-verify.example.com)
+	DNSRecordValue string // DNS TXT record value (verification token)
+	Hours          int    // Expiry time in hours
 }
 
 // OrgSignupSubject returns the localized email subject for org signup
@@ -24,16 +26,22 @@ func OrgSignupSubject(lang string) string {
 func OrgSignupTextBody(lang string, data OrgSignupData) string {
 	portalName := i18n.T(lang, nsOrgSignup, "portal_name")
 	intro := i18n.T(lang, nsOrgSignup, "body_intro")
-	clickHere := i18n.T(lang, nsOrgSignup, "body_click_here")
+	dnsInstructions := i18n.TF(lang, nsOrgSignup, "body_dns_instructions", data)
 	expiry := i18n.TF(lang, nsOrgSignup, "body_expiry", data)
 	ignore := i18n.T(lang, nsOrgSignup, "body_ignore")
 	footer := i18n.T(lang, nsOrgSignup, "footer")
 
-	return fmt.Sprintf(`%s - Complete Your Signup
+	return fmt.Sprintf(`%s - Domain Verification Instructions
 
 %s
 
-%s: %s
+%s
+
+DNS Record Name:
+%s
+
+DNS Record Value:
+%s
 
 %s
 
@@ -42,15 +50,17 @@ func OrgSignupTextBody(lang string, data OrgSignupData) string {
 ---
 %s
 %s
-`, portalName, intro, clickHere, data.SignupLink, expiry, ignore, portalName, footer)
+`, portalName, intro, dnsInstructions, data.DNSRecordName, data.DNSRecordValue, expiry, ignore, portalName, footer)
 }
 
 // OrgSignupHTMLBody returns the localized HTML body for org signup email
 func OrgSignupHTMLBody(lang string, data OrgSignupData) string {
-	escapedLink := html.EscapeString(data.SignupLink)
+	escapedDNSName := html.EscapeString(data.DNSRecordName)
+	escapedDNSValue := html.EscapeString(data.DNSRecordValue)
+	escapedDomain := html.EscapeString(data.Domain)
 	portalName := html.EscapeString(i18n.T(lang, nsOrgSignup, "portal_name"))
 	intro := html.EscapeString(i18n.T(lang, nsOrgSignup, "body_intro"))
-	buttonText := html.EscapeString(i18n.T(lang, nsOrgSignup, "button_text"))
+	dnsInstructions := html.EscapeString(i18n.TF(lang, nsOrgSignup, "body_dns_instructions", data))
 	expiry := html.EscapeString(i18n.TF(lang, nsOrgSignup, "body_expiry", data))
 	ignore := html.EscapeString(i18n.T(lang, nsOrgSignup, "body_ignore"))
 	footer := html.EscapeString(i18n.T(lang, nsOrgSignup, "footer"))
@@ -66,13 +76,13 @@ func OrgSignupHTMLBody(lang string, data OrgSignupData) string {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Complete Your Signup</title>
+    <title>Domain Verification Instructions</title>
 </head>
 <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5;">
     <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%%" style="background-color: #f5f5f5;">
         <tr>
             <td style="padding: 40px 20px;">
-                <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%%" style="max-width: 480px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%%" style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                     <!-- Header -->
                     <tr>
                         <td style="padding: 32px 32px 24px; text-align: center; border-bottom: 1px solid #eee;">
@@ -85,8 +95,19 @@ func OrgSignupHTMLBody(lang string, data OrgSignupData) string {
                             <p style="margin: 0 0 24px; font-size: 16px; line-height: 24px; color: #333333;">
                                 %s
                             </p>
-                            <div style="text-align: center; margin: 32px 0;">
-                                <a href="%s" style="display: inline-block; padding: 14px 32px; background-color: #2563eb; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 16px; font-weight: 600;">%s</a>
+                            <p style="margin: 0 0 16px; font-size: 14px; line-height: 20px; color: #666666;">
+                                %s
+                            </p>
+                            <!-- DNS Record Box -->
+                            <div style="background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 6px; padding: 20px; margin: 24px 0;">
+                                <p style="margin: 0 0 8px; font-size: 12px; font-weight: 600; color: #6c757d; text-transform: uppercase;">Domain</p>
+                                <p style="margin: 0 0 16px; font-size: 14px; font-family: monospace; color: #212529; word-break: break-all;">%s</p>
+
+                                <p style="margin: 0 0 8px; font-size: 12px; font-weight: 600; color: #6c757d; text-transform: uppercase;">DNS Record Name (TXT)</p>
+                                <p style="margin: 0 0 16px; font-size: 14px; font-family: monospace; color: #212529; word-break: break-all; background-color: #fff; padding: 10px; border-radius: 4px;">%s</p>
+
+                                <p style="margin: 0 0 8px; font-size: 12px; font-weight: 600; color: #6c757d; text-transform: uppercase;">DNS Record Value</p>
+                                <p style="margin: 0; font-size: 14px; font-family: monospace; color: #212529; word-break: break-all; background-color: #fff; padding: 10px; border-radius: 4px;">%s</p>
                             </div>
                             <p style="margin: 24px 0 0; font-size: 14px; line-height: 20px; color: #666666;">
                                 %s
@@ -109,5 +130,5 @@ func OrgSignupHTMLBody(lang string, data OrgSignupData) string {
         </tr>
     </table>
 </body>
-</html>`, htmlLang, portalName, intro, escapedLink, buttonText, expiry, ignore, footer)
+</html>`, htmlLang, portalName, intro, dnsInstructions, escapedDomain, escapedDNSName, escapedDNSValue, expiry, ignore, footer)
 }

@@ -1,59 +1,57 @@
 import { test, expect } from "@playwright/test";
 import { OrgAPIClient } from "../../../lib/org-api-client";
 import {
-	createTestAdminUser,
-	deleteTestAdminUser,
-	createTestApprovedDomain,
-	permanentlyDeleteTestApprovedDomain,
-	generateTestEmail,
-	generateTestDomainName,
+	generateTestOrgEmail,
 	deleteTestOrgUser,
 	deleteTestGlobalEmployerDomain,
+	createTestOrgUserDirect,
+	generateTestDomainName,
 } from "../../../lib/db";
-import { waitForEmail, getEmailContent } from "../../../lib/mailpit";
+import { getTfaCodeFromEmail, deleteEmailsFor } from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
 import type {
-	OrgInitSignupRequest,
-	OrgCompleteSignupRequest,
+	OrgLoginRequest,
+	OrgTFARequest,
 } from "vetchium-specs/org/org-users";
 import type { ClaimDomainRequest } from "vetchium-specs/orgdomains/orgdomains";
 
 /**
- * Helper to create an org user and return the session token.
+ * Helper to create an org user directly in DB and return the session token via login.
  */
 async function createOrgUserAndGetSession(
 	api: OrgAPIClient,
-	domainName: string
+	emailPrefix: string
 ): Promise<{ email: string; sessionToken: string }> {
-	const userEmail = `claim-${Date.now()}@${domainName}`;
+	const { email, domain } = generateTestOrgEmail(emailPrefix);
 
-	// Init signup
-	const initRequest: OrgInitSignupRequest = {
-		email: userEmail,
-		home_region: "ind1",
-	};
-	const initResponse = await api.initSignup(initRequest);
-	expect(initResponse.status).toBe(200);
+	// Create test org user directly in the database
+	await createTestOrgUserDirect(email, TEST_PASSWORD);
 
-	// Wait for email and extract token
-	const emailMessage = await waitForEmail(userEmail);
-	const fullEmail = await getEmailContent(emailMessage.ID);
-	const tokenMatch = fullEmail.HTML.match(/token=([a-f0-9]{64})/);
-	expect(tokenMatch).toBeDefined();
-	const signupToken = tokenMatch![1];
+	// Clear any existing emails for this address
+	await deleteEmailsFor(email);
 
-	// Complete signup
-	const completeRequest: OrgCompleteSignupRequest = {
-		signup_token: signupToken,
+	// Login to get TFA token
+	const loginRequest: OrgLoginRequest = {
+		email,
+		domain,
 		password: TEST_PASSWORD,
 	};
-	const completeResponse = await api.completeSignup(completeRequest);
-	expect(completeResponse.status).toBe(201);
+	const loginResponse = await api.login(loginRequest);
+	expect(loginResponse.status).toBe(200);
+	expect(loginResponse.body.tfa_token).toBeDefined();
 
-	return {
-		email: userEmail,
-		sessionToken: completeResponse.body.session_token,
+	// Get TFA code from email and verify
+	const tfaCode = await getTfaCodeFromEmail(email);
+	const tfaRequest: OrgTFARequest = {
+		tfa_token: loginResponse.body.tfa_token,
+		tfa_code: tfaCode,
+		remember_me: false,
 	};
+	const tfaResponse = await api.verifyTFA(tfaRequest);
+	expect(tfaResponse.status).toBe(200);
+	expect(tfaResponse.body.session_token).toBeDefined();
+
+	return { email, sessionToken: tfaResponse.body.session_token };
 }
 
 test.describe("POST /org/claim-domain", () => {
@@ -61,21 +59,14 @@ test.describe("POST /org/claim-domain", () => {
 		request,
 	}) => {
 		const api = new OrgAPIClient(request);
-		const domainName = generateTestDomainName("claim-test");
-		const adminEmail = generateTestEmail("claim-test-admin");
-
-		// Create admin user and approved domain
-		await createTestAdminUser(adminEmail, TEST_PASSWORD);
-		await createTestApprovedDomain(domainName, adminEmail);
-
 		let userEmail = "";
 		const claimedDomain = generateTestDomainName("claimed");
 
 		try {
-			// Create org user
+			// Create org user directly in DB and get session via login
 			const { email, sessionToken } = await createOrgUserAndGetSession(
 				api,
-				domainName
+				"claim-success"
 			);
 			userEmail = email;
 
@@ -95,8 +86,6 @@ test.describe("POST /org/claim-domain", () => {
 			// Cleanup
 			await deleteTestGlobalEmployerDomain(claimedDomain);
 			if (userEmail) await deleteTestOrgUser(userEmail);
-			await permanentlyDeleteTestApprovedDomain(domainName);
-			await deleteTestAdminUser(adminEmail);
 		}
 	});
 
@@ -127,18 +116,12 @@ test.describe("POST /org/claim-domain", () => {
 
 	test("missing domain returns 400", async ({ request }) => {
 		const api = new OrgAPIClient(request);
-		const domainName = generateTestDomainName("missing-domain");
-		const adminEmail = generateTestEmail("missing-domain-admin");
-
-		await createTestAdminUser(adminEmail, TEST_PASSWORD);
-		await createTestApprovedDomain(domainName, adminEmail);
-
 		let userEmail = "";
 
 		try {
 			const { email, sessionToken } = await createOrgUserAndGetSession(
 				api,
-				domainName
+				"claim-missing-domain"
 			);
 			userEmail = email;
 
@@ -147,25 +130,17 @@ test.describe("POST /org/claim-domain", () => {
 			expect(response.status).toBe(400);
 		} finally {
 			if (userEmail) await deleteTestOrgUser(userEmail);
-			await permanentlyDeleteTestApprovedDomain(domainName);
-			await deleteTestAdminUser(adminEmail);
 		}
 	});
 
 	test("empty domain returns 400", async ({ request }) => {
 		const api = new OrgAPIClient(request);
-		const domainName = generateTestDomainName("empty-domain");
-		const adminEmail = generateTestEmail("empty-domain-admin");
-
-		await createTestAdminUser(adminEmail, TEST_PASSWORD);
-		await createTestApprovedDomain(domainName, adminEmail);
-
 		let userEmail = "";
 
 		try {
 			const { email, sessionToken } = await createOrgUserAndGetSession(
 				api,
-				domainName
+				"claim-empty-domain"
 			);
 			userEmail = email;
 
@@ -174,25 +149,17 @@ test.describe("POST /org/claim-domain", () => {
 			expect(response.status).toBe(400);
 		} finally {
 			if (userEmail) await deleteTestOrgUser(userEmail);
-			await permanentlyDeleteTestApprovedDomain(domainName);
-			await deleteTestAdminUser(adminEmail);
 		}
 	});
 
 	test("invalid domain format returns 400", async ({ request }) => {
 		const api = new OrgAPIClient(request);
-		const domainName = generateTestDomainName("invalid-format");
-		const adminEmail = generateTestEmail("invalid-format-admin");
-
-		await createTestAdminUser(adminEmail, TEST_PASSWORD);
-		await createTestApprovedDomain(domainName, adminEmail);
-
 		let userEmail = "";
 
 		try {
 			const { email, sessionToken } = await createOrgUserAndGetSession(
 				api,
-				domainName
+				"claim-invalid-format"
 			);
 			userEmail = email;
 
@@ -203,26 +170,18 @@ test.describe("POST /org/claim-domain", () => {
 			expect(response.status).toBe(400);
 		} finally {
 			if (userEmail) await deleteTestOrgUser(userEmail);
-			await permanentlyDeleteTestApprovedDomain(domainName);
-			await deleteTestAdminUser(adminEmail);
 		}
 	});
 
 	test("duplicate domain claim returns 409", async ({ request }) => {
 		const api = new OrgAPIClient(request);
-		const domainName = generateTestDomainName("dup-claim");
-		const adminEmail = generateTestEmail("dup-claim-admin");
-
-		await createTestAdminUser(adminEmail, TEST_PASSWORD);
-		await createTestApprovedDomain(domainName, adminEmail);
-
 		let userEmail = "";
 		const claimedDomain = generateTestDomainName("dup-claimed");
 
 		try {
 			const { email, sessionToken } = await createOrgUserAndGetSession(
 				api,
-				domainName
+				"claim-duplicate"
 			);
 			userEmail = email;
 
@@ -239,8 +198,6 @@ test.describe("POST /org/claim-domain", () => {
 		} finally {
 			await deleteTestGlobalEmployerDomain(claimedDomain);
 			if (userEmail) await deleteTestOrgUser(userEmail);
-			await permanentlyDeleteTestApprovedDomain(domainName);
-			await deleteTestAdminUser(adminEmail);
 		}
 	});
 });

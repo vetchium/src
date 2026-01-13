@@ -1,10 +1,9 @@
 {
-	"subject": "Schließen Sie Ihre Vetchium-Arbeitgeber-Registrierung ab",
+	"subject": "Verifizieren Sie Ihre Domain für das Vetchium Arbeitgeber-Portal",
 	"portal_name": "Vetchium Arbeitgeber-Portal",
-	"body_intro": "Vielen Dank für Ihre Registrierung beim Vetchium Arbeitgeber-Portal! Klicken Sie auf die Schaltfläche unten, um Ihre Kontoeinrichtung abzuschließen.",
-	"button_text": "Registrierung abschließen",
-	"body_click_here": "Klicken Sie hier, um Ihre Registrierung abzuschließen",
-	"body_expiry": "Dieser Link läuft in {{.Hours}} Stunden ab.",
+	"body_intro": "Vielen Dank für Ihre Registrierung beim Vetchium Arbeitgeber-Portal! Um den Besitz Ihrer Domain zu verifizieren, fügen Sie bitte den folgenden DNS TXT-Eintrag hinzu.",
+	"body_dns_instructions": "Fügen Sie einen TXT-Eintrag zu Ihren DNS-Einstellungen für {{.Domain}} mit den unten angezeigten Werten hinzu.",
+	"body_expiry": "Dieses Verifizierungs-Token läuft in {{.Hours}} Stunden ab.",
 	"body_ignore": "Wenn Sie diese Registrierung nicht angefordert haben, ignorieren Sie bitte diese E-Mail.",
 	"footer": "Dies ist eine automatische Nachricht, bitte antworten Sie nicht."
 }
