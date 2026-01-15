@@ -1,18 +1,16 @@
 import { Form, Input, Button, Alert, Spin } from "antd";
-import { LockOutlined, UserOutlined } from "@ant-design/icons";
+import { LockOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { getApiBaseUrl } from "../config";
 import {
 	PASSWORD_MIN_LENGTH,
 	PASSWORD_MAX_LENGTH,
-	EMAIL_MIN_LENGTH,
-	EMAIL_MAX_LENGTH,
 } from "vetchium-specs/common/common";
 import type { OrgCompleteSignupRequest } from "vetchium-specs/org/org-users";
 
 interface SignupCompleteFormValues {
-	email: string;
 	password: string;
 	confirmPassword: string;
 }
@@ -30,15 +28,30 @@ export function SignupCompleteForm() {
 	const [form] = Form.useForm<SignupCompleteFormValues>();
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [searchParams] = useSearchParams();
+	const navigate = useNavigate();
+
+	const token = searchParams.get("token");
+
+	useEffect(() => {
+		if (!token) {
+			setError(t("signupComplete.missingToken"));
+		}
+	}, [token, t]);
 
 	const handleSubmit = async (values: SignupCompleteFormValues) => {
+		if (!token) {
+			setError(t("signupComplete.missingToken"));
+			return;
+		}
+
 		setLoading(true);
 		setError(null);
 
 		try {
 			const apiBaseUrl = await getApiBaseUrl();
 			const request: OrgCompleteSignupRequest = {
-				email: values.email,
+				signup_token: token,
 				password: values.password,
 			};
 
@@ -111,33 +124,6 @@ export function SignupCompleteForm() {
 				)}
 
 				<Form.Item
-					name="email"
-					rules={[
-						{ required: true, message: t("signupComplete.emailRequired") },
-						{ type: "email", message: t("signupComplete.emailInvalid") },
-						{
-							min: EMAIL_MIN_LENGTH,
-							message: t("signupComplete.emailMinLength", {
-								min: EMAIL_MIN_LENGTH,
-							}),
-						},
-						{
-							max: EMAIL_MAX_LENGTH,
-							message: t("signupComplete.emailMaxLength", {
-								max: EMAIL_MAX_LENGTH,
-							}),
-						},
-					]}
-				>
-					<Input
-						prefix={<UserOutlined />}
-						placeholder={t("signupComplete.email")}
-						size="large"
-						autoComplete="email"
-					/>
-				</Form.Item>
-
-				<Form.Item
 					name="password"
 					rules={[
 						{ required: true, message: t("signupComplete.passwordRequired") },
@@ -199,6 +185,7 @@ export function SignupCompleteForm() {
 							size="large"
 							block
 							disabled={
+								!token ||
 								!form.isFieldsTouched(true) ||
 								form.getFieldsError().some(({ errors }) => errors.length > 0)
 							}

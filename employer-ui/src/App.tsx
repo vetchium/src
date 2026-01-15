@@ -114,7 +114,7 @@ function AppContent() {
 								}
 							/>
 							<Route
-								path="/signup/verify"
+								path="/complete-signup"
 								element={
 									<AuthRoute>
 										<SignupCompletePage />
