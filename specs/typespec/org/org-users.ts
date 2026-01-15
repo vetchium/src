@@ -89,6 +89,8 @@ export interface OrgCompleteSignupResponse {
 	org_user_id: string;
 }
 
+
+
 // ============================================
 // Login Flow
 // ============================================
@@ -172,4 +174,4 @@ export interface OrgTFAResponse {
 }
 
 // OrgLogoutRequest is empty - session token passed via Authorization header
-export interface OrgLogoutRequest {}
+export interface OrgLogoutRequest { }

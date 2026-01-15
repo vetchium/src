@@ -62,6 +62,8 @@ model OrgCompleteSignupResponse {
   org_user_id: string;
 }
 
+
+
 // ============================================
 // Login Flow
 // ============================================
@@ -151,6 +153,7 @@ interface OrgCompleteSignup {
     @doc("DNS verification failed - token not found in DNS TXT records")
     @statusCode
     statusCode: 422;
+
   };
 }
 

@@ -95,9 +95,20 @@ export function SignupCompleteForm() {
 				return;
 			}
 
+			if (response.status === 422) {
+				setError(t("signupComplete.dnsNotVerified"));
+				return;
+			}
+
 			setError(t("signupComplete.failed"));
 		} catch (err) {
-			setError(err instanceof Error ? err.message : t("signupComplete.failed"));
+			if (err instanceof Error && err.message === "Failed to fetch") {
+				setError(t("signupComplete.networkError"));
+			} else {
+				setError(
+					err instanceof Error ? err.message : t("signupComplete.failed")
+				);
+			}
 		} finally {
 			setLoading(false);
 		}

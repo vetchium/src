@@ -110,6 +110,7 @@ test.describe("POST /org/complete-signup", () => {
 			const response = await api.completeSignup(completeRequest);
 
 			// Should fail with 422 because DNS verification fails
+			// Should fail with 422 because DNS verification fails
 			expect(response.status).toBe(422);
 		} finally {
 			// No cleanup needed - user not fully registered
