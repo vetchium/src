@@ -64,29 +64,35 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 		dnsVerificationToken := tokenRecord.SignupToken
 
 		// Perform DNS TXT lookup to verify domain ownership
-		dnsRecordName := dnsRecordPrefix + domain
-		txtRecords, err := net.LookupTXT(dnsRecordName)
-		if err != nil {
-			log.Debug("DNS lookup failed", "error", err, "record_name", dnsRecordName)
-			w.WriteHeader(http.StatusUnprocessableEntity)
-			return
-		}
+		var tokenFound bool
 
-		// Check if any TXT record matches the DNS verification token
-		tokenFound := false
-		for _, record := range txtRecords {
-			// TXT records may have quotes stripped or present, handle both
-			cleanRecord := strings.Trim(record, "\"")
-			if cleanRecord == dnsVerificationToken {
-				tokenFound = true
-				break
+		if s.Environment == "DEV" && domain == "example.com" {
+			log.Info("skipping DNS verification for example.com in DEV environment", "domain", domain)
+			tokenFound = true
+		} else {
+			dnsRecordName := dnsRecordPrefix + domain
+			txtRecords, err := net.LookupTXT(dnsRecordName)
+			if err != nil {
+				log.Debug("DNS lookup failed", "error", err, "record_name", dnsRecordName)
+				w.WriteHeader(http.StatusUnprocessableEntity)
+				return
 			}
-		}
 
-		if !tokenFound {
-			log.Debug("DNS verification failed - token not found in TXT records", "domain", domain, "expected_token_prefix", dnsVerificationToken[:8])
-			w.WriteHeader(http.StatusUnprocessableEntity)
-			return
+			// Check if any TXT record matches the DNS verification token
+			for _, record := range txtRecords {
+				// TXT records may have quotes stripped or present, handle both
+				cleanRecord := strings.Trim(record, "\"")
+				if cleanRecord == dnsVerificationToken {
+					tokenFound = true
+					break
+				}
+			}
+
+			if !tokenFound {
+				log.Debug("DNS verification failed - token not found in TXT records", "domain", domain, "expected_token_prefix", dnsVerificationToken[:8])
+				w.WriteHeader(http.StatusUnprocessableEntity)
+				return
+			}
 		}
 
 		log.Info("DNS verification successful", "domain", domain)

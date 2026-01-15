@@ -33,6 +33,7 @@ type Server struct {
 	SMTPConfig    *email.SMTPConfig
 	CurrentRegion globaldb.Region
 	TokenConfig   *TokenConfig
+	Environment   string
 }
 
 func (s *Server) GetRegionalDB(region globaldb.Region) *regionaldb.Queries {

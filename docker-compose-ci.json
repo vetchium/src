@@ -250,6 +250,7 @@
 			},
 			"environment": {
 				"REGION": "ind1",
+				"ENV": "DEV",
 				"LOG_LEVEL": "DEBUG",
 				"GLOBAL_DB_CONN": "postgres://vetchium:vetchium_dev@global-db:5432/vetchium_global?sslmode=disable",
 				"REGIONAL_DB_IND1_CONN": "postgres://vetchium:vetchium_dev@regional-db-ind1:5432/vetchium_ind1?sslmode=disable",
@@ -294,6 +295,7 @@
 			},
 			"environment": {
 				"REGION": "usa1",
+				"ENV": "DEV",
 				"LOG_LEVEL": "DEBUG",
 				"GLOBAL_DB_CONN": "postgres://vetchium:vetchium_dev@global-db:5432/vetchium_global?sslmode=disable",
 				"REGIONAL_DB_IND1_CONN": "postgres://vetchium:vetchium_dev@regional-db-ind1:5432/vetchium_ind1?sslmode=disable",
@@ -338,6 +340,7 @@
 			},
 			"environment": {
 				"REGION": "deu1",
+				"ENV": "DEV",
 				"LOG_LEVEL": "DEBUG",
 				"GLOBAL_DB_CONN": "postgres://vetchium:vetchium_dev@global-db:5432/vetchium_global?sslmode=disable",
 				"REGIONAL_DB_IND1_CONN": "postgres://vetchium:vetchium_dev@regional-db-ind1:5432/vetchium_ind1?sslmode=disable",

@@ -85,6 +85,10 @@ func main() {
 	tokenConfig := bgjobs.TokenConfigFromEnv()
 
 	currentRegion := globaldb.Region(region)
+	environment := os.Getenv("ENV")
+	if environment == "" {
+		environment = "PROD" // Default to PROD if not specified
+	}
 
 	s := &server.Server{
 		Global:        globaldb.New(globalConn),
@@ -95,6 +99,7 @@ func main() {
 		SMTPConfig:    smtpConfig,
 		CurrentRegion: currentRegion,
 		TokenConfig:   tokenConfig,
+		Environment:   environment,
 	}
 
 	// Setup graceful shutdown context
