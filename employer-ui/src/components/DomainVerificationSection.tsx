@@ -252,7 +252,7 @@ export function DomainVerificationSection() {
 				{error && (
 					<Alert
 						type="error"
-						title={error}
+						description={error}
 						closable={{ afterClose: clearError }}
 						style={{ marginBottom: 16 }}
 					/>
@@ -261,7 +261,7 @@ export function DomainVerificationSection() {
 				{verifyResult?.message && (
 					<Alert
 						type={verifyResult.status === "VERIFIED" ? "success" : "info"}
-						title={verifyResult.message}
+						description={verifyResult.message}
 						style={{ marginBottom: 16 }}
 					/>
 				)}

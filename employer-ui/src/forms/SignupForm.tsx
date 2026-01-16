@@ -144,7 +144,7 @@ export function SignupForm() {
 				{error && (
 					<Alert
 						type="error"
-						title={error}
+						description={error}
 						closable={{ afterClose: clearError }}
 						style={{ marginBottom: 16 }}
 					/>
