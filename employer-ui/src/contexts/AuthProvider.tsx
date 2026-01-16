@@ -1,5 +1,9 @@
 import { useState, useEffect, useCallback, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import {
+	type OrgTFARequest,
+	validateOrgTFARequest,
+} from "vetchium-specs/org/org-users";
 import { getApiBaseUrl } from "../config";
 import { setStoredLanguage, type SupportedLanguage } from "../i18n";
 import { AuthContext, type AuthState } from "./AuthContext";
@@ -19,9 +23,11 @@ function getSessionToken(): string | null {
 	return null;
 }
 
-function setSessionToken(token: string): void {
+function setSessionToken(token: string, rememberMe: boolean): void {
 	const expires = new Date();
-	expires.setTime(expires.getTime() + 24 * 60 * 60 * 1000);
+	// If remember_me, session lasts 365 days; otherwise 24 hours
+	const expiryHours = rememberMe ? 365 * 24 : 24;
+	expires.setTime(expires.getTime() + expiryHours * 60 * 60 * 1000);
 	document.cookie = `${SESSION_COOKIE_NAME}=${encodeURIComponent(token)}; expires=${expires.toUTCString()}; path=/; SameSite=Strict`;
 }
 
@@ -117,7 +123,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 	);
 
 	const verifyTFA = useCallback(
-		async (tfaCode: string) => {
+		async (tfaCode: string, rememberMe: boolean) => {
 			if (!tfaToken) {
 				setError(t("tfa.tokenMissing"));
 				setAuthState("login");
@@ -127,15 +133,26 @@ export function AuthProvider({ children }: AuthProviderProps) {
 			setLoading(true);
 			setError(null);
 
+			const tfaRequest: OrgTFARequest = {
+				tfa_token: tfaToken,
+				tfa_code: tfaCode,
+				remember_me: rememberMe,
+			};
+
+			// Validate using typespec validator
+			const validationErrors = validateOrgTFARequest(tfaRequest);
+			if (validationErrors.length > 0) {
+				setError(formatValidationErrors(validationErrors));
+				setLoading(false);
+				return;
+			}
+
 			try {
 				const apiBaseUrl = await getApiBaseUrl();
 				const response = await fetch(`${apiBaseUrl}/employer/tfa`, {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({
-						tfa_token: tfaToken,
-						tfa_code: tfaCode,
-					}),
+					body: JSON.stringify(tfaRequest),
 				});
 
 				if (response.status === 400) {
@@ -172,7 +189,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 				}
 
 				const data = await response.json();
-				setSessionToken(data.session_token);
+				setSessionToken(data.session_token, rememberMe);
 				setSessionTokenState(data.session_token);
 				setTfaToken(null);
 				setAuthState("authenticated");
