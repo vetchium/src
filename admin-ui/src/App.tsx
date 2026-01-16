@@ -1,4 +1,5 @@
 import { App as AntApp, ConfigProvider, Layout, theme as antTheme } from "antd";
+import { I18nextProvider } from "react-i18next";
 import { ThemeProvider } from "./contexts/ThemeProvider";
 import { useTheme } from "./hooks/useTheme";
 import { AuthProvider } from "./contexts/AuthProvider";
@@ -17,7 +18,7 @@ import {
 	useLocation,
 } from "react-router-dom";
 import { NotFoundPage } from "./pages/NotFoundPage";
-import "./i18n";
+import i18n from "./i18n";
 
 const { Content } = Layout;
 
@@ -139,15 +140,17 @@ function AppContent() {
 
 function App() {
 	return (
-		<BrowserRouter>
+		<I18nextProvider i18n={i18n}>
 			<LanguageProvider>
 				<ThemeProvider>
 					<AuthProvider>
-						<AppContent />
+						<BrowserRouter>
+							<AppContent />
+						</BrowserRouter>
 					</AuthProvider>
 				</ThemeProvider>
 			</LanguageProvider>
-		</BrowserRouter>
+		</I18nextProvider>
 	);
 }
 
