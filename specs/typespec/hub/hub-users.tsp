@@ -79,7 +79,7 @@ model CompleteSignupResponse {
 }
 
 model HubLoginRequest {
-    email: EmailAddress;
+    email_address: EmailAddress;
     password: Password;
 }
 
