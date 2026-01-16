@@ -12,9 +12,7 @@ import {
 	generateTestDomainName,
 	extractSignupTokenFromEmail,
 } from "../../../lib/db";
-import {
-	getTfaCodeFromEmail,
-} from "../../../lib/mailpit";
+import { getTfaCodeFromEmail } from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
 import type {
 	CompleteSignupRequest,
