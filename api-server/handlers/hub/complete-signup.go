@@ -21,9 +21,6 @@ import (
 	"vetchium-api-server.typespec/hub"
 )
 
-const (
-	sessionTokenExpiry = 24 * time.Hour
-)
 
 func CompleteSignup(s *server.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -223,7 +220,7 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 		sessionToken := tokens.AddRegionPrefix(globaldb.Region(req.HomeRegion), rawSessionToken)
 
 		// Create session in regional DB (raw token without prefix)
-		sessionExpiresAt := pgtype.Timestamp{Time: time.Now().Add(sessionTokenExpiry), Valid: true}
+		sessionExpiresAt := pgtype.Timestamp{Time: time.Now().Add(s.TokenConfig.HubSessionTokenExpiry), Valid: true}
 		err = regionalDB.CreateHubSession(ctx, regionaldb.CreateHubSessionParams{
 			SessionToken:    rawSessionToken,
 			HubUserGlobalID: hubUserGlobalID,

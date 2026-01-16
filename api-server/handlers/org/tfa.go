@@ -119,12 +119,11 @@ func TFA(s *server.Server) http.HandlerFunc {
 		sessionToken := tokens.AddRegionPrefix(region, rawSessionToken)
 
 		// Determine session expiry based on remember_me flag
-		// Using same defaults as hub: 24 hours normal, 365 days for remember_me
 		var sessionExpiry time.Duration
 		if tfaRequest.RememberMe {
-			sessionExpiry = 365 * 24 * time.Hour // 365 days
+			sessionExpiry = s.TokenConfig.OrgRememberMeExpiry
 		} else {
-			sessionExpiry = 24 * time.Hour // 24 hours
+			sessionExpiry = s.TokenConfig.OrgSessionTokenExpiry
 		}
 
 		// Store session in regional database (raw token without prefix)

@@ -92,6 +92,24 @@ func TokenConfigFromEnv() *server.TokenConfig {
 		24*time.Hour,
 	)
 
+	// Org token expiry durations
+	orgSignupExpiry := parseDurationOrDefault(
+		os.Getenv("ORG_SIGNUP_TOKEN_EXPIRY"),
+		24*time.Hour,
+	)
+	orgTFAExpiry := parseDurationOrDefault(
+		os.Getenv("ORG_TFA_TOKEN_EXPIRY"),
+		10*time.Minute,
+	)
+	orgSessionExpiry := parseDurationOrDefault(
+		os.Getenv("ORG_SESSION_TOKEN_EXPIRY"),
+		24*time.Hour,
+	)
+	orgRememberMeExpiry := parseDurationOrDefault(
+		os.Getenv("ORG_REMEMBER_ME_EXPIRY"),
+		365*24*time.Hour,
+	)
+
 	return &server.TokenConfig{
 		HubSignupTokenExpiry:    hubSignupExpiry,
 		HubTFATokenExpiry:       hubTFAExpiry,
@@ -99,6 +117,10 @@ func TokenConfigFromEnv() *server.TokenConfig {
 		HubRememberMeExpiry:     hubRememberMeExpiry,
 		AdminTFATokenExpiry:     adminTFAExpiry,
 		AdminSessionTokenExpiry: adminSessionExpiry,
+		OrgSignupTokenExpiry:    orgSignupExpiry,
+		OrgTFATokenExpiry:       orgTFAExpiry,
+		OrgSessionTokenExpiry:   orgSessionExpiry,
+		OrgRememberMeExpiry:     orgRememberMeExpiry,
 	}
 }
 

@@ -138,8 +138,7 @@ func Login(s *server.Server) http.HandlerFunc {
 		}
 
 		// Store TFA token in regional database
-		// Use org-specific token expiry (default 10 minutes like hub)
-		tfaTokenExpiry := 10 * time.Minute
+		tfaTokenExpiry := s.TokenConfig.OrgTFATokenExpiry
 		expiresAt := pgtype.Timestamp{Time: time.Now().Add(tfaTokenExpiry), Valid: true}
 		err = regionalDB.CreateOrgTFAToken(ctx, regionaldb.CreateOrgTFATokenParams{
 			TfaToken:  rawTFAToken,

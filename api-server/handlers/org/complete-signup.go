@@ -20,9 +20,6 @@ import (
 	"vetchium-api-server.typespec/org"
 )
 
-const (
-	sessionTokenExpiry = 24 * time.Hour
-)
 
 func CompleteSignup(s *server.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -195,7 +192,7 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 		sessionToken := tokens.AddRegionPrefix(region, rawSessionToken)
 
 		// Create session in regional DB (raw token without prefix)
-		sessionExpiresAt := pgtype.Timestamp{Time: time.Now().Add(sessionTokenExpiry), Valid: true}
+		sessionExpiresAt := pgtype.Timestamp{Time: time.Now().Add(s.TokenConfig.OrgSessionTokenExpiry), Valid: true}
 		err = regionalDB.CreateOrgSession(ctx, regionaldb.CreateOrgSessionParams{
 			SessionToken: rawSessionToken,
 			OrgUserID:    globalUser.OrgUserID,
