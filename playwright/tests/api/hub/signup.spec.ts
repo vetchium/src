@@ -13,10 +13,7 @@ import {
 	extractSignupTokenFromEmail,
 } from "../../../lib/db";
 import {
-	waitForEmail,
-	getEmailContent,
-	searchEmails,
-	extractTfaCode,
+	getTfaCodeFromEmail,
 } from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
 import type {
@@ -26,43 +23,6 @@ import type {
 	RequestSignupRequest,
 } from "vetchium-specs/hub/hub-users";
 import type { CheckDomainRequest } from "vetchium-specs/global/global";
-
-/**
- * Helper function to get TFA code from the most recent TFA email.
- * For hub users, there may be multiple emails (signup, TFA, etc.)
- * so we need to search for the one containing a 6-digit code.
- * Uses exponential backoff to handle delays under parallel test load.
- */
-async function getTfaCodeForHubUser(email: string): Promise<string> {
-	const maxRetries = 15;
-	let delay = 1000; // Start with 1 second
-	const maxDelay = 5000; // Cap at 5 seconds
-	const backoffMultiplier = 1.5;
-
-	for (let attempt = 1; attempt <= maxRetries; attempt++) {
-		const messages = await searchEmails(email);
-
-		// Check messages from most recent to oldest
-		for (const msgSummary of messages) {
-			const fullMessage = await getEmailContent(msgSummary.ID);
-			try {
-				const code = extractTfaCode(fullMessage.Text);
-				return code;
-			} catch (e) {
-				// This email doesn't contain a TFA code, try next one
-			}
-		}
-
-		if (attempt < maxRetries) {
-			// Wait before retrying with exponential backoff
-			await new Promise((resolve) => setTimeout(resolve, delay));
-			delay = Math.min(delay * backoffMultiplier, maxDelay);
-		}
-	}
-	throw new Error(
-		`No TFA code found in any emails for ${email} after ${maxRetries} attempts`
-	);
-}
 
 test.describe("POST /global/check-domain", () => {
 	test("returns true for approved domain", async ({ request }) => {
@@ -653,7 +613,7 @@ test.describe("POST /hub/logout", () => {
 			const tfaToken = loginResponse.body.tfa_token;
 
 			// Verify TFA to get session token
-			const tfaCode = await getTfaCodeForHubUser(email);
+			const tfaCode = await getTfaCodeFromEmail(email);
 			const tfaRequest: HubTFARequest = {
 				tfa_token: tfaToken,
 				tfa_code: tfaCode,
