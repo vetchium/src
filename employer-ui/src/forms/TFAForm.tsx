@@ -5,7 +5,7 @@ import { useAuth } from "../hooks/useAuth";
 import { TFA_CODE_LENGTH } from "vetchium-specs/common/common";
 
 interface TFAFormValues {
-	tfaCode: string;
+	tfa_code: string;
 }
 
 export function TFAForm() {
@@ -14,7 +14,7 @@ export function TFAForm() {
 	const [form] = Form.useForm<TFAFormValues>();
 
 	const handleSubmit = async (values: TFAFormValues) => {
-		await verifyTFA(values.tfaCode);
+		await verifyTFA(values.tfa_code);
 	};
 
 	return (
@@ -36,7 +36,7 @@ export function TFAForm() {
 				)}
 
 				<Form.Item
-					name="tfaCode"
+					name="tfa_code"
 					rules={[
 						{ required: true, message: t("tfa.codeRequired") },
 						{
