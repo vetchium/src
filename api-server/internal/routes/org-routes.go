@@ -17,8 +17,8 @@ func RegisterOrgRoutes(mux *http.ServeMux, s *server.Server) {
 
 	// Authenticated routes (require Authorization header)
 	orgAuth := middleware.OrgAuth(s.Global, s.GetRegionalDB)
-	mux.Handle("POST /org/claim-domain", orgAuth(http.HandlerFunc(org.ClaimDomain(s))))
-	mux.Handle("POST /org/verify-domain", orgAuth(http.HandlerFunc(org.VerifyDomain(s))))
-	mux.Handle("POST /org/get-domain-status", orgAuth(http.HandlerFunc(org.GetDomainStatus(s))))
-	mux.Handle("POST /employer/logout", orgAuth(http.HandlerFunc(org.Logout(s))))
+	mux.Handle("POST /org/claim-domain", orgAuth(org.ClaimDomain(s)))
+	mux.Handle("POST /org/verify-domain", orgAuth(org.VerifyDomain(s)))
+	mux.Handle("POST /org/get-domain-status", orgAuth(org.GetDomainStatus(s)))
+	mux.Handle("POST /employer/logout", orgAuth(org.Logout(s)))
 }
