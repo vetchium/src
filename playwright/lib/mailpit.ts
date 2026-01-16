@@ -182,8 +182,9 @@ export async function waitForEmail(
 }
 
 /**
- * Gets the TFA code from the most recent email sent to the specified address.
- * This is a convenience function that combines waiting for email and extracting the code.
+ * Gets the TFA code from emails sent to the specified address.
+ * Searches through all emails for the recipient to find one containing a 6-digit TFA code.
+ * This handles cases where multiple emails exist (e.g., signup + TFA).
  *
  * @param toEmail - Email address to get TFA code for
  * @param config - Optional configuration for retry behavior
@@ -193,9 +194,35 @@ export async function getTfaCodeFromEmail(
 	toEmail: string,
 	config: Partial<WaitForEmailConfig> = {}
 ): Promise<string> {
-	const message = await waitForEmail(toEmail, config);
-	const fullMessage = await getEmailContent(message.ID);
-	return extractTfaCode(fullMessage.Text);
+	const cfg = { ...DEFAULT_WAIT_CONFIG, ...config };
+
+	let delay = cfg.initialDelayMs;
+	let totalWaitTime = 0;
+
+	for (let attempt = 1; attempt <= cfg.maxRetries; attempt++) {
+		const messages = await searchEmails(toEmail);
+
+		// Search through all emails to find one with a TFA code
+		for (const msg of messages) {
+			const fullMessage = await getEmailContent(msg.ID);
+			const match = fullMessage.Text.match(/\b(\d{6})\b/);
+			if (match) {
+				return match[1];
+			}
+		}
+
+		if (attempt < cfg.maxRetries) {
+			await sleep(delay);
+			totalWaitTime += delay;
+			delay = Math.min(delay * cfg.backoffMultiplier, cfg.maxDelayMs);
+		}
+	}
+
+	throw new Error(
+		`No TFA code email received for ${toEmail} after ${
+			cfg.maxRetries
+		} attempts (waited ~${Math.round(totalWaitTime / 1000)}s)`
+	);
 }
 
 /**
