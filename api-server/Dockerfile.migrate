@@ -1,10 +1,20 @@
-# Migration runner using goose
-FROM golang:alpine
+# Stage 1: Build goose binary
+FROM golang:alpine AS builder
 
-RUN go install github.com/pressly/goose/v3/cmd/goose@latest
+# Install git (required by go install to fetch modules)
+RUN apk --no-cache add git
+
+RUN go install github.com/pressly/goose/v3/cmd/goose@v3.25.0
+
+# Stage 2: Final lightweight image
+FROM alpine:latest
 
 WORKDIR /migrations
 
+# Copy goose binary from builder stage
+COPY --from=builder /go/bin/goose /usr/local/bin/goose
+
+# Copy migration files
 COPY db/migrations/global ./global
 COPY db/migrations/regional ./regional
 
