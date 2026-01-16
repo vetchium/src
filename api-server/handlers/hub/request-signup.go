@@ -56,7 +56,7 @@ func RequestSignup(s *server.Server) http.HandlerFunc {
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				log.Debug("domain not approved", "domain", domain)
-				w.WriteHeader(http.StatusForbidden)
+				w.WriteHeader(http.StatusBadRequest)
 				return
 			}
 			log.Error("failed to query domain", "error", err)

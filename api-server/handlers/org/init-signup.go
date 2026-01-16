@@ -75,7 +75,7 @@ func InitSignup(s *server.Server) http.HandlerFunc {
 		_, err = s.Global.GetGlobalEmployerDomain(ctx, domain)
 		if err == nil {
 			log.Debug("domain already claimed by existing employer", "domain", domain)
-			w.WriteHeader(http.StatusConflict)
+			w.WriteHeader(http.StatusBadRequest)
 			return
 		} else if !errors.Is(err, pgx.ErrNoRows) {
 			log.Error("failed to query global employer domain", "error", err)
