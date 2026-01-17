@@ -324,3 +324,122 @@ func OrgRegionFromContext(ctx context.Context) string {
 	}
 	return ""
 }
+
+// AgencyAuth is a middleware that verifies agency session tokens from the Authorization header.
+// It extracts the region-prefixed session token, queries the appropriate regional database,
+// and stores the session, agency user, and region in the request context.
+func AgencyAuth(globalDB *globaldb.Queries, getRegionalDB func(globaldb.Region) *regionaldb.Queries) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx := r.Context()
+			log := LoggerFromContext(ctx, nil)
+
+			// Get Authorization header
+			auth := r.Header.Get("Authorization")
+			if auth == "" {
+				log.Debug("missing authorization header")
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+
+			// Strip "Bearer " prefix if present
+			prefixedToken := auth
+			if strings.HasPrefix(auth, "Bearer ") {
+				prefixedToken = auth[7:]
+			}
+
+			// Extract region from token prefix
+			region, rawToken, err := tokens.ExtractRegionFromToken(prefixedToken)
+			if err != nil {
+				if errors.Is(err, tokens.ErrMissingPrefix) || errors.Is(err, tokens.ErrInvalidTokenFormat) {
+					log.Debug("invalid session token format", "error", err)
+					w.WriteHeader(http.StatusUnauthorized)
+					return
+				}
+				if errors.Is(err, tokens.ErrUnknownRegion) {
+					log.Debug("unknown region in session token", "error", err)
+					w.WriteHeader(http.StatusUnauthorized)
+					return
+				}
+				log.Error("failed to extract region from session token", "error", err)
+				http.Error(w, "", http.StatusInternalServerError)
+				return
+			}
+
+			// Get regional database for this region
+			regionalDB := getRegionalDB(region)
+			if regionalDB == nil {
+				log.Error("regional database not available", "region", region)
+				http.Error(w, "", http.StatusInternalServerError)
+				return
+			}
+
+			// Verify session in regional DB using raw token
+			session, err := regionalDB.GetAgencySession(ctx, rawToken)
+			if err != nil {
+				if errors.Is(err, pgx.ErrNoRows) {
+					log.Debug("invalid or expired session")
+					w.WriteHeader(http.StatusUnauthorized)
+					return
+				}
+				log.Error("failed to verify session", "error", err)
+				http.Error(w, "", http.StatusInternalServerError)
+				return
+			}
+
+			// Get agency user from global DB (for status, preferred_language, agency_id, etc.)
+			agencyUser, err := globalDB.GetAgencyUserByID(ctx, session.AgencyUserID)
+			if err != nil {
+				if errors.Is(err, pgx.ErrNoRows) {
+					log.Debug("agency user not found in global DB")
+					w.WriteHeader(http.StatusUnauthorized)
+					return
+				}
+				log.Error("failed to get global agency user", "error", err)
+				http.Error(w, "", http.StatusInternalServerError)
+				return
+			}
+
+			// Check agency user status
+			if agencyUser.Status != globaldb.AgencyUserStatusActive {
+				log.Debug("agency user is not active", "status", agencyUser.Status)
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+
+			// Store session, agency user, and region in context
+			ctx = context.WithValue(ctx, agencySessionKey, session)
+			ctx = context.WithValue(ctx, agencyUserKey, &agencyUser)
+			ctx = context.WithValue(ctx, agencyRegionKey, string(region))
+
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
+
+// AgencySessionFromContext retrieves the agency session from the context.
+// Returns zero value if not found (should only happen in tests or unauthenticated requests).
+func AgencySessionFromContext(ctx context.Context) regionaldb.AgencySession {
+	if session, ok := ctx.Value(agencySessionKey).(regionaldb.AgencySession); ok {
+		return session
+	}
+	return regionaldb.AgencySession{}
+}
+
+// AgencyUserFromContext retrieves the agency user from the context.
+// Returns nil if not found (should only happen in tests or unauthenticated requests).
+func AgencyUserFromContext(ctx context.Context) *globaldb.AgencyUser {
+	if user, ok := ctx.Value(agencyUserKey).(*globaldb.AgencyUser); ok {
+		return user
+	}
+	return nil
+}
+
+// AgencyRegionFromContext retrieves the agency user's region from the context.
+// Returns empty string if not found.
+func AgencyRegionFromContext(ctx context.Context) string {
+	if region, ok := ctx.Value(agencyRegionKey).(string); ok {
+		return region
+	}
+	return ""
+}

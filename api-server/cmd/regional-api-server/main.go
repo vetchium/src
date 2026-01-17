@@ -130,6 +130,7 @@ func main() {
 	routes.RegisterHubRoutes(mux, s)
 	routes.RegisterAdminRoutes(mux, s)
 	routes.RegisterOrgRoutes(mux, s)
+	routes.RegisterAgencyRoutes(mux, s)
 
 	// Wrap mux with middleware (CORS must be outermost to handle preflight)
 	handler := middleware.CORS()(middleware.RequestID(logger)(mux))

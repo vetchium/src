@@ -1,0 +1,22 @@
+package routes
+
+import (
+	"net/http"
+
+	"vetchium-api-server.gomodule/handlers/agency"
+	"vetchium-api-server.gomodule/internal/middleware"
+	"vetchium-api-server.gomodule/internal/server"
+)
+
+func RegisterAgencyRoutes(mux *http.ServeMux, s *server.Server) {
+	// Unauthenticated routes
+	mux.HandleFunc("POST /agency/init-signup", agency.InitSignup(s))
+	mux.HandleFunc("POST /agency/get-signup-details", agency.GetSignupDetails(s))
+	mux.HandleFunc("POST /agency/complete-signup", agency.CompleteSignup(s))
+	mux.HandleFunc("POST /agency/login", agency.Login(s))
+	mux.HandleFunc("POST /agency/tfa", agency.TFA(s))
+
+	// Authenticated routes (require Authorization header)
+	agencyAuth := middleware.AgencyAuth(s.Global, s.GetRegionalDB)
+	mux.Handle("POST /agency/logout", agencyAuth(agency.Logout(s)))
+}

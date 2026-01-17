@@ -14,14 +14,17 @@ type ctxKey string
 const loggerKey ctxKey = "logger"
 
 const (
-	adminSessionKey ctxKey = "adminSession"
-	adminUserKey    ctxKey = "adminUser"
-	hubSessionKey   ctxKey = "hubSession"
-	hubUserKey      ctxKey = "hubUser"
-	hubRegionKey    ctxKey = "hubRegion"
-	orgSessionKey   ctxKey = "orgSession"
-	orgUserKey      ctxKey = "orgUser"
-	orgRegionKey    ctxKey = "orgRegion"
+	adminSessionKey   ctxKey = "adminSession"
+	adminUserKey      ctxKey = "adminUser"
+	hubSessionKey     ctxKey = "hubSession"
+	hubUserKey        ctxKey = "hubUser"
+	hubRegionKey      ctxKey = "hubRegion"
+	orgSessionKey     ctxKey = "orgSession"
+	orgUserKey        ctxKey = "orgUser"
+	orgRegionKey      ctxKey = "orgRegion"
+	agencySessionKey  ctxKey = "agencySession"
+	agencyUserKey     ctxKey = "agencyUser"
+	agencyRegionKey   ctxKey = "agencyRegion"
 )
 
 // responseWriter wraps http.ResponseWriter to capture status code
