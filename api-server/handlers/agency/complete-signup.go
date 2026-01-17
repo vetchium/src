@@ -216,7 +216,7 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 
 		w.WriteHeader(http.StatusCreated)
 		response := agency.AgencyCompleteSignupResponse{
-			SessionToken:  agency.AgencySessionToken(sessionToken),
+			SessionToken: agency.AgencySessionToken(sessionToken),
 			AgencyUserID: globalUser.AgencyUserID.String(),
 		}
 		json.NewEncoder(w).Encode(response)

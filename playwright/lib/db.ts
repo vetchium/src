@@ -745,10 +745,9 @@ export async function deleteTestAgencyUser(email: string): Promise<void> {
 		const agencyId = userResult.rows[0].agency_id;
 
 		// Delete the agency user (CASCADE handles sessions, etc.)
-		await pool.query(
-			`DELETE FROM agency_users WHERE email_address_hash = $1`,
-			[emailHash]
-		);
+		await pool.query(`DELETE FROM agency_users WHERE email_address_hash = $1`, [
+			emailHash,
+		]);
 
 		// Delete the agency and associated domains
 		// This will CASCADE delete global_agency_domains as well

@@ -161,9 +161,7 @@ export class AgencyAPIClient {
 	/**
 	 * POST /agency/login with raw body for testing invalid payloads
 	 */
-	async loginRaw(
-		body: unknown
-	): Promise<APIResponse<AgencyLoginResponse>> {
+	async loginRaw(body: unknown): Promise<APIResponse<AgencyLoginResponse>> {
 		const response = await this.request.post("/agency/login", {
 			data: body,
 		});
@@ -201,9 +199,7 @@ export class AgencyAPIClient {
 	/**
 	 * POST /agency/tfa with raw body for testing invalid payloads
 	 */
-	async verifyTFARaw(
-		body: unknown
-	): Promise<APIResponse<AgencyTFAResponse>> {
+	async verifyTFARaw(body: unknown): Promise<APIResponse<AgencyTFAResponse>> {
 		const response = await this.request.post("/agency/tfa", {
 			data: body,
 		});

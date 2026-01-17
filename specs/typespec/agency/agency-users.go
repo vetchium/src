@@ -105,7 +105,7 @@ func (r AgencyCompleteSignupRequest) Validate() []common.ValidationError {
 }
 
 type AgencyCompleteSignupResponse struct {
-	SessionToken  AgencySessionToken `json:"session_token"`
+	SessionToken AgencySessionToken `json:"session_token"`
 	AgencyUserID string             `json:"agency_user_id"`
 }
 
