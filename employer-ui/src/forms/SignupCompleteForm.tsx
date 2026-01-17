@@ -245,9 +245,12 @@ export function SignupCompleteForm() {
 				{domain && (
 					<>
 						<Form.Item label={t("signupComplete.domainTitle")}>
-							<Text strong style={{ fontSize: 16 }}>
-								{domain}
-							</Text>
+							<Input
+								value={domain}
+								readOnly
+								size="large"
+								style={{ fontWeight: 600, cursor: "default" }}
+							/>
 						</Form.Item>
 
 						<Alert

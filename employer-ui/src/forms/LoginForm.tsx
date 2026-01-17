@@ -45,29 +45,6 @@ export function LoginForm() {
 				)}
 
 				<Form.Item
-					name="email"
-					rules={[
-						{ required: true, message: t("login.emailRequired") },
-						{ type: "email", message: t("login.emailInvalid") },
-						{
-							min: EMAIL_MIN_LENGTH,
-							message: t("login.emailMinLength", { min: EMAIL_MIN_LENGTH }),
-						},
-						{
-							max: EMAIL_MAX_LENGTH,
-							message: t("login.emailMaxLength", { max: EMAIL_MAX_LENGTH }),
-						},
-					]}
-				>
-					<Input
-						prefix={<UserOutlined />}
-						placeholder={t("login.email")}
-						size="large"
-						autoComplete="email"
-					/>
-				</Form.Item>
-
-				<Form.Item
 					name="domain"
 					rules={[
 						{ required: true, message: t("login.domainRequired") },
@@ -89,6 +66,29 @@ export function LoginForm() {
 						prefix={<GlobalOutlined />}
 						placeholder={t("login.domain")}
 						size="large"
+					/>
+				</Form.Item>
+
+				<Form.Item
+					name="email"
+					rules={[
+						{ required: true, message: t("login.emailRequired") },
+						{ type: "email", message: t("login.emailInvalid") },
+						{
+							min: EMAIL_MIN_LENGTH,
+							message: t("login.emailMinLength", { min: EMAIL_MIN_LENGTH }),
+						},
+						{
+							max: EMAIL_MAX_LENGTH,
+							message: t("login.emailMaxLength", { max: EMAIL_MAX_LENGTH }),
+						},
+					]}
+				>
+					<Input
+						prefix={<UserOutlined />}
+						placeholder={t("login.email")}
+						size="large"
+						autoComplete="email"
 					/>
 				</Form.Item>
 

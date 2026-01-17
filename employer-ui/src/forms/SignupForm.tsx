@@ -217,11 +217,9 @@ export function SignupForm() {
 							style={{
 								width: "auto",
 								minWidth: domain ? "auto" : "40px",
-								backgroundColor: "#fafafa",
 								cursor: "default",
 							}}
 							value={domain ? `@${domain}` : "@"}
-							disabled
 							size="large"
 							readOnly
 						/>
