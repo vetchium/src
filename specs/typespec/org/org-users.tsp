@@ -46,12 +46,31 @@ model OrgInitSignupResponse {
 // Org Signup Token - secret token sent via email to complete signup
 scalar OrgSignupToken extends string;
 
+model OrgGetSignupDetailsRequest {
+  @doc("Signup token received via email")
+  signup_token: OrgSignupToken;
+}
+
+model OrgGetSignupDetailsResponse {
+  @doc("The domain being verified")
+  domain: DomainName;
+}
+
 model OrgCompleteSignupRequest {
   @doc("Signup token received via email - proves email access")
   signup_token: OrgSignupToken;
 
   @doc("User's chosen password")
   password: Password;
+
+  @doc("User's preferred language (e.g., en-US, de-DE, ta-IN)")
+  preferred_language: LanguageCode;
+
+  @doc("Confirmation that user has added the required DNS record")
+  has_added_dns_record: boolean;
+
+  @doc("Confirmation that user agrees to the EULA")
+  agrees_to_eula: boolean;
 }
 
 model OrgCompleteSignupResponse {
@@ -130,6 +149,25 @@ interface OrgInitSignup {
     @doc("Domain already claimed by another employer")
     @statusCode
     statusCode: 409;
+  };
+}
+
+@route("/org/get-signup-details")
+interface OrgGetSignupDetails {
+  @tag("OrgUsers")
+  @post
+  @doc("Get signup details (domain) from signup token without exposing the DNS verification token")
+  getSignupDetails(@body request: OrgGetSignupDetailsRequest): {
+    @statusCode statusCode: 200;
+    @body response: OrgGetSignupDetailsResponse;
+  } | {
+    @doc("Invalid request parameters or validation errors")
+    @statusCode
+    statusCode: 400;
+  } | {
+    @doc("No pending signup found for this token or token expired")
+    @statusCode
+    statusCode: 404;
   };
 }
 

@@ -132,6 +132,7 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 		if err != nil {
 			log.Error("failed to hash password", "error", err)
 			// Compensating transaction: delete domain and employer
+			// TODO: Need to test various scenarios if any of the below things too fail
 			s.Global.DeleteGlobalEmployerDomain(ctx, domain)
 			s.Global.DeleteEmployer(ctx, employer.EmployerID)
 			http.Error(w, "", http.StatusInternalServerError)
@@ -144,7 +145,7 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 			HashingAlgorithm:  globaldb.EmailAddressHashingAlgorithmSHA256,
 			EmployerID:        employer.EmployerID,
 			Status:            globaldb.OrgUserStatusActive,
-			PreferredLanguage: "en-US",
+			PreferredLanguage: string(req.PreferredLanguage),
 			HomeRegion:        region,
 		})
 		if err != nil {

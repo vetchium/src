@@ -1,18 +1,45 @@
-import { Form, Input, Button, Alert, Spin } from "antd";
-import { LockOutlined } from "@ant-design/icons";
+import {
+	Form,
+	Input,
+	Button,
+	Alert,
+	Spin,
+	Select,
+	Checkbox,
+	Typography,
+	Divider,
+	Space,
+} from "antd";
+import {
+	LockOutlined,
+	CheckCircleOutlined,
+	CloseCircleOutlined,
+} from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { useState, useEffect } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import { getApiBaseUrl } from "../config";
 import {
 	PASSWORD_MIN_LENGTH,
 	PASSWORD_MAX_LENGTH,
+	SupportedLanguages,
 } from "vetchium-specs/common/common";
-import type { OrgCompleteSignupRequest } from "vetchium-specs/org/org-users";
+import type {
+	OrgCompleteSignupRequest,
+	OrgGetSignupDetailsRequest,
+} from "vetchium-specs/org/org-users";
+import type { LanguageCode } from "vetchium-specs/common/common";
+// @ts-expect-error - dohjs has no types
+import { DNSoverHTTPS } from "dohjs";
+
+const { Text, Paragraph } = Typography;
 
 interface SignupCompleteFormValues {
 	password: string;
 	confirmPassword: string;
+	preferred_language: LanguageCode;
+	has_added_dns_record: boolean;
+	agrees_to_eula: boolean;
 }
 
 const SESSION_COOKIE_NAME = "vetchium_employer_session";
@@ -24,20 +51,103 @@ function setSessionToken(token: string): void {
 }
 
 export function SignupCompleteForm() {
-	const { t } = useTranslation("auth");
+	const { t, i18n } = useTranslation("auth");
 	const [form] = Form.useForm<SignupCompleteFormValues>();
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [searchParams] = useSearchParams();
 	const navigate = useNavigate();
+	const [domain, setDomain] = useState<string | null>(null);
+	const [dnsStatus, setDnsStatus] = useState<
+		"idle" | "checking" | "found" | "not-found"
+	>("idle");
+	const [dnsCheckError, setDnsCheckError] = useState<string | null>(null);
 
 	const token = searchParams.get("token");
 
+	// Get domain from token
 	useEffect(() => {
 		if (!token) {
 			setError(t("signupComplete.missingToken"));
+			return;
 		}
+
+		const fetchDomain = async () => {
+			try {
+				const apiBaseUrl = await getApiBaseUrl();
+				const request: OrgGetSignupDetailsRequest = {
+					signup_token: token,
+				};
+
+				const response = await fetch(`${apiBaseUrl}/org/get-signup-details`, {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify(request),
+				});
+
+				if (response.status === 200) {
+					const data = await response.json();
+					setDomain(data.domain);
+				} else if (response.status === 404) {
+					setError(t("signupComplete.tokenExpired"));
+				} else {
+					setError(t("signupComplete.failed"));
+				}
+			} catch (err) {
+				console.error("Failed to fetch domain:", err);
+				setError(t("signupComplete.networkError"));
+			}
+		};
+
+		fetchDomain();
 	}, [token, t]);
+
+	// Set default language to current UI language
+	useEffect(() => {
+		const currentLang = i18n.language as LanguageCode;
+		if (SupportedLanguages.includes(currentLang)) {
+			form.setFieldValue("preferred_language", currentLang);
+		} else {
+			form.setFieldValue("preferred_language", "en-US");
+		}
+	}, [form, i18n.language]);
+
+	const checkDNS = async () => {
+		if (!domain) return;
+
+		setDnsStatus("checking");
+		setDnsCheckError(null);
+
+		try {
+			const doh = new DNSoverHTTPS({
+				url: "https://cloudflare-dns.com/dns-query",
+			});
+			const dnsRecordName = `_vetchium-verify.${domain}`;
+
+			const response = await doh.query(dnsRecordName, "TXT");
+
+			// Check if any TXT records exist
+			if (response?.answers && response.answers.length > 0) {
+				const hasTxtRecord = response.answers.some(
+					(answer: any) => answer.type === "TXT"
+				);
+				if (hasTxtRecord) {
+					setDnsStatus("found");
+					setDnsCheckError(null);
+				} else {
+					setDnsStatus("not-found");
+					setDnsCheckError(t("signupComplete.dnsNotFound"));
+				}
+			} else {
+				setDnsStatus("not-found");
+				setDnsCheckError(t("signupComplete.dnsNotFound"));
+			}
+		} catch (err) {
+			console.error("DNS check error:", err);
+			setDnsStatus("not-found");
+			setDnsCheckError(t("signupComplete.dnsNotFound"));
+		}
+	};
 
 	const handleSubmit = async (values: SignupCompleteFormValues) => {
 		if (!token) {
@@ -53,6 +163,9 @@ export function SignupCompleteForm() {
 			const request: OrgCompleteSignupRequest = {
 				signup_token: token,
 				password: values.password,
+				preferred_language: values.preferred_language,
+				has_added_dns_record: values.has_added_dns_record,
+				agrees_to_eula: values.agrees_to_eula,
 			};
 
 			const response = await fetch(`${apiBaseUrl}/org/complete-signup`, {
@@ -85,13 +198,8 @@ export function SignupCompleteForm() {
 				return;
 			}
 
-			if (response.status === 401) {
+			if (response.status === 404) {
 				setError(t("signupComplete.tokenExpired"));
-				return;
-			}
-
-			if (response.status === 409) {
-				setError(t("signupComplete.emailAlreadyRegistered"));
 				return;
 			}
 
@@ -134,10 +242,87 @@ export function SignupCompleteForm() {
 					/>
 				)}
 
+				{domain && (
+					<>
+						<Form.Item label={t("signupComplete.domainTitle")}>
+							<Text strong style={{ fontSize: 16 }}>
+								{domain}
+							</Text>
+						</Form.Item>
+
+						<Alert
+							type="info"
+							message={t("signupComplete.dnsInstructions")}
+							description={
+								<>
+									<Paragraph style={{ marginBottom: 8 }}>
+										{t("signupComplete.dnsInstructionsText", { domain })}
+									</Paragraph>
+									<Space direction="vertical" style={{ width: "100%" }}>
+										<Button
+											onClick={checkDNS}
+											loading={dnsStatus === "checking"}
+										>
+											{t("signupComplete.checkDnsButton")}
+										</Button>
+										{dnsStatus === "found" && (
+											<Alert
+												type="success"
+												message={t("signupComplete.dnsVerified")}
+												icon={<CheckCircleOutlined />}
+												showIcon
+											/>
+										)}
+										{dnsStatus === "not-found" && dnsCheckError && (
+											<>
+												<Alert
+													type="warning"
+													message={dnsCheckError}
+													icon={<CloseCircleOutlined />}
+													showIcon
+												/>
+												<Alert
+													type="info"
+													message={t("signupComplete.dnsPropagationWarning")}
+													showIcon
+												/>
+											</>
+										)}
+									</Space>
+								</>
+							}
+							style={{ marginBottom: 16 }}
+						/>
+
+						<Divider />
+					</>
+				)}
+
+				<Form.Item
+					name="preferred_language"
+					label={t("signupComplete.languageLabel")}
+					rules={[
+						{
+							required: true,
+							message: t("signupComplete.languageRequired"),
+						},
+					]}
+				>
+					<Select size="large">
+						<Select.Option value="en-US">English (US)</Select.Option>
+						<Select.Option value="de-DE">Deutsch (Deutschland)</Select.Option>
+						<Select.Option value="ta-IN">தமிழ் (இந்தியா)</Select.Option>
+					</Select>
+				</Form.Item>
+
 				<Form.Item
 					name="password"
+					label={t("signupComplete.password")}
 					rules={[
-						{ required: true, message: t("signupComplete.passwordRequired") },
+						{
+							required: true,
+							message: t("signupComplete.passwordRequired"),
+						},
 						{
 							min: PASSWORD_MIN_LENGTH,
 							message: t("signupComplete.passwordMinLength", {
@@ -162,6 +347,7 @@ export function SignupCompleteForm() {
 
 				<Form.Item
 					name="confirmPassword"
+					label={t("signupComplete.confirmPassword")}
 					dependencies={["password"]}
 					rules={[
 						{
@@ -188,6 +374,45 @@ export function SignupCompleteForm() {
 					/>
 				</Form.Item>
 
+				<Form.Item
+					name="has_added_dns_record"
+					valuePropName="checked"
+					rules={[
+						{
+							validator: (_, value) =>
+								value
+									? Promise.resolve()
+									: Promise.reject(
+											new Error(t("signupComplete.dnsRecordCheckboxRequired"))
+										),
+						},
+					]}
+				>
+					<Checkbox>{t("signupComplete.dnsRecordCheckbox")}</Checkbox>
+				</Form.Item>
+
+				<Form.Item
+					name="agrees_to_eula"
+					valuePropName="checked"
+					rules={[
+						{
+							validator: (_, value) =>
+								value
+									? Promise.resolve()
+									: Promise.reject(
+											new Error(t("signupComplete.eulaCheckboxRequired"))
+										),
+						},
+					]}
+				>
+					<Checkbox>
+						{t("signupComplete.eulaCheckbox")}{" "}
+						<Link to="/eula" target="_blank">
+							({t("signupComplete.eulaLink")})
+						</Link>
+					</Checkbox>
+				</Form.Item>
+
 				<Form.Item shouldUpdate>
 					{() => (
 						<Button
@@ -197,7 +422,7 @@ export function SignupCompleteForm() {
 							block
 							disabled={
 								!token ||
-								!form.isFieldsTouched(true) ||
+								!form.isFieldsTouched(["password", "confirmPassword"], true) ||
 								form.getFieldsError().some(({ errors }) => errors.length > 0)
 							}
 						>

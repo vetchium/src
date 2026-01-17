@@ -11,6 +11,7 @@ import (
 func RegisterOrgRoutes(mux *http.ServeMux, s *server.Server) {
 	// Unauthenticated routes
 	mux.HandleFunc("POST /org/init-signup", org.InitSignup(s))
+	mux.HandleFunc("POST /org/get-signup-details", org.GetSignupDetails(s))
 	mux.HandleFunc("POST /org/complete-signup", org.CompleteSignup(s))
 	mux.HandleFunc("POST /employer/login", org.Login(s))
 	mux.HandleFunc("POST /employer/tfa", org.TFA(s))

@@ -11,6 +11,7 @@ import { TFAPage } from "./pages/TFAPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { SignupPage } from "./pages/SignupPage";
 import { SignupCompletePage } from "./pages/SignupCompletePage";
+import { EULAPage } from "./pages/EULAPage";
 import {
 	BrowserRouter,
 	Routes,
@@ -138,6 +139,7 @@ function AppContent() {
 									</ProtectedRoute>
 								}
 							/>
+							<Route path="/eula" element={<EULAPage />} />
 							<Route path="*" element={<NotFoundPage />} />
 						</Routes>
 					</Content>

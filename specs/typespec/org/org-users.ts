@@ -58,10 +58,38 @@ export interface OrgInitSignupResponse {
 	message: string;
 }
 
+export interface OrgGetSignupDetailsRequest {
+	signup_token: OrgSignupToken;
+}
+
+export function validateOrgGetSignupDetailsRequest(
+	request: OrgGetSignupDetailsRequest
+): ValidationError[] {
+	const errs: ValidationError[] = [];
+
+	if (!request.signup_token) {
+		errs.push(newValidationError("signup_token", ERR_REQUIRED));
+	}
+
+	return errs;
+}
+
+export interface OrgGetSignupDetailsResponse {
+	domain: DomainName;
+}
+
 export interface OrgCompleteSignupRequest {
 	signup_token: OrgSignupToken;
 	password: Password;
+	preferred_language: LanguageCode;
+	has_added_dns_record: boolean;
+	agrees_to_eula: boolean;
 }
+
+const ERR_DNS_RECORD_NOT_CONFIRMED =
+	"You must confirm that you have added the DNS record";
+const ERR_EULA_NOT_ACCEPTED =
+	"You must agree to the End User License Agreement";
 
 export function validateOrgCompleteSignupRequest(
 	request: OrgCompleteSignupRequest
@@ -79,6 +107,20 @@ export function validateOrgCompleteSignupRequest(
 		if (passwordErr) {
 			errs.push(newValidationError("password", passwordErr));
 		}
+	}
+
+	if (!request.preferred_language) {
+		errs.push(newValidationError("preferred_language", ERR_REQUIRED));
+	}
+
+	if (!request.has_added_dns_record) {
+		errs.push(
+			newValidationError("has_added_dns_record", ERR_DNS_RECORD_NOT_CONFIRMED)
+		);
+	}
+
+	if (!request.agrees_to_eula) {
+		errs.push(newValidationError("agrees_to_eula", ERR_EULA_NOT_ACCEPTED));
 	}
 
 	return errs;

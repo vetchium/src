@@ -1,6 +1,8 @@
 package org
 
 import (
+	"errors"
+
 	"vetchium-api-server.typespec/common"
 )
 
@@ -43,10 +45,36 @@ type OrgInitSignupResponse struct {
 	Message        string            `json:"message"`
 }
 
-type OrgCompleteSignupRequest struct {
-	SignupToken OrgSignupToken  `json:"signup_token"`
-	Password    common.Password `json:"password"`
+type OrgGetSignupDetailsRequest struct {
+	SignupToken OrgSignupToken `json:"signup_token"`
 }
+
+func (r OrgGetSignupDetailsRequest) Validate() []common.ValidationError {
+	var errs []common.ValidationError
+
+	if r.SignupToken == "" {
+		errs = append(errs, common.NewValidationError("signup_token", common.ErrRequired))
+	}
+
+	return errs
+}
+
+type OrgGetSignupDetailsResponse struct {
+	Domain common.DomainName `json:"domain"`
+}
+
+type OrgCompleteSignupRequest struct {
+	SignupToken       OrgSignupToken      `json:"signup_token"`
+	Password          common.Password     `json:"password"`
+	PreferredLanguage common.LanguageCode `json:"preferred_language"`
+	HasAddedDNSRecord bool                `json:"has_added_dns_record"`
+	AgreesToEULA      bool                `json:"agrees_to_eula"`
+}
+
+var (
+	errDNSRecordNotConfirmed = errors.New("You must confirm that you have added the DNS record")
+	errEULANotAccepted       = errors.New("You must agree to the End User License Agreement")
+)
 
 func (r OrgCompleteSignupRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
@@ -59,6 +87,18 @@ func (r OrgCompleteSignupRequest) Validate() []common.ValidationError {
 		errs = append(errs, common.NewValidationError("password", common.ErrRequired))
 	} else if err := r.Password.Validate(); err != nil {
 		errs = append(errs, common.NewValidationError("password", err))
+	}
+
+	if r.PreferredLanguage == "" {
+		errs = append(errs, common.NewValidationError("preferred_language", common.ErrRequired))
+	}
+
+	if !r.HasAddedDNSRecord {
+		errs = append(errs, common.NewValidationError("has_added_dns_record", errDNSRecordNotConfirmed))
+	}
+
+	if !r.AgreesToEULA {
+		errs = append(errs, common.NewValidationError("agrees_to_eula", errEULANotAccepted))
 	}
 
 	return errs
