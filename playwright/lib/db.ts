@@ -623,3 +623,199 @@ export async function createTestOrgUserDirect(
 
 	return { email, domain, employerId, orgUserId };
 }
+
+// ============================================================================
+// Agency User Test Helpers
+// ============================================================================
+
+/**
+ * Agency user status enum matching the database enum
+ */
+export type AgencyUserStatus = "active" | "disabled";
+
+/**
+ * Generates a unique test email for an agency user.
+ * Each test should use a unique email to ensure parallel test isolation.
+ *
+ * @param prefix - Optional prefix for the domain (default: 'agency')
+ * @returns An object with email and domain, e.g., 'user@agency-{uuid}.test.vetchium.com'
+ */
+export function generateTestAgencyEmail(prefix: string = "agency"): {
+	email: string;
+	domain: string;
+} {
+	const uuid = randomUUID().substring(0, 8);
+	const domain = `${prefix}-${uuid}.test.vetchium.com`;
+	const email = `user@${domain}`;
+	return { email, domain };
+}
+
+/**
+ * Creates a test agency user directly in the database (bypassing the API).
+ * This is necessary because the agency signup flow requires DNS verification
+ * which cannot be performed in tests without a mock DNS server.
+ *
+ * Creates:
+ * - An agency in the global database
+ * - A verified domain in global_agency_domains
+ * - An agency user in the global database
+ * - An agency user with password hash in the regional database
+ *
+ * @param email - Email address for the agency user
+ * @param password - Plain text password (will be hashed with bcrypt)
+ * @param region - Home region for the user (default: 'ind1')
+ * @returns Object with email, domain, agencyId, and agencyUserId
+ */
+export async function createTestAgencyUserDirect(
+	email: string,
+	password: string,
+	region: RegionCode = "ind1"
+): Promise<{
+	email: string;
+	domain: string;
+	agencyId: string;
+	agencyUserId: string;
+}> {
+	const crypto = require("crypto");
+	const emailHash = crypto.createHash("sha256").update(email).digest();
+	const passwordHash = await bcrypt.hash(password, 10);
+
+	// Extract domain from email
+	const parts = email.split("@");
+	if (parts.length !== 2) {
+		throw new Error(`Invalid email format: ${email}`);
+	}
+	const domain = parts[1].toLowerCase();
+
+	// 1. Create agency in global DB
+	const agencyId = randomUUID();
+	await pool.query(
+		`INSERT INTO agencies (agency_id, agency_name, region)
+     VALUES ($1, $2, $3)`,
+		[agencyId, domain, region]
+	);
+
+	// 2. Create verified domain in global DB
+	await pool.query(
+		`INSERT INTO global_agency_domains (domain, region, agency_id, status)
+     VALUES ($1, $2, $3, 'VERIFIED')`,
+		[domain, region, agencyId]
+	);
+
+	// 3. Create agency user in global DB
+	const agencyUserId = randomUUID();
+	await pool.query(
+		`INSERT INTO agency_users (agency_user_id, email_address_hash, hashing_algorithm, agency_id, status, preferred_language, home_region)
+     VALUES ($1, $2, 'SHA-256', $3, 'active', 'en-US', $4)`,
+		[agencyUserId, emailHash, agencyId, region]
+	);
+
+	// 4. Create agency user in regional DB
+	const regionalPool = getRegionalPool(region);
+	try {
+		await regionalPool.query(
+			`INSERT INTO agency_users (agency_user_id, email_address, agency_id, password_hash)
+       VALUES ($1, $2, $3, $4)`,
+			[agencyUserId, email, agencyId, passwordHash]
+		);
+	} finally {
+		await regionalPool.end();
+	}
+
+	return { email, domain, agencyId, agencyUserId };
+}
+
+/**
+ * Deletes a test agency user and all associated data.
+ * This will CASCADE delete the agency and agency domains.
+ *
+ * @param email - Email of the agency user to delete
+ */
+export async function deleteTestAgencyUser(email: string): Promise<void> {
+	const crypto = require("crypto");
+	const emailHash = crypto.createHash("sha256").update(email).digest();
+
+	// Get the agency user to find their agency ID
+	const userResult = await pool.query(
+		`SELECT agency_user_id, agency_id FROM agency_users WHERE email_address_hash = $1`,
+		[emailHash]
+	);
+
+	if (userResult.rows.length > 0) {
+		const agencyId = userResult.rows[0].agency_id;
+
+		// Delete the agency user (CASCADE handles sessions, etc.)
+		await pool.query(
+			`DELETE FROM agency_users WHERE email_address_hash = $1`,
+			[emailHash]
+		);
+
+		// Delete the agency and associated domains
+		// This will CASCADE delete global_agency_domains as well
+		await pool.query(`DELETE FROM agencies WHERE agency_id = $1`, [agencyId]);
+	}
+}
+
+/**
+ * Gets a test agency user by email.
+ *
+ * @param email - Email of the agency user
+ * @returns Agency user record or null if not found
+ */
+export async function getTestAgencyUser(email: string): Promise<{
+	agency_user_id: string;
+	agency_id: string;
+	status: AgencyUserStatus;
+	preferred_language: LanguageCode;
+	home_region: RegionCode;
+} | null> {
+	const crypto = require("crypto");
+	const emailHash = crypto.createHash("sha256").update(email).digest();
+
+	const result = await pool.query(
+		`SELECT agency_user_id, agency_id, status, preferred_language, home_region
+     FROM agency_users WHERE email_address_hash = $1`,
+		[emailHash]
+	);
+	return result.rows[0] || null;
+}
+
+/**
+ * Gets a test agency by domain.
+ *
+ * @param domain - Domain name
+ * @returns Agency record or null if not found
+ */
+export async function getTestAgencyByDomain(domain: string): Promise<{
+	agency_id: string;
+	agency_name: string;
+	region: RegionCode;
+} | null> {
+	const result = await pool.query(
+		`SELECT a.agency_id, a.agency_name, a.region
+     FROM agencies a
+     JOIN global_agency_domains gad ON a.agency_id = gad.agency_id
+     WHERE gad.domain = $1`,
+		[domain.toLowerCase()]
+	);
+	return result.rows[0] || null;
+}
+
+/**
+ * Updates the status of a test agency user.
+ *
+ * @param email - Email of the agency user to update
+ * @param status - New status to set
+ */
+export async function updateTestAgencyUserStatus(
+	email: string,
+	status: AgencyUserStatus
+): Promise<void> {
+	const crypto = require("crypto");
+	const emailHash = crypto.createHash("sha256").update(email).digest();
+
+	await pool.query(
+		`UPDATE agency_users SET status = $1 WHERE email_address_hash = $2`,
+		[status, emailHash]
+	);
+}
