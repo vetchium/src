@@ -24,6 +24,9 @@ test.describe("POST /org/complete-signup", () => {
 		const completeRequest: OrgCompleteSignupRequest = {
 			signup_token: "0".repeat(64), // Valid format but doesn't exist
 			password: TEST_PASSWORD,
+			preferred_language: "en-US",
+			has_added_dns_record: true,
+			agrees_to_eula: true,
 		};
 		const response = await api.completeSignup(completeRequest);
 
@@ -35,6 +38,9 @@ test.describe("POST /org/complete-signup", () => {
 
 		const response = await api.completeSignupRaw({
 			password: TEST_PASSWORD,
+			preferred_language: "en-US",
+			has_added_dns_record: true,
+			agrees_to_eula: true,
 		});
 
 		expect(response.status).toBe(400);
@@ -45,6 +51,9 @@ test.describe("POST /org/complete-signup", () => {
 
 		const response = await api.completeSignupRaw({
 			signup_token: "0".repeat(64),
+			preferred_language: "en-US",
+			has_added_dns_record: true,
+			agrees_to_eula: true,
 		});
 
 		expect(response.status).toBe(400);
@@ -56,6 +65,9 @@ test.describe("POST /org/complete-signup", () => {
 		const response = await api.completeSignupRaw({
 			signup_token: "",
 			password: TEST_PASSWORD,
+			preferred_language: "en-US",
+			has_added_dns_record: true,
+			agrees_to_eula: true,
 		});
 
 		expect(response.status).toBe(400);
@@ -67,6 +79,9 @@ test.describe("POST /org/complete-signup", () => {
 		const response = await api.completeSignupRaw({
 			signup_token: "0".repeat(64),
 			password: "",
+			preferred_language: "en-US",
+			has_added_dns_record: true,
+			agrees_to_eula: true,
 		});
 
 		expect(response.status).toBe(400);
@@ -79,6 +94,50 @@ test.describe("POST /org/complete-signup", () => {
 		const response = await api.completeSignupRaw({
 			signup_token: "0".repeat(64),
 			password: "weak",
+			preferred_language: "en-US",
+			has_added_dns_record: true,
+			agrees_to_eula: true,
+		});
+
+		expect(response.status).toBe(400);
+	});
+
+	test("missing preferred_language returns 400", async ({ request }) => {
+		const api = new OrgAPIClient(request);
+
+		const response = await api.completeSignupRaw({
+			signup_token: "0".repeat(64),
+			password: TEST_PASSWORD,
+			has_added_dns_record: true,
+			agrees_to_eula: true,
+		});
+
+		expect(response.status).toBe(400);
+	});
+
+	test("has_added_dns_record=false returns 400", async ({ request }) => {
+		const api = new OrgAPIClient(request);
+
+		const response = await api.completeSignupRaw({
+			signup_token: "0".repeat(64),
+			password: TEST_PASSWORD,
+			preferred_language: "en-US",
+			has_added_dns_record: false,
+			agrees_to_eula: true,
+		});
+
+		expect(response.status).toBe(400);
+	});
+
+	test("agrees_to_eula=false returns 400", async ({ request }) => {
+		const api = new OrgAPIClient(request);
+
+		const response = await api.completeSignupRaw({
+			signup_token: "0".repeat(64),
+			password: TEST_PASSWORD,
+			preferred_language: "en-US",
+			has_added_dns_record: true,
+			agrees_to_eula: false,
 		});
 
 		expect(response.status).toBe(400);
@@ -106,10 +165,12 @@ test.describe("POST /org/complete-signup", () => {
 			const completeRequest: OrgCompleteSignupRequest = {
 				signup_token: signupToken,
 				password: TEST_PASSWORD,
+				preferred_language: "en-US",
+				has_added_dns_record: true,
+				agrees_to_eula: true,
 			};
 			const response = await api.completeSignup(completeRequest);
 
-			// Should fail with 422 because DNS verification fails
 			// Should fail with 422 because DNS verification fails
 			expect(response.status).toBe(422);
 		} finally {
@@ -140,6 +201,9 @@ test.describe("POST /org/complete-signup", () => {
 			const completeRequest: OrgCompleteSignupRequest = {
 				signup_token: signupToken,
 				password: TEST_PASSWORD,
+				preferred_language: "en-US",
+				has_added_dns_record: true,
+				agrees_to_eula: true,
 			};
 			const firstResponse = await api.completeSignup(completeRequest);
 			// DNS verification fails but token is valid
