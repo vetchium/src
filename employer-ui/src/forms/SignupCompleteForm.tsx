@@ -22,7 +22,7 @@ import { getApiBaseUrl } from "../config";
 import {
 	PASSWORD_MIN_LENGTH,
 	PASSWORD_MAX_LENGTH,
-	SupportedLanguages,
+	SUPPORTED_LANGUAGES,
 } from "vetchium-specs/common/common";
 import type {
 	OrgCompleteSignupRequest,
@@ -105,7 +105,7 @@ export function SignupCompleteForm() {
 	// Set default language to current UI language
 	useEffect(() => {
 		const currentLang = i18n.language as LanguageCode;
-		if (SupportedLanguages.includes(currentLang)) {
+		if (SUPPORTED_LANGUAGES.includes(currentLang as any)) {
 			form.setFieldValue("preferred_language", currentLang);
 		} else {
 			form.setFieldValue("preferred_language", "en-US");

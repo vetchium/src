@@ -7,6 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"vetchium-api-server.gomodule/internal/server"
+	"vetchium-api-server.typespec/common"
 	"vetchium-api-server.typespec/org"
 )
 
@@ -45,7 +46,7 @@ func GetSignupDetails(s *server.Server) http.HandlerFunc {
 
 		// Return only the domain, not the DNS verification token
 		response := org.OrgGetSignupDetailsResponse{
-			Domain: tokenRecord.Domain,
+			Domain: common.DomainName(tokenRecord.Domain),
 		}
 
 		log.Info("signup details retrieved", "domain", tokenRecord.Domain)
