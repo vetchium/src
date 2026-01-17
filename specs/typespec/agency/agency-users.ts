@@ -1,0 +1,217 @@
+import {
+	type EmailAddress,
+	type Password,
+	type DomainName,
+	type TFACode,
+	type LanguageCode,
+	type ValidationError,
+	newValidationError,
+	validateEmailAddress,
+	validateEmployerEmail,
+	validatePassword,
+	validateDomainName,
+	validateTFACode,
+	ERR_REQUIRED,
+} from "../common/common";
+
+// Token types
+export type AgencySessionToken = string;
+export type AgencyTFAToken = string;
+export type DNSVerificationToken = string;
+export type AgencySignupToken = string;
+
+// ============================================
+// Signup Flow (DNS-based Domain Verification)
+// ============================================
+
+export interface AgencyInitSignupRequest {
+	email: EmailAddress;
+	home_region: string;
+}
+
+export function validateAgencyInitSignupRequest(
+	request: AgencyInitSignupRequest
+): ValidationError[] {
+	const errs: ValidationError[] = [];
+
+	if (!request.email) {
+		errs.push(newValidationError("email", ERR_REQUIRED));
+	} else {
+		// Use employer email validation which blocks personal email domains
+		const emailErr = validateEmployerEmail(request.email);
+		if (emailErr) {
+			errs.push(newValidationError("email", emailErr));
+		}
+	}
+
+	if (!request.home_region) {
+		errs.push(newValidationError("home_region", ERR_REQUIRED));
+	}
+
+	return errs;
+}
+
+export interface AgencyInitSignupResponse {
+	domain: DomainName;
+	dns_record_name: string;
+	token_expires_at: string;
+	message: string;
+}
+
+export interface AgencyGetSignupDetailsRequest {
+	signup_token: AgencySignupToken;
+}
+
+export function validateAgencyGetSignupDetailsRequest(
+	request: AgencyGetSignupDetailsRequest
+): ValidationError[] {
+	const errs: ValidationError[] = [];
+
+	if (!request.signup_token) {
+		errs.push(newValidationError("signup_token", ERR_REQUIRED));
+	}
+
+	return errs;
+}
+
+export interface AgencyGetSignupDetailsResponse {
+	domain: DomainName;
+}
+
+export interface AgencyCompleteSignupRequest {
+	signup_token: AgencySignupToken;
+	password: Password;
+	preferred_language: LanguageCode;
+	has_added_dns_record: boolean;
+	agrees_to_eula: boolean;
+}
+
+const ERR_DNS_RECORD_NOT_CONFIRMED =
+	"You must confirm that you have added the DNS record";
+const ERR_EULA_NOT_ACCEPTED =
+	"You must agree to the End User License Agreement";
+
+export function validateAgencyCompleteSignupRequest(
+	request: AgencyCompleteSignupRequest
+): ValidationError[] {
+	const errs: ValidationError[] = [];
+
+	if (!request.signup_token) {
+		errs.push(newValidationError("signup_token", ERR_REQUIRED));
+	}
+
+	if (!request.password) {
+		errs.push(newValidationError("password", ERR_REQUIRED));
+	} else {
+		const passwordErr = validatePassword(request.password);
+		if (passwordErr) {
+			errs.push(newValidationError("password", passwordErr));
+		}
+	}
+
+	if (!request.preferred_language) {
+		errs.push(newValidationError("preferred_language", ERR_REQUIRED));
+	}
+
+	if (!request.has_added_dns_record) {
+		errs.push(
+			newValidationError("has_added_dns_record", ERR_DNS_RECORD_NOT_CONFIRMED)
+		);
+	}
+
+	if (!request.agrees_to_eula) {
+		errs.push(newValidationError("agrees_to_eula", ERR_EULA_NOT_ACCEPTED));
+	}
+
+	return errs;
+}
+
+export interface AgencyCompleteSignupResponse {
+	session_token: AgencySessionToken;
+	agency_user_id: string;
+}
+
+// ============================================
+// Login Flow
+// ============================================
+
+export interface AgencyLoginRequest {
+	email: EmailAddress;
+	domain: DomainName;
+	password: Password;
+}
+
+export function validateAgencyLoginRequest(
+	request: AgencyLoginRequest
+): ValidationError[] {
+	const errs: ValidationError[] = [];
+
+	if (!request.email) {
+		errs.push(newValidationError("email", ERR_REQUIRED));
+	} else {
+		const emailErr = validateEmailAddress(request.email);
+		if (emailErr) {
+			errs.push(newValidationError("email", emailErr));
+		}
+	}
+
+	if (!request.domain) {
+		errs.push(newValidationError("domain", ERR_REQUIRED));
+	} else {
+		const domainErr = validateDomainName(request.domain);
+		if (domainErr) {
+			errs.push(newValidationError("domain", domainErr));
+		}
+	}
+
+	if (!request.password) {
+		errs.push(newValidationError("password", ERR_REQUIRED));
+	} else {
+		const passwordErr = validatePassword(request.password);
+		if (passwordErr) {
+			errs.push(newValidationError("password", passwordErr));
+		}
+	}
+
+	return errs;
+}
+
+export interface AgencyLoginResponse {
+	tfa_token: AgencyTFAToken;
+}
+
+export interface AgencyTFARequest {
+	tfa_token: AgencyTFAToken;
+	tfa_code: TFACode;
+	remember_me: boolean;
+}
+
+export function validateAgencyTFARequest(
+	request: AgencyTFARequest
+): ValidationError[] {
+	const errs: ValidationError[] = [];
+
+	if (!request.tfa_token) {
+		errs.push(newValidationError("tfa_token", ERR_REQUIRED));
+	}
+
+	if (!request.tfa_code) {
+		errs.push(newValidationError("tfa_code", ERR_REQUIRED));
+	} else {
+		const tfaErr = validateTFACode(request.tfa_code);
+		if (tfaErr) {
+			errs.push(newValidationError("tfa_code", tfaErr));
+		}
+	}
+
+	return errs;
+}
+
+export interface AgencyTFAResponse {
+	session_token: AgencySessionToken;
+	preferred_language: LanguageCode;
+	agency_name: string;
+}
+
+// AgencyLogoutRequest is empty - session token passed via Authorization header
+export interface AgencyLogoutRequest {}
