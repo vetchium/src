@@ -463,3 +463,133 @@ DELETE FROM global_employer_domains WHERE domain = $1;
 SELECT * FROM global_employer_domains
 WHERE employer_id = $1
 ORDER BY domain ASC;
+
+-- ============================================
+-- Agency User Queries
+-- ============================================
+
+-- name: GetAgencyUserByEmailHash :one
+-- Note: This returns ONE user but may fail if email exists for multiple agencies.
+-- Prefer GetAgencyUserByEmailHashAndAgency for login flows.
+SELECT * FROM agency_users WHERE email_address_hash = $1;
+
+-- name: GetAgencyUserByEmailHashAndAgency :one
+-- Composite lookup for login flow - email + agency uniquely identifies user
+SELECT * FROM agency_users
+WHERE email_address_hash = $1 AND agency_id = $2;
+
+-- name: GetAgencyUsersByEmailHash :many
+-- Returns all agency_users for a given email hash (for multi-agency scenarios)
+SELECT au.*, a.agency_name
+FROM agency_users au
+JOIN agencies a ON au.agency_id = a.agency_id
+WHERE au.email_address_hash = $1 AND au.status = 'active'
+ORDER BY a.agency_name;
+
+-- name: GetAgencyUserByID :one
+SELECT * FROM agency_users WHERE agency_user_id = $1;
+
+-- name: CreateAgencyUser :one
+INSERT INTO agency_users (
+    email_address_hash, hashing_algorithm, agency_id,
+    status, preferred_language, home_region
+)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING *;
+
+-- name: DeleteAgencyUser :exec
+DELETE FROM agency_users WHERE agency_user_id = $1;
+
+-- name: UpdateAgencyUserPreferredLanguage :exec
+UPDATE agency_users
+SET preferred_language = $2
+WHERE agency_user_id = $1;
+
+-- ============================================
+-- Agency Signup Token Queries (DNS-based domain verification)
+-- ============================================
+
+-- name: CreateAgencySignupToken :exec
+INSERT INTO agency_signup_tokens (signup_token, email_token, email_address, email_address_hash, hashing_algorithm, expires_at, home_region, domain)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
+
+-- name: GetAgencySignupToken :one
+SELECT * FROM agency_signup_tokens WHERE signup_token = $1 AND expires_at > NOW();
+
+-- name: GetAgencySignupTokenByEmailToken :one
+-- Get pending signup by email token (for complete-signup flow - proves email access)
+SELECT * FROM agency_signup_tokens
+WHERE email_token = $1 AND expires_at > NOW() AND consumed_at IS NULL;
+
+-- name: GetAgencySignupTokenByEmail :one
+-- Get pending signup by email address (for resend email flow)
+SELECT * FROM agency_signup_tokens
+WHERE email_address = $1 AND expires_at > NOW() AND consumed_at IS NULL
+ORDER BY created_at DESC
+LIMIT 1;
+
+-- name: GetPendingAgencySignupByDomain :one
+-- Check if a domain has a pending (non-expired, non-consumed) signup
+SELECT * FROM agency_signup_tokens
+WHERE domain = $1 AND expires_at > NOW() AND consumed_at IS NULL
+LIMIT 1;
+
+-- name: MarkAgencySignupTokenConsumed :exec
+UPDATE agency_signup_tokens SET consumed_at = NOW() WHERE signup_token = $1;
+
+-- name: DeleteExpiredAgencySignupTokens :exec
+DELETE FROM agency_signup_tokens WHERE expires_at <= NOW();
+
+-- name: DeleteAgencySignupToken :exec
+DELETE FROM agency_signup_tokens WHERE signup_token = $1;
+
+-- name: GetActiveAgencySignupTokenByEmailHash :one
+SELECT * FROM agency_signup_tokens
+WHERE email_address_hash = $1 AND expires_at > NOW()
+ORDER BY created_at DESC
+LIMIT 1;
+
+-- ============================================
+-- Agency Queries
+-- ============================================
+
+-- name: CreateAgency :one
+INSERT INTO agencies (agency_name, region)
+VALUES ($1, $2)
+RETURNING *;
+
+-- name: GetAgencyByID :one
+SELECT * FROM agencies WHERE agency_id = $1;
+
+-- name: GetAgencyByDomain :one
+-- Find agency by verified domain name (for login flow)
+SELECT a.* FROM agencies a
+JOIN global_agency_domains gad ON a.agency_id = gad.agency_id
+WHERE gad.domain = $1 AND gad.status = 'VERIFIED';
+
+-- name: DeleteAgency :exec
+DELETE FROM agencies WHERE agency_id = $1;
+
+-- ============================================
+-- Global Agency Domain Queries
+-- ============================================
+
+-- name: CreateGlobalAgencyDomain :exec
+INSERT INTO global_agency_domains (domain, region, agency_id, status)
+VALUES ($1, $2, $3, $4);
+
+-- name: GetGlobalAgencyDomain :one
+SELECT * FROM global_agency_domains WHERE domain = $1;
+
+-- name: UpdateGlobalAgencyDomainStatus :exec
+UPDATE global_agency_domains
+SET status = $2
+WHERE domain = $1;
+
+-- name: DeleteGlobalAgencyDomain :exec
+DELETE FROM global_agency_domains WHERE domain = $1;
+
+-- name: GetGlobalAgencyDomainsByAgency :many
+SELECT * FROM global_agency_domains
+WHERE agency_id = $1
+ORDER BY domain ASC;

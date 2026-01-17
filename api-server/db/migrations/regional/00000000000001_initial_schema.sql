@@ -15,7 +15,10 @@ CREATE TYPE email_template_type AS ENUM (
     'hub_tfa',
     'org_signup_verification',
     'org_signup_token',
-    'org_tfa'
+    'org_tfa',
+    'agency_signup_verification',
+    'agency_signup_token',
+    'agency_tfa'
 );
 
 -- Domain verification status enum
@@ -114,6 +117,35 @@ CREATE TABLE employer_domains (
     created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
+-- Agency users table (regional - stores credentials and PII)
+-- Note: email_address is NOT unique alone - one email can belong to multiple agencies
+-- (contractor scenario). Uniqueness is enforced per (email_address, agency_id).
+CREATE TABLE agency_users (
+    agency_user_id UUID PRIMARY KEY,
+    email_address TEXT NOT NULL,
+    agency_id UUID NOT NULL,
+    password_hash BYTEA,
+    created_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE (email_address, agency_id)
+);
+
+-- Agency TFA tokens for email-based two-factor authentication
+CREATE TABLE agency_tfa_tokens (
+    tfa_token TEXT PRIMARY KEY NOT NULL,
+    agency_user_id UUID NOT NULL REFERENCES agency_users(agency_user_id) ON DELETE CASCADE,
+    tfa_code TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMP NOT NULL
+);
+
+-- Agency sessions (regional storage for data sovereignty)
+CREATE TABLE agency_sessions (
+    session_token TEXT PRIMARY KEY NOT NULL,
+    agency_user_id UUID NOT NULL REFERENCES agency_users(agency_user_id) ON DELETE CASCADE,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMP NOT NULL
+);
+
 -- Indexes
 CREATE INDEX idx_hub_tfa_tokens_expires_at ON hub_tfa_tokens(expires_at);
 CREATE INDEX idx_hub_sessions_expires_at ON hub_sessions(expires_at);
@@ -125,8 +157,18 @@ CREATE INDEX idx_org_users_email_address ON org_users(email_address);
 CREATE INDEX idx_org_users_employer_id ON org_users(employer_id);
 CREATE INDEX idx_employer_domains_employer_id ON employer_domains(employer_id);
 CREATE INDEX idx_employer_domains_status ON employer_domains(status);
+CREATE INDEX idx_agency_tfa_tokens_expires_at ON agency_tfa_tokens(expires_at);
+CREATE INDEX idx_agency_sessions_expires_at ON agency_sessions(expires_at);
+CREATE INDEX idx_agency_sessions_agency_user_id ON agency_sessions(agency_user_id);
+CREATE INDEX idx_agency_users_email_address ON agency_users(email_address);
+CREATE INDEX idx_agency_users_agency_id ON agency_users(agency_id);
 
 -- +goose Down
+DROP INDEX IF EXISTS idx_agency_users_agency_id;
+DROP INDEX IF EXISTS idx_agency_users_email_address;
+DROP INDEX IF EXISTS idx_agency_sessions_agency_user_id;
+DROP INDEX IF EXISTS idx_agency_sessions_expires_at;
+DROP INDEX IF EXISTS idx_agency_tfa_tokens_expires_at;
 DROP INDEX IF EXISTS idx_employer_domains_status;
 DROP INDEX IF EXISTS idx_employer_domains_employer_id;
 DROP INDEX IF EXISTS idx_org_users_employer_id;
@@ -137,6 +179,9 @@ DROP INDEX IF EXISTS idx_org_tfa_tokens_expires_at;
 DROP INDEX IF EXISTS idx_hub_sessions_hub_user_global_id;
 DROP INDEX IF EXISTS idx_hub_sessions_expires_at;
 DROP INDEX IF EXISTS idx_hub_tfa_tokens_expires_at;
+DROP TABLE IF EXISTS agency_sessions;
+DROP TABLE IF EXISTS agency_tfa_tokens;
+DROP TABLE IF EXISTS agency_users;
 DROP TABLE IF EXISTS employer_domains;
 DROP TABLE IF EXISTS org_sessions;
 DROP TABLE IF EXISTS org_tfa_tokens;

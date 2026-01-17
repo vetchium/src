@@ -146,3 +146,62 @@ WHERE domain = $1;
 UPDATE employer_domains
 SET consecutive_failures = 0, last_verified_at = NOW()
 WHERE domain = $1;
+
+-- ============================================
+-- Agency User Queries (Regional)
+-- ============================================
+
+-- name: GetAgencyUserByEmail :one
+-- Note: This returns ONE user but may fail if email exists for multiple agencies.
+-- Prefer GetAgencyUserByEmailAndAgency for login flows.
+SELECT * FROM agency_users WHERE email_address = $1;
+
+-- name: GetAgencyUserByEmailAndAgency :one
+-- Composite lookup for login flow - email + agency uniquely identifies user
+SELECT * FROM agency_users
+WHERE email_address = $1 AND agency_id = $2;
+
+-- name: GetAgencyUserByID :one
+SELECT * FROM agency_users WHERE agency_user_id = $1;
+
+-- name: CreateAgencyUser :one
+INSERT INTO agency_users (agency_user_id, email_address, agency_id, password_hash)
+VALUES ($1, $2, $3, $4)
+RETURNING *;
+
+-- name: DeleteAgencyUser :exec
+DELETE FROM agency_users WHERE agency_user_id = $1;
+
+-- ============================================
+-- Agency TFA Token Queries
+-- ============================================
+
+-- name: CreateAgencyTFAToken :exec
+INSERT INTO agency_tfa_tokens (tfa_token, agency_user_id, tfa_code, expires_at)
+VALUES ($1, $2, $3, $4);
+
+-- name: GetAgencyTFAToken :one
+SELECT * FROM agency_tfa_tokens WHERE tfa_token = $1 AND expires_at > NOW();
+
+-- name: DeleteAgencyTFAToken :exec
+DELETE FROM agency_tfa_tokens WHERE tfa_token = $1;
+
+-- name: DeleteExpiredAgencyTFATokens :exec
+DELETE FROM agency_tfa_tokens WHERE expires_at <= NOW();
+
+-- ============================================
+-- Agency Session Queries
+-- ============================================
+
+-- name: CreateAgencySession :exec
+INSERT INTO agency_sessions (session_token, agency_user_id, expires_at)
+VALUES ($1, $2, $3);
+
+-- name: GetAgencySession :one
+SELECT * FROM agency_sessions WHERE session_token = $1 AND expires_at > NOW();
+
+-- name: DeleteAgencySession :exec
+DELETE FROM agency_sessions WHERE session_token = $1;
+
+-- name: DeleteExpiredAgencySessions :exec
+DELETE FROM agency_sessions WHERE expires_at <= NOW();

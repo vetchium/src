@@ -38,6 +38,12 @@ CREATE TYPE org_user_status AS ENUM (
     'disabled'
 );
 
+-- Agency user status enum
+CREATE TYPE agency_user_status AS ENUM (
+    'active',
+    'disabled'
+);
+
 -- Domain verification status enum
 CREATE TYPE domain_verification_status AS ENUM (
     'PENDING',
@@ -231,6 +237,55 @@ CREATE TABLE org_signup_tokens (
     consumed_at TIMESTAMP
 );
 
+-- Agencies table (global - for cross-region uniqueness and routing)
+CREATE TABLE agencies (
+    agency_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    agency_name TEXT NOT NULL,
+    region region NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- Global agency domains table (for cross-region uniqueness and routing)
+-- Ensures domain is claimed by ONLY ONE region/agency
+CREATE TABLE global_agency_domains (
+    domain TEXT PRIMARY KEY,
+    region region NOT NULL,
+    agency_id UUID NOT NULL REFERENCES agencies(agency_id) ON DELETE CASCADE,
+    status domain_verification_status NOT NULL DEFAULT 'PENDING',
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- Agency users table (global)
+-- Note: email_address_hash is NOT unique alone - one email can belong to multiple agencies
+-- (contractor scenario). Uniqueness is enforced per (email_address_hash, agency_id).
+CREATE TABLE agency_users (
+    agency_user_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email_address_hash BYTEA NOT NULL,
+    hashing_algorithm email_address_hashing_algorithm NOT NULL DEFAULT 'SHA-256',
+    agency_id UUID NOT NULL REFERENCES agencies(agency_id) ON DELETE CASCADE,
+    status agency_user_status NOT NULL DEFAULT 'active',
+    preferred_language TEXT NOT NULL DEFAULT 'en-US',
+    home_region region NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    UNIQUE (email_address_hash, agency_id)
+);
+
+-- Agency signup tokens (global - for DNS-based signup verification)
+-- signup_token: DNS verification token (goes in TXT record, public)
+-- email_token: Secret token sent via email only (proves email access)
+CREATE TABLE agency_signup_tokens (
+    signup_token TEXT PRIMARY KEY NOT NULL,
+    email_token TEXT NOT NULL UNIQUE,
+    email_address TEXT NOT NULL,
+    email_address_hash BYTEA NOT NULL,
+    hashing_algorithm email_address_hashing_algorithm NOT NULL DEFAULT 'SHA-256',
+    domain TEXT NOT NULL,
+    home_region region NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMP NOT NULL,
+    consumed_at TIMESTAMP
+);
+
 -- Indexes
 CREATE INDEX idx_admin_tfa_tokens_expires_at ON admin_tfa_tokens(expires_at);
 CREATE INDEX idx_admin_sessions_expires_at ON admin_sessions(expires_at);
@@ -244,8 +299,20 @@ CREATE INDEX idx_org_signup_tokens_domain ON org_signup_tokens(domain);
 CREATE INDEX idx_org_users_employer_id ON org_users(employer_id);
 CREATE INDEX idx_org_users_email_hash ON org_users(email_address_hash);
 CREATE INDEX idx_global_employer_domains_employer_id ON global_employer_domains(employer_id);
+CREATE INDEX idx_agency_signup_tokens_expires_at ON agency_signup_tokens(expires_at);
+CREATE INDEX idx_agency_signup_tokens_email_hash ON agency_signup_tokens(email_address_hash);
+CREATE INDEX idx_agency_signup_tokens_domain ON agency_signup_tokens(domain);
+CREATE INDEX idx_agency_users_agency_id ON agency_users(agency_id);
+CREATE INDEX idx_agency_users_email_hash ON agency_users(email_address_hash);
+CREATE INDEX idx_global_agency_domains_agency_id ON global_agency_domains(agency_id);
 
 -- +goose Down
+DROP INDEX IF EXISTS idx_global_agency_domains_agency_id;
+DROP INDEX IF EXISTS idx_agency_users_email_hash;
+DROP INDEX IF EXISTS idx_agency_users_agency_id;
+DROP INDEX IF EXISTS idx_agency_signup_tokens_domain;
+DROP INDEX IF EXISTS idx_agency_signup_tokens_email_hash;
+DROP INDEX IF EXISTS idx_agency_signup_tokens_expires_at;
 DROP INDEX IF EXISTS idx_global_employer_domains_employer_id;
 DROP INDEX IF EXISTS idx_org_users_email_hash;
 DROP INDEX IF EXISTS idx_org_users_employer_id;
@@ -257,6 +324,10 @@ DROP INDEX IF EXISTS idx_hub_signup_tokens_email_hash;
 DROP INDEX IF EXISTS idx_hub_signup_tokens_expires_at;
 DROP INDEX IF EXISTS idx_admin_sessions_expires_at;
 DROP INDEX IF EXISTS idx_admin_tfa_tokens_expires_at;
+DROP TABLE IF EXISTS agency_signup_tokens;
+DROP TABLE IF EXISTS agency_users;
+DROP TABLE IF EXISTS global_agency_domains;
+DROP TABLE IF EXISTS agencies;
 DROP TABLE IF EXISTS org_signup_tokens;
 DROP TABLE IF EXISTS org_users;
 DROP TABLE IF EXISTS global_employer_domains;
@@ -274,6 +345,7 @@ DROP TABLE IF EXISTS admin_tfa_tokens;
 DROP TABLE IF EXISTS admin_users;
 DROP TABLE IF EXISTS hub_users;
 DROP TYPE IF EXISTS domain_verification_status;
+DROP TYPE IF EXISTS agency_user_status;
 DROP TYPE IF EXISTS org_user_status;
 DROP TYPE IF EXISTS domain_status;
 DROP TYPE IF EXISTS admin_user_status;
