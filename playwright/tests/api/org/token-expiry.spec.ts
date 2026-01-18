@@ -78,7 +78,9 @@ async function getTfaCodeForOrgUser(email: string): Promise<string> {
 		}
 	}
 
-	throw new Error(`TFA code not found in emails for ${email} after ${maxRetries} retries`);
+	throw new Error(
+		`TFA code not found in emails for ${email} after ${maxRetries} retries`
+	);
 }
 
 /**
