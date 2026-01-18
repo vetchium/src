@@ -7,12 +7,12 @@ WORKDIR /app
 COPY specs/typespec /specs/typespec
 
 # Copy package files first for caching
-COPY employer-ui/package.json employer-ui/bun.lock ./
+COPY agency-ui/package.json agency-ui/bun.lock ./
 
 RUN bun install --frozen-lockfile
 
 # Copy source code
-COPY employer-ui/ .
+COPY agency-ui/ .
 
 # Build the app
 RUN bun run build
@@ -24,7 +24,7 @@ WORKDIR /app
 
 # Copy built assets and serve script
 COPY --from=builder /app/dist ./dist
-COPY employer-ui/serve.ts ./
+COPY agency-ui/serve.ts ./
 
 EXPOSE 80
 
