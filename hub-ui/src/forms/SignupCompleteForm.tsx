@@ -71,6 +71,9 @@ export function SignupCompleteForm({ signupToken }: SignupCompleteFormProps) {
 	const [languages, setLanguages] = useState<SupportedLanguage[]>([]);
 	const [loadingData, setLoadingData] = useState(true);
 	const [currentStep, setCurrentStep] = useState(0);
+	const [stepStatus, setStepStatus] = useState<
+		Record<number, "wait" | "process" | "finish" | "error">
+	>({});
 
 	// Watch form values for summary step
 	const preferredLanguage = Form.useWatch("preferred_language", form);
@@ -151,11 +154,20 @@ export function SignupCompleteForm({ signupToken }: SignupCompleteFormProps) {
 		form
 			.validateFields(fieldsToValidate)
 			.then(() => {
+				// Mark current step as completed
+				setStepStatus((prev) => ({
+					...prev,
+					[currentStep]: "finish",
+				}));
 				setCurrentStep(currentStep + 1);
 				setError(null);
 			})
 			.catch(() => {
-				// Validation errors are shown in the form
+				// Mark current step as error
+				setStepStatus((prev) => ({
+					...prev,
+					[currentStep]: "error",
+				}));
 			});
 	};
 
@@ -173,6 +185,12 @@ export function SignupCompleteForm({ signupToken }: SignupCompleteFormProps) {
 			const formDisplayNames = values.display_names || [];
 			if (formDisplayNames.length === 0 || !formDisplayNames[0]?.display_name) {
 				setError(t("signup:atLeastOneDisplayName"));
+				// Navigate back to display names step and mark it as error
+				setCurrentStep(1);
+				setStepStatus((prev) => ({
+					...prev,
+					1: "error",
+				}));
 				setLoading(false);
 				return;
 			}
@@ -267,6 +285,15 @@ export function SignupCompleteForm({ signupToken }: SignupCompleteFormProps) {
 									if (!names || names.length < 1) {
 										return Promise.reject(
 											new Error(t("signup:atLeastOneDisplayName"))
+										);
+									}
+									// Ensure the first (primary) display name is not empty
+									if (
+										!names[0]?.display_name ||
+										names[0].display_name.trim() === ""
+									) {
+										return Promise.reject(
+											new Error(t("signup:primaryDisplayNameRequired"))
 										);
 									}
 								},
@@ -591,8 +618,10 @@ export function SignupCompleteForm({ signupToken }: SignupCompleteFormProps) {
 				<Steps
 					current={currentStep}
 					size="small"
-					items={steps.map((step) => ({
+					items={steps.map((step, index) => ({
 						title: step.title,
+						status:
+							stepStatus[index] || (index === currentStep ? "process" : "wait"),
 					}))}
 					style={{ marginBottom: 24 }}
 				/>

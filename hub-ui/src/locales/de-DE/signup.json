@@ -35,6 +35,7 @@
 	"duplicateLanguage": "Diese Sprache wird bereits für einen anderen Anzeigenamen verwendet",
 	"duplicateLanguageWithPreferred": "Diese Sprache ist identisch mit Ihrer bevorzugten Sprache",
 	"atLeastOneDisplayName": "Mindestens ein Anzeigename ist erforderlich",
+	"primaryDisplayNameRequired": "Der primäre Anzeigename darf nicht leer sein",
 	"languageStepTitle": "Wählen Sie Ihre Sprache",
 	"languageStepDescription": "Wählen Sie Ihre bevorzugte Sprache für die Anwendung. Diese kann später in den Einstellungen geändert werden.",
 	"displayNameStepTitle": "Legen Sie Ihren Anzeigenamen fest",

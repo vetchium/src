@@ -35,6 +35,7 @@
 	"duplicateLanguage": "This language is already used for another display name",
 	"duplicateLanguageWithPreferred": "This language is the same as your preferred language",
 	"atLeastOneDisplayName": "At least one display name is required",
+	"primaryDisplayNameRequired": "Primary display name cannot be empty",
 	"languageStepTitle": "Choose Your Language",
 	"languageStepDescription": "Select your preferred language for the application. This can be changed later in settings.",
 	"displayNameStepTitle": "Set Your Display Name",
