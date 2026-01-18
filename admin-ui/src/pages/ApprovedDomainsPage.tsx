@@ -44,6 +44,7 @@ import {
 } from "vetchium-specs/admin/approved-domains";
 import { getApiBaseUrl } from "../config";
 import { useAuth } from "../hooks/useAuth";
+import { formatDateTime } from "../utils/dateFormat";
 
 const { Title } = Typography;
 const { TextArea } = Input;
@@ -519,7 +520,7 @@ export function ApprovedDomainsPage() {
 			title: t("table.createdAt"),
 			dataIndex: "created_at",
 			key: "created_at",
-			render: (date: string) => new Date(date).toLocaleString(),
+			render: (date: string) => formatDateTime(date),
 		},
 		{
 			title: t("table.actions"),
@@ -837,10 +838,10 @@ export function ApprovedDomainsPage() {
 										{domainDetail.domain.created_by_admin_email}
 									</Descriptions.Item>
 									<Descriptions.Item label={t("detailDrawer.createdAt")}>
-										{new Date(domainDetail.domain.created_at).toLocaleString()}
+										{formatDateTime(domainDetail.domain.created_at)}
 									</Descriptions.Item>
 									<Descriptions.Item label={t("detailDrawer.updatedAt")}>
-										{new Date(domainDetail.domain.updated_at).toLocaleString()}
+										{formatDateTime(domainDetail.domain.updated_at)}
 									</Descriptions.Item>
 								</Descriptions>
 							</div>
@@ -875,7 +876,7 @@ export function ApprovedDomainsPage() {
 															{t(`auditActions.${log.action}`)}
 														</Tag>
 														<span style={{ fontSize: 12, color: "#888" }}>
-															{new Date(log.created_at).toLocaleString()}
+															{formatDateTime(log.created_at)}
 														</span>
 													</Space>
 													<div>

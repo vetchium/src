@@ -23,8 +23,12 @@ import i18n from "./i18n";
 const { Content } = Layout;
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-	const { authState } = useAuth();
+	const { authState, isInitializing } = useAuth();
 	const location = useLocation();
+
+	if (isInitializing) {
+		return null;
+	}
 
 	if (authState === "login") {
 		return <Navigate to="/login" state={{ from: location }} replace />;

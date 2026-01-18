@@ -46,6 +46,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 	const [error, setError] = useState<string | null>(null);
 	const [tfaToken, setTfaToken] = useState<string | null>(null);
 	const [sessionToken, setSessionTokenState] = useState<string | null>(null);
+	const [isInitializing, setIsInitializing] = useState(true);
 
 	useEffect(() => {
 		const existingSession = getSessionToken();
@@ -53,6 +54,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 			setSessionTokenState(existingSession);
 			setAuthState("authenticated");
 		}
+		setIsInitializing(false);
 	}, []);
 
 	const formatValidationErrors = (
@@ -268,6 +270,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 				loading,
 				error,
 				sessionToken,
+				isInitializing,
 				login,
 				verifyTFA,
 				logout,
