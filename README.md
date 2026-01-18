@@ -191,15 +191,15 @@ For development, the following test users are available (password: `Password123$
 
 The global API server runs background cleanup jobs. It only needs the global database connection.
 
-| Variable                               | Default | CI Value | Description                                       |
-| -------------------------------------- | ------- | -------- | ------------------------------------------------- |
-| `GLOBAL_DB_CONN`                       | -       | -        | PostgreSQL connection string for global DB        |
-| `LOG_LEVEL`                            | INFO    | DEBUG    | Log level (DEBUG, INFO, WARN, ERROR)              |
-| `ADMIN_TFA_TOKEN_CLEANUP_INTERVAL`     | 1h      | 5s       | Cleanup interval for expired admin TFA tokens     |
-| `ADMIN_SESSION_CLEANUP_INTERVAL`       | 1h      | 5s       | Cleanup interval for expired admin sessions       |
-| `HUB_SIGNUP_TOKEN_CLEANUP_INTERVAL`    | 1h      | 5s       | Cleanup interval for expired hub signup tokens    |
+| Variable                               | Default | CI Value | Description                                         |
+| -------------------------------------- | ------- | -------- | --------------------------------------------------- |
+| `GLOBAL_DB_CONN`                       | -       | -        | PostgreSQL connection string for global DB          |
+| `LOG_LEVEL`                            | INFO    | DEBUG    | Log level (DEBUG, INFO, WARN, ERROR)                |
+| `ADMIN_TFA_TOKEN_CLEANUP_INTERVAL`     | 1h      | 5s       | Cleanup interval for expired admin TFA tokens       |
+| `ADMIN_SESSION_CLEANUP_INTERVAL`       | 1h      | 5s       | Cleanup interval for expired admin sessions         |
+| `HUB_SIGNUP_TOKEN_CLEANUP_INTERVAL`    | 1h      | 5s       | Cleanup interval for expired hub signup tokens      |
 | `ORG_SIGNUP_TOKEN_CLEANUP_INTERVAL`    | 1h      | 5s       | Cleanup interval for expired employer signup tokens |
-| `AGENCY_SIGNUP_TOKEN_CLEANUP_INTERVAL` | 1h      | 5s       | Cleanup interval for expired agency signup tokens |
+| `AGENCY_SIGNUP_TOKEN_CLEANUP_INTERVAL` | 1h      | 5s       | Cleanup interval for expired agency signup tokens   |
 
 ### Regional API Servers
 
@@ -217,33 +217,33 @@ Regional API servers handle HTTP requests and run regional background jobs. They
 
 **Token Expiry Configuration:**
 
-| Variable                     | Default | CI Value | Description                              |
-| ---------------------------- | ------- | -------- | ---------------------------------------- |
-| `ADMIN_TFA_TOKEN_EXPIRY`     | 10m     | 15s      | Admin TFA token validity duration        |
-| `ADMIN_SESSION_TOKEN_EXPIRY` | 24h     | 30s      | Admin session token validity duration    |
-| `HUB_TFA_TOKEN_EXPIRY`       | 10m     | 15s      | Hub user TFA token validity duration     |
-| `HUB_SESSION_TOKEN_EXPIRY`   | 24h     | 30s      | Hub user session token validity          |
-| `HUB_SIGNUP_TOKEN_EXPIRY`    | 24h     | 30s      | Hub signup token validity duration       |
-| `HUB_REMEMBER_ME_EXPIRY`     | 365d    | 60s      | Hub remember-me session validity         |
-| `ORG_TFA_TOKEN_EXPIRY`       | 10m     | 15s      | Employer TFA token validity duration     |
-| `ORG_SESSION_TOKEN_EXPIRY`   | 24h     | 30s      | Employer session token validity duration |
-| `ORG_SIGNUP_TOKEN_EXPIRY`    | 24h     | 30s      | Employer signup token validity duration  |
-| `ORG_REMEMBER_ME_EXPIRY`     | 365d    | 60s      | Employer remember-me session validity    |
-| `AGENCY_TFA_TOKEN_EXPIRY`    | 10m     | 15s      | Agency TFA token validity duration       |
-| `AGENCY_SESSION_TOKEN_EXPIRY` | 24h    | 30s      | Agency session token validity duration   |
-| `AGENCY_SIGNUP_TOKEN_EXPIRY` | 24h     | 30s      | Agency signup token validity duration    |
-| `AGENCY_REMEMBER_ME_EXPIRY`  | 365d    | 60s      | Agency remember-me session validity      |
+| Variable                      | Default | CI Value | Description                              |
+| ----------------------------- | ------- | -------- | ---------------------------------------- |
+| `ADMIN_TFA_TOKEN_EXPIRY`      | 10m     | 15s      | Admin TFA token validity duration        |
+| `ADMIN_SESSION_TOKEN_EXPIRY`  | 24h     | 30s      | Admin session token validity duration    |
+| `HUB_TFA_TOKEN_EXPIRY`        | 10m     | 15s      | Hub user TFA token validity duration     |
+| `HUB_SESSION_TOKEN_EXPIRY`    | 24h     | 30s      | Hub user session token validity          |
+| `HUB_SIGNUP_TOKEN_EXPIRY`     | 24h     | 30s      | Hub signup token validity duration       |
+| `HUB_REMEMBER_ME_EXPIRY`      | 365d    | 60s      | Hub remember-me session validity         |
+| `ORG_TFA_TOKEN_EXPIRY`        | 10m     | 15s      | Employer TFA token validity duration     |
+| `ORG_SESSION_TOKEN_EXPIRY`    | 24h     | 30s      | Employer session token validity duration |
+| `ORG_SIGNUP_TOKEN_EXPIRY`     | 24h     | 30s      | Employer signup token validity duration  |
+| `ORG_REMEMBER_ME_EXPIRY`      | 365d    | 60s      | Employer remember-me session validity    |
+| `AGENCY_TFA_TOKEN_EXPIRY`     | 10m     | 15s      | Agency TFA token validity duration       |
+| `AGENCY_SESSION_TOKEN_EXPIRY` | 24h     | 30s      | Agency session token validity duration   |
+| `AGENCY_SIGNUP_TOKEN_EXPIRY`  | 24h     | 30s      | Agency signup token validity duration    |
+| `AGENCY_REMEMBER_ME_EXPIRY`   | 365d    | 60s      | Agency remember-me session validity      |
 
 **Regional Cleanup Configuration:**
 
-| Variable                            | Default | CI Value | Description                                    |
-| ----------------------------------- | ------- | -------- | ---------------------------------------------- |
-| `HUB_TFA_TOKEN_CLEANUP_INTERVAL`    | 1h      | 5s       | Cleanup interval for expired hub TFA tokens    |
-| `HUB_SESSION_CLEANUP_INTERVAL`      | 1h      | 5s       | Cleanup interval for expired hub sessions      |
+| Variable                            | Default | CI Value | Description                                      |
+| ----------------------------------- | ------- | -------- | ------------------------------------------------ |
+| `HUB_TFA_TOKEN_CLEANUP_INTERVAL`    | 1h      | 5s       | Cleanup interval for expired hub TFA tokens      |
+| `HUB_SESSION_CLEANUP_INTERVAL`      | 1h      | 5s       | Cleanup interval for expired hub sessions        |
 | `ORG_TFA_TOKEN_CLEANUP_INTERVAL`    | 1h      | 5s       | Cleanup interval for expired employer TFA tokens |
-| `ORG_SESSION_CLEANUP_INTERVAL`      | 1h      | 5s       | Cleanup interval for expired employer sessions |
-| `AGENCY_TFA_TOKEN_CLEANUP_INTERVAL` | 1h      | 5s       | Cleanup interval for expired agency TFA tokens |
-| `AGENCY_SESSION_CLEANUP_INTERVAL`   | 1h      | 5s       | Cleanup interval for expired agency sessions   |
+| `ORG_SESSION_CLEANUP_INTERVAL`      | 1h      | 5s       | Cleanup interval for expired employer sessions   |
+| `AGENCY_TFA_TOKEN_CLEANUP_INTERVAL` | 1h      | 5s       | Cleanup interval for expired agency TFA tokens   |
+| `AGENCY_SESSION_CLEANUP_INTERVAL`   | 1h      | 5s       | Cleanup interval for expired agency sessions     |
 
 **Email Configuration:**
 
