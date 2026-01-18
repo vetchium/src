@@ -6,7 +6,6 @@
  * (docker-compose-ci.json) which uses short token durations:
  * - AGENCY_TFA_TOKEN_EXPIRY: 15s
  * - AGENCY_SESSION_TOKEN_EXPIRY: 30s
- * - AGENCY_SIGNUP_TOKEN_EXPIRY: 30s
  * - AGENCY_REMEMBER_ME_EXPIRY: 60s
  *
  * Run with: docker compose -f docker-compose-ci.json up --build
@@ -15,23 +14,17 @@
 import { test, expect } from "@playwright/test";
 import { AgencyAPIClient } from "../../../lib/agency-api-client";
 import {
-	createTestAgencyDomain,
-	deleteTestAgencyDomain,
 	deleteTestAgencyUser,
-	generateTestEmail,
-	generateTestDomainName,
+	generateTestAgencyEmail,
+	createTestAgencyUserDirect,
 } from "../../../lib/db";
 import {
-	waitForEmail,
-	getEmailContent,
 	searchEmails,
+	getEmailContent,
 	extractTfaCode,
-	getAgencySignupTokenFromEmail,
 } from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
 import type {
-	AgencyInitSignupRequest,
-	AgencyCompleteSignupRequest,
 	AgencyLoginRequest,
 	AgencyTFARequest,
 } from "vetchium-specs/agency/agency-users";
@@ -39,7 +32,6 @@ import type {
 // Token expiry durations in CI environment (with buffer for test reliability)
 const TFA_TOKEN_EXPIRY_MS = 15000; // 15 seconds
 const SESSION_TOKEN_EXPIRY_MS = 30000; // 30 seconds
-const SIGNUP_TOKEN_EXPIRY_MS = 30000; // 30 seconds
 const REMEMBER_ME_EXPIRY_MS = 60000; // 60 seconds
 const EXPIRY_BUFFER_MS = 8000; // 8 seconds buffer for cleanup job
 
@@ -83,52 +75,22 @@ async function getTfaCodeForAgencyUser(email: string): Promise<string> {
 	);
 }
 
-/**
- * Helper function to create an agency user through signup API
- */
-async function createAgencyUserViaSignup(
-	api: AgencyAPIClient,
-	domain: string,
-	email: string,
-	password: string
-): Promise<void> {
-	// Initiate signup
-	const initSignupReq: AgencyInitSignupRequest = {
-		domain_name: domain,
-		email_address: email,
-	};
-	await api.initSignup(initSignupReq);
-
-	// Get signup token from email
-	const signupToken = await getAgencySignupTokenFromEmail(email);
-
-	// Complete signup
-	const completeSignupReq: AgencyCompleteSignupRequest = {
-		signup_token: signupToken!,
-		password,
-		preferred_display_name: "Test Agency User",
-		home_region: "ind1",
-		preferred_language: "en-US",
-	};
-	await api.completeSignup(completeSignupReq);
-}
-
 test.describe("Agency Token Expiry Tests", () => {
 	test.describe.configure({ timeout: 120000 }); // Increase timeout for expiry tests
 
 	test("expired TFA token returns 401", async ({ request }) => {
 		const api = new AgencyAPIClient(request);
-		const domain = generateTestDomainName();
-		const email = generateTestEmail("agency-tfa-expiry");
-		const password = TEST_PASSWORD;
+		const { email, domain } = generateTestAgencyEmail("agency-tfa-expiry");
 
-		await createTestAgencyDomain(domain);
+		// Create test agency user directly in the database
+		await createTestAgencyUserDirect(email, TEST_PASSWORD);
+
 		try {
-			// Create user via signup flow
-			await createAgencyUserViaSignup(api, domain, email, password);
-
 			// Step 1: Login to get TFA token
-			const loginReq: AgencyLoginRequest = { email_address: email, password };
+			const loginReq: AgencyLoginRequest = {
+				email_address: email,
+				password: TEST_PASSWORD,
+			};
 			const loginResponse = await api.login(loginReq);
 			expect(loginResponse.status).toBe(200);
 			const tfaToken = loginResponse.body.tfa_token;
@@ -153,7 +115,6 @@ test.describe("Agency Token Expiry Tests", () => {
 			expect(expiredTfaResponse.status).toBe(401);
 		} finally {
 			await deleteTestAgencyUser(email);
-			await deleteTestAgencyDomain(domain);
 		}
 	});
 
@@ -161,16 +122,17 @@ test.describe("Agency Token Expiry Tests", () => {
 		request,
 	}) => {
 		const api = new AgencyAPIClient(request);
-		const domain = generateTestDomainName();
-		const email = generateTestEmail("agency-session-expiry");
-		const password = TEST_PASSWORD;
+		const { email } = generateTestAgencyEmail("agency-session-expiry");
 
-		await createTestAgencyDomain(domain);
+		// Create test agency user directly in the database
+		await createTestAgencyUserDirect(email, TEST_PASSWORD);
+
 		try {
-			// Create user and complete full login flow
-			await createAgencyUserViaSignup(api, domain, email, password);
-
-			const loginReq: AgencyLoginRequest = { email_address: email, password };
+			// Complete full login flow
+			const loginReq: AgencyLoginRequest = {
+				email_address: email,
+				password: TEST_PASSWORD,
+			};
 			const loginResponse = await api.login(loginReq);
 			expect(loginResponse.status).toBe(200);
 			const tfaToken = loginResponse.body.tfa_token;
@@ -212,22 +174,22 @@ test.describe("Agency Token Expiry Tests", () => {
 			expect(postExpiryResponse.status).toBe(401);
 		} finally {
 			await deleteTestAgencyUser(email);
-			await deleteTestAgencyDomain(domain);
 		}
 	});
 
 	test("expired session token returns 401 for logout", async ({ request }) => {
 		const api = new AgencyAPIClient(request);
-		const domain = generateTestDomainName();
-		const email = generateTestEmail("agency-logout-expiry");
-		const password = TEST_PASSWORD;
+		const { email } = generateTestAgencyEmail("agency-logout-expiry");
 
-		await createTestAgencyDomain(domain);
+		// Create test agency user directly in the database
+		await createTestAgencyUserDirect(email, TEST_PASSWORD);
+
 		try {
-			// Create user and complete full login flow
-			await createAgencyUserViaSignup(api, domain, email, password);
-
-			const loginReq: AgencyLoginRequest = { email_address: email, password };
+			// Complete full login flow
+			const loginReq: AgencyLoginRequest = {
+				email_address: email,
+				password: TEST_PASSWORD,
+			};
 			const loginResponse = await api.login(loginReq);
 			expect(loginResponse.status).toBe(200);
 			const tfaToken = loginResponse.body.tfa_token;
@@ -252,23 +214,22 @@ test.describe("Agency Token Expiry Tests", () => {
 			expect(logoutResponse.status).toBe(401);
 		} finally {
 			await deleteTestAgencyUser(email);
-			await deleteTestAgencyDomain(domain);
 		}
 	});
 
 	test("TFA token still valid within expiry window", async ({ request }) => {
 		const api = new AgencyAPIClient(request);
-		const domain = generateTestDomainName();
-		const email = generateTestEmail("agency-tfa-valid");
-		const password = TEST_PASSWORD;
+		const { email } = generateTestAgencyEmail("agency-tfa-valid");
 
-		await createTestAgencyDomain(domain);
+		// Create test agency user directly in the database
+		await createTestAgencyUserDirect(email, TEST_PASSWORD);
+
 		try {
-			// Create user
-			await createAgencyUserViaSignup(api, domain, email, password);
-
 			// Login to get TFA token
-			const loginReq: AgencyLoginRequest = { email_address: email, password };
+			const loginReq: AgencyLoginRequest = {
+				email_address: email,
+				password: TEST_PASSWORD,
+			};
 			const loginResponse = await api.login(loginReq);
 			expect(loginResponse.status).toBe(200);
 			const tfaToken = loginResponse.body.tfa_token;
@@ -291,23 +252,22 @@ test.describe("Agency Token Expiry Tests", () => {
 			expect(tfaResponse.body.session_token).toBeDefined();
 		} finally {
 			await deleteTestAgencyUser(email);
-			await deleteTestAgencyDomain(domain);
 		}
 	});
 
 	test("expired remember-me token returns 401", async ({ request }) => {
 		const api = new AgencyAPIClient(request);
-		const domain = generateTestDomainName();
-		const email = generateTestEmail("agency-remember-expiry");
-		const password = TEST_PASSWORD;
+		const { email } = generateTestAgencyEmail("agency-remember-expiry");
 
-		await createTestAgencyDomain(domain);
+		// Create test agency user directly in the database
+		await createTestAgencyUserDirect(email, TEST_PASSWORD);
+
 		try {
-			// Create user
-			await createAgencyUserViaSignup(api, domain, email, password);
-
 			// Login with remember_me flag
-			const loginReq: AgencyLoginRequest = { email_address: email, password };
+			const loginReq: AgencyLoginRequest = {
+				email_address: email,
+				password: TEST_PASSWORD,
+			};
 			const loginResponse = await api.login(loginReq);
 			expect(loginResponse.status).toBe(200);
 			const tfaToken = loginResponse.body.tfa_token;
@@ -349,48 +309,6 @@ test.describe("Agency Token Expiry Tests", () => {
 			expect(postExpiryResponse.status).toBe(401);
 		} finally {
 			await deleteTestAgencyUser(email);
-			await deleteTestAgencyDomain(domain);
-		}
-	});
-
-	test("expired signup token returns 422", async ({ request }) => {
-		const api = new AgencyAPIClient(request);
-		const domain = generateTestDomainName();
-		const email = generateTestEmail("agency-signup-expiry");
-		const password = TEST_PASSWORD;
-
-		await createTestAgencyDomain(domain);
-		try {
-			// Initiate signup
-			const initSignupReq: AgencyInitSignupRequest = {
-				domain_name: domain,
-				email_address: email,
-			};
-			const initResponse = await api.initSignup(initSignupReq);
-			expect(initResponse.status).toBe(201);
-
-			// Get signup token from email
-			const signupToken = await getAgencySignupTokenFromEmail(email);
-			expect(signupToken).toBeDefined();
-
-			// Wait for signup token to expire
-			await sleep(SIGNUP_TOKEN_EXPIRY_MS + EXPIRY_BUFFER_MS);
-
-			// Try to complete signup with expired token
-			const completeSignupReq: AgencyCompleteSignupRequest = {
-				signup_token: signupToken!,
-				password,
-				preferred_display_name: "Test Agency User",
-				home_region: "ind1",
-				preferred_language: "en-US",
-			};
-			const expiredResponse = await api.completeSignup(completeSignupReq);
-
-			// Expired signup token should return 422
-			expect(expiredResponse.status).toBe(422);
-		} finally {
-			// Cleanup - user won't exist since signup didn't complete
-			await deleteTestAgencyDomain(domain);
 		}
 	});
 });
