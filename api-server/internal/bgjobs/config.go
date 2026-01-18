@@ -12,12 +12,15 @@ type GlobalBgJobsConfig struct {
 	ExpiredAdminTFATokensCleanupInterval  time.Duration
 	ExpiredAdminSessionsCleanupInterval   time.Duration
 	ExpiredHubSignupTokensCleanupInterval time.Duration
+	ExpiredOrgSignupTokensCleanupInterval time.Duration
 }
 
 // RegionalBgJobsConfig holds configuration for regional database background jobs
 type RegionalBgJobsConfig struct {
 	ExpiredHubTFATokensCleanupInterval time.Duration
 	ExpiredHubSessionsCleanupInterval  time.Duration
+	ExpiredOrgTFATokensCleanupInterval time.Duration
+	ExpiredOrgSessionsCleanupInterval  time.Duration
 }
 
 // GlobalConfigFromEnv creates a GlobalBgJobsConfig from environment variables
@@ -37,10 +40,16 @@ func GlobalConfigFromEnv() *GlobalBgJobsConfig {
 		1*time.Hour,
 	)
 
+	orgSignupInterval := parseDurationOrDefault(
+		os.Getenv("ORG_SIGNUP_TOKEN_CLEANUP_INTERVAL"),
+		1*time.Hour,
+	)
+
 	return &GlobalBgJobsConfig{
 		ExpiredAdminTFATokensCleanupInterval:  adminTFAInterval,
 		ExpiredAdminSessionsCleanupInterval:   adminSessionsInterval,
 		ExpiredHubSignupTokensCleanupInterval: hubSignupInterval,
+		ExpiredOrgSignupTokensCleanupInterval: orgSignupInterval,
 	}
 }
 
@@ -56,9 +65,21 @@ func RegionalConfigFromEnv() *RegionalBgJobsConfig {
 		1*time.Hour,
 	)
 
+	orgTFAInterval := parseDurationOrDefault(
+		os.Getenv("ORG_TFA_TOKEN_CLEANUP_INTERVAL"),
+		1*time.Hour,
+	)
+
+	orgSessionsInterval := parseDurationOrDefault(
+		os.Getenv("ORG_SESSION_CLEANUP_INTERVAL"),
+		1*time.Hour,
+	)
+
 	return &RegionalBgJobsConfig{
 		ExpiredHubTFATokensCleanupInterval: hubTFAInterval,
 		ExpiredHubSessionsCleanupInterval:  hubSessionsInterval,
+		ExpiredOrgTFATokensCleanupInterval: orgTFAInterval,
+		ExpiredOrgSessionsCleanupInterval:  orgSessionsInterval,
 	}
 }
 
