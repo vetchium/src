@@ -131,6 +131,24 @@ func TokenConfigFromEnv() *server.TokenConfig {
 		365*24*time.Hour,
 	)
 
+	// Agency token expiry durations
+	agencySignupExpiry := parseDurationOrDefault(
+		os.Getenv("AGENCY_SIGNUP_TOKEN_EXPIRY"),
+		24*time.Hour,
+	)
+	agencyTFAExpiry := parseDurationOrDefault(
+		os.Getenv("AGENCY_TFA_TOKEN_EXPIRY"),
+		10*time.Minute,
+	)
+	agencySessionExpiry := parseDurationOrDefault(
+		os.Getenv("AGENCY_SESSION_TOKEN_EXPIRY"),
+		24*time.Hour,
+	)
+	agencyRememberMeExpiry := parseDurationOrDefault(
+		os.Getenv("AGENCY_REMEMBER_ME_EXPIRY"),
+		365*24*time.Hour,
+	)
+
 	return &server.TokenConfig{
 		HubSignupTokenExpiry:    hubSignupExpiry,
 		HubTFATokenExpiry:       hubTFAExpiry,
@@ -142,6 +160,10 @@ func TokenConfigFromEnv() *server.TokenConfig {
 		OrgTFATokenExpiry:       orgTFAExpiry,
 		OrgSessionTokenExpiry:   orgSessionExpiry,
 		OrgRememberMeExpiry:     orgRememberMeExpiry,
+		AgencySignupTokenExpiry:    agencySignupExpiry,
+		AgencyTFATokenExpiry:       agencyTFAExpiry,
+		AgencySessionTokenExpiry:   agencySessionExpiry,
+		AgencyRememberMeExpiry:     agencyRememberMeExpiry,
 	}
 }
 

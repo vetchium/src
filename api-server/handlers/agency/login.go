@@ -138,7 +138,7 @@ func Login(s *server.Server) http.HandlerFunc {
 		}
 
 		// Store TFA token in regional database
-		tfaTokenExpiry := s.TokenConfig.OrgTFATokenExpiry
+		tfaTokenExpiry := s.TokenConfig.AgencyTFATokenExpiry
 		expiresAt := pgtype.Timestamp{Time: time.Now().Add(tfaTokenExpiry), Valid: true}
 		err = regionalDB.CreateAgencyTFAToken(ctx, regionaldb.CreateAgencyTFATokenParams{
 			TfaToken:     rawTFAToken,

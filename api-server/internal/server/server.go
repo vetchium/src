@@ -28,6 +28,12 @@ type TokenConfig struct {
 	OrgTFATokenExpiry     time.Duration // Default: 10m
 	OrgSessionTokenExpiry time.Duration // Default: 24h
 	OrgRememberMeExpiry   time.Duration // Default: 365 days
+
+	// Agency tokens
+	AgencySignupTokenExpiry  time.Duration // Default: 24h
+	AgencyTFATokenExpiry     time.Duration // Default: 10m
+	AgencySessionTokenExpiry time.Duration // Default: 24h
+	AgencyRememberMeExpiry   time.Duration // Default: 365 days
 }
 
 type Server struct {
