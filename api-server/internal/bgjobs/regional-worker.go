@@ -42,6 +42,8 @@ func (w *RegionalWorker) Run(ctx context.Context) {
 	w.log.Info("starting regional background jobs worker",
 		"hub_tfa_cleanup_interval", w.config.ExpiredHubTFATokensCleanupInterval,
 		"hub_sessions_cleanup_interval", w.config.ExpiredHubSessionsCleanupInterval,
+		"org_tfa_cleanup_interval", w.config.ExpiredOrgTFATokensCleanupInterval,
+		"org_sessions_cleanup_interval", w.config.ExpiredOrgSessionsCleanupInterval,
 	)
 
 	// Launch each job in its own goroutine
@@ -52,6 +54,14 @@ func (w *RegionalWorker) Run(ctx context.Context) {
 	go w.runPeriodicJob(ctx, "hub-sessions",
 		w.config.ExpiredHubSessionsCleanupInterval,
 		w.cleanupExpiredHubSessions)
+
+	go w.runPeriodicJob(ctx, "org-tfa-tokens",
+		w.config.ExpiredOrgTFATokensCleanupInterval,
+		w.cleanupExpiredOrgTFATokens)
+
+	go w.runPeriodicJob(ctx, "org-sessions",
+		w.config.ExpiredOrgSessionsCleanupInterval,
+		w.cleanupExpiredOrgSessions)
 }
 
 // runPeriodicJob runs a job function in a loop with the given interval.
@@ -110,4 +120,30 @@ func (w *RegionalWorker) cleanupExpiredHubSessions(ctx context.Context) {
 		return
 	}
 	w.log.Debug("cleaned up expired hub sessions")
+}
+
+func (w *RegionalWorker) cleanupExpiredOrgTFATokens(ctx context.Context) {
+	if ctx.Err() != nil {
+		return
+	}
+
+	err := w.queries.DeleteExpiredOrgTFATokens(ctx)
+	if err != nil {
+		w.log.Error("failed to cleanup expired org TFA tokens", "error", err)
+		return
+	}
+	w.log.Debug("cleaned up expired org TFA tokens")
+}
+
+func (w *RegionalWorker) cleanupExpiredOrgSessions(ctx context.Context) {
+	if ctx.Err() != nil {
+		return
+	}
+
+	err := w.queries.DeleteExpiredOrgSessions(ctx)
+	if err != nil {
+		w.log.Error("failed to cleanup expired org sessions", "error", err)
+		return
+	}
+	w.log.Debug("cleaned up expired org sessions")
 }

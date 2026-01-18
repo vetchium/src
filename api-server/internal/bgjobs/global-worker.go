@@ -37,6 +37,7 @@ func (w *GlobalWorker) Run(ctx context.Context) {
 		"admin_tfa_cleanup_interval", w.config.ExpiredAdminTFATokensCleanupInterval,
 		"admin_sessions_cleanup_interval", w.config.ExpiredAdminSessionsCleanupInterval,
 		"hub_signup_tokens_cleanup_interval", w.config.ExpiredHubSignupTokensCleanupInterval,
+		"org_signup_tokens_cleanup_interval", w.config.ExpiredOrgSignupTokensCleanupInterval,
 	)
 
 	// Launch each job in its own goroutine
@@ -51,6 +52,10 @@ func (w *GlobalWorker) Run(ctx context.Context) {
 	go w.runPeriodicJob(ctx, "hub-signup-tokens",
 		w.config.ExpiredHubSignupTokensCleanupInterval,
 		w.cleanupExpiredHubSignupTokens)
+
+	go w.runPeriodicJob(ctx, "org-signup-tokens",
+		w.config.ExpiredOrgSignupTokensCleanupInterval,
+		w.cleanupExpiredOrgSignupTokens)
 }
 
 // runPeriodicJob runs a job function in a loop with the given interval.
@@ -122,4 +127,17 @@ func (w *GlobalWorker) cleanupExpiredHubSignupTokens(ctx context.Context) {
 		return
 	}
 	w.log.Debug("cleaned up expired hub signup tokens")
+}
+
+func (w *GlobalWorker) cleanupExpiredOrgSignupTokens(ctx context.Context) {
+	if ctx.Err() != nil {
+		return
+	}
+
+	err := w.queries.DeleteExpiredOrgSignupTokens(ctx)
+	if err != nil {
+		w.log.Error("failed to cleanup expired org signup tokens", "error", err)
+		return
+	}
+	w.log.Debug("cleaned up expired org signup tokens")
 }
