@@ -38,6 +38,7 @@ func (w *GlobalWorker) Run(ctx context.Context) {
 		"admin_sessions_cleanup_interval", w.config.ExpiredAdminSessionsCleanupInterval,
 		"hub_signup_tokens_cleanup_interval", w.config.ExpiredHubSignupTokensCleanupInterval,
 		"org_signup_tokens_cleanup_interval", w.config.ExpiredOrgSignupTokensCleanupInterval,
+		"agency_signup_tokens_cleanup_interval", w.config.ExpiredAgencySignupTokensCleanupInterval,
 	)
 
 	// Launch each job in its own goroutine
@@ -56,6 +57,10 @@ func (w *GlobalWorker) Run(ctx context.Context) {
 	go w.runPeriodicJob(ctx, "org-signup-tokens",
 		w.config.ExpiredOrgSignupTokensCleanupInterval,
 		w.cleanupExpiredOrgSignupTokens)
+
+	go w.runPeriodicJob(ctx, "agency-signup-tokens",
+		w.config.ExpiredAgencySignupTokensCleanupInterval,
+		w.cleanupExpiredAgencySignupTokens)
 }
 
 // runPeriodicJob runs a job function in a loop with the given interval.
@@ -140,4 +145,17 @@ func (w *GlobalWorker) cleanupExpiredOrgSignupTokens(ctx context.Context) {
 		return
 	}
 	w.log.Debug("cleaned up expired org signup tokens")
+}
+
+func (w *GlobalWorker) cleanupExpiredAgencySignupTokens(ctx context.Context) {
+	if ctx.Err() != nil {
+		return
+	}
+
+	err := w.queries.DeleteExpiredAgencySignupTokens(ctx)
+	if err != nil {
+		w.log.Error("failed to cleanup expired agency signup tokens", "error", err)
+		return
+	}
+	w.log.Debug("cleaned up expired agency signup tokens")
 }
