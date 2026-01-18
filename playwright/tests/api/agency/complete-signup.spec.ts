@@ -115,7 +115,9 @@ test.describe("POST /agency/complete-signup", () => {
 		expect(response.status).toBe(400);
 	});
 
-	test("invalid preferred_language with non-existent token returns 404", async ({ request }) => {
+	test("invalid preferred_language with non-existent token returns 404", async ({
+		request,
+	}) => {
 		const api = new AgencyAPIClient(request);
 
 		// Using fake token - DB lookup fails before language validation
