@@ -152,7 +152,7 @@ test.describe("Agency Token Expiry Tests", () => {
 
 			// Step 2: Verify session works before expiry (test with logout)
 			const preExpiryResponse = await api.logout(sessionToken);
-			expect(preExpiryResponse.status).toBe(204);
+			expect(preExpiryResponse.status).toBe(200);
 
 			// Login again to get a new session for expiry test
 			const loginResponse2 = await api.login(loginReq);
@@ -290,7 +290,7 @@ test.describe("Agency Token Expiry Tests", () => {
 
 			// Verify remember-me session works before expiry
 			const preExpiryResponse = await api.logout(rememberMeToken);
-			expect(preExpiryResponse.status).toBe(204);
+			expect(preExpiryResponse.status).toBe(200);
 
 			// Login again with remember_me to get a new token for expiry test
 			const loginResponse2 = await api.login(loginReq);

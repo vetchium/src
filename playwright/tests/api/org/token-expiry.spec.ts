@@ -150,19 +150,27 @@ test.describe("Org Token Expiry Tests", () => {
 			const sessionToken = tfaResponse.body.session_token;
 			expect(sessionToken).toBeDefined();
 
-			// Step 2: Verify session works before expiry (test with getDomainStatus)
-			const preExpiryResponse = await api.getDomainStatus(sessionToken, {
-				domain_name: domain,
-			});
+			// Step 2: Verify session works before expiry (test with logout)
+			const preExpiryResponse = await api.logout(sessionToken);
 			expect(preExpiryResponse.status).toBe(200);
+
+			// Login again to get a new session for expiry test
+			const loginResponse2 = await api.login(loginReq);
+			const tfaToken2 = loginResponse2.body.tfa_token;
+			const tfaCode2 = await getTfaCodeForOrgUser(email);
+			const tfaReq2: OrgTFARequest = {
+				tfa_token: tfaToken2,
+				tfa_code: tfaCode2,
+				remember_me: false,
+			};
+			const tfaResponse2 = await api.verifyTFA(tfaReq2);
+			const sessionToken2 = tfaResponse2.body.session_token;
 
 			// Step 3: Wait for session token to expire
 			await sleep(SESSION_TOKEN_EXPIRY_MS + EXPIRY_BUFFER_MS);
 
-			// Step 4: Try to use expired session token
-			const postExpiryResponse = await api.getDomainStatus(sessionToken, {
-				domain_name: domain,
-			});
+			// Step 4: Try to logout with expired session token
+			const postExpiryResponse = await api.logout(sessionToken2);
 
 			// Expired session should return 401
 			expect(postExpiryResponse.status).toBe(401);
@@ -281,18 +289,26 @@ test.describe("Org Token Expiry Tests", () => {
 			expect(rememberMeToken).toBeDefined();
 
 			// Verify remember-me session works before expiry
-			const preExpiryResponse = await api.getDomainStatus(rememberMeToken, {
-				domain_name: domain,
-			});
+			const preExpiryResponse = await api.logout(rememberMeToken);
 			expect(preExpiryResponse.status).toBe(200);
+
+			// Login again with remember_me to get a new token for expiry test
+			const loginResponse2 = await api.login(loginReq);
+			const tfaToken2 = loginResponse2.body.tfa_token;
+			const tfaCode2 = await getTfaCodeForOrgUser(email);
+			const tfaReq2: OrgTFARequest = {
+				tfa_token: tfaToken2,
+				tfa_code: tfaCode2,
+				remember_me: true,
+			};
+			const tfaResponse2 = await api.verifyTFA(tfaReq2);
+			const rememberMeToken2 = tfaResponse2.body.session_token;
 
 			// Wait for remember-me token to expire
 			await sleep(REMEMBER_ME_EXPIRY_MS + EXPIRY_BUFFER_MS);
 
 			// Try to use expired remember-me token
-			const postExpiryResponse = await api.getDomainStatus(rememberMeToken, {
-				domain_name: domain,
-			});
+			const postExpiryResponse = await api.logout(rememberMeToken2);
 
 			// Expired remember-me session should return 401
 			expect(postExpiryResponse.status).toBe(401);
