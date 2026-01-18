@@ -88,7 +88,8 @@ test.describe("Agency Token Expiry Tests", () => {
 		try {
 			// Step 1: Login to get TFA token
 			const loginReq: AgencyLoginRequest = {
-				email_address: email,
+				email,
+				domain,
 				password: TEST_PASSWORD,
 			};
 			const loginResponse = await api.login(loginReq);
@@ -122,7 +123,7 @@ test.describe("Agency Token Expiry Tests", () => {
 		request,
 	}) => {
 		const api = new AgencyAPIClient(request);
-		const { email } = generateTestAgencyEmail("agency-session-expiry");
+		const { email, domain } = generateTestAgencyEmail("agency-session-expiry");
 
 		// Create test agency user directly in the database
 		await createTestAgencyUserDirect(email, TEST_PASSWORD);
@@ -130,7 +131,8 @@ test.describe("Agency Token Expiry Tests", () => {
 		try {
 			// Complete full login flow
 			const loginReq: AgencyLoginRequest = {
-				email_address: email,
+				email,
+				domain,
 				password: TEST_PASSWORD,
 			};
 			const loginResponse = await api.login(loginReq);
@@ -179,7 +181,7 @@ test.describe("Agency Token Expiry Tests", () => {
 
 	test("expired session token returns 401 for logout", async ({ request }) => {
 		const api = new AgencyAPIClient(request);
-		const { email } = generateTestAgencyEmail("agency-logout-expiry");
+		const { email, domain } = generateTestAgencyEmail("agency-logout-expiry");
 
 		// Create test agency user directly in the database
 		await createTestAgencyUserDirect(email, TEST_PASSWORD);
@@ -187,7 +189,8 @@ test.describe("Agency Token Expiry Tests", () => {
 		try {
 			// Complete full login flow
 			const loginReq: AgencyLoginRequest = {
-				email_address: email,
+				email,
+				domain,
 				password: TEST_PASSWORD,
 			};
 			const loginResponse = await api.login(loginReq);
@@ -219,7 +222,7 @@ test.describe("Agency Token Expiry Tests", () => {
 
 	test("TFA token still valid within expiry window", async ({ request }) => {
 		const api = new AgencyAPIClient(request);
-		const { email } = generateTestAgencyEmail("agency-tfa-valid");
+		const { email, domain } = generateTestAgencyEmail("agency-tfa-valid");
 
 		// Create test agency user directly in the database
 		await createTestAgencyUserDirect(email, TEST_PASSWORD);
@@ -227,7 +230,8 @@ test.describe("Agency Token Expiry Tests", () => {
 		try {
 			// Login to get TFA token
 			const loginReq: AgencyLoginRequest = {
-				email_address: email,
+				email,
+				domain,
 				password: TEST_PASSWORD,
 			};
 			const loginResponse = await api.login(loginReq);
@@ -257,7 +261,7 @@ test.describe("Agency Token Expiry Tests", () => {
 
 	test("expired remember-me token returns 401", async ({ request }) => {
 		const api = new AgencyAPIClient(request);
-		const { email } = generateTestAgencyEmail("agency-remember-expiry");
+		const { email, domain } = generateTestAgencyEmail("agency-remember-expiry");
 
 		// Create test agency user directly in the database
 		await createTestAgencyUserDirect(email, TEST_PASSWORD);
@@ -265,7 +269,8 @@ test.describe("Agency Token Expiry Tests", () => {
 		try {
 			// Login with remember_me flag
 			const loginReq: AgencyLoginRequest = {
-				email_address: email,
+				email,
+				domain,
 				password: TEST_PASSWORD,
 			};
 			const loginResponse = await api.login(loginReq);
