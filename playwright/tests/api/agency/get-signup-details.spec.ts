@@ -12,8 +12,9 @@ test.describe("POST /agency/get-signup-details", () => {
 		request,
 	}) => {
 		const api = new AgencyAPIClient(request);
-		const { email: userEmail, domain } =
-			generateTestAgencyEmail("get-details-success");
+		const { email: userEmail, domain } = generateTestAgencyEmail(
+			"get-details-success"
+		);
 
 		try {
 			// First initiate signup to get a signup token

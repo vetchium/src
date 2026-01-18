@@ -192,9 +192,7 @@ test.describe("POST /agency/complete-signup", () => {
 		}
 	});
 
-	test("token not consumed on DNS failure - can retry", async ({
-		request,
-	}) => {
+	test("token not consumed on DNS failure - can retry", async ({ request }) => {
 		const api = new AgencyAPIClient(request);
 		const { email: userEmail } = generateTestAgencyEmail("token-reuse");
 
