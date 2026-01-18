@@ -301,6 +301,81 @@ export async function getOrgSignupTokenFromEmail(
 }
 
 /**
+ * Extracts the agency signup token from an email body.
+ * The token is a 64-character hex string sent in the private signup email.
+ *
+ * @param emailText - Plain text email body
+ * @returns The 64-character signup token
+ * @throws Error if no signup token is found
+ */
+export function extractAgencySignupToken(emailText: string): string {
+	// Look for a 64-character hex string (the signup token)
+	const match = emailText.match(/\b([a-f0-9]{64})\b/);
+	if (!match) {
+		throw new Error(
+			`No signup token found in email: ${emailText.substring(0, 200)}...`
+		);
+	}
+	return match[1];
+}
+
+/**
+ * Waits for and returns both agency signup emails (DNS instructions + token).
+ * Returns the signup token from the private email.
+ *
+ * @param toEmail - Email address to wait for
+ * @param config - Optional configuration for retry behavior
+ * @returns The signup token from the private signup email
+ */
+export async function getAgencySignupTokenFromEmail(
+	toEmail: string,
+	config: Partial<WaitForEmailConfig> = {}
+): Promise<string> {
+	const cfg = { ...DEFAULT_WAIT_CONFIG, ...config };
+
+	let delay = cfg.initialDelayMs;
+	let totalWaitTime = 0;
+
+	// Wait for TWO emails (DNS instructions + token)
+	for (let attempt = 1; attempt <= cfg.maxRetries; attempt++) {
+		const messages = await searchEmails(toEmail);
+		if (messages.length >= 2) {
+			// Find the signup token email (contains "Private Link" or "DO NOT FORWARD")
+			for (const msg of messages) {
+				const fullMessage = await getEmailContent(msg.ID);
+				if (
+					fullMessage.Subject.includes("Private Link") ||
+					fullMessage.Text.includes("DO NOT FORWARD")
+				) {
+					return extractAgencySignupToken(fullMessage.Text);
+				}
+			}
+			// If we have 2 emails but neither matches, check all of them for the token
+			for (const msg of messages) {
+				const fullMessage = await getEmailContent(msg.ID);
+				try {
+					return extractAgencySignupToken(fullMessage.Text);
+				} catch {
+					// Continue to next email
+				}
+			}
+		}
+
+		if (attempt < cfg.maxRetries) {
+			await sleep(delay);
+			totalWaitTime += delay;
+			delay = Math.min(delay * cfg.backoffMultiplier, cfg.maxDelayMs);
+		}
+	}
+
+	throw new Error(
+		`Agency signup token email not received for ${toEmail} after ${
+			cfg.maxRetries
+		} attempts (waited ~${Math.round(totalWaitTime / 1000)}s)`
+	);
+}
+
+/**
  * Deletes all emails in mailpit.
  * Useful for cleanup between tests, though with unique emails per test
  * this is usually not necessary.

@@ -376,6 +376,16 @@
 			"environment": {
 				"API_URL": "http://localhost:8080"
 			}
+		},
+		"agency-ui": {
+			"build": {
+				"context": ".",
+				"dockerfile": "agency-ui/Dockerfile"
+			},
+			"ports": ["3003:80"],
+			"environment": {
+				"API_URL": "http://localhost:8080"
+			}
 		}
 	},
 	"volumes": {
