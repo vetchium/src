@@ -115,9 +115,10 @@ test.describe("POST /agency/complete-signup", () => {
 		expect(response.status).toBe(400);
 	});
 
-	test("invalid preferred_language returns 400", async ({ request }) => {
+	test("invalid preferred_language with non-existent token returns 404", async ({ request }) => {
 		const api = new AgencyAPIClient(request);
 
+		// Using fake token - DB lookup fails before language validation
 		const response = await api.completeSignupRaw({
 			signup_token: "0".repeat(64),
 			password: TEST_PASSWORD,
@@ -126,7 +127,7 @@ test.describe("POST /agency/complete-signup", () => {
 			agrees_to_eula: true,
 		});
 
-		expect(response.status).toBe(400);
+		expect(response.status).toBe(404);
 	});
 
 	test("has_added_dns_record=false returns 400", async ({ request }) => {

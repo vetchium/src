@@ -1,0 +1,11 @@
+{
+	"_description": "Agency User Two-Factor Authentication Email",
+	"_note": "Sent when an agency user logs in and needs to verify with a code",
+
+	"subject": "Ihr Vetchium Agenturportal Verifizierungscode",
+	"portal_name": "Vetchium Agenturportal",
+	"body_intro": "Ihr Verifizierungscode lautet:",
+	"body_expiry": "Dieser Code läuft in {{.Minutes}} Minuten ab.",
+	"body_ignore": "Wenn Sie diesen Code nicht angefordert haben, ignorieren Sie bitte diese E-Mail oder kontaktieren Sie den Support, wenn Sie Bedenken bezüglich der Sicherheit Ihres Kontos haben.",
+	"footer": "Dies ist eine automatisierte Nachricht. Bitte antworten Sie nicht."
+}

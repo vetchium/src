@@ -1,0 +1,20 @@
+{
+	"subject": "DNS Setup Required - Vetchium Agency Signup",
+	"portal_name": "Vetchium Agency Portal",
+	"body_intro": "Thank you for signing up for Vetchium Agency Portal! To verify your domain ownership, please add the following DNS TXT record.",
+	"body_separate_email_note": "A separate email with your personal signup link has been sent. Do NOT forward that email to anyone - it contains your private signup code.",
+	"body_dns_instructions": "Add a TXT record to your DNS settings for {{.Domain}} with the values shown below.",
+	"step1": "Log in to your domain registrar or DNS provider (e.g., GoDaddy, Cloudflare, Namecheap, Route 53)",
+	"step2": "Navigate to the DNS management or DNS records section for your domain",
+	"step3": "Add a new TXT record with the Host/Name and Value provided below",
+	"step4": "Save the DNS record and wait for propagation (usually 5-30 minutes, but can take up to 48 hours)",
+	"step5": "Return to Vetchium and click 'Complete Signup' to verify your domain",
+	"record_type_label": "Record Type:",
+	"host_label": "Host/Name:",
+	"value_label": "Value:",
+	"ttl_label": "TTL:",
+	"propagation_note": "DNS changes can take anywhere from a few minutes to 48 hours to propagate. If verification fails, please wait and try again later.",
+	"body_expiry": "This verification token will expire in {{.Hours}} hours.",
+	"body_ignore": "If you didn't request this signup, please ignore this email.",
+	"footer": "This is an automated message, please do not reply."
+}

@@ -1,0 +1,20 @@
+{
+	"subject": "DNS-Einrichtung erforderlich - Vetchium Agentur-Anmeldung",
+	"portal_name": "Vetchium Agenturportal",
+	"body_intro": "Vielen Dank für Ihre Anmeldung beim Vetchium Agenturportal! Um Ihr Domain-Eigentum zu verifizieren, fügen Sie bitte den folgenden DNS-TXT-Eintrag hinzu.",
+	"body_separate_email_note": "Eine separate E-Mail mit Ihrem persönlichen Anmeldelink wurde gesendet. Leiten Sie diese E-Mail NICHT an andere weiter - sie enthält Ihren privaten Anmeldecode.",
+	"body_dns_instructions": "Fügen Sie einen TXT-Eintrag zu Ihren DNS-Einstellungen für {{.Domain}} mit den unten angezeigten Werten hinzu.",
+	"step1": "Melden Sie sich bei Ihrem Domain-Registrar oder DNS-Anbieter an (z.B. GoDaddy, Cloudflare, Namecheap, Route 53)",
+	"step2": "Navigieren Sie zum Bereich DNS-Verwaltung oder DNS-Einträge für Ihre Domain",
+	"step3": "Fügen Sie einen neuen TXT-Eintrag mit dem unten angegebenen Host/Namen und Wert hinzu",
+	"step4": "Speichern Sie den DNS-Eintrag und warten Sie auf die Verbreitung (normalerweise 5-30 Minuten, kann aber bis zu 48 Stunden dauern)",
+	"step5": "Kehren Sie zu Vetchium zurück und klicken Sie auf 'Anmeldung abschließen', um Ihre Domain zu verifizieren",
+	"record_type_label": "Eintragstyp:",
+	"host_label": "Host/Name:",
+	"value_label": "Wert:",
+	"ttl_label": "TTL:",
+	"propagation_note": "DNS-Änderungen können zwischen wenigen Minuten und 48 Stunden zur Verbreitung benötigen. Wenn die Verifizierung fehlschlägt, warten Sie bitte und versuchen Sie es später erneut.",
+	"body_expiry": "Dieser Verifizierungstoken läuft in {{.Hours}} Stunden ab.",
+	"body_ignore": "Wenn Sie diese Anmeldung nicht angefordert haben, ignorieren Sie bitte diese E-Mail.",
+	"footer": "Dies ist eine automatisierte Nachricht, bitte antworten Sie nicht."
+}

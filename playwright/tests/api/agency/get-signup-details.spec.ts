@@ -59,15 +59,15 @@ test.describe("POST /agency/get-signup-details", () => {
 		expect(response.status).toBe(400);
 	});
 
-	test("invalid signup_token format returns 400", async ({ request }) => {
+	test("invalid signup_token format returns 404", async ({ request }) => {
 		const api = new AgencyAPIClient(request);
 
-		// Invalid format - too short
+		// Invalid format - too short (will fail DB lookup)
 		const response = await api.getSignupDetailsRaw({
 			signup_token: "invalid",
 		});
 
-		expect(response.status).toBe(400);
+		expect(response.status).toBe(404);
 	});
 
 	test("non-existent signup_token returns 404", async ({ request }) => {

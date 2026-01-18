@@ -1,0 +1,13 @@
+{
+	"subject": "Schließen Sie Ihre Vetchium Agentur-Anmeldung ab - Privater Link",
+	"portal_name": "Vetchium Agenturportal",
+	"warning_do_not_forward": "DIESE E-MAIL NICHT WEITERLEITEN - Dies enthält Ihren persönlichen Anmeldelink. Nur Sie sollten die Anmeldung abschließen.",
+	"body_intro": "Dies ist Ihr persönlicher Anmeldelink für {{.Domain}}.",
+	"body_dns_note": "DNS-Einrichtungsanweisungen wurden in einer separaten E-Mail gesendet, die Sie bei Bedarf sicher an Ihr IT-Team weiterleiten können.",
+	"body_click_here": "Sobald der DNS-Eintrag konfiguriert ist, klicken Sie hier, um Ihr Passwort festzulegen und die Anmeldung abzuschließen:",
+	"body_or_use_token": "Oder geben Sie diesen Code manuell auf der Anmeldungsseite ein:",
+	"button_text": "Anmeldung abschließen",
+	"body_expiry": "Dieser Anmeldelink läuft in {{.Hours}} Stunden ab.",
+	"body_ignore": "Wenn Sie diese Anmeldung nicht angefordert haben, ignorieren Sie bitte diese E-Mail.",
+	"footer": "Dies ist eine automatisierte Nachricht, bitte antworten Sie nicht."
+}
