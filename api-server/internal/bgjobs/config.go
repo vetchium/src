@@ -9,10 +9,10 @@ import (
 
 // GlobalBgJobsConfig holds configuration for global database background jobs
 type GlobalBgJobsConfig struct {
-	ExpiredAdminTFATokensCleanupInterval    time.Duration
-	ExpiredAdminSessionsCleanupInterval     time.Duration
-	ExpiredHubSignupTokensCleanupInterval   time.Duration
-	ExpiredOrgSignupTokensCleanupInterval   time.Duration
+	ExpiredAdminTFATokensCleanupInterval     time.Duration
+	ExpiredAdminSessionsCleanupInterval      time.Duration
+	ExpiredHubSignupTokensCleanupInterval    time.Duration
+	ExpiredOrgSignupTokensCleanupInterval    time.Duration
 	ExpiredAgencySignupTokensCleanupInterval time.Duration
 }
 
@@ -54,10 +54,10 @@ func GlobalConfigFromEnv() *GlobalBgJobsConfig {
 	)
 
 	return &GlobalBgJobsConfig{
-		ExpiredAdminTFATokensCleanupInterval:    adminTFAInterval,
-		ExpiredAdminSessionsCleanupInterval:     adminSessionsInterval,
-		ExpiredHubSignupTokensCleanupInterval:   hubSignupInterval,
-		ExpiredOrgSignupTokensCleanupInterval:   orgSignupInterval,
+		ExpiredAdminTFATokensCleanupInterval:     adminTFAInterval,
+		ExpiredAdminSessionsCleanupInterval:      adminSessionsInterval,
+		ExpiredHubSignupTokensCleanupInterval:    hubSignupInterval,
+		ExpiredOrgSignupTokensCleanupInterval:    orgSignupInterval,
 		ExpiredAgencySignupTokensCleanupInterval: agencySignupInterval,
 	}
 }
@@ -171,20 +171,20 @@ func TokenConfigFromEnv() *server.TokenConfig {
 	)
 
 	return &server.TokenConfig{
-		HubSignupTokenExpiry:    hubSignupExpiry,
-		HubTFATokenExpiry:       hubTFAExpiry,
-		HubSessionTokenExpiry:   hubSessionExpiry,
-		HubRememberMeExpiry:     hubRememberMeExpiry,
-		AdminTFATokenExpiry:     adminTFAExpiry,
-		AdminSessionTokenExpiry: adminSessionExpiry,
-		OrgSignupTokenExpiry:    orgSignupExpiry,
-		OrgTFATokenExpiry:       orgTFAExpiry,
-		OrgSessionTokenExpiry:   orgSessionExpiry,
-		OrgRememberMeExpiry:     orgRememberMeExpiry,
-		AgencySignupTokenExpiry:    agencySignupExpiry,
-		AgencyTFATokenExpiry:       agencyTFAExpiry,
-		AgencySessionTokenExpiry:   agencySessionExpiry,
-		AgencyRememberMeExpiry:     agencyRememberMeExpiry,
+		HubSignupTokenExpiry:     hubSignupExpiry,
+		HubTFATokenExpiry:        hubTFAExpiry,
+		HubSessionTokenExpiry:    hubSessionExpiry,
+		HubRememberMeExpiry:      hubRememberMeExpiry,
+		AdminTFATokenExpiry:      adminTFAExpiry,
+		AdminSessionTokenExpiry:  adminSessionExpiry,
+		OrgSignupTokenExpiry:     orgSignupExpiry,
+		OrgTFATokenExpiry:        orgTFAExpiry,
+		OrgSessionTokenExpiry:    orgSessionExpiry,
+		OrgRememberMeExpiry:      orgRememberMeExpiry,
+		AgencySignupTokenExpiry:  agencySignupExpiry,
+		AgencyTFATokenExpiry:     agencyTFAExpiry,
+		AgencySessionTokenExpiry: agencySessionExpiry,
+		AgencyRememberMeExpiry:   agencyRememberMeExpiry,
 	}
 }
 
