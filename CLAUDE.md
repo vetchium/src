@@ -98,7 +98,7 @@ docker compose -f docker-compose-full.json down -v      # Stop all services
 - **Global DB**: Cross-region lookups, user identity, email hashes
 - **Regional DBs**: PII, credentials, Actual data
 
-Migrations are in `api-server/db/migrations/{global,regional}/`.
+Migrations are in `api-server/db/migrations/{global,regional}/`. No need to create new database migration files for now. Continue to use the existing initdb migration file itself as we are not yet in production. If you need to make a change to an existing table or enum, edit the table or enum CREATE statement directly instead of an ALTER statement. Do not create any index for now for performance. The only reason to create an INDEX could be to enforce uniquness, if it cannot be enforced otherwise. Prefer to use UNIQUE keyword in the CREATE statements instead of an INDEX, wherever possible.
 
 ### Cross-Database Operations
 
