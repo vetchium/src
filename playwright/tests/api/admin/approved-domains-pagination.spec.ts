@@ -618,9 +618,8 @@ test.describe("POST /admin/list-approved-domains - Pagination with Filters", () 
 			);
 			domainNames.push(...created);
 
-			const searchPrefix = generateTestDomainName(
-				"pag-filt-active"
-			).split("-")[0];
+			const searchPrefix =
+				generateTestDomainName("pag-filt-active").split("-")[0];
 
 			// Get first page
 			const page1 = await api.listApprovedDomains(sessionToken, {
@@ -678,9 +677,8 @@ test.describe("POST /admin/list-approved-domains - Pagination with Filters", () 
 				});
 			}
 
-			const searchPrefix = generateTestDomainName(
-				"pag-filt-inactive"
-			).split("-")[0];
+			const searchPrefix =
+				generateTestDomainName("pag-filt-inactive").split("-")[0];
 
 			// Get first page
 			const page1 = await api.listApprovedDomains(sessionToken, {
