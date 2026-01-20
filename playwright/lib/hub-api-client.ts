@@ -13,6 +13,9 @@ import type {
 	HubRequestPasswordResetResponse,
 	HubCompletePasswordResetRequest,
 	HubChangePasswordRequest,
+	HubRequestEmailChangeRequest,
+	HubRequestEmailChangeResponse,
+	HubCompleteEmailChangeRequest,
 } from "vetchium-specs/hub/hub-users";
 import type { APIResponse } from "./api-client";
 
@@ -379,6 +382,86 @@ export class HubAPIClient {
 			headers: {
 				Authorization: `Bearer ${sessionToken}`,
 			},
+			data: body,
+		});
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: undefined,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	/**
+	 * POST /hub/request-email-change
+	 * Request email change with new email address
+	 */
+	async requestEmailChange(
+		sessionToken: string,
+		request: HubRequestEmailChangeRequest
+	): Promise<APIResponse<HubRequestEmailChangeResponse>> {
+		const response = await this.request.post("/hub/request-email-change", {
+			headers: {
+				Authorization: `Bearer ${sessionToken}`,
+			},
+			data: request,
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as HubRequestEmailChangeResponse,
+			errors: body.errors,
+		};
+	}
+
+	/**
+	 * POST /hub/request-email-change with raw body for testing invalid payloads
+	 */
+	async requestEmailChangeRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<HubRequestEmailChangeResponse>> {
+		const response = await this.request.post("/hub/request-email-change", {
+			headers: {
+				Authorization: `Bearer ${sessionToken}`,
+			},
+			data: body,
+		});
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as HubRequestEmailChangeResponse,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	/**
+	 * POST /hub/complete-email-change
+	 * Complete email change with verification token
+	 */
+	async completeEmailChange(
+		request: HubCompleteEmailChangeRequest
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/hub/complete-email-change", {
+			data: request,
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: undefined,
+			errors: body.errors,
+		};
+	}
+
+	/**
+	 * POST /hub/complete-email-change with raw body for testing invalid payloads
+	 */
+	async completeEmailChangeRaw(body: unknown): Promise<APIResponse<void>> {
+		const response = await this.request.post("/hub/complete-email-change", {
 			data: body,
 		});
 

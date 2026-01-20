@@ -593,3 +593,10 @@ DELETE FROM global_agency_domains WHERE domain = $1;
 SELECT * FROM global_agency_domains
 WHERE agency_id = $1
 ORDER BY domain ASC;
+
+-- ============================================
+-- Hub User Email Update Queries
+-- ============================================
+
+-- name: UpdateHubUserEmailHash :exec
+UPDATE hub_users SET email_address_hash = $2 WHERE hub_user_global_id = $1;

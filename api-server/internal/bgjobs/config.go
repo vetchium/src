@@ -176,22 +176,29 @@ func TokenConfigFromEnv() *server.TokenConfig {
 		1*time.Hour,
 	)
 
+	// Email verification token expiry
+	emailVerificationExpiry := parseDurationOrDefault(
+		os.Getenv("EMAIL_VERIFICATION_TOKEN_EXPIRY"),
+		1*time.Hour,
+	)
+
 	return &server.TokenConfig{
-		HubSignupTokenExpiry:     hubSignupExpiry,
-		HubTFATokenExpiry:        hubTFAExpiry,
-		HubSessionTokenExpiry:    hubSessionExpiry,
-		HubRememberMeExpiry:      hubRememberMeExpiry,
-		AdminTFATokenExpiry:      adminTFAExpiry,
-		AdminSessionTokenExpiry:  adminSessionExpiry,
-		OrgSignupTokenExpiry:     orgSignupExpiry,
-		OrgTFATokenExpiry:        orgTFAExpiry,
-		OrgSessionTokenExpiry:    orgSessionExpiry,
-		OrgRememberMeExpiry:      orgRememberMeExpiry,
-		AgencySignupTokenExpiry:  agencySignupExpiry,
-		AgencyTFATokenExpiry:     agencyTFAExpiry,
-		AgencySessionTokenExpiry: agencySessionExpiry,
-		AgencyRememberMeExpiry:   agencyRememberMeExpiry,
-		PasswordResetTokenExpiry: passwordResetExpiry,
+		HubSignupTokenExpiry:         hubSignupExpiry,
+		HubTFATokenExpiry:            hubTFAExpiry,
+		HubSessionTokenExpiry:        hubSessionExpiry,
+		HubRememberMeExpiry:          hubRememberMeExpiry,
+		AdminTFATokenExpiry:          adminTFAExpiry,
+		AdminSessionTokenExpiry:      adminSessionExpiry,
+		OrgSignupTokenExpiry:         orgSignupExpiry,
+		OrgTFATokenExpiry:            orgTFAExpiry,
+		OrgSessionTokenExpiry:        orgSessionExpiry,
+		OrgRememberMeExpiry:          orgRememberMeExpiry,
+		AgencySignupTokenExpiry:      agencySignupExpiry,
+		AgencyTFATokenExpiry:         agencyTFAExpiry,
+		AgencySessionTokenExpiry:     agencySessionExpiry,
+		AgencyRememberMeExpiry:       agencyRememberMeExpiry,
+		PasswordResetTokenExpiry:     passwordResetExpiry,
+		EmailVerificationTokenExpiry: emailVerificationExpiry,
 	}
 }
 

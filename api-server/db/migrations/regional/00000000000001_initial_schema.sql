@@ -14,6 +14,7 @@ CREATE TYPE email_template_type AS ENUM (
     'hub_signup_verification',
     'hub_tfa',
     'hub_password_reset',
+    'hub_email_verification',
     'org_signup_verification',
     'org_signup_token',
     'org_tfa',
@@ -80,6 +81,15 @@ CREATE TABLE hub_sessions (
 CREATE TABLE hub_password_reset_tokens (
     reset_token TEXT PRIMARY KEY NOT NULL,
     hub_user_global_id UUID NOT NULL REFERENCES hub_users(hub_user_global_id) ON DELETE CASCADE,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMP NOT NULL
+);
+
+-- Hub email verification tokens
+CREATE TABLE hub_email_verification_tokens (
+    verification_token TEXT PRIMARY KEY NOT NULL,
+    hub_user_global_id UUID NOT NULL REFERENCES hub_users(hub_user_global_id) ON DELETE CASCADE,
+    new_email_address TEXT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     expires_at TIMESTAMP NOT NULL
 );
@@ -160,6 +170,7 @@ CREATE INDEX idx_hub_tfa_tokens_expires_at ON hub_tfa_tokens(expires_at);
 CREATE INDEX idx_hub_sessions_expires_at ON hub_sessions(expires_at);
 CREATE INDEX idx_hub_sessions_hub_user_global_id ON hub_sessions(hub_user_global_id);
 CREATE INDEX idx_hub_password_reset_tokens_expires_at ON hub_password_reset_tokens(expires_at);
+CREATE INDEX idx_hub_email_verification_tokens_expires_at ON hub_email_verification_tokens(expires_at);
 CREATE INDEX idx_org_tfa_tokens_expires_at ON org_tfa_tokens(expires_at);
 CREATE INDEX idx_org_sessions_expires_at ON org_sessions(expires_at);
 CREATE INDEX idx_org_sessions_org_user_id ON org_sessions(org_user_id);
@@ -186,6 +197,7 @@ DROP INDEX IF EXISTS idx_org_users_email_address;
 DROP INDEX IF EXISTS idx_org_sessions_org_user_id;
 DROP INDEX IF EXISTS idx_org_sessions_expires_at;
 DROP INDEX IF EXISTS idx_org_tfa_tokens_expires_at;
+DROP INDEX IF EXISTS idx_hub_email_verification_tokens_expires_at;
 DROP INDEX IF EXISTS idx_hub_password_reset_tokens_expires_at;
 DROP INDEX IF EXISTS idx_hub_sessions_hub_user_global_id;
 DROP INDEX IF EXISTS idx_hub_sessions_expires_at;
@@ -198,6 +210,7 @@ DROP TABLE IF EXISTS org_sessions;
 DROP TABLE IF EXISTS org_tfa_tokens;
 DROP TABLE IF EXISTS org_users;
 DROP TABLE IF EXISTS hub_sessions;
+DROP TABLE IF EXISTS hub_email_verification_tokens;
 DROP TABLE IF EXISTS hub_password_reset_tokens;
 DROP TABLE IF EXISTS hub_tfa_tokens;
 DROP TABLE IF EXISTS email_delivery_attempts;

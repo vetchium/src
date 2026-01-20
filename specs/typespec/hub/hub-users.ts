@@ -370,3 +370,44 @@ export function validateHubChangePasswordRequest(
 
 	return errs;
 }
+
+// Email Change Types
+export type HubEmailVerificationToken = string;
+
+export interface HubRequestEmailChangeRequest {
+	new_email_address: EmailAddress;
+}
+
+export interface HubRequestEmailChangeResponse {
+	message: string;
+}
+
+export interface HubCompleteEmailChangeRequest {
+	verification_token: HubEmailVerificationToken;
+}
+
+// Email Change Validators
+export function validateHubRequestEmailChangeRequest(
+	request: HubRequestEmailChangeRequest
+): ValidationError[] {
+	const errs: ValidationError[] = [];
+
+	const emailErr = validateEmailAddress(request.new_email_address);
+	if (emailErr) {
+		errs.push(newValidationError("new_email_address", emailErr));
+	}
+
+	return errs;
+}
+
+export function validateHubCompleteEmailChangeRequest(
+	request: HubCompleteEmailChangeRequest
+): ValidationError[] {
+	const errs: ValidationError[] = [];
+
+	if (!request.verification_token) {
+		errs.push(newValidationError("verification_token", ERR_REQUIRED));
+	}
+
+	return errs;
+}

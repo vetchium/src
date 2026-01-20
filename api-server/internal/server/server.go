@@ -37,6 +37,9 @@ type TokenConfig struct {
 
 	// Password reset tokens (all portals)
 	PasswordResetTokenExpiry time.Duration // Default: 1h
+
+	// Email verification tokens
+	EmailVerificationTokenExpiry time.Duration // Default: 1h
 }
 
 type Server struct {

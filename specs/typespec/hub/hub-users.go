@@ -286,3 +286,38 @@ func (r HubChangePasswordRequest) Validate() []common.ValidationError {
 
 	return errs
 }
+
+// Email Change Types
+type HubEmailVerificationToken string
+
+type HubRequestEmailChangeRequest struct {
+	NewEmailAddress common.EmailAddress `json:"new_email_address"`
+}
+
+func (r HubRequestEmailChangeRequest) Validate() []common.ValidationError {
+	var errs []common.ValidationError
+
+	if err := r.NewEmailAddress.Validate(); err != nil {
+		errs = append(errs, common.NewValidationError("new_email_address", err))
+	}
+
+	return errs
+}
+
+type HubRequestEmailChangeResponse struct {
+	Message string `json:"message"`
+}
+
+type HubCompleteEmailChangeRequest struct {
+	VerificationToken HubEmailVerificationToken `json:"verification_token"`
+}
+
+func (r HubCompleteEmailChangeRequest) Validate() []common.ValidationError {
+	var errs []common.ValidationError
+
+	if r.VerificationToken == "" {
+		errs = append(errs, common.NewValidationError("verification_token", common.ErrRequired))
+	}
+
+	return errs
+}

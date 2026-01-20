@@ -229,3 +229,23 @@ DELETE FROM agency_sessions WHERE session_token = $1;
 
 -- name: DeleteExpiredAgencySessions :exec
 DELETE FROM agency_sessions WHERE expires_at <= NOW();
+
+-- ============================================
+-- Hub Email Verification Token Queries
+-- ============================================
+
+-- name: CreateHubEmailVerificationToken :exec
+INSERT INTO hub_email_verification_tokens (verification_token, hub_user_global_id, new_email_address, expires_at)
+VALUES ($1, $2, $3, $4);
+
+-- name: GetHubEmailVerificationToken :one
+SELECT * FROM hub_email_verification_tokens WHERE verification_token = $1 AND expires_at > NOW();
+
+-- name: DeleteHubEmailVerificationToken :exec
+DELETE FROM hub_email_verification_tokens WHERE verification_token = $1;
+
+-- name: DeleteExpiredHubEmailVerificationTokens :exec
+DELETE FROM hub_email_verification_tokens WHERE expires_at <= NOW();
+
+-- name: UpdateHubUserEmailAddress :exec
+UPDATE hub_users SET email_address = $2 WHERE hub_user_global_id = $1;
