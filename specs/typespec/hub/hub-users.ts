@@ -335,3 +335,38 @@ export function validateHubCompletePasswordResetRequest(
 
 	return errs;
 }
+
+// Change Password Types
+export interface HubChangePasswordRequest {
+	current_password: Password;
+	new_password: Password;
+}
+
+// Change Password Validator
+export function validateHubChangePasswordRequest(
+	request: HubChangePasswordRequest
+): ValidationError[] {
+	const errs: ValidationError[] = [];
+
+	const currentErr = validatePassword(request.current_password);
+	if (currentErr) {
+		errs.push(newValidationError("current_password", currentErr));
+	}
+
+	const newErr = validatePassword(request.new_password);
+	if (newErr) {
+		errs.push(newValidationError("new_password", newErr));
+	}
+
+	// Check if new password is same as current
+	if (request.current_password === request.new_password) {
+		errs.push(
+			newValidationError(
+				"new_password",
+				"must be different from current password"
+			)
+		);
+	}
+
+	return errs;
+}

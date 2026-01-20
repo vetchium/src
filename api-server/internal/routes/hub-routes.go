@@ -21,4 +21,5 @@ func RegisterHubRoutes(mux *http.ServeMux, s *server.Server) {
 	hubAuth := middleware.HubAuth(s.Global, s.GetRegionalDB)
 	mux.Handle("POST /hub/logout", hubAuth(hub.Logout(s)))
 	mux.Handle("POST /hub/set-language", hubAuth(hub.SetLanguage(s)))
+	mux.Handle("POST /hub/change-password", hubAuth(hub.ChangePassword(s)))
 }

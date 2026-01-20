@@ -261,3 +261,28 @@ func (r HubCompletePasswordResetRequest) Validate() []common.ValidationError {
 
 	return errs
 }
+
+// Change Password Types
+type HubChangePasswordRequest struct {
+	CurrentPassword common.Password `json:"current_password"`
+	NewPassword     common.Password `json:"new_password"`
+}
+
+func (r HubChangePasswordRequest) Validate() []common.ValidationError {
+	var errs []common.ValidationError
+
+	if err := r.CurrentPassword.Validate(); err != nil {
+		errs = append(errs, common.NewValidationError("current_password", err))
+	}
+
+	if err := r.NewPassword.Validate(); err != nil {
+		errs = append(errs, common.NewValidationError("new_password", err))
+	}
+
+	// Check if new password is same as current
+	if r.CurrentPassword == r.NewPassword {
+		errs = append(errs, common.NewValidationError("new_password", errors.New("must be different from current password")))
+	}
+
+	return errs
+}

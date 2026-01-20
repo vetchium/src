@@ -12,6 +12,7 @@ import type {
 	HubRequestPasswordResetRequest,
 	HubRequestPasswordResetResponse,
 	HubCompletePasswordResetRequest,
+	HubChangePasswordRequest,
 } from "vetchium-specs/hub/hub-users";
 import type { APIResponse } from "./api-client";
 
@@ -331,10 +332,53 @@ export class HubAPIClient {
 	/**
 	 * POST /hub/complete-password-reset with raw body for testing invalid payloads
 	 */
-	async completePasswordResetRaw(
+	async completePasswordResetRaw(body: unknown): Promise<APIResponse<void>> {
+		const response = await this.request.post("/hub/complete-password-reset", {
+			data: body,
+		});
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: undefined,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	/**
+	 * POST /hub/change-password
+	 * Changes user password while authenticated
+	 */
+	async changePassword(
+		sessionToken: string,
+		request: HubChangePasswordRequest
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/hub/change-password", {
+			headers: {
+				Authorization: `Bearer ${sessionToken}`,
+			},
+			data: request,
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: undefined,
+			errors: body.errors,
+		};
+	}
+
+	/**
+	 * POST /hub/change-password with raw body for testing invalid payloads
+	 */
+	async changePasswordRaw(
+		sessionToken: string,
 		body: unknown
 	): Promise<APIResponse<void>> {
-		const response = await this.request.post("/hub/complete-password-reset", {
+		const response = await this.request.post("/hub/change-password", {
+			headers: {
+				Authorization: `Bearer ${sessionToken}`,
+			},
 			data: body,
 		});
 
