@@ -1,4 +1,4 @@
-Status: DRAFT
+Status: INPROGRESS
 Authors: @psankar
 Dependencies: None
 
@@ -782,7 +782,7 @@ Status codes should be consistent across all APIs following these patterns:
    - Tokens stored hashed in database
    - Tokens are single-use (deleted after successful use or expiry)
    - Tokens have expiry times and are cleaned up regularly
-   - Tokens transmitted in request body (not URL query parameters to avoid logging)
+   - Tokens transmitted in request body from the client apps to the API server (not URL query parameters to avoid logging)
 
 5. **Email Security:**
    - Validate email format strictly per common.tsp EmailAddress scalar
@@ -932,15 +932,3 @@ Each phase should include:
 - Commit after completing test suite for a feature
 - Commit after completing UI for a feature
 - Commit messages should be descriptive (not just "WIP" or "updates")
-
-### Database changes
-
-```dbml
-TODO
-```
-
-### API changes
-
-```typespec
-TODO
-```
