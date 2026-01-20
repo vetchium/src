@@ -34,6 +34,9 @@ type TokenConfig struct {
 	AgencyTFATokenExpiry     time.Duration // Default: 10m
 	AgencySessionTokenExpiry time.Duration // Default: 24h
 	AgencyRememberMeExpiry   time.Duration // Default: 365 days
+
+	// Password reset tokens (all portals)
+	PasswordResetTokenExpiry time.Duration // Default: 1h
 }
 
 type Server struct {

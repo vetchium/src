@@ -14,6 +14,8 @@ func RegisterHubRoutes(mux *http.ServeMux, s *server.Server) {
 	mux.HandleFunc("POST /hub/complete-signup", hub.CompleteSignup(s))
 	mux.HandleFunc("POST /hub/login", hub.Login(s))
 	mux.HandleFunc("POST /hub/tfa", hub.TFA(s))
+	mux.HandleFunc("POST /hub/request-password-reset", hub.RequestPasswordReset(s))
+	mux.HandleFunc("POST /hub/complete-password-reset", hub.CompletePasswordReset(s))
 
 	// Authenticated routes (require Authorization header)
 	hubAuth := middleware.HubAuth(s.Global, s.GetRegionalDB)

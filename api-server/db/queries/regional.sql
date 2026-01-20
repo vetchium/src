@@ -15,6 +15,15 @@ RETURNING *;
 -- name: DeleteHubUser :exec
 DELETE FROM hub_users WHERE hub_user_global_id = $1;
 
+-- name: UpdateHubUserPassword :exec
+UPDATE hub_users SET password_hash = $2 WHERE hub_user_global_id = $1;
+
+-- name: DeleteAllHubSessionsForUser :exec
+DELETE FROM hub_sessions WHERE hub_user_global_id = $1;
+
+-- name: DeleteAllHubSessionsExceptCurrent :exec
+DELETE FROM hub_sessions WHERE hub_user_global_id = $1 AND session_token != $2;
+
 -- Hub TFA token queries
 
 -- name: CreateHubTFAToken :exec
@@ -44,6 +53,21 @@ DELETE FROM hub_sessions WHERE session_token = $1;
 
 -- name: DeleteExpiredHubSessions :exec
 DELETE FROM hub_sessions WHERE expires_at <= NOW();
+
+-- Hub password reset token queries
+
+-- name: CreateHubPasswordResetToken :exec
+INSERT INTO hub_password_reset_tokens (reset_token, hub_user_global_id, expires_at)
+VALUES ($1, $2, $3);
+
+-- name: GetHubPasswordResetToken :one
+SELECT * FROM hub_password_reset_tokens WHERE reset_token = $1 AND expires_at > NOW();
+
+-- name: DeleteHubPasswordResetToken :exec
+DELETE FROM hub_password_reset_tokens WHERE reset_token = $1;
+
+-- name: DeleteExpiredHubPasswordResetTokens :exec
+DELETE FROM hub_password_reset_tokens WHERE expires_at <= NOW();
 
 -- ============================================
 -- Org User Queries (Regional)

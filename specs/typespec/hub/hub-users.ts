@@ -288,3 +288,50 @@ export function validateHubSetLanguageRequest(
 	}
 	return errs;
 }
+
+// Password Reset Types
+export type HubPasswordResetToken = string;
+
+export interface HubRequestPasswordResetRequest {
+	email_address: EmailAddress;
+}
+
+export interface HubRequestPasswordResetResponse {
+	message: string;
+}
+
+export interface HubCompletePasswordResetRequest {
+	reset_token: HubPasswordResetToken;
+	new_password: Password;
+}
+
+// Password Reset Validators
+export function validateHubRequestPasswordResetRequest(
+	request: HubRequestPasswordResetRequest
+): ValidationError[] {
+	const errs: ValidationError[] = [];
+
+	const emailErr = validateEmailAddress(request.email_address);
+	if (emailErr) {
+		errs.push(newValidationError("email_address", emailErr));
+	}
+
+	return errs;
+}
+
+export function validateHubCompletePasswordResetRequest(
+	request: HubCompletePasswordResetRequest
+): ValidationError[] {
+	const errs: ValidationError[] = [];
+
+	if (!request.reset_token) {
+		errs.push(newValidationError("reset_token", ERR_REQUIRED));
+	}
+
+	const passwordErr = validatePassword(request.new_password);
+	if (passwordErr) {
+		errs.push(newValidationError("new_password", passwordErr));
+	}
+
+	return errs;
+}

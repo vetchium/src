@@ -221,3 +221,43 @@ func (r HubSetLanguageRequest) Validate() []common.ValidationError {
 	}
 	return errs
 }
+
+// Password Reset Types
+type HubPasswordResetToken string
+
+type HubRequestPasswordResetRequest struct {
+	EmailAddress common.EmailAddress `json:"email_address"`
+}
+
+func (r HubRequestPasswordResetRequest) Validate() []common.ValidationError {
+	var errs []common.ValidationError
+
+	if err := r.EmailAddress.Validate(); err != nil {
+		errs = append(errs, common.NewValidationError("email_address", err))
+	}
+
+	return errs
+}
+
+type HubRequestPasswordResetResponse struct {
+	Message string `json:"message"`
+}
+
+type HubCompletePasswordResetRequest struct {
+	ResetToken  HubPasswordResetToken `json:"reset_token"`
+	NewPassword common.Password       `json:"new_password"`
+}
+
+func (r HubCompletePasswordResetRequest) Validate() []common.ValidationError {
+	var errs []common.ValidationError
+
+	if r.ResetToken == "" {
+		errs = append(errs, common.NewValidationError("reset_token", common.ErrRequired))
+	}
+
+	if err := r.NewPassword.Validate(); err != nil {
+		errs = append(errs, common.NewValidationError("new_password", err))
+	}
+
+	return errs
+}

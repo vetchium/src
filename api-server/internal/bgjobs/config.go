@@ -170,6 +170,12 @@ func TokenConfigFromEnv() *server.TokenConfig {
 		365*24*time.Hour,
 	)
 
+	// Password reset token expiry (all portals)
+	passwordResetExpiry := parseDurationOrDefault(
+		os.Getenv("PASSWORD_RESET_TOKEN_EXPIRY"),
+		1*time.Hour,
+	)
+
 	return &server.TokenConfig{
 		HubSignupTokenExpiry:     hubSignupExpiry,
 		HubTFATokenExpiry:        hubTFAExpiry,
@@ -185,6 +191,7 @@ func TokenConfigFromEnv() *server.TokenConfig {
 		AgencyTFATokenExpiry:     agencyTFAExpiry,
 		AgencySessionTokenExpiry: agencySessionExpiry,
 		AgencyRememberMeExpiry:   agencyRememberMeExpiry,
+		PasswordResetTokenExpiry: passwordResetExpiry,
 	}
 }
 

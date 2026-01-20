@@ -409,6 +409,69 @@ export async function deleteEmailsFor(toEmail: string): Promise<void> {
 	}
 }
 
+/**
+ * Extracts the password reset token from an email body.
+ * The token is a region-prefixed token in the format: REGION-{64-char-hex}
+ * Example: IND1-abc123def456...
+ *
+ * @param emailText - Plain text email body
+ * @returns The region-prefixed reset token
+ * @throws Error if no reset token is found
+ */
+export function extractPasswordResetToken(emailText: string): string {
+	// Look for region-prefixed token pattern: (IND1|USA1|DEU1)-{64-char hex}
+	const match = emailText.match(/\b(IND1|USA1|DEU1)-([a-f0-9]{64})\b/);
+	if (!match) {
+		throw new Error(
+			`No password reset token found in email: ${emailText.substring(0, 200)}...`
+		);
+	}
+	return match[0]; // Return full match including region prefix
+}
+
+/**
+ * Waits for and extracts the password reset token from email.
+ *
+ * @param toEmail - Email address to wait for
+ * @param config - Optional configuration for retry behavior
+ * @returns The region-prefixed password reset token
+ */
+export async function getPasswordResetTokenFromEmail(
+	toEmail: string,
+	config: Partial<WaitForEmailConfig> = {}
+): Promise<string> {
+	const cfg = { ...DEFAULT_WAIT_CONFIG, ...config };
+
+	let delay = cfg.initialDelayMs;
+	let totalWaitTime = 0;
+
+	for (let attempt = 1; attempt <= cfg.maxRetries; attempt++) {
+		const messages = await searchEmails(toEmail);
+
+		// Search through emails to find one with a password reset token
+		for (const msg of messages) {
+			const fullMessage = await getEmailContent(msg.ID);
+			try {
+				return extractPasswordResetToken(fullMessage.Text);
+			} catch {
+				// Continue to next email
+			}
+		}
+
+		if (attempt < cfg.maxRetries) {
+			await sleep(delay);
+			totalWaitTime += delay;
+			delay = Math.min(delay * cfg.backoffMultiplier, cfg.maxDelayMs);
+		}
+	}
+
+	throw new Error(
+		`No password reset token email received for ${toEmail} after ${
+			cfg.maxRetries
+		} attempts (waited ~${Math.round(totalWaitTime / 1000)}s)`
+	);
+}
+
 // Helper function for async sleep
 function sleep(ms: number): Promise<void> {
 	return new Promise((resolve) => setTimeout(resolve, ms));

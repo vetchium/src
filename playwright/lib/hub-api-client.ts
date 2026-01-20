@@ -9,6 +9,9 @@ import type {
 	HubTFARequest,
 	HubTFAResponse,
 	HubSetLanguageRequest,
+	HubRequestPasswordResetRequest,
+	HubRequestPasswordResetResponse,
+	HubCompletePasswordResetRequest,
 } from "vetchium-specs/hub/hub-users";
 import type { APIResponse } from "./api-client";
 
@@ -258,6 +261,80 @@ export class HubAPIClient {
 			headers: {
 				Authorization: `Bearer ${sessionToken}`,
 			},
+			data: body,
+		});
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: undefined,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	/**
+	 * POST /hub/request-password-reset
+	 * Requests password reset email
+	 */
+	async requestPasswordReset(
+		request: HubRequestPasswordResetRequest
+	): Promise<APIResponse<HubRequestPasswordResetResponse>> {
+		const response = await this.request.post("/hub/request-password-reset", {
+			data: request,
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as HubRequestPasswordResetResponse,
+			errors: body.errors,
+		};
+	}
+
+	/**
+	 * POST /hub/request-password-reset with raw body for testing invalid payloads
+	 */
+	async requestPasswordResetRaw(
+		body: unknown
+	): Promise<APIResponse<HubRequestPasswordResetResponse>> {
+		const response = await this.request.post("/hub/request-password-reset", {
+			data: body,
+		});
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as HubRequestPasswordResetResponse,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	/**
+	 * POST /hub/complete-password-reset
+	 * Completes password reset with reset token
+	 */
+	async completePasswordReset(
+		request: HubCompletePasswordResetRequest
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/hub/complete-password-reset", {
+			data: request,
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: undefined,
+			errors: body.errors,
+		};
+	}
+
+	/**
+	 * POST /hub/complete-password-reset with raw body for testing invalid payloads
+	 */
+	async completePasswordResetRaw(
+		body: unknown
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/hub/complete-password-reset", {
 			data: body,
 		});
 

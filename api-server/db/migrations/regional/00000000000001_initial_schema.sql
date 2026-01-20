@@ -13,6 +13,7 @@ CREATE TYPE email_template_type AS ENUM (
     'admin_tfa',
     'hub_signup_verification',
     'hub_tfa',
+    'hub_password_reset',
     'org_signup_verification',
     'org_signup_token',
     'org_tfa',
@@ -70,6 +71,14 @@ CREATE TABLE hub_tfa_tokens (
 -- Hub sessions (regional storage for data sovereignty)
 CREATE TABLE hub_sessions (
     session_token TEXT PRIMARY KEY NOT NULL,
+    hub_user_global_id UUID NOT NULL REFERENCES hub_users(hub_user_global_id) ON DELETE CASCADE,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMP NOT NULL
+);
+
+-- Hub password reset tokens
+CREATE TABLE hub_password_reset_tokens (
+    reset_token TEXT PRIMARY KEY NOT NULL,
     hub_user_global_id UUID NOT NULL REFERENCES hub_users(hub_user_global_id) ON DELETE CASCADE,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     expires_at TIMESTAMP NOT NULL
@@ -150,6 +159,7 @@ CREATE TABLE agency_sessions (
 CREATE INDEX idx_hub_tfa_tokens_expires_at ON hub_tfa_tokens(expires_at);
 CREATE INDEX idx_hub_sessions_expires_at ON hub_sessions(expires_at);
 CREATE INDEX idx_hub_sessions_hub_user_global_id ON hub_sessions(hub_user_global_id);
+CREATE INDEX idx_hub_password_reset_tokens_expires_at ON hub_password_reset_tokens(expires_at);
 CREATE INDEX idx_org_tfa_tokens_expires_at ON org_tfa_tokens(expires_at);
 CREATE INDEX idx_org_sessions_expires_at ON org_sessions(expires_at);
 CREATE INDEX idx_org_sessions_org_user_id ON org_sessions(org_user_id);
@@ -176,6 +186,7 @@ DROP INDEX IF EXISTS idx_org_users_email_address;
 DROP INDEX IF EXISTS idx_org_sessions_org_user_id;
 DROP INDEX IF EXISTS idx_org_sessions_expires_at;
 DROP INDEX IF EXISTS idx_org_tfa_tokens_expires_at;
+DROP INDEX IF EXISTS idx_hub_password_reset_tokens_expires_at;
 DROP INDEX IF EXISTS idx_hub_sessions_hub_user_global_id;
 DROP INDEX IF EXISTS idx_hub_sessions_expires_at;
 DROP INDEX IF EXISTS idx_hub_tfa_tokens_expires_at;
@@ -187,6 +198,7 @@ DROP TABLE IF EXISTS org_sessions;
 DROP TABLE IF EXISTS org_tfa_tokens;
 DROP TABLE IF EXISTS org_users;
 DROP TABLE IF EXISTS hub_sessions;
+DROP TABLE IF EXISTS hub_password_reset_tokens;
 DROP TABLE IF EXISTS hub_tfa_tokens;
 DROP TABLE IF EXISTS email_delivery_attempts;
 DROP TABLE IF EXISTS emails;
