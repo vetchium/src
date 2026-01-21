@@ -42,6 +42,8 @@ func (w *RegionalWorker) Run(ctx context.Context) {
 	w.log.Info("starting regional background jobs worker",
 		"hub_tfa_cleanup_interval", w.config.ExpiredHubTFATokensCleanupInterval,
 		"hub_sessions_cleanup_interval", w.config.ExpiredHubSessionsCleanupInterval,
+		"hub_password_reset_cleanup_interval", w.config.ExpiredHubPasswordResetTokensCleanupInterval,
+		"hub_email_verification_cleanup_interval", w.config.ExpiredHubEmailVerificationTokensCleanupInterval,
 		"org_tfa_cleanup_interval", w.config.ExpiredOrgTFATokensCleanupInterval,
 		"org_sessions_cleanup_interval", w.config.ExpiredOrgSessionsCleanupInterval,
 		"agency_tfa_cleanup_interval", w.config.ExpiredAgencyTFATokensCleanupInterval,
@@ -56,6 +58,14 @@ func (w *RegionalWorker) Run(ctx context.Context) {
 	go w.runPeriodicJob(ctx, "hub-sessions",
 		w.config.ExpiredHubSessionsCleanupInterval,
 		w.cleanupExpiredHubSessions)
+
+	go w.runPeriodicJob(ctx, "hub-password-reset-tokens",
+		w.config.ExpiredHubPasswordResetTokensCleanupInterval,
+		w.cleanupExpiredHubPasswordResetTokens)
+
+	go w.runPeriodicJob(ctx, "hub-email-verification-tokens",
+		w.config.ExpiredHubEmailVerificationTokensCleanupInterval,
+		w.cleanupExpiredHubEmailVerificationTokens)
 
 	go w.runPeriodicJob(ctx, "org-tfa-tokens",
 		w.config.ExpiredOrgTFATokensCleanupInterval,
@@ -182,4 +192,30 @@ func (w *RegionalWorker) cleanupExpiredAgencySessions(ctx context.Context) {
 		return
 	}
 	w.log.Debug("cleaned up expired agency sessions")
+}
+
+func (w *RegionalWorker) cleanupExpiredHubPasswordResetTokens(ctx context.Context) {
+	if ctx.Err() != nil {
+		return
+	}
+
+	err := w.queries.DeleteExpiredHubPasswordResetTokens(ctx)
+	if err != nil {
+		w.log.Error("failed to cleanup expired hub password reset tokens", "error", err)
+		return
+	}
+	w.log.Debug("cleaned up expired hub password reset tokens")
+}
+
+func (w *RegionalWorker) cleanupExpiredHubEmailVerificationTokens(ctx context.Context) {
+	if ctx.Err() != nil {
+		return
+	}
+
+	err := w.queries.DeleteExpiredHubEmailVerificationTokens(ctx)
+	if err != nil {
+		w.log.Error("failed to cleanup expired hub email verification tokens", "error", err)
+		return
+	}
+	w.log.Debug("cleaned up expired hub email verification tokens")
 }

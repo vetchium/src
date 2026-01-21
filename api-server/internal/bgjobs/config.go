@@ -18,12 +18,14 @@ type GlobalBgJobsConfig struct {
 
 // RegionalBgJobsConfig holds configuration for regional database background jobs
 type RegionalBgJobsConfig struct {
-	ExpiredHubTFATokensCleanupInterval    time.Duration
-	ExpiredHubSessionsCleanupInterval     time.Duration
-	ExpiredOrgTFATokensCleanupInterval    time.Duration
-	ExpiredOrgSessionsCleanupInterval     time.Duration
-	ExpiredAgencyTFATokensCleanupInterval time.Duration
-	ExpiredAgencySessionsCleanupInterval  time.Duration
+	ExpiredHubTFATokensCleanupInterval               time.Duration
+	ExpiredHubSessionsCleanupInterval                time.Duration
+	ExpiredHubPasswordResetTokensCleanupInterval     time.Duration
+	ExpiredHubEmailVerificationTokensCleanupInterval time.Duration
+	ExpiredOrgTFATokensCleanupInterval               time.Duration
+	ExpiredOrgSessionsCleanupInterval                time.Duration
+	ExpiredAgencyTFATokensCleanupInterval            time.Duration
+	ExpiredAgencySessionsCleanupInterval             time.Duration
 }
 
 // GlobalConfigFromEnv creates a GlobalBgJobsConfig from environment variables
@@ -74,6 +76,16 @@ func RegionalConfigFromEnv() *RegionalBgJobsConfig {
 		1*time.Hour,
 	)
 
+	hubPasswordResetInterval := parseDurationOrDefault(
+		os.Getenv("HUB_PASSWORD_RESET_TOKEN_CLEANUP_INTERVAL"),
+		1*time.Hour,
+	)
+
+	hubEmailVerificationInterval := parseDurationOrDefault(
+		os.Getenv("HUB_EMAIL_VERIFICATION_TOKEN_CLEANUP_INTERVAL"),
+		1*time.Hour,
+	)
+
 	orgTFAInterval := parseDurationOrDefault(
 		os.Getenv("ORG_TFA_TOKEN_CLEANUP_INTERVAL"),
 		1*time.Hour,
@@ -95,12 +107,14 @@ func RegionalConfigFromEnv() *RegionalBgJobsConfig {
 	)
 
 	return &RegionalBgJobsConfig{
-		ExpiredHubTFATokensCleanupInterval:    hubTFAInterval,
-		ExpiredHubSessionsCleanupInterval:     hubSessionsInterval,
-		ExpiredOrgTFATokensCleanupInterval:    orgTFAInterval,
-		ExpiredOrgSessionsCleanupInterval:     orgSessionsInterval,
-		ExpiredAgencyTFATokensCleanupInterval: agencyTFAInterval,
-		ExpiredAgencySessionsCleanupInterval:  agencySessionsInterval,
+		ExpiredHubTFATokensCleanupInterval:               hubTFAInterval,
+		ExpiredHubSessionsCleanupInterval:                hubSessionsInterval,
+		ExpiredHubPasswordResetTokensCleanupInterval:     hubPasswordResetInterval,
+		ExpiredHubEmailVerificationTokensCleanupInterval: hubEmailVerificationInterval,
+		ExpiredOrgTFATokensCleanupInterval:               orgTFAInterval,
+		ExpiredOrgSessionsCleanupInterval:                orgSessionsInterval,
+		ExpiredAgencyTFATokensCleanupInterval:            agencyTFAInterval,
+		ExpiredAgencySessionsCleanupInterval:             agencySessionsInterval,
 	}
 }
 
