@@ -1,0 +1,14 @@
+{
+	"_description": "Einladungs-E-Mail für Organisationsbenutzer",
+	"_note": "Wird gesendet, wenn ein Organisationsbenutzer mit der Rolle 'invite_users' einen neuen Benutzer einlädt",
+
+	"subject": "Sie wurden zu {{.EmployerName}} bei Vetchium eingeladen",
+	"portal_name": "Vetchium Arbeitgeber",
+	"body_greeting": "Hallo,",
+	"body_intro": "{{.InviterName}} hat Sie eingeladen, {{.EmployerName}} bei Vetchium beizutreten. Klicken Sie auf die Schaltfläche unten, um Ihr Konto einzurichten:",
+	"button_text": "Konto einrichten",
+	"body_expiry": "Diese Einladung ist {{.Days}} Tage gültig.",
+	"body_instructions": "Sie können Ihr Passwort festlegen und Ihr Konto aktivieren.",
+	"body_security": "Wenn Sie Fragen zu dieser Einladung haben, wenden Sie sich bitte an Ihren Administrator.",
+	"footer": "Dies ist eine automatische Nachricht. Bitte antworten Sie nicht."
+}

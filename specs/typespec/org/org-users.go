@@ -11,6 +11,7 @@ type OrgSessionToken string
 type OrgTFAToken string
 type DNSVerificationToken string
 type OrgSignupToken string
+type OrgInvitationToken string
 
 // ============================================
 // Signup Flow (DNS-based Domain Verification)
@@ -177,3 +178,67 @@ type OrgTFAResponse struct {
 
 // OrgLogoutRequest is empty - session token passed via Authorization header
 type OrgLogoutRequest struct{}
+
+// ============================================
+// User Invitation Flow
+// ============================================
+
+type OrgInviteUserRequest struct {
+	EmailAddress common.EmailAddress `json:"email_address"`
+	FullName     common.FullName     `json:"full_name"`
+}
+
+func (r OrgInviteUserRequest) Validate() []common.ValidationError {
+	var errs []common.ValidationError
+
+	if r.EmailAddress == "" {
+		errs = append(errs, common.NewValidationError("email_address", common.ErrRequired))
+	} else if err := r.EmailAddress.Validate(); err != nil {
+		errs = append(errs, common.NewValidationError("email_address", err))
+	}
+
+	if r.FullName == "" {
+		errs = append(errs, common.NewValidationError("full_name", common.ErrRequired))
+	} else if err := r.FullName.Validate(); err != nil {
+		errs = append(errs, common.NewValidationError("full_name", err))
+	}
+
+	return errs
+}
+
+type OrgInviteUserResponse struct {
+	InvitationID string `json:"invitation_id"`
+	ExpiresAt    string `json:"expires_at"`
+}
+
+type OrgCompleteSetupRequest struct {
+	InvitationToken OrgInvitationToken `json:"invitation_token"`
+	Password        common.Password    `json:"password"`
+	FullName        common.FullName    `json:"full_name"`
+}
+
+func (r OrgCompleteSetupRequest) Validate() []common.ValidationError {
+	var errs []common.ValidationError
+
+	if r.InvitationToken == "" {
+		errs = append(errs, common.NewValidationError("invitation_token", common.ErrRequired))
+	}
+
+	if r.Password == "" {
+		errs = append(errs, common.NewValidationError("password", common.ErrRequired))
+	} else if err := r.Password.Validate(); err != nil {
+		errs = append(errs, common.NewValidationError("password", err))
+	}
+
+	if r.FullName == "" {
+		errs = append(errs, common.NewValidationError("full_name", common.ErrRequired))
+	} else if err := r.FullName.Validate(); err != nil {
+		errs = append(errs, common.NewValidationError("full_name", err))
+	}
+
+	return errs
+}
+
+type OrgCompleteSetupResponse struct {
+	Message string `json:"message"`
+}

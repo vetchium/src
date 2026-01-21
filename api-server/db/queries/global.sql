@@ -362,9 +362,10 @@ SELECT * FROM org_users WHERE org_user_id = $1;
 -- name: CreateOrgUser :one
 INSERT INTO org_users (
     email_address_hash, hashing_algorithm, employer_id,
+    full_name, is_admin,
     status, preferred_language, home_region
 )
-VALUES ($1, $2, $3, $4, $5, $6)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 RETURNING *;
 
 -- name: DeleteOrgUser :exec
@@ -373,6 +374,16 @@ DELETE FROM org_users WHERE org_user_id = $1;
 -- name: UpdateOrgUserPreferredLanguage :exec
 UPDATE org_users
 SET preferred_language = $2
+WHERE org_user_id = $1;
+
+-- name: UpdateOrgUserFullName :exec
+UPDATE org_users
+SET full_name = $2
+WHERE org_user_id = $1;
+
+-- name: UpdateOrgUserStatus :exec
+UPDATE org_users
+SET status = $2
 WHERE org_user_id = $1;
 
 -- ============================================

@@ -4,6 +4,7 @@ import {
 	type DomainName,
 	type TFACode,
 	type LanguageCode,
+	type FullName,
 	type ValidationError,
 	newValidationError,
 	validateEmailAddress,
@@ -11,6 +12,7 @@ import {
 	validatePassword,
 	validateDomainName,
 	validateTFACode,
+	validateFullName,
 	ERR_REQUIRED,
 } from "../common/common";
 
@@ -19,6 +21,7 @@ export type OrgSessionToken = string;
 export type OrgTFAToken = string;
 export type DNSVerificationToken = string;
 export type OrgSignupToken = string;
+export type OrgInvitationToken = string;
 
 // ============================================
 // Signup Flow (DNS-based Domain Verification)
@@ -215,3 +218,83 @@ export interface OrgTFAResponse {
 
 // OrgLogoutRequest is empty - session token passed via Authorization header
 export interface OrgLogoutRequest {}
+
+// ============================================
+// User Invitation Flow
+// ============================================
+
+export interface OrgInviteUserRequest {
+	email_address: EmailAddress;
+	full_name: FullName;
+}
+
+export function validateOrgInviteUserRequest(
+	request: OrgInviteUserRequest
+): ValidationError[] {
+	const errs: ValidationError[] = [];
+
+	if (!request.email_address) {
+		errs.push(newValidationError("email_address", ERR_REQUIRED));
+	} else {
+		const emailErr = validateEmailAddress(request.email_address);
+		if (emailErr) {
+			errs.push(newValidationError("email_address", emailErr));
+		}
+	}
+
+	if (!request.full_name) {
+		errs.push(newValidationError("full_name", ERR_REQUIRED));
+	} else {
+		const fullNameErr = validateFullName(request.full_name);
+		if (fullNameErr) {
+			errs.push(newValidationError("full_name", fullNameErr));
+		}
+	}
+
+	return errs;
+}
+
+export interface OrgInviteUserResponse {
+	invitation_id: string;
+	expires_at: string;
+}
+
+export interface OrgCompleteSetupRequest {
+	invitation_token: OrgInvitationToken;
+	password: Password;
+	full_name: FullName;
+}
+
+export function validateOrgCompleteSetupRequest(
+	request: OrgCompleteSetupRequest
+): ValidationError[] {
+	const errs: ValidationError[] = [];
+
+	if (!request.invitation_token) {
+		errs.push(newValidationError("invitation_token", ERR_REQUIRED));
+	}
+
+	if (!request.password) {
+		errs.push(newValidationError("password", ERR_REQUIRED));
+	} else {
+		const passwordErr = validatePassword(request.password);
+		if (passwordErr) {
+			errs.push(newValidationError("password", passwordErr));
+		}
+	}
+
+	if (!request.full_name) {
+		errs.push(newValidationError("full_name", ERR_REQUIRED));
+	} else {
+		const fullNameErr = validateFullName(request.full_name);
+		if (fullNameErr) {
+			errs.push(newValidationError("full_name", fullNameErr));
+		}
+	}
+
+	return errs;
+}
+
+export interface OrgCompleteSetupResponse {
+	message: string;
+}

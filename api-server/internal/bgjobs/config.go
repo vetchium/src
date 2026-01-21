@@ -196,6 +196,20 @@ func TokenConfigFromEnv() *server.TokenConfig {
 		1*time.Hour,
 	)
 
+	// Invitation token expiry (all entity portals)
+	orgInvitationExpiry := parseDurationOrDefault(
+		os.Getenv("ORG_INVITATION_TOKEN_EXPIRY"),
+		168*time.Hour, // 7 days
+	)
+	agencyInvitationExpiry := parseDurationOrDefault(
+		os.Getenv("AGENCY_INVITATION_TOKEN_EXPIRY"),
+		168*time.Hour, // 7 days
+	)
+	adminInvitationExpiry := parseDurationOrDefault(
+		os.Getenv("ADMIN_INVITATION_TOKEN_EXPIRY"),
+		168*time.Hour, // 7 days
+	)
+
 	return &server.TokenConfig{
 		HubSignupTokenExpiry:         hubSignupExpiry,
 		HubTFATokenExpiry:            hubTFAExpiry,
@@ -213,6 +227,9 @@ func TokenConfigFromEnv() *server.TokenConfig {
 		AgencyRememberMeExpiry:       agencyRememberMeExpiry,
 		PasswordResetTokenExpiry:     passwordResetExpiry,
 		EmailVerificationTokenExpiry: emailVerificationExpiry,
+		OrgInvitationTokenExpiry:     orgInvitationExpiry,
+		AgencyInvitationTokenExpiry:  agencyInvitationExpiry,
+		AdminInvitationTokenExpiry:   adminInvitationExpiry,
 	}
 }
 

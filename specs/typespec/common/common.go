@@ -12,6 +12,7 @@ type Password string
 type LanguageCode string
 type DomainName string
 type TFACode string
+type FullName string
 
 // Validation constraints matching common.tsp
 const (
@@ -24,11 +25,14 @@ const (
 	DomainMinLength       = 3
 	DomainMaxLength       = 255
 	TFACodeLength         = 6
+	FullNameMinLength     = 1
+	FullNameMaxLength     = 128
 )
 
 var emailPattern = regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
 var languageCodePattern = regexp.MustCompile(`^[a-z]{2}(-[A-Z]{2})?$`)
 var domainNamePattern = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$`)
+var fullNamePattern = regexp.MustCompile(`^[\pL\pM\s'-]+$`)
 
 // Supported languages (BCP 47 tags)
 var SupportedLanguages = []LanguageCode{"en-US", "de-DE", "ta-IN"}
@@ -51,6 +55,10 @@ var (
 	ErrDomainTooLong        = errors.New("must be at most 255 characters")
 	ErrDomainInvalidFormat  = errors.New("must be a valid domain name in lowercase")
 	ErrPersonalEmailDomain  = errors.New("personal email addresses are not allowed for employer signup")
+	ErrFullNameTooShort     = errors.New("must be at least 1 character")
+	ErrFullNameTooLong      = errors.New("must be at most 128 characters")
+	ErrFullNameInvalidFormat = errors.New("may only contain letters, spaces, hyphens, and apostrophes")
+	ErrFullNameOnlyWhitespace = errors.New("cannot be only whitespace")
 )
 
 // PersonalEmailDomains contains major free email providers that should not be used for professional accounts
@@ -212,6 +220,24 @@ func (c TFACode) Validate() error {
 		if ch < '0' || ch > '9' {
 			return ErrTFACodeInvalidFormat
 		}
+	}
+	return nil
+}
+
+// Validate checks if the full name meets constraints (returns error without field context)
+func (f FullName) Validate() error {
+	if len(f) < FullNameMinLength {
+		return ErrFullNameTooShort
+	}
+	if len(f) > FullNameMaxLength {
+		return ErrFullNameTooLong
+	}
+	// Check if only whitespace
+	if len(strings.TrimSpace(string(f))) == 0 {
+		return ErrFullNameOnlyWhitespace
+	}
+	if !fullNamePattern.MatchString(string(f)) {
+		return ErrFullNameInvalidFormat
 	}
 	return nil
 }

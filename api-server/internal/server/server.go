@@ -40,6 +40,11 @@ type TokenConfig struct {
 
 	// Email verification tokens
 	EmailVerificationTokenExpiry time.Duration // Default: 1h
+
+	// Invitation tokens (all entity portals)
+	OrgInvitationTokenExpiry    time.Duration // Default: 168h (7 days)
+	AgencyInvitationTokenExpiry time.Duration // Default: 168h (7 days)
+	AdminInvitationTokenExpiry  time.Duration // Default: 168h (7 days)
 }
 
 type Server struct {

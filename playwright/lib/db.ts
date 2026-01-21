@@ -624,6 +624,74 @@ export async function createTestOrgUserDirect(
 	return { email, domain, employerId, orgUserId };
 }
 
+/**
+ * Creates a test org user with admin privileges directly in the database.
+ * This bypasses the signup API and is used for test setup.
+ *
+ * @param email - Email address for the org admin
+ * @param password - Password for the org admin
+ * @param region - Region code (defaults to 'ind1')
+ * @returns An object with email, domain, employerId, and orgUserId
+ */
+export async function createTestOrgAdminDirect(
+	email: string,
+	password: string,
+	region: RegionCode = "ind1"
+): Promise<{
+	email: string;
+	domain: string;
+	employerId: string;
+	orgUserId: string;
+}> {
+	const crypto = require("crypto");
+	const emailHash = crypto.createHash("sha256").update(email).digest();
+	const passwordHash = await bcrypt.hash(password, 10);
+
+	// Extract domain from email
+	const parts = email.split("@");
+	if (parts.length !== 2) {
+		throw new Error(`Invalid email format: ${email}`);
+	}
+	const domain = parts[1].toLowerCase();
+
+	// 1. Create employer in global DB
+	const employerId = randomUUID();
+	await pool.query(
+		`INSERT INTO employers (employer_id, employer_name, region)
+     VALUES ($1, $2, $3)`,
+		[employerId, domain, region]
+	);
+
+	// 2. Create verified domain in global DB
+	await pool.query(
+		`INSERT INTO global_employer_domains (domain, region, employer_id, status)
+     VALUES ($1, $2, $3, 'VERIFIED')`,
+		[domain, region, employerId]
+	);
+
+	// 3. Create org admin user in global DB with is_admin=TRUE
+	const orgUserId = randomUUID();
+	await pool.query(
+		`INSERT INTO org_users (org_user_id, email_address_hash, hashing_algorithm, employer_id, is_admin, status, preferred_language, home_region)
+     VALUES ($1, $2, 'SHA-256', $3, TRUE, 'active', 'en-US', $4)`,
+		[orgUserId, emailHash, employerId, region]
+	);
+
+	// 4. Create org admin user in regional DB
+	const regionalPool = getRegionalPool(region);
+	try {
+		await regionalPool.query(
+			`INSERT INTO org_users (org_user_id, email_address, employer_id, password_hash)
+       VALUES ($1, $2, $3, $4)`,
+			[orgUserId, email, employerId, passwordHash]
+		);
+	} finally {
+		await regionalPool.end();
+	}
+
+	return { email, domain, employerId, orgUserId };
+}
+
 // ============================================================================
 // Agency User Test Helpers
 // ============================================================================

@@ -8,6 +8,10 @@ import type {
 	OrgLoginResponse,
 	OrgTFARequest,
 	OrgTFAResponse,
+	OrgInviteUserRequest,
+	OrgInviteUserResponse,
+	OrgCompleteSetupRequest,
+	OrgCompleteSetupResponse,
 } from "vetchium-specs/org/org-users";
 import type {
 	ClaimDomainRequest,
@@ -405,6 +409,119 @@ export class OrgAPIClient {
 		return {
 			status: response.status(),
 			body: undefined,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	// ============================================================================
+	// User Invitation
+	// ============================================================================
+
+	/**
+	 * POST /employer/invite-user
+	 * Invites a new user to the organization.
+	 * Requires authentication and admin privileges.
+	 *
+	 * @param sessionToken - Session token of the inviter
+	 * @param request - Invitation request with email_address and full_name
+	 * @returns API response with invitation_id and expires_at on success
+	 */
+	async inviteUser(
+		sessionToken: string,
+		request: OrgInviteUserRequest
+	): Promise<APIResponse<OrgInviteUserResponse>> {
+		const response = await this.request.post("/employer/invite-user", {
+			headers: {
+				Authorization: `Bearer ${sessionToken}`,
+			},
+			data: request,
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as OrgInviteUserResponse,
+			errors: body.errors,
+		};
+	}
+
+	/**
+	 * POST /employer/invite-user with raw body for testing invalid payloads
+	 */
+	async inviteUserRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<OrgInviteUserResponse>> {
+		const response = await this.request.post("/employer/invite-user", {
+			headers: {
+				Authorization: `Bearer ${sessionToken}`,
+			},
+			data: body,
+		});
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as OrgInviteUserResponse,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	/**
+	 * POST /employer/invite-user without Authorization header (for testing 401)
+	 */
+	async inviteUserWithoutAuth(
+		request: OrgInviteUserRequest
+	): Promise<APIResponse<OrgInviteUserResponse>> {
+		const response = await this.request.post("/employer/invite-user", {
+			data: request,
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as OrgInviteUserResponse,
+			errors: body.errors,
+		};
+	}
+
+	/**
+	 * POST /employer/complete-setup
+	 * Completes the invited user setup with invitation token, password, and full name.
+	 * This endpoint does not require authentication (uses invitation token).
+	 *
+	 * @param request - Setup request with invitation_token, password, and full_name
+	 * @returns API response with success message
+	 */
+	async completeSetup(
+		request: OrgCompleteSetupRequest
+	): Promise<APIResponse<OrgCompleteSetupResponse>> {
+		const response = await this.request.post("/employer/complete-setup", {
+			data: request,
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as OrgCompleteSetupResponse,
+			errors: body.errors,
+		};
+	}
+
+	/**
+	 * POST /employer/complete-setup with raw body for testing invalid payloads
+	 */
+	async completeSetupRaw(
+		body: unknown
+	): Promise<APIResponse<OrgCompleteSetupResponse>> {
+		const response = await this.request.post("/employer/complete-setup", {
+			data: body,
+		});
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as OrgCompleteSetupResponse,
 			errors: Array.isArray(responseBody) ? responseBody : undefined,
 		};
 	}

@@ -87,8 +87,8 @@ WHERE email_address = $1 AND employer_id = $2;
 SELECT * FROM org_users WHERE org_user_id = $1;
 
 -- name: CreateOrgUser :one
-INSERT INTO org_users (org_user_id, email_address, employer_id, password_hash)
-VALUES ($1, $2, $3, $4)
+INSERT INTO org_users (org_user_id, email_address, employer_id, full_name, password_hash)
+VALUES ($1, $2, $3, $4, $5)
 RETURNING *;
 
 -- name: DeleteOrgUser :exec
@@ -127,6 +127,33 @@ DELETE FROM org_sessions WHERE session_token = $1;
 
 -- name: DeleteExpiredOrgSessions :exec
 DELETE FROM org_sessions WHERE expires_at <= NOW();
+
+-- name: DeleteAllOrgSessionsForUser :exec
+DELETE FROM org_sessions WHERE org_user_id = $1;
+
+-- name: DeleteAllOrgSessionsExceptCurrent :exec
+DELETE FROM org_sessions WHERE org_user_id = $1 AND session_token != $2;
+
+-- ============================================
+-- Org Invitation Token Queries
+-- ============================================
+
+-- name: CreateOrgInvitationToken :exec
+INSERT INTO org_invitation_tokens (invitation_token, org_user_id, employer_id, expires_at)
+VALUES ($1, $2, $3, $4);
+
+-- name: GetOrgInvitationToken :one
+SELECT * FROM org_invitation_tokens WHERE invitation_token = $1 AND expires_at > NOW();
+
+-- name: DeleteOrgInvitationToken :exec
+DELETE FROM org_invitation_tokens WHERE invitation_token = $1;
+
+-- name: DeleteExpiredOrgInvitationTokens :exec
+DELETE FROM org_invitation_tokens WHERE expires_at <= NOW();
+
+-- name: UpdateOrgUserSetup :exec
+UPDATE org_users SET password_hash = $2, full_name = $3, authentication_type = $4
+WHERE org_user_id = $1;
 
 -- ============================================
 -- Employer Domain Queries (Regional)

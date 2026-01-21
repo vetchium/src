@@ -15,6 +15,7 @@ func RegisterOrgRoutes(mux *http.ServeMux, s *server.Server) {
 	mux.HandleFunc("POST /org/complete-signup", org.CompleteSignup(s))
 	mux.HandleFunc("POST /employer/login", org.Login(s))
 	mux.HandleFunc("POST /employer/tfa", org.TFA(s))
+	mux.HandleFunc("POST /employer/complete-setup", org.CompleteSetup(s))
 
 	// Authenticated routes (require Authorization header)
 	orgAuth := middleware.OrgAuth(s.Global, s.GetRegionalDB)
@@ -22,4 +23,5 @@ func RegisterOrgRoutes(mux *http.ServeMux, s *server.Server) {
 	mux.Handle("POST /org/verify-domain", orgAuth(org.VerifyDomain(s)))
 	mux.Handle("POST /org/get-domain-status", orgAuth(org.GetDomainStatus(s)))
 	mux.Handle("POST /employer/logout", orgAuth(org.Logout(s)))
+	mux.Handle("POST /employer/invite-user", orgAuth(org.InviteUser(s)))
 }

@@ -1,0 +1,14 @@
+{
+	"_description": "Org User Invitation Email",
+	"_note": "Sent when an org user with invite_users role invites a new user",
+
+	"subject": "You've Been Invited to {{.EmployerName}} on Vetchium",
+	"portal_name": "Vetchium Employer",
+	"body_greeting": "Hello,",
+	"body_intro": "{{.InviterName}} has invited you to join {{.EmployerName}} on Vetchium. Click the button below to set up your account:",
+	"button_text": "Set Up Account",
+	"body_expiry": "This invitation is valid for {{.Days}} days.",
+	"body_instructions": "You will be able to set your password and activate your account.",
+	"body_security": "If you have any questions about this invitation, please contact your administrator.",
+	"footer": "This is an automated message. Please do not reply."
+}

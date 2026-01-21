@@ -25,6 +25,7 @@ CREATE TYPE email_address_hashing_algorithm AS ENUM (
 
 -- Admin user status enum
 CREATE TYPE admin_user_status AS ENUM (
+    'invited',
     'active',
     'disabled'
 );
@@ -34,12 +35,14 @@ CREATE TYPE domain_status AS ENUM ('active', 'inactive');
 
 -- Org user status enum
 CREATE TYPE org_user_status AS ENUM (
+    'invited',
     'active',
     'disabled'
 );
 
 -- Agency user status enum
 CREATE TYPE agency_user_status AS ENUM (
+    'invited',
     'active',
     'disabled'
 );
@@ -68,7 +71,8 @@ CREATE TABLE hub_users (
 CREATE TABLE admin_users (
     admin_user_id UUID PRIMARY KEY NOT NULL,
     email_address TEXT NOT NULL UNIQUE,
-    password_hash BYTEA NOT NULL,
+    full_name TEXT,
+    password_hash BYTEA,
     status admin_user_status NOT NULL,
     preferred_language TEXT NOT NULL DEFAULT 'en-US',
     created_at TIMESTAMP DEFAULT NOW()
@@ -86,6 +90,14 @@ CREATE TABLE admin_tfa_tokens (
 -- Admin sessions
 CREATE TABLE admin_sessions (
     session_token TEXT PRIMARY KEY NOT NULL,
+    admin_user_id UUID NOT NULL REFERENCES admin_users(admin_user_id) ON DELETE CASCADE,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMP NOT NULL
+);
+
+-- Admin invitation tokens for user invitations
+CREATE TABLE admin_invitation_tokens (
+    invitation_token TEXT PRIMARY KEY NOT NULL,
     admin_user_id UUID NOT NULL REFERENCES admin_users(admin_user_id) ON DELETE CASCADE,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     expires_at TIMESTAMP NOT NULL
@@ -214,6 +226,8 @@ CREATE TABLE org_users (
     email_address_hash BYTEA NOT NULL,
     hashing_algorithm email_address_hashing_algorithm NOT NULL DEFAULT 'SHA-256',
     employer_id UUID NOT NULL REFERENCES employers(employer_id) ON DELETE CASCADE,
+    full_name TEXT,
+    is_admin BOOLEAN NOT NULL DEFAULT FALSE,
     status org_user_status NOT NULL DEFAULT 'active',
     preferred_language TEXT NOT NULL DEFAULT 'en-US',
     home_region region NOT NULL,
@@ -263,6 +277,8 @@ CREATE TABLE agency_users (
     email_address_hash BYTEA NOT NULL,
     hashing_algorithm email_address_hashing_algorithm NOT NULL DEFAULT 'SHA-256',
     agency_id UUID NOT NULL REFERENCES agencies(agency_id) ON DELETE CASCADE,
+    full_name TEXT,
+    is_admin BOOLEAN NOT NULL DEFAULT FALSE,
     status agency_user_status NOT NULL DEFAULT 'active',
     preferred_language TEXT NOT NULL DEFAULT 'en-US',
     home_region region NOT NULL,
@@ -289,6 +305,7 @@ CREATE TABLE agency_signup_tokens (
 -- Indexes
 CREATE INDEX idx_admin_tfa_tokens_expires_at ON admin_tfa_tokens(expires_at);
 CREATE INDEX idx_admin_sessions_expires_at ON admin_sessions(expires_at);
+CREATE INDEX idx_admin_invitation_tokens_expires_at ON admin_invitation_tokens(expires_at);
 CREATE INDEX idx_hub_signup_tokens_expires_at ON hub_signup_tokens(expires_at);
 CREATE INDEX idx_hub_signup_tokens_email_hash ON hub_signup_tokens(email_address_hash);
 CREATE UNIQUE INDEX idx_hub_user_display_names_preferred
@@ -322,6 +339,7 @@ DROP INDEX IF EXISTS idx_org_signup_tokens_expires_at;
 DROP INDEX IF EXISTS idx_hub_user_display_names_preferred;
 DROP INDEX IF EXISTS idx_hub_signup_tokens_email_hash;
 DROP INDEX IF EXISTS idx_hub_signup_tokens_expires_at;
+DROP INDEX IF EXISTS idx_admin_invitation_tokens_expires_at;
 DROP INDEX IF EXISTS idx_admin_sessions_expires_at;
 DROP INDEX IF EXISTS idx_admin_tfa_tokens_expires_at;
 DROP TABLE IF EXISTS agency_signup_tokens;
@@ -340,6 +358,7 @@ DROP TRIGGER IF EXISTS approved_domains_updated_at ON approved_domains;
 DROP FUNCTION IF EXISTS update_approved_domains_updated_at();
 DROP TABLE IF EXISTS approved_domains;
 DROP TABLE IF EXISTS supported_languages;
+DROP TABLE IF EXISTS admin_invitation_tokens;
 DROP TABLE IF EXISTS admin_sessions;
 DROP TABLE IF EXISTS admin_tfa_tokens;
 DROP TABLE IF EXISTS admin_users;

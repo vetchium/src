@@ -11,6 +11,7 @@ CREATE TYPE email_status AS ENUM (
 -- Email template type enum
 CREATE TYPE email_template_type AS ENUM (
     'admin_tfa',
+    'admin_invitation',
     'hub_signup_verification',
     'hub_tfa',
     'hub_password_reset',
@@ -18,9 +19,19 @@ CREATE TYPE email_template_type AS ENUM (
     'org_signup_verification',
     'org_signup_token',
     'org_tfa',
+    'org_invitation',
     'agency_signup_verification',
     'agency_signup_token',
-    'agency_tfa'
+    'agency_tfa',
+    'agency_invitation'
+);
+
+-- Authentication type enum (extensible for future SSO, hardware tokens, etc.)
+CREATE TYPE authentication_type AS ENUM (
+    'email_password',
+    'sso_oauth',
+    'sso_saml',
+    'hardware_token'
 );
 
 -- Domain verification status enum
@@ -101,7 +112,9 @@ CREATE TABLE org_users (
     org_user_id UUID PRIMARY KEY,
     email_address TEXT NOT NULL,
     employer_id UUID NOT NULL,
+    full_name TEXT,
     password_hash BYTEA,
+    authentication_type authentication_type NOT NULL DEFAULT 'email_password',
     created_at TIMESTAMP DEFAULT NOW(),
     UNIQUE (email_address, employer_id)
 );
@@ -119,6 +132,15 @@ CREATE TABLE org_tfa_tokens (
 CREATE TABLE org_sessions (
     session_token TEXT PRIMARY KEY NOT NULL,
     org_user_id UUID NOT NULL REFERENCES org_users(org_user_id) ON DELETE CASCADE,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMP NOT NULL
+);
+
+-- Org invitation tokens for user invitations
+CREATE TABLE org_invitation_tokens (
+    invitation_token TEXT PRIMARY KEY NOT NULL,
+    org_user_id UUID NOT NULL REFERENCES org_users(org_user_id) ON DELETE CASCADE,
+    employer_id UUID NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     expires_at TIMESTAMP NOT NULL
 );
@@ -143,7 +165,9 @@ CREATE TABLE agency_users (
     agency_user_id UUID PRIMARY KEY,
     email_address TEXT NOT NULL,
     agency_id UUID NOT NULL,
+    full_name TEXT,
     password_hash BYTEA,
+    authentication_type authentication_type NOT NULL DEFAULT 'email_password',
     created_at TIMESTAMP DEFAULT NOW(),
     UNIQUE (email_address, agency_id)
 );
@@ -165,6 +189,15 @@ CREATE TABLE agency_sessions (
     expires_at TIMESTAMP NOT NULL
 );
 
+-- Agency invitation tokens for user invitations
+CREATE TABLE agency_invitation_tokens (
+    invitation_token TEXT PRIMARY KEY NOT NULL,
+    agency_user_id UUID NOT NULL REFERENCES agency_users(agency_user_id) ON DELETE CASCADE,
+    agency_id UUID NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMP NOT NULL
+);
+
 -- Indexes
 CREATE INDEX idx_hub_tfa_tokens_expires_at ON hub_tfa_tokens(expires_at);
 CREATE INDEX idx_hub_sessions_expires_at ON hub_sessions(expires_at);
@@ -174,6 +207,7 @@ CREATE INDEX idx_hub_email_verification_tokens_expires_at ON hub_email_verificat
 CREATE INDEX idx_org_tfa_tokens_expires_at ON org_tfa_tokens(expires_at);
 CREATE INDEX idx_org_sessions_expires_at ON org_sessions(expires_at);
 CREATE INDEX idx_org_sessions_org_user_id ON org_sessions(org_user_id);
+CREATE INDEX idx_org_invitation_tokens_expires_at ON org_invitation_tokens(expires_at);
 CREATE INDEX idx_org_users_email_address ON org_users(email_address);
 CREATE INDEX idx_org_users_employer_id ON org_users(employer_id);
 CREATE INDEX idx_employer_domains_employer_id ON employer_domains(employer_id);
@@ -181,12 +215,14 @@ CREATE INDEX idx_employer_domains_status ON employer_domains(status);
 CREATE INDEX idx_agency_tfa_tokens_expires_at ON agency_tfa_tokens(expires_at);
 CREATE INDEX idx_agency_sessions_expires_at ON agency_sessions(expires_at);
 CREATE INDEX idx_agency_sessions_agency_user_id ON agency_sessions(agency_user_id);
+CREATE INDEX idx_agency_invitation_tokens_expires_at ON agency_invitation_tokens(expires_at);
 CREATE INDEX idx_agency_users_email_address ON agency_users(email_address);
 CREATE INDEX idx_agency_users_agency_id ON agency_users(agency_id);
 
 -- +goose Down
 DROP INDEX IF EXISTS idx_agency_users_agency_id;
 DROP INDEX IF EXISTS idx_agency_users_email_address;
+DROP INDEX IF EXISTS idx_agency_invitation_tokens_expires_at;
 DROP INDEX IF EXISTS idx_agency_sessions_agency_user_id;
 DROP INDEX IF EXISTS idx_agency_sessions_expires_at;
 DROP INDEX IF EXISTS idx_agency_tfa_tokens_expires_at;
@@ -194,6 +230,7 @@ DROP INDEX IF EXISTS idx_employer_domains_status;
 DROP INDEX IF EXISTS idx_employer_domains_employer_id;
 DROP INDEX IF EXISTS idx_org_users_employer_id;
 DROP INDEX IF EXISTS idx_org_users_email_address;
+DROP INDEX IF EXISTS idx_org_invitation_tokens_expires_at;
 DROP INDEX IF EXISTS idx_org_sessions_org_user_id;
 DROP INDEX IF EXISTS idx_org_sessions_expires_at;
 DROP INDEX IF EXISTS idx_org_tfa_tokens_expires_at;
@@ -202,10 +239,12 @@ DROP INDEX IF EXISTS idx_hub_password_reset_tokens_expires_at;
 DROP INDEX IF EXISTS idx_hub_sessions_hub_user_global_id;
 DROP INDEX IF EXISTS idx_hub_sessions_expires_at;
 DROP INDEX IF EXISTS idx_hub_tfa_tokens_expires_at;
+DROP TABLE IF EXISTS agency_invitation_tokens;
 DROP TABLE IF EXISTS agency_sessions;
 DROP TABLE IF EXISTS agency_tfa_tokens;
 DROP TABLE IF EXISTS agency_users;
 DROP TABLE IF EXISTS employer_domains;
+DROP TABLE IF EXISTS org_invitation_tokens;
 DROP TABLE IF EXISTS org_sessions;
 DROP TABLE IF EXISTS org_tfa_tokens;
 DROP TABLE IF EXISTS org_users;
@@ -217,5 +256,6 @@ DROP TABLE IF EXISTS email_delivery_attempts;
 DROP TABLE IF EXISTS emails;
 DROP TABLE IF EXISTS hub_users;
 DROP TYPE IF EXISTS domain_verification_status;
+DROP TYPE IF EXISTS authentication_type;
 DROP TYPE IF EXISTS email_template_type;
 DROP TYPE IF EXISTS email_status;

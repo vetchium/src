@@ -3,6 +3,7 @@ export type Password = string;
 export type LanguageCode = string;
 export type DomainName = string;
 export type TFACode = string;
+export type FullName = string;
 
 // Validation constraints matching common.tsp
 export const EMAIL_MIN_LENGTH = 3;
@@ -14,12 +15,15 @@ export const LANGUAGE_CODE_MAX_LENGTH = 10;
 export const DOMAIN_MIN_LENGTH = 3;
 export const DOMAIN_MAX_LENGTH = 255;
 export const TFA_CODE_LENGTH = 6;
+export const FULL_NAME_MIN_LENGTH = 1;
+export const FULL_NAME_MAX_LENGTH = 128;
 
 const EMAIL_PATTERN = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 const LANGUAGE_CODE_PATTERN = /^[a-z]{2}(-[A-Z]{2})?$/;
 const DOMAIN_NAME_PATTERN =
 	/^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$/;
 const TFA_CODE_PATTERN = /^[0-9]{6}$/;
+const FULL_NAME_PATTERN = /^[\p{L}\p{M}\s'-]+$/u;
 
 // Supported languages (BCP 47 tags)
 export const SUPPORTED_LANGUAGES = ["en-US", "de-DE", "ta-IN"] as const;
@@ -43,6 +47,11 @@ export const ERR_DOMAIN_INVALID_FORMAT =
 	"must be a valid domain name in lowercase";
 export const ERR_PERSONAL_EMAIL_DOMAIN =
 	"personal email addresses are not allowed for employer signup";
+export const ERR_FULL_NAME_TOO_SHORT = "must be at least 1 character";
+export const ERR_FULL_NAME_TOO_LONG = "must be at most 128 characters";
+export const ERR_FULL_NAME_INVALID_FORMAT =
+	"may only contain letters, spaces, hyphens, and apostrophes";
+export const ERR_FULL_NAME_ONLY_WHITESPACE = "cannot be only whitespace";
 
 // List of blocked personal email domains for employer signup
 // This list contains major free email providers that should not be used for professional accounts
@@ -196,6 +205,24 @@ export function validateTFACode(code: TFACode): string | null {
 	}
 	if (!TFA_CODE_PATTERN.test(code)) {
 		return ERR_TFA_CODE_INVALID_FORMAT;
+	}
+	return null;
+}
+
+// Validates full name, returns error message or null (no field context)
+export function validateFullName(fullName: FullName): string | null {
+	if (fullName.length < FULL_NAME_MIN_LENGTH) {
+		return ERR_FULL_NAME_TOO_SHORT;
+	}
+	if (fullName.length > FULL_NAME_MAX_LENGTH) {
+		return ERR_FULL_NAME_TOO_LONG;
+	}
+	// Check if only whitespace
+	if (fullName.trim().length === 0) {
+		return ERR_FULL_NAME_ONLY_WHITESPACE;
+	}
+	if (!FULL_NAME_PATTERN.test(fullName)) {
+		return ERR_FULL_NAME_INVALID_FORMAT;
 	}
 	return null;
 }
