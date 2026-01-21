@@ -1,0 +1,14 @@
+{
+	"_description": "Einladungs-E-Mail für Admin-Benutzer",
+	"_note": "Wird gesendet, wenn ein Admin einen neuen Admin-Benutzer einlädt",
+
+	"subject": "Sie wurden zu Vetchium Admin eingeladen",
+	"portal_name": "Vetchium Admin",
+	"body_greeting": "Hallo,",
+	"body_intro": "{{.InviterName}} hat Sie eingeladen, Vetchium als Administrator beizutreten. Klicken Sie auf die Schaltfläche unten, um Ihr Konto einzurichten:",
+	"button_text": "Konto einrichten",
+	"body_expiry": "Diese Einladung ist {{.Days}} Tage gültig.",
+	"body_instructions": "Sie können Ihr Passwort festlegen und Ihr Konto aktivieren.",
+	"body_security": "Wenn Sie Fragen zu dieser Einladung haben, wenden Sie sich bitte an den Administrator, der Sie eingeladen hat.",
+	"footer": "Dies ist eine automatische Nachricht. Bitte antworten Sie nicht."
+}

@@ -216,8 +216,8 @@ WHERE email_address = $1 AND agency_id = $2;
 SELECT * FROM agency_users WHERE agency_user_id = $1;
 
 -- name: CreateAgencyUser :one
-INSERT INTO agency_users (agency_user_id, email_address, agency_id, password_hash)
-VALUES ($1, $2, $3, $4)
+INSERT INTO agency_users (agency_user_id, email_address, agency_id, full_name, password_hash)
+VALUES ($1, $2, $3, $4, $5)
 RETURNING *;
 
 -- name: DeleteAgencyUser :exec
@@ -276,3 +276,25 @@ DELETE FROM hub_email_verification_tokens WHERE expires_at <= NOW();
 
 -- name: UpdateHubUserEmailAddress :exec
 UPDATE hub_users SET email_address = $2 WHERE hub_user_global_id = $1;
+
+-- ============================================
+-- Agency Invitation Token Queries
+-- ============================================
+
+-- name: CreateAgencyInvitationToken :exec
+INSERT INTO agency_invitation_tokens (invitation_token, agency_user_id, agency_id, expires_at)
+VALUES ($1, $2, $3, $4);
+
+-- name: GetAgencyInvitationToken :one
+SELECT * FROM agency_invitation_tokens WHERE invitation_token = $1 AND expires_at > NOW();
+
+-- name: DeleteAgencyInvitationToken :exec
+DELETE FROM agency_invitation_tokens WHERE invitation_token = $1;
+
+-- name: DeleteExpiredAgencyInvitationTokens :exec
+DELETE FROM agency_invitation_tokens WHERE expires_at <= NOW();
+
+-- name: UpdateAgencyUserSetup :exec
+UPDATE agency_users
+SET password_hash = $2, full_name = $3, authentication_type = $4
+WHERE agency_user_id = $1;

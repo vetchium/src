@@ -1,12 +1,14 @@
 import {
 	type EmailAddress,
 	type Password,
+	type FullName,
 	type LanguageCode,
 	type TFACode,
 	type ValidationError,
 	newValidationError,
 	validateEmailAddress,
 	validatePassword,
+	validateFullName,
 	validateLanguageCode,
 	validateTFACode,
 	ERR_REQUIRED,
@@ -14,6 +16,7 @@ import {
 
 export type AdminTFAToken = string;
 export type AdminSessionToken = string;
+export type AdminInvitationToken = string;
 
 export interface AdminLoginRequest {
 	email: EmailAddress;
@@ -99,4 +102,84 @@ export function validateAdminSetLanguageRequest(
 	}
 
 	return errs;
+}
+
+// ============================================================================
+// Admin User Invitation
+// ============================================================================
+
+export interface AdminInviteUserRequest {
+	email_address: EmailAddress;
+	full_name: FullName;
+}
+
+export function validateAdminInviteUserRequest(
+	request: AdminInviteUserRequest
+): ValidationError[] {
+	const errs: ValidationError[] = [];
+
+	if (!request.email_address) {
+		errs.push(newValidationError("email_address", ERR_REQUIRED));
+	} else {
+		const emailErr = validateEmailAddress(request.email_address);
+		if (emailErr) {
+			errs.push(newValidationError("email_address", emailErr));
+		}
+	}
+
+	if (!request.full_name) {
+		errs.push(newValidationError("full_name", ERR_REQUIRED));
+	} else {
+		const fullNameErr = validateFullName(request.full_name);
+		if (fullNameErr) {
+			errs.push(newValidationError("full_name", fullNameErr));
+		}
+	}
+
+	return errs;
+}
+
+export interface AdminInviteUserResponse {
+	invitation_id: string;
+	expires_at: string;
+}
+
+export interface AdminCompleteSetupRequest {
+	invitation_token: AdminInvitationToken;
+	password: Password;
+	full_name: FullName;
+}
+
+export function validateAdminCompleteSetupRequest(
+	request: AdminCompleteSetupRequest
+): ValidationError[] {
+	const errs: ValidationError[] = [];
+
+	if (!request.invitation_token) {
+		errs.push(newValidationError("invitation_token", ERR_REQUIRED));
+	}
+
+	if (!request.password) {
+		errs.push(newValidationError("password", ERR_REQUIRED));
+	} else {
+		const passwordErr = validatePassword(request.password);
+		if (passwordErr) {
+			errs.push(newValidationError("password", passwordErr));
+		}
+	}
+
+	if (!request.full_name) {
+		errs.push(newValidationError("full_name", ERR_REQUIRED));
+	} else {
+		const fullNameErr = validateFullName(request.full_name);
+		if (fullNameErr) {
+			errs.push(newValidationError("full_name", fullNameErr));
+		}
+	}
+
+	return errs;
+}
+
+export interface AdminCompleteSetupResponse {
+	message: string;
 }

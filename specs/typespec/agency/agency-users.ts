@@ -1,6 +1,7 @@
 import {
 	type EmailAddress,
 	type Password,
+	type FullName,
 	type DomainName,
 	type TFACode,
 	type LanguageCode,
@@ -9,6 +10,7 @@ import {
 	validateEmailAddress,
 	validateEmployerEmail,
 	validatePassword,
+	validateFullName,
 	validateDomainName,
 	validateTFACode,
 	ERR_REQUIRED,
@@ -17,6 +19,7 @@ import {
 // Token types
 export type AgencySessionToken = string;
 export type AgencyTFAToken = string;
+export type AgencyInvitationToken = string;
 export type DNSVerificationToken = string;
 export type AgencySignupToken = string;
 
@@ -215,3 +218,83 @@ export interface AgencyTFAResponse {
 
 // AgencyLogoutRequest is empty - session token passed via Authorization header
 export interface AgencyLogoutRequest {}
+
+// ============================================================================
+// Agency User Invitation
+// ============================================================================
+
+export interface AgencyInviteUserRequest {
+	email_address: EmailAddress;
+	full_name: FullName;
+}
+
+export function validateAgencyInviteUserRequest(
+	request: AgencyInviteUserRequest
+): ValidationError[] {
+	const errs: ValidationError[] = [];
+
+	if (!request.email_address) {
+		errs.push(newValidationError("email_address", ERR_REQUIRED));
+	} else {
+		const emailErr = validateEmailAddress(request.email_address);
+		if (emailErr) {
+			errs.push(newValidationError("email_address", emailErr));
+		}
+	}
+
+	if (!request.full_name) {
+		errs.push(newValidationError("full_name", ERR_REQUIRED));
+	} else {
+		const fullNameErr = validateFullName(request.full_name);
+		if (fullNameErr) {
+			errs.push(newValidationError("full_name", fullNameErr));
+		}
+	}
+
+	return errs;
+}
+
+export interface AgencyInviteUserResponse {
+	invitation_id: string;
+	expires_at: string;
+}
+
+export interface AgencyCompleteSetupRequest {
+	invitation_token: AgencyInvitationToken;
+	password: Password;
+	full_name: FullName;
+}
+
+export function validateAgencyCompleteSetupRequest(
+	request: AgencyCompleteSetupRequest
+): ValidationError[] {
+	const errs: ValidationError[] = [];
+
+	if (!request.invitation_token) {
+		errs.push(newValidationError("invitation_token", ERR_REQUIRED));
+	}
+
+	if (!request.password) {
+		errs.push(newValidationError("password", ERR_REQUIRED));
+	} else {
+		const passwordErr = validatePassword(request.password);
+		if (passwordErr) {
+			errs.push(newValidationError("password", passwordErr));
+		}
+	}
+
+	if (!request.full_name) {
+		errs.push(newValidationError("full_name", ERR_REQUIRED));
+	} else {
+		const fullNameErr = validateFullName(request.full_name);
+		if (fullNameErr) {
+			errs.push(newValidationError("full_name", fullNameErr));
+		}
+	}
+
+	return errs;
+}
+
+export interface AgencyCompleteSetupResponse {
+	message: string;
+}

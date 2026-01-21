@@ -15,8 +15,10 @@ func RegisterAgencyRoutes(mux *http.ServeMux, s *server.Server) {
 	mux.HandleFunc("POST /agency/complete-signup", agency.CompleteSignup(s))
 	mux.HandleFunc("POST /agency/login", agency.Login(s))
 	mux.HandleFunc("POST /agency/tfa", agency.TFA(s))
+	mux.HandleFunc("POST /agency/complete-setup", agency.CompleteSetup(s))
 
 	// Authenticated routes (require Authorization header)
 	agencyAuth := middleware.AgencyAuth(s.Global, s.GetRegionalDB)
 	mux.Handle("POST /agency/logout", agencyAuth(agency.Logout(s)))
+	mux.Handle("POST /agency/invite-user", agencyAuth(agency.InviteUser(s)))
 }

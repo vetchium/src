@@ -1,0 +1,14 @@
+{
+	"_description": "Admin User Invitation Email",
+	"_note": "Sent when an admin invites a new admin user",
+
+	"subject": "You've Been Invited to Vetchium Admin",
+	"portal_name": "Vetchium Admin",
+	"body_greeting": "Hello,",
+	"body_intro": "{{.InviterName}} has invited you to join Vetchium as an administrator. Click the button below to set up your account:",
+	"button_text": "Set Up Account",
+	"body_expiry": "This invitation is valid for {{.Days}} days.",
+	"body_instructions": "You will be able to set your password and activate your account.",
+	"body_security": "If you have any questions about this invitation, please contact the administrator who invited you.",
+	"footer": "This is an automated message. Please do not reply."
+}

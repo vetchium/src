@@ -503,10 +503,21 @@ SELECT * FROM agency_users WHERE agency_user_id = $1;
 -- name: CreateAgencyUser :one
 INSERT INTO agency_users (
     email_address_hash, hashing_algorithm, agency_id,
+    full_name, is_admin,
     status, preferred_language, home_region
 )
-VALUES ($1, $2, $3, $4, $5, $6)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 RETURNING *;
+
+-- name: UpdateAgencyUserStatus :exec
+UPDATE agency_users
+SET status = $2
+WHERE agency_user_id = $1;
+
+-- name: UpdateAgencyUserFullName :exec
+UPDATE agency_users
+SET full_name = $2
+WHERE agency_user_id = $1;
 
 -- name: DeleteAgencyUser :exec
 DELETE FROM agency_users WHERE agency_user_id = $1;
@@ -611,3 +622,43 @@ ORDER BY domain ASC;
 
 -- name: UpdateHubUserEmailHash :exec
 UPDATE hub_users SET email_address_hash = $2 WHERE hub_user_global_id = $1;
+
+-- ============================================
+-- Admin Invitation Queries
+-- ============================================
+
+-- name: CreateAdminInvitationToken :exec
+INSERT INTO admin_invitation_tokens (invitation_token, admin_user_id, expires_at)
+VALUES ($1, $2, $3);
+
+-- name: GetAdminInvitationToken :one
+SELECT * FROM admin_invitation_tokens WHERE invitation_token = $1 AND expires_at > NOW();
+
+-- name: DeleteAdminInvitationToken :exec
+DELETE FROM admin_invitation_tokens WHERE invitation_token = $1;
+
+-- name: DeleteExpiredAdminInvitationTokens :exec
+DELETE FROM admin_invitation_tokens WHERE expires_at <= NOW();
+
+-- name: CreateAdminUser :one
+INSERT INTO admin_users (admin_user_id, email_address, full_name, status, preferred_language)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING *;
+
+-- name: UpdateAdminUserSetup :exec
+UPDATE admin_users
+SET password_hash = $2, full_name = $3
+WHERE admin_user_id = $1;
+
+-- name: UpdateAdminUserStatus :exec
+UPDATE admin_users
+SET status = $2
+WHERE admin_user_id = $1;
+
+-- name: UpdateAdminUserFullName :exec
+UPDATE admin_users
+SET full_name = $2
+WHERE admin_user_id = $1;
+
+-- name: DeleteAdminUser :exec
+DELETE FROM admin_users WHERE admin_user_id = $1;

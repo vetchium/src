@@ -9,6 +9,7 @@ import (
 // Token types
 type AgencySessionToken string
 type AgencyTFAToken string
+type AgencyInvitationToken string
 type DNSVerificationToken string
 type AgencySignupToken string
 
@@ -177,3 +178,56 @@ type AgencyTFAResponse struct {
 
 // AgencyLogoutRequest is empty - session token passed via Authorization header
 type AgencyLogoutRequest struct{}
+
+// ============================================================================
+// Agency User Invitation
+// ============================================================================
+
+type AgencyInviteUserRequest struct {
+	EmailAddress common.EmailAddress `json:"email_address"`
+	FullName     common.FullName     `json:"full_name"`
+}
+
+func (r AgencyInviteUserRequest) Validate() []common.ValidationError {
+	var errs []common.ValidationError
+
+	if err := r.EmailAddress.Validate(); err != nil {
+		errs = append(errs, common.NewValidationError("email_address", err))
+	}
+	if err := r.FullName.Validate(); err != nil {
+		errs = append(errs, common.NewValidationError("full_name", err))
+	}
+
+	return errs
+}
+
+type AgencyInviteUserResponse struct {
+	InvitationID string `json:"invitation_id"`
+	ExpiresAt    string `json:"expires_at"`
+}
+
+type AgencyCompleteSetupRequest struct {
+	InvitationToken AgencyInvitationToken `json:"invitation_token"`
+	Password        common.Password       `json:"password"`
+	FullName        common.FullName       `json:"full_name"`
+}
+
+func (r AgencyCompleteSetupRequest) Validate() []common.ValidationError {
+	var errs []common.ValidationError
+
+	if r.InvitationToken == "" {
+		errs = append(errs, common.NewValidationError("invitation_token", common.ErrRequired))
+	}
+	if err := r.Password.Validate(); err != nil {
+		errs = append(errs, common.NewValidationError("password", err))
+	}
+	if err := r.FullName.Validate(); err != nil {
+		errs = append(errs, common.NewValidationError("full_name", err))
+	}
+
+	return errs
+}
+
+type AgencyCompleteSetupResponse struct {
+	Message string `json:"message"`
+}

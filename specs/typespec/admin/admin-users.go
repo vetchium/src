@@ -6,6 +6,7 @@ import (
 
 type AdminTFAToken string
 type AdminSessionToken string
+type AdminInvitationToken string
 
 type AdminLoginRequest struct {
 	EmailAddress common.EmailAddress `json:"email"`
@@ -75,4 +76,57 @@ func (r AdminSetLanguageRequest) Validate() []common.ValidationError {
 	}
 
 	return errs
+}
+
+// ============================================================================
+// Admin User Invitation
+// ============================================================================
+
+type AdminInviteUserRequest struct {
+	EmailAddress common.EmailAddress `json:"email_address"`
+	FullName     common.FullName     `json:"full_name"`
+}
+
+func (r AdminInviteUserRequest) Validate() []common.ValidationError {
+	var errs []common.ValidationError
+
+	if err := r.EmailAddress.Validate(); err != nil {
+		errs = append(errs, common.NewValidationError("email_address", err))
+	}
+	if err := r.FullName.Validate(); err != nil {
+		errs = append(errs, common.NewValidationError("full_name", err))
+	}
+
+	return errs
+}
+
+type AdminInviteUserResponse struct {
+	InvitationID string `json:"invitation_id"`
+	ExpiresAt    string `json:"expires_at"`
+}
+
+type AdminCompleteSetupRequest struct {
+	InvitationToken AdminInvitationToken `json:"invitation_token"`
+	Password        common.Password      `json:"password"`
+	FullName        common.FullName      `json:"full_name"`
+}
+
+func (r AdminCompleteSetupRequest) Validate() []common.ValidationError {
+	var errs []common.ValidationError
+
+	if r.InvitationToken == "" {
+		errs = append(errs, common.NewValidationError("invitation_token", common.ErrRequired))
+	}
+	if err := r.Password.Validate(); err != nil {
+		errs = append(errs, common.NewValidationError("password", err))
+	}
+	if err := r.FullName.Validate(); err != nil {
+		errs = append(errs, common.NewValidationError("full_name", err))
+	}
+
+	return errs
+}
+
+type AdminCompleteSetupResponse struct {
+	Message string `json:"message"`
 }

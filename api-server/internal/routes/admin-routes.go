@@ -9,13 +9,16 @@ import (
 )
 
 func RegisterAdminRoutes(mux *http.ServeMux, s *server.Server) {
+	// Unauthenticated routes
 	mux.HandleFunc("POST /admin/login", admin.Login(s))
 	mux.HandleFunc("POST /admin/tfa", admin.TFA(s))
+	mux.HandleFunc("POST /admin/complete-setup", admin.CompleteSetup(s))
 
 	// Authenticated routes (require Authorization header)
 	authMiddleware := middleware.AdminAuth(s.Global)
 	mux.Handle("POST /admin/logout", authMiddleware(admin.Logout(s)))
 	mux.Handle("POST /admin/set-language", authMiddleware(admin.SetLanguage(s)))
+	mux.Handle("POST /admin/invite-user", authMiddleware(admin.InviteUser(s)))
 
 	// Approved domains routes
 	mux.Handle("POST /admin/add-approved-domain", authMiddleware(admin.AddApprovedDomain(s)))
