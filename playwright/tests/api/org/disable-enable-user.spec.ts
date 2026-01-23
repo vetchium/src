@@ -23,10 +23,15 @@ test.describe("POST /employer/disable-user", () => {
 		const { email: userEmail } = generateTestOrgEmail("disable-org-user");
 
 		// Create admin and regular user in same employer
-		await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
+		const { employerId } = await createTestOrgAdminDirect(
+			adminEmail,
+			TEST_PASSWORD
+		);
 		const { orgUserId: userId } = await createTestOrgUserDirect(
 			userEmail,
-			TEST_PASSWORD
+			TEST_PASSWORD,
+			"ind1",
+			{ employerId, domain }
 		);
 
 		try {
@@ -76,11 +81,16 @@ test.describe("POST /employer/disable-user", () => {
 		);
 		const { email: targetEmail } = generateTestOrgEmail("disable-target");
 
-		// Create two non-admin users
-		await createTestOrgUserDirect(userEmail, TEST_PASSWORD);
+		// Create two non-admin users in same employer
+		const { employerId } = await createTestOrgUserDirect(
+			userEmail,
+			TEST_PASSWORD
+		);
 		const { orgUserId: targetId } = await createTestOrgUserDirect(
 			targetEmail,
-			TEST_PASSWORD
+			TEST_PASSWORD,
+			"ind1",
+			{ employerId, domain }
 		);
 
 		try {
@@ -292,10 +302,15 @@ test.describe("POST /employer/disable-user", () => {
 			generateTestOrgEmail("disable-twice-admin");
 		const { email: userEmail } = generateTestOrgEmail("disable-twice-user");
 
-		await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
+		const { employerId } = await createTestOrgAdminDirect(
+			adminEmail,
+			TEST_PASSWORD
+		);
 		const { orgUserId: userId } = await createTestOrgUserDirect(
 			userEmail,
-			TEST_PASSWORD
+			TEST_PASSWORD,
+			"ind1",
+			{ employerId, domain }
 		);
 
 		// Manually disable the user
@@ -356,10 +371,15 @@ test.describe("POST /employer/enable-user", () => {
 			generateTestOrgEmail("enable-org-admin");
 		const { email: userEmail } = generateTestOrgEmail("enable-org-user");
 
-		await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
+		const { employerId } = await createTestOrgAdminDirect(
+			adminEmail,
+			TEST_PASSWORD
+		);
 		const { orgUserId: userId } = await createTestOrgUserDirect(
 			userEmail,
-			TEST_PASSWORD
+			TEST_PASSWORD,
+			"ind1",
+			{ employerId, domain }
 		);
 
 		// Disable the user first
@@ -408,10 +428,15 @@ test.describe("POST /employer/enable-user", () => {
 			generateTestOrgEmail("enable-nonadmin");
 		const { email: targetEmail } = generateTestOrgEmail("enable-target");
 
-		await createTestOrgUserDirect(userEmail, TEST_PASSWORD);
+		const { employerId } = await createTestOrgUserDirect(
+			userEmail,
+			TEST_PASSWORD
+		);
 		const { orgUserId: targetId } = await createTestOrgUserDirect(
 			targetEmail,
-			TEST_PASSWORD
+			TEST_PASSWORD,
+			"ind1",
+			{ employerId, domain }
 		);
 
 		await updateTestOrgUserStatus(targetEmail, "disabled");
@@ -454,10 +479,15 @@ test.describe("POST /employer/enable-user", () => {
 			generateTestOrgEmail("enable-active-admin");
 		const { email: userEmail } = generateTestOrgEmail("enable-active-user");
 
-		await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
+		const { employerId } = await createTestOrgAdminDirect(
+			adminEmail,
+			TEST_PASSWORD
+		);
 		const { orgUserId: userId } = await createTestOrgUserDirect(
 			userEmail,
-			TEST_PASSWORD
+			TEST_PASSWORD,
+			"ind1",
+			{ employerId, domain }
 		);
 
 		try {

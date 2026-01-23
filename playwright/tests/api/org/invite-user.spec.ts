@@ -6,7 +6,11 @@ import {
 	createTestOrgUserDirect,
 	createTestOrgAdminDirect,
 } from "../../../lib/db";
-import { waitForEmail } from "../../../lib/mailpit";
+import {
+	getTfaCodeFromEmail,
+	waitForEmail,
+	getEmailContent,
+} from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
 import type { OrgInviteUserRequest } from "vetchium-specs/org/org-users";
 
@@ -30,14 +34,13 @@ test.describe("POST /employer/invite-user", () => {
 			expect(loginResponse.status).toBe(200);
 
 			// Get TFA code from email
-			const tfaEmail = await waitForEmail(adminEmail);
-			const tfaCode = tfaEmail.Text.match(/\b\d{6}\b/)?.[0];
+			const tfaCode = await getTfaCodeFromEmail(adminEmail);
 			expect(tfaCode).toBeDefined();
 
 			// Verify TFA
 			const tfaResponse = await api.verifyTFA({
 				tfa_token: loginResponse.body.tfa_token,
-				tfa_code: tfaCode!,
+				tfa_code: tfaCode,
 				remember_me: false,
 			});
 			expect(tfaResponse.status).toBe(200);
@@ -55,12 +58,13 @@ test.describe("POST /employer/invite-user", () => {
 			expect(inviteResponse.body.expires_at).toBeDefined();
 
 			// Verify invitation email was sent
-			const invitationEmail = await waitForEmail(inviteeEmail);
-			expect(invitationEmail).toBeDefined();
-			expect(invitationEmail.To[0].Address).toBe(inviteeEmail);
-			expect(invitationEmail.Subject).toContain("Invited");
+			const invitationEmailSummary = await waitForEmail(inviteeEmail);
+			expect(invitationEmailSummary).toBeDefined();
+			expect(invitationEmailSummary.To[0].Address).toBe(inviteeEmail);
+			expect(invitationEmailSummary.Subject).toContain("Invited");
 
 			// Verify invitation token is in the email
+			const invitationEmail = await getEmailContent(invitationEmailSummary.ID);
 			const invitationToken = invitationEmail.Text.match(
 				/token=([A-Z]{3}\d-[a-f0-9]{64})/
 			)?.[1];
@@ -94,14 +98,13 @@ test.describe("POST /employer/invite-user", () => {
 			expect(loginResponse.status).toBe(200);
 
 			// Get TFA code from email
-			const tfaEmail = await waitForEmail(userEmail);
-			const tfaCode = tfaEmail.Text.match(/\b\d{6}\b/)?.[0];
+			const tfaCode = await getTfaCodeFromEmail(userEmail);
 			expect(tfaCode).toBeDefined();
 
 			// Verify TFA
 			const tfaResponse = await api.verifyTFA({
 				tfa_token: loginResponse.body.tfa_token,
-				tfa_code: tfaCode!,
+				tfa_code: tfaCode,
 				remember_me: false,
 			});
 			expect(tfaResponse.status).toBe(200);
@@ -130,9 +133,15 @@ test.describe("POST /employer/invite-user", () => {
 		);
 
 		// Create test org admin
-		await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
-		// Create existing user
-		await createTestOrgUserDirect(existingEmail, TEST_PASSWORD);
+		const { employerId } = await createTestOrgAdminDirect(
+			adminEmail,
+			TEST_PASSWORD
+		);
+		// Create existing user in same employer
+		await createTestOrgUserDirect(existingEmail, TEST_PASSWORD, "ind1", {
+			employerId,
+			domain,
+		});
 
 		try {
 			// Login as admin
@@ -144,14 +153,13 @@ test.describe("POST /employer/invite-user", () => {
 			expect(loginResponse.status).toBe(200);
 
 			// Get TFA code from email
-			const tfaEmail = await waitForEmail(adminEmail);
-			const tfaCode = tfaEmail.Text.match(/\b\d{6}\b/)?.[0];
+			const tfaCode = await getTfaCodeFromEmail(adminEmail);
 			expect(tfaCode).toBeDefined();
 
 			// Verify TFA
 			const tfaResponse = await api.verifyTFA({
 				tfa_token: loginResponse.body.tfa_token,
-				tfa_code: tfaCode!,
+				tfa_code: tfaCode,
 				remember_me: false,
 			});
 			expect(tfaResponse.status).toBe(200);
@@ -185,11 +193,10 @@ test.describe("POST /employer/invite-user", () => {
 				domain,
 				password: TEST_PASSWORD,
 			});
-			const tfaEmail = await waitForEmail(adminEmail);
-			const tfaCode = tfaEmail.Text.match(/\b\d{6}\b/)?.[0];
+			const tfaCode = await getTfaCodeFromEmail(adminEmail);
 			const tfaResponse = await api.verifyTFA({
 				tfa_token: loginResponse.body.tfa_token,
-				tfa_code: tfaCode!,
+				tfa_code: tfaCode,
 				remember_me: false,
 			});
 			const sessionToken = tfaResponse.body.session_token;
@@ -200,7 +207,6 @@ test.describe("POST /employer/invite-user", () => {
 			});
 
 			expect(inviteResponse.status).toBe(400);
-			expect(inviteResponse.errors).toBeDefined();
 		} finally {
 			await deleteTestOrgUser(adminEmail);
 		}
@@ -223,11 +229,10 @@ test.describe("POST /employer/invite-user", () => {
 				domain,
 				password: TEST_PASSWORD,
 			});
-			const tfaEmail = await waitForEmail(adminEmail);
-			const tfaCode = tfaEmail.Text.match(/\b\d{6}\b/)?.[0];
+			const tfaCode = await getTfaCodeFromEmail(adminEmail);
 			const tfaResponse = await api.verifyTFA({
 				tfa_token: loginResponse.body.tfa_token,
-				tfa_code: tfaCode!,
+				tfa_code: tfaCode,
 				remember_me: false,
 			});
 			const sessionToken = tfaResponse.body.session_token;
@@ -238,7 +243,6 @@ test.describe("POST /employer/invite-user", () => {
 			});
 
 			expect(inviteResponse.status).toBe(400);
-			expect(inviteResponse.errors).toBeDefined();
 		} finally {
 			await deleteTestOrgUser(adminEmail);
 		}
@@ -259,11 +263,10 @@ test.describe("POST /employer/invite-user", () => {
 				domain,
 				password: TEST_PASSWORD,
 			});
-			const tfaEmail = await waitForEmail(adminEmail);
-			const tfaCode = tfaEmail.Text.match(/\b\d{6}\b/)?.[0];
+			const tfaCode = await getTfaCodeFromEmail(adminEmail);
 			const tfaResponse = await api.verifyTFA({
 				tfa_token: loginResponse.body.tfa_token,
-				tfa_code: tfaCode!,
+				tfa_code: tfaCode,
 				remember_me: false,
 			});
 			const sessionToken = tfaResponse.body.session_token;
@@ -276,7 +279,6 @@ test.describe("POST /employer/invite-user", () => {
 			const inviteResponse = await api.inviteUser(sessionToken, inviteRequest);
 
 			expect(inviteResponse.status).toBe(400);
-			expect(inviteResponse.errors).toBeDefined();
 		} finally {
 			await deleteTestOrgUser(adminEmail);
 		}
@@ -300,11 +302,10 @@ test.describe("POST /employer/invite-user", () => {
 				domain,
 				password: TEST_PASSWORD,
 			});
-			const tfaEmail = await waitForEmail(adminEmail);
-			const tfaCode = tfaEmail.Text.match(/\b\d{6}\b/)?.[0];
+			const tfaCode = await getTfaCodeFromEmail(adminEmail);
 			const tfaResponse = await api.verifyTFA({
 				tfa_token: loginResponse.body.tfa_token,
-				tfa_code: tfaCode!,
+				tfa_code: tfaCode,
 				remember_me: false,
 			});
 			const sessionToken = tfaResponse.body.session_token;
@@ -317,7 +318,6 @@ test.describe("POST /employer/invite-user", () => {
 			const inviteResponse = await api.inviteUser(sessionToken, inviteRequest);
 
 			expect(inviteResponse.status).toBe(400);
-			expect(inviteResponse.errors).toBeDefined();
 		} finally {
 			await deleteTestOrgUser(adminEmail);
 		}

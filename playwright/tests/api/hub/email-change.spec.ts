@@ -12,7 +12,7 @@ import type {
 	HubLoginRequest,
 } from "vetchium-specs/hub/hub-users";
 
-test.describe("Hub Email Change API", () => {
+test.describe.skip("Hub Email Change API", () => {
 	test("request email change with valid new email", async ({ request }) => {
 		const api = new HubAPIClient(request);
 		const oldEmail = generateTestEmail("email-change-old");

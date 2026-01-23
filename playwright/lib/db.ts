@@ -568,7 +568,12 @@ export function generateTestOrgEmail(prefix: string = "org"): {
 export async function createTestOrgUserDirect(
 	email: string,
 	password: string,
-	region: RegionCode = "ind1"
+	region: RegionCode = "ind1",
+	options?: {
+		employerId?: string;
+		domain?: string;
+		status?: OrgUserStatus;
+	}
 ): Promise<{
 	email: string;
 	domain: string;
@@ -579,34 +584,42 @@ export async function createTestOrgUserDirect(
 	const emailHash = crypto.createHash("sha256").update(email).digest();
 	const passwordHash = await bcrypt.hash(password, 10);
 
-	// Extract domain from email
-	const parts = email.split("@");
-	if (parts.length !== 2) {
-		throw new Error(`Invalid email format: ${email}`);
+	// Extract domain from email or use provided domain
+	let domain = options?.domain;
+	if (!domain) {
+		const parts = email.split("@");
+		if (parts.length !== 2) {
+			throw new Error(`Invalid email format: ${email}`);
+		}
+		domain = parts[1].toLowerCase();
 	}
-	const domain = parts[1].toLowerCase();
 
-	// 1. Create employer in global DB
-	const employerId = randomUUID();
-	await pool.query(
-		`INSERT INTO employers (employer_id, employer_name, region)
+	// Use provided employerId or create new employer
+	let employerId = options?.employerId;
+	if (!employerId) {
+		// 1. Create employer in global DB
+		employerId = randomUUID();
+		await pool.query(
+			`INSERT INTO employers (employer_id, employer_name, region)
      VALUES ($1, $2, $3)`,
-		[employerId, domain, region]
-	);
+			[employerId, domain, region]
+		);
 
-	// 2. Create verified domain in global DB
-	await pool.query(
-		`INSERT INTO global_employer_domains (domain, region, employer_id, status)
+		// 2. Create verified domain in global DB
+		await pool.query(
+			`INSERT INTO global_employer_domains (domain, region, employer_id, status)
      VALUES ($1, $2, $3, 'VERIFIED')`,
-		[domain, region, employerId]
-	);
+			[domain, region, employerId]
+		);
+	}
 
 	// 3. Create org user in global DB
 	const orgUserId = randomUUID();
+	const status = options?.status || "active";
 	await pool.query(
 		`INSERT INTO org_users (org_user_id, email_address_hash, hashing_algorithm, employer_id, status, preferred_language, home_region)
-     VALUES ($1, $2, 'SHA-256', $3, 'active', 'en-US', $4)`,
-		[orgUserId, emailHash, employerId, region]
+     VALUES ($1, $2, 'SHA-256', $3, $4, 'en-US', $5)`,
+		[orgUserId, emailHash, employerId, status, region]
 	);
 
 	// 4. Create org user in regional DB
@@ -636,7 +649,12 @@ export async function createTestOrgUserDirect(
 export async function createTestOrgAdminDirect(
 	email: string,
 	password: string,
-	region: RegionCode = "ind1"
+	region: RegionCode = "ind1",
+	options?: {
+		employerId?: string;
+		domain?: string;
+		status?: OrgUserStatus;
+	}
 ): Promise<{
 	email: string;
 	domain: string;
@@ -647,34 +665,42 @@ export async function createTestOrgAdminDirect(
 	const emailHash = crypto.createHash("sha256").update(email).digest();
 	const passwordHash = await bcrypt.hash(password, 10);
 
-	// Extract domain from email
-	const parts = email.split("@");
-	if (parts.length !== 2) {
-		throw new Error(`Invalid email format: ${email}`);
+	// Extract domain from email or use provided domain
+	let domain = options?.domain;
+	if (!domain) {
+		const parts = email.split("@");
+		if (parts.length !== 2) {
+			throw new Error(`Invalid email format: ${email}`);
+		}
+		domain = parts[1].toLowerCase();
 	}
-	const domain = parts[1].toLowerCase();
 
-	// 1. Create employer in global DB
-	const employerId = randomUUID();
-	await pool.query(
-		`INSERT INTO employers (employer_id, employer_name, region)
+	// Use provided employerId or create new employer
+	let employerId = options?.employerId;
+	if (!employerId) {
+		// 1. Create employer in global DB
+		employerId = randomUUID();
+		await pool.query(
+			`INSERT INTO employers (employer_id, employer_name, region)
      VALUES ($1, $2, $3)`,
-		[employerId, domain, region]
-	);
+			[employerId, domain, region]
+		);
 
-	// 2. Create verified domain in global DB
-	await pool.query(
-		`INSERT INTO global_employer_domains (domain, region, employer_id, status)
+		// 2. Create verified domain in global DB
+		await pool.query(
+			`INSERT INTO global_employer_domains (domain, region, employer_id, status)
      VALUES ($1, $2, $3, 'VERIFIED')`,
-		[domain, region, employerId]
-	);
+			[domain, region, employerId]
+		);
+	}
 
 	// 3. Create org admin user in global DB with is_admin=TRUE
 	const orgUserId = randomUUID();
+	const status = options?.status || "active";
 	await pool.query(
 		`INSERT INTO org_users (org_user_id, email_address_hash, hashing_algorithm, employer_id, is_admin, status, preferred_language, home_region)
-     VALUES ($1, $2, 'SHA-256', $3, TRUE, 'active', 'en-US', $4)`,
-		[orgUserId, emailHash, employerId, region]
+     VALUES ($1, $2, 'SHA-256', $3, TRUE, $4, 'en-US', $5)`,
+		[orgUserId, emailHash, employerId, status, region]
 	);
 
 	// 4. Create org admin user in regional DB
@@ -737,7 +763,12 @@ export function generateTestAgencyEmail(prefix: string = "agency"): {
 export async function createTestAgencyUserDirect(
 	email: string,
 	password: string,
-	region: RegionCode = "ind1"
+	region: RegionCode = "ind1",
+	options?: {
+		agencyId?: string;
+		domain?: string;
+		status?: AgencyUserStatus;
+	}
 ): Promise<{
 	email: string;
 	domain: string;
@@ -748,37 +779,132 @@ export async function createTestAgencyUserDirect(
 	const emailHash = crypto.createHash("sha256").update(email).digest();
 	const passwordHash = await bcrypt.hash(password, 10);
 
-	// Extract domain from email
-	const parts = email.split("@");
-	if (parts.length !== 2) {
-		throw new Error(`Invalid email format: ${email}`);
+	// Extract domain from email or use provided domain
+	let domain = options?.domain;
+	if (!domain) {
+		const parts = email.split("@");
+		if (parts.length !== 2) {
+			throw new Error(`Invalid email format: ${email}`);
+		}
+		domain = parts[1].toLowerCase();
 	}
-	const domain = parts[1].toLowerCase();
 
-	// 1. Create agency in global DB
-	const agencyId = randomUUID();
-	await pool.query(
-		`INSERT INTO agencies (agency_id, agency_name, region)
-     VALUES ($1, $2, $3)`,
-		[agencyId, domain, region]
-	);
+	// Use provided agencyId or create new agency
+	let agencyId = options?.agencyId;
+	if (!agencyId) {
+		// 1. Create agency in global DB
+		agencyId = randomUUID();
+		await pool.query(
+			`INSERT INTO agencies (agency_id, agency_name, region)
+       VALUES ($1, $2, $3)`,
+			[agencyId, domain, region]
+		);
 
-	// 2. Create verified domain in global DB
-	await pool.query(
-		`INSERT INTO global_agency_domains (domain, region, agency_id, status)
-     VALUES ($1, $2, $3, 'VERIFIED')`,
-		[domain, region, agencyId]
-	);
+		// 2. Create verified domain in global DB
+		await pool.query(
+			`INSERT INTO global_agency_domains (domain, region, agency_id, status)
+       VALUES ($1, $2, $3, 'VERIFIED')`,
+			[domain, region, agencyId]
+		);
+	}
 
 	// 3. Create agency user in global DB
 	const agencyUserId = randomUUID();
+	const status = options?.status || "active";
 	await pool.query(
 		`INSERT INTO agency_users (agency_user_id, email_address_hash, hashing_algorithm, agency_id, status, preferred_language, home_region)
-     VALUES ($1, $2, 'SHA-256', $3, 'active', 'en-US', $4)`,
-		[agencyUserId, emailHash, agencyId, region]
+     VALUES ($1, $2, 'SHA-256', $3, $4, 'en-US', $5)`,
+		[agencyUserId, emailHash, agencyId, status, region]
 	);
 
 	// 4. Create agency user in regional DB
+	const regionalPool = getRegionalPool(region);
+	try {
+		await regionalPool.query(
+			`INSERT INTO agency_users (agency_user_id, email_address, agency_id, password_hash)
+       VALUES ($1, $2, $3, $4)`,
+			[agencyUserId, email, agencyId, passwordHash]
+		);
+	} finally {
+		await regionalPool.end();
+	}
+
+	return { email, domain, agencyId, agencyUserId };
+}
+
+/**
+ * Creates a test agency ADMIN user directly in the database (bypassing the API).
+ * Similar to createTestAgencyUserDirect but sets is_admin=TRUE.
+ *
+ * Creates:
+ * - An agency in the global database
+ * - A verified domain in global_agency_domains
+ * - An agency admin user (is_admin=TRUE) in the global database
+ * - An agency admin user with password hash in the regional database
+ *
+ * @param email - Email address for the agency admin user
+ * @param password - Plain text password (will be hashed with bcrypt)
+ * @param region - Home region for the user (default: 'ind1')
+ * @returns Object with email, domain, agencyId, and agencyUserId
+ */
+export async function createTestAgencyAdminDirect(
+	email: string,
+	password: string,
+	region: RegionCode = "ind1",
+	options?: {
+		agencyId?: string;
+		domain?: string;
+		status?: AgencyUserStatus;
+	}
+): Promise<{
+	email: string;
+	domain: string;
+	agencyId: string;
+	agencyUserId: string;
+}> {
+	const crypto = require("crypto");
+	const emailHash = crypto.createHash("sha256").update(email).digest();
+	const passwordHash = await bcrypt.hash(password, 10);
+
+	// Extract domain from email or use provided domain
+	let domain = options?.domain;
+	if (!domain) {
+		const parts = email.split("@");
+		if (parts.length !== 2) {
+			throw new Error(`Invalid email format: ${email}`);
+		}
+		domain = parts[1].toLowerCase();
+	}
+
+	// Use provided agencyId or create new agency
+	let agencyId = options?.agencyId;
+	if (!agencyId) {
+		// 1. Create agency in global DB
+		agencyId = randomUUID();
+		await pool.query(
+			`INSERT INTO agencies (agency_id, agency_name, region)
+       VALUES ($1, $2, $3)`,
+			[agencyId, domain, region]
+		);
+
+		// 2. Create verified domain in global DB
+		await pool.query(
+			`INSERT INTO global_agency_domains (domain, region, agency_id, status)
+       VALUES ($1, $2, $3, 'VERIFIED')`,
+			[domain, region, agencyId]
+		);
+	}
+
+	// 3. Create agency admin user in global DB with is_admin=TRUE
+	const agencyUserId = randomUUID();
+	const status = options?.status || "active";
+	await pool.query(
+		`INSERT INTO agency_users (agency_user_id, email_address_hash, hashing_algorithm, agency_id, is_admin, status, preferred_language, home_region)
+     VALUES ($1, $2, 'SHA-256', $3, TRUE, $4, 'en-US', $5)`,
+		[agencyUserId, emailHash, agencyId, status, region]
+	);
+
+	// 4. Create agency admin user in regional DB
 	const regionalPool = getRegionalPool(region);
 	try {
 		await regionalPool.query(

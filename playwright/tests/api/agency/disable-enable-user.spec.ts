@@ -25,10 +25,15 @@ test.describe("POST /agency/disable-user", () => {
 		const { email: userEmail } = generateTestAgencyEmail("disable-agency-user");
 
 		// Create admin and regular user in same agency
-		await createTestAgencyAdminDirect(adminEmail, TEST_PASSWORD);
+		const { agencyId } = await createTestAgencyAdminDirect(
+			adminEmail,
+			TEST_PASSWORD
+		);
 		const { agencyUserId: userId } = await createTestAgencyUserDirect(
 			userEmail,
-			TEST_PASSWORD
+			TEST_PASSWORD,
+			"ind1",
+			{ agencyId, domain }
 		);
 
 		try {
@@ -78,11 +83,16 @@ test.describe("POST /agency/disable-user", () => {
 		);
 		const { email: targetEmail } = generateTestAgencyEmail("disable-target");
 
-		// Create two non-admin users
-		await createTestAgencyUserDirect(userEmail, TEST_PASSWORD);
+		// Create two non-admin users in same agency
+		const { agencyId } = await createTestAgencyUserDirect(
+			userEmail,
+			TEST_PASSWORD
+		);
 		const { agencyUserId: targetId } = await createTestAgencyUserDirect(
 			targetEmail,
-			TEST_PASSWORD
+			TEST_PASSWORD,
+			"ind1",
+			{ agencyId, domain }
 		);
 
 		try {
@@ -295,10 +305,15 @@ test.describe("POST /agency/disable-user", () => {
 		);
 		const { email: userEmail } = generateTestAgencyEmail("disable-twice-user");
 
-		await createTestAgencyAdminDirect(adminEmail, TEST_PASSWORD);
+		const { agencyId } = await createTestAgencyAdminDirect(
+			adminEmail,
+			TEST_PASSWORD
+		);
 		const { agencyUserId: userId } = await createTestAgencyUserDirect(
 			userEmail,
-			TEST_PASSWORD
+			TEST_PASSWORD,
+			"ind1",
+			{ agencyId, domain }
 		);
 
 		// Manually disable the user
@@ -359,10 +374,15 @@ test.describe("POST /agency/enable-user", () => {
 			generateTestAgencyEmail("enable-agency-admin");
 		const { email: userEmail } = generateTestAgencyEmail("enable-agency-user");
 
-		await createTestAgencyAdminDirect(adminEmail, TEST_PASSWORD);
+		const { agencyId } = await createTestAgencyAdminDirect(
+			adminEmail,
+			TEST_PASSWORD
+		);
 		const { agencyUserId: userId } = await createTestAgencyUserDirect(
 			userEmail,
-			TEST_PASSWORD
+			TEST_PASSWORD,
+			"ind1",
+			{ agencyId, domain }
 		);
 
 		// Disable the user first
@@ -411,10 +431,15 @@ test.describe("POST /agency/enable-user", () => {
 			generateTestAgencyEmail("enable-nonadmin");
 		const { email: targetEmail } = generateTestAgencyEmail("enable-target");
 
-		await createTestAgencyUserDirect(userEmail, TEST_PASSWORD);
+		const { agencyId } = await createTestAgencyUserDirect(
+			userEmail,
+			TEST_PASSWORD
+		);
 		const { agencyUserId: targetId } = await createTestAgencyUserDirect(
 			targetEmail,
-			TEST_PASSWORD
+			TEST_PASSWORD,
+			"ind1",
+			{ agencyId, domain }
 		);
 
 		await updateTestAgencyUserStatus(targetEmail, "disabled");
@@ -458,10 +483,15 @@ test.describe("POST /agency/enable-user", () => {
 		);
 		const { email: userEmail } = generateTestAgencyEmail("enable-active-user");
 
-		await createTestAgencyAdminDirect(adminEmail, TEST_PASSWORD);
+		const { agencyId } = await createTestAgencyAdminDirect(
+			adminEmail,
+			TEST_PASSWORD
+		);
 		const { agencyUserId: userId } = await createTestAgencyUserDirect(
 			userEmail,
-			TEST_PASSWORD
+			TEST_PASSWORD,
+			"ind1",
+			{ agencyId, domain }
 		);
 
 		try {
