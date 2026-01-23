@@ -24,4 +24,6 @@ func RegisterOrgRoutes(mux *http.ServeMux, s *server.Server) {
 	mux.Handle("POST /org/get-domain-status", orgAuth(org.GetDomainStatus(s)))
 	mux.Handle("POST /employer/logout", orgAuth(org.Logout(s)))
 	mux.Handle("POST /employer/invite-user", orgAuth(org.InviteUser(s)))
+	mux.Handle("POST /employer/disable-user", orgAuth(org.DisableUser(s)))
+	mux.Handle("POST /employer/enable-user", orgAuth(org.EnableUser(s)))
 }

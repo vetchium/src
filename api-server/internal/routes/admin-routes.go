@@ -19,6 +19,8 @@ func RegisterAdminRoutes(mux *http.ServeMux, s *server.Server) {
 	mux.Handle("POST /admin/logout", authMiddleware(admin.Logout(s)))
 	mux.Handle("POST /admin/set-language", authMiddleware(admin.SetLanguage(s)))
 	mux.Handle("POST /admin/invite-user", authMiddleware(admin.InviteUser(s)))
+	mux.Handle("POST /admin/disable-user", authMiddleware(admin.DisableUser(s)))
+	mux.Handle("POST /admin/enable-user", authMiddleware(admin.EnableUser(s)))
 
 	// Approved domains routes
 	mux.Handle("POST /admin/add-approved-domain", authMiddleware(admin.AddApprovedDomain(s)))

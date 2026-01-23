@@ -298,3 +298,39 @@ export function validateAgencyCompleteSetupRequest(
 export interface AgencyCompleteSetupResponse {
 	message: string;
 }
+
+// ============================================================================
+// Agency User Management (Disable/Enable)
+// ============================================================================
+
+export interface AgencyDisableUserRequest {
+	target_user_id: string;
+}
+
+export function validateAgencyDisableUserRequest(
+	request: AgencyDisableUserRequest
+): ValidationError[] {
+	const errs: ValidationError[] = [];
+
+	if (!request.target_user_id) {
+		errs.push(newValidationError("target_user_id", ERR_REQUIRED));
+	}
+
+	return errs;
+}
+
+export interface AgencyEnableUserRequest {
+	target_user_id: string;
+}
+
+export function validateAgencyEnableUserRequest(
+	request: AgencyEnableUserRequest
+): ValidationError[] {
+	const errs: ValidationError[] = [];
+
+	if (!request.target_user_id) {
+		errs.push(newValidationError("target_user_id", ERR_REQUIRED));
+	}
+
+	return errs;
+}

@@ -257,6 +257,9 @@ DELETE FROM agency_sessions WHERE session_token = $1;
 -- name: DeleteExpiredAgencySessions :exec
 DELETE FROM agency_sessions WHERE expires_at <= NOW();
 
+-- name: DeleteAllAgencySessionsForUser :exec
+DELETE FROM agency_sessions WHERE agency_user_id = $1;
+
 -- ============================================
 -- Hub Email Verification Token Queries
 -- ============================================

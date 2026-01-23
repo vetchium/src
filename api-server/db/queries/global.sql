@@ -18,6 +18,9 @@ SELECT * FROM admin_users WHERE email_address = $1;
 -- name: GetAdminUserByID :one
 SELECT * FROM admin_users WHERE admin_user_id = $1;
 
+-- name: CountActiveAdminUsers :one
+SELECT COUNT(*) FROM admin_users WHERE status = 'active';
+
 -- TFA token queries
 
 -- name: CreateAdminTFAToken :exec
@@ -47,6 +50,9 @@ DELETE FROM admin_sessions WHERE session_token = $1;
 
 -- name: DeleteExpiredAdminSessions :exec
 DELETE FROM admin_sessions WHERE expires_at <= NOW();
+
+-- name: DeleteAllAdminSessionsForUser :exec
+DELETE FROM admin_sessions WHERE admin_user_id = $1;
 
 -- Supported languages queries
 
@@ -386,6 +392,10 @@ UPDATE org_users
 SET status = $2
 WHERE org_user_id = $1;
 
+-- name: CountActiveAdminOrgUsers :one
+SELECT COUNT(*) FROM org_users
+WHERE employer_id = $1 AND is_admin = TRUE AND status = 'active';
+
 -- ============================================
 -- Org Signup Token Queries (DNS-based domain verification)
 -- ============================================
@@ -513,6 +523,10 @@ RETURNING *;
 UPDATE agency_users
 SET status = $2
 WHERE agency_user_id = $1;
+
+-- name: CountActiveAdminAgencyUsers :one
+SELECT COUNT(*) FROM agency_users
+WHERE agency_id = $1 AND is_admin = TRUE AND status = 'active';
 
 -- name: UpdateAgencyUserFullName :exec
 UPDATE agency_users

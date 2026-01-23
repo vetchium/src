@@ -183,3 +183,39 @@ export function validateAdminCompleteSetupRequest(
 export interface AdminCompleteSetupResponse {
 	message: string;
 }
+
+// ============================================================================
+// Admin User Management (Disable/Enable)
+// ============================================================================
+
+export interface AdminDisableUserRequest {
+	target_user_id: string;
+}
+
+export function validateAdminDisableUserRequest(
+	request: AdminDisableUserRequest
+): ValidationError[] {
+	const errs: ValidationError[] = [];
+
+	if (!request.target_user_id) {
+		errs.push(newValidationError("target_user_id", ERR_REQUIRED));
+	}
+
+	return errs;
+}
+
+export interface AdminEnableUserRequest {
+	target_user_id: string;
+}
+
+export function validateAdminEnableUserRequest(
+	request: AdminEnableUserRequest
+): ValidationError[] {
+	const errs: ValidationError[] = [];
+
+	if (!request.target_user_id) {
+		errs.push(newValidationError("target_user_id", ERR_REQUIRED));
+	}
+
+	return errs;
+}

@@ -242,3 +242,35 @@ func (r OrgCompleteSetupRequest) Validate() []common.ValidationError {
 type OrgCompleteSetupResponse struct {
 	Message string `json:"message"`
 }
+
+// ============================================
+// User Management (Disable/Enable)
+// ============================================
+
+type OrgDisableUserRequest struct {
+	TargetUserID string `json:"target_user_id"`
+}
+
+func (r OrgDisableUserRequest) Validate() []common.ValidationError {
+	var errs []common.ValidationError
+
+	if r.TargetUserID == "" {
+		errs = append(errs, common.NewValidationError("target_user_id", common.ErrRequired))
+	}
+
+	return errs
+}
+
+type OrgEnableUserRequest struct {
+	TargetUserID string `json:"target_user_id"`
+}
+
+func (r OrgEnableUserRequest) Validate() []common.ValidationError {
+	var errs []common.ValidationError
+
+	if r.TargetUserID == "" {
+		errs = append(errs, common.NewValidationError("target_user_id", common.ErrRequired))
+	}
+
+	return errs
+}

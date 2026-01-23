@@ -130,3 +130,35 @@ func (r AdminCompleteSetupRequest) Validate() []common.ValidationError {
 type AdminCompleteSetupResponse struct {
 	Message string `json:"message"`
 }
+
+// ============================================
+// User Management (Disable/Enable)
+// ============================================
+
+type AdminDisableUserRequest struct {
+	TargetUserID string `json:"target_user_id"`
+}
+
+func (r AdminDisableUserRequest) Validate() []common.ValidationError {
+	var errs []common.ValidationError
+
+	if r.TargetUserID == "" {
+		errs = append(errs, common.NewValidationError("target_user_id", common.ErrRequired))
+	}
+
+	return errs
+}
+
+type AdminEnableUserRequest struct {
+	TargetUserID string `json:"target_user_id"`
+}
+
+func (r AdminEnableUserRequest) Validate() []common.ValidationError {
+	var errs []common.ValidationError
+
+	if r.TargetUserID == "" {
+		errs = append(errs, common.NewValidationError("target_user_id", common.ErrRequired))
+	}
+
+	return errs
+}

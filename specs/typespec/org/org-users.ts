@@ -298,3 +298,39 @@ export function validateOrgCompleteSetupRequest(
 export interface OrgCompleteSetupResponse {
 	message: string;
 }
+
+// ============================================
+// User Management (Disable/Enable)
+// ============================================
+
+export interface OrgDisableUserRequest {
+	target_user_id: string;
+}
+
+export function validateOrgDisableUserRequest(
+	request: OrgDisableUserRequest
+): ValidationError[] {
+	const errs: ValidationError[] = [];
+
+	if (!request.target_user_id) {
+		errs.push(newValidationError("target_user_id", ERR_REQUIRED));
+	}
+
+	return errs;
+}
+
+export interface OrgEnableUserRequest {
+	target_user_id: string;
+}
+
+export function validateOrgEnableUserRequest(
+	request: OrgEnableUserRequest
+): ValidationError[] {
+	const errs: ValidationError[] = [];
+
+	if (!request.target_user_id) {
+		errs.push(newValidationError("target_user_id", ERR_REQUIRED));
+	}
+
+	return errs;
+}

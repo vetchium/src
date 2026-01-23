@@ -231,3 +231,35 @@ func (r AgencyCompleteSetupRequest) Validate() []common.ValidationError {
 type AgencyCompleteSetupResponse struct {
 	Message string `json:"message"`
 }
+
+// ============================================
+// User Management (Disable/Enable)
+// ============================================
+
+type AgencyDisableUserRequest struct {
+	TargetUserID string `json:"target_user_id"`
+}
+
+func (r AgencyDisableUserRequest) Validate() []common.ValidationError {
+	var errs []common.ValidationError
+
+	if r.TargetUserID == "" {
+		errs = append(errs, common.NewValidationError("target_user_id", common.ErrRequired))
+	}
+
+	return errs
+}
+
+type AgencyEnableUserRequest struct {
+	TargetUserID string `json:"target_user_id"`
+}
+
+func (r AgencyEnableUserRequest) Validate() []common.ValidationError {
+	var errs []common.ValidationError
+
+	if r.TargetUserID == "" {
+		errs = append(errs, common.NewValidationError("target_user_id", common.ErrRequired))
+	}
+
+	return errs
+}
