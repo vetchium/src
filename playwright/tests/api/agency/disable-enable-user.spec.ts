@@ -8,7 +8,7 @@ import {
 	getTestAgencyUser,
 	updateTestAgencyUserStatus,
 } from "../../../lib/db";
-import { waitForEmail } from "../../../lib/mailpit";
+import { getTfaCodeFromEmail } from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
 import type {
 	AgencyDisableUserRequest,
@@ -40,13 +40,11 @@ test.describe("POST /agency/disable-user", () => {
 			});
 			expect(loginResponse.status).toBe(200);
 
-			const tfaEmail = await waitForEmail(adminEmail);
-			const tfaCode = tfaEmail.Text.match(/\b\d{6}\b/)?.[0];
-			expect(tfaCode).toBeDefined();
+			const tfaCode = await getTfaCodeFromEmail(adminEmail);
 
 			const tfaResponse = await api.verifyTFA({
 				tfa_token: loginResponse.body.tfa_token,
-				tfa_code: tfaCode!,
+				tfa_code: tfaCode,
 				remember_me: false,
 			});
 			expect(tfaResponse.status).toBe(200);
@@ -96,13 +94,11 @@ test.describe("POST /agency/disable-user", () => {
 			});
 			expect(loginResponse.status).toBe(200);
 
-			const tfaEmail = await waitForEmail(userEmail);
-			const tfaCode = tfaEmail.Text.match(/\b\d{6}\b/)?.[0];
-			expect(tfaCode).toBeDefined();
+			const tfaCode = await getTfaCodeFromEmail(userEmail);
 
 			const tfaResponse = await api.verifyTFA({
 				tfa_token: loginResponse.body.tfa_token,
-				tfa_code: tfaCode!,
+				tfa_code: tfaCode,
 				remember_me: false,
 			});
 			expect(tfaResponse.status).toBe(200);
@@ -145,13 +141,11 @@ test.describe("POST /agency/disable-user", () => {
 			});
 			expect(loginResponse.status).toBe(200);
 
-			const tfaEmail = await waitForEmail(adminEmail);
-			const tfaCode = tfaEmail.Text.match(/\b\d{6}\b/)?.[0];
-			expect(tfaCode).toBeDefined();
+			const tfaCode = await getTfaCodeFromEmail(adminEmail);
 
 			const tfaResponse = await api.verifyTFA({
 				tfa_token: loginResponse.body.tfa_token,
-				tfa_code: tfaCode!,
+				tfa_code: tfaCode,
 				remember_me: false,
 			});
 			expect(tfaResponse.status).toBe(200);
@@ -194,13 +188,11 @@ test.describe("POST /agency/disable-user", () => {
 			});
 			expect(loginResponse.status).toBe(200);
 
-			const tfaEmail = await waitForEmail(adminEmail);
-			const tfaCode = tfaEmail.Text.match(/\b\d{6}\b/)?.[0];
-			expect(tfaCode).toBeDefined();
+			const tfaCode = await getTfaCodeFromEmail(adminEmail);
 
 			const tfaResponse = await api.verifyTFA({
 				tfa_token: loginResponse.body.tfa_token,
-				tfa_code: tfaCode!,
+				tfa_code: tfaCode,
 				remember_me: false,
 			});
 			expect(tfaResponse.status).toBe(200);
@@ -233,13 +225,11 @@ test.describe("POST /agency/disable-user", () => {
 			});
 			expect(loginResponse.status).toBe(200);
 
-			const tfaEmail = await waitForEmail(adminEmail);
-			const tfaCode = tfaEmail.Text.match(/\b\d{6}\b/)?.[0];
-			expect(tfaCode).toBeDefined();
+			const tfaCode = await getTfaCodeFromEmail(adminEmail);
 
 			const tfaResponse = await api.verifyTFA({
 				tfa_token: loginResponse.body.tfa_token,
-				tfa_code: tfaCode!,
+				tfa_code: tfaCode,
 				remember_me: false,
 			});
 			expect(tfaResponse.status).toBe(200);
@@ -273,13 +263,11 @@ test.describe("POST /agency/disable-user", () => {
 			});
 			expect(loginResponse.status).toBe(200);
 
-			const tfaEmail = await waitForEmail(adminEmail);
-			const tfaCode = tfaEmail.Text.match(/\b\d{6}\b/)?.[0];
-			expect(tfaCode).toBeDefined();
+			const tfaCode = await getTfaCodeFromEmail(adminEmail);
 
 			const tfaResponse = await api.verifyTFA({
 				tfa_token: loginResponse.body.tfa_token,
-				tfa_code: tfaCode!,
+				tfa_code: tfaCode,
 				remember_me: false,
 			});
 			expect(tfaResponse.status).toBe(200);
@@ -325,13 +313,11 @@ test.describe("POST /agency/disable-user", () => {
 			});
 			expect(loginResponse.status).toBe(200);
 
-			const tfaEmail = await waitForEmail(adminEmail);
-			const tfaCode = tfaEmail.Text.match(/\b\d{6}\b/)?.[0];
-			expect(tfaCode).toBeDefined();
+			const tfaCode = await getTfaCodeFromEmail(adminEmail);
 
 			const tfaResponse = await api.verifyTFA({
 				tfa_token: loginResponse.body.tfa_token,
-				tfa_code: tfaCode!,
+				tfa_code: tfaCode,
 				remember_me: false,
 			});
 			expect(tfaResponse.status).toBe(200);
@@ -391,13 +377,11 @@ test.describe("POST /agency/enable-user", () => {
 			});
 			expect(loginResponse.status).toBe(200);
 
-			const tfaEmail = await waitForEmail(adminEmail);
-			const tfaCode = tfaEmail.Text.match(/\b\d{6}\b/)?.[0];
-			expect(tfaCode).toBeDefined();
+			const tfaCode = await getTfaCodeFromEmail(adminEmail);
 
 			const tfaResponse = await api.verifyTFA({
 				tfa_token: loginResponse.body.tfa_token,
-				tfa_code: tfaCode!,
+				tfa_code: tfaCode,
 				remember_me: false,
 			});
 			expect(tfaResponse.status).toBe(200);
@@ -444,13 +428,11 @@ test.describe("POST /agency/enable-user", () => {
 			});
 			expect(loginResponse.status).toBe(200);
 
-			const tfaEmail = await waitForEmail(userEmail);
-			const tfaCode = tfaEmail.Text.match(/\b\d{6}\b/)?.[0];
-			expect(tfaCode).toBeDefined();
+			const tfaCode = await getTfaCodeFromEmail(userEmail);
 
 			const tfaResponse = await api.verifyTFA({
 				tfa_token: loginResponse.body.tfa_token,
-				tfa_code: tfaCode!,
+				tfa_code: tfaCode,
 				remember_me: false,
 			});
 			expect(tfaResponse.status).toBe(200);
@@ -491,13 +473,11 @@ test.describe("POST /agency/enable-user", () => {
 			});
 			expect(loginResponse.status).toBe(200);
 
-			const tfaEmail = await waitForEmail(adminEmail);
-			const tfaCode = tfaEmail.Text.match(/\b\d{6}\b/)?.[0];
-			expect(tfaCode).toBeDefined();
+			const tfaCode = await getTfaCodeFromEmail(adminEmail);
 
 			const tfaResponse = await api.verifyTFA({
 				tfa_token: loginResponse.body.tfa_token,
-				tfa_code: tfaCode!,
+				tfa_code: tfaCode,
 				remember_me: false,
 			});
 			expect(tfaResponse.status).toBe(200);
@@ -533,13 +513,11 @@ test.describe("POST /agency/enable-user", () => {
 			});
 			expect(loginResponse.status).toBe(200);
 
-			const tfaEmail = await waitForEmail(adminEmail);
-			const tfaCode = tfaEmail.Text.match(/\b\d{6}\b/)?.[0];
-			expect(tfaCode).toBeDefined();
+			const tfaCode = await getTfaCodeFromEmail(adminEmail);
 
 			const tfaResponse = await api.verifyTFA({
 				tfa_token: loginResponse.body.tfa_token,
-				tfa_code: tfaCode!,
+				tfa_code: tfaCode,
 				remember_me: false,
 			});
 			expect(tfaResponse.status).toBe(200);
@@ -571,13 +549,11 @@ test.describe("POST /agency/enable-user", () => {
 			});
 			expect(loginResponse.status).toBe(200);
 
-			const tfaEmail = await waitForEmail(adminEmail);
-			const tfaCode = tfaEmail.Text.match(/\b\d{6}\b/)?.[0];
-			expect(tfaCode).toBeDefined();
+			const tfaCode = await getTfaCodeFromEmail(adminEmail);
 
 			const tfaResponse = await api.verifyTFA({
 				tfa_token: loginResponse.body.tfa_token,
-				tfa_code: tfaCode!,
+				tfa_code: tfaCode,
 				remember_me: false,
 			});
 			expect(tfaResponse.status).toBe(200);
