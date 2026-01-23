@@ -10,6 +10,8 @@ import type {
 	AgencyLoginResponse,
 	AgencyTFARequest,
 	AgencyTFAResponse,
+	AgencyDisableUserRequest,
+	AgencyEnableUserRequest,
 } from "vetchium-specs/agency/agency-users";
 import type { APIResponse } from "./api-client";
 
@@ -241,6 +243,110 @@ export class AgencyAPIClient {
 	async logoutWithoutAuth(): Promise<APIResponse<void>> {
 		const response = await this.request.post("/agency/logout", {
 			data: {},
+		});
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: undefined,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	// ============================================================================
+	// User Management (Disable/Enable)
+	// ============================================================================
+
+	/**
+	 * POST /agency/disable-user
+	 * Disables a user in the agency.
+	 * Requires authentication and admin privileges.
+	 *
+	 * @param sessionToken - Session token of the admin
+	 * @param request - Disable request with target_user_id
+	 * @returns API response (empty body on success)
+	 */
+	async disableUser(
+		sessionToken: string,
+		request: AgencyDisableUserRequest
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/agency/disable-user", {
+			headers: {
+				Authorization: `Bearer ${sessionToken}`,
+			},
+			data: request,
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: undefined,
+			errors: body.errors,
+		};
+	}
+
+	/**
+	 * POST /agency/disable-user with raw body for testing invalid payloads
+	 */
+	async disableUserRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/agency/disable-user", {
+			headers: {
+				Authorization: `Bearer ${sessionToken}`,
+			},
+			data: body,
+		});
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: undefined,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	/**
+	 * POST /agency/enable-user
+	 * Enables a previously disabled user in the agency.
+	 * Requires authentication and admin privileges.
+	 *
+	 * @param sessionToken - Session token of the admin
+	 * @param request - Enable request with target_user_id
+	 * @returns API response (empty body on success)
+	 */
+	async enableUser(
+		sessionToken: string,
+		request: AgencyEnableUserRequest
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/agency/enable-user", {
+			headers: {
+				Authorization: `Bearer ${sessionToken}`,
+			},
+			data: request,
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: undefined,
+			errors: body.errors,
+		};
+	}
+
+	/**
+	 * POST /agency/enable-user with raw body for testing invalid payloads
+	 */
+	async enableUserRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/agency/enable-user", {
+			headers: {
+				Authorization: `Bearer ${sessionToken}`,
+			},
+			data: body,
 		});
 
 		const responseBody = await response.json().catch(() => ({}));

@@ -5,6 +5,8 @@ import {
 	AdminTFARequest,
 	AdminTFAResponse,
 	AdminSetLanguageRequest,
+	AdminDisableUserRequest,
+	AdminEnableUserRequest,
 } from "vetchium-specs/admin/admin-users";
 import type {
 	AddApprovedDomainRequest,
@@ -426,6 +428,100 @@ export class AdminAPIClient {
 		body: unknown
 	): Promise<APIResponse<void>> {
 		const response = await this.request.post("/admin/enable-approved-domain", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: body,
+		});
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: undefined,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	// ============================================================================
+	// User Management API
+	// ============================================================================
+
+	/**
+	 * POST /admin/disable-user
+	 * Disables an admin user.
+	 *
+	 * @param sessionToken - Session token for authentication
+	 * @param request - Request with target_user_id
+	 * @returns API response (200 on success)
+	 */
+	async disableUser(
+		sessionToken: string,
+		request: AdminDisableUserRequest
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/admin/disable-user", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: undefined,
+			errors: body.errors,
+		};
+	}
+
+	/**
+	 * POST /admin/disable-user with raw body for testing invalid payloads
+	 */
+	async disableUserRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/admin/disable-user", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: body,
+		});
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: undefined,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	/**
+	 * POST /admin/enable-user
+	 * Re-enables a disabled admin user.
+	 *
+	 * @param sessionToken - Session token for authentication
+	 * @param request - Request with target_user_id
+	 * @returns API response (200 on success)
+	 */
+	async enableUser(
+		sessionToken: string,
+		request: AdminEnableUserRequest
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/admin/enable-user", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: undefined,
+			errors: body.errors,
+		};
+	}
+
+	/**
+	 * POST /admin/enable-user with raw body for testing invalid payloads
+	 */
+	async enableUserRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/admin/enable-user", {
 			headers: { Authorization: `Bearer ${sessionToken}` },
 			data: body,
 		});

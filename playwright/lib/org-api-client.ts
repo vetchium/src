@@ -12,6 +12,8 @@ import type {
 	OrgInviteUserResponse,
 	OrgCompleteSetupRequest,
 	OrgCompleteSetupResponse,
+	OrgDisableUserRequest,
+	OrgEnableUserRequest,
 } from "vetchium-specs/org/org-users";
 import type {
 	ClaimDomainRequest,
@@ -522,6 +524,110 @@ export class OrgAPIClient {
 		return {
 			status: response.status(),
 			body: responseBody as OrgCompleteSetupResponse,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	// ============================================================================
+	// User Management (Disable/Enable)
+	// ============================================================================
+
+	/**
+	 * POST /employer/disable-user
+	 * Disables a user in the organization.
+	 * Requires authentication and admin privileges.
+	 *
+	 * @param sessionToken - Session token of the admin
+	 * @param request - Disable request with target_user_id
+	 * @returns API response (empty body on success)
+	 */
+	async disableUser(
+		sessionToken: string,
+		request: OrgDisableUserRequest
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/employer/disable-user", {
+			headers: {
+				Authorization: `Bearer ${sessionToken}`,
+			},
+			data: request,
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: undefined,
+			errors: body.errors,
+		};
+	}
+
+	/**
+	 * POST /employer/disable-user with raw body for testing invalid payloads
+	 */
+	async disableUserRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/employer/disable-user", {
+			headers: {
+				Authorization: `Bearer ${sessionToken}`,
+			},
+			data: body,
+		});
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: undefined,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	/**
+	 * POST /employer/enable-user
+	 * Enables a previously disabled user in the organization.
+	 * Requires authentication and admin privileges.
+	 *
+	 * @param sessionToken - Session token of the admin
+	 * @param request - Enable request with target_user_id
+	 * @returns API response (empty body on success)
+	 */
+	async enableUser(
+		sessionToken: string,
+		request: OrgEnableUserRequest
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/employer/enable-user", {
+			headers: {
+				Authorization: `Bearer ${sessionToken}`,
+			},
+			data: request,
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: undefined,
+			errors: body.errors,
+		};
+	}
+
+	/**
+	 * POST /employer/enable-user with raw body for testing invalid payloads
+	 */
+	async enableUserRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/employer/enable-user", {
+			headers: {
+				Authorization: `Bearer ${sessionToken}`,
+			},
+			data: body,
+		});
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: undefined,
 			errors: Array.isArray(responseBody) ? responseBody : undefined,
 		};
 	}
