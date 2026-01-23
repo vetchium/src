@@ -20,8 +20,9 @@ test.describe("POST /agency/disable-user", () => {
 		request,
 	}) => {
 		const api = new AgencyAPIClient(request);
-		const { email: adminEmail, domain } =
-			generateTestAgencyEmail("disable-agency-admin");
+		const { email: adminEmail, domain } = generateTestAgencyEmail(
+			"disable-agency-admin"
+		);
 		const { email: userEmail } = generateTestAgencyEmail("disable-agency-user");
 
 		// Create admin and regular user in same agency
@@ -78,9 +79,8 @@ test.describe("POST /agency/disable-user", () => {
 
 	test("non-admin cannot disable users (403)", async ({ request }) => {
 		const api = new AgencyAPIClient(request);
-		const { email: userEmail, domain } = generateTestAgencyEmail(
-			"disable-nonadmin"
-		);
+		const { email: userEmail, domain } =
+			generateTestAgencyEmail("disable-nonadmin");
 		const { email: targetEmail } = generateTestAgencyEmail("disable-target");
 
 		// Create two non-admin users in same agency
@@ -132,9 +132,8 @@ test.describe("POST /agency/disable-user", () => {
 
 	test("cannot disable last admin in agency (422)", async ({ request }) => {
 		const api = new AgencyAPIClient(request);
-		const { email: adminEmail, domain } = generateTestAgencyEmail(
-			"disable-last-admin"
-		);
+		const { email: adminEmail, domain } =
+			generateTestAgencyEmail("disable-last-admin");
 
 		// Create only one admin
 		const { agencyUserId: adminId } = await createTestAgencyAdminDirect(
@@ -183,9 +182,8 @@ test.describe("POST /agency/disable-user", () => {
 
 	test("target_user_id is required (400)", async ({ request }) => {
 		const api = new AgencyAPIClient(request);
-		const { email: adminEmail, domain } = generateTestAgencyEmail(
-			"disable-req-admin"
-		);
+		const { email: adminEmail, domain } =
+			generateTestAgencyEmail("disable-req-admin");
 
 		await createTestAgencyAdminDirect(adminEmail, TEST_PASSWORD);
 
@@ -220,9 +218,8 @@ test.describe("POST /agency/disable-user", () => {
 
 	test("invalid target_user_id format returns 400", async ({ request }) => {
 		const api = new AgencyAPIClient(request);
-		const { email: adminEmail, domain } = generateTestAgencyEmail(
-			"disable-invalid"
-		);
+		const { email: adminEmail, domain } =
+			generateTestAgencyEmail("disable-invalid");
 
 		await createTestAgencyAdminDirect(adminEmail, TEST_PASSWORD);
 
@@ -258,9 +255,8 @@ test.describe("POST /agency/disable-user", () => {
 
 	test("target user not found returns 404", async ({ request }) => {
 		const api = new AgencyAPIClient(request);
-		const { email: adminEmail, domain } = generateTestAgencyEmail(
-			"disable-notfound"
-		);
+		const { email: adminEmail, domain } =
+			generateTestAgencyEmail("disable-notfound");
 
 		await createTestAgencyAdminDirect(adminEmail, TEST_PASSWORD);
 
@@ -370,8 +366,9 @@ test.describe("POST /agency/enable-user", () => {
 		request,
 	}) => {
 		const api = new AgencyAPIClient(request);
-		const { email: adminEmail, domain } =
-			generateTestAgencyEmail("enable-agency-admin");
+		const { email: adminEmail, domain } = generateTestAgencyEmail(
+			"enable-agency-admin"
+		);
 		const { email: userEmail } = generateTestAgencyEmail("enable-agency-user");
 
 		const { agencyId } = await createTestAgencyAdminDirect(
@@ -528,9 +525,8 @@ test.describe("POST /agency/enable-user", () => {
 
 	test("target_user_id is required (400)", async ({ request }) => {
 		const api = new AgencyAPIClient(request);
-		const { email: adminEmail, domain } = generateTestAgencyEmail(
-			"enable-req-admin"
-		);
+		const { email: adminEmail, domain } =
+			generateTestAgencyEmail("enable-req-admin");
 
 		await createTestAgencyAdminDirect(adminEmail, TEST_PASSWORD);
 

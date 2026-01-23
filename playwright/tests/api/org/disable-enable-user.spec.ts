@@ -76,9 +76,8 @@ test.describe("POST /employer/disable-user", () => {
 
 	test("non-admin cannot disable users (403)", async ({ request }) => {
 		const api = new OrgAPIClient(request);
-		const { email: userEmail, domain } = generateTestOrgEmail(
-			"disable-nonadmin"
-		);
+		const { email: userEmail, domain } =
+			generateTestOrgEmail("disable-nonadmin");
 		const { email: targetEmail } = generateTestOrgEmail("disable-target");
 
 		// Create two non-admin users in same employer
@@ -130,9 +129,8 @@ test.describe("POST /employer/disable-user", () => {
 
 	test("cannot disable last admin in employer (422)", async ({ request }) => {
 		const api = new OrgAPIClient(request);
-		const { email: adminEmail, domain } = generateTestOrgEmail(
-			"disable-last-admin"
-		);
+		const { email: adminEmail, domain } =
+			generateTestOrgEmail("disable-last-admin");
 
 		// Create only one admin
 		const { orgUserId: adminId } = await createTestOrgAdminDirect(
@@ -181,9 +179,8 @@ test.describe("POST /employer/disable-user", () => {
 
 	test("target_user_id is required (400)", async ({ request }) => {
 		const api = new OrgAPIClient(request);
-		const { email: adminEmail, domain } = generateTestOrgEmail(
-			"disable-req-admin"
-		);
+		const { email: adminEmail, domain } =
+			generateTestOrgEmail("disable-req-admin");
 
 		await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
 
@@ -218,9 +215,8 @@ test.describe("POST /employer/disable-user", () => {
 
 	test("invalid target_user_id format returns 400", async ({ request }) => {
 		const api = new OrgAPIClient(request);
-		const { email: adminEmail, domain } = generateTestOrgEmail(
-			"disable-invalid"
-		);
+		const { email: adminEmail, domain } =
+			generateTestOrgEmail("disable-invalid");
 
 		await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
 
@@ -256,9 +252,8 @@ test.describe("POST /employer/disable-user", () => {
 
 	test("target user not found returns 404", async ({ request }) => {
 		const api = new OrgAPIClient(request);
-		const { email: adminEmail, domain } = generateTestOrgEmail(
-			"disable-notfound"
-		);
+		const { email: adminEmail, domain } =
+			generateTestOrgEmail("disable-notfound");
 
 		await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
 
@@ -298,8 +293,9 @@ test.describe("POST /employer/disable-user", () => {
 
 	test("cannot disable already disabled user (422)", async ({ request }) => {
 		const api = new OrgAPIClient(request);
-		const { email: adminEmail, domain } =
-			generateTestOrgEmail("disable-twice-admin");
+		const { email: adminEmail, domain } = generateTestOrgEmail(
+			"disable-twice-admin"
+		);
 		const { email: userEmail } = generateTestOrgEmail("disable-twice-user");
 
 		const { employerId } = await createTestOrgAdminDirect(
@@ -475,8 +471,9 @@ test.describe("POST /employer/enable-user", () => {
 
 	test("cannot enable already active user (404)", async ({ request }) => {
 		const api = new OrgAPIClient(request);
-		const { email: adminEmail, domain } =
-			generateTestOrgEmail("enable-active-admin");
+		const { email: adminEmail, domain } = generateTestOrgEmail(
+			"enable-active-admin"
+		);
 		const { email: userEmail } = generateTestOrgEmail("enable-active-user");
 
 		const { employerId } = await createTestOrgAdminDirect(

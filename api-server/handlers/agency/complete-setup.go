@@ -106,7 +106,7 @@ func CompleteSetup(s *server.Server) http.HandlerFunc {
 
 		// Update org user in regional DB with password and full name
 		err = regionalDB.UpdateAgencyUserSetup(ctx, regionaldb.UpdateAgencyUserSetupParams{
-			AgencyUserID:          invitationTokenData.AgencyUserID,
+			AgencyUserID:       invitationTokenData.AgencyUserID,
 			PasswordHash:       passwordHash,
 			FullName:           pgtype.Text{String: string(req.FullName), Valid: true},
 			AuthenticationType: regionaldb.AuthenticationTypeEmailPassword,
@@ -120,7 +120,7 @@ func CompleteSetup(s *server.Server) http.HandlerFunc {
 		// Update full name in global DB
 		err = s.Global.UpdateAgencyUserFullName(ctx, globaldb.UpdateAgencyUserFullNameParams{
 			AgencyUserID: invitationTokenData.AgencyUserID,
-			FullName:  pgtype.Text{String: string(req.FullName), Valid: true},
+			FullName:     pgtype.Text{String: string(req.FullName), Valid: true},
 		})
 		if err != nil {
 			log.Error("failed to update full name in global DB", "error", err)
@@ -130,7 +130,7 @@ func CompleteSetup(s *server.Server) http.HandlerFunc {
 		// Update user status to active in global DB
 		err = s.Global.UpdateAgencyUserStatus(ctx, globaldb.UpdateAgencyUserStatusParams{
 			AgencyUserID: invitationTokenData.AgencyUserID,
-			Status:    globaldb.AgencyUserStatusActive,
+			Status:       globaldb.AgencyUserStatusActive,
 		})
 		if err != nil {
 			log.Error("failed to update user status in global DB", "error", err)

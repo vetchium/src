@@ -65,7 +65,7 @@ func InviteUser(s *server.Server) http.HandlerFunc {
 		// Check if user already exists for this agency in global DB
 		_, err := s.Global.GetAgencyUserByEmailHashAndAgency(ctx, globaldb.GetAgencyUserByEmailHashAndAgencyParams{
 			EmailAddressHash: emailHash[:],
-			AgencyID:       agencyUser.AgencyID,
+			AgencyID:         agencyUser.AgencyID,
 		})
 		if err == nil {
 			// User already exists for this agency
@@ -103,7 +103,7 @@ func InviteUser(s *server.Server) http.HandlerFunc {
 		globalUser, err := s.Global.CreateAgencyUser(ctx, globaldb.CreateAgencyUserParams{
 			EmailAddressHash:  emailHash[:],
 			HashingAlgorithm:  globaldb.EmailAddressHashingAlgorithmSHA256,
-			AgencyID:        agencyUser.AgencyID,
+			AgencyID:          agencyUser.AgencyID,
 			FullName:          pgtype.Text{String: string(req.FullName), Valid: true},
 			IsAdmin:           false, // New users are not admins by default
 			Status:            globaldb.AgencyUserStatusInvited,
@@ -118,9 +118,9 @@ func InviteUser(s *server.Server) http.HandlerFunc {
 
 		// Create org user in regional DB (without password hash)
 		_, err = regionalDB.CreateAgencyUser(ctx, regionaldb.CreateAgencyUserParams{
-			AgencyUserID:    globalUser.AgencyUserID,
+			AgencyUserID: globalUser.AgencyUserID,
 			EmailAddress: string(req.EmailAddress),
-			AgencyID:   agencyUser.AgencyID,
+			AgencyID:     agencyUser.AgencyID,
 			FullName: pgtype.Text{
 				String: string(req.FullName),
 				Valid:  true,
@@ -157,8 +157,8 @@ func InviteUser(s *server.Server) http.HandlerFunc {
 		expiresAt := pgtype.Timestamp{Time: time.Now().Add(invitationExpiry), Valid: true}
 		err = regionalDB.CreateAgencyInvitationToken(ctx, regionaldb.CreateAgencyInvitationTokenParams{
 			InvitationToken: rawToken,
-			AgencyUserID:       globalUser.AgencyUserID,
-			AgencyID:      agencyUser.AgencyID,
+			AgencyUserID:    globalUser.AgencyUserID,
+			AgencyID:        agencyUser.AgencyID,
 			ExpiresAt:       expiresAt,
 		})
 		if err != nil {
