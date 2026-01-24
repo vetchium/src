@@ -263,3 +263,84 @@ func (r AgencyEnableUserRequest) Validate() []common.ValidationError {
 
 	return errs
 }
+
+// ============================================
+// Password Management
+// ============================================
+
+type AgencyPasswordResetToken = string
+
+type AgencyRequestPasswordResetRequest struct {
+	EmailAddress common.EmailAddress `json:"email_address"`
+	Domain       common.DomainName   `json:"domain"`
+}
+
+func (r AgencyRequestPasswordResetRequest) Validate() []common.ValidationError {
+	var errs []common.ValidationError
+
+	if r.EmailAddress == "" {
+		errs = append(errs, common.NewValidationError("email_address", common.ErrRequired))
+	} else if err := r.EmailAddress.Validate(); err != nil {
+		errs = append(errs, common.NewValidationError("email_address", err))
+	}
+
+	if r.Domain == "" {
+		errs = append(errs, common.NewValidationError("domain", common.ErrRequired))
+	} else if err := r.Domain.Validate(); err != nil {
+		errs = append(errs, common.NewValidationError("domain", err))
+	}
+
+	return errs
+}
+
+type AgencyRequestPasswordResetResponse struct {
+	Message string `json:"message"`
+}
+
+type AgencyCompletePasswordResetRequest struct {
+	ResetToken  AgencyPasswordResetToken `json:"reset_token"`
+	NewPassword common.Password          `json:"new_password"`
+}
+
+func (r AgencyCompletePasswordResetRequest) Validate() []common.ValidationError {
+	var errs []common.ValidationError
+
+	if r.ResetToken == "" {
+		errs = append(errs, common.NewValidationError("reset_token", common.ErrRequired))
+	}
+
+	if r.NewPassword == "" {
+		errs = append(errs, common.NewValidationError("new_password", common.ErrRequired))
+	} else if err := r.NewPassword.Validate(); err != nil {
+		errs = append(errs, common.NewValidationError("new_password", err))
+	}
+
+	return errs
+}
+
+type AgencyChangePasswordRequest struct {
+	CurrentPassword common.Password `json:"current_password"`
+	NewPassword     common.Password `json:"new_password"`
+}
+
+func (r AgencyChangePasswordRequest) Validate() []common.ValidationError {
+	var errs []common.ValidationError
+
+	if r.CurrentPassword == "" {
+		errs = append(errs, common.NewValidationError("current_password", common.ErrRequired))
+	} else if err := r.CurrentPassword.Validate(); err != nil {
+		errs = append(errs, common.NewValidationError("current_password", err))
+	}
+
+	if r.NewPassword == "" {
+		errs = append(errs, common.NewValidationError("new_password", common.ErrRequired))
+	} else if err := r.NewPassword.Validate(); err != nil {
+		errs = append(errs, common.NewValidationError("new_password", err))
+	}
+
+	if r.CurrentPassword != "" && r.NewPassword != "" && r.CurrentPassword == r.NewPassword {
+		errs = append(errs, common.NewValidationError("new_password", common.ErrNewPasswordSameAsCurrent))
+	}
+
+	return errs
+}

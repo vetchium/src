@@ -22,6 +22,7 @@ export type AgencyTFAToken = string;
 export type AgencyInvitationToken = string;
 export type DNSVerificationToken = string;
 export type AgencySignupToken = string;
+export type AgencyPasswordResetToken = string;
 
 // ============================================
 // Signup Flow (DNS-based Domain Verification)
@@ -330,6 +331,115 @@ export function validateAgencyEnableUserRequest(
 
 	if (!request.target_user_id) {
 		errs.push(newValidationError("target_user_id", ERR_REQUIRED));
+	}
+
+	return errs;
+}
+
+// ============================================================================
+// Agency Password Management
+// ============================================================================
+
+export interface AgencyRequestPasswordResetRequest {
+	email_address: EmailAddress;
+	domain: DomainName;
+}
+
+export function validateAgencyRequestPasswordResetRequest(
+	request: AgencyRequestPasswordResetRequest
+): ValidationError[] {
+	const errs: ValidationError[] = [];
+
+	if (!request.email_address) {
+		errs.push(newValidationError("email_address", ERR_REQUIRED));
+	} else {
+		const emailErr = validateEmailAddress(request.email_address);
+		if (emailErr) {
+			errs.push(newValidationError("email_address", emailErr));
+		}
+	}
+
+	if (!request.domain) {
+		errs.push(newValidationError("domain", ERR_REQUIRED));
+	} else {
+		const domainErr = validateDomainName(request.domain);
+		if (domainErr) {
+			errs.push(newValidationError("domain", domainErr));
+		}
+	}
+
+	return errs;
+}
+
+export interface AgencyRequestPasswordResetResponse {
+	message: string;
+}
+
+export interface AgencyCompletePasswordResetRequest {
+	reset_token: AgencyPasswordResetToken;
+	new_password: Password;
+}
+
+export function validateAgencyCompletePasswordResetRequest(
+	request: AgencyCompletePasswordResetRequest
+): ValidationError[] {
+	const errs: ValidationError[] = [];
+
+	if (!request.reset_token) {
+		errs.push(newValidationError("reset_token", ERR_REQUIRED));
+	}
+
+	if (!request.new_password) {
+		errs.push(newValidationError("new_password", ERR_REQUIRED));
+	} else {
+		const passwordErr = validatePassword(request.new_password);
+		if (passwordErr) {
+			errs.push(newValidationError("new_password", passwordErr));
+		}
+	}
+
+	return errs;
+}
+
+export interface AgencyChangePasswordRequest {
+	current_password: Password;
+	new_password: Password;
+}
+
+export function validateAgencyChangePasswordRequest(
+	request: AgencyChangePasswordRequest
+): ValidationError[] {
+	const errs: ValidationError[] = [];
+
+	if (!request.current_password) {
+		errs.push(newValidationError("current_password", ERR_REQUIRED));
+	} else {
+		const currentPasswordErr = validatePassword(request.current_password);
+		if (currentPasswordErr) {
+			errs.push(newValidationError("current_password", currentPasswordErr));
+		}
+	}
+
+	if (!request.new_password) {
+		errs.push(newValidationError("new_password", ERR_REQUIRED));
+	} else {
+		const newPasswordErr = validatePassword(request.new_password);
+		if (newPasswordErr) {
+			errs.push(newValidationError("new_password", newPasswordErr));
+		}
+	}
+
+	if (
+		request.current_password &&
+		request.new_password &&
+		request.current_password === request.new_password
+	) {
+		errs.push(
+			newValidationError(
+				"new_password",
+				"New password must be different from current password"
+			)
+		);
 	}
 
 	return errs;
