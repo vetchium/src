@@ -132,12 +132,17 @@ export function extractTfaCode(emailText: string): string {
  *
  * @param toEmail - Email address to wait for
  * @param config - Optional configuration for retry behavior
+ * @param subjectPattern - Optional regex pattern to match against email subject
  * @returns The first matching message summary
  * @throws Error if no email arrives after all retries
  *
  * @example
  * // Use defaults (5 retries, 1s initial delay, 2x backoff)
  * const email = await waitForEmail("test@example.com");
+ *
+ * @example
+ * // Wait for password reset email specifically
+ * const email = await waitForEmail("test@example.com", {}, /reset.*password/i);
  *
  * @example
  * // Custom config for slower email delivery
@@ -150,7 +155,8 @@ export function extractTfaCode(emailText: string): string {
  */
 export async function waitForEmail(
 	toEmail: string,
-	config: Partial<WaitForEmailConfig> = {}
+	config: Partial<WaitForEmailConfig> = {},
+	subjectPattern?: RegExp
 ): Promise<MailpitMessageSummary> {
 	const cfg = { ...DEFAULT_WAIT_CONFIG, ...config };
 
@@ -159,9 +165,15 @@ export async function waitForEmail(
 
 	for (let attempt = 1; attempt <= cfg.maxRetries; attempt++) {
 		const messages = await searchEmails(toEmail);
-		if (messages.length > 0) {
-			// Return the most recent message (first in the list)
-			return messages[0];
+
+		// If subject pattern provided, filter messages
+		const filteredMessages = subjectPattern
+			? messages.filter(msg => subjectPattern.test(msg.Subject))
+			: messages;
+
+		if (filteredMessages.length > 0) {
+			// Return the most recent matching message (first in the list)
+			return filteredMessages[0];
 		}
 
 		if (attempt < cfg.maxRetries) {
@@ -174,8 +186,9 @@ export async function waitForEmail(
 		}
 	}
 
+	const patternMsg = subjectPattern ? ` matching subject pattern ${subjectPattern}` : '';
 	throw new Error(
-		`No email received for ${toEmail} after ${
+		`No email received for ${toEmail}${patternMsg} after ${
 			cfg.maxRetries
 		} attempts (waited ~${Math.round(totalWaitTime / 1000)}s)`
 	);
@@ -410,17 +423,17 @@ export async function deleteEmailsFor(toEmail: string): Promise<void> {
 }
 
 /**
- * Extracts the password reset token from an email body.
+ * Extracts the password reset token from an email message.
  * Handles both admin tokens (no prefix) and regional user tokens (with prefix).
  * - Admin tokens: 64-character hex string
  * - Regional tokens: REGION-{64-char-hex} (e.g., IND1-abc123...)
  *
- * @param emailText - Plain text email body or MailpitMessage object
+ * @param message - MailpitMessage object with Text field
  * @returns The reset token (with or without region prefix)
  * @throws Error if no reset token is found
  */
-export function extractPasswordResetToken(emailText: string | MailpitMessage): string {
-	const text = typeof emailText === 'string' ? emailText : emailText.Text;
+export function extractPasswordResetToken(message: MailpitMessage): string {
+	const text = message.Text;
 
 	// Try region-prefixed token first (for hub/org/agency users)
 	const regionalMatch = text.match(/\b(IND1|USA1|DEU1)-([a-f0-9]{64})\b/);

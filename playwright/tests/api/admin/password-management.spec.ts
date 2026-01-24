@@ -5,7 +5,7 @@ import {
 	deleteTestAdminUser,
 	generateTestEmail,
 } from "../../../lib/db";
-import { waitForEmail, extractPasswordResetToken } from "../../../lib/mailpit";
+import { waitForEmail, extractPasswordResetToken, getEmailContent } from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
 
 test.describe("POST /admin/request-password-reset", () => {
@@ -98,7 +98,8 @@ test.describe("POST /admin/complete-password-reset", () => {
 			await api.requestPasswordReset({ email_address: email });
 
 			// Get reset token from email
-			const emailMessage = await waitForEmail(email);
+			const emailSummary = await waitForEmail(email, {}, /reset/i);
+			const emailMessage = await getEmailContent(emailSummary.ID);
 			const resetToken = extractPasswordResetToken(emailMessage);
 			expect(resetToken).toBeDefined();
 
@@ -159,7 +160,8 @@ test.describe("POST /admin/complete-password-reset", () => {
 		await createTestAdminUser(email, TEST_PASSWORD);
 		try {
 			await api.requestPasswordReset({ email_address: email });
-			const emailMessage = await waitForEmail(email);
+			const emailSummary = await waitForEmail(email, {}, /reset/i);
+			const emailMessage = await getEmailContent(emailSummary.ID);
 			const resetToken = extractPasswordResetToken(emailMessage);
 
 			// Password too short
@@ -212,7 +214,8 @@ test.describe("POST /admin/complete-password-reset", () => {
 				email,
 				password: oldPassword,
 			});
-			const tfaEmail1 = await waitForEmail(email);
+			const tfaEmail1Summary = await waitForEmail(email);
+			const tfaEmail1 = await getEmailContent(tfaEmail1Summary.ID);
 			const tfaCode1 = tfaEmail1.Text.match(/\b\d{6}\b/)?.[0];
 			const tfaResp1 = await api.verifyTFA({
 				tfa_token: loginResp1.body.tfa_token,
@@ -222,7 +225,8 @@ test.describe("POST /admin/complete-password-reset", () => {
 
 			// Request and complete password reset
 			await api.requestPasswordReset({ email_address: email });
-			const resetEmail = await waitForEmail(email);
+			const resetEmailSummary = await waitForEmail(email, {}, /reset/i);
+			const resetEmail = await getEmailContent(resetEmailSummary.ID);
 			const resetToken = extractPasswordResetToken(resetEmail);
 			await api.completePasswordReset({
 				reset_token: resetToken!,
@@ -252,7 +256,8 @@ test.describe("POST /admin/change-password", () => {
 				email,
 				password: oldPassword,
 			});
-			const tfaEmail = await waitForEmail(email);
+			const tfaEmailSummary = await waitForEmail(email);
+			const tfaEmail = await getEmailContent(tfaEmailSummary.ID);
 			const tfaCode = tfaEmail.Text.match(/\b\d{6}\b/)?.[0];
 			const tfaResp = await api.verifyTFA({
 				tfa_token: loginResp.body.tfa_token,
@@ -296,7 +301,8 @@ test.describe("POST /admin/change-password", () => {
 				email,
 				password: TEST_PASSWORD,
 			});
-			const tfaEmail = await waitForEmail(email);
+			const tfaEmailSummary = await waitForEmail(email);
+			const tfaEmail = await getEmailContent(tfaEmailSummary.ID);
 			const tfaCode = tfaEmail.Text.match(/\b\d{6}\b/)?.[0];
 			const tfaResp = await api.verifyTFA({
 				tfa_token: loginResp.body.tfa_token,
@@ -325,7 +331,8 @@ test.describe("POST /admin/change-password", () => {
 				email,
 				password: TEST_PASSWORD,
 			});
-			const tfaEmail = await waitForEmail(email);
+			const tfaEmailSummary = await waitForEmail(email);
+			const tfaEmail = await getEmailContent(tfaEmailSummary.ID);
 			const tfaCode = tfaEmail.Text.match(/\b\d{6}\b/)?.[0];
 			const tfaResp = await api.verifyTFA({
 				tfa_token: loginResp.body.tfa_token,
@@ -366,7 +373,8 @@ test.describe("POST /admin/change-password", () => {
 				email,
 				password: TEST_PASSWORD,
 			});
-			const tfaEmail = await waitForEmail(email);
+			const tfaEmailSummary = await waitForEmail(email);
+			const tfaEmail = await getEmailContent(tfaEmailSummary.ID);
 			const tfaCode = tfaEmail.Text.match(/\b\d{6}\b/)?.[0];
 			const tfaResp = await api.verifyTFA({
 				tfa_token: loginResp.body.tfa_token,
@@ -395,7 +403,8 @@ test.describe("POST /admin/change-password", () => {
 				email,
 				password: TEST_PASSWORD,
 			});
-			const tfaEmail = await waitForEmail(email);
+			const tfaEmailSummary = await waitForEmail(email);
+			const tfaEmail = await getEmailContent(tfaEmailSummary.ID);
 			const tfaCode = tfaEmail.Text.match(/\b\d{6}\b/)?.[0];
 			const tfaResp = await api.verifyTFA({
 				tfa_token: loginResp.body.tfa_token,
@@ -426,7 +435,8 @@ test.describe("POST /admin/change-password", () => {
 		try {
 			// Create first session
 			const login1 = await api.login({ email, password: oldPassword });
-			const tfaEmail1 = await waitForEmail(email);
+			const tfaEmail1Summary = await waitForEmail(email);
+			const tfaEmail1 = await getEmailContent(tfaEmail1Summary.ID);
 			const tfaCode1 = tfaEmail1.Text.match(/\b\d{6}\b/)?.[0];
 			const tfa1 = await api.verifyTFA({
 				tfa_token: login1.body.tfa_token,
@@ -436,7 +446,8 @@ test.describe("POST /admin/change-password", () => {
 
 			// Create second session
 			const login2 = await api.login({ email, password: oldPassword });
-			const tfaEmail2 = await waitForEmail(email);
+			const tfaEmail2Summary = await waitForEmail(email);
+			const tfaEmail2 = await getEmailContent(tfaEmail2Summary.ID);
 			const tfaCode2 = tfaEmail2.Text.match(/\b\d{6}\b/)?.[0];
 			const tfa2 = await api.verifyTFA({
 				tfa_token: login2.body.tfa_token,
@@ -472,7 +483,8 @@ test.describe("POST /admin/change-password", () => {
 				email,
 				password: TEST_PASSWORD,
 			});
-			const tfaEmail = await waitForEmail(email);
+			const tfaEmailSummary = await waitForEmail(email);
+			const tfaEmail = await getEmailContent(tfaEmailSummary.ID);
 			const tfaCode = tfaEmail.Text.match(/\b\d{6}\b/)?.[0];
 			const tfaResp = await api.verifyTFA({
 				tfa_token: loginResp.body.tfa_token,

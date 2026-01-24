@@ -606,7 +606,7 @@ export class AdminAPIClient {
 		return {
 			status: response.status(),
 			body: undefined,
-			errors: body.errors,
+			errors: Array.isArray(body) ? body : undefined,
 		};
 	}
 
@@ -652,7 +652,7 @@ export class AdminAPIClient {
 		return {
 			status: response.status(),
 			body: undefined,
-			errors: body.errors,
+			errors: Array.isArray(body) ? body : undefined,
 		};
 	}
 
