@@ -1,26 +1,72 @@
 import { test, expect } from "@playwright/test";
+import { randomUUID } from "crypto";
 import {
-	createTestHubUser,
 	deleteTestHubUser,
 	generateTestEmail,
+	generateTestDomainName,
+	createTestAdminUser,
+	deleteTestAdminUser,
+	createTestApprovedDomain,
+	permanentlyDeleteTestApprovedDomain,
 } from "../../../lib/db";
 import { HubAPIClient } from "../../../lib/hub-api-client";
 import { getEmailVerificationTokenFromEmail } from "../../../lib/mailpit";
+import { TEST_PASSWORD } from "../../../lib/constants";
 import type {
 	HubRequestEmailChangeRequest,
 	HubCompleteEmailChangeRequest,
 	HubLoginRequest,
+	RequestSignupRequest,
+	CompleteSignupRequest,
 } from "vetchium-specs/hub/hub-users";
 
-test.describe.skip("Hub Email Change API", () => {
+/**
+ * Helper function to create a test hub user through signup API
+ */
+async function createHubUserViaSignup(
+	api: HubAPIClient,
+	email: string,
+	password: string
+): Promise<void> {
+	const requestSignup: RequestSignupRequest = { email_address: email };
+	await api.requestSignup(requestSignup);
+
+	const emailSummary = await import("../../../lib/mailpit").then((m) =>
+		m.waitForEmail(email)
+	);
+	const emailMessage = await import("../../../lib/mailpit").then((m) =>
+		m.getEmailContent(emailSummary.ID)
+	);
+	const signupToken = await import("../../../lib/db").then((m) =>
+		m.extractSignupTokenFromEmail(emailMessage)
+	);
+
+	const completeSignup: CompleteSignupRequest = {
+		signup_token: signupToken!,
+		password,
+		preferred_display_name: "Test User",
+		home_region: "ind1",
+		preferred_language: "en-US",
+		resident_country_code: "US",
+	};
+	await api.completeSignup(completeSignup);
+}
+
+test.describe("Hub Email Change API", () => {
 	test("request email change with valid new email", async ({ request }) => {
 		const api = new HubAPIClient(request);
-		const oldEmail = generateTestEmail("email-change-old");
+		const adminEmail = generateTestEmail("admin");
+		const domain = generateTestDomainName();
+		const oldEmail = `test-${randomUUID().substring(0, 8)}@${domain}`;
 		const newEmail = generateTestEmail("email-change-new");
-		const password = "Password123$";
+		const password = TEST_PASSWORD;
 
-		await createTestHubUser(oldEmail, password);
+		await createTestAdminUser(adminEmail, TEST_PASSWORD);
+		await createTestApprovedDomain(domain, adminEmail);
+
 		try {
+			await createHubUserViaSignup(api, oldEmail, password);
+
 			// Login to get session token
 			const loginRequest: HubLoginRequest = {
 				email_address: oldEmail,
@@ -53,6 +99,8 @@ test.describe.skip("Hub Email Change API", () => {
 			expect(response.body.message).toBeTruthy();
 		} finally {
 			await deleteTestHubUser(oldEmail);
+			await permanentlyDeleteTestApprovedDomain(domain);
+			await deleteTestAdminUser(adminEmail);
 		}
 	});
 
@@ -60,13 +108,19 @@ test.describe.skip("Hub Email Change API", () => {
 		request,
 	}) => {
 		const api = new HubAPIClient(request);
-		const email1 = generateTestEmail("email-change-user1");
-		const email2 = generateTestEmail("email-change-user2");
-		const password = "Password123$";
+		const adminEmail = generateTestEmail("admin");
+		const domain = generateTestDomainName();
+		const email1 = `test-${randomUUID().substring(0, 8)}@${domain}`;
+		const email2 = `test-${randomUUID().substring(0, 8)}@${domain}`;
+		const password = TEST_PASSWORD;
 
-		await createTestHubUser(email1, password);
-		await createTestHubUser(email2, password);
+		await createTestAdminUser(adminEmail, TEST_PASSWORD);
+		await createTestApprovedDomain(domain, adminEmail);
+
 		try {
+			await createHubUserViaSignup(api, email1, password);
+			await createHubUserViaSignup(api, email2, password);
+
 			// Login as user1
 			const loginRequest: HubLoginRequest = {
 				email_address: email1,
@@ -99,6 +153,8 @@ test.describe.skip("Hub Email Change API", () => {
 		} finally {
 			await deleteTestHubUser(email1);
 			await deleteTestHubUser(email2);
+			await permanentlyDeleteTestApprovedDomain(domain);
+			await deleteTestAdminUser(adminEmail);
 		}
 	});
 
@@ -106,11 +162,17 @@ test.describe.skip("Hub Email Change API", () => {
 		request,
 	}) => {
 		const api = new HubAPIClient(request);
-		const email = generateTestEmail("email-change-same");
-		const password = "Password123$";
+		const adminEmail = generateTestEmail("admin");
+		const domain = generateTestDomainName();
+		const email = `test-${randomUUID().substring(0, 8)}@${domain}`;
+		const password = TEST_PASSWORD;
 
-		await createTestHubUser(email, password);
+		await createTestAdminUser(adminEmail, TEST_PASSWORD);
+		await createTestApprovedDomain(domain, adminEmail);
+
 		try {
+			await createHubUserViaSignup(api, email, password);
+
 			// Login
 			const loginRequest: HubLoginRequest = {
 				email_address: email,
@@ -142,6 +204,8 @@ test.describe.skip("Hub Email Change API", () => {
 			expect(response.status).toBe(400);
 		} finally {
 			await deleteTestHubUser(email);
+			await permanentlyDeleteTestApprovedDomain(domain);
+			await deleteTestAdminUser(adminEmail);
 		}
 	});
 
@@ -149,11 +213,17 @@ test.describe.skip("Hub Email Change API", () => {
 		request,
 	}) => {
 		const api = new HubAPIClient(request);
-		const email = generateTestEmail("email-change-invalid");
-		const password = "Password123$";
+		const adminEmail = generateTestEmail("admin");
+		const domain = generateTestDomainName();
+		const email = `test-${randomUUID().substring(0, 8)}@${domain}`;
+		const password = TEST_PASSWORD;
 
-		await createTestHubUser(email, password);
+		await createTestAdminUser(adminEmail, TEST_PASSWORD);
+		await createTestApprovedDomain(domain, adminEmail);
+
 		try {
+			await createHubUserViaSignup(api, email, password);
+
 			// Login
 			const loginRequest: HubLoginRequest = {
 				email_address: email,
@@ -182,6 +252,8 @@ test.describe.skip("Hub Email Change API", () => {
 			expect(Array.isArray(response.errors)).toBe(true);
 		} finally {
 			await deleteTestHubUser(email);
+			await permanentlyDeleteTestApprovedDomain(domain);
+			await deleteTestAdminUser(adminEmail);
 		}
 	});
 
@@ -189,11 +261,17 @@ test.describe.skip("Hub Email Change API", () => {
 		request,
 	}) => {
 		const api = new HubAPIClient(request);
-		const email = generateTestEmail("email-change-missing");
-		const password = "Password123$";
+		const adminEmail = generateTestEmail("admin");
+		const domain = generateTestDomainName();
+		const email = `test-${randomUUID().substring(0, 8)}@${domain}`;
+		const password = TEST_PASSWORD;
 
-		await createTestHubUser(email, password);
+		await createTestAdminUser(adminEmail, TEST_PASSWORD);
+		await createTestApprovedDomain(domain, adminEmail);
+
 		try {
+			await createHubUserViaSignup(api, email, password);
+
 			// Login
 			const loginRequest: HubLoginRequest = {
 				email_address: email,
@@ -220,6 +298,8 @@ test.describe.skip("Hub Email Change API", () => {
 			expect(Array.isArray(response.errors)).toBe(true);
 		} finally {
 			await deleteTestHubUser(email);
+			await permanentlyDeleteTestApprovedDomain(domain);
+			await deleteTestAdminUser(adminEmail);
 		}
 	});
 
@@ -239,12 +319,18 @@ test.describe.skip("Hub Email Change API", () => {
 
 	test("complete email change with valid token", async ({ request }) => {
 		const api = new HubAPIClient(request);
-		const oldEmail = generateTestEmail("email-change-complete-old");
+		const adminEmail = generateTestEmail("admin");
+		const domain = generateTestDomainName();
+		const oldEmail = `test-${randomUUID().substring(0, 8)}@${domain}`;
 		const newEmail = generateTestEmail("email-change-complete-new");
-		const password = "Password123$";
+		const password = TEST_PASSWORD;
 
-		await createTestHubUser(oldEmail, password);
+		await createTestAdminUser(adminEmail, TEST_PASSWORD);
+		await createTestApprovedDomain(domain, adminEmail);
+
 		try {
+			await createHubUserViaSignup(api, oldEmail, password);
+
 			// Login
 			const loginRequest: HubLoginRequest = {
 				email_address: oldEmail,
@@ -304,6 +390,8 @@ test.describe.skip("Hub Email Change API", () => {
 		} finally {
 			await deleteTestHubUser(oldEmail).catch(() => {});
 			await deleteTestHubUser(newEmail).catch(() => {});
+			await permanentlyDeleteTestApprovedDomain(domain);
+			await deleteTestAdminUser(adminEmail);
 		}
 	});
 
@@ -311,12 +399,18 @@ test.describe.skip("Hub Email Change API", () => {
 		request,
 	}) => {
 		const api = new HubAPIClient(request);
-		const oldEmail = generateTestEmail("email-change-sessions-old");
+		const adminEmail = generateTestEmail("admin");
+		const domain = generateTestDomainName();
+		const oldEmail = `test-${randomUUID().substring(0, 8)}@${domain}`;
 		const newEmail = generateTestEmail("email-change-sessions-new");
-		const password = "Password123$";
+		const password = TEST_PASSWORD;
 
-		await createTestHubUser(oldEmail, password);
+		await createTestAdminUser(adminEmail, TEST_PASSWORD);
+		await createTestApprovedDomain(domain, adminEmail);
+
 		try {
+			await createHubUserViaSignup(api, oldEmail, password);
+
 			// Login to get session token
 			const loginRequest: HubLoginRequest = {
 				email_address: oldEmail,
@@ -361,6 +455,8 @@ test.describe.skip("Hub Email Change API", () => {
 		} finally {
 			await deleteTestHubUser(oldEmail).catch(() => {});
 			await deleteTestHubUser(newEmail).catch(() => {});
+			await permanentlyDeleteTestApprovedDomain(domain);
+			await deleteTestAdminUser(adminEmail);
 		}
 	});
 
@@ -404,14 +500,20 @@ test.describe.skip("Hub Email Change API", () => {
 		request,
 	}) => {
 		const api = new HubAPIClient(request);
-		const email1 = generateTestEmail("email-change-race1");
-		const email2 = generateTestEmail("email-change-race2");
+		const adminEmail = generateTestEmail("admin");
+		const domain = generateTestDomainName();
+		const email1 = `test-${randomUUID().substring(0, 8)}@${domain}`;
+		const email2 = `test-${randomUUID().substring(0, 8)}@${domain}`;
 		const targetEmail = generateTestEmail("email-change-race-target");
-		const password = "Password123$";
+		const password = TEST_PASSWORD;
 
-		await createTestHubUser(email1, password);
-		await createTestHubUser(email2, password);
+		await createTestAdminUser(adminEmail, TEST_PASSWORD);
+		await createTestApprovedDomain(domain, adminEmail);
+
 		try {
+			await createHubUserViaSignup(api, email1, password);
+			await createHubUserViaSignup(api, email2, password);
+
 			// User1 requests email change to targetEmail
 			const login1Request: HubLoginRequest = {
 				email_address: email1,
@@ -487,6 +589,8 @@ test.describe.skip("Hub Email Change API", () => {
 			await deleteTestHubUser(email1).catch(() => {});
 			await deleteTestHubUser(email2).catch(() => {});
 			await deleteTestHubUser(targetEmail).catch(() => {});
+			await permanentlyDeleteTestApprovedDomain(domain);
+			await deleteTestAdminUser(adminEmail);
 		}
 	});
 });
