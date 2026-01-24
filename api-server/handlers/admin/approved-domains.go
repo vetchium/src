@@ -1001,7 +1001,7 @@ func decodeDomainCursor(cursor string) (string, error) {
 }
 
 func encodeSearchCursor(score float32, domainName string) string {
-	data := fmt.Sprintf("%f|%s", score, domainName)
+	data := fmt.Sprintf("%.9g|%s", score, domainName)
 	return base64.URLEncoding.EncodeToString([]byte(data))
 }
 

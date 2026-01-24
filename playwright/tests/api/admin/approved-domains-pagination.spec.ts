@@ -839,7 +839,7 @@ test.describe("POST /admin/list-approved-domains - Pagination with Search", () =
 
 		try {
 			// Create 5 domains with unique prefix
-			const uniquePrefix = generateTestDomainName("pag-search-single");
+			const uniquePrefix = `pag-search-single-${randomUUID().substring(0, 8)}`;
 			const created = await createBulkTestDomains(
 				api,
 				sessionToken,
@@ -848,9 +848,8 @@ test.describe("POST /admin/list-approved-domains - Pagination with Search", () =
 			);
 			domainNames.push(...created);
 
-			const searchTerm = uniquePrefix.split("-")[0];
 			const response = await api.listApprovedDomains(sessionToken, {
-				search: searchTerm,
+				search: uniquePrefix,
 				limit: 10,
 			});
 
