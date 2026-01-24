@@ -13,6 +13,9 @@ import type {
 	AdminEnableUserRequest,
 } from "vetchium-specs/admin/admin-users";
 
+// Note: "Last admin protection" tests are in a dedicated file:
+// last-admin-protection.spec.ts
+
 test.describe("POST /admin/disable-user", () => {
 	test("admin successfully disables another admin user", async ({
 		request,
@@ -65,21 +68,16 @@ test.describe("POST /admin/disable-user", () => {
 		}
 	});
 
-	// SKIP: This test requires being the only active admin, which conflicts with
-	// seeded admins and parallel test execution. The handler logic is correct and
-	// tested manually. In production, this scenario is critical and works correctly.
-	// TODO: This test modifies shared seeded admin users which causes race conditions in parallel execution.
-	// Need to either: 1) Run in serial mode, 2) Create isolated environment, or 3) Implement better test isolation
-	test.skip("cannot disable the last admin user (422)", async ({ request }) => {
+	test("admin can disable themselves (when other admins exist)", async ({
+		request,
+	}) => {
 		const api = new AdminAPIClient(request);
+		const admin1Email = generateTestEmail("disable-self-admin1");
+		const admin2Email = generateTestEmail("disable-self-admin2");
 
-		// Create two test admins - we'll disable all seeded ones plus one test admin
-		// leaving only one active admin
-		const admin1Email = generateTestEmail("last-admin-test1");
-		const admin2Email = generateTestEmail("last-admin-test2");
-
+		// Create two admins so disabling self is allowed
 		const admin1Id = await createTestAdminUser(admin1Email, TEST_PASSWORD);
-		const admin2Id = await createTestAdminUser(admin2Email, TEST_PASSWORD);
+		await createTestAdminUser(admin2Email, TEST_PASSWORD);
 
 		try {
 			// Login as admin1
@@ -98,51 +96,24 @@ test.describe("POST /admin/disable-user", () => {
 			expect(tfaResponse.status).toBe(200);
 			const sessionToken = tfaResponse.body.session_token;
 
-			// Disable all seeded admins (admin1@vetchium.com, admin2@vetchium.com)
-			// Get their IDs from the database
-			const seededAdmin1 = await getTestAdminUser("admin1@vetchium.com");
-			const seededAdmin2 = await getTestAdminUser("admin2@vetchium.com");
-
-			if (seededAdmin1) {
-				await api.disableUser(sessionToken, {
-					target_user_id: seededAdmin1.admin_user_id,
-				});
-			}
-			if (seededAdmin2) {
-				await api.disableUser(sessionToken, {
-					target_user_id: seededAdmin2.admin_user_id,
-				});
-			}
-
-			// Disable admin2 (our test admin)
-			await api.disableUser(sessionToken, { target_user_id: admin2Id });
-
-			// Now admin1 is the last active admin
-			// Try to disable admin1 (last admin) - should fail with 422
-			const disableResponse = await api.disableUser(sessionToken, {
+			// Disable self - should succeed since admin2 exists
+			const disableRequest: AdminDisableUserRequest = {
 				target_user_id: admin1Id,
-			});
+			};
+			const disableResponse = await api.disableUser(
+				sessionToken,
+				disableRequest
+			);
 
-			expect(disableResponse.status).toBe(422);
+			expect(disableResponse.status).toBe(200);
 
-			// Verify admin1 is still active
-			const admin = await getTestAdminUser(admin1Email);
-			expect(admin).not.toBeNull();
-			expect(admin!.status).toBe("active");
+			// Verify admin1 is disabled
+			const admin1 = await getTestAdminUser(admin1Email);
+			expect(admin1).not.toBeNull();
+			expect(admin1!.status).toBe("disabled");
 		} finally {
 			await deleteTestAdminUser(admin1Email);
 			await deleteTestAdminUser(admin2Email);
-
-			// Re-enable seeded admins for other tests
-			const { Pool } = await import("pg");
-			const pool = new Pool({
-				connectionString:
-					"postgresql://vetchium:vetchium_dev@localhost:5432/vetchium_global",
-			});
-			await pool.query(
-				"UPDATE admin_users SET status = 'active' WHERE email_address IN ('admin1@vetchium.com', 'admin2@vetchium.com')"
-			);
-			await pool.end();
 		}
 	});
 
@@ -305,6 +276,79 @@ test.describe("POST /admin/disable-user", () => {
 
 		expect(disableResponse.status).toBe(401);
 	});
+
+	test("with invalid auth token returns 401", async ({ request }) => {
+		const api = new AdminAPIClient(request);
+
+		// Try with invalid token
+		const disableResponse = await api.disableUserRaw("invalid-token", {
+			target_user_id: "00000000-0000-0000-0000-000000000000",
+		});
+
+		expect(disableResponse.status).toBe(401);
+	});
+
+	test("session invalidated after user is disabled", async ({ request }) => {
+		const api = new AdminAPIClient(request);
+		const admin1Email = generateTestEmail("disable-session-admin1");
+		const admin2Email = generateTestEmail("disable-session-admin2");
+
+		await createTestAdminUser(admin1Email, TEST_PASSWORD);
+		const admin2Id = await createTestAdminUser(admin2Email, TEST_PASSWORD);
+
+		try {
+			// Login as admin1
+			const login1Response = await api.login({
+				email: admin1Email,
+				password: TEST_PASSWORD,
+			});
+			expect(login1Response.status).toBe(200);
+
+			const tfa1Code = await getTfaCodeFromEmail(admin1Email);
+			const tfa1Response = await api.verifyTFA({
+				tfa_token: login1Response.body.tfa_token,
+				tfa_code: tfa1Code,
+			});
+			expect(tfa1Response.status).toBe(200);
+			const sessionToken1 = tfa1Response.body.session_token;
+
+			// Login as admin2
+			const login2Response = await api.login({
+				email: admin2Email,
+				password: TEST_PASSWORD,
+			});
+			expect(login2Response.status).toBe(200);
+
+			const tfa2Code = await getTfaCodeFromEmail(admin2Email);
+			const tfa2Response = await api.verifyTFA({
+				tfa_token: login2Response.body.tfa_token,
+				tfa_code: tfa2Code,
+			});
+			expect(tfa2Response.status).toBe(200);
+			const sessionToken2 = tfa2Response.body.session_token;
+
+			// Verify admin2's session works
+			const checkResponse = await api.disableUser(sessionToken2, {
+				target_user_id: "00000000-0000-0000-0000-000000000000",
+			});
+			expect(checkResponse.status).toBe(404); // Not found, but auth passed
+
+			// Admin1 disables admin2
+			const disableResponse = await api.disableUser(sessionToken1, {
+				target_user_id: admin2Id,
+			});
+			expect(disableResponse.status).toBe(200);
+
+			// Admin2's session should now be invalid
+			const invalidResponse = await api.disableUser(sessionToken2, {
+				target_user_id: "00000000-0000-0000-0000-000000000000",
+			});
+			expect(invalidResponse.status).toBe(401);
+		} finally {
+			await deleteTestAdminUser(admin1Email);
+			await deleteTestAdminUser(admin2Email);
+		}
+	});
 });
 
 test.describe("POST /admin/enable-user", () => {
@@ -350,6 +394,58 @@ test.describe("POST /admin/enable-user", () => {
 			const admin2 = await getTestAdminUser(admin2Email);
 			expect(admin2).not.toBeNull();
 			expect(admin2!.status).toBe("active");
+		} finally {
+			await deleteTestAdminUser(admin1Email);
+			await deleteTestAdminUser(admin2Email);
+		}
+	});
+
+	test("enabled user can login again", async ({ request }) => {
+		const api = new AdminAPIClient(request);
+		const admin1Email = generateTestEmail("enable-login-admin1");
+		const admin2Email = generateTestEmail("enable-login-admin2");
+
+		// Create two admins, admin2 is disabled
+		await createTestAdminUser(admin1Email, TEST_PASSWORD);
+		const admin2Id = await createTestAdminUser(admin2Email, TEST_PASSWORD, {
+			status: "disabled",
+		});
+
+		try {
+			// Verify admin2 cannot login while disabled
+			const disabledLoginResponse = await api.login({
+				email: admin2Email,
+				password: TEST_PASSWORD,
+			});
+			expect(disabledLoginResponse.status).toBe(422);
+
+			// Login as admin1 and enable admin2
+			const loginResponse = await api.login({
+				email: admin1Email,
+				password: TEST_PASSWORD,
+			});
+			expect(loginResponse.status).toBe(200);
+
+			const tfaCode = await getTfaCodeFromEmail(admin1Email);
+			const tfaResponse = await api.verifyTFA({
+				tfa_token: loginResponse.body.tfa_token,
+				tfa_code: tfaCode,
+			});
+			expect(tfaResponse.status).toBe(200);
+			const sessionToken = tfaResponse.body.session_token;
+
+			// Enable admin2
+			const enableResponse = await api.enableUser(sessionToken, {
+				target_user_id: admin2Id,
+			});
+			expect(enableResponse.status).toBe(200);
+
+			// Now admin2 should be able to login
+			const enabledLoginResponse = await api.login({
+				email: admin2Email,
+				password: TEST_PASSWORD,
+			});
+			expect(enabledLoginResponse.status).toBe(200);
 		} finally {
 			await deleteTestAdminUser(admin1Email);
 			await deleteTestAdminUser(admin2Email);
@@ -428,6 +524,40 @@ test.describe("POST /admin/enable-user", () => {
 		}
 	});
 
+	test("invalid target_user_id format returns 400", async ({ request }) => {
+		const api = new AdminAPIClient(request);
+		const adminEmail = generateTestEmail("enable-invalid-admin");
+
+		await createTestAdminUser(adminEmail, TEST_PASSWORD);
+
+		try {
+			// Login
+			const loginResponse = await api.login({
+				email: adminEmail,
+				password: TEST_PASSWORD,
+			});
+			expect(loginResponse.status).toBe(200);
+
+			const tfaCode = await getTfaCodeFromEmail(adminEmail);
+
+			const tfaResponse = await api.verifyTFA({
+				tfa_token: loginResponse.body.tfa_token,
+				tfa_code: tfaCode,
+			});
+			expect(tfaResponse.status).toBe(200);
+			const sessionToken = tfaResponse.body.session_token;
+
+			// Try with invalid UUID
+			const enableResponse = await api.enableUserRaw(sessionToken, {
+				target_user_id: "not-a-uuid",
+			});
+
+			expect(enableResponse.status).toBe(400);
+		} finally {
+			await deleteTestAdminUser(adminEmail);
+		}
+	});
+
 	test("target user not found returns 404", async ({ request }) => {
 		const api = new AdminAPIClient(request);
 		const adminEmail = generateTestEmail("enable-notfound-admin");
@@ -472,5 +602,69 @@ test.describe("POST /admin/enable-user", () => {
 		});
 
 		expect(enableResponse.status).toBe(401);
+	});
+
+	test("with invalid auth token returns 401", async ({ request }) => {
+		const api = new AdminAPIClient(request);
+
+		// Try with invalid token
+		const enableResponse = await api.enableUserRaw("invalid-token", {
+			target_user_id: "00000000-0000-0000-0000-000000000000",
+		});
+
+		expect(enableResponse.status).toBe(401);
+	});
+
+	test("disable then enable workflow", async ({ request }) => {
+		const api = new AdminAPIClient(request);
+		const admin1Email = generateTestEmail("workflow-admin1");
+		const admin2Email = generateTestEmail("workflow-admin2");
+
+		await createTestAdminUser(admin1Email, TEST_PASSWORD);
+		const admin2Id = await createTestAdminUser(admin2Email, TEST_PASSWORD);
+
+		try {
+			// Login as admin1
+			const loginResponse = await api.login({
+				email: admin1Email,
+				password: TEST_PASSWORD,
+			});
+			expect(loginResponse.status).toBe(200);
+
+			const tfaCode = await getTfaCodeFromEmail(admin1Email);
+			const tfaResponse = await api.verifyTFA({
+				tfa_token: loginResponse.body.tfa_token,
+				tfa_code: tfaCode,
+			});
+			expect(tfaResponse.status).toBe(200);
+			const sessionToken = tfaResponse.body.session_token;
+
+			// Verify admin2 is initially active
+			let admin2 = await getTestAdminUser(admin2Email);
+			expect(admin2!.status).toBe("active");
+
+			// Disable admin2
+			const disableResponse = await api.disableUser(sessionToken, {
+				target_user_id: admin2Id,
+			});
+			expect(disableResponse.status).toBe(200);
+
+			// Verify admin2 is disabled
+			admin2 = await getTestAdminUser(admin2Email);
+			expect(admin2!.status).toBe("disabled");
+
+			// Enable admin2
+			const enableResponse = await api.enableUser(sessionToken, {
+				target_user_id: admin2Id,
+			});
+			expect(enableResponse.status).toBe(200);
+
+			// Verify admin2 is active again
+			admin2 = await getTestAdminUser(admin2Email);
+			expect(admin2!.status).toBe("active");
+		} finally {
+			await deleteTestAdminUser(admin1Email);
+			await deleteTestAdminUser(admin2Email);
+		}
 	});
 });

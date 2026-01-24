@@ -57,8 +57,22 @@ export default defineConfig({
 	projects: [
 		{
 			name: "api",
+			// Match API tests EXCEPT those requiring isolation
 			testMatch: /.*\/api\/.*\.spec\.ts/,
+			testIgnore: /.*last-admin-protection\.spec\.ts/,
 			// API tests don't need a browser
+			use: {
+				// No browser configuration needed for API tests
+			},
+		},
+		{
+			name: "api-isolated",
+			// Tests that require single-worker isolation (modify global state)
+			testMatch: /.*last-admin-protection\.spec\.ts/,
+			// Run after main API tests to avoid interference
+			dependencies: ["api"],
+			// Force serial execution within this project
+			fullyParallel: false,
 			use: {
 				// No browser configuration needed for API tests
 			},

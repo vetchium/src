@@ -91,6 +91,60 @@ export async function updateTestAdminUserStatus(
 }
 
 /**
+ * Gets all active admin user IDs except the specified one.
+ * Used for testing "last admin" protection scenarios.
+ *
+ * @param excludeAdminId - Admin ID to exclude from the result
+ * @returns Array of admin user IDs that are currently active
+ */
+export async function getAllActiveAdminIds(
+	excludeAdminId?: string
+): Promise<string[]> {
+	let query = `SELECT admin_user_id FROM admin_users WHERE status = 'active'`;
+	const params: string[] = [];
+
+	if (excludeAdminId) {
+		query += ` AND admin_user_id != $1`;
+		params.push(excludeAdminId);
+	}
+
+	const result = await pool.query(query, params);
+	return result.rows.map((row) => row.admin_user_id);
+}
+
+/**
+ * Updates the status of multiple admin users by their IDs.
+ * Used for testing "last admin" protection scenarios.
+ *
+ * @param adminIds - Array of admin user IDs to update
+ * @param status - New status to set
+ */
+export async function updateAdminUserStatusByIds(
+	adminIds: string[],
+	status: AdminUserStatus
+): Promise<void> {
+	if (adminIds.length === 0) return;
+
+	await pool.query(
+		`UPDATE admin_users SET status = $1 WHERE admin_user_id = ANY($2::uuid[])`,
+		[status, adminIds]
+	);
+}
+
+/**
+ * Counts the number of active admin users.
+ * Used to verify "last admin" protection state.
+ *
+ * @returns Number of active admin users
+ */
+export async function countActiveAdminUsers(): Promise<number> {
+	const result = await pool.query(
+		`SELECT COUNT(*) as count FROM admin_users WHERE status = 'active'`
+	);
+	return parseInt(result.rows[0].count);
+}
+
+/**
  * Updates the preferred language of a test admin user.
  *
  * @param email - Email of the admin user to update
