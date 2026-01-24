@@ -107,9 +107,9 @@ func RequestPasswordReset(s *server.Server) http.HandlerFunc {
 		// Store token in regional DB with expiry
 		expiresAt := time.Now().Add(passwordResetTokenExpiryHours * time.Hour)
 		err = regionalDB.CreateOrgPasswordResetToken(ctx, regionaldb.CreateOrgPasswordResetTokenParams{
-			ResetToken:       resetToken,
-			OrgUserGlobalID:  globalUser.OrgUserID,
-			ExpiresAt:        pgtype.Timestamp{Time: expiresAt, Valid: true},
+			ResetToken:      resetToken,
+			OrgUserGlobalID: globalUser.OrgUserID,
+			ExpiresAt:       pgtype.Timestamp{Time: expiresAt, Valid: true},
 		})
 		if err != nil {
 			log.Error("failed to create reset token", "error", err)

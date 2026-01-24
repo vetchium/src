@@ -5,7 +5,11 @@ import {
 	deleteTestAdminUser,
 	generateTestEmail,
 } from "../../../lib/db";
-import { waitForEmail, extractPasswordResetToken, getEmailContent } from "../../../lib/mailpit";
+import {
+	waitForEmail,
+	extractPasswordResetToken,
+	getEmailContent,
+} from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
 
 test.describe("POST /admin/request-password-reset", () => {
@@ -84,9 +88,7 @@ test.describe("POST /admin/request-password-reset", () => {
 });
 
 test.describe("POST /admin/complete-password-reset", () => {
-	test("successful reset with valid token returns 200", async ({
-		request,
-	}) => {
+	test("successful reset with valid token returns 200", async ({ request }) => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("pwd-reset-complete");
 		const oldPassword = TEST_PASSWORD;
@@ -199,9 +201,7 @@ test.describe("POST /admin/complete-password-reset", () => {
 		expect(response.errors).toBeDefined();
 	});
 
-	test("all sessions invalidated after password reset", async ({
-		request,
-	}) => {
+	test("all sessions invalidated after password reset", async ({ request }) => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("pwd-reset-sessions");
 		const oldPassword = TEST_PASSWORD;

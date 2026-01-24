@@ -122,9 +122,7 @@ test.describe("POST /employer/request-password-reset", () => {
 });
 
 test.describe("POST /employer/complete-password-reset", () => {
-	test("successful reset with valid token returns 200", async ({
-		request,
-	}) => {
+	test("successful reset with valid token returns 200", async ({ request }) => {
 		const api = new OrgAPIClient(request);
 		const { email, domain } = generateTestOrgEmail("pwd-reset-complete");
 		const oldPassword = TEST_PASSWORD;
@@ -237,9 +235,7 @@ test.describe("POST /employer/complete-password-reset", () => {
 		expect(response.errors).toBeDefined();
 	});
 
-	test("all sessions invalidated after password reset", async ({
-		request,
-	}) => {
+	test("all sessions invalidated after password reset", async ({ request }) => {
 		const api = new OrgAPIClient(request);
 		const { email, domain } = generateTestOrgEmail("pwd-reset-sessions");
 		const oldPassword = TEST_PASSWORD;
@@ -413,7 +409,9 @@ test.describe("POST /employer/change-password", () => {
 
 	test("missing current_password returns 400", async ({ request }) => {
 		const api = new OrgAPIClient(request);
-		const { email, domain } = generateTestOrgEmail("pwd-change-missing-current");
+		const { email, domain } = generateTestOrgEmail(
+			"pwd-change-missing-current"
+		);
 
 		await createTestOrgAdminDirect(email, TEST_PASSWORD);
 		try {

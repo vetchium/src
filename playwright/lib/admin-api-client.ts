@@ -549,12 +549,9 @@ export class AdminAPIClient {
 	async requestPasswordReset(
 		request: AdminRequestPasswordResetRequest
 	): Promise<APIResponse<AdminRequestPasswordResetResponse>> {
-		const response = await this.request.post(
-			"/admin/request-password-reset",
-			{
-				data: request,
-			}
-		);
+		const response = await this.request.post("/admin/request-password-reset", {
+			data: request,
+		});
 
 		const body = await response.json().catch(() => ({}));
 		return {
@@ -570,12 +567,9 @@ export class AdminAPIClient {
 	async requestPasswordResetRaw(
 		body: unknown
 	): Promise<APIResponse<AdminRequestPasswordResetResponse>> {
-		const response = await this.request.post(
-			"/admin/request-password-reset",
-			{
-				data: body,
-			}
-		);
+		const response = await this.request.post("/admin/request-password-reset", {
+			data: body,
+		});
 
 		const responseBody = await response.json().catch(() => ({}));
 		return {
@@ -595,12 +589,9 @@ export class AdminAPIClient {
 	async completePasswordReset(
 		request: AdminCompletePasswordResetRequest
 	): Promise<APIResponse<void>> {
-		const response = await this.request.post(
-			"/admin/complete-password-reset",
-			{
-				data: request,
-			}
-		);
+		const response = await this.request.post("/admin/complete-password-reset", {
+			data: request,
+		});
 
 		const body = await response.json().catch(() => ({}));
 		return {
@@ -613,15 +604,10 @@ export class AdminAPIClient {
 	/**
 	 * POST /admin/complete-password-reset with raw body for testing invalid payloads
 	 */
-	async completePasswordResetRaw(
-		body: unknown
-	): Promise<APIResponse<void>> {
-		const response = await this.request.post(
-			"/admin/complete-password-reset",
-			{
-				data: body,
-			}
-		);
+	async completePasswordResetRaw(body: unknown): Promise<APIResponse<void>> {
+		const response = await this.request.post("/admin/complete-password-reset", {
+			data: body,
+		});
 
 		const responseBody = await response.json().catch(() => ({}));
 		return {

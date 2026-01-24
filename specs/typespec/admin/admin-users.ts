@@ -291,9 +291,7 @@ export function validateAdminChangePasswordRequest(
 	} else {
 		const currentPasswordErr = validatePassword(request.current_password);
 		if (currentPasswordErr) {
-			errs.push(
-				newValidationError("current_password", currentPasswordErr)
-			);
+			errs.push(newValidationError("current_password", currentPasswordErr));
 		}
 	}
 

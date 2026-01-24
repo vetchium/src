@@ -716,9 +716,7 @@ export class OrgAPIClient {
 	/**
 	 * POST /employer/complete-password-reset with raw body for testing invalid payloads
 	 */
-	async completePasswordResetRaw(
-		body: unknown
-	): Promise<APIResponse<void>> {
+	async completePasswordResetRaw(body: unknown): Promise<APIResponse<void>> {
 		const response = await this.request.post(
 			"/employer/complete-password-reset",
 			{
