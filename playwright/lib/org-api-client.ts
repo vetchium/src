@@ -14,6 +14,10 @@ import type {
 	OrgCompleteSetupResponse,
 	OrgDisableUserRequest,
 	OrgEnableUserRequest,
+	OrgRequestPasswordResetRequest,
+	OrgRequestPasswordResetResponse,
+	OrgCompletePasswordResetRequest,
+	OrgChangePasswordRequest,
 } from "vetchium-specs/org/org-users";
 import type {
 	ClaimDomainRequest,
@@ -618,6 +622,154 @@ export class OrgAPIClient {
 		body: unknown
 	): Promise<APIResponse<void>> {
 		const response = await this.request.post("/employer/enable-user", {
+			headers: {
+				Authorization: `Bearer ${sessionToken}`,
+			},
+			data: body,
+		});
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: undefined,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	// ============================================================================
+	// Password Management
+	// ============================================================================
+
+	/**
+	 * POST /employer/request-password-reset
+	 * Requests a password reset for an org user.
+	 * Always returns 200 to prevent email enumeration.
+	 *
+	 * @param request - Password reset request with email_address and domain
+	 * @returns API response with generic success message
+	 */
+	async requestPasswordReset(
+		request: OrgRequestPasswordResetRequest
+	): Promise<APIResponse<OrgRequestPasswordResetResponse>> {
+		const response = await this.request.post(
+			"/employer/request-password-reset",
+			{
+				data: request,
+			}
+		);
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as OrgRequestPasswordResetResponse,
+			errors: body.errors,
+		};
+	}
+
+	/**
+	 * POST /employer/request-password-reset with raw body for testing invalid payloads
+	 */
+	async requestPasswordResetRaw(
+		body: unknown
+	): Promise<APIResponse<OrgRequestPasswordResetResponse>> {
+		const response = await this.request.post(
+			"/employer/request-password-reset",
+			{
+				data: body,
+			}
+		);
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as OrgRequestPasswordResetResponse,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	/**
+	 * POST /employer/complete-password-reset
+	 * Completes password reset with reset token and new password.
+	 * Invalidates all existing sessions for the user.
+	 *
+	 * @param request - Complete password reset request with reset_token and new_password
+	 * @returns API response (empty body on success)
+	 */
+	async completePasswordReset(
+		request: OrgCompletePasswordResetRequest
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post(
+			"/employer/complete-password-reset",
+			{
+				data: request,
+			}
+		);
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: undefined,
+			errors: Array.isArray(body) ? body : undefined,
+		};
+	}
+
+	/**
+	 * POST /employer/complete-password-reset with raw body for testing invalid payloads
+	 */
+	async completePasswordResetRaw(
+		body: unknown
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post(
+			"/employer/complete-password-reset",
+			{
+				data: body,
+			}
+		);
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: undefined,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	/**
+	 * POST /employer/change-password
+	 * Changes password for an authenticated org user.
+	 * Invalidates all sessions except the current one.
+	 *
+	 * @param sessionToken - Session token of the authenticated user
+	 * @param request - Change password request with current_password and new_password
+	 * @returns API response (empty body on success)
+	 */
+	async changePassword(
+		sessionToken: string,
+		request: OrgChangePasswordRequest
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/employer/change-password", {
+			headers: {
+				Authorization: `Bearer ${sessionToken}`,
+			},
+			data: request,
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: undefined,
+			errors: Array.isArray(body) ? body : undefined,
+		};
+	}
+
+	/**
+	 * POST /employer/change-password with raw body for testing invalid payloads
+	 */
+	async changePasswordRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/employer/change-password", {
 			headers: {
 				Authorization: `Bearer ${sessionToken}`,
 			},

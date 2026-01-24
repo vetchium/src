@@ -139,6 +139,14 @@ CREATE TABLE org_sessions (
     expires_at TIMESTAMP NOT NULL
 );
 
+-- Org password reset tokens
+CREATE TABLE org_password_reset_tokens (
+    reset_token TEXT PRIMARY KEY NOT NULL,
+    org_user_global_id UUID NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMP NOT NULL
+);
+
 -- Org invitation tokens for user invitations
 CREATE TABLE org_invitation_tokens (
     invitation_token TEXT PRIMARY KEY NOT NULL,
@@ -192,6 +200,14 @@ CREATE TABLE agency_sessions (
     expires_at TIMESTAMP NOT NULL
 );
 
+-- Agency password reset tokens
+CREATE TABLE agency_password_reset_tokens (
+    reset_token TEXT PRIMARY KEY NOT NULL,
+    agency_user_global_id UUID NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMP NOT NULL
+);
+
 -- Agency invitation tokens for user invitations
 CREATE TABLE agency_invitation_tokens (
     invitation_token TEXT PRIMARY KEY NOT NULL,
@@ -210,6 +226,7 @@ CREATE INDEX idx_hub_email_verification_tokens_expires_at ON hub_email_verificat
 CREATE INDEX idx_org_tfa_tokens_expires_at ON org_tfa_tokens(expires_at);
 CREATE INDEX idx_org_sessions_expires_at ON org_sessions(expires_at);
 CREATE INDEX idx_org_sessions_org_user_id ON org_sessions(org_user_id);
+CREATE INDEX idx_org_password_reset_tokens_expires_at ON org_password_reset_tokens(expires_at);
 CREATE INDEX idx_org_invitation_tokens_expires_at ON org_invitation_tokens(expires_at);
 CREATE INDEX idx_org_users_email_address ON org_users(email_address);
 CREATE INDEX idx_org_users_employer_id ON org_users(employer_id);
@@ -218,6 +235,7 @@ CREATE INDEX idx_employer_domains_status ON employer_domains(status);
 CREATE INDEX idx_agency_tfa_tokens_expires_at ON agency_tfa_tokens(expires_at);
 CREATE INDEX idx_agency_sessions_expires_at ON agency_sessions(expires_at);
 CREATE INDEX idx_agency_sessions_agency_user_id ON agency_sessions(agency_user_id);
+CREATE INDEX idx_agency_password_reset_tokens_expires_at ON agency_password_reset_tokens(expires_at);
 CREATE INDEX idx_agency_invitation_tokens_expires_at ON agency_invitation_tokens(expires_at);
 CREATE INDEX idx_agency_users_email_address ON agency_users(email_address);
 CREATE INDEX idx_agency_users_agency_id ON agency_users(agency_id);
@@ -226,6 +244,7 @@ CREATE INDEX idx_agency_users_agency_id ON agency_users(agency_id);
 DROP INDEX IF EXISTS idx_agency_users_agency_id;
 DROP INDEX IF EXISTS idx_agency_users_email_address;
 DROP INDEX IF EXISTS idx_agency_invitation_tokens_expires_at;
+DROP INDEX IF EXISTS idx_agency_password_reset_tokens_expires_at;
 DROP INDEX IF EXISTS idx_agency_sessions_agency_user_id;
 DROP INDEX IF EXISTS idx_agency_sessions_expires_at;
 DROP INDEX IF EXISTS idx_agency_tfa_tokens_expires_at;
@@ -234,6 +253,7 @@ DROP INDEX IF EXISTS idx_employer_domains_employer_id;
 DROP INDEX IF EXISTS idx_org_users_employer_id;
 DROP INDEX IF EXISTS idx_org_users_email_address;
 DROP INDEX IF EXISTS idx_org_invitation_tokens_expires_at;
+DROP INDEX IF EXISTS idx_org_password_reset_tokens_expires_at;
 DROP INDEX IF EXISTS idx_org_sessions_org_user_id;
 DROP INDEX IF EXISTS idx_org_sessions_expires_at;
 DROP INDEX IF EXISTS idx_org_tfa_tokens_expires_at;
@@ -243,11 +263,13 @@ DROP INDEX IF EXISTS idx_hub_sessions_hub_user_global_id;
 DROP INDEX IF EXISTS idx_hub_sessions_expires_at;
 DROP INDEX IF EXISTS idx_hub_tfa_tokens_expires_at;
 DROP TABLE IF EXISTS agency_invitation_tokens;
+DROP TABLE IF EXISTS agency_password_reset_tokens;
 DROP TABLE IF EXISTS agency_sessions;
 DROP TABLE IF EXISTS agency_tfa_tokens;
 DROP TABLE IF EXISTS agency_users;
 DROP TABLE IF EXISTS employer_domains;
 DROP TABLE IF EXISTS org_invitation_tokens;
+DROP TABLE IF EXISTS org_password_reset_tokens;
 DROP TABLE IF EXISTS org_sessions;
 DROP TABLE IF EXISTS org_tfa_tokens;
 DROP TABLE IF EXISTS org_users;

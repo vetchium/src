@@ -12,6 +12,7 @@ type OrgTFAToken string
 type DNSVerificationToken string
 type OrgSignupToken string
 type OrgInvitationToken string
+type OrgPasswordResetToken string
 
 // ============================================
 // Signup Flow (DNS-based Domain Verification)
@@ -270,6 +271,86 @@ func (r OrgEnableUserRequest) Validate() []common.ValidationError {
 
 	if r.TargetUserID == "" {
 		errs = append(errs, common.NewValidationError("target_user_id", common.ErrRequired))
+	}
+
+	return errs
+}
+
+// ============================================================================
+// Org Password Management
+// ============================================================================
+
+type OrgRequestPasswordResetRequest struct {
+	EmailAddress common.EmailAddress `json:"email_address"`
+	Domain       common.DomainName   `json:"domain"`
+}
+
+func (r OrgRequestPasswordResetRequest) Validate() []common.ValidationError {
+	var errs []common.ValidationError
+
+	if r.EmailAddress == "" {
+		errs = append(errs, common.NewValidationError("email_address", common.ErrRequired))
+	} else if err := r.EmailAddress.Validate(); err != nil {
+		errs = append(errs, common.NewValidationError("email_address", err))
+	}
+
+	if r.Domain == "" {
+		errs = append(errs, common.NewValidationError("domain", common.ErrRequired))
+	} else if err := r.Domain.Validate(); err != nil {
+		errs = append(errs, common.NewValidationError("domain", err))
+	}
+
+	return errs
+}
+
+type OrgRequestPasswordResetResponse struct {
+	Message string `json:"message"`
+}
+
+type OrgCompletePasswordResetRequest struct {
+	ResetToken  OrgPasswordResetToken `json:"reset_token"`
+	NewPassword common.Password       `json:"new_password"`
+}
+
+func (r OrgCompletePasswordResetRequest) Validate() []common.ValidationError {
+	var errs []common.ValidationError
+
+	if r.ResetToken == "" {
+		errs = append(errs, common.NewValidationError("reset_token", common.ErrRequired))
+	}
+
+	if r.NewPassword == "" {
+		errs = append(errs, common.NewValidationError("new_password", common.ErrRequired))
+	} else if err := r.NewPassword.Validate(); err != nil {
+		errs = append(errs, common.NewValidationError("new_password", err))
+	}
+
+	return errs
+}
+
+type OrgChangePasswordRequest struct {
+	CurrentPassword common.Password `json:"current_password"`
+	NewPassword     common.Password `json:"new_password"`
+}
+
+func (r OrgChangePasswordRequest) Validate() []common.ValidationError {
+	var errs []common.ValidationError
+
+	if r.CurrentPassword == "" {
+		errs = append(errs, common.NewValidationError("current_password", common.ErrRequired))
+	} else if err := r.CurrentPassword.Validate(); err != nil {
+		errs = append(errs, common.NewValidationError("current_password", err))
+	}
+
+	if r.NewPassword == "" {
+		errs = append(errs, common.NewValidationError("new_password", common.ErrRequired))
+	} else if err := r.NewPassword.Validate(); err != nil {
+		errs = append(errs, common.NewValidationError("new_password", err))
+	}
+
+	// Check if current and new passwords are the same
+	if r.CurrentPassword != "" && r.NewPassword != "" && r.CurrentPassword == r.NewPassword {
+		errs = append(errs, common.NewValidationError("new_password", common.ErrNewPasswordSameAsCurrent))
 	}
 
 	return errs

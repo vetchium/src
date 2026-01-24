@@ -135,6 +135,28 @@ DELETE FROM org_sessions WHERE org_user_id = $1;
 DELETE FROM org_sessions WHERE org_user_id = $1 AND session_token != $2;
 
 -- ============================================
+-- Org Password Reset Token Queries
+-- ============================================
+
+-- name: CreateOrgPasswordResetToken :exec
+INSERT INTO org_password_reset_tokens (reset_token, org_user_global_id, expires_at)
+VALUES ($1, $2, $3);
+
+-- name: GetOrgPasswordResetToken :one
+SELECT * FROM org_password_reset_tokens WHERE reset_token = $1 AND expires_at > NOW();
+
+-- name: DeleteOrgPasswordResetToken :exec
+DELETE FROM org_password_reset_tokens WHERE reset_token = $1;
+
+-- name: DeleteExpiredOrgPasswordResetTokens :exec
+DELETE FROM org_password_reset_tokens WHERE expires_at <= NOW();
+
+-- name: UpdateOrgUserPassword :exec
+UPDATE org_users
+SET password_hash = $2
+WHERE org_user_id = $1;
+
+-- ============================================
 -- Org Invitation Token Queries
 -- ============================================
 
@@ -259,6 +281,31 @@ DELETE FROM agency_sessions WHERE expires_at <= NOW();
 
 -- name: DeleteAllAgencySessionsForUser :exec
 DELETE FROM agency_sessions WHERE agency_user_id = $1;
+
+-- name: DeleteAllAgencySessionsExceptCurrent :exec
+DELETE FROM agency_sessions WHERE agency_user_id = $1 AND session_token != $2;
+
+-- ============================================
+-- Agency Password Reset Token Queries
+-- ============================================
+
+-- name: CreateAgencyPasswordResetToken :exec
+INSERT INTO agency_password_reset_tokens (reset_token, agency_user_global_id, expires_at)
+VALUES ($1, $2, $3);
+
+-- name: GetAgencyPasswordResetToken :one
+SELECT * FROM agency_password_reset_tokens WHERE reset_token = $1 AND expires_at > NOW();
+
+-- name: DeleteAgencyPasswordResetToken :exec
+DELETE FROM agency_password_reset_tokens WHERE reset_token = $1;
+
+-- name: DeleteExpiredAgencyPasswordResetTokens :exec
+DELETE FROM agency_password_reset_tokens WHERE expires_at <= NOW();
+
+-- name: UpdateAgencyUserPassword :exec
+UPDATE agency_users
+SET password_hash = $2
+WHERE agency_user_id = $1;
 
 -- ============================================
 -- Hub Email Verification Token Queries
