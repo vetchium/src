@@ -411,22 +411,32 @@ export async function deleteEmailsFor(toEmail: string): Promise<void> {
 
 /**
  * Extracts the password reset token from an email body.
- * The token is a region-prefixed token in the format: REGION-{64-char-hex}
- * Example: IND1-abc123def456...
+ * Handles both admin tokens (no prefix) and regional user tokens (with prefix).
+ * - Admin tokens: 64-character hex string
+ * - Regional tokens: REGION-{64-char-hex} (e.g., IND1-abc123...)
  *
- * @param emailText - Plain text email body
- * @returns The region-prefixed reset token
+ * @param emailText - Plain text email body or MailpitMessage object
+ * @returns The reset token (with or without region prefix)
  * @throws Error if no reset token is found
  */
-export function extractPasswordResetToken(emailText: string): string {
-	// Look for region-prefixed token pattern: (IND1|USA1|DEU1)-{64-char hex}
-	const match = emailText.match(/\b(IND1|USA1|DEU1)-([a-f0-9]{64})\b/);
-	if (!match) {
-		throw new Error(
-			`No password reset token found in email: ${emailText.substring(0, 200)}...`
-		);
+export function extractPasswordResetToken(emailText: string | MailpitMessage): string {
+	const text = typeof emailText === 'string' ? emailText : emailText.Text;
+
+	// Try region-prefixed token first (for hub/org/agency users)
+	const regionalMatch = text.match(/\b(IND1|USA1|DEU1)-([a-f0-9]{64})\b/);
+	if (regionalMatch) {
+		return regionalMatch[0];
 	}
-	return match[0]; // Return full match including region prefix
+
+	// Try admin token (no region prefix, just 64-char hex)
+	const adminMatch = text.match(/\b([a-f0-9]{64})\b/);
+	if (adminMatch) {
+		return adminMatch[1];
+	}
+
+	throw new Error(
+		`No password reset token found in email: ${text.substring(0, 200)}...`
+	);
 }
 
 /**

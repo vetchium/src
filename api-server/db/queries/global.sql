@@ -685,3 +685,26 @@ WHERE admin_user_id = $1;
 
 -- name: DeleteAdminUser :exec
 DELETE FROM admin_users WHERE admin_user_id = $1;
+
+-- Admin password reset token queries
+
+-- name: CreateAdminPasswordResetToken :exec
+INSERT INTO admin_password_reset_tokens (reset_token, admin_user_id, expires_at)
+VALUES ($1, $2, $3);
+
+-- name: GetAdminPasswordResetToken :one
+SELECT * FROM admin_password_reset_tokens WHERE reset_token = $1 AND expires_at > NOW();
+
+-- name: DeleteAdminPasswordResetToken :exec
+DELETE FROM admin_password_reset_tokens WHERE reset_token = $1;
+
+-- name: DeleteExpiredAdminPasswordResetTokens :exec
+DELETE FROM admin_password_reset_tokens WHERE expires_at <= NOW();
+
+-- name: UpdateAdminUserPassword :exec
+UPDATE admin_users
+SET password_hash = $2
+WHERE admin_user_id = $1;
+
+-- name: DeleteAllAdminSessionsExceptCurrent :exec
+DELETE FROM admin_sessions WHERE admin_user_id = $1 AND session_token != $2;

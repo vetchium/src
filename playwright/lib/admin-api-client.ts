@@ -7,6 +7,10 @@ import {
 	AdminSetLanguageRequest,
 	AdminDisableUserRequest,
 	AdminEnableUserRequest,
+	AdminRequestPasswordResetRequest,
+	AdminRequestPasswordResetResponse,
+	AdminCompletePasswordResetRequest,
+	AdminChangePasswordRequest,
 } from "vetchium-specs/admin/admin-users";
 import type {
 	AddApprovedDomainRequest,
@@ -522,6 +526,144 @@ export class AdminAPIClient {
 		body: unknown
 	): Promise<APIResponse<void>> {
 		const response = await this.request.post("/admin/enable-user", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: body,
+		});
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: undefined,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	/**
+	 * POST /admin/request-password-reset
+	 * Requests a password reset for the given email address.
+	 * Always returns 200 to prevent email enumeration.
+	 *
+	 * @param request - Password reset request with email address
+	 * @returns API response with generic message
+	 */
+	async requestPasswordReset(
+		request: AdminRequestPasswordResetRequest
+	): Promise<APIResponse<AdminRequestPasswordResetResponse>> {
+		const response = await this.request.post(
+			"/admin/request-password-reset",
+			{
+				data: request,
+			}
+		);
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as AdminRequestPasswordResetResponse,
+			errors: body.errors,
+		};
+	}
+
+	/**
+	 * POST /admin/request-password-reset with raw body for testing invalid payloads
+	 */
+	async requestPasswordResetRaw(
+		body: unknown
+	): Promise<APIResponse<AdminRequestPasswordResetResponse>> {
+		const response = await this.request.post(
+			"/admin/request-password-reset",
+			{
+				data: body,
+			}
+		);
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as AdminRequestPasswordResetResponse,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	/**
+	 * POST /admin/complete-password-reset
+	 * Completes the password reset using the reset token.
+	 *
+	 * @param request - Password reset completion request
+	 * @returns API response (empty body on success)
+	 */
+	async completePasswordReset(
+		request: AdminCompletePasswordResetRequest
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post(
+			"/admin/complete-password-reset",
+			{
+				data: request,
+			}
+		);
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: undefined,
+			errors: body.errors,
+		};
+	}
+
+	/**
+	 * POST /admin/complete-password-reset with raw body for testing invalid payloads
+	 */
+	async completePasswordResetRaw(
+		body: unknown
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post(
+			"/admin/complete-password-reset",
+			{
+				data: body,
+			}
+		);
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: undefined,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	/**
+	 * POST /admin/change-password
+	 * Changes the password for the authenticated admin user.
+	 *
+	 * @param sessionToken - Valid session token
+	 * @param request - Password change request
+	 * @returns API response (empty body on success)
+	 */
+	async changePassword(
+		sessionToken: string,
+		request: AdminChangePasswordRequest
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/admin/change-password", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: undefined,
+			errors: body.errors,
+		};
+	}
+
+	/**
+	 * POST /admin/change-password with raw body for testing invalid payloads
+	 */
+	async changePasswordRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/admin/change-password", {
 			headers: { Authorization: `Bearer ${sessionToken}` },
 			data: body,
 		});

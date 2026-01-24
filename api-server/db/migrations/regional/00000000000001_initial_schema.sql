@@ -12,6 +12,7 @@ CREATE TYPE email_status AS ENUM (
 CREATE TYPE email_template_type AS ENUM (
     'admin_tfa',
     'admin_invitation',
+    'admin_password_reset',
     'hub_signup_verification',
     'hub_tfa',
     'hub_password_reset',
@@ -20,10 +21,12 @@ CREATE TYPE email_template_type AS ENUM (
     'org_signup_token',
     'org_tfa',
     'org_invitation',
+    'org_password_reset',
     'agency_signup_verification',
     'agency_signup_token',
     'agency_tfa',
-    'agency_invitation'
+    'agency_invitation',
+    'agency_password_reset'
 );
 
 -- Authentication type enum (extensible for future SSO, hardware tokens, etc.)

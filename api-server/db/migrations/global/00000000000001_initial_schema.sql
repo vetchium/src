@@ -103,6 +103,14 @@ CREATE TABLE admin_invitation_tokens (
     expires_at TIMESTAMP NOT NULL
 );
 
+-- Admin password reset tokens
+CREATE TABLE admin_password_reset_tokens (
+    reset_token TEXT PRIMARY KEY NOT NULL,
+    admin_user_id UUID NOT NULL REFERENCES admin_users(admin_user_id) ON DELETE CASCADE,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMP NOT NULL
+);
+
 -- Supported languages table for UI dropdowns
 CREATE TABLE supported_languages (
     language_code TEXT PRIMARY KEY,
@@ -306,6 +314,7 @@ CREATE TABLE agency_signup_tokens (
 CREATE INDEX idx_admin_tfa_tokens_expires_at ON admin_tfa_tokens(expires_at);
 CREATE INDEX idx_admin_sessions_expires_at ON admin_sessions(expires_at);
 CREATE INDEX idx_admin_invitation_tokens_expires_at ON admin_invitation_tokens(expires_at);
+CREATE INDEX idx_admin_password_reset_tokens_expires_at ON admin_password_reset_tokens(expires_at);
 CREATE INDEX idx_hub_signup_tokens_expires_at ON hub_signup_tokens(expires_at);
 CREATE INDEX idx_hub_signup_tokens_email_hash ON hub_signup_tokens(email_address_hash);
 CREATE UNIQUE INDEX idx_hub_user_display_names_preferred
@@ -339,6 +348,7 @@ DROP INDEX IF EXISTS idx_org_signup_tokens_expires_at;
 DROP INDEX IF EXISTS idx_hub_user_display_names_preferred;
 DROP INDEX IF EXISTS idx_hub_signup_tokens_email_hash;
 DROP INDEX IF EXISTS idx_hub_signup_tokens_expires_at;
+DROP INDEX IF EXISTS idx_admin_password_reset_tokens_expires_at;
 DROP INDEX IF EXISTS idx_admin_invitation_tokens_expires_at;
 DROP INDEX IF EXISTS idx_admin_sessions_expires_at;
 DROP INDEX IF EXISTS idx_admin_tfa_tokens_expires_at;
@@ -358,6 +368,7 @@ DROP TRIGGER IF EXISTS approved_domains_updated_at ON approved_domains;
 DROP FUNCTION IF EXISTS update_approved_domains_updated_at();
 DROP TABLE IF EXISTS approved_domains;
 DROP TABLE IF EXISTS supported_languages;
+DROP TABLE IF EXISTS admin_password_reset_tokens;
 DROP TABLE IF EXISTS admin_invitation_tokens;
 DROP TABLE IF EXISTS admin_sessions;
 DROP TABLE IF EXISTS admin_tfa_tokens;

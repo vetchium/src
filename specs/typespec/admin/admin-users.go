@@ -7,6 +7,7 @@ import (
 type AdminTFAToken string
 type AdminSessionToken string
 type AdminInvitationToken string
+type AdminPasswordResetToken string
 
 type AdminLoginRequest struct {
 	EmailAddress common.EmailAddress `json:"email"`
@@ -158,6 +159,69 @@ func (r AdminEnableUserRequest) Validate() []common.ValidationError {
 
 	if r.TargetUserID == "" {
 		errs = append(errs, common.NewValidationError("target_user_id", common.ErrRequired))
+	}
+
+	return errs
+}
+
+// ============================================
+// Password Management
+// ============================================
+
+type AdminRequestPasswordResetRequest struct {
+	EmailAddress common.EmailAddress `json:"email_address"`
+}
+
+func (r AdminRequestPasswordResetRequest) Validate() []common.ValidationError {
+	var errs []common.ValidationError
+
+	if err := r.EmailAddress.Validate(); err != nil {
+		errs = append(errs, common.NewValidationError("email_address", err))
+	}
+
+	return errs
+}
+
+type AdminRequestPasswordResetResponse struct {
+	Message string `json:"message"`
+}
+
+type AdminCompletePasswordResetRequest struct {
+	ResetToken  AdminPasswordResetToken `json:"reset_token"`
+	NewPassword common.Password         `json:"new_password"`
+}
+
+func (r AdminCompletePasswordResetRequest) Validate() []common.ValidationError {
+	var errs []common.ValidationError
+
+	if r.ResetToken == "" {
+		errs = append(errs, common.NewValidationError("reset_token", common.ErrRequired))
+	}
+	if err := r.NewPassword.Validate(); err != nil {
+		errs = append(errs, common.NewValidationError("new_password", err))
+	}
+
+	return errs
+}
+
+type AdminChangePasswordRequest struct {
+	CurrentPassword common.Password `json:"current_password"`
+	NewPassword     common.Password `json:"new_password"`
+}
+
+func (r AdminChangePasswordRequest) Validate() []common.ValidationError {
+	var errs []common.ValidationError
+
+	if err := r.CurrentPassword.Validate(); err != nil {
+		errs = append(errs, common.NewValidationError("current_password", err))
+	}
+	if err := r.NewPassword.Validate(); err != nil {
+		errs = append(errs, common.NewValidationError("new_password", err))
+	}
+
+	// Check if current and new passwords are the same
+	if r.CurrentPassword != "" && r.NewPassword != "" && r.CurrentPassword == r.NewPassword {
+		errs = append(errs, common.NewValidationError("new_password", common.ErrNewPasswordSameAsCurrent))
 	}
 
 	return errs
