@@ -188,7 +188,7 @@ test.describe("POST /hub/request-password-reset", () => {
 		expect(response.errors).toBeDefined();
 	});
 
-	test.skip("email with plus sign returns 400", async ({ request }) => {
+	test("email with plus sign returns 400", async ({ request }) => {
 		const api = new HubAPIClient(request);
 
 		const response = await api.requestPasswordResetRaw({

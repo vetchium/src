@@ -68,7 +68,7 @@ test.describe("POST /admin/disable-user", () => {
 	// SKIP: This test requires being the only active admin, which conflicts with
 	// seeded admins and parallel test execution. The handler logic is correct and
 	// tested manually. In production, this scenario is critical and works correctly.
-	test.skip("cannot disable the last admin user (422)", async ({ request }) => {
+	test("cannot disable the last admin user (422)", async ({ request }) => {
 		const api = new AdminAPIClient(request);
 
 		// Create two test admins - we'll disable all seeded ones plus one test admin

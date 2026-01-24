@@ -18,7 +18,7 @@ export const TFA_CODE_LENGTH = 6;
 export const FULL_NAME_MIN_LENGTH = 1;
 export const FULL_NAME_MAX_LENGTH = 128;
 
-const EMAIL_PATTERN = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+const EMAIL_PATTERN = /^[a-zA-Z0-9._%\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
 const LANGUAGE_CODE_PATTERN = /^[a-z]{2}(-[A-Z]{2})?$/;
 const DOMAIN_NAME_PATTERN =
 	/^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$/;
