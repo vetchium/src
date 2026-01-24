@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { randomUUID } from "crypto";
 import { AdminAPIClient } from "../../../lib/admin-api-client";
 import {
 	createTestAdminUser,
@@ -288,21 +289,23 @@ test.describe("POST /admin/list-approved-domains - Cursor Navigation", () => {
 
 		try {
 			// Create 3 domains, request with limit=10
+			// Use unique prefix for this test to avoid collisions with parallel tests
+			const uniquePrefix = `pag-single-${randomUUID().substring(0, 8)}`;
 			const created = await createBulkTestDomains(
 				api,
 				sessionToken,
 				3,
-				generateTestDomainName("pag-single")
+				uniquePrefix
 			);
 			domainNames.push(...created);
 
 			const response = await api.listApprovedDomains(sessionToken, {
 				limit: 10,
-				search: generateTestDomainName("pag-single").split("-")[0],
+				search: uniquePrefix,
 			});
 
 			expect(response.status).toBe(200);
-			expect(response.body.domains.length).toBeLessThanOrEqual(3);
+			expect(response.body.domains.length).toBe(3);
 			expect(response.body.has_more).toBe(false);
 			expect(response.body.next_cursor).toBe("");
 		} finally {
@@ -323,17 +326,19 @@ test.describe("POST /admin/list-approved-domains - Cursor Navigation", () => {
 
 		try {
 			// Create exactly 10 domains, request with limit=10
+			// Use unique prefix for this test to avoid collisions with parallel tests
+			const uniquePrefix = `pag-exact-${randomUUID().substring(0, 8)}`;
 			const created = await createBulkTestDomains(
 				api,
 				sessionToken,
 				10,
-				generateTestDomainName("pag-exact")
+				uniquePrefix
 			);
 			domainNames.push(...created);
 
 			const response = await api.listApprovedDomains(sessionToken, {
 				limit: 10,
-				search: generateTestDomainName("pag-exact").split("-")[0],
+				search: uniquePrefix,
 			});
 
 			expect(response.status).toBe(200);
@@ -360,17 +365,19 @@ test.describe("POST /admin/list-approved-domains - Cursor Navigation", () => {
 
 		try {
 			// Create 25 domains, request with limit=10
+			// Use unique prefix for this test to avoid collisions with parallel tests
+			const uniquePrefix = `pag-first-${randomUUID().substring(0, 8)}`;
 			const created = await createBulkTestDomains(
 				api,
 				sessionToken,
 				25,
-				generateTestDomainName("pag-first")
+				uniquePrefix
 			);
 			domainNames.push(...created);
 
 			const response = await api.listApprovedDomains(sessionToken, {
 				limit: 10,
-				search: generateTestDomainName("pag-first").split("-")[0],
+				search: uniquePrefix,
 			});
 
 			expect(response.status).toBe(200);
@@ -395,18 +402,20 @@ test.describe("POST /admin/list-approved-domains - Cursor Navigation", () => {
 
 		try {
 			// Create 25 domains, navigate to page 2
+			// Use unique prefix for this test to avoid collisions with parallel tests
+			const uniquePrefix = `pag-middle-${randomUUID().substring(0, 8)}`;
 			const created = await createBulkTestDomains(
 				api,
 				sessionToken,
 				25,
-				generateTestDomainName("pag-middle")
+				uniquePrefix
 			);
 			domainNames.push(...created);
 
 			// Get first page
 			const page1 = await api.listApprovedDomains(sessionToken, {
 				limit: 10,
-				search: generateTestDomainName("pag-middle").split("-")[0],
+				search: uniquePrefix,
 			});
 
 			expect(page1.body.has_more).toBe(true);
@@ -416,7 +425,7 @@ test.describe("POST /admin/list-approved-domains - Cursor Navigation", () => {
 			const page2 = await api.listApprovedDomains(sessionToken, {
 				limit: 10,
 				cursor: page1.body.next_cursor,
-				search: generateTestDomainName("pag-middle").split("-")[0],
+				search: uniquePrefix,
 			});
 
 			expect(page2.status).toBe(200);
@@ -449,34 +458,34 @@ test.describe("POST /admin/list-approved-domains - Cursor Navigation", () => {
 
 		try {
 			// Create 25 domains, navigate to last page
+			// Use unique prefix for this test to avoid collisions with parallel tests
+			const uniquePrefix = `pag-last-${randomUUID().substring(0, 8)}`;
 			const created = await createBulkTestDomains(
 				api,
 				sessionToken,
 				25,
-				generateTestDomainName("pag-last")
+				uniquePrefix
 			);
 			domainNames.push(...created);
-
-			const searchPrefix = generateTestDomainName("pag-last").split("-")[0];
 
 			// Get first page
 			const page1 = await api.listApprovedDomains(sessionToken, {
 				limit: 10,
-				search: searchPrefix,
+				search: uniquePrefix,
 			});
 
 			// Get second page
 			const page2 = await api.listApprovedDomains(sessionToken, {
 				limit: 10,
 				cursor: page1.body.next_cursor,
-				search: searchPrefix,
+				search: uniquePrefix,
 			});
 
 			// Get third page (last page, should have 5 domains)
 			const page3 = await api.listApprovedDomains(sessionToken, {
 				limit: 10,
 				cursor: page2.body.next_cursor,
-				search: searchPrefix,
+				search: uniquePrefix,
 			});
 
 			expect(page3.status).toBe(200);
@@ -554,15 +563,16 @@ test.describe("POST /admin/list-approved-domains - Cursor Navigation", () => {
 
 		try {
 			// Create 5 domains
+			// Use unique prefix for this test to avoid collisions with parallel tests
+			const uniquePrefix = `pag-nav-${randomUUID().substring(0, 8)}`;
 			const created = await createBulkTestDomains(
 				api,
 				sessionToken,
 				5,
-				generateTestDomainName("pag-nav")
+				uniquePrefix
 			);
 			domainNames.push(...created);
 
-			const searchPrefix = generateTestDomainName("pag-nav").split("-")[0];
 			const allDomains: string[] = [];
 			let cursor = "";
 			let hasMore = true;
@@ -572,7 +582,7 @@ test.describe("POST /admin/list-approved-domains - Cursor Navigation", () => {
 				const response = await api.listApprovedDomains(sessionToken, {
 					limit: 1,
 					cursor: cursor || undefined,
-					search: searchPrefix,
+					search: uniquePrefix,
 				});
 
 				expect(response.status).toBe(200);
@@ -610,22 +620,21 @@ test.describe("POST /admin/list-approved-domains - Pagination with Filters", () 
 
 		try {
 			// Create 15 active domains
+			// Use unique prefix for this test to avoid collisions with parallel tests
+			const uniquePrefix = `pag-filt-active-${randomUUID().substring(0, 8)}`;
 			const created = await createBulkTestDomains(
 				api,
 				sessionToken,
 				15,
-				generateTestDomainName("pag-filt-active")
+				uniquePrefix
 			);
 			domainNames.push(...created);
-
-			const searchPrefix =
-				generateTestDomainName("pag-filt-active").split("-")[0];
 
 			// Get first page
 			const page1 = await api.listApprovedDomains(sessionToken, {
 				limit: 10,
 				filter: "active",
-				search: searchPrefix,
+				search: uniquePrefix,
 			});
 
 			expect(page1.status).toBe(200);
@@ -637,7 +646,7 @@ test.describe("POST /admin/list-approved-domains - Pagination with Filters", () 
 				limit: 10,
 				cursor: page1.body.next_cursor,
 				filter: "active",
-				search: searchPrefix,
+				search: uniquePrefix,
 			});
 
 			expect(page2.status).toBe(200);
@@ -661,11 +670,13 @@ test.describe("POST /admin/list-approved-domains - Pagination with Filters", () 
 
 		try {
 			// Create 15 domains and disable all of them
+			// Use unique prefix for this test to avoid collisions with parallel tests
+			const uniquePrefix = `pag-filt-inactive-${randomUUID().substring(0, 8)}`;
 			const created = await createBulkTestDomains(
 				api,
 				sessionToken,
 				15,
-				generateTestDomainName("pag-filt-inactive")
+				uniquePrefix
 			);
 			domainNames.push(...created);
 
@@ -677,14 +688,11 @@ test.describe("POST /admin/list-approved-domains - Pagination with Filters", () 
 				});
 			}
 
-			const searchPrefix =
-				generateTestDomainName("pag-filt-inactive").split("-")[0];
-
 			// Get first page
 			const page1 = await api.listApprovedDomains(sessionToken, {
 				limit: 10,
 				filter: "inactive",
-				search: searchPrefix,
+				search: uniquePrefix,
 			});
 
 			expect(page1.status).toBe(200);
@@ -698,7 +706,7 @@ test.describe("POST /admin/list-approved-domains - Pagination with Filters", () 
 				limit: 10,
 				cursor: page1.body.next_cursor,
 				filter: "inactive",
-				search: searchPrefix,
+				search: uniquePrefix,
 			});
 
 			expect(page2.status).toBe(200);
@@ -724,11 +732,13 @@ test.describe("POST /admin/list-approved-domains - Pagination with Filters", () 
 
 		try {
 			// Create 20 domains
+			// Use unique prefix for this test to avoid collisions with parallel tests
+			const uniquePrefix = `pag-filt-all-${randomUUID().substring(0, 8)}`;
 			const created = await createBulkTestDomains(
 				api,
 				sessionToken,
 				20,
-				generateTestDomainName("pag-filt-all")
+				uniquePrefix
 			);
 			domainNames.push(...created);
 
@@ -740,13 +750,11 @@ test.describe("POST /admin/list-approved-domains - Pagination with Filters", () 
 				});
 			}
 
-			const searchPrefix = generateTestDomainName("pag-filt-all").split("-")[0];
-
 			// Get first page
 			const page1 = await api.listApprovedDomains(sessionToken, {
 				limit: 10,
 				filter: "all",
-				search: searchPrefix,
+				search: uniquePrefix,
 			});
 
 			expect(page1.status).toBe(200);
@@ -757,7 +765,7 @@ test.describe("POST /admin/list-approved-domains - Pagination with Filters", () 
 				limit: 10,
 				cursor: page1.body.next_cursor,
 				filter: "all",
-				search: searchPrefix,
+				search: uniquePrefix,
 			});
 
 			expect(page2.status).toBe(200);
@@ -868,7 +876,8 @@ test.describe("POST /admin/list-approved-domains - Pagination with Search", () =
 
 		try {
 			// Create 25 domains with unique prefix
-			const uniquePrefix = generateTestDomainName("pag-search-multi");
+			// Use unique prefix for this test to avoid collisions with parallel tests
+			const uniquePrefix = `pag-search-multi-${randomUUID().substring(0, 8)}`;
 			const created = await createBulkTestDomains(
 				api,
 				sessionToken,
@@ -877,11 +886,9 @@ test.describe("POST /admin/list-approved-domains - Pagination with Search", () =
 			);
 			domainNames.push(...created);
 
-			const searchTerm = uniquePrefix.split("-")[0];
-
 			// Get first page
 			const page1 = await api.listApprovedDomains(sessionToken, {
-				search: searchTerm,
+				search: uniquePrefix,
 				limit: 10,
 			});
 
@@ -892,7 +899,7 @@ test.describe("POST /admin/list-approved-domains - Pagination with Search", () =
 
 			// Get second page
 			const page2 = await api.listApprovedDomains(sessionToken, {
-				search: searchTerm,
+				search: uniquePrefix,
 				limit: 10,
 				cursor: page1.body.next_cursor,
 			});
@@ -922,7 +929,8 @@ test.describe("POST /admin/list-approved-domains - Pagination with Search", () =
 
 		try {
 			// Create 15 domains
-			const uniquePrefix = generateTestDomainName("pag-search-filter");
+			// Use unique prefix for this test to avoid collisions with parallel tests
+			const uniquePrefix = `pag-search-filter-${randomUUID().substring(0, 8)}`;
 			const created = await createBulkTestDomains(
 				api,
 				sessionToken,
@@ -939,11 +947,9 @@ test.describe("POST /admin/list-approved-domains - Pagination with Search", () =
 				});
 			}
 
-			const searchTerm = uniquePrefix.split("-")[0];
-
 			// Search with filter=active
 			const response = await api.listApprovedDomains(sessionToken, {
-				search: searchTerm,
+				search: uniquePrefix,
 				filter: "active",
 				limit: 20,
 			});
