@@ -168,7 +168,7 @@ export async function waitForEmail(
 
 		// If subject pattern provided, filter messages
 		const filteredMessages = subjectPattern
-			? messages.filter(msg => subjectPattern.test(msg.Subject))
+			? messages.filter((msg) => subjectPattern.test(msg.Subject))
 			: messages;
 
 		if (filteredMessages.length > 0) {
@@ -186,7 +186,9 @@ export async function waitForEmail(
 		}
 	}
 
-	const patternMsg = subjectPattern ? ` matching subject pattern ${subjectPattern}` : '';
+	const patternMsg = subjectPattern
+		? ` matching subject pattern ${subjectPattern}`
+		: "";
 	throw new Error(
 		`No email received for ${toEmail}${patternMsg} after ${
 			cfg.maxRetries
@@ -471,11 +473,18 @@ export async function getPasswordResetTokenFromEmail(
 	for (let attempt = 1; attempt <= cfg.maxRetries; attempt++) {
 		const messages = await searchEmails(toEmail);
 
-		// Search through emails to find one with a password reset token
-		for (const msg of messages) {
+		// Filter to only password reset emails by subject
+		const passwordResetPattern = /reset.*password|password.*reset/i;
+		const passwordResetEmails = messages.filter((msg) =>
+			passwordResetPattern.test(msg.Subject)
+		);
+
+		// Search through password reset emails only
+		for (const msg of passwordResetEmails) {
 			const fullMessage = await getEmailContent(msg.ID);
 			try {
-				return extractPasswordResetToken(fullMessage.Text);
+				const token = extractPasswordResetToken(fullMessage);
+				return token;
 			} catch {
 				// Continue to next email
 			}
