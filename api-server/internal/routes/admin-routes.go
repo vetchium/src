@@ -31,4 +31,8 @@ func RegisterAdminRoutes(mux *http.ServeMux, s *server.Server) {
 	mux.Handle("POST /admin/get-approved-domain", authMiddleware(admin.GetApprovedDomain(s)))
 	mux.Handle("POST /admin/disable-approved-domain", authMiddleware(admin.DisableApprovedDomain(s)))
 	mux.Handle("POST /admin/enable-approved-domain", authMiddleware(admin.EnableApprovedDomain(s)))
+
+	// RBAC routes
+	mux.Handle("POST /admin/assign-role", authMiddleware(admin.AssignRole(s)))
+	mux.Handle("POST /admin/remove-role", authMiddleware(admin.RemoveRole(s)))
 }

@@ -26,4 +26,8 @@ func RegisterAgencyRoutes(mux *http.ServeMux, s *server.Server) {
 	mux.Handle("POST /agency/invite-user", agencyAuth(agency.InviteUser(s)))
 	mux.Handle("POST /agency/disable-user", agencyAuth(agency.DisableUser(s)))
 	mux.Handle("POST /agency/enable-user", agencyAuth(agency.EnableUser(s)))
+
+	// RBAC routes
+	mux.Handle("POST /agency/assign-role", agencyAuth(agency.AssignRole(s)))
+	mux.Handle("POST /agency/remove-role", agencyAuth(agency.RemoveRole(s)))
 }
