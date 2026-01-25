@@ -50,7 +50,7 @@ test.describe("POST /agency/invite-user", () => {
 
 			// Invite new user
 			const inviteRequest: AgencyInviteUserRequest = {
-				email: inviteeEmail,
+				email_address: inviteeEmail,
 				full_name: "Test Invitee",
 			};
 			const inviteResponse = await api.inviteUser(sessionToken, inviteRequest);
@@ -114,7 +114,7 @@ test.describe("POST /agency/invite-user", () => {
 
 			// Try to invite new user (should fail)
 			const inviteRequest: AgencyInviteUserRequest = {
-				email: inviteeEmail,
+				email_address: inviteeEmail,
 				full_name: "Test Invitee",
 			};
 			const inviteResponse = await api.inviteUser(sessionToken, inviteRequest);
@@ -169,7 +169,7 @@ test.describe("POST /agency/invite-user", () => {
 
 			// Try to invite existing user
 			const inviteRequest: AgencyInviteUserRequest = {
-				email: existingEmail,
+				email_address: existingEmail,
 				full_name: "Existing User",
 			};
 			const inviteResponse = await api.inviteUser(sessionToken, inviteRequest);
@@ -243,7 +243,7 @@ test.describe("POST /agency/invite-user", () => {
 
 			// Try to invite without full_name
 			const inviteResponse = await api.inviteUserRaw(sessionToken, {
-				email: inviteeEmail,
+				email_address: inviteeEmail,
 			});
 
 			expect(inviteResponse.status).toBe(400);
@@ -277,7 +277,7 @@ test.describe("POST /agency/invite-user", () => {
 
 			// Try to invite with invalid email
 			const inviteRequest: AgencyInviteUserRequest = {
-				email: "not-an-email",
+				email_address: "not-an-email",
 				full_name: "Test User",
 			};
 			const inviteResponse = await api.inviteUser(sessionToken, inviteRequest);
@@ -316,7 +316,7 @@ test.describe("POST /agency/invite-user", () => {
 
 			// Try to invite with empty full_name
 			const inviteRequest: AgencyInviteUserRequest = {
-				email: inviteeEmail,
+				email_address: inviteeEmail,
 				full_name: "",
 			};
 			const inviteResponse = await api.inviteUser(sessionToken, inviteRequest);
@@ -334,7 +334,7 @@ test.describe("POST /agency/invite-user", () => {
 		);
 
 		const inviteRequest: AgencyInviteUserRequest = {
-			email: inviteeEmail,
+			email_address: inviteeEmail,
 			full_name: "Test User",
 		};
 		const inviteResponse = await api.inviteUserWithoutAuth(inviteRequest);
@@ -349,7 +349,7 @@ test.describe("POST /agency/invite-user", () => {
 		);
 
 		const inviteRequest: AgencyInviteUserRequest = {
-			email: inviteeEmail,
+			email_address: inviteeEmail,
 			full_name: "Test User",
 		};
 		const inviteResponse = await api.inviteUser(

@@ -177,6 +177,31 @@ func (p Password) Validate() error {
 	if len(p) > PasswordMaxLength {
 		return ErrPasswordTooLong
 	}
+
+	// Check complexity
+	s := string(p)
+	hasUpper := false
+	hasLower := false
+	hasNumber := false
+	hasSpecial := false
+
+	for _, char := range s {
+		switch {
+		case char >= 'A' && char <= 'Z':
+			hasUpper = true
+		case char >= 'a' && char <= 'z':
+			hasLower = true
+		case char >= '0' && char <= '9':
+			hasNumber = true
+		case strings.ContainsRune("!@#$%^&*()_+-=[]{}|;:,.<>?", char):
+			hasSpecial = true
+		}
+	}
+
+	if !hasUpper || !hasLower || !hasNumber || !hasSpecial {
+		return errors.New("must contain at least one uppercase letter, one lowercase letter, one number, and one special character")
+	}
+
 	return nil
 }
 

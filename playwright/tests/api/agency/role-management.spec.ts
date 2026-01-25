@@ -28,7 +28,7 @@ test.describe("POST /agency/assign-role", () => {
 			adminEmail,
 			TEST_PASSWORD
 		);
-		const { userId: targetUserId } = await createTestAgencyUserDirect(
+		const { agencyUserId: targetUserId } = await createTestAgencyUserDirect(
 			targetEmail,
 			TEST_PASSWORD,
 			"ind1",
@@ -80,7 +80,7 @@ test.describe("POST /agency/assign-role", () => {
 			adminEmail,
 			TEST_PASSWORD
 		);
-		const { userId: targetUserId } = await createTestAgencyUserDirect(
+		const { agencyUserId: targetUserId } = await createTestAgencyUserDirect(
 			targetEmail,
 			TEST_PASSWORD,
 			"ind1",
@@ -108,6 +108,7 @@ test.describe("POST /agency/assign-role", () => {
 				role_name: "manage_users",
 			};
 			await api.assignRole(sessionToken, assignRequest);
+
 
 			// Try to assign same role again
 			const conflictResponse = await api.assignRole(
@@ -139,7 +140,7 @@ test.describe("POST /agency/assign-role", () => {
 			agencyId,
 			domain,
 		});
-		const { userId: targetUserId } = await createTestAgencyUserDirect(
+		const { agencyUserId: targetUserId } = await createTestAgencyUserDirect(
 			targetEmail,
 			TEST_PASSWORD,
 			"ind1",
@@ -226,7 +227,7 @@ test.describe("POST /agency/assign-role", () => {
 			adminEmail,
 			TEST_PASSWORD
 		);
-		const { userId: targetUserId } = await createTestAgencyUserDirect(
+		const { agencyUserId: targetUserId } = await createTestAgencyUserDirect(
 			targetEmail,
 			TEST_PASSWORD,
 			"ind1",
@@ -301,7 +302,7 @@ test.describe("POST /agency/assign-role", () => {
 		const { email: targetEmail } =
 			generateTestAgencyEmail("role-noauth-target");
 
-		const { userId: targetUserId } = await createTestAgencyUserDirect(
+		const { agencyUserId: targetUserId } = await createTestAgencyUserDirect(
 			targetEmail,
 			TEST_PASSWORD
 		);
@@ -325,7 +326,7 @@ test.describe("POST /agency/assign-role", () => {
 			"role-badsession-target"
 		);
 
-		const { userId: targetUserId } = await createTestAgencyUserDirect(
+		const { agencyUserId: targetUserId } = await createTestAgencyUserDirect(
 			targetEmail,
 			TEST_PASSWORD
 		);
@@ -361,7 +362,7 @@ test.describe("POST /agency/remove-role", () => {
 			adminEmail,
 			TEST_PASSWORD
 		);
-		const { userId: targetUserId } = await createTestAgencyUserDirect(
+		const { agencyUserId: targetUserId } = await createTestAgencyUserDirect(
 			targetEmail,
 			TEST_PASSWORD,
 			"ind1",
@@ -416,7 +417,7 @@ test.describe("POST /agency/remove-role", () => {
 			adminEmail,
 			TEST_PASSWORD
 		);
-		const { userId: targetUserId } = await createTestAgencyUserDirect(
+		const { agencyUserId: targetUserId } = await createTestAgencyUserDirect(
 			targetEmail,
 			TEST_PASSWORD,
 			"ind1",
@@ -495,7 +496,7 @@ test.describe("POST /agency/remove-role", () => {
 		const { email: targetEmail } =
 			generateTestAgencyEmail("role-remove-noauth");
 
-		const { userId: targetUserId } = await createTestAgencyUserDirect(
+		const { agencyUserId: targetUserId } = await createTestAgencyUserDirect(
 			targetEmail,
 			TEST_PASSWORD
 		);
@@ -517,7 +518,7 @@ test.describe("POST /agency/remove-role", () => {
 		const api = new AgencyAPIClient(request);
 		const { email: targetEmail } = generateTestAgencyEmail("role-remove-bad");
 
-		const { userId: targetUserId } = await createTestAgencyUserDirect(
+		const { agencyUserId: targetUserId } = await createTestAgencyUserDirect(
 			targetEmail,
 			TEST_PASSWORD
 		);

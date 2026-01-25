@@ -27,7 +27,7 @@ test.describe("POST /employer/assign-role", () => {
 			adminEmail,
 			TEST_PASSWORD
 		);
-		const { userId: targetUserId } = await createTestOrgUserDirect(
+		const { orgUserId: targetUserId } = await createTestOrgUserDirect(
 			targetEmail,
 			TEST_PASSWORD,
 			"ind1",
@@ -37,7 +37,7 @@ test.describe("POST /employer/assign-role", () => {
 		try {
 			// Login as admin
 			const loginResponse = await api.login({
-				email_address: adminEmail,
+				email: adminEmail,
 				domain: domain,
 				password: TEST_PASSWORD,
 			});
@@ -77,7 +77,7 @@ test.describe("POST /employer/assign-role", () => {
 			adminEmail,
 			TEST_PASSWORD
 		);
-		const { userId: targetUserId } = await createTestOrgUserDirect(
+		const { orgUserId: targetUserId } = await createTestOrgUserDirect(
 			targetEmail,
 			TEST_PASSWORD,
 			"ind1",
@@ -87,7 +87,7 @@ test.describe("POST /employer/assign-role", () => {
 		try {
 			// Login
 			const loginResponse = await api.login({
-				email_address: adminEmail,
+				email: adminEmail,
 				domain: domain,
 				password: TEST_PASSWORD,
 			});
@@ -134,7 +134,7 @@ test.describe("POST /employer/assign-role", () => {
 			employerId,
 			domain,
 		});
-		const { userId: targetUserId } = await createTestOrgUserDirect(
+		const { orgUserId: targetUserId } = await createTestOrgUserDirect(
 			targetEmail,
 			TEST_PASSWORD,
 			"ind1",
@@ -144,7 +144,7 @@ test.describe("POST /employer/assign-role", () => {
 		try {
 			// Login as non-admin
 			const loginResponse = await api.login({
-				email_address: userEmail,
+				email: userEmail,
 				domain: domain,
 				password: TEST_PASSWORD,
 			});
@@ -184,7 +184,7 @@ test.describe("POST /employer/assign-role", () => {
 		try {
 			// Login
 			const loginResponse = await api.login({
-				email_address: adminEmail,
+				email: adminEmail,
 				domain: domain,
 				password: TEST_PASSWORD,
 			});
@@ -219,7 +219,7 @@ test.describe("POST /employer/assign-role", () => {
 			adminEmail,
 			TEST_PASSWORD
 		);
-		const { userId: targetUserId } = await createTestOrgUserDirect(
+		const { orgUserId: targetUserId } = await createTestOrgUserDirect(
 			targetEmail,
 			TEST_PASSWORD,
 			"ind1",
@@ -229,7 +229,7 @@ test.describe("POST /employer/assign-role", () => {
 		try {
 			// Login
 			const loginResponse = await api.login({
-				email_address: adminEmail,
+				email: adminEmail,
 				domain: domain,
 				password: TEST_PASSWORD,
 			});
@@ -266,7 +266,7 @@ test.describe("POST /employer/assign-role", () => {
 		try {
 			// Login
 			const loginResponse = await api.login({
-				email_address: adminEmail,
+				email: adminEmail,
 				domain: domain,
 				password: TEST_PASSWORD,
 			});
@@ -293,7 +293,7 @@ test.describe("POST /employer/assign-role", () => {
 		const api = new OrgAPIClient(request);
 		const { email: targetEmail } = generateTestOrgEmail("role-noauth-target");
 
-		const { userId: targetUserId } = await createTestOrgUserDirect(
+		const { orgUserId: targetUserId } = await createTestOrgUserDirect(
 			targetEmail,
 			TEST_PASSWORD
 		);
@@ -317,7 +317,7 @@ test.describe("POST /employer/assign-role", () => {
 			"role-badsession-target"
 		);
 
-		const { userId: targetUserId } = await createTestOrgUserDirect(
+		const { orgUserId: targetUserId } = await createTestOrgUserDirect(
 			targetEmail,
 			TEST_PASSWORD
 		);
@@ -352,7 +352,7 @@ test.describe("POST /employer/remove-role", () => {
 			adminEmail,
 			TEST_PASSWORD
 		);
-		const { userId: targetUserId } = await createTestOrgUserDirect(
+		const { orgUserId: targetUserId } = await createTestOrgUserDirect(
 			targetEmail,
 			TEST_PASSWORD,
 			"ind1",
@@ -362,7 +362,7 @@ test.describe("POST /employer/remove-role", () => {
 		try {
 			// Login
 			const loginResponse = await api.login({
-				email_address: adminEmail,
+				email: adminEmail,
 				domain: domain,
 				password: TEST_PASSWORD,
 			});
@@ -405,7 +405,7 @@ test.describe("POST /employer/remove-role", () => {
 			adminEmail,
 			TEST_PASSWORD
 		);
-		const { userId: targetUserId } = await createTestOrgUserDirect(
+		const { orgUserId: targetUserId } = await createTestOrgUserDirect(
 			targetEmail,
 			TEST_PASSWORD,
 			"ind1",
@@ -415,7 +415,7 @@ test.describe("POST /employer/remove-role", () => {
 		try {
 			// Login
 			const loginResponse = await api.login({
-				email_address: adminEmail,
+				email: adminEmail,
 				domain: domain,
 				password: TEST_PASSWORD,
 			});
@@ -454,7 +454,7 @@ test.describe("POST /employer/remove-role", () => {
 		try {
 			// Login
 			const loginResponse = await api.login({
-				email_address: adminEmail,
+				email: adminEmail,
 				domain: domain,
 				password: TEST_PASSWORD,
 			});
@@ -483,7 +483,7 @@ test.describe("POST /employer/remove-role", () => {
 		const api = new OrgAPIClient(request);
 		const { email: targetEmail } = generateTestOrgEmail("role-remove-noauth");
 
-		const { userId: targetUserId } = await createTestOrgUserDirect(
+		const { orgUserId: targetUserId } = await createTestOrgUserDirect(
 			targetEmail,
 			TEST_PASSWORD
 		);
@@ -505,7 +505,7 @@ test.describe("POST /employer/remove-role", () => {
 		const api = new OrgAPIClient(request);
 		const { email: targetEmail } = generateTestOrgEmail("role-remove-bad");
 
-		const { userId: targetUserId } = await createTestOrgUserDirect(
+		const { orgUserId: targetUserId } = await createTestOrgUserDirect(
 			targetEmail,
 			TEST_PASSWORD
 		);
