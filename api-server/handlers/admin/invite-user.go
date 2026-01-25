@@ -102,13 +102,18 @@ func InviteUser(s *server.Server) http.HandlerFunc {
 			Valid: true,
 		}
 
+		language := "en-US"
+		if req.PreferredLanguage != "" {
+			language = string(req.PreferredLanguage)
+		}
+
 		// Create admin user in global DB with status='invited'
 		createdUser, err := s.Global.CreateAdminUser(ctx, globaldb.CreateAdminUserParams{
 			AdminUserID:       newAdminUserID,
 			EmailAddress:      string(req.EmailAddress),
 			FullName:          pgtype.Text{String: string(req.FullName), Valid: true},
 			Status:            globaldb.AdminUserStatusInvited,
-			PreferredLanguage: adminUser.PreferredLanguage, // Inherit from inviter
+			PreferredLanguage: language,
 		})
 		if err != nil {
 			log.Error("failed to create admin user", "error", err)

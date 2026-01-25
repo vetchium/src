@@ -189,8 +189,9 @@ type AgencyLogoutRequest struct{}
 // ============================================================================
 
 type AgencyInviteUserRequest struct {
-	EmailAddress common.EmailAddress `json:"email_address"`
-	FullName     common.FullName     `json:"full_name"`
+	EmailAddress      common.EmailAddress `json:"email_address"`
+	FullName          common.FullName     `json:"full_name"`
+	PreferredLanguage common.LanguageCode `json:"preferred_language"`
 }
 
 func (r AgencyInviteUserRequest) Validate() []common.ValidationError {
@@ -354,11 +355,19 @@ func (r AgencyChangePasswordRequest) Validate() []common.ValidationError {
 // User Management (Filter Users)
 // ============================================
 
+type AgencyRole string
+
+const (
+	AgencyRoleInviteUsers AgencyRole = "invite_users"
+	AgencyRoleManageUsers AgencyRole = "manage_users"
+)
+
 type AgencyUser struct {
 	EmailAddress common.EmailAddress `json:"email_address"`
 	Name         string              `json:"name"`
 	Status       string              `json:"status"`
 	CreatedAt    string              `json:"created_at"`
+	Roles        []AgencyRole        `json:"roles"`
 }
 
 type FilterAgencyUsersRequest struct {

@@ -157,11 +157,17 @@ func FilterUsers(s *server.Server) http.HandlerFunc {
 				continue
 			}
 
+			var roles []agency.AgencyRole
+			for _, r := range user.Roles {
+				roles = append(roles, agency.AgencyRole(r))
+			}
+
 			responseItems = append(responseItems, agency.AgencyUser{
 				EmailAddress: common.EmailAddress(user.EmailAddress),
 				Name:         user.FullName.String,
 				Status:       status,
 				CreatedAt:    user.CreatedAt.Time.UTC().Format(time.RFC3339),
+				Roles:        roles,
 			})
 		}
 

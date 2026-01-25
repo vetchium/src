@@ -190,8 +190,9 @@ type OrgLogoutRequest struct{}
 // ============================================
 
 type OrgInviteUserRequest struct {
-	EmailAddress common.EmailAddress `json:"email_address"`
-	FullName     common.FullName     `json:"full_name"`
+	EmailAddress      common.EmailAddress `json:"email_address"`
+	FullName          common.FullName     `json:"full_name"`
+	PreferredLanguage common.LanguageCode `json:"preferred_language"`
 }
 
 func (r OrgInviteUserRequest) Validate() []common.ValidationError {
@@ -207,6 +208,11 @@ func (r OrgInviteUserRequest) Validate() []common.ValidationError {
 		errs = append(errs, common.NewValidationError("full_name", common.ErrRequired))
 	} else if err := r.FullName.Validate(); err != nil {
 		errs = append(errs, common.NewValidationError("full_name", err))
+	}
+	if r.PreferredLanguage != "" {
+		if err := r.PreferredLanguage.Validate(); err != nil {
+			errs = append(errs, common.NewValidationError("preferred_language", err))
+		}
 	}
 
 	return errs
@@ -365,11 +371,19 @@ func (r OrgChangePasswordRequest) Validate() []common.ValidationError {
 // User Management (Filter Users)
 // ============================================
 
+type OrgRole string
+
+const (
+	OrgRoleInviteUsers OrgRole = "invite_users"
+	OrgRoleManageUsers OrgRole = "manage_users"
+)
+
 type OrgUser struct {
 	EmailAddress common.EmailAddress `json:"email_address"`
 	Name         string              `json:"name"`
 	Status       string              `json:"status"`
 	CreatedAt    string              `json:"created_at"`
+	Roles        []OrgRole           `json:"roles"`
 }
 
 type FilterOrgUsersRequest struct {

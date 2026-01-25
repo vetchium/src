@@ -1,5 +1,4 @@
 -- +goose Up
-
 -- Email status enum
 CREATE TYPE email_status AS ENUM (
     'pending',
@@ -7,7 +6,6 @@ CREATE TYPE email_status AS ENUM (
     'failed',
     'cancelled'
 );
-
 -- Email template type enum
 CREATE TYPE email_template_type AS ENUM (
     'admin_tfa',
@@ -28,7 +26,6 @@ CREATE TYPE email_template_type AS ENUM (
     'agency_invitation',
     'agency_password_reset'
 );
-
 -- Authentication type enum (extensible for future SSO, hardware tokens, etc.)
 CREATE TYPE authentication_type AS ENUM (
     'email_password',
@@ -36,14 +33,8 @@ CREATE TYPE authentication_type AS ENUM (
     'sso_saml',
     'hardware_token'
 );
-
 -- Domain verification status enum
-CREATE TYPE domain_verification_status AS ENUM (
-    'PENDING',
-    'VERIFIED',
-    'FAILING'
-);
-
+CREATE TYPE domain_verification_status AS ENUM ('PENDING', 'VERIFIED', 'FAILING');
 -- Hub users table (regional)
 -- Uses hub_user_global_id as primary key (same ID as global DB for simplicity)
 CREATE TABLE hub_users (
@@ -52,7 +43,6 @@ CREATE TABLE hub_users (
     password_hash BYTEA,
     created_at TIMESTAMP DEFAULT NOW()
 );
-
 -- Emails table for transactional outbox pattern
 CREATE TABLE emails (
     email_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -65,7 +55,6 @@ CREATE TABLE emails (
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     sent_at TIMESTAMP
 );
-
 -- Email delivery attempts
 CREATE TABLE email_delivery_attempts (
     attempt_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -73,7 +62,6 @@ CREATE TABLE email_delivery_attempts (
     attempted_at TIMESTAMP NOT NULL DEFAULT NOW(),
     error_message TEXT
 );
-
 -- Hub TFA tokens for email-based two-factor authentication
 CREATE TABLE hub_tfa_tokens (
     tfa_token TEXT PRIMARY KEY NOT NULL,
@@ -82,7 +70,6 @@ CREATE TABLE hub_tfa_tokens (
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     expires_at TIMESTAMP NOT NULL
 );
-
 -- Hub sessions (regional storage for data sovereignty)
 CREATE TABLE hub_sessions (
     session_token TEXT PRIMARY KEY NOT NULL,
@@ -90,7 +77,6 @@ CREATE TABLE hub_sessions (
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     expires_at TIMESTAMP NOT NULL
 );
-
 -- Hub password reset tokens
 CREATE TABLE hub_password_reset_tokens (
     reset_token TEXT PRIMARY KEY NOT NULL,
@@ -98,7 +84,6 @@ CREATE TABLE hub_password_reset_tokens (
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     expires_at TIMESTAMP NOT NULL
 );
-
 -- Hub email verification tokens
 CREATE TABLE hub_email_verification_tokens (
     verification_token TEXT PRIMARY KEY NOT NULL,
@@ -107,7 +92,6 @@ CREATE TABLE hub_email_verification_tokens (
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     expires_at TIMESTAMP NOT NULL
 );
-
 -- Org users table (regional - stores credentials and PII)
 -- Note: email_address is NOT unique alone - one email can belong to multiple employers
 -- (contractor scenario). Uniqueness is enforced per (email_address, employer_id).
@@ -121,7 +105,6 @@ CREATE TABLE org_users (
     created_at TIMESTAMP DEFAULT NOW(),
     UNIQUE (email_address, employer_id)
 );
-
 -- Org TFA tokens for email-based two-factor authentication
 CREATE TABLE org_tfa_tokens (
     tfa_token TEXT PRIMARY KEY NOT NULL,
@@ -130,7 +113,6 @@ CREATE TABLE org_tfa_tokens (
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     expires_at TIMESTAMP NOT NULL
 );
-
 -- Org sessions (regional storage for data sovereignty)
 CREATE TABLE org_sessions (
     session_token TEXT PRIMARY KEY NOT NULL,
@@ -138,7 +120,6 @@ CREATE TABLE org_sessions (
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     expires_at TIMESTAMP NOT NULL
 );
-
 -- Org password reset tokens
 CREATE TABLE org_password_reset_tokens (
     reset_token TEXT PRIMARY KEY NOT NULL,
@@ -146,7 +127,6 @@ CREATE TABLE org_password_reset_tokens (
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     expires_at TIMESTAMP NOT NULL
 );
-
 -- Org invitation tokens for user invitations
 CREATE TABLE org_invitation_tokens (
     invitation_token TEXT PRIMARY KEY NOT NULL,
@@ -155,7 +135,6 @@ CREATE TABLE org_invitation_tokens (
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     expires_at TIMESTAMP NOT NULL
 );
-
 -- Employer domains table (regional - stores operational data)
 -- Per spec section 3.4: stores tokens, audit logs, and cron-job state
 CREATE TABLE employer_domains (
@@ -168,7 +147,6 @@ CREATE TABLE employer_domains (
     status domain_verification_status NOT NULL DEFAULT 'PENDING',
     created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
-
 -- Agency users table (regional - stores credentials and PII)
 -- Note: email_address is NOT unique alone - one email can belong to multiple agencies
 -- (contractor scenario). Uniqueness is enforced per (email_address, agency_id).
@@ -182,7 +160,6 @@ CREATE TABLE agency_users (
     created_at TIMESTAMP DEFAULT NOW(),
     UNIQUE (email_address, agency_id)
 );
-
 -- Agency TFA tokens for email-based two-factor authentication
 CREATE TABLE agency_tfa_tokens (
     tfa_token TEXT PRIMARY KEY NOT NULL,
@@ -191,7 +168,6 @@ CREATE TABLE agency_tfa_tokens (
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     expires_at TIMESTAMP NOT NULL
 );
-
 -- Agency sessions (regional storage for data sovereignty)
 CREATE TABLE agency_sessions (
     session_token TEXT PRIMARY KEY NOT NULL,
@@ -199,7 +175,6 @@ CREATE TABLE agency_sessions (
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     expires_at TIMESTAMP NOT NULL
 );
-
 -- Agency password reset tokens
 CREATE TABLE agency_password_reset_tokens (
     reset_token TEXT PRIMARY KEY NOT NULL,
@@ -207,7 +182,6 @@ CREATE TABLE agency_password_reset_tokens (
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     expires_at TIMESTAMP NOT NULL
 );
-
 -- Agency invitation tokens for user invitations
 CREATE TABLE agency_invitation_tokens (
     invitation_token TEXT PRIMARY KEY NOT NULL,
@@ -216,7 +190,34 @@ CREATE TABLE agency_invitation_tokens (
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     expires_at TIMESTAMP NOT NULL
 );
-
+-- RBAC: Roles table
+CREATE TABLE roles (
+    role_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    role_name VARCHAR(100) NOT NULL UNIQUE,
+    description TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+-- RBAC: Org user roles
+CREATE TABLE org_user_roles (
+    org_user_id UUID NOT NULL REFERENCES org_users(org_user_id) ON DELETE CASCADE,
+    role_id UUID NOT NULL REFERENCES roles(role_id) ON DELETE RESTRICT,
+    assigned_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (org_user_id, role_id)
+);
+-- RBAC: Agency user roles
+CREATE TABLE agency_user_roles (
+    agency_user_id UUID NOT NULL REFERENCES agency_users(agency_user_id) ON DELETE CASCADE,
+    role_id UUID NOT NULL REFERENCES roles(role_id) ON DELETE RESTRICT,
+    assigned_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (agency_user_id, role_id)
+);
+-- Insert predefined roles
+INSERT INTO roles (role_name, description)
+VALUES (
+        'invite_users',
+        'Can invite new users to the entity'
+    ),
+    ('manage_users', 'Can enable/disable users');
 -- Indexes
 CREATE INDEX idx_hub_tfa_tokens_expires_at ON hub_tfa_tokens(expires_at);
 CREATE INDEX idx_hub_sessions_expires_at ON hub_sessions(expires_at);
@@ -239,7 +240,6 @@ CREATE INDEX idx_agency_password_reset_tokens_expires_at ON agency_password_rese
 CREATE INDEX idx_agency_invitation_tokens_expires_at ON agency_invitation_tokens(expires_at);
 CREATE INDEX idx_agency_users_email_address ON agency_users(email_address);
 CREATE INDEX idx_agency_users_agency_id ON agency_users(agency_id);
-
 -- +goose Down
 DROP INDEX IF EXISTS idx_agency_users_agency_id;
 DROP INDEX IF EXISTS idx_agency_users_email_address;

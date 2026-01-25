@@ -935,32 +935,48 @@ WHERE agency_user_id = $1
 -- ============================================
 -- Admin Users
 -- name: FilterAdminUsers :many
-SELECT *
-FROM admin_users
+SELECT u.admin_user_id,
+  u.email_address,
+  u.full_name,
+  u.status,
+  u.created_at,
+  COALESCE(
+    (
+      SELECT array_agg(
+          r.role_name
+          ORDER BY r.role_name
+        )
+      FROM admin_user_roles aur
+        JOIN roles r ON aur.role_id = r.role_id
+      WHERE aur.admin_user_id = u.admin_user_id
+    ),
+    '{}'
+  )::text [] AS roles
+FROM admin_users u
 WHERE (
     sqlc.narg('filter_email')::text IS NULL
-    OR email_address ILIKE '%' || sqlc.narg('filter_email') || '%'
+    OR u.email_address ILIKE '%' || sqlc.narg('filter_email') || '%'
   )
   AND (
     sqlc.narg('filter_name')::text IS NULL
-    OR full_name ILIKE '%' || sqlc.narg('filter_name') || '%'
+    OR u.full_name ILIKE '%' || sqlc.narg('filter_name') || '%'
   )
   AND (
     sqlc.narg('filter_status')::text IS NULL
-    OR status::text = sqlc.narg('filter_status')
+    OR u.status::text = sqlc.narg('filter_status')
   )
   AND (
     @cursor_created_at::timestamptz IS NULL
     OR (
-      created_at < @cursor_created_at
+      u.created_at < @cursor_created_at
       OR (
-        created_at = @cursor_created_at
-        AND admin_user_id < @cursor_id
+        u.created_at = @cursor_created_at
+        AND u.admin_user_id < @cursor_id
       )
     )
   )
-ORDER BY created_at DESC,
-  admin_user_id DESC
+ORDER BY u.created_at DESC,
+  u.admin_user_id DESC
 LIMIT @limit_count;
 -- name: CountFilterAdminUsers :one
 SELECT COUNT(*)

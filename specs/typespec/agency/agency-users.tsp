@@ -313,9 +313,58 @@ interface AgencyEnableUser {
   };
 }
 
+// ===================================
+// User Invitation
+// ===================================
+
+model AgencyInviteUserRequest {
+    @doc("Email address of the user to invite")
+    email_address: EmailAddress;
+    @doc("Full name of the user")
+    full_name: FullName;
+    @doc("Preferred language for the user (e.g., en-US, de-DE)")
+    preferred_language?: LanguageCode;
+}
+
+model AgencyInviteUserResponse {
+    @doc("Invitation ID")
+    invitation_id: string;
+    @doc("Expiration timestamp")
+    expires_at: string;
+}
+
+@route("/agency/invite-user")
+interface AgencyInviteUser {
+    @tag("AgencyUsers")
+    @post
+    @doc("Invite a new agency user")
+    inviteUser(@body request: AgencyInviteUserRequest): {
+        @statusCode statusCode: 201;
+        @body response: AgencyInviteUserResponse;
+    } | {
+        @doc("Validation errors")
+        @statusCode statusCode: 400;
+    } | {
+        @doc("User already exists")
+        @statusCode statusCode: 409;
+    } | {
+        @doc("Unauthorized")
+        @statusCode statusCode: 401;
+    } | {
+        @doc("Forbidden")
+        @statusCode statusCode: 403;
+    };
+}
+
+
 // ============================================
 // User Management (Filter Users)
 // ============================================
+
+enum AgencyRole {
+    invite_users,
+    manage_users,
+}
 
 model AgencyUser {
     @doc("Email address of the user")
@@ -326,6 +375,8 @@ model AgencyUser {
     status: string;
     @doc("ISO 8601 timestamp when user was created")
     created_at: string;
+    @doc("List of roles assigned to the user")
+    roles: AgencyRole[];
 }
 
 model FilterAgencyUsersRequest {

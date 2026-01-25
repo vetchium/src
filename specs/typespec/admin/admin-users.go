@@ -89,8 +89,9 @@ func (r AdminSetLanguageRequest) Validate() []common.ValidationError {
 // ============================================================================
 
 type AdminInviteUserRequest struct {
-	EmailAddress common.EmailAddress `json:"email_address"`
-	FullName     common.FullName     `json:"full_name"`
+	EmailAddress      common.EmailAddress `json:"email_address"`
+	FullName          common.FullName     `json:"full_name"`
+	PreferredLanguage common.LanguageCode `json:"preferred_language"`
 }
 
 func (r AdminInviteUserRequest) Validate() []common.ValidationError {
@@ -101,6 +102,11 @@ func (r AdminInviteUserRequest) Validate() []common.ValidationError {
 	}
 	if err := r.FullName.Validate(); err != nil {
 		errs = append(errs, common.NewValidationError("full_name", err))
+	}
+	if r.PreferredLanguage != "" {
+		if err := r.PreferredLanguage.Validate(); err != nil {
+			errs = append(errs, common.NewValidationError("preferred_language", err))
+		}
 	}
 
 	return errs
@@ -236,11 +242,19 @@ func (r AdminChangePasswordRequest) Validate() []common.ValidationError {
 // User Management (Filter Users)
 // ============================================
 
+type AdminRole string
+
+const (
+	AdminRoleInviteUsers AdminRole = "invite_users"
+	AdminRoleManageUsers AdminRole = "manage_users"
+)
+
 type AdminUser struct {
 	EmailAddress common.EmailAddress `json:"email_address"`
 	Name         string              `json:"name"`
 	Status       string              `json:"status"`
 	CreatedAt    string              `json:"created_at"`
+	Roles        []AdminRole         `json:"roles"`
 }
 
 type FilterAdminUsersRequest struct {

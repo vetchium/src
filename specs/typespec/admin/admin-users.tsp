@@ -167,3 +167,108 @@ interface AdminEnableUser {
     statusCode: 404;
   };
 }
+
+// ===================================
+// User Invitation
+// ===================================
+
+scalar FullName extends string;
+
+model AdminInviteUserRequest {
+    @doc("Email address of the user to invite")
+    email_address: EmailAddress;
+    @doc("Full name of the user")
+    full_name: FullName;
+    @doc("Preferred language for the user (e.g., en-US, de-DE)")
+    preferred_language?: LanguageCode;
+}
+
+model AdminInviteUserResponse {
+    @doc("Invitation ID")
+    invitation_id: string;
+    @doc("Expiration timestamp")
+    expires_at: string;
+}
+
+@route("/admin/invite-user")
+interface AdminInviteUser {
+    @tag("AdminUsers")
+    @post
+    @doc("Invite a new admin user")
+    inviteUser(@body request: AdminInviteUserRequest): {
+        @statusCode statusCode: 201;
+        @body response: AdminInviteUserResponse;
+    } | {
+        @doc("Validation errors")
+        @statusCode statusCode: 400;
+    } | {
+        @doc("User already exists")
+        @statusCode statusCode: 409;
+    } | {
+        @doc("Unauthorized")
+        @statusCode statusCode: 401;
+    } | {
+        @doc("Forbidden")
+        @statusCode statusCode: 403;
+    };
+}
+
+
+// ============================================
+// User Management (Filter Users)
+// ============================================
+
+enum AdminRole {
+    invite_users,
+    manage_users,
+}
+
+model AdminUser {
+    @doc("Email address of the user")
+    email_address: EmailAddress;
+    @doc("Full name of the user")
+    name: string;
+    @doc("User status (active/disabled)")
+    status: string;
+    @doc("ISO 8601 timestamp when user was created")
+    created_at: string;
+    @doc("List of roles assigned to the user")
+    roles: AdminRole[];
+}
+
+model FilterAdminUsersRequest {
+    @doc("Number of items to return (default 50, max 100)")
+    limit?: int32;
+    @doc("Cursor from previous page - base64 encoded value")
+    cursor?: string;
+    @doc("Filter by email address (partial match)")
+    filter_email?: string;
+    @doc("Filter by name (partial match)")
+    filter_name?: string;
+    @doc("Filter by status (exact match: active/disabled)")
+    filter_status?: string;
+}
+
+model FilterAdminUsersResponse {
+    @doc("List of users")
+    items: AdminUser[];
+    @doc("Cursor for next page - base64 encoded value (empty if no more pages)")
+    next_cursor: string;
+}
+
+@route("/admin/filter-users")
+interface AdminFilterUsers {
+    @tag("AdminUsers")
+    @post
+    @doc("List/Filter admin users with pagination")
+    filterUsers(@body request: FilterAdminUsersRequest): {
+        @statusCode statusCode: 200;
+        @body response: FilterAdminUsersResponse;
+    } | {
+        @doc("Invalid request parameters")
+        @statusCode statusCode: 400;
+    } | {
+        @doc("Unauthorized")
+        @statusCode statusCode: 401;
+    };
+}

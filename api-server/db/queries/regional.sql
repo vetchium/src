@@ -251,61 +251,85 @@ WHERE domain = $1;
 -- Agency User Queries (Regional)
 -- ============================================
 -- name: FilterOrgUsers :many
-SELECT org_user_id,
-    email_address,
-    full_name,
-    created_at
-FROM org_users
-WHERE employer_id = @employer_id
+SELECT u.org_user_id,
+    u.email_address,
+    u.full_name,
+    u.created_at,
+    COALESCE(
+        (
+            SELECT array_agg(
+                    r.role_name
+                    ORDER BY r.role_name
+                )
+            FROM org_user_roles our
+                JOIN roles r ON our.role_id = r.role_id
+            WHERE our.org_user_id = u.org_user_id
+        ),
+        '{}'
+    )::text [] AS roles
+FROM org_users u
+WHERE u.employer_id = @employer_id
     AND (
         sqlc.narg('filter_email')::text IS NULL
-        OR email_address ILIKE '%' || sqlc.narg('filter_email') || '%'
+        OR u.email_address ILIKE '%' || sqlc.narg('filter_email') || '%'
     )
     AND (
         sqlc.narg('filter_name')::text IS NULL
-        OR full_name ILIKE '%' || sqlc.narg('filter_name') || '%'
+        OR u.full_name ILIKE '%' || sqlc.narg('filter_name') || '%'
     )
     AND (
         @cursor_created_at::timestamp IS NULL
         OR (
-            created_at < @cursor_created_at
+            u.created_at < @cursor_created_at
             OR (
-                created_at = @cursor_created_at
-                AND org_user_id < @cursor_id
+                u.created_at = @cursor_created_at
+                AND u.org_user_id < @cursor_id
             )
         )
     )
-ORDER BY created_at DESC,
-    org_user_id DESC
+ORDER BY u.created_at DESC,
+    u.org_user_id DESC
 LIMIT @limit_count;
 -- Agency Users
 -- name: FilterAgencyUsers :many
-SELECT agency_user_id,
-    email_address,
-    full_name,
-    created_at
-FROM agency_users
-WHERE agency_id = @agency_id
+SELECT u.agency_user_id,
+    u.email_address,
+    u.full_name,
+    u.created_at,
+    COALESCE(
+        (
+            SELECT array_agg(
+                    r.role_name
+                    ORDER BY r.role_name
+                )
+            FROM agency_user_roles aur
+                JOIN roles r ON aur.role_id = r.role_id
+            WHERE aur.agency_user_id = u.agency_user_id
+        ),
+        '{}'
+    )::text [] AS roles
+FROM agency_users u
+WHERE u.agency_id = @agency_id
     AND (
         sqlc.narg('filter_email')::text IS NULL
-        OR email_address ILIKE '%' || sqlc.narg('filter_email') || '%'
+        OR u.email_address ILIKE '%' || sqlc.narg('filter_email') || '%'
     )
     AND (
         sqlc.narg('filter_name')::text IS NULL
-        OR full_name ILIKE '%' || sqlc.narg('filter_name') || '%'
+        OR u.full_name ILIKE '%' || sqlc.narg('filter_name') || '%'
     )
     AND (
         @cursor_created_at::timestamp IS NULL
         OR (
-            created_at < @cursor_created_at
+            u.created_at < @cursor_created_at
             OR (
-                created_at = @cursor_created_at
-                AND agency_user_id < @cursor_id
+                u.created_at = @cursor_created_at
+                AND u.agency_user_id < @cursor_id
             )
         )
     )
-ORDER BY created_at DESC,
-    agency_user_id DESC
+ORDER BY u.created_at DESC,
+    u.agency_user_id DESC
 LIMIT @limit_count;
 -- name: GetAgencyUserByEmail :one
 -- Note: This returns ONE user but may fail if email exists for multiple agencies.

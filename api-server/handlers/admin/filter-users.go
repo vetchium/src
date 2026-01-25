@@ -128,11 +128,19 @@ func FilterUsers(s *server.Server) http.HandlerFunc {
 		responseItems := make([]admin.AdminUser, len(users))
 		for i, user := range users {
 			statusStr := string(user.Status) // Convert enum to string
+
+			// Map roles
+			var roles []admin.AdminRole
+			for _, roleName := range user.Roles {
+				roles = append(roles, admin.AdminRole(roleName))
+			}
+
 			responseItems[i] = admin.AdminUser{
 				EmailAddress: common.EmailAddress(user.EmailAddress),
 				Name:         user.FullName.String,
 				Status:       statusStr,
 				CreatedAt:    user.CreatedAt.Time.UTC().Format(time.RFC3339),
+				Roles:        roles,
 			}
 		}
 
