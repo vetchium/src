@@ -16,6 +16,8 @@ import type {
 	AgencyRequestPasswordResetResponse,
 	AgencyCompletePasswordResetRequest,
 	AgencyChangePasswordRequest,
+	AgencyInviteUserRequest,
+	AgencyInviteUserResponse,
 } from "vetchium-specs/agency/agency-users";
 import type { APIResponse } from "./api-client";
 
@@ -390,6 +392,73 @@ export class AgencyAPIClient {
 		return {
 			status: response.status(),
 			body: undefined,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	// ============================================================================
+	// User Invitation
+	// ============================================================================
+
+	/**
+	 * POST /agency/invite-user
+	 * Invites a new user to the agency.
+	 *
+	 * @param sessionToken - Valid session token
+	 * @param request - Invite user request
+	 * @returns API response with invitation details
+	 */
+	async inviteUser(
+		sessionToken: string,
+		request: AgencyInviteUserRequest
+	): Promise<APIResponse<AgencyInviteUserResponse>> {
+		const response = await this.request.post("/agency/invite-user", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as AgencyInviteUserResponse,
+			errors: body.errors,
+		};
+	}
+
+	/**
+	 * POST /agency/invite-user with raw body for testing invalid payloads
+	 */
+	async inviteUserRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<AgencyInviteUserResponse>> {
+		const response = await this.request.post("/agency/invite-user", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: body,
+		});
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as AgencyInviteUserResponse,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	/**
+	 * POST /agency/invite-user without authorization header (for testing 401)
+	 */
+	async inviteUserWithoutAuth(
+		request: AgencyInviteUserRequest
+	): Promise<APIResponse<AgencyInviteUserResponse>> {
+		const response = await this.request.post("/agency/invite-user", {
+			data: request,
+		});
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as AgencyInviteUserResponse,
 			errors: Array.isArray(responseBody) ? responseBody : undefined,
 		};
 	}
