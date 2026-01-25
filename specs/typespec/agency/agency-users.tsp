@@ -258,3 +258,57 @@ interface AgencyLogout {
     statusCode: 401;
   };
 }
+
+// ============================================
+// User Management (Disable/Enable)
+// ============================================
+
+model AgencyDisableUserRequest {
+  @doc("Email address of the user to disable")
+  email_address: EmailAddress;
+}
+
+model AgencyEnableUserRequest {
+  @doc("Email address of the user to enable")
+  email_address: EmailAddress;
+}
+
+@route("/agency/disable-user")
+interface AgencyDisableUser {
+  @tag("AgencyUsers")
+  @post
+  @doc("Disable an agency user")
+  disableUser(@body request: AgencyDisableUserRequest): {
+    @statusCode statusCode: 200;
+  } | {
+    @doc("Validation errors")
+    @statusCode
+    statusCode: 400;
+  } | {
+    @doc("User not found")
+    @statusCode
+    statusCode: 404;
+  } | {
+    @doc("User already disabled or cannot disable last admin")
+    @statusCode
+    statusCode: 422;
+  };
+}
+
+@route("/agency/enable-user")
+interface AgencyEnableUser {
+  @tag("AgencyUsers")
+  @post
+  @doc("Enable an agency user")
+  enableUser(@body request: AgencyEnableUserRequest): {
+    @statusCode statusCode: 200;
+  } | {
+    @doc("Validation errors")
+    @statusCode
+    statusCode: 400;
+  } | {
+    @doc("User not found or already active")
+    @statusCode
+    statusCode: 404;
+  };
+}

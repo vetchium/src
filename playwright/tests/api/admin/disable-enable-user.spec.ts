@@ -26,7 +26,7 @@ test.describe("POST /admin/disable-user", () => {
 
 		// Create two admin users
 		await createTestAdminUser(admin1Email, TEST_PASSWORD);
-		const admin2Id = await createTestAdminUser(admin2Email, TEST_PASSWORD);
+		await createTestAdminUser(admin2Email, TEST_PASSWORD);
 
 		try {
 			// Login as admin1
@@ -49,7 +49,7 @@ test.describe("POST /admin/disable-user", () => {
 
 			// Disable admin2
 			const disableRequest: AdminDisableUserRequest = {
-				target_user_id: admin2Id,
+				email_address: admin2Email,
 			};
 			const disableResponse = await api.disableUser(
 				sessionToken,
@@ -76,7 +76,7 @@ test.describe("POST /admin/disable-user", () => {
 		const admin2Email = generateTestEmail("disable-self-admin2");
 
 		// Create two admins so disabling self is allowed
-		const admin1Id = await createTestAdminUser(admin1Email, TEST_PASSWORD);
+		await createTestAdminUser(admin1Email, TEST_PASSWORD);
 		await createTestAdminUser(admin2Email, TEST_PASSWORD);
 
 		try {
@@ -98,7 +98,7 @@ test.describe("POST /admin/disable-user", () => {
 
 			// Disable self - should succeed since admin2 exists
 			const disableRequest: AdminDisableUserRequest = {
-				target_user_id: admin1Id,
+				email_address: admin1Email,
 			};
 			const disableResponse = await api.disableUser(
 				sessionToken,
@@ -117,7 +117,7 @@ test.describe("POST /admin/disable-user", () => {
 		}
 	});
 
-	test("target_user_id is required (400)", async ({ request }) => {
+	test("email_address is required (400)", async ({ request }) => {
 		const api = new AdminAPIClient(request);
 		const adminEmail = generateTestEmail("disable-req-admin");
 
@@ -140,46 +140,12 @@ test.describe("POST /admin/disable-user", () => {
 			expect(tfaResponse.status).toBe(200);
 			const sessionToken = tfaResponse.body.session_token;
 
-			// Try to disable without target_user_id
+			// Try to disable without email_address
 			const disableResponse = await api.disableUserRaw(sessionToken, {});
 
 			expect(disableResponse.status).toBe(400);
 			expect(disableResponse.errors).toBeDefined();
 			expect(Array.isArray(disableResponse.errors)).toBe(true);
-		} finally {
-			await deleteTestAdminUser(adminEmail);
-		}
-	});
-
-	test("invalid target_user_id format returns 400", async ({ request }) => {
-		const api = new AdminAPIClient(request);
-		const adminEmail = generateTestEmail("disable-invalid-admin");
-
-		await createTestAdminUser(adminEmail, TEST_PASSWORD);
-
-		try {
-			// Login
-			const loginResponse = await api.login({
-				email: adminEmail,
-				password: TEST_PASSWORD,
-			});
-			expect(loginResponse.status).toBe(200);
-
-			const tfaCode = await getTfaCodeFromEmail(adminEmail);
-
-			const tfaResponse = await api.verifyTFA({
-				tfa_token: loginResponse.body.tfa_token,
-				tfa_code: tfaCode,
-			});
-			expect(tfaResponse.status).toBe(200);
-			const sessionToken = tfaResponse.body.session_token;
-
-			// Try with invalid UUID
-			const disableResponse = await api.disableUserRaw(sessionToken, {
-				target_user_id: "not-a-uuid",
-			});
-
-			expect(disableResponse.status).toBe(400);
 		} finally {
 			await deleteTestAdminUser(adminEmail);
 		}
@@ -208,9 +174,9 @@ test.describe("POST /admin/disable-user", () => {
 			expect(tfaResponse.status).toBe(200);
 			const sessionToken = tfaResponse.body.session_token;
 
-			// Try with non-existent user ID
+			// Try with non-existent email
 			const disableRequest: AdminDisableUserRequest = {
-				target_user_id: "00000000-0000-0000-0000-000000000000",
+				email_address: "nonexistent@example.com",
 			};
 			const disableResponse = await api.disableUser(
 				sessionToken,
@@ -229,7 +195,7 @@ test.describe("POST /admin/disable-user", () => {
 		const admin2Email = generateTestEmail("disable-twice-admin2");
 
 		await createTestAdminUser(admin1Email, TEST_PASSWORD);
-		const admin2Id = await createTestAdminUser(admin2Email, TEST_PASSWORD, {
+		await createTestAdminUser(admin2Email, TEST_PASSWORD, {
 			status: "disabled",
 		});
 
@@ -252,7 +218,7 @@ test.describe("POST /admin/disable-user", () => {
 
 			// Try to disable already disabled admin2
 			const disableRequest: AdminDisableUserRequest = {
-				target_user_id: admin2Id,
+				email_address: admin2Email,
 			};
 			const disableResponse = await api.disableUser(
 				sessionToken,
@@ -271,7 +237,7 @@ test.describe("POST /admin/disable-user", () => {
 
 		// Try without authentication
 		const disableResponse = await api.disableUserRaw("", {
-			target_user_id: "00000000-0000-0000-0000-000000000000",
+			email_address: "some@email.com",
 		});
 
 		expect(disableResponse.status).toBe(401);
@@ -282,7 +248,7 @@ test.describe("POST /admin/disable-user", () => {
 
 		// Try with invalid token
 		const disableResponse = await api.disableUserRaw("invalid-token", {
-			target_user_id: "00000000-0000-0000-0000-000000000000",
+			email_address: "some@email.com",
 		});
 
 		expect(disableResponse.status).toBe(401);
@@ -294,7 +260,7 @@ test.describe("POST /admin/disable-user", () => {
 		const admin2Email = generateTestEmail("disable-session-admin2");
 
 		await createTestAdminUser(admin1Email, TEST_PASSWORD);
-		const admin2Id = await createTestAdminUser(admin2Email, TEST_PASSWORD);
+		await createTestAdminUser(admin2Email, TEST_PASSWORD);
 
 		try {
 			// Login as admin1
@@ -329,19 +295,19 @@ test.describe("POST /admin/disable-user", () => {
 
 			// Verify admin2's session works
 			const checkResponse = await api.disableUser(sessionToken2, {
-				target_user_id: "00000000-0000-0000-0000-000000000000",
+				email_address: "nonexistent@example.com",
 			});
 			expect(checkResponse.status).toBe(404); // Not found, but auth passed
 
 			// Admin1 disables admin2
 			const disableResponse = await api.disableUser(sessionToken1, {
-				target_user_id: admin2Id,
+				email_address: admin2Email,
 			});
 			expect(disableResponse.status).toBe(200);
 
 			// Admin2's session should now be invalid
 			const invalidResponse = await api.disableUser(sessionToken2, {
-				target_user_id: "00000000-0000-0000-0000-000000000000",
+				email_address: "nonexistent@example.com",
 			});
 			expect(invalidResponse.status).toBe(401);
 		} finally {
@@ -361,7 +327,7 @@ test.describe("POST /admin/enable-user", () => {
 
 		// Create two admins, admin2 is disabled
 		await createTestAdminUser(admin1Email, TEST_PASSWORD);
-		const admin2Id = await createTestAdminUser(admin2Email, TEST_PASSWORD, {
+		await createTestAdminUser(admin2Email, TEST_PASSWORD, {
 			status: "disabled",
 		});
 
@@ -384,7 +350,7 @@ test.describe("POST /admin/enable-user", () => {
 
 			// Enable admin2
 			const enableRequest: AdminEnableUserRequest = {
-				target_user_id: admin2Id,
+				email_address: admin2Email,
 			};
 			const enableResponse = await api.enableUser(sessionToken, enableRequest);
 
@@ -407,7 +373,7 @@ test.describe("POST /admin/enable-user", () => {
 
 		// Create two admins, admin2 is disabled
 		await createTestAdminUser(admin1Email, TEST_PASSWORD);
-		const admin2Id = await createTestAdminUser(admin2Email, TEST_PASSWORD, {
+		await createTestAdminUser(admin2Email, TEST_PASSWORD, {
 			status: "disabled",
 		});
 
@@ -436,7 +402,7 @@ test.describe("POST /admin/enable-user", () => {
 
 			// Enable admin2
 			const enableResponse = await api.enableUser(sessionToken, {
-				target_user_id: admin2Id,
+				email_address: admin2Email,
 			});
 			expect(enableResponse.status).toBe(200);
 
@@ -458,7 +424,7 @@ test.describe("POST /admin/enable-user", () => {
 		const admin2Email = generateTestEmail("enable-active-admin2");
 
 		await createTestAdminUser(admin1Email, TEST_PASSWORD);
-		const admin2Id = await createTestAdminUser(admin2Email, TEST_PASSWORD); // active by default
+		await createTestAdminUser(admin2Email, TEST_PASSWORD); // active by default
 
 		try {
 			// Login as admin1
@@ -479,7 +445,7 @@ test.describe("POST /admin/enable-user", () => {
 
 			// Try to enable already active admin2
 			const enableRequest: AdminEnableUserRequest = {
-				target_user_id: admin2Id,
+				email_address: admin2Email,
 			};
 			const enableResponse = await api.enableUser(sessionToken, enableRequest);
 
@@ -490,7 +456,7 @@ test.describe("POST /admin/enable-user", () => {
 		}
 	});
 
-	test("target_user_id is required (400)", async ({ request }) => {
+	test("email_address is required (400)", async ({ request }) => {
 		const api = new AdminAPIClient(request);
 		const adminEmail = generateTestEmail("enable-req-admin");
 
@@ -513,46 +479,12 @@ test.describe("POST /admin/enable-user", () => {
 			expect(tfaResponse.status).toBe(200);
 			const sessionToken = tfaResponse.body.session_token;
 
-			// Try to enable without target_user_id
+			// Try to enable without email_address
 			const enableResponse = await api.enableUserRaw(sessionToken, {});
 
 			expect(enableResponse.status).toBe(400);
 			expect(enableResponse.errors).toBeDefined();
 			expect(Array.isArray(enableResponse.errors)).toBe(true);
-		} finally {
-			await deleteTestAdminUser(adminEmail);
-		}
-	});
-
-	test("invalid target_user_id format returns 400", async ({ request }) => {
-		const api = new AdminAPIClient(request);
-		const adminEmail = generateTestEmail("enable-invalid-admin");
-
-		await createTestAdminUser(adminEmail, TEST_PASSWORD);
-
-		try {
-			// Login
-			const loginResponse = await api.login({
-				email: adminEmail,
-				password: TEST_PASSWORD,
-			});
-			expect(loginResponse.status).toBe(200);
-
-			const tfaCode = await getTfaCodeFromEmail(adminEmail);
-
-			const tfaResponse = await api.verifyTFA({
-				tfa_token: loginResponse.body.tfa_token,
-				tfa_code: tfaCode,
-			});
-			expect(tfaResponse.status).toBe(200);
-			const sessionToken = tfaResponse.body.session_token;
-
-			// Try with invalid UUID
-			const enableResponse = await api.enableUserRaw(sessionToken, {
-				target_user_id: "not-a-uuid",
-			});
-
-			expect(enableResponse.status).toBe(400);
 		} finally {
 			await deleteTestAdminUser(adminEmail);
 		}
@@ -581,9 +513,9 @@ test.describe("POST /admin/enable-user", () => {
 			expect(tfaResponse.status).toBe(200);
 			const sessionToken = tfaResponse.body.session_token;
 
-			// Try with non-existent user ID
+			// Try with non-existent email
 			const enableRequest: AdminEnableUserRequest = {
-				target_user_id: "00000000-0000-0000-0000-000000000000",
+				email_address: "nonexistent@example.com",
 			};
 			const enableResponse = await api.enableUser(sessionToken, enableRequest);
 
@@ -598,7 +530,7 @@ test.describe("POST /admin/enable-user", () => {
 
 		// Try without authentication
 		const enableResponse = await api.enableUserRaw("", {
-			target_user_id: "00000000-0000-0000-0000-000000000000",
+			email_address: "some@email.com",
 		});
 
 		expect(enableResponse.status).toBe(401);
@@ -609,7 +541,7 @@ test.describe("POST /admin/enable-user", () => {
 
 		// Try with invalid token
 		const enableResponse = await api.enableUserRaw("invalid-token", {
-			target_user_id: "00000000-0000-0000-0000-000000000000",
+			email_address: "some@email.com",
 		});
 
 		expect(enableResponse.status).toBe(401);
@@ -621,7 +553,7 @@ test.describe("POST /admin/enable-user", () => {
 		const admin2Email = generateTestEmail("workflow-admin2");
 
 		await createTestAdminUser(admin1Email, TEST_PASSWORD);
-		const admin2Id = await createTestAdminUser(admin2Email, TEST_PASSWORD);
+		await createTestAdminUser(admin2Email, TEST_PASSWORD);
 
 		try {
 			// Login as admin1
@@ -645,7 +577,7 @@ test.describe("POST /admin/enable-user", () => {
 
 			// Disable admin2
 			const disableResponse = await api.disableUser(sessionToken, {
-				target_user_id: admin2Id,
+				email_address: admin2Email,
 			});
 			expect(disableResponse.status).toBe(200);
 
@@ -655,7 +587,7 @@ test.describe("POST /admin/enable-user", () => {
 
 			// Enable admin2
 			const enableResponse = await api.enableUser(sessionToken, {
-				target_user_id: admin2Id,
+				email_address: admin2Email,
 			});
 			expect(enableResponse.status).toBe(200);
 

@@ -1,12 +1,12 @@
 package agency
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"net/http"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
@@ -43,31 +43,22 @@ func DisableUser(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Parse target user ID
-		var targetUserID pgtype.UUID
-		if err := targetUserID.Scan(req.TargetUserID); err != nil {
-			log.Debug("invalid target_user_id format", "error", err)
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
+		// Calculate email hash
+		emailHash := sha256.Sum256([]byte(req.EmailAddress))
 
-		// Get target user from global DB
-		targetUser, err := s.Global.GetAgencyUserByID(ctx, targetUserID)
+		// Get target user by email hash and agency ID
+		targetUser, err := s.Global.GetAgencyUserByEmailHashAndAgency(ctx, globaldb.GetAgencyUserByEmailHashAndAgencyParams{
+			EmailAddressHash: emailHash[:],
+			AgencyID:         agencyUser.AgencyID,
+		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				log.Debug("target user not found", "target_user_id", req.TargetUserID)
+				log.Debug("target user not found", "email", req.EmailAddress)
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
 			log.Error("failed to get target user", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-
-		// Check if target user belongs to the same agency
-		if targetUser.AgencyID != agencyUser.AgencyID {
-			log.Debug("target user belongs to different agency")
-			w.WriteHeader(http.StatusNotFound)
 			return
 		}
 
@@ -107,7 +98,7 @@ func DisableUser(s *server.Server) http.HandlerFunc {
 
 		// Update user status to disabled in global DB
 		err = s.Global.UpdateAgencyUserStatus(ctx, globaldb.UpdateAgencyUserStatusParams{
-			AgencyUserID: targetUserID,
+			AgencyUserID: targetUser.AgencyUserID,
 			Status:       globaldb.AgencyUserStatusDisabled,
 		})
 		if err != nil {

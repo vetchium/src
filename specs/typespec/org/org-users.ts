@@ -316,7 +316,7 @@ export interface OrgCompleteSetupResponse {
 // ============================================
 
 export interface OrgDisableUserRequest {
-	target_user_id: string;
+	email_address: EmailAddress;
 }
 
 export function validateOrgDisableUserRequest(
@@ -324,15 +324,20 @@ export function validateOrgDisableUserRequest(
 ): ValidationError[] {
 	const errs: ValidationError[] = [];
 
-	if (!request.target_user_id) {
-		errs.push(newValidationError("target_user_id", ERR_REQUIRED));
+	if (!request.email_address) {
+		errs.push(newValidationError("email_address", ERR_REQUIRED));
+	} else {
+		const emailErr = validateEmailAddress(request.email_address);
+		if (emailErr) {
+			errs.push(newValidationError("email_address", emailErr));
+		}
 	}
 
 	return errs;
 }
 
 export interface OrgEnableUserRequest {
-	target_user_id: string;
+	email_address: EmailAddress;
 }
 
 export function validateOrgEnableUserRequest(
@@ -340,8 +345,13 @@ export function validateOrgEnableUserRequest(
 ): ValidationError[] {
 	const errs: ValidationError[] = [];
 
-	if (!request.target_user_id) {
-		errs.push(newValidationError("target_user_id", ERR_REQUIRED));
+	if (!request.email_address) {
+		errs.push(newValidationError("email_address", ERR_REQUIRED));
+	} else {
+		const emailErr = validateEmailAddress(request.email_address);
+		if (emailErr) {
+			errs.push(newValidationError("email_address", emailErr));
+		}
 	}
 
 	return errs;

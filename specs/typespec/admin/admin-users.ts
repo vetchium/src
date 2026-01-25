@@ -201,7 +201,7 @@ export interface AdminCompleteSetupResponse {
 // ============================================================================
 
 export interface AdminDisableUserRequest {
-	target_user_id: string;
+	email_address: EmailAddress;
 }
 
 export function validateAdminDisableUserRequest(
@@ -209,15 +209,20 @@ export function validateAdminDisableUserRequest(
 ): ValidationError[] {
 	const errs: ValidationError[] = [];
 
-	if (!request.target_user_id) {
-		errs.push(newValidationError("target_user_id", ERR_REQUIRED));
+	if (!request.email_address) {
+		errs.push(newValidationError("email_address", ERR_REQUIRED));
+	} else {
+		const emailErr = validateEmailAddress(request.email_address);
+		if (emailErr) {
+			errs.push(newValidationError("email_address", emailErr));
+		}
 	}
 
 	return errs;
 }
 
 export interface AdminEnableUserRequest {
-	target_user_id: string;
+	email_address: EmailAddress;
 }
 
 export function validateAdminEnableUserRequest(
@@ -225,8 +230,13 @@ export function validateAdminEnableUserRequest(
 ): ValidationError[] {
 	const errs: ValidationError[] = [];
 
-	if (!request.target_user_id) {
-		errs.push(newValidationError("target_user_id", ERR_REQUIRED));
+	if (!request.email_address) {
+		errs.push(newValidationError("email_address", ERR_REQUIRED));
+	} else {
+		const emailErr = validateEmailAddress(request.email_address);
+		if (emailErr) {
+			errs.push(newValidationError("email_address", emailErr));
+		}
 	}
 
 	return errs;

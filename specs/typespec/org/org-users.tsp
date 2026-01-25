@@ -258,3 +258,57 @@ interface OrgLogout {
     statusCode: 401;
   };
 }
+
+// ============================================
+// User Management (Disable/Enable)
+// ============================================
+
+model OrgDisableUserRequest {
+  @doc("Email address of the user to disable")
+  email_address: EmailAddress;
+}
+
+model OrgEnableUserRequest {
+  @doc("Email address of the user to enable")
+  email_address: EmailAddress;
+}
+
+@route("/employer/disable-user")
+interface OrgDisableUser {
+  @tag("OrgUsers")
+  @post
+  @doc("Disable an org user")
+  disableUser(@body request: OrgDisableUserRequest): {
+    @statusCode statusCode: 200;
+  } | {
+    @doc("Validation errors")
+    @statusCode
+    statusCode: 400;
+  } | {
+    @doc("User not found")
+    @statusCode
+    statusCode: 404;
+  } | {
+    @doc("User already disabled or cannot disable last admin")
+    @statusCode
+    statusCode: 422;
+  };
+}
+
+@route("/employer/enable-user")
+interface OrgEnableUser {
+  @tag("OrgUsers")
+  @post
+  @doc("Enable an org user")
+  enableUser(@body request: OrgEnableUserRequest): {
+    @statusCode statusCode: 200;
+  } | {
+    @doc("Validation errors")
+    @statusCode
+    statusCode: 400;
+  } | {
+    @doc("User not found or already active")
+    @statusCode
+    statusCode: 404;
+  };
+}

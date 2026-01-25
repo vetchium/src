@@ -142,28 +142,28 @@ type AdminCompleteSetupResponse struct {
 // ============================================
 
 type AdminDisableUserRequest struct {
-	TargetUserID string `json:"target_user_id"`
+	EmailAddress common.EmailAddress `json:"email_address"`
 }
 
 func (r AdminDisableUserRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
 
-	if r.TargetUserID == "" {
-		errs = append(errs, common.NewValidationError("target_user_id", common.ErrRequired))
+	if err := r.EmailAddress.Validate(); err != nil {
+		errs = append(errs, common.NewValidationError("email_address", err))
 	}
 
 	return errs
 }
 
 type AdminEnableUserRequest struct {
-	TargetUserID string `json:"target_user_id"`
+	EmailAddress common.EmailAddress `json:"email_address"`
 }
 
 func (r AdminEnableUserRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
 
-	if r.TargetUserID == "" {
-		errs = append(errs, common.NewValidationError("target_user_id", common.ErrRequired))
+	if err := r.EmailAddress.Validate(); err != nil {
+		errs = append(errs, common.NewValidationError("email_address", err))
 	}
 
 	return errs

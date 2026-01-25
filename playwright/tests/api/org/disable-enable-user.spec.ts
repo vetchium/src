@@ -27,12 +27,10 @@ test.describe("POST /employer/disable-user", () => {
 			adminEmail,
 			TEST_PASSWORD
 		);
-		const { orgUserId: userId } = await createTestOrgUserDirect(
-			userEmail,
-			TEST_PASSWORD,
-			"ind1",
-			{ employerId, domain }
-		);
+		await createTestOrgUserDirect(userEmail, TEST_PASSWORD, "ind1", {
+			employerId,
+			domain,
+		});
 
 		try {
 			// Login as admin
@@ -55,7 +53,7 @@ test.describe("POST /employer/disable-user", () => {
 
 			// Disable the user
 			const disableRequest: OrgDisableUserRequest = {
-				target_user_id: userId,
+				email_address: userEmail,
 			};
 			const disableResponse = await api.disableUser(
 				sessionToken,
@@ -85,12 +83,10 @@ test.describe("POST /employer/disable-user", () => {
 			userEmail,
 			TEST_PASSWORD
 		);
-		const { orgUserId: targetId } = await createTestOrgUserDirect(
-			targetEmail,
-			TEST_PASSWORD,
-			"ind1",
-			{ employerId, domain }
-		);
+		await createTestOrgUserDirect(targetEmail, TEST_PASSWORD, "ind1", {
+			employerId,
+			domain,
+		});
 
 		try {
 			// Login as non-admin
@@ -113,7 +109,7 @@ test.describe("POST /employer/disable-user", () => {
 
 			// Try to disable another user
 			const disableRequest: OrgDisableUserRequest = {
-				target_user_id: targetId,
+				email_address: targetEmail,
 			};
 			const disableResponse = await api.disableUser(
 				sessionToken,
@@ -133,10 +129,7 @@ test.describe("POST /employer/disable-user", () => {
 			generateTestOrgEmail("disable-last-admin");
 
 		// Create only one admin
-		const { orgUserId: adminId } = await createTestOrgAdminDirect(
-			adminEmail,
-			TEST_PASSWORD
-		);
+		await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
 
 		try {
 			// Login
@@ -159,7 +152,7 @@ test.describe("POST /employer/disable-user", () => {
 
 			// Try to disable self (last admin)
 			const disableRequest: OrgDisableUserRequest = {
-				target_user_id: adminId,
+				email_address: adminEmail,
 			};
 			const disableResponse = await api.disableUser(
 				sessionToken,
@@ -177,7 +170,7 @@ test.describe("POST /employer/disable-user", () => {
 		}
 	});
 
-	test("target_user_id is required (400)", async ({ request }) => {
+	test("email_address is required (400)", async ({ request }) => {
 		const api = new OrgAPIClient(request);
 		const { email: adminEmail, domain } =
 			generateTestOrgEmail("disable-req-admin");
@@ -203,48 +196,11 @@ test.describe("POST /employer/disable-user", () => {
 			expect(tfaResponse.status).toBe(200);
 			const sessionToken = tfaResponse.body.session_token;
 
-			// Try without target_user_id
+			// Try without email_address
 			const disableResponse = await api.disableUserRaw(sessionToken, {});
 
 			expect(disableResponse.status).toBe(400);
 			expect(disableResponse.errors).toBeDefined();
-		} finally {
-			await deleteTestOrgUser(adminEmail);
-		}
-	});
-
-	test("invalid target_user_id format returns 400", async ({ request }) => {
-		const api = new OrgAPIClient(request);
-		const { email: adminEmail, domain } =
-			generateTestOrgEmail("disable-invalid");
-
-		await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
-
-		try {
-			// Login
-			const loginResponse = await api.login({
-				email: adminEmail,
-				domain,
-				password: TEST_PASSWORD,
-			});
-			expect(loginResponse.status).toBe(200);
-
-			const tfaCode = await getTfaCodeFromEmail(adminEmail);
-
-			const tfaResponse = await api.verifyTFA({
-				tfa_token: loginResponse.body.tfa_token,
-				tfa_code: tfaCode,
-				remember_me: false,
-			});
-			expect(tfaResponse.status).toBe(200);
-			const sessionToken = tfaResponse.body.session_token;
-
-			// Try with invalid UUID
-			const disableResponse = await api.disableUserRaw(sessionToken, {
-				target_user_id: "not-a-uuid",
-			});
-
-			expect(disableResponse.status).toBe(400);
 		} finally {
 			await deleteTestOrgUser(adminEmail);
 		}
@@ -276,9 +232,9 @@ test.describe("POST /employer/disable-user", () => {
 			expect(tfaResponse.status).toBe(200);
 			const sessionToken = tfaResponse.body.session_token;
 
-			// Try with non-existent user ID
+			// Try with non-existent email
 			const disableRequest: OrgDisableUserRequest = {
-				target_user_id: "00000000-0000-0000-0000-000000000000",
+				email_address: "nonexistent@example.com",
 			};
 			const disableResponse = await api.disableUser(
 				sessionToken,
@@ -302,12 +258,10 @@ test.describe("POST /employer/disable-user", () => {
 			adminEmail,
 			TEST_PASSWORD
 		);
-		const { orgUserId: userId } = await createTestOrgUserDirect(
-			userEmail,
-			TEST_PASSWORD,
-			"ind1",
-			{ employerId, domain }
-		);
+		await createTestOrgUserDirect(userEmail, TEST_PASSWORD, "ind1", {
+			employerId,
+			domain,
+		});
 
 		// Manually disable the user
 		await updateTestOrgUserStatus(userEmail, "disabled");
@@ -333,7 +287,7 @@ test.describe("POST /employer/disable-user", () => {
 
 			// Try to disable already disabled user
 			const disableRequest: OrgDisableUserRequest = {
-				target_user_id: userId,
+				email_address: userEmail,
 			};
 			const disableResponse = await api.disableUser(
 				sessionToken,
@@ -351,7 +305,7 @@ test.describe("POST /employer/disable-user", () => {
 		const api = new OrgAPIClient(request);
 
 		const disableResponse = await api.disableUserRaw("", {
-			target_user_id: "00000000-0000-0000-0000-000000000000",
+			email_address: "some@email.com",
 		});
 
 		expect(disableResponse.status).toBe(401);
@@ -371,12 +325,10 @@ test.describe("POST /employer/enable-user", () => {
 			adminEmail,
 			TEST_PASSWORD
 		);
-		const { orgUserId: userId } = await createTestOrgUserDirect(
-			userEmail,
-			TEST_PASSWORD,
-			"ind1",
-			{ employerId, domain }
-		);
+		await createTestOrgUserDirect(userEmail, TEST_PASSWORD, "ind1", {
+			employerId,
+			domain,
+		});
 
 		// Disable the user first
 		await updateTestOrgUserStatus(userEmail, "disabled");
@@ -402,7 +354,7 @@ test.describe("POST /employer/enable-user", () => {
 
 			// Enable the user
 			const enableRequest: OrgEnableUserRequest = {
-				target_user_id: userId,
+				email_address: userEmail,
 			};
 			const enableResponse = await api.enableUser(sessionToken, enableRequest);
 
@@ -428,12 +380,10 @@ test.describe("POST /employer/enable-user", () => {
 			userEmail,
 			TEST_PASSWORD
 		);
-		const { orgUserId: targetId } = await createTestOrgUserDirect(
-			targetEmail,
-			TEST_PASSWORD,
-			"ind1",
-			{ employerId, domain }
-		);
+		await createTestOrgUserDirect(targetEmail, TEST_PASSWORD, "ind1", {
+			employerId,
+			domain,
+		});
 
 		await updateTestOrgUserStatus(targetEmail, "disabled");
 
@@ -458,7 +408,7 @@ test.describe("POST /employer/enable-user", () => {
 
 			// Try to enable another user
 			const enableRequest: OrgEnableUserRequest = {
-				target_user_id: targetId,
+				email_address: targetEmail,
 			};
 			const enableResponse = await api.enableUser(sessionToken, enableRequest);
 
@@ -480,12 +430,10 @@ test.describe("POST /employer/enable-user", () => {
 			adminEmail,
 			TEST_PASSWORD
 		);
-		const { orgUserId: userId } = await createTestOrgUserDirect(
-			userEmail,
-			TEST_PASSWORD,
-			"ind1",
-			{ employerId, domain }
-		);
+		await createTestOrgUserDirect(userEmail, TEST_PASSWORD, "ind1", {
+			employerId,
+			domain,
+		});
 
 		try {
 			// Login as admin
@@ -508,7 +456,7 @@ test.describe("POST /employer/enable-user", () => {
 
 			// Try to enable already active user
 			const enableRequest: OrgEnableUserRequest = {
-				target_user_id: userId,
+				email_address: userEmail,
 			};
 			const enableResponse = await api.enableUser(sessionToken, enableRequest);
 
@@ -519,7 +467,7 @@ test.describe("POST /employer/enable-user", () => {
 		}
 	});
 
-	test("target_user_id is required (400)", async ({ request }) => {
+	test("email_address is required (400)", async ({ request }) => {
 		const api = new OrgAPIClient(request);
 		const { email: adminEmail, domain } =
 			generateTestOrgEmail("enable-req-admin");
@@ -545,7 +493,7 @@ test.describe("POST /employer/enable-user", () => {
 			expect(tfaResponse.status).toBe(200);
 			const sessionToken = tfaResponse.body.session_token;
 
-			// Try without target_user_id
+			// Try without email_address
 			const enableResponse = await api.enableUserRaw(sessionToken, {});
 
 			expect(enableResponse.status).toBe(400);
@@ -581,9 +529,9 @@ test.describe("POST /employer/enable-user", () => {
 			expect(tfaResponse.status).toBe(200);
 			const sessionToken = tfaResponse.body.session_token;
 
-			// Try with non-existent user ID
+			// Try with non-existent email
 			const enableRequest: OrgEnableUserRequest = {
-				target_user_id: "00000000-0000-0000-0000-000000000000",
+				email_address: "nonexistent@example.com",
 			};
 			const enableResponse = await api.enableUser(sessionToken, enableRequest);
 
@@ -597,7 +545,7 @@ test.describe("POST /employer/enable-user", () => {
 		const api = new OrgAPIClient(request);
 
 		const enableResponse = await api.enableUserRaw("", {
-			target_user_id: "00000000-0000-0000-0000-000000000000",
+			email_address: "some@email.com",
 		});
 
 		expect(enableResponse.status).toBe(401);

@@ -113,3 +113,57 @@ interface AdminSetLanguage {
         statusCode: 401;
     };
 }
+
+// ============================================
+// User Management (Disable/Enable)
+// ============================================
+
+model AdminDisableUserRequest {
+  @doc("Email address of the user to disable")
+  email_address: EmailAddress;
+}
+
+model AdminEnableUserRequest {
+  @doc("Email address of the user to enable")
+  email_address: EmailAddress;
+}
+
+@route("/admin/disable-user")
+interface AdminDisableUser {
+  @tag("AdminUsers")
+  @post
+  @doc("Disable an admin user")
+  disableUser(@body request: AdminDisableUserRequest): {
+    @statusCode statusCode: 200;
+  } | {
+    @doc("Validation errors")
+    @statusCode
+    statusCode: 400;
+  } | {
+    @doc("User not found")
+    @statusCode
+    statusCode: 404;
+  } | {
+    @doc("User already disabled or cannot disable last admin")
+    @statusCode
+    statusCode: 422;
+  };
+}
+
+@route("/admin/enable-user")
+interface AdminEnableUser {
+  @tag("AdminUsers")
+  @post
+  @doc("Enable an admin user")
+  enableUser(@body request: AdminEnableUserRequest): {
+    @statusCode statusCode: 200;
+  } | {
+    @doc("Validation errors")
+    @statusCode
+    statusCode: 400;
+  } | {
+    @doc("User not found or already active")
+    @statusCode
+    statusCode: 404;
+  };
+}

@@ -6,7 +6,6 @@ import (
 	"net/http"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
@@ -43,19 +42,11 @@ func DisableUser(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Parse target user ID
-		var targetUserID pgtype.UUID
-		if err := targetUserID.Scan(req.TargetUserID); err != nil {
-			log.Debug("invalid target_user_id format", "error", err)
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-
-		// Get target user from global DB
-		targetUser, err := s.Global.GetAdminUserByID(ctx, targetUserID)
+		// Get target user by email from global DB
+		targetUser, err := s.Global.GetAdminUserByEmail(ctx, string(req.EmailAddress))
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				log.Debug("target user not found", "target_user_id", req.TargetUserID)
+				log.Debug("target user not found", "email", req.EmailAddress)
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
@@ -90,7 +81,7 @@ func DisableUser(s *server.Server) http.HandlerFunc {
 
 		// Update user status to disabled in global DB
 		err = s.Global.UpdateAdminUserStatus(ctx, globaldb.UpdateAdminUserStatusParams{
-			AdminUserID: targetUserID,
+			AdminUserID: targetUser.AdminUserID,
 			Status:      globaldb.AdminUserStatusDisabled,
 		})
 		if err != nil {
@@ -100,7 +91,7 @@ func DisableUser(s *server.Server) http.HandlerFunc {
 		}
 
 		// Invalidate all sessions for the target user in global DB
-		err = s.Global.DeleteAllAdminSessionsForUser(ctx, targetUserID)
+		err = s.Global.DeleteAllAdminSessionsForUser(ctx, targetUser.AdminUserID)
 		if err != nil {
 			log.Error("failed to delete user sessions", "error", err)
 			// User is disabled but sessions still active - this is acceptable

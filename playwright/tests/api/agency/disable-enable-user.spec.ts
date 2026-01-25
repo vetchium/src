@@ -30,12 +30,10 @@ test.describe("POST /agency/disable-user", () => {
 			adminEmail,
 			TEST_PASSWORD
 		);
-		const { agencyUserId: userId } = await createTestAgencyUserDirect(
-			userEmail,
-			TEST_PASSWORD,
-			"ind1",
-			{ agencyId, domain }
-		);
+		await createTestAgencyUserDirect(userEmail, TEST_PASSWORD, "ind1", {
+			agencyId,
+			domain,
+		});
 
 		try {
 			// Login as admin
@@ -58,7 +56,7 @@ test.describe("POST /agency/disable-user", () => {
 
 			// Disable the user
 			const disableRequest: AgencyDisableUserRequest = {
-				target_user_id: userId,
+				email_address: userEmail,
 			};
 			const disableResponse = await api.disableUser(
 				sessionToken,
@@ -88,12 +86,10 @@ test.describe("POST /agency/disable-user", () => {
 			userEmail,
 			TEST_PASSWORD
 		);
-		const { agencyUserId: targetId } = await createTestAgencyUserDirect(
-			targetEmail,
-			TEST_PASSWORD,
-			"ind1",
-			{ agencyId, domain }
-		);
+		await createTestAgencyUserDirect(targetEmail, TEST_PASSWORD, "ind1", {
+			agencyId,
+			domain,
+		});
 
 		try {
 			// Login as non-admin
@@ -116,7 +112,7 @@ test.describe("POST /agency/disable-user", () => {
 
 			// Try to disable another user
 			const disableRequest: AgencyDisableUserRequest = {
-				target_user_id: targetId,
+				email_address: targetEmail,
 			};
 			const disableResponse = await api.disableUser(
 				sessionToken,
@@ -136,10 +132,7 @@ test.describe("POST /agency/disable-user", () => {
 			generateTestAgencyEmail("disable-last-admin");
 
 		// Create only one admin
-		const { agencyUserId: adminId } = await createTestAgencyAdminDirect(
-			adminEmail,
-			TEST_PASSWORD
-		);
+		await createTestAgencyAdminDirect(adminEmail, TEST_PASSWORD);
 
 		try {
 			// Login
@@ -162,7 +155,7 @@ test.describe("POST /agency/disable-user", () => {
 
 			// Try to disable self (last admin)
 			const disableRequest: AgencyDisableUserRequest = {
-				target_user_id: adminId,
+				email_address: adminEmail,
 			};
 			const disableResponse = await api.disableUser(
 				sessionToken,
@@ -180,7 +173,7 @@ test.describe("POST /agency/disable-user", () => {
 		}
 	});
 
-	test("target_user_id is required (400)", async ({ request }) => {
+	test("email_address is required (400)", async ({ request }) => {
 		const api = new AgencyAPIClient(request);
 		const { email: adminEmail, domain } =
 			generateTestAgencyEmail("disable-req-admin");
@@ -206,48 +199,11 @@ test.describe("POST /agency/disable-user", () => {
 			expect(tfaResponse.status).toBe(200);
 			const sessionToken = tfaResponse.body.session_token;
 
-			// Try without target_user_id
+			// Try without email_address
 			const disableResponse = await api.disableUserRaw(sessionToken, {});
 
 			expect(disableResponse.status).toBe(400);
 			expect(disableResponse.errors).toBeDefined();
-		} finally {
-			await deleteTestAgencyUser(adminEmail);
-		}
-	});
-
-	test("invalid target_user_id format returns 400", async ({ request }) => {
-		const api = new AgencyAPIClient(request);
-		const { email: adminEmail, domain } =
-			generateTestAgencyEmail("disable-invalid");
-
-		await createTestAgencyAdminDirect(adminEmail, TEST_PASSWORD);
-
-		try {
-			// Login
-			const loginResponse = await api.login({
-				email: adminEmail,
-				domain,
-				password: TEST_PASSWORD,
-			});
-			expect(loginResponse.status).toBe(200);
-
-			const tfaCode = await getTfaCodeFromEmail(adminEmail);
-
-			const tfaResponse = await api.verifyTFA({
-				tfa_token: loginResponse.body.tfa_token,
-				tfa_code: tfaCode,
-				remember_me: false,
-			});
-			expect(tfaResponse.status).toBe(200);
-			const sessionToken = tfaResponse.body.session_token;
-
-			// Try with invalid UUID
-			const disableResponse = await api.disableUserRaw(sessionToken, {
-				target_user_id: "not-a-uuid",
-			});
-
-			expect(disableResponse.status).toBe(400);
 		} finally {
 			await deleteTestAgencyUser(adminEmail);
 		}
@@ -279,9 +235,9 @@ test.describe("POST /agency/disable-user", () => {
 			expect(tfaResponse.status).toBe(200);
 			const sessionToken = tfaResponse.body.session_token;
 
-			// Try with non-existent user ID
+			// Try with non-existent email
 			const disableRequest: AgencyDisableUserRequest = {
-				target_user_id: "00000000-0000-0000-0000-000000000000",
+				email_address: "nonexistent@example.com",
 			};
 			const disableResponse = await api.disableUser(
 				sessionToken,
@@ -305,12 +261,10 @@ test.describe("POST /agency/disable-user", () => {
 			adminEmail,
 			TEST_PASSWORD
 		);
-		const { agencyUserId: userId } = await createTestAgencyUserDirect(
-			userEmail,
-			TEST_PASSWORD,
-			"ind1",
-			{ agencyId, domain }
-		);
+		await createTestAgencyUserDirect(userEmail, TEST_PASSWORD, "ind1", {
+			agencyId,
+			domain,
+		});
 
 		// Manually disable the user
 		await updateTestAgencyUserStatus(userEmail, "disabled");
@@ -336,7 +290,7 @@ test.describe("POST /agency/disable-user", () => {
 
 			// Try to disable already disabled user
 			const disableRequest: AgencyDisableUserRequest = {
-				target_user_id: userId,
+				email_address: userEmail,
 			};
 			const disableResponse = await api.disableUser(
 				sessionToken,
@@ -354,7 +308,7 @@ test.describe("POST /agency/disable-user", () => {
 		const api = new AgencyAPIClient(request);
 
 		const disableResponse = await api.disableUserRaw("", {
-			target_user_id: "00000000-0000-0000-0000-000000000000",
+			email_address: "some@email.com",
 		});
 
 		expect(disableResponse.status).toBe(401);
@@ -375,12 +329,10 @@ test.describe("POST /agency/enable-user", () => {
 			adminEmail,
 			TEST_PASSWORD
 		);
-		const { agencyUserId: userId } = await createTestAgencyUserDirect(
-			userEmail,
-			TEST_PASSWORD,
-			"ind1",
-			{ agencyId, domain }
-		);
+		await createTestAgencyUserDirect(userEmail, TEST_PASSWORD, "ind1", {
+			agencyId,
+			domain,
+		});
 
 		// Disable the user first
 		await updateTestAgencyUserStatus(userEmail, "disabled");
@@ -406,7 +358,7 @@ test.describe("POST /agency/enable-user", () => {
 
 			// Enable the user
 			const enableRequest: AgencyEnableUserRequest = {
-				target_user_id: userId,
+				email_address: userEmail,
 			};
 			const enableResponse = await api.enableUser(sessionToken, enableRequest);
 
@@ -432,12 +384,10 @@ test.describe("POST /agency/enable-user", () => {
 			userEmail,
 			TEST_PASSWORD
 		);
-		const { agencyUserId: targetId } = await createTestAgencyUserDirect(
-			targetEmail,
-			TEST_PASSWORD,
-			"ind1",
-			{ agencyId, domain }
-		);
+		await createTestAgencyUserDirect(targetEmail, TEST_PASSWORD, "ind1", {
+			agencyId,
+			domain,
+		});
 
 		await updateTestAgencyUserStatus(targetEmail, "disabled");
 
@@ -462,7 +412,7 @@ test.describe("POST /agency/enable-user", () => {
 
 			// Try to enable another user
 			const enableRequest: AgencyEnableUserRequest = {
-				target_user_id: targetId,
+				email_address: targetEmail,
 			};
 			const enableResponse = await api.enableUser(sessionToken, enableRequest);
 
@@ -484,12 +434,10 @@ test.describe("POST /agency/enable-user", () => {
 			adminEmail,
 			TEST_PASSWORD
 		);
-		const { agencyUserId: userId } = await createTestAgencyUserDirect(
-			userEmail,
-			TEST_PASSWORD,
-			"ind1",
-			{ agencyId, domain }
-		);
+		await createTestAgencyUserDirect(userEmail, TEST_PASSWORD, "ind1", {
+			agencyId,
+			domain,
+		});
 
 		try {
 			// Login as admin
@@ -512,7 +460,7 @@ test.describe("POST /agency/enable-user", () => {
 
 			// Try to enable already active user
 			const enableRequest: AgencyEnableUserRequest = {
-				target_user_id: userId,
+				email_address: userEmail,
 			};
 			const enableResponse = await api.enableUser(sessionToken, enableRequest);
 
@@ -523,7 +471,7 @@ test.describe("POST /agency/enable-user", () => {
 		}
 	});
 
-	test("target_user_id is required (400)", async ({ request }) => {
+	test("email_address is required (400)", async ({ request }) => {
 		const api = new AgencyAPIClient(request);
 		const { email: adminEmail, domain } =
 			generateTestAgencyEmail("enable-req-admin");
@@ -549,7 +497,7 @@ test.describe("POST /agency/enable-user", () => {
 			expect(tfaResponse.status).toBe(200);
 			const sessionToken = tfaResponse.body.session_token;
 
-			// Try without target_user_id
+			// Try without email_address
 			const enableResponse = await api.enableUserRaw(sessionToken, {});
 
 			expect(enableResponse.status).toBe(400);
@@ -585,9 +533,9 @@ test.describe("POST /agency/enable-user", () => {
 			expect(tfaResponse.status).toBe(200);
 			const sessionToken = tfaResponse.body.session_token;
 
-			// Try with non-existent user ID
+			// Try with non-existent email
 			const enableRequest: AgencyEnableUserRequest = {
-				target_user_id: "00000000-0000-0000-0000-000000000000",
+				email_address: "nonexistent@example.com",
 			};
 			const enableResponse = await api.enableUser(sessionToken, enableRequest);
 
@@ -601,7 +549,7 @@ test.describe("POST /agency/enable-user", () => {
 		const api = new AgencyAPIClient(request);
 
 		const enableResponse = await api.enableUserRaw("", {
-			target_user_id: "00000000-0000-0000-0000-000000000000",
+			email_address: "some@email.com",
 		});
 
 		expect(enableResponse.status).toBe(401);
