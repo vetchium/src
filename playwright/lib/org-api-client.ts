@@ -18,6 +18,8 @@ import type {
 	OrgRequestPasswordResetResponse,
 	OrgCompletePasswordResetRequest,
 	OrgChangePasswordRequest,
+	AssignRoleRequest,
+	RemoveRoleRequest,
 } from "vetchium-specs/org/org-users";
 import type {
 	ClaimDomainRequest,
@@ -778,6 +780,128 @@ export class OrgAPIClient {
 		return {
 			status: response.status(),
 			body: undefined,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	// ============================================================================
+	// RBAC (Role-Based Access Control)
+	// ============================================================================
+
+	/**
+	 * POST /employer/assign-role
+	 * Assigns a role to an org user
+	 */
+	async assignRole(
+		sessionToken: string,
+		request: AssignRoleRequest
+	): Promise<APIResponse<{ message: string }>> {
+		const response = await this.request.post("/employer/assign-role", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as { message: string },
+			errors: body.errors,
+		};
+	}
+
+	/**
+	 * POST /employer/assign-role with raw body for testing invalid payloads
+	 */
+	async assignRoleRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<{ message: string }>> {
+		const response = await this.request.post("/employer/assign-role", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: body,
+		});
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as { message: string },
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	/**
+	 * POST /employer/assign-role without authorization header (for testing 401)
+	 */
+	async assignRoleWithoutAuth(
+		request: AssignRoleRequest
+	): Promise<APIResponse<{ message: string }>> {
+		const response = await this.request.post("/employer/assign-role", {
+			data: request,
+		});
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as { message: string },
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	/**
+	 * POST /employer/remove-role
+	 * Removes a role from an org user
+	 */
+	async removeRole(
+		sessionToken: string,
+		request: RemoveRoleRequest
+	): Promise<APIResponse<{ message: string }>> {
+		const response = await this.request.post("/employer/remove-role", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as { message: string },
+			errors: body.errors,
+		};
+	}
+
+	/**
+	 * POST /employer/remove-role with raw body for testing invalid payloads
+	 */
+	async removeRoleRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<{ message: string }>> {
+		const response = await this.request.post("/employer/remove-role", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: body,
+		});
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as { message: string },
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	/**
+	 * POST /employer/remove-role without authorization header (for testing 401)
+	 */
+	async removeRoleWithoutAuth(
+		request: RemoveRoleRequest
+	): Promise<APIResponse<{ message: string }>> {
+		const response = await this.request.post("/employer/remove-role", {
+			data: request,
+		});
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as { message: string },
 			errors: Array.isArray(responseBody) ? responseBody : undefined,
 		};
 	}
