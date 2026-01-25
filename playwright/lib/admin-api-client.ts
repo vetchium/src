@@ -798,7 +798,6 @@ export class AdminAPIClient {
 
 	/**
 	 * POST /admin/remove-role
-	 * Removes a role from an admin user
 	 */
 	async removeRole(
 		sessionToken: string,
@@ -852,6 +851,35 @@ export class AdminAPIClient {
 			status: response.status(),
 			body: responseBody as { message: string },
 			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	// ============================================================================
+	// User Filtering
+	// ============================================================================
+
+	/**
+	 * POST /admin/filter-users
+	 * Filters admin users.
+	 */
+	async filterUsers(
+		sessionToken: string,
+		request: import("vetchium-specs/admin/admin-users").FilterAdminUsersRequest
+	): Promise<
+		APIResponse<
+			import("vetchium-specs/admin/admin-users").FilterAdminUsersResponse
+		>
+	> {
+		const response = await this.request.post("/admin/filter-users", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as import("vetchium-specs/admin/admin-users").FilterAdminUsersResponse,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 }

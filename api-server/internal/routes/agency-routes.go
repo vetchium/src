@@ -30,4 +30,5 @@ func RegisterAgencyRoutes(mux *http.ServeMux, s *server.Server) {
 	// RBAC routes
 	mux.Handle("POST /agency/assign-role", agencyAuth(agency.AssignRole(s)))
 	mux.Handle("POST /agency/remove-role", agencyAuth(agency.RemoveRole(s)))
+	mux.Handle("POST /agency/filter-users", agencyAuth(agency.FilterUsers(s)))
 }

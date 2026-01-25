@@ -690,4 +690,33 @@ export class AgencyAPIClient {
 			errors: Array.isArray(responseBody) ? responseBody : undefined,
 		};
 	}
+
+	// ============================================================================
+	// User Filtering
+	// ============================================================================
+
+	/**
+	 * POST /agency/filter-users
+	 * Filters agency users.
+	 */
+	async filterUsers(
+		sessionToken: string,
+		request: import("vetchium-specs/agency/agency-users").FilterAgencyUsersRequest
+	): Promise<
+		APIResponse<
+			import("vetchium-specs/agency/agency-users").FilterAgencyUsersResponse
+		>
+	> {
+		const response = await this.request.post("/agency/filter-users", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as import("vetchium-specs/agency/agency-users").FilterAgencyUsersResponse,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
 }

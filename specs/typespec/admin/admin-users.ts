@@ -341,3 +341,34 @@ export function validateAdminChangePasswordRequest(
 
 	return errs;
 }
+
+// ============================================================================
+// User Management (Filter Users)
+// ============================================================================
+
+export interface AdminUser {
+	email_address: EmailAddress;
+	name: string;
+	status: string;
+	created_at: string;
+}
+
+export interface FilterAdminUsersRequest {
+	limit?: number;
+	cursor?: string;
+	filter_email?: string;
+	filter_name?: string;
+	filter_status?: string;
+}
+
+export function validateFilterAdminUsersRequest(
+	request: FilterAdminUsersRequest
+): ValidationError[] {
+	const errs: ValidationError[] = [];
+	return errs;
+}
+
+export interface FilterAdminUsersResponse {
+	items: AdminUser[];
+	next_cursor: string;
+}

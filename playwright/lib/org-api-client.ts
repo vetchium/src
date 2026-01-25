@@ -891,6 +891,9 @@ export class OrgAPIClient {
 	/**
 	 * POST /employer/remove-role without authorization header (for testing 401)
 	 */
+	/**
+	 * POST /employer/remove-role without authorization header (for testing 401)
+	 */
 	async removeRoleWithoutAuth(
 		request: RemoveRoleRequest
 	): Promise<APIResponse<{ message: string }>> {
@@ -903,6 +906,33 @@ export class OrgAPIClient {
 			status: response.status(),
 			body: responseBody as { message: string },
 			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	// ============================================================================
+	// User Filtering
+	// ============================================================================
+
+	/**
+	 * POST /employer/filter-users
+	 * Filters org users.
+	 */
+	async filterUsers(
+		sessionToken: string,
+		request: import("vetchium-specs/org/org-users").FilterOrgUsersRequest
+	): Promise<
+		APIResponse<import("vetchium-specs/org/org-users").FilterOrgUsersResponse>
+	> {
+		const response = await this.request.post("/employer/filter-users", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as import("vetchium-specs/org/org-users").FilterOrgUsersResponse,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 }

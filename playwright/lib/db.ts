@@ -27,6 +27,7 @@ export type LanguageCode = "en-US" | "de-DE" | "ta-IN" | string;
 export interface CreateTestAdminUserOptions {
 	status?: AdminUserStatus;
 	preferredLanguage?: LanguageCode;
+	fullName?: string;
 }
 
 /**
@@ -52,11 +53,12 @@ export async function createTestAdminUser(
 		typeof options === "string" ? { status: options } : options;
 	const status = opts.status ?? "active";
 	const preferredLanguage = opts.preferredLanguage ?? "en-US";
+	const fullName = opts.fullName ?? "Test Admin";
 
 	await pool.query(
-		`INSERT INTO admin_users (admin_user_id, email_address, password_hash, status, preferred_language)
-     VALUES ($1, $2, $3, $4, $5)`,
-		[adminUserId, email, passwordHash, status, preferredLanguage]
+		`INSERT INTO admin_users (admin_user_id, email_address, password_hash, status, preferred_language, full_name)
+     VALUES ($1, $2, $3, $4, $5, $6)`,
+		[adminUserId, email, passwordHash, status, preferredLanguage, fullName]
 	);
 
 	return adminUserId;

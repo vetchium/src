@@ -229,7 +229,7 @@ export interface AgencyTFAResponse {
 }
 
 // AgencyLogoutRequest is empty - session token passed via Authorization header
-export interface AgencyLogoutRequest { }
+export interface AgencyLogoutRequest {}
 
 // ============================================================================
 // Agency User Invitation

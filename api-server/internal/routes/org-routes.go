@@ -33,4 +33,5 @@ func RegisterOrgRoutes(mux *http.ServeMux, s *server.Server) {
 	// RBAC routes
 	mux.Handle("POST /employer/assign-role", orgAuth(org.AssignRole(s)))
 	mux.Handle("POST /employer/remove-role", orgAuth(org.RemoveRole(s)))
+	mux.Handle("POST /employer/filter-users", orgAuth(org.FilterUsers(s)))
 }

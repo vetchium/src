@@ -35,4 +35,5 @@ func RegisterAdminRoutes(mux *http.ServeMux, s *server.Server) {
 	// RBAC routes
 	mux.Handle("POST /admin/assign-role", authMiddleware(admin.AssignRole(s)))
 	mux.Handle("POST /admin/remove-role", authMiddleware(admin.RemoveRole(s)))
+	mux.Handle("POST /admin/filter-users", authMiddleware(admin.FilterUsers(s)))
 }
