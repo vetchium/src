@@ -18,6 +18,8 @@ import type {
 	AgencyChangePasswordRequest,
 	AgencyInviteUserRequest,
 	AgencyInviteUserResponse,
+	AssignRoleRequest,
+	RemoveRoleRequest,
 } from "vetchium-specs/agency/agency-users";
 import type { APIResponse } from "./api-client";
 
@@ -563,6 +565,128 @@ export class AgencyAPIClient {
 		return {
 			status: response.status(),
 			body: undefined,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	// ============================================================================
+	// RBAC (Role-Based Access Control)
+	// ============================================================================
+
+	/**
+	 * POST /agency/assign-role
+	 * Assigns a role to an agency user
+	 */
+	async assignRole(
+		sessionToken: string,
+		request: AssignRoleRequest
+	): Promise<APIResponse<{ message: string }>> {
+		const response = await this.request.post("/agency/assign-role", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as { message: string },
+			errors: body.errors,
+		};
+	}
+
+	/**
+	 * POST /agency/assign-role with raw body for testing invalid payloads
+	 */
+	async assignRoleRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<{ message: string }>> {
+		const response = await this.request.post("/agency/assign-role", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: body,
+		});
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as { message: string },
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	/**
+	 * POST /agency/assign-role without authorization header (for testing 401)
+	 */
+	async assignRoleWithoutAuth(
+		request: AssignRoleRequest
+	): Promise<APIResponse<{ message: string }>> {
+		const response = await this.request.post("/agency/assign-role", {
+			data: request,
+		});
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as { message: string },
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	/**
+	 * POST /agency/remove-role
+	 * Removes a role from an agency user
+	 */
+	async removeRole(
+		sessionToken: string,
+		request: RemoveRoleRequest
+	): Promise<APIResponse<{ message: string }>> {
+		const response = await this.request.post("/agency/remove-role", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as { message: string },
+			errors: body.errors,
+		};
+	}
+
+	/**
+	 * POST /agency/remove-role with raw body for testing invalid payloads
+	 */
+	async removeRoleRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<{ message: string }>> {
+		const response = await this.request.post("/agency/remove-role", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: body,
+		});
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as { message: string },
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	/**
+	 * POST /agency/remove-role without authorization header (for testing 401)
+	 */
+	async removeRoleWithoutAuth(
+		request: RemoveRoleRequest
+	): Promise<APIResponse<{ message: string }>> {
+		const response = await this.request.post("/agency/remove-role", {
+			data: request,
+		});
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as { message: string },
 			errors: Array.isArray(responseBody) ? responseBody : undefined,
 		};
 	}
