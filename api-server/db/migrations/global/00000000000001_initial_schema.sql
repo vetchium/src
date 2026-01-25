@@ -310,6 +310,43 @@ CREATE TABLE agency_signup_tokens (
     consumed_at TIMESTAMP
 );
 
+-- RBAC: Roles table
+CREATE TABLE roles (
+    role_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    role_name VARCHAR(100) NOT NULL UNIQUE,
+    description TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- RBAC: Admin user roles
+CREATE TABLE admin_user_roles (
+    admin_user_id UUID NOT NULL REFERENCES admin_users(admin_user_id) ON DELETE CASCADE,
+    role_id UUID NOT NULL REFERENCES roles(role_id) ON DELETE RESTRICT,
+    assigned_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (admin_user_id, role_id)
+);
+
+-- RBAC: Org user roles
+CREATE TABLE org_user_roles (
+    org_user_id UUID NOT NULL REFERENCES org_users(org_user_id) ON DELETE CASCADE,
+    role_id UUID NOT NULL REFERENCES roles(role_id) ON DELETE RESTRICT,
+    assigned_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (org_user_id, role_id)
+);
+
+-- RBAC: Agency user roles
+CREATE TABLE agency_user_roles (
+    agency_user_id UUID NOT NULL REFERENCES agency_users(agency_user_id) ON DELETE CASCADE,
+    role_id UUID NOT NULL REFERENCES roles(role_id) ON DELETE RESTRICT,
+    assigned_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (agency_user_id, role_id)
+);
+
+-- Insert predefined roles
+INSERT INTO roles (role_name, description) VALUES
+    ('invite_users', 'Can invite new users to the entity'),
+    ('manage_users', 'Can enable/disable users');
+
 -- Indexes
 CREATE INDEX idx_admin_tfa_tokens_expires_at ON admin_tfa_tokens(expires_at);
 CREATE INDEX idx_admin_sessions_expires_at ON admin_sessions(expires_at);
@@ -333,6 +370,10 @@ CREATE INDEX idx_agency_users_email_hash ON agency_users(email_address_hash);
 CREATE INDEX idx_global_agency_domains_agency_id ON global_agency_domains(agency_id);
 
 -- +goose Down
+DROP TABLE IF EXISTS agency_user_roles;
+DROP TABLE IF EXISTS org_user_roles;
+DROP TABLE IF EXISTS admin_user_roles;
+DROP TABLE IF EXISTS roles;
 DROP INDEX IF EXISTS idx_global_agency_domains_agency_id;
 DROP INDEX IF EXISTS idx_agency_users_email_hash;
 DROP INDEX IF EXISTS idx_agency_users_agency_id;

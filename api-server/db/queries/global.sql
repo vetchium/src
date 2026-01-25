@@ -708,3 +708,84 @@ WHERE admin_user_id = $1;
 
 -- name: DeleteAllAdminSessionsExceptCurrent :exec
 DELETE FROM admin_sessions WHERE admin_user_id = $1 AND session_token != $2;
+
+-- ============================================
+-- RBAC Queries
+-- ============================================
+
+-- Role queries
+
+-- name: GetRoleByName :one
+SELECT * FROM roles WHERE role_name = $1;
+
+-- name: GetAllRoles :many
+SELECT * FROM roles ORDER BY role_name ASC;
+
+-- Admin user role queries
+
+-- name: GetAdminUserRoles :many
+SELECT r.role_id, r.role_name, r.description, aur.assigned_at
+FROM admin_user_roles aur
+JOIN roles r ON aur.role_id = r.role_id
+WHERE aur.admin_user_id = $1
+ORDER BY r.role_name ASC;
+
+-- name: HasAdminUserRole :one
+SELECT EXISTS(
+    SELECT 1 FROM admin_user_roles
+    WHERE admin_user_id = $1 AND role_id = $2
+) AS has_role;
+
+-- name: AssignAdminUserRole :exec
+INSERT INTO admin_user_roles (admin_user_id, role_id)
+VALUES ($1, $2);
+
+-- name: RemoveAdminUserRole :exec
+DELETE FROM admin_user_roles
+WHERE admin_user_id = $1 AND role_id = $2;
+
+-- Org user role queries
+
+-- name: GetOrgUserRoles :many
+SELECT r.role_id, r.role_name, r.description, our.assigned_at
+FROM org_user_roles our
+JOIN roles r ON our.role_id = r.role_id
+WHERE our.org_user_id = $1
+ORDER BY r.role_name ASC;
+
+-- name: HasOrgUserRole :one
+SELECT EXISTS(
+    SELECT 1 FROM org_user_roles
+    WHERE org_user_id = $1 AND role_id = $2
+) AS has_role;
+
+-- name: AssignOrgUserRole :exec
+INSERT INTO org_user_roles (org_user_id, role_id)
+VALUES ($1, $2);
+
+-- name: RemoveOrgUserRole :exec
+DELETE FROM org_user_roles
+WHERE org_user_id = $1 AND role_id = $2;
+
+-- Agency user role queries
+
+-- name: GetAgencyUserRoles :many
+SELECT r.role_id, r.role_name, r.description, aur.assigned_at
+FROM agency_user_roles aur
+JOIN roles r ON aur.role_id = r.role_id
+WHERE aur.agency_user_id = $1
+ORDER BY r.role_name ASC;
+
+-- name: HasAgencyUserRole :one
+SELECT EXISTS(
+    SELECT 1 FROM agency_user_roles
+    WHERE agency_user_id = $1 AND role_id = $2
+) AS has_role;
+
+-- name: AssignAgencyUserRole :exec
+INSERT INTO agency_user_roles (agency_user_id, role_id)
+VALUES ($1, $2);
+
+-- name: RemoveAgencyUserRole :exec
+DELETE FROM agency_user_roles
+WHERE agency_user_id = $1 AND role_id = $2;
