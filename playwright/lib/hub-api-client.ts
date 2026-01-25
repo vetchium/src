@@ -24,7 +24,7 @@ import type { APIResponse } from "./api-client";
  * Wraps Playwright's request context for type-safe API calls.
  */
 export class HubAPIClient {
-	constructor(private request: APIRequestContext) {}
+	constructor(private request: APIRequestContext) { }
 
 	/**
 	 * POST /hub/request-signup
@@ -41,7 +41,7 @@ export class HubAPIClient {
 		return {
 			status: response.status(),
 			body: body as RequestSignupResponse,
-			errors: body.errors,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 
@@ -78,7 +78,7 @@ export class HubAPIClient {
 		return {
 			status: response.status(),
 			body: body as CompleteSignupResponse,
-			errors: body.errors,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 
@@ -115,7 +115,7 @@ export class HubAPIClient {
 		return {
 			status: response.status(),
 			body: body as HubLoginResponse,
-			errors: body.errors,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 
@@ -150,7 +150,7 @@ export class HubAPIClient {
 		return {
 			status: response.status(),
 			body: body as HubTFAResponse,
-			errors: body.errors,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 
@@ -189,7 +189,7 @@ export class HubAPIClient {
 		return {
 			status: response.status(),
 			body: undefined,
-			errors: body.errors,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 
@@ -291,7 +291,7 @@ export class HubAPIClient {
 		return {
 			status: response.status(),
 			body: body as HubRequestPasswordResetResponse,
-			errors: body.errors,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 
@@ -328,7 +328,7 @@ export class HubAPIClient {
 		return {
 			status: response.status(),
 			body: undefined,
-			errors: body.errors,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 
@@ -367,7 +367,7 @@ export class HubAPIClient {
 		return {
 			status: response.status(),
 			body: undefined,
-			errors: body.errors,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 
@@ -412,7 +412,7 @@ export class HubAPIClient {
 		return {
 			status: response.status(),
 			body: body as HubRequestEmailChangeResponse,
-			errors: body.errors,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 
@@ -453,7 +453,7 @@ export class HubAPIClient {
 		return {
 			status: response.status(),
 			body: undefined,
-			errors: body.errors,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 

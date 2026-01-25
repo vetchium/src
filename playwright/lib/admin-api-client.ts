@@ -32,7 +32,7 @@ import type { APIResponse } from "./api-client";
  * Wraps Playwright's request context for type-safe API calls.
  */
 export class AdminAPIClient {
-	constructor(private request: APIRequestContext) {}
+	constructor(private request: APIRequestContext) { }
 
 	/**
 	 * POST /admin/login
@@ -53,7 +53,7 @@ export class AdminAPIClient {
 		return {
 			status: response.status(),
 			body: body as AdminLoginResponse,
-			errors: body.errors,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 
@@ -91,7 +91,7 @@ export class AdminAPIClient {
 		return {
 			status: response.status(),
 			body: body as AdminTFAResponse,
-			errors: body.errors,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 
@@ -130,7 +130,7 @@ export class AdminAPIClient {
 		return {
 			status: response.status(),
 			body: undefined,
-			errors: body.errors,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 
@@ -191,7 +191,7 @@ export class AdminAPIClient {
 		return {
 			status: response.status(),
 			body: undefined,
-			errors: body.errors,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 
@@ -242,7 +242,7 @@ export class AdminAPIClient {
 		return {
 			status: response.status(),
 			body: body as ApprovedDomainDetailResponse["domain"],
-			errors: body.errors,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 
@@ -289,7 +289,7 @@ export class AdminAPIClient {
 		return {
 			status: response.status(),
 			body: body as ApprovedDomainListResponse,
-			errors: body.errors,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 
@@ -334,7 +334,7 @@ export class AdminAPIClient {
 		return {
 			status: response.status(),
 			body: body as ApprovedDomainDetailResponse,
-			errors: body.errors,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 
@@ -379,7 +379,7 @@ export class AdminAPIClient {
 		return {
 			status: response.status(),
 			body: undefined,
-			errors: body.errors,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 
@@ -424,7 +424,7 @@ export class AdminAPIClient {
 		return {
 			status: response.status(),
 			body: undefined,
-			errors: body.errors,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 
@@ -473,7 +473,7 @@ export class AdminAPIClient {
 		return {
 			status: response.status(),
 			body: undefined,
-			errors: body.errors,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 
@@ -518,7 +518,7 @@ export class AdminAPIClient {
 		return {
 			status: response.status(),
 			body: undefined,
-			errors: body.errors,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 
@@ -561,7 +561,7 @@ export class AdminAPIClient {
 		return {
 			status: response.status(),
 			body: body as AdminRequestPasswordResetResponse,
-			errors: body.errors,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 
@@ -691,7 +691,7 @@ export class AdminAPIClient {
 		return {
 			status: response.status(),
 			body: body as AdminInviteUserResponse,
-			errors: body.errors,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 
@@ -754,7 +754,7 @@ export class AdminAPIClient {
 		return {
 			status: response.status(),
 			body: body as { message: string },
-			errors: body.errors,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 
@@ -813,7 +813,7 @@ export class AdminAPIClient {
 		return {
 			status: response.status(),
 			body: body as { message: string },
-			errors: body.errors,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 

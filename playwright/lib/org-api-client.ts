@@ -36,7 +36,7 @@ import type { APIResponse } from "./api-client";
  * Wraps Playwright's request context for type-safe API calls.
  */
 export class OrgAPIClient {
-	constructor(private request: APIRequestContext) {}
+	constructor(private request: APIRequestContext) { }
 
 	/**
 	 * POST /org/init-signup
@@ -53,7 +53,7 @@ export class OrgAPIClient {
 		return {
 			status: response.status(),
 			body: body as OrgInitSignupResponse,
-			errors: body.errors,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 
@@ -90,7 +90,7 @@ export class OrgAPIClient {
 		return {
 			status: response.status(),
 			body: body as OrgCompleteSignupResponse,
-			errors: body.errors,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 
@@ -131,7 +131,7 @@ export class OrgAPIClient {
 		return {
 			status: response.status(),
 			body: body as ClaimDomainResponse,
-			errors: body.errors,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 
@@ -171,7 +171,7 @@ export class OrgAPIClient {
 		return {
 			status: response.status(),
 			body: body as ClaimDomainResponse,
-			errors: body.errors,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 
@@ -194,7 +194,7 @@ export class OrgAPIClient {
 		return {
 			status: response.status(),
 			body: body as VerifyDomainResponse,
-			errors: body.errors,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 
@@ -234,7 +234,7 @@ export class OrgAPIClient {
 		return {
 			status: response.status(),
 			body: body as VerifyDomainResponse,
-			errors: body.errors,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 
@@ -257,7 +257,7 @@ export class OrgAPIClient {
 		return {
 			status: response.status(),
 			body: body as GetDomainStatusResponse,
-			errors: body.errors,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 
@@ -297,7 +297,7 @@ export class OrgAPIClient {
 		return {
 			status: response.status(),
 			body: body as GetDomainStatusResponse,
-			errors: body.errors,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 
@@ -324,7 +324,7 @@ export class OrgAPIClient {
 		return {
 			status: response.status(),
 			body: body as OrgLoginResponse,
-			errors: body.errors,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 
@@ -362,7 +362,7 @@ export class OrgAPIClient {
 		return {
 			status: response.status(),
 			body: body as OrgTFAResponse,
-			errors: body.errors,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 
@@ -401,7 +401,7 @@ export class OrgAPIClient {
 		return {
 			status: response.status(),
 			body: undefined,
-			errors: body.errors,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 
@@ -449,7 +449,7 @@ export class OrgAPIClient {
 		return {
 			status: response.status(),
 			body: body as OrgInviteUserResponse,
-			errors: body.errors,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 
@@ -489,7 +489,7 @@ export class OrgAPIClient {
 		return {
 			status: response.status(),
 			body: body as OrgInviteUserResponse,
-			errors: body.errors,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 
@@ -512,7 +512,7 @@ export class OrgAPIClient {
 		return {
 			status: response.status(),
 			body: body as OrgCompleteSetupResponse,
-			errors: body.errors,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 
@@ -562,7 +562,7 @@ export class OrgAPIClient {
 		return {
 			status: response.status(),
 			body: undefined,
-			errors: body.errors,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 
@@ -612,7 +612,7 @@ export class OrgAPIClient {
 		return {
 			status: response.status(),
 			body: undefined,
-			errors: body.errors,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 
@@ -664,7 +664,7 @@ export class OrgAPIClient {
 		return {
 			status: response.status(),
 			body: body as OrgRequestPasswordResetResponse,
-			errors: body.errors,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 

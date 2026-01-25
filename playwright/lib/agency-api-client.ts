@@ -28,7 +28,7 @@ import type { APIResponse } from "./api-client";
  * Wraps Playwright's request context for type-safe API calls.
  */
 export class AgencyAPIClient {
-	constructor(private request: APIRequestContext) {}
+	constructor(private request: APIRequestContext) { }
 
 	/**
 	 * POST /agency/init-signup
@@ -45,7 +45,7 @@ export class AgencyAPIClient {
 		return {
 			status: response.status(),
 			body: body as AgencyInitSignupResponse,
-			errors: body.errors,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 
@@ -82,7 +82,7 @@ export class AgencyAPIClient {
 		return {
 			status: response.status(),
 			body: body as AgencyGetSignupDetailsResponse,
-			errors: body.errors,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 
@@ -119,7 +119,7 @@ export class AgencyAPIClient {
 		return {
 			status: response.status(),
 			body: body as AgencyCompleteSignupResponse,
-			errors: body.errors,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 
@@ -164,7 +164,7 @@ export class AgencyAPIClient {
 		return {
 			status: response.status(),
 			body: body as AgencyLoginResponse,
-			errors: body.errors,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 
@@ -202,7 +202,7 @@ export class AgencyAPIClient {
 		return {
 			status: response.status(),
 			body: body as AgencyTFAResponse,
-			errors: body.errors,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 
@@ -241,7 +241,7 @@ export class AgencyAPIClient {
 		return {
 			status: response.status(),
 			body: undefined,
-			errors: body.errors,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 
@@ -283,7 +283,7 @@ export class AgencyAPIClient {
 		return {
 			status: response.status(),
 			body: body as AgencyRequestPasswordResetResponse,
-			errors: body.errors,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 
@@ -326,7 +326,7 @@ export class AgencyAPIClient {
 		return {
 			status: response.status(),
 			body: undefined,
-			errors: body.errors,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 
@@ -372,7 +372,7 @@ export class AgencyAPIClient {
 		return {
 			status: response.status(),
 			body: undefined,
-			errors: body.errors,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 
@@ -423,7 +423,7 @@ export class AgencyAPIClient {
 		return {
 			status: response.status(),
 			body: body as AgencyInviteUserResponse,
-			errors: body.errors,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 
@@ -493,7 +493,7 @@ export class AgencyAPIClient {
 		return {
 			status: response.status(),
 			body: undefined,
-			errors: body.errors,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 
@@ -543,7 +543,7 @@ export class AgencyAPIClient {
 		return {
 			status: response.status(),
 			body: undefined,
-			errors: body.errors,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 
@@ -590,7 +590,7 @@ export class AgencyAPIClient {
 		return {
 			status: response.status(),
 			body: body as { message: string },
-			errors: body.errors,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 
@@ -649,7 +649,7 @@ export class AgencyAPIClient {
 		return {
 			status: response.status(),
 			body: body as { message: string },
-			errors: body.errors,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 
