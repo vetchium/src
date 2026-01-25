@@ -9,11 +9,12 @@ import (
 
 // GlobalBgJobsConfig holds configuration for global database background jobs
 type GlobalBgJobsConfig struct {
-	ExpiredAdminTFATokensCleanupInterval     time.Duration
-	ExpiredAdminSessionsCleanupInterval      time.Duration
-	ExpiredHubSignupTokensCleanupInterval    time.Duration
-	ExpiredOrgSignupTokensCleanupInterval    time.Duration
-	ExpiredAgencySignupTokensCleanupInterval time.Duration
+	ExpiredAdminTFATokensCleanupInterval           time.Duration
+	ExpiredAdminSessionsCleanupInterval            time.Duration
+	ExpiredAdminPasswordResetTokensCleanupInterval time.Duration
+	ExpiredHubSignupTokensCleanupInterval          time.Duration
+	ExpiredOrgSignupTokensCleanupInterval          time.Duration
+	ExpiredAgencySignupTokensCleanupInterval       time.Duration
 }
 
 // RegionalBgJobsConfig holds configuration for regional database background jobs
@@ -24,8 +25,10 @@ type RegionalBgJobsConfig struct {
 	ExpiredHubEmailVerificationTokensCleanupInterval time.Duration
 	ExpiredOrgTFATokensCleanupInterval               time.Duration
 	ExpiredOrgSessionsCleanupInterval                time.Duration
+	ExpiredOrgPasswordResetTokensCleanupInterval     time.Duration
 	ExpiredAgencyTFATokensCleanupInterval            time.Duration
 	ExpiredAgencySessionsCleanupInterval             time.Duration
+	ExpiredAgencyPasswordResetTokensCleanupInterval  time.Duration
 }
 
 // GlobalConfigFromEnv creates a GlobalBgJobsConfig from environment variables
@@ -37,6 +40,11 @@ func GlobalConfigFromEnv() *GlobalBgJobsConfig {
 
 	adminSessionsInterval := parseDurationOrDefault(
 		os.Getenv("ADMIN_SESSION_CLEANUP_INTERVAL"),
+		1*time.Hour,
+	)
+
+	adminPasswordResetInterval := parseDurationOrDefault(
+		os.Getenv("ADMIN_PASSWORD_RESET_TOKEN_CLEANUP_INTERVAL"),
 		1*time.Hour,
 	)
 
@@ -56,11 +64,12 @@ func GlobalConfigFromEnv() *GlobalBgJobsConfig {
 	)
 
 	return &GlobalBgJobsConfig{
-		ExpiredAdminTFATokensCleanupInterval:     adminTFAInterval,
-		ExpiredAdminSessionsCleanupInterval:      adminSessionsInterval,
-		ExpiredHubSignupTokensCleanupInterval:    hubSignupInterval,
-		ExpiredOrgSignupTokensCleanupInterval:    orgSignupInterval,
-		ExpiredAgencySignupTokensCleanupInterval: agencySignupInterval,
+		ExpiredAdminTFATokensCleanupInterval:           adminTFAInterval,
+		ExpiredAdminSessionsCleanupInterval:            adminSessionsInterval,
+		ExpiredAdminPasswordResetTokensCleanupInterval: adminPasswordResetInterval,
+		ExpiredHubSignupTokensCleanupInterval:          hubSignupInterval,
+		ExpiredOrgSignupTokensCleanupInterval:          orgSignupInterval,
+		ExpiredAgencySignupTokensCleanupInterval:       agencySignupInterval,
 	}
 }
 
@@ -96,6 +105,11 @@ func RegionalConfigFromEnv() *RegionalBgJobsConfig {
 		1*time.Hour,
 	)
 
+	orgPasswordResetInterval := parseDurationOrDefault(
+		os.Getenv("ORG_PASSWORD_RESET_TOKEN_CLEANUP_INTERVAL"),
+		1*time.Hour,
+	)
+
 	agencyTFAInterval := parseDurationOrDefault(
 		os.Getenv("AGENCY_TFA_TOKEN_CLEANUP_INTERVAL"),
 		1*time.Hour,
@@ -106,6 +120,11 @@ func RegionalConfigFromEnv() *RegionalBgJobsConfig {
 		1*time.Hour,
 	)
 
+	agencyPasswordResetInterval := parseDurationOrDefault(
+		os.Getenv("AGENCY_PASSWORD_RESET_TOKEN_CLEANUP_INTERVAL"),
+		1*time.Hour,
+	)
+
 	return &RegionalBgJobsConfig{
 		ExpiredHubTFATokensCleanupInterval:               hubTFAInterval,
 		ExpiredHubSessionsCleanupInterval:                hubSessionsInterval,
@@ -113,8 +132,10 @@ func RegionalConfigFromEnv() *RegionalBgJobsConfig {
 		ExpiredHubEmailVerificationTokensCleanupInterval: hubEmailVerificationInterval,
 		ExpiredOrgTFATokensCleanupInterval:               orgTFAInterval,
 		ExpiredOrgSessionsCleanupInterval:                orgSessionsInterval,
+		ExpiredOrgPasswordResetTokensCleanupInterval:     orgPasswordResetInterval,
 		ExpiredAgencyTFATokensCleanupInterval:            agencyTFAInterval,
 		ExpiredAgencySessionsCleanupInterval:             agencySessionsInterval,
+		ExpiredAgencyPasswordResetTokensCleanupInterval:  agencyPasswordResetInterval,
 	}
 }
 

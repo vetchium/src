@@ -46,8 +46,10 @@ func (w *RegionalWorker) Run(ctx context.Context) {
 		"hub_email_verification_cleanup_interval", w.config.ExpiredHubEmailVerificationTokensCleanupInterval,
 		"org_tfa_cleanup_interval", w.config.ExpiredOrgTFATokensCleanupInterval,
 		"org_sessions_cleanup_interval", w.config.ExpiredOrgSessionsCleanupInterval,
+		"org_password_reset_cleanup_interval", w.config.ExpiredOrgPasswordResetTokensCleanupInterval,
 		"agency_tfa_cleanup_interval", w.config.ExpiredAgencyTFATokensCleanupInterval,
 		"agency_sessions_cleanup_interval", w.config.ExpiredAgencySessionsCleanupInterval,
+		"agency_password_reset_cleanup_interval", w.config.ExpiredAgencyPasswordResetTokensCleanupInterval,
 	)
 
 	// Launch each job in its own goroutine
@@ -75,6 +77,10 @@ func (w *RegionalWorker) Run(ctx context.Context) {
 		w.config.ExpiredOrgSessionsCleanupInterval,
 		w.cleanupExpiredOrgSessions)
 
+	go w.runPeriodicJob(ctx, "org-password-reset-tokens",
+		w.config.ExpiredOrgPasswordResetTokensCleanupInterval,
+		w.cleanupExpiredOrgPasswordResetTokens)
+
 	go w.runPeriodicJob(ctx, "agency-tfa-tokens",
 		w.config.ExpiredAgencyTFATokensCleanupInterval,
 		w.cleanupExpiredAgencyTFATokens)
@@ -82,6 +88,10 @@ func (w *RegionalWorker) Run(ctx context.Context) {
 	go w.runPeriodicJob(ctx, "agency-sessions",
 		w.config.ExpiredAgencySessionsCleanupInterval,
 		w.cleanupExpiredAgencySessions)
+
+	go w.runPeriodicJob(ctx, "agency-password-reset-tokens",
+		w.config.ExpiredAgencyPasswordResetTokensCleanupInterval,
+		w.cleanupExpiredAgencyPasswordResetTokens)
 }
 
 // runPeriodicJob runs a job function in a loop with the given interval.
@@ -218,4 +228,30 @@ func (w *RegionalWorker) cleanupExpiredHubEmailVerificationTokens(ctx context.Co
 		return
 	}
 	w.log.Debug("cleaned up expired hub email verification tokens")
+}
+
+func (w *RegionalWorker) cleanupExpiredOrgPasswordResetTokens(ctx context.Context) {
+	if ctx.Err() != nil {
+		return
+	}
+
+	err := w.queries.DeleteExpiredOrgPasswordResetTokens(ctx)
+	if err != nil {
+		w.log.Error("failed to cleanup expired org password reset tokens", "error", err)
+		return
+	}
+	w.log.Debug("cleaned up expired org password reset tokens")
+}
+
+func (w *RegionalWorker) cleanupExpiredAgencyPasswordResetTokens(ctx context.Context) {
+	if ctx.Err() != nil {
+		return
+	}
+
+	err := w.queries.DeleteExpiredAgencyPasswordResetTokens(ctx)
+	if err != nil {
+		w.log.Error("failed to cleanup expired agency password reset tokens", "error", err)
+		return
+	}
+	w.log.Debug("cleaned up expired agency password reset tokens")
 }
