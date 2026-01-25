@@ -9,6 +9,11 @@ type AdminSessionToken string
 type AdminInvitationToken string
 type AdminPasswordResetToken string
 
+// RBAC types (re-exported from common)
+type RoleName = common.RoleName
+type AssignRoleRequest = common.AssignRoleRequest
+type RemoveRoleRequest = common.RemoveRoleRequest
+
 type AdminLoginRequest struct {
 	EmailAddress common.EmailAddress `json:"email"`
 	Password     common.Password     `json:"password"`

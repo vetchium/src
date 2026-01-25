@@ -14,6 +14,11 @@ type OrgSignupToken string
 type OrgInvitationToken string
 type OrgPasswordResetToken string
 
+// RBAC types (re-exported from common)
+type RoleName = common.RoleName
+type AssignRoleRequest = common.AssignRoleRequest
+type RemoveRoleRequest = common.RemoveRoleRequest
+
 // ============================================
 // Signup Flow (DNS-based Domain Verification)
 // ============================================

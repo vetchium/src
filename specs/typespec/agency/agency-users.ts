@@ -15,6 +15,17 @@ import {
 	validateTFACode,
 	ERR_REQUIRED,
 } from "../common/common";
+import {
+	type RoleName,
+	type AssignRoleRequest,
+	type RemoveRoleRequest,
+	validateAssignRoleRequest,
+	validateRemoveRoleRequest,
+} from "../common/roles";
+
+// Re-export RBAC types for agency portal
+export type { RoleName, AssignRoleRequest, RemoveRoleRequest };
+export { validateAssignRoleRequest, validateRemoveRoleRequest };
 
 // Token types
 export type AgencySessionToken = string;

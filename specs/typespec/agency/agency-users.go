@@ -13,6 +13,11 @@ type AgencyInvitationToken string
 type DNSVerificationToken string
 type AgencySignupToken string
 
+// RBAC types (re-exported from common)
+type RoleName = common.RoleName
+type AssignRoleRequest = common.AssignRoleRequest
+type RemoveRoleRequest = common.RemoveRoleRequest
+
 // ============================================
 // Signup Flow (DNS-based Domain Verification)
 // ============================================

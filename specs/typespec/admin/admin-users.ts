@@ -13,6 +13,17 @@ import {
 	validateTFACode,
 	ERR_REQUIRED,
 } from "../common/common";
+import {
+	type RoleName,
+	type AssignRoleRequest,
+	type RemoveRoleRequest,
+	validateAssignRoleRequest,
+	validateRemoveRoleRequest,
+} from "../common/roles";
+
+// Re-export RBAC types for admin portal
+export type { RoleName, AssignRoleRequest, RemoveRoleRequest };
+export { validateAssignRoleRequest, validateRemoveRoleRequest };
 
 export type AdminTFAToken = string;
 export type AdminSessionToken = string;
