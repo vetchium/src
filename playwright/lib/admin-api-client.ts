@@ -11,6 +11,8 @@ import {
 	AdminRequestPasswordResetResponse,
 	AdminCompletePasswordResetRequest,
 	AdminChangePasswordRequest,
+	AdminInviteUserRequest,
+	AdminInviteUserResponse,
 } from "vetchium-specs/admin/admin-users";
 import type {
 	AddApprovedDomainRequest,
@@ -658,6 +660,73 @@ export class AdminAPIClient {
 		return {
 			status: response.status(),
 			body: undefined,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	// ============================================================================
+	// User Management
+	// ============================================================================
+
+	/**
+	 * POST /admin/invite-user
+	 * Invites a new user to the admin system.
+	 *
+	 * @param sessionToken - Valid session token
+	 * @param request - Invite user request
+	 * @returns API response with invitation details
+	 */
+	async inviteUser(
+		sessionToken: string,
+		request: AdminInviteUserRequest
+	): Promise<APIResponse<AdminInviteUserResponse>> {
+		const response = await this.request.post("/admin/invite-user", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as AdminInviteUserResponse,
+			errors: body.errors,
+		};
+	}
+
+	/**
+	 * POST /admin/invite-user with raw body for testing invalid payloads
+	 */
+	async inviteUserRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<AdminInviteUserResponse>> {
+		const response = await this.request.post("/admin/invite-user", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: body,
+		});
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as AdminInviteUserResponse,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	/**
+	 * POST /admin/invite-user without authorization header (for testing 401)
+	 */
+	async inviteUserWithoutAuth(
+		request: AdminInviteUserRequest
+	): Promise<APIResponse<AdminInviteUserResponse>> {
+		const response = await this.request.post("/admin/invite-user", {
+			data: request,
+		});
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as AdminInviteUserResponse,
 			errors: Array.isArray(responseBody) ? responseBody : undefined,
 		};
 	}
