@@ -131,8 +131,10 @@ test.describe("POST /agency/assign-role", () => {
 		);
 
 		// Create non-admin user and target user in same agency
+		// Admin creates the agency and domain
+		const adminEmail = `admin@${domain}`;
 		const { agencyId } = await createTestAgencyAdminDirect(
-			"admin@example.com",
+			adminEmail,
 			TEST_PASSWORD
 		);
 		await createTestAgencyUserDirect(userEmail, TEST_PASSWORD, "ind1", {
@@ -153,6 +155,7 @@ test.describe("POST /agency/assign-role", () => {
 				domain: domain,
 				password: TEST_PASSWORD,
 			});
+			expect(loginResponse.status).toBe(200);
 			const tfaCode = await getTfaCodeFromEmail(userEmail);
 			const tfaResponse = await api.verifyTFA({
 				tfa_token: loginResponse.body.tfa_token,
@@ -170,7 +173,7 @@ test.describe("POST /agency/assign-role", () => {
 
 			expect(response.status).toBe(403);
 		} finally {
-			await deleteTestAgencyUser("admin@example.com");
+			await deleteTestAgencyUser(adminEmail);
 			await deleteTestAgencyUser(userEmail);
 			await deleteTestAgencyUser(targetEmail);
 		}

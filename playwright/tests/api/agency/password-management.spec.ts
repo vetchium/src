@@ -9,6 +9,7 @@ import {
 	waitForEmail,
 	extractPasswordResetToken,
 	getEmailContent,
+	getTfaCodeFromEmail,
 } from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
 
@@ -231,9 +232,10 @@ test.describe("POST /agency/complete-password-reset", () => {
 				domain: domain,
 				password: oldPassword,
 			});
+			const tfaCode = await getTfaCodeFromEmail(email);
 			const tfaResp = await api.verifyTFA({
 				tfa_token: loginResp.body.tfa_token,
-				tfa_code: "000000",
+				tfa_code: tfaCode,
 				remember_me: false,
 			});
 			const oldSessionToken = tfaResp.body.session_token;
@@ -299,9 +301,10 @@ test.describe("POST /agency/change-password", () => {
 				domain: domain,
 				password: oldPassword,
 			});
+			const tfaCode = await getTfaCodeFromEmail(email);
 			const tfaResp = await api.verifyTFA({
 				tfa_token: loginResp.body.tfa_token,
-				tfa_code: "000000",
+				tfa_code: tfaCode,
 				remember_me: false,
 			});
 			const sessionToken = tfaResp.body.session_token;
@@ -346,9 +349,10 @@ test.describe("POST /agency/change-password", () => {
 				domain: domain,
 				password: TEST_PASSWORD,
 			});
+			const tfaCode = await getTfaCodeFromEmail(email);
 			const tfaResp = await api.verifyTFA({
 				tfa_token: loginResp.body.tfa_token,
-				tfa_code: "000000",
+				tfa_code: tfaCode,
 				remember_me: false,
 			});
 			const sessionToken = tfaResp.body.session_token;
@@ -377,9 +381,10 @@ test.describe("POST /agency/change-password", () => {
 				domain: domain,
 				password: TEST_PASSWORD,
 			});
+			const tfaCode = await getTfaCodeFromEmail(email);
 			const tfaResp = await api.verifyTFA({
 				tfa_token: loginResp.body.tfa_token,
-				tfa_code: "000000",
+				tfa_code: tfaCode,
 				remember_me: false,
 			});
 			const sessionToken = tfaResp.body.session_token;
@@ -420,9 +425,10 @@ test.describe("POST /agency/change-password", () => {
 				domain: domain,
 				password: TEST_PASSWORD,
 			});
+			const tfaCode = await getTfaCodeFromEmail(email);
 			const tfaResp = await api.verifyTFA({
 				tfa_token: loginResp.body.tfa_token,
-				tfa_code: "000000",
+				tfa_code: tfaCode,
 				remember_me: false,
 			});
 			const sessionToken = tfaResp.body.session_token;
@@ -450,9 +456,10 @@ test.describe("POST /agency/change-password", () => {
 				domain: domain,
 				password: TEST_PASSWORD,
 			});
+			const tfaCode = await getTfaCodeFromEmail(email);
 			const tfaResp = await api.verifyTFA({
 				tfa_token: loginResp.body.tfa_token,
-				tfa_code: "000000",
+				tfa_code: tfaCode,
 				remember_me: false,
 			});
 			const sessionToken = tfaResp.body.session_token;
@@ -484,9 +491,10 @@ test.describe("POST /agency/change-password", () => {
 				domain: domain,
 				password: oldPassword,
 			});
+			const tfaCode1 = await getTfaCodeFromEmail(email);
 			const tfa1 = await api.verifyTFA({
 				tfa_token: login1.body.tfa_token,
-				tfa_code: "000000",
+				tfa_code: tfaCode1,
 				remember_me: false,
 			});
 			const session1 = tfa1.body.session_token;
@@ -496,9 +504,10 @@ test.describe("POST /agency/change-password", () => {
 				domain: domain,
 				password: oldPassword,
 			});
+			const tfaCode2 = await getTfaCodeFromEmail(email);
 			const tfa2 = await api.verifyTFA({
 				tfa_token: login2.body.tfa_token,
-				tfa_code: "000000",
+				tfa_code: tfaCode2,
 				remember_me: false,
 			});
 			const session2 = tfa2.body.session_token;
@@ -535,9 +544,10 @@ test.describe("POST /agency/change-password", () => {
 				domain: domain,
 				password: TEST_PASSWORD,
 			});
+			const tfaCode = await getTfaCodeFromEmail(email);
 			const tfaResp = await api.verifyTFA({
 				tfa_token: loginResp.body.tfa_token,
-				tfa_code: "000000",
+				tfa_code: tfaCode,
 				remember_me: false,
 			});
 			const sessionToken = tfaResp.body.session_token;

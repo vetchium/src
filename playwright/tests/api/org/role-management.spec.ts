@@ -126,8 +126,10 @@ test.describe("POST /employer/assign-role", () => {
 		const { email: targetEmail } = generateTestOrgEmail("role-nonadmin-target");
 
 		// Create non-admin user and target user in same employer
+		// Admin creates the employer and domain
+		const adminEmail = `admin@${domain}`;
 		const { employerId } = await createTestOrgAdminDirect(
-			"admin@example.com",
+			adminEmail,
 			TEST_PASSWORD
 		);
 		await createTestOrgUserDirect(userEmail, TEST_PASSWORD, "ind1", {
@@ -165,7 +167,7 @@ test.describe("POST /employer/assign-role", () => {
 
 			expect(response.status).toBe(403);
 		} finally {
-			await deleteTestOrgUser("admin@example.com");
+			await deleteTestOrgUser(adminEmail);
 			await deleteTestOrgUser(userEmail);
 			await deleteTestOrgUser(targetEmail);
 		}
