@@ -49,6 +49,25 @@ export function HomePage() {
 				style={{ marginBottom: 16 }}
 			/>
 
+			<div style={{ marginTop: 24, marginBottom: 16 }}>
+				<Button
+					type="default"
+					block
+					style={{ marginBottom: 12 }}
+					onClick={() => navigate("/change-password")}
+				>
+					Change Password
+				</Button>
+				<Button
+					type="default"
+					block
+					style={{ marginBottom: 12 }}
+					onClick={() => navigate("/change-email")}
+				>
+					Change Email
+				</Button>
+			</div>
+
 			<Button type="primary" onClick={handleLogout} block size="large">
 				Logout
 			</Button>

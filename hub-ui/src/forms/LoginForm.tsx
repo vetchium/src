@@ -94,6 +94,12 @@ export function LoginForm() {
 					/>
 				</Form.Item>
 
+				<div style={{ textAlign: "right", marginBottom: 24 }}>
+					<a href="/forgot-password" onClick={(e) => { e.preventDefault(); window.location.href = "/forgot-password"; }}>
+						{t("login.forgotPassword", "Forgot Password?")}
+					</a>
+				</div>
+
 				<Form.Item shouldUpdate style={{ marginBottom: 0 }}>
 					{() => (
 						<Button

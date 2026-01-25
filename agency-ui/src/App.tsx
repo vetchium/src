@@ -12,6 +12,10 @@ import { DashboardPage } from "./pages/DashboardPage";
 import { SignupPage } from "./pages/SignupPage";
 import { SignupCompletePage } from "./pages/SignupCompletePage";
 import { EULAPage } from "./pages/EULAPage";
+import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
+import { ResetPasswordPage } from "./pages/ResetPasswordPage";
+import { ChangePasswordPage } from "./pages/ChangePasswordPage";
+import { CompleteSetupPage } from "./pages/CompleteSetupPage";
 import {
 	BrowserRouter,
 	Routes,
@@ -140,6 +144,17 @@ function AppContent() {
 								}
 							/>
 							<Route path="/eula" element={<EULAPage />} />
+							<Route
+								path="/change-password"
+								element={
+									<ProtectedRoute>
+										<ChangePasswordPage />
+									</ProtectedRoute>
+								}
+							/>
+							<Route path="/forgot-password" element={<ForgotPasswordPage />} />
+							<Route path="/reset-password" element={<ResetPasswordPage />} />
+							<Route path="/complete-setup" element={<CompleteSetupPage />} />
 							<Route path="*" element={<NotFoundPage />} />
 						</Routes>
 					</Content>

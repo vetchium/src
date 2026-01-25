@@ -10,6 +10,10 @@ import { LoginPage } from "./pages/LoginPage";
 import { TFAPage } from "./pages/TFAPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { ApprovedDomainsPage } from "./pages/ApprovedDomainsPage";
+import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
+import { ResetPasswordPage } from "./pages/ResetPasswordPage";
+import { CompleteSetupPage } from "./pages/CompleteSetupPage";
+import { ChangePasswordPage } from "./pages/ChangePasswordPage";
 import {
 	BrowserRouter,
 	Routes,
@@ -133,6 +137,17 @@ function AppContent() {
 									</ProtectedRoute>
 								}
 							/>
+							<Route
+								path="/change-password"
+								element={
+									<ProtectedRoute>
+										<ChangePasswordPage />
+									</ProtectedRoute>
+								}
+							/>
+							<Route path="/forgot-password" element={<ForgotPasswordPage />} />
+							<Route path="/reset-password" element={<ResetPasswordPage />} />
+							<Route path="/complete-setup" element={<CompleteSetupPage />} />
 							<Route path="*" element={<NotFoundPage />} />
 						</Routes>
 					</Content>

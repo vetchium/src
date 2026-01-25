@@ -14,6 +14,11 @@ import { LoginPage } from "./pages/LoginPage";
 import { SignupPage } from "./pages/SignupPage";
 import { SignupVerifyPage } from "./pages/SignupVerifyPage";
 import { TFAPage } from "./pages/TFAPage";
+import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
+import { ResetPasswordPage } from "./pages/ResetPasswordPage";
+import { ChangePasswordPage } from "./pages/ChangePasswordPage";
+import { ChangeEmailPage } from "./pages/ChangeEmailPage";
+import { VerifyEmailPage } from "./pages/VerifyEmailPage";
 
 const { Content } = Layout;
 
@@ -51,6 +56,11 @@ function AppContent() {
 						<Routes>
 							<Route path="/" element={<HomePage />} />
 							<Route path="/login" element={<LoginPage />} />
+							<Route path="/forgot-password" element={<ForgotPasswordPage />} />
+							<Route path="/reset-password" element={<ResetPasswordPage />} />
+							<Route path="/change-password" element={<ChangePasswordPage />} />
+							<Route path="/change-email" element={<ChangeEmailPage />} />
+							<Route path="/verify-email" element={<VerifyEmailPage />} />
 							<Route path="/tfa" element={<TFAPage />} />
 							<Route path="/signup" element={<SignupPage />} />
 							<Route path="/signup/verify" element={<SignupVerifyPage />} />
