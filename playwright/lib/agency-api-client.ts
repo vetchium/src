@@ -12,6 +12,10 @@ import type {
 	AgencyTFAResponse,
 	AgencyDisableUserRequest,
 	AgencyEnableUserRequest,
+	AgencyRequestPasswordResetRequest,
+	AgencyRequestPasswordResetResponse,
+	AgencyCompletePasswordResetRequest,
+	AgencyChangePasswordRequest,
 } from "vetchium-specs/agency/agency-users";
 import type { APIResponse } from "./api-client";
 
@@ -243,6 +247,143 @@ export class AgencyAPIClient {
 	async logoutWithoutAuth(): Promise<APIResponse<void>> {
 		const response = await this.request.post("/agency/logout", {
 			data: {},
+		});
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: undefined,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	// ============================================================================
+	// Password Management
+	// ============================================================================
+
+	/**
+	 * POST /agency/request-password-reset
+	 * Requests a password reset for an agency user.
+	 *
+	 * @param request - Password reset request with email and domain
+	 * @returns API response with generic success message
+	 */
+	async requestPasswordReset(
+		request: AgencyRequestPasswordResetRequest
+	): Promise<APIResponse<AgencyRequestPasswordResetResponse>> {
+		const response = await this.request.post("/agency/request-password-reset", {
+			data: request,
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as AgencyRequestPasswordResetResponse,
+			errors: body.errors,
+		};
+	}
+
+	/**
+	 * POST /agency/request-password-reset with raw body for testing invalid payloads
+	 */
+	async requestPasswordResetRaw(
+		body: unknown
+	): Promise<APIResponse<AgencyRequestPasswordResetResponse>> {
+		const response = await this.request.post("/agency/request-password-reset", {
+			data: body,
+		});
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as AgencyRequestPasswordResetResponse,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	/**
+	 * POST /agency/complete-password-reset
+	 * Completes password reset with token and new password.
+	 *
+	 * @param request - Complete reset request with reset_token and new_password
+	 * @returns API response (empty body on success)
+	 */
+	async completePasswordReset(
+		request: AgencyCompletePasswordResetRequest
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post(
+			"/agency/complete-password-reset",
+			{
+				data: request,
+			}
+		);
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: undefined,
+			errors: body.errors,
+		};
+	}
+
+	/**
+	 * POST /agency/complete-password-reset with raw body for testing invalid payloads
+	 */
+	async completePasswordResetRaw(body: unknown): Promise<APIResponse<void>> {
+		const response = await this.request.post(
+			"/agency/complete-password-reset",
+			{
+				data: body,
+			}
+		);
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: undefined,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	/**
+	 * POST /agency/change-password
+	 * Changes password for authenticated agency user.
+	 *
+	 * @param sessionToken - Session token
+	 * @param request - Change password request with current and new passwords
+	 * @returns API response (empty body on success)
+	 */
+	async changePassword(
+		sessionToken: string,
+		request: AgencyChangePasswordRequest
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/agency/change-password", {
+			headers: {
+				Authorization: `Bearer ${sessionToken}`,
+			},
+			data: request,
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: undefined,
+			errors: body.errors,
+		};
+	}
+
+	/**
+	 * POST /agency/change-password with raw body for testing invalid payloads
+	 */
+	async changePasswordRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/agency/change-password", {
+			headers: {
+				Authorization: `Bearer ${sessionToken}`,
+			},
+			data: body,
 		});
 
 		const responseBody = await response.json().catch(() => ({}));
