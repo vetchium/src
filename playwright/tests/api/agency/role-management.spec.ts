@@ -109,7 +109,6 @@ test.describe("POST /agency/assign-role", () => {
 			};
 			await api.assignRole(sessionToken, assignRequest);
 
-
 			// Try to assign same role again
 			const conflictResponse = await api.assignRole(
 				sessionToken,
