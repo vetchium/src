@@ -80,6 +80,6 @@ export function DashboardPage() {
 					{t("logout.button")}
 				</Button>
 			</Card>
-		</div >
+		</div>
 	);
 }
