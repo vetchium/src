@@ -28,7 +28,7 @@ import type { APIResponse } from "./api-client";
  * Wraps Playwright's request context for type-safe API calls.
  */
 export class AgencyAPIClient {
-	constructor(private request: APIRequestContext) { }
+	constructor(private request: APIRequestContext) {}
 
 	/**
 	 * POST /agency/init-signup

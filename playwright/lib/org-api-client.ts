@@ -36,7 +36,7 @@ import type { APIResponse } from "./api-client";
  * Wraps Playwright's request context for type-safe API calls.
  */
 export class OrgAPIClient {
-	constructor(private request: APIRequestContext) { }
+	constructor(private request: APIRequestContext) {}
 
 	/**
 	 * POST /org/init-signup

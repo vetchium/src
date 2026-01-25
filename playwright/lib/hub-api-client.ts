@@ -24,7 +24,7 @@ import type { APIResponse } from "./api-client";
  * Wraps Playwright's request context for type-safe API calls.
  */
 export class HubAPIClient {
-	constructor(private request: APIRequestContext) { }
+	constructor(private request: APIRequestContext) {}
 
 	/**
 	 * POST /hub/request-signup

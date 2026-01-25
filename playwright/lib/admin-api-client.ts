@@ -32,7 +32,7 @@ import type { APIResponse } from "./api-client";
  * Wraps Playwright's request context for type-safe API calls.
  */
 export class AdminAPIClient {
-	constructor(private request: APIRequestContext) { }
+	constructor(private request: APIRequestContext) {}
 
 	/**
 	 * POST /admin/login
