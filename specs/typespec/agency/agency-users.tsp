@@ -312,3 +312,57 @@ interface AgencyEnableUser {
     statusCode: 404;
   };
 }
+
+// ============================================
+// User Management (Filter Users)
+// ============================================
+
+model AgencyUser {
+    @doc("Email address of the user")
+    email_address: EmailAddress;
+    @doc("Full name of the user")
+    name: string;
+    @doc("User status (active/disabled)")
+    status: string;
+    @doc("ISO 8601 timestamp when user was created")
+    created_at: string;
+}
+
+model FilterAgencyUsersRequest {
+    @doc("Number of items to return (default 50, max 100)")
+    limit?: int32;
+    @doc("Cursor from previous page - base64 encoded value")
+    cursor?: string;
+    @doc("Filter by email address (partial match)")
+    filter_email?: string;
+    @doc("Filter by name (partial match)")
+    filter_name?: string;
+    @doc("Filter by status (exact match: active/disabled)")
+    filter_status?: string;
+}
+
+model FilterAgencyUsersResponse {
+    @doc("List of users")
+    items: AgencyUser[];
+    @doc("Cursor for next page - base64 encoded value (empty if no more pages)")
+    next_cursor: string;
+}
+
+@route("/agency/filter-users")
+interface AgencyFilterUsers {
+    @tag("AgencyUsers")
+    @post
+    @doc("List/Filter agency users with pagination")
+    filterUsers(@body request: FilterAgencyUsersRequest): {
+        @statusCode statusCode: 200;
+        @body response: FilterAgencyUsersResponse;
+    } | {
+        @doc("Invalid request parameters")
+        @statusCode
+        statusCode: 400;
+    } | {
+        @doc("Unauthorized")
+        @statusCode
+        statusCode: 401;
+    };
+}

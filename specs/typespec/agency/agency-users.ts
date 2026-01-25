@@ -229,7 +229,7 @@ export interface AgencyTFAResponse {
 }
 
 // AgencyLogoutRequest is empty - session token passed via Authorization header
-export interface AgencyLogoutRequest {}
+export interface AgencyLogoutRequest { }
 
 // ============================================================================
 // Agency User Invitation
@@ -464,4 +464,36 @@ export function validateAgencyChangePasswordRequest(
 	}
 
 	return errs;
+}
+
+// ============================================================================
+// User Management (Filter Users)
+// ============================================================================
+
+export interface AgencyUser {
+	email_address: EmailAddress;
+	name: string;
+	status: string;
+	created_at: string;
+}
+
+export interface FilterAgencyUsersRequest {
+	limit?: number;
+	cursor?: string;
+	filter_email?: string;
+	filter_name?: string;
+	filter_status?: string;
+}
+
+export function validateFilterAgencyUsersRequest(
+	request: FilterAgencyUsersRequest
+): ValidationError[] {
+	const errs: ValidationError[] = [];
+	// Optional fields, default validation
+	return errs;
+}
+
+export interface FilterAgencyUsersResponse {
+	items: AgencyUser[];
+	next_cursor: string;
 }

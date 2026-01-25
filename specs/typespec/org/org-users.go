@@ -360,3 +360,32 @@ func (r OrgChangePasswordRequest) Validate() []common.ValidationError {
 
 	return errs
 }
+
+// ============================================
+// User Management (Filter Users)
+// ============================================
+
+type OrgUser struct {
+	EmailAddress common.EmailAddress `json:"email_address"`
+	Name         string              `json:"name"`
+	Status       string              `json:"status"`
+	CreatedAt    string              `json:"created_at"`
+}
+
+type FilterOrgUsersRequest struct {
+	Limit        *int32  `json:"limit,omitempty"`
+	Cursor       *string `json:"cursor,omitempty"`
+	FilterEmail  *string `json:"filter_email,omitempty"`
+	FilterName   *string `json:"filter_name,omitempty"`
+	FilterStatus *string `json:"filter_status,omitempty"`
+}
+
+func (r FilterOrgUsersRequest) Validate() []common.ValidationError {
+	// Optional fields
+	return nil
+}
+
+type FilterOrgUsersResponse struct {
+	Items      []OrgUser `json:"items"`
+	NextCursor string    `json:"next_cursor"`
+}
