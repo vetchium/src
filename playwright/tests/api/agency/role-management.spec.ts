@@ -38,7 +38,7 @@ test.describe("POST /agency/assign-role", () => {
 		try {
 			// Login as admin
 			const loginResponse = await api.login({
-				email_address: adminEmail,
+				email: adminEmail,
 				domain: domain,
 				password: TEST_PASSWORD,
 			});
@@ -90,7 +90,7 @@ test.describe("POST /agency/assign-role", () => {
 		try {
 			// Login
 			const loginResponse = await api.login({
-				email_address: adminEmail,
+				email: adminEmail,
 				domain: domain,
 				password: TEST_PASSWORD,
 			});
@@ -149,7 +149,7 @@ test.describe("POST /agency/assign-role", () => {
 		try {
 			// Login as non-admin
 			const loginResponse = await api.login({
-				email_address: userEmail,
+				email: userEmail,
 				domain: domain,
 				password: TEST_PASSWORD,
 			});
@@ -189,7 +189,7 @@ test.describe("POST /agency/assign-role", () => {
 		try {
 			// Login
 			const loginResponse = await api.login({
-				email_address: adminEmail,
+				email: adminEmail,
 				domain: domain,
 				password: TEST_PASSWORD,
 			});
@@ -236,7 +236,7 @@ test.describe("POST /agency/assign-role", () => {
 		try {
 			// Login
 			const loginResponse = await api.login({
-				email_address: adminEmail,
+				email: adminEmail,
 				domain: domain,
 				password: TEST_PASSWORD,
 			});
@@ -273,7 +273,7 @@ test.describe("POST /agency/assign-role", () => {
 		try {
 			// Login
 			const loginResponse = await api.login({
-				email_address: adminEmail,
+				email: adminEmail,
 				domain: domain,
 				password: TEST_PASSWORD,
 			});
@@ -371,7 +371,7 @@ test.describe("POST /agency/remove-role", () => {
 		try {
 			// Login
 			const loginResponse = await api.login({
-				email_address: adminEmail,
+				email: adminEmail,
 				domain: domain,
 				password: TEST_PASSWORD,
 			});
@@ -426,7 +426,7 @@ test.describe("POST /agency/remove-role", () => {
 		try {
 			// Login
 			const loginResponse = await api.login({
-				email_address: adminEmail,
+				email: adminEmail,
 				domain: domain,
 				password: TEST_PASSWORD,
 			});
@@ -465,7 +465,7 @@ test.describe("POST /agency/remove-role", () => {
 		try {
 			// Login
 			const loginResponse = await api.login({
-				email_address: adminEmail,
+				email: adminEmail,
 				domain: domain,
 				password: TEST_PASSWORD,
 			});

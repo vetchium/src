@@ -33,6 +33,30 @@ func InviteUser(s *server.Server) http.HandlerFunc {
 			return
 		}
 
+		// Check if admin has invite_users role
+		inviteUsersRole, err := s.Global.GetRoleByName(ctx, "invite_users")
+		if err != nil {
+			log.Error("failed to get invite_users role", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
+		hasInviteRole, err2 := s.Global.HasAdminUserRole(ctx, globaldb.HasAdminUserRoleParams{
+			AdminUserID: adminUser.AdminUserID,
+			RoleID:      inviteUsersRole.RoleID,
+		})
+		if err2 != nil {
+			log.Error("failed to check invite_users role", "error", err2)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
+		if !hasInviteRole {
+			log.Debug("admin user does not have invite_users role", "admin_user_id", adminUser.AdminUserID)
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
+
 		// Decode request
 		var req admin.AdminInviteUserRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -50,7 +74,7 @@ func InviteUser(s *server.Server) http.HandlerFunc {
 		}
 
 		// Check if user already exists
-		_, err := s.Global.GetAdminUserByEmail(ctx, string(req.EmailAddress))
+		_, err = s.Global.GetAdminUserByEmail(ctx, string(req.EmailAddress))
 		if err == nil {
 			// User already exists
 			log.Debug("admin user already exists", "email", req.EmailAddress)
@@ -67,11 +91,15 @@ func InviteUser(s *server.Server) http.HandlerFunc {
 		}
 
 		// Generate new admin user ID
-		newAdminUserID := pgtype.UUID{}
-		if err := newAdminUserID.Scan(nil); err != nil {
+		var uuidBytes [16]byte
+		if _, err := rand.Read(uuidBytes[:]); err != nil {
 			log.Error("failed to generate UUID", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
+		}
+		newAdminUserID := pgtype.UUID{
+			Bytes: uuidBytes,
+			Valid: true,
 		}
 
 		// Create admin user in global DB with status='invited'
@@ -89,7 +117,7 @@ func InviteUser(s *server.Server) http.HandlerFunc {
 		}
 
 		// Generate invitation token
-		tokenBytes := make([]byte, 64)
+		tokenBytes := make([]byte, 32)
 		if _, err := rand.Read(tokenBytes); err != nil {
 			log.Error("failed to generate invitation token", "error", err)
 			// Compensating transaction: delete the user we just created

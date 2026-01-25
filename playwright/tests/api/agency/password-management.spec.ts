@@ -149,7 +149,7 @@ test.describe("POST /agency/complete-password-reset", () => {
 
 			// Verify can login with new password
 			const loginResponse = await api.login({
-				email_address: email,
+				email: email,
 				domain: domain,
 				password: newPassword,
 			});
@@ -157,7 +157,7 @@ test.describe("POST /agency/complete-password-reset", () => {
 
 			// Verify cannot login with old password
 			const oldLoginResponse = await api.login({
-				email_address: email,
+				email: email,
 				domain: domain,
 				password: oldPassword,
 			});
@@ -227,7 +227,7 @@ test.describe("POST /agency/complete-password-reset", () => {
 		try {
 			// Login to create a session
 			const loginResp = await api.login({
-				email_address: email,
+				email: email,
 				domain: domain,
 				password: oldPassword,
 			});
@@ -295,7 +295,7 @@ test.describe("POST /agency/change-password", () => {
 		try {
 			// Login
 			const loginResp = await api.login({
-				email_address: email,
+				email: email,
 				domain: domain,
 				password: oldPassword,
 			});
@@ -316,7 +316,7 @@ test.describe("POST /agency/change-password", () => {
 
 			// Verify can login with new password
 			const newLoginResponse = await api.login({
-				email_address: email,
+				email: email,
 				domain: domain,
 				password: newPassword,
 			});
@@ -324,7 +324,7 @@ test.describe("POST /agency/change-password", () => {
 
 			// Verify cannot login with old password
 			const oldLoginResponse = await api.login({
-				email_address: email,
+				email: email,
 				domain: domain,
 				password: oldPassword,
 			});
@@ -342,7 +342,7 @@ test.describe("POST /agency/change-password", () => {
 		try {
 			// Login
 			const loginResp = await api.login({
-				email_address: email,
+				email: email,
 				domain: domain,
 				password: TEST_PASSWORD,
 			});
@@ -373,7 +373,7 @@ test.describe("POST /agency/change-password", () => {
 		try {
 			// Login
 			const loginResp = await api.login({
-				email_address: email,
+				email: email,
 				domain: domain,
 				password: TEST_PASSWORD,
 			});
@@ -416,7 +416,7 @@ test.describe("POST /agency/change-password", () => {
 		try {
 			// Login
 			const loginResp = await api.login({
-				email_address: email,
+				email: email,
 				domain: domain,
 				password: TEST_PASSWORD,
 			});
@@ -446,7 +446,7 @@ test.describe("POST /agency/change-password", () => {
 		try {
 			// Login
 			const loginResp = await api.login({
-				email_address: email,
+				email: email,
 				domain: domain,
 				password: TEST_PASSWORD,
 			});
@@ -480,7 +480,7 @@ test.describe("POST /agency/change-password", () => {
 		try {
 			// Create two sessions
 			const login1 = await api.login({
-				email_address: email,
+				email: email,
 				domain: domain,
 				password: oldPassword,
 			});
@@ -492,7 +492,7 @@ test.describe("POST /agency/change-password", () => {
 			const session1 = tfa1.body.session_token;
 
 			const login2 = await api.login({
-				email_address: email,
+				email: email,
 				domain: domain,
 				password: oldPassword,
 			});
@@ -531,7 +531,7 @@ test.describe("POST /agency/change-password", () => {
 		try {
 			// Login
 			const loginResp = await api.login({
-				email_address: email,
+				email: email,
 				domain: domain,
 				password: TEST_PASSWORD,
 			});

@@ -161,6 +161,56 @@ export async function updateTestAdminUserLanguage(
 }
 
 /**
+ * Creates a test admin user with admin roles directly in the database.
+ * This creates an admin user and assigns them all admin roles (invite_users, manage_users).
+ *
+ * @param email - Email address for the admin user
+ * @param password - Plain text password (will be hashed with bcrypt)
+ * @param options - Optional settings: status (default: 'active'), preferredLanguage (default: 'en-US')
+ * @returns Object with adminUserId
+ */
+export async function createTestAdminAdminDirect(
+	email: string,
+	password: string,
+	options: CreateTestAdminUserOptions | AdminUserStatus = "active"
+): Promise<{ userId: string }> {
+	const adminUserId = await createTestAdminUser(email, password, options);
+
+	// Get all role IDs
+	const rolesResult = await pool.query(
+		`SELECT role_id FROM roles WHERE role_name IN ('invite_users', 'manage_users')`
+	);
+
+	// Assign all roles to the admin user
+	for (const row of rolesResult.rows) {
+		await pool.query(
+			`INSERT INTO admin_user_roles (admin_user_id, role_id) VALUES ($1, $2)`,
+			[adminUserId, row.role_id]
+		);
+	}
+
+	return { userId: adminUserId };
+}
+
+/**
+ * Creates a test admin user without admin roles directly in the database.
+ * This creates a regular admin user without any roles assigned.
+ *
+ * @param email - Email address for the admin user
+ * @param password - Plain text password (will be hashed with bcrypt)
+ * @param options - Optional settings: status (default: 'active'), preferredLanguage (default: 'en-US')
+ * @returns Object with userId
+ */
+export async function createTestAdminUserDirect(
+	email: string,
+	password: string,
+	options: CreateTestAdminUserOptions | AdminUserStatus = "active"
+): Promise<{ userId: string }> {
+	const adminUserId = await createTestAdminUser(email, password, options);
+	return { userId: adminUserId };
+}
+
+/**
  * Gets admin user details by email.
  *
  * @param email - Email of the admin user
@@ -188,6 +238,17 @@ export async function getTestAdminUser(email: string): Promise<{
  */
 export function generateTestEmail(prefix: string = "admin"): string {
 	return `${prefix}-${randomUUID()}@test.vetchium.com`;
+}
+
+/**
+ * Alias for generateTestEmail for admin-specific tests.
+ * Generates a unique test email address for admin users.
+ *
+ * @param prefix - Optional prefix for the email (default: 'admin')
+ * @returns A unique email address like 'admin-{uuid}@test.vetchium.com'
+ */
+export function generateTestAdminEmail(prefix: string = "admin"): string {
+	return generateTestEmail(prefix);
 }
 
 /**
