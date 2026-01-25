@@ -13,6 +13,7 @@ import {
 	validateDomainName,
 	validateTFACode,
 	validateFullName,
+	validateLanguageCode,
 	ERR_REQUIRED,
 } from "../common/common";
 import {
@@ -238,6 +239,7 @@ export interface OrgLogoutRequest {}
 export interface OrgInviteUserRequest {
 	email_address: EmailAddress;
 	full_name: FullName;
+	preferred_language?: LanguageCode;
 }
 
 export function validateOrgInviteUserRequest(
@@ -260,6 +262,13 @@ export function validateOrgInviteUserRequest(
 		const fullNameErr = validateFullName(request.full_name);
 		if (fullNameErr) {
 			errs.push(newValidationError("full_name", fullNameErr));
+		}
+	}
+
+	if (request.preferred_language) {
+		const langErr = validateLanguageCode(request.preferred_language);
+		if (langErr) {
+			errs.push(newValidationError("preferred_language", langErr));
 		}
 	}
 
@@ -476,6 +485,7 @@ export interface OrgUser {
 	name: string;
 	status: string;
 	created_at: string;
+	roles: RoleName[];
 }
 
 export interface FilterOrgUsersRequest {
