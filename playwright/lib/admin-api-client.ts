@@ -13,6 +13,8 @@ import {
 	AdminChangePasswordRequest,
 	AdminInviteUserRequest,
 	AdminInviteUserResponse,
+	AssignRoleRequest,
+	RemoveRoleRequest,
 } from "vetchium-specs/admin/admin-users";
 import type {
 	AddApprovedDomainRequest,
@@ -727,6 +729,128 @@ export class AdminAPIClient {
 		return {
 			status: response.status(),
 			body: responseBody as AdminInviteUserResponse,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	// ============================================================================
+	// RBAC (Role-Based Access Control)
+	// ============================================================================
+
+	/**
+	 * POST /admin/assign-role
+	 * Assigns a role to an admin user
+	 */
+	async assignRole(
+		sessionToken: string,
+		request: AssignRoleRequest
+	): Promise<APIResponse<{ message: string }>> {
+		const response = await this.request.post("/admin/assign-role", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as { message: string },
+			errors: body.errors,
+		};
+	}
+
+	/**
+	 * POST /admin/assign-role with raw body for testing invalid payloads
+	 */
+	async assignRoleRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<{ message: string }>> {
+		const response = await this.request.post("/admin/assign-role", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: body,
+		});
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as { message: string },
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	/**
+	 * POST /admin/assign-role without authorization header (for testing 401)
+	 */
+	async assignRoleWithoutAuth(
+		request: AssignRoleRequest
+	): Promise<APIResponse<{ message: string }>> {
+		const response = await this.request.post("/admin/assign-role", {
+			data: request,
+		});
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as { message: string },
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	/**
+	 * POST /admin/remove-role
+	 * Removes a role from an admin user
+	 */
+	async removeRole(
+		sessionToken: string,
+		request: RemoveRoleRequest
+	): Promise<APIResponse<{ message: string }>> {
+		const response = await this.request.post("/admin/remove-role", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as { message: string },
+			errors: body.errors,
+		};
+	}
+
+	/**
+	 * POST /admin/remove-role with raw body for testing invalid payloads
+	 */
+	async removeRoleRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<{ message: string }>> {
+		const response = await this.request.post("/admin/remove-role", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: body,
+		});
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as { message: string },
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	/**
+	 * POST /admin/remove-role without authorization header (for testing 401)
+	 */
+	async removeRoleWithoutAuth(
+		request: RemoveRoleRequest
+	): Promise<APIResponse<{ message: string }>> {
+		const response = await this.request.post("/admin/remove-role", {
+			data: request,
+		});
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as { message: string },
 			errors: Array.isArray(responseBody) ? responseBody : undefined,
 		};
 	}
