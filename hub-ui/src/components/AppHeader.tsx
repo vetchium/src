@@ -1,6 +1,14 @@
-import { Layout, Space, Switch, Select } from "antd";
-import { BulbOutlined, BulbFilled, GlobalOutlined } from "@ant-design/icons";
+import { Layout, Space, Switch, Select, Dropdown, Avatar, type MenuProps } from "antd";
+import {
+	BulbOutlined,
+	BulbFilled,
+	GlobalOutlined,
+	UserOutlined,
+	LogoutOutlined,
+	LockOutlined,
+} from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
 import { useTheme } from "../hooks/useTheme";
 import { useLanguage } from "../hooks/useLanguage";
 import {
@@ -16,8 +24,10 @@ const { Header } = Layout;
 export function AppHeader() {
 	const { t, i18n } = useTranslation("common");
 	const { theme, toggleTheme } = useTheme();
-	const { isAuthenticated, sessionToken } = useAuth();
+	const { isAuthenticated, sessionToken, logout } = useAuth();
 	const { languages, loading: languagesLoading } = useLanguage();
+
+	const navigate = useNavigate();
 
 	const handleLanguageChange = async (value: SupportedLanguage) => {
 		setStoredLanguage(value);
@@ -47,13 +57,31 @@ export function AppHeader() {
 	const languageOptions =
 		languages.length > 0
 			? languages.map((lang) => ({
-					value: lang.language_code,
-					label: lang.native_name,
-				}))
+				value: lang.language_code,
+				label: lang.native_name,
+			}))
 			: SUPPORTED_LANGUAGES.map((lang) => ({
-					value: lang,
-					label: t(`language.${lang}`),
-				}));
+				value: lang,
+				label: t(`language.${lang}`),
+			}));
+
+	const userMenuItems: MenuProps["items"] = [
+		{
+			key: "change-password",
+			icon: <LockOutlined />,
+			label: t("header.changePassword", "Change Password"),
+			onClick: () => navigate("/change-password"),
+		},
+		{
+			type: "divider",
+		},
+		{
+			key: "logout",
+			icon: <LogoutOutlined />,
+			label: t("header.logout", "Logout"),
+			onClick: () => logout(),
+		},
+	];
 
 	return (
 		<Header
@@ -86,6 +114,17 @@ export function AppHeader() {
 						unCheckedChildren={t("theme.light")}
 					/>
 				</Space>
+				{isAuthenticated && (
+					<Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
+						<Avatar
+							icon={<UserOutlined />}
+							style={{
+								cursor: "pointer",
+								backgroundColor: theme === "dark" ? "#52c41a" : "#52c41a",
+							}}
+						/>
+					</Dropdown>
+				)}
 			</Space>
 		</Header>
 	);

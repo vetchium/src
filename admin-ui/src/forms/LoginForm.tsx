@@ -1,5 +1,6 @@
 import { LockOutlined, UserOutlined } from "@ant-design/icons";
 import { Alert, Button, Form, Input, Spin } from "antd";
+import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
 	EMAIL_MAX_LENGTH,
@@ -89,6 +90,12 @@ export function LoginForm() {
 						size="large"
 					/>
 				</Form.Item>
+
+				<div style={{ textAlign: "right", marginBottom: 24 }}>
+					<Link to="/forgot-password">
+						{t("login.forgotPassword", "Forgot Password?")}
+					</Link>
+				</div>
 
 				<Form.Item shouldUpdate style={{ marginBottom: 0 }}>
 					{() => (

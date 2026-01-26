@@ -1,5 +1,6 @@
 import { Form, Input, Button, Alert, Spin } from "antd";
 import { UserOutlined, LockOutlined, GlobalOutlined } from "@ant-design/icons";
+import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../hooks/useAuth";
 import {
@@ -117,6 +118,12 @@ export function LoginForm() {
 						autoComplete="current-password"
 					/>
 				</Form.Item>
+
+				<div style={{ textAlign: "right", marginBottom: 24 }}>
+					<Link to="/forgot-password">
+						{t("login.forgotPassword", "Forgot Password?")}
+					</Link>
+				</div>
 
 				<Form.Item shouldUpdate>
 					{() => (
