@@ -6,6 +6,7 @@ import {
 	Dropdown,
 	Avatar,
 	type MenuProps,
+	theme,
 } from "antd";
 import {
 	BulbOutlined,
@@ -31,7 +32,7 @@ const { Header } = Layout;
 
 export function AppHeader() {
 	const { t, i18n } = useTranslation("common");
-	const { theme, toggleTheme } = useTheme();
+	const { theme: themeMode, toggleTheme } = useTheme();
 	const { authState, sessionToken, logout } = useAuth();
 	const { languages, loading: languagesLoading } = useLanguage();
 
@@ -91,19 +92,22 @@ export function AppHeader() {
 		},
 	];
 
+	const { token } = theme.useToken();
+
 	return (
 		<Header
 			style={{
 				display: "flex",
 				justifyContent: "flex-end",
 				alignItems: "center",
-				background: "transparent",
+				background: token.colorPrimary,
 				padding: "0 24px",
+				transition: "background 0.2s",
 			}}
 		>
 			<Space size="middle">
 				<Space>
-					<GlobalOutlined />
+					<GlobalOutlined style={{ color: "#fff" }} />
 					<Select
 						value={i18n.language as SupportedLanguage}
 						onChange={handleLanguageChange}
@@ -114,9 +118,13 @@ export function AppHeader() {
 					/>
 				</Space>
 				<Space>
-					{theme === "light" ? <BulbOutlined /> : <BulbFilled />}
+					{themeMode === "light" ? (
+						<BulbOutlined style={{ color: "#fff" }} />
+					) : (
+						<BulbFilled style={{ color: "#fff" }} />
+					)}
 					<Switch
-						checked={theme === "dark"}
+						checked={themeMode === "dark"}
 						onChange={toggleTheme}
 						checkedChildren={t("theme.dark")}
 						unCheckedChildren={t("theme.light")}
@@ -128,7 +136,8 @@ export function AppHeader() {
 							icon={<UserOutlined />}
 							style={{
 								cursor: "pointer",
-								backgroundColor: theme === "dark" ? "#1890ff" : "#1890ff",
+								backgroundColor: "#fff",
+								color: token.colorPrimary,
 							}}
 						/>
 					</Dropdown>

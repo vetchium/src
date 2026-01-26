@@ -82,11 +82,11 @@ function AppContent() {
 				token: {
 					// Dark theme improvements
 					...(theme === "dark" && {
-						colorPrimary: "#1890ff",
+						colorPrimary: "#fa541c",
 					}),
 					// Light theme refinements
 					...(theme === "light" && {
-						colorPrimary: "#1890ff",
+						colorPrimary: "#fa541c",
 					}),
 				},
 			}}
