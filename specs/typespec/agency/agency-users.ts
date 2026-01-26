@@ -25,7 +25,164 @@ import {
 } from "../common/roles";
 
 // ... (omitted sections)
+// ============================================
+// Signup Flow (DNS-based Domain Verification)
+// ============================================
 
+export interface AgencyInitSignupRequest {
+	email: EmailAddress;
+	home_region: string;
+}
+
+export function validateAgencyInitSignupRequest(
+	request: AgencyInitSignupRequest
+): ValidationError[] {
+	const errs: ValidationError[] = [];
+
+	if (!request.email) {
+		errs.push(newValidationError("email", ERR_REQUIRED));
+	} else {
+		const emailErr = validateEmployerEmail(request.email);
+		if (emailErr) {
+			errs.push(newValidationError("email", emailErr));
+		}
+	}
+
+	if (!request.home_region) {
+		errs.push(newValidationError("home_region", ERR_REQUIRED));
+	}
+
+	return errs;
+}
+
+export interface AgencyGetSignupDetailsRequest {
+	signup_token: string;
+}
+
+export function validateAgencyGetSignupDetailsRequest(
+	request: AgencyGetSignupDetailsRequest
+): ValidationError[] {
+	const errs: ValidationError[] = [];
+
+	if (!request.signup_token) {
+		errs.push(newValidationError("signup_token", ERR_REQUIRED));
+	}
+
+	return errs;
+}
+
+export interface AgencyCompleteSignupRequest {
+	signup_token: string;
+	password: Password;
+	preferred_language: LanguageCode;
+	has_added_dns_record: boolean;
+	agrees_to_eula: boolean;
+}
+
+export function validateAgencyCompleteSignupRequest(
+	request: AgencyCompleteSignupRequest
+): ValidationError[] {
+	const errs: ValidationError[] = [];
+
+	if (!request.signup_token) {
+		errs.push(newValidationError("signup_token", ERR_REQUIRED));
+	}
+
+	if (!request.password) {
+		errs.push(newValidationError("password", ERR_REQUIRED));
+	} else {
+		const passErr = validatePassword(request.password);
+		if (passErr) {
+			errs.push(newValidationError("password", passErr));
+		}
+	}
+
+	if (!request.preferred_language) {
+		errs.push(newValidationError("preferred_language", ERR_REQUIRED));
+	} else {
+		const langErr = validateLanguageCode(request.preferred_language);
+		if (langErr) {
+			errs.push(newValidationError("preferred_language", langErr));
+		}
+	}
+
+	if (!request.has_added_dns_record) {
+		errs.push(newValidationError("has_added_dns_record", ERR_REQUIRED));
+	}
+
+	if (!request.agrees_to_eula) {
+		errs.push(newValidationError("agrees_to_eula", ERR_REQUIRED));
+	}
+
+	return errs;
+}
+
+// ============================================
+// Login Flow
+// ============================================
+
+export interface AgencyLoginRequest {
+	email: EmailAddress;
+	domain: DomainName;
+	password: Password;
+}
+
+export function validateAgencyLoginRequest(
+	request: AgencyLoginRequest
+): ValidationError[] {
+	const errs: ValidationError[] = [];
+
+	if (!request.email) {
+		errs.push(newValidationError("email", ERR_REQUIRED));
+	} else {
+		const emailErr = validateEmailAddress(request.email);
+		if (emailErr) {
+			errs.push(newValidationError("email", emailErr));
+		}
+	}
+
+	if (!request.domain) {
+		errs.push(newValidationError("domain", ERR_REQUIRED));
+	} else {
+		const domainErr = validateDomainName(request.domain);
+		if (domainErr) {
+			errs.push(newValidationError("domain", domainErr));
+		}
+	}
+
+	if (!request.password) {
+		errs.push(newValidationError("password", ERR_REQUIRED));
+	}
+
+	return errs;
+}
+
+export interface AgencyTFARequest {
+	tfa_token: string;
+	tfa_code: TFACode;
+	remember_me: boolean;
+}
+
+export function validateAgencyTFARequest(
+	request: AgencyTFARequest
+): ValidationError[] {
+	const errs: ValidationError[] = [];
+
+	if (!request.tfa_token) {
+		errs.push(newValidationError("tfa_token", ERR_REQUIRED));
+	}
+
+	if (!request.tfa_code) {
+		errs.push(newValidationError("tfa_code", ERR_REQUIRED));
+	} else {
+		const tfaErr = validateTFACode(request.tfa_code);
+		if (tfaErr) {
+			errs.push(newValidationError("tfa_code", tfaErr));
+		}
+	}
+
+	return errs;
+}
 export interface AgencyInviteUserRequest {
 	email_address: EmailAddress;
 	full_name: FullName;
