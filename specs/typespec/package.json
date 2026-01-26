@@ -9,7 +9,8 @@
 		"./org/org-users": "./org/org-users.ts",
 		"./agency/agency-users": "./agency/agency-users.ts",
 		"./global/global": "./global/global.ts",
-		"./common/common": "./common/common.ts"
+		"./common/common": "./common/common.ts",
+		"./common/roles": "./common/roles.ts"
 	},
 	"dependencies": {
 		"@typespec/compiler": "latest",

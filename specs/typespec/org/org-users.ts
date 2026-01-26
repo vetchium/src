@@ -24,8 +24,6 @@ import {
 	validateRemoveRoleRequest,
 } from "../common/roles";
 
-// Re-export RBAC types for org portal
-export type { RoleName, AssignRoleRequest, RemoveRoleRequest };
 export { validateAssignRoleRequest, validateRemoveRoleRequest };
 
 // Token types
@@ -507,4 +505,29 @@ export function validateFilterOrgUsersRequest(
 export interface FilterOrgUsersResponse {
 	items: OrgUser[];
 	next_cursor: string;
+}
+
+// ===================================
+// Language Management
+// ===================================
+
+export interface OrgSetLanguageRequest {
+	language: LanguageCode;
+}
+
+export function validateOrgSetLanguageRequest(
+	request: OrgSetLanguageRequest
+): ValidationError[] {
+	const errs: ValidationError[] = [];
+
+	if (!request.language) {
+		errs.push(newValidationError("language", ERR_REQUIRED));
+	} else {
+		const langErr = validateLanguageCode(request.language);
+		if (langErr) {
+			errs.push(newValidationError("language", langErr));
+		}
+	}
+
+	return errs;
 }

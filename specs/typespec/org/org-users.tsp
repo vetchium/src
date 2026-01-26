@@ -417,3 +417,28 @@ interface OrgFilterUsers {
         statusCode: 401;
     };
 }
+
+// ===================================
+// Language Management
+// ===================================
+
+model OrgSetLanguageRequest {
+    @doc("Preferred language code")
+    language: LanguageCode;
+}
+
+@route("/employer/set-language")
+interface OrgSetLanguage {
+    @tag("OrgUsers")
+    @post
+    @doc("Set preferred language for the authenticated user")
+    setLanguage(@body request: OrgSetLanguageRequest): {
+        @statusCode statusCode: 200;
+    } | {
+        @doc("Validation errors")
+        @statusCode statusCode: 400;
+    } | {
+        @doc("Unauthorized")
+        @statusCode statusCode: 401;
+    };
+}

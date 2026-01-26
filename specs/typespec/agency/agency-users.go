@@ -387,3 +387,23 @@ type FilterAgencyUsersResponse struct {
 	Items      []AgencyUser `json:"items"`
 	NextCursor string       `json:"next_cursor"`
 }
+
+// ===================================
+// Language Management
+// ===================================
+
+type AgencySetLanguageRequest struct {
+	Language common.LanguageCode `json:"language"`
+}
+
+func (r AgencySetLanguageRequest) Validate() []common.ValidationError {
+	var errs []common.ValidationError
+
+	if r.Language == "" {
+		errs = append(errs, common.NewValidationError("language", common.ErrRequired))
+	} else if err := r.Language.Validate(); err != nil {
+		errs = append(errs, common.NewValidationError("language", err))
+	}
+
+	return errs
+}

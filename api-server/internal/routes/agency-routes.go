@@ -23,6 +23,7 @@ func RegisterAgencyRoutes(mux *http.ServeMux, s *server.Server) {
 	agencyAuth := middleware.AgencyAuth(s.Global, s.GetRegionalDB)
 	mux.Handle("POST /agency/logout", agencyAuth(agency.Logout(s)))
 	mux.Handle("POST /agency/change-password", agencyAuth(agency.ChangePassword(s)))
+	mux.Handle("POST /agency/set-language", agencyAuth(agency.SetLanguage(s)))
 	mux.Handle("POST /agency/invite-user", agencyAuth(agency.InviteUser(s)))
 	mux.Handle("POST /agency/disable-user", agencyAuth(agency.DisableUser(s)))
 	mux.Handle("POST /agency/enable-user", agencyAuth(agency.EnableUser(s)))

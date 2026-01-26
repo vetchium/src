@@ -29,6 +29,7 @@ func RegisterOrgRoutes(mux *http.ServeMux, s *server.Server) {
 	mux.Handle("POST /employer/disable-user", orgAuth(org.DisableUser(s)))
 	mux.Handle("POST /employer/enable-user", orgAuth(org.EnableUser(s)))
 	mux.Handle("POST /employer/change-password", orgAuth(org.ChangePassword(s)))
+	mux.Handle("POST /employer/set-language", orgAuth(org.SetLanguage(s)))
 
 	// RBAC routes
 	mux.Handle("POST /employer/assign-role", orgAuth(org.AssignRole(s)))

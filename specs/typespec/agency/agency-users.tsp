@@ -417,3 +417,28 @@ interface AgencyFilterUsers {
         statusCode: 401;
     };
 }
+
+// ===================================
+// Language Management
+// ===================================
+
+model AgencySetLanguageRequest {
+    @doc("Preferred language code")
+    language: LanguageCode;
+}
+
+@route("/agency/set-language")
+interface AgencySetLanguage {
+    @tag("AgencyUsers")
+    @post
+    @doc("Set preferred language for the authenticated user")
+    setLanguage(@body request: AgencySetLanguageRequest): {
+        @statusCode statusCode: 200;
+    } | {
+        @doc("Validation errors")
+        @statusCode statusCode: 400;
+    } | {
+        @doc("Unauthorized")
+        @statusCode statusCode: 401;
+    };
+}

@@ -1,5 +1,9 @@
 import { APIRequestContext } from "@playwright/test";
 import type {
+	AssignRoleRequest,
+	RemoveRoleRequest,
+} from "vetchium-specs/common/roles";
+import type {
 	AgencyInitSignupRequest,
 	AgencyInitSignupResponse,
 	AgencyGetSignupDetailsRequest,
@@ -18,8 +22,6 @@ import type {
 	AgencyChangePasswordRequest,
 	AgencyInviteUserRequest,
 	AgencyInviteUserResponse,
-	AssignRoleRequest,
-	RemoveRoleRequest,
 } from "vetchium-specs/agency/agency-users";
 import type { APIResponse } from "./api-client";
 
@@ -717,6 +719,69 @@ export class AgencyAPIClient {
 			status: response.status(),
 			body: body as import("vetchium-specs/agency/agency-users").FilterAgencyUsersResponse,
 			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	// ============================================================================
+	// Language Management
+	// ============================================================================
+
+	/**
+	 * POST /agency/set-language
+	 * Sets preferred language for the authenticated user.
+	 */
+	async setLanguage(
+		sessionToken: string,
+		request: import("vetchium-specs/agency/agency-users").AgencySetLanguageRequest
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/agency/set-language", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: undefined,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	/**
+	 * POST /agency/set-language with raw body for testing invalid payloads
+	 */
+	async setLanguageRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/agency/set-language", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: body,
+		});
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: undefined,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	/**
+	 * POST /agency/set-language without authorization header (for testing 401)
+	 */
+	async setLanguageWithoutAuth(
+		request: import("vetchium-specs/agency/agency-users").AgencySetLanguageRequest
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/agency/set-language", {
+			data: request,
+		});
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: undefined,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
 		};
 	}
 }

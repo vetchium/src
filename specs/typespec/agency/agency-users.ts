@@ -24,6 +24,8 @@ import {
 	validateRemoveRoleRequest,
 } from "../common/roles";
 
+export { validateAssignRoleRequest, validateRemoveRoleRequest };
+
 // ... (omitted sections)
 // ============================================
 // Signup Flow (DNS-based Domain Verification)
@@ -251,4 +253,29 @@ export function validateFilterAgencyUsersRequest(
 export interface FilterAgencyUsersResponse {
 	items: AgencyUser[];
 	next_cursor: string;
+}
+
+// ===================================
+// Language Management
+// ===================================
+
+export interface AgencySetLanguageRequest {
+	language: LanguageCode;
+}
+
+export function validateAgencySetLanguageRequest(
+	request: AgencySetLanguageRequest
+): ValidationError[] {
+	const errs: ValidationError[] = [];
+
+	if (!request.language) {
+		errs.push(newValidationError("language", ERR_REQUIRED));
+	} else {
+		const langErr = validateLanguageCode(request.language);
+		if (langErr) {
+			errs.push(newValidationError("language", langErr));
+		}
+	}
+
+	return errs;
 }
