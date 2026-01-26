@@ -1,4 +1,12 @@
-import { Layout, Space, Switch, Select, Dropdown, Avatar, type MenuProps } from "antd";
+import {
+	Layout,
+	Space,
+	Switch,
+	Select,
+	Dropdown,
+	Avatar,
+	type MenuProps,
+} from "antd";
 import {
 	BulbOutlined,
 	BulbFilled,
@@ -57,13 +65,13 @@ export function AppHeader() {
 	const languageOptions =
 		languages.length > 0
 			? languages.map((lang) => ({
-				value: lang.language_code,
-				label: lang.native_name,
-			}))
+					value: lang.language_code,
+					label: lang.native_name,
+				}))
 			: SUPPORTED_LANGUAGES.map((lang) => ({
-				value: lang,
-				label: t(`language.${lang}`),
-			}));
+					value: lang,
+					label: t(`language.${lang}`),
+				}));
 
 	const userMenuItems: MenuProps["items"] = [
 		{
