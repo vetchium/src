@@ -3,3 +3,5 @@ node_modules/
 
 .env
 .claude
+api-server/regional-api-server
+api-server/global-api-server
