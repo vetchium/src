@@ -128,6 +128,7 @@ func RequestPasswordReset(s *server.Server) http.HandlerFunc {
 			ResetToken: resetToken,
 			Domain:     string(req.Domain),
 			Hours:      passwordResetTokenExpiryHours,
+			BaseURL:    s.UIConfig.OrgURL,
 		}
 		subject := templates.OrgPasswordResetSubject(preferredLang)
 		textBody := templates.OrgPasswordResetTextBody(preferredLang, emailData)

@@ -13,6 +13,7 @@ const nsAdminPasswordReset = "emails/admin_password_reset"
 type AdminPasswordResetData struct {
 	ResetToken string // Password reset token
 	Hours      int    // Expiry time in hours
+	BaseURL    string // Base URL if the Admin UI
 }
 
 // AdminPasswordResetSubject returns the localized email subject for admin password reset
@@ -25,7 +26,7 @@ func AdminPasswordResetTextBody(lang string, data AdminPasswordResetData) string
 	portalName := i18n.T(lang, nsAdminPasswordReset, "portal_name")
 	greeting := i18n.T(lang, nsAdminPasswordReset, "body_greeting")
 	intro := i18n.T(lang, nsAdminPasswordReset, "body_intro")
-	resetLink := fmt.Sprintf("https://admin.vetchium.com/reset-password?token=%s", data.ResetToken)
+	resetLink := fmt.Sprintf("%s/reset-password?token=%s", data.BaseURL, data.ResetToken)
 	expiry := i18n.TF(lang, nsAdminPasswordReset, "body_expiry", data)
 	security := i18n.T(lang, nsAdminPasswordReset, "body_security")
 	ignore := i18n.T(lang, nsAdminPasswordReset, "body_ignore")
@@ -56,7 +57,7 @@ func AdminPasswordResetHTMLBody(lang string, data AdminPasswordResetData) string
 	portalName := html.EscapeString(i18n.T(lang, nsAdminPasswordReset, "portal_name"))
 	greeting := html.EscapeString(i18n.T(lang, nsAdminPasswordReset, "body_greeting"))
 	intro := html.EscapeString(i18n.T(lang, nsAdminPasswordReset, "body_intro"))
-	resetLink := html.EscapeString(fmt.Sprintf("https://admin.vetchium.com/reset-password?token=%s", data.ResetToken))
+	resetLink := html.EscapeString(fmt.Sprintf("%s/reset-password?token=%s", data.BaseURL, data.ResetToken))
 	buttonText := html.EscapeString(i18n.T(lang, nsAdminPasswordReset, "button_text"))
 	expiry := html.EscapeString(i18n.TF(lang, nsAdminPasswordReset, "body_expiry", data))
 	security := html.EscapeString(i18n.T(lang, nsAdminPasswordReset, "body_security"))

@@ -47,6 +47,14 @@ type TokenConfig struct {
 	AdminInvitationTokenExpiry  time.Duration // Default: 168h (7 days)
 }
 
+// UIConfig holds the base URLs for the various UI portals
+type UIConfig struct {
+	HubURL    string
+	AdminURL  string
+	OrgURL    string
+	AgencyURL string
+}
+
 type Server struct {
 	Global        *globaldb.Queries
 	RegionalIND1  *regionaldb.Queries
@@ -56,6 +64,7 @@ type Server struct {
 	SMTPConfig    *email.SMTPConfig
 	CurrentRegion globaldb.Region
 	TokenConfig   *TokenConfig
+	UIConfig      *UIConfig
 	Environment   string
 }
 

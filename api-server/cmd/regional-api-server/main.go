@@ -90,6 +90,14 @@ func main() {
 		environment = "PROD" // Default to PROD if not specified
 	}
 
+	// Load UI configuration
+	uiConfig := &server.UIConfig{
+		HubURL:    getEnvOrDefault("HUB_UI_URL", "http://localhost:3000"),
+		AdminURL:  getEnvOrDefault("ADMIN_UI_URL", "http://localhost:3001"),
+		OrgURL:    getEnvOrDefault("ORG_UI_URL", "http://localhost:3002"),
+		AgencyURL: getEnvOrDefault("AGENCY_UI_URL", "http://localhost:3003"),
+	}
+
 	s := &server.Server{
 		Global:        globaldb.New(globalConn),
 		RegionalIND1:  regionaldb.New(regionalIND1),
@@ -99,6 +107,7 @@ func main() {
 		SMTPConfig:    smtpConfig,
 		CurrentRegion: currentRegion,
 		TokenConfig:   tokenConfig,
+		UIConfig:      uiConfig,
 		Environment:   environment,
 	}
 
@@ -163,4 +172,11 @@ func main() {
 	}
 
 	logger.Info("server stopped")
+}
+
+func getEnvOrDefault(key, fallback string) string {
+	if value, ok := os.LookupEnv(key); ok {
+		return value
+	}
+	return fallback
 }

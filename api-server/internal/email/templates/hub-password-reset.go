@@ -13,6 +13,7 @@ const nsHubPasswordReset = "emails/hub_password_reset"
 type HubPasswordResetData struct {
 	ResetToken string // Password reset token
 	Hours      int    // Expiry time in hours
+	BaseURL    string // Base URL of the Hub UI
 }
 
 // HubPasswordResetSubject returns the localized email subject for hub password reset
@@ -25,7 +26,7 @@ func HubPasswordResetTextBody(lang string, data HubPasswordResetData) string {
 	portalName := i18n.T(lang, nsHubPasswordReset, "portal_name")
 	greeting := i18n.T(lang, nsHubPasswordReset, "body_greeting")
 	intro := i18n.T(lang, nsHubPasswordReset, "body_intro")
-	resetLink := fmt.Sprintf("https://hub.vetchium.com/reset-password?token=%s", data.ResetToken)
+	resetLink := fmt.Sprintf("%s/reset-password?token=%s", data.BaseURL, data.ResetToken)
 	expiry := i18n.TF(lang, nsHubPasswordReset, "body_expiry", data)
 	security := i18n.T(lang, nsHubPasswordReset, "body_security")
 	ignore := i18n.T(lang, nsHubPasswordReset, "body_ignore")
@@ -56,7 +57,7 @@ func HubPasswordResetHTMLBody(lang string, data HubPasswordResetData) string {
 	portalName := html.EscapeString(i18n.T(lang, nsHubPasswordReset, "portal_name"))
 	greeting := html.EscapeString(i18n.T(lang, nsHubPasswordReset, "body_greeting"))
 	intro := html.EscapeString(i18n.T(lang, nsHubPasswordReset, "body_intro"))
-	resetLink := html.EscapeString(fmt.Sprintf("https://hub.vetchium.com/reset-password?token=%s", data.ResetToken))
+	resetLink := html.EscapeString(fmt.Sprintf("%s/reset-password?token=%s", data.BaseURL, data.ResetToken))
 	buttonText := html.EscapeString(i18n.T(lang, nsHubPasswordReset, "button_text"))
 	expiry := html.EscapeString(i18n.TF(lang, nsHubPasswordReset, "body_expiry", data))
 	security := html.EscapeString(i18n.T(lang, nsHubPasswordReset, "body_security"))

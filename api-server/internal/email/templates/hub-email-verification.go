@@ -14,6 +14,7 @@ type HubEmailVerificationData struct {
 	VerificationToken string // Email verification token
 	NewEmailAddress   string // New email address being verified
 	Hours             int    // Expiry time in hours
+	BaseURL           string // Base URL of the Hub UI
 }
 
 // HubEmailVerificationSubject returns the localized email subject for hub email verification
@@ -26,7 +27,7 @@ func HubEmailVerificationTextBody(lang string, data HubEmailVerificationData) st
 	portalName := i18n.T(lang, nsHubEmailVerification, "portal_name")
 	greeting := i18n.T(lang, nsHubEmailVerification, "body_greeting")
 	intro := i18n.TF(lang, nsHubEmailVerification, "body_intro", data)
-	verifyLink := fmt.Sprintf("https://hub.vetchium.com/verify-email?token=%s", data.VerificationToken)
+	verifyLink := fmt.Sprintf("%s/verify-email?token=%s", data.BaseURL, data.VerificationToken)
 	expiry := i18n.TF(lang, nsHubEmailVerification, "body_expiry", data)
 	security := i18n.T(lang, nsHubEmailVerification, "body_security")
 	ignore := i18n.T(lang, nsHubEmailVerification, "body_ignore")
@@ -57,7 +58,7 @@ func HubEmailVerificationHTMLBody(lang string, data HubEmailVerificationData) st
 	portalName := html.EscapeString(i18n.T(lang, nsHubEmailVerification, "portal_name"))
 	greeting := html.EscapeString(i18n.T(lang, nsHubEmailVerification, "body_greeting"))
 	intro := html.EscapeString(i18n.TF(lang, nsHubEmailVerification, "body_intro", data))
-	verifyLink := html.EscapeString(fmt.Sprintf("https://hub.vetchium.com/verify-email?token=%s", data.VerificationToken))
+	verifyLink := html.EscapeString(fmt.Sprintf("%s/verify-email?token=%s", data.BaseURL, data.VerificationToken))
 	buttonText := html.EscapeString(i18n.T(lang, nsHubEmailVerification, "button_text"))
 	expiry := html.EscapeString(i18n.TF(lang, nsHubEmailVerification, "body_expiry", data))
 	security := html.EscapeString(i18n.T(lang, nsHubEmailVerification, "body_security"))

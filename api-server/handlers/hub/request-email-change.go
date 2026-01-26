@@ -141,6 +141,7 @@ func RequestEmailChange(s *server.Server) http.HandlerFunc {
 			VerificationToken: verificationToken,
 			NewEmailAddress:   string(req.NewEmailAddress),
 			Hours:             hours,
+			BaseURL:           s.UIConfig.HubURL,
 		}
 
 		subject := templates.HubEmailVerificationSubject(hubUser.PreferredLanguage)

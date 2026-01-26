@@ -15,6 +15,7 @@ type OrgInvitationData struct {
 	InviterName     string // Name of the person who sent the invitation
 	EmployerName    string // Name of the employer/organization
 	Days            int    // Expiry time in days
+	BaseURL         string // Base URL of the Org UI
 }
 
 // OrgInvitationSubject returns the localized email subject for org invitation
@@ -27,7 +28,7 @@ func OrgInvitationTextBody(lang string, data OrgInvitationData) string {
 	portalName := i18n.T(lang, nsOrgInvitation, "portal_name")
 	greeting := i18n.T(lang, nsOrgInvitation, "body_greeting")
 	intro := i18n.TF(lang, nsOrgInvitation, "body_intro", data)
-	setupLink := fmt.Sprintf("https://employer.vetchium.com/complete-setup?token=%s", data.InvitationToken)
+	setupLink := fmt.Sprintf("%s/complete-setup?token=%s", data.BaseURL, data.InvitationToken)
 	expiry := i18n.TF(lang, nsOrgInvitation, "body_expiry", data)
 	instructions := i18n.T(lang, nsOrgInvitation, "body_instructions")
 	security := i18n.T(lang, nsOrgInvitation, "body_security")
@@ -58,7 +59,7 @@ func OrgInvitationHTMLBody(lang string, data OrgInvitationData) string {
 	portalName := html.EscapeString(i18n.T(lang, nsOrgInvitation, "portal_name"))
 	greeting := html.EscapeString(i18n.T(lang, nsOrgInvitation, "body_greeting"))
 	intro := html.EscapeString(i18n.TF(lang, nsOrgInvitation, "body_intro", data))
-	setupLink := html.EscapeString(fmt.Sprintf("https://employer.vetchium.com/complete-setup?token=%s", data.InvitationToken))
+	setupLink := html.EscapeString(fmt.Sprintf("%s/complete-setup?token=%s", data.BaseURL, data.InvitationToken))
 	buttonText := html.EscapeString(i18n.T(lang, nsOrgInvitation, "button_text"))
 	expiry := html.EscapeString(i18n.TF(lang, nsOrgInvitation, "body_expiry", data))
 	instructions := html.EscapeString(i18n.T(lang, nsOrgInvitation, "body_instructions"))

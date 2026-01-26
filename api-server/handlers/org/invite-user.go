@@ -227,6 +227,7 @@ func InviteUser(s *server.Server) http.HandlerFunc {
 			InviterName:     inviterName,
 			EmployerName:    employer.EmployerName,
 			Days:            int(invitationExpiry.Hours() / 24),
+			BaseURL:         s.UIConfig.OrgURL,
 		}
 
 		_, err = regionalDB.EnqueueEmail(ctx, regionaldb.EnqueueEmailParams{

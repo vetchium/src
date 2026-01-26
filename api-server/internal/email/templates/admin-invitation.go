@@ -14,6 +14,7 @@ type AdminInvitationData struct {
 	InvitationToken string // Invitation token
 	InviterName     string // Name of the person who sent the invitation
 	Days            int    // Expiry time in days
+	BaseURL         string // Base URL of the Admin UI
 }
 
 // AdminInvitationSubject returns the localized email subject for admin invitation
@@ -26,7 +27,7 @@ func AdminInvitationTextBody(lang string, data AdminInvitationData) string {
 	portalName := i18n.T(lang, nsAdminInvitation, "portal_name")
 	greeting := i18n.T(lang, nsAdminInvitation, "body_greeting")
 	intro := i18n.TF(lang, nsAdminInvitation, "body_intro", data)
-	setupLink := fmt.Sprintf("https://admin.vetchium.com/complete-setup?token=%s", data.InvitationToken)
+	setupLink := fmt.Sprintf("%s/complete-setup?token=%s", data.BaseURL, data.InvitationToken)
 	expiry := i18n.TF(lang, nsAdminInvitation, "body_expiry", data)
 	instructions := i18n.T(lang, nsAdminInvitation, "body_instructions")
 	security := i18n.T(lang, nsAdminInvitation, "body_security")
@@ -57,7 +58,7 @@ func AdminInvitationHTMLBody(lang string, data AdminInvitationData) string {
 	portalName := html.EscapeString(i18n.T(lang, nsAdminInvitation, "portal_name"))
 	greeting := html.EscapeString(i18n.T(lang, nsAdminInvitation, "body_greeting"))
 	intro := html.EscapeString(i18n.TF(lang, nsAdminInvitation, "body_intro", data))
-	setupLink := html.EscapeString(fmt.Sprintf("https://admin.vetchium.com/complete-setup?token=%s", data.InvitationToken))
+	setupLink := html.EscapeString(fmt.Sprintf("%s/complete-setup?token=%s", data.BaseURL, data.InvitationToken))
 	buttonText := html.EscapeString(i18n.T(lang, nsAdminInvitation, "button_text"))
 	expiry := html.EscapeString(i18n.TF(lang, nsAdminInvitation, "body_expiry", data))
 	instructions := html.EscapeString(i18n.T(lang, nsAdminInvitation, "body_instructions"))

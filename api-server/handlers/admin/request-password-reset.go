@@ -111,6 +111,7 @@ func RequestPasswordReset(s *server.Server) http.HandlerFunc {
 		emailData := templates.AdminPasswordResetData{
 			ResetToken: resetToken,
 			Hours:      1,
+			BaseURL:    s.UIConfig.AdminURL,
 		}
 
 		_, err = regionalDB.EnqueueEmail(ctx, regionaldb.EnqueueEmailParams{

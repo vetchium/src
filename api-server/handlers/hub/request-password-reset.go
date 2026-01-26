@@ -122,7 +122,7 @@ func RequestPasswordReset(s *server.Server) http.HandlerFunc {
 
 		// Enqueue password reset email
 		lang := i18n.Match(globalUser.PreferredLanguage)
-		err = sendPasswordResetEmail(ctx, regionalDB, regionalUser.EmailAddress, resetToken, lang, resetTokenExpiry)
+		err = sendPasswordResetEmail(ctx, regionalDB, regionalUser.EmailAddress, resetToken, lang, resetTokenExpiry, s.UIConfig.HubURL)
 		if err != nil {
 			log.Error("failed to enqueue password reset email", "error", err)
 			// Compensating transaction: delete the reset token we just created
@@ -151,10 +151,11 @@ func sendGenericSuccessResponse(w http.ResponseWriter, log *slog.Logger) {
 	}
 }
 
-func sendPasswordResetEmail(ctx context.Context, db *regionaldb.Queries, to string, resetToken string, lang string, tokenExpiry time.Duration) error {
+func sendPasswordResetEmail(ctx context.Context, db *regionaldb.Queries, to string, resetToken string, lang string, tokenExpiry time.Duration, baseURL string) error {
 	data := templates.HubPasswordResetData{
 		ResetToken: resetToken,
 		Hours:      int(tokenExpiry.Hours()),
+		BaseURL:    baseURL,
 	}
 
 	_, err := db.EnqueueEmail(ctx, regionaldb.EnqueueEmailParams{

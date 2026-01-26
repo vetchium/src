@@ -113,7 +113,7 @@ func RequestSignup(s *server.Server) http.HandlerFunc {
 
 		// Send verification email
 		lang := i18n.Match("en-US") // Default language for signup
-		signupLink := fmt.Sprintf("https://hub.vetchium.com/signup/verify?token=%s", signupToken)
+		signupLink := fmt.Sprintf("%s/signup/verify?token=%s", s.UIConfig.HubURL, signupToken)
 		expiryHours := int(s.TokenConfig.HubSignupTokenExpiry.Hours())
 		err = sendSignupEmail(ctx, regionalDB, string(req.EmailAddress), signupLink, lang, expiryHours)
 		if err != nil {

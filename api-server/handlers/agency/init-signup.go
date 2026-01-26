@@ -171,7 +171,7 @@ func InitSignup(s *server.Server) http.HandlerFunc {
 		}
 
 		// Send Email 2: Signup token (private - DO NOT FORWARD)
-		signupLink := fmt.Sprintf("https://agency.vetchium.com/complete-signup?token=%s", emailToken)
+		signupLink := fmt.Sprintf("%s/complete-signup?token=%s", s.UIConfig.AgencyURL, emailToken)
 		err = sendAgencySignupTokenEmail(ctx, regionalDB, string(req.Email), domain, emailToken, signupLink, lang, expiryHours)
 		if err != nil {
 			log.Error("failed to enqueue signup token email", "error", err)

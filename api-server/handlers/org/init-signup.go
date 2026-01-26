@@ -172,7 +172,7 @@ func InitSignup(s *server.Server) http.HandlerFunc {
 
 		// Send Email 2: Signup token (private - DO NOT FORWARD)
 		// TODO: Update signup link URL when employer-ui is ready
-		signupLink := fmt.Sprintf("https://employer.vetchium.com/complete-signup?token=%s", emailToken)
+		signupLink := fmt.Sprintf("%s/complete-signup?token=%s", s.UIConfig.OrgURL, emailToken)
 		err = sendOrgSignupTokenEmail(ctx, regionalDB, string(req.Email), domain, emailToken, signupLink, lang, expiryHours)
 		if err != nil {
 			log.Error("failed to enqueue signup token email", "error", err)

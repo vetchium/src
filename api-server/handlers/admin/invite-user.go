@@ -159,6 +159,7 @@ func InviteUser(s *server.Server) http.HandlerFunc {
 			InvitationToken: invitationToken,
 			InviterName:     inviterName,
 			Days:            int(invitationExpiry.Hours() / 24),
+			BaseURL:         s.UIConfig.AdminURL,
 		}
 
 		// Get the current region's DB for email queueing
