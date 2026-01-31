@@ -70,14 +70,6 @@ func DisableUser(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Check if current user has permission (is_admin or has manage_users role)
-		// TODO: Once role system is implemented, check for manage_users role here
-		if !orgUser.IsAdmin {
-			log.Debug("user lacks permission to disable users")
-			w.WriteHeader(http.StatusForbidden)
-			return
-		}
-
 		// If target user is an admin, check if they are the last admin
 		if targetUser.IsAdmin {
 			count, err := s.Global.CountActiveAdminOrgUsers(ctx, targetUser.EmployerID)

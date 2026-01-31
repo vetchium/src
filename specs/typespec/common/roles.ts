@@ -3,7 +3,20 @@ import { newValidationError, type ValidationError } from "./common";
 export type RoleName = string;
 
 // Valid role names matching database roles table
-export const VALID_ROLE_NAMES = ["invite_users", "manage_users"] as const;
+export const VALID_ROLE_NAMES = [
+	// Admin portal roles
+	"admin:invite_users",
+	"admin:manage_users",
+	"admin:manage_domains",
+
+	// Employer portal roles
+	"employer:invite_users",
+	"employer:manage_users",
+
+	// Agency portal roles
+	"agency:invite_users",
+	"agency:manage_users",
+] as const;
 export type ValidRoleName = (typeof VALID_ROLE_NAMES)[number];
 
 // Validation error messages

@@ -7,7 +7,20 @@ import (
 type RoleName string
 
 // Valid role names matching database roles table
-var ValidRoleNames = []RoleName{"invite_users", "manage_users"}
+var ValidRoleNames = []RoleName{
+	// Admin portal roles
+	"admin:invite_users",
+	"admin:manage_users",
+	"admin:manage_domains",
+
+	// Employer portal roles
+	"employer:invite_users",
+	"employer:manage_users",
+
+	// Agency portal roles
+	"agency:invite_users",
+	"agency:manage_users",
+}
 
 // Validation errors for RBAC
 var (

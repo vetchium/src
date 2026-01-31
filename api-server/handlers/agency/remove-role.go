@@ -27,14 +27,6 @@ func RemoveRole(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Check if user is an admin
-		if !agencyUser.IsAdmin {
-			log.Debug("non-admin agency user attempted to remove role",
-				"agency_user_id", agencyUser.AgencyUserID)
-			w.WriteHeader(http.StatusForbidden)
-			return
-		}
-
 		// Decode request
 		var req agency.RemoveRoleRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

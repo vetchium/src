@@ -35,30 +35,6 @@ func InviteUser(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Check if user has permission to invite users
-		inviteUsersRole, roleErr := s.Global.GetRoleByName(ctx, "invite_users")
-		if roleErr != nil {
-			log.Error("failed to get invite_users role", "error", roleErr)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-
-		hasInviteRole, roleErr := s.Global.HasOrgUserRole(ctx, globaldb.HasOrgUserRoleParams{
-			OrgUserID: orgUser.OrgUserID,
-			RoleID:    inviteUsersRole.RoleID,
-		})
-		if roleErr != nil {
-			log.Error("failed to check invite_users role", "error", roleErr)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-
-		if !hasInviteRole && !orgUser.IsAdmin {
-			log.Debug("user does not have permission to invite users", "org_user_id", orgUser.OrgUserID)
-			w.WriteHeader(http.StatusForbidden)
-			return
-		}
-
 		// Decode request
 		var req org.OrgInviteUserRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

@@ -16,24 +16,27 @@ func RegisterAdminRoutes(mux *http.ServeMux, s *server.Server) {
 	mux.HandleFunc("POST /admin/request-password-reset", admin.RequestPasswordReset(s))
 	mux.HandleFunc("POST /admin/complete-password-reset", admin.CompletePasswordReset(s))
 
-	// Authenticated routes (require Authorization header)
-	authMiddleware := middleware.AdminAuth(s.Global)
-	mux.Handle("POST /admin/logout", authMiddleware(admin.Logout(s)))
-	mux.Handle("POST /admin/set-language", authMiddleware(admin.SetLanguage(s)))
-	mux.Handle("POST /admin/change-password", authMiddleware(admin.ChangePassword(s)))
-	mux.Handle("POST /admin/invite-user", authMiddleware(admin.InviteUser(s)))
-	mux.Handle("POST /admin/disable-user", authMiddleware(admin.DisableUser(s)))
-	mux.Handle("POST /admin/enable-user", authMiddleware(admin.EnableUser(s)))
+	// Create middleware instances
+	adminAuth := middleware.AdminAuth(s.Global)
+	adminRoleInvite := middleware.AdminRole(s.Global, "admin:invite_users")
+	adminRoleManage := middleware.AdminRole(s.Global, "admin:manage_users")
+	adminRoleDomains := middleware.AdminRole(s.Global, "admin:manage_domains")
 
-	// Approved domains routes
-	mux.Handle("POST /admin/add-approved-domain", authMiddleware(admin.AddApprovedDomain(s)))
-	mux.Handle("POST /admin/list-approved-domains", authMiddleware(admin.ListApprovedDomains(s)))
-	mux.Handle("POST /admin/get-approved-domain", authMiddleware(admin.GetApprovedDomain(s)))
-	mux.Handle("POST /admin/disable-approved-domain", authMiddleware(admin.DisableApprovedDomain(s)))
-	mux.Handle("POST /admin/enable-approved-domain", authMiddleware(admin.EnableApprovedDomain(s)))
+	// Auth-only routes (no role required)
+	mux.Handle("POST /admin/logout", adminAuth(admin.Logout(s)))
+	mux.Handle("POST /admin/set-language", adminAuth(admin.SetLanguage(s)))
+	mux.Handle("POST /admin/change-password", adminAuth(admin.ChangePassword(s)))
+	mux.Handle("POST /admin/filter-users", adminAuth(admin.FilterUsers(s)))
+	mux.Handle("POST /admin/list-approved-domains", adminAuth(admin.ListApprovedDomains(s)))
+	mux.Handle("POST /admin/get-approved-domain", adminAuth(admin.GetApprovedDomain(s)))
 
-	// RBAC routes
-	mux.Handle("POST /admin/assign-role", authMiddleware(admin.AssignRole(s)))
-	mux.Handle("POST /admin/remove-role", authMiddleware(admin.RemoveRole(s)))
-	mux.Handle("POST /admin/filter-users", authMiddleware(admin.FilterUsers(s)))
+	// Role-protected routes
+	mux.Handle("POST /admin/invite-user", adminAuth(adminRoleInvite(admin.InviteUser(s))))
+	mux.Handle("POST /admin/disable-user", adminAuth(adminRoleManage(admin.DisableUser(s))))
+	mux.Handle("POST /admin/enable-user", adminAuth(adminRoleManage(admin.EnableUser(s))))
+	mux.Handle("POST /admin/assign-role", adminAuth(adminRoleManage(admin.AssignRole(s))))
+	mux.Handle("POST /admin/remove-role", adminAuth(adminRoleManage(admin.RemoveRole(s))))
+	mux.Handle("POST /admin/add-approved-domain", adminAuth(adminRoleDomains(admin.AddApprovedDomain(s))))
+	mux.Handle("POST /admin/disable-approved-domain", adminAuth(adminRoleDomains(admin.DisableApprovedDomain(s))))
+	mux.Handle("POST /admin/enable-approved-domain", adminAuth(adminRoleDomains(admin.EnableApprovedDomain(s))))
 }

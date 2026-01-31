@@ -27,14 +27,6 @@ func AssignRole(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Check if user is an admin
-		if !orgUser.IsAdmin {
-			log.Debug("non-admin org user attempted to assign role",
-				"org_user_id", orgUser.OrgUserID)
-			w.WriteHeader(http.StatusForbidden)
-			return
-		}
-
 		// Decode request
 		var req org.AssignRoleRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

@@ -27,30 +27,6 @@ func RemoveRole(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Check if admin has manage_users role
-		manageUsersRole, err := s.Global.GetRoleByName(ctx, "manage_users")
-		if err != nil {
-			log.Error("failed to get manage_users role", "error", err)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-
-		hasManageRole, err2 := s.Global.HasAdminUserRole(ctx, globaldb.HasAdminUserRoleParams{
-			AdminUserID: adminUser.AdminUserID,
-			RoleID:      manageUsersRole.RoleID,
-		})
-		if err2 != nil {
-			log.Error("failed to check manage_users role", "error", err2)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-
-		if !hasManageRole {
-			log.Debug("admin user does not have manage_users role", "admin_user_id", adminUser.AdminUserID)
-			w.WriteHeader(http.StatusForbidden)
-			return
-		}
-
 		// Decode request
 		var req admin.RemoveRoleRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

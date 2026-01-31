@@ -344,8 +344,18 @@ CREATE TABLE agency_user_roles (
 
 -- Insert predefined roles
 INSERT INTO roles (role_name, description) VALUES
-    ('invite_users', 'Can invite new users to the entity'),
-    ('manage_users', 'Can enable/disable users');
+    -- Admin portal roles
+    ('admin:invite_users', 'Can invite new admin users'),
+    ('admin:manage_users', 'Can enable/disable admin users and manage roles'),
+    ('admin:manage_domains', 'Can manage approved domains'),
+
+    -- Employer portal roles
+    ('employer:invite_users', 'Can invite new employer users'),
+    ('employer:manage_users', 'Can enable/disable employer users'),
+
+    -- Agency portal roles
+    ('agency:invite_users', 'Can invite new agency users'),
+    ('agency:manage_users', 'Can enable/disable agency users');
 
 -- Indexes
 CREATE INDEX idx_admin_tfa_tokens_expires_at ON admin_tfa_tokens(expires_at);

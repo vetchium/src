@@ -19,17 +19,24 @@ func RegisterAgencyRoutes(mux *http.ServeMux, s *server.Server) {
 	mux.HandleFunc("POST /agency/request-password-reset", agency.RequestPasswordReset(s))
 	mux.HandleFunc("POST /agency/complete-password-reset", agency.CompletePasswordReset(s))
 
-	// Authenticated routes (require Authorization header)
+	// Create middleware instances
 	agencyAuth := middleware.AgencyAuth(s.Global, s.GetRegionalDB)
+	agencyRoleInvite := middleware.AgencyRole(s.Global, s.GetRegionalDB, "agency:invite_users")
+	agencyRoleManage := middleware.AgencyRole(s.Global, s.GetRegionalDB, "agency:manage_users")
+	agencyAdminOnly := middleware.AgencyAdminOnly(s.Global)
+
+	// Admin-only routes (IsAdmin flag required, not delegatable)
+	mux.Handle("POST /agency/assign-role", agencyAuth(agencyAdminOnly(agency.AssignRole(s))))
+	mux.Handle("POST /agency/remove-role", agencyAuth(agencyAdminOnly(agency.RemoveRole(s))))
+
+	// Role-protected routes (IsAdmin OR role)
+	mux.Handle("POST /agency/invite-user", agencyAuth(agencyRoleInvite(agency.InviteUser(s))))
+	mux.Handle("POST /agency/disable-user", agencyAuth(agencyRoleManage(agency.DisableUser(s))))
+	mux.Handle("POST /agency/enable-user", agencyAuth(agencyRoleManage(agency.EnableUser(s))))
+
+	// Auth-only routes (any authenticated agency user)
 	mux.Handle("POST /agency/logout", agencyAuth(agency.Logout(s)))
 	mux.Handle("POST /agency/change-password", agencyAuth(agency.ChangePassword(s)))
 	mux.Handle("POST /agency/set-language", agencyAuth(agency.SetLanguage(s)))
-	mux.Handle("POST /agency/invite-user", agencyAuth(agency.InviteUser(s)))
-	mux.Handle("POST /agency/disable-user", agencyAuth(agency.DisableUser(s)))
-	mux.Handle("POST /agency/enable-user", agencyAuth(agency.EnableUser(s)))
-
-	// RBAC routes
-	mux.Handle("POST /agency/assign-role", agencyAuth(agency.AssignRole(s)))
-	mux.Handle("POST /agency/remove-role", agencyAuth(agency.RemoveRole(s)))
 	mux.Handle("POST /agency/filter-users", agencyAuth(agency.FilterUsers(s)))
 }

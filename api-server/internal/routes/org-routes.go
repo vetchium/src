@@ -19,20 +19,27 @@ func RegisterOrgRoutes(mux *http.ServeMux, s *server.Server) {
 	mux.HandleFunc("POST /employer/request-password-reset", org.RequestPasswordReset(s))
 	mux.HandleFunc("POST /employer/complete-password-reset", org.CompletePasswordReset(s))
 
-	// Authenticated routes (require Authorization header)
+	// Create middleware instances
 	orgAuth := middleware.OrgAuth(s.Global, s.GetRegionalDB)
-	mux.Handle("POST /org/claim-domain", orgAuth(org.ClaimDomain(s)))
-	mux.Handle("POST /org/verify-domain", orgAuth(org.VerifyDomain(s)))
-	mux.Handle("POST /org/get-domain-status", orgAuth(org.GetDomainStatus(s)))
+	employerRoleInvite := middleware.EmployerRole(s.Global, s.GetRegionalDB, "employer:invite_users")
+	employerRoleManage := middleware.EmployerRole(s.Global, s.GetRegionalDB, "employer:manage_users")
+	employerAdminOnly := middleware.EmployerAdminOnly(s.Global)
+
+	// Admin-only routes (IsAdmin flag required, not delegatable)
+	mux.Handle("POST /org/claim-domain", orgAuth(employerAdminOnly(org.ClaimDomain(s))))
+	mux.Handle("POST /org/verify-domain", orgAuth(employerAdminOnly(org.VerifyDomain(s))))
+	mux.Handle("POST /org/get-domain-status", orgAuth(employerAdminOnly(org.GetDomainStatus(s))))
+	mux.Handle("POST /employer/assign-role", orgAuth(employerAdminOnly(org.AssignRole(s))))
+	mux.Handle("POST /employer/remove-role", orgAuth(employerAdminOnly(org.RemoveRole(s))))
+
+	// Role-protected routes (IsAdmin OR role)
+	mux.Handle("POST /employer/invite-user", orgAuth(employerRoleInvite(org.InviteUser(s))))
+	mux.Handle("POST /employer/disable-user", orgAuth(employerRoleManage(org.DisableUser(s))))
+	mux.Handle("POST /employer/enable-user", orgAuth(employerRoleManage(org.EnableUser(s))))
+
+	// Auth-only routes (any authenticated employer user)
 	mux.Handle("POST /employer/logout", orgAuth(org.Logout(s)))
-	mux.Handle("POST /employer/invite-user", orgAuth(org.InviteUser(s)))
-	mux.Handle("POST /employer/disable-user", orgAuth(org.DisableUser(s)))
-	mux.Handle("POST /employer/enable-user", orgAuth(org.EnableUser(s)))
 	mux.Handle("POST /employer/change-password", orgAuth(org.ChangePassword(s)))
 	mux.Handle("POST /employer/set-language", orgAuth(org.SetLanguage(s)))
-
-	// RBAC routes
-	mux.Handle("POST /employer/assign-role", orgAuth(org.AssignRole(s)))
-	mux.Handle("POST /employer/remove-role", orgAuth(org.RemoveRole(s)))
 	mux.Handle("POST /employer/filter-users", orgAuth(org.FilterUsers(s)))
 }
