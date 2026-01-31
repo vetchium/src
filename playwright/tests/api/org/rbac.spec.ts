@@ -7,13 +7,11 @@ import {
 	generateTestOrgEmail,
 	assignRoleToOrgUser,
 } from "../../../lib/db";
-import { getTfaCodeFromEmail } from "../../../lib/mailpit";
+import { getTfaCodeFromEmail, deleteEmailsFor } from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
 import type {
 	OrgLoginRequest,
 	OrgInviteUserRequest,
-	AssignRoleRequest,
-	RemoveRoleRequest,
 } from "vetchium-specs/org/org-users";
 
 test.describe("Org Portal RBAC Tests", () => {
@@ -60,7 +58,7 @@ test.describe("Org Portal RBAC Tests", () => {
 			const tfaRes1 = await api.verifyTFA({
 				tfa_token: loginRes1.body!.tfa_token,
 				tfa_code: tfaCode1,
-				remember_me: false,
+				remember_me: true,
 			});
 			expect(tfaRes1.status).toBe(200);
 			orgAdminToken = tfaRes1.body!.session_token;
@@ -80,19 +78,20 @@ test.describe("Org Portal RBAC Tests", () => {
 			await assignRoleToOrgUser(regularUserWithRoleId, "employer:invite_users");
 
 			// Login user with role
-			const loginReq2: OrgLoginRequest = {
+			const loginReq: OrgLoginRequest = {
 				email: regularUserWithRoleEmail,
 				domain: regularUserWithRoleDomain,
 				password: TEST_PASSWORD,
 			};
-			const loginRes2 = await api.login(loginReq2);
-			expect(loginRes2.status).toBe(200);
+			await deleteEmailsFor(loginReq.email);
+			const loginRes = await api.login(loginReq);
+			expect(loginRes.status).toBe(200);
 
 			const tfaCode2 = await getTfaCodeFromEmail(regularUserWithRoleEmail);
 			const tfaRes2 = await api.verifyTFA({
-				tfa_token: loginRes2.body!.tfa_token,
+				tfa_token: loginRes.body!.tfa_token,
 				tfa_code: tfaCode2,
-				remember_me: false,
+				remember_me: true,
 			});
 			expect(tfaRes2.status).toBe(200);
 			regularUserWithRoleToken = tfaRes2.body!.session_token;
@@ -122,7 +121,7 @@ test.describe("Org Portal RBAC Tests", () => {
 			const tfaRes3 = await api.verifyTFA({
 				tfa_token: loginRes3.body!.tfa_token,
 				tfa_code: tfaCode3,
-				remember_me: false,
+				remember_me: true,
 			});
 			expect(tfaRes3.status).toBe(200);
 			regularUserWithoutRoleToken = tfaRes3.body!.session_token;
@@ -208,7 +207,7 @@ test.describe("Org Portal RBAC Tests", () => {
 			);
 
 			try {
-				const assignReq: AssignRoleRequest = {
+				const assignReq = {
 					target_user_id: targetResult.orgUserId,
 					role_name: "employer:invite_users",
 				};
@@ -248,6 +247,7 @@ test.describe("Org Portal RBAC Tests", () => {
 				"ind1",
 				{
 					employerId: employerId,
+					domain: orgAdminDomain,
 				}
 			);
 
@@ -270,7 +270,7 @@ test.describe("Org Portal RBAC Tests", () => {
 				expect(tfaRes.status).toBe(200);
 				const managerToken = tfaRes.body!.session_token;
 
-				const assignReq: AssignRoleRequest = {
+				const assignReq = {
 					target_user_id: targetResult.orgUserId,
 					role_name: "employer:invite_users",
 				};
@@ -300,7 +300,7 @@ test.describe("Org Portal RBAC Tests", () => {
 			);
 
 			try {
-				const assignReq: AssignRoleRequest = {
+				const assignReq = {
 					target_user_id: targetResult.orgUserId,
 					role_name: "employer:invite_users",
 				};
@@ -336,7 +336,7 @@ test.describe("Org Portal RBAC Tests", () => {
 			);
 
 			try {
-				const removeReq: RemoveRoleRequest = {
+				const removeReq = {
 					target_user_id: targetResult.orgUserId,
 					role_name: "employer:invite_users",
 				};
@@ -353,7 +353,7 @@ test.describe("Org Portal RBAC Tests", () => {
 		}) => {
 			const api = new OrgAPIClient(request);
 
-			const removeReq: RemoveRoleRequest = {
+			const removeReq = {
 				target_user_id: regularUserWithRoleId,
 				role_name: "employer:invite_users",
 			};
@@ -386,6 +386,7 @@ test.describe("Org Portal RBAC Tests", () => {
 				domain: orgUserDomain,
 				password: TEST_PASSWORD,
 			};
+			await deleteEmailsFor(loginReq.email);
 			const loginRes = await api.login(loginReq);
 			expect(loginRes.status).toBe(200);
 
@@ -442,6 +443,7 @@ test.describe("Org Portal RBAC Tests", () => {
 				domain: orgUserDomain,
 				password: TEST_PASSWORD,
 			};
+			await deleteEmailsFor(loginReq.email);
 			const loginRes = await api.login(loginReq);
 			expect(loginRes.status).toBe(200);
 
@@ -480,7 +482,7 @@ test.describe("Org Portal RBAC Tests", () => {
 		}) => {
 			const api = new OrgAPIClient(request);
 
-			const assignReq: AssignRoleRequest = {
+			const assignReq = {
 				target_user_id: "00000000-0000-0000-0000-000000000000",
 				role_name: "employer:invite_users",
 			};
@@ -494,7 +496,7 @@ test.describe("Org Portal RBAC Tests", () => {
 		}) => {
 			const api = new OrgAPIClient(request);
 
-			const removeReq: RemoveRoleRequest = {
+			const removeReq = {
 				target_user_id: "00000000-0000-0000-0000-000000000000",
 				role_name: "employer:invite_users",
 			};

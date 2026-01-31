@@ -7,25 +7,23 @@ import {
 	generateTestAgencyEmail,
 	assignRoleToAgencyUser,
 } from "../../../lib/db";
-import { getTfaCodeFromEmail } from "../../../lib/mailpit";
+import { getTfaCodeFromEmail, deleteEmailsFor } from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
 import type {
 	AgencyLoginRequest,
 	AgencyInviteUserRequest,
-	AssignRoleRequest,
-	RemoveRoleRequest,
 } from "vetchium-specs/agency/agency-users";
 
 test.describe("Agency Portal RBAC Tests", () => {
 	test.describe("IsAdmin OR role bypass pattern", () => {
 		let agencyAdminEmail: string;
 		let agencyAdminDomain: string;
-		let agencyAdminToken: string;
+		let agencyAdminToken: string = "";
 
 		let regularUserWithRoleEmail: string;
 		let regularUserWithRoleDomain: string;
 		let regularUserWithRoleId: string;
-		let regularUserWithRoleToken: string;
+		let regularUserWithRoleToken: string = "";
 
 		let regularUserWithoutRoleEmail: string;
 		let regularUserWithoutRoleDomain: string;
@@ -60,6 +58,7 @@ test.describe("Agency Portal RBAC Tests", () => {
 			const tfaRes1 = await api.verifyTFA({
 				tfa_token: loginRes1.body!.tfa_token,
 				tfa_code: tfaCode1,
+				remember_me: true,
 			});
 			expect(tfaRes1.status).toBe(200);
 			agencyAdminToken = tfaRes1.body!.session_token;
@@ -88,6 +87,7 @@ test.describe("Agency Portal RBAC Tests", () => {
 				domain: regularUserWithRoleDomain,
 				password: TEST_PASSWORD,
 			};
+			await deleteEmailsFor(loginReq2.email);
 			const loginRes2 = await api.login(loginReq2);
 			expect(loginRes2.status).toBe(200);
 
@@ -95,6 +95,7 @@ test.describe("Agency Portal RBAC Tests", () => {
 			const tfaRes2 = await api.verifyTFA({
 				tfa_token: loginRes2.body!.tfa_token,
 				tfa_code: tfaCode2,
+				remember_me: true,
 			});
 			expect(tfaRes2.status).toBe(200);
 			regularUserWithoutRoleEmail = `user-without-role@${sharedDomain}`;
@@ -121,6 +122,7 @@ test.describe("Agency Portal RBAC Tests", () => {
 			const tfaRes3 = await api.verifyTFA({
 				tfa_token: loginRes3.body!.tfa_token,
 				tfa_code: tfaCode3,
+				remember_me: true,
 			});
 			expect(tfaRes3.status).toBe(200);
 			regularUserWithoutRoleToken = tfaRes3.body!.session_token;
@@ -206,7 +208,7 @@ test.describe("Agency Portal RBAC Tests", () => {
 			);
 
 			try {
-				const assignReq: AssignRoleRequest = {
+				const assignReq = {
 					target_user_id: targetResult.agencyUserId,
 					role_name: "agency:invite_users",
 				};
@@ -231,6 +233,7 @@ test.describe("Agency Portal RBAC Tests", () => {
 				"ind1",
 				{
 					agencyId: agencyId,
+					domain: agencyAdminDomain,
 				}
 			);
 			await assignRoleToAgencyUser(
@@ -246,6 +249,7 @@ test.describe("Agency Portal RBAC Tests", () => {
 				"ind1",
 				{
 					agencyId: agencyId,
+					domain: agencyAdminDomain,
 				}
 			);
 
@@ -263,11 +267,12 @@ test.describe("Agency Portal RBAC Tests", () => {
 				const tfaRes = await api.verifyTFA({
 					tfa_token: loginRes.body!.tfa_token,
 					tfa_code: tfaCode,
+					remember_me: false,
 				});
 				expect(tfaRes.status).toBe(200);
 				const managerToken = tfaRes.body!.session_token;
 
-				const assignReq: AssignRoleRequest = {
+				const assignReq = {
 					target_user_id: targetResult.agencyUserId,
 					role_name: "agency:invite_users",
 				};
@@ -297,7 +302,7 @@ test.describe("Agency Portal RBAC Tests", () => {
 			);
 
 			try {
-				const assignReq: AssignRoleRequest = {
+				const assignReq = {
 					target_user_id: targetResult.agencyUserId,
 					role_name: "agency:invite_users",
 				};
@@ -333,7 +338,7 @@ test.describe("Agency Portal RBAC Tests", () => {
 			);
 
 			try {
-				const removeReq: RemoveRoleRequest = {
+				const removeReq = {
 					target_user_id: targetResult.agencyUserId,
 					role_name: "agency:invite_users",
 				};
@@ -350,7 +355,7 @@ test.describe("Agency Portal RBAC Tests", () => {
 		}) => {
 			const api = new AgencyAPIClient(request);
 
-			const removeReq: RemoveRoleRequest = {
+			const removeReq = {
 				target_user_id: regularUserWithRoleId,
 				role_name: "agency:invite_users",
 			};
@@ -390,6 +395,7 @@ test.describe("Agency Portal RBAC Tests", () => {
 			const tfaRes = await api.verifyTFA({
 				tfa_token: loginRes.body!.tfa_token,
 				tfa_code: tfaCode,
+				remember_me: false,
 			});
 			expect(tfaRes.status).toBe(200);
 			agencyUserToken = tfaRes.body!.session_token;
@@ -438,6 +444,7 @@ test.describe("Agency Portal RBAC Tests", () => {
 				domain: agencyUserDomain,
 				password: TEST_PASSWORD,
 			};
+			await deleteEmailsFor(loginReq.email);
 			const loginRes = await api.login(loginReq);
 			expect(loginRes.status).toBe(200);
 
@@ -445,6 +452,7 @@ test.describe("Agency Portal RBAC Tests", () => {
 			const tfaRes = await api.verifyTFA({
 				tfa_token: loginRes.body!.tfa_token,
 				tfa_code: tfaCode,
+				remember_me: false,
 			});
 			expect(tfaRes.status).toBe(200);
 			const tempToken = tfaRes.body!.session_token;
@@ -475,7 +483,7 @@ test.describe("Agency Portal RBAC Tests", () => {
 		}) => {
 			const api = new AgencyAPIClient(request);
 
-			const assignReq: AssignRoleRequest = {
+			const assignReq = {
 				target_user_id: "00000000-0000-0000-0000-000000000000",
 				role_name: "agency:invite_users",
 			};
@@ -489,7 +497,7 @@ test.describe("Agency Portal RBAC Tests", () => {
 		}) => {
 			const api = new AgencyAPIClient(request);
 
-			const removeReq: RemoveRoleRequest = {
+			const removeReq = {
 				target_user_id: "00000000-0000-0000-0000-000000000000",
 				role_name: "agency:invite_users",
 			};

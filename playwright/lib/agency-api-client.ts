@@ -417,7 +417,7 @@ export class AgencyAPIClient {
 		request: AgencyInviteUserRequest
 	): Promise<APIResponse<AgencyInviteUserResponse>> {
 		const response = await this.request.post("/agency/invite-user", {
-			headers: { Authorization: `Bearer ${sessionToken}` },
+			headers: { Authorization: `Bearer ${sessionToken}`, Cookie: "" },
 			data: request,
 		});
 

@@ -145,7 +145,7 @@ test.describe("POST /admin/add-approved-domain", () => {
 
 			// Try with raw request to send empty domain_name
 			const response = await request.post("/admin/add-approved-domain", {
-				headers: { Authorization: `Bearer ${sessionToken}` },
+				headers: { Authorization: `Bearer ${sessionToken} ` },
 				data: { domain_name: "" },
 			});
 
@@ -172,7 +172,7 @@ test.describe("POST /admin/add-approved-domain", () => {
 			const sessionToken = tfaResponse.body.session_token;
 
 			const response = await request.post("/admin/add-approved-domain", {
-				headers: { Authorization: `Bearer ${sessionToken}` },
+				headers: { Authorization: `Bearer ${sessionToken} ` },
 				data: { domain_name: domainName, reason: "" },
 			});
 
@@ -201,7 +201,7 @@ test.describe("POST /admin/add-approved-domain", () => {
 			const longReason = "a".repeat(257);
 
 			const response = await request.post("/admin/add-approved-domain", {
-				headers: { Authorization: `Bearer ${sessionToken}` },
+				headers: { Authorization: `Bearer ${sessionToken} ` },
 				data: { domain_name: domainName, reason: longReason },
 			});
 
@@ -547,7 +547,7 @@ test.describe("POST /admin/get-approved-domain", () => {
 
 			// Try with raw request to send empty domain_name
 			const response = await request.post("/admin/get-approved-domain", {
-				headers: { Authorization: `Bearer ${sessionToken}` },
+				headers: { Authorization: `Bearer ${sessionToken} ` },
 				data: { domain_name: "" },
 			});
 
@@ -714,7 +714,7 @@ test.describe("POST /admin/disable-approved-domain", () => {
 
 			// Try to disable without reason
 			const response = await request.post("/admin/disable-approved-domain", {
-				headers: { Authorization: `Bearer ${sessionToken}` },
+				headers: { Authorization: `Bearer ${sessionToken} ` },
 				data: { domain_name: domainName, reason: "" },
 			});
 
@@ -751,7 +751,7 @@ test.describe("POST /admin/disable-approved-domain", () => {
 			// Try to disable with reason > 256 chars
 			const longReason = "a".repeat(257);
 			const response = await request.post("/admin/disable-approved-domain", {
-				headers: { Authorization: `Bearer ${sessionToken}` },
+				headers: { Authorization: `Bearer ${sessionToken} ` },
 				data: { domain_name: domainName, reason: longReason },
 			});
 
@@ -846,7 +846,7 @@ test.describe("POST /admin/enable-approved-domain", () => {
 		const email = generateTestEmail("enable-404");
 		const password = TEST_PASSWORD;
 
-		await createTestAdminUser(email, password);
+		await createTestAdminAdminDirect(email, password);
 		try {
 			// Login and get session token
 			const loginResponse = await api.login({ email, password });
@@ -875,7 +875,7 @@ test.describe("POST /admin/enable-approved-domain", () => {
 		const password = TEST_PASSWORD;
 		const domainName = generateTestDomainName("already-active");
 
-		await createTestAdminUser(email, password);
+		await createTestAdminAdminDirect(email, password);
 		try {
 			// Login and get session token
 			const loginResponse = await api.login({ email, password });
@@ -911,7 +911,7 @@ test.describe("POST /admin/enable-approved-domain", () => {
 		const password = TEST_PASSWORD;
 		const domainName = generateTestDomainName("no-reason");
 
-		await createTestAdminUser(email, password);
+		await createTestAdminAdminDirect(email, password);
 		try {
 			// Login and get session token
 			const loginResponse = await api.login({ email, password });
@@ -934,7 +934,7 @@ test.describe("POST /admin/enable-approved-domain", () => {
 
 			// Try to enable without reason
 			const response = await request.post("/admin/enable-approved-domain", {
-				headers: { Authorization: `Bearer ${sessionToken}` },
+				headers: { Authorization: `Bearer ${sessionToken} ` },
 				data: { domain_name: domainName, reason: "" },
 			});
 
@@ -951,7 +951,7 @@ test.describe("POST /admin/enable-approved-domain", () => {
 		const password = TEST_PASSWORD;
 		const domainName = generateTestDomainName("long-reason");
 
-		await createTestAdminUser(email, password);
+		await createTestAdminAdminDirect(email, password);
 		try {
 			// Login and get session token
 			const loginResponse = await api.login({ email, password });
@@ -975,7 +975,7 @@ test.describe("POST /admin/enable-approved-domain", () => {
 			// Try to enable with reason > 256 chars
 			const longReason = "a".repeat(257);
 			const response = await request.post("/admin/enable-approved-domain", {
-				headers: { Authorization: `Bearer ${sessionToken}` },
+				headers: { Authorization: `Bearer ${sessionToken} ` },
 				data: { domain_name: domainName, reason: longReason },
 			});
 

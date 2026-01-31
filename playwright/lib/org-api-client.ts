@@ -799,7 +799,7 @@ export class OrgAPIClient {
 		request: AssignRoleRequest
 	): Promise<APIResponse<{ message: string }>> {
 		const response = await this.request.post("/employer/assign-role", {
-			headers: { Authorization: `Bearer ${sessionToken}` },
+			headers: { Authorization: `Bearer ${sessionToken}`, Cookie: "" },
 			data: request,
 		});
 
@@ -819,7 +819,7 @@ export class OrgAPIClient {
 		body: unknown
 	): Promise<APIResponse<{ message: string }>> {
 		const response = await this.request.post("/employer/assign-role", {
-			headers: { Authorization: `Bearer ${sessionToken}` },
+			headers: { Authorization: `Bearer ${sessionToken}`, Cookie: "" },
 			data: body,
 		});
 
@@ -858,7 +858,7 @@ export class OrgAPIClient {
 		request: RemoveRoleRequest
 	): Promise<APIResponse<{ message: string }>> {
 		const response = await this.request.post("/employer/remove-role", {
-			headers: { Authorization: `Bearer ${sessionToken}` },
+			headers: { Authorization: `Bearer ${sessionToken}`, Cookie: "" },
 			data: request,
 		});
 
@@ -878,7 +878,7 @@ export class OrgAPIClient {
 		body: unknown
 	): Promise<APIResponse<{ message: string }>> {
 		const response = await this.request.post("/employer/remove-role", {
-			headers: { Authorization: `Bearer ${sessionToken}` },
+			headers: { Authorization: `Bearer ${sessionToken}`, Cookie: "" },
 			data: body,
 		});
 
@@ -926,7 +926,7 @@ export class OrgAPIClient {
 		APIResponse<import("vetchium-specs/org/org-users").FilterOrgUsersResponse>
 	> {
 		const response = await this.request.post("/employer/filter-users", {
-			headers: { Authorization: `Bearer ${sessionToken}` },
+			headers: { Authorization: `Bearer ${sessionToken}`, Cookie: "" },
 			data: request,
 		});
 
@@ -951,7 +951,7 @@ export class OrgAPIClient {
 		request: import("vetchium-specs/org/org-users").OrgSetLanguageRequest
 	): Promise<APIResponse<{ message: string }>> {
 		const response = await this.request.post("/employer/set-language", {
-			headers: { Authorization: `Bearer ${sessionToken}` },
+			headers: { Authorization: `Bearer ${sessionToken}`, Cookie: "" },
 			data: request,
 		});
 
@@ -971,7 +971,7 @@ export class OrgAPIClient {
 		body: unknown
 	): Promise<APIResponse<{ message: string }>> {
 		const response = await this.request.post("/employer/set-language", {
-			headers: { Authorization: `Bearer ${sessionToken}` },
+			headers: { Authorization: `Bearer ${sessionToken}`, Cookie: "" },
 			data: body,
 		});
 

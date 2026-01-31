@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { AdminAPIClient } from "../../../lib/admin-api-client";
 import {
 	createTestAdminUser,
+	createTestAdminAdminDirect,
 	deleteTestAdminUser,
 	generateTestEmail,
 	getTestAdminUser,
@@ -25,8 +26,8 @@ test.describe("POST /admin/disable-user", () => {
 		const admin2Email = generateTestEmail("disable-admin2");
 
 		// Create two admin users
-		await createTestAdminUser(admin1Email, TEST_PASSWORD);
-		await createTestAdminUser(admin2Email, TEST_PASSWORD);
+		await createTestAdminAdminDirect(admin1Email, TEST_PASSWORD);
+		await createTestAdminAdminDirect(admin2Email, TEST_PASSWORD);
 
 		try {
 			// Login as admin1
@@ -76,8 +77,8 @@ test.describe("POST /admin/disable-user", () => {
 		const admin2Email = generateTestEmail("disable-self-admin2");
 
 		// Create two admins so disabling self is allowed
-		await createTestAdminUser(admin1Email, TEST_PASSWORD);
-		await createTestAdminUser(admin2Email, TEST_PASSWORD);
+		await createTestAdminAdminDirect(admin1Email, TEST_PASSWORD);
+		await createTestAdminAdminDirect(admin2Email, TEST_PASSWORD);
 
 		try {
 			// Login as admin1
@@ -121,7 +122,7 @@ test.describe("POST /admin/disable-user", () => {
 		const api = new AdminAPIClient(request);
 		const adminEmail = generateTestEmail("disable-req-admin");
 
-		await createTestAdminUser(adminEmail, TEST_PASSWORD);
+		await createTestAdminAdminDirect(adminEmail, TEST_PASSWORD);
 
 		try {
 			// Login
@@ -155,7 +156,7 @@ test.describe("POST /admin/disable-user", () => {
 		const api = new AdminAPIClient(request);
 		const adminEmail = generateTestEmail("disable-notfound-admin");
 
-		await createTestAdminUser(adminEmail, TEST_PASSWORD);
+		await createTestAdminAdminDirect(adminEmail, TEST_PASSWORD);
 
 		try {
 			// Login
@@ -194,8 +195,8 @@ test.describe("POST /admin/disable-user", () => {
 		const admin1Email = generateTestEmail("disable-twice-admin1");
 		const admin2Email = generateTestEmail("disable-twice-admin2");
 
-		await createTestAdminUser(admin1Email, TEST_PASSWORD);
-		await createTestAdminUser(admin2Email, TEST_PASSWORD, {
+		await createTestAdminAdminDirect(admin1Email, TEST_PASSWORD);
+		await createTestAdminAdminDirect(admin2Email, TEST_PASSWORD, {
 			status: "disabled",
 		});
 
@@ -259,8 +260,8 @@ test.describe("POST /admin/disable-user", () => {
 		const admin1Email = generateTestEmail("disable-session-admin1");
 		const admin2Email = generateTestEmail("disable-session-admin2");
 
-		await createTestAdminUser(admin1Email, TEST_PASSWORD);
-		await createTestAdminUser(admin2Email, TEST_PASSWORD);
+		await createTestAdminAdminDirect(admin1Email, TEST_PASSWORD);
+		await createTestAdminAdminDirect(admin2Email, TEST_PASSWORD);
 
 		try {
 			// Login as admin1
@@ -326,8 +327,8 @@ test.describe("POST /admin/enable-user", () => {
 		const admin2Email = generateTestEmail("enable-admin2");
 
 		// Create two admins, admin2 is disabled
-		await createTestAdminUser(admin1Email, TEST_PASSWORD);
-		await createTestAdminUser(admin2Email, TEST_PASSWORD, {
+		await createTestAdminAdminDirect(admin1Email, TEST_PASSWORD);
+		await createTestAdminAdminDirect(admin2Email, TEST_PASSWORD, {
 			status: "disabled",
 		});
 
@@ -372,8 +373,8 @@ test.describe("POST /admin/enable-user", () => {
 		const admin2Email = generateTestEmail("enable-login-admin2");
 
 		// Create two admins, admin2 is disabled
-		await createTestAdminUser(admin1Email, TEST_PASSWORD);
-		await createTestAdminUser(admin2Email, TEST_PASSWORD, {
+		await createTestAdminAdminDirect(admin1Email, TEST_PASSWORD);
+		await createTestAdminAdminDirect(admin2Email, TEST_PASSWORD, {
 			status: "disabled",
 		});
 
@@ -423,8 +424,8 @@ test.describe("POST /admin/enable-user", () => {
 		const admin1Email = generateTestEmail("enable-active-admin1");
 		const admin2Email = generateTestEmail("enable-active-admin2");
 
-		await createTestAdminUser(admin1Email, TEST_PASSWORD);
-		await createTestAdminUser(admin2Email, TEST_PASSWORD); // active by default
+		await createTestAdminAdminDirect(admin1Email, TEST_PASSWORD);
+		await createTestAdminAdminDirect(admin2Email, TEST_PASSWORD); // active by default
 
 		try {
 			// Login as admin1
@@ -460,7 +461,7 @@ test.describe("POST /admin/enable-user", () => {
 		const api = new AdminAPIClient(request);
 		const adminEmail = generateTestEmail("enable-req-admin");
 
-		await createTestAdminUser(adminEmail, TEST_PASSWORD);
+		await createTestAdminAdminDirect(adminEmail, TEST_PASSWORD);
 
 		try {
 			// Login
@@ -494,7 +495,7 @@ test.describe("POST /admin/enable-user", () => {
 		const api = new AdminAPIClient(request);
 		const adminEmail = generateTestEmail("enable-notfound-admin");
 
-		await createTestAdminUser(adminEmail, TEST_PASSWORD);
+		await createTestAdminAdminDirect(adminEmail, TEST_PASSWORD);
 
 		try {
 			// Login
@@ -552,8 +553,8 @@ test.describe("POST /admin/enable-user", () => {
 		const admin1Email = generateTestEmail("workflow-admin1");
 		const admin2Email = generateTestEmail("workflow-admin2");
 
-		await createTestAdminUser(admin1Email, TEST_PASSWORD);
-		await createTestAdminUser(admin2Email, TEST_PASSWORD);
+		await createTestAdminAdminDirect(admin1Email, TEST_PASSWORD);
+		await createTestAdminAdminDirect(admin2Email, TEST_PASSWORD);
 
 		try {
 			// Login as admin1
