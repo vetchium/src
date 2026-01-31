@@ -1129,3 +1129,187 @@ export async function updateTestAgencyUserStatus(
 		[status, emailHash]
 	);
 }
+
+// ============================================================================
+// RBAC Test Helpers
+// ============================================================================
+
+/**
+ * Assigns a role to an admin user.
+ *
+ * @param adminUserId - UUID of the admin user
+ * @param roleName - Name of the role to assign (e.g., 'invite_users', 'manage_users')
+ */
+export async function assignRoleToAdminUser(
+	adminUserId: string,
+	roleName: string
+): Promise<void> {
+	// Get role ID from role name
+	const roleResult = await pool.query(
+		`SELECT role_id FROM roles WHERE role_name = $1`,
+		[roleName]
+	);
+
+	if (roleResult.rows.length === 0) {
+		throw new Error(`Role not found: ${roleName}`);
+	}
+
+	const roleId = roleResult.rows[0].role_id;
+
+	// Assign role to admin user
+	await pool.query(
+		`INSERT INTO admin_user_roles (admin_user_id, role_id)
+     VALUES ($1, $2)
+     ON CONFLICT (admin_user_id, role_id) DO NOTHING`,
+		[adminUserId, roleId]
+	);
+}
+
+/**
+ * Removes a role from an admin user.
+ *
+ * @param adminUserId - UUID of the admin user
+ * @param roleName - Name of the role to remove
+ */
+export async function removeRoleFromAdminUser(
+	adminUserId: string,
+	roleName: string
+): Promise<void> {
+	// Get role ID from role name
+	const roleResult = await pool.query(
+		`SELECT role_id FROM roles WHERE role_name = $1`,
+		[roleName]
+	);
+
+	if (roleResult.rows.length === 0) {
+		throw new Error(`Role not found: ${roleName}`);
+	}
+
+	const roleId = roleResult.rows[0].role_id;
+
+	// Remove role from admin user
+	await pool.query(
+		`DELETE FROM admin_user_roles WHERE admin_user_id = $1 AND role_id = $2`,
+		[adminUserId, roleId]
+	);
+}
+
+/**
+ * Assigns a role to an org user.
+ *
+ * @param orgUserId - UUID of the org user
+ * @param roleName - Name of the role to assign (e.g., 'post_jobs', 'manage_jobs')
+ */
+export async function assignRoleToOrgUser(
+	orgUserId: string,
+	roleName: string
+): Promise<void> {
+	// Get role ID from role name
+	const roleResult = await pool.query(
+		`SELECT role_id FROM roles WHERE role_name = $1`,
+		[roleName]
+	);
+
+	if (roleResult.rows.length === 0) {
+		throw new Error(`Role not found: ${roleName}`);
+	}
+
+	const roleId = roleResult.rows[0].role_id;
+
+	// Assign role to org user
+	await pool.query(
+		`INSERT INTO org_user_roles (org_user_id, role_id)
+     VALUES ($1, $2)
+     ON CONFLICT (org_user_id, role_id) DO NOTHING`,
+		[orgUserId, roleId]
+	);
+}
+
+/**
+ * Removes a role from an org user.
+ *
+ * @param orgUserId - UUID of the org user
+ * @param roleName - Name of the role to remove
+ */
+export async function removeRoleFromOrgUser(
+	orgUserId: string,
+	roleName: string
+): Promise<void> {
+	// Get role ID from role name
+	const roleResult = await pool.query(
+		`SELECT role_id FROM roles WHERE role_name = $1`,
+		[roleName]
+	);
+
+	if (roleResult.rows.length === 0) {
+		throw new Error(`Role not found: ${roleName}`);
+	}
+
+	const roleId = roleResult.rows[0].role_id;
+
+	// Remove role from org user
+	await pool.query(
+		`DELETE FROM org_user_roles WHERE org_user_id = $1 AND role_id = $2`,
+		[orgUserId, roleId]
+	);
+}
+
+/**
+ * Assigns a role to an agency user.
+ *
+ * @param agencyUserId - UUID of the agency user
+ * @param roleName - Name of the role to assign
+ */
+export async function assignRoleToAgencyUser(
+	agencyUserId: string,
+	roleName: string
+): Promise<void> {
+	// Get role ID from role name
+	const roleResult = await pool.query(
+		`SELECT role_id FROM roles WHERE role_name = $1`,
+		[roleName]
+	);
+
+	if (roleResult.rows.length === 0) {
+		throw new Error(`Role not found: ${roleName}`);
+	}
+
+	const roleId = roleResult.rows[0].role_id;
+
+	// Assign role to agency user
+	await pool.query(
+		`INSERT INTO agency_user_roles (agency_user_id, role_id)
+     VALUES ($1, $2)
+     ON CONFLICT (agency_user_id, role_id) DO NOTHING`,
+		[agencyUserId, roleId]
+	);
+}
+
+/**
+ * Removes a role from an agency user.
+ *
+ * @param agencyUserId - UUID of the agency user
+ * @param roleName - Name of the role to remove
+ */
+export async function removeRoleFromAgencyUser(
+	agencyUserId: string,
+	roleName: string
+): Promise<void> {
+	// Get role ID from role name
+	const roleResult = await pool.query(
+		`SELECT role_id FROM roles WHERE role_name = $1`,
+		[roleName]
+	);
+
+	if (roleResult.rows.length === 0) {
+		throw new Error(`Role not found: ${roleName}`);
+	}
+
+	const roleId = roleResult.rows[0].role_id;
+
+	// Remove role from agency user
+	await pool.query(
+		`DELETE FROM agency_user_roles WHERE agency_user_id = $1 AND role_id = $2`,
+		[agencyUserId, roleId]
+	);
+}
