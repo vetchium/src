@@ -396,7 +396,7 @@ export async function createTestHubUser(
 ): Promise<string> {
 	throw new Error(
 		"createTestHubUser requires regional databases which are not available in test environment. " +
-		"Use the signup API flow (requestSignup + completeSignup) instead to create test users."
+			"Use the signup API flow (requestSignup + completeSignup) instead to create test users."
 	);
 }
 
