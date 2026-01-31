@@ -77,7 +77,10 @@ test.describe("Agency Portal RBAC Tests", () => {
 				}
 			);
 			regularUserWithRoleId = result1.agencyUserId;
-			await assignRoleToAgencyUser(regularUserWithRoleId, "agency:invite_users");
+			await assignRoleToAgencyUser(
+				regularUserWithRoleId,
+				"agency:invite_users"
+			);
 
 			// Login user with role
 			const loginReq2: AgencyLoginRequest = {
@@ -114,9 +117,7 @@ test.describe("Agency Portal RBAC Tests", () => {
 			const loginRes3 = await api.login(loginReq3);
 			expect(loginRes3.status).toBe(200);
 
-			const tfaCode3 = await getTfaCodeFromEmail(
-				regularUserWithoutRoleEmail
-			);
+			const tfaCode3 = await getTfaCodeFromEmail(regularUserWithoutRoleEmail);
 			const tfaRes3 = await api.verifyTFA({
 				tfa_token: loginRes3.body!.tfa_token,
 				tfa_code: tfaCode3,
@@ -232,7 +233,10 @@ test.describe("Agency Portal RBAC Tests", () => {
 					agencyId: agencyId,
 				}
 			);
-			await assignRoleToAgencyUser(managerResult.agencyUserId, "agency:manage_users");
+			await assignRoleToAgencyUser(
+				managerResult.agencyUserId,
+				"agency:manage_users"
+			);
 
 			// Create a target user
 			const targetData = generateTestAgencyEmail("rbac-target-assign2");
@@ -323,7 +327,10 @@ test.describe("Agency Portal RBAC Tests", () => {
 					agencyId: agencyId,
 				}
 			);
-			await assignRoleToAgencyUser(targetResult.agencyUserId, "agency:invite_users");
+			await assignRoleToAgencyUser(
+				targetResult.agencyUserId,
+				"agency:invite_users"
+			);
 
 			try {
 				const removeReq: RemoveRoleRequest = {

@@ -116,9 +116,7 @@ test.describe("Org Portal RBAC Tests", () => {
 			const loginRes3 = await api.login(loginReq3);
 			expect(loginRes3.status).toBe(200);
 
-			const tfaCode3 = await getTfaCodeFromEmail(
-				regularUserWithoutRoleEmail
-			);
+			const tfaCode3 = await getTfaCodeFromEmail(regularUserWithoutRoleEmail);
 			const tfaRes3 = await api.verifyTFA({
 				tfa_token: loginRes3.body!.tfa_token,
 				tfa_code: tfaCode3,
@@ -234,7 +232,10 @@ test.describe("Org Portal RBAC Tests", () => {
 					employerId: employerId,
 				}
 			);
-			await assignRoleToOrgUser(managerResult.orgUserId, "employer:manage_users");
+			await assignRoleToOrgUser(
+				managerResult.orgUserId,
+				"employer:manage_users"
+			);
 
 			// Create a target user
 			const targetData = generateTestOrgEmail("rbac-target-assign2");
@@ -325,7 +326,10 @@ test.describe("Org Portal RBAC Tests", () => {
 					employerId: employerId,
 				}
 			);
-			await assignRoleToOrgUser(targetResult.orgUserId, "employer:invite_users");
+			await assignRoleToOrgUser(
+				targetResult.orgUserId,
+				"employer:invite_users"
+			);
 
 			try {
 				const removeReq: RemoveRoleRequest = {

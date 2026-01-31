@@ -227,10 +227,7 @@ test.describe("Admin Portal RBAC Tests", () => {
 				role_name: "admin:invite_users",
 			};
 
-			const response = await api.removeRole(
-				adminWithoutRoleToken,
-				removeReq
-			);
+			const response = await api.removeRole(adminWithoutRoleToken, removeReq);
 			expect(response.status).toBe(403);
 		});
 	});
