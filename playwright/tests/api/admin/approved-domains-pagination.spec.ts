@@ -3,6 +3,7 @@ import { randomUUID } from "crypto";
 import { AdminAPIClient } from "../../../lib/admin-api-client";
 import {
 	createTestAdminUser,
+	createTestAdminAdminDirect,
 	deleteTestAdminUser,
 	generateTestEmail,
 	permanentlyDeleteTestApprovedDomain,
@@ -26,7 +27,7 @@ async function setupAuthenticatedAdmin(
 	const email = generateTestEmail(emailPrefix);
 	const password = TEST_PASSWORD;
 
-	await createTestAdminUser(email, password);
+	await createTestAdminAdminDirect(email, password);
 
 	// Login and get session token
 	const loginResponse = await api.login({ email, password });

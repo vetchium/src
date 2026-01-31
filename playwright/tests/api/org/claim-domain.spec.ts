@@ -5,6 +5,7 @@ import {
 	deleteTestOrgUser,
 	deleteTestGlobalEmployerDomain,
 	createTestOrgUserDirect,
+	createTestOrgAdminDirect,
 	generateTestDomainName,
 } from "../../../lib/db";
 import { getTfaCodeFromEmail, deleteEmailsFor } from "../../../lib/mailpit";
@@ -25,7 +26,7 @@ async function createOrgUserAndGetSession(
 	const { email, domain } = generateTestOrgEmail(emailPrefix);
 
 	// Create test org user directly in the database
-	await createTestOrgUserDirect(email, TEST_PASSWORD);
+	await createTestOrgAdminDirect(email, TEST_PASSWORD);
 
 	// Clear any existing emails for this address
 	await deleteEmailsFor(email);

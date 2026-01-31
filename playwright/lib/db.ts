@@ -180,7 +180,7 @@ export async function createTestAdminAdminDirect(
 
 	// Get all role IDs
 	const rolesResult = await pool.query(
-		`SELECT role_id FROM roles WHERE role_name IN ('invite_users', 'manage_users')`
+		`SELECT role_id FROM roles WHERE role_name IN ('admin:invite_users', 'admin:manage_users', 'admin:manage_domains')`
 	);
 
 	// Assign all roles to the admin user
@@ -396,7 +396,7 @@ export async function createTestHubUser(
 ): Promise<string> {
 	throw new Error(
 		"createTestHubUser requires regional databases which are not available in test environment. " +
-			"Use the signup API flow (requestSignup + completeSignup) instead to create test users."
+		"Use the signup API flow (requestSignup + completeSignup) instead to create test users."
 	);
 }
 

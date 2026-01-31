@@ -60,6 +60,7 @@ test.describe("Org Portal RBAC Tests", () => {
 			const tfaRes1 = await api.verifyTFA({
 				tfa_token: loginRes1.body!.tfa_token,
 				tfa_code: tfaCode1,
+				remember_me: false,
 			});
 			expect(tfaRes1.status).toBe(200);
 			orgAdminToken = tfaRes1.body!.session_token;
@@ -91,6 +92,7 @@ test.describe("Org Portal RBAC Tests", () => {
 			const tfaRes2 = await api.verifyTFA({
 				tfa_token: loginRes2.body!.tfa_token,
 				tfa_code: tfaCode2,
+				remember_me: false,
 			});
 			expect(tfaRes2.status).toBe(200);
 			regularUserWithRoleToken = tfaRes2.body!.session_token;
@@ -120,6 +122,7 @@ test.describe("Org Portal RBAC Tests", () => {
 			const tfaRes3 = await api.verifyTFA({
 				tfa_token: loginRes3.body!.tfa_token,
 				tfa_code: tfaCode3,
+				remember_me: false,
 			});
 			expect(tfaRes3.status).toBe(200);
 			regularUserWithoutRoleToken = tfaRes3.body!.session_token;
@@ -262,6 +265,7 @@ test.describe("Org Portal RBAC Tests", () => {
 				const tfaRes = await api.verifyTFA({
 					tfa_token: loginRes.body!.tfa_token,
 					tfa_code: tfaCode,
+					remember_me: false,
 				});
 				expect(tfaRes.status).toBe(200);
 				const managerToken = tfaRes.body!.session_token;
@@ -389,6 +393,7 @@ test.describe("Org Portal RBAC Tests", () => {
 			const tfaRes = await api.verifyTFA({
 				tfa_token: loginRes.body!.tfa_token,
 				tfa_code: tfaCode,
+				remember_me: false,
 			});
 			expect(tfaRes.status).toBe(200);
 			orgUserToken = tfaRes.body!.session_token;
@@ -444,6 +449,7 @@ test.describe("Org Portal RBAC Tests", () => {
 			const tfaRes = await api.verifyTFA({
 				tfa_token: loginRes.body!.tfa_token,
 				tfa_code: tfaCode,
+				remember_me: false,
 			});
 			expect(tfaRes.status).toBe(200);
 			const tempToken = tfaRes.body!.session_token;

@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { AdminAPIClient } from "../../../lib/admin-api-client";
 import {
 	createTestAdminUser,
+	createTestAdminAdminDirect,
 	deleteTestAdminUser,
 	generateTestEmail,
 	permanentlyDeleteTestApprovedDomain,
@@ -20,7 +21,7 @@ test.describe("POST /admin/add-approved-domain", () => {
 		const password = TEST_PASSWORD;
 		const domainName = generateTestDomainName("create");
 
-		await createTestAdminUser(email, password);
+		await createTestAdminAdminDirect(email, password);
 		try {
 			// Login and get session token
 			const loginResponse = await api.login({ email, password });
@@ -59,7 +60,7 @@ test.describe("POST /admin/add-approved-domain", () => {
 		const password = TEST_PASSWORD;
 		const domainName = generateTestDomainName("duplicate");
 
-		await createTestAdminUser(email, password);
+		await createTestAdminAdminDirect(email, password);
 		try {
 			// Login and get session token
 			const loginResponse = await api.login({ email, password });
@@ -93,7 +94,7 @@ test.describe("POST /admin/add-approved-domain", () => {
 		const email = generateTestEmail("invalid-domain");
 		const password = TEST_PASSWORD;
 
-		await createTestAdminUser(email, password);
+		await createTestAdminAdminDirect(email, password);
 		try {
 			// Login and get session token
 			const loginResponse = await api.login({ email, password });
@@ -131,7 +132,7 @@ test.describe("POST /admin/add-approved-domain", () => {
 		const email = generateTestEmail("missing-domain");
 		const password = TEST_PASSWORD;
 
-		await createTestAdminUser(email, password);
+		await createTestAdminAdminDirect(email, password);
 		try {
 			// Login and get session token
 			const loginResponse = await api.login({ email, password });
@@ -160,7 +161,7 @@ test.describe("POST /admin/add-approved-domain", () => {
 		const password = TEST_PASSWORD;
 		const domainName = generateTestDomainName("missing-reason");
 
-		await createTestAdminUser(email, password);
+		await createTestAdminAdminDirect(email, password);
 		try {
 			const loginResponse = await api.login({ email, password });
 			const tfaCode = await getTfaCodeFromEmail(email);
@@ -187,7 +188,7 @@ test.describe("POST /admin/add-approved-domain", () => {
 		const password = TEST_PASSWORD;
 		const domainName = generateTestDomainName("long-reason");
 
-		await createTestAdminUser(email, password);
+		await createTestAdminAdminDirect(email, password);
 		try {
 			const loginResponse = await api.login({ email, password });
 			const tfaCode = await getTfaCodeFromEmail(email);
@@ -219,7 +220,7 @@ test.describe("POST /admin/list-approved-domains", () => {
 		const email = generateTestEmail("list-structure");
 		const password = TEST_PASSWORD;
 
-		await createTestAdminUser(email, password);
+		await createTestAdminAdminDirect(email, password);
 		try {
 			// Login and get session token
 			const loginResponse = await api.login({ email, password });
@@ -249,7 +250,7 @@ test.describe("POST /admin/list-approved-domains", () => {
 		const password = TEST_PASSWORD;
 		const domainName = generateTestDomainName("active");
 
-		await createTestAdminUser(email, password);
+		await createTestAdminAdminDirect(email, password);
 		try {
 			// Login and get session token
 			const loginResponse = await api.login({ email, password });
@@ -295,7 +296,7 @@ test.describe("POST /admin/list-approved-domains", () => {
 		const password = TEST_PASSWORD;
 		const domainName = generateTestDomainName("inactive");
 
-		await createTestAdminUser(email, password);
+		await createTestAdminAdminDirect(email, password);
 		try {
 			// Login and get session token
 			const loginResponse = await api.login({ email, password });
@@ -346,7 +347,7 @@ test.describe("POST /admin/list-approved-domains", () => {
 		const activeDomain = generateTestDomainName("all-active");
 		const inactiveDomain = generateTestDomainName("all-inactive");
 
-		await createTestAdminUser(email, password);
+		await createTestAdminAdminDirect(email, password);
 		try {
 			// Login and get session token
 			const loginResponse = await api.login({ email, password });
@@ -401,7 +402,7 @@ test.describe("POST /admin/list-approved-domains", () => {
 		const domainName1 = generateTestDomainName("search-test");
 		const domainName2 = generateTestDomainName("other");
 
-		await createTestAdminUser(email, password);
+		await createTestAdminAdminDirect(email, password);
 		try {
 			// Login and get session token
 			const loginResponse = await api.login({ email, password });
@@ -458,7 +459,7 @@ test.describe("POST /admin/get-approved-domain", () => {
 		const password = TEST_PASSWORD;
 		const domainName = generateTestDomainName("get");
 
-		await createTestAdminUser(email, password);
+		await createTestAdminAdminDirect(email, password);
 		try {
 			// Login and get session token
 			const loginResponse = await api.login({ email, password });
@@ -497,7 +498,7 @@ test.describe("POST /admin/get-approved-domain", () => {
 		const email = generateTestEmail("get-404");
 		const password = TEST_PASSWORD;
 
-		await createTestAdminUser(email, password);
+		await createTestAdminAdminDirect(email, password);
 		try {
 			// Login and get session token
 			const loginResponse = await api.login({ email, password });
@@ -533,7 +534,7 @@ test.describe("POST /admin/get-approved-domain", () => {
 		const email = generateTestEmail("get-missing-domain");
 		const password = TEST_PASSWORD;
 
-		await createTestAdminUser(email, password);
+		await createTestAdminAdminDirect(email, password);
 		try {
 			// Login and get session token
 			const loginResponse = await api.login({ email, password });
@@ -567,7 +568,7 @@ test.describe("POST /admin/disable-approved-domain", () => {
 		const domainName = generateTestDomainName("disable");
 		const reason = "No longer needed for testing";
 
-		await createTestAdminUser(email, password);
+		await createTestAdminAdminDirect(email, password);
 		try {
 			// Login and get session token
 			const loginResponse = await api.login({ email, password });
@@ -625,7 +626,7 @@ test.describe("POST /admin/disable-approved-domain", () => {
 		const email = generateTestEmail("disable-404");
 		const password = TEST_PASSWORD;
 
-		await createTestAdminUser(email, password);
+		await createTestAdminAdminDirect(email, password);
 		try {
 			// Login and get session token
 			const loginResponse = await api.login({ email, password });
@@ -654,7 +655,7 @@ test.describe("POST /admin/disable-approved-domain", () => {
 		const password = TEST_PASSWORD;
 		const domainName = generateTestDomainName("already-inactive");
 
-		await createTestAdminUser(email, password);
+		await createTestAdminAdminDirect(email, password);
 		try {
 			// Login and get session token
 			const loginResponse = await api.login({ email, password });
@@ -694,7 +695,7 @@ test.describe("POST /admin/disable-approved-domain", () => {
 		const password = TEST_PASSWORD;
 		const domainName = generateTestDomainName("no-reason");
 
-		await createTestAdminUser(email, password);
+		await createTestAdminAdminDirect(email, password);
 		try {
 			// Login and get session token
 			const loginResponse = await api.login({ email, password });
@@ -730,7 +731,7 @@ test.describe("POST /admin/disable-approved-domain", () => {
 		const password = TEST_PASSWORD;
 		const domainName = generateTestDomainName("long-reason");
 
-		await createTestAdminUser(email, password);
+		await createTestAdminAdminDirect(email, password);
 		try {
 			// Login and get session token
 			const loginResponse = await api.login({ email, password });
@@ -783,7 +784,7 @@ test.describe("POST /admin/enable-approved-domain", () => {
 		const disableReason = "Temporarily disabled";
 		const enableReason = "Re-enabling for production use";
 
-		await createTestAdminUser(email, password);
+		await createTestAdminAdminDirect(email, password);
 		try {
 			// Login and get session token
 			const loginResponse = await api.login({ email, password });

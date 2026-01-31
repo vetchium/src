@@ -29,8 +29,8 @@ func RegisterOrgRoutes(mux *http.ServeMux, s *server.Server) {
 	mux.Handle("POST /org/claim-domain", orgAuth(employerAdminOnly(org.ClaimDomain(s))))
 	mux.Handle("POST /org/verify-domain", orgAuth(employerAdminOnly(org.VerifyDomain(s))))
 	mux.Handle("POST /org/get-domain-status", orgAuth(employerAdminOnly(org.GetDomainStatus(s))))
-	mux.Handle("POST /employer/assign-role", orgAuth(employerAdminOnly(org.AssignRole(s))))
-	mux.Handle("POST /employer/remove-role", orgAuth(employerAdminOnly(org.RemoveRole(s))))
+	mux.Handle("POST /employer/assign-role", orgAuth(employerRoleManage(org.AssignRole(s))))
+	mux.Handle("POST /employer/remove-role", orgAuth(employerRoleManage(org.RemoveRole(s))))
 
 	// Role-protected routes (IsAdmin OR role)
 	mux.Handle("POST /employer/invite-user", orgAuth(employerRoleInvite(org.InviteUser(s))))
