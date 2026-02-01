@@ -253,7 +253,7 @@ export function UserDetailDrawer({
 							style={{ width: "100%" }}
 						>
 							<div>
-								<Title level={6}>{t("drawer.currentRoles")}</Title>
+								<Title level={5}>{t("drawer.currentRoles")}</Title>
 								{user.roles.length === 0 ? (
 									<div style={{ color: "#999", fontStyle: "italic" }}>
 										{t("drawer.noRolesAssigned")}
@@ -283,7 +283,7 @@ export function UserDetailDrawer({
 
 							{availableRoles.length > 0 && (
 								<div>
-									<Title level={6}>{t("drawer.addRole")}</Title>
+									<Title level={5}>{t("drawer.addRole")}</Title>
 									<Space>
 										<Select
 											style={{ width: 300 }}

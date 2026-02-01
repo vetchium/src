@@ -1,4 +1,5 @@
 import { App, Modal, Spin, Typography } from "antd";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { AdminDisableUserRequest } from "vetchium-specs/admin/admin-users";
 import { getApiBaseUrl } from "../../config";
@@ -25,10 +26,7 @@ export function DisableUserModal({
 	const { message } = App.useApp();
 	const { data: myInfo } = useMyInfo(sessionToken);
 
-	const [loading, setLoading] = App.useApp().modal.useWatch().loading || [
-		false,
-		() => {},
-	];
+	const [loading, setLoading] = useState(false);
 
 	const handleDisable = async () => {
 		if (!email) return;

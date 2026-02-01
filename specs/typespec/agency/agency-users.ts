@@ -256,6 +256,52 @@ export interface FilterAgencyUsersResponse {
 }
 
 // ===================================
+// Disable/Enable User
+// ===================================
+
+export interface AgencyDisableUserRequest {
+	email_address: EmailAddress;
+}
+
+export function validateAgencyDisableUserRequest(
+	request: AgencyDisableUserRequest
+): ValidationError[] {
+	const errs: ValidationError[] = [];
+
+	if (!request.email_address) {
+		errs.push(newValidationError("email_address", ERR_REQUIRED));
+	} else {
+		const emailErr = validateEmailAddress(request.email_address);
+		if (emailErr) {
+			errs.push(newValidationError("email_address", emailErr));
+		}
+	}
+
+	return errs;
+}
+
+export interface AgencyEnableUserRequest {
+	email_address: EmailAddress;
+}
+
+export function validateAgencyEnableUserRequest(
+	request: AgencyEnableUserRequest
+): ValidationError[] {
+	const errs: ValidationError[] = [];
+
+	if (!request.email_address) {
+		errs.push(newValidationError("email_address", ERR_REQUIRED));
+	} else {
+		const emailErr = validateEmailAddress(request.email_address);
+		if (emailErr) {
+			errs.push(newValidationError("email_address", emailErr));
+		}
+	}
+
+	return errs;
+}
+
+// ===================================
 // Language Management
 // ===================================
 
