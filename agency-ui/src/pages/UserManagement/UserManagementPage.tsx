@@ -29,6 +29,7 @@ import { getApiBaseUrl } from "../../config";
 import { useAuth } from "../../hooks/useAuth";
 import { useMyInfo } from "../../hooks/useMyInfo";
 import { formatDateTime } from "../../utils/dateFormat";
+import { UserDetailDrawer } from "./UserDetailDrawer";
 
 const { Title } = Typography;
 
@@ -334,6 +335,16 @@ export function UserManagementPage() {
 					</Spin>
 				</Space>
 			</Card>
+
+			<UserDetailDrawer
+				user={selectedUser}
+				visible={drawerVisible}
+				onClose={() => {
+					setDrawerVisible(false);
+					setSelectedUser(null);
+				}}
+				onUserUpdated={handleUserUpdated}
+			/>
 		</div>
 	);
 }
