@@ -61,9 +61,13 @@ export function UserManagementPage() {
 
 	// Permission logic for Org portal: is_admin OR has specific role
 	const canInviteUsers =
-		myInfo?.is_admin || myInfo?.roles.includes("employer:invite_users") || false;
+		myInfo?.is_admin ||
+		myInfo?.roles.includes("employer:invite_users") ||
+		false;
 	const canManageUsers =
-		myInfo?.is_admin || myInfo?.roles.includes("employer:manage_users") || false;
+		myInfo?.is_admin ||
+		myInfo?.roles.includes("employer:manage_users") ||
+		false;
 
 	const fetchUsers = useCallback(
 		async (

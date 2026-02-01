@@ -51,7 +51,9 @@ export function UserDetailDrawer({
 
 	// Permission logic for Org portal: is_admin OR has manage_users role
 	const canManageUsers =
-		myInfo?.is_admin || myInfo?.roles.includes("employer:manage_users") || false;
+		myInfo?.is_admin ||
+		myInfo?.roles.includes("employer:manage_users") ||
+		false;
 
 	// Filter roles to employer:* only
 	const EMPLOYER_ROLES = VALID_ROLE_NAMES.filter((r) =>

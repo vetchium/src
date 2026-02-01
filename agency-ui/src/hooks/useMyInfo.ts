@@ -51,7 +51,8 @@ export function useMyInfo(sessionToken: string | null) {
 				setState({
 					data: null,
 					loading: false,
-					error: err instanceof Error ? err.message : "Failed to fetch user info",
+					error:
+						err instanceof Error ? err.message : "Failed to fetch user info",
 				});
 			}
 		};

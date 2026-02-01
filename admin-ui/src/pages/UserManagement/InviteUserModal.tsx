@@ -131,7 +131,10 @@ export function InviteUserModal({
 						const hasErrors = form
 							.getFieldsError()
 							.some(({ errors }) => errors.length > 0);
-						const allTouched = form.isFieldsTouched(["fullName", "email"], true);
+						const allTouched = form.isFieldsTouched(
+							["fullName", "email"],
+							true
+						);
 						setFormValid(allTouched && !hasErrors);
 					}}
 				>
