@@ -41,5 +41,6 @@ func RegisterOrgRoutes(mux *http.ServeMux, s *server.Server) {
 	mux.Handle("POST /employer/logout", orgAuth(org.Logout(s)))
 	mux.Handle("POST /employer/change-password", orgAuth(org.ChangePassword(s)))
 	mux.Handle("POST /employer/set-language", orgAuth(org.SetLanguage(s)))
+	mux.Handle("GET /employer/myinfo", orgAuth(org.MyInfo(s)))
 	mux.Handle("POST /employer/filter-users", orgAuth(org.FilterUsers(s)))
 }

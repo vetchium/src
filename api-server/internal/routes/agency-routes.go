@@ -38,5 +38,6 @@ func RegisterAgencyRoutes(mux *http.ServeMux, s *server.Server) {
 	mux.Handle("POST /agency/logout", agencyAuth(agency.Logout(s)))
 	mux.Handle("POST /agency/change-password", agencyAuth(agency.ChangePassword(s)))
 	mux.Handle("POST /agency/set-language", agencyAuth(agency.SetLanguage(s)))
+	mux.Handle("GET /agency/myinfo", agencyAuth(agency.MyInfo(s)))
 	mux.Handle("POST /agency/filter-users", agencyAuth(agency.FilterUsers(s)))
 }
