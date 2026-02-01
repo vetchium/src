@@ -1,0 +1,74 @@
+{
+	"pageTitle": "Benutzerverwaltung",
+	"inviteUser": "Benutzer einladen",
+	"searchPlaceholder": "Nach E-Mail oder Name suchen...",
+	"status": {
+		"all": "Alle",
+		"active": "Aktiv",
+		"pending": "Ausstehend",
+		"disabled": "Deaktiviert"
+	},
+	"table": {
+		"email": "E-Mail",
+		"name": "Name",
+		"status": "Status",
+		"roles": "Rollen",
+		"createdAt": "Erstellt am",
+		"actions": "Aktionen",
+		"enable": "Aktivieren",
+		"disable": "Deaktivieren",
+		"viewDetails": "Details anzeigen",
+		"noRoles": "Keine Rollen zugewiesen",
+		"loadMore": "Mehr laden"
+	},
+	"drawer": {
+		"title": "Benutzerdetails",
+		"userInfo": "Benutzerinformationen",
+		"roleManagement": "Rollenverwaltung",
+		"currentRoles": "Aktuelle Rollen",
+		"addRole": "Rolle hinzufügen",
+		"selectRole": "Wählen Sie eine Rolle zum Zuweisen",
+		"assignRole": "Zuweisen",
+		"removeRole": "Entfernen",
+		"noRolesAssigned": "Diesem Benutzer sind keine Rollen zugewiesen",
+		"close": "Schließen"
+	},
+	"disableModal": {
+		"title": "Benutzer deaktivieren",
+		"message": "Sind Sie sicher, dass Sie diesen Benutzer deaktivieren möchten?",
+		"email": "E-Mail",
+		"warning": "Der Benutzer kann sich nicht anmelden, bis er wieder aktiviert wird.",
+		"cancel": "Abbrechen",
+		"confirm": "Benutzer deaktivieren"
+	},
+	"enableModal": {
+		"title": "Benutzer aktivieren",
+		"message": "Sind Sie sicher, dass Sie diesen Benutzer aktivieren möchten?",
+		"email": "E-Mail",
+		"info": "Der Benutzer kann sich nach der Aktivierung anmelden.",
+		"cancel": "Abbrechen",
+		"confirm": "Benutzer aktivieren"
+	},
+	"errors": {
+		"fetchFailed": "Benutzer konnten nicht abgerufen werden",
+		"disableFailed": "Benutzer konnte nicht deaktiviert werden",
+		"enableFailed": "Benutzer konnte nicht aktiviert werden",
+		"assignRoleFailed": "Rolle konnte nicht zugewiesen werden",
+		"removeRoleFailed": "Rolle konnte nicht entfernt werden",
+		"roleAlreadyAssigned": "Diese Rolle ist dem Benutzer bereits zugewiesen",
+		"roleNotAssigned": "Diese Rolle ist dem Benutzer nicht zugewiesen",
+		"unauthorized": "Sie sind nicht berechtigt, diese Aktion durchzuführen",
+		"forbidden": "Zugriff verweigert",
+		"userNotFound": "Benutzer nicht gefunden",
+		"invalidState": "Benutzer ist in einem ungültigen Zustand für diese Operation",
+		"serverError": "Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut.",
+		"cannotDisableSelf": "Sie können sich nicht selbst deaktivieren",
+		"cannotRemoveOwnRole": "Sie können Ihre eigene manage_users-Rolle nicht entfernen"
+	},
+	"success": {
+		"userDisabled": "Benutzer erfolgreich deaktiviert",
+		"userEnabled": "Benutzer erfolgreich aktiviert",
+		"roleAssigned": "Rolle erfolgreich zugewiesen",
+		"roleRemoved": "Rolle erfolgreich entfernt"
+	}
+}

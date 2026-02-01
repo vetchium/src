@@ -1,0 +1,74 @@
+{
+	"pageTitle": "User Management",
+	"inviteUser": "Invite User",
+	"searchPlaceholder": "Search by email or name...",
+	"status": {
+		"all": "All",
+		"active": "Active",
+		"pending": "Pending",
+		"disabled": "Disabled"
+	},
+	"table": {
+		"email": "Email",
+		"name": "Name",
+		"status": "Status",
+		"roles": "Roles",
+		"createdAt": "Created At",
+		"actions": "Actions",
+		"enable": "Enable",
+		"disable": "Disable",
+		"viewDetails": "View Details",
+		"noRoles": "No roles assigned",
+		"loadMore": "Load More"
+	},
+	"drawer": {
+		"title": "User Details",
+		"userInfo": "User Information",
+		"roleManagement": "Role Management",
+		"currentRoles": "Current Roles",
+		"addRole": "Add Role",
+		"selectRole": "Select a role to assign",
+		"assignRole": "Assign",
+		"removeRole": "Remove",
+		"noRolesAssigned": "No roles assigned to this user",
+		"close": "Close"
+	},
+	"disableModal": {
+		"title": "Disable User",
+		"message": "Are you sure you want to disable this user?",
+		"email": "Email",
+		"warning": "The user will not be able to login until re-enabled.",
+		"cancel": "Cancel",
+		"confirm": "Disable User"
+	},
+	"enableModal": {
+		"title": "Enable User",
+		"message": "Are you sure you want to enable this user?",
+		"email": "Email",
+		"info": "The user will be able to login after enabling.",
+		"cancel": "Cancel",
+		"confirm": "Enable User"
+	},
+	"errors": {
+		"fetchFailed": "Failed to fetch users",
+		"disableFailed": "Failed to disable user",
+		"enableFailed": "Failed to enable user",
+		"assignRoleFailed": "Failed to assign role",
+		"removeRoleFailed": "Failed to remove role",
+		"roleAlreadyAssigned": "This role is already assigned to the user",
+		"roleNotAssigned": "This role is not assigned to the user",
+		"unauthorized": "You are not authorized to perform this action",
+		"forbidden": "Access denied",
+		"userNotFound": "User not found",
+		"invalidState": "User is in an invalid state for this operation",
+		"serverError": "An error occurred. Please try again.",
+		"cannotDisableSelf": "You cannot disable yourself",
+		"cannotRemoveOwnRole": "You cannot remove your own manage_users role"
+	},
+	"success": {
+		"userDisabled": "User disabled successfully",
+		"userEnabled": "User enabled successfully",
+		"roleAssigned": "Role assigned successfully",
+		"roleRemoved": "Role removed successfully"
+	}
+}
