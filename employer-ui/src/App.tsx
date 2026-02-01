@@ -16,6 +16,7 @@ import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { ChangePasswordPage } from "./pages/ChangePasswordPage";
 import { CompleteSetupPage } from "./pages/CompleteSetupPage";
+import { UserManagementPage } from "./pages/UserManagement/UserManagementPage";
 import {
 	BrowserRouter,
 	Routes,
@@ -144,6 +145,14 @@ function AppContent() {
 								}
 							/>
 							<Route path="/eula" element={<EULAPage />} />
+							<Route
+								path="/user-management"
+								element={
+									<ProtectedRoute>
+										<UserManagementPage />
+									</ProtectedRoute>
+								}
+							/>
 							<Route
 								path="/change-password"
 								element={
