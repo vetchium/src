@@ -254,3 +254,8 @@ Regional API servers handle HTTP requests and run regional background jobs. They
 | `SMTP_FROM_ADDRESS`          | -       | From email address            |
 | `SMTP_FROM_NAME`             | -       | From name for emails          |
 | `EMAIL_WORKER_POLL_INTERVAL` | 10s     | Email worker polling interval |
+
+## Status
+
+- **RBAC Tests (Agency & Org)**: ALL PASSING. Fixed issues with token assignments and test isolation/cleanup.
+

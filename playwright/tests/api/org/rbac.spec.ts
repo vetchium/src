@@ -4,6 +4,7 @@ import {
 	createTestOrgAdminDirect,
 	createTestOrgUserDirect,
 	deleteTestOrgUser,
+	deleteTestOrgUserOnly,
 	generateTestOrgEmail,
 	assignRoleToOrgUser,
 } from "../../../lib/db";
@@ -215,7 +216,7 @@ test.describe("Org Portal RBAC Tests", () => {
 				const response = await api.assignRole(orgAdminToken, assignReq);
 				expect(response.status).toBe(200);
 			} finally {
-				await deleteTestOrgUser(targetData.email);
+				await deleteTestOrgUserOnly(targetData.email);
 			}
 		});
 
@@ -255,7 +256,7 @@ test.describe("Org Portal RBAC Tests", () => {
 				// Login manager
 				const loginReq: OrgLoginRequest = {
 					email: managerData.email,
-					domain: managerData.domain,
+					domain: orgAdminDomain,
 					password: TEST_PASSWORD,
 				};
 				const loginRes = await api.login(loginReq);
@@ -278,8 +279,8 @@ test.describe("Org Portal RBAC Tests", () => {
 				const response = await api.assignRole(managerToken, assignReq);
 				expect(response.status).toBe(200);
 			} finally {
-				await deleteTestOrgUser(managerData.email);
-				await deleteTestOrgUser(targetData.email);
+				await deleteTestOrgUserOnly(managerData.email);
+				await deleteTestOrgUserOnly(targetData.email);
 			}
 		});
 
@@ -311,7 +312,7 @@ test.describe("Org Portal RBAC Tests", () => {
 				);
 				expect(response.status).toBe(403);
 			} finally {
-				await deleteTestOrgUser(targetData.email);
+				await deleteTestOrgUserOnly(targetData.email);
 			}
 		});
 
@@ -344,7 +345,7 @@ test.describe("Org Portal RBAC Tests", () => {
 				const response = await api.removeRole(orgAdminToken, removeReq);
 				expect(response.status).toBe(200);
 			} finally {
-				await deleteTestOrgUser(targetData.email);
+				await deleteTestOrgUserOnly(targetData.email);
 			}
 		});
 

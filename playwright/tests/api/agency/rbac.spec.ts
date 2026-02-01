@@ -4,6 +4,7 @@ import {
 	createTestAgencyAdminDirect,
 	createTestAgencyUserDirect,
 	deleteTestAgencyUser,
+	deleteTestAgencyUserOnly,
 	generateTestAgencyEmail,
 	assignRoleToAgencyUser,
 } from "../../../lib/db";
@@ -98,6 +99,7 @@ test.describe("Agency Portal RBAC Tests", () => {
 				remember_me: true,
 			});
 			expect(tfaRes2.status).toBe(200);
+			regularUserWithRoleToken = tfaRes2.body!.session_token;
 			regularUserWithoutRoleEmail = `user-without-role@${sharedDomain}`;
 			regularUserWithoutRoleDomain = sharedDomain;
 			await createTestAgencyUserDirect(
@@ -216,7 +218,7 @@ test.describe("Agency Portal RBAC Tests", () => {
 				const response = await api.assignRole(agencyAdminToken, assignReq);
 				expect(response.status).toBe(200);
 			} finally {
-				await deleteTestAgencyUser(targetData.email);
+				await deleteTestAgencyUserOnly(targetData.email);
 			}
 		});
 
@@ -257,7 +259,7 @@ test.describe("Agency Portal RBAC Tests", () => {
 				// Login manager
 				const loginReq: AgencyLoginRequest = {
 					email: managerData.email,
-					domain: managerData.domain,
+					domain: agencyAdminDomain,
 					password: TEST_PASSWORD,
 				};
 				const loginRes = await api.login(loginReq);
@@ -280,8 +282,8 @@ test.describe("Agency Portal RBAC Tests", () => {
 				const response = await api.assignRole(managerToken, assignReq);
 				expect(response.status).toBe(200);
 			} finally {
-				await deleteTestAgencyUser(managerData.email);
-				await deleteTestAgencyUser(targetData.email);
+				await deleteTestAgencyUserOnly(managerData.email);
+				await deleteTestAgencyUserOnly(targetData.email);
 			}
 		});
 
@@ -313,7 +315,7 @@ test.describe("Agency Portal RBAC Tests", () => {
 				);
 				expect(response.status).toBe(403);
 			} finally {
-				await deleteTestAgencyUser(targetData.email);
+				await deleteTestAgencyUserOnly(targetData.email);
 			}
 		});
 
@@ -346,7 +348,7 @@ test.describe("Agency Portal RBAC Tests", () => {
 				const response = await api.removeRole(agencyAdminToken, removeReq);
 				expect(response.status).toBe(200);
 			} finally {
-				await deleteTestAgencyUser(targetData.email);
+				await deleteTestAgencyUserOnly(targetData.email);
 			}
 		});
 

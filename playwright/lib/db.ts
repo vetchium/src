@@ -469,6 +469,21 @@ export function extractSignupTokenFromEmail(emailMessage: any): string | null {
 export type OrgUserStatus = "active" | "disabled";
 
 /**
+ * Deletes a test org user ONLY, without deleting the employer.
+ * Use this when multiple users share the same employer.
+ *
+ * @param email - Email of the org user to delete
+ */
+export async function deleteTestOrgUserOnly(email: string): Promise<void> {
+	const crypto = require("crypto");
+	const emailHash = crypto.createHash("sha256").update(email).digest();
+
+	await pool.query(`DELETE FROM org_users WHERE email_address_hash = $1`, [
+		emailHash,
+	]);
+}
+
+/**
  * Deletes a test org user by email.
  * Deletes from global DB only (CASCADE handles related records).
  * Regional DB cleanup is handled by the backend.
@@ -1034,6 +1049,21 @@ export async function createTestAgencyAdminDirect(
 	}
 
 	return { email, domain, agencyId, agencyUserId };
+}
+
+/**
+ * Deletes a test agency user ONLY, without deleting the agency.
+ * Use this when multiple users share the same agency.
+ *
+ * @param email - Email of the agency user to delete
+ */
+export async function deleteTestAgencyUserOnly(email: string): Promise<void> {
+	const crypto = require("crypto");
+	const emailHash = crypto.createHash("sha256").update(email).digest();
+
+	await pool.query(`DELETE FROM agency_users WHERE email_address_hash = $1`, [
+		emailHash,
+	]);
 }
 
 /**
