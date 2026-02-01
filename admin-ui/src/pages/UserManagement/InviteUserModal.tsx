@@ -1,7 +1,11 @@
+import { App, Form, Input, Modal, Select, Spin } from "antd";
 import { useState } from "react";
-import { Modal, Form, Input, message } from "antd";
+import { useTranslation } from "react-i18next";
+import type { AdminInviteUserRequest } from "vetchium-specs/admin/admin-users";
+import { validateAdminInviteUserRequest } from "vetchium-specs/admin/admin-users";
 import { getApiBaseUrl } from "../../config";
 import { useAuth } from "../../hooks/useAuth";
+import { SUPPORTED_LANGUAGES } from "../../i18n";
 
 interface InviteUserModalProps {
 	visible: boolean;
@@ -14,13 +18,34 @@ export function InviteUserModal({
 	onCancel,
 	onSuccess,
 }: InviteUserModalProps) {
+	const { t } = useTranslation("userManagement");
 	const [form] = Form.useForm();
 	const [loading, setLoading] = useState(false);
+	const [formValid, setFormValid] = useState(false);
 	const { sessionToken } = useAuth();
+	const { message } = App.useApp();
 
 	const handleOk = async () => {
 		try {
 			const values = await form.validateFields();
+
+			const request: AdminInviteUserRequest = {
+				email_address: values.email,
+				full_name: values.fullName,
+				...(values.preferredLanguage && {
+					preferred_language: values.preferredLanguage,
+				}),
+			};
+
+			const validationErrors = validateAdminInviteUserRequest(request);
+			if (validationErrors.length > 0) {
+				const errorMsg = validationErrors
+					.map((e) => `${e.field}: ${e.message}`)
+					.join(", ");
+				message.error(errorMsg);
+				return;
+			}
+
 			setLoading(true);
 
 			const apiBaseUrl = await getApiBaseUrl();
@@ -30,63 +55,120 @@ export function InviteUserModal({
 					"Content-Type": "application/json",
 					Authorization: `Bearer ${sessionToken}`,
 				},
-				body: JSON.stringify({
-					email_address: values.email,
-					full_name: values.fullName,
-				}),
+				body: JSON.stringify(request),
 			});
 
-			if (response.ok) {
-				message.success("User invited successfully");
-				form.resetFields();
-				onSuccess();
-			} else {
-				const data = await response.json();
-				// Handle specific errors like 409 Conflict
-				if (response.status === 409) {
-					message.error("User with this email already exists.");
+			if (response.status === 400) {
+				const errors: unknown = await response.json();
+				if (Array.isArray(errors)) {
+					const errorMsg = errors
+						.map(
+							(e: { field: string; message: string }) =>
+								`${e.field}: ${e.message}`
+						)
+						.join(", ");
+					message.error(errorMsg);
 				} else {
-					message.error(data.message || "Failed to invite user");
+					message.error(t("errors.serverError"));
 				}
+				return;
+			}
+
+			if (response.status === 401) {
+				message.error(t("errors.unauthorized"));
+				return;
+			}
+
+			if (response.status === 403) {
+				message.error(t("errors.forbidden"));
+				return;
+			}
+
+			if (response.status === 409) {
+				message.error(t("inviteModal.userExists"));
+				return;
+			}
+
+			if (response.status === 201) {
+				await response.json();
+				message.success(t("success.userInvited"));
+				form.resetFields();
+				setFormValid(false);
+				onSuccess();
 			}
 		} catch (error) {
 			console.error("Invite user failed:", error);
-			// Form validation errors are handled by Ant Design automatically
 			if (!(error as { errorFields?: [] }).errorFields) {
-				message.error("An error occurred while inviting the user.");
+				message.error(t("errors.serverError"));
 			}
 		} finally {
 			setLoading(false);
 		}
 	};
 
+	const handleCancel = () => {
+		form.resetFields();
+		setFormValid(false);
+		onCancel();
+	};
+
 	return (
 		<Modal
-			title="Invite User"
+			title={t("inviteModal.title")}
 			open={visible}
 			onOk={handleOk}
-			onCancel={onCancel}
+			onCancel={handleCancel}
 			confirmLoading={loading}
+			okText={t("inviteModal.confirm")}
+			cancelText={t("inviteModal.cancel")}
+			okButtonProps={{ disabled: !formValid }}
 		>
-			<Form form={form} layout="vertical">
-				<Form.Item
-					name="fullName"
-					label="Full Name"
-					rules={[{ required: true, message: "Please enter full name" }]}
+			<Spin spinning={loading}>
+				<Form
+					form={form}
+					layout="vertical"
+					onFieldsChange={() => {
+						const hasErrors = form
+							.getFieldsError()
+							.some(({ errors }) => errors.length > 0);
+						const allTouched = form.isFieldsTouched(["fullName", "email"], true);
+						setFormValid(allTouched && !hasErrors);
+					}}
 				>
-					<Input placeholder="Full Name" />
-				</Form.Item>
-				<Form.Item
-					name="email"
-					label="Email Address"
-					rules={[
-						{ required: true, message: "Please enter email address" },
-						{ type: "email", message: "Please enter a valid email" },
-					]}
-				>
-					<Input placeholder="Email Address" />
-				</Form.Item>
-			</Form>
+					<Form.Item
+						name="fullName"
+						label={t("inviteModal.fullName")}
+						rules={[
+							{ required: true, message: t("inviteModal.fullNameRequired") },
+						]}
+					>
+						<Input placeholder={t("inviteModal.fullNamePlaceholder")} />
+					</Form.Item>
+					<Form.Item
+						name="email"
+						label={t("inviteModal.email")}
+						rules={[
+							{ required: true, message: t("inviteModal.emailRequired") },
+							{ type: "email", message: t("inviteModal.emailInvalid") },
+						]}
+					>
+						<Input placeholder={t("inviteModal.emailPlaceholder")} />
+					</Form.Item>
+					<Form.Item
+						name="preferredLanguage"
+						label={t("inviteModal.preferredLanguage")}
+					>
+						<Select
+							placeholder={t("inviteModal.preferredLanguagePlaceholder")}
+							allowClear
+							options={SUPPORTED_LANGUAGES.map((lang) => ({
+								label: lang,
+								value: lang,
+							}))}
+						/>
+					</Form.Item>
+				</Form>
+			</Spin>
 		</Modal>
 	);
 }

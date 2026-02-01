@@ -69,6 +69,22 @@
 		"userDisabled": "Benutzer erfolgreich deaktiviert",
 		"userEnabled": "Benutzer erfolgreich aktiviert",
 		"roleAssigned": "Rolle erfolgreich zugewiesen",
-		"roleRemoved": "Rolle erfolgreich entfernt"
+		"roleRemoved": "Rolle erfolgreich entfernt",
+		"userInvited": "Benutzer erfolgreich eingeladen"
+	},
+	"inviteModal": {
+		"title": "Benutzer einladen",
+		"fullName": "Vollständiger Name",
+		"fullNameRequired": "Bitte geben Sie den vollständigen Namen ein",
+		"fullNamePlaceholder": "Vollständigen Namen des Benutzers eingeben",
+		"email": "E-Mail-Adresse",
+		"emailRequired": "Bitte geben Sie die E-Mail-Adresse ein",
+		"emailInvalid": "Bitte geben Sie eine gültige E-Mail ein",
+		"emailPlaceholder": "benutzer@beispiel.de",
+		"preferredLanguage": "Bevorzugte Sprache",
+		"preferredLanguagePlaceholder": "Bevorzugte Sprache auswählen (optional)",
+		"confirm": "Benutzer einladen",
+		"cancel": "Abbrechen",
+		"userExists": "Benutzer mit dieser E-Mail existiert bereits"
 	}
 }

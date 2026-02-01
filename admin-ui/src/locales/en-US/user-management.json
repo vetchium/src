@@ -69,6 +69,22 @@
 		"userDisabled": "User disabled successfully",
 		"userEnabled": "User enabled successfully",
 		"roleAssigned": "Role assigned successfully",
-		"roleRemoved": "Role removed successfully"
+		"roleRemoved": "Role removed successfully",
+		"userInvited": "User invited successfully"
+	},
+	"inviteModal": {
+		"title": "Invite User",
+		"fullName": "Full Name",
+		"fullNameRequired": "Please enter full name",
+		"fullNamePlaceholder": "Enter user's full name",
+		"email": "Email Address",
+		"emailRequired": "Please enter email address",
+		"emailInvalid": "Please enter a valid email",
+		"emailPlaceholder": "user@example.com",
+		"preferredLanguage": "Preferred Language",
+		"preferredLanguagePlaceholder": "Select preferred language (optional)",
+		"confirm": "Invite User",
+		"cancel": "Cancel",
+		"userExists": "User with this email already exists"
 	}
 }
