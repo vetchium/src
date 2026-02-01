@@ -87,10 +87,7 @@ test.describe("Org Portal RBAC Tests", () => {
 					employerId: adminResult.employerId,
 				}
 			);
-			await assignRoleToOrgUser(
-				userResult.orgUserId,
-				"employer:invite_users"
-			);
+			await assignRoleToOrgUser(userResult.orgUserId, "employer:invite_users");
 
 			try {
 				// Login user with role
