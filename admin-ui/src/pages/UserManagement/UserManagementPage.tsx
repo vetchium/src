@@ -30,6 +30,8 @@ import { useAuth } from "../../hooks/useAuth";
 import { useMyInfo } from "../../hooks/useMyInfo";
 import { formatDateTime } from "../../utils/dateFormat";
 import { UserDetailDrawer } from "./UserDetailDrawer";
+import { DisableUserModal } from "./DisableUserModal";
+import { EnableUserModal } from "./EnableUserModal";
 
 const { Title } = Typography;
 
@@ -50,6 +52,12 @@ export function UserManagementPage() {
 
 	const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
 	const [drawerVisible, setDrawerVisible] = useState(false);
+
+	const [disableModalVisible, setDisableModalVisible] = useState(false);
+	const [userToDisable, setUserToDisable] = useState<string | null>(null);
+
+	const [enableModalVisible, setEnableModalVisible] = useState(false);
+	const [userToEnable, setUserToEnable] = useState<string | null>(null);
 
 	const canInviteUsers = myInfo?.roles.includes("admin:invite_users") || false;
 	const canManageUsers = myInfo?.roles.includes("admin:manage_users") || false;
@@ -147,6 +155,28 @@ export function UserManagementPage() {
 		fetchUsers(null, searchQuery, statusFilter);
 	};
 
+	const handleDisableUser = (email: string) => {
+		setUserToDisable(email);
+		setDisableModalVisible(true);
+	};
+
+	const handleEnableUser = (email: string) => {
+		setUserToEnable(email);
+		setEnableModalVisible(true);
+	};
+
+	const handleDisableSuccess = () => {
+		setDisableModalVisible(false);
+		setUserToDisable(null);
+		fetchUsers(null, searchQuery, statusFilter);
+	};
+
+	const handleEnableSuccess = () => {
+		setEnableModalVisible(false);
+		setUserToEnable(null);
+		fetchUsers(null, searchQuery, statusFilter);
+	};
+
 	const columns = [
 		{
 			title: t("table.email"),
@@ -213,11 +243,19 @@ export function UserManagementPage() {
 					{canManageUsers && (
 						<>
 							{record.status === "active" ? (
-								<Button danger size="small">
+								<Button
+									danger
+									size="small"
+									onClick={() => handleDisableUser(record.email_address)}
+								>
 									{t("table.disable")}
 								</Button>
 							) : record.status === "disabled" ? (
-								<Button type="primary" size="small">
+								<Button
+									type="primary"
+									size="small"
+									onClick={() => handleEnableUser(record.email_address)}
+								>
 									{t("table.enable")}
 								</Button>
 							) : null}
@@ -305,6 +343,26 @@ export function UserManagementPage() {
 					setSelectedUser(null);
 				}}
 				onUserUpdated={handleUserUpdated}
+			/>
+
+			<DisableUserModal
+				email={userToDisable}
+				visible={disableModalVisible}
+				onCancel={() => {
+					setDisableModalVisible(false);
+					setUserToDisable(null);
+				}}
+				onSuccess={handleDisableSuccess}
+			/>
+
+			<EnableUserModal
+				email={userToEnable}
+				visible={enableModalVisible}
+				onCancel={() => {
+					setEnableModalVisible(false);
+					setUserToEnable(null);
+				}}
+				onSuccess={handleEnableSuccess}
 			/>
 		</div>
 	);
