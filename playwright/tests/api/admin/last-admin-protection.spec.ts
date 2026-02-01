@@ -21,6 +21,7 @@ import {
 	getAllActiveAdminIds,
 	updateAdminUserStatusByIds,
 	countActiveAdminUsers,
+	assignRoleToAdminUser,
 } from "../../../lib/db";
 import { getTfaCodeFromEmail } from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
@@ -42,6 +43,9 @@ test.describe("Last Admin Protection", () => {
 			// Setup: create two test admins
 			admin1Id = await createTestAdminUser(admin1Email, TEST_PASSWORD);
 			admin2Id = await createTestAdminUser(admin2Email, TEST_PASSWORD);
+
+			// Assign admin:manage_users role to admin1 (required for disable operations)
+			await assignRoleToAdminUser(admin1Id, "admin:manage_users");
 
 			// Disable all other admins to isolate this test
 			const allActiveAdmins = await getAllActiveAdminIds();
@@ -75,7 +79,7 @@ test.describe("Last Admin Protection", () => {
 
 			// Disable admin2 - should succeed because we have 2 active admins
 			const disableRequest: AdminDisableUserRequest = {
-				target_user_id: admin2Id,
+				email_address: admin2Email,
 			};
 			const disableResponse = await api.disableUser(
 				sessionToken,
@@ -115,6 +119,9 @@ test.describe("Last Admin Protection", () => {
 			admin1Id = await createTestAdminUser(admin1Email, TEST_PASSWORD);
 			admin2Id = await createTestAdminUser(admin2Email, TEST_PASSWORD);
 
+			// Assign admin:manage_users role to admin1 (required for disable operations)
+			await assignRoleToAdminUser(admin1Id, "admin:manage_users");
+
 			// Disable admin2 directly in DB
 			await updateAdminUserStatusByIds([admin2Id], "disabled");
 
@@ -148,7 +155,7 @@ test.describe("Last Admin Protection", () => {
 
 			// Try to disable admin1 (the last admin) - should fail with 422
 			const disableRequest: AdminDisableUserRequest = {
-				target_user_id: admin1Id,
+				email_address: admin1Email,
 			};
 			const disableResponse = await api.disableUser(
 				sessionToken,
@@ -190,6 +197,10 @@ test.describe("Last Admin Protection", () => {
 			admin1Id = await createTestAdminUser(admin1Email, TEST_PASSWORD);
 			admin2Id = await createTestAdminUser(admin2Email, TEST_PASSWORD);
 
+			// Assign admin:manage_users role to both admins (needed for enable/disable operations)
+			await assignRoleToAdminUser(admin1Id, "admin:manage_users");
+			await assignRoleToAdminUser(admin2Id, "admin:manage_users");
+
 			// Disable admin2 directly in DB (simulating previous disable)
 			await updateAdminUserStatusByIds([admin2Id], "disabled");
 
@@ -223,7 +234,7 @@ test.describe("Last Admin Protection", () => {
 
 			// Enable admin2
 			const enableResponse = await api.enableUser(sessionToken, {
-				target_user_id: admin2Id,
+				email_address: admin2Email,
 			});
 			expect(enableResponse.status).toBe(200);
 
@@ -233,7 +244,7 @@ test.describe("Last Admin Protection", () => {
 
 			// Now admin1 can disable themselves (since admin2 is active)
 			const disableSelfRequest: AdminDisableUserRequest = {
-				target_user_id: admin1Id,
+				email_address: admin1Email,
 			};
 			const disableSelfResponse = await api.disableUser(
 				sessionToken,
@@ -262,7 +273,7 @@ test.describe("Last Admin Protection", () => {
 			const sessionToken2 = tfa2Response.body.session_token;
 
 			const enableAdmin1Response = await api.enableUser(sessionToken2, {
-				target_user_id: admin1Id,
+				email_address: admin1Email,
 			});
 			expect(enableAdmin1Response.status).toBe(200);
 
