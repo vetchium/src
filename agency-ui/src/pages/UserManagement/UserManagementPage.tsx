@@ -30,6 +30,8 @@ import { useAuth } from "../../hooks/useAuth";
 import { useMyInfo } from "../../hooks/useMyInfo";
 import { formatDateTime } from "../../utils/dateFormat";
 import { UserDetailDrawer } from "./UserDetailDrawer";
+import { DisableUserModal } from "./DisableUserModal";
+import { EnableUserModal } from "./EnableUserModal";
 
 const { Title } = Typography;
 
@@ -344,6 +346,26 @@ export function UserManagementPage() {
 					setSelectedUser(null);
 				}}
 				onUserUpdated={handleUserUpdated}
+			/>
+
+			<DisableUserModal
+				email={userToDisable}
+				visible={disableModalVisible}
+				onCancel={() => {
+					setDisableModalVisible(false);
+					setUserToDisable(null);
+				}}
+				onSuccess={handleDisableSuccess}
+			/>
+
+			<EnableUserModal
+				email={userToEnable}
+				visible={enableModalVisible}
+				onCancel={() => {
+					setEnableModalVisible(false);
+					setUserToEnable(null);
+				}}
+				onSuccess={handleEnableSuccess}
 			/>
 		</div>
 	);
