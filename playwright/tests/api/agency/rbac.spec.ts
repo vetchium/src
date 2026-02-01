@@ -4,7 +4,6 @@ import {
 	createTestAgencyAdminDirect,
 	createTestAgencyUserDirect,
 	deleteTestAgencyUser,
-	deleteTestAgencyUserOnly,
 	generateTestAgencyEmail,
 	assignRoleToAgencyUser,
 } from "../../../lib/db";
@@ -17,143 +16,50 @@ import type {
 
 test.describe("Agency Portal RBAC Tests", () => {
 	test.describe("IsAdmin OR role bypass pattern", () => {
-		let agencyAdminEmail: string;
-		let agencyAdminDomain: string;
-		let agencyAdminToken: string = "";
-
-		let regularUserWithRoleEmail: string;
-		let regularUserWithRoleDomain: string;
-		let regularUserWithRoleId: string;
-		let regularUserWithRoleToken: string = "";
-
-		let regularUserWithoutRoleEmail: string;
-		let regularUserWithoutRoleDomain: string;
-		let regularUserWithoutRoleToken: string;
-
-		let agencyId: string;
-
-		test.beforeAll(async ({ request }) => {
-			const api = new AgencyAPIClient(request);
-
-			// Create agency ADMIN user (is_admin=TRUE) - this will create the agency
-			const sharedDomain = `rbac-agency-${crypto.randomUUID().substring(0, 8)}.test.vetchium.com`;
-			agencyAdminEmail = `admin@${sharedDomain}`;
-			agencyAdminDomain = sharedDomain;
-			const adminResult = await createTestAgencyAdminDirect(
-				agencyAdminEmail,
-				TEST_PASSWORD,
-				"ind1"
-			);
-			agencyId = adminResult.agencyId;
-			agencyId = adminResult.agencyId;
-			agencyId = adminResult.agencyId;
-			const loginReq1: AgencyLoginRequest = {
-				email: agencyAdminEmail,
-				domain: agencyAdminDomain,
-				password: TEST_PASSWORD,
-			};
-			const loginRes1 = await api.login(loginReq1);
-			expect(loginRes1.status).toBe(200);
-
-			const tfaCode1 = await getTfaCodeFromEmail(agencyAdminEmail);
-			const tfaRes1 = await api.verifyTFA({
-				tfa_token: loginRes1.body!.tfa_token,
-				tfa_code: tfaCode1,
-				remember_me: true,
-			});
-			expect(tfaRes1.status).toBe(200);
-			agencyAdminToken = tfaRes1.body!.session_token;
-
-			regularUserWithRoleEmail = `user-with-role@${sharedDomain}`;
-			regularUserWithRoleDomain = sharedDomain;
-			regularUserWithRoleDomain = sharedDomain;
-			regularUserWithRoleDomain = sharedDomain;
-			const result1 = await createTestAgencyUserDirect(
-				regularUserWithRoleEmail,
-				TEST_PASSWORD,
-				"ind1",
-				{
-					agencyId: agencyId,
-				}
-			);
-			regularUserWithRoleId = result1.agencyUserId;
-			await assignRoleToAgencyUser(
-				regularUserWithRoleId,
-				"agency:invite_users"
-			);
-
-			// Login user with role
-			const loginReq2: AgencyLoginRequest = {
-				email: regularUserWithRoleEmail,
-				domain: regularUserWithRoleDomain,
-				password: TEST_PASSWORD,
-			};
-			await deleteEmailsFor(loginReq2.email);
-			const loginRes2 = await api.login(loginReq2);
-			expect(loginRes2.status).toBe(200);
-
-			const tfaCode2 = await getTfaCodeFromEmail(regularUserWithRoleEmail);
-			const tfaRes2 = await api.verifyTFA({
-				tfa_token: loginRes2.body!.tfa_token,
-				tfa_code: tfaCode2,
-				remember_me: true,
-			});
-			expect(tfaRes2.status).toBe(200);
-			regularUserWithRoleToken = tfaRes2.body!.session_token;
-			regularUserWithoutRoleEmail = `user-without-role@${sharedDomain}`;
-			regularUserWithoutRoleDomain = sharedDomain;
-			await createTestAgencyUserDirect(
-				regularUserWithoutRoleEmail,
-				TEST_PASSWORD,
-				"ind1",
-				{
-					agencyId: agencyId,
-				}
-			);
-
-			// Login user without role
-			const loginReq3: AgencyLoginRequest = {
-				email: regularUserWithoutRoleEmail,
-				domain: regularUserWithoutRoleDomain,
-				password: TEST_PASSWORD,
-			};
-			const loginRes3 = await api.login(loginReq3);
-			expect(loginRes3.status).toBe(200);
-
-			const tfaCode3 = await getTfaCodeFromEmail(regularUserWithoutRoleEmail);
-			const tfaRes3 = await api.verifyTFA({
-				tfa_token: loginRes3.body!.tfa_token,
-				tfa_code: tfaCode3,
-				remember_me: true,
-			});
-			expect(tfaRes3.status).toBe(200);
-			regularUserWithoutRoleToken = tfaRes3.body!.session_token;
-		});
-
-		test.afterAll(async () => {
-			if (agencyAdminEmail) await deleteTestAgencyUser(agencyAdminEmail);
-			if (regularUserWithRoleEmail)
-				await deleteTestAgencyUser(regularUserWithRoleEmail);
-			if (regularUserWithoutRoleEmail)
-				await deleteTestAgencyUser(regularUserWithoutRoleEmail);
-		});
-
 		test("Agency admin (IsAdmin=TRUE) can invite users without specific role", async ({
 			request,
 		}) => {
 			const api = new AgencyAPIClient(request);
-			const newUserData = generateTestAgencyEmail("invited-by-admin");
+
+			// Create unique agency admin
+			const domain = `rbac-agency-${crypto.randomUUID().substring(0, 8)}.test.vetchium.com`;
+			const adminEmail = `admin@${domain}`;
+			const adminResult = await createTestAgencyAdminDirect(
+				adminEmail,
+				TEST_PASSWORD,
+				"ind1"
+			);
 
 			try {
+				// Login admin
+				const loginReq: AgencyLoginRequest = {
+					email: adminEmail,
+					domain: domain,
+					password: TEST_PASSWORD,
+				};
+				const loginRes = await api.login(loginReq);
+				expect(loginRes.status).toBe(200);
+
+				const tfaCode = await getTfaCodeFromEmail(adminEmail);
+				const tfaRes = await api.verifyTFA({
+					tfa_token: loginRes.body!.tfa_token,
+					tfa_code: tfaCode,
+					remember_me: true,
+				});
+				expect(tfaRes.status).toBe(200);
+				const adminToken = tfaRes.body!.session_token;
+
+				// Invite user
+				const newUserEmail = `invited-${crypto.randomUUID().substring(0, 8)}@${domain}`;
 				const inviteReq: AgencyInviteUserRequest = {
-					email_address: newUserData.email,
+					email_address: newUserEmail,
 					full_name: "Invited User",
 				};
 
-				const response = await api.inviteUser(agencyAdminToken, inviteReq);
+				const response = await api.inviteUser(adminToken, inviteReq);
 				expect(response.status).toBe(201);
 			} finally {
-				// Note: invited users need to complete setup before they exist, so no cleanup needed
+				await deleteTestAgencyUser(adminEmail);
 			}
 		});
 
@@ -161,36 +67,121 @@ test.describe("Agency Portal RBAC Tests", () => {
 			request,
 		}) => {
 			const api = new AgencyAPIClient(request);
-			const newUserData = generateTestAgencyEmail("invited-by-role");
 
-			const inviteReq: AgencyInviteUserRequest = {
-				email_address: newUserData.email,
-				full_name: "Invited User",
-			};
-
-			const response = await api.inviteUser(
-				regularUserWithRoleToken,
-				inviteReq
+			// Create unique agency admin
+			const domain = `rbac-agency-${crypto.randomUUID().substring(0, 8)}.test.vetchium.com`;
+			const adminEmail = `admin@${domain}`;
+			const adminResult = await createTestAgencyAdminDirect(
+				adminEmail,
+				TEST_PASSWORD,
+				"ind1"
 			);
-			expect(response.status).toBe(201);
+
+			// Create regular user with role
+			const userWithRoleEmail = `user-with-role@${domain}`;
+			const userResult = await createTestAgencyUserDirect(
+				userWithRoleEmail,
+				TEST_PASSWORD,
+				"ind1",
+				{
+					agencyId: adminResult.agencyId,
+				}
+			);
+			await assignRoleToAgencyUser(
+				userResult.agencyUserId,
+				"agency:invite_users"
+			);
+
+			try {
+				// Login user with role
+				const loginReq: AgencyLoginRequest = {
+					email: userWithRoleEmail,
+					domain: domain,
+					password: TEST_PASSWORD,
+				};
+				await deleteEmailsFor(loginReq.email);
+				const loginRes = await api.login(loginReq);
+				expect(loginRes.status).toBe(200);
+
+				const tfaCode = await getTfaCodeFromEmail(userWithRoleEmail);
+				const tfaRes = await api.verifyTFA({
+					tfa_token: loginRes.body!.tfa_token,
+					tfa_code: tfaCode,
+					remember_me: true,
+				});
+				expect(tfaRes.status).toBe(200);
+				const userToken = tfaRes.body!.session_token;
+
+				// Invite user
+				const newUserEmail = `invited-${crypto.randomUUID().substring(0, 8)}@${domain}`;
+				const inviteReq: AgencyInviteUserRequest = {
+					email_address: newUserEmail,
+					full_name: "Invited User",
+				};
+
+				const response = await api.inviteUser(userToken, inviteReq);
+				expect(response.status).toBe(201);
+			} finally {
+				await deleteTestAgencyUser(adminEmail);
+			}
 		});
 
 		test("Regular user WITHOUT agency:invite_users role gets 403 when inviting", async ({
 			request,
 		}) => {
 			const api = new AgencyAPIClient(request);
-			const newUserData = generateTestAgencyEmail("invite-attempt");
 
-			const inviteReq: AgencyInviteUserRequest = {
-				email_address: newUserData.email,
-				full_name: "Invited User",
-			};
-
-			const response = await api.inviteUser(
-				regularUserWithoutRoleToken,
-				inviteReq
+			// Create unique agency admin
+			const domain = `rbac-agency-${crypto.randomUUID().substring(0, 8)}.test.vetchium.com`;
+			const adminEmail = `admin@${domain}`;
+			const adminResult = await createTestAgencyAdminDirect(
+				adminEmail,
+				TEST_PASSWORD,
+				"ind1"
 			);
-			expect(response.status).toBe(403);
+
+			// Create regular user WITHOUT role
+			const userWithoutRoleEmail = `user-without-role@${domain}`;
+			await createTestAgencyUserDirect(
+				userWithoutRoleEmail,
+				TEST_PASSWORD,
+				"ind1",
+				{
+					agencyId: adminResult.agencyId,
+				}
+			);
+
+			try {
+				// Login user without role
+				const loginReq: AgencyLoginRequest = {
+					email: userWithoutRoleEmail,
+					domain: domain,
+					password: TEST_PASSWORD,
+				};
+				const loginRes = await api.login(loginReq);
+				expect(loginRes.status).toBe(200);
+
+				const tfaCode = await getTfaCodeFromEmail(userWithoutRoleEmail);
+				const tfaRes = await api.verifyTFA({
+					tfa_token: loginRes.body!.tfa_token,
+					tfa_code: tfaCode,
+					remember_me: true,
+				});
+				expect(tfaRes.status).toBe(200);
+				const userToken = tfaRes.body!.session_token;
+
+				// Try to invite user
+				const newUserEmail = `invited-${crypto.randomUUID().substring(0, 8)}@${domain}`;
+				const inviteReq: AgencyInviteUserRequest = {
+					email_address: newUserEmail,
+					full_name: "Invited User",
+				};
+
+				const response = await api.inviteUser(userToken, inviteReq);
+				expect(response.status).toBe(403);
+			} finally {
+				await deleteTestAgencyUser(adminEmail);
+			}
 		});
 
 		test("Agency admin (IsAdmin=TRUE) can assign roles without specific role", async ({
@@ -198,27 +189,55 @@ test.describe("Agency Portal RBAC Tests", () => {
 		}) => {
 			const api = new AgencyAPIClient(request);
 
-			// Create a target user
-			const targetData = generateTestAgencyEmail("rbac-target-assign");
+			// Create unique agency admin
+			const domain = `rbac-agency-${crypto.randomUUID().substring(0, 8)}.test.vetchium.com`;
+			const adminEmail = `admin@${domain}`;
+			const adminResult = await createTestAgencyAdminDirect(
+				adminEmail,
+				TEST_PASSWORD,
+				"ind1"
+			);
+
+			// Create target user
+			const targetEmail = `target-${crypto.randomUUID().substring(0, 8)}@${domain}`;
 			const targetResult = await createTestAgencyUserDirect(
-				targetData.email,
+				targetEmail,
 				TEST_PASSWORD,
 				"ind1",
 				{
-					agencyId: agencyId,
+					agencyId: adminResult.agencyId,
 				}
 			);
 
 			try {
+				// Login admin
+				const loginReq: AgencyLoginRequest = {
+					email: adminEmail,
+					domain: domain,
+					password: TEST_PASSWORD,
+				};
+				const loginRes = await api.login(loginReq);
+				expect(loginRes.status).toBe(200);
+
+				const tfaCode = await getTfaCodeFromEmail(adminEmail);
+				const tfaRes = await api.verifyTFA({
+					tfa_token: loginRes.body!.tfa_token,
+					tfa_code: tfaCode,
+					remember_me: true,
+				});
+				expect(tfaRes.status).toBe(200);
+				const adminToken = tfaRes.body!.session_token;
+
+				// Assign role
 				const assignReq = {
 					target_user_id: targetResult.agencyUserId,
 					role_name: "agency:invite_users",
 				};
 
-				const response = await api.assignRole(agencyAdminToken, assignReq);
+				const response = await api.assignRole(adminToken, assignReq);
 				expect(response.status).toBe(200);
 			} finally {
-				await deleteTestAgencyUserOnly(targetData.email);
+				await deleteTestAgencyUser(adminEmail);
 			}
 		});
 
@@ -227,15 +246,23 @@ test.describe("Agency Portal RBAC Tests", () => {
 		}) => {
 			const api = new AgencyAPIClient(request);
 
-			// Create a user with agency:manage_users role
-			const managerData = generateTestAgencyEmail("rbac-manager");
+			// Create unique agency admin
+			const domain = `rbac-agency-${crypto.randomUUID().substring(0, 8)}.test.vetchium.com`;
+			const adminEmail = `admin@${domain}`;
+			const adminResult = await createTestAgencyAdminDirect(
+				adminEmail,
+				TEST_PASSWORD,
+				"ind1"
+			);
+
+			// Create manager user with agency:manage_users role
+			const managerEmail = `manager-${crypto.randomUUID().substring(0, 8)}@${domain}`;
 			const managerResult = await createTestAgencyUserDirect(
-				managerData.email,
+				managerEmail,
 				TEST_PASSWORD,
 				"ind1",
 				{
-					agencyId: agencyId,
-					domain: agencyAdminDomain,
+					agencyId: adminResult.agencyId,
 				}
 			);
 			await assignRoleToAgencyUser(
@@ -243,29 +270,28 @@ test.describe("Agency Portal RBAC Tests", () => {
 				"agency:manage_users"
 			);
 
-			// Create a target user
-			const targetData = generateTestAgencyEmail("rbac-target-assign2");
+			// Create target user
+			const targetEmail = `target-${crypto.randomUUID().substring(0, 8)}@${domain}`;
 			const targetResult = await createTestAgencyUserDirect(
-				targetData.email,
+				targetEmail,
 				TEST_PASSWORD,
 				"ind1",
 				{
-					agencyId: agencyId,
-					domain: agencyAdminDomain,
+					agencyId: adminResult.agencyId,
 				}
 			);
 
 			try {
 				// Login manager
 				const loginReq: AgencyLoginRequest = {
-					email: managerData.email,
-					domain: agencyAdminDomain,
+					email: managerEmail,
+					domain: domain,
 					password: TEST_PASSWORD,
 				};
 				const loginRes = await api.login(loginReq);
 				expect(loginRes.status).toBe(200);
 
-				const tfaCode = await getTfaCodeFromEmail(managerData.email);
+				const tfaCode = await getTfaCodeFromEmail(managerEmail);
 				const tfaRes = await api.verifyTFA({
 					tfa_token: loginRes.body!.tfa_token,
 					tfa_code: tfaCode,
@@ -274,6 +300,7 @@ test.describe("Agency Portal RBAC Tests", () => {
 				expect(tfaRes.status).toBe(200);
 				const managerToken = tfaRes.body!.session_token;
 
+				// Assign role
 				const assignReq = {
 					target_user_id: targetResult.agencyUserId,
 					role_name: "agency:invite_users",
@@ -282,8 +309,7 @@ test.describe("Agency Portal RBAC Tests", () => {
 				const response = await api.assignRole(managerToken, assignReq);
 				expect(response.status).toBe(200);
 			} finally {
-				await deleteTestAgencyUserOnly(managerData.email);
-				await deleteTestAgencyUserOnly(targetData.email);
+				await deleteTestAgencyUser(adminEmail);
 			}
 		});
 
@@ -292,30 +318,66 @@ test.describe("Agency Portal RBAC Tests", () => {
 		}) => {
 			const api = new AgencyAPIClient(request);
 
-			// Create a target user
-			const targetData = generateTestAgencyEmail("rbac-target-assign3");
-			const targetResult = await createTestAgencyUserDirect(
-				targetData.email,
+			// Create unique agency admin
+			const domain = `rbac-agency-${crypto.randomUUID().substring(0, 8)}.test.vetchium.com`;
+			const adminEmail = `admin@${domain}`;
+			const adminResult = await createTestAgencyAdminDirect(
+				adminEmail,
+				TEST_PASSWORD,
+				"ind1"
+			);
+
+			// Create regular user WITHOUT role
+			const userWithoutRoleEmail = `user-${crypto.randomUUID().substring(0, 8)}@${domain}`;
+			await createTestAgencyUserDirect(
+				userWithoutRoleEmail,
 				TEST_PASSWORD,
 				"ind1",
 				{
-					agencyId: agencyId,
+					agencyId: adminResult.agencyId,
+				}
+			);
+
+			// Create target user
+			const targetEmail = `target-${crypto.randomUUID().substring(0, 8)}@${domain}`;
+			const targetResult = await createTestAgencyUserDirect(
+				targetEmail,
+				TEST_PASSWORD,
+				"ind1",
+				{
+					agencyId: adminResult.agencyId,
 				}
 			);
 
 			try {
+				// Login user without role
+				const loginReq: AgencyLoginRequest = {
+					email: userWithoutRoleEmail,
+					domain: domain,
+					password: TEST_PASSWORD,
+				};
+				const loginRes = await api.login(loginReq);
+				expect(loginRes.status).toBe(200);
+
+				const tfaCode = await getTfaCodeFromEmail(userWithoutRoleEmail);
+				const tfaRes = await api.verifyTFA({
+					tfa_token: loginRes.body!.tfa_token,
+					tfa_code: tfaCode,
+					remember_me: true,
+				});
+				expect(tfaRes.status).toBe(200);
+				const userToken = tfaRes.body!.session_token;
+
+				// Try to assign role
 				const assignReq = {
 					target_user_id: targetResult.agencyUserId,
 					role_name: "agency:invite_users",
 				};
 
-				const response = await api.assignRole(
-					regularUserWithoutRoleToken,
-					assignReq
-				);
+				const response = await api.assignRole(userToken, assignReq);
 				expect(response.status).toBe(403);
 			} finally {
-				await deleteTestAgencyUserOnly(targetData.email);
+				await deleteTestAgencyUser(adminEmail);
 			}
 		});
 
@@ -324,14 +386,23 @@ test.describe("Agency Portal RBAC Tests", () => {
 		}) => {
 			const api = new AgencyAPIClient(request);
 
-			// Create a target user with a role
-			const targetData = generateTestAgencyEmail("rbac-target-remove");
+			// Create unique agency admin
+			const domain = `rbac-agency-${crypto.randomUUID().substring(0, 8)}.test.vetchium.com`;
+			const adminEmail = `admin@${domain}`;
+			const adminResult = await createTestAgencyAdminDirect(
+				adminEmail,
+				TEST_PASSWORD,
+				"ind1"
+			);
+
+			// Create target user with a role
+			const targetEmail = `target-${crypto.randomUUID().substring(0, 8)}@${domain}`;
 			const targetResult = await createTestAgencyUserDirect(
-				targetData.email,
+				targetEmail,
 				TEST_PASSWORD,
 				"ind1",
 				{
-					agencyId: agencyId,
+					agencyId: adminResult.agencyId,
 				}
 			);
 			await assignRoleToAgencyUser(
@@ -340,15 +411,34 @@ test.describe("Agency Portal RBAC Tests", () => {
 			);
 
 			try {
+				// Login admin
+				const loginReq: AgencyLoginRequest = {
+					email: adminEmail,
+					domain: domain,
+					password: TEST_PASSWORD,
+				};
+				const loginRes = await api.login(loginReq);
+				expect(loginRes.status).toBe(200);
+
+				const tfaCode = await getTfaCodeFromEmail(adminEmail);
+				const tfaRes = await api.verifyTFA({
+					tfa_token: loginRes.body!.tfa_token,
+					tfa_code: tfaCode,
+					remember_me: true,
+				});
+				expect(tfaRes.status).toBe(200);
+				const adminToken = tfaRes.body!.session_token;
+
+				// Remove role
 				const removeReq = {
 					target_user_id: targetResult.agencyUserId,
 					role_name: "agency:invite_users",
 				};
 
-				const response = await api.removeRole(agencyAdminToken, removeReq);
+				const response = await api.removeRole(adminToken, removeReq);
 				expect(response.status).toBe(200);
 			} finally {
-				await deleteTestAgencyUserOnly(targetData.email);
+				await deleteTestAgencyUser(adminEmail);
 			}
 		});
 
@@ -357,73 +447,123 @@ test.describe("Agency Portal RBAC Tests", () => {
 		}) => {
 			const api = new AgencyAPIClient(request);
 
-			const removeReq = {
-				target_user_id: regularUserWithRoleId,
-				role_name: "agency:invite_users",
-			};
-
-			const response = await api.removeRole(
-				regularUserWithoutRoleToken,
-				removeReq
+			// Create unique agency admin
+			const domain = `rbac-agency-${crypto.randomUUID().substring(0, 8)}.test.vetchium.com`;
+			const adminEmail = `admin@${domain}`;
+			const adminResult = await createTestAgencyAdminDirect(
+				adminEmail,
+				TEST_PASSWORD,
+				"ind1"
 			);
-			expect(response.status).toBe(403);
+
+			// Create user with role
+			const userWithRoleEmail = `user-with-role-${crypto.randomUUID().substring(0, 8)}@${domain}`;
+			const userWithRoleResult = await createTestAgencyUserDirect(
+				userWithRoleEmail,
+				TEST_PASSWORD,
+				"ind1",
+				{
+					agencyId: adminResult.agencyId,
+				}
+			);
+			await assignRoleToAgencyUser(
+				userWithRoleResult.agencyUserId,
+				"agency:invite_users"
+			);
+
+			// Create regular user WITHOUT manage_users role
+			const userWithoutRoleEmail = `user-${crypto.randomUUID().substring(0, 8)}@${domain}`;
+			await createTestAgencyUserDirect(
+				userWithoutRoleEmail,
+				TEST_PASSWORD,
+				"ind1",
+				{
+					agencyId: adminResult.agencyId,
+				}
+			);
+
+			try {
+				// Login user without role
+				const loginReq: AgencyLoginRequest = {
+					email: userWithoutRoleEmail,
+					domain: domain,
+					password: TEST_PASSWORD,
+				};
+				const loginRes = await api.login(loginReq);
+				expect(loginRes.status).toBe(200);
+
+				const tfaCode = await getTfaCodeFromEmail(userWithoutRoleEmail);
+				const tfaRes = await api.verifyTFA({
+					tfa_token: loginRes.body!.tfa_token,
+					tfa_code: tfaCode,
+					remember_me: true,
+				});
+				expect(tfaRes.status).toBe(200);
+				const userToken = tfaRes.body!.session_token;
+
+				// Try to remove role
+				const removeReq = {
+					target_user_id: userWithRoleResult.agencyUserId,
+					role_name: "agency:invite_users",
+				};
+
+				const response = await api.removeRole(userToken, removeReq);
+				expect(response.status).toBe(403);
+			} finally {
+				await deleteTestAgencyUser(adminEmail);
+			}
 		});
 	});
 
 	test.describe("Auth-only endpoints (no RBAC)", () => {
-		let agencyUserEmail: string;
-		let agencyUserDomain: string;
-		let agencyUserToken: string;
-
-		test.beforeAll(async ({ request }) => {
-			const api = new AgencyAPIClient(request);
-
-			// Create a regular agency user without any special roles
-			const userData = generateTestAgencyEmail("rbac-auth-only");
-			agencyUserEmail = userData.email;
-			agencyUserDomain = userData.domain;
-			await createTestAgencyUserDirect(agencyUserEmail, TEST_PASSWORD);
-
-			// Login
-			const loginReq: AgencyLoginRequest = {
-				email: agencyUserEmail,
-				domain: agencyUserDomain,
-				password: TEST_PASSWORD,
-			};
-			const loginRes = await api.login(loginReq);
-			expect(loginRes.status).toBe(200);
-
-			const tfaCode = await getTfaCodeFromEmail(agencyUserEmail);
-			const tfaRes = await api.verifyTFA({
-				tfa_token: loginRes.body!.tfa_token,
-				tfa_code: tfaCode,
-				remember_me: false,
-			});
-			expect(tfaRes.status).toBe(200);
-			agencyUserToken = tfaRes.body!.session_token;
-		});
-
-		test.afterAll(async () => {
-			await deleteTestAgencyUser(agencyUserEmail);
-		});
-
 		test("Any authenticated agency user can change their password", async ({
 			request,
 		}) => {
 			const api = new AgencyAPIClient(request);
 
-			const response = await api.changePassword(agencyUserToken, {
-				current_password: TEST_PASSWORD,
-				new_password: "NewPassword123$",
-			});
-			expect(response.status).toBe(200);
+			// Create unique agency user
+			const userData = generateTestAgencyEmail("rbac-auth-only");
+			const adminEmail = `admin@${userData.domain}`;
+			await createTestAgencyAdminDirect(adminEmail, TEST_PASSWORD, "ind1");
 
-			// Change it back
-			const revertResponse = await api.changePassword(agencyUserToken, {
-				current_password: "NewPassword123$",
-				new_password: TEST_PASSWORD,
-			});
-			expect(revertResponse.status).toBe(200);
+			const agencyUserEmail = adminEmail;
+			const agencyUserDomain = userData.domain;
+
+			try {
+				// Login
+				const loginReq: AgencyLoginRequest = {
+					email: agencyUserEmail,
+					domain: agencyUserDomain,
+					password: TEST_PASSWORD,
+				};
+				const loginRes = await api.login(loginReq);
+				expect(loginRes.status).toBe(200);
+
+				const tfaCode = await getTfaCodeFromEmail(agencyUserEmail);
+				const tfaRes = await api.verifyTFA({
+					tfa_token: loginRes.body!.tfa_token,
+					tfa_code: tfaCode,
+					remember_me: false,
+				});
+				expect(tfaRes.status).toBe(200);
+				const agencyUserToken = tfaRes.body!.session_token;
+
+				// Change password
+				const response = await api.changePassword(agencyUserToken, {
+					current_password: TEST_PASSWORD,
+					new_password: "NewPassword123$",
+				});
+				expect(response.status).toBe(200);
+
+				// Change it back
+				const revertResponse = await api.changePassword(agencyUserToken, {
+					current_password: "NewPassword123$",
+					new_password: TEST_PASSWORD,
+				});
+				expect(revertResponse.status).toBe(200);
+			} finally {
+				await deleteTestAgencyUser(adminEmail);
+			}
 		});
 
 		test("Any authenticated agency user can set their language", async ({
@@ -431,36 +571,81 @@ test.describe("Agency Portal RBAC Tests", () => {
 		}) => {
 			const api = new AgencyAPIClient(request);
 
-			const response = await api.setLanguage(agencyUserToken, {
-				language: "de-DE",
-			});
-			expect(response.status).toBe(200);
+			// Create unique agency user
+			const userData = generateTestAgencyEmail("rbac-auth-lang");
+			const adminEmail = `admin@${userData.domain}`;
+			await createTestAgencyAdminDirect(adminEmail, TEST_PASSWORD, "ind1");
+
+			const agencyUserEmail = adminEmail;
+			const agencyUserDomain = userData.domain;
+
+			try {
+				// Login
+				const loginReq: AgencyLoginRequest = {
+					email: agencyUserEmail,
+					domain: agencyUserDomain,
+					password: TEST_PASSWORD,
+				};
+				await deleteEmailsFor(loginReq.email);
+				const loginRes = await api.login(loginReq);
+				expect(loginRes.status).toBe(200);
+
+				const tfaCode = await getTfaCodeFromEmail(agencyUserEmail);
+				const tfaRes = await api.verifyTFA({
+					tfa_token: loginRes.body!.tfa_token,
+					tfa_code: tfaCode,
+					remember_me: false,
+				});
+				expect(tfaRes.status).toBe(200);
+				const agencyUserToken = tfaRes.body!.session_token;
+
+				// Set language
+				const response = await api.setLanguage(agencyUserToken, {
+					language: "de-DE",
+				});
+				expect(response.status).toBe(200);
+			} finally {
+				await deleteTestAgencyUser(adminEmail);
+			}
 		});
 
 		test("Any authenticated agency user can logout", async ({ request }) => {
 			const api = new AgencyAPIClient(request);
 
-			// Create another session to logout
-			const loginReq: AgencyLoginRequest = {
-				email: agencyUserEmail,
-				domain: agencyUserDomain,
-				password: TEST_PASSWORD,
-			};
-			await deleteEmailsFor(loginReq.email);
-			const loginRes = await api.login(loginReq);
-			expect(loginRes.status).toBe(200);
+			// Create unique agency user
+			const userData = generateTestAgencyEmail("rbac-auth-logout");
+			const adminEmail = `admin@${userData.domain}`;
+			await createTestAgencyAdminDirect(adminEmail, TEST_PASSWORD, "ind1");
 
-			const tfaCode = await getTfaCodeFromEmail(agencyUserEmail);
-			const tfaRes = await api.verifyTFA({
-				tfa_token: loginRes.body!.tfa_token,
-				tfa_code: tfaCode,
-				remember_me: false,
-			});
-			expect(tfaRes.status).toBe(200);
-			const tempToken = tfaRes.body!.session_token;
+			const agencyUserEmail = adminEmail;
+			const agencyUserDomain = userData.domain;
 
-			const response = await api.logout(tempToken);
-			expect(response.status).toBe(200);
+			try {
+				// Login
+				const loginReq: AgencyLoginRequest = {
+					email: agencyUserEmail,
+					domain: agencyUserDomain,
+					password: TEST_PASSWORD,
+				};
+				await deleteEmailsFor(loginReq.email);
+				const loginRes = await api.login(loginReq);
+				expect(loginRes.status).toBe(200);
+
+				const tfaCode = await getTfaCodeFromEmail(agencyUserEmail);
+				const tfaRes = await api.verifyTFA({
+					tfa_token: loginRes.body!.tfa_token,
+					tfa_code: tfaCode,
+					remember_me: false,
+				});
+				expect(tfaRes.status).toBe(200);
+				const tempToken = tfaRes.body!.session_token;
+
+				// Logout
+				const response = await api.logout(tempToken);
+				expect(response.status).toBe(200);
+			} finally {
+				await deleteTestAgencyUser(adminEmail);
+			}
 		});
 	});
 

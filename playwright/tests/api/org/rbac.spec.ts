@@ -4,7 +4,6 @@ import {
 	createTestOrgAdminDirect,
 	createTestOrgUserDirect,
 	deleteTestOrgUser,
-	deleteTestOrgUserOnly,
 	generateTestOrgEmail,
 	assignRoleToOrgUser,
 } from "../../../lib/db";
@@ -17,141 +16,50 @@ import type {
 
 test.describe("Org Portal RBAC Tests", () => {
 	test.describe("IsAdmin OR role bypass pattern", () => {
-		let orgAdminEmail: string;
-		let orgAdminDomain: string;
-		let orgAdminToken: string;
-
-		let regularUserWithRoleEmail: string;
-		let regularUserWithRoleDomain: string;
-		let regularUserWithRoleId: string;
-		let regularUserWithRoleToken: string;
-
-		let regularUserWithoutRoleEmail: string;
-		let regularUserWithoutRoleDomain: string;
-		let regularUserWithoutRoleToken: string;
-
-		let employerId: string;
-
-		test.beforeAll(async ({ request }) => {
-			const api = new OrgAPIClient(request);
-
-			// Create org ADMIN user (is_admin=TRUE) - this will create the employer and domain
-			const sharedDomain = `rbac-org-${crypto.randomUUID().substring(0, 8)}.test.vetchium.com`;
-			orgAdminEmail = `admin@${sharedDomain}`;
-			orgAdminDomain = sharedDomain;
-			const adminResult = await createTestOrgAdminDirect(
-				orgAdminEmail,
-				TEST_PASSWORD,
-				"ind1"
-			);
-			employerId = adminResult.employerId;
-
-			// Login admin
-			const loginReq1: OrgLoginRequest = {
-				email: orgAdminEmail,
-				domain: orgAdminDomain,
-				password: TEST_PASSWORD,
-			};
-			const loginRes1 = await api.login(loginReq1);
-			expect(loginRes1.status).toBe(200);
-
-			const tfaCode1 = await getTfaCodeFromEmail(orgAdminEmail);
-			const tfaRes1 = await api.verifyTFA({
-				tfa_token: loginRes1.body!.tfa_token,
-				tfa_code: tfaCode1,
-				remember_me: true,
-			});
-			expect(tfaRes1.status).toBe(200);
-			orgAdminToken = tfaRes1.body!.session_token;
-
-			// Create regular user WITH employer:invite_users role (is_admin=FALSE) - same domain
-			regularUserWithRoleEmail = `user-with-role@${sharedDomain}`;
-			regularUserWithRoleDomain = sharedDomain;
-			const result1 = await createTestOrgUserDirect(
-				regularUserWithRoleEmail,
-				TEST_PASSWORD,
-				"ind1",
-				{
-					employerId: employerId,
-				}
-			);
-			regularUserWithRoleId = result1.orgUserId;
-			await assignRoleToOrgUser(regularUserWithRoleId, "employer:invite_users");
-
-			// Login user with role
-			const loginReq: OrgLoginRequest = {
-				email: regularUserWithRoleEmail,
-				domain: regularUserWithRoleDomain,
-				password: TEST_PASSWORD,
-			};
-			await deleteEmailsFor(loginReq.email);
-			const loginRes = await api.login(loginReq);
-			expect(loginRes.status).toBe(200);
-
-			const tfaCode2 = await getTfaCodeFromEmail(regularUserWithRoleEmail);
-			const tfaRes2 = await api.verifyTFA({
-				tfa_token: loginRes.body!.tfa_token,
-				tfa_code: tfaCode2,
-				remember_me: true,
-			});
-			expect(tfaRes2.status).toBe(200);
-			regularUserWithRoleToken = tfaRes2.body!.session_token;
-
-			// Create regular user WITHOUT employer:invite_users role (is_admin=FALSE) - same domain
-			regularUserWithoutRoleEmail = `user-without-role@${sharedDomain}`;
-			regularUserWithoutRoleDomain = sharedDomain;
-			await createTestOrgUserDirect(
-				regularUserWithoutRoleEmail,
-				TEST_PASSWORD,
-				"ind1",
-				{
-					employerId: employerId,
-				}
-			);
-
-			// Login user without role
-			const loginReq3: OrgLoginRequest = {
-				email: regularUserWithoutRoleEmail,
-				domain: regularUserWithoutRoleDomain,
-				password: TEST_PASSWORD,
-			};
-			const loginRes3 = await api.login(loginReq3);
-			expect(loginRes3.status).toBe(200);
-
-			const tfaCode3 = await getTfaCodeFromEmail(regularUserWithoutRoleEmail);
-			const tfaRes3 = await api.verifyTFA({
-				tfa_token: loginRes3.body!.tfa_token,
-				tfa_code: tfaCode3,
-				remember_me: true,
-			});
-			expect(tfaRes3.status).toBe(200);
-			regularUserWithoutRoleToken = tfaRes3.body!.session_token;
-		});
-
-		test.afterAll(async () => {
-			if (orgAdminEmail) await deleteTestOrgUser(orgAdminEmail);
-			if (regularUserWithRoleEmail)
-				await deleteTestOrgUser(regularUserWithRoleEmail);
-			if (regularUserWithoutRoleEmail)
-				await deleteTestOrgUser(regularUserWithoutRoleEmail);
-		});
-
 		test("Org admin (IsAdmin=TRUE) can invite users without specific role", async ({
 			request,
 		}) => {
 			const api = new OrgAPIClient(request);
-			const newUserData = generateTestOrgEmail("invited-by-admin");
+
+			// Create unique org admin
+			const domain = `rbac-org-${crypto.randomUUID().substring(0, 8)}.test.vetchium.com`;
+			const adminEmail = `admin@${domain}`;
+			const adminResult = await createTestOrgAdminDirect(
+				adminEmail,
+				TEST_PASSWORD,
+				"ind1"
+			);
 
 			try {
+				// Login admin
+				const loginReq: OrgLoginRequest = {
+					email: adminEmail,
+					domain: domain,
+					password: TEST_PASSWORD,
+				};
+				const loginRes = await api.login(loginReq);
+				expect(loginRes.status).toBe(200);
+
+				const tfaCode = await getTfaCodeFromEmail(adminEmail);
+				const tfaRes = await api.verifyTFA({
+					tfa_token: loginRes.body!.tfa_token,
+					tfa_code: tfaCode,
+					remember_me: true,
+				});
+				expect(tfaRes.status).toBe(200);
+				const adminToken = tfaRes.body!.session_token;
+
+				// Invite user
+				const newUserEmail = `invited-${crypto.randomUUID().substring(0, 8)}@${domain}`;
 				const inviteReq: OrgInviteUserRequest = {
-					email_address: newUserData.email,
+					email_address: newUserEmail,
 					full_name: "Invited User",
 				};
 
-				const response = await api.inviteUser(orgAdminToken, inviteReq);
+				const response = await api.inviteUser(adminToken, inviteReq);
 				expect(response.status).toBe(201);
 			} finally {
-				// Note: invited users need to complete setup before they exist, so no cleanup needed
+				await deleteTestOrgUser(adminEmail);
 			}
 		});
 
@@ -159,36 +67,121 @@ test.describe("Org Portal RBAC Tests", () => {
 			request,
 		}) => {
 			const api = new OrgAPIClient(request);
-			const newUserData = generateTestOrgEmail("invited-by-role");
 
-			const inviteReq: OrgInviteUserRequest = {
-				email_address: newUserData.email,
-				full_name: "Invited User",
-			};
-
-			const response = await api.inviteUser(
-				regularUserWithRoleToken,
-				inviteReq
+			// Create unique org admin
+			const domain = `rbac-org-${crypto.randomUUID().substring(0, 8)}.test.vetchium.com`;
+			const adminEmail = `admin@${domain}`;
+			const adminResult = await createTestOrgAdminDirect(
+				adminEmail,
+				TEST_PASSWORD,
+				"ind1"
 			);
-			expect(response.status).toBe(201);
+
+			// Create regular user with role
+			const userWithRoleEmail = `user-with-role@${domain}`;
+			const userResult = await createTestOrgUserDirect(
+				userWithRoleEmail,
+				TEST_PASSWORD,
+				"ind1",
+				{
+					employerId: adminResult.employerId,
+				}
+			);
+			await assignRoleToOrgUser(
+				userResult.orgUserId,
+				"employer:invite_users"
+			);
+
+			try {
+				// Login user with role
+				const loginReq: OrgLoginRequest = {
+					email: userWithRoleEmail,
+					domain: domain,
+					password: TEST_PASSWORD,
+				};
+				await deleteEmailsFor(loginReq.email);
+				const loginRes = await api.login(loginReq);
+				expect(loginRes.status).toBe(200);
+
+				const tfaCode = await getTfaCodeFromEmail(userWithRoleEmail);
+				const tfaRes = await api.verifyTFA({
+					tfa_token: loginRes.body!.tfa_token,
+					tfa_code: tfaCode,
+					remember_me: true,
+				});
+				expect(tfaRes.status).toBe(200);
+				const userToken = tfaRes.body!.session_token;
+
+				// Invite user
+				const newUserEmail = `invited-${crypto.randomUUID().substring(0, 8)}@${domain}`;
+				const inviteReq: OrgInviteUserRequest = {
+					email_address: newUserEmail,
+					full_name: "Invited User",
+				};
+
+				const response = await api.inviteUser(userToken, inviteReq);
+				expect(response.status).toBe(201);
+			} finally {
+				await deleteTestOrgUser(adminEmail);
+			}
 		});
 
 		test("Regular user WITHOUT employer:invite_users role gets 403 when inviting", async ({
 			request,
 		}) => {
 			const api = new OrgAPIClient(request);
-			const newUserData = generateTestOrgEmail("invite-attempt");
 
-			const inviteReq: OrgInviteUserRequest = {
-				email_address: newUserData.email,
-				full_name: "Invited User",
-			};
-
-			const response = await api.inviteUser(
-				regularUserWithoutRoleToken,
-				inviteReq
+			// Create unique org admin
+			const domain = `rbac-org-${crypto.randomUUID().substring(0, 8)}.test.vetchium.com`;
+			const adminEmail = `admin@${domain}`;
+			const adminResult = await createTestOrgAdminDirect(
+				adminEmail,
+				TEST_PASSWORD,
+				"ind1"
 			);
-			expect(response.status).toBe(403);
+
+			// Create regular user WITHOUT role
+			const userWithoutRoleEmail = `user-without-role@${domain}`;
+			await createTestOrgUserDirect(
+				userWithoutRoleEmail,
+				TEST_PASSWORD,
+				"ind1",
+				{
+					employerId: adminResult.employerId,
+				}
+			);
+
+			try {
+				// Login user without role
+				const loginReq: OrgLoginRequest = {
+					email: userWithoutRoleEmail,
+					domain: domain,
+					password: TEST_PASSWORD,
+				};
+				const loginRes = await api.login(loginReq);
+				expect(loginRes.status).toBe(200);
+
+				const tfaCode = await getTfaCodeFromEmail(userWithoutRoleEmail);
+				const tfaRes = await api.verifyTFA({
+					tfa_token: loginRes.body!.tfa_token,
+					tfa_code: tfaCode,
+					remember_me: true,
+				});
+				expect(tfaRes.status).toBe(200);
+				const userToken = tfaRes.body!.session_token;
+
+				// Try to invite user
+				const newUserEmail = `invited-${crypto.randomUUID().substring(0, 8)}@${domain}`;
+				const inviteReq: OrgInviteUserRequest = {
+					email_address: newUserEmail,
+					full_name: "Invited User",
+				};
+
+				const response = await api.inviteUser(userToken, inviteReq);
+				expect(response.status).toBe(403);
+			} finally {
+				await deleteTestOrgUser(adminEmail);
+			}
 		});
 
 		test("Org admin (IsAdmin=TRUE) can assign roles without specific role", async ({
@@ -196,27 +189,55 @@ test.describe("Org Portal RBAC Tests", () => {
 		}) => {
 			const api = new OrgAPIClient(request);
 
-			// Create a target user
-			const targetData = generateTestOrgEmail("rbac-target-assign");
+			// Create unique org admin
+			const domain = `rbac-org-${crypto.randomUUID().substring(0, 8)}.test.vetchium.com`;
+			const adminEmail = `admin@${domain}`;
+			const adminResult = await createTestOrgAdminDirect(
+				adminEmail,
+				TEST_PASSWORD,
+				"ind1"
+			);
+
+			// Create target user
+			const targetEmail = `target-${crypto.randomUUID().substring(0, 8)}@${domain}`;
 			const targetResult = await createTestOrgUserDirect(
-				targetData.email,
+				targetEmail,
 				TEST_PASSWORD,
 				"ind1",
 				{
-					employerId: employerId,
+					employerId: adminResult.employerId,
 				}
 			);
 
 			try {
+				// Login admin
+				const loginReq: OrgLoginRequest = {
+					email: adminEmail,
+					domain: domain,
+					password: TEST_PASSWORD,
+				};
+				const loginRes = await api.login(loginReq);
+				expect(loginRes.status).toBe(200);
+
+				const tfaCode = await getTfaCodeFromEmail(adminEmail);
+				const tfaRes = await api.verifyTFA({
+					tfa_token: loginRes.body!.tfa_token,
+					tfa_code: tfaCode,
+					remember_me: true,
+				});
+				expect(tfaRes.status).toBe(200);
+				const adminToken = tfaRes.body!.session_token;
+
+				// Assign role
 				const assignReq = {
 					target_user_id: targetResult.orgUserId,
 					role_name: "employer:invite_users",
 				};
 
-				const response = await api.assignRole(orgAdminToken, assignReq);
+				const response = await api.assignRole(adminToken, assignReq);
 				expect(response.status).toBe(200);
 			} finally {
-				await deleteTestOrgUserOnly(targetData.email);
+				await deleteTestOrgUser(adminEmail);
 			}
 		});
 
@@ -225,14 +246,23 @@ test.describe("Org Portal RBAC Tests", () => {
 		}) => {
 			const api = new OrgAPIClient(request);
 
-			// Create a user with employer:manage_users role
-			const managerData = generateTestOrgEmail("rbac-manager");
+			// Create unique org admin
+			const domain = `rbac-org-${crypto.randomUUID().substring(0, 8)}.test.vetchium.com`;
+			const adminEmail = `admin@${domain}`;
+			const adminResult = await createTestOrgAdminDirect(
+				adminEmail,
+				TEST_PASSWORD,
+				"ind1"
+			);
+
+			// Create manager user with employer:manage_users role
+			const managerEmail = `manager-${crypto.randomUUID().substring(0, 8)}@${domain}`;
 			const managerResult = await createTestOrgUserDirect(
-				managerData.email,
+				managerEmail,
 				TEST_PASSWORD,
 				"ind1",
 				{
-					employerId: employerId,
+					employerId: adminResult.employerId,
 				}
 			);
 			await assignRoleToOrgUser(
@@ -240,29 +270,28 @@ test.describe("Org Portal RBAC Tests", () => {
 				"employer:manage_users"
 			);
 
-			// Create a target user
-			const targetData = generateTestOrgEmail("rbac-target-assign2");
+			// Create target user
+			const targetEmail = `target-${crypto.randomUUID().substring(0, 8)}@${domain}`;
 			const targetResult = await createTestOrgUserDirect(
-				targetData.email,
+				targetEmail,
 				TEST_PASSWORD,
 				"ind1",
 				{
-					employerId: employerId,
-					domain: orgAdminDomain,
+					employerId: adminResult.employerId,
 				}
 			);
 
 			try {
 				// Login manager
 				const loginReq: OrgLoginRequest = {
-					email: managerData.email,
-					domain: orgAdminDomain,
+					email: managerEmail,
+					domain: domain,
 					password: TEST_PASSWORD,
 				};
 				const loginRes = await api.login(loginReq);
 				expect(loginRes.status).toBe(200);
 
-				const tfaCode = await getTfaCodeFromEmail(managerData.email);
+				const tfaCode = await getTfaCodeFromEmail(managerEmail);
 				const tfaRes = await api.verifyTFA({
 					tfa_token: loginRes.body!.tfa_token,
 					tfa_code: tfaCode,
@@ -271,6 +300,7 @@ test.describe("Org Portal RBAC Tests", () => {
 				expect(tfaRes.status).toBe(200);
 				const managerToken = tfaRes.body!.session_token;
 
+				// Assign role
 				const assignReq = {
 					target_user_id: targetResult.orgUserId,
 					role_name: "employer:invite_users",
@@ -279,8 +309,7 @@ test.describe("Org Portal RBAC Tests", () => {
 				const response = await api.assignRole(managerToken, assignReq);
 				expect(response.status).toBe(200);
 			} finally {
-				await deleteTestOrgUserOnly(managerData.email);
-				await deleteTestOrgUserOnly(targetData.email);
+				await deleteTestOrgUser(adminEmail);
 			}
 		});
 
@@ -289,30 +318,66 @@ test.describe("Org Portal RBAC Tests", () => {
 		}) => {
 			const api = new OrgAPIClient(request);
 
-			// Create a target user
-			const targetData = generateTestOrgEmail("rbac-target-assign3");
-			const targetResult = await createTestOrgUserDirect(
-				targetData.email,
+			// Create unique org admin
+			const domain = `rbac-org-${crypto.randomUUID().substring(0, 8)}.test.vetchium.com`;
+			const adminEmail = `admin@${domain}`;
+			const adminResult = await createTestOrgAdminDirect(
+				adminEmail,
+				TEST_PASSWORD,
+				"ind1"
+			);
+
+			// Create regular user WITHOUT role
+			const userWithoutRoleEmail = `user-${crypto.randomUUID().substring(0, 8)}@${domain}`;
+			await createTestOrgUserDirect(
+				userWithoutRoleEmail,
 				TEST_PASSWORD,
 				"ind1",
 				{
-					employerId: employerId,
+					employerId: adminResult.employerId,
+				}
+			);
+
+			// Create target user
+			const targetEmail = `target-${crypto.randomUUID().substring(0, 8)}@${domain}`;
+			const targetResult = await createTestOrgUserDirect(
+				targetEmail,
+				TEST_PASSWORD,
+				"ind1",
+				{
+					employerId: adminResult.employerId,
 				}
 			);
 
 			try {
+				// Login user without role
+				const loginReq: OrgLoginRequest = {
+					email: userWithoutRoleEmail,
+					domain: domain,
+					password: TEST_PASSWORD,
+				};
+				const loginRes = await api.login(loginReq);
+				expect(loginRes.status).toBe(200);
+
+				const tfaCode = await getTfaCodeFromEmail(userWithoutRoleEmail);
+				const tfaRes = await api.verifyTFA({
+					tfa_token: loginRes.body!.tfa_token,
+					tfa_code: tfaCode,
+					remember_me: true,
+				});
+				expect(tfaRes.status).toBe(200);
+				const userToken = tfaRes.body!.session_token;
+
+				// Try to assign role
 				const assignReq = {
 					target_user_id: targetResult.orgUserId,
 					role_name: "employer:invite_users",
 				};
 
-				const response = await api.assignRole(
-					regularUserWithoutRoleToken,
-					assignReq
-				);
+				const response = await api.assignRole(userToken, assignReq);
 				expect(response.status).toBe(403);
 			} finally {
-				await deleteTestOrgUserOnly(targetData.email);
+				await deleteTestOrgUser(adminEmail);
 			}
 		});
 
@@ -321,14 +386,23 @@ test.describe("Org Portal RBAC Tests", () => {
 		}) => {
 			const api = new OrgAPIClient(request);
 
-			// Create a target user with a role
-			const targetData = generateTestOrgEmail("rbac-target-remove");
+			// Create unique org admin
+			const domain = `rbac-org-${crypto.randomUUID().substring(0, 8)}.test.vetchium.com`;
+			const adminEmail = `admin@${domain}`;
+			const adminResult = await createTestOrgAdminDirect(
+				adminEmail,
+				TEST_PASSWORD,
+				"ind1"
+			);
+
+			// Create target user with a role
+			const targetEmail = `target-${crypto.randomUUID().substring(0, 8)}@${domain}`;
 			const targetResult = await createTestOrgUserDirect(
-				targetData.email,
+				targetEmail,
 				TEST_PASSWORD,
 				"ind1",
 				{
-					employerId: employerId,
+					employerId: adminResult.employerId,
 				}
 			);
 			await assignRoleToOrgUser(
@@ -337,15 +411,34 @@ test.describe("Org Portal RBAC Tests", () => {
 			);
 
 			try {
+				// Login admin
+				const loginReq: OrgLoginRequest = {
+					email: adminEmail,
+					domain: domain,
+					password: TEST_PASSWORD,
+				};
+				const loginRes = await api.login(loginReq);
+				expect(loginRes.status).toBe(200);
+
+				const tfaCode = await getTfaCodeFromEmail(adminEmail);
+				const tfaRes = await api.verifyTFA({
+					tfa_token: loginRes.body!.tfa_token,
+					tfa_code: tfaCode,
+					remember_me: true,
+				});
+				expect(tfaRes.status).toBe(200);
+				const adminToken = tfaRes.body!.session_token;
+
+				// Remove role
 				const removeReq = {
 					target_user_id: targetResult.orgUserId,
 					role_name: "employer:invite_users",
 				};
 
-				const response = await api.removeRole(orgAdminToken, removeReq);
+				const response = await api.removeRole(adminToken, removeReq);
 				expect(response.status).toBe(200);
 			} finally {
-				await deleteTestOrgUserOnly(targetData.email);
+				await deleteTestOrgUser(adminEmail);
 			}
 		});
 
@@ -354,74 +447,124 @@ test.describe("Org Portal RBAC Tests", () => {
 		}) => {
 			const api = new OrgAPIClient(request);
 
-			const removeReq = {
-				target_user_id: regularUserWithRoleId,
-				role_name: "employer:invite_users",
-			};
-
-			const response = await api.removeRole(
-				regularUserWithoutRoleToken,
-				removeReq
+			// Create unique org admin
+			const domain = `rbac-org-${crypto.randomUUID().substring(0, 8)}.test.vetchium.com`;
+			const adminEmail = `admin@${domain}`;
+			const adminResult = await createTestOrgAdminDirect(
+				adminEmail,
+				TEST_PASSWORD,
+				"ind1"
 			);
-			expect(response.status).toBe(403);
+
+			// Create user with role
+			const userWithRoleEmail = `user-with-role-${crypto.randomUUID().substring(0, 8)}@${domain}`;
+			const userWithRoleResult = await createTestOrgUserDirect(
+				userWithRoleEmail,
+				TEST_PASSWORD,
+				"ind1",
+				{
+					employerId: adminResult.employerId,
+				}
+			);
+			await assignRoleToOrgUser(
+				userWithRoleResult.orgUserId,
+				"employer:invite_users"
+			);
+
+			// Create regular user WITHOUT manage_users role
+			const userWithoutRoleEmail = `user-${crypto.randomUUID().substring(0, 8)}@${domain}`;
+			await createTestOrgUserDirect(
+				userWithoutRoleEmail,
+				TEST_PASSWORD,
+				"ind1",
+				{
+					employerId: adminResult.employerId,
+				}
+			);
+
+			try {
+				// Login user without role
+				const loginReq: OrgLoginRequest = {
+					email: userWithoutRoleEmail,
+					domain: domain,
+					password: TEST_PASSWORD,
+				};
+				const loginRes = await api.login(loginReq);
+				expect(loginRes.status).toBe(200);
+
+				const tfaCode = await getTfaCodeFromEmail(userWithoutRoleEmail);
+				const tfaRes = await api.verifyTFA({
+					tfa_token: loginRes.body!.tfa_token,
+					tfa_code: tfaCode,
+					remember_me: true,
+				});
+				expect(tfaRes.status).toBe(200);
+				const userToken = tfaRes.body!.session_token;
+
+				// Try to remove role
+				const removeReq = {
+					target_user_id: userWithRoleResult.orgUserId,
+					role_name: "employer:invite_users",
+				};
+
+				const response = await api.removeRole(userToken, removeReq);
+				expect(response.status).toBe(403);
+			} finally {
+				await deleteTestOrgUser(adminEmail);
+			}
 		});
 	});
 
 	test.describe("Auth-only endpoints (no RBAC)", () => {
-		let orgUserEmail: string;
-		let orgUserDomain: string;
-		let orgUserToken: string;
-
-		test.beforeAll(async ({ request }) => {
-			const api = new OrgAPIClient(request);
-
-			// Create a regular org user without any special roles
-			const userData = generateTestOrgEmail("rbac-auth-only");
-			orgUserEmail = userData.email;
-			orgUserDomain = userData.domain;
-			await createTestOrgUserDirect(orgUserEmail, TEST_PASSWORD);
-
-			// Login
-			const loginReq: OrgLoginRequest = {
-				email: orgUserEmail,
-				domain: orgUserDomain,
-				password: TEST_PASSWORD,
-			};
-			await deleteEmailsFor(loginReq.email);
-			const loginRes = await api.login(loginReq);
-			expect(loginRes.status).toBe(200);
-
-			const tfaCode = await getTfaCodeFromEmail(orgUserEmail);
-			const tfaRes = await api.verifyTFA({
-				tfa_token: loginRes.body!.tfa_token,
-				tfa_code: tfaCode,
-				remember_me: false,
-			});
-			expect(tfaRes.status).toBe(200);
-			orgUserToken = tfaRes.body!.session_token;
-		});
-
-		test.afterAll(async () => {
-			await deleteTestOrgUser(orgUserEmail);
-		});
-
 		test("Any authenticated org user can change their password", async ({
 			request,
 		}) => {
 			const api = new OrgAPIClient(request);
 
-			const response = await api.changePassword(orgUserToken, {
-				current_password: TEST_PASSWORD,
-				new_password: "NewPassword123$",
-			});
-			expect(response.status).toBe(200);
+			// Create unique org user
+			const userData = generateTestOrgEmail("rbac-auth-only");
+			const adminEmail = `admin@${userData.domain}`;
+			await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD, "ind1");
 
-			// Change it back
-			const revertResponse = await api.changePassword(orgUserToken, {
-				current_password: "NewPassword123$",
-				new_password: TEST_PASSWORD,
-			});
-			expect(revertResponse.status).toBe(200);
+			const orgUserEmail = adminEmail;
+			const orgUserDomain = userData.domain;
+
+			try {
+				// Login
+				const loginReq: OrgLoginRequest = {
+					email: orgUserEmail,
+					domain: orgUserDomain,
+					password: TEST_PASSWORD,
+				};
+				await deleteEmailsFor(loginReq.email);
+				const loginRes = await api.login(loginReq);
+				expect(loginRes.status).toBe(200);
+
+				const tfaCode = await getTfaCodeFromEmail(orgUserEmail);
+				const tfaRes = await api.verifyTFA({
+					tfa_token: loginRes.body!.tfa_token,
+					tfa_code: tfaCode,
+					remember_me: false,
+				});
+				expect(tfaRes.status).toBe(200);
+				const orgUserToken = tfaRes.body!.session_token;
+
+				// Change password
+				const response = await api.changePassword(orgUserToken, {
+					current_password: TEST_PASSWORD,
+					new_password: "NewPassword123$",
+				});
+				expect(response.status).toBe(200);
+
+				// Change it back
+				const revertResponse = await api.changePassword(orgUserToken, {
+					current_password: "NewPassword123$",
+					new_password: TEST_PASSWORD,
+				});
+				expect(revertResponse.status).toBe(200);
+			} finally {
+				await deleteTestOrgUser(adminEmail);
+			}
 		});
 
 		test("Any authenticated org user can set their language", async ({
@@ -429,36 +572,81 @@ test.describe("Org Portal RBAC Tests", () => {
 		}) => {
 			const api = new OrgAPIClient(request);
 
-			const response = await api.setLanguage(orgUserToken, {
-				language: "de-DE",
-			});
-			expect(response.status).toBe(200);
+			// Create unique org user
+			const userData = generateTestOrgEmail("rbac-auth-lang");
+			const adminEmail = `admin@${userData.domain}`;
+			await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD, "ind1");
+
+			const orgUserEmail = adminEmail;
+			const orgUserDomain = userData.domain;
+
+			try {
+				// Login
+				const loginReq: OrgLoginRequest = {
+					email: orgUserEmail,
+					domain: orgUserDomain,
+					password: TEST_PASSWORD,
+				};
+				await deleteEmailsFor(loginReq.email);
+				const loginRes = await api.login(loginReq);
+				expect(loginRes.status).toBe(200);
+
+				const tfaCode = await getTfaCodeFromEmail(orgUserEmail);
+				const tfaRes = await api.verifyTFA({
+					tfa_token: loginRes.body!.tfa_token,
+					tfa_code: tfaCode,
+					remember_me: false,
+				});
+				expect(tfaRes.status).toBe(200);
+				const orgUserToken = tfaRes.body!.session_token;
+
+				// Set language
+				const response = await api.setLanguage(orgUserToken, {
+					language: "de-DE",
+				});
+				expect(response.status).toBe(200);
+			} finally {
+				await deleteTestOrgUser(adminEmail);
+			}
 		});
 
 		test("Any authenticated org user can logout", async ({ request }) => {
 			const api = new OrgAPIClient(request);
 
-			// Create another session to logout
-			const loginReq: OrgLoginRequest = {
-				email: orgUserEmail,
-				domain: orgUserDomain,
-				password: TEST_PASSWORD,
-			};
-			await deleteEmailsFor(loginReq.email);
-			const loginRes = await api.login(loginReq);
-			expect(loginRes.status).toBe(200);
+			// Create unique org user
+			const userData = generateTestOrgEmail("rbac-auth-logout");
+			const adminEmail = `admin@${userData.domain}`;
+			await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD, "ind1");
 
-			const tfaCode = await getTfaCodeFromEmail(orgUserEmail);
-			const tfaRes = await api.verifyTFA({
-				tfa_token: loginRes.body!.tfa_token,
-				tfa_code: tfaCode,
-				remember_me: false,
-			});
-			expect(tfaRes.status).toBe(200);
-			const tempToken = tfaRes.body!.session_token;
+			const orgUserEmail = adminEmail;
+			const orgUserDomain = userData.domain;
 
-			const response = await api.logout(tempToken);
-			expect(response.status).toBe(200);
+			try {
+				// Login
+				const loginReq: OrgLoginRequest = {
+					email: orgUserEmail,
+					domain: orgUserDomain,
+					password: TEST_PASSWORD,
+				};
+				await deleteEmailsFor(loginReq.email);
+				const loginRes = await api.login(loginReq);
+				expect(loginRes.status).toBe(200);
+
+				const tfaCode = await getTfaCodeFromEmail(orgUserEmail);
+				const tfaRes = await api.verifyTFA({
+					tfa_token: loginRes.body!.tfa_token,
+					tfa_code: tfaCode,
+					remember_me: false,
+				});
+				expect(tfaRes.status).toBe(200);
+				const tempToken = tfaRes.body!.session_token;
+
+				// Logout
+				const response = await api.logout(tempToken);
+				expect(response.status).toBe(200);
+			} finally {
+				await deleteTestOrgUser(adminEmail);
+			}
 		});
 	});
 
