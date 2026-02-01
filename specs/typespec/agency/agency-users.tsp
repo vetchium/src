@@ -442,3 +442,36 @@ interface AgencySetLanguage {
         @statusCode statusCode: 401;
     };
 }
+
+// ===================================
+// Get Current User Info
+// ===================================
+
+model AgencyMyInfoResponse {
+    @doc("Agency user ID")
+    agency_user_id: string;
+    @doc("Full name of the agency user")
+    full_name: string;
+    @doc("User's preferred language (BCP 47 tag)")
+    preferred_language: LanguageCode;
+    @doc("Agency name for display")
+    agency_name: string;
+    @doc("Whether this user is an agency admin")
+    is_admin: boolean;
+    @doc("Array of role names assigned to this user")
+    roles: string[];
+}
+
+@route("/agency/myinfo")
+interface AgencyMyInfo {
+    @tag("AgencyUsers")
+    @get
+    @doc("Get current agency user information including roles")
+    getMyInfo(): {
+        @statusCode statusCode: 200;
+        @body response: AgencyMyInfoResponse;
+    } | {
+        @doc("Invalid or expired session token")
+        @statusCode statusCode: 401;
+    };
+}

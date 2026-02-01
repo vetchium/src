@@ -442,3 +442,36 @@ interface OrgSetLanguage {
         @statusCode statusCode: 401;
     };
 }
+
+// ===================================
+// Get Current User Info
+// ===================================
+
+model OrgMyInfoResponse {
+    @doc("Org user ID")
+    org_user_id: string;
+    @doc("Full name of the org user")
+    full_name: string;
+    @doc("User's preferred language (BCP 47 tag)")
+    preferred_language: LanguageCode;
+    @doc("Employer name for display")
+    employer_name: string;
+    @doc("Whether this user is an employer admin")
+    is_admin: boolean;
+    @doc("Array of role names assigned to this user")
+    roles: string[];
+}
+
+@route("/employer/myinfo")
+interface OrgMyInfo {
+    @tag("OrgUsers")
+    @get
+    @doc("Get current org user information including roles")
+    getMyInfo(): {
+        @statusCode statusCode: 200;
+        @body response: OrgMyInfoResponse;
+    } | {
+        @doc("Invalid or expired session token")
+        @statusCode statusCode: 401;
+    };
+}

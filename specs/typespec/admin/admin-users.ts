@@ -381,3 +381,15 @@ export interface FilterAdminUsersResponse {
 	items: AdminUser[];
 	next_cursor: string;
 }
+
+// ============================================================================
+// Get Current User Info
+// ============================================================================
+
+export interface AdminMyInfoResponse {
+	admin_user_id: string;
+	email_address: EmailAddress;
+	full_name: string;
+	preferred_language: LanguageCode;
+	roles: string[];
+}

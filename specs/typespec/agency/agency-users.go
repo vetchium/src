@@ -407,3 +407,16 @@ func (r AgencySetLanguageRequest) Validate() []common.ValidationError {
 
 	return errs
 }
+
+// ===================================
+// Get Current User Info
+// ===================================
+
+type AgencyMyInfoResponse struct {
+	AgencyUserID      string              `json:"agency_user_id"`
+	FullName          string              `json:"full_name"`
+	PreferredLanguage common.LanguageCode `json:"preferred_language"`
+	AgencyName        string              `json:"agency_name"`
+	IsAdmin           bool                `json:"is_admin"`
+	Roles             []string            `json:"roles"`
+}

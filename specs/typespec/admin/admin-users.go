@@ -273,3 +273,15 @@ type FilterAdminUsersResponse struct {
 	Items      []AdminUser `json:"items"`
 	NextCursor string      `json:"next_cursor"`
 }
+
+// ============================================
+// Get Current User Info
+// ============================================
+
+type AdminMyInfoResponse struct {
+	AdminUserID       string              `json:"admin_user_id"`
+	EmailAddress      common.EmailAddress `json:"email_address"`
+	FullName          string              `json:"full_name"`
+	PreferredLanguage common.LanguageCode `json:"preferred_language"`
+	Roles             []string            `json:"roles"`
+}

@@ -531,3 +531,16 @@ export function validateOrgSetLanguageRequest(
 
 	return errs;
 }
+
+// ===================================
+// Get Current User Info
+// ===================================
+
+export interface OrgMyInfoResponse {
+	org_user_id: string;
+	full_name: string;
+	preferred_language: LanguageCode;
+	employer_name: string;
+	is_admin: boolean;
+	roles: string[];
+}

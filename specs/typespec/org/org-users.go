@@ -423,3 +423,16 @@ func (r OrgSetLanguageRequest) Validate() []common.ValidationError {
 
 	return errs
 }
+
+// ===================================
+// Get Current User Info
+// ===================================
+
+type OrgMyInfoResponse struct {
+	OrgUserID         string              `json:"org_user_id"`
+	FullName          string              `json:"full_name"`
+	PreferredLanguage common.LanguageCode `json:"preferred_language"`
+	EmployerName      string              `json:"employer_name"`
+	IsAdmin           bool                `json:"is_admin"`
+	Roles             []string            `json:"roles"`
+}

@@ -279,3 +279,16 @@ export function validateAgencySetLanguageRequest(
 
 	return errs;
 }
+
+// ===================================
+// Get Current User Info
+// ===================================
+
+export interface AgencyMyInfoResponse {
+	agency_user_id: string;
+	full_name: string;
+	preferred_language: LanguageCode;
+	agency_name: string;
+	is_admin: boolean;
+	roles: string[];
+}

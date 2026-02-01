@@ -272,3 +272,34 @@ interface AdminFilterUsers {
         @statusCode statusCode: 401;
     };
 }
+
+// ===================================
+// Get Current User Info
+// ===================================
+
+model AdminMyInfoResponse {
+    @doc("Admin user ID")
+    admin_user_id: string;
+    @doc("Email address of the admin user")
+    email_address: EmailAddress;
+    @doc("Full name of the admin user")
+    full_name: string;
+    @doc("User's preferred language (BCP 47 tag)")
+    preferred_language: LanguageCode;
+    @doc("Array of role names assigned to this user")
+    roles: string[];
+}
+
+@route("/admin/myinfo")
+interface AdminMyInfo {
+    @tag("AdminUsers")
+    @get
+    @doc("Get current admin user information including roles")
+    getMyInfo(): {
+        @statusCode statusCode: 200;
+        @body response: AdminMyInfoResponse;
+    } | {
+        @doc("Invalid or expired session token")
+        @statusCode statusCode: 401;
+    };
+}
