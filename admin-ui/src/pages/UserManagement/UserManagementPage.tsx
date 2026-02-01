@@ -29,6 +29,7 @@ import { getApiBaseUrl } from "../../config";
 import { useAuth } from "../../hooks/useAuth";
 import { useMyInfo } from "../../hooks/useMyInfo";
 import { formatDateTime } from "../../utils/dateFormat";
+import { UserDetailDrawer } from "./UserDetailDrawer";
 
 const { Title } = Typography;
 
@@ -46,6 +47,9 @@ export function UserManagementPage() {
 	const [nextCursor, setNextCursor] = useState<string | null>(null);
 	const [hasMore, setHasMore] = useState(false);
 	const [statusFilter, setStatusFilter] = useState<UserStatus>("all");
+
+	const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
+	const [drawerVisible, setDrawerVisible] = useState(false);
 
 	const canInviteUsers = myInfo?.roles.includes("admin:invite_users") || false;
 	const canManageUsers = myInfo?.roles.includes("admin:manage_users") || false;
@@ -133,6 +137,16 @@ export function UserManagementPage() {
 		fetchUsers(null, "", status);
 	};
 
+	const handleViewDetails = (user: AdminUser) => {
+		setSelectedUser(user);
+		setDrawerVisible(true);
+	};
+
+	const handleUserUpdated = () => {
+		// Refresh the user list
+		fetchUsers(null, searchQuery, statusFilter);
+	};
+
 	const columns = [
 		{
 			title: t("table.email"),
@@ -188,7 +202,12 @@ export function UserManagementPage() {
 			key: "actions",
 			render: (_: unknown, record: AdminUser) => (
 				<Space>
-					<Button type="link" size="small" icon={<UserOutlined />}>
+					<Button
+						type="link"
+						size="small"
+						icon={<UserOutlined />}
+						onClick={() => handleViewDetails(record)}
+					>
 						{t("table.viewDetails")}
 					</Button>
 					{canManageUsers && (
@@ -277,6 +296,16 @@ export function UserManagementPage() {
 					</Spin>
 				</Space>
 			</Card>
+
+			<UserDetailDrawer
+				user={selectedUser}
+				visible={drawerVisible}
+				onClose={() => {
+					setDrawerVisible(false);
+					setSelectedUser(null);
+				}}
+				onUserUpdated={handleUserUpdated}
+			/>
 		</div>
 	);
 }
