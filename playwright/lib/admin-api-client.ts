@@ -15,6 +15,7 @@ import {
 	AdminInviteUserResponse,
 	AssignRoleRequest,
 	RemoveRoleRequest,
+	AdminMyInfoResponse,
 } from "vetchium-specs/admin/admin-users";
 import type {
 	AddApprovedDomainRequest,
@@ -879,6 +880,43 @@ export class AdminAPIClient {
 		return {
 			status: response.status(),
 			body: body as import("vetchium-specs/admin/admin-users").FilterAdminUsersResponse,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	// ============================================================================
+	// User Info
+	// ============================================================================
+
+	/**
+	 * GET /admin/myinfo
+	 * Gets current admin user information including roles.
+	 */
+	async getMyInfo(
+		sessionToken: string
+	): Promise<APIResponse<AdminMyInfoResponse>> {
+		const response = await this.request.get("/admin/myinfo", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as AdminMyInfoResponse,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	/**
+	 * GET /admin/myinfo without auth for testing
+	 */
+	async getMyInfoWithoutAuth(): Promise<APIResponse<AdminMyInfoResponse>> {
+		const response = await this.request.get("/admin/myinfo");
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as AdminMyInfoResponse,
 			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}

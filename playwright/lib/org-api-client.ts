@@ -22,6 +22,7 @@ import type {
 	OrgRequestPasswordResetResponse,
 	OrgCompletePasswordResetRequest,
 	OrgChangePasswordRequest,
+	OrgMyInfoResponse,
 } from "vetchium-specs/org/org-users";
 import type {
 	ClaimDomainRequest,
@@ -998,6 +999,43 @@ export class OrgAPIClient {
 			status: response.status(),
 			body: responseBody as { message: string },
 			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	// ============================================================================
+	// User Info
+	// ============================================================================
+
+	/**
+	 * GET /employer/myinfo
+	 * Gets current org user information including roles.
+	 */
+	async getMyInfo(
+		sessionToken: string
+	): Promise<APIResponse<OrgMyInfoResponse>> {
+		const response = await this.request.get("/employer/myinfo", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as OrgMyInfoResponse,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	/**
+	 * GET /employer/myinfo without auth for testing
+	 */
+	async getMyInfoWithoutAuth(): Promise<APIResponse<OrgMyInfoResponse>> {
+		const response = await this.request.get("/employer/myinfo");
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as OrgMyInfoResponse,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 }

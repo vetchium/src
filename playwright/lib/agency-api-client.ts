@@ -22,6 +22,7 @@ import type {
 	AgencyChangePasswordRequest,
 	AgencyInviteUserRequest,
 	AgencyInviteUserResponse,
+	AgencyMyInfoResponse,
 } from "vetchium-specs/agency/agency-users";
 import type { APIResponse } from "./api-client";
 
@@ -782,6 +783,43 @@ export class AgencyAPIClient {
 			status: response.status(),
 			body: undefined,
 			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	// ============================================================================
+	// User Info
+	// ============================================================================
+
+	/**
+	 * GET /agency/myinfo
+	 * Gets current agency user information including roles.
+	 */
+	async getMyInfo(
+		sessionToken: string
+	): Promise<APIResponse<AgencyMyInfoResponse>> {
+		const response = await this.request.get("/agency/myinfo", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as AgencyMyInfoResponse,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	/**
+	 * GET /agency/myinfo without auth for testing
+	 */
+	async getMyInfoWithoutAuth(): Promise<APIResponse<AgencyMyInfoResponse>> {
+		const response = await this.request.get("/agency/myinfo");
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as AgencyMyInfoResponse,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 }
