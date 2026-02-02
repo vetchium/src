@@ -62,7 +62,7 @@ export function UserDetailDrawer({
 
 	// Get roles that can be assigned (not already assigned)
 	const availableRoles = EMPLOYER_ROLES.filter(
-		(role) => !user?.roles.includes(role)
+		(role) => !(user?.roles ?? []).includes(role)
 	);
 
 	const handleAssignRole = async () => {
@@ -261,7 +261,7 @@ export function UserDetailDrawer({
 						>
 							<div>
 								<Title level={5}>{t("drawer.currentRoles")}</Title>
-								{user.roles.length === 0 ? (
+								{!user.roles || user.roles.length === 0 ? (
 									<div style={{ color: "#999", fontStyle: "italic" }}>
 										{t("drawer.noRolesAssigned")}
 									</div>

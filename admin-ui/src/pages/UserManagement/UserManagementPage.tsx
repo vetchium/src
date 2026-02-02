@@ -205,9 +205,9 @@ export function UserManagementPage() {
 			title: t("table.roles"),
 			dataIndex: "roles",
 			key: "roles",
-			render: (roles: string[]) => (
+			render: (roles: string[] | null) => (
 				<>
-					{roles.length === 0 ? (
+					{!roles || roles.length === 0 ? (
 						<span style={{ color: "#999" }}>{t("table.noRoles")}</span>
 					) : (
 						<Space size={[0, 4]} wrap>
