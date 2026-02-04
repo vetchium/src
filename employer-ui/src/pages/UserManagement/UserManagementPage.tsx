@@ -32,6 +32,7 @@ import { formatDateTime } from "../../utils/dateFormat";
 import { UserDetailDrawer } from "./UserDetailDrawer";
 import { DisableUserModal } from "./DisableUserModal";
 import { EnableUserModal } from "./EnableUserModal";
+import { InviteUserModal } from "./InviteUserModal";
 
 const { Title } = Typography;
 
@@ -58,6 +59,8 @@ export function UserManagementPage() {
 
 	const [enableModalVisible, setEnableModalVisible] = useState(false);
 	const [userToEnable, setUserToEnable] = useState<string | null>(null);
+
+	const [inviteModalVisible, setInviteModalVisible] = useState(false);
 
 	// Permission logic for Org portal: is_admin OR has specific role
 	const canInviteUsers =
@@ -298,7 +301,11 @@ export function UserManagementPage() {
 							</Button>
 						</Link>
 						{canInviteUsers && (
-							<Button type="primary" icon={<PlusOutlined />}>
+							<Button
+								type="primary"
+								icon={<PlusOutlined />}
+								onClick={() => setInviteModalVisible(true)}
+							>
 								{t("inviteUser")}
 							</Button>
 						)}
@@ -370,6 +377,15 @@ export function UserManagementPage() {
 					setUserToEnable(null);
 				}}
 				onSuccess={handleEnableSuccess}
+			/>
+
+			<InviteUserModal
+				visible={inviteModalVisible}
+				onCancel={() => setInviteModalVisible(false)}
+				onSuccess={() => {
+					setInviteModalVisible(false);
+					fetchUsers(null, searchQuery, statusFilter);
+				}}
 			/>
 		</div>
 	);

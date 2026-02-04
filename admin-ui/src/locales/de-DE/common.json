@@ -25,7 +25,13 @@
 	"action": {
 		"backHome": "Zur Startseite"
 	},
+	"actions": {
+		"back": "Zurück"
+	},
 	"errors": {
 		"pageNotFound": "Die angeforderte Seite existiert leider nicht."
+	},
+	"table": {
+		"empty": "Keine Daten"
 	}
 }

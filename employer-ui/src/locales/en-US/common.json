@@ -22,10 +22,20 @@
 	"logout": {
 		"button": "Logout"
 	},
+	"userManagement": {
+		"title": "User Management",
+		"description": "Manage users and their roles"
+	},
 	"action": {
 		"backHome": "Back Home"
 	},
+	"actions": {
+		"back": "Back"
+	},
 	"errors": {
 		"pageNotFound": "Sorry, the page you visited does not exist."
+	},
+	"table": {
+		"empty": "No data"
 	}
 }

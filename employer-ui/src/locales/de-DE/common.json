@@ -22,10 +22,20 @@
 	"logout": {
 		"button": "Abmelden"
 	},
+	"userManagement": {
+		"title": "Benutzerverwaltung",
+		"description": "Benutzer und ihre Rollen verwalten"
+	},
 	"action": {
 		"backHome": "Zurück zur Startseite"
 	},
+	"actions": {
+		"back": "Zurück"
+	},
 	"errors": {
 		"pageNotFound": "Die aufgerufene Seite existiert leider nicht."
+	},
+	"table": {
+		"empty": "Keine Daten"
 	}
 }

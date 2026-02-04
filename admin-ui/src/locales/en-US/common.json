@@ -25,7 +25,13 @@
 	"action": {
 		"backHome": "Back Home"
 	},
+	"actions": {
+		"back": "Back"
+	},
 	"errors": {
 		"pageNotFound": "Sorry, the page you visited does not exist."
+	},
+	"table": {
+		"empty": "No data"
 	}
 }

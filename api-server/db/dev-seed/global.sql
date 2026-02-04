@@ -10,8 +10,21 @@ VALUES
 ON CONFLICT DO NOTHING;
 
 -- Test admin users (password: Password123$)
-INSERT INTO admin_users (admin_user_id, email_address, password_hash, status)
-VALUES
-    (gen_random_uuid(), 'admin1@vetchium.com', '$2a$10$ysK3vvBnAdgkjjkE2Q40n.HzZjtWKeTMlAADqCnbUOmLCgUb5fwQa', 'active'),
-    (gen_random_uuid(), 'admin2@vetchium.com', '$2a$10$ysK3vvBnAdgkjjkE2Q40n.HzZjtWKeTMlAADqCnbUOmLCgUb5fwQa', 'active')
+-- Use CTE to capture inserted UUIDs and assign roles in one transaction-like operation
+WITH inserted_admins AS (
+    INSERT INTO admin_users (admin_user_id, email_address, password_hash, status)
+    VALUES
+        (gen_random_uuid(), 'admin1@vetchium.com', '$2a$10$ysK3vvBnAdgkjjkE2Q40n.HzZjtWKeTMlAADqCnbUOmLCgUb5fwQa', 'active'),
+        (gen_random_uuid(), 'admin2@vetchium.com', '$2a$10$ysK3vvBnAdgkjjkE2Q40n.HzZjtWKeTMlAADqCnbUOmLCgUb5fwQa', 'active')
+    ON CONFLICT DO NOTHING
+    RETURNING admin_user_id, email_address
+)
+INSERT INTO admin_user_roles (admin_user_id, role_id)
+SELECT ia.admin_user_id, r.role_id
+FROM inserted_admins ia
+CROSS JOIN roles r
+WHERE
+    (ia.email_address = 'admin1@vetchium.com' AND r.role_name IN ('admin:invite_users', 'admin:manage_users'))
+    OR
+    (ia.email_address = 'admin2@vetchium.com' AND r.role_name = 'admin:invite_users')
 ON CONFLICT DO NOTHING;
