@@ -74,15 +74,13 @@
 	},
 	"inviteModal": {
 		"title": "Invite User",
-		"fullName": "Full Name",
-		"fullNameRequired": "Please enter full name",
-		"fullNamePlaceholder": "Enter user's full name",
 		"email": "Email Address",
 		"emailRequired": "Please enter email address",
 		"emailInvalid": "Please enter a valid email",
 		"emailPlaceholder": "user@example.com",
-		"preferredLanguage": "Preferred Language",
-		"preferredLanguagePlaceholder": "Select preferred language (optional)",
+		"inviteEmailLanguage": "Invitation Email Language",
+		"inviteEmailLanguageTooltip": "Language for the invitation email. Defaults to your language if not specified.",
+		"inviteEmailLanguagePlaceholder": "Select language for invitation email (optional)",
 		"confirm": "Invite User",
 		"cancel": "Cancel",
 		"userExists": "User with this email already exists"

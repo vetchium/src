@@ -49,7 +49,6 @@ test.describe("POST /employer/invite-user", () => {
 			// Invite new user
 			const inviteRequest: OrgInviteUserRequest = {
 				email_address: inviteeEmail,
-				full_name: "Test Invitee",
 			};
 			const inviteResponse = await api.inviteUser(sessionToken, inviteRequest);
 
@@ -113,7 +112,6 @@ test.describe("POST /employer/invite-user", () => {
 			// Try to invite new user (should fail)
 			const inviteRequest: OrgInviteUserRequest = {
 				email_address: inviteeEmail,
-				full_name: "Test Invitee",
 			};
 			const inviteResponse = await api.inviteUser(sessionToken, inviteRequest);
 
@@ -168,7 +166,6 @@ test.describe("POST /employer/invite-user", () => {
 			// Try to invite existing user
 			const inviteRequest: OrgInviteUserRequest = {
 				email_address: existingEmail,
-				full_name: "Existing User",
 			};
 			const inviteResponse = await api.inviteUser(sessionToken, inviteRequest);
 
@@ -204,42 +201,6 @@ test.describe("POST /employer/invite-user", () => {
 			// Try to invite without email_address
 			const inviteResponse = await api.inviteUserRaw(sessionToken, {
 				full_name: "Test User",
-			});
-
-			expect(inviteResponse.status).toBe(400);
-		} finally {
-			await deleteTestOrgUser(adminEmail);
-		}
-	});
-
-	test("missing full_name returns 400", async ({ request }) => {
-		const api = new OrgAPIClient(request);
-		const { email: adminEmail, domain } =
-			generateTestOrgEmail("org-invite-noname");
-		const { email: inviteeEmail } = generateTestOrgEmail(
-			"org-invite-noname-inv"
-		);
-
-		await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
-
-		try {
-			// Login as admin
-			const loginResponse = await api.login({
-				email: adminEmail,
-				domain,
-				password: TEST_PASSWORD,
-			});
-			const tfaCode = await getTfaCodeFromEmail(adminEmail);
-			const tfaResponse = await api.verifyTFA({
-				tfa_token: loginResponse.body.tfa_token,
-				tfa_code: tfaCode,
-				remember_me: false,
-			});
-			const sessionToken = tfaResponse.body.session_token;
-
-			// Try to invite without full_name
-			const inviteResponse = await api.inviteUserRaw(sessionToken, {
-				email_address: inviteeEmail,
 			});
 
 			expect(inviteResponse.status).toBe(400);
@@ -284,52 +245,12 @@ test.describe("POST /employer/invite-user", () => {
 		}
 	});
 
-	test("empty full_name returns 400", async ({ request }) => {
-		const api = new OrgAPIClient(request);
-		const { email: adminEmail, domain } = generateTestOrgEmail(
-			"org-invite-emptyname"
-		);
-		const { email: inviteeEmail } = generateTestOrgEmail(
-			"org-invite-emptyname-inv"
-		);
-
-		await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
-
-		try {
-			// Login as admin
-			const loginResponse = await api.login({
-				email: adminEmail,
-				domain,
-				password: TEST_PASSWORD,
-			});
-			const tfaCode = await getTfaCodeFromEmail(adminEmail);
-			const tfaResponse = await api.verifyTFA({
-				tfa_token: loginResponse.body.tfa_token,
-				tfa_code: tfaCode,
-				remember_me: false,
-			});
-			const sessionToken = tfaResponse.body.session_token;
-
-			// Try to invite with empty full_name
-			const inviteRequest: OrgInviteUserRequest = {
-				email_address: inviteeEmail,
-				full_name: "",
-			};
-			const inviteResponse = await api.inviteUser(sessionToken, inviteRequest);
-
-			expect(inviteResponse.status).toBe(400);
-		} finally {
-			await deleteTestOrgUser(adminEmail);
-		}
-	});
-
 	test("without authorization header returns 401", async ({ request }) => {
 		const api = new OrgAPIClient(request);
 		const { email: inviteeEmail } = generateTestOrgEmail("org-invite-noauth");
 
 		const inviteRequest: OrgInviteUserRequest = {
 			email_address: inviteeEmail,
-			full_name: "Test User",
 		};
 		const inviteResponse = await api.inviteUserWithoutAuth(inviteRequest);
 
@@ -344,7 +265,6 @@ test.describe("POST /employer/invite-user", () => {
 
 		const inviteRequest: OrgInviteUserRequest = {
 			email_address: inviteeEmail,
-			full_name: "Test User",
 		};
 		const inviteResponse = await api.inviteUser(
 			"IND1-invalidtoken123",

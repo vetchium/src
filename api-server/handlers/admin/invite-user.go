@@ -78,18 +78,14 @@ func InviteUser(s *server.Server) http.HandlerFunc {
 			Valid: true,
 		}
 
-		language := "en-US"
-		if req.PreferredLanguage != "" {
-			language = string(req.PreferredLanguage)
-		}
-
 		// Create admin user in global DB with status='invited'
+		// Don't set full_name or preferred_language - user will set these during complete-setup
 		createdUser, err := s.Global.CreateAdminUser(ctx, globaldb.CreateAdminUserParams{
 			AdminUserID:       newAdminUserID,
 			EmailAddress:      string(req.EmailAddress),
-			FullName:          pgtype.Text{String: string(req.FullName), Valid: true},
+			FullName:          pgtype.Text{Valid: false}, // User will provide during complete-setup
 			Status:            globaldb.AdminUserStatusInvited,
-			PreferredLanguage: language,
+			PreferredLanguage: "en-US", // Default, user will override during complete-setup
 		})
 		if err != nil {
 			log.Error("failed to create admin user", "error", err)
@@ -125,7 +121,12 @@ func InviteUser(s *server.Server) http.HandlerFunc {
 		}
 
 		// Send invitation email
-		lang := i18n.Match(adminUser.PreferredLanguage)
+		// Determine email language: use invite_email_language if provided, otherwise inviter's preferred_language
+		emailLanguage := adminUser.PreferredLanguage
+		if req.InviteEmailLanguage != "" {
+			emailLanguage = string(req.InviteEmailLanguage)
+		}
+		lang := i18n.Match(emailLanguage)
 		inviterName := adminUser.FullName.String
 		if inviterName == "" {
 			inviterName = adminUser.EmailAddress // Fallback to email if no full name

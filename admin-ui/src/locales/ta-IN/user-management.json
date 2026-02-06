@@ -74,15 +74,13 @@
 	},
 	"inviteModal": {
 		"title": "பயனரை அழை",
-		"fullName": "முழு பெயர்",
-		"fullNameRequired": "தயவுசெய்து முழு பெயரை உள்ளிடவும்",
-		"fullNamePlaceholder": "பயனரின் முழு பெயரை உள்ளிடவும்",
 		"email": "மின்னஞ்சல் முகவரி",
 		"emailRequired": "தயவுசெய்து மின்னஞ்சல் முகவரியை உள்ளிடவும்",
 		"emailInvalid": "தயவுசெய்து சரியான மின்னஞ்சலை உள்ளிடவும்",
 		"emailPlaceholder": "user@example.com",
-		"preferredLanguage": "விருப்பமான மொழி",
-		"preferredLanguagePlaceholder": "விருப்பமான மொழியைத் தேர்ந்தெடுக்கவும் (விருப்பம்)",
+		"inviteEmailLanguage": "அழைப்பு மின்னஞ்சல் மொழி",
+		"inviteEmailLanguageTooltip": "அழைப்பு மின்னஞ்சலுக்கான மொழி. குறிப்பிடப்படாவிட்டால் உங்கள் மொழி பயன்படுத்தப்படும்.",
+		"inviteEmailLanguagePlaceholder": "அழைப்பு மின்னஞ்சலுக்கான மொழியைத் தேர்ந்தெடுக்கவும் (விருப்பம்)",
 		"confirm": "பயனரை அழை",
 		"cancel": "ரத்து செய்",
 		"userExists": "இந்த மின்னஞ்சலுடன் பயனர் ஏற்கனவே உள்ளார்"

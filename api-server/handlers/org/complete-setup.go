@@ -117,10 +117,15 @@ func CompleteSetup(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Update full name in global DB
+		// Update full name and preferred language in global DB
+		preferredLang := ""
+		if req.PreferredLanguage != "" {
+			preferredLang = string(req.PreferredLanguage)
+		}
 		err = s.Global.UpdateOrgUserFullName(ctx, globaldb.UpdateOrgUserFullNameParams{
-			OrgUserID: invitationTokenData.OrgUserID,
-			FullName:  pgtype.Text{String: string(req.FullName), Valid: true},
+			OrgUserID:         invitationTokenData.OrgUserID,
+			FullName:          pgtype.Text{String: string(req.FullName), Valid: true},
+			PreferredLanguage: preferredLang,
 		})
 		if err != nil {
 			log.Error("failed to update full name in global DB", "error", err)

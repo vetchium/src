@@ -236,8 +236,7 @@ export interface OrgLogoutRequest {}
 
 export interface OrgInviteUserRequest {
 	email_address: EmailAddress;
-	full_name: FullName;
-	preferred_language?: LanguageCode;
+	invite_email_language?: LanguageCode;
 }
 
 export function validateOrgInviteUserRequest(
@@ -254,19 +253,10 @@ export function validateOrgInviteUserRequest(
 		}
 	}
 
-	if (!request.full_name) {
-		errs.push(newValidationError("full_name", ERR_REQUIRED));
-	} else {
-		const fullNameErr = validateFullName(request.full_name);
-		if (fullNameErr) {
-			errs.push(newValidationError("full_name", fullNameErr));
-		}
-	}
-
-	if (request.preferred_language) {
-		const langErr = validateLanguageCode(request.preferred_language);
+	if (request.invite_email_language) {
+		const langErr = validateLanguageCode(request.invite_email_language);
 		if (langErr) {
-			errs.push(newValidationError("preferred_language", langErr));
+			errs.push(newValidationError("invite_email_language", langErr));
 		}
 	}
 
@@ -282,6 +272,7 @@ export interface OrgCompleteSetupRequest {
 	invitation_token: OrgInvitationToken;
 	password: Password;
 	full_name: FullName;
+	preferred_language?: LanguageCode;
 }
 
 export function validateOrgCompleteSetupRequest(
@@ -308,6 +299,13 @@ export function validateOrgCompleteSetupRequest(
 		const fullNameErr = validateFullName(request.full_name);
 		if (fullNameErr) {
 			errs.push(newValidationError("full_name", fullNameErr));
+		}
+	}
+
+	if (request.preferred_language) {
+		const langErr = validateLanguageCode(request.preferred_language);
+		if (langErr) {
+			errs.push(newValidationError("preferred_language", langErr));
 		}
 	}
 

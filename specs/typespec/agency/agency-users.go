@@ -189,9 +189,8 @@ type AgencyLogoutRequest struct{}
 // ============================================================================
 
 type AgencyInviteUserRequest struct {
-	EmailAddress      common.EmailAddress `json:"email_address"`
-	FullName          common.FullName     `json:"full_name"`
-	PreferredLanguage common.LanguageCode `json:"preferred_language"`
+	EmailAddress        common.EmailAddress `json:"email_address"`
+	InviteEmailLanguage common.LanguageCode `json:"invite_email_language,omitempty"`
 }
 
 func (r AgencyInviteUserRequest) Validate() []common.ValidationError {
@@ -200,8 +199,10 @@ func (r AgencyInviteUserRequest) Validate() []common.ValidationError {
 	if err := r.EmailAddress.Validate(); err != nil {
 		errs = append(errs, common.NewValidationError("email_address", err))
 	}
-	if err := r.FullName.Validate(); err != nil {
-		errs = append(errs, common.NewValidationError("full_name", err))
+	if r.InviteEmailLanguage != "" {
+		if err := r.InviteEmailLanguage.Validate(); err != nil {
+			errs = append(errs, common.NewValidationError("invite_email_language", err))
+		}
 	}
 
 	return errs
@@ -213,9 +214,10 @@ type AgencyInviteUserResponse struct {
 }
 
 type AgencyCompleteSetupRequest struct {
-	InvitationToken AgencyInvitationToken `json:"invitation_token"`
-	Password        common.Password       `json:"password"`
-	FullName        common.FullName       `json:"full_name"`
+	InvitationToken   AgencyInvitationToken `json:"invitation_token"`
+	Password          common.Password       `json:"password"`
+	FullName          common.FullName       `json:"full_name"`
+	PreferredLanguage common.LanguageCode   `json:"preferred_language,omitempty"`
 }
 
 func (r AgencyCompleteSetupRequest) Validate() []common.ValidationError {
@@ -229,6 +231,11 @@ func (r AgencyCompleteSetupRequest) Validate() []common.ValidationError {
 	}
 	if err := r.FullName.Validate(); err != nil {
 		errs = append(errs, common.NewValidationError("full_name", err))
+	}
+	if r.PreferredLanguage != "" {
+		if err := r.PreferredLanguage.Validate(); err != nil {
+			errs = append(errs, common.NewValidationError("preferred_language", err))
+		}
 	}
 
 	return errs

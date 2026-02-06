@@ -76,11 +76,16 @@ func CompleteSetup(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Update admin user with password and full name
+		// Update admin user with password, full name, and preferred language
+		preferredLang := ""
+		if req.PreferredLanguage != "" {
+			preferredLang = string(req.PreferredLanguage)
+		}
 		err = s.Global.UpdateAdminUserSetup(ctx, globaldb.UpdateAdminUserSetupParams{
-			AdminUserID:  invitationTokenData.AdminUserID,
-			PasswordHash: passwordHash,
-			FullName:     pgtype.Text{String: string(req.FullName), Valid: true},
+			AdminUserID:       invitationTokenData.AdminUserID,
+			PasswordHash:      passwordHash,
+			FullName:          pgtype.Text{String: string(req.FullName), Valid: true},
+			PreferredLanguage: preferredLang,
 		})
 		if err != nil {
 			log.Error("failed to update admin user setup", "error", err)

@@ -31,9 +31,8 @@ export function InviteUserModal({
 
 			const request: AdminInviteUserRequest = {
 				email_address: values.email,
-				full_name: values.fullName,
-				...(values.preferredLanguage && {
-					preferred_language: values.preferredLanguage,
+				...(values.inviteEmailLanguage && {
+					invite_email_language: values.inviteEmailLanguage,
 				}),
 			};
 
@@ -131,22 +130,10 @@ export function InviteUserModal({
 						const hasErrors = form
 							.getFieldsError()
 							.some(({ errors }) => errors.length > 0);
-						const allTouched = form.isFieldsTouched(
-							["fullName", "email"],
-							true
-						);
+						const allTouched = form.isFieldsTouched(["email"], true);
 						setFormValid(allTouched && !hasErrors);
 					}}
 				>
-					<Form.Item
-						name="fullName"
-						label={t("inviteModal.fullName")}
-						rules={[
-							{ required: true, message: t("inviteModal.fullNameRequired") },
-						]}
-					>
-						<Input placeholder={t("inviteModal.fullNamePlaceholder")} />
-					</Form.Item>
 					<Form.Item
 						name="email"
 						label={t("inviteModal.email")}
@@ -158,11 +145,12 @@ export function InviteUserModal({
 						<Input placeholder={t("inviteModal.emailPlaceholder")} />
 					</Form.Item>
 					<Form.Item
-						name="preferredLanguage"
-						label={t("inviteModal.preferredLanguage")}
+						name="inviteEmailLanguage"
+						label={t("inviteModal.inviteEmailLanguage")}
+						tooltip={t("inviteModal.inviteEmailLanguageTooltip")}
 					>
 						<Select
-							placeholder={t("inviteModal.preferredLanguagePlaceholder")}
+							placeholder={t("inviteModal.inviteEmailLanguagePlaceholder")}
 							allowClear
 							options={SUPPORTED_LANGUAGES.map((lang) => ({
 								label: lang,

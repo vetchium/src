@@ -51,7 +51,6 @@ test.describe("POST /agency/invite-user", () => {
 			// Invite new user
 			const inviteRequest: AgencyInviteUserRequest = {
 				email_address: inviteeEmail,
-				full_name: "Test Invitee",
 			};
 			const inviteResponse = await api.inviteUser(sessionToken, inviteRequest);
 
@@ -115,7 +114,6 @@ test.describe("POST /agency/invite-user", () => {
 			// Try to invite new user (should fail)
 			const inviteRequest: AgencyInviteUserRequest = {
 				email_address: inviteeEmail,
-				full_name: "Test Invitee",
 			};
 			const inviteResponse = await api.inviteUser(sessionToken, inviteRequest);
 
@@ -170,7 +168,6 @@ test.describe("POST /agency/invite-user", () => {
 			// Try to invite existing user
 			const inviteRequest: AgencyInviteUserRequest = {
 				email_address: existingEmail,
-				full_name: "Existing User",
 			};
 			const inviteResponse = await api.inviteUser(sessionToken, inviteRequest);
 
@@ -215,43 +212,6 @@ test.describe("POST /agency/invite-user", () => {
 		}
 	});
 
-	test("missing full_name returns 400", async ({ request }) => {
-		const api = new AgencyAPIClient(request);
-		const { email: adminEmail, domain } = generateTestAgencyEmail(
-			"agency-invite-noname"
-		);
-		const { email: inviteeEmail } = generateTestAgencyEmail(
-			"agency-invite-noname-inv"
-		);
-
-		await createTestAgencyAdminDirect(adminEmail, TEST_PASSWORD);
-
-		try {
-			// Login as admin
-			const loginResponse = await api.login({
-				email: adminEmail,
-				domain,
-				password: TEST_PASSWORD,
-			});
-			const tfaCode = await getTfaCodeFromEmail(adminEmail);
-			const tfaResponse = await api.verifyTFA({
-				tfa_token: loginResponse.body.tfa_token,
-				tfa_code: tfaCode,
-				remember_me: false,
-			});
-			const sessionToken = tfaResponse.body.session_token;
-
-			// Try to invite without full_name
-			const inviteResponse = await api.inviteUserRaw(sessionToken, {
-				email_address: inviteeEmail,
-			});
-
-			expect(inviteResponse.status).toBe(400);
-		} finally {
-			await deleteTestAgencyUser(adminEmail);
-		}
-	});
-
 	test("invalid email_address format returns 400", async ({ request }) => {
 		const api = new AgencyAPIClient(request);
 		const { email: adminEmail, domain } = generateTestAgencyEmail(
@@ -288,45 +248,6 @@ test.describe("POST /agency/invite-user", () => {
 		}
 	});
 
-	test("empty full_name returns 400", async ({ request }) => {
-		const api = new AgencyAPIClient(request);
-		const { email: adminEmail, domain } = generateTestAgencyEmail(
-			"agency-invite-emptyname"
-		);
-		const { email: inviteeEmail } = generateTestAgencyEmail(
-			"agency-invite-emptyname-inv"
-		);
-
-		await createTestAgencyAdminDirect(adminEmail, TEST_PASSWORD);
-
-		try {
-			// Login as admin
-			const loginResponse = await api.login({
-				email: adminEmail,
-				domain,
-				password: TEST_PASSWORD,
-			});
-			const tfaCode = await getTfaCodeFromEmail(adminEmail);
-			const tfaResponse = await api.verifyTFA({
-				tfa_token: loginResponse.body.tfa_token,
-				tfa_code: tfaCode,
-				remember_me: false,
-			});
-			const sessionToken = tfaResponse.body.session_token;
-
-			// Try to invite with empty full_name
-			const inviteRequest: AgencyInviteUserRequest = {
-				email_address: inviteeEmail,
-				full_name: "",
-			};
-			const inviteResponse = await api.inviteUser(sessionToken, inviteRequest);
-
-			expect(inviteResponse.status).toBe(400);
-		} finally {
-			await deleteTestAgencyUser(adminEmail);
-		}
-	});
-
 	test("without authorization header returns 401", async ({ request }) => {
 		const api = new AgencyAPIClient(request);
 		const { email: inviteeEmail } = generateTestAgencyEmail(
@@ -335,7 +256,6 @@ test.describe("POST /agency/invite-user", () => {
 
 		const inviteRequest: AgencyInviteUserRequest = {
 			email_address: inviteeEmail,
-			full_name: "Test User",
 		};
 		const inviteResponse = await api.inviteUserWithoutAuth(inviteRequest);
 
@@ -350,7 +270,6 @@ test.describe("POST /agency/invite-user", () => {
 
 		const inviteRequest: AgencyInviteUserRequest = {
 			email_address: inviteeEmail,
-			full_name: "Test User",
 		};
 		const inviteResponse = await api.inviteUser(
 			"IND1-invalidtoken123",

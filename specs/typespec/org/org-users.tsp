@@ -320,10 +320,8 @@ interface OrgEnableUser {
 model OrgInviteUserRequest {
     @doc("Email address of the user to invite")
     email_address: EmailAddress;
-    @doc("Full name of the user")
-    full_name: FullName;
-    @doc("Preferred language for the user (e.g., en-US, de-DE)")
-    preferred_language?: LanguageCode;
+    @doc("Language for the invitation email (e.g., en-US, de-DE). Defaults to inviter's language if not specified.")
+    invite_email_language?: LanguageCode;
 }
 
 model OrgInviteUserResponse {

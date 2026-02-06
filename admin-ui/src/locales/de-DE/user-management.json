@@ -74,15 +74,13 @@
 	},
 	"inviteModal": {
 		"title": "Benutzer einladen",
-		"fullName": "Vollständiger Name",
-		"fullNameRequired": "Bitte geben Sie den vollständigen Namen ein",
-		"fullNamePlaceholder": "Vollständigen Namen des Benutzers eingeben",
 		"email": "E-Mail-Adresse",
 		"emailRequired": "Bitte geben Sie die E-Mail-Adresse ein",
 		"emailInvalid": "Bitte geben Sie eine gültige E-Mail ein",
 		"emailPlaceholder": "benutzer@beispiel.de",
-		"preferredLanguage": "Bevorzugte Sprache",
-		"preferredLanguagePlaceholder": "Bevorzugte Sprache auswählen (optional)",
+		"inviteEmailLanguage": "Sprache der Einladungs-E-Mail",
+		"inviteEmailLanguageTooltip": "Sprache für die Einladungs-E-Mail. Standardmäßig wird Ihre Sprache verwendet, wenn nicht angegeben.",
+		"inviteEmailLanguagePlaceholder": "Sprache für Einladungs-E-Mail auswählen (optional)",
 		"confirm": "Benutzer einladen",
 		"cancel": "Abbrechen",
 		"userExists": "Benutzer mit dieser E-Mail existiert bereits"

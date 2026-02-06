@@ -1,7 +1,9 @@
 import { useState } from "react";
-import { Modal, Form, Input, message } from "antd";
+import { Modal, Form, Input, Select, message } from "antd";
+import type { OrgInviteUserRequest } from "vetchium-specs/org/org-users";
 import { getApiBaseUrl } from "../../config";
 import { useAuth } from "../../hooks/useAuth";
+import { SUPPORTED_LANGUAGES } from "../../i18n";
 
 interface InviteUserModalProps {
 	visible: boolean;
@@ -23,6 +25,13 @@ export function InviteUserModal({
 			const values = await form.validateFields();
 			setLoading(true);
 
+			const request: OrgInviteUserRequest = {
+				email_address: values.email,
+				...(values.inviteEmailLanguage && {
+					invite_email_language: values.inviteEmailLanguage,
+				}),
+			};
+
 			const apiBaseUrl = await getApiBaseUrl();
 			const response = await fetch(`${apiBaseUrl}/employer/invite-user`, {
 				method: "POST",
@@ -30,12 +39,7 @@ export function InviteUserModal({
 					"Content-Type": "application/json",
 					Authorization: `Bearer ${sessionToken}`,
 				},
-				body: JSON.stringify({
-					email_address: values.email,
-					full_name: values.fullName,
-					// Employer invite might need domain context if not inferred from session?
-					// Usually employer session is bound to domain.
-				}),
+				body: JSON.stringify(request),
 			});
 
 			if (response.ok) {
@@ -70,13 +74,6 @@ export function InviteUserModal({
 		>
 			<Form form={form} layout="vertical">
 				<Form.Item
-					name="fullName"
-					label="Full Name"
-					rules={[{ required: true, message: "Please enter full name" }]}
-				>
-					<Input placeholder="Full Name" />
-				</Form.Item>
-				<Form.Item
 					name="email"
 					label="Email Address"
 					rules={[
@@ -85,6 +82,20 @@ export function InviteUserModal({
 					]}
 				>
 					<Input placeholder="Email Address" />
+				</Form.Item>
+				<Form.Item
+					name="inviteEmailLanguage"
+					label="Invitation Email Language"
+					tooltip="Language for the invitation email. Defaults to your language if not specified."
+				>
+					<Select
+						placeholder="Select language for invitation email (optional)"
+						allowClear
+						options={SUPPORTED_LANGUAGES.map((lang) => ({
+							label: lang,
+							value: lang,
+						}))}
+					/>
 				</Form.Item>
 			</Form>
 		</Modal>

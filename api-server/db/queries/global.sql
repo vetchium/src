@@ -491,7 +491,8 @@ SET preferred_language = $2
 WHERE org_user_id = $1;
 -- name: UpdateOrgUserFullName :exec
 UPDATE org_users
-SET full_name = $2
+SET full_name = $2,
+    preferred_language = COALESCE($3, preferred_language)
 WHERE org_user_id = $1;
 -- name: UpdateOrgUserStatus :exec
 UPDATE org_users
@@ -660,7 +661,8 @@ WHERE agency_id = $1
   AND status = 'active';
 -- name: UpdateAgencyUserFullName :exec
 UPDATE agency_users
-SET full_name = $2
+SET full_name = $2,
+    preferred_language = COALESCE($3, preferred_language)
 WHERE agency_user_id = $1;
 -- name: DeleteAgencyUser :exec
 DELETE FROM agency_users
@@ -810,7 +812,8 @@ RETURNING *;
 -- name: UpdateAdminUserSetup :exec
 UPDATE admin_users
 SET password_hash = $2,
-  full_name = $3
+  full_name = $3,
+  preferred_language = COALESCE($4, preferred_language)
 WHERE admin_user_id = $1;
 -- name: UpdateAdminUserStatus :exec
 UPDATE admin_users

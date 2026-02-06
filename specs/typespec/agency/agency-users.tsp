@@ -320,10 +320,8 @@ interface AgencyEnableUser {
 model AgencyInviteUserRequest {
     @doc("Email address of the user to invite")
     email_address: EmailAddress;
-    @doc("Full name of the user")
-    full_name: FullName;
-    @doc("Preferred language for the user (e.g., en-US, de-DE)")
-    preferred_language?: LanguageCode;
+    @doc("Language for the invitation email (e.g., en-US, de-DE). Defaults to inviter's language if not specified.")
+    invite_email_language?: LanguageCode;
 }
 
 model AgencyInviteUserResponse {
@@ -356,6 +354,44 @@ interface AgencyInviteUser {
     };
 }
 
+// ===================================
+// Complete Setup
+// ===================================
+
+scalar AgencyInvitationToken extends string;
+
+model AgencyCompleteSetupRequest {
+    @doc("Invitation token from email")
+    invitation_token: AgencyInvitationToken;
+    @doc("User's password")
+    password: Password;
+    @doc("User's full name")
+    full_name: FullName;
+    @doc("User's preferred language for the application (e.g., en-US, de-DE)")
+    preferred_language?: LanguageCode;
+}
+
+model AgencyCompleteSetupResponse {
+    @doc("Success message")
+    message: string;
+}
+
+@route("/agency/complete-setup")
+interface AgencyCompleteSetup {
+    @tag("AgencyUsers")
+    @post
+    @doc("Complete setup for invited agency user")
+    completeSetup(@body request: AgencyCompleteSetupRequest): {
+        @statusCode statusCode: 200;
+        @body response: AgencyCompleteSetupResponse;
+    } | {
+        @doc("Validation errors")
+        @statusCode statusCode: 400;
+    } | {
+        @doc("Invalid or expired invitation token")
+        @statusCode statusCode: 401;
+    };
+}
 
 // ============================================
 // User Management (Filter Users)

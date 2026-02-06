@@ -9,9 +9,12 @@ import {
 	Alert,
 	message,
 	Spin,
+	Select,
 } from "antd";
 import { LockOutlined, UserOutlined } from "@ant-design/icons";
+import type { AdminCompleteSetupRequest } from "vetchium-specs/admin/admin-users";
 import { getApiBaseUrl } from "../config";
+import { SUPPORTED_LANGUAGES } from "../i18n";
 
 const { Title, Text } = Typography;
 
@@ -29,22 +32,31 @@ export function CompleteSetupPage() {
 		}
 	}, [token]);
 
-	const onFinish = async (values: { password: string; fullName: string }) => {
+	const onFinish = async (values: {
+		password: string;
+		fullName: string;
+		preferredLanguage?: string;
+	}) => {
 		if (!token) return;
 
 		setLoading(true);
 		setError(null);
 
 		try {
+			const request: AdminCompleteSetupRequest = {
+				invitation_token: token,
+				password: values.password,
+				full_name: values.fullName,
+				...(values.preferredLanguage && {
+					preferred_language: values.preferredLanguage,
+				}),
+			};
+
 			const apiBaseUrl = await getApiBaseUrl();
 			const response = await fetch(`${apiBaseUrl}/admin/complete-setup`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					invitation_token: token,
-					password: values.password,
-					full_name: values.fullName,
-				}),
+				body: JSON.stringify(request),
 			});
 
 			if (response.ok) {
@@ -159,6 +171,22 @@ export function CompleteSetupPage() {
 						prefix={<LockOutlined />}
 						placeholder="Confirm Password"
 						size="large"
+					/>
+				</Form.Item>
+
+				<Form.Item
+					name="preferredLanguage"
+					label="Preferred Language"
+					tooltip="Your language preference for the application"
+				>
+					<Select
+						placeholder="Select your preferred language (optional)"
+						allowClear
+						size="large"
+						options={SUPPORTED_LANGUAGES.map((lang) => ({
+							label: lang,
+							value: lang,
+						}))}
 					/>
 				</Form.Item>
 

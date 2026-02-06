@@ -26,6 +26,14 @@ import {
 
 export { validateAssignRoleRequest, validateRemoveRoleRequest };
 
+// Token types
+export type AgencySessionToken = string;
+export type AgencyTFAToken = string;
+export type DNSVerificationToken = string;
+export type AgencySignupToken = string;
+export type AgencyInvitationToken = string;
+export type AgencyPasswordResetToken = string;
+
 // ... (omitted sections)
 // ============================================
 // Signup Flow (DNS-based Domain Verification)
@@ -187,8 +195,7 @@ export function validateAgencyTFARequest(
 }
 export interface AgencyInviteUserRequest {
 	email_address: EmailAddress;
-	full_name: FullName;
-	preferred_language?: LanguageCode;
+	invite_email_language?: LanguageCode;
 }
 
 export function validateAgencyInviteUserRequest(
@@ -202,6 +209,50 @@ export function validateAgencyInviteUserRequest(
 		const emailErr = validateEmailAddress(request.email_address);
 		if (emailErr) {
 			errs.push(newValidationError("email_address", emailErr));
+		}
+	}
+
+	if (request.invite_email_language) {
+		const langErr = validateLanguageCode(request.invite_email_language);
+		if (langErr) {
+			errs.push(newValidationError("invite_email_language", langErr));
+		}
+	}
+
+	return errs;
+}
+
+export interface AgencyInviteUserResponse {
+	invitation_id: string;
+	expires_at: string;
+}
+
+// ===================================
+// Complete Setup
+// ===================================
+
+export interface AgencyCompleteSetupRequest {
+	invitation_token: AgencyInvitationToken;
+	password: Password;
+	full_name: FullName;
+	preferred_language?: LanguageCode;
+}
+
+export function validateAgencyCompleteSetupRequest(
+	request: AgencyCompleteSetupRequest
+): ValidationError[] {
+	const errs: ValidationError[] = [];
+
+	if (!request.invitation_token) {
+		errs.push(newValidationError("invitation_token", ERR_REQUIRED));
+	}
+
+	if (!request.password) {
+		errs.push(newValidationError("password", ERR_REQUIRED));
+	} else {
+		const passwordErr = validatePassword(request.password);
+		if (passwordErr) {
+			errs.push(newValidationError("password", passwordErr));
 		}
 	}
 
@@ -222,6 +273,10 @@ export function validateAgencyInviteUserRequest(
 	}
 
 	return errs;
+}
+
+export interface AgencyCompleteSetupResponse {
+	message: string;
 }
 
 // ... (omitted sections)

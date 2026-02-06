@@ -47,7 +47,6 @@ test.describe("POST /admin/invite-user", () => {
 			// Invite new user
 			const inviteRequest: AdminInviteUserRequest = {
 				email_address: inviteeEmail,
-				full_name: "Test Invitee",
 			};
 			const inviteResponse = await api.inviteUser(sessionToken, inviteRequest);
 
@@ -105,7 +104,6 @@ test.describe("POST /admin/invite-user", () => {
 			// Try to invite new user (should fail)
 			const inviteRequest: AdminInviteUserRequest = {
 				email_address: inviteeEmail,
-				full_name: "Test Invitee",
 			};
 			const inviteResponse = await api.inviteUser(sessionToken, inviteRequest);
 
@@ -149,7 +147,6 @@ test.describe("POST /admin/invite-user", () => {
 			// Try to invite existing user
 			const inviteRequest: AdminInviteUserRequest = {
 				email_address: existingEmail,
-				full_name: "Existing User",
 			};
 			const inviteResponse = await api.inviteUser(sessionToken, inviteRequest);
 
@@ -191,38 +188,6 @@ test.describe("POST /admin/invite-user", () => {
 		}
 	});
 
-	test("missing full_name returns 400", async ({ request }) => {
-		const api = new AdminAPIClient(request);
-		const adminEmail = generateTestAdminEmail("admin-invite-noname");
-		const inviteeEmail = generateTestAdminEmail("admin-invite-noname-inv");
-
-		await createTestAdminAdminDirect(adminEmail, TEST_PASSWORD);
-
-		try {
-			// Login as admin
-			const loginResponse = await api.login({
-				email: adminEmail,
-				password: TEST_PASSWORD,
-			});
-			const tfaCode = await getTfaCodeFromEmail(adminEmail);
-			const tfaResponse = await api.verifyTFA({
-				tfa_token: loginResponse.body.tfa_token,
-				tfa_code: tfaCode,
-				remember_me: false,
-			});
-			const sessionToken = tfaResponse.body.session_token;
-
-			// Try to invite without full_name
-			const inviteResponse = await api.inviteUserRaw(sessionToken, {
-				email_address: inviteeEmail,
-			});
-
-			expect(inviteResponse.status).toBe(400);
-		} finally {
-			await deleteTestAdminUser(adminEmail);
-		}
-	});
-
 	test("invalid email_address format returns 400", async ({ request }) => {
 		const api = new AdminAPIClient(request);
 		const adminEmail = generateTestAdminEmail("admin-invite-bademail");
@@ -246,41 +211,6 @@ test.describe("POST /admin/invite-user", () => {
 			// Try to invite with invalid email
 			const inviteRequest: AdminInviteUserRequest = {
 				email_address: "not-an-email",
-				full_name: "Test User",
-			};
-			const inviteResponse = await api.inviteUser(sessionToken, inviteRequest);
-
-			expect(inviteResponse.status).toBe(400);
-		} finally {
-			await deleteTestAdminUser(adminEmail);
-		}
-	});
-
-	test("empty full_name returns 400", async ({ request }) => {
-		const api = new AdminAPIClient(request);
-		const adminEmail = generateTestAdminEmail("admin-invite-emptyname");
-		const inviteeEmail = generateTestAdminEmail("admin-invite-emptyname-inv");
-
-		await createTestAdminAdminDirect(adminEmail, TEST_PASSWORD);
-
-		try {
-			// Login as admin
-			const loginResponse = await api.login({
-				email: adminEmail,
-				password: TEST_PASSWORD,
-			});
-			const tfaCode = await getTfaCodeFromEmail(adminEmail);
-			const tfaResponse = await api.verifyTFA({
-				tfa_token: loginResponse.body.tfa_token,
-				tfa_code: tfaCode,
-				remember_me: false,
-			});
-			const sessionToken = tfaResponse.body.session_token;
-
-			// Try to invite with empty full_name
-			const inviteRequest: AdminInviteUserRequest = {
-				email_address: inviteeEmail,
-				full_name: "",
 			};
 			const inviteResponse = await api.inviteUser(sessionToken, inviteRequest);
 
@@ -296,7 +226,6 @@ test.describe("POST /admin/invite-user", () => {
 
 		const inviteRequest: AdminInviteUserRequest = {
 			email_address: inviteeEmail,
-			full_name: "Test User",
 		};
 		const inviteResponse = await api.inviteUserWithoutAuth(inviteRequest);
 
@@ -309,7 +238,6 @@ test.describe("POST /admin/invite-user", () => {
 
 		const inviteRequest: AdminInviteUserRequest = {
 			email_address: inviteeEmail,
-			full_name: "Test User",
 		};
 		const inviteResponse = await api.inviteUser(
 			"invalidtoken123",

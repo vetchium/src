@@ -1,8 +1,19 @@
 import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate, Link } from "react-router-dom";
-import { Form, Input, Button, Card, Typography, Alert, message } from "antd";
+import {
+	Form,
+	Input,
+	Button,
+	Card,
+	Typography,
+	Alert,
+	message,
+	Select,
+} from "antd";
 import { LockOutlined, UserOutlined } from "@ant-design/icons";
+import type { OrgCompleteSetupRequest } from "vetchium-specs/org/org-users";
 import { getApiBaseUrl } from "../config";
+import { SUPPORTED_LANGUAGES } from "../i18n";
 
 const { Title, Text } = Typography;
 
@@ -20,22 +31,31 @@ export function CompleteSetupPage() {
 		}
 	}, [token]);
 
-	const onFinish = async (values: { password: string; fullName: string }) => {
+	const onFinish = async (values: {
+		password: string;
+		fullName: string;
+		preferredLanguage?: string;
+	}) => {
 		if (!token) return;
 
 		setLoading(true);
 		setError(null);
 
 		try {
+			const request: OrgCompleteSetupRequest = {
+				invitation_token: token,
+				password: values.password,
+				full_name: values.fullName,
+				...(values.preferredLanguage && {
+					preferred_language: values.preferredLanguage,
+				}),
+			};
+
 			const apiBaseUrl = await getApiBaseUrl();
 			const response = await fetch(`${apiBaseUrl}/employer/complete-setup`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					invitation_token: token,
-					password: values.password,
-					full_name: values.fullName,
-				}),
+				body: JSON.stringify(request),
 			});
 
 			if (response.ok) {
@@ -150,6 +170,22 @@ export function CompleteSetupPage() {
 						prefix={<LockOutlined />}
 						placeholder="Confirm Password"
 						size="large"
+					/>
+				</Form.Item>
+
+				<Form.Item
+					name="preferredLanguage"
+					label="Preferred Language"
+					tooltip="Your language preference for the application"
+				>
+					<Select
+						placeholder="Select your preferred language (optional)"
+						allowClear
+						size="large"
+						options={SUPPORTED_LANGUAGES.map((lang) => ({
+							label: lang,
+							value: lang,
+						}))}
 					/>
 				</Form.Item>
 
