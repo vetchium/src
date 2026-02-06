@@ -70,6 +70,10 @@ type OrgGetSignupDetailsResponse struct {
 	Domain common.DomainName `json:"domain"`
 }
 
+// OrgCompleteSignupRequest completes employer signup after DNS verification.
+// The first user is automatically granted admin rights and assigned both
+// 'employer:invite_users' and 'employer:manage_users' roles.
+// All operations are atomic - either the entire signup succeeds or no data is created.
 type OrgCompleteSignupRequest struct {
 	SignupToken       OrgSignupToken      `json:"signup_token"`
 	Password          common.Password     `json:"password"`

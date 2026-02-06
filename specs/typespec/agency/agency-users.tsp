@@ -175,7 +175,7 @@ interface AgencyGetSignupDetails {
 interface AgencyCompleteSignup {
   @tag("AgencyUsers")
   @post
-  @doc("Complete signup by verifying the DNS record. Looks up the pending verification by email, checks DNS for the verification token, and creates the agency and user account if verification passes.")
+  @doc("Complete signup by verifying the DNS record. Looks up the pending verification by email, checks DNS for the verification token, and creates the agency and user account if verification passes. The first user is automatically granted admin rights and assigned both 'agency:invite_users' and 'agency:manage_users' roles. All operations are atomic - either the entire signup succeeds or no data is created.")
   completeSignup(@body request: AgencyCompleteSignupRequest): {
     @statusCode statusCode: 201;
     @body response: AgencyCompleteSignupResponse;

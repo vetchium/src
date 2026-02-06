@@ -69,6 +69,10 @@ type AgencyGetSignupDetailsResponse struct {
 	Domain common.DomainName `json:"domain"`
 }
 
+// AgencyCompleteSignupRequest completes agency signup after DNS verification.
+// The first user is automatically granted admin rights and assigned both
+// 'agency:invite_users' and 'agency:manage_users' roles.
+// All operations are atomic - either the entire signup succeeds or no data is created.
 type AgencyCompleteSignupRequest struct {
 	SignupToken       AgencySignupToken   `json:"signup_token"`
 	Password          common.Password     `json:"password"`
