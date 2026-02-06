@@ -678,7 +678,9 @@ export function generateTestOrgEmail(
 	email: string;
 	domain: string;
 } {
-	const domain = customDomain || `${prefix}-${randomUUID().substring(0, 8)}.test.vetchium.com`;
+	const domain =
+		customDomain ||
+		`${prefix}-${randomUUID().substring(0, 8)}.test.vetchium.com`;
 	const email = `user@${domain}`;
 	return { email, domain };
 }

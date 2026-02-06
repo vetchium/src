@@ -58,10 +58,10 @@ type UIConfig struct {
 
 type Server struct {
 	// Query interfaces for database operations
-	Global        *globaldb.Queries
-	RegionalIND1  *regionaldb.Queries
-	RegionalUSA1  *regionaldb.Queries
-	RegionalDEU1  *regionaldb.Queries
+	Global       *globaldb.Queries
+	RegionalIND1 *regionaldb.Queries
+	RegionalUSA1 *regionaldb.Queries
+	RegionalDEU1 *regionaldb.Queries
 
 	// Raw connection pools for transaction support
 	GlobalPool       *pgxpool.Pool
