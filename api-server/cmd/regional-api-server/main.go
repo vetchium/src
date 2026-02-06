@@ -99,16 +99,20 @@ func main() {
 	}
 
 	s := &server.Server{
-		Global:        globaldb.New(globalConn),
-		RegionalIND1:  regionaldb.New(regionalIND1),
-		RegionalUSA1:  regionaldb.New(regionalUSA1),
-		RegionalDEU1:  regionaldb.New(regionalDEU1),
-		Log:           logger,
-		SMTPConfig:    smtpConfig,
-		CurrentRegion: currentRegion,
-		TokenConfig:   tokenConfig,
-		UIConfig:      uiConfig,
-		Environment:   environment,
+		Global:           globaldb.New(globalConn),
+		RegionalIND1:     regionaldb.New(regionalIND1),
+		RegionalUSA1:     regionaldb.New(regionalUSA1),
+		RegionalDEU1:     regionaldb.New(regionalDEU1),
+		GlobalPool:       globalConn,
+		RegionalIND1Pool: regionalIND1,
+		RegionalUSA1Pool: regionalUSA1,
+		RegionalDEU1Pool: regionalDEU1,
+		Log:              logger,
+		SMTPConfig:       smtpConfig,
+		CurrentRegion:    currentRegion,
+		TokenConfig:      tokenConfig,
+		UIConfig:         uiConfig,
+		Environment:      environment,
 	}
 
 	// Setup graceful shutdown context

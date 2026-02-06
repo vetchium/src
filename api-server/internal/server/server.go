@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/email"
@@ -56,10 +57,19 @@ type UIConfig struct {
 }
 
 type Server struct {
+	// Query interfaces for database operations
 	Global        *globaldb.Queries
 	RegionalIND1  *regionaldb.Queries
 	RegionalUSA1  *regionaldb.Queries
 	RegionalDEU1  *regionaldb.Queries
+
+	// Raw connection pools for transaction support
+	GlobalPool       *pgxpool.Pool
+	RegionalIND1Pool *pgxpool.Pool
+	RegionalUSA1Pool *pgxpool.Pool
+	RegionalDEU1Pool *pgxpool.Pool
+
+	// Other server dependencies
 	Log           *slog.Logger
 	SMTPConfig    *email.SMTPConfig
 	CurrentRegion globaldb.Region
@@ -76,6 +86,20 @@ func (s *Server) GetRegionalDB(region globaldb.Region) *regionaldb.Queries {
 		return s.RegionalUSA1
 	case globaldb.RegionDeu1:
 		return s.RegionalDEU1
+	default:
+		return nil
+	}
+}
+
+// GetRegionalPool returns the connection pool for the specified region
+func (s *Server) GetRegionalPool(region globaldb.Region) *pgxpool.Pool {
+	switch region {
+	case globaldb.RegionInd1:
+		return s.RegionalIND1Pool
+	case globaldb.RegionUsa1:
+		return s.RegionalUSA1Pool
+	case globaldb.RegionDeu1:
+		return s.RegionalDEU1Pool
 	default:
 		return nil
 	}

@@ -101,62 +101,142 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Create agency first
-		agencyEntity, err := s.Global.CreateAgency(ctx, globaldb.CreateAgencyParams{
-			AgencyName: domain, // Use domain as initial agency name
-			Region:     region,
+		// Variables to capture from transaction
+		var agencyEntity globaldb.Agency
+		var isFirstUser bool
+		var globalUser globaldb.AgencyUser
+
+		// Execute all global operations in a single transaction
+		err = s.WithGlobalTx(ctx, func(qtx *globaldb.Queries) error {
+			// 1. Create agency
+			var txErr error
+			agencyEntity, txErr = qtx.CreateAgency(ctx, globaldb.CreateAgencyParams{
+				AgencyName: domain,
+				Region:     region,
+			})
+			if txErr != nil {
+				if server.IsUniqueViolation(txErr) {
+					log.Debug("agency already exists for domain", "domain", domain)
+					return errors.New("agency already exists")
+				}
+				log.Error("failed to create agency", "error", txErr)
+				return txErr
+			}
+
+			// 2. Check if first user
+			userCount, txErr := qtx.CountAgencyUsersByAgency(ctx, agencyEntity.AgencyID)
+			if txErr != nil {
+				log.Error("failed to count agency users", "error", txErr)
+				return txErr
+			}
+			isFirstUser = userCount == 0
+
+			// 3. Create domain
+			txErr = qtx.CreateGlobalAgencyDomain(ctx, globaldb.CreateGlobalAgencyDomainParams{
+				Domain:   domain,
+				Region:   region,
+				AgencyID: agencyEntity.AgencyID,
+				Status:   globaldb.DomainVerificationStatusVERIFIED,
+			})
+			if txErr != nil {
+				if server.IsUniqueViolation(txErr) {
+					log.Debug("domain already exists", "domain", domain)
+					return errors.New("domain already exists")
+				}
+				log.Error("failed to create global agency domain", "error", txErr)
+				return txErr
+			}
+
+			// 4. Create global user
+			globalUser, txErr = qtx.CreateAgencyUser(ctx, globaldb.CreateAgencyUserParams{
+				EmailAddressHash:  emailHash,
+				HashingAlgorithm:  globaldb.EmailAddressHashingAlgorithmSHA256,
+				AgencyID:          agencyEntity.AgencyID,
+				IsAdmin:           isFirstUser,
+				Status:            globaldb.AgencyUserStatusActive,
+				PreferredLanguage: string(req.PreferredLanguage),
+				HomeRegion:        region,
+			})
+			if txErr != nil {
+				if server.IsUniqueViolation(txErr) {
+					log.Debug("user already exists", "email_hash", emailHash)
+					return errors.New("user already exists")
+				}
+				log.Error("failed to create agency user in global DB", "error", txErr)
+				return txErr
+			}
+
+			// 5-8. Assign roles if first user
+			if isFirstUser {
+				// Get invite_users role
+				inviteRole, txErr := qtx.GetRoleByName(ctx, "agency:invite_users")
+				if txErr != nil {
+					if errors.Is(txErr, pgx.ErrNoRows) {
+						log.Error("invite_users role not found in database")
+						return errors.New("invite_users role missing")
+					}
+					log.Error("failed to get invite_users role", "error", txErr)
+					return txErr
+				}
+
+				// Assign invite_users role
+				txErr = qtx.AssignAgencyUserRole(ctx, globaldb.AssignAgencyUserRoleParams{
+					AgencyUserID: globalUser.AgencyUserID,
+					RoleID:       inviteRole.RoleID,
+				})
+				if txErr != nil {
+					log.Error("failed to assign invite_users role", "error", txErr)
+					return txErr
+				}
+
+				// Get manage_users role
+				manageRole, txErr := qtx.GetRoleByName(ctx, "agency:manage_users")
+				if txErr != nil {
+					if errors.Is(txErr, pgx.ErrNoRows) {
+						log.Error("manage_users role not found in database")
+						return errors.New("manage_users role missing")
+					}
+					log.Error("failed to get manage_users role", "error", txErr)
+					return txErr
+				}
+
+				// Assign manage_users role
+				txErr = qtx.AssignAgencyUserRole(ctx, globaldb.AssignAgencyUserRoleParams{
+					AgencyUserID: globalUser.AgencyUserID,
+					RoleID:       manageRole.RoleID,
+				})
+				if txErr != nil {
+					log.Error("failed to assign manage_users role", "error", txErr)
+					return txErr
+				}
+
+				log.Info("assigned admin roles to first agency user", "agency_user_id", globalUser.AgencyUserID)
+			}
+
+			return nil
 		})
+
+		// Handle transaction errors
 		if err != nil {
-			log.Error("failed to create agency", "error", err)
+			log.Error("failed global transaction", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		// Create global agency domain record (marks domain as VERIFIED)
-		err = s.Global.CreateGlobalAgencyDomain(ctx, globaldb.CreateGlobalAgencyDomainParams{
-			Domain:   domain,
-			Region:   region,
-			AgencyID: agencyEntity.AgencyID,
-			Status:   globaldb.DomainVerificationStatusVERIFIED,
-		})
-		if err != nil {
-			log.Error("failed to create global agency domain", "error", err)
-			// Compensating transaction: delete agency
-			s.Global.DeleteAgency(ctx, agencyEntity.AgencyID)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
+		// Now all global operations succeeded atomically
+		// Continue with regional operations (outside transaction boundary)
 
 		// Hash password
 		passwordHash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 		if err != nil {
 			log.Error("failed to hash password", "error", err)
-			// Compensating transaction: delete domain and agency
-			s.Global.DeleteGlobalAgencyDomain(ctx, domain)
+			// Compensating: Delete everything from global (cascades automatically)
 			s.Global.DeleteAgency(ctx, agencyEntity.AgencyID)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		// Create agency user in global DB
-		globalUser, err := s.Global.CreateAgencyUser(ctx, globaldb.CreateAgencyUserParams{
-			EmailAddressHash:  emailHash,
-			HashingAlgorithm:  globaldb.EmailAddressHashingAlgorithmSHA256,
-			AgencyID:          agencyEntity.AgencyID,
-			Status:            globaldb.AgencyUserStatusActive,
-			PreferredLanguage: string(req.PreferredLanguage),
-			HomeRegion:        region,
-		})
-		if err != nil {
-			log.Error("failed to create agency user in global DB", "error", err)
-			// Compensating transaction: delete domain and agency
-			s.Global.DeleteGlobalAgencyDomain(ctx, domain)
-			s.Global.DeleteAgency(ctx, agencyEntity.AgencyID)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-
-		// Create agency user in regional DB (with agency_id for multi-agency support)
+		// Create regional user
 		_, err = regionalDB.CreateAgencyUser(ctx, regionaldb.CreateAgencyUserParams{
 			AgencyUserID: globalUser.AgencyUserID,
 			EmailAddress: email,
@@ -165,9 +245,7 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 		})
 		if err != nil {
 			log.Error("failed to create agency user in regional DB", "error", err)
-			// Compensating transaction: delete from global
-			s.Global.DeleteAgencyUser(ctx, globalUser.AgencyUserID)
-			s.Global.DeleteGlobalAgencyDomain(ctx, domain)
+			// Compensating: Delete from global (cascades)
 			s.Global.DeleteAgency(ctx, agencyEntity.AgencyID)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
@@ -179,8 +257,6 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 			log.Error("failed to generate session token", "error", err)
 			// Cleanup
 			regionalDB.DeleteAgencyUser(ctx, globalUser.AgencyUserID)
-			s.Global.DeleteAgencyUser(ctx, globalUser.AgencyUserID)
-			s.Global.DeleteGlobalAgencyDomain(ctx, domain)
 			s.Global.DeleteAgency(ctx, agencyEntity.AgencyID)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
@@ -201,8 +277,6 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 			log.Error("failed to create session", "error", err)
 			// Cleanup
 			regionalDB.DeleteAgencyUser(ctx, globalUser.AgencyUserID)
-			s.Global.DeleteAgencyUser(ctx, globalUser.AgencyUserID)
-			s.Global.DeleteGlobalAgencyDomain(ctx, domain)
 			s.Global.DeleteAgency(ctx, agencyEntity.AgencyID)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
@@ -212,7 +286,7 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 		// Use the DNS verification token (signup_token) as the primary key
 		_ = s.Global.MarkAgencySignupTokenConsumed(ctx, dnsVerificationToken)
 
-		log.Info("agency user signup completed via DNS verification", "agency_user_id", globalUser.AgencyUserID, "agency_id", agencyEntity.AgencyID, "domain", domain)
+		log.Info("agency user signup completed via DNS verification", "agency_user_id", globalUser.AgencyUserID, "agency_id", agencyEntity.AgencyID, "domain", domain, "is_admin", isFirstUser)
 
 		w.WriteHeader(http.StatusCreated)
 		response := agency.AgencyCompleteSignupResponse{

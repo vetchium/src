@@ -504,6 +504,10 @@ FROM org_users
 WHERE employer_id = $1
   AND is_admin = TRUE
   AND status = 'active';
+-- name: CountOrgUsersByEmployer :one
+SELECT COUNT(*)
+FROM org_users
+WHERE employer_id = $1;
 -- ============================================
 -- Org Signup Token Queries (DNS-based domain verification)
 -- ============================================
@@ -659,6 +663,10 @@ FROM agency_users
 WHERE agency_id = $1
   AND is_admin = TRUE
   AND status = 'active';
+-- name: CountAgencyUsersByAgency :one
+SELECT COUNT(*)
+FROM agency_users
+WHERE agency_id = $1;
 -- name: UpdateAgencyUserFullName :exec
 UPDATE agency_users
 SET full_name = $2,

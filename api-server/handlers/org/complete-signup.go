@@ -101,63 +101,142 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Create employer first
-		employer, err := s.Global.CreateEmployer(ctx, globaldb.CreateEmployerParams{
-			EmployerName: domain, // Use domain as initial employer name
-			Region:       region,
+		// Variables to capture from transaction
+		var employer globaldb.Employer
+		var isFirstUser bool
+		var globalUser globaldb.OrgUser
+
+		// Execute all global operations in a single transaction
+		err = s.WithGlobalTx(ctx, func(qtx *globaldb.Queries) error {
+			// 1. Create employer
+			var txErr error
+			employer, txErr = qtx.CreateEmployer(ctx, globaldb.CreateEmployerParams{
+				EmployerName: domain,
+				Region:       region,
+			})
+			if txErr != nil {
+				if server.IsUniqueViolation(txErr) {
+					log.Debug("employer already exists for domain", "domain", domain)
+					return errors.New("employer already exists")
+				}
+				log.Error("failed to create employer", "error", txErr)
+				return txErr
+			}
+
+			// 2. Check if first user
+			userCount, txErr := qtx.CountOrgUsersByEmployer(ctx, employer.EmployerID)
+			if txErr != nil {
+				log.Error("failed to count org users", "error", txErr)
+				return txErr
+			}
+			isFirstUser = userCount == 0
+
+			// 3. Create domain
+			txErr = qtx.CreateGlobalEmployerDomain(ctx, globaldb.CreateGlobalEmployerDomainParams{
+				Domain:     domain,
+				Region:     region,
+				EmployerID: employer.EmployerID,
+				Status:     globaldb.DomainVerificationStatusVERIFIED,
+			})
+			if txErr != nil {
+				if server.IsUniqueViolation(txErr) {
+					log.Debug("domain already exists", "domain", domain)
+					return errors.New("domain already exists")
+				}
+				log.Error("failed to create global employer domain", "error", txErr)
+				return txErr
+			}
+
+			// 4. Create global user
+			globalUser, txErr = qtx.CreateOrgUser(ctx, globaldb.CreateOrgUserParams{
+				EmailAddressHash:  emailHash,
+				HashingAlgorithm:  globaldb.EmailAddressHashingAlgorithmSHA256,
+				EmployerID:        employer.EmployerID,
+				IsAdmin:           isFirstUser,
+				Status:            globaldb.OrgUserStatusActive,
+				PreferredLanguage: string(req.PreferredLanguage),
+				HomeRegion:        region,
+			})
+			if txErr != nil {
+				if server.IsUniqueViolation(txErr) {
+					log.Debug("user already exists", "email_hash", emailHash)
+					return errors.New("user already exists")
+				}
+				log.Error("failed to create org user in global DB", "error", txErr)
+				return txErr
+			}
+
+			// 5-8. Assign roles if first user
+			if isFirstUser {
+				// Get invite_users role
+				inviteRole, txErr := qtx.GetRoleByName(ctx, "employer:invite_users")
+				if txErr != nil {
+					if errors.Is(txErr, pgx.ErrNoRows) {
+						log.Error("invite_users role not found in database")
+						return errors.New("invite_users role missing")
+					}
+					log.Error("failed to get invite_users role", "error", txErr)
+					return txErr
+				}
+
+				// Assign invite_users role
+				txErr = qtx.AssignOrgUserRole(ctx, globaldb.AssignOrgUserRoleParams{
+					OrgUserID: globalUser.OrgUserID,
+					RoleID:    inviteRole.RoleID,
+				})
+				if txErr != nil {
+					log.Error("failed to assign invite_users role", "error", txErr)
+					return txErr
+				}
+
+				// Get manage_users role
+				manageRole, txErr := qtx.GetRoleByName(ctx, "employer:manage_users")
+				if txErr != nil {
+					if errors.Is(txErr, pgx.ErrNoRows) {
+						log.Error("manage_users role not found in database")
+						return errors.New("manage_users role missing")
+					}
+					log.Error("failed to get manage_users role", "error", txErr)
+					return txErr
+				}
+
+				// Assign manage_users role
+				txErr = qtx.AssignOrgUserRole(ctx, globaldb.AssignOrgUserRoleParams{
+					OrgUserID: globalUser.OrgUserID,
+					RoleID:    manageRole.RoleID,
+				})
+				if txErr != nil {
+					log.Error("failed to assign manage_users role", "error", txErr)
+					return txErr
+				}
+
+				log.Info("assigned admin roles to first org user", "org_user_id", globalUser.OrgUserID)
+			}
+
+			return nil
 		})
+
+		// Handle transaction errors
 		if err != nil {
-			log.Error("failed to create employer", "error", err)
+			log.Error("failed global transaction", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		// Create global employer domain record (marks domain as VERIFIED)
-		err = s.Global.CreateGlobalEmployerDomain(ctx, globaldb.CreateGlobalEmployerDomainParams{
-			Domain:     domain,
-			Region:     region,
-			EmployerID: employer.EmployerID,
-			Status:     globaldb.DomainVerificationStatusVERIFIED,
-		})
-		if err != nil {
-			log.Error("failed to create global employer domain", "error", err)
-			// Compensating transaction: delete employer
-			s.Global.DeleteEmployer(ctx, employer.EmployerID)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
+		// Now all global operations succeeded atomically
+		// Continue with regional operations (outside transaction boundary)
 
 		// Hash password
 		passwordHash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 		if err != nil {
 			log.Error("failed to hash password", "error", err)
-			// Compensating transaction: delete domain and employer
-			// TODO: Need to test various scenarios if any of the below things too fail
-			s.Global.DeleteGlobalEmployerDomain(ctx, domain)
+			// Compensating: Delete everything from global (cascades automatically)
 			s.Global.DeleteEmployer(ctx, employer.EmployerID)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		// Create org user in global DB
-		globalUser, err := s.Global.CreateOrgUser(ctx, globaldb.CreateOrgUserParams{
-			EmailAddressHash:  emailHash,
-			HashingAlgorithm:  globaldb.EmailAddressHashingAlgorithmSHA256,
-			EmployerID:        employer.EmployerID,
-			Status:            globaldb.OrgUserStatusActive,
-			PreferredLanguage: string(req.PreferredLanguage),
-			HomeRegion:        region,
-		})
-		if err != nil {
-			log.Error("failed to create org user in global DB", "error", err)
-			// Compensating transaction: delete domain and employer
-			s.Global.DeleteGlobalEmployerDomain(ctx, domain)
-			s.Global.DeleteEmployer(ctx, employer.EmployerID)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-
-		// Create org user in regional DB (with employer_id for multi-employer support)
+		// Create regional user
 		_, err = regionalDB.CreateOrgUser(ctx, regionaldb.CreateOrgUserParams{
 			OrgUserID:    globalUser.OrgUserID,
 			EmailAddress: email,
@@ -166,9 +245,7 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 		})
 		if err != nil {
 			log.Error("failed to create org user in regional DB", "error", err)
-			// Compensating transaction: delete from global
-			s.Global.DeleteOrgUser(ctx, globalUser.OrgUserID)
-			s.Global.DeleteGlobalEmployerDomain(ctx, domain)
+			// Compensating: Delete from global (cascades)
 			s.Global.DeleteEmployer(ctx, employer.EmployerID)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
@@ -180,8 +257,6 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 			log.Error("failed to generate session token", "error", err)
 			// Cleanup
 			regionalDB.DeleteOrgUser(ctx, globalUser.OrgUserID)
-			s.Global.DeleteOrgUser(ctx, globalUser.OrgUserID)
-			s.Global.DeleteGlobalEmployerDomain(ctx, domain)
 			s.Global.DeleteEmployer(ctx, employer.EmployerID)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
@@ -202,8 +277,6 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 			log.Error("failed to create session", "error", err)
 			// Cleanup
 			regionalDB.DeleteOrgUser(ctx, globalUser.OrgUserID)
-			s.Global.DeleteOrgUser(ctx, globalUser.OrgUserID)
-			s.Global.DeleteGlobalEmployerDomain(ctx, domain)
 			s.Global.DeleteEmployer(ctx, employer.EmployerID)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
@@ -213,7 +286,7 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 		// Use the DNS verification token (signup_token) as the primary key
 		_ = s.Global.MarkOrgSignupTokenConsumed(ctx, dnsVerificationToken)
 
-		log.Info("org user signup completed via DNS verification", "org_user_id", globalUser.OrgUserID, "employer_id", employer.EmployerID, "domain", domain)
+		log.Info("org user signup completed via DNS verification", "org_user_id", globalUser.OrgUserID, "employer_id", employer.EmployerID, "domain", domain, "is_admin", isFirstUser)
 
 		w.WriteHeader(http.StatusCreated)
 		response := org.OrgCompleteSignupResponse{

@@ -671,12 +671,14 @@ export async function updateTestOrgUserStatus(
  * @param prefix - Optional prefix for the email (default: 'org')
  * @returns An object with email and domain, e.g., 'user@org-{uuid}.test.vetchium.com'
  */
-export function generateTestOrgEmail(prefix: string = "org"): {
+export function generateTestOrgEmail(
+	prefix: string = "org",
+	customDomain?: string
+): {
 	email: string;
 	domain: string;
 } {
-	const uuid = randomUUID().substring(0, 8);
-	const domain = `${prefix}-${uuid}.test.vetchium.com`;
+	const domain = customDomain || `${prefix}-${randomUUID().substring(0, 8)}.test.vetchium.com`;
 	const email = `user@${domain}`;
 	return { email, domain };
 }
