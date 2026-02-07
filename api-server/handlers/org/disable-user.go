@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
+	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
 	"vetchium-api-server.typespec/org"
@@ -46,9 +47,8 @@ func DisableUser(s *server.Server) http.HandlerFunc {
 		// Calculate email hash
 		emailHash := sha256.Sum256([]byte(req.EmailAddress))
 
-		// Get target user by email hash and employer ID
-		// This explicitly checks/enforces the employer check since we query by employer ID
-		targetUser, err := s.Global.GetOrgUserByEmailHashAndEmployer(ctx, globaldb.GetOrgUserByEmailHashAndEmployerParams{
+		// Get target user from global DB to find their region
+		globalTargetUser, err := s.Global.GetOrgUserByEmailHashAndEmployer(ctx, globaldb.GetOrgUserByEmailHashAndEmployerParams{
 			EmailAddressHash: emailHash[:],
 			EmployerID:       orgUser.EmployerID,
 		})
@@ -63,8 +63,29 @@ func DisableUser(s *server.Server) http.HandlerFunc {
 			return
 		}
 
+		// Get regional DB
+		regionalDB := s.GetRegionalDB(globalTargetUser.HomeRegion)
+		if regionalDB == nil {
+			log.Error("regional database not available", "region", globalTargetUser.HomeRegion)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
+		// Get target user from regional DB (has status, is_admin)
+		targetUser, err := regionalDB.GetOrgUserByID(ctx, globalTargetUser.OrgUserID)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				log.Debug("target user not found in regional DB")
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			log.Error("failed to get target user from regional DB", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
 		// Check if target user is already disabled
-		if targetUser.Status == globaldb.OrgUserStatusDisabled {
+		if targetUser.Status == regionaldb.OrgUserStatusDisabled {
 			log.Debug("target user already disabled")
 			w.WriteHeader(http.StatusUnprocessableEntity)
 			return
@@ -72,7 +93,7 @@ func DisableUser(s *server.Server) http.HandlerFunc {
 
 		// If target user is an admin, check if they are the last admin
 		if targetUser.IsAdmin {
-			count, err := s.Global.CountActiveAdminOrgUsers(ctx, targetUser.EmployerID)
+			count, err := regionalDB.CountActiveAdminOrgUsers(ctx, targetUser.EmployerID)
 			if err != nil {
 				log.Error("failed to count active admin users", "error", err)
 				http.Error(w, "", http.StatusInternalServerError)
@@ -89,10 +110,10 @@ func DisableUser(s *server.Server) http.HandlerFunc {
 			}
 		}
 
-		// Update user status to disabled in global DB
-		err = s.Global.UpdateOrgUserStatus(ctx, globaldb.UpdateOrgUserStatusParams{
+		// Update user status to disabled in regional DB
+		err = regionalDB.UpdateOrgUserStatus(ctx, regionaldb.UpdateOrgUserStatusParams{
 			OrgUserID: targetUser.OrgUserID,
-			Status:    globaldb.OrgUserStatusDisabled,
+			Status:    regionaldb.OrgUserStatusDisabled,
 		})
 		if err != nil {
 			log.Error("failed to update user status", "error", err)
@@ -101,17 +122,10 @@ func DisableUser(s *server.Server) http.HandlerFunc {
 		}
 
 		// Invalidate all sessions for the target user in regional DB
-		regionalDB := s.GetRegionalDB(targetUser.HomeRegion)
-		if regionalDB == nil {
-			log.Error("regional database not available", "region", targetUser.HomeRegion)
+		err = regionalDB.DeleteAllOrgSessionsForUser(ctx, targetUser.OrgUserID)
+		if err != nil {
+			log.Error("failed to delete user sessions", "error", err)
 			// User is disabled but sessions still active - this is acceptable
-			// Sessions will expire naturally
-		} else {
-			err = regionalDB.DeleteAllOrgSessionsForUser(ctx, targetUser.OrgUserID)
-			if err != nil {
-				log.Error("failed to delete user sessions", "error", err)
-				// User is disabled but sessions still active - this is acceptable
-			}
 		}
 
 		log.Info("org user disabled successfully",

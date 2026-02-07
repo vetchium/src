@@ -7,6 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"golang.org/x/crypto/bcrypt"
+	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
@@ -60,9 +61,9 @@ func ChangePassword(s *server.Server) http.HandlerFunc {
 		}
 
 		// Get regional database
-		regionalDB := s.GetRegionalDB(hubUser.HomeRegion)
+		regionalDB := s.GetRegionalDB(globaldb.Region(region))
 		if regionalDB == nil {
-			log.Error("unknown region", "region", hubUser.HomeRegion)
+			log.Error("unknown region", "region", region)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -96,25 +97,25 @@ func ChangePassword(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Update password
-		err = regionalDB.UpdateHubUserPassword(ctx, regionaldb.UpdateHubUserPasswordParams{
-			HubUserGlobalID: hubUser.HubUserGlobalID,
-			PasswordHash:    newPasswordHash,
+		// Update password and invalidate other sessions atomically
+		regionalPool := s.GetRegionalPool(globaldb.Region(region))
+		err = s.WithRegionalTx(ctx, regionalPool, func(qtx *regionaldb.Queries) error {
+			txErr := qtx.UpdateHubUserPassword(ctx, regionaldb.UpdateHubUserPasswordParams{
+				HubUserGlobalID: hubUser.HubUserGlobalID,
+				PasswordHash:    newPasswordHash,
+			})
+			if txErr != nil {
+				return txErr
+			}
+			return qtx.DeleteAllHubSessionsExceptCurrent(ctx, regionaldb.DeleteAllHubSessionsExceptCurrentParams{
+				HubUserGlobalID: hubUser.HubUserGlobalID,
+				SessionToken:    hubSession.SessionToken,
+			})
 		})
 		if err != nil {
 			log.Error("failed to update password", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
-		}
-
-		// Invalidate all sessions EXCEPT current session
-		err = regionalDB.DeleteAllHubSessionsExceptCurrent(ctx, regionaldb.DeleteAllHubSessionsExceptCurrentParams{
-			HubUserGlobalID: hubUser.HubUserGlobalID,
-			SessionToken:    hubSession.SessionToken,
-		})
-		if err != nil {
-			log.Error("failed to invalidate sessions", "error", err)
-			// Don't fail the request - password was already updated
 		}
 
 		log.Info("password changed successfully", "hub_user_global_id", hubUser.HubUserGlobalID)

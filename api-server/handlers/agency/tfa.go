@@ -90,16 +90,16 @@ func TFA(s *server.Server) http.HandlerFunc {
 		// NOTE: We intentionally do NOT delete the TFA token here (same as hub and org).
 		// Token expires naturally, and reusing it just creates another session.
 
-		// Get agency user from global database to get preferred language and agency_id
-		globalUser, err := s.Global.GetAgencyUserByID(ctx, tfaTokenRecord.AgencyUserID)
+		// Get agency user from regional database to get preferred language
+		regionalUser, err := regionalDB.GetAgencyUserByID(ctx, tfaTokenRecord.AgencyUserID)
 		if err != nil {
-			log.Error("failed to fetch global agency user", "error", err)
+			log.Error("failed to fetch regional agency user", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
 		// Get agency to return agency_name in response
-		agencyEntity, err := s.Global.GetAgencyByID(ctx, globalUser.AgencyID)
+		agencyEntity, err := s.Global.GetAgencyByID(ctx, regionalUser.AgencyID)
 		if err != nil {
 			log.Error("failed to fetch agency", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
@@ -139,11 +139,11 @@ func TFA(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		log.Info("agency user TFA verified, session created", "agency_user_id", globalUser.AgencyUserID, "region", region, "remember_me", tfaRequest.RememberMe)
+		log.Info("agency user TFA verified, session created", "agency_user_id", regionalUser.AgencyUserID, "region", region, "remember_me", tfaRequest.RememberMe)
 
 		response := agency.AgencyTFAResponse{
 			SessionToken:      agency.AgencySessionToken(sessionToken),
-			PreferredLanguage: common.LanguageCode(globalUser.PreferredLanguage),
+			PreferredLanguage: common.LanguageCode(regionalUser.PreferredLanguage),
 			AgencyName:        agencyEntity.AgencyName,
 		}
 

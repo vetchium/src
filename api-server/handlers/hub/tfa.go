@@ -98,11 +98,10 @@ func TFA(s *server.Server) http.HandlerFunc {
 		// protection. Reusing a valid token just creates another session for the
 		// same authenticated user - not a security issue.
 
-		// Get hub user from global database to get preferred language
-		// TFA token contains hub_user_global_id directly, so we can query global DB
-		globalUser, err := s.Global.GetHubUserByGlobalID(ctx, tfaTokenRecord.HubUserGlobalID)
+		// Get hub user from regional database to get preferred language
+		regionalUser, err := regionalDB.GetHubUserByGlobalID(ctx, tfaTokenRecord.HubUserGlobalID)
 		if err != nil {
-			log.Error("failed to fetch global hub user", "error", err)
+			log.Error("failed to fetch regional hub user", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -140,11 +139,11 @@ func TFA(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		log.Info("hub user TFA verified, session created", "hub_user_global_id", globalUser.HubUserGlobalID, "region", region, "remember_me", tfaRequest.RememberMe)
+		log.Info("hub user TFA verified, session created", "hub_user_global_id", regionalUser.HubUserGlobalID, "region", region, "remember_me", tfaRequest.RememberMe)
 
 		response := hub.HubTFAResponse{
 			SessionToken:      hub.HubSessionToken(sessionToken),
-			PreferredLanguage: common.LanguageCode(globalUser.PreferredLanguage),
+			PreferredLanguage: common.LanguageCode(regionalUser.PreferredLanguage),
 		}
 
 		if err := json.NewEncoder(w).Encode(response); err != nil {

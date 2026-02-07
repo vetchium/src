@@ -471,6 +471,7 @@ export type OrgUserStatus = "active" | "disabled";
 /**
  * Deletes a test org user ONLY, without deleting the employer.
  * Use this when multiple users share the same employer.
+ * Cleans up both global and regional databases.
  *
  * @param email - Email of the org user to delete
  */
@@ -478,6 +479,28 @@ export async function deleteTestOrgUserOnly(email: string): Promise<void> {
 	const crypto = require("crypto");
 	const emailHash = crypto.createHash("sha256").update(email).digest();
 
+	// Get the user's region and ID before deleting from global
+	const userResult = await pool.query(
+		`SELECT org_user_id, home_region FROM org_users WHERE email_address_hash = $1`,
+		[emailHash]
+	);
+
+	if (userResult.rows.length > 0) {
+		const region = userResult.rows[0].home_region as RegionCode;
+		const orgUserId = userResult.rows[0].org_user_id;
+
+		// Delete from regional DB first
+		const regionalPool = getRegionalPool(region);
+		try {
+			await regionalPool.query(`DELETE FROM org_users WHERE org_user_id = $1`, [
+				orgUserId,
+			]);
+		} finally {
+			await regionalPool.end();
+		}
+	}
+
+	// Delete from global DB
 	await pool.query(`DELETE FROM org_users WHERE email_address_hash = $1`, [
 		emailHash,
 	]);
@@ -494,16 +517,33 @@ export async function deleteTestOrgUser(email: string): Promise<void> {
 	const crypto = require("crypto");
 	const emailHash = crypto.createHash("sha256").update(email).digest();
 
-	// Get the org user to find their employer ID
+	// Get the org user to find their employer ID and region
 	const userResult = await pool.query(
-		`SELECT org_user_id, employer_id FROM org_users WHERE email_address_hash = $1`,
+		`SELECT org_user_id, employer_id, home_region FROM org_users WHERE email_address_hash = $1`,
 		[emailHash]
 	);
 
 	if (userResult.rows.length > 0) {
 		const employerId = userResult.rows[0].employer_id;
+		const region = userResult.rows[0].home_region as RegionCode;
+		const orgUserId = userResult.rows[0].org_user_id;
 
-		// Delete the org user (CASCADE handles sessions, etc.)
+		// Delete from regional DB first (CASCADE handles sessions, roles, etc.)
+		const regionalPool = getRegionalPool(region);
+		try {
+			await regionalPool.query(`DELETE FROM org_users WHERE org_user_id = $1`, [
+				orgUserId,
+			]);
+			// Also clean up regional employer_domains
+			await regionalPool.query(
+				`DELETE FROM employer_domains WHERE employer_id = $1`,
+				[employerId]
+			);
+		} finally {
+			await regionalPool.end();
+		}
+
+		// Delete from global DB
 		await pool.query(`DELETE FROM org_users WHERE email_address_hash = $1`, [
 			emailHash,
 		]);
@@ -578,12 +618,36 @@ export async function getTestOrgUser(email: string): Promise<{
 	const crypto = require("crypto");
 	const emailHash = crypto.createHash("sha256").update(email).digest();
 
-	const result = await pool.query(
-		`SELECT org_user_id, employer_id, status, preferred_language, home_region
+	// Get routing data from global
+	const globalResult = await pool.query(
+		`SELECT org_user_id, employer_id, home_region
      FROM org_users WHERE email_address_hash = $1`,
 		[emailHash]
 	);
-	return result.rows[0] || null;
+	if (globalResult.rows.length === 0) return null;
+
+	const globalUser = globalResult.rows[0];
+	const region = globalUser.home_region as RegionCode;
+
+	// Get mutable data from regional
+	const regionalPool = getRegionalPool(region);
+	try {
+		const regionalResult = await regionalPool.query(
+			`SELECT status, preferred_language FROM org_users WHERE org_user_id = $1`,
+			[globalUser.org_user_id]
+		);
+		if (regionalResult.rows.length === 0) return null;
+
+		return {
+			org_user_id: globalUser.org_user_id,
+			employer_id: globalUser.employer_id,
+			home_region: region,
+			status: regionalResult.rows[0].status,
+			preferred_language: regionalResult.rows[0].preferred_language,
+		};
+	} finally {
+		await regionalPool.end();
+	}
 }
 
 /**
@@ -604,12 +668,26 @@ export async function createTestVerifiedDomain(
 	employerId: string,
 	region: RegionCode
 ): Promise<void> {
+	// Create domain in global DB (routing only, no status column)
 	await pool.query(
-		`INSERT INTO global_employer_domains (domain, region, employer_id, status)
-     VALUES ($1, $2, $3, 'VERIFIED')
-     ON CONFLICT (domain) DO UPDATE SET status = 'VERIFIED'`,
+		`INSERT INTO global_employer_domains (domain, region, employer_id)
+     VALUES ($1, $2, $3)
+     ON CONFLICT (domain) DO NOTHING`,
 		[domain.toLowerCase(), region, employerId]
 	);
+
+	// Create verified domain in regional DB (operational data with status)
+	const regionalPool = getRegionalPool(region);
+	try {
+		await regionalPool.query(
+			`INSERT INTO employer_domains (domain, employer_id, verification_token, token_expires_at, status)
+       VALUES ($1, $2, 'test-token', NOW() + INTERVAL '1 year', 'VERIFIED')
+       ON CONFLICT (domain) DO UPDATE SET status = 'VERIFIED'`,
+			[domain.toLowerCase(), employerId]
+		);
+	} finally {
+		await regionalPool.end();
+	}
 }
 
 /**
@@ -619,10 +697,26 @@ export async function createTestVerifiedDomain(
  * @param domain - Domain name to verify
  */
 export async function verifyTestDomain(domain: string): Promise<void> {
-	await pool.query(
-		`UPDATE global_employer_domains SET status = 'VERIFIED' WHERE domain = $1`,
+	// Get region from global domain record
+	const result = await pool.query(
+		`SELECT region FROM global_employer_domains WHERE domain = $1`,
 		[domain.toLowerCase()]
 	);
+	if (result.rows.length === 0) {
+		throw new Error(`Domain not found in global DB: ${domain}`);
+	}
+	const region = result.rows[0].region as RegionCode;
+
+	// Update status in regional employer_domains
+	const regionalPool = getRegionalPool(region);
+	try {
+		await regionalPool.query(
+			`UPDATE employer_domains SET status = 'VERIFIED' WHERE domain = $1`,
+			[domain.toLowerCase()]
+		);
+	} finally {
+		await regionalPool.end();
+	}
 }
 
 /**
@@ -635,10 +729,9 @@ export async function getTestGlobalEmployerDomain(domain: string): Promise<{
 	domain: string;
 	region: RegionCode;
 	employer_id: string;
-	status: DomainVerificationStatus;
 } | null> {
 	const result = await pool.query(
-		`SELECT domain, region, employer_id, status
+		`SELECT domain, region, employer_id
      FROM global_employer_domains WHERE domain = $1`,
 		[domain.toLowerCase()]
 	);
@@ -658,10 +751,26 @@ export async function updateTestOrgUserStatus(
 	const crypto = require("crypto");
 	const emailHash = crypto.createHash("sha256").update(email).digest();
 
-	await pool.query(
-		`UPDATE org_users SET status = $1 WHERE email_address_hash = $2`,
-		[status, emailHash]
+	// Get home_region from global
+	const globalResult = await pool.query(
+		`SELECT home_region FROM org_users WHERE email_address_hash = $1`,
+		[emailHash]
 	);
+	if (globalResult.rows.length === 0) {
+		throw new Error(`Org user not found in global DB: ${email}`);
+	}
+	const region = globalResult.rows[0].home_region as RegionCode;
+
+	// Update status in regional DB
+	const regionalPool = getRegionalPool(region);
+	try {
+		await regionalPool.query(
+			`UPDATE org_users SET status = $1 WHERE email_address = $2`,
+			[status, email]
+		);
+	} finally {
+		await regionalPool.end();
+	}
 }
 
 /**
@@ -743,28 +852,28 @@ export async function createTestOrgUserDirect(
 
 		// 2. Create verified domain in global DB
 		await pool.query(
-			`INSERT INTO global_employer_domains (domain, region, employer_id, status)
-     VALUES ($1, $2, $3, 'VERIFIED')`,
+			`INSERT INTO global_employer_domains (domain, region, employer_id)
+     VALUES ($1, $2, $3)`,
 			[domain, region, employerId]
 		);
 	}
 
-	// 3. Create org user in global DB
+	// 3. Create org user in global DB (routing only)
 	const orgUserId = randomUUID();
 	const status = options?.status || "active";
 	await pool.query(
-		`INSERT INTO org_users (org_user_id, email_address_hash, hashing_algorithm, employer_id, status, preferred_language, home_region)
-     VALUES ($1, $2, 'SHA-256', $3, $4, 'en-US', $5)`,
-		[orgUserId, emailHash, employerId, status, region]
+		`INSERT INTO org_users (org_user_id, email_address_hash, hashing_algorithm, employer_id, home_region)
+     VALUES ($1, $2, 'SHA-256', $3, $4)`,
+		[orgUserId, emailHash, employerId, region]
 	);
 
-	// 4. Create org user in regional DB
+	// 4. Create org user in regional DB (mutable data)
 	const regionalPool = getRegionalPool(region);
 	try {
 		await regionalPool.query(
-			`INSERT INTO org_users (org_user_id, email_address, employer_id, password_hash)
-       VALUES ($1, $2, $3, $4)`,
-			[orgUserId, email, employerId, passwordHash]
+			`INSERT INTO org_users (org_user_id, email_address, employer_id, password_hash, status)
+       VALUES ($1, $2, $3, $4, $5)`,
+			[orgUserId, email, employerId, passwordHash, status]
 		);
 	} finally {
 		await regionalPool.end();
@@ -824,28 +933,28 @@ export async function createTestOrgAdminDirect(
 
 		// 2. Create verified domain in global DB
 		await pool.query(
-			`INSERT INTO global_employer_domains (domain, region, employer_id, status)
-     VALUES ($1, $2, $3, 'VERIFIED')`,
+			`INSERT INTO global_employer_domains (domain, region, employer_id)
+     VALUES ($1, $2, $3)`,
 			[domain, region, employerId]
 		);
 	}
 
-	// 3. Create org admin user in global DB with is_admin=TRUE
+	// 3. Create org admin user in global DB (routing only)
 	const orgUserId = randomUUID();
 	const status = options?.status || "active";
 	await pool.query(
-		`INSERT INTO org_users (org_user_id, email_address_hash, hashing_algorithm, employer_id, is_admin, status, preferred_language, home_region)
-     VALUES ($1, $2, 'SHA-256', $3, TRUE, $4, 'en-US', $5)`,
-		[orgUserId, emailHash, employerId, status, region]
+		`INSERT INTO org_users (org_user_id, email_address_hash, hashing_algorithm, employer_id, home_region)
+     VALUES ($1, $2, 'SHA-256', $3, $4)`,
+		[orgUserId, emailHash, employerId, region]
 	);
 
-	// 4. Create org admin user in regional DB
+	// 4. Create org admin user in regional DB (mutable data)
 	const regionalPool = getRegionalPool(region);
 	try {
 		await regionalPool.query(
-			`INSERT INTO org_users (org_user_id, email_address, employer_id, password_hash)
-       VALUES ($1, $2, $3, $4)`,
-			[orgUserId, email, employerId, passwordHash]
+			`INSERT INTO org_users (org_user_id, email_address, employer_id, password_hash, is_admin, status)
+       VALUES ($1, $2, $3, $4, TRUE, $5)`,
+			[orgUserId, email, employerId, passwordHash, status]
 		);
 	} finally {
 		await regionalPool.end();
@@ -938,28 +1047,28 @@ export async function createTestAgencyUserDirect(
 
 		// 2. Create verified domain in global DB
 		await pool.query(
-			`INSERT INTO global_agency_domains (domain, region, agency_id, status)
-       VALUES ($1, $2, $3, 'VERIFIED')`,
+			`INSERT INTO global_agency_domains (domain, region, agency_id)
+       VALUES ($1, $2, $3)`,
 			[domain, region, agencyId]
 		);
 	}
 
-	// 3. Create agency user in global DB
+	// 3. Create agency user in global DB (routing only)
 	const agencyUserId = randomUUID();
 	const status = options?.status || "active";
 	await pool.query(
-		`INSERT INTO agency_users (agency_user_id, email_address_hash, hashing_algorithm, agency_id, status, preferred_language, home_region)
-     VALUES ($1, $2, 'SHA-256', $3, $4, 'en-US', $5)`,
-		[agencyUserId, emailHash, agencyId, status, region]
+		`INSERT INTO agency_users (agency_user_id, email_address_hash, hashing_algorithm, agency_id, home_region)
+     VALUES ($1, $2, 'SHA-256', $3, $4)`,
+		[agencyUserId, emailHash, agencyId, region]
 	);
 
-	// 4. Create agency user in regional DB
+	// 4. Create agency user in regional DB (mutable data)
 	const regionalPool = getRegionalPool(region);
 	try {
 		await regionalPool.query(
-			`INSERT INTO agency_users (agency_user_id, email_address, agency_id, password_hash)
-       VALUES ($1, $2, $3, $4)`,
-			[agencyUserId, email, agencyId, passwordHash]
+			`INSERT INTO agency_users (agency_user_id, email_address, agency_id, password_hash, status)
+       VALUES ($1, $2, $3, $4, $5)`,
+			[agencyUserId, email, agencyId, passwordHash, status]
 		);
 	} finally {
 		await regionalPool.end();
@@ -1025,28 +1134,28 @@ export async function createTestAgencyAdminDirect(
 
 		// 2. Create verified domain in global DB
 		await pool.query(
-			`INSERT INTO global_agency_domains (domain, region, agency_id, status)
-       VALUES ($1, $2, $3, 'VERIFIED')`,
+			`INSERT INTO global_agency_domains (domain, region, agency_id)
+       VALUES ($1, $2, $3)`,
 			[domain, region, agencyId]
 		);
 	}
 
-	// 3. Create agency admin user in global DB with is_admin=TRUE
+	// 3. Create agency admin user in global DB (routing only)
 	const agencyUserId = randomUUID();
 	const status = options?.status || "active";
 	await pool.query(
-		`INSERT INTO agency_users (agency_user_id, email_address_hash, hashing_algorithm, agency_id, is_admin, status, preferred_language, home_region)
-     VALUES ($1, $2, 'SHA-256', $3, TRUE, $4, 'en-US', $5)`,
-		[agencyUserId, emailHash, agencyId, status, region]
+		`INSERT INTO agency_users (agency_user_id, email_address_hash, hashing_algorithm, agency_id, home_region)
+     VALUES ($1, $2, 'SHA-256', $3, $4)`,
+		[agencyUserId, emailHash, agencyId, region]
 	);
 
-	// 4. Create agency admin user in regional DB
+	// 4. Create agency admin user in regional DB (mutable data)
 	const regionalPool = getRegionalPool(region);
 	try {
 		await regionalPool.query(
-			`INSERT INTO agency_users (agency_user_id, email_address, agency_id, password_hash)
-       VALUES ($1, $2, $3, $4)`,
-			[agencyUserId, email, agencyId, passwordHash]
+			`INSERT INTO agency_users (agency_user_id, email_address, agency_id, password_hash, is_admin, status)
+       VALUES ($1, $2, $3, $4, TRUE, $5)`,
+			[agencyUserId, email, agencyId, passwordHash, status]
 		);
 	} finally {
 		await regionalPool.end();
@@ -1065,6 +1174,29 @@ export async function deleteTestAgencyUserOnly(email: string): Promise<void> {
 	const crypto = require("crypto");
 	const emailHash = crypto.createHash("sha256").update(email).digest();
 
+	// Get the user's region and ID before deleting from global
+	const userResult = await pool.query(
+		`SELECT agency_user_id, home_region FROM agency_users WHERE email_address_hash = $1`,
+		[emailHash]
+	);
+
+	if (userResult.rows.length > 0) {
+		const region = userResult.rows[0].home_region as RegionCode;
+		const agencyUserId = userResult.rows[0].agency_user_id;
+
+		// Delete from regional DB first
+		const regionalPool = getRegionalPool(region);
+		try {
+			await regionalPool.query(
+				`DELETE FROM agency_users WHERE agency_user_id = $1`,
+				[agencyUserId]
+			);
+		} finally {
+			await regionalPool.end();
+		}
+	}
+
+	// Delete from global DB
 	await pool.query(`DELETE FROM agency_users WHERE email_address_hash = $1`, [
 		emailHash,
 	]);
@@ -1080,16 +1212,29 @@ export async function deleteTestAgencyUser(email: string): Promise<void> {
 	const crypto = require("crypto");
 	const emailHash = crypto.createHash("sha256").update(email).digest();
 
-	// Get the agency user to find their agency ID
+	// Get the agency user to find their agency ID and region
 	const userResult = await pool.query(
-		`SELECT agency_user_id, agency_id FROM agency_users WHERE email_address_hash = $1`,
+		`SELECT agency_user_id, agency_id, home_region FROM agency_users WHERE email_address_hash = $1`,
 		[emailHash]
 	);
 
 	if (userResult.rows.length > 0) {
 		const agencyId = userResult.rows[0].agency_id;
+		const region = userResult.rows[0].home_region as RegionCode;
+		const agencyUserId = userResult.rows[0].agency_user_id;
 
-		// Delete the agency user (CASCADE handles sessions, etc.)
+		// Delete from regional DB first (CASCADE handles sessions, roles, etc.)
+		const regionalPool = getRegionalPool(region);
+		try {
+			await regionalPool.query(
+				`DELETE FROM agency_users WHERE agency_user_id = $1`,
+				[agencyUserId]
+			);
+		} finally {
+			await regionalPool.end();
+		}
+
+		// Delete from global DB
 		await pool.query(`DELETE FROM agency_users WHERE email_address_hash = $1`, [
 			emailHash,
 		]);
@@ -1116,12 +1261,36 @@ export async function getTestAgencyUser(email: string): Promise<{
 	const crypto = require("crypto");
 	const emailHash = crypto.createHash("sha256").update(email).digest();
 
-	const result = await pool.query(
-		`SELECT agency_user_id, agency_id, status, preferred_language, home_region
+	// Get routing data from global
+	const globalResult = await pool.query(
+		`SELECT agency_user_id, agency_id, home_region
      FROM agency_users WHERE email_address_hash = $1`,
 		[emailHash]
 	);
-	return result.rows[0] || null;
+	if (globalResult.rows.length === 0) return null;
+
+	const globalUser = globalResult.rows[0];
+	const region = globalUser.home_region as RegionCode;
+
+	// Get mutable data from regional
+	const regionalPool = getRegionalPool(region);
+	try {
+		const regionalResult = await regionalPool.query(
+			`SELECT status, preferred_language FROM agency_users WHERE agency_user_id = $1`,
+			[globalUser.agency_user_id]
+		);
+		if (regionalResult.rows.length === 0) return null;
+
+		return {
+			agency_user_id: globalUser.agency_user_id,
+			agency_id: globalUser.agency_id,
+			home_region: region,
+			status: regionalResult.rows[0].status,
+			preferred_language: regionalResult.rows[0].preferred_language,
+		};
+	} finally {
+		await regionalPool.end();
+	}
 }
 
 /**
@@ -1158,10 +1327,26 @@ export async function updateTestAgencyUserStatus(
 	const crypto = require("crypto");
 	const emailHash = crypto.createHash("sha256").update(email).digest();
 
-	await pool.query(
-		`UPDATE agency_users SET status = $1 WHERE email_address_hash = $2`,
-		[status, emailHash]
+	// Get home_region from global
+	const globalResult = await pool.query(
+		`SELECT home_region FROM agency_users WHERE email_address_hash = $1`,
+		[emailHash]
 	);
+	if (globalResult.rows.length === 0) {
+		throw new Error(`Agency user not found in global DB: ${email}`);
+	}
+	const region = globalResult.rows[0].home_region as RegionCode;
+
+	// Update status in regional DB
+	const regionalPool = getRegionalPool(region);
+	try {
+		await regionalPool.query(
+			`UPDATE agency_users SET status = $1 WHERE email_address = $2`,
+			[status, email]
+		);
+	} finally {
+		await regionalPool.end();
+	}
 }
 
 // ============================================================================
@@ -1230,120 +1415,152 @@ export async function removeRoleFromAdminUser(
 
 /**
  * Assigns a role to an org user.
+ * Roles and org_user_roles are in the regional database.
  *
  * @param orgUserId - UUID of the org user
  * @param roleName - Name of the role to assign (e.g., 'post_jobs', 'manage_jobs')
+ * @param region - Region where the org user resides (default: 'ind1')
  */
 export async function assignRoleToOrgUser(
 	orgUserId: string,
-	roleName: string
+	roleName: string,
+	region: RegionCode = "ind1"
 ): Promise<void> {
-	// Get role ID from role name
-	const roleResult = await pool.query(
-		`SELECT role_id FROM roles WHERE role_name = $1`,
-		[roleName]
-	);
+	const regionalPool = getRegionalPool(region);
+	try {
+		// Get role ID from regional roles table
+		const roleResult = await regionalPool.query(
+			`SELECT role_id FROM roles WHERE role_name = $1`,
+			[roleName]
+		);
 
-	if (roleResult.rows.length === 0) {
-		throw new Error(`Role not found: ${roleName}`);
+		if (roleResult.rows.length === 0) {
+			throw new Error(`Role not found in region ${region}: ${roleName}`);
+		}
+
+		const roleId = roleResult.rows[0].role_id;
+
+		// Assign role to org user in regional DB
+		await regionalPool.query(
+			`INSERT INTO org_user_roles (org_user_id, role_id)
+       VALUES ($1, $2)
+       ON CONFLICT (org_user_id, role_id) DO NOTHING`,
+			[orgUserId, roleId]
+		);
+	} finally {
+		await regionalPool.end();
 	}
-
-	const roleId = roleResult.rows[0].role_id;
-
-	// Assign role to org user
-	await pool.query(
-		`INSERT INTO org_user_roles (org_user_id, role_id)
-     VALUES ($1, $2)
-     ON CONFLICT (org_user_id, role_id) DO NOTHING`,
-		[orgUserId, roleId]
-	);
 }
 
 /**
  * Removes a role from an org user.
+ * Roles and org_user_roles are in the regional database.
  *
  * @param orgUserId - UUID of the org user
  * @param roleName - Name of the role to remove
+ * @param region - Region where the org user resides (default: 'ind1')
  */
 export async function removeRoleFromOrgUser(
 	orgUserId: string,
-	roleName: string
+	roleName: string,
+	region: RegionCode = "ind1"
 ): Promise<void> {
-	// Get role ID from role name
-	const roleResult = await pool.query(
-		`SELECT role_id FROM roles WHERE role_name = $1`,
-		[roleName]
-	);
+	const regionalPool = getRegionalPool(region);
+	try {
+		// Get role ID from regional roles table
+		const roleResult = await regionalPool.query(
+			`SELECT role_id FROM roles WHERE role_name = $1`,
+			[roleName]
+		);
 
-	if (roleResult.rows.length === 0) {
-		throw new Error(`Role not found: ${roleName}`);
+		if (roleResult.rows.length === 0) {
+			throw new Error(`Role not found in region ${region}: ${roleName}`);
+		}
+
+		const roleId = roleResult.rows[0].role_id;
+
+		// Remove role from org user in regional DB
+		await regionalPool.query(
+			`DELETE FROM org_user_roles WHERE org_user_id = $1 AND role_id = $2`,
+			[orgUserId, roleId]
+		);
+	} finally {
+		await regionalPool.end();
 	}
-
-	const roleId = roleResult.rows[0].role_id;
-
-	// Remove role from org user
-	await pool.query(
-		`DELETE FROM org_user_roles WHERE org_user_id = $1 AND role_id = $2`,
-		[orgUserId, roleId]
-	);
 }
 
 /**
  * Assigns a role to an agency user.
+ * Roles and agency_user_roles are in the regional database.
  *
  * @param agencyUserId - UUID of the agency user
  * @param roleName - Name of the role to assign
+ * @param region - Region where the agency user resides (default: 'ind1')
  */
 export async function assignRoleToAgencyUser(
 	agencyUserId: string,
-	roleName: string
+	roleName: string,
+	region: RegionCode = "ind1"
 ): Promise<void> {
-	// Get role ID from role name
-	const roleResult = await pool.query(
-		`SELECT role_id FROM roles WHERE role_name = $1`,
-		[roleName]
-	);
+	const regionalPool = getRegionalPool(region);
+	try {
+		// Get role ID from regional roles table
+		const roleResult = await regionalPool.query(
+			`SELECT role_id FROM roles WHERE role_name = $1`,
+			[roleName]
+		);
 
-	if (roleResult.rows.length === 0) {
-		throw new Error(`Role not found: ${roleName}`);
+		if (roleResult.rows.length === 0) {
+			throw new Error(`Role not found in region ${region}: ${roleName}`);
+		}
+
+		const roleId = roleResult.rows[0].role_id;
+
+		// Assign role to agency user in regional DB
+		await regionalPool.query(
+			`INSERT INTO agency_user_roles (agency_user_id, role_id)
+       VALUES ($1, $2)
+       ON CONFLICT (agency_user_id, role_id) DO NOTHING`,
+			[agencyUserId, roleId]
+		);
+	} finally {
+		await regionalPool.end();
 	}
-
-	const roleId = roleResult.rows[0].role_id;
-
-	// Assign role to agency user
-	await pool.query(
-		`INSERT INTO agency_user_roles (agency_user_id, role_id)
-     VALUES ($1, $2)
-     ON CONFLICT (agency_user_id, role_id) DO NOTHING`,
-		[agencyUserId, roleId]
-	);
 }
 
 /**
  * Removes a role from an agency user.
+ * Roles and agency_user_roles are in the regional database.
  *
  * @param agencyUserId - UUID of the agency user
  * @param roleName - Name of the role to remove
+ * @param region - Region where the agency user resides (default: 'ind1')
  */
 export async function removeRoleFromAgencyUser(
 	agencyUserId: string,
-	roleName: string
+	roleName: string,
+	region: RegionCode = "ind1"
 ): Promise<void> {
-	// Get role ID from role name
-	const roleResult = await pool.query(
-		`SELECT role_id FROM roles WHERE role_name = $1`,
-		[roleName]
-	);
+	const regionalPool = getRegionalPool(region);
+	try {
+		// Get role ID from regional roles table
+		const roleResult = await regionalPool.query(
+			`SELECT role_id FROM roles WHERE role_name = $1`,
+			[roleName]
+		);
 
-	if (roleResult.rows.length === 0) {
-		throw new Error(`Role not found: ${roleName}`);
+		if (roleResult.rows.length === 0) {
+			throw new Error(`Role not found in region ${region}: ${roleName}`);
+		}
+
+		const roleId = roleResult.rows[0].role_id;
+
+		// Remove role from agency user in regional DB
+		await regionalPool.query(
+			`DELETE FROM agency_user_roles WHERE agency_user_id = $1 AND role_id = $2`,
+			[agencyUserId, roleId]
+		);
+	} finally {
+		await regionalPool.end();
 	}
-
-	const roleId = roleResult.rows[0].role_id;
-
-	// Remove role from agency user
-	await pool.query(
-		`DELETE FROM agency_user_roles WHERE agency_user_id = $1 AND role_id = $2`,
-		[agencyUserId, roleId]
-	);
 }

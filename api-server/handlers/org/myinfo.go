@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
 	"vetchium-api-server.typespec/common"
@@ -30,7 +31,23 @@ func MyInfo(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		roleRecords, err := s.Global.GetOrgUserRoles(ctx, orgUser.OrgUserID)
+		// Get region from context
+		region := middleware.OrgRegionFromContext(ctx)
+		if region == "" {
+			log.Error("region not found in context")
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
+		// Get regional DB for role lookup
+		regionalDB := s.GetRegionalDB(globaldb.Region(region))
+		if regionalDB == nil {
+			log.Error("regional database not available", "region", region)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
+		roleRecords, err := regionalDB.GetOrgUserRoles(ctx, orgUser.OrgUserID)
 		if err != nil {
 			log.Error("failed to fetch org user roles", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)

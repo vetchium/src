@@ -88,12 +88,3 @@ func LoggerFromContext(ctx context.Context, defaultLogger *slog.Logger) *slog.Lo
 	}
 	return defaultLogger
 }
-
-// HubRegionFromContext retrieves the hub user's region from the context.
-// Returns empty string if not found.
-func HubRegionFromContext(ctx context.Context) string {
-	if region, ok := ctx.Value(hubRegionKey).(string); ok {
-		return region
-	}
-	return ""
-}

@@ -15,7 +15,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"golang.org/x/crypto/bcrypt"
-	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/email/templates"
 	"vetchium-api-server.gomodule/internal/i18n"
@@ -65,12 +64,6 @@ func Login(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		if globalUser.Status != globaldb.HubUserStatusActive {
-			log.Debug("disabled user")
-			w.WriteHeader(http.StatusUnprocessableEntity)
-			return
-		}
-
 		// Get the regional database for this user
 		regionalDB := s.GetRegionalDB(globalUser.HomeRegion)
 		if regionalDB == nil {
@@ -88,6 +81,13 @@ func Login(s *server.Server) http.HandlerFunc {
 		if err != nil {
 			log.Error("failed to query regional DB", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
+		// Check if user is active (status is in regional DB)
+		if regionalUser.Status != regionaldb.HubUserStatusActive {
+			log.Debug("disabled user")
+			w.WriteHeader(http.StatusUnprocessableEntity)
 			return
 		}
 
@@ -118,33 +118,25 @@ func Login(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Store TFA token in regional database
-		// NOTE: This spans two operations in regional database (token, email).
-		// We use a compensating transaction: if email enqueue fails, we delete the TFA token.
+		// Create TFA token and enqueue email atomically in regional DB
 		tfaTokenExpiry := s.TokenConfig.HubTFATokenExpiry
 		expiresAt := pgtype.Timestamp{Time: time.Now().Add(tfaTokenExpiry), Valid: true}
-		err = regionalDB.CreateHubTFAToken(ctx, regionaldb.CreateHubTFATokenParams{
-			TfaToken:        rawTFAToken,
-			HubUserGlobalID: regionalUser.HubUserGlobalID,
-			TfaCode:         tfaCode,
-			ExpiresAt:       expiresAt,
+		lang := i18n.Match(regionalUser.PreferredLanguage)
+		regionalPool := s.GetRegionalPool(globalUser.HomeRegion)
+		err = s.WithRegionalTx(ctx, regionalPool, func(qtx *regionaldb.Queries) error {
+			txErr := qtx.CreateHubTFAToken(ctx, regionaldb.CreateHubTFATokenParams{
+				TfaToken:        rawTFAToken,
+				HubUserGlobalID: regionalUser.HubUserGlobalID,
+				TfaCode:         tfaCode,
+				ExpiresAt:       expiresAt,
+			})
+			if txErr != nil {
+				return txErr
+			}
+			return sendTFAEmail(ctx, qtx, regionalUser.EmailAddress, tfaCode, lang, tfaTokenExpiry)
 		})
 		if err != nil {
-			log.Error("failed to store TFA token", "error", err)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-
-		// Enqueue TFA email in regional database
-		// Match user's preferred language to best available translation
-		lang := i18n.Match(globalUser.PreferredLanguage)
-		err = sendTFAEmail(ctx, regionalDB, regionalUser.EmailAddress, tfaCode, lang, tfaTokenExpiry)
-		if err != nil {
-			log.Error("failed to enqueue TFA email", "error", err)
-			// Compensating transaction: delete the TFA token we just created
-			if delErr := regionalDB.DeleteHubTFAToken(ctx, rawTFAToken); delErr != nil {
-				log.Error("failed to delete TFA token after email enqueue failure", "error", delErr)
-			}
+			log.Error("failed to create TFA token and enqueue email", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}

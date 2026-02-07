@@ -1,12 +1,12 @@
 -- Development seed data for global database
 -- This file is NOT for production - it contains test users for development
 
--- Test hub users
+-- Test hub users (global - routing only)
 -- Email hashes are SHA-256 of the email addresses
-INSERT INTO hub_users (hub_user_global_id, handle, email_address_hash, hashing_algorithm, status, preferred_language, home_region)
+INSERT INTO hub_users (hub_user_global_id, handle, email_address_hash, hashing_algorithm, home_region)
 VALUES
-    ('11111111-1111-1111-1111-111111111111', 'testuser1', decode('f5f234e6b4028f68a41cf0a3491af8c8179f851d3906cd8bca8d63c91d831a59', 'hex'), 'SHA-256', 'active', 'en', 'ind1'),
-    ('22222222-2222-2222-2222-222222222222', 'testuser2', decode('62f62c6750fb1e3648ada4f52eae0d3311ee63831864f834de13fa8c56262aac', 'hex'), 'SHA-256', 'active', 'en', 'usa1')
+    ('11111111-1111-1111-1111-111111111111', 'testuser1', decode('f5f234e6b4028f68a41cf0a3491af8c8179f851d3906cd8bca8d63c91d831a59', 'hex'), 'SHA-256', 'ind1'),
+    ('22222222-2222-2222-2222-222222222222', 'testuser2', decode('62f62c6750fb1e3648ada4f52eae0d3311ee63831864f834de13fa8c56262aac', 'hex'), 'SHA-256', 'usa1')
 ON CONFLICT DO NOTHING;
 
 -- Test admin users (password: Password123$)

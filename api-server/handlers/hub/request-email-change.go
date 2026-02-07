@@ -59,9 +59,9 @@ func RequestEmailChange(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Check if user is trying to change to the same email (compare hashes)
+		// Check if user is trying to change to the same email
 		newEmailHash := sha256.Sum256([]byte(req.NewEmailAddress))
-		if hex.EncodeToString(hubUser.EmailAddressHash) == hex.EncodeToString(newEmailHash[:]) {
+		if string(req.NewEmailAddress) == hubUser.EmailAddress {
 			log.Debug("new email same as current email")
 			w.WriteHeader(http.StatusBadRequest)
 			resp := hub.HubRequestEmailChangeResponse{
@@ -79,7 +79,7 @@ func RequestEmailChange(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		if existingUser.HubUserGlobalID.String() != "" && existingUser.Status == globaldb.HubUserStatusActive {
+		if existingUser.HubUserGlobalID.Valid {
 			log.Debug("email already in use")
 			w.WriteHeader(http.StatusConflict)
 			return
@@ -100,14 +100,6 @@ func RequestEmailChange(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Get regional database
-		regionalDB := s.GetRegionalDB(regionType)
-		if regionalDB == nil {
-			log.Error("unknown region", "region", region)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-
 		// Generate verification token (region-prefixed)
 		tokenBytes := make([]byte, 32)
 		if _, err := rand.Read(tokenBytes); err != nil {
@@ -118,24 +110,11 @@ func RequestEmailChange(s *server.Server) http.HandlerFunc {
 		rawToken := hex.EncodeToString(tokenBytes)
 		verificationToken := tokens.AddRegionPrefix(regionType, rawToken)
 
-		// Create verification token in regional DB
+		// Create verification token and enqueue email atomically in regional DB
 		var expiresAt pgtype.Timestamp
 		expiresAt.Time = time.Now().Add(s.TokenConfig.EmailVerificationTokenExpiry)
 		expiresAt.Valid = true
 
-		err = regionalDB.CreateHubEmailVerificationToken(ctx, regionaldb.CreateHubEmailVerificationTokenParams{
-			VerificationToken: rawToken,
-			HubUserGlobalID:   hubUser.HubUserGlobalID,
-			NewEmailAddress:   string(req.NewEmailAddress),
-			ExpiresAt:         expiresAt,
-		})
-		if err != nil {
-			log.Error("failed to create verification token", "error", err)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-
-		// Send verification email to NEW email address
 		hours := int(s.TokenConfig.EmailVerificationTokenExpiry.Hours())
 		emailData := templates.HubEmailVerificationData{
 			VerificationToken: verificationToken,
@@ -148,19 +127,28 @@ func RequestEmailChange(s *server.Server) http.HandlerFunc {
 		textBody := templates.HubEmailVerificationTextBody(hubUser.PreferredLanguage, emailData)
 		htmlBody := templates.HubEmailVerificationHTMLBody(hubUser.PreferredLanguage, emailData)
 
-		_, err = regionalDB.EnqueueEmail(ctx, regionaldb.EnqueueEmailParams{
-			EmailType:     "hub_email_verification",
-			EmailTo:       string(req.NewEmailAddress),
-			EmailSubject:  subject,
-			EmailTextBody: textBody,
-			EmailHtmlBody: htmlBody,
+		regionalPool := s.GetRegionalPool(regionType)
+		err = s.WithRegionalTx(ctx, regionalPool, func(qtx *regionaldb.Queries) error {
+			txErr := qtx.CreateHubEmailVerificationToken(ctx, regionaldb.CreateHubEmailVerificationTokenParams{
+				VerificationToken: rawToken,
+				HubUserGlobalID:   hubUser.HubUserGlobalID,
+				NewEmailAddress:   string(req.NewEmailAddress),
+				ExpiresAt:         expiresAt,
+			})
+			if txErr != nil {
+				return txErr
+			}
+			_, txErr = qtx.EnqueueEmail(ctx, regionaldb.EnqueueEmailParams{
+				EmailType:     "hub_email_verification",
+				EmailTo:       string(req.NewEmailAddress),
+				EmailSubject:  subject,
+				EmailTextBody: textBody,
+				EmailHtmlBody: htmlBody,
+			})
+			return txErr
 		})
 		if err != nil {
-			log.Error("failed to enqueue email", "error", err)
-			// Compensating transaction: delete token
-			if delErr := regionalDB.DeleteHubEmailVerificationToken(ctx, rawToken); delErr != nil {
-				log.Error("failed to delete verification token after email failure", "error", delErr)
-			}
+			log.Error("failed to create verification token and enqueue email", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}

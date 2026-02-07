@@ -65,7 +65,7 @@ func AdminRole(globalDB *globaldb.Queries, requiredRoles ...string) func(http.Ha
 // If no roles are specified, only authentication is required (any authenticated employer can access).
 // Returns 403 if not admin and lacks all required roles.
 // Must be chained after OrgAuth middleware.
-func EmployerRole(globalDB *globaldb.Queries, getRegionalDB func(globaldb.Region) *regionaldb.Queries, requiredRoles ...string) func(http.Handler) http.Handler {
+func EmployerRole(getRegionalDB func(globaldb.Region) *regionaldb.Queries, requiredRoles ...string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
@@ -90,25 +90,34 @@ func EmployerRole(globalDB *globaldb.Queries, getRegionalDB func(globaldb.Region
 				return
 			}
 
-			// Check if user has ANY of the required roles
+			// Get regional DB from context region
+			region := OrgRegionFromContext(ctx)
+			if region == "" {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			regionalDB := getRegionalDB(globaldb.Region(region))
+			if regionalDB == nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+
+			// Check if user has ANY of the required roles (roles are in regional DB)
 			for _, requiredRole := range requiredRoles {
-				role, err := globalDB.GetRoleByName(ctx, requiredRole)
+				role, err := regionalDB.GetRoleByName(ctx, requiredRole)
 				if err != nil {
-					// Role doesn't exist in DB, skip to next role
 					continue
 				}
 
-				hasRole, err := globalDB.HasOrgUserRole(ctx, globaldb.HasOrgUserRoleParams{
+				hasRole, err := regionalDB.HasOrgUserRole(ctx, regionaldb.HasOrgUserRoleParams{
 					OrgUserID: orgUser.OrgUserID,
 					RoleID:    role.RoleID,
 				})
 				if err != nil {
-					// Error checking role, skip to next role
 					continue
 				}
 
 				if hasRole {
-					// User has this role, allow access
 					next.ServeHTTP(w, r)
 					return
 				}
@@ -125,7 +134,7 @@ func EmployerRole(globalDB *globaldb.Queries, getRegionalDB func(globaldb.Region
 // If no roles are specified, only authentication is required (any authenticated agency user can access).
 // Returns 403 if not admin and lacks all required roles.
 // Must be chained after AgencyAuth middleware.
-func AgencyRole(globalDB *globaldb.Queries, getRegionalDB func(globaldb.Region) *regionaldb.Queries, requiredRoles ...string) func(http.Handler) http.Handler {
+func AgencyRole(getRegionalDB func(globaldb.Region) *regionaldb.Queries, requiredRoles ...string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
@@ -150,25 +159,34 @@ func AgencyRole(globalDB *globaldb.Queries, getRegionalDB func(globaldb.Region) 
 				return
 			}
 
-			// Check if user has ANY of the required roles
+			// Get regional DB from context region
+			region := AgencyRegionFromContext(ctx)
+			if region == "" {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			regionalDB := getRegionalDB(globaldb.Region(region))
+			if regionalDB == nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+
+			// Check if user has ANY of the required roles (roles are in regional DB)
 			for _, requiredRole := range requiredRoles {
-				role, err := globalDB.GetRoleByName(ctx, requiredRole)
+				role, err := regionalDB.GetRoleByName(ctx, requiredRole)
 				if err != nil {
-					// Role doesn't exist in DB, skip to next role
 					continue
 				}
 
-				hasRole, err := globalDB.HasAgencyUserRole(ctx, globaldb.HasAgencyUserRoleParams{
+				hasRole, err := regionalDB.HasAgencyUserRole(ctx, regionaldb.HasAgencyUserRoleParams{
 					AgencyUserID: agencyUser.AgencyUserID,
 					RoleID:       role.RoleID,
 				})
 				if err != nil {
-					// Error checking role, skip to next role
 					continue
 				}
 
 				if hasRole {
-					// User has this role, allow access
 					next.ServeHTTP(w, r)
 					return
 				}
@@ -183,7 +201,7 @@ func AgencyRole(globalDB *globaldb.Queries, getRegionalDB func(globaldb.Region) 
 // EmployerAdminOnly restricts access to employer users with IsAdmin == true.
 // Returns 403 if user is not an admin.
 // Must be chained after OrgAuth middleware.
-func EmployerAdminOnly(globalDB *globaldb.Queries) func(http.Handler) http.Handler {
+func EmployerAdminOnly() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
@@ -210,7 +228,7 @@ func EmployerAdminOnly(globalDB *globaldb.Queries) func(http.Handler) http.Handl
 // AgencyAdminOnly restricts access to agency users with IsAdmin == true.
 // Returns 403 if user is not an admin.
 // Must be chained after AgencyAuth middleware.
-func AgencyAdminOnly(globalDB *globaldb.Queries) func(http.Handler) http.Handler {
+func AgencyAdminOnly() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")

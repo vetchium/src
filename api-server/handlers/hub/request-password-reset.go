@@ -13,7 +13,6 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/email/templates"
 	"vetchium-api-server.gomodule/internal/i18n"
@@ -64,14 +63,6 @@ func RequestPasswordReset(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Check if user is active
-		if globalUser.Status != globaldb.HubUserStatusActive {
-			// Return generic success message to prevent account enumeration
-			log.Debug("user not active - returning generic success", "status", globalUser.Status)
-			sendGenericSuccessResponse(w, log)
-			return
-		}
-
 		// Get the regional database for this user
 		regionalDB := s.GetRegionalDB(globalUser.HomeRegion)
 		if regionalDB == nil {
@@ -80,7 +71,7 @@ func RequestPasswordReset(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Get regional user for email address
+		// Get regional user for email address and status check
 		regionalUser, err := regionalDB.GetHubUserByEmail(ctx, string(req.EmailAddress))
 		if errors.Is(err, pgx.ErrNoRows) {
 			// Should not happen since global user exists, but handle gracefully
@@ -91,6 +82,14 @@ func RequestPasswordReset(s *server.Server) http.HandlerFunc {
 		if err != nil {
 			log.Error("failed to query regional DB", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
+		// Check if user is active (status is in regional DB)
+		if regionalUser.Status != regionaldb.HubUserStatusActive {
+			// Return generic success message to prevent account enumeration
+			log.Debug("user not active - returning generic success", "status", regionalUser.Status)
+			sendGenericSuccessResponse(w, log)
 			return
 		}
 
@@ -106,29 +105,24 @@ func RequestPasswordReset(s *server.Server) http.HandlerFunc {
 		// Add region prefix to reset token
 		resetToken := tokens.AddRegionPrefix(globalUser.HomeRegion, rawResetToken)
 
-		// Store reset token in regional database
+		// Create reset token and enqueue email atomically in regional DB
 		resetTokenExpiry := s.TokenConfig.PasswordResetTokenExpiry
 		expiresAt := pgtype.Timestamp{Time: time.Now().Add(resetTokenExpiry), Valid: true}
-		err = regionalDB.CreateHubPasswordResetToken(ctx, regionaldb.CreateHubPasswordResetTokenParams{
-			ResetToken:      rawResetToken,
-			HubUserGlobalID: regionalUser.HubUserGlobalID,
-			ExpiresAt:       expiresAt,
+		lang := i18n.Match(regionalUser.PreferredLanguage)
+		regionalPool := s.GetRegionalPool(globalUser.HomeRegion)
+		err = s.WithRegionalTx(ctx, regionalPool, func(qtx *regionaldb.Queries) error {
+			txErr := qtx.CreateHubPasswordResetToken(ctx, regionaldb.CreateHubPasswordResetTokenParams{
+				ResetToken:      rawResetToken,
+				HubUserGlobalID: regionalUser.HubUserGlobalID,
+				ExpiresAt:       expiresAt,
+			})
+			if txErr != nil {
+				return txErr
+			}
+			return sendPasswordResetEmail(ctx, qtx, regionalUser.EmailAddress, resetToken, lang, resetTokenExpiry, s.UIConfig.HubURL)
 		})
 		if err != nil {
-			log.Error("failed to store password reset token", "error", err)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-
-		// Enqueue password reset email
-		lang := i18n.Match(globalUser.PreferredLanguage)
-		err = sendPasswordResetEmail(ctx, regionalDB, regionalUser.EmailAddress, resetToken, lang, resetTokenExpiry, s.UIConfig.HubURL)
-		if err != nil {
-			log.Error("failed to enqueue password reset email", "error", err)
-			// Compensating transaction: delete the reset token we just created
-			if delErr := regionalDB.DeleteHubPasswordResetToken(ctx, rawResetToken); delErr != nil {
-				log.Error("failed to delete reset token after email enqueue failure", "error", delErr)
-			}
+			log.Error("failed to create reset token and enqueue email", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}

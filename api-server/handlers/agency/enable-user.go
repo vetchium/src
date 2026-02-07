@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
+	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
 	"vetchium-api-server.typespec/agency"
@@ -46,8 +47,8 @@ func EnableUser(s *server.Server) http.HandlerFunc {
 		// Calculate email hash
 		emailHash := sha256.Sum256([]byte(req.EmailAddress))
 
-		// Get target user by email hash and agency ID
-		targetUser, err := s.Global.GetAgencyUserByEmailHashAndAgency(ctx, globaldb.GetAgencyUserByEmailHashAndAgencyParams{
+		// Get target user from global DB (for routing info)
+		targetGlobalUser, err := s.Global.GetAgencyUserByEmailHashAndAgency(ctx, globaldb.GetAgencyUserByEmailHashAndAgencyParams{
 			EmailAddressHash: emailHash[:],
 			AgencyID:         agencyUser.AgencyID,
 		})
@@ -62,25 +63,51 @@ func EnableUser(s *server.Server) http.HandlerFunc {
 			return
 		}
 
+		// Get regional DB
+		region := middleware.AgencyRegionFromContext(ctx)
+		if region == "" {
+			log.Error("region not found in context")
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+		regionalDB := s.GetRegionalDB(globaldb.Region(region))
+		if regionalDB == nil {
+			log.Error("regional database not available", "region", region)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
+		// Get target user from regional DB (for status check)
+		targetRegionalUser, err := regionalDB.GetAgencyUserByID(ctx, targetGlobalUser.AgencyUserID)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				log.Debug("target user not found in regional DB")
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			log.Error("failed to get target user from regional DB", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
 		// Check if target user is in disabled state
-		if targetUser.Status != globaldb.AgencyUserStatusDisabled {
-			log.Debug("target user not in disabled state", "status", targetUser.Status)
+		if targetRegionalUser.Status != regionaldb.AgencyUserStatusDisabled {
+			log.Debug("target user not in disabled state", "status", targetRegionalUser.Status)
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
 
 		// Check if current user has permission (is_admin or has manage_users role)
-		// TODO: Once role system is implemented, check for manage_users role here
 		if !agencyUser.IsAdmin {
 			log.Debug("user lacks permission to enable users")
 			w.WriteHeader(http.StatusForbidden)
 			return
 		}
 
-		// Update user status to active in global DB
-		err = s.Global.UpdateAgencyUserStatus(ctx, globaldb.UpdateAgencyUserStatusParams{
-			AgencyUserID: targetUser.AgencyUserID,
-			Status:       globaldb.AgencyUserStatusActive,
+		// Update user status to active in regional DB
+		err = regionalDB.UpdateAgencyUserStatus(ctx, regionaldb.UpdateAgencyUserStatusParams{
+			AgencyUserID: targetGlobalUser.AgencyUserID,
+			Status:       regionaldb.AgencyUserStatusActive,
 		})
 		if err != nil {
 			log.Error("failed to update user status", "error", err)
@@ -89,7 +116,7 @@ func EnableUser(s *server.Server) http.HandlerFunc {
 		}
 
 		log.Info("agency user enabled successfully",
-			"target_user_id", targetUser.AgencyUserID,
+			"target_user_id", targetGlobalUser.AgencyUserID,
 			"enabled_by", agencyUser.AgencyUserID)
 
 		w.WriteHeader(http.StatusOK)

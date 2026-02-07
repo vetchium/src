@@ -103,8 +103,11 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 
 		// Variables to capture from transaction
 		var employer globaldb.Employer
-		var isFirstUser bool
 		var globalUser globaldb.OrgUser
+
+		// The employer is being created in this transaction, so this is
+		// definitionally the first user for that employer.
+		isFirstUser := true
 
 		// Execute all global operations in a single transaction
 		err = s.WithGlobalTx(ctx, func(qtx *globaldb.Queries) error {
@@ -123,20 +126,11 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 				return txErr
 			}
 
-			// 2. Check if first user
-			userCount, txErr := qtx.CountOrgUsersByEmployer(ctx, employer.EmployerID)
-			if txErr != nil {
-				log.Error("failed to count org users", "error", txErr)
-				return txErr
-			}
-			isFirstUser = userCount == 0
-
-			// 3. Create domain
+			// 2. Create domain in global DB (routing only, no status)
 			txErr = qtx.CreateGlobalEmployerDomain(ctx, globaldb.CreateGlobalEmployerDomainParams{
 				Domain:     domain,
 				Region:     region,
 				EmployerID: employer.EmployerID,
-				Status:     globaldb.DomainVerificationStatusVERIFIED,
 			})
 			if txErr != nil {
 				if server.IsUniqueViolation(txErr) {
@@ -147,15 +141,12 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 				return txErr
 			}
 
-			// 4. Create global user
+			// 4. Create global user (routing fields only)
 			globalUser, txErr = qtx.CreateOrgUser(ctx, globaldb.CreateOrgUserParams{
-				EmailAddressHash:  emailHash,
-				HashingAlgorithm:  globaldb.EmailAddressHashingAlgorithmSHA256,
-				EmployerID:        employer.EmployerID,
-				IsAdmin:           isFirstUser,
-				Status:            globaldb.OrgUserStatusActive,
-				PreferredLanguage: string(req.PreferredLanguage),
-				HomeRegion:        region,
+				EmailAddressHash: emailHash,
+				HashingAlgorithm: globaldb.EmailAddressHashingAlgorithmSHA256,
+				EmployerID:       employer.EmployerID,
+				HomeRegion:       region,
 			})
 			if txErr != nil {
 				if server.IsUniqueViolation(txErr) {
@@ -164,53 +155,6 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 				}
 				log.Error("failed to create org user in global DB", "error", txErr)
 				return txErr
-			}
-
-			// 5-8. Assign roles if first user
-			if isFirstUser {
-				// Get invite_users role
-				inviteRole, txErr := qtx.GetRoleByName(ctx, "employer:invite_users")
-				if txErr != nil {
-					if errors.Is(txErr, pgx.ErrNoRows) {
-						log.Error("invite_users role not found in database")
-						return errors.New("invite_users role missing")
-					}
-					log.Error("failed to get invite_users role", "error", txErr)
-					return txErr
-				}
-
-				// Assign invite_users role
-				txErr = qtx.AssignOrgUserRole(ctx, globaldb.AssignOrgUserRoleParams{
-					OrgUserID: globalUser.OrgUserID,
-					RoleID:    inviteRole.RoleID,
-				})
-				if txErr != nil {
-					log.Error("failed to assign invite_users role", "error", txErr)
-					return txErr
-				}
-
-				// Get manage_users role
-				manageRole, txErr := qtx.GetRoleByName(ctx, "employer:manage_users")
-				if txErr != nil {
-					if errors.Is(txErr, pgx.ErrNoRows) {
-						log.Error("manage_users role not found in database")
-						return errors.New("manage_users role missing")
-					}
-					log.Error("failed to get manage_users role", "error", txErr)
-					return txErr
-				}
-
-				// Assign manage_users role
-				txErr = qtx.AssignOrgUserRole(ctx, globaldb.AssignOrgUserRoleParams{
-					OrgUserID: globalUser.OrgUserID,
-					RoleID:    manageRole.RoleID,
-				})
-				if txErr != nil {
-					log.Error("failed to assign manage_users role", "error", txErr)
-					return txErr
-				}
-
-				log.Info("assigned admin roles to first org user", "org_user_id", globalUser.OrgUserID)
 			}
 
 			return nil
@@ -236,12 +180,15 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Create regional user
+		// Create regional user with full details
 		_, err = regionalDB.CreateOrgUser(ctx, regionaldb.CreateOrgUserParams{
-			OrgUserID:    globalUser.OrgUserID,
-			EmailAddress: email,
-			EmployerID:   employer.EmployerID,
-			PasswordHash: passwordHash,
+			OrgUserID:         globalUser.OrgUserID,
+			EmailAddress:      email,
+			EmployerID:        employer.EmployerID,
+			PasswordHash:      passwordHash,
+			Status:            regionaldb.OrgUserStatusActive,
+			PreferredLanguage: string(req.PreferredLanguage),
+			IsAdmin:           isFirstUser,
 		})
 		if err != nil {
 			log.Error("failed to create org user in regional DB", "error", err)
@@ -249,6 +196,62 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 			s.Global.DeleteEmployer(ctx, employer.EmployerID)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
+		}
+
+		// Create verified domain in regional DB
+		err = regionalDB.CreateEmployerDomain(ctx, regionaldb.CreateEmployerDomainParams{
+			Domain:            domain,
+			EmployerID:        employer.EmployerID,
+			VerificationToken: dnsVerificationToken,
+			TokenExpiresAt:    pgtype.Timestamp{Time: time.Now().AddDate(0, 0, 30), Valid: true},
+			Status:            regionaldb.DomainVerificationStatusVERIFIED,
+		})
+		if err != nil {
+			log.Error("failed to create regional employer domain", "error", err)
+			// Non-critical for signup flow - domain can be re-verified later
+		}
+
+		// Assign roles if first user (now in regional DB)
+		if isFirstUser {
+			// Get invite_users role
+			inviteRole, roleErr := regionalDB.GetRoleByName(ctx, "employer:invite_users")
+			if roleErr != nil {
+				if errors.Is(roleErr, pgx.ErrNoRows) {
+					log.Error("invite_users role not found in regional database")
+				} else {
+					log.Error("failed to get invite_users role", "error", roleErr)
+				}
+			} else {
+				// Assign invite_users role
+				roleErr = regionalDB.AssignOrgUserRole(ctx, regionaldb.AssignOrgUserRoleParams{
+					OrgUserID: globalUser.OrgUserID,
+					RoleID:    inviteRole.RoleID,
+				})
+				if roleErr != nil {
+					log.Error("failed to assign invite_users role", "error", roleErr)
+				}
+			}
+
+			// Get manage_users role
+			manageRole, roleErr := regionalDB.GetRoleByName(ctx, "employer:manage_users")
+			if roleErr != nil {
+				if errors.Is(roleErr, pgx.ErrNoRows) {
+					log.Error("manage_users role not found in regional database")
+				} else {
+					log.Error("failed to get manage_users role", "error", roleErr)
+				}
+			} else {
+				// Assign manage_users role
+				roleErr = regionalDB.AssignOrgUserRole(ctx, regionaldb.AssignOrgUserRoleParams{
+					OrgUserID: globalUser.OrgUserID,
+					RoleID:    manageRole.RoleID,
+				})
+				if roleErr != nil {
+					log.Error("failed to assign manage_users role", "error", roleErr)
+				}
+			}
+
+			log.Info("assigned admin roles to first org user", "org_user_id", globalUser.OrgUserID)
 		}
 
 		// Generate session token

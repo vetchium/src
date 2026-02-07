@@ -7,7 +7,6 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"golang.org/x/crypto/bcrypt"
-	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/server"
 	"vetchium-api-server.gomodule/internal/tokens"
@@ -68,8 +67,8 @@ func CompletePasswordReset(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Get global user to check status
-		globalUser, err := s.Global.GetHubUserByGlobalID(ctx, tokenRecord.HubUserGlobalID)
+		// Get regional user to check status
+		regionalUser, err := regionalDB.GetHubUserByGlobalID(ctx, tokenRecord.HubUserGlobalID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				log.Debug("user not found")
@@ -77,14 +76,14 @@ func CompletePasswordReset(s *server.Server) http.HandlerFunc {
 				return
 			}
 
-			log.Error("failed to query global DB", "error", err)
+			log.Error("failed to query regional DB", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
 		// Check if user is active
-		if globalUser.Status != globaldb.HubUserStatusActive {
-			log.Debug("user not active", "status", globalUser.Status)
+		if regionalUser.Status != regionaldb.HubUserStatusActive {
+			log.Debug("user not active", "status", regionalUser.Status)
 			w.WriteHeader(http.StatusUnprocessableEntity)
 			return
 		}
@@ -97,29 +96,25 @@ func CompletePasswordReset(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Update password hash
-		err = regionalDB.UpdateHubUserPassword(ctx, regionaldb.UpdateHubUserPasswordParams{
-			HubUserGlobalID: tokenRecord.HubUserGlobalID,
-			PasswordHash:    passwordHash,
+		// Update password, delete token, and invalidate sessions atomically
+		err = s.WithRegionalTx(ctx, s.GetRegionalPool(region), func(qtx *regionaldb.Queries) error {
+			txErr := qtx.UpdateHubUserPassword(ctx, regionaldb.UpdateHubUserPasswordParams{
+				HubUserGlobalID: tokenRecord.HubUserGlobalID,
+				PasswordHash:    passwordHash,
+			})
+			if txErr != nil {
+				return txErr
+			}
+			txErr = qtx.DeleteHubPasswordResetToken(ctx, rawToken)
+			if txErr != nil {
+				return txErr
+			}
+			return qtx.DeleteAllHubSessionsForUser(ctx, tokenRecord.HubUserGlobalID)
 		})
 		if err != nil {
-			log.Error("failed to update password", "error", err)
+			log.Error("failed to complete password reset", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
-		}
-
-		// Delete the reset token (single-use)
-		err = regionalDB.DeleteHubPasswordResetToken(ctx, rawToken)
-		if err != nil {
-			log.Error("failed to delete reset token", "error", err)
-			// Don't fail the request - password was already updated
-		}
-
-		// Invalidate all sessions
-		err = regionalDB.DeleteAllHubSessionsForUser(ctx, tokenRecord.HubUserGlobalID)
-		if err != nil {
-			log.Error("failed to invalidate sessions", "error", err)
-			// Don't fail the request - password was already updated
 		}
 
 		log.Info("password reset completed", "hub_user_global_id", tokenRecord.HubUserGlobalID)

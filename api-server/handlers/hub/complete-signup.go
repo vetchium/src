@@ -141,75 +141,69 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Create user in global DB first (database generates hub_user_global_id)
-		globalUser, err := s.Global.CreateHubUser(ctx, globaldb.CreateHubUserParams{
-			Handle:              handle,
-			EmailAddressHash:    emailHash,
-			HashingAlgorithm:    globaldb.EmailAddressHashingAlgorithmSHA256,
-			Status:              globaldb.HubUserStatusActive,
-			PreferredLanguage:   req.PreferredLanguage,
-			HomeRegion:          globaldb.Region(req.HomeRegion),
-			ResidentCountryCode: pgtype.Text{String: string(req.ResidentCountryCode), Valid: true},
+		// Execute all global operations in a single transaction
+		var globalUser globaldb.HubUser
+		err = s.WithGlobalTx(ctx, func(qtx *globaldb.Queries) error {
+			var txErr error
+			globalUser, txErr = qtx.CreateHubUser(ctx, globaldb.CreateHubUserParams{
+				Handle:           handle,
+				EmailAddressHash: emailHash,
+				HashingAlgorithm: globaldb.EmailAddressHashingAlgorithmSHA256,
+				HomeRegion:       globaldb.Region(req.HomeRegion),
+			})
+			if txErr != nil {
+				return txErr
+			}
+
+			// Create preferred display name
+			txErr = qtx.CreateHubUserDisplayName(ctx, globaldb.CreateHubUserDisplayNameParams{
+				HubUserGlobalID: globalUser.HubUserGlobalID,
+				LanguageCode:    req.PreferredLanguage,
+				DisplayName:     string(req.PreferredDisplayName),
+				IsPreferred:     true,
+			})
+			if txErr != nil {
+				return txErr
+			}
+
+			// Create other display names
+			for _, displayName := range req.OtherDisplayNames {
+				txErr = qtx.CreateHubUserDisplayName(ctx, globaldb.CreateHubUserDisplayNameParams{
+					HubUserGlobalID: globalUser.HubUserGlobalID,
+					LanguageCode:    displayName.LanguageCode,
+					DisplayName:     string(displayName.DisplayName),
+					IsPreferred:     false,
+				})
+				if txErr != nil {
+					return txErr
+				}
+			}
+
+			// Mark signup token as consumed within the same transaction
+			_ = qtx.MarkHubSignupTokenConsumed(ctx, string(req.SignupToken))
+
+			return nil
 		})
 		if err != nil {
-			log.Error("failed to create hub user in global DB", "error", err)
+			log.Error("failed global transaction", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 		hubUserGlobalID := globalUser.HubUserGlobalID
 
-		// Create preferred display name
-		err = s.Global.CreateHubUserDisplayName(ctx, globaldb.CreateHubUserDisplayNameParams{
-			HubUserGlobalID: hubUserGlobalID,
-			LanguageCode:    req.PreferredLanguage,
-			DisplayName:     string(req.PreferredDisplayName),
-			IsPreferred:     true,
-		})
-		if err != nil {
-			log.Error("failed to create display name", "error", err)
-			// Compensating transaction: delete global user
-			s.Global.DeleteHubUser(ctx, hubUserGlobalID)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-
-		// Create other display names
-		for _, displayName := range req.OtherDisplayNames {
-			err = s.Global.CreateHubUserDisplayName(ctx, globaldb.CreateHubUserDisplayNameParams{
-				HubUserGlobalID: hubUserGlobalID,
-				LanguageCode:    displayName.LanguageCode,
-				DisplayName:     string(displayName.DisplayName),
-				IsPreferred:     false,
-			})
-			if err != nil {
-				log.Error("failed to create additional display name", "error", err)
-				s.Global.DeleteHubUser(ctx, hubUserGlobalID)
-				http.Error(w, "", http.StatusInternalServerError)
-				return
-			}
-		}
-
-		// Create user in regional DB (uses same hub_user_global_id as primary key)
-		_, err = regionalDB.CreateHubUser(ctx, regionaldb.CreateHubUserParams{
-			HubUserGlobalID: hubUserGlobalID,
-			EmailAddress:    email,
-			PasswordHash:    passwordHash,
-		})
-		if err != nil {
-			log.Error("failed to create hub user in regional DB", "error", err)
-			// Compensating transaction: delete from global
-			s.Global.DeleteHubUser(ctx, hubUserGlobalID)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-
-		// Generate session token
+		// Generate session token before regional TX so we can include it
 		sessionTokenBytes := make([]byte, 32)
 		if _, err := rand.Read(sessionTokenBytes); err != nil {
 			log.Error("failed to generate session token", "error", err)
-			// Cleanup
-			regionalDB.DeleteHubUser(ctx, hubUserGlobalID)
-			s.Global.DeleteHubUser(ctx, hubUserGlobalID)
+			// Compensating: delete from global
+			if delErr := s.Global.DeleteHubUser(ctx, hubUserGlobalID); delErr != nil {
+				log.Error("CONSISTENCY_ALERT: failed to compensate global write",
+					"entity_type", "hub_user",
+					"entity_id", hubUserGlobalID,
+					"intended_action", "delete",
+					"error", delErr,
+				)
+			}
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -218,24 +212,44 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 		// Add region prefix to session token
 		sessionToken := tokens.AddRegionPrefix(globaldb.Region(req.HomeRegion), rawSessionToken)
 
-		// Create session in regional DB (raw token without prefix)
-		sessionExpiresAt := pgtype.Timestamp{Time: time.Now().Add(s.TokenConfig.HubSessionTokenExpiry), Valid: true}
-		err = regionalDB.CreateHubSession(ctx, regionaldb.CreateHubSessionParams{
-			SessionToken:    rawSessionToken,
-			HubUserGlobalID: hubUserGlobalID,
-			ExpiresAt:       sessionExpiresAt,
+		// Execute all regional operations in a single transaction
+		regionalPool := s.GetRegionalPool(globaldb.Region(req.HomeRegion))
+		err = s.WithRegionalTx(ctx, regionalPool, func(qtx *regionaldb.Queries) error {
+			_, txErr := qtx.CreateHubUser(ctx, regionaldb.CreateHubUserParams{
+				HubUserGlobalID:     hubUserGlobalID,
+				EmailAddress:        email,
+				Handle:              handle,
+				PasswordHash:        passwordHash,
+				Status:              regionaldb.HubUserStatusActive,
+				PreferredLanguage:   req.PreferredLanguage,
+				ResidentCountryCode: pgtype.Text{String: string(req.ResidentCountryCode), Valid: true},
+			})
+			if txErr != nil {
+				return txErr
+			}
+
+			sessionExpiresAt := pgtype.Timestamp{Time: time.Now().Add(s.TokenConfig.HubSessionTokenExpiry), Valid: true}
+			txErr = qtx.CreateHubSession(ctx, regionaldb.CreateHubSessionParams{
+				SessionToken:    rawSessionToken,
+				HubUserGlobalID: hubUserGlobalID,
+				ExpiresAt:       sessionExpiresAt,
+			})
+			return txErr
 		})
 		if err != nil {
-			log.Error("failed to create session", "error", err)
-			// Cleanup
-			regionalDB.DeleteHubUser(ctx, hubUserGlobalID)
-			s.Global.DeleteHubUser(ctx, hubUserGlobalID)
+			log.Error("failed regional transaction", "error", err)
+			// Compensating: delete from global (cascades to display names)
+			if delErr := s.Global.DeleteHubUser(ctx, hubUserGlobalID); delErr != nil {
+				log.Error("CONSISTENCY_ALERT: failed to compensate global write",
+					"entity_type", "hub_user",
+					"entity_id", hubUserGlobalID,
+					"intended_action", "delete",
+					"error", delErr,
+				)
+			}
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
-
-		// Mark signup token as consumed (best effort, non-critical)
-		_ = s.Global.MarkHubSignupTokenConsumed(ctx, string(req.SignupToken))
 
 		log.Info("hub user signup completed", "hub_user_global_id", hubUserGlobalID, "handle", handle)
 

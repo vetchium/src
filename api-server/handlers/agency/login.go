@@ -80,12 +80,6 @@ func Login(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		if globalUser.Status != globaldb.AgencyUserStatusActive {
-			log.Debug("disabled user")
-			w.WriteHeader(http.StatusUnprocessableEntity)
-			return
-		}
-
 		// Get the regional database for this user
 		regionalDB := s.GetRegionalDB(globalUser.HomeRegion)
 		if regionalDB == nil {
@@ -107,6 +101,13 @@ func Login(s *server.Server) http.HandlerFunc {
 			}
 			log.Error("failed to query regional DB", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
+		// Check user status from regional DB
+		if regionalUser.Status != regionaldb.AgencyUserStatusActive {
+			log.Debug("disabled user")
+			w.WriteHeader(http.StatusUnprocessableEntity)
 			return
 		}
 
@@ -137,30 +138,26 @@ func Login(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Store TFA token in regional database
+		// Store TFA token and enqueue email atomically in regional database
 		tfaTokenExpiry := s.TokenConfig.AgencyTFATokenExpiry
 		expiresAt := pgtype.Timestamp{Time: time.Now().Add(tfaTokenExpiry), Valid: true}
-		err = regionalDB.CreateAgencyTFAToken(ctx, regionaldb.CreateAgencyTFATokenParams{
-			TfaToken:     rawTFAToken,
-			AgencyUserID: regionalUser.AgencyUserID,
-			TfaCode:      tfaCode,
-			ExpiresAt:    expiresAt,
+		lang := i18n.Match(regionalUser.PreferredLanguage)
+
+		regionalPool := s.GetRegionalPool(globalUser.HomeRegion)
+		err = s.WithRegionalTx(ctx, regionalPool, func(qtx *regionaldb.Queries) error {
+			txErr := qtx.CreateAgencyTFAToken(ctx, regionaldb.CreateAgencyTFATokenParams{
+				TfaToken:     rawTFAToken,
+				AgencyUserID: regionalUser.AgencyUserID,
+				TfaCode:      tfaCode,
+				ExpiresAt:    expiresAt,
+			})
+			if txErr != nil {
+				return txErr
+			}
+			return sendAgencyTFAEmail(ctx, qtx, regionalUser.EmailAddress, tfaCode, lang, tfaTokenExpiry)
 		})
 		if err != nil {
-			log.Error("failed to store TFA token", "error", err)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-
-		// Enqueue TFA email in regional database
-		lang := i18n.Match(globalUser.PreferredLanguage)
-		err = sendAgencyTFAEmail(ctx, regionalDB, regionalUser.EmailAddress, tfaCode, lang, tfaTokenExpiry)
-		if err != nil {
-			log.Error("failed to enqueue TFA email", "error", err)
-			// Compensating transaction: delete the TFA token we just created
-			if delErr := regionalDB.DeleteAgencyTFAToken(ctx, rawTFAToken); delErr != nil {
-				log.Error("failed to delete TFA token after email enqueue failure", "error", delErr)
-			}
+			log.Error("failed to create TFA token and enqueue email", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}

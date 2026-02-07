@@ -8,7 +8,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"golang.org/x/crypto/bcrypt"
-	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/server"
 	"vetchium-api-server.gomodule/internal/tokens"
@@ -76,22 +75,22 @@ func CompleteSetup(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Get org user from global DB
-		globalUser, err := s.Global.GetAgencyUserByID(ctx, invitationTokenData.AgencyUserID)
+		// Get user from regional DB to check status
+		regionalUser, err := regionalDB.GetAgencyUserByID(ctx, invitationTokenData.AgencyUserID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				log.Debug("org user not found in global DB")
+				log.Debug("agency user not found in regional DB")
 				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
-			log.Error("failed to get org user from global DB", "error", err)
+			log.Error("failed to get agency user from regional DB", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
 		// Check user status - must be invited
-		if globalUser.Status != globaldb.AgencyUserStatusInvited {
-			log.Debug("user is not in invited status", "status", globalUser.Status)
+		if regionalUser.Status != regionaldb.AgencyUserStatusInvited {
+			log.Debug("user is not in invited status", "status", regionalUser.Status)
 			w.WriteHeader(http.StatusUnprocessableEntity)
 			return
 		}
@@ -104,41 +103,23 @@ func CompleteSetup(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Update org user in regional DB with password and full name
+		// Determine preferred language
+		preferredLang := "en-US"
+		if req.PreferredLanguage != "" {
+			preferredLang = string(req.PreferredLanguage)
+		}
+
+		// Update agency user in regional DB with password, full name, status, and preferred language
 		err = regionalDB.UpdateAgencyUserSetup(ctx, regionaldb.UpdateAgencyUserSetupParams{
 			AgencyUserID:       invitationTokenData.AgencyUserID,
 			PasswordHash:       passwordHash,
 			FullName:           pgtype.Text{String: string(req.FullName), Valid: true},
 			AuthenticationType: regionaldb.AuthenticationTypeEmailPassword,
+			Status:             regionaldb.AgencyUserStatusActive,
+			PreferredLanguage:  preferredLang,
 		})
 		if err != nil {
-			log.Error("failed to update org user in regional DB", "error", err)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-
-		// Update full name and preferred language in global DB
-		preferredLang := ""
-		if req.PreferredLanguage != "" {
-			preferredLang = string(req.PreferredLanguage)
-		}
-		err = s.Global.UpdateAgencyUserFullName(ctx, globaldb.UpdateAgencyUserFullNameParams{
-			AgencyUserID:      invitationTokenData.AgencyUserID,
-			FullName:          pgtype.Text{String: string(req.FullName), Valid: true},
-			PreferredLanguage: preferredLang,
-		})
-		if err != nil {
-			log.Error("failed to update full name in global DB", "error", err)
-			// Note: Regional DB already updated, but we continue since this is not critical
-		}
-
-		// Update user status to active in global DB
-		err = s.Global.UpdateAgencyUserStatus(ctx, globaldb.UpdateAgencyUserStatusParams{
-			AgencyUserID: invitationTokenData.AgencyUserID,
-			Status:       globaldb.AgencyUserStatusActive,
-		})
-		if err != nil {
-			log.Error("failed to update user status in global DB", "error", err)
+			log.Error("failed to update agency user in regional DB", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -150,7 +131,7 @@ func CompleteSetup(s *server.Server) http.HandlerFunc {
 			// Continue anyway - user setup is complete
 		}
 
-		log.Info("org user setup completed successfully", "org_user_id", invitationTokenData.AgencyUserID)
+		log.Info("agency user setup completed successfully", "agency_user_id", invitationTokenData.AgencyUserID)
 
 		// Return success response
 		response := agencytypes.AgencyCompleteSetupResponse{

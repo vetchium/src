@@ -103,7 +103,6 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 
 		// Variables to capture from transaction
 		var agencyEntity globaldb.Agency
-		var isFirstUser bool
 		var globalUser globaldb.AgencyUser
 
 		// Execute all global operations in a single transaction
@@ -123,20 +122,11 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 				return txErr
 			}
 
-			// 2. Check if first user
-			userCount, txErr := qtx.CountAgencyUsersByAgency(ctx, agencyEntity.AgencyID)
-			if txErr != nil {
-				log.Error("failed to count agency users", "error", txErr)
-				return txErr
-			}
-			isFirstUser = userCount == 0
-
-			// 3. Create domain
+			// 2. Create domain (no Status field in global)
 			txErr = qtx.CreateGlobalAgencyDomain(ctx, globaldb.CreateGlobalAgencyDomainParams{
 				Domain:   domain,
 				Region:   region,
 				AgencyID: agencyEntity.AgencyID,
-				Status:   globaldb.DomainVerificationStatusVERIFIED,
 			})
 			if txErr != nil {
 				if server.IsUniqueViolation(txErr) {
@@ -147,15 +137,12 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 				return txErr
 			}
 
-			// 4. Create global user
+			// 3. Create global user (routing data only)
 			globalUser, txErr = qtx.CreateAgencyUser(ctx, globaldb.CreateAgencyUserParams{
-				EmailAddressHash:  emailHash,
-				HashingAlgorithm:  globaldb.EmailAddressHashingAlgorithmSHA256,
-				AgencyID:          agencyEntity.AgencyID,
-				IsAdmin:           isFirstUser,
-				Status:            globaldb.AgencyUserStatusActive,
-				PreferredLanguage: string(req.PreferredLanguage),
-				HomeRegion:        region,
+				EmailAddressHash: emailHash,
+				HashingAlgorithm: globaldb.EmailAddressHashingAlgorithmSHA256,
+				AgencyID:         agencyEntity.AgencyID,
+				HomeRegion:       region,
 			})
 			if txErr != nil {
 				if server.IsUniqueViolation(txErr) {
@@ -164,53 +151,6 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 				}
 				log.Error("failed to create agency user in global DB", "error", txErr)
 				return txErr
-			}
-
-			// 5-8. Assign roles if first user
-			if isFirstUser {
-				// Get invite_users role
-				inviteRole, txErr := qtx.GetRoleByName(ctx, "agency:invite_users")
-				if txErr != nil {
-					if errors.Is(txErr, pgx.ErrNoRows) {
-						log.Error("invite_users role not found in database")
-						return errors.New("invite_users role missing")
-					}
-					log.Error("failed to get invite_users role", "error", txErr)
-					return txErr
-				}
-
-				// Assign invite_users role
-				txErr = qtx.AssignAgencyUserRole(ctx, globaldb.AssignAgencyUserRoleParams{
-					AgencyUserID: globalUser.AgencyUserID,
-					RoleID:       inviteRole.RoleID,
-				})
-				if txErr != nil {
-					log.Error("failed to assign invite_users role", "error", txErr)
-					return txErr
-				}
-
-				// Get manage_users role
-				manageRole, txErr := qtx.GetRoleByName(ctx, "agency:manage_users")
-				if txErr != nil {
-					if errors.Is(txErr, pgx.ErrNoRows) {
-						log.Error("manage_users role not found in database")
-						return errors.New("manage_users role missing")
-					}
-					log.Error("failed to get manage_users role", "error", txErr)
-					return txErr
-				}
-
-				// Assign manage_users role
-				txErr = qtx.AssignAgencyUserRole(ctx, globaldb.AssignAgencyUserRoleParams{
-					AgencyUserID: globalUser.AgencyUserID,
-					RoleID:       manageRole.RoleID,
-				})
-				if txErr != nil {
-					log.Error("failed to assign manage_users role", "error", txErr)
-					return txErr
-				}
-
-				log.Info("assigned admin roles to first agency user", "agency_user_id", globalUser.AgencyUserID)
 			}
 
 			return nil
@@ -236,12 +176,25 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Create regional user
+		// Check if first user for this agency in regional DB
+		userCount, err := regionalDB.CountAgencyUsersByAgency(ctx, agencyEntity.AgencyID)
+		if err != nil {
+			log.Error("failed to count agency users", "error", err)
+			s.Global.DeleteAgency(ctx, agencyEntity.AgencyID)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+		isFirstUser := userCount == 0
+
+		// Create regional user with full data
 		_, err = regionalDB.CreateAgencyUser(ctx, regionaldb.CreateAgencyUserParams{
-			AgencyUserID: globalUser.AgencyUserID,
-			EmailAddress: email,
-			AgencyID:     agencyEntity.AgencyID,
-			PasswordHash: passwordHash,
+			AgencyUserID:      globalUser.AgencyUserID,
+			EmailAddress:      email,
+			AgencyID:          agencyEntity.AgencyID,
+			PasswordHash:      passwordHash,
+			Status:            regionaldb.AgencyUserStatusActive,
+			PreferredLanguage: string(req.PreferredLanguage),
+			IsAdmin:           isFirstUser,
 		})
 		if err != nil {
 			log.Error("failed to create agency user in regional DB", "error", err)
@@ -249,6 +202,67 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 			s.Global.DeleteAgency(ctx, agencyEntity.AgencyID)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
+		}
+
+		// Assign roles if first user (in regional DB)
+		if isFirstUser {
+			// Get invite_users role
+			inviteRole, roleErr := regionalDB.GetRoleByName(ctx, "agency:invite_users")
+			if roleErr != nil {
+				if errors.Is(roleErr, pgx.ErrNoRows) {
+					log.Error("invite_users role not found in database")
+				} else {
+					log.Error("failed to get invite_users role", "error", roleErr)
+				}
+				// Cleanup
+				regionalDB.DeleteAgencyUser(ctx, globalUser.AgencyUserID)
+				s.Global.DeleteAgency(ctx, agencyEntity.AgencyID)
+				http.Error(w, "", http.StatusInternalServerError)
+				return
+			}
+
+			// Assign invite_users role
+			roleErr = regionalDB.AssignAgencyUserRole(ctx, regionaldb.AssignAgencyUserRoleParams{
+				AgencyUserID: globalUser.AgencyUserID,
+				RoleID:       inviteRole.RoleID,
+			})
+			if roleErr != nil {
+				log.Error("failed to assign invite_users role", "error", roleErr)
+				regionalDB.DeleteAgencyUser(ctx, globalUser.AgencyUserID)
+				s.Global.DeleteAgency(ctx, agencyEntity.AgencyID)
+				http.Error(w, "", http.StatusInternalServerError)
+				return
+			}
+
+			// Get manage_users role
+			manageRole, roleErr := regionalDB.GetRoleByName(ctx, "agency:manage_users")
+			if roleErr != nil {
+				if errors.Is(roleErr, pgx.ErrNoRows) {
+					log.Error("manage_users role not found in database")
+				} else {
+					log.Error("failed to get manage_users role", "error", roleErr)
+				}
+				// Cleanup
+				regionalDB.DeleteAgencyUser(ctx, globalUser.AgencyUserID)
+				s.Global.DeleteAgency(ctx, agencyEntity.AgencyID)
+				http.Error(w, "", http.StatusInternalServerError)
+				return
+			}
+
+			// Assign manage_users role
+			roleErr = regionalDB.AssignAgencyUserRole(ctx, regionaldb.AssignAgencyUserRoleParams{
+				AgencyUserID: globalUser.AgencyUserID,
+				RoleID:       manageRole.RoleID,
+			})
+			if roleErr != nil {
+				log.Error("failed to assign manage_users role", "error", roleErr)
+				regionalDB.DeleteAgencyUser(ctx, globalUser.AgencyUserID)
+				s.Global.DeleteAgency(ctx, agencyEntity.AgencyID)
+				http.Error(w, "", http.StatusInternalServerError)
+				return
+			}
+
+			log.Info("assigned admin roles to first agency user", "agency_user_id", globalUser.AgencyUserID)
 		}
 
 		// Generate session token

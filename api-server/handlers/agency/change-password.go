@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"golang.org/x/crypto/bcrypt"
+	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
@@ -46,9 +47,15 @@ func ChangePassword(s *server.Server) http.HandlerFunc {
 		}
 
 		// Get regional DB
-		regionalDB := s.GetRegionalDB(agencyUser.HomeRegion)
+		region := middleware.AgencyRegionFromContext(ctx)
+		if region == "" {
+			log.Error("region not found in context")
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+		regionalDB := s.GetRegionalDB(globaldb.Region(region))
 		if regionalDB == nil {
-			log.Error("unknown region", "region", agencyUser.HomeRegion)
+			log.Error("unknown region", "region", region)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -82,18 +89,7 @@ func ChangePassword(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Update password in regional DB
-		err = regionalDB.UpdateAgencyUserPassword(ctx, regionaldb.UpdateAgencyUserPasswordParams{
-			AgencyUserID: agencyUser.AgencyUserID,
-			PasswordHash: newPasswordHash,
-		})
-		if err != nil {
-			log.Error("failed to update password", "error", err)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-
-		// Get current session token from Authorization header
+		// Extract current session token before TX
 		sessionToken := ""
 		if authHeader := r.Header.Get("Authorization"); authHeader != "" {
 			// Format: "Bearer <token>"
@@ -110,16 +106,28 @@ func ChangePassword(s *server.Server) http.HandlerFunc {
 			}
 		}
 
-		// Invalidate all sessions EXCEPT current one
-		if sessionToken != "" {
-			err = regionalDB.DeleteAllAgencySessionsExceptCurrent(ctx, regionaldb.DeleteAllAgencySessionsExceptCurrentParams{
+		// Update password and invalidate sessions atomically
+		regionalPool := s.GetRegionalPool(globaldb.Region(region))
+		err = s.WithRegionalTx(ctx, regionalPool, func(qtx *regionaldb.Queries) error {
+			txErr := qtx.UpdateAgencyUserPassword(ctx, regionaldb.UpdateAgencyUserPasswordParams{
 				AgencyUserID: agencyUser.AgencyUserID,
-				SessionToken: sessionToken,
+				PasswordHash: newPasswordHash,
 			})
-			if err != nil {
-				// Log but don't fail - password is already updated
-				log.Error("failed to delete other sessions", "error", err)
+			if txErr != nil {
+				return txErr
 			}
+			if sessionToken != "" {
+				return qtx.DeleteAllAgencySessionsExceptCurrent(ctx, regionaldb.DeleteAllAgencySessionsExceptCurrentParams{
+					AgencyUserID: agencyUser.AgencyUserID,
+					SessionToken: sessionToken,
+				})
+			}
+			return nil
+		})
+		if err != nil {
+			log.Error("failed to update password", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
 		}
 
 		log.Info("password changed successfully", "agency_user_id", agencyUser.AgencyUserID)

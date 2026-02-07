@@ -384,19 +384,16 @@ WHERE email_address_hash = $1
   AND expires_at > NOW()
 ORDER BY created_at DESC
 LIMIT 1;
--- Hub user creation
+-- Hub user creation (routing data only)
 -- name: CreateHubUser :one
 INSERT INTO hub_users (
     hub_user_global_id,
     handle,
     email_address_hash,
     hashing_algorithm,
-    status,
-    preferred_language,
-    home_region,
-    resident_country_code
+    home_region
   )
-VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7)
+VALUES (gen_random_uuid(), $1, $2, $3, $4)
 RETURNING *;
 -- name: CreateHubUserDisplayName :exec
 INSERT INTO hub_user_display_names (
@@ -436,11 +433,6 @@ SELECT *
 FROM approved_domains
 WHERE domain_name = $1
   AND status = 'active';
--- Hub preferences queries
--- name: UpdateHubUserPreferredLanguage :exec
-UPDATE hub_users
-SET preferred_language = $2
-WHERE hub_user_global_id = $1;
 -- ============================================
 -- Org User Queries
 -- ============================================
@@ -458,12 +450,12 @@ WHERE email_address_hash = $1
   AND employer_id = $2;
 -- name: GetOrgUsersByEmailHash :many
 -- Returns all org_users for a given email hash (for multi-employer scenarios)
+-- Note: status filtering now happens at the regional level
 SELECT ou.*,
   e.employer_name
 FROM org_users ou
   JOIN employers e ON ou.employer_id = e.employer_id
 WHERE ou.email_address_hash = $1
-  AND ou.status = 'active'
 ORDER BY e.employer_name;
 -- name: GetOrgUserByID :one
 SELECT *
@@ -474,40 +466,13 @@ INSERT INTO org_users (
     email_address_hash,
     hashing_algorithm,
     employer_id,
-    full_name,
-    is_admin,
-    status,
-    preferred_language,
     home_region
   )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+VALUES ($1, $2, $3, $4)
 RETURNING *;
 -- name: DeleteOrgUser :exec
 DELETE FROM org_users
 WHERE org_user_id = $1;
--- name: UpdateOrgUserPreferredLanguage :exec
-UPDATE org_users
-SET preferred_language = $2
-WHERE org_user_id = $1;
--- name: UpdateOrgUserFullName :exec
-UPDATE org_users
-SET full_name = $2,
-    preferred_language = COALESCE($3, preferred_language)
-WHERE org_user_id = $1;
--- name: UpdateOrgUserStatus :exec
-UPDATE org_users
-SET status = $2
-WHERE org_user_id = $1;
--- name: CountActiveAdminOrgUsers :one
-SELECT COUNT(*)
-FROM org_users
-WHERE employer_id = $1
-  AND is_admin = TRUE
-  AND status = 'active';
--- name: CountOrgUsersByEmployer :one
-SELECT COUNT(*)
-FROM org_users
-WHERE employer_id = $1;
 -- ============================================
 -- Org Signup Token Queries (DNS-based domain verification)
 -- ============================================
@@ -581,12 +546,12 @@ SELECT *
 FROM employers
 WHERE employer_id = $1;
 -- name: GetEmployerByDomain :one
--- Find employer by verified domain name (for login flow)
+-- Find employer by domain name (for login flow routing)
+-- Domain verification status is checked in regional DB
 SELECT e.*
 FROM employers e
   JOIN global_employer_domains ged ON e.employer_id = ged.employer_id
-WHERE ged.domain = $1
-  AND ged.status = 'VERIFIED';
+WHERE ged.domain = $1;
 -- name: DeleteEmployer :exec
 DELETE FROM employers
 WHERE employer_id = $1;
@@ -594,15 +559,11 @@ WHERE employer_id = $1;
 -- Global Employer Domain Queries
 -- ============================================
 -- name: CreateGlobalEmployerDomain :exec
-INSERT INTO global_employer_domains (domain, region, employer_id, status)
-VALUES ($1, $2, $3, $4);
+INSERT INTO global_employer_domains (domain, region, employer_id)
+VALUES ($1, $2, $3);
 -- name: GetGlobalEmployerDomain :one
 SELECT *
 FROM global_employer_domains
-WHERE domain = $1;
--- name: UpdateGlobalEmployerDomainStatus :exec
-UPDATE global_employer_domains
-SET status = $2
 WHERE domain = $1;
 -- name: DeleteGlobalEmployerDomain :exec
 DELETE FROM global_employer_domains
@@ -629,12 +590,12 @@ WHERE email_address_hash = $1
   AND agency_id = $2;
 -- name: GetAgencyUsersByEmailHash :many
 -- Returns all agency_users for a given email hash (for multi-agency scenarios)
+-- Note: status filtering now happens at the regional level
 SELECT au.*,
   a.agency_name
 FROM agency_users au
   JOIN agencies a ON au.agency_id = a.agency_id
 WHERE au.email_address_hash = $1
-  AND au.status = 'active'
 ORDER BY a.agency_name;
 -- name: GetAgencyUserByID :one
 SELECT *
@@ -645,39 +606,12 @@ INSERT INTO agency_users (
     email_address_hash,
     hashing_algorithm,
     agency_id,
-    full_name,
-    is_admin,
-    status,
-    preferred_language,
     home_region
   )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+VALUES ($1, $2, $3, $4)
 RETURNING *;
--- name: UpdateAgencyUserStatus :exec
-UPDATE agency_users
-SET status = $2
-WHERE agency_user_id = $1;
--- name: CountActiveAdminAgencyUsers :one
-SELECT COUNT(*)
-FROM agency_users
-WHERE agency_id = $1
-  AND is_admin = TRUE
-  AND status = 'active';
--- name: CountAgencyUsersByAgency :one
-SELECT COUNT(*)
-FROM agency_users
-WHERE agency_id = $1;
--- name: UpdateAgencyUserFullName :exec
-UPDATE agency_users
-SET full_name = $2,
-    preferred_language = COALESCE($3, preferred_language)
-WHERE agency_user_id = $1;
 -- name: DeleteAgencyUser :exec
 DELETE FROM agency_users
-WHERE agency_user_id = $1;
--- name: UpdateAgencyUserPreferredLanguage :exec
-UPDATE agency_users
-SET preferred_language = $2
 WHERE agency_user_id = $1;
 -- ============================================
 -- Agency Signup Token Queries (DNS-based domain verification)
@@ -752,12 +686,12 @@ SELECT *
 FROM agencies
 WHERE agency_id = $1;
 -- name: GetAgencyByDomain :one
--- Find agency by verified domain name (for login flow)
+-- Find agency by domain name (for login flow routing)
+-- Domain verification status is checked in regional DB
 SELECT a.*
 FROM agencies a
   JOIN global_agency_domains gad ON a.agency_id = gad.agency_id
-WHERE gad.domain = $1
-  AND gad.status = 'VERIFIED';
+WHERE gad.domain = $1;
 -- name: DeleteAgency :exec
 DELETE FROM agencies
 WHERE agency_id = $1;
@@ -765,15 +699,11 @@ WHERE agency_id = $1;
 -- Global Agency Domain Queries
 -- ============================================
 -- name: CreateGlobalAgencyDomain :exec
-INSERT INTO global_agency_domains (domain, region, agency_id, status)
-VALUES ($1, $2, $3, $4);
+INSERT INTO global_agency_domains (domain, region, agency_id)
+VALUES ($1, $2, $3);
 -- name: GetGlobalAgencyDomain :one
 SELECT *
 FROM global_agency_domains
-WHERE domain = $1;
--- name: UpdateGlobalAgencyDomainStatus :exec
-UPDATE global_agency_domains
-SET status = $2
 WHERE domain = $1;
 -- name: DeleteGlobalAgencyDomain :exec
 DELETE FROM global_agency_domains
@@ -893,54 +823,6 @@ VALUES ($1, $2);
 DELETE FROM admin_user_roles
 WHERE admin_user_id = $1
   AND role_id = $2;
--- Org user role queries
--- name: GetOrgUserRoles :many
-SELECT r.role_id,
-  r.role_name,
-  r.description,
-  our.assigned_at
-FROM org_user_roles our
-  JOIN roles r ON our.role_id = r.role_id
-WHERE our.org_user_id = $1
-ORDER BY r.role_name ASC;
--- name: HasOrgUserRole :one
-SELECT EXISTS(
-    SELECT 1
-    FROM org_user_roles
-    WHERE org_user_id = $1
-      AND role_id = $2
-  ) AS has_role;
--- name: AssignOrgUserRole :exec
-INSERT INTO org_user_roles (org_user_id, role_id)
-VALUES ($1, $2);
--- name: RemoveOrgUserRole :exec
-DELETE FROM org_user_roles
-WHERE org_user_id = $1
-  AND role_id = $2;
--- Agency user role queries
--- name: GetAgencyUserRoles :many
-SELECT r.role_id,
-  r.role_name,
-  r.description,
-  aur.assigned_at
-FROM agency_user_roles aur
-  JOIN roles r ON aur.role_id = r.role_id
-WHERE aur.agency_user_id = $1
-ORDER BY r.role_name ASC;
--- name: HasAgencyUserRole :one
-SELECT EXISTS(
-    SELECT 1
-    FROM agency_user_roles
-    WHERE agency_user_id = $1
-      AND role_id = $2
-  ) AS has_role;
--- name: AssignAgencyUserRole :exec
-INSERT INTO agency_user_roles (agency_user_id, role_id)
-VALUES ($1, $2);
--- name: RemoveAgencyUserRole :exec
-DELETE FROM agency_user_roles
-WHERE agency_user_id = $1
-  AND role_id = $2;
 -- ============================================
 -- Filter Users Queries
 -- ============================================
@@ -1004,16 +886,3 @@ WHERE (
     sqlc.narg('filter_status')::text IS NULL
     OR status::text = sqlc.narg('filter_status')
   );
--- ============================================
--- Status Lookup Queries (for Split Brain)
--- ============================================
--- name: GetOrgUserStatuses :many
-SELECT org_user_id,
-  status
-FROM org_users
-WHERE org_user_id = ANY(@ids::uuid []);
--- name: GetAgencyUserStatuses :many
-SELECT agency_user_id,
-  status
-FROM agency_users
-WHERE agency_user_id = ANY(@ids::uuid []);

@@ -11,13 +11,6 @@ CREATE TYPE region AS ENUM (
     'sgp1'
 );
 
--- Hub user status enum
-CREATE TYPE hub_user_status AS ENUM (
-    'active',
-    'disabled',
-    'deleted'
-);
-
 -- Email address hashing algorithm enum
 CREATE TYPE email_address_hashing_algorithm AS ENUM (
     'SHA-256'
@@ -33,37 +26,13 @@ CREATE TYPE admin_user_status AS ENUM (
 -- Domain status enum
 CREATE TYPE domain_status AS ENUM ('active', 'inactive');
 
--- Org user status enum
-CREATE TYPE org_user_status AS ENUM (
-    'invited',
-    'active',
-    'disabled'
-);
-
--- Agency user status enum
-CREATE TYPE agency_user_status AS ENUM (
-    'invited',
-    'active',
-    'disabled'
-);
-
--- Domain verification status enum
-CREATE TYPE domain_verification_status AS ENUM (
-    'PENDING',
-    'VERIFIED',
-    'FAILING'
-);
-
--- Hub users table (global)
+-- Hub users table (global - routing only)
 CREATE TABLE hub_users (
     hub_user_global_id UUID PRIMARY KEY NOT NULL,
     handle TEXT NOT NULL UNIQUE,
     email_address_hash BYTEA NOT NULL UNIQUE,
     hashing_algorithm email_address_hashing_algorithm NOT NULL,
-    status hub_user_status NOT NULL,
-    preferred_language TEXT NOT NULL DEFAULT 'en-US',
     home_region region NOT NULL,
-    resident_country_code TEXT,
     created_at TIMESTAMP DEFAULT NOW()
 );
 
@@ -222,11 +191,10 @@ CREATE TABLE global_employer_domains (
     domain TEXT PRIMARY KEY,
     region region NOT NULL,
     employer_id UUID NOT NULL REFERENCES employers(employer_id) ON DELETE CASCADE,
-    status domain_verification_status NOT NULL DEFAULT 'PENDING',
     created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
--- Org users table (global)
+-- Org users table (global - routing only)
 -- Note: email_address_hash is NOT unique alone - one email can belong to multiple employers
 -- (contractor scenario). Uniqueness is enforced per (email_address_hash, employer_id).
 CREATE TABLE org_users (
@@ -234,10 +202,6 @@ CREATE TABLE org_users (
     email_address_hash BYTEA NOT NULL,
     hashing_algorithm email_address_hashing_algorithm NOT NULL DEFAULT 'SHA-256',
     employer_id UUID NOT NULL REFERENCES employers(employer_id) ON DELETE CASCADE,
-    full_name TEXT,
-    is_admin BOOLEAN NOT NULL DEFAULT FALSE,
-    status org_user_status NOT NULL DEFAULT 'active',
-    preferred_language TEXT NOT NULL DEFAULT 'en-US',
     home_region region NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     UNIQUE (email_address_hash, employer_id)
@@ -273,11 +237,10 @@ CREATE TABLE global_agency_domains (
     domain TEXT PRIMARY KEY,
     region region NOT NULL,
     agency_id UUID NOT NULL REFERENCES agencies(agency_id) ON DELETE CASCADE,
-    status domain_verification_status NOT NULL DEFAULT 'PENDING',
     created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
--- Agency users table (global)
+-- Agency users table (global - routing only)
 -- Note: email_address_hash is NOT unique alone - one email can belong to multiple agencies
 -- (contractor scenario). Uniqueness is enforced per (email_address_hash, agency_id).
 CREATE TABLE agency_users (
@@ -285,10 +248,6 @@ CREATE TABLE agency_users (
     email_address_hash BYTEA NOT NULL,
     hashing_algorithm email_address_hashing_algorithm NOT NULL DEFAULT 'SHA-256',
     agency_id UUID NOT NULL REFERENCES agencies(agency_id) ON DELETE CASCADE,
-    full_name TEXT,
-    is_admin BOOLEAN NOT NULL DEFAULT FALSE,
-    status agency_user_status NOT NULL DEFAULT 'active',
-    preferred_language TEXT NOT NULL DEFAULT 'en-US',
     home_region region NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     UNIQUE (email_address_hash, agency_id)
@@ -324,22 +283,6 @@ CREATE TABLE admin_user_roles (
     role_id UUID NOT NULL REFERENCES roles(role_id) ON DELETE RESTRICT,
     assigned_at TIMESTAMP NOT NULL DEFAULT NOW(),
     PRIMARY KEY (admin_user_id, role_id)
-);
-
--- RBAC: Org user roles
-CREATE TABLE org_user_roles (
-    org_user_id UUID NOT NULL REFERENCES org_users(org_user_id) ON DELETE CASCADE,
-    role_id UUID NOT NULL REFERENCES roles(role_id) ON DELETE RESTRICT,
-    assigned_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    PRIMARY KEY (org_user_id, role_id)
-);
-
--- RBAC: Agency user roles
-CREATE TABLE agency_user_roles (
-    agency_user_id UUID NOT NULL REFERENCES agency_users(agency_user_id) ON DELETE CASCADE,
-    role_id UUID NOT NULL REFERENCES roles(role_id) ON DELETE RESTRICT,
-    assigned_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    PRIMARY KEY (agency_user_id, role_id)
 );
 
 -- Insert predefined roles
@@ -380,8 +323,6 @@ CREATE INDEX idx_agency_users_email_hash ON agency_users(email_address_hash);
 CREATE INDEX idx_global_agency_domains_agency_id ON global_agency_domains(agency_id);
 
 -- +goose Down
-DROP TABLE IF EXISTS agency_user_roles;
-DROP TABLE IF EXISTS org_user_roles;
 DROP TABLE IF EXISTS admin_user_roles;
 DROP TABLE IF EXISTS roles;
 DROP INDEX IF EXISTS idx_global_agency_domains_agency_id;
@@ -425,12 +366,8 @@ DROP TABLE IF EXISTS admin_sessions;
 DROP TABLE IF EXISTS admin_tfa_tokens;
 DROP TABLE IF EXISTS admin_users;
 DROP TABLE IF EXISTS hub_users;
-DROP TYPE IF EXISTS domain_verification_status;
-DROP TYPE IF EXISTS agency_user_status;
-DROP TYPE IF EXISTS org_user_status;
 DROP TYPE IF EXISTS domain_status;
 DROP TYPE IF EXISTS admin_user_status;
 DROP TYPE IF EXISTS email_address_hashing_algorithm;
-DROP TYPE IF EXISTS hub_user_status;
 DROP TYPE IF EXISTS region;
 DROP EXTENSION IF EXISTS pg_trgm;

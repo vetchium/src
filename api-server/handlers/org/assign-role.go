@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
+	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
 	"vetchium-api-server.typespec/org"
@@ -52,8 +53,24 @@ func AssignRole(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Get target org user (verify exists)
-		targetUser, err := s.Global.GetOrgUserByID(ctx, targetUserID)
+		// Get region from context
+		region := middleware.OrgRegionFromContext(ctx)
+		if region == "" {
+			log.Error("region not found in context")
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
+		// Get regional DB
+		regionalDB := s.GetRegionalDB(globaldb.Region(region))
+		if regionalDB == nil {
+			log.Error("regional database not available", "region", region)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
+		// Get target org user from regional DB (verify exists)
+		targetUser, err := regionalDB.GetOrgUserByID(ctx, targetUserID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				log.Debug("target org user not found", "target_user_id", req.TargetUserID)
@@ -75,8 +92,8 @@ func AssignRole(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Get role by name (verify exists)
-		role, err := s.Global.GetRoleByName(ctx, string(req.RoleName))
+		// Get role by name from regional DB (verify exists)
+		role, err := regionalDB.GetRoleByName(ctx, string(req.RoleName))
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				log.Debug("role not found", "role_name", req.RoleName)
@@ -89,7 +106,7 @@ func AssignRole(s *server.Server) http.HandlerFunc {
 		}
 
 		// Check if user already has this role
-		hasRole, err := s.Global.HasOrgUserRole(ctx, globaldb.HasOrgUserRoleParams{
+		hasRole, err := regionalDB.HasOrgUserRole(ctx, regionaldb.HasOrgUserRoleParams{
 			OrgUserID: targetUser.OrgUserID,
 			RoleID:    role.RoleID,
 		})
@@ -111,7 +128,7 @@ func AssignRole(s *server.Server) http.HandlerFunc {
 		}
 
 		// Assign role
-		err = s.Global.AssignOrgUserRole(ctx, globaldb.AssignOrgUserRoleParams{
+		err = regionalDB.AssignOrgUserRole(ctx, regionaldb.AssignOrgUserRoleParams{
 			OrgUserID: targetUser.OrgUserID,
 			RoleID:    role.RoleID,
 		})

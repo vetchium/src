@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
+	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
@@ -76,9 +77,15 @@ func FilterUsers(s *server.Server) http.HandlerFunc {
 			}
 		}
 
-		regionalDB := s.GetRegionalDB(agencyUser.HomeRegion)
+		region := middleware.AgencyRegionFromContext(ctx)
+		if region == "" {
+			log.Error("region not found in context")
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+		regionalDB := s.GetRegionalDB(globaldb.Region(region))
 		if regionalDB == nil {
-			log.Error("regional db not found", "region", agencyUser.HomeRegion)
+			log.Error("regional db not found", "region", region)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -125,33 +132,11 @@ func FilterUsers(s *server.Server) http.HandlerFunc {
 			users = users[:limit]
 		}
 
-		userIDs := make([]pgtype.UUID, len(users))
-		for i, u := range users {
-			userIDs[i] = u.AgencyUserID
-		}
-
-		statusMap := make(map[string]string)
-		statusRows, err := s.Global.GetAgencyUserStatuses(ctx, userIDs)
-		if err != nil {
-			log.Error("failed to get agency user statuses from global db", "error", err)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-
-		for _, row := range statusRows {
-			idStr := fmt.Sprintf("%x-%x-%x-%x-%x", row.AgencyUserID.Bytes[0:4], row.AgencyUserID.Bytes[4:6], row.AgencyUserID.Bytes[6:8], row.AgencyUserID.Bytes[8:10], row.AgencyUserID.Bytes[10:16])
-			statusMap[idStr] = string(row.Status)
-		}
-
 		var responseItems []agency.AgencyUser
 
 		for i := range users {
 			user := users[i]
-			idStr := fmt.Sprintf("%x-%x-%x-%x-%x", user.AgencyUserID.Bytes[0:4], user.AgencyUserID.Bytes[4:6], user.AgencyUserID.Bytes[6:8], user.AgencyUserID.Bytes[8:10], user.AgencyUserID.Bytes[10:16])
-			status := statusMap[idStr]
-			if status == "" {
-				status = "unknown"
-			}
+			status := string(user.Status)
 
 			if request.FilterStatus != nil && *request.FilterStatus != "" && status != *request.FilterStatus {
 				continue

@@ -20,10 +20,9 @@ func RegisterAgencyRoutes(mux *http.ServeMux, s *server.Server) {
 	mux.HandleFunc("POST /agency/complete-password-reset", agency.CompletePasswordReset(s))
 
 	// Create middleware instances
-	agencyAuth := middleware.AgencyAuth(s.Global, s.GetRegionalDB)
-	agencyRoleInvite := middleware.AgencyRole(s.Global, s.GetRegionalDB, "agency:invite_users")
-	agencyRoleManage := middleware.AgencyRole(s.Global, s.GetRegionalDB, "agency:manage_users")
-	// agencyAdminOnly := middleware.AgencyAdminOnly(s.Global)
+	agencyAuth := middleware.AgencyAuth(s.GetRegionalDB)
+	agencyRoleInvite := middleware.AgencyRole(s.GetRegionalDB, "agency:invite_users")
+	agencyRoleManage := middleware.AgencyRole(s.GetRegionalDB, "agency:manage_users")
 
 	// Admin-only routes (IsAdmin flag required, not delegatable)
 	mux.Handle("POST /agency/assign-role", agencyAuth(agencyRoleManage(agency.AssignRole(s))))

@@ -74,10 +74,18 @@ func ClaimDomain(s *server.Server) http.HandlerFunc {
 		// Calculate token expiry
 		tokenExpiresAt := time.Now().AddDate(0, 0, orgdomains.TokenExpiryDays)
 
+		// Get region from context
+		region := middleware.OrgRegionFromContext(ctx)
+		if region == "" {
+			log.Error("region not found in context")
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
 		// Get regional DB
-		regionalDB := s.GetRegionalDB(orgUser.HomeRegion)
+		regionalDB := s.GetRegionalDB(globaldb.Region(region))
 		if regionalDB == nil {
-			log.Error("regional database not available", "region", orgUser.HomeRegion)
+			log.Error("regional database not available", "region", region)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -85,9 +93,8 @@ func ClaimDomain(s *server.Server) http.HandlerFunc {
 		// SAGA pattern: Create in global DB first (for uniqueness)
 		err = s.Global.CreateGlobalEmployerDomain(ctx, globaldb.CreateGlobalEmployerDomainParams{
 			Domain:     domain,
-			Region:     orgUser.HomeRegion,
+			Region:     globaldb.Region(region),
 			EmployerID: orgUser.EmployerID,
-			Status:     globaldb.DomainVerificationStatusPENDING,
 		})
 		if err != nil {
 			// Check for unique constraint violation (domain already claimed)

@@ -50,10 +50,18 @@ func VerifyDomain(s *server.Server) http.HandlerFunc {
 		// Normalize domain to lowercase
 		domain := strings.ToLower(string(req.Domain))
 
+		// Get region from context
+		region := middleware.OrgRegionFromContext(ctx)
+		if region == "" {
+			log.Error("region not found in context")
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
 		// Get regional DB
-		regionalDB := s.GetRegionalDB(orgUser.HomeRegion)
+		regionalDB := s.GetRegionalDB(globaldb.Region(region))
 		if regionalDB == nil {
-			log.Error("regional database not available", "region", orgUser.HomeRegion)
+			log.Error("regional database not available", "region", region)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -80,7 +88,7 @@ func VerifyDomain(s *server.Server) http.HandlerFunc {
 		if err != nil {
 			log.Debug("DNS lookup failed", "domain", domain, "error", err)
 			// DNS lookup failed - increment failure count
-			err = handleVerificationFailure(ctx, s, regionalDB, domain, domainRecord)
+			err = handleVerificationFailure(ctx, regionalDB, domain, domainRecord)
 			if err != nil {
 				log.Error("failed to handle verification failure", "error", err)
 			}
@@ -107,7 +115,7 @@ func VerifyDomain(s *server.Server) http.HandlerFunc {
 		if !tokenFound {
 			log.Debug("verification token not found in DNS", "domain", domain)
 			// Token not found - increment failure count
-			err = handleVerificationFailure(ctx, s, regionalDB, domain, domainRecord)
+			err = handleVerificationFailure(ctx, regionalDB, domain, domainRecord)
 			if err != nil {
 				log.Error("failed to handle verification failure", "error", err)
 			}
@@ -135,16 +143,6 @@ func VerifyDomain(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Update global DB status
-		err = s.Global.UpdateGlobalEmployerDomainStatus(ctx, globaldb.UpdateGlobalEmployerDomainStatusParams{
-			Domain: domain,
-			Status: globaldb.DomainVerificationStatusVERIFIED,
-		})
-		if err != nil {
-			log.Error("failed to update global domain status", "error", err)
-			// Non-critical - regional is the source of truth
-		}
-
 		log.Info("domain verified successfully", "domain", domain, "employer_id", orgUser.EmployerID)
 
 		message := "Domain verified successfully!"
@@ -157,7 +155,7 @@ func VerifyDomain(s *server.Server) http.HandlerFunc {
 	}
 }
 
-func handleVerificationFailure(ctx context.Context, s *server.Server, regionalDB *regionaldb.Queries, domain string, domainRecord regionaldb.EmployerDomain) error {
+func handleVerificationFailure(ctx context.Context, regionalDB *regionaldb.Queries, domain string, domainRecord regionaldb.EmployerDomain) error {
 	newFailures := domainRecord.ConsecutiveFailures + 1
 
 	// Check if we should transition to FAILING status
@@ -177,18 +175,6 @@ func handleVerificationFailure(ctx context.Context, s *server.Server, regionalDB
 	})
 	if err != nil {
 		return err
-	}
-
-	// Update global DB if status changed
-	if newStatus != domainRecord.Status {
-		err = s.Global.UpdateGlobalEmployerDomainStatus(ctx, globaldb.UpdateGlobalEmployerDomainStatusParams{
-			Domain: domain,
-			Status: globaldb.DomainVerificationStatus(newStatus),
-		})
-		if err != nil {
-			// Log but don't fail - regional is source of truth
-			return nil
-		}
 	}
 
 	return nil

@@ -9,8 +9,8 @@ SELECT *
 FROM hub_users
 WHERE hub_user_global_id = $1;
 -- name: CreateHubUser :one
-INSERT INTO hub_users (hub_user_global_id, email_address, password_hash)
-VALUES ($1, $2, $3)
+INSERT INTO hub_users (hub_user_global_id, email_address, handle, password_hash, status, preferred_language, resident_country_code)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING *;
 -- name: DeleteHubUser :exec
 DELETE FROM hub_users
@@ -26,6 +26,15 @@ WHERE hub_user_global_id = $1;
 DELETE FROM hub_sessions
 WHERE hub_user_global_id = $1
     AND session_token != $2;
+-- Hub user status and preferences queries
+-- name: UpdateHubUserStatus :exec
+UPDATE hub_users
+SET status = $2
+WHERE hub_user_global_id = $1;
+-- name: UpdateHubUserPreferredLanguage :exec
+UPDATE hub_users
+SET preferred_language = $2
+WHERE hub_user_global_id = $1;
 -- Hub TFA token queries
 -- name: CreateHubTFAToken :exec
 INSERT INTO hub_tfa_tokens (
@@ -101,13 +110,40 @@ INSERT INTO org_users (
         email_address,
         employer_id,
         full_name,
-        password_hash
+        password_hash,
+        status,
+        preferred_language,
+        is_admin
     )
-VALUES ($1, $2, $3, $4, $5)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 RETURNING *;
 -- name: DeleteOrgUser :exec
 DELETE FROM org_users
 WHERE org_user_id = $1;
+-- Org user status and preferences queries
+-- name: UpdateOrgUserStatus :exec
+UPDATE org_users
+SET status = $2
+WHERE org_user_id = $1;
+-- name: UpdateOrgUserPreferredLanguage :exec
+UPDATE org_users
+SET preferred_language = $2
+WHERE org_user_id = $1;
+-- name: UpdateOrgUserFullName :exec
+UPDATE org_users
+SET full_name = $2,
+    preferred_language = COALESCE($3, preferred_language)
+WHERE org_user_id = $1;
+-- name: CountOrgUsersByEmployer :one
+SELECT COUNT(*)
+FROM org_users
+WHERE employer_id = $1;
+-- name: CountActiveAdminOrgUsers :one
+SELECT COUNT(*)
+FROM org_users
+WHERE employer_id = $1
+  AND is_admin = TRUE
+  AND status = 'active';
 -- ============================================
 -- Org TFA Token Queries
 -- ============================================
@@ -196,7 +232,9 @@ WHERE expires_at <= NOW();
 UPDATE org_users
 SET password_hash = $2,
     full_name = $3,
-    authentication_type = $4
+    authentication_type = $4,
+    status = $5,
+    preferred_language = COALESCE($6, preferred_language)
 WHERE org_user_id = $1;
 -- ============================================
 -- Employer Domain Queries (Regional)
@@ -254,6 +292,8 @@ WHERE domain = $1;
 SELECT u.org_user_id,
     u.email_address,
     u.full_name,
+    u.status,
+    u.is_admin,
     u.created_at,
     COALESCE(
         (
@@ -295,6 +335,8 @@ LIMIT @limit_count;
 SELECT u.agency_user_id,
     u.email_address,
     u.full_name,
+    u.status,
+    u.is_admin,
     u.created_at,
     COALESCE(
         (
@@ -353,13 +395,40 @@ INSERT INTO agency_users (
         email_address,
         agency_id,
         full_name,
-        password_hash
+        password_hash,
+        status,
+        preferred_language,
+        is_admin
     )
-VALUES ($1, $2, $3, $4, $5)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 RETURNING *;
 -- name: DeleteAgencyUser :exec
 DELETE FROM agency_users
 WHERE agency_user_id = $1;
+-- Agency user status and preferences queries
+-- name: UpdateAgencyUserStatus :exec
+UPDATE agency_users
+SET status = $2
+WHERE agency_user_id = $1;
+-- name: UpdateAgencyUserPreferredLanguage :exec
+UPDATE agency_users
+SET preferred_language = $2
+WHERE agency_user_id = $1;
+-- name: UpdateAgencyUserFullName :exec
+UPDATE agency_users
+SET full_name = $2,
+    preferred_language = COALESCE($3, preferred_language)
+WHERE agency_user_id = $1;
+-- name: CountAgencyUsersByAgency :one
+SELECT COUNT(*)
+FROM agency_users
+WHERE agency_id = $1;
+-- name: CountActiveAdminAgencyUsers :one
+SELECT COUNT(*)
+FROM agency_users
+WHERE agency_id = $1
+  AND is_admin = TRUE
+  AND status = 'active';
 -- ============================================
 -- Agency TFA Token Queries
 -- ============================================
@@ -474,5 +543,63 @@ WHERE expires_at <= NOW();
 UPDATE agency_users
 SET password_hash = $2,
     full_name = $3,
-    authentication_type = $4
+    authentication_type = $4,
+    status = $5,
+    preferred_language = COALESCE($6, preferred_language)
 WHERE agency_user_id = $1;
+-- ============================================
+-- RBAC Queries (Regional)
+-- ============================================
+-- Role queries
+-- name: GetRoleByName :one
+SELECT *
+FROM roles
+WHERE role_name = $1;
+-- Org user role queries
+-- name: GetOrgUserRoles :many
+SELECT r.role_id,
+  r.role_name,
+  r.description,
+  our.assigned_at
+FROM org_user_roles our
+  JOIN roles r ON our.role_id = r.role_id
+WHERE our.org_user_id = $1
+ORDER BY r.role_name ASC;
+-- name: HasOrgUserRole :one
+SELECT EXISTS(
+    SELECT 1
+    FROM org_user_roles
+    WHERE org_user_id = $1
+      AND role_id = $2
+  ) AS has_role;
+-- name: AssignOrgUserRole :exec
+INSERT INTO org_user_roles (org_user_id, role_id)
+VALUES ($1, $2);
+-- name: RemoveOrgUserRole :exec
+DELETE FROM org_user_roles
+WHERE org_user_id = $1
+  AND role_id = $2;
+-- Agency user role queries
+-- name: GetAgencyUserRoles :many
+SELECT r.role_id,
+  r.role_name,
+  r.description,
+  aur.assigned_at
+FROM agency_user_roles aur
+  JOIN roles r ON aur.role_id = r.role_id
+WHERE aur.agency_user_id = $1
+ORDER BY r.role_name ASC;
+-- name: HasAgencyUserRole :one
+SELECT EXISTS(
+    SELECT 1
+    FROM agency_user_roles
+    WHERE agency_user_id = $1
+      AND role_id = $2
+  ) AS has_role;
+-- name: AssignAgencyUserRole :exec
+INSERT INTO agency_user_roles (agency_user_id, role_id)
+VALUES ($1, $2);
+-- name: RemoveAgencyUserRole :exec
+DELETE FROM agency_user_roles
+WHERE agency_user_id = $1
+  AND role_id = $2;

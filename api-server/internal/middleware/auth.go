@@ -98,7 +98,7 @@ func AdminUserFromContext(ctx context.Context) *globaldb.AdminUser {
 // HubAuth is a middleware that verifies hub session tokens from the Authorization header.
 // It extracts the region-prefixed session token, queries the appropriate regional database,
 // and stores the session, hub user, and region in the request context.
-func HubAuth(globalDB *globaldb.Queries, getRegionalDB func(globaldb.Region) *regionaldb.Queries) func(http.Handler) http.Handler {
+func HubAuth(getRegionalDB func(globaldb.Region) *regionaldb.Queries) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ctx := r.Context()
@@ -157,22 +157,21 @@ func HubAuth(globalDB *globaldb.Queries, getRegionalDB func(globaldb.Region) *re
 				return
 			}
 
-			// Get hub user from global DB (for status, preferred_language, etc.)
-			// Session contains hub_user_global_id directly, so we can query global DB
-			hubUser, err := globalDB.GetHubUserByGlobalID(ctx, session.HubUserGlobalID)
+			// Get hub user from regional DB (status, preferred_language, etc. are all regional)
+			hubUser, err := regionalDB.GetHubUserByGlobalID(ctx, session.HubUserGlobalID)
 			if err != nil {
 				if errors.Is(err, pgx.ErrNoRows) {
-					log.Debug("hub user not found in global DB")
+					log.Debug("hub user not found in regional DB")
 					w.WriteHeader(http.StatusUnauthorized)
 					return
 				}
-				log.Error("failed to get global hub user", "error", err)
+				log.Error("failed to get regional hub user", "error", err)
 				http.Error(w, "", http.StatusInternalServerError)
 				return
 			}
 
 			// Check hub user status
-			if hubUser.Status != globaldb.HubUserStatusActive {
+			if hubUser.Status != regionaldb.HubUserStatusActive {
 				log.Debug("hub user is not active", "status", hubUser.Status)
 				w.WriteHeader(http.StatusUnauthorized)
 				return
@@ -197,10 +196,19 @@ func HubSessionFromContext(ctx context.Context) regionaldb.HubSession {
 	return regionaldb.HubSession{}
 }
 
+// HubRegionFromContext retrieves the hub user's region from the context.
+// Returns empty string if not found.
+func HubRegionFromContext(ctx context.Context) string {
+	if region, ok := ctx.Value(hubRegionKey).(string); ok {
+		return region
+	}
+	return ""
+}
+
 // HubUserFromContext retrieves the hub user from the context.
 // Returns nil if not found (should only happen in tests or unauthenticated requests).
-func HubUserFromContext(ctx context.Context) *globaldb.HubUser {
-	if user, ok := ctx.Value(hubUserKey).(*globaldb.HubUser); ok {
+func HubUserFromContext(ctx context.Context) *regionaldb.HubUser {
+	if user, ok := ctx.Value(hubUserKey).(*regionaldb.HubUser); ok {
 		return user
 	}
 	return nil
@@ -209,7 +217,7 @@ func HubUserFromContext(ctx context.Context) *globaldb.HubUser {
 // OrgAuth is a middleware that verifies org session tokens from the Authorization header.
 // It extracts the region-prefixed session token, queries the appropriate regional database,
 // and stores the session, org user, and region in the request context.
-func OrgAuth(globalDB *globaldb.Queries, getRegionalDB func(globaldb.Region) *regionaldb.Queries) func(http.Handler) http.Handler {
+func OrgAuth(getRegionalDB func(globaldb.Region) *regionaldb.Queries) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ctx := r.Context()
@@ -268,21 +276,21 @@ func OrgAuth(globalDB *globaldb.Queries, getRegionalDB func(globaldb.Region) *re
 				return
 			}
 
-			// Get org user from global DB (for status, preferred_language, employer_id, etc.)
-			orgUser, err := globalDB.GetOrgUserByID(ctx, session.OrgUserID)
+			// Get org user from regional DB (status, preferred_language, is_admin, etc. are all regional)
+			orgUser, err := regionalDB.GetOrgUserByID(ctx, session.OrgUserID)
 			if err != nil {
 				if errors.Is(err, pgx.ErrNoRows) {
-					log.Debug("org user not found in global DB")
+					log.Debug("org user not found in regional DB")
 					w.WriteHeader(http.StatusUnauthorized)
 					return
 				}
-				log.Error("failed to get global org user", "error", err)
+				log.Error("failed to get regional org user", "error", err)
 				http.Error(w, "", http.StatusInternalServerError)
 				return
 			}
 
 			// Check org user status
-			if orgUser.Status != globaldb.OrgUserStatusActive {
+			if orgUser.Status != regionaldb.OrgUserStatusActive {
 				log.Debug("org user is not active", "status", orgUser.Status)
 				w.WriteHeader(http.StatusUnauthorized)
 				return
@@ -309,8 +317,8 @@ func OrgSessionFromContext(ctx context.Context) regionaldb.OrgSession {
 
 // OrgUserFromContext retrieves the org user from the context.
 // Returns nil if not found (should only happen in tests or unauthenticated requests).
-func OrgUserFromContext(ctx context.Context) *globaldb.OrgUser {
-	if user, ok := ctx.Value(orgUserKey).(*globaldb.OrgUser); ok {
+func OrgUserFromContext(ctx context.Context) *regionaldb.OrgUser {
+	if user, ok := ctx.Value(orgUserKey).(*regionaldb.OrgUser); ok {
 		return user
 	}
 	return nil
@@ -328,7 +336,7 @@ func OrgRegionFromContext(ctx context.Context) string {
 // AgencyAuth is a middleware that verifies agency session tokens from the Authorization header.
 // It extracts the region-prefixed session token, queries the appropriate regional database,
 // and stores the session, agency user, and region in the request context.
-func AgencyAuth(globalDB *globaldb.Queries, getRegionalDB func(globaldb.Region) *regionaldb.Queries) func(http.Handler) http.Handler {
+func AgencyAuth(getRegionalDB func(globaldb.Region) *regionaldb.Queries) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ctx := r.Context()
@@ -387,21 +395,21 @@ func AgencyAuth(globalDB *globaldb.Queries, getRegionalDB func(globaldb.Region) 
 				return
 			}
 
-			// Get agency user from global DB (for status, preferred_language, agency_id, etc.)
-			agencyUser, err := globalDB.GetAgencyUserByID(ctx, session.AgencyUserID)
+			// Get agency user from regional DB (status, preferred_language, is_admin, etc. are all regional)
+			agencyUser, err := regionalDB.GetAgencyUserByID(ctx, session.AgencyUserID)
 			if err != nil {
 				if errors.Is(err, pgx.ErrNoRows) {
-					log.Debug("agency user not found in global DB")
+					log.Debug("agency user not found in regional DB")
 					w.WriteHeader(http.StatusUnauthorized)
 					return
 				}
-				log.Error("failed to get global agency user", "error", err)
+				log.Error("failed to get regional agency user", "error", err)
 				http.Error(w, "", http.StatusInternalServerError)
 				return
 			}
 
 			// Check agency user status
-			if agencyUser.Status != globaldb.AgencyUserStatusActive {
+			if agencyUser.Status != regionaldb.AgencyUserStatusActive {
 				log.Debug("agency user is not active", "status", agencyUser.Status)
 				w.WriteHeader(http.StatusUnauthorized)
 				return
@@ -428,8 +436,8 @@ func AgencySessionFromContext(ctx context.Context) regionaldb.AgencySession {
 
 // AgencyUserFromContext retrieves the agency user from the context.
 // Returns nil if not found (should only happen in tests or unauthenticated requests).
-func AgencyUserFromContext(ctx context.Context) *globaldb.AgencyUser {
-	if user, ok := ctx.Value(agencyUserKey).(*globaldb.AgencyUser); ok {
+func AgencyUserFromContext(ctx context.Context) *regionaldb.AgencyUser {
+	if user, ok := ctx.Value(agencyUserKey).(*regionaldb.AgencyUser); ok {
 		return user
 	}
 	return nil

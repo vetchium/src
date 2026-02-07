@@ -90,16 +90,16 @@ func TFA(s *server.Server) http.HandlerFunc {
 		// NOTE: We intentionally do NOT delete the TFA token here (same as hub).
 		// Token expires naturally, and reusing it just creates another session.
 
-		// Get org user from global database to get preferred language and employer_id
-		globalUser, err := s.Global.GetOrgUserByID(ctx, tfaTokenRecord.OrgUserID)
+		// Get org user from regional database to get preferred language
+		regionalUser, err := regionalDB.GetOrgUserByID(ctx, tfaTokenRecord.OrgUserID)
 		if err != nil {
-			log.Error("failed to fetch global org user", "error", err)
+			log.Error("failed to fetch regional org user", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
 		// Get employer to return employer_name in response
-		employer, err := s.Global.GetEmployerByID(ctx, globalUser.EmployerID)
+		employer, err := s.Global.GetEmployerByID(ctx, regionalUser.EmployerID)
 		if err != nil {
 			log.Error("failed to fetch employer", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
@@ -139,11 +139,11 @@ func TFA(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		log.Info("org user TFA verified, session created", "org_user_id", globalUser.OrgUserID, "region", region, "remember_me", tfaRequest.RememberMe)
+		log.Info("org user TFA verified, session created", "org_user_id", regionalUser.OrgUserID, "region", region, "remember_me", tfaRequest.RememberMe)
 
 		response := org.OrgTFAResponse{
 			SessionToken:      org.OrgSessionToken(sessionToken),
-			PreferredLanguage: common.LanguageCode(globalUser.PreferredLanguage),
+			PreferredLanguage: common.LanguageCode(regionalUser.PreferredLanguage),
 			EmployerName:      employer.EmployerName,
 		}
 

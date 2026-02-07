@@ -104,26 +104,18 @@ func RequestPasswordReset(s *server.Server) http.HandlerFunc {
 		plainToken := hex.EncodeToString(tokenBytes)
 		resetToken := fmt.Sprintf("%s-%s", strings.ToUpper(string(globalUser.HomeRegion)), plainToken)
 
-		// Store token in regional DB with expiry
+		// Get regional user for preferred language (before TX)
 		expiresAt := time.Now().Add(passwordResetTokenExpiryHours * time.Hour)
-		err = regionalDB.CreateAgencyPasswordResetToken(ctx, regionaldb.CreateAgencyPasswordResetTokenParams{
-			ResetToken:         resetToken,
-			AgencyUserGlobalID: globalUser.AgencyUserID,
-			ExpiresAt:          pgtype.Timestamp{Time: expiresAt, Valid: true},
-		})
+		regionalUser, err := regionalDB.GetAgencyUserByID(ctx, globalUser.AgencyUserID)
 		if err != nil {
-			log.Error("failed to create reset token", "error", err)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
+			log.Error("failed to get regional user for language preference", "error", err)
+		}
+		preferredLang := "en-US"
+		if err == nil && regionalUser.PreferredLanguage != "" {
+			preferredLang = regionalUser.PreferredLanguage
 		}
 
-		// Get user's preferred language
-		preferredLang := globalUser.PreferredLanguage
-		if preferredLang == "" {
-			preferredLang = "en-US"
-		}
-
-		// Enqueue password reset email
+		// Compute email content before TX
 		emailData := templates.AgencyPasswordResetData{
 			ResetToken: resetToken,
 			Domain:     string(req.Domain),
@@ -134,16 +126,30 @@ func RequestPasswordReset(s *server.Server) http.HandlerFunc {
 		textBody := templates.AgencyPasswordResetTextBody(preferredLang, emailData)
 		htmlBody := templates.AgencyPasswordResetHTMLBody(preferredLang, emailData)
 
-		_, err = regionalDB.EnqueueEmail(ctx, regionaldb.EnqueueEmailParams{
-			EmailType:     regionaldb.EmailTemplateTypeAgencyPasswordReset,
-			EmailTo:       string(req.EmailAddress),
-			EmailSubject:  subject,
-			EmailTextBody: textBody,
-			EmailHtmlBody: htmlBody,
+		// Create reset token and enqueue email atomically
+		regionalPool := s.GetRegionalPool(globalUser.HomeRegion)
+		err = s.WithRegionalTx(ctx, regionalPool, func(qtx *regionaldb.Queries) error {
+			txErr := qtx.CreateAgencyPasswordResetToken(ctx, regionaldb.CreateAgencyPasswordResetTokenParams{
+				ResetToken:         resetToken,
+				AgencyUserGlobalID: globalUser.AgencyUserID,
+				ExpiresAt:          pgtype.Timestamp{Time: expiresAt, Valid: true},
+			})
+			if txErr != nil {
+				return txErr
+			}
+			_, txErr = qtx.EnqueueEmail(ctx, regionaldb.EnqueueEmailParams{
+				EmailType:     regionaldb.EmailTemplateTypeAgencyPasswordReset,
+				EmailTo:       string(req.EmailAddress),
+				EmailSubject:  subject,
+				EmailTextBody: textBody,
+				EmailHtmlBody: htmlBody,
+			})
+			return txErr
 		})
 		if err != nil {
-			// Log but don't fail the request - token is created
-			log.Error("failed to enqueue email", "error", err)
+			log.Error("failed to create reset token and enqueue email", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
 		}
 
 		log.Info("password reset requested", "agency_user_id", globalUser.AgencyUserID)

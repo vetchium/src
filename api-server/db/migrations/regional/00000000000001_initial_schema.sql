@@ -33,14 +33,39 @@ CREATE TYPE authentication_type AS ENUM (
     'sso_saml',
     'hardware_token'
 );
+
+-- Hub user status enum
+CREATE TYPE hub_user_status AS ENUM (
+    'active',
+    'disabled',
+    'deleted'
+);
+
+-- Org user status enum
+CREATE TYPE org_user_status AS ENUM (
+    'invited',
+    'active',
+    'disabled'
+);
+
+-- Agency user status enum
+CREATE TYPE agency_user_status AS ENUM (
+    'invited',
+    'active',
+    'disabled'
+);
 -- Domain verification status enum
 CREATE TYPE domain_verification_status AS ENUM ('PENDING', 'VERIFIED', 'FAILING');
--- Hub users table (regional)
+-- Hub users table (regional - all mutable data)
 -- Uses hub_user_global_id as primary key (same ID as global DB for simplicity)
 CREATE TABLE hub_users (
     hub_user_global_id UUID PRIMARY KEY,
     email_address TEXT NOT NULL UNIQUE,
+    handle TEXT NOT NULL,
     password_hash BYTEA,
+    status hub_user_status NOT NULL DEFAULT 'active',
+    preferred_language TEXT NOT NULL DEFAULT 'en-US',
+    resident_country_code TEXT,
     created_at TIMESTAMP DEFAULT NOW()
 );
 -- Emails table for transactional outbox pattern
@@ -92,7 +117,7 @@ CREATE TABLE hub_email_verification_tokens (
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     expires_at TIMESTAMP NOT NULL
 );
--- Org users table (regional - stores credentials and PII)
+-- Org users table (regional - stores credentials, PII, and all mutable data)
 -- Note: email_address is NOT unique alone - one email can belong to multiple employers
 -- (contractor scenario). Uniqueness is enforced per (email_address, employer_id).
 CREATE TABLE org_users (
@@ -102,6 +127,9 @@ CREATE TABLE org_users (
     full_name TEXT,
     password_hash BYTEA,
     authentication_type authentication_type NOT NULL DEFAULT 'email_password',
+    status org_user_status NOT NULL DEFAULT 'active',
+    preferred_language TEXT NOT NULL DEFAULT 'en-US',
+    is_admin BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT NOW(),
     UNIQUE (email_address, employer_id)
 );
@@ -147,7 +175,7 @@ CREATE TABLE employer_domains (
     status domain_verification_status NOT NULL DEFAULT 'PENDING',
     created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
--- Agency users table (regional - stores credentials and PII)
+-- Agency users table (regional - stores credentials, PII, and all mutable data)
 -- Note: email_address is NOT unique alone - one email can belong to multiple agencies
 -- (contractor scenario). Uniqueness is enforced per (email_address, agency_id).
 CREATE TABLE agency_users (
@@ -157,6 +185,9 @@ CREATE TABLE agency_users (
     full_name TEXT,
     password_hash BYTEA,
     authentication_type authentication_type NOT NULL DEFAULT 'email_password',
+    status agency_user_status NOT NULL DEFAULT 'active',
+    preferred_language TEXT NOT NULL DEFAULT 'en-US',
+    is_admin BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT NOW(),
     UNIQUE (email_address, agency_id)
 );
@@ -288,6 +319,9 @@ DROP TABLE IF EXISTS email_delivery_attempts;
 DROP TABLE IF EXISTS emails;
 DROP TABLE IF EXISTS hub_users;
 DROP TYPE IF EXISTS domain_verification_status;
+DROP TYPE IF EXISTS agency_user_status;
+DROP TYPE IF EXISTS org_user_status;
+DROP TYPE IF EXISTS hub_user_status;
 DROP TYPE IF EXISTS authentication_type;
 DROP TYPE IF EXISTS email_template_type;
 DROP TYPE IF EXISTS email_status;

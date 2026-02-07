@@ -75,29 +75,26 @@ func CompletePasswordReset(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Update password in regional DB
-		err = regionalDB.UpdateOrgUserPassword(ctx, regionaldb.UpdateOrgUserPasswordParams{
-			OrgUserID:    resetTokenRecord.OrgUserGlobalID,
-			PasswordHash: passwordHash,
+		// Update password, delete token, and invalidate sessions atomically
+		regionalPool := s.GetRegionalPool(region)
+		err = s.WithRegionalTx(ctx, regionalPool, func(qtx *regionaldb.Queries) error {
+			txErr := qtx.UpdateOrgUserPassword(ctx, regionaldb.UpdateOrgUserPasswordParams{
+				OrgUserID:    resetTokenRecord.OrgUserGlobalID,
+				PasswordHash: passwordHash,
+			})
+			if txErr != nil {
+				return txErr
+			}
+			txErr = qtx.DeleteOrgPasswordResetToken(ctx, string(req.ResetToken))
+			if txErr != nil {
+				return txErr
+			}
+			return qtx.DeleteAllOrgSessionsForUser(ctx, resetTokenRecord.OrgUserGlobalID)
 		})
 		if err != nil {
-			log.Error("failed to update password", "error", err)
+			log.Error("failed to complete password reset", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
-		}
-
-		// Delete reset token (one-time use)
-		err = regionalDB.DeleteOrgPasswordResetToken(ctx, string(req.ResetToken))
-		if err != nil {
-			// Log but don't fail - password is already updated
-			log.Error("failed to delete reset token", "error", err)
-		}
-
-		// Invalidate ALL sessions for this user (security best practice)
-		err = regionalDB.DeleteAllOrgSessionsForUser(ctx, resetTokenRecord.OrgUserGlobalID)
-		if err != nil {
-			// Log but don't fail - password is already updated
-			log.Error("failed to delete sessions", "error", err)
 		}
 
 		log.Info("password reset completed", "org_user_id", resetTokenRecord.OrgUserGlobalID)

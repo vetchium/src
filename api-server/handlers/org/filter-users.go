@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
+	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
@@ -76,9 +77,17 @@ func FilterUsers(s *server.Server) http.HandlerFunc {
 			}
 		}
 
-		regionalDB := s.GetRegionalDB(orgUser.HomeRegion)
+		// Get region from context
+		region := middleware.OrgRegionFromContext(ctx)
+		if region == "" {
+			log.Error("region not found in context")
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
+		regionalDB := s.GetRegionalDB(globaldb.Region(region))
 		if regionalDB == nil {
-			log.Error("regional db not found", "region", orgUser.HomeRegion)
+			log.Error("regional db not found", "region", region)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -127,44 +136,13 @@ func FilterUsers(s *server.Server) http.HandlerFunc {
 			users = users[:limit]
 		}
 
-		// Collect IDs to fetch Status from Global DB
-		userIDs := make([]pgtype.UUID, len(users))
-		for i, u := range users {
-			userIDs[i] = u.OrgUserID
-		}
-
-		statusMap := make(map[string]string)
-
-		// If FilterStatus is requested, we might need to filter further?
-		// We can fetch statuses for ALL returned items, then filter in memory?
-		// But pagination is already done! If we filter, we return less than page size.
-		// That is the trade-off.
-		// However, we MUST fetch statuses first.
-
-		statusRows, err := s.Global.GetOrgUserStatuses(ctx, userIDs)
-		if err != nil {
-			log.Error("failed to get org user statuses from global db", "error", err)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-
-		for _, row := range statusRows {
-			// Convert UUID to string for map key
-			idStr := fmt.Sprintf("%x-%x-%x-%x-%x", row.OrgUserID.Bytes[0:4], row.OrgUserID.Bytes[4:6], row.OrgUserID.Bytes[6:8], row.OrgUserID.Bytes[8:10], row.OrgUserID.Bytes[10:16])
-			statusMap[idStr] = string(row.Status)
-		}
-
 		// Construct response items, applying status filter if present
+		// Status is now available directly from the regional FilterOrgUsers result
 		var responseItems []org.OrgUser
 
 		for i := range users {
 			user := users[i]
-			idStr := fmt.Sprintf("%x-%x-%x-%x-%x", user.OrgUserID.Bytes[0:4], user.OrgUserID.Bytes[4:6], user.OrgUserID.Bytes[6:8], user.OrgUserID.Bytes[8:10], user.OrgUserID.Bytes[10:16])
-			status := statusMap[idStr]
-			if status == "" {
-				// Should not happen if data consistency is maintained, but default to unknown or skip
-				status = "unknown"
-			}
+			status := string(user.Status)
 
 			if request.FilterStatus != nil && *request.FilterStatus != "" && status != *request.FilterStatus {
 				// Skip this user as status doesn't match
@@ -186,14 +164,6 @@ func FilterUsers(s *server.Server) http.HandlerFunc {
 		}
 
 		var nextCursor string
-		// We use the LAST FETCHED user for cursor, regardless of whether they were filtered out by status?
-		// No, if we filter out by status, we might have skipped items.
-		// BUT cursor is based on CreatedAt/ID scan order in DB.
-		// So `nextCursor` should be based on `users` returned from DB (before status filter),
-		// specifically the Last item attempted.
-		// Wait, if HasMore is true, we have a next page.
-		// The cursor for the next page is the last item of the CURRENT DB PAGE.
-
 		if hasMore && len(users) > 0 {
 			lastUser := users[len(users)-1]
 			if lastUser.CreatedAt.Valid {

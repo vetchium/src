@@ -68,7 +68,7 @@ func CompleteEmailChange(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Get hub user from global DB
+		// Get hub user from global DB (need old email hash for compensation)
 		globalUser, err := s.Global.GetHubUserByGlobalID(ctx, tokenRecord.HubUserGlobalID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
@@ -81,9 +81,21 @@ func CompleteEmailChange(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Check user status
-		if globalUser.Status != globaldb.HubUserStatusActive {
-			log.Debug("user account not active", "status", globalUser.Status)
+		// Check user status from regional DB
+		regionalUser, err := regionalDB.GetHubUserByGlobalID(ctx, tokenRecord.HubUserGlobalID)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				log.Debug("regional user not found")
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+			log.Error("failed to get regional user", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
+		if regionalUser.Status != regionaldb.HubUserStatusActive {
+			log.Debug("user account not active", "status", regionalUser.Status)
 			w.WriteHeader(http.StatusUnprocessableEntity)
 			return
 		}
@@ -98,11 +110,26 @@ func CompleteEmailChange(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		if existingUser.HubUserGlobalID.String() != "" &&
-			existingUser.HubUserGlobalID != tokenRecord.HubUserGlobalID &&
-			existingUser.Status == globaldb.HubUserStatusActive {
+		if existingUser.HubUserGlobalID.Valid &&
+			existingUser.HubUserGlobalID != tokenRecord.HubUserGlobalID {
 			log.Debug("email became unavailable")
 			w.WriteHeader(http.StatusConflict)
+			return
+		}
+
+		// Update global hash FIRST (routing change).
+		// If regional update subsequently fails, we can revert the global hash
+		// to the old value. Updating global first is safer because if regional
+		// fails, the old email still works for login (global routes to correct
+		// region, and regional still has the old email that matches).
+		oldEmailHash := globalUser.EmailAddressHash
+		err = s.Global.UpdateHubUserEmailHash(ctx, globaldb.UpdateHubUserEmailHashParams{
+			HubUserGlobalID:  tokenRecord.HubUserGlobalID,
+			EmailAddressHash: newEmailHash[:],
+		})
+		if err != nil {
+			log.Error("failed to update email hash in global DB", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
@@ -113,19 +140,18 @@ func CompleteEmailChange(s *server.Server) http.HandlerFunc {
 		})
 		if err != nil {
 			log.Error("failed to update email in regional DB", "error", err)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-
-		// Update email hash in global DB
-		err = s.Global.UpdateHubUserEmailHash(ctx, globaldb.UpdateHubUserEmailHashParams{
-			HubUserGlobalID:  tokenRecord.HubUserGlobalID,
-			EmailAddressHash: newEmailHash[:],
-		})
-		if err != nil {
-			log.Error("failed to update email hash in global DB", "error", err)
-			// This is a critical error - email is inconsistent between DBs
-			// In production, this would need manual intervention
+			// Compensating transaction: revert global hash to old value
+			if revertErr := s.Global.UpdateHubUserEmailHash(ctx, globaldb.UpdateHubUserEmailHashParams{
+				HubUserGlobalID:  tokenRecord.HubUserGlobalID,
+				EmailAddressHash: oldEmailHash,
+			}); revertErr != nil {
+				log.Error("CONSISTENCY_ALERT: failed to revert global email hash",
+					"entity_type", "hub_user",
+					"entity_id", tokenRecord.HubUserGlobalID,
+					"intended_action", "revert_email_hash",
+					"error", revertErr,
+				)
+			}
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}

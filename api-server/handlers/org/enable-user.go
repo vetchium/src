@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
+	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
 	"vetchium-api-server.typespec/org"
@@ -46,8 +47,8 @@ func EnableUser(s *server.Server) http.HandlerFunc {
 		// Calculate email hash
 		emailHash := sha256.Sum256([]byte(req.EmailAddress))
 
-		// Get target user by email hash and employer ID
-		targetUser, err := s.Global.GetOrgUserByEmailHashAndEmployer(ctx, globaldb.GetOrgUserByEmailHashAndEmployerParams{
+		// Get target user from global DB to find their region
+		globalTargetUser, err := s.Global.GetOrgUserByEmailHashAndEmployer(ctx, globaldb.GetOrgUserByEmailHashAndEmployerParams{
 			EmailAddressHash: emailHash[:],
 			EmployerID:       orgUser.EmployerID,
 		})
@@ -62,17 +63,38 @@ func EnableUser(s *server.Server) http.HandlerFunc {
 			return
 		}
 
+		// Get regional DB
+		regionalDB := s.GetRegionalDB(globalTargetUser.HomeRegion)
+		if regionalDB == nil {
+			log.Error("regional database not available", "region", globalTargetUser.HomeRegion)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
+		// Get target user from regional DB (has status)
+		targetUser, err := regionalDB.GetOrgUserByID(ctx, globalTargetUser.OrgUserID)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				log.Debug("target user not found in regional DB")
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			log.Error("failed to get target user from regional DB", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
 		// Check if target user is in disabled state
-		if targetUser.Status != globaldb.OrgUserStatusDisabled {
+		if targetUser.Status != regionaldb.OrgUserStatusDisabled {
 			log.Debug("target user not in disabled state", "status", targetUser.Status)
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
 
-		// Update user status to active in global DB
-		err = s.Global.UpdateOrgUserStatus(ctx, globaldb.UpdateOrgUserStatusParams{
+		// Update user status to active in regional DB
+		err = regionalDB.UpdateOrgUserStatus(ctx, regionaldb.UpdateOrgUserStatusParams{
 			OrgUserID: targetUser.OrgUserID,
-			Status:    globaldb.OrgUserStatusActive,
+			Status:    regionaldb.OrgUserStatusActive,
 		})
 		if err != nil {
 			log.Error("failed to update user status", "error", err)

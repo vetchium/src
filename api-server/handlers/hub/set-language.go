@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"vetchium-api-server.gomodule/internal/db/globaldb"
+	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
 	"vetchium-api-server.typespec/hub"
@@ -46,7 +47,21 @@ func SetLanguage(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		err := s.Global.UpdateHubUserPreferredLanguage(ctx, globaldb.UpdateHubUserPreferredLanguageParams{
+		region := middleware.HubRegionFromContext(ctx)
+		if region == "" {
+			log.Debug("hub region not found in context")
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		regionalDB := s.GetRegionalDB(globaldb.Region(region))
+		if regionalDB == nil {
+			log.Error("unknown region", "region", region)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
+		err := regionalDB.UpdateHubUserPreferredLanguage(ctx, regionaldb.UpdateHubUserPreferredLanguageParams{
 			HubUserGlobalID:   hubUser.HubUserGlobalID,
 			PreferredLanguage: string(request.Language),
 		})
