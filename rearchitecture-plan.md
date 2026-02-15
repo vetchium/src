@@ -92,11 +92,11 @@ Transform the current architecture (every regional server connects to every data
 
 ### Service Definitions
 
-| Service | Binary | DB Connections | HTTP | Workers | Scaling |
-|---------|--------|---------------|------|---------|---------|
-| regional-api-server | `cmd/regional-api-server/` | Own regional + global (2 pools) | Yes (:8080) | None | Horizontal (N instances) |
-| regional-worker | `cmd/regional-worker/` | Own regional only (1 pool) | No | Email + cleanup | Singleton per region |
-| global-service | `cmd/global-service/` | Global only (1 pool) | Yes (:8081) | Global cleanup + global email | Single instance |
+| Service             | Binary                     | DB Connections                  | HTTP        | Workers                       | Scaling                  |
+| ------------------- | -------------------------- | ------------------------------- | ----------- | ----------------------------- | ------------------------ |
+| regional-api-server | `cmd/regional-api-server/` | Own regional + global (2 pools) | Yes (:8080) | None                          | Horizontal (N instances) |
+| regional-worker     | `cmd/regional-worker/`     | Own regional only (1 pool)      | No          | Email + cleanup               | Singleton per region     |
+| global-service      | `cmd/global-service/`      | Global only (1 pool)            | Yes (:8081) | Global cleanup + global email | Single instance          |
 
 ### Cross-Region Proxy
 
@@ -104,21 +104,21 @@ When a request lands on the wrong regional server, it is reverse-proxied to the 
 
 **How each request type is routed:**
 
-| Route Type | Region Source | Proxy Mechanism |
-|---|---|---|
-| Authenticated (hub/org/agency) | `Authorization` header token prefix (`IND1-xxx`) | Auth middleware - before handler runs |
-| TFA (hub/org/agency) | Request body `tfa_token` field prefix | Handler-level - buffer body, extract prefix, proxy |
-| Login (hub/org/agency) | Global DB lookup (email hash or domain) | Handler-level - decode body, query global, proxy |
-| Complete-password-reset | Request body `reset_token` prefix | Handler-level - buffer body, extract prefix, proxy |
-| Complete-email-change | Request body token prefix | Handler-level - buffer body, extract prefix, proxy |
-| Complete-signup (hub) | Request body `home_region` field | Handler-level - decode body, check field, proxy |
-| Init-signup (org/agency) | Request body `home_region` field | Handler-level - decode body, check field, proxy |
-| Complete-signup (org/agency) | Global DB token record `home_region` | Handler-level - lookup token, get region, proxy |
-| Complete-setup (org/agency) | Request body token prefix | Handler-level - buffer body, extract prefix, proxy |
-| Request-signup (hub) | Current region (any is fine) | No proxy needed |
-| Request-password-reset | Global DB lookup (email hash) | Handler-level - discover region, proxy |
-| Global routes | No region needed (global DB only) | No proxy needed |
-| Admin routes | Served by global-service | Not on regional servers |
+| Route Type                     | Region Source                                    | Proxy Mechanism                                    |
+| ------------------------------ | ------------------------------------------------ | -------------------------------------------------- |
+| Authenticated (hub/org/agency) | `Authorization` header token prefix (`IND1-xxx`) | Auth middleware - before handler runs              |
+| TFA (hub/org/agency)           | Request body `tfa_token` field prefix            | Handler-level - buffer body, extract prefix, proxy |
+| Login (hub/org/agency)         | Global DB lookup (email hash or domain)          | Handler-level - decode body, query global, proxy   |
+| Complete-password-reset        | Request body `reset_token` prefix                | Handler-level - buffer body, extract prefix, proxy |
+| Complete-email-change          | Request body token prefix                        | Handler-level - buffer body, extract prefix, proxy |
+| Complete-signup (hub)          | Request body `home_region` field                 | Handler-level - decode body, check field, proxy    |
+| Init-signup (org/agency)       | Request body `home_region` field                 | Handler-level - decode body, check field, proxy    |
+| Complete-signup (org/agency)   | Global DB token record `home_region`             | Handler-level - lookup token, get region, proxy    |
+| Complete-setup (org/agency)    | Request body token prefix                        | Handler-level - buffer body, extract prefix, proxy |
+| Request-signup (hub)           | Current region (any is fine)                     | No proxy needed                                    |
+| Request-password-reset         | Global DB lookup (email hash)                    | Handler-level - discover region, proxy             |
+| Global routes                  | No region needed (global DB only)                | No proxy needed                                    |
+| Admin routes                   | Served by global-service                         | Not on regional servers                            |
 
 ---
 
@@ -142,7 +142,7 @@ Responsibilities:
 
 - 1 regional DB connection pool (from `REGIONAL_DB_CONN` env var)
 - SMTP config (from existing SMTP env vars)
-- Email worker config (from existing EMAIL_WORKER_* env vars)
+- Email worker config (from existing EMAIL*WORKER*\* env vars)
 - Regional cleanup config (from existing cleanup interval env vars)
 - `REGION` env var (for logging context)
 
@@ -275,16 +275,16 @@ All 15 admin handler files under `/api-server/handlers/admin/` need to change th
 
 **Key changes per handler:**
 
-| Handler | Current DB Access | New DB Access |
-|---------|------------------|---------------|
-| login.go | `s.Global` (data) + `s.GetCurrentRegionalDB()` (email) | `s.Global` (data) + `s.Global` (email via global email queue) |
-| tfa.go | `s.Global` only | `s.Global` only (no change) |
-| logout.go | `s.Global` only | No change |
-| invite-user.go | `s.Global` (data) + `s.GetCurrentRegionalDB()` (email) | `s.Global` (data + email) |
-| request-password-reset.go | `s.Global` (data) + `s.GetCurrentRegionalDB()` (email) | `s.Global` (data + email) |
-| complete-password-reset.go | `s.Global` only | No change |
-| complete-setup.go | `s.Global` only | No change |
-| All others | `s.Global` only | No change |
+| Handler                    | Current DB Access                                      | New DB Access                                                 |
+| -------------------------- | ------------------------------------------------------ | ------------------------------------------------------------- |
+| login.go                   | `s.Global` (data) + `s.GetCurrentRegionalDB()` (email) | `s.Global` (data) + `s.Global` (email via global email queue) |
+| tfa.go                     | `s.Global` only                                        | `s.Global` only (no change)                                   |
+| logout.go                  | `s.Global` only                                        | No change                                                     |
+| invite-user.go             | `s.Global` (data) + `s.GetCurrentRegionalDB()` (email) | `s.Global` (data + email)                                     |
+| request-password-reset.go  | `s.Global` (data) + `s.GetCurrentRegionalDB()` (email) | `s.Global` (data + email)                                     |
+| complete-password-reset.go | `s.Global` only                                        | No change                                                     |
+| complete-setup.go          | `s.Global` only                                        | No change                                                     |
+| All others                 | `s.Global` only                                        | No change                                                     |
 
 For handlers that currently call `sendTFAEmail(ctx, regionalDB, ...)` or similar with `*regionaldb.Queries`, change to use `*globaldb.Queries`. The `sendTFAEmail`, `sendInvitationEmail`, `sendPasswordResetEmail` helper functions in admin handlers need to accept `*globaldb.Queries` and call `globaldb.EnqueueEmailParams` instead of `regionaldb.EnqueueEmailParams`.
 
@@ -680,17 +680,17 @@ func SomeHandler(s *server.Server) http.HandlerFunc {
 
 **Handlers that need this pattern:**
 
-| Handler File | Token Field | Region Extraction |
-|---|---|---|
-| `hub/tfa.go` | `req.TFAToken` | `tokens.ExtractRegionFromToken` |
-| `hub/complete-password-reset.go` | `req.ResetToken` | `tokens.ExtractRegionFromToken` |
-| `hub/complete-email-change.go` | `req.Token` (check actual field name) | `tokens.ExtractRegionFromToken` |
-| `org/tfa.go` | `req.TFAToken` | `tokens.ExtractRegionFromToken` |
-| `org/complete-password-reset.go` | `req.ResetToken` | `tokens.ExtractRegionFromToken` |
-| `org/complete-setup.go` | `req.Token` | `tokens.ExtractRegionFromToken` |
-| `agency/tfa.go` | `req.TFAToken` | `tokens.ExtractRegionFromToken` |
-| `agency/complete-password-reset.go` | `req.ResetToken` | `tokens.ExtractRegionFromToken` |
-| `agency/complete-setup.go` | `req.Token` | `tokens.ExtractRegionFromToken` |
+| Handler File                        | Token Field                           | Region Extraction               |
+| ----------------------------------- | ------------------------------------- | ------------------------------- |
+| `hub/tfa.go`                        | `req.TFAToken`                        | `tokens.ExtractRegionFromToken` |
+| `hub/complete-password-reset.go`    | `req.ResetToken`                      | `tokens.ExtractRegionFromToken` |
+| `hub/complete-email-change.go`      | `req.Token` (check actual field name) | `tokens.ExtractRegionFromToken` |
+| `org/tfa.go`                        | `req.TFAToken`                        | `tokens.ExtractRegionFromToken` |
+| `org/complete-password-reset.go`    | `req.ResetToken`                      | `tokens.ExtractRegionFromToken` |
+| `org/complete-setup.go`             | `req.Token`                           | `tokens.ExtractRegionFromToken` |
+| `agency/tfa.go`                     | `req.TFAToken`                        | `tokens.ExtractRegionFromToken` |
+| `agency/complete-password-reset.go` | `req.ResetToken`                      | `tokens.ExtractRegionFromToken` |
+| `agency/complete-setup.go`          | `req.Token`                           | `tokens.ExtractRegionFromToken` |
 
 For **unauthenticated handlers that need global DB lookup to discover region**, the pattern is:
 
@@ -721,14 +721,14 @@ func Login(s *server.Server) http.HandlerFunc {
 
 **Handlers that need global DB lookup + proxy:**
 
-| Handler File | How Region is Discovered |
-|---|---|
-| `hub/login.go` | `Global.GetHubUserByEmailHash` → `HomeRegion` |
-| `hub/request-password-reset.go` | `Global.GetHubUserByEmailHash` → `HomeRegion` |
-| `org/login.go` | `Global.GetEmployerByDomain` → employer, then `Global.GetOrgUserByEmailHashAndEmployer` → `HomeRegion` |
-| `org/request-password-reset.go` | Similar to org login |
-| `agency/login.go` | `Global.GetAgencyByDomain` → agency, then `Global.GetAgencyUserByEmailHashAndAgency` → `HomeRegion` |
-| `agency/request-password-reset.go` | Similar to agency login |
+| Handler File                       | How Region is Discovered                                                                               |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `hub/login.go`                     | `Global.GetHubUserByEmailHash` → `HomeRegion`                                                          |
+| `hub/request-password-reset.go`    | `Global.GetHubUserByEmailHash` → `HomeRegion`                                                          |
+| `org/login.go`                     | `Global.GetEmployerByDomain` → employer, then `Global.GetOrgUserByEmailHashAndEmployer` → `HomeRegion` |
+| `org/request-password-reset.go`    | Similar to org login                                                                                   |
+| `agency/login.go`                  | `Global.GetAgencyByDomain` → agency, then `Global.GetAgencyUserByEmailHashAndAgency` → `HomeRegion`    |
+| `agency/request-password-reset.go` | Similar to agency login                                                                                |
 
 For **unauthenticated handlers with region in request body**, the pattern is:
 
@@ -755,24 +755,24 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 
 **Handlers that need body-field region check + proxy:**
 
-| Handler File | Body Field |
-|---|---|
-| `hub/complete-signup.go` | `req.HomeRegion` |
-| `org/init-signup.go` | `req.HomeRegion` |
-| `org/complete-signup.go` | Look up token in global DB → `home_region` from token record |
-| `agency/init-signup.go` | `req.HomeRegion` |
+| Handler File                | Body Field                                                   |
+| --------------------------- | ------------------------------------------------------------ |
+| `hub/complete-signup.go`    | `req.HomeRegion`                                             |
+| `org/init-signup.go`        | `req.HomeRegion`                                             |
+| `org/complete-signup.go`    | Look up token in global DB → `home_region` from token record |
+| `agency/init-signup.go`     | `req.HomeRegion`                                             |
 | `agency/complete-signup.go` | Look up token in global DB → `home_region` from token record |
 
 For **handlers that don't need proxy** (work on any server):
 
-| Handler File | Why No Proxy |
-|---|---|
-| `hub/request-signup.go` | Uses global DB (signup token) + current regional DB (email queue). Any region's email queue is fine for signup emails. |
-| `global/get-regions.go` | Global DB read only |
-| `global/get-supported-languages.go` | Global DB read only |
-| `global/check-domain.go` | Global DB read only |
-| `org/get-signup-details.go` | Global DB read only |
-| `agency/get-signup-details.go` | Global DB read only |
+| Handler File                        | Why No Proxy                                                                                                           |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `hub/request-signup.go`             | Uses global DB (signup token) + current regional DB (email queue). Any region's email queue is fine for signup emails. |
+| `global/get-regions.go`             | Global DB read only                                                                                                    |
+| `global/get-supported-languages.go` | Global DB read only                                                                                                    |
+| `global/check-domain.go`            | Global DB read only                                                                                                    |
+| `org/get-signup-details.go`         | Global DB read only                                                                                                    |
+| `agency/get-signup-details.go`      | Global DB read only                                                                                                    |
 
 #### 3.7 Update All Handler DB Access
 
@@ -885,52 +885,52 @@ If test helpers in `playwright/lib/db.ts` create data directly in specific regio
 
 ### New Files
 
-| File | Phase | Description |
-|---|---|---|
-| `cmd/regional-worker/main.go` | 1 | Regional worker entry point |
-| `Dockerfile.regional-worker` | 1 | Docker build for regional worker |
-| `cmd/global-service/main.go` | 2 | Global service entry point |
-| `Dockerfile.global-service` | 2 | Docker build for global service |
-| `internal/server/global_server.go` | 2 | GlobalServer struct for admin handlers |
-| `internal/routes/admin-global-routes.go` | 2 | Admin route registration for global service |
-| `internal/email/db.go` | 2 | EmailDB interface for generic email worker |
-| `internal/proxy/proxy.go` | 3 | Cross-region proxy utility |
+| File                                     | Phase | Description                                 |
+| ---------------------------------------- | ----- | ------------------------------------------- |
+| `cmd/regional-worker/main.go`            | 1     | Regional worker entry point                 |
+| `Dockerfile.regional-worker`             | 1     | Docker build for regional worker            |
+| `cmd/global-service/main.go`             | 2     | Global service entry point                  |
+| `Dockerfile.global-service`              | 2     | Docker build for global service             |
+| `internal/server/global_server.go`       | 2     | GlobalServer struct for admin handlers      |
+| `internal/routes/admin-global-routes.go` | 2     | Admin route registration for global service |
+| `internal/email/db.go`                   | 2     | EmailDB interface for generic email worker  |
+| `internal/proxy/proxy.go`                | 3     | Cross-region proxy utility                  |
 
 ### Modified Files
 
-| File | Phase | Change |
-|---|---|---|
-| `cmd/regional-api-server/main.go` | 1,3 | Phase 1: remove worker startup. Phase 3: single regional DB, add internal endpoints |
-| `docker-compose-ci.json` | 1,2,3 | Add workers, global service, update env vars |
-| `docker-compose-full.json` | 1,2,3 | Same |
-| `docker-compose-backend.json` | 1,2,3 | Same |
-| `nginx/api-lb.conf` | 2 | Add global_service upstream, admin location block |
-| `internal/server/server.go` | 3 | Remove cross-region DB fields, add InternalEndpoints |
-| `internal/server/tx.go` | 3 | Simplify WithRegionalTx signature |
-| `internal/middleware/auth.go` | 3 | Add proxy logic, change signatures |
-| `internal/middleware/roles.go` | 3 | Simplify signatures (single regional DB) |
-| `internal/routes/hub-routes.go` | 2,3 | Phase 2: remove admin registration call. Phase 3: update middleware calls |
-| `internal/routes/org-routes.go` | 3 | Update middleware calls |
-| `internal/routes/agency-routes.go` | 3 | Update middleware calls |
-| `internal/routes/global-routes.go` | - | No change (global routes don't use regional DB) |
-| `internal/email/worker.go` | 2 | Accept EmailDB interface instead of *regionaldb.Queries |
-| `internal/tokens/regional.go` | - | No change (already handles region extraction) |
-| `db/migrations/global/00000000000001_initial_schema.sql` | 2 | Add emails + email_delivery_attempts tables |
-| `db/queries/global.sql` | 2 | Add email queue queries |
-| `sqlc.yaml` | - | No change (already has global + regional) |
-| All 15 `handlers/admin/*.go` | 2 | Change receiver to *GlobalServer, use global email queue |
-| All 10 `handlers/hub/*.go` | 3 | Add proxy logic, use s.Regional instead of s.GetRegionalDB |
-| All 18 `handlers/org/*.go` | 3 | Add proxy logic, use s.Regional instead of s.GetRegionalDB |
-| All 16 `handlers/agency/*.go` | 3 | Add proxy logic, use s.Regional instead of s.GetRegionalDB |
-| `handlers/global/*.go` (3 files) | - | No change (global DB only) |
+| File                                                     | Phase | Change                                                                              |
+| -------------------------------------------------------- | ----- | ----------------------------------------------------------------------------------- |
+| `cmd/regional-api-server/main.go`                        | 1,3   | Phase 1: remove worker startup. Phase 3: single regional DB, add internal endpoints |
+| `docker-compose-ci.json`                                 | 1,2,3 | Add workers, global service, update env vars                                        |
+| `docker-compose-full.json`                               | 1,2,3 | Same                                                                                |
+| `docker-compose-backend.json`                            | 1,2,3 | Same                                                                                |
+| `nginx/api-lb.conf`                                      | 2     | Add global_service upstream, admin location block                                   |
+| `internal/server/server.go`                              | 3     | Remove cross-region DB fields, add InternalEndpoints                                |
+| `internal/server/tx.go`                                  | 3     | Simplify WithRegionalTx signature                                                   |
+| `internal/middleware/auth.go`                            | 3     | Add proxy logic, change signatures                                                  |
+| `internal/middleware/roles.go`                           | 3     | Simplify signatures (single regional DB)                                            |
+| `internal/routes/hub-routes.go`                          | 2,3   | Phase 2: remove admin registration call. Phase 3: update middleware calls           |
+| `internal/routes/org-routes.go`                          | 3     | Update middleware calls                                                             |
+| `internal/routes/agency-routes.go`                       | 3     | Update middleware calls                                                             |
+| `internal/routes/global-routes.go`                       | -     | No change (global routes don't use regional DB)                                     |
+| `internal/email/worker.go`                               | 2     | Accept EmailDB interface instead of \*regionaldb.Queries                            |
+| `internal/tokens/regional.go`                            | -     | No change (already handles region extraction)                                       |
+| `db/migrations/global/00000000000001_initial_schema.sql` | 2     | Add emails + email_delivery_attempts tables                                         |
+| `db/queries/global.sql`                                  | 2     | Add email queue queries                                                             |
+| `sqlc.yaml`                                              | -     | No change (already has global + regional)                                           |
+| All 15 `handlers/admin/*.go`                             | 2     | Change receiver to \*GlobalServer, use global email queue                           |
+| All 10 `handlers/hub/*.go`                               | 3     | Add proxy logic, use s.Regional instead of s.GetRegionalDB                          |
+| All 18 `handlers/org/*.go`                               | 3     | Add proxy logic, use s.Regional instead of s.GetRegionalDB                          |
+| All 16 `handlers/agency/*.go`                            | 3     | Add proxy logic, use s.Regional instead of s.GetRegionalDB                          |
+| `handlers/global/*.go` (3 files)                         | -     | No change (global DB only)                                                          |
 
 ### Deleted Files
 
-| File | Phase | Reason |
-|---|---|---|
-| `cmd/global-api-server/main.go` | 2 | Replaced by cmd/global-service |
-| `Dockerfile.global` | 2 | Replaced by Dockerfile.global-service |
-| `internal/routes/admin-routes.go` | 2 | Admin routes move to global service |
+| File                              | Phase | Reason                                |
+| --------------------------------- | ----- | ------------------------------------- |
+| `cmd/global-api-server/main.go`   | 2     | Replaced by cmd/global-service        |
+| `Dockerfile.global`               | 2     | Replaced by Dockerfile.global-service |
+| `internal/routes/admin-routes.go` | 2     | Admin routes move to global service   |
 
 ---
 
@@ -1054,20 +1054,20 @@ The Docker Compose architecture maps to Kubernetes as follows:
 
 ### Deployments
 
-| K8s Resource | Replicas | Notes |
-|---|---|---|
-| `regional-api-server-{region}` Deployment | N (HPA) | Stateless, scales on CPU/request count |
-| `regional-worker-{region}` Deployment | 1 | Singleton. Use `replicas: 1` and `strategy: Recreate` to prevent duplicate workers |
-| `global-service` Deployment | 1-2 | Low traffic (admin only). Can scale if needed since HTTP is stateless. Global cleanup + email worker should only run in one pod - consider leader election or separate into its own singleton deployment |
+| K8s Resource                              | Replicas | Notes                                                                                                                                                                                                    |
+| ----------------------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `regional-api-server-{region}` Deployment | N (HPA)  | Stateless, scales on CPU/request count                                                                                                                                                                   |
+| `regional-worker-{region}` Deployment     | 1        | Singleton. Use `replicas: 1` and `strategy: Recreate` to prevent duplicate workers                                                                                                                       |
+| `global-service` Deployment               | 1-2      | Low traffic (admin only). Can scale if needed since HTTP is stateless. Global cleanup + email worker should only run in one pod - consider leader election or separate into its own singleton deployment |
 
 ### Services
 
-| K8s Service | Type | Target |
-|---|---|---|
-| `regional-api-{region}` | ClusterIP | regional-api-server pods in that region |
-| `global-service` | ClusterIP | global-service pods |
-| `api-ingress` | Ingress + ExternalDNS | Anycast DNS → closest region's API service |
-| `admin-api-ingress` | Ingress | admin-api.vetchium.com → global-service |
+| K8s Service             | Type                  | Target                                     |
+| ----------------------- | --------------------- | ------------------------------------------ |
+| `regional-api-{region}` | ClusterIP             | regional-api-server pods in that region    |
+| `global-service`        | ClusterIP             | global-service pods                        |
+| `api-ingress`           | Ingress + ExternalDNS | Anycast DNS → closest region's API service |
+| `admin-api-ingress`     | Ingress               | admin-api.vetchium.com → global-service    |
 
 ### DNS and Routing
 
