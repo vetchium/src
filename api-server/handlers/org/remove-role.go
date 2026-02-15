@@ -7,7 +7,6 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
@@ -53,24 +52,8 @@ func RemoveRole(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Get region from context
-		region := middleware.OrgRegionFromContext(ctx)
-		if region == "" {
-			log.Error("region not found in context")
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-
-		// Get regional DB
-		regionalDB := s.GetRegionalDB(globaldb.Region(region))
-		if regionalDB == nil {
-			log.Error("regional database not available", "region", region)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-
 		// Get target org user from regional DB (verify exists)
-		targetUser, err := regionalDB.GetOrgUserByID(ctx, targetUserID)
+		targetUser, err := s.Regional.GetOrgUserByID(ctx, targetUserID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				log.Debug("target org user not found", "target_user_id", req.TargetUserID)
@@ -93,7 +76,7 @@ func RemoveRole(s *server.Server) http.HandlerFunc {
 		}
 
 		// Get role by name from regional DB (verify exists)
-		role, err := regionalDB.GetRoleByName(ctx, string(req.RoleName))
+		role, err := s.Regional.GetRoleByName(ctx, string(req.RoleName))
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				log.Debug("role not found", "role_name", req.RoleName)
@@ -106,7 +89,7 @@ func RemoveRole(s *server.Server) http.HandlerFunc {
 		}
 
 		// Check if user has this role
-		hasRole, err := regionalDB.HasOrgUserRole(ctx, regionaldb.HasOrgUserRoleParams{
+		hasRole, err := s.Regional.HasOrgUserRole(ctx, regionaldb.HasOrgUserRoleParams{
 			OrgUserID: targetUser.OrgUserID,
 			RoleID:    role.RoleID,
 		})
@@ -128,7 +111,7 @@ func RemoveRole(s *server.Server) http.HandlerFunc {
 		}
 
 		// Remove role
-		err = regionalDB.RemoveOrgUserRole(ctx, regionaldb.RemoveOrgUserRoleParams{
+		err = s.Regional.RemoveOrgUserRole(ctx, regionaldb.RemoveOrgUserRoleParams{
 			OrgUserID: targetUser.OrgUserID,
 			RoleID:    role.RoleID,
 		})

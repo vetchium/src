@@ -7,7 +7,6 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
@@ -76,22 +75,8 @@ func RemoveRole(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Get regional DB
-		region := middleware.AgencyRegionFromContext(ctx)
-		if region == "" {
-			log.Error("region not found in context")
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-		regionalDB := s.GetRegionalDB(globaldb.Region(region))
-		if regionalDB == nil {
-			log.Error("unknown region", "region", region)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-
 		// Get role by name (verify exists)
-		role, err := regionalDB.GetRoleByName(ctx, string(req.RoleName))
+		role, err := s.Regional.GetRoleByName(ctx, string(req.RoleName))
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				log.Debug("role not found", "role_name", req.RoleName)
@@ -104,7 +89,7 @@ func RemoveRole(s *server.Server) http.HandlerFunc {
 		}
 
 		// Check if user has this role
-		hasRole, err := regionalDB.HasAgencyUserRole(ctx, regionaldb.HasAgencyUserRoleParams{
+		hasRole, err := s.Regional.HasAgencyUserRole(ctx, regionaldb.HasAgencyUserRoleParams{
 			AgencyUserID: targetUser.AgencyUserID,
 			RoleID:       role.RoleID,
 		})
@@ -126,7 +111,7 @@ func RemoveRole(s *server.Server) http.HandlerFunc {
 		}
 
 		// Remove role
-		err = regionalDB.RemoveAgencyUserRole(ctx, regionaldb.RemoveAgencyUserRoleParams{
+		err = s.Regional.RemoveAgencyUserRole(ctx, regionaldb.RemoveAgencyUserRoleParams{
 			AgencyUserID: targetUser.AgencyUserID,
 			RoleID:       role.RoleID,
 		})

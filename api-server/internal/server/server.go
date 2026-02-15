@@ -3,13 +3,14 @@ package server
 import (
 	"context"
 	"log/slog"
+	"net/http"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
-	"vetchium-api-server.gomodule/internal/email"
 	"vetchium-api-server.gomodule/internal/middleware"
+	"vetchium-api-server.gomodule/internal/proxy"
 )
 
 // TokenConfig holds token validity durations used by handlers
@@ -57,60 +58,38 @@ type UIConfig struct {
 }
 
 type Server struct {
-	// Query interfaces for database operations
-	Global       *globaldb.Queries
-	RegionalIND1 *regionaldb.Queries
-	RegionalUSA1 *regionaldb.Queries
-	RegionalDEU1 *regionaldb.Queries
+	// Global database (for routing lookups)
+	Global     *globaldb.Queries
+	GlobalPool *pgxpool.Pool
 
-	// Raw connection pools for transaction support
-	GlobalPool       *pgxpool.Pool
-	RegionalIND1Pool *pgxpool.Pool
-	RegionalUSA1Pool *pgxpool.Pool
-	RegionalDEU1Pool *pgxpool.Pool
+	// This server's regional database (only one)
+	Regional     *regionaldb.Queries
+	RegionalPool *pgxpool.Pool
 
-	// Other server dependencies
-	Log           *slog.Logger
-	SMTPConfig    *email.SMTPConfig
+	// Server identity
 	CurrentRegion globaldb.Region
+	Log           *slog.Logger
 	TokenConfig   *TokenConfig
 	UIConfig      *UIConfig
 	Environment   string
-}
 
-func (s *Server) GetRegionalDB(region globaldb.Region) *regionaldb.Queries {
-	switch region {
-	case globaldb.RegionInd1:
-		return s.RegionalIND1
-	case globaldb.RegionUsa1:
-		return s.RegionalUSA1
-	case globaldb.RegionDeu1:
-		return s.RegionalDEU1
-	default:
-		return nil
-	}
-}
-
-// GetRegionalPool returns the connection pool for the specified region
-func (s *Server) GetRegionalPool(region globaldb.Region) *pgxpool.Pool {
-	switch region {
-	case globaldb.RegionInd1:
-		return s.RegionalIND1Pool
-	case globaldb.RegionUsa1:
-		return s.RegionalUSA1Pool
-	case globaldb.RegionDeu1:
-		return s.RegionalDEU1Pool
-	default:
-		return nil
-	}
-}
-
-// GetCurrentRegionalDB returns the regional database for the current server's region
-func (s *Server) GetCurrentRegionalDB() *regionaldb.Queries {
-	return s.GetRegionalDB(s.CurrentRegion)
+	// Internal endpoints for cross-region proxy
+	// Map of region -> base URL (e.g., "ind1" -> "http://regional-api-server-ind1:8080")
+	InternalEndpoints map[globaldb.Region]string
 }
 
 // Logger returns the logger from context with request ID, or falls back to base logger.
 func (s *Server) Logger(ctx context.Context) *slog.Logger {
 	return middleware.LoggerFromContext(ctx, s.Log)
+}
+
+// ProxyToRegion proxies the request to the specified region's internal endpoint.
+func (s *Server) ProxyToRegion(w http.ResponseWriter, r *http.Request, targetRegion globaldb.Region, bodyBytes []byte) {
+	endpoint, ok := s.InternalEndpoints[targetRegion]
+	if !ok {
+		s.Logger(r.Context()).Error("no internal endpoint for region", "region", targetRegion)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	proxy.ToRegion(w, r, endpoint, bodyBytes)
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"golang.org/x/crypto/bcrypt"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
+	"vetchium-api-server.gomodule/internal/proxy"
 	"vetchium-api-server.gomodule/internal/server"
 	"vetchium-api-server.gomodule/internal/tokens"
 	agencytypes "vetchium-api-server.typespec/agency"
@@ -17,6 +18,13 @@ import (
 func CompleteSetup(s *server.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
+
+		bodyBytes, err := proxy.BufferBody(r)
+		if err != nil {
+			http.Error(w, "", http.StatusBadRequest)
+			return
+		}
+
 		ctx := r.Context()
 		log := s.Logger(ctx)
 
@@ -54,16 +62,14 @@ func CompleteSetup(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Get regional database
-		regionalDB := s.GetRegionalDB(region)
-		if regionalDB == nil {
-			log.Error("regional database not available", "region", region)
-			http.Error(w, "", http.StatusInternalServerError)
+		// Proxy to correct region if needed
+		if region != s.CurrentRegion {
+			s.ProxyToRegion(w, r, region, bodyBytes)
 			return
 		}
 
 		// Get invitation token from regional DB (checks expiry automatically)
-		invitationTokenData, err := regionalDB.GetAgencyInvitationToken(ctx, rawToken)
+		invitationTokenData, err := s.Regional.GetAgencyInvitationToken(ctx, rawToken)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				log.Debug("invalid or expired invitation token")
@@ -76,7 +82,7 @@ func CompleteSetup(s *server.Server) http.HandlerFunc {
 		}
 
 		// Get user from regional DB to check status
-		regionalUser, err := regionalDB.GetAgencyUserByID(ctx, invitationTokenData.AgencyUserID)
+		regionalUser, err := s.Regional.GetAgencyUserByID(ctx, invitationTokenData.AgencyUserID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				log.Debug("agency user not found in regional DB")
@@ -110,7 +116,7 @@ func CompleteSetup(s *server.Server) http.HandlerFunc {
 		}
 
 		// Update agency user in regional DB with password, full name, status, and preferred language
-		err = regionalDB.UpdateAgencyUserSetup(ctx, regionaldb.UpdateAgencyUserSetupParams{
+		err = s.Regional.UpdateAgencyUserSetup(ctx, regionaldb.UpdateAgencyUserSetupParams{
 			AgencyUserID:       invitationTokenData.AgencyUserID,
 			PasswordHash:       passwordHash,
 			FullName:           pgtype.Text{String: string(req.FullName), Valid: true},
@@ -125,7 +131,7 @@ func CompleteSetup(s *server.Server) http.HandlerFunc {
 		}
 
 		// Delete invitation token (single-use)
-		err = regionalDB.DeleteAgencyInvitationToken(ctx, rawToken)
+		err = s.Regional.DeleteAgencyInvitationToken(ctx, rawToken)
 		if err != nil {
 			log.Error("failed to delete invitation token", "error", err)
 			// Continue anyway - user setup is complete

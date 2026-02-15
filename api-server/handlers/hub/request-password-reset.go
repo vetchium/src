@@ -16,6 +16,7 @@ import (
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/email/templates"
 	"vetchium-api-server.gomodule/internal/i18n"
+	"vetchium-api-server.gomodule/internal/proxy"
 	"vetchium-api-server.gomodule/internal/server"
 	"vetchium-api-server.gomodule/internal/tokens"
 	"vetchium-api-server.typespec/hub"
@@ -24,6 +25,12 @@ import (
 func RequestPasswordReset(s *server.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
+
+		bodyBytes, err := proxy.BufferBody(r)
+		if err != nil {
+			http.Error(w, "", http.StatusBadRequest)
+			return
+		}
 
 		var req hub.HubRequestPasswordResetRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -63,16 +70,14 @@ func RequestPasswordReset(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Get the regional database for this user
-		regionalDB := s.GetRegionalDB(globalUser.HomeRegion)
-		if regionalDB == nil {
-			log.Error("unknown region", "region", globalUser.HomeRegion)
-			http.Error(w, "", http.StatusInternalServerError)
+		// Proxy to correct region if needed
+		if globalUser.HomeRegion != s.CurrentRegion {
+			s.ProxyToRegion(w, r, globalUser.HomeRegion, bodyBytes)
 			return
 		}
 
 		// Get regional user for email address and status check
-		regionalUser, err := regionalDB.GetHubUserByEmail(ctx, string(req.EmailAddress))
+		regionalUser, err := s.Regional.GetHubUserByEmail(ctx, string(req.EmailAddress))
 		if errors.Is(err, pgx.ErrNoRows) {
 			// Should not happen since global user exists, but handle gracefully
 			log.Error("regional user not found but global user exists", "hub_user_global_id", globalUser.HubUserGlobalID)
@@ -109,8 +114,7 @@ func RequestPasswordReset(s *server.Server) http.HandlerFunc {
 		resetTokenExpiry := s.TokenConfig.PasswordResetTokenExpiry
 		expiresAt := pgtype.Timestamp{Time: time.Now().Add(resetTokenExpiry), Valid: true}
 		lang := i18n.Match(regionalUser.PreferredLanguage)
-		regionalPool := s.GetRegionalPool(globalUser.HomeRegion)
-		err = s.WithRegionalTx(ctx, regionalPool, func(qtx *regionaldb.Queries) error {
+		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
 			txErr := qtx.CreateHubPasswordResetToken(ctx, regionaldb.CreateHubPasswordResetTokenParams{
 				ResetToken:      rawResetToken,
 				HubUserGlobalID: regionalUser.HubUserGlobalID,

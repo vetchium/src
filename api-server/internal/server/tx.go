@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 )
@@ -37,8 +36,9 @@ func (s *Server) WithGlobalTx(ctx context.Context, fn func(*globaldb.Queries) er
 }
 
 // WithRegionalTx executes a function within a regional database transaction.
-func (s *Server) WithRegionalTx(ctx context.Context, pool *pgxpool.Pool, fn func(*regionaldb.Queries) error) error {
-	return pgx.BeginFunc(ctx, pool, func(tx pgx.Tx) error {
+// Always uses s.RegionalPool since each server has only one regional DB.
+func (s *Server) WithRegionalTx(ctx context.Context, fn func(*regionaldb.Queries) error) error {
+	return pgx.BeginFunc(ctx, s.RegionalPool, func(tx pgx.Tx) error {
 		qtx := regionaldb.New(tx)
 		return fn(qtx)
 	})

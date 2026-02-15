@@ -63,22 +63,8 @@ func EnableUser(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Get regional DB
-		region := middleware.AgencyRegionFromContext(ctx)
-		if region == "" {
-			log.Error("region not found in context")
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-		regionalDB := s.GetRegionalDB(globaldb.Region(region))
-		if regionalDB == nil {
-			log.Error("regional database not available", "region", region)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-
 		// Get target user from regional DB (for status check)
-		targetRegionalUser, err := regionalDB.GetAgencyUserByID(ctx, targetGlobalUser.AgencyUserID)
+		targetRegionalUser, err := s.Regional.GetAgencyUserByID(ctx, targetGlobalUser.AgencyUserID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				log.Debug("target user not found in regional DB")
@@ -105,7 +91,7 @@ func EnableUser(s *server.Server) http.HandlerFunc {
 		}
 
 		// Update user status to active in regional DB
-		err = regionalDB.UpdateAgencyUserStatus(ctx, regionaldb.UpdateAgencyUserStatusParams{
+		err = s.Regional.UpdateAgencyUserStatus(ctx, regionaldb.UpdateAgencyUserStatusParams{
 			AgencyUserID: targetGlobalUser.AgencyUserID,
 			Status:       regionaldb.AgencyUserStatusActive,
 		})

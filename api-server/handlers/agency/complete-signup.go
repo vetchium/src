@@ -15,6 +15,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
+	"vetchium-api-server.gomodule/internal/proxy"
 	"vetchium-api-server.gomodule/internal/server"
 	"vetchium-api-server.gomodule/internal/tokens"
 	"vetchium-api-server.typespec/agency"
@@ -23,6 +24,13 @@ import (
 func CompleteSignup(s *server.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
+
+		bodyBytes, err := proxy.BufferBody(r)
+		if err != nil {
+			http.Error(w, "", http.StatusBadRequest)
+			return
+		}
+
 		ctx := r.Context()
 		log := s.Logger(ctx)
 
@@ -59,6 +67,12 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 		region := tokenRecord.HomeRegion
 		dnsVerificationToken := tokenRecord.SignupToken
 
+		// Proxy to correct region if needed
+		if region != s.CurrentRegion {
+			s.ProxyToRegion(w, r, region, bodyBytes)
+			return
+		}
+
 		// Perform DNS TXT lookup to verify domain ownership
 		var tokenFound bool
 
@@ -92,14 +106,6 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 		}
 
 		log.Info("DNS verification successful", "domain", domain)
-
-		// Get regional DB for the current region
-		regionalDB := s.GetRegionalDB(region)
-		if regionalDB == nil {
-			log.Error("regional database not available", "region", region)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
 
 		// Variables to capture from transaction
 		var agencyEntity globaldb.Agency
@@ -177,7 +183,7 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 		}
 
 		// Check if first user for this agency in regional DB
-		userCount, err := regionalDB.CountAgencyUsersByAgency(ctx, agencyEntity.AgencyID)
+		userCount, err := s.Regional.CountAgencyUsersByAgency(ctx, agencyEntity.AgencyID)
 		if err != nil {
 			log.Error("failed to count agency users", "error", err)
 			s.Global.DeleteAgency(ctx, agencyEntity.AgencyID)
@@ -187,7 +193,7 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 		isFirstUser := userCount == 0
 
 		// Create regional user with full data
-		_, err = regionalDB.CreateAgencyUser(ctx, regionaldb.CreateAgencyUserParams{
+		_, err = s.Regional.CreateAgencyUser(ctx, regionaldb.CreateAgencyUserParams{
 			AgencyUserID:      globalUser.AgencyUserID,
 			EmailAddress:      email,
 			AgencyID:          agencyEntity.AgencyID,
@@ -207,7 +213,7 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 		// Assign roles if first user (in regional DB)
 		if isFirstUser {
 			// Get invite_users role
-			inviteRole, roleErr := regionalDB.GetRoleByName(ctx, "agency:invite_users")
+			inviteRole, roleErr := s.Regional.GetRoleByName(ctx, "agency:invite_users")
 			if roleErr != nil {
 				if errors.Is(roleErr, pgx.ErrNoRows) {
 					log.Error("invite_users role not found in database")
@@ -215,27 +221,27 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 					log.Error("failed to get invite_users role", "error", roleErr)
 				}
 				// Cleanup
-				regionalDB.DeleteAgencyUser(ctx, globalUser.AgencyUserID)
+				s.Regional.DeleteAgencyUser(ctx, globalUser.AgencyUserID)
 				s.Global.DeleteAgency(ctx, agencyEntity.AgencyID)
 				http.Error(w, "", http.StatusInternalServerError)
 				return
 			}
 
 			// Assign invite_users role
-			roleErr = regionalDB.AssignAgencyUserRole(ctx, regionaldb.AssignAgencyUserRoleParams{
+			roleErr = s.Regional.AssignAgencyUserRole(ctx, regionaldb.AssignAgencyUserRoleParams{
 				AgencyUserID: globalUser.AgencyUserID,
 				RoleID:       inviteRole.RoleID,
 			})
 			if roleErr != nil {
 				log.Error("failed to assign invite_users role", "error", roleErr)
-				regionalDB.DeleteAgencyUser(ctx, globalUser.AgencyUserID)
+				s.Regional.DeleteAgencyUser(ctx, globalUser.AgencyUserID)
 				s.Global.DeleteAgency(ctx, agencyEntity.AgencyID)
 				http.Error(w, "", http.StatusInternalServerError)
 				return
 			}
 
 			// Get manage_users role
-			manageRole, roleErr := regionalDB.GetRoleByName(ctx, "agency:manage_users")
+			manageRole, roleErr := s.Regional.GetRoleByName(ctx, "agency:manage_users")
 			if roleErr != nil {
 				if errors.Is(roleErr, pgx.ErrNoRows) {
 					log.Error("manage_users role not found in database")
@@ -243,20 +249,20 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 					log.Error("failed to get manage_users role", "error", roleErr)
 				}
 				// Cleanup
-				regionalDB.DeleteAgencyUser(ctx, globalUser.AgencyUserID)
+				s.Regional.DeleteAgencyUser(ctx, globalUser.AgencyUserID)
 				s.Global.DeleteAgency(ctx, agencyEntity.AgencyID)
 				http.Error(w, "", http.StatusInternalServerError)
 				return
 			}
 
 			// Assign manage_users role
-			roleErr = regionalDB.AssignAgencyUserRole(ctx, regionaldb.AssignAgencyUserRoleParams{
+			roleErr = s.Regional.AssignAgencyUserRole(ctx, regionaldb.AssignAgencyUserRoleParams{
 				AgencyUserID: globalUser.AgencyUserID,
 				RoleID:       manageRole.RoleID,
 			})
 			if roleErr != nil {
 				log.Error("failed to assign manage_users role", "error", roleErr)
-				regionalDB.DeleteAgencyUser(ctx, globalUser.AgencyUserID)
+				s.Regional.DeleteAgencyUser(ctx, globalUser.AgencyUserID)
 				s.Global.DeleteAgency(ctx, agencyEntity.AgencyID)
 				http.Error(w, "", http.StatusInternalServerError)
 				return
@@ -270,7 +276,7 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 		if _, err := rand.Read(sessionTokenBytes); err != nil {
 			log.Error("failed to generate session token", "error", err)
 			// Cleanup
-			regionalDB.DeleteAgencyUser(ctx, globalUser.AgencyUserID)
+			s.Regional.DeleteAgencyUser(ctx, globalUser.AgencyUserID)
 			s.Global.DeleteAgency(ctx, agencyEntity.AgencyID)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
@@ -282,7 +288,7 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 
 		// Create session in regional DB (raw token without prefix)
 		sessionExpiresAt := pgtype.Timestamp{Time: time.Now().Add(s.TokenConfig.OrgSessionTokenExpiry), Valid: true}
-		err = regionalDB.CreateAgencySession(ctx, regionaldb.CreateAgencySessionParams{
+		err = s.Regional.CreateAgencySession(ctx, regionaldb.CreateAgencySessionParams{
 			SessionToken: rawSessionToken,
 			AgencyUserID: globalUser.AgencyUserID,
 			ExpiresAt:    sessionExpiresAt,
@@ -290,7 +296,7 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 		if err != nil {
 			log.Error("failed to create session", "error", err)
 			// Cleanup
-			regionalDB.DeleteAgencyUser(ctx, globalUser.AgencyUserID)
+			s.Regional.DeleteAgencyUser(ctx, globalUser.AgencyUserID)
 			s.Global.DeleteAgency(ctx, agencyEntity.AgencyID)
 			http.Error(w, "", http.StatusInternalServerError)
 			return

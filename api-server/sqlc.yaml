@@ -2,7 +2,9 @@ version: "2"
 sql:
   - name: "global"
     engine: "postgresql"
-    queries: "db/queries/global.sql"
+    queries:
+      - "db/queries/global.sql"
+      - "db/queries/global-emails.sql"
     schema: "db/migrations/global"
     gen:
       go:

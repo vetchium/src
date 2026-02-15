@@ -11,7 +11,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
-	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/email/templates"
 	"vetchium-api-server.gomodule/internal/i18n"
 	"vetchium-api-server.gomodule/internal/middleware"
@@ -19,7 +18,7 @@ import (
 	"vetchium-api-server.typespec/admin"
 )
 
-func InviteUser(s *server.Server) http.HandlerFunc {
+func InviteUser(s *server.GlobalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()
@@ -79,13 +78,12 @@ func InviteUser(s *server.Server) http.HandlerFunc {
 		}
 
 		// Create admin user in global DB with status='invited'
-		// Don't set full_name or preferred_language - user will set these during complete-setup
 		createdUser, err := s.Global.CreateAdminUser(ctx, globaldb.CreateAdminUserParams{
 			AdminUserID:       newAdminUserID,
 			EmailAddress:      string(req.EmailAddress),
-			FullName:          pgtype.Text{Valid: false}, // User will provide during complete-setup
+			FullName:          pgtype.Text{Valid: false},
 			Status:            globaldb.AdminUserStatusInvited,
-			PreferredLanguage: "en-US", // Default, user will override during complete-setup
+			PreferredLanguage: "en-US",
 		})
 		if err != nil {
 			log.Error("failed to create admin user", "error", err)
@@ -120,8 +118,7 @@ func InviteUser(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Send invitation email
-		// Determine email language: use invite_email_language if provided, otherwise inviter's preferred_language
+		// Send invitation email via global email queue
 		emailLanguage := adminUser.PreferredLanguage
 		if req.InviteEmailLanguage != "" {
 			emailLanguage = string(req.InviteEmailLanguage)
@@ -129,7 +126,7 @@ func InviteUser(s *server.Server) http.HandlerFunc {
 		lang := i18n.Match(emailLanguage)
 		inviterName := adminUser.FullName.String
 		if inviterName == "" {
-			inviterName = adminUser.EmailAddress // Fallback to email if no full name
+			inviterName = adminUser.EmailAddress
 		}
 
 		emailData := templates.AdminInvitationData{
@@ -139,19 +136,8 @@ func InviteUser(s *server.Server) http.HandlerFunc {
 			BaseURL:         s.UIConfig.AdminURL,
 		}
 
-		// Get the current region's DB for email queueing
-		currentRegionalDB := s.GetCurrentRegionalDB()
-		if currentRegionalDB == nil {
-			log.Error("current regional database not available")
-			// Compensating transaction: delete everything
-			s.Global.DeleteAdminInvitationToken(ctx, invitationToken)
-			s.Global.DeleteAdminUser(ctx, createdUser.AdminUserID)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-
-		_, err = currentRegionalDB.EnqueueEmail(ctx, regionaldb.EnqueueEmailParams{
-			EmailType:     regionaldb.EmailTemplateTypeAdminInvitation,
+		_, err = s.Global.EnqueueGlobalEmail(ctx, globaldb.EnqueueGlobalEmailParams{
+			EmailType:     globaldb.EmailTemplateTypeAdminInvitation,
 			EmailTo:       string(req.EmailAddress),
 			EmailSubject:  templates.AdminInvitationSubject(lang, emailData),
 			EmailTextBody: templates.AdminInvitationTextBody(lang, emailData),

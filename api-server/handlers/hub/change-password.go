@@ -7,7 +7,6 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"golang.org/x/crypto/bcrypt"
-	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
@@ -53,23 +52,8 @@ func ChangePassword(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		region := middleware.HubRegionFromContext(ctx)
-		if region == "" {
-			log.Debug("hub region not found in context")
-			w.WriteHeader(http.StatusUnauthorized)
-			return
-		}
-
-		// Get regional database
-		regionalDB := s.GetRegionalDB(globaldb.Region(region))
-		if regionalDB == nil {
-			log.Error("unknown region", "region", region)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-
 		// Get regional user to verify current password
-		regionalUser, err := regionalDB.GetHubUserByGlobalID(ctx, hubUser.HubUserGlobalID)
+		regionalUser, err := s.Regional.GetHubUserByGlobalID(ctx, hubUser.HubUserGlobalID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				log.Debug("regional user not found")
@@ -98,8 +82,7 @@ func ChangePassword(s *server.Server) http.HandlerFunc {
 		}
 
 		// Update password and invalidate other sessions atomically
-		regionalPool := s.GetRegionalPool(globaldb.Region(region))
-		err = s.WithRegionalTx(ctx, regionalPool, func(qtx *regionaldb.Queries) error {
+		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
 			txErr := qtx.UpdateHubUserPassword(ctx, regionaldb.UpdateHubUserPasswordParams{
 				HubUserGlobalID: hubUser.HubUserGlobalID,
 				PasswordHash:    newPasswordHash,

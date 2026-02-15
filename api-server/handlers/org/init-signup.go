@@ -18,6 +18,7 @@ import (
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/email/templates"
 	"vetchium-api-server.gomodule/internal/i18n"
+	"vetchium-api-server.gomodule/internal/proxy"
 	"vetchium-api-server.gomodule/internal/server"
 	"vetchium-api-server.typespec/common"
 	"vetchium-api-server.typespec/org"
@@ -30,6 +31,13 @@ const (
 func InitSignup(s *server.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
+
+		bodyBytes, err := proxy.BufferBody(r)
+		if err != nil {
+			http.Error(w, "", http.StatusBadRequest)
+			return
+		}
+
 		ctx := r.Context()
 		log := s.Logger(ctx)
 
@@ -47,6 +55,24 @@ func InitSignup(s *server.Server) http.HandlerFunc {
 			return
 		}
 
+		// Validate and determine target region
+		homeRegion := globaldb.Region(strings.ToLower(req.HomeRegion))
+		switch homeRegion {
+		case globaldb.RegionInd1, globaldb.RegionUsa1, globaldb.RegionDeu1:
+			// Valid region
+		default:
+			log.Debug("invalid home region", "region", req.HomeRegion)
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode([]map[string]string{{"field": "home_region", "message": "invalid region"}})
+			return
+		}
+
+		// Proxy to correct region if needed
+		if homeRegion != s.CurrentRegion {
+			s.ProxyToRegion(w, r, homeRegion, bodyBytes)
+			return
+		}
+
 		// Extract domain from email
 		parts := strings.Split(string(req.Email), "@")
 		if len(parts) != 2 {
@@ -60,7 +86,7 @@ func InitSignup(s *server.Server) http.HandlerFunc {
 		emailHash := sha256.Sum256([]byte(req.Email))
 
 		// Check if email already registered as org user
-		_, err := s.Global.GetOrgUserByEmailHash(ctx, emailHash[:])
+		_, err = s.Global.GetOrgUserByEmailHash(ctx, emailHash[:])
 		if err == nil {
 			log.Debug("email already registered")
 			w.WriteHeader(http.StatusConflict)
@@ -114,24 +140,6 @@ func InitSignup(s *server.Server) http.HandlerFunc {
 		}
 		emailToken := hex.EncodeToString(emailTokenBytes)
 
-		// Validate and get regional DB for selected region
-		homeRegion := globaldb.Region(strings.ToLower(req.HomeRegion))
-		switch homeRegion {
-		case globaldb.RegionInd1, globaldb.RegionUsa1, globaldb.RegionDeu1:
-			// Valid region
-		default:
-			log.Debug("invalid home region", "region", req.HomeRegion)
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode([]map[string]string{{"field": "home_region", "message": "invalid region"}})
-			return
-		}
-		regionalDB := s.GetRegionalDB(homeRegion)
-		if regionalDB == nil {
-			log.Error("regional database not available", "region", homeRegion)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-
 		// Store tokens in global DB
 		tokenExpiry := s.TokenConfig.HubSignupTokenExpiry
 		expiresAt := pgtype.Timestamp{Time: time.Now().Add(tokenExpiry), Valid: true}
@@ -158,8 +166,8 @@ func InitSignup(s *server.Server) http.HandlerFunc {
 		// Default language for signup
 		lang := i18n.Match("en-US")
 
-		// Send Email 1: DNS instructions (safe to forward)
-		err = sendOrgSignupDNSEmail(ctx, regionalDB, string(req.Email), domain, dnsRecordName, dnsVerificationToken, lang, expiryHours)
+		// Send Email 1: DNS instructions (safe to forward to IT team)
+		err = sendOrgSignupDNSEmail(ctx, s.Regional, string(req.Email), domain, dnsRecordName, dnsVerificationToken, lang, expiryHours)
 		if err != nil {
 			log.Error("failed to enqueue DNS instructions email", "error", err)
 			// Compensating transaction: delete the signup token we just created
@@ -173,7 +181,7 @@ func InitSignup(s *server.Server) http.HandlerFunc {
 		// Send Email 2: Signup token (private - DO NOT FORWARD)
 		// TODO: Update signup link URL when employer-ui is ready
 		signupLink := fmt.Sprintf("%s/complete-signup?token=%s", s.UIConfig.OrgURL, emailToken)
-		err = sendOrgSignupTokenEmail(ctx, regionalDB, string(req.Email), domain, emailToken, signupLink, lang, expiryHours)
+		err = sendOrgSignupTokenEmail(ctx, s.Regional, string(req.Email), domain, emailToken, signupLink, lang, expiryHours)
 		if err != nil {
 			log.Error("failed to enqueue signup token email", "error", err)
 			// Compensating transaction: delete the signup token we just created

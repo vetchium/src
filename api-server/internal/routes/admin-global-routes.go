@@ -8,7 +8,9 @@ import (
 	"vetchium-api-server.gomodule/internal/server"
 )
 
-func RegisterAdminRoutes(mux *http.ServeMux, s *server.Server) {
+// RegisterAdminGlobalRoutes registers admin routes on the global service.
+// These routes connect only to the global database.
+func RegisterAdminGlobalRoutes(mux *http.ServeMux, s *server.GlobalServer) {
 	// Unauthenticated routes
 	mux.HandleFunc("POST /admin/login", admin.Login(s))
 	mux.HandleFunc("POST /admin/tfa", admin.TFA(s))

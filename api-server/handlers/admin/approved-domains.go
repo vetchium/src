@@ -38,7 +38,7 @@ func writeErrorResponse(w http.ResponseWriter, statusCode int, message string) {
 }
 
 // AddApprovedDomain handles POST /admin/add-approved-domain
-func AddApprovedDomain(s *server.Server) http.HandlerFunc {
+func AddApprovedDomain(s *server.GlobalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
@@ -113,7 +113,7 @@ func AddApprovedDomain(s *server.Server) http.HandlerFunc {
 }
 
 // ListApprovedDomains handles POST /admin/list-approved-domains
-func ListApprovedDomains(s *server.Server) http.HandlerFunc {
+func ListApprovedDomains(s *server.GlobalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
@@ -194,7 +194,7 @@ func ListApprovedDomains(s *server.Server) http.HandlerFunc {
 	}
 }
 
-func listDomainsWithoutSearch(ctx context.Context, s *server.Server, filter admin.DomainFilter, limit int, cursor string) ([]admin.ApprovedDomain, string, bool, error) {
+func listDomainsWithoutSearch(ctx context.Context, s *server.GlobalServer, filter admin.DomainFilter, limit int, cursor string) ([]admin.ApprovedDomain, string, bool, error) {
 	type DomainRow struct {
 		DomainID         pgtype.UUID
 		DomainName       string
@@ -350,7 +350,7 @@ func listDomainsWithoutSearch(ctx context.Context, s *server.Server, filter admi
 	return domainResponses, nextCursor, hasMore, nil
 }
 
-func listDomainsWithSearch(ctx context.Context, s *server.Server, search string, filter admin.DomainFilter, limit int, cursor string) ([]admin.ApprovedDomain, string, bool, error) {
+func listDomainsWithSearch(ctx context.Context, s *server.GlobalServer, search string, filter admin.DomainFilter, limit int, cursor string) ([]admin.ApprovedDomain, string, bool, error) {
 	type SearchRow struct {
 		DomainID         pgtype.UUID
 		DomainName       string
@@ -529,7 +529,7 @@ func listDomainsWithSearch(ctx context.Context, s *server.Server, search string,
 }
 
 // GetApprovedDomain handles POST /admin/get-approved-domain
-func GetApprovedDomain(s *server.Server) http.HandlerFunc {
+func GetApprovedDomain(s *server.GlobalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
@@ -614,7 +614,7 @@ func GetApprovedDomain(s *server.Server) http.HandlerFunc {
 }
 
 // DisableApprovedDomain handles POST /admin/disable-approved-domain
-func DisableApprovedDomain(s *server.Server) http.HandlerFunc {
+func DisableApprovedDomain(s *server.GlobalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
@@ -706,7 +706,7 @@ func DisableApprovedDomain(s *server.Server) http.HandlerFunc {
 }
 
 // EnableApprovedDomain handles POST /admin/enable-approved-domain
-func EnableApprovedDomain(s *server.Server) http.HandlerFunc {
+func EnableApprovedDomain(s *server.GlobalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
@@ -799,7 +799,7 @@ func EnableApprovedDomain(s *server.Server) http.HandlerFunc {
 
 // Helper functions
 
-func createAuditLog(ctx context.Context, s *server.Server, adminID pgtype.UUID, action string, targetDomainID *pgtype.UUID, targetDomainName, reason *string, oldValue, newValue map[string]interface{}, r *http.Request) {
+func createAuditLog(ctx context.Context, s *server.GlobalServer, adminID pgtype.UUID, action string, targetDomainID *pgtype.UUID, targetDomainName, reason *string, oldValue, newValue map[string]interface{}, r *http.Request) {
 	var targetIDPtr pgtype.UUID
 	if targetDomainID != nil {
 		targetIDPtr = *targetDomainID
@@ -873,7 +873,7 @@ func domainToJSON(domain globaldb.ApprovedDomain) map[string]interface{} {
 	}
 }
 
-func getAuditLogsForDomain(ctx context.Context, s *server.Server, domainID pgtype.UUID, limit int, cursor string) ([]admin.ApprovedDomainAuditLog, string, bool, error) {
+func getAuditLogsForDomain(ctx context.Context, s *server.GlobalServer, domainID pgtype.UUID, limit int, cursor string) ([]admin.ApprovedDomainAuditLog, string, bool, error) {
 	var rows []globaldb.GetAuditLogsByDomainIDFirstPageRow
 
 	if cursor == "" {

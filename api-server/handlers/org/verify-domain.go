@@ -12,7 +12,6 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
@@ -50,24 +49,8 @@ func VerifyDomain(s *server.Server) http.HandlerFunc {
 		// Normalize domain to lowercase
 		domain := strings.ToLower(string(req.Domain))
 
-		// Get region from context
-		region := middleware.OrgRegionFromContext(ctx)
-		if region == "" {
-			log.Error("region not found in context")
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-
-		// Get regional DB
-		regionalDB := s.GetRegionalDB(globaldb.Region(region))
-		if regionalDB == nil {
-			log.Error("regional database not available", "region", region)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-
 		// Get domain record from regional DB, ensuring it belongs to this employer
-		domainRecord, err := regionalDB.GetEmployerDomainByEmployerAndDomain(ctx, regionaldb.GetEmployerDomainByEmployerAndDomainParams{
+		domainRecord, err := s.Regional.GetEmployerDomainByEmployerAndDomain(ctx, regionaldb.GetEmployerDomainByEmployerAndDomainParams{
 			Domain:     domain,
 			EmployerID: orgUser.EmployerID,
 		})
@@ -88,7 +71,7 @@ func VerifyDomain(s *server.Server) http.HandlerFunc {
 		if err != nil {
 			log.Debug("DNS lookup failed", "domain", domain, "error", err)
 			// DNS lookup failed - increment failure count
-			err = handleVerificationFailure(ctx, regionalDB, domain, domainRecord)
+			err = handleVerificationFailure(ctx, s.Regional, domain, domainRecord)
 			if err != nil {
 				log.Error("failed to handle verification failure", "error", err)
 			}
@@ -115,7 +98,7 @@ func VerifyDomain(s *server.Server) http.HandlerFunc {
 		if !tokenFound {
 			log.Debug("verification token not found in DNS", "domain", domain)
 			// Token not found - increment failure count
-			err = handleVerificationFailure(ctx, regionalDB, domain, domainRecord)
+			err = handleVerificationFailure(ctx, s.Regional, domain, domainRecord)
 			if err != nil {
 				log.Error("failed to handle verification failure", "error", err)
 			}
@@ -131,7 +114,7 @@ func VerifyDomain(s *server.Server) http.HandlerFunc {
 
 		// Verification successful!
 		now := time.Now()
-		err = regionalDB.UpdateEmployerDomainStatus(ctx, regionaldb.UpdateEmployerDomainStatusParams{
+		err = s.Regional.UpdateEmployerDomainStatus(ctx, regionaldb.UpdateEmployerDomainStatusParams{
 			Domain:              domain,
 			Status:              regionaldb.DomainVerificationStatusVERIFIED,
 			LastVerifiedAt:      pgtype.Timestamp{Time: now, Valid: true},

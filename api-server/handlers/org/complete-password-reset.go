@@ -4,19 +4,26 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"golang.org/x/crypto/bcrypt"
-	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
+	"vetchium-api-server.gomodule/internal/proxy"
 	"vetchium-api-server.gomodule/internal/server"
+	"vetchium-api-server.gomodule/internal/tokens"
 	"vetchium-api-server.typespec/org"
 )
 
 func CompletePasswordReset(s *server.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
+
+		bodyBytes, err := proxy.BufferBody(r)
+		if err != nil {
+			http.Error(w, "", http.StatusBadRequest)
+			return
+		}
+
 		ctx := r.Context()
 		log := s.Logger(ctx)
 
@@ -37,25 +44,22 @@ func CompletePasswordReset(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Extract region from token (format: REGION-{64-char-hex})
-		tokenParts := strings.SplitN(string(req.ResetToken), "-", 2)
-		if len(tokenParts) != 2 {
-			log.Debug("invalid reset token format")
+		// Extract region from token
+		region, _, err := tokens.ExtractRegionFromToken(string(req.ResetToken))
+		if err != nil {
+			log.Debug("invalid reset token format", "error", err)
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
-		region := globaldb.Region(strings.ToLower(tokenParts[0]))
 
-		// Get regional DB
-		regionalDB := s.GetRegionalDB(region)
-		if regionalDB == nil {
-			log.Debug("invalid region in token", "region", region)
-			w.WriteHeader(http.StatusUnauthorized)
+		// Proxy to correct region if needed
+		if region != s.CurrentRegion {
+			s.ProxyToRegion(w, r, region, bodyBytes)
 			return
 		}
 
 		// Look up reset token (includes expiry check)
-		resetTokenRecord, err := regionalDB.GetOrgPasswordResetToken(ctx, string(req.ResetToken))
+		resetTokenRecord, err := s.Regional.GetOrgPasswordResetToken(ctx, string(req.ResetToken))
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				log.Debug("reset token not found or expired")
@@ -76,8 +80,7 @@ func CompletePasswordReset(s *server.Server) http.HandlerFunc {
 		}
 
 		// Update password, delete token, and invalidate sessions atomically
-		regionalPool := s.GetRegionalPool(region)
-		err = s.WithRegionalTx(ctx, regionalPool, func(qtx *regionaldb.Queries) error {
+		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
 			txErr := qtx.UpdateOrgUserPassword(ctx, regionaldb.UpdateOrgUserPasswordParams{
 				OrgUserID:    resetTokenRecord.OrgUserGlobalID,
 				PasswordHash: passwordHash,

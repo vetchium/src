@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
+	"vetchium-api-server.gomodule/internal/proxy"
 	"vetchium-api-server.gomodule/internal/tokens"
 )
 
@@ -96,9 +97,15 @@ func AdminUserFromContext(ctx context.Context) *globaldb.AdminUser {
 }
 
 // HubAuth is a middleware that verifies hub session tokens from the Authorization header.
-// It extracts the region-prefixed session token, queries the appropriate regional database,
-// and stores the session, hub user, and region in the request context.
-func HubAuth(getRegionalDB func(globaldb.Region) *regionaldb.Queries) func(http.Handler) http.Handler {
+// It extracts the region-prefixed session token, and if the region doesn't match the
+// current server's region, proxies the request to the correct regional server.
+// Otherwise, it queries the local regional database and stores the session, hub user,
+// and region in the request context.
+func HubAuth(
+	regionalDB *regionaldb.Queries,
+	currentRegion globaldb.Region,
+	internalEndpoints map[globaldb.Region]string,
+) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ctx := r.Context()
@@ -136,11 +143,20 @@ func HubAuth(getRegionalDB func(globaldb.Region) *regionaldb.Queries) func(http.
 				return
 			}
 
-			// Get regional database for this region
-			regionalDB := getRegionalDB(region)
-			if regionalDB == nil {
-				log.Error("regional database not available", "region", region)
-				http.Error(w, "", http.StatusInternalServerError)
+			// Proxy to correct region if needed
+			if region != currentRegion {
+				endpoint, ok := internalEndpoints[region]
+				if !ok {
+					log.Debug("unknown region for proxy", "region", region)
+					w.WriteHeader(http.StatusUnauthorized)
+					return
+				}
+				bodyBytes, err := proxy.BufferBody(r)
+				if err != nil {
+					http.Error(w, "", http.StatusBadRequest)
+					return
+				}
+				proxy.ToRegion(w, r, endpoint, bodyBytes)
 				return
 			}
 
@@ -215,9 +231,13 @@ func HubUserFromContext(ctx context.Context) *regionaldb.HubUser {
 }
 
 // OrgAuth is a middleware that verifies org session tokens from the Authorization header.
-// It extracts the region-prefixed session token, queries the appropriate regional database,
-// and stores the session, org user, and region in the request context.
-func OrgAuth(getRegionalDB func(globaldb.Region) *regionaldb.Queries) func(http.Handler) http.Handler {
+// It extracts the region-prefixed session token, and if the region doesn't match the
+// current server's region, proxies the request to the correct regional server.
+func OrgAuth(
+	regionalDB *regionaldb.Queries,
+	currentRegion globaldb.Region,
+	internalEndpoints map[globaldb.Region]string,
+) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ctx := r.Context()
@@ -255,11 +275,20 @@ func OrgAuth(getRegionalDB func(globaldb.Region) *regionaldb.Queries) func(http.
 				return
 			}
 
-			// Get regional database for this region
-			regionalDB := getRegionalDB(region)
-			if regionalDB == nil {
-				log.Error("regional database not available", "region", region)
-				http.Error(w, "", http.StatusInternalServerError)
+			// Proxy to correct region if needed
+			if region != currentRegion {
+				endpoint, ok := internalEndpoints[region]
+				if !ok {
+					log.Debug("unknown region for proxy", "region", region)
+					w.WriteHeader(http.StatusUnauthorized)
+					return
+				}
+				bodyBytes, err := proxy.BufferBody(r)
+				if err != nil {
+					http.Error(w, "", http.StatusBadRequest)
+					return
+				}
+				proxy.ToRegion(w, r, endpoint, bodyBytes)
 				return
 			}
 
@@ -334,9 +363,13 @@ func OrgRegionFromContext(ctx context.Context) string {
 }
 
 // AgencyAuth is a middleware that verifies agency session tokens from the Authorization header.
-// It extracts the region-prefixed session token, queries the appropriate regional database,
-// and stores the session, agency user, and region in the request context.
-func AgencyAuth(getRegionalDB func(globaldb.Region) *regionaldb.Queries) func(http.Handler) http.Handler {
+// It extracts the region-prefixed session token, and if the region doesn't match the
+// current server's region, proxies the request to the correct regional server.
+func AgencyAuth(
+	regionalDB *regionaldb.Queries,
+	currentRegion globaldb.Region,
+	internalEndpoints map[globaldb.Region]string,
+) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ctx := r.Context()
@@ -374,11 +407,20 @@ func AgencyAuth(getRegionalDB func(globaldb.Region) *regionaldb.Queries) func(ht
 				return
 			}
 
-			// Get regional database for this region
-			regionalDB := getRegionalDB(region)
-			if regionalDB == nil {
-				log.Error("regional database not available", "region", region)
-				http.Error(w, "", http.StatusInternalServerError)
+			// Proxy to correct region if needed
+			if region != currentRegion {
+				endpoint, ok := internalEndpoints[region]
+				if !ok {
+					log.Debug("unknown region for proxy", "region", region)
+					w.WriteHeader(http.StatusUnauthorized)
+					return
+				}
+				bodyBytes, err := proxy.BufferBody(r)
+				if err != nil {
+					http.Error(w, "", http.StatusBadRequest)
+					return
+				}
+				proxy.ToRegion(w, r, endpoint, bodyBytes)
 				return
 			}
 

@@ -269,6 +269,42 @@ CREATE TABLE agency_signup_tokens (
     consumed_at TIMESTAMP
 );
 
+-- Email status enum (for global email queue - admin emails)
+CREATE TYPE email_status AS ENUM (
+    'pending',
+    'sent',
+    'failed',
+    'cancelled'
+);
+
+-- Email template type enum (admin-only templates for global email queue)
+CREATE TYPE email_template_type AS ENUM (
+    'admin_tfa',
+    'admin_invitation',
+    'admin_password_reset'
+);
+
+-- Emails table (global email queue for admin emails)
+CREATE TABLE emails (
+    email_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email_type email_template_type NOT NULL,
+    email_to TEXT NOT NULL,
+    email_subject TEXT NOT NULL,
+    email_text_body TEXT NOT NULL,
+    email_html_body TEXT NOT NULL,
+    email_status email_status NOT NULL DEFAULT 'pending',
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    sent_at TIMESTAMP
+);
+
+-- Email delivery attempts table
+CREATE TABLE email_delivery_attempts (
+    attempt_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email_id UUID NOT NULL REFERENCES emails(email_id) ON DELETE CASCADE,
+    attempted_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    error_message TEXT
+);
+
 -- RBAC: Roles table
 CREATE TABLE roles (
     role_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -366,6 +402,10 @@ DROP TABLE IF EXISTS admin_sessions;
 DROP TABLE IF EXISTS admin_tfa_tokens;
 DROP TABLE IF EXISTS admin_users;
 DROP TABLE IF EXISTS hub_users;
+DROP TABLE IF EXISTS email_delivery_attempts;
+DROP TABLE IF EXISTS emails;
+DROP TYPE IF EXISTS email_template_type;
+DROP TYPE IF EXISTS email_status;
 DROP TYPE IF EXISTS domain_status;
 DROP TYPE IF EXISTS admin_user_status;
 DROP TYPE IF EXISTS email_address_hashing_algorithm;

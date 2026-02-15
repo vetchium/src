@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
@@ -47,23 +46,7 @@ func SetLanguage(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Get region from context
-		region := middleware.OrgRegionFromContext(ctx)
-		if region == "" {
-			log.Error("region not found in context")
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-
-		// Get regional DB
-		regionalDB := s.GetRegionalDB(globaldb.Region(region))
-		if regionalDB == nil {
-			log.Error("regional database not available", "region", region)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-
-		err := regionalDB.UpdateOrgUserPreferredLanguage(ctx, regionaldb.UpdateOrgUserPreferredLanguageParams{
+		err := s.Regional.UpdateOrgUserPreferredLanguage(ctx, regionaldb.UpdateOrgUserPreferredLanguageParams{
 			OrgUserID:         orgUser.OrgUserID,
 			PreferredLanguage: string(request.Language),
 		})

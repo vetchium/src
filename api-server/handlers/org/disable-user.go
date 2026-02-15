@@ -63,16 +63,8 @@ func DisableUser(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Get regional DB
-		regionalDB := s.GetRegionalDB(globalTargetUser.HomeRegion)
-		if regionalDB == nil {
-			log.Error("regional database not available", "region", globalTargetUser.HomeRegion)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-
 		// Get target user from regional DB (has status, is_admin)
-		targetUser, err := regionalDB.GetOrgUserByID(ctx, globalTargetUser.OrgUserID)
+		targetUser, err := s.Regional.GetOrgUserByID(ctx, globalTargetUser.OrgUserID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				log.Debug("target user not found in regional DB")
@@ -93,7 +85,7 @@ func DisableUser(s *server.Server) http.HandlerFunc {
 
 		// If target user is an admin, check if they are the last admin
 		if targetUser.IsAdmin {
-			count, err := regionalDB.CountActiveAdminOrgUsers(ctx, targetUser.EmployerID)
+			count, err := s.Regional.CountActiveAdminOrgUsers(ctx, targetUser.EmployerID)
 			if err != nil {
 				log.Error("failed to count active admin users", "error", err)
 				http.Error(w, "", http.StatusInternalServerError)
@@ -111,7 +103,7 @@ func DisableUser(s *server.Server) http.HandlerFunc {
 		}
 
 		// Update user status to disabled in regional DB
-		err = regionalDB.UpdateOrgUserStatus(ctx, regionaldb.UpdateOrgUserStatusParams{
+		err = s.Regional.UpdateOrgUserStatus(ctx, regionaldb.UpdateOrgUserStatusParams{
 			OrgUserID: targetUser.OrgUserID,
 			Status:    regionaldb.OrgUserStatusDisabled,
 		})
@@ -122,7 +114,7 @@ func DisableUser(s *server.Server) http.HandlerFunc {
 		}
 
 		// Invalidate all sessions for the target user in regional DB
-		err = regionalDB.DeleteAllOrgSessionsForUser(ctx, targetUser.OrgUserID)
+		err = s.Regional.DeleteAllOrgSessionsForUser(ctx, targetUser.OrgUserID)
 		if err != nil {
 			log.Error("failed to delete user sessions", "error", err)
 			// User is disabled but sessions still active - this is acceptable

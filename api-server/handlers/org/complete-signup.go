@@ -15,6 +15,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
+	"vetchium-api-server.gomodule/internal/proxy"
 	"vetchium-api-server.gomodule/internal/server"
 	"vetchium-api-server.gomodule/internal/tokens"
 	"vetchium-api-server.typespec/org"
@@ -23,6 +24,13 @@ import (
 func CompleteSignup(s *server.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
+
+		bodyBytes, err := proxy.BufferBody(r)
+		if err != nil {
+			http.Error(w, "", http.StatusBadRequest)
+			return
+		}
+
 		ctx := r.Context()
 		log := s.Logger(ctx)
 
@@ -93,11 +101,9 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 
 		log.Info("DNS verification successful", "domain", domain)
 
-		// Get regional DB for the current region
-		regionalDB := s.GetRegionalDB(region)
-		if regionalDB == nil {
-			log.Error("regional database not available", "region", region)
-			http.Error(w, "", http.StatusInternalServerError)
+		// Proxy to correct region if needed
+		if region != s.CurrentRegion {
+			s.ProxyToRegion(w, r, region, bodyBytes)
 			return
 		}
 
@@ -181,7 +187,7 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 		}
 
 		// Create regional user with full details
-		_, err = regionalDB.CreateOrgUser(ctx, regionaldb.CreateOrgUserParams{
+		_, err = s.Regional.CreateOrgUser(ctx, regionaldb.CreateOrgUserParams{
 			OrgUserID:         globalUser.OrgUserID,
 			EmailAddress:      email,
 			EmployerID:        employer.EmployerID,
@@ -199,7 +205,7 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 		}
 
 		// Create verified domain in regional DB
-		err = regionalDB.CreateEmployerDomain(ctx, regionaldb.CreateEmployerDomainParams{
+		err = s.Regional.CreateEmployerDomain(ctx, regionaldb.CreateEmployerDomainParams{
 			Domain:            domain,
 			EmployerID:        employer.EmployerID,
 			VerificationToken: dnsVerificationToken,
@@ -214,7 +220,7 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 		// Assign roles if first user (now in regional DB)
 		if isFirstUser {
 			// Get invite_users role
-			inviteRole, roleErr := regionalDB.GetRoleByName(ctx, "employer:invite_users")
+			inviteRole, roleErr := s.Regional.GetRoleByName(ctx, "employer:invite_users")
 			if roleErr != nil {
 				if errors.Is(roleErr, pgx.ErrNoRows) {
 					log.Error("invite_users role not found in regional database")
@@ -223,7 +229,7 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 				}
 			} else {
 				// Assign invite_users role
-				roleErr = regionalDB.AssignOrgUserRole(ctx, regionaldb.AssignOrgUserRoleParams{
+				roleErr = s.Regional.AssignOrgUserRole(ctx, regionaldb.AssignOrgUserRoleParams{
 					OrgUserID: globalUser.OrgUserID,
 					RoleID:    inviteRole.RoleID,
 				})
@@ -233,7 +239,7 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 			}
 
 			// Get manage_users role
-			manageRole, roleErr := regionalDB.GetRoleByName(ctx, "employer:manage_users")
+			manageRole, roleErr := s.Regional.GetRoleByName(ctx, "employer:manage_users")
 			if roleErr != nil {
 				if errors.Is(roleErr, pgx.ErrNoRows) {
 					log.Error("manage_users role not found in regional database")
@@ -242,7 +248,7 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 				}
 			} else {
 				// Assign manage_users role
-				roleErr = regionalDB.AssignOrgUserRole(ctx, regionaldb.AssignOrgUserRoleParams{
+				roleErr = s.Regional.AssignOrgUserRole(ctx, regionaldb.AssignOrgUserRoleParams{
 					OrgUserID: globalUser.OrgUserID,
 					RoleID:    manageRole.RoleID,
 				})
@@ -259,7 +265,7 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 		if _, err := rand.Read(sessionTokenBytes); err != nil {
 			log.Error("failed to generate session token", "error", err)
 			// Cleanup
-			regionalDB.DeleteOrgUser(ctx, globalUser.OrgUserID)
+			s.Regional.DeleteOrgUser(ctx, globalUser.OrgUserID)
 			s.Global.DeleteEmployer(ctx, employer.EmployerID)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
@@ -271,7 +277,7 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 
 		// Create session in regional DB (raw token without prefix)
 		sessionExpiresAt := pgtype.Timestamp{Time: time.Now().Add(s.TokenConfig.OrgSessionTokenExpiry), Valid: true}
-		err = regionalDB.CreateOrgSession(ctx, regionaldb.CreateOrgSessionParams{
+		err = s.Regional.CreateOrgSession(ctx, regionaldb.CreateOrgSessionParams{
 			SessionToken: rawSessionToken,
 			OrgUserID:    globalUser.OrgUserID,
 			ExpiresAt:    sessionExpiresAt,
@@ -279,7 +285,7 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 		if err != nil {
 			log.Error("failed to create session", "error", err)
 			// Cleanup
-			regionalDB.DeleteOrgUser(ctx, globalUser.OrgUserID)
+			s.Regional.DeleteOrgUser(ctx, globalUser.OrgUserID)
 			s.Global.DeleteEmployer(ctx, employer.EmployerID)
 			http.Error(w, "", http.StatusInternalServerError)
 			return

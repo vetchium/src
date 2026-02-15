@@ -20,9 +20,9 @@ func RegisterOrgRoutes(mux *http.ServeMux, s *server.Server) {
 	mux.HandleFunc("POST /employer/complete-password-reset", org.CompletePasswordReset(s))
 
 	// Create middleware instances
-	orgAuth := middleware.OrgAuth(s.GetRegionalDB)
-	employerRoleInvite := middleware.EmployerRole(s.GetRegionalDB, "employer:invite_users")
-	employerRoleManage := middleware.EmployerRole(s.GetRegionalDB, "employer:manage_users")
+	orgAuth := middleware.OrgAuth(s.Regional, s.CurrentRegion, s.InternalEndpoints)
+	employerRoleInvite := middleware.EmployerRole(s.Regional, "employer:invite_users")
+	employerRoleManage := middleware.EmployerRole(s.Regional, "employer:manage_users")
 	employerAdminOnly := middleware.EmployerAdminOnly()
 
 	// Admin-only routes (IsAdmin flag required, not delegatable)

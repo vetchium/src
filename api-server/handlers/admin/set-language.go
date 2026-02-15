@@ -10,7 +10,7 @@ import (
 	"vetchium-api-server.typespec/admin"
 )
 
-func SetLanguage(s *server.Server) http.HandlerFunc {
+func SetLanguage(s *server.GlobalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()

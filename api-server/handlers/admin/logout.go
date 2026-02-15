@@ -7,7 +7,7 @@ import (
 	"vetchium-api-server.gomodule/internal/server"
 )
 
-func Logout(s *server.Server) http.HandlerFunc {
+func Logout(s *server.GlobalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()

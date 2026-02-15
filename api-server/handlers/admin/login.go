@@ -15,14 +15,13 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"golang.org/x/crypto/bcrypt"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
-	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/email/templates"
 	"vetchium-api-server.gomodule/internal/i18n"
 	"vetchium-api-server.gomodule/internal/server"
 	"vetchium-api-server.typespec/admin"
 )
 
-func Login(s *server.Server) http.HandlerFunc {
+func Login(s *server.GlobalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
@@ -90,18 +89,9 @@ func Login(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Get regional DB for email sending (check early to fail fast)
-		regionalDB := s.GetCurrentRegionalDB()
-		if regionalDB == nil {
-			log.Error("no regional database available for email sending")
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-
 		// Store TFA token in global database
-		// NOTE: This spans two databases (global for token, regional for email).
-		// We cannot use a single transaction. Instead, we use a compensating
-		// transaction: if email enqueue fails, we delete the TFA token.
+		// NOTE: TFA token and email are now both in the global database,
+		// so no cross-database compensating transaction needed.
 		tfaTokenExpiry := s.TokenConfig.AdminTFATokenExpiry
 		expiresAt := pgtype.Timestamp{Time: time.Now().Add(tfaTokenExpiry), Valid: true}
 		err = s.Global.CreateAdminTFAToken(ctx, globaldb.CreateAdminTFATokenParams{
@@ -116,10 +106,9 @@ func Login(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Enqueue TFA email in regional database
-		// Match user's preferred language to best available translation
+		// Enqueue TFA email in global database email queue
 		lang := i18n.Match(adminUser.PreferredLanguage)
-		err = sendTFAEmail(ctx, regionalDB, adminUser.EmailAddress, tfaCode, lang, tfaTokenExpiry)
+		err = sendTFAEmail(ctx, s.Global, adminUser.EmailAddress, tfaCode, lang, tfaTokenExpiry)
 		if err != nil {
 			log.Error("failed to enqueue TFA email", "error", err)
 			// Compensating transaction: delete the TFA token we just created
@@ -154,14 +143,14 @@ func generateTFACode() (string, error) {
 	return fmt.Sprintf("%06d", n.Int64()), nil
 }
 
-func sendTFAEmail(ctx context.Context, db *regionaldb.Queries, to string, tfaCode string, lang string, tfaTokenExpiry time.Duration) error {
+func sendTFAEmail(ctx context.Context, db *globaldb.Queries, to string, tfaCode string, lang string, tfaTokenExpiry time.Duration) error {
 	data := templates.AdminTFAData{
 		Code:    tfaCode,
 		Minutes: int(tfaTokenExpiry.Minutes()),
 	}
 
-	_, err := db.EnqueueEmail(ctx, regionaldb.EnqueueEmailParams{
-		EmailType:     regionaldb.EmailTemplateTypeAdminTfa,
+	_, err := db.EnqueueGlobalEmail(ctx, globaldb.EnqueueGlobalEmailParams{
+		EmailType:     globaldb.EmailTemplateTypeAdminTfa,
 		EmailTo:       to,
 		EmailSubject:  templates.AdminTFASubject(lang),
 		EmailTextBody: templates.AdminTFATextBody(lang, data),

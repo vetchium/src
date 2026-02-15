@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
+	"vetchium-api-server.gomodule/internal/proxy"
 	"vetchium-api-server.gomodule/internal/server"
 	"vetchium-api-server.gomodule/internal/tokens"
 	"vetchium-api-server.typespec/hub"
@@ -18,6 +19,12 @@ import (
 func CompleteEmailChange(s *server.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
+
+		bodyBytes, err := proxy.BufferBody(r)
+		if err != nil {
+			http.Error(w, "", http.StatusBadRequest)
+			return
+		}
 
 		var req hub.HubCompleteEmailChangeRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -47,16 +54,14 @@ func CompleteEmailChange(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Get regional database
-		regionalDB := s.GetRegionalDB(region)
-		if regionalDB == nil {
-			log.Debug("unknown region from token", "region", region)
-			w.WriteHeader(http.StatusUnauthorized)
+		// Proxy to correct region if needed
+		if region != s.CurrentRegion {
+			s.ProxyToRegion(w, r, region, bodyBytes)
 			return
 		}
 
 		// Get verification token from regional DB
-		tokenRecord, err := regionalDB.GetHubEmailVerificationToken(ctx, rawToken)
+		tokenRecord, err := s.Regional.GetHubEmailVerificationToken(ctx, rawToken)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				log.Debug("verification token not found or expired")
@@ -82,7 +87,7 @@ func CompleteEmailChange(s *server.Server) http.HandlerFunc {
 		}
 
 		// Check user status from regional DB
-		regionalUser, err := regionalDB.GetHubUserByGlobalID(ctx, tokenRecord.HubUserGlobalID)
+		regionalUser, err := s.Regional.GetHubUserByGlobalID(ctx, tokenRecord.HubUserGlobalID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				log.Debug("regional user not found")
@@ -134,7 +139,7 @@ func CompleteEmailChange(s *server.Server) http.HandlerFunc {
 		}
 
 		// Update email address in regional DB
-		err = regionalDB.UpdateHubUserEmailAddress(ctx, regionaldb.UpdateHubUserEmailAddressParams{
+		err = s.Regional.UpdateHubUserEmailAddress(ctx, regionaldb.UpdateHubUserEmailAddressParams{
 			HubUserGlobalID: tokenRecord.HubUserGlobalID,
 			EmailAddress:    tokenRecord.NewEmailAddress,
 		})
@@ -157,14 +162,14 @@ func CompleteEmailChange(s *server.Server) http.HandlerFunc {
 		}
 
 		// Delete verification token
-		err = regionalDB.DeleteHubEmailVerificationToken(ctx, rawToken)
+		err = s.Regional.DeleteHubEmailVerificationToken(ctx, rawToken)
 		if err != nil {
 			log.Error("failed to delete verification token", "error", err)
 			// Don't fail the request - email was already updated
 		}
 
 		// Invalidate all sessions for the user
-		err = regionalDB.DeleteAllHubSessionsForUser(ctx, tokenRecord.HubUserGlobalID)
+		err = s.Regional.DeleteAllHubSessionsForUser(ctx, tokenRecord.HubUserGlobalID)
 		if err != nil {
 			log.Error("failed to invalidate sessions", "error", err)
 			// Don't fail the request - email was already updated

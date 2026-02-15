@@ -14,7 +14,7 @@ import (
 
 // CompletePasswordReset handles POST /admin/complete-password-reset
 // Completes the password reset using the reset token
-func CompletePasswordReset(s *server.Server) http.HandlerFunc {
+func CompletePasswordReset(s *server.GlobalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()

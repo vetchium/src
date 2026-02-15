@@ -88,14 +88,6 @@ func RequestSignup(s *server.Server) http.HandlerFunc {
 		}
 		signupToken := hex.EncodeToString(tokenBytes)
 
-		// Get regional DB for current region
-		regionalDB := s.GetCurrentRegionalDB()
-		if regionalDB == nil {
-			log.Error("no regional database available")
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-
 		// Store token in global DB
 		expiresAt := pgtype.Timestamp{Time: time.Now().Add(s.TokenConfig.HubSignupTokenExpiry), Valid: true}
 		err = s.Global.CreateHubSignupToken(ctx, globaldb.CreateHubSignupTokenParams{
@@ -115,7 +107,7 @@ func RequestSignup(s *server.Server) http.HandlerFunc {
 		lang := i18n.Match("en-US") // Default language for signup
 		signupLink := fmt.Sprintf("%s/signup/verify?token=%s", s.UIConfig.HubURL, signupToken)
 		expiryHours := int(s.TokenConfig.HubSignupTokenExpiry.Hours())
-		err = sendSignupEmail(ctx, regionalDB, string(req.EmailAddress), signupLink, lang, expiryHours)
+		err = sendSignupEmail(ctx, s.Regional, string(req.EmailAddress), signupLink, lang, expiryHours)
 		if err != nil {
 			log.Error("failed to enqueue signup email", "error", err)
 			// Compensating transaction: delete the signup token we just created

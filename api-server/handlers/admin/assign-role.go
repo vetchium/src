@@ -13,7 +13,7 @@ import (
 	"vetchium-api-server.typespec/admin"
 )
 
-func AssignRole(s *server.Server) http.HandlerFunc {
+func AssignRole(s *server.GlobalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()

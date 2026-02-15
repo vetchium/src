@@ -65,7 +65,7 @@ func AdminRole(globalDB *globaldb.Queries, requiredRoles ...string) func(http.Ha
 // If no roles are specified, only authentication is required (any authenticated employer can access).
 // Returns 403 if not admin and lacks all required roles.
 // Must be chained after OrgAuth middleware.
-func EmployerRole(getRegionalDB func(globaldb.Region) *regionaldb.Queries, requiredRoles ...string) func(http.Handler) http.Handler {
+func EmployerRole(regionalDB *regionaldb.Queries, requiredRoles ...string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
@@ -87,18 +87,6 @@ func EmployerRole(getRegionalDB func(globaldb.Region) *regionaldb.Queries, requi
 			// If no roles specified, allow access (auth-only)
 			if len(requiredRoles) == 0 {
 				next.ServeHTTP(w, r)
-				return
-			}
-
-			// Get regional DB from context region
-			region := OrgRegionFromContext(ctx)
-			if region == "" {
-				w.WriteHeader(http.StatusInternalServerError)
-				return
-			}
-			regionalDB := getRegionalDB(globaldb.Region(region))
-			if regionalDB == nil {
-				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
 
@@ -134,7 +122,7 @@ func EmployerRole(getRegionalDB func(globaldb.Region) *regionaldb.Queries, requi
 // If no roles are specified, only authentication is required (any authenticated agency user can access).
 // Returns 403 if not admin and lacks all required roles.
 // Must be chained after AgencyAuth middleware.
-func AgencyRole(getRegionalDB func(globaldb.Region) *regionaldb.Queries, requiredRoles ...string) func(http.Handler) http.Handler {
+func AgencyRole(regionalDB *regionaldb.Queries, requiredRoles ...string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
@@ -156,18 +144,6 @@ func AgencyRole(getRegionalDB func(globaldb.Region) *regionaldb.Queries, require
 			// If no roles specified, allow access (auth-only)
 			if len(requiredRoles) == 0 {
 				next.ServeHTTP(w, r)
-				return
-			}
-
-			// Get regional DB from context region
-			region := AgencyRegionFromContext(ctx)
-			if region == "" {
-				w.WriteHeader(http.StatusInternalServerError)
-				return
-			}
-			regionalDB := getRegionalDB(globaldb.Region(region))
-			if regionalDB == nil {
-				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
 

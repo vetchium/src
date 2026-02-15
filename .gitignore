@@ -5,3 +5,5 @@ node_modules/
 .claude
 api-server/regional-api-server
 api-server/global-api-server
+api-server/global-service
+api-server/regional-worker

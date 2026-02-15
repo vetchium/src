@@ -208,24 +208,42 @@
 				"/seed/regional.sql"
 			]
 		},
-		"global-api-server": {
+		"global-service": {
 			"build": {
 				"context": ".",
-				"dockerfile": "api-server/Dockerfile.global"
+				"dockerfile": "api-server/Dockerfile.global-service"
 			},
 			"depends_on": {
 				"migrate-global": {
 					"condition": "service_completed_successfully"
+				},
+				"seed-global": {
+					"condition": "service_completed_successfully"
+				},
+				"mailpit": {
+					"condition": "service_started"
 				}
 			},
 			"environment": {
 				"LOG_LEVEL": "DEBUG",
 				"GLOBAL_DB_CONN": "postgres://vetchium:vetchium_dev@global-db:5432/vetchium_global?sslmode=disable",
+				"SMTP_HOST": "mailpit",
+				"SMTP_PORT": "1025",
+				"SMTP_FROM_ADDRESS": "noreply@vetchium.com",
+				"SMTP_FROM_NAME": "Vetchium",
+				"EMAIL_WORKER_POLL_INTERVAL": "1s",
+				"ADMIN_TFA_TOKEN_EXPIRY": "15s",
+				"ADMIN_SESSION_TOKEN_EXPIRY": "30s",
+				"ADMIN_INVITATION_TOKEN_EXPIRY": "30s",
+				"ADMIN_PASSWORD_RESET_TOKEN_EXPIRY": "30s",
 				"ADMIN_TFA_TOKEN_CLEANUP_INTERVAL": "5s",
 				"ADMIN_SESSION_CLEANUP_INTERVAL": "5s",
+				"ADMIN_PASSWORD_RESET_TOKEN_CLEANUP_INTERVAL": "5s",
 				"HUB_SIGNUP_TOKEN_CLEANUP_INTERVAL": "5s",
 				"ORG_SIGNUP_TOKEN_CLEANUP_INTERVAL": "5s",
-				"AGENCY_SIGNUP_TOKEN_CLEANUP_INTERVAL": "5s"
+				"AGENCY_SIGNUP_TOKEN_CLEANUP_INTERVAL": "5s",
+				"ADMIN_UI_URL": "http://localhost:3001",
+				"CORS_ALLOWED_ORIGINS": "*"
 			}
 		},
 		"regional-api-server-ind1": {
@@ -255,16 +273,10 @@
 				"ENV": "DEV",
 				"LOG_LEVEL": "DEBUG",
 				"GLOBAL_DB_CONN": "postgres://vetchium:vetchium_dev@global-db:5432/vetchium_global?sslmode=disable",
-				"REGIONAL_DB_IND1_CONN": "postgres://vetchium:vetchium_dev@regional-db-ind1:5432/vetchium_ind1?sslmode=disable",
-				"REGIONAL_DB_USA1_CONN": "postgres://vetchium:vetchium_dev@regional-db-usa1:5432/vetchium_usa1?sslmode=disable",
-				"REGIONAL_DB_DEU1_CONN": "postgres://vetchium:vetchium_dev@regional-db-deu1:5432/vetchium_deu1?sslmode=disable",
-				"SMTP_HOST": "mailpit",
-				"SMTP_PORT": "1025",
-				"SMTP_FROM_ADDRESS": "noreply@vetchium.com",
-				"SMTP_FROM_NAME": "Vetchium",
-				"EMAIL_WORKER_POLL_INTERVAL": "1s",
-				"HUB_TFA_TOKEN_CLEANUP_INTERVAL": "5s",
-				"HUB_SESSION_CLEANUP_INTERVAL": "5s",
+				"REGIONAL_DB_CONN": "postgres://vetchium:vetchium_dev@regional-db-ind1:5432/vetchium_ind1?sslmode=disable",
+				"INTERNAL_ENDPOINT_IND1": "http://regional-api-server-ind1:8080",
+				"INTERNAL_ENDPOINT_USA1": "http://regional-api-server-usa1:8080",
+				"INTERNAL_ENDPOINT_DEU1": "http://regional-api-server-deu1:8080",
 				"ADMIN_TFA_TOKEN_EXPIRY": "15s",
 				"ADMIN_SESSION_TOKEN_EXPIRY": "30s",
 				"HUB_TFA_TOKEN_EXPIRY": "15s",
@@ -275,14 +287,10 @@
 				"ORG_SESSION_TOKEN_EXPIRY": "30s",
 				"ORG_SIGNUP_TOKEN_EXPIRY": "30s",
 				"ORG_REMEMBER_ME_EXPIRY": "60s",
-				"ORG_TFA_TOKEN_CLEANUP_INTERVAL": "5s",
-				"ORG_SESSION_CLEANUP_INTERVAL": "5s",
 				"AGENCY_TFA_TOKEN_EXPIRY": "15s",
 				"AGENCY_SESSION_TOKEN_EXPIRY": "30s",
 				"AGENCY_SIGNUP_TOKEN_EXPIRY": "30s",
-				"AGENCY_REMEMBER_ME_EXPIRY": "60s",
-				"AGENCY_TFA_TOKEN_CLEANUP_INTERVAL": "5s",
-				"AGENCY_SESSION_CLEANUP_INTERVAL": "5s"
+				"AGENCY_REMEMBER_ME_EXPIRY": "60s"
 			}
 		},
 		"regional-api-server-usa1": {
@@ -312,16 +320,10 @@
 				"ENV": "DEV",
 				"LOG_LEVEL": "DEBUG",
 				"GLOBAL_DB_CONN": "postgres://vetchium:vetchium_dev@global-db:5432/vetchium_global?sslmode=disable",
-				"REGIONAL_DB_IND1_CONN": "postgres://vetchium:vetchium_dev@regional-db-ind1:5432/vetchium_ind1?sslmode=disable",
-				"REGIONAL_DB_USA1_CONN": "postgres://vetchium:vetchium_dev@regional-db-usa1:5432/vetchium_usa1?sslmode=disable",
-				"REGIONAL_DB_DEU1_CONN": "postgres://vetchium:vetchium_dev@regional-db-deu1:5432/vetchium_deu1?sslmode=disable",
-				"SMTP_HOST": "mailpit",
-				"SMTP_PORT": "1025",
-				"SMTP_FROM_ADDRESS": "noreply@vetchium.com",
-				"SMTP_FROM_NAME": "Vetchium",
-				"EMAIL_WORKER_POLL_INTERVAL": "1s",
-				"HUB_TFA_TOKEN_CLEANUP_INTERVAL": "5s",
-				"HUB_SESSION_CLEANUP_INTERVAL": "5s",
+				"REGIONAL_DB_CONN": "postgres://vetchium:vetchium_dev@regional-db-usa1:5432/vetchium_usa1?sslmode=disable",
+				"INTERNAL_ENDPOINT_IND1": "http://regional-api-server-ind1:8080",
+				"INTERNAL_ENDPOINT_USA1": "http://regional-api-server-usa1:8080",
+				"INTERNAL_ENDPOINT_DEU1": "http://regional-api-server-deu1:8080",
 				"ADMIN_TFA_TOKEN_EXPIRY": "15s",
 				"ADMIN_SESSION_TOKEN_EXPIRY": "30s",
 				"HUB_TFA_TOKEN_EXPIRY": "15s",
@@ -332,14 +334,10 @@
 				"ORG_SESSION_TOKEN_EXPIRY": "30s",
 				"ORG_SIGNUP_TOKEN_EXPIRY": "30s",
 				"ORG_REMEMBER_ME_EXPIRY": "60s",
-				"ORG_TFA_TOKEN_CLEANUP_INTERVAL": "5s",
-				"ORG_SESSION_CLEANUP_INTERVAL": "5s",
 				"AGENCY_TFA_TOKEN_EXPIRY": "15s",
 				"AGENCY_SESSION_TOKEN_EXPIRY": "30s",
 				"AGENCY_SIGNUP_TOKEN_EXPIRY": "30s",
-				"AGENCY_REMEMBER_ME_EXPIRY": "60s",
-				"AGENCY_TFA_TOKEN_CLEANUP_INTERVAL": "5s",
-				"AGENCY_SESSION_CLEANUP_INTERVAL": "5s"
+				"AGENCY_REMEMBER_ME_EXPIRY": "60s"
 			}
 		},
 		"regional-api-server-deu1": {
@@ -369,16 +367,10 @@
 				"ENV": "DEV",
 				"LOG_LEVEL": "DEBUG",
 				"GLOBAL_DB_CONN": "postgres://vetchium:vetchium_dev@global-db:5432/vetchium_global?sslmode=disable",
-				"REGIONAL_DB_IND1_CONN": "postgres://vetchium:vetchium_dev@regional-db-ind1:5432/vetchium_ind1?sslmode=disable",
-				"REGIONAL_DB_USA1_CONN": "postgres://vetchium:vetchium_dev@regional-db-usa1:5432/vetchium_usa1?sslmode=disable",
-				"REGIONAL_DB_DEU1_CONN": "postgres://vetchium:vetchium_dev@regional-db-deu1:5432/vetchium_deu1?sslmode=disable",
-				"SMTP_HOST": "mailpit",
-				"SMTP_PORT": "1025",
-				"SMTP_FROM_ADDRESS": "noreply@vetchium.com",
-				"SMTP_FROM_NAME": "Vetchium",
-				"EMAIL_WORKER_POLL_INTERVAL": "1s",
-				"HUB_TFA_TOKEN_CLEANUP_INTERVAL": "5s",
-				"HUB_SESSION_CLEANUP_INTERVAL": "5s",
+				"REGIONAL_DB_CONN": "postgres://vetchium:vetchium_dev@regional-db-deu1:5432/vetchium_deu1?sslmode=disable",
+				"INTERNAL_ENDPOINT_IND1": "http://regional-api-server-ind1:8080",
+				"INTERNAL_ENDPOINT_USA1": "http://regional-api-server-usa1:8080",
+				"INTERNAL_ENDPOINT_DEU1": "http://regional-api-server-deu1:8080",
 				"ADMIN_TFA_TOKEN_EXPIRY": "15s",
 				"ADMIN_SESSION_TOKEN_EXPIRY": "30s",
 				"HUB_TFA_TOKEN_EXPIRY": "15s",
@@ -389,12 +381,107 @@
 				"ORG_SESSION_TOKEN_EXPIRY": "30s",
 				"ORG_SIGNUP_TOKEN_EXPIRY": "30s",
 				"ORG_REMEMBER_ME_EXPIRY": "60s",
-				"ORG_TFA_TOKEN_CLEANUP_INTERVAL": "5s",
-				"ORG_SESSION_CLEANUP_INTERVAL": "5s",
 				"AGENCY_TFA_TOKEN_EXPIRY": "15s",
 				"AGENCY_SESSION_TOKEN_EXPIRY": "30s",
 				"AGENCY_SIGNUP_TOKEN_EXPIRY": "30s",
-				"AGENCY_REMEMBER_ME_EXPIRY": "60s",
+				"AGENCY_REMEMBER_ME_EXPIRY": "60s"
+			}
+		},
+		"regional-worker-ind1": {
+			"build": {
+				"context": ".",
+				"dockerfile": "api-server/Dockerfile.regional-worker"
+			},
+			"depends_on": {
+				"migrate-ind1": {
+					"condition": "service_completed_successfully"
+				},
+				"seed-ind1": {
+					"condition": "service_completed_successfully"
+				},
+				"mailpit": {
+					"condition": "service_started"
+				}
+			},
+			"environment": {
+				"REGION": "ind1",
+				"LOG_LEVEL": "DEBUG",
+				"REGIONAL_DB_CONN": "postgres://vetchium:vetchium_dev@regional-db-ind1:5432/vetchium_ind1?sslmode=disable",
+				"SMTP_HOST": "mailpit",
+				"SMTP_PORT": "1025",
+				"SMTP_FROM_ADDRESS": "noreply@vetchium.com",
+				"SMTP_FROM_NAME": "Vetchium",
+				"EMAIL_WORKER_POLL_INTERVAL": "1s",
+				"HUB_TFA_TOKEN_CLEANUP_INTERVAL": "5s",
+				"HUB_SESSION_CLEANUP_INTERVAL": "5s",
+				"ORG_TFA_TOKEN_CLEANUP_INTERVAL": "5s",
+				"ORG_SESSION_CLEANUP_INTERVAL": "5s",
+				"AGENCY_TFA_TOKEN_CLEANUP_INTERVAL": "5s",
+				"AGENCY_SESSION_CLEANUP_INTERVAL": "5s"
+			}
+		},
+		"regional-worker-usa1": {
+			"build": {
+				"context": ".",
+				"dockerfile": "api-server/Dockerfile.regional-worker"
+			},
+			"depends_on": {
+				"migrate-usa1": {
+					"condition": "service_completed_successfully"
+				},
+				"seed-usa1": {
+					"condition": "service_completed_successfully"
+				},
+				"mailpit": {
+					"condition": "service_started"
+				}
+			},
+			"environment": {
+				"REGION": "usa1",
+				"LOG_LEVEL": "DEBUG",
+				"REGIONAL_DB_CONN": "postgres://vetchium:vetchium_dev@regional-db-usa1:5432/vetchium_usa1?sslmode=disable",
+				"SMTP_HOST": "mailpit",
+				"SMTP_PORT": "1025",
+				"SMTP_FROM_ADDRESS": "noreply@vetchium.com",
+				"SMTP_FROM_NAME": "Vetchium",
+				"EMAIL_WORKER_POLL_INTERVAL": "1s",
+				"HUB_TFA_TOKEN_CLEANUP_INTERVAL": "5s",
+				"HUB_SESSION_CLEANUP_INTERVAL": "5s",
+				"ORG_TFA_TOKEN_CLEANUP_INTERVAL": "5s",
+				"ORG_SESSION_CLEANUP_INTERVAL": "5s",
+				"AGENCY_TFA_TOKEN_CLEANUP_INTERVAL": "5s",
+				"AGENCY_SESSION_CLEANUP_INTERVAL": "5s"
+			}
+		},
+		"regional-worker-deu1": {
+			"build": {
+				"context": ".",
+				"dockerfile": "api-server/Dockerfile.regional-worker"
+			},
+			"depends_on": {
+				"migrate-deu1": {
+					"condition": "service_completed_successfully"
+				},
+				"seed-deu1": {
+					"condition": "service_completed_successfully"
+				},
+				"mailpit": {
+					"condition": "service_started"
+				}
+			},
+			"environment": {
+				"REGION": "deu1",
+				"LOG_LEVEL": "DEBUG",
+				"REGIONAL_DB_CONN": "postgres://vetchium:vetchium_dev@regional-db-deu1:5432/vetchium_deu1?sslmode=disable",
+				"SMTP_HOST": "mailpit",
+				"SMTP_PORT": "1025",
+				"SMTP_FROM_ADDRESS": "noreply@vetchium.com",
+				"SMTP_FROM_NAME": "Vetchium",
+				"EMAIL_WORKER_POLL_INTERVAL": "1s",
+				"HUB_TFA_TOKEN_CLEANUP_INTERVAL": "5s",
+				"HUB_SESSION_CLEANUP_INTERVAL": "5s",
+				"ORG_TFA_TOKEN_CLEANUP_INTERVAL": "5s",
+				"ORG_SESSION_CLEANUP_INTERVAL": "5s",
 				"AGENCY_TFA_TOKEN_CLEANUP_INTERVAL": "5s",
 				"AGENCY_SESSION_CLEANUP_INTERVAL": "5s"
 			}
@@ -406,7 +493,8 @@
 			"depends_on": [
 				"regional-api-server-ind1",
 				"regional-api-server-usa1",
-				"regional-api-server-deu1"
+				"regional-api-server-deu1",
+				"global-service"
 			]
 		}
 	},

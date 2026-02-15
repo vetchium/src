@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
-	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
@@ -77,19 +76,6 @@ func FilterUsers(s *server.Server) http.HandlerFunc {
 			}
 		}
 
-		region := middleware.AgencyRegionFromContext(ctx)
-		if region == "" {
-			log.Error("region not found in context")
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-		regionalDB := s.GetRegionalDB(globaldb.Region(region))
-		if regionalDB == nil {
-			log.Error("regional db not found", "region", region)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-
 		var filterEmail pgtype.Text
 		if request.FilterEmail != nil {
 			filterEmail = pgtype.Text{String: *request.FilterEmail, Valid: true}
@@ -109,7 +95,7 @@ func FilterUsers(s *server.Server) http.HandlerFunc {
 			LimitCount:      int32(limit + 1),
 		}
 
-		users, err := regionalDB.FilterAgencyUsers(ctx, regionalParams)
+		users, err := s.Regional.FilterAgencyUsers(ctx, regionalParams)
 		if err != nil {
 			log.Error("failed to filter agency users from regional db", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)

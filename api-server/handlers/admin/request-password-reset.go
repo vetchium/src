@@ -11,7 +11,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
-	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/email/templates"
 	"vetchium-api-server.gomodule/internal/server"
 	"vetchium-api-server.typespec/admin"
@@ -19,7 +18,7 @@ import (
 
 // RequestPasswordReset handles POST /admin/request-password-reset
 // Always returns 200 to prevent email enumeration attacks
-func RequestPasswordReset(s *server.Server) http.HandlerFunc {
+func RequestPasswordReset(s *server.GlobalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()
@@ -75,14 +74,6 @@ func RequestPasswordReset(s *server.Server) http.HandlerFunc {
 		}
 		resetToken := hex.EncodeToString(resetTokenBytes)
 
-		// Get regional DB for email sending
-		regionalDB := s.GetCurrentRegionalDB()
-		if regionalDB == nil {
-			log.Error("no regional database available for email sending")
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-
 		// Token expires in 1 hour
 		expiresAt := time.Now().UTC().Add(1 * time.Hour)
 
@@ -107,15 +98,15 @@ func RequestPasswordReset(s *server.Server) http.HandlerFunc {
 			lang = "en-US"
 		}
 
-		// Send password reset email
+		// Send password reset email via global email queue
 		emailData := templates.AdminPasswordResetData{
 			ResetToken: resetToken,
 			Hours:      1,
 			BaseURL:    s.UIConfig.AdminURL,
 		}
 
-		_, err = regionalDB.EnqueueEmail(ctx, regionaldb.EnqueueEmailParams{
-			EmailType:     regionaldb.EmailTemplateTypeAdminPasswordReset,
+		_, err = s.Global.EnqueueGlobalEmail(ctx, globaldb.EnqueueGlobalEmailParams{
+			EmailType:     globaldb.EmailTemplateTypeAdminPasswordReset,
 			EmailTo:       string(req.EmailAddress),
 			EmailSubject:  templates.AdminPasswordResetSubject(lang),
 			EmailTextBody: templates.AdminPasswordResetTextBody(lang, emailData),
@@ -123,7 +114,6 @@ func RequestPasswordReset(s *server.Server) http.HandlerFunc {
 		})
 		if err != nil {
 			log.Error("failed to enqueue password reset email", "error", err)
-			// Don't compensate by deleting token - user can retry if email fails
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}

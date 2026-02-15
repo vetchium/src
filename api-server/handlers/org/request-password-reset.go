@@ -16,6 +16,7 @@ import (
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/email/templates"
+	"vetchium-api-server.gomodule/internal/proxy"
 	"vetchium-api-server.gomodule/internal/server"
 	"vetchium-api-server.typespec/org"
 )
@@ -25,8 +26,16 @@ const passwordResetTokenExpiryHours = 1
 func RequestPasswordReset(s *server.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
+
+		bodyBytes, err := proxy.BufferBody(r)
+		if err != nil {
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
 		ctx := r.Context()
 		log := s.Logger(ctx)
+		_ = bodyBytes // used for proxy if needed
 
 		var req org.OrgRequestPasswordResetRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -86,16 +95,14 @@ func RequestPasswordReset(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Get regional DB
-		regionalDB := s.GetRegionalDB(globalUser.HomeRegion)
-		if regionalDB == nil {
-			log.Error("unknown region", "region", globalUser.HomeRegion)
-			http.Error(w, "", http.StatusInternalServerError)
+		// Proxy to correct region if needed
+		if globalUser.HomeRegion != s.CurrentRegion {
+			s.ProxyToRegion(w, r, globalUser.HomeRegion, bodyBytes)
 			return
 		}
 
 		// Get regional user for preferred language
-		regionalUser, err := regionalDB.GetOrgUserByID(ctx, globalUser.OrgUserID)
+		regionalUser, err := s.Regional.GetOrgUserByID(ctx, globalUser.OrgUserID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				// User not found in regional DB - return generic success to prevent enumeration
@@ -137,8 +144,7 @@ func RequestPasswordReset(s *server.Server) http.HandlerFunc {
 		htmlBody := templates.OrgPasswordResetHTMLBody(preferredLang, emailData)
 
 		// Create reset token and enqueue email atomically
-		regionalPool := s.GetRegionalPool(globalUser.HomeRegion)
-		err = s.WithRegionalTx(ctx, regionalPool, func(qtx *regionaldb.Queries) error {
+		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
 			txErr := qtx.CreateOrgPasswordResetToken(ctx, regionaldb.CreateOrgPasswordResetTokenParams{
 				ResetToken:      resetToken,
 				OrgUserGlobalID: globalUser.OrgUserID,

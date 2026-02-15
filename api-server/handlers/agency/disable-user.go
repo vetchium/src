@@ -63,22 +63,8 @@ func DisableUser(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Get regional DB
-		region := middleware.AgencyRegionFromContext(ctx)
-		if region == "" {
-			log.Error("region not found in context")
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-		regionalDB := s.GetRegionalDB(globaldb.Region(region))
-		if regionalDB == nil {
-			log.Error("regional database not available", "region", region)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-
 		// Get target user from regional DB (for status and isAdmin)
-		targetRegionalUser, err := regionalDB.GetAgencyUserByID(ctx, targetGlobalUser.AgencyUserID)
+		targetRegionalUser, err := s.Regional.GetAgencyUserByID(ctx, targetGlobalUser.AgencyUserID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				log.Debug("target user not found in regional DB")
@@ -106,7 +92,7 @@ func DisableUser(s *server.Server) http.HandlerFunc {
 
 		// If target user is an admin, check if they are the last admin
 		if targetRegionalUser.IsAdmin {
-			count, err := regionalDB.CountActiveAdminAgencyUsers(ctx, targetRegionalUser.AgencyID)
+			count, err := s.Regional.CountActiveAdminAgencyUsers(ctx, targetRegionalUser.AgencyID)
 			if err != nil {
 				log.Error("failed to count active admin users", "error", err)
 				http.Error(w, "", http.StatusInternalServerError)
@@ -124,7 +110,7 @@ func DisableUser(s *server.Server) http.HandlerFunc {
 		}
 
 		// Update user status to disabled in regional DB
-		err = regionalDB.UpdateAgencyUserStatus(ctx, regionaldb.UpdateAgencyUserStatusParams{
+		err = s.Regional.UpdateAgencyUserStatus(ctx, regionaldb.UpdateAgencyUserStatusParams{
 			AgencyUserID: targetGlobalUser.AgencyUserID,
 			Status:       regionaldb.AgencyUserStatusDisabled,
 		})
@@ -135,7 +121,7 @@ func DisableUser(s *server.Server) http.HandlerFunc {
 		}
 
 		// Invalidate all sessions for the target user in regional DB
-		err = regionalDB.DeleteAllAgencySessionsForUser(ctx, targetGlobalUser.AgencyUserID)
+		err = s.Regional.DeleteAllAgencySessionsForUser(ctx, targetGlobalUser.AgencyUserID)
 		if err != nil {
 			log.Error("failed to delete user sessions", "error", err)
 			// User is disabled but sessions still active - this is acceptable

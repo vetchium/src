@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
-	"vetchium-api-server.gomodule/internal/db/regionaldb"
 )
 
 // WorkerConfig holds email worker configuration
@@ -65,23 +64,24 @@ func WorkerConfigFromEnv() *WorkerConfig {
 // The current architecture runs one Worker goroutine per API server instance,
 // and each instance handles a single region (set via REGION env var).
 type Worker struct {
-	queries    *regionaldb.Queries
+	db         EmailDB
 	sender     *Sender
 	config     *WorkerConfig
 	log        *slog.Logger
 	regionName string
 }
 
-// NewWorker creates a new email worker
+// NewWorker creates a new email worker.
+// The db parameter can be a RegionalEmailDB or GlobalEmailDB adapter.
 func NewWorker(
-	queries *regionaldb.Queries,
+	db EmailDB,
 	sender *Sender,
 	config *WorkerConfig,
 	log *slog.Logger,
 	regionName string,
 ) *Worker {
 	return &Worker{
-		queries:    queries,
+		db:         db,
 		sender:     sender,
 		config:     config,
 		log:        log.With("component", "email-worker", "region", regionName),
@@ -115,7 +115,7 @@ func (w *Worker) Run(ctx context.Context) {
 }
 
 func (w *Worker) processBatch(ctx context.Context) {
-	emails, err := w.queries.GetEmailsToSend(ctx, w.config.BatchSize)
+	emails, err := w.db.GetEmailsToSend(ctx, w.config.BatchSize)
 	if err != nil {
 		w.log.Error("failed to fetch pending emails", "error", err)
 		return
@@ -141,7 +141,7 @@ func (w *Worker) processBatch(ctx context.Context) {
 	}
 }
 
-func (w *Worker) shouldRetry(email regionaldb.GetEmailsToSendRow) bool {
+func (w *Worker) shouldRetry(email EmailRow) bool {
 	attemptCount := int(email.AttemptCount)
 
 	// First attempt (no previous attempts)
@@ -172,11 +172,10 @@ func (w *Worker) getRetryDelay(attemptCount int) time.Duration {
 	return w.config.RetryDelays[attemptCount]
 }
 
-func (w *Worker) processEmail(ctx context.Context, email regionaldb.GetEmailsToSendRow) {
+func (w *Worker) processEmail(ctx context.Context, email EmailRow) {
 	log := w.log.With(
 		"email_id", email.EmailID.Bytes,
 		"email_to", email.EmailTo,
-		"email_type", email.EmailType,
 		"attempt", email.AttemptCount+1,
 	)
 
@@ -198,10 +197,7 @@ func (w *Worker) processEmail(ctx context.Context, email regionaldb.GetEmailsToS
 		errorMsg = pgtype.Text{String: err.Error(), Valid: true}
 	}
 
-	_, recordErr := w.queries.RecordDeliveryAttempt(ctx, regionaldb.RecordDeliveryAttemptParams{
-		EmailID:      email.EmailID,
-		ErrorMessage: errorMsg,
-	})
+	_, recordErr := w.db.RecordDeliveryAttempt(ctx, email.EmailID, errorMsg)
 	if recordErr != nil {
 		log.Error("failed to record delivery attempt", "error", recordErr)
 	}
@@ -213,7 +209,7 @@ func (w *Worker) processEmail(ctx context.Context, email regionaldb.GetEmailsToS
 		newAttemptCount := int(email.AttemptCount) + 1
 		if newAttemptCount >= w.config.MaxAttempts {
 			log.Error("email permanently failed after max attempts")
-			if markErr := w.queries.MarkEmailAsFailed(ctx, email.EmailID); markErr != nil {
+			if markErr := w.db.MarkEmailAsFailed(ctx, email.EmailID); markErr != nil {
 				log.Error("failed to mark email as failed", "error", markErr)
 			}
 		}
@@ -223,7 +219,7 @@ func (w *Worker) processEmail(ctx context.Context, email regionaldb.GetEmailsToS
 
 	// Success
 	log.Info("email sent successfully")
-	if markErr := w.queries.MarkEmailAsSent(ctx, email.EmailID); markErr != nil {
+	if markErr := w.db.MarkEmailAsSent(ctx, email.EmailID); markErr != nil {
 		log.Error("failed to mark email as sent", "error", markErr)
 	}
 }

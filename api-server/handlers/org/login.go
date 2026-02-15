@@ -19,6 +19,7 @@ import (
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/email/templates"
 	"vetchium-api-server.gomodule/internal/i18n"
+	"vetchium-api-server.gomodule/internal/proxy"
 	"vetchium-api-server.gomodule/internal/server"
 	"vetchium-api-server.gomodule/internal/tokens"
 	"vetchium-api-server.typespec/org"
@@ -27,6 +28,12 @@ import (
 func Login(s *server.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
+
+		bodyBytes, err := proxy.BufferBody(r)
+		if err != nil {
+			http.Error(w, "", http.StatusBadRequest)
+			return
+		}
 
 		var loginRequest org.OrgLoginRequest
 		if err := json.NewDecoder(r.Body).Decode(&loginRequest); err != nil {
@@ -80,16 +87,14 @@ func Login(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Get the regional database for this user
-		regionalDB := s.GetRegionalDB(globalUser.HomeRegion)
-		if regionalDB == nil {
-			log.Error("unknown region", "region", globalUser.HomeRegion)
-			http.Error(w, "", http.StatusInternalServerError)
+		// Proxy to correct region if needed
+		if globalUser.HomeRegion != s.CurrentRegion {
+			s.ProxyToRegion(w, r, globalUser.HomeRegion, bodyBytes)
 			return
 		}
 
 		// Query regional database for password hash and status (composite lookup)
-		regionalUser, err := regionalDB.GetOrgUserByEmailAndEmployer(ctx, regionaldb.GetOrgUserByEmailAndEmployerParams{
+		regionalUser, err := s.Regional.GetOrgUserByEmailAndEmployer(ctx, regionaldb.GetOrgUserByEmailAndEmployerParams{
 			EmailAddress: string(loginRequest.Email),
 			EmployerID:   employer.EmployerID,
 		})
@@ -143,8 +148,7 @@ func Login(s *server.Server) http.HandlerFunc {
 		expiresAt := pgtype.Timestamp{Time: time.Now().Add(tfaTokenExpiry), Valid: true}
 		lang := i18n.Match(regionalUser.PreferredLanguage)
 
-		regionalPool := s.GetRegionalPool(globalUser.HomeRegion)
-		err = s.WithRegionalTx(ctx, regionalPool, func(qtx *regionaldb.Queries) error {
+		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
 			txErr := qtx.CreateOrgTFAToken(ctx, regionaldb.CreateOrgTFATokenParams{
 				TfaToken:  rawTFAToken,
 				OrgUserID: regionalUser.OrgUserID,

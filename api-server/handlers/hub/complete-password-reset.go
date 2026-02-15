@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"golang.org/x/crypto/bcrypt"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
+	"vetchium-api-server.gomodule/internal/proxy"
 	"vetchium-api-server.gomodule/internal/server"
 	"vetchium-api-server.gomodule/internal/tokens"
 	"vetchium-api-server.typespec/hub"
@@ -16,6 +17,12 @@ import (
 func CompletePasswordReset(s *server.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
+
+		bodyBytes, err := proxy.BufferBody(r)
+		if err != nil {
+			http.Error(w, "", http.StatusBadRequest)
+			return
+		}
 
 		var req hub.HubCompletePasswordResetRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -45,16 +52,14 @@ func CompletePasswordReset(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Get the regional database
-		regionalDB := s.GetRegionalDB(region)
-		if regionalDB == nil {
-			log.Debug("unknown region from token", "region", region)
-			w.WriteHeader(http.StatusUnauthorized)
+		// Proxy to correct region if needed
+		if region != s.CurrentRegion {
+			s.ProxyToRegion(w, r, region, bodyBytes)
 			return
 		}
 
 		// Validate reset token
-		tokenRecord, err := regionalDB.GetHubPasswordResetToken(ctx, rawToken)
+		tokenRecord, err := s.Regional.GetHubPasswordResetToken(ctx, rawToken)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				log.Debug("invalid or expired reset token")
@@ -68,7 +73,7 @@ func CompletePasswordReset(s *server.Server) http.HandlerFunc {
 		}
 
 		// Get regional user to check status
-		regionalUser, err := regionalDB.GetHubUserByGlobalID(ctx, tokenRecord.HubUserGlobalID)
+		regionalUser, err := s.Regional.GetHubUserByGlobalID(ctx, tokenRecord.HubUserGlobalID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				log.Debug("user not found")
@@ -97,7 +102,7 @@ func CompletePasswordReset(s *server.Server) http.HandlerFunc {
 		}
 
 		// Update password, delete token, and invalidate sessions atomically
-		err = s.WithRegionalTx(ctx, s.GetRegionalPool(region), func(qtx *regionaldb.Queries) error {
+		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
 			txErr := qtx.UpdateHubUserPassword(ctx, regionaldb.UpdateHubUserPasswordParams{
 				HubUserGlobalID: tokenRecord.HubUserGlobalID,
 				PasswordHash:    passwordHash,

@@ -12,7 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"vetchium-api-server.gomodule/internal/bgjobs"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
-	"vetchium-api-server.gomodule/internal/db/regionaldb"
+	"vetchium-api-server.gomodule/internal/email"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/routes"
 	"vetchium-api-server.gomodule/internal/server"
@@ -34,12 +34,7 @@ func main() {
 		AddSource: true,
 		Level:     logLevel,
 	}))
-	logger.Info("starting server", "log_level", logLevel.String())
-
-	region := os.Getenv("REGION")
-	if region == "" {
-		region = "unknown"
-	}
+	logger.Info("starting global-service", "log_level", logLevel.String())
 
 	ctx := context.Background()
 
@@ -52,50 +47,28 @@ func main() {
 	defer globalConn.Close()
 	logger.Info("connected to global database")
 
-	// Connect to this server's regional database
-	regionalConn, err := pgxpool.New(ctx, os.Getenv("REGIONAL_DB_CONN"))
-	if err != nil {
-		logger.Error("failed to connect to regional DB", "error", err)
-		os.Exit(1)
-	}
-	defer regionalConn.Close()
-	logger.Info("connected to regional database", "region", region)
+	globalQueries := globaldb.New(globalConn)
 
-	// Load token config (for handlers like request_signup)
+	// Load token config (only admin-relevant fields used)
 	tokenConfig := bgjobs.TokenConfigFromEnv()
 
-	currentRegion := globaldb.Region(region)
 	environment := os.Getenv("ENV")
 	if environment == "" {
 		environment = "PROD"
 	}
 
-	// Load UI configuration
+	// Load UI configuration (only AdminURL used by global service)
 	uiConfig := &server.UIConfig{
-		HubURL:    getEnvOrDefault("HUB_UI_URL", "http://localhost:3000"),
-		AdminURL:  getEnvOrDefault("ADMIN_UI_URL", "http://localhost:3001"),
-		OrgURL:    getEnvOrDefault("ORG_UI_URL", "http://localhost:3002"),
-		AgencyURL: getEnvOrDefault("AGENCY_UI_URL", "http://localhost:3003"),
+		AdminURL: getEnvOrDefault("ADMIN_UI_URL", "http://localhost:3001"),
 	}
 
-	// Build internal endpoints map for cross-region proxy
-	internalEndpoints := map[globaldb.Region]string{
-		globaldb.RegionInd1: getEnvOrDefault("INTERNAL_ENDPOINT_IND1", "http://regional-api-server-ind1:8080"),
-		globaldb.RegionUsa1: getEnvOrDefault("INTERNAL_ENDPOINT_USA1", "http://regional-api-server-usa1:8080"),
-		globaldb.RegionDeu1: getEnvOrDefault("INTERNAL_ENDPOINT_DEU1", "http://regional-api-server-deu1:8080"),
-	}
-
-	s := &server.Server{
-		Global:            globaldb.New(globalConn),
-		GlobalPool:        globalConn,
-		Regional:          regionaldb.New(regionalConn),
-		RegionalPool:      regionalConn,
-		Log:               logger,
-		CurrentRegion:     currentRegion,
-		TokenConfig:       tokenConfig,
-		UIConfig:          uiConfig,
-		Environment:       environment,
-		InternalEndpoints: internalEndpoints,
+	s := &server.GlobalServer{
+		Global:      globalQueries,
+		GlobalPool:  globalConn,
+		Log:         logger,
+		TokenConfig: tokenConfig,
+		UIConfig:    uiConfig,
+		Environment: environment,
 	}
 
 	// Setup graceful shutdown context
@@ -103,38 +76,46 @@ func main() {
 		syscall.SIGTERM, syscall.SIGINT)
 	defer cancel()
 
-	// NOTE: Email worker and regional background jobs are now handled
-	// by the separate regional-worker binary. This binary only serves HTTP.
+	// Start global background cleanup jobs
+	globalConfig := bgjobs.GlobalConfigFromEnv()
+	globalWorker := bgjobs.NewGlobalWorker(globalQueries, globalConfig, logger)
+	go globalWorker.Run(ctx)
 
+	// Start global email worker (processes admin emails from global DB)
+	smtpConfig := email.SMTPConfigFromEnv()
+	workerConfig := email.WorkerConfigFromEnv()
+	emailSender := email.NewSender(smtpConfig)
+	emailDB := &email.GlobalEmailDB{Q: globalQueries}
+	emailWorker := email.NewWorker(emailDB, emailSender, workerConfig, logger, "global")
+	go emailWorker.Run(ctx)
+
+	// Setup HTTP routes for admin handlers
 	mux := http.NewServeMux()
-
-	// Register routes from separate files
-	routes.RegisterGlobalRoutes(mux, s)
-	routes.RegisterHubRoutes(mux, s)
-	routes.RegisterOrgRoutes(mux, s)
-	routes.RegisterAgencyRoutes(mux, s)
+	routes.RegisterAdminGlobalRoutes(mux, s)
 
 	// Wrap mux with middleware (CORS must be outermost to handle preflight)
 	handler := middleware.CORS()(middleware.RequestID(logger)(mux))
 
-	// Create HTTP server for graceful shutdown
+	// Create HTTP server
 	httpServer := &http.Server{
-		Addr:    ":8080",
+		Addr:    ":8081",
 		Handler: handler,
 	}
 
 	// Start HTTP server in goroutine
 	go func() {
-		logger.Info("server starting", "port", 8080, "region", region)
+		logger.Info("global-service HTTP starting", "port", 8081)
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logger.Error("server failed", "error", err)
 			os.Exit(1)
 		}
 	}()
 
+	logger.Info("global-service started, admin HTTP + cleanup + email workers running")
+
 	// Wait for shutdown signal
 	<-ctx.Done()
-	logger.Info("shutting down server")
+	logger.Info("shutting down global-service")
 
 	// Graceful shutdown with timeout
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -144,7 +125,7 @@ func main() {
 		logger.Error("server shutdown error", "error", err)
 	}
 
-	logger.Info("server stopped")
+	logger.Info("global-service stopped")
 }
 
 func getEnvOrDefault(key, fallback string) string {

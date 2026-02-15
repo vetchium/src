@@ -18,6 +18,7 @@ import (
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/email/templates"
 	"vetchium-api-server.gomodule/internal/i18n"
+	"vetchium-api-server.gomodule/internal/proxy"
 	"vetchium-api-server.gomodule/internal/server"
 	"vetchium-api-server.typespec/agency"
 	"vetchium-api-server.typespec/common"
@@ -30,6 +31,13 @@ const (
 func InitSignup(s *server.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
+
+		bodyBytes, err := proxy.BufferBody(r)
+		if err != nil {
+			http.Error(w, "", http.StatusBadRequest)
+			return
+		}
+
 		ctx := r.Context()
 		log := s.Logger(ctx)
 
@@ -60,7 +68,7 @@ func InitSignup(s *server.Server) http.HandlerFunc {
 		emailHash := sha256.Sum256([]byte(req.Email))
 
 		// Check if email already registered as agency user
-		_, err := s.Global.GetAgencyUserByEmailHash(ctx, emailHash[:])
+		_, err = s.Global.GetAgencyUserByEmailHash(ctx, emailHash[:])
 		if err == nil {
 			log.Debug("email already registered")
 			w.WriteHeader(http.StatusConflict)
@@ -125,10 +133,10 @@ func InitSignup(s *server.Server) http.HandlerFunc {
 			json.NewEncoder(w).Encode([]map[string]string{{"field": "home_region", "message": "invalid region"}})
 			return
 		}
-		regionalDB := s.GetRegionalDB(homeRegion)
-		if regionalDB == nil {
-			log.Error("regional database not available", "region", homeRegion)
-			http.Error(w, "", http.StatusInternalServerError)
+
+		// Proxy to correct region if needed
+		if homeRegion != s.CurrentRegion {
+			s.ProxyToRegion(w, r, homeRegion, bodyBytes)
 			return
 		}
 
@@ -159,7 +167,7 @@ func InitSignup(s *server.Server) http.HandlerFunc {
 		lang := i18n.Match("en-US")
 
 		// Send Email 1: DNS instructions (safe to forward)
-		err = sendAgencySignupDNSEmail(ctx, regionalDB, string(req.Email), domain, dnsRecordName, dnsVerificationToken, lang, expiryHours)
+		err = sendAgencySignupDNSEmail(ctx, s.Regional, string(req.Email), domain, dnsRecordName, dnsVerificationToken, lang, expiryHours)
 		if err != nil {
 			log.Error("failed to enqueue DNS instructions email", "error", err)
 			// Compensating transaction: delete the signup token we just created
@@ -172,7 +180,7 @@ func InitSignup(s *server.Server) http.HandlerFunc {
 
 		// Send Email 2: Signup token (private - DO NOT FORWARD)
 		signupLink := fmt.Sprintf("%s/complete-signup?token=%s", s.UIConfig.AgencyURL, emailToken)
-		err = sendAgencySignupTokenEmail(ctx, regionalDB, string(req.Email), domain, emailToken, signupLink, lang, expiryHours)
+		err = sendAgencySignupTokenEmail(ctx, s.Regional, string(req.Email), domain, emailToken, signupLink, lang, expiryHours)
 		if err != nil {
 			log.Error("failed to enqueue signup token email", "error", err)
 			// Compensating transaction: delete the signup token we just created

@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
+	"vetchium-api-server.gomodule/internal/proxy"
 	"vetchium-api-server.gomodule/internal/server"
 	"vetchium-api-server.gomodule/internal/tokens"
 	"vetchium-api-server.typespec/agency"
@@ -20,6 +21,12 @@ import (
 func TFA(s *server.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
+
+		bodyBytes, err := proxy.BufferBody(r)
+		if err != nil {
+			http.Error(w, "", http.StatusBadRequest)
+			return
+		}
 
 		var tfaRequest agency.AgencyTFARequest
 		if err := json.NewDecoder(r.Body).Decode(&tfaRequest); err != nil {
@@ -59,16 +66,14 @@ func TFA(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Get the regional database for this region
-		regionalDB := s.GetRegionalDB(region)
-		if regionalDB == nil {
-			log.Error("regional database not available", "region", region)
-			http.Error(w, "", http.StatusInternalServerError)
+		// Proxy to correct region if needed
+		if region != s.CurrentRegion {
+			s.ProxyToRegion(w, r, region, bodyBytes)
 			return
 		}
 
 		// Query the specific regional database using raw token
-		tfaTokenRecord, err := regionalDB.GetAgencyTFAToken(ctx, rawTFAToken)
+		tfaTokenRecord, err := s.Regional.GetAgencyTFAToken(ctx, rawTFAToken)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				log.Debug("invalid or expired TFA token")
@@ -91,7 +96,7 @@ func TFA(s *server.Server) http.HandlerFunc {
 		// Token expires naturally, and reusing it just creates another session.
 
 		// Get agency user from regional database to get preferred language
-		regionalUser, err := regionalDB.GetAgencyUserByID(ctx, tfaTokenRecord.AgencyUserID)
+		regionalUser, err := s.Regional.GetAgencyUserByID(ctx, tfaTokenRecord.AgencyUserID)
 		if err != nil {
 			log.Error("failed to fetch regional agency user", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
@@ -128,7 +133,7 @@ func TFA(s *server.Server) http.HandlerFunc {
 
 		// Store session in regional database (raw token without prefix)
 		expiresAt := pgtype.Timestamp{Time: time.Now().Add(sessionExpiry), Valid: true}
-		err = regionalDB.CreateAgencySession(ctx, regionaldb.CreateAgencySessionParams{
+		err = s.Regional.CreateAgencySession(ctx, regionaldb.CreateAgencySessionParams{
 			SessionToken: rawSessionToken,
 			AgencyUserID: tfaTokenRecord.AgencyUserID,
 			ExpiresAt:    expiresAt,

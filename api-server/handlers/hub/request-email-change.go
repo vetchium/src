@@ -11,7 +11,6 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/email/templates"
 	"vetchium-api-server.gomodule/internal/middleware"
@@ -52,13 +51,6 @@ func RequestEmailChange(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		region := middleware.HubRegionFromContext(ctx)
-		if region == "" {
-			log.Debug("hub region not found in context")
-			w.WriteHeader(http.StatusUnauthorized)
-			return
-		}
-
 		// Check if user is trying to change to the same email
 		newEmailHash := sha256.Sum256([]byte(req.NewEmailAddress))
 		if string(req.NewEmailAddress) == hubUser.EmailAddress {
@@ -85,21 +77,6 @@ func RequestEmailChange(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Convert region string to globaldb.Region
-		var regionType globaldb.Region
-		switch region {
-		case "ind1":
-			regionType = globaldb.RegionInd1
-		case "usa1":
-			regionType = globaldb.RegionUsa1
-		case "deu1":
-			regionType = globaldb.RegionDeu1
-		default:
-			log.Error("invalid region", "region", region)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-
 		// Generate verification token (region-prefixed)
 		tokenBytes := make([]byte, 32)
 		if _, err := rand.Read(tokenBytes); err != nil {
@@ -108,7 +85,7 @@ func RequestEmailChange(s *server.Server) http.HandlerFunc {
 			return
 		}
 		rawToken := hex.EncodeToString(tokenBytes)
-		verificationToken := tokens.AddRegionPrefix(regionType, rawToken)
+		verificationToken := tokens.AddRegionPrefix(s.CurrentRegion, rawToken)
 
 		// Create verification token and enqueue email atomically in regional DB
 		var expiresAt pgtype.Timestamp
@@ -127,8 +104,7 @@ func RequestEmailChange(s *server.Server) http.HandlerFunc {
 		textBody := templates.HubEmailVerificationTextBody(hubUser.PreferredLanguage, emailData)
 		htmlBody := templates.HubEmailVerificationHTMLBody(hubUser.PreferredLanguage, emailData)
 
-		regionalPool := s.GetRegionalPool(regionType)
-		err = s.WithRegionalTx(ctx, regionalPool, func(qtx *regionaldb.Queries) error {
+		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
 			txErr := qtx.CreateHubEmailVerificationToken(ctx, regionaldb.CreateHubEmailVerificationTokenParams{
 				VerificationToken: rawToken,
 				HubUserGlobalID:   hubUser.HubUserGlobalID,
