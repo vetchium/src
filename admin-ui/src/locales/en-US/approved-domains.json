@@ -102,6 +102,7 @@
 	},
 	"errors": {
 		"unauthorized": "Unauthorized. Please login again.",
+		"forbidden": "You do not have permission to perform this action. Please contact your administrator.",
 		"invalidRequest": "Invalid request",
 		"fetchFailed": "Failed to fetch approved domains",
 		"domainExists": "This domain already exists",

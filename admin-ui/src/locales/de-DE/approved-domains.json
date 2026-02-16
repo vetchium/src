@@ -102,6 +102,7 @@
 	},
 	"errors": {
 		"unauthorized": "Nicht autorisiert. Bitte melden Sie sich erneut an.",
+		"forbidden": "Sie haben keine Berechtigung für diese Aktion. Bitte wenden Sie sich an Ihren Administrator.",
 		"invalidRequest": "Ungültige Anfrage",
 		"fetchFailed": "Fehler beim Abrufen der zugelassenen Domains",
 		"domainExists": "Diese Domain existiert bereits",

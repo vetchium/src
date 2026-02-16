@@ -211,6 +211,11 @@ export function ApprovedDomainsPage() {
 				return;
 			}
 
+			if (response.status === 403) {
+				message.error(t("errors.forbidden"));
+				return;
+			}
+
 			if (response.status === 409) {
 				message.error(t("errors.domainExists"));
 				return;
@@ -283,6 +288,11 @@ export function ApprovedDomainsPage() {
 
 			if (response.status === 401) {
 				message.error(t("errors.unauthorized"));
+				return;
+			}
+
+			if (response.status === 403) {
+				message.error(t("errors.forbidden"));
 				return;
 			}
 
@@ -364,6 +374,11 @@ export function ApprovedDomainsPage() {
 
 			if (response.status === 401) {
 				message.error(t("errors.unauthorized"));
+				return;
+			}
+
+			if (response.status === 403) {
+				message.error(t("errors.forbidden"));
 				return;
 			}
 

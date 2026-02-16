@@ -127,6 +127,37 @@ test.describe("POST /admin/add-approved-domain", () => {
 		expect(response.status).toBe(401);
 	});
 
+	test("user without admin:manage_domains role returns 403", async ({
+		request,
+	}) => {
+		const api = new AdminAPIClient(request);
+		const email = generateTestEmail("no-role");
+		const password = TEST_PASSWORD;
+		const domainName = generateTestDomainName("no-role");
+
+		// Create admin user WITHOUT any roles (not using createTestAdminAdminDirect)
+		await createTestAdminUser(email, password);
+		try {
+			// Login and get session token
+			const loginResponse = await api.login({ email, password });
+			const tfaCode = await getTfaCodeFromEmail(email);
+			const tfaResponse = await api.verifyTFA({
+				tfa_token: loginResponse.body.tfa_token,
+				tfa_code: tfaCode,
+			});
+			const sessionToken = tfaResponse.body.session_token;
+
+			// Try to create domain without role
+			const response = await api.createApprovedDomain(sessionToken, {
+				domain_name: domainName,
+				reason: "Test domain for automated testing",
+			});
+			expect(response.status).toBe(403);
+		} finally {
+			await deleteTestAdminUser(email);
+		}
+	});
+
 	test("missing domain_name returns 400", async ({ request }) => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("missing-domain");
@@ -770,6 +801,36 @@ test.describe("POST /admin/disable-approved-domain", () => {
 			reason: "Test reason",
 		});
 		expect(response.status).toBe(401);
+	});
+
+	test("user without admin:manage_domains role returns 403", async ({
+		request,
+	}) => {
+		const api = new AdminAPIClient(request);
+		const email = generateTestEmail("disable-no-role");
+		const password = TEST_PASSWORD;
+
+		// Create user without role
+		await createTestAdminUser(email, password);
+		try {
+			// Login as user without role
+			const loginResponse = await api.login({ email, password });
+			const tfaCode = await getTfaCodeFromEmail(email);
+			const tfaResponse = await api.verifyTFA({
+				tfa_token: loginResponse.body.tfa_token,
+				tfa_code: tfaCode,
+			});
+			const sessionToken = tfaResponse.body.session_token;
+
+			// Try to disable any domain without role (should get 403 before checking if domain exists)
+			const response = await api.disableApprovedDomain(sessionToken, {
+				domain_name: "example.com",
+				reason: "Test reason",
+			});
+			expect(response.status).toBe(403);
+		} finally {
+			await deleteTestAdminUser(email);
+		}
 	});
 });
 
