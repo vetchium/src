@@ -47,6 +47,17 @@ func ToRegion(w http.ResponseWriter, r *http.Request, targetURL string, bodyByte
 				}
 			}
 		},
+		ModifyResponse: func(resp *http.Response) error {
+			// Strip CORS headers from the upstream response to prevent duplication.
+			// The CORS middleware on the receiving server already set these headers
+			// on the response writer; httputil.ReverseProxy copies upstream headers
+			// with Add (not Set), which would produce duplicate values like "*, *".
+			resp.Header.Del("Access-Control-Allow-Origin")
+			resp.Header.Del("Access-Control-Allow-Methods")
+			resp.Header.Del("Access-Control-Allow-Headers")
+			resp.Header.Del("Access-Control-Max-Age")
+			return nil
+		},
 	}
 	proxy.ServeHTTP(w, r)
 }
