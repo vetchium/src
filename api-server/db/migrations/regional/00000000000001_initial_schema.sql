@@ -175,6 +175,18 @@ CREATE TABLE employer_domains (
     status domain_verification_status NOT NULL DEFAULT 'PENDING',
     created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
+-- Agency domains table (regional - stores operational data)
+-- Per spec section 3.4: stores tokens, audit logs, and cron-job state
+CREATE TABLE agency_domains (
+    domain TEXT PRIMARY KEY,
+    agency_id UUID NOT NULL,
+    verification_token TEXT NOT NULL,
+    token_expires_at TIMESTAMP NOT NULL,
+    last_verified_at TIMESTAMP,
+    consecutive_failures INT NOT NULL DEFAULT 0,
+    status domain_verification_status NOT NULL DEFAULT 'PENDING',
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
 -- Agency users table (regional - stores credentials, PII, and all mutable data)
 -- Note: email_address is NOT unique alone - one email can belong to multiple agencies
 -- (contractor scenario). Uniqueness is enforced per (email_address, agency_id).
@@ -255,7 +267,11 @@ INSERT INTO roles (role_name, description) VALUES
 
     -- Agency portal roles
     ('agency:invite_users', 'Can invite new agency users'),
-    ('agency:manage_users', 'Can enable/disable agency users');
+    ('agency:manage_users', 'Can enable/disable agency users'),
+
+    -- Superadmin roles
+    ('employer:superadmin', 'Superadmin for the employer portal with full access to all operations'),
+    ('agency:superadmin', 'Superadmin for the agency portal with full access to all operations');
 -- Indexes
 CREATE INDEX idx_hub_tfa_tokens_expires_at ON hub_tfa_tokens(expires_at);
 CREATE INDEX idx_hub_sessions_expires_at ON hub_sessions(expires_at);
@@ -278,7 +294,11 @@ CREATE INDEX idx_agency_password_reset_tokens_expires_at ON agency_password_rese
 CREATE INDEX idx_agency_invitation_tokens_expires_at ON agency_invitation_tokens(expires_at);
 CREATE INDEX idx_agency_users_email_address ON agency_users(email_address);
 CREATE INDEX idx_agency_users_agency_id ON agency_users(agency_id);
+CREATE INDEX idx_agency_domains_agency_id ON agency_domains(agency_id);
+CREATE INDEX idx_agency_domains_status ON agency_domains(status);
 -- +goose Down
+DROP INDEX IF EXISTS idx_agency_domains_status;
+DROP INDEX IF EXISTS idx_agency_domains_agency_id;
 DROP INDEX IF EXISTS idx_agency_users_agency_id;
 DROP INDEX IF EXISTS idx_agency_users_email_address;
 DROP INDEX IF EXISTS idx_agency_invitation_tokens_expires_at;
@@ -305,6 +325,7 @@ DROP TABLE IF EXISTS agency_password_reset_tokens;
 DROP TABLE IF EXISTS agency_sessions;
 DROP TABLE IF EXISTS agency_tfa_tokens;
 DROP TABLE IF EXISTS agency_users;
+DROP TABLE IF EXISTS agency_domains;
 DROP TABLE IF EXISTS employer_domains;
 DROP TABLE IF EXISTS org_invitation_tokens;
 DROP TABLE IF EXISTS org_password_reset_tokens;

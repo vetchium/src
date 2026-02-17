@@ -237,6 +237,18 @@ SET password_hash = $2,
     preferred_language = COALESCE($6, preferred_language)
 WHERE org_user_id = $1;
 -- ============================================
+-- Agency Domain Queries (Regional)
+-- ============================================
+-- name: CreateAgencyDomain :exec
+INSERT INTO agency_domains (
+        domain,
+        agency_id,
+        verification_token,
+        token_expires_at,
+        status
+    )
+VALUES ($1, $2, $3, $4, $5);
+-- ============================================
 -- Employer Domain Queries (Regional)
 -- ============================================
 -- name: CreateEmployerDomain :exec

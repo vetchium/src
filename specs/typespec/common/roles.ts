@@ -12,10 +12,12 @@ export const VALID_ROLE_NAMES = [
 	// Employer portal roles
 	"employer:invite_users",
 	"employer:manage_users",
+	"employer:superadmin",
 
 	// Agency portal roles
 	"agency:invite_users",
 	"agency:manage_users",
+	"agency:superadmin",
 ] as const;
 export type ValidRoleName = (typeof VALID_ROLE_NAMES)[number];
 

@@ -91,7 +91,9 @@ func EmployerRole(regionalDB *regionaldb.Queries, requiredRoles ...string) func(
 			}
 
 			// Check if user has ANY of the required roles (roles are in regional DB)
-			for _, requiredRole := range requiredRoles {
+			// Superadmin can access everything any specific role can
+			checkRoles := append([]string{"employer:superadmin"}, requiredRoles...)
+			for _, requiredRole := range checkRoles {
 				role, err := regionalDB.GetRoleByName(ctx, requiredRole)
 				if err != nil {
 					continue
@@ -148,7 +150,9 @@ func AgencyRole(regionalDB *regionaldb.Queries, requiredRoles ...string) func(ht
 			}
 
 			// Check if user has ANY of the required roles (roles are in regional DB)
-			for _, requiredRole := range requiredRoles {
+			// Superadmin can access everything any specific role can
+			checkRoles := append([]string{"agency:superadmin"}, requiredRoles...)
+			for _, requiredRole := range checkRoles {
 				role, err := regionalDB.GetRoleByName(ctx, requiredRole)
 				if err != nil {
 					continue
