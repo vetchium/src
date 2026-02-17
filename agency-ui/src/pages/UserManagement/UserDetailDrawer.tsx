@@ -49,9 +49,11 @@ export function UserDetailDrawer({
 		undefined
 	);
 
-	// Permission logic for Agency portal: is_admin OR has manage_users role
+	// Permission logic for Agency portal: superadmin OR has manage_users role
 	const canManageUsers =
-		myInfo?.is_admin || myInfo?.roles.includes("agency:manage_users") || false;
+		myInfo?.roles.includes("agency:superadmin") ||
+		myInfo?.roles.includes("agency:manage_users") ||
+		false;
 
 	// Filter roles to agency:* only
 	const AGENCY_ROLES = VALID_ROLE_NAMES.filter((r) => r.startsWith("agency:"));
@@ -135,7 +137,7 @@ export function UserDetailDrawer({
 
 		// Prevent removing own manage_users role
 		if (
-			!myInfo?.is_admin &&
+			!myInfo?.roles.includes("agency:superadmin") &&
 			myInfo?.agency_user_id === user.email_address &&
 			roleName === "agency:manage_users"
 		) {

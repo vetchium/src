@@ -62,11 +62,15 @@ export function UserManagementPage() {
 
 	const [inviteModalVisible, setInviteModalVisible] = useState(false);
 
-	// Permission logic for Agency portal: is_admin OR has specific role
+	// Permission logic for Agency portal: superadmin OR has specific role
 	const canInviteUsers =
-		myInfo?.is_admin || myInfo?.roles.includes("agency:invite_users") || false;
+		myInfo?.roles.includes("agency:superadmin") ||
+		myInfo?.roles.includes("agency:invite_users") ||
+		false;
 	const canManageUsers =
-		myInfo?.is_admin || myInfo?.roles.includes("agency:manage_users") || false;
+		myInfo?.roles.includes("agency:superadmin") ||
+		myInfo?.roles.includes("agency:manage_users") ||
+		false;
 
 	const fetchUsers = useCallback(
 		async (

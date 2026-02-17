@@ -1,8 +1,8 @@
 import { test, expect } from "@playwright/test";
 import { OrgAPIClient } from "../../../lib/org-api-client";
-import { generateTestOrgEmail } from "../../../lib/db";
 import { getOrgSignupTokenFromEmail } from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
+import { randomUUID } from "crypto";
 import type {
 	OrgInitSignupRequest,
 	OrgCompleteSignupRequest,
@@ -13,11 +13,9 @@ test.describe("First user admin rights - Org Portal", () => {
 		request,
 	}) => {
 		const api = new OrgAPIClient(request);
-		// Use example.com domain for DEV environment (skips DNS verification)
-		const { email: userEmail } = generateTestOrgEmail(
-			"first-admin",
-			"example.com"
-		);
+		// Use a unique email with example.com domain — DEV skips DNS verification
+		// for example.com, and a unique local part avoids mailpit stale-email conflicts.
+		const userEmail = `first-admin-${randomUUID().substring(0, 8)}@example.com`;
 
 		try {
 			// Init signup

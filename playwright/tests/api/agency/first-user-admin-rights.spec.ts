@@ -1,8 +1,8 @@
 import { test, expect } from "@playwright/test";
 import { AgencyAPIClient } from "../../../lib/agency-api-client";
-import { generateTestAgencyEmail } from "../../../lib/db";
 import { getAgencySignupTokenFromEmail } from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
+import { randomUUID } from "crypto";
 import type {
 	AgencyInitSignupRequest,
 	AgencyCompleteSignupRequest,
@@ -13,11 +13,9 @@ test.describe("First user admin rights - Agency Portal", () => {
 		request,
 	}) => {
 		const api = new AgencyAPIClient(request);
-		// Use example.com domain for DEV environment (skips DNS verification)
-		const { email: userEmail } = generateTestAgencyEmail(
-			"first-admin",
-			"example.com"
-		);
+		// Use a unique email with example.com domain — DEV skips DNS verification
+		// for example.com, and a unique local part avoids mailpit stale-email conflicts.
+		const userEmail = `first-admin-${randomUUID().substring(0, 8)}@example.com`;
 
 		try {
 			// Init signup

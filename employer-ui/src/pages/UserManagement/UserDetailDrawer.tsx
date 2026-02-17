@@ -49,9 +49,9 @@ export function UserDetailDrawer({
 		undefined
 	);
 
-	// Permission logic for Org portal: is_admin OR has manage_users role
+	// Permission logic for Org portal: superadmin OR has manage_users role
 	const canManageUsers =
-		myInfo?.is_admin ||
+		myInfo?.roles.includes("employer:superadmin") ||
 		myInfo?.roles.includes("employer:manage_users") ||
 		false;
 
@@ -139,7 +139,7 @@ export function UserDetailDrawer({
 
 		// Prevent removing own manage_users role
 		if (
-			!myInfo?.is_admin &&
+			!myInfo?.roles.includes("employer:superadmin") &&
 			myInfo?.org_user_id === user.email_address &&
 			roleName === "employer:manage_users"
 		) {
