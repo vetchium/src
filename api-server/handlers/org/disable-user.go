@@ -63,7 +63,7 @@ func DisableUser(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Get target user from regional DB (has status, is_admin)
+		// Get target user from regional DB (has status)
 		targetUser, err := s.Regional.GetOrgUserByID(ctx, globalTargetUser.OrgUserID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
@@ -83,22 +83,31 @@ func DisableUser(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// If target user is an admin, check if they are the last admin
-		if targetUser.IsAdmin {
-			count, err := s.Regional.CountActiveAdminOrgUsers(ctx, targetUser.EmployerID)
-			if err != nil {
-				log.Error("failed to count active admin users", "error", err)
-				http.Error(w, "", http.StatusInternalServerError)
-				return
-			}
-
-			if count <= 1 {
-				log.Debug("cannot disable last admin user")
-				w.WriteHeader(http.StatusUnprocessableEntity)
-				json.NewEncoder(w).Encode(map[string]string{
-					"error": "Cannot disable last admin user",
+		// If target user is the last active superadmin, prevent disabling
+		superadminRole, err := s.Regional.GetRoleByName(ctx, "employer:superadmin")
+		if err == nil {
+			hasSuperadmin, err := s.Regional.HasOrgUserRole(ctx, regionaldb.HasOrgUserRoleParams{
+				OrgUserID: targetUser.OrgUserID,
+				RoleID:    superadminRole.RoleID,
+			})
+			if err == nil && hasSuperadmin {
+				count, err := s.Regional.CountActiveOrgUsersWithRole(ctx, regionaldb.CountActiveOrgUsersWithRoleParams{
+					EmployerID: targetUser.EmployerID,
+					RoleID:     superadminRole.RoleID,
 				})
-				return
+				if err != nil {
+					log.Error("failed to count active superadmin users", "error", err)
+					http.Error(w, "", http.StatusInternalServerError)
+					return
+				}
+				if count <= 1 {
+					log.Debug("cannot disable last superadmin user")
+					w.WriteHeader(http.StatusUnprocessableEntity)
+					json.NewEncoder(w).Encode(map[string]string{
+						"error": "Cannot disable last superadmin user",
+					})
+					return
+				}
 			}
 		}
 

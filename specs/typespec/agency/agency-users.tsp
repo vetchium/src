@@ -492,8 +492,6 @@ model AgencyMyInfoResponse {
     preferred_language: LanguageCode;
     @doc("Agency name for display")
     agency_name: string;
-    @doc("Whether this user is an agency admin")
-    is_admin: boolean;
     @doc("Array of role names assigned to this user")
     roles: string[];
 }

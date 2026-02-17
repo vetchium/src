@@ -61,9 +61,9 @@ func AdminRole(globalDB *globaldb.Queries, requiredRoles ...string) func(http.Ha
 }
 
 // EmployerRole checks if the authenticated employer user has ANY of the required roles.
-// If user.IsAdmin == true, bypass role check and allow access.
+// Superadmin (employer:superadmin) is always prepended and bypasses any specific role requirement.
 // If no roles are specified, only authentication is required (any authenticated employer can access).
-// Returns 403 if not admin and lacks all required roles.
+// Returns 403 if user lacks all required roles.
 // Must be chained after OrgAuth middleware.
 func EmployerRole(regionalDB *regionaldb.Queries, requiredRoles ...string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
@@ -75,12 +75,6 @@ func EmployerRole(regionalDB *regionaldb.Queries, requiredRoles ...string) func(
 			orgUser := OrgUserFromContext(ctx)
 			if orgUser == nil {
 				w.WriteHeader(http.StatusUnauthorized)
-				return
-			}
-
-			// IsAdmin bypass: admins can access everything
-			if orgUser.IsAdmin {
-				next.ServeHTTP(w, r)
 				return
 			}
 
@@ -120,9 +114,9 @@ func EmployerRole(regionalDB *regionaldb.Queries, requiredRoles ...string) func(
 }
 
 // AgencyRole checks if the authenticated agency user has ANY of the required roles.
-// If user.IsAdmin == true, bypass role check and allow access.
+// Superadmin (agency:superadmin) is always prepended and bypasses any specific role requirement.
 // If no roles are specified, only authentication is required (any authenticated agency user can access).
-// Returns 403 if not admin and lacks all required roles.
+// Returns 403 if user lacks all required roles.
 // Must be chained after AgencyAuth middleware.
 func AgencyRole(regionalDB *regionaldb.Queries, requiredRoles ...string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
@@ -134,12 +128,6 @@ func AgencyRole(regionalDB *regionaldb.Queries, requiredRoles ...string) func(ht
 			agencyUser := AgencyUserFromContext(ctx)
 			if agencyUser == nil {
 				w.WriteHeader(http.StatusUnauthorized)
-				return
-			}
-
-			// IsAdmin bypass: admins can access everything
-			if agencyUser.IsAdmin {
-				next.ServeHTTP(w, r)
 				return
 			}
 
@@ -174,60 +162,6 @@ func AgencyRole(regionalDB *regionaldb.Queries, requiredRoles ...string) func(ht
 
 			// User doesn't have any of the required roles
 			w.WriteHeader(http.StatusForbidden)
-		})
-	}
-}
-
-// EmployerAdminOnly restricts access to employer users with IsAdmin == true.
-// Returns 403 if user is not an admin.
-// Must be chained after OrgAuth middleware.
-func EmployerAdminOnly() func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "application/json")
-			ctx := r.Context()
-
-			// Get org user from context (set by OrgAuth)
-			orgUser := OrgUserFromContext(ctx)
-			if orgUser == nil {
-				w.WriteHeader(http.StatusUnauthorized)
-				return
-			}
-
-			// Check IsAdmin flag
-			if !orgUser.IsAdmin {
-				w.WriteHeader(http.StatusForbidden)
-				return
-			}
-
-			next.ServeHTTP(w, r)
-		})
-	}
-}
-
-// AgencyAdminOnly restricts access to agency users with IsAdmin == true.
-// Returns 403 if user is not an admin.
-// Must be chained after AgencyAuth middleware.
-func AgencyAdminOnly() func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "application/json")
-			ctx := r.Context()
-
-			// Get agency user from context (set by AgencyAuth)
-			agencyUser := AgencyUserFromContext(ctx)
-			if agencyUser == nil {
-				w.WriteHeader(http.StatusUnauthorized)
-				return
-			}
-
-			// Check IsAdmin flag
-			if !agencyUser.IsAdmin {
-				w.WriteHeader(http.StatusForbidden)
-				return
-			}
-
-			next.ServeHTTP(w, r)
 		})
 	}
 }

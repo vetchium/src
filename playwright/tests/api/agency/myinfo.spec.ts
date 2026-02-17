@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { AgencyAPIClient } from "../../../lib/agency-api-client";
 import {
 	createTestAgencyAdminDirect,
+	createTestAgencyUserDirect,
 	deleteTestAgencyUser,
 	generateTestAgencyEmail,
 } from "../../../lib/db";
@@ -52,7 +53,6 @@ test.describe("GET /agency/myinfo", () => {
 			expect(response.body.full_name).toBeDefined();
 			expect(response.body.preferred_language).toBeDefined();
 			expect(response.body.agency_name).toBe(domain);
-			expect(response.body.is_admin).toBe(true);
 			expect(Array.isArray(response.body.roles)).toBe(true);
 		} finally {
 			await deleteTestAgencyUser(email, domain);
@@ -106,7 +106,7 @@ test.describe("GET /agency/myinfo", () => {
 		const { email, domain } = generateTestAgencyEmail("myinfo-no-roles");
 		const password = TEST_PASSWORD;
 
-		await createTestAgencyAdminDirect(email, password);
+		await createTestAgencyUserDirect(email, password);
 		try {
 			const sessionToken = await getSessionToken(api, email, domain, password);
 
@@ -116,24 +116,6 @@ test.describe("GET /agency/myinfo", () => {
 			expect(response.body.roles).toEqual([]);
 		} finally {
 			await deleteTestAgencyUser(email);
-		}
-	});
-
-	test("returns is_admin true for admin user", async ({ request }) => {
-		const api = new AgencyAPIClient(request);
-		const { email, domain } = generateTestAgencyEmail("myinfo-is-admin");
-		const password = TEST_PASSWORD;
-
-		await createTestAgencyAdminDirect(email, password);
-		try {
-			const sessionToken = await getSessionToken(api, email, domain, password);
-
-			const response = await api.getMyInfo(sessionToken);
-
-			expect(response.status).toBe(200);
-			expect(response.body.is_admin).toBe(true);
-		} finally {
-			await deleteTestAgencyUser(email, domain);
 		}
 	});
 });

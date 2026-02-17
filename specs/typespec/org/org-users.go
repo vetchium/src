@@ -438,6 +438,5 @@ type OrgMyInfoResponse struct {
 	FullName          string              `json:"full_name"`
 	PreferredLanguage common.LanguageCode `json:"preferred_language"`
 	EmployerName      string              `json:"employer_name"`
-	IsAdmin           bool                `json:"is_admin"`
 	Roles             []string            `json:"roles"`
 }

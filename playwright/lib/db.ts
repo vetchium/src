@@ -952,9 +952,15 @@ export async function createTestOrgAdminDirect(
 	const regionalPool = getRegionalPool(region);
 	try {
 		await regionalPool.query(
-			`INSERT INTO org_users (org_user_id, email_address, employer_id, password_hash, is_admin, status)
-       VALUES ($1, $2, $3, $4, TRUE, $5)`,
+			`INSERT INTO org_users (org_user_id, email_address, employer_id, password_hash, status)
+       VALUES ($1, $2, $3, $4, $5)`,
 			[orgUserId, email, employerId, passwordHash, status]
+		);
+		// Assign superadmin role
+		await regionalPool.query(
+			`INSERT INTO org_user_roles (org_user_id, role_id)
+       SELECT $1, role_id FROM roles WHERE role_name = 'employer:superadmin'`,
+			[orgUserId]
 		);
 	} finally {
 		await regionalPool.end();
@@ -979,12 +985,16 @@ export type AgencyUserStatus = "active" | "disabled";
  * @param prefix - Optional prefix for the domain (default: 'agency')
  * @returns An object with email and domain, e.g., 'user@agency-{uuid}.test.vetchium.com'
  */
-export function generateTestAgencyEmail(prefix: string = "agency"): {
+export function generateTestAgencyEmail(
+	prefix: string = "agency",
+	customDomain?: string
+): {
 	email: string;
 	domain: string;
 } {
-	const uuid = randomUUID().substring(0, 8);
-	const domain = `${prefix}-${uuid}.test.vetchium.com`;
+	const domain =
+		customDomain ||
+		`${prefix}-${randomUUID().substring(0, 8)}.test.vetchium.com`;
 	const email = `user@${domain}`;
 	return { email, domain };
 }
@@ -1079,13 +1089,13 @@ export async function createTestAgencyUserDirect(
 
 /**
  * Creates a test agency ADMIN user directly in the database (bypassing the API).
- * Similar to createTestAgencyUserDirect but sets is_admin=TRUE.
+ * Similar to createTestAgencyUserDirect but assigns the agency:superadmin role.
  *
  * Creates:
  * - An agency in the global database
  * - A verified domain in global_agency_domains
- * - An agency admin user (is_admin=TRUE) in the global database
- * - An agency admin user with password hash in the regional database
+ * - An agency admin user in the global database
+ * - An agency admin user with password hash in the regional database with superadmin role
  *
  * @param email - Email address for the agency admin user
  * @param password - Plain text password (will be hashed with bcrypt)
@@ -1153,9 +1163,15 @@ export async function createTestAgencyAdminDirect(
 	const regionalPool = getRegionalPool(region);
 	try {
 		await regionalPool.query(
-			`INSERT INTO agency_users (agency_user_id, email_address, agency_id, password_hash, is_admin, status)
-       VALUES ($1, $2, $3, $4, TRUE, $5)`,
+			`INSERT INTO agency_users (agency_user_id, email_address, agency_id, password_hash, status)
+       VALUES ($1, $2, $3, $4, $5)`,
 			[agencyUserId, email, agencyId, passwordHash, status]
+		);
+		// Assign superadmin role
+		await regionalPool.query(
+			`INSERT INTO agency_user_roles (agency_user_id, role_id)
+       SELECT $1, role_id FROM roles WHERE role_name = 'agency:superadmin'`,
+			[agencyUserId]
 		);
 	} finally {
 		await regionalPool.end();

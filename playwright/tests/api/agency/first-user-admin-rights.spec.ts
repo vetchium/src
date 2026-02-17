@@ -1,27 +1,27 @@
 import { test, expect } from "@playwright/test";
-import { OrgAPIClient } from "../../../lib/org-api-client";
-import { generateTestOrgEmail } from "../../../lib/db";
-import { getOrgSignupTokenFromEmail } from "../../../lib/mailpit";
+import { AgencyAPIClient } from "../../../lib/agency-api-client";
+import { generateTestAgencyEmail } from "../../../lib/db";
+import { getAgencySignupTokenFromEmail } from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
 import type {
-	OrgInitSignupRequest,
-	OrgCompleteSignupRequest,
-} from "vetchium-specs/org/org-users";
+	AgencyInitSignupRequest,
+	AgencyCompleteSignupRequest,
+} from "vetchium-specs/agency/agency-users";
 
-test.describe("First user admin rights - Org Portal", () => {
+test.describe("First user admin rights - Agency Portal", () => {
 	test("first user completing signup gets admin rights and roles", async ({
 		request,
 	}) => {
-		const api = new OrgAPIClient(request);
+		const api = new AgencyAPIClient(request);
 		// Use example.com domain for DEV environment (skips DNS verification)
-		const { email: userEmail } = generateTestOrgEmail(
+		const { email: userEmail } = generateTestAgencyEmail(
 			"first-admin",
 			"example.com"
 		);
 
 		try {
 			// Init signup
-			const initRequest: OrgInitSignupRequest = {
+			const initRequest: AgencyInitSignupRequest = {
 				email: userEmail,
 				home_region: "ind1",
 			};
@@ -29,11 +29,11 @@ test.describe("First user admin rights - Org Portal", () => {
 			expect(initResponse.status).toBe(200);
 
 			// Get signup token from email
-			const signupToken = await getOrgSignupTokenFromEmail(userEmail);
+			const signupToken = await getAgencySignupTokenFromEmail(userEmail);
 			expect(signupToken).toMatch(/^[a-f0-9]{64}$/);
 
 			// Complete signup (DNS verification skipped for example.com in DEV)
-			const completeRequest: OrgCompleteSignupRequest = {
+			const completeRequest: AgencyCompleteSignupRequest = {
 				signup_token: signupToken,
 				password: TEST_PASSWORD,
 				preferred_language: "en-US",
@@ -43,7 +43,7 @@ test.describe("First user admin rights - Org Portal", () => {
 			const completeResponse = await api.completeSignup(completeRequest);
 			expect(completeResponse.status).toBe(201);
 			expect(completeResponse.body.session_token).toBeDefined();
-			expect(completeResponse.body.org_user_id).toBeDefined();
+			expect(completeResponse.body.agency_user_id).toBeDefined();
 
 			const sessionToken = completeResponse.body.session_token;
 
@@ -52,7 +52,7 @@ test.describe("First user admin rights - Org Portal", () => {
 			expect(myInfoResponse.status).toBe(200);
 
 			// First user should have exactly the superadmin role
-			expect(myInfoResponse.body.roles).toContain("employer:superadmin");
+			expect(myInfoResponse.body.roles).toContain("agency:superadmin");
 			expect(myInfoResponse.body.roles.length).toBe(1);
 		} finally {
 			// Cleanup is handled by database cascading deletes

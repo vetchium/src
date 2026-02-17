@@ -63,7 +63,7 @@ func DisableUser(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Get target user from regional DB (for status and isAdmin)
+		// Get target user from regional DB (for status)
 		targetRegionalUser, err := s.Regional.GetAgencyUserByID(ctx, targetGlobalUser.AgencyUserID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
@@ -83,29 +83,31 @@ func DisableUser(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Check if current user has permission (is_admin or has manage_users role)
-		if !agencyUser.IsAdmin {
-			log.Debug("user lacks permission to disable users")
-			w.WriteHeader(http.StatusForbidden)
-			return
-		}
-
-		// If target user is an admin, check if they are the last admin
-		if targetRegionalUser.IsAdmin {
-			count, err := s.Regional.CountActiveAdminAgencyUsers(ctx, targetRegionalUser.AgencyID)
-			if err != nil {
-				log.Error("failed to count active admin users", "error", err)
-				http.Error(w, "", http.StatusInternalServerError)
-				return
-			}
-
-			if count <= 1 {
-				log.Debug("cannot disable last admin user")
-				w.WriteHeader(http.StatusUnprocessableEntity)
-				json.NewEncoder(w).Encode(map[string]string{
-					"error": "Cannot disable last admin user",
+		// If target user is the last active superadmin, prevent disabling
+		superadminRole, err := s.Regional.GetRoleByName(ctx, "agency:superadmin")
+		if err == nil {
+			hasSuperadmin, err := s.Regional.HasAgencyUserRole(ctx, regionaldb.HasAgencyUserRoleParams{
+				AgencyUserID: targetRegionalUser.AgencyUserID,
+				RoleID:       superadminRole.RoleID,
+			})
+			if err == nil && hasSuperadmin {
+				count, err := s.Regional.CountActiveAgencyUsersWithRole(ctx, regionaldb.CountActiveAgencyUsersWithRoleParams{
+					AgencyID: targetRegionalUser.AgencyID,
+					RoleID:   superadminRole.RoleID,
 				})
-				return
+				if err != nil {
+					log.Error("failed to count active superadmin users", "error", err)
+					http.Error(w, "", http.StatusInternalServerError)
+					return
+				}
+				if count <= 1 {
+					log.Debug("cannot disable last superadmin user")
+					w.WriteHeader(http.StatusUnprocessableEntity)
+					json.NewEncoder(w).Encode(map[string]string{
+						"error": "Cannot disable last superadmin user",
+					})
+					return
+				}
 			}
 		}
 

@@ -454,8 +454,6 @@ model OrgMyInfoResponse {
     preferred_language: LanguageCode;
     @doc("Employer name for display")
     employer_name: string;
-    @doc("Whether this user is an employer admin")
-    is_admin: boolean;
     @doc("Array of role names assigned to this user")
     roles: string[];
 }

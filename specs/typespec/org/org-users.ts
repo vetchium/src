@@ -545,6 +545,5 @@ export interface OrgMyInfoResponse {
 	full_name: string;
 	preferred_language: LanguageCode;
 	employer_name: string;
-	is_admin: boolean;
 	roles: string[];
 }

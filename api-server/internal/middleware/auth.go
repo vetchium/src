@@ -305,7 +305,7 @@ func OrgAuth(
 				return
 			}
 
-			// Get org user from regional DB (status, preferred_language, is_admin, etc. are all regional)
+			// Get org user from regional DB (status, preferred_language, etc. are all regional)
 			orgUser, err := regionalDB.GetOrgUserByID(ctx, session.OrgUserID)
 			if err != nil {
 				if errors.Is(err, pgx.ErrNoRows) {
@@ -437,7 +437,7 @@ func AgencyAuth(
 				return
 			}
 
-			// Get agency user from regional DB (status, preferred_language, is_admin, etc. are all regional)
+			// Get agency user from regional DB (status, preferred_language, etc. are all regional)
 			agencyUser, err := regionalDB.GetAgencyUserByID(ctx, session.AgencyUserID)
 			if err != nil {
 				if errors.Is(err, pgx.ErrNoRows) {

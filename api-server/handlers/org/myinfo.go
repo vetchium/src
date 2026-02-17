@@ -47,7 +47,6 @@ func MyInfo(s *server.Server) http.HandlerFunc {
 			FullName:          orgUser.FullName.String,
 			PreferredLanguage: common.LanguageCode(orgUser.PreferredLanguage),
 			EmployerName:      employer.EmployerName,
-			IsAdmin:           orgUser.IsAdmin,
 			Roles:             roles,
 		}
 

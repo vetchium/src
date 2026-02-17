@@ -15,8 +15,8 @@ import type {
 } from "vetchium-specs/agency/agency-users";
 
 test.describe("Agency Portal RBAC Tests", () => {
-	test.describe("IsAdmin OR role bypass pattern", () => {
-		test("Agency admin (IsAdmin=TRUE) can invite users without specific role", async ({
+	test.describe("superadmin role bypass pattern", () => {
+		test("Agency admin (superadmin role) can invite users without specific role", async ({
 			request,
 		}) => {
 			const api = new AgencyAPIClient(request);
@@ -184,7 +184,7 @@ test.describe("Agency Portal RBAC Tests", () => {
 			}
 		});
 
-		test("Agency admin (IsAdmin=TRUE) can assign roles without specific role", async ({
+		test("Agency admin (superadmin role) can assign roles without specific role", async ({
 			request,
 		}) => {
 			const api = new AgencyAPIClient(request);
@@ -381,7 +381,7 @@ test.describe("Agency Portal RBAC Tests", () => {
 			}
 		});
 
-		test("Agency admin (IsAdmin=TRUE) can remove roles without specific role", async ({
+		test("Agency admin (superadmin role) can remove roles without specific role", async ({
 			request,
 		}) => {
 			const api = new AgencyAPIClient(request);

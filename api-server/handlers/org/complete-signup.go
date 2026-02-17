@@ -201,7 +201,6 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 				PasswordHash:      passwordHash,
 				Status:            regionaldb.OrgUserStatusActive,
 				PreferredLanguage: string(req.PreferredLanguage),
-				IsAdmin:           true,
 			})
 			if txErr != nil {
 				log.Error("failed to create org user in regional DB", "error", txErr)

@@ -112,10 +112,9 @@ INSERT INTO org_users (
         full_name,
         password_hash,
         status,
-        preferred_language,
-        is_admin
+        preferred_language
     )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING *;
 -- name: DeleteOrgUser :exec
 DELETE FROM org_users
@@ -138,12 +137,13 @@ WHERE org_user_id = $1;
 SELECT COUNT(*)
 FROM org_users
 WHERE employer_id = $1;
--- name: CountActiveAdminOrgUsers :one
+-- name: CountActiveOrgUsersWithRole :one
 SELECT COUNT(*)
-FROM org_users
-WHERE employer_id = $1
-  AND is_admin = TRUE
-  AND status = 'active';
+FROM org_users u
+JOIN org_user_roles our ON our.org_user_id = u.org_user_id
+WHERE u.employer_id = $1
+  AND our.role_id = $2
+  AND u.status = 'active';
 -- ============================================
 -- Org TFA Token Queries
 -- ============================================
@@ -305,7 +305,6 @@ SELECT u.org_user_id,
     u.email_address,
     u.full_name,
     u.status,
-    u.is_admin,
     u.created_at,
     COALESCE(
         (
@@ -348,7 +347,6 @@ SELECT u.agency_user_id,
     u.email_address,
     u.full_name,
     u.status,
-    u.is_admin,
     u.created_at,
     COALESCE(
         (
@@ -409,10 +407,9 @@ INSERT INTO agency_users (
         full_name,
         password_hash,
         status,
-        preferred_language,
-        is_admin
+        preferred_language
     )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING *;
 -- name: DeleteAgencyUser :exec
 DELETE FROM agency_users
@@ -435,12 +432,13 @@ WHERE agency_user_id = $1;
 SELECT COUNT(*)
 FROM agency_users
 WHERE agency_id = $1;
--- name: CountActiveAdminAgencyUsers :one
+-- name: CountActiveAgencyUsersWithRole :one
 SELECT COUNT(*)
-FROM agency_users
-WHERE agency_id = $1
-  AND is_admin = TRUE
-  AND status = 'active';
+FROM agency_users u
+JOIN agency_user_roles aur ON aur.agency_user_id = u.agency_user_id
+WHERE u.agency_id = $1
+  AND aur.role_id = $2
+  AND u.status = 'active';
 -- ============================================
 -- Agency TFA Token Queries
 -- ============================================

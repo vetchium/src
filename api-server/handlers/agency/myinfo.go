@@ -47,7 +47,6 @@ func MyInfo(s *server.Server) http.HandlerFunc {
 			FullName:          agencyUser.FullName.String,
 			PreferredLanguage: common.LanguageCode(agencyUser.PreferredLanguage),
 			AgencyName:        agencyEntity.AgencyName,
-			IsAdmin:           agencyUser.IsAdmin,
 			Roles:             roles,
 		}
 

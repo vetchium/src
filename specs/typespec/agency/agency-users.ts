@@ -396,6 +396,5 @@ export interface AgencyMyInfoResponse {
 	full_name: string;
 	preferred_language: LanguageCode;
 	agency_name: string;
-	is_admin: boolean;
 	roles: string[];
 }

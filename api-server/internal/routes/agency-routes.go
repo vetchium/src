@@ -24,11 +24,11 @@ func RegisterAgencyRoutes(mux *http.ServeMux, s *server.Server) {
 	agencyRoleInvite := middleware.AgencyRole(s.Regional, "agency:invite_users")
 	agencyRoleManage := middleware.AgencyRole(s.Regional, "agency:manage_users")
 
-	// Admin-only routes (IsAdmin flag required, not delegatable)
+	// Superadmin or manage_users routes
 	mux.Handle("POST /agency/assign-role", agencyAuth(agencyRoleManage(agency.AssignRole(s))))
 	mux.Handle("POST /agency/remove-role", agencyAuth(agencyRoleManage(agency.RemoveRole(s))))
 
-	// Role-protected routes (IsAdmin OR role)
+	// Role-protected routes
 	mux.Handle("POST /agency/invite-user", agencyAuth(agencyRoleInvite(agency.InviteUser(s))))
 	mux.Handle("POST /agency/disable-user", agencyAuth(agencyRoleManage(agency.DisableUser(s))))
 	mux.Handle("POST /agency/enable-user", agencyAuth(agencyRoleManage(agency.EnableUser(s))))

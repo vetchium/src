@@ -100,7 +100,6 @@ func InviteUser(s *server.Server) http.HandlerFunc {
 			PasswordHash:      nil, // No password hash for invited users yet
 			Status:            regionaldb.OrgUserStatusInvited,
 			PreferredLanguage: "en-US", // Default, user will override during complete-setup
-			IsAdmin:           false,   // New users are not admins by default
 		})
 		if err != nil {
 			log.Error("failed to create org user in regional DB", "error", err)

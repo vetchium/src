@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { OrgAPIClient } from "../../../lib/org-api-client";
 import {
 	createTestOrgAdminDirect,
+	createTestOrgUserDirect,
 	deleteTestOrgUser,
 	generateTestOrgEmail,
 } from "../../../lib/db";
@@ -52,7 +53,6 @@ test.describe("GET /employer/myinfo", () => {
 			expect(response.body.full_name).toBeDefined();
 			expect(response.body.preferred_language).toBeDefined();
 			expect(response.body.employer_name).toBe(domain);
-			expect(response.body.is_admin).toBe(true);
 			expect(Array.isArray(response.body.roles)).toBe(true);
 		} finally {
 			await deleteTestOrgUser(email, domain);
@@ -106,7 +106,7 @@ test.describe("GET /employer/myinfo", () => {
 		const { email, domain } = generateTestOrgEmail("myinfo-no-roles");
 		const password = TEST_PASSWORD;
 
-		await createTestOrgAdminDirect(email, password);
+		await createTestOrgUserDirect(email, password);
 		try {
 			const sessionToken = await getSessionToken(api, email, domain, password);
 
@@ -116,24 +116,6 @@ test.describe("GET /employer/myinfo", () => {
 			expect(response.body.roles).toEqual([]);
 		} finally {
 			await deleteTestOrgUser(email);
-		}
-	});
-
-	test("returns is_admin true for admin user", async ({ request }) => {
-		const api = new OrgAPIClient(request);
-		const { email, domain } = generateTestOrgEmail("myinfo-is-admin");
-		const password = TEST_PASSWORD;
-
-		await createTestOrgAdminDirect(email, password);
-		try {
-			const sessionToken = await getSessionToken(api, email, domain, password);
-
-			const response = await api.getMyInfo(sessionToken);
-
-			expect(response.status).toBe(200);
-			expect(response.body.is_admin).toBe(true);
-		} finally {
-			await deleteTestOrgUser(email, domain);
 		}
 	});
 });

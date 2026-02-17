@@ -428,6 +428,5 @@ type AgencyMyInfoResponse struct {
 	FullName          string              `json:"full_name"`
 	PreferredLanguage common.LanguageCode `json:"preferred_language"`
 	AgencyName        string              `json:"agency_name"`
-	IsAdmin           bool                `json:"is_admin"`
 	Roles             []string            `json:"roles"`
 }

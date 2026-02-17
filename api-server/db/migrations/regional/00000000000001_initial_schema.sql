@@ -129,7 +129,6 @@ CREATE TABLE org_users (
     authentication_type authentication_type NOT NULL DEFAULT 'email_password',
     status org_user_status NOT NULL DEFAULT 'active',
     preferred_language TEXT NOT NULL DEFAULT 'en-US',
-    is_admin BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT NOW(),
     UNIQUE (email_address, employer_id)
 );
@@ -199,7 +198,6 @@ CREATE TABLE agency_users (
     authentication_type authentication_type NOT NULL DEFAULT 'email_password',
     status agency_user_status NOT NULL DEFAULT 'active',
     preferred_language TEXT NOT NULL DEFAULT 'en-US',
-    is_admin BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT NOW(),
     UNIQUE (email_address, agency_id)
 );

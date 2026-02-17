@@ -15,8 +15,8 @@ import type {
 } from "vetchium-specs/org/org-users";
 
 test.describe("Org Portal RBAC Tests", () => {
-	test.describe("IsAdmin OR role bypass pattern", () => {
-		test("Org admin (IsAdmin=TRUE) can invite users without specific role", async ({
+	test.describe("superadmin role bypass pattern", () => {
+		test("Org admin (superadmin role) can invite users without specific role", async ({
 			request,
 		}) => {
 			const api = new OrgAPIClient(request);
@@ -181,7 +181,7 @@ test.describe("Org Portal RBAC Tests", () => {
 			}
 		});
 
-		test("Org admin (IsAdmin=TRUE) can assign roles without specific role", async ({
+		test("Org admin (superadmin role) can assign roles without specific role", async ({
 			request,
 		}) => {
 			const api = new OrgAPIClient(request);
@@ -378,7 +378,7 @@ test.describe("Org Portal RBAC Tests", () => {
 			}
 		});
 
-		test("Org admin (IsAdmin=TRUE) can remove roles without specific role", async ({
+		test("Org admin (superadmin role) can remove roles without specific role", async ({
 			request,
 		}) => {
 			const api = new OrgAPIClient(request);

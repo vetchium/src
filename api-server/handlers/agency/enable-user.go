@@ -83,13 +83,6 @@ func EnableUser(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Check if current user has permission (is_admin or has manage_users role)
-		if !agencyUser.IsAdmin {
-			log.Debug("user lacks permission to enable users")
-			w.WriteHeader(http.StatusForbidden)
-			return
-		}
-
 		// Update user status to active in regional DB
 		err = s.Regional.UpdateAgencyUserStatus(ctx, regionaldb.UpdateAgencyUserStatusParams{
 			AgencyUserID: targetGlobalUser.AgencyUserID,

@@ -23,16 +23,16 @@ func RegisterOrgRoutes(mux *http.ServeMux, s *server.Server) {
 	orgAuth := middleware.OrgAuth(s.Regional, s.CurrentRegion, s.InternalEndpoints)
 	employerRoleInvite := middleware.EmployerRole(s.Regional, "employer:invite_users")
 	employerRoleManage := middleware.EmployerRole(s.Regional, "employer:manage_users")
-	employerAdminOnly := middleware.EmployerAdminOnly()
+	employerRoleSuperadmin := middleware.EmployerRole(s.Regional, "employer:superadmin")
 
-	// Admin-only routes (IsAdmin flag required, not delegatable)
-	mux.Handle("POST /org/claim-domain", orgAuth(employerAdminOnly(org.ClaimDomain(s))))
-	mux.Handle("POST /org/verify-domain", orgAuth(employerAdminOnly(org.VerifyDomain(s))))
-	mux.Handle("POST /org/get-domain-status", orgAuth(employerAdminOnly(org.GetDomainStatus(s))))
+	// Superadmin-only routes (employer:superadmin required)
+	mux.Handle("POST /org/claim-domain", orgAuth(employerRoleSuperadmin(org.ClaimDomain(s))))
+	mux.Handle("POST /org/verify-domain", orgAuth(employerRoleSuperadmin(org.VerifyDomain(s))))
+	mux.Handle("POST /org/get-domain-status", orgAuth(employerRoleSuperadmin(org.GetDomainStatus(s))))
 	mux.Handle("POST /employer/assign-role", orgAuth(employerRoleManage(org.AssignRole(s))))
 	mux.Handle("POST /employer/remove-role", orgAuth(employerRoleManage(org.RemoveRole(s))))
 
-	// Role-protected routes (IsAdmin OR role)
+	// Role-protected routes
 	mux.Handle("POST /employer/invite-user", orgAuth(employerRoleInvite(org.InviteUser(s))))
 	mux.Handle("POST /employer/disable-user", orgAuth(employerRoleManage(org.DisableUser(s))))
 	mux.Handle("POST /employer/enable-user", orgAuth(employerRoleManage(org.EnableUser(s))))
