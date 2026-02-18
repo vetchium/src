@@ -248,6 +248,39 @@ INSERT INTO agency_domains (
         status
     )
 VALUES ($1, $2, $3, $4, $5);
+-- name: GetAgencyDomainsByAgency :many
+SELECT *
+FROM agency_domains
+WHERE agency_id = $1
+ORDER BY domain ASC;
+-- name: GetAgencyDomainByAgencyAndDomain :one
+SELECT *
+FROM agency_domains
+WHERE domain = $1
+    AND agency_id = $2;
+-- name: UpdateAgencyDomainStatus :exec
+UPDATE agency_domains
+SET status = $2,
+    last_verified_at = $3,
+    consecutive_failures = $4
+WHERE domain = $1;
+-- name: UpdateAgencyDomainToken :exec
+UPDATE agency_domains
+SET verification_token = $2,
+    token_expires_at = $3
+WHERE domain = $1;
+-- name: DeleteAgencyDomain :exec
+DELETE FROM agency_domains
+WHERE domain = $1;
+-- name: IncrementAgencyDomainFailures :exec
+UPDATE agency_domains
+SET consecutive_failures = consecutive_failures + 1
+WHERE domain = $1;
+-- name: ResetAgencyDomainFailures :exec
+UPDATE agency_domains
+SET consecutive_failures = 0,
+    last_verified_at = NOW()
+WHERE domain = $1;
 -- ============================================
 -- Employer Domain Queries (Regional)
 -- ============================================
@@ -297,6 +330,22 @@ UPDATE employer_domains
 SET consecutive_failures = 0,
     last_verified_at = NOW()
 WHERE domain = $1;
+-- name: GetEmployerDomainsForReverification :many
+SELECT *
+FROM employer_domains
+WHERE (
+        status = 'VERIFIED'
+        AND last_verified_at < $1
+    )
+    OR status = 'FAILING';
+-- name: GetAgencyDomainsForReverification :many
+SELECT *
+FROM agency_domains
+WHERE (
+        status = 'VERIFIED'
+        AND last_verified_at < $1
+    )
+    OR status = 'FAILING';
 -- ============================================
 -- Agency User Queries (Regional)
 -- ============================================

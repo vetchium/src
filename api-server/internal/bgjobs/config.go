@@ -29,6 +29,8 @@ type RegionalBgJobsConfig struct {
 	ExpiredAgencyTFATokensCleanupInterval            time.Duration
 	ExpiredAgencySessionsCleanupInterval             time.Duration
 	ExpiredAgencyPasswordResetTokensCleanupInterval  time.Duration
+	EmployerDomainVerificationInterval               time.Duration
+	AgencyDomainVerificationInterval                 time.Duration
 }
 
 // GlobalConfigFromEnv creates a GlobalBgJobsConfig from environment variables
@@ -125,6 +127,16 @@ func RegionalConfigFromEnv() *RegionalBgJobsConfig {
 		1*time.Hour,
 	)
 
+	employerDomainVerificationInterval := parseDurationOrDefault(
+		os.Getenv("EMPLOYER_DOMAIN_VERIFICATION_INTERVAL"),
+		24*time.Hour,
+	)
+
+	agencyDomainVerificationInterval := parseDurationOrDefault(
+		os.Getenv("AGENCY_DOMAIN_VERIFICATION_INTERVAL"),
+		24*time.Hour,
+	)
+
 	return &RegionalBgJobsConfig{
 		ExpiredHubTFATokensCleanupInterval:               hubTFAInterval,
 		ExpiredHubSessionsCleanupInterval:                hubSessionsInterval,
@@ -136,6 +148,8 @@ func RegionalConfigFromEnv() *RegionalBgJobsConfig {
 		ExpiredAgencyTFATokensCleanupInterval:            agencyTFAInterval,
 		ExpiredAgencySessionsCleanupInterval:             agencySessionsInterval,
 		ExpiredAgencyPasswordResetTokensCleanupInterval:  agencyPasswordResetInterval,
+		EmployerDomainVerificationInterval:               employerDomainVerificationInterval,
+		AgencyDomainVerificationInterval:                 agencyDomainVerificationInterval,
 	}
 }
 

@@ -98,3 +98,24 @@ type GetDomainStatusResponse struct {
 	ExpiresAt         *time.Time               `json:"expires_at,omitempty"`
 	LastVerifiedAt    *time.Time               `json:"last_verified_at,omitempty"`
 }
+
+type ListDomainStatusRequest struct {
+	PaginationKey *string `json:"pagination_key,omitempty"`
+}
+
+func (r ListDomainStatusRequest) Validate() []common.ValidationError {
+	return nil
+}
+
+type ListDomainStatusItem struct {
+	Domain            string                   `json:"domain"`
+	Status            DomainVerificationStatus `json:"status"`
+	VerificationToken *DomainVerificationToken `json:"verification_token,omitempty"`
+	ExpiresAt         *time.Time               `json:"expires_at,omitempty"`
+	LastVerifiedAt    *time.Time               `json:"last_verified_at,omitempty"`
+}
+
+type ListDomainStatusResponse struct {
+	Items            []ListDomainStatusItem `json:"items"`
+	NextPaginationKey *string               `json:"next_pagination_key,omitempty"`
+}

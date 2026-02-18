@@ -3,6 +3,7 @@ import { LogoutOutlined, TeamOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
+import { DomainVerificationSection } from "../components/DomainVerificationSection";
 
 const { Title } = Typography;
 
@@ -59,6 +60,10 @@ export function DashboardPage() {
 					{t("logout.button")}
 				</Button>
 			</Card>
+
+			<div style={{ width: "100%" }}>
+				<DomainVerificationSection />
+			</div>
 		</div>
 	);
 }

@@ -101,7 +101,7 @@ export function DomainVerificationSection() {
 		try {
 			const apiBaseUrl = await getApiBaseUrl();
 			const request: ListDomainStatusRequest = {};
-			const response = await fetch(`${apiBaseUrl}/org/list-domains`, {
+			const response = await fetch(`${apiBaseUrl}/agency/list-domains`, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
@@ -139,7 +139,7 @@ export function DomainVerificationSection() {
 				domain: values.domain.toLowerCase(),
 			};
 
-			const response = await fetch(`${apiBaseUrl}/org/claim-domain`, {
+			const response = await fetch(`${apiBaseUrl}/agency/claim-domain`, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
@@ -201,7 +201,7 @@ export function DomainVerificationSection() {
 					domain: domain.toLowerCase(),
 				};
 
-				const response = await fetch(`${apiBaseUrl}/org/get-domain-status`, {
+				const response = await fetch(`${apiBaseUrl}/agency/get-domain-status`, {
 					method: "POST",
 					headers: {
 						"Content-Type": "application/json",
@@ -241,7 +241,7 @@ export function DomainVerificationSection() {
 				domain: domain.toLowerCase(),
 			};
 
-			const response = await fetch(`${apiBaseUrl}/org/verify-domain`, {
+			const response = await fetch(`${apiBaseUrl}/agency/verify-domain`, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",

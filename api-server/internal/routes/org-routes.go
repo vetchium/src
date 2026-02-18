@@ -29,6 +29,7 @@ func RegisterOrgRoutes(mux *http.ServeMux, s *server.Server) {
 	mux.Handle("POST /org/claim-domain", orgAuth(employerRoleSuperadmin(org.ClaimDomain(s))))
 	mux.Handle("POST /org/verify-domain", orgAuth(employerRoleSuperadmin(org.VerifyDomain(s))))
 	mux.Handle("POST /org/get-domain-status", orgAuth(employerRoleSuperadmin(org.GetDomainStatus(s))))
+	mux.Handle("POST /org/list-domains", orgAuth(employerRoleSuperadmin(org.ListDomains(s))))
 	mux.Handle("POST /employer/assign-role", orgAuth(employerRoleManage(org.AssignRole(s))))
 	mux.Handle("POST /employer/remove-role", orgAuth(employerRoleManage(org.RemoveRole(s))))
 

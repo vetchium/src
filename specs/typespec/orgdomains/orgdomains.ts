@@ -112,3 +112,26 @@ export interface GetDomainStatusResponse {
 	expires_at?: string; // ISO 8601 datetime
 	last_verified_at?: string; // ISO 8601 datetime
 }
+
+export interface ListDomainStatusRequest {
+	pagination_key?: string;
+}
+
+export function validateListDomainStatusRequest(
+	_request: ListDomainStatusRequest
+): ValidationError[] {
+	return [];
+}
+
+export interface ListDomainStatusItem {
+	domain: string;
+	status: DomainVerificationStatus;
+	verification_token?: DomainVerificationToken;
+	expires_at?: string; // ISO 8601 datetime
+	last_verified_at?: string; // ISO 8601 datetime
+}
+
+export interface ListDomainStatusResponse {
+	items: ListDomainStatusItem[];
+	next_pagination_key?: string;
+}

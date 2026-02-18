@@ -64,9 +64,13 @@ func main() {
 	emailWorker := email.NewWorker(emailDB, emailSender, workerConfig, logger, region)
 	go emailWorker.Run(ctx)
 
-	// Start regional background jobs worker (cleanup expired tokens, sessions)
+	// Start regional background jobs worker (cleanup expired tokens, sessions, domain verification)
+	environment := os.Getenv("ENVIRONMENT")
+	if environment == "" {
+		environment = "PROD"
+	}
 	regionalConfig := bgjobs.RegionalConfigFromEnv()
-	regionalWorker := bgjobs.NewRegionalWorker(regionalQueries, regionalConfig, logger, region)
+	regionalWorker := bgjobs.NewRegionalWorker(regionalQueries, regionalConfig, logger, region, environment)
 	go regionalWorker.Run(ctx)
 
 	logger.Info("regional-worker started, email and cleanup workers running", "region", region)

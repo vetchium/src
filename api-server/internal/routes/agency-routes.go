@@ -23,6 +23,13 @@ func RegisterAgencyRoutes(mux *http.ServeMux, s *server.Server) {
 	agencyAuth := middleware.AgencyAuth(s.Regional, s.CurrentRegion, s.InternalEndpoints)
 	agencyRoleInvite := middleware.AgencyRole(s.Regional, "agency:invite_users")
 	agencyRoleManage := middleware.AgencyRole(s.Regional, "agency:manage_users")
+	agencyRoleSuperadmin := middleware.AgencyRole(s.Regional, "agency:superadmin")
+
+	// Superadmin-only routes (agency:superadmin required)
+	mux.Handle("POST /agency/claim-domain", agencyAuth(agencyRoleSuperadmin(agency.ClaimDomain(s))))
+	mux.Handle("POST /agency/verify-domain", agencyAuth(agencyRoleSuperadmin(agency.VerifyDomain(s))))
+	mux.Handle("POST /agency/get-domain-status", agencyAuth(agencyRoleSuperadmin(agency.GetDomainStatus(s))))
+	mux.Handle("POST /agency/list-domains", agencyAuth(agencyRoleSuperadmin(agency.ListDomains(s))))
 
 	// Superadmin or manage_users routes
 	mux.Handle("POST /agency/assign-role", agencyAuth(agencyRoleManage(agency.AssignRole(s))))

@@ -85,6 +85,36 @@ model GetDomainStatusResponse {
   last_verified_at?: utcDateTime;
 }
 
+model ListDomainStatusRequest {
+  @doc("Pagination cursor (domain name of the last item from previous page)")
+  pagination_key?: string;
+}
+
+model ListDomainStatusItem {
+  @doc("The domain name")
+  domain: string;
+
+  @doc("Current verification status")
+  status: DomainVerificationStatus;
+
+  @doc("Verification token (visible only if PENDING or FAILING)")
+  verification_token?: DomainVerificationToken;
+
+  @doc("When the verification token expires (if PENDING)")
+  expires_at?: utcDateTime;
+
+  @doc("When the domain was last verified (if VERIFIED)")
+  last_verified_at?: utcDateTime;
+}
+
+model ListDomainStatusResponse {
+  @doc("List of domains with their verification status")
+  items: ListDomainStatusItem[];
+
+  @doc("Pagination cursor for the next page (absent if no more pages)")
+  next_pagination_key?: string;
+}
+
 // ============================================
 // API Interfaces
 // ============================================
@@ -167,5 +197,120 @@ interface OrgGetDomainStatus {
         @doc("Domain not found or not owned by this employer")
         @statusCode
         statusCode: 404;
+      };
+}
+
+@route("/org/list-domains")
+interface OrgListDomains {
+  @tag("OrgDomains")
+  @post
+  @doc("List all domains claimed by this employer with their verification status.")
+  listDomains(@body request: ListDomainStatusRequest):
+    | {
+        @statusCode statusCode: 200;
+        @body response: ListDomainStatusResponse;
+      }
+    | {
+        @doc("Invalid or expired session token")
+        @statusCode
+        statusCode: 401;
+      };
+}
+
+@route("/agency/claim-domain")
+interface AgencyClaimDomain {
+  @tag("AgencyDomains")
+  @post
+  @doc("Claim a domain for verification. Requires authenticated agency session.")
+  claimDomain(@body request: ClaimDomainRequest):
+    | {
+        @statusCode statusCode: 201;
+        @body response: ClaimDomainResponse;
+      }
+    | {
+        @doc("Invalid domain format or validation errors")
+        @statusCode
+        statusCode: 400;
+      }
+    | {
+        @doc("Invalid or expired session token")
+        @statusCode
+        statusCode: 401;
+      }
+    | {
+        @doc("Domain already claimed by another agency")
+        @statusCode
+        statusCode: 409;
+      };
+}
+
+@route("/agency/verify-domain")
+interface AgencyVerifyDomain {
+  @tag("AgencyDomains")
+  @post
+  @doc("Trigger manual DNS verification for a claimed agency domain.")
+  verifyDomain(@body request: VerifyDomainRequest):
+    | {
+        @statusCode statusCode: 200;
+        @body response: VerifyDomainResponse;
+      }
+    | {
+        @doc("Invalid domain format or validation errors")
+        @statusCode
+        statusCode: 400;
+      }
+    | {
+        @doc("Invalid or expired session token")
+        @statusCode
+        statusCode: 401;
+      }
+    | {
+        @doc("Domain not found or not owned by this agency")
+        @statusCode
+        statusCode: 404;
+      };
+}
+
+@route("/agency/get-domain-status")
+interface AgencyGetDomainStatus {
+  @tag("AgencyDomains")
+  @post
+  @doc("Get current verification status of a claimed agency domain.")
+  getDomainStatus(@body request: GetDomainStatusRequest):
+    | {
+        @statusCode statusCode: 200;
+        @body response: GetDomainStatusResponse;
+      }
+    | {
+        @doc("Invalid domain format or validation errors")
+        @statusCode
+        statusCode: 400;
+      }
+    | {
+        @doc("Invalid or expired session token")
+        @statusCode
+        statusCode: 401;
+      }
+    | {
+        @doc("Domain not found or not owned by this agency")
+        @statusCode
+        statusCode: 404;
+      };
+}
+
+@route("/agency/list-domains")
+interface AgencyListDomains {
+  @tag("AgencyDomains")
+  @post
+  @doc("List all domains claimed by this agency with their verification status.")
+  listDomains(@body request: ListDomainStatusRequest):
+    | {
+        @statusCode statusCode: 200;
+        @body response: ListDomainStatusResponse;
+      }
+    | {
+        @doc("Invalid or expired session token")
+        @statusCode
+        statusCode: 401;
       };
 }
