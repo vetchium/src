@@ -24,7 +24,7 @@ import type {
 	FilterOrgUsersRequest,
 	FilterOrgUsersResponse,
 	OrgUser,
-} from "vetchium-specs/org/org-users";
+} from "vetchium-specs/employer/employer-users";
 import { getApiBaseUrl } from "../../config";
 import { useAuth } from "../../hooks/useAuth";
 import { useMyInfo } from "../../hooks/useMyInfo";

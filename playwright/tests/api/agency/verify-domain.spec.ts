@@ -16,7 +16,7 @@ import type {
 import type {
 	ClaimDomainRequest,
 	VerifyDomainRequest,
-} from "vetchium-specs/orgdomains/orgdomains";
+} from "vetchium-specs/employer-domains/employer-domains";
 
 /**
  * Helper to create an agency admin and return session token.

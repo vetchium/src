@@ -7,7 +7,7 @@ import (
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
-	"vetchium-api-server.typespec/orgdomains"
+	employerdomains "vetchium-api-server.typespec/employer-domains"
 )
 
 const agencyDomainPageSize = 20
@@ -25,7 +25,7 @@ func ListDomains(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		var req orgdomains.ListDomainStatusRequest
+		var req employerdomains.ListDomainStatusRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			log.Debug("failed to decode request", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -57,17 +57,17 @@ func ListDomains(s *server.Server) http.HandlerFunc {
 			}
 		}
 
-		items := make([]orgdomains.ListDomainStatusItem, 0, agencyDomainPageSize)
+		items := make([]employerdomains.ListDomainStatusItem, 0, agencyDomainPageSize)
 		for i := startIdx; i < len(domains) && len(items) < agencyDomainPageSize; i++ {
 			d := domains[i]
-			item := orgdomains.ListDomainStatusItem{
+			item := employerdomains.ListDomainStatusItem{
 				Domain: d.Domain,
-				Status: orgdomains.DomainVerificationStatus(d.Status),
+				Status: employerdomains.DomainVerificationStatus(d.Status),
 			}
 
 			if d.Status == regionaldb.DomainVerificationStatusPENDING ||
 				d.Status == regionaldb.DomainVerificationStatusFAILING {
-				token := orgdomains.DomainVerificationToken(d.VerificationToken)
+				token := employerdomains.DomainVerificationToken(d.VerificationToken)
 				item.VerificationToken = &token
 				if d.TokenExpiresAt.Valid {
 					item.ExpiresAt = &d.TokenExpiresAt.Time
@@ -89,7 +89,7 @@ func ListDomains(s *server.Server) http.HandlerFunc {
 			nextKey = &key
 		}
 
-		response := orgdomains.ListDomainStatusResponse{
+		response := employerdomains.ListDomainStatusResponse{
 			Items:             items,
 			NextPaginationKey: nextKey,
 		}

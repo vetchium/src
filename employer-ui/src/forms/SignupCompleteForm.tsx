@@ -27,7 +27,7 @@ import {
 import type {
 	OrgCompleteSignupRequest,
 	OrgGetSignupDetailsRequest,
-} from "vetchium-specs/org/org-users";
+} from "vetchium-specs/employer/employer-users";
 import type { LanguageCode } from "vetchium-specs/common/common";
 // @ts-expect-error - dohjs has no types
 import { DNSoverHTTPS } from "dohjs";
@@ -79,11 +79,14 @@ export function SignupCompleteForm() {
 					signup_token: token,
 				};
 
-				const response = await fetch(`${apiBaseUrl}/org/get-signup-details`, {
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify(request),
-				});
+				const response = await fetch(
+					`${apiBaseUrl}/employer/get-signup-details`,
+					{
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify(request),
+					}
+				);
 
 				if (response.status === 200) {
 					const data = await response.json();
@@ -168,7 +171,7 @@ export function SignupCompleteForm() {
 				agrees_to_eula: values.agrees_to_eula,
 			};
 
-			const response = await fetch(`${apiBaseUrl}/org/complete-signup`, {
+			const response = await fetch(`${apiBaseUrl}/employer/complete-signup`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(request),

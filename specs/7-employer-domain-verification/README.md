@@ -170,11 +170,11 @@ See [specs/typespec/org/org-domains.tsp](../typespec/org/org-domains.tsp) for th
 
 | Endpoint                      | Auth         | Description                              |
 | :---------------------------- | :----------- | :--------------------------------------- |
-| `POST /org/init-signup`       | None         | Send magic link to user's email          |
-| `POST /org/complete-signup`   | Signup Token | Complete signup after email verification |
-| `POST /org/claim-domain`      | Session      | Claim a domain for verification          |
-| `POST /org/verify-domain`     | Session      | Trigger manual DNS verification          |
-| `POST /org/get-domain-status` | Session      | Get current domain verification status   |
+| `POST /employer/init-signup`       | None         | Send magic link to user's email          |
+| `POST /employer/complete-signup`   | Signup Token | Complete signup after email verification |
+| `POST /employer/claim-domain`      | Session      | Claim a domain for verification          |
+| `POST /employer/verify-domain`     | Session      | Trigger manual DNS verification          |
+| `POST /employer/get-domain-status` | Session      | Get current domain verification status   |
 
 #### HTTP Response Codes
 

@@ -9,7 +9,7 @@ import {
 	validateDomainName,
 	isPersonalEmailDomain,
 } from "vetchium-specs/common/common";
-import type { OrgInitSignupRequest } from "vetchium-specs/org/org-users";
+import type { OrgInitSignupRequest } from "vetchium-specs/employer/employer-users";
 import type { Region } from "vetchium-specs/global/global";
 
 // Form values type (before transformation to API request)
@@ -68,7 +68,7 @@ export function SignupForm() {
 		try {
 			const apiBaseUrl = await getApiBaseUrl();
 
-			const response = await fetch(`${apiBaseUrl}/org/init-signup`, {
+			const response = await fetch(`${apiBaseUrl}/employer/init-signup`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(request),

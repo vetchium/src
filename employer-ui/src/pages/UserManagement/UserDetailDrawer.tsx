@@ -12,7 +12,7 @@ import {
 } from "antd";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { OrgUser } from "vetchium-specs/org/org-users";
+import type { OrgUser } from "vetchium-specs/employer/employer-users";
 import type {
 	AssignRoleRequest,
 	RemoveRoleRequest,

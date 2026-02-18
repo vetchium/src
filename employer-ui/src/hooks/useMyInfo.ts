@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import type { OrgMyInfoResponse } from "vetchium-specs/org/org-users";
+import type { OrgMyInfoResponse } from "vetchium-specs/employer/employer-users";
 import { getApiBaseUrl } from "../config";
 
 interface MyInfoState {

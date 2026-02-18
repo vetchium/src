@@ -38,7 +38,7 @@ import type {
 	ListDomainStatusItem,
 	ListDomainStatusResponse,
 	DomainVerificationStatus,
-} from "vetchium-specs/orgdomains/orgdomains";
+} from "vetchium-specs/employer-domains/employer-domains";
 
 const { Text, Paragraph } = Typography;
 
@@ -101,7 +101,7 @@ export function DomainVerificationSection() {
 		try {
 			const apiBaseUrl = await getApiBaseUrl();
 			const request: ListDomainStatusRequest = {};
-			const response = await fetch(`${apiBaseUrl}/org/list-domains`, {
+			const response = await fetch(`${apiBaseUrl}/employer/list-domains`, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
@@ -139,7 +139,7 @@ export function DomainVerificationSection() {
 				domain: values.domain.toLowerCase(),
 			};
 
-			const response = await fetch(`${apiBaseUrl}/org/claim-domain`, {
+			const response = await fetch(`${apiBaseUrl}/employer/claim-domain`, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
@@ -201,14 +201,17 @@ export function DomainVerificationSection() {
 					domain: domain.toLowerCase(),
 				};
 
-				const response = await fetch(`${apiBaseUrl}/org/get-domain-status`, {
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-						Authorization: `Bearer ${sessionToken}`,
-					},
-					body: JSON.stringify(request),
-				});
+				const response = await fetch(
+					`${apiBaseUrl}/employer/get-domain-status`,
+					{
+						method: "POST",
+						headers: {
+							"Content-Type": "application/json",
+							Authorization: `Bearer ${sessionToken}`,
+						},
+						body: JSON.stringify(request),
+					}
+				);
 
 				if (response.status === 200) {
 					await loadDomains();
@@ -241,7 +244,7 @@ export function DomainVerificationSection() {
 				domain: domain.toLowerCase(),
 			};
 
-			const response = await fetch(`${apiBaseUrl}/org/verify-domain`, {
+			const response = await fetch(`${apiBaseUrl}/employer/verify-domain`, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",

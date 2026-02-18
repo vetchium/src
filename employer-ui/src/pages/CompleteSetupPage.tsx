@@ -11,7 +11,7 @@ import {
 	Select,
 } from "antd";
 import { LockOutlined, UserOutlined } from "@ant-design/icons";
-import type { OrgCompleteSetupRequest } from "vetchium-specs/org/org-users";
+import type { OrgCompleteSetupRequest } from "vetchium-specs/employer/employer-users";
 import { getApiBaseUrl } from "../config";
 import { SUPPORTED_LANGUAGES } from "../i18n";
 

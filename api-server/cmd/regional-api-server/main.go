@@ -111,7 +111,7 @@ func main() {
 	// Register routes from separate files
 	routes.RegisterGlobalRoutes(mux, s)
 	routes.RegisterHubRoutes(mux, s)
-	routes.RegisterOrgRoutes(mux, s)
+	routes.RegisterEmployerRoutes(mux, s)
 	routes.RegisterAgencyRoutes(mux, s)
 
 	// Wrap mux with middleware (CORS must be outermost to handle preflight)

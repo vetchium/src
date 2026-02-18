@@ -1,7 +1,7 @@
 import { App, Modal, Spin, Typography } from "antd";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { OrgDisableUserRequest } from "vetchium-specs/org/org-users";
+import type { OrgDisableUserRequest } from "vetchium-specs/employer/employer-users";
 import { getApiBaseUrl } from "../../config";
 import { useAuth } from "../../hooks/useAuth";
 import { useMyInfo } from "../../hooks/useMyInfo";

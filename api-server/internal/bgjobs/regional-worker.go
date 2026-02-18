@@ -10,7 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
-	"vetchium-api-server.typespec/orgdomains"
+	employerdomains "vetchium-api-server.typespec/employer-domains"
 )
 
 // RegionalWorker runs background jobs for a regional database.
@@ -277,7 +277,7 @@ func (w *RegionalWorker) verifyEmployerDomains(ctx context.Context) {
 		return
 	}
 
-	cutoff := time.Now().AddDate(0, 0, -orgdomains.VerificationIntervalDays)
+	cutoff := time.Now().AddDate(0, 0, -employerdomains.VerificationIntervalDays)
 	domains, err := w.queries.GetEmployerDomainsForReverification(ctx, pgtype.Timestamp{Time: cutoff, Valid: true})
 	if err != nil {
 		w.log.Error("failed to get employer domains for reverification", "error", err)
@@ -308,7 +308,7 @@ func (w *RegionalWorker) verifyEmployerDomains(ctx context.Context) {
 		} else {
 			newFailures := d.ConsecutiveFailures + 1
 			newStatus := d.Status
-			if newFailures >= orgdomains.MaxConsecutiveFailures && d.Status == regionaldb.DomainVerificationStatusVERIFIED {
+			if newFailures >= employerdomains.MaxConsecutiveFailures && d.Status == regionaldb.DomainVerificationStatusVERIFIED {
 				newStatus = regionaldb.DomainVerificationStatusFAILING
 			}
 			err = w.queries.UpdateEmployerDomainStatus(ctx, regionaldb.UpdateEmployerDomainStatusParams{
@@ -331,7 +331,7 @@ func (w *RegionalWorker) verifyAgencyDomains(ctx context.Context) {
 		return
 	}
 
-	cutoff := time.Now().AddDate(0, 0, -orgdomains.VerificationIntervalDays)
+	cutoff := time.Now().AddDate(0, 0, -employerdomains.VerificationIntervalDays)
 	domains, err := w.queries.GetAgencyDomainsForReverification(ctx, pgtype.Timestamp{Time: cutoff, Valid: true})
 	if err != nil {
 		w.log.Error("failed to get agency domains for reverification", "error", err)
@@ -362,7 +362,7 @@ func (w *RegionalWorker) verifyAgencyDomains(ctx context.Context) {
 		} else {
 			newFailures := d.ConsecutiveFailures + 1
 			newStatus := d.Status
-			if newFailures >= orgdomains.MaxConsecutiveFailures && d.Status == regionaldb.DomainVerificationStatusVERIFIED {
+			if newFailures >= employerdomains.MaxConsecutiveFailures && d.Status == regionaldb.DomainVerificationStatusVERIFIED {
 				newStatus = regionaldb.DomainVerificationStatusFAILING
 			}
 			err = w.queries.UpdateAgencyDomainStatus(ctx, regionaldb.UpdateAgencyDomainStatusParams{

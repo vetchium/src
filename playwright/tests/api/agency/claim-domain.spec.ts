@@ -13,7 +13,7 @@ import type {
 	AgencyLoginRequest,
 	AgencyTFARequest,
 } from "vetchium-specs/agency/agency-users";
-import type { ClaimDomainRequest } from "vetchium-specs/orgdomains/orgdomains";
+import type { ClaimDomainRequest } from "vetchium-specs/employer-domains/employer-domains";
 
 /**
  * Helper to create an agency admin and return session token.

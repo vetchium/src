@@ -12,7 +12,7 @@ import type {
 	GetDomainStatusResponse,
 	ListDomainStatusRequest,
 	ListDomainStatusResponse,
-} from "vetchium-specs/orgdomains/orgdomains";
+} from "vetchium-specs/employer-domains/employer-domains";
 import type {
 	AgencyInitSignupRequest,
 	AgencyInitSignupResponse,

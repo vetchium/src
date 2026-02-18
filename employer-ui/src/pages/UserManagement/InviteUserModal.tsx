@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Modal, Form, Input, Select, message } from "antd";
-import type { OrgInviteUserRequest } from "vetchium-specs/org/org-users";
+import type { OrgInviteUserRequest } from "vetchium-specs/employer/employer-users";
 import { getApiBaseUrl } from "../../config";
 import { useAuth } from "../../hooks/useAuth";
 import { SUPPORTED_LANGUAGES } from "../../i18n";

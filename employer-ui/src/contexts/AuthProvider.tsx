@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import {
 	type OrgTFARequest,
 	validateOrgTFARequest,
-} from "vetchium-specs/org/org-users";
+} from "vetchium-specs/employer/employer-users";
 import { getApiBaseUrl } from "../config";
 import { setStoredLanguage, type SupportedLanguage } from "../i18n";
 import { AuthContext, type AuthState } from "./AuthContext";
