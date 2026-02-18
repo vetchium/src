@@ -13,6 +13,8 @@ import {
 	AdminChangePasswordRequest,
 	AdminInviteUserRequest,
 	AdminInviteUserResponse,
+	AdminCompleteSetupRequest,
+	AdminCompleteSetupResponse,
 	AssignRoleRequest,
 	RemoveRoleRequest,
 	AdminMyInfoResponse,
@@ -730,6 +732,47 @@ export class AdminAPIClient {
 		return {
 			status: response.status(),
 			body: responseBody as AdminInviteUserResponse,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	/**
+	 * POST /admin/complete-setup
+	 * Completes setup for an invited admin user using an invitation token.
+	 * This endpoint does not require authentication (uses invitation token).
+	 *
+	 * @param request - Setup request with invitation_token, password, and full_name
+	 * @returns API response with success message
+	 */
+	async completeSetup(
+		request: AdminCompleteSetupRequest
+	): Promise<APIResponse<AdminCompleteSetupResponse>> {
+		const response = await this.request.post("/admin/complete-setup", {
+			data: request,
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as AdminCompleteSetupResponse,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	/**
+	 * POST /admin/complete-setup with raw body for testing invalid payloads
+	 */
+	async completeSetupRaw(
+		body: unknown
+	): Promise<APIResponse<AdminCompleteSetupResponse>> {
+		const response = await this.request.post("/admin/complete-setup", {
+			data: body,
+		});
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as AdminCompleteSetupResponse,
 			errors: Array.isArray(responseBody) ? responseBody : undefined,
 		};
 	}

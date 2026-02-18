@@ -6,6 +6,8 @@ import type {
 import type {
 	OrgInitSignupRequest,
 	OrgInitSignupResponse,
+	OrgGetSignupDetailsRequest,
+	OrgGetSignupDetailsResponse,
 	OrgCompleteSignupRequest,
 	OrgCompleteSignupResponse,
 	OrgLoginRequest,
@@ -31,6 +33,8 @@ import type {
 	VerifyDomainResponse,
 	GetDomainStatusRequest,
 	GetDomainStatusResponse,
+	ListDomainStatusRequest,
+	ListDomainStatusResponse,
 } from "vetchium-specs/orgdomains/orgdomains";
 import type { APIResponse } from "./api-client";
 
@@ -74,6 +78,43 @@ export class OrgAPIClient {
 		return {
 			status: response.status(),
 			body: responseBody as OrgInitSignupResponse,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	/**
+	 * POST /org/get-signup-details
+	 * Gets domain being verified for a signup token
+	 */
+	async getSignupDetails(
+		request: OrgGetSignupDetailsRequest
+	): Promise<APIResponse<OrgGetSignupDetailsResponse>> {
+		const response = await this.request.post("/org/get-signup-details", {
+			data: request,
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as OrgGetSignupDetailsResponse,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	/**
+	 * POST /org/get-signup-details with raw body for testing invalid payloads
+	 */
+	async getSignupDetailsRaw(
+		body: unknown
+	): Promise<APIResponse<OrgGetSignupDetailsResponse>> {
+		const response = await this.request.post("/org/get-signup-details", {
+			data: body,
+		});
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as OrgGetSignupDetailsResponse,
 			errors: Array.isArray(responseBody) ? responseBody : undefined,
 		};
 	}
@@ -300,6 +341,69 @@ export class OrgAPIClient {
 		return {
 			status: response.status(),
 			body: body as GetDomainStatusResponse,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	/**
+	 * POST /org/list-domains
+	 * Lists domains claimed by the employer
+	 */
+	async listDomains(
+		sessionToken: string,
+		request: ListDomainStatusRequest
+	): Promise<APIResponse<ListDomainStatusResponse>> {
+		const response = await this.request.post("/org/list-domains", {
+			headers: {
+				Authorization: `Bearer ${sessionToken}`,
+			},
+			data: request,
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as ListDomainStatusResponse,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	/**
+	 * POST /org/list-domains with raw body for testing invalid payloads
+	 */
+	async listDomainsRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<ListDomainStatusResponse>> {
+		const response = await this.request.post("/org/list-domains", {
+			headers: {
+				Authorization: `Bearer ${sessionToken}`,
+			},
+			data: body,
+		});
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as ListDomainStatusResponse,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	/**
+	 * POST /org/list-domains without Authorization header (for testing 401)
+	 */
+	async listDomainsWithoutAuth(
+		request: ListDomainStatusRequest
+	): Promise<APIResponse<ListDomainStatusResponse>> {
+		const response = await this.request.post("/org/list-domains", {
+			data: request,
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as ListDomainStatusResponse,
 			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}

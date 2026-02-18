@@ -4,6 +4,16 @@ import type {
 	RemoveRoleRequest,
 } from "vetchium-specs/common/roles";
 import type {
+	ClaimDomainRequest,
+	ClaimDomainResponse,
+	VerifyDomainRequest,
+	VerifyDomainResponse,
+	GetDomainStatusRequest,
+	GetDomainStatusResponse,
+	ListDomainStatusRequest,
+	ListDomainStatusResponse,
+} from "vetchium-specs/orgdomains/orgdomains";
+import type {
 	AgencyInitSignupRequest,
 	AgencyInitSignupResponse,
 	AgencyGetSignupDetailsRequest,
@@ -141,6 +151,262 @@ export class AgencyAPIClient {
 			status: response.status(),
 			body: responseBody as AgencyCompleteSignupResponse,
 			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	// ============================================================================
+	// Domain Management
+	// ============================================================================
+
+	/**
+	 * POST /agency/claim-domain
+	 * Claims a domain for verification
+	 */
+	async claimDomain(
+		sessionToken: string,
+		request: ClaimDomainRequest
+	): Promise<APIResponse<ClaimDomainResponse>> {
+		const response = await this.request.post("/agency/claim-domain", {
+			headers: {
+				Authorization: `Bearer ${sessionToken}`,
+			},
+			data: request,
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as ClaimDomainResponse,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	/**
+	 * POST /agency/claim-domain with raw body for testing invalid payloads
+	 */
+	async claimDomainRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<ClaimDomainResponse>> {
+		const response = await this.request.post("/agency/claim-domain", {
+			headers: {
+				Authorization: `Bearer ${sessionToken}`,
+			},
+			data: body,
+		});
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as ClaimDomainResponse,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	/**
+	 * POST /agency/claim-domain without Authorization header (for testing 401)
+	 */
+	async claimDomainWithoutAuth(
+		request: ClaimDomainRequest
+	): Promise<APIResponse<ClaimDomainResponse>> {
+		const response = await this.request.post("/agency/claim-domain", {
+			data: request,
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as ClaimDomainResponse,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	/**
+	 * POST /agency/verify-domain
+	 * Triggers manual DNS verification for a claimed domain
+	 */
+	async verifyDomain(
+		sessionToken: string,
+		request: VerifyDomainRequest
+	): Promise<APIResponse<VerifyDomainResponse>> {
+		const response = await this.request.post("/agency/verify-domain", {
+			headers: {
+				Authorization: `Bearer ${sessionToken}`,
+			},
+			data: request,
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as VerifyDomainResponse,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	/**
+	 * POST /agency/verify-domain with raw body for testing invalid payloads
+	 */
+	async verifyDomainRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<VerifyDomainResponse>> {
+		const response = await this.request.post("/agency/verify-domain", {
+			headers: {
+				Authorization: `Bearer ${sessionToken}`,
+			},
+			data: body,
+		});
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as VerifyDomainResponse,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	/**
+	 * POST /agency/verify-domain without Authorization header (for testing 401)
+	 */
+	async verifyDomainWithoutAuth(
+		request: VerifyDomainRequest
+	): Promise<APIResponse<VerifyDomainResponse>> {
+		const response = await this.request.post("/agency/verify-domain", {
+			data: request,
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as VerifyDomainResponse,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	/**
+	 * POST /agency/get-domain-status
+	 * Gets current verification status of a claimed domain
+	 */
+	async getDomainStatus(
+		sessionToken: string,
+		request: GetDomainStatusRequest
+	): Promise<APIResponse<GetDomainStatusResponse>> {
+		const response = await this.request.post("/agency/get-domain-status", {
+			headers: {
+				Authorization: `Bearer ${sessionToken}`,
+			},
+			data: request,
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as GetDomainStatusResponse,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	/**
+	 * POST /agency/get-domain-status with raw body for testing invalid payloads
+	 */
+	async getDomainStatusRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<GetDomainStatusResponse>> {
+		const response = await this.request.post("/agency/get-domain-status", {
+			headers: {
+				Authorization: `Bearer ${sessionToken}`,
+			},
+			data: body,
+		});
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as GetDomainStatusResponse,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	/**
+	 * POST /agency/get-domain-status without Authorization header (for testing 401)
+	 */
+	async getDomainStatusWithoutAuth(
+		request: GetDomainStatusRequest
+	): Promise<APIResponse<GetDomainStatusResponse>> {
+		const response = await this.request.post("/agency/get-domain-status", {
+			data: request,
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as GetDomainStatusResponse,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	/**
+	 * POST /agency/list-domains
+	 * Lists domains claimed by the agency
+	 */
+	async listDomains(
+		sessionToken: string,
+		request: ListDomainStatusRequest
+	): Promise<APIResponse<ListDomainStatusResponse>> {
+		const response = await this.request.post("/agency/list-domains", {
+			headers: {
+				Authorization: `Bearer ${sessionToken}`,
+			},
+			data: request,
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as ListDomainStatusResponse,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	/**
+	 * POST /agency/list-domains with raw body for testing invalid payloads
+	 */
+	async listDomainsRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<ListDomainStatusResponse>> {
+		const response = await this.request.post("/agency/list-domains", {
+			headers: {
+				Authorization: `Bearer ${sessionToken}`,
+			},
+			data: body,
+		});
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as ListDomainStatusResponse,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	/**
+	 * POST /agency/list-domains without Authorization header (for testing 401)
+	 */
+	async listDomainsWithoutAuth(
+		request: ListDomainStatusRequest
+	): Promise<APIResponse<ListDomainStatusResponse>> {
+		const response = await this.request.post("/agency/list-domains", {
+			data: request,
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as ListDomainStatusResponse,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 

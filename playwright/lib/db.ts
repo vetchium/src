@@ -582,6 +582,19 @@ export async function deleteTestGlobalEmployerDomain(
 }
 
 /**
+ * Deletes a test global agency domain.
+ *
+ * @param domain - Domain name to delete
+ */
+export async function deleteTestGlobalAgencyDomain(
+	domain: string
+): Promise<void> {
+	await pool.query(`DELETE FROM global_agency_domains WHERE domain = $1`, [
+		domain.toLowerCase(),
+	]);
+}
+
+/**
  * Gets a test employer by domain.
  *
  * @param domain - Domain name
