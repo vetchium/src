@@ -168,8 +168,8 @@ See [specs/typespec/org/org-domains.tsp](../typespec/org/org-domains.tsp) for th
 
 #### API Endpoints Summary
 
-| Endpoint                      | Auth         | Description                              |
-| :---------------------------- | :----------- | :--------------------------------------- |
+| Endpoint                           | Auth         | Description                              |
+| :--------------------------------- | :----------- | :--------------------------------------- |
 | `POST /employer/init-signup`       | None         | Send magic link to user's email          |
 | `POST /employer/complete-signup`   | Signup Token | Complete signup after email verification |
 | `POST /employer/claim-domain`      | Session      | Claim a domain for verification          |
