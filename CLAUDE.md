@@ -100,9 +100,56 @@ docker compose -f docker-compose-full.json down -v      # Stop all services
 
 Migrations are in `api-server/db/migrations/{global,regional}/`. No need to create new database migration files for now. Continue to use the existing initdb migration file itself as we are not yet in production. If you need to make a change to an existing table or enum, edit the table or enum CREATE statement directly instead of an ALTER statement. Do not create any index for now for performance. The only reason to create an INDEX could be to enforce uniquness, if it cannot be enforced otherwise. Prefer to use UNIQUE keyword in the CREATE statements instead of an INDEX, wherever possible.
 
-### Cross-Database Operations
+### Database Write Operations & Transactions
 
-When spanning global and regional databases, use compensating transactions (cannot use single transaction):
+**CRITICAL**: All write operations (INSERT, UPDATE, DELETE) that touch more than one row or table MUST be wrapped in a transaction. Even single-row writes that are part of a logical unit of work should use transactions for correctness.
+
+#### Single-Database Transactions
+
+Use `s.WithGlobalTx` or `s.WithRegionalTx` for operations within one database. These helpers begin a transaction, call your function, and automatically commit on success or rollback on error.
+
+```go
+// Global DB transaction
+err = s.WithGlobalTx(ctx, func(qtx *globaldb.Queries) error {
+    if err := qtx.CreateFoo(ctx, fooParams); err != nil {
+        return err
+    }
+    if err := qtx.UpdateBar(ctx, barParams); err != nil {
+        return err
+    }
+    return nil
+})
+if err != nil {
+    if errors.Is(err, server.ErrConflict) {
+        w.WriteHeader(http.StatusConflict)
+        return
+    }
+    log.Error("failed to create foo", "error", err)
+    http.Error(w, "", http.StatusInternalServerError)
+    return
+}
+
+// Regional DB transaction
+err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
+    if err := qtx.CreateUser(ctx, userParams); err != nil {
+        return err
+    }
+    if err := qtx.AssignRole(ctx, roleParams); err != nil {
+        return err
+    }
+    return nil
+})
+```
+
+**Custom error types** (from `server` package) can be returned from the transaction function to map to specific HTTP status codes:
+
+- `server.ErrNotFound` → 404
+- `server.ErrConflict` → 409
+- `server.ErrInvalidState` → 422
+
+#### Cross-Database Operations
+
+When spanning global and regional databases, use compensating transactions (a single ACID transaction cannot span two databases):
 
 ```go
 // 1. Create in global DB first
@@ -117,14 +164,16 @@ if err != nil {
 err = regionalDB.EnqueueEmail(ctx, emailParams)
 if err != nil {
     log.Error("failed to enqueue email", "error", err)
-    // Compensating transaction: delete what we just created
+    // Compensating transaction: undo the global write
     if delErr := s.Global.DeleteRecord(ctx, id); delErr != nil {
-        log.Error("failed to rollback", "error", delErr)
+        log.Error("CONSISTENCY_ALERT: failed to rollback global record", "error", delErr)
     }
     http.Error(w, "", http.StatusInternalServerError)
     return
 }
 ```
+
+Log `CONSISTENCY_ALERT` when a compensating transaction itself fails, so operators can detect and repair inconsistent state.
 
 ### Regional Database Selection
 
@@ -188,7 +237,9 @@ func MyHandler(s *server.Server) http.HandlerFunc {
             return
         }
 
-        // 3. Business logic with database calls
+        // 3. Business logic — reads can use s.Global/s.Regional directly;
+        //    writes MUST use WithGlobalTx / WithRegionalTx (see "Database Write
+        //    Operations & Transactions" section).
         result, err := s.Global.SomeQuery(ctx, params)
         if err != nil {
             if errors.Is(err, pgx.ErrNoRows) {
@@ -207,7 +258,17 @@ func MyHandler(s *server.Server) http.HandlerFunc {
             return
         }
 
-        // 5. Return success response
+        // 5. Writes inside a transaction
+        err = s.WithGlobalTx(ctx, func(qtx *globaldb.Queries) error {
+            return qtx.UpdateSomething(ctx, updateParams)
+        })
+        if err != nil {
+            log.Error("failed to update", "error", err)
+            http.Error(w, "", http.StatusInternalServerError)
+            return
+        }
+
+        // 6. Return success response
         log.Info("operation completed", "id", result.ID)
         json.NewEncoder(w).Encode(result)
     }
