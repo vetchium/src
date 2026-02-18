@@ -14,9 +14,9 @@ import type {
 	AgencyTFARequest,
 } from "vetchium-specs/agency/agency-users";
 import type {
-	ClaimDomainRequest,
-	ListDomainStatusRequest,
-} from "vetchium-specs/employer-domains/employer-domains";
+	AgencyAgencyClaimDomainRequest,
+	AgencyAgencyListDomainStatusRequest,
+} from "vetchium-specs/agency-domains/agency-domains";
 
 /**
  * Helper to create an agency admin and return session token.
@@ -62,7 +62,7 @@ test.describe("POST /agency/list-domains", () => {
 			);
 			userEmail = email;
 
-			const listRequest: ListDomainStatusRequest = {};
+			const listRequest: AgencyListDomainStatusRequest = {};
 			const response = await api.listDomains(sessionToken, listRequest);
 
 			expect(response.status).toBe(200);
@@ -87,14 +87,14 @@ test.describe("POST /agency/list-domains", () => {
 			userEmail = email;
 
 			// Claim a domain
-			const claimRequest: ClaimDomainRequest = {
+			const claimRequest: AgencyClaimDomainRequest = {
 				domain: claimedDomain,
 			};
 			const claimResponse = await api.claimDomain(sessionToken, claimRequest);
 			expect(claimResponse.status).toBe(201);
 
 			// List domains
-			const listRequest: ListDomainStatusRequest = {};
+			const listRequest: AgencyListDomainStatusRequest = {};
 			const response = await api.listDomains(sessionToken, listRequest);
 
 			expect(response.status).toBe(200);
@@ -128,7 +128,7 @@ test.describe("POST /agency/list-domains", () => {
 			expect(claim2.status).toBe(201);
 
 			// List domains without cursor - should return both
-			const listRequest: ListDomainStatusRequest = {};
+			const listRequest: AgencyListDomainStatusRequest = {};
 			const response = await api.listDomains(sessionToken, listRequest);
 
 			expect(response.status).toBe(200);
@@ -149,7 +149,7 @@ test.describe("POST /agency/list-domains", () => {
 	test("unauthenticated request returns 401", async ({ request }) => {
 		const api = new AgencyAPIClient(request);
 
-		const listRequest: ListDomainStatusRequest = {};
+		const listRequest: AgencyListDomainStatusRequest = {};
 		const response = await api.listDomainsWithoutAuth(listRequest);
 
 		expect(response.status).toBe(401);
@@ -158,7 +158,7 @@ test.describe("POST /agency/list-domains", () => {
 	test("invalid session token returns 401", async ({ request }) => {
 		const api = new AgencyAPIClient(request);
 
-		const listRequest: ListDomainStatusRequest = {};
+		const listRequest: AgencyListDomainStatusRequest = {};
 		const response = await api.listDomains(
 			"ind1-" + "a".repeat(64),
 			listRequest

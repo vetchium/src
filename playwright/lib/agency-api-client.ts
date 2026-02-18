@@ -4,15 +4,15 @@ import type {
 	RemoveRoleRequest,
 } from "vetchium-specs/common/roles";
 import type {
-	ClaimDomainRequest,
-	ClaimDomainResponse,
-	VerifyDomainRequest,
-	VerifyDomainResponse,
-	GetDomainStatusRequest,
-	GetDomainStatusResponse,
-	ListDomainStatusRequest,
-	ListDomainStatusResponse,
-} from "vetchium-specs/employer-domains/employer-domains";
+	AgencyClaimDomainRequest,
+	AgencyClaimDomainResponse,
+	AgencyVerifyDomainRequest,
+	AgencyVerifyDomainResponse,
+	AgencyGetDomainStatusRequest,
+	AgencyGetDomainStatusResponse,
+	AgencyListDomainStatusRequest,
+	AgencyListDomainStatusResponse,
+} from "vetchium-specs/agency-domains/agency-domains";
 import type {
 	AgencyInitSignupRequest,
 	AgencyInitSignupResponse,
@@ -164,8 +164,8 @@ export class AgencyAPIClient {
 	 */
 	async claimDomain(
 		sessionToken: string,
-		request: ClaimDomainRequest
-	): Promise<APIResponse<ClaimDomainResponse>> {
+		request: AgencyClaimDomainRequest
+	): Promise<APIResponse<AgencyClaimDomainResponse>> {
 		const response = await this.request.post("/agency/claim-domain", {
 			headers: {
 				Authorization: `Bearer ${sessionToken}`,
@@ -176,7 +176,7 @@ export class AgencyAPIClient {
 		const body = await response.json().catch(() => ({}));
 		return {
 			status: response.status(),
-			body: body as ClaimDomainResponse,
+			body: body as AgencyClaimDomainResponse,
 			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
@@ -187,7 +187,7 @@ export class AgencyAPIClient {
 	async claimDomainRaw(
 		sessionToken: string,
 		body: unknown
-	): Promise<APIResponse<ClaimDomainResponse>> {
+	): Promise<APIResponse<AgencyClaimDomainResponse>> {
 		const response = await this.request.post("/agency/claim-domain", {
 			headers: {
 				Authorization: `Bearer ${sessionToken}`,
@@ -198,7 +198,7 @@ export class AgencyAPIClient {
 		const responseBody = await response.json().catch(() => ({}));
 		return {
 			status: response.status(),
-			body: responseBody as ClaimDomainResponse,
+			body: responseBody as AgencyClaimDomainResponse,
 			errors: Array.isArray(responseBody) ? responseBody : undefined,
 		};
 	}
@@ -207,8 +207,8 @@ export class AgencyAPIClient {
 	 * POST /agency/claim-domain without Authorization header (for testing 401)
 	 */
 	async claimDomainWithoutAuth(
-		request: ClaimDomainRequest
-	): Promise<APIResponse<ClaimDomainResponse>> {
+		request: AgencyClaimDomainRequest
+	): Promise<APIResponse<AgencyClaimDomainResponse>> {
 		const response = await this.request.post("/agency/claim-domain", {
 			data: request,
 		});
@@ -216,7 +216,7 @@ export class AgencyAPIClient {
 		const body = await response.json().catch(() => ({}));
 		return {
 			status: response.status(),
-			body: body as ClaimDomainResponse,
+			body: body as AgencyClaimDomainResponse,
 			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
@@ -227,8 +227,8 @@ export class AgencyAPIClient {
 	 */
 	async verifyDomain(
 		sessionToken: string,
-		request: VerifyDomainRequest
-	): Promise<APIResponse<VerifyDomainResponse>> {
+		request: AgencyVerifyDomainRequest
+	): Promise<APIResponse<AgencyVerifyDomainResponse>> {
 		const response = await this.request.post("/agency/verify-domain", {
 			headers: {
 				Authorization: `Bearer ${sessionToken}`,
@@ -239,7 +239,7 @@ export class AgencyAPIClient {
 		const body = await response.json().catch(() => ({}));
 		return {
 			status: response.status(),
-			body: body as VerifyDomainResponse,
+			body: body as AgencyVerifyDomainResponse,
 			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
@@ -250,7 +250,7 @@ export class AgencyAPIClient {
 	async verifyDomainRaw(
 		sessionToken: string,
 		body: unknown
-	): Promise<APIResponse<VerifyDomainResponse>> {
+	): Promise<APIResponse<AgencyVerifyDomainResponse>> {
 		const response = await this.request.post("/agency/verify-domain", {
 			headers: {
 				Authorization: `Bearer ${sessionToken}`,
@@ -261,7 +261,7 @@ export class AgencyAPIClient {
 		const responseBody = await response.json().catch(() => ({}));
 		return {
 			status: response.status(),
-			body: responseBody as VerifyDomainResponse,
+			body: responseBody as AgencyVerifyDomainResponse,
 			errors: Array.isArray(responseBody) ? responseBody : undefined,
 		};
 	}
@@ -270,8 +270,8 @@ export class AgencyAPIClient {
 	 * POST /agency/verify-domain without Authorization header (for testing 401)
 	 */
 	async verifyDomainWithoutAuth(
-		request: VerifyDomainRequest
-	): Promise<APIResponse<VerifyDomainResponse>> {
+		request: AgencyVerifyDomainRequest
+	): Promise<APIResponse<AgencyVerifyDomainResponse>> {
 		const response = await this.request.post("/agency/verify-domain", {
 			data: request,
 		});
@@ -279,7 +279,7 @@ export class AgencyAPIClient {
 		const body = await response.json().catch(() => ({}));
 		return {
 			status: response.status(),
-			body: body as VerifyDomainResponse,
+			body: body as AgencyVerifyDomainResponse,
 			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
@@ -290,8 +290,8 @@ export class AgencyAPIClient {
 	 */
 	async getDomainStatus(
 		sessionToken: string,
-		request: GetDomainStatusRequest
-	): Promise<APIResponse<GetDomainStatusResponse>> {
+		request: AgencyGetDomainStatusRequest
+	): Promise<APIResponse<AgencyGetDomainStatusResponse>> {
 		const response = await this.request.post("/agency/get-domain-status", {
 			headers: {
 				Authorization: `Bearer ${sessionToken}`,
@@ -302,7 +302,7 @@ export class AgencyAPIClient {
 		const body = await response.json().catch(() => ({}));
 		return {
 			status: response.status(),
-			body: body as GetDomainStatusResponse,
+			body: body as AgencyGetDomainStatusResponse,
 			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
@@ -313,7 +313,7 @@ export class AgencyAPIClient {
 	async getDomainStatusRaw(
 		sessionToken: string,
 		body: unknown
-	): Promise<APIResponse<GetDomainStatusResponse>> {
+	): Promise<APIResponse<AgencyGetDomainStatusResponse>> {
 		const response = await this.request.post("/agency/get-domain-status", {
 			headers: {
 				Authorization: `Bearer ${sessionToken}`,
@@ -324,7 +324,7 @@ export class AgencyAPIClient {
 		const responseBody = await response.json().catch(() => ({}));
 		return {
 			status: response.status(),
-			body: responseBody as GetDomainStatusResponse,
+			body: responseBody as AgencyGetDomainStatusResponse,
 			errors: Array.isArray(responseBody) ? responseBody : undefined,
 		};
 	}
@@ -333,8 +333,8 @@ export class AgencyAPIClient {
 	 * POST /agency/get-domain-status without Authorization header (for testing 401)
 	 */
 	async getDomainStatusWithoutAuth(
-		request: GetDomainStatusRequest
-	): Promise<APIResponse<GetDomainStatusResponse>> {
+		request: AgencyGetDomainStatusRequest
+	): Promise<APIResponse<AgencyGetDomainStatusResponse>> {
 		const response = await this.request.post("/agency/get-domain-status", {
 			data: request,
 		});
@@ -342,7 +342,7 @@ export class AgencyAPIClient {
 		const body = await response.json().catch(() => ({}));
 		return {
 			status: response.status(),
-			body: body as GetDomainStatusResponse,
+			body: body as AgencyGetDomainStatusResponse,
 			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
@@ -353,8 +353,8 @@ export class AgencyAPIClient {
 	 */
 	async listDomains(
 		sessionToken: string,
-		request: ListDomainStatusRequest
-	): Promise<APIResponse<ListDomainStatusResponse>> {
+		request: AgencyListDomainStatusRequest
+	): Promise<APIResponse<AgencyListDomainStatusResponse>> {
 		const response = await this.request.post("/agency/list-domains", {
 			headers: {
 				Authorization: `Bearer ${sessionToken}`,
@@ -365,7 +365,7 @@ export class AgencyAPIClient {
 		const body = await response.json().catch(() => ({}));
 		return {
 			status: response.status(),
-			body: body as ListDomainStatusResponse,
+			body: body as AgencyListDomainStatusResponse,
 			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
@@ -376,7 +376,7 @@ export class AgencyAPIClient {
 	async listDomainsRaw(
 		sessionToken: string,
 		body: unknown
-	): Promise<APIResponse<ListDomainStatusResponse>> {
+	): Promise<APIResponse<AgencyListDomainStatusResponse>> {
 		const response = await this.request.post("/agency/list-domains", {
 			headers: {
 				Authorization: `Bearer ${sessionToken}`,
@@ -387,7 +387,7 @@ export class AgencyAPIClient {
 		const responseBody = await response.json().catch(() => ({}));
 		return {
 			status: response.status(),
-			body: responseBody as ListDomainStatusResponse,
+			body: responseBody as AgencyListDomainStatusResponse,
 			errors: Array.isArray(responseBody) ? responseBody : undefined,
 		};
 	}
@@ -396,8 +396,8 @@ export class AgencyAPIClient {
 	 * POST /agency/list-domains without Authorization header (for testing 401)
 	 */
 	async listDomainsWithoutAuth(
-		request: ListDomainStatusRequest
-	): Promise<APIResponse<ListDomainStatusResponse>> {
+		request: AgencyListDomainStatusRequest
+	): Promise<APIResponse<AgencyListDomainStatusResponse>> {
 		const response = await this.request.post("/agency/list-domains", {
 			data: request,
 		});
@@ -405,7 +405,7 @@ export class AgencyAPIClient {
 		const body = await response.json().catch(() => ({}));
 		return {
 			status: response.status(),
-			body: body as ListDomainStatusResponse,
+			body: body as AgencyListDomainStatusResponse,
 			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}

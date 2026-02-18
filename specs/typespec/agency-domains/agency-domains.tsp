@@ -8,37 +8,21 @@ using TypeSpec.Http;
 
 namespace Vetchium;
 
-// Domain Verification Token - secret expected in DNS TXT record
-scalar DomainVerificationToken extends string;
-
-// Domain verification status enum
-enum DomainVerificationStatus {
-  PENDING: "PENDING",
-  VERIFIED: "VERIFIED",
-  FAILING: "FAILING",
-}
-
-// Constants for domain verification
-// TOKEN_EXPIRY_DAYS = 7
-// VERIFICATION_INTERVAL_DAYS = 60
-// GRACE_PERIOD_DAYS = 14
-// MAX_CONSECUTIVE_FAILURES = 3
-
 // ============================================
-// Domain Verification Flow
+// Agency Domain Verification Flow
 // ============================================
 
-model ClaimDomainRequest {
+model AgencyClaimDomainRequest {
   @doc("Root domain to claim (e.g., example.com)")
   domain: DomainName;
 }
 
-model ClaimDomainResponse {
+model AgencyClaimDomainResponse {
   @doc("The claimed domain")
   domain: string;
 
   @doc("Verification token to add as DNS TXT record")
-  verification_token: DomainVerificationToken;
+  verification_token: string;
 
   @doc("When the verification token expires")
   expires_at: utcDateTime;
@@ -47,14 +31,14 @@ model ClaimDomainResponse {
   instructions: string;
 }
 
-model VerifyDomainRequest {
+model AgencyVerifyDomainRequest {
   @doc("Domain to verify")
   domain: DomainName;
 }
 
-model VerifyDomainResponse {
+model AgencyVerifyDomainResponse {
   @doc("Current verification status")
-  status: DomainVerificationStatus;
+  status: string;
 
   @doc("When the domain was verified (if VERIFIED)")
   verified_at?: utcDateTime;
@@ -63,20 +47,20 @@ model VerifyDomainResponse {
   message?: string;
 }
 
-model GetDomainStatusRequest {
+model AgencyGetDomainStatusRequest {
   @doc("Domain to get status for")
   domain: DomainName;
 }
 
-model GetDomainStatusResponse {
+model AgencyGetDomainStatusResponse {
   @doc("The domain")
   domain: string;
 
   @doc("Current verification status")
-  status: DomainVerificationStatus;
+  status: string;
 
   @doc("Verification token (visible only if PENDING or FAILING)")
-  verification_token?: DomainVerificationToken;
+  verification_token?: string;
 
   @doc("When the verification token expires (if PENDING)")
   expires_at?: utcDateTime;
@@ -85,20 +69,20 @@ model GetDomainStatusResponse {
   last_verified_at?: utcDateTime;
 }
 
-model ListDomainStatusRequest {
+model AgencyListDomainStatusRequest {
   @doc("Pagination cursor (domain name of the last item from previous page)")
   pagination_key?: string;
 }
 
-model ListDomainStatusItem {
+model AgencyListDomainStatusItem {
   @doc("The domain name")
   domain: string;
 
   @doc("Current verification status")
-  status: DomainVerificationStatus;
+  status: string;
 
   @doc("Verification token (visible only if PENDING or FAILING)")
-  verification_token?: DomainVerificationToken;
+  verification_token?: string;
 
   @doc("When the verification token expires (if PENDING)")
   expires_at?: utcDateTime;
@@ -107,9 +91,9 @@ model ListDomainStatusItem {
   last_verified_at?: utcDateTime;
 }
 
-model ListDomainStatusResponse {
+model AgencyListDomainStatusResponse {
   @doc("List of domains with their verification status")
-  items: ListDomainStatusItem[];
+  items: AgencyListDomainStatusItem[];
 
   @doc("Pagination cursor for the next page (absent if no more pages)")
   next_pagination_key?: string;
@@ -119,15 +103,15 @@ model ListDomainStatusResponse {
 // API Interfaces
 // ============================================
 
-@route("/employer/claim-domain")
-interface OrgClaimDomain {
-  @tag("OrgDomains")
+@route("/agency/claim-domain")
+interface AgencyClaimDomain {
+  @tag("AgencyDomains")
   @post
-  @doc("Claim a domain for verification. Requires authenticated session.")
-  claimDomain(@body request: ClaimDomainRequest):
+  @doc("Claim a domain for verification. Requires authenticated agency session.")
+  claimDomain(@body request: AgencyClaimDomainRequest):
     | {
         @statusCode statusCode: 201;
-        @body response: ClaimDomainResponse;
+        @body response: AgencyClaimDomainResponse;
       }
     | {
         @doc("Invalid domain format or validation errors")
@@ -140,21 +124,21 @@ interface OrgClaimDomain {
         statusCode: 401;
       }
     | {
-        @doc("Domain already claimed by another employer")
+        @doc("Domain already claimed by another agency")
         @statusCode
         statusCode: 409;
       };
 }
 
-@route("/employer/verify-domain")
-interface OrgVerifyDomain {
-  @tag("OrgDomains")
+@route("/agency/verify-domain")
+interface AgencyVerifyDomain {
+  @tag("AgencyDomains")
   @post
-  @doc("Trigger manual DNS verification for a claimed domain.")
-  verifyDomain(@body request: VerifyDomainRequest):
+  @doc("Trigger manual DNS verification for a claimed agency domain.")
+  verifyDomain(@body request: AgencyVerifyDomainRequest):
     | {
         @statusCode statusCode: 200;
-        @body response: VerifyDomainResponse;
+        @body response: AgencyVerifyDomainResponse;
       }
     | {
         @doc("Invalid domain format or validation errors")
@@ -167,21 +151,21 @@ interface OrgVerifyDomain {
         statusCode: 401;
       }
     | {
-        @doc("Domain not found or not owned by this employer")
+        @doc("Domain not found or not owned by this agency")
         @statusCode
         statusCode: 404;
       };
 }
 
-@route("/employer/get-domain-status")
-interface OrgGetDomainStatus {
-  @tag("OrgDomains")
+@route("/agency/get-domain-status")
+interface AgencyGetDomainStatus {
+  @tag("AgencyDomains")
   @post
-  @doc("Get current verification status of a claimed domain.")
-  getDomainStatus(@body request: GetDomainStatusRequest):
+  @doc("Get current verification status of a claimed agency domain.")
+  getDomainStatus(@body request: AgencyGetDomainStatusRequest):
     | {
         @statusCode statusCode: 200;
-        @body response: GetDomainStatusResponse;
+        @body response: AgencyGetDomainStatusResponse;
       }
     | {
         @doc("Invalid domain format or validation errors")
@@ -194,21 +178,21 @@ interface OrgGetDomainStatus {
         statusCode: 401;
       }
     | {
-        @doc("Domain not found or not owned by this employer")
+        @doc("Domain not found or not owned by this agency")
         @statusCode
         statusCode: 404;
       };
 }
 
-@route("/employer/list-domains")
-interface OrgListDomains {
-  @tag("OrgDomains")
+@route("/agency/list-domains")
+interface AgencyListDomains {
+  @tag("AgencyDomains")
   @post
-  @doc("List all domains claimed by this employer with their verification status.")
-  listDomains(@body request: ListDomainStatusRequest):
+  @doc("List all domains claimed by this agency with their verification status.")
+  listDomains(@body request: AgencyListDomainStatusRequest):
     | {
         @statusCode statusCode: 200;
-        @body response: ListDomainStatusResponse;
+        @body response: AgencyListDomainStatusResponse;
       }
     | {
         @doc("Invalid or expired session token")
@@ -216,4 +200,3 @@ interface OrgListDomains {
         statusCode: 401;
       };
 }
-

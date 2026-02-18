@@ -8,6 +8,7 @@
 		"./admin/admin-users": "./admin/admin-users.ts",
 		"./employer/employer-users": "./employer/employer-users.ts",
 		"./employer-domains/employer-domains": "./employer-domains/employer-domains.ts",
+		"./agency-domains/agency-domains": "./agency-domains/agency-domains.ts",
 		"./agency/agency-users": "./agency/agency-users.ts",
 		"./global/global": "./global/global.ts",
 		"./common/common": "./common/common.ts",

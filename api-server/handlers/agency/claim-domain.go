@@ -16,7 +16,7 @@ import (
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
-	employerdomains "vetchium-api-server.typespec/employer-domains"
+	agencydomains "vetchium-api-server.typespec/agency-domains"
 )
 
 func ClaimDomain(s *server.Server) http.HandlerFunc {
@@ -32,7 +32,7 @@ func ClaimDomain(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		var req employerdomains.ClaimDomainRequest
+		var req agencydomains.AgencyClaimDomainRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			log.Debug("failed to decode request", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -71,7 +71,7 @@ func ClaimDomain(s *server.Server) http.HandlerFunc {
 		verificationToken := hex.EncodeToString(tokenBytes)
 
 		// Calculate token expiry
-		tokenExpiresAt := time.Now().AddDate(0, 0, employerdomains.TokenExpiryDays)
+		tokenExpiresAt := time.Now().AddDate(0, 0, agencydomains.AgencyTokenExpiryDays)
 
 		// SAGA pattern: Create in global DB first (for uniqueness)
 		err = s.Global.CreateGlobalAgencyDomain(ctx, globaldb.CreateGlobalAgencyDomainParams{
@@ -117,13 +117,13 @@ func ClaimDomain(s *server.Server) http.HandlerFunc {
 				"Host: _vetchium-verify.%s\n"+
 				"Value: %s\n\n"+
 				"This token will expire in %d days.",
-			domain, verificationToken, employerdomains.TokenExpiryDays,
+			domain, verificationToken, agencydomains.AgencyTokenExpiryDays,
 		)
 
 		w.WriteHeader(http.StatusCreated)
-		response := employerdomains.ClaimDomainResponse{
+		response := agencydomains.AgencyClaimDomainResponse{
 			Domain:            domain,
-			VerificationToken: employerdomains.DomainVerificationToken(verificationToken),
+			VerificationToken: agencydomains.AgencyDomainVerificationToken(verificationToken),
 			ExpiresAt:         tokenExpiresAt,
 			Instructions:      instructions,
 		}

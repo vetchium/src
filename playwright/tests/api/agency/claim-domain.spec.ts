@@ -13,7 +13,7 @@ import type {
 	AgencyLoginRequest,
 	AgencyTFARequest,
 } from "vetchium-specs/agency/agency-users";
-import type { ClaimDomainRequest } from "vetchium-specs/employer-domains/employer-domains";
+import type { AgencyAgencyClaimDomainRequest } from "vetchium-specs/agency-domains/agency-domains";
 
 /**
  * Helper to create an agency admin and return session token.
@@ -62,7 +62,7 @@ test.describe("POST /agency/claim-domain", () => {
 			);
 			userEmail = email;
 
-			const claimRequest: ClaimDomainRequest = {
+			const claimRequest: AgencyClaimDomainRequest = {
 				domain: claimedDomain,
 			};
 			const response = await api.claimDomain(sessionToken, claimRequest);
@@ -82,7 +82,7 @@ test.describe("POST /agency/claim-domain", () => {
 	test("unauthenticated request returns 401", async ({ request }) => {
 		const api = new AgencyAPIClient(request);
 
-		const claimRequest: ClaimDomainRequest = {
+		const claimRequest: AgencyClaimDomainRequest = {
 			domain: "example.com",
 		};
 		const response = await api.claimDomainWithoutAuth(claimRequest);
@@ -93,7 +93,7 @@ test.describe("POST /agency/claim-domain", () => {
 	test("invalid session token returns 401", async ({ request }) => {
 		const api = new AgencyAPIClient(request);
 
-		const claimRequest: ClaimDomainRequest = {
+		const claimRequest: AgencyClaimDomainRequest = {
 			domain: "example.com",
 		};
 		const response = await api.claimDomain(
@@ -175,7 +175,7 @@ test.describe("POST /agency/claim-domain", () => {
 			);
 			userEmail = email;
 
-			const claimRequest: ClaimDomainRequest = {
+			const claimRequest: AgencyClaimDomainRequest = {
 				domain: claimedDomain,
 			};
 

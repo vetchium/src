@@ -14,9 +14,9 @@ import type {
 	AgencyTFARequest,
 } from "vetchium-specs/agency/agency-users";
 import type {
-	ClaimDomainRequest,
-	VerifyDomainRequest,
-} from "vetchium-specs/employer-domains/employer-domains";
+	AgencyAgencyClaimDomainRequest,
+	AgencyAgencyVerifyDomainRequest,
+} from "vetchium-specs/agency-domains/agency-domains";
 
 /**
  * Helper to create an agency admin and return session token.
@@ -66,14 +66,14 @@ test.describe("POST /agency/verify-domain", () => {
 			userEmail = email;
 
 			// Claim domain first
-			const claimRequest: ClaimDomainRequest = {
+			const claimRequest: AgencyClaimDomainRequest = {
 				domain: claimedDomain,
 			};
 			const claimResponse = await api.claimDomain(sessionToken, claimRequest);
 			expect(claimResponse.status).toBe(201);
 
 			// Verify - should return PENDING since no DNS record
-			const verifyRequest: VerifyDomainRequest = {
+			const verifyRequest: AgencyVerifyDomainRequest = {
 				domain: claimedDomain,
 			};
 			const response = await api.verifyDomain(sessionToken, verifyRequest);
@@ -89,7 +89,7 @@ test.describe("POST /agency/verify-domain", () => {
 	test("unauthenticated request returns 401", async ({ request }) => {
 		const api = new AgencyAPIClient(request);
 
-		const verifyRequest: VerifyDomainRequest = {
+		const verifyRequest: AgencyVerifyDomainRequest = {
 			domain: "example.com",
 		};
 		const response = await api.verifyDomainWithoutAuth(verifyRequest);
@@ -100,7 +100,7 @@ test.describe("POST /agency/verify-domain", () => {
 	test("invalid session token returns 401", async ({ request }) => {
 		const api = new AgencyAPIClient(request);
 
-		const verifyRequest: VerifyDomainRequest = {
+		const verifyRequest: AgencyVerifyDomainRequest = {
 			domain: "example.com",
 		};
 		const response = await api.verifyDomain(
@@ -160,7 +160,7 @@ test.describe("POST /agency/verify-domain", () => {
 			);
 			userEmail = email;
 
-			const verifyRequest: VerifyDomainRequest = {
+			const verifyRequest: AgencyVerifyDomainRequest = {
 				domain: "unclaimed-" + Date.now() + ".example.com",
 			};
 			const response = await api.verifyDomain(sessionToken, verifyRequest);
@@ -183,7 +183,7 @@ test.describe("POST /agency/verify-domain", () => {
 				await createAgencyAdminAndGetSession(api, "agency-verify-owner1");
 			userEmail1 = email1;
 
-			const claimRequest: ClaimDomainRequest = {
+			const claimRequest: AgencyClaimDomainRequest = {
 				domain: claimedDomain,
 			};
 			const claimResponse = await api.claimDomain(token1, claimRequest);
@@ -194,7 +194,7 @@ test.describe("POST /agency/verify-domain", () => {
 				await createAgencyAdminAndGetSession(api, "agency-verify-owner2");
 			userEmail2 = email2;
 
-			const verifyRequest: VerifyDomainRequest = {
+			const verifyRequest: AgencyVerifyDomainRequest = {
 				domain: claimedDomain,
 			};
 			const response = await api.verifyDomain(token2, verifyRequest);

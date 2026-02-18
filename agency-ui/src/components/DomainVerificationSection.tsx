@@ -1,44 +1,44 @@
 import {
-	Card,
-	Form,
-	Input,
-	Button,
-	Alert,
-	Spin,
-	Typography,
-	Tag,
-	Space,
-	Divider,
-	List,
-	message,
-} from "antd";
-import {
-	GlobalOutlined,
 	CheckCircleOutlined,
 	ClockCircleOutlined,
-	ExclamationCircleOutlined,
 	CopyOutlined,
+	ExclamationCircleOutlined,
+	GlobalOutlined,
 	ReloadOutlined,
 } from "@ant-design/icons";
-import { useState, useCallback, useEffect } from "react";
-import { useTranslation } from "react-i18next";
-import { getApiBaseUrl } from "../config";
-import { useAuth } from "../hooks/useAuth";
 import {
-	DOMAIN_MIN_LENGTH,
+	Alert,
+	Button,
+	Card,
+	Divider,
+	Form,
+	Input,
+	List,
+	message,
+	Space,
+	Spin,
+	Tag,
+	Typography,
+} from "antd";
+import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
+import {
 	DOMAIN_MAX_LENGTH,
+	DOMAIN_MIN_LENGTH,
 } from "vetchium-specs/common/common";
 import type {
-	ClaimDomainRequest,
-	ClaimDomainResponse,
-	VerifyDomainRequest,
-	VerifyDomainResponse,
-	GetDomainStatusRequest,
-	ListDomainStatusRequest,
-	ListDomainStatusItem,
-	ListDomainStatusResponse,
-	DomainVerificationStatus,
-} from "vetchium-specs/orgdomains/orgdomains";
+	AgencyClaimDomainRequest,
+	AgencyClaimDomainResponse,
+	AgencyDomainVerificationStatus,
+	AgencyGetDomainStatusRequest,
+	AgencyListDomainStatusItem,
+	AgencyListDomainStatusRequest,
+	AgencyListDomainStatusResponse,
+	AgencyVerifyDomainRequest,
+	AgencyVerifyDomainResponse,
+} from "vetchium-specs/agency-domains/agency-domains";
+import { getApiBaseUrl } from "../config";
+import { useAuth } from "../hooks/useAuth";
 
 const { Text, Paragraph } = Typography;
 
@@ -53,16 +53,14 @@ export function DomainVerificationSection() {
 	const [loading, setLoading] = useState(false);
 	const [domainsLoading, setDomainsLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	const [domains, setDomains] = useState<ListDomainStatusItem[]>([]);
-	const [claimResult, setClaimResult] = useState<ClaimDomainResponse | null>(
-		null
-	);
-	const [verifyResult, setVerifyResult] = useState<VerifyDomainResponse | null>(
-		null
-	);
+	const [domains, setDomains] = useState<AgencyListDomainStatusItem[]>([]);
+	const [claimResult, setClaimResult] =
+		useState<AgencyClaimDomainResponse | null>(null);
+	const [verifyResult, setVerifyResult] =
+		useState<AgencyVerifyDomainResponse | null>(null);
 	const [actionDomain, setActionDomain] = useState<string | null>(null);
 
-	const getStatusTag = (status: DomainVerificationStatus) => {
+	const getStatusTag = (status: AgencyDomainVerificationStatus) => {
 		switch (status) {
 			case "VERIFIED":
 				return (
@@ -100,7 +98,7 @@ export function DomainVerificationSection() {
 		setDomainsLoading(true);
 		try {
 			const apiBaseUrl = await getApiBaseUrl();
-			const request: ListDomainStatusRequest = {};
+			const request: AgencyListDomainStatusRequest = {};
 			const response = await fetch(`${apiBaseUrl}/agency/list-domains`, {
 				method: "POST",
 				headers: {
@@ -111,7 +109,7 @@ export function DomainVerificationSection() {
 			});
 
 			if (response.status === 200) {
-				const data: ListDomainStatusResponse = await response.json();
+				const data: AgencyListDomainStatusResponse = await response.json();
 				setDomains(data.items);
 			} else if (response.status !== 401) {
 				setError(t("domain.loadFailed"));
@@ -135,7 +133,7 @@ export function DomainVerificationSection() {
 
 		try {
 			const apiBaseUrl = await getApiBaseUrl();
-			const request: ClaimDomainRequest = {
+			const request: AgencyClaimDomainRequest = {
 				domain: values.domain.toLowerCase(),
 			};
 
@@ -149,7 +147,7 @@ export function DomainVerificationSection() {
 			});
 
 			if (response.status === 201) {
-				const data: ClaimDomainResponse = await response.json();
+				const data: AgencyClaimDomainResponse = await response.json();
 				setClaimResult(data);
 				form.resetFields();
 				await loadDomains();
@@ -197,7 +195,7 @@ export function DomainVerificationSection() {
 
 			try {
 				const apiBaseUrl = await getApiBaseUrl();
-				const request: GetDomainStatusRequest = {
+				const request: AgencyGetDomainStatusRequest = {
 					domain: domain.toLowerCase(),
 				};
 
@@ -237,7 +235,7 @@ export function DomainVerificationSection() {
 
 		try {
 			const apiBaseUrl = await getApiBaseUrl();
-			const request: VerifyDomainRequest = {
+			const request: AgencyVerifyDomainRequest = {
 				domain: domain.toLowerCase(),
 			};
 
@@ -251,7 +249,7 @@ export function DomainVerificationSection() {
 			});
 
 			if (response.status === 200) {
-				const data: VerifyDomainResponse = await response.json();
+				const data: AgencyVerifyDomainResponse = await response.json();
 				setVerifyResult(data);
 				await loadDomains();
 				return;

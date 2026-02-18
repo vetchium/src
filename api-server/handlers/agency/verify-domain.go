@@ -15,7 +15,7 @@ import (
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
-	employerdomains "vetchium-api-server.typespec/employer-domains"
+	agencydomains "vetchium-api-server.typespec/agency-domains"
 )
 
 func VerifyDomain(s *server.Server) http.HandlerFunc {
@@ -31,7 +31,7 @@ func VerifyDomain(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		var req employerdomains.VerifyDomainRequest
+		var req agencydomains.AgencyVerifyDomainRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			log.Debug("failed to decode request", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -76,8 +76,8 @@ func VerifyDomain(s *server.Server) http.HandlerFunc {
 			}
 
 			message := "DNS lookup failed. Please ensure the TXT record is properly configured."
-			response := employerdomains.VerifyDomainResponse{
-				Status:  employerdomains.DomainVerificationStatus(domainRecord.Status),
+			response := agencydomains.AgencyVerifyDomainResponse{
+				Status:  agencydomains.AgencyDomainVerificationStatus(domainRecord.Status),
 				Message: &message,
 			}
 			json.NewEncoder(w).Encode(response)
@@ -103,8 +103,8 @@ func VerifyDomain(s *server.Server) http.HandlerFunc {
 			}
 
 			message := "Verification token not found in DNS TXT records. Please ensure the TXT record is correctly configured."
-			response := employerdomains.VerifyDomainResponse{
-				Status:  employerdomains.DomainVerificationStatus(domainRecord.Status),
+			response := agencydomains.AgencyVerifyDomainResponse{
+				Status:  agencydomains.AgencyDomainVerificationStatus(domainRecord.Status),
 				Message: &message,
 			}
 			json.NewEncoder(w).Encode(response)
@@ -128,8 +128,8 @@ func VerifyDomain(s *server.Server) http.HandlerFunc {
 		log.Info("domain verified successfully", "domain", domain, "agency_id", agencyUser.AgencyID)
 
 		message := "Domain verified successfully!"
-		response := employerdomains.VerifyDomainResponse{
-			Status:     employerdomains.DomainVerificationStatusVerified,
+		response := agencydomains.AgencyVerifyDomainResponse{
+			Status:     agencydomains.AgencyDomainVerificationStatusVerified,
 			VerifiedAt: &now,
 			Message:    &message,
 		}
@@ -142,7 +142,7 @@ func handleAgencyVerificationFailure(ctx context.Context, regionalDB *regionaldb
 
 	// Check if we should transition to FAILING status
 	var newStatus regionaldb.DomainVerificationStatus
-	if newFailures >= employerdomains.MaxConsecutiveFailures && domainRecord.Status == regionaldb.DomainVerificationStatusVERIFIED {
+	if newFailures >= agencydomains.AgencyMaxConsecutiveFailures && domainRecord.Status == regionaldb.DomainVerificationStatusVERIFIED {
 		newStatus = regionaldb.DomainVerificationStatusFAILING
 	} else {
 		newStatus = domainRecord.Status

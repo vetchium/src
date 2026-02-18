@@ -10,7 +10,7 @@ import (
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
-	employerdomains "vetchium-api-server.typespec/employer-domains"
+	agencydomains "vetchium-api-server.typespec/agency-domains"
 )
 
 func GetDomainStatus(s *server.Server) http.HandlerFunc {
@@ -26,7 +26,7 @@ func GetDomainStatus(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		var req employerdomains.GetDomainStatusRequest
+		var req agencydomains.AgencyGetDomainStatusRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			log.Debug("failed to decode request", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -60,15 +60,15 @@ func GetDomainStatus(s *server.Server) http.HandlerFunc {
 		}
 
 		// Build response
-		response := employerdomains.GetDomainStatusResponse{
+		response := agencydomains.AgencyGetDomainStatusResponse{
 			Domain: domain,
-			Status: employerdomains.DomainVerificationStatus(domainRecord.Status),
+			Status: agencydomains.AgencyDomainVerificationStatus(domainRecord.Status),
 		}
 
 		// Include verification token for PENDING or FAILING status
 		if domainRecord.Status == regionaldb.DomainVerificationStatusPENDING ||
 			domainRecord.Status == regionaldb.DomainVerificationStatusFAILING {
-			token := employerdomains.DomainVerificationToken(domainRecord.VerificationToken)
+			token := agencydomains.AgencyDomainVerificationToken(domainRecord.VerificationToken)
 			response.VerificationToken = &token
 		}
 

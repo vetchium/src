@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
+	agencydomains "vetchium-api-server.typespec/agency-domains"
 	employerdomains "vetchium-api-server.typespec/employer-domains"
 )
 
@@ -331,7 +332,7 @@ func (w *RegionalWorker) verifyAgencyDomains(ctx context.Context) {
 		return
 	}
 
-	cutoff := time.Now().AddDate(0, 0, -employerdomains.VerificationIntervalDays)
+	cutoff := time.Now().AddDate(0, 0, -agencydomains.AgencyVerificationIntervalDays)
 	domains, err := w.queries.GetAgencyDomainsForReverification(ctx, pgtype.Timestamp{Time: cutoff, Valid: true})
 	if err != nil {
 		w.log.Error("failed to get agency domains for reverification", "error", err)
@@ -362,7 +363,7 @@ func (w *RegionalWorker) verifyAgencyDomains(ctx context.Context) {
 		} else {
 			newFailures := d.ConsecutiveFailures + 1
 			newStatus := d.Status
-			if newFailures >= employerdomains.MaxConsecutiveFailures && d.Status == regionaldb.DomainVerificationStatusVERIFIED {
+			if newFailures >= agencydomains.AgencyMaxConsecutiveFailures && d.Status == regionaldb.DomainVerificationStatusVERIFIED {
 				newStatus = regionaldb.DomainVerificationStatusFAILING
 			}
 			err = w.queries.UpdateAgencyDomainStatus(ctx, regionaldb.UpdateAgencyDomainStatusParams{

@@ -14,9 +14,9 @@ import type {
 	AgencyTFARequest,
 } from "vetchium-specs/agency/agency-users";
 import type {
-	ClaimDomainRequest,
-	GetDomainStatusRequest,
-} from "vetchium-specs/employer-domains/employer-domains";
+	AgencyAgencyClaimDomainRequest,
+	AgencyAgencyGetDomainStatusRequest,
+} from "vetchium-specs/agency-domains/agency-domains";
 
 /**
  * Helper to create an agency admin and return session token.
@@ -66,7 +66,7 @@ test.describe("POST /agency/get-domain-status", () => {
 			userEmail = email;
 
 			// Claim domain first
-			const claimRequest: ClaimDomainRequest = {
+			const claimRequest: AgencyClaimDomainRequest = {
 				domain: claimedDomain,
 			};
 			const claimResponse = await api.claimDomain(sessionToken, claimRequest);
@@ -74,7 +74,7 @@ test.describe("POST /agency/get-domain-status", () => {
 			const verificationToken = claimResponse.body.verification_token;
 
 			// Get status
-			const statusRequest: GetDomainStatusRequest = {
+			const statusRequest: AgencyGetDomainStatusRequest = {
 				domain: claimedDomain,
 			};
 			const response = await api.getDomainStatus(sessionToken, statusRequest);
@@ -93,7 +93,7 @@ test.describe("POST /agency/get-domain-status", () => {
 	test("unauthenticated request returns 401", async ({ request }) => {
 		const api = new AgencyAPIClient(request);
 
-		const statusRequest: GetDomainStatusRequest = {
+		const statusRequest: AgencyGetDomainStatusRequest = {
 			domain: "example.com",
 		};
 		const response = await api.getDomainStatusWithoutAuth(statusRequest);
@@ -104,7 +104,7 @@ test.describe("POST /agency/get-domain-status", () => {
 	test("invalid session token returns 401", async ({ request }) => {
 		const api = new AgencyAPIClient(request);
 
-		const statusRequest: GetDomainStatusRequest = {
+		const statusRequest: AgencyGetDomainStatusRequest = {
 			domain: "example.com",
 		};
 		const response = await api.getDomainStatus(
@@ -166,7 +166,7 @@ test.describe("POST /agency/get-domain-status", () => {
 			);
 			userEmail = email;
 
-			const statusRequest: GetDomainStatusRequest = {
+			const statusRequest: AgencyGetDomainStatusRequest = {
 				domain: "unclaimed-" + Date.now() + ".example.com",
 			};
 			const response = await api.getDomainStatus(sessionToken, statusRequest);
@@ -189,7 +189,7 @@ test.describe("POST /agency/get-domain-status", () => {
 				await createAgencyAdminAndGetSession(api, "agency-status-owner1");
 			userEmail1 = email1;
 
-			const claimRequest: ClaimDomainRequest = {
+			const claimRequest: AgencyClaimDomainRequest = {
 				domain: claimedDomain,
 			};
 			const claimResponse = await api.claimDomain(token1, claimRequest);
@@ -200,7 +200,7 @@ test.describe("POST /agency/get-domain-status", () => {
 				await createAgencyAdminAndGetSession(api, "agency-status-owner2");
 			userEmail2 = email2;
 
-			const statusRequest: GetDomainStatusRequest = {
+			const statusRequest: AgencyGetDomainStatusRequest = {
 				domain: claimedDomain,
 			};
 			const response = await api.getDomainStatus(token2, statusRequest);
