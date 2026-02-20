@@ -224,9 +224,7 @@ export function DomainManagementPage() {
 			title: t("domain.yourDomain"),
 			dataIndex: "domain",
 			key: "domain",
-			render: (domain: string) => (
-				<Tag icon={<GlobalOutlined />}>{domain}</Tag>
-			),
+			render: (domain: string) => <Tag icon={<GlobalOutlined />}>{domain}</Tag>,
 		},
 		{
 			title: t("domain.statusLabel"),
@@ -288,14 +286,10 @@ export function DomainManagementPage() {
 					<Space orientation="vertical" size={4}>
 						{record.expires_at && (
 							<Text type="secondary" style={{ fontSize: 12 }}>
-								{t("domain.tokenExpires")}:{" "}
-								{formatLocalTime(record.expires_at)}
+								{t("domain.tokenExpires")}: {formatLocalTime(record.expires_at)}
 							</Text>
 						)}
-						<Button
-							size="small"
-							onClick={() => setInstructionsDomain(record)}
-						>
+						<Button size="small" onClick={() => setInstructionsDomain(record)}>
 							{t("domain.showDnsInstructions")}
 						</Button>
 					</Space>
@@ -393,7 +387,9 @@ export function DomainManagementPage() {
 							{t("domain.dnsRecordInstructions")}
 							<Tag icon={<GlobalOutlined />}>{instructionsDomain.domain}</Tag>
 						</Space>
-					) : ""
+					) : (
+						""
+					)
 				}
 				width={600}
 			>
@@ -407,9 +403,7 @@ export function DomainManagementPage() {
 
 						<div>
 							<Text strong>{t("domain.recordHost")}: </Text>
-							<Text code>
-								_vetchium-verify.{instructionsDomain.domain}
-							</Text>
+							<Text code>_vetchium-verify.{instructionsDomain.domain}</Text>
 							<Button
 								type="text"
 								size="small"
