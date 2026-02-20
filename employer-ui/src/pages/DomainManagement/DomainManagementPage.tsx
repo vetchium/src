@@ -5,7 +5,6 @@ import {
 	CopyOutlined,
 	ExclamationCircleOutlined,
 	GlobalOutlined,
-	ReloadOutlined,
 	SyncOutlined,
 } from "@ant-design/icons";
 import {
@@ -15,6 +14,7 @@ import {
 	Card,
 	Form,
 	Input,
+	Modal,
 	Space,
 	Spin,
 	Table,
@@ -27,7 +27,6 @@ import { Link } from "react-router-dom";
 import type {
 	ClaimDomainRequest,
 	ClaimDomainResponse,
-	GetDomainStatusRequest,
 	ListDomainStatusItem,
 	ListDomainStatusRequest,
 	ListDomainStatusResponse,
@@ -62,6 +61,9 @@ export function DomainManagementPage() {
 		null
 	);
 	const [error, setError] = useState<string | null>(null);
+	// The domain whose DNS instructions modal is currently open
+	const [instructionsDomain, setInstructionsDomain] =
+		useState<ListDomainStatusItem | null>(null);
 
 	const copyToClipboard = async (text: string) => {
 		try {
@@ -165,49 +167,6 @@ export function DomainManagementPage() {
 		}
 	};
 
-	const handleRefreshStatus = useCallback(
-		async (domain: string) => {
-			setActionDomain(domain);
-			setError(null);
-
-			try {
-				const apiBaseUrl = await getApiBaseUrl();
-				const request: GetDomainStatusRequest = {
-					domain: domain.toLowerCase(),
-				};
-
-				const response = await fetch(
-					`${apiBaseUrl}/employer/get-domain-status`,
-					{
-						method: "POST",
-						headers: {
-							"Content-Type": "application/json",
-							Authorization: `Bearer ${sessionToken}`,
-						},
-						body: JSON.stringify(request),
-					}
-				);
-
-				if (response.status === 200) {
-					await loadDomains();
-					return;
-				}
-
-				if (response.status === 404) {
-					setError(t("domain.notFound"));
-					return;
-				}
-
-				setError(t("domain.statusFailed"));
-			} catch (err) {
-				setError(err instanceof Error ? err.message : t("domain.statusFailed"));
-			} finally {
-				setActionDomain(null);
-			}
-		},
-		[sessionToken, t, loadDomains]
-	);
-
 	const handleRequestVerification = async (domain: string) => {
 		setActionDomain(domain);
 		setError(null);
@@ -231,6 +190,7 @@ export function DomainManagementPage() {
 				const data: VerifyDomainResponse = await response.json();
 				if (data.status === DomainVerificationStatus.VERIFIED) {
 					message.success(t("domain.verifiedSuccess"));
+					setInstructionsDomain(null);
 				} else {
 					message.info(data.message ?? t("domain.verificationPending"));
 				}
@@ -256,104 +216,91 @@ export function DomainManagementPage() {
 		}
 	};
 
-	const getStatusTag = (status: string) => {
-		switch (status) {
-			case DomainVerificationStatus.VERIFIED:
-				return (
-					<Tag icon={<CheckCircleOutlined />} color="success">
-						{t("domain.statusVerified")}
-					</Tag>
-				);
-			case DomainVerificationStatus.PENDING:
-				return (
-					<Tag icon={<ClockCircleOutlined />} color="processing">
-						{t("domain.statusPending")}
-					</Tag>
-				);
-			case DomainVerificationStatus.FAILING:
-				return (
-					<Tag icon={<ExclamationCircleOutlined />} color="warning">
-						{t("domain.statusFailing")}
-					</Tag>
-				);
-			default:
-				return <Tag>{status}</Tag>;
-		}
-	};
-
 	const formatLocalTime = (isoString: string) =>
-		new Date(isoString).toLocaleString();
+		new Date(isoString).toLocaleString(navigator.language);
 
 	const columns = [
 		{
 			title: t("domain.yourDomain"),
 			dataIndex: "domain",
 			key: "domain",
-			render: (domain: string) => <Text code>{domain}</Text>,
+			render: (domain: string) => (
+				<Tag icon={<GlobalOutlined />}>{domain}</Tag>
+			),
 		},
 		{
 			title: t("domain.statusLabel"),
 			dataIndex: "status",
 			key: "status",
-			render: (status: string) => getStatusTag(status),
-		},
-		{
-			title: t("domain.timestampLabel"),
-			key: "timestamp",
-			render: (_: unknown, record: ListDomainStatusItem) => {
-				if (
-					record.status === DomainVerificationStatus.VERIFIED &&
-					record.last_verified_at
-				) {
-					return (
-						<Text type="secondary" style={{ fontSize: 12 }}>
-							{t("domain.lastVerified")}:{" "}
-							{formatLocalTime(record.last_verified_at)}
-						</Text>
-					);
+			render: (status: string) => {
+				switch (status) {
+					case DomainVerificationStatus.VERIFIED:
+						return (
+							<Tag icon={<CheckCircleOutlined />} color="success">
+								{t("domain.statusVerified")}
+							</Tag>
+						);
+					case DomainVerificationStatus.PENDING:
+						return (
+							<Tag icon={<ClockCircleOutlined />} color="processing">
+								{t("domain.statusPending")}
+							</Tag>
+						);
+					case DomainVerificationStatus.FAILING:
+						return (
+							<Tag icon={<ExclamationCircleOutlined />} color="warning">
+								{t("domain.statusFailing")}
+							</Tag>
+						);
+					default:
+						return <Tag>{status}</Tag>;
 				}
-				if (
-					(record.status === DomainVerificationStatus.PENDING ||
-						record.status === DomainVerificationStatus.FAILING) &&
-					record.expires_at
-				) {
-					return (
-						<Text type="secondary" style={{ fontSize: 12 }}>
-							{t("domain.tokenExpires")}: {formatLocalTime(record.expires_at)}
-						</Text>
-					);
-				}
-				return null;
 			},
 		},
 		{
-			title: t("domain.actionsLabel"),
-			key: "actions",
-			render: (_: unknown, record: ListDomainStatusItem) => (
-				<Space>
-					{record.can_request_verification && (
+			title: t("domain.infoLabel"),
+			key: "info",
+			render: (_: unknown, record: ListDomainStatusItem) => {
+				if (record.status === DomainVerificationStatus.VERIFIED) {
+					return (
+						<Space orientation="vertical" size={4}>
+							{record.last_verified_at && (
+								<Text type="secondary" style={{ fontSize: 12 }}>
+									{t("domain.lastVerified")}:{" "}
+									{formatLocalTime(record.last_verified_at)}
+								</Text>
+							)}
+							{record.can_request_verification && (
+								<Button
+									size="small"
+									icon={<SyncOutlined />}
+									loading={actionDomain === record.domain}
+									onClick={() => handleRequestVerification(record.domain)}
+								>
+									{t("domain.requestReVerification")}
+								</Button>
+							)}
+						</Space>
+					);
+				}
+				// PENDING or FAILING
+				return (
+					<Space orientation="vertical" size={4}>
+						{record.expires_at && (
+							<Text type="secondary" style={{ fontSize: 12 }}>
+								{t("domain.tokenExpires")}:{" "}
+								{formatLocalTime(record.expires_at)}
+							</Text>
+						)}
 						<Button
-							type="primary"
 							size="small"
-							icon={<SyncOutlined />}
-							loading={actionDomain === record.domain}
-							onClick={() => handleRequestVerification(record.domain)}
+							onClick={() => setInstructionsDomain(record)}
 						>
-							{record.status === DomainVerificationStatus.VERIFIED
-								? t("domain.requestReVerification")
-								: t("domain.requestVerification")}
+							{t("domain.showDnsInstructions")}
 						</Button>
-					)}
-					<Button
-						size="small"
-						icon={<ReloadOutlined />}
-						loading={actionDomain === record.domain}
-						onClick={() => handleRefreshStatus(record.domain)}
-					>
-						{t("domain.refreshStatus")}
-					</Button>
-				</Space>
-			),
+					</Space>
+				);
+			},
 		},
 	];
 
@@ -432,52 +379,94 @@ export function DomainManagementPage() {
 					rowKey="domain"
 					pagination={false}
 					style={{ marginBottom: 32 }}
-					expandable={{
-						rowExpandable: (record) =>
-							(record.status === DomainVerificationStatus.PENDING ||
-								record.status === DomainVerificationStatus.FAILING) &&
-							!!record.verification_token,
-						expandedRowRender: (record) => (
-							<Card
-								size="small"
-								style={{
-									background: "var(--ant-color-bg-container-disabled, #fafafa)",
-								}}
-							>
-								<Text strong>{t("domain.dnsRecordInstructions")}</Text>
-								<Paragraph
-									type="secondary"
-									style={{ marginTop: 8, marginBottom: 8 }}
-								>
-									{t("domain.instructionsText", { domain: record.domain })}
-								</Paragraph>
-								<div style={{ marginBottom: 4 }}>
-									<Text strong>{t("domain.recordHost")}: </Text>
-									<Text code>_vetchium-verify.{record.domain}</Text>
-									<Button
-										type="text"
-										size="small"
-										icon={<CopyOutlined />}
-										onClick={() =>
-											copyToClipboard(`_vetchium-verify.${record.domain}`)
-										}
-									/>
-								</div>
-								<div>
-									<Text strong>{t("domain.recordValue")}: </Text>
-									<Text code>{record.verification_token}</Text>
-									<Button
-										type="text"
-										size="small"
-										icon={<CopyOutlined />}
-										onClick={() => copyToClipboard(record.verification_token!)}
-									/>
-								</div>
-							</Card>
-						),
-					}}
 				/>
 			</Spin>
+
+			{/* DNS instructions modal — title always names the domain so ownership is unambiguous */}
+			<Modal
+				open={!!instructionsDomain}
+				onCancel={() => setInstructionsDomain(null)}
+				footer={null}
+				title={
+					instructionsDomain ? (
+						<Space>
+							{t("domain.dnsRecordInstructions")}
+							<Tag icon={<GlobalOutlined />}>{instructionsDomain.domain}</Tag>
+						</Space>
+					) : ""
+				}
+				width={600}
+			>
+				{instructionsDomain && (
+					<Space orientation="vertical" size={12} style={{ width: "100%" }}>
+						<Paragraph type="secondary" style={{ marginBottom: 0 }}>
+							{t("domain.instructionsText", {
+								domain: instructionsDomain.domain,
+							})}
+						</Paragraph>
+
+						<div>
+							<Text strong>{t("domain.recordHost")}: </Text>
+							<Text code>
+								_vetchium-verify.{instructionsDomain.domain}
+							</Text>
+							<Button
+								type="text"
+								size="small"
+								icon={<CopyOutlined />}
+								onClick={() =>
+									copyToClipboard(
+										`_vetchium-verify.${instructionsDomain.domain}`
+									)
+								}
+							/>
+						</div>
+
+						<div>
+							<Text strong>{t("domain.recordValue")}: </Text>
+							<Text code>{instructionsDomain.verification_token}</Text>
+							<Button
+								type="text"
+								size="small"
+								icon={<CopyOutlined />}
+								onClick={() =>
+									copyToClipboard(instructionsDomain.verification_token!)
+								}
+							/>
+						</div>
+
+						{instructionsDomain.last_attempted_at && (
+							<Text type="secondary" style={{ fontSize: 12 }}>
+								{t("domain.lastAttempted")}:{" "}
+								{formatLocalTime(instructionsDomain.last_attempted_at)}
+							</Text>
+						)}
+
+						{!instructionsDomain.can_request_verification &&
+							instructionsDomain.next_verification_allowed_at && (
+								<Text type="secondary" style={{ fontSize: 12 }}>
+									{t("domain.nextRetryAllowed")}:{" "}
+									{formatLocalTime(
+										instructionsDomain.next_verification_allowed_at
+									)}
+								</Text>
+							)}
+
+						{instructionsDomain.can_request_verification && (
+							<Button
+								type="primary"
+								icon={<SyncOutlined />}
+								loading={actionDomain === instructionsDomain.domain}
+								onClick={() =>
+									handleRequestVerification(instructionsDomain.domain)
+								}
+							>
+								{t("domain.requestVerification")}
+							</Button>
+						)}
+					</Space>
+				)}
+			</Modal>
 
 			<Card title={t("domain.claimLabel")}>
 				<Spin spinning={claimLoading}>

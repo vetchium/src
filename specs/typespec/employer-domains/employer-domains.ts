@@ -116,6 +116,8 @@ export interface GetDomainStatusResponse {
 	expires_at?: string; // ISO 8601 datetime
 	last_verified_at?: string; // ISO 8601 datetime
 	can_request_verification: boolean;
+	last_attempted_at?: string; // ISO 8601 datetime — when verification was last requested
+	next_verification_allowed_at?: string; // ISO 8601 datetime — earliest time next request is allowed (only when !can_request_verification)
 }
 
 export interface ListDomainStatusRequest {
@@ -135,6 +137,8 @@ export interface ListDomainStatusItem {
 	expires_at?: string; // ISO 8601 datetime
 	last_verified_at?: string; // ISO 8601 datetime
 	can_request_verification: boolean;
+	last_attempted_at?: string; // ISO 8601 datetime — when verification was last requested
+	next_verification_allowed_at?: string; // ISO 8601 datetime — earliest time next request is allowed (only when !can_request_verification)
 }
 
 export interface ListDomainStatusResponse {

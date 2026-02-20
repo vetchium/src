@@ -93,12 +93,14 @@ func (r GetDomainStatusRequest) Validate() []common.ValidationError {
 }
 
 type GetDomainStatusResponse struct {
-	Domain                 string                   `json:"domain"`
-	Status                 DomainVerificationStatus `json:"status"`
-	VerificationToken      *DomainVerificationToken `json:"verification_token,omitempty"`
-	ExpiresAt              *time.Time               `json:"expires_at,omitempty"`
-	LastVerifiedAt         *time.Time               `json:"last_verified_at,omitempty"`
-	CanRequestVerification bool                     `json:"can_request_verification"`
+	Domain                    string                   `json:"domain"`
+	Status                    DomainVerificationStatus `json:"status"`
+	VerificationToken         *DomainVerificationToken `json:"verification_token,omitempty"`
+	ExpiresAt                 *time.Time               `json:"expires_at,omitempty"`
+	LastVerifiedAt            *time.Time               `json:"last_verified_at,omitempty"`
+	CanRequestVerification    bool                     `json:"can_request_verification"`
+	LastAttemptedAt           *time.Time               `json:"last_attempted_at,omitempty"`
+	NextVerificationAllowedAt *time.Time               `json:"next_verification_allowed_at,omitempty"`
 }
 
 type ListDomainStatusRequest struct {
@@ -110,12 +112,14 @@ func (r ListDomainStatusRequest) Validate() []common.ValidationError {
 }
 
 type ListDomainStatusItem struct {
-	Domain                 string                   `json:"domain"`
-	Status                 DomainVerificationStatus `json:"status"`
-	VerificationToken      *DomainVerificationToken `json:"verification_token,omitempty"`
-	ExpiresAt              *time.Time               `json:"expires_at,omitempty"`
-	LastVerifiedAt         *time.Time               `json:"last_verified_at,omitempty"`
-	CanRequestVerification bool                     `json:"can_request_verification"`
+	Domain                    string                   `json:"domain"`
+	Status                    DomainVerificationStatus `json:"status"`
+	VerificationToken         *DomainVerificationToken `json:"verification_token,omitempty"`
+	ExpiresAt                 *time.Time               `json:"expires_at,omitempty"`
+	LastVerifiedAt            *time.Time               `json:"last_verified_at,omitempty"`
+	CanRequestVerification    bool                     `json:"can_request_verification"`
+	LastAttemptedAt           *time.Time               `json:"last_attempted_at,omitempty"`
+	NextVerificationAllowedAt *time.Time               `json:"next_verification_allowed_at,omitempty"`
 }
 
 type ListDomainStatusResponse struct {

@@ -63,13 +63,31 @@ func ListDomains(s *server.Server) http.HandlerFunc {
 		for i := startIdx; i < len(domains) && len(items) < domainPageSize; i++ {
 			d := domains[i]
 
-			canRequest := !d.LastVerificationRequestedAt.Valid ||
-				time.Since(d.LastVerificationRequestedAt.Time) >= cooldown
+			// Use the more recent of last_verification_requested_at and last_verified_at
+			// so that domains verified at signup (last_verified_at set, last_verification_requested_at NULL)
+			// also respect the cooldown.
+			lastActivity := d.LastVerificationRequestedAt
+			if d.LastVerifiedAt.Valid && (!lastActivity.Valid || d.LastVerifiedAt.Time.After(lastActivity.Time)) {
+				lastActivity = d.LastVerifiedAt
+			}
+			canRequest := !lastActivity.Valid || time.Since(lastActivity.Time) >= cooldown
 
 			item := employerdomains.ListDomainStatusItem{
 				Domain:                 d.Domain,
 				Status:                 employerdomains.DomainVerificationStatus(d.Status),
 				CanRequestVerification: canRequest,
+			}
+
+			// Expose when verification was last requested (for UX: "last tried X ago")
+			if d.LastVerificationRequestedAt.Valid {
+				t := d.LastVerificationRequestedAt.Time
+				item.LastAttemptedAt = &t
+			}
+
+			// When rate-limited, tell the client exactly when they can retry
+			if !canRequest {
+				nextAllowed := lastActivity.Time.Add(cooldown)
+				item.NextVerificationAllowedAt = &nextAllowed
 			}
 
 			if d.Status == regionaldb.DomainVerificationStatusPENDING ||

@@ -20,7 +20,6 @@ func GetDomainStatus(s *server.Server) http.HandlerFunc {
 		ctx := r.Context()
 		log := s.Logger(ctx)
 
-		// Get authenticated org user from context
 		orgUser := middleware.OrgUserFromContext(ctx)
 		if orgUser == nil {
 			log.Debug("org user not found in context")
@@ -42,10 +41,8 @@ func GetDomainStatus(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Normalize domain to lowercase
 		domain := strings.ToLower(string(req.Domain))
 
-		// Get domain record from regional DB, ensuring it belongs to this employer
 		domainRecord, err := s.Regional.GetEmployerDomainByEmployerAndDomain(ctx, regionaldb.GetEmployerDomainByEmployerAndDomainParams{
 			Domain:     domain,
 			EmployerID: orgUser.EmployerID,
@@ -61,33 +58,46 @@ func GetDomainStatus(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Compute whether the user can request verification (rate limit check)
+		// Use the more recent of last_verification_requested_at and last_verified_at
+		// so that domains verified at signup (last_verified_at set, last_verification_requested_at NULL)
+		// also respect the cooldown.
 		cooldown := time.Duration(employerdomains.VerificationCooldownMinutes) * time.Minute
-		canRequest := !domainRecord.LastVerificationRequestedAt.Valid ||
-			time.Since(domainRecord.LastVerificationRequestedAt.Time) >= cooldown
+		lastActivity := domainRecord.LastVerificationRequestedAt
+		if domainRecord.LastVerifiedAt.Valid && (!lastActivity.Valid || domainRecord.LastVerifiedAt.Time.After(lastActivity.Time)) {
+			lastActivity = domainRecord.LastVerifiedAt
+		}
+		canRequest := !lastActivity.Valid || time.Since(lastActivity.Time) >= cooldown
 
-		// Build response
 		response := employerdomains.GetDomainStatusResponse{
 			Domain:                 domain,
 			Status:                 employerdomains.DomainVerificationStatus(domainRecord.Status),
 			CanRequestVerification: canRequest,
 		}
 
-		// Include verification token for PENDING or FAILING status
+		// Expose when verification was last requested (for UX: "last tried X ago")
+		if domainRecord.LastVerificationRequestedAt.Valid {
+			t := domainRecord.LastVerificationRequestedAt.Time
+			response.LastAttemptedAt = &t
+		}
+
+		// When rate-limited, tell the client exactly when they can retry
+		if !canRequest {
+			nextAllowed := lastActivity.Time.Add(cooldown)
+			response.NextVerificationAllowedAt = &nextAllowed
+		}
+
 		if domainRecord.Status == regionaldb.DomainVerificationStatusPENDING ||
 			domainRecord.Status == regionaldb.DomainVerificationStatusFAILING {
 			token := employerdomains.DomainVerificationToken(domainRecord.VerificationToken)
 			response.VerificationToken = &token
 		}
 
-		// Include expiry for PENDING status
 		if domainRecord.Status == regionaldb.DomainVerificationStatusPENDING {
 			if domainRecord.TokenExpiresAt.Valid {
 				response.ExpiresAt = &domainRecord.TokenExpiresAt.Time
 			}
 		}
 
-		// Include last verified time for VERIFIED status
 		if domainRecord.Status == regionaldb.DomainVerificationStatusVERIFIED {
 			if domainRecord.LastVerifiedAt.Valid {
 				response.LastVerifiedAt = &domainRecord.LastVerifiedAt.Time
