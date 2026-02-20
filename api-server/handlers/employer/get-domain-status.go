@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
@@ -60,10 +61,16 @@ func GetDomainStatus(s *server.Server) http.HandlerFunc {
 			return
 		}
 
+		// Compute whether the user can request verification (rate limit check)
+		cooldown := time.Duration(employerdomains.VerificationCooldownMinutes) * time.Minute
+		canRequest := !domainRecord.LastVerificationRequestedAt.Valid ||
+			time.Since(domainRecord.LastVerificationRequestedAt.Time) >= cooldown
+
 		// Build response
 		response := employerdomains.GetDomainStatusResponse{
-			Domain: domain,
-			Status: employerdomains.DomainVerificationStatus(domainRecord.Status),
+			Domain:                 domain,
+			Status:                 employerdomains.DomainVerificationStatus(domainRecord.Status),
+			CanRequestVerification: canRequest,
 		}
 
 		// Include verification token for PENDING or FAILING status

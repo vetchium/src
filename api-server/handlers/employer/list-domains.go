@@ -3,6 +3,7 @@ package employer
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
@@ -57,12 +58,18 @@ func ListDomains(s *server.Server) http.HandlerFunc {
 			}
 		}
 
+		cooldown := time.Duration(employerdomains.VerificationCooldownMinutes) * time.Minute
 		items := make([]employerdomains.ListDomainStatusItem, 0, domainPageSize)
 		for i := startIdx; i < len(domains) && len(items) < domainPageSize; i++ {
 			d := domains[i]
+
+			canRequest := !d.LastVerificationRequestedAt.Valid ||
+				time.Since(d.LastVerificationRequestedAt.Time) >= cooldown
+
 			item := employerdomains.ListDomainStatusItem{
-				Domain: d.Domain,
-				Status: employerdomains.DomainVerificationStatus(d.Status),
+				Domain:                 d.Domain,
+				Status:                 employerdomains.DomainVerificationStatus(d.Status),
+				CanRequestVerification: canRequest,
 			}
 
 			if d.Status == regionaldb.DomainVerificationStatusPENDING ||

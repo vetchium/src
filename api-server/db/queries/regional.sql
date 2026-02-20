@@ -245,9 +245,11 @@ INSERT INTO agency_domains (
         agency_id,
         verification_token,
         token_expires_at,
-        status
+        status,
+        last_verification_requested_at,
+        last_verified_at
     )
-VALUES ($1, $2, $3, $4, $5);
+VALUES ($1, $2, $3, $4, $5, NULL, $6);
 -- name: GetAgencyDomainsByAgency :many
 SELECT *
 FROM agency_domains
@@ -284,15 +286,18 @@ WHERE domain = $1;
 -- ============================================
 -- Employer Domain Queries (Regional)
 -- ============================================
+-- TODO: Add domain_verification_events audit log table for tracking verification history (see specs/Ideas.md)
 -- name: CreateEmployerDomain :exec
 INSERT INTO employer_domains (
         domain,
         employer_id,
         verification_token,
         token_expires_at,
-        status
+        status,
+        last_verification_requested_at,
+        last_verified_at
     )
-VALUES ($1, $2, $3, $4, $5);
+VALUES ($1, $2, $3, $4, $5, NULL, $6);
 -- name: GetEmployerDomain :one
 SELECT *
 FROM employer_domains
@@ -329,6 +334,16 @@ WHERE domain = $1;
 UPDATE employer_domains
 SET consecutive_failures = 0,
     last_verified_at = NOW()
+WHERE domain = $1;
+-- name: UpdateEmployerDomainVerificationRequested :exec
+UPDATE employer_domains
+SET last_verification_requested_at = NOW()
+WHERE domain = $1;
+-- name: UpdateEmployerDomainTokenAndVerificationRequested :exec
+UPDATE employer_domains
+SET verification_token = $2,
+    token_expires_at = $3,
+    last_verification_requested_at = NOW()
 WHERE domain = $1;
 -- name: GetEmployerDomainsForReverification :many
 SELECT *

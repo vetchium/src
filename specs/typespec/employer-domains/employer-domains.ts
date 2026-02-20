@@ -24,6 +24,10 @@ export const TokenExpiryDays = 7;
 export const VerificationIntervalDays = 60;
 export const GracePeriodDays = 14;
 export const MaxConsecutiveFailures = 3;
+// Rate limit: minimum minutes between verification requests per domain
+export const VerificationCooldownMinutes = 60;
+
+// TODO: Add domain_verification_events audit log — see specs/Ideas.md
 
 // ============================================
 // Domain Verification Flow
@@ -111,6 +115,7 @@ export interface GetDomainStatusResponse {
 	verification_token?: DomainVerificationToken;
 	expires_at?: string; // ISO 8601 datetime
 	last_verified_at?: string; // ISO 8601 datetime
+	can_request_verification: boolean;
 }
 
 export interface ListDomainStatusRequest {
@@ -129,6 +134,7 @@ export interface ListDomainStatusItem {
 	verification_token?: DomainVerificationToken;
 	expires_at?: string; // ISO 8601 datetime
 	last_verified_at?: string; // ISO 8601 datetime
+	can_request_verification: boolean;
 }
 
 export interface ListDomainStatusResponse {

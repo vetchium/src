@@ -26,6 +26,10 @@
 		"title": "Benutzerverwaltung",
 		"description": "Benutzer und ihre Rollen verwalten"
 	},
+	"domainManagement": {
+		"title": "Domain-Verwaltung",
+		"description": "Verifizieren und verwalten Sie die Domains Ihrer Organisation"
+	},
 	"action": {
 		"backHome": "Zurück zur Startseite"
 	},

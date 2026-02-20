@@ -208,12 +208,14 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 			}
 
 			// 2. Create verified domain in regional DB
+			now := time.Now()
 			txErr = qtx.CreateEmployerDomain(ctx, regionaldb.CreateEmployerDomainParams{
 				Domain:            domain,
 				EmployerID:        employer.EmployerID,
 				VerificationToken: dnsVerificationToken,
-				TokenExpiresAt:    pgtype.Timestamp{Time: time.Now().AddDate(0, 0, 30), Valid: true},
+				TokenExpiresAt:    pgtype.Timestamp{Time: now.AddDate(0, 0, 30), Valid: true},
 				Status:            regionaldb.DomainVerificationStatusVERIFIED,
+				LastVerifiedAt:    pgtype.Timestamp{Time: now, Valid: true},
 			})
 			if txErr != nil {
 				log.Error("failed to create regional employer domain", "error", txErr)

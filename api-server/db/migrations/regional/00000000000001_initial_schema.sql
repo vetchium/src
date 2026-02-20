@@ -170,6 +170,7 @@ CREATE TABLE employer_domains (
     verification_token TEXT NOT NULL,
     token_expires_at TIMESTAMP NOT NULL,
     last_verified_at TIMESTAMP,
+    last_verification_requested_at TIMESTAMP,
     consecutive_failures INT NOT NULL DEFAULT 0,
     status domain_verification_status NOT NULL DEFAULT 'PENDING',
     created_at TIMESTAMP NOT NULL DEFAULT NOW()
@@ -182,6 +183,7 @@ CREATE TABLE agency_domains (
     verification_token TEXT NOT NULL,
     token_expires_at TIMESTAMP NOT NULL,
     last_verified_at TIMESTAMP,
+    last_verification_requested_at TIMESTAMP,
     consecutive_failures INT NOT NULL DEFAULT 0,
     status domain_verification_status NOT NULL DEFAULT 'PENDING',
     created_at TIMESTAMP NOT NULL DEFAULT NOW()

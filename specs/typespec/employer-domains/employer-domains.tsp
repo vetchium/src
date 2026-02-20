@@ -23,6 +23,7 @@ enum DomainVerificationStatus {
 // VERIFICATION_INTERVAL_DAYS = 60
 // GRACE_PERIOD_DAYS = 14
 // MAX_CONSECUTIVE_FAILURES = 3
+// VERIFICATION_COOLDOWN_MINUTES = 60  (1 hour rate limit between verification requests)
 
 // ============================================
 // Domain Verification Flow
@@ -83,6 +84,9 @@ model GetDomainStatusResponse {
 
   @doc("When the domain was last verified (if VERIFIED)")
   last_verified_at?: utcDateTime;
+
+  @doc("Whether the user can request a verification now (server-controlled rate limit)")
+  can_request_verification: boolean;
 }
 
 model ListDomainStatusRequest {
@@ -105,6 +109,9 @@ model ListDomainStatusItem {
 
   @doc("When the domain was last verified (if VERIFIED)")
   last_verified_at?: utcDateTime;
+
+  @doc("Whether the user can request a verification now (server-controlled rate limit)")
+  can_request_verification: boolean;
 }
 
 model ListDomainStatusResponse {
@@ -170,6 +177,11 @@ interface OrgVerifyDomain {
         @doc("Domain not found or not owned by this employer")
         @statusCode
         statusCode: 404;
+      }
+    | {
+        @doc("Verification was recently requested; rate limit in effect")
+        @statusCode
+        statusCode: 429;
       };
 }
 
