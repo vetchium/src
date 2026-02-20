@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, type ReactNode } from "react";
+import { useState, useCallback, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
 	type AgencyTFARequest,
@@ -41,19 +41,16 @@ interface AuthProviderProps {
 
 export function AuthProvider({ children }: AuthProviderProps) {
 	const { t, i18n } = useTranslation("auth");
-	const [authState, setAuthState] = useState<AuthState>("login");
+	const [authState, setAuthState] = useState<AuthState>(() => {
+		const token = getSessionToken();
+		return token ? "authenticated" : "login";
+	});
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [tfaToken, setTfaToken] = useState<string | null>(null);
-	const [sessionToken, setSessionTokenState] = useState<string | null>(null);
-
-	useEffect(() => {
-		const existingSession = getSessionToken();
-		if (existingSession) {
-			setSessionTokenState(existingSession);
-			setAuthState("authenticated");
-		}
-	}, []);
+	const [sessionToken, setSessionTokenState] = useState<string | null>(() =>
+		getSessionToken()
+	);
 
 	const formatValidationErrors = (
 		errors: Array<{ field: string; message: string }>

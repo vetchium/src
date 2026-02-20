@@ -23,8 +23,12 @@
 		"button": "Logout"
 	},
 	"userManagement": {
-		"title": "User Management",
-		"description": "Manage users and their roles"
+		"title": "Benutzerverwaltung",
+		"description": "Benutzer und ihre Rollen verwalten"
+	},
+	"domainManagement": {
+		"title": "Domain-Verwaltung",
+		"description": "Verifizieren und verwalten Sie die Domains Ihrer Agentur"
 	},
 	"action": {
 		"backHome": "Back Home"

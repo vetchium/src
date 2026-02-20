@@ -17,6 +17,7 @@ import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { ChangePasswordPage } from "./pages/ChangePasswordPage";
 import { CompleteSetupPage } from "./pages/CompleteSetupPage";
 import { UserManagementPage } from "./pages/UserManagement/UserManagementPage";
+import { DomainManagementPage } from "./pages/DomainManagement/DomainManagementPage";
 import {
 	BrowserRouter,
 	Routes,
@@ -150,6 +151,14 @@ function AppContent() {
 								element={
 									<ProtectedRoute>
 										<UserManagementPage />
+									</ProtectedRoute>
+								}
+							/>
+							<Route
+								path="/domain-management"
+								element={
+									<ProtectedRoute>
+										<DomainManagementPage />
 									</ProtectedRoute>
 								}
 							/>

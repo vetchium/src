@@ -24,6 +24,7 @@ export const AgencyTokenExpiryDays = 7;
 export const AgencyVerificationIntervalDays = 60;
 export const AgencyGracePeriodDays = 14;
 export const AgencyMaxConsecutiveFailures = 3;
+export const AgencyVerificationCooldownMinutes = 60; // Rate limit: 1 hour between verification requests
 
 // ============================================
 // Agency Domain Verification Flow
@@ -111,6 +112,9 @@ export interface AgencyGetDomainStatusResponse {
 	verification_token?: AgencyDomainVerificationToken;
 	expires_at?: string; // ISO 8601 datetime
 	last_verified_at?: string; // ISO 8601 datetime
+	can_request_verification: boolean;
+	last_attempted_at?: string; // ISO 8601 datetime — when verification was last requested
+	next_verification_allowed_at?: string; // ISO 8601 datetime — earliest time next request is allowed
 }
 
 export interface AgencyListDomainStatusRequest {
@@ -129,6 +133,9 @@ export interface AgencyListDomainStatusItem {
 	verification_token?: AgencyDomainVerificationToken;
 	expires_at?: string; // ISO 8601 datetime
 	last_verified_at?: string; // ISO 8601 datetime
+	can_request_verification: boolean;
+	last_attempted_at?: string; // ISO 8601 datetime — when verification was last requested
+	next_verification_allowed_at?: string; // ISO 8601 datetime — earliest time next request is allowed
 }
 
 export interface AgencyListDomainStatusResponse {

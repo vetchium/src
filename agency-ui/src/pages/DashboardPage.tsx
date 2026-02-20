@@ -1,9 +1,12 @@
 import { Card, Typography, Button } from "antd";
-import { LogoutOutlined, TeamOutlined } from "@ant-design/icons";
+import {
+	GlobalOutlined,
+	LogoutOutlined,
+	TeamOutlined,
+} from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
-import { DomainVerificationSection } from "../components/DomainVerificationSection";
 
 const { Title } = Typography;
 
@@ -43,6 +46,26 @@ export function DashboardPage() {
 				</Card>
 			</Link>
 
+			<Link
+				to="/domain-management"
+				style={{ textDecoration: "none", width: "100%" }}
+			>
+				<Card
+					hoverable
+					style={{ width: "100%", cursor: "pointer", textAlign: "center" }}
+				>
+					<GlobalOutlined
+						style={{ fontSize: 48, color: "#1890ff", marginBottom: 16 }}
+					/>
+					<Title level={4} style={{ marginBottom: 8 }}>
+						{t("domainManagement.title")}
+					</Title>
+					<Typography.Text type="secondary">
+						{t("domainManagement.description")}
+					</Typography.Text>
+				</Card>
+			</Link>
+
 			<Card style={{ width: "100%", textAlign: "center" }}>
 				<Title level={3} style={{ marginBottom: 24 }}>
 					{t("dashboard.title")}
@@ -60,10 +83,6 @@ export function DashboardPage() {
 					{t("logout.button")}
 				</Button>
 			</Card>
-
-			<div style={{ width: "100%" }}>
-				<DomainVerificationSection />
-			</div>
 		</div>
 	);
 }

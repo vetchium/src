@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
@@ -72,11 +73,9 @@ func GetDomainStatus(s *server.Server) http.HandlerFunc {
 			response.VerificationToken = &token
 		}
 
-		// Include expiry for PENDING status
-		if domainRecord.Status == regionaldb.DomainVerificationStatusPENDING {
-			if domainRecord.TokenExpiresAt.Valid {
-				response.ExpiresAt = &domainRecord.TokenExpiresAt.Time
-			}
+		// Include expiry for PENDING or FAILING status
+		if domainRecord.TokenExpiresAt.Valid {
+			response.ExpiresAt = &domainRecord.TokenExpiresAt.Time
 		}
 
 		// Include last verified time for VERIFIED status
@@ -84,6 +83,26 @@ func GetDomainStatus(s *server.Server) http.HandlerFunc {
 			if domainRecord.LastVerifiedAt.Valid {
 				response.LastVerifiedAt = &domainRecord.LastVerifiedAt.Time
 			}
+		}
+
+		// Compute can_request_verification using the more recent of
+		// last_verification_requested_at and last_verified_at as the cooldown baseline.
+		cooldown := time.Duration(agencydomains.AgencyVerificationCooldownMinutes) * time.Minute
+		lastActivity := domainRecord.LastVerificationRequestedAt
+		if domainRecord.LastVerifiedAt.Valid && (!lastActivity.Valid || domainRecord.LastVerifiedAt.Time.After(lastActivity.Time)) {
+			lastActivity = domainRecord.LastVerifiedAt
+		}
+		canRequest := !lastActivity.Valid || time.Since(lastActivity.Time) >= cooldown
+		response.CanRequestVerification = canRequest
+
+		if domainRecord.LastVerificationRequestedAt.Valid {
+			t := domainRecord.LastVerificationRequestedAt.Time
+			response.LastAttemptedAt = &t
+		}
+
+		if !canRequest {
+			nextAllowed := lastActivity.Time.Add(cooldown)
+			response.NextVerificationAllowedAt = &nextAllowed
 		}
 
 		json.NewEncoder(w).Encode(response)

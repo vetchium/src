@@ -283,6 +283,16 @@ UPDATE agency_domains
 SET consecutive_failures = 0,
     last_verified_at = NOW()
 WHERE domain = $1;
+-- name: UpdateAgencyDomainVerificationRequested :exec
+UPDATE agency_domains
+SET last_verification_requested_at = NOW()
+WHERE domain = $1;
+-- name: UpdateAgencyDomainTokenAndVerificationRequested :exec
+UPDATE agency_domains
+SET verification_token = $2,
+    token_expires_at = $3,
+    last_verification_requested_at = NOW()
+WHERE domain = $1;
 -- ============================================
 -- Employer Domain Queries (Regional)
 -- ============================================

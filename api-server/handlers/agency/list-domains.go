@@ -3,6 +3,7 @@ package agency
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
@@ -57,6 +58,8 @@ func ListDomains(s *server.Server) http.HandlerFunc {
 			}
 		}
 
+		cooldown := time.Duration(agencydomains.AgencyVerificationCooldownMinutes) * time.Minute
+
 		items := make([]agencydomains.AgencyListDomainStatusItem, 0, agencyDomainPageSize)
 		for i := startIdx; i < len(domains) && len(items) < agencyDomainPageSize; i++ {
 			d := domains[i]
@@ -78,6 +81,26 @@ func ListDomains(s *server.Server) http.HandlerFunc {
 				if d.LastVerifiedAt.Valid {
 					item.LastVerifiedAt = &d.LastVerifiedAt.Time
 				}
+			}
+
+			// Compute can_request_verification using the more recent of
+			// last_verification_requested_at and last_verified_at as the cooldown baseline.
+			// This ensures signup-verified domains don't show the button immediately.
+			lastActivity := d.LastVerificationRequestedAt
+			if d.LastVerifiedAt.Valid && (!lastActivity.Valid || d.LastVerifiedAt.Time.After(lastActivity.Time)) {
+				lastActivity = d.LastVerifiedAt
+			}
+			canRequest := !lastActivity.Valid || time.Since(lastActivity.Time) >= cooldown
+			item.CanRequestVerification = canRequest
+
+			if d.LastVerificationRequestedAt.Valid {
+				t := d.LastVerificationRequestedAt.Time
+				item.LastAttemptedAt = &t
+			}
+
+			if !canRequest {
+				nextAllowed := lastActivity.Time.Add(cooldown)
+				item.NextVerificationAllowedAt = &nextAllowed
 			}
 
 			items = append(items, item)

@@ -2,6 +2,8 @@ package agency
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -17,6 +19,8 @@ import (
 	"vetchium-api-server.gomodule/internal/server"
 	agencydomains "vetchium-api-server.typespec/agency-domains"
 )
+
+// TODO: Consider adding domain_verification_events audit log (see specs/Ideas.md)
 
 func VerifyDomain(s *server.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -62,6 +66,56 @@ func VerifyDomain(s *server.Server) http.HandlerFunc {
 			log.Error("failed to get domain record", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
+		}
+
+		// Rate limit: check cooldown period between verification requests
+		cooldown := time.Duration(agencydomains.AgencyVerificationCooldownMinutes) * time.Minute
+		if domainRecord.LastVerificationRequestedAt.Valid &&
+			time.Since(domainRecord.LastVerificationRequestedAt.Time) < cooldown {
+			log.Debug("verification rate limited", "domain", domain)
+			w.WriteHeader(http.StatusTooManyRequests)
+			return
+		}
+
+		// If token has expired, regenerate it before performing the DNS check
+		if domainRecord.TokenExpiresAt.Valid && domainRecord.TokenExpiresAt.Time.Before(time.Now()) {
+			log.Debug("verification token expired, regenerating", "domain", domain)
+			tokenBytes := make([]byte, 32)
+			if _, err := rand.Read(tokenBytes); err != nil {
+				log.Error("failed to generate verification token", "error", err)
+				http.Error(w, "", http.StatusInternalServerError)
+				return
+			}
+			newToken := hex.EncodeToString(tokenBytes)
+			newExpiresAt := time.Now().AddDate(0, 0, agencydomains.AgencyTokenExpiryDays)
+
+			err = s.Regional.UpdateAgencyDomainTokenAndVerificationRequested(ctx, regionaldb.UpdateAgencyDomainTokenAndVerificationRequestedParams{
+				Domain:            domain,
+				VerificationToken: newToken,
+				TokenExpiresAt:    pgtype.Timestamp{Time: newExpiresAt, Valid: true},
+			})
+			if err != nil {
+				log.Error("failed to regenerate verification token", "error", err)
+				http.Error(w, "", http.StatusInternalServerError)
+				return
+			}
+			// Reload domain record with fresh token
+			domainRecord, err = s.Regional.GetAgencyDomainByAgencyAndDomain(ctx, regionaldb.GetAgencyDomainByAgencyAndDomainParams{
+				Domain:   domain,
+				AgencyID: agencyUser.AgencyID,
+			})
+			if err != nil {
+				log.Error("failed to reload domain record after token regeneration", "error", err)
+				http.Error(w, "", http.StatusInternalServerError)
+				return
+			}
+		} else {
+			// Mark that a verification has been requested (rate limit tracking)
+			if err := s.Regional.UpdateAgencyDomainVerificationRequested(ctx, domain); err != nil {
+				log.Error("failed to update verification requested timestamp", "error", err)
+				http.Error(w, "", http.StatusInternalServerError)
+				return
+			}
 		}
 
 		// Perform DNS lookup

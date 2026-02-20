@@ -23,8 +23,12 @@
 		"button": "Logout"
 	},
 	"userManagement": {
-		"title": "User Management",
-		"description": "Manage users and their roles"
+		"title": "பயனர் மேலாண்மை",
+		"description": "பயனர்களையும் அவர்களின் பணிகளையும் நிர்வகிக்கவும்"
+	},
+	"domainManagement": {
+		"title": "டொமைன் மேலாண்மை",
+		"description": "உங்கள் நிறுவனத்தின் டொமைன்களை சரிபார்த்து நிர்வகிக்கவும்"
 	},
 	"action": {
 		"backHome": "Back Home"

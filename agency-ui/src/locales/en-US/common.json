@@ -26,6 +26,10 @@
 		"title": "User Management",
 		"description": "Manage users and their roles"
 	},
+	"domainManagement": {
+		"title": "Domain Management",
+		"description": "Verify and manage your agency's domains"
+	},
 	"action": {
 		"backHome": "Back Home"
 	},
