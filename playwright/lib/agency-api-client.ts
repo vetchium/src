@@ -32,6 +32,8 @@ import type {
 	AgencyChangePasswordRequest,
 	AgencyInviteUserRequest,
 	AgencyInviteUserResponse,
+	AgencyCompleteSetupRequest,
+	AgencyCompleteSetupResponse,
 	AgencyMyInfoResponse,
 } from "vetchium-specs/agency/agency-users";
 import type { APIResponse } from "./api-client";
@@ -526,6 +528,51 @@ export class AgencyAPIClient {
 		return {
 			status: response.status(),
 			body: undefined,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	// ============================================================================
+	// User Setup (Invited Users)
+	// ============================================================================
+
+	/**
+	 * POST /agency/complete-setup
+	 * Completes the invited user setup with invitation token, password, and full name.
+	 * This endpoint does not require authentication (uses invitation token).
+	 *
+	 * @param request - Setup request with invitation_token, password, and full_name
+	 * @returns API response with success message
+	 */
+	async completeSetup(
+		request: AgencyCompleteSetupRequest
+	): Promise<APIResponse<AgencyCompleteSetupResponse>> {
+		const response = await this.request.post("/agency/complete-setup", {
+			data: request,
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as AgencyCompleteSetupResponse,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	/**
+	 * POST /agency/complete-setup with raw body for testing invalid payloads
+	 */
+	async completeSetupRaw(
+		body: unknown
+	): Promise<APIResponse<AgencyCompleteSetupResponse>> {
+		const response = await this.request.post("/agency/complete-setup", {
+			data: body,
+		});
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as AgencyCompleteSetupResponse,
 			errors: Array.isArray(responseBody) ? responseBody : undefined,
 		};
 	}
