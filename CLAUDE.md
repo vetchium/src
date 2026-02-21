@@ -661,6 +661,136 @@ headers: {
 }
 ```
 
+## RBAC (Role-Based Access Control)
+
+Every new feature that exposes an API or a UI tile MUST go through this checklist. RBAC is not optional.
+
+### Role Naming Convention
+
+Roles follow the pattern `portal:action`, using only lowercase letters, colons, and underscores:
+
+- `admin:superadmin` — full access to the admin portal
+- `admin:invite_users` — can invite new admin users
+- `admin:manage_users` — can enable/disable admin users and manage their roles
+- `admin:manage_domains` — can manage platform-wide approved domains
+- `employer:superadmin` — full access to the employer portal (bypasses all other employer role checks)
+- `employer:invite_users` — can invite new org users
+- `employer:manage_users` — can enable/disable org users and manage their roles
+- `employer:read_domains` — can view domain list and status (read-only; cannot claim or verify)
+- `agency:superadmin` — full access to the agency portal (bypasses all other agency role checks)
+- `agency:invite_users` — can invite new agency users
+- `agency:manage_users` — can enable/disable agency users and manage their roles
+- `agency:read_domains` — can view domain list and status (read-only; cannot claim or verify)
+- `hub:read_posts` — can read posts by other hub users (assigned to every hub user at signup)
+- `hub:write_posts` — can create and edit posts (paid feature; explicitly granted)
+- `hub:apply_jobs` — can apply to job postings (future paid feature)
+
+### Where Roles Are Stored
+
+- **Admin roles** → Global DB (`admin_user_roles` table, keyed by `admin_user_id`)
+- **Employer roles** → Regional DB (`org_user_roles` table, keyed by `org_user_id`)
+- **Agency roles** → Regional DB (`agency_user_roles` table, keyed by `agency_user_id`)
+- **Hub roles** → Regional DB (`hub_user_roles` table, keyed by `hub_user_global_id`)
+
+Roles must never be shared across portals. A user's roles are specific to the entity (org, agency, etc.) they belong to.
+
+### Superadmin Bypass
+
+`admin:superadmin`, `employer:superadmin`, and `agency:superadmin` are prepended to every role check by the respective middleware — a superadmin automatically satisfies any specific role requirement. **There is no hub:superadmin** — hub roles are purely feature-based.
+
+### Default Role Assignment
+
+- **Hub users**: `hub:read_posts` is assigned automatically inside the regional transaction in `hub/complete-signup.go`. Additional roles (e.g., `hub:write_posts`) are granted explicitly (e.g., after payment).
+- **Employer first user**: `employer:superadmin` assigned in `employer/complete-signup.go`.
+- **Agency first user**: `agency:superadmin` assigned in `agency/complete-signup.go`.
+- **Admin first user**: Created via DB dev-seed (`db/dev-seed/global.sql`) with `admin:superadmin`.
+
+### Checklist: Adding a New Feature
+
+#### 1. Define roles (if new roles are needed)
+
+- Add to `api-server/db/migrations/regional/00000000000001_initial_schema.sql` (or global for admin roles): insert the new role name and description.
+- Add to `specs/typespec/common/roles.ts` `VALID_ROLE_NAMES` array.
+- Follow naming: `portal:action` (e.g., `hub:manage_profile`, `employer:post_jobs`).
+
+#### 2. Protect the backend API route
+
+Use the appropriate middleware in the route registration file:
+
+```go
+// Admin routes (api-server/internal/routes/admin-global-routes.go)
+adminRoleNewFeature := middleware.AdminRole(s.Global, "admin:new_feature")
+mux.Handle("POST /admin/new-thing", adminAuth(adminRoleNewFeature(admin.NewThing(s))))
+
+// Employer routes (api-server/internal/routes/employer-routes.go)
+employerRoleNewFeature := middleware.EmployerRole(s.Regional, "employer:new_feature")
+mux.Handle("POST /employer/new-thing", orgAuth(employerRoleNewFeature(employer.NewThing(s))))
+
+// Agency routes (api-server/internal/routes/agency-routes.go)
+agencyRoleNewFeature := middleware.AgencyRole(s.Regional, "agency:new_feature")
+mux.Handle("POST /agency/new-thing", agencyAuth(agencyRoleNewFeature(agency.NewThing(s))))
+
+// Hub routes (api-server/internal/routes/hub-routes.go)
+hubRoleWritePosts := middleware.HubRole(s.Regional, "hub:write_posts")
+mux.Handle("POST /hub/create-post", hubAuth(hubRoleWritePosts(hub.CreatePost(s))))
+```
+
+Rules:
+
+- **Superadmin users bypass all role checks** automatically (via middleware prepend).
+- To allow multiple roles to access the same endpoint, pass them all: `middleware.EmployerRole(s.Regional, "employer:read_x", "employer:write_x")` (OR semantics).
+- Read operations (list, get) that show non-sensitive data may have a dedicated `read_x` role; write operations (create, update, delete) should require a `write_x` or `manage_x` role.
+- Auth-only endpoints (no role required) still use the auth middleware, just without a role middleware wrapper.
+
+#### 3. Make the UI tile role-aware
+
+In the dashboard page, derive access flags from `myInfo.roles` and conditionally render:
+
+```tsx
+// In DashboardPage.tsx
+const { data: myInfo } = useMyInfo(sessionToken);
+
+const hasNewFeatureAccess =
+	myInfo?.roles.includes("employer:superadmin") ||
+	myInfo?.roles.includes("employer:new_feature") ||
+	false;
+
+// In JSX
+{
+	hasNewFeatureAccess && (
+		<Link to="/new-feature">
+			<Card hoverable>...</Card>
+		</Link>
+	);
+}
+```
+
+#### 4. Hide write actions for read-only roles inside a feature page
+
+If a feature has separate read and write roles, hide write controls (buttons, forms) for read-only users:
+
+```tsx
+const canWrite =
+	myInfo?.roles.includes("employer:superadmin") ||
+	myInfo?.roles.includes("employer:write_x") ||
+	false;
+
+{
+	canWrite && <Button onClick={handleCreate}>Create</Button>;
+}
+```
+
+**Important**: hiding in the UI is defence-in-depth only. The backend API MUST enforce roles independently. A read-only user hitting a write API must receive 403.
+
+### Role-Protection Summary Table
+
+| Portal   | Middleware function                        | Superadmin role       | Roles stored in |
+| -------- | ------------------------------------------ | --------------------- | --------------- |
+| Admin    | `middleware.AdminRole(s.Global, ...)`      | `admin:superadmin`    | Global DB       |
+| Employer | `middleware.EmployerRole(s.Regional, ...)` | `employer:superadmin` | Regional DB     |
+| Agency   | `middleware.AgencyRole(s.Regional, ...)`   | `agency:superadmin`   | Regional DB     |
+| Hub      | `middleware.HubRole(s.Regional, ...)`      | (none)                | Regional DB     |
+
 ## Security Best Practices
 
 ### Input Validation
