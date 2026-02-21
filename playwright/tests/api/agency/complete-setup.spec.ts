@@ -90,9 +90,8 @@ test.describe("POST /agency/complete-setup", () => {
 		const { email: adminEmail, domain } = generateTestAgencyEmail(
 			"ag-setup-twice-admin"
 		);
-		const { email: inviteeEmail } = generateTestAgencyEmail(
-			"ag-setup-twice-inv"
-		);
+		const { email: inviteeEmail } =
+			generateTestAgencyEmail("ag-setup-twice-inv");
 
 		await createTestAgencyAdminDirect(adminEmail, TEST_PASSWORD);
 
