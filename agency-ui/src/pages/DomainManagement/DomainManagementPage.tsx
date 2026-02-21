@@ -53,8 +53,7 @@ export function DomainManagementPage() {
 	const { sessionToken } = useAuth();
 	const { data: myInfo } = useMyInfo(sessionToken);
 
-	const canWriteDomains =
-		myInfo?.roles.includes("agency:superadmin") || false;
+	const canWriteDomains = myInfo?.roles.includes("agency:superadmin") || false;
 	const { message } = App.useApp();
 	const navigate = useNavigate();
 	const [form] = Form.useForm<ClaimFormValues>();
@@ -299,7 +298,10 @@ export function DomainManagementPage() {
 							</Text>
 						)}
 						{canWriteDomains && (
-							<Button size="small" onClick={() => setInstructionsDomain(record)}>
+							<Button
+								size="small"
+								onClick={() => setInstructionsDomain(record)}
+							>
 								{t("domain.showDnsInstructions")}
 							</Button>
 						)}
@@ -475,64 +477,64 @@ export function DomainManagementPage() {
 
 			{canWriteDomains && (
 				<Card title={t("domain.claimLabel")}>
-				<Spin spinning={claimLoading}>
-					<Form
-						form={form}
-						name="claimDomain"
-						onFinish={handleClaimDomain}
-						layout="vertical"
-						requiredMark={false}
-					>
-						<Form.Item
-							name="domain"
-							rules={[
-								{ required: true, message: t("domain.domainRequired") },
-								{
-									min: DOMAIN_MIN_LENGTH,
-									message: t("domain.domainMinLength", {
-										min: DOMAIN_MIN_LENGTH,
-									}),
-								},
-								{
-									max: DOMAIN_MAX_LENGTH,
-									message: t("domain.domainMaxLength", {
-										max: DOMAIN_MAX_LENGTH,
-									}),
-								},
-								{
-									pattern:
-										/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/i,
-									message: t("domain.domainInvalid"),
-								},
-							]}
+					<Spin spinning={claimLoading}>
+						<Form
+							form={form}
+							name="claimDomain"
+							onFinish={handleClaimDomain}
+							layout="vertical"
+							requiredMark={false}
 						>
-							<Input
-								prefix={<GlobalOutlined />}
-								placeholder={t("domain.domainPlaceholder")}
-								size="large"
-							/>
-						</Form.Item>
-
-						<Form.Item shouldUpdate>
-							{() => (
-								<Button
-									type="primary"
-									htmlType="submit"
+							<Form.Item
+								name="domain"
+								rules={[
+									{ required: true, message: t("domain.domainRequired") },
+									{
+										min: DOMAIN_MIN_LENGTH,
+										message: t("domain.domainMinLength", {
+											min: DOMAIN_MIN_LENGTH,
+										}),
+									},
+									{
+										max: DOMAIN_MAX_LENGTH,
+										message: t("domain.domainMaxLength", {
+											max: DOMAIN_MAX_LENGTH,
+										}),
+									},
+									{
+										pattern:
+											/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/i,
+										message: t("domain.domainInvalid"),
+									},
+								]}
+							>
+								<Input
+									prefix={<GlobalOutlined />}
+									placeholder={t("domain.domainPlaceholder")}
 									size="large"
-									block
-									disabled={
-										!form.isFieldsTouched(true) ||
-										form
-											.getFieldsError()
-											.some(({ errors }) => errors.length > 0)
-									}
-								>
-									{t("domain.claimButton")}
-								</Button>
-							)}
-						</Form.Item>
-					</Form>
-				</Spin>
+								/>
+							</Form.Item>
+
+							<Form.Item shouldUpdate>
+								{() => (
+									<Button
+										type="primary"
+										htmlType="submit"
+										size="large"
+										block
+										disabled={
+											!form.isFieldsTouched(true) ||
+											form
+												.getFieldsError()
+												.some(({ errors }) => errors.length > 0)
+										}
+									>
+										{t("domain.claimButton")}
+									</Button>
+								)}
+							</Form.Item>
+						</Form>
+					</Spin>
 				</Card>
 			)}
 		</div>
