@@ -6,6 +6,7 @@
 	"exports": {
 		"./hub/hub-users": "./hub/hub-users.ts",
 		"./admin/admin-users": "./admin/admin-users.ts",
+		"./admin/approved-domains": "./admin/approved-domains.ts",
 		"./employer/employer-users": "./employer/employer-users.ts",
 		"./employer-domains/employer-domains": "./employer-domains/employer-domains.ts",
 		"./agency-domains/agency-domains": "./agency-domains/agency-domains.ts",
