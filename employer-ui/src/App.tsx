@@ -239,7 +239,14 @@ function AppContent() {
 							/>
 							<Route path="/forgot-password" element={<ForgotPasswordPage />} />
 							<Route path="/reset-password" element={<ResetPasswordPage />} />
-							<Route path="/complete-setup" element={<CompleteSetupPage />} />
+							<Route
+								path="/complete-setup"
+								element={
+									<AuthRoute>
+										<CompleteSetupPage />
+									</AuthRoute>
+								}
+							/>
 							<Route path="*" element={<NotFoundPage />} />
 						</Routes>
 					</Content>

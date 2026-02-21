@@ -91,6 +91,11 @@
 		"roleSuperadmin": "Superadmin",
 		"confirm": "Benutzer einladen",
 		"cancel": "Abbrechen",
-		"userExists": "Benutzer mit dieser E-Mail existiert bereits"
+		"userExists": "Benutzer mit dieser E-Mail existiert bereits",
+		"inviteEmailLanguage": "Sprache der Einladungs-E-Mail",
+		"inviteEmailLanguageTooltip": "Sprache der Einladungs-E-Mail. Standardmäßig wird Ihre Sprache verwendet.",
+		"inviteEmailLanguagePlaceholder": "Sprache für die Einladungs-E-Mail auswählen (optional)",
+		"inviteFailed": "Beim Einladen des Benutzers ist ein Fehler aufgetreten.",
+		"inviteFailedGeneral": "Benutzer konnte nicht eingeladen werden"
 	}
 }

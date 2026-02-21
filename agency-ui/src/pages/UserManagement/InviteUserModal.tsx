@@ -46,21 +46,21 @@ export function InviteUserModal({
 			});
 
 			if (response.ok) {
-				message.success("User invited successfully");
+				message.success(t("success.userInvited"));
 				form.resetFields();
 				onSuccess();
 			} else {
 				const data = await response.json();
 				if (response.status === 409) {
-					message.error("User with this email already exists.");
+					message.error(t("inviteModal.userExists"));
 				} else {
-					message.error(data.message || "Failed to invite user");
+					message.error(data.message || t("inviteModal.inviteFailedGeneral"));
 				}
 			}
 		} catch (error) {
 			console.error("Invite user failed:", error);
 			if (!(error as { errorFields?: [] }).errorFields) {
-				message.error("An error occurred while inviting the user.");
+				message.error(t("inviteModal.inviteFailed"));
 			}
 		} finally {
 			setLoading(false);
@@ -69,22 +69,24 @@ export function InviteUserModal({
 
 	return (
 		<Modal
-			title="Invite User"
+			title={t("inviteModal.title")}
 			open={visible}
 			onOk={handleOk}
 			onCancel={onCancel}
 			confirmLoading={loading}
+			okText={t("inviteModal.confirm")}
+			cancelText={t("inviteModal.cancel")}
 		>
 			<Form form={form} layout="vertical">
 				<Form.Item
 					name="email"
-					label="Email Address"
+					label={t("inviteModal.email")}
 					rules={[
-						{ required: true, message: "Please enter email address" },
-						{ type: "email", message: "Please enter a valid email" },
+						{ required: true, message: t("inviteModal.emailRequired") },
+						{ type: "email", message: t("inviteModal.emailInvalid") },
 					]}
 				>
-					<Input placeholder="Email Address" />
+					<Input placeholder={t("inviteModal.emailPlaceholder")} />
 				</Form.Item>
 				<Form.Item
 					name="roles"
@@ -117,11 +119,11 @@ export function InviteUserModal({
 				</Form.Item>
 				<Form.Item
 					name="inviteEmailLanguage"
-					label="Invitation Email Language"
-					tooltip="Language for the invitation email. Defaults to your language if not specified."
+					label={t("inviteModal.inviteEmailLanguage")}
+					tooltip={t("inviteModal.inviteEmailLanguageTooltip")}
 				>
 					<Select
-						placeholder="Select language for invitation email (optional)"
+						placeholder={t("inviteModal.inviteEmailLanguagePlaceholder")}
 						allowClear
 						options={SUPPORTED_LANGUAGES.map((lang) => ({
 							label: lang,
