@@ -8,6 +8,19 @@ using TypeSpec.Http;
 
 namespace Vetchium;
 
+// Agency Domain Verification Token - secret expected in DNS TXT record
+scalar AgencyDomainVerificationToken extends string;
+
+// Agency domain verification status enum
+enum AgencyDomainVerificationStatus {
+  PENDING: "PENDING",
+  VERIFIED: "VERIFIED",
+  FAILING: "FAILING",
+}
+
+// Constants for agency domain verification
+// AGENCY_VERIFICATION_COOLDOWN_MINUTES = 60  (1 hour rate limit between verification requests)
+
 // ============================================
 // Agency Domain Verification Flow
 // ============================================
@@ -22,7 +35,7 @@ model AgencyClaimDomainResponse {
   domain: string;
 
   @doc("Verification token to add as DNS TXT record")
-  verification_token: string;
+  verification_token: AgencyDomainVerificationToken;
 
   @doc("When the verification token expires")
   expires_at: utcDateTime;
@@ -38,7 +51,7 @@ model AgencyVerifyDomainRequest {
 
 model AgencyVerifyDomainResponse {
   @doc("Current verification status")
-  status: string;
+  status: AgencyDomainVerificationStatus;
 
   @doc("When the domain was verified (if VERIFIED)")
   verified_at?: utcDateTime;
@@ -57,16 +70,25 @@ model AgencyGetDomainStatusResponse {
   domain: string;
 
   @doc("Current verification status")
-  status: string;
+  status: AgencyDomainVerificationStatus;
 
   @doc("Verification token (visible only if PENDING or FAILING)")
-  verification_token?: string;
+  verification_token?: AgencyDomainVerificationToken;
 
   @doc("When the verification token expires (if PENDING)")
   expires_at?: utcDateTime;
 
   @doc("When the domain was last verified (if VERIFIED)")
   last_verified_at?: utcDateTime;
+
+  @doc("Whether the user can request a verification now (server-controlled rate limit)")
+  can_request_verification: boolean;
+
+  @doc("When verification was last requested (present if a request was ever made)")
+  last_attempted_at?: utcDateTime;
+
+  @doc("Earliest time the next verification request is allowed (present only when !can_request_verification)")
+  next_verification_allowed_at?: utcDateTime;
 }
 
 model AgencyListDomainStatusRequest {
@@ -79,16 +101,25 @@ model AgencyListDomainStatusItem {
   domain: string;
 
   @doc("Current verification status")
-  status: string;
+  status: AgencyDomainVerificationStatus;
 
   @doc("Verification token (visible only if PENDING or FAILING)")
-  verification_token?: string;
+  verification_token?: AgencyDomainVerificationToken;
 
   @doc("When the verification token expires (if PENDING)")
   expires_at?: utcDateTime;
 
   @doc("When the domain was last verified (if VERIFIED)")
   last_verified_at?: utcDateTime;
+
+  @doc("Whether the user can request a verification now (server-controlled rate limit)")
+  can_request_verification: boolean;
+
+  @doc("When verification was last requested (present if a request was ever made)")
+  last_attempted_at?: utcDateTime;
+
+  @doc("Earliest time the next verification request is allowed (present only when !can_request_verification)")
+  next_verification_allowed_at?: utcDateTime;
 }
 
 model AgencyListDomainStatusResponse {
@@ -154,6 +185,11 @@ interface AgencyVerifyDomain {
         @doc("Domain not found or not owned by this agency")
         @statusCode
         statusCode: 404;
+      }
+    | {
+        @doc("Verification was recently requested; rate limit in effect")
+        @statusCode
+        statusCode: 429;
       };
 }
 

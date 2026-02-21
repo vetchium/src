@@ -87,6 +87,12 @@ model GetDomainStatusResponse {
 
   @doc("Whether the user can request a verification now (server-controlled rate limit)")
   can_request_verification: boolean;
+
+  @doc("When verification was last requested (present if a request was ever made)")
+  last_attempted_at?: utcDateTime;
+
+  @doc("Earliest time the next verification request is allowed (present only when !can_request_verification)")
+  next_verification_allowed_at?: utcDateTime;
 }
 
 model ListDomainStatusRequest {
@@ -112,6 +118,12 @@ model ListDomainStatusItem {
 
   @doc("Whether the user can request a verification now (server-controlled rate limit)")
   can_request_verification: boolean;
+
+  @doc("When verification was last requested (present if a request was ever made)")
+  last_attempted_at?: utcDateTime;
+
+  @doc("Earliest time the next verification request is allowed (present only when !can_request_verification)")
+  next_verification_allowed_at?: utcDateTime;
 }
 
 model ListDomainStatusResponse {
