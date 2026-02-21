@@ -24,7 +24,7 @@ SELECT ia.admin_user_id, r.role_id
 FROM inserted_admins ia
 CROSS JOIN roles r
 WHERE
-    (ia.email_address = 'admin1@vetchium.com' AND r.role_name IN ('admin:invite_users', 'admin:manage_users', 'admin:manage_domains'))
+    (ia.email_address = 'admin1@vetchium.com' AND r.role_name = 'admin:superadmin')
     OR
     (ia.email_address = 'admin2@vetchium.com' AND r.role_name = 'admin:invite_users')
 ON CONFLICT DO NOTHING;

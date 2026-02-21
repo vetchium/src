@@ -233,6 +233,19 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 				return txErr
 			}
 
+			// Assign default hub:read_posts role to every new hub user
+			readPostsRole, txErr := qtx.GetRoleByName(ctx, "hub:read_posts")
+			if txErr != nil {
+				return txErr
+			}
+			txErr = qtx.AssignHubUserRole(ctx, regionaldb.AssignHubUserRoleParams{
+				HubUserGlobalID: hubUserGlobalID,
+				RoleID:          readPostsRole.RoleID,
+			})
+			if txErr != nil {
+				return txErr
+			}
+
 			sessionExpiresAt := pgtype.Timestamp{Time: time.Now().Add(s.TokenConfig.HubSessionTokenExpiry), Valid: true}
 			txErr = qtx.CreateHubSession(ctx, regionaldb.CreateHubSessionParams{
 				SessionToken:    rawSessionToken,

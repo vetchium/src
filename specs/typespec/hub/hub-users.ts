@@ -411,3 +411,12 @@ export function validateHubCompleteEmailChangeRequest(
 
 	return errs;
 }
+
+// MyInfo response for hub users
+export interface HubMyInfoResponse {
+	hub_user_id: string;
+	handle: Handle;
+	email_address: EmailAddress;
+	preferred_language: LanguageCode;
+	roles: string[];
+}

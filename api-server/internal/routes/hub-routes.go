@@ -24,4 +24,5 @@ func RegisterHubRoutes(mux *http.ServeMux, s *server.Server) {
 	mux.Handle("POST /hub/set-language", hubAuth(hub.SetLanguage(s)))
 	mux.Handle("POST /hub/change-password", hubAuth(hub.ChangePassword(s)))
 	mux.Handle("POST /hub/request-email-change", hubAuth(hub.RequestEmailChange(s)))
+	mux.Handle("GET /hub/myinfo", hubAuth(hub.MyInfo(s)))
 }

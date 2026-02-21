@@ -687,3 +687,23 @@ VALUES ($1, $2);
 DELETE FROM agency_user_roles
 WHERE agency_user_id = $1
   AND role_id = $2;
+-- Hub user role queries
+-- name: GetHubUserRoles :many
+SELECT r.role_id,
+  r.role_name,
+  r.description,
+  hur.assigned_at
+FROM hub_user_roles hur
+  JOIN roles r ON hur.role_id = r.role_id
+WHERE hur.hub_user_global_id = $1
+ORDER BY r.role_name ASC;
+-- name: HasHubUserRole :one
+SELECT EXISTS(
+    SELECT 1
+    FROM hub_user_roles
+    WHERE hub_user_global_id = $1
+      AND role_id = $2
+  ) AS has_role;
+-- name: AssignHubUserRole :exec
+INSERT INTO hub_user_roles (hub_user_global_id, role_id)
+VALUES ($1, $2);

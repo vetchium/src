@@ -5,6 +5,7 @@ export type RoleName = string;
 // Valid role names matching database roles table
 export const VALID_ROLE_NAMES = [
 	// Admin portal roles
+	"admin:superadmin",
 	"admin:invite_users",
 	"admin:manage_users",
 	"admin:manage_domains",
@@ -12,12 +13,19 @@ export const VALID_ROLE_NAMES = [
 	// Employer portal roles
 	"employer:invite_users",
 	"employer:manage_users",
+	"employer:read_domains",
 	"employer:superadmin",
 
 	// Agency portal roles
 	"agency:invite_users",
 	"agency:manage_users",
+	"agency:read_domains",
 	"agency:superadmin",
+
+	// Hub portal roles
+	"hub:read_posts",
+	"hub:write_posts",
+	"hub:apply_jobs",
 ] as const;
 export type ValidRoleName = (typeof VALID_ROLE_NAMES)[number];
 

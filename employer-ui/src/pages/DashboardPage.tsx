@@ -23,7 +23,9 @@ export function DashboardPage() {
 		false;
 
 	const hasDomainManagementAccess =
-		myInfo?.roles.includes("employer:superadmin") || false;
+		myInfo?.roles.includes("employer:superadmin") ||
+		myInfo?.roles.includes("employer:read_domains") ||
+		false;
 
 	return (
 		<div

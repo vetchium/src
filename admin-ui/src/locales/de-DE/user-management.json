@@ -1,6 +1,8 @@
 {
 	"pageTitle": "Benutzerverwaltung",
+	"dashboardDescription": "Admin-Benutzer und ihre Rollen verwalten",
 	"inviteUser": "Benutzer einladen",
+	"inviteUserDescription": "Einen neuen Administrator zur Plattform einladen",
 	"searchPlaceholder": "Nach E-Mail oder Name suchen...",
 	"status": {
 		"all": "Alle",

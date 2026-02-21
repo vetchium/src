@@ -40,6 +40,7 @@ import {
 } from "vetchium-specs/common/common";
 import { getApiBaseUrl } from "../../config";
 import { useAuth } from "../../hooks/useAuth";
+import { useMyInfo } from "../../hooks/useMyInfo";
 
 const { Text, Paragraph, Title } = Typography;
 
@@ -50,6 +51,10 @@ interface ClaimFormValues {
 export function DomainManagementPage() {
 	const { t } = useTranslation("auth");
 	const { sessionToken } = useAuth();
+	const { data: myInfo } = useMyInfo(sessionToken);
+
+	const canWriteDomains =
+		myInfo?.roles.includes("agency:superadmin") || false;
 	const { message } = App.useApp();
 	const navigate = useNavigate();
 	const [form] = Form.useForm<ClaimFormValues>();
@@ -293,9 +298,11 @@ export function DomainManagementPage() {
 								{t("domain.tokenExpires")}: {formatLocalTime(record.expires_at)}
 							</Text>
 						)}
-						<Button size="small" onClick={() => setInstructionsDomain(record)}>
-							{t("domain.showDnsInstructions")}
-						</Button>
+						{canWriteDomains && (
+							<Button size="small" onClick={() => setInstructionsDomain(record)}>
+								{t("domain.showDnsInstructions")}
+							</Button>
+						)}
 					</Space>
 				);
 			},
@@ -466,7 +473,8 @@ export function DomainManagementPage() {
 				)}
 			</Modal>
 
-			<Card title={t("domain.claimLabel")}>
+			{canWriteDomains && (
+				<Card title={t("domain.claimLabel")}>
 				<Spin spinning={claimLoading}>
 					<Form
 						form={form}
@@ -525,7 +533,8 @@ export function DomainManagementPage() {
 						</Form.Item>
 					</Form>
 				</Spin>
-			</Card>
+				</Card>
+			)}
 		</div>
 	);
 }

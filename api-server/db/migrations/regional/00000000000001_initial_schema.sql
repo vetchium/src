@@ -254,9 +254,17 @@ CREATE TABLE agency_user_roles (
     assigned_at TIMESTAMP NOT NULL DEFAULT NOW(),
     PRIMARY KEY (agency_user_id, role_id)
 );
+-- RBAC: Hub user roles
+CREATE TABLE hub_user_roles (
+    hub_user_global_id UUID NOT NULL REFERENCES hub_users(hub_user_global_id) ON DELETE CASCADE,
+    role_id UUID NOT NULL REFERENCES roles(role_id) ON DELETE RESTRICT,
+    assigned_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (hub_user_global_id, role_id)
+);
 -- Insert predefined roles
 INSERT INTO roles (role_name, description) VALUES
     -- Admin portal roles
+    ('admin:superadmin', 'Superadmin for the admin portal with full access to all operations'),
     ('admin:invite_users', 'Can invite new admin users'),
     ('admin:manage_users', 'Can enable/disable admin users and manage roles'),
     ('admin:manage_domains', 'Can manage approved domains'),
@@ -264,14 +272,21 @@ INSERT INTO roles (role_name, description) VALUES
     -- Employer portal roles
     ('employer:invite_users', 'Can invite new employer users'),
     ('employer:manage_users', 'Can enable/disable employer users'),
+    ('employer:read_domains', 'Can view employer domain list and status (read-only)'),
 
     -- Agency portal roles
     ('agency:invite_users', 'Can invite new agency users'),
     ('agency:manage_users', 'Can enable/disable agency users'),
+    ('agency:read_domains', 'Can view agency domain list and status (read-only)'),
 
     -- Superadmin roles
     ('employer:superadmin', 'Superadmin for the employer portal with full access to all operations'),
-    ('agency:superadmin', 'Superadmin for the agency portal with full access to all operations');
+    ('agency:superadmin', 'Superadmin for the agency portal with full access to all operations'),
+
+    -- Hub portal roles (assigned at signup, additional roles for paid features)
+    ('hub:read_posts', 'Can read posts by other hub users'),
+    ('hub:write_posts', 'Can create and edit posts (paid feature)'),
+    ('hub:apply_jobs', 'Can apply to job postings');
 -- Indexes
 CREATE INDEX idx_hub_tfa_tokens_expires_at ON hub_tfa_tokens(expires_at);
 CREATE INDEX idx_hub_sessions_expires_at ON hub_sessions(expires_at);
@@ -332,6 +347,7 @@ DROP TABLE IF EXISTS org_password_reset_tokens;
 DROP TABLE IF EXISTS org_sessions;
 DROP TABLE IF EXISTS org_tfa_tokens;
 DROP TABLE IF EXISTS org_users;
+DROP TABLE IF EXISTS hub_user_roles;
 DROP TABLE IF EXISTS hub_sessions;
 DROP TABLE IF EXISTS hub_email_verification_tokens;
 DROP TABLE IF EXISTS hub_password_reset_tokens;

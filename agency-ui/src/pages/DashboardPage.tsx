@@ -23,7 +23,9 @@ export function DashboardPage() {
 		false;
 
 	const hasDomainManagementAccess =
-		myInfo?.roles.includes("agency:superadmin") || false;
+		myInfo?.roles.includes("agency:superadmin") ||
+		myInfo?.roles.includes("agency:read_domains") ||
+		false;
 
 	return (
 		<div

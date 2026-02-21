@@ -24,12 +24,15 @@ func RegisterEmployerRoutes(mux *http.ServeMux, s *server.Server) {
 	employerRoleInvite := middleware.EmployerRole(s.Regional, "employer:invite_users")
 	employerRoleManage := middleware.EmployerRole(s.Regional, "employer:manage_users")
 	employerRoleSuperadmin := middleware.EmployerRole(s.Regional, "employer:superadmin")
+	// read_domains allows viewing domain list/status; claim and verify still require superadmin
+	employerRoleReadDomains := middleware.EmployerRole(s.Regional, "employer:read_domains")
 
 	// Superadmin-only routes (employer:superadmin required)
 	mux.Handle("POST /employer/claim-domain", orgAuth(employerRoleSuperadmin(employer.ClaimDomain(s))))
 	mux.Handle("POST /employer/verify-domain", orgAuth(employerRoleSuperadmin(employer.VerifyDomain(s))))
-	mux.Handle("POST /employer/get-domain-status", orgAuth(employerRoleSuperadmin(employer.GetDomainStatus(s))))
-	mux.Handle("POST /employer/list-domains", orgAuth(employerRoleSuperadmin(employer.ListDomains(s))))
+	// Domain list/status visible to superadmin OR read_domains role
+	mux.Handle("POST /employer/get-domain-status", orgAuth(employerRoleReadDomains(employer.GetDomainStatus(s))))
+	mux.Handle("POST /employer/list-domains", orgAuth(employerRoleReadDomains(employer.ListDomains(s))))
 	mux.Handle("POST /employer/assign-role", orgAuth(employerRoleManage(employer.AssignRole(s))))
 	mux.Handle("POST /employer/remove-role", orgAuth(employerRoleManage(employer.RemoveRole(s))))
 

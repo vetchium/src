@@ -324,6 +324,7 @@ CREATE TABLE admin_user_roles (
 -- Insert predefined roles
 INSERT INTO roles (role_name, description) VALUES
     -- Admin portal roles
+    ('admin:superadmin', 'Superadmin for the admin portal with full access to all operations'),
     ('admin:invite_users', 'Can invite new admin users'),
     ('admin:manage_users', 'Can enable/disable admin users and manage roles'),
     ('admin:manage_domains', 'Can manage approved domains'),

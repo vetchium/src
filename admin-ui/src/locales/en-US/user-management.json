@@ -1,6 +1,8 @@
 {
 	"pageTitle": "User Management",
+	"dashboardDescription": "Manage admin users and their roles",
 	"inviteUser": "Invite User",
+	"inviteUserDescription": "Invite a new administrator to the platform",
 	"searchPlaceholder": "Search by email or name...",
 	"status": {
 		"all": "All",

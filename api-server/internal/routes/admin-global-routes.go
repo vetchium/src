@@ -23,15 +23,18 @@ func RegisterAdminGlobalRoutes(mux *http.ServeMux, s *server.GlobalServer) {
 	adminRoleInvite := middleware.AdminRole(s.Global, "admin:invite_users")
 	adminRoleManage := middleware.AdminRole(s.Global, "admin:manage_users")
 	adminRoleDomains := middleware.AdminRole(s.Global, "admin:manage_domains")
+	adminRoleViewUsers := middleware.AdminRole(s.Global, "admin:invite_users", "admin:manage_users")
 
 	// Auth-only routes (no role required)
 	mux.Handle("POST /admin/logout", adminAuth(admin.Logout(s)))
 	mux.Handle("POST /admin/set-language", adminAuth(admin.SetLanguage(s)))
 	mux.Handle("POST /admin/change-password", adminAuth(admin.ChangePassword(s)))
 	mux.Handle("GET /admin/myinfo", adminAuth(admin.MyInfo(s)))
-	mux.Handle("POST /admin/filter-users", adminAuth(admin.FilterUsers(s)))
-	mux.Handle("POST /admin/list-approved-domains", adminAuth(admin.ListApprovedDomains(s)))
-	mux.Handle("POST /admin/get-approved-domain", adminAuth(admin.GetApprovedDomain(s)))
+
+	// Role-protected read routes
+	mux.Handle("POST /admin/filter-users", adminAuth(adminRoleViewUsers(admin.FilterUsers(s))))
+	mux.Handle("POST /admin/list-approved-domains", adminAuth(adminRoleDomains(admin.ListApprovedDomains(s))))
+	mux.Handle("POST /admin/get-approved-domain", adminAuth(adminRoleDomains(admin.GetApprovedDomain(s))))
 
 	// Role-protected routes
 	mux.Handle("POST /admin/invite-user", adminAuth(adminRoleInvite(admin.InviteUser(s))))

@@ -8,6 +8,7 @@ import (
 )
 
 // AdminRole checks if the authenticated admin user has ANY of the required roles.
+// Superadmin (admin:superadmin) is always prepended and bypasses any specific role requirement.
 // If no roles are specified, only authentication is required (any authenticated admin can access).
 // Returns 403 if user lacks all required roles.
 // Must be chained after AdminAuth middleware.
@@ -30,8 +31,10 @@ func AdminRole(globalDB *globaldb.Queries, requiredRoles ...string) func(http.Ha
 				return
 			}
 
-			// Check if user has ANY of the required roles
-			for _, requiredRole := range requiredRoles {
+			// Check if user has ANY of the required roles.
+			// Superadmin can access everything any specific role can.
+			checkRoles := append([]string{"admin:superadmin"}, requiredRoles...)
+			for _, requiredRole := range checkRoles {
 				role, err := globalDB.GetRoleByName(ctx, requiredRole)
 				if err != nil {
 					// Role doesn't exist in DB, skip to next role
@@ -149,6 +152,56 @@ func AgencyRole(regionalDB *regionaldb.Queries, requiredRoles ...string) func(ht
 				hasRole, err := regionalDB.HasAgencyUserRole(ctx, regionaldb.HasAgencyUserRoleParams{
 					AgencyUserID: agencyUser.AgencyUserID,
 					RoleID:       role.RoleID,
+				})
+				if err != nil {
+					continue
+				}
+
+				if hasRole {
+					next.ServeHTTP(w, r)
+					return
+				}
+			}
+
+			// User doesn't have any of the required roles
+			w.WriteHeader(http.StatusForbidden)
+		})
+	}
+}
+
+// HubRole checks if the authenticated hub user has ANY of the required roles.
+// If no roles are specified, only authentication is required (any authenticated hub user can access).
+// Returns 403 if user lacks all required roles.
+// Must be chained after HubAuth middleware.
+func HubRole(regionalDB *regionaldb.Queries, requiredRoles ...string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			ctx := r.Context()
+
+			// Get hub user from context (set by HubAuth)
+			hubUser := HubUserFromContext(ctx)
+			if hubUser == nil {
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+
+			// If no roles specified, allow access (auth-only)
+			if len(requiredRoles) == 0 {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			// Check if user has ANY of the required roles (roles are in regional DB)
+			for _, requiredRole := range requiredRoles {
+				role, err := regionalDB.GetRoleByName(ctx, requiredRole)
+				if err != nil {
+					continue
+				}
+
+				hasRole, err := regionalDB.HasHubUserRole(ctx, regionaldb.HasHubUserRoleParams{
+					HubUserGlobalID: hubUser.HubUserGlobalID,
+					RoleID:          role.RoleID,
 				})
 				if err != nil {
 					continue

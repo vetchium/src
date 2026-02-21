@@ -24,12 +24,15 @@ func RegisterAgencyRoutes(mux *http.ServeMux, s *server.Server) {
 	agencyRoleInvite := middleware.AgencyRole(s.Regional, "agency:invite_users")
 	agencyRoleManage := middleware.AgencyRole(s.Regional, "agency:manage_users")
 	agencyRoleSuperadmin := middleware.AgencyRole(s.Regional, "agency:superadmin")
+	// read_domains allows viewing domain list/status; claim and verify still require superadmin
+	agencyRoleReadDomains := middleware.AgencyRole(s.Regional, "agency:read_domains")
 
 	// Superadmin-only routes (agency:superadmin required)
 	mux.Handle("POST /agency/claim-domain", agencyAuth(agencyRoleSuperadmin(agency.ClaimDomain(s))))
 	mux.Handle("POST /agency/verify-domain", agencyAuth(agencyRoleSuperadmin(agency.VerifyDomain(s))))
-	mux.Handle("POST /agency/get-domain-status", agencyAuth(agencyRoleSuperadmin(agency.GetDomainStatus(s))))
-	mux.Handle("POST /agency/list-domains", agencyAuth(agencyRoleSuperadmin(agency.ListDomains(s))))
+	// Domain list/status visible to superadmin OR read_domains role
+	mux.Handle("POST /agency/get-domain-status", agencyAuth(agencyRoleReadDomains(agency.GetDomainStatus(s))))
+	mux.Handle("POST /agency/list-domains", agencyAuth(agencyRoleReadDomains(agency.ListDomains(s))))
 
 	// Superadmin or manage_users routes
 	mux.Handle("POST /agency/assign-role", agencyAuth(agencyRoleManage(agency.AssignRole(s))))
