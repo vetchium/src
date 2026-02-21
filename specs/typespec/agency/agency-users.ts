@@ -22,6 +22,8 @@ import {
 	type RemoveRoleRequest,
 	validateAssignRoleRequest,
 	validateRemoveRoleRequest,
+	validateRoleName,
+	ERR_ROLE_NAME_INVALID,
 } from "../common/roles";
 
 export { validateAssignRoleRequest, validateRemoveRoleRequest };
@@ -199,9 +201,13 @@ export function validateAgencyTFARequest(
 
 	return errs;
 }
+const ERR_ROLES_REQUIRED = "at least one role is required";
+const ERR_ROLE_WRONG_PORTAL = "role does not belong to the agency portal";
+
 export interface AgencyInviteUserRequest {
 	email_address: EmailAddress;
 	invite_email_language?: LanguageCode;
+	roles: RoleName[];
 }
 
 export function validateAgencyInviteUserRequest(
@@ -222,6 +228,19 @@ export function validateAgencyInviteUserRequest(
 		const langErr = validateLanguageCode(request.invite_email_language);
 		if (langErr) {
 			errs.push(newValidationError("invite_email_language", langErr));
+		}
+	}
+
+	if (!request.roles || request.roles.length === 0) {
+		errs.push(newValidationError("roles", ERR_ROLES_REQUIRED));
+	} else {
+		for (const role of request.roles) {
+			const roleErr = validateRoleName(role);
+			if (roleErr) {
+				errs.push(newValidationError("roles", ERR_ROLE_NAME_INVALID));
+			} else if (!role.startsWith("agency:")) {
+				errs.push(newValidationError("roles", ERR_ROLE_WRONG_PORTAL));
+			}
 		}
 	}
 

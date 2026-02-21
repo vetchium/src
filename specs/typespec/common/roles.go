@@ -16,10 +16,12 @@ var ValidRoleNames = []RoleName{
 	// Employer portal roles
 	"employer:invite_users",
 	"employer:manage_users",
+	"employer:superadmin",
 
 	// Agency portal roles
 	"agency:invite_users",
 	"agency:manage_users",
+	"agency:superadmin",
 }
 
 // Validation errors for RBAC

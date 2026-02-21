@@ -2,6 +2,7 @@ package agency
 
 import (
 	"errors"
+	"strings"
 
 	"vetchium-api-server.typespec/common"
 )
@@ -192,9 +193,15 @@ type AgencyLogoutRequest struct{}
 // Agency User Invitation
 // ============================================================================
 
+var (
+	errRolesRequired   = errors.New("at least one role is required")
+	errRoleWrongPortal = errors.New("role does not belong to the agency portal")
+)
+
 type AgencyInviteUserRequest struct {
 	EmailAddress        common.EmailAddress `json:"email_address"`
 	InviteEmailLanguage common.LanguageCode `json:"invite_email_language,omitempty"`
+	Roles               []common.RoleName   `json:"roles"`
 }
 
 func (r AgencyInviteUserRequest) Validate() []common.ValidationError {
@@ -206,6 +213,18 @@ func (r AgencyInviteUserRequest) Validate() []common.ValidationError {
 	if r.InviteEmailLanguage != "" {
 		if err := r.InviteEmailLanguage.Validate(); err != nil {
 			errs = append(errs, common.NewValidationError("invite_email_language", err))
+		}
+	}
+
+	if len(r.Roles) == 0 {
+		errs = append(errs, common.NewValidationError("roles", errRolesRequired))
+	} else {
+		for _, role := range r.Roles {
+			if err := role.Validate(); err != nil {
+				errs = append(errs, common.NewValidationError("roles", common.ErrRoleNameInvalid))
+			} else if !strings.HasPrefix(string(role), "agency:") {
+				errs = append(errs, common.NewValidationError("roles", errRoleWrongPortal))
+			}
 		}
 	}
 

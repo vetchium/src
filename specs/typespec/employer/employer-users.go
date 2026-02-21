@@ -2,6 +2,7 @@ package employer
 
 import (
 	"errors"
+	"strings"
 
 	"vetchium-api-server.typespec/common"
 )
@@ -193,9 +194,15 @@ type OrgLogoutRequest struct{}
 // User Invitation Flow
 // ============================================
 
+var (
+	errRolesRequired   = errors.New("at least one role is required")
+	errRoleWrongPortal = errors.New("role does not belong to the employer portal")
+)
+
 type OrgInviteUserRequest struct {
 	EmailAddress        common.EmailAddress `json:"email_address"`
 	InviteEmailLanguage common.LanguageCode `json:"invite_email_language,omitempty"`
+	Roles               []common.RoleName   `json:"roles"`
 }
 
 func (r OrgInviteUserRequest) Validate() []common.ValidationError {
@@ -210,6 +217,18 @@ func (r OrgInviteUserRequest) Validate() []common.ValidationError {
 	if r.InviteEmailLanguage != "" {
 		if err := r.InviteEmailLanguage.Validate(); err != nil {
 			errs = append(errs, common.NewValidationError("invite_email_language", err))
+		}
+	}
+
+	if len(r.Roles) == 0 {
+		errs = append(errs, common.NewValidationError("roles", errRolesRequired))
+	} else {
+		for _, role := range r.Roles {
+			if err := role.Validate(); err != nil {
+				errs = append(errs, common.NewValidationError("roles", common.ErrRoleNameInvalid))
+			} else if !strings.HasPrefix(string(role), "employer:") {
+				errs = append(errs, common.NewValidationError("roles", errRoleWrongPortal))
+			}
 		}
 	}
 
