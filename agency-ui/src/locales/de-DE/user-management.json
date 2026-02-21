@@ -83,6 +83,12 @@
 		"emailPlaceholder": "benutzer@beispiel.de",
 		"preferredLanguage": "Bevorzugte Sprache",
 		"preferredLanguagePlaceholder": "Bevorzugte Sprache auswählen (optional)",
+		"rolesLabel": "Rollen",
+		"rolesRequired": "Bitte wählen Sie mindestens eine Rolle aus",
+		"rolesPlaceholder": "Zuzuweisende Rollen auswählen",
+		"roleInviteUsers": "Benutzer einladen",
+		"roleManageUsers": "Benutzer verwalten",
+		"roleSuperadmin": "Superadmin",
 		"confirm": "Benutzer einladen",
 		"cancel": "Abbrechen",
 		"userExists": "Benutzer mit dieser E-Mail existiert bereits"

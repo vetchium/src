@@ -83,6 +83,12 @@
 		"emailPlaceholder": "user@example.com",
 		"preferredLanguage": "Preferred Language",
 		"preferredLanguagePlaceholder": "Select preferred language (optional)",
+		"rolesLabel": "Roles",
+		"rolesRequired": "Please select at least one role",
+		"rolesPlaceholder": "Select roles to assign",
+		"roleInviteUsers": "Invite Users",
+		"roleManageUsers": "Manage Users",
+		"roleSuperadmin": "Superadmin",
 		"confirm": "Invite User",
 		"cancel": "Cancel",
 		"userExists": "User with this email already exists"

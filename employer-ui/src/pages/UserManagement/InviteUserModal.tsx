@@ -4,6 +4,7 @@ import type { OrgInviteUserRequest } from "vetchium-specs/employer/employer-user
 import { getApiBaseUrl } from "../../config";
 import { useAuth } from "../../hooks/useAuth";
 import { SUPPORTED_LANGUAGES } from "../../i18n";
+import { useTranslation } from "react-i18next";
 
 interface InviteUserModalProps {
 	visible: boolean;
@@ -19,6 +20,7 @@ export function InviteUserModal({
 	const [form] = Form.useForm();
 	const [loading, setLoading] = useState(false);
 	const { sessionToken } = useAuth();
+	const { t } = useTranslation("user-management");
 
 	const handleOk = async () => {
 		try {
@@ -27,6 +29,7 @@ export function InviteUserModal({
 
 			const request: OrgInviteUserRequest = {
 				email_address: values.email,
+				roles: values.roles,
 				...(values.inviteEmailLanguage && {
 					invite_email_language: values.inviteEmailLanguage,
 				}),
@@ -82,6 +85,35 @@ export function InviteUserModal({
 					]}
 				>
 					<Input placeholder="Email Address" />
+				</Form.Item>
+				<Form.Item
+					name="roles"
+					label={t("inviteModal.rolesLabel")}
+					rules={[
+						{
+							required: true,
+							message: t("inviteModal.rolesRequired"),
+						},
+					]}
+				>
+					<Select
+						mode="multiple"
+						placeholder={t("inviteModal.rolesPlaceholder")}
+						options={[
+							{
+								label: t("inviteModal.roleInviteUsers"),
+								value: "employer:invite_users",
+							},
+							{
+								label: t("inviteModal.roleManageUsers"),
+								value: "employer:manage_users",
+							},
+							{
+								label: t("inviteModal.roleSuperadmin"),
+								value: "employer:superadmin",
+							},
+						]}
+					/>
 				</Form.Item>
 				<Form.Item
 					name="inviteEmailLanguage"

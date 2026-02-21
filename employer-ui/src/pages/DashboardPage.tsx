@@ -1,4 +1,4 @@
-import { Card, Typography, Button } from "antd";
+import { Card, Skeleton, Typography, Button } from "antd";
 import {
 	LogoutOutlined,
 	TeamOutlined,
@@ -7,12 +7,20 @@ import {
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
+import { useMyInfo } from "../hooks/useMyInfo";
 
 const { Title } = Typography;
 
 export function DashboardPage() {
 	const { t } = useTranslation();
-	const { logout, loading } = useAuth();
+	const { logout, loading, sessionToken } = useAuth();
+	const { data: myInfo, loading: myInfoLoading } = useMyInfo(sessionToken);
+
+	const hasUserManagementAccess =
+		myInfo?.roles.includes("employer:superadmin") ||
+		myInfo?.roles.includes("employer:invite_users") ||
+		myInfo?.roles.includes("employer:manage_users") ||
+		false;
 
 	return (
 		<div
@@ -26,25 +34,33 @@ export function DashboardPage() {
 				padding: "0 16px",
 			}}
 		>
-			<Link
-				to="/user-management"
-				style={{ textDecoration: "none", width: "100%" }}
-			>
-				<Card
-					hoverable
-					style={{ width: "100%", cursor: "pointer", textAlign: "center" }}
-				>
-					<TeamOutlined
-						style={{ fontSize: 48, color: "#722ed1", marginBottom: 16 }}
-					/>
-					<Title level={4} style={{ marginBottom: 8 }}>
-						{t("userManagement.title")}
-					</Title>
-					<Typography.Text type="secondary">
-						{t("userManagement.description")}
-					</Typography.Text>
+			{myInfoLoading ? (
+				<Card style={{ width: "100%" }}>
+					<Skeleton active />
 				</Card>
-			</Link>
+			) : (
+				hasUserManagementAccess && (
+					<Link
+						to="/user-management"
+						style={{ textDecoration: "none", width: "100%" }}
+					>
+						<Card
+							hoverable
+							style={{ width: "100%", cursor: "pointer", textAlign: "center" }}
+						>
+							<TeamOutlined
+								style={{ fontSize: 48, color: "#722ed1", marginBottom: 16 }}
+							/>
+							<Title level={4} style={{ marginBottom: 8 }}>
+								{t("userManagement.title")}
+							</Title>
+							<Typography.Text type="secondary">
+								{t("userManagement.description")}
+							</Typography.Text>
+						</Card>
+					</Link>
+				)
+			)}
 
 			<Link
 				to="/domain-management"

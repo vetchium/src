@@ -83,6 +83,12 @@
 		"emailPlaceholder": "user@example.com",
 		"preferredLanguage": "விருப்பமான மொழி",
 		"preferredLanguagePlaceholder": "விருப்பமான மொழியைத் தேர்ந்தெடுக்கவும் (விருப்பம்)",
+		"rolesLabel": "பாத்திரங்கள்",
+		"rolesRequired": "குறைந்தது ஒரு பாத்திரத்தை தேர்ந்தெடுக்கவும்",
+		"rolesPlaceholder": "ஒதுக்க வேண்டிய பாத்திரங்களை தேர்ந்தெடுக்கவும்",
+		"roleInviteUsers": "பயனர்களை அழை",
+		"roleManageUsers": "பயனர்களை நிர்வகி",
+		"roleSuperadmin": "சூப்பர் நிர்வாகி",
 		"confirm": "பயனரை அழை",
 		"cancel": "ரத்து செய்",
 		"userExists": "இந்த மின்னஞ்சலுடன் பயனர் ஏற்கனவே உள்ளார்"

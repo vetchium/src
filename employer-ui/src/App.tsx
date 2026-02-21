@@ -1,5 +1,15 @@
-import { App as AntApp, ConfigProvider, Layout, theme as antTheme } from "antd";
-import { I18nextProvider } from "react-i18next";
+import {
+	App as AntApp,
+	Button,
+	Card,
+	ConfigProvider,
+	Layout,
+	Result,
+	Spin,
+	theme as antTheme,
+	Typography,
+} from "antd";
+import { I18nextProvider, useTranslation } from "react-i18next";
 import { ThemeProvider } from "./contexts/ThemeProvider";
 import { useTheme } from "./hooks/useTheme";
 import { AuthProvider } from "./contexts/AuthProvider";
@@ -26,9 +36,37 @@ import {
 	useLocation,
 } from "react-router-dom";
 import { NotFoundPage } from "./pages/NotFoundPage";
+import { useMyInfo } from "./hooks/useMyInfo";
 import i18n from "./i18n";
 
 const { Content } = Layout;
+const { Text } = Typography;
+
+function AlreadyLoggedIn() {
+	const { t } = useTranslation("auth");
+	const { logout, loading } = useAuth();
+
+	return (
+		<Card style={{ maxWidth: 480, width: "100%", textAlign: "center" }}>
+			<Result
+				status="info"
+				title={t("alreadyLoggedIn.title")}
+				subTitle={<Text>{t("alreadyLoggedIn.message")}</Text>}
+				extra={
+					<Button
+						type="primary"
+						danger
+						loading={loading}
+						onClick={logout}
+						size="large"
+					>
+						{t("alreadyLoggedIn.signOutButton")}
+					</Button>
+				}
+			/>
+		</Card>
+	);
+}
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
 	const { authState } = useAuth();
@@ -49,7 +87,7 @@ function AuthRoute({ children }: { children: React.ReactNode }) {
 	const { authState } = useAuth();
 
 	if (authState === "authenticated") {
-		return <Navigate to="/" replace />;
+		return <AlreadyLoggedIn />;
 	}
 
 	if (authState === "tfa") {
@@ -67,6 +105,35 @@ function TFARoute({ children }: { children: React.ReactNode }) {
 	}
 
 	if (authState === "authenticated") {
+		return <Navigate to="/" replace />;
+	}
+
+	return <>{children}</>;
+}
+
+function UserManagementRoute({ children }: { children: React.ReactNode }) {
+	const { authState, sessionToken } = useAuth();
+	const { data: myInfo, loading } = useMyInfo(sessionToken);
+	const location = useLocation();
+
+	if (authState === "login") {
+		return <Navigate to="/login" state={{ from: location }} replace />;
+	}
+
+	if (authState === "tfa") {
+		return <Navigate to="/tfa" replace />;
+	}
+
+	if (loading) {
+		return <Spin size="large" />;
+	}
+
+	const hasAccess =
+		myInfo?.roles.includes("employer:superadmin") ||
+		myInfo?.roles.includes("employer:invite_users") ||
+		myInfo?.roles.includes("employer:manage_users");
+
+	if (!hasAccess) {
 		return <Navigate to="/" replace />;
 	}
 
@@ -149,9 +216,9 @@ function AppContent() {
 							<Route
 								path="/user-management"
 								element={
-									<ProtectedRoute>
+									<UserManagementRoute>
 										<UserManagementPage />
-									</ProtectedRoute>
+									</UserManagementRoute>
 								}
 							/>
 							<Route
