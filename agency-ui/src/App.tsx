@@ -140,6 +140,30 @@ function UserManagementRoute({ children }: { children: React.ReactNode }) {
 	return <>{children}</>;
 }
 
+function DomainManagementRoute({ children }: { children: React.ReactNode }) {
+	const { authState, sessionToken } = useAuth();
+	const { data: myInfo, loading } = useMyInfo(sessionToken);
+	const location = useLocation();
+
+	if (authState === "login") {
+		return <Navigate to="/login" state={{ from: location }} replace />;
+	}
+
+	if (authState === "tfa") {
+		return <Navigate to="/tfa" replace />;
+	}
+
+	if (loading) {
+		return <Spin size="large" />;
+	}
+
+	if (!myInfo?.roles.includes("agency:superadmin")) {
+		return <Navigate to="/" replace />;
+	}
+
+	return <>{children}</>;
+}
+
 function AppContent() {
 	const { theme } = useTheme();
 
@@ -224,9 +248,9 @@ function AppContent() {
 							<Route
 								path="/domain-management"
 								element={
-									<ProtectedRoute>
+									<DomainManagementRoute>
 										<DomainManagementPage />
-									</ProtectedRoute>
+									</DomainManagementRoute>
 								}
 							/>
 							<Route

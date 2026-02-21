@@ -23,7 +23,7 @@ import {
 } from "antd";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import type {
 	AgencyClaimDomainRequest,
 	AgencyClaimDomainResponse,
@@ -51,6 +51,7 @@ export function DomainManagementPage() {
 	const { t } = useTranslation("auth");
 	const { sessionToken } = useAuth();
 	const { message } = App.useApp();
+	const navigate = useNavigate();
 	const [form] = Form.useForm<ClaimFormValues>();
 
 	const [domains, setDomains] = useState<AgencyListDomainStatusItem[]>([]);
@@ -90,7 +91,11 @@ export function DomainManagementPage() {
 			if (response.status === 200) {
 				const data: AgencyListDomainStatusResponse = await response.json();
 				setDomains(data.items);
-			} else if (response.status !== 401) {
+			} else if (response.status === 401) {
+				navigate("/login");
+			} else if (response.status === 403) {
+				navigate("/");
+			} else {
 				setError(t("domain.loadFailed"));
 			}
 		} catch (err) {
