@@ -14,8 +14,8 @@ import type {
 	AgencyTFARequest,
 } from "vetchium-specs/agency/agency-users";
 import type {
-	AgencyAgencyClaimDomainRequest,
-	AgencyAgencyGetDomainStatusRequest,
+	AgencyClaimDomainRequest,
+	AgencyGetDomainStatusRequest,
 } from "vetchium-specs/agency-domains/agency-domains";
 
 /**
