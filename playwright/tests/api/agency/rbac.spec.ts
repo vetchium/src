@@ -53,7 +53,7 @@ test.describe("Agency Portal RBAC Tests", () => {
 				const newUserEmail = `invited-${crypto.randomUUID().substring(0, 8)}@${domain}`;
 				const inviteReq: AgencyInviteUserRequest = {
 					email_address: newUserEmail,
-					full_name: "Invited User",
+					roles: ["agency:invite_users"],
 				};
 
 				const response = await api.inviteUser(adminToken, inviteReq);
@@ -116,7 +116,7 @@ test.describe("Agency Portal RBAC Tests", () => {
 				const newUserEmail = `invited-${crypto.randomUUID().substring(0, 8)}@${domain}`;
 				const inviteReq: AgencyInviteUserRequest = {
 					email_address: newUserEmail,
-					full_name: "Invited User",
+					roles: ["agency:invite_users"],
 				};
 
 				const response = await api.inviteUser(userToken, inviteReq);
@@ -174,7 +174,7 @@ test.describe("Agency Portal RBAC Tests", () => {
 				const newUserEmail = `invited-${crypto.randomUUID().substring(0, 8)}@${domain}`;
 				const inviteReq: AgencyInviteUserRequest = {
 					email_address: newUserEmail,
-					full_name: "Invited User",
+					roles: ["agency:invite_users"],
 				};
 
 				const response = await api.inviteUser(userToken, inviteReq);
@@ -658,7 +658,7 @@ test.describe("Agency Portal RBAC Tests", () => {
 
 			const inviteReq: AgencyInviteUserRequest = {
 				email_address: newUserData.email,
-				full_name: "Test User",
+				roles: ["agency:invite_users"],
 			};
 
 			const response = await api.inviteUserWithoutAuth(inviteReq);

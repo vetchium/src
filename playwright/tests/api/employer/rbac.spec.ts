@@ -53,7 +53,7 @@ test.describe("Org Portal RBAC Tests", () => {
 				const newUserEmail = `invited-${crypto.randomUUID().substring(0, 8)}@${domain}`;
 				const inviteReq: OrgInviteUserRequest = {
 					email_address: newUserEmail,
-					full_name: "Invited User",
+					roles: ["employer:invite_users"],
 				};
 
 				const response = await api.inviteUser(adminToken, inviteReq);
@@ -113,7 +113,7 @@ test.describe("Org Portal RBAC Tests", () => {
 				const newUserEmail = `invited-${crypto.randomUUID().substring(0, 8)}@${domain}`;
 				const inviteReq: OrgInviteUserRequest = {
 					email_address: newUserEmail,
-					full_name: "Invited User",
+					roles: ["employer:invite_users"],
 				};
 
 				const response = await api.inviteUser(userToken, inviteReq);
@@ -171,7 +171,7 @@ test.describe("Org Portal RBAC Tests", () => {
 				const newUserEmail = `invited-${crypto.randomUUID().substring(0, 8)}@${domain}`;
 				const inviteReq: OrgInviteUserRequest = {
 					email_address: newUserEmail,
-					full_name: "Invited User",
+					roles: ["employer:invite_users"],
 				};
 
 				const response = await api.inviteUser(userToken, inviteReq);
@@ -656,7 +656,7 @@ test.describe("Org Portal RBAC Tests", () => {
 
 			const inviteReq: OrgInviteUserRequest = {
 				email_address: newUserData.email,
-				full_name: "Test User",
+				roles: ["employer:invite_users"],
 			};
 
 			const response = await api.inviteUserWithoutAuth(inviteReq);
