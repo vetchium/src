@@ -40,10 +40,13 @@ func RegisterAgencyRoutes(mux *http.ServeMux, s *server.Server) {
 	mux.Handle("POST /agency/disable-user", agencyAuth(agencyRoleManage(agency.DisableUser(s))))
 	mux.Handle("POST /agency/enable-user", agencyAuth(agencyRoleManage(agency.EnableUser(s))))
 
+	// User management view requires invite_users or manage_users role
+	agencyRoleViewUsers := middleware.AgencyRole(s.Regional, "agency:invite_users", "agency:manage_users")
+
 	// Auth-only routes (any authenticated agency user)
 	mux.Handle("POST /agency/logout", agencyAuth(agency.Logout(s)))
 	mux.Handle("POST /agency/change-password", agencyAuth(agency.ChangePassword(s)))
 	mux.Handle("POST /agency/set-language", agencyAuth(agency.SetLanguage(s)))
 	mux.Handle("GET /agency/myinfo", agencyAuth(agency.MyInfo(s)))
-	mux.Handle("POST /agency/filter-users", agencyAuth(agency.FilterUsers(s)))
+	mux.Handle("POST /agency/filter-users", agencyAuth(agencyRoleViewUsers(agency.FilterUsers(s))))
 }

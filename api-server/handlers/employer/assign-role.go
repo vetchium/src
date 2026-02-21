@@ -4,12 +4,14 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
+	common "vetchium-api-server.typespec/common"
 	"vetchium-api-server.typespec/employer"
 )
 
@@ -40,6 +42,16 @@ func AssignRole(s *server.Server) http.HandlerFunc {
 			log.Debug("validation failed", "errors", errs)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(errs)
+			return
+		}
+
+		// Ensure role belongs to the employer portal
+		if !strings.HasPrefix(string(req.RoleName), "employer:") {
+			log.Debug("role does not belong to employer portal", "role_name", req.RoleName)
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode([]common.ValidationError{
+				common.NewValidationError("role_name", errors.New("must be an employer role")),
+			})
 			return
 		}
 

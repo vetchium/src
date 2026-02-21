@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -11,6 +12,7 @@ import (
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
 	"vetchium-api-server.typespec/agency"
+	common "vetchium-api-server.typespec/common"
 )
 
 func AssignRole(s *server.Server) http.HandlerFunc {
@@ -40,6 +42,16 @@ func AssignRole(s *server.Server) http.HandlerFunc {
 			log.Debug("validation failed", "errors", errs)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(errs)
+			return
+		}
+
+		// Ensure role belongs to the agency portal
+		if !strings.HasPrefix(string(req.RoleName), "agency:") {
+			log.Debug("role does not belong to agency portal", "role_name", req.RoleName)
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode([]common.ValidationError{
+				common.NewValidationError("role_name", errors.New("must be an agency role")),
+			})
 			return
 		}
 

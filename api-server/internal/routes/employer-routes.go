@@ -38,10 +38,13 @@ func RegisterEmployerRoutes(mux *http.ServeMux, s *server.Server) {
 	mux.Handle("POST /employer/disable-user", orgAuth(employerRoleManage(employer.DisableUser(s))))
 	mux.Handle("POST /employer/enable-user", orgAuth(employerRoleManage(employer.EnableUser(s))))
 
+	// User management view requires invite_users or manage_users role
+	employerRoleViewUsers := middleware.EmployerRole(s.Regional, "employer:invite_users", "employer:manage_users")
+
 	// Auth-only routes (any authenticated employer user)
 	mux.Handle("POST /employer/logout", orgAuth(employer.Logout(s)))
 	mux.Handle("POST /employer/change-password", orgAuth(employer.ChangePassword(s)))
 	mux.Handle("POST /employer/set-language", orgAuth(employer.SetLanguage(s)))
 	mux.Handle("GET /employer/myinfo", orgAuth(employer.MyInfo(s)))
-	mux.Handle("POST /employer/filter-users", orgAuth(employer.FilterUsers(s)))
+	mux.Handle("POST /employer/filter-users", orgAuth(employerRoleViewUsers(employer.FilterUsers(s))))
 }
