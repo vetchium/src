@@ -51,6 +51,7 @@ test.describe("POST /agency/invite-user", () => {
 			// Invite new user
 			const inviteRequest: AgencyInviteUserRequest = {
 				email_address: inviteeEmail,
+				roles: ["agency:invite_users"],
 			};
 			const inviteResponse = await api.inviteUser(sessionToken, inviteRequest);
 
@@ -114,6 +115,7 @@ test.describe("POST /agency/invite-user", () => {
 			// Try to invite new user (should fail)
 			const inviteRequest: AgencyInviteUserRequest = {
 				email_address: inviteeEmail,
+				roles: ["agency:invite_users"],
 			};
 			const inviteResponse = await api.inviteUser(sessionToken, inviteRequest);
 
@@ -168,6 +170,7 @@ test.describe("POST /agency/invite-user", () => {
 			// Try to invite existing user
 			const inviteRequest: AgencyInviteUserRequest = {
 				email_address: existingEmail,
+				roles: ["agency:invite_users"],
 			};
 			const inviteResponse = await api.inviteUser(sessionToken, inviteRequest);
 
@@ -238,7 +241,7 @@ test.describe("POST /agency/invite-user", () => {
 			// Try to invite with invalid email
 			const inviteRequest: AgencyInviteUserRequest = {
 				email_address: "not-an-email",
-				full_name: "Test User",
+				roles: ["agency:invite_users"],
 			};
 			const inviteResponse = await api.inviteUser(sessionToken, inviteRequest);
 
@@ -256,6 +259,7 @@ test.describe("POST /agency/invite-user", () => {
 
 		const inviteRequest: AgencyInviteUserRequest = {
 			email_address: inviteeEmail,
+			roles: ["agency:invite_users"],
 		};
 		const inviteResponse = await api.inviteUserWithoutAuth(inviteRequest);
 
@@ -270,6 +274,7 @@ test.describe("POST /agency/invite-user", () => {
 
 		const inviteRequest: AgencyInviteUserRequest = {
 			email_address: inviteeEmail,
+			roles: ["agency:invite_users"],
 		};
 		const inviteResponse = await api.inviteUser(
 			"IND1-invalidtoken123",
@@ -277,5 +282,75 @@ test.describe("POST /agency/invite-user", () => {
 		);
 
 		expect(inviteResponse.status).toBe(401);
+	});
+
+	test("missing roles returns 400", async ({ request }) => {
+		const api = new AgencyAPIClient(request);
+		const { email: adminEmail, domain } = generateTestAgencyEmail(
+			"agency-invite-noroles"
+		);
+
+		await createTestAgencyAdminDirect(adminEmail, TEST_PASSWORD);
+
+		try {
+			const loginResponse = await api.login({
+				email: adminEmail,
+				domain,
+				password: TEST_PASSWORD,
+			});
+			const tfaCode = await getTfaCodeFromEmail(adminEmail);
+			const tfaResponse = await api.verifyTFA({
+				tfa_token: loginResponse.body.tfa_token,
+				tfa_code: tfaCode,
+				remember_me: false,
+			});
+			const sessionToken = tfaResponse.body.session_token;
+
+			// Try to invite without roles field
+			const inviteResponse = await api.inviteUserRaw(sessionToken, {
+				email_address: `noroles-invitee@${domain}`,
+			});
+
+			expect(inviteResponse.status).toBe(400);
+		} finally {
+			await deleteTestAgencyUser(adminEmail);
+		}
+	});
+
+	test("wrong-portal role in roles returns 400", async ({ request }) => {
+		const api = new AgencyAPIClient(request);
+		const { email: adminEmail, domain } = generateTestAgencyEmail(
+			"agency-invite-wrongrole"
+		);
+		const { email: inviteeEmail } = generateTestAgencyEmail(
+			"agency-invite-wrongrole-invitee"
+		);
+
+		await createTestAgencyAdminDirect(adminEmail, TEST_PASSWORD);
+
+		try {
+			const loginResponse = await api.login({
+				email: adminEmail,
+				domain,
+				password: TEST_PASSWORD,
+			});
+			const tfaCode = await getTfaCodeFromEmail(adminEmail);
+			const tfaResponse = await api.verifyTFA({
+				tfa_token: loginResponse.body.tfa_token,
+				tfa_code: tfaCode,
+				remember_me: false,
+			});
+			const sessionToken = tfaResponse.body.session_token;
+
+			// Try to invite with an employer role (wrong portal)
+			const inviteResponse = await api.inviteUserRaw(sessionToken, {
+				email_address: inviteeEmail,
+				roles: ["employer:invite_users"],
+			});
+
+			expect(inviteResponse.status).toBe(400);
+		} finally {
+			await deleteTestAgencyUser(adminEmail);
+		}
 	});
 });

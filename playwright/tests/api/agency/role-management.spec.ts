@@ -348,6 +348,56 @@ test.describe("POST /agency/assign-role", () => {
 			await deleteTestAgencyUser(targetEmail);
 		}
 	});
+
+	test("assigning employer role to agency user returns 400", async ({
+		request,
+	}) => {
+		const api = new AgencyAPIClient(request);
+		const { email: adminEmail, domain } = generateTestAgencyEmail(
+			"role-wrong-portal-admin"
+		);
+		const { email: targetEmail } = generateTestAgencyEmail(
+			"role-wrong-portal-target"
+		);
+
+		const { agencyId } = await createTestAgencyAdminDirect(
+			adminEmail,
+			TEST_PASSWORD
+		);
+		const { agencyUserId: targetUserId } = await createTestAgencyUserDirect(
+			targetEmail,
+			TEST_PASSWORD,
+			"ind1",
+			{ agencyId, domain }
+		);
+
+		try {
+			// Login
+			const loginResponse = await api.login({
+				email: adminEmail,
+				domain: domain,
+				password: TEST_PASSWORD,
+			});
+			const tfaCode = await getTfaCodeFromEmail(adminEmail);
+			const tfaResponse = await api.verifyTFA({
+				tfa_token: loginResponse.body.tfa_token,
+				tfa_code: tfaCode,
+				remember_me: false,
+			});
+			const sessionToken = tfaResponse.body.session_token;
+
+			// Try to assign an employer role (wrong portal)
+			const response = await api.assignRoleRaw(sessionToken, {
+				target_user_id: targetUserId,
+				role_name: "employer:invite_users",
+			});
+
+			expect(response.status).toBe(400);
+		} finally {
+			await deleteTestAgencyUser(adminEmail);
+			await deleteTestAgencyUser(targetEmail);
+		}
+	});
 });
 
 test.describe("POST /agency/remove-role", () => {

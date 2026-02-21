@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { EmployerAPIClient } from "../../../lib/employer-api-client";
 import {
 	createTestOrgUserDirect,
+	createTestOrgAdminDirect,
 	deleteTestOrgUser,
 	generateTestOrgEmail,
 } from "../../../lib/db";
@@ -24,14 +25,9 @@ test.describe("Org Filter Users API", () => {
 		mainOrgEmail = email;
 		mainOrgDomain = domain;
 
-		// Create main Org User (also creates Employer and Domain)
-		const mainUser = await createTestOrgUserDirect(
-			email,
-			TEST_PASSWORD,
-			"ind1",
-			{ domain }
-		);
-		employerId = mainUser.employerId!;
+		// Create main Org Admin User (also creates Employer and Domain)
+		const mainUser = await createTestOrgAdminDirect(email, TEST_PASSWORD);
+		employerId = mainUser.employerId;
 		testUsers.push(email);
 
 		// Login
@@ -133,5 +129,43 @@ test.describe("Org Filter Users API", () => {
 		expect(res2.body!.items[0].email_address).not.toBe(
 			res1.body!.items[1].email_address
 		);
+	});
+
+	test("user without user management roles gets 403", async ({ request }) => {
+		const orgApiClient = new EmployerAPIClient(request);
+		const { email: noRoleEmail, domain: noRoleDomain } =
+			generateTestOrgEmail("filter-org-norole");
+
+		// Create a user with no roles (not an admin)
+		await createTestOrgUserDirect(noRoleEmail, TEST_PASSWORD, "ind1", {
+			employerId: employerId,
+			domain: mainOrgDomain,
+		});
+		testUsers.push(noRoleEmail);
+
+		// Login as the role-less user
+		const loginRes = await orgApiClient.login({
+			email: noRoleEmail,
+			domain: mainOrgDomain,
+			password: TEST_PASSWORD,
+		});
+		expect(loginRes.status).toBe(200);
+
+		const tfaCode = await getTfaCodeFromEmail(noRoleEmail);
+		const tfaRes = await orgApiClient.verifyTFA({
+			tfa_token: loginRes.body!.tfa_token,
+			tfa_code: tfaCode,
+			remember_me: false,
+		});
+		expect(tfaRes.status).toBe(200);
+		const noRoleToken = tfaRes.body!.session_token;
+
+		const response = await orgApiClient.filterUsers(noRoleToken, {
+			limit: 10,
+		});
+		expect(response.status).toBe(403);
+
+		// noRoleEmail is already added to testUsers for cleanup in afterAll
+		void noRoleDomain;
 	});
 });

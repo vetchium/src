@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { AgencyAPIClient } from "../../../lib/agency-api-client";
 import {
 	createTestAgencyUserDirect,
+	createTestAgencyAdminDirect,
 	deleteTestAgencyUser,
 	generateTestAgencyEmail,
 } from "../../../lib/db";
@@ -24,13 +25,8 @@ test.describe("Agency Filter Users API", () => {
 		mainAgencyEmail = email;
 		mainAgencyDomain = domain;
 
-		// Create main Agency User (creates Agency and Verified Domain)
-		const mainUser = await createTestAgencyUserDirect(
-			email,
-			TEST_PASSWORD,
-			"ind1"
-		);
-		// Note: createTestAgencyUserDirect returns { email, domain, agencyId, agencyUserId }
+		// Create main Agency Admin User (creates Agency and Verified Domain)
+		const mainUser = await createTestAgencyAdminDirect(email, TEST_PASSWORD);
 		agencyId = mainUser.agencyId;
 		testUsers.push(email);
 
@@ -132,5 +128,43 @@ test.describe("Agency Filter Users API", () => {
 		expect(res2.body!.items[0].email_address).not.toBe(
 			res1.body!.items[1].email_address
 		);
+	});
+
+	test("user without user management roles gets 403", async ({ request }) => {
+		const agencyApiClient = new AgencyAPIClient(request);
+		const { email: noRoleEmail, domain: noRoleDomain } =
+			generateTestAgencyEmail("filter-agency-norole");
+
+		// Create a user with no roles (not an admin)
+		await createTestAgencyUserDirect(noRoleEmail, TEST_PASSWORD, "ind1", {
+			agencyId: agencyId,
+			domain: mainAgencyDomain,
+		});
+		testUsers.push(noRoleEmail);
+
+		// Login as the role-less user
+		const loginRes = await agencyApiClient.login({
+			email: noRoleEmail,
+			domain: mainAgencyDomain,
+			password: TEST_PASSWORD,
+		});
+		expect(loginRes.status).toBe(200);
+
+		const tfaCode = await getTfaCodeFromEmail(noRoleEmail);
+		const tfaRes = await agencyApiClient.verifyTFA({
+			tfa_token: loginRes.body!.tfa_token,
+			tfa_code: tfaCode,
+			remember_me: false,
+		});
+		expect(tfaRes.status).toBe(200);
+		const noRoleToken = tfaRes.body!.session_token;
+
+		const response = await agencyApiClient.filterUsers(noRoleToken, {
+			limit: 10,
+		});
+		expect(response.status).toBe(403);
+
+		// noRoleEmail is already added to testUsers for cleanup in afterAll
+		void noRoleDomain;
 	});
 });
