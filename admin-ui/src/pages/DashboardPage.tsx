@@ -19,19 +19,21 @@ export function DashboardPage() {
 	const { data: myInfo, loading: myInfoLoading } = useMyInfo(sessionToken);
 	const [inviteModalVisible, setInviteModalVisible] = useState(false);
 
-	const canManageDomains =
+	const canViewDomains =
 		myInfo?.roles.includes("admin:superadmin") ||
+		myInfo?.roles.includes("admin:view_domains") ||
 		myInfo?.roles.includes("admin:manage_domains") ||
+		false;
+
+	const canViewUsers =
+		myInfo?.roles.includes("admin:superadmin") ||
+		myInfo?.roles.includes("admin:view_users") ||
+		myInfo?.roles.includes("admin:manage_users") ||
 		false;
 
 	const canManageUsers =
 		myInfo?.roles.includes("admin:superadmin") ||
 		myInfo?.roles.includes("admin:manage_users") ||
-		false;
-
-	const canInviteUsers =
-		myInfo?.roles.includes("admin:superadmin") ||
-		myInfo?.roles.includes("admin:invite_users") ||
 		false;
 
 	return (
@@ -56,7 +58,7 @@ export function DashboardPage() {
 				</>
 			) : (
 				<>
-					{canManageDomains && (
+					{canViewDomains && (
 						<Link to="/approved-domains" style={{ textDecoration: "none" }}>
 							<Card
 								hoverable
@@ -75,7 +77,7 @@ export function DashboardPage() {
 						</Link>
 					)}
 
-					{canManageUsers && (
+					{canViewUsers && (
 						<Link to="/user-management" style={{ textDecoration: "none" }}>
 							<Card
 								hoverable
@@ -94,7 +96,7 @@ export function DashboardPage() {
 						</Link>
 					)}
 
-					{canInviteUsers && (
+					{canManageUsers && (
 						<Card
 							hoverable
 							style={{ width: 400, cursor: "pointer", textAlign: "center" }}

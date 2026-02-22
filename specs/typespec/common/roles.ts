@@ -6,21 +6,24 @@ export type RoleName = string;
 export const VALID_ROLE_NAMES = [
 	// Admin portal roles
 	"admin:superadmin",
-	"admin:invite_users",
+	"admin:view_users",
 	"admin:manage_users",
+	"admin:view_domains",
 	"admin:manage_domains",
 
 	// Employer portal roles
-	"employer:invite_users",
-	"employer:manage_users",
-	"employer:read_domains",
 	"employer:superadmin",
+	"employer:view_users",
+	"employer:manage_users",
+	"employer:view_domains",
+	"employer:manage_domains",
 
 	// Agency portal roles
-	"agency:invite_users",
-	"agency:manage_users",
-	"agency:read_domains",
 	"agency:superadmin",
+	"agency:view_users",
+	"agency:manage_users",
+	"agency:view_domains",
+	"agency:manage_domains",
 
 	// Hub portal roles
 	"hub:read_posts",

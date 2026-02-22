@@ -9,19 +9,25 @@ type RoleName string
 // Valid role names matching database roles table
 var ValidRoleNames = []RoleName{
 	// Admin portal roles
-	"admin:invite_users",
+	"admin:superadmin",
+	"admin:view_users",
 	"admin:manage_users",
+	"admin:view_domains",
 	"admin:manage_domains",
 
 	// Employer portal roles
-	"employer:invite_users",
-	"employer:manage_users",
 	"employer:superadmin",
+	"employer:view_users",
+	"employer:manage_users",
+	"employer:view_domains",
+	"employer:manage_domains",
 
 	// Agency portal roles
-	"agency:invite_users",
-	"agency:manage_users",
 	"agency:superadmin",
+	"agency:view_users",
+	"agency:manage_users",
+	"agency:view_domains",
+	"agency:manage_domains",
 }
 
 // Validation errors for RBAC

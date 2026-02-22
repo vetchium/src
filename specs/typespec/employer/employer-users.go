@@ -72,8 +72,8 @@ type OrgGetSignupDetailsResponse struct {
 }
 
 // OrgCompleteSignupRequest completes employer signup after DNS verification.
-// The first user is automatically granted admin rights and assigned both
-// 'employer:invite_users' and 'employer:manage_users' roles.
+// The first user is automatically granted admin rights and assigned
+// the 'employer:superadmin' role.
 // All operations are atomic - either the entire signup succeeds or no data is created.
 type OrgCompleteSignupRequest struct {
 	SignupToken       OrgSignupToken      `json:"signup_token"`
@@ -398,8 +398,11 @@ func (r OrgChangePasswordRequest) Validate() []common.ValidationError {
 type OrgRole string
 
 const (
-	OrgRoleInviteUsers OrgRole = "invite_users"
-	OrgRoleManageUsers OrgRole = "manage_users"
+	OrgRoleViewUsers     OrgRole = "view_users"
+	OrgRoleManageUsers   OrgRole = "manage_users"
+	OrgRoleViewDomains   OrgRole = "view_domains"
+	OrgRoleManageDomains OrgRole = "manage_domains"
+	OrgRoleSuperadmin    OrgRole = "superadmin"
 )
 
 type OrgUser struct {

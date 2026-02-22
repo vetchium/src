@@ -86,7 +86,7 @@ export function validateAgencyGetSignupDetailsRequest(
 /**
  * Request to complete agency signup after DNS verification.
  * The first user is automatically granted admin rights and assigned
- * both 'agency:invite_users' and 'agency:manage_users' roles.
+ * the 'agency:superadmin' role.
  * All operations are atomic - either the entire signup succeeds or no data is created.
  */
 export interface AgencyCompleteSignupRequest {

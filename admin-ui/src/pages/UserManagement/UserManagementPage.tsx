@@ -62,8 +62,11 @@ export function UserManagementPage() {
 
 	const [inviteModalVisible, setInviteModalVisible] = useState(false);
 
-	const canInviteUsers = myInfo?.roles.includes("admin:invite_users") || false;
-	const canManageUsers = myInfo?.roles.includes("admin:manage_users") || false;
+	const canManageUsers =
+		myInfo?.roles.includes("admin:superadmin") ||
+		myInfo?.roles.includes("admin:manage_users") ||
+		false;
+	const canInviteUsers = canManageUsers;
 
 	const fetchUsers = useCallback(
 		async (

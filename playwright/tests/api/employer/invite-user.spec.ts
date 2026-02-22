@@ -49,7 +49,7 @@ test.describe("POST /employer/invite-user", () => {
 			// Invite new user
 			const inviteRequest: OrgInviteUserRequest = {
 				email_address: inviteeEmail,
-				roles: ["employer:invite_users"],
+				roles: ["employer:manage_users"],
 			};
 			const inviteResponse = await api.inviteUser(sessionToken, inviteRequest);
 
@@ -113,7 +113,7 @@ test.describe("POST /employer/invite-user", () => {
 			// Try to invite new user (should fail)
 			const inviteRequest: OrgInviteUserRequest = {
 				email_address: inviteeEmail,
-				roles: ["employer:invite_users"],
+				roles: ["employer:manage_users"],
 			};
 			const inviteResponse = await api.inviteUser(sessionToken, inviteRequest);
 
@@ -168,7 +168,7 @@ test.describe("POST /employer/invite-user", () => {
 			// Try to invite existing user
 			const inviteRequest: OrgInviteUserRequest = {
 				email_address: existingEmail,
-				roles: ["employer:invite_users"],
+				roles: ["employer:manage_users"],
 			};
 			const inviteResponse = await api.inviteUser(sessionToken, inviteRequest);
 
@@ -238,7 +238,7 @@ test.describe("POST /employer/invite-user", () => {
 			// Try to invite with invalid email
 			const inviteRequest: OrgInviteUserRequest = {
 				email_address: "not-an-email",
-				roles: ["employer:invite_users"],
+				roles: ["employer:manage_users"],
 			};
 			const inviteResponse = await api.inviteUser(sessionToken, inviteRequest);
 
@@ -254,7 +254,7 @@ test.describe("POST /employer/invite-user", () => {
 
 		const inviteRequest: OrgInviteUserRequest = {
 			email_address: inviteeEmail,
-			roles: ["employer:invite_users"],
+			roles: ["employer:manage_users"],
 		};
 		const inviteResponse = await api.inviteUserWithoutAuth(inviteRequest);
 
@@ -269,7 +269,7 @@ test.describe("POST /employer/invite-user", () => {
 
 		const inviteRequest: OrgInviteUserRequest = {
 			email_address: inviteeEmail,
-			roles: ["employer:invite_users"],
+			roles: ["employer:manage_users"],
 		};
 		const inviteResponse = await api.inviteUser(
 			"IND1-invalidtoken123",

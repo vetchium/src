@@ -26,5 +26,5 @@ CROSS JOIN roles r
 WHERE
     (ia.email_address = 'admin1@vetchium.com' AND r.role_name = 'admin:superadmin')
     OR
-    (ia.email_address = 'admin2@vetchium.com' AND r.role_name = 'admin:invite_users')
+    (ia.email_address = 'admin2@vetchium.com' AND r.role_name = 'admin:manage_users')
 ON CONFLICT DO NOTHING;

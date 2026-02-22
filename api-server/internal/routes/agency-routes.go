@@ -21,30 +21,26 @@ func RegisterAgencyRoutes(mux *http.ServeMux, s *server.Server) {
 
 	// Create middleware instances
 	agencyAuth := middleware.AgencyAuth(s.Regional, s.CurrentRegion, s.InternalEndpoints)
-	agencyRoleInvite := middleware.AgencyRole(s.Regional, "agency:invite_users")
-	agencyRoleManage := middleware.AgencyRole(s.Regional, "agency:manage_users")
-	agencyRoleSuperadmin := middleware.AgencyRole(s.Regional, "agency:superadmin")
-	// read_domains allows viewing domain list/status; claim and verify still require superadmin
-	agencyRoleReadDomains := middleware.AgencyRole(s.Regional, "agency:read_domains")
+	agencyRoleViewUsers := middleware.AgencyRole(s.Regional, "agency:view_users", "agency:manage_users")
+	agencyRoleManageUsers := middleware.AgencyRole(s.Regional, "agency:manage_users")
+	agencyRoleViewDomains := middleware.AgencyRole(s.Regional, "agency:view_domains", "agency:manage_domains")
+	agencyRoleManageDomains := middleware.AgencyRole(s.Regional, "agency:manage_domains")
 
-	// Superadmin-only routes (agency:superadmin required)
-	mux.Handle("POST /agency/claim-domain", agencyAuth(agencyRoleSuperadmin(agency.ClaimDomain(s))))
-	mux.Handle("POST /agency/verify-domain", agencyAuth(agencyRoleSuperadmin(agency.VerifyDomain(s))))
-	// Domain list/status visible to superadmin OR read_domains role
-	mux.Handle("POST /agency/get-domain-status", agencyAuth(agencyRoleReadDomains(agency.GetDomainStatus(s))))
-	mux.Handle("POST /agency/list-domains", agencyAuth(agencyRoleReadDomains(agency.ListDomains(s))))
+	// Domain write routes (manage_domains required; superadmin bypasses via middleware)
+	mux.Handle("POST /agency/claim-domain", agencyAuth(agencyRoleManageDomains(agency.ClaimDomain(s))))
+	mux.Handle("POST /agency/verify-domain", agencyAuth(agencyRoleManageDomains(agency.VerifyDomain(s))))
+	// Domain read routes (view_domains or manage_domains)
+	mux.Handle("POST /agency/get-domain-status", agencyAuth(agencyRoleViewDomains(agency.GetDomainStatus(s))))
+	mux.Handle("POST /agency/list-domains", agencyAuth(agencyRoleViewDomains(agency.ListDomains(s))))
 
-	// Superadmin or manage_users routes
-	mux.Handle("POST /agency/assign-role", agencyAuth(agencyRoleManage(agency.AssignRole(s))))
-	mux.Handle("POST /agency/remove-role", agencyAuth(agencyRoleManage(agency.RemoveRole(s))))
+	// User management write routes (manage_users required)
+	mux.Handle("POST /agency/assign-role", agencyAuth(agencyRoleManageUsers(agency.AssignRole(s))))
+	mux.Handle("POST /agency/remove-role", agencyAuth(agencyRoleManageUsers(agency.RemoveRole(s))))
 
-	// Role-protected routes
-	mux.Handle("POST /agency/invite-user", agencyAuth(agencyRoleInvite(agency.InviteUser(s))))
-	mux.Handle("POST /agency/disable-user", agencyAuth(agencyRoleManage(agency.DisableUser(s))))
-	mux.Handle("POST /agency/enable-user", agencyAuth(agencyRoleManage(agency.EnableUser(s))))
-
-	// User management view requires invite_users or manage_users role
-	agencyRoleViewUsers := middleware.AgencyRole(s.Regional, "agency:invite_users", "agency:manage_users")
+	// User management write routes (manage_users required)
+	mux.Handle("POST /agency/invite-user", agencyAuth(agencyRoleManageUsers(agency.InviteUser(s))))
+	mux.Handle("POST /agency/disable-user", agencyAuth(agencyRoleManageUsers(agency.DisableUser(s))))
+	mux.Handle("POST /agency/enable-user", agencyAuth(agencyRoleManageUsers(agency.EnableUser(s))))
 
 	// Auth-only routes (any authenticated agency user)
 	mux.Handle("POST /agency/logout", agencyAuth(agency.Logout(s)))

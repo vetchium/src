@@ -247,8 +247,10 @@ func (r AdminChangePasswordRequest) Validate() []common.ValidationError {
 type AdminRole string
 
 const (
-	AdminRoleInviteUsers AdminRole = "invite_users"
-	AdminRoleManageUsers AdminRole = "manage_users"
+	AdminRoleViewUsers     AdminRole = "view_users"
+	AdminRoleManageUsers   AdminRole = "manage_users"
+	AdminRoleViewDomains   AdminRole = "view_domains"
+	AdminRoleManageDomains AdminRole = "manage_domains"
 )
 
 type AdminUser struct {

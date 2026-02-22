@@ -103,12 +103,20 @@ export function InviteUserModal({
 						placeholder={t("inviteModal.rolesPlaceholder")}
 						options={[
 							{
-								label: t("inviteModal.roleInviteUsers"),
-								value: "agency:invite_users",
+								label: t("inviteModal.roleViewUsers"),
+								value: "agency:view_users",
 							},
 							{
 								label: t("inviteModal.roleManageUsers"),
 								value: "agency:manage_users",
+							},
+							{
+								label: t("inviteModal.roleViewDomains"),
+								value: "agency:view_domains",
+							},
+							{
+								label: t("inviteModal.roleManageDomains"),
+								value: "agency:manage_domains",
 							},
 							{
 								label: t("inviteModal.roleSuperadmin"),

@@ -43,7 +43,7 @@ test.describe("POST /agency/complete-setup", () => {
 			// Invite new user
 			const inviteRequest: AgencyInviteUserRequest = {
 				email_address: inviteeEmail,
-				roles: ["agency:invite_users"],
+				roles: ["agency:manage_users"],
 			};
 			const inviteResponse = await api.inviteUser(
 				tfaResponse.body.session_token,
@@ -112,7 +112,7 @@ test.describe("POST /agency/complete-setup", () => {
 
 			const inviteRequest: AgencyInviteUserRequest = {
 				email_address: inviteeEmail,
-				roles: ["agency:invite_users"],
+				roles: ["agency:manage_users"],
 			};
 			await api.inviteUser(tfaResponse.body.session_token, inviteRequest);
 

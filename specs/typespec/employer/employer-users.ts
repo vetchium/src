@@ -97,7 +97,7 @@ export interface OrgGetSignupDetailsResponse {
 /**
  * Request to complete employer signup after DNS verification.
  * The first user is automatically granted admin rights and assigned
- * both 'employer:invite_users' and 'employer:manage_users' roles.
+ * the 'employer:superadmin' role.
  * All operations are atomic - either the entire signup succeeds or no data is created.
  */
 export interface OrgCompleteSignupRequest {

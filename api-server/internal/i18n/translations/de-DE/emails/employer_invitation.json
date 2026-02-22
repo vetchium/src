@@ -1,6 +1,6 @@
 {
 	"_description": "Einladungs-E-Mail für Organisationsbenutzer",
-	"_note": "Wird gesendet, wenn ein Organisationsbenutzer mit der Rolle 'invite_users' einen neuen Benutzer einlädt",
+	"_note": "Wird gesendet, wenn ein Organisationsbenutzer mit der Rolle 'manage_users' einen neuen Benutzer einlädt",
 
 	"subject": "Sie wurden zu {{.EmployerName}} bei Vetchium eingeladen",
 	"portal_name": "Vetchium Arbeitgeber",

@@ -53,7 +53,7 @@ test.describe("Agency Portal RBAC Tests", () => {
 				const newUserEmail = `invited-${crypto.randomUUID().substring(0, 8)}@${domain}`;
 				const inviteReq: AgencyInviteUserRequest = {
 					email_address: newUserEmail,
-					roles: ["agency:invite_users"],
+					roles: ["agency:manage_users"],
 				};
 
 				const response = await api.inviteUser(adminToken, inviteReq);
@@ -63,7 +63,7 @@ test.describe("Agency Portal RBAC Tests", () => {
 			}
 		});
 
-		test("Regular user WITH agency:invite_users role can invite users", async ({
+		test("Regular user WITH agency:manage_users role can invite users", async ({
 			request,
 		}) => {
 			const api = new AgencyAPIClient(request);
@@ -89,7 +89,7 @@ test.describe("Agency Portal RBAC Tests", () => {
 			);
 			await assignRoleToAgencyUser(
 				userResult.agencyUserId,
-				"agency:invite_users"
+				"agency:manage_users"
 			);
 
 			try {
@@ -116,7 +116,7 @@ test.describe("Agency Portal RBAC Tests", () => {
 				const newUserEmail = `invited-${crypto.randomUUID().substring(0, 8)}@${domain}`;
 				const inviteReq: AgencyInviteUserRequest = {
 					email_address: newUserEmail,
-					roles: ["agency:invite_users"],
+					roles: ["agency:manage_users"],
 				};
 
 				const response = await api.inviteUser(userToken, inviteReq);
@@ -126,7 +126,7 @@ test.describe("Agency Portal RBAC Tests", () => {
 			}
 		});
 
-		test("Regular user WITHOUT agency:invite_users role gets 403 when inviting", async ({
+		test("Regular user WITHOUT agency:manage_users role gets 403 when inviting", async ({
 			request,
 		}) => {
 			const api = new AgencyAPIClient(request);
@@ -174,7 +174,7 @@ test.describe("Agency Portal RBAC Tests", () => {
 				const newUserEmail = `invited-${crypto.randomUUID().substring(0, 8)}@${domain}`;
 				const inviteReq: AgencyInviteUserRequest = {
 					email_address: newUserEmail,
-					roles: ["agency:invite_users"],
+					roles: ["agency:manage_users"],
 				};
 
 				const response = await api.inviteUser(userToken, inviteReq);
@@ -231,7 +231,7 @@ test.describe("Agency Portal RBAC Tests", () => {
 				// Assign role
 				const assignReq = {
 					target_user_id: targetResult.agencyUserId,
-					role_name: "agency:invite_users",
+					role_name: "agency:manage_users",
 				};
 
 				const response = await api.assignRole(adminToken, assignReq);
@@ -303,7 +303,7 @@ test.describe("Agency Portal RBAC Tests", () => {
 				// Assign role
 				const assignReq = {
 					target_user_id: targetResult.agencyUserId,
-					role_name: "agency:invite_users",
+					role_name: "agency:manage_users",
 				};
 
 				const response = await api.assignRole(managerToken, assignReq);
@@ -371,7 +371,7 @@ test.describe("Agency Portal RBAC Tests", () => {
 				// Try to assign role
 				const assignReq = {
 					target_user_id: targetResult.agencyUserId,
-					role_name: "agency:invite_users",
+					role_name: "agency:manage_users",
 				};
 
 				const response = await api.assignRole(userToken, assignReq);
@@ -407,7 +407,7 @@ test.describe("Agency Portal RBAC Tests", () => {
 			);
 			await assignRoleToAgencyUser(
 				targetResult.agencyUserId,
-				"agency:invite_users"
+				"agency:manage_users"
 			);
 
 			try {
@@ -432,7 +432,7 @@ test.describe("Agency Portal RBAC Tests", () => {
 				// Remove role
 				const removeReq = {
 					target_user_id: targetResult.agencyUserId,
-					role_name: "agency:invite_users",
+					role_name: "agency:manage_users",
 				};
 
 				const response = await api.removeRole(adminToken, removeReq);
@@ -468,7 +468,7 @@ test.describe("Agency Portal RBAC Tests", () => {
 			);
 			await assignRoleToAgencyUser(
 				userWithRoleResult.agencyUserId,
-				"agency:invite_users"
+				"agency:manage_users"
 			);
 
 			// Create regular user WITHOUT manage_users role
@@ -504,7 +504,7 @@ test.describe("Agency Portal RBAC Tests", () => {
 				// Try to remove role
 				const removeReq = {
 					target_user_id: userWithRoleResult.agencyUserId,
-					role_name: "agency:invite_users",
+					role_name: "agency:manage_users",
 				};
 
 				const response = await api.removeRole(userToken, removeReq);
@@ -658,7 +658,7 @@ test.describe("Agency Portal RBAC Tests", () => {
 
 			const inviteReq: AgencyInviteUserRequest = {
 				email_address: newUserData.email,
-				roles: ["agency:invite_users"],
+				roles: ["agency:manage_users"],
 			};
 
 			const response = await api.inviteUserWithoutAuth(inviteReq);
@@ -672,7 +672,7 @@ test.describe("Agency Portal RBAC Tests", () => {
 
 			const assignReq = {
 				target_user_id: "00000000-0000-0000-0000-000000000000",
-				role_name: "agency:invite_users",
+				role_name: "agency:manage_users",
 			};
 
 			const response = await api.assignRoleWithoutAuth(assignReq);
@@ -686,7 +686,7 @@ test.describe("Agency Portal RBAC Tests", () => {
 
 			const removeReq = {
 				target_user_id: "00000000-0000-0000-0000-000000000000",
-				role_name: "agency:invite_users",
+				role_name: "agency:manage_users",
 			};
 
 			const response = await api.removeRoleWithoutAuth(removeReq);

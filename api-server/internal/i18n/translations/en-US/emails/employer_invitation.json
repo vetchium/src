@@ -1,6 +1,6 @@
 {
 	"_description": "Org User Invitation Email",
-	"_note": "Sent when an org user with invite_users role invites a new user",
+	"_note": "Sent when an org user with manage_users role invites a new user",
 
 	"subject": "You've Been Invited to {{.EmployerName}} on Vetchium",
 	"portal_name": "Vetchium Employer",

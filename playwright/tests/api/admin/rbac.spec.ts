@@ -28,13 +28,13 @@ test.describe("Admin Portal RBAC Tests", () => {
 		test.beforeAll(async ({ request }) => {
 			const api = new AdminAPIClient(request);
 
-			// Create admin user WITH admin:invite_users role
+			// Create admin user WITH admin:manage_users role
 			adminWithRoleEmail = generateTestEmail("rbac-with-role");
 			adminWithRoleId = await createTestAdminUser(
 				adminWithRoleEmail,
 				TEST_PASSWORD
 			);
-			await assignRoleToAdminUser(adminWithRoleId, "admin:invite_users");
+			await assignRoleToAdminUser(adminWithRoleId, "admin:manage_users");
 
 			// Login admin with role
 			const loginReq1: AdminLoginRequest = {
@@ -52,7 +52,7 @@ test.describe("Admin Portal RBAC Tests", () => {
 			expect(tfaRes1.status).toBe(200);
 			adminWithRoleToken = tfaRes1.body!.session_token;
 
-			// Create admin user WITHOUT admin:invite_users role
+			// Create admin user WITHOUT admin:manage_users role
 			adminWithoutRoleEmail = generateTestEmail("rbac-without-role");
 			adminWithoutRoleId = await createTestAdminUser(
 				adminWithoutRoleEmail,
@@ -81,7 +81,7 @@ test.describe("Admin Portal RBAC Tests", () => {
 			await deleteTestAdminUser(adminWithoutRoleEmail);
 		});
 
-		test("Admin WITH admin:invite_users role can invite users", async ({
+		test("Admin WITH admin:manage_users role can invite users", async ({
 			request,
 		}) => {
 			const api = new AdminAPIClient(request);
@@ -100,7 +100,7 @@ test.describe("Admin Portal RBAC Tests", () => {
 			}
 		});
 
-		test("Admin WITHOUT admin:invite_users role gets 403 when inviting users", async ({
+		test("Admin WITHOUT admin:manage_users role gets 403 when inviting users", async ({
 			request,
 		}) => {
 			const api = new AdminAPIClient(request);
@@ -145,7 +145,7 @@ test.describe("Admin Portal RBAC Tests", () => {
 				// Try to assign a role to another admin
 				const assignReq: AssignRoleRequest = {
 					target_user_id: adminWithoutRoleId,
-					role_name: "admin:invite_users",
+					role_name: "admin:manage_users",
 				};
 
 				const response = await api.assignRole(sessionToken, assignReq);
@@ -183,7 +183,7 @@ test.describe("Admin Portal RBAC Tests", () => {
 			// Create a target admin with a role to remove
 			const targetEmail = generateTestEmail("rbac-target");
 			const targetId = await createTestAdminUser(targetEmail, TEST_PASSWORD);
-			await assignRoleToAdminUser(targetId, "admin:invite_users");
+			await assignRoleToAdminUser(targetId, "admin:manage_users");
 
 			try {
 				// Login
@@ -205,7 +205,7 @@ test.describe("Admin Portal RBAC Tests", () => {
 				// Try to remove a role
 				const removeReq: RemoveRoleRequest = {
 					target_user_id: targetId,
-					role_name: "admin:invite_users",
+					role_name: "admin:manage_users",
 				};
 
 				const response = await api.removeRole(sessionToken, removeReq);
@@ -224,7 +224,7 @@ test.describe("Admin Portal RBAC Tests", () => {
 			// Try to remove a role using admin without admin:manage_users role
 			const removeReq: RemoveRoleRequest = {
 				target_user_id: adminWithRoleId,
-				role_name: "admin:invite_users",
+				role_name: "admin:manage_users",
 			};
 
 			const response = await api.removeRole(adminWithoutRoleToken, removeReq);
@@ -359,7 +359,7 @@ test.describe("Admin Portal RBAC Tests", () => {
 
 			const assignReq: AssignRoleRequest = {
 				target_user_id: "00000000-0000-0000-0000-000000000000",
-				role_name: "admin:invite_users",
+				role_name: "admin:manage_users",
 			};
 
 			const response = await api.assignRoleWithoutAuth(assignReq);
@@ -373,7 +373,7 @@ test.describe("Admin Portal RBAC Tests", () => {
 
 			const removeReq: RemoveRoleRequest = {
 				target_user_id: "00000000-0000-0000-0000-000000000000",
-				role_name: "admin:invite_users",
+				role_name: "admin:manage_users",
 			};
 
 			const response = await api.removeRoleWithoutAuth(removeReq);

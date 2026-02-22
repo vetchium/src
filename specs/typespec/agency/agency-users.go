@@ -71,8 +71,8 @@ type AgencyGetSignupDetailsResponse struct {
 }
 
 // AgencyCompleteSignupRequest completes agency signup after DNS verification.
-// The first user is automatically granted admin rights and assigned both
-// 'agency:invite_users' and 'agency:manage_users' roles.
+// The first user is automatically granted admin rights and assigned
+// the 'agency:superadmin' role.
 // All operations are atomic - either the entire signup succeeds or no data is created.
 type AgencyCompleteSignupRequest struct {
 	SignupToken       AgencySignupToken   `json:"signup_token"`
@@ -388,8 +388,11 @@ func (r AgencyChangePasswordRequest) Validate() []common.ValidationError {
 type AgencyRole string
 
 const (
-	AgencyRoleInviteUsers AgencyRole = "invite_users"
-	AgencyRoleManageUsers AgencyRole = "manage_users"
+	AgencyRoleViewUsers     AgencyRole = "view_users"
+	AgencyRoleManageUsers   AgencyRole = "manage_users"
+	AgencyRoleViewDomains   AgencyRole = "view_domains"
+	AgencyRoleManageDomains AgencyRole = "manage_domains"
+	AgencyRoleSuperadmin    AgencyRole = "superadmin"
 )
 
 type AgencyUser struct {

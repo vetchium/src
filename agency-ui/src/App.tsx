@@ -130,7 +130,7 @@ function UserManagementRoute({ children }: { children: React.ReactNode }) {
 
 	const hasAccess =
 		myInfo?.roles.includes("agency:superadmin") ||
-		myInfo?.roles.includes("agency:invite_users") ||
+		myInfo?.roles.includes("agency:view_users") ||
 		myInfo?.roles.includes("agency:manage_users");
 
 	if (!hasAccess) {
@@ -157,7 +157,12 @@ function DomainManagementRoute({ children }: { children: React.ReactNode }) {
 		return <Spin size="large" />;
 	}
 
-	if (!myInfo?.roles.includes("agency:superadmin")) {
+	const hasDomainAccess =
+		myInfo?.roles.includes("agency:superadmin") ||
+		myInfo?.roles.includes("agency:view_domains") ||
+		myInfo?.roles.includes("agency:manage_domains");
+
+	if (!hasDomainAccess) {
 		return <Navigate to="/" replace />;
 	}
 

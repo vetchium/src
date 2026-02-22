@@ -44,7 +44,7 @@ test.describe("POST /admin/assign-role", () => {
 			// Assign role
 			const assignRequest: AssignRoleRequest = {
 				target_user_id: targetUserId,
-				role_name: "admin:invite_users",
+				role_name: "admin:manage_users",
 			};
 			const assignResponse = await api.assignRole(sessionToken, assignRequest);
 
@@ -126,7 +126,7 @@ test.describe("POST /admin/assign-role", () => {
 			// Try to assign role to non-existent user
 			const assignRequest: AssignRoleRequest = {
 				target_user_id: "00000000-0000-0000-0000-000000000000",
-				role_name: "admin:invite_users",
+				role_name: "admin:manage_users",
 			};
 			const response = await api.assignRole(sessionToken, assignRequest);
 
@@ -195,7 +195,7 @@ test.describe("POST /admin/assign-role", () => {
 
 			// Try to assign without target_user_id
 			const response = await api.assignRoleRaw(sessionToken, {
-				role_name: "admin:invite_users",
+				role_name: "admin:manage_users",
 			});
 
 			expect(response.status).toBe(400);
@@ -252,7 +252,7 @@ test.describe("POST /admin/assign-role", () => {
 		try {
 			const assignRequest: AssignRoleRequest = {
 				target_user_id: targetUserId,
-				role_name: "admin:invite_users",
+				role_name: "admin:manage_users",
 			};
 			const response = await api.assignRoleWithoutAuth(assignRequest);
 
@@ -274,7 +274,7 @@ test.describe("POST /admin/assign-role", () => {
 		try {
 			const assignRequest: AssignRoleRequest = {
 				target_user_id: targetUserId,
-				role_name: "admin:invite_users",
+				role_name: "admin:manage_users",
 			};
 			const response = await api.assignRole("invalid-token", assignRequest);
 
@@ -315,13 +315,13 @@ test.describe("POST /admin/remove-role", () => {
 			// First assign a role
 			await api.assignRole(sessionToken, {
 				target_user_id: targetUserId,
-				role_name: "admin:invite_users",
+				role_name: "admin:manage_users",
 			});
 
 			// Then remove it
 			const removeRequest: RemoveRoleRequest = {
 				target_user_id: targetUserId,
-				role_name: "admin:invite_users",
+				role_name: "admin:manage_users",
 			};
 			const removeResponse = await api.removeRole(sessionToken, removeRequest);
 
@@ -395,7 +395,7 @@ test.describe("POST /admin/remove-role", () => {
 			// Try to remove from non-existent user
 			const removeRequest: RemoveRoleRequest = {
 				target_user_id: "00000000-0000-0000-0000-000000000000",
-				role_name: "admin:invite_users",
+				role_name: "admin:manage_users",
 			};
 			const response = await api.removeRole(sessionToken, removeRequest);
 
@@ -417,7 +417,7 @@ test.describe("POST /admin/remove-role", () => {
 		try {
 			const removeRequest: RemoveRoleRequest = {
 				target_user_id: targetUserId,
-				role_name: "admin:invite_users",
+				role_name: "admin:manage_users",
 			};
 			const response = await api.removeRoleWithoutAuth(removeRequest);
 
@@ -439,7 +439,7 @@ test.describe("POST /admin/remove-role", () => {
 		try {
 			const removeRequest: RemoveRoleRequest = {
 				target_user_id: targetUserId,
-				role_name: "admin:invite_users",
+				role_name: "admin:manage_users",
 			};
 			const response = await api.removeRole("invalid-token", removeRequest);
 

@@ -164,7 +164,7 @@ export async function updateTestAdminUserLanguage(
 
 /**
  * Creates a test admin user with admin roles directly in the database.
- * This creates an admin user and assigns them all admin roles (invite_users, manage_users).
+ * This creates an admin user and assigns them all admin roles (manage_users, manage_domains).
  *
  * @param email - Email address for the admin user
  * @param password - Plain text password (will be hashed with bcrypt)
@@ -180,7 +180,7 @@ export async function createTestAdminAdminDirect(
 
 	// Get all role IDs
 	const rolesResult = await pool.query(
-		`SELECT role_id FROM roles WHERE role_name IN ('admin:invite_users', 'admin:manage_users', 'admin:manage_domains')`
+		`SELECT role_id FROM roles WHERE role_name IN ('admin:manage_users', 'admin:manage_domains')`
 	);
 
 	// Assign all roles to the admin user
@@ -1386,7 +1386,7 @@ export async function updateTestAgencyUserStatus(
  * Assigns a role to an admin user.
  *
  * @param adminUserId - UUID of the admin user
- * @param roleName - Name of the role to assign (e.g., 'invite_users', 'manage_users')
+ * @param roleName - Name of the role to assign (e.g., 'manage_users', 'manage_domains')
  */
 export async function assignRoleToAdminUser(
 	adminUserId: string,

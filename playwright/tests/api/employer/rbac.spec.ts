@@ -53,7 +53,7 @@ test.describe("Org Portal RBAC Tests", () => {
 				const newUserEmail = `invited-${crypto.randomUUID().substring(0, 8)}@${domain}`;
 				const inviteReq: OrgInviteUserRequest = {
 					email_address: newUserEmail,
-					roles: ["employer:invite_users"],
+					roles: ["employer:manage_users"],
 				};
 
 				const response = await api.inviteUser(adminToken, inviteReq);
@@ -63,7 +63,7 @@ test.describe("Org Portal RBAC Tests", () => {
 			}
 		});
 
-		test("Regular user WITH employer:invite_users role can invite users", async ({
+		test("Regular user WITH employer:manage_users role can invite users", async ({
 			request,
 		}) => {
 			const api = new EmployerAPIClient(request);
@@ -87,7 +87,7 @@ test.describe("Org Portal RBAC Tests", () => {
 					employerId: adminResult.employerId,
 				}
 			);
-			await assignRoleToOrgUser(userResult.orgUserId, "employer:invite_users");
+			await assignRoleToOrgUser(userResult.orgUserId, "employer:manage_users");
 
 			try {
 				// Login user with role
@@ -113,7 +113,7 @@ test.describe("Org Portal RBAC Tests", () => {
 				const newUserEmail = `invited-${crypto.randomUUID().substring(0, 8)}@${domain}`;
 				const inviteReq: OrgInviteUserRequest = {
 					email_address: newUserEmail,
-					roles: ["employer:invite_users"],
+					roles: ["employer:manage_users"],
 				};
 
 				const response = await api.inviteUser(userToken, inviteReq);
@@ -123,7 +123,7 @@ test.describe("Org Portal RBAC Tests", () => {
 			}
 		});
 
-		test("Regular user WITHOUT employer:invite_users role gets 403 when inviting", async ({
+		test("Regular user WITHOUT employer:manage_users role gets 403 when inviting", async ({
 			request,
 		}) => {
 			const api = new EmployerAPIClient(request);
@@ -171,7 +171,7 @@ test.describe("Org Portal RBAC Tests", () => {
 				const newUserEmail = `invited-${crypto.randomUUID().substring(0, 8)}@${domain}`;
 				const inviteReq: OrgInviteUserRequest = {
 					email_address: newUserEmail,
-					roles: ["employer:invite_users"],
+					roles: ["employer:manage_users"],
 				};
 
 				const response = await api.inviteUser(userToken, inviteReq);
@@ -228,7 +228,7 @@ test.describe("Org Portal RBAC Tests", () => {
 				// Assign role
 				const assignReq = {
 					target_user_id: targetResult.orgUserId,
-					role_name: "employer:invite_users",
+					role_name: "employer:manage_users",
 				};
 
 				const response = await api.assignRole(adminToken, assignReq);
@@ -300,7 +300,7 @@ test.describe("Org Portal RBAC Tests", () => {
 				// Assign role
 				const assignReq = {
 					target_user_id: targetResult.orgUserId,
-					role_name: "employer:invite_users",
+					role_name: "employer:manage_users",
 				};
 
 				const response = await api.assignRole(managerToken, assignReq);
@@ -368,7 +368,7 @@ test.describe("Org Portal RBAC Tests", () => {
 				// Try to assign role
 				const assignReq = {
 					target_user_id: targetResult.orgUserId,
-					role_name: "employer:invite_users",
+					role_name: "employer:manage_users",
 				};
 
 				const response = await api.assignRole(userToken, assignReq);
@@ -404,7 +404,7 @@ test.describe("Org Portal RBAC Tests", () => {
 			);
 			await assignRoleToOrgUser(
 				targetResult.orgUserId,
-				"employer:invite_users"
+				"employer:manage_users"
 			);
 
 			try {
@@ -429,7 +429,7 @@ test.describe("Org Portal RBAC Tests", () => {
 				// Remove role
 				const removeReq = {
 					target_user_id: targetResult.orgUserId,
-					role_name: "employer:invite_users",
+					role_name: "employer:manage_users",
 				};
 
 				const response = await api.removeRole(adminToken, removeReq);
@@ -465,7 +465,7 @@ test.describe("Org Portal RBAC Tests", () => {
 			);
 			await assignRoleToOrgUser(
 				userWithRoleResult.orgUserId,
-				"employer:invite_users"
+				"employer:manage_users"
 			);
 
 			// Create regular user WITHOUT manage_users role
@@ -501,7 +501,7 @@ test.describe("Org Portal RBAC Tests", () => {
 				// Try to remove role
 				const removeReq = {
 					target_user_id: userWithRoleResult.orgUserId,
-					role_name: "employer:invite_users",
+					role_name: "employer:manage_users",
 				};
 
 				const response = await api.removeRole(userToken, removeReq);
@@ -656,7 +656,7 @@ test.describe("Org Portal RBAC Tests", () => {
 
 			const inviteReq: OrgInviteUserRequest = {
 				email_address: newUserData.email,
-				roles: ["employer:invite_users"],
+				roles: ["employer:manage_users"],
 			};
 
 			const response = await api.inviteUserWithoutAuth(inviteReq);
@@ -670,7 +670,7 @@ test.describe("Org Portal RBAC Tests", () => {
 
 			const assignReq = {
 				target_user_id: "00000000-0000-0000-0000-000000000000",
-				role_name: "employer:invite_users",
+				role_name: "employer:manage_users",
 			};
 
 			const response = await api.assignRoleWithoutAuth(assignReq);
@@ -684,7 +684,7 @@ test.describe("Org Portal RBAC Tests", () => {
 
 			const removeReq = {
 				target_user_id: "00000000-0000-0000-0000-000000000000",
-				role_name: "employer:invite_users",
+				role_name: "employer:manage_users",
 			};
 
 			const response = await api.removeRoleWithoutAuth(removeReq);

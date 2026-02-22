@@ -175,7 +175,7 @@ interface OrgGetSignupDetails {
 interface OrgCompleteSignup {
   @tag("OrgUsers")
   @post
-  @doc("Complete signup by verifying the DNS record. Looks up the pending verification by email, checks DNS for the verification token, and creates the employer and user account if verification passes. The first user is automatically granted admin rights and assigned both 'employer:invite_users' and 'employer:manage_users' roles. All operations are atomic - either the entire signup succeeds or no data is created.")
+  @doc("Complete signup by verifying the DNS record. Looks up the pending verification by email, checks DNS for the verification token, and creates the employer and user account if verification passes. The first user is automatically granted admin rights and assigned the 'employer:superadmin' role. All operations are atomic - either the entire signup succeeds or no data is created.")
   completeSignup(@body request: OrgCompleteSignupRequest): {
     @statusCode statusCode: 201;
     @body response: OrgCompleteSignupResponse;
@@ -360,8 +360,11 @@ interface OrgInviteUser {
 // ============================================
 
 enum OrgRole {
-    invite_users,
+    view_users,
     manage_users,
+    view_domains,
+    manage_domains,
+    superadmin,
 }
 
 model OrgUser {

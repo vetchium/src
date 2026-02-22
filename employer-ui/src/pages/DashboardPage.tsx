@@ -18,13 +18,14 @@ export function DashboardPage() {
 
 	const hasUserManagementAccess =
 		myInfo?.roles.includes("employer:superadmin") ||
-		myInfo?.roles.includes("employer:invite_users") ||
+		myInfo?.roles.includes("employer:view_users") ||
 		myInfo?.roles.includes("employer:manage_users") ||
 		false;
 
 	const hasDomainManagementAccess =
 		myInfo?.roles.includes("employer:superadmin") ||
-		myInfo?.roles.includes("employer:read_domains") ||
+		myInfo?.roles.includes("employer:view_domains") ||
+		myInfo?.roles.includes("employer:manage_domains") ||
 		false;
 
 	return (

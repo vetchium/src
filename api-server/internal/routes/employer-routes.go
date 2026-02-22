@@ -21,28 +21,24 @@ func RegisterEmployerRoutes(mux *http.ServeMux, s *server.Server) {
 
 	// Create middleware instances
 	orgAuth := middleware.OrgAuth(s.Regional, s.CurrentRegion, s.InternalEndpoints)
-	employerRoleInvite := middleware.EmployerRole(s.Regional, "employer:invite_users")
-	employerRoleManage := middleware.EmployerRole(s.Regional, "employer:manage_users")
-	employerRoleSuperadmin := middleware.EmployerRole(s.Regional, "employer:superadmin")
-	// read_domains allows viewing domain list/status; claim and verify still require superadmin
-	employerRoleReadDomains := middleware.EmployerRole(s.Regional, "employer:read_domains")
+	employerRoleViewUsers := middleware.EmployerRole(s.Regional, "employer:view_users", "employer:manage_users")
+	employerRoleManageUsers := middleware.EmployerRole(s.Regional, "employer:manage_users")
+	employerRoleViewDomains := middleware.EmployerRole(s.Regional, "employer:view_domains", "employer:manage_domains")
+	employerRoleManageDomains := middleware.EmployerRole(s.Regional, "employer:manage_domains")
 
-	// Superadmin-only routes (employer:superadmin required)
-	mux.Handle("POST /employer/claim-domain", orgAuth(employerRoleSuperadmin(employer.ClaimDomain(s))))
-	mux.Handle("POST /employer/verify-domain", orgAuth(employerRoleSuperadmin(employer.VerifyDomain(s))))
-	// Domain list/status visible to superadmin OR read_domains role
-	mux.Handle("POST /employer/get-domain-status", orgAuth(employerRoleReadDomains(employer.GetDomainStatus(s))))
-	mux.Handle("POST /employer/list-domains", orgAuth(employerRoleReadDomains(employer.ListDomains(s))))
-	mux.Handle("POST /employer/assign-role", orgAuth(employerRoleManage(employer.AssignRole(s))))
-	mux.Handle("POST /employer/remove-role", orgAuth(employerRoleManage(employer.RemoveRole(s))))
+	// Domain write routes (manage_domains required; superadmin bypasses via middleware)
+	mux.Handle("POST /employer/claim-domain", orgAuth(employerRoleManageDomains(employer.ClaimDomain(s))))
+	mux.Handle("POST /employer/verify-domain", orgAuth(employerRoleManageDomains(employer.VerifyDomain(s))))
+	// Domain read routes (view_domains or manage_domains)
+	mux.Handle("POST /employer/get-domain-status", orgAuth(employerRoleViewDomains(employer.GetDomainStatus(s))))
+	mux.Handle("POST /employer/list-domains", orgAuth(employerRoleViewDomains(employer.ListDomains(s))))
+	mux.Handle("POST /employer/assign-role", orgAuth(employerRoleManageUsers(employer.AssignRole(s))))
+	mux.Handle("POST /employer/remove-role", orgAuth(employerRoleManageUsers(employer.RemoveRole(s))))
 
-	// Role-protected routes
-	mux.Handle("POST /employer/invite-user", orgAuth(employerRoleInvite(employer.InviteUser(s))))
-	mux.Handle("POST /employer/disable-user", orgAuth(employerRoleManage(employer.DisableUser(s))))
-	mux.Handle("POST /employer/enable-user", orgAuth(employerRoleManage(employer.EnableUser(s))))
-
-	// User management view requires invite_users or manage_users role
-	employerRoleViewUsers := middleware.EmployerRole(s.Regional, "employer:invite_users", "employer:manage_users")
+	// User management write routes (manage_users required)
+	mux.Handle("POST /employer/invite-user", orgAuth(employerRoleManageUsers(employer.InviteUser(s))))
+	mux.Handle("POST /employer/disable-user", orgAuth(employerRoleManageUsers(employer.DisableUser(s))))
+	mux.Handle("POST /employer/enable-user", orgAuth(employerRoleManageUsers(employer.EnableUser(s))))
 
 	// Auth-only routes (any authenticated employer user)
 	mux.Handle("POST /employer/logout", orgAuth(employer.Logout(s)))

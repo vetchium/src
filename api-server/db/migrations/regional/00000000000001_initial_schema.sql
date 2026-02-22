@@ -265,19 +265,22 @@ CREATE TABLE hub_user_roles (
 INSERT INTO roles (role_name, description) VALUES
     -- Admin portal roles
     ('admin:superadmin', 'Superadmin for the admin portal with full access to all operations'),
-    ('admin:invite_users', 'Can invite new admin users'),
-    ('admin:manage_users', 'Can enable/disable admin users and manage roles'),
-    ('admin:manage_domains', 'Can manage approved domains'),
+    ('admin:view_users', 'Can view admin user list and details (read-only)'),
+    ('admin:manage_users', 'Can invite, enable/disable admin users and manage their roles'),
+    ('admin:view_domains', 'Can view approved domain list and details (read-only)'),
+    ('admin:manage_domains', 'Can add, enable/disable approved domains'),
 
     -- Employer portal roles
-    ('employer:invite_users', 'Can invite new employer users'),
-    ('employer:manage_users', 'Can enable/disable employer users'),
-    ('employer:read_domains', 'Can view employer domain list and status (read-only)'),
+    ('employer:view_users', 'Can view org user list and details (read-only)'),
+    ('employer:manage_users', 'Can invite, enable/disable org users and manage their roles'),
+    ('employer:view_domains', 'Can view employer domain list and status (read-only)'),
+    ('employer:manage_domains', 'Can claim, verify and delete employer domains'),
 
     -- Agency portal roles
-    ('agency:invite_users', 'Can invite new agency users'),
-    ('agency:manage_users', 'Can enable/disable agency users'),
-    ('agency:read_domains', 'Can view agency domain list and status (read-only)'),
+    ('agency:view_users', 'Can view agency user list and details (read-only)'),
+    ('agency:manage_users', 'Can invite, enable/disable agency users and manage their roles'),
+    ('agency:view_domains', 'Can view agency domain list and status (read-only)'),
+    ('agency:manage_domains', 'Can claim, verify and delete agency domains'),
 
     -- Superadmin roles
     ('employer:superadmin', 'Superadmin for the employer portal with full access to all operations'),

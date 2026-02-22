@@ -255,8 +255,10 @@ interface AdminCompleteSetup {
 // ============================================
 
 enum AdminRole {
-    invite_users,
+    view_users,
     manage_users,
+    view_domains,
+    manage_domains,
 }
 
 model AdminUser {

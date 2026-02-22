@@ -51,7 +51,7 @@ test.describe("POST /agency/invite-user", () => {
 			// Invite new user
 			const inviteRequest: AgencyInviteUserRequest = {
 				email_address: inviteeEmail,
-				roles: ["agency:invite_users"],
+				roles: ["agency:manage_users"],
 			};
 			const inviteResponse = await api.inviteUser(sessionToken, inviteRequest);
 
@@ -115,7 +115,7 @@ test.describe("POST /agency/invite-user", () => {
 			// Try to invite new user (should fail)
 			const inviteRequest: AgencyInviteUserRequest = {
 				email_address: inviteeEmail,
-				roles: ["agency:invite_users"],
+				roles: ["agency:manage_users"],
 			};
 			const inviteResponse = await api.inviteUser(sessionToken, inviteRequest);
 
@@ -170,7 +170,7 @@ test.describe("POST /agency/invite-user", () => {
 			// Try to invite existing user
 			const inviteRequest: AgencyInviteUserRequest = {
 				email_address: existingEmail,
-				roles: ["agency:invite_users"],
+				roles: ["agency:manage_users"],
 			};
 			const inviteResponse = await api.inviteUser(sessionToken, inviteRequest);
 
@@ -241,7 +241,7 @@ test.describe("POST /agency/invite-user", () => {
 			// Try to invite with invalid email
 			const inviteRequest: AgencyInviteUserRequest = {
 				email_address: "not-an-email",
-				roles: ["agency:invite_users"],
+				roles: ["agency:manage_users"],
 			};
 			const inviteResponse = await api.inviteUser(sessionToken, inviteRequest);
 
@@ -259,7 +259,7 @@ test.describe("POST /agency/invite-user", () => {
 
 		const inviteRequest: AgencyInviteUserRequest = {
 			email_address: inviteeEmail,
-			roles: ["agency:invite_users"],
+			roles: ["agency:manage_users"],
 		};
 		const inviteResponse = await api.inviteUserWithoutAuth(inviteRequest);
 
@@ -274,7 +274,7 @@ test.describe("POST /agency/invite-user", () => {
 
 		const inviteRequest: AgencyInviteUserRequest = {
 			email_address: inviteeEmail,
-			roles: ["agency:invite_users"],
+			roles: ["agency:manage_users"],
 		};
 		const inviteResponse = await api.inviteUser(
 			"IND1-invalidtoken123",

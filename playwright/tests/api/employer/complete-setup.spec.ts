@@ -44,7 +44,7 @@ test.describe("POST /employer/complete-setup", () => {
 			// Invite new user
 			const inviteRequest: OrgInviteUserRequest = {
 				email_address: inviteeEmail,
-				roles: ["employer:invite_users"],
+				roles: ["employer:manage_users"],
 			};
 			const inviteResponse = await api.inviteUser(
 				tfaResponse.body.session_token,
@@ -112,7 +112,7 @@ test.describe("POST /employer/complete-setup", () => {
 
 			const inviteRequest: OrgInviteUserRequest = {
 				email_address: inviteeEmail,
-				roles: ["employer:invite_users"],
+				roles: ["employer:manage_users"],
 			};
 			await api.inviteUser(tfaResponse.body.session_token, inviteRequest);
 
@@ -268,7 +268,7 @@ test.describe("POST /employer/complete-setup", () => {
 
 			const inviteRequest: OrgInviteUserRequest = {
 				email_address: inviteeEmail,
-				roles: ["employer:invite_users"],
+				roles: ["employer:manage_users"],
 			};
 			await api.inviteUser(tfaResponse.body.session_token, inviteRequest);
 
