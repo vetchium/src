@@ -55,7 +55,9 @@ export function DomainManagementPage() {
 	const { message } = App.useApp();
 
 	const canWriteDomains =
-		myInfo?.roles.includes("employer:superadmin") || false;
+		myInfo?.roles.includes("employer:superadmin") ||
+		myInfo?.roles.includes("employer:manage_domains") ||
+		false;
 	const navigate = useNavigate();
 	const [form] = Form.useForm<ClaimFormValues>();
 

@@ -53,7 +53,10 @@ export function DomainManagementPage() {
 	const { sessionToken } = useAuth();
 	const { data: myInfo } = useMyInfo(sessionToken);
 
-	const canWriteDomains = myInfo?.roles.includes("agency:superadmin") || false;
+	const canWriteDomains =
+		myInfo?.roles.includes("agency:superadmin") ||
+		myInfo?.roles.includes("agency:manage_domains") ||
+		false;
 	const { message } = App.useApp();
 	const navigate = useNavigate();
 	const [form] = Form.useForm<ClaimFormValues>();
