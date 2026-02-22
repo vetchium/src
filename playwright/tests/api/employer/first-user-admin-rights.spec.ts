@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { EmployerAPIClient } from "../../../lib/employer-api-client";
+import { deleteTestEmployerByDomain } from "../../../lib/db";
 import { getOrgSignupTokenFromEmail } from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
 import { randomUUID } from "crypto";
@@ -8,14 +9,19 @@ import type {
 	OrgCompleteSignupRequest,
 } from "vetchium-specs/employer/employer-users";
 
+const TEST_DOMAIN = "example.com";
+
 test.describe("First user admin rights - Org Portal", () => {
 	test("first user completing signup gets admin rights and roles", async ({
 		request,
 	}) => {
 		const api = new EmployerAPIClient(request);
-		// Use a unique email with example.com domain — DEV skips DNS verification
-		// for example.com, and a unique local part avoids mailpit stale-email conflicts.
-		const userEmail = `first-admin-${randomUUID().substring(0, 8)}@example.com`;
+		// Use a unique local part so mailpit can find the right email,
+		// but keep the domain as example.com which DEV skips DNS verification for.
+		const userEmail = `first-admin-${randomUUID().substring(0, 8)}@${TEST_DOMAIN}`;
+
+		// Pre-cleanup: remove any lingering example.com employer from a previous run
+		await deleteTestEmployerByDomain(TEST_DOMAIN);
 
 		try {
 			// Init signup
@@ -53,7 +59,7 @@ test.describe("First user admin rights - Org Portal", () => {
 			expect(myInfoResponse.body.roles).toContain("employer:superadmin");
 			expect(myInfoResponse.body.roles.length).toBe(1);
 		} finally {
-			// Cleanup is handled by database cascading deletes
+			await deleteTestEmployerByDomain(TEST_DOMAIN);
 		}
 	});
 });

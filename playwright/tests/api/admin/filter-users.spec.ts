@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { AdminAPIClient } from "../../../lib/admin-api-client";
 import {
 	createTestAdminUser,
+	createTestAdminAdminDirect,
 	deleteTestAdminUser,
 	generateTestEmail,
 } from "../../../lib/db";
@@ -20,7 +21,7 @@ test.describe("Admin Filter Users API", () => {
 		const adminApiClient = new AdminAPIClient(request);
 		mainAdminEmail = generateTestEmail("filter-admin-main");
 
-		await createTestAdminUser(mainAdminEmail, TEST_PASSWORD, {
+		await createTestAdminAdminDirect(mainAdminEmail, TEST_PASSWORD, {
 			status: "active",
 			fullName: "Main Admin",
 		});

@@ -76,7 +76,7 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 		// Perform DNS TXT lookup to verify domain ownership
 		var tokenFound bool
 
-		if s.Environment == "DEV" && domain == "example.com" {
+		if s.Environment == "DEV" && (domain == "example.com" || strings.HasSuffix(domain, ".example.com")) {
 			log.Info("skipping DNS verification for example.com in DEV environment", "domain", domain)
 			tokenFound = true
 		} else {

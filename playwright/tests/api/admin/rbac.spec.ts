@@ -264,15 +264,6 @@ test.describe("Admin Portal RBAC Tests", () => {
 			await deleteTestAdminUser(adminEmail);
 		});
 
-		test("Any authenticated admin can list approved domains", async ({
-			request,
-		}) => {
-			const api = new AdminAPIClient(request);
-
-			const response = await api.listApprovedDomains(adminToken);
-			expect(response.status).toBe(200);
-		});
-
 		test("Any authenticated admin can change their own password", async ({
 			request,
 		}) => {

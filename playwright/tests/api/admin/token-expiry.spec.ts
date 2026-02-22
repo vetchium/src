@@ -94,19 +94,15 @@ test.describe("Admin Token Expiry Tests", () => {
 			const sessionToken = tfaResponse.body.session_token;
 			expect(sessionToken).toBeDefined();
 
-			// Step 2: Verify session works before expiry
-			const preExpiryResponse = await api.listApprovedDomains(sessionToken, {
-				limit: 10,
-			});
+			// Step 2: Verify session works before expiry (myinfo is auth-only, no role required)
+			const preExpiryResponse = await api.getMyInfo(sessionToken);
 			expect(preExpiryResponse.status).toBe(200);
 
 			// Step 3: Wait for session token to expire
 			await sleep(SESSION_TOKEN_EXPIRY_MS + EXPIRY_BUFFER_MS);
 
 			// Step 4: Try to use expired session token
-			const postExpiryResponse = await api.listApprovedDomains(sessionToken, {
-				limit: 10,
-			});
+			const postExpiryResponse = await api.getMyInfo(sessionToken);
 
 			// Expired session should return 401
 			expect(postExpiryResponse.status).toBe(401);

@@ -616,6 +616,88 @@ export async function getTestEmployerByDomain(domain: string): Promise<{
 }
 
 /**
+ * Deletes a test employer and all associated data (global + regional) by domain.
+ * Safe to call even if the domain is not registered (no-op).
+ *
+ * @param domain - Domain name to clean up (e.g., "example.com")
+ */
+export async function deleteTestEmployerByDomain(
+	domain: string
+): Promise<void> {
+	const result = await pool.query(
+		`SELECT e.employer_id, e.region
+     FROM employers e
+     JOIN global_employer_domains ged ON e.employer_id = ged.employer_id
+     WHERE ged.domain = $1`,
+		[domain.toLowerCase()]
+	);
+
+	if (result.rows.length === 0) {
+		return;
+	}
+
+	const { employer_id, region } = result.rows[0];
+
+	const regionalPool = getRegionalPool(region as RegionCode);
+	try {
+		await regionalPool.query(
+			`DELETE FROM org_users WHERE employer_id = $1`,
+			[employer_id]
+		);
+		await regionalPool.query(
+			`DELETE FROM employer_domains WHERE employer_id = $1`,
+			[employer_id]
+		);
+	} finally {
+		await regionalPool.end();
+	}
+
+	// Cascades to global org_users and global_employer_domains
+	await pool.query(`DELETE FROM employers WHERE employer_id = $1`, [
+		employer_id,
+	]);
+}
+
+/**
+ * Deletes a test agency and all associated data (global + regional) by domain.
+ * Safe to call even if the domain is not registered (no-op).
+ *
+ * @param domain - Domain name to clean up (e.g., "example.com")
+ */
+export async function deleteTestAgencyByDomain(domain: string): Promise<void> {
+	const result = await pool.query(
+		`SELECT a.agency_id, a.region
+     FROM agencies a
+     JOIN global_agency_domains gad ON a.agency_id = gad.agency_id
+     WHERE gad.domain = $1`,
+		[domain.toLowerCase()]
+	);
+
+	if (result.rows.length === 0) {
+		return;
+	}
+
+	const { agency_id, region } = result.rows[0];
+
+	const regionalPool = getRegionalPool(region as RegionCode);
+	try {
+		await regionalPool.query(
+			`DELETE FROM agency_users WHERE agency_id = $1`,
+			[agency_id]
+		);
+		await regionalPool.query(
+			`DELETE FROM agency_domains WHERE agency_id = $1`,
+			[agency_id]
+		);
+	} finally {
+		await regionalPool.end();
+	}
+
+	// Cascades to global agency_users and global_agency_domains
+	await pool.query(`DELETE FROM agencies WHERE agency_id = $1`, [agency_id]);
+}
+
+/**
  * Gets a test org user by email.
  *
  * @param email - Email of the org user
