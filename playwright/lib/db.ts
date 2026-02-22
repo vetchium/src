@@ -640,10 +640,9 @@ export async function deleteTestEmployerByDomain(
 
 	const regionalPool = getRegionalPool(region as RegionCode);
 	try {
-		await regionalPool.query(
-			`DELETE FROM org_users WHERE employer_id = $1`,
-			[employer_id]
-		);
+		await regionalPool.query(`DELETE FROM org_users WHERE employer_id = $1`, [
+			employer_id,
+		]);
 		await regionalPool.query(
 			`DELETE FROM employer_domains WHERE employer_id = $1`,
 			[employer_id]
@@ -681,10 +680,9 @@ export async function deleteTestAgencyByDomain(domain: string): Promise<void> {
 
 	const regionalPool = getRegionalPool(region as RegionCode);
 	try {
-		await regionalPool.query(
-			`DELETE FROM agency_users WHERE agency_id = $1`,
-			[agency_id]
-		);
+		await regionalPool.query(`DELETE FROM agency_users WHERE agency_id = $1`, [
+			agency_id,
+		]);
 		await regionalPool.query(
 			`DELETE FROM agency_domains WHERE agency_id = $1`,
 			[agency_id]
