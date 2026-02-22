@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"slices"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
@@ -63,74 +65,79 @@ func DisableUser(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Get target user from regional DB (has status)
-		targetUser, err := s.Regional.GetOrgUserByID(ctx, globalTargetUser.OrgUserID)
+		// All checks and the status update are inside a single transaction to
+		// prevent race conditions (e.g. two parallel requests both disabling
+		// the last superadmin).
+		var targetUserID pgtype.UUID
+		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
+			// Re-read target user from regional DB inside the transaction
+			targetUser, err := qtx.GetOrgUserByID(ctx, globalTargetUser.OrgUserID)
+			if err != nil {
+				if errors.Is(err, pgx.ErrNoRows) {
+					return server.ErrNotFound
+				}
+				return err
+			}
+			targetUserID = targetUser.OrgUserID
+
+			// Check if target user is already disabled
+			if targetUser.Status == regionaldb.OrgUserStatusDisabled {
+				return server.ErrInvalidState
+			}
+
+			// Lock all active superadmins for this employer to prevent race
+			// conditions when checking last-superadmin constraint.
+			superadminRole, err := qtx.GetRoleByName(ctx, "employer:superadmin")
+			if err != nil {
+				return err
+			}
+
+			lockedSuperadmins, err := qtx.LockActiveOrgUsersWithRole(ctx, regionaldb.LockActiveOrgUsersWithRoleParams{
+				EmployerID: targetUser.EmployerID,
+				RoleID:     superadminRole.RoleID,
+			})
+			if err != nil {
+				return err
+			}
+
+			// Check whether the target is the last active superadmin
+			targetIsSuperadmin := slices.Contains(lockedSuperadmins, targetUser.OrgUserID)
+			if targetIsSuperadmin && len(lockedSuperadmins) <= 1 {
+				return server.ErrInvalidState
+			}
+
+			return qtx.UpdateOrgUserStatus(ctx, regionaldb.UpdateOrgUserStatusParams{
+				OrgUserID: targetUser.OrgUserID,
+				Status:    regionaldb.OrgUserStatusDisabled,
+			})
+		})
 		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
+			if errors.Is(err, server.ErrNotFound) {
 				log.Debug("target user not found in regional DB")
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
-			log.Error("failed to get target user from regional DB", "error", err)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-
-		// Check if target user is already disabled
-		if targetUser.Status == regionaldb.OrgUserStatusDisabled {
-			log.Debug("target user already disabled")
-			w.WriteHeader(http.StatusUnprocessableEntity)
-			return
-		}
-
-		// If target user is the last active superadmin, prevent disabling
-		superadminRole, err := s.Regional.GetRoleByName(ctx, "employer:superadmin")
-		if err == nil {
-			hasSuperadmin, err := s.Regional.HasOrgUserRole(ctx, regionaldb.HasOrgUserRoleParams{
-				OrgUserID: targetUser.OrgUserID,
-				RoleID:    superadminRole.RoleID,
-			})
-			if err == nil && hasSuperadmin {
-				count, err := s.Regional.CountActiveOrgUsersWithRole(ctx, regionaldb.CountActiveOrgUsersWithRoleParams{
-					EmployerID: targetUser.EmployerID,
-					RoleID:     superadminRole.RoleID,
+			if errors.Is(err, server.ErrInvalidState) {
+				log.Debug("cannot disable user - already disabled or last superadmin")
+				w.WriteHeader(http.StatusUnprocessableEntity)
+				json.NewEncoder(w).Encode(map[string]string{
+					"error": "Cannot disable user: already disabled or last superadmin",
 				})
-				if err != nil {
-					log.Error("failed to count active superadmin users", "error", err)
-					http.Error(w, "", http.StatusInternalServerError)
-					return
-				}
-				if count <= 1 {
-					log.Debug("cannot disable last superadmin user")
-					w.WriteHeader(http.StatusUnprocessableEntity)
-					json.NewEncoder(w).Encode(map[string]string{
-						"error": "Cannot disable last superadmin user",
-					})
-					return
-				}
+				return
 			}
-		}
-
-		// Update user status to disabled in regional DB
-		err = s.Regional.UpdateOrgUserStatus(ctx, regionaldb.UpdateOrgUserStatusParams{
-			OrgUserID: targetUser.OrgUserID,
-			Status:    regionaldb.OrgUserStatusDisabled,
-		})
-		if err != nil {
-			log.Error("failed to update user status", "error", err)
+			log.Error("failed to disable org user", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		// Invalidate all sessions for the target user in regional DB
-		err = s.Regional.DeleteAllOrgSessionsForUser(ctx, targetUser.OrgUserID)
-		if err != nil {
+		// Invalidate all sessions for the target user (best-effort, outside tx)
+		if err := s.Regional.DeleteAllOrgSessionsForUser(ctx, targetUserID); err != nil {
 			log.Error("failed to delete user sessions", "error", err)
 			// User is disabled but sessions still active - this is acceptable
 		}
 
 		log.Info("org user disabled successfully",
-			"target_user_id", targetUser.OrgUserID,
+			"target_user_id", targetUserID,
 			"disabled_by", orgUser.OrgUserID)
 
 		w.WriteHeader(http.StatusOK)

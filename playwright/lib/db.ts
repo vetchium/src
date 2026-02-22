@@ -115,6 +115,36 @@ export async function getAllActiveAdminIds(
 }
 
 /**
+ * Gets all active admin user IDs that have a specific role.
+ * Used for testing last-superadmin protection scenarios.
+ *
+ * @param roleName - The role name to filter by (e.g. "admin:superadmin")
+ * @param excludeAdminId - Optional admin ID to exclude from results
+ * @returns Array of admin user ID strings
+ */
+export async function getAllActiveAdminIdsWithRole(
+	roleName: string,
+	excludeAdminId?: string
+): Promise<string[]> {
+	let query = `
+    SELECT au.admin_user_id
+    FROM admin_users au
+    JOIN admin_user_roles aur ON aur.admin_user_id = au.admin_user_id
+    JOIN roles r ON r.role_id = aur.role_id
+    WHERE au.status = 'active'
+      AND r.role_name = $1`;
+	const params: (string | string[])[] = [roleName];
+
+	if (excludeAdminId) {
+		query += ` AND au.admin_user_id != $2`;
+		params.push(excludeAdminId);
+	}
+
+	const result = await pool.query(query, params);
+	return result.rows.map((row: { admin_user_id: string }) => row.admin_user_id);
+}
+
+/**
  * Updates the status of multiple admin users by their IDs.
  * Used for testing "last admin" protection scenarios.
  *

@@ -78,34 +78,57 @@ func RemoveRole(s *server.GlobalServer) http.HandlerFunc {
 			return
 		}
 
-		// Check if user has this role
-		hasRole, err := s.Global.HasAdminUserRole(ctx, globaldb.HasAdminUserRoleParams{
-			AdminUserID: targetUser.AdminUserID,
-			RoleID:      role.RoleID,
-		})
-		if err != nil {
-			log.Error("failed to check if user has role", "error", err)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-
-		if !hasRole {
-			log.Debug("user does not have role",
-				"target_user_id", targetUser.AdminUserID,
-				"role_name", req.RoleName)
-			w.WriteHeader(http.StatusConflict)
-			json.NewEncoder(w).Encode(map[string]string{
-				"error": "user does not have this role",
+		// The has-role check, last-superadmin guard, and the removal are all
+		// inside a single transaction to prevent race conditions.
+		err = s.WithGlobalTx(ctx, func(qtx *globaldb.Queries) error {
+			// Check if user has this role
+			hasRole, err := qtx.HasAdminUserRole(ctx, globaldb.HasAdminUserRoleParams{
+				AdminUserID: targetUser.AdminUserID,
+				RoleID:      role.RoleID,
 			})
-			return
-		}
+			if err != nil {
+				return err
+			}
+			if !hasRole {
+				return server.ErrConflict
+			}
 
-		// Remove role
-		err = s.Global.RemoveAdminUserRole(ctx, globaldb.RemoveAdminUserRoleParams{
-			AdminUserID: targetUser.AdminUserID,
-			RoleID:      role.RoleID,
+			// Guard against removing the last active superadmin's role
+			if string(req.RoleName) == "admin:superadmin" {
+				lockedSuperadmins, err := qtx.LockActiveAdminUsersWithRole(ctx, role.RoleID)
+				if err != nil {
+					return err
+				}
+				if len(lockedSuperadmins) <= 1 {
+					return server.ErrInvalidState
+				}
+			}
+
+			return qtx.RemoveAdminUserRole(ctx, globaldb.RemoveAdminUserRoleParams{
+				AdminUserID: targetUser.AdminUserID,
+				RoleID:      role.RoleID,
+			})
 		})
 		if err != nil {
+			if errors.Is(err, server.ErrConflict) {
+				log.Debug("user does not have role",
+					"target_user_id", targetUser.AdminUserID,
+					"role_name", req.RoleName)
+				w.WriteHeader(http.StatusConflict)
+				json.NewEncoder(w).Encode(map[string]string{
+					"error": "user does not have this role",
+				})
+				return
+			}
+			if errors.Is(err, server.ErrInvalidState) {
+				log.Debug("cannot remove last superadmin role",
+					"target_user_id", targetUser.AdminUserID)
+				w.WriteHeader(http.StatusUnprocessableEntity)
+				json.NewEncoder(w).Encode(map[string]string{
+					"error": "Cannot remove superadmin role from the last active superadmin",
+				})
+				return
+			}
 			log.Error("failed to remove role", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return

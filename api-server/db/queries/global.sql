@@ -25,6 +25,18 @@ WHERE admin_user_id = $1;
 SELECT COUNT(*)
 FROM admin_users
 WHERE status = 'active';
+-- name: LockActiveAdminUsers :many
+SELECT admin_user_id
+FROM admin_users
+WHERE status = 'active'
+FOR UPDATE;
+-- name: LockActiveAdminUsersWithRole :many
+SELECT admin_users.admin_user_id
+FROM admin_users
+JOIN admin_user_roles ON admin_user_roles.admin_user_id = admin_users.admin_user_id
+WHERE admin_user_roles.role_id = $1
+  AND admin_users.status = 'active'
+FOR UPDATE OF admin_users, admin_user_roles;
 -- TFA token queries
 -- name: CreateAdminTFAToken :exec
 INSERT INTO admin_tfa_tokens (tfa_token, admin_user_id, tfa_code, expires_at)

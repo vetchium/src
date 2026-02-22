@@ -22,10 +22,14 @@ import {
 	updateAdminUserStatusByIds,
 	countActiveAdminUsers,
 	assignRoleToAdminUser,
+	getAllActiveAdminIdsWithRole,
 } from "../../../lib/db";
 import { getTfaCodeFromEmail } from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
-import type { AdminDisableUserRequest } from "vetchium-specs/admin/admin-users";
+import type {
+	AdminDisableUserRequest,
+	RemoveRoleRequest,
+} from "vetchium-specs/admin/admin-users";
 
 // Run this file serially to avoid interference when manipulating admin counts
 test.describe.configure({ mode: "serial" });
@@ -288,6 +292,62 @@ test.describe("Last Admin Protection", () => {
 			// Cleanup test admins
 			await deleteTestAdminUser(admin1Email);
 			await deleteTestAdminUser(admin2Email);
+		}
+	});
+
+	test("cannot remove superadmin role from the last active superadmin (422)", async ({
+		request,
+	}) => {
+		const adminEmail = generateTestEmail("last-sa-role-admin");
+		let adminId = "";
+		let disabledSuperadminIds: string[] = [];
+
+		try {
+			// Create a test admin with superadmin and manage_users roles
+			adminId = await createTestAdminUser(adminEmail, TEST_PASSWORD);
+			await assignRoleToAdminUser(adminId, "admin:superadmin");
+			await assignRoleToAdminUser(adminId, "admin:manage_users");
+
+			// Disable all other active admins with admin:superadmin to isolate the test
+			const otherSuperadmins = await getAllActiveAdminIdsWithRole(
+				"admin:superadmin",
+				adminId
+			);
+			if (otherSuperadmins.length > 0) {
+				await updateAdminUserStatusByIds(otherSuperadmins, "disabled");
+				disabledSuperadminIds = otherSuperadmins;
+			}
+
+			// Login as our test admin
+			const api = new AdminAPIClient(request);
+			const loginResponse = await api.login({
+				email: adminEmail,
+				password: TEST_PASSWORD,
+			});
+			expect(loginResponse.status).toBe(200);
+
+			const tfaCode = await getTfaCodeFromEmail(adminEmail);
+			const tfaResponse = await api.verifyTFA({
+				tfa_token: loginResponse.body.tfa_token,
+				tfa_code: tfaCode,
+			});
+			expect(tfaResponse.status).toBe(200);
+			const sessionToken = tfaResponse.body.session_token;
+
+			// Try to remove superadmin role from self (last active superadmin)
+			const removeRequest: RemoveRoleRequest = {
+				target_user_id: adminId,
+				role_name: "admin:superadmin",
+			};
+			const removeResponse = await api.removeRole(sessionToken, removeRequest);
+
+			expect(removeResponse.status).toBe(422);
+		} finally {
+			// Restore disabled superadmins
+			if (disabledSuperadminIds.length > 0) {
+				await updateAdminUserStatusByIds(disabledSuperadminIds, "active");
+			}
+			await deleteTestAdminUser(adminEmail);
 		}
 	});
 });

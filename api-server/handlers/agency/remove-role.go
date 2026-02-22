@@ -52,8 +52,8 @@ func RemoveRole(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Get target agency user (verify exists)
-		targetUser, err := s.Global.GetAgencyUserByID(ctx, targetUserID)
+		// Get target agency user from regional DB (verify exists and same agency)
+		targetUser, err := s.Regional.GetAgencyUserByID(ctx, targetUserID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				log.Debug("target agency user not found", "target_user_id", req.TargetUserID)
@@ -88,34 +88,60 @@ func RemoveRole(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Check if user has this role
-		hasRole, err := s.Regional.HasAgencyUserRole(ctx, regionaldb.HasAgencyUserRoleParams{
-			AgencyUserID: targetUser.AgencyUserID,
-			RoleID:       role.RoleID,
-		})
-		if err != nil {
-			log.Error("failed to check if user has role", "error", err)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-
-		if !hasRole {
-			log.Debug("user does not have role",
-				"target_user_id", targetUser.AgencyUserID,
-				"role_name", req.RoleName)
-			w.WriteHeader(http.StatusConflict)
-			json.NewEncoder(w).Encode(map[string]string{
-				"error": "user does not have this role",
+		// The has-role check, last-superadmin guard, and the removal are all
+		// inside a single transaction to prevent race conditions.
+		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
+			// Check if user has this role
+			hasRole, err := qtx.HasAgencyUserRole(ctx, regionaldb.HasAgencyUserRoleParams{
+				AgencyUserID: targetUser.AgencyUserID,
+				RoleID:       role.RoleID,
 			})
-			return
-		}
+			if err != nil {
+				return err
+			}
+			if !hasRole {
+				return server.ErrConflict
+			}
 
-		// Remove role
-		err = s.Regional.RemoveAgencyUserRole(ctx, regionaldb.RemoveAgencyUserRoleParams{
-			AgencyUserID: targetUser.AgencyUserID,
-			RoleID:       role.RoleID,
+			// Guard against removing the last active superadmin's role
+			if string(req.RoleName) == "agency:superadmin" {
+				lockedSuperadmins, err := qtx.LockActiveAgencyUsersWithRole(ctx, regionaldb.LockActiveAgencyUsersWithRoleParams{
+					AgencyID: targetUser.AgencyID,
+					RoleID:   role.RoleID,
+				})
+				if err != nil {
+					return err
+				}
+				if len(lockedSuperadmins) <= 1 {
+					return server.ErrInvalidState
+				}
+			}
+
+			return qtx.RemoveAgencyUserRole(ctx, regionaldb.RemoveAgencyUserRoleParams{
+				AgencyUserID: targetUser.AgencyUserID,
+				RoleID:       role.RoleID,
+			})
 		})
 		if err != nil {
+			if errors.Is(err, server.ErrConflict) {
+				log.Debug("user does not have role",
+					"target_user_id", targetUser.AgencyUserID,
+					"role_name", req.RoleName)
+				w.WriteHeader(http.StatusConflict)
+				json.NewEncoder(w).Encode(map[string]string{
+					"error": "user does not have this role",
+				})
+				return
+			}
+			if errors.Is(err, server.ErrInvalidState) {
+				log.Debug("cannot remove last superadmin role",
+					"target_user_id", targetUser.AgencyUserID)
+				w.WriteHeader(http.StatusUnprocessableEntity)
+				json.NewEncoder(w).Encode(map[string]string{
+					"error": "Cannot remove superadmin role from the last active superadmin",
+				})
+				return
+			}
 			log.Error("failed to remove role", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return

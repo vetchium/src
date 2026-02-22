@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
@@ -42,7 +43,7 @@ func DisableUser(s *server.GlobalServer) http.HandlerFunc {
 			return
 		}
 
-		// Get target user by email from global DB
+		// Get target user by email from global DB (outside tx, for identity lookup)
 		targetUser, err := s.Global.GetAdminUserByEmail(ctx, string(req.EmailAddress))
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
@@ -55,44 +56,62 @@ func DisableUser(s *server.GlobalServer) http.HandlerFunc {
 			return
 		}
 
-		// Check if target user is already disabled
-		if targetUser.Status == globaldb.AdminUserStatusDisabled {
-			log.Debug("target user already disabled")
-			w.WriteHeader(http.StatusUnprocessableEntity)
-			return
-		}
+		// The last-admin check and the status update are inside a single
+		// transaction to prevent race conditions (e.g. two parallel requests
+		// both trying to disable the last active admin).
+		var targetUserID pgtype.UUID
+		err = s.WithGlobalTx(ctx, func(qtx *globaldb.Queries) error {
+			// Re-read target user to get latest status inside the transaction
+			currentTarget, err := qtx.GetAdminUserByEmail(ctx, string(req.EmailAddress))
+			if err != nil {
+				if errors.Is(err, pgx.ErrNoRows) {
+					return server.ErrNotFound
+				}
+				return err
+			}
+			targetUserID = currentTarget.AdminUserID
 
-		// Check if trying to disable the last active admin
-		count, err := s.Global.CountActiveAdminUsers(ctx)
-		if err != nil {
-			log.Error("failed to count active admin users", "error", err)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
+			// Check if target user is already disabled
+			if currentTarget.Status == globaldb.AdminUserStatusDisabled {
+				return server.ErrInvalidState
+			}
 
-		if count <= 1 {
-			log.Debug("cannot disable last admin user")
-			w.WriteHeader(http.StatusUnprocessableEntity)
-			json.NewEncoder(w).Encode(map[string]string{
-				"error": "Cannot disable last admin user",
+			// Lock all active admin users to serialize the last-admin check
+			activeAdmins, err := qtx.LockActiveAdminUsers(ctx)
+			if err != nil {
+				return err
+			}
+
+			if len(activeAdmins) <= 1 {
+				return server.ErrInvalidState
+			}
+
+			return qtx.UpdateAdminUserStatus(ctx, globaldb.UpdateAdminUserStatusParams{
+				AdminUserID: currentTarget.AdminUserID,
+				Status:      globaldb.AdminUserStatusDisabled,
 			})
-			return
-		}
-
-		// Update user status to disabled in global DB
-		err = s.Global.UpdateAdminUserStatus(ctx, globaldb.UpdateAdminUserStatusParams{
-			AdminUserID: targetUser.AdminUserID,
-			Status:      globaldb.AdminUserStatusDisabled,
 		})
 		if err != nil {
-			log.Error("failed to update user status", "error", err)
+			if errors.Is(err, server.ErrNotFound) {
+				log.Debug("target user not found")
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			if errors.Is(err, server.ErrInvalidState) {
+				log.Debug("cannot disable user - already disabled or last admin")
+				w.WriteHeader(http.StatusUnprocessableEntity)
+				json.NewEncoder(w).Encode(map[string]string{
+					"error": "Cannot disable user: already disabled or last admin",
+				})
+				return
+			}
+			log.Error("failed to disable admin user", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		// Invalidate all sessions for the target user in global DB
-		err = s.Global.DeleteAllAdminSessionsForUser(ctx, targetUser.AdminUserID)
-		if err != nil {
+		// Invalidate all sessions for the target user (best-effort, outside tx)
+		if err := s.Global.DeleteAllAdminSessionsForUser(ctx, targetUserID); err != nil {
 			log.Error("failed to delete user sessions", "error", err)
 			// User is disabled but sessions still active - this is acceptable
 		}

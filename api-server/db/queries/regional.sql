@@ -144,6 +144,14 @@ JOIN org_user_roles our ON our.org_user_id = u.org_user_id
 WHERE u.employer_id = $1
   AND our.role_id = $2
   AND u.status = 'active';
+-- name: LockActiveOrgUsersWithRole :many
+SELECT org_users.org_user_id
+FROM org_users
+JOIN org_user_roles ON org_user_roles.org_user_id = org_users.org_user_id
+WHERE org_users.employer_id = $1
+  AND org_user_roles.role_id = $2
+  AND org_users.status = 'active'
+FOR UPDATE OF org_users, org_user_roles;
 -- ============================================
 -- Org TFA Token Queries
 -- ============================================
@@ -513,6 +521,14 @@ JOIN agency_user_roles aur ON aur.agency_user_id = u.agency_user_id
 WHERE u.agency_id = $1
   AND aur.role_id = $2
   AND u.status = 'active';
+-- name: LockActiveAgencyUsersWithRole :many
+SELECT agency_users.agency_user_id
+FROM agency_users
+JOIN agency_user_roles ON agency_user_roles.agency_user_id = agency_users.agency_user_id
+WHERE agency_users.agency_id = $1
+  AND agency_user_roles.role_id = $2
+  AND agency_users.status = 'active'
+FOR UPDATE OF agency_users, agency_user_roles;
 -- ============================================
 -- Agency TFA Token Queries
 -- ============================================

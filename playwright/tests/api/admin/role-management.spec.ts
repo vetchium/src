@@ -5,6 +5,8 @@ import {
 	deleteTestAdminUser,
 	createTestAdminAdminDirect,
 	createTestAdminUserDirect,
+	createTestAdminUser,
+	assignRoleToAdminUser,
 } from "../../../lib/db";
 import { getTfaCodeFromEmail } from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
@@ -446,6 +448,50 @@ test.describe("POST /admin/remove-role", () => {
 			expect(response.status).toBe(401);
 		} finally {
 			await deleteTestAdminUser(targetEmail);
+		}
+	});
+
+	test("can remove superadmin role when another superadmin exists (200)", async ({
+		request,
+	}) => {
+		const api = new AdminAPIClient(request);
+		const admin1Email = generateTestAdminEmail("sa-remove-two-admin1");
+		const admin2Email = generateTestAdminEmail("sa-remove-two-admin2");
+
+		// Create admin1 with both superadmin and manage_users roles (actor)
+		const admin1UserId = await createTestAdminUser(admin1Email, TEST_PASSWORD);
+		await assignRoleToAdminUser(admin1UserId, "admin:superadmin");
+		await assignRoleToAdminUser(admin1UserId, "admin:manage_users");
+
+		// Create admin2 with superadmin role (target)
+		const admin2UserId = await createTestAdminUser(admin2Email, TEST_PASSWORD);
+		await assignRoleToAdminUser(admin2UserId, "admin:superadmin");
+
+		try {
+			// Login as admin1
+			const loginResponse = await api.login({
+				email: admin1Email,
+				password: TEST_PASSWORD,
+			});
+			const tfaCode = await getTfaCodeFromEmail(admin1Email);
+			const tfaResponse = await api.verifyTFA({
+				tfa_token: loginResponse.body.tfa_token,
+				tfa_code: tfaCode,
+			});
+			const sessionToken = tfaResponse.body.session_token;
+
+			// Remove superadmin role from admin2 (admin1 still remains as superadmin,
+			// plus any other active superadmins in the system)
+			const removeRequest: RemoveRoleRequest = {
+				target_user_id: admin2UserId,
+				role_name: "admin:superadmin",
+			};
+			const response = await api.removeRole(sessionToken, removeRequest);
+
+			expect(response.status).toBe(200);
+		} finally {
+			await deleteTestAdminUser(admin1Email);
+			await deleteTestAdminUser(admin2Email);
 		}
 	});
 });

@@ -577,4 +577,96 @@ test.describe("POST /employer/remove-role", () => {
 			await deleteTestOrgUser(targetEmail);
 		}
 	});
+
+	test("cannot remove superadmin role from last active superadmin (422)", async ({
+		request,
+	}) => {
+		const api = new EmployerAPIClient(request);
+		const { email: adminEmail, domain } = generateTestOrgEmail(
+			"last-sa-remove-admin"
+		);
+
+		// Create only one superadmin
+		const { orgUserId: adminId } = await createTestOrgAdminDirect(
+			adminEmail,
+			TEST_PASSWORD
+		);
+
+		try {
+			// Login as admin
+			const loginResponse = await api.login({
+				email: adminEmail,
+				domain,
+				password: TEST_PASSWORD,
+			});
+			const tfaCode = await getTfaCodeFromEmail(adminEmail);
+			const tfaResponse = await api.verifyTFA({
+				tfa_token: loginResponse.body.tfa_token,
+				tfa_code: tfaCode,
+				remember_me: false,
+			});
+			const sessionToken = tfaResponse.body.session_token;
+
+			// Try to remove superadmin role from self (last superadmin)
+			const removeRequest: RemoveRoleRequest = {
+				target_user_id: adminId,
+				role_name: "employer:superadmin",
+			};
+			const response = await api.removeRole(sessionToken, removeRequest);
+
+			expect(response.status).toBe(422);
+		} finally {
+			await deleteTestOrgUser(adminEmail);
+		}
+	});
+
+	test("can remove superadmin role when another superadmin exists (200)", async ({
+		request,
+	}) => {
+		const api = new EmployerAPIClient(request);
+		const { email: admin1Email, domain } = generateTestOrgEmail(
+			"sa-remove-two-admin1"
+		);
+		const { email: admin2Email } = generateTestOrgEmail("sa-remove-two-admin2");
+
+		// Create two superadmins in the same employer
+		const { employerId } = await createTestOrgAdminDirect(
+			admin1Email,
+			TEST_PASSWORD
+		);
+		const { orgUserId: admin2Id } = await createTestOrgAdminDirect(
+			admin2Email,
+			TEST_PASSWORD,
+			"ind1",
+			{ employerId, domain }
+		);
+
+		try {
+			// Login as admin1
+			const loginResponse = await api.login({
+				email: admin1Email,
+				domain,
+				password: TEST_PASSWORD,
+			});
+			const tfaCode = await getTfaCodeFromEmail(admin1Email);
+			const tfaResponse = await api.verifyTFA({
+				tfa_token: loginResponse.body.tfa_token,
+				tfa_code: tfaCode,
+				remember_me: false,
+			});
+			const sessionToken = tfaResponse.body.session_token;
+
+			// Remove superadmin role from admin2 (admin1 still remains as superadmin)
+			const removeRequest: RemoveRoleRequest = {
+				target_user_id: admin2Id,
+				role_name: "employer:superadmin",
+			};
+			const response = await api.removeRole(sessionToken, removeRequest);
+
+			expect(response.status).toBe(200);
+		} finally {
+			await deleteTestOrgUser(admin1Email);
+			await deleteTestOrgUser(admin2Email);
+		}
+	});
 });

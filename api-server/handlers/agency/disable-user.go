@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"slices"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
@@ -63,74 +65,79 @@ func DisableUser(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Get target user from regional DB (for status)
-		targetRegionalUser, err := s.Regional.GetAgencyUserByID(ctx, targetGlobalUser.AgencyUserID)
+		// All checks and the status update are inside a single transaction to
+		// prevent race conditions (e.g. two parallel requests both disabling
+		// the last superadmin).
+		var targetUserID pgtype.UUID
+		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
+			// Re-read target user from regional DB inside the transaction
+			targetUser, err := qtx.GetAgencyUserByID(ctx, targetGlobalUser.AgencyUserID)
+			if err != nil {
+				if errors.Is(err, pgx.ErrNoRows) {
+					return server.ErrNotFound
+				}
+				return err
+			}
+			targetUserID = targetUser.AgencyUserID
+
+			// Check if target user is already disabled
+			if targetUser.Status == regionaldb.AgencyUserStatusDisabled {
+				return server.ErrInvalidState
+			}
+
+			// Lock all active superadmins for this agency to prevent race
+			// conditions when checking last-superadmin constraint.
+			superadminRole, err := qtx.GetRoleByName(ctx, "agency:superadmin")
+			if err != nil {
+				return err
+			}
+
+			lockedSuperadmins, err := qtx.LockActiveAgencyUsersWithRole(ctx, regionaldb.LockActiveAgencyUsersWithRoleParams{
+				AgencyID: targetUser.AgencyID,
+				RoleID:   superadminRole.RoleID,
+			})
+			if err != nil {
+				return err
+			}
+
+			// Check whether the target is the last active superadmin
+			targetIsSuperadmin := slices.Contains(lockedSuperadmins, targetUser.AgencyUserID)
+			if targetIsSuperadmin && len(lockedSuperadmins) <= 1 {
+				return server.ErrInvalidState
+			}
+
+			return qtx.UpdateAgencyUserStatus(ctx, regionaldb.UpdateAgencyUserStatusParams{
+				AgencyUserID: targetUser.AgencyUserID,
+				Status:       regionaldb.AgencyUserStatusDisabled,
+			})
+		})
 		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
+			if errors.Is(err, server.ErrNotFound) {
 				log.Debug("target user not found in regional DB")
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
-			log.Error("failed to get target user from regional DB", "error", err)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-
-		// Check if target user is already disabled
-		if targetRegionalUser.Status == regionaldb.AgencyUserStatusDisabled {
-			log.Debug("target user already disabled")
-			w.WriteHeader(http.StatusUnprocessableEntity)
-			return
-		}
-
-		// If target user is the last active superadmin, prevent disabling
-		superadminRole, err := s.Regional.GetRoleByName(ctx, "agency:superadmin")
-		if err == nil {
-			hasSuperadmin, err := s.Regional.HasAgencyUserRole(ctx, regionaldb.HasAgencyUserRoleParams{
-				AgencyUserID: targetRegionalUser.AgencyUserID,
-				RoleID:       superadminRole.RoleID,
-			})
-			if err == nil && hasSuperadmin {
-				count, err := s.Regional.CountActiveAgencyUsersWithRole(ctx, regionaldb.CountActiveAgencyUsersWithRoleParams{
-					AgencyID: targetRegionalUser.AgencyID,
-					RoleID:   superadminRole.RoleID,
+			if errors.Is(err, server.ErrInvalidState) {
+				log.Debug("cannot disable user - already disabled or last superadmin")
+				w.WriteHeader(http.StatusUnprocessableEntity)
+				json.NewEncoder(w).Encode(map[string]string{
+					"error": "Cannot disable user: already disabled or last superadmin",
 				})
-				if err != nil {
-					log.Error("failed to count active superadmin users", "error", err)
-					http.Error(w, "", http.StatusInternalServerError)
-					return
-				}
-				if count <= 1 {
-					log.Debug("cannot disable last superadmin user")
-					w.WriteHeader(http.StatusUnprocessableEntity)
-					json.NewEncoder(w).Encode(map[string]string{
-						"error": "Cannot disable last superadmin user",
-					})
-					return
-				}
+				return
 			}
-		}
-
-		// Update user status to disabled in regional DB
-		err = s.Regional.UpdateAgencyUserStatus(ctx, regionaldb.UpdateAgencyUserStatusParams{
-			AgencyUserID: targetGlobalUser.AgencyUserID,
-			Status:       regionaldb.AgencyUserStatusDisabled,
-		})
-		if err != nil {
-			log.Error("failed to update user status", "error", err)
+			log.Error("failed to disable agency user", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		// Invalidate all sessions for the target user in regional DB
-		err = s.Regional.DeleteAllAgencySessionsForUser(ctx, targetGlobalUser.AgencyUserID)
-		if err != nil {
+		// Invalidate all sessions for the target user (best-effort, outside tx)
+		if err := s.Regional.DeleteAllAgencySessionsForUser(ctx, targetUserID); err != nil {
 			log.Error("failed to delete user sessions", "error", err)
 			// User is disabled but sessions still active - this is acceptable
 		}
 
 		log.Info("agency user disabled successfully",
-			"target_user_id", targetGlobalUser.AgencyUserID,
+			"target_user_id", targetUserID,
 			"disabled_by", agencyUser.AgencyUserID)
 
 		w.WriteHeader(http.StatusOK)
