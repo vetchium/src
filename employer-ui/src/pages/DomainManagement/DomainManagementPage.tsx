@@ -111,7 +111,7 @@ export function DomainManagementPage() {
 		} finally {
 			setDomainsLoading(false);
 		}
-	}, [sessionToken, t]);
+	}, [sessionToken, t, navigate]);
 
 	useEffect(() => {
 		loadDomains();

@@ -8,7 +8,6 @@ import {
 	Typography,
 	Alert,
 	message,
-	Spin,
 	Select,
 } from "antd";
 import { LockOutlined, UserOutlined } from "@ant-design/icons";
@@ -82,7 +81,7 @@ export function CompleteSetupPage() {
 		return (
 			<Card style={{ width: 400, boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}>
 				<Alert
-					message="Invalid Link"
+					title="Invalid Link"
 					description="The invitation link is invalid or missing."
 					type="error"
 					showIcon
@@ -107,7 +106,7 @@ export function CompleteSetupPage() {
 
 			{error && (
 				<Alert
-					message={error}
+					title={error}
 					type="error"
 					showIcon
 					style={{ marginBottom: 24 }}

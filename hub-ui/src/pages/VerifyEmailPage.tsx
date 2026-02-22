@@ -84,7 +84,7 @@ export function VerifyEmailPage() {
 	return (
 		<Card style={{ width: 400 }}>
 			<Alert
-				message="Verification Failed"
+				title="Verification Failed"
 				description={error}
 				type="error"
 				showIcon

@@ -2,13 +2,11 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Form, Input, Button, Card, Typography, Alert } from "antd";
 import { MailOutlined, GlobalOutlined } from "@ant-design/icons";
-import { useTranslation } from "react-i18next";
 import { getApiBaseUrl } from "../config";
 
 const { Title, Text } = Typography;
 
 export function ForgotPasswordPage() {
-	const { t } = useTranslation("auth");
 	const [loading, setLoading] = useState(false);
 	const [success, setSuccess] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -79,7 +77,7 @@ export function ForgotPasswordPage() {
 
 			{error && (
 				<Alert
-					message={error}
+					title={error}
 					type="error"
 					showIcon
 					style={{ marginBottom: 24 }}

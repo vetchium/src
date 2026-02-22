@@ -81,7 +81,7 @@ export function ForgotPasswordPage() {
 
 			{error && (
 				<Alert
-					message={error}
+					title={error}
 					type="error"
 					showIcon
 					style={{ marginBottom: 24 }}

@@ -63,7 +63,7 @@ export function ResetPasswordPage() {
 		return (
 			<Card style={{ width: 400, boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}>
 				<Alert
-					message="Invalid Link"
+					title="Invalid Link"
 					description="The password reset link is invalid or missing."
 					type="error"
 					showIcon
@@ -86,7 +86,7 @@ export function ResetPasswordPage() {
 
 			{error && (
 				<Alert
-					message={error}
+					title={error}
 					type="error"
 					showIcon
 					style={{ marginBottom: 24 }}

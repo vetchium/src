@@ -17,7 +17,7 @@ import {
 } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { useState, useEffect } from "react";
-import { useSearchParams, useNavigate, Link } from "react-router-dom";
+import { useSearchParams, Link } from "react-router-dom";
 import { getApiBaseUrl } from "../config";
 import {
 	PASSWORD_MIN_LENGTH,
@@ -32,7 +32,7 @@ import type { LanguageCode } from "vetchium-specs/common/common";
 // @ts-expect-error - dohjs has no types
 import { DNSoverHTTPS } from "dohjs";
 
-const { Text, Paragraph } = Typography;
+const { Paragraph } = Typography;
 
 interface SignupCompleteFormValues {
 	password: string;
@@ -56,7 +56,6 @@ export function SignupCompleteForm() {
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [searchParams] = useSearchParams();
-	const navigate = useNavigate();
 	const [domain, setDomain] = useState<string | null>(null);
 	const [dnsStatus, setDnsStatus] = useState<
 		"idle" | "checking" | "found" | "not-found"
@@ -108,7 +107,7 @@ export function SignupCompleteForm() {
 	// Set default language to current UI language
 	useEffect(() => {
 		const currentLang = i18n.language as LanguageCode;
-		if (SUPPORTED_LANGUAGES.includes(currentLang as any)) {
+		if (SUPPORTED_LANGUAGES.includes(currentLang)) {
 			form.setFieldValue("preferred_language", currentLang);
 		} else {
 			form.setFieldValue("preferred_language", "en-US");
@@ -132,7 +131,7 @@ export function SignupCompleteForm() {
 			// Check if any TXT records exist
 			if (response?.answers && response.answers.length > 0) {
 				const hasTxtRecord = response.answers.some(
-					(answer: any) => answer.type === "TXT"
+					(answer: { type: string }) => answer.type === "TXT"
 				);
 				if (hasTxtRecord) {
 					setDnsStatus("found");
@@ -258,13 +257,13 @@ export function SignupCompleteForm() {
 
 						<Alert
 							type="info"
-							message={t("signupComplete.dnsInstructions")}
+							title={t("signupComplete.dnsInstructions")}
 							description={
 								<>
 									<Paragraph style={{ marginBottom: 8 }}>
 										{t("signupComplete.dnsInstructionsText", { domain })}
 									</Paragraph>
-									<Space direction="vertical" style={{ width: "100%" }}>
+									<Space orientation="vertical" style={{ width: "100%" }}>
 										<Button
 											onClick={checkDNS}
 											loading={dnsStatus === "checking"}
@@ -274,7 +273,7 @@ export function SignupCompleteForm() {
 										{dnsStatus === "found" && (
 											<Alert
 												type="success"
-												message={t("signupComplete.dnsVerified")}
+												title={t("signupComplete.dnsVerified")}
 												icon={<CheckCircleOutlined />}
 												showIcon
 											/>
@@ -283,13 +282,13 @@ export function SignupCompleteForm() {
 											<>
 												<Alert
 													type="warning"
-													message={dnsCheckError}
+													title={dnsCheckError}
 													icon={<CloseCircleOutlined />}
 													showIcon
 												/>
 												<Alert
 													type="info"
-													message={t("signupComplete.dnsPropagationWarning")}
+													title={t("signupComplete.dnsPropagationWarning")}
 													showIcon
 												/>
 											</>
