@@ -9,13 +9,13 @@ import (
 
 // GlobalBgJobsConfig holds configuration for global database background jobs
 type GlobalBgJobsConfig struct {
-	ExpiredAdminTFATokensCleanupInterval            time.Duration
-	ExpiredAdminSessionsCleanupInterval             time.Duration
-	ExpiredAdminPasswordResetTokensCleanupInterval  time.Duration
-	ExpiredAdminInvitationTokensCleanupInterval     time.Duration
-	ExpiredHubSignupTokensCleanupInterval           time.Duration
-	ExpiredOrgSignupTokensCleanupInterval           time.Duration
-	ExpiredAgencySignupTokensCleanupInterval        time.Duration
+	ExpiredAdminTFATokensCleanupInterval           time.Duration
+	ExpiredAdminSessionsCleanupInterval            time.Duration
+	ExpiredAdminPasswordResetTokensCleanupInterval time.Duration
+	ExpiredAdminInvitationTokensCleanupInterval    time.Duration
+	ExpiredHubSignupTokensCleanupInterval          time.Duration
+	ExpiredOrgSignupTokensCleanupInterval          time.Duration
+	ExpiredAgencySignupTokensCleanupInterval       time.Duration
 }
 
 // RegionalBgJobsConfig holds configuration for regional database background jobs
@@ -74,13 +74,13 @@ func GlobalConfigFromEnv() *GlobalBgJobsConfig {
 	)
 
 	return &GlobalBgJobsConfig{
-		ExpiredAdminTFATokensCleanupInterval:            adminTFAInterval,
-		ExpiredAdminSessionsCleanupInterval:             adminSessionsInterval,
-		ExpiredAdminPasswordResetTokensCleanupInterval:  adminPasswordResetInterval,
-		ExpiredAdminInvitationTokensCleanupInterval:     adminInvitationInterval,
-		ExpiredHubSignupTokensCleanupInterval:           hubSignupInterval,
-		ExpiredOrgSignupTokensCleanupInterval:           orgSignupInterval,
-		ExpiredAgencySignupTokensCleanupInterval:        agencySignupInterval,
+		ExpiredAdminTFATokensCleanupInterval:           adminTFAInterval,
+		ExpiredAdminSessionsCleanupInterval:            adminSessionsInterval,
+		ExpiredAdminPasswordResetTokensCleanupInterval: adminPasswordResetInterval,
+		ExpiredAdminInvitationTokensCleanupInterval:    adminInvitationInterval,
+		ExpiredHubSignupTokensCleanupInterval:          hubSignupInterval,
+		ExpiredOrgSignupTokensCleanupInterval:          orgSignupInterval,
+		ExpiredAgencySignupTokensCleanupInterval:       agencySignupInterval,
 	}
 }
 
