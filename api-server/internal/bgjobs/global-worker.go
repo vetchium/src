@@ -37,6 +37,7 @@ func (w *GlobalWorker) Run(ctx context.Context) {
 		"admin_tfa_cleanup_interval", w.config.ExpiredAdminTFATokensCleanupInterval,
 		"admin_sessions_cleanup_interval", w.config.ExpiredAdminSessionsCleanupInterval,
 		"admin_password_reset_cleanup_interval", w.config.ExpiredAdminPasswordResetTokensCleanupInterval,
+		"admin_invitation_cleanup_interval", w.config.ExpiredAdminInvitationTokensCleanupInterval,
 		"hub_signup_tokens_cleanup_interval", w.config.ExpiredHubSignupTokensCleanupInterval,
 		"org_signup_tokens_cleanup_interval", w.config.ExpiredOrgSignupTokensCleanupInterval,
 		"agency_signup_tokens_cleanup_interval", w.config.ExpiredAgencySignupTokensCleanupInterval,
@@ -54,6 +55,10 @@ func (w *GlobalWorker) Run(ctx context.Context) {
 	go w.runPeriodicJob(ctx, "admin-password-reset-tokens",
 		w.config.ExpiredAdminPasswordResetTokensCleanupInterval,
 		w.cleanupExpiredAdminPasswordResetTokens)
+
+	go w.runPeriodicJob(ctx, "admin-invitation-tokens",
+		w.config.ExpiredAdminInvitationTokensCleanupInterval,
+		w.cleanupExpiredAdminInvitationTokens)
 
 	go w.runPeriodicJob(ctx, "hub-signup-tokens",
 		w.config.ExpiredHubSignupTokensCleanupInterval,
@@ -176,4 +181,17 @@ func (w *GlobalWorker) cleanupExpiredAdminPasswordResetTokens(ctx context.Contex
 		return
 	}
 	w.log.Debug("cleaned up expired admin password reset tokens")
+}
+
+func (w *GlobalWorker) cleanupExpiredAdminInvitationTokens(ctx context.Context) {
+	if ctx.Err() != nil {
+		return
+	}
+
+	err := w.queries.DeleteExpiredAdminInvitationTokens(ctx)
+	if err != nil {
+		w.log.Error("failed to cleanup expired admin invitation tokens", "error", err)
+		return
+	}
+	w.log.Debug("cleaned up expired admin invitation tokens")
 }

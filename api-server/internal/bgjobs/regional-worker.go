@@ -56,9 +56,11 @@ func (w *RegionalWorker) Run(ctx context.Context) {
 		"org_tfa_cleanup_interval", w.config.ExpiredOrgTFATokensCleanupInterval,
 		"org_sessions_cleanup_interval", w.config.ExpiredOrgSessionsCleanupInterval,
 		"org_password_reset_cleanup_interval", w.config.ExpiredOrgPasswordResetTokensCleanupInterval,
+		"org_invitation_cleanup_interval", w.config.ExpiredOrgInvitationTokensCleanupInterval,
 		"agency_tfa_cleanup_interval", w.config.ExpiredAgencyTFATokensCleanupInterval,
 		"agency_sessions_cleanup_interval", w.config.ExpiredAgencySessionsCleanupInterval,
 		"agency_password_reset_cleanup_interval", w.config.ExpiredAgencyPasswordResetTokensCleanupInterval,
+		"agency_invitation_cleanup_interval", w.config.ExpiredAgencyInvitationTokensCleanupInterval,
 	)
 
 	// Launch each job in its own goroutine
@@ -90,6 +92,10 @@ func (w *RegionalWorker) Run(ctx context.Context) {
 		w.config.ExpiredOrgPasswordResetTokensCleanupInterval,
 		w.cleanupExpiredOrgPasswordResetTokens)
 
+	go w.runPeriodicJob(ctx, "org-invitation-tokens",
+		w.config.ExpiredOrgInvitationTokensCleanupInterval,
+		w.cleanupExpiredOrgInvitationTokens)
+
 	go w.runPeriodicJob(ctx, "agency-tfa-tokens",
 		w.config.ExpiredAgencyTFATokensCleanupInterval,
 		w.cleanupExpiredAgencyTFATokens)
@@ -101,6 +107,10 @@ func (w *RegionalWorker) Run(ctx context.Context) {
 	go w.runPeriodicJob(ctx, "agency-password-reset-tokens",
 		w.config.ExpiredAgencyPasswordResetTokensCleanupInterval,
 		w.cleanupExpiredAgencyPasswordResetTokens)
+
+	go w.runPeriodicJob(ctx, "agency-invitation-tokens",
+		w.config.ExpiredAgencyInvitationTokensCleanupInterval,
+		w.cleanupExpiredAgencyInvitationTokens)
 
 	go w.runPeriodicJob(ctx, "employer-domain-verification",
 		w.config.EmployerDomainVerificationInterval,
@@ -260,6 +270,19 @@ func (w *RegionalWorker) cleanupExpiredOrgPasswordResetTokens(ctx context.Contex
 	w.log.Debug("cleaned up expired org password reset tokens")
 }
 
+func (w *RegionalWorker) cleanupExpiredOrgInvitationTokens(ctx context.Context) {
+	if ctx.Err() != nil {
+		return
+	}
+
+	err := w.queries.DeleteExpiredOrgInvitationTokens(ctx)
+	if err != nil {
+		w.log.Error("failed to cleanup expired org invitation tokens", "error", err)
+		return
+	}
+	w.log.Debug("cleaned up expired org invitation tokens")
+}
+
 func (w *RegionalWorker) cleanupExpiredAgencyPasswordResetTokens(ctx context.Context) {
 	if ctx.Err() != nil {
 		return
@@ -271,6 +294,19 @@ func (w *RegionalWorker) cleanupExpiredAgencyPasswordResetTokens(ctx context.Con
 		return
 	}
 	w.log.Debug("cleaned up expired agency password reset tokens")
+}
+
+func (w *RegionalWorker) cleanupExpiredAgencyInvitationTokens(ctx context.Context) {
+	if ctx.Err() != nil {
+		return
+	}
+
+	err := w.queries.DeleteExpiredAgencyInvitationTokens(ctx)
+	if err != nil {
+		w.log.Error("failed to cleanup expired agency invitation tokens", "error", err)
+		return
+	}
+	w.log.Debug("cleaned up expired agency invitation tokens")
 }
 
 func (w *RegionalWorker) verifyEmployerDomains(ctx context.Context) {

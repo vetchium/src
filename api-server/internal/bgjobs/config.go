@@ -9,12 +9,13 @@ import (
 
 // GlobalBgJobsConfig holds configuration for global database background jobs
 type GlobalBgJobsConfig struct {
-	ExpiredAdminTFATokensCleanupInterval           time.Duration
-	ExpiredAdminSessionsCleanupInterval            time.Duration
-	ExpiredAdminPasswordResetTokensCleanupInterval time.Duration
-	ExpiredHubSignupTokensCleanupInterval          time.Duration
-	ExpiredOrgSignupTokensCleanupInterval          time.Duration
-	ExpiredAgencySignupTokensCleanupInterval       time.Duration
+	ExpiredAdminTFATokensCleanupInterval            time.Duration
+	ExpiredAdminSessionsCleanupInterval             time.Duration
+	ExpiredAdminPasswordResetTokensCleanupInterval  time.Duration
+	ExpiredAdminInvitationTokensCleanupInterval     time.Duration
+	ExpiredHubSignupTokensCleanupInterval           time.Duration
+	ExpiredOrgSignupTokensCleanupInterval           time.Duration
+	ExpiredAgencySignupTokensCleanupInterval        time.Duration
 }
 
 // RegionalBgJobsConfig holds configuration for regional database background jobs
@@ -26,9 +27,11 @@ type RegionalBgJobsConfig struct {
 	ExpiredOrgTFATokensCleanupInterval               time.Duration
 	ExpiredOrgSessionsCleanupInterval                time.Duration
 	ExpiredOrgPasswordResetTokensCleanupInterval     time.Duration
+	ExpiredOrgInvitationTokensCleanupInterval        time.Duration
 	ExpiredAgencyTFATokensCleanupInterval            time.Duration
 	ExpiredAgencySessionsCleanupInterval             time.Duration
 	ExpiredAgencyPasswordResetTokensCleanupInterval  time.Duration
+	ExpiredAgencyInvitationTokensCleanupInterval     time.Duration
 	EmployerDomainVerificationInterval               time.Duration
 	AgencyDomainVerificationInterval                 time.Duration
 }
@@ -65,13 +68,19 @@ func GlobalConfigFromEnv() *GlobalBgJobsConfig {
 		1*time.Hour,
 	)
 
+	adminInvitationInterval := parseDurationOrDefault(
+		os.Getenv("ADMIN_INVITATION_TOKEN_CLEANUP_INTERVAL"),
+		6*time.Hour,
+	)
+
 	return &GlobalBgJobsConfig{
-		ExpiredAdminTFATokensCleanupInterval:           adminTFAInterval,
-		ExpiredAdminSessionsCleanupInterval:            adminSessionsInterval,
-		ExpiredAdminPasswordResetTokensCleanupInterval: adminPasswordResetInterval,
-		ExpiredHubSignupTokensCleanupInterval:          hubSignupInterval,
-		ExpiredOrgSignupTokensCleanupInterval:          orgSignupInterval,
-		ExpiredAgencySignupTokensCleanupInterval:       agencySignupInterval,
+		ExpiredAdminTFATokensCleanupInterval:            adminTFAInterval,
+		ExpiredAdminSessionsCleanupInterval:             adminSessionsInterval,
+		ExpiredAdminPasswordResetTokensCleanupInterval:  adminPasswordResetInterval,
+		ExpiredAdminInvitationTokensCleanupInterval:     adminInvitationInterval,
+		ExpiredHubSignupTokensCleanupInterval:           hubSignupInterval,
+		ExpiredOrgSignupTokensCleanupInterval:           orgSignupInterval,
+		ExpiredAgencySignupTokensCleanupInterval:        agencySignupInterval,
 	}
 }
 
@@ -127,6 +136,16 @@ func RegionalConfigFromEnv() *RegionalBgJobsConfig {
 		1*time.Hour,
 	)
 
+	orgInvitationInterval := parseDurationOrDefault(
+		os.Getenv("ORG_INVITATION_TOKEN_CLEANUP_INTERVAL"),
+		6*time.Hour,
+	)
+
+	agencyInvitationInterval := parseDurationOrDefault(
+		os.Getenv("AGENCY_INVITATION_TOKEN_CLEANUP_INTERVAL"),
+		6*time.Hour,
+	)
+
 	employerDomainVerificationInterval := parseDurationOrDefault(
 		os.Getenv("EMPLOYER_DOMAIN_VERIFICATION_INTERVAL"),
 		24*time.Hour,
@@ -145,9 +164,11 @@ func RegionalConfigFromEnv() *RegionalBgJobsConfig {
 		ExpiredOrgTFATokensCleanupInterval:               orgTFAInterval,
 		ExpiredOrgSessionsCleanupInterval:                orgSessionsInterval,
 		ExpiredOrgPasswordResetTokensCleanupInterval:     orgPasswordResetInterval,
+		ExpiredOrgInvitationTokensCleanupInterval:        orgInvitationInterval,
 		ExpiredAgencyTFATokensCleanupInterval:            agencyTFAInterval,
 		ExpiredAgencySessionsCleanupInterval:             agencySessionsInterval,
 		ExpiredAgencyPasswordResetTokensCleanupInterval:  agencyPasswordResetInterval,
+		ExpiredAgencyInvitationTokensCleanupInterval:     agencyInvitationInterval,
 		EmployerDomainVerificationInterval:               employerDomainVerificationInterval,
 		AgencyDomainVerificationInterval:                 agencyDomainVerificationInterval,
 	}
