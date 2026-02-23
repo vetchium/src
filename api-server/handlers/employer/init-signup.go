@@ -78,6 +78,9 @@ func InitSignup(s *server.Server) http.HandlerFunc {
 		if len(parts) != 2 {
 			log.Debug("invalid email format")
 			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode([]common.ValidationError{
+				common.NewValidationError("email", errors.New("invalid email format")),
+			})
 			return
 		}
 		domain := strings.ToLower(parts[1])
@@ -102,6 +105,9 @@ func InitSignup(s *server.Server) http.HandlerFunc {
 		if err == nil {
 			log.Debug("domain already claimed by existing employer", "domain", domain)
 			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode([]common.ValidationError{
+				common.NewValidationError("email", errors.New("domain already claimed by an existing employer")),
+			})
 			return
 		} else if !errors.Is(err, pgx.ErrNoRows) {
 			log.Error("failed to query global employer domain", "error", err)
@@ -179,7 +185,6 @@ func InitSignup(s *server.Server) http.HandlerFunc {
 		}
 
 		// Send Email 2: Signup token (private - DO NOT FORWARD)
-		// TODO: Update signup link URL when employer-ui is ready
 		signupLink := fmt.Sprintf("%s/complete-signup?token=%s", s.UIConfig.OrgURL, emailToken)
 		err = sendOrgSignupTokenEmail(ctx, s.Regional, string(req.Email), domain, emailToken, signupLink, lang, expiryHours)
 		if err != nil {

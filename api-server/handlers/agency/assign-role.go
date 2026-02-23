@@ -60,7 +60,9 @@ func AssignRole(s *server.Server) http.HandlerFunc {
 		if err := targetUserID.Scan(req.TargetUserID); err != nil {
 			log.Debug("invalid target user ID", "error", err)
 			w.WriteHeader(http.StatusBadRequest)
-			http.Error(w, "invalid target user ID", http.StatusBadRequest)
+			json.NewEncoder(w).Encode([]common.ValidationError{
+				common.NewValidationError("target_user_id", errors.New("invalid UUID format")),
+			})
 			return
 		}
 

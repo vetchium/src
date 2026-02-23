@@ -448,6 +448,41 @@ export async function deleteTestHubUser(email: string): Promise<void> {
 }
 
 /**
+ * Updates the status of a test hub user.
+ *
+ * @param email - Email of the hub user to update
+ * @param status - New status to set
+ */
+export async function updateTestHubUserStatus(
+	email: string,
+	status: HubUserStatus
+): Promise<void> {
+	const crypto = require("crypto");
+	const emailHash = crypto.createHash("sha256").update(email).digest();
+
+	// Get home_region from global
+	const globalResult = await pool.query(
+		`SELECT home_region FROM hub_users WHERE email_address_hash = $1`,
+		[emailHash]
+	);
+	if (globalResult.rows.length === 0) {
+		throw new Error(`Hub user not found in global DB: ${email}`);
+	}
+	const region = globalResult.rows[0].home_region as RegionCode;
+
+	// Update status in regional DB
+	const regionalPool = getRegionalPool(region);
+	try {
+		await regionalPool.query(
+			`UPDATE hub_users SET status = $1 WHERE email_address = $2`,
+			[status, email]
+		);
+	} finally {
+		await regionalPool.end();
+	}
+}
+
+/**
  * Gets a regional database pool based on region code.
  * Uses the correct port for each regional database:
  * - ind1: port 5433

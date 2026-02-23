@@ -9,6 +9,7 @@ import {
 	generateTestDomainName,
 	createTestApprovedDomain,
 	permanentlyDeleteTestApprovedDomain,
+	updateTestHubUserStatus,
 } from "../../../lib/db";
 import { getPasswordResetTokenFromEmail } from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
@@ -121,7 +122,7 @@ test.describe("POST /hub/request-password-reset", () => {
 		try {
 			// Create and then disable hub user
 			await createHubUserViaSignup(api, email, password);
-			// TODO: Once disable user API is implemented, disable the user here
+			await updateTestHubUserStatus(email, "disabled");
 
 			const resetRequest: HubRequestPasswordResetRequest = {
 				email_address: email,

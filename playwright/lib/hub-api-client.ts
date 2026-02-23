@@ -8,6 +8,7 @@ import type {
 	HubLoginResponse,
 	HubTFARequest,
 	HubTFAResponse,
+	HubMyInfoResponse,
 	HubSetLanguageRequest,
 	HubRequestPasswordResetRequest,
 	HubRequestPasswordResetResponse,
@@ -213,6 +214,41 @@ export class HubAPIClient {
 			status: response.status(),
 			body: undefined,
 			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	/**
+	 * GET /hub/myinfo
+	 * Returns hub user information for the current session
+	 */
+	async getMyInfo(
+		sessionToken: string
+	): Promise<APIResponse<HubMyInfoResponse>> {
+		const response = await this.request.get("/hub/myinfo", {
+			headers: {
+				Authorization: `Bearer ${sessionToken}`,
+			},
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as HubMyInfoResponse,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	/**
+	 * GET /hub/myinfo without Authorization header (for testing 401)
+	 */
+	async getMyInfoWithoutAuth(): Promise<APIResponse<HubMyInfoResponse>> {
+		const response = await this.request.get("/hub/myinfo");
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as HubMyInfoResponse,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 

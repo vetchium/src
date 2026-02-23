@@ -60,6 +60,9 @@ func InitSignup(s *server.Server) http.HandlerFunc {
 		if len(parts) != 2 {
 			log.Debug("invalid email format")
 			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode([]common.ValidationError{
+				common.NewValidationError("email", errors.New("invalid email format")),
+			})
 			return
 		}
 		domain := strings.ToLower(parts[1])
@@ -84,6 +87,9 @@ func InitSignup(s *server.Server) http.HandlerFunc {
 		if err == nil {
 			log.Debug("domain already claimed by existing agency", "domain", domain)
 			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode([]common.ValidationError{
+				common.NewValidationError("email", errors.New("domain already claimed by an existing agency")),
+			})
 			return
 		} else if !errors.Is(err, pgx.ErrNoRows) {
 			log.Error("failed to query global agency domain", "error", err)
