@@ -14,6 +14,9 @@ scalar AdminTFAToken extends string;
 // Admin Session Token - returned after successful TFA verification
 scalar AdminSessionToken extends string;
 
+// Admin Password Reset Token - sent via email for password reset
+scalar AdminPasswordResetToken extends string;
+
 model AdminLoginRequest {
     email: EmailAddress;
     password: Password;
@@ -255,10 +258,11 @@ interface AdminCompleteSetup {
 // ============================================
 
 enum AdminRole {
-    view_users,
-    manage_users,
-    view_domains,
-    manage_domains,
+    `admin:superadmin`,
+    `admin:view_users`,
+    `admin:manage_users`,
+    `admin:view_domains`,
+    `admin:manage_domains`,
 }
 
 model AdminUser {
@@ -339,5 +343,133 @@ interface AdminMyInfo {
     } | {
         @doc("Invalid or expired session token")
         @statusCode statusCode: 401;
+    };
+}
+
+// ============================================
+// Password Management
+// ============================================
+
+model AdminRequestPasswordResetRequest {
+    @doc("Email address of the admin account to reset password for")
+    email_address: EmailAddress;
+}
+
+model AdminRequestPasswordResetResponse {
+    @doc("Confirmation message")
+    message: string;
+}
+
+model AdminCompletePasswordResetRequest {
+    @doc("Password reset token received via email")
+    reset_token: AdminPasswordResetToken;
+    @doc("New password to set")
+    new_password: Password;
+}
+
+model AdminChangePasswordRequest {
+    @doc("Current password for verification")
+    current_password: Password;
+    @doc("New password to set")
+    new_password: Password;
+}
+
+@route("/admin/request-password-reset")
+interface AdminRequestPasswordReset {
+    @tag("AdminUsers")
+    @post
+    @doc("Request a password reset email. Always returns 200 to prevent email enumeration.")
+    requestPasswordReset(@body request: AdminRequestPasswordResetRequest): {
+        @statusCode statusCode: 200;
+        @body response: AdminRequestPasswordResetResponse;
+    } | {
+        @doc("Invalid request parameters or validation errors")
+        @statusCode statusCode: 400;
+    };
+}
+
+@route("/admin/complete-password-reset")
+interface AdminCompletePasswordReset {
+    @tag("AdminUsers")
+    @post
+    @doc("Complete password reset using the token received via email")
+    completePasswordReset(@body request: AdminCompletePasswordResetRequest): {
+        @statusCode statusCode: 200;
+    } | {
+        @doc("Invalid request parameters or validation errors")
+        @statusCode statusCode: 400;
+    } | {
+        @doc("Invalid or expired reset token")
+        @statusCode statusCode: 401;
+    };
+}
+
+@route("/admin/change-password")
+interface AdminChangePassword {
+    @tag("AdminUsers")
+    @post
+    @doc("Change password for the authenticated admin user")
+    changePassword(@body request: AdminChangePasswordRequest): {
+        @statusCode statusCode: 200;
+    } | {
+        @doc("Invalid request parameters or validation errors")
+        @statusCode statusCode: 400;
+    } | {
+        @doc("Invalid or expired session token, or wrong current password")
+        @statusCode statusCode: 401;
+    };
+}
+
+// ============================================
+// Role Management
+// ============================================
+
+@route("/admin/assign-role")
+interface AdminAssignRole {
+    @tag("AdminUsers")
+    @post
+    @doc("Assign a role to an admin user")
+    assignRole(@body request: AssignRoleRequest): {
+        @statusCode statusCode: 200;
+    } | {
+        @doc("Invalid request parameters or validation errors")
+        @statusCode statusCode: 400;
+    } | {
+        @doc("Invalid or expired session token")
+        @statusCode statusCode: 401;
+    } | {
+        @doc("Insufficient permissions")
+        @statusCode statusCode: 403;
+    } | {
+        @doc("User not found")
+        @statusCode statusCode: 404;
+    } | {
+        @doc("Role already assigned")
+        @statusCode statusCode: 409;
+    };
+}
+
+@route("/admin/remove-role")
+interface AdminRemoveRole {
+    @tag("AdminUsers")
+    @post
+    @doc("Remove a role from an admin user")
+    removeRole(@body request: RemoveRoleRequest): {
+        @statusCode statusCode: 200;
+    } | {
+        @doc("Invalid request parameters or validation errors")
+        @statusCode statusCode: 400;
+    } | {
+        @doc("Invalid or expired session token")
+        @statusCode statusCode: 401;
+    } | {
+        @doc("Insufficient permissions")
+        @statusCode statusCode: 403;
+    } | {
+        @doc("User not found or role not assigned")
+        @statusCode statusCode: 404;
+    } | {
+        @doc("Cannot remove last superadmin role")
+        @statusCode statusCode: 422;
     };
 }

@@ -398,11 +398,11 @@ func (r OrgChangePasswordRequest) Validate() []common.ValidationError {
 type OrgRole string
 
 const (
-	OrgRoleViewUsers     OrgRole = "view_users"
-	OrgRoleManageUsers   OrgRole = "manage_users"
-	OrgRoleViewDomains   OrgRole = "view_domains"
-	OrgRoleManageDomains OrgRole = "manage_domains"
-	OrgRoleSuperadmin    OrgRole = "superadmin"
+	OrgRoleSuperadmin    OrgRole = "employer:superadmin"
+	OrgRoleViewUsers     OrgRole = "employer:view_users"
+	OrgRoleManageUsers   OrgRole = "employer:manage_users"
+	OrgRoleViewDomains   OrgRole = "employer:view_domains"
+	OrgRoleManageDomains OrgRole = "employer:manage_domains"
 )
 
 type OrgUser struct {

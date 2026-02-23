@@ -225,3 +225,171 @@ interface HubCompleteSignup {
         statusCode: 409;
     };
 }
+
+// ============================================
+// Password Reset
+// ============================================
+
+scalar HubPasswordResetToken extends string;
+
+model HubRequestPasswordResetRequest {
+    @doc("Email address of the account to reset password for")
+    email_address: EmailAddress;
+}
+
+model HubRequestPasswordResetResponse {
+    @doc("Confirmation message")
+    message: string;
+}
+
+model HubCompletePasswordResetRequest {
+    @doc("Password reset token received via email")
+    reset_token: HubPasswordResetToken;
+    @doc("New password to set")
+    new_password: Password;
+}
+
+@route("/hub/request-password-reset")
+interface HubRequestPasswordReset {
+    @tag("HubUsers")
+    @post
+    @doc("Request a password reset email. Always returns 200 to prevent email enumeration.")
+    requestPasswordReset(@body request: HubRequestPasswordResetRequest): {
+        @statusCode statusCode: 200;
+        @body response: HubRequestPasswordResetResponse;
+    } | {
+        @doc("Invalid request parameters or validation errors")
+        @statusCode statusCode: 400;
+    };
+}
+
+@route("/hub/complete-password-reset")
+interface HubCompletePasswordReset {
+    @tag("HubUsers")
+    @post
+    @doc("Complete password reset using the token received via email")
+    completePasswordReset(@body request: HubCompletePasswordResetRequest): {
+        @statusCode statusCode: 200;
+    } | {
+        @doc("Invalid request parameters or validation errors")
+        @statusCode statusCode: 400;
+    } | {
+        @doc("Invalid or expired reset token")
+        @statusCode statusCode: 401;
+    };
+}
+
+// ============================================
+// Change Password
+// ============================================
+
+model HubChangePasswordRequest {
+    @doc("Current password for verification")
+    current_password: Password;
+    @doc("New password to set")
+    new_password: Password;
+}
+
+@route("/hub/change-password")
+interface HubChangePassword {
+    @tag("HubUsers")
+    @post
+    @doc("Change password for the authenticated hub user")
+    changePassword(@body request: HubChangePasswordRequest): {
+        @statusCode statusCode: 200;
+    } | {
+        @doc("Invalid request parameters or validation errors")
+        @statusCode statusCode: 400;
+    } | {
+        @doc("Invalid or expired session token, or wrong current password")
+        @statusCode statusCode: 401;
+    };
+}
+
+// ============================================
+// Email Change
+// ============================================
+
+scalar HubEmailVerificationToken extends string;
+
+model HubRequestEmailChangeRequest {
+    @doc("New email address to change to")
+    new_email_address: EmailAddress;
+}
+
+model HubRequestEmailChangeResponse {
+    @doc("Confirmation message")
+    message: string;
+}
+
+model HubCompleteEmailChangeRequest {
+    @doc("Verification token received via email")
+    verification_token: HubEmailVerificationToken;
+}
+
+@route("/hub/request-email-change")
+interface HubRequestEmailChange {
+    @tag("HubUsers")
+    @post
+    @doc("Request an email change. Sends a verification token to the new email address.")
+    requestEmailChange(@body request: HubRequestEmailChangeRequest): {
+        @statusCode statusCode: 200;
+        @body response: HubRequestEmailChangeResponse;
+    } | {
+        @doc("Invalid request parameters or validation errors")
+        @statusCode statusCode: 400;
+    } | {
+        @doc("Invalid or expired session token")
+        @statusCode statusCode: 401;
+    } | {
+        @doc("Email already in use")
+        @statusCode statusCode: 409;
+    };
+}
+
+@route("/hub/complete-email-change")
+interface HubCompleteEmailChange {
+    @tag("HubUsers")
+    @post
+    @doc("Complete email change using the verification token sent to the new email")
+    completeEmailChange(@body request: HubCompleteEmailChangeRequest): {
+        @statusCode statusCode: 200;
+    } | {
+        @doc("Invalid request parameters or validation errors")
+        @statusCode statusCode: 400;
+    } | {
+        @doc("Invalid or expired verification token")
+        @statusCode statusCode: 401;
+    };
+}
+
+// ============================================
+// Get Current User Info
+// ============================================
+
+model HubMyInfoResponse {
+    @doc("Hub user ID")
+    hub_user_id: string;
+    @doc("User's unique handle")
+    handle: Handle;
+    @doc("Email address of the hub user")
+    email_address: EmailAddress;
+    @doc("User's preferred language (BCP 47 tag)")
+    preferred_language: LanguageCode;
+    @doc("Array of role names assigned to this user")
+    roles: string[];
+}
+
+@route("/hub/myinfo")
+interface HubMyInfo {
+    @tag("HubUsers")
+    @get
+    @doc("Get current hub user information including roles")
+    getMyInfo(): {
+        @statusCode statusCode: 200;
+        @body response: HubMyInfoResponse;
+    } | {
+        @doc("Invalid or expired session token")
+        @statusCode statusCode: 401;
+    };
+}

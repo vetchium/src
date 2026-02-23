@@ -388,11 +388,11 @@ func (r AgencyChangePasswordRequest) Validate() []common.ValidationError {
 type AgencyRole string
 
 const (
-	AgencyRoleViewUsers     AgencyRole = "view_users"
-	AgencyRoleManageUsers   AgencyRole = "manage_users"
-	AgencyRoleViewDomains   AgencyRole = "view_domains"
-	AgencyRoleManageDomains AgencyRole = "manage_domains"
-	AgencyRoleSuperadmin    AgencyRole = "superadmin"
+	AgencyRoleSuperadmin    AgencyRole = "agency:superadmin"
+	AgencyRoleViewUsers     AgencyRole = "agency:view_users"
+	AgencyRoleManageUsers   AgencyRole = "agency:manage_users"
+	AgencyRoleViewDomains   AgencyRole = "agency:view_domains"
+	AgencyRoleManageDomains AgencyRole = "agency:manage_domains"
 )
 
 type AgencyUser struct {

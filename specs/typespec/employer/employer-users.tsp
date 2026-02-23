@@ -360,11 +360,11 @@ interface OrgInviteUser {
 // ============================================
 
 enum OrgRole {
-    view_users,
-    manage_users,
-    view_domains,
-    manage_domains,
-    superadmin,
+    `employer:superadmin`,
+    `employer:view_users`,
+    `employer:manage_users`,
+    `employer:view_domains`,
+    `employer:manage_domains`,
 }
 
 model OrgUser {
@@ -472,5 +472,173 @@ interface OrgMyInfo {
     } | {
         @doc("Invalid or expired session token")
         @statusCode statusCode: 401;
+    };
+}
+
+// ===================================
+// Complete Setup (Invited Users)
+// ===================================
+
+scalar OrgInvitationToken extends string;
+scalar OrgPasswordResetToken extends string;
+
+model OrgCompleteSetupRequest {
+    @doc("Invitation token from email")
+    invitation_token: OrgInvitationToken;
+    @doc("User's password")
+    password: Password;
+    @doc("User's full name")
+    full_name: FullName;
+    @doc("User's preferred language for the application (e.g., en-US, de-DE)")
+    preferred_language?: LanguageCode;
+}
+
+model OrgCompleteSetupResponse {
+    @doc("Success message")
+    message: string;
+}
+
+@route("/employer/complete-setup")
+interface OrgCompleteSetup {
+    @tag("OrgUsers")
+    @post
+    @doc("Complete setup for invited employer user")
+    completeSetup(@body request: OrgCompleteSetupRequest): {
+        @statusCode statusCode: 200;
+        @body response: OrgCompleteSetupResponse;
+    } | {
+        @doc("Validation errors")
+        @statusCode statusCode: 400;
+    } | {
+        @doc("Invalid or expired invitation token")
+        @statusCode statusCode: 401;
+    };
+}
+
+// ============================================
+// Password Management
+// ============================================
+
+model OrgRequestPasswordResetRequest {
+    @doc("Email address of the account to reset password for")
+    email_address: EmailAddress;
+}
+
+model OrgRequestPasswordResetResponse {
+    @doc("Confirmation message")
+    message: string;
+}
+
+model OrgCompletePasswordResetRequest {
+    @doc("Password reset token received via email")
+    reset_token: OrgPasswordResetToken;
+    @doc("New password to set")
+    new_password: Password;
+}
+
+model OrgChangePasswordRequest {
+    @doc("Current password for verification")
+    current_password: Password;
+    @doc("New password to set")
+    new_password: Password;
+}
+
+@route("/employer/request-password-reset")
+interface OrgRequestPasswordReset {
+    @tag("OrgUsers")
+    @post
+    @doc("Request a password reset email. Always returns 200 to prevent email enumeration.")
+    requestPasswordReset(@body request: OrgRequestPasswordResetRequest): {
+        @statusCode statusCode: 200;
+        @body response: OrgRequestPasswordResetResponse;
+    } | {
+        @doc("Invalid request parameters or validation errors")
+        @statusCode statusCode: 400;
+    };
+}
+
+@route("/employer/complete-password-reset")
+interface OrgCompletePasswordReset {
+    @tag("OrgUsers")
+    @post
+    @doc("Complete password reset using the token received via email")
+    completePasswordReset(@body request: OrgCompletePasswordResetRequest): {
+        @statusCode statusCode: 200;
+    } | {
+        @doc("Invalid request parameters or validation errors")
+        @statusCode statusCode: 400;
+    } | {
+        @doc("Invalid or expired reset token")
+        @statusCode statusCode: 401;
+    };
+}
+
+@route("/employer/change-password")
+interface OrgChangePassword {
+    @tag("OrgUsers")
+    @post
+    @doc("Change password for the authenticated employer user")
+    changePassword(@body request: OrgChangePasswordRequest): {
+        @statusCode statusCode: 200;
+    } | {
+        @doc("Invalid request parameters or validation errors")
+        @statusCode statusCode: 400;
+    } | {
+        @doc("Invalid or expired session token, or wrong current password")
+        @statusCode statusCode: 401;
+    };
+}
+
+// ============================================
+// Role Management
+// ============================================
+
+@route("/employer/assign-role")
+interface OrgAssignRole {
+    @tag("OrgUsers")
+    @post
+    @doc("Assign a role to an employer user")
+    assignRole(@body request: AssignRoleRequest): {
+        @statusCode statusCode: 200;
+    } | {
+        @doc("Invalid request parameters or validation errors")
+        @statusCode statusCode: 400;
+    } | {
+        @doc("Invalid or expired session token")
+        @statusCode statusCode: 401;
+    } | {
+        @doc("Insufficient permissions")
+        @statusCode statusCode: 403;
+    } | {
+        @doc("User not found")
+        @statusCode statusCode: 404;
+    } | {
+        @doc("Role already assigned")
+        @statusCode statusCode: 409;
+    };
+}
+
+@route("/employer/remove-role")
+interface OrgRemoveRole {
+    @tag("OrgUsers")
+    @post
+    @doc("Remove a role from an employer user")
+    removeRole(@body request: RemoveRoleRequest): {
+        @statusCode statusCode: 200;
+    } | {
+        @doc("Invalid request parameters or validation errors")
+        @statusCode statusCode: 400;
+    } | {
+        @doc("Invalid or expired session token")
+        @statusCode statusCode: 401;
+    } | {
+        @doc("Insufficient permissions")
+        @statusCode statusCode: 403;
+    } | {
+        @doc("User not found or role not assigned")
+        @statusCode statusCode: 404;
+    } | {
+        @doc("Cannot remove last superadmin role")
+        @statusCode statusCode: 422;
     };
 }

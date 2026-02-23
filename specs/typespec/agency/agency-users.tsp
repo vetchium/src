@@ -398,11 +398,11 @@ interface AgencyCompleteSetup {
 // ============================================
 
 enum AgencyRole {
-    view_users,
-    manage_users,
-    view_domains,
-    manage_domains,
-    superadmin,
+    `agency:superadmin`,
+    `agency:view_users`,
+    `agency:manage_users`,
+    `agency:view_domains`,
+    `agency:manage_domains`,
 }
 
 model AgencyUser {
@@ -510,5 +510,135 @@ interface AgencyMyInfo {
     } | {
         @doc("Invalid or expired session token")
         @statusCode statusCode: 401;
+    };
+}
+
+// ============================================
+// Password Management
+// ============================================
+
+scalar AgencyPasswordResetToken extends string;
+
+model AgencyRequestPasswordResetRequest {
+    @doc("Email address of the account to reset password for")
+    email_address: EmailAddress;
+}
+
+model AgencyRequestPasswordResetResponse {
+    @doc("Confirmation message")
+    message: string;
+}
+
+model AgencyCompletePasswordResetRequest {
+    @doc("Password reset token received via email")
+    reset_token: AgencyPasswordResetToken;
+    @doc("New password to set")
+    new_password: Password;
+}
+
+model AgencyChangePasswordRequest {
+    @doc("Current password for verification")
+    current_password: Password;
+    @doc("New password to set")
+    new_password: Password;
+}
+
+@route("/agency/request-password-reset")
+interface AgencyRequestPasswordReset {
+    @tag("AgencyUsers")
+    @post
+    @doc("Request a password reset email. Always returns 200 to prevent email enumeration.")
+    requestPasswordReset(@body request: AgencyRequestPasswordResetRequest): {
+        @statusCode statusCode: 200;
+        @body response: AgencyRequestPasswordResetResponse;
+    } | {
+        @doc("Invalid request parameters or validation errors")
+        @statusCode statusCode: 400;
+    };
+}
+
+@route("/agency/complete-password-reset")
+interface AgencyCompletePasswordReset {
+    @tag("AgencyUsers")
+    @post
+    @doc("Complete password reset using the token received via email")
+    completePasswordReset(@body request: AgencyCompletePasswordResetRequest): {
+        @statusCode statusCode: 200;
+    } | {
+        @doc("Invalid request parameters or validation errors")
+        @statusCode statusCode: 400;
+    } | {
+        @doc("Invalid or expired reset token")
+        @statusCode statusCode: 401;
+    };
+}
+
+@route("/agency/change-password")
+interface AgencyChangePassword {
+    @tag("AgencyUsers")
+    @post
+    @doc("Change password for the authenticated agency user")
+    changePassword(@body request: AgencyChangePasswordRequest): {
+        @statusCode statusCode: 200;
+    } | {
+        @doc("Invalid request parameters or validation errors")
+        @statusCode statusCode: 400;
+    } | {
+        @doc("Invalid or expired session token, or wrong current password")
+        @statusCode statusCode: 401;
+    };
+}
+
+// ============================================
+// Role Management
+// ============================================
+
+@route("/agency/assign-role")
+interface AgencyAssignRole {
+    @tag("AgencyUsers")
+    @post
+    @doc("Assign a role to an agency user")
+    assignRole(@body request: AssignRoleRequest): {
+        @statusCode statusCode: 200;
+    } | {
+        @doc("Invalid request parameters or validation errors")
+        @statusCode statusCode: 400;
+    } | {
+        @doc("Invalid or expired session token")
+        @statusCode statusCode: 401;
+    } | {
+        @doc("Insufficient permissions")
+        @statusCode statusCode: 403;
+    } | {
+        @doc("User not found")
+        @statusCode statusCode: 404;
+    } | {
+        @doc("Role already assigned")
+        @statusCode statusCode: 409;
+    };
+}
+
+@route("/agency/remove-role")
+interface AgencyRemoveRole {
+    @tag("AgencyUsers")
+    @post
+    @doc("Remove a role from an agency user")
+    removeRole(@body request: RemoveRoleRequest): {
+        @statusCode statusCode: 200;
+    } | {
+        @doc("Invalid request parameters or validation errors")
+        @statusCode statusCode: 400;
+    } | {
+        @doc("Invalid or expired session token")
+        @statusCode statusCode: 401;
+    } | {
+        @doc("Insufficient permissions")
+        @statusCode statusCode: 403;
+    } | {
+        @doc("User not found or role not assigned")
+        @statusCode statusCode: 404;
+    } | {
+        @doc("Cannot remove last superadmin role")
+        @statusCode statusCode: 422;
     };
 }

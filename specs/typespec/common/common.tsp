@@ -28,3 +28,19 @@ scalar DomainName extends string;
 @pattern("^[0-9]{6}$")
 @doc("6-digit two-factor authentication code sent via email")
 scalar TFACode extends string;
+
+@doc("Request to assign a role to a user within a portal")
+model AssignRoleRequest {
+    @doc("ID of the user to assign the role to")
+    target_user_id: string;
+    @doc("Role name to assign (e.g., employer:manage_users)")
+    role_name: string;
+}
+
+@doc("Request to remove a role from a user within a portal")
+model RemoveRoleRequest {
+    @doc("ID of the user to remove the role from")
+    target_user_id: string;
+    @doc("Role name to remove (e.g., employer:manage_users)")
+    role_name: string;
+}
