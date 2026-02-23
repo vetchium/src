@@ -31,7 +31,12 @@ import type {
 async function createHubUserAndGetSession(
 	api: HubAPIClient,
 	emailPrefix: string
-): Promise<{ email: string; adminEmail: string; domain: string; sessionToken: string }> {
+): Promise<{
+	email: string;
+	adminEmail: string;
+	domain: string;
+	sessionToken: string;
+}> {
 	const adminEmail = generateTestEmail("admin");
 	const domain = generateTestDomainName();
 	const email = `${emailPrefix}-${randomUUID().substring(0, 8)}@${domain}`;
@@ -81,7 +86,12 @@ async function createHubUserAndGetSession(
 	expect(tfaResponse.status).toBe(200);
 	expect(tfaResponse.body.session_token).toBeDefined();
 
-	return { email, adminEmail, domain, sessionToken: tfaResponse.body.session_token };
+	return {
+		email,
+		adminEmail,
+		domain,
+		sessionToken: tfaResponse.body.session_token,
+	};
 }
 
 test.describe("POST /hub/logout", () => {
