@@ -75,6 +75,7 @@ func InitSignup(s *server.Server) http.HandlerFunc {
 		if err == nil {
 			log.Debug("email already registered")
 			w.WriteHeader(http.StatusConflict)
+			json.NewEncoder(w).Encode(map[string]string{"error": "email already registered"})
 			return
 		} else if !errors.Is(err, pgx.ErrNoRows) {
 			log.Error("failed to query user", "error", err)
@@ -102,6 +103,7 @@ func InitSignup(s *server.Server) http.HandlerFunc {
 		if err == nil {
 			log.Debug("domain has pending signup", "domain", domain)
 			w.WriteHeader(http.StatusConflict)
+			json.NewEncoder(w).Encode(map[string]string{"error": "domain already has a pending signup"})
 			return
 		} else if !errors.Is(err, pgx.ErrNoRows) {
 			log.Error("failed to query pending signup by domain", "error", err)

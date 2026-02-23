@@ -74,6 +74,7 @@ func RequestEmailChange(s *server.Server) http.HandlerFunc {
 		if existingUser.HubUserGlobalID.Valid {
 			log.Debug("email already in use")
 			w.WriteHeader(http.StatusConflict)
+			json.NewEncoder(w).Encode(map[string]string{"error": "email already in use"})
 			return
 		}
 

@@ -119,6 +119,7 @@ func CompleteEmailChange(s *server.Server) http.HandlerFunc {
 			existingUser.HubUserGlobalID != tokenRecord.HubUserGlobalID {
 			log.Debug("email became unavailable")
 			w.WriteHeader(http.StatusConflict)
+			json.NewEncoder(w).Encode(map[string]string{"error": "email already in use"})
 			return
 		}
 

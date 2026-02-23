@@ -55,6 +55,7 @@ func ClaimDomain(s *server.Server) http.HandlerFunc {
 		if err == nil {
 			log.Debug("domain already claimed", "domain", domain)
 			w.WriteHeader(http.StatusConflict)
+			json.NewEncoder(w).Encode(map[string]string{"error": "domain already claimed"})
 			return
 		} else if !errors.Is(err, pgx.ErrNoRows) {
 			log.Error("failed to check global domain", "error", err)
@@ -85,6 +86,7 @@ func ClaimDomain(s *server.Server) http.HandlerFunc {
 			if strings.Contains(err.Error(), "duplicate key") || strings.Contains(err.Error(), "unique constraint") {
 				log.Debug("domain already claimed (race condition)", "domain", domain)
 				w.WriteHeader(http.StatusConflict)
+				json.NewEncoder(w).Encode(map[string]string{"error": "domain already claimed"})
 				return
 			}
 			log.Error("failed to create global employer domain", "error", err)
@@ -104,7 +106,7 @@ func ClaimDomain(s *server.Server) http.HandlerFunc {
 			log.Error("failed to create regional employer domain", "error", err)
 			// Compensating transaction: delete from global DB
 			if delErr := s.Global.DeleteGlobalEmployerDomain(ctx, domain); delErr != nil {
-				log.Error("failed to rollback global domain", "error", delErr)
+				log.Error("CONSISTENCY_ALERT: failed to rollback global employer domain", "error", delErr)
 			}
 			http.Error(w, "", http.StatusInternalServerError)
 			return

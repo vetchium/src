@@ -54,6 +54,7 @@ func ClaimDomain(s *server.Server) http.HandlerFunc {
 		if err == nil {
 			log.Debug("domain already claimed", "domain", domain)
 			w.WriteHeader(http.StatusConflict)
+			json.NewEncoder(w).Encode(map[string]string{"error": "domain already claimed"})
 			return
 		} else if !errors.Is(err, pgx.ErrNoRows) {
 			log.Error("failed to check global domain", "error", err)
@@ -84,6 +85,7 @@ func ClaimDomain(s *server.Server) http.HandlerFunc {
 			if strings.Contains(err.Error(), "duplicate key") || strings.Contains(err.Error(), "unique constraint") {
 				log.Debug("domain already claimed (race condition)", "domain", domain)
 				w.WriteHeader(http.StatusConflict)
+				json.NewEncoder(w).Encode(map[string]string{"error": "domain already claimed"})
 				return
 			}
 			log.Error("failed to create global agency domain", "error", err)

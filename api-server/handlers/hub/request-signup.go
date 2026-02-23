@@ -72,6 +72,7 @@ func RequestSignup(s *server.Server) http.HandlerFunc {
 		if err == nil {
 			log.Debug("email already registered")
 			w.WriteHeader(http.StatusConflict)
+			json.NewEncoder(w).Encode(map[string]string{"error": "email already registered"})
 			return
 		} else if !errors.Is(err, pgx.ErrNoRows) {
 			log.Error("failed to query user", "error", err)
