@@ -25,4 +25,8 @@ func RegisterHubRoutes(mux *http.ServeMux, s *server.Server) {
 	mux.Handle("POST /hub/change-password", hubAuth(hub.ChangePassword(s)))
 	mux.Handle("POST /hub/request-email-change", hubAuth(hub.RequestEmailChange(s)))
 	mux.Handle("GET /hub/myinfo", hubAuth(hub.MyInfo(s)))
+
+	// Tag read routes (auth-only, no role restriction)
+	mux.Handle("POST /hub/get-tag", hubAuth(hub.GetTag(s)))
+	mux.Handle("POST /hub/filter-tags", hubAuth(hub.FilterTags(s)))
 }

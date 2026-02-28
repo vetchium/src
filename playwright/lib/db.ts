@@ -1738,3 +1738,55 @@ export async function removeRoleFromAgencyUser(
 		await regionalPool.end();
 	}
 }
+
+// ============================================================================
+// Tag Test Helpers
+// ============================================================================
+
+/**
+ * Generates a unique test tag ID.
+ * Tag IDs must be lowercase letters, digits, and hyphens only,
+ * with no leading or trailing hyphens.
+ *
+ * @param prefix - Optional prefix (default: 'tag')
+ * @returns A unique tag ID like 'tag-a1b2c3d4'
+ */
+export function generateTestTagId(prefix: string = "tag"): string {
+	const hex = randomUUID().replace(/-/g, "").substring(0, 8).toLowerCase();
+	return `${prefix}-${hex}`;
+}
+
+/**
+ * Creates a test tag in the global database.
+ * Inserts the tag and its translations directly.
+ *
+ * @param tagId - The tag ID to create
+ * @param translations - Array of translations (default: single en-US translation)
+ */
+export async function createTestTag(
+	tagId: string,
+	translations: Array<{
+		locale: string;
+		display_name: string;
+		description?: string;
+	}> = [{ locale: "en-US", display_name: "Test Tag" }]
+): Promise<void> {
+	await pool.query(`INSERT INTO tags (tag_id) VALUES ($1)`, [tagId]);
+	for (const t of translations) {
+		await pool.query(
+			`INSERT INTO tag_translations (tag_id, locale, display_name, description)
+       VALUES ($1, $2, $3, $4)`,
+			[tagId, t.locale, t.display_name, t.description ?? null]
+		);
+	}
+}
+
+/**
+ * Deletes a test tag from the global database.
+ * tag_translations are cascade-deleted automatically.
+ *
+ * @param tagId - The tag ID to delete
+ */
+export async function deleteTestTag(tagId: string): Promise<void> {
+	await pool.query(`DELETE FROM tags WHERE tag_id = $1`, [tagId]);
+}

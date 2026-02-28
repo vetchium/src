@@ -46,4 +46,8 @@ func RegisterEmployerRoutes(mux *http.ServeMux, s *server.Server) {
 	mux.Handle("POST /employer/set-language", orgAuth(employer.SetLanguage(s)))
 	mux.Handle("GET /employer/myinfo", orgAuth(employer.MyInfo(s)))
 	mux.Handle("POST /employer/filter-users", orgAuth(employerRoleViewUsers(employer.FilterUsers(s))))
+
+	// Tag read routes (auth-only, no role restriction)
+	mux.Handle("POST /employer/get-tag", orgAuth(employer.GetTag(s)))
+	mux.Handle("POST /employer/filter-tags", orgAuth(employer.FilterTags(s)))
 }

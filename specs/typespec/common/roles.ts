@@ -10,6 +10,7 @@ export const VALID_ROLE_NAMES = [
 	"admin:manage_users",
 	"admin:view_domains",
 	"admin:manage_domains",
+	"admin:manage_tags",
 
 	// Employer portal roles
 	"employer:superadmin",

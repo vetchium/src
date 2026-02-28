@@ -5,12 +5,16 @@
 	"private": true,
 	"exports": {
 		"./hub/hub-users": "./hub/hub-users.ts",
+		"./hub/tags": "./hub/tags.ts",
 		"./admin/admin-users": "./admin/admin-users.ts",
 		"./admin/approved-domains": "./admin/approved-domains.ts",
+		"./admin/tags": "./admin/tags.ts",
 		"./employer/employer-users": "./employer/employer-users.ts",
+		"./employer/tags": "./employer/tags.ts",
 		"./employer-domains/employer-domains": "./employer-domains/employer-domains.ts",
 		"./agency-domains/agency-domains": "./agency-domains/agency-domains.ts",
 		"./agency/agency-users": "./agency/agency-users.ts",
+		"./agency/tags": "./agency/tags.ts",
 		"./global/global": "./global/global.ts",
 		"./common/common": "./common/common.ts",
 		"./common/roles": "./common/roles.ts"

@@ -321,6 +321,26 @@ CREATE TABLE admin_user_roles (
     PRIMARY KEY (admin_user_id, role_id)
 );
 
+-- Tags table (human-readable tag_id as PK)
+CREATE TABLE tags (
+    tag_id VARCHAR(64) PRIMARY KEY NOT NULL,
+    small_icon_key VARCHAR(512),
+    small_icon_content_type VARCHAR(100),
+    large_icon_key VARCHAR(512),
+    large_icon_content_type VARCHAR(100),
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+-- Translations table
+CREATE TABLE tag_translations (
+    tag_id VARCHAR(64) NOT NULL REFERENCES tags(tag_id) ON DELETE CASCADE,
+    locale VARCHAR(10) NOT NULL,
+    display_name VARCHAR(100) NOT NULL,
+    description VARCHAR(500),
+    PRIMARY KEY (tag_id, locale)
+);
+
 -- Insert predefined roles
 INSERT INTO roles (role_name, description) VALUES
     -- Admin portal roles
@@ -329,6 +349,7 @@ INSERT INTO roles (role_name, description) VALUES
     ('admin:manage_users', 'Can invite, enable/disable admin users and manage their roles'),
     ('admin:view_domains', 'Can view approved domain list and details (read-only)'),
     ('admin:manage_domains', 'Can add, enable/disable approved domains'),
+    ('admin:manage_tags', 'Can create and update tags'),
 
     -- Employer portal roles
     ('employer:view_users', 'Can view org user list and details (read-only)'),
@@ -365,6 +386,8 @@ CREATE INDEX idx_agency_users_email_hash ON agency_users(email_address_hash);
 CREATE INDEX idx_global_agency_domains_agency_id ON global_agency_domains(agency_id);
 
 -- +goose Down
+DROP TABLE IF EXISTS tag_translations;
+DROP TABLE IF EXISTS tags;
 DROP TABLE IF EXISTS admin_user_roles;
 DROP TABLE IF EXISTS roles;
 DROP INDEX IF EXISTS idx_global_agency_domains_agency_id;

@@ -28,6 +28,15 @@ import type {
 	ApprovedDomainListResponse,
 	ApprovedDomainDetailResponse,
 } from "vetchium-specs/admin/approved-domains";
+import type {
+	CreateTagRequest,
+	UpdateTagRequest,
+	GetTagRequest,
+	FilterTagsRequest,
+	DeleteTagIconRequest,
+	AdminTag,
+	FilterTagsResponse,
+} from "vetchium-specs/admin/tags";
 import type { APIResponse } from "./api-client";
 
 /**
@@ -960,6 +969,142 @@ export class AdminAPIClient {
 		return {
 			status: response.status(),
 			body: body as AdminMyInfoResponse,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	// ============================================================================
+	// Tags API
+	// ============================================================================
+
+	/**
+	 * POST /admin/add-tag
+	 * Creates a new tag with translations.
+	 */
+	async addTag(
+		sessionToken: string,
+		request: CreateTagRequest
+	): Promise<APIResponse<AdminTag>> {
+		const response = await this.request.post("/admin/add-tag", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as AdminTag,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	/**
+	 * POST /admin/get-tag
+	 * Gets a tag with all its translations.
+	 */
+	async getTag(
+		sessionToken: string,
+		request: GetTagRequest
+	): Promise<APIResponse<AdminTag>> {
+		const response = await this.request.post("/admin/get-tag", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as AdminTag,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	/**
+	 * POST /admin/update-tag
+	 * Replaces all translations for a tag.
+	 */
+	async updateTag(
+		sessionToken: string,
+		request: UpdateTagRequest
+	): Promise<APIResponse<AdminTag>> {
+		const response = await this.request.post("/admin/update-tag", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as AdminTag,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	/**
+	 * POST /admin/filter-tags
+	 * Filters/searches tags with optional query and keyset pagination.
+	 */
+	async filterTags(
+		sessionToken: string,
+		request: FilterTagsRequest
+	): Promise<APIResponse<FilterTagsResponse>> {
+		const response = await this.request.post("/admin/filter-tags", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as FilterTagsResponse,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	/**
+	 * POST /admin/upload-tag-icon
+	 * Uploads a small or large icon for a tag (multipart form-data).
+	 */
+	async uploadTagIcon(
+		sessionToken: string,
+		tagId: string,
+		iconSize: "small" | "large",
+		fileBuffer: Buffer,
+		fileName: string,
+		mimeType: string
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/admin/upload-tag-icon", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			multipart: {
+				tag_id: tagId,
+				icon_size: iconSize,
+				icon_file: {
+					name: fileName,
+					mimeType: mimeType,
+					buffer: fileBuffer,
+				},
+			},
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: undefined,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	/**
+	 * POST /admin/delete-tag-icon
+	 * Deletes the small or large icon for a tag.
+	 */
+	async deleteTagIcon(
+		sessionToken: string,
+		request: DeleteTagIconRequest
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/admin/delete-tag-icon", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: undefined,
 			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}

@@ -898,3 +898,124 @@ WHERE (
     sqlc.narg('filter_status')::text IS NULL
     OR status::text = sqlc.narg('filter_status')
   );
+-- ============================================
+-- Tag Queries
+-- ============================================
+-- name: CreateTag :exec
+INSERT INTO tags (tag_id)
+VALUES ($1);
+-- name: GetTag :one
+SELECT *
+FROM tags
+WHERE tag_id = $1;
+-- name: TagExists :one
+SELECT EXISTS(
+    SELECT 1
+    FROM tags
+    WHERE tag_id = $1
+  ) AS exists;
+-- name: GetTagTranslations :many
+SELECT locale,
+  display_name,
+  description
+FROM tag_translations
+WHERE tag_id = $1
+ORDER BY locale;
+-- name: UpsertTagTranslation :exec
+INSERT INTO tag_translations (tag_id, locale, display_name, description)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (tag_id, locale) DO UPDATE
+SET display_name = EXCLUDED.display_name,
+  description = EXCLUDED.description;
+-- name: DeleteTagTranslations :exec
+DELETE FROM tag_translations
+WHERE tag_id = $1;
+-- name: FilterTagsAdmin :many
+SELECT DISTINCT t.tag_id,
+  t.small_icon_key,
+  t.small_icon_content_type,
+  t.large_icon_key,
+  t.large_icon_content_type,
+  t.created_at,
+  t.updated_at
+FROM tags t
+  LEFT JOIN tag_translations ts ON ts.tag_id = t.tag_id
+WHERE (
+    @query::text = ''
+    OR t.tag_id ILIKE '%' || @query || '%'
+    OR ts.display_name ILIKE '%' || @query || '%'
+  )
+  AND (
+    @pagination_key::text = ''
+    OR t.tag_id > @pagination_key
+  )
+ORDER BY t.tag_id
+LIMIT @limit_count;
+-- name: GetTagWithLocale :one
+SELECT t.tag_id,
+  t.small_icon_key,
+  t.small_icon_content_type,
+  t.large_icon_key,
+  t.large_icon_content_type,
+  t.created_at,
+  t.updated_at,
+  COALESCE(tl.display_name, te.display_name, '') AS display_name,
+  COALESCE(tl.description, te.description) AS description
+FROM tags t
+  LEFT JOIN tag_translations tl ON tl.tag_id = t.tag_id
+  AND tl.locale = $2
+  LEFT JOIN tag_translations te ON te.tag_id = t.tag_id
+  AND te.locale = 'en-US'
+WHERE t.tag_id = $1;
+-- name: FilterTagsForLocale :many
+SELECT DISTINCT ON (t.tag_id) t.tag_id,
+  t.small_icon_key,
+  t.small_icon_content_type,
+  t.large_icon_key,
+  t.large_icon_content_type,
+  COALESCE(tl.display_name, te.display_name, '') AS display_name,
+  COALESCE(tl.description, te.description) AS description
+FROM tags t
+  LEFT JOIN tag_translations tl ON tl.tag_id = t.tag_id
+  AND tl.locale = @locale
+  LEFT JOIN tag_translations te ON te.tag_id = t.tag_id
+  AND te.locale = 'en-US'
+  LEFT JOIN tag_translations ts ON ts.tag_id = t.tag_id
+WHERE (
+    @query::text = ''
+    OR t.tag_id ILIKE '%' || @query || '%'
+    OR ts.display_name ILIKE '%' || @query || '%'
+  )
+  AND (
+    @pagination_key::text = ''
+    OR t.tag_id > @pagination_key
+  )
+ORDER BY t.tag_id
+LIMIT @limit_count;
+-- name: UpdateTagSmallIcon :exec
+UPDATE tags
+SET small_icon_key = $2,
+  small_icon_content_type = $3,
+  updated_at = NOW()
+WHERE tag_id = $1;
+-- name: UpdateTagLargeIcon :exec
+UPDATE tags
+SET large_icon_key = $2,
+  large_icon_content_type = $3,
+  updated_at = NOW()
+WHERE tag_id = $1;
+-- name: ClearTagSmallIcon :exec
+UPDATE tags
+SET small_icon_key = NULL,
+  small_icon_content_type = NULL,
+  updated_at = NOW()
+WHERE tag_id = $1;
+-- name: ClearTagLargeIcon :exec
+UPDATE tags
+SET large_icon_key = NULL,
+  large_icon_content_type = NULL,
+  updated_at = NOW()
+WHERE tag_id = $1;
+-- name: DeleteTag :exec
+DELETE FROM tags
+WHERE tag_id = $1;

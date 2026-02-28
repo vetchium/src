@@ -18,12 +18,16 @@ func RegisterAdminGlobalRoutes(mux *http.ServeMux, s *server.GlobalServer) {
 	mux.HandleFunc("POST /admin/request-password-reset", admin.RequestPasswordReset(s))
 	mux.HandleFunc("POST /admin/complete-password-reset", admin.CompletePasswordReset(s))
 
+	// Public unauthenticated routes (accessible to all portals)
+	mux.HandleFunc("GET /public/tag-icon", admin.GetTagIcon(s))
+
 	// Create middleware instances
 	adminAuth := middleware.AdminAuth(s.Global)
 	adminRoleViewUsers := middleware.AdminRole(s.Global, "admin:view_users", "admin:manage_users")
 	adminRoleManageUsers := middleware.AdminRole(s.Global, "admin:manage_users")
 	adminRoleViewDomains := middleware.AdminRole(s.Global, "admin:view_domains", "admin:manage_domains")
 	adminRoleManageDomains := middleware.AdminRole(s.Global, "admin:manage_domains")
+	adminRoleManageTags := middleware.AdminRole(s.Global, "admin:manage_tags")
 
 	// Auth-only routes (no role required)
 	mux.Handle("POST /admin/logout", adminAuth(admin.Logout(s)))
@@ -45,4 +49,12 @@ func RegisterAdminGlobalRoutes(mux *http.ServeMux, s *server.GlobalServer) {
 	mux.Handle("POST /admin/add-approved-domain", adminAuth(adminRoleManageDomains(admin.AddApprovedDomain(s))))
 	mux.Handle("POST /admin/disable-approved-domain", adminAuth(adminRoleManageDomains(admin.DisableApprovedDomain(s))))
 	mux.Handle("POST /admin/enable-approved-domain", adminAuth(adminRoleManageDomains(admin.EnableApprovedDomain(s))))
+
+	// Tag management routes (admin:manage_tags required)
+	mux.Handle("POST /admin/add-tag", adminAuth(adminRoleManageTags(admin.AddTag(s))))
+	mux.Handle("POST /admin/get-tag", adminAuth(adminRoleManageTags(admin.GetTag(s))))
+	mux.Handle("POST /admin/update-tag", adminAuth(adminRoleManageTags(admin.UpdateTag(s))))
+	mux.Handle("POST /admin/filter-tags", adminAuth(adminRoleManageTags(admin.FilterTags(s))))
+	mux.Handle("POST /admin/upload-tag-icon", adminAuth(adminRoleManageTags(admin.UploadTagIcon(s))))
+	mux.Handle("POST /admin/delete-tag-icon", adminAuth(adminRoleManageTags(admin.DeleteTagIcon(s))))
 }

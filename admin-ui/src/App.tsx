@@ -15,6 +15,7 @@ import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { CompleteSetupPage } from "./pages/CompleteSetupPage";
 import { ChangePasswordPage } from "./pages/ChangePasswordPage";
 import { UserManagementPage } from "./pages/UserManagement/UserManagementPage";
+import { ManageTagsPage } from "./pages/ManageTagsPage";
 import {
 	BrowserRouter,
 	Routes,
@@ -151,6 +152,14 @@ function AppContent() {
 								element={
 									<ProtectedRoute>
 										<ChangePasswordPage />
+									</ProtectedRoute>
+								}
+							/>
+							<Route
+								path="/manage-tags"
+								element={
+									<ProtectedRoute>
+										<ManageTagsPage />
 									</ProtectedRoute>
 								}
 							/>

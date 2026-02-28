@@ -2,6 +2,7 @@ import { Card, Skeleton, Typography, Button } from "antd";
 import {
 	SafetyOutlined,
 	LogoutOutlined,
+	TagsOutlined,
 	TeamOutlined,
 } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
@@ -34,6 +35,11 @@ export function DashboardPage() {
 	const canManageUsers =
 		myInfo?.roles.includes("admin:superadmin") ||
 		myInfo?.roles.includes("admin:manage_users") ||
+		false;
+
+	const canManageTags =
+		myInfo?.roles.includes("admin:superadmin") ||
+		myInfo?.roles.includes("admin:manage_tags") ||
 		false;
 
 	return (
@@ -92,6 +98,23 @@ export function DashboardPage() {
 								<Text type="secondary">
 									{t("userManagement:dashboardDescription")}
 								</Text>
+							</Card>
+						</Link>
+					)}
+
+					{canManageTags && (
+						<Link to="/manage-tags" style={{ textDecoration: "none" }}>
+							<Card
+								hoverable
+								style={{ width: 400, cursor: "pointer", textAlign: "center" }}
+							>
+								<TagsOutlined
+									style={{ fontSize: 48, color: "#fa8c16", marginBottom: 16 }}
+								/>
+								<Title level={4} style={{ marginBottom: 8 }}>
+									{t("tags:dashboardTitle")}
+								</Title>
+								<Text type="secondary">{t("tags:dashboardDescription")}</Text>
 							</Card>
 						</Link>
 					)}

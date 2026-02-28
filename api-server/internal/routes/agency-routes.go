@@ -48,4 +48,8 @@ func RegisterAgencyRoutes(mux *http.ServeMux, s *server.Server) {
 	mux.Handle("POST /agency/set-language", agencyAuth(agency.SetLanguage(s)))
 	mux.Handle("GET /agency/myinfo", agencyAuth(agency.MyInfo(s)))
 	mux.Handle("POST /agency/filter-users", agencyAuth(agencyRoleViewUsers(agency.FilterUsers(s))))
+
+	// Tag read routes (auth-only, no role restriction)
+	mux.Handle("POST /agency/get-tag", agencyAuth(agency.GetTag(s)))
+	mux.Handle("POST /agency/filter-tags", agencyAuth(agency.FilterTags(s)))
 }
