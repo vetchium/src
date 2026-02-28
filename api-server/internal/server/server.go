@@ -57,6 +57,20 @@ type UIConfig struct {
 	AgencyURL string
 }
 
+// StorageConfig holds S3-compatible object storage connection parameters.
+// Each server instance (global or regional) connects to exactly one Garage
+// instance — the one co-located with that server's data region.
+// Cross-region file access follows the same pattern as databases: the request
+// is proxied to the appropriate regional API server, which then reads/writes
+// its own Garage instance.
+type StorageConfig struct {
+	Endpoint        string
+	AccessKeyID     string
+	SecretAccessKey string
+	Region          string
+	Bucket          string
+}
+
 type Server struct {
 	// Global database (for routing lookups)
 	Global     *globaldb.Queries
@@ -76,6 +90,9 @@ type Server struct {
 	// Internal endpoints for cross-region proxy
 	// Map of region -> base URL (e.g., "ind1" -> "http://regional-api-server-ind1:8080")
 	InternalEndpoints map[globaldb.Region]string
+
+	// StorageConfig holds connection parameters for this region's Garage S3 instance.
+	StorageConfig *StorageConfig
 }
 
 // Logger returns the logger from context with request ID, or falls back to base logger.

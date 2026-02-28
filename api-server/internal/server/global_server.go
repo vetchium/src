@@ -16,10 +16,11 @@ type GlobalServer struct {
 	Global     *globaldb.Queries
 	GlobalPool *pgxpool.Pool
 
-	Log         *slog.Logger
-	TokenConfig *TokenConfig
-	UIConfig    *UIConfig
-	Environment string
+	Log           *slog.Logger
+	TokenConfig   *TokenConfig
+	UIConfig      *UIConfig
+	Environment   string
+	StorageConfig *StorageConfig
 }
 
 // Logger returns the logger from context with request ID, or falls back to base logger.

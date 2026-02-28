@@ -62,13 +62,22 @@ func main() {
 		AdminURL: getEnvOrDefault("ADMIN_UI_URL", "http://localhost:3001"),
 	}
 
+	storageConfig := &server.StorageConfig{
+		Endpoint:        os.Getenv("GARAGE_S3_ENDPOINT"),
+		AccessKeyID:     os.Getenv("GARAGE_S3_ACCESS_KEY_ID"),
+		SecretAccessKey: os.Getenv("GARAGE_S3_SECRET_ACCESS_KEY"),
+		Region:          getEnvOrDefault("GARAGE_S3_REGION", "garage"),
+		Bucket:          os.Getenv("GARAGE_S3_BUCKET"),
+	}
+
 	s := &server.GlobalServer{
-		Global:      globalQueries,
-		GlobalPool:  globalConn,
-		Log:         logger,
-		TokenConfig: tokenConfig,
-		UIConfig:    uiConfig,
-		Environment: environment,
+		Global:        globalQueries,
+		GlobalPool:    globalConn,
+		Log:           logger,
+		TokenConfig:   tokenConfig,
+		UIConfig:      uiConfig,
+		Environment:   environment,
+		StorageConfig: storageConfig,
 	}
 
 	// Setup graceful shutdown context

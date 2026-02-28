@@ -85,6 +85,14 @@ func main() {
 		globaldb.RegionDeu1: getEnvOrDefault("INTERNAL_ENDPOINT_DEU1", "http://regional-api-server-deu1:8080"),
 	}
 
+	storageConfig := &server.StorageConfig{
+		Endpoint:        os.Getenv("GARAGE_S3_ENDPOINT"),
+		AccessKeyID:     os.Getenv("GARAGE_S3_ACCESS_KEY_ID"),
+		SecretAccessKey: os.Getenv("GARAGE_S3_SECRET_ACCESS_KEY"),
+		Region:          getEnvOrDefault("GARAGE_S3_REGION", "garage"),
+		Bucket:          os.Getenv("GARAGE_S3_BUCKET"),
+	}
+
 	s := &server.Server{
 		Global:            globaldb.New(globalConn),
 		GlobalPool:        globalConn,
@@ -96,6 +104,7 @@ func main() {
 		UIConfig:          uiConfig,
 		Environment:       environment,
 		InternalEndpoints: internalEndpoints,
+		StorageConfig:     storageConfig,
 	}
 
 	// Setup graceful shutdown context

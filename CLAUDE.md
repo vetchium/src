@@ -93,6 +93,66 @@ docker compose -f docker-compose-full.json up --build   # Start all services
 docker compose -f docker-compose-full.json down -v      # Stop all services
 ```
 
+## Object Storage Architecture (Garage)
+
+Vetchium uses [Garage](https://garagehq.deuxfleurs.fr/) (S3-compatible) for file storage, with one Garage instance per region (mirroring the database architecture):
+
+- **garage-global**: For globally-scoped files (e.g. tag icons managed by admin)
+- **garage-ind1 / garage-usa1 / garage-deu1**: For regional files (e.g. user profile photos, org logos)
+
+### Storage and Region Isolation
+
+Each API server connects to exactly one Garage instance — its co-located one. Cross-region file access is proxied to the appropriate regional API server (same pattern as databases). The `Server.StorageConfig` and `GlobalServer.StorageConfig` fields hold the connection parameters.
+
+### Connection Configuration
+
+Storage parameters are read from environment variables at startup:
+
+| Variable                      | Description                                        |
+| ----------------------------- | -------------------------------------------------- |
+| `GARAGE_S3_ENDPOINT`          | S3 API base URL (e.g. `http://garage-global:3900`) |
+| `GARAGE_S3_ACCESS_KEY_ID`     | S3 access key ID                                   |
+| `GARAGE_S3_SECRET_ACCESS_KEY` | S3 secret access key                               |
+| `GARAGE_S3_REGION`            | S3 region string (default: `garage`)               |
+| `GARAGE_S3_BUCKET`            | Bucket name (default: `vetchium`)                  |
+
+Access these in handlers via `s.StorageConfig.Endpoint`, `s.StorageConfig.AccessKeyID`, etc.
+
+### Dev Setup
+
+Config files are in `garage/`:
+
+- `garage-{instance}.toml` — Garage daemon config (one per instance)
+- `init-garage.sh` — Init script that sets up cluster layout, imports keys, and creates the bucket
+
+**Dev credentials** (for Docker Compose only, never for production):
+
+| Instance | Access Key ID             | Secret                                          |
+| -------- | ------------------------- | ----------------------------------------------- |
+| global   | `vetchium-dev-global-key` | `vetchium-dev-global-secret-not-for-production` |
+| ind1     | `vetchium-dev-ind1-key`   | `vetchium-dev-ind1-secret-not-for-production`   |
+| usa1     | `vetchium-dev-usa1-key`   | `vetchium-dev-usa1-secret-not-for-production`   |
+| deu1     | `vetchium-dev-deu1-key`   | `vetchium-dev-deu1-secret-not-for-production`   |
+
+**Admin API** (for debugging with curl):
+
+- Global: `http://localhost:3903` (token: `vetchium-dev-admin-token`)
+- ind1: `http://localhost:3913`, usa1: `http://localhost:3923`, deu1: `http://localhost:3933`
+
+**S3 API** (for direct bucket access):
+
+- Global: `http://localhost:3900`
+- ind1: `http://localhost:3910`, usa1: `http://localhost:3920`, deu1: `http://localhost:3930`
+
+### Adding a Storage Feature
+
+When implementing a feature that needs file uploads:
+
+1. Use the AWS SDK v2 for Go (`github.com/aws/aws-sdk-go-v2`) with `s3.Options{BaseEndpoint: &endpoint, UsePathStyle: true}` — Garage requires path-style URLs
+2. Access `s.StorageConfig` to build the S3 client in your handler
+3. For files that belong to a specific user's region, proxy to the correct regional server (same as DB cross-region pattern)
+4. Keep the S3 client construction in the handler or a shared helper — do not store it on `Server` (create per-request or use a shared client pool)
+
 ## Database Architecture
 
 - **Global DB**: Cross-region lookups, user identity, email hashes
