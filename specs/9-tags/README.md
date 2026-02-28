@@ -21,6 +21,7 @@ A Tag will have a display name on a per-locale basis. If there is no translation
 A Tag can optionally have an Icon as an image which an admin user of Vetchium will be able to add. The icons need to be in two sizes, one small (32x32 pixels) for appearing in user's posts, one large (256x256 pixels) for the Tag's page. Accepted formats are PNG, SVG, JPEG, and WebP. Maximum file size is 5 MB per icon. The images for the icons should be uploaded to the S3 compatible bucket that the global server is configured against via a dedicated upload API. All the Tag details are stored on the Global API server and its database.
 
 Icon upload and removal are handled by separate dedicated APIs:
+
 - Upload: `POST /admin/upload-tag-icon` — uploads either the small or large icon for a tag
 - Remove: `POST /admin/delete-tag-icon` — removes either the small or large icon from a tag (the tag itself is not deleted)
 
