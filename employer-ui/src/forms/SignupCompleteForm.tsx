@@ -28,7 +28,10 @@ import type {
 	OrgCompleteSignupRequest,
 	OrgGetSignupDetailsRequest,
 } from "vetchium-specs/employer/employer-users";
-import type { LanguageCode } from "vetchium-specs/common/common";
+import type {
+	LanguageCode,
+	SupportedLanguage,
+} from "vetchium-specs/common/common";
 // @ts-expect-error - dohjs has no types
 import { DNSoverHTTPS } from "dohjs";
 
@@ -106,7 +109,7 @@ export function SignupCompleteForm() {
 
 	// Set default language to current UI language
 	useEffect(() => {
-		const currentLang = i18n.language as LanguageCode;
+		const currentLang = i18n.language as SupportedLanguage;
 		if (SUPPORTED_LANGUAGES.includes(currentLang)) {
 			form.setFieldValue("preferred_language", currentLang);
 		} else {
