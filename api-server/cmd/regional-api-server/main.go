@@ -86,11 +86,11 @@ func main() {
 	}
 
 	storageConfig := &server.StorageConfig{
-		Endpoint:        os.Getenv("GARAGE_S3_ENDPOINT"),
-		AccessKeyID:     os.Getenv("GARAGE_S3_ACCESS_KEY_ID"),
-		SecretAccessKey: os.Getenv("GARAGE_S3_SECRET_ACCESS_KEY"),
-		Region:          getEnvOrDefault("GARAGE_S3_REGION", "garage"),
-		Bucket:          os.Getenv("GARAGE_S3_BUCKET"),
+		Endpoint:        os.Getenv("S3_ENDPOINT"),
+		AccessKeyID:     os.Getenv("S3_ACCESS_KEY_ID"),
+		SecretAccessKey: os.Getenv("S3_SECRET_ACCESS_KEY"),
+		Region:          getEnvOrDefault("S3_REGION", "us-east-1"),
+		Bucket:          os.Getenv("S3_BUCKET"),
 	}
 
 	s := &server.Server{

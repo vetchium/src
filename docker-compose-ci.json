@@ -64,152 +64,36 @@
 				"retries": 5
 			}
 		},
-		"garage-global": {
-			"image": "dxflrs/garage:v2.2.0",
-			"volumes": [
-				"./garage/garage-global.toml:/etc/garage.toml:ro",
-				"garage-global-meta:/var/lib/garage/meta",
-				"garage-global-data:/var/lib/garage/data"
-			],
+		"localstack": {
+			"image": "localstack/localstack",
+			"environment": {
+				"SERVICES": "s3",
+				"DEBUG": "0"
+			},
+			"ports": ["4566:4566"],
 			"healthcheck": {
 				"test": [
-					"CMD",
-					"wget",
-					"--quiet",
-					"--tries=1",
-					"--spider",
-					"http://localhost:3903/health"
+					"CMD-SHELL",
+					"curl -f http://localhost:4566/_localstack/health"
 				],
 				"interval": "5s",
 				"timeout": "5s",
-				"retries": 10,
-				"start_period": "10s"
+				"retries": 15
 			}
 		},
-		"garage-ind1": {
-			"image": "dxflrs/garage:v2.2.0",
-			"volumes": [
-				"./garage/garage-ind1.toml:/etc/garage.toml:ro",
-				"garage-ind1-meta:/var/lib/garage/meta",
-				"garage-ind1-data:/var/lib/garage/data"
+		"s3-init": {
+			"image": "amazon/aws-cli",
+			"depends_on": {
+				"localstack": { "condition": "service_healthy" }
+			},
+			"entrypoint": ["sh", "-c"],
+			"command": [
+				"i=0; until aws --endpoint-url=http://localstack:4566 s3 ls s3://vetchium 2>/dev/null || aws --endpoint-url=http://localstack:4566 s3 mb s3://vetchium 2>/dev/null; do i=$$((i+1)); [ $$i -ge 30 ] && exit 1; sleep 2; done"
 			],
-			"healthcheck": {
-				"test": [
-					"CMD",
-					"wget",
-					"--quiet",
-					"--tries=1",
-					"--spider",
-					"http://localhost:3903/health"
-				],
-				"interval": "5s",
-				"timeout": "5s",
-				"retries": 10,
-				"start_period": "10s"
-			}
-		},
-		"garage-usa1": {
-			"image": "dxflrs/garage:v2.2.0",
-			"volumes": [
-				"./garage/garage-usa1.toml:/etc/garage.toml:ro",
-				"garage-usa1-meta:/var/lib/garage/meta",
-				"garage-usa1-data:/var/lib/garage/data"
-			],
-			"healthcheck": {
-				"test": [
-					"CMD",
-					"wget",
-					"--quiet",
-					"--tries=1",
-					"--spider",
-					"http://localhost:3903/health"
-				],
-				"interval": "5s",
-				"timeout": "5s",
-				"retries": 10,
-				"start_period": "10s"
-			}
-		},
-		"garage-deu1": {
-			"image": "dxflrs/garage:v2.2.0",
-			"volumes": [
-				"./garage/garage-deu1.toml:/etc/garage.toml:ro",
-				"garage-deu1-meta:/var/lib/garage/meta",
-				"garage-deu1-data:/var/lib/garage/data"
-			],
-			"healthcheck": {
-				"test": [
-					"CMD",
-					"wget",
-					"--quiet",
-					"--tries=1",
-					"--spider",
-					"http://localhost:3903/health"
-				],
-				"interval": "5s",
-				"timeout": "5s",
-				"retries": 10,
-				"start_period": "10s"
-			}
-		},
-		"garage-init-global": {
-			"image": "alpine:3.20",
-			"depends_on": {
-				"garage-global": { "condition": "service_healthy" }
-			},
-			"command": ["sh", "/garage/init-garage.sh"],
-			"volumes": ["./garage/init-garage.sh:/garage/init-garage.sh:ro"],
 			"environment": {
-				"GARAGE_ADMIN_URL": "http://garage-global:3903",
-				"GARAGE_ADMIN_TOKEN": "vetchium-dev-admin-token",
-				"GARAGE_KEY_ID": "vetchium-dev-global-key",
-				"GARAGE_KEY_SECRET": "vetchium-dev-global-secret-not-for-production",
-				"GARAGE_BUCKET": "vetchium"
-			}
-		},
-		"garage-init-ind1": {
-			"image": "alpine:3.20",
-			"depends_on": {
-				"garage-ind1": { "condition": "service_healthy" }
-			},
-			"command": ["sh", "/garage/init-garage.sh"],
-			"volumes": ["./garage/init-garage.sh:/garage/init-garage.sh:ro"],
-			"environment": {
-				"GARAGE_ADMIN_URL": "http://garage-ind1:3903",
-				"GARAGE_ADMIN_TOKEN": "vetchium-dev-admin-token",
-				"GARAGE_KEY_ID": "vetchium-dev-ind1-key",
-				"GARAGE_KEY_SECRET": "vetchium-dev-ind1-secret-not-for-production",
-				"GARAGE_BUCKET": "vetchium"
-			}
-		},
-		"garage-init-usa1": {
-			"image": "alpine:3.20",
-			"depends_on": {
-				"garage-usa1": { "condition": "service_healthy" }
-			},
-			"command": ["sh", "/garage/init-garage.sh"],
-			"volumes": ["./garage/init-garage.sh:/garage/init-garage.sh:ro"],
-			"environment": {
-				"GARAGE_ADMIN_URL": "http://garage-usa1:3903",
-				"GARAGE_ADMIN_TOKEN": "vetchium-dev-admin-token",
-				"GARAGE_KEY_ID": "vetchium-dev-usa1-key",
-				"GARAGE_KEY_SECRET": "vetchium-dev-usa1-secret-not-for-production",
-				"GARAGE_BUCKET": "vetchium"
-			}
-		},
-		"garage-init-deu1": {
-			"image": "alpine:3.20",
-			"depends_on": {
-				"garage-deu1": { "condition": "service_healthy" }
-			},
-			"command": ["sh", "/garage/init-garage.sh"],
-			"volumes": ["./garage/init-garage.sh:/garage/init-garage.sh:ro"],
-			"environment": {
-				"GARAGE_ADMIN_URL": "http://garage-deu1:3903",
-				"GARAGE_ADMIN_TOKEN": "vetchium-dev-admin-token",
-				"GARAGE_KEY_ID": "vetchium-dev-deu1-key",
-				"GARAGE_KEY_SECRET": "vetchium-dev-deu1-secret-not-for-production",
-				"GARAGE_BUCKET": "vetchium"
+				"AWS_ACCESS_KEY_ID": "vetchium-dev-key",
+				"AWS_SECRET_ACCESS_KEY": "vetchium-dev-secret",
+				"AWS_DEFAULT_REGION": "us-east-1"
 			}
 		},
 		"mailpit": {
@@ -371,7 +255,7 @@
 				"mailpit": {
 					"condition": "service_started"
 				},
-				"garage-init-global": {
+				"s3-init": {
 					"condition": "service_completed_successfully"
 				}
 			},
@@ -395,11 +279,11 @@
 				"AGENCY_SIGNUP_TOKEN_CLEANUP_INTERVAL": "5s",
 				"ADMIN_UI_URL": "http://localhost:3001",
 				"CORS_ALLOWED_ORIGINS": "*",
-				"GARAGE_S3_ENDPOINT": "http://garage-global:3900",
-				"GARAGE_S3_ACCESS_KEY_ID": "vetchium-dev-global-key",
-				"GARAGE_S3_SECRET_ACCESS_KEY": "vetchium-dev-global-secret-not-for-production",
-				"GARAGE_S3_REGION": "garage",
-				"GARAGE_S3_BUCKET": "vetchium"
+				"S3_ENDPOINT": "http://localstack:4566",
+				"S3_ACCESS_KEY_ID": "vetchium-dev-key",
+				"S3_SECRET_ACCESS_KEY": "vetchium-dev-secret",
+				"S3_REGION": "us-east-1",
+				"S3_BUCKET": "vetchium"
 			}
 		},
 		"regional-api-server-ind1": {
@@ -423,7 +307,7 @@
 				"mailpit": {
 					"condition": "service_started"
 				},
-				"garage-init-ind1": {
+				"s3-init": {
 					"condition": "service_completed_successfully"
 				}
 			},
@@ -450,11 +334,11 @@
 				"AGENCY_SESSION_TOKEN_EXPIRY": "30s",
 				"AGENCY_SIGNUP_TOKEN_EXPIRY": "30s",
 				"AGENCY_REMEMBER_ME_EXPIRY": "60s",
-				"GARAGE_S3_ENDPOINT": "http://garage-ind1:3900",
-				"GARAGE_S3_ACCESS_KEY_ID": "vetchium-dev-ind1-key",
-				"GARAGE_S3_SECRET_ACCESS_KEY": "vetchium-dev-ind1-secret-not-for-production",
-				"GARAGE_S3_REGION": "garage",
-				"GARAGE_S3_BUCKET": "vetchium"
+				"S3_ENDPOINT": "http://localstack:4566",
+				"S3_ACCESS_KEY_ID": "vetchium-dev-key",
+				"S3_SECRET_ACCESS_KEY": "vetchium-dev-secret",
+				"S3_REGION": "us-east-1",
+				"S3_BUCKET": "vetchium"
 			}
 		},
 		"regional-api-server-usa1": {
@@ -478,7 +362,7 @@
 				"mailpit": {
 					"condition": "service_started"
 				},
-				"garage-init-usa1": {
+				"s3-init": {
 					"condition": "service_completed_successfully"
 				}
 			},
@@ -505,11 +389,11 @@
 				"AGENCY_SESSION_TOKEN_EXPIRY": "30s",
 				"AGENCY_SIGNUP_TOKEN_EXPIRY": "30s",
 				"AGENCY_REMEMBER_ME_EXPIRY": "60s",
-				"GARAGE_S3_ENDPOINT": "http://garage-usa1:3900",
-				"GARAGE_S3_ACCESS_KEY_ID": "vetchium-dev-usa1-key",
-				"GARAGE_S3_SECRET_ACCESS_KEY": "vetchium-dev-usa1-secret-not-for-production",
-				"GARAGE_S3_REGION": "garage",
-				"GARAGE_S3_BUCKET": "vetchium"
+				"S3_ENDPOINT": "http://localstack:4566",
+				"S3_ACCESS_KEY_ID": "vetchium-dev-key",
+				"S3_SECRET_ACCESS_KEY": "vetchium-dev-secret",
+				"S3_REGION": "us-east-1",
+				"S3_BUCKET": "vetchium"
 			}
 		},
 		"regional-api-server-deu1": {
@@ -533,7 +417,7 @@
 				"mailpit": {
 					"condition": "service_started"
 				},
-				"garage-init-deu1": {
+				"s3-init": {
 					"condition": "service_completed_successfully"
 				}
 			},
@@ -560,11 +444,11 @@
 				"AGENCY_SESSION_TOKEN_EXPIRY": "30s",
 				"AGENCY_SIGNUP_TOKEN_EXPIRY": "30s",
 				"AGENCY_REMEMBER_ME_EXPIRY": "60s",
-				"GARAGE_S3_ENDPOINT": "http://garage-deu1:3900",
-				"GARAGE_S3_ACCESS_KEY_ID": "vetchium-dev-deu1-key",
-				"GARAGE_S3_SECRET_ACCESS_KEY": "vetchium-dev-deu1-secret-not-for-production",
-				"GARAGE_S3_REGION": "garage",
-				"GARAGE_S3_BUCKET": "vetchium"
+				"S3_ENDPOINT": "http://localstack:4566",
+				"S3_ACCESS_KEY_ID": "vetchium-dev-key",
+				"S3_SECRET_ACCESS_KEY": "vetchium-dev-secret",
+				"S3_REGION": "us-east-1",
+				"S3_BUCKET": "vetchium"
 			}
 		},
 		"regional-worker-ind1": {
@@ -682,14 +566,6 @@
 		"global-db-data": {},
 		"regional-db-ind1-data": {},
 		"regional-db-usa1-data": {},
-		"regional-db-deu1-data": {},
-		"garage-global-meta": {},
-		"garage-global-data": {},
-		"garage-ind1-meta": {},
-		"garage-ind1-data": {},
-		"garage-usa1-meta": {},
-		"garage-usa1-data": {},
-		"garage-deu1-meta": {},
-		"garage-deu1-data": {}
+		"regional-db-deu1-data": {}
 	}
 }

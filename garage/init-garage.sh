@@ -14,7 +14,9 @@ set -e
 apk add --no-cache curl jq >/dev/null 2>&1
 
 echo "Waiting for Garage admin API at ${GARAGE_ADMIN_URL}..."
-until curl -sf "${GARAGE_ADMIN_URL}/health" >/dev/null 2>&1; do
+until curl -sf \
+  -H "Authorization: Bearer ${GARAGE_ADMIN_TOKEN}" \
+  "${GARAGE_ADMIN_URL}/v2/GetClusterStatus" >/dev/null 2>&1; do
   sleep 2
 done
 echo "Garage is ready"

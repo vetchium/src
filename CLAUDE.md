@@ -109,13 +109,13 @@ Each API server connects to exactly one Garage instance — its co-located one. 
 
 Storage parameters are read from environment variables at startup:
 
-| Variable                      | Description                                        |
-| ----------------------------- | -------------------------------------------------- |
-| `GARAGE_S3_ENDPOINT`          | S3 API base URL (e.g. `http://garage-global:3900`) |
-| `GARAGE_S3_ACCESS_KEY_ID`     | S3 access key ID                                   |
-| `GARAGE_S3_SECRET_ACCESS_KEY` | S3 secret access key                               |
-| `GARAGE_S3_REGION`            | S3 region string (default: `garage`)               |
-| `GARAGE_S3_BUCKET`            | Bucket name (default: `vetchium`)                  |
+| Variable               | Description                                              |
+| ---------------------- | -------------------------------------------------------- |
+| `S3_ENDPOINT`          | S3 API base URL (e.g. `http://localstack:4566`)          |
+| `S3_ACCESS_KEY_ID`     | S3 access key ID                                         |
+| `S3_SECRET_ACCESS_KEY` | S3 secret access key                                     |
+| `S3_REGION`            | S3 region string (default: `us-east-1`)                  |
+| `S3_BUCKET`            | Bucket name (default: `vetchium`)                        |
 
 Access these in handlers via `s.StorageConfig.Endpoint`, `s.StorageConfig.AccessKeyID`, etc.
 

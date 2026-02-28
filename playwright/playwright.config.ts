@@ -46,11 +46,6 @@ export default defineConfig({
 
 		// Collect trace when retrying the failed test
 		trace: "on-first-retry",
-
-		// Extra HTTP headers for API requests
-		extraHTTPHeaders: {
-			"Content-Type": "application/json",
-		},
 	},
 
 	// Define test projects
