@@ -5,7 +5,6 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
@@ -41,21 +40,12 @@ func AddTag(s *server.GlobalServer) http.HandlerFunc {
 			return
 		}
 
-		// Check if tag already exists
-		_, err := s.Global.GetTag(ctx, req.TagID)
-		if err == nil {
-			log.Debug("tag already exists", "tag_id", req.TagID)
-			w.WriteHeader(http.StatusConflict)
-			return
-		} else if !errors.Is(err, pgx.ErrNoRows) {
-			log.Error("failed to check existing tag", "error", err)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-
 		// Create tag and translations in a transaction
-		err = s.WithGlobalTx(ctx, func(qtx *globaldb.Queries) error {
+		err := s.WithGlobalTx(ctx, func(qtx *globaldb.Queries) error {
 			if err := qtx.CreateTag(ctx, req.TagID); err != nil {
+				if server.IsUniqueViolation(err) {
+					return server.ErrConflict
+				}
 				return err
 			}
 			for _, t := range req.Translations {
@@ -74,6 +64,11 @@ func AddTag(s *server.GlobalServer) http.HandlerFunc {
 			return nil
 		})
 		if err != nil {
+			if errors.Is(err, server.ErrConflict) {
+				log.Debug("tag already exists", "tag_id", req.TagID)
+				w.WriteHeader(http.StatusConflict)
+				return
+			}
 			log.Error("failed to create tag", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return

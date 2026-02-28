@@ -51,7 +51,6 @@ export function ManageTagsPage() {
 	const { t } = useTranslation("tags");
 	const { sessionToken } = useAuth();
 	const { message } = App.useApp();
-	const [apiBase, setApiBase] = useState<string>("");
 
 	const [tags, setTags] = useState<AdminTag[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -79,20 +78,17 @@ export function ManageTagsPage() {
 	const [iconSize, setIconSize] = useState<"small" | "large">("small");
 	const [iconFileList, setIconFileList] = useState<UploadFile[]>([]);
 
-	useEffect(() => {
-		getApiBaseUrl().then(setApiBase);
-	}, []);
-
 	const fetchTags = useCallback(
 		async (query: string, cursor?: string) => {
-			if (!apiBase || !sessionToken) return;
+			if (!sessionToken) return;
 			setLoading(true);
 			try {
+				const apiBaseUrl = await getApiBaseUrl();
 				const reqBody: FilterTagsRequest = {
 					query: query || undefined,
 					pagination_key: cursor || undefined,
 				};
-				const resp = await fetch(`${apiBase}/admin/filter-tags`, {
+				const resp = await fetch(`${apiBaseUrl}/admin/filter-tags`, {
 					method: "POST",
 					headers: {
 						"Content-Type": "application/json",
@@ -116,14 +112,12 @@ export function ManageTagsPage() {
 				setLoading(false);
 			}
 		},
-		[apiBase, sessionToken, message, t]
+		[sessionToken, message, t]
 	);
 
 	useEffect(() => {
-		if (apiBase && sessionToken) {
-			fetchTags(searchQuery);
-		}
-	}, [apiBase, sessionToken, searchQuery, fetchTags]);
+		fetchTags(searchQuery);
+	}, [fetchTags, searchQuery]);
 
 	const handleSearch = (val: string) => {
 		setSearchQuery(val);
@@ -157,7 +151,8 @@ export function ManageTagsPage() {
 
 		setAddLoading(true);
 		try {
-			const resp = await fetch(`${apiBase}/admin/add-tag`, {
+			const apiBaseUrl = await getApiBaseUrl();
+			const resp = await fetch(`${apiBaseUrl}/admin/add-tag`, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
@@ -209,7 +204,8 @@ export function ManageTagsPage() {
 
 		setEditLoading(true);
 		try {
-			const resp = await fetch(`${apiBase}/admin/update-tag`, {
+			const apiBaseUrl = await getApiBaseUrl();
+			const resp = await fetch(`${apiBaseUrl}/admin/update-tag`, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
@@ -268,7 +264,8 @@ export function ManageTagsPage() {
 			if (!file) return;
 			formData.append("icon_file", file);
 
-			const resp = await fetch(`${apiBase}/admin/upload-tag-icon`, {
+			const apiBaseUrl = await getApiBaseUrl();
+			const resp = await fetch(`${apiBaseUrl}/admin/upload-tag-icon`, {
 				method: "POST",
 				headers: {
 					Authorization: `Bearer ${sessionToken}`,
@@ -298,7 +295,8 @@ export function ManageTagsPage() {
 			icon_size: size,
 		};
 		try {
-			const resp = await fetch(`${apiBase}/admin/delete-tag-icon`, {
+			const apiBaseUrl = await getApiBaseUrl();
+			const resp = await fetch(`${apiBaseUrl}/admin/delete-tag-icon`, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",

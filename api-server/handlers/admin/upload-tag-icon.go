@@ -9,7 +9,6 @@ import (
 	"net/http"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -159,14 +158,7 @@ func detectImageContentType(data []byte) (string, error) {
 }
 
 func uploadToS3(ctx context.Context, cfg *server.StorageConfig, key, contentType string, data []byte) error {
-	endpoint := cfg.Endpoint
-	client := s3.New(s3.Options{
-		BaseEndpoint: &endpoint,
-		UsePathStyle: true,
-		Region:       cfg.Region,
-		Credentials:  aws.NewCredentialsCache(credentials.NewStaticCredentialsProvider(cfg.AccessKeyID, cfg.SecretAccessKey, "")),
-	})
-
+	client := newS3Client(cfg)
 	_, err := client.PutObject(ctx, &s3.PutObjectInput{
 		Bucket:        aws.String(cfg.Bucket),
 		Key:           aws.String(key),

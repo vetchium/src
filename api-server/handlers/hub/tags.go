@@ -15,6 +15,8 @@ import (
 
 const tagIconURLBase = "/public/tag-icon"
 
+const tagFilterDefaultLimit = 25
+
 func buildTagResponse(row globaldb.FilterTagsForLocaleRow) hub.Tag {
 	t := hub.Tag{
 		TagID:       row.TagID,
@@ -144,7 +146,7 @@ func FilterTags(s *server.Server) http.HandlerFunc {
 			Locale:        locale,
 			Query:         req.Query,
 			PaginationKey: req.PaginationKey,
-			LimitCount:    26,
+			LimitCount:    tagFilterDefaultLimit + 1,
 		})
 		if err != nil {
 			log.Error("failed to filter tags", "error", err)
@@ -152,13 +154,13 @@ func FilterTags(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		hasMore := len(rows) > 25
+		hasMore := len(rows) > tagFilterDefaultLimit
 		if hasMore {
-			rows = rows[:25]
+			rows = rows[:tagFilterDefaultLimit]
 		}
 
 		var nextPaginationKey string
-		if hasMore && len(rows) > 0 {
+		if hasMore {
 			nextPaginationKey = rows[len(rows)-1].TagID
 		}
 

@@ -57,7 +57,7 @@ func FilterTags(s *server.GlobalServer) http.HandlerFunc {
 		}
 
 		var nextPaginationKey string
-		if hasMore && len(rows) > 0 {
+		if hasMore {
 			nextPaginationKey = rows[len(rows)-1].TagID
 		}
 

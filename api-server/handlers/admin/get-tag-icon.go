@@ -8,7 +8,6 @@ import (
 	"net/http"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/jackc/pgx/v5"
 	"vetchium-api-server.gomodule/internal/server"
@@ -80,19 +79,14 @@ func GetTagIcon(s *server.GlobalServer) http.HandlerFunc {
 			w.Header().Set("Content-Type", contentType)
 		}
 		w.Header().Set("Cache-Control", "public, max-age=86400")
-		io.Copy(w, data)
+		if _, err := io.Copy(w, data); err != nil {
+			log.Error("failed to stream icon to response", "error", err)
+		}
 	}
 }
 
 func downloadFromS3(ctx context.Context, cfg *server.StorageConfig, key string) (io.ReadCloser, error) {
-	endpoint := cfg.Endpoint
-	client := s3.New(s3.Options{
-		BaseEndpoint: &endpoint,
-		UsePathStyle: true,
-		Region:       cfg.Region,
-		Credentials:  aws.NewCredentialsCache(credentials.NewStaticCredentialsProvider(cfg.AccessKeyID, cfg.SecretAccessKey, "")),
-	})
-
+	client := newS3Client(cfg)
 	result, err := client.GetObject(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(cfg.Bucket),
 		Key:    aws.String(key),

@@ -4,11 +4,25 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
+	"vetchium-api-server.gomodule/internal/server"
 	"vetchium-api-server.typespec/admin"
 )
 
 const tagIconURLBase = "/public/tag-icon"
+
+func newS3Client(cfg *server.StorageConfig) *s3.Client {
+	endpoint := cfg.Endpoint
+	return s3.New(s3.Options{
+		BaseEndpoint: &endpoint,
+		UsePathStyle: true,
+		Region:       cfg.Region,
+		Credentials:  aws.NewCredentialsCache(credentials.NewStaticCredentialsProvider(cfg.AccessKeyID, cfg.SecretAccessKey, "")),
+	})
+}
 
 func buildAdminTagResponse(tag globaldb.Tag, translations []globaldb.GetTagTranslationsRow) admin.AdminTag {
 	resp := admin.AdminTag{

@@ -8,7 +8,6 @@ import (
 	"net/http"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/jackc/pgx/v5"
 	"vetchium-api-server.gomodule/internal/middleware"
@@ -94,14 +93,7 @@ func DeleteTagIcon(s *server.GlobalServer) http.HandlerFunc {
 }
 
 func deleteFromS3(ctx context.Context, cfg *server.StorageConfig, key string) error {
-	endpoint := cfg.Endpoint
-	client := s3.New(s3.Options{
-		BaseEndpoint: &endpoint,
-		UsePathStyle: true,
-		Region:       cfg.Region,
-		Credentials:  aws.NewCredentialsCache(credentials.NewStaticCredentialsProvider(cfg.AccessKeyID, cfg.SecretAccessKey, "")),
-	})
-
+	client := newS3Client(cfg)
 	_, err := client.DeleteObject(ctx, &s3.DeleteObjectInput{
 		Bucket: aws.String(cfg.Bucket),
 		Key:    aws.String(key),
