@@ -44,9 +44,9 @@ Vetchium is a multi-region job search and hiring platform with distributed regio
 ### Development Process
 
 1. First write the Specifications under [specs](./specs/) by creating a new directory and a README.md file under that using the [specification template](./specs/spec-template-README.md)
-2. Document the required API endpoints and schemas under [typespec](./specs/typespec/) in appropriate `.ts` and `.go` files
-3. All the validations should happen on the [typespec](./specs/typespec/) in appropriate `.ts` files and `.go` files
-4. Implement the backend and frontend code changes
+2. Document the required API endpoints and schemas under [typespec](./specs/typespec/) in `.tsp` files. Create new `.tsp` files or use existing files as appropriately based on the extent of the changes. Confirm the API endpoints and schemas with the Human before proceeding further.
+3. Once the `.tsp` changes are confirmed by the Human in the loop, implement the corresponding code in the `.ts` and `.go` files corresponding to the `.tsp` files added or updated. All the validations should happen on the [typespec](./specs/typespec/) in appropriate `.ts` files and `.go` files.
+4. Implement the backend and frontend code changes, after creating a detailed plan of all the changes that you are going to implement with detailed references to the files in the source tree. The backend `.go` files and the database changes should be designed together so that they are compatible.
    - **CRITICAL**: All API request/response types MUST be imported from `specs/typespec/`
    - NEVER define API types locally in UI code, test code, or API client code
    - API client methods must accept typespec request objects, not individual parameters
@@ -60,6 +60,7 @@ Vetchium is a multi-region job search and hiring platform with distributed regio
 9. All .md, .ts, .tsx, .js, .jsx, .json, .yaml, .yml files should be formatted with [prettier](https://prettier.io/docs/)
 10. Prefer to use JSON instead of YAML wherever possible
 11. Do not use any deprecated functions from the libraries that you import
+12. If there are any new config values needed for the backend, they should be brought in via environment variables so that they can be changed at runtime. The corresponding docker compose files should also be updated to accommodate these env changes.
 
 ## Build Commands
 
