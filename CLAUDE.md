@@ -1,10 +1,10 @@
 # CLAUDE.md
 
-This file provides guidance for Claude Code when working with the Vetchium codebase.
+Guidance for Claude Code when working with the Vetchium codebase.
 
 ## Project Overview
 
-Vetchium is a multi-region job search and hiring platform with distributed regional deployments. It supports multiple user types (Professionals/HubUsers, Employers/OrgUsers, Agencies/AgencyUsers) with regional data isolation and global coordination.
+Vetchium is a multi-region job search and hiring platform. User types: Professionals/HubUsers, Employers/OrgUsers, Agencies/AgencyUsers. Regional data isolation with global coordination.
 
 ## Tech Stack
 
@@ -20,1030 +20,307 @@ Vetchium is a multi-region job search and hiring platform with distributed regio
 
 ### Code Style
 
-- LF line endings, UTF-8 encoding
-- Trim trailing whitespace
+- LF line endings, UTF-8 encoding, trim trailing whitespace
 
 ### Avoiding Deprecated APIs
 
-**CRITICAL**: Do NOT use deprecated functions from any library. Follow these guidelines:
+**CRITICAL**: Do NOT use deprecated functions from any library.
 
-1. **IDE Warnings**: Always check your IDE for deprecation warnings (strikethrough text, yellow underlines)
-2. **ESLint Rule**: All UI projects (`hub-ui`, `admin-ui`) have `@typescript-eslint/no-deprecated` enabled to catch deprecated usage
-3. **Before implementing**:
-   - Check library documentation for the current version (e.g., https://ant.design/llms-full.txt for Ant Design)
-   - Verify prop/method names in TypeScript definitions (look for `@deprecated` JSDoc tags in `node_modules`)
-   - When unsure, search the library's changelog or migration guides
-4. **Common deprecations in Ant Design v6**:
-   - Alert: Use `closable={{ onClose: ... }}` instead of separate `closable` + `onClose` props
-   - Alert: Use `closable={{ afterClose: ... }}` instead of separate `afterClose` prop
-   - Alert: Use `closable={{ closeIcon: ... }}` instead of separate `closeIcon` prop
-   - Select: Use `showSearch={{ filterOption: ... }}` instead of separate `filterOption` prop
-   - Alert: Use `title` instead of `message` prop
-5. **Run linter before commits**: In each UI project directory, run `bun run lint` to check for deprecated usage warnings
+- IDE warnings + ESLint (`@typescript-eslint/no-deprecated` in hub-ui, admin-ui) will flag them
+- Check library docs/changelog before implementing; run `bun run lint` before commits
+- Common Ant Design v6 deprecations:
+  - Alert: `closable={{ onClose/afterClose/closeIcon: ... }}` (not separate props); `title` not `message`
+  - Select: `showSearch={{ filterOption: ... }}` (not separate `filterOption`)
 
 ### Development Process
 
-1. First write the Specifications under [specs](./specs/) by creating a new directory and a README.md file under that using the [specification template](./specs/spec-template-README.md)
-2. Document the required API endpoints and schemas under [typespec](./specs/typespec/) in `.tsp` files. Create new `.tsp` files or use existing files as appropriately based on the extent of the changes. Confirm the API endpoints and schemas with the Human before proceeding further.
-3. Once the `.tsp` changes are confirmed by the Human in the loop, implement the corresponding code in the `.ts` and `.go` files corresponding to the `.tsp` files added or updated. All the validations should happen on the [typespec](./specs/typespec/) in appropriate `.ts` files and `.go` files.
-4. Implement the backend and frontend code changes, after creating a detailed plan of all the changes that you are going to implement with detailed references to the files in the source tree. The backend `.go` files and the database changes should be designed together so that they are compatible.
-   - **CRITICAL**: All API request/response types MUST be imported from `specs/typespec/`
-   - NEVER define API types locally in UI code, test code, or API client code
-   - API client methods must accept typespec request objects, not individual parameters
-5. All the database related SQL should be under [db](./api-server/db/) directory on `.sql` files with reference for these on the `.go` code via [sqlc](./api-server/sqlc.yaml)
-6. No SQL statements should exist in `.go` files
-7. Implement tests for the API and UI as needed under the [playwright](./playwright/) directory with unique user for each test
-   - **CRITICAL**: Import all request/response types from `specs/typespec/` in test files
-   - Use typed request objects when calling API client methods
-   - Test exhaustively for all possible return codes and scenarios
-8. All .go files should be formatted by [goimports](https://pkg.go.dev/golang.org/x/tools/cmd/goimports)
-9. All .md, .ts, .tsx, .js, .jsx, .json, .yaml, .yml files should be formatted with [prettier](https://prettier.io/docs/)
-10. Prefer to use JSON instead of YAML wherever possible
-11. Do not use any deprecated functions from the libraries that you import
-12. If there are any new config values needed for the backend, they should be brought in via environment variables so that they can be changed at runtime. The corresponding docker compose files should also be updated to accommodate these env changes.
+1. Write spec under `specs/` using the template at `specs/spec-template-README.md`
+2. Add/update `.tsp` files under `specs/typespec/` — confirm API endpoints with Human before proceeding
+3. Implement matching `.ts` and `.go` type/validation files from the `.tsp`
+4. Implement backend + frontend — plan all file changes first
+   - **CRITICAL**: All API request/response types MUST be imported from `specs/typespec/`; never define locally
+5. All DB SQL goes in `api-server/db/` `.sql` files via sqlc — no SQL in `.go` files
+6. Write Playwright tests under `playwright/` — import all types from `specs/typespec/`
+7. Format: `goimports -w` for Go; `prettier --write` for md/ts/tsx/js/json/yaml
+8. New config values → environment variables; update docker-compose files accordingly
 
 ## Build Commands
 
-### TypeSpec (specs/typespec/)
-
 ```bash
-bun install
-tsp compile . # Generate OpenAPI specs
+# TypeSpec
+cd specs/typespec && bun install && tsp compile .
+
+# Frontend (hub-ui, admin-ui, etc.)
+bun install && bun run dev|build|lint
+
+# Backend (from api-server/)
+sqlc generate
+go build -o global-service       ./cmd/global-service/
+go build -o regional-api-server  ./cmd/regional-api-server/
+go build -o regional-worker      ./cmd/regional-worker/
+
+# Docker (from src/)
+docker compose -f docker-compose-full.json up --build
+docker compose -f docker-compose-full.json down -v
 ```
 
-### Frontend
+## Object Storage (LocalStack / S3-compatible)
 
-```bash
-bun install          # Install dependencies
-bun run dev          # Start dev server
-bun run build        # Build for production
-bun run lint         # Run ESLint
-```
+One LocalStack instance for all regions in dev/CI. Env vars (set in docker-compose):
 
-### Backend (api-server/)
+| Variable               | Value (dev)              |
+| ---------------------- | ------------------------ |
+| `S3_ENDPOINT`          | `http://localstack:4566` |
+| `S3_ACCESS_KEY_ID`     | `vetchium-dev-key`       |
+| `S3_SECRET_ACCESS_KEY` | `vetchium-dev-secret`    |
+| `S3_REGION`            | `us-east-1`              |
+| `S3_BUCKET`            | `vetchium`               |
 
-```bash
-sqlc generate                                    # Generate SQL code
-go build -o api-server ./cmd/api-server.go       # Build binary
-```
-
-### Docker (from src/)
-
-```bash
-docker compose -f docker-compose-full.json up --build   # Start all services
-docker compose -f docker-compose-full.json down -v      # Stop all services
-```
-
-## Object Storage Architecture (Garage)
-
-Vetchium uses [Garage](https://garagehq.deuxfleurs.fr/) (S3-compatible) for file storage, with one Garage instance per region (mirroring the database architecture):
-
-- **garage-global**: For globally-scoped files (e.g. tag icons managed by admin)
-- **garage-ind1 / garage-usa1 / garage-deu1**: For regional files (e.g. user profile photos, org logos)
-
-### Storage and Region Isolation
-
-Each API server connects to exactly one Garage instance — its co-located one. Cross-region file access is proxied to the appropriate regional API server (same pattern as databases). The `Server.StorageConfig` and `GlobalServer.StorageConfig` fields hold the connection parameters.
-
-### Connection Configuration
-
-Storage parameters are read from environment variables at startup:
-
-| Variable               | Description                                     |
-| ---------------------- | ----------------------------------------------- |
-| `S3_ENDPOINT`          | S3 API base URL (e.g. `http://localstack:4566`) |
-| `S3_ACCESS_KEY_ID`     | S3 access key ID                                |
-| `S3_SECRET_ACCESS_KEY` | S3 secret access key                            |
-| `S3_REGION`            | S3 region string (default: `us-east-1`)         |
-| `S3_BUCKET`            | Bucket name (default: `vetchium`)               |
-
-Access these in handlers via `s.StorageConfig.Endpoint`, `s.StorageConfig.AccessKeyID`, etc.
-
-### Dev Setup
-
-Config files are in `garage/`:
-
-- `garage-{instance}.toml` — Garage daemon config (one per instance)
-- `init-garage.sh` — Init script that sets up cluster layout, imports keys, and creates the bucket
-
-**Dev credentials** (for Docker Compose only, never for production):
-
-| Instance | Access Key ID             | Secret                                          |
-| -------- | ------------------------- | ----------------------------------------------- |
-| global   | `vetchium-dev-global-key` | `vetchium-dev-global-secret-not-for-production` |
-| ind1     | `vetchium-dev-ind1-key`   | `vetchium-dev-ind1-secret-not-for-production`   |
-| usa1     | `vetchium-dev-usa1-key`   | `vetchium-dev-usa1-secret-not-for-production`   |
-| deu1     | `vetchium-dev-deu1-key`   | `vetchium-dev-deu1-secret-not-for-production`   |
-
-**Admin API** (for debugging with curl):
-
-- Global: `http://localhost:3903` (token: `vetchium-dev-admin-token`)
-- ind1: `http://localhost:3913`, usa1: `http://localhost:3923`, deu1: `http://localhost:3933`
-
-**S3 API** (for direct bucket access):
-
-- Global: `http://localhost:3900`
-- ind1: `http://localhost:3910`, usa1: `http://localhost:3920`, deu1: `http://localhost:3930`
-
-### Adding a Storage Feature
-
-When implementing a feature that needs file uploads:
-
-1. Use the AWS SDK v2 for Go (`github.com/aws/aws-sdk-go-v2`) with `s3.Options{BaseEndpoint: &endpoint, UsePathStyle: true}` — Garage requires path-style URLs
-2. Access `s.StorageConfig` to build the S3 client in your handler
-3. For files that belong to a specific user's region, proxy to the correct regional server (same as DB cross-region pattern)
-4. Keep the S3 client construction in the handler or a shared helper — do not store it on `Server` (create per-request or use a shared client pool)
+When adding a storage feature: use AWS SDK v2 with `UsePathStyle: true` (required by LocalStack). Access via `s.StorageConfig`. Host S3 endpoint for debugging: `http://localhost:4566`.
 
 ## Database Architecture
 
-- **Global DB**: Cross-region lookups, user identity, email hashes
-- **Regional DBs**: PII, credentials, Actual data
+- **Global DB**: Cross-region lookups, user identity, email hashes (thin routing table)
+- **Regional DBs** (ind1:5433, usa1:5434, deu1:5435): All PII, credentials, mutable data
 
-Migrations are in `api-server/db/migrations/{global,regional}/`. No need to create new database migration files for now. Continue to use the existing initdb migration file itself as we are not yet in production. If you need to make a change to an existing table or enum, edit the table or enum CREATE statement directly instead of an ALTER statement. Do not create any index for now for performance. The only reason to create an INDEX could be to enforce uniquness, if it cannot be enforced otherwise. Prefer to use UNIQUE keyword in the CREATE statements instead of an INDEX, wherever possible.
+**Migrations**: Edit existing `api-server/db/migrations/{global,regional}/00000000000001_initial_schema.sql` directly (no new migration files until production). No new indexes for performance; use `UNIQUE` in CREATE statements instead.
 
 ### Database Write Operations & Transactions
 
-**CRITICAL**: All write operations (INSERT, UPDATE, DELETE) that touch more than one row or table MUST be wrapped in a transaction. Even single-row writes that are part of a logical unit of work should use transactions for correctness.
-
-#### Single-Database Transactions
-
-Use `s.WithGlobalTx` or `s.WithRegionalTx` for operations within one database. These helpers begin a transaction, call your function, and automatically commit on success or rollback on error.
+**CRITICAL**: All writes touching >1 row/table MUST use transactions. Use `s.WithGlobalTx` / `s.WithRegionalTx`:
 
 ```go
-// Global DB transaction
 err = s.WithGlobalTx(ctx, func(qtx *globaldb.Queries) error {
-    if err := qtx.CreateFoo(ctx, fooParams); err != nil {
-        return err
-    }
-    if err := qtx.UpdateBar(ctx, barParams); err != nil {
-        return err
-    }
-    return nil
+    if err := qtx.CreateFoo(ctx, fooParams); err != nil { return err }
+    return qtx.UpdateBar(ctx, barParams)
 })
 if err != nil {
-    if errors.Is(err, server.ErrConflict) {
-        w.WriteHeader(http.StatusConflict)
-        return
-    }
-    log.Error("failed to create foo", "error", err)
-    http.Error(w, "", http.StatusInternalServerError)
-    return
-}
-
-// Regional DB transaction
-err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
-    if err := qtx.CreateUser(ctx, userParams); err != nil {
-        return err
-    }
-    if err := qtx.AssignRole(ctx, roleParams); err != nil {
-        return err
-    }
-    return nil
-})
-```
-
-**Custom error types** (from `server` package) can be returned from the transaction function to map to specific HTTP status codes:
-
-- `server.ErrNotFound` → 404
-- `server.ErrConflict` → 409
-- `server.ErrInvalidState` → 422
-
-#### Cross-Database Operations
-
-When spanning global and regional databases, use compensating transactions (a single ACID transaction cannot span two databases):
-
-```go
-// 1. Create in global DB first
-err = s.Global.CreateRecord(ctx, params)
-if err != nil {
-    log.Error("failed to create record", "error", err)
-    http.Error(w, "", http.StatusInternalServerError)
-    return
-}
-
-// 2. Try regional operation
-err = regionalDB.EnqueueEmail(ctx, emailParams)
-if err != nil {
-    log.Error("failed to enqueue email", "error", err)
-    // Compensating transaction: undo the global write
-    if delErr := s.Global.DeleteRecord(ctx, id); delErr != nil {
-        log.Error("CONSISTENCY_ALERT: failed to rollback global record", "error", delErr)
-    }
-    http.Error(w, "", http.StatusInternalServerError)
-    return
+    if errors.Is(err, server.ErrConflict) { w.WriteHeader(http.StatusConflict); return }
+    log.Error("failed", "error", err); http.Error(w, "", http.StatusInternalServerError); return
 }
 ```
 
-Log `CONSISTENCY_ALERT` when a compensating transaction itself fails, so operators can detect and repair inconsistent state.
+Custom error types: `server.ErrNotFound` → 404, `server.ErrConflict` → 409, `server.ErrInvalidState` → 422.
+
+**Cross-database** (global + regional): global first, then regional, with compensating transaction on failure. Log `CONSISTENCY_ALERT` when compensation itself fails.
 
 ### Regional Database Selection
 
-- Users and organizations sign up in a specific region (IND1, USA1, or DEU1)
-- Their data is stored in that region's database for data sovereignty and compliance
-- All backend instances can access any regional database connection
-- The region is determined at signup and stored in the global database
-- Use `s.GetRegionalDB(region)` to get the appropriate regional database connection
+Region determined at signup, stored in global DB. Use `s.GetRegionalDB(region)` to get regional connection.
 
 ### Keyset Pagination
 
-**CRITICAL**: All list APIs MUST use keyset pagination. Never use OFFSET-based pagination.
+**CRITICAL**: All list APIs MUST use keyset pagination. Never use OFFSET.
 
 ## Backend Conventions
 
 ### HTTP Response Conventions
 
-| Scenario          | Status Code | Response Body                    |
-| ----------------- | ----------- | -------------------------------- |
-| JSON decode error | 400         | Error message string             |
-| Validation errors | 400         | JSON array: `[{field, message}]` |
-| Unauthenticated   | 401         | Empty                            |
-| Forbidden         | 403         | Empty                            |
-| Not found         | 404         | Empty                            |
-| Conflict          | 409         | Optional JSON with error message |
-| Invalid state     | 422         | Empty                            |
-| Server error      | 500         | Empty                            |
-| Created           | 201         | JSON resource                    |
-| Deleted           | 204         | Empty                            |
-| Success           | 200         | JSON                             |
+| Scenario          | Status | Body                             |
+| ----------------- | ------ | -------------------------------- |
+| JSON decode error | 400    | Error message string             |
+| Validation errors | 400    | JSON array: `[{field, message}]` |
+| Unauthenticated   | 401    | Empty                            |
+| Forbidden         | 403    | Empty                            |
+| Not found         | 404    | Empty                            |
+| Conflict          | 409    | Optional JSON                    |
+| Invalid state     | 422    | Empty                            |
+| Server error      | 500    | Empty                            |
+| Created           | 201    | JSON resource                    |
+| Deleted           | 204    | Empty                            |
+| Success           | 200    | JSON                             |
 
-**Status Code Decision Tree**:
-
-- **404**: Resource doesn't exist (unknown domain, user, job posting)
-- **401**: Authentication failure (wrong credentials, expired session/TFA token, invalid token)
-- **403**: Authenticated but forbidden (wrong TFA code for valid token, insufficient permissions)
-- **422**: Resource exists but in wrong state (account disabled, domain inactive)
+**Status code decision tree**: 404=resource doesn't exist; 401=auth failure (bad creds/expired token); 403=authenticated but forbidden; 422=resource exists but wrong state (disabled account).
 
 ### Handler Implementation Pattern
+
+Handlers follow: decode → validate → query/write (in tx) → check state → respond.
 
 ```go
 func MyHandler(s *server.Server) http.HandlerFunc {
     return func(w http.ResponseWriter, r *http.Request) {
         w.Header().Set("Content-Type", "application/json")
         ctx := r.Context()
-        log := s.Logger(ctx)  // Always get logger from context
+        log := s.Logger(ctx)
 
-        // 1. Decode request body
         var req types.MyRequest
         if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-            log.Debug("failed to decode request", "error", err)
-            http.Error(w, err.Error(), http.StatusBadRequest)
-            return
+            log.Debug("failed to decode", "error", err)
+            http.Error(w, err.Error(), http.StatusBadRequest); return
         }
-
-        // 2. Validate using TypeSpec-generated validator
         if errs := req.Validate(); len(errs) > 0 {
-            log.Debug("validation failed", "errors", errs)
-            w.WriteHeader(http.StatusBadRequest)
-            json.NewEncoder(w).Encode(errs)
-            return
+            w.WriteHeader(http.StatusBadRequest); json.NewEncoder(w).Encode(errs); return
         }
-
-        // 3. Business logic — reads can use s.Global/s.Regional directly;
-        //    writes MUST use WithGlobalTx / WithRegionalTx (see "Database Write
-        //    Operations & Transactions" section).
-        result, err := s.Global.SomeQuery(ctx, params)
-        if err != nil {
-            if errors.Is(err, pgx.ErrNoRows) {
-                w.WriteHeader(http.StatusNotFound)
-                return
-            }
-            log.Error("failed to query", "error", err)
-            http.Error(w, "", http.StatusInternalServerError)
-            return
-        }
-
-        // 4. Check resource state if needed
-        if result.Status != "active" {
-            log.Debug("resource not active", "status", result.Status)
-            w.WriteHeader(http.StatusUnprocessableEntity)
-            return
-        }
-
-        // 5. Writes inside a transaction
-        err = s.WithGlobalTx(ctx, func(qtx *globaldb.Queries) error {
-            return qtx.UpdateSomething(ctx, updateParams)
-        })
-        if err != nil {
-            log.Error("failed to update", "error", err)
-            http.Error(w, "", http.StatusInternalServerError)
-            return
-        }
-
-        // 6. Return success response
-        log.Info("operation completed", "id", result.ID)
+        // reads: s.Global/s.Regional directly; writes: WithGlobalTx/WithRegionalTx
         json.NewEncoder(w).Encode(result)
     }
 }
 ```
 
-### Logging Conventions
+See existing handlers in `api-server/handlers/` for full examples.
 
-Use `slog` with structured key-value pairs. Get logger from context:
+### Logging Conventions
 
 ```go
 log := s.Logger(ctx)
+log.Debug("validation failed", "errors", errs)  // expected/handled errors
+log.Error("failed to query DB", "error", err)   // actual errors
+log.Info("user created", "id", userID)          // successes
 ```
 
-Log levels:
+Never log passwords, session tokens, TFA codes, or full email addresses.
 
-- **Debug**: Validation failures, auth failures, expected/handled errors
-- **Error**: Actual errors (DB failures, encoding errors, unexpected conditions)
-- **Info**: Successful operations with relevant context (IDs, counts)
+### Handler Organization & Middleware
 
-```go
-log.Debug("invalid credentials - user not found")           // Expected failure
-log.Debug("validation failed", "errors", validationErrors)  // Client error
-log.Error("failed to query global DB", "error", err)        // Actual error
-log.Info("admin login initiated", "admin_user_id", id)      // Success
-```
-
-### Handler Organization
-
-Handlers are organized under `api-server/handlers/` in subdirectories based on API path and/or functionality:
-
-- `handlers/admin/` - Admin handlers
-- `handlers/hub/` - HubUser (Professional) handlers
-- `handlers/org/` - OrgUser (Employer) handlers
-- `handlers/agency/` - AgencyUser handlers
-
-**Dependencies**: All handlers receive dependencies via `*server.Server` from `api-server/internal/server/server.go`. This struct contains:
-
-- Database connections (Global, RegionalIND1, RegionalUSA1, RegionalDEU1)
-- Logger (`*slog.Logger`)
-
-### Middleware Structure
-
-**Global middleware** (applied in `cmd/api-server.go`):
-
-- **CORS**: Handles preflight requests
-- **RequestID**: Injects logger with request_id into context
-
-**Route-specific middleware** (applied per-route):
-
-- **Auth middleware**: Validates session tokens for protected endpoints
+Handlers in `api-server/handlers/{admin,hub,org,agency}/`. All deps via `*server.Server`.
 
 ```go
-// Routes WITHOUT auth (login, public endpoints)
+// Without auth
 mux.HandleFunc("POST /admin/login", admin.Login(s))
-
-// Routes WITH auth (protected endpoints)
+// With auth + role
 mux.Handle("POST /admin/list-approved-domains",
-    middleware.AdminAuth(s.Global)(http.HandlerFunc(admin.ListApprovedDomains(s))))
+    middleware.AdminAuth(s.Global)(middleware.AdminRole(s.Global, "admin:manage_domains")(http.HandlerFunc(admin.ListApprovedDomains(s)))))
 ```
 
-**Extract authenticated data in handlers**:
-
-```go
-adminUser := middleware.AdminUserFromContext(ctx)
-if adminUser == nil {
-    log.Debug("admin user not found in context")
-    w.WriteHeader(http.StatusUnauthorized)
-    return
-}
-// Use adminUser.AdminUserID, adminUser.EmailAddress, etc.
-```
+Extract authenticated user: `adminUser := middleware.AdminUserFromContext(ctx)` (returns nil → 401).
 
 ## API Naming Convention
 
-API uses **snake_case** for all JSON fields:
+All JSON fields use **snake_case**: `tfa_token`, `domain_name`, `created_at`. Go: `json:"tfa_token"`. TypeScript: `tfa_token: string`.
 
-- Request/response fields: `tfa_token`, `domain_name`, `created_at`
-- Go struct tags: `json:"tfa_token"`
-- TypeScript interfaces: `tfa_token: string`
+## API Endpoints Convention
 
-```go
-// Go struct
-type Response struct {
-    TFAToken  string `json:"tfa_token"`
-    CreatedAt string `json:"created_at"`
-}
-```
-
-```typescript
-// TypeScript interface
-interface Response {
-	tfa_token: string;
-	created_at: string;
-}
-```
-
-## API endpoints Convention
-
-Use POST as the method type as much as possible and pass any value needed in the request body with a schema. Avoid using path parameters. Query parameters should be sparingly used.
-Use DELETE method for operations that may delete data. But ideally most APIs should be marking as disabled instead of delete.
-Use Authorization Header for passing session tokens. Do not pass session tokens in request bodies.
-
-Avoid using common endpoint prefixes to avoid wrong handlers getting called accidentally. For example, Instead of
-
-```go
-  mux.Handle("POST /admin/approved-domains", authMiddleware(admin.AddApprovedDomain(s)))
-  mux.Handle("GET /admin/approved-domains", authMiddleware(admin.ListApprovedDomains(s)))
-  mux.Handle("GET /admin/approved-domains/{domain}", authMiddleware(admin.GetApprovedDomain(s)))
-  mux.Handle("DELETE /admin/approved-domains/{domain}", authMiddleware(admin.DeleteApprovedDomain(s)))
-```
-
-generate as below
-
-```go
-  mux.Handle("POST /admin/add-approved-domain", authMiddleware(admin.AddApprovedDomain(s)))
-  mux.Handle("POST /admin/list-approved-domains", authMiddleware(admin.ListApprovedDomains(s)))
-  mux.Handle("POST /admin/get-approved-domain", authMiddleware(admin.GetApprovedDomain(s)))
-  mux.Handle("DELETE /admin/delete-approved-domains", authMiddleware(admin.DeleteApprovedDomain(s)))
-```
+- Use POST for most operations; pass all params in request body
+- Use DELETE only for actual deletions (prefer disabling over deleting)
+- Pass session tokens in `Authorization: Bearer <token>` header, not body
+- Use distinct endpoint names to avoid accidental handler conflicts:
+  - ✅ `/admin/add-approved-domain`, `/admin/list-approved-domains`
+  - ❌ `/admin/approved-domains` (GET vs POST collision risk)
 
 ## TypeSpec Validation
 
-**Source of Truth**: `.tsp` files define the API contract. The `.ts` and `.go` files must be kept in sync.
+`.tsp` files are the source of truth. Keep `.ts` and `.go` files in sync manually (tsp compile only generates OpenAPI specs).
 
-**Workflow**:
-
-1. Define types in `.tsp` files (TypeSpec format)
-2. Implement matching `.ts` types with validation functions
-3. Implement matching `.go` types with validation methods
-4. Run `tsp compile .` to generate OpenAPI specs
-5. Verify all three files (.tsp, .ts, .go) are consistent
-
-The `.tsp` compilation generates OpenAPI specs for documentation, but does NOT generate Go or TypeScript code. Developers must maintain consistency across all three files manually.
-
-### TypeSpec Type Import Requirements
-
-**CRITICAL**: All API request/response types MUST be imported from `specs/typespec/`. NEVER define API schemas locally in UI code, test code, or API client code.
-
-#### Rules:
-
-1. **All API types come from typespec** - Request types, response types, and field types must be imported from the typespec library
-2. **No inline type definitions** - Never create inline objects or interfaces for API requests/responses
-3. **No local type duplication** - Don't copy typespec types into local files
-4. **Applies everywhere** - This rule applies to:
-   - Frontend UI code (`hub-ui/`, `admin-ui/`, etc.)
-   - Test code (`playwright/`)
-   - API client code (`playwright/lib/api-client.ts`)
-   - All TypeScript/JavaScript code that interacts with APIs
-
-#### What's Allowed Locally:
-
-- **Wrapper types** for non-API purposes (e.g., `APIResponse<T>` wrapper for test assertions)
-- **UI-specific types** that don't represent API contracts (e.g., `Country` interface for dropdown options)
-- **Component props** that aren't API request/response types
-
-#### Examples:
-
-**✅ CORRECT:**
+**CRITICAL**: Import all API types from `specs/typespec/`. Never define API schemas locally.
 
 ```typescript
-// Import from typespec
-import type {
-	HubLoginRequest,
-	HubLoginResponse,
-	CompleteSignupRequest,
-} from "vetchium-specs/hub/hub-users";
-
-// Use imported types
-const hubLoginRequest: HubLoginRequest = {
-	email_address: email,
-	password: password,
-};
-
-const response = await api.login(hubLoginRequest);
-
-// Function accepting typespec type
-async function login(request: HubLoginRequest): Promise<HubLoginResponse> {
-	// ...
-}
+// ✅ CORRECT
+import type { HubLoginRequest } from "vetchium-specs/hub/hub-users";
+const req: HubLoginRequest = { email_address: email, password };
 ```
 
-**❌ WRONG:**
+TypeScript validators: `validate{TypeName}(request): ValidationError[]`. Field validators return `string | null`.
 
-```typescript
-// ❌ Don't define API types inline
-const response = await api.login({
-	email_address: email,
-	password: password,
-});
-
-// ❌ Don't create local interfaces for API types
-interface LoginRequest {
-	email_address: string;
-	password: string;
-}
-
-// ❌ Don't accept individual parameters instead of request objects
-async function login(email: string, password: string) {
-	// ...
-}
-
-// ❌ Don't define response shapes locally
-interface LoginResponse {
-	session_token: string;
-}
-```
-
-### TypeScript Validation Pattern
-
-```typescript
-// Type aliases for semantic types
-export type AdminTFAToken = string;
-export type TFACode = string;
-
-// Constants matching .tsp constraints
-export const TFA_CODE_LENGTH = 6;
-const TFA_CODE_PATTERN = /^[0-9]{6}$/;
-
-// Field validator (returns error message or null, no field context)
-export function validateTFACode(code: TFACode): string | null {
-	if (code.length !== TFA_CODE_LENGTH) {
-		return ERR_TFA_CODE_INVALID_LENGTH;
-	}
-	if (!TFA_CODE_PATTERN.test(code)) {
-		return ERR_TFA_CODE_INVALID_FORMAT;
-	}
-	return null;
-}
-
-// Request interface
-export interface AdminTFARequest {
-	tfa_token: AdminTFAToken;
-	tfa_code: TFACode;
-}
-
-// Request validator (always named validate{TypeName})
-export function validateAdminTFARequest(
-	request: AdminTFARequest
-): ValidationError[] {
-	const errs: ValidationError[] = [];
-
-	if (!request.tfa_token) {
-		errs.push(newValidationError("tfa_token", ERR_REQUIRED));
-	}
-
-	const tfaCodeErr = validateTFACode(request.tfa_code);
-	if (tfaCodeErr) {
-		errs.push(newValidationError("tfa_code", tfaCodeErr));
-	}
-
-	return errs;
-}
-```
-
-### Go Usage
-
-Go types import from `vetchium-api-server.typespec/{package}` and have a `.Validate()` method:
-
-```go
-import "vetchium-api-server.typespec/admin"
-
-var req admin.AdminTFARequest
-// ... decode request ...
-if errs := req.Validate(); len(errs) > 0 {
-    w.WriteHeader(http.StatusBadRequest)
-    json.NewEncoder(w).Encode(errs)
-    return
-}
-```
+Go: types from `vetchium-api-server.typespec/{package}` with `.Validate()` method returning `[]ValidationError`.
 
 ## Frontend Architecture
 
-### Directory Structure
-
-All frontend applications (hub-ui, admin-ui, org-ui, agency-ui) follow this structure:
-
 ```
 src/
-├── components/     # Reusable UI components (buttons, modals, etc.)
-├── pages/          # Page components corresponding to URL paths
-├── forms/          # Form components with input fields and submission logic
-├── contexts/       # React contexts (theme, auth, i18n)
-├── hooks/          # Custom React hooks
-├── locales/        # Translation files organized by language
-│   ├── en-US/
-│   │   ├── common.json
-│   │   └── auth.json
-│   ├── de-DE/
-│   │   ├── common.json
-│   │   └── auth.json
-│   └── ta-IN/
-│       ├── common.json
-│       └── auth.json
-├── config.ts       # API configuration
-└── App.tsx         # Main app with providers
+├── components/   # Reusable UI components
+├── pages/        # Page components (routing, data fetching)
+├── forms/        # Form components (state, validation, submission)
+├── contexts/     # React contexts
+├── hooks/        # Custom hooks
+├── locales/      # en-US/, de-DE/, ta-IN/ translation files
+├── config.ts
+└── App.tsx
 ```
 
-### Internationalization (i18n)
+### i18n
 
-- Use `react-i18next` for translations
-- **Supported Languages**: en-US (default), de-DE, ta-IN (BCP 47 tags)
-- Translations organized by language directory, then by feature file
-- Language preference:
-  - Stored on server (via user preferences API) when authenticated
-  - Cached locally for persistence across sessions
-  - Falls back to browser locale or en-US
-  - All user visible strings should be marked for internationalization
+Use `react-i18next`. Supported: en-US (default), de-DE, ta-IN. All user-visible strings must be translated. Language preference stored server-side when authenticated, cached locally.
 
-### Component Guidelines
+### Forms
 
-- **Pages**: Handle routing, data fetching, layout. Import forms and components.
-- **Forms**: Handle form state, validation, submission. Use Ant Design Form.
-- **Components**: Stateless/minimal state, reusable across pages/forms.
+- Disable submit when form has errors (use `Form.Item shouldUpdate` + `form.getFieldsError()`)
+- Wrap with `<Spin spinning={loading}>` during network calls to prevent double-submission
 
-### Form Validation and Loading States
+### Auth Flow
 
-**Submit Button Behavior**:
+State machine: `"login"` → `"tfa"` → `"authenticated"`. Map status codes to i18n strings: 400→validation errors, 401→invalidCredentials, 403→invalidCode, 422→accountDisabled. Session token in `vetchium_{app}_session` cookie (24h, HttpOnly, SameSite=Strict).
 
-- Disable submit buttons when form has validation errors (use `Form.Item` with `shouldUpdate` to check `form.getFieldsError()`)
-- Button should only be enabled when all required fields are touched and have no errors
+Use native `fetch()` with explicit per-status handling (don't use `response.ok`).
 
-**Network Call Handling**:
+## RBAC
 
-- Wrap all forms with Ant Design's `Spin` component during network calls
-- The spinner prevents double-submission and blocks all user interaction while loading
-- Set `spinning={loading}` where `loading` state tracks the network call progress
+Every new feature MUST complete this checklist.
 
-### Auth Flow and Error Handling
+### Role Naming: `portal:action`
 
-**Auth state machine**: `"login"` → `"tfa"` → `"authenticated"`
+Current roles — see `specs/typespec/common/roles.ts` and `MEMORY.md` for the full list. Key roles:
 
-1. User submits credentials → API returns TFA token
-2. User submits TFA code → API returns session token
-3. Session token stored in cookie for subsequent requests
-
-**HTTP error handling pattern**:
-
-```typescript
-// Map HTTP status codes to user-friendly error messages
-switch (response.status) {
-	case 400:
-		setError(parseValidationErrors(body)); // Field-level errors
-		break;
-	case 401:
-		setError(t("invalidCredentials")); // Wrong password, expired token
-		break;
-	case 403:
-		setError(t("invalidCode")); // Wrong TFA code
-		break;
-	case 422:
-		setError(t("accountDisabled")); // Account in wrong state
-		break;
-	default:
-		setError(t("serverError"));
-}
-```
-
-**Session storage**: Session token stored in cookie `vetchium_{app}_session` with 24h expiry, SameSite=Strict, HttpOnly.
-
-### API Client Pattern (Frontend)
-
-Use native `fetch()` with explicit status code handling:
-
-```typescript
-var loginRequest: LoginRequest;
-const response = await fetch(`${API_BASE}/admin/login`, {
-	method: "POST",
-	headers: { "Content-Type": "application/json" },
-	body: JSON.stringify(loginRequest),
-});
-
-// Don't just check response.ok - handle each status explicitly
-if (response.status === 200) {
-	const data = await response.json();
-	// success
-} else if (response.status === 401) {
-	// invalid credentials
-} else if (response.status === 422) {
-	// account disabled
-}
-```
-
-For authenticated requests:
-
-```typescript
-headers: {
-  "Content-Type": "application/json",
-  "Authorization": `Bearer ${sessionToken}`
-}
-```
-
-## RBAC (Role-Based Access Control)
-
-Every new feature that exposes an API or a UI tile MUST go through this checklist. RBAC is not optional.
-
-### Role Naming Convention
-
-Roles follow the pattern `portal:action`, using only lowercase letters, colons, and underscores:
-
-- `admin:superadmin` — full access to the admin portal
-- `admin:invite_users` — can invite new admin users
-- `admin:manage_users` — can enable/disable admin users and manage their roles
-- `admin:manage_domains` — can manage platform-wide approved domains
-- `employer:superadmin` — full access to the employer portal (bypasses all other employer role checks)
-- `employer:invite_users` — can invite new org users
-- `employer:manage_users` — can enable/disable org users and manage their roles
-- `employer:read_domains` — can view domain list and status (read-only; cannot claim or verify)
-- `agency:superadmin` — full access to the agency portal (bypasses all other agency role checks)
-- `agency:invite_users` — can invite new agency users
-- `agency:manage_users` — can enable/disable agency users and manage their roles
-- `agency:read_domains` — can view domain list and status (read-only; cannot claim or verify)
-- `hub:read_posts` — can read posts by other hub users (assigned to every hub user at signup)
-- `hub:write_posts` — can create and edit posts (paid feature; explicitly granted)
-- `hub:apply_jobs` — can apply to job postings (future paid feature)
+- `admin:superadmin` / `employer:superadmin` / `agency:superadmin` — bypass all role checks
+- `hub:read_posts` (auto-assigned at signup), `hub:write_posts`, `hub:apply_jobs`
+- Pattern: `view_*` = read-only, `manage_*` = all writes
 
 ### Where Roles Are Stored
 
-- **Admin roles** → Global DB (`admin_user_roles` table, keyed by `admin_user_id`)
-- **Employer roles** → Regional DB (`org_user_roles` table, keyed by `org_user_id`)
-- **Agency roles** → Regional DB (`agency_user_roles` table, keyed by `agency_user_id`)
-- **Hub roles** → Regional DB (`hub_user_roles` table, keyed by `hub_user_global_id`)
-
-Roles must never be shared across portals. A user's roles are specific to the entity (org, agency, etc.) they belong to.
-
-### Superadmin Bypass
-
-`admin:superadmin`, `employer:superadmin`, and `agency:superadmin` are prepended to every role check by the respective middleware — a superadmin automatically satisfies any specific role requirement. **There is no hub:superadmin** — hub roles are purely feature-based.
-
-### Default Role Assignment
-
-- **Hub users**: `hub:read_posts` is assigned automatically inside the regional transaction in `hub/complete-signup.go`. Additional roles (e.g., `hub:write_posts`) are granted explicitly (e.g., after payment).
-- **Employer first user**: `employer:superadmin` assigned in `employer/complete-signup.go`.
-- **Agency first user**: `agency:superadmin` assigned in `agency/complete-signup.go`.
-- **Admin first user**: Created via DB dev-seed (`db/dev-seed/global.sql`) with `admin:superadmin`.
+- Admin → Global DB (`admin_user_roles`)
+- Employer/Agency/Hub → Regional DB (`org_user_roles`, `agency_user_roles`, `hub_user_roles`)
 
 ### Checklist: Adding a New Feature
 
-#### 1. Define roles (if new roles are needed)
+1. **Define roles** (if new): add to initial_schema.sql + `specs/typespec/common/roles.ts`
+2. **Protect backend route**:
+   ```go
+   // same pattern for all portals
+   adminRole := middleware.AdminRole(s.Global, "admin:new_feature")
+   mux.Handle("POST /admin/new-thing", adminAuth(adminRole(admin.NewThing(s))))
+   ```
+3. **Make UI tile role-aware**: derive access flags from `myInfo.roles`, conditionally render
+4. **Hide write actions** for read-only roles within feature pages (UI is defence-in-depth; backend MUST enforce independently → 403)
 
-- Add to `api-server/db/migrations/regional/00000000000001_initial_schema.sql` (or global for admin roles): insert the new role name and description.
-- Add to `specs/typespec/common/roles.ts` `VALID_ROLE_NAMES` array.
-- Follow naming: `portal:action` (e.g., `hub:manage_profile`, `employer:post_jobs`).
-
-#### 2. Protect the backend API route
-
-Use the appropriate middleware in the route registration file:
-
-```go
-// Admin routes (api-server/internal/routes/admin-global-routes.go)
-adminRoleNewFeature := middleware.AdminRole(s.Global, "admin:new_feature")
-mux.Handle("POST /admin/new-thing", adminAuth(adminRoleNewFeature(admin.NewThing(s))))
-
-// Employer routes (api-server/internal/routes/employer-routes.go)
-employerRoleNewFeature := middleware.EmployerRole(s.Regional, "employer:new_feature")
-mux.Handle("POST /employer/new-thing", orgAuth(employerRoleNewFeature(employer.NewThing(s))))
-
-// Agency routes (api-server/internal/routes/agency-routes.go)
-agencyRoleNewFeature := middleware.AgencyRole(s.Regional, "agency:new_feature")
-mux.Handle("POST /agency/new-thing", agencyAuth(agencyRoleNewFeature(agency.NewThing(s))))
-
-// Hub routes (api-server/internal/routes/hub-routes.go)
-hubRoleWritePosts := middleware.HubRole(s.Regional, "hub:write_posts")
-mux.Handle("POST /hub/create-post", hubAuth(hubRoleWritePosts(hub.CreatePost(s))))
-```
-
-Rules:
-
-- **Superadmin users bypass all role checks** automatically (via middleware prepend).
-- To allow multiple roles to access the same endpoint, pass them all: `middleware.EmployerRole(s.Regional, "employer:read_x", "employer:write_x")` (OR semantics).
-- Read operations (list, get) that show non-sensitive data may have a dedicated `read_x` role; write operations (create, update, delete) should require a `write_x` or `manage_x` role.
-- Auth-only endpoints (no role required) still use the auth middleware, just without a role middleware wrapper.
-
-#### 3. Make the UI tile role-aware
-
-In the dashboard page, derive access flags from `myInfo.roles` and conditionally render:
-
-```tsx
-// In DashboardPage.tsx
-const { data: myInfo } = useMyInfo(sessionToken);
-
-const hasNewFeatureAccess =
-	myInfo?.roles.includes("employer:superadmin") ||
-	myInfo?.roles.includes("employer:new_feature") ||
-	false;
-
-// In JSX
-{
-	hasNewFeatureAccess && (
-		<Link to="/new-feature">
-			<Card hoverable>...</Card>
-		</Link>
-	);
-}
-```
-
-#### 4. Hide write actions for read-only roles inside a feature page
-
-If a feature has separate read and write roles, hide write controls (buttons, forms) for read-only users:
-
-```tsx
-const canWrite =
-	myInfo?.roles.includes("employer:superadmin") ||
-	myInfo?.roles.includes("employer:write_x") ||
-	false;
-
-{
-	canWrite && <Button onClick={handleCreate}>Create</Button>;
-}
-```
-
-**Important**: hiding in the UI is defence-in-depth only. The backend API MUST enforce roles independently. A read-only user hitting a write API must receive 403.
-
-### Role-Protection Summary Table
-
-| Portal   | Middleware function                        | Superadmin role       | Roles stored in |
-| -------- | ------------------------------------------ | --------------------- | --------------- |
-| Admin    | `middleware.AdminRole(s.Global, ...)`      | `admin:superadmin`    | Global DB       |
-| Employer | `middleware.EmployerRole(s.Regional, ...)` | `employer:superadmin` | Regional DB     |
-| Agency   | `middleware.AgencyRole(s.Regional, ...)`   | `agency:superadmin`   | Regional DB     |
-| Hub      | `middleware.HubRole(s.Regional, ...)`      | (none)                | Regional DB     |
+| Portal   | Middleware                                 | Superadmin role       | Roles DB |
+| -------- | ------------------------------------------ | --------------------- | -------- |
+| Admin    | `middleware.AdminRole(s.Global, ...)`      | `admin:superadmin`    | Global   |
+| Employer | `middleware.EmployerRole(s.Regional, ...)` | `employer:superadmin` | Regional |
+| Agency   | `middleware.AgencyRole(s.Regional, ...)`   | `agency:superadmin`   | Regional |
+| Hub      | `middleware.HubRole(s.Regional, ...)`      | (none)                | Regional |
 
 ## Security Best Practices
 
-### Input Validation
-
-- Always validate request bodies using TypeSpec validators before processing
-- TypeSpec validators handle length limits, format validation, and pattern matching
-- Database layer uses parameterized queries via sqlc (no raw SQL in handlers)
-
-### What NOT to Log
-
-Never log sensitive data:
-
-- Passwords (plaintext or hashed)
-- Session tokens or TFA tokens
-- TFA codes
-- Full email addresses in error messages (use hashes or IDs instead)
-- Credit card numbers, personal identification numbers
-
-### Safe Logging Examples
-
-```go
-// ✅ GOOD: Log IDs and hashes
-log.Info("user login successful", "admin_user_id", adminUser.AdminUserID)
-log.Debug("session created", "session_token_hash", hashPrefix(token))
-
-// ❌ BAD: Don't log sensitive data
-log.Info("user logged in", "password", password)  // Never!
-log.Debug("tfa code", "code", tfaCode)  // Never!
-```
-
-### Database Security
-
-- All queries use sqlc parameterization (prevents SQL injection)
-- No raw SQL string concatenation allowed
+- Validate all request bodies via TypeSpec validators before processing
+- All DB queries via sqlc (parameterized — no raw SQL concatenation)
+- Never log: passwords, session/TFA tokens, TFA codes, full email addresses
 
 ## Testing
 
-### Playwright Tests (playwright/)
-
-Playwright is used for both API and UI testing across all portals.
-
 ```bash
-cd playwright
-npm install              # Install dependencies
-npm test                 # Run all tests
-npm run test:api         # Run API tests only
-npm run test:api:admin   # Run admin API tests
+cd playwright && npm install
+npm test              # all tests
+npm run test:api      # API tests only
+npm run test:api:admin
 ```
 
-**Prerequisites**: All Docker services must be running via `docker compose up -f docker-compose-ci.json` from `src/`.
+**Prerequisites**: `docker compose -f docker-compose-ci.json up --build -d` from `src/`.
 
-### Test Architecture Principles
+### Test Architecture
 
-1. **Full Parallelization**: All tests run in parallel. Each test must be completely independent.
-
-2. **Isolated Test Data**: Each test creates its own unique test data using UUID-based identifiers (e.g., `admin-{uuid}@test.vetchium.com`).
-
-3. **No Test Data in Migrations**: Test users are created dynamically via the `lib/db.ts` helper, not in migration files. Migration files are used for production.
-
-4. **Cleanup in Finally Blocks**: Always clean up test data in `finally` blocks or `afterEach` hooks to ensure cleanup even on test failures.
-
-5. **Region Awareness**: The API runs behind a load balancer (`localhost:8080`) that routes to regional servers. Tests don't need to specify regions explicitly.
+- **Full parallelization**: every test is independent
+- **Isolated data**: UUID-based test emails (`generateTestEmail(prefix)`)
+- **No test data in migrations**: use `lib/db.ts` helpers
+- **Cleanup in finally blocks**: always
 
 ### Required Test Scenarios
 
-Every API endpoint test MUST cover these scenarios:
+| Scenario               | Expected Status |
+| ---------------------- | --------------- |
+| Success case           | 200/201/204     |
+| Missing/invalid fields | 400             |
+| Non-existent resource  | 404             |
+| Unknown user           | 401             |
+| Invalid/expired token  | 401             |
+| Wrong credentials      | 401             |
+| Wrong TFA code         | 403             |
+| Disabled/invalid state | 422             |
 
-| Scenario                | Expected Status | Example                                |
-| ----------------------- | --------------- | -------------------------------------- |
-| Success case            | 200/201/204     | Valid request with valid auth          |
-| Missing required fields | 400             | `{ password: "..." }` (no email)       |
-| Invalid field format    | 400             | Invalid email format, wrong length     |
-| Empty string fields     | 400             | `{ email: "", password: "..." }`       |
-| Boundary conditions     | 400             | Min/max length violations              |
-| Non-existent resource   | 404             | Unknown domain, unknown job posting    |
-| Auth: Unknown user      | 401             | Login with non-existent email          |
-| Auth: Invalid token     | 401             | Expired/invalid session or TFA token   |
-| Wrong credentials       | 401             | Correct email, wrong password          |
-| Wrong TFA code          | 403             | Valid TFA token, wrong code            |
-| Disabled/invalid state  | 422             | Disabled user account, inactive domain |
-| Expired tokens          | 401             | Expired TFA or session token           |
+### Writing Tests
 
-### Test File Organization
+See `playwright/tests/api/admin/login.spec.ts` for the full pattern. Key helpers:
 
-```
-playwright/
-├── lib/
-│   ├── db.ts           # Database helpers (create/delete test users)
-│   ├── api-client.ts   # Type-safe API client
-│   └── mailpit.ts      # Email retrieval for TFA codes
-└── tests/
-    └── api/
-        └── admin/      # Admin API tests
-            ├── login.spec.ts
-            ├── tfa.spec.ts
-            └── logout.spec.ts
-```
+- `generateTestEmail(prefix)` → unique email
+- `createTestAdminUser(email, password)` / `deleteTestAdminUser(email)` → use in try/finally
+- `getTfaCodeFromEmail(email)` → extracts code from mailpit
 
-### Writing New Tests
-
-```typescript
-import { test, expect } from "@playwright/test";
-import {
-	createTestAdminUser,
-	deleteTestAdminUser,
-	generateTestEmail,
-} from "../../../lib/db";
-import { AdminAPIClient } from "../../../lib/api-client";
-
-test("example test with isolated user", async ({ request }) => {
-	const api = new AdminAPIClient(request);
-	const email = generateTestEmail("my-test"); // Generates unique email
-	const password = "Password123$";
-
-	await createTestAdminUser(email, password);
-	try {
-		// Test logic here
-		var adminLoginRequest: AdminLoginRequest;
-		const response = await api.login(adminLoginRequest);
-		expect(response.status).toBe(200);
-	} finally {
-		// Always cleanup
-		await deleteTestAdminUser(email);
-	}
-});
-```
-
-### API Client Pattern (Tests)
-
-**IMPORTANT**: API client methods must accept typespec request objects, not individual parameters.
-
-```typescript
-// Import types from typespec
-import {
-	AdminLoginRequest,
-	AdminLoginResponse,
-} from "../../specs/typespec/admin/admin-users";
-
-export class AdminAPIClient {
-	constructor(private request: APIRequestContext) {}
-
-	// ✅ CORRECT: Accept typespec request object
-	async login(
-		request: AdminLoginRequest
-	): Promise<APIResponse<AdminLoginResponse>> {
-		const response = await this.request.post("/admin/login", {
-			data: request,
-		});
-
-		const body = await response.json().catch(() => ({}));
-		return {
-			status: response.status(),
-			body: body as AdminLoginResponse,
-			errors: body.errors,
-		};
-	}
-
-	// For testing invalid payloads
-	async loginRaw(body: unknown): Promise<APIResponse<AdminLoginResponse>> {
-		const response = await this.request.post("/admin/login", {
-			data: body,
-		});
-		const responseBody = await response.json().catch(() => ({}));
-		return {
-			status: response.status(),
-			body: responseBody as AdminLoginResponse,
-			errors: responseBody.errors,
-		};
-	}
-}
-```
-
-**Usage in tests:**
-
-```typescript
-// Import types from typespec
-import type { AdminLoginRequest } from "../../../specs/typespec/admin/admin-users";
-
-// ✅ CORRECT: Create typed request object
-const loginRequest: AdminLoginRequest = {
-	email: "admin@example.com",
-	password: "Password123$",
-};
-const response = await api.login(loginRequest);
-
-// ❌ WRONG: Don't pass individual parameters
-// const response = await api.login(email, password);
-```
-
-### Key Test Utilities
-
-- `generateTestEmail(prefix)`: Creates unique email like `prefix-{uuid}@test.vetchium.com`
-- `createTestAdminUser(email, password, status?)`: Creates admin in global DB
-- `deleteTestAdminUser(email)`: Removes admin and cascades to sessions/tokens
-- `getTfaCodeFromEmail(email)`: Waits for and extracts 6-digit TFA code from mailpit
+API client methods accept typespec request objects (not individual params). See `playwright/lib/api-client.ts`. Provide both typed and `*Raw()` methods for invalid-payload testing.
