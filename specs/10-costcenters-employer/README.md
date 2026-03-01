@@ -16,12 +16,12 @@ Dependencies: None
 
 A CostCenter has the following fields, all provided by the creating user:
 
-| Field          | Type     | Required | Constraints                                      |
-| -------------- | -------- | -------- | ------------------------------------------------ |
-| `id`           | string   | Yes      | Free-form, 1–64 characters; unique per employer; immutable after creation |
-| `display_name` | string   | Yes      | Free-form, 1–64 characters                       |
-| `status`       | enum     | —        | `enabled` (default on creation) or `disabled`   |
-| `notes`        | string   | No       | Optional, max 500 characters                     |
+| Field          | Type   | Required | Constraints                                                               |
+| -------------- | ------ | -------- | ------------------------------------------------------------------------- |
+| `id`           | string | Yes      | Free-form, 1–64 characters; unique per employer; immutable after creation |
+| `display_name` | string | Yes      | Free-form, 1–64 characters                                                |
+| `status`       | enum   | —        | `enabled` (default on creation) or `disabled`                             |
+| `notes`        | string | No       | Optional, max 500 characters                                              |
 
 - Only `id` must be unique per employer. `display_name` may repeat.
 - Once created, `id` cannot be changed. `display_name`, `notes`, and `status` can be updated.
@@ -33,10 +33,10 @@ An Employer can choose to operate without adding any CostCenter.
 
 ### APIs
 
-| Endpoint                       | Method | Required Role                                                            |
-| ------------------------------ | ------ | ------------------------------------------------------------------------ |
-| `/employer/add-cost-center`    | POST   | `employer:manage_costcenters` or `employer:superadmin`                   |
-| `/employer/update-cost-center` | POST   | `employer:manage_costcenters` or `employer:superadmin`                   |
+| Endpoint                       | Method | Required Role                                                                        |
+| ------------------------------ | ------ | ------------------------------------------------------------------------------------ |
+| `/employer/add-cost-center`    | POST   | `employer:manage_costcenters` or `employer:superadmin`                               |
+| `/employer/update-cost-center` | POST   | `employer:manage_costcenters` or `employer:superadmin`                               |
 | `/employer/list-cost-centers`  | POST   | `employer:view_costcenters`, `employer:manage_costcenters`, or `employer:superadmin` |
 
 #### List CostCenters
