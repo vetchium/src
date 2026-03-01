@@ -32,7 +32,9 @@
 		"notes": "Anmerkungen",
 		"createdAt": "Erstellt am",
 		"actions": "Aktionen",
-		"edit": "Bearbeiten"
+		"edit": "Bearbeiten",
+		"enable": "Aktivieren",
+		"disable": "Deaktivieren"
 	},
 	"status": {
 		"enabled": "Aktiviert",
@@ -47,6 +49,7 @@
 	"errors": {
 		"idRequired": "ID ist erforderlich",
 		"idTooLong": "ID darf maximal 64 Zeichen lang sein",
+		"idInvalid": "ID darf nur Kleinbuchstaben, Zahlen, Bindestriche und Unterstriche enthalten und muss mit einem Buchstaben oder einer Zahl beginnen",
 		"displayNameRequired": "Anzeigename ist erforderlich",
 		"displayNameTooLong": "Anzeigename darf maximal 64 Zeichen lang sein",
 		"notesTooLong": "Anmerkungen dürfen maximal 500 Zeichen lang sein",

@@ -61,6 +61,7 @@ export function CostCentersPage() {
 		null
 	);
 	const [editForm] = Form.useForm();
+	const [togglingId, setTogglingId] = useState<string | null>(null);
 
 	const loadCostCenters = useCallback(
 		async (cursor?: string, status?: FilterStatus, reset?: boolean) => {
@@ -228,6 +229,41 @@ export function CostCentersPage() {
 		}
 	};
 
+	const handleToggleStatus = async (cc: CostCenter) => {
+		if (!sessionToken) return;
+		const newStatus = cc.status === "enabled" ? "disabled" : "enabled";
+		setTogglingId(cc.id);
+		try {
+			const baseUrl = await getApiBaseUrl();
+			const req: UpdateCostCenterRequest = {
+				id: cc.id,
+				display_name: cc.display_name,
+				status: newStatus,
+				...(cc.notes ? { notes: cc.notes } : {}),
+			};
+			const resp = await fetch(`${baseUrl}/employer/update-cost-center`, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${sessionToken}`,
+				},
+				body: JSON.stringify(req),
+			});
+			if (resp.status === 200) {
+				message.success(t("success.updated"));
+				loadCostCenters(undefined, filterStatus, true);
+			} else if (resp.status === 404) {
+				message.error(t("errors.notFound"));
+			} else {
+				message.error(t("errors.updateFailed"));
+			}
+		} catch {
+			message.error(t("errors.updateFailed"));
+		} finally {
+			setTogglingId(null);
+		}
+	};
+
 	const columns = [
 		{
 			title: t("table.id"),
@@ -267,13 +303,24 @@ export function CostCentersPage() {
 						title: t("table.actions"),
 						key: "actions",
 						render: (_: unknown, record: CostCenter) => (
-							<Button
-								icon={<EditOutlined />}
-								size="small"
-								onClick={() => handleEdit(record)}
-							>
-								{t("table.edit")}
-							</Button>
+							<Space>
+								<Button
+									icon={<EditOutlined />}
+									size="small"
+									onClick={() => handleEdit(record)}
+								>
+									{t("table.edit")}
+								</Button>
+								<Button
+									size="small"
+									loading={togglingId === record.id}
+									onClick={() => handleToggleStatus(record)}
+								>
+									{record.status === "enabled"
+										? t("table.disable")
+										: t("table.enable")}
+								</Button>
+							</Space>
 						),
 					},
 				]
@@ -363,6 +410,10 @@ export function CostCentersPage() {
 							rules={[
 								{ required: true, message: t("errors.idRequired") },
 								{ max: 64, message: t("errors.idTooLong") },
+								{
+									pattern: /^[a-z0-9][a-z0-9_-]*$/,
+									message: t("errors.idInvalid"),
+								},
 							]}
 						>
 							<Input placeholder={t("addModal.idPlaceholder")} />

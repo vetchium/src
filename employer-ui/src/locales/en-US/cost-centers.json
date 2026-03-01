@@ -32,7 +32,9 @@
 		"notes": "Notes",
 		"createdAt": "Created At",
 		"actions": "Actions",
-		"edit": "Edit"
+		"edit": "Edit",
+		"enable": "Enable",
+		"disable": "Disable"
 	},
 	"status": {
 		"enabled": "Enabled",
@@ -47,6 +49,7 @@
 	"errors": {
 		"idRequired": "ID is required",
 		"idTooLong": "ID must be at most 64 characters",
+		"idInvalid": "ID must only contain lowercase letters, numbers, hyphens, and underscores, and must start with a letter or number",
 		"displayNameRequired": "Display Name is required",
 		"displayNameTooLong": "Display Name must be at most 64 characters",
 		"notesTooLong": "Notes must be at most 500 characters",

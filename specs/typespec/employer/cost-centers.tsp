@@ -30,7 +30,7 @@ model CostCenter {
 }
 
 model AddCostCenterRequest {
-  @doc("User-defined identifier (1-64 chars, immutable after creation)")
+  @doc("User-defined identifier (1-64 chars, immutable after creation). Must match pattern ^[a-z0-9][a-z0-9_-]*$ — lowercase letters, digits, hyphens, underscores only; must start with a letter or digit.")
   id: string;
 
   @doc("Human-readable display name (1-64 chars)")
@@ -41,7 +41,7 @@ model AddCostCenterRequest {
 }
 
 model UpdateCostCenterRequest {
-  @doc("Identifier of the cost center to update")
+  @doc("Identifier of the cost center to update. Must match pattern ^[a-z0-9][a-z0-9_-]*$")
   id: string;
 
   @doc("New display name (1-64 chars)")

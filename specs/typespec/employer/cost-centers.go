@@ -2,6 +2,7 @@ package employer
 
 import (
 	"fmt"
+	"regexp"
 
 	"vetchium-api-server.typespec/common"
 )
@@ -13,11 +14,14 @@ const (
 
 	errCostCenterIDRequired          = "id is required"
 	errCostCenterIDTooLong           = "id must be at most 64 characters"
+	errCostCenterIDInvalid           = "id must only contain lowercase letters, numbers, hyphens, and underscores, and must start with a letter or number"
 	errCostCenterDisplayNameRequired = "display_name is required"
 	errCostCenterDisplayNameTooLong  = "display_name must be at most 64 characters"
 	errCostCenterNotesTooLong        = "notes must be at most 500 characters"
 	errCostCenterStatusInvalid       = "status must be 'enabled' or 'disabled'"
 )
+
+var costCenterIDPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]*$`)
 
 type CostCenterStatus string
 
@@ -51,6 +55,8 @@ func (r AddCostCenterRequest) Validate() []common.ValidationError {
 	}
 	if len(r.ID) > costCenterIDMaxLength {
 		errs = append(errs, common.NewValidationError("id", fmt.Errorf(errCostCenterIDTooLong)))
+	} else if !costCenterIDPattern.MatchString(r.ID) {
+		errs = append(errs, common.NewValidationError("id", fmt.Errorf(errCostCenterIDInvalid)))
 	}
 
 	if r.DisplayName == "" {
@@ -83,6 +89,8 @@ func (r UpdateCostCenterRequest) Validate() []common.ValidationError {
 	}
 	if len(r.ID) > costCenterIDMaxLength {
 		errs = append(errs, common.NewValidationError("id", fmt.Errorf(errCostCenterIDTooLong)))
+	} else if !costCenterIDPattern.MatchString(r.ID) {
+		errs = append(errs, common.NewValidationError("id", fmt.Errorf(errCostCenterIDInvalid)))
 	}
 
 	if r.DisplayName == "" {

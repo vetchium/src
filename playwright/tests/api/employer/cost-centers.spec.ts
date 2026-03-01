@@ -177,6 +177,91 @@ test.describe("Cost Centers API", () => {
 			}
 		});
 
+		test("Validation: id with trailing space (400)", async ({ request }) => {
+			const api = new EmployerAPIClient(request);
+			const { email, domain } = generateTestOrgEmail("cc-trail");
+			await createTestOrgAdminDirect(email, TEST_PASSWORD);
+
+			try {
+				const token = await loginOrgUser(api, email, domain);
+				const res = await api.addCostCenterRaw(token, {
+					id: "valid-id ",
+					display_name: "Trailing Space",
+				});
+				expect(res.status).toBe(400);
+			} finally {
+				await deleteTestOrgUser(email);
+			}
+		});
+
+		test("Validation: id with leading space (400)", async ({ request }) => {
+			const api = new EmployerAPIClient(request);
+			const { email, domain } = generateTestOrgEmail("cc-lead");
+			await createTestOrgAdminDirect(email, TEST_PASSWORD);
+
+			try {
+				const token = await loginOrgUser(api, email, domain);
+				const res = await api.addCostCenterRaw(token, {
+					id: " valid-id",
+					display_name: "Leading Space",
+				});
+				expect(res.status).toBe(400);
+			} finally {
+				await deleteTestOrgUser(email);
+			}
+		});
+
+		test("Validation: id with spaces in middle (400)", async ({ request }) => {
+			const api = new EmployerAPIClient(request);
+			const { email, domain } = generateTestOrgEmail("cc-midspace");
+			await createTestOrgAdminDirect(email, TEST_PASSWORD);
+
+			try {
+				const token = await loginOrgUser(api, email, domain);
+				const res = await api.addCostCenterRaw(token, {
+					id: "valid id",
+					display_name: "Middle Space",
+				});
+				expect(res.status).toBe(400);
+			} finally {
+				await deleteTestOrgUser(email);
+			}
+		});
+
+		test("Validation: id starting with hyphen (400)", async ({ request }) => {
+			const api = new EmployerAPIClient(request);
+			const { email, domain } = generateTestOrgEmail("cc-starthyphen");
+			await createTestOrgAdminDirect(email, TEST_PASSWORD);
+
+			try {
+				const token = await loginOrgUser(api, email, domain);
+				const res = await api.addCostCenterRaw(token, {
+					id: "-invalid",
+					display_name: "Starts With Hyphen",
+				});
+				expect(res.status).toBe(400);
+			} finally {
+				await deleteTestOrgUser(email);
+			}
+		});
+
+		test("Validation: id with uppercase letters (400)", async ({ request }) => {
+			const api = new EmployerAPIClient(request);
+			const { email, domain } = generateTestOrgEmail("cc-upper");
+			await createTestOrgAdminDirect(email, TEST_PASSWORD);
+
+			try {
+				const token = await loginOrgUser(api, email, domain);
+				const res = await api.addCostCenterRaw(token, {
+					id: "Engineering-US",
+					display_name: "Uppercase ID",
+				});
+				expect(res.status).toBe(400);
+			} finally {
+				await deleteTestOrgUser(email);
+			}
+		});
+
 		test("Conflict: duplicate id same employer (409)", async ({ request }) => {
 			const api = new EmployerAPIClient(request);
 			const { email, domain } = generateTestOrgEmail("cc-dup");

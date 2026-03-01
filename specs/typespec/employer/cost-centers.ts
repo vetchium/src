@@ -39,9 +39,13 @@ export interface ListCostCentersResponse {
 }
 
 const ERR_ID_TOO_LONG = "id must be at most 64 characters";
+const ERR_ID_INVALID =
+	"id must only contain lowercase letters, numbers, hyphens, and underscores, and must start with a letter or number";
 const ERR_DISPLAY_NAME_TOO_LONG = "display_name must be at most 64 characters";
 const ERR_NOTES_TOO_LONG = "notes must be at most 500 characters";
 const ERR_STATUS_INVALID = "status must be 'enabled' or 'disabled'";
+
+const COST_CENTER_ID_PATTERN = /^[a-z0-9][a-z0-9_-]*$/;
 
 const VALID_STATUSES: CostCenterStatus[] = ["enabled", "disabled"];
 
@@ -61,6 +65,8 @@ export function validateAddCostCenterRequest(
 		errs.push(newValidationError("id", ERR_REQUIRED));
 	} else if (request.id.length > 64) {
 		errs.push(newValidationError("id", ERR_ID_TOO_LONG));
+	} else if (!COST_CENTER_ID_PATTERN.test(request.id)) {
+		errs.push(newValidationError("id", ERR_ID_INVALID));
 	}
 
 	if (!request.display_name) {
@@ -85,6 +91,8 @@ export function validateUpdateCostCenterRequest(
 		errs.push(newValidationError("id", ERR_REQUIRED));
 	} else if (request.id.length > 64) {
 		errs.push(newValidationError("id", ERR_ID_TOO_LONG));
+	} else if (!COST_CENTER_ID_PATTERN.test(request.id)) {
+		errs.push(newValidationError("id", ERR_ID_INVALID));
 	}
 
 	if (!request.display_name) {
