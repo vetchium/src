@@ -12,3 +12,6 @@ This file contains some of the potential things to do:
   created_at). This enables audit trails for compliance and debugging. TODO markers exist in:
   - api-server/db/queries/regional.sql
   - specs/typespec/employer-domains/employer-domains.ts
+
+From [8-user-management/README.md](./8-user-management/README.md)
+After the subsequent features like Posts, Openings are done, the HubUsers should be able to visit an UI URL on the HubUsers Portal to see the Openings, Posts corresponding to the Tag. For now, we will just build the underlying infra.
