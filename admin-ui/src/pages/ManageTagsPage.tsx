@@ -145,7 +145,7 @@ export function ManageTagsPage() {
 
 		const errs = validateCreateTagRequest(req);
 		if (errs.length > 0) {
-			message.error(errs[0].message);
+			message.error(errs[0]?.message);
 			return;
 		}
 
@@ -198,7 +198,7 @@ export function ManageTagsPage() {
 
 		const errs = validateUpdateTagRequest(req);
 		if (errs.length > 0) {
-			message.error(errs[0].message);
+			message.error(errs[0]?.message);
 			return;
 		}
 
@@ -260,7 +260,7 @@ export function ManageTagsPage() {
 			const formData = new FormData();
 			formData.append("tag_id", iconTagId);
 			formData.append("icon_size", iconSize);
-			const file = iconFileList[0].originFileObj;
+			const file = iconFileList[0]?.originFileObj;
 			if (!file) return;
 			formData.append("icon_file", file);
 
