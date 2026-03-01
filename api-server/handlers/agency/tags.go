@@ -15,7 +15,7 @@ import (
 
 const tagIconURLBase = "/public/tag-icon"
 
-const tagFilterDefaultLimit = 25
+const tagFilterDefaultLimit = 50
 
 func buildTagResponse(row globaldb.FilterTagsForLocaleRow) agency.Tag {
 	t := agency.Tag{

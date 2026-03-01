@@ -4,6 +4,12 @@ import type {
 	RemoveRoleRequest,
 } from "vetchium-specs/common/roles";
 import type {
+	GetTagRequest,
+	FilterTagsRequest,
+	FilterTagsResponse,
+	Tag,
+} from "vetchium-specs/employer/tags";
+import type {
 	OrgInitSignupRequest,
 	OrgInitSignupResponse,
 	OrgGetSignupDetailsRequest,
@@ -1141,6 +1147,52 @@ export class EmployerAPIClient {
 		return {
 			status: response.status(),
 			body: body as OrgMyInfoResponse,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	/**
+	 * POST /employer/get-tag
+	 * Gets a tag by ID for the given locale
+	 */
+	async getTag(
+		sessionToken: string,
+		request: GetTagRequest
+	): Promise<APIResponse<Tag>> {
+		const response = await this.request.post("/employer/get-tag", {
+			headers: {
+				Authorization: `Bearer ${sessionToken}`,
+			},
+			data: request,
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as Tag,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	/**
+	 * POST /employer/filter-tags
+	 * Filters tags by query with pagination
+	 */
+	async filterTags(
+		sessionToken: string,
+		request: FilterTagsRequest
+	): Promise<APIResponse<FilterTagsResponse>> {
+		const response = await this.request.post("/employer/filter-tags", {
+			headers: {
+				Authorization: `Bearer ${sessionToken}`,
+			},
+			data: request,
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as FilterTagsResponse,
 			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}

@@ -18,6 +18,12 @@ import type {
 	HubRequestEmailChangeResponse,
 	HubCompleteEmailChangeRequest,
 } from "vetchium-specs/hub/hub-users";
+import type {
+	GetTagRequest,
+	FilterTagsRequest,
+	FilterTagsResponse,
+	Tag,
+} from "vetchium-specs/hub/tags";
 import type { APIResponse } from "./api-client";
 
 /**
@@ -506,6 +512,52 @@ export class HubAPIClient {
 			status: response.status(),
 			body: undefined,
 			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	/**
+	 * POST /hub/get-tag
+	 * Gets a tag by ID for the given locale
+	 */
+	async getTag(
+		sessionToken: string,
+		request: GetTagRequest
+	): Promise<APIResponse<Tag>> {
+		const response = await this.request.post("/hub/get-tag", {
+			headers: {
+				Authorization: `Bearer ${sessionToken}`,
+			},
+			data: request,
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as Tag,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	/**
+	 * POST /hub/filter-tags
+	 * Filters tags by query with pagination
+	 */
+	async filterTags(
+		sessionToken: string,
+		request: FilterTagsRequest
+	): Promise<APIResponse<FilterTagsResponse>> {
+		const response = await this.request.post("/hub/filter-tags", {
+			headers: {
+				Authorization: `Bearer ${sessionToken}`,
+			},
+			data: request,
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as FilterTagsResponse,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 }

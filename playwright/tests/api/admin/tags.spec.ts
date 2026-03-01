@@ -460,16 +460,20 @@ test.describe("Admin Tags API", () => {
 		let filterTagIds: string[] = [];
 
 		test.beforeAll(async () => {
-			// Create 26 tags with a consistent prefix for pagination testing
+			// Create 51 tags with a consistent prefix for pagination testing
 			// Using a unique base so these tags don't interfere with other tests
 			const base = generateTestTagId("ft").substring(0, 10);
-			for (let i = 0; i < 26; i++) {
-				const tagId = `${base}${String.fromCharCode(97 + i)}`; // ft{hex}a..z
+			for (let i = 0; i < 51; i++) {
+				const suffix =
+					i < 26
+						? String.fromCharCode(97 + i)
+						: `a${String.fromCharCode(97 + i - 26)}`;
+				const tagId = `${base}${suffix}`;
 				filterTagIds.push(tagId);
 				await createTestTag(tagId, [
 					{
 						locale: "en-US",
-						display_name: `Filter Test Tag ${String.fromCharCode(65 + i)}`,
+						display_name: `Filter Test Tag ${i}`,
 					},
 				]);
 			}
@@ -536,9 +540,9 @@ test.describe("Admin Tags API", () => {
 			const firstPage = await api.filterTags(manageTagsToken, firstReq);
 			expect(firstPage.status).toBe(200);
 
-			// Should have pagination_key since we created 26 tags (> default limit 25)
+			// Should have pagination_key since we created 51 tags (> default limit 50)
 			expect(firstPage.body.pagination_key).toBeDefined();
-			expect(firstPage.body.tags.length).toBe(25);
+			expect(firstPage.body.tags.length).toBe(50);
 
 			// Second page using pagination_key
 			const secondReq: FilterTagsRequest = {

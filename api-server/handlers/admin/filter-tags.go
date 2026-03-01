@@ -10,7 +10,7 @@ import (
 	"vetchium-api-server.typespec/admin"
 )
 
-const tagFilterDefaultLimit = 25
+const tagFilterDefaultLimit = 50
 
 // FilterTags handles POST /admin/filter-tags
 func FilterTags(s *server.GlobalServer) http.HandlerFunc {
