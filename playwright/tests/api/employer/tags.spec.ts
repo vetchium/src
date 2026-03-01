@@ -10,7 +10,10 @@ import {
 } from "../../../lib/db";
 import { getTfaCodeFromEmail } from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
-import type { GetTagRequest, FilterTagsRequest } from "vetchium-specs/employer/tags";
+import type {
+	GetTagRequest,
+	FilterTagsRequest,
+} from "vetchium-specs/employer/tags";
 
 /**
  * Helper to perform full login flow and get session token.
@@ -104,8 +107,12 @@ test.describe("Employer Tags API", () => {
 			const api = new EmployerAPIClient(request);
 			const tagId1 = generateTestTagId("empflt1");
 			const tagId2 = generateTestTagId("empflt2");
-			await createTestTag(tagId1, [{ locale: "en-US", display_name: "Emp Filter Tag One" }]);
-			await createTestTag(tagId2, [{ locale: "en-US", display_name: "Emp Filter Tag Two" }]);
+			await createTestTag(tagId1, [
+				{ locale: "en-US", display_name: "Emp Filter Tag One" },
+			]);
+			await createTestTag(tagId2, [
+				{ locale: "en-US", display_name: "Emp Filter Tag Two" },
+			]);
 			try {
 				const req: FilterTagsRequest = {};
 				const response = await api.filterTags(sessionToken, req);

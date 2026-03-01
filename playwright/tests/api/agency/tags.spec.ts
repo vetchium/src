@@ -10,7 +10,10 @@ import {
 } from "../../../lib/db";
 import { getTfaCodeFromEmail } from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
-import type { GetTagRequest, FilterTagsRequest } from "vetchium-specs/agency/tags";
+import type {
+	GetTagRequest,
+	FilterTagsRequest,
+} from "vetchium-specs/agency/tags";
 
 /**
  * Helper to perform full login flow and get session token.
@@ -104,8 +107,12 @@ test.describe("Agency Tags API", () => {
 			const api = new AgencyAPIClient(request);
 			const tagId1 = generateTestTagId("agnflt1");
 			const tagId2 = generateTestTagId("agnflt2");
-			await createTestTag(tagId1, [{ locale: "en-US", display_name: "Agn Filter Tag One" }]);
-			await createTestTag(tagId2, [{ locale: "en-US", display_name: "Agn Filter Tag Two" }]);
+			await createTestTag(tagId1, [
+				{ locale: "en-US", display_name: "Agn Filter Tag One" },
+			]);
+			await createTestTag(tagId2, [
+				{ locale: "en-US", display_name: "Agn Filter Tag Two" },
+			]);
 			try {
 				const req: FilterTagsRequest = {};
 				const response = await api.filterTags(sessionToken, req);

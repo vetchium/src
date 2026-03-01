@@ -159,8 +159,12 @@ test.describe("Hub Tags API", () => {
 			const api = new HubAPIClient(request);
 			const tagId1 = generateTestTagId("hubflt1");
 			const tagId2 = generateTestTagId("hubflt2");
-			await createTestTag(tagId1, [{ locale: "en-US", display_name: "Hub Filter Tag One" }]);
-			await createTestTag(tagId2, [{ locale: "en-US", display_name: "Hub Filter Tag Two" }]);
+			await createTestTag(tagId1, [
+				{ locale: "en-US", display_name: "Hub Filter Tag One" },
+			]);
+			await createTestTag(tagId2, [
+				{ locale: "en-US", display_name: "Hub Filter Tag Two" },
+			]);
 			try {
 				const req: FilterTagsRequest = {};
 				const response = await api.filterTags(sessionToken, req);
