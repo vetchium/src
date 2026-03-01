@@ -229,6 +229,19 @@ test.describe("Admin Tags API", () => {
 			expect(response.status).toBe(400);
 		});
 
+		test("unsupported locale returns 400", async ({ request }) => {
+			const api = new AdminAPIClient(request);
+			const req: CreateTagRequest = {
+				tag_id: generateTestTagId("badloc"),
+				translations: [
+					{ locale: "en-US", display_name: "Test" },
+					{ locale: "xx-YY", display_name: "Unsupported" },
+				],
+			};
+			const response = await api.addTag(manageTagsToken, req);
+			expect(response.status).toBe(400);
+		});
+
 		test("unauthenticated request returns 401", async ({ request }) => {
 			const tagId = generateTestTagId("unauth");
 			const response = await request.post("/admin/add-tag", {

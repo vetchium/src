@@ -2,6 +2,7 @@ import {
 	type ValidationError,
 	newValidationError,
 	ERR_REQUIRED,
+	validateLanguageCode,
 } from "../common/common";
 
 // Tag ID: lowercase letters and hyphens, no leading/trailing hyphens, 1-64 chars
@@ -40,6 +41,11 @@ export function validateTagTranslation(
 
 	if (!translation.locale || translation.locale.trim() === "") {
 		errs.push(newValidationError(`${prefix}.locale`, ERR_LOCALE_REQUIRED));
+	} else {
+		const localeErr = validateLanguageCode(translation.locale);
+		if (localeErr) {
+			errs.push(newValidationError(`${prefix}.locale`, localeErr));
+		}
 	}
 
 	if (!translation.display_name || translation.display_name.trim() === "") {

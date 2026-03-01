@@ -17,6 +17,7 @@ import {
 	Modal,
 	Popconfirm,
 	Row,
+	Select,
 	Space,
 	Spin,
 	Table,
@@ -41,16 +42,16 @@ import {
 } from "vetchium-specs/admin/tags";
 import { getApiBaseUrl } from "../config";
 import { useAuth } from "../hooks/useAuth";
+import { useLanguage } from "../hooks/useLanguage";
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
-
-const SUPPORTED_LOCALES = ["en-US", "de-DE", "ta-IN"];
 
 export function ManageTagsPage() {
 	const { t } = useTranslation("tags");
 	const { sessionToken } = useAuth();
 	const { message } = App.useApp();
+	const { languages } = useLanguage();
 
 	const [tags, setTags] = useState<AdminTag[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -64,12 +65,18 @@ export function ManageTagsPage() {
 	const [addModalVisible, setAddModalVisible] = useState(false);
 	const [addLoading, setAddLoading] = useState(false);
 	const [addForm] = Form.useForm();
+	const addTranslations = Form.useWatch("translations", addForm) as
+		| Array<{ locale: string; display_name: string; description?: string }>
+		| undefined;
 
 	// Edit tag modal
 	const [editModalVisible, setEditModalVisible] = useState(false);
 	const [editLoading, setEditLoading] = useState(false);
 	const [editForm] = Form.useForm();
 	const [editingTagId, setEditingTagId] = useState<string | null>(null);
+	const editTranslations = Form.useWatch("translations", editForm) as
+		| Array<{ locale: string; display_name: string; description?: string }>
+		| undefined;
 
 	// Icon upload modal
 	const [iconModalVisible, setIconModalVisible] = useState(false);
@@ -494,53 +501,73 @@ export function ManageTagsPage() {
 						>
 							{(fields, { add, remove }) => (
 								<>
-									{fields.map(({ key, name }) => (
-										<Row key={key} gutter={8} align="middle">
-											<Col span={6}>
-												<Form.Item
-													name={[name, "locale"]}
-													label={key === 0 ? t("locale") : undefined}
-												>
-													<Input placeholder="en-US" />
-												</Form.Item>
-											</Col>
-											<Col span={10}>
-												<Form.Item
-													name={[name, "display_name"]}
-													label={key === 0 ? t("displayName") : undefined}
-												>
-													<Input />
-												</Form.Item>
-											</Col>
-											<Col span={6}>
-												<Form.Item
-													name={[name, "description"]}
-													label={key === 0 ? t("description") : undefined}
-												>
-													<TextArea rows={1} />
-												</Form.Item>
-											</Col>
-											<Col span={2}>
-												{fields.length > 1 && (
-													<Button
-														danger
-														size="small"
-														onClick={() => remove(name)}
-														style={{ marginTop: key === 0 ? 30 : 0 }}
+									{fields.map(({ key, name }) => {
+										const selectedLocales = (addTranslations || [])
+											.filter((_, i) => i !== name)
+											.map((tr) => tr?.locale)
+											.filter(Boolean);
+										const localeOptions = languages.map((lang) => ({
+											value: lang.language_code,
+											label: `${lang.native_name} (${lang.language_code})`,
+											disabled: selectedLocales.includes(lang.language_code),
+										}));
+										return (
+											<Row key={key} gutter={8} align="middle">
+												<Col span={6}>
+													<Form.Item
+														name={[name, "locale"]}
+														label={key === 0 ? t("locale") : undefined}
 													>
-														✕
-													</Button>
-												)}
-											</Col>
-										</Row>
-									))}
-									<Button
-										type="dashed"
-										onClick={() => add({ locale: "", display_name: "" })}
-										icon={<PlusOutlined />}
-									>
-										{t("addTranslation")}
-									</Button>
+														<Select
+															placeholder={t("selectLocale")}
+															options={localeOptions}
+															loading={languages.length === 0}
+														/>
+													</Form.Item>
+												</Col>
+												<Col span={10}>
+													<Form.Item
+														name={[name, "display_name"]}
+														label={key === 0 ? t("displayName") : undefined}
+													>
+														<Input />
+													</Form.Item>
+												</Col>
+												<Col span={6}>
+													<Form.Item
+														name={[name, "description"]}
+														label={key === 0 ? t("description") : undefined}
+													>
+														<TextArea rows={1} />
+													</Form.Item>
+												</Col>
+												<Col span={2}>
+													{fields.length > 1 && (
+														<Button
+															danger
+															size="small"
+															onClick={() => remove(name)}
+															style={{ marginTop: key === 0 ? 30 : 0 }}
+														>
+															✕
+														</Button>
+													)}
+												</Col>
+											</Row>
+										);
+									})}
+									{(languages.length === 0 ||
+										(addTranslations || []).length < languages.length) && (
+										<Button
+											type="dashed"
+											onClick={() =>
+												add({ locale: undefined, display_name: "" })
+											}
+											icon={<PlusOutlined />}
+										>
+											{t("addTranslation")}
+										</Button>
+									)}
 								</>
 							)}
 						</Form.List>
@@ -568,53 +595,73 @@ export function ManageTagsPage() {
 						<Form.List name="translations">
 							{(fields, { add, remove }) => (
 								<>
-									{fields.map(({ key, name }) => (
-										<Row key={key} gutter={8} align="middle">
-											<Col span={6}>
-												<Form.Item
-													name={[name, "locale"]}
-													label={key === 0 ? t("locale") : undefined}
-												>
-													<Input placeholder="en-US" />
-												</Form.Item>
-											</Col>
-											<Col span={10}>
-												<Form.Item
-													name={[name, "display_name"]}
-													label={key === 0 ? t("displayName") : undefined}
-												>
-													<Input />
-												</Form.Item>
-											</Col>
-											<Col span={6}>
-												<Form.Item
-													name={[name, "description"]}
-													label={key === 0 ? t("description") : undefined}
-												>
-													<TextArea rows={1} />
-												</Form.Item>
-											</Col>
-											<Col span={2}>
-												{fields.length > 1 && (
-													<Button
-														danger
-														size="small"
-														onClick={() => remove(name)}
-														style={{ marginTop: key === 0 ? 30 : 0 }}
+									{fields.map(({ key, name }) => {
+										const selectedLocales = (editTranslations || [])
+											.filter((_, i) => i !== name)
+											.map((tr) => tr?.locale)
+											.filter(Boolean);
+										const localeOptions = languages.map((lang) => ({
+											value: lang.language_code,
+											label: `${lang.native_name} (${lang.language_code})`,
+											disabled: selectedLocales.includes(lang.language_code),
+										}));
+										return (
+											<Row key={key} gutter={8} align="middle">
+												<Col span={6}>
+													<Form.Item
+														name={[name, "locale"]}
+														label={key === 0 ? t("locale") : undefined}
 													>
-														✕
-													</Button>
-												)}
-											</Col>
-										</Row>
-									))}
-									<Button
-										type="dashed"
-										onClick={() => add({ locale: "", display_name: "" })}
-										icon={<PlusOutlined />}
-									>
-										{t("addTranslation")}
-									</Button>
+														<Select
+															placeholder={t("selectLocale")}
+															options={localeOptions}
+															loading={languages.length === 0}
+														/>
+													</Form.Item>
+												</Col>
+												<Col span={10}>
+													<Form.Item
+														name={[name, "display_name"]}
+														label={key === 0 ? t("displayName") : undefined}
+													>
+														<Input />
+													</Form.Item>
+												</Col>
+												<Col span={6}>
+													<Form.Item
+														name={[name, "description"]}
+														label={key === 0 ? t("description") : undefined}
+													>
+														<TextArea rows={1} />
+													</Form.Item>
+												</Col>
+												<Col span={2}>
+													{fields.length > 1 && (
+														<Button
+															danger
+															size="small"
+															onClick={() => remove(name)}
+															style={{ marginTop: key === 0 ? 30 : 0 }}
+														>
+															✕
+														</Button>
+													)}
+												</Col>
+											</Row>
+										);
+									})}
+									{(languages.length === 0 ||
+										(editTranslations || []).length < languages.length) && (
+										<Button
+											type="dashed"
+											onClick={() =>
+												add({ locale: undefined, display_name: "" })
+											}
+											icon={<PlusOutlined />}
+										>
+											{t("addTranslation")}
+										</Button>
+									)}
 								</>
 							)}
 						</Form.List>
@@ -656,6 +703,3 @@ export function ManageTagsPage() {
 		</div>
 	);
 }
-
-// Silence unused import warning for SUPPORTED_LOCALES
-void SUPPORTED_LOCALES;

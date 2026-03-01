@@ -67,8 +67,13 @@ func validateTranslations(translations []TagTranslation) []common.ValidationErro
 		prefix := fmt.Sprintf("translations[%d]", i)
 		if t.Locale == "" {
 			errs = append(errs, common.NewValidationError(prefix+".locale", fmt.Errorf(errLocaleRequired)))
-		} else if t.Locale == "en-US" {
-			hasEnUS = true
+		} else {
+			if err := common.LanguageCode(t.Locale).Validate(); err != nil {
+				errs = append(errs, common.NewValidationError(prefix+".locale", err))
+			}
+			if t.Locale == "en-US" {
+				hasEnUS = true
+			}
 		}
 		if t.DisplayName == "" {
 			errs = append(errs, common.NewValidationError(prefix+".display_name", fmt.Errorf(errDisplayNameRequired)))
