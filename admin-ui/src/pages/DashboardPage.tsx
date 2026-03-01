@@ -9,8 +9,6 @@ import { useTranslation } from "react-i18next";
 import { useAuth } from "../hooks/useAuth";
 import { useMyInfo } from "../hooks/useMyInfo";
 import { Link } from "react-router-dom";
-import { useState } from "react";
-import { InviteUserModal } from "./UserManagement/InviteUserModal";
 
 const { Title, Text } = Typography;
 
@@ -18,7 +16,6 @@ export function DashboardPage() {
 	const { t } = useTranslation();
 	const { logout, loading, sessionToken } = useAuth();
 	const { data: myInfo, loading: myInfoLoading } = useMyInfo(sessionToken);
-	const [inviteModalVisible, setInviteModalVisible] = useState(false);
 
 	const canViewDomains =
 		myInfo?.roles.includes("admin:superadmin") ||
@@ -29,11 +26,6 @@ export function DashboardPage() {
 	const canViewUsers =
 		myInfo?.roles.includes("admin:superadmin") ||
 		myInfo?.roles.includes("admin:view_users") ||
-		myInfo?.roles.includes("admin:manage_users") ||
-		false;
-
-	const canManageUsers =
-		myInfo?.roles.includes("admin:superadmin") ||
 		myInfo?.roles.includes("admin:manage_users") ||
 		false;
 
@@ -118,32 +110,8 @@ export function DashboardPage() {
 							</Card>
 						</Link>
 					)}
-
-					{canManageUsers && (
-						<Card
-							hoverable
-							style={{ width: 400, cursor: "pointer", textAlign: "center" }}
-							onClick={() => setInviteModalVisible(true)}
-						>
-							<SafetyOutlined
-								style={{ fontSize: 48, color: "#52c41a", marginBottom: 16 }}
-							/>
-							<Title level={4} style={{ marginBottom: 8 }}>
-								{t("userManagement:inviteUser")}
-							</Title>
-							<Text type="secondary">
-								{t("userManagement:inviteUserDescription")}
-							</Text>
-						</Card>
-					)}
 				</>
 			)}
-
-			<InviteUserModal
-				visible={inviteModalVisible}
-				onCancel={() => setInviteModalVisible(false)}
-				onSuccess={() => setInviteModalVisible(false)}
-			/>
 
 			<Card style={{ width: 400, textAlign: "center" }}>
 				<Title level={3} style={{ marginBottom: 24 }}>
