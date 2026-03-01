@@ -1,0 +1,64 @@
+{
+	"title": "Cost Centers",
+	"addButton": "Add Cost Center",
+	"addModal": {
+		"title": "Add Cost Center",
+		"idLabel": "ID",
+		"idPlaceholder": "e.g. engineering-us",
+		"idHelp": "Unique identifier (max 64 characters). Cannot be changed after creation.",
+		"displayNameLabel": "Display Name",
+		"displayNamePlaceholder": "e.g. Engineering - US",
+		"notesLabel": "Notes",
+		"notesPlaceholder": "Optional notes (max 500 characters)",
+		"submitButton": "Add"
+	},
+	"editModal": {
+		"title": "Edit Cost Center",
+		"idLabel": "ID",
+		"idHelp": "ID cannot be changed after creation.",
+		"displayNameLabel": "Display Name",
+		"displayNamePlaceholder": "e.g. Engineering - US",
+		"statusLabel": "Status",
+		"statusEnabled": "Enabled",
+		"statusDisabled": "Disabled",
+		"notesLabel": "Notes",
+		"notesPlaceholder": "Optional notes (max 500 characters)",
+		"submitButton": "Save"
+	},
+	"table": {
+		"id": "ID",
+		"displayName": "Display Name",
+		"status": "Status",
+		"notes": "Notes",
+		"createdAt": "Created At",
+		"actions": "Actions",
+		"edit": "Edit"
+	},
+	"status": {
+		"enabled": "Enabled",
+		"disabled": "Disabled"
+	},
+	"filter": {
+		"all": "All",
+		"enabled": "Enabled",
+		"disabled": "Disabled"
+	},
+	"loadMore": "Load More",
+	"errors": {
+		"idRequired": "ID is required",
+		"idTooLong": "ID must be at most 64 characters",
+		"displayNameRequired": "Display Name is required",
+		"displayNameTooLong": "Display Name must be at most 64 characters",
+		"notesTooLong": "Notes must be at most 500 characters",
+		"duplicate": "A cost center with this ID already exists",
+		"notFound": "Cost center not found",
+		"loadFailed": "Failed to load cost centers",
+		"addFailed": "Failed to add cost center",
+		"updateFailed": "Failed to update cost center"
+	},
+	"success": {
+		"added": "Cost center added successfully",
+		"updated": "Cost center updated successfully"
+	},
+	"backToDashboard": "Back to Dashboard"
+}

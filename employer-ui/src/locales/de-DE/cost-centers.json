@@ -1,0 +1,64 @@
+{
+	"title": "Kostenstellen",
+	"addButton": "Kostenstelle hinzufügen",
+	"addModal": {
+		"title": "Kostenstelle hinzufügen",
+		"idLabel": "ID",
+		"idPlaceholder": "z.B. engineering-us",
+		"idHelp": "Eindeutiger Bezeichner (max. 64 Zeichen). Kann nach der Erstellung nicht geändert werden.",
+		"displayNameLabel": "Anzeigename",
+		"displayNamePlaceholder": "z.B. Engineering - US",
+		"notesLabel": "Anmerkungen",
+		"notesPlaceholder": "Optionale Anmerkungen (max. 500 Zeichen)",
+		"submitButton": "Hinzufügen"
+	},
+	"editModal": {
+		"title": "Kostenstelle bearbeiten",
+		"idLabel": "ID",
+		"idHelp": "ID kann nach der Erstellung nicht geändert werden.",
+		"displayNameLabel": "Anzeigename",
+		"displayNamePlaceholder": "z.B. Engineering - US",
+		"statusLabel": "Status",
+		"statusEnabled": "Aktiviert",
+		"statusDisabled": "Deaktiviert",
+		"notesLabel": "Anmerkungen",
+		"notesPlaceholder": "Optionale Anmerkungen (max. 500 Zeichen)",
+		"submitButton": "Speichern"
+	},
+	"table": {
+		"id": "ID",
+		"displayName": "Anzeigename",
+		"status": "Status",
+		"notes": "Anmerkungen",
+		"createdAt": "Erstellt am",
+		"actions": "Aktionen",
+		"edit": "Bearbeiten"
+	},
+	"status": {
+		"enabled": "Aktiviert",
+		"disabled": "Deaktiviert"
+	},
+	"filter": {
+		"all": "Alle",
+		"enabled": "Aktiviert",
+		"disabled": "Deaktiviert"
+	},
+	"loadMore": "Mehr laden",
+	"errors": {
+		"idRequired": "ID ist erforderlich",
+		"idTooLong": "ID darf maximal 64 Zeichen lang sein",
+		"displayNameRequired": "Anzeigename ist erforderlich",
+		"displayNameTooLong": "Anzeigename darf maximal 64 Zeichen lang sein",
+		"notesTooLong": "Anmerkungen dürfen maximal 500 Zeichen lang sein",
+		"duplicate": "Eine Kostenstelle mit dieser ID existiert bereits",
+		"notFound": "Kostenstelle nicht gefunden",
+		"loadFailed": "Kostenstellen konnten nicht geladen werden",
+		"addFailed": "Kostenstelle konnte nicht hinzugefügt werden",
+		"updateFailed": "Kostenstelle konnte nicht aktualisiert werden"
+	},
+	"success": {
+		"added": "Kostenstelle erfolgreich hinzugefügt",
+		"updated": "Kostenstelle erfolgreich aktualisiert"
+	},
+	"backToDashboard": "Zurück zum Dashboard"
+}

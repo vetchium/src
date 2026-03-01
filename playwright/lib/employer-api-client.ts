@@ -10,6 +10,13 @@ import type {
 	Tag,
 } from "vetchium-specs/employer/tags";
 import type {
+	AddCostCenterRequest,
+	UpdateCostCenterRequest,
+	ListCostCentersRequest,
+	ListCostCentersResponse,
+	CostCenter,
+} from "vetchium-specs/employer/cost-centers";
+import type {
 	OrgInitSignupRequest,
 	OrgInitSignupResponse,
 	OrgGetSignupDetailsRequest,
@@ -1194,6 +1201,133 @@ export class EmployerAPIClient {
 			status: response.status(),
 			body: body as FilterTagsResponse,
 			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	// ============================================================================
+	// Cost Centers
+	// ============================================================================
+
+	/**
+	 * POST /employer/add-cost-center
+	 * Adds a new cost center for the employer.
+	 */
+	async addCostCenter(
+		sessionToken: string,
+		request: AddCostCenterRequest
+	): Promise<APIResponse<CostCenter>> {
+		const response = await this.request.post("/employer/add-cost-center", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as CostCenter,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	/**
+	 * POST /employer/add-cost-center with raw body for testing invalid payloads
+	 */
+	async addCostCenterRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<CostCenter>> {
+		const response = await this.request.post("/employer/add-cost-center", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: body,
+		});
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as CostCenter,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	/**
+	 * POST /employer/update-cost-center
+	 * Updates an existing cost center.
+	 */
+	async updateCostCenter(
+		sessionToken: string,
+		request: UpdateCostCenterRequest
+	): Promise<APIResponse<CostCenter>> {
+		const response = await this.request.post("/employer/update-cost-center", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as CostCenter,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	/**
+	 * POST /employer/update-cost-center with raw body for testing invalid payloads
+	 */
+	async updateCostCenterRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<CostCenter>> {
+		const response = await this.request.post("/employer/update-cost-center", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: body,
+		});
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as CostCenter,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	/**
+	 * POST /employer/list-cost-centers
+	 * Lists cost centers for the employer.
+	 */
+	async listCostCenters(
+		sessionToken: string,
+		request: ListCostCentersRequest
+	): Promise<APIResponse<ListCostCentersResponse>> {
+		const response = await this.request.post("/employer/list-cost-centers", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as ListCostCentersResponse,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	/**
+	 * POST /employer/list-cost-centers with raw body for testing invalid payloads
+	 */
+	async listCostCentersRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<ListCostCentersResponse>> {
+		const response = await this.request.post("/employer/list-cost-centers", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: body,
+		});
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as ListCostCentersResponse,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
 		};
 	}
 }

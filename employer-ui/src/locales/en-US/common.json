@@ -30,6 +30,10 @@
 		"title": "Domain Management",
 		"description": "Verify and manage your organization's domains"
 	},
+	"costCenters": {
+		"title": "Cost Centers",
+		"description": "Manage cost centers for your organization"
+	},
 	"action": {
 		"backHome": "Back Home"
 	},

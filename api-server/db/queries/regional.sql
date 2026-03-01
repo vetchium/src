@@ -723,3 +723,26 @@ SELECT EXISTS(
 -- name: AssignHubUserRole :exec
 INSERT INTO hub_user_roles (hub_user_global_id, role_id)
 VALUES ($1, $2);
+-- name: CreateCostCenter :one
+INSERT INTO cost_centers (employer_id, id, display_name, notes)
+VALUES (@employer_id, @id, @display_name, @notes)
+RETURNING *;
+
+-- name: UpdateCostCenter :one
+UPDATE cost_centers
+SET display_name = @display_name,
+    status       = @status,
+    notes        = @notes
+WHERE employer_id = @employer_id AND id = @id
+RETURNING *;
+
+-- name: ListCostCenters :many
+SELECT * FROM cost_centers
+WHERE employer_id = @employer_id
+  AND (sqlc.narg('filter_status')::cost_center_status IS NULL
+       OR status = sqlc.narg('filter_status')::cost_center_status)
+  AND (@cursor_created_at::timestamp IS NULL
+       OR (created_at > @cursor_created_at)
+       OR (created_at = @cursor_created_at AND cost_center_id > @cursor_id))
+ORDER BY created_at ASC, cost_center_id ASC
+LIMIT @limit_count;

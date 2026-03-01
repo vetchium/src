@@ -3,6 +3,7 @@ import {
 	LogoutOutlined,
 	TeamOutlined,
 	GlobalOutlined,
+	BankOutlined,
 } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
@@ -26,6 +27,12 @@ export function DashboardPage() {
 		myInfo?.roles.includes("employer:superadmin") ||
 		myInfo?.roles.includes("employer:view_domains") ||
 		myInfo?.roles.includes("employer:manage_domains") ||
+		false;
+
+	const hasCostCentersAccess =
+		myInfo?.roles.includes("employer:superadmin") ||
+		myInfo?.roles.includes("employer:view_costcenters") ||
+		myInfo?.roles.includes("employer:manage_costcenters") ||
 		false;
 
 	return (
@@ -97,6 +104,31 @@ export function DashboardPage() {
 								</Title>
 								<Typography.Text type="secondary">
 									{t("domainManagement.description")}
+								</Typography.Text>
+							</Card>
+						</Link>
+					)}
+					{hasCostCentersAccess && (
+						<Link
+							to="/cost-centers"
+							style={{ textDecoration: "none", width: "100%" }}
+						>
+							<Card
+								hoverable
+								style={{
+									width: "100%",
+									cursor: "pointer",
+									textAlign: "center",
+								}}
+							>
+								<BankOutlined
+									style={{ fontSize: 48, color: "#52c41a", marginBottom: 16 }}
+								/>
+								<Title level={4} style={{ marginBottom: 8 }}>
+									{t("costCenters.title")}
+								</Title>
+								<Typography.Text type="secondary">
+									{t("costCenters.description")}
 								</Typography.Text>
 							</Card>
 						</Link>

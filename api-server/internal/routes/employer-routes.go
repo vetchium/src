@@ -25,6 +25,8 @@ func RegisterEmployerRoutes(mux *http.ServeMux, s *server.Server) {
 	employerRoleManageUsers := middleware.EmployerRole(s.Regional, "employer:manage_users")
 	employerRoleViewDomains := middleware.EmployerRole(s.Regional, "employer:view_domains", "employer:manage_domains")
 	employerRoleManageDomains := middleware.EmployerRole(s.Regional, "employer:manage_domains")
+	employerRoleViewCostCenters := middleware.EmployerRole(s.Regional, "employer:view_costcenters", "employer:manage_costcenters")
+	employerRoleManageCostCenters := middleware.EmployerRole(s.Regional, "employer:manage_costcenters")
 
 	// Domain write routes (manage_domains required; superadmin bypasses via middleware)
 	mux.Handle("POST /employer/claim-domain", orgAuth(employerRoleManageDomains(employer.ClaimDomain(s))))
@@ -50,4 +52,9 @@ func RegisterEmployerRoutes(mux *http.ServeMux, s *server.Server) {
 	// Tag read routes (auth-only, no role restriction)
 	mux.Handle("POST /employer/get-tag", orgAuth(employer.GetTag(s)))
 	mux.Handle("POST /employer/filter-tags", orgAuth(employer.FilterTags(s)))
+
+	// Cost center routes
+	mux.Handle("POST /employer/add-cost-center", orgAuth(employerRoleManageCostCenters(employer.AddCostCenter(s))))
+	mux.Handle("POST /employer/update-cost-center", orgAuth(employerRoleManageCostCenters(employer.UpdateCostCenter(s))))
+	mux.Handle("POST /employer/list-cost-centers", orgAuth(employerRoleViewCostCenters(employer.ListCostCenters(s))))
 }

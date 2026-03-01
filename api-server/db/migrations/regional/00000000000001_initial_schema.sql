@@ -56,6 +56,8 @@ CREATE TYPE agency_user_status AS ENUM (
 );
 -- Domain verification status enum
 CREATE TYPE domain_verification_status AS ENUM ('PENDING', 'VERIFIED', 'FAILING');
+-- Cost center status enum
+CREATE TYPE cost_center_status AS ENUM ('enabled', 'disabled');
 -- Hub users table (regional - all mutable data)
 -- Uses hub_user_global_id as primary key (same ID as global DB for simplicity)
 CREATE TABLE hub_users (
@@ -233,6 +235,17 @@ CREATE TABLE agency_invitation_tokens (
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     expires_at TIMESTAMP NOT NULL
 );
+-- Cost centers for employer organizations
+CREATE TABLE cost_centers (
+    cost_center_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    employer_id    UUID NOT NULL,
+    id             VARCHAR(64) NOT NULL,
+    display_name   VARCHAR(64) NOT NULL,
+    status         cost_center_status NOT NULL DEFAULT 'enabled',
+    notes          TEXT,
+    created_at     TIMESTAMP NOT NULL DEFAULT NOW(),
+    UNIQUE (employer_id, id)
+);
 -- RBAC: Roles table
 CREATE TABLE roles (
     role_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -275,6 +288,8 @@ INSERT INTO roles (role_name, description) VALUES
     ('employer:manage_users', 'Can invite, enable/disable org users and manage their roles'),
     ('employer:view_domains', 'Can view employer domain list and status (read-only)'),
     ('employer:manage_domains', 'Can claim, verify and delete employer domains'),
+    ('employer:view_costcenters', 'Can view cost centers for their organization (read-only)'),
+    ('employer:manage_costcenters', 'Can create, update and manage cost centers for their organization'),
 
     -- Agency portal roles
     ('agency:view_users', 'Can view agency user list and details (read-only)'),
@@ -303,6 +318,7 @@ CREATE INDEX idx_org_password_reset_tokens_expires_at ON org_password_reset_toke
 CREATE INDEX idx_org_invitation_tokens_expires_at ON org_invitation_tokens(expires_at);
 CREATE INDEX idx_org_users_email_address ON org_users(email_address);
 CREATE INDEX idx_org_users_employer_id ON org_users(employer_id);
+CREATE INDEX idx_cost_centers_employer_id_created_at ON cost_centers(employer_id, created_at);
 CREATE INDEX idx_employer_domains_employer_id ON employer_domains(employer_id);
 CREATE INDEX idx_employer_domains_status ON employer_domains(status);
 CREATE INDEX idx_agency_tfa_tokens_expires_at ON agency_tfa_tokens(expires_at);
@@ -326,6 +342,7 @@ DROP INDEX IF EXISTS idx_agency_sessions_expires_at;
 DROP INDEX IF EXISTS idx_agency_tfa_tokens_expires_at;
 DROP INDEX IF EXISTS idx_employer_domains_status;
 DROP INDEX IF EXISTS idx_employer_domains_employer_id;
+DROP INDEX IF EXISTS idx_cost_centers_employer_id_created_at;
 DROP INDEX IF EXISTS idx_org_users_employer_id;
 DROP INDEX IF EXISTS idx_org_users_email_address;
 DROP INDEX IF EXISTS idx_org_invitation_tokens_expires_at;
@@ -344,6 +361,7 @@ DROP TABLE IF EXISTS agency_sessions;
 DROP TABLE IF EXISTS agency_tfa_tokens;
 DROP TABLE IF EXISTS agency_users;
 DROP TABLE IF EXISTS agency_domains;
+DROP TABLE IF EXISTS cost_centers;
 DROP TABLE IF EXISTS employer_domains;
 DROP TABLE IF EXISTS org_invitation_tokens;
 DROP TABLE IF EXISTS org_password_reset_tokens;
@@ -358,6 +376,7 @@ DROP TABLE IF EXISTS hub_tfa_tokens;
 DROP TABLE IF EXISTS email_delivery_attempts;
 DROP TABLE IF EXISTS emails;
 DROP TABLE IF EXISTS hub_users;
+DROP TYPE IF EXISTS cost_center_status;
 DROP TYPE IF EXISTS domain_verification_status;
 DROP TYPE IF EXISTS agency_user_status;
 DROP TYPE IF EXISTS org_user_status;

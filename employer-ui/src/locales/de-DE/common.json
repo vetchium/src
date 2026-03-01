@@ -30,6 +30,10 @@
 		"title": "Domain-Verwaltung",
 		"description": "Verifizieren und verwalten Sie die Domains Ihrer Organisation"
 	},
+	"costCenters": {
+		"title": "Kostenstellen",
+		"description": "Kostenstellen für Ihre Organisation verwalten"
+	},
 	"action": {
 		"backHome": "Zurück zur Startseite"
 	},

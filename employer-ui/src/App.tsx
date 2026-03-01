@@ -28,6 +28,7 @@ import { ChangePasswordPage } from "./pages/ChangePasswordPage";
 import { CompleteSetupPage } from "./pages/CompleteSetupPage";
 import { UserManagementPage } from "./pages/UserManagement/UserManagementPage";
 import { DomainManagementPage } from "./pages/DomainManagement/DomainManagementPage";
+import { CostCentersPage } from "./pages/CostCenters/CostCentersPage";
 import {
 	BrowserRouter,
 	Routes,
@@ -169,6 +170,35 @@ function DomainManagementRoute({ children }: { children: React.ReactNode }) {
 	return <>{children}</>;
 }
 
+function CostCentersRoute({ children }: { children: React.ReactNode }) {
+	const { authState, sessionToken } = useAuth();
+	const { data: myInfo, loading } = useMyInfo(sessionToken);
+	const location = useLocation();
+
+	if (authState === "login") {
+		return <Navigate to="/login" state={{ from: location }} replace />;
+	}
+
+	if (authState === "tfa") {
+		return <Navigate to="/tfa" replace />;
+	}
+
+	if (loading) {
+		return <Spin size="large" />;
+	}
+
+	const hasCostCentersAccess =
+		myInfo?.roles.includes("employer:superadmin") ||
+		myInfo?.roles.includes("employer:view_costcenters") ||
+		myInfo?.roles.includes("employer:manage_costcenters");
+
+	if (!hasCostCentersAccess) {
+		return <Navigate to="/" replace />;
+	}
+
+	return <>{children}</>;
+}
+
 function AppContent() {
 	const { theme } = useTheme();
 
@@ -256,6 +286,14 @@ function AppContent() {
 									<DomainManagementRoute>
 										<DomainManagementPage />
 									</DomainManagementRoute>
+								}
+							/>
+							<Route
+								path="/cost-centers"
+								element={
+									<CostCentersRoute>
+										<CostCentersPage />
+									</CostCentersRoute>
 								}
 							/>
 							<Route
