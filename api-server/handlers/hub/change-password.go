@@ -7,6 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"golang.org/x/crypto/bcrypt"
+	"vetchium-api-server.gomodule/internal/audit"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
@@ -90,9 +91,17 @@ func ChangePassword(s *server.Server) http.HandlerFunc {
 			if txErr != nil {
 				return txErr
 			}
-			return qtx.DeleteAllHubSessionsExceptCurrent(ctx, regionaldb.DeleteAllHubSessionsExceptCurrentParams{
+			if txErr = qtx.DeleteAllHubSessionsExceptCurrent(ctx, regionaldb.DeleteAllHubSessionsExceptCurrentParams{
 				HubUserGlobalID: hubUser.HubUserGlobalID,
 				SessionToken:    hubSession.SessionToken,
+			}); txErr != nil {
+				return txErr
+			}
+			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
+				EventType:   "hub.change_password",
+				ActorUserID: hubUser.HubUserGlobalID,
+				IpAddress:   audit.ExtractClientIP(r),
+				EventData:   []byte("{}"),
 			})
 		})
 		if err != nil {

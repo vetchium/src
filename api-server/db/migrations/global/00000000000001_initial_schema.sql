@@ -350,6 +350,7 @@ INSERT INTO roles (role_name, description) VALUES
     ('admin:view_domains', 'Can view approved domain list and details (read-only)'),
     ('admin:manage_domains', 'Can add, enable/disable approved domains'),
     ('admin:manage_tags', 'Can create and update tags'),
+    ('admin:view_audit_logs', 'Can view admin portal audit logs'),
 
     -- Employer portal roles
     ('employer:view_users', 'Can view org user list and details (read-only)'),
@@ -362,6 +363,17 @@ INSERT INTO roles (role_name, description) VALUES
     ('agency:manage_users', 'Can invite, enable/disable agency users and manage their roles'),
     ('agency:view_domains', 'Can view agency domain list and status (read-only)'),
     ('agency:manage_domains', 'Can claim, verify and delete agency domains');
+
+-- Admin audit logs table (unified audit log for all admin portal write operations)
+CREATE TABLE admin_audit_logs (
+    id             UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    event_type     VARCHAR(64) NOT NULL,
+    actor_user_id  UUID,
+    target_user_id UUID,
+    ip_address     TEXT        NOT NULL,
+    event_data     JSONB       NOT NULL DEFAULT '{}',
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 
 -- Indexes
 CREATE INDEX idx_admin_tfa_tokens_expires_at ON admin_tfa_tokens(expires_at);
@@ -384,8 +396,15 @@ CREATE INDEX idx_agency_signup_tokens_domain ON agency_signup_tokens(domain);
 CREATE INDEX idx_agency_users_agency_id ON agency_users(agency_id);
 CREATE INDEX idx_agency_users_email_hash ON agency_users(email_address_hash);
 CREATE INDEX idx_global_agency_domains_agency_id ON global_agency_domains(agency_id);
+CREATE INDEX idx_admin_audit_logs_created_at_id ON admin_audit_logs(created_at DESC, id DESC);
+CREATE INDEX idx_admin_audit_logs_actor_user_id ON admin_audit_logs(actor_user_id);
+CREATE INDEX idx_admin_audit_logs_event_type ON admin_audit_logs(event_type);
 
 -- +goose Down
+DROP INDEX IF EXISTS idx_admin_audit_logs_event_type;
+DROP INDEX IF EXISTS idx_admin_audit_logs_actor_user_id;
+DROP INDEX IF EXISTS idx_admin_audit_logs_created_at_id;
+DROP TABLE IF EXISTS admin_audit_logs;
 DROP TABLE IF EXISTS tag_translations;
 DROP TABLE IF EXISTS tags;
 DROP TABLE IF EXISTS admin_user_roles;

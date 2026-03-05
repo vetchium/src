@@ -9,6 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"vetchium-api-server.gomodule/internal/audit"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
@@ -106,9 +107,19 @@ func DisableUser(s *server.Server) http.HandlerFunc {
 				return server.ErrInvalidState
 			}
 
-			return qtx.UpdateOrgUserStatus(ctx, regionaldb.UpdateOrgUserStatusParams{
+			if txErr := qtx.UpdateOrgUserStatus(ctx, regionaldb.UpdateOrgUserStatusParams{
 				OrgUserID: targetUser.OrgUserID,
 				Status:    regionaldb.OrgUserStatusDisabled,
+			}); txErr != nil {
+				return txErr
+			}
+			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
+				EventType:    "employer.disable_user",
+				ActorUserID:  orgUser.OrgUserID,
+				TargetUserID: targetUser.OrgUserID,
+				OrgID:        orgUser.EmployerID,
+				IpAddress:    audit.ExtractClientIP(r),
+				EventData:    []byte("{}"),
 			})
 		})
 		if err != nil {

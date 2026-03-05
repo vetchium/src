@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/jackc/pgx/v5"
+	"vetchium-api-server.gomodule/internal/audit"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
@@ -62,13 +63,24 @@ func EnableUser(s *server.GlobalServer) http.HandlerFunc {
 			return
 		}
 
-		// Update user status to active in global DB
-		err = s.Global.UpdateAdminUserStatus(ctx, globaldb.UpdateAdminUserStatusParams{
-			AdminUserID: targetUser.AdminUserID,
-			Status:      globaldb.AdminUserStatusActive,
+		// Update user status and write audit log atomically
+		err = s.WithGlobalTx(ctx, func(qtx *globaldb.Queries) error {
+			if err := qtx.UpdateAdminUserStatus(ctx, globaldb.UpdateAdminUserStatusParams{
+				AdminUserID: targetUser.AdminUserID,
+				Status:      globaldb.AdminUserStatusActive,
+			}); err != nil {
+				return err
+			}
+			return qtx.InsertAdminAuditLog(ctx, globaldb.InsertAdminAuditLogParams{
+				EventType:    "admin.enable_user",
+				ActorUserID:  adminUser.AdminUserID,
+				TargetUserID: targetUser.AdminUserID,
+				IpAddress:    audit.ExtractClientIP(r),
+				EventData:    []byte("{}"),
+			})
 		})
 		if err != nil {
-			log.Error("failed to update user status", "error", err)
+			log.Error("failed to enable user", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}

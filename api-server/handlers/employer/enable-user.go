@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/jackc/pgx/v5"
+	"vetchium-api-server.gomodule/internal/audit"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
@@ -83,10 +84,22 @@ func EnableUser(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Update user status to active in regional DB
-		err = s.Regional.UpdateOrgUserStatus(ctx, regionaldb.UpdateOrgUserStatusParams{
-			OrgUserID: targetUser.OrgUserID,
-			Status:    regionaldb.OrgUserStatusActive,
+		// Update user status to active and write audit log atomically
+		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
+			if txErr := qtx.UpdateOrgUserStatus(ctx, regionaldb.UpdateOrgUserStatusParams{
+				OrgUserID: targetUser.OrgUserID,
+				Status:    regionaldb.OrgUserStatusActive,
+			}); txErr != nil {
+				return txErr
+			}
+			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
+				EventType:    "employer.enable_user",
+				ActorUserID:  orgUser.OrgUserID,
+				TargetUserID: targetUser.OrgUserID,
+				OrgID:        orgUser.EmployerID,
+				IpAddress:    audit.ExtractClientIP(r),
+				EventData:    []byte("{}"),
+			})
 		})
 		if err != nil {
 			log.Error("failed to update user status", "error", err)

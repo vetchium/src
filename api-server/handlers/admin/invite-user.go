@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"vetchium-api-server.gomodule/internal/audit"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/email/templates"
 	"vetchium-api-server.gomodule/internal/i18n"
@@ -77,48 +78,17 @@ func InviteUser(s *server.GlobalServer) http.HandlerFunc {
 			Valid: true,
 		}
 
-		// Create admin user in global DB with status='invited'
-		createdUser, err := s.Global.CreateAdminUser(ctx, globaldb.CreateAdminUserParams{
-			AdminUserID:       newAdminUserID,
-			EmailAddress:      string(req.EmailAddress),
-			FullName:          pgtype.Text{Valid: false},
-			Status:            globaldb.AdminUserStatusInvited,
-			PreferredLanguage: "en-US",
-		})
-		if err != nil {
-			log.Error("failed to create admin user", "error", err)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-
 		// Generate invitation token
 		tokenBytes := make([]byte, 32)
 		if _, err := rand.Read(tokenBytes); err != nil {
 			log.Error("failed to generate invitation token", "error", err)
-			// Compensating transaction: delete the user we just created
-			s.Global.DeleteAdminUser(ctx, createdUser.AdminUserID)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 		invitationToken := hex.EncodeToString(tokenBytes)
-
-		// Create invitation token in global DB
 		invitationExpiry := s.TokenConfig.AdminInvitationTokenExpiry
 		expiresAt := pgtype.Timestamp{Time: time.Now().Add(invitationExpiry), Valid: true}
-		err = s.Global.CreateAdminInvitationToken(ctx, globaldb.CreateAdminInvitationTokenParams{
-			InvitationToken: invitationToken,
-			AdminUserID:     createdUser.AdminUserID,
-			ExpiresAt:       expiresAt,
-		})
-		if err != nil {
-			log.Error("failed to create invitation token", "error", err)
-			// Compensating transaction: delete the user we just created
-			s.Global.DeleteAdminUser(ctx, createdUser.AdminUserID)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
 
-		// Send invitation email via global email queue
 		emailLanguage := adminUser.PreferredLanguage
 		if req.InviteEmailLanguage != "" {
 			emailLanguage = string(req.InviteEmailLanguage)
@@ -128,7 +98,6 @@ func InviteUser(s *server.GlobalServer) http.HandlerFunc {
 		if inviterName == "" {
 			inviterName = adminUser.EmailAddress
 		}
-
 		emailData := templates.AdminInvitationData{
 			InvitationToken: invitationToken,
 			InviterName:     inviterName,
@@ -136,27 +105,55 @@ func InviteUser(s *server.GlobalServer) http.HandlerFunc {
 			BaseURL:         s.UIConfig.AdminURL,
 		}
 
-		_, err = s.Global.EnqueueGlobalEmail(ctx, globaldb.EnqueueGlobalEmailParams{
-			EmailType:     globaldb.EmailTemplateTypeAdminInvitation,
-			EmailTo:       string(req.EmailAddress),
-			EmailSubject:  templates.AdminInvitationSubject(lang, emailData),
-			EmailTextBody: templates.AdminInvitationTextBody(lang, emailData),
-			EmailHtmlBody: templates.AdminInvitationHTMLBody(lang, emailData),
+		// Create user, token, email, and audit log atomically
+		var createdUserID pgtype.UUID
+		err = s.WithGlobalTx(ctx, func(qtx *globaldb.Queries) error {
+			createdUser, err := qtx.CreateAdminUser(ctx, globaldb.CreateAdminUserParams{
+				AdminUserID:       newAdminUserID,
+				EmailAddress:      string(req.EmailAddress),
+				FullName:          pgtype.Text{Valid: false},
+				Status:            globaldb.AdminUserStatusInvited,
+				PreferredLanguage: "en-US",
+			})
+			if err != nil {
+				return err
+			}
+			createdUserID = createdUser.AdminUserID
+			if err := qtx.CreateAdminInvitationToken(ctx, globaldb.CreateAdminInvitationTokenParams{
+				InvitationToken: invitationToken,
+				AdminUserID:     createdUser.AdminUserID,
+				ExpiresAt:       expiresAt,
+			}); err != nil {
+				return err
+			}
+			if _, err := qtx.EnqueueGlobalEmail(ctx, globaldb.EnqueueGlobalEmailParams{
+				EmailType:     globaldb.EmailTemplateTypeAdminInvitation,
+				EmailTo:       string(req.EmailAddress),
+				EmailSubject:  templates.AdminInvitationSubject(lang, emailData),
+				EmailTextBody: templates.AdminInvitationTextBody(lang, emailData),
+				EmailHtmlBody: templates.AdminInvitationHTMLBody(lang, emailData),
+			}); err != nil {
+				return err
+			}
+			return qtx.InsertAdminAuditLog(ctx, globaldb.InsertAdminAuditLogParams{
+				EventType:    "admin.invite_user",
+				ActorUserID:  adminUser.AdminUserID,
+				TargetUserID: createdUser.AdminUserID,
+				IpAddress:    audit.ExtractClientIP(r),
+				EventData:    []byte("{}"),
+			})
 		})
 		if err != nil {
-			log.Error("failed to enqueue invitation email", "error", err)
-			// Compensating transaction: delete everything
-			s.Global.DeleteAdminInvitationToken(ctx, invitationToken)
-			s.Global.DeleteAdminUser(ctx, createdUser.AdminUserID)
+			log.Error("failed to invite admin user", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		log.Info("admin user invited successfully", "admin_user_id", createdUser.AdminUserID, "inviter_id", adminUser.AdminUserID)
+		log.Info("admin user invited successfully", "admin_user_id", createdUserID, "inviter_id", adminUser.AdminUserID)
 
 		// Return response
 		response := admin.AdminInviteUserResponse{
-			InvitationID: createdUser.AdminUserID.String(),
+			InvitationID: createdUserID.String(),
 			ExpiresAt:    expiresAt.Time.Format(time.RFC3339),
 		}
 

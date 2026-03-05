@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"vetchium-api-server.gomodule/internal/audit"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/proxy"
 	"vetchium-api-server.gomodule/internal/server"
@@ -131,12 +132,22 @@ func TFA(s *server.Server) http.HandlerFunc {
 			sessionExpiry = s.TokenConfig.HubSessionTokenExpiry
 		}
 
-		// Store session in regional database (raw token without prefix)
+		// Store session and write audit log atomically
 		expiresAt := pgtype.Timestamp{Time: time.Now().Add(sessionExpiry), Valid: true}
-		err = s.Regional.CreateHubSession(ctx, regionaldb.CreateHubSessionParams{
-			SessionToken:    rawSessionToken,
-			HubUserGlobalID: tfaTokenRecord.HubUserGlobalID,
-			ExpiresAt:       expiresAt,
+		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
+			if txErr := qtx.CreateHubSession(ctx, regionaldb.CreateHubSessionParams{
+				SessionToken:    rawSessionToken,
+				HubUserGlobalID: tfaTokenRecord.HubUserGlobalID,
+				ExpiresAt:       expiresAt,
+			}); txErr != nil {
+				return txErr
+			}
+			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
+				EventType:   "hub.login",
+				ActorUserID: regionalUser.HubUserGlobalID,
+				IpAddress:   audit.ExtractClientIP(r),
+				EventData:   []byte("{}"),
+			})
 		})
 		if err != nil {
 			log.Error("failed to store session", "error", err)

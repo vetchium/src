@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgtype"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 )
 
@@ -41,6 +42,8 @@ func (w *GlobalWorker) Run(ctx context.Context) {
 		"hub_signup_tokens_cleanup_interval", w.config.ExpiredHubSignupTokensCleanupInterval,
 		"org_signup_tokens_cleanup_interval", w.config.ExpiredOrgSignupTokensCleanupInterval,
 		"agency_signup_tokens_cleanup_interval", w.config.ExpiredAgencySignupTokensCleanupInterval,
+		"admin_audit_log_retention", w.config.AdminAuditLogRetention,
+		"admin_audit_log_purge_interval", w.config.AdminAuditLogPurgeInterval,
 	)
 
 	// Launch each job in its own goroutine
@@ -71,6 +74,10 @@ func (w *GlobalWorker) Run(ctx context.Context) {
 	go w.runPeriodicJob(ctx, "agency-signup-tokens",
 		w.config.ExpiredAgencySignupTokensCleanupInterval,
 		w.cleanupExpiredAgencySignupTokens)
+
+	go w.runPeriodicJob(ctx, "admin-audit-logs",
+		w.config.AdminAuditLogPurgeInterval,
+		w.purgeExpiredAdminAuditLogs)
 }
 
 // runPeriodicJob runs a job function in a loop with the given interval.
@@ -194,4 +201,18 @@ func (w *GlobalWorker) cleanupExpiredAdminInvitationTokens(ctx context.Context) 
 		return
 	}
 	w.log.Debug("cleaned up expired admin invitation tokens")
+}
+
+func (w *GlobalWorker) purgeExpiredAdminAuditLogs(ctx context.Context) {
+	if ctx.Err() != nil {
+		return
+	}
+
+	retention := pgtype.Interval{Microseconds: w.config.AdminAuditLogRetention.Microseconds(), Valid: true}
+	err := w.queries.DeleteExpiredAdminAuditLogs(ctx, retention)
+	if err != nil {
+		w.log.Error("failed to purge expired admin audit logs", "error", err)
+		return
+	}
+	w.log.Debug("purged expired admin audit logs")
 }

@@ -12,6 +12,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"vetchium-api-server.gomodule/internal/audit"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
@@ -94,13 +95,25 @@ func ClaimDomain(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Create in regional DB
-		err = s.Regional.CreateEmployerDomain(ctx, regionaldb.CreateEmployerDomainParams{
-			Domain:            domain,
-			EmployerID:        orgUser.EmployerID,
-			VerificationToken: verificationToken,
-			TokenExpiresAt:    pgtype.Timestamp{Time: tokenExpiresAt, Valid: true},
-			Status:            regionaldb.DomainVerificationStatusPENDING,
+		// Create in regional DB and write audit log atomically
+		eventData, _ := json.Marshal(map[string]any{"domain": domain})
+		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
+			if txErr := qtx.CreateEmployerDomain(ctx, regionaldb.CreateEmployerDomainParams{
+				Domain:            domain,
+				EmployerID:        orgUser.EmployerID,
+				VerificationToken: verificationToken,
+				TokenExpiresAt:    pgtype.Timestamp{Time: tokenExpiresAt, Valid: true},
+				Status:            regionaldb.DomainVerificationStatusPENDING,
+			}); txErr != nil {
+				return txErr
+			}
+			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
+				EventType:   "employer.claim_domain",
+				ActorUserID: orgUser.OrgUserID,
+				OrgID:       orgUser.EmployerID,
+				IpAddress:   audit.ExtractClientIP(r),
+				EventData:   eventData,
+			})
 		})
 		if err != nil {
 			log.Error("failed to create regional employer domain", "error", err)

@@ -7,6 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"vetchium-api-server.gomodule/internal/audit"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
@@ -81,8 +82,9 @@ func RemoveRole(s *server.GlobalServer) http.HandlerFunc {
 			return
 		}
 
-		// The has-role check, last-superadmin guard, and the removal are all
+		// The has-role check, last-superadmin guard, removal, and audit log are all
 		// inside a single transaction to prevent race conditions.
+		eventData, _ := json.Marshal(map[string]any{"role_name": string(req.RoleName)})
 		err = s.WithGlobalTx(ctx, func(qtx *globaldb.Queries) error {
 			// Check if user has this role
 			hasRole, err := qtx.HasAdminUserRole(ctx, globaldb.HasAdminUserRoleParams{
@@ -107,9 +109,18 @@ func RemoveRole(s *server.GlobalServer) http.HandlerFunc {
 				}
 			}
 
-			return qtx.RemoveAdminUserRole(ctx, globaldb.RemoveAdminUserRoleParams{
+			if err := qtx.RemoveAdminUserRole(ctx, globaldb.RemoveAdminUserRoleParams{
 				AdminUserID: targetUser.AdminUserID,
 				RoleID:      role.RoleID,
+			}); err != nil {
+				return err
+			}
+			return qtx.InsertAdminAuditLog(ctx, globaldb.InsertAdminAuditLogParams{
+				EventType:    "admin.remove_role",
+				ActorUserID:  adminUser.AdminUserID,
+				TargetUserID: targetUser.AdminUserID,
+				IpAddress:    audit.ExtractClientIP(r),
+				EventData:    eventData,
 			})
 		})
 		if err != nil {

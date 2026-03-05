@@ -11,6 +11,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"vetchium-api-server.gomodule/internal/audit"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/email/templates"
 	"vetchium-api-server.gomodule/internal/middleware"
@@ -115,14 +116,21 @@ func RequestEmailChange(s *server.Server) http.HandlerFunc {
 			if txErr != nil {
 				return txErr
 			}
-			_, txErr = qtx.EnqueueEmail(ctx, regionaldb.EnqueueEmailParams{
+			if _, txErr = qtx.EnqueueEmail(ctx, regionaldb.EnqueueEmailParams{
 				EmailType:     "hub_email_verification",
 				EmailTo:       string(req.NewEmailAddress),
 				EmailSubject:  subject,
 				EmailTextBody: textBody,
 				EmailHtmlBody: htmlBody,
+			}); txErr != nil {
+				return txErr
+			}
+			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
+				EventType:   "hub.request_email_change",
+				ActorUserID: hubUser.HubUserGlobalID,
+				IpAddress:   audit.ExtractClientIP(r),
+				EventData:   []byte("{}"),
 			})
-			return txErr
 		})
 		if err != nil {
 			log.Error("failed to create verification token and enqueue email", "error", err)

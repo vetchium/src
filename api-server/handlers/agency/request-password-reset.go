@@ -13,6 +13,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"vetchium-api-server.gomodule/internal/audit"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/email/templates"
@@ -132,7 +133,7 @@ func RequestPasswordReset(s *server.Server) http.HandlerFunc {
 		textBody := templates.AgencyPasswordResetTextBody(preferredLang, emailData)
 		htmlBody := templates.AgencyPasswordResetHTMLBody(preferredLang, emailData)
 
-		// Create reset token and enqueue email atomically
+		// Create reset token, enqueue email, and write audit log atomically
 		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
 			txErr := qtx.CreateAgencyPasswordResetToken(ctx, regionaldb.CreateAgencyPasswordResetTokenParams{
 				ResetToken:         resetToken,
@@ -142,14 +143,22 @@ func RequestPasswordReset(s *server.Server) http.HandlerFunc {
 			if txErr != nil {
 				return txErr
 			}
-			_, txErr = qtx.EnqueueEmail(ctx, regionaldb.EnqueueEmailParams{
+			if _, txErr = qtx.EnqueueEmail(ctx, regionaldb.EnqueueEmailParams{
 				EmailType:     regionaldb.EmailTemplateTypeAgencyPasswordReset,
 				EmailTo:       string(req.EmailAddress),
 				EmailSubject:  subject,
 				EmailTextBody: textBody,
 				EmailHtmlBody: htmlBody,
+			}); txErr != nil {
+				return txErr
+			}
+			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
+				EventType:    "agency.request_password_reset",
+				TargetUserID: globalUser.AgencyUserID,
+				OrgID:        agencyRecord.AgencyID,
+				IpAddress:    audit.ExtractClientIP(r),
+				EventData:    []byte("{}"),
 			})
-			return txErr
 		})
 		if err != nil {
 			log.Error("failed to create reset token and enqueue email", "error", err)

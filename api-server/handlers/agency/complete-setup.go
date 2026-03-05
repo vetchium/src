@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"golang.org/x/crypto/bcrypt"
+	"vetchium-api-server.gomodule/internal/audit"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/proxy"
 	"vetchium-api-server.gomodule/internal/server"
@@ -115,26 +116,33 @@ func CompleteSetup(s *server.Server) http.HandlerFunc {
 			preferredLang = string(req.PreferredLanguage)
 		}
 
-		// Update agency user in regional DB with password, full name, status, and preferred language
-		err = s.Regional.UpdateAgencyUserSetup(ctx, regionaldb.UpdateAgencyUserSetupParams{
-			AgencyUserID:       invitationTokenData.AgencyUserID,
-			PasswordHash:       passwordHash,
-			FullName:           pgtype.Text{String: string(req.FullName), Valid: true},
-			AuthenticationType: regionaldb.AuthenticationTypeEmailPassword,
-			Status:             regionaldb.AgencyUserStatusActive,
-			PreferredLanguage:  preferredLang,
+		// Update agency user, delete invitation token, and write audit log atomically
+		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
+			if txErr := qtx.UpdateAgencyUserSetup(ctx, regionaldb.UpdateAgencyUserSetupParams{
+				AgencyUserID:       invitationTokenData.AgencyUserID,
+				PasswordHash:       passwordHash,
+				FullName:           pgtype.Text{String: string(req.FullName), Valid: true},
+				AuthenticationType: regionaldb.AuthenticationTypeEmailPassword,
+				Status:             regionaldb.AgencyUserStatusActive,
+				PreferredLanguage:  preferredLang,
+			}); txErr != nil {
+				return txErr
+			}
+			if txErr := qtx.DeleteAgencyInvitationToken(ctx, rawToken); txErr != nil {
+				return txErr
+			}
+			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
+				EventType:    "agency.complete_setup",
+				TargetUserID: invitationTokenData.AgencyUserID,
+				OrgID:        invitationTokenData.AgencyID,
+				IpAddress:    audit.ExtractClientIP(r),
+				EventData:    []byte("{}"),
+			})
 		})
 		if err != nil {
-			log.Error("failed to update agency user in regional DB", "error", err)
+			log.Error("failed to complete agency user setup", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
-		}
-
-		// Delete invitation token (single-use)
-		err = s.Regional.DeleteAgencyInvitationToken(ctx, rawToken)
-		if err != nil {
-			log.Error("failed to delete invitation token", "error", err)
-			// Continue anyway - user setup is complete
 		}
 
 		log.Info("agency user setup completed successfully", "agency_user_id", invitationTokenData.AgencyUserID)

@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"vetchium-api-server.gomodule/internal/audit"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/server"
 	"vetchium-api-server.typespec/admin"
@@ -81,12 +82,22 @@ func TFA(s *server.GlobalServer) http.HandlerFunc {
 		}
 		sessionToken := hex.EncodeToString(sessionTokenBytes)
 
-		// Store session in database
+		// Store session and write audit log atomically
 		expiresAt := pgtype.Timestamp{Time: time.Now().Add(s.TokenConfig.AdminSessionTokenExpiry), Valid: true}
-		err = s.Global.CreateAdminSession(ctx, globaldb.CreateAdminSessionParams{
-			SessionToken: sessionToken,
-			AdminUserID:  tfaTokenRecord.AdminUserID,
-			ExpiresAt:    expiresAt,
+		err = s.WithGlobalTx(ctx, func(qtx *globaldb.Queries) error {
+			if err := qtx.CreateAdminSession(ctx, globaldb.CreateAdminSessionParams{
+				SessionToken: sessionToken,
+				AdminUserID:  tfaTokenRecord.AdminUserID,
+				ExpiresAt:    expiresAt,
+			}); err != nil {
+				return err
+			}
+			return qtx.InsertAdminAuditLog(ctx, globaldb.InsertAdminAuditLogParams{
+				EventType:   "admin.login",
+				ActorUserID: tfaTokenRecord.AdminUserID,
+				IpAddress:   audit.ExtractClientIP(r),
+				EventData:   []byte("{}"),
+			})
 		})
 		if err != nil {
 			log.Error("failed to store session", "error", err)

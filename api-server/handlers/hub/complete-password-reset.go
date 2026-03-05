@@ -7,6 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"golang.org/x/crypto/bcrypt"
+	"vetchium-api-server.gomodule/internal/audit"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/proxy"
 	"vetchium-api-server.gomodule/internal/server"
@@ -110,11 +111,18 @@ func CompletePasswordReset(s *server.Server) http.HandlerFunc {
 			if txErr != nil {
 				return txErr
 			}
-			txErr = qtx.DeleteHubPasswordResetToken(ctx, rawToken)
-			if txErr != nil {
+			if txErr = qtx.DeleteHubPasswordResetToken(ctx, rawToken); txErr != nil {
 				return txErr
 			}
-			return qtx.DeleteAllHubSessionsForUser(ctx, tokenRecord.HubUserGlobalID)
+			if txErr = qtx.DeleteAllHubSessionsForUser(ctx, tokenRecord.HubUserGlobalID); txErr != nil {
+				return txErr
+			}
+			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
+				EventType:   "hub.complete_password_reset",
+				ActorUserID: tokenRecord.HubUserGlobalID,
+				IpAddress:   audit.ExtractClientIP(r),
+				EventData:   []byte("{}"),
+			})
 		})
 		if err != nil {
 			log.Error("failed to complete password reset", "error", err)

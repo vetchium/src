@@ -746,3 +746,43 @@ WHERE employer_id = @employer_id
        OR (created_at = @cursor_created_at AND cost_center_id > @cursor_id))
 ORDER BY created_at ASC, cost_center_id ASC
 LIMIT @limit_count;
+
+-- ============================================
+-- Audit Log Queries (Regional)
+-- ============================================
+-- name: InsertAuditLog :exec
+INSERT INTO audit_logs (event_type, actor_user_id, target_user_id, org_id, ip_address, event_data)
+VALUES (@event_type, @actor_user_id, @target_user_id, @org_id, @ip_address, @event_data);
+
+-- name: FilterAuditLogs :many
+SELECT *
+FROM audit_logs
+WHERE
+    org_id = @org_id
+    AND (sqlc.narg('event_types')::text[] IS NULL OR event_type = ANY(sqlc.narg('event_types')::text[]))
+    AND (sqlc.narg('actor_user_id')::uuid IS NULL OR actor_user_id = sqlc.narg('actor_user_id')::uuid)
+    AND (sqlc.narg('start_time')::timestamptz IS NULL OR created_at >= sqlc.narg('start_time')::timestamptz)
+    AND (sqlc.narg('end_time')::timestamptz IS NULL OR created_at <= sqlc.narg('end_time')::timestamptz)
+    AND (sqlc.narg('cursor_created_at')::timestamptz IS NULL
+         OR created_at < sqlc.narg('cursor_created_at')::timestamptz
+         OR (created_at = sqlc.narg('cursor_created_at')::timestamptz AND id < sqlc.narg('cursor_id')::uuid))
+ORDER BY created_at DESC, id DESC
+LIMIT @limit_count;
+
+-- name: FilterMyAuditLogs :many
+SELECT *
+FROM audit_logs
+WHERE
+    actor_user_id = @actor_user_id
+    AND (sqlc.narg('event_types')::text[] IS NULL OR event_type = ANY(sqlc.narg('event_types')::text[]))
+    AND (sqlc.narg('start_time')::timestamptz IS NULL OR created_at >= sqlc.narg('start_time')::timestamptz)
+    AND (sqlc.narg('end_time')::timestamptz IS NULL OR created_at <= sqlc.narg('end_time')::timestamptz)
+    AND (sqlc.narg('cursor_created_at')::timestamptz IS NULL
+         OR created_at < sqlc.narg('cursor_created_at')::timestamptz
+         OR (created_at = sqlc.narg('cursor_created_at')::timestamptz AND id < sqlc.narg('cursor_id')::uuid))
+ORDER BY created_at DESC, id DESC
+LIMIT @limit_count;
+
+-- name: DeleteExpiredAuditLogs :exec
+DELETE FROM audit_logs
+WHERE created_at < NOW() - @retention_period::interval;

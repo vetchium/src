@@ -7,6 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"vetchium-api-server.gomodule/internal/audit"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
@@ -54,7 +55,7 @@ func UpdateTag(s *server.GlobalServer) http.HandlerFunc {
 			return
 		}
 
-		// Replace all translations in a transaction
+		// Replace all translations and write audit log in a transaction
 		err = s.WithGlobalTx(ctx, func(qtx *globaldb.Queries) error {
 			if err := qtx.DeleteTagTranslations(ctx, req.TagID); err != nil {
 				return err
@@ -72,7 +73,13 @@ func UpdateTag(s *server.GlobalServer) http.HandlerFunc {
 					return err
 				}
 			}
-			return nil
+			eventData, _ := json.Marshal(map[string]any{"tag_id": req.TagID})
+			return qtx.InsertAdminAuditLog(ctx, globaldb.InsertAdminAuditLogParams{
+				EventType:   "admin.update_tag",
+				ActorUserID: adminUser.AdminUserID,
+				IpAddress:   audit.ExtractClientIP(r),
+				EventData:   eventData,
+			})
 		})
 		if err != nil {
 			log.Error("failed to update tag", "error", err)

@@ -25,6 +25,7 @@ func RegisterAgencyRoutes(mux *http.ServeMux, s *server.Server) {
 	agencyRoleManageUsers := middleware.AgencyRole(s.Regional, "agency:manage_users")
 	agencyRoleViewDomains := middleware.AgencyRole(s.Regional, "agency:view_domains", "agency:manage_domains")
 	agencyRoleManageDomains := middleware.AgencyRole(s.Regional, "agency:manage_domains")
+	agencyRoleViewAuditLogs := middleware.AgencyRole(s.Regional, "agency:view_audit_logs")
 
 	// Domain write routes (manage_domains required; superadmin bypasses via middleware)
 	mux.Handle("POST /agency/claim-domain", agencyAuth(agencyRoleManageDomains(agency.ClaimDomain(s))))
@@ -52,4 +53,7 @@ func RegisterAgencyRoutes(mux *http.ServeMux, s *server.Server) {
 	// Tag read routes (auth-only, no role restriction)
 	mux.Handle("POST /agency/get-tag", agencyAuth(agency.GetTag(s)))
 	mux.Handle("POST /agency/filter-tags", agencyAuth(agency.FilterTags(s)))
+
+	// Audit log routes
+	mux.Handle("POST /agency/filter-audit-logs", agencyAuth(agencyRoleViewAuditLogs(agency.FilterAuditLogs(s))))
 }

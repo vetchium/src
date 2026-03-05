@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
+	"vetchium-api-server.gomodule/internal/audit"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
@@ -64,7 +65,22 @@ func AddCostCenter(s *server.Server) http.HandlerFunc {
 			Notes:       notes,
 		}
 
-		cc, err := s.Regional.CreateCostCenter(ctx, params)
+		var cc regionaldb.CostCenter
+		eventData, _ := json.Marshal(map[string]any{"id": req.ID})
+		err := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
+			var txErr error
+			cc, txErr = qtx.CreateCostCenter(ctx, params)
+			if txErr != nil {
+				return txErr
+			}
+			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
+				EventType:   "employer.add_cost_center",
+				ActorUserID: orgUser.OrgUserID,
+				OrgID:       orgUser.EmployerID,
+				IpAddress:   audit.ExtractClientIP(r),
+				EventData:   eventData,
+			})
+		})
 		if err != nil {
 			var pgErr *pgconn.PgError
 			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
@@ -124,7 +140,22 @@ func UpdateCostCenter(s *server.Server) http.HandlerFunc {
 			Notes:       notes,
 		}
 
-		cc, err := s.Regional.UpdateCostCenter(ctx, params)
+		var cc regionaldb.CostCenter
+		updateEventData, _ := json.Marshal(map[string]any{"id": req.ID})
+		err := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
+			var txErr error
+			cc, txErr = qtx.UpdateCostCenter(ctx, params)
+			if txErr != nil {
+				return txErr
+			}
+			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
+				EventType:   "employer.update_cost_center",
+				ActorUserID: orgUser.OrgUserID,
+				OrgID:       orgUser.EmployerID,
+				IpAddress:   audit.ExtractClientIP(r),
+				EventData:   updateEventData,
+			})
+		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				w.WriteHeader(http.StatusNotFound)

@@ -7,6 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"vetchium-api-server.gomodule/internal/audit"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
@@ -120,9 +121,20 @@ func RemoveRole(s *server.Server) http.HandlerFunc {
 				}
 			}
 
-			return qtx.RemoveOrgUserRole(ctx, regionaldb.RemoveOrgUserRoleParams{
+			if txErr := qtx.RemoveOrgUserRole(ctx, regionaldb.RemoveOrgUserRoleParams{
 				OrgUserID: targetUser.OrgUserID,
 				RoleID:    role.RoleID,
+			}); txErr != nil {
+				return txErr
+			}
+			eventData, _ := json.Marshal(map[string]any{"role_name": string(req.RoleName)})
+			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
+				EventType:    "employer.remove_role",
+				ActorUserID:  orgUser.OrgUserID,
+				TargetUserID: targetUser.OrgUserID,
+				OrgID:        orgUser.EmployerID,
+				IpAddress:    audit.ExtractClientIP(r),
+				EventData:    eventData,
 			})
 		})
 		if err != nil {

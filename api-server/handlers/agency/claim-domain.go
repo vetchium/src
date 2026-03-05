@@ -12,6 +12,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"vetchium-api-server.gomodule/internal/audit"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
@@ -93,13 +94,25 @@ func ClaimDomain(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Create in regional DB
-		err = s.Regional.CreateAgencyDomain(ctx, regionaldb.CreateAgencyDomainParams{
-			Domain:            domain,
-			AgencyID:          agencyUser.AgencyID,
-			VerificationToken: verificationToken,
-			TokenExpiresAt:    pgtype.Timestamp{Time: tokenExpiresAt, Valid: true},
-			Status:            regionaldb.DomainVerificationStatusPENDING,
+		// Create in regional DB and write audit log atomically
+		eventData, _ := json.Marshal(map[string]any{"domain": domain})
+		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
+			if txErr := qtx.CreateAgencyDomain(ctx, regionaldb.CreateAgencyDomainParams{
+				Domain:            domain,
+				AgencyID:          agencyUser.AgencyID,
+				VerificationToken: verificationToken,
+				TokenExpiresAt:    pgtype.Timestamp{Time: tokenExpiresAt, Valid: true},
+				Status:            regionaldb.DomainVerificationStatusPENDING,
+			}); txErr != nil {
+				return txErr
+			}
+			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
+				EventType:   "agency.claim_domain",
+				ActorUserID: agencyUser.AgencyUserID,
+				OrgID:       agencyUser.AgencyID,
+				IpAddress:   audit.ExtractClientIP(r),
+				EventData:   eventData,
+			})
 		})
 		if err != nil {
 			log.Error("failed to create regional agency domain", "error", err)

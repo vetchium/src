@@ -15,6 +15,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"vetchium-api-server.gomodule/internal/audit"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
@@ -83,9 +84,23 @@ func AddApprovedDomain(s *server.GlobalServer) http.HandlerFunc {
 			return
 		}
 
-		domain, err := s.Global.CreateApprovedDomain(ctx, globaldb.CreateApprovedDomainParams{
-			DomainName:       domainName,
-			CreatedByAdminID: adminUser.AdminUserID,
+		var domain globaldb.ApprovedDomain
+		err = s.WithGlobalTx(ctx, func(qtx *globaldb.Queries) error {
+			var txErr error
+			domain, txErr = qtx.CreateApprovedDomain(ctx, globaldb.CreateApprovedDomainParams{
+				DomainName:       domainName,
+				CreatedByAdminID: adminUser.AdminUserID,
+			})
+			if txErr != nil {
+				return txErr
+			}
+			eventData, _ := json.Marshal(map[string]any{"domain_name": domainName})
+			return qtx.InsertAdminAuditLog(ctx, globaldb.InsertAdminAuditLogParams{
+				EventType:   "admin.add_approved_domain",
+				ActorUserID: adminUser.AdminUserID,
+				IpAddress:   audit.ExtractClientIP(r),
+				EventData:   eventData,
+			})
 		})
 		if err != nil {
 			log.Error("failed to create approved domain", "error", err)
@@ -665,7 +680,21 @@ func DisableApprovedDomain(s *server.GlobalServer) http.HandlerFunc {
 
 		oldValue := domainToJSON(domain)
 
-		disabledDomain, err := s.Global.DisableApprovedDomain(ctx, domain.DomainID)
+		var disabledDomain globaldb.ApprovedDomain
+		err = s.WithGlobalTx(ctx, func(qtx *globaldb.Queries) error {
+			var txErr error
+			disabledDomain, txErr = qtx.DisableApprovedDomain(ctx, domain.DomainID)
+			if txErr != nil {
+				return txErr
+			}
+			eventData, _ := json.Marshal(map[string]any{"domain_name": domainName})
+			return qtx.InsertAdminAuditLog(ctx, globaldb.InsertAdminAuditLogParams{
+				EventType:   "admin.disable_approved_domain",
+				ActorUserID: adminUser.AdminUserID,
+				IpAddress:   audit.ExtractClientIP(r),
+				EventData:   eventData,
+			})
+		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				log.Debug("domain not found or already inactive", "domain_name", domainName)
@@ -757,7 +786,21 @@ func EnableApprovedDomain(s *server.GlobalServer) http.HandlerFunc {
 
 		oldValue := domainToJSON(domain)
 
-		enabledDomain, err := s.Global.EnableApprovedDomain(ctx, domain.DomainID)
+		var enabledDomain globaldb.ApprovedDomain
+		err = s.WithGlobalTx(ctx, func(qtx *globaldb.Queries) error {
+			var txErr error
+			enabledDomain, txErr = qtx.EnableApprovedDomain(ctx, domain.DomainID)
+			if txErr != nil {
+				return txErr
+			}
+			eventData, _ := json.Marshal(map[string]any{"domain_name": domainName})
+			return qtx.InsertAdminAuditLog(ctx, globaldb.InsertAdminAuditLogParams{
+				EventType:   "admin.enable_approved_domain",
+				ActorUserID: adminUser.AdminUserID,
+				IpAddress:   audit.ExtractClientIP(r),
+				EventData:   eventData,
+			})
+		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				log.Debug("domain not found or already active", "domain_name", domainName)

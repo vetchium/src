@@ -28,6 +28,7 @@ func RegisterAdminGlobalRoutes(mux *http.ServeMux, s *server.GlobalServer) {
 	adminRoleViewDomains := middleware.AdminRole(s.Global, "admin:view_domains", "admin:manage_domains")
 	adminRoleManageDomains := middleware.AdminRole(s.Global, "admin:manage_domains")
 	adminRoleManageTags := middleware.AdminRole(s.Global, "admin:manage_tags")
+	adminRoleViewAuditLogs := middleware.AdminRole(s.Global, "admin:view_audit_logs")
 
 	// Auth-only routes (no role required)
 	mux.Handle("POST /admin/logout", adminAuth(admin.Logout(s)))
@@ -57,4 +58,7 @@ func RegisterAdminGlobalRoutes(mux *http.ServeMux, s *server.GlobalServer) {
 	mux.Handle("POST /admin/filter-tags", adminAuth(adminRoleManageTags(admin.FilterTags(s))))
 	mux.Handle("POST /admin/upload-tag-icon", adminAuth(adminRoleManageTags(admin.UploadTagIcon(s))))
 	mux.Handle("POST /admin/delete-tag-icon", adminAuth(adminRoleManageTags(admin.DeleteTagIcon(s))))
+
+	// Audit log routes
+	mux.Handle("POST /admin/filter-audit-logs", adminAuth(adminRoleViewAuditLogs(admin.FilterAuditLogs(s))))
 }

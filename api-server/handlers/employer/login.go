@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"golang.org/x/crypto/bcrypt"
+	"vetchium-api-server.gomodule/internal/audit"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/email/templates"
@@ -120,6 +121,15 @@ func Login(s *server.Server) http.HandlerFunc {
 		if err := bcrypt.CompareHashAndPassword(regionalUser.PasswordHash, []byte(loginRequest.Password)); err != nil {
 			log.Debug("invalid credentials - password mismatch")
 			w.WriteHeader(http.StatusUnauthorized)
+			if auditErr := s.Regional.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
+				EventType:   "employer.login_failed",
+				ActorUserID: regionalUser.OrgUserID,
+				OrgID:       regionalUser.EmployerID,
+				IpAddress:   audit.ExtractClientIP(r),
+				EventData:   []byte("{}"),
+			}); auditErr != nil {
+				log.Error("failed to write login_failed audit log", "error", auditErr)
+			}
 			return
 		}
 

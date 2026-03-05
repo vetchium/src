@@ -7,6 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"vetchium-api-server.gomodule/internal/audit"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
@@ -103,10 +104,22 @@ func AssignRole(s *server.GlobalServer) http.HandlerFunc {
 			return
 		}
 
-		// Assign role
-		err = s.Global.AssignAdminUserRole(ctx, globaldb.AssignAdminUserRoleParams{
-			AdminUserID: targetUser.AdminUserID,
-			RoleID:      role.RoleID,
+		// Assign role and write audit log atomically
+		eventData, _ := json.Marshal(map[string]any{"role_name": string(req.RoleName)})
+		err = s.WithGlobalTx(ctx, func(qtx *globaldb.Queries) error {
+			if err := qtx.AssignAdminUserRole(ctx, globaldb.AssignAdminUserRoleParams{
+				AdminUserID: targetUser.AdminUserID,
+				RoleID:      role.RoleID,
+			}); err != nil {
+				return err
+			}
+			return qtx.InsertAdminAuditLog(ctx, globaldb.InsertAdminAuditLogParams{
+				EventType:    "admin.assign_role",
+				ActorUserID:  adminUser.AdminUserID,
+				TargetUserID: targetUser.AdminUserID,
+				IpAddress:    audit.ExtractClientIP(r),
+				EventData:    eventData,
+			})
 		})
 		if err != nil {
 			log.Error("failed to assign role", "error", err)

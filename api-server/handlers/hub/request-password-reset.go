@@ -13,6 +13,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"vetchium-api-server.gomodule/internal/audit"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/email/templates"
 	"vetchium-api-server.gomodule/internal/i18n"
@@ -123,7 +124,15 @@ func RequestPasswordReset(s *server.Server) http.HandlerFunc {
 			if txErr != nil {
 				return txErr
 			}
-			return sendPasswordResetEmail(ctx, qtx, regionalUser.EmailAddress, resetToken, lang, resetTokenExpiry, s.UIConfig.HubURL)
+			if txErr = sendPasswordResetEmail(ctx, qtx, regionalUser.EmailAddress, resetToken, lang, resetTokenExpiry, s.UIConfig.HubURL); txErr != nil {
+				return txErr
+			}
+			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
+				EventType:   "hub.request_password_reset",
+				ActorUserID: regionalUser.HubUserGlobalID,
+				IpAddress:   audit.ExtractClientIP(r),
+				EventData:   []byte("{}"),
+			})
 		})
 		if err != nil {
 			log.Error("failed to create reset token and enqueue email", "error", err)

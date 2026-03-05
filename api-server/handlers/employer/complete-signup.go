@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"golang.org/x/crypto/bcrypt"
+	"vetchium-api-server.gomodule/internal/audit"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/proxy"
@@ -249,7 +250,14 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 				return txErr
 			}
 
-			return nil
+			// 5. Write audit log
+			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
+				EventType:   "employer.complete_signup",
+				ActorUserID: globalUser.OrgUserID,
+				OrgID:       employer.EmployerID,
+				IpAddress:   audit.ExtractClientIP(r),
+				EventData:   []byte("{}"),
+			})
 		})
 		if err != nil {
 			// Compensating: delete from global (cascades to global user/domain)

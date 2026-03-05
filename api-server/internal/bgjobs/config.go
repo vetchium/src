@@ -16,6 +16,8 @@ type GlobalBgJobsConfig struct {
 	ExpiredHubSignupTokensCleanupInterval          time.Duration
 	ExpiredOrgSignupTokensCleanupInterval          time.Duration
 	ExpiredAgencySignupTokensCleanupInterval       time.Duration
+	AdminAuditLogRetention                         time.Duration
+	AdminAuditLogPurgeInterval                     time.Duration
 }
 
 // RegionalBgJobsConfig holds configuration for regional database background jobs
@@ -34,6 +36,8 @@ type RegionalBgJobsConfig struct {
 	ExpiredAgencyInvitationTokensCleanupInterval     time.Duration
 	EmployerDomainVerificationInterval               time.Duration
 	AgencyDomainVerificationInterval                 time.Duration
+	AuditLogRetention                                time.Duration
+	AuditLogPurgeInterval                            time.Duration
 }
 
 // GlobalConfigFromEnv creates a GlobalBgJobsConfig from environment variables
@@ -73,6 +77,16 @@ func GlobalConfigFromEnv() *GlobalBgJobsConfig {
 		6*time.Hour,
 	)
 
+	adminAuditLogRetention := parseDurationOrDefault(
+		os.Getenv("ADMIN_AUDIT_LOG_RETENTION"),
+		17520*time.Hour, // 2 years
+	)
+
+	adminAuditLogPurgeInterval := parseDurationOrDefault(
+		os.Getenv("ADMIN_AUDIT_LOG_PURGE_INTERVAL"),
+		24*time.Hour,
+	)
+
 	return &GlobalBgJobsConfig{
 		ExpiredAdminTFATokensCleanupInterval:           adminTFAInterval,
 		ExpiredAdminSessionsCleanupInterval:            adminSessionsInterval,
@@ -81,6 +95,8 @@ func GlobalConfigFromEnv() *GlobalBgJobsConfig {
 		ExpiredHubSignupTokensCleanupInterval:          hubSignupInterval,
 		ExpiredOrgSignupTokensCleanupInterval:          orgSignupInterval,
 		ExpiredAgencySignupTokensCleanupInterval:       agencySignupInterval,
+		AdminAuditLogRetention:                         adminAuditLogRetention,
+		AdminAuditLogPurgeInterval:                     adminAuditLogPurgeInterval,
 	}
 }
 
@@ -156,6 +172,16 @@ func RegionalConfigFromEnv() *RegionalBgJobsConfig {
 		24*time.Hour,
 	)
 
+	auditLogRetention := parseDurationOrDefault(
+		os.Getenv("AUDIT_LOG_RETENTION"),
+		17520*time.Hour, // 2 years
+	)
+
+	auditLogPurgeInterval := parseDurationOrDefault(
+		os.Getenv("AUDIT_LOG_PURGE_INTERVAL"),
+		24*time.Hour,
+	)
+
 	return &RegionalBgJobsConfig{
 		ExpiredHubTFATokensCleanupInterval:               hubTFAInterval,
 		ExpiredHubSessionsCleanupInterval:                hubSessionsInterval,
@@ -171,6 +197,8 @@ func RegionalConfigFromEnv() *RegionalBgJobsConfig {
 		ExpiredAgencyInvitationTokensCleanupInterval:     agencyInvitationInterval,
 		EmployerDomainVerificationInterval:               employerDomainVerificationInterval,
 		AgencyDomainVerificationInterval:                 agencyDomainVerificationInterval,
+		AuditLogRetention:                                auditLogRetention,
+		AuditLogPurgeInterval:                            auditLogPurgeInterval,
 	}
 }
 

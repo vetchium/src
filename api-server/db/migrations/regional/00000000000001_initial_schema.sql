@@ -300,11 +300,26 @@ INSERT INTO roles (role_name, description) VALUES
     -- Superadmin roles
     ('employer:superadmin', 'Superadmin for the employer portal with full access to all operations'),
     ('agency:superadmin', 'Superadmin for the agency portal with full access to all operations'),
+    -- Audit log roles
+    ('employer:view_audit_logs', 'Can view employer portal audit logs for their organization'),
+    ('agency:view_audit_logs', 'Can view agency portal audit logs for their agency'),
 
     -- Hub portal roles (assigned at signup, additional roles for paid features)
     ('hub:read_posts', 'Can read posts by other hub users'),
     ('hub:write_posts', 'Can create and edit posts (paid feature)'),
     ('hub:apply_jobs', 'Can apply to job postings');
+-- Audit logs table (unified audit log for employer, agency, and hub portal write operations)
+CREATE TABLE audit_logs (
+    id             UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    event_type     VARCHAR(64) NOT NULL,
+    actor_user_id  UUID,
+    target_user_id UUID,
+    org_id         UUID,
+    ip_address     TEXT        NOT NULL,
+    event_data     JSONB       NOT NULL DEFAULT '{}',
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- Indexes
 CREATE INDEX idx_hub_tfa_tokens_expires_at ON hub_tfa_tokens(expires_at);
 CREATE INDEX idx_hub_sessions_expires_at ON hub_sessions(expires_at);
@@ -330,7 +345,16 @@ CREATE INDEX idx_agency_users_email_address ON agency_users(email_address);
 CREATE INDEX idx_agency_users_agency_id ON agency_users(agency_id);
 CREATE INDEX idx_agency_domains_agency_id ON agency_domains(agency_id);
 CREATE INDEX idx_agency_domains_status ON agency_domains(status);
+CREATE INDEX idx_audit_logs_created_at_id ON audit_logs(created_at DESC, id DESC);
+CREATE INDEX idx_audit_logs_actor_user_id ON audit_logs(actor_user_id);
+CREATE INDEX idx_audit_logs_org_created_at_id ON audit_logs(org_id, created_at DESC, id DESC);
+CREATE INDEX idx_audit_logs_event_type ON audit_logs(event_type);
 -- +goose Down
+DROP INDEX IF EXISTS idx_audit_logs_event_type;
+DROP INDEX IF EXISTS idx_audit_logs_org_created_at_id;
+DROP INDEX IF EXISTS idx_audit_logs_actor_user_id;
+DROP INDEX IF EXISTS idx_audit_logs_created_at_id;
+DROP TABLE IF EXISTS audit_logs;
 DROP INDEX IF EXISTS idx_agency_domains_status;
 DROP INDEX IF EXISTS idx_agency_domains_agency_id;
 DROP INDEX IF EXISTS idx_agency_users_agency_id;

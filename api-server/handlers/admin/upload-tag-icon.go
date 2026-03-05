@@ -3,6 +3,7 @@ package admin
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -12,6 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"vetchium-api-server.gomodule/internal/audit"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
@@ -103,23 +105,35 @@ func UploadTagIcon(s *server.GlobalServer) http.HandlerFunc {
 			return
 		}
 
-		// Update DB
+		// Update DB and write audit log atomically
 		iconKeyText := pgtype.Text{String: s3Key, Valid: true}
 		contentTypeText := pgtype.Text{String: contentType, Valid: true}
-
-		if iconSize == "small" {
-			err = s.Global.UpdateTagSmallIcon(ctx, globaldb.UpdateTagSmallIconParams{
-				TagID:                tagID,
-				SmallIconKey:         iconKeyText,
-				SmallIconContentType: contentTypeText,
+		eventData, _ := json.Marshal(map[string]any{"tag_id": tagID, "icon_size": iconSize})
+		err = s.WithGlobalTx(ctx, func(qtx *globaldb.Queries) error {
+			if iconSize == "small" {
+				if err := qtx.UpdateTagSmallIcon(ctx, globaldb.UpdateTagSmallIconParams{
+					TagID:                tagID,
+					SmallIconKey:         iconKeyText,
+					SmallIconContentType: contentTypeText,
+				}); err != nil {
+					return err
+				}
+			} else {
+				if err := qtx.UpdateTagLargeIcon(ctx, globaldb.UpdateTagLargeIconParams{
+					TagID:                tagID,
+					LargeIconKey:         iconKeyText,
+					LargeIconContentType: contentTypeText,
+				}); err != nil {
+					return err
+				}
+			}
+			return qtx.InsertAdminAuditLog(ctx, globaldb.InsertAdminAuditLogParams{
+				EventType:   "admin.upload_tag_icon",
+				ActorUserID: adminUser.AdminUserID,
+				IpAddress:   audit.ExtractClientIP(r),
+				EventData:   eventData,
 			})
-		} else {
-			err = s.Global.UpdateTagLargeIcon(ctx, globaldb.UpdateTagLargeIconParams{
-				TagID:                tagID,
-				LargeIconKey:         iconKeyText,
-				LargeIconContentType: contentTypeText,
-			})
-		}
+		})
 		if err != nil {
 			log.Error("failed to update tag icon in DB", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)

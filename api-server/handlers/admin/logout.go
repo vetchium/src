@@ -3,6 +3,8 @@ package admin
 import (
 	"net/http"
 
+	"vetchium-api-server.gomodule/internal/audit"
+	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
 )
@@ -21,9 +23,20 @@ func Logout(s *server.GlobalServer) http.HandlerFunc {
 			return
 		}
 
-		// Delete the session
-		if err := s.Global.DeleteAdminSession(ctx, session.SessionToken); err != nil {
-			log.Error("failed to delete session", "error", err)
+		// Delete session and write audit log atomically
+		err := s.WithGlobalTx(ctx, func(qtx *globaldb.Queries) error {
+			if err := qtx.DeleteAdminSession(ctx, session.SessionToken); err != nil {
+				return err
+			}
+			return qtx.InsertAdminAuditLog(ctx, globaldb.InsertAdminAuditLogParams{
+				EventType:   "admin.logout",
+				ActorUserID: session.AdminUserID,
+				IpAddress:   audit.ExtractClientIP(r),
+				EventData:   []byte("{}"),
+			})
+		})
+		if err != nil {
+			log.Error("failed to logout", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}

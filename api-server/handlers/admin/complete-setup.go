@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"golang.org/x/crypto/bcrypt"
+	"vetchium-api-server.gomodule/internal/audit"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/server"
 	"vetchium-api-server.typespec/admin"
@@ -76,39 +77,40 @@ func CompleteSetup(s *server.GlobalServer) http.HandlerFunc {
 			return
 		}
 
-		// Update admin user with password, full name, and preferred language
+		// Update admin user, activate, delete token, and write audit log atomically
 		preferredLang := ""
 		if req.PreferredLanguage != "" {
 			preferredLang = string(req.PreferredLanguage)
 		}
-		err = s.Global.UpdateAdminUserSetup(ctx, globaldb.UpdateAdminUserSetupParams{
-			AdminUserID:       invitationTokenData.AdminUserID,
-			PasswordHash:      passwordHash,
-			FullName:          pgtype.Text{String: string(req.FullName), Valid: true},
-			PreferredLanguage: preferredLang,
+		err = s.WithGlobalTx(ctx, func(qtx *globaldb.Queries) error {
+			if err := qtx.UpdateAdminUserSetup(ctx, globaldb.UpdateAdminUserSetupParams{
+				AdminUserID:       invitationTokenData.AdminUserID,
+				PasswordHash:      passwordHash,
+				FullName:          pgtype.Text{String: string(req.FullName), Valid: true},
+				PreferredLanguage: preferredLang,
+			}); err != nil {
+				return err
+			}
+			if err := qtx.UpdateAdminUserStatus(ctx, globaldb.UpdateAdminUserStatusParams{
+				AdminUserID: invitationTokenData.AdminUserID,
+				Status:      globaldb.AdminUserStatusActive,
+			}); err != nil {
+				return err
+			}
+			if err := qtx.DeleteAdminInvitationToken(ctx, string(req.InvitationToken)); err != nil {
+				return err
+			}
+			return qtx.InsertAdminAuditLog(ctx, globaldb.InsertAdminAuditLogParams{
+				EventType:    "admin.complete_setup",
+				TargetUserID: invitationTokenData.AdminUserID,
+				IpAddress:    audit.ExtractClientIP(r),
+				EventData:    []byte("{}"),
+			})
 		})
 		if err != nil {
-			log.Error("failed to update admin user setup", "error", err)
+			log.Error("failed to complete admin user setup", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
-		}
-
-		// Update user status to active
-		err = s.Global.UpdateAdminUserStatus(ctx, globaldb.UpdateAdminUserStatusParams{
-			AdminUserID: invitationTokenData.AdminUserID,
-			Status:      globaldb.AdminUserStatusActive,
-		})
-		if err != nil {
-			log.Error("failed to update admin user status", "error", err)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-
-		// Delete invitation token (single-use)
-		err = s.Global.DeleteAdminInvitationToken(ctx, string(req.InvitationToken))
-		if err != nil {
-			log.Error("failed to delete invitation token", "error", err)
-			// Continue anyway - user setup is complete
 		}
 
 		log.Info("admin user setup completed successfully", "admin_user_id", invitationTokenData.AdminUserID)

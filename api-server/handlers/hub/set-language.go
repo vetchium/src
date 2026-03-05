@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"vetchium-api-server.gomodule/internal/audit"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
@@ -46,9 +47,20 @@ func SetLanguage(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		err := s.Regional.UpdateHubUserPreferredLanguage(ctx, regionaldb.UpdateHubUserPreferredLanguageParams{
-			HubUserGlobalID:   hubUser.HubUserGlobalID,
-			PreferredLanguage: string(request.Language),
+		eventData, _ := json.Marshal(map[string]any{"language": string(request.Language)})
+		err := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
+			if txErr := qtx.UpdateHubUserPreferredLanguage(ctx, regionaldb.UpdateHubUserPreferredLanguageParams{
+				HubUserGlobalID:   hubUser.HubUserGlobalID,
+				PreferredLanguage: string(request.Language),
+			}); txErr != nil {
+				return txErr
+			}
+			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
+				EventType:   "hub.set_language",
+				ActorUserID: hubUser.HubUserGlobalID,
+				IpAddress:   audit.ExtractClientIP(r),
+				EventData:   eventData,
+			})
 		})
 		if err != nil {
 			log.Error("failed to update preferred language", "error", err)

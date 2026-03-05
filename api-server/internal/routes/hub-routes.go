@@ -29,4 +29,7 @@ func RegisterHubRoutes(mux *http.ServeMux, s *server.Server) {
 	// Tag read routes (auth-only, no role restriction)
 	mux.Handle("POST /hub/get-tag", hubAuth(hub.GetTag(s)))
 	mux.Handle("POST /hub/filter-tags", hubAuth(hub.FilterTags(s)))
+
+	// Audit log routes (auth-only, no role required)
+	mux.Handle("POST /hub/my-audit-logs", hubAuth(hub.MyAuditLogs(s)))
 }

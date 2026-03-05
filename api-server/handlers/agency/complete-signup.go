@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"golang.org/x/crypto/bcrypt"
+	"vetchium-api-server.gomodule/internal/audit"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/proxy"
@@ -237,7 +238,7 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 				return txErr
 			}
 
-			// 3. Create session
+			// 3. Create session (note comment above says "3." but this is actually step 4)
 			sessionExpiresAt := pgtype.Timestamp{Time: time.Now().Add(s.TokenConfig.OrgSessionTokenExpiry), Valid: true}
 			txErr = qtx.CreateAgencySession(ctx, regionaldb.CreateAgencySessionParams{
 				SessionToken: rawSessionToken,
@@ -249,7 +250,14 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 				return txErr
 			}
 
-			return nil
+			// Write audit log
+			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
+				EventType:   "agency.complete_signup",
+				ActorUserID: globalUser.AgencyUserID,
+				OrgID:       agencyEntity.AgencyID,
+				IpAddress:   audit.ExtractClientIP(r),
+				EventData:   []byte("{}"),
+			})
 		})
 		if err != nil {
 			// Compensating: delete from global (cascades to global user/domain)

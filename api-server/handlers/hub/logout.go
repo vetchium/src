@@ -3,6 +3,8 @@ package hub
 import (
 	"net/http"
 
+	"vetchium-api-server.gomodule/internal/audit"
+	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
 )
@@ -21,8 +23,18 @@ func Logout(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Delete the session from regional database
-		if err := s.Regional.DeleteHubSession(ctx, session.SessionToken); err != nil {
+		// Delete session and write audit log atomically
+		if err := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
+			if txErr := qtx.DeleteHubSession(ctx, session.SessionToken); txErr != nil {
+				return txErr
+			}
+			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
+				EventType:   "hub.logout",
+				ActorUserID: session.HubUserGlobalID,
+				IpAddress:   audit.ExtractClientIP(r),
+				EventData:   []byte("{}"),
+			})
+		}); err != nil {
 			log.Error("failed to delete session", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return

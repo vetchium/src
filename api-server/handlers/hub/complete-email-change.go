@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"github.com/jackc/pgx/v5"
+	"vetchium-api-server.gomodule/internal/audit"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/proxy"
@@ -139,10 +140,26 @@ func CompleteEmailChange(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Update email address in regional DB
-		err = s.Regional.UpdateHubUserEmailAddress(ctx, regionaldb.UpdateHubUserEmailAddressParams{
-			HubUserGlobalID: tokenRecord.HubUserGlobalID,
-			EmailAddress:    tokenRecord.NewEmailAddress,
+		// Update email address, delete token, invalidate sessions, and write audit log atomically
+		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
+			if txErr := qtx.UpdateHubUserEmailAddress(ctx, regionaldb.UpdateHubUserEmailAddressParams{
+				HubUserGlobalID: tokenRecord.HubUserGlobalID,
+				EmailAddress:    tokenRecord.NewEmailAddress,
+			}); txErr != nil {
+				return txErr
+			}
+			if txErr := qtx.DeleteHubEmailVerificationToken(ctx, rawToken); txErr != nil {
+				return txErr
+			}
+			if txErr := qtx.DeleteAllHubSessionsForUser(ctx, tokenRecord.HubUserGlobalID); txErr != nil {
+				return txErr
+			}
+			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
+				EventType:   "hub.complete_email_change",
+				ActorUserID: tokenRecord.HubUserGlobalID,
+				IpAddress:   audit.ExtractClientIP(r),
+				EventData:   []byte("{}"),
+			})
 		})
 		if err != nil {
 			log.Error("failed to update email in regional DB", "error", err)
@@ -160,20 +177,6 @@ func CompleteEmailChange(s *server.Server) http.HandlerFunc {
 			}
 			http.Error(w, "", http.StatusInternalServerError)
 			return
-		}
-
-		// Delete verification token
-		err = s.Regional.DeleteHubEmailVerificationToken(ctx, rawToken)
-		if err != nil {
-			log.Error("failed to delete verification token", "error", err)
-			// Don't fail the request - email was already updated
-		}
-
-		// Invalidate all sessions for the user
-		err = s.Regional.DeleteAllHubSessionsForUser(ctx, tokenRecord.HubUserGlobalID)
-		if err != nil {
-			log.Error("failed to invalidate sessions", "error", err)
-			// Don't fail the request - email was already updated
 		}
 
 		log.Info("email changed successfully", "hub_user_global_id", tokenRecord.HubUserGlobalID, "new_email_hash", hex.EncodeToString(newEmailHash[:]))

@@ -7,6 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"golang.org/x/crypto/bcrypt"
+	"vetchium-api-server.gomodule/internal/audit"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/server"
 	"vetchium-api-server.typespec/admin"
@@ -60,29 +61,33 @@ func CompletePasswordReset(s *server.GlobalServer) http.HandlerFunc {
 			return
 		}
 
-		// Update password
-		err = s.Global.UpdateAdminUserPassword(ctx, globaldb.UpdateAdminUserPasswordParams{
-			AdminUserID:  resetToken.AdminUserID,
-			PasswordHash: passwordHash,
+		// Update password, delete token, and write audit log atomically
+		err = s.WithGlobalTx(ctx, func(qtx *globaldb.Queries) error {
+			if err := qtx.UpdateAdminUserPassword(ctx, globaldb.UpdateAdminUserPasswordParams{
+				AdminUserID:  resetToken.AdminUserID,
+				PasswordHash: passwordHash,
+			}); err != nil {
+				return err
+			}
+			if err := qtx.DeleteAdminPasswordResetToken(ctx, string(req.ResetToken)); err != nil {
+				return err
+			}
+			return qtx.InsertAdminAuditLog(ctx, globaldb.InsertAdminAuditLogParams{
+				EventType:    "admin.complete_password_reset",
+				TargetUserID: resetToken.AdminUserID,
+				IpAddress:    audit.ExtractClientIP(r),
+				EventData:    []byte("{}"),
+			})
 		})
 		if err != nil {
-			log.Error("failed to update password", "error", err)
+			log.Error("failed to complete password reset", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		// Delete the reset token (one-time use)
-		err = s.Global.DeleteAdminPasswordResetToken(ctx, string(req.ResetToken))
-		if err != nil {
-			log.Error("failed to delete reset token", "error", err)
-			// Continue - password was updated successfully
-		}
-
-		// Invalidate all existing sessions for this user
-		err = s.Global.DeleteAllAdminSessionsForUser(ctx, resetToken.AdminUserID)
-		if err != nil {
+		// Invalidate all existing sessions for this user (best-effort, outside tx)
+		if err = s.Global.DeleteAllAdminSessionsForUser(ctx, resetToken.AdminUserID); err != nil {
 			log.Error("failed to invalidate sessions", "error", err)
-			// Continue - password was updated successfully
 		}
 
 		log.Info("password reset completed", "admin_user_id", resetToken.AdminUserID)

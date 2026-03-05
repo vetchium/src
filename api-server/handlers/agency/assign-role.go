@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"vetchium-api-server.gomodule/internal/audit"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
@@ -124,10 +125,23 @@ func AssignRole(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Assign role
-		err = s.Regional.AssignAgencyUserRole(ctx, regionaldb.AssignAgencyUserRoleParams{
-			AgencyUserID: targetUser.AgencyUserID,
-			RoleID:       role.RoleID,
+		// Assign role and write audit log atomically
+		eventData, _ := json.Marshal(map[string]any{"role_name": string(req.RoleName)})
+		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
+			if txErr := qtx.AssignAgencyUserRole(ctx, regionaldb.AssignAgencyUserRoleParams{
+				AgencyUserID: targetUser.AgencyUserID,
+				RoleID:       role.RoleID,
+			}); txErr != nil {
+				return txErr
+			}
+			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
+				EventType:    "agency.assign_role",
+				ActorUserID:  agencyUser.AgencyUserID,
+				TargetUserID: targetUser.AgencyUserID,
+				OrgID:        agencyUser.AgencyID,
+				IpAddress:    audit.ExtractClientIP(r),
+				EventData:    eventData,
+			})
 		})
 		if err != nil {
 			log.Error("failed to assign role", "error", err)

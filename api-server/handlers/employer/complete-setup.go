@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"golang.org/x/crypto/bcrypt"
+	"vetchium-api-server.gomodule/internal/audit"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/proxy"
 	"vetchium-api-server.gomodule/internal/server"
@@ -115,26 +116,33 @@ func CompleteSetup(s *server.Server) http.HandlerFunc {
 			preferredLang = string(req.PreferredLanguage)
 		}
 
-		// Update org user in regional DB with password, full name, status, and language
-		err = s.Regional.UpdateOrgUserSetup(ctx, regionaldb.UpdateOrgUserSetupParams{
-			OrgUserID:          invitationTokenData.OrgUserID,
-			PasswordHash:       passwordHash,
-			FullName:           pgtype.Text{String: string(req.FullName), Valid: true},
-			AuthenticationType: regionaldb.AuthenticationTypeEmailPassword,
-			Status:             regionaldb.OrgUserStatusActive,
-			PreferredLanguage:  preferredLang,
+		// Update org user, delete invitation token, and write audit log atomically
+		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
+			if txErr := qtx.UpdateOrgUserSetup(ctx, regionaldb.UpdateOrgUserSetupParams{
+				OrgUserID:          invitationTokenData.OrgUserID,
+				PasswordHash:       passwordHash,
+				FullName:           pgtype.Text{String: string(req.FullName), Valid: true},
+				AuthenticationType: regionaldb.AuthenticationTypeEmailPassword,
+				Status:             regionaldb.OrgUserStatusActive,
+				PreferredLanguage:  preferredLang,
+			}); txErr != nil {
+				return txErr
+			}
+			if txErr := qtx.DeleteOrgInvitationToken(ctx, rawToken); txErr != nil {
+				return txErr
+			}
+			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
+				EventType:    "employer.complete_setup",
+				TargetUserID: invitationTokenData.OrgUserID,
+				OrgID:        invitationTokenData.EmployerID,
+				IpAddress:    audit.ExtractClientIP(r),
+				EventData:    []byte("{}"),
+			})
 		})
 		if err != nil {
-			log.Error("failed to update org user in regional DB", "error", err)
+			log.Error("failed to complete org user setup", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
-		}
-
-		// Delete invitation token (single-use)
-		err = s.Regional.DeleteOrgInvitationToken(ctx, rawToken)
-		if err != nil {
-			log.Error("failed to delete invitation token", "error", err)
-			// Continue anyway - user setup is complete
 		}
 
 		log.Info("org user setup completed successfully", "org_user_id", invitationTokenData.OrgUserID)

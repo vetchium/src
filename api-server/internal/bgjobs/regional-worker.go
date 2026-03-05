@@ -61,6 +61,8 @@ func (w *RegionalWorker) Run(ctx context.Context) {
 		"agency_sessions_cleanup_interval", w.config.ExpiredAgencySessionsCleanupInterval,
 		"agency_password_reset_cleanup_interval", w.config.ExpiredAgencyPasswordResetTokensCleanupInterval,
 		"agency_invitation_cleanup_interval", w.config.ExpiredAgencyInvitationTokensCleanupInterval,
+		"audit_log_retention", w.config.AuditLogRetention,
+		"audit_log_purge_interval", w.config.AuditLogPurgeInterval,
 	)
 
 	// Launch each job in its own goroutine
@@ -119,6 +121,10 @@ func (w *RegionalWorker) Run(ctx context.Context) {
 	go w.runPeriodicJob(ctx, "agency-domain-verification",
 		w.config.AgencyDomainVerificationInterval,
 		w.verifyAgencyDomains)
+
+	go w.runPeriodicJob(ctx, "audit-logs",
+		w.config.AuditLogPurgeInterval,
+		w.purgeExpiredAuditLogs)
 }
 
 // runPeriodicJob runs a job function in a loop with the given interval.
@@ -415,6 +421,20 @@ func (w *RegionalWorker) verifyAgencyDomains(ctx context.Context) {
 			}
 		}
 	}
+}
+
+func (w *RegionalWorker) purgeExpiredAuditLogs(ctx context.Context) {
+	if ctx.Err() != nil {
+		return
+	}
+
+	retention := pgtype.Interval{Microseconds: w.config.AuditLogRetention.Microseconds(), Valid: true}
+	err := w.queries.DeleteExpiredAuditLogs(ctx, retention)
+	if err != nil {
+		w.log.Error("failed to purge expired audit logs", "error", err)
+		return
+	}
+	w.log.Debug("purged expired audit logs")
 }
 
 // checkDNS checks if the verification token is present in the DNS TXT record for the domain.

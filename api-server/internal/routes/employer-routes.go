@@ -27,6 +27,7 @@ func RegisterEmployerRoutes(mux *http.ServeMux, s *server.Server) {
 	employerRoleManageDomains := middleware.EmployerRole(s.Regional, "employer:manage_domains")
 	employerRoleViewCostCenters := middleware.EmployerRole(s.Regional, "employer:view_costcenters", "employer:manage_costcenters")
 	employerRoleManageCostCenters := middleware.EmployerRole(s.Regional, "employer:manage_costcenters")
+	employerRoleViewAuditLogs := middleware.EmployerRole(s.Regional, "employer:view_audit_logs")
 
 	// Domain write routes (manage_domains required; superadmin bypasses via middleware)
 	mux.Handle("POST /employer/claim-domain", orgAuth(employerRoleManageDomains(employer.ClaimDomain(s))))
@@ -57,4 +58,7 @@ func RegisterEmployerRoutes(mux *http.ServeMux, s *server.Server) {
 	mux.Handle("POST /employer/add-cost-center", orgAuth(employerRoleManageCostCenters(employer.AddCostCenter(s))))
 	mux.Handle("POST /employer/update-cost-center", orgAuth(employerRoleManageCostCenters(employer.UpdateCostCenter(s))))
 	mux.Handle("POST /employer/list-cost-centers", orgAuth(employerRoleViewCostCenters(employer.ListCostCenters(s))))
+
+	// Audit log routes
+	mux.Handle("POST /employer/filter-audit-logs", orgAuth(employerRoleViewAuditLogs(employer.FilterAuditLogs(s))))
 }

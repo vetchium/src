@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"vetchium-api-server.gomodule/internal/audit"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/proxy"
 	"vetchium-api-server.gomodule/internal/server"
@@ -133,10 +134,21 @@ func TFA(s *server.Server) http.HandlerFunc {
 
 		// Store session in regional database (raw token without prefix)
 		expiresAt := pgtype.Timestamp{Time: time.Now().Add(sessionExpiry), Valid: true}
-		err = s.Regional.CreateOrgSession(ctx, regionaldb.CreateOrgSessionParams{
-			SessionToken: rawSessionToken,
-			OrgUserID:    tfaTokenRecord.OrgUserID,
-			ExpiresAt:    expiresAt,
+		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
+			if txErr := qtx.CreateOrgSession(ctx, regionaldb.CreateOrgSessionParams{
+				SessionToken: rawSessionToken,
+				OrgUserID:    tfaTokenRecord.OrgUserID,
+				ExpiresAt:    expiresAt,
+			}); txErr != nil {
+				return txErr
+			}
+			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
+				EventType:   "employer.login",
+				ActorUserID: regionalUser.OrgUserID,
+				OrgID:       regionalUser.EmployerID,
+				IpAddress:   audit.ExtractClientIP(r),
+				EventData:   []byte("{}"),
+			})
 		})
 		if err != nil {
 			log.Error("failed to store session", "error", err)

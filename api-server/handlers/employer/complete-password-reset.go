@@ -7,6 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"golang.org/x/crypto/bcrypt"
+	"vetchium-api-server.gomodule/internal/audit"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/proxy"
 	"vetchium-api-server.gomodule/internal/server"
@@ -79,7 +80,7 @@ func CompletePasswordReset(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		// Update password, delete token, and invalidate sessions atomically
+		// Update password, delete token, invalidate sessions, and write audit log atomically
 		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
 			txErr := qtx.UpdateOrgUserPassword(ctx, regionaldb.UpdateOrgUserPasswordParams{
 				OrgUserID:    resetTokenRecord.OrgUserGlobalID,
@@ -88,11 +89,18 @@ func CompletePasswordReset(s *server.Server) http.HandlerFunc {
 			if txErr != nil {
 				return txErr
 			}
-			txErr = qtx.DeleteOrgPasswordResetToken(ctx, string(req.ResetToken))
-			if txErr != nil {
+			if txErr = qtx.DeleteOrgPasswordResetToken(ctx, string(req.ResetToken)); txErr != nil {
 				return txErr
 			}
-			return qtx.DeleteAllOrgSessionsForUser(ctx, resetTokenRecord.OrgUserGlobalID)
+			if txErr = qtx.DeleteAllOrgSessionsForUser(ctx, resetTokenRecord.OrgUserGlobalID); txErr != nil {
+				return txErr
+			}
+			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
+				EventType:    "employer.complete_password_reset",
+				TargetUserID: resetTokenRecord.OrgUserGlobalID,
+				IpAddress:    audit.ExtractClientIP(r),
+				EventData:    []byte("{}"),
+			})
 		})
 		if err != nil {
 			log.Error("failed to complete password reset", "error", err)

@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"golang.org/x/crypto/bcrypt"
+	"vetchium-api-server.gomodule/internal/audit"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
@@ -68,10 +69,26 @@ func ChangePassword(s *server.GlobalServer) http.HandlerFunc {
 			return
 		}
 
-		// Update password
-		err = s.Global.UpdateAdminUserPassword(ctx, globaldb.UpdateAdminUserPasswordParams{
-			AdminUserID:  adminUser.AdminUserID,
-			PasswordHash: passwordHash,
+		// Update password and write audit log atomically
+		session := middleware.AdminSessionFromContext(ctx)
+		if session.SessionToken == "" {
+			log.Error("session not found in context")
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+		err = s.WithGlobalTx(ctx, func(qtx *globaldb.Queries) error {
+			if err := qtx.UpdateAdminUserPassword(ctx, globaldb.UpdateAdminUserPasswordParams{
+				AdminUserID:  adminUser.AdminUserID,
+				PasswordHash: passwordHash,
+			}); err != nil {
+				return err
+			}
+			return qtx.InsertAdminAuditLog(ctx, globaldb.InsertAdminAuditLogParams{
+				EventType:   "admin.change_password",
+				ActorUserID: adminUser.AdminUserID,
+				IpAddress:   audit.ExtractClientIP(r),
+				EventData:   []byte("{}"),
+			})
 		})
 		if err != nil {
 			log.Error("failed to update password", "error", err)
@@ -79,14 +96,7 @@ func ChangePassword(s *server.GlobalServer) http.HandlerFunc {
 			return
 		}
 
-		// Invalidate all other sessions except the current one
-		session := middleware.AdminSessionFromContext(ctx)
-		if session.SessionToken == "" {
-			log.Error("session not found in context")
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-
+		// Invalidate all other sessions except the current one (best-effort, outside tx)
 		err = s.Global.DeleteAllAdminSessionsExceptCurrent(ctx, globaldb.DeleteAllAdminSessionsExceptCurrentParams{
 			AdminUserID:  adminUser.AdminUserID,
 			SessionToken: session.SessionToken,

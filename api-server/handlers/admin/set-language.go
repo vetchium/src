@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"vetchium-api-server.gomodule/internal/audit"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
@@ -41,10 +42,21 @@ func SetLanguage(s *server.GlobalServer) http.HandlerFunc {
 			return
 		}
 
-		// Update preferred language using session from context
-		err := s.Global.UpdateAdminPreferredLanguage(ctx, globaldb.UpdateAdminPreferredLanguageParams{
-			AdminUserID:       session.AdminUserID,
-			PreferredLanguage: string(request.Language),
+		// Update preferred language and write audit log atomically
+		err := s.WithGlobalTx(ctx, func(qtx *globaldb.Queries) error {
+			if err := qtx.UpdateAdminPreferredLanguage(ctx, globaldb.UpdateAdminPreferredLanguageParams{
+				AdminUserID:       session.AdminUserID,
+				PreferredLanguage: string(request.Language),
+			}); err != nil {
+				return err
+			}
+			eventData, _ := json.Marshal(map[string]any{"language": string(request.Language)})
+			return qtx.InsertAdminAuditLog(ctx, globaldb.InsertAdminAuditLogParams{
+				EventType:   "admin.set_language",
+				ActorUserID: session.AdminUserID,
+				IpAddress:   audit.ExtractClientIP(r),
+				EventData:   eventData,
+			})
 		})
 		if err != nil {
 			log.Error("failed to update preferred language", "error", err)

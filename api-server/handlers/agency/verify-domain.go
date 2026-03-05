@@ -14,6 +14,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"vetchium-api-server.gomodule/internal/audit"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
@@ -167,11 +168,23 @@ func VerifyDomain(s *server.Server) http.HandlerFunc {
 
 		// Verification successful!
 		now := time.Now()
-		err = s.Regional.UpdateAgencyDomainStatus(ctx, regionaldb.UpdateAgencyDomainStatusParams{
-			Domain:              domain,
-			Status:              regionaldb.DomainVerificationStatusVERIFIED,
-			LastVerifiedAt:      pgtype.Timestamp{Time: now, Valid: true},
-			ConsecutiveFailures: 0,
+		eventData, _ := json.Marshal(map[string]any{"domain": domain})
+		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
+			if txErr := qtx.UpdateAgencyDomainStatus(ctx, regionaldb.UpdateAgencyDomainStatusParams{
+				Domain:              domain,
+				Status:              regionaldb.DomainVerificationStatusVERIFIED,
+				LastVerifiedAt:      pgtype.Timestamp{Time: now, Valid: true},
+				ConsecutiveFailures: 0,
+			}); txErr != nil {
+				return txErr
+			}
+			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
+				EventType:   "agency.verify_domain",
+				ActorUserID: agencyUser.AgencyUserID,
+				OrgID:       agencyUser.AgencyID,
+				IpAddress:   audit.ExtractClientIP(r),
+				EventData:   eventData,
+			})
 		})
 		if err != nil {
 			log.Error("failed to update regional domain status", "error", err)

@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"vetchium-api-server.gomodule/internal/audit"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/email/templates"
 	"vetchium-api-server.gomodule/internal/server"
@@ -77,43 +78,42 @@ func RequestPasswordReset(s *server.GlobalServer) http.HandlerFunc {
 		// Token expires in 1 hour
 		expiresAt := time.Now().UTC().Add(1 * time.Hour)
 
-		// Store reset token in global database
-		err = s.Global.CreateAdminPasswordResetToken(ctx, globaldb.CreateAdminPasswordResetTokenParams{
-			ResetToken:  resetToken,
-			AdminUserID: adminUser.AdminUserID,
-			ExpiresAt: pgtype.Timestamp{
-				Time:  expiresAt,
-				Valid: true,
-			},
-		})
-		if err != nil {
-			log.Error("failed to create password reset token", "error", err)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-
-		// Get user's preferred language (fallback to en-US)
+		// Store reset token, enqueue email, and write audit log atomically
 		lang := adminUser.PreferredLanguage
 		if lang == "" {
 			lang = "en-US"
 		}
-
-		// Send password reset email via global email queue
 		emailData := templates.AdminPasswordResetData{
 			ResetToken: resetToken,
 			Hours:      1,
 			BaseURL:    s.UIConfig.AdminURL,
 		}
-
-		_, err = s.Global.EnqueueGlobalEmail(ctx, globaldb.EnqueueGlobalEmailParams{
-			EmailType:     globaldb.EmailTemplateTypeAdminPasswordReset,
-			EmailTo:       string(req.EmailAddress),
-			EmailSubject:  templates.AdminPasswordResetSubject(lang),
-			EmailTextBody: templates.AdminPasswordResetTextBody(lang, emailData),
-			EmailHtmlBody: templates.AdminPasswordResetHTMLBody(lang, emailData),
+		err = s.WithGlobalTx(ctx, func(qtx *globaldb.Queries) error {
+			if err := qtx.CreateAdminPasswordResetToken(ctx, globaldb.CreateAdminPasswordResetTokenParams{
+				ResetToken:  resetToken,
+				AdminUserID: adminUser.AdminUserID,
+				ExpiresAt:   pgtype.Timestamp{Time: expiresAt, Valid: true},
+			}); err != nil {
+				return err
+			}
+			if _, err := qtx.EnqueueGlobalEmail(ctx, globaldb.EnqueueGlobalEmailParams{
+				EmailType:     globaldb.EmailTemplateTypeAdminPasswordReset,
+				EmailTo:       string(req.EmailAddress),
+				EmailSubject:  templates.AdminPasswordResetSubject(lang),
+				EmailTextBody: templates.AdminPasswordResetTextBody(lang, emailData),
+				EmailHtmlBody: templates.AdminPasswordResetHTMLBody(lang, emailData),
+			}); err != nil {
+				return err
+			}
+			return qtx.InsertAdminAuditLog(ctx, globaldb.InsertAdminAuditLogParams{
+				EventType:    "admin.request_password_reset",
+				TargetUserID: adminUser.AdminUserID,
+				IpAddress:    audit.ExtractClientIP(r),
+				EventData:    []byte("{}"),
+			})
 		})
 		if err != nil {
-			log.Error("failed to enqueue password reset email", "error", err)
+			log.Error("failed to process password reset request", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}

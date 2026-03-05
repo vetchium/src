@@ -10,6 +10,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/jackc/pgx/v5"
+	"vetchium-api-server.gomodule/internal/audit"
+	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
 	"vetchium-api-server.typespec/admin"
@@ -75,12 +77,25 @@ func DeleteTagIcon(s *server.GlobalServer) http.HandlerFunc {
 			return
 		}
 
-		// Clear from DB
-		if req.IconSize == admin.IconSizeSmall {
-			err = s.Global.ClearTagSmallIcon(ctx, req.TagID)
-		} else {
-			err = s.Global.ClearTagLargeIcon(ctx, req.TagID)
-		}
+		// Clear from DB and write audit log atomically
+		eventData, _ := json.Marshal(map[string]any{"tag_id": req.TagID, "icon_size": string(req.IconSize)})
+		err = s.WithGlobalTx(ctx, func(qtx *globaldb.Queries) error {
+			if req.IconSize == admin.IconSizeSmall {
+				if err := qtx.ClearTagSmallIcon(ctx, req.TagID); err != nil {
+					return err
+				}
+			} else {
+				if err := qtx.ClearTagLargeIcon(ctx, req.TagID); err != nil {
+					return err
+				}
+			}
+			return qtx.InsertAdminAuditLog(ctx, globaldb.InsertAdminAuditLogParams{
+				EventType:   "admin.delete_tag_icon",
+				ActorUserID: adminUser.AdminUserID,
+				IpAddress:   audit.ExtractClientIP(r),
+				EventData:   eventData,
+			})
+		})
 		if err != nil {
 			log.Error("failed to clear tag icon in DB", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)

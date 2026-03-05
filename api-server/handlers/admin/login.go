@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"golang.org/x/crypto/bcrypt"
+	"vetchium-api-server.gomodule/internal/audit"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/email/templates"
 	"vetchium-api-server.gomodule/internal/i18n"
@@ -68,6 +69,15 @@ func Login(s *server.GlobalServer) http.HandlerFunc {
 		// Verify password
 		if err := bcrypt.CompareHashAndPassword(adminUser.PasswordHash, []byte(loginRequest.Password)); err != nil {
 			log.Debug("invalid credentials - password mismatch")
+			// login_failed is a standalone audit log insert (no primary write to be atomic with)
+			if auditErr := s.Global.InsertAdminAuditLog(ctx, globaldb.InsertAdminAuditLogParams{
+				EventType:   "admin.login_failed",
+				ActorUserID: adminUser.AdminUserID,
+				IpAddress:   audit.ExtractClientIP(r),
+				EventData:   []byte("{}"),
+			}); auditErr != nil {
+				log.Error("failed to write login_failed audit log", "error", auditErr)
+			}
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}

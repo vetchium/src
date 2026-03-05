@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/jackc/pgx/v5/pgtype"
+	"vetchium-api-server.gomodule/internal/audit"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
@@ -40,7 +41,7 @@ func AddTag(s *server.GlobalServer) http.HandlerFunc {
 			return
 		}
 
-		// Create tag and translations in a transaction
+		// Create tag, translations, and audit log in a transaction
 		err := s.WithGlobalTx(ctx, func(qtx *globaldb.Queries) error {
 			if err := qtx.CreateTag(ctx, req.TagID); err != nil {
 				if server.IsUniqueViolation(err) {
@@ -61,7 +62,13 @@ func AddTag(s *server.GlobalServer) http.HandlerFunc {
 					return err
 				}
 			}
-			return nil
+			eventData, _ := json.Marshal(map[string]any{"tag_id": req.TagID})
+			return qtx.InsertAdminAuditLog(ctx, globaldb.InsertAdminAuditLogParams{
+				EventType:   "admin.add_tag",
+				ActorUserID: adminUser.AdminUserID,
+				IpAddress:   audit.ExtractClientIP(r),
+				EventData:   eventData,
+			})
 		})
 		if err != nil {
 			if errors.Is(err, server.ErrConflict) {

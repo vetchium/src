@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"golang.org/x/crypto/bcrypt"
+	"vetchium-api-server.gomodule/internal/audit"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
@@ -91,7 +92,7 @@ func ChangePassword(s *server.Server) http.HandlerFunc {
 			}
 		}
 
-		// Update password and invalidate sessions atomically
+		// Update password, invalidate sessions, and write audit log atomically
 		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
 			txErr := qtx.UpdateOrgUserPassword(ctx, regionaldb.UpdateOrgUserPasswordParams{
 				OrgUserID:    orgUser.OrgUserID,
@@ -101,12 +102,20 @@ func ChangePassword(s *server.Server) http.HandlerFunc {
 				return txErr
 			}
 			if sessionToken != "" {
-				return qtx.DeleteAllOrgSessionsExceptCurrent(ctx, regionaldb.DeleteAllOrgSessionsExceptCurrentParams{
+				if txErr = qtx.DeleteAllOrgSessionsExceptCurrent(ctx, regionaldb.DeleteAllOrgSessionsExceptCurrentParams{
 					OrgUserID:    orgUser.OrgUserID,
 					SessionToken: sessionToken,
-				})
+				}); txErr != nil {
+					return txErr
+				}
 			}
-			return nil
+			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
+				EventType:   "employer.change_password",
+				ActorUserID: orgUser.OrgUserID,
+				OrgID:       orgUser.EmployerID,
+				IpAddress:   audit.ExtractClientIP(r),
+				EventData:   []byte("{}"),
+			})
 		})
 		if err != nil {
 			log.Error("failed to update password", "error", err)

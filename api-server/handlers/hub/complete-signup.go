@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"golang.org/x/crypto/bcrypt"
+	"vetchium-api-server.gomodule/internal/audit"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/proxy"
@@ -253,7 +254,15 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 				HubUserGlobalID: hubUserGlobalID,
 				ExpiresAt:       sessionExpiresAt,
 			})
-			return txErr
+			if txErr != nil {
+				return txErr
+			}
+			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
+				EventType:   "hub.complete_signup",
+				ActorUserID: hubUserGlobalID,
+				IpAddress:   audit.ExtractClientIP(r),
+				EventData:   []byte("{}"),
+			})
 		})
 		if err != nil {
 			log.Error("failed regional transaction", "error", err)
