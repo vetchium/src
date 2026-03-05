@@ -159,6 +159,18 @@ func MyHandler(s *server.Server) http.HandlerFunc {
 
 See existing handlers in `api-server/handlers/` for full examples.
 
+### Audit Logging
+
+**CRITICAL**: Every write handler MUST record an audit log entry. The audit log write MUST be included inside the same `WithGlobalTx` / `WithRegionalTx` transaction as the primary write — if the audit write fails the whole operation rolls back. There is no best-effort or fire-and-forget approach.
+
+The only exception is `login_failed` events (no wrapping transaction exists since no DB write succeeds) — these are written as standalone single-row inserts.
+
+- Admin portal events → `admin_audit_logs` table in Global DB
+- Employer / Agency / Hub portal events → `audit_logs` table in Regional DB
+- `event_type` follows the `portal.action_name` convention (e.g. `admin.invite_user`, `employer.add_cost_center`)
+- Never store raw email addresses in `event_data`; use SHA-256 hash only
+- Extract the client IP from `X-Forwarded-For` (first entry), falling back to `r.RemoteAddr`
+
 ### Logging Conventions
 
 ```go
@@ -270,6 +282,7 @@ Current roles — see `specs/typespec/common/roles.ts` and `MEMORY.md` for the f
    ```
 3. **Make UI tile role-aware**: derive access flags from `myInfo.roles`, conditionally render
 4. **Hide write actions** for read-only roles within feature pages (UI is defence-in-depth; backend MUST enforce independently → 403)
+5. **Add audit log writes** for every write handler (see Audit Logging section above)
 
 | Portal   | Middleware                                 | Superadmin role       | Roles DB |
 | -------- | ------------------------------------------ | --------------------- | -------- |
