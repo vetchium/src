@@ -31,7 +31,11 @@ export function validateFilterAuditLogsRequest(
 	const errs: ValidationError[] = [];
 
 	if (request.limit !== undefined) {
-		if (!Number.isInteger(request.limit) || request.limit < 1 || request.limit > 100) {
+		if (
+			!Number.isInteger(request.limit) ||
+			request.limit < 1 ||
+			request.limit > 100
+		) {
 			errs.push(newValidationError("limit", "must be between 1 and 100"));
 		}
 	}
@@ -39,14 +43,18 @@ export function validateFilterAuditLogsRequest(
 	if (request.start_time !== undefined) {
 		const d = new Date(request.start_time);
 		if (isNaN(d.getTime())) {
-			errs.push(newValidationError("start_time", "must be a valid ISO 8601 timestamp"));
+			errs.push(
+				newValidationError("start_time", "must be a valid ISO 8601 timestamp")
+			);
 		}
 	}
 
 	if (request.end_time !== undefined) {
 		const d = new Date(request.end_time);
 		if (isNaN(d.getTime())) {
-			errs.push(newValidationError("end_time", "must be a valid ISO 8601 timestamp"));
+			errs.push(
+				newValidationError("end_time", "must be a valid ISO 8601 timestamp")
+			);
 		}
 	}
 

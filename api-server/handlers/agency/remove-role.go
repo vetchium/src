@@ -121,7 +121,7 @@ func RemoveRole(s *server.Server) http.HandlerFunc {
 				}
 			}
 
-		if txErr := qtx.RemoveAgencyUserRole(ctx, regionaldb.RemoveAgencyUserRoleParams{
+			if txErr := qtx.RemoveAgencyUserRole(ctx, regionaldb.RemoveAgencyUserRoleParams{
 				AgencyUserID: targetUser.AgencyUserID,
 				RoleID:       role.RoleID,
 			}); txErr != nil {

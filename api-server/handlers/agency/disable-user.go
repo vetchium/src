@@ -107,7 +107,7 @@ func DisableUser(s *server.Server) http.HandlerFunc {
 				return server.ErrInvalidState
 			}
 
-		if txErr := qtx.UpdateAgencyUserStatus(ctx, regionaldb.UpdateAgencyUserStatusParams{
+			if txErr := qtx.UpdateAgencyUserStatus(ctx, regionaldb.UpdateAgencyUserStatusParams{
 				AgencyUserID: targetUser.AgencyUserID,
 				Status:       regionaldb.AgencyUserStatusDisabled,
 			}); txErr != nil {

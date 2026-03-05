@@ -12,7 +12,7 @@ const (
 	maxAuditLogLimit     = 100
 	minAuditLogLimit     = 1
 
-	errAuditLogLimitInvalid    = "must be between 1 and 100"
+	errAuditLogLimitInvalid     = "must be between 1 and 100"
 	errAuditLogStartTimeInvalid = "must be a valid ISO 8601 timestamp"
 	errAuditLogEndTimeInvalid   = "must be a valid ISO 8601 timestamp"
 )
