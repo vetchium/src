@@ -328,6 +328,18 @@ npm run test:api:admin
 | Wrong TFA code         | 403             |
 | Disabled/invalid state | 422             |
 
+### Audit Log Tests
+
+Every write API test MUST include an audit log assertion after the success case. After calling the write endpoint, query the appropriate filter-audit-logs API and assert:
+
+- An entry exists with the correct `event_type`
+- `actor_user_id` matches the authenticated user (or is null for unauthenticated events)
+- `target_user_id` is correct where applicable
+- `event_data` contains the expected fields (no raw emails — hashes only)
+- No audit log entry is created when the request fails (4xx) — assert the count is unchanged
+
+For `login_failed` events, assert the entry is written even though the login returned 401.
+
 ### Writing Tests
 
 See `playwright/tests/api/admin/login.spec.ts` for the full pattern. Key helpers:
