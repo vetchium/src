@@ -67,7 +67,9 @@ test.describe("POST /agency/login", () => {
 		}
 	});
 
-	test("login with wrong password returns 401 and records agency.login_failed event", async ({ request }) => {
+	test("login with wrong password returns 401 and records agency.login_failed event", async ({
+		request,
+	}) => {
 		const api = new AgencyAPIClient(request);
 		const { email, domain } = generateTestAgencyEmail("agency-login-wrong-pw");
 
@@ -87,7 +89,11 @@ test.describe("POST /agency/login", () => {
 
 			// Verify agency.login_failed audit log was recorded
 			// Login with correct password to get a session token for audit log query
-			const successResp = await api.login({ email, domain, password: TEST_PASSWORD });
+			const successResp = await api.login({
+				email,
+				domain,
+				password: TEST_PASSWORD,
+			});
 			expect(successResp.status).toBe(200);
 			const tfaCode = await getTfaCodeFromEmail(email);
 			const tfaRequest: AgencyTFARequest = {
@@ -105,7 +111,9 @@ test.describe("POST /agency/login", () => {
 			});
 			expect(auditResp.status).toBe(200);
 			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
-			expect(auditResp.body.audit_logs[0].event_type).toBe("agency.login_failed");
+			expect(auditResp.body.audit_logs[0].event_type).toBe(
+				"agency.login_failed"
+			);
 		} finally {
 			await deleteTestAgencyUser(email);
 		}

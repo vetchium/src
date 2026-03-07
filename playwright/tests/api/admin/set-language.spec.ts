@@ -36,7 +36,9 @@ async function getSessionToken(
 }
 
 test.describe("POST /admin/set-language", () => {
-	test("valid language update returns 200 and records admin.set_language event", async ({ request }) => {
+	test("valid language update returns 200 and records admin.set_language event", async ({
+		request,
+	}) => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("setlang-success");
 		const password = TEST_PASSWORD;
@@ -59,7 +61,9 @@ test.describe("POST /admin/set-language", () => {
 			});
 			expect(auditResp.status).toBe(200);
 			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
-			expect(auditResp.body.audit_logs[0].event_type).toBe("admin.set_language");
+			expect(auditResp.body.audit_logs[0].event_type).toBe(
+				"admin.set_language"
+			);
 		} finally {
 			await deleteTestAdminUser(email);
 		}

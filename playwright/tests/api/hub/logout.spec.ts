@@ -95,15 +95,24 @@ async function createHubUserAndGetSession(
 }
 
 test.describe("POST /hub/logout", () => {
-	test("successful logout returns 200 and records hub.logout event", async ({ request }) => {
+	test("successful logout returns 200 and records hub.logout event", async ({
+		request,
+	}) => {
 		const api = new HubAPIClient(request);
-		const { email, adminEmail, domain, sessionToken: sessionToken1 } =
-			await createHubUserAndGetSession(api, "hub-logout-success");
+		const {
+			email,
+			adminEmail,
+			domain,
+			sessionToken: sessionToken1,
+		} = await createHubUserAndGetSession(api, "hub-logout-success");
 
 		try {
 			// Get a second session token (used to check audit log after logout)
 			await deleteEmailsFor(email);
-			const loginResp2 = await api.login({ email_address: email, password: TEST_PASSWORD });
+			const loginResp2 = await api.login({
+				email_address: email,
+				password: TEST_PASSWORD,
+			});
 			expect(loginResp2.status).toBe(200);
 			const tfaCode2 = await getTfaCodeFromEmail(email);
 			const tfaResp2 = await api.verifyTFA({

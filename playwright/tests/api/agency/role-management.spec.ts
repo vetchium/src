@@ -68,7 +68,9 @@ test.describe("POST /agency/assign-role", () => {
 			});
 			expect(auditResp.status).toBe(200);
 			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
-			expect(auditResp.body.audit_logs[0].event_type).toBe("agency.assign_role");
+			expect(auditResp.body.audit_logs[0].event_type).toBe(
+				"agency.assign_role"
+			);
 			expect(auditResp.body.audit_logs[0].target_user_id).toBe(targetUserId);
 		} finally {
 			await deleteTestAgencyUser(adminEmail);
@@ -471,7 +473,9 @@ test.describe("POST /agency/remove-role", () => {
 			});
 			expect(auditResp.status).toBe(200);
 			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
-			expect(auditResp.body.audit_logs[0].event_type).toBe("agency.remove_role");
+			expect(auditResp.body.audit_logs[0].event_type).toBe(
+				"agency.remove_role"
+			);
 			expect(auditResp.body.audit_logs[0].target_user_id).toBe(targetUserId);
 		} finally {
 			await deleteTestAgencyUser(adminEmail);

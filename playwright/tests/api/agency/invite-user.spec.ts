@@ -80,7 +80,9 @@ test.describe("POST /agency/invite-user", () => {
 			});
 			expect(auditResp.status).toBe(200);
 			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
-			expect(auditResp.body.audit_logs[0].event_type).toBe("agency.invite_user");
+			expect(auditResp.body.audit_logs[0].event_type).toBe(
+				"agency.invite_user"
+			);
 			// Invited email hash should be in event_data, not raw email
 			expect(auditResp.body.audit_logs[0].event_data).toBeDefined();
 			expect(

@@ -85,12 +85,10 @@ test.describe("POST /agency/filter-audit-logs", () => {
 		request,
 	}) => {
 		const api = new AgencyAPIClient(request);
-		const { email: email1, domain: domain1 } = generateTestAgencyEmail(
-			"agen-audit-scope1"
-		);
-		const { email: email2, domain: domain2 } = generateTestAgencyEmail(
-			"agen-audit-scope2"
-		);
+		const { email: email1, domain: domain1 } =
+			generateTestAgencyEmail("agen-audit-scope1");
+		const { email: email2, domain: domain2 } =
+			generateTestAgencyEmail("agen-audit-scope2");
 
 		await createTestAgencyAdminDirect(email1, TEST_PASSWORD);
 		await createTestAgencyAdminDirect(email2, TEST_PASSWORD);

@@ -53,7 +53,9 @@ async function createAgencyUserAndGetSession(
 }
 
 test.describe("POST /agency/logout", () => {
-	test("successful logout returns 200 and records agency.logout event", async ({ request }) => {
+	test("successful logout returns 200 and records agency.logout event", async ({
+		request,
+	}) => {
 		const api = new AgencyAPIClient(request);
 		const { email, domain } = generateTestAgencyEmail("agency-logout-success");
 
@@ -63,7 +65,11 @@ test.describe("POST /agency/logout", () => {
 		try {
 			// Get first session token (will be logged out)
 			await deleteEmailsFor(email);
-			const loginResp1 = await api.login({ email, domain, password: TEST_PASSWORD });
+			const loginResp1 = await api.login({
+				email,
+				domain,
+				password: TEST_PASSWORD,
+			});
 			expect(loginResp1.status).toBe(200);
 			const tfaCode1 = await getTfaCodeFromEmail(email);
 			const tfaResp1 = await api.verifyTFA({
@@ -76,7 +82,11 @@ test.describe("POST /agency/logout", () => {
 
 			// Get second session token (used to check audit log after logout)
 			await deleteEmailsFor(email);
-			const loginResp2 = await api.login({ email, domain, password: TEST_PASSWORD });
+			const loginResp2 = await api.login({
+				email,
+				domain,
+				password: TEST_PASSWORD,
+			});
 			expect(loginResp2.status).toBe(200);
 			const tfaCode2 = await getTfaCodeFromEmail(email);
 			const tfaResp2 = await api.verifyTFA({

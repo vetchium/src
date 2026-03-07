@@ -123,7 +123,9 @@ test.describe("POST /hub/change-password", () => {
 			});
 			expect(auditResp.status).toBe(200);
 			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
-			expect(auditResp.body.audit_logs[0].event_type).toBe("hub.change_password");
+			expect(auditResp.body.audit_logs[0].event_type).toBe(
+				"hub.change_password"
+			);
 		} finally {
 			await deleteTestHubUser(email);
 			await permanentlyDeleteTestApprovedDomain(domain);

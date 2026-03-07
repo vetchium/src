@@ -46,7 +46,10 @@ test.describe("POST /agency/complete-setup", () => {
 				email_address: inviteeEmail,
 				roles: ["agency:manage_users"],
 			};
-			const inviteResponse = await api.inviteUser(adminSessionToken, inviteRequest);
+			const inviteResponse = await api.inviteUser(
+				adminSessionToken,
+				inviteRequest
+			);
 			expect(inviteResponse.status).toBe(201);
 
 			// Get invitation token from email

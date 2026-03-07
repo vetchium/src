@@ -82,12 +82,10 @@ test.describe("POST /employer/filter-audit-logs", () => {
 		request,
 	}) => {
 		const api = new EmployerAPIClient(request);
-		const { email: email1, domain: domain1 } = generateTestOrgEmail(
-			"emp-audit-scope1"
-		);
-		const { email: email2, domain: domain2 } = generateTestOrgEmail(
-			"emp-audit-scope2"
-		);
+		const { email: email1, domain: domain1 } =
+			generateTestOrgEmail("emp-audit-scope1");
+		const { email: email2, domain: domain2 } =
+			generateTestOrgEmail("emp-audit-scope2");
 
 		await createTestOrgAdminDirect(email1, TEST_PASSWORD);
 		await createTestOrgAdminDirect(email2, TEST_PASSWORD);
@@ -232,10 +230,7 @@ test.describe("POST /employer/filter-audit-logs", () => {
 		const api = new EmployerAPIClient(request);
 		const { email, domain } = generateTestOrgEmail("emp-audit-fields");
 
-		const { employerId } = await createTestOrgAdminDirect(
-			email,
-			TEST_PASSWORD
-		);
+		const { employerId } = await createTestOrgAdminDirect(email, TEST_PASSWORD);
 		try {
 			const before = new Date().toISOString();
 			const sessionToken = await loginOrg(api, email, domain);

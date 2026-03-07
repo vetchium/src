@@ -87,7 +87,9 @@ test.describe("POST /hub/login", () => {
 		}
 	});
 
-	test("login with wrong password returns 401 and records hub.login_failed event", async ({ request }) => {
+	test("login with wrong password returns 401 and records hub.login_failed event", async ({
+		request,
+	}) => {
 		const api = new HubAPIClient(request);
 		const adminEmail = generateTestEmail("admin");
 		const domain = generateTestDomainName();

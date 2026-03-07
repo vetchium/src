@@ -67,7 +67,9 @@ test.describe("POST /employer/login", () => {
 		}
 	});
 
-	test("login with wrong password returns 401 and records employer.login_failed event", async ({ request }) => {
+	test("login with wrong password returns 401 and records employer.login_failed event", async ({
+		request,
+	}) => {
 		const api = new EmployerAPIClient(request);
 		const { email, domain } = generateTestOrgEmail("org-login-wrong-pw");
 
@@ -87,7 +89,11 @@ test.describe("POST /employer/login", () => {
 
 			// Verify employer.login_failed audit log was recorded
 			// Login with correct password to get a session token for audit log query
-			const successResp = await api.login({ email, domain, password: TEST_PASSWORD });
+			const successResp = await api.login({
+				email,
+				domain,
+				password: TEST_PASSWORD,
+			});
 			expect(successResp.status).toBe(200);
 			const tfaCode = await getTfaCodeFromEmail(email);
 			const tfaRequest: OrgTFARequest = {
@@ -105,7 +111,9 @@ test.describe("POST /employer/login", () => {
 			});
 			expect(auditResp.status).toBe(200);
 			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
-			expect(auditResp.body.audit_logs[0].event_type).toBe("employer.login_failed");
+			expect(auditResp.body.audit_logs[0].event_type).toBe(
+				"employer.login_failed"
+			);
 		} finally {
 			await deleteTestOrgUser(email);
 		}

@@ -12,10 +12,7 @@ import { TEST_PASSWORD } from "../../../lib/constants";
 /**
  * Helper: login an admin user and return a session token.
  */
-async function loginAdmin(
-	api: AdminAPIClient,
-	email: string
-): Promise<string> {
+async function loginAdmin(api: AdminAPIClient, email: string): Promise<string> {
 	const loginResp = await api.login({ email, password: TEST_PASSWORD });
 	expect(loginResp.status).toBe(200);
 	const tfaCode = await getTfaCodeFromEmail(email);

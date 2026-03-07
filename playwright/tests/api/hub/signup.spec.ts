@@ -230,7 +230,9 @@ test.describe("POST /hub/complete-signup", () => {
 			});
 			expect(auditResp.status).toBe(200);
 			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
-			expect(auditResp.body.audit_logs[0].event_type).toBe("hub.complete_signup");
+			expect(auditResp.body.audit_logs[0].event_type).toBe(
+				"hub.complete_signup"
+			);
 
 			// Verify can login with created account (login returns TFA token)
 			const loginRequest: HubLoginRequest = {

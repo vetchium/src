@@ -118,7 +118,9 @@ test.describe("POST /admin/request-password-reset", () => {
 });
 
 test.describe("POST /admin/complete-password-reset", () => {
-	test("successful reset with valid token returns 200 and records admin.complete_password_reset event", async ({ request }) => {
+	test("successful reset with valid token returns 200 and records admin.complete_password_reset event", async ({
+		request,
+	}) => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("pwd-reset-complete");
 		const watcherEmail = generateTestEmail("pwd-reset-complete-watcher");

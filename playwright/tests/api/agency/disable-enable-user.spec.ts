@@ -389,7 +389,9 @@ test.describe("POST /agency/enable-user", () => {
 			});
 			expect(auditResp.status).toBe(200);
 			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
-			expect(auditResp.body.audit_logs[0].event_type).toBe("agency.enable_user");
+			expect(auditResp.body.audit_logs[0].event_type).toBe(
+				"agency.enable_user"
+			);
 		} finally {
 			await deleteTestAgencyUser(adminEmail);
 			await deleteTestAgencyUser(userEmail);

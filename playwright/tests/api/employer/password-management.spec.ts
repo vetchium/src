@@ -23,7 +23,11 @@ test.describe("POST /employer/request-password-reset", () => {
 		const { employerId } = await createTestOrgAdminDirect(email, TEST_PASSWORD);
 		try {
 			// Login before reset to get session token (old password still valid)
-			const loginResp = await api.login({ email, domain, password: TEST_PASSWORD });
+			const loginResp = await api.login({
+				email,
+				domain,
+				password: TEST_PASSWORD,
+			});
 			expect(loginResp.status).toBe(200);
 			const tfaCode = await getTfaCodeFromEmail(email);
 			const tfaResp = await api.verifyTFA({
