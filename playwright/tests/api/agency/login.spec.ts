@@ -83,7 +83,7 @@ test.describe("POST /agency/login", () => {
 				domain,
 				password: "WrongPassword456!",
 			};
-			const before = new Date().toISOString();
+			const before = new Date(Date.now() - 2000).toISOString();
 			const response = await api.login(loginRequest);
 
 			expect(response.status).toBe(401);

@@ -95,7 +95,7 @@ test.describe("Admin Tags API", () => {
 			const api = new AdminAPIClient(request);
 			const tagId = generateTestTagId("add");
 			try {
-				const before = new Date().toISOString();
+				const before = new Date(Date.now() - 2000).toISOString();
 				const req: CreateTagRequest = {
 					tag_id: tagId,
 					translations: [
@@ -362,7 +362,7 @@ test.describe("Admin Tags API", () => {
 				{ locale: "en-US", display_name: "Original Name" },
 			]);
 			try {
-				const before = new Date().toISOString();
+				const before = new Date(Date.now() - 2000).toISOString();
 				const req: UpdateTagRequest = {
 					tag_id: tagId,
 					translations: [
@@ -614,7 +614,7 @@ test.describe("Admin Tags API", () => {
 			const tagId = generateTestTagId("upload");
 			await createTestTag(tagId);
 			try {
-				const before = new Date().toISOString();
+				const before = new Date(Date.now() - 2000).toISOString();
 				const response = await api.uploadTagIcon(
 					manageTagsToken,
 					tagId,
@@ -786,7 +786,7 @@ test.describe("Admin Tags API", () => {
 				expect(uploadResponse.status).toBe(200);
 
 				// Now delete it
-				const before = new Date().toISOString();
+				const before = new Date(Date.now() - 2000).toISOString();
 				const req: DeleteTagIconRequest = {
 					tag_id: tagId,
 					icon_size: "small",

@@ -203,7 +203,7 @@ test.describe("POST /hub/complete-signup", () => {
 			expect(signupToken).toBeDefined();
 
 			// Complete signup
-			const before = new Date().toISOString();
+			const before = new Date(Date.now() - 2000).toISOString();
 			const completeSignup: CompleteSignupRequest = {
 				signup_token: signupToken!,
 				password,

@@ -37,7 +37,7 @@ test.describe("POST /employer/filter-audit-logs", () => {
 
 		await createTestOrgAdminDirect(email, TEST_PASSWORD);
 		try {
-			const before = new Date().toISOString();
+			const before = new Date(Date.now() - 2000).toISOString();
 			const sessionToken = await loginOrg(api, email, domain);
 
 			const resp = await api.filterAuditLogs(sessionToken, {
@@ -61,7 +61,7 @@ test.describe("POST /employer/filter-audit-logs", () => {
 
 		const { orgUserId } = await createTestOrgAdminDirect(email, TEST_PASSWORD);
 		try {
-			const before = new Date().toISOString();
+			const before = new Date(Date.now() - 2000).toISOString();
 			const sessionToken = await loginOrg(api, email, domain);
 
 			const resp = await api.filterAuditLogs(sessionToken, {
@@ -91,7 +91,7 @@ test.describe("POST /employer/filter-audit-logs", () => {
 		await createTestOrgAdminDirect(email2, TEST_PASSWORD);
 		try {
 			// Login org1 and generate events
-			const before = new Date().toISOString();
+			const before = new Date(Date.now() - 2000).toISOString();
 			const sessionToken1 = await loginOrg(api, email1, domain1);
 
 			// Login org2 and query from org2's perspective — should not see org1's entries
@@ -141,7 +141,7 @@ test.describe("POST /employer/filter-audit-logs", () => {
 
 		await createTestOrgAdminDirect(email, TEST_PASSWORD);
 		try {
-			const before = new Date().toISOString();
+			const before = new Date(Date.now() - 2000).toISOString();
 			const sessionToken = await loginOrg(api, email, domain);
 
 			const page1 = await api.filterAuditLogs(sessionToken, {
@@ -232,7 +232,7 @@ test.describe("POST /employer/filter-audit-logs", () => {
 
 		const { employerId } = await createTestOrgAdminDirect(email, TEST_PASSWORD);
 		try {
-			const before = new Date().toISOString();
+			const before = new Date(Date.now() - 2000).toISOString();
 			const sessionToken = await loginOrg(api, email, domain);
 
 			const resp = await api.filterAuditLogs(sessionToken, {

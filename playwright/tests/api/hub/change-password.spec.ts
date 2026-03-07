@@ -91,7 +91,7 @@ test.describe("POST /hub/change-password", () => {
 			);
 
 			// Change password
-			const before = new Date().toISOString();
+			const before = new Date(Date.now() - 2000).toISOString();
 			const changeRequest: HubChangePasswordRequest = {
 				current_password: oldPassword,
 				new_password: newPassword,

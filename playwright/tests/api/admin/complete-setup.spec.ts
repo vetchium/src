@@ -55,7 +55,7 @@ test.describe("POST /admin/complete-setup", () => {
 			expect(invitationToken).toBeDefined();
 
 			// Complete setup
-			const before = new Date().toISOString();
+			const before = new Date(Date.now() - 2000).toISOString();
 			const setupRequest: AdminCompleteSetupRequest = {
 				invitation_token: invitationToken!,
 				password: "NewAdminPassword123!",

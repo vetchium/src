@@ -98,7 +98,7 @@ test.describe("POST /employer/logout", () => {
 			expect(tfaResp2.status).toBe(200);
 			const sessionToken2 = tfaResp2.body.session_token;
 
-			const before = new Date().toISOString();
+			const before = new Date(Date.now() - 2000).toISOString();
 			const response = await api.logout(sessionToken1);
 
 			expect(response.status).toBe(200);

@@ -95,7 +95,7 @@ test.describe("Org (Employer) Set Language API", () => {
 			language: "de-DE",
 		};
 
-		const before = new Date().toISOString();
+		const before = new Date(Date.now() - 2000).toISOString();
 		const response = await api.setLanguage(sessionToken, request);
 		expect(response.status).toBe(200);
 

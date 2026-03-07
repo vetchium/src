@@ -47,7 +47,7 @@ test.describe("POST /employer/invite-user", () => {
 			const sessionToken = tfaResponse.body.session_token;
 
 			// Invite new user
-			const before = new Date().toISOString();
+			const before = new Date(Date.now() - 2000).toISOString();
 			const inviteRequest: OrgInviteUserRequest = {
 				email_address: inviteeEmail,
 				roles: ["employer:manage_users"],

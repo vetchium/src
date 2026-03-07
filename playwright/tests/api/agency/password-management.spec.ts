@@ -38,7 +38,7 @@ test.describe("POST /agency/request-password-reset", () => {
 			expect(tfaResp.status).toBe(200);
 			const sessionToken = tfaResp.body.session_token;
 
-			const before = new Date().toISOString();
+			const before = new Date(Date.now() - 2000).toISOString();
 			const response = await api.requestPasswordReset({
 				email_address: email,
 				domain: domain,
@@ -169,7 +169,7 @@ test.describe("POST /agency/complete-password-reset", () => {
 			expect(resetToken).toBeDefined();
 
 			// Complete password reset
-			const before = new Date().toISOString();
+			const before = new Date(Date.now() - 2000).toISOString();
 			const response = await api.completePasswordReset({
 				reset_token: resetToken!,
 				new_password: newPassword,
@@ -358,7 +358,7 @@ test.describe("POST /agency/change-password", () => {
 			const sessionToken = tfaResp.body.session_token;
 
 			// Change password
-			const before = new Date().toISOString();
+			const before = new Date(Date.now() - 2000).toISOString();
 			const response = await api.changePassword(sessionToken, {
 				current_password: oldPassword,
 				new_password: newPassword,

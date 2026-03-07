@@ -44,7 +44,7 @@ test.describe("POST /admin/assign-role", () => {
 			const sessionToken = tfaResponse.body.session_token;
 
 			// Assign role
-			const before = new Date().toISOString();
+			const before = new Date(Date.now() - 2000).toISOString();
 			const assignRequest: AssignRoleRequest = {
 				target_user_id: targetUserId,
 				role_name: "admin:manage_users",
@@ -332,7 +332,7 @@ test.describe("POST /admin/remove-role", () => {
 			});
 
 			// Then remove it
-			const before = new Date().toISOString();
+			const before = new Date(Date.now() - 2000).toISOString();
 			const removeRequest: RemoveRoleRequest = {
 				target_user_id: targetUserId,
 				role_name: "admin:manage_users",

@@ -55,7 +55,7 @@ test.describe("POST /agency/disable-user", () => {
 			const sessionToken = tfaResponse.body.session_token;
 
 			// Disable the user
-			const before = new Date().toISOString();
+			const before = new Date(Date.now() - 2000).toISOString();
 			const disableRequest: AgencyDisableUserRequest = {
 				email_address: userEmail,
 			};
@@ -369,7 +369,7 @@ test.describe("POST /agency/enable-user", () => {
 			const sessionToken = tfaResponse.body.session_token;
 
 			// Enable the user
-			const before = new Date().toISOString();
+			const before = new Date(Date.now() - 2000).toISOString();
 			const enableRequest: AgencyEnableUserRequest = {
 				email_address: userEmail,
 			};

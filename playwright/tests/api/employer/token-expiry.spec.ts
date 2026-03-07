@@ -5,8 +5,8 @@
  * IMPORTANT: These tests require the CI docker-compose configuration
  * (docker-compose-ci.json) which uses short token durations:
  * - ORG_TFA_TOKEN_EXPIRY: 2m
- * - ORG_SESSION_TOKEN_EXPIRY: 5m
- * - ORG_REMEMBER_ME_EXPIRY: 60s
+ * - ORG_SESSION_TOKEN_EXPIRY: 60s
+ * - ORG_REMEMBER_ME_EXPIRY: 120s
  *
  * Run with: docker compose -f docker-compose-ci.json up --build
  */
@@ -31,8 +31,8 @@ import type {
 
 // Token expiry durations in CI environment (with buffer for test reliability)
 const TFA_TOKEN_EXPIRY_MS = 120000; // 120 seconds (2 minutes)
-const SESSION_TOKEN_EXPIRY_MS = 300000; // 300 seconds (5 minutes)
-const REMEMBER_ME_EXPIRY_MS = 60000; // 60 seconds
+const SESSION_TOKEN_EXPIRY_MS = 60000; // 60 seconds
+const REMEMBER_ME_EXPIRY_MS = 120000; // 120 seconds
 const EXPIRY_BUFFER_MS = 8000; // 8 seconds buffer for cleanup job
 
 /**
@@ -76,7 +76,7 @@ async function getTfaCodeForOrgUser(email: string): Promise<string> {
 }
 
 test.describe("Org Token Expiry Tests", () => {
-	test.describe.configure({ timeout: 360000 }); // Increase timeout for expiry tests
+	test.describe.configure({ timeout: 180000 }); // Increase timeout for expiry tests
 
 	test("expired TFA token returns 401", async ({ request }) => {
 		const api = new EmployerAPIClient(request);

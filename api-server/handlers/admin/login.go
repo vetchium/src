@@ -71,10 +71,10 @@ func Login(s *server.GlobalServer) http.HandlerFunc {
 			log.Debug("invalid credentials - password mismatch")
 			// login_failed is a standalone audit log insert (no primary write to be atomic with)
 			if auditErr := s.Global.InsertAdminAuditLog(ctx, globaldb.InsertAdminAuditLogParams{
-				EventType:   "admin.login_failed",
-				ActorUserID: adminUser.AdminUserID,
-				IpAddress:   audit.ExtractClientIP(r),
-				EventData:   []byte("{}"),
+				EventType:    "admin.login_failed",
+				TargetUserID: adminUser.AdminUserID,
+				IpAddress:    audit.ExtractClientIP(r),
+				EventData:    []byte("{}"),
 			}); auditErr != nil {
 				log.Error("failed to write login_failed audit log", "error", auditErr)
 			}

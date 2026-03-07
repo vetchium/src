@@ -87,7 +87,7 @@ test.describe("POST /hub/request-password-reset", () => {
 			const sessionToken = tfaResp.body.session_token;
 
 			// Request password reset
-			const before = new Date().toISOString();
+			const before = new Date(Date.now() - 2000).toISOString();
 			const resetRequest: HubRequestPasswordResetRequest = {
 				email_address: email,
 			};
@@ -268,7 +268,7 @@ test.describe("POST /hub/complete-password-reset", () => {
 			const resetToken = await getPasswordResetTokenFromEmail(email);
 
 			// Complete password reset
-			const before = new Date().toISOString();
+			const before = new Date(Date.now() - 2000).toISOString();
 			const completeRequest: HubCompletePasswordResetRequest = {
 				reset_token: resetToken,
 				new_password: newPassword,

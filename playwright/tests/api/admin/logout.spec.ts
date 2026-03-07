@@ -2,10 +2,11 @@ import { test, expect } from "@playwright/test";
 import { AdminAPIClient } from "../../../lib/admin-api-client";
 import {
 	createTestAdminAdminDirect,
+	createTestAdminUser,
 	deleteTestAdminUser,
 	generateTestEmail,
 } from "../../../lib/db";
-import { getTfaCodeFromEmail } from "../../../lib/mailpit";
+import { getTfaCodeFromEmail, deleteEmailsFor } from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
 
 /**
@@ -47,9 +48,11 @@ test.describe("POST /admin/logout", () => {
 		try {
 			const sessionToken = await getSessionToken(api, email, password);
 			// Get a second session token for audit log verification (first will be invalidated by logout)
+			// Delete emails first to avoid stale TFA code being picked up by the second login
+			await deleteEmailsFor(email);
 			const auditToken = await getSessionToken(api, email, password);
 
-			const before = new Date().toISOString();
+			const before = new Date(Date.now() - 2000).toISOString();
 			const response = await api.logout(sessionToken);
 			expect(response.status).toBe(200);
 

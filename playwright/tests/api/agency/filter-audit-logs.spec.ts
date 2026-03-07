@@ -37,7 +37,7 @@ test.describe("POST /agency/filter-audit-logs", () => {
 
 		await createTestAgencyAdminDirect(email, TEST_PASSWORD);
 		try {
-			const before = new Date().toISOString();
+			const before = new Date(Date.now() - 2000).toISOString();
 			const sessionToken = await loginAgency(api, email, domain);
 
 			const resp = await api.filterAuditLogs(sessionToken, {
@@ -64,7 +64,7 @@ test.describe("POST /agency/filter-audit-logs", () => {
 			TEST_PASSWORD
 		);
 		try {
-			const before = new Date().toISOString();
+			const before = new Date(Date.now() - 2000).toISOString();
 			const sessionToken = await loginAgency(api, email, domain);
 
 			const resp = await api.filterAuditLogs(sessionToken, {
@@ -93,7 +93,7 @@ test.describe("POST /agency/filter-audit-logs", () => {
 		await createTestAgencyAdminDirect(email1, TEST_PASSWORD);
 		await createTestAgencyAdminDirect(email2, TEST_PASSWORD);
 		try {
-			const before = new Date().toISOString();
+			const before = new Date(Date.now() - 2000).toISOString();
 			// Login agency1 to generate events
 			await loginAgency(api, email1, domain1);
 
@@ -144,7 +144,7 @@ test.describe("POST /agency/filter-audit-logs", () => {
 
 		await createTestAgencyAdminDirect(email, TEST_PASSWORD);
 		try {
-			const before = new Date().toISOString();
+			const before = new Date(Date.now() - 2000).toISOString();
 			const sessionToken = await loginAgency(api, email, domain);
 
 			const page1 = await api.filterAuditLogs(sessionToken, {
@@ -238,7 +238,7 @@ test.describe("POST /agency/filter-audit-logs", () => {
 			TEST_PASSWORD
 		);
 		try {
-			const before = new Date().toISOString();
+			const before = new Date(Date.now() - 2000).toISOString();
 			const sessionToken = await loginAgency(api, email, domain);
 
 			const resp = await api.filterAuditLogs(sessionToken, {

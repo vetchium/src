@@ -79,7 +79,7 @@ test.describe("POST /hub/my-audit-logs", () => {
 		await createTestApprovedDomain(domain, adminEmail);
 		try {
 			await createHubUserViaSignup(api, email, TEST_PASSWORD);
-			const before = new Date().toISOString();
+			const before = new Date(Date.now() - 2000).toISOString();
 			const sessionToken = await loginHub(api, email, TEST_PASSWORD);
 
 			const resp = await api.myAuditLogs(sessionToken, {
@@ -115,7 +115,7 @@ test.describe("POST /hub/my-audit-logs", () => {
 			await createHubUserViaSignup(api, email1, TEST_PASSWORD);
 			await createHubUserViaSignup(api, email2, TEST_PASSWORD);
 
-			const before = new Date().toISOString();
+			const before = new Date(Date.now() - 2000).toISOString();
 			const token1 = await loginHub(api, email1, TEST_PASSWORD);
 			const token2 = await loginHub(api, email2, TEST_PASSWORD);
 
@@ -178,7 +178,7 @@ test.describe("POST /hub/my-audit-logs", () => {
 		await createTestApprovedDomain(domain, adminEmail);
 		try {
 			await createHubUserViaSignup(api, email, TEST_PASSWORD);
-			const before = new Date().toISOString();
+			const before = new Date(Date.now() - 2000).toISOString();
 			const sessionToken = await loginHub(api, email, TEST_PASSWORD);
 
 			const page1 = await api.myAuditLogs(sessionToken, {
@@ -270,7 +270,7 @@ test.describe("POST /hub/my-audit-logs", () => {
 		await createTestApprovedDomain(domain, adminEmail);
 		try {
 			await createHubUserViaSignup(api, email, TEST_PASSWORD);
-			const before = new Date().toISOString();
+			const before = new Date(Date.now() - 2000).toISOString();
 			const sessionToken = await loginHub(api, email, TEST_PASSWORD);
 
 			const resp = await api.myAuditLogs(sessionToken, {
@@ -305,7 +305,7 @@ test.describe("POST /hub/my-audit-logs", () => {
 		await createTestAdminUser(adminEmail, TEST_PASSWORD);
 		await createTestApprovedDomain(domain, adminEmail);
 		try {
-			const before = new Date().toISOString();
+			const before = new Date(Date.now() - 2000).toISOString();
 			await createHubUserViaSignup(api, email, TEST_PASSWORD);
 			const sessionToken = await loginHub(api, email, TEST_PASSWORD);
 

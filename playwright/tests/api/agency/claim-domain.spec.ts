@@ -62,7 +62,7 @@ test.describe("POST /agency/claim-domain", () => {
 			);
 			userEmail = email;
 
-			const before = new Date().toISOString();
+			const before = new Date(Date.now() - 2000).toISOString();
 			const claimRequest: AgencyClaimDomainRequest = {
 				domain: claimedDomain,
 			};

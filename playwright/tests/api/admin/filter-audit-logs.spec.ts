@@ -57,7 +57,7 @@ test.describe("POST /admin/filter-audit-logs", () => {
 
 		await createTestAdminAdminDirect(email, TEST_PASSWORD);
 		try {
-			const before = new Date().toISOString();
+			const before = new Date(Date.now() - 2000).toISOString();
 			const sessionToken = await loginAdmin(api, email);
 
 			// After login we expect an admin.login entry; filter for it
@@ -82,7 +82,7 @@ test.describe("POST /admin/filter-audit-logs", () => {
 
 		const { userId } = await createTestAdminAdminDirect(email, TEST_PASSWORD);
 		try {
-			const before = new Date().toISOString();
+			const before = new Date(Date.now() - 2000).toISOString();
 			const sessionToken = await loginAdmin(api, email);
 
 			const resp = await api.filterAuditLogs(sessionToken, {
@@ -125,7 +125,7 @@ test.describe("POST /admin/filter-audit-logs", () => {
 
 		await createTestAdminAdminDirect(email, TEST_PASSWORD);
 		try {
-			const before = new Date().toISOString();
+			const before = new Date(Date.now() - 2000).toISOString();
 			const sessionToken = await loginAdmin(api, email);
 
 			// Page 1 with limit=1
@@ -253,7 +253,7 @@ test.describe("POST /admin/filter-audit-logs", () => {
 
 		await createTestAdminAdminDirect(email, TEST_PASSWORD);
 		try {
-			const before = new Date().toISOString();
+			const before = new Date(Date.now() - 2000).toISOString();
 			const sessionToken = await loginAdmin(api, email);
 
 			const resp = await api.filterAuditLogs(sessionToken, {

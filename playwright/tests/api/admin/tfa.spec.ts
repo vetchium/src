@@ -21,7 +21,7 @@ test.describe("POST /admin/tfa", () => {
 		// Use admin with view_audit_logs role so we can assert the audit log entry
 		await createTestAdminAdminDirect(email, password);
 		try {
-			const before = new Date().toISOString();
+			const before = new Date(Date.now() - 2000).toISOString();
 
 			// Step 1: Login to get TFA token
 			const loginResponse = await api.login({ email, password });

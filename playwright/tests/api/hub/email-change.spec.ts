@@ -90,7 +90,7 @@ test.describe("Hub Email Change API", () => {
 			const sessionToken = tfaResp.body.session_token;
 
 			// Request email change
-			const before = new Date().toISOString();
+			const before = new Date(Date.now() - 2000).toISOString();
 			const emailChangeRequest: HubRequestEmailChangeRequest = {
 				new_email_address: newEmail,
 			};
@@ -380,7 +380,7 @@ test.describe("Hub Email Change API", () => {
 				await getEmailVerificationTokenFromEmail(newEmail);
 
 			// Complete email change
-			const before = new Date().toISOString();
+			const before = new Date(Date.now() - 2000).toISOString();
 			const completeRequest: HubCompleteEmailChangeRequest = {
 				verification_token: verificationToken,
 			};

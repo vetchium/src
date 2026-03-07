@@ -62,7 +62,7 @@ test.describe("POST /employer/complete-setup", () => {
 			expect(invitationToken).toBeDefined();
 
 			// Complete setup with invitation token
-			const before = new Date().toISOString();
+			const before = new Date(Date.now() - 2000).toISOString();
 			const setupRequest: OrgCompleteSetupRequest = {
 				invitation_token: invitationToken!,
 				password: "NewUserPassword123!",

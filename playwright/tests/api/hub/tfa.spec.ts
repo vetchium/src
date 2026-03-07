@@ -123,7 +123,7 @@ test.describe("POST /hub/tfa", () => {
 			expect(tfaCode).toMatch(/^\d{6}$/);
 
 			// Step 3: Verify TFA code with remember_me=false
-			const before = new Date().toISOString();
+			const before = new Date(Date.now() - 2000).toISOString();
 			const tfaRequest: HubTFARequest = {
 				tfa_token: tfaToken,
 				tfa_code: tfaCode,

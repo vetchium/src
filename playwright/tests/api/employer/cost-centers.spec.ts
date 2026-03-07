@@ -55,7 +55,7 @@ test.describe("Cost Centers API", () => {
 
 			try {
 				const token = await loginOrgUser(api, email, domain);
-				const before = new Date().toISOString();
+				const before = new Date(Date.now() - 2000).toISOString();
 				const req: AddCostCenterRequest = {
 					id: "engineering-us",
 					display_name: "Engineering US",
@@ -355,7 +355,7 @@ test.describe("Cost Centers API", () => {
 				expect(addRes.status).toBe(201);
 
 				// Then update
-				const before = new Date().toISOString();
+				const before = new Date(Date.now() - 2000).toISOString();
 				const updateReq: UpdateCostCenterRequest = {
 					id: "to-update",
 					display_name: "Updated Name",

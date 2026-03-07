@@ -56,7 +56,7 @@ test.describe("POST /employer/tfa", () => {
 			const tfaCode = await getTfaCodeFromEmail(email);
 			expect(tfaCode).toMatch(/^\d{6}$/);
 
-			const before = new Date().toISOString();
+			const before = new Date(Date.now() - 2000).toISOString();
 			const tfaRequest: OrgTFARequest = {
 				tfa_token: tfaToken,
 				tfa_code: tfaCode,

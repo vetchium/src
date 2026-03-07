@@ -49,7 +49,7 @@ test.describe("POST /admin/disable-user", () => {
 			const sessionToken = tfaResponse.body.session_token;
 
 			// Disable admin2
-			const before = new Date().toISOString();
+			const before = new Date(Date.now() - 2000).toISOString();
 			const disableRequest: AdminDisableUserRequest = {
 				email_address: admin2Email,
 			};
@@ -362,7 +362,7 @@ test.describe("POST /admin/enable-user", () => {
 			const sessionToken = tfaResponse.body.session_token;
 
 			// Enable admin2
-			const before = new Date().toISOString();
+			const before = new Date(Date.now() - 2000).toISOString();
 			const enableRequest: AdminEnableUserRequest = {
 				email_address: admin2Email,
 			};

@@ -61,7 +61,7 @@ test.describe("POST /agency/complete-setup", () => {
 			expect(invitationToken).toBeDefined();
 
 			// Complete setup with invitation token
-			const before = new Date().toISOString();
+			const before = new Date(Date.now() - 2000).toISOString();
 			const setupRequest: AgencyCompleteSetupRequest = {
 				invitation_token: invitationToken!,
 				password: "NewUserPassword123!",

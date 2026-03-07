@@ -47,7 +47,7 @@ test.describe("POST /admin/set-language", () => {
 		try {
 			const sessionToken = await getSessionToken(api, email, password);
 
-			const before = new Date().toISOString();
+			const before = new Date(Date.now() - 2000).toISOString();
 			const response = await api.setLanguage(sessionToken, {
 				language: "de-DE",
 			});

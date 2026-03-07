@@ -32,7 +32,7 @@ test.describe("POST /admin/add-approved-domain", () => {
 			});
 			const sessionToken = tfaResponse.body.session_token;
 
-			const before = new Date().toISOString();
+			const before = new Date(Date.now() - 2000).toISOString();
 			// Create approved domain
 			const response = await api.createApprovedDomain(sessionToken, {
 				domain_name: domainName,
@@ -629,7 +629,7 @@ test.describe("POST /admin/disable-approved-domain", () => {
 			});
 
 			// Disable domain
-			const before = new Date().toISOString();
+			const before = new Date(Date.now() - 2000).toISOString();
 			const response = await api.disableApprovedDomain(sessionToken, {
 				domain_name: domainName,
 				reason: reason,
@@ -891,7 +891,7 @@ test.describe("POST /admin/enable-approved-domain", () => {
 			});
 
 			// Enable domain
-			const before = new Date().toISOString();
+			const before = new Date(Date.now() - 2000).toISOString();
 			const response = await api.enableApprovedDomain(sessionToken, {
 				domain_name: domainName,
 				reason: enableReason,

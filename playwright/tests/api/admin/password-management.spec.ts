@@ -38,7 +38,7 @@ test.describe("POST /admin/request-password-reset", () => {
 			});
 			const watcherToken = watcherTfaResp.body.session_token;
 
-			const before = new Date().toISOString();
+			const before = new Date(Date.now() - 2000).toISOString();
 			const response = await api.requestPasswordReset({
 				email_address: email,
 			});
@@ -143,7 +143,7 @@ test.describe("POST /admin/complete-password-reset", () => {
 			const watcherToken = watcherTfaResp.body.session_token;
 
 			// Request password reset
-			const before = new Date().toISOString();
+			const before = new Date(Date.now() - 2000).toISOString();
 			await api.requestPasswordReset({ email_address: email });
 
 			// Get reset token from email
@@ -325,7 +325,7 @@ test.describe("POST /admin/change-password", () => {
 			const sessionToken = tfaResp.body.session_token;
 
 			// Change password
-			const before = new Date().toISOString();
+			const before = new Date(Date.now() - 2000).toISOString();
 			const response = await api.changePassword(sessionToken, {
 				current_password: oldPassword,
 				new_password: newPassword,

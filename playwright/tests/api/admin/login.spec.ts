@@ -68,7 +68,7 @@ test.describe("POST /admin/login", () => {
 		// Watcher user with view_audit_logs role to verify the audit log entry
 		await createTestAdminAdminDirect(watcherEmail, password);
 		try {
-			const before = new Date().toISOString();
+			const before = new Date(Date.now() - 2000).toISOString();
 			const response = await api.login({
 				email,
 				password: "WrongPassword456!",
