@@ -4,8 +4,8 @@
  * These tests verify that expired tokens are properly rejected.
  * IMPORTANT: These tests require the CI docker-compose configuration
  * (docker-compose-ci.json) which uses short token durations:
- * - ADMIN_TFA_TOKEN_EXPIRY: 15s
- * - ADMIN_SESSION_TOKEN_EXPIRY: 30s
+ * - ADMIN_TFA_TOKEN_EXPIRY: 2m
+ * - ADMIN_SESSION_TOKEN_EXPIRY: 5m
  *
  * Run with: docker compose -f docker-compose-ci.json up --build
  */
@@ -21,8 +21,8 @@ import { getTfaCodeFromEmail } from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
 
 // Token expiry durations in CI environment (with buffer for test reliability)
-const TFA_TOKEN_EXPIRY_MS = 15000; // 15 seconds
-const SESSION_TOKEN_EXPIRY_MS = 30000; // 30 seconds
+const TFA_TOKEN_EXPIRY_MS = 120000; // 120 seconds (2 minutes)
+const SESSION_TOKEN_EXPIRY_MS = 300000; // 300 seconds (5 minutes)
 const EXPIRY_BUFFER_MS = 8000; // 8 seconds buffer for cleanup job
 
 /**
@@ -33,7 +33,7 @@ async function sleep(ms: number): Promise<void> {
 }
 
 test.describe("Admin Token Expiry Tests", () => {
-	test.describe.configure({ timeout: 120000 }); // Increase timeout for expiry tests
+	test.describe.configure({ timeout: 360000 }); // Increase timeout for expiry tests
 
 	test("expired TFA token returns 401", async ({ request }) => {
 		const api = new AdminAPIClient(request);

@@ -80,6 +80,14 @@ func CompletePasswordReset(s *server.Server) http.HandlerFunc {
 			return
 		}
 
+		// Look up agency user to get agency_id for audit log
+		agencyUser, err := s.Regional.GetAgencyUserByID(ctx, resetTokenRecord.AgencyUserGlobalID)
+		if err != nil {
+			log.Error("failed to get agency user for audit log", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
 		// Update password, delete token, invalidate sessions, and write audit log atomically
 		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
 			txErr := qtx.UpdateAgencyUserPassword(ctx, regionaldb.UpdateAgencyUserPasswordParams{
@@ -98,6 +106,7 @@ func CompletePasswordReset(s *server.Server) http.HandlerFunc {
 			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
 				EventType:    "agency.complete_password_reset",
 				TargetUserID: resetTokenRecord.AgencyUserGlobalID,
+				OrgID:        agencyUser.AgencyID,
 				IpAddress:    audit.ExtractClientIP(r),
 				EventData:    []byte("{}"),
 			})
