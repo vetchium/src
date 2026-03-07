@@ -11,7 +11,11 @@ import {
 	permanentlyDeleteTestApprovedDomain,
 	updateTestHubUserStatus,
 } from "../../../lib/db";
-import { getPasswordResetTokenFromEmail } from "../../../lib/mailpit";
+import {
+	getPasswordResetTokenFromEmail,
+	getTfaCodeFromEmail,
+	deleteEmailsFor,
+} from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
 import type {
 	RequestSignupRequest,
@@ -54,7 +58,7 @@ async function createHubUserViaSignup(
 }
 
 test.describe("POST /hub/request-password-reset", () => {
-	test("valid email returns generic success message and sends email", async ({
+	test("valid email returns generic success message and sends email and records hub.request_password_reset event", async ({
 		request,
 	}) => {
 		const api = new HubAPIClient(request);
@@ -70,7 +74,20 @@ test.describe("POST /hub/request-password-reset", () => {
 			// Create hub user
 			await createHubUserViaSignup(api, email, password);
 
+			// Login to get session token (old password still valid before reset)
+			await deleteEmailsFor(email);
+			const loginResp = await api.login({ email_address: email, password });
+			expect(loginResp.status).toBe(200);
+			const tfaCode = await getTfaCodeFromEmail(email);
+			const tfaResp = await api.verifyTFA({
+				tfa_token: loginResp.body.tfa_token,
+				tfa_code: tfaCode,
+			});
+			expect(tfaResp.status).toBe(200);
+			const sessionToken = tfaResp.body.session_token;
+
 			// Request password reset
+			const before = new Date().toISOString();
 			const resetRequest: HubRequestPasswordResetRequest = {
 				email_address: email,
 			};
@@ -83,6 +100,17 @@ test.describe("POST /hub/request-password-reset", () => {
 			// Verify email was sent with reset token
 			const resetToken = await getPasswordResetTokenFromEmail(email);
 			expect(resetToken).toMatch(/^(IND1|USA1|DEU1)-[a-f0-9]{64}$/);
+
+			// Verify hub.request_password_reset audit log entry was created
+			const auditResp = await api.myAuditLogs(sessionToken, {
+				event_types: ["hub.request_password_reset"],
+				start_time: before,
+			});
+			expect(auditResp.status).toBe(200);
+			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+			expect(auditResp.body.audit_logs[0].event_type).toBe(
+				"hub.request_password_reset"
+			);
 		} finally {
 			await deleteTestHubUser(email);
 			await permanentlyDeleteTestApprovedDomain(domain);
@@ -240,6 +268,7 @@ test.describe("POST /hub/complete-password-reset", () => {
 			const resetToken = await getPasswordResetTokenFromEmail(email);
 
 			// Complete password reset
+			const before = new Date().toISOString();
 			const completeRequest: HubCompletePasswordResetRequest = {
 				reset_token: resetToken,
 				new_password: newPassword,
@@ -256,13 +285,33 @@ test.describe("POST /hub/complete-password-reset", () => {
 			const loginOldResponse = await api.login(loginOld);
 			expect(loginOldResponse.status).toBe(401);
 
-			// Verify new password works
+			// Verify new password works and get session to check audit log
+			await deleteEmailsFor(email);
 			const loginNew: HubLoginRequest = {
 				email_address: email,
 				password: newPassword,
 			};
 			const loginNewResponse = await api.login(loginNew);
 			expect(loginNewResponse.status).toBe(200);
+			const newTfaCode = await getTfaCodeFromEmail(email);
+			const newTfaResp = await api.verifyTFA({
+				tfa_token: loginNewResponse.body.tfa_token,
+				tfa_code: newTfaCode,
+				remember_me: false,
+			});
+			expect(newTfaResp.status).toBe(200);
+			const newSessionToken = newTfaResp.body.session_token;
+
+			// Verify hub.complete_password_reset audit log entry was created
+			const auditResp = await api.myAuditLogs(newSessionToken, {
+				event_types: ["hub.complete_password_reset"],
+				start_time: before,
+			});
+			expect(auditResp.status).toBe(200);
+			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+			expect(auditResp.body.audit_logs[0].event_type).toBe(
+				"hub.complete_password_reset"
+			);
 		} finally {
 			await deleteTestHubUser(email);
 			await permanentlyDeleteTestApprovedDomain(domain);

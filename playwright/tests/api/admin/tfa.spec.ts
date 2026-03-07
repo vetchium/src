@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { AdminAPIClient } from "../../../lib/admin-api-client";
 import {
 	createTestAdminUser,
+	createTestAdminAdminDirect,
 	deleteTestAdminUser,
 	generateTestEmail,
 	LanguageCode,
@@ -17,8 +18,11 @@ test.describe("POST /admin/tfa", () => {
 		const email = generateTestEmail("tfa-success");
 		const password = TEST_PASSWORD;
 
-		await createTestAdminUser(email, password);
+		// Use admin with view_audit_logs role so we can assert the audit log entry
+		await createTestAdminAdminDirect(email, password);
 		try {
+			const before = new Date().toISOString();
+
 			// Step 1: Login to get TFA token
 			const loginResponse = await api.login({ email, password });
 			expect(loginResponse.status).toBe(200);
@@ -40,6 +44,17 @@ test.describe("POST /admin/tfa", () => {
 			expect(tfaResponse.body.session_token).toMatch(/^[a-f0-9]{64}$/);
 			// Default preferred_language should be en-US
 			expect(tfaResponse.body.preferred_language).toBe("en-US");
+
+			// Verify admin.login audit log entry was created
+			const sessionToken = tfaResponse.body.session_token;
+			const auditResp = await api.filterAuditLogs(sessionToken, {
+				event_types: ["admin.login"],
+				start_time: before,
+			});
+			expect(auditResp.status).toBe(200);
+			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+			expect(auditResp.body.audit_logs[0].event_type).toBe("admin.login");
+			expect(auditResp.body.audit_logs[0].actor_user_id).toBeDefined();
 		} finally {
 			await deleteTestAdminUser(email);
 		}

@@ -87,7 +87,7 @@ test.describe("POST /hub/login", () => {
 		}
 	});
 
-	test("login with wrong password returns 401", async ({ request }) => {
+	test("login with wrong password returns 401 and records hub.login_failed event", async ({ request }) => {
 		const api = new HubAPIClient(request);
 		const adminEmail = generateTestEmail("admin");
 		const domain = generateTestDomainName();
@@ -104,9 +104,30 @@ test.describe("POST /hub/login", () => {
 				email_address: email,
 				password: "WrongPassword456!",
 			};
+			const before = new Date().toISOString();
 			const response = await api.login(loginRequest);
 
 			expect(response.status).toBe(401);
+
+			// Verify hub.login_failed audit log was recorded
+			// Login with correct password to get a session token for audit log query
+			const successResp = await api.login({ email_address: email, password });
+			expect(successResp.status).toBe(200);
+			const tfaCode = await getTfaCodeFromEmail(email);
+			const tfaResp = await api.verifyTFA({
+				tfa_token: successResp.body.tfa_token,
+				tfa_code: tfaCode,
+			});
+			expect(tfaResp.status).toBe(200);
+			const sessionToken = tfaResp.body.session_token;
+
+			const auditResp = await api.myAuditLogs(sessionToken, {
+				event_types: ["hub.login_failed"],
+				start_time: before,
+			});
+			expect(auditResp.status).toBe(200);
+			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+			expect(auditResp.body.audit_logs[0].event_type).toBe("hub.login_failed");
 		} finally {
 			await deleteTestHubUser(email);
 			await permanentlyDeleteTestApprovedDomain(domain);

@@ -10,7 +10,10 @@ import {
 	permanentlyDeleteTestApprovedDomain,
 } from "../../../lib/db";
 import { HubAPIClient } from "../../../lib/hub-api-client";
-import { getEmailVerificationTokenFromEmail } from "../../../lib/mailpit";
+import {
+	getEmailVerificationTokenFromEmail,
+	getTfaCodeFromEmail,
+} from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
 import type {
 	HubRequestEmailChangeRequest,
@@ -87,6 +90,7 @@ test.describe("Hub Email Change API", () => {
 			const sessionToken = tfaResp.body.session_token;
 
 			// Request email change
+			const before = new Date().toISOString();
 			const emailChangeRequest: HubRequestEmailChangeRequest = {
 				new_email_address: newEmail,
 			};
@@ -97,6 +101,17 @@ test.describe("Hub Email Change API", () => {
 
 			expect(response.status).toBe(200);
 			expect(response.body.message).toBeTruthy();
+
+			// Verify hub.request_email_change audit log entry was created
+			const auditResp = await api.myAuditLogs(sessionToken, {
+				event_types: ["hub.request_email_change"],
+				start_time: before,
+			});
+			expect(auditResp.status).toBe(200);
+			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+			expect(auditResp.body.audit_logs[0].event_type).toBe(
+				"hub.request_email_change"
+			);
 		} finally {
 			await deleteTestHubUser(oldEmail);
 			await permanentlyDeleteTestApprovedDomain(domain);
@@ -365,6 +380,7 @@ test.describe("Hub Email Change API", () => {
 				await getEmailVerificationTokenFromEmail(newEmail);
 
 			// Complete email change
+			const before = new Date().toISOString();
 			const completeRequest: HubCompleteEmailChangeRequest = {
 				verification_token: verificationToken,
 			};
@@ -380,13 +396,32 @@ test.describe("Hub Email Change API", () => {
 			});
 			expect(oldLoginResp.status).toBe(401);
 
-			// Verify new email can login
+			// Verify new email can login and get session to check audit log
 			const newLoginResp = await api.login({
 				email_address: newEmail,
 				password: password,
 				remember_me: false,
 			});
 			expect(newLoginResp.status).toBe(200);
+			const newTfaCode = await getTfaCodeFromEmail(newEmail);
+			const newTfaResp = await api.verifyTFA({
+				tfa_token: newLoginResp.body.tfa_token,
+				tfa_code: newTfaCode,
+				remember_me: false,
+			});
+			expect(newTfaResp.status).toBe(200);
+			const newSessionToken = newTfaResp.body.session_token;
+
+			// Verify hub.complete_email_change audit log entry was created
+			const auditResp = await api.myAuditLogs(newSessionToken, {
+				event_types: ["hub.complete_email_change"],
+				start_time: before,
+			});
+			expect(auditResp.status).toBe(200);
+			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+			expect(auditResp.body.audit_logs[0].event_type).toBe(
+				"hub.complete_email_change"
+			);
 		} finally {
 			await deleteTestHubUser(oldEmail).catch(() => {});
 			await deleteTestHubUser(newEmail).catch(() => {});

@@ -24,6 +24,10 @@ import type {
 	FilterTagsResponse,
 	Tag,
 } from "vetchium-specs/hub/tags";
+import type {
+	FilterAuditLogsRequest,
+	FilterAuditLogsResponse,
+} from "vetchium-specs/audit-logs/audit-logs";
 import type { APIResponse } from "./api-client";
 
 /**
@@ -557,6 +561,67 @@ export class HubAPIClient {
 		return {
 			status: response.status(),
 			body: body as FilterTagsResponse,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	// ============================================================================
+	// Audit Logs
+	// ============================================================================
+
+	/**
+	 * POST /hub/my-audit-logs
+	 * Retrieves the calling hub user's own audit log entries.
+	 * No special role required; results are always scoped to the authenticated user.
+	 */
+	async myAuditLogs(
+		sessionToken: string,
+		request: FilterAuditLogsRequest
+	): Promise<APIResponse<FilterAuditLogsResponse>> {
+		const response = await this.request.post("/hub/my-audit-logs", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as FilterAuditLogsResponse,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	/**
+	 * POST /hub/my-audit-logs with raw body for testing invalid payloads
+	 */
+	async myAuditLogsRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<FilterAuditLogsResponse>> {
+		const response = await this.request.post("/hub/my-audit-logs", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: body,
+		});
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as FilterAuditLogsResponse,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	/**
+	 * POST /hub/my-audit-logs without Authorization header (for testing 401)
+	 */
+	async myAuditLogsWithoutAuth(
+		request: FilterAuditLogsRequest
+	): Promise<APIResponse<FilterAuditLogsResponse>> {
+		const response = await this.request.post("/hub/my-audit-logs", {
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as FilterAuditLogsResponse,
 			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}

@@ -45,6 +45,7 @@ test.describe("POST /admin/invite-user", () => {
 			const sessionToken = tfaResponse.body.session_token;
 
 			// Invite new user
+			const before = new Date().toISOString();
 			const inviteRequest: AdminInviteUserRequest = {
 				email_address: inviteeEmail,
 			};
@@ -65,6 +66,20 @@ test.describe("POST /admin/invite-user", () => {
 			const invitationToken =
 				invitationEmail.Text.match(/\b([a-f0-9]{64})\b/)?.[1];
 			expect(invitationToken).toBeDefined();
+
+			// Verify admin.invite_user audit log entry was created
+			const auditResp = await api.filterAuditLogs(sessionToken, {
+				event_types: ["admin.invite_user"],
+				start_time: before,
+			});
+			expect(auditResp.status).toBe(200);
+			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+			expect(auditResp.body.audit_logs[0].event_type).toBe("admin.invite_user");
+			// Invited email hash should be in event_data, not raw email
+			expect(auditResp.body.audit_logs[0].event_data).toBeDefined();
+			expect(
+				JSON.stringify(auditResp.body.audit_logs[0].event_data)
+			).not.toContain(inviteeEmail);
 		} finally {
 			// Cleanup: delete both users
 			await deleteTestAdminUser(adminEmail);

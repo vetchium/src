@@ -203,6 +203,7 @@ test.describe("POST /hub/complete-signup", () => {
 			expect(signupToken).toBeDefined();
 
 			// Complete signup
+			const before = new Date().toISOString();
 			const completeSignup: CompleteSignupRequest = {
 				signup_token: signupToken!,
 				password,
@@ -220,6 +221,16 @@ test.describe("POST /hub/complete-signup", () => {
 			);
 			expect(response.body.handle).toBeDefined();
 			expect(response.body.handle).toMatch(/^[a-z0-9-]+$/);
+
+			// Verify hub.complete_signup audit log entry was created
+			const sessionToken = response.body.session_token;
+			const auditResp = await api.myAuditLogs(sessionToken, {
+				event_types: ["hub.complete_signup"],
+				start_time: before,
+			});
+			expect(auditResp.status).toBe(200);
+			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+			expect(auditResp.body.audit_logs[0].event_type).toBe("hub.complete_signup");
 
 			// Verify can login with created account (login returns TFA token)
 			const loginRequest: HubLoginRequest = {

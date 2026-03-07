@@ -42,13 +42,14 @@ test.describe("Admin Tags API", () => {
 	test.beforeAll(async ({ request }) => {
 		const api = new AdminAPIClient(request);
 
-		// Create admin user with admin:manage_tags role
+		// Create admin user with admin:manage_tags and admin:view_audit_logs roles
 		manageTagsEmail = generateTestEmail("tags-manage");
 		manageTagsUserId = await createTestAdminUser(
 			manageTagsEmail,
 			TEST_PASSWORD
 		);
 		await assignRoleToAdminUser(manageTagsUserId, "admin:manage_tags");
+		await assignRoleToAdminUser(manageTagsUserId, "admin:view_audit_logs");
 
 		const loginRes1 = await api.login({
 			email: manageTagsEmail,
@@ -94,6 +95,7 @@ test.describe("Admin Tags API", () => {
 			const api = new AdminAPIClient(request);
 			const tagId = generateTestTagId("add");
 			try {
+				const before = new Date().toISOString();
 				const req: CreateTagRequest = {
 					tag_id: tagId,
 					translations: [
@@ -118,6 +120,18 @@ test.describe("Admin Tags API", () => {
 				);
 				expect(response.body.created_at).toBeDefined();
 				expect(response.body.updated_at).toBeDefined();
+
+				// Verify admin.add_tag audit log entry was created
+				const auditResp = await api.filterAuditLogs(manageTagsToken, {
+					event_types: ["admin.add_tag"],
+					start_time: before,
+				});
+				expect(auditResp.status).toBe(200);
+				expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+				const auditEntry = auditResp.body.audit_logs[0];
+				expect(auditEntry.event_type).toBe("admin.add_tag");
+				expect(auditEntry.actor_user_id).toBe(manageTagsUserId);
+				expect(auditEntry.event_data).toHaveProperty("tag_id");
 			} finally {
 				await deleteTestTag(tagId);
 			}
@@ -348,6 +362,7 @@ test.describe("Admin Tags API", () => {
 				{ locale: "en-US", display_name: "Original Name" },
 			]);
 			try {
+				const before = new Date().toISOString();
 				const req: UpdateTagRequest = {
 					tag_id: tagId,
 					translations: [
@@ -370,6 +385,18 @@ test.describe("Admin Tags API", () => {
 				);
 				expect(enUS!.display_name).toBe("Updated Name");
 				expect(enUS!.description).toBe("Updated description");
+
+				// Verify admin.update_tag audit log entry was created
+				const auditResp = await api.filterAuditLogs(manageTagsToken, {
+					event_types: ["admin.update_tag"],
+					start_time: before,
+				});
+				expect(auditResp.status).toBe(200);
+				expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+				const auditEntry = auditResp.body.audit_logs[0];
+				expect(auditEntry.event_type).toBe("admin.update_tag");
+				expect(auditEntry.actor_user_id).toBe(manageTagsUserId);
+				expect(auditEntry.event_data).toHaveProperty("tag_id");
 			} finally {
 				await deleteTestTag(tagId);
 			}
@@ -587,6 +614,7 @@ test.describe("Admin Tags API", () => {
 			const tagId = generateTestTagId("upload");
 			await createTestTag(tagId);
 			try {
+				const before = new Date().toISOString();
 				const response = await api.uploadTagIcon(
 					manageTagsToken,
 					tagId,
@@ -602,6 +630,20 @@ test.describe("Admin Tags API", () => {
 				const getResponse = await api.getTag(manageTagsToken, getReq);
 				expect(getResponse.body.small_icon_url).toBeDefined();
 				expect(getResponse.body.small_icon_url).toContain(tagId);
+
+				// Verify admin.upload_tag_icon audit log entry was created
+				const auditResp = await api.filterAuditLogs(manageTagsToken, {
+					event_types: ["admin.upload_tag_icon"],
+					start_time: before,
+				});
+				expect(auditResp.status).toBe(200);
+				expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+				const auditEntry = auditResp.body.audit_logs[0];
+				expect(auditEntry.event_type).toBe("admin.upload_tag_icon");
+				expect(auditEntry.actor_user_id).toBe(manageTagsUserId);
+				expect(auditEntry.event_data).toHaveProperty("tag_id");
+				expect(auditEntry.event_data).toHaveProperty("icon_size");
+				expect(auditEntry.event_data["icon_size"]).toBe("small");
 			} finally {
 				await deleteTestTag(tagId);
 			}
@@ -744,6 +786,7 @@ test.describe("Admin Tags API", () => {
 				expect(uploadResponse.status).toBe(200);
 
 				// Now delete it
+				const before = new Date().toISOString();
 				const req: DeleteTagIconRequest = {
 					tag_id: tagId,
 					icon_size: "small",
@@ -755,6 +798,20 @@ test.describe("Admin Tags API", () => {
 				const getReq: GetTagRequest = { tag_id: tagId };
 				const getResponse = await api.getTag(manageTagsToken, getReq);
 				expect(getResponse.body.small_icon_url).toBeUndefined();
+
+				// Verify admin.delete_tag_icon audit log entry was created
+				const auditResp = await api.filterAuditLogs(manageTagsToken, {
+					event_types: ["admin.delete_tag_icon"],
+					start_time: before,
+				});
+				expect(auditResp.status).toBe(200);
+				expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+				const auditEntry = auditResp.body.audit_logs[0];
+				expect(auditEntry.event_type).toBe("admin.delete_tag_icon");
+				expect(auditEntry.actor_user_id).toBe(manageTagsUserId);
+				expect(auditEntry.event_data).toHaveProperty("tag_id");
+				expect(auditEntry.event_data).toHaveProperty("icon_size");
+				expect(auditEntry.event_data["icon_size"]).toBe("small");
 			} finally {
 				await deleteTestTag(tagId);
 			}

@@ -210,7 +210,7 @@ export async function createTestAdminAdminDirect(
 
 	// Get all role IDs
 	const rolesResult = await pool.query(
-		`SELECT role_id FROM roles WHERE role_name IN ('admin:manage_users', 'admin:manage_domains')`
+		`SELECT role_id FROM roles WHERE role_name IN ('admin:manage_users', 'admin:manage_domains', 'admin:view_audit_logs')`
 	);
 
 	// Assign all roles to the admin user

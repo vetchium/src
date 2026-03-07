@@ -42,7 +42,7 @@ async function createAgencyUserAndLogin(
 }
 
 test.describe("POST /agency/tfa", () => {
-	test("successful TFA verification returns session token", async ({
+	test("successful TFA verification returns session token and records agency.login event", async ({
 		request,
 	}) => {
 		const api = new AgencyAPIClient(request);
@@ -56,6 +56,7 @@ test.describe("POST /agency/tfa", () => {
 			const tfaCode = await getTfaCodeFromEmail(email);
 			expect(tfaCode).toMatch(/^\d{6}$/);
 
+			const before = new Date().toISOString();
 			const tfaRequest: AgencyTFARequest = {
 				tfa_token: tfaToken,
 				tfa_code: tfaCode,
@@ -69,6 +70,16 @@ test.describe("POST /agency/tfa", () => {
 			expect(response.body.session_token).toMatch(/^[A-Z]{3}\d-[a-f0-9]{64}$/);
 			expect(response.body.preferred_language).toBeDefined();
 			expect(response.body.agency_name).toBeDefined();
+
+			// Verify agency.login audit log entry was created
+			const sessionToken = response.body.session_token;
+			const auditResp = await api.filterAuditLogs(sessionToken, {
+				event_types: ["agency.login"],
+				start_time: before,
+			});
+			expect(auditResp.status).toBe(200);
+			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+			expect(auditResp.body.audit_logs[0].event_type).toBe("agency.login");
 		} finally {
 			await deleteTestAgencyUser(email);
 		}

@@ -49,6 +49,10 @@ import type {
 	ListDomainStatusRequest,
 	ListDomainStatusResponse,
 } from "vetchium-specs/employer-domains/employer-domains";
+import type {
+	FilterAuditLogsRequest,
+	FilterAuditLogsResponse,
+} from "vetchium-specs/audit-logs/audit-logs";
 import type { APIResponse } from "./api-client";
 
 /**
@@ -1328,6 +1332,67 @@ export class EmployerAPIClient {
 			status: response.status(),
 			body: responseBody as ListCostCentersResponse,
 			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	// ============================================================================
+	// Audit Logs
+	// ============================================================================
+
+	/**
+	 * POST /employer/filter-audit-logs
+	 * Filters employer portal audit logs scoped to the caller's org.
+	 * Requires employer:view_audit_logs or employer:superadmin role.
+	 */
+	async filterAuditLogs(
+		sessionToken: string,
+		request: FilterAuditLogsRequest
+	): Promise<APIResponse<FilterAuditLogsResponse>> {
+		const response = await this.request.post("/employer/filter-audit-logs", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as FilterAuditLogsResponse,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	/**
+	 * POST /employer/filter-audit-logs with raw body for testing invalid payloads
+	 */
+	async filterAuditLogsRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<FilterAuditLogsResponse>> {
+		const response = await this.request.post("/employer/filter-audit-logs", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: body,
+		});
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as FilterAuditLogsResponse,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	/**
+	 * POST /employer/filter-audit-logs without Authorization header (for testing 401)
+	 */
+	async filterAuditLogsWithoutAuth(
+		request: FilterAuditLogsRequest
+	): Promise<APIResponse<FilterAuditLogsResponse>> {
+		const response = await this.request.post("/employer/filter-audit-logs", {
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as FilterAuditLogsResponse,
+			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 }

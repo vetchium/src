@@ -120,13 +120,23 @@ test.describe("Hub Set Language API", () => {
 		await deleteTestAdminUser(adminEmail);
 	});
 
-	test("should update language successfully", async () => {
+	test("should update language successfully and record hub.set_language event", async () => {
 		const request: HubSetLanguageRequest = {
 			language: "de-DE",
 		};
 
+		const before = new Date().toISOString();
 		const response = await api.setLanguage(sessionToken, request);
 		expect(response.status).toBe(200);
+
+		// Verify hub.set_language audit log entry was created
+		const auditResp = await api.myAuditLogs(sessionToken, {
+			event_types: ["hub.set_language"],
+			start_time: before,
+		});
+		expect(auditResp.status).toBe(200);
+		expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+		expect(auditResp.body.audit_logs[0].event_type).toBe("hub.set_language");
 	});
 
 	test("should fail without authentication", async () => {

@@ -9,11 +9,12 @@ import {
 	waitForEmail,
 	extractPasswordResetToken,
 	getEmailContent,
+	getTfaCodeFromEmail,
 } from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
 
 test.describe("POST /employer/request-password-reset", () => {
-	test("successful request returns 200 and sends email", async ({
+	test("successful request returns 200 and sends email and records employer.request_password_reset event", async ({
 		request,
 	}) => {
 		const api = new EmployerAPIClient(request);
@@ -21,6 +22,19 @@ test.describe("POST /employer/request-password-reset", () => {
 
 		const { employerId } = await createTestOrgAdminDirect(email, TEST_PASSWORD);
 		try {
+			// Login before reset to get session token (old password still valid)
+			const loginResp = await api.login({ email, domain, password: TEST_PASSWORD });
+			expect(loginResp.status).toBe(200);
+			const tfaCode = await getTfaCodeFromEmail(email);
+			const tfaResp = await api.verifyTFA({
+				tfa_token: loginResp.body.tfa_token,
+				tfa_code: tfaCode,
+				remember_me: false,
+			});
+			expect(tfaResp.status).toBe(200);
+			const sessionToken = tfaResp.body.session_token;
+
+			const before = new Date().toISOString();
 			const response = await api.requestPasswordReset({
 				email_address: email,
 				domain: domain,
@@ -31,11 +45,22 @@ test.describe("POST /employer/request-password-reset", () => {
 			expect(response.body.message).toBeDefined();
 
 			// Verify password reset email was sent
-			const emailMessage = await waitForEmail(email);
+			const emailMessage = await waitForEmail(email, {}, /reset/i);
 			expect(emailMessage).toBeDefined();
 			expect(emailMessage.To[0].Address).toBe(email);
 			expect(emailMessage.Subject).toContain("Reset");
 			expect(emailMessage.Subject).toContain("Password");
+
+			// Verify employer.request_password_reset audit log entry was created
+			const auditResp = await api.filterAuditLogs(sessionToken, {
+				event_types: ["employer.request_password_reset"],
+				start_time: before,
+			});
+			expect(auditResp.status).toBe(200);
+			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+			expect(auditResp.body.audit_logs[0].event_type).toBe(
+				"employer.request_password_reset"
+			);
 		} finally {
 			await deleteTestOrgUser(email);
 		}
@@ -140,6 +165,7 @@ test.describe("POST /employer/complete-password-reset", () => {
 			expect(resetToken).toBeDefined();
 
 			// Complete password reset
+			const before = new Date().toISOString();
 			const response = await api.completePasswordReset({
 				reset_token: resetToken!,
 				new_password: newPassword,
@@ -147,13 +173,32 @@ test.describe("POST /employer/complete-password-reset", () => {
 
 			expect(response.status).toBe(200);
 
-			// Verify can login with new password
+			// Verify can login with new password and get session to check audit log
 			const loginResponse = await api.login({
 				email,
 				domain,
 				password: newPassword,
 			});
 			expect(loginResponse.status).toBe(200);
+			const tfaCode = await getTfaCodeFromEmail(email);
+			const tfaResp = await api.verifyTFA({
+				tfa_token: loginResponse.body.tfa_token,
+				tfa_code: tfaCode,
+				remember_me: false,
+			});
+			expect(tfaResp.status).toBe(200);
+			const sessionToken = tfaResp.body.session_token;
+
+			// Verify employer.complete_password_reset audit log entry was created
+			const auditResp = await api.filterAuditLogs(sessionToken, {
+				event_types: ["employer.complete_password_reset"],
+				start_time: before,
+			});
+			expect(auditResp.status).toBe(200);
+			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+			expect(auditResp.body.audit_logs[0].event_type).toBe(
+				"employer.complete_password_reset"
+			);
 
 			// Verify cannot login with old password
 			const oldLoginResponse = await api.login({
@@ -304,6 +349,7 @@ test.describe("POST /employer/change-password", () => {
 			const sessionToken = tfaResp.body.session_token;
 
 			// Change password
+			const before = new Date().toISOString();
 			const response = await api.changePassword(sessionToken, {
 				current_password: oldPassword,
 				new_password: newPassword,
@@ -326,6 +372,17 @@ test.describe("POST /employer/change-password", () => {
 				password: oldPassword,
 			});
 			expect(oldLoginResp.status).toBe(401);
+
+			// Verify employer.change_password audit log entry was created (current session preserved)
+			const auditResp = await api.filterAuditLogs(sessionToken, {
+				event_types: ["employer.change_password"],
+				start_time: before,
+			});
+			expect(auditResp.status).toBe(200);
+			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+			expect(auditResp.body.audit_logs[0].event_type).toBe(
+				"employer.change_password"
+			);
 		} finally {
 			await deleteTestOrgUser(email);
 		}

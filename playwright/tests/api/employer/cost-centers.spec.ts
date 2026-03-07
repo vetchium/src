@@ -51,10 +51,11 @@ test.describe("Cost Centers API", () => {
 		test("Success: add a cost center (201)", async ({ request }) => {
 			const api = new EmployerAPIClient(request);
 			const { email, domain } = generateTestOrgEmail("cc-add");
-			const adminResult = await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			await createTestOrgAdminDirect(email, TEST_PASSWORD);
 
 			try {
 				const token = await loginOrgUser(api, email, domain);
+				const before = new Date().toISOString();
 				const req: AddCostCenterRequest = {
 					id: "engineering-us",
 					display_name: "Engineering US",
@@ -66,6 +67,18 @@ test.describe("Cost Centers API", () => {
 				expect(res.body?.display_name).toBe("Engineering US");
 				expect(res.body?.status).toBe("enabled");
 				expect(res.body?.notes).toBe("US engineering team");
+
+				// Verify employer.add_cost_center audit log entry was created
+				const auditResp = await api.filterAuditLogs(token, {
+					event_types: ["employer.add_cost_center"],
+					start_time: before,
+				});
+				expect(auditResp.status).toBe(200);
+				expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+				const auditEntry = auditResp.body.audit_logs[0];
+				expect(auditEntry.event_type).toBe("employer.add_cost_center");
+				expect(auditEntry.actor_user_id).toBeDefined();
+				expect(auditEntry.event_data).toHaveProperty("cost_center_id");
 			} finally {
 				await deleteTestOrgUser(email);
 			}
@@ -342,6 +355,7 @@ test.describe("Cost Centers API", () => {
 				expect(addRes.status).toBe(201);
 
 				// Then update
+				const before = new Date().toISOString();
 				const updateReq: UpdateCostCenterRequest = {
 					id: "to-update",
 					display_name: "Updated Name",
@@ -353,6 +367,19 @@ test.describe("Cost Centers API", () => {
 				expect(updateRes.body?.display_name).toBe("Updated Name");
 				expect(updateRes.body?.status).toBe("disabled");
 				expect(updateRes.body?.notes).toBe("now disabled");
+
+				// Verify employer.update_cost_center audit log entry was created
+				const auditResp = await api.filterAuditLogs(token, {
+					event_types: ["employer.update_cost_center"],
+					start_time: before,
+				});
+				expect(auditResp.status).toBe(200);
+				expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+				const auditEntry = auditResp.body.audit_logs[0];
+				expect(auditEntry.event_type).toBe("employer.update_cost_center");
+				expect(auditEntry.actor_user_id).toBeDefined();
+				expect(auditEntry.event_data).toHaveProperty("cost_center_id");
+				expect(auditEntry.event_data).toHaveProperty("fields_changed");
 			} finally {
 				await deleteTestOrgUser(email);
 			}

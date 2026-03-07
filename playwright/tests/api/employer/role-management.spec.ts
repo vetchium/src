@@ -50,6 +50,7 @@ test.describe("POST /employer/assign-role", () => {
 			const sessionToken = tfaResponse.body.session_token;
 
 			// Assign role
+			const before = new Date().toISOString();
 			const assignRequest: AssignRoleRequest = {
 				target_user_id: targetUserId,
 				role_name: "employer:manage_users",
@@ -58,6 +59,18 @@ test.describe("POST /employer/assign-role", () => {
 
 			expect(assignResponse.status).toBe(200);
 			expect(assignResponse.body.message).toContain("successfully");
+
+			// Verify employer.assign_role audit log entry was created
+			const auditResp = await api.filterAuditLogs(sessionToken, {
+				event_types: ["employer.assign_role"],
+				start_time: before,
+			});
+			expect(auditResp.status).toBe(200);
+			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+			expect(auditResp.body.audit_logs[0].event_type).toBe(
+				"employer.assign_role"
+			);
+			expect(auditResp.body.audit_logs[0].target_user_id).toBe(targetUserId);
 		} finally {
 			await deleteTestOrgUser(adminEmail);
 			await deleteTestOrgUser(targetEmail);
@@ -433,6 +446,7 @@ test.describe("POST /employer/remove-role", () => {
 			});
 
 			// Then remove it
+			const before = new Date().toISOString();
 			const removeRequest: RemoveRoleRequest = {
 				target_user_id: targetUserId,
 				role_name: "employer:manage_users",
@@ -441,6 +455,18 @@ test.describe("POST /employer/remove-role", () => {
 
 			expect(removeResponse.status).toBe(200);
 			expect(removeResponse.body.message).toContain("successfully");
+
+			// Verify employer.remove_role audit log entry was created
+			const auditResp = await api.filterAuditLogs(sessionToken, {
+				event_types: ["employer.remove_role"],
+				start_time: before,
+			});
+			expect(auditResp.status).toBe(200);
+			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+			expect(auditResp.body.audit_logs[0].event_type).toBe(
+				"employer.remove_role"
+			);
+			expect(auditResp.body.audit_logs[0].target_user_id).toBe(targetUserId);
 		} finally {
 			await deleteTestOrgUser(adminEmail);
 			await deleteTestOrgUser(targetEmail);

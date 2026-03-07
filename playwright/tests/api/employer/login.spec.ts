@@ -7,9 +7,12 @@ import {
 	createTestOrgUserDirect,
 	updateTestOrgUserStatus,
 } from "../../../lib/db";
-import { waitForEmail } from "../../../lib/mailpit";
+import { waitForEmail, getTfaCodeFromEmail } from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
-import type { OrgLoginRequest } from "vetchium-specs/employer/employer-users";
+import type {
+	OrgLoginRequest,
+	OrgTFARequest,
+} from "vetchium-specs/employer/employer-users";
 
 test.describe("POST /employer/login", () => {
 	test("successful login returns TFA token and sends email", async ({
@@ -64,7 +67,7 @@ test.describe("POST /employer/login", () => {
 		}
 	});
 
-	test("login with wrong password returns 401", async ({ request }) => {
+	test("login with wrong password returns 401 and records employer.login_failed event", async ({ request }) => {
 		const api = new EmployerAPIClient(request);
 		const { email, domain } = generateTestOrgEmail("org-login-wrong-pw");
 
@@ -77,9 +80,32 @@ test.describe("POST /employer/login", () => {
 				domain,
 				password: "WrongPassword456!",
 			};
+			const before = new Date().toISOString();
 			const response = await api.login(loginRequest);
 
 			expect(response.status).toBe(401);
+
+			// Verify employer.login_failed audit log was recorded
+			// Login with correct password to get a session token for audit log query
+			const successResp = await api.login({ email, domain, password: TEST_PASSWORD });
+			expect(successResp.status).toBe(200);
+			const tfaCode = await getTfaCodeFromEmail(email);
+			const tfaRequest: OrgTFARequest = {
+				tfa_token: successResp.body.tfa_token,
+				tfa_code: tfaCode,
+				remember_me: false,
+			};
+			const tfaResp = await api.verifyTFA(tfaRequest);
+			expect(tfaResp.status).toBe(200);
+			const sessionToken = tfaResp.body.session_token;
+
+			const auditResp = await api.filterAuditLogs(sessionToken, {
+				event_types: ["employer.login_failed"],
+				start_time: before,
+			});
+			expect(auditResp.status).toBe(200);
+			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+			expect(auditResp.body.audit_logs[0].event_type).toBe("employer.login_failed");
 		} finally {
 			await deleteTestOrgUser(email);
 		}

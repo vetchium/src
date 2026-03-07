@@ -47,6 +47,7 @@ test.describe("POST /employer/invite-user", () => {
 			const sessionToken = tfaResponse.body.session_token;
 
 			// Invite new user
+			const before = new Date().toISOString();
 			const inviteRequest: OrgInviteUserRequest = {
 				email_address: inviteeEmail,
 				roles: ["employer:manage_users"],
@@ -69,6 +70,22 @@ test.describe("POST /employer/invite-user", () => {
 				/token=([A-Z]{3}\d-[a-f0-9]{64})/
 			)?.[1];
 			expect(invitationToken).toBeDefined();
+
+			// Verify employer.invite_user audit log entry was created
+			const auditResp = await api.filterAuditLogs(sessionToken, {
+				event_types: ["employer.invite_user"],
+				start_time: before,
+			});
+			expect(auditResp.status).toBe(200);
+			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+			expect(auditResp.body.audit_logs[0].event_type).toBe(
+				"employer.invite_user"
+			);
+			// Invited email hash should be in event_data, not raw email
+			expect(auditResp.body.audit_logs[0].event_data).toBeDefined();
+			expect(
+				JSON.stringify(auditResp.body.audit_logs[0].event_data)
+			).not.toContain(inviteeEmail);
 		} finally {
 			// Cleanup: delete both users
 			await deleteTestOrgUser(adminEmail);

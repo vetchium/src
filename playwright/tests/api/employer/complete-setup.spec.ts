@@ -42,14 +42,12 @@ test.describe("POST /employer/complete-setup", () => {
 			});
 
 			// Invite new user
+			const adminSessionToken = tfaResponse.body.session_token;
 			const inviteRequest: OrgInviteUserRequest = {
 				email_address: inviteeEmail,
 				roles: ["employer:manage_users"],
 			};
-			const inviteResponse = await api.inviteUser(
-				tfaResponse.body.session_token,
-				inviteRequest
-			);
+			const inviteResponse = await api.inviteUser(adminSessionToken, inviteRequest);
 			expect(inviteResponse.status).toBe(201);
 
 			// Get invitation token from email
@@ -61,6 +59,7 @@ test.describe("POST /employer/complete-setup", () => {
 			expect(invitationToken).toBeDefined();
 
 			// Complete setup with invitation token
+			const before = new Date().toISOString();
 			const setupRequest: OrgCompleteSetupRequest = {
 				invitation_token: invitationToken!,
 				password: "NewUserPassword123!",
@@ -81,6 +80,17 @@ test.describe("POST /employer/complete-setup", () => {
 
 			expect(userLoginResponse.status).toBe(200);
 			expect(userLoginResponse.body.tfa_token).toBeDefined();
+
+			// Verify employer.complete_setup audit log entry was created (query with admin's token)
+			const auditResp = await api.filterAuditLogs(adminSessionToken, {
+				event_types: ["employer.complete_setup"],
+				start_time: before,
+			});
+			expect(auditResp.status).toBe(200);
+			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+			expect(auditResp.body.audit_logs[0].event_type).toBe(
+				"employer.complete_setup"
+			);
 		} finally {
 			await deleteTestOrgUser(adminEmail);
 			await deleteTestOrgUser(inviteeEmail);

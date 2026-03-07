@@ -42,6 +42,10 @@ import type {
 	AgencyCompleteSetupResponse,
 	AgencyMyInfoResponse,
 } from "vetchium-specs/agency/agency-users";
+import type {
+	FilterAuditLogsRequest,
+	FilterAuditLogsResponse,
+} from "vetchium-specs/audit-logs/audit-logs";
 import type { APIResponse } from "./api-client";
 
 /**
@@ -1184,6 +1188,67 @@ export class AgencyAPIClient {
 		return {
 			status: response.status(),
 			body: body as FilterTagsResponse,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	// ============================================================================
+	// Audit Logs
+	// ============================================================================
+
+	/**
+	 * POST /agency/filter-audit-logs
+	 * Filters agency portal audit logs scoped to the caller's agency.
+	 * Requires agency:view_audit_logs or agency:superadmin role.
+	 */
+	async filterAuditLogs(
+		sessionToken: string,
+		request: FilterAuditLogsRequest
+	): Promise<APIResponse<FilterAuditLogsResponse>> {
+		const response = await this.request.post("/agency/filter-audit-logs", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as FilterAuditLogsResponse,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	/**
+	 * POST /agency/filter-audit-logs with raw body for testing invalid payloads
+	 */
+	async filterAuditLogsRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<FilterAuditLogsResponse>> {
+		const response = await this.request.post("/agency/filter-audit-logs", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: body,
+		});
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as FilterAuditLogsResponse,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	/**
+	 * POST /agency/filter-audit-logs without Authorization header (for testing 401)
+	 */
+	async filterAuditLogsWithoutAuth(
+		request: FilterAuditLogsRequest
+	): Promise<APIResponse<FilterAuditLogsResponse>> {
+		const response = await this.request.post("/agency/filter-audit-logs", {
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as FilterAuditLogsResponse,
 			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}

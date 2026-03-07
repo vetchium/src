@@ -72,6 +72,7 @@ test.describe("POST /employer/claim-domain", () => {
 			userEmail = email;
 
 			// Claim a new domain
+			const before = new Date().toISOString();
 			const claimRequest: ClaimDomainRequest = {
 				domain: claimedDomain,
 			};
@@ -83,6 +84,17 @@ test.describe("POST /employer/claim-domain", () => {
 			expect(response.body.verification_token).toMatch(/^[a-f0-9]{64}$/);
 			expect(response.body.expires_at).toBeDefined();
 			expect(response.body.instructions).toBeDefined();
+
+			// Verify employer.claim_domain audit log entry was created
+			const auditResp = await api.filterAuditLogs(sessionToken, {
+				event_types: ["employer.claim_domain"],
+				start_time: before,
+			});
+			expect(auditResp.status).toBe(200);
+			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+			expect(auditResp.body.audit_logs[0].event_type).toBe(
+				"employer.claim_domain"
+			);
 		} finally {
 			// Cleanup
 			await deleteTestGlobalEmployerDomain(claimedDomain);

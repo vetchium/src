@@ -55,6 +55,7 @@ test.describe("POST /agency/disable-user", () => {
 			const sessionToken = tfaResponse.body.session_token;
 
 			// Disable the user
+			const before = new Date().toISOString();
 			const disableRequest: AgencyDisableUserRequest = {
 				email_address: userEmail,
 			};
@@ -69,6 +70,17 @@ test.describe("POST /agency/disable-user", () => {
 			const user = await getTestAgencyUser(userEmail);
 			expect(user).not.toBeNull();
 			expect(user!.status).toBe("disabled");
+
+			// Verify agency.disable_user audit log entry was created
+			const auditResp = await api.filterAuditLogs(sessionToken, {
+				event_types: ["agency.disable_user"],
+				start_time: before,
+			});
+			expect(auditResp.status).toBe(200);
+			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+			expect(auditResp.body.audit_logs[0].event_type).toBe(
+				"agency.disable_user"
+			);
 		} finally {
 			await deleteTestAgencyUser(adminEmail);
 			await deleteTestAgencyUser(userEmail);
@@ -357,6 +369,7 @@ test.describe("POST /agency/enable-user", () => {
 			const sessionToken = tfaResponse.body.session_token;
 
 			// Enable the user
+			const before = new Date().toISOString();
 			const enableRequest: AgencyEnableUserRequest = {
 				email_address: userEmail,
 			};
@@ -368,6 +381,15 @@ test.describe("POST /agency/enable-user", () => {
 			const user = await getTestAgencyUser(userEmail);
 			expect(user).not.toBeNull();
 			expect(user!.status).toBe("active");
+
+			// Verify agency.enable_user audit log entry was created
+			const auditResp = await api.filterAuditLogs(sessionToken, {
+				event_types: ["agency.enable_user"],
+				start_time: before,
+			});
+			expect(auditResp.status).toBe(200);
+			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+			expect(auditResp.body.audit_logs[0].event_type).toBe("agency.enable_user");
 		} finally {
 			await deleteTestAgencyUser(adminEmail);
 			await deleteTestAgencyUser(userEmail);

@@ -62,6 +62,7 @@ test.describe("POST /agency/claim-domain", () => {
 			);
 			userEmail = email;
 
+			const before = new Date().toISOString();
 			const claimRequest: AgencyClaimDomainRequest = {
 				domain: claimedDomain,
 			};
@@ -73,6 +74,17 @@ test.describe("POST /agency/claim-domain", () => {
 			expect(response.body.verification_token).toMatch(/^[a-f0-9]{64}$/);
 			expect(response.body.expires_at).toBeDefined();
 			expect(response.body.instructions).toBeDefined();
+
+			// Verify agency.claim_domain audit log entry was created
+			const auditResp = await api.filterAuditLogs(sessionToken, {
+				event_types: ["agency.claim_domain"],
+				start_time: before,
+			});
+			expect(auditResp.status).toBe(200);
+			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+			expect(auditResp.body.audit_logs[0].event_type).toBe(
+				"agency.claim_domain"
+			);
 		} finally {
 			await deleteTestGlobalAgencyDomain(claimedDomain);
 			if (userEmail) await deleteTestAgencyUser(userEmail);

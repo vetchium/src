@@ -44,6 +44,7 @@ test.describe("POST /admin/assign-role", () => {
 			const sessionToken = tfaResponse.body.session_token;
 
 			// Assign role
+			const before = new Date().toISOString();
 			const assignRequest: AssignRoleRequest = {
 				target_user_id: targetUserId,
 				role_name: "admin:manage_users",
@@ -52,6 +53,16 @@ test.describe("POST /admin/assign-role", () => {
 
 			expect(assignResponse.status).toBe(200);
 			expect(assignResponse.body.message).toContain("successfully");
+
+			// Verify admin.assign_role audit log entry was created
+			const auditResp = await api.filterAuditLogs(sessionToken, {
+				event_types: ["admin.assign_role"],
+				start_time: before,
+			});
+			expect(auditResp.status).toBe(200);
+			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+			expect(auditResp.body.audit_logs[0].event_type).toBe("admin.assign_role");
+			expect(auditResp.body.audit_logs[0].target_user_id).toBe(targetUserId);
 		} finally {
 			await deleteTestAdminUser(adminEmail);
 			await deleteTestAdminUser(targetEmail);
@@ -321,6 +332,7 @@ test.describe("POST /admin/remove-role", () => {
 			});
 
 			// Then remove it
+			const before = new Date().toISOString();
 			const removeRequest: RemoveRoleRequest = {
 				target_user_id: targetUserId,
 				role_name: "admin:manage_users",
@@ -329,6 +341,16 @@ test.describe("POST /admin/remove-role", () => {
 
 			expect(removeResponse.status).toBe(200);
 			expect(removeResponse.body.message).toContain("successfully");
+
+			// Verify admin.remove_role audit log entry was created
+			const auditResp = await api.filterAuditLogs(sessionToken, {
+				event_types: ["admin.remove_role"],
+				start_time: before,
+			});
+			expect(auditResp.status).toBe(200);
+			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+			expect(auditResp.body.audit_logs[0].event_type).toBe("admin.remove_role");
+			expect(auditResp.body.audit_logs[0].target_user_id).toBe(targetUserId);
 		} finally {
 			await deleteTestAdminUser(adminEmail);
 			await deleteTestAdminUser(targetEmail);

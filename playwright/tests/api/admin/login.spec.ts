@@ -2,11 +2,12 @@ import { test, expect } from "@playwright/test";
 import { AdminAPIClient } from "../../../lib/admin-api-client";
 import {
 	createTestAdminUser,
+	createTestAdminAdminDirect,
 	deleteTestAdminUser,
 	generateTestEmail,
 	updateTestAdminUserStatus,
 } from "../../../lib/db";
-import { waitForEmail } from "../../../lib/mailpit";
+import { getTfaCodeFromEmail, waitForEmail } from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
 
 test.describe("POST /admin/login", () => {
@@ -55,21 +56,52 @@ test.describe("POST /admin/login", () => {
 		expect(response.status).toBe(401);
 	});
 
-	test("wrong password returns 401", async ({ request }) => {
+	test("wrong password returns 401 and records admin.login_failed audit log", async ({
+		request,
+	}) => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("wrong-password");
+		const watcherEmail = generateTestEmail("login-failed-watcher");
 		const password = TEST_PASSWORD;
 
 		await createTestAdminUser(email, password);
+		// Watcher user with view_audit_logs role to verify the audit log entry
+		await createTestAdminAdminDirect(watcherEmail, password);
 		try {
+			const before = new Date().toISOString();
 			const response = await api.login({
 				email,
 				password: "WrongPassword456!",
 			});
-
 			expect(response.status).toBe(401);
+
+			// Login as watcher to query audit logs
+			const watcherLoginResp = await api.login({
+				email: watcherEmail,
+				password,
+			});
+			const watcherTfaCode = await getTfaCodeFromEmail(watcherEmail);
+			const watcherTfaResp = await api.verifyTFA({
+				tfa_token: watcherLoginResp.body.tfa_token,
+				tfa_code: watcherTfaCode,
+			});
+			const watcherToken = watcherTfaResp.body.session_token;
+
+			// login_failed should be recorded even though login returned 401
+			const auditResp = await api.filterAuditLogs(watcherToken, {
+				event_types: ["admin.login_failed"],
+				start_time: before,
+			});
+			expect(auditResp.status).toBe(200);
+			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+			expect(auditResp.body.audit_logs[0].event_type).toBe(
+				"admin.login_failed"
+			);
+			// login_failed events have no actor (unauthenticated)
+			expect(auditResp.body.audit_logs[0].actor_user_id).toBeNull();
 		} finally {
 			await deleteTestAdminUser(email);
+			await deleteTestAdminUser(watcherEmail);
 		}
 	});
 

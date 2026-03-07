@@ -91,6 +91,7 @@ test.describe("POST /hub/change-password", () => {
 			);
 
 			// Change password
+			const before = new Date().toISOString();
 			const changeRequest: HubChangePasswordRequest = {
 				current_password: oldPassword,
 				new_password: newPassword,
@@ -114,6 +115,15 @@ test.describe("POST /hub/change-password", () => {
 			};
 			const loginNewResponse = await api.login(loginNew);
 			expect(loginNewResponse.status).toBe(200);
+
+			// Verify hub.change_password audit log entry was created (current session preserved)
+			const auditResp = await api.myAuditLogs(sessionToken, {
+				event_types: ["hub.change_password"],
+				start_time: before,
+			});
+			expect(auditResp.status).toBe(200);
+			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+			expect(auditResp.body.audit_logs[0].event_type).toBe("hub.change_password");
 		} finally {
 			await deleteTestHubUser(email);
 			await permanentlyDeleteTestApprovedDomain(domain);

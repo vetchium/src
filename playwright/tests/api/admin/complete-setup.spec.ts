@@ -55,6 +55,7 @@ test.describe("POST /admin/complete-setup", () => {
 			expect(invitationToken).toBeDefined();
 
 			// Complete setup
+			const before = new Date().toISOString();
 			const setupRequest: AdminCompleteSetupRequest = {
 				invitation_token: invitationToken!,
 				password: "NewAdminPassword123!",
@@ -72,6 +73,17 @@ test.describe("POST /admin/complete-setup", () => {
 			});
 			expect(newLoginResponse.status).toBe(200);
 			expect(newLoginResponse.body.tfa_token).toBeDefined();
+
+			// Verify admin.complete_setup audit log entry was created (query with inviting admin's token)
+			const auditResp = await api.filterAuditLogs(sessionToken, {
+				event_types: ["admin.complete_setup"],
+				start_time: before,
+			});
+			expect(auditResp.status).toBe(200);
+			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+			expect(auditResp.body.audit_logs[0].event_type).toBe(
+				"admin.complete_setup"
+			);
 		} finally {
 			await deleteTestAdminUser(adminEmail);
 			await deleteTestAdminUser(inviteeEmail);

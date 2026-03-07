@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { AdminAPIClient } from "../../../lib/admin-api-client";
 import {
-	createTestAdminUser,
+	createTestAdminAdminDirect,
 	deleteTestAdminUser,
 	generateTestEmail,
 } from "../../../lib/db";
@@ -35,18 +35,32 @@ async function getSessionToken(
 }
 
 test.describe("POST /admin/logout", () => {
-	test("valid session token logout returns 200", async ({ request }) => {
+	test("valid session token logout returns 200 and records admin.logout event", async ({
+		request,
+	}) => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("logout-success");
 		const password = TEST_PASSWORD;
 
-		await createTestAdminUser(email, password);
+		// Use admin with view_audit_logs role — need a second session to check audit log after logout
+		await createTestAdminAdminDirect(email, password);
 		try {
 			const sessionToken = await getSessionToken(api, email, password);
+			// Get a second session token for audit log verification (first will be invalidated by logout)
+			const auditToken = await getSessionToken(api, email, password);
 
+			const before = new Date().toISOString();
 			const response = await api.logout(sessionToken);
-
 			expect(response.status).toBe(200);
+
+			// Verify admin.logout audit log entry was created (query with auditToken)
+			const auditResp = await api.filterAuditLogs(auditToken, {
+				event_types: ["admin.logout"],
+				start_time: before,
+			});
+			expect(auditResp.status).toBe(200);
+			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+			expect(auditResp.body.audit_logs[0].event_type).toBe("admin.logout");
 		} finally {
 			await deleteTestAdminUser(email);
 		}

@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { AdminAPIClient } from "../../../lib/admin-api-client";
 import {
 	createTestAdminUser,
+	createTestAdminAdminDirect,
 	deleteTestAdminUser,
 	generateTestEmail,
 } from "../../../lib/db";
@@ -35,20 +36,30 @@ async function getSessionToken(
 }
 
 test.describe("POST /admin/set-language", () => {
-	test("valid language update returns 200", async ({ request }) => {
+	test("valid language update returns 200 and records admin.set_language event", async ({ request }) => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("setlang-success");
 		const password = TEST_PASSWORD;
 
-		await createTestAdminUser(email, password);
+		await createTestAdminAdminDirect(email, password);
 		try {
 			const sessionToken = await getSessionToken(api, email, password);
 
+			const before = new Date().toISOString();
 			const response = await api.setLanguage(sessionToken, {
 				language: "de-DE",
 			});
 
 			expect(response.status).toBe(200);
+
+			// Verify admin.set_language audit log entry was created
+			const auditResp = await api.filterAuditLogs(sessionToken, {
+				event_types: ["admin.set_language"],
+				start_time: before,
+			});
+			expect(auditResp.status).toBe(200);
+			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+			expect(auditResp.body.audit_logs[0].event_type).toBe("admin.set_language");
 		} finally {
 			await deleteTestAdminUser(email);
 		}

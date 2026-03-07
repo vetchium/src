@@ -95,15 +95,38 @@ async function createHubUserAndGetSession(
 }
 
 test.describe("POST /hub/logout", () => {
-	test("successful logout returns 200", async ({ request }) => {
+	test("successful logout returns 200 and records hub.logout event", async ({ request }) => {
 		const api = new HubAPIClient(request);
-		const { email, adminEmail, domain, sessionToken } =
+		const { email, adminEmail, domain, sessionToken: sessionToken1 } =
 			await createHubUserAndGetSession(api, "hub-logout-success");
 
 		try {
-			const response = await api.logout(sessionToken);
+			// Get a second session token (used to check audit log after logout)
+			await deleteEmailsFor(email);
+			const loginResp2 = await api.login({ email_address: email, password: TEST_PASSWORD });
+			expect(loginResp2.status).toBe(200);
+			const tfaCode2 = await getTfaCodeFromEmail(email);
+			const tfaResp2 = await api.verifyTFA({
+				tfa_token: loginResp2.body.tfa_token,
+				tfa_code: tfaCode2,
+				remember_me: false,
+			});
+			expect(tfaResp2.status).toBe(200);
+			const sessionToken2 = tfaResp2.body.session_token;
+
+			const before = new Date().toISOString();
+			const response = await api.logout(sessionToken1);
 
 			expect(response.status).toBe(200);
+
+			// Verify hub.logout audit log entry was created (query with session2)
+			const auditResp = await api.myAuditLogs(sessionToken2, {
+				event_types: ["hub.logout"],
+				start_time: before,
+			});
+			expect(auditResp.status).toBe(200);
+			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+			expect(auditResp.body.audit_logs[0].event_type).toBe("hub.logout");
 		} finally {
 			await deleteTestHubUser(email);
 			await permanentlyDeleteTestApprovedDomain(domain);

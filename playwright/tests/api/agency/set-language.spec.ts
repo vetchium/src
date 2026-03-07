@@ -90,13 +90,23 @@ test.describe("Agency Set Language API", () => {
 		}
 	});
 
-	test("should update language successfully", async () => {
+	test("should update language successfully and record agency.set_language event", async () => {
 		const request: AgencySetLanguageRequest = {
 			language: "de-DE",
 		};
 
+		const before = new Date().toISOString();
 		const response = await api.setLanguage(sessionToken, request);
 		expect(response.status).toBe(200);
+
+		// Verify agency.set_language audit log entry was created
+		const auditResp = await api.filterAuditLogs(sessionToken, {
+			event_types: ["agency.set_language"],
+			start_time: before,
+		});
+		expect(auditResp.status).toBe(200);
+		expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+		expect(auditResp.body.audit_logs[0].event_type).toBe("agency.set_language");
 	});
 
 	test("should fail without authentication", async () => {

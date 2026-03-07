@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { AdminAPIClient } from "../../../lib/admin-api-client";
 import {
 	createTestAdminUser,
+	createTestAdminAdminDirect,
 	deleteTestAdminUser,
 	generateTestEmail,
 } from "../../../lib/db";
@@ -9,18 +10,35 @@ import {
 	waitForEmail,
 	extractPasswordResetToken,
 	getEmailContent,
+	getTfaCodeFromEmail,
 } from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
 
 test.describe("POST /admin/request-password-reset", () => {
-	test("successful request returns 200 and sends email", async ({
+	test("successful request returns 200 and sends email and records admin.request_password_reset event", async ({
 		request,
 	}) => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("pwd-reset-success");
+		const watcherEmail = generateTestEmail("pwd-reset-success-watcher");
 
 		await createTestAdminUser(email, TEST_PASSWORD);
+		await createTestAdminAdminDirect(watcherEmail, TEST_PASSWORD);
 		try {
+			// Login as watcher to query audit log after the unauthenticated reset request
+			const watcherLoginResp = await api.login({
+				email: watcherEmail,
+				password: TEST_PASSWORD,
+			});
+			const watcherTfaCode = await getTfaCodeFromEmail(watcherEmail);
+			const watcherTfaResp = await api.verifyTFA({
+				tfa_token: watcherLoginResp.body.tfa_token,
+				tfa_code: watcherTfaCode,
+				remember_me: false,
+			});
+			const watcherToken = watcherTfaResp.body.session_token;
+
+			const before = new Date().toISOString();
 			const response = await api.requestPasswordReset({
 				email_address: email,
 			});
@@ -35,8 +53,20 @@ test.describe("POST /admin/request-password-reset", () => {
 			expect(emailMessage.To[0].Address).toBe(email);
 			expect(emailMessage.Subject).toContain("Reset");
 			expect(emailMessage.Subject).toContain("Admin");
+
+			// Verify admin.request_password_reset audit log entry was created
+			const auditResp = await api.filterAuditLogs(watcherToken, {
+				event_types: ["admin.request_password_reset"],
+				start_time: before,
+			});
+			expect(auditResp.status).toBe(200);
+			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+			expect(auditResp.body.audit_logs[0].event_type).toBe(
+				"admin.request_password_reset"
+			);
 		} finally {
 			await deleteTestAdminUser(email);
+			await deleteTestAdminUser(watcherEmail);
 		}
 	});
 
@@ -88,15 +118,30 @@ test.describe("POST /admin/request-password-reset", () => {
 });
 
 test.describe("POST /admin/complete-password-reset", () => {
-	test("successful reset with valid token returns 200", async ({ request }) => {
+	test("successful reset with valid token returns 200 and records admin.complete_password_reset event", async ({ request }) => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("pwd-reset-complete");
+		const watcherEmail = generateTestEmail("pwd-reset-complete-watcher");
 		const oldPassword = TEST_PASSWORD;
 		const newPassword = "NewPassword789!";
 
 		await createTestAdminUser(email, oldPassword);
+		await createTestAdminAdminDirect(watcherEmail, oldPassword);
 		try {
+			// Login as watcher to query audit log later
+			const watcherLoginResp = await api.login({
+				email: watcherEmail,
+				password: oldPassword,
+			});
+			const watcherTfaCode = await getTfaCodeFromEmail(watcherEmail);
+			const watcherTfaResp = await api.verifyTFA({
+				tfa_token: watcherLoginResp.body.tfa_token,
+				tfa_code: watcherTfaCode,
+			});
+			const watcherToken = watcherTfaResp.body.session_token;
+
 			// Request password reset
+			const before = new Date().toISOString();
 			await api.requestPasswordReset({ email_address: email });
 
 			// Get reset token from email
@@ -126,8 +171,20 @@ test.describe("POST /admin/complete-password-reset", () => {
 				password: oldPassword,
 			});
 			expect(oldLoginResponse.status).toBe(401);
+
+			// Verify admin.complete_password_reset audit log entry was created
+			const auditResp = await api.filterAuditLogs(watcherToken, {
+				event_types: ["admin.complete_password_reset"],
+				start_time: before,
+			});
+			expect(auditResp.status).toBe(200);
+			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+			expect(auditResp.body.audit_logs[0].event_type).toBe(
+				"admin.complete_password_reset"
+			);
 		} finally {
 			await deleteTestAdminUser(email);
+			await deleteTestAdminUser(watcherEmail);
 		}
 	});
 
@@ -249,7 +306,7 @@ test.describe("POST /admin/change-password", () => {
 		const oldPassword = TEST_PASSWORD;
 		const newPassword = "NewPassword789!";
 
-		await createTestAdminUser(email, oldPassword);
+		await createTestAdminAdminDirect(email, oldPassword);
 		try {
 			// Login and get session
 			const loginResp = await api.login({
@@ -266,6 +323,7 @@ test.describe("POST /admin/change-password", () => {
 			const sessionToken = tfaResp.body.session_token;
 
 			// Change password
+			const before = new Date().toISOString();
 			const response = await api.changePassword(sessionToken, {
 				current_password: oldPassword,
 				new_password: newPassword,
@@ -286,6 +344,17 @@ test.describe("POST /admin/change-password", () => {
 				password: oldPassword,
 			});
 			expect(oldLoginResp.status).toBe(401);
+
+			// Verify admin.change_password audit log entry was created (current session preserved)
+			const auditResp = await api.filterAuditLogs(sessionToken, {
+				event_types: ["admin.change_password"],
+				start_time: before,
+			});
+			expect(auditResp.status).toBe(200);
+			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+			expect(auditResp.body.audit_logs[0].event_type).toBe(
+				"admin.change_password"
+			);
 		} finally {
 			await deleteTestAdminUser(email);
 		}

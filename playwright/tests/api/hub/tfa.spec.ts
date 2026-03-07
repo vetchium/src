@@ -93,7 +93,7 @@ async function getTfaCodeForHubUser(email: string): Promise<string> {
 }
 
 test.describe("POST /hub/tfa", () => {
-	test("valid TFA code with remember_me=false returns session token and preferred_language", async ({
+	test("valid TFA code with remember_me=false returns session token and preferred_language and records hub.login event", async ({
 		request,
 	}) => {
 		const api = new HubAPIClient(request);
@@ -123,6 +123,7 @@ test.describe("POST /hub/tfa", () => {
 			expect(tfaCode).toMatch(/^\d{6}$/);
 
 			// Step 3: Verify TFA code with remember_me=false
+			const before = new Date().toISOString();
 			const tfaRequest: HubTFARequest = {
 				tfa_token: tfaToken,
 				tfa_code: tfaCode,
@@ -138,6 +139,16 @@ test.describe("POST /hub/tfa", () => {
 			);
 			// Default preferred_language should be en-US
 			expect(tfaResponse.body.preferred_language).toBe("en-US");
+
+			// Verify hub.login audit log entry was created
+			const sessionToken = tfaResponse.body.session_token;
+			const auditResp = await api.myAuditLogs(sessionToken, {
+				event_types: ["hub.login"],
+				start_time: before,
+			});
+			expect(auditResp.status).toBe(200);
+			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+			expect(auditResp.body.audit_logs[0].event_type).toBe("hub.login");
 		} finally {
 			await deleteTestHubUser(email);
 			await permanentlyDeleteTestApprovedDomain(domain);

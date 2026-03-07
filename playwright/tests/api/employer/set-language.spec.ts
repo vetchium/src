@@ -90,13 +90,23 @@ test.describe("Org (Employer) Set Language API", () => {
 		}
 	});
 
-	test("should update language successfully", async () => {
+	test("should update language successfully and record employer.set_language event", async () => {
 		const request: OrgSetLanguageRequest = {
 			language: "de-DE",
 		};
 
+		const before = new Date().toISOString();
 		const response = await api.setLanguage(sessionToken, request);
 		expect(response.status).toBe(200);
+
+		// Verify employer.set_language audit log entry was created
+		const auditResp = await api.filterAuditLogs(sessionToken, {
+			event_types: ["employer.set_language"],
+			start_time: before,
+		});
+		expect(auditResp.status).toBe(200);
+		expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+		expect(auditResp.body.audit_logs[0].event_type).toBe("employer.set_language");
 	});
 
 	test("should fail without authentication", async () => {

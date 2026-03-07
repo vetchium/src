@@ -32,6 +32,7 @@ test.describe("POST /admin/add-approved-domain", () => {
 			});
 			const sessionToken = tfaResponse.body.session_token;
 
+			const before = new Date().toISOString();
 			// Create approved domain
 			const response = await api.createApprovedDomain(sessionToken, {
 				domain_name: domainName,
@@ -44,10 +45,21 @@ test.describe("POST /admin/add-approved-domain", () => {
 			expect(response.body.created_at).toBeDefined();
 			expect(response.body.status).toBe("active");
 
-			// Verify audit log was created
+			// Verify old domain-specific audit log was created (approved_domains_audit_log table)
 			const auditLogs = await getApprovedDomainAuditLogs(domainName);
 			expect(auditLogs.length).toBe(1);
 			expect(auditLogs[0].action).toBe("created");
+
+			// Verify admin.add_approved_domain event in the unified audit log
+			const auditResp = await api.filterAuditLogs(sessionToken, {
+				event_types: ["admin.add_approved_domain"],
+				start_time: before,
+			});
+			expect(auditResp.status).toBe(200);
+			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+			const auditEntry = auditResp.body.audit_logs[0];
+			expect(auditEntry.event_type).toBe("admin.add_approved_domain");
+			expect(auditEntry.event_data).toHaveProperty("domain");
 		} finally {
 			await permanentlyDeleteTestApprovedDomain(domainName);
 			await deleteTestAdminUser(email);
@@ -617,6 +629,7 @@ test.describe("POST /admin/disable-approved-domain", () => {
 			});
 
 			// Disable domain
+			const before = new Date().toISOString();
 			const response = await api.disableApprovedDomain(sessionToken, {
 				domain_name: domainName,
 				reason: reason,
@@ -630,6 +643,17 @@ test.describe("POST /admin/disable-approved-domain", () => {
 			expect(auditLogs.some((log) => log.action === "disabled")).toBe(true);
 			const disableLog = auditLogs.find((log) => log.action === "disabled");
 			expect(disableLog?.reason).toBe(reason);
+
+			// Verify admin.disable_approved_domain audit log entry in unified audit log
+			const auditResp = await api.filterAuditLogs(sessionToken, {
+				event_types: ["admin.disable_approved_domain"],
+				start_time: before,
+			});
+			expect(auditResp.status).toBe(200);
+			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+			expect(auditResp.body.audit_logs[0].event_type).toBe(
+				"admin.disable_approved_domain"
+			);
 
 			// Verify domain status changed to inactive
 			const getResponse = await api.getApprovedDomain(sessionToken, {
@@ -867,6 +891,7 @@ test.describe("POST /admin/enable-approved-domain", () => {
 			});
 
 			// Enable domain
+			const before = new Date().toISOString();
 			const response = await api.enableApprovedDomain(sessionToken, {
 				domain_name: domainName,
 				reason: enableReason,
@@ -880,6 +905,17 @@ test.describe("POST /admin/enable-approved-domain", () => {
 			expect(auditLogs.some((log) => log.action === "enabled")).toBe(true);
 			const enableLog = auditLogs.find((log) => log.action === "enabled");
 			expect(enableLog?.reason).toBe(enableReason);
+
+			// Verify admin.enable_approved_domain audit log entry in unified audit log
+			const auditResp = await api.filterAuditLogs(sessionToken, {
+				event_types: ["admin.enable_approved_domain"],
+				start_time: before,
+			});
+			expect(auditResp.status).toBe(200);
+			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+			expect(auditResp.body.audit_logs[0].event_type).toBe(
+				"admin.enable_approved_domain"
+			);
 
 			// Verify domain status changed to active
 			const getResponse = await api.getApprovedDomain(sessionToken, {

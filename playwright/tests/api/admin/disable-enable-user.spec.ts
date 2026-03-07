@@ -49,6 +49,7 @@ test.describe("POST /admin/disable-user", () => {
 			const sessionToken = tfaResponse.body.session_token;
 
 			// Disable admin2
+			const before = new Date().toISOString();
 			const disableRequest: AdminDisableUserRequest = {
 				email_address: admin2Email,
 			};
@@ -63,6 +64,17 @@ test.describe("POST /admin/disable-user", () => {
 			const admin2 = await getTestAdminUser(admin2Email);
 			expect(admin2).not.toBeNull();
 			expect(admin2!.status).toBe("disabled");
+
+			// Verify admin.disable_user audit log entry was created
+			const auditResp = await api.filterAuditLogs(sessionToken, {
+				event_types: ["admin.disable_user"],
+				start_time: before,
+			});
+			expect(auditResp.status).toBe(200);
+			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+			expect(auditResp.body.audit_logs[0].event_type).toBe(
+				"admin.disable_user"
+			);
 		} finally {
 			await deleteTestAdminUser(admin1Email);
 			await deleteTestAdminUser(admin2Email);
@@ -350,6 +362,7 @@ test.describe("POST /admin/enable-user", () => {
 			const sessionToken = tfaResponse.body.session_token;
 
 			// Enable admin2
+			const before = new Date().toISOString();
 			const enableRequest: AdminEnableUserRequest = {
 				email_address: admin2Email,
 			};
@@ -361,6 +374,15 @@ test.describe("POST /admin/enable-user", () => {
 			const admin2 = await getTestAdminUser(admin2Email);
 			expect(admin2).not.toBeNull();
 			expect(admin2!.status).toBe("active");
+
+			// Verify admin.enable_user audit log entry was created
+			const auditResp = await api.filterAuditLogs(sessionToken, {
+				event_types: ["admin.enable_user"],
+				start_time: before,
+			});
+			expect(auditResp.status).toBe(200);
+			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+			expect(auditResp.body.audit_logs[0].event_type).toBe("admin.enable_user");
 		} finally {
 			await deleteTestAdminUser(admin1Email);
 			await deleteTestAdminUser(admin2Email);

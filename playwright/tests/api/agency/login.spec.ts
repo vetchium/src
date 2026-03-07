@@ -7,9 +7,12 @@ import {
 	createTestAgencyUserDirect,
 	updateTestAgencyUserStatus,
 } from "../../../lib/db";
-import { waitForEmail } from "../../../lib/mailpit";
+import { waitForEmail, getTfaCodeFromEmail } from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
-import type { AgencyLoginRequest } from "vetchium-specs/agency/agency-users";
+import type {
+	AgencyLoginRequest,
+	AgencyTFARequest,
+} from "vetchium-specs/agency/agency-users";
 
 test.describe("POST /agency/login", () => {
 	test("successful login returns TFA token and sends email", async ({
@@ -64,7 +67,7 @@ test.describe("POST /agency/login", () => {
 		}
 	});
 
-	test("login with wrong password returns 401", async ({ request }) => {
+	test("login with wrong password returns 401 and records agency.login_failed event", async ({ request }) => {
 		const api = new AgencyAPIClient(request);
 		const { email, domain } = generateTestAgencyEmail("agency-login-wrong-pw");
 
@@ -77,9 +80,32 @@ test.describe("POST /agency/login", () => {
 				domain,
 				password: "WrongPassword456!",
 			};
+			const before = new Date().toISOString();
 			const response = await api.login(loginRequest);
 
 			expect(response.status).toBe(401);
+
+			// Verify agency.login_failed audit log was recorded
+			// Login with correct password to get a session token for audit log query
+			const successResp = await api.login({ email, domain, password: TEST_PASSWORD });
+			expect(successResp.status).toBe(200);
+			const tfaCode = await getTfaCodeFromEmail(email);
+			const tfaRequest: AgencyTFARequest = {
+				tfa_token: successResp.body.tfa_token,
+				tfa_code: tfaCode,
+				remember_me: false,
+			};
+			const tfaResp = await api.verifyTFA(tfaRequest);
+			expect(tfaResp.status).toBe(200);
+			const sessionToken = tfaResp.body.session_token;
+
+			const auditResp = await api.filterAuditLogs(sessionToken, {
+				event_types: ["agency.login_failed"],
+				start_time: before,
+			});
+			expect(auditResp.status).toBe(200);
+			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+			expect(auditResp.body.audit_logs[0].event_type).toBe("agency.login_failed");
 		} finally {
 			await deleteTestAgencyUser(email);
 		}
