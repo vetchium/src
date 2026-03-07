@@ -4,6 +4,7 @@ import {
 	generateTestAgencyEmail,
 	deleteTestAgencyUser,
 	createTestAgencyUserDirect,
+	createTestAgencyAdminDirect,
 } from "../../../lib/db";
 import { getTfaCodeFromEmail, deleteEmailsFor } from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
@@ -60,7 +61,7 @@ test.describe("POST /agency/logout", () => {
 		const { email, domain } = generateTestAgencyEmail("agency-logout-success");
 
 		// Create test agency user
-		await createTestAgencyUserDirect(email, TEST_PASSWORD);
+		await createTestAgencyAdminDirect(email, TEST_PASSWORD);
 
 		try {
 			// Get first session token (will be logged out)

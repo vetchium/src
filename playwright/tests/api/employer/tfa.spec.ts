@@ -3,7 +3,7 @@ import { EmployerAPIClient } from "../../../lib/employer-api-client";
 import {
 	generateTestOrgEmail,
 	deleteTestOrgUser,
-	createTestOrgUserDirect,
+	createTestOrgAdminDirect,
 } from "../../../lib/db";
 import { getTfaCodeFromEmail, deleteEmailsFor } from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
@@ -23,7 +23,7 @@ async function createOrgUserAndLogin(
 	const { email, domain } = generateTestOrgEmail(emailPrefix);
 
 	// Create test org user directly in the database
-	await createTestOrgUserDirect(email, TEST_PASSWORD);
+	await createTestOrgAdminDirect(email, TEST_PASSWORD);
 
 	// Clear any existing emails for this address
 	await deleteEmailsFor(email);

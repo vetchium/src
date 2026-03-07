@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import {
 	deleteTestOrgUser,
-	createTestOrgUserDirect,
+	createTestOrgAdminDirect,
 	generateTestOrgEmail,
 } from "../../../lib/db";
 import { EmployerAPIClient } from "../../../lib/employer-api-client";
@@ -61,7 +61,7 @@ test.describe("Org (Employer) Set Language API", () => {
 		domainName = testEmail.domain;
 
 		// Create test user directly in DB (bypass signup flow)
-		await createTestOrgUserDirect(email, password, "ind1", {
+		await createTestOrgAdminDirect(email, password, "ind1", {
 			domain: domainName,
 		});
 

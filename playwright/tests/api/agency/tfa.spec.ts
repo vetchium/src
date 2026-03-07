@@ -3,7 +3,7 @@ import { AgencyAPIClient } from "../../../lib/agency-api-client";
 import {
 	generateTestAgencyEmail,
 	deleteTestAgencyUser,
-	createTestAgencyUserDirect,
+	createTestAgencyAdminDirect,
 } from "../../../lib/db";
 import { getTfaCodeFromEmail, deleteEmailsFor } from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
@@ -23,7 +23,7 @@ async function createAgencyUserAndLogin(
 	const { email, domain } = generateTestAgencyEmail(emailPrefix);
 
 	// Create test agency user directly in the database
-	await createTestAgencyUserDirect(email, TEST_PASSWORD);
+	await createTestAgencyAdminDirect(email, TEST_PASSWORD);
 
 	// Clear any existing emails for this address
 	await deleteEmailsFor(email);

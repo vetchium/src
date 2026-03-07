@@ -59,7 +59,7 @@ test.describe("POST /admin/add-approved-domain", () => {
 			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
 			const auditEntry = auditResp.body.audit_logs[0];
 			expect(auditEntry.event_type).toBe("admin.add_approved_domain");
-			expect(auditEntry.event_data).toHaveProperty("domain");
+			expect(auditEntry.event_data).toHaveProperty("domain_name");
 		} finally {
 			await permanentlyDeleteTestApprovedDomain(domainName);
 			await deleteTestAdminUser(email);

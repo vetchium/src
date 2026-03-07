@@ -5,6 +5,7 @@ import {
 	generateTestAgencyEmail,
 	deleteTestAgencyUser,
 	createTestAgencyUserDirect,
+	createTestAgencyAdminDirect,
 	updateTestAgencyUserStatus,
 } from "../../../lib/db";
 import { waitForEmail, getTfaCodeFromEmail } from "../../../lib/mailpit";
@@ -73,8 +74,8 @@ test.describe("POST /agency/login", () => {
 		const api = new AgencyAPIClient(request);
 		const { email, domain } = generateTestAgencyEmail("agency-login-wrong-pw");
 
-		// Create test agency user directly in the database
-		await createTestAgencyUserDirect(email, TEST_PASSWORD);
+		// Create test agency user directly in the database (needs superadmin for audit log access)
+		await createTestAgencyAdminDirect(email, TEST_PASSWORD);
 
 		try {
 			const loginRequest: AgencyLoginRequest = {

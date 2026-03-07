@@ -5,6 +5,7 @@ import {
 	generateTestOrgEmail,
 	deleteTestOrgUser,
 	createTestOrgUserDirect,
+	createTestOrgAdminDirect,
 	updateTestOrgUserStatus,
 } from "../../../lib/db";
 import { waitForEmail, getTfaCodeFromEmail } from "../../../lib/mailpit";
@@ -73,8 +74,8 @@ test.describe("POST /employer/login", () => {
 		const api = new EmployerAPIClient(request);
 		const { email, domain } = generateTestOrgEmail("org-login-wrong-pw");
 
-		// Create test org user directly in the database
-		await createTestOrgUserDirect(email, TEST_PASSWORD);
+		// Create test org user directly in the database (needs superadmin for audit log access)
+		await createTestOrgAdminDirect(email, TEST_PASSWORD);
 
 		try {
 			const loginRequest: OrgLoginRequest = {

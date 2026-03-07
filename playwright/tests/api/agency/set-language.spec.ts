@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import {
 	deleteTestAgencyUser,
-	createTestAgencyUserDirect,
+	createTestAgencyAdminDirect,
 	generateTestAgencyEmail,
 } from "../../../lib/db";
 import { AgencyAPIClient } from "../../../lib/agency-api-client";
@@ -61,7 +61,7 @@ test.describe("Agency Set Language API", () => {
 		domainName = testEmail.domain;
 
 		// Create test user directly in DB (bypass signup flow)
-		await createTestAgencyUserDirect(email, password, "ind1", {
+		await createTestAgencyAdminDirect(email, password, "ind1", {
 			domain: domainName,
 		});
 

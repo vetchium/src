@@ -4,6 +4,7 @@ import {
 	generateTestOrgEmail,
 	deleteTestOrgUser,
 	createTestOrgUserDirect,
+	createTestOrgAdminDirect,
 } from "../../../lib/db";
 import { getTfaCodeFromEmail, deleteEmailsFor } from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
@@ -60,7 +61,7 @@ test.describe("POST /employer/logout", () => {
 		const { email, domain } = generateTestOrgEmail("org-logout-success");
 
 		// Create test org user
-		await createTestOrgUserDirect(email, TEST_PASSWORD);
+		await createTestOrgAdminDirect(email, TEST_PASSWORD);
 
 		try {
 			// Get first session token (will be logged out)
