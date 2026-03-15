@@ -58,9 +58,7 @@ export function SubOrgsPage() {
 		false;
 
 	const canViewMembers =
-		canManage ||
-		myInfo?.roles.includes("employer:view_suborgs") ||
-		false;
+		canManage || myInfo?.roles.includes("employer:view_suborgs") || false;
 
 	// --- list suborgs ---
 	const [suborgs, setSuborgs] = useState<SubOrg[]>([]);
@@ -573,7 +571,11 @@ export function SubOrgsPage() {
 				</Spin>
 
 				{nextCursor && (
-					<Button onClick={() => loadSuborgs(nextCursor, filterStatus, false)} loading={loading} block>
+					<Button
+						onClick={() => loadSuborgs(nextCursor, filterStatus, false)}
+						loading={loading}
+						block
+					>
 						{t("loadMore")}
 					</Button>
 				)}
@@ -762,7 +764,11 @@ export function SubOrgsPage() {
 								: u.email_address,
 						}))}
 						notFoundContent={
-							userSearchLoading ? <Spin size="small" /> : t("addMemberModal.noResults")
+							userSearchLoading ? (
+								<Spin size="small" />
+							) : (
+								t("addMemberModal.noResults")
+							)
 						}
 					/>
 					<Button
