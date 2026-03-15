@@ -30,14 +30,11 @@ model SubOrg {
 }
 
 model SubOrgMember {
-  @doc("UUID of the org user")
-  org_user_id: string;
+  @doc("Email address of the org user")
+  email_address: string;
 
   @doc("Display name of the org user")
   name: string;
-
-  @doc("SHA-256 hash of the org user's email address")
-  email_address_hash: string;
 
   @doc("Timestamp when the user was assigned to this SubOrg (RFC3339)")
   assigned_at: string;
@@ -92,16 +89,16 @@ model AddSubOrgMemberRequest {
   @doc("UUID of the SubOrg")
   suborg_id: string;
 
-  @doc("UUID of the org user to assign")
-  org_user_id: string;
+  @doc("Email address of the org user to assign")
+  email_address: string;
 }
 
 model RemoveSubOrgMemberRequest {
   @doc("UUID of the SubOrg")
   suborg_id: string;
 
-  @doc("UUID of the org user to remove")
-  org_user_id: string;
+  @doc("Email address of the org user to remove")
+  email_address: string;
 }
 
 model ListSubOrgMembersRequest {

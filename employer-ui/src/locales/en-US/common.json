@@ -34,6 +34,10 @@
 		"title": "Cost Centers",
 		"description": "Manage cost centers for your organization"
 	},
+	"subOrgs": {
+		"title": "Sub-Organizations",
+		"description": "Manage sub-organizations and their members"
+	},
 	"action": {
 		"backHome": "Back Home"
 	},

@@ -1,0 +1,90 @@
+{
+	"title": "Unterorganisationen",
+	"createButton": "Unterorg erstellen",
+	"backToDashboard": "Zurück zum Dashboard",
+	"loadMore": "Mehr laden",
+	"createModal": {
+		"title": "Unterorganisation erstellen",
+		"nameLabel": "Name",
+		"namePlaceholder": "z.B. Amazon India Private Ltd",
+		"regionLabel": "Zugeordnete Region",
+		"regionPlaceholder": "Region auswählen",
+		"submitButton": "Erstellen"
+	},
+	"renameModal": {
+		"title": "Unterorganisation umbenennen",
+		"nameLabel": "Neuer Name",
+		"namePlaceholder": "Neuen Namen eingeben",
+		"submitButton": "Speichern"
+	},
+	"membersDrawer": {
+		"title": "Mitglieder von {{name}}",
+		"defaultTitle": "Unterorg-Mitglieder"
+	},
+	"addMemberModal": {
+		"title": "Mitglied hinzufügen",
+		"searchPlaceholder": "Nach Name oder E-Mail suchen",
+		"noResults": "Keine Benutzer gefunden",
+		"submitButton": "Mitglied hinzufügen"
+	},
+	"table": {
+		"name": "Name",
+		"pinnedRegion": "Region",
+		"status": "Status",
+		"createdAt": "Erstellt am",
+		"actions": "Aktionen",
+		"members": "Mitglieder",
+		"rename": "Umbenennen",
+		"enable": "Aktivieren",
+		"disable": "Deaktivieren",
+		"empty": "Keine Unterorganisationen gefunden"
+	},
+	"members": {
+		"name": "Name",
+		"assignedAt": "Zugewiesen am",
+		"actions": "Aktionen",
+		"remove": "Entfernen",
+		"addButton": "Mitglied hinzufügen",
+		"empty": "Keine Mitglieder"
+	},
+	"status": {
+		"active": "Aktiv",
+		"disabled": "Deaktiviert"
+	},
+	"regions": {
+		"ind1": "Indien (ind1)",
+		"usa1": "Vereinigte Staaten (usa1)",
+		"deu1": "Deutschland (deu1)",
+		"sgp1": "Singapur (sgp1)"
+	},
+	"filter": {
+		"all": "Alle",
+		"active": "Aktiv",
+		"disabled": "Deaktiviert"
+	},
+	"errors": {
+		"nameRequired": "Name ist erforderlich",
+		"nameTooLong": "Name darf maximal 64 Zeichen lang sein",
+		"regionRequired": "Region ist erforderlich",
+		"notFound": "Unterorganisation nicht gefunden",
+		"limitReached": "Maximale Anzahl an Unterorganisationen (256) erreicht",
+		"invalidState": "Unterorganisation befindet sich bereits in diesem Zustand",
+		"loadFailed": "Unterorganisationen konnten nicht geladen werden",
+		"createFailed": "Unterorganisation konnte nicht erstellt werden",
+		"renameFailed": "Unterorganisation konnte nicht umbenannt werden",
+		"toggleFailed": "Status der Unterorganisation konnte nicht aktualisiert werden",
+		"loadMembersFailed": "Mitglieder konnten nicht geladen werden",
+		"memberAlreadyAdded": "Dieser Benutzer ist bereits Mitglied",
+		"memberNotFound": "Mitglied nicht gefunden",
+		"addMemberFailed": "Mitglied konnte nicht hinzugefügt werden",
+		"removeMemberFailed": "Mitglied konnte nicht entfernt werden"
+	},
+	"success": {
+		"created": "Unterorganisation erfolgreich erstellt",
+		"renamed": "Unterorganisation erfolgreich umbenannt",
+		"enabled": "Unterorganisation aktiviert",
+		"disabled": "Unterorganisation deaktiviert",
+		"memberAdded": "Mitglied erfolgreich hinzugefügt",
+		"memberRemoved": "Mitglied erfolgreich entfernt"
+	}
+}

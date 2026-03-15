@@ -34,6 +34,10 @@
 		"title": "Kostenstellen",
 		"description": "Kostenstellen für Ihre Organisation verwalten"
 	},
+	"subOrgs": {
+		"title": "Unterorganisationen",
+		"description": "Unterorganisationen und ihre Mitglieder verwalten"
+	},
 	"action": {
 		"backHome": "Zurück zur Startseite"
 	},

@@ -14,7 +14,7 @@ const (
 	errSubOrgIDRequired     = "suborg_id is required"
 	errSubOrgRegionRequired = "pinned_region is required"
 	errSubOrgRegionInvalid  = "pinned_region must be one of: ind1, usa1, deu1, sgp1"
-	errSubOrgUserIDRequired = "org_user_id is required"
+	errSubOrgEmailRequired  = "email_address is required"
 )
 
 var validSubOrgRegions = map[string]bool{
@@ -35,10 +35,9 @@ type SubOrg struct {
 
 // SubOrgMember is a member of a SubOrg.
 type SubOrgMember struct {
-	OrgUserID        string `json:"org_user_id"`
-	Name             string `json:"name"`
-	EmailAddressHash string `json:"email_address_hash"`
-	AssignedAt       string `json:"assigned_at"`
+	EmailAddress string `json:"email_address"`
+	Name         string `json:"name"`
+	AssignedAt   string `json:"assigned_at"`
 }
 
 // CreateSubOrgRequest is the request body for POST /employer/create-suborg.
@@ -142,8 +141,8 @@ func (r EnableSubOrgRequest) Validate() []common.ValidationError {
 
 // AddSubOrgMemberRequest is the request body for POST /employer/add-suborg-member.
 type AddSubOrgMemberRequest struct {
-	SubOrgID  string `json:"suborg_id"`
-	OrgUserID string `json:"org_user_id"`
+	SubOrgID     string `json:"suborg_id"`
+	EmailAddress string `json:"email_address"`
 }
 
 func (r AddSubOrgMemberRequest) Validate() []common.ValidationError {
@@ -153,8 +152,8 @@ func (r AddSubOrgMemberRequest) Validate() []common.ValidationError {
 		errs = append(errs, common.NewValidationError("suborg_id", fmt.Errorf(errSubOrgIDRequired)))
 	}
 
-	if r.OrgUserID == "" {
-		errs = append(errs, common.NewValidationError("org_user_id", fmt.Errorf(errSubOrgUserIDRequired)))
+	if r.EmailAddress == "" {
+		errs = append(errs, common.NewValidationError("email_address", fmt.Errorf(errSubOrgEmailRequired)))
 	}
 
 	return errs
@@ -162,8 +161,8 @@ func (r AddSubOrgMemberRequest) Validate() []common.ValidationError {
 
 // RemoveSubOrgMemberRequest is the request body for POST /employer/remove-suborg-member.
 type RemoveSubOrgMemberRequest struct {
-	SubOrgID  string `json:"suborg_id"`
-	OrgUserID string `json:"org_user_id"`
+	SubOrgID     string `json:"suborg_id"`
+	EmailAddress string `json:"email_address"`
 }
 
 func (r RemoveSubOrgMemberRequest) Validate() []common.ValidationError {
@@ -173,8 +172,8 @@ func (r RemoveSubOrgMemberRequest) Validate() []common.ValidationError {
 		errs = append(errs, common.NewValidationError("suborg_id", fmt.Errorf(errSubOrgIDRequired)))
 	}
 
-	if r.OrgUserID == "" {
-		errs = append(errs, common.NewValidationError("org_user_id", fmt.Errorf(errSubOrgUserIDRequired)))
+	if r.EmailAddress == "" {
+		errs = append(errs, common.NewValidationError("email_address", fmt.Errorf(errSubOrgEmailRequired)))
 	}
 
 	return errs

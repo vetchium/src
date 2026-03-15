@@ -4,6 +4,7 @@ import {
 	TeamOutlined,
 	GlobalOutlined,
 	BankOutlined,
+	ApartmentOutlined,
 } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
@@ -34,6 +35,9 @@ export function DashboardPage() {
 		myInfo?.roles.includes("employer:view_costcenters") ||
 		myInfo?.roles.includes("employer:manage_costcenters") ||
 		false;
+
+	// Any authenticated user can see SubOrgs (list is unrestricted)
+	const hasSubOrgsAccess = !!myInfo;
 
 	return (
 		<div
@@ -79,6 +83,32 @@ export function DashboardPage() {
 								</Title>
 								<Typography.Text type="secondary">
 									{t("userManagement.description")}
+								</Typography.Text>
+							</Card>
+						</Link>
+					)}
+
+					{hasSubOrgsAccess && (
+						<Link
+							to="/suborgs"
+							style={{ textDecoration: "none", width: "100%" }}
+						>
+							<Card
+								hoverable
+								style={{
+									width: "100%",
+									cursor: "pointer",
+									textAlign: "center",
+								}}
+							>
+								<ApartmentOutlined
+									style={{ fontSize: 48, color: "#fa8c16", marginBottom: 16 }}
+								/>
+								<Title level={4} style={{ marginBottom: 8 }}>
+									{t("subOrgs.title")}
+								</Title>
+								<Typography.Text type="secondary">
+									{t("subOrgs.description")}
 								</Typography.Text>
 							</Card>
 						</Link>

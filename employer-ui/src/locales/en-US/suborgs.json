@@ -1,0 +1,90 @@
+{
+	"title": "Sub-Organizations",
+	"createButton": "Create Sub-Org",
+	"backToDashboard": "Back to Dashboard",
+	"loadMore": "Load More",
+	"createModal": {
+		"title": "Create Sub-Organization",
+		"nameLabel": "Name",
+		"namePlaceholder": "e.g. Amazon India Private Ltd",
+		"regionLabel": "Pinned Region",
+		"regionPlaceholder": "Select a region",
+		"submitButton": "Create"
+	},
+	"renameModal": {
+		"title": "Rename Sub-Organization",
+		"nameLabel": "New Name",
+		"namePlaceholder": "Enter new name",
+		"submitButton": "Save"
+	},
+	"membersDrawer": {
+		"title": "Members of {{name}}",
+		"defaultTitle": "Sub-Org Members"
+	},
+	"addMemberModal": {
+		"title": "Add Member",
+		"searchPlaceholder": "Search by name or email",
+		"noResults": "No users found",
+		"submitButton": "Add Member"
+	},
+	"table": {
+		"name": "Name",
+		"pinnedRegion": "Region",
+		"status": "Status",
+		"createdAt": "Created At",
+		"actions": "Actions",
+		"members": "Members",
+		"rename": "Rename",
+		"enable": "Enable",
+		"disable": "Disable",
+		"empty": "No sub-organizations found"
+	},
+	"members": {
+		"name": "Name",
+		"assignedAt": "Assigned At",
+		"actions": "Actions",
+		"remove": "Remove",
+		"addButton": "Add Member",
+		"empty": "No members"
+	},
+	"status": {
+		"active": "Active",
+		"disabled": "Disabled"
+	},
+	"regions": {
+		"ind1": "India (ind1)",
+		"usa1": "United States (usa1)",
+		"deu1": "Germany (deu1)",
+		"sgp1": "Singapore (sgp1)"
+	},
+	"filter": {
+		"all": "All",
+		"active": "Active",
+		"disabled": "Disabled"
+	},
+	"errors": {
+		"nameRequired": "Name is required",
+		"nameTooLong": "Name must be at most 64 characters",
+		"regionRequired": "Region is required",
+		"notFound": "Sub-organization not found",
+		"limitReached": "Maximum number of sub-organizations (256) reached",
+		"invalidState": "Sub-organization is already in that state",
+		"loadFailed": "Failed to load sub-organizations",
+		"createFailed": "Failed to create sub-organization",
+		"renameFailed": "Failed to rename sub-organization",
+		"toggleFailed": "Failed to update sub-organization status",
+		"loadMembersFailed": "Failed to load members",
+		"memberAlreadyAdded": "This user is already a member",
+		"memberNotFound": "Member not found",
+		"addMemberFailed": "Failed to add member",
+		"removeMemberFailed": "Failed to remove member"
+	},
+	"success": {
+		"created": "Sub-organization created successfully",
+		"renamed": "Sub-organization renamed successfully",
+		"enabled": "Sub-organization enabled",
+		"disabled": "Sub-organization disabled",
+		"memberAdded": "Member added successfully",
+		"memberRemoved": "Member removed successfully"
+	}
+}

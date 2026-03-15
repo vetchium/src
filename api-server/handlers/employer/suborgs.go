@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"vetchium-api-server.gomodule/internal/audit"
+	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/email/templates"
 	"vetchium-api-server.gomodule/internal/middleware"
@@ -500,23 +501,30 @@ func AddSubOrgMember(s *server.Server) http.HandlerFunc {
 			http.Error(w, "invalid suborg_id", http.StatusBadRequest)
 			return
 		}
-		var targetUserID pgtype.UUID
-		if err := targetUserID.Scan(req.OrgUserID); err != nil {
-			http.Error(w, "invalid org_user_id", http.StatusBadRequest)
+
+		// Resolve email → org_user_id via global DB.
+		emailHash := sha256.Sum256([]byte(req.EmailAddress))
+		globalTargetUser, err := s.Global.GetOrgUserByEmailHashAndEmployer(ctx, globaldb.GetOrgUserByEmailHashAndEmployerParams{
+			EmailAddressHash: emailHash[:],
+			EmployerID:       orgUser.EmployerID,
+		})
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			log.Error("failed to look up target user", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
+		targetUserID := globalTargetUser.OrgUserID
 
-		err := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
+		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
 			// Verify the SubOrg belongs to this employer.
 			if _, txErr := qtx.GetSubOrgByID(ctx, regionaldb.GetSubOrgByIDParams{
 				SuborgID:   suborgID,
 				EmployerID: orgUser.EmployerID,
 			}); txErr != nil {
-				return txErr
-			}
-
-			// Verify the target user belongs to this employer.
-			if _, txErr := qtx.GetOrgUserByID(ctx, targetUserID); txErr != nil {
 				return txErr
 			}
 
@@ -586,13 +594,25 @@ func RemoveSubOrgMember(s *server.Server) http.HandlerFunc {
 			http.Error(w, "invalid suborg_id", http.StatusBadRequest)
 			return
 		}
-		var targetUserID pgtype.UUID
-		if err := targetUserID.Scan(req.OrgUserID); err != nil {
-			http.Error(w, "invalid org_user_id", http.StatusBadRequest)
+
+		// Resolve email → org_user_id via global DB.
+		emailHash := sha256.Sum256([]byte(req.EmailAddress))
+		globalTargetUser, err := s.Global.GetOrgUserByEmailHashAndEmployer(ctx, globaldb.GetOrgUserByEmailHashAndEmployerParams{
+			EmailAddressHash: emailHash[:],
+			EmployerID:       orgUser.EmployerID,
+		})
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			log.Error("failed to look up target user", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
+		targetUserID := globalTargetUser.OrgUserID
 
-		err := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
+		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
 			// Verify the SubOrg belongs to this employer.
 			if _, txErr := qtx.GetSubOrgByID(ctx, regionaldb.GetSubOrgByIDParams{
 				SuborgID:   suborgID,
@@ -728,12 +748,10 @@ func ListSubOrgMembers(s *server.Server) http.HandlerFunc {
 
 		members := make([]employer.SubOrgMember, 0, len(rows))
 		for _, row := range rows {
-			emailHash := sha256.Sum256([]byte(row.EmailAddress))
 			members = append(members, employer.SubOrgMember{
-				OrgUserID:        uuidToString(row.OrgUserID),
-				Name:             row.FullName.String,
-				EmailAddressHash: fmt.Sprintf("%x", emailHash),
-				AssignedAt:       row.AssignedAt.Time.UTC().Format(time.RFC3339),
+				EmailAddress: row.EmailAddress,
+				Name:         row.FullName.String,
+				AssignedAt:   row.AssignedAt.Time.UTC().Format(time.RFC3339),
 			})
 		}
 

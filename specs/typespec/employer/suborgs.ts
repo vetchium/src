@@ -18,9 +18,8 @@ export interface SubOrg {
 }
 
 export interface SubOrgMember {
-	org_user_id: string;
+	email_address: string;
 	name: string;
-	email_address_hash: string;
 	assigned_at: string;
 }
 
@@ -55,12 +54,12 @@ export interface EnableSubOrgRequest {
 
 export interface AddSubOrgMemberRequest {
 	suborg_id: string;
-	org_user_id: string;
+	email_address: string;
 }
 
 export interface RemoveSubOrgMemberRequest {
 	suborg_id: string;
-	org_user_id: string;
+	email_address: string;
 }
 
 export interface ListSubOrgMembersRequest {
@@ -163,8 +162,8 @@ export function validateAddSubOrgMemberRequest(
 	if (!request.suborg_id) {
 		errs.push(newValidationError("suborg_id", ERR_REQUIRED));
 	}
-	if (!request.org_user_id) {
-		errs.push(newValidationError("org_user_id", ERR_REQUIRED));
+	if (!request.email_address) {
+		errs.push(newValidationError("email_address", ERR_REQUIRED));
 	}
 	return errs;
 }
@@ -176,8 +175,8 @@ export function validateRemoveSubOrgMemberRequest(
 	if (!request.suborg_id) {
 		errs.push(newValidationError("suborg_id", ERR_REQUIRED));
 	}
-	if (!request.org_user_id) {
-		errs.push(newValidationError("org_user_id", ERR_REQUIRED));
+	if (!request.email_address) {
+		errs.push(newValidationError("email_address", ERR_REQUIRED));
 	}
 	return errs;
 }

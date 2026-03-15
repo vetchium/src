@@ -29,6 +29,7 @@ import { CompleteSetupPage } from "./pages/CompleteSetupPage";
 import { UserManagementPage } from "./pages/UserManagement/UserManagementPage";
 import { DomainManagementPage } from "./pages/DomainManagement/DomainManagementPage";
 import { CostCentersPage } from "./pages/CostCenters/CostCentersPage";
+import { SubOrgsPage } from "./pages/SubOrgs/SubOrgsPage";
 import {
 	BrowserRouter,
 	Routes,
@@ -294,6 +295,14 @@ function AppContent() {
 									<CostCentersRoute>
 										<CostCentersPage />
 									</CostCentersRoute>
+								}
+							/>
+							<Route
+								path="/suborgs"
+								element={
+									<ProtectedRoute>
+										<SubOrgsPage />
+									</ProtectedRoute>
 								}
 							/>
 							<Route
