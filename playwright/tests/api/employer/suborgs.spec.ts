@@ -200,9 +200,7 @@ test.describe("SubOrgs API", () => {
 			}
 		});
 
-		test("Success: list returns created SubOrgs (200)", async ({
-			request,
-		}) => {
+		test("Success: list returns created SubOrgs (200)", async ({ request }) => {
 			const api = new EmployerAPIClient(request);
 			const { email, domain } = generateTestOrgEmail("so-list");
 			await createTestOrgAdminDirect(email, TEST_PASSWORD);
@@ -408,8 +406,7 @@ test.describe("SubOrgs API", () => {
 
 		test("RBAC: no manage_suborgs returns 403", async ({ request }) => {
 			const api = new EmployerAPIClient(request);
-			const { email: adminEmail, domain } =
-				generateTestOrgEmail("so-ren-rbac");
+			const { email: adminEmail, domain } = generateTestOrgEmail("so-ren-rbac");
 			const adminResult = await createTestOrgAdminDirect(
 				adminEmail,
 				TEST_PASSWORD
@@ -479,9 +476,9 @@ test.describe("SubOrgs API", () => {
 					start_time: beforeDisable,
 				});
 				expect(auditDisable.body.audit_logs.length).toBeGreaterThanOrEqual(1);
-				expect(
-					auditDisable.body.audit_logs[0].event_data
-				).toHaveProperty("suborg_id");
+				expect(auditDisable.body.audit_logs[0].event_data).toHaveProperty(
+					"suborg_id"
+				);
 
 				// Re-enable
 				const beforeEnable = new Date(Date.now() - 2000).toISOString();
@@ -569,212 +566,203 @@ test.describe("SubOrgs API", () => {
 	// ============================================================================
 	// add-suborg-member / remove-suborg-member
 	// ============================================================================
-	test.describe(
-		"POST /employer/add-suborg-member and remove-suborg-member",
-		() => {
-			test("Success: add then remove a member (200)", async ({ request }) => {
-				const api = new EmployerAPIClient(request);
-				const { email: adminEmail, domain } =
-					generateTestOrgEmail("so-member");
-				const adminResult = await createTestOrgAdminDirect(
-					adminEmail,
-					TEST_PASSWORD
-				);
-				const memberEmail = `member@${domain}`;
-				const memberResult = await createTestOrgUserDirect(
-					memberEmail,
-					TEST_PASSWORD,
-					"ind1",
-					{ employerId: adminResult.employerId, domain }
-				);
+	test.describe("POST /employer/add-suborg-member and remove-suborg-member", () => {
+		test("Success: add then remove a member (200)", async ({ request }) => {
+			const api = new EmployerAPIClient(request);
+			const { email: adminEmail, domain } = generateTestOrgEmail("so-member");
+			const adminResult = await createTestOrgAdminDirect(
+				adminEmail,
+				TEST_PASSWORD
+			);
+			const memberEmail = `member@${domain}`;
+			const memberResult = await createTestOrgUserDirect(
+				memberEmail,
+				TEST_PASSWORD,
+				"ind1",
+				{ employerId: adminResult.employerId, domain }
+			);
 
-				try {
-					const token = await loginOrgUser(api, adminEmail, domain);
+			try {
+				const token = await loginOrgUser(api, adminEmail, domain);
 
-					const createRes = await api.createSubOrg(token, {
-						name: "Member Test SubOrg",
-						pinned_region: "ind1",
-					});
-					expect(createRes.status).toBe(201);
-					const soId = createRes.body!.id;
-
-					// Add member
-					const beforeAdd = new Date(Date.now() - 2000).toISOString();
-					const req: AddSubOrgMemberRequest = {
-						suborg_id: soId,
-						org_user_id: memberResult.orgUserId,
-					};
-					const addRes = await api.addSubOrgMember(token, req);
-					expect(addRes.status).toBe(200);
-
-					// Audit log: employer.add_suborg_member
-					const auditAdd = await api.filterAuditLogs(token, {
-						event_types: ["employer.add_suborg_member"],
-						start_time: beforeAdd,
-					});
-					expect(auditAdd.body.audit_logs.length).toBeGreaterThanOrEqual(1);
-					const addEntry = auditAdd.body.audit_logs[0];
-					expect(addEntry.target_user_id).toBe(memberResult.orgUserId);
-					expect(addEntry.event_data).toHaveProperty("suborg_id");
-
-					// Remove member
-					const beforeRemove = new Date(Date.now() - 2000).toISOString();
-					const removeReq: RemoveSubOrgMemberRequest = {
-						suborg_id: soId,
-						org_user_id: memberResult.orgUserId,
-					};
-					const removeRes = await api.removeSubOrgMember(token, removeReq);
-					expect(removeRes.status).toBe(200);
-
-					// Audit log: employer.remove_suborg_member
-					const auditRemove = await api.filterAuditLogs(token, {
-						event_types: ["employer.remove_suborg_member"],
-						start_time: beforeRemove,
-					});
-					expect(
-						auditRemove.body.audit_logs.length
-					).toBeGreaterThanOrEqual(1);
-					expect(auditRemove.body.audit_logs[0].target_user_id).toBe(
-						memberResult.orgUserId
-					);
-				} finally {
-					await deleteTestOrgUser(memberEmail);
-					await deleteTestOrgUser(adminEmail);
-				}
-			});
-
-			test("Conflict: add same member twice (409)", async ({ request }) => {
-				const api = new EmployerAPIClient(request);
-				const { email: adminEmail, domain } =
-					generateTestOrgEmail("so-mem-dup");
-				const adminResult = await createTestOrgAdminDirect(
-					adminEmail,
-					TEST_PASSWORD
-				);
-				const memberEmail = `member@${domain}`;
-				const memberResult = await createTestOrgUserDirect(
-					memberEmail,
-					TEST_PASSWORD,
-					"ind1",
-					{ employerId: adminResult.employerId, domain }
-				);
-
-				try {
-					const token = await loginOrgUser(api, adminEmail, domain);
-					const createRes = await api.createSubOrg(token, {
-						name: "Dup Member SubOrg",
-						pinned_region: "ind1",
-					});
-					const soId = createRes.body!.id;
-					const req: AddSubOrgMemberRequest = {
-						suborg_id: soId,
-						org_user_id: memberResult.orgUserId,
-					};
-					const first = await api.addSubOrgMember(token, req);
-					expect(first.status).toBe(200);
-					const second = await api.addSubOrgMember(token, req);
-					expect(second.status).toBe(409);
-				} finally {
-					await deleteTestOrgUser(memberEmail);
-					await deleteTestOrgUser(adminEmail);
-				}
-			});
-
-			test("Not found: remove non-member (404)", async ({ request }) => {
-				const api = new EmployerAPIClient(request);
-				const { email: adminEmail, domain } =
-					generateTestOrgEmail("so-rem404");
-				const adminResult = await createTestOrgAdminDirect(
-					adminEmail,
-					TEST_PASSWORD
-				);
-				const nonMemberEmail = `nonmember@${domain}`;
-				const nonMemberResult = await createTestOrgUserDirect(
-					nonMemberEmail,
-					TEST_PASSWORD,
-					"ind1",
-					{ employerId: adminResult.employerId, domain }
-				);
-
-				try {
-					const token = await loginOrgUser(api, adminEmail, domain);
-					const createRes = await api.createSubOrg(token, {
-						name: "Remove 404 SubOrg",
-						pinned_region: "ind1",
-					});
-					const soId = createRes.body!.id;
-
-					const res = await api.removeSubOrgMember(token, {
-						suborg_id: soId,
-						org_user_id: nonMemberResult.orgUserId,
-					});
-					expect(res.status).toBe(404);
-				} finally {
-					await deleteTestOrgUser(nonMemberEmail);
-					await deleteTestOrgUser(adminEmail);
-				}
-			});
-
-			test("Validation: missing suborg_id (400)", async ({ request }) => {
-				const api = new EmployerAPIClient(request);
-				const { email, domain } = generateTestOrgEmail("so-mem-noid");
-				await createTestOrgAdminDirect(email, TEST_PASSWORD);
-				try {
-					const token = await loginOrgUser(api, email, domain);
-					const res = await api.addSubOrgMemberRaw(token, {
-						org_user_id: "00000000-0000-0000-0000-000000000000",
-					});
-					expect(res.status).toBe(400);
-				} finally {
-					await deleteTestOrgUser(email);
-				}
-			});
-
-			test("Auth: unauthenticated add member (401)", async ({ request }) => {
-				const api = new EmployerAPIClient(request);
-				const res = await api.addSubOrgMemberRaw("bad-token", {
-					suborg_id: "00000000-0000-0000-0000-000000000000",
-					org_user_id: "00000000-0000-0000-0000-000000000000",
-				});
-				expect(res.status).toBe(401);
-			});
-
-			test("RBAC: no manage_suborgs returns 403", async ({ request }) => {
-				const api = new EmployerAPIClient(request);
-				const { email: adminEmail, domain } =
-					generateTestOrgEmail("so-mem-rbac");
-				const adminResult = await createTestOrgAdminDirect(
-					adminEmail,
-					TEST_PASSWORD
-				);
-				const userEmail = `norole@${domain}`;
-				const userResult = await createTestOrgUserDirect(
-					userEmail,
-					TEST_PASSWORD,
-					"ind1",
-					{ employerId: adminResult.employerId, domain }
-				);
-
-				const adminToken = await loginOrgUser(api, adminEmail, domain);
-				const createRes = await api.createSubOrg(adminToken, {
-					name: "RBAC SubOrg",
+				const createRes = await api.createSubOrg(token, {
+					name: "Member Test SubOrg",
 					pinned_region: "ind1",
 				});
+				expect(createRes.status).toBe(201);
+				const soId = createRes.body!.id;
 
-				try {
-					const userToken = await loginOrgUser(api, userEmail, domain);
-					const res = await api.addSubOrgMember(userToken, {
-						suborg_id: createRes.body!.id,
-						org_user_id: userResult.orgUserId,
-					});
-					expect(res.status).toBe(403);
-				} finally {
-					await deleteTestOrgUser(userEmail);
-					await deleteTestOrgUser(adminEmail);
-				}
+				// Add member
+				const beforeAdd = new Date(Date.now() - 2000).toISOString();
+				const req: AddSubOrgMemberRequest = {
+					suborg_id: soId,
+					org_user_id: memberResult.orgUserId,
+				};
+				const addRes = await api.addSubOrgMember(token, req);
+				expect(addRes.status).toBe(200);
+
+				// Audit log: employer.add_suborg_member
+				const auditAdd = await api.filterAuditLogs(token, {
+					event_types: ["employer.add_suborg_member"],
+					start_time: beforeAdd,
+				});
+				expect(auditAdd.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+				const addEntry = auditAdd.body.audit_logs[0];
+				expect(addEntry.target_user_id).toBe(memberResult.orgUserId);
+				expect(addEntry.event_data).toHaveProperty("suborg_id");
+
+				// Remove member
+				const beforeRemove = new Date(Date.now() - 2000).toISOString();
+				const removeReq: RemoveSubOrgMemberRequest = {
+					suborg_id: soId,
+					org_user_id: memberResult.orgUserId,
+				};
+				const removeRes = await api.removeSubOrgMember(token, removeReq);
+				expect(removeRes.status).toBe(200);
+
+				// Audit log: employer.remove_suborg_member
+				const auditRemove = await api.filterAuditLogs(token, {
+					event_types: ["employer.remove_suborg_member"],
+					start_time: beforeRemove,
+				});
+				expect(auditRemove.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+				expect(auditRemove.body.audit_logs[0].target_user_id).toBe(
+					memberResult.orgUserId
+				);
+			} finally {
+				await deleteTestOrgUser(memberEmail);
+				await deleteTestOrgUser(adminEmail);
+			}
+		});
+
+		test("Conflict: add same member twice (409)", async ({ request }) => {
+			const api = new EmployerAPIClient(request);
+			const { email: adminEmail, domain } = generateTestOrgEmail("so-mem-dup");
+			const adminResult = await createTestOrgAdminDirect(
+				adminEmail,
+				TEST_PASSWORD
+			);
+			const memberEmail = `member@${domain}`;
+			const memberResult = await createTestOrgUserDirect(
+				memberEmail,
+				TEST_PASSWORD,
+				"ind1",
+				{ employerId: adminResult.employerId, domain }
+			);
+
+			try {
+				const token = await loginOrgUser(api, adminEmail, domain);
+				const createRes = await api.createSubOrg(token, {
+					name: "Dup Member SubOrg",
+					pinned_region: "ind1",
+				});
+				const soId = createRes.body!.id;
+				const req: AddSubOrgMemberRequest = {
+					suborg_id: soId,
+					org_user_id: memberResult.orgUserId,
+				};
+				const first = await api.addSubOrgMember(token, req);
+				expect(first.status).toBe(200);
+				const second = await api.addSubOrgMember(token, req);
+				expect(second.status).toBe(409);
+			} finally {
+				await deleteTestOrgUser(memberEmail);
+				await deleteTestOrgUser(adminEmail);
+			}
+		});
+
+		test("Not found: remove non-member (404)", async ({ request }) => {
+			const api = new EmployerAPIClient(request);
+			const { email: adminEmail, domain } = generateTestOrgEmail("so-rem404");
+			const adminResult = await createTestOrgAdminDirect(
+				adminEmail,
+				TEST_PASSWORD
+			);
+			const nonMemberEmail = `nonmember@${domain}`;
+			const nonMemberResult = await createTestOrgUserDirect(
+				nonMemberEmail,
+				TEST_PASSWORD,
+				"ind1",
+				{ employerId: adminResult.employerId, domain }
+			);
+
+			try {
+				const token = await loginOrgUser(api, adminEmail, domain);
+				const createRes = await api.createSubOrg(token, {
+					name: "Remove 404 SubOrg",
+					pinned_region: "ind1",
+				});
+				const soId = createRes.body!.id;
+
+				const res = await api.removeSubOrgMember(token, {
+					suborg_id: soId,
+					org_user_id: nonMemberResult.orgUserId,
+				});
+				expect(res.status).toBe(404);
+			} finally {
+				await deleteTestOrgUser(nonMemberEmail);
+				await deleteTestOrgUser(adminEmail);
+			}
+		});
+
+		test("Validation: missing suborg_id (400)", async ({ request }) => {
+			const api = new EmployerAPIClient(request);
+			const { email, domain } = generateTestOrgEmail("so-mem-noid");
+			await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			try {
+				const token = await loginOrgUser(api, email, domain);
+				const res = await api.addSubOrgMemberRaw(token, {
+					org_user_id: "00000000-0000-0000-0000-000000000000",
+				});
+				expect(res.status).toBe(400);
+			} finally {
+				await deleteTestOrgUser(email);
+			}
+		});
+
+		test("Auth: unauthenticated add member (401)", async ({ request }) => {
+			const api = new EmployerAPIClient(request);
+			const res = await api.addSubOrgMemberRaw("bad-token", {
+				suborg_id: "00000000-0000-0000-0000-000000000000",
+				org_user_id: "00000000-0000-0000-0000-000000000000",
 			});
-		}
-	);
+			expect(res.status).toBe(401);
+		});
+
+		test("RBAC: no manage_suborgs returns 403", async ({ request }) => {
+			const api = new EmployerAPIClient(request);
+			const { email: adminEmail, domain } = generateTestOrgEmail("so-mem-rbac");
+			const adminResult = await createTestOrgAdminDirect(
+				adminEmail,
+				TEST_PASSWORD
+			);
+			const userEmail = `norole@${domain}`;
+			const userResult = await createTestOrgUserDirect(
+				userEmail,
+				TEST_PASSWORD,
+				"ind1",
+				{ employerId: adminResult.employerId, domain }
+			);
+
+			const adminToken = await loginOrgUser(api, adminEmail, domain);
+			const createRes = await api.createSubOrg(adminToken, {
+				name: "RBAC SubOrg",
+				pinned_region: "ind1",
+			});
+
+			try {
+				const userToken = await loginOrgUser(api, userEmail, domain);
+				const res = await api.addSubOrgMember(userToken, {
+					suborg_id: createRes.body!.id,
+					org_user_id: userResult.orgUserId,
+				});
+				expect(res.status).toBe(403);
+			} finally {
+				await deleteTestOrgUser(userEmail);
+				await deleteTestOrgUser(adminEmail);
+			}
+		});
+	});
 
 	// ============================================================================
 	// list-suborg-members
@@ -782,8 +770,7 @@ test.describe("SubOrgs API", () => {
 	test.describe("POST /employer/list-suborg-members", () => {
 		test("Success: list members of a SubOrg (200)", async ({ request }) => {
 			const api = new EmployerAPIClient(request);
-			const { email: adminEmail, domain } =
-				generateTestOrgEmail("so-list-mem");
+			const { email: adminEmail, domain } = generateTestOrgEmail("so-list-mem");
 			const adminResult = await createTestOrgAdminDirect(
 				adminEmail,
 				TEST_PASSWORD
@@ -853,8 +840,7 @@ test.describe("SubOrgs API", () => {
 
 		test("RBAC: view_suborgs can list members (200)", async ({ request }) => {
 			const api = new EmployerAPIClient(request);
-			const { email: adminEmail, domain } =
-				generateTestOrgEmail("so-lm-view");
+			const { email: adminEmail, domain } = generateTestOrgEmail("so-lm-view");
 			const adminResult = await createTestOrgAdminDirect(
 				adminEmail,
 				TEST_PASSWORD
@@ -866,7 +852,10 @@ test.describe("SubOrgs API", () => {
 				"ind1",
 				{ employerId: adminResult.employerId, domain }
 			);
-			await assignRoleToOrgUser(viewerResult.orgUserId, "employer:view_suborgs");
+			await assignRoleToOrgUser(
+				viewerResult.orgUserId,
+				"employer:view_suborgs"
+			);
 
 			const adminToken = await loginOrgUser(api, adminEmail, domain);
 			const createRes = await api.createSubOrg(adminToken, {
@@ -938,8 +927,7 @@ test.describe("SubOrgs API", () => {
 			request,
 		}) => {
 			const api = new EmployerAPIClient(request);
-			const { email: adminEmail, domain } =
-				generateTestOrgEmail("so-revoke");
+			const { email: adminEmail, domain } = generateTestOrgEmail("so-revoke");
 			const adminResult = await createTestOrgAdminDirect(
 				adminEmail,
 				TEST_PASSWORD
@@ -971,9 +959,9 @@ test.describe("SubOrgs API", () => {
 				const beforeDisable = await api.listSubOrgMembers(token, {
 					suborg_id: soId,
 				});
-				expect(
-					beforeDisable.body!.members.map((m) => m.org_user_id)
-				).toContain(memberResult.orgUserId);
+				expect(beforeDisable.body!.members.map((m) => m.org_user_id)).toContain(
+					memberResult.orgUserId
+				);
 
 				// Disable the user
 				const disableRes = await api.disableUser(token, {

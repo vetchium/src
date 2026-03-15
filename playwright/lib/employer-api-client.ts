@@ -1579,13 +1579,10 @@ export class EmployerAPIClient {
 		sessionToken: string,
 		request: RemoveSubOrgMemberRequest
 	): Promise<APIResponse<void>> {
-		const response = await this.request.post(
-			"/employer/remove-suborg-member",
-			{
-				headers: { Authorization: `Bearer ${sessionToken}` },
-				data: request,
-			}
-		);
+		const response = await this.request.post("/employer/remove-suborg-member", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
 		return { status: response.status() };
 	}
 
@@ -1593,13 +1590,10 @@ export class EmployerAPIClient {
 		sessionToken: string,
 		body: unknown
 	): Promise<APIResponse<void>> {
-		const response = await this.request.post(
-			"/employer/remove-suborg-member",
-			{
-				headers: { Authorization: `Bearer ${sessionToken}` },
-				data: body,
-			}
-		);
+		const response = await this.request.post("/employer/remove-suborg-member", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: body,
+		});
 		return { status: response.status() };
 	}
 
@@ -1607,13 +1601,10 @@ export class EmployerAPIClient {
 		sessionToken: string,
 		request: ListSubOrgMembersRequest
 	): Promise<APIResponse<ListSubOrgMembersResponse>> {
-		const response = await this.request.post(
-			"/employer/list-suborg-members",
-			{
-				headers: { Authorization: `Bearer ${sessionToken}` },
-				data: request,
-			}
-		);
+		const response = await this.request.post("/employer/list-suborg-members", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
 		const body = await response.json().catch(() => ({}));
 		return {
 			status: response.status(),
@@ -1626,13 +1617,10 @@ export class EmployerAPIClient {
 		sessionToken: string,
 		body: unknown
 	): Promise<APIResponse<ListSubOrgMembersResponse>> {
-		const response = await this.request.post(
-			"/employer/list-suborg-members",
-			{
-				headers: { Authorization: `Bearer ${sessionToken}` },
-				data: body,
-			}
-		);
+		const response = await this.request.post("/employer/list-suborg-members", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: body,
+		});
 		const responseBody = await response.json().catch(() => ({}));
 		return {
 			status: response.status(),

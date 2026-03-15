@@ -75,8 +75,10 @@ export interface ListSubOrgMembersResponse {
 }
 
 const ERR_NAME_TOO_LONG = "name must be at most 64 characters";
-const ERR_REGION_INVALID = "pinned_region must be one of: ind1, usa1, deu1, sgp1";
-const ERR_FILTER_STATUS_INVALID = "filter_status must be 'active' or 'disabled'";
+const ERR_REGION_INVALID =
+	"pinned_region must be one of: ind1, usa1, deu1, sgp1";
+const ERR_FILTER_STATUS_INVALID =
+	"filter_status must be 'active' or 'disabled'";
 
 export function validateCreateSubOrgRequest(
 	request: CreateSubOrgRequest
@@ -91,7 +93,9 @@ export function validateCreateSubOrgRequest(
 
 	if (!request.pinned_region) {
 		errs.push(newValidationError("pinned_region", ERR_REQUIRED));
-	} else if (!VALID_SUBORG_REGIONS.includes(request.pinned_region as SubOrgRegion)) {
+	} else if (
+		!VALID_SUBORG_REGIONS.includes(request.pinned_region as SubOrgRegion)
+	) {
 		errs.push(newValidationError("pinned_region", ERR_REGION_INVALID));
 	}
 
