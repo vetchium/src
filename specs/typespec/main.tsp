@@ -9,6 +9,7 @@ import "./admin/approved-domains.tsp";
 import "./admin/tags.tsp";
 import "./employer/employer-users.tsp";
 import "./employer/cost-centers.tsp";
+import "./employer/suborgs.tsp";
 import "./employer/tags.tsp";
 import "./employer-domains/employer-domains.tsp";
 import "./agency/agency-users.tsp";

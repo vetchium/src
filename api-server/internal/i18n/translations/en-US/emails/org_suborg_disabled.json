@@ -1,0 +1,11 @@
+{
+	"_description": "SubOrg Disabled Notification Email",
+	"_note": "Sent to all members of a SubOrg when it is disabled by an admin",
+
+	"subject": "SubOrg '{{.SubOrgName}}' Has Been Disabled",
+	"portal_name": "Vetchium Employer",
+	"body_greeting": "Hello,",
+	"body_intro": "The SubOrg '{{.SubOrgName}}' at {{.EmployerName}} has been disabled. You can no longer create new job openings under this SubOrg.",
+	"body_detail": "If you believe this was done in error, please contact your administrator.",
+	"footer": "This is an automated message. Please do not reply."
+}

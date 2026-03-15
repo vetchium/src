@@ -28,6 +28,8 @@ func RegisterEmployerRoutes(mux *http.ServeMux, s *server.Server) {
 	employerRoleViewCostCenters := middleware.EmployerRole(s.Regional, "employer:view_costcenters", "employer:manage_costcenters")
 	employerRoleManageCostCenters := middleware.EmployerRole(s.Regional, "employer:manage_costcenters")
 	employerRoleViewAuditLogs := middleware.EmployerRole(s.Regional, "employer:view_audit_logs")
+	employerRoleViewSubOrgs := middleware.EmployerRole(s.Regional, "employer:view_suborgs", "employer:manage_suborgs")
+	employerRoleManageSubOrgs := middleware.EmployerRole(s.Regional, "employer:manage_suborgs")
 
 	// Domain write routes (manage_domains required; superadmin bypasses via middleware)
 	mux.Handle("POST /employer/claim-domain", orgAuth(employerRoleManageDomains(employer.ClaimDomain(s))))
@@ -58,6 +60,16 @@ func RegisterEmployerRoutes(mux *http.ServeMux, s *server.Server) {
 	mux.Handle("POST /employer/add-cost-center", orgAuth(employerRoleManageCostCenters(employer.AddCostCenter(s))))
 	mux.Handle("POST /employer/update-cost-center", orgAuth(employerRoleManageCostCenters(employer.UpdateCostCenter(s))))
 	mux.Handle("POST /employer/list-cost-centers", orgAuth(employerRoleViewCostCenters(employer.ListCostCenters(s))))
+
+	// SubOrg routes
+	mux.Handle("POST /employer/create-suborg", orgAuth(employerRoleManageSubOrgs(employer.CreateSubOrg(s))))
+	mux.Handle("POST /employer/list-suborgs", orgAuth(employer.ListSubOrgs(s)))
+	mux.Handle("POST /employer/rename-suborg", orgAuth(employerRoleManageSubOrgs(employer.RenameSubOrg(s))))
+	mux.Handle("POST /employer/disable-suborg", orgAuth(employerRoleManageSubOrgs(employer.DisableSubOrg(s))))
+	mux.Handle("POST /employer/enable-suborg", orgAuth(employerRoleManageSubOrgs(employer.EnableSubOrg(s))))
+	mux.Handle("POST /employer/add-suborg-member", orgAuth(employerRoleManageSubOrgs(employer.AddSubOrgMember(s))))
+	mux.Handle("POST /employer/remove-suborg-member", orgAuth(employerRoleManageSubOrgs(employer.RemoveSubOrgMember(s))))
+	mux.Handle("POST /employer/list-suborg-members", orgAuth(employerRoleViewSubOrgs(employer.ListSubOrgMembers(s))))
 
 	// Audit log routes
 	mux.Handle("POST /employer/filter-audit-logs", orgAuth(employerRoleViewAuditLogs(employer.FilterAuditLogs(s))))

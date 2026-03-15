@@ -113,6 +113,12 @@ func DisableUser(s *server.Server) http.HandlerFunc {
 			}); txErr != nil {
 				return txErr
 			}
+
+			// Revoke all SubOrg assignments for the disabled user.
+			if txErr := qtx.RevokeAllSubOrgAssignmentsForUser(ctx, targetUser.OrgUserID); txErr != nil {
+				return txErr
+			}
+
 			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
 				EventType:    "employer.disable_user",
 				ActorUserID:  orgUser.OrgUserID,

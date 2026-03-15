@@ -24,7 +24,8 @@ CREATE TYPE email_template_type AS ENUM (
     'agency_signup_token',
     'agency_tfa',
     'agency_invitation',
-    'agency_password_reset'
+    'agency_password_reset',
+    'org_suborg_disabled'
 );
 -- Authentication type enum (extensible for future SSO, hardware tokens, etc.)
 CREATE TYPE authentication_type AS ENUM (
@@ -246,6 +247,22 @@ CREATE TABLE cost_centers (
     created_at     TIMESTAMP NOT NULL DEFAULT NOW(),
     UNIQUE (employer_id, id)
 );
+-- SubOrgs: sub-entities of an employer, each pinned to a Vetchium region
+CREATE TABLE suborgs (
+    suborg_id     UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    employer_id   UUID        NOT NULL,
+    name          VARCHAR(64) NOT NULL,
+    pinned_region VARCHAR(32) NOT NULL,
+    status        VARCHAR(16) NOT NULL DEFAULT 'active',
+    created_at    TIMESTAMP   NOT NULL DEFAULT NOW()
+);
+-- SubOrg membership: org users assigned to a SubOrg
+CREATE TABLE org_user_suborg_assignments (
+    suborg_id   UUID      NOT NULL REFERENCES suborgs(suborg_id) ON DELETE CASCADE,
+    org_user_id UUID      NOT NULL REFERENCES org_users(org_user_id) ON DELETE CASCADE,
+    assigned_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (suborg_id, org_user_id)
+);
 -- RBAC: Roles table
 CREATE TABLE roles (
     role_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -290,6 +307,8 @@ INSERT INTO roles (role_name, description) VALUES
     ('employer:manage_domains', 'Can claim, verify and delete employer domains'),
     ('employer:view_costcenters', 'Can view cost centers for their organization (read-only)'),
     ('employer:manage_costcenters', 'Can create, update and manage cost centers for their organization'),
+    ('employer:view_suborgs', 'Can view all SubOrgs and their membership details (read-only)'),
+    ('employer:manage_suborgs', 'Can create, rename, disable, re-enable SubOrgs and manage their membership'),
 
     -- Agency portal roles
     ('agency:view_users', 'Can view agency user list and details (read-only)'),
@@ -334,6 +353,8 @@ CREATE INDEX idx_org_invitation_tokens_expires_at ON org_invitation_tokens(expir
 CREATE INDEX idx_org_users_email_address ON org_users(email_address);
 CREATE INDEX idx_org_users_employer_id ON org_users(employer_id);
 CREATE INDEX idx_cost_centers_employer_id_created_at ON cost_centers(employer_id, created_at);
+CREATE INDEX idx_suborgs_employer_id_created_at ON suborgs(employer_id, created_at);
+CREATE INDEX idx_org_user_suborg_assignments_org_user_id ON org_user_suborg_assignments(org_user_id);
 CREATE INDEX idx_employer_domains_employer_id ON employer_domains(employer_id);
 CREATE INDEX idx_employer_domains_status ON employer_domains(status);
 CREATE INDEX idx_agency_tfa_tokens_expires_at ON agency_tfa_tokens(expires_at);
@@ -366,6 +387,10 @@ DROP INDEX IF EXISTS idx_agency_sessions_expires_at;
 DROP INDEX IF EXISTS idx_agency_tfa_tokens_expires_at;
 DROP INDEX IF EXISTS idx_employer_domains_status;
 DROP INDEX IF EXISTS idx_employer_domains_employer_id;
+DROP INDEX IF EXISTS idx_org_user_suborg_assignments_org_user_id;
+DROP INDEX IF EXISTS idx_suborgs_employer_id_created_at;
+DROP TABLE IF EXISTS org_user_suborg_assignments;
+DROP TABLE IF EXISTS suborgs;
 DROP INDEX IF EXISTS idx_cost_centers_employer_id_created_at;
 DROP INDEX IF EXISTS idx_org_users_employer_id;
 DROP INDEX IF EXISTS idx_org_users_email_address;

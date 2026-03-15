@@ -1,0 +1,11 @@
+{
+	"_description": "E-Mail zur Deaktivierung einer Unterorganisation",
+	"_note": "Wird an alle Mitglieder einer Unterorganisation gesendet, wenn sie von einem Administrator deaktiviert wird",
+
+	"subject": "Unterorganisation '{{.SubOrgName}}' wurde deaktiviert",
+	"portal_name": "Vetchium Arbeitgeber",
+	"body_greeting": "Hallo,",
+	"body_intro": "Die Unterorganisation '{{.SubOrgName}}' bei {{.EmployerName}} wurde deaktiviert. Sie können unter dieser Unterorganisation keine neuen Stellenangebote mehr erstellen.",
+	"body_detail": "Wenn Sie glauben, dass dies versehentlich geschehen ist, wenden Sie sich bitte an Ihren Administrator.",
+	"footer": "Dies ist eine automatische Nachricht. Bitte antworten Sie nicht."
+}

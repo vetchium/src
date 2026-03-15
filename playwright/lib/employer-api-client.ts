@@ -53,6 +53,19 @@ import type {
 	FilterAuditLogsRequest,
 	FilterAuditLogsResponse,
 } from "vetchium-specs/audit-logs/audit-logs";
+import type {
+	CreateSubOrgRequest,
+	ListSubOrgsRequest,
+	ListSubOrgsResponse,
+	SubOrg,
+	RenameSubOrgRequest,
+	DisableSubOrgRequest,
+	EnableSubOrgRequest,
+	AddSubOrgMemberRequest,
+	RemoveSubOrgMemberRequest,
+	ListSubOrgMembersRequest,
+	ListSubOrgMembersResponse,
+} from "vetchium-specs/employer/suborgs";
 import type { APIResponse } from "./api-client";
 
 /**
@@ -1393,6 +1406,238 @@ export class EmployerAPIClient {
 			status: response.status(),
 			body: body as FilterAuditLogsResponse,
 			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	// ============================================================================
+	// SubOrgs
+	// ============================================================================
+
+	async createSubOrg(
+		sessionToken: string,
+		request: CreateSubOrgRequest
+	): Promise<APIResponse<SubOrg>> {
+		const response = await this.request.post("/employer/create-suborg", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as SubOrg,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	async createSubOrgRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<SubOrg>> {
+		const response = await this.request.post("/employer/create-suborg", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: body,
+		});
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as SubOrg,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	async listSubOrgs(
+		sessionToken: string,
+		request: ListSubOrgsRequest
+	): Promise<APIResponse<ListSubOrgsResponse>> {
+		const response = await this.request.post("/employer/list-suborgs", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as ListSubOrgsResponse,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	async listSubOrgsRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<ListSubOrgsResponse>> {
+		const response = await this.request.post("/employer/list-suborgs", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: body,
+		});
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as ListSubOrgsResponse,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	async renameSubOrg(
+		sessionToken: string,
+		request: RenameSubOrgRequest
+	): Promise<APIResponse<SubOrg>> {
+		const response = await this.request.post("/employer/rename-suborg", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as SubOrg,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	async renameSubOrgRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<SubOrg>> {
+		const response = await this.request.post("/employer/rename-suborg", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: body,
+		});
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as SubOrg,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	async disableSubOrg(
+		sessionToken: string,
+		request: DisableSubOrgRequest
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/employer/disable-suborg", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		return { status: response.status() };
+	}
+
+	async disableSubOrgRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/employer/disable-suborg", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: body,
+		});
+		return { status: response.status() };
+	}
+
+	async enableSubOrg(
+		sessionToken: string,
+		request: EnableSubOrgRequest
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/employer/enable-suborg", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		return { status: response.status() };
+	}
+
+	async enableSubOrgRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/employer/enable-suborg", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: body,
+		});
+		return { status: response.status() };
+	}
+
+	async addSubOrgMember(
+		sessionToken: string,
+		request: AddSubOrgMemberRequest
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/employer/add-suborg-member", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		return { status: response.status() };
+	}
+
+	async addSubOrgMemberRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/employer/add-suborg-member", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: body,
+		});
+		return { status: response.status() };
+	}
+
+	async removeSubOrgMember(
+		sessionToken: string,
+		request: RemoveSubOrgMemberRequest
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post(
+			"/employer/remove-suborg-member",
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: request,
+			}
+		);
+		return { status: response.status() };
+	}
+
+	async removeSubOrgMemberRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post(
+			"/employer/remove-suborg-member",
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: body,
+			}
+		);
+		return { status: response.status() };
+	}
+
+	async listSubOrgMembers(
+		sessionToken: string,
+		request: ListSubOrgMembersRequest
+	): Promise<APIResponse<ListSubOrgMembersResponse>> {
+		const response = await this.request.post(
+			"/employer/list-suborg-members",
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: request,
+			}
+		);
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as ListSubOrgMembersResponse,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	async listSubOrgMembersRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<ListSubOrgMembersResponse>> {
+		const response = await this.request.post(
+			"/employer/list-suborg-members",
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: body,
+			}
+		);
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as ListSubOrgMembersResponse,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
 		};
 	}
 }

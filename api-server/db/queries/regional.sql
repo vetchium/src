@@ -786,3 +786,76 @@ LIMIT @limit_count;
 -- name: DeleteExpiredAuditLogs :exec
 DELETE FROM audit_logs
 WHERE created_at < NOW() - @retention_period::interval;
+
+-- ============================================
+-- SubOrg Queries
+-- ============================================
+
+-- name: CountSubOrgsByEmployer :one
+SELECT COUNT(*) FROM suborgs WHERE employer_id = @employer_id;
+
+-- name: CreateSubOrg :one
+INSERT INTO suborgs (employer_id, name, pinned_region)
+VALUES (@employer_id, @name, @pinned_region)
+RETURNING *;
+
+-- name: GetSubOrgByID :one
+SELECT * FROM suborgs WHERE suborg_id = @suborg_id AND employer_id = @employer_id;
+
+-- name: RenameSubOrg :one
+UPDATE suborgs
+SET name = @name
+WHERE suborg_id = @suborg_id AND employer_id = @employer_id
+RETURNING *;
+
+-- name: UpdateSubOrgStatus :one
+UPDATE suborgs
+SET status = @status
+WHERE suborg_id = @suborg_id AND employer_id = @employer_id
+RETURNING *;
+
+-- name: ListSubOrgs :many
+SELECT * FROM suborgs
+WHERE employer_id = @employer_id
+  AND (sqlc.narg('filter_status')::text IS NULL OR status = sqlc.narg('filter_status')::text)
+  AND (@cursor_created_at::timestamp IS NULL
+       OR (created_at > @cursor_created_at)
+       OR (created_at = @cursor_created_at AND suborg_id > @cursor_id))
+ORDER BY created_at ASC, suborg_id ASC
+LIMIT @limit_count;
+
+-- name: AddSubOrgMember :exec
+INSERT INTO org_user_suborg_assignments (suborg_id, org_user_id)
+VALUES (@suborg_id, @org_user_id);
+
+-- name: RemoveSubOrgMember :exec
+DELETE FROM org_user_suborg_assignments
+WHERE suborg_id = @suborg_id AND org_user_id = @org_user_id;
+
+-- name: GetSubOrgMembership :one
+SELECT * FROM org_user_suborg_assignments
+WHERE suborg_id = @suborg_id AND org_user_id = @org_user_id;
+
+-- name: ListSubOrgMembers :many
+SELECT
+    u.org_user_id,
+    u.full_name,
+    u.email_address,
+    a.assigned_at
+FROM org_user_suborg_assignments a
+JOIN org_users u ON u.org_user_id = a.org_user_id
+WHERE a.suborg_id = @suborg_id
+  AND (@cursor_assigned_at::timestamp IS NULL
+       OR (a.assigned_at > @cursor_assigned_at)
+       OR (a.assigned_at = @cursor_assigned_at AND a.org_user_id > @cursor_id))
+ORDER BY a.assigned_at ASC, a.org_user_id ASC
+LIMIT @limit_count;
+
+-- name: RevokeAllSubOrgAssignmentsForUser :exec
+DELETE FROM org_user_suborg_assignments WHERE org_user_id = @org_user_id;
+
+-- name: ListSubOrgMembersForNotification :many
+SELECT u.email_address, u.preferred_language, u.org_user_id
+FROM org_user_suborg_assignments a
+JOIN org_users u ON u.org_user_id = a.org_user_id
+WHERE a.suborg_id = @suborg_id;
