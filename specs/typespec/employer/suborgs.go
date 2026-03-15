@@ -13,16 +13,8 @@ const (
 	errSubOrgNameTooLong    = "name must be at most 64 characters"
 	errSubOrgIDRequired     = "suborg_id is required"
 	errSubOrgRegionRequired = "pinned_region is required"
-	errSubOrgRegionInvalid  = "pinned_region must be one of: ind1, usa1, deu1, sgp1"
 	errSubOrgEmailRequired  = "email_address is required"
 )
-
-var validSubOrgRegions = map[string]bool{
-	"ind1": true,
-	"usa1": true,
-	"deu1": true,
-	"sgp1": true,
-}
 
 // SubOrg is the response type for SubOrg reads.
 type SubOrg struct {
@@ -57,8 +49,6 @@ func (r CreateSubOrgRequest) Validate() []common.ValidationError {
 
 	if r.PinnedRegion == "" {
 		errs = append(errs, common.NewValidationError("pinned_region", fmt.Errorf(errSubOrgRegionRequired)))
-	} else if !validSubOrgRegions[r.PinnedRegion] {
-		errs = append(errs, common.NewValidationError("pinned_region", fmt.Errorf(errSubOrgRegionInvalid)))
 	}
 
 	return errs

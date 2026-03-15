@@ -53,8 +53,23 @@ func CreateSubOrg(s *server.Server) http.HandlerFunc {
 			return
 		}
 
+		region, err := s.Global.GetRegionByCode(ctx, globaldb.Region(req.PinnedRegion))
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				http.Error(w, "invalid pinned_region", http.StatusBadRequest)
+				return
+			}
+			log.Debug("invalid pinned_region", "error", err)
+			http.Error(w, "invalid pinned_region", http.StatusBadRequest)
+			return
+		}
+		if !region.IsActive {
+			http.Error(w, "pinned_region is not available", http.StatusBadRequest)
+			return
+		}
+
 		var created regionaldb.Suborg
-		err := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
+		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
 			count, txErr := qtx.CountSubOrgsByEmployer(ctx, orgUser.EmployerID)
 			if txErr != nil {
 				return txErr

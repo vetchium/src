@@ -83,6 +83,8 @@ When adding a storage feature: use AWS SDK v2 with `UsePathStyle: true` (require
 - **Global DB**: Cross-region lookups, user identity, email hashes (thin routing table)
 - **Regional DBs** (ind1:5433, usa1:5434, deu1:5435): All PII, credentials, mutable data
 
+See [ADD_NEW_REGION.md](./ADD_NEW_REGION.md) for the region registry architecture and runbook for adding a new region.
+
 **Migrations**: Edit existing `api-server/db/migrations/{global,regional}/00000000000001_initial_schema.sql` directly (no new migration files until production). No new indexes for performance; use `UNIQUE` in CREATE statements instead.
 
 ### Database Write Operations & Transactions

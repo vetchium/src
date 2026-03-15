@@ -201,6 +201,8 @@ src/
 
 See [CLAUDE.md](./CLAUDE.md) for detailed conventions, patterns, and architecture decisions.
 
+See [ADD_NEW_REGION.md](./ADD_NEW_REGION.md) for the region architecture overview and the runbook for adding a new geographic region.
+
 ## Environment Variables
 
 ### Global Service

@@ -38,6 +38,7 @@ import type {
 	FilterOrgUsersRequest,
 	OrgUser,
 } from "vetchium-specs/employer/employer-users";
+import type { Region } from "vetchium-specs/global/global";
 import { getApiBaseUrl } from "../../config";
 import { useAuth } from "../../hooks/useAuth";
 import { useMyInfo } from "../../hooks/useMyInfo";
@@ -98,6 +99,29 @@ export function SubOrgsPage() {
 
 	// --- remove member ---
 	const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
+
+	// --- regions ---
+	const [regions, setRegions] = useState<Region[]>([]);
+
+	useEffect(() => {
+		const fetchRegions = async () => {
+			try {
+				const baseUrl = await getApiBaseUrl();
+				const resp = await fetch(`${baseUrl}/global/get-regions`, {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({}),
+				});
+				if (resp.status === 200) {
+					const data = await resp.json();
+					setRegions(data.regions ?? []);
+				}
+			} catch {
+				// non-fatal: region picker will be empty
+			}
+		};
+		fetchRegions();
+	}, []);
 
 	const loadSuborgs = useCallback(
 		async (cursor?: string, status?: FilterStatus, reset?: boolean) => {
@@ -611,12 +635,10 @@ export function SubOrgsPage() {
 							rules={[{ required: true, message: t("errors.regionRequired") }]}
 						>
 							<Select
-								options={[
-									{ value: "ind1", label: t("regions.ind1") },
-									{ value: "usa1", label: t("regions.usa1") },
-									{ value: "deu1", label: t("regions.deu1") },
-									{ value: "sgp1", label: t("regions.sgp1") },
-								]}
+								options={regions.map((r) => ({
+									value: r.region_code,
+									label: r.region_name,
+								}))}
 								placeholder={t("createModal.regionPlaceholder")}
 							/>
 						</Form.Item>

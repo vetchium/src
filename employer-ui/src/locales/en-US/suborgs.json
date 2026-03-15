@@ -51,12 +51,6 @@
 		"active": "Active",
 		"disabled": "Disabled"
 	},
-	"regions": {
-		"ind1": "India (ind1)",
-		"usa1": "United States (usa1)",
-		"deu1": "Germany (deu1)",
-		"sgp1": "Singapore (sgp1)"
-	},
 	"filter": {
 		"all": "All",
 		"active": "Active",
