@@ -6,7 +6,7 @@
 	"createModal": {
 		"title": "Unterorganisation erstellen",
 		"nameLabel": "Name",
-		"namePlaceholder": "z.B. Amazon India Private Ltd",
+		"namePlaceholder": "z.B. Acme Corp LLC",
 		"regionLabel": "Zugeordnete Region",
 		"regionPlaceholder": "Region auswählen",
 		"submitButton": "Erstellen"

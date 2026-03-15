@@ -4,14 +4,14 @@ Dependencies:
 
 ## Overview
 
-Large multinational employers may operate legally distinct entities across different countries (e.g., Amazon Inc., Amazon India Private Ltd, Amazon UK LLC) while being a single logical company on Vetchium. The SubOrgs feature lets an employer model this structure by creating Sub-Organisations (SubOrgs), each pinned to a specific Vetchium geographic region. Job Openings, Applications, and related data are then stored in the region of the SubOrg rather than always in the employer's home region.
+Large multinational employers may operate legally distinct entities across different countries (e.g., Acme Corp Inc., Acme Corp North America LLC, Acme Corp UK LLC) while being a single logical company on Vetchium. The SubOrgs feature lets an employer model this structure by creating Sub-Organisations (SubOrgs), each pinned to a specific Vetchium geographic region. Job Openings, Applications, and related data are then stored in the region of the SubOrg rather than always in the employer's home region.
 
 An org that does not need this structure can continue operating without any SubOrgs and all data continues to reside in its home region, exactly as before.
 
 ## Definitions
 
 - **Org (Parent Org)**: The top-level employer account on Vetchium. Has a home region assigned at signup.
-- **SubOrg**: A named sub-entity of a parent Org, pinned to exactly one Vetchium region. Visible to job seekers. Examples: "Amazon India Private Ltd" (ind1), "Amazon UK LLC" (deu1).
+- **SubOrg**: A named sub-entity of a parent Org, pinned to exactly one Vetchium region. Visible to job seekers. Examples: "Acme Corp North America LLC" (usa1), "Acme Corp Europe LLC" (deu1).
 - **Home region**: The Vetchium region where the Org's account data (users, domains, etc.) lives.
 - **Pinned region**: The Vetchium region a SubOrg is assigned to. All Openings created under a SubOrg are stored in the pinned region.
 
@@ -20,7 +20,7 @@ An org that does not need this structure can continue operating without any SubO
 ### SubOrg Lifecycle
 
 - An org superadmin (or a user with `employer:manage_suborgs` role) can create a SubOrg by providing:
-  - A display name (shown to job seekers, e.g., "Amazon India Private Ltd", "Amazon Gesellschaft mit beschränkter Haftung")
+  - A display name (shown to job seekers, e.g., "Acme Corp North America LLC", "Acme Corp GmbH")
   - A Vetchium region to pin it to (ind1, usa1, deu1, etc.)
 - A SubOrg's display name can be updated after creation by a user with `employer:manage_suborgs`. The pinned region is immutable — it cannot be changed after creation.
 - A SubOrg can be disabled (not deleted). Disabling a SubOrg:
@@ -31,7 +31,7 @@ An org that does not need this structure can continue operating without any SubO
 - There is no hard delete of a SubOrg.
 - SubOrgs are one level deep only: a SubOrg cannot itself have child SubOrgs.
 - An org may have zero SubOrgs (the default state). Zero-SubOrg orgs are unaffected by this feature.
-- An org may have SubOrgs in the same region as its home region (e.g., a US company can create a "Amazon North America" SubOrg also in usa1).
+- An org may have SubOrgs in the same region as its home region (e.g., a US company can create a "Acme Corp North America" SubOrg also in usa1).
 - Multiple SubOrgs may be pinned to the same region (e.g., two European legal entities both in deu1).
 
 ### SubOrg Visibility to Job Seekers

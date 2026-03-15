@@ -6,7 +6,7 @@
 	"createModal": {
 		"title": "துணை நிறுவனம் உருவாக்கு",
 		"nameLabel": "பெயர்",
-		"namePlaceholder": "உதா. Amazon India Private Ltd",
+		"namePlaceholder": "உதா. Acme Corp LLC",
 		"regionLabel": "நிலையான பகுதி",
 		"regionPlaceholder": "பகுதி தேர்ந்தெடு",
 		"submitButton": "உருவாக்கு"

@@ -16,7 +16,7 @@ model SubOrg {
   @doc("UUID of the SubOrg")
   id: string;
 
-  @doc("Display name shown to job seekers (e.g. 'Amazon India Private Ltd')")
+  @doc("Display name shown to job seekers (e.g. 'Acme Corp LLC')")
   name: string;
 
   @doc("Vetchium region this SubOrg is pinned to (e.g. 'ind1', 'usa1', 'deu1')")

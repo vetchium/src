@@ -56,12 +56,12 @@ test.describe("SubOrgs API", () => {
 				const token = await loginOrgUser(api, email, domain);
 				const before = new Date(Date.now() - 2000).toISOString();
 				const req: CreateSubOrgRequest = {
-					name: "Amazon India Private Ltd",
+					name: "Acme Corp LLC",
 					pinned_region: "ind1",
 				};
 				const res = await api.createSubOrg(token, req);
 				expect(res.status).toBe(201);
-				expect(res.body?.name).toBe("Amazon India Private Ltd");
+				expect(res.body?.name).toBe("Acme Corp LLC");
 				expect(res.body?.pinned_region).toBe("ind1");
 				expect(res.body?.status).toBe("active");
 				expect(res.body?.id).toBeDefined();
@@ -207,11 +207,11 @@ test.describe("SubOrgs API", () => {
 			try {
 				const token = await loginOrgUser(api, email, domain);
 				await api.createSubOrg(token, {
-					name: "India Office",
+					name: "Alpha Division",
 					pinned_region: "ind1",
 				});
 				await api.createSubOrg(token, {
-					name: "US Office",
+					name: "Beta Division",
 					pinned_region: "usa1",
 				});
 

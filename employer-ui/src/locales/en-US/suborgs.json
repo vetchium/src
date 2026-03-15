@@ -6,7 +6,7 @@
 	"createModal": {
 		"title": "Create Sub-Organization",
 		"nameLabel": "Name",
-		"namePlaceholder": "e.g. Amazon India Private Ltd",
+		"namePlaceholder": "e.g. Acme Corp LLC",
 		"regionLabel": "Pinned Region",
 		"regionPlaceholder": "Select a region",
 		"submitButton": "Create"
