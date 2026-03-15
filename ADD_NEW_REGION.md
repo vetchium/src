@@ -18,7 +18,7 @@ CREATE TABLE available_regions (
 ```
 
 | Code   | Name                | Active |
-|--------|---------------------|--------|
+| ------ | ------------------- | ------ |
 | `ind1` | India - Chennai     | Yes    |
 | `usa1` | USA - California    | Yes    |
 | `deu1` | Germany - Frankfurt | Yes    |
@@ -58,9 +58,11 @@ The example below adds `fra1` (France - Paris). Substitute accordingly.
 
 6. Add the new code to the PostgreSQL `region` ENUM in
    `api-server/db/migrations/global/00000000000001_initial_schema.sql`:
+
    ```sql
    ALTER TYPE region ADD VALUE 'fra1';
    ```
+
    > **Note**: PostgreSQL ENUM additions are non-transactional and cannot be rolled back. Run in a maintenance window.
 
 7. Insert the region into the registry — **inactive** for staging:
@@ -72,17 +74,21 @@ The example below adds `fra1` (France - Paris). Substitute accordingly.
 ### Phase 3 — Code Changes
 
 8. Add the Go constant in `api-server/internal/db/globaldb/models.go`:
+
    ```go
    RegionFra1 Region = "fra1"
    ```
 
 9. Add the routing entry in `api-server/cmd/regional-api-server/main.go`:
+
    ```go
    globaldb.RegionFra1: "http://regional-api-server-fra1:8080",
    ```
+
    Without this the global API server cannot route requests to the new region.
 
 10. Add the test DB port mapping in `playwright/lib/db.ts`:
+
     ```typescript
     fra1: 5436,  // next available port
     ```
