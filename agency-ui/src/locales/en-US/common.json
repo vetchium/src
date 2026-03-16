@@ -17,7 +17,11 @@
 		"ta-IN": "தமிழ்"
 	},
 	"dashboard": {
-		"title": "Agency Dashboard"
+		"title": "Agency Dashboard",
+		"auditLogs": {
+			"title": "Audit Logs",
+			"description": "View and filter audit log events"
+		}
 	},
 	"logout": {
 		"button": "Logout"

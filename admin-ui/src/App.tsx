@@ -1,4 +1,10 @@
-import { App as AntApp, ConfigProvider, Layout, theme as antTheme } from "antd";
+import {
+	App as AntApp,
+	ConfigProvider,
+	Layout,
+	Spin,
+	theme as antTheme,
+} from "antd";
 import { I18nextProvider } from "react-i18next";
 import { ThemeProvider } from "./contexts/ThemeProvider";
 import { useTheme } from "./hooks/useTheme";
@@ -16,6 +22,7 @@ import { CompleteSetupPage } from "./pages/CompleteSetupPage";
 import { ChangePasswordPage } from "./pages/ChangePasswordPage";
 import { UserManagementPage } from "./pages/UserManagement/UserManagementPage";
 import { ManageTagsPage } from "./pages/ManageTagsPage";
+import { AuditLogsPage } from "./pages/AuditLogsPage";
 import {
 	BrowserRouter,
 	Routes,
@@ -23,6 +30,7 @@ import {
 	Navigate,
 	useLocation,
 } from "react-router-dom";
+import { useMyInfo } from "./hooks/useMyInfo";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import i18n from "./i18n";
 
@@ -69,6 +77,34 @@ function TFARoute({ children }: { children: React.ReactNode }) {
 	}
 
 	if (authState === "authenticated") {
+		return <Navigate to="/" replace />;
+	}
+
+	return <>{children}</>;
+}
+
+function AuditLogsRoute({ children }: { children: React.ReactNode }) {
+	const { authState, sessionToken } = useAuth();
+	const { data: myInfo, loading } = useMyInfo(sessionToken);
+	const location = useLocation();
+
+	if (authState === "login") {
+		return <Navigate to="/login" state={{ from: location }} replace />;
+	}
+
+	if (authState === "tfa") {
+		return <Navigate to="/tfa" replace />;
+	}
+
+	if (loading) {
+		return <Spin size="large" />;
+	}
+
+	const hasAccess =
+		myInfo?.roles.includes("admin:superadmin") ||
+		myInfo?.roles.includes("admin:view_audit_logs");
+
+	if (!hasAccess) {
 		return <Navigate to="/" replace />;
 	}
 
@@ -161,6 +197,14 @@ function AppContent() {
 									<ProtectedRoute>
 										<ManageTagsPage />
 									</ProtectedRoute>
+								}
+							/>
+							<Route
+								path="/audit-logs"
+								element={
+									<AuditLogsRoute>
+										<AuditLogsPage />
+									</AuditLogsRoute>
 								}
 							/>
 							<Route path="/forgot-password" element={<ForgotPasswordPage />} />

@@ -19,6 +19,12 @@
 		"light": "Hell",
 		"dark": "Dunkel"
 	},
+	"dashboard": {
+		"myActivity": {
+			"title": "Meine Aktivitäten",
+			"description": "Ihre Aktivitätshistorie anzeigen"
+		}
+	},
 	"action": {
 		"backHome": "Zur Startseite"
 	},

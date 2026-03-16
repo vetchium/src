@@ -17,7 +17,11 @@
 		"ta-IN": "தமிழ்"
 	},
 	"dashboard": {
-		"title": "Employer Dashboard"
+		"title": "Employer Dashboard",
+		"auditLogs": {
+			"title": "Audit Logs",
+			"description": "View and filter audit log events"
+		}
 	},
 	"logout": {
 		"button": "Logout"

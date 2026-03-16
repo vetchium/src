@@ -7,16 +7,19 @@ import enUSAuth from "./locales/en-US/auth.json";
 import enUSApprovedDomains from "./locales/en-US/approved-domains.json";
 import enUSUserManagement from "./locales/en-US/user-management.json";
 import enUSTags from "./locales/en-US/tags.json";
+import enUSAuditLogs from "./locales/en-US/audit-logs.json";
 import deDECommon from "./locales/de-DE/common.json";
 import deDEAuth from "./locales/de-DE/auth.json";
 import deDEApprovedDomains from "./locales/de-DE/approved-domains.json";
 import deDEUserManagement from "./locales/de-DE/user-management.json";
 import deDETags from "./locales/de-DE/tags.json";
+import deDEAuditLogs from "./locales/de-DE/audit-logs.json";
 import taINCommon from "./locales/ta-IN/common.json";
 import taINAuth from "./locales/ta-IN/auth.json";
 import taINApprovedDomains from "./locales/ta-IN/approved-domains.json";
 import taINUserManagement from "./locales/ta-IN/user-management.json";
 import taINTags from "./locales/ta-IN/tags.json";
+import taINAuditLogs from "./locales/ta-IN/audit-logs.json";
 
 export const SUPPORTED_LANGUAGES = ["en-US", "de-DE", "ta-IN"] as const;
 export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
@@ -59,6 +62,7 @@ const resources = {
 		approvedDomains: enUSApprovedDomains,
 		userManagement: enUSUserManagement,
 		tags: enUSTags,
+		auditLogs: enUSAuditLogs,
 	},
 	"de-DE": {
 		common: deDECommon,
@@ -66,6 +70,7 @@ const resources = {
 		approvedDomains: deDEApprovedDomains,
 		userManagement: deDEUserManagement,
 		tags: deDETags,
+		auditLogs: deDEAuditLogs,
 	},
 	"ta-IN": {
 		common: taINCommon,
@@ -73,6 +78,7 @@ const resources = {
 		approvedDomains: taINApprovedDomains,
 		userManagement: taINUserManagement,
 		tags: taINTags,
+		auditLogs: taINAuditLogs,
 	},
 };
 
@@ -81,7 +87,14 @@ i18n.use(initReactI18next).init({
 	lng: getStoredLanguage(),
 	fallbackLng: DEFAULT_LANGUAGE,
 	defaultNS: "common",
-	ns: ["common", "auth", "approvedDomains", "userManagement", "tags"],
+	ns: [
+		"common",
+		"auth",
+		"approvedDomains",
+		"userManagement",
+		"tags",
+		"auditLogs",
+	],
 	interpolation: {
 		escapeValue: false, // React already escapes
 	},

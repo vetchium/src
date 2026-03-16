@@ -1,0 +1,19 @@
+{
+	"title": "My Activity",
+	"filterPanel": {
+		"startTime": "Start Time",
+		"endTime": "End Time",
+		"search": "Search",
+		"reset": "Reset"
+	},
+	"table": {
+		"timestamp": "Timestamp",
+		"eventType": "Event Type",
+		"ipAddress": "IP Address",
+		"eventData": "Event Data"
+	},
+	"backToDashboard": "Back to Home",
+	"loadMore": "Load More",
+	"empty": "No activity entries found",
+	"error": "An error occurred while loading activity"
+}

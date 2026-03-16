@@ -26,6 +26,7 @@ import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { ChangePasswordPage } from "./pages/ChangePasswordPage";
 import { ChangeEmailPage } from "./pages/ChangeEmailPage";
 import { VerifyEmailPage } from "./pages/VerifyEmailPage";
+import { MyActivityPage } from "./pages/MyActivityPage";
 
 const { Content } = Layout;
 
@@ -139,6 +140,14 @@ function AppContent() {
 								}
 							/>
 							<Route path="/verify-email" element={<VerifyEmailPage />} />
+							<Route
+								path="/my-activity"
+								element={
+									<ProtectedRoute>
+										<MyActivityPage />
+									</ProtectedRoute>
+								}
+							/>
 							<Route
 								path="/tfa"
 								element={

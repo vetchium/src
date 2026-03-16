@@ -1,0 +1,19 @@
+{
+	"title": "Audit-Protokolle",
+	"filterPanel": {
+		"startTime": "Startzeit",
+		"endTime": "Endzeit",
+		"search": "Suchen",
+		"reset": "Zurücksetzen"
+	},
+	"table": {
+		"timestamp": "Zeitstempel",
+		"eventType": "Ereignistyp",
+		"ipAddress": "IP-Adresse",
+		"eventData": "Ereignisdaten"
+	},
+	"backToDashboard": "Zurück zum Dashboard",
+	"loadMore": "Mehr laden",
+	"empty": "Keine Audit-Protokolleinträge gefunden",
+	"error": "Beim Laden der Audit-Protokolle ist ein Fehler aufgetreten"
+}

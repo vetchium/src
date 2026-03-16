@@ -19,6 +19,12 @@
 		"light": "Light",
 		"dark": "Dark"
 	},
+	"dashboard": {
+		"myActivity": {
+			"title": "My Activity",
+			"description": "View your activity history"
+		}
+	},
 	"action": {
 		"backHome": "Back Home"
 	},

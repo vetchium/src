@@ -5,6 +5,7 @@ import {
 	GlobalOutlined,
 	BankOutlined,
 	ApartmentOutlined,
+	FileSearchOutlined,
 } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
@@ -38,6 +39,11 @@ export function DashboardPage() {
 
 	// Any authenticated user can see SubOrgs (list is unrestricted)
 	const hasSubOrgsAccess = !!myInfo;
+
+	const hasAuditLogsAccess =
+		myInfo?.roles.includes("employer:superadmin") ||
+		myInfo?.roles.includes("employer:view_audit_logs") ||
+		false;
 
 	return (
 		<div
@@ -159,6 +165,31 @@ export function DashboardPage() {
 								</Title>
 								<Typography.Text type="secondary">
 									{t("costCenters.description")}
+								</Typography.Text>
+							</Card>
+						</Link>
+					)}
+					{hasAuditLogsAccess && (
+						<Link
+							to="/audit-logs"
+							style={{ textDecoration: "none", width: "100%" }}
+						>
+							<Card
+								hoverable
+								style={{
+									width: "100%",
+									cursor: "pointer",
+									textAlign: "center",
+								}}
+							>
+								<FileSearchOutlined
+									style={{ fontSize: 48, color: "#13c2c2", marginBottom: 16 }}
+								/>
+								<Title level={4} style={{ marginBottom: 8 }}>
+									{t("dashboard.auditLogs.title")}
+								</Title>
+								<Typography.Text type="secondary">
+									{t("dashboard.auditLogs.description")}
 								</Typography.Text>
 							</Card>
 						</Link>

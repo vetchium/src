@@ -17,7 +17,11 @@
 		"ta-IN": "தமிழ்"
 	},
 	"dashboard": {
-		"title": "Agency Dashboard"
+		"title": "Agency Dashboard",
+		"auditLogs": {
+			"title": "தணிக்கை பதிவுகள்",
+			"description": "தணிக்கை பதிவு நிகழ்வுகளை பார்க்கவும் மற்றும் வடிகட்டவும்"
+		}
 	},
 	"logout": {
 		"button": "Logout"

@@ -17,7 +17,11 @@
 		"ta-IN": "தமிழ்"
 	},
 	"dashboard": {
-		"title": "Admin-Dashboard"
+		"title": "Admin-Dashboard",
+		"auditLogs": {
+			"title": "Audit-Protokolle",
+			"description": "Audit-Protokollereignisse anzeigen und filtern"
+		}
 	},
 	"logout": {
 		"button": "Abmelden"

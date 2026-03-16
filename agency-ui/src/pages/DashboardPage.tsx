@@ -3,6 +3,7 @@ import {
 	GlobalOutlined,
 	LogoutOutlined,
 	TeamOutlined,
+	FileSearchOutlined,
 } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
@@ -26,6 +27,11 @@ export function DashboardPage() {
 		myInfo?.roles.includes("agency:superadmin") ||
 		myInfo?.roles.includes("agency:view_domains") ||
 		myInfo?.roles.includes("agency:manage_domains") ||
+		false;
+
+	const hasAuditLogsAccess =
+		myInfo?.roles.includes("agency:superadmin") ||
+		myInfo?.roles.includes("agency:view_audit_logs") ||
 		false;
 
 	return (
@@ -97,6 +103,31 @@ export function DashboardPage() {
 								</Title>
 								<Typography.Text type="secondary">
 									{t("domainManagement.description")}
+								</Typography.Text>
+							</Card>
+						</Link>
+					)}
+					{hasAuditLogsAccess && (
+						<Link
+							to="/audit-logs"
+							style={{ textDecoration: "none", width: "100%" }}
+						>
+							<Card
+								hoverable
+								style={{
+									width: "100%",
+									cursor: "pointer",
+									textAlign: "center",
+								}}
+							>
+								<FileSearchOutlined
+									style={{ fontSize: 48, color: "#13c2c2", marginBottom: 16 }}
+								/>
+								<Title level={4} style={{ marginBottom: 8 }}>
+									{t("dashboard.auditLogs.title")}
+								</Title>
+								<Typography.Text type="secondary">
+									{t("dashboard.auditLogs.description")}
 								</Typography.Text>
 							</Card>
 						</Link>

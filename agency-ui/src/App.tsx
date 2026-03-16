@@ -28,6 +28,7 @@ import { ChangePasswordPage } from "./pages/ChangePasswordPage";
 import { CompleteSetupPage } from "./pages/CompleteSetupPage";
 import { UserManagementPage } from "./pages/UserManagement/UserManagementPage";
 import { DomainManagementPage } from "./pages/DomainManagement/DomainManagementPage";
+import { AuditLogsPage } from "./pages/AuditLogsPage";
 import {
 	BrowserRouter,
 	Routes,
@@ -169,6 +170,34 @@ function DomainManagementRoute({ children }: { children: React.ReactNode }) {
 	return <>{children}</>;
 }
 
+function AuditLogsRoute({ children }: { children: React.ReactNode }) {
+	const { authState, sessionToken } = useAuth();
+	const { data: myInfo, loading } = useMyInfo(sessionToken);
+	const location = useLocation();
+
+	if (authState === "login") {
+		return <Navigate to="/login" state={{ from: location }} replace />;
+	}
+
+	if (authState === "tfa") {
+		return <Navigate to="/tfa" replace />;
+	}
+
+	if (loading) {
+		return <Spin size="large" />;
+	}
+
+	const hasAccess =
+		myInfo?.roles.includes("agency:superadmin") ||
+		myInfo?.roles.includes("agency:view_audit_logs");
+
+	if (!hasAccess) {
+		return <Navigate to="/" replace />;
+	}
+
+	return <>{children}</>;
+}
+
 function AppContent() {
 	const { theme } = useTheme();
 
@@ -264,6 +293,14 @@ function AppContent() {
 									<ProtectedRoute>
 										<ChangePasswordPage />
 									</ProtectedRoute>
+								}
+							/>
+							<Route
+								path="/audit-logs"
+								element={
+									<AuditLogsRoute>
+										<AuditLogsPage />
+									</AuditLogsRoute>
 								}
 							/>
 							<Route path="/forgot-password" element={<ForgotPasswordPage />} />

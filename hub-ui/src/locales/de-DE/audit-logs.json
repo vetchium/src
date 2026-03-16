@@ -1,0 +1,19 @@
+{
+	"title": "Meine Aktivitäten",
+	"filterPanel": {
+		"startTime": "Startzeit",
+		"endTime": "Endzeit",
+		"search": "Suchen",
+		"reset": "Zurücksetzen"
+	},
+	"table": {
+		"timestamp": "Zeitstempel",
+		"eventType": "Ereignistyp",
+		"ipAddress": "IP-Adresse",
+		"eventData": "Ereignisdaten"
+	},
+	"backToDashboard": "Zurück zur Startseite",
+	"loadMore": "Mehr laden",
+	"empty": "Keine Aktivitätseinträge gefunden",
+	"error": "Beim Laden der Aktivitäten ist ein Fehler aufgetreten"
+}

@@ -1,0 +1,19 @@
+{
+	"title": "Audit Logs",
+	"filterPanel": {
+		"startTime": "Start Time",
+		"endTime": "End Time",
+		"search": "Search",
+		"reset": "Reset"
+	},
+	"table": {
+		"timestamp": "Timestamp",
+		"eventType": "Event Type",
+		"ipAddress": "IP Address",
+		"eventData": "Event Data"
+	},
+	"backToDashboard": "Back to Dashboard",
+	"loadMore": "Load More",
+	"empty": "No audit log entries found",
+	"error": "An error occurred while loading audit logs"
+}

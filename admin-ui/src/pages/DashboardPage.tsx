@@ -4,6 +4,7 @@ import {
 	LogoutOutlined,
 	TagsOutlined,
 	TeamOutlined,
+	FileSearchOutlined,
 } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../hooks/useAuth";
@@ -32,6 +33,11 @@ export function DashboardPage() {
 	const canManageTags =
 		myInfo?.roles.includes("admin:superadmin") ||
 		myInfo?.roles.includes("admin:manage_tags") ||
+		false;
+
+	const canViewAuditLogs =
+		myInfo?.roles.includes("admin:superadmin") ||
+		myInfo?.roles.includes("admin:view_audit_logs") ||
 		false;
 
 	return (
@@ -107,6 +113,24 @@ export function DashboardPage() {
 									{t("tags:dashboardTitle")}
 								</Title>
 								<Text type="secondary">{t("tags:dashboardDescription")}</Text>
+							</Card>
+						</Link>
+					)}
+					{canViewAuditLogs && (
+						<Link to="/audit-logs" style={{ textDecoration: "none" }}>
+							<Card
+								hoverable
+								style={{ width: 400, cursor: "pointer", textAlign: "center" }}
+							>
+								<FileSearchOutlined
+									style={{ fontSize: 48, color: "#13c2c2", marginBottom: 16 }}
+								/>
+								<Title level={4} style={{ marginBottom: 8 }}>
+									{t("dashboard.auditLogs.title")}
+								</Title>
+								<Text type="secondary">
+									{t("dashboard.auditLogs.description")}
+								</Text>
 							</Card>
 						</Link>
 					)}

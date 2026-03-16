@@ -5,12 +5,15 @@ import { initReactI18next } from "react-i18next";
 import enUSCommon from "./locales/en-US/common.json";
 import enUSAuth from "./locales/en-US/auth.json";
 import enUSSignup from "./locales/en-US/signup.json";
+import enUSAuditLogs from "./locales/en-US/audit-logs.json";
 import deDECommon from "./locales/de-DE/common.json";
 import deDEAuth from "./locales/de-DE/auth.json";
 import deDESignup from "./locales/de-DE/signup.json";
+import deDEAuditLogs from "./locales/de-DE/audit-logs.json";
 import taINCommon from "./locales/ta-IN/common.json";
 import taINAuth from "./locales/ta-IN/auth.json";
 import taINSignup from "./locales/ta-IN/signup.json";
+import taINAuditLogs from "./locales/ta-IN/audit-logs.json";
 
 export const SUPPORTED_LANGUAGES = ["en-US", "de-DE", "ta-IN"] as const;
 export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
@@ -51,16 +54,19 @@ const resources = {
 		common: enUSCommon,
 		auth: enUSAuth,
 		signup: enUSSignup,
+		auditLogs: enUSAuditLogs,
 	},
 	"de-DE": {
 		common: deDECommon,
 		auth: deDEAuth,
 		signup: deDESignup,
+		auditLogs: deDEAuditLogs,
 	},
 	"ta-IN": {
 		common: taINCommon,
 		auth: taINAuth,
 		signup: taINSignup,
+		auditLogs: taINAuditLogs,
 	},
 };
 
@@ -69,7 +75,7 @@ i18n.use(initReactI18next).init({
 	lng: getStoredLanguage(),
 	fallbackLng: DEFAULT_LANGUAGE,
 	defaultNS: "common",
-	ns: ["common", "auth", "signup"],
+	ns: ["common", "auth", "signup", "auditLogs"],
 	interpolation: {
 		escapeValue: false, // React already escapes
 	},
