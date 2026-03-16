@@ -1,6 +1,5 @@
 import {
 	ArrowLeftOutlined,
-	BankOutlined,
 	EditOutlined,
 	PlusOutlined,
 } from "@ant-design/icons";
@@ -330,65 +329,65 @@ export function CostCentersPage() {
 	return (
 		<div
 			style={{
-				maxWidth: 900,
 				width: "100%",
+				maxWidth: 1200,
 				padding: "24px 16px",
+				alignSelf: "flex-start",
 			}}
 		>
-			<Space orientation="vertical" size="large" style={{ width: "100%" }}>
-				<Space>
-					<Link to="/">
-						<Button icon={<ArrowLeftOutlined />}>{t("backToDashboard")}</Button>
-					</Link>
-				</Space>
+			<div style={{ marginBottom: 16 }}>
+				<Link to="/">
+					<Button icon={<ArrowLeftOutlined />}>{t("backToDashboard")}</Button>
+				</Link>
+			</div>
 
-				<Space
-					align="center"
-					style={{ justifyContent: "space-between", width: "100%" }}
-				>
-					<Space>
-						<BankOutlined style={{ fontSize: 24, color: "#1890ff" }} />
-						<Title level={3} style={{ margin: 0 }}>
-							{t("title")}
-						</Title>
-					</Space>
-					{canManage && (
-						<Button
-							type="primary"
-							icon={<PlusOutlined />}
-							onClick={() => setAddModalOpen(true)}
-						>
-							{t("addButton")}
-						</Button>
-					)}
-				</Space>
-
-				<Tabs
-					defaultActiveKey="all"
-					onChange={handleTabChange}
-					items={[
-						{ key: "all", label: t("filter.all") },
-						{ key: "enabled", label: t("filter.enabled") },
-						{ key: "disabled", label: t("filter.disabled") },
-					]}
-				/>
-
-				<Spin spinning={loading}>
-					<Table
-						dataSource={costCenters}
-						columns={columns}
-						rowKey="id"
-						pagination={false}
-						locale={{ emptyText: t("table.id") }}
-					/>
-				</Spin>
-
-				{nextCursor && (
-					<Button onClick={handleLoadMore} loading={loading} block>
-						{t("loadMore")}
+			<div
+				style={{
+					display: "flex",
+					justifyContent: "space-between",
+					alignItems: "center",
+					marginBottom: 24,
+				}}
+			>
+				<Title level={2} style={{ margin: 0 }}>
+					{t("title")}
+				</Title>
+				{canManage && (
+					<Button
+						type="primary"
+						icon={<PlusOutlined />}
+						onClick={() => setAddModalOpen(true)}
+					>
+						{t("addButton")}
 					</Button>
 				)}
-			</Space>
+			</div>
+
+			<Tabs
+				defaultActiveKey="all"
+				onChange={handleTabChange}
+				items={[
+					{ key: "all", label: t("filter.all") },
+					{ key: "enabled", label: t("filter.enabled") },
+					{ key: "disabled", label: t("filter.disabled") },
+				]}
+			/>
+
+			<Spin spinning={loading}>
+				<Table
+					dataSource={costCenters}
+					columns={columns}
+					rowKey="id"
+					pagination={false}
+					locale={{ emptyText: t("table.id") }}
+				/>
+			</Spin>
+
+			{nextCursor && (
+				<Button onClick={handleLoadMore} loading={loading} block>
+					{t("loadMore")}
+				</Button>
+			)}
 
 			{/* Add Cost Center Modal */}
 			<Modal

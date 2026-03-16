@@ -2,12 +2,12 @@
 	"title": "Zugelassene Domains",
 	"dashboardTitle": "Zugelassene Domains",
 	"dashboardDescription": "Verwalten Sie zulässige E-Mail-Domains für die Benutzerregistrierung",
+	"backToDashboard": "Zurück zum Dashboard",
 	"actions": {
 		"add": "Domain hinzufügen",
 		"delete": "Löschen",
 		"disable": "Deaktivieren",
 		"enable": "Aktivieren",
-		"back": "Zurück zum Dashboard",
 		"viewDetails": "Details anzeigen",
 		"loadMore": "Mehr laden",
 		"loadMoreAuditLogs": "Weitere Audit-Protokolle laden"

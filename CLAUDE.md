@@ -241,6 +241,38 @@ src/
 └── App.tsx
 ```
 
+### Page Layout Standard
+
+All **feature pages** (list/table pages reached from the dashboard) use this layout:
+
+```tsx
+<div style={{ width: "100%", maxWidth: 1200, padding: "24px 16px", alignSelf: "flex-start" }}>
+  {/* Back button — always the first element */}
+  <div style={{ marginBottom: 16 }}>
+    <Link to="/"><Button icon={<ArrowLeftOutlined />}>{t("backToDashboard")}</Button></Link>
+  </div>
+
+  {/* Page header: title only */}
+  <Title level={2} style={{ marginBottom: 24 }}>{t("title")}</Title>
+
+  {/* Page header: title + primary action button */}
+  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+    <Title level={2} style={{ margin: 0 }}>{t("title")}</Title>
+    <Button type="primary" icon={<PlusOutlined />} onClick={...}>{t("addButton")}</Button>
+  </div>
+
+  {/* page content — no outer Card wrapper */}
+</div>
+```
+
+Rules:
+
+- `maxWidth: 1200` for all portals
+- i18n key for back button: `backToDashboard` in the page's own namespace
+- Title always `level={2}`; no colored icons in the title
+- No outer Card wrapper (Cards are fine inside the page for sub-sections)
+- **Form pages** (login, change-password, etc.) are exempt — they use centered Cards
+
 ### i18n
 
 Use `react-i18next`. Supported: en-US (default), de-DE, ta-IN. All user-visible strings must be translated. Language preference stored server-side when authenticated, cached locally.

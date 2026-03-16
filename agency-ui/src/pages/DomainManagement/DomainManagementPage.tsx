@@ -317,20 +317,19 @@ export function DomainManagementPage() {
 	return (
 		<div
 			style={{
-				maxWidth: 900,
 				width: "100%",
+				maxWidth: 1200,
 				padding: "24px 16px",
+				alignSelf: "flex-start",
 			}}
 		>
-			<Space style={{ marginBottom: 24 }}>
+			<div style={{ marginBottom: 16 }}>
 				<Link to="/">
-					<Button icon={<ArrowLeftOutlined />}>
-						{t("domain.backToDashboard")}
-					</Button>
+					<Button icon={<ArrowLeftOutlined />}>{t("backToDashboard")}</Button>
 				</Link>
-			</Space>
+			</div>
 
-			<Title level={3} style={{ marginBottom: 24 }}>
+			<Title level={2} style={{ marginBottom: 24 }}>
 				{t("domainManagement.title")}
 			</Title>
 

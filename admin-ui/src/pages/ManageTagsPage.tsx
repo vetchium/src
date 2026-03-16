@@ -1,15 +1,14 @@
 import {
+	ArrowLeftOutlined,
 	DeleteOutlined,
 	EditOutlined,
 	PlusOutlined,
 	SearchOutlined,
-	TagsOutlined,
 	UploadOutlined,
 } from "@ant-design/icons";
 import {
 	App,
 	Button,
-	Card,
 	Col,
 	Form,
 	Image,
@@ -413,62 +412,68 @@ export function ManageTagsPage() {
 	];
 
 	return (
-		<div style={{ width: "100%", maxWidth: 1200 }}>
-			<Card>
-				<Space
-					style={{
-						width: "100%",
-						justifyContent: "space-between",
-						marginBottom: 16,
-					}}
-					align="center"
+		<div
+			style={{
+				width: "100%",
+				maxWidth: 1200,
+				padding: "24px 16px",
+				alignSelf: "flex-start",
+			}}
+		>
+			<div style={{ marginBottom: 16 }}>
+				<Link to="/">
+					<Button icon={<ArrowLeftOutlined />}>{t("backToDashboard")}</Button>
+				</Link>
+			</div>
+
+			<div
+				style={{
+					display: "flex",
+					justifyContent: "space-between",
+					alignItems: "center",
+					marginBottom: 24,
+				}}
+			>
+				<Title level={2} style={{ margin: 0 }}>
+					{t("pageTitle")}
+				</Title>
+				<Button
+					type="primary"
+					icon={<PlusOutlined />}
+					onClick={() => setAddModalVisible(true)}
 				>
-					<Space>
-						<Link to="/">
-							<Button>← {t("common:back")}</Button>
-						</Link>
-						<Title level={4} style={{ margin: 0 }}>
-							<TagsOutlined /> {t("pageTitle")}
-						</Title>
-					</Space>
-					<Button
-						type="primary"
-						icon={<PlusOutlined />}
-						onClick={() => setAddModalVisible(true)}
-					>
-						{t("addTag")}
-					</Button>
-				</Space>
+					{t("addTag")}
+				</Button>
+			</div>
 
-				<Row style={{ marginBottom: 16 }}>
-					<Col span={12}>
-						<Input.Search
-							placeholder={t("searchPlaceholder")}
-							onSearch={handleSearch}
-							allowClear
-							prefix={<SearchOutlined />}
-						/>
-					</Col>
-				</Row>
-
-				<Spin spinning={loading}>
-					<Table
-						dataSource={tags}
-						columns={columns}
-						rowKey="tag_id"
-						pagination={false}
-						locale={{ emptyText: t("noTags") }}
+			<Row style={{ marginBottom: 16 }}>
+				<Col span={12}>
+					<Input.Search
+						placeholder={t("searchPlaceholder")}
+						onSearch={handleSearch}
+						allowClear
+						prefix={<SearchOutlined />}
 					/>
-				</Spin>
+				</Col>
+			</Row>
 
-				{hasMore && (
-					<div style={{ textAlign: "center", marginTop: 16 }}>
-						<Button onClick={handleLoadMore} loading={loading}>
-							{t("loadMore")}
-						</Button>
-					</div>
-				)}
-			</Card>
+			<Spin spinning={loading}>
+				<Table
+					dataSource={tags}
+					columns={columns}
+					rowKey="tag_id"
+					pagination={false}
+					locale={{ emptyText: t("noTags") }}
+				/>
+			</Spin>
+
+			{hasMore && (
+				<div style={{ textAlign: "center", marginTop: 16 }}>
+					<Button onClick={handleLoadMore} loading={loading}>
+						{t("loadMore")}
+					</Button>
+				</div>
+			)}
 
 			{/* Add Tag Modal */}
 			<Modal

@@ -545,65 +545,71 @@ export function SubOrgsPage() {
 	];
 
 	return (
-		<div style={{ maxWidth: 1000, width: "100%", padding: "24px 16px" }}>
-			<Space orientation="vertical" size="large" style={{ width: "100%" }}>
-				<Space>
-					<Link to="/">
-						<Button icon={<ArrowLeftOutlined />}>{t("backToDashboard")}</Button>
-					</Link>
-				</Space>
+		<div
+			style={{
+				width: "100%",
+				maxWidth: 1200,
+				padding: "24px 16px",
+				alignSelf: "flex-start",
+			}}
+		>
+			<div style={{ marginBottom: 16 }}>
+				<Link to="/">
+					<Button icon={<ArrowLeftOutlined />}>{t("backToDashboard")}</Button>
+				</Link>
+			</div>
 
-				<Space
-					align="center"
-					style={{ justifyContent: "space-between", width: "100%" }}
-				>
-					<Space>
-						<TeamOutlined style={{ fontSize: 24, color: "#fa8c16" }} />
-						<Title level={3} style={{ margin: 0 }}>
-							{t("title")}
-						</Title>
-					</Space>
-					{canManage && (
-						<Button
-							type="primary"
-							icon={<PlusOutlined />}
-							onClick={() => setCreateModalOpen(true)}
-						>
-							{t("createButton")}
-						</Button>
-					)}
-				</Space>
-
-				<Tabs
-					defaultActiveKey="all"
-					onChange={handleTabChange}
-					items={[
-						{ key: "all", label: t("filter.all") },
-						{ key: "active", label: t("filter.active") },
-						{ key: "disabled", label: t("filter.disabled") },
-					]}
-				/>
-
-				<Spin spinning={loading}>
-					<Table
-						dataSource={suborgs}
-						columns={columns}
-						rowKey="id"
-						pagination={false}
-						locale={{ emptyText: t("table.empty") }}
-					/>
-				</Spin>
-
-				{nextCursor && (
+			<div
+				style={{
+					display: "flex",
+					justifyContent: "space-between",
+					alignItems: "center",
+					marginBottom: 24,
+				}}
+			>
+				<Title level={2} style={{ margin: 0 }}>
+					{t("title")}
+				</Title>
+				{canManage && (
 					<Button
-						onClick={() => loadSuborgs(nextCursor, filterStatus, false)}
-						loading={loading}
-						block
+						type="primary"
+						icon={<PlusOutlined />}
+						onClick={() => setCreateModalOpen(true)}
 					>
-						{t("loadMore")}
+						{t("createButton")}
 					</Button>
 				)}
-			</Space>
+			</div>
+
+			<Tabs
+				defaultActiveKey="all"
+				onChange={handleTabChange}
+				items={[
+					{ key: "all", label: t("filter.all") },
+					{ key: "active", label: t("filter.active") },
+					{ key: "disabled", label: t("filter.disabled") },
+				]}
+			/>
+
+			<Spin spinning={loading}>
+				<Table
+					dataSource={suborgs}
+					columns={columns}
+					rowKey="id"
+					pagination={false}
+					locale={{ emptyText: t("table.empty") }}
+				/>
+			</Spin>
+
+			{nextCursor && (
+				<Button
+					onClick={() => loadSuborgs(nextCursor, filterStatus, false)}
+					loading={loading}
+					block
+				>
+					{t("loadMore")}
+				</Button>
+			)}
 
 			{/* Create SubOrg Modal */}
 			<Modal

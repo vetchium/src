@@ -1,4 +1,5 @@
 {
+	"backToDashboard": "Back to Dashboard",
 	"pageTitle": "User Management",
 	"dashboardDescription": "Manage admin users and their roles",
 	"inviteUser": "Invite User",

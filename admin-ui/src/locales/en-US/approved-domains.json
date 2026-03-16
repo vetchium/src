@@ -2,12 +2,12 @@
 	"title": "Approved Domains",
 	"dashboardTitle": "Approved Domains",
 	"dashboardDescription": "Manage allowed email domains for user registration",
+	"backToDashboard": "Back to Dashboard",
 	"actions": {
 		"add": "Add Domain",
 		"delete": "Delete",
 		"disable": "Disable",
 		"enable": "Enable",
-		"back": "Back to Dashboard",
 		"viewDetails": "View details",
 		"loadMore": "Load More",
 		"loadMoreAuditLogs": "Load More Audit Logs"

@@ -7,7 +7,6 @@ import {
 import {
 	App,
 	Button,
-	Card,
 	Empty,
 	Input,
 	Space,
@@ -275,75 +274,75 @@ export function UserManagementPage() {
 	return (
 		<div
 			style={{
-				display: "flex",
-				flexDirection: "column",
-				alignItems: "center",
-				gap: 24,
 				width: "100%",
-				maxWidth: 1400,
-				margin: "0 auto",
+				maxWidth: 1200,
+				padding: "24px 16px",
+				alignSelf: "flex-start",
 			}}
 		>
-			<Card style={{ width: "100%", textAlign: "center" }}>
-				<Title level={3}>{t("pageTitle")}</Title>
-			</Card>
+			<div style={{ marginBottom: 16 }}>
+				<Link to="/">
+					<Button icon={<ArrowLeftOutlined />}>{t("backToDashboard")}</Button>
+				</Link>
+			</div>
 
-			<Card style={{ width: "100%" }}>
-				<Space orientation="vertical" size="large" style={{ width: "100%" }}>
-					<Space style={{ justifyContent: "space-between", width: "100%" }}>
-						<Link to="/">
-							<Button icon={<ArrowLeftOutlined />}>
-								{t("common:actions.back")}
-							</Button>
-						</Link>
-						{canInviteUsers && (
-							<Button
-								type="primary"
-								icon={<PlusOutlined />}
-								onClick={() => setInviteModalVisible(true)}
-							>
-								{t("inviteUser")}
-							</Button>
-						)}
-					</Space>
+			<div
+				style={{
+					display: "flex",
+					justifyContent: "space-between",
+					alignItems: "center",
+					marginBottom: 24,
+				}}
+			>
+				<Title level={2} style={{ margin: 0 }}>
+					{t("pageTitle")}
+				</Title>
+				{canInviteUsers && (
+					<Button
+						type="primary"
+						icon={<PlusOutlined />}
+						onClick={() => setInviteModalVisible(true)}
+					>
+						{t("inviteUser")}
+					</Button>
+				)}
+			</div>
 
-					<Tabs
-						activeKey={statusFilter}
-						onChange={(key) => handleStatusChange(key as UserStatus)}
-						items={[
-							{ key: "all", label: t("status.all") },
-							{ key: "active", label: t("status.active") },
-							{ key: "pending", label: t("status.pending") },
-							{ key: "disabled", label: t("status.disabled") },
-						]}
-					/>
+			<Tabs
+				activeKey={statusFilter}
+				onChange={(key) => handleStatusChange(key as UserStatus)}
+				items={[
+					{ key: "all", label: t("status.all") },
+					{ key: "active", label: t("status.active") },
+					{ key: "pending", label: t("status.pending") },
+					{ key: "disabled", label: t("status.disabled") },
+				]}
+			/>
 
-					<Input
-						prefix={<SearchOutlined />}
-						placeholder={t("searchPlaceholder")}
-						value={searchQuery}
-						onChange={(e) => handleSearch(e.target.value)}
-						allowClear
-					/>
+			<Input
+				prefix={<SearchOutlined />}
+				placeholder={t("searchPlaceholder")}
+				value={searchQuery}
+				onChange={(e) => handleSearch(e.target.value)}
+				allowClear
+			/>
 
-					<Spin spinning={loading}>
-						<Table
-							dataSource={users}
-							columns={columns}
-							rowKey="email_address"
-							pagination={false}
-							locale={{
-								emptyText: <Empty description={t("common:table.empty")} />,
-							}}
-						/>
-						{hasMore && !loading && (
-							<div style={{ textAlign: "center", marginTop: 16 }}>
-								<Button onClick={handleLoadMore}>{t("table.loadMore")}</Button>
-							</div>
-						)}
-					</Spin>
-				</Space>
-			</Card>
+			<Spin spinning={loading}>
+				<Table
+					dataSource={users}
+					columns={columns}
+					rowKey="email_address"
+					pagination={false}
+					locale={{
+						emptyText: <Empty description={t("common:table.empty")} />,
+					}}
+				/>
+				{hasMore && !loading && (
+					<div style={{ textAlign: "center", marginTop: 16 }}>
+						<Button onClick={handleLoadMore}>{t("table.loadMore")}</Button>
+					</div>
+				)}
+			</Spin>
 
 			<UserDetailDrawer
 				user={selectedUser}

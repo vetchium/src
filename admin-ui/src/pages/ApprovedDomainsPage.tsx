@@ -573,77 +573,77 @@ export function ApprovedDomainsPage() {
 	return (
 		<div
 			style={{
-				display: "flex",
-				flexDirection: "column",
-				alignItems: "center",
-				gap: 24,
 				width: "100%",
 				maxWidth: 1200,
-				margin: "0 auto",
+				padding: "24px 16px",
+				alignSelf: "flex-start",
 			}}
 		>
-			<Card style={{ width: "100%", textAlign: "center" }}>
-				<Title level={3}>{t("title")}</Title>
-			</Card>
+			<div style={{ marginBottom: 16 }}>
+				<Link to="/">
+					<Button icon={<ArrowLeftOutlined />}>{t("backToDashboard")}</Button>
+				</Link>
+			</div>
 
-			<Card style={{ width: "100%" }}>
-				<Space orientation="vertical" size="large" style={{ width: "100%" }}>
-					<Space style={{ justifyContent: "space-between", width: "100%" }}>
-						<Link to="/">
-							<Button icon={<ArrowLeftOutlined />}>{t("actions.back")}</Button>
-						</Link>
-						<Button
-							type="primary"
-							icon={<PlusOutlined />}
-							onClick={() => setAddModalVisible(true)}
-						>
-							{t("actions.add")}
-						</Button>
-					</Space>
+			<div
+				style={{
+					display: "flex",
+					justifyContent: "space-between",
+					alignItems: "center",
+					marginBottom: 24,
+				}}
+			>
+				<Title level={2} style={{ margin: 0 }}>
+					{t("title")}
+				</Title>
+				<Button
+					type="primary"
+					icon={<PlusOutlined />}
+					onClick={() => setAddModalVisible(true)}
+				>
+					{t("actions.add")}
+				</Button>
+			</div>
 
-					<Tabs
-						activeKey={filter}
-						onChange={(key) => {
-							setFilter(key as DomainFilter);
-							setSearchQuery("");
-							setNextCursor(null);
-							fetchDomains(null, "", key as DomainFilter);
-						}}
-						items={[
-							{ key: "active", label: t("filters.active") },
-							{ key: "inactive", label: t("filters.inactive") },
-							{ key: "all", label: t("filters.all") },
-						]}
-					/>
+			<Tabs
+				activeKey={filter}
+				onChange={(key) => {
+					setFilter(key as DomainFilter);
+					setSearchQuery("");
+					setNextCursor(null);
+					fetchDomains(null, "", key as DomainFilter);
+				}}
+				items={[
+					{ key: "active", label: t("filters.active") },
+					{ key: "inactive", label: t("filters.inactive") },
+					{ key: "all", label: t("filters.all") },
+				]}
+			/>
 
-					<Input
-						prefix={<SearchOutlined />}
-						placeholder={t("search.placeholder")}
-						value={searchQuery}
-						onChange={(e) => handleSearch(e.target.value)}
-						allowClear
-					/>
+			<Input
+				prefix={<SearchOutlined />}
+				placeholder={t("search.placeholder")}
+				value={searchQuery}
+				onChange={(e) => handleSearch(e.target.value)}
+				allowClear
+			/>
 
-					<Spin spinning={loading}>
-						<Table
-							dataSource={domains}
-							columns={columns}
-							rowKey="domain_name"
-							pagination={false}
-							locale={{
-								emptyText: <Empty description={t("table.empty")} />,
-							}}
-						/>
-						{hasMore && !loading && (
-							<div style={{ textAlign: "center", marginTop: 16 }}>
-								<Button onClick={handleLoadMore}>
-									{t("actions.loadMore")}
-								</Button>
-							</div>
-						)}
-					</Spin>
-				</Space>
-			</Card>
+			<Spin spinning={loading}>
+				<Table
+					dataSource={domains}
+					columns={columns}
+					rowKey="domain_name"
+					pagination={false}
+					locale={{
+						emptyText: <Empty description={t("table.empty")} />,
+					}}
+				/>
+				{hasMore && !loading && (
+					<div style={{ textAlign: "center", marginTop: 16 }}>
+						<Button onClick={handleLoadMore}>{t("actions.loadMore")}</Button>
+					</div>
+				)}
+			</Spin>
 
 			<Modal
 				title={t("addModal.title")}
