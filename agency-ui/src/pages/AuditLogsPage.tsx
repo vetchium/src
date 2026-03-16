@@ -171,11 +171,11 @@ export function AuditLogsPage() {
 			}}
 		>
 			<div style={{ marginBottom: 16 }}>
-			<Link to="/">
-				<Button icon={<ArrowLeftOutlined />}>{t("backToDashboard")}</Button>
-			</Link>
-		</div>
-		<Title level={2}>{t("title")}</Title>
+				<Link to="/">
+					<Button icon={<ArrowLeftOutlined />}>{t("backToDashboard")}</Button>
+				</Link>
+			</div>
+			<Title level={2}>{t("title")}</Title>
 
 			<div
 				style={{
