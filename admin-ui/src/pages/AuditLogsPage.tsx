@@ -165,7 +165,7 @@ export function AuditLogsPage() {
 		<div
 			style={{
 				width: "100%",
-				maxWidth: 1400,
+				maxWidth: 1200,
 				padding: "24px 16px",
 				alignSelf: "flex-start",
 			}}

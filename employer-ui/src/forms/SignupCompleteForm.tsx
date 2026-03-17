@@ -316,11 +316,14 @@ export function SignupCompleteForm() {
 						},
 					]}
 				>
-					<Select size="large">
-						<Select.Option value="en-US">English (US)</Select.Option>
-						<Select.Option value="de-DE">Deutsch (Deutschland)</Select.Option>
-						<Select.Option value="ta-IN">தமிழ் (இந்தியா)</Select.Option>
-					</Select>
+					<Select
+						size="large"
+						options={[
+							{ value: "en-US", label: "English (US)" },
+							{ value: "de-DE", label: "Deutsch (Deutschland)" },
+							{ value: "ta-IN", label: "தமிழ் (இந்தியா)" },
+						]}
+					/>
 				</Form.Item>
 
 				<Form.Item
