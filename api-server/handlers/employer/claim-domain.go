@@ -24,25 +24,24 @@ func ClaimDomain(s *server.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()
-		log := s.Logger(ctx)
 
 		// Get authenticated org user from context
 		orgUser := middleware.OrgUserFromContext(ctx)
 		if orgUser == nil {
-			log.Debug("org user not found in context")
+			s.Logger(ctx).Debug("org user not found in context")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 
 		var req employerdomains.ClaimDomainRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			log.Debug("failed to decode request", "error", err)
+			s.Logger(ctx).Debug("failed to decode request", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		if errs := req.Validate(); len(errs) > 0 {
-			log.Debug("validation failed", "errors", errs)
+			s.Logger(ctx).Debug("validation failed", "errors", errs)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(errs)
 			return
@@ -54,12 +53,12 @@ func ClaimDomain(s *server.Server) http.HandlerFunc {
 		// Check if domain is already claimed in global DB
 		_, err := s.Global.GetGlobalEmployerDomain(ctx, domain)
 		if err == nil {
-			log.Debug("domain already claimed", "domain", domain)
+			s.Logger(ctx).Debug("domain already claimed", "domain", domain)
 			w.WriteHeader(http.StatusConflict)
 			json.NewEncoder(w).Encode(map[string]string{"error": "domain already claimed"})
 			return
 		} else if !errors.Is(err, pgx.ErrNoRows) {
-			log.Error("failed to check global domain", "error", err)
+			s.Logger(ctx).Error("failed to check global domain", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -67,7 +66,7 @@ func ClaimDomain(s *server.Server) http.HandlerFunc {
 		// Generate verification token
 		tokenBytes := make([]byte, 32)
 		if _, err := rand.Read(tokenBytes); err != nil {
-			log.Error("failed to generate verification token", "error", err)
+			s.Logger(ctx).Error("failed to generate verification token", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -85,12 +84,12 @@ func ClaimDomain(s *server.Server) http.HandlerFunc {
 		if err != nil {
 			// Check for unique constraint violation (domain already claimed)
 			if strings.Contains(err.Error(), "duplicate key") || strings.Contains(err.Error(), "unique constraint") {
-				log.Debug("domain already claimed (race condition)", "domain", domain)
+				s.Logger(ctx).Debug("domain already claimed (race condition)", "domain", domain)
 				w.WriteHeader(http.StatusConflict)
 				json.NewEncoder(w).Encode(map[string]string{"error": "domain already claimed"})
 				return
 			}
-			log.Error("failed to create global employer domain", "error", err)
+			s.Logger(ctx).Error("failed to create global employer domain", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -116,16 +115,16 @@ func ClaimDomain(s *server.Server) http.HandlerFunc {
 			})
 		})
 		if err != nil {
-			log.Error("failed to create regional employer domain", "error", err)
+			s.Logger(ctx).Error("failed to create regional employer domain", "error", err)
 			// Compensating transaction: delete from global DB
 			if delErr := s.Global.DeleteGlobalEmployerDomain(ctx, domain); delErr != nil {
-				log.Error("CONSISTENCY_ALERT: failed to rollback global employer domain", "error", delErr)
+				s.Logger(ctx).Error("CONSISTENCY_ALERT: failed to rollback global employer domain", "error", delErr)
 			}
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		log.Info("domain claimed", "domain", domain, "employer_id", orgUser.EmployerID)
+		s.Logger(ctx).Info("domain claimed", "domain", domain, "employer_id", orgUser.EmployerID)
 
 		// Build DNS instructions
 		instructions := fmt.Sprintf(

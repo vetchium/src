@@ -17,12 +17,11 @@ func EnableUser(s *server.GlobalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()
-		log := s.Logger(ctx)
 
 		// Get authenticated admin user from context
 		adminUser := middleware.AdminUserFromContext(ctx)
 		if adminUser == nil {
-			log.Debug("admin user not found in context")
+			s.Logger(ctx).Debug("admin user not found in context")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
@@ -30,14 +29,14 @@ func EnableUser(s *server.GlobalServer) http.HandlerFunc {
 		// Decode request
 		var req admin.AdminEnableUserRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			log.Debug("failed to decode request", "error", err)
+			s.Logger(ctx).Debug("failed to decode request", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		// Validate request
 		if errs := req.Validate(); len(errs) > 0 {
-			log.Debug("validation failed", "errors", errs)
+			s.Logger(ctx).Debug("validation failed", "errors", errs)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(errs)
 			return
@@ -47,18 +46,18 @@ func EnableUser(s *server.GlobalServer) http.HandlerFunc {
 		targetUser, err := s.Global.GetAdminUserByEmail(ctx, string(req.EmailAddress))
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				log.Debug("target user not found", "email", req.EmailAddress)
+				s.Logger(ctx).Debug("target user not found", "email", req.EmailAddress)
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
-			log.Error("failed to get target user", "error", err)
+			s.Logger(ctx).Error("failed to get target user", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
 		// Check if target user is in disabled state
 		if targetUser.Status != globaldb.AdminUserStatusDisabled {
-			log.Debug("target user not in disabled state", "status", targetUser.Status)
+			s.Logger(ctx).Debug("target user not in disabled state", "status", targetUser.Status)
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
@@ -80,12 +79,12 @@ func EnableUser(s *server.GlobalServer) http.HandlerFunc {
 			})
 		})
 		if err != nil {
-			log.Error("failed to enable user", "error", err)
+			s.Logger(ctx).Error("failed to enable user", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		log.Info("admin user enabled successfully",
+		s.Logger(ctx).Info("admin user enabled successfully",
 			"target_user_id", targetUser.AdminUserID,
 			"enabled_by", adminUser.AdminUserID)
 

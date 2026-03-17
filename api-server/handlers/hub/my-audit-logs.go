@@ -20,24 +20,23 @@ func MyAuditLogs(s *server.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()
-		log := s.Logger(ctx)
 
 		hubUser := middleware.HubUserFromContext(ctx)
 		if hubUser == nil {
-			log.Debug("hub user not found in context")
+			s.Logger(ctx).Debug("hub user not found in context")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 
 		var req auditlogs.FilterAuditLogsRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			log.Debug("failed to decode request", "error", err)
+			s.Logger(ctx).Debug("failed to decode request", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		if errs := req.Validate(); len(errs) > 0 {
-			log.Debug("validation failed", "errors", errs)
+			s.Logger(ctx).Debug("validation failed", "errors", errs)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(errs)
 			return
@@ -65,7 +64,7 @@ func MyAuditLogs(s *server.Server) http.HandlerFunc {
 		if req.PaginationKey != nil && *req.PaginationKey != "" {
 			cursorTime, cursorID, err := decodeAuditLogCursor(*req.PaginationKey)
 			if err != nil {
-				log.Debug("invalid pagination_key", "error", err)
+				s.Logger(ctx).Debug("invalid pagination_key", "error", err)
 				http.Error(w, "invalid pagination_key", http.StatusBadRequest)
 				return
 			}
@@ -78,7 +77,7 @@ func MyAuditLogs(s *server.Server) http.HandlerFunc {
 
 		rows, err := s.Regional.FilterMyAuditLogs(ctx, params)
 		if err != nil {
-			log.Error("failed to filter audit logs", "error", err)
+			s.Logger(ctx).Error("failed to filter audit logs", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -109,7 +108,7 @@ func MyAuditLogs(s *server.Server) http.HandlerFunc {
 		}
 
 		if err := json.NewEncoder(w).Encode(resp); err != nil {
-			log.Error("failed to encode response", "error", err)
+			s.Logger(ctx).Error("failed to encode response", "error", err)
 		}
 	}
 }

@@ -606,7 +606,6 @@ func RemoveSubOrgMember(s *server.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()
-		log := s.Logger(ctx)
 
 		orgUser := middleware.OrgUserFromContext(ctx)
 		if orgUser == nil {

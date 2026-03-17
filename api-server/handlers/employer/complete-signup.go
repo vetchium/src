@@ -33,17 +33,16 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 		}
 
 		ctx := r.Context()
-		log := s.Logger(ctx)
 
 		var req employertypes.OrgCompleteSignupRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			log.Debug("failed to decode request", "error", err)
+			s.Logger(ctx).Debug("failed to decode request", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		if errs := req.Validate(); len(errs) > 0 {
-			log.Debug("validation failed", "errors", errs)
+			s.Logger(ctx).Debug("validation failed", "errors", errs)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(errs)
 			return
@@ -53,11 +52,11 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 		tokenRecord, err := s.Global.GetOrgSignupTokenByEmailToken(ctx, string(req.SignupToken))
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				log.Debug("no pending signup found for token")
+				s.Logger(ctx).Debug("no pending signup found for token")
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
-			log.Error("failed to query signup token", "error", err)
+			s.Logger(ctx).Error("failed to query signup token", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -72,13 +71,13 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 		var tokenFound bool
 
 		if s.Environment == "DEV" && (domain == "example.com" || strings.HasSuffix(domain, ".example.com")) {
-			log.Info("skipping DNS verification for example.com in DEV environment", "domain", domain)
+			s.Logger(ctx).Info("skipping DNS verification for example.com in DEV environment", "domain", domain)
 			tokenFound = true
 		} else {
 			dnsRecordName := dnsRecordPrefix + domain
 			txtRecords, err := net.LookupTXT(dnsRecordName)
 			if err != nil {
-				log.Debug("DNS lookup failed", "error", err, "record_name", dnsRecordName)
+				s.Logger(ctx).Debug("DNS lookup failed", "error", err, "record_name", dnsRecordName)
 				w.WriteHeader(http.StatusUnprocessableEntity)
 				return
 			}
@@ -94,13 +93,13 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 			}
 
 			if !tokenFound {
-				log.Debug("DNS verification failed - token not found in TXT records", "domain", domain, "expected_token_prefix", dnsVerificationToken[:8])
+				s.Logger(ctx).Debug("DNS verification failed - token not found in TXT records", "domain", domain, "expected_token_prefix", dnsVerificationToken[:8])
 				w.WriteHeader(http.StatusUnprocessableEntity)
 				return
 			}
 		}
 
-		log.Info("DNS verification successful", "domain", domain)
+		s.Logger(ctx).Info("DNS verification successful", "domain", domain)
 
 		// Proxy to correct region if needed
 		if region != s.CurrentRegion {
@@ -122,10 +121,10 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 			})
 			if txErr != nil {
 				if server.IsUniqueViolation(txErr) {
-					log.Debug("employer already exists for domain", "domain", domain)
+					s.Logger(ctx).Debug("employer already exists for domain", "domain", domain)
 					return errors.New("employer already exists")
 				}
-				log.Error("failed to create employer", "error", txErr)
+				s.Logger(ctx).Error("failed to create employer", "error", txErr)
 				return txErr
 			}
 
@@ -137,10 +136,10 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 			})
 			if txErr != nil {
 				if server.IsUniqueViolation(txErr) {
-					log.Debug("domain already exists", "domain", domain)
+					s.Logger(ctx).Debug("domain already exists", "domain", domain)
 					return errors.New("domain already exists")
 				}
-				log.Error("failed to create global employer domain", "error", txErr)
+				s.Logger(ctx).Error("failed to create global employer domain", "error", txErr)
 				return txErr
 			}
 
@@ -153,10 +152,10 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 			})
 			if txErr != nil {
 				if server.IsUniqueViolation(txErr) {
-					log.Debug("user already exists", "email_hash", emailHash)
+					s.Logger(ctx).Debug("user already exists", "email_hash", emailHash)
 					return errors.New("user already exists")
 				}
-				log.Error("failed to create org user in global DB", "error", txErr)
+				s.Logger(ctx).Error("failed to create org user in global DB", "error", txErr)
 				return txErr
 			}
 
@@ -165,7 +164,7 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 
 		// Handle transaction errors
 		if err != nil {
-			log.Error("failed global transaction", "error", err)
+			s.Logger(ctx).Error("failed global transaction", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -173,7 +172,7 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 		// Hash password (expensive CPU op, done outside DB transactions)
 		passwordHash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 		if err != nil {
-			log.Error("failed to hash password", "error", err)
+			s.Logger(ctx).Error("failed to hash password", "error", err)
 			s.Global.DeleteEmployer(ctx, employer.EmployerID)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
@@ -182,7 +181,7 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 		// Generate session token (crypto, done outside DB transaction)
 		sessionTokenBytes := make([]byte, 32)
 		if _, err := rand.Read(sessionTokenBytes); err != nil {
-			log.Error("failed to generate session token", "error", err)
+			s.Logger(ctx).Error("failed to generate session token", "error", err)
 			s.Global.DeleteEmployer(ctx, employer.EmployerID)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
@@ -204,7 +203,7 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 				PreferredLanguage: string(req.PreferredLanguage),
 			})
 			if txErr != nil {
-				log.Error("failed to create org user in regional DB", "error", txErr)
+				s.Logger(ctx).Error("failed to create org user in regional DB", "error", txErr)
 				return txErr
 			}
 
@@ -219,14 +218,14 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 				LastVerifiedAt:    pgtype.Timestamp{Time: now, Valid: true},
 			})
 			if txErr != nil {
-				log.Error("failed to create regional employer domain", "error", txErr)
+				s.Logger(ctx).Error("failed to create regional employer domain", "error", txErr)
 				return txErr
 			}
 
 			// 3. Assign superadmin role to first user
 			superadminRole, txErr := qtx.GetRoleByName(ctx, "employer:superadmin")
 			if txErr != nil {
-				log.Error("failed to get employer:superadmin role", "error", txErr)
+				s.Logger(ctx).Error("failed to get employer:superadmin role", "error", txErr)
 				return txErr
 			}
 			txErr = qtx.AssignOrgUserRole(ctx, regionaldb.AssignOrgUserRoleParams{
@@ -234,7 +233,7 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 				RoleID:    superadminRole.RoleID,
 			})
 			if txErr != nil {
-				log.Error("failed to assign employer:superadmin role", "error", txErr)
+				s.Logger(ctx).Error("failed to assign employer:superadmin role", "error", txErr)
 				return txErr
 			}
 
@@ -246,7 +245,7 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 				ExpiresAt:    sessionExpiresAt,
 			})
 			if txErr != nil {
-				log.Error("failed to create session", "error", txErr)
+				s.Logger(ctx).Error("failed to create session", "error", txErr)
 				return txErr
 			}
 
@@ -269,7 +268,7 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 		// Mark signup token as consumed (best effort, non-critical)
 		_ = s.Global.MarkOrgSignupTokenConsumed(ctx, dnsVerificationToken)
 
-		log.Info("org user signup completed via DNS verification", "org_user_id", globalUser.OrgUserID, "employer_id", employer.EmployerID, "domain", domain)
+		s.Logger(ctx).Info("org user signup completed via DNS verification", "org_user_id", globalUser.OrgUserID, "employer_id", employer.EmployerID, "domain", domain)
 
 		w.WriteHeader(http.StatusCreated)
 		response := employertypes.OrgCompleteSignupResponse{

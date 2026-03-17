@@ -26,14 +26,13 @@ func ChangePassword(s *server.Server) http.HandlerFunc {
 		}
 
 		ctx := r.Context()
-		log := s.Logger(ctx)
 
 		// Validate request
 		if validationErrors := req.Validate(); len(validationErrors) > 0 {
-			log.Debug("validation failed", "errors", validationErrors)
+			s.Logger(ctx).Debug("validation failed", "errors", validationErrors)
 			w.WriteHeader(http.StatusBadRequest)
 			if err := json.NewEncoder(w).Encode(validationErrors); err != nil {
-				log.Error("failed to encode validation errors", "error", err)
+				s.Logger(ctx).Error("failed to encode validation errors", "error", err)
 			}
 			return
 		}
@@ -41,14 +40,14 @@ func ChangePassword(s *server.Server) http.HandlerFunc {
 		// Get authenticated user from context
 		hubUser := middleware.HubUserFromContext(ctx)
 		if hubUser == nil {
-			log.Debug("hub user not found in context")
+			s.Logger(ctx).Debug("hub user not found in context")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 
 		hubSession := middleware.HubSessionFromContext(ctx)
 		if hubSession.SessionToken == "" {
-			log.Debug("hub session not found in context")
+			s.Logger(ctx).Debug("hub session not found in context")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
@@ -57,19 +56,19 @@ func ChangePassword(s *server.Server) http.HandlerFunc {
 		regionalUser, err := s.Regional.GetHubUserByGlobalID(ctx, hubUser.HubUserGlobalID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				log.Debug("regional user not found")
+				s.Logger(ctx).Debug("regional user not found")
 				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
 
-			log.Error("failed to query regional DB", "error", err)
+			s.Logger(ctx).Error("failed to query regional DB", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
 		// Verify current password
 		if err := bcrypt.CompareHashAndPassword(regionalUser.PasswordHash, []byte(req.CurrentPassword)); err != nil {
-			log.Debug("current password incorrect")
+			s.Logger(ctx).Debug("current password incorrect")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
@@ -77,7 +76,7 @@ func ChangePassword(s *server.Server) http.HandlerFunc {
 		// Hash new password
 		newPasswordHash, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
 		if err != nil {
-			log.Error("failed to hash password", "error", err)
+			s.Logger(ctx).Error("failed to hash password", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -105,12 +104,12 @@ func ChangePassword(s *server.Server) http.HandlerFunc {
 			})
 		})
 		if err != nil {
-			log.Error("failed to update password", "error", err)
+			s.Logger(ctx).Error("failed to update password", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		log.Info("password changed successfully", "hub_user_global_id", hubUser.HubUserGlobalID)
+		s.Logger(ctx).Info("password changed successfully", "hub_user_global_id", hubUser.HubUserGlobalID)
 
 		// Return success (200 with empty body)
 		w.WriteHeader(http.StatusOK)

@@ -21,12 +21,11 @@ func DisableUser(s *server.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()
-		log := s.Logger(ctx)
 
 		// Get authenticated agency user from context
 		agencyUser := middleware.AgencyUserFromContext(ctx)
 		if agencyUser == nil {
-			log.Debug("agency user not found in context")
+			s.Logger(ctx).Debug("agency user not found in context")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
@@ -34,14 +33,14 @@ func DisableUser(s *server.Server) http.HandlerFunc {
 		// Decode request
 		var req agency.AgencyDisableUserRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			log.Debug("failed to decode request", "error", err)
+			s.Logger(ctx).Debug("failed to decode request", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		// Validate request
 		if errs := req.Validate(); len(errs) > 0 {
-			log.Debug("validation failed", "errors", errs)
+			s.Logger(ctx).Debug("validation failed", "errors", errs)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(errs)
 			return
@@ -57,11 +56,11 @@ func DisableUser(s *server.Server) http.HandlerFunc {
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				log.Debug("target user not found", "email", req.EmailAddress)
+				s.Logger(ctx).Debug("target user not found", "email", req.EmailAddress)
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
-			log.Error("failed to get target user", "error", err)
+			s.Logger(ctx).Error("failed to get target user", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -124,30 +123,30 @@ func DisableUser(s *server.Server) http.HandlerFunc {
 		})
 		if err != nil {
 			if errors.Is(err, server.ErrNotFound) {
-				log.Debug("target user not found in regional DB")
+				s.Logger(ctx).Debug("target user not found in regional DB")
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
 			if errors.Is(err, server.ErrInvalidState) {
-				log.Debug("cannot disable user - already disabled or last superadmin")
+				s.Logger(ctx).Debug("cannot disable user - already disabled or last superadmin")
 				w.WriteHeader(http.StatusUnprocessableEntity)
 				json.NewEncoder(w).Encode(map[string]string{
 					"error": "Cannot disable user: already disabled or last superadmin",
 				})
 				return
 			}
-			log.Error("failed to disable agency user", "error", err)
+			s.Logger(ctx).Error("failed to disable agency user", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
 		// Invalidate all sessions for the target user (best-effort, outside tx)
 		if err := s.Regional.DeleteAllAgencySessionsForUser(ctx, targetUserID); err != nil {
-			log.Error("failed to delete user sessions", "error", err)
+			s.Logger(ctx).Error("failed to delete user sessions", "error", err)
 			// User is disabled but sessions still active - this is acceptable
 		}
 
-		log.Info("agency user disabled successfully",
+		s.Logger(ctx).Info("agency user disabled successfully",
 			"target_user_id", targetUserID,
 			"disabled_by", agencyUser.AgencyUserID)
 

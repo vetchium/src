@@ -12,11 +12,10 @@ func GetRegions(s *server.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()
-		log := s.Logger(ctx)
 
 		regions, err := s.Global.GetActiveRegions(ctx)
 		if err != nil {
-			log.Error("failed to query active regions", "error", err)
+			s.Logger(ctx).Error("failed to get active regions", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}

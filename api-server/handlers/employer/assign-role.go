@@ -20,12 +20,11 @@ func AssignRole(s *server.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()
-		log := s.Logger(ctx)
 
 		// Get authenticated org user from context
 		orgUser := middleware.OrgUserFromContext(ctx)
 		if orgUser == nil {
-			log.Debug("org user not found in context")
+			s.Logger(ctx).Debug("org user not found in context")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
@@ -33,14 +32,14 @@ func AssignRole(s *server.Server) http.HandlerFunc {
 		// Decode request
 		var req employer.AssignRoleRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			log.Debug("failed to decode request", "error", err)
+			s.Logger(ctx).Debug("failed to decode request", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		// Validate request
 		if errs := req.Validate(); len(errs) > 0 {
-			log.Debug("validation failed", "errors", errs)
+			s.Logger(ctx).Debug("validation failed", "errors", errs)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(errs)
 			return
@@ -48,7 +47,7 @@ func AssignRole(s *server.Server) http.HandlerFunc {
 
 		// Ensure role belongs to the employer portal
 		if !strings.HasPrefix(string(req.RoleName), "employer:") {
-			log.Debug("role does not belong to employer portal", "role_name", req.RoleName)
+			s.Logger(ctx).Debug("role does not belong to employer portal", "role_name", req.RoleName)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode([]common.ValidationError{
 				common.NewValidationError("role_name", errors.New("must be an employer role")),
@@ -59,7 +58,7 @@ func AssignRole(s *server.Server) http.HandlerFunc {
 		// Parse target user ID as UUID
 		var targetUserID pgtype.UUID
 		if err := targetUserID.Scan(req.TargetUserID); err != nil {
-			log.Debug("invalid target user ID", "error", err)
+			s.Logger(ctx).Debug("invalid target user ID", "error", err)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode([]common.ValidationError{
 				common.NewValidationError("target_user_id", errors.New("invalid UUID format")),
@@ -71,18 +70,18 @@ func AssignRole(s *server.Server) http.HandlerFunc {
 		targetUser, err := s.Regional.GetOrgUserByID(ctx, targetUserID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				log.Debug("target org user not found", "target_user_id", req.TargetUserID)
+				s.Logger(ctx).Debug("target org user not found", "target_user_id", req.TargetUserID)
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
-			log.Error("failed to get target org user", "error", err)
+			s.Logger(ctx).Error("failed to get target org user", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
 		// Verify target user belongs to same employer
 		if targetUser.EmployerID != orgUser.EmployerID {
-			log.Debug("target user belongs to different employer",
+			s.Logger(ctx).Debug("target user belongs to different employer",
 				"target_user_id", targetUser.OrgUserID,
 				"target_employer_id", targetUser.EmployerID,
 				"current_employer_id", orgUser.EmployerID)
@@ -94,11 +93,11 @@ func AssignRole(s *server.Server) http.HandlerFunc {
 		role, err := s.Regional.GetRoleByName(ctx, string(req.RoleName))
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				log.Debug("role not found", "role_name", req.RoleName)
+				s.Logger(ctx).Debug("role not found", "role_name", req.RoleName)
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
-			log.Error("failed to get role", "error", err)
+			s.Logger(ctx).Error("failed to get role", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -109,13 +108,13 @@ func AssignRole(s *server.Server) http.HandlerFunc {
 			RoleID:    role.RoleID,
 		})
 		if err != nil {
-			log.Error("failed to check if user has role", "error", err)
+			s.Logger(ctx).Error("failed to check if user has role", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
 		if hasRole {
-			log.Debug("user already has role",
+			s.Logger(ctx).Debug("user already has role",
 				"target_user_id", targetUser.OrgUserID,
 				"role_name", req.RoleName)
 			w.WriteHeader(http.StatusConflict)
@@ -144,12 +143,12 @@ func AssignRole(s *server.Server) http.HandlerFunc {
 			})
 		})
 		if err != nil {
-			log.Error("failed to assign role", "error", err)
+			s.Logger(ctx).Error("failed to assign role", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		log.Info("role assigned to org user",
+		s.Logger(ctx).Info("role assigned to org user",
 			"org_user_id", orgUser.OrgUserID,
 			"target_user_id", targetUser.OrgUserID,
 			"role_name", req.RoleName)

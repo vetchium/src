@@ -27,18 +27,17 @@ func UploadTagIcon(s *server.GlobalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()
-		log := s.Logger(ctx)
 
 		adminUser := middleware.AdminUserFromContext(ctx)
 		if adminUser == nil {
-			log.Debug("admin user not found in context")
+			s.Logger(ctx).Debug("admin user not found in context")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 
 		// Parse multipart form with 10MB max memory
 		if err := r.ParseMultipartForm(10 << 20); err != nil {
-			log.Debug("failed to parse multipart form", "error", err)
+			s.Logger(ctx).Debug("failed to parse multipart form", "error", err)
 			http.Error(w, "invalid multipart form", http.StatusBadRequest)
 			return
 		}
@@ -57,7 +56,7 @@ func UploadTagIcon(s *server.GlobalServer) http.HandlerFunc {
 
 		file, _, err := r.FormFile("icon_file")
 		if err != nil {
-			log.Debug("failed to get icon_file from form", "error", err)
+			s.Logger(ctx).Debug("failed to get icon_file from form", "error", err)
 			http.Error(w, "icon_file is required", http.StatusBadRequest)
 			return
 		}
@@ -67,7 +66,7 @@ func UploadTagIcon(s *server.GlobalServer) http.HandlerFunc {
 		limitedReader := io.LimitReader(file, maxIconFileSize+1)
 		fileBytes, err := io.ReadAll(limitedReader)
 		if err != nil {
-			log.Error("failed to read icon file", "error", err)
+			s.Logger(ctx).Error("failed to read icon file", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -79,7 +78,7 @@ func UploadTagIcon(s *server.GlobalServer) http.HandlerFunc {
 		// Detect content type via magic bytes
 		contentType, err := detectImageContentType(fileBytes)
 		if err != nil {
-			log.Debug("unsupported image format", "error", err)
+			s.Logger(ctx).Debug("unsupported image format", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -88,11 +87,11 @@ func UploadTagIcon(s *server.GlobalServer) http.HandlerFunc {
 		_, err = s.Global.GetTag(ctx, tagID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				log.Debug("tag not found", "tag_id", tagID)
+				s.Logger(ctx).Debug("tag not found", "tag_id", tagID)
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
-			log.Error("failed to get tag", "error", err)
+			s.Logger(ctx).Error("failed to get tag", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -100,7 +99,7 @@ func UploadTagIcon(s *server.GlobalServer) http.HandlerFunc {
 		// Upload to S3
 		s3Key := fmt.Sprintf("tags/%s/%s", tagID, iconSize)
 		if err := uploadToS3(ctx, s.StorageConfig, s3Key, contentType, fileBytes); err != nil {
-			log.Error("failed to upload icon to S3", "error", err)
+			s.Logger(ctx).Error("failed to upload icon to S3", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -135,12 +134,12 @@ func UploadTagIcon(s *server.GlobalServer) http.HandlerFunc {
 			})
 		})
 		if err != nil {
-			log.Error("failed to update tag icon in DB", "error", err)
+			s.Logger(ctx).Error("failed to update tag icon in DB", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		log.Info("tag icon uploaded", "tag_id", tagID, "icon_size", iconSize)
+		s.Logger(ctx).Info("tag icon uploaded", "tag_id", tagID, "icon_size", iconSize)
 		w.WriteHeader(http.StatusOK)
 	}
 }

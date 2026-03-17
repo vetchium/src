@@ -34,14 +34,13 @@ func Login(s *server.GlobalServer) http.HandlerFunc {
 		}
 
 		ctx := r.Context()
-		log := s.Logger(ctx)
 
 		// Validate request
 		if validationErrors := loginRequest.Validate(); len(validationErrors) > 0 {
-			log.Debug("validation failed", "errors", validationErrors)
+			s.Logger(ctx).Debug("validation failed", "errors", validationErrors)
 			w.WriteHeader(http.StatusBadRequest)
 			if err := json.NewEncoder(w).Encode(validationErrors); err != nil {
-				log.Error("failed to encode validation errors", "error", err)
+				s.Logger(ctx).Error("failed to encode validation errors", "error", err)
 			}
 			return
 		}
@@ -50,25 +49,25 @@ func Login(s *server.GlobalServer) http.HandlerFunc {
 		adminUser, err := s.Global.GetAdminUserByEmail(ctx, string(loginRequest.EmailAddress))
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				log.Debug("invalid credentials - user not found")
+				s.Logger(ctx).Debug("invalid credentials - user not found")
 				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
 
-			log.Error("failed to query global DB", "error", err)
+			s.Logger(ctx).Error("failed to query global DB", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
 		if adminUser.Status != globaldb.AdminUserStatusActive {
-			log.Debug("disabled admin user")
+			s.Logger(ctx).Debug("disabled admin user")
 			w.WriteHeader(http.StatusUnprocessableEntity)
 			return
 		}
 
 		// Verify password
 		if err := bcrypt.CompareHashAndPassword(adminUser.PasswordHash, []byte(loginRequest.Password)); err != nil {
-			log.Debug("invalid credentials - password mismatch")
+			s.Logger(ctx).Debug("invalid credentials - password mismatch")
 			// login_failed is a standalone audit log insert (no primary write to be atomic with)
 			if auditErr := s.Global.InsertAdminAuditLog(ctx, globaldb.InsertAdminAuditLogParams{
 				EventType:    "admin.login_failed",
@@ -76,7 +75,7 @@ func Login(s *server.GlobalServer) http.HandlerFunc {
 				IpAddress:    audit.ExtractClientIP(r),
 				EventData:    []byte("{}"),
 			}); auditErr != nil {
-				log.Error("failed to write login_failed audit log", "error", auditErr)
+				s.Logger(ctx).Error("failed to write login_failed audit log", "error", auditErr)
 			}
 			w.WriteHeader(http.StatusUnauthorized)
 			return
@@ -85,7 +84,7 @@ func Login(s *server.GlobalServer) http.HandlerFunc {
 		// Generate TFA token
 		tfaTokenBytes := make([]byte, 32)
 		if _, err := rand.Read(tfaTokenBytes); err != nil {
-			log.Error("failed to generate TFA token", "error", err)
+			s.Logger(ctx).Error("failed to generate TFA token", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -94,7 +93,7 @@ func Login(s *server.GlobalServer) http.HandlerFunc {
 		// Generate 6-digit TFA code
 		tfaCode, err := generateTFACode()
 		if err != nil {
-			log.Error("failed to generate TFA code", "error", err)
+			s.Logger(ctx).Error("failed to generate TFA code", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -111,7 +110,7 @@ func Login(s *server.GlobalServer) http.HandlerFunc {
 			ExpiresAt:   expiresAt,
 		})
 		if err != nil {
-			log.Error("failed to store TFA token", "error", err)
+			s.Logger(ctx).Error("failed to store TFA token", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -120,23 +119,23 @@ func Login(s *server.GlobalServer) http.HandlerFunc {
 		lang := i18n.Match(adminUser.PreferredLanguage)
 		err = sendTFAEmail(ctx, s.Global, adminUser.EmailAddress, tfaCode, lang, tfaTokenExpiry)
 		if err != nil {
-			log.Error("failed to enqueue TFA email", "error", err)
+			s.Logger(ctx).Error("failed to enqueue TFA email", "error", err)
 			// Compensating transaction: delete the TFA token we just created
 			if delErr := s.Global.DeleteAdminTFAToken(ctx, tfaToken); delErr != nil {
-				log.Error("failed to delete TFA token after email enqueue failure", "error", delErr)
+				s.Logger(ctx).Error("failed to delete TFA token after email enqueue failure", "error", delErr)
 			}
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		log.Info("admin login initiated, TFA email sent", "admin_user_id", adminUser.AdminUserID)
+		s.Logger(ctx).Info("admin login initiated, TFA email sent", "admin_user_id", adminUser.AdminUserID)
 
 		response := admin.AdminLoginResponse{
 			TFAToken: admin.AdminTFAToken(tfaToken),
 		}
 
 		if err := json.NewEncoder(w).Encode(response); err != nil {
-			log.Error("JSON encoding error", "error", err)
+			s.Logger(ctx).Error("JSON encoding error", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}

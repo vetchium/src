@@ -29,6 +29,7 @@ func RequestPasswordReset(s *server.Server) http.HandlerFunc {
 
 		bodyBytes, err := proxy.BufferBody(r)
 		if err != nil {
+			s.Logger(r.Context()).Error("failed to buffer request body", "error", err)
 			http.Error(w, "", http.StatusBadRequest)
 			return
 		}
@@ -41,14 +42,13 @@ func RequestPasswordReset(s *server.Server) http.HandlerFunc {
 		}
 
 		ctx := r.Context()
-		log := s.Logger(ctx)
 
 		// Validate request
 		if validationErrors := req.Validate(); len(validationErrors) > 0 {
-			log.Debug("validation failed", "errors", validationErrors)
+			s.Logger(ctx).Debug("validation failed", "errors", validationErrors)
 			w.WriteHeader(http.StatusBadRequest)
 			if err := json.NewEncoder(w).Encode(validationErrors); err != nil {
-				log.Error("failed to encode validation errors", "error", err)
+				s.Logger(ctx).Error("failed to encode validation errors", "error", err)
 			}
 			return
 		}
@@ -61,12 +61,12 @@ func RequestPasswordReset(s *server.Server) http.HandlerFunc {
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				// Return generic success message to prevent account enumeration
-				log.Debug("user not found - returning generic success")
-				sendGenericSuccessResponse(w, log)
+				s.Logger(ctx).Debug("user not found - returning generic success")
+				sendGenericSuccessResponse(w, s.Logger(ctx))
 				return
 			}
 
-			log.Error("failed to query global DB", "error", err)
+			s.Logger(ctx).Error("failed to query global DB", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -81,12 +81,12 @@ func RequestPasswordReset(s *server.Server) http.HandlerFunc {
 		regionalUser, err := s.Regional.GetHubUserByEmail(ctx, string(req.EmailAddress))
 		if errors.Is(err, pgx.ErrNoRows) {
 			// Should not happen since global user exists, but handle gracefully
-			log.Error("regional user not found but global user exists", "hub_user_global_id", globalUser.HubUserGlobalID)
-			sendGenericSuccessResponse(w, log)
+			s.Logger(ctx).Error("regional user not found but global user exists", "hub_user_global_id", globalUser.HubUserGlobalID)
+			sendGenericSuccessResponse(w, s.Logger(ctx))
 			return
 		}
 		if err != nil {
-			log.Error("failed to query regional DB", "error", err)
+			s.Logger(ctx).Error("failed to query regional DB", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -94,15 +94,15 @@ func RequestPasswordReset(s *server.Server) http.HandlerFunc {
 		// Check if user is active (status is in regional DB)
 		if regionalUser.Status != regionaldb.HubUserStatusActive {
 			// Return generic success message to prevent account enumeration
-			log.Debug("user not active - returning generic success", "status", regionalUser.Status)
-			sendGenericSuccessResponse(w, log)
+			s.Logger(ctx).Debug("user not active - returning generic success", "status", regionalUser.Status)
+			sendGenericSuccessResponse(w, s.Logger(ctx))
 			return
 		}
 
 		// Generate password reset token
 		resetTokenBytes := make([]byte, 32)
 		if _, err := rand.Read(resetTokenBytes); err != nil {
-			log.Error("failed to generate reset token", "error", err)
+			s.Logger(ctx).Error("failed to generate reset token", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -135,14 +135,14 @@ func RequestPasswordReset(s *server.Server) http.HandlerFunc {
 			})
 		})
 		if err != nil {
-			log.Error("failed to create reset token and enqueue email", "error", err)
+			s.Logger(ctx).Error("failed to create reset token and enqueue email", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		log.Info("password reset email sent", "hub_user_global_id", globalUser.HubUserGlobalID)
+		s.Logger(ctx).Info("password reset email sent", "hub_user_global_id", globalUser.HubUserGlobalID)
 
-		sendGenericSuccessResponse(w, log)
+		sendGenericSuccessResponse(w, s.Logger(ctx))
 	}
 }
 

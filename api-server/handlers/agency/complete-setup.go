@@ -27,19 +27,18 @@ func CompleteSetup(s *server.Server) http.HandlerFunc {
 		}
 
 		ctx := r.Context()
-		log := s.Logger(ctx)
 
 		// Decode request
 		var req agencytypes.AgencyCompleteSetupRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			log.Debug("failed to decode request", "error", err)
+			s.Logger(ctx).Debug("failed to decode request", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		// Validate request
 		if errs := req.Validate(); len(errs) > 0 {
-			log.Debug("validation failed", "errors", errs)
+			s.Logger(ctx).Debug("validation failed", "errors", errs)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(errs)
 			return
@@ -49,16 +48,16 @@ func CompleteSetup(s *server.Server) http.HandlerFunc {
 		region, rawToken, err := tokens.ExtractRegionFromToken(string(req.InvitationToken))
 		if err != nil {
 			if errors.Is(err, tokens.ErrMissingPrefix) || errors.Is(err, tokens.ErrInvalidTokenFormat) {
-				log.Debug("invalid invitation token format", "error", err)
+				s.Logger(ctx).Debug("invalid invitation token format", "error", err)
 				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
 			if errors.Is(err, tokens.ErrUnknownRegion) {
-				log.Debug("unknown region in invitation token", "error", err)
+				s.Logger(ctx).Debug("unknown region in invitation token", "error", err)
 				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
-			log.Error("failed to extract region from invitation token", "error", err)
+			s.Logger(ctx).Error("failed to extract region from invitation token", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -73,11 +72,11 @@ func CompleteSetup(s *server.Server) http.HandlerFunc {
 		invitationTokenData, err := s.Regional.GetAgencyInvitationToken(ctx, rawToken)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				log.Debug("invalid or expired invitation token")
+				s.Logger(ctx).Debug("invalid or expired invitation token")
 				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
-			log.Error("failed to get invitation token", "error", err)
+			s.Logger(ctx).Error("failed to get invitation token", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -86,18 +85,18 @@ func CompleteSetup(s *server.Server) http.HandlerFunc {
 		regionalUser, err := s.Regional.GetAgencyUserByID(ctx, invitationTokenData.AgencyUserID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				log.Debug("agency user not found in regional DB")
+				s.Logger(ctx).Debug("agency user not found in regional DB")
 				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
-			log.Error("failed to get agency user from regional DB", "error", err)
+			s.Logger(ctx).Error("failed to get agency user from regional DB", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
 		// Check user status - must be invited
 		if regionalUser.Status != regionaldb.AgencyUserStatusInvited {
-			log.Debug("user is not in invited status", "status", regionalUser.Status)
+			s.Logger(ctx).Debug("user is not in invited status", "status", regionalUser.Status)
 			w.WriteHeader(http.StatusUnprocessableEntity)
 			return
 		}
@@ -105,7 +104,7 @@ func CompleteSetup(s *server.Server) http.HandlerFunc {
 		// Hash password
 		passwordHash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 		if err != nil {
-			log.Error("failed to hash password", "error", err)
+			s.Logger(ctx).Error("failed to hash password", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -140,12 +139,12 @@ func CompleteSetup(s *server.Server) http.HandlerFunc {
 			})
 		})
 		if err != nil {
-			log.Error("failed to complete agency user setup", "error", err)
+			s.Logger(ctx).Error("failed to complete agency user setup", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		log.Info("agency user setup completed successfully", "agency_user_id", invitationTokenData.AgencyUserID)
+		s.Logger(ctx).Info("agency user setup completed successfully", "agency_user_id", invitationTokenData.AgencyUserID)
 
 		// Return success response
 		response := agencytypes.AgencyCompleteSetupResponse{
@@ -153,7 +152,7 @@ func CompleteSetup(s *server.Server) http.HandlerFunc {
 		}
 
 		if err := json.NewEncoder(w).Encode(response); err != nil {
-			log.Error("failed to encode response", "error", err)
+			s.Logger(ctx).Error("failed to encode response", "error", err)
 		}
 	}
 }

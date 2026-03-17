@@ -14,18 +14,17 @@ func MyInfo(s *server.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()
-		log := s.Logger(ctx)
 
 		hubUser := middleware.HubUserFromContext(ctx)
 		if hubUser == nil {
-			log.Debug("hub user not found in context")
+			s.Logger(ctx).Debug("hub user not found in context")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 
 		roleRecords, err := s.Regional.GetHubUserRoles(ctx, hubUser.HubUserGlobalID)
 		if err != nil {
-			log.Error("failed to fetch hub user roles", "error", err)
+			s.Logger(ctx).Error("failed to fetch hub user roles", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -44,7 +43,7 @@ func MyInfo(s *server.Server) http.HandlerFunc {
 		}
 
 		if err := json.NewEncoder(w).Encode(response); err != nil {
-			log.Error("JSON encoding error", "error", err)
+			s.Logger(ctx).Error("JSON encoding error", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}

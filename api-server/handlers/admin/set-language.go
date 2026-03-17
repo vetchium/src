@@ -15,29 +15,28 @@ func SetLanguage(s *server.GlobalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()
-		log := s.Logger(ctx)
 
 		// Extract session from context (set by middleware)
 		session := middleware.AdminSessionFromContext(ctx)
 		if session.SessionToken == "" {
-			log.Debug("session not found in context")
+			s.Logger(ctx).Debug("session not found in context")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 
 		var request admin.AdminSetLanguageRequest
 		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-			log.Debug("failed to decode set-language request", "error", err)
+			s.Logger(ctx).Debug("failed to decode set-language request", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		// Validate request
 		if validationErrors := request.Validate(); len(validationErrors) > 0 {
-			log.Debug("validation failed", "errors", validationErrors)
+			s.Logger(ctx).Debug("validation failed", "errors", validationErrors)
 			w.WriteHeader(http.StatusBadRequest)
 			if err := json.NewEncoder(w).Encode(validationErrors); err != nil {
-				log.Error("failed to encode validation errors", "error", err)
+				s.Logger(ctx).Error("failed to encode validation errors", "error", err)
 			}
 			return
 		}
@@ -59,12 +58,12 @@ func SetLanguage(s *server.GlobalServer) http.HandlerFunc {
 			})
 		})
 		if err != nil {
-			log.Error("failed to update preferred language", "error", err)
+			s.Logger(ctx).Error("failed to update preferred language", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		log.Info("admin language updated", "admin_user_id", session.AdminUserID, "language", request.Language)
+		s.Logger(ctx).Info("admin language updated", "admin_user_id", session.AdminUserID, "language", request.Language)
 		w.WriteHeader(http.StatusOK)
 	}
 }

@@ -27,24 +27,23 @@ func FilterUsers(s *server.Server) http.HandlerFunc {
 		w.Header().Set("Content-Type", "application/json")
 
 		ctx := r.Context()
-		log := s.Logger(ctx)
 
 		orgUser := middleware.OrgUserFromContext(ctx)
 		if orgUser == nil {
-			log.Debug("org user not found in context")
+			s.Logger(ctx).Debug("org user not found in context")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 
 		var request employer.FilterOrgUsersRequest
 		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-			log.Debug("failed to decode request", "error", err)
+			s.Logger(ctx).Debug("failed to decode request", "error", err)
 			http.Error(w, "invalid JSON request body", http.StatusBadRequest)
 			return
 		}
 
 		if validationErrors := request.Validate(); len(validationErrors) > 0 {
-			log.Debug("validation failed", "errors", validationErrors)
+			s.Logger(ctx).Debug("validation failed", "errors", validationErrors)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(validationErrors)
 			return
@@ -64,13 +63,13 @@ func FilterUsers(s *server.Server) http.HandlerFunc {
 		if request.Cursor != nil && *request.Cursor != "" {
 			ca, id, err := decodeUserCursor(*request.Cursor)
 			if err != nil {
-				log.Debug("invalid cursor", "error", err)
+				s.Logger(ctx).Debug("invalid cursor", "error", err)
 				http.Error(w, "invalid cursor format", http.StatusBadRequest)
 				return
 			}
 			cursorCreatedAt = pgtype.Timestamp{Time: ca, Valid: true}
 			if err := cursorID.Scan(id); err != nil {
-				log.Debug("invalid cursor id", "error", err)
+				s.Logger(ctx).Debug("invalid cursor id", "error", err)
 				http.Error(w, "invalid cursor format", http.StatusBadRequest)
 				return
 			}
@@ -98,7 +97,7 @@ func FilterUsers(s *server.Server) http.HandlerFunc {
 
 		users, err := s.Regional.FilterOrgUsers(ctx, regionalParams)
 		if err != nil {
-			log.Error("failed to filter org users from regional db", "error", err)
+			s.Logger(ctx).Error("failed to filter org users from regional db", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -110,7 +109,7 @@ func FilterUsers(s *server.Server) http.HandlerFunc {
 				NextCursor: "",
 			}
 			if err := json.NewEncoder(w).Encode(response); err != nil {
-				log.Error("failed to encode response", "error", err)
+				s.Logger(ctx).Error("failed to encode response", "error", err)
 			}
 			return
 		}
@@ -161,7 +160,7 @@ func FilterUsers(s *server.Server) http.HandlerFunc {
 		}
 
 		if err := json.NewEncoder(w).Encode(response); err != nil {
-			log.Error("failed to encode response", "error", err)
+			s.Logger(ctx).Error("failed to encode response", "error", err)
 		}
 	}
 }

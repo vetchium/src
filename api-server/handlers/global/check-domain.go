@@ -14,17 +14,16 @@ func CheckDomain(s *server.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()
-		log := s.Logger(ctx)
 
 		var req global.CheckDomainRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			log.Debug("failed to decode request", "error", err)
+			s.Logger(ctx).Debug("failed to decode request", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		if errs := req.Validate(); len(errs) > 0 {
-			log.Debug("validation failed", "errors", errs)
+			s.Logger(ctx).Debug("validation failed", "errors", errs)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(errs)
 			return
@@ -35,7 +34,7 @@ func CheckDomain(s *server.Server) http.HandlerFunc {
 		if err == nil {
 			isApproved = true
 		} else if !errors.Is(err, pgx.ErrNoRows) {
-			log.Error("failed to query domain", "error", err)
+			s.Logger(ctx).Error("failed to query domain", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}

@@ -18,7 +18,6 @@ import (
 func GetTagIcon(s *server.GlobalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
-		log := s.Logger(ctx)
 
 		tagID := r.URL.Query().Get("tag_id")
 		size := r.URL.Query().Get("size")
@@ -38,7 +37,7 @@ func GetTagIcon(s *server.GlobalServer) http.HandlerFunc {
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
-			log.Error("failed to get tag", "error", err)
+			s.Logger(ctx).Error("failed to get tag", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -69,7 +68,7 @@ func GetTagIcon(s *server.GlobalServer) http.HandlerFunc {
 		// Proxy from S3
 		data, err := downloadFromS3(ctx, s.StorageConfig, s3Key)
 		if err != nil {
-			log.Error("failed to download icon from S3", "error", err)
+			s.Logger(ctx).Error("failed to download icon from S3", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -80,7 +79,7 @@ func GetTagIcon(s *server.GlobalServer) http.HandlerFunc {
 		}
 		w.Header().Set("Cache-Control", "public, max-age=86400")
 		if _, err := io.Copy(w, data); err != nil {
-			log.Error("failed to stream icon to response", "error", err)
+			s.Logger(ctx).Error("failed to stream icon to response", "error", err)
 		}
 	}
 }

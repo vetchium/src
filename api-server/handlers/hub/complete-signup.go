@@ -34,17 +34,16 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 		}
 
 		ctx := r.Context()
-		log := s.Logger(ctx)
 
 		var req hub.CompleteSignupRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			log.Debug("failed to decode request", "error", err)
+			s.Logger(ctx).Debug("failed to decode request", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		if errs := req.Validate(); len(errs) > 0 {
-			log.Debug("validation failed", "errors", errs)
+			s.Logger(ctx).Debug("validation failed", "errors", errs)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(errs)
 			return
@@ -54,7 +53,7 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 		// Preferred language cannot appear in other_display_names
 		for _, displayName := range req.OtherDisplayNames {
 			if displayName.LanguageCode == req.PreferredLanguage {
-				log.Debug("duplicate language code in other_display_names", "language", displayName.LanguageCode)
+				s.Logger(ctx).Debug("duplicate language code in other_display_names", "language", displayName.LanguageCode)
 				w.WriteHeader(http.StatusBadRequest)
 				json.NewEncoder(w).Encode([]map[string]string{
 					{
@@ -70,7 +69,7 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 		seenLanguages := make(map[string]bool)
 		for _, displayName := range req.OtherDisplayNames {
 			if seenLanguages[displayName.LanguageCode] {
-				log.Debug("duplicate language code in other_display_names", "language", displayName.LanguageCode)
+				s.Logger(ctx).Debug("duplicate language code in other_display_names", "language", displayName.LanguageCode)
 				w.WriteHeader(http.StatusBadRequest)
 				json.NewEncoder(w).Encode([]map[string]string{
 					{
@@ -87,11 +86,11 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 		tokenRecord, err := s.Global.GetHubSignupToken(ctx, string(req.SignupToken))
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				log.Debug("invalid or expired signup token")
+				s.Logger(ctx).Debug("invalid or expired signup token")
 				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
-			log.Error("failed to query signup token", "error", err)
+			s.Logger(ctx).Error("failed to query signup token", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -103,12 +102,12 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 		// Check if email already registered (duplicate signup during token lifetime)
 		_, err = s.Global.GetHubUserByEmailHash(ctx, emailHash)
 		if err == nil {
-			log.Debug("email already registered")
+			s.Logger(ctx).Debug("email already registered")
 			w.WriteHeader(http.StatusConflict)
 			json.NewEncoder(w).Encode(map[string]string{"error": "email already registered"})
 			return
 		} else if !errors.Is(err, pgx.ErrNoRows) {
-			log.Error("failed to query user", "error", err)
+			s.Logger(ctx).Error("failed to query user", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -117,17 +116,17 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 		region, err := s.Global.GetRegionByCode(ctx, globaldb.Region(req.HomeRegion))
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				log.Debug("invalid home region", "region", req.HomeRegion)
+				s.Logger(ctx).Debug("invalid home region", "region", req.HomeRegion)
 				w.WriteHeader(http.StatusBadRequest)
 				return
 			}
-			log.Error("failed to query region", "error", err)
+			s.Logger(ctx).Error("failed to query region", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
 		if !region.IsActive {
-			log.Debug("region not active", "region", req.HomeRegion)
+			s.Logger(ctx).Debug("region not active", "region", req.HomeRegion)
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
@@ -144,7 +143,7 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 		// Hash password
 		passwordHash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 		if err != nil {
-			log.Error("failed to hash password", "error", err)
+			s.Logger(ctx).Error("failed to hash password", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -193,7 +192,7 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 			return nil
 		})
 		if err != nil {
-			log.Error("failed global transaction", "error", err)
+			s.Logger(ctx).Error("failed global transaction", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -202,10 +201,10 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 		// Generate session token before regional TX so we can include it
 		sessionTokenBytes := make([]byte, 32)
 		if _, err := rand.Read(sessionTokenBytes); err != nil {
-			log.Error("failed to generate session token", "error", err)
+			s.Logger(ctx).Error("failed to generate session token", "error", err)
 			// Compensating: delete from global
 			if delErr := s.Global.DeleteHubUser(ctx, hubUserGlobalID); delErr != nil {
-				log.Error("CONSISTENCY_ALERT: failed to compensate global write",
+				s.Logger(ctx).Error("CONSISTENCY_ALERT: failed to compensate global write",
 					"entity_type", "hub_user",
 					"entity_id", hubUserGlobalID,
 					"intended_action", "delete",
@@ -265,10 +264,10 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 			})
 		})
 		if err != nil {
-			log.Error("failed regional transaction", "error", err)
+			s.Logger(ctx).Error("failed regional transaction", "error", err)
 			// Compensating: delete from global (cascades to display names)
 			if delErr := s.Global.DeleteHubUser(ctx, hubUserGlobalID); delErr != nil {
-				log.Error("CONSISTENCY_ALERT: failed to compensate global write",
+				s.Logger(ctx).Error("CONSISTENCY_ALERT: failed to compensate global write",
 					"entity_type", "hub_user",
 					"entity_id", hubUserGlobalID,
 					"intended_action", "delete",
@@ -279,7 +278,7 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		log.Info("hub user signup completed", "hub_user_global_id", hubUserGlobalID, "handle", handle)
+		s.Logger(ctx).Info("hub user signup completed", "hub_user_global_id", hubUserGlobalID, "handle", handle)
 
 		w.WriteHeader(http.StatusCreated)
 		response := hub.CompleteSignupResponse{

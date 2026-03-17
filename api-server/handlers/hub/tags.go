@@ -62,24 +62,23 @@ func GetTag(s *server.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()
-		log := s.Logger(ctx)
 
 		hubUser := middleware.HubUserFromContext(ctx)
 		if hubUser == nil {
-			log.Debug("hub user not found in context")
+			s.Logger(ctx).Debug("hub user not found in context")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 
 		var req hub.GetTagRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			log.Debug("failed to decode request", "error", err)
+			s.Logger(ctx).Debug("failed to decode request", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		if errs := req.Validate(); len(errs) > 0 {
-			log.Debug("validation failed", "errors", errs)
+			s.Logger(ctx).Debug("validation failed", "errors", errs)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(errs)
 			return
@@ -96,11 +95,11 @@ func GetTag(s *server.Server) http.HandlerFunc {
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				log.Debug("tag not found", "tag_id", req.TagID)
+				s.Logger(ctx).Debug("tag not found", "tag_id", req.TagID)
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
-			log.Error("failed to get tag", "error", err)
+			s.Logger(ctx).Error("failed to get tag", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -114,24 +113,23 @@ func FilterTags(s *server.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()
-		log := s.Logger(ctx)
 
 		hubUser := middleware.HubUserFromContext(ctx)
 		if hubUser == nil {
-			log.Debug("hub user not found in context")
+			s.Logger(ctx).Debug("hub user not found in context")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 
 		var req hub.FilterTagsRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			log.Debug("failed to decode request", "error", err)
+			s.Logger(ctx).Debug("failed to decode request", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		if errs := req.Validate(); len(errs) > 0 {
-			log.Debug("validation failed", "errors", errs)
+			s.Logger(ctx).Debug("validation failed", "errors", errs)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(errs)
 			return
@@ -149,7 +147,7 @@ func FilterTags(s *server.Server) http.HandlerFunc {
 			LimitCount:    tagFilterDefaultLimit + 1,
 		})
 		if err != nil {
-			log.Error("failed to filter tags", "error", err)
+			s.Logger(ctx).Error("failed to filter tags", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}

@@ -12,11 +12,10 @@ func GetSupportedLanguages(s *server.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()
-		log := s.Logger(ctx)
 
 		languages, err := s.Global.GetSupportedLanguages(ctx)
 		if err != nil {
-			log.Error("failed to query supported languages", "error", err)
+			s.Logger(ctx).Error("failed to get supported languages", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}

@@ -13,19 +13,18 @@ func Logout(s *server.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()
-		log := s.Logger(ctx)
 
 		// Extract session from context (set by middleware)
 		session := middleware.OrgSessionFromContext(ctx)
 		if session.SessionToken == "" {
-			log.Debug("session not found in context")
+			s.Logger(ctx).Debug("session not found in context")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 
 		orgUser := middleware.OrgUserFromContext(ctx)
 		if orgUser == nil {
-			log.Debug("org user not found in context")
+			s.Logger(ctx).Debug("org user not found in context")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
@@ -43,12 +42,12 @@ func Logout(s *server.Server) http.HandlerFunc {
 				EventData:   []byte("{}"),
 			})
 		}); err != nil {
-			log.Error("failed to delete session", "error", err)
+			s.Logger(ctx).Error("failed to delete session", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		log.Info("org user logged out", "org_user_id", session.OrgUserID)
+		s.Logger(ctx).Info("org user logged out", "org_user_id", session.OrgUserID)
 		w.WriteHeader(http.StatusOK)
 	}
 }

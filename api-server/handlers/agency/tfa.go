@@ -37,14 +37,13 @@ func TFA(s *server.Server) http.HandlerFunc {
 		}
 
 		ctx := r.Context()
-		log := s.Logger(ctx)
 
 		// Validate request
 		if validationErrors := tfaRequest.Validate(); len(validationErrors) > 0 {
-			log.Debug("validation failed", "errors", validationErrors)
+			s.Logger(ctx).Debug("validation failed", "errors", validationErrors)
 			w.WriteHeader(http.StatusBadRequest)
 			if err := json.NewEncoder(w).Encode(validationErrors); err != nil {
-				log.Error("failed to encode validation errors", "error", err)
+				s.Logger(ctx).Error("failed to encode validation errors", "error", err)
 			}
 			return
 		}
@@ -53,16 +52,16 @@ func TFA(s *server.Server) http.HandlerFunc {
 		region, rawTFAToken, err := tokens.ExtractRegionFromToken(string(tfaRequest.TFAToken))
 		if err != nil {
 			if errors.Is(err, tokens.ErrMissingPrefix) || errors.Is(err, tokens.ErrInvalidTokenFormat) {
-				log.Debug("invalid TFA token format", "error", err)
+				s.Logger(ctx).Debug("invalid TFA token format", "error", err)
 				w.WriteHeader(http.StatusBadRequest)
 				return
 			}
 			if errors.Is(err, tokens.ErrUnknownRegion) {
-				log.Debug("unknown region in TFA token", "error", err)
+				s.Logger(ctx).Debug("unknown region in TFA token", "error", err)
 				w.WriteHeader(http.StatusBadRequest)
 				return
 			}
-			log.Error("failed to extract region from TFA token", "error", err)
+			s.Logger(ctx).Error("failed to extract region from TFA token", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -77,18 +76,18 @@ func TFA(s *server.Server) http.HandlerFunc {
 		tfaTokenRecord, err := s.Regional.GetAgencyTFAToken(ctx, rawTFAToken)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				log.Debug("invalid or expired TFA token")
+				s.Logger(ctx).Debug("invalid or expired TFA token")
 				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
-			log.Error("failed to query TFA token", "error", err)
+			s.Logger(ctx).Error("failed to query TFA token", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
 		// Verify TFA code
 		if tfaTokenRecord.TfaCode != string(tfaRequest.TFACode) {
-			log.Debug("invalid TFA code")
+			s.Logger(ctx).Debug("invalid TFA code")
 			w.WriteHeader(http.StatusForbidden)
 			return
 		}
@@ -99,7 +98,7 @@ func TFA(s *server.Server) http.HandlerFunc {
 		// Get agency user from regional database to get preferred language
 		regionalUser, err := s.Regional.GetAgencyUserByID(ctx, tfaTokenRecord.AgencyUserID)
 		if err != nil {
-			log.Error("failed to fetch regional agency user", "error", err)
+			s.Logger(ctx).Error("failed to fetch regional agency user", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -107,7 +106,7 @@ func TFA(s *server.Server) http.HandlerFunc {
 		// Get agency to return agency_name in response
 		agencyEntity, err := s.Global.GetAgencyByID(ctx, regionalUser.AgencyID)
 		if err != nil {
-			log.Error("failed to fetch agency", "error", err)
+			s.Logger(ctx).Error("failed to fetch agency", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -115,7 +114,7 @@ func TFA(s *server.Server) http.HandlerFunc {
 		// Generate session token
 		sessionTokenBytes := make([]byte, 32)
 		if _, err := rand.Read(sessionTokenBytes); err != nil {
-			log.Error("failed to generate session token", "error", err)
+			s.Logger(ctx).Error("failed to generate session token", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -151,12 +150,12 @@ func TFA(s *server.Server) http.HandlerFunc {
 			})
 		})
 		if err != nil {
-			log.Error("failed to store session", "error", err)
+			s.Logger(ctx).Error("failed to store session", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		log.Info("agency user TFA verified, session created", "agency_user_id", regionalUser.AgencyUserID, "region", region, "remember_me", tfaRequest.RememberMe)
+		s.Logger(ctx).Info("agency user TFA verified, session created", "agency_user_id", regionalUser.AgencyUserID, "region", region, "remember_me", tfaRequest.RememberMe)
 
 		response := agency.AgencyTFAResponse{
 			SessionToken:      agency.AgencySessionToken(sessionToken),
@@ -165,7 +164,7 @@ func TFA(s *server.Server) http.HandlerFunc {
 		}
 
 		if err := json.NewEncoder(w).Encode(response); err != nil {
-			log.Error("JSON encoding error", "error", err)
+			s.Logger(ctx).Error("JSON encoding error", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}

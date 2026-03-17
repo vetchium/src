@@ -17,24 +17,23 @@ func FilterTags(s *server.GlobalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()
-		log := s.Logger(ctx)
 
 		adminUser := middleware.AdminUserFromContext(ctx)
 		if adminUser == nil {
-			log.Debug("admin user not found in context")
+			s.Logger(ctx).Debug("admin user not found in context")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 
 		var req admin.FilterTagsAdminRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			log.Debug("failed to decode request", "error", err)
+			s.Logger(ctx).Debug("failed to decode request", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		if errs := req.Validate(); len(errs) > 0 {
-			log.Debug("validation failed", "errors", errs)
+			s.Logger(ctx).Debug("validation failed", "errors", errs)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(errs)
 			return
@@ -46,7 +45,7 @@ func FilterTags(s *server.GlobalServer) http.HandlerFunc {
 			LimitCount:    int32(tagFilterDefaultLimit + 1),
 		})
 		if err != nil {
-			log.Error("failed to filter tags", "error", err)
+			s.Logger(ctx).Error("failed to filter tags", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -65,7 +64,7 @@ func FilterTags(s *server.GlobalServer) http.HandlerFunc {
 		for _, row := range rows {
 			translations, err := s.Global.GetTagTranslations(ctx, row.TagID)
 			if err != nil {
-				log.Error("failed to get tag translations", "error", err, "tag_id", row.TagID)
+				s.Logger(ctx).Error("failed to get tag translations", "error", err, "tag_id", row.TagID)
 				http.Error(w, "", http.StatusInternalServerError)
 				return
 			}

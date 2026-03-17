@@ -23,22 +23,21 @@ func RequestPasswordReset(s *server.GlobalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()
-		log := s.Logger(ctx)
 
 		// Decode request
 		var req admin.AdminRequestPasswordResetRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			log.Debug("failed to decode request", "error", err)
+			s.Logger(ctx).Debug("failed to decode request", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		// Validate request
 		if validationErrors := req.Validate(); len(validationErrors) > 0 {
-			log.Debug("validation failed", "errors", validationErrors)
+			s.Logger(ctx).Debug("validation failed", "errors", validationErrors)
 			w.WriteHeader(http.StatusBadRequest)
 			if err := json.NewEncoder(w).Encode(validationErrors); err != nil {
-				log.Error("failed to encode validation errors", "error", err)
+				s.Logger(ctx).Error("failed to encode validation errors", "error", err)
 			}
 			return
 		}
@@ -53,15 +52,15 @@ func RequestPasswordReset(s *server.GlobalServer) http.HandlerFunc {
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				// User doesn't exist - return generic success to prevent enumeration
-				log.Debug("password reset requested for non-existent email")
+				s.Logger(ctx).Debug("password reset requested for non-existent email")
 				w.WriteHeader(http.StatusOK)
 				if err := json.NewEncoder(w).Encode(genericResponse); err != nil {
-					log.Error("failed to encode response", "error", err)
+					s.Logger(ctx).Error("failed to encode response", "error", err)
 				}
 				return
 			}
 
-			log.Error("failed to query admin user", "error", err)
+			s.Logger(ctx).Error("failed to query admin user", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -69,7 +68,7 @@ func RequestPasswordReset(s *server.GlobalServer) http.HandlerFunc {
 		// Generate reset token (32 bytes = 64 hex characters)
 		resetTokenBytes := make([]byte, 32)
 		if _, err := rand.Read(resetTokenBytes); err != nil {
-			log.Error("failed to generate reset token", "error", err)
+			s.Logger(ctx).Error("failed to generate reset token", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -113,17 +112,17 @@ func RequestPasswordReset(s *server.GlobalServer) http.HandlerFunc {
 			})
 		})
 		if err != nil {
-			log.Error("failed to process password reset request", "error", err)
+			s.Logger(ctx).Error("failed to process password reset request", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		log.Info("password reset requested", "admin_user_id", adminUser.AdminUserID)
+		s.Logger(ctx).Info("password reset requested", "admin_user_id", adminUser.AdminUserID)
 
 		// Return generic success response
 		w.WriteHeader(http.StatusOK)
 		if err := json.NewEncoder(w).Encode(genericResponse); err != nil {
-			log.Error("failed to encode response", "error", err)
+			s.Logger(ctx).Error("failed to encode response", "error", err)
 		}
 	}
 }

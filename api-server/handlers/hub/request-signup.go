@@ -26,17 +26,16 @@ func RequestSignup(s *server.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()
-		log := s.Logger(ctx)
 
 		var req hub.RequestSignupRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			log.Debug("failed to decode request", "error", err)
+			s.Logger(ctx).Debug("failed to decode request", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		if errs := req.Validate(); len(errs) > 0 {
-			log.Debug("validation failed", "errors", errs)
+			s.Logger(ctx).Debug("validation failed", "errors", errs)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(errs)
 			return
@@ -45,7 +44,7 @@ func RequestSignup(s *server.Server) http.HandlerFunc {
 		// Extract domain from email
 		parts := strings.Split(string(req.EmailAddress), "@")
 		if len(parts) != 2 {
-			log.Debug("invalid email format")
+			s.Logger(ctx).Debug("invalid email format")
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
@@ -55,11 +54,11 @@ func RequestSignup(s *server.Server) http.HandlerFunc {
 		_, err := s.Global.GetActiveDomainByName(ctx, domain)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				log.Debug("domain not approved", "domain", domain)
+				s.Logger(ctx).Debug("domain not approved", "domain", domain)
 				w.WriteHeader(http.StatusForbidden)
 				return
 			}
-			log.Error("failed to query domain", "error", err)
+			s.Logger(ctx).Error("failed to query domain", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -70,12 +69,12 @@ func RequestSignup(s *server.Server) http.HandlerFunc {
 		// Check if email already registered
 		_, err = s.Global.GetHubUserByEmailHash(ctx, emailHash[:])
 		if err == nil {
-			log.Debug("email already registered")
+			s.Logger(ctx).Debug("email already registered")
 			w.WriteHeader(http.StatusConflict)
 			json.NewEncoder(w).Encode(map[string]string{"error": "email already registered"})
 			return
 		} else if !errors.Is(err, pgx.ErrNoRows) {
-			log.Error("failed to query user", "error", err)
+			s.Logger(ctx).Error("failed to query user", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -83,7 +82,7 @@ func RequestSignup(s *server.Server) http.HandlerFunc {
 		// Generate signup token
 		tokenBytes := make([]byte, 32)
 		if _, err := rand.Read(tokenBytes); err != nil {
-			log.Error("failed to generate token", "error", err)
+			s.Logger(ctx).Error("failed to generate token", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -99,7 +98,7 @@ func RequestSignup(s *server.Server) http.HandlerFunc {
 			ExpiresAt:        expiresAt,
 		})
 		if err != nil {
-			log.Error("failed to store signup token", "error", err)
+			s.Logger(ctx).Error("failed to store signup token", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -110,16 +109,16 @@ func RequestSignup(s *server.Server) http.HandlerFunc {
 		expiryHours := int(s.TokenConfig.HubSignupTokenExpiry.Hours())
 		err = sendSignupEmail(ctx, s.Regional, string(req.EmailAddress), signupLink, lang, expiryHours)
 		if err != nil {
-			log.Error("failed to enqueue signup email", "error", err)
+			s.Logger(ctx).Error("failed to enqueue signup email", "error", err)
 			// Compensating transaction: delete the signup token we just created
 			if delErr := s.Global.DeleteHubSignupToken(ctx, signupToken); delErr != nil {
-				log.Error("failed to cleanup signup token", "error", delErr)
+				s.Logger(ctx).Error("failed to cleanup signup token", "error", delErr)
 			}
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		log.Info("signup verification email sent", "email_hash", hex.EncodeToString(emailHash[:]))
+		s.Logger(ctx).Info("signup verification email sent", "email_hash", hex.EncodeToString(emailHash[:]))
 
 		response := hub.RequestSignupResponse{
 			Message: "Verification email sent. Please check your inbox.",

@@ -35,21 +35,20 @@ func RequestPasswordReset(s *server.Server) http.HandlerFunc {
 		}
 
 		ctx := r.Context()
-		log := s.Logger(ctx)
 
 		var req agency.AgencyRequestPasswordResetRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			log.Debug("failed to decode request", "error", err)
+			s.Logger(ctx).Debug("failed to decode request", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		// Validate request
 		if validationErrors := req.Validate(); len(validationErrors) > 0 {
-			log.Debug("validation failed", "errors", validationErrors)
+			s.Logger(ctx).Debug("validation failed", "errors", validationErrors)
 			w.WriteHeader(http.StatusBadRequest)
 			if err := json.NewEncoder(w).Encode(validationErrors); err != nil {
-				log.Error("failed to encode validation errors", "error", err)
+				s.Logger(ctx).Error("failed to encode validation errors", "error", err)
 			}
 			return
 		}
@@ -64,12 +63,12 @@ func RequestPasswordReset(s *server.Server) http.HandlerFunc {
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				// Domain not found - return generic success to prevent enumeration
-				log.Debug("domain not found", "domain", req.Domain)
+				s.Logger(ctx).Debug("domain not found", "domain", req.Domain)
 				w.WriteHeader(http.StatusOK)
 				json.NewEncoder(w).Encode(genericResponse)
 				return
 			}
-			log.Error("failed to get agency by domain", "error", err)
+			s.Logger(ctx).Error("failed to get agency by domain", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -85,12 +84,12 @@ func RequestPasswordReset(s *server.Server) http.HandlerFunc {
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				// User not found - return generic success to prevent enumeration
-				log.Debug("user not found for this agency")
+				s.Logger(ctx).Debug("user not found for this agency")
 				w.WriteHeader(http.StatusOK)
 				json.NewEncoder(w).Encode(genericResponse)
 				return
 			}
-			log.Error("failed to query global DB", "error", err)
+			s.Logger(ctx).Error("failed to query global DB", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -104,7 +103,7 @@ func RequestPasswordReset(s *server.Server) http.HandlerFunc {
 		// Generate reset token (32 bytes random → 64 char hex + uppercase region prefix)
 		tokenBytes := make([]byte, 32)
 		if _, err := rand.Read(tokenBytes); err != nil {
-			log.Error("failed to generate reset token", "error", err)
+			s.Logger(ctx).Error("failed to generate reset token", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -115,7 +114,7 @@ func RequestPasswordReset(s *server.Server) http.HandlerFunc {
 		expiresAt := time.Now().Add(passwordResetTokenExpiryHours * time.Hour)
 		regionalUser, err := s.Regional.GetAgencyUserByID(ctx, globalUser.AgencyUserID)
 		if err != nil {
-			log.Error("failed to get regional user for language preference", "error", err)
+			s.Logger(ctx).Error("failed to get regional user for language preference", "error", err)
 		}
 		preferredLang := "en-US"
 		if err == nil && regionalUser.PreferredLanguage != "" {
@@ -161,12 +160,12 @@ func RequestPasswordReset(s *server.Server) http.HandlerFunc {
 			})
 		})
 		if err != nil {
-			log.Error("failed to create reset token and enqueue email", "error", err)
+			s.Logger(ctx).Error("failed to create reset token and enqueue email", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		log.Info("password reset requested", "agency_user_id", globalUser.AgencyUserID)
+		s.Logger(ctx).Info("password reset requested", "agency_user_id", globalUser.AgencyUserID)
 
 		// Always return 200 with generic message
 		w.WriteHeader(http.StatusOK)

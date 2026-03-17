@@ -32,14 +32,13 @@ func RequestEmailChange(s *server.Server) http.HandlerFunc {
 		}
 
 		ctx := r.Context()
-		log := s.Logger(ctx)
 
 		// Validate request
 		if validationErrors := req.Validate(); len(validationErrors) > 0 {
-			log.Debug("validation failed", "errors", validationErrors)
+			s.Logger(ctx).Debug("validation failed", "errors", validationErrors)
 			w.WriteHeader(http.StatusBadRequest)
 			if err := json.NewEncoder(w).Encode(validationErrors); err != nil {
-				log.Error("failed to encode validation errors", "error", err)
+				s.Logger(ctx).Error("failed to encode validation errors", "error", err)
 			}
 			return
 		}
@@ -47,7 +46,7 @@ func RequestEmailChange(s *server.Server) http.HandlerFunc {
 		// Get authenticated user from context
 		hubUser := middleware.HubUserFromContext(ctx)
 		if hubUser == nil {
-			log.Debug("hub user not found in context")
+			s.Logger(ctx).Debug("hub user not found in context")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
@@ -55,7 +54,7 @@ func RequestEmailChange(s *server.Server) http.HandlerFunc {
 		// Check if user is trying to change to the same email
 		newEmailHash := sha256.Sum256([]byte(req.NewEmailAddress))
 		if string(req.NewEmailAddress) == hubUser.EmailAddress {
-			log.Debug("new email same as current email")
+			s.Logger(ctx).Debug("new email same as current email")
 			w.WriteHeader(http.StatusBadRequest)
 			resp := hub.HubRequestEmailChangeResponse{
 				Message: "New email address is the same as current email address",
@@ -67,13 +66,13 @@ func RequestEmailChange(s *server.Server) http.HandlerFunc {
 		// Check if new email is already in use (global DB)
 		existingUser, err := s.Global.GetHubUserByEmailHash(ctx, newEmailHash[:])
 		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-			log.Error("failed to check email availability", "error", err)
+			s.Logger(ctx).Error("failed to check email availability", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
 		if existingUser.HubUserGlobalID.Valid {
-			log.Debug("email already in use")
+			s.Logger(ctx).Debug("email already in use")
 			w.WriteHeader(http.StatusConflict)
 			json.NewEncoder(w).Encode(map[string]string{"error": "email already in use"})
 			return
@@ -82,7 +81,7 @@ func RequestEmailChange(s *server.Server) http.HandlerFunc {
 		// Generate verification token (region-prefixed)
 		tokenBytes := make([]byte, 32)
 		if _, err := rand.Read(tokenBytes); err != nil {
-			log.Error("failed to generate random token", "error", err)
+			s.Logger(ctx).Error("failed to generate random token", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -133,12 +132,12 @@ func RequestEmailChange(s *server.Server) http.HandlerFunc {
 			})
 		})
 		if err != nil {
-			log.Error("failed to create verification token and enqueue email", "error", err)
+			s.Logger(ctx).Error("failed to create verification token and enqueue email", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		log.Info("email verification requested", "hub_user_global_id", hubUser.HubUserGlobalID)
+		s.Logger(ctx).Info("email verification requested", "hub_user_global_id", hubUser.HubUserGlobalID)
 
 		// Return success response
 		resp := hub.HubRequestEmailChangeResponse{

@@ -35,14 +35,13 @@ func CompleteEmailChange(s *server.Server) http.HandlerFunc {
 		}
 
 		ctx := r.Context()
-		log := s.Logger(ctx)
 
 		// Validate request
 		if validationErrors := req.Validate(); len(validationErrors) > 0 {
-			log.Debug("validation failed", "errors", validationErrors)
+			s.Logger(ctx).Debug("validation failed", "errors", validationErrors)
 			w.WriteHeader(http.StatusBadRequest)
 			if err := json.NewEncoder(w).Encode(validationErrors); err != nil {
-				log.Error("failed to encode validation errors", "error", err)
+				s.Logger(ctx).Error("failed to encode validation errors", "error", err)
 			}
 			return
 		}
@@ -50,7 +49,7 @@ func CompleteEmailChange(s *server.Server) http.HandlerFunc {
 		// Parse region from token
 		region, rawToken, err := tokens.ExtractRegionFromToken(string(req.VerificationToken))
 		if err != nil {
-			log.Debug("invalid token format", "error", err)
+			s.Logger(ctx).Debug("invalid token format", "error", err)
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
@@ -65,11 +64,11 @@ func CompleteEmailChange(s *server.Server) http.HandlerFunc {
 		tokenRecord, err := s.Regional.GetHubEmailVerificationToken(ctx, rawToken)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				log.Debug("verification token not found or expired")
+				s.Logger(ctx).Debug("verification token not found or expired")
 				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
-			log.Error("failed to get verification token", "error", err)
+			s.Logger(ctx).Error("failed to get verification token", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -78,11 +77,11 @@ func CompleteEmailChange(s *server.Server) http.HandlerFunc {
 		globalUser, err := s.Global.GetHubUserByGlobalID(ctx, tokenRecord.HubUserGlobalID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				log.Debug("hub user not found")
+				s.Logger(ctx).Debug("hub user not found")
 				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
-			log.Error("failed to get hub user", "error", err)
+			s.Logger(ctx).Error("failed to get hub user", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -91,17 +90,17 @@ func CompleteEmailChange(s *server.Server) http.HandlerFunc {
 		regionalUser, err := s.Regional.GetHubUserByGlobalID(ctx, tokenRecord.HubUserGlobalID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				log.Debug("regional user not found")
+				s.Logger(ctx).Debug("regional user not found")
 				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
-			log.Error("failed to get regional user", "error", err)
+			s.Logger(ctx).Error("failed to get regional user", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
 		if regionalUser.Status != regionaldb.HubUserStatusActive {
-			log.Debug("user account not active", "status", regionalUser.Status)
+			s.Logger(ctx).Debug("user account not active", "status", regionalUser.Status)
 			w.WriteHeader(http.StatusUnprocessableEntity)
 			return
 		}
@@ -111,14 +110,14 @@ func CompleteEmailChange(s *server.Server) http.HandlerFunc {
 
 		existingUser, err := s.Global.GetHubUserByEmailHash(ctx, newEmailHash[:])
 		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-			log.Error("failed to check email availability", "error", err)
+			s.Logger(ctx).Error("failed to check email availability", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
 		if existingUser.HubUserGlobalID.Valid &&
 			existingUser.HubUserGlobalID != tokenRecord.HubUserGlobalID {
-			log.Debug("email became unavailable")
+			s.Logger(ctx).Debug("email became unavailable")
 			w.WriteHeader(http.StatusConflict)
 			json.NewEncoder(w).Encode(map[string]string{"error": "email already in use"})
 			return
@@ -135,7 +134,7 @@ func CompleteEmailChange(s *server.Server) http.HandlerFunc {
 			EmailAddressHash: newEmailHash[:],
 		})
 		if err != nil {
-			log.Error("failed to update email hash in global DB", "error", err)
+			s.Logger(ctx).Error("failed to update email hash in global DB", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -162,13 +161,13 @@ func CompleteEmailChange(s *server.Server) http.HandlerFunc {
 			})
 		})
 		if err != nil {
-			log.Error("failed to update email in regional DB", "error", err)
+			s.Logger(ctx).Error("failed to update email in regional DB", "error", err)
 			// Compensating transaction: revert global hash to old value
 			if revertErr := s.Global.UpdateHubUserEmailHash(ctx, globaldb.UpdateHubUserEmailHashParams{
 				HubUserGlobalID:  tokenRecord.HubUserGlobalID,
 				EmailAddressHash: oldEmailHash,
 			}); revertErr != nil {
-				log.Error("CONSISTENCY_ALERT: failed to revert global email hash",
+				s.Logger(ctx).Error("CONSISTENCY_ALERT: failed to revert global email hash",
 					"entity_type", "hub_user",
 					"entity_id", tokenRecord.HubUserGlobalID,
 					"intended_action", "revert_email_hash",
@@ -179,7 +178,7 @@ func CompleteEmailChange(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		log.Info("email changed successfully", "hub_user_global_id", tokenRecord.HubUserGlobalID, "new_email_hash", hex.EncodeToString(newEmailHash[:]))
+		s.Logger(ctx).Info("email changed successfully", "hub_user_global_id", tokenRecord.HubUserGlobalID, "new_email_hash", hex.EncodeToString(newEmailHash[:]))
 
 		// Return success (200 with empty body)
 		w.WriteHeader(http.StatusOK)

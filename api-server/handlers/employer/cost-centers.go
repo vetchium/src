@@ -30,24 +30,23 @@ func AddCostCenter(s *server.Server) http.HandlerFunc {
 		w.Header().Set("Content-Type", "application/json")
 
 		ctx := r.Context()
-		log := s.Logger(ctx)
 
 		orgUser := middleware.OrgUserFromContext(ctx)
 		if orgUser == nil {
-			log.Debug("org user not found in context")
+			s.Logger(ctx).Debug("org user not found in context")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 
 		var req employer.AddCostCenterRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			log.Debug("failed to decode request", "error", err)
+			s.Logger(ctx).Debug("failed to decode request", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		if errs := req.Validate(); len(errs) > 0 {
-			log.Debug("validation failed", "errors", errs)
+			s.Logger(ctx).Debug("validation failed", "errors", errs)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(errs)
 			return
@@ -88,7 +87,7 @@ func AddCostCenter(s *server.Server) http.HandlerFunc {
 				w.WriteHeader(http.StatusConflict)
 				return
 			}
-			log.Error("failed to create cost center", "error", err)
+			s.Logger(ctx).Error("failed to create cost center", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -104,24 +103,23 @@ func UpdateCostCenter(s *server.Server) http.HandlerFunc {
 		w.Header().Set("Content-Type", "application/json")
 
 		ctx := r.Context()
-		log := s.Logger(ctx)
 
 		orgUser := middleware.OrgUserFromContext(ctx)
 		if orgUser == nil {
-			log.Debug("org user not found in context")
+			s.Logger(ctx).Debug("org user not found in context")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 
 		var req employer.UpdateCostCenterRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			log.Debug("failed to decode request", "error", err)
+			s.Logger(ctx).Debug("failed to decode request", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		if errs := req.Validate(); len(errs) > 0 {
-			log.Debug("validation failed", "errors", errs)
+			s.Logger(ctx).Debug("validation failed", "errors", errs)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(errs)
 			return
@@ -161,7 +159,7 @@ func UpdateCostCenter(s *server.Server) http.HandlerFunc {
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
-			log.Error("failed to update cost center", "error", err)
+			s.Logger(ctx).Error("failed to update cost center", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -176,24 +174,23 @@ func ListCostCenters(s *server.Server) http.HandlerFunc {
 		w.Header().Set("Content-Type", "application/json")
 
 		ctx := r.Context()
-		log := s.Logger(ctx)
 
 		orgUser := middleware.OrgUserFromContext(ctx)
 		if orgUser == nil {
-			log.Debug("org user not found in context")
+			s.Logger(ctx).Debug("org user not found in context")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 
 		var req employer.ListCostCentersRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			log.Debug("failed to decode request", "error", err)
+			s.Logger(ctx).Debug("failed to decode request", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		if errs := req.Validate(); len(errs) > 0 {
-			log.Debug("validation failed", "errors", errs)
+			s.Logger(ctx).Debug("validation failed", "errors", errs)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(errs)
 			return
@@ -213,13 +210,13 @@ func ListCostCenters(s *server.Server) http.HandlerFunc {
 		if req.Cursor != nil && *req.Cursor != "" {
 			ca, id, err := decodeCostCenterCursor(*req.Cursor)
 			if err != nil {
-				log.Debug("invalid cursor", "error", err)
+				s.Logger(ctx).Debug("invalid cursor", "error", err)
 				http.Error(w, "invalid cursor format", http.StatusBadRequest)
 				return
 			}
 			cursorCreatedAt = pgtype.Timestamp{Time: ca, Valid: true}
 			if err := cursorID.Scan(id); err != nil {
-				log.Debug("invalid cursor id", "error", err)
+				s.Logger(ctx).Debug("invalid cursor id", "error", err)
 				http.Error(w, "invalid cursor format", http.StatusBadRequest)
 				return
 			}
@@ -243,7 +240,7 @@ func ListCostCenters(s *server.Server) http.HandlerFunc {
 
 		costCenters, err := s.Regional.ListCostCenters(ctx, params)
 		if err != nil {
-			log.Error("failed to list cost centers", "error", err)
+			s.Logger(ctx).Error("failed to list cost centers", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -272,7 +269,7 @@ func ListCostCenters(s *server.Server) http.HandlerFunc {
 		}
 
 		if err := json.NewEncoder(w).Encode(response); err != nil {
-			log.Error("failed to encode response", "error", err)
+			s.Logger(ctx).Error("failed to encode response", "error", err)
 		}
 	}
 }

@@ -23,12 +23,11 @@ func InviteUser(s *server.GlobalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()
-		log := s.Logger(ctx)
 
 		// Get authenticated admin user from context
 		adminUser := middleware.AdminUserFromContext(ctx)
 		if adminUser == nil {
-			log.Debug("admin user not found in context")
+			s.Logger(ctx).Debug("admin user not found in context")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
@@ -36,14 +35,14 @@ func InviteUser(s *server.GlobalServer) http.HandlerFunc {
 		// Decode request
 		var req admin.AdminInviteUserRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			log.Debug("failed to decode request", "error", err)
+			s.Logger(ctx).Debug("failed to decode request", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		// Validate request
 		if errs := req.Validate(); len(errs) > 0 {
-			log.Debug("validation failed", "errors", errs)
+			s.Logger(ctx).Debug("validation failed", "errors", errs)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(errs)
 			return
@@ -53,7 +52,7 @@ func InviteUser(s *server.GlobalServer) http.HandlerFunc {
 		_, err := s.Global.GetAdminUserByEmail(ctx, string(req.EmailAddress))
 		if err == nil {
 			// User already exists
-			log.Debug("admin user already exists", "email", req.EmailAddress)
+			s.Logger(ctx).Debug("admin user already exists", "email", req.EmailAddress)
 			w.WriteHeader(http.StatusConflict)
 			json.NewEncoder(w).Encode(map[string]string{
 				"error": "User with this email already exists",
@@ -61,7 +60,7 @@ func InviteUser(s *server.GlobalServer) http.HandlerFunc {
 			return
 		}
 		if !errors.Is(err, pgx.ErrNoRows) {
-			log.Error("failed to check if user exists", "error", err)
+			s.Logger(ctx).Error("failed to check if user exists", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -69,7 +68,7 @@ func InviteUser(s *server.GlobalServer) http.HandlerFunc {
 		// Generate new admin user ID
 		var uuidBytes [16]byte
 		if _, err := rand.Read(uuidBytes[:]); err != nil {
-			log.Error("failed to generate UUID", "error", err)
+			s.Logger(ctx).Error("failed to generate UUID", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -81,7 +80,7 @@ func InviteUser(s *server.GlobalServer) http.HandlerFunc {
 		// Generate invitation token
 		tokenBytes := make([]byte, 32)
 		if _, err := rand.Read(tokenBytes); err != nil {
-			log.Error("failed to generate invitation token", "error", err)
+			s.Logger(ctx).Error("failed to generate invitation token", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -144,12 +143,12 @@ func InviteUser(s *server.GlobalServer) http.HandlerFunc {
 			})
 		})
 		if err != nil {
-			log.Error("failed to invite admin user", "error", err)
+			s.Logger(ctx).Error("failed to invite admin user", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		log.Info("admin user invited successfully", "admin_user_id", createdUserID, "inviter_id", adminUser.AdminUserID)
+		s.Logger(ctx).Info("admin user invited successfully", "admin_user_id", createdUserID, "inviter_id", adminUser.AdminUserID)
 
 		// Return response
 		response := admin.AdminInviteUserResponse{
@@ -159,7 +158,7 @@ func InviteUser(s *server.GlobalServer) http.HandlerFunc {
 
 		w.WriteHeader(http.StatusCreated)
 		if err := json.NewEncoder(w).Encode(response); err != nil {
-			log.Error("failed to encode response", "error", err)
+			s.Logger(ctx).Error("failed to encode response", "error", err)
 		}
 	}
 }

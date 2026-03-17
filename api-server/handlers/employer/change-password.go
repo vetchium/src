@@ -19,29 +19,28 @@ func ChangePassword(s *server.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()
-		log := s.Logger(ctx)
 
 		// Get authenticated org user from context
 		orgUser := middleware.OrgUserFromContext(ctx)
 		if orgUser == nil {
-			log.Debug("org user not found in context")
+			s.Logger(ctx).Debug("org user not found in context")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 
 		var req employer.OrgChangePasswordRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			log.Debug("failed to decode request", "error", err)
+			s.Logger(ctx).Debug("failed to decode request", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		// Validate request
 		if validationErrors := req.Validate(); len(validationErrors) > 0 {
-			log.Debug("validation failed", "errors", validationErrors)
+			s.Logger(ctx).Debug("validation failed", "errors", validationErrors)
 			w.WriteHeader(http.StatusBadRequest)
 			if err := json.NewEncoder(w).Encode(validationErrors); err != nil {
-				log.Error("failed to encode validation errors", "error", err)
+				s.Logger(ctx).Error("failed to encode validation errors", "error", err)
 			}
 			return
 		}
@@ -50,11 +49,11 @@ func ChangePassword(s *server.Server) http.HandlerFunc {
 		regionalUser, err := s.Regional.GetOrgUserByID(ctx, orgUser.OrgUserID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				log.Error("user not found in regional DB", "org_user_id", orgUser.OrgUserID)
+				s.Logger(ctx).Error("user not found in regional DB", "org_user_id", orgUser.OrgUserID)
 				http.Error(w, "", http.StatusInternalServerError)
 				return
 			}
-			log.Error("failed to get user from regional DB", "error", err)
+			s.Logger(ctx).Error("failed to get user from regional DB", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -62,7 +61,7 @@ func ChangePassword(s *server.Server) http.HandlerFunc {
 		// Verify current password
 		err = bcrypt.CompareHashAndPassword(regionalUser.PasswordHash, []byte(req.CurrentPassword))
 		if err != nil {
-			log.Debug("current password verification failed")
+			s.Logger(ctx).Debug("current password verification failed")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
@@ -70,7 +69,7 @@ func ChangePassword(s *server.Server) http.HandlerFunc {
 		// Hash new password
 		newPasswordHash, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
 		if err != nil {
-			log.Error("failed to hash new password", "error", err)
+			s.Logger(ctx).Error("failed to hash new password", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -118,12 +117,12 @@ func ChangePassword(s *server.Server) http.HandlerFunc {
 			})
 		})
 		if err != nil {
-			log.Error("failed to update password", "error", err)
+			s.Logger(ctx).Error("failed to update password", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		log.Info("password changed successfully", "org_user_id", orgUser.OrgUserID)
+		s.Logger(ctx).Info("password changed successfully", "org_user_id", orgUser.OrgUserID)
 
 		w.WriteHeader(http.StatusOK)
 	}

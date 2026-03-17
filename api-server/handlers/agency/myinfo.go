@@ -14,25 +14,24 @@ func MyInfo(s *server.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()
-		log := s.Logger(ctx)
 
 		agencyUser := middleware.AgencyUserFromContext(ctx)
 		if agencyUser == nil {
-			log.Debug("agency user not found in context")
+			s.Logger(ctx).Debug("agency user not found in context")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 
 		agencyEntity, err := s.Global.GetAgencyByID(ctx, agencyUser.AgencyID)
 		if err != nil {
-			log.Error("failed to fetch agency", "error", err)
+			s.Logger(ctx).Error("failed to fetch agency", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
 		roleRecords, err := s.Regional.GetAgencyUserRoles(ctx, agencyUser.AgencyUserID)
 		if err != nil {
-			log.Error("failed to fetch agency user roles", "error", err)
+			s.Logger(ctx).Error("failed to fetch agency user roles", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -51,7 +50,7 @@ func MyInfo(s *server.Server) http.HandlerFunc {
 		}
 
 		if err := json.NewEncoder(w).Encode(response); err != nil {
-			log.Error("JSON encoding error", "error", err)
+			s.Logger(ctx).Error("JSON encoding error", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}

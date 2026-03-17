@@ -44,14 +44,13 @@ func Login(s *server.Server) http.HandlerFunc {
 		}
 
 		ctx := r.Context()
-		log := s.Logger(ctx)
 
 		// Validate request
 		if validationErrors := loginRequest.Validate(); len(validationErrors) > 0 {
-			log.Debug("validation failed", "errors", validationErrors)
+			s.Logger(ctx).Debug("validation failed", "errors", validationErrors)
 			w.WriteHeader(http.StatusBadRequest)
 			if err := json.NewEncoder(w).Encode(validationErrors); err != nil {
-				log.Error("failed to encode validation errors", "error", err)
+				s.Logger(ctx).Error("failed to encode validation errors", "error", err)
 			}
 			return
 		}
@@ -60,11 +59,11 @@ func Login(s *server.Server) http.HandlerFunc {
 		employer, err := s.Global.GetEmployerByDomain(ctx, string(loginRequest.Domain))
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				log.Debug("domain not found or not verified", "domain", loginRequest.Domain)
+				s.Logger(ctx).Debug("domain not found or not verified", "domain", loginRequest.Domain)
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
-			log.Error("failed to get employer by domain", "error", err)
+			s.Logger(ctx).Error("failed to get employer by domain", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -79,11 +78,11 @@ func Login(s *server.Server) http.HandlerFunc {
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				log.Debug("invalid credentials - user not found for this employer")
+				s.Logger(ctx).Debug("invalid credentials - user not found for this employer")
 				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
-			log.Error("failed to query global DB", "error", err)
+			s.Logger(ctx).Error("failed to query global DB", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -101,25 +100,25 @@ func Login(s *server.Server) http.HandlerFunc {
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				log.Debug("invalid credentials - user not found in regional DB")
+				s.Logger(ctx).Debug("invalid credentials - user not found in regional DB")
 				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
-			log.Error("failed to query regional DB", "error", err)
+			s.Logger(ctx).Error("failed to query regional DB", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
 		// Check user status from regional DB
 		if regionalUser.Status != regionaldb.OrgUserStatusActive {
-			log.Debug("disabled user")
+			s.Logger(ctx).Debug("disabled user")
 			w.WriteHeader(http.StatusUnprocessableEntity)
 			return
 		}
 
 		// Verify password
 		if err := bcrypt.CompareHashAndPassword(regionalUser.PasswordHash, []byte(loginRequest.Password)); err != nil {
-			log.Debug("invalid credentials - password mismatch")
+			s.Logger(ctx).Debug("invalid credentials - password mismatch")
 			w.WriteHeader(http.StatusUnauthorized)
 			if auditErr := s.Regional.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
 				EventType:   "employer.login_failed",
@@ -128,7 +127,7 @@ func Login(s *server.Server) http.HandlerFunc {
 				IpAddress:   audit.ExtractClientIP(r),
 				EventData:   []byte("{}"),
 			}); auditErr != nil {
-				log.Error("failed to write login_failed audit log", "error", auditErr)
+				s.Logger(ctx).Error("failed to write login_failed audit log", "error", auditErr)
 			}
 			return
 		}
@@ -136,7 +135,7 @@ func Login(s *server.Server) http.HandlerFunc {
 		// Generate TFA token
 		tfaTokenBytes := make([]byte, 32)
 		if _, err := rand.Read(tfaTokenBytes); err != nil {
-			log.Error("failed to generate TFA token", "error", err)
+			s.Logger(ctx).Error("failed to generate TFA token", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -148,7 +147,7 @@ func Login(s *server.Server) http.HandlerFunc {
 		// Generate 6-digit TFA code
 		tfaCode, err := generateTFACode()
 		if err != nil {
-			log.Error("failed to generate TFA code", "error", err)
+			s.Logger(ctx).Error("failed to generate TFA code", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -171,19 +170,19 @@ func Login(s *server.Server) http.HandlerFunc {
 			return sendOrgTFAEmail(ctx, qtx, regionalUser.EmailAddress, tfaCode, lang, tfaTokenExpiry)
 		})
 		if err != nil {
-			log.Error("failed to create TFA token and enqueue email", "error", err)
+			s.Logger(ctx).Error("failed to create TFA token and enqueue email", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		log.Info("org user login initiated, TFA email sent", "org_user_id", globalUser.OrgUserID)
+		s.Logger(ctx).Info("org user login initiated, TFA email sent", "org_user_id", globalUser.OrgUserID)
 
 		response := employertypes.OrgLoginResponse{
 			TFAToken: employertypes.OrgTFAToken(tfaToken),
 		}
 
 		if err := json.NewEncoder(w).Encode(response); err != nil {
-			log.Error("JSON encoding error", "error", err)
+			s.Logger(ctx).Error("JSON encoding error", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}

@@ -27,12 +27,11 @@ func InviteUser(s *server.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()
-		log := s.Logger(ctx)
 
 		// Get authenticated org user from context
 		orgUser := middleware.OrgUserFromContext(ctx)
 		if orgUser == nil {
-			log.Debug("org user not found in context")
+			s.Logger(ctx).Debug("org user not found in context")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
@@ -40,14 +39,14 @@ func InviteUser(s *server.Server) http.HandlerFunc {
 		// Decode request
 		var req employertypes.OrgInviteUserRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			log.Debug("failed to decode request", "error", err)
+			s.Logger(ctx).Debug("failed to decode request", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		// Validate request
 		if errs := req.Validate(); len(errs) > 0 {
-			log.Debug("validation failed", "errors", errs)
+			s.Logger(ctx).Debug("validation failed", "errors", errs)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(errs)
 			return
@@ -63,7 +62,7 @@ func InviteUser(s *server.Server) http.HandlerFunc {
 		})
 		if err == nil {
 			// User already exists for this employer
-			log.Debug("user already exists for this employer", "email_hash", hex.EncodeToString(emailHash[:]))
+			s.Logger(ctx).Debug("user already exists for this employer", "email_hash", hex.EncodeToString(emailHash[:]))
 			w.WriteHeader(http.StatusConflict)
 			json.NewEncoder(w).Encode(map[string]string{
 				"error": "User with this email already exists for this employer",
@@ -71,7 +70,7 @@ func InviteUser(s *server.Server) http.HandlerFunc {
 			return
 		}
 		if !errors.Is(err, pgx.ErrNoRows) {
-			log.Error("failed to check if user exists", "error", err)
+			s.Logger(ctx).Error("failed to check if user exists", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -82,14 +81,14 @@ func InviteUser(s *server.Server) http.HandlerFunc {
 			role, err := s.Regional.GetRoleByName(ctx, string(roleName))
 			if err != nil {
 				if errors.Is(err, pgx.ErrNoRows) {
-					log.Debug("role not found", "role_name", roleName)
+					s.Logger(ctx).Debug("role not found", "role_name", roleName)
 					w.WriteHeader(http.StatusBadRequest)
 					json.NewEncoder(w).Encode([]common.ValidationError{
 						common.NewValidationError("roles", common.ErrRoleNameInvalid),
 					})
 					return
 				}
-				log.Error("failed to get role", "error", err, "role_name", roleName)
+				s.Logger(ctx).Error("failed to get role", "error", err, "role_name", roleName)
 				http.Error(w, "", http.StatusInternalServerError)
 				return
 			}
@@ -99,14 +98,14 @@ func InviteUser(s *server.Server) http.HandlerFunc {
 		// Pre-fetch inviter and employer info (needed for email template)
 		inviter, err := s.Regional.GetOrgUserByID(ctx, orgUser.OrgUserID)
 		if err != nil {
-			log.Error("failed to get inviter info", "error", err)
+			s.Logger(ctx).Error("failed to get inviter info", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
 		employer, err := s.Global.GetEmployerByID(ctx, orgUser.EmployerID)
 		if err != nil {
-			log.Error("failed to get employer info", "error", err)
+			s.Logger(ctx).Error("failed to get employer info", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -119,7 +118,7 @@ func InviteUser(s *server.Server) http.HandlerFunc {
 			HomeRegion:       s.CurrentRegion,
 		})
 		if err != nil {
-			log.Error("failed to create org user in global DB", "error", err)
+			s.Logger(ctx).Error("failed to create org user in global DB", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -127,9 +126,9 @@ func InviteUser(s *server.Server) http.HandlerFunc {
 		// Generate invitation token
 		tokenBytes := make([]byte, 32)
 		if _, err := rand.Read(tokenBytes); err != nil {
-			log.Error("failed to generate invitation token", "error", err)
+			s.Logger(ctx).Error("failed to generate invitation token", "error", err)
 			if delErr := s.Global.DeleteOrgUser(ctx, globalUser.OrgUserID); delErr != nil {
-				log.Error("CONSISTENCY_ALERT: failed to delete org user from global DB", "error", delErr)
+				s.Logger(ctx).Error("CONSISTENCY_ALERT: failed to delete org user from global DB", "error", delErr)
 			}
 			http.Error(w, "", http.StatusInternalServerError)
 			return
@@ -215,16 +214,16 @@ func InviteUser(s *server.Server) http.HandlerFunc {
 			})
 		})
 		if err != nil {
-			log.Error("failed to create org user in regional DB", "error", err)
+			s.Logger(ctx).Error("failed to create org user in regional DB", "error", err)
 			// Compensating transaction: delete from global DB
 			if delErr := s.Global.DeleteOrgUser(ctx, globalUser.OrgUserID); delErr != nil {
-				log.Error("CONSISTENCY_ALERT: failed to delete org user from global DB after regional tx failure", "error", delErr)
+				s.Logger(ctx).Error("CONSISTENCY_ALERT: failed to delete org user from global DB after regional tx failure", "error", delErr)
 			}
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		log.Info("user invited successfully", "org_user_id", globalUser.OrgUserID, "inviter_id", orgUser.OrgUserID)
+		s.Logger(ctx).Info("user invited successfully", "org_user_id", globalUser.OrgUserID, "inviter_id", orgUser.OrgUserID)
 
 		// Return response
 		response := employertypes.OrgInviteUserResponse{
@@ -234,7 +233,7 @@ func InviteUser(s *server.Server) http.HandlerFunc {
 
 		w.WriteHeader(http.StatusCreated)
 		if err := json.NewEncoder(w).Encode(response); err != nil {
-			log.Error("failed to encode response", "error", err)
+			s.Logger(ctx).Error("failed to encode response", "error", err)
 		}
 	}
 }

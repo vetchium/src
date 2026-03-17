@@ -26,21 +26,20 @@ func CompletePasswordReset(s *server.Server) http.HandlerFunc {
 		}
 
 		ctx := r.Context()
-		log := s.Logger(ctx)
 
 		var req agency.AgencyCompletePasswordResetRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			log.Debug("failed to decode request", "error", err)
+			s.Logger(ctx).Debug("failed to decode request", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		// Validate request
 		if validationErrors := req.Validate(); len(validationErrors) > 0 {
-			log.Debug("validation failed", "errors", validationErrors)
+			s.Logger(ctx).Debug("validation failed", "errors", validationErrors)
 			w.WriteHeader(http.StatusBadRequest)
 			if err := json.NewEncoder(w).Encode(validationErrors); err != nil {
-				log.Error("failed to encode validation errors", "error", err)
+				s.Logger(ctx).Error("failed to encode validation errors", "error", err)
 			}
 			return
 		}
@@ -48,7 +47,7 @@ func CompletePasswordReset(s *server.Server) http.HandlerFunc {
 		// Extract region from token
 		region, _, err := tokens.ExtractRegionFromToken(string(req.ResetToken))
 		if err != nil {
-			log.Debug("invalid reset token format", "error", err)
+			s.Logger(ctx).Debug("invalid reset token format", "error", err)
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
@@ -63,11 +62,11 @@ func CompletePasswordReset(s *server.Server) http.HandlerFunc {
 		resetTokenRecord, err := s.Regional.GetAgencyPasswordResetToken(ctx, string(req.ResetToken))
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				log.Debug("reset token not found or expired")
+				s.Logger(ctx).Debug("reset token not found or expired")
 				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
-			log.Error("failed to get reset token", "error", err)
+			s.Logger(ctx).Error("failed to get reset token", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -75,7 +74,7 @@ func CompletePasswordReset(s *server.Server) http.HandlerFunc {
 		// Hash new password
 		passwordHash, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
 		if err != nil {
-			log.Error("failed to hash password", "error", err)
+			s.Logger(ctx).Error("failed to hash password", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -83,7 +82,7 @@ func CompletePasswordReset(s *server.Server) http.HandlerFunc {
 		// Look up agency user to get agency_id for audit log
 		agencyUser, err := s.Regional.GetAgencyUserByID(ctx, resetTokenRecord.AgencyUserGlobalID)
 		if err != nil {
-			log.Error("failed to get agency user for audit log", "error", err)
+			s.Logger(ctx).Error("failed to get agency user for audit log", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -112,12 +111,12 @@ func CompletePasswordReset(s *server.Server) http.HandlerFunc {
 			})
 		})
 		if err != nil {
-			log.Error("failed to complete password reset", "error", err)
+			s.Logger(ctx).Error("failed to complete password reset", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		log.Info("password reset completed", "agency_user_id", resetTokenRecord.AgencyUserGlobalID)
+		s.Logger(ctx).Info("password reset completed", "agency_user_id", resetTokenRecord.AgencyUserGlobalID)
 
 		w.WriteHeader(http.StatusOK)
 	}

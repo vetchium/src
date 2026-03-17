@@ -43,14 +43,13 @@ func Login(s *server.Server) http.HandlerFunc {
 		}
 
 		ctx := r.Context()
-		log := s.Logger(ctx)
 
 		// Validate request
 		if validationErrors := loginRequest.Validate(); len(validationErrors) > 0 {
-			log.Debug("validation failed", "errors", validationErrors)
+			s.Logger(ctx).Debug("validation failed", "errors", validationErrors)
 			w.WriteHeader(http.StatusBadRequest)
 			if err := json.NewEncoder(w).Encode(validationErrors); err != nil {
-				log.Error("failed to encode validation errors", "error", err)
+				s.Logger(ctx).Error("failed to encode validation errors", "error", err)
 			}
 			return
 		}
@@ -62,12 +61,12 @@ func Login(s *server.Server) http.HandlerFunc {
 		globalUser, err := s.Global.GetHubUserByEmailHash(ctx, emailHash[:])
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				log.Debug("invalid credentials")
+				s.Logger(ctx).Debug("invalid credentials")
 				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
 
-			log.Error("failed to query global DB", "error", err)
+			s.Logger(ctx).Error("failed to query global DB", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -85,21 +84,21 @@ func Login(s *server.Server) http.HandlerFunc {
 			return
 		}
 		if err != nil {
-			log.Error("failed to query regional DB", "error", err)
+			s.Logger(ctx).Error("failed to query regional DB", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
 		// Check if user is active (status is in regional DB)
 		if regionalUser.Status != regionaldb.HubUserStatusActive {
-			log.Debug("disabled user")
+			s.Logger(ctx).Debug("disabled user")
 			w.WriteHeader(http.StatusUnprocessableEntity)
 			return
 		}
 
 		// Verify password
 		if err := bcrypt.CompareHashAndPassword(regionalUser.PasswordHash, []byte(loginRequest.Password)); err != nil {
-			log.Debug("invalid credentials - password mismatch")
+			s.Logger(ctx).Debug("invalid credentials - password mismatch")
 			w.WriteHeader(http.StatusUnauthorized)
 			if auditErr := s.Regional.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
 				EventType:   "hub.login_failed",
@@ -107,7 +106,7 @@ func Login(s *server.Server) http.HandlerFunc {
 				IpAddress:   audit.ExtractClientIP(r),
 				EventData:   []byte("{}"),
 			}); auditErr != nil {
-				log.Error("failed to write login_failed audit log", "error", auditErr)
+				s.Logger(ctx).Error("failed to write login_failed audit log", "error", auditErr)
 			}
 			return
 		}
@@ -115,7 +114,7 @@ func Login(s *server.Server) http.HandlerFunc {
 		// Generate TFA token
 		tfaTokenBytes := make([]byte, 32)
 		if _, err := rand.Read(tfaTokenBytes); err != nil {
-			log.Error("failed to generate TFA token", "error", err)
+			s.Logger(ctx).Error("failed to generate TFA token", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -127,7 +126,7 @@ func Login(s *server.Server) http.HandlerFunc {
 		// Generate 6-digit TFA code
 		tfaCode, err := generateTFACode()
 		if err != nil {
-			log.Error("failed to generate TFA code", "error", err)
+			s.Logger(ctx).Error("failed to generate TFA code", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -149,19 +148,19 @@ func Login(s *server.Server) http.HandlerFunc {
 			return sendTFAEmail(ctx, qtx, regionalUser.EmailAddress, tfaCode, lang, tfaTokenExpiry)
 		})
 		if err != nil {
-			log.Error("failed to create TFA token and enqueue email", "error", err)
+			s.Logger(ctx).Error("failed to create TFA token and enqueue email", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		log.Info("hub user login initiated, TFA email sent", "hub_user_global_id", globalUser.HubUserGlobalID)
+		s.Logger(ctx).Info("hub user login initiated, TFA email sent", "hub_user_global_id", globalUser.HubUserGlobalID)
 
 		response := hub.HubLoginResponse{
 			TFAToken: hub.HubTFAToken(tfaToken),
 		}
 
 		if err := json.NewEncoder(w).Encode(response); err != nil {
-			log.Error("JSON encoding error", "error", err)
+			s.Logger(ctx).Error("JSON encoding error", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
