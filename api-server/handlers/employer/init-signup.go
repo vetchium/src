@@ -34,22 +34,22 @@ func InitSignup(s *server.Server) http.HandlerFunc {
 
 		bodyBytes, err := proxy.BufferBody(r)
 		if err != nil {
+			s.Logger(r.Context()).Error("failed to buffer request body", "error", err)
 			http.Error(w, "", http.StatusBadRequest)
 			return
 		}
 
 		ctx := r.Context()
-		log := s.Logger(ctx)
 
 		var req employer.OrgInitSignupRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			log.Debug("failed to decode request", "error", err)
+			s.Logger(ctx).Debug("failed to decode request", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		if errs := req.Validate(); len(errs) > 0 {
-			log.Debug("validation failed", "errors", errs)
+			s.Logger(ctx).Debug("validation failed", "errors", errs)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(errs)
 			return
@@ -61,7 +61,7 @@ func InitSignup(s *server.Server) http.HandlerFunc {
 		case globaldb.RegionInd1, globaldb.RegionUsa1, globaldb.RegionDeu1:
 			// Valid region
 		default:
-			log.Debug("invalid home region", "region", req.HomeRegion)
+			s.Logger(ctx).Debug("invalid home region", "region", req.HomeRegion)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode([]map[string]string{{"field": "home_region", "message": "invalid region"}})
 			return
@@ -76,7 +76,7 @@ func InitSignup(s *server.Server) http.HandlerFunc {
 		// Extract domain from email
 		parts := strings.Split(string(req.Email), "@")
 		if len(parts) != 2 {
-			log.Debug("invalid email format")
+			s.Logger(ctx).Debug("invalid email format")
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode([]common.ValidationError{
 				common.NewValidationError("email", errors.New("invalid email format")),
@@ -91,12 +91,12 @@ func InitSignup(s *server.Server) http.HandlerFunc {
 		// Check if email already registered as org user
 		_, err = s.Global.GetOrgUserByEmailHash(ctx, emailHash[:])
 		if err == nil {
-			log.Debug("email already registered")
+			s.Logger(ctx).Debug("email already registered")
 			w.WriteHeader(http.StatusConflict)
 			json.NewEncoder(w).Encode(map[string]string{"error": "email already registered"})
 			return
 		} else if !errors.Is(err, pgx.ErrNoRows) {
-			log.Error("failed to query user", "error", err)
+			s.Logger(ctx).Error("failed to check existing org user", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -104,14 +104,14 @@ func InitSignup(s *server.Server) http.HandlerFunc {
 		// Check if domain is already claimed by an existing employer
 		_, err = s.Global.GetGlobalEmployerDomain(ctx, domain)
 		if err == nil {
-			log.Debug("domain already claimed by existing employer", "domain", domain)
+			s.Logger(ctx).Debug("domain already claimed by existing employer", "domain", domain)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode([]common.ValidationError{
 				common.NewValidationError("email", errors.New("domain already claimed by an existing employer")),
 			})
 			return
 		} else if !errors.Is(err, pgx.ErrNoRows) {
-			log.Error("failed to query global employer domain", "error", err)
+			s.Logger(ctx).Error("failed to query global employer domain", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -119,12 +119,12 @@ func InitSignup(s *server.Server) http.HandlerFunc {
 		// Check if domain has a pending (non-expired, non-consumed) signup
 		_, err = s.Global.GetPendingSignupByDomain(ctx, domain)
 		if err == nil {
-			log.Debug("domain has pending signup", "domain", domain)
+			s.Logger(ctx).Debug("domain has pending signup", "domain", domain)
 			w.WriteHeader(http.StatusConflict)
 			json.NewEncoder(w).Encode(map[string]string{"error": "domain already has a pending signup"})
 			return
 		} else if !errors.Is(err, pgx.ErrNoRows) {
-			log.Error("failed to query pending signup by domain", "error", err)
+			s.Logger(ctx).Error("failed to query pending signup by domain", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -134,7 +134,7 @@ func InitSignup(s *server.Server) http.HandlerFunc {
 		// 2. Email token (secret, sent only via email to prove email access)
 		dnsTokenBytes := make([]byte, 32)
 		if _, err := rand.Read(dnsTokenBytes); err != nil {
-			log.Error("failed to generate DNS verification token", "error", err)
+			s.Logger(ctx).Error("failed to generate DNS verification token", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -142,7 +142,7 @@ func InitSignup(s *server.Server) http.HandlerFunc {
 
 		emailTokenBytes := make([]byte, 32)
 		if _, err := rand.Read(emailTokenBytes); err != nil {
-			log.Error("failed to generate email token", "error", err)
+			s.Logger(ctx).Error("failed to generate email token", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -162,7 +162,7 @@ func InitSignup(s *server.Server) http.HandlerFunc {
 			Domain:           domain,
 		})
 		if err != nil {
-			log.Error("failed to store signup token", "error", err)
+			s.Logger(ctx).Error("failed to store signup token", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -177,10 +177,10 @@ func InitSignup(s *server.Server) http.HandlerFunc {
 		// Send Email 1: DNS instructions (safe to forward to IT team)
 		err = sendOrgSignupDNSEmail(ctx, s.Regional, string(req.Email), domain, dnsRecordName, dnsVerificationToken, lang, expiryHours)
 		if err != nil {
-			log.Error("failed to enqueue DNS instructions email", "error", err)
+			s.Logger(ctx).Error("failed to enqueue DNS instructions email", "error", err)
 			// Compensating transaction: delete the signup token we just created
 			if delErr := s.Global.DeleteOrgSignupToken(ctx, dnsVerificationToken); delErr != nil {
-				log.Error("failed to cleanup signup token", "error", delErr)
+				s.Logger(ctx).Error("failed to cleanup signup token", "error", delErr)
 			}
 			http.Error(w, "", http.StatusInternalServerError)
 			return
@@ -190,16 +190,16 @@ func InitSignup(s *server.Server) http.HandlerFunc {
 		signupLink := fmt.Sprintf("%s/complete-signup?token=%s", s.UIConfig.OrgURL, emailToken)
 		err = sendOrgSignupTokenEmail(ctx, s.Regional, string(req.Email), domain, emailToken, signupLink, lang, expiryHours)
 		if err != nil {
-			log.Error("failed to enqueue signup token email", "error", err)
+			s.Logger(ctx).Error("failed to enqueue signup token email", "error", err)
 			// Compensating transaction: delete the signup token we just created
 			if delErr := s.Global.DeleteOrgSignupToken(ctx, dnsVerificationToken); delErr != nil {
-				log.Error("failed to cleanup signup token", "error", delErr)
+				s.Logger(ctx).Error("failed to cleanup signup token", "error", delErr)
 			}
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		log.Info("org signup emails sent (DNS + token)", "email_hash", hex.EncodeToString(emailHash[:]), "domain", domain)
+		s.Logger(ctx).Info("org signup emails sent (DNS + token)", "email_hash", hex.EncodeToString(emailHash[:]), "domain", domain)
 
 		// Calculate expiry timestamp
 		tokenExpiresAt := time.Now().Add(tokenExpiry).Format(time.RFC3339)

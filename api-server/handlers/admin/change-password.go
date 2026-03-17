@@ -18,12 +18,11 @@ func ChangePassword(s *server.GlobalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()
-		log := s.Logger(ctx)
 
 		// Get authenticated admin user from context
 		adminUser := middleware.AdminUserFromContext(ctx)
 		if adminUser == nil {
-			log.Debug("admin user not found in context")
+			s.Logger(ctx).Debug("admin user not found in context")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
@@ -31,17 +30,17 @@ func ChangePassword(s *server.GlobalServer) http.HandlerFunc {
 		// Decode request
 		var req admin.AdminChangePasswordRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			log.Debug("failed to decode request", "error", err)
+			s.Logger(ctx).Debug("failed to decode request", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		// Validate request
 		if validationErrors := req.Validate(); len(validationErrors) > 0 {
-			log.Debug("validation failed", "errors", validationErrors)
+			s.Logger(ctx).Debug("validation failed", "errors", validationErrors)
 			w.WriteHeader(http.StatusBadRequest)
 			if err := json.NewEncoder(w).Encode(validationErrors); err != nil {
-				log.Error("failed to encode validation errors", "error", err)
+				s.Logger(ctx).Error("failed to encode validation errors", "error", err)
 			}
 			return
 		}
@@ -49,14 +48,14 @@ func ChangePassword(s *server.GlobalServer) http.HandlerFunc {
 		// Get full admin user record to verify current password
 		fullUser, err := s.Global.GetAdminUserByID(ctx, adminUser.AdminUserID)
 		if err != nil {
-			log.Error("failed to get admin user", "error", err)
+			s.Logger(ctx).Error("failed to get admin user", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
 		// Verify current password
 		if err := bcrypt.CompareHashAndPassword(fullUser.PasswordHash, []byte(req.CurrentPassword)); err != nil {
-			log.Debug("current password verification failed")
+			s.Logger(ctx).Debug("current password verification failed")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
@@ -64,7 +63,7 @@ func ChangePassword(s *server.GlobalServer) http.HandlerFunc {
 		// Hash new password
 		passwordHash, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
 		if err != nil {
-			log.Error("failed to hash password", "error", err)
+			s.Logger(ctx).Error("failed to hash password", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -72,7 +71,7 @@ func ChangePassword(s *server.GlobalServer) http.HandlerFunc {
 		// Update password and write audit log atomically
 		session := middleware.AdminSessionFromContext(ctx)
 		if session.SessionToken == "" {
-			log.Error("session not found in context")
+			s.Logger(ctx).Error("session not found in context")
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -91,7 +90,7 @@ func ChangePassword(s *server.GlobalServer) http.HandlerFunc {
 			})
 		})
 		if err != nil {
-			log.Error("failed to update password", "error", err)
+			s.Logger(ctx).Error("failed to update password", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -102,11 +101,11 @@ func ChangePassword(s *server.GlobalServer) http.HandlerFunc {
 			SessionToken: session.SessionToken,
 		})
 		if err != nil {
-			log.Error("failed to invalidate other sessions", "error", err)
+			s.Logger(ctx).Error("failed to invalidate other sessions", "error", err)
 			// Continue - password was updated successfully
 		}
 
-		log.Info("password changed", "admin_user_id", adminUser.AdminUserID)
+		s.Logger(ctx).Info("password changed", "admin_user_id", adminUser.AdminUserID)
 
 		w.WriteHeader(http.StatusOK)
 	}

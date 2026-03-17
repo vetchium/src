@@ -18,24 +18,23 @@ func AddTag(s *server.GlobalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()
-		log := s.Logger(ctx)
 
 		adminUser := middleware.AdminUserFromContext(ctx)
 		if adminUser == nil {
-			log.Debug("admin user not found in context")
+			s.Logger(ctx).Debug("admin user not found in context")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 
 		var req admin.CreateTagRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			log.Debug("failed to decode request", "error", err)
+			s.Logger(ctx).Debug("failed to decode request", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		if errs := req.Validate(); len(errs) > 0 {
-			log.Debug("validation failed", "errors", errs)
+			s.Logger(ctx).Debug("validation failed", "errors", errs)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(errs)
 			return
@@ -72,11 +71,11 @@ func AddTag(s *server.GlobalServer) http.HandlerFunc {
 		})
 		if err != nil {
 			if errors.Is(err, server.ErrConflict) {
-				log.Debug("tag already exists", "tag_id", req.TagID)
+				s.Logger(ctx).Debug("tag already exists", "tag_id", req.TagID)
 				w.WriteHeader(http.StatusConflict)
 				return
 			}
-			log.Error("failed to create tag", "error", err)
+			s.Logger(ctx).Error("failed to create tag", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -84,19 +83,19 @@ func AddTag(s *server.GlobalServer) http.HandlerFunc {
 		// Fetch back to return full response
 		tag, err := s.Global.GetTag(ctx, req.TagID)
 		if err != nil {
-			log.Error("failed to get created tag", "error", err)
+			s.Logger(ctx).Error("failed to get created tag", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
 		translations, err := s.Global.GetTagTranslations(ctx, req.TagID)
 		if err != nil {
-			log.Error("failed to get tag translations", "error", err)
+			s.Logger(ctx).Error("failed to get tag translations", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		log.Info("tag created", "tag_id", req.TagID)
+		s.Logger(ctx).Info("tag created", "tag_id", req.TagID)
 		w.WriteHeader(http.StatusCreated)
 		json.NewEncoder(w).Encode(buildAdminTagResponse(tag, translations))
 	}

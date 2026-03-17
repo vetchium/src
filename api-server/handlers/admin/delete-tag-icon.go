@@ -22,24 +22,23 @@ func DeleteTagIcon(s *server.GlobalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()
-		log := s.Logger(ctx)
 
 		adminUser := middleware.AdminUserFromContext(ctx)
 		if adminUser == nil {
-			log.Debug("admin user not found in context")
+			s.Logger(ctx).Debug("admin user not found in context")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 
 		var req admin.DeleteTagIconRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			log.Debug("failed to decode request", "error", err)
+			s.Logger(ctx).Debug("failed to decode request", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		if errs := req.Validate(); len(errs) > 0 {
-			log.Debug("validation failed", "errors", errs)
+			s.Logger(ctx).Debug("validation failed", "errors", errs)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(errs)
 			return
@@ -48,23 +47,23 @@ func DeleteTagIcon(s *server.GlobalServer) http.HandlerFunc {
 		tag, err := s.Global.GetTag(ctx, req.TagID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				log.Debug("tag not found", "tag_id", req.TagID)
+				s.Logger(ctx).Debug("tag not found", "tag_id", req.TagID)
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
-			log.Error("failed to get tag", "error", err)
+			s.Logger(ctx).Error("failed to get tag", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
 		// Check if icon exists
 		if req.IconSize == admin.IconSizeSmall && !tag.SmallIconKey.Valid {
-			log.Debug("small icon not set", "tag_id", req.TagID)
+			s.Logger(ctx).Debug("small icon not set", "tag_id", req.TagID)
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
 		if req.IconSize == admin.IconSizeLarge && !tag.LargeIconKey.Valid {
-			log.Debug("large icon not set", "tag_id", req.TagID)
+			s.Logger(ctx).Debug("large icon not set", "tag_id", req.TagID)
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
@@ -72,7 +71,7 @@ func DeleteTagIcon(s *server.GlobalServer) http.HandlerFunc {
 		// Delete from S3
 		s3Key := fmt.Sprintf("tags/%s/%s", req.TagID, string(req.IconSize))
 		if err := deleteFromS3(ctx, s.StorageConfig, s3Key); err != nil {
-			log.Error("failed to delete icon from S3", "error", err)
+			s.Logger(ctx).Error("failed to delete icon from S3", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -97,12 +96,12 @@ func DeleteTagIcon(s *server.GlobalServer) http.HandlerFunc {
 			})
 		})
 		if err != nil {
-			log.Error("failed to clear tag icon in DB", "error", err)
+			s.Logger(ctx).Error("failed to clear tag icon in DB", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		log.Info("tag icon deleted", "tag_id", req.TagID, "icon_size", req.IconSize)
+		s.Logger(ctx).Info("tag icon deleted", "tag_id", req.TagID, "icon_size", req.IconSize)
 		w.WriteHeader(http.StatusOK)
 	}
 }

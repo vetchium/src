@@ -33,21 +33,22 @@ func CreateSubOrg(s *server.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()
-		log := s.Logger(ctx)
 
 		orgUser := middleware.OrgUserFromContext(ctx)
 		if orgUser == nil {
+			s.Logger(ctx).Debug("org user not found in context")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 
 		var req employer.CreateSubOrgRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			log.Debug("failed to decode request", "error", err)
+			s.Logger(ctx).Debug("failed to decode request", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 		if errs := req.Validate(); len(errs) > 0 {
+			s.Logger(ctx).Debug("validation failed", "errors", errs)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(errs)
 			return
@@ -56,14 +57,16 @@ func CreateSubOrg(s *server.Server) http.HandlerFunc {
 		region, err := s.Global.GetRegionByCode(ctx, globaldb.Region(req.PinnedRegion))
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
+				s.Logger(ctx).Debug("region not found", "region", req.PinnedRegion)
 				http.Error(w, "invalid pinned_region", http.StatusBadRequest)
 				return
 			}
-			log.Debug("invalid pinned_region", "error", err)
+			s.Logger(ctx).Debug("failed to get region", "error", err)
 			http.Error(w, "invalid pinned_region", http.StatusBadRequest)
 			return
 		}
 		if !region.IsActive {
+			s.Logger(ctx).Debug("region is not active", "region", req.PinnedRegion)
 			http.Error(w, "pinned_region is not available", http.StatusBadRequest)
 			return
 		}
@@ -102,15 +105,17 @@ func CreateSubOrg(s *server.Server) http.HandlerFunc {
 		})
 		if err != nil {
 			if errors.Is(err, server.ErrConflict) {
+				s.Logger(ctx).Debug("maximum suborgs reached for employer", "employer_id", orgUser.EmployerID)
 				w.WriteHeader(http.StatusConflict)
 				return
 			}
 			var pgErr *pgconn.PgError
 			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+				s.Logger(ctx).Debug("suborg with name already exists", "name", req.Name)
 				w.WriteHeader(http.StatusConflict)
 				return
 			}
-			log.Error("failed to create suborg", "error", err)
+			s.Logger(ctx).Error("failed to create suborg", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -125,21 +130,22 @@ func ListSubOrgs(s *server.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()
-		log := s.Logger(ctx)
 
 		orgUser := middleware.OrgUserFromContext(ctx)
 		if orgUser == nil {
+			s.Logger(ctx).Debug("org user not found in context")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 
 		var req employer.ListSubOrgsRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			log.Debug("failed to decode request", "error", err)
+			s.Logger(ctx).Debug("failed to decode request", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 		if errs := req.Validate(); len(errs) > 0 {
+			s.Logger(ctx).Debug("validation failed", "errors", errs)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(errs)
 			return
@@ -158,13 +164,13 @@ func ListSubOrgs(s *server.Server) http.HandlerFunc {
 		if req.Cursor != nil && *req.Cursor != "" {
 			ca, id, err := decodeSubOrgCursor(*req.Cursor)
 			if err != nil {
-				log.Debug("invalid cursor", "error", err)
+				s.Logger(ctx).Debug("invalid cursor", "error", err)
 				http.Error(w, "invalid cursor format", http.StatusBadRequest)
 				return
 			}
 			cursorCreatedAt = pgtype.Timestamp{Time: ca, Valid: true}
 			if err := cursorID.Scan(id); err != nil {
-				log.Debug("invalid cursor id", "error", err)
+				s.Logger(ctx).Debug("invalid cursor id", "error", err)
 				http.Error(w, "invalid cursor format", http.StatusBadRequest)
 				return
 			}
@@ -183,7 +189,7 @@ func ListSubOrgs(s *server.Server) http.HandlerFunc {
 			LimitCount:      int32(limit + 1),
 		})
 		if err != nil {
-			log.Error("failed to list suborgs", "error", err)
+			s.Logger(ctx).Error("failed to list suborgs", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -218,21 +224,22 @@ func RenameSubOrg(s *server.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()
-		log := s.Logger(ctx)
 
 		orgUser := middleware.OrgUserFromContext(ctx)
 		if orgUser == nil {
+			s.Logger(ctx).Debug("org user not found in context")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 
 		var req employer.RenameSubOrgRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			log.Debug("failed to decode request", "error", err)
+			s.Logger(ctx).Debug("failed to decode request", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 		if errs := req.Validate(); len(errs) > 0 {
+			s.Logger(ctx).Debug("validation failed", "errors", errs)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(errs)
 			return
@@ -240,6 +247,7 @@ func RenameSubOrg(s *server.Server) http.HandlerFunc {
 
 		var suborgID pgtype.UUID
 		if err := suborgID.Scan(req.SubOrgID); err != nil {
+			s.Logger(ctx).Debug("invalid suborg_id", "error", err)
 			http.Error(w, "invalid suborg_id", http.StatusBadRequest)
 			return
 		}
@@ -278,10 +286,11 @@ func RenameSubOrg(s *server.Server) http.HandlerFunc {
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
+				s.Logger(ctx).Debug("suborg not found", "suborg_id", req.SubOrgID)
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
-			log.Error("failed to rename suborg", "error", err)
+			s.Logger(ctx).Error("failed to rename suborg", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -295,21 +304,22 @@ func DisableSubOrg(s *server.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()
-		log := s.Logger(ctx)
 
 		orgUser := middleware.OrgUserFromContext(ctx)
 		if orgUser == nil {
+			s.Logger(ctx).Debug("org user not found in context")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 
 		var req employer.DisableSubOrgRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			log.Debug("failed to decode request", "error", err)
+			s.Logger(ctx).Debug("failed to decode request", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 		if errs := req.Validate(); len(errs) > 0 {
+			s.Logger(ctx).Debug("validation failed", "errors", errs)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(errs)
 			return
@@ -317,6 +327,7 @@ func DisableSubOrg(s *server.Server) http.HandlerFunc {
 
 		var suborgID pgtype.UUID
 		if err := suborgID.Scan(req.SubOrgID); err != nil {
+			s.Logger(ctx).Debug("invalid suborg_id", "error", err)
 			http.Error(w, "invalid suborg_id", http.StatusBadRequest)
 			return
 		}
@@ -324,7 +335,7 @@ func DisableSubOrg(s *server.Server) http.HandlerFunc {
 		// Look up employer name for the notification email.
 		employer_, err := s.Global.GetEmployerByID(ctx, orgUser.EmployerID)
 		if err != nil {
-			log.Error("failed to get employer", "error", err)
+			s.Logger(ctx).Error("failed to get employer", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -389,14 +400,16 @@ func DisableSubOrg(s *server.Server) http.HandlerFunc {
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
+				s.Logger(ctx).Debug("suborg not found", "suborg_id", req.SubOrgID)
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
 			if errors.Is(err, server.ErrInvalidState) {
+				s.Logger(ctx).Debug("suborg already disabled", "suborg_id", req.SubOrgID)
 				w.WriteHeader(http.StatusUnprocessableEntity)
 				return
 			}
-			log.Error("failed to disable suborg", "error", err)
+			s.Logger(ctx).Error("failed to disable suborg", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -410,21 +423,22 @@ func EnableSubOrg(s *server.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()
-		log := s.Logger(ctx)
 
 		orgUser := middleware.OrgUserFromContext(ctx)
 		if orgUser == nil {
+			s.Logger(ctx).Debug("org user not found in context")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 
 		var req employer.EnableSubOrgRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			log.Debug("failed to decode request", "error", err)
+			s.Logger(ctx).Debug("failed to decode request", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 		if errs := req.Validate(); len(errs) > 0 {
+			s.Logger(ctx).Debug("validation failed", "errors", errs)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(errs)
 			return
@@ -432,6 +446,7 @@ func EnableSubOrg(s *server.Server) http.HandlerFunc {
 
 		var suborgID pgtype.UUID
 		if err := suborgID.Scan(req.SubOrgID); err != nil {
+			s.Logger(ctx).Debug("invalid suborg_id", "error", err)
 			http.Error(w, "invalid suborg_id", http.StatusBadRequest)
 			return
 		}
@@ -470,14 +485,16 @@ func EnableSubOrg(s *server.Server) http.HandlerFunc {
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
+				s.Logger(ctx).Debug("suborg not found", "suborg_id", req.SubOrgID)
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
 			if errors.Is(err, server.ErrInvalidState) {
+				s.Logger(ctx).Debug("suborg already active", "suborg_id", req.SubOrgID)
 				w.WriteHeader(http.StatusUnprocessableEntity)
 				return
 			}
-			log.Error("failed to enable suborg", "error", err)
+			s.Logger(ctx).Error("failed to enable suborg", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -491,21 +508,22 @@ func AddSubOrgMember(s *server.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()
-		log := s.Logger(ctx)
 
 		orgUser := middleware.OrgUserFromContext(ctx)
 		if orgUser == nil {
+			s.Logger(ctx).Debug("org user not found in context")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 
 		var req employer.AddSubOrgMemberRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			log.Debug("failed to decode request", "error", err)
+			s.Logger(ctx).Debug("failed to decode request", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 		if errs := req.Validate(); len(errs) > 0 {
+			s.Logger(ctx).Debug("validation failed", "errors", errs)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(errs)
 			return
@@ -513,6 +531,7 @@ func AddSubOrgMember(s *server.Server) http.HandlerFunc {
 
 		var suborgID pgtype.UUID
 		if err := suborgID.Scan(req.SubOrgID); err != nil {
+			s.Logger(ctx).Debug("invalid suborg_id", "error", err)
 			http.Error(w, "invalid suborg_id", http.StatusBadRequest)
 			return
 		}
@@ -525,10 +544,11 @@ func AddSubOrgMember(s *server.Server) http.HandlerFunc {
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
+				s.Logger(ctx).Debug("target user not found", "email", req.EmailAddress)
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
-			log.Error("failed to look up target user", "error", err)
+			s.Logger(ctx).Error("failed to look up target user", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -562,15 +582,17 @@ func AddSubOrgMember(s *server.Server) http.HandlerFunc {
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
+				s.Logger(ctx).Debug("suborg not found", "suborg_id", req.SubOrgID)
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
 			var pgErr *pgconn.PgError
 			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+				s.Logger(ctx).Debug("user already a member of suborg", "suborg_id", req.SubOrgID, "user_id", targetUserID)
 				w.WriteHeader(http.StatusConflict)
 				return
 			}
-			log.Error("failed to add suborg member", "error", err)
+			s.Logger(ctx).Error("failed to add suborg member", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -588,17 +610,19 @@ func RemoveSubOrgMember(s *server.Server) http.HandlerFunc {
 
 		orgUser := middleware.OrgUserFromContext(ctx)
 		if orgUser == nil {
+			s.Logger(ctx).Debug("org user not found in context")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 
 		var req employer.RemoveSubOrgMemberRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			log.Debug("failed to decode request", "error", err)
+			s.Logger(ctx).Debug("failed to decode request", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 		if errs := req.Validate(); len(errs) > 0 {
+			s.Logger(ctx).Debug("validation failed", "errors", errs)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(errs)
 			return
@@ -606,6 +630,7 @@ func RemoveSubOrgMember(s *server.Server) http.HandlerFunc {
 
 		var suborgID pgtype.UUID
 		if err := suborgID.Scan(req.SubOrgID); err != nil {
+			s.Logger(ctx).Debug("invalid suborg_id", "error", err)
 			http.Error(w, "invalid suborg_id", http.StatusBadRequest)
 			return
 		}
@@ -618,10 +643,11 @@ func RemoveSubOrgMember(s *server.Server) http.HandlerFunc {
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
+				s.Logger(ctx).Debug("target user not found", "email", req.EmailAddress)
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
-			log.Error("failed to look up target user", "error", err)
+			s.Logger(ctx).Error("failed to look up target user", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -663,10 +689,11 @@ func RemoveSubOrgMember(s *server.Server) http.HandlerFunc {
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
+				s.Logger(ctx).Debug("suborg or membership not found", "suborg_id", req.SubOrgID, "email", req.EmailAddress)
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
-			log.Error("failed to remove suborg member", "error", err)
+			s.Logger(ctx).Error("failed to remove suborg member", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -680,21 +707,22 @@ func ListSubOrgMembers(s *server.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()
-		log := s.Logger(ctx)
 
 		orgUser := middleware.OrgUserFromContext(ctx)
 		if orgUser == nil {
+			s.Logger(ctx).Debug("org user not found in context")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 
 		var req employer.ListSubOrgMembersRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			log.Debug("failed to decode request", "error", err)
+			s.Logger(ctx).Debug("failed to decode request", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 		if errs := req.Validate(); len(errs) > 0 {
+			s.Logger(ctx).Debug("validation failed", "errors", errs)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(errs)
 			return
@@ -702,6 +730,7 @@ func ListSubOrgMembers(s *server.Server) http.HandlerFunc {
 
 		var suborgID pgtype.UUID
 		if err := suborgID.Scan(req.SubOrgID); err != nil {
+			s.Logger(ctx).Debug("invalid suborg_id", "error", err)
 			http.Error(w, "invalid suborg_id", http.StatusBadRequest)
 			return
 		}
@@ -712,10 +741,11 @@ func ListSubOrgMembers(s *server.Server) http.HandlerFunc {
 			EmployerID: orgUser.EmployerID,
 		}); err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
+				s.Logger(ctx).Debug("suborg not found", "suborg_id", req.SubOrgID)
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
-			log.Error("failed to get suborg", "error", err)
+			s.Logger(ctx).Error("failed to get suborg", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -733,12 +763,13 @@ func ListSubOrgMembers(s *server.Server) http.HandlerFunc {
 		if req.Cursor != nil && *req.Cursor != "" {
 			ca, id, err := decodeSubOrgMemberCursor(*req.Cursor)
 			if err != nil {
-				log.Debug("invalid cursor", "error", err)
+				s.Logger(ctx).Debug("invalid cursor", "error", err)
 				http.Error(w, "invalid cursor format", http.StatusBadRequest)
 				return
 			}
 			cursorAssignedAt = pgtype.Timestamp{Time: ca, Valid: true}
 			if err := cursorID.Scan(id); err != nil {
+				s.Logger(ctx).Debug("invalid cursor format", "error", err)
 				http.Error(w, "invalid cursor format", http.StatusBadRequest)
 				return
 			}
@@ -751,7 +782,7 @@ func ListSubOrgMembers(s *server.Server) http.HandlerFunc {
 			LimitCount:       int32(limit + 1),
 		})
 		if err != nil {
-			log.Error("failed to list suborg members", "error", err)
+			s.Logger(ctx).Error("failed to list suborg members", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}

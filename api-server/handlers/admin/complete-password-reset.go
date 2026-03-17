@@ -19,22 +19,21 @@ func CompletePasswordReset(s *server.GlobalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()
-		log := s.Logger(ctx)
 
 		// Decode request
 		var req admin.AdminCompletePasswordResetRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			log.Debug("failed to decode request", "error", err)
+			s.Logger(ctx).Debug("failed to decode request", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		// Validate request
 		if validationErrors := req.Validate(); len(validationErrors) > 0 {
-			log.Debug("validation failed", "errors", validationErrors)
+			s.Logger(ctx).Debug("validation failed", "errors", validationErrors)
 			w.WriteHeader(http.StatusBadRequest)
 			if err := json.NewEncoder(w).Encode(validationErrors); err != nil {
-				log.Error("failed to encode validation errors", "error", err)
+				s.Logger(ctx).Error("failed to encode validation errors", "error", err)
 			}
 			return
 		}
@@ -43,12 +42,12 @@ func CompletePasswordReset(s *server.GlobalServer) http.HandlerFunc {
 		resetToken, err := s.Global.GetAdminPasswordResetToken(ctx, string(req.ResetToken))
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				log.Debug("invalid or expired reset token")
+				s.Logger(ctx).Debug("invalid or expired reset token")
 				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
 
-			log.Error("failed to query reset token", "error", err)
+			s.Logger(ctx).Error("failed to query reset token", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -56,7 +55,7 @@ func CompletePasswordReset(s *server.GlobalServer) http.HandlerFunc {
 		// Hash new password
 		passwordHash, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
 		if err != nil {
-			log.Error("failed to hash password", "error", err)
+			s.Logger(ctx).Error("failed to hash password", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -80,17 +79,17 @@ func CompletePasswordReset(s *server.GlobalServer) http.HandlerFunc {
 			})
 		})
 		if err != nil {
-			log.Error("failed to complete password reset", "error", err)
+			s.Logger(ctx).Error("failed to complete password reset", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
 		// Invalidate all existing sessions for this user (best-effort, outside tx)
 		if err = s.Global.DeleteAllAdminSessionsForUser(ctx, resetToken.AdminUserID); err != nil {
-			log.Error("failed to invalidate sessions", "error", err)
+			s.Logger(ctx).Error("failed to invalidate sessions", "error", err)
 		}
 
-		log.Info("password reset completed", "admin_user_id", resetToken.AdminUserID)
+		s.Logger(ctx).Info("password reset completed", "admin_user_id", resetToken.AdminUserID)
 
 		w.WriteHeader(http.StatusOK)
 	}

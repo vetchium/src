@@ -44,18 +44,17 @@ func AddApprovedDomain(s *server.GlobalServer) http.HandlerFunc {
 		w.Header().Set("Content-Type", "application/json")
 
 		ctx := r.Context()
-		log := s.Logger(ctx)
 
 		adminUser := middleware.AdminUserFromContext(ctx)
 		if adminUser == nil {
-			log.Debug("admin user not found in context")
+			s.Logger(ctx).Debug("admin user not found in context")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 
 		var request admin.AddApprovedDomainRequest
 		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-			log.Debug("failed to decode request", "error", err)
+			s.Logger(ctx).Debug("failed to decode request", "error", err)
 			writeErrorResponse(w, http.StatusBadRequest, "invalid JSON request body")
 			return
 		}
@@ -64,7 +63,7 @@ func AddApprovedDomain(s *server.GlobalServer) http.HandlerFunc {
 		request.DomainName = common.DomainName(strings.ToLower(string(request.DomainName)))
 
 		if validationErrors := request.Validate(); len(validationErrors) > 0 {
-			log.Debug("validation failed", "errors", validationErrors)
+			s.Logger(ctx).Debug("validation failed", "errors", validationErrors)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(validationErrors)
 			return
@@ -75,11 +74,11 @@ func AddApprovedDomain(s *server.GlobalServer) http.HandlerFunc {
 		// Check if domain already exists
 		_, err := s.Global.GetApprovedDomainByName(ctx, domainName)
 		if err == nil {
-			log.Debug("domain already exists", "domain_name", domainName)
+			s.Logger(ctx).Debug("domain already exists", "domain_name", domainName)
 			writeErrorResponse(w, http.StatusConflict, "domain already exists")
 			return
 		} else if !errors.Is(err, pgx.ErrNoRows) {
-			log.Error("failed to check existing domain", "error", err)
+			s.Logger(ctx).Error("failed to check existing domain", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -95,22 +94,24 @@ func AddApprovedDomain(s *server.GlobalServer) http.HandlerFunc {
 				return txErr
 			}
 			eventData, _ := json.Marshal(map[string]any{"domain_name": domainName})
-			return qtx.InsertAdminAuditLog(ctx, globaldb.InsertAdminAuditLogParams{
+			if err := qtx.InsertAdminAuditLog(ctx, globaldb.InsertAdminAuditLogParams{
 				EventType:   "admin.add_approved_domain",
 				ActorUserID: adminUser.AdminUserID,
 				IpAddress:   audit.ExtractClientIP(r),
 				EventData:   eventData,
-			})
+			}); err != nil {
+				return err
+			}
+			createAuditLogTx(ctx, s, qtx, adminUser.AdminUserID, "created", &domain.DomainID, &domainName, &request.Reason, nil, domainToJSON(domain), r)
+			return nil
 		})
 		if err != nil {
-			log.Error("failed to create approved domain", "error", err)
+			s.Logger(ctx).Error("failed to create approved domain", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		createAuditLog(ctx, s, adminUser.AdminUserID, "created", &domain.DomainID, &domainName, &request.Reason, nil, domainToJSON(domain), r)
-
-		log.Info("approved domain created", "domain_name", domainName, "admin_user_id", adminUser.AdminUserID)
+		s.Logger(ctx).Info("approved domain created", "domain_name", domainName, "admin_user_id", adminUser.AdminUserID)
 
 		w.WriteHeader(http.StatusCreated)
 		response := admin.ApprovedDomain{
@@ -122,7 +123,7 @@ func AddApprovedDomain(s *server.GlobalServer) http.HandlerFunc {
 		}
 
 		if err := json.NewEncoder(w).Encode(response); err != nil {
-			log.Error("failed to encode response", "error", err)
+			s.Logger(ctx).Error("failed to encode response", "error", err)
 		}
 	}
 }
@@ -133,24 +134,23 @@ func ListApprovedDomains(s *server.GlobalServer) http.HandlerFunc {
 		w.Header().Set("Content-Type", "application/json")
 
 		ctx := r.Context()
-		log := s.Logger(ctx)
 
 		adminUser := middleware.AdminUserFromContext(ctx)
 		if adminUser == nil {
-			log.Debug("admin user not found in context")
+			s.Logger(ctx).Debug("admin user not found in context")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 
 		var request admin.ListApprovedDomainsRequest
 		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-			log.Debug("failed to decode request", "error", err)
+			s.Logger(ctx).Debug("failed to decode request", "error", err)
 			writeErrorResponse(w, http.StatusBadRequest, "invalid JSON request body")
 			return
 		}
 
 		if validationErrors := request.Validate(); len(validationErrors) > 0 {
-			log.Debug("validation failed", "errors", validationErrors)
+			s.Logger(ctx).Debug("validation failed", "errors", validationErrors)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(validationErrors)
 			return
@@ -189,10 +189,11 @@ func ListApprovedDomains(s *server.GlobalServer) http.HandlerFunc {
 
 		if err != nil {
 			if err.Error() == "invalid cursor format" {
+				s.Logger(ctx).Debug("invalid cursor format", "error", err)
 				writeErrorResponse(w, http.StatusBadRequest, "invalid cursor format")
 				return
 			}
-			log.Error("failed to query approved domains", "error", err)
+			s.Logger(ctx).Error("failed to query approved domains", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -204,7 +205,7 @@ func ListApprovedDomains(s *server.GlobalServer) http.HandlerFunc {
 		}
 
 		if err := json.NewEncoder(w).Encode(response); err != nil {
-			log.Error("failed to encode response", "error", err)
+			s.Logger(ctx).Error("failed to encode response", "error", err)
 		}
 	}
 }
@@ -549,24 +550,23 @@ func GetApprovedDomain(s *server.GlobalServer) http.HandlerFunc {
 		w.Header().Set("Content-Type", "application/json")
 
 		ctx := r.Context()
-		log := s.Logger(ctx)
 
 		adminUser := middleware.AdminUserFromContext(ctx)
 		if adminUser == nil {
-			log.Debug("admin user not found in context")
+			s.Logger(ctx).Debug("admin user not found in context")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 
 		var request admin.GetApprovedDomainRequest
 		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-			log.Debug("failed to decode request", "error", err)
+			s.Logger(ctx).Debug("failed to decode request", "error", err)
 			writeErrorResponse(w, http.StatusBadRequest, "invalid JSON request body")
 			return
 		}
 
 		if validationErrors := request.Validate(); len(validationErrors) > 0 {
-			log.Debug("validation failed", "errors", validationErrors)
+			s.Logger(ctx).Debug("validation failed", "errors", validationErrors)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(validationErrors)
 			return
@@ -577,11 +577,11 @@ func GetApprovedDomain(s *server.GlobalServer) http.HandlerFunc {
 		domain, err := s.Global.GetApprovedDomainWithAdminByName(ctx, domainName)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				log.Debug("domain not found", "domain_name", domainName)
+				s.Logger(ctx).Debug("domain not found", "domain_name", domainName)
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
-			log.Error("failed to get approved domain", "error", err)
+			s.Logger(ctx).Error("failed to get approved domain", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -599,10 +599,11 @@ func GetApprovedDomain(s *server.GlobalServer) http.HandlerFunc {
 		auditLogs, nextAuditCursor, hasMoreAudit, err := getAuditLogsForDomain(ctx, s, domain.DomainID, auditLimit, auditCursor)
 		if err != nil {
 			if err.Error() == "invalid cursor format" {
+				s.Logger(ctx).Debug("invalid audit cursor format", "error", err)
 				writeErrorResponse(w, http.StatusBadRequest, "invalid audit cursor format")
 				return
 			}
-			log.Error("failed to get audit logs", "error", err)
+			s.Logger(ctx).Error("failed to get audit logs", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -623,7 +624,7 @@ func GetApprovedDomain(s *server.GlobalServer) http.HandlerFunc {
 		}
 
 		if err := json.NewEncoder(w).Encode(response); err != nil {
-			log.Error("failed to encode response", "error", err)
+			s.Logger(ctx).Error("failed to encode response", "error", err)
 		}
 	}
 }
@@ -634,24 +635,23 @@ func DisableApprovedDomain(s *server.GlobalServer) http.HandlerFunc {
 		w.Header().Set("Content-Type", "application/json")
 
 		ctx := r.Context()
-		log := s.Logger(ctx)
 
 		adminUser := middleware.AdminUserFromContext(ctx)
 		if adminUser == nil {
-			log.Debug("admin user not found in context")
+			s.Logger(ctx).Debug("admin user not found in context")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 
 		var request admin.DisableApprovedDomainRequest
 		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-			log.Debug("failed to decode request", "error", err)
+			s.Logger(ctx).Debug("failed to decode request", "error", err)
 			writeErrorResponse(w, http.StatusBadRequest, "invalid JSON request body")
 			return
 		}
 
 		if validationErrors := request.Validate(); len(validationErrors) > 0 {
-			log.Debug("validation failed", "errors", validationErrors)
+			s.Logger(ctx).Debug("validation failed", "errors", validationErrors)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(validationErrors)
 			return
@@ -662,18 +662,18 @@ func DisableApprovedDomain(s *server.GlobalServer) http.HandlerFunc {
 		domain, err := s.Global.GetApprovedDomainByName(ctx, domainName)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				log.Debug("domain not found", "domain_name", domainName)
+				s.Logger(ctx).Debug("domain not found", "domain_name", domainName)
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
-			log.Error("failed to get approved domain", "error", err)
+			s.Logger(ctx).Error("failed to get approved domain", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
 		// Check if domain is already inactive
 		if domain.Status == globaldb.DomainStatusInactive {
-			log.Debug("domain already inactive", "domain_name", domainName)
+			s.Logger(ctx).Debug("domain already inactive", "domain_name", domainName)
 			w.WriteHeader(http.StatusUnprocessableEntity)
 			return
 		}
@@ -688,33 +688,35 @@ func DisableApprovedDomain(s *server.GlobalServer) http.HandlerFunc {
 				return txErr
 			}
 			eventData, _ := json.Marshal(map[string]any{"domain_name": domainName})
-			return qtx.InsertAdminAuditLog(ctx, globaldb.InsertAdminAuditLogParams{
+			if err := qtx.InsertAdminAuditLog(ctx, globaldb.InsertAdminAuditLogParams{
 				EventType:   "admin.disable_approved_domain",
 				ActorUserID: adminUser.AdminUserID,
 				IpAddress:   audit.ExtractClientIP(r),
 				EventData:   eventData,
-			})
+			}); err != nil {
+				return err
+			}
+			newValue := domainToJSON(disabledDomain)
+			createAuditLogTx(ctx, s, qtx, adminUser.AdminUserID, "disabled", &domain.DomainID, &domainName, &request.Reason, oldValue, newValue, r)
+			return nil
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				log.Debug("domain not found or already inactive", "domain_name", domainName)
+				s.Logger(ctx).Debug("domain not found or already inactive", "domain_name", domainName)
 				w.WriteHeader(http.StatusUnprocessableEntity)
 				return
 			}
-			log.Error("failed to disable approved domain", "error", err)
+			s.Logger(ctx).Error("failed to disable approved domain", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		newValue := domainToJSON(disabledDomain)
-		createAuditLog(ctx, s, adminUser.AdminUserID, "disabled", &domain.DomainID, &domainName, &request.Reason, oldValue, newValue, r)
-
-		log.Info("approved domain disabled", "domain_name", domainName, "admin_user_id", adminUser.AdminUserID)
+		s.Logger(ctx).Info("approved domain disabled", "domain_name", domainName, "admin_user_id", adminUser.AdminUserID)
 
 		// Get admin email for response
 		adminEmail, err := s.Global.GetAdminUserByID(ctx, adminUser.AdminUserID)
 		if err != nil {
-			log.Error("failed to get admin email", "error", err)
+			s.Logger(ctx).Error("failed to get admin email", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -729,7 +731,7 @@ func DisableApprovedDomain(s *server.GlobalServer) http.HandlerFunc {
 		}
 
 		if err := json.NewEncoder(w).Encode(response); err != nil {
-			log.Error("failed to encode response", "error", err)
+			s.Logger(ctx).Error("failed to encode response", "error", err)
 		}
 	}
 }
@@ -740,24 +742,23 @@ func EnableApprovedDomain(s *server.GlobalServer) http.HandlerFunc {
 		w.Header().Set("Content-Type", "application/json")
 
 		ctx := r.Context()
-		log := s.Logger(ctx)
 
 		adminUser := middleware.AdminUserFromContext(ctx)
 		if adminUser == nil {
-			log.Debug("admin user not found in context")
+			s.Logger(ctx).Debug("admin user not found in context")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 
 		var request admin.EnableApprovedDomainRequest
 		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-			log.Debug("failed to decode request", "error", err)
+			s.Logger(ctx).Debug("failed to decode request", "error", err)
 			writeErrorResponse(w, http.StatusBadRequest, "invalid JSON request body")
 			return
 		}
 
 		if validationErrors := request.Validate(); len(validationErrors) > 0 {
-			log.Debug("validation failed", "errors", validationErrors)
+			s.Logger(ctx).Debug("validation failed", "errors", validationErrors)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(validationErrors)
 			return
@@ -768,18 +769,18 @@ func EnableApprovedDomain(s *server.GlobalServer) http.HandlerFunc {
 		domain, err := s.Global.GetApprovedDomainByName(ctx, domainName)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				log.Debug("domain not found", "domain_name", domainName)
+				s.Logger(ctx).Debug("domain not found", "domain_name", domainName)
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
-			log.Error("failed to get approved domain", "error", err)
+			s.Logger(ctx).Error("failed to get approved domain", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
 		// Check if domain is already active
 		if domain.Status == globaldb.DomainStatusActive {
-			log.Debug("domain already active", "domain_name", domainName)
+			s.Logger(ctx).Debug("domain already active", "domain_name", domainName)
 			w.WriteHeader(http.StatusUnprocessableEntity)
 			return
 		}
@@ -794,33 +795,35 @@ func EnableApprovedDomain(s *server.GlobalServer) http.HandlerFunc {
 				return txErr
 			}
 			eventData, _ := json.Marshal(map[string]any{"domain_name": domainName})
-			return qtx.InsertAdminAuditLog(ctx, globaldb.InsertAdminAuditLogParams{
+			if err := qtx.InsertAdminAuditLog(ctx, globaldb.InsertAdminAuditLogParams{
 				EventType:   "admin.enable_approved_domain",
 				ActorUserID: adminUser.AdminUserID,
 				IpAddress:   audit.ExtractClientIP(r),
 				EventData:   eventData,
-			})
+			}); err != nil {
+				return err
+			}
+			newValue := domainToJSON(enabledDomain)
+			createAuditLogTx(ctx, s, qtx, adminUser.AdminUserID, "enabled", &domain.DomainID, &domainName, &request.Reason, oldValue, newValue, r)
+			return nil
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				log.Debug("domain not found or already active", "domain_name", domainName)
+				s.Logger(ctx).Debug("domain not found or already active", "domain_name", domainName)
 				w.WriteHeader(http.StatusUnprocessableEntity)
 				return
 			}
-			log.Error("failed to enable approved domain", "error", err)
+			s.Logger(ctx).Error("failed to enable approved domain", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		newValue := domainToJSON(enabledDomain)
-		createAuditLog(ctx, s, adminUser.AdminUserID, "enabled", &domain.DomainID, &domainName, &request.Reason, oldValue, newValue, r)
-
-		log.Info("approved domain enabled", "domain_name", domainName, "admin_user_id", adminUser.AdminUserID)
+		s.Logger(ctx).Info("approved domain enabled", "domain_name", domainName, "admin_user_id", adminUser.AdminUserID)
 
 		// Get admin email for response
 		adminEmail, err := s.Global.GetAdminUserByID(ctx, adminUser.AdminUserID)
 		if err != nil {
-			log.Error("failed to get admin email", "error", err)
+			s.Logger(ctx).Error("failed to get admin email", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -835,14 +838,14 @@ func EnableApprovedDomain(s *server.GlobalServer) http.HandlerFunc {
 		}
 
 		if err := json.NewEncoder(w).Encode(response); err != nil {
-			log.Error("failed to encode response", "error", err)
+			s.Logger(ctx).Error("failed to encode response", "error", err)
 		}
 	}
 }
 
 // Helper functions
 
-func createAuditLog(ctx context.Context, s *server.GlobalServer, adminID pgtype.UUID, action string, targetDomainID *pgtype.UUID, targetDomainName, reason *string, oldValue, newValue map[string]interface{}, r *http.Request) {
+func createAuditLogTx(ctx context.Context, s *server.GlobalServer, qtx *globaldb.Queries, adminID pgtype.UUID, action string, targetDomainID *pgtype.UUID, targetDomainName, reason *string, oldValue, newValue map[string]interface{}, r *http.Request) {
 	var targetIDPtr pgtype.UUID
 	if targetDomainID != nil {
 		targetIDPtr = *targetDomainID
@@ -865,7 +868,7 @@ func createAuditLog(ctx context.Context, s *server.GlobalServer, adminID pgtype.
 	userAgent := pgtype.Text{String: r.Header.Get("User-Agent"), Valid: true}
 	requestID := pgtype.Text{String: r.Header.Get("X-Request-ID"), Valid: true}
 
-	_, err := s.Global.CreateAuditLog(ctx, globaldb.CreateAuditLogParams{
+	_, err := qtx.CreateAuditLog(ctx, globaldb.CreateAuditLogParams{
 		AdminID:          adminID,
 		Action:           action,
 		TargetDomainID:   targetIDPtr,

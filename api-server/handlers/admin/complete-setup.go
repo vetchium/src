@@ -18,19 +18,18 @@ func CompleteSetup(s *server.GlobalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()
-		log := s.Logger(ctx)
 
 		// Decode request
 		var req admin.AdminCompleteSetupRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			log.Debug("failed to decode request", "error", err)
+			s.Logger(ctx).Debug("failed to decode request", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		// Validate request
 		if errs := req.Validate(); len(errs) > 0 {
-			log.Debug("validation failed", "errors", errs)
+			s.Logger(ctx).Debug("validation failed", "errors", errs)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(errs)
 			return
@@ -40,11 +39,11 @@ func CompleteSetup(s *server.GlobalServer) http.HandlerFunc {
 		invitationTokenData, err := s.Global.GetAdminInvitationToken(ctx, string(req.InvitationToken))
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				log.Debug("invalid or expired invitation token")
+				s.Logger(ctx).Debug("invalid or expired invitation token")
 				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
-			log.Error("failed to get invitation token", "error", err)
+			s.Logger(ctx).Error("failed to get invitation token", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -53,18 +52,18 @@ func CompleteSetup(s *server.GlobalServer) http.HandlerFunc {
 		adminUser, err := s.Global.GetAdminUserByID(ctx, invitationTokenData.AdminUserID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				log.Debug("admin user not found")
+				s.Logger(ctx).Debug("admin user not found")
 				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
-			log.Error("failed to get admin user", "error", err)
+			s.Logger(ctx).Error("failed to get admin user", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
 		// Check user status - must be invited
 		if adminUser.Status != globaldb.AdminUserStatusInvited {
-			log.Debug("user is not in invited status", "status", adminUser.Status)
+			s.Logger(ctx).Debug("user is not in invited status", "status", adminUser.Status)
 			w.WriteHeader(http.StatusUnprocessableEntity)
 			return
 		}
@@ -72,7 +71,7 @@ func CompleteSetup(s *server.GlobalServer) http.HandlerFunc {
 		// Hash password
 		passwordHash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 		if err != nil {
-			log.Error("failed to hash password", "error", err)
+			s.Logger(ctx).Error("failed to hash password", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -108,12 +107,12 @@ func CompleteSetup(s *server.GlobalServer) http.HandlerFunc {
 			})
 		})
 		if err != nil {
-			log.Error("failed to complete admin user setup", "error", err)
+			s.Logger(ctx).Error("failed to complete admin user setup", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		log.Info("admin user setup completed successfully", "admin_user_id", invitationTokenData.AdminUserID)
+		s.Logger(ctx).Info("admin user setup completed successfully", "admin_user_id", invitationTokenData.AdminUserID)
 
 		// Return success response
 		response := admin.AdminCompleteSetupResponse{
@@ -121,7 +120,7 @@ func CompleteSetup(s *server.GlobalServer) http.HandlerFunc {
 		}
 
 		if err := json.NewEncoder(w).Encode(response); err != nil {
-			log.Error("failed to encode response", "error", err)
+			s.Logger(ctx).Error("failed to encode response", "error", err)
 		}
 	}
 }

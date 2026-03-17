@@ -19,12 +19,11 @@ func EnableUser(s *server.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()
-		log := s.Logger(ctx)
 
 		// Get authenticated org user from context
 		orgUser := middleware.OrgUserFromContext(ctx)
 		if orgUser == nil {
-			log.Debug("org user not found in context")
+			s.Logger(ctx).Debug("org user not found in context")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
@@ -32,14 +31,14 @@ func EnableUser(s *server.Server) http.HandlerFunc {
 		// Decode request
 		var req employer.OrgEnableUserRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			log.Debug("failed to decode request", "error", err)
+			s.Logger(ctx).Debug("failed to decode request", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		// Validate request
 		if errs := req.Validate(); len(errs) > 0 {
-			log.Debug("validation failed", "errors", errs)
+			s.Logger(ctx).Debug("validation failed", "errors", errs)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(errs)
 			return
@@ -55,11 +54,11 @@ func EnableUser(s *server.Server) http.HandlerFunc {
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				log.Debug("target user not found", "email", req.EmailAddress)
+				s.Logger(ctx).Debug("target user not found", "email", req.EmailAddress)
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
-			log.Error("failed to get target user", "error", err)
+			s.Logger(ctx).Error("failed to get target user", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -68,18 +67,18 @@ func EnableUser(s *server.Server) http.HandlerFunc {
 		targetUser, err := s.Regional.GetOrgUserByID(ctx, globalTargetUser.OrgUserID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				log.Debug("target user not found in regional DB")
+				s.Logger(ctx).Debug("target user not found in regional DB")
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
-			log.Error("failed to get target user from regional DB", "error", err)
+			s.Logger(ctx).Error("failed to get target user from regional DB", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
 		// Check if target user is in disabled state
 		if targetUser.Status != regionaldb.OrgUserStatusDisabled {
-			log.Debug("target user not in disabled state", "status", targetUser.Status)
+			s.Logger(ctx).Debug("target user not in disabled state", "status", targetUser.Status)
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
@@ -102,12 +101,12 @@ func EnableUser(s *server.Server) http.HandlerFunc {
 			})
 		})
 		if err != nil {
-			log.Error("failed to update user status", "error", err)
+			s.Logger(ctx).Error("failed to update user status", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		log.Info("org user enabled successfully",
+		s.Logger(ctx).Info("org user enabled successfully",
 			"target_user_id", targetUser.OrgUserID,
 			"enabled_by", orgUser.OrgUserID)
 
