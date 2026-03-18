@@ -2,6 +2,7 @@ package agency
 
 import (
 	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -112,7 +113,10 @@ func DisableUser(s *server.Server) http.HandlerFunc {
 			}); txErr != nil {
 				return txErr
 			}
-			eventData, _ := json.Marshal(map[string]any{"target_user_id": targetUser.AgencyUserID.String()})
+			eventData, _ := json.Marshal(map[string]any{
+				"target_user_id":    targetUser.AgencyUserID.String(),
+				"target_email_hash": hex.EncodeToString(emailHash[:]),
+			})
 			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
 				EventType:    "agency.disable_user",
 				ActorUserID:  agencyUser.AgencyUserID,

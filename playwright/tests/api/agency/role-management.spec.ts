@@ -72,6 +72,12 @@ test.describe("POST /agency/assign-role", () => {
 				"agency.assign_role"
 			);
 			expect(auditResp.body.audit_logs[0].target_user_id).toBe(targetUserId);
+			expect(auditResp.body.audit_logs[0].event_data).toHaveProperty(
+				"target_email_hash"
+			);
+			expect(
+				JSON.stringify(auditResp.body.audit_logs[0].event_data)
+			).not.toContain(targetEmail);
 		} finally {
 			await deleteTestAgencyUser(adminEmail);
 			await deleteTestAgencyUser(targetEmail);
@@ -477,6 +483,12 @@ test.describe("POST /agency/remove-role", () => {
 				"agency.remove_role"
 			);
 			expect(auditResp.body.audit_logs[0].target_user_id).toBe(targetUserId);
+			expect(auditResp.body.audit_logs[0].event_data).toHaveProperty(
+				"target_email_hash"
+			);
+			expect(
+				JSON.stringify(auditResp.body.audit_logs[0].event_data)
+			).not.toContain(targetEmail);
 		} finally {
 			await deleteTestAgencyUser(adminEmail);
 			await deleteTestAgencyUser(targetEmail);

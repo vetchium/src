@@ -75,6 +75,12 @@ test.describe("POST /admin/disable-user", () => {
 			expect(auditResp.body.audit_logs[0].event_type).toBe(
 				"admin.disable_user"
 			);
+			expect(auditResp.body.audit_logs[0].event_data).toHaveProperty(
+				"target_email_hash"
+			);
+			expect(
+				JSON.stringify(auditResp.body.audit_logs[0].event_data)
+			).not.toContain(admin2Email);
 		} finally {
 			await deleteTestAdminUser(admin1Email);
 			await deleteTestAdminUser(admin2Email);
@@ -383,6 +389,12 @@ test.describe("POST /admin/enable-user", () => {
 			expect(auditResp.status).toBe(200);
 			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
 			expect(auditResp.body.audit_logs[0].event_type).toBe("admin.enable_user");
+			expect(auditResp.body.audit_logs[0].event_data).toHaveProperty(
+				"target_email_hash"
+			);
+			expect(
+				JSON.stringify(auditResp.body.audit_logs[0].event_data)
+			).not.toContain(admin2Email);
 		} finally {
 			await deleteTestAdminUser(admin1Email);
 			await deleteTestAdminUser(admin2Email);

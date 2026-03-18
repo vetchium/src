@@ -1,6 +1,8 @@
 package employer
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -126,9 +128,11 @@ func RemoveRole(s *server.Server) http.HandlerFunc {
 			}); txErr != nil {
 				return txErr
 			}
+			targetEmailHash := sha256.Sum256([]byte(targetUser.EmailAddress))
 			eventData, _ := json.Marshal(map[string]any{
-				"target_user_id": targetUser.OrgUserID.String(),
-				"role_name":      string(req.RoleName),
+				"target_user_id":    targetUser.OrgUserID.String(),
+				"target_email_hash": hex.EncodeToString(targetEmailHash[:]),
+				"role_name":         string(req.RoleName),
 			})
 			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
 				EventType:    "employer.remove_role",

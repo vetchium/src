@@ -71,6 +71,12 @@ test.describe("POST /employer/assign-role", () => {
 				"employer.assign_role"
 			);
 			expect(auditResp.body.audit_logs[0].target_user_id).toBe(targetUserId);
+			expect(auditResp.body.audit_logs[0].event_data).toHaveProperty(
+				"target_email_hash"
+			);
+			expect(
+				JSON.stringify(auditResp.body.audit_logs[0].event_data)
+			).not.toContain(targetEmail);
 		} finally {
 			await deleteTestOrgUser(adminEmail);
 			await deleteTestOrgUser(targetEmail);
@@ -467,6 +473,12 @@ test.describe("POST /employer/remove-role", () => {
 				"employer.remove_role"
 			);
 			expect(auditResp.body.audit_logs[0].target_user_id).toBe(targetUserId);
+			expect(auditResp.body.audit_logs[0].event_data).toHaveProperty(
+				"target_email_hash"
+			);
+			expect(
+				JSON.stringify(auditResp.body.audit_logs[0].event_data)
+			).not.toContain(targetEmail);
 		} finally {
 			await deleteTestOrgUser(adminEmail);
 			await deleteTestOrgUser(targetEmail);

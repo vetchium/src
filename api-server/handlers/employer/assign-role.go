@@ -1,6 +1,8 @@
 package employer
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -125,9 +127,11 @@ func AssignRole(s *server.Server) http.HandlerFunc {
 		}
 
 		// Assign role and write audit log atomically
+		targetEmailHash := sha256.Sum256([]byte(targetUser.EmailAddress))
 		eventData, _ := json.Marshal(map[string]any{
-			"target_user_id": targetUser.OrgUserID.String(),
-			"role_name":      string(req.RoleName),
+			"target_user_id":    targetUser.OrgUserID.String(),
+			"target_email_hash": hex.EncodeToString(targetEmailHash[:]),
+			"role_name":         string(req.RoleName),
 		})
 		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
 			if txErr := qtx.AssignOrgUserRole(ctx, regionaldb.AssignOrgUserRoleParams{

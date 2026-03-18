@@ -2,6 +2,7 @@ package employer
 
 import (
 	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -118,7 +119,10 @@ func DisableUser(s *server.Server) http.HandlerFunc {
 				return txErr
 			}
 
-			eventData, _ := json.Marshal(map[string]any{"target_user_id": targetUser.OrgUserID.String()})
+			eventData, _ := json.Marshal(map[string]any{
+				"target_user_id":    targetUser.OrgUserID.String(),
+				"target_email_hash": hex.EncodeToString(emailHash[:]),
+			})
 			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
 				EventType:    "employer.disable_user",
 				ActorUserID:  orgUser.OrgUserID,

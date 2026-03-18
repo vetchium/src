@@ -1,6 +1,7 @@
 package agency
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -126,8 +127,9 @@ func AssignRole(s *server.Server) http.HandlerFunc {
 
 		// Assign role and write audit log atomically
 		eventData, _ := json.Marshal(map[string]any{
-			"target_user_id": targetUser.AgencyUserID.String(),
-			"role_name":      string(req.RoleName),
+			"target_user_id":    targetUser.AgencyUserID.String(),
+			"target_email_hash": hex.EncodeToString(targetUser.EmailAddressHash),
+			"role_name":         string(req.RoleName),
 		})
 		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
 			if txErr := qtx.AssignAgencyUserRole(ctx, regionaldb.AssignAgencyUserRoleParams{

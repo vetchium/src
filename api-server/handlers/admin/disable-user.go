@@ -1,6 +1,8 @@
 package admin
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -92,7 +94,11 @@ func DisableUser(s *server.GlobalServer) http.HandlerFunc {
 			}); err != nil {
 				return err
 			}
-			eventData, _ := json.Marshal(map[string]any{"target_user_id": currentTarget.AdminUserID.String()})
+			targetEmailHash := sha256.Sum256([]byte(req.EmailAddress))
+			eventData, _ := json.Marshal(map[string]any{
+				"target_user_id":    currentTarget.AdminUserID.String(),
+				"target_email_hash": hex.EncodeToString(targetEmailHash[:]),
+			})
 			return qtx.InsertAdminAuditLog(ctx, globaldb.InsertAdminAuditLogParams{
 				EventType:    "admin.disable_user",
 				ActorUserID:  adminUser.AdminUserID,
