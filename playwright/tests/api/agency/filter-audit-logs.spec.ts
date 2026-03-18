@@ -5,6 +5,7 @@ import {
 	createTestAgencyUserDirect,
 	deleteTestAgencyUser,
 	generateTestAgencyEmail,
+	assignRoleToAgencyUser,
 } from "../../../lib/db";
 import { getTfaCodeFromEmail } from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
@@ -208,6 +209,38 @@ test.describe("POST /agency/filter-audit-logs", () => {
 		const api = new AgencyAPIClient(request);
 		const resp = await api.filterAuditLogsWithoutAuth({});
 		expect(resp.status).toBe(401);
+	});
+
+	test("returns 200 for user with view_audit_logs role", async ({
+		request,
+	}) => {
+		const api = new AgencyAPIClient(request);
+		const { email: adminEmail, domain } = generateTestAgencyEmail(
+			"agen-audit-view-role"
+		);
+		const adminResult = await createTestAgencyAdminDirect(
+			adminEmail,
+			TEST_PASSWORD
+		);
+		const viewerEmail = `audit-viewer@${domain}`;
+		const viewerResult = await createTestAgencyUserDirect(
+			viewerEmail,
+			TEST_PASSWORD,
+			"ind1",
+			{ agencyId: adminResult.agencyId, domain }
+		);
+		await assignRoleToAgencyUser(
+			viewerResult.agencyUserId,
+			"agency:view_audit_logs"
+		);
+		try {
+			const sessionToken = await loginAgency(api, viewerEmail, domain);
+			const resp = await api.filterAuditLogs(sessionToken, {});
+			expect(resp.status).toBe(200);
+		} finally {
+			await deleteTestAgencyUser(viewerEmail);
+			await deleteTestAgencyUser(adminEmail);
+		}
 	});
 
 	test("returns 403 for user without view_audit_logs role", async ({

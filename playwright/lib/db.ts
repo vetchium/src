@@ -334,10 +334,9 @@ export async function createTestApprovedDomain(
 export async function deleteTestApprovedDomain(
 	domainName: string
 ): Promise<void> {
-	await pool.query(
-		`UPDATE approved_domains SET deleted_at = NOW() WHERE domain_name = $1`,
-		[domainName.toLowerCase()]
-	);
+	await pool.query(`DELETE FROM approved_domains WHERE domain_name = $1`, [
+		domainName.toLowerCase(),
+	]);
 }
 
 /**

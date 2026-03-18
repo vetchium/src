@@ -21,6 +21,8 @@ export const VALID_ROLE_NAMES = [
 	"employer:manage_domains",
 	"employer:view_costcenters",
 	"employer:manage_costcenters",
+	"employer:view_suborgs",
+	"employer:manage_suborgs",
 
 	// Agency portal roles
 	"agency:superadmin",

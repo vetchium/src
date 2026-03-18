@@ -14,6 +14,8 @@ var ValidRoleNames = []RoleName{
 	"admin:manage_users",
 	"admin:view_domains",
 	"admin:manage_domains",
+	"admin:manage_tags",
+	"admin:view_audit_logs",
 
 	// Employer portal roles
 	"employer:superadmin",
@@ -21,6 +23,11 @@ var ValidRoleNames = []RoleName{
 	"employer:manage_users",
 	"employer:view_domains",
 	"employer:manage_domains",
+	"employer:view_costcenters",
+	"employer:manage_costcenters",
+	"employer:view_suborgs",
+	"employer:manage_suborgs",
+	"employer:view_audit_logs",
 
 	// Agency portal roles
 	"agency:superadmin",
@@ -28,6 +35,12 @@ var ValidRoleNames = []RoleName{
 	"agency:manage_users",
 	"agency:view_domains",
 	"agency:manage_domains",
+	"agency:view_audit_logs",
+
+	// Hub portal roles
+	"hub:read_posts",
+	"hub:write_posts",
+	"hub:apply_jobs",
 }
 
 // Validation errors for RBAC

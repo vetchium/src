@@ -307,7 +307,7 @@ Current roles — see `specs/typespec/common/roles.ts` and `MEMORY.md` for the f
 
 ### Checklist: Adding a New Feature
 
-1. **Define roles** (if new): add to initial_schema.sql + `specs/typespec/common/roles.ts`
+1. **Define roles** (if new): add to initial_schema.sql + `specs/typespec/common/roles.ts` AND `specs/typespec/common/roles.go` (both must be kept in sync)
 2. **Protect backend route**:
    ```go
    // same pattern for all portals
@@ -317,6 +317,26 @@ Current roles — see `specs/typespec/common/roles.ts` and `MEMORY.md` for the f
 3. **Make UI tile role-aware**: derive access flags from `myInfo.roles`, conditionally render
 4. **Hide write actions** for read-only roles within feature pages (UI is defence-in-depth; backend MUST enforce independently → 403)
 5. **Add audit log writes** for every write handler (see Audit Logging section above)
+6. **Add RBAC tests** in `playwright/tests/api/{portal}/rbac.spec.ts` (see RBAC Test Policy below)
+
+### RBAC Test Policy
+
+**CRITICAL**: Every role-protected endpoint MUST have these two tests in the portal's `rbac.spec.ts`:
+
+1. **Positive test**: a non-superadmin user WITH the required role calls the endpoint → 200/201/204
+2. **Negative test**: an authenticated user with NO roles calls the endpoint → 403
+
+Rules:
+
+- Add tests to `playwright/tests/api/{admin,employer,agency}/rbac.spec.ts` — organized by role group (`describe` block per role)
+- Endpoint-specific spec files test functional behavior + 401 only; no 403 tests there
+- Use `assignRoleToAdminUser` / `assignRoleToOrgUser` / `assignRoleToAgencyUser` DB helpers to grant roles directly (bypassing API validation) for test setup
+- Use `createTestAdminUser` / `createTestOrgUserDirect` / `createTestAgencyUserDirect` for no-role users
+- `describe` blocks that share state via `beforeAll` must use `test.describe.configure({ mode: "serial" })` when tests have ordering dependencies (e.g., disable before enable)
+- Cleanup: always delete created resources in `afterAll`/`finally`; use fresh `generateTestDomainName()` domains when testing claim-domain (not the org's own domain which is already in `global_employer_domains`)
+- The plan file `playwright/RBAC-TEST-PLAN.md` tracks coverage — update it when adding tests
+
+**Why superadmin tests are not sufficient**: superadmin bypasses all role checks, so a passing superadmin test does NOT prove the role grant works. You need a non-superadmin with the specific role.
 
 | Portal   | Middleware                                 | Superadmin role       | Roles DB |
 | -------- | ------------------------------------------ | --------------------- | -------- |

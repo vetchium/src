@@ -561,6 +561,75 @@ test.describe("SubOrgs API", () => {
 			});
 			expect(res.status).toBe(401);
 		});
+
+		test("RBAC: no manage_suborgs returns 403 for disable-suborg", async ({
+			request,
+		}) => {
+			const api = new EmployerAPIClient(request);
+			const { email: adminEmail, domain } = generateTestOrgEmail("so-dis-rbac");
+			const adminResult = await createTestOrgAdminDirect(
+				adminEmail,
+				TEST_PASSWORD
+			);
+			const userEmail = `norole@${domain}`;
+			await createTestOrgUserDirect(userEmail, TEST_PASSWORD, "ind1", {
+				employerId: adminResult.employerId,
+				domain,
+			});
+
+			const adminToken = await loginOrgUser(api, adminEmail, domain);
+			const createRes = await api.createSubOrg(adminToken, {
+				name: "RBAC Disable SubOrg",
+				pinned_region: "ind1",
+			});
+			expect(createRes.status).toBe(201);
+
+			try {
+				const userToken = await loginOrgUser(api, userEmail, domain);
+				const res = await api.disableSubOrg(userToken, {
+					suborg_id: createRes.body!.id,
+				});
+				expect(res.status).toBe(403);
+			} finally {
+				await deleteTestOrgUser(userEmail);
+				await deleteTestOrgUser(adminEmail);
+			}
+		});
+
+		test("RBAC: no manage_suborgs returns 403 for enable-suborg", async ({
+			request,
+		}) => {
+			const api = new EmployerAPIClient(request);
+			const { email: adminEmail, domain } = generateTestOrgEmail("so-en-rbac");
+			const adminResult = await createTestOrgAdminDirect(
+				adminEmail,
+				TEST_PASSWORD
+			);
+			const userEmail = `norole@${domain}`;
+			await createTestOrgUserDirect(userEmail, TEST_PASSWORD, "ind1", {
+				employerId: adminResult.employerId,
+				domain,
+			});
+
+			const adminToken = await loginOrgUser(api, adminEmail, domain);
+			const createRes = await api.createSubOrg(adminToken, {
+				name: "RBAC Enable SubOrg",
+				pinned_region: "ind1",
+			});
+			expect(createRes.status).toBe(201);
+			await api.disableSubOrg(adminToken, { suborg_id: createRes.body!.id });
+
+			try {
+				const userToken = await loginOrgUser(api, userEmail, domain);
+				const res = await api.enableSubOrg(userToken, {
+					suborg_id: createRes.body!.id,
+				});
+				expect(res.status).toBe(403);
+			} finally {
+				await deleteTestOrgUser(userEmail);
+				await deleteTestOrgUser(adminEmail);
+			}
+		});
 	});
 
 	// ============================================================================
@@ -723,6 +792,52 @@ test.describe("SubOrgs API", () => {
 				email_address: "test@example.com",
 			});
 			expect(res.status).toBe(401);
+		});
+
+		test("RBAC: no manage_suborgs returns 403 for remove-suborg-member", async ({
+			request,
+		}) => {
+			const api = new EmployerAPIClient(request);
+			const { email: adminEmail, domain } = generateTestOrgEmail("so-rem-rbac");
+			const adminResult = await createTestOrgAdminDirect(
+				adminEmail,
+				TEST_PASSWORD
+			);
+			const memberEmail = `member@${domain}`;
+			const memberResult = await createTestOrgUserDirect(
+				memberEmail,
+				TEST_PASSWORD,
+				"ind1",
+				{ employerId: adminResult.employerId, domain }
+			);
+			const noRoleEmail = `norole@${domain}`;
+			await createTestOrgUserDirect(noRoleEmail, TEST_PASSWORD, "ind1", {
+				employerId: adminResult.employerId,
+				domain,
+			});
+
+			const adminToken = await loginOrgUser(api, adminEmail, domain);
+			const createRes = await api.createSubOrg(adminToken, {
+				name: "RBAC Remove Member SubOrg",
+				pinned_region: "ind1",
+			});
+			await api.addSubOrgMember(adminToken, {
+				suborg_id: createRes.body!.id,
+				email_address: memberEmail,
+			});
+
+			try {
+				const noRoleToken = await loginOrgUser(api, noRoleEmail, domain);
+				const res = await api.removeSubOrgMember(noRoleToken, {
+					suborg_id: createRes.body!.id,
+					email_address: memberEmail,
+				});
+				expect(res.status).toBe(403);
+			} finally {
+				await deleteTestOrgUser(noRoleEmail);
+				await deleteTestOrgUser(memberEmail);
+				await deleteTestOrgUser(adminEmail);
+			}
 		});
 
 		test("RBAC: no manage_suborgs returns 403", async ({ request }) => {

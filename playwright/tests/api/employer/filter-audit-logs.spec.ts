@@ -5,6 +5,7 @@ import {
 	createTestOrgUserDirect,
 	deleteTestOrgUser,
 	generateTestOrgEmail,
+	assignRoleToOrgUser,
 } from "../../../lib/db";
 import { getTfaCodeFromEmail } from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
@@ -205,6 +206,38 @@ test.describe("POST /employer/filter-audit-logs", () => {
 		const api = new EmployerAPIClient(request);
 		const resp = await api.filterAuditLogsWithoutAuth({});
 		expect(resp.status).toBe(401);
+	});
+
+	test("returns 200 for user with view_audit_logs role", async ({
+		request,
+	}) => {
+		const api = new EmployerAPIClient(request);
+		const { email: adminEmail, domain } = generateTestOrgEmail(
+			"emp-audit-view-role"
+		);
+		const adminResult = await createTestOrgAdminDirect(
+			adminEmail,
+			TEST_PASSWORD
+		);
+		const viewerEmail = `audit-viewer@${domain}`;
+		const viewerResult = await createTestOrgUserDirect(
+			viewerEmail,
+			TEST_PASSWORD,
+			"ind1",
+			{ employerId: adminResult.employerId, domain }
+		);
+		await assignRoleToOrgUser(
+			viewerResult.orgUserId,
+			"employer:view_audit_logs"
+		);
+		try {
+			const sessionToken = await loginOrg(api, viewerEmail, domain);
+			const resp = await api.filterAuditLogs(sessionToken, {});
+			expect(resp.status).toBe(200);
+		} finally {
+			await deleteTestOrgUser(viewerEmail);
+			await deleteTestOrgUser(adminEmail);
+		}
 	});
 
 	test("returns 403 for user without view_audit_logs role", async ({

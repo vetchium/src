@@ -678,7 +678,7 @@ test.describe("Cost Centers API", () => {
 			}
 		});
 
-		test("User with no cost center role cannot list or add (403)", async ({
+		test("User with no cost center role cannot list, add, or update (403)", async ({
 			request,
 		}) => {
 			const api = new EmployerAPIClient(request);
@@ -695,6 +695,13 @@ test.describe("Cost Centers API", () => {
 				domain,
 			});
 
+			// Admin creates a cost center to attempt update on
+			const adminToken = await loginOrgUser(api, adminEmail, domain);
+			await api.addCostCenter(adminToken, {
+				id: "rbac-none-cc",
+				display_name: "RBAC None Test",
+			});
+
 			try {
 				const noRoleToken = await loginOrgUser(api, noRoleEmail, domain);
 
@@ -706,6 +713,13 @@ test.describe("Cost Centers API", () => {
 					display_name: "Test",
 				});
 				expect(addRes.status).toBe(403);
+
+				const updateRes = await api.updateCostCenterRaw(noRoleToken, {
+					id: "rbac-none-cc",
+					display_name: "Hacked Name",
+					status: "disabled",
+				});
+				expect(updateRes.status).toBe(403);
 			} finally {
 				await deleteTestOrgUser(noRoleEmail);
 				await deleteTestOrgUser(adminEmail);

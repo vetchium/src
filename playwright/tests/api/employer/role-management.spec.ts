@@ -359,6 +359,68 @@ test.describe("POST /employer/assign-role", () => {
 		}
 	});
 
+	test("can assign all valid employer roles via API (200)", async ({
+		request,
+	}) => {
+		const api = new EmployerAPIClient(request);
+		const { email: adminEmail, domain } = generateTestOrgEmail(
+			"role-all-valid-admin"
+		);
+		const { email: targetEmail } = generateTestOrgEmail(
+			"role-all-valid-target"
+		);
+
+		const { employerId } = await createTestOrgAdminDirect(
+			adminEmail,
+			TEST_PASSWORD
+		);
+		const { orgUserId: targetUserId } = await createTestOrgUserDirect(
+			targetEmail,
+			TEST_PASSWORD,
+			"ind1",
+			{ employerId, domain }
+		);
+
+		try {
+			const loginResponse = await api.login({
+				email: adminEmail,
+				domain,
+				password: TEST_PASSWORD,
+			});
+			const tfaCode = await getTfaCodeFromEmail(adminEmail);
+			const tfaResponse = await api.verifyTFA({
+				tfa_token: loginResponse.body.tfa_token,
+				tfa_code: tfaCode,
+				remember_me: false,
+			});
+			const sessionToken = tfaResponse.body.session_token;
+
+			// These roles were previously missing from roles.go and would return 400
+			const newRoles = [
+				"employer:view_costcenters",
+				"employer:manage_costcenters",
+				"employer:view_suborgs",
+				"employer:manage_suborgs",
+				"employer:view_audit_logs",
+			];
+			for (const role of newRoles) {
+				const res = await api.assignRole(sessionToken, {
+					target_user_id: targetUserId,
+					role_name: role,
+				});
+				expect(res.status, `assigning ${role} should succeed`).toBe(200);
+				// Clean up: remove role before assigning next
+				await api.removeRole(sessionToken, {
+					target_user_id: targetUserId,
+					role_name: role,
+				});
+			}
+		} finally {
+			await deleteTestOrgUser(adminEmail);
+			await deleteTestOrgUser(targetEmail);
+		}
+	});
+
 	test("assigning agency role to employer user returns 400", async ({
 		request,
 	}) => {

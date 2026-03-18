@@ -5,6 +5,7 @@ import {
 	createTestAdminUserDirect,
 	deleteTestAdminUser,
 	generateTestEmail,
+	assignRoleToAdminUser,
 } from "../../../lib/db";
 import { getTfaCodeFromEmail } from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
@@ -227,6 +228,23 @@ test.describe("POST /admin/filter-audit-logs", () => {
 
 		const resp = await api.filterAuditLogsWithoutAuth({});
 		expect(resp.status).toBe(401);
+	});
+
+	test("returns 200 for user with view_audit_logs role", async ({
+		request,
+	}) => {
+		const api = new AdminAPIClient(request);
+		const email = generateTestEmail("filter-audit-logs-view-role");
+
+		const { userId } = await createTestAdminUserDirect(email, TEST_PASSWORD);
+		await assignRoleToAdminUser(userId, "admin:view_audit_logs");
+		try {
+			const sessionToken = await loginAdmin(api, email);
+			const resp = await api.filterAuditLogs(sessionToken, {});
+			expect(resp.status).toBe(200);
+		} finally {
+			await deleteTestAdminUser(email);
+		}
 	});
 
 	test("returns 403 for user without view_audit_logs role", async ({
