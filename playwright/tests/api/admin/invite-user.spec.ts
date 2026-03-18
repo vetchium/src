@@ -5,6 +5,8 @@ import {
 	deleteTestAdminUser,
 	createTestAdminUserDirect,
 	createTestAdminAdminDirect,
+	createTestAdminUser,
+	assignRoleToAdminUser,
 } from "../../../lib/db";
 import {
 	getTfaCodeFromEmail,
@@ -261,4 +263,45 @@ test.describe("POST /admin/invite-user", () => {
 
 		expect(inviteResponse.status).toBe(401);
 	});
+});
+
+test.describe("RBAC: POST /admin/invite-user", () => {
+	test("admin WITH admin:manage_users role can invite users (201)", async ({
+		request,
+	}) => {
+		const api = new AdminAPIClient(request);
+		const userEmail = generateTestAdminEmail("rbac-inv-with-role");
+		const inviteeEmail = generateTestAdminEmail("rbac-inv-target");
+
+		const userId = await createTestAdminUser(userEmail, TEST_PASSWORD);
+		await assignRoleToAdminUser(userId, "admin:manage_users");
+
+		try {
+			const loginResponse = await api.login({
+				email: userEmail,
+				password: TEST_PASSWORD,
+			});
+			expect(loginResponse.status).toBe(200);
+			const tfaCode = await getTfaCodeFromEmail(userEmail);
+			const tfaResponse = await api.verifyTFA({
+				tfa_token: loginResponse.body.tfa_token,
+				tfa_code: tfaCode,
+				remember_me: false,
+			});
+			expect(tfaResponse.status).toBe(200);
+			const sessionToken = tfaResponse.body.session_token;
+
+			const inviteRequest: AdminInviteUserRequest = {
+				email_address: inviteeEmail,
+			};
+			const response = await api.inviteUser(sessionToken, inviteRequest);
+			expect(response.status).toBe(201);
+		} finally {
+			await deleteTestAdminUser(userEmail);
+			await deleteTestAdminUser(inviteeEmail);
+		}
+	});
+
+	// Negative RBAC (no role → 403) is covered by
+	// "non-admin cannot invite users (403 forbidden)" above.
 });

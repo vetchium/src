@@ -529,3 +529,104 @@ test.describe("POST /admin/remove-role", () => {
 		}
 	});
 });
+
+test.describe("RBAC: POST /admin/assign-role and /admin/remove-role", () => {
+	let managerEmail: string;
+	let managerId: string;
+	let managerToken: string;
+	let noRoleEmail: string;
+	let noRoleToken: string;
+	let targetEmail: string;
+	let targetId: string;
+
+	test.beforeAll(async ({ request }) => {
+		const api = new AdminAPIClient(request);
+
+		managerEmail = generateTestAdminEmail("rbac-rm-manager");
+		managerId = await createTestAdminUser(managerEmail, TEST_PASSWORD);
+		await assignRoleToAdminUser(managerId, "admin:manage_users");
+		const loginRes1 = await api.login({
+			email: managerEmail,
+			password: TEST_PASSWORD,
+		});
+		const tfaCode1 = await getTfaCodeFromEmail(managerEmail);
+		const tfaRes1 = await api.verifyTFA({
+			tfa_token: loginRes1.body.tfa_token,
+			tfa_code: tfaCode1,
+		});
+		managerToken = tfaRes1.body.session_token;
+
+		noRoleEmail = generateTestAdminEmail("rbac-rm-norole");
+		await createTestAdminUser(noRoleEmail, TEST_PASSWORD);
+		const loginRes2 = await api.login({
+			email: noRoleEmail,
+			password: TEST_PASSWORD,
+		});
+		const tfaCode2 = await getTfaCodeFromEmail(noRoleEmail);
+		const tfaRes2 = await api.verifyTFA({
+			tfa_token: loginRes2.body.tfa_token,
+			tfa_code: tfaCode2,
+		});
+		noRoleToken = tfaRes2.body.session_token;
+
+		targetEmail = generateTestAdminEmail("rbac-rm-target");
+		targetId = await createTestAdminUser(targetEmail, TEST_PASSWORD);
+	});
+
+	test.afterAll(async () => {
+		await deleteTestAdminUser(managerEmail);
+		await deleteTestAdminUser(noRoleEmail);
+		await deleteTestAdminUser(targetEmail);
+	});
+
+	test("admin WITH manage_users can assign-role (200)", async ({ request }) => {
+		const api = new AdminAPIClient(request);
+		const assignRequest: AssignRoleRequest = {
+			target_user_id: targetId,
+			role_name: "admin:view_users",
+		};
+		const response = await api.assignRole(managerToken, assignRequest);
+		expect(response.status).toBe(200);
+		// Clean up: remove the role we just assigned
+		await api.removeRole(managerToken, {
+			target_user_id: targetId,
+			role_name: "admin:view_users",
+		});
+	});
+
+	test("admin WITHOUT manage_users gets 403 on assign-role", async ({
+		request,
+	}) => {
+		const api = new AdminAPIClient(request);
+		const assignRequest: AssignRoleRequest = {
+			target_user_id: targetId,
+			role_name: "admin:view_users",
+		};
+		const response = await api.assignRole(noRoleToken, assignRequest);
+		expect(response.status).toBe(403);
+	});
+
+	test("admin WITH manage_users can remove-role (200)", async ({ request }) => {
+		const api = new AdminAPIClient(request);
+		// First assign the role directly so we can remove it
+		await assignRoleToAdminUser(targetId, "admin:view_users");
+		const removeRequest: RemoveRoleRequest = {
+			target_user_id: targetId,
+			role_name: "admin:view_users",
+		};
+		const response = await api.removeRole(managerToken, removeRequest);
+		expect(response.status).toBe(200);
+	});
+
+	test("admin WITHOUT manage_users gets 403 on remove-role", async ({
+		request,
+	}) => {
+		const api = new AdminAPIClient(request);
+		const removeRequest: RemoveRoleRequest = {
+			target_user_id: managerId,
+			role_name: "admin:manage_users",
+		};
+		const response = await api.removeRole(noRoleToken, removeRequest);
+		expect(response.status).toBe(403);
+	});
+});

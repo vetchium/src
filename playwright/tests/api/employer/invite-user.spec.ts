@@ -5,6 +5,7 @@ import {
 	deleteTestOrgUser,
 	createTestOrgUserDirect,
 	createTestOrgAdminDirect,
+	assignRoleToOrgUser,
 } from "../../../lib/db";
 import {
 	getTfaCodeFromEmail,
@@ -364,4 +365,59 @@ test.describe("POST /employer/invite-user", () => {
 			await deleteTestOrgUser(adminEmail);
 		}
 	});
+});
+
+test.describe("RBAC: POST /employer/invite-user", () => {
+	test("org user WITH employer:manage_users can invite users (201)", async ({
+		request,
+	}) => {
+		const api = new EmployerAPIClient(request);
+		const { email: adminEmail, domain } =
+			generateTestOrgEmail("rbac-inv-org-adm");
+		const adminResult = await createTestOrgAdminDirect(
+			adminEmail,
+			TEST_PASSWORD,
+			"ind1"
+		);
+
+		const managerEmail = `mgr-${crypto.randomUUID().substring(0, 8)}@${domain}`;
+		const managerResult = await createTestOrgUserDirect(
+			managerEmail,
+			TEST_PASSWORD,
+			"ind1",
+			{ employerId: adminResult.employerId }
+		);
+		await assignRoleToOrgUser(managerResult.orgUserId, "employer:manage_users");
+
+		try {
+			const loginRes = await api.login({
+				email: managerEmail,
+				domain,
+				password: TEST_PASSWORD,
+			});
+			expect(loginRes.status).toBe(200);
+			const tfaCode = await getTfaCodeFromEmail(managerEmail);
+			const tfaRes = await api.verifyTFA({
+				tfa_token: loginRes.body.tfa_token,
+				tfa_code: tfaCode,
+				remember_me: false,
+			});
+			expect(tfaRes.status).toBe(200);
+			const sessionToken = tfaRes.body.session_token;
+
+			const inviteeEmail = `inv-${crypto.randomUUID().substring(0, 8)}@${domain}`;
+			const inviteRequest: OrgInviteUserRequest = {
+				email_address: inviteeEmail,
+				roles: ["employer:manage_users"],
+			};
+			const response = await api.inviteUser(sessionToken, inviteRequest);
+			expect(response.status).toBe(201);
+		} finally {
+			await deleteTestOrgUser(managerEmail);
+			await deleteTestOrgUser(adminEmail);
+		}
+	});
+
+	// Negative RBAC (no role → 403) is covered by
+	// "non-admin cannot invite users (403 forbidden)" above.
 });

@@ -7,6 +7,9 @@ import {
 	generateTestEmail,
 	permanentlyDeleteTestApprovedDomain,
 	generateTestDomainName,
+	assignRoleToAdminUser,
+	createTestApprovedDomain,
+	deleteTestApprovedDomain,
 } from "../../../lib/db";
 import { getTfaCodeFromEmail } from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
@@ -1069,5 +1072,93 @@ test.describe("POST /admin/enable-approved-domain", () => {
 			reason: "Test reason",
 		});
 		expect(response.status).toBe(401);
+	});
+});
+
+test.describe("RBAC: POST /admin/list-approved-domains and /admin/get-approved-domain", () => {
+	let viewerEmail: string;
+	let viewerToken: string;
+	let noRoleEmail: string;
+	let noRoleToken: string;
+	let seedAdminEmail: string;
+	let testDomain: string;
+
+	test.beforeAll(async ({ request }) => {
+		const api = new AdminAPIClient(request);
+
+		seedAdminEmail = generateTestEmail("rbac-dom-seed");
+		await createTestAdminAdminDirect(seedAdminEmail, TEST_PASSWORD);
+		testDomain = generateTestDomainName("rbac-vdom");
+		await createTestApprovedDomain(testDomain, seedAdminEmail);
+
+		viewerEmail = generateTestEmail("rbac-dom-viewer");
+		const viewerId = await createTestAdminUser(viewerEmail, TEST_PASSWORD);
+		await assignRoleToAdminUser(viewerId, "admin:view_domains");
+		const loginRes1 = await api.login({
+			email: viewerEmail,
+			password: TEST_PASSWORD,
+		});
+		const tfaCode1 = await getTfaCodeFromEmail(viewerEmail);
+		const tfaRes1 = await api.verifyTFA({
+			tfa_token: loginRes1.body.tfa_token,
+			tfa_code: tfaCode1,
+		});
+		viewerToken = tfaRes1.body.session_token;
+
+		noRoleEmail = generateTestEmail("rbac-dom-norole");
+		await createTestAdminUser(noRoleEmail, TEST_PASSWORD);
+		const loginRes2 = await api.login({
+			email: noRoleEmail,
+			password: TEST_PASSWORD,
+		});
+		const tfaCode2 = await getTfaCodeFromEmail(noRoleEmail);
+		const tfaRes2 = await api.verifyTFA({
+			tfa_token: loginRes2.body.tfa_token,
+			tfa_code: tfaCode2,
+		});
+		noRoleToken = tfaRes2.body.session_token;
+	});
+
+	test.afterAll(async () => {
+		await deleteTestApprovedDomain(testDomain);
+		await deleteTestAdminUser(viewerEmail);
+		await deleteTestAdminUser(noRoleEmail);
+		await deleteTestAdminUser(seedAdminEmail);
+	});
+
+	test("admin WITH view_domains can list-approved-domains (200)", async ({
+		request,
+	}) => {
+		const api = new AdminAPIClient(request);
+		const response = await api.listApprovedDomains(viewerToken, {});
+		expect(response.status).toBe(200);
+	});
+
+	test("admin WITH view_domains can get-approved-domain (200)", async ({
+		request,
+	}) => {
+		const api = new AdminAPIClient(request);
+		const response = await api.getApprovedDomain(viewerToken, {
+			domain_name: testDomain,
+		});
+		expect(response.status).toBe(200);
+	});
+
+	test("admin WITHOUT any role gets 403 on list-approved-domains", async ({
+		request,
+	}) => {
+		const api = new AdminAPIClient(request);
+		const response = await api.listApprovedDomains(noRoleToken, {});
+		expect(response.status).toBe(403);
+	});
+
+	test("admin WITHOUT any role gets 403 on get-approved-domain", async ({
+		request,
+	}) => {
+		const api = new AdminAPIClient(request);
+		const response = await api.getApprovedDomain(noRoleToken, {
+			domain_name: testDomain,
+		});
+		expect(response.status).toBe(403);
 	});
 });

@@ -7,6 +7,7 @@ import {
 	createTestOrgUserDirect,
 	createTestOrgAdminDirect,
 	generateTestDomainName,
+	assignRoleToOrgUser,
 } from "../../../lib/db";
 import { getTfaCodeFromEmail, deleteEmailsFor } from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
@@ -211,6 +212,98 @@ test.describe("POST /employer/claim-domain", () => {
 		} finally {
 			await deleteTestGlobalEmployerDomain(claimedDomain);
 			if (userEmail) await deleteTestOrgUser(userEmail);
+		}
+	});
+});
+
+test.describe("RBAC: POST /employer/claim-domain", () => {
+	test("org user WITH employer:manage_domains can claim-domain (201)", async ({
+		request,
+	}) => {
+		const api = new EmployerAPIClient(request);
+		const { email: adminEmail, domain } =
+			generateTestOrgEmail("rbac-cd-org-adm");
+		const adminResult = await createTestOrgAdminDirect(
+			adminEmail,
+			TEST_PASSWORD,
+			"ind1"
+		);
+
+		const managerEmail = `mgr-${crypto.randomUUID().substring(0, 8)}@${domain}`;
+		const managerResult = await createTestOrgUserDirect(
+			managerEmail,
+			TEST_PASSWORD,
+			"ind1",
+			{ employerId: adminResult.employerId, domain }
+		);
+		await assignRoleToOrgUser(
+			managerResult.orgUserId,
+			"employer:manage_domains"
+		);
+
+		const freshDomain = generateTestDomainName("rbac-emp-clm");
+		try {
+			const loginRes = await api.login({
+				email: managerEmail,
+				domain,
+				password: TEST_PASSWORD,
+			});
+			const tfaCode = await getTfaCodeFromEmail(managerEmail);
+			const tfaRes = await api.verifyTFA({
+				tfa_token: loginRes.body.tfa_token,
+				tfa_code: tfaCode,
+				remember_me: false,
+			});
+			const sessionToken = tfaRes.body.session_token;
+
+			const response = await api.claimDomain(sessionToken, {
+				domain: freshDomain,
+			});
+			expect(response.status).toBe(201);
+		} finally {
+			await deleteTestGlobalEmployerDomain(freshDomain);
+			await deleteTestOrgUser(managerEmail);
+			await deleteTestOrgUser(adminEmail);
+		}
+	});
+
+	test("org user WITHOUT role gets 403 on claim-domain", async ({
+		request,
+	}) => {
+		const api = new EmployerAPIClient(request);
+		const { email: adminEmail, domain } =
+			generateTestOrgEmail("rbac-cd-norole");
+		const adminResult = await createTestOrgAdminDirect(
+			adminEmail,
+			TEST_PASSWORD,
+			"ind1"
+		);
+
+		const noRoleEmail = `norole-${crypto.randomUUID().substring(0, 8)}@${domain}`;
+		await createTestOrgUserDirect(noRoleEmail, TEST_PASSWORD, "ind1", {
+			employerId: adminResult.employerId,
+			domain,
+		});
+
+		try {
+			const loginRes = await api.login({
+				email: noRoleEmail,
+				domain,
+				password: TEST_PASSWORD,
+			});
+			const tfaCode = await getTfaCodeFromEmail(noRoleEmail);
+			const tfaRes = await api.verifyTFA({
+				tfa_token: loginRes.body.tfa_token,
+				tfa_code: tfaCode,
+				remember_me: false,
+			});
+			const noRoleToken = tfaRes.body.session_token;
+
+			const response = await api.claimDomain(noRoleToken, { domain });
+			expect(response.status).toBe(403);
+		} finally {
+			await deleteTestOrgUser(noRoleEmail);
+			await deleteTestOrgUser(adminEmail);
 		}
 	});
 });

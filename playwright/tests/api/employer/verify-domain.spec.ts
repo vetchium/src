@@ -7,6 +7,7 @@ import {
 	createTestOrgUserDirect,
 	createTestOrgAdminDirect,
 	generateTestDomainName,
+	assignRoleToOrgUser,
 } from "../../../lib/db";
 import { getTfaCodeFromEmail, deleteEmailsFor } from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
@@ -215,6 +216,100 @@ test.describe("POST /employer/verify-domain", () => {
 			await deleteTestGlobalEmployerDomain(claimedDomain);
 			if (userEmail1) await deleteTestOrgUser(userEmail1);
 			if (userEmail2) await deleteTestOrgUser(userEmail2);
+		}
+	});
+});
+
+test.describe("RBAC: POST /employer/verify-domain", () => {
+	test("org user WITH employer:manage_domains can verify-domain (200)", async ({
+		request,
+	}) => {
+		const api = new EmployerAPIClient(request);
+		const { email: adminEmail, domain } =
+			generateTestOrgEmail("rbac-vd-org-adm");
+		const adminResult = await createTestOrgAdminDirect(
+			adminEmail,
+			TEST_PASSWORD,
+			"ind1"
+		);
+
+		const managerEmail = `mgr-${crypto.randomUUID().substring(0, 8)}@${domain}`;
+		const managerResult = await createTestOrgUserDirect(
+			managerEmail,
+			TEST_PASSWORD,
+			"ind1",
+			{ employerId: adminResult.employerId, domain }
+		);
+		await assignRoleToOrgUser(
+			managerResult.orgUserId,
+			"employer:manage_domains"
+		);
+
+		const claimedDomain = generateTestDomainName("rbac-vd-emp");
+		try {
+			const loginRes = await api.login({
+				email: managerEmail,
+				domain,
+				password: TEST_PASSWORD,
+			});
+			const tfaCode = await getTfaCodeFromEmail(managerEmail);
+			const tfaRes = await api.verifyTFA({
+				tfa_token: loginRes.body.tfa_token,
+				tfa_code: tfaCode,
+				remember_me: false,
+			});
+			const sessionToken = tfaRes.body.session_token;
+
+			// Claim first, then verify (verification won't succeed w/o DNS but returns 200 PENDING)
+			await api.claimDomain(sessionToken, { domain: claimedDomain });
+			const response = await api.verifyDomain(sessionToken, {
+				domain: claimedDomain,
+			});
+			expect(response.status).toBe(200);
+		} finally {
+			await deleteTestGlobalEmployerDomain(claimedDomain);
+			await deleteTestOrgUser(managerEmail);
+			await deleteTestOrgUser(adminEmail);
+		}
+	});
+
+	test("org user WITHOUT role gets 403 on verify-domain", async ({
+		request,
+	}) => {
+		const api = new EmployerAPIClient(request);
+		const { email: adminEmail, domain } =
+			generateTestOrgEmail("rbac-vd-norole");
+		const adminResult = await createTestOrgAdminDirect(
+			adminEmail,
+			TEST_PASSWORD,
+			"ind1"
+		);
+
+		const noRoleEmail = `norole-${crypto.randomUUID().substring(0, 8)}@${domain}`;
+		await createTestOrgUserDirect(noRoleEmail, TEST_PASSWORD, "ind1", {
+			employerId: adminResult.employerId,
+			domain,
+		});
+
+		try {
+			const loginRes = await api.login({
+				email: noRoleEmail,
+				domain,
+				password: TEST_PASSWORD,
+			});
+			const tfaCode = await getTfaCodeFromEmail(noRoleEmail);
+			const tfaRes = await api.verifyTFA({
+				tfa_token: loginRes.body.tfa_token,
+				tfa_code: tfaCode,
+				remember_me: false,
+			});
+			const noRoleToken = tfaRes.body.session_token;
+
+			const response = await api.verifyDomain(noRoleToken, { domain });
+			expect(response.status).toBe(403);
+		} finally {
+			await deleteTestOrgUser(noRoleEmail);
+			await deleteTestOrgUser(adminEmail);
 		}
 	});
 });

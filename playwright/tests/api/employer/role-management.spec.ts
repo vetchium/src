@@ -5,6 +5,7 @@ import {
 	deleteTestOrgUser,
 	createTestOrgAdminDirect,
 	createTestOrgUserDirect,
+	assignRoleToOrgUser,
 } from "../../../lib/db";
 import { getTfaCodeFromEmail } from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
@@ -769,4 +770,173 @@ test.describe("POST /employer/remove-role", () => {
 			await deleteTestOrgUser(admin2Email);
 		}
 	});
+});
+
+test.describe("RBAC: POST /employer/assign-role and /employer/remove-role", () => {
+	test("org user WITH employer:manage_users can assign-role (200)", async ({
+		request,
+	}) => {
+		const api = new EmployerAPIClient(request);
+		const { email: adminEmail, domain } =
+			generateTestOrgEmail("rbac-ar-org-adm");
+		const adminResult = await createTestOrgAdminDirect(
+			adminEmail,
+			TEST_PASSWORD,
+			"ind1"
+		);
+
+		const managerEmail = `mgr-${crypto.randomUUID().substring(0, 8)}@${domain}`;
+		const managerResult = await createTestOrgUserDirect(
+			managerEmail,
+			TEST_PASSWORD,
+			"ind1",
+			{ employerId: adminResult.employerId }
+		);
+		await assignRoleToOrgUser(managerResult.orgUserId, "employer:manage_users");
+
+		const targetEmail = `tgt-${crypto.randomUUID().substring(0, 8)}@${domain}`;
+		const targetResult = await createTestOrgUserDirect(
+			targetEmail,
+			TEST_PASSWORD,
+			"ind1",
+			{ employerId: adminResult.employerId }
+		);
+
+		try {
+			const loginRes = await api.login({
+				email: managerEmail,
+				domain,
+				password: TEST_PASSWORD,
+			});
+			const tfaCode = await getTfaCodeFromEmail(managerEmail);
+			const tfaRes = await api.verifyTFA({
+				tfa_token: loginRes.body.tfa_token,
+				tfa_code: tfaCode,
+				remember_me: false,
+			});
+			const sessionToken = tfaRes.body.session_token;
+
+			const assignRequest: AssignRoleRequest = {
+				target_user_id: targetResult.orgUserId,
+				role_name: "employer:view_users",
+			};
+			const response = await api.assignRole(sessionToken, assignRequest);
+			expect(response.status).toBe(200);
+		} finally {
+			await deleteTestOrgUser(managerEmail);
+			await deleteTestOrgUser(targetEmail);
+			await deleteTestOrgUser(adminEmail);
+		}
+	});
+
+	test("org user WITH employer:manage_users can remove-role (200)", async ({
+		request,
+	}) => {
+		const api = new EmployerAPIClient(request);
+		const { email: adminEmail, domain } =
+			generateTestOrgEmail("rbac-rr-org-adm");
+		const adminResult = await createTestOrgAdminDirect(
+			adminEmail,
+			TEST_PASSWORD,
+			"ind1"
+		);
+
+		const managerEmail = `mgr-${crypto.randomUUID().substring(0, 8)}@${domain}`;
+		const managerResult = await createTestOrgUserDirect(
+			managerEmail,
+			TEST_PASSWORD,
+			"ind1",
+			{ employerId: adminResult.employerId }
+		);
+		await assignRoleToOrgUser(managerResult.orgUserId, "employer:manage_users");
+
+		const targetEmail = `tgt-${crypto.randomUUID().substring(0, 8)}@${domain}`;
+		const targetResult = await createTestOrgUserDirect(
+			targetEmail,
+			TEST_PASSWORD,
+			"ind1",
+			{ employerId: adminResult.employerId }
+		);
+		await assignRoleToOrgUser(targetResult.orgUserId, "employer:view_users");
+
+		try {
+			const loginRes = await api.login({
+				email: managerEmail,
+				domain,
+				password: TEST_PASSWORD,
+			});
+			const tfaCode = await getTfaCodeFromEmail(managerEmail);
+			const tfaRes = await api.verifyTFA({
+				tfa_token: loginRes.body.tfa_token,
+				tfa_code: tfaCode,
+				remember_me: false,
+			});
+			const sessionToken = tfaRes.body.session_token;
+
+			const removeRequest: RemoveRoleRequest = {
+				target_user_id: targetResult.orgUserId,
+				role_name: "employer:view_users",
+			};
+			const response = await api.removeRole(sessionToken, removeRequest);
+			expect(response.status).toBe(200);
+		} finally {
+			await deleteTestOrgUser(managerEmail);
+			await deleteTestOrgUser(targetEmail);
+			await deleteTestOrgUser(adminEmail);
+		}
+	});
+
+	test("org user WITHOUT role gets 403 on remove-role", async ({ request }) => {
+		const api = new EmployerAPIClient(request);
+		const { email: adminEmail, domain } =
+			generateTestOrgEmail("rbac-rr-norole");
+		const adminResult = await createTestOrgAdminDirect(
+			adminEmail,
+			TEST_PASSWORD,
+			"ind1"
+		);
+
+		const noRoleEmail = `norole-${crypto.randomUUID().substring(0, 8)}@${domain}`;
+		await createTestOrgUserDirect(noRoleEmail, TEST_PASSWORD, "ind1", {
+			employerId: adminResult.employerId,
+		});
+
+		const targetEmail = `tgt-${crypto.randomUUID().substring(0, 8)}@${domain}`;
+		const targetResult = await createTestOrgUserDirect(
+			targetEmail,
+			TEST_PASSWORD,
+			"ind1",
+			{ employerId: adminResult.employerId }
+		);
+		await assignRoleToOrgUser(targetResult.orgUserId, "employer:view_users");
+
+		try {
+			const loginRes = await api.login({
+				email: noRoleEmail,
+				domain,
+				password: TEST_PASSWORD,
+			});
+			const tfaCode = await getTfaCodeFromEmail(noRoleEmail);
+			const tfaRes = await api.verifyTFA({
+				tfa_token: loginRes.body.tfa_token,
+				tfa_code: tfaCode,
+				remember_me: false,
+			});
+			const noRoleToken = tfaRes.body.session_token;
+
+			const removeRequest: RemoveRoleRequest = {
+				target_user_id: targetResult.orgUserId,
+				role_name: "employer:view_users",
+			};
+			const response = await api.removeRole(noRoleToken, removeRequest);
+			expect(response.status).toBe(403);
+		} finally {
+			await deleteTestOrgUser(noRoleEmail);
+			await deleteTestOrgUser(targetEmail);
+			await deleteTestOrgUser(adminEmail);
+		}
+	});
+
+	// Negative RBAC for assign-role (no role → 403) is covered by
+	// "non-admin cannot assign roles (403 forbidden)" above.
 });

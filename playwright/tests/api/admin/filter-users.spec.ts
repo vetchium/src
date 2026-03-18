@@ -5,6 +5,7 @@ import {
 	createTestAdminAdminDirect,
 	deleteTestAdminUser,
 	generateTestEmail,
+	assignRoleToAdminUser,
 } from "../../../lib/db";
 import { getTfaCodeFromEmail } from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
@@ -155,5 +156,62 @@ test.describe("Admin Filter Users API", () => {
 		expect(response.status).toBe(200);
 		expect(response.body!.items.length).toBe(0);
 		expect(response.body!.next_cursor).toBe("");
+	});
+});
+
+test.describe("RBAC: POST /admin/filter-users", () => {
+	let viewerEmail: string;
+	let viewerToken: string;
+	let noRoleEmail: string;
+	let noRoleToken: string;
+
+	test.beforeAll(async ({ request }) => {
+		const api = new AdminAPIClient(request);
+
+		viewerEmail = generateTestEmail("rbac-fu-viewer");
+		const viewerId = await createTestAdminUser(viewerEmail, TEST_PASSWORD);
+		await assignRoleToAdminUser(viewerId, "admin:view_users");
+		const loginRes1 = await api.login({
+			email: viewerEmail,
+			password: TEST_PASSWORD,
+		});
+		const tfaCode1 = await getTfaCodeFromEmail(viewerEmail);
+		const tfaRes1 = await api.verifyTFA({
+			tfa_token: loginRes1.body!.tfa_token,
+			tfa_code: tfaCode1,
+		});
+		viewerToken = tfaRes1.body!.session_token;
+
+		noRoleEmail = generateTestEmail("rbac-fu-norole");
+		await createTestAdminUser(noRoleEmail, TEST_PASSWORD);
+		const loginRes2 = await api.login({
+			email: noRoleEmail,
+			password: TEST_PASSWORD,
+		});
+		const tfaCode2 = await getTfaCodeFromEmail(noRoleEmail);
+		const tfaRes2 = await api.verifyTFA({
+			tfa_token: loginRes2.body!.tfa_token,
+			tfa_code: tfaCode2,
+		});
+		noRoleToken = tfaRes2.body!.session_token;
+	});
+
+	test.afterAll(async () => {
+		await deleteTestAdminUser(viewerEmail);
+		await deleteTestAdminUser(noRoleEmail);
+	});
+
+	test("admin WITH view_users can filter-users (200)", async ({ request }) => {
+		const api = new AdminAPIClient(request);
+		const response = await api.filterUsers(viewerToken, {});
+		expect(response.status).toBe(200);
+	});
+
+	test("admin WITHOUT any role gets 403 on filter-users", async ({
+		request,
+	}) => {
+		const api = new AdminAPIClient(request);
+		const response = await api.filterUsers(noRoleToken, {});
+		expect(response.status).toBe(403);
 	});
 });

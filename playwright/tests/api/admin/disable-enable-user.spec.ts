@@ -6,6 +6,7 @@ import {
 	deleteTestAdminUser,
 	generateTestEmail,
 	getTestAdminUser,
+	assignRoleToAdminUser,
 } from "../../../lib/db";
 import { getTfaCodeFromEmail } from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
@@ -633,5 +634,93 @@ test.describe("POST /admin/enable-user", () => {
 			await deleteTestAdminUser(admin1Email);
 			await deleteTestAdminUser(admin2Email);
 		}
+	});
+});
+
+test.describe("RBAC: POST /admin/disable-user and /admin/enable-user", () => {
+	test.describe.configure({ mode: "serial" });
+
+	let managerEmail: string;
+	let managerToken: string;
+	let noRoleEmail: string;
+	let noRoleToken: string;
+	let targetEmail: string;
+
+	test.beforeAll(async ({ request }) => {
+		const api = new AdminAPIClient(request);
+
+		managerEmail = generateTestEmail("rbac-dis-manager");
+		const managerId = await createTestAdminUser(managerEmail, TEST_PASSWORD);
+		await assignRoleToAdminUser(managerId, "admin:manage_users");
+		const loginRes1 = await api.login({
+			email: managerEmail,
+			password: TEST_PASSWORD,
+		});
+		const tfaCode1 = await getTfaCodeFromEmail(managerEmail);
+		const tfaRes1 = await api.verifyTFA({
+			tfa_token: loginRes1.body.tfa_token,
+			tfa_code: tfaCode1,
+		});
+		managerToken = tfaRes1.body.session_token;
+
+		noRoleEmail = generateTestEmail("rbac-dis-norole");
+		await createTestAdminUser(noRoleEmail, TEST_PASSWORD);
+		const loginRes2 = await api.login({
+			email: noRoleEmail,
+			password: TEST_PASSWORD,
+		});
+		const tfaCode2 = await getTfaCodeFromEmail(noRoleEmail);
+		const tfaRes2 = await api.verifyTFA({
+			tfa_token: loginRes2.body.tfa_token,
+			tfa_code: tfaCode2,
+		});
+		noRoleToken = tfaRes2.body.session_token;
+
+		targetEmail = generateTestEmail("rbac-dis-target");
+		await createTestAdminUser(targetEmail, TEST_PASSWORD);
+	});
+
+	test.afterAll(async () => {
+		await deleteTestAdminUser(managerEmail);
+		await deleteTestAdminUser(noRoleEmail);
+		await deleteTestAdminUser(targetEmail);
+	});
+
+	test("admin WITH manage_users can disable-user (200)", async ({
+		request,
+	}) => {
+		const api = new AdminAPIClient(request);
+		const response = await api.disableUser(managerToken, {
+			email_address: targetEmail,
+		});
+		expect(response.status).toBe(200);
+	});
+
+	test("admin WITH manage_users can enable-user (200)", async ({ request }) => {
+		const api = new AdminAPIClient(request);
+		const response = await api.enableUser(managerToken, {
+			email_address: targetEmail,
+		});
+		expect(response.status).toBe(200);
+	});
+
+	test("admin WITHOUT any role gets 403 on disable-user", async ({
+		request,
+	}) => {
+		const api = new AdminAPIClient(request);
+		const response = await api.disableUser(noRoleToken, {
+			email_address: targetEmail,
+		});
+		expect(response.status).toBe(403);
+	});
+
+	test("admin WITHOUT any role gets 403 on enable-user", async ({
+		request,
+	}) => {
+		const api = new AdminAPIClient(request);
+		const response = await api.enableUser(noRoleToken, {
+			email_address: targetEmail,
+		});
+		expect(response.status).toBe(403);
 	});
 });

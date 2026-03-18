@@ -5,7 +5,9 @@ import {
 	deleteTestAgencyUser,
 	deleteTestGlobalAgencyDomain,
 	createTestAgencyAdminDirect,
+	createTestAgencyUserDirect,
 	generateTestDomainName,
+	assignRoleToAgencyUser,
 } from "../../../lib/db";
 import { getTfaCodeFromEmail, deleteEmailsFor } from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
@@ -165,5 +167,110 @@ test.describe("POST /agency/list-domains", () => {
 		);
 
 		expect(response.status).toBe(401);
+	});
+});
+
+test.describe("RBAC: POST /agency/list-domains", () => {
+	let viewerToken: string;
+	let noRoleToken: string;
+	let adminEmail: string;
+	let viewerEmail: string;
+	let noRoleEmail: string;
+	let domain: string;
+	let claimedDomain: string;
+
+	test.beforeAll(async ({ request }) => {
+		const api = new AgencyAPIClient(request);
+
+		const generated = generateTestAgencyEmail("rbac-ld-agn");
+		adminEmail = generated.email;
+		domain = generated.domain;
+		const adminResult = await createTestAgencyAdminDirect(
+			adminEmail,
+			TEST_PASSWORD,
+			"ind1"
+		);
+
+		// Claim a fresh domain so list-domains returns something
+		claimedDomain = generateTestDomainName("rbac-ald-cl");
+		const adminLoginRes = await api.login({
+			email: adminEmail,
+			domain,
+			password: TEST_PASSWORD,
+		});
+		const adminTfaCode = await getTfaCodeFromEmail(adminEmail);
+		const adminTfaRes = await api.verifyTFA({
+			tfa_token: adminLoginRes.body.tfa_token,
+			tfa_code: adminTfaCode,
+			remember_me: false,
+		});
+		await api.claimDomain(adminTfaRes.body.session_token, {
+			domain: claimedDomain,
+		});
+
+		viewerEmail = `viewer@${domain}`;
+		const viewerResult = await createTestAgencyUserDirect(
+			viewerEmail,
+			TEST_PASSWORD,
+			"ind1",
+			{ agencyId: adminResult.agencyId, domain }
+		);
+		await assignRoleToAgencyUser(
+			viewerResult.agencyUserId,
+			"agency:view_domains"
+		);
+		const viewerLoginRes = await api.login({
+			email: viewerEmail,
+			domain,
+			password: TEST_PASSWORD,
+		});
+		const viewerTfaCode = await getTfaCodeFromEmail(viewerEmail);
+		const viewerTfaRes = await api.verifyTFA({
+			tfa_token: viewerLoginRes.body.tfa_token,
+			tfa_code: viewerTfaCode,
+			remember_me: false,
+		});
+		viewerToken = viewerTfaRes.body.session_token;
+
+		noRoleEmail = `norole@${domain}`;
+		await createTestAgencyUserDirect(noRoleEmail, TEST_PASSWORD, "ind1", {
+			agencyId: adminResult.agencyId,
+			domain,
+		});
+		const noRoleLoginRes = await api.login({
+			email: noRoleEmail,
+			domain,
+			password: TEST_PASSWORD,
+		});
+		const noRoleTfaCode = await getTfaCodeFromEmail(noRoleEmail);
+		const noRoleTfaRes = await api.verifyTFA({
+			tfa_token: noRoleLoginRes.body.tfa_token,
+			tfa_code: noRoleTfaCode,
+			remember_me: false,
+		});
+		noRoleToken = noRoleTfaRes.body.session_token;
+	});
+
+	test.afterAll(async () => {
+		await deleteTestGlobalAgencyDomain(claimedDomain);
+		await deleteTestAgencyUser(viewerEmail);
+		await deleteTestAgencyUser(noRoleEmail);
+		await deleteTestAgencyUser(adminEmail);
+	});
+
+	test("agency user WITH view_domains can list-domains (200)", async ({
+		request,
+	}) => {
+		const api = new AgencyAPIClient(request);
+		const response = await api.listDomains(viewerToken, {});
+		expect(response.status).toBe(200);
+	});
+
+	test("agency user WITHOUT role gets 403 on list-domains", async ({
+		request,
+	}) => {
+		const api = new AgencyAPIClient(request);
+		const response = await api.listDomains(noRoleToken, {});
+		expect(response.status).toBe(403);
 	});
 });

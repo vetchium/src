@@ -5,6 +5,7 @@ import {
 	deleteTestAgencyUser,
 	createTestAgencyUserDirect,
 	createTestAgencyAdminDirect,
+	assignRoleToAgencyUser,
 } from "../../../lib/db";
 import {
 	getTfaCodeFromEmail,
@@ -370,4 +371,62 @@ test.describe("POST /agency/invite-user", () => {
 			await deleteTestAgencyUser(adminEmail);
 		}
 	});
+});
+
+test.describe("RBAC: POST /agency/invite-user", () => {
+	test("agency user WITH agency:manage_users can invite users (201)", async ({
+		request,
+	}) => {
+		const api = new AgencyAPIClient(request);
+		const { email: adminEmail, domain } =
+			generateTestAgencyEmail("rbac-inv-agn-adm");
+		const adminResult = await createTestAgencyAdminDirect(
+			adminEmail,
+			TEST_PASSWORD,
+			"ind1"
+		);
+
+		const managerEmail = `mgr-${crypto.randomUUID().substring(0, 8)}@${domain}`;
+		const managerResult = await createTestAgencyUserDirect(
+			managerEmail,
+			TEST_PASSWORD,
+			"ind1",
+			{ agencyId: adminResult.agencyId }
+		);
+		await assignRoleToAgencyUser(
+			managerResult.agencyUserId,
+			"agency:manage_users"
+		);
+
+		try {
+			const loginRes = await api.login({
+				email: managerEmail,
+				domain,
+				password: TEST_PASSWORD,
+			});
+			expect(loginRes.status).toBe(200);
+			const tfaCode = await getTfaCodeFromEmail(managerEmail);
+			const tfaRes = await api.verifyTFA({
+				tfa_token: loginRes.body.tfa_token,
+				tfa_code: tfaCode,
+				remember_me: false,
+			});
+			expect(tfaRes.status).toBe(200);
+			const sessionToken = tfaRes.body.session_token;
+
+			const inviteeEmail = `inv-${crypto.randomUUID().substring(0, 8)}@${domain}`;
+			const inviteRequest: AgencyInviteUserRequest = {
+				email_address: inviteeEmail,
+				roles: ["agency:manage_users"],
+			};
+			const response = await api.inviteUser(sessionToken, inviteRequest);
+			expect(response.status).toBe(201);
+		} finally {
+			await deleteTestAgencyUser(managerEmail);
+			await deleteTestAgencyUser(adminEmail);
+		}
+	});
+
+	// Negative RBAC (no role → 403) is covered by
+	// "non-admin cannot invite users (403 forbidden)" above.
 });

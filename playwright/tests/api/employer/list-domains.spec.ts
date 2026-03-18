@@ -5,7 +5,9 @@ import {
 	deleteTestOrgUser,
 	deleteTestGlobalEmployerDomain,
 	createTestOrgAdminDirect,
+	createTestOrgUserDirect,
 	generateTestDomainName,
+	assignRoleToOrgUser,
 } from "../../../lib/db";
 import { getTfaCodeFromEmail, deleteEmailsFor } from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
@@ -165,5 +167,107 @@ test.describe("POST /employer/list-domains", () => {
 		);
 
 		expect(response.status).toBe(401);
+	});
+});
+
+test.describe("RBAC: POST /employer/list-domains", () => {
+	let viewerToken: string;
+	let noRoleToken: string;
+	let adminEmail: string;
+	let viewerEmail: string;
+	let noRoleEmail: string;
+	let domain: string;
+	let claimedDomain: string;
+
+	test.beforeAll(async ({ request }) => {
+		const api = new EmployerAPIClient(request);
+
+		const generated = generateTestOrgEmail("rbac-ld-emp");
+		adminEmail = generated.email;
+		domain = generated.domain;
+		const adminResult = await createTestOrgAdminDirect(
+			adminEmail,
+			TEST_PASSWORD,
+			"ind1"
+		);
+
+		// Claim a fresh domain so list-domains returns something
+		claimedDomain = generateTestDomainName("rbac-ld-cl");
+		const adminLoginRes = await api.login({
+			email: adminEmail,
+			domain,
+			password: TEST_PASSWORD,
+		});
+		const adminTfaCode = await getTfaCodeFromEmail(adminEmail);
+		const adminTfaRes = await api.verifyTFA({
+			tfa_token: adminLoginRes.body.tfa_token,
+			tfa_code: adminTfaCode,
+			remember_me: false,
+		});
+		await api.claimDomain(adminTfaRes.body.session_token, {
+			domain: claimedDomain,
+		});
+
+		viewerEmail = `viewer@${domain}`;
+		const viewerResult = await createTestOrgUserDirect(
+			viewerEmail,
+			TEST_PASSWORD,
+			"ind1",
+			{ employerId: adminResult.employerId, domain }
+		);
+		await assignRoleToOrgUser(viewerResult.orgUserId, "employer:view_domains");
+		const viewerLoginRes = await api.login({
+			email: viewerEmail,
+			domain,
+			password: TEST_PASSWORD,
+		});
+		const viewerTfaCode = await getTfaCodeFromEmail(viewerEmail);
+		const viewerTfaRes = await api.verifyTFA({
+			tfa_token: viewerLoginRes.body.tfa_token,
+			tfa_code: viewerTfaCode,
+			remember_me: false,
+		});
+		viewerToken = viewerTfaRes.body.session_token;
+
+		noRoleEmail = `norole@${domain}`;
+		await createTestOrgUserDirect(noRoleEmail, TEST_PASSWORD, "ind1", {
+			employerId: adminResult.employerId,
+			domain,
+		});
+		const noRoleLoginRes = await api.login({
+			email: noRoleEmail,
+			domain,
+			password: TEST_PASSWORD,
+		});
+		const noRoleTfaCode = await getTfaCodeFromEmail(noRoleEmail);
+		const noRoleTfaRes = await api.verifyTFA({
+			tfa_token: noRoleLoginRes.body.tfa_token,
+			tfa_code: noRoleTfaCode,
+			remember_me: false,
+		});
+		noRoleToken = noRoleTfaRes.body.session_token;
+	});
+
+	test.afterAll(async () => {
+		await deleteTestGlobalEmployerDomain(claimedDomain);
+		await deleteTestOrgUser(viewerEmail);
+		await deleteTestOrgUser(noRoleEmail);
+		await deleteTestOrgUser(adminEmail);
+	});
+
+	test("org user WITH view_domains can list-domains (200)", async ({
+		request,
+	}) => {
+		const api = new EmployerAPIClient(request);
+		const response = await api.listDomains(viewerToken, {});
+		expect(response.status).toBe(200);
+	});
+
+	test("org user WITHOUT role gets 403 on list-domains", async ({
+		request,
+	}) => {
+		const api = new EmployerAPIClient(request);
+		const response = await api.listDomains(noRoleToken, {});
+		expect(response.status).toBe(403);
 	});
 });
