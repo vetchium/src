@@ -1026,6 +1026,81 @@ test.describe("SubOrgs API", () => {
 	});
 
 	// ============================================================================
+	// RBAC: manage_suborgs positive test
+	// ============================================================================
+	test.describe("RBAC: manage_suborgs positive tests", () => {
+		test("non-superadmin WITH manage_suborgs can create and manage suborgs (201/200)", async ({
+			request,
+		}) => {
+			const api = new EmployerAPIClient(request);
+			const { email: adminEmail, domain } = generateTestOrgEmail("so-rbac-pos");
+			const adminResult = await createTestOrgAdminDirect(
+				adminEmail,
+				TEST_PASSWORD
+			);
+			const managerEmail = `manager@${domain}`;
+			const managerResult = await createTestOrgUserDirect(
+				managerEmail,
+				TEST_PASSWORD,
+				"ind1",
+				{ employerId: adminResult.employerId, domain }
+			);
+			await assignRoleToOrgUser(
+				managerResult.orgUserId,
+				"employer:manage_suborgs"
+			);
+
+			try {
+				const managerToken = await loginOrgUser(api, managerEmail, domain);
+
+				// create-suborg
+				const createRes = await api.createSubOrg(managerToken, {
+					name: "RBAC Positive SubOrg",
+					pinned_region: "ind1",
+				});
+				expect(createRes.status).toBe(201);
+				const soId = createRes.body!.id;
+
+				// rename-suborg
+				const renameRes = await api.renameSubOrg(managerToken, {
+					suborg_id: soId,
+					name: "RBAC Positive Renamed",
+				});
+				expect(renameRes.status).toBe(200);
+
+				// add-suborg-member (add self)
+				const addRes = await api.addSubOrgMember(managerToken, {
+					suborg_id: soId,
+					email_address: managerEmail,
+				});
+				expect(addRes.status).toBe(200);
+
+				// remove-suborg-member
+				const removeRes = await api.removeSubOrgMember(managerToken, {
+					suborg_id: soId,
+					email_address: managerEmail,
+				});
+				expect(removeRes.status).toBe(200);
+
+				// disable-suborg
+				const disableRes = await api.disableSubOrg(managerToken, {
+					suborg_id: soId,
+				});
+				expect(disableRes.status).toBe(200);
+
+				// enable-suborg
+				const enableRes = await api.enableSubOrg(managerToken, {
+					suborg_id: soId,
+				});
+				expect(enableRes.status).toBe(200);
+			} finally {
+				await deleteTestOrgUser(managerEmail);
+				await deleteTestOrgUser(adminEmail);
+			}
+		});
+	});
+
+	// ============================================================================
 	// SubOrg assignments revoked on user disable
 	// ============================================================================
 	test.describe("SubOrg assignments revoked when user is disabled", () => {

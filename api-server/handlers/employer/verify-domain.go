@@ -21,8 +21,6 @@ import (
 	employerdomains "vetchium-api-server.typespec/employer-domains"
 )
 
-// TODO: Consider adding domain_verification_events audit log (see specs/Ideas.md)
-
 func VerifyDomain(s *server.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

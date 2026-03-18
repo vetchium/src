@@ -1073,6 +1073,31 @@ test.describe("POST /admin/enable-approved-domain", () => {
 		});
 		expect(response.status).toBe(401);
 	});
+
+	test("user without admin:manage_domains role returns 403", async ({
+		request,
+	}) => {
+		const api = new AdminAPIClient(request);
+		const email = generateTestEmail("enable-no-role");
+		const noRoleId = await createTestAdminUser(email, TEST_PASSWORD);
+		try {
+			const loginResponse = await api.login({ email, password: TEST_PASSWORD });
+			const tfaCode = await getTfaCodeFromEmail(email);
+			const tfaResponse = await api.verifyTFA({
+				tfa_token: loginResponse.body.tfa_token,
+				tfa_code: tfaCode,
+			});
+			const sessionToken = tfaResponse.body.session_token;
+
+			const response = await api.enableApprovedDomain(sessionToken, {
+				domain_name: "anydomain.example.com",
+				reason: "Test reason",
+			});
+			expect(response.status).toBe(403);
+		} finally {
+			await deleteTestAdminUser(email);
+		}
+	});
 });
 
 test.describe("RBAC: POST /admin/list-approved-domains and /admin/get-approved-domain", () => {
