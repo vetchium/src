@@ -118,13 +118,14 @@ func DisableUser(s *server.Server) http.HandlerFunc {
 				return txErr
 			}
 
+			eventData, _ := json.Marshal(map[string]any{"target_user_id": targetUser.OrgUserID.String()})
 			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
 				EventType:    "employer.disable_user",
 				ActorUserID:  orgUser.OrgUserID,
 				TargetUserID: targetUser.OrgUserID,
 				OrgID:        orgUser.EmployerID,
 				IpAddress:    audit.ExtractClientIP(r),
-				EventData:    []byte("{}"),
+				EventData:    eventData,
 			})
 		})
 		if err != nil {

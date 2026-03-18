@@ -61,10 +61,6 @@ model ListApprovedDomainsRequest {
 model GetApprovedDomainRequest {
     @doc("Domain name to retrieve")
     domain_name: DomainName;
-    @doc("Cursor for audit log pagination - base64 encoded timestamp")
-    audit_cursor?: string;
-    @doc("Number of audit logs to return (default 50, max 100)")
-    audit_limit?: int32;
 }
 
 model DisableApprovedDomainRequest {
@@ -108,36 +104,9 @@ model ApprovedDomainListResponse {
 model ApprovedDomainDetailResponse {
     @doc("Domain details")
     domain: ApprovedDomain;
-    @doc("Audit logs for this domain")
-    audit_logs: ApprovedDomainAuditLog[];
-    @doc("Cursor for next page of audit logs - base64 encoded timestamp (empty if no more pages)")
-    next_audit_cursor: string;
-    @doc("Whether there are more audit log pages available")
-    has_more_audit: boolean;
 }
 
-model ApprovedDomainAuditLog {
-    @doc("Email of admin who performed the action")
-    admin_email: EmailAddress;
-    @doc("Action performed")
-    action: AuditAction;
-    @doc("Name of affected domain")
-    target_domain_name?: DomainName;
-    @doc("Reason provided for the action (for enable/disable)")
-    reason?: string;
-    @doc("Previous state before modification")
-    old_value?: {};
-    @doc("New state after modification")
-    new_value?: {};
-    @doc("IP address of the request")
-    ip_address?: string;
-    @doc("User agent of the request")
-    user_agent?: string;
-    @doc("Request ID for tracing")
-    request_id?: string;
-    @doc("ISO 8601 timestamp of the audit entry")
-    created_at: string;
-}
+
 
 @route("/admin")
 @tag("ApprovedDomains")

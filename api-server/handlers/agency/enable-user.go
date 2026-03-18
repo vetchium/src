@@ -91,13 +91,14 @@ func EnableUser(s *server.Server) http.HandlerFunc {
 			}); txErr != nil {
 				return txErr
 			}
+			eventData, _ := json.Marshal(map[string]any{"target_user_id": targetGlobalUser.AgencyUserID.String()})
 			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
 				EventType:    "agency.enable_user",
 				ActorUserID:  agencyUser.AgencyUserID,
 				TargetUserID: targetGlobalUser.AgencyUserID,
 				OrgID:        agencyUser.AgencyID,
 				IpAddress:    audit.ExtractClientIP(r),
-				EventData:    []byte("{}"),
+				EventData:    eventData,
 			})
 		})
 		if err != nil {

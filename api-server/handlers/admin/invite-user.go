@@ -2,6 +2,7 @@ package admin
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -134,12 +135,14 @@ func InviteUser(s *server.GlobalServer) http.HandlerFunc {
 			}); err != nil {
 				return err
 			}
+			invitedEmailHash := sha256.Sum256([]byte(req.EmailAddress))
+			eventData, _ := json.Marshal(map[string]any{"invited_email_hash": hex.EncodeToString(invitedEmailHash[:])})
 			return qtx.InsertAdminAuditLog(ctx, globaldb.InsertAdminAuditLogParams{
 				EventType:    "admin.invite_user",
 				ActorUserID:  adminUser.AdminUserID,
 				TargetUserID: createdUser.AdminUserID,
 				IpAddress:    audit.ExtractClientIP(r),
-				EventData:    []byte("{}"),
+				EventData:    eventData,
 			})
 		})
 		if err != nil {

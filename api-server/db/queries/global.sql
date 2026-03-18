@@ -332,38 +332,6 @@ WHERE status = 'active';
 -- name: CountApprovedDomainsAll :one
 SELECT COUNT(*)
 FROM approved_domains;
--- name: CreateAuditLog :one
-INSERT INTO approved_domains_audit_log (
-    admin_id,
-    action,
-    target_domain_id,
-    target_domain_name,
-    old_value,
-    new_value,
-    reason,
-    ip_address,
-    user_agent,
-    request_id
-  )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-RETURNING *;
--- name: GetAuditLogsByDomainIDFirstPage :many
-SELECT al.*,
-  au.email_address AS admin_email
-FROM approved_domains_audit_log al
-  LEFT JOIN admin_users au ON al.admin_id = au.admin_user_id
-WHERE al.target_domain_id = $1
-ORDER BY al.created_at DESC
-LIMIT $2;
--- name: GetAuditLogsByDomainIDAfterCursor :many
-SELECT al.*,
-  au.email_address AS admin_email
-FROM approved_domains_audit_log al
-  LEFT JOIN admin_users au ON al.admin_id = au.admin_user_id
-WHERE al.target_domain_id = $1
-  AND al.created_at < $2
-ORDER BY al.created_at DESC
-LIMIT $3;
 -- Hub signup tokens
 -- name: CreateHubSignupToken :exec
 INSERT INTO hub_signup_tokens (

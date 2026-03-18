@@ -153,11 +153,12 @@ func CompleteEmailChange(s *server.Server) http.HandlerFunc {
 			if txErr := qtx.DeleteAllHubSessionsForUser(ctx, tokenRecord.HubUserGlobalID); txErr != nil {
 				return txErr
 			}
+			eventData, _ := json.Marshal(map[string]any{"new_email_hash": hex.EncodeToString(newEmailHash[:])})
 			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
 				EventType:   "hub.complete_email_change",
 				ActorUserID: tokenRecord.HubUserGlobalID,
 				IpAddress:   audit.ExtractClientIP(r),
-				EventData:   []byte("{}"),
+				EventData:   eventData,
 			})
 		})
 		if err != nil {

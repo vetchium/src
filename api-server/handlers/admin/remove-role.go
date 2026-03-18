@@ -83,7 +83,10 @@ func RemoveRole(s *server.GlobalServer) http.HandlerFunc {
 
 		// The has-role check, last-superadmin guard, removal, and audit log are all
 		// inside a single transaction to prevent race conditions.
-		eventData, _ := json.Marshal(map[string]any{"role_name": string(req.RoleName)})
+		eventData, _ := json.Marshal(map[string]any{
+			"target_user_id": targetUser.AdminUserID.String(),
+			"role_name":      string(req.RoleName),
+		})
 		err = s.WithGlobalTx(ctx, func(qtx *globaldb.Queries) error {
 			// Check if user has this role
 			hasRole, err := qtx.HasAdminUserRole(ctx, globaldb.HasAdminUserRoleParams{

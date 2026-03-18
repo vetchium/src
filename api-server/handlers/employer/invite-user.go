@@ -204,13 +204,14 @@ func InviteUser(s *server.Server) http.HandlerFunc {
 				return txErr
 			}
 
+			eventData, _ := json.Marshal(map[string]any{"invited_email_hash": hex.EncodeToString(emailHash[:])})
 			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
 				EventType:    "employer.invite_user",
 				ActorUserID:  orgUser.OrgUserID,
 				TargetUserID: globalUser.OrgUserID,
 				OrgID:        orgUser.EmployerID,
 				IpAddress:    audit.ExtractClientIP(r),
-				EventData:    []byte("{}"),
+				EventData:    eventData,
 			})
 		})
 		if err != nil {

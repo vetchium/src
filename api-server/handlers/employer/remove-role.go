@@ -126,7 +126,10 @@ func RemoveRole(s *server.Server) http.HandlerFunc {
 			}); txErr != nil {
 				return txErr
 			}
-			eventData, _ := json.Marshal(map[string]any{"role_name": string(req.RoleName)})
+			eventData, _ := json.Marshal(map[string]any{
+				"target_user_id": targetUser.OrgUserID.String(),
+				"role_name":      string(req.RoleName),
+			})
 			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
 				EventType:    "employer.remove_role",
 				ActorUserID:  orgUser.OrgUserID,

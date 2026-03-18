@@ -65,7 +65,7 @@ func AddCostCenter(s *server.Server) http.HandlerFunc {
 		}
 
 		var cc regionaldb.CostCenter
-		eventData, _ := json.Marshal(map[string]any{"id": req.ID})
+		eventData, _ := json.Marshal(map[string]any{"cost_center_id": req.ID})
 		err := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
 			var txErr error
 			cc, txErr = qtx.CreateCostCenter(ctx, params)
@@ -139,13 +139,43 @@ func UpdateCostCenter(s *server.Server) http.HandlerFunc {
 		}
 
 		var cc regionaldb.CostCenter
-		updateEventData, _ := json.Marshal(map[string]any{"id": req.ID})
 		err := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
-			var txErr error
+			oldCC, txErr := qtx.GetCostCenterByEmployerAndID(ctx, regionaldb.GetCostCenterByEmployerAndIDParams{
+				EmployerID: orgUser.EmployerID,
+				ID:         req.ID,
+			})
+			if txErr != nil {
+				return txErr
+			}
+
+			var fieldsChanged []string
+			if oldCC.DisplayName != req.DisplayName {
+				fieldsChanged = append(fieldsChanged, "display_name")
+			}
+			if string(oldCC.Status) != string(req.Status) {
+				fieldsChanged = append(fieldsChanged, "status")
+			}
+			var oldNotes string
+			if oldCC.Notes.Valid {
+				oldNotes = oldCC.Notes.String
+			}
+			var newNotes string
+			if req.Notes != nil {
+				newNotes = *req.Notes
+			}
+			if oldNotes != newNotes {
+				fieldsChanged = append(fieldsChanged, "notes")
+			}
+
 			cc, txErr = qtx.UpdateCostCenter(ctx, params)
 			if txErr != nil {
 				return txErr
 			}
+
+			updateEventData, _ := json.Marshal(map[string]any{
+				"cost_center_id": req.ID,
+				"fields_changed": fieldsChanged,
+			})
 			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
 				EventType:   "employer.update_cost_center",
 				ActorUserID: orgUser.OrgUserID,

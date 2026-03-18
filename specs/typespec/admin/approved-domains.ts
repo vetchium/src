@@ -78,8 +78,6 @@ export function validateListApprovedDomainsRequest(
 
 export interface GetApprovedDomainRequest {
 	domain_name: DomainName;
-	audit_cursor?: string;
-	audit_limit?: number;
 }
 
 export function validateGetApprovedDomainRequest(
@@ -93,21 +91,6 @@ export function validateGetApprovedDomainRequest(
 		const domainErr = validateDomainName(request.domain_name);
 		if (domainErr) {
 			errs.push(newValidationError("domain_name", domainErr));
-		}
-	}
-
-	if (request.audit_limit !== undefined) {
-		if (typeof request.audit_limit !== "number" || request.audit_limit <= 0) {
-			errs.push(
-				newValidationError(
-					"audit_limit",
-					"Audit limit must be a positive number"
-				)
-			);
-		} else if (request.audit_limit > 100) {
-			errs.push(
-				newValidationError("audit_limit", "Audit limit cannot exceed 100")
-			);
 		}
 	}
 
@@ -184,22 +167,6 @@ export interface ApprovedDomainListResponse {
 	has_more: boolean;
 }
 
-export interface ApprovedDomainAuditLog {
-	admin_email: EmailAddress;
-	action: AuditAction;
-	target_domain_name?: DomainName;
-	reason?: string;
-	old_value?: Record<string, unknown>;
-	new_value?: Record<string, unknown>;
-	ip_address?: string;
-	user_agent?: string;
-	request_id?: string;
-	created_at: string;
-}
-
 export interface ApprovedDomainDetailResponse {
 	domain: ApprovedDomain;
-	audit_logs: ApprovedDomainAuditLog[];
-	next_audit_cursor: string;
-	has_more_audit: boolean;
 }

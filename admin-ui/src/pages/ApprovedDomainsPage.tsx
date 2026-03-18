@@ -9,7 +9,6 @@ import {
 import {
 	App,
 	Button,
-	Card,
 	Descriptions,
 	Drawer,
 	Empty,
@@ -30,7 +29,6 @@ import { Link } from "react-router-dom";
 import type {
 	AddApprovedDomainRequest,
 	ApprovedDomain,
-	ApprovedDomainAuditLog,
 	ApprovedDomainDetailResponse,
 	ApprovedDomainListResponse,
 	DomainFilter,
@@ -83,7 +81,6 @@ export function ApprovedDomainsPage() {
 	const [domainDetail, setDomainDetail] =
 		useState<ApprovedDomainDetailResponse | null>(null);
 	const [loadingDetail, setLoadingDetail] = useState(false);
-	const [loadingMoreAuditLogs, setLoadingMoreAuditLogs] = useState(false);
 
 	const fetchDomains = useCallback(
 		async (
@@ -455,48 +452,6 @@ export function ApprovedDomainsPage() {
 		}
 	};
 
-	const loadMoreAuditLogs = async () => {
-		if (!selectedDomain || !domainDetail?.next_audit_cursor) return;
-
-		setLoadingMoreAuditLogs(true);
-		try {
-			const apiBaseUrl = await getApiBaseUrl();
-			const request: GetApprovedDomainRequest = {
-				domain_name: selectedDomain,
-				audit_cursor: domainDetail.next_audit_cursor,
-			};
-			const response = await fetch(`${apiBaseUrl}/admin/get-approved-domain`, {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					Authorization: `Bearer ${sessionToken}`,
-				},
-				body: JSON.stringify(request),
-			});
-
-			if (!response.ok) {
-				throw new Error(`HTTP error! status: ${response.status}`);
-			}
-
-			const data: ApprovedDomainDetailResponse = await response.json();
-			setDomainDetail((prev) =>
-				prev
-					? {
-							...prev,
-							audit_logs: [...prev.audit_logs, ...data.audit_logs],
-							next_audit_cursor: data.next_audit_cursor,
-							has_more_audit: data.has_more_audit,
-						}
-					: null
-			);
-		} catch (err) {
-			console.error("Failed to load more audit logs:", err);
-			message.error(t("errors.loadMoreAuditFailed"));
-		} finally {
-			setLoadingMoreAuditLogs(false);
-		}
-	};
-
 	const columns = [
 		{
 			title: t("table.domainName"),
@@ -859,78 +814,6 @@ export function ApprovedDomainsPage() {
 										{formatDateTime(domainDetail.domain.updated_at)}
 									</Descriptions.Item>
 								</Descriptions>
-							</div>
-
-							<div>
-								<Title level={5}>{t("detailDrawer.auditLogs")}</Title>
-								{domainDetail.audit_logs.length === 0 ? (
-									<Empty description={t("detailDrawer.noAuditLogs")} />
-								) : (
-									domainDetail.audit_logs.map(
-										(log: ApprovedDomainAuditLog, index: number) => (
-											<Card
-												key={index}
-												size="small"
-												style={{ marginBottom: 8 }}
-											>
-												<Space
-													orientation="vertical"
-													size="small"
-													style={{ width: "100%" }}
-												>
-													<Space>
-														<Tag
-															color={
-																log.action === "created"
-																	? "green"
-																	: log.action === "disabled"
-																		? "red"
-																		: "blue"
-															}
-														>
-															{t(`auditActions.${log.action}`)}
-														</Tag>
-														<span style={{ fontSize: 12, color: "#888" }}>
-															{formatDateTime(log.created_at)}
-														</span>
-													</Space>
-													<div>
-														<strong>{t("detailDrawer.admin")}:</strong>{" "}
-														{log.admin_email}
-													</div>
-													{log.reason && (
-														<div>
-															<strong>{t("detailDrawer.reason")}:</strong>{" "}
-															{log.reason}
-														</div>
-													)}
-													{log.target_domain_name && (
-														<div>
-															<strong>{t("detailDrawer.targetDomain")}:</strong>{" "}
-															{log.target_domain_name}
-														</div>
-													)}
-													{log.ip_address && (
-														<div>
-															<strong>{t("detailDrawer.ipAddress")}:</strong>{" "}
-															{log.ip_address}
-														</div>
-													)}
-												</Space>
-											</Card>
-										)
-									)
-								)}
-								{domainDetail.has_more_audit && (
-									<div style={{ textAlign: "center", marginTop: 8 }}>
-										<Button
-											onClick={loadMoreAuditLogs}
-											loading={loadingMoreAuditLogs}
-										>
-											{t("actions.loadMoreAuditLogs")}
-										</Button>
-									</div>
-								)}
 							</div>
 						</Space>
 					)}

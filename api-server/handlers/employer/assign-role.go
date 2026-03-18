@@ -125,7 +125,10 @@ func AssignRole(s *server.Server) http.HandlerFunc {
 		}
 
 		// Assign role and write audit log atomically
-		eventData, _ := json.Marshal(map[string]any{"role_name": string(req.RoleName)})
+		eventData, _ := json.Marshal(map[string]any{
+			"target_user_id": targetUser.OrgUserID.String(),
+			"role_name":      string(req.RoleName),
+		})
 		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
 			if txErr := qtx.AssignOrgUserRole(ctx, regionaldb.AssignOrgUserRoleParams{
 				OrgUserID: targetUser.OrgUserID,

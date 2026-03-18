@@ -728,6 +728,10 @@ INSERT INTO cost_centers (employer_id, id, display_name, notes)
 VALUES (@employer_id, @id, @display_name, @notes)
 RETURNING *;
 
+-- name: GetCostCenterByEmployerAndID :one
+SELECT * FROM cost_centers
+WHERE employer_id = @employer_id AND id = @id;
+
 -- name: UpdateCostCenter :one
 UPDATE cost_centers
 SET display_name = @display_name,

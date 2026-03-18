@@ -6,9 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net"
 	"net/http"
-	"net/netip"
 	"strconv"
 	"strings"
 	"time"
@@ -93,7 +91,7 @@ func AddApprovedDomain(s *server.GlobalServer) http.HandlerFunc {
 			if txErr != nil {
 				return txErr
 			}
-			eventData, _ := json.Marshal(map[string]any{"domain_name": domainName})
+			eventData, _ := json.Marshal(map[string]any{"domain": domainName})
 			if err := qtx.InsertAdminAuditLog(ctx, globaldb.InsertAdminAuditLogParams{
 				EventType:   "admin.add_approved_domain",
 				ActorUserID: adminUser.AdminUserID,
@@ -102,7 +100,6 @@ func AddApprovedDomain(s *server.GlobalServer) http.HandlerFunc {
 			}); err != nil {
 				return err
 			}
-			createAuditLogTx(ctx, s, qtx, adminUser.AdminUserID, "created", &domain.DomainID, &domainName, &request.Reason, nil, domainToJSON(domain), r)
 			return nil
 		})
 		if err != nil {
@@ -586,28 +583,6 @@ func GetApprovedDomain(s *server.GlobalServer) http.HandlerFunc {
 			return
 		}
 
-		auditLimit := defaultLimit
-		if request.AuditLimit != nil {
-			auditLimit = int(*request.AuditLimit)
-		}
-
-		auditCursor := ""
-		if request.AuditCursor != nil {
-			auditCursor = *request.AuditCursor
-		}
-
-		auditLogs, nextAuditCursor, hasMoreAudit, err := getAuditLogsForDomain(ctx, s, domain.DomainID, auditLimit, auditCursor)
-		if err != nil {
-			if err.Error() == "invalid cursor format" {
-				s.Logger(ctx).Debug("invalid audit cursor format", "error", err)
-				writeErrorResponse(w, http.StatusBadRequest, "invalid audit cursor format")
-				return
-			}
-			s.Logger(ctx).Error("failed to get audit logs", "error", err)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-
 		domainResponse := admin.ApprovedDomain{
 			DomainName:          common.DomainName(domain.DomainName),
 			CreatedByAdminEmail: common.EmailAddress(domain.AdminEmail),
@@ -617,10 +592,7 @@ func GetApprovedDomain(s *server.GlobalServer) http.HandlerFunc {
 		}
 
 		response := admin.ApprovedDomainDetailResponse{
-			Domain:          domainResponse,
-			AuditLogs:       auditLogs,
-			NextAuditCursor: nextAuditCursor,
-			HasMoreAudit:    hasMoreAudit,
+			Domain: domainResponse,
 		}
 
 		if err := json.NewEncoder(w).Encode(response); err != nil {
@@ -678,8 +650,6 @@ func DisableApprovedDomain(s *server.GlobalServer) http.HandlerFunc {
 			return
 		}
 
-		oldValue := domainToJSON(domain)
-
 		var disabledDomain globaldb.ApprovedDomain
 		err = s.WithGlobalTx(ctx, func(qtx *globaldb.Queries) error {
 			var txErr error
@@ -687,7 +657,7 @@ func DisableApprovedDomain(s *server.GlobalServer) http.HandlerFunc {
 			if txErr != nil {
 				return txErr
 			}
-			eventData, _ := json.Marshal(map[string]any{"domain_name": domainName})
+			eventData, _ := json.Marshal(map[string]any{"domain": domainName})
 			if err := qtx.InsertAdminAuditLog(ctx, globaldb.InsertAdminAuditLogParams{
 				EventType:   "admin.disable_approved_domain",
 				ActorUserID: adminUser.AdminUserID,
@@ -696,8 +666,6 @@ func DisableApprovedDomain(s *server.GlobalServer) http.HandlerFunc {
 			}); err != nil {
 				return err
 			}
-			newValue := domainToJSON(disabledDomain)
-			createAuditLogTx(ctx, s, qtx, adminUser.AdminUserID, "disabled", &domain.DomainID, &domainName, &request.Reason, oldValue, newValue, r)
 			return nil
 		})
 		if err != nil {
@@ -785,8 +753,6 @@ func EnableApprovedDomain(s *server.GlobalServer) http.HandlerFunc {
 			return
 		}
 
-		oldValue := domainToJSON(domain)
-
 		var enabledDomain globaldb.ApprovedDomain
 		err = s.WithGlobalTx(ctx, func(qtx *globaldb.Queries) error {
 			var txErr error
@@ -794,7 +760,7 @@ func EnableApprovedDomain(s *server.GlobalServer) http.HandlerFunc {
 			if txErr != nil {
 				return txErr
 			}
-			eventData, _ := json.Marshal(map[string]any{"domain_name": domainName})
+			eventData, _ := json.Marshal(map[string]any{"domain": domainName})
 			if err := qtx.InsertAdminAuditLog(ctx, globaldb.InsertAdminAuditLogParams{
 				EventType:   "admin.enable_approved_domain",
 				ActorUserID: adminUser.AdminUserID,
@@ -803,8 +769,6 @@ func EnableApprovedDomain(s *server.GlobalServer) http.HandlerFunc {
 			}); err != nil {
 				return err
 			}
-			newValue := domainToJSON(enabledDomain)
-			createAuditLogTx(ctx, s, qtx, adminUser.AdminUserID, "enabled", &domain.DomainID, &domainName, &request.Reason, oldValue, newValue, r)
 			return nil
 		})
 		if err != nil {
@@ -843,195 +807,6 @@ func EnableApprovedDomain(s *server.GlobalServer) http.HandlerFunc {
 	}
 }
 
-// Helper functions
-
-func createAuditLogTx(ctx context.Context, s *server.GlobalServer, qtx *globaldb.Queries, adminID pgtype.UUID, action string, targetDomainID *pgtype.UUID, targetDomainName, reason *string, oldValue, newValue map[string]interface{}, r *http.Request) {
-	var targetIDPtr pgtype.UUID
-	if targetDomainID != nil {
-		targetIDPtr = *targetDomainID
-	}
-
-	var targetNamePtr pgtype.Text
-	if targetDomainName != nil {
-		targetNamePtr = pgtype.Text{String: *targetDomainName, Valid: true}
-	}
-
-	var reasonPtr pgtype.Text
-	if reason != nil {
-		reasonPtr = pgtype.Text{String: *reason, Valid: true}
-	}
-
-	oldJSON, _ := json.Marshal(oldValue)
-	newJSON, _ := json.Marshal(newValue)
-
-	ipAddress := getIPAddress(r)
-	userAgent := pgtype.Text{String: r.Header.Get("User-Agent"), Valid: true}
-	requestID := pgtype.Text{String: r.Header.Get("X-Request-ID"), Valid: true}
-
-	_, err := qtx.CreateAuditLog(ctx, globaldb.CreateAuditLogParams{
-		AdminID:          adminID,
-		Action:           action,
-		TargetDomainID:   targetIDPtr,
-		TargetDomainName: targetNamePtr,
-		OldValue:         oldJSON,
-		NewValue:         newJSON,
-		Reason:           reasonPtr,
-		IpAddress:        ipAddress,
-		UserAgent:        userAgent,
-		RequestID:        requestID,
-	})
-	if err != nil {
-		s.Logger(ctx).Error("failed to create audit log", "error", err)
-	}
-}
-
-func getIPAddress(r *http.Request) *netip.Addr {
-	// Check X-Forwarded-For header first (for proxies)
-	forwardedFor := r.Header.Get("X-Forwarded-For")
-	if forwardedFor != "" {
-		ips := strings.Split(forwardedFor, ",")
-		ipStr := strings.TrimSpace(ips[0])
-		if addr, err := netip.ParseAddr(ipStr); err == nil {
-			return &addr
-		}
-	}
-
-	// Fall back to RemoteAddr
-	ipStr, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		// RemoteAddr might not have port
-		ipStr = r.RemoteAddr
-	}
-	if addr, err := netip.ParseAddr(ipStr); err == nil {
-		return &addr
-	}
-	return nil
-}
-
-func domainToJSON(domain globaldb.ApprovedDomain) map[string]interface{} {
-	return map[string]interface{}{
-		"domain_id":           domain.DomainID.String(),
-		"domain_name":         domain.DomainName,
-		"created_by_admin_id": domain.CreatedByAdminID.String(),
-		"status":              string(domain.Status),
-		"created_at":          domain.CreatedAt.Time.UTC().Format(time.RFC3339),
-		"updated_at":          domain.UpdatedAt.Time.UTC().Format(time.RFC3339),
-	}
-}
-
-func getAuditLogsForDomain(ctx context.Context, s *server.GlobalServer, domainID pgtype.UUID, limit int, cursor string) ([]admin.ApprovedDomainAuditLog, string, bool, error) {
-	var rows []globaldb.GetAuditLogsByDomainIDFirstPageRow
-
-	if cursor == "" {
-		var err error
-		rows, err = s.Global.GetAuditLogsByDomainIDFirstPage(ctx, globaldb.GetAuditLogsByDomainIDFirstPageParams{
-			TargetDomainID: domainID,
-			Limit:          int32(limit + 1),
-		})
-		if err != nil {
-			return nil, "", false, err
-		}
-	} else {
-		cursorTime, err := decodeAuditCursor(cursor)
-		if err != nil {
-			return nil, "", false, err
-		}
-		afterRows, err := s.Global.GetAuditLogsByDomainIDAfterCursor(ctx, globaldb.GetAuditLogsByDomainIDAfterCursorParams{
-			TargetDomainID: domainID,
-			CreatedAt:      pgtype.Timestamptz{Time: cursorTime, Valid: true},
-			Limit:          int32(limit + 1),
-		})
-		if err != nil {
-			return nil, "", false, err
-		}
-		for _, r := range afterRows {
-			rows = append(rows, globaldb.GetAuditLogsByDomainIDFirstPageRow{
-				AuditID:          r.AuditID,
-				AdminID:          r.AdminID,
-				Action:           r.Action,
-				TargetDomainID:   r.TargetDomainID,
-				TargetDomainName: r.TargetDomainName,
-				OldValue:         r.OldValue,
-				NewValue:         r.NewValue,
-				Reason:           r.Reason,
-				IpAddress:        r.IpAddress,
-				UserAgent:        r.UserAgent,
-				RequestID:        r.RequestID,
-				CreatedAt:        r.CreatedAt,
-				AdminEmail:       r.AdminEmail,
-			})
-		}
-	}
-
-	hasMore := len(rows) > limit
-	if hasMore {
-		rows = rows[:limit]
-	}
-
-	var nextCursor string
-	if hasMore && len(rows) > 0 {
-		lastRow := rows[len(rows)-1]
-		nextCursor = encodeAuditCursor(lastRow.CreatedAt.Time)
-	}
-
-	auditLogs := make([]admin.ApprovedDomainAuditLog, len(rows))
-	for i, r := range rows {
-		auditLogs[i] = auditLogRowToResponse(r)
-	}
-
-	return auditLogs, nextCursor, hasMore, nil
-}
-
-func auditLogRowToResponse(r globaldb.GetAuditLogsByDomainIDFirstPageRow) admin.ApprovedDomainAuditLog {
-	response := admin.ApprovedDomainAuditLog{
-		Action:    admin.AuditAction(r.Action),
-		CreatedAt: r.CreatedAt.Time.UTC().Format(time.RFC3339),
-	}
-
-	if r.AdminEmail.Valid {
-		response.AdminEmail = common.EmailAddress(r.AdminEmail.String)
-	}
-
-	if r.TargetDomainName.Valid {
-		targetName := common.DomainName(r.TargetDomainName.String)
-		response.TargetDomainName = &targetName
-	}
-
-	if r.Reason.Valid {
-		reason := r.Reason.String
-		response.Reason = &reason
-	}
-
-	if r.OldValue != nil {
-		var oldVal map[string]interface{}
-		json.Unmarshal(r.OldValue, &oldVal)
-		response.OldValue = oldVal
-	}
-
-	if r.NewValue != nil {
-		var newVal map[string]interface{}
-		json.Unmarshal(r.NewValue, &newVal)
-		response.NewValue = newVal
-	}
-
-	if r.IpAddress != nil {
-		ipAddr := r.IpAddress.String()
-		response.IpAddress = &ipAddr
-	}
-
-	if r.UserAgent.Valid {
-		ua := r.UserAgent.String
-		response.UserAgent = &ua
-	}
-
-	if r.RequestID.Valid {
-		rid := r.RequestID.String
-		response.RequestID = &rid
-	}
-
-	return response
-}
-
 // Cursor encoding/decoding functions
 
 func encodeDomainCursor(domainName string) string {
@@ -1065,22 +840,6 @@ func decodeSearchCursor(cursor string) (float32, string, error) {
 		return 0, "", fmt.Errorf("invalid cursor format")
 	}
 	return float32(score), parts[1], nil
-}
-
-func encodeAuditCursor(t time.Time) string {
-	return base64.URLEncoding.EncodeToString([]byte(t.UTC().Format(time.RFC3339Nano)))
-}
-
-func decodeAuditCursor(cursor string) (time.Time, error) {
-	decoded, err := base64.URLEncoding.DecodeString(cursor)
-	if err != nil {
-		return time.Time{}, fmt.Errorf("invalid cursor format")
-	}
-	t, err := time.Parse(time.RFC3339Nano, string(decoded))
-	if err != nil {
-		return time.Time{}, fmt.Errorf("invalid cursor format")
-	}
-	return t, nil
 }
 
 func parseLimit(limitStr string, defaultLimit, maxLimit int) int {

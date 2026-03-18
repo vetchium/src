@@ -70,12 +70,13 @@ func EnableUser(s *server.GlobalServer) http.HandlerFunc {
 			}); err != nil {
 				return err
 			}
+			eventData, _ := json.Marshal(map[string]any{"target_user_id": targetUser.AdminUserID.String()})
 			return qtx.InsertAdminAuditLog(ctx, globaldb.InsertAdminAuditLogParams{
 				EventType:    "admin.enable_user",
 				ActorUserID:  adminUser.AdminUserID,
 				TargetUserID: targetUser.AdminUserID,
 				IpAddress:    audit.ExtractClientIP(r),
-				EventData:    []byte("{}"),
+				EventData:    eventData,
 			})
 		})
 		if err != nil {
