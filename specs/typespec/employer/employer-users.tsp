@@ -81,8 +81,6 @@ model OrgCompleteSignupResponse {
   org_user_id: string;
 }
 
-
-
 // ============================================
 // Login Flow
 // ============================================
@@ -176,23 +174,26 @@ interface OrgCompleteSignup {
   @tag("OrgUsers")
   @post
   @doc("Complete signup by verifying the DNS record. Looks up the pending verification by email, checks DNS for the verification token, and creates the employer and user account if verification passes. The first user is automatically granted admin rights and assigned the 'employer:superadmin' role. All operations are atomic - either the entire signup succeeds or no data is created.")
-  completeSignup(@body request: OrgCompleteSignupRequest): {
-    @statusCode statusCode: 201;
-    @body response: OrgCompleteSignupResponse;
-  } | {
-    @doc("Invalid request parameters or validation errors")
-    @statusCode
-    statusCode: 400;
-  } | {
-    @doc("No pending signup found for this email or verification token expired")
-    @statusCode
-    statusCode: 404;
-  } | {
-    @doc("DNS verification failed - token not found in DNS TXT records")
-    @statusCode
-    statusCode: 422;
-
-  };
+  completeSignup(@body request: OrgCompleteSignupRequest):
+    | {
+        @statusCode statusCode: 201;
+        @body response: OrgCompleteSignupResponse;
+      }
+    | {
+        @doc("Invalid request parameters or validation errors")
+        @statusCode
+        statusCode: 400;
+      }
+    | {
+        @doc("No pending signup found for this email or verification token expired")
+        @statusCode
+        statusCode: 404;
+      }
+    | {
+        @doc("DNS verification failed - token not found in DNS TXT records")
+        @statusCode
+        statusCode: 422;
+      };
 }
 
 @route("/employer/login")
@@ -200,26 +201,31 @@ interface OrgLogin {
   @tag("OrgUsers")
   @post
   @doc("Login to employer portal. Requires domain to identify which employer context for multi-employer users.")
-  login(@body request: OrgLoginRequest): {
-    @statusCode statusCode: 200;
-    @body response: OrgLoginResponse;
-  } | {
-    @doc("Validation errors")
-    @statusCode
-    statusCode: 400;
-  } | {
-    @doc("Invalid credentials")
-    @statusCode
-    statusCode: 401;
-  } | {
-    @doc("Domain not found or not verified")
-    @statusCode
-    statusCode: 404;
-  } | {
-    @doc("Account disabled")
-    @statusCode
-    statusCode: 422;
-  };
+  login(@body request: OrgLoginRequest):
+    | {
+        @statusCode statusCode: 200;
+        @body response: OrgLoginResponse;
+      }
+    | {
+        @doc("Validation errors")
+        @statusCode
+        statusCode: 400;
+      }
+    | {
+        @doc("Invalid credentials")
+        @statusCode
+        statusCode: 401;
+      }
+    | {
+        @doc("Domain not found or not verified")
+        @statusCode
+        statusCode: 404;
+      }
+    | {
+        @doc("Account disabled")
+        @statusCode
+        statusCode: 422;
+      };
 }
 
 @route("/employer/tfa")
@@ -227,22 +233,26 @@ interface OrgTFA {
   @tag("OrgUsers")
   @post
   @doc("Verify TFA code and get session token")
-  verifyTFA(@body request: OrgTFARequest): {
-    @statusCode statusCode: 200;
-    @body response: OrgTFAResponse;
-  } | {
-    @doc("Validation errors")
-    @statusCode
-    statusCode: 400;
-  } | {
-    @doc("Invalid or expired TFA token")
-    @statusCode
-    statusCode: 401;
-  } | {
-    @doc("Wrong TFA code")
-    @statusCode
-    statusCode: 403;
-  };
+  verifyTFA(@body request: OrgTFARequest):
+    | {
+        @statusCode statusCode: 200;
+        @body response: OrgTFAResponse;
+      }
+    | {
+        @doc("Validation errors")
+        @statusCode
+        statusCode: 400;
+      }
+    | {
+        @doc("Invalid or expired TFA token")
+        @statusCode
+        statusCode: 401;
+      }
+    | {
+        @doc("Wrong TFA code")
+        @statusCode
+        statusCode: 403;
+      };
 }
 
 @route("/employer/logout")
@@ -278,21 +288,25 @@ interface OrgDisableUser {
   @tag("OrgUsers")
   @post
   @doc("Disable an org user")
-  disableUser(@body request: OrgDisableUserRequest): {
-    @statusCode statusCode: 200;
-  } | {
-    @doc("Validation errors")
-    @statusCode
-    statusCode: 400;
-  } | {
-    @doc("User not found")
-    @statusCode
-    statusCode: 404;
-  } | {
-    @doc("User already disabled or cannot disable last admin")
-    @statusCode
-    statusCode: 422;
-  };
+  disableUser(@body request: OrgDisableUserRequest):
+    | {
+        @statusCode statusCode: 200;
+      }
+    | {
+        @doc("Validation errors")
+        @statusCode
+        statusCode: 400;
+      }
+    | {
+        @doc("User not found")
+        @statusCode
+        statusCode: 404;
+      }
+    | {
+        @doc("User already disabled or cannot disable last admin")
+        @statusCode
+        statusCode: 422;
+      };
 }
 
 @route("/employer/enable-user")
@@ -318,105 +332,127 @@ interface OrgEnableUser {
 // ===================================
 
 model OrgInviteUserRequest {
-    @doc("Email address of the user to invite")
-    email_address: EmailAddress;
-    @doc("Language for the invitation email (e.g., en-US, de-DE). Defaults to inviter's language if not specified.")
-    invite_email_language?: LanguageCode;
+  @doc("Email address of the user to invite")
+  email_address: EmailAddress;
+
+  @doc("Language for the invitation email (e.g., en-US, de-DE). Defaults to inviter's language if not specified.")
+  invite_email_language?: LanguageCode;
+
+  @doc("Roles to assign to the invited user. At least one role is required. Each role must belong to the employer portal (prefix 'employer:').")
+  roles: string[];
 }
 
 model OrgInviteUserResponse {
-    @doc("Invitation ID")
-    invitation_id: string;
-    @doc("Expiration timestamp")
-    expires_at: string;
+  @doc("Invitation ID")
+  invitation_id: string;
+
+  @doc("Expiration timestamp")
+  expires_at: string;
 }
 
 @route("/employer/invite-user")
 interface OrgInviteUser {
-    @tag("OrgUsers")
-    @post
-    @doc("Invite a new org user")
-    inviteUser(@body request: OrgInviteUserRequest): {
+  @tag("OrgUsers")
+  @post
+  @doc("Invite a new org user")
+  inviteUser(@body request: OrgInviteUserRequest):
+    | {
         @statusCode statusCode: 201;
         @body response: OrgInviteUserResponse;
-    } | {
+      }
+    | {
         @doc("Validation errors")
-        @statusCode statusCode: 400;
-    } | {
+        @statusCode
+        statusCode: 400;
+      }
+    | {
         @doc("User already exists")
-        @statusCode statusCode: 409;
-    } | {
+        @statusCode
+        statusCode: 409;
+      }
+    | {
         @doc("Unauthorized")
-        @statusCode statusCode: 401;
-    } | {
+        @statusCode
+        statusCode: 401;
+      }
+    | {
         @doc("Forbidden")
-        @statusCode statusCode: 403;
-    };
+        @statusCode
+        statusCode: 403;
+      };
 }
-
 
 // ============================================
 // User Management (Filter Users)
 // ============================================
 
 enum OrgRole {
-    `employer:superadmin`,
-    `employer:view_users`,
-    `employer:manage_users`,
-    `employer:view_domains`,
-    `employer:manage_domains`,
+  `employer:superadmin`,
+  `employer:view_users`,
+  `employer:manage_users`,
+  `employer:view_domains`,
+  `employer:manage_domains`,
 }
 
 model OrgUser {
-    @doc("Email address of the user")
-    email_address: EmailAddress;
-    @doc("Full name of the user")
-    name: string;
-    @doc("User status (active/disabled)")
-    status: string;
-    @doc("ISO 8601 timestamp when user was created")
-    created_at: string;
-    @doc("List of roles assigned to the user")
-    roles: OrgRole[];
+  @doc("Email address of the user")
+  email_address: EmailAddress;
+
+  @doc("Full name of the user")
+  name: string;
+
+  @doc("User status (active/disabled)")
+  status: string;
+
+  @doc("ISO 8601 timestamp when user was created")
+  created_at: string;
+
+  @doc("List of roles assigned to the user")
+  roles: OrgRole[];
 }
 
 model FilterOrgUsersRequest {
-    @doc("Number of items to return (default 50, max 100)")
-    limit?: int32;
-    @doc("Cursor from previous page - base64 encoded value")
-    cursor?: string;
-    @doc("Filter by email address (partial match)")
-    filter_email?: string;
-    @doc("Filter by name (partial match)")
-    filter_name?: string;
-    @doc("Filter by status (exact match: active/disabled)")
-    filter_status?: string;
+  @doc("Number of items to return (default 50, max 100)")
+  limit?: int32;
+
+  @doc("Cursor from previous page - base64 encoded value")
+  cursor?: string;
+
+  @doc("Filter by email address (partial match)")
+  filter_email?: string;
+
+  @doc("Filter by name (partial match)")
+  filter_name?: string;
+
+  @doc("Filter by status (exact match: active/disabled)")
+  filter_status?: string;
 }
 
 model FilterOrgUsersResponse {
-    @doc("List of users")
-    items: OrgUser[];
-    @doc("Cursor for next page - base64 encoded value (empty if no more pages)")
-    next_cursor: string;
+  @doc("List of users")
+  items: OrgUser[];
+
+  @doc("Cursor for next page - base64 encoded value (empty if no more pages)")
+  next_cursor: string;
 }
 
 @route("/employer/filter-users")
 interface OrgFilterUsers {
-    @tag("OrgUsers")
-    @post
-    @doc("List/Filter org users with pagination")
-    filterUsers(@body request: FilterOrgUsersRequest): {
-        @statusCode statusCode: 200;
-        @body response: FilterOrgUsersResponse;
-    } | {
-        @doc("Invalid request parameters")
-        @statusCode
-        statusCode: 400;
-    } | {
-        @doc("Unauthorized")
-        @statusCode
-        statusCode: 401;
-    };
+  @tag("OrgUsers")
+  @post
+  @doc("List/Filter org users with pagination")
+  filterUsers(@body request: FilterOrgUsersRequest): {
+    @statusCode statusCode: 200;
+    @body response: FilterOrgUsersResponse;
+  } | {
+    @doc("Invalid request parameters")
+    @statusCode
+    statusCode: 400;
+  } | {
+    @doc("Unauthorized")
+    @statusCode
+    statusCode: 401;
+  };
 }
 
 // ===================================
@@ -424,24 +460,26 @@ interface OrgFilterUsers {
 // ===================================
 
 model OrgSetLanguageRequest {
-    @doc("Preferred language code")
-    language: LanguageCode;
+  @doc("Preferred language code")
+  language: LanguageCode;
 }
 
 @route("/employer/set-language")
 interface OrgSetLanguage {
-    @tag("OrgUsers")
-    @post
-    @doc("Set preferred language for the authenticated user")
-    setLanguage(@body request: OrgSetLanguageRequest): {
-        @statusCode statusCode: 200;
-    } | {
-        @doc("Validation errors")
-        @statusCode statusCode: 400;
-    } | {
-        @doc("Unauthorized")
-        @statusCode statusCode: 401;
-    };
+  @tag("OrgUsers")
+  @post
+  @doc("Set preferred language for the authenticated user")
+  setLanguage(@body request: OrgSetLanguageRequest): {
+    @statusCode statusCode: 200;
+  } | {
+    @doc("Validation errors")
+    @statusCode
+    statusCode: 400;
+  } | {
+    @doc("Unauthorized")
+    @statusCode
+    statusCode: 401;
+  };
 }
 
 // ===================================
@@ -449,30 +487,35 @@ interface OrgSetLanguage {
 // ===================================
 
 model OrgMyInfoResponse {
-    @doc("Org user ID")
-    org_user_id: string;
-    @doc("Full name of the org user")
-    full_name: string;
-    @doc("User's preferred language (BCP 47 tag)")
-    preferred_language: LanguageCode;
-    @doc("Employer name for display")
-    employer_name: string;
-    @doc("Array of role names assigned to this user")
-    roles: string[];
+  @doc("Org user ID")
+  org_user_id: string;
+
+  @doc("Full name of the org user")
+  full_name: string;
+
+  @doc("User's preferred language (BCP 47 tag)")
+  preferred_language: LanguageCode;
+
+  @doc("Employer name for display")
+  employer_name: string;
+
+  @doc("Array of role names assigned to this user")
+  roles: string[];
 }
 
 @route("/employer/myinfo")
 interface OrgMyInfo {
-    @tag("OrgUsers")
-    @get
-    @doc("Get current org user information including roles")
-    getMyInfo(): {
-        @statusCode statusCode: 200;
-        @body response: OrgMyInfoResponse;
-    } | {
-        @doc("Invalid or expired session token")
-        @statusCode statusCode: 401;
-    };
+  @tag("OrgUsers")
+  @get
+  @doc("Get current org user information including roles")
+  getMyInfo(): {
+    @statusCode statusCode: 200;
+    @body response: OrgMyInfoResponse;
+  } | {
+    @doc("Invalid or expired session token")
+    @statusCode
+    statusCode: 401;
+  };
 }
 
 // ===================================
@@ -483,36 +526,41 @@ scalar OrgInvitationToken extends string;
 scalar OrgPasswordResetToken extends string;
 
 model OrgCompleteSetupRequest {
-    @doc("Invitation token from email")
-    invitation_token: OrgInvitationToken;
-    @doc("User's password")
-    password: Password;
-    @doc("User's full name")
-    full_name: FullName;
-    @doc("User's preferred language for the application (e.g., en-US, de-DE)")
-    preferred_language?: LanguageCode;
+  @doc("Invitation token from email")
+  invitation_token: OrgInvitationToken;
+
+  @doc("User's password")
+  password: Password;
+
+  @doc("User's full name")
+  full_name: FullName;
+
+  @doc("User's preferred language for the application (e.g., en-US, de-DE)")
+  preferred_language?: LanguageCode;
 }
 
 model OrgCompleteSetupResponse {
-    @doc("Success message")
-    message: string;
+  @doc("Success message")
+  message: string;
 }
 
 @route("/employer/complete-setup")
 interface OrgCompleteSetup {
-    @tag("OrgUsers")
-    @post
-    @doc("Complete setup for invited employer user")
-    completeSetup(@body request: OrgCompleteSetupRequest): {
-        @statusCode statusCode: 200;
-        @body response: OrgCompleteSetupResponse;
-    } | {
-        @doc("Validation errors")
-        @statusCode statusCode: 400;
-    } | {
-        @doc("Invalid or expired invitation token")
-        @statusCode statusCode: 401;
-    };
+  @tag("OrgUsers")
+  @post
+  @doc("Complete setup for invited employer user")
+  completeSetup(@body request: OrgCompleteSetupRequest): {
+    @statusCode statusCode: 200;
+    @body response: OrgCompleteSetupResponse;
+  } | {
+    @doc("Validation errors")
+    @statusCode
+    statusCode: 400;
+  } | {
+    @doc("Invalid or expired invitation token")
+    @statusCode
+    statusCode: 401;
+  };
 }
 
 // ============================================
@@ -520,73 +568,80 @@ interface OrgCompleteSetup {
 // ============================================
 
 model OrgRequestPasswordResetRequest {
-    @doc("Email address of the account to reset password for")
-    email_address: EmailAddress;
+  @doc("Email address of the account to reset password for")
+  email_address: EmailAddress;
 }
 
 model OrgRequestPasswordResetResponse {
-    @doc("Confirmation message")
-    message: string;
+  @doc("Confirmation message")
+  message: string;
 }
 
 model OrgCompletePasswordResetRequest {
-    @doc("Password reset token received via email")
-    reset_token: OrgPasswordResetToken;
-    @doc("New password to set")
-    new_password: Password;
+  @doc("Password reset token received via email")
+  reset_token: OrgPasswordResetToken;
+
+  @doc("New password to set")
+  new_password: Password;
 }
 
 model OrgChangePasswordRequest {
-    @doc("Current password for verification")
-    current_password: Password;
-    @doc("New password to set")
-    new_password: Password;
+  @doc("Current password for verification")
+  current_password: Password;
+
+  @doc("New password to set")
+  new_password: Password;
 }
 
 @route("/employer/request-password-reset")
 interface OrgRequestPasswordReset {
-    @tag("OrgUsers")
-    @post
-    @doc("Request a password reset email. Always returns 200 to prevent email enumeration.")
-    requestPasswordReset(@body request: OrgRequestPasswordResetRequest): {
-        @statusCode statusCode: 200;
-        @body response: OrgRequestPasswordResetResponse;
-    } | {
-        @doc("Invalid request parameters or validation errors")
-        @statusCode statusCode: 400;
-    };
+  @tag("OrgUsers")
+  @post
+  @doc("Request a password reset email. Always returns 200 to prevent email enumeration.")
+  requestPasswordReset(@body request: OrgRequestPasswordResetRequest): {
+    @statusCode statusCode: 200;
+    @body response: OrgRequestPasswordResetResponse;
+  } | {
+    @doc("Invalid request parameters or validation errors")
+    @statusCode
+    statusCode: 400;
+  };
 }
 
 @route("/employer/complete-password-reset")
 interface OrgCompletePasswordReset {
-    @tag("OrgUsers")
-    @post
-    @doc("Complete password reset using the token received via email")
-    completePasswordReset(@body request: OrgCompletePasswordResetRequest): {
-        @statusCode statusCode: 200;
-    } | {
-        @doc("Invalid request parameters or validation errors")
-        @statusCode statusCode: 400;
-    } | {
-        @doc("Invalid or expired reset token")
-        @statusCode statusCode: 401;
-    };
+  @tag("OrgUsers")
+  @post
+  @doc("Complete password reset using the token received via email")
+  completePasswordReset(@body request: OrgCompletePasswordResetRequest): {
+    @statusCode statusCode: 200;
+  } | {
+    @doc("Invalid request parameters or validation errors")
+    @statusCode
+    statusCode: 400;
+  } | {
+    @doc("Invalid or expired reset token")
+    @statusCode
+    statusCode: 401;
+  };
 }
 
 @route("/employer/change-password")
 interface OrgChangePassword {
-    @tag("OrgUsers")
-    @post
-    @doc("Change password for the authenticated employer user")
-    changePassword(@body request: OrgChangePasswordRequest): {
-        @statusCode statusCode: 200;
-    } | {
-        @doc("Invalid request parameters or validation errors")
-        @statusCode statusCode: 400;
-    } | {
-        @doc("Invalid or expired session token, or wrong current password")
-        @statusCode statusCode: 401;
-    };
+  @tag("OrgUsers")
+  @post
+  @doc("Change password for the authenticated employer user")
+  changePassword(@body request: OrgChangePasswordRequest): {
+    @statusCode statusCode: 200;
+  } | {
+    @doc("Invalid request parameters or validation errors")
+    @statusCode
+    statusCode: 400;
+  } | {
+    @doc("Invalid or expired session token, or wrong current password")
+    @statusCode
+    statusCode: 401;
+  };
 }
 
 // ============================================
@@ -595,50 +650,72 @@ interface OrgChangePassword {
 
 @route("/employer/assign-role")
 interface OrgAssignRole {
-    @tag("OrgUsers")
-    @post
-    @doc("Assign a role to an employer user")
-    assignRole(@body request: AssignRoleRequest): {
+  @tag("OrgUsers")
+  @post
+  @doc("Assign a role to an employer user")
+  assignRole(@body request: AssignRoleRequest):
+    | {
         @statusCode statusCode: 200;
-    } | {
+      }
+    | {
         @doc("Invalid request parameters or validation errors")
-        @statusCode statusCode: 400;
-    } | {
+        @statusCode
+        statusCode: 400;
+      }
+    | {
         @doc("Invalid or expired session token")
-        @statusCode statusCode: 401;
-    } | {
+        @statusCode
+        statusCode: 401;
+      }
+    | {
         @doc("Insufficient permissions")
-        @statusCode statusCode: 403;
-    } | {
+        @statusCode
+        statusCode: 403;
+      }
+    | {
         @doc("User not found")
-        @statusCode statusCode: 404;
-    } | {
+        @statusCode
+        statusCode: 404;
+      }
+    | {
         @doc("Role already assigned")
-        @statusCode statusCode: 409;
-    };
+        @statusCode
+        statusCode: 409;
+      };
 }
 
 @route("/employer/remove-role")
 interface OrgRemoveRole {
-    @tag("OrgUsers")
-    @post
-    @doc("Remove a role from an employer user")
-    removeRole(@body request: RemoveRoleRequest): {
+  @tag("OrgUsers")
+  @post
+  @doc("Remove a role from an employer user")
+  removeRole(@body request: RemoveRoleRequest):
+    | {
         @statusCode statusCode: 200;
-    } | {
+      }
+    | {
         @doc("Invalid request parameters or validation errors")
-        @statusCode statusCode: 400;
-    } | {
+        @statusCode
+        statusCode: 400;
+      }
+    | {
         @doc("Invalid or expired session token")
-        @statusCode statusCode: 401;
-    } | {
+        @statusCode
+        statusCode: 401;
+      }
+    | {
         @doc("Insufficient permissions")
-        @statusCode statusCode: 403;
-    } | {
+        @statusCode
+        statusCode: 403;
+      }
+    | {
         @doc("User not found or role not assigned")
-        @statusCode statusCode: 404;
-    } | {
+        @statusCode
+        statusCode: 404;
+      }
+    | {
         @doc("Cannot remove last superadmin role")
-        @statusCode statusCode: 422;
-    };
+        @statusCode
+        statusCode: 422;
+      };
 }

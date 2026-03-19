@@ -81,8 +81,6 @@ model AgencyCompleteSignupResponse {
   agency_user_id: string;
 }
 
-
-
 // ============================================
 // Login Flow
 // ============================================
@@ -176,23 +174,26 @@ interface AgencyCompleteSignup {
   @tag("AgencyUsers")
   @post
   @doc("Complete signup by verifying the DNS record. Looks up the pending verification by email, checks DNS for the verification token, and creates the agency and user account if verification passes. The first user is automatically granted admin rights and assigned the 'agency:superadmin' role. All operations are atomic - either the entire signup succeeds or no data is created.")
-  completeSignup(@body request: AgencyCompleteSignupRequest): {
-    @statusCode statusCode: 201;
-    @body response: AgencyCompleteSignupResponse;
-  } | {
-    @doc("Invalid request parameters or validation errors")
-    @statusCode
-    statusCode: 400;
-  } | {
-    @doc("No pending signup found for this email or verification token expired")
-    @statusCode
-    statusCode: 404;
-  } | {
-    @doc("DNS verification failed - token not found in DNS TXT records")
-    @statusCode
-    statusCode: 422;
-
-  };
+  completeSignup(@body request: AgencyCompleteSignupRequest):
+    | {
+        @statusCode statusCode: 201;
+        @body response: AgencyCompleteSignupResponse;
+      }
+    | {
+        @doc("Invalid request parameters or validation errors")
+        @statusCode
+        statusCode: 400;
+      }
+    | {
+        @doc("No pending signup found for this email or verification token expired")
+        @statusCode
+        statusCode: 404;
+      }
+    | {
+        @doc("DNS verification failed - token not found in DNS TXT records")
+        @statusCode
+        statusCode: 422;
+      };
 }
 
 @route("/agency/login")
@@ -200,26 +201,31 @@ interface AgencyLogin {
   @tag("AgencyUsers")
   @post
   @doc("Login to agency portal. Requires domain to identify which agency context for multi-agency users.")
-  login(@body request: AgencyLoginRequest): {
-    @statusCode statusCode: 200;
-    @body response: AgencyLoginResponse;
-  } | {
-    @doc("Validation errors")
-    @statusCode
-    statusCode: 400;
-  } | {
-    @doc("Invalid credentials")
-    @statusCode
-    statusCode: 401;
-  } | {
-    @doc("Domain not found or not verified")
-    @statusCode
-    statusCode: 404;
-  } | {
-    @doc("Account disabled")
-    @statusCode
-    statusCode: 422;
-  };
+  login(@body request: AgencyLoginRequest):
+    | {
+        @statusCode statusCode: 200;
+        @body response: AgencyLoginResponse;
+      }
+    | {
+        @doc("Validation errors")
+        @statusCode
+        statusCode: 400;
+      }
+    | {
+        @doc("Invalid credentials")
+        @statusCode
+        statusCode: 401;
+      }
+    | {
+        @doc("Domain not found or not verified")
+        @statusCode
+        statusCode: 404;
+      }
+    | {
+        @doc("Account disabled")
+        @statusCode
+        statusCode: 422;
+      };
 }
 
 @route("/agency/tfa")
@@ -227,22 +233,26 @@ interface AgencyTFA {
   @tag("AgencyUsers")
   @post
   @doc("Verify TFA code and get session token")
-  verifyTFA(@body request: AgencyTFARequest): {
-    @statusCode statusCode: 200;
-    @body response: AgencyTFAResponse;
-  } | {
-    @doc("Validation errors")
-    @statusCode
-    statusCode: 400;
-  } | {
-    @doc("Invalid or expired TFA token")
-    @statusCode
-    statusCode: 401;
-  } | {
-    @doc("Wrong TFA code")
-    @statusCode
-    statusCode: 403;
-  };
+  verifyTFA(@body request: AgencyTFARequest):
+    | {
+        @statusCode statusCode: 200;
+        @body response: AgencyTFAResponse;
+      }
+    | {
+        @doc("Validation errors")
+        @statusCode
+        statusCode: 400;
+      }
+    | {
+        @doc("Invalid or expired TFA token")
+        @statusCode
+        statusCode: 401;
+      }
+    | {
+        @doc("Wrong TFA code")
+        @statusCode
+        statusCode: 403;
+      };
 }
 
 @route("/agency/logout")
@@ -278,21 +288,25 @@ interface AgencyDisableUser {
   @tag("AgencyUsers")
   @post
   @doc("Disable an agency user")
-  disableUser(@body request: AgencyDisableUserRequest): {
-    @statusCode statusCode: 200;
-  } | {
-    @doc("Validation errors")
-    @statusCode
-    statusCode: 400;
-  } | {
-    @doc("User not found")
-    @statusCode
-    statusCode: 404;
-  } | {
-    @doc("User already disabled or cannot disable last admin")
-    @statusCode
-    statusCode: 422;
-  };
+  disableUser(@body request: AgencyDisableUserRequest):
+    | {
+        @statusCode statusCode: 200;
+      }
+    | {
+        @doc("Validation errors")
+        @statusCode
+        statusCode: 400;
+      }
+    | {
+        @doc("User not found")
+        @statusCode
+        statusCode: 404;
+      }
+    | {
+        @doc("User already disabled or cannot disable last admin")
+        @statusCode
+        statusCode: 422;
+      };
 }
 
 @route("/agency/enable-user")
@@ -318,40 +332,54 @@ interface AgencyEnableUser {
 // ===================================
 
 model AgencyInviteUserRequest {
-    @doc("Email address of the user to invite")
-    email_address: EmailAddress;
-    @doc("Language for the invitation email (e.g., en-US, de-DE). Defaults to inviter's language if not specified.")
-    invite_email_language?: LanguageCode;
+  @doc("Email address of the user to invite")
+  email_address: EmailAddress;
+
+  @doc("Language for the invitation email (e.g., en-US, de-DE). Defaults to inviter's language if not specified.")
+  invite_email_language?: LanguageCode;
+
+  @doc("Roles to assign to the invited user. At least one role is required. Each role must belong to the agency portal (prefix 'agency:').")
+  roles: string[];
 }
 
 model AgencyInviteUserResponse {
-    @doc("Invitation ID")
-    invitation_id: string;
-    @doc("Expiration timestamp")
-    expires_at: string;
+  @doc("Invitation ID")
+  invitation_id: string;
+
+  @doc("Expiration timestamp")
+  expires_at: string;
 }
 
 @route("/agency/invite-user")
 interface AgencyInviteUser {
-    @tag("AgencyUsers")
-    @post
-    @doc("Invite a new agency user")
-    inviteUser(@body request: AgencyInviteUserRequest): {
+  @tag("AgencyUsers")
+  @post
+  @doc("Invite a new agency user")
+  inviteUser(@body request: AgencyInviteUserRequest):
+    | {
         @statusCode statusCode: 201;
         @body response: AgencyInviteUserResponse;
-    } | {
+      }
+    | {
         @doc("Validation errors")
-        @statusCode statusCode: 400;
-    } | {
+        @statusCode
+        statusCode: 400;
+      }
+    | {
         @doc("User already exists")
-        @statusCode statusCode: 409;
-    } | {
+        @statusCode
+        statusCode: 409;
+      }
+    | {
         @doc("Unauthorized")
-        @statusCode statusCode: 401;
-    } | {
+        @statusCode
+        statusCode: 401;
+      }
+    | {
         @doc("Forbidden")
-        @statusCode statusCode: 403;
-    };
+        @statusCode
+        statusCode: 403;
+      };
 }
 
 // ===================================
@@ -361,36 +389,41 @@ interface AgencyInviteUser {
 scalar AgencyInvitationToken extends string;
 
 model AgencyCompleteSetupRequest {
-    @doc("Invitation token from email")
-    invitation_token: AgencyInvitationToken;
-    @doc("User's password")
-    password: Password;
-    @doc("User's full name")
-    full_name: FullName;
-    @doc("User's preferred language for the application (e.g., en-US, de-DE)")
-    preferred_language?: LanguageCode;
+  @doc("Invitation token from email")
+  invitation_token: AgencyInvitationToken;
+
+  @doc("User's password")
+  password: Password;
+
+  @doc("User's full name")
+  full_name: FullName;
+
+  @doc("User's preferred language for the application (e.g., en-US, de-DE)")
+  preferred_language?: LanguageCode;
 }
 
 model AgencyCompleteSetupResponse {
-    @doc("Success message")
-    message: string;
+  @doc("Success message")
+  message: string;
 }
 
 @route("/agency/complete-setup")
 interface AgencyCompleteSetup {
-    @tag("AgencyUsers")
-    @post
-    @doc("Complete setup for invited agency user")
-    completeSetup(@body request: AgencyCompleteSetupRequest): {
-        @statusCode statusCode: 200;
-        @body response: AgencyCompleteSetupResponse;
-    } | {
-        @doc("Validation errors")
-        @statusCode statusCode: 400;
-    } | {
-        @doc("Invalid or expired invitation token")
-        @statusCode statusCode: 401;
-    };
+  @tag("AgencyUsers")
+  @post
+  @doc("Complete setup for invited agency user")
+  completeSetup(@body request: AgencyCompleteSetupRequest): {
+    @statusCode statusCode: 200;
+    @body response: AgencyCompleteSetupResponse;
+  } | {
+    @doc("Validation errors")
+    @statusCode
+    statusCode: 400;
+  } | {
+    @doc("Invalid or expired invitation token")
+    @statusCode
+    statusCode: 401;
+  };
 }
 
 // ============================================
@@ -398,63 +431,72 @@ interface AgencyCompleteSetup {
 // ============================================
 
 enum AgencyRole {
-    `agency:superadmin`,
-    `agency:view_users`,
-    `agency:manage_users`,
-    `agency:view_domains`,
-    `agency:manage_domains`,
+  `agency:superadmin`,
+  `agency:view_users`,
+  `agency:manage_users`,
+  `agency:view_domains`,
+  `agency:manage_domains`,
 }
 
 model AgencyUser {
-    @doc("Email address of the user")
-    email_address: EmailAddress;
-    @doc("Full name of the user")
-    name: string;
-    @doc("User status (active/disabled)")
-    status: string;
-    @doc("ISO 8601 timestamp when user was created")
-    created_at: string;
-    @doc("List of roles assigned to the user")
-    roles: AgencyRole[];
+  @doc("Email address of the user")
+  email_address: EmailAddress;
+
+  @doc("Full name of the user")
+  name: string;
+
+  @doc("User status (active/disabled)")
+  status: string;
+
+  @doc("ISO 8601 timestamp when user was created")
+  created_at: string;
+
+  @doc("List of roles assigned to the user")
+  roles: AgencyRole[];
 }
 
 model FilterAgencyUsersRequest {
-    @doc("Number of items to return (default 50, max 100)")
-    limit?: int32;
-    @doc("Cursor from previous page - base64 encoded value")
-    cursor?: string;
-    @doc("Filter by email address (partial match)")
-    filter_email?: string;
-    @doc("Filter by name (partial match)")
-    filter_name?: string;
-    @doc("Filter by status (exact match: active/disabled)")
-    filter_status?: string;
+  @doc("Number of items to return (default 50, max 100)")
+  limit?: int32;
+
+  @doc("Cursor from previous page - base64 encoded value")
+  cursor?: string;
+
+  @doc("Filter by email address (partial match)")
+  filter_email?: string;
+
+  @doc("Filter by name (partial match)")
+  filter_name?: string;
+
+  @doc("Filter by status (exact match: active/disabled)")
+  filter_status?: string;
 }
 
 model FilterAgencyUsersResponse {
-    @doc("List of users")
-    items: AgencyUser[];
-    @doc("Cursor for next page - base64 encoded value (empty if no more pages)")
-    next_cursor: string;
+  @doc("List of users")
+  items: AgencyUser[];
+
+  @doc("Cursor for next page - base64 encoded value (empty if no more pages)")
+  next_cursor: string;
 }
 
 @route("/agency/filter-users")
 interface AgencyFilterUsers {
-    @tag("AgencyUsers")
-    @post
-    @doc("List/Filter agency users with pagination")
-    filterUsers(@body request: FilterAgencyUsersRequest): {
-        @statusCode statusCode: 200;
-        @body response: FilterAgencyUsersResponse;
-    } | {
-        @doc("Invalid request parameters")
-        @statusCode
-        statusCode: 400;
-    } | {
-        @doc("Unauthorized")
-        @statusCode
-        statusCode: 401;
-    };
+  @tag("AgencyUsers")
+  @post
+  @doc("List/Filter agency users with pagination")
+  filterUsers(@body request: FilterAgencyUsersRequest): {
+    @statusCode statusCode: 200;
+    @body response: FilterAgencyUsersResponse;
+  } | {
+    @doc("Invalid request parameters")
+    @statusCode
+    statusCode: 400;
+  } | {
+    @doc("Unauthorized")
+    @statusCode
+    statusCode: 401;
+  };
 }
 
 // ===================================
@@ -462,24 +504,26 @@ interface AgencyFilterUsers {
 // ===================================
 
 model AgencySetLanguageRequest {
-    @doc("Preferred language code")
-    language: LanguageCode;
+  @doc("Preferred language code")
+  language: LanguageCode;
 }
 
 @route("/agency/set-language")
 interface AgencySetLanguage {
-    @tag("AgencyUsers")
-    @post
-    @doc("Set preferred language for the authenticated user")
-    setLanguage(@body request: AgencySetLanguageRequest): {
-        @statusCode statusCode: 200;
-    } | {
-        @doc("Validation errors")
-        @statusCode statusCode: 400;
-    } | {
-        @doc("Unauthorized")
-        @statusCode statusCode: 401;
-    };
+  @tag("AgencyUsers")
+  @post
+  @doc("Set preferred language for the authenticated user")
+  setLanguage(@body request: AgencySetLanguageRequest): {
+    @statusCode statusCode: 200;
+  } | {
+    @doc("Validation errors")
+    @statusCode
+    statusCode: 400;
+  } | {
+    @doc("Unauthorized")
+    @statusCode
+    statusCode: 401;
+  };
 }
 
 // ===================================
@@ -487,30 +531,35 @@ interface AgencySetLanguage {
 // ===================================
 
 model AgencyMyInfoResponse {
-    @doc("Agency user ID")
-    agency_user_id: string;
-    @doc("Full name of the agency user")
-    full_name: string;
-    @doc("User's preferred language (BCP 47 tag)")
-    preferred_language: LanguageCode;
-    @doc("Agency name for display")
-    agency_name: string;
-    @doc("Array of role names assigned to this user")
-    roles: string[];
+  @doc("Agency user ID")
+  agency_user_id: string;
+
+  @doc("Full name of the agency user")
+  full_name: string;
+
+  @doc("User's preferred language (BCP 47 tag)")
+  preferred_language: LanguageCode;
+
+  @doc("Agency name for display")
+  agency_name: string;
+
+  @doc("Array of role names assigned to this user")
+  roles: string[];
 }
 
 @route("/agency/myinfo")
 interface AgencyMyInfo {
-    @tag("AgencyUsers")
-    @get
-    @doc("Get current agency user information including roles")
-    getMyInfo(): {
-        @statusCode statusCode: 200;
-        @body response: AgencyMyInfoResponse;
-    } | {
-        @doc("Invalid or expired session token")
-        @statusCode statusCode: 401;
-    };
+  @tag("AgencyUsers")
+  @get
+  @doc("Get current agency user information including roles")
+  getMyInfo(): {
+    @statusCode statusCode: 200;
+    @body response: AgencyMyInfoResponse;
+  } | {
+    @doc("Invalid or expired session token")
+    @statusCode
+    statusCode: 401;
+  };
 }
 
 // ============================================
@@ -520,73 +569,80 @@ interface AgencyMyInfo {
 scalar AgencyPasswordResetToken extends string;
 
 model AgencyRequestPasswordResetRequest {
-    @doc("Email address of the account to reset password for")
-    email_address: EmailAddress;
+  @doc("Email address of the account to reset password for")
+  email_address: EmailAddress;
 }
 
 model AgencyRequestPasswordResetResponse {
-    @doc("Confirmation message")
-    message: string;
+  @doc("Confirmation message")
+  message: string;
 }
 
 model AgencyCompletePasswordResetRequest {
-    @doc("Password reset token received via email")
-    reset_token: AgencyPasswordResetToken;
-    @doc("New password to set")
-    new_password: Password;
+  @doc("Password reset token received via email")
+  reset_token: AgencyPasswordResetToken;
+
+  @doc("New password to set")
+  new_password: Password;
 }
 
 model AgencyChangePasswordRequest {
-    @doc("Current password for verification")
-    current_password: Password;
-    @doc("New password to set")
-    new_password: Password;
+  @doc("Current password for verification")
+  current_password: Password;
+
+  @doc("New password to set")
+  new_password: Password;
 }
 
 @route("/agency/request-password-reset")
 interface AgencyRequestPasswordReset {
-    @tag("AgencyUsers")
-    @post
-    @doc("Request a password reset email. Always returns 200 to prevent email enumeration.")
-    requestPasswordReset(@body request: AgencyRequestPasswordResetRequest): {
-        @statusCode statusCode: 200;
-        @body response: AgencyRequestPasswordResetResponse;
-    } | {
-        @doc("Invalid request parameters or validation errors")
-        @statusCode statusCode: 400;
-    };
+  @tag("AgencyUsers")
+  @post
+  @doc("Request a password reset email. Always returns 200 to prevent email enumeration.")
+  requestPasswordReset(@body request: AgencyRequestPasswordResetRequest): {
+    @statusCode statusCode: 200;
+    @body response: AgencyRequestPasswordResetResponse;
+  } | {
+    @doc("Invalid request parameters or validation errors")
+    @statusCode
+    statusCode: 400;
+  };
 }
 
 @route("/agency/complete-password-reset")
 interface AgencyCompletePasswordReset {
-    @tag("AgencyUsers")
-    @post
-    @doc("Complete password reset using the token received via email")
-    completePasswordReset(@body request: AgencyCompletePasswordResetRequest): {
-        @statusCode statusCode: 200;
-    } | {
-        @doc("Invalid request parameters or validation errors")
-        @statusCode statusCode: 400;
-    } | {
-        @doc("Invalid or expired reset token")
-        @statusCode statusCode: 401;
-    };
+  @tag("AgencyUsers")
+  @post
+  @doc("Complete password reset using the token received via email")
+  completePasswordReset(@body request: AgencyCompletePasswordResetRequest): {
+    @statusCode statusCode: 200;
+  } | {
+    @doc("Invalid request parameters or validation errors")
+    @statusCode
+    statusCode: 400;
+  } | {
+    @doc("Invalid or expired reset token")
+    @statusCode
+    statusCode: 401;
+  };
 }
 
 @route("/agency/change-password")
 interface AgencyChangePassword {
-    @tag("AgencyUsers")
-    @post
-    @doc("Change password for the authenticated agency user")
-    changePassword(@body request: AgencyChangePasswordRequest): {
-        @statusCode statusCode: 200;
-    } | {
-        @doc("Invalid request parameters or validation errors")
-        @statusCode statusCode: 400;
-    } | {
-        @doc("Invalid or expired session token, or wrong current password")
-        @statusCode statusCode: 401;
-    };
+  @tag("AgencyUsers")
+  @post
+  @doc("Change password for the authenticated agency user")
+  changePassword(@body request: AgencyChangePasswordRequest): {
+    @statusCode statusCode: 200;
+  } | {
+    @doc("Invalid request parameters or validation errors")
+    @statusCode
+    statusCode: 400;
+  } | {
+    @doc("Invalid or expired session token, or wrong current password")
+    @statusCode
+    statusCode: 401;
+  };
 }
 
 // ============================================
@@ -595,50 +651,72 @@ interface AgencyChangePassword {
 
 @route("/agency/assign-role")
 interface AgencyAssignRole {
-    @tag("AgencyUsers")
-    @post
-    @doc("Assign a role to an agency user")
-    assignRole(@body request: AssignRoleRequest): {
+  @tag("AgencyUsers")
+  @post
+  @doc("Assign a role to an agency user")
+  assignRole(@body request: AssignRoleRequest):
+    | {
         @statusCode statusCode: 200;
-    } | {
+      }
+    | {
         @doc("Invalid request parameters or validation errors")
-        @statusCode statusCode: 400;
-    } | {
+        @statusCode
+        statusCode: 400;
+      }
+    | {
         @doc("Invalid or expired session token")
-        @statusCode statusCode: 401;
-    } | {
+        @statusCode
+        statusCode: 401;
+      }
+    | {
         @doc("Insufficient permissions")
-        @statusCode statusCode: 403;
-    } | {
+        @statusCode
+        statusCode: 403;
+      }
+    | {
         @doc("User not found")
-        @statusCode statusCode: 404;
-    } | {
+        @statusCode
+        statusCode: 404;
+      }
+    | {
         @doc("Role already assigned")
-        @statusCode statusCode: 409;
-    };
+        @statusCode
+        statusCode: 409;
+      };
 }
 
 @route("/agency/remove-role")
 interface AgencyRemoveRole {
-    @tag("AgencyUsers")
-    @post
-    @doc("Remove a role from an agency user")
-    removeRole(@body request: RemoveRoleRequest): {
+  @tag("AgencyUsers")
+  @post
+  @doc("Remove a role from an agency user")
+  removeRole(@body request: RemoveRoleRequest):
+    | {
         @statusCode statusCode: 200;
-    } | {
+      }
+    | {
         @doc("Invalid request parameters or validation errors")
-        @statusCode statusCode: 400;
-    } | {
+        @statusCode
+        statusCode: 400;
+      }
+    | {
         @doc("Invalid or expired session token")
-        @statusCode statusCode: 401;
-    } | {
+        @statusCode
+        statusCode: 401;
+      }
+    | {
         @doc("Insufficient permissions")
-        @statusCode statusCode: 403;
-    } | {
+        @statusCode
+        statusCode: 403;
+      }
+    | {
         @doc("User not found or role not assigned")
-        @statusCode statusCode: 404;
-    } | {
+        @statusCode
+        statusCode: 404;
+      }
+    | {
         @doc("Cannot remove last superadmin role")
-        @statusCode statusCode: 422;
-    };
+        @statusCode
+        statusCode: 422;
+      };
 }
