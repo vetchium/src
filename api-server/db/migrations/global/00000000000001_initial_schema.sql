@@ -410,7 +410,6 @@ DROP TABLE IF EXISTS employers;
 DROP TABLE IF EXISTS available_regions;
 DROP TABLE IF EXISTS hub_user_display_names;
 DROP TABLE IF EXISTS hub_signup_tokens;
-DROP TABLE IF EXISTS approved_domains_audit_log;
 DROP TRIGGER IF EXISTS approved_domains_updated_at ON approved_domains;
 DROP FUNCTION IF EXISTS update_approved_domains_updated_at();
 DROP TABLE IF EXISTS approved_domains;
