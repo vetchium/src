@@ -55,3 +55,8 @@ model ValidationError {
 
 @doc("DNS Verification Token - used for domain ownership verification")
 scalar DNSVerificationToken extends string;
+
+@minLength(1)
+@maxLength(128)
+@doc("A person's full name (letters, spaces, hyphens, apostrophes)")
+scalar FullName extends string;

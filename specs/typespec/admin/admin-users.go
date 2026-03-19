@@ -252,6 +252,8 @@ const (
 	AdminRoleManageUsers   AdminRole = "admin:manage_users"
 	AdminRoleViewDomains   AdminRole = "admin:view_domains"
 	AdminRoleManageDomains AdminRole = "admin:manage_domains"
+	AdminRoleManageTags    AdminRole = "admin:manage_tags"
+	AdminRoleViewAuditLogs AdminRole = "admin:view_audit_logs"
 )
 
 type AdminUser struct {

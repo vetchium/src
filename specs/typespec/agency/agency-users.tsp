@@ -433,6 +433,7 @@ enum AgencyRole {
   `agency:manage_users`,
   `agency:view_domains`,
   `agency:manage_domains`,
+  `agency:view_audit_logs`,
 }
 
 model AgencyUser {

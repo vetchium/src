@@ -175,8 +175,6 @@ interface AdminEnableUser {
 // User Invitation
 // ===================================
 
-scalar FullName extends string;
-
 model AdminInviteUserRequest {
     @doc("Email address of the user to invite")
     email_address: EmailAddress;
@@ -263,6 +261,8 @@ enum AdminRole {
     `admin:manage_users`,
     `admin:view_domains`,
     `admin:manage_domains`,
+    `admin:manage_tags`,
+    `admin:view_audit_logs`,
 }
 
 model AdminUser {

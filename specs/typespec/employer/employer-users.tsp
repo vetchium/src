@@ -389,6 +389,11 @@ enum OrgRole {
   `employer:manage_users`,
   `employer:view_domains`,
   `employer:manage_domains`,
+  `employer:view_costcenters`,
+  `employer:manage_costcenters`,
+  `employer:view_suborgs`,
+  `employer:manage_suborgs`,
+  `employer:view_audit_logs`,
 }
 
 model OrgUser {

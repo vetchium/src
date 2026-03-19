@@ -392,6 +392,7 @@ const (
 	AgencyRoleManageUsers   AgencyRole = "agency:manage_users"
 	AgencyRoleViewDomains   AgencyRole = "agency:view_domains"
 	AgencyRoleManageDomains AgencyRole = "agency:manage_domains"
+	AgencyRoleViewAuditLogs AgencyRole = "agency:view_audit_logs"
 )
 
 type AgencyUser struct {
