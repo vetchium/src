@@ -33,7 +33,7 @@ CREATE TABLE hub_users (
     email_address_hash BYTEA NOT NULL UNIQUE,
     hashing_algorithm email_address_hashing_algorithm NOT NULL,
     home_region region NOT NULL,
-    created_at TIMESTAMP DEFAULT NOW()
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Admin users table (global only - admins are platform-wide, not regional)
@@ -44,7 +44,7 @@ CREATE TABLE admin_users (
     password_hash BYTEA,
     status admin_user_status NOT NULL,
     preferred_language TEXT NOT NULL DEFAULT 'en-US',
-    created_at TIMESTAMP DEFAULT NOW()
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Admin TFA tokens for email-based two-factor authentication
@@ -52,32 +52,32 @@ CREATE TABLE admin_tfa_tokens (
     tfa_token TEXT PRIMARY KEY NOT NULL,
     admin_user_id UUID NOT NULL REFERENCES admin_users(admin_user_id) ON DELETE CASCADE,
     tfa_code TEXT NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    expires_at TIMESTAMP NOT NULL
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMPTZ NOT NULL
 );
 
 -- Admin sessions
 CREATE TABLE admin_sessions (
     session_token TEXT PRIMARY KEY NOT NULL,
     admin_user_id UUID NOT NULL REFERENCES admin_users(admin_user_id) ON DELETE CASCADE,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    expires_at TIMESTAMP NOT NULL
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMPTZ NOT NULL
 );
 
 -- Admin invitation tokens for user invitations
 CREATE TABLE admin_invitation_tokens (
     invitation_token TEXT PRIMARY KEY NOT NULL,
     admin_user_id UUID NOT NULL REFERENCES admin_users(admin_user_id) ON DELETE CASCADE,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    expires_at TIMESTAMP NOT NULL
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMPTZ NOT NULL
 );
 
 -- Admin password reset tokens
 CREATE TABLE admin_password_reset_tokens (
     reset_token TEXT PRIMARY KEY NOT NULL,
     admin_user_id UUID NOT NULL REFERENCES admin_users(admin_user_id) ON DELETE CASCADE,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    expires_at TIMESTAMP NOT NULL
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMPTZ NOT NULL
 );
 
 -- Supported languages table for UI dropdowns
@@ -86,7 +86,7 @@ CREATE TABLE supported_languages (
     language_name TEXT NOT NULL,
     native_name TEXT NOT NULL,
     is_default BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- Ensure only one default language
@@ -106,8 +106,8 @@ CREATE TABLE approved_domains (
     domain_name VARCHAR(255) NOT NULL UNIQUE,
     status domain_status NOT NULL DEFAULT 'active',
     created_by_admin_id UUID NOT NULL REFERENCES admin_users(admin_user_id) ON DELETE RESTRICT,
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- Trigger for approved_domains updated_at
@@ -132,9 +132,9 @@ CREATE TABLE hub_signup_tokens (
     email_address TEXT NOT NULL,
     email_address_hash BYTEA NOT NULL,
     hashing_algorithm email_address_hashing_algorithm NOT NULL DEFAULT 'SHA-256',
-    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    expires_at TIMESTAMP NOT NULL,
-    consumed_at TIMESTAMP
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMPTZ NOT NULL,
+    consumed_at TIMESTAMPTZ
 );
 
 -- Hub user display names
@@ -143,7 +143,7 @@ CREATE TABLE hub_user_display_names (
     language_code TEXT NOT NULL,
     display_name TEXT NOT NULL CHECK (char_length(display_name) BETWEEN 1 AND 100),
     is_preferred BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (hub_user_global_id, language_code)
 );
 
@@ -152,7 +152,7 @@ CREATE TABLE available_regions (
     region_code region PRIMARY KEY,
     region_name TEXT NOT NULL,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 INSERT INTO available_regions (region_code, region_name, is_active) VALUES
@@ -166,7 +166,7 @@ CREATE TABLE employers (
     employer_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     employer_name TEXT NOT NULL,
     region region NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- Global employer domains table (for cross-region uniqueness and routing)
@@ -175,7 +175,7 @@ CREATE TABLE global_employer_domains (
     domain TEXT PRIMARY KEY,
     region region NOT NULL,
     employer_id UUID NOT NULL REFERENCES employers(employer_id) ON DELETE CASCADE,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- Org users table (global - routing only)
@@ -187,7 +187,7 @@ CREATE TABLE org_users (
     hashing_algorithm email_address_hashing_algorithm NOT NULL DEFAULT 'SHA-256',
     employer_id UUID NOT NULL REFERENCES employers(employer_id) ON DELETE CASCADE,
     home_region region NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (email_address_hash, employer_id)
 );
 
@@ -202,9 +202,9 @@ CREATE TABLE org_signup_tokens (
     hashing_algorithm email_address_hashing_algorithm NOT NULL DEFAULT 'SHA-256',
     domain TEXT NOT NULL,
     home_region region NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    expires_at TIMESTAMP NOT NULL,
-    consumed_at TIMESTAMP
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMPTZ NOT NULL,
+    consumed_at TIMESTAMPTZ
 );
 
 -- Agencies table (global - for cross-region uniqueness and routing)
@@ -212,7 +212,7 @@ CREATE TABLE agencies (
     agency_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     agency_name TEXT NOT NULL,
     region region NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- Global agency domains table (for cross-region uniqueness and routing)
@@ -221,7 +221,7 @@ CREATE TABLE global_agency_domains (
     domain TEXT PRIMARY KEY,
     region region NOT NULL,
     agency_id UUID NOT NULL REFERENCES agencies(agency_id) ON DELETE CASCADE,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- Agency users table (global - routing only)
@@ -233,7 +233,7 @@ CREATE TABLE agency_users (
     hashing_algorithm email_address_hashing_algorithm NOT NULL DEFAULT 'SHA-256',
     agency_id UUID NOT NULL REFERENCES agencies(agency_id) ON DELETE CASCADE,
     home_region region NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (email_address_hash, agency_id)
 );
 
@@ -248,9 +248,9 @@ CREATE TABLE agency_signup_tokens (
     hashing_algorithm email_address_hashing_algorithm NOT NULL DEFAULT 'SHA-256',
     domain TEXT NOT NULL,
     home_region region NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    expires_at TIMESTAMP NOT NULL,
-    consumed_at TIMESTAMP
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMPTZ NOT NULL,
+    consumed_at TIMESTAMPTZ
 );
 
 -- Email status enum (for global email queue - admin emails)
@@ -277,15 +277,15 @@ CREATE TABLE emails (
     email_text_body TEXT NOT NULL,
     email_html_body TEXT NOT NULL,
     email_status email_status NOT NULL DEFAULT 'pending',
-    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    sent_at TIMESTAMP
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    sent_at TIMESTAMPTZ
 );
 
 -- Email delivery attempts table
 CREATE TABLE email_delivery_attempts (
     attempt_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email_id UUID NOT NULL REFERENCES emails(email_id) ON DELETE CASCADE,
-    attempted_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    attempted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     error_message TEXT
 );
 
@@ -294,14 +294,14 @@ CREATE TABLE roles (
     role_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     role_name VARCHAR(100) NOT NULL UNIQUE,
     description TEXT,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- RBAC: Admin user roles
 CREATE TABLE admin_user_roles (
     admin_user_id UUID NOT NULL REFERENCES admin_users(admin_user_id) ON DELETE CASCADE,
     role_id UUID NOT NULL REFERENCES roles(role_id) ON DELETE RESTRICT,
-    assigned_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    assigned_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (admin_user_id, role_id)
 );
 
@@ -312,8 +312,8 @@ CREATE TABLE tags (
     small_icon_content_type VARCHAR(100),
     large_icon_key VARCHAR(512),
     large_icon_content_type VARCHAR(100),
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- Translations table

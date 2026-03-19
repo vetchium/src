@@ -69,7 +69,7 @@ CREATE TABLE hub_users (
     status hub_user_status NOT NULL DEFAULT 'active',
     preferred_language TEXT NOT NULL DEFAULT 'en-US',
     resident_country_code TEXT,
-    created_at TIMESTAMP DEFAULT NOW()
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 -- Emails table for transactional outbox pattern
 CREATE TABLE emails (
@@ -80,14 +80,14 @@ CREATE TABLE emails (
     email_text_body TEXT NOT NULL,
     email_html_body TEXT NOT NULL,
     email_status email_status NOT NULL DEFAULT 'pending',
-    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    sent_at TIMESTAMP
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    sent_at TIMESTAMPTZ
 );
 -- Email delivery attempts
 CREATE TABLE email_delivery_attempts (
     attempt_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email_id UUID NOT NULL REFERENCES emails(email_id) ON DELETE CASCADE,
-    attempted_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    attempted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     error_message TEXT
 );
 -- Hub TFA tokens for email-based two-factor authentication
@@ -95,30 +95,30 @@ CREATE TABLE hub_tfa_tokens (
     tfa_token TEXT PRIMARY KEY NOT NULL,
     hub_user_global_id UUID NOT NULL REFERENCES hub_users(hub_user_global_id) ON DELETE CASCADE,
     tfa_code TEXT NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    expires_at TIMESTAMP NOT NULL
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMPTZ NOT NULL
 );
 -- Hub sessions (regional storage for data sovereignty)
 CREATE TABLE hub_sessions (
     session_token TEXT PRIMARY KEY NOT NULL,
     hub_user_global_id UUID NOT NULL REFERENCES hub_users(hub_user_global_id) ON DELETE CASCADE,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    expires_at TIMESTAMP NOT NULL
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMPTZ NOT NULL
 );
 -- Hub password reset tokens
 CREATE TABLE hub_password_reset_tokens (
     reset_token TEXT PRIMARY KEY NOT NULL,
     hub_user_global_id UUID NOT NULL REFERENCES hub_users(hub_user_global_id) ON DELETE CASCADE,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    expires_at TIMESTAMP NOT NULL
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMPTZ NOT NULL
 );
 -- Hub email verification tokens
 CREATE TABLE hub_email_verification_tokens (
     verification_token TEXT PRIMARY KEY NOT NULL,
     hub_user_global_id UUID NOT NULL REFERENCES hub_users(hub_user_global_id) ON DELETE CASCADE,
     new_email_address TEXT NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    expires_at TIMESTAMP NOT NULL
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMPTZ NOT NULL
 );
 -- Org users table (regional - stores credentials, PII, and all mutable data)
 -- Note: email_address is NOT unique alone - one email can belong to multiple employers
@@ -132,7 +132,7 @@ CREATE TABLE org_users (
     authentication_type authentication_type NOT NULL DEFAULT 'email_password',
     status org_user_status NOT NULL DEFAULT 'active',
     preferred_language TEXT NOT NULL DEFAULT 'en-US',
-    created_at TIMESTAMP DEFAULT NOW(),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE (email_address, employer_id)
 );
 -- Org TFA tokens for email-based two-factor authentication
@@ -140,30 +140,30 @@ CREATE TABLE org_tfa_tokens (
     tfa_token TEXT PRIMARY KEY NOT NULL,
     org_user_id UUID NOT NULL REFERENCES org_users(org_user_id) ON DELETE CASCADE,
     tfa_code TEXT NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    expires_at TIMESTAMP NOT NULL
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMPTZ NOT NULL
 );
 -- Org sessions (regional storage for data sovereignty)
 CREATE TABLE org_sessions (
     session_token TEXT PRIMARY KEY NOT NULL,
     org_user_id UUID NOT NULL REFERENCES org_users(org_user_id) ON DELETE CASCADE,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    expires_at TIMESTAMP NOT NULL
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMPTZ NOT NULL
 );
 -- Org password reset tokens
 CREATE TABLE org_password_reset_tokens (
     reset_token TEXT PRIMARY KEY NOT NULL,
     org_user_global_id UUID NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    expires_at TIMESTAMP NOT NULL
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMPTZ NOT NULL
 );
 -- Org invitation tokens for user invitations
 CREATE TABLE org_invitation_tokens (
     invitation_token TEXT PRIMARY KEY NOT NULL,
     org_user_id UUID NOT NULL REFERENCES org_users(org_user_id) ON DELETE CASCADE,
     employer_id UUID NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    expires_at TIMESTAMP NOT NULL
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMPTZ NOT NULL
 );
 -- Employer domains table (regional - stores operational data)
 -- Per spec section 3.4: stores tokens, audit logs, and cron-job state
@@ -171,12 +171,12 @@ CREATE TABLE employer_domains (
     domain TEXT PRIMARY KEY,
     employer_id UUID NOT NULL,
     verification_token TEXT NOT NULL,
-    token_expires_at TIMESTAMP NOT NULL,
-    last_verified_at TIMESTAMP,
-    last_verification_requested_at TIMESTAMP,
+    token_expires_at TIMESTAMPTZ NOT NULL,
+    last_verified_at TIMESTAMPTZ,
+    last_verification_requested_at TIMESTAMPTZ,
     consecutive_failures INT NOT NULL DEFAULT 0,
     status domain_verification_status NOT NULL DEFAULT 'PENDING',
-    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 -- Agency domains table (regional - stores operational data)
 -- Per spec section 3.4: stores tokens, audit logs, and cron-job state
@@ -184,12 +184,12 @@ CREATE TABLE agency_domains (
     domain TEXT PRIMARY KEY,
     agency_id UUID NOT NULL,
     verification_token TEXT NOT NULL,
-    token_expires_at TIMESTAMP NOT NULL,
-    last_verified_at TIMESTAMP,
-    last_verification_requested_at TIMESTAMP,
+    token_expires_at TIMESTAMPTZ NOT NULL,
+    last_verified_at TIMESTAMPTZ,
+    last_verification_requested_at TIMESTAMPTZ,
     consecutive_failures INT NOT NULL DEFAULT 0,
     status domain_verification_status NOT NULL DEFAULT 'PENDING',
-    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 -- Agency users table (regional - stores credentials, PII, and all mutable data)
 -- Note: email_address is NOT unique alone - one email can belong to multiple agencies
@@ -203,7 +203,7 @@ CREATE TABLE agency_users (
     authentication_type authentication_type NOT NULL DEFAULT 'email_password',
     status agency_user_status NOT NULL DEFAULT 'active',
     preferred_language TEXT NOT NULL DEFAULT 'en-US',
-    created_at TIMESTAMP DEFAULT NOW(),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE (email_address, agency_id)
 );
 -- Agency TFA tokens for email-based two-factor authentication
@@ -211,30 +211,30 @@ CREATE TABLE agency_tfa_tokens (
     tfa_token TEXT PRIMARY KEY NOT NULL,
     agency_user_id UUID NOT NULL REFERENCES agency_users(agency_user_id) ON DELETE CASCADE,
     tfa_code TEXT NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    expires_at TIMESTAMP NOT NULL
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMPTZ NOT NULL
 );
 -- Agency sessions (regional storage for data sovereignty)
 CREATE TABLE agency_sessions (
     session_token TEXT PRIMARY KEY NOT NULL,
     agency_user_id UUID NOT NULL REFERENCES agency_users(agency_user_id) ON DELETE CASCADE,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    expires_at TIMESTAMP NOT NULL
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMPTZ NOT NULL
 );
 -- Agency password reset tokens
 CREATE TABLE agency_password_reset_tokens (
     reset_token TEXT PRIMARY KEY NOT NULL,
     agency_user_global_id UUID NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    expires_at TIMESTAMP NOT NULL
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMPTZ NOT NULL
 );
 -- Agency invitation tokens for user invitations
 CREATE TABLE agency_invitation_tokens (
     invitation_token TEXT PRIMARY KEY NOT NULL,
     agency_user_id UUID NOT NULL REFERENCES agency_users(agency_user_id) ON DELETE CASCADE,
     agency_id UUID NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    expires_at TIMESTAMP NOT NULL
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMPTZ NOT NULL
 );
 -- Cost centers for employer organizations
 CREATE TABLE cost_centers (
@@ -244,7 +244,7 @@ CREATE TABLE cost_centers (
     display_name   VARCHAR(64) NOT NULL,
     status         cost_center_status NOT NULL DEFAULT 'enabled',
     notes          TEXT,
-    created_at     TIMESTAMP NOT NULL DEFAULT NOW(),
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (employer_id, id)
 );
 -- SubOrgs: sub-entities of an employer, each pinned to a Vetchium region
@@ -254,13 +254,13 @@ CREATE TABLE suborgs (
     name          VARCHAR(64) NOT NULL,
     pinned_region VARCHAR(32) NOT NULL,
     status        VARCHAR(16) NOT NULL DEFAULT 'active',
-    created_at    TIMESTAMP   NOT NULL DEFAULT NOW()
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 -- SubOrg membership: org users assigned to a SubOrg
 CREATE TABLE org_user_suborg_assignments (
     suborg_id   UUID      NOT NULL REFERENCES suborgs(suborg_id) ON DELETE CASCADE,
     org_user_id UUID      NOT NULL REFERENCES org_users(org_user_id) ON DELETE CASCADE,
-    assigned_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    assigned_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (suborg_id, org_user_id)
 );
 -- RBAC: Roles table
@@ -268,27 +268,27 @@ CREATE TABLE roles (
     role_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     role_name VARCHAR(100) NOT NULL UNIQUE,
     description TEXT,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 -- RBAC: Org user roles
 CREATE TABLE org_user_roles (
     org_user_id UUID NOT NULL REFERENCES org_users(org_user_id) ON DELETE CASCADE,
     role_id UUID NOT NULL REFERENCES roles(role_id) ON DELETE RESTRICT,
-    assigned_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    assigned_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (org_user_id, role_id)
 );
 -- RBAC: Agency user roles
 CREATE TABLE agency_user_roles (
     agency_user_id UUID NOT NULL REFERENCES agency_users(agency_user_id) ON DELETE CASCADE,
     role_id UUID NOT NULL REFERENCES roles(role_id) ON DELETE RESTRICT,
-    assigned_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    assigned_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (agency_user_id, role_id)
 );
 -- RBAC: Hub user roles
 CREATE TABLE hub_user_roles (
     hub_user_global_id UUID NOT NULL REFERENCES hub_users(hub_user_global_id) ON DELETE CASCADE,
     role_id UUID NOT NULL REFERENCES roles(role_id) ON DELETE RESTRICT,
-    assigned_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    assigned_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (hub_user_global_id, role_id)
 );
 -- Insert predefined roles (employer/agency/hub portals only — admin roles live in global DB)
