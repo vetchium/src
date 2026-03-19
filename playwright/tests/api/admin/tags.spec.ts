@@ -336,14 +336,14 @@ test.describe("Admin Tags API", () => {
 			expect(response.status()).toBe(401);
 		});
 
-		test("user without role returns 403", async ({ request }) => {
+		test("user without role can read tags (200)", async ({ request }) => {
 			const api = new AdminAPIClient(request);
-			const tagId = generateTestTagId("get403");
+			const tagId = generateTestTagId("get200");
 			await createTestTag(tagId);
 			try {
 				const req: GetTagRequest = { tag_id: tagId };
 				const response = await api.getTag(noRoleToken, req);
-				expect(response.status).toBe(403);
+				expect(response.status).toBe(200);
 			} finally {
 				await deleteTestTag(tagId);
 			}
@@ -596,11 +596,11 @@ test.describe("Admin Tags API", () => {
 			expect(response.status()).toBe(401);
 		});
 
-		test("user without role returns 403", async ({ request }) => {
+		test("user without role can filter tags (200)", async ({ request }) => {
 			const api = new AdminAPIClient(request);
 			const req: FilterTagsRequest = {};
 			const response = await api.filterTags(noRoleToken, req);
-			expect(response.status).toBe(403);
+			expect(response.status).toBe(200);
 		});
 	});
 

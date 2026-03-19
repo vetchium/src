@@ -60,15 +60,13 @@ test.describe("POST /admin/assign-role", () => {
 				start_time: before,
 			});
 			expect(auditResp.status).toBe(200);
-			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
-			expect(auditResp.body.audit_logs[0].event_type).toBe("admin.assign_role");
-			expect(auditResp.body.audit_logs[0].target_user_id).toBe(targetUserId);
-			expect(auditResp.body.audit_logs[0].event_data).toHaveProperty(
-				"target_email_hash"
+			const auditEntry = auditResp.body.audit_logs.find(
+				(e) => e.target_user_id === targetUserId
 			);
-			expect(
-				JSON.stringify(auditResp.body.audit_logs[0].event_data)
-			).not.toContain(targetEmail);
+			expect(auditEntry).toBeDefined();
+			expect(auditEntry!.event_type).toBe("admin.assign_role");
+			expect(auditEntry!.event_data).toHaveProperty("target_email_hash");
+			expect(JSON.stringify(auditEntry!.event_data)).not.toContain(targetEmail);
 		} finally {
 			await deleteTestAdminUser(adminEmail);
 			await deleteTestAdminUser(targetEmail);
@@ -354,15 +352,13 @@ test.describe("POST /admin/remove-role", () => {
 				start_time: before,
 			});
 			expect(auditResp.status).toBe(200);
-			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
-			expect(auditResp.body.audit_logs[0].event_type).toBe("admin.remove_role");
-			expect(auditResp.body.audit_logs[0].target_user_id).toBe(targetUserId);
-			expect(auditResp.body.audit_logs[0].event_data).toHaveProperty(
-				"target_email_hash"
+			const auditEntry = auditResp.body.audit_logs.find(
+				(e) => e.target_user_id === targetUserId
 			);
-			expect(
-				JSON.stringify(auditResp.body.audit_logs[0].event_data)
-			).not.toContain(targetEmail);
+			expect(auditEntry).toBeDefined();
+			expect(auditEntry!.event_type).toBe("admin.remove_role");
+			expect(auditEntry!.event_data).toHaveProperty("target_email_hash");
+			expect(JSON.stringify(auditEntry!.event_data)).not.toContain(targetEmail);
 		} finally {
 			await deleteTestAdminUser(adminEmail);
 			await deleteTestAdminUser(targetEmail);

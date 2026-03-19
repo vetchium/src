@@ -35,6 +35,8 @@ func RegisterAdminGlobalRoutes(mux *http.ServeMux, s *server.GlobalServer) {
 	mux.Handle("POST /admin/set-language", adminAuth(admin.SetLanguage(s)))
 	mux.Handle("POST /admin/change-password", adminAuth(admin.ChangePassword(s)))
 	mux.Handle("GET /admin/myinfo", adminAuth(admin.MyInfo(s)))
+	mux.Handle("POST /admin/get-tag", adminAuth(admin.GetTag(s)))
+	mux.Handle("POST /admin/filter-tags", adminAuth(admin.FilterTags(s)))
 
 	// Role-protected read routes
 	mux.Handle("POST /admin/filter-users", adminAuth(adminRoleViewUsers(admin.FilterUsers(s))))
@@ -53,9 +55,7 @@ func RegisterAdminGlobalRoutes(mux *http.ServeMux, s *server.GlobalServer) {
 
 	// Tag management routes (admin:manage_tags required)
 	mux.Handle("POST /admin/add-tag", adminAuth(adminRoleManageTags(admin.AddTag(s))))
-	mux.Handle("POST /admin/get-tag", adminAuth(adminRoleManageTags(admin.GetTag(s))))
 	mux.Handle("POST /admin/update-tag", adminAuth(adminRoleManageTags(admin.UpdateTag(s))))
-	mux.Handle("POST /admin/filter-tags", adminAuth(adminRoleManageTags(admin.FilterTags(s))))
 	mux.Handle("POST /admin/upload-tag-icon", adminAuth(adminRoleManageTags(admin.UploadTagIcon(s))))
 	mux.Handle("POST /admin/delete-tag-icon", adminAuth(adminRoleManageTags(admin.DeleteTagIcon(s))))
 
