@@ -22,8 +22,6 @@ import (
 	"vetchium-api-server.typespec/agency"
 )
 
-const passwordResetTokenExpiryHours = 1
-
 func RequestPasswordReset(s *server.RegionalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -111,7 +109,8 @@ func RequestPasswordReset(s *server.RegionalServer) http.HandlerFunc {
 		resetToken := fmt.Sprintf("%s-%s", strings.ToUpper(string(globalUser.HomeRegion)), plainToken)
 
 		// Get regional user for preferred language (before TX)
-		expiresAt := time.Now().Add(passwordResetTokenExpiryHours * time.Hour)
+		resetTokenExpiry := s.TokenConfig.PasswordResetTokenExpiry
+		expiresAt := time.Now().Add(resetTokenExpiry)
 		regionalUser, err := s.Regional.GetAgencyUserByID(ctx, globalUser.AgencyUserID)
 		if err != nil {
 			s.Logger(ctx).Error("failed to get regional user for language preference", "error", err)
@@ -125,7 +124,7 @@ func RequestPasswordReset(s *server.RegionalServer) http.HandlerFunc {
 		emailData := templates.AgencyPasswordResetData{
 			ResetToken: resetToken,
 			Domain:     string(req.Domain),
-			Hours:      passwordResetTokenExpiryHours,
+			Hours:      int(resetTokenExpiry.Hours()),
 			BaseURL:    s.UIConfig.AgencyURL,
 		}
 		subject := templates.AgencyPasswordResetSubject(preferredLang)

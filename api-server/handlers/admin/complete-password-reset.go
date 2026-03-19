@@ -60,7 +60,7 @@ func CompletePasswordReset(s *server.GlobalServer) http.HandlerFunc {
 			return
 		}
 
-		// Update password, delete token, and write audit log atomically
+		// Update password, delete token, invalidate sessions, and write audit log atomically
 		err = s.WithGlobalTx(ctx, func(qtx *globaldb.Queries) error {
 			if err := qtx.UpdateAdminUserPassword(ctx, globaldb.UpdateAdminUserPasswordParams{
 				AdminUserID:  resetToken.AdminUserID,
@@ -69,6 +69,9 @@ func CompletePasswordReset(s *server.GlobalServer) http.HandlerFunc {
 				return err
 			}
 			if err := qtx.DeleteAdminPasswordResetToken(ctx, string(req.ResetToken)); err != nil {
+				return err
+			}
+			if err := qtx.DeleteAllAdminSessionsForUser(ctx, resetToken.AdminUserID); err != nil {
 				return err
 			}
 			return qtx.InsertAdminAuditLog(ctx, globaldb.InsertAdminAuditLogParams{
@@ -82,11 +85,6 @@ func CompletePasswordReset(s *server.GlobalServer) http.HandlerFunc {
 			s.Logger(ctx).Error("failed to complete password reset", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
-		}
-
-		// Invalidate all existing sessions for this user (best-effort, outside tx)
-		if err = s.Global.DeleteAllAdminSessionsForUser(ctx, resetToken.AdminUserID); err != nil {
-			s.Logger(ctx).Error("failed to invalidate sessions", "error", err)
 		}
 
 		s.Logger(ctx).Info("password reset completed", "admin_user_id", resetToken.AdminUserID)

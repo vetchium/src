@@ -237,8 +237,8 @@ func CompleteSignup(s *server.RegionalServer) http.HandlerFunc {
 				return txErr
 			}
 
-			// 3. Create session (note comment above says "3." but this is actually step 4)
-			sessionExpiresAt := pgtype.Timestamptz{Time: time.Now().Add(s.TokenConfig.OrgSessionTokenExpiry), Valid: true}
+			// 3. Create session
+			sessionExpiresAt := pgtype.Timestamptz{Time: time.Now().Add(s.TokenConfig.AgencySessionTokenExpiry), Valid: true}
 			txErr = qtx.CreateAgencySession(ctx, regionaldb.CreateAgencySessionParams{
 				SessionToken: rawSessionToken,
 				AgencyUserID: globalUser.AgencyUserID,

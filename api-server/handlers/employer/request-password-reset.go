@@ -22,8 +22,6 @@ import (
 	employertypes "vetchium-api-server.typespec/employer"
 )
 
-const passwordResetTokenExpiryHours = 1
-
 func RequestPasswordReset(s *server.RegionalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -132,11 +130,12 @@ func RequestPasswordReset(s *server.RegionalServer) http.HandlerFunc {
 			preferredLang = "en-US"
 		}
 
-		expiresAt := time.Now().Add(passwordResetTokenExpiryHours * time.Hour)
+		resetTokenExpiry := s.TokenConfig.PasswordResetTokenExpiry
+		expiresAt := time.Now().Add(resetTokenExpiry)
 		emailData := templates.EmployerPasswordResetData{
 			ResetToken: resetToken,
 			Domain:     string(req.Domain),
-			Hours:      passwordResetTokenExpiryHours,
+			Hours:      int(resetTokenExpiry.Hours()),
 			BaseURL:    s.UIConfig.OrgURL,
 		}
 		subject := templates.EmployerPasswordResetSubject(preferredLang)

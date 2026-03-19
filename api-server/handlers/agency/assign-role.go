@@ -1,6 +1,7 @@
 package agency
 
 import (
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -67,8 +68,8 @@ func AssignRole(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		// Get target agency user (verify exists)
-		targetUser, err := s.Global.GetAgencyUserByID(ctx, targetUserID)
+		// Get target agency user from regional DB (verify exists and same agency)
+		targetUser, err := s.Regional.GetAgencyUserByID(ctx, targetUserID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				s.Logger(ctx).Debug("target agency user not found", "target_user_id", req.TargetUserID)
@@ -90,7 +91,7 @@ func AssignRole(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		// Get role by name (verify exists)
+		// Get role by name from regional DB (verify exists)
 		role, err := s.Regional.GetRoleByName(ctx, string(req.RoleName))
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
@@ -126,9 +127,10 @@ func AssignRole(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		// Assign role and write audit log atomically
+		targetEmailHash := sha256.Sum256([]byte(targetUser.EmailAddress))
 		eventData, _ := json.Marshal(map[string]any{
 			"target_user_id":    targetUser.AgencyUserID.String(),
-			"target_email_hash": hex.EncodeToString(targetUser.EmailAddressHash),
+			"target_email_hash": hex.EncodeToString(targetEmailHash[:]),
 			"role_name":         string(req.RoleName),
 		})
 		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {

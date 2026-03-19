@@ -247,6 +247,7 @@ See [ADD_NEW_REGION.md](./ADD_NEW_REGION.md) for the region architecture overvie
 | `AGENCY_SESSION_TOKEN_EXPIRY` | 24h     | 30s      | Agency session token validity duration   |
 | `AGENCY_SIGNUP_TOKEN_EXPIRY`  | 24h     | 30s      | Agency signup token validity duration    |
 | `AGENCY_REMEMBER_ME_EXPIRY`   | 365d    | 60s      | Agency remember-me session validity      |
+| `PASSWORD_RESET_TOKEN_EXPIRY` | 1h      | 30s      | Password reset token validity duration   |
 
 ### Regional Workers
 

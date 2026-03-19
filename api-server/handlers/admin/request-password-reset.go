@@ -74,17 +74,16 @@ func RequestPasswordReset(s *server.GlobalServer) http.HandlerFunc {
 		}
 		resetToken := hex.EncodeToString(resetTokenBytes)
 
-		// Token expires in 1 hour
-		expiresAt := time.Now().UTC().Add(1 * time.Hour)
-
-		// Store reset token, enqueue email, and write audit log atomically
+		// Create reset token, enqueue email, and write audit log atomically
 		lang := adminUser.PreferredLanguage
 		if lang == "" {
 			lang = "en-US"
 		}
+		resetTokenExpiry := s.TokenConfig.PasswordResetTokenExpiry
+		expiresAt := time.Now().UTC().Add(resetTokenExpiry)
 		emailData := templates.AdminPasswordResetData{
 			ResetToken: resetToken,
-			Hours:      1,
+			Hours:      int(resetTokenExpiry.Hours()),
 			BaseURL:    s.UIConfig.AdminURL,
 		}
 		err = s.WithGlobalTx(ctx, func(qtx *globaldb.Queries) error {
