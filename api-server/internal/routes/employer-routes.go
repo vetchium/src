@@ -6,6 +6,7 @@ import (
 	"vetchium-api-server.gomodule/handlers/employer"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
+	employerspec "vetchium-api-server.typespec/employer"
 )
 
 func RegisterEmployerRoutes(mux *http.ServeMux, s *server.Server) {
@@ -21,15 +22,15 @@ func RegisterEmployerRoutes(mux *http.ServeMux, s *server.Server) {
 
 	// Create middleware instances
 	orgAuth := middleware.OrgAuth(s.Regional, s.CurrentRegion, s.InternalEndpoints)
-	employerRoleViewUsers := middleware.EmployerRole(s.Regional, "employer:view_users", "employer:manage_users")
-	employerRoleManageUsers := middleware.EmployerRole(s.Regional, "employer:manage_users")
-	employerRoleViewDomains := middleware.EmployerRole(s.Regional, "employer:view_domains", "employer:manage_domains")
-	employerRoleManageDomains := middleware.EmployerRole(s.Regional, "employer:manage_domains")
-	employerRoleViewCostCenters := middleware.EmployerRole(s.Regional, "employer:view_costcenters", "employer:manage_costcenters")
-	employerRoleManageCostCenters := middleware.EmployerRole(s.Regional, "employer:manage_costcenters")
-	employerRoleViewAuditLogs := middleware.EmployerRole(s.Regional, "employer:view_audit_logs")
-	employerRoleViewSubOrgs := middleware.EmployerRole(s.Regional, "employer:view_suborgs", "employer:manage_suborgs")
-	employerRoleManageSubOrgs := middleware.EmployerRole(s.Regional, "employer:manage_suborgs")
+	employerRoleViewUsers := middleware.EmployerRole(s.Regional, employerspec.OrgRoleViewUsers, employerspec.OrgRoleManageUsers)
+	employerRoleManageUsers := middleware.EmployerRole(s.Regional, employerspec.OrgRoleManageUsers)
+	employerRoleViewDomains := middleware.EmployerRole(s.Regional, employerspec.OrgRoleViewDomains, employerspec.OrgRoleManageDomains)
+	employerRoleManageDomains := middleware.EmployerRole(s.Regional, employerspec.OrgRoleManageDomains)
+	employerRoleViewCostCenters := middleware.EmployerRole(s.Regional, employerspec.OrgRoleViewCostCenters, employerspec.OrgRoleManageCostCenters)
+	employerRoleManageCostCenters := middleware.EmployerRole(s.Regional, employerspec.OrgRoleManageCostCenters)
+	employerRoleViewAuditLogs := middleware.EmployerRole(s.Regional, employerspec.OrgRoleViewAuditLogs)
+	employerRoleViewSubOrgs := middleware.EmployerRole(s.Regional, employerspec.OrgRoleViewSubOrgs, employerspec.OrgRoleManageSubOrgs)
+	employerRoleManageSubOrgs := middleware.EmployerRole(s.Regional, employerspec.OrgRoleManageSubOrgs)
 
 	// Domain write routes (manage_domains required; superadmin bypasses via middleware)
 	mux.Handle("POST /employer/claim-domain", orgAuth(employerRoleManageDomains(employer.ClaimDomain(s))))

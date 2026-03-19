@@ -6,6 +6,7 @@ import (
 	"vetchium-api-server.gomodule/handlers/admin"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
+	adminspec "vetchium-api-server.typespec/admin"
 )
 
 // RegisterAdminGlobalRoutes registers admin routes on the global service.
@@ -23,12 +24,12 @@ func RegisterAdminGlobalRoutes(mux *http.ServeMux, s *server.GlobalServer) {
 
 	// Create middleware instances
 	adminAuth := middleware.AdminAuth(s.Global)
-	adminRoleViewUsers := middleware.AdminRole(s.Global, "admin:view_users", "admin:manage_users")
-	adminRoleManageUsers := middleware.AdminRole(s.Global, "admin:manage_users")
-	adminRoleViewDomains := middleware.AdminRole(s.Global, "admin:view_domains", "admin:manage_domains")
-	adminRoleManageDomains := middleware.AdminRole(s.Global, "admin:manage_domains")
-	adminRoleManageTags := middleware.AdminRole(s.Global, "admin:manage_tags")
-	adminRoleViewAuditLogs := middleware.AdminRole(s.Global, "admin:view_audit_logs")
+	adminRoleViewUsers := middleware.AdminRole(s.Global, adminspec.AdminRoleViewUsers, adminspec.AdminRoleManageUsers)
+	adminRoleManageUsers := middleware.AdminRole(s.Global, adminspec.AdminRoleManageUsers)
+	adminRoleViewDomains := middleware.AdminRole(s.Global, adminspec.AdminRoleViewDomains, adminspec.AdminRoleManageDomains)
+	adminRoleManageDomains := middleware.AdminRole(s.Global, adminspec.AdminRoleManageDomains)
+	adminRoleManageTags := middleware.AdminRole(s.Global, adminspec.AdminRoleManageTags)
+	adminRoleViewAuditLogs := middleware.AdminRole(s.Global, adminspec.AdminRoleViewAuditLogs)
 
 	// Auth-only routes (no role required)
 	mux.Handle("POST /admin/logout", adminAuth(admin.Logout(s)))

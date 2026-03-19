@@ -6,6 +6,7 @@ import (
 	"vetchium-api-server.gomodule/handlers/agency"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
+	agencyspec "vetchium-api-server.typespec/agency"
 )
 
 func RegisterAgencyRoutes(mux *http.ServeMux, s *server.Server) {
@@ -21,11 +22,11 @@ func RegisterAgencyRoutes(mux *http.ServeMux, s *server.Server) {
 
 	// Create middleware instances
 	agencyAuth := middleware.AgencyAuth(s.Regional, s.CurrentRegion, s.InternalEndpoints)
-	agencyRoleViewUsers := middleware.AgencyRole(s.Regional, "agency:view_users", "agency:manage_users")
-	agencyRoleManageUsers := middleware.AgencyRole(s.Regional, "agency:manage_users")
-	agencyRoleViewDomains := middleware.AgencyRole(s.Regional, "agency:view_domains", "agency:manage_domains")
-	agencyRoleManageDomains := middleware.AgencyRole(s.Regional, "agency:manage_domains")
-	agencyRoleViewAuditLogs := middleware.AgencyRole(s.Regional, "agency:view_audit_logs")
+	agencyRoleViewUsers := middleware.AgencyRole(s.Regional, agencyspec.AgencyRoleViewUsers, agencyspec.AgencyRoleManageUsers)
+	agencyRoleManageUsers := middleware.AgencyRole(s.Regional, agencyspec.AgencyRoleManageUsers)
+	agencyRoleViewDomains := middleware.AgencyRole(s.Regional, agencyspec.AgencyRoleViewDomains, agencyspec.AgencyRoleManageDomains)
+	agencyRoleManageDomains := middleware.AgencyRole(s.Regional, agencyspec.AgencyRoleManageDomains)
+	agencyRoleViewAuditLogs := middleware.AgencyRole(s.Regional, agencyspec.AgencyRoleViewAuditLogs)
 
 	// Domain write routes (manage_domains required; superadmin bypasses via middleware)
 	mux.Handle("POST /agency/claim-domain", agencyAuth(agencyRoleManageDomains(agency.ClaimDomain(s))))
