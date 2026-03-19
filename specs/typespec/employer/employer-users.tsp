@@ -14,9 +14,6 @@ scalar OrgSessionToken extends string;
 // Org TFA Token - returned after successful login, before TFA verification
 scalar OrgTFAToken extends string;
 
-// DNS Verification Token - used for domain ownership verification
-scalar DNSVerificationToken extends string;
-
 // ============================================
 // Signup Flow (DNS-based Domain Verification)
 // ============================================

@@ -31,7 +31,6 @@ export { validateAssignRoleRequest, validateRemoveRoleRequest };
 // Token types
 export type OrgSessionToken = string;
 export type OrgTFAToken = string;
-export type DNSVerificationToken = string;
 export type OrgSignupToken = string;
 export type OrgInvitationToken = string;
 export type OrgPasswordResetToken = string;

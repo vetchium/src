@@ -11,7 +11,6 @@ import (
 type AgencySessionToken string
 type AgencyTFAToken string
 type AgencyInvitationToken string
-type DNSVerificationToken string
 type AgencySignupToken string
 
 // RBAC types (re-exported from common)

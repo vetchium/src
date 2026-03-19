@@ -4,6 +4,7 @@ export type LanguageCode = string;
 export type DomainName = string;
 export type TFACode = string;
 export type FullName = string;
+export type DNSVerificationToken = string;
 
 // Validation constraints matching common.tsp
 export const EMAIL_MIN_LENGTH = 3;

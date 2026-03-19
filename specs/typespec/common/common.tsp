@@ -44,3 +44,14 @@ model RemoveRoleRequest {
     @doc("Role name to remove (e.g., employer:manage_users)")
     role_name: string;
 }
+
+@doc("Represents a validation failure with field context")
+model ValidationError {
+    @doc("The field that failed validation")
+    field: string;
+    @doc("Human-readable error message")
+    message: string;
+}
+
+@doc("DNS Verification Token - used for domain ownership verification")
+scalar DNSVerificationToken extends string;

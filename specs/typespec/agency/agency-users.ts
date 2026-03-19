@@ -31,7 +31,6 @@ export { validateAssignRoleRequest, validateRemoveRoleRequest };
 // Token types
 export type AgencySessionToken = string;
 export type AgencyTFAToken = string;
-export type DNSVerificationToken = string;
 export type AgencySignupToken = string;
 export type AgencyInvitationToken = string;
 export type AgencyPasswordResetToken = string;

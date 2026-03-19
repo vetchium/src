@@ -10,7 +10,6 @@ import (
 // Token types
 type OrgSessionToken string
 type OrgTFAToken string
-type DNSVerificationToken string
 type OrgSignupToken string
 type OrgInvitationToken string
 type OrgPasswordResetToken string

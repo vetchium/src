@@ -13,6 +13,7 @@ type LanguageCode string
 type DomainName string
 type TFACode string
 type FullName string
+type DNSVerificationToken string
 
 // Validation constraints matching common.tsp
 const (
