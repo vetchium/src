@@ -63,7 +63,7 @@ func RegisterEmployerRoutes(mux *http.ServeMux, s *server.Server) {
 
 	// SubOrg routes
 	mux.Handle("POST /employer/create-suborg", orgAuth(employerRoleManageSubOrgs(employer.CreateSubOrg(s))))
-	mux.Handle("POST /employer/list-suborgs", orgAuth(employer.ListSubOrgs(s)))
+	mux.Handle("POST /employer/list-suborgs", orgAuth(employerRoleViewSubOrgs(employer.ListSubOrgs(s))))
 	mux.Handle("POST /employer/rename-suborg", orgAuth(employerRoleManageSubOrgs(employer.RenameSubOrg(s))))
 	mux.Handle("POST /employer/disable-suborg", orgAuth(employerRoleManageSubOrgs(employer.DisableSubOrg(s))))
 	mux.Handle("POST /employer/enable-suborg", orgAuth(employerRoleManageSubOrgs(employer.EnableSubOrg(s))))

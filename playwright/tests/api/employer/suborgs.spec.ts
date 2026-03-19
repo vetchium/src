@@ -293,17 +293,46 @@ test.describe("SubOrgs API", () => {
 			}
 		});
 
-		test("Success: any authenticated user can list (200)", async ({
-			request,
-		}) => {
+		test("RBAC: view_suborgs can list suborgs (200)", async ({ request }) => {
 			const api = new EmployerAPIClient(request);
 			const { email: adminEmail, domain } =
-				generateTestOrgEmail("so-list-anyuser");
+				generateTestOrgEmail("so-list-view");
 			const adminResult = await createTestOrgAdminDirect(
 				adminEmail,
 				TEST_PASSWORD
 			);
-			const userEmail = `member@${domain}`;
+			const viewerEmail = `viewer@${domain}`;
+			const viewerResult = await createTestOrgUserDirect(
+				viewerEmail,
+				TEST_PASSWORD,
+				"ind1",
+				{ employerId: adminResult.employerId, domain }
+			);
+			await assignRoleToOrgUser(
+				viewerResult.orgUserId,
+				"employer:view_suborgs"
+			);
+			try {
+				const viewerToken = await loginOrgUser(api, viewerEmail, domain);
+				const res = await api.listSubOrgs(viewerToken, {});
+				expect(res.status).toBe(200);
+			} finally {
+				await deleteTestOrgUser(viewerEmail);
+				await deleteTestOrgUser(adminEmail);
+			}
+		});
+
+		test("RBAC: no view_suborgs or manage_suborgs returns 403", async ({
+			request,
+		}) => {
+			const api = new EmployerAPIClient(request);
+			const { email: adminEmail, domain } =
+				generateTestOrgEmail("so-list-norole");
+			const adminResult = await createTestOrgAdminDirect(
+				adminEmail,
+				TEST_PASSWORD
+			);
+			const userEmail = `norole@${domain}`;
 			await createTestOrgUserDirect(userEmail, TEST_PASSWORD, "ind1", {
 				employerId: adminResult.employerId,
 				domain,
@@ -311,7 +340,7 @@ test.describe("SubOrgs API", () => {
 			try {
 				const userToken = await loginOrgUser(api, userEmail, domain);
 				const res = await api.listSubOrgs(userToken, {});
-				expect(res.status).toBe(200);
+				expect(res.status).toBe(403);
 			} finally {
 				await deleteTestOrgUser(userEmail);
 				await deleteTestOrgUser(adminEmail);
