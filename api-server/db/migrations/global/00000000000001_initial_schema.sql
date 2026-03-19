@@ -325,28 +325,15 @@ CREATE TABLE tag_translations (
     PRIMARY KEY (tag_id, locale)
 );
 
--- Insert predefined roles
+-- Insert predefined roles (admin portal only — employer/agency/hub roles live in regional DB)
 INSERT INTO roles (role_name, description) VALUES
-    -- Admin portal roles
     ('admin:superadmin', 'Superadmin for the admin portal with full access to all operations'),
     ('admin:view_users', 'Can view admin user list and details (read-only)'),
     ('admin:manage_users', 'Can invite, enable/disable admin users and manage their roles'),
     ('admin:view_domains', 'Can view approved domain list and details (read-only)'),
     ('admin:manage_domains', 'Can add, enable/disable approved domains'),
     ('admin:manage_tags', 'Can create and update tags'),
-    ('admin:view_audit_logs', 'Can view admin portal audit logs'),
-
-    -- Employer portal roles
-    ('employer:view_users', 'Can view org user list and details (read-only)'),
-    ('employer:manage_users', 'Can invite, enable/disable org users and manage their roles'),
-    ('employer:view_domains', 'Can view employer domain list and status (read-only)'),
-    ('employer:manage_domains', 'Can claim, verify and delete employer domains'),
-
-    -- Agency portal roles
-    ('agency:view_users', 'Can view agency user list and details (read-only)'),
-    ('agency:manage_users', 'Can invite, enable/disable agency users and manage their roles'),
-    ('agency:view_domains', 'Can view agency domain list and status (read-only)'),
-    ('agency:manage_domains', 'Can claim, verify and delete agency domains');
+    ('admin:view_audit_logs', 'Can view admin portal audit logs');
 
 -- Admin audit logs table (unified audit log for all admin portal write operations)
 CREATE TABLE admin_audit_logs (

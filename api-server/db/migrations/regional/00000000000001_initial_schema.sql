@@ -291,15 +291,8 @@ CREATE TABLE hub_user_roles (
     assigned_at TIMESTAMP NOT NULL DEFAULT NOW(),
     PRIMARY KEY (hub_user_global_id, role_id)
 );
--- Insert predefined roles
+-- Insert predefined roles (employer/agency/hub portals only — admin roles live in global DB)
 INSERT INTO roles (role_name, description) VALUES
-    -- Admin portal roles
-    ('admin:superadmin', 'Superadmin for the admin portal with full access to all operations'),
-    ('admin:view_users', 'Can view admin user list and details (read-only)'),
-    ('admin:manage_users', 'Can invite, enable/disable admin users and manage their roles'),
-    ('admin:view_domains', 'Can view approved domain list and details (read-only)'),
-    ('admin:manage_domains', 'Can add, enable/disable approved domains'),
-
     -- Employer portal roles
     ('employer:view_users', 'Can view org user list and details (read-only)'),
     ('employer:manage_users', 'Can invite, enable/disable org users and manage their roles'),
