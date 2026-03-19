@@ -21,7 +21,7 @@ import (
 	employerdomains "vetchium-api-server.typespec/employer-domains"
 )
 
-func VerifyDomain(s *server.Server) http.HandlerFunc {
+func VerifyDomain(s *server.RegionalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()
@@ -91,7 +91,7 @@ func VerifyDomain(s *server.Server) http.HandlerFunc {
 			err = s.Regional.UpdateEmployerDomainTokenAndVerificationRequested(ctx, regionaldb.UpdateEmployerDomainTokenAndVerificationRequestedParams{
 				Domain:            domain,
 				VerificationToken: newToken,
-				TokenExpiresAt:    pgtype.Timestamp{Time: newExpiresAt, Valid: true},
+				TokenExpiresAt:    pgtype.Timestamptz{Time: newExpiresAt, Valid: true},
 			})
 			if err != nil {
 				s.Logger(ctx).Error("failed to regenerate verification token", "error", err)
@@ -171,7 +171,7 @@ func VerifyDomain(s *server.Server) http.HandlerFunc {
 			if txErr := qtx.UpdateEmployerDomainStatus(ctx, regionaldb.UpdateEmployerDomainStatusParams{
 				Domain:              domain,
 				Status:              regionaldb.DomainVerificationStatusVERIFIED,
-				LastVerifiedAt:      pgtype.Timestamp{Time: now, Valid: true},
+				LastVerifiedAt:      pgtype.Timestamptz{Time: now, Valid: true},
 				ConsecutiveFailures: 0,
 			}); txErr != nil {
 				return txErr

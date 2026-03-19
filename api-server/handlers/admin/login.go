@@ -102,7 +102,7 @@ func Login(s *server.GlobalServer) http.HandlerFunc {
 		// NOTE: TFA token and email are now both in the global database,
 		// so no cross-database compensating transaction needed.
 		tfaTokenExpiry := s.TokenConfig.AdminTFATokenExpiry
-		expiresAt := pgtype.Timestamp{Time: time.Now().Add(tfaTokenExpiry), Valid: true}
+		expiresAt := pgtype.Timestamptz{Time: time.Now().Add(tfaTokenExpiry), Valid: true}
 		err = s.Global.CreateAdminTFAToken(ctx, globaldb.CreateAdminTFATokenParams{
 			TfaToken:    tfaToken,
 			AdminUserID: adminUser.AdminUserID,

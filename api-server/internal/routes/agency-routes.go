@@ -9,7 +9,7 @@ import (
 	agencyspec "vetchium-api-server.typespec/agency"
 )
 
-func RegisterAgencyRoutes(mux *http.ServeMux, s *server.Server) {
+func RegisterAgencyRoutes(mux *http.ServeMux, s *server.RegionalServer) {
 	// Unauthenticated routes
 	mux.HandleFunc("POST /agency/init-signup", agency.InitSignup(s))
 	mux.HandleFunc("POST /agency/get-signup-details", agency.GetSignupDetails(s))

@@ -16,12 +16,10 @@ import (
 
 // GetTagIcon handles GET /public/tag-icon?tag_id=xxx&size=small|large
 // This is an unauthenticated proxy that streams the icon from S3.
-// It is registered on both the global service and regional API servers so that
-// all portals can fetch tag icons regardless of which upstream Nginx selects.
-func GetTagIcon(s *server.Server) http.HandlerFunc {
+// It is used by both global-service (admin) and regional-api-server (hub, org, agency).
+func GetTagIcon(s server.PublicServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
-		log := s.Logger(ctx)
 
 		tagID := r.URL.Query().Get("tag_id")
 		size := r.URL.Query().Get("size")
@@ -35,13 +33,13 @@ func GetTagIcon(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		tag, err := s.Global.GetTag(ctx, tagID)
+		tag, err := s.GetGlobal().GetTag(ctx, tagID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
-			log.Error("failed to get tag", "error", err)
+			s.Logger(ctx).Error("failed to get tag", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -69,9 +67,10 @@ func GetTagIcon(s *server.Server) http.HandlerFunc {
 			}
 		}
 
-		data, err := downloadFromS3(ctx, s.StorageConfig, s3Key)
+		// Proxy from S3
+		data, err := downloadFromS3(ctx, s.GetStorageConfig(), s3Key)
 		if err != nil {
-			log.Error("failed to download icon from S3", "error", err)
+			s.Logger(ctx).Error("failed to download icon from S3", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -82,19 +81,9 @@ func GetTagIcon(s *server.Server) http.HandlerFunc {
 		}
 		w.Header().Set("Cache-Control", "public, max-age=86400")
 		if _, err := io.Copy(w, data); err != nil {
-			log.Error("failed to stream icon to response", "error", err)
+			s.Logger(ctx).Error("failed to stream icon to response", "error", err)
 		}
 	}
-}
-
-func newS3Client(cfg *server.StorageConfig) *s3.Client {
-	endpoint := cfg.Endpoint
-	return s3.New(s3.Options{
-		BaseEndpoint: &endpoint,
-		UsePathStyle: true,
-		Region:       cfg.Region,
-		Credentials:  aws.NewCredentialsCache(credentials.NewStaticCredentialsProvider(cfg.AccessKeyID, cfg.SecretAccessKey, "")),
-	})
 }
 
 func downloadFromS3(ctx context.Context, cfg *server.StorageConfig, key string) (io.ReadCloser, error) {
@@ -107,4 +96,14 @@ func downloadFromS3(ctx context.Context, cfg *server.StorageConfig, key string) 
 		return nil, fmt.Errorf("failed to get S3 object: %w", err)
 	}
 	return result.Body, nil
+}
+
+func newS3Client(cfg *server.StorageConfig) *s3.Client {
+	endpoint := cfg.Endpoint
+	return s3.New(s3.Options{
+		BaseEndpoint: &endpoint,
+		UsePathStyle: true,
+		Region:       cfg.Region,
+		Credentials:  aws.NewCredentialsCache(credentials.NewStaticCredentialsProvider(cfg.AccessKeyID, cfg.SecretAccessKey, "")),
+	})
 }

@@ -23,7 +23,7 @@ import (
 	"vetchium-api-server.typespec/hub"
 )
 
-func RequestPasswordReset(s *server.Server) http.HandlerFunc {
+func RequestPasswordReset(s *server.RegionalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
@@ -113,7 +113,7 @@ func RequestPasswordReset(s *server.Server) http.HandlerFunc {
 
 		// Create reset token and enqueue email atomically in regional DB
 		resetTokenExpiry := s.TokenConfig.PasswordResetTokenExpiry
-		expiresAt := pgtype.Timestamp{Time: time.Now().Add(resetTokenExpiry), Valid: true}
+		expiresAt := pgtype.Timestamptz{Time: time.Now().Add(resetTokenExpiry), Valid: true}
 		lang := i18n.Match(regionalUser.PreferredLanguage)
 		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
 			txErr := qtx.CreateHubPasswordResetToken(ctx, regionaldb.CreateHubPasswordResetTokenParams{

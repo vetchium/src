@@ -18,7 +18,7 @@ import (
 	"vetchium-api-server.typespec/employer"
 )
 
-func DisableUser(s *server.Server) http.HandlerFunc {
+func DisableUser(s *server.RegionalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()

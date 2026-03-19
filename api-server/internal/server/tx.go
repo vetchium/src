@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5"
-	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 )
 
@@ -22,22 +21,9 @@ var (
 	ErrInvalidState = errors.New("invalid state")
 )
 
-// WithGlobalTx executes a function within a global database transaction.
-// If the function returns an error, the transaction is rolled back.
-// Otherwise, the transaction is committed.
-//
-// Errors returned from fn are propagated as-is, preserving error types
-// for granular HTTP status code mapping.
-func (s *Server) WithGlobalTx(ctx context.Context, fn func(*globaldb.Queries) error) error {
-	return pgx.BeginFunc(ctx, s.GlobalPool, func(tx pgx.Tx) error {
-		qtx := s.Global.WithTx(tx)
-		return fn(qtx)
-	})
-}
-
 // WithRegionalTx executes a function within a regional database transaction.
 // Always uses s.RegionalPool since each server has only one regional DB.
-func (s *Server) WithRegionalTx(ctx context.Context, fn func(*regionaldb.Queries) error) error {
+func (s *RegionalServer) WithRegionalTx(ctx context.Context, fn func(*regionaldb.Queries) error) error {
 	return pgx.BeginFunc(ctx, s.RegionalPool, func(tx pgx.Tx) error {
 		qtx := regionaldb.New(tx)
 		return fn(qtx)

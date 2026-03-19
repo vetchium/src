@@ -25,7 +25,7 @@ import (
 	"vetchium-api-server.typespec/hub"
 )
 
-func Login(s *server.Server) http.HandlerFunc {
+func Login(s *server.RegionalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
@@ -133,7 +133,7 @@ func Login(s *server.Server) http.HandlerFunc {
 
 		// Create TFA token and enqueue email atomically in regional DB
 		tfaTokenExpiry := s.TokenConfig.HubTFATokenExpiry
-		expiresAt := pgtype.Timestamp{Time: time.Now().Add(tfaTokenExpiry), Valid: true}
+		expiresAt := pgtype.Timestamptz{Time: time.Now().Add(tfaTokenExpiry), Valid: true}
 		lang := i18n.Match(regionalUser.PreferredLanguage)
 		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
 			txErr := qtx.CreateHubTFAToken(ctx, regionaldb.CreateHubTFATokenParams{

@@ -28,7 +28,7 @@ const (
 	dnsRecordPrefix = "_vetchium-verify."
 )
 
-func InitSignup(s *server.Server) http.HandlerFunc {
+func InitSignup(s *server.RegionalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
@@ -150,7 +150,7 @@ func InitSignup(s *server.Server) http.HandlerFunc {
 
 		// Store tokens in global DB
 		tokenExpiry := s.TokenConfig.HubSignupTokenExpiry
-		expiresAt := pgtype.Timestamp{Time: time.Now().Add(tokenExpiry), Valid: true}
+		expiresAt := pgtype.Timestamptz{Time: time.Now().Add(tokenExpiry), Valid: true}
 		err = s.Global.CreateOrgSignupToken(ctx, globaldb.CreateOrgSignupTokenParams{
 			SignupToken:      dnsVerificationToken,
 			EmailToken:       emailToken,

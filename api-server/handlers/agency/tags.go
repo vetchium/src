@@ -58,7 +58,7 @@ func buildTagFromLocaleRow(row globaldb.GetTagWithLocaleRow) agency.Tag {
 }
 
 // GetTag handles POST /agency/get-tag
-func GetTag(s *server.Server) http.HandlerFunc {
+func GetTag(s *server.RegionalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()
@@ -109,7 +109,7 @@ func GetTag(s *server.Server) http.HandlerFunc {
 }
 
 // FilterTags handles POST /agency/filter-tags
-func FilterTags(s *server.Server) http.HandlerFunc {
+func FilterTags(s *server.RegionalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()

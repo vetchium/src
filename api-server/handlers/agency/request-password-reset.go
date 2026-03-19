@@ -24,7 +24,7 @@ import (
 
 const passwordResetTokenExpiryHours = 1
 
-func RequestPasswordReset(s *server.Server) http.HandlerFunc {
+func RequestPasswordReset(s *server.RegionalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
@@ -137,7 +137,7 @@ func RequestPasswordReset(s *server.Server) http.HandlerFunc {
 			txErr := qtx.CreateAgencyPasswordResetToken(ctx, regionaldb.CreateAgencyPasswordResetTokenParams{
 				ResetToken:         resetToken,
 				AgencyUserGlobalID: globalUser.AgencyUserID,
-				ExpiresAt:          pgtype.Timestamp{Time: expiresAt, Valid: true},
+				ExpiresAt:          pgtype.Timestamptz{Time: expiresAt, Valid: true},
 			})
 			if txErr != nil {
 				return txErr

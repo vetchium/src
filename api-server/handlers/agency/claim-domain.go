@@ -20,7 +20,7 @@ import (
 	agencydomains "vetchium-api-server.typespec/agency-domains"
 )
 
-func ClaimDomain(s *server.Server) http.HandlerFunc {
+func ClaimDomain(s *server.RegionalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()
@@ -100,7 +100,7 @@ func ClaimDomain(s *server.Server) http.HandlerFunc {
 				Domain:            domain,
 				AgencyID:          agencyUser.AgencyID,
 				VerificationToken: verificationToken,
-				TokenExpiresAt:    pgtype.Timestamp{Time: tokenExpiresAt, Valid: true},
+				TokenExpiresAt:    pgtype.Timestamptz{Time: tokenExpiresAt, Valid: true},
 				Status:            regionaldb.DomainVerificationStatusPENDING,
 			}); txErr != nil {
 				return txErr

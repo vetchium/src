@@ -9,7 +9,7 @@ import (
 	employerspec "vetchium-api-server.typespec/employer"
 )
 
-func RegisterEmployerRoutes(mux *http.ServeMux, s *server.Server) {
+func RegisterEmployerRoutes(mux *http.ServeMux, s *server.RegionalServer) {
 	// Unauthenticated routes
 	mux.HandleFunc("POST /employer/init-signup", employer.InitSignup(s))
 	mux.HandleFunc("POST /employer/get-signup-details", employer.GetSignupDetails(s))

@@ -23,7 +23,7 @@ import (
 	"vetchium-api-server.typespec/hub"
 )
 
-func CompleteSignup(s *server.Server) http.HandlerFunc {
+func CompleteSignup(s *server.RegionalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
@@ -247,7 +247,7 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 				return txErr
 			}
 
-			sessionExpiresAt := pgtype.Timestamp{Time: time.Now().Add(s.TokenConfig.HubSessionTokenExpiry), Valid: true}
+			sessionExpiresAt := pgtype.Timestamptz{Time: time.Now().Add(s.TokenConfig.HubSessionTokenExpiry), Valid: true}
 			txErr = qtx.CreateHubSession(ctx, regionaldb.CreateHubSessionParams{
 				SessionToken:    rawSessionToken,
 				HubUserGlobalID: hubUserGlobalID,

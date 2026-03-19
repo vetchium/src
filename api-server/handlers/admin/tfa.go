@@ -82,7 +82,7 @@ func TFA(s *server.GlobalServer) http.HandlerFunc {
 		sessionToken := hex.EncodeToString(sessionTokenBytes)
 
 		// Store session and write audit log atomically
-		expiresAt := pgtype.Timestamp{Time: time.Now().Add(s.TokenConfig.AdminSessionTokenExpiry), Valid: true}
+		expiresAt := pgtype.Timestamptz{Time: time.Now().Add(s.TokenConfig.AdminSessionTokenExpiry), Valid: true}
 		err = s.WithGlobalTx(ctx, func(qtx *globaldb.Queries) error {
 			if err := qtx.CreateAdminSession(ctx, globaldb.CreateAdminSessionParams{
 				SessionToken: sessionToken,

@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"vetchium-api-server.gomodule/handlers/admin"
+	"vetchium-api-server.gomodule/handlers/public"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
 	adminspec "vetchium-api-server.typespec/admin"
@@ -20,7 +21,7 @@ func RegisterAdminGlobalRoutes(mux *http.ServeMux, s *server.GlobalServer) {
 	mux.HandleFunc("POST /admin/complete-password-reset", admin.CompletePasswordReset(s))
 
 	// Public unauthenticated routes (accessible to all portals)
-	mux.HandleFunc("GET /public/tag-icon", admin.GetTagIcon(s))
+	mux.HandleFunc("GET /public/tag-icon", public.GetTagIcon(s))
 
 	// Create middleware instances
 	adminAuth := middleware.AdminAuth(s.Global)

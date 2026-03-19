@@ -139,7 +139,7 @@ Region determined at signup, stored in global DB. Use `s.GetRegionalDB(region)` 
 Handlers follow: decode → validate → query/write (in tx) → check state → respond.
 
 ```go
-func MyHandler(s *server.Server) http.HandlerFunc {
+func MyHandler(s *server.RegionalServer) http.HandlerFunc {
     return func(w http.ResponseWriter, r *http.Request) {
         w.Header().Set("Content-Type", "application/json")
         ctx := r.Context()
@@ -186,7 +186,7 @@ Never log passwords, session tokens, TFA codes, or full email addresses.
 
 ### Handler Organization & Middleware
 
-Handlers in `api-server/handlers/{admin,hub,org,agency}/`. All deps via `*server.Server`.
+Handlers in `api-server/handlers/{admin,hub,org,agency}/`. All deps via `*server.RegionalServer` (for regional portals) or `*server.GlobalServer` (for admin).
 
 ```go
 // Without auth

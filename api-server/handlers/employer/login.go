@@ -26,7 +26,7 @@ import (
 	employertypes "vetchium-api-server.typespec/employer"
 )
 
-func Login(s *server.Server) http.HandlerFunc {
+func Login(s *server.RegionalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
@@ -154,7 +154,7 @@ func Login(s *server.Server) http.HandlerFunc {
 
 		// Store TFA token and enqueue email atomically
 		tfaTokenExpiry := s.TokenConfig.OrgTFATokenExpiry
-		expiresAt := pgtype.Timestamp{Time: time.Now().Add(tfaTokenExpiry), Valid: true}
+		expiresAt := pgtype.Timestamptz{Time: time.Now().Add(tfaTokenExpiry), Valid: true}
 		lang := i18n.Match(regionalUser.PreferredLanguage)
 
 		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {

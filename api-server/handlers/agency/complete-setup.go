@@ -16,7 +16,7 @@ import (
 	agencytypes "vetchium-api-server.typespec/agency"
 )
 
-func CompleteSetup(s *server.Server) http.HandlerFunc {
+func CompleteSetup(s *server.RegionalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 

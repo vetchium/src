@@ -8,7 +8,7 @@ import (
 	"vetchium-api-server.typespec/global"
 )
 
-func GetSupportedLanguages(s *server.Server) http.HandlerFunc {
+func GetSupportedLanguages(s *server.RegionalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()

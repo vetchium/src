@@ -22,7 +22,7 @@ const (
 )
 
 // FilterUsers handles POST /employer/filter-users
-func FilterUsers(s *server.Server) http.HandlerFunc {
+func FilterUsers(s *server.RegionalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 

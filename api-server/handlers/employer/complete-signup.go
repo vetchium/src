@@ -22,7 +22,7 @@ import (
 	employertypes "vetchium-api-server.typespec/employer"
 )
 
-func CompleteSignup(s *server.Server) http.HandlerFunc {
+func CompleteSignup(s *server.RegionalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
@@ -213,9 +213,9 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 				Domain:            domain,
 				EmployerID:        employer.EmployerID,
 				VerificationToken: dnsVerificationToken,
-				TokenExpiresAt:    pgtype.Timestamp{Time: now.AddDate(0, 0, 30), Valid: true},
+				TokenExpiresAt:    pgtype.Timestamptz{Time: now.AddDate(0, 0, 30), Valid: true},
 				Status:            regionaldb.DomainVerificationStatusVERIFIED,
-				LastVerifiedAt:    pgtype.Timestamp{Time: now, Valid: true},
+				LastVerifiedAt:    pgtype.Timestamptz{Time: now, Valid: true},
 			})
 			if txErr != nil {
 				s.Logger(ctx).Error("failed to create regional employer domain", "error", txErr)
@@ -238,7 +238,7 @@ func CompleteSignup(s *server.Server) http.HandlerFunc {
 			}
 
 			// 4. Create session
-			sessionExpiresAt := pgtype.Timestamp{Time: time.Now().Add(s.TokenConfig.OrgSessionTokenExpiry), Valid: true}
+			sessionExpiresAt := pgtype.Timestamptz{Time: time.Now().Add(s.TokenConfig.OrgSessionTokenExpiry), Valid: true}
 			txErr = qtx.CreateOrgSession(ctx, regionaldb.CreateOrgSessionParams{
 				SessionToken: rawSessionToken,
 				OrgUserID:    globalUser.OrgUserID,

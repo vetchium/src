@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
@@ -71,10 +72,34 @@ type StorageConfig struct {
 	Bucket          string
 }
 
-type Server struct {
+type BaseServer struct {
 	// Global database (for routing lookups)
 	Global     *globaldb.Queries
 	GlobalPool *pgxpool.Pool
+
+	Log           *slog.Logger
+	TokenConfig   *TokenConfig
+	UIConfig      *UIConfig
+	Environment   string
+	StorageConfig *StorageConfig
+}
+
+type PublicServer interface {
+	GetGlobal() *globaldb.Queries
+	GetStorageConfig() *StorageConfig
+	Logger(ctx context.Context) *slog.Logger
+}
+
+func (s *BaseServer) GetGlobal() *globaldb.Queries {
+	return s.Global
+}
+
+func (s *BaseServer) GetStorageConfig() *StorageConfig {
+	return s.StorageConfig
+}
+
+type RegionalServer struct {
+	BaseServer
 
 	// This server's regional database (only one)
 	Regional     *regionaldb.Queries
@@ -82,26 +107,27 @@ type Server struct {
 
 	// Server identity
 	CurrentRegion globaldb.Region
-	Log           *slog.Logger
-	TokenConfig   *TokenConfig
-	UIConfig      *UIConfig
-	Environment   string
 
 	// Internal endpoints for cross-region proxy
 	// Map of region -> base URL (e.g., "ind1" -> "http://regional-api-server-ind1:8080")
 	InternalEndpoints map[globaldb.Region]string
-
-	// StorageConfig holds connection parameters for this region's Garage S3 instance.
-	StorageConfig *StorageConfig
 }
 
 // Logger returns the logger from context with request ID, or falls back to base logger.
-func (s *Server) Logger(ctx context.Context) *slog.Logger {
+func (s *BaseServer) Logger(ctx context.Context) *slog.Logger {
 	return middleware.LoggerFromContext(ctx, s.Log)
 }
 
+// WithGlobalTx executes a function within a global database transaction.
+func (s *BaseServer) WithGlobalTx(ctx context.Context, fn func(*globaldb.Queries) error) error {
+	return pgx.BeginFunc(ctx, s.GlobalPool, func(tx pgx.Tx) error {
+		qtx := s.Global.WithTx(tx)
+		return fn(qtx)
+	})
+}
+
 // ProxyToRegion proxies the request to the specified region's internal endpoint.
-func (s *Server) ProxyToRegion(w http.ResponseWriter, r *http.Request, targetRegion globaldb.Region, bodyBytes []byte) {
+func (s *RegionalServer) ProxyToRegion(w http.ResponseWriter, r *http.Request, targetRegion globaldb.Region, bodyBytes []byte) {
 	endpoint, ok := s.InternalEndpoints[targetRegion]
 	if !ok {
 		s.Logger(r.Context()).Error("no internal endpoint for region", "region", targetRegion)

@@ -8,7 +8,7 @@ import (
 	"vetchium-api-server.gomodule/internal/server"
 )
 
-func RegisterHubRoutes(mux *http.ServeMux, s *server.Server) {
+func RegisterHubRoutes(mux *http.ServeMux, s *server.RegionalServer) {
 	// Unauthenticated routes
 	mux.HandleFunc("POST /hub/request-signup", hub.RequestSignup(s))
 	mux.HandleFunc("POST /hub/complete-signup", hub.CompleteSignup(s))

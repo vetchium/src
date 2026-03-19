@@ -23,7 +23,7 @@ type EmailRow struct {
 // RecordAttemptResult holds the result of recording a delivery attempt.
 type RecordAttemptResult struct {
 	AttemptID   pgtype.UUID
-	AttemptedAt pgtype.Timestamp
+	AttemptedAt pgtype.Timestamptz
 }
 
 // EmailDB abstracts the email queue database operations so the worker

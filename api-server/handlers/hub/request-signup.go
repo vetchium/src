@@ -22,7 +22,7 @@ import (
 	"vetchium-api-server.typespec/hub"
 )
 
-func RequestSignup(s *server.Server) http.HandlerFunc {
+func RequestSignup(s *server.RegionalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()
@@ -89,7 +89,7 @@ func RequestSignup(s *server.Server) http.HandlerFunc {
 		signupToken := hex.EncodeToString(tokenBytes)
 
 		// Store token in global DB
-		expiresAt := pgtype.Timestamp{Time: time.Now().Add(s.TokenConfig.HubSignupTokenExpiry), Valid: true}
+		expiresAt := pgtype.Timestamptz{Time: time.Now().Add(s.TokenConfig.HubSignupTokenExpiry), Valid: true}
 		err = s.Global.CreateHubSignupToken(ctx, globaldb.CreateHubSignupTokenParams{
 			SignupToken:      signupToken,
 			EmailAddress:     string(req.EmailAddress),

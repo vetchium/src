@@ -91,7 +91,7 @@ func RequestPasswordReset(s *server.GlobalServer) http.HandlerFunc {
 			if err := qtx.CreateAdminPasswordResetToken(ctx, globaldb.CreateAdminPasswordResetTokenParams{
 				ResetToken:  resetToken,
 				AdminUserID: adminUser.AdminUserID,
-				ExpiresAt:   pgtype.Timestamp{Time: expiresAt, Valid: true},
+				ExpiresAt:   pgtype.Timestamptz{Time: expiresAt, Valid: true},
 			}); err != nil {
 				return err
 			}

@@ -87,7 +87,7 @@ func InviteUser(s *server.GlobalServer) http.HandlerFunc {
 		}
 		invitationToken := hex.EncodeToString(tokenBytes)
 		invitationExpiry := s.TokenConfig.AdminInvitationTokenExpiry
-		expiresAt := pgtype.Timestamp{Time: time.Now().Add(invitationExpiry), Valid: true}
+		expiresAt := pgtype.Timestamptz{Time: time.Now().Add(invitationExpiry), Valid: true}
 
 		emailLanguage := adminUser.PreferredLanguage
 		if req.InviteEmailLanguage != "" {

@@ -23,7 +23,7 @@ import (
 	employertypes "vetchium-api-server.typespec/employer"
 )
 
-func InviteUser(s *server.Server) http.HandlerFunc {
+func InviteUser(s *server.RegionalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()
@@ -138,7 +138,7 @@ func InviteUser(s *server.Server) http.HandlerFunc {
 
 		// Build email content before tx
 		invitationExpiry := s.TokenConfig.OrgInvitationTokenExpiry
-		expiresAt := pgtype.Timestamp{Time: time.Now().Add(invitationExpiry), Valid: true}
+		expiresAt := pgtype.Timestamptz{Time: time.Now().Add(invitationExpiry), Valid: true}
 		emailLanguage := orgUser.PreferredLanguage
 		if req.InviteEmailLanguage != "" {
 			emailLanguage = string(req.InviteEmailLanguage)

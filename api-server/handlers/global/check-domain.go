@@ -10,7 +10,7 @@ import (
 	"vetchium-api-server.typespec/global"
 )
 
-func CheckDomain(s *server.Server) http.HandlerFunc {
+func CheckDomain(s *server.RegionalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()

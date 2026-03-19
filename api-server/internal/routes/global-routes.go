@@ -8,7 +8,7 @@ import (
 	"vetchium-api-server.gomodule/internal/server"
 )
 
-func RegisterGlobalRoutes(mux *http.ServeMux, s *server.Server) {
+func RegisterGlobalRoutes(mux *http.ServeMux, s *server.RegionalServer) {
 	// Public unauthenticated routes
 	mux.HandleFunc("POST /global/get-regions", global.GetRegions(s))
 	mux.HandleFunc("POST /global/get-supported-languages", global.GetSupportedLanguages(s))

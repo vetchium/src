@@ -20,7 +20,7 @@ import (
 	"vetchium-api-server.typespec/hub"
 )
 
-func RequestEmailChange(s *server.Server) http.HandlerFunc {
+func RequestEmailChange(s *server.RegionalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
@@ -89,7 +89,7 @@ func RequestEmailChange(s *server.Server) http.HandlerFunc {
 		verificationToken := tokens.AddRegionPrefix(s.CurrentRegion, rawToken)
 
 		// Create verification token and enqueue email atomically in regional DB
-		var expiresAt pgtype.Timestamp
+		var expiresAt pgtype.Timestamptz
 		expiresAt.Time = time.Now().Add(s.TokenConfig.EmailVerificationTokenExpiry)
 		expiresAt.Valid = true
 

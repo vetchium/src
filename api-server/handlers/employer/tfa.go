@@ -19,7 +19,7 @@ import (
 	employertypes "vetchium-api-server.typespec/employer"
 )
 
-func TFA(s *server.Server) http.HandlerFunc {
+func TFA(s *server.RegionalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
@@ -132,7 +132,7 @@ func TFA(s *server.Server) http.HandlerFunc {
 		}
 
 		// Store session in regional database (raw token without prefix)
-		expiresAt := pgtype.Timestamp{Time: time.Now().Add(sessionExpiry), Valid: true}
+		expiresAt := pgtype.Timestamptz{Time: time.Now().Add(sessionExpiry), Valid: true}
 		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
 			if txErr := qtx.CreateOrgSession(ctx, regionaldb.CreateOrgSessionParams{
 				SessionToken: rawSessionToken,

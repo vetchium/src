@@ -71,13 +71,15 @@ func main() {
 	}
 
 	s := &server.GlobalServer{
-		Global:        globalQueries,
-		GlobalPool:    globalConn,
-		Log:           logger,
-		TokenConfig:   tokenConfig,
-		UIConfig:      uiConfig,
-		Environment:   environment,
-		StorageConfig: storageConfig,
+		BaseServer: server.BaseServer{
+			Global:        globalQueries,
+			GlobalPool:    globalConn,
+			Log:           logger,
+			TokenConfig:   tokenConfig,
+			UIConfig:      uiConfig,
+			Environment:   environment,
+			StorageConfig: storageConfig,
+		},
 	}
 
 	// Setup graceful shutdown context

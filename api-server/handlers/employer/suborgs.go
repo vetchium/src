@@ -29,7 +29,7 @@ const (
 )
 
 // CreateSubOrg handles POST /employer/create-suborg
-func CreateSubOrg(s *server.Server) http.HandlerFunc {
+func CreateSubOrg(s *server.RegionalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()
@@ -126,7 +126,7 @@ func CreateSubOrg(s *server.Server) http.HandlerFunc {
 }
 
 // ListSubOrgs handles POST /employer/list-suborgs
-func ListSubOrgs(s *server.Server) http.HandlerFunc {
+func ListSubOrgs(s *server.RegionalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()
@@ -220,7 +220,7 @@ func ListSubOrgs(s *server.Server) http.HandlerFunc {
 }
 
 // RenameSubOrg handles POST /employer/rename-suborg
-func RenameSubOrg(s *server.Server) http.HandlerFunc {
+func RenameSubOrg(s *server.RegionalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()
@@ -300,7 +300,7 @@ func RenameSubOrg(s *server.Server) http.HandlerFunc {
 }
 
 // DisableSubOrg handles POST /employer/disable-suborg
-func DisableSubOrg(s *server.Server) http.HandlerFunc {
+func DisableSubOrg(s *server.RegionalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()
@@ -419,7 +419,7 @@ func DisableSubOrg(s *server.Server) http.HandlerFunc {
 }
 
 // EnableSubOrg handles POST /employer/enable-suborg
-func EnableSubOrg(s *server.Server) http.HandlerFunc {
+func EnableSubOrg(s *server.RegionalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()
@@ -504,7 +504,7 @@ func EnableSubOrg(s *server.Server) http.HandlerFunc {
 }
 
 // AddSubOrgMember handles POST /employer/add-suborg-member
-func AddSubOrgMember(s *server.Server) http.HandlerFunc {
+func AddSubOrgMember(s *server.RegionalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()
@@ -602,7 +602,7 @@ func AddSubOrgMember(s *server.Server) http.HandlerFunc {
 }
 
 // RemoveSubOrgMember handles POST /employer/remove-suborg-member
-func RemoveSubOrgMember(s *server.Server) http.HandlerFunc {
+func RemoveSubOrgMember(s *server.RegionalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()
@@ -702,7 +702,7 @@ func RemoveSubOrgMember(s *server.Server) http.HandlerFunc {
 }
 
 // ListSubOrgMembers handles POST /employer/list-suborg-members
-func ListSubOrgMembers(s *server.Server) http.HandlerFunc {
+func ListSubOrgMembers(s *server.RegionalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()

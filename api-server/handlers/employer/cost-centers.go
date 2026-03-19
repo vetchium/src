@@ -25,7 +25,7 @@ const (
 )
 
 // AddCostCenter handles POST /employer/add-cost-center
-func AddCostCenter(s *server.Server) http.HandlerFunc {
+func AddCostCenter(s *server.RegionalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
@@ -98,7 +98,7 @@ func AddCostCenter(s *server.Server) http.HandlerFunc {
 }
 
 // UpdateCostCenter handles POST /employer/update-cost-center
-func UpdateCostCenter(s *server.Server) http.HandlerFunc {
+func UpdateCostCenter(s *server.RegionalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
@@ -199,7 +199,7 @@ func UpdateCostCenter(s *server.Server) http.HandlerFunc {
 }
 
 // ListCostCenters handles POST /employer/list-cost-centers
-func ListCostCenters(s *server.Server) http.HandlerFunc {
+func ListCostCenters(s *server.RegionalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 

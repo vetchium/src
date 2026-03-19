@@ -321,7 +321,7 @@ func (w *RegionalWorker) verifyEmployerDomains(ctx context.Context) {
 	}
 
 	cutoff := time.Now().AddDate(0, 0, -employerdomains.VerificationIntervalDays)
-	domains, err := w.queries.GetEmployerDomainsForReverification(ctx, pgtype.Timestamp{Time: cutoff, Valid: true})
+	domains, err := w.queries.GetEmployerDomainsForReverification(ctx, pgtype.Timestamptz{Time: cutoff, Valid: true})
 	if err != nil {
 		w.log.Error("failed to get employer domains for reverification", "error", err)
 		return
@@ -340,7 +340,7 @@ func (w *RegionalWorker) verifyEmployerDomains(ctx context.Context) {
 			err = w.queries.UpdateEmployerDomainStatus(ctx, regionaldb.UpdateEmployerDomainStatusParams{
 				Domain:              d.Domain,
 				Status:              regionaldb.DomainVerificationStatusVERIFIED,
-				LastVerifiedAt:      pgtype.Timestamp{Time: time.Now(), Valid: true},
+				LastVerifiedAt:      pgtype.Timestamptz{Time: time.Now(), Valid: true},
 				ConsecutiveFailures: 0,
 			})
 			if err != nil {
@@ -375,7 +375,7 @@ func (w *RegionalWorker) verifyAgencyDomains(ctx context.Context) {
 	}
 
 	cutoff := time.Now().AddDate(0, 0, -agencydomains.AgencyVerificationIntervalDays)
-	domains, err := w.queries.GetAgencyDomainsForReverification(ctx, pgtype.Timestamp{Time: cutoff, Valid: true})
+	domains, err := w.queries.GetAgencyDomainsForReverification(ctx, pgtype.Timestamptz{Time: cutoff, Valid: true})
 	if err != nil {
 		w.log.Error("failed to get agency domains for reverification", "error", err)
 		return
@@ -394,7 +394,7 @@ func (w *RegionalWorker) verifyAgencyDomains(ctx context.Context) {
 			err = w.queries.UpdateAgencyDomainStatus(ctx, regionaldb.UpdateAgencyDomainStatusParams{
 				Domain:              d.Domain,
 				Status:              regionaldb.DomainVerificationStatusVERIFIED,
-				LastVerifiedAt:      pgtype.Timestamp{Time: time.Now(), Valid: true},
+				LastVerifiedAt:      pgtype.Timestamptz{Time: time.Now(), Valid: true},
 				ConsecutiveFailures: 0,
 			})
 			if err != nil {

@@ -93,18 +93,20 @@ func main() {
 		Bucket:          os.Getenv("S3_BUCKET"),
 	}
 
-	s := &server.Server{
-		Global:            globaldb.New(globalConn),
-		GlobalPool:        globalConn,
+	s := &server.RegionalServer{
+		BaseServer: server.BaseServer{
+			Global:        globaldb.New(globalConn),
+			GlobalPool:    globalConn,
+			Log:           logger,
+			TokenConfig:   tokenConfig,
+			UIConfig:      uiConfig,
+			Environment:   environment,
+			StorageConfig: storageConfig,
+		},
 		Regional:          regionaldb.New(regionalConn),
 		RegionalPool:      regionalConn,
-		Log:               logger,
 		CurrentRegion:     currentRegion,
-		TokenConfig:       tokenConfig,
-		UIConfig:          uiConfig,
-		Environment:       environment,
 		InternalEndpoints: internalEndpoints,
-		StorageConfig:     storageConfig,
 	}
 
 	// Setup graceful shutdown context
