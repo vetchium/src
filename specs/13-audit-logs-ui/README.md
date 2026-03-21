@@ -1,4 +1,4 @@
-Status: DRAFT
+Status: COMPLETED
 Authors: @psankar
 Dependencies: specs/11-audit-logs/README.md
 
