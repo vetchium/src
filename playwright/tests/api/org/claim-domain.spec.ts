@@ -3,7 +3,7 @@ import { OrgAPIClient } from "../../../lib/org-api-client";
 import {
 	generateTestOrgEmail,
 	deleteTestOrgUser,
-	deleteTestGlobalEmployerDomain,
+	deleteTestGlobalOrgDomain,
 	createTestOrgUserDirect,
 	createTestOrgAdminDirect,
 	generateTestDomainName,
@@ -96,7 +96,7 @@ test.describe("POST /org/claim-domain", () => {
 			expect(auditResp.body.audit_logs[0].event_type).toBe("org.claim_domain");
 		} finally {
 			// Cleanup
-			await deleteTestGlobalEmployerDomain(claimedDomain);
+			await deleteTestGlobalOrgDomain(claimedDomain);
 			if (userEmail) await deleteTestOrgUser(userEmail);
 		}
 	});
@@ -208,7 +208,7 @@ test.describe("POST /org/claim-domain", () => {
 			const response2 = await api.claimDomain(sessionToken, claimRequest);
 			expect(response2.status).toBe(409);
 		} finally {
-			await deleteTestGlobalEmployerDomain(claimedDomain);
+			await deleteTestGlobalOrgDomain(claimedDomain);
 			if (userEmail) await deleteTestOrgUser(userEmail);
 		}
 	});
@@ -256,7 +256,7 @@ test.describe("RBAC: POST /org/claim-domain", () => {
 			});
 			expect(response.status).toBe(201);
 		} finally {
-			await deleteTestGlobalEmployerDomain(freshDomain);
+			await deleteTestGlobalOrgDomain(freshDomain);
 			await deleteTestOrgUser(managerEmail);
 			await deleteTestOrgUser(adminEmail);
 		}

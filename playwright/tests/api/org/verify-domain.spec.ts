@@ -3,7 +3,7 @@ import { OrgAPIClient } from "../../../lib/org-api-client";
 import {
 	generateTestOrgEmail,
 	deleteTestOrgUser,
-	deleteTestGlobalEmployerDomain,
+	deleteTestGlobalOrgDomain,
 	createTestOrgUserDirect,
 	createTestOrgAdminDirect,
 	generateTestDomainName,
@@ -92,7 +92,7 @@ test.describe("POST /org/verify-domain", () => {
 			expect(response.body.status).toBe("PENDING");
 			// No audit log is written for PENDING verification (only on successful DNS verification)
 		} finally {
-			await deleteTestGlobalEmployerDomain(claimedDomain);
+			await deleteTestGlobalOrgDomain(claimedDomain);
 			if (userEmail) await deleteTestOrgUser(userEmail);
 		}
 	});
@@ -213,7 +213,7 @@ test.describe("POST /org/verify-domain", () => {
 
 			expect(response.status).toBe(404);
 		} finally {
-			await deleteTestGlobalEmployerDomain(claimedDomain);
+			await deleteTestGlobalOrgDomain(claimedDomain);
 			if (userEmail1) await deleteTestOrgUser(userEmail1);
 			if (userEmail2) await deleteTestOrgUser(userEmail2);
 		}
@@ -264,7 +264,7 @@ test.describe("RBAC: POST /org/verify-domain", () => {
 			});
 			expect(response.status).toBe(200);
 		} finally {
-			await deleteTestGlobalEmployerDomain(claimedDomain);
+			await deleteTestGlobalOrgDomain(claimedDomain);
 			await deleteTestOrgUser(managerEmail);
 			await deleteTestOrgUser(adminEmail);
 		}

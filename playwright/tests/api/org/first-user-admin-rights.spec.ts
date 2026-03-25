@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { OrgAPIClient } from "../../../lib/org-api-client";
-import { deleteTestEmployerByDomain } from "../../../lib/db";
+import { deleteTestOrgByDomain } from "../../../lib/db";
 import { getOrgSignupTokenFromEmail } from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
 import { randomUUID } from "crypto";
@@ -21,7 +21,7 @@ test.describe("First user admin rights - Org Portal", () => {
 		const userEmail = `first-admin-${randomUUID().substring(0, 8)}@${TEST_DOMAIN}`;
 
 		// Pre-cleanup: remove any lingering example.com org from a previous run
-		await deleteTestEmployerByDomain(TEST_DOMAIN);
+		await deleteTestOrgByDomain(TEST_DOMAIN);
 
 		try {
 			// Init signup
@@ -59,7 +59,7 @@ test.describe("First user admin rights - Org Portal", () => {
 			expect(myInfoResponse.body.roles).toContain("org:superadmin");
 			expect(myInfoResponse.body.roles.length).toBe(1);
 		} finally {
-			await deleteTestEmployerByDomain(TEST_DOMAIN);
+			await deleteTestOrgByDomain(TEST_DOMAIN);
 		}
 	});
 });

@@ -3,7 +3,7 @@ import { OrgAPIClient } from "../../../lib/org-api-client";
 import {
 	generateTestOrgEmail,
 	deleteTestOrgUser,
-	deleteTestGlobalEmployerDomain,
+	deleteTestGlobalOrgDomain,
 	createTestOrgAdminDirect,
 	createTestOrgUserDirect,
 	generateTestDomainName,
@@ -105,7 +105,7 @@ test.describe("POST /org/list-domains", () => {
 			expect(response.body.items[0].domain).toBe(claimedDomain.toLowerCase());
 			expect(response.body.items[0].status).toBe("PENDING");
 		} finally {
-			await deleteTestGlobalEmployerDomain(claimedDomain);
+			await deleteTestGlobalOrgDomain(claimedDomain);
 			if (userEmail) await deleteTestOrgUser(userEmail);
 		}
 	});
@@ -142,8 +142,8 @@ test.describe("POST /org/list-domains", () => {
 			expect(domains).toContain(domain1.toLowerCase());
 			expect(domains).toContain(domain2.toLowerCase());
 		} finally {
-			await deleteTestGlobalEmployerDomain(domain1);
-			await deleteTestGlobalEmployerDomain(domain2);
+			await deleteTestGlobalOrgDomain(domain1);
+			await deleteTestGlobalOrgDomain(domain2);
 			if (userEmail) await deleteTestOrgUser(userEmail);
 		}
 	});
@@ -249,7 +249,7 @@ test.describe("RBAC: POST /org/list-domains", () => {
 	});
 
 	test.afterAll(async () => {
-		await deleteTestGlobalEmployerDomain(claimedDomain);
+		await deleteTestGlobalOrgDomain(claimedDomain);
 		await deleteTestOrgUser(viewerEmail);
 		await deleteTestOrgUser(noRoleEmail);
 		await deleteTestOrgUser(adminEmail);
