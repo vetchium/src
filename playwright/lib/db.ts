@@ -533,8 +533,8 @@ export function extractSignupTokenFromEmail(emailMessage: any): string | null {
 export type OrgUserStatus = "active" | "disabled";
 
 /**
- * Deletes a test org user ONLY, without deleting the employer.
- * Use this when multiple users share the same employer.
+ * Deletes a test org user ONLY, without deleting the org.
+ * Use this when multiple users share the same org.
  * Cleans up both global and regional databases.
  *
  * @param email - Email of the org user to delete
@@ -581,14 +581,14 @@ export async function deleteTestOrgUser(email: string): Promise<void> {
 	const crypto = require("crypto");
 	const emailHash = crypto.createHash("sha256").update(email).digest();
 
-	// Get the org user to find their employer ID and region
+	// Get the org user to find their org ID and region
 	const userResult = await pool.query(
-		`SELECT org_user_id, employer_id, home_region FROM org_users WHERE email_address_hash = $1`,
+		`SELECT org_user_id, org_id, home_region FROM org_users WHERE email_address_hash = $1`,
 		[emailHash]
 	);
 
 	if (userResult.rows.length > 0) {
-		const employerId = userResult.rows[0].employer_id;
+		const orgId = userResult.rows[0].org_id;
 		const region = userResult.rows[0].home_region as RegionCode;
 		const orgUserId = userResult.rows[0].org_user_id;
 
@@ -598,10 +598,10 @@ export async function deleteTestOrgUser(email: string): Promise<void> {
 			await regionalPool.query(`DELETE FROM org_users WHERE org_user_id = $1`, [
 				orgUserId,
 			]);
-			// Also clean up regional employer_domains
+			// Also clean up regional org_domains
 			await regionalPool.query(
-				`DELETE FROM employer_domains WHERE employer_id = $1`,
-				[employerId]
+				`DELETE FROM org_domains WHERE org_id = $1`,
+				[orgId]
 			);
 		} finally {
 			await regionalPool.end();
@@ -612,87 +612,74 @@ export async function deleteTestOrgUser(email: string): Promise<void> {
 			emailHash,
 		]);
 
-		// Delete the employer and associated domains
-		// This will CASCADE delete global_employer_domains as well
-		await pool.query(`DELETE FROM employers WHERE employer_id = $1`, [
-			employerId,
+		// Delete the org and associated domains
+		// This will CASCADE delete global_org_domains as well
+		await pool.query(`DELETE FROM orgs WHERE org_id = $1`, [
+			orgId,
 		]);
 	}
 }
 
 /**
- * Deletes a test employer and all associated data.
+ * Deletes a test org and all associated data.
  *
- * @param employerId - Employer UUID to delete
+ * @param orgId - Org UUID to delete
  */
-export async function deleteTestEmployer(employerId: string): Promise<void> {
-	// CASCADE delete will handle org_users and global_employer_domains
-	await pool.query(`DELETE FROM employers WHERE employer_id = $1`, [
-		employerId,
+export async function deleteTestOrg(orgId: string): Promise<void> {
+	// CASCADE delete will handle org_users and global_org_domains
+	await pool.query(`DELETE FROM orgs WHERE org_id = $1`, [
+		orgId,
 	]);
 }
 
 /**
- * Deletes a test global employer domain.
+ * Deletes a test global org domain.
  *
  * @param domain - Domain name to delete
  */
-export async function deleteTestGlobalEmployerDomain(
+export async function deleteTestGlobalOrgDomain(
 	domain: string
 ): Promise<void> {
-	await pool.query(`DELETE FROM global_employer_domains WHERE domain = $1`, [
+	await pool.query(`DELETE FROM global_org_domains WHERE domain = $1`, [
 		domain.toLowerCase(),
 	]);
 }
 
 /**
- * Deletes a test global agency domain.
- *
- * @param domain - Domain name to delete
- */
-export async function deleteTestGlobalAgencyDomain(
-	domain: string
-): Promise<void> {
-	await pool.query(`DELETE FROM global_agency_domains WHERE domain = $1`, [
-		domain.toLowerCase(),
-	]);
-}
-
-/**
- * Gets a test employer by domain.
+ * Gets a test org by domain.
  *
  * @param domain - Domain name
- * @returns Employer record or null if not found
+ * @returns Org record or null if not found
  */
-export async function getTestEmployerByDomain(domain: string): Promise<{
-	employer_id: string;
-	employer_name: string;
+export async function getTestOrgByDomain(domain: string): Promise<{
+	org_id: string;
+	org_name: string;
 	region: RegionCode;
 } | null> {
 	const result = await pool.query(
-		`SELECT e.employer_id, e.employer_name, e.region
-     FROM employers e
-     JOIN global_employer_domains ged ON e.employer_id = ged.employer_id
-     WHERE ged.domain = $1`,
+		`SELECT o.org_id, o.org_name, o.region
+     FROM orgs o
+     JOIN global_org_domains god ON o.org_id = god.org_id
+     WHERE god.domain = $1`,
 		[domain.toLowerCase()]
 	);
 	return result.rows[0] || null;
 }
 
 /**
- * Deletes a test employer and all associated data (global + regional) by domain.
+ * Deletes a test org and all associated data (global + regional) by domain.
  * Safe to call even if the domain is not registered (no-op).
  *
  * @param domain - Domain name to clean up (e.g., "example.com")
  */
-export async function deleteTestEmployerByDomain(
+export async function deleteTestOrgByDomain(
 	domain: string
 ): Promise<void> {
 	const result = await pool.query(
-		`SELECT e.employer_id, e.region
-     FROM employers e
-     JOIN global_employer_domains ged ON e.employer_id = ged.employer_id
-     WHERE ged.domain = $1`,
+		`SELECT o.org_id, o.region
+     FROM orgs o
+     JOIN global_org_domains god ON o.org_id = god.org_id
+     WHERE god.domain = $1`,
 		[domain.toLowerCase()]
 	);
 
@@ -700,63 +687,25 @@ export async function deleteTestEmployerByDomain(
 		return;
 	}
 
-	const { employer_id, region } = result.rows[0];
+	const { org_id, region } = result.rows[0];
 
 	const regionalPool = getRegionalPool(region as RegionCode);
 	try {
-		await regionalPool.query(`DELETE FROM org_users WHERE employer_id = $1`, [
-			employer_id,
+		await regionalPool.query(`DELETE FROM org_users WHERE org_id = $1`, [
+			org_id,
 		]);
 		await regionalPool.query(
-			`DELETE FROM employer_domains WHERE employer_id = $1`,
-			[employer_id]
+			`DELETE FROM org_domains WHERE org_id = $1`,
+			[org_id]
 		);
 	} finally {
 		await regionalPool.end();
 	}
 
-	// Cascades to global org_users and global_employer_domains
-	await pool.query(`DELETE FROM employers WHERE employer_id = $1`, [
-		employer_id,
+	// Cascades to global org_users and global_org_domains
+	await pool.query(`DELETE FROM orgs WHERE org_id = $1`, [
+		org_id,
 	]);
-}
-
-/**
- * Deletes a test agency and all associated data (global + regional) by domain.
- * Safe to call even if the domain is not registered (no-op).
- *
- * @param domain - Domain name to clean up (e.g., "example.com")
- */
-export async function deleteTestAgencyByDomain(domain: string): Promise<void> {
-	const result = await pool.query(
-		`SELECT a.agency_id, a.region
-     FROM agencies a
-     JOIN global_agency_domains gad ON a.agency_id = gad.agency_id
-     WHERE gad.domain = $1`,
-		[domain.toLowerCase()]
-	);
-
-	if (result.rows.length === 0) {
-		return;
-	}
-
-	const { agency_id, region } = result.rows[0];
-
-	const regionalPool = getRegionalPool(region as RegionCode);
-	try {
-		await regionalPool.query(`DELETE FROM agency_users WHERE agency_id = $1`, [
-			agency_id,
-		]);
-		await regionalPool.query(
-			`DELETE FROM agency_domains WHERE agency_id = $1`,
-			[agency_id]
-		);
-	} finally {
-		await regionalPool.end();
-	}
-
-	// Cascades to global agency_users and global_agency_domains
-	await pool.query(`DELETE FROM agencies WHERE agency_id = $1`, [agency_id]);
 }
 
 /**
@@ -767,7 +716,7 @@ export async function deleteTestAgencyByDomain(domain: string): Promise<void> {
  */
 export async function getTestOrgUser(email: string): Promise<{
 	org_user_id: string;
-	employer_id: string;
+	org_id: string;
 	status: OrgUserStatus;
 	preferred_language: LanguageCode;
 	home_region: RegionCode;
@@ -777,7 +726,7 @@ export async function getTestOrgUser(email: string): Promise<{
 
 	// Get routing data from global
 	const globalResult = await pool.query(
-		`SELECT org_user_id, employer_id, home_region
+		`SELECT org_user_id, org_id, home_region
      FROM org_users WHERE email_address_hash = $1`,
 		[emailHash]
 	);
@@ -797,7 +746,7 @@ export async function getTestOrgUser(email: string): Promise<{
 
 		return {
 			org_user_id: globalUser.org_user_id,
-			employer_id: globalUser.employer_id,
+			org_id: globalUser.org_id,
 			home_region: region,
 			status: regionalResult.rows[0].status,
 			preferred_language: regionalResult.rows[0].preferred_language,
@@ -813,34 +762,34 @@ export async function getTestOrgUser(email: string): Promise<{
 export type DomainVerificationStatus = "PENDING" | "VERIFIED" | "FAILING";
 
 /**
- * Creates a verified global employer domain for testing.
+ * Creates a verified global org domain for testing.
  * This allows testing the login flow which requires a verified domain.
  *
  * @param domain - Domain name to create
- * @param employerId - UUID of the employer to associate the domain with
- * @param region - Region code where the employer is registered
+ * @param orgId - UUID of the org to associate the domain with
+ * @param region - Region code where the org is registered
  */
 export async function createTestVerifiedDomain(
 	domain: string,
-	employerId: string,
+	orgId: string,
 	region: RegionCode
 ): Promise<void> {
 	// Create domain in global DB (routing only, no status column)
 	await pool.query(
-		`INSERT INTO global_employer_domains (domain, region, employer_id)
+		`INSERT INTO global_org_domains (domain, region, org_id)
      VALUES ($1, $2, $3)
      ON CONFLICT (domain) DO NOTHING`,
-		[domain.toLowerCase(), region, employerId]
+		[domain.toLowerCase(), region, orgId]
 	);
 
 	// Create verified domain in regional DB (operational data with status)
 	const regionalPool = getRegionalPool(region);
 	try {
 		await regionalPool.query(
-			`INSERT INTO employer_domains (domain, employer_id, verification_token, token_expires_at, status)
+			`INSERT INTO org_domains (domain, org_id, verification_token, token_expires_at, status)
        VALUES ($1, $2, 'test-token', NOW() + INTERVAL '1 year', 'VERIFIED')
        ON CONFLICT (domain) DO UPDATE SET status = 'VERIFIED'`,
-			[domain.toLowerCase(), employerId]
+			[domain.toLowerCase(), orgId]
 		);
 	} finally {
 		await regionalPool.end();
@@ -848,7 +797,7 @@ export async function createTestVerifiedDomain(
 }
 
 /**
- * Verifies an existing global employer domain for testing.
+ * Verifies an existing global org domain for testing.
  * Use this after claiming a domain through the API.
  *
  * @param domain - Domain name to verify
@@ -856,7 +805,7 @@ export async function createTestVerifiedDomain(
 export async function verifyTestDomain(domain: string): Promise<void> {
 	// Get region from global domain record
 	const result = await pool.query(
-		`SELECT region FROM global_employer_domains WHERE domain = $1`,
+		`SELECT region FROM global_org_domains WHERE domain = $1`,
 		[domain.toLowerCase()]
 	);
 	if (result.rows.length === 0) {
@@ -864,11 +813,11 @@ export async function verifyTestDomain(domain: string): Promise<void> {
 	}
 	const region = result.rows[0].region as RegionCode;
 
-	// Update status in regional employer_domains
+	// Update status in regional org_domains
 	const regionalPool = getRegionalPool(region);
 	try {
 		await regionalPool.query(
-			`UPDATE employer_domains SET status = 'VERIFIED' WHERE domain = $1`,
+			`UPDATE org_domains SET status = 'VERIFIED' WHERE domain = $1`,
 			[domain.toLowerCase()]
 		);
 	} finally {
@@ -877,19 +826,19 @@ export async function verifyTestDomain(domain: string): Promise<void> {
 }
 
 /**
- * Gets global employer domain by domain name.
+ * Gets global org domain by domain name.
  *
  * @param domain - Domain name
  * @returns Domain record or null if not found
  */
-export async function getTestGlobalEmployerDomain(domain: string): Promise<{
+export async function getTestGlobalOrgDomain(domain: string): Promise<{
 	domain: string;
 	region: RegionCode;
-	employer_id: string;
+	org_id: string;
 } | null> {
 	const result = await pool.query(
-		`SELECT domain, region, employer_id
-     FROM global_employer_domains WHERE domain = $1`,
+		`SELECT domain, region, org_id
+     FROM global_org_domains WHERE domain = $1`,
 		[domain.toLowerCase()]
 	);
 	return result.rows[0] || null;
@@ -957,29 +906,29 @@ export function generateTestOrgEmail(
  * which cannot be performed in tests without a mock DNS server.
  *
  * Creates:
- * - An employer in the global database
- * - A verified domain in global_employer_domains
+ * - An org in the global database
+ * - A verified domain in global_org_domains
  * - An org user in the global database
  * - An org user with password hash in the regional database
  *
  * @param email - Email address for the org user
  * @param password - Plain text password (will be hashed with bcrypt)
  * @param region - Home region for the user (default: 'ind1')
- * @returns Object with email, domain, employerId, and orgUserId
+ * @returns Object with email, domain, orgId, and orgUserId
  */
 export async function createTestOrgUserDirect(
 	email: string,
 	password: string,
 	region: RegionCode = "ind1",
 	options?: {
-		employerId?: string;
+		orgId?: string;
 		domain?: string;
 		status?: OrgUserStatus;
 	}
 ): Promise<{
 	email: string;
 	domain: string;
-	employerId: string;
+	orgId: string;
 	orgUserId: string;
 }> {
 	const crypto = require("crypto");
@@ -996,22 +945,22 @@ export async function createTestOrgUserDirect(
 		domain = parts[1].toLowerCase();
 	}
 
-	// Use provided employerId or create new employer
-	let employerId = options?.employerId;
-	if (!employerId) {
-		// 1. Create employer in global DB
-		employerId = randomUUID();
+	// Use provided orgId or create new org
+	let orgId = options?.orgId;
+	if (!orgId) {
+		// 1. Create org in global DB
+		orgId = randomUUID();
 		await pool.query(
-			`INSERT INTO employers (employer_id, employer_name, region)
+			`INSERT INTO orgs (org_id, org_name, region)
      VALUES ($1, $2, $3)`,
-			[employerId, domain, region]
+			[orgId, domain, region]
 		);
 
 		// 2. Create verified domain in global DB
 		await pool.query(
-			`INSERT INTO global_employer_domains (domain, region, employer_id)
+			`INSERT INTO global_org_domains (domain, region, org_id)
      VALUES ($1, $2, $3)`,
-			[domain, region, employerId]
+			[domain, region, orgId]
 		);
 	}
 
@@ -1019,24 +968,24 @@ export async function createTestOrgUserDirect(
 	const orgUserId = randomUUID();
 	const status = options?.status || "active";
 	await pool.query(
-		`INSERT INTO org_users (org_user_id, email_address_hash, hashing_algorithm, employer_id, home_region)
+		`INSERT INTO org_users (org_user_id, email_address_hash, hashing_algorithm, org_id, home_region)
      VALUES ($1, $2, 'SHA-256', $3, $4)`,
-		[orgUserId, emailHash, employerId, region]
+		[orgUserId, emailHash, orgId, region]
 	);
 
 	// 4. Create org user in regional DB (mutable data)
 	const regionalPool = getRegionalPool(region);
 	try {
 		await regionalPool.query(
-			`INSERT INTO org_users (org_user_id, email_address, employer_id, password_hash, status)
+			`INSERT INTO org_users (org_user_id, email_address, org_id, password_hash, status)
        VALUES ($1, $2, $3, $4, $5)`,
-			[orgUserId, email, employerId, passwordHash, status]
+			[orgUserId, email, orgId, passwordHash, status]
 		);
 	} finally {
 		await regionalPool.end();
 	}
 
-	return { email, domain, employerId, orgUserId };
+	return { email, domain, orgId, orgUserId };
 }
 
 /**
@@ -1046,21 +995,21 @@ export async function createTestOrgUserDirect(
  * @param email - Email address for the org admin
  * @param password - Password for the org admin
  * @param region - Region code (defaults to 'ind1')
- * @returns An object with email, domain, employerId, and orgUserId
+ * @returns An object with email, domain, orgId, and orgUserId
  */
 export async function createTestOrgAdminDirect(
 	email: string,
 	password: string,
 	region: RegionCode = "ind1",
 	options?: {
-		employerId?: string;
+		orgId?: string;
 		domain?: string;
 		status?: OrgUserStatus;
 	}
 ): Promise<{
 	email: string;
 	domain: string;
-	employerId: string;
+	orgId: string;
 	orgUserId: string;
 }> {
 	const crypto = require("crypto");
@@ -1077,22 +1026,22 @@ export async function createTestOrgAdminDirect(
 		domain = parts[1].toLowerCase();
 	}
 
-	// Use provided employerId or create new employer
-	let employerId = options?.employerId;
-	if (!employerId) {
-		// 1. Create employer in global DB
-		employerId = randomUUID();
+	// Use provided orgId or create new org
+	let orgId = options?.orgId;
+	if (!orgId) {
+		// 1. Create org in global DB
+		orgId = randomUUID();
 		await pool.query(
-			`INSERT INTO employers (employer_id, employer_name, region)
+			`INSERT INTO orgs (org_id, org_name, region)
      VALUES ($1, $2, $3)`,
-			[employerId, domain, region]
+			[orgId, domain, region]
 		);
 
 		// 2. Create verified domain in global DB
 		await pool.query(
-			`INSERT INTO global_employer_domains (domain, region, employer_id)
+			`INSERT INTO global_org_domains (domain, region, org_id)
      VALUES ($1, $2, $3)`,
-			[domain, region, employerId]
+			[domain, region, orgId]
 		);
 	}
 
@@ -1100,426 +1049,30 @@ export async function createTestOrgAdminDirect(
 	const orgUserId = randomUUID();
 	const status = options?.status || "active";
 	await pool.query(
-		`INSERT INTO org_users (org_user_id, email_address_hash, hashing_algorithm, employer_id, home_region)
+		`INSERT INTO org_users (org_user_id, email_address_hash, hashing_algorithm, org_id, home_region)
      VALUES ($1, $2, 'SHA-256', $3, $4)`,
-		[orgUserId, emailHash, employerId, region]
+		[orgUserId, emailHash, orgId, region]
 	);
 
 	// 4. Create org admin user in regional DB (mutable data)
 	const regionalPool = getRegionalPool(region);
 	try {
 		await regionalPool.query(
-			`INSERT INTO org_users (org_user_id, email_address, employer_id, password_hash, status)
+			`INSERT INTO org_users (org_user_id, email_address, org_id, password_hash, status)
        VALUES ($1, $2, $3, $4, $5)`,
-			[orgUserId, email, employerId, passwordHash, status]
+			[orgUserId, email, orgId, passwordHash, status]
 		);
 		// Assign superadmin role
 		await regionalPool.query(
 			`INSERT INTO org_user_roles (org_user_id, role_id)
-       SELECT $1, role_id FROM roles WHERE role_name = 'employer:superadmin'`,
+       SELECT $1, role_id FROM roles WHERE role_name = 'org:superadmin'`,
 			[orgUserId]
 		);
 	} finally {
 		await regionalPool.end();
 	}
 
-	return { email, domain, employerId, orgUserId };
-}
-
-// ============================================================================
-// Agency User Test Helpers
-// ============================================================================
-
-/**
- * Agency user status enum matching the database enum
- */
-export type AgencyUserStatus = "active" | "disabled";
-
-/**
- * Generates a unique test email for an agency user.
- * Each test should use a unique email to ensure parallel test isolation.
- *
- * @param prefix - Optional prefix for the domain (default: 'agency')
- * @returns An object with email and domain, e.g., 'user@agency-{uuid}.test.vetchium.com'
- */
-export function generateTestAgencyEmail(
-	prefix: string = "agency",
-	customDomain?: string
-): {
-	email: string;
-	domain: string;
-} {
-	const domain =
-		customDomain ||
-		`${prefix}-${randomUUID().substring(0, 8)}.test.vetchium.com`;
-	const email = `user@${domain}`;
-	return { email, domain };
-}
-
-/**
- * Creates a test agency user directly in the database (bypassing the API).
- * This is necessary because the agency signup flow requires DNS verification
- * which cannot be performed in tests without a mock DNS server.
- *
- * Creates:
- * - An agency in the global database
- * - A verified domain in global_agency_domains
- * - An agency user in the global database
- * - An agency user with password hash in the regional database
- *
- * @param email - Email address for the agency user
- * @param password - Plain text password (will be hashed with bcrypt)
- * @param region - Home region for the user (default: 'ind1')
- * @returns Object with email, domain, agencyId, and agencyUserId
- */
-export async function createTestAgencyUserDirect(
-	email: string,
-	password: string,
-	region: RegionCode = "ind1",
-	options?: {
-		agencyId?: string;
-		domain?: string;
-		status?: AgencyUserStatus;
-	}
-): Promise<{
-	email: string;
-	domain: string;
-	agencyId: string;
-	agencyUserId: string;
-}> {
-	const crypto = require("crypto");
-	const emailHash = crypto.createHash("sha256").update(email).digest();
-	const passwordHash = await bcrypt.hash(password, 10);
-
-	// Extract domain from email or use provided domain
-	let domain = options?.domain;
-	if (!domain) {
-		const parts = email.split("@");
-		if (parts.length !== 2) {
-			throw new Error(`Invalid email format: ${email}`);
-		}
-		domain = parts[1].toLowerCase();
-	}
-
-	// Use provided agencyId or create new agency
-	let agencyId = options?.agencyId;
-	if (!agencyId) {
-		// 1. Create agency in global DB
-		agencyId = randomUUID();
-		await pool.query(
-			`INSERT INTO agencies (agency_id, agency_name, region)
-       VALUES ($1, $2, $3)`,
-			[agencyId, domain, region]
-		);
-
-		// 2. Create verified domain in global DB
-		await pool.query(
-			`INSERT INTO global_agency_domains (domain, region, agency_id)
-       VALUES ($1, $2, $3)`,
-			[domain, region, agencyId]
-		);
-	}
-
-	// 3. Create agency user in global DB (routing only)
-	const agencyUserId = randomUUID();
-	const status = options?.status || "active";
-	await pool.query(
-		`INSERT INTO agency_users (agency_user_id, email_address_hash, hashing_algorithm, agency_id, home_region)
-     VALUES ($1, $2, 'SHA-256', $3, $4)`,
-		[agencyUserId, emailHash, agencyId, region]
-	);
-
-	// 4. Create agency user in regional DB (mutable data)
-	const regionalPool = getRegionalPool(region);
-	try {
-		await regionalPool.query(
-			`INSERT INTO agency_users (agency_user_id, email_address, agency_id, password_hash, status)
-       VALUES ($1, $2, $3, $4, $5)`,
-			[agencyUserId, email, agencyId, passwordHash, status]
-		);
-	} finally {
-		await regionalPool.end();
-	}
-
-	return { email, domain, agencyId, agencyUserId };
-}
-
-/**
- * Creates a test agency ADMIN user directly in the database (bypassing the API).
- * Similar to createTestAgencyUserDirect but assigns the agency:superadmin role.
- *
- * Creates:
- * - An agency in the global database
- * - A verified domain in global_agency_domains
- * - An agency admin user in the global database
- * - An agency admin user with password hash in the regional database with superadmin role
- *
- * @param email - Email address for the agency admin user
- * @param password - Plain text password (will be hashed with bcrypt)
- * @param region - Home region for the user (default: 'ind1')
- * @returns Object with email, domain, agencyId, and agencyUserId
- */
-export async function createTestAgencyAdminDirect(
-	email: string,
-	password: string,
-	region: RegionCode = "ind1",
-	options?: {
-		agencyId?: string;
-		domain?: string;
-		status?: AgencyUserStatus;
-	}
-): Promise<{
-	email: string;
-	domain: string;
-	agencyId: string;
-	agencyUserId: string;
-}> {
-	const crypto = require("crypto");
-	const emailHash = crypto.createHash("sha256").update(email).digest();
-	const passwordHash = await bcrypt.hash(password, 10);
-
-	// Extract domain from email or use provided domain
-	let domain = options?.domain;
-	if (!domain) {
-		const parts = email.split("@");
-		if (parts.length !== 2) {
-			throw new Error(`Invalid email format: ${email}`);
-		}
-		domain = parts[1].toLowerCase();
-	}
-
-	// Use provided agencyId or create new agency
-	let agencyId = options?.agencyId;
-	if (!agencyId) {
-		// 1. Create agency in global DB
-		agencyId = randomUUID();
-		await pool.query(
-			`INSERT INTO agencies (agency_id, agency_name, region)
-       VALUES ($1, $2, $3)`,
-			[agencyId, domain, region]
-		);
-
-		// 2. Create verified domain in global DB
-		await pool.query(
-			`INSERT INTO global_agency_domains (domain, region, agency_id)
-       VALUES ($1, $2, $3)`,
-			[domain, region, agencyId]
-		);
-	}
-
-	// 3. Create agency admin user in global DB (routing only)
-	const agencyUserId = randomUUID();
-	const status = options?.status || "active";
-	await pool.query(
-		`INSERT INTO agency_users (agency_user_id, email_address_hash, hashing_algorithm, agency_id, home_region)
-     VALUES ($1, $2, 'SHA-256', $3, $4)`,
-		[agencyUserId, emailHash, agencyId, region]
-	);
-
-	// 4. Create agency admin user in regional DB (mutable data)
-	const regionalPool = getRegionalPool(region);
-	try {
-		await regionalPool.query(
-			`INSERT INTO agency_users (agency_user_id, email_address, agency_id, password_hash, status)
-       VALUES ($1, $2, $3, $4, $5)`,
-			[agencyUserId, email, agencyId, passwordHash, status]
-		);
-		// Assign superadmin role
-		await regionalPool.query(
-			`INSERT INTO agency_user_roles (agency_user_id, role_id)
-       SELECT $1, role_id FROM roles WHERE role_name = 'agency:superadmin'`,
-			[agencyUserId]
-		);
-	} finally {
-		await regionalPool.end();
-	}
-
-	return { email, domain, agencyId, agencyUserId };
-}
-
-/**
- * Deletes a test agency user ONLY, without deleting the agency.
- * Use this when multiple users share the same agency.
- *
- * @param email - Email of the agency user to delete
- */
-export async function deleteTestAgencyUserOnly(email: string): Promise<void> {
-	const crypto = require("crypto");
-	const emailHash = crypto.createHash("sha256").update(email).digest();
-
-	// Get the user's region and ID before deleting from global
-	const userResult = await pool.query(
-		`SELECT agency_user_id, home_region FROM agency_users WHERE email_address_hash = $1`,
-		[emailHash]
-	);
-
-	if (userResult.rows.length > 0) {
-		const region = userResult.rows[0].home_region as RegionCode;
-		const agencyUserId = userResult.rows[0].agency_user_id;
-
-		// Delete from regional DB first
-		const regionalPool = getRegionalPool(region);
-		try {
-			await regionalPool.query(
-				`DELETE FROM agency_users WHERE agency_user_id = $1`,
-				[agencyUserId]
-			);
-		} finally {
-			await regionalPool.end();
-		}
-	}
-
-	// Delete from global DB
-	await pool.query(`DELETE FROM agency_users WHERE email_address_hash = $1`, [
-		emailHash,
-	]);
-}
-
-/**
- * Deletes a test agency user and all associated data.
- * This will CASCADE delete the agency and agency domains.
- *
- * @param email - Email of the agency user to delete
- */
-export async function deleteTestAgencyUser(email: string): Promise<void> {
-	const crypto = require("crypto");
-	const emailHash = crypto.createHash("sha256").update(email).digest();
-
-	// Get the agency user to find their agency ID and region
-	const userResult = await pool.query(
-		`SELECT agency_user_id, agency_id, home_region FROM agency_users WHERE email_address_hash = $1`,
-		[emailHash]
-	);
-
-	if (userResult.rows.length > 0) {
-		const agencyId = userResult.rows[0].agency_id;
-		const region = userResult.rows[0].home_region as RegionCode;
-		const agencyUserId = userResult.rows[0].agency_user_id;
-
-		// Delete from regional DB first (CASCADE handles sessions, roles, etc.)
-		const regionalPool = getRegionalPool(region);
-		try {
-			await regionalPool.query(
-				`DELETE FROM agency_users WHERE agency_user_id = $1`,
-				[agencyUserId]
-			);
-		} finally {
-			await regionalPool.end();
-		}
-
-		// Delete from global DB
-		await pool.query(`DELETE FROM agency_users WHERE email_address_hash = $1`, [
-			emailHash,
-		]);
-
-		// Delete the agency and associated domains
-		// This will CASCADE delete global_agency_domains as well
-		await pool.query(`DELETE FROM agencies WHERE agency_id = $1`, [agencyId]);
-	}
-}
-
-/**
- * Gets a test agency user by email.
- *
- * @param email - Email of the agency user
- * @returns Agency user record or null if not found
- */
-export async function getTestAgencyUser(email: string): Promise<{
-	agency_user_id: string;
-	agency_id: string;
-	status: AgencyUserStatus;
-	preferred_language: LanguageCode;
-	home_region: RegionCode;
-} | null> {
-	const crypto = require("crypto");
-	const emailHash = crypto.createHash("sha256").update(email).digest();
-
-	// Get routing data from global
-	const globalResult = await pool.query(
-		`SELECT agency_user_id, agency_id, home_region
-     FROM agency_users WHERE email_address_hash = $1`,
-		[emailHash]
-	);
-	if (globalResult.rows.length === 0) return null;
-
-	const globalUser = globalResult.rows[0];
-	const region = globalUser.home_region as RegionCode;
-
-	// Get mutable data from regional
-	const regionalPool = getRegionalPool(region);
-	try {
-		const regionalResult = await regionalPool.query(
-			`SELECT status, preferred_language FROM agency_users WHERE agency_user_id = $1`,
-			[globalUser.agency_user_id]
-		);
-		if (regionalResult.rows.length === 0) return null;
-
-		return {
-			agency_user_id: globalUser.agency_user_id,
-			agency_id: globalUser.agency_id,
-			home_region: region,
-			status: regionalResult.rows[0].status,
-			preferred_language: regionalResult.rows[0].preferred_language,
-		};
-	} finally {
-		await regionalPool.end();
-	}
-}
-
-/**
- * Gets a test agency by domain.
- *
- * @param domain - Domain name
- * @returns Agency record or null if not found
- */
-export async function getTestAgencyByDomain(domain: string): Promise<{
-	agency_id: string;
-	agency_name: string;
-	region: RegionCode;
-} | null> {
-	const result = await pool.query(
-		`SELECT a.agency_id, a.agency_name, a.region
-     FROM agencies a
-     JOIN global_agency_domains gad ON a.agency_id = gad.agency_id
-     WHERE gad.domain = $1`,
-		[domain.toLowerCase()]
-	);
-	return result.rows[0] || null;
-}
-
-/**
- * Updates the status of a test agency user.
- *
- * @param email - Email of the agency user to update
- * @param status - New status to set
- */
-export async function updateTestAgencyUserStatus(
-	email: string,
-	status: AgencyUserStatus
-): Promise<void> {
-	const crypto = require("crypto");
-	const emailHash = crypto.createHash("sha256").update(email).digest();
-
-	// Get home_region from global
-	const globalResult = await pool.query(
-		`SELECT home_region FROM agency_users WHERE email_address_hash = $1`,
-		[emailHash]
-	);
-	if (globalResult.rows.length === 0) {
-		throw new Error(`Agency user not found in global DB: ${email}`);
-	}
-	const region = globalResult.rows[0].home_region as RegionCode;
-
-	// Update status in regional DB
-	const regionalPool = getRegionalPool(region);
-	try {
-		await regionalPool.query(
-			`UPDATE agency_users SET status = $1 WHERE email_address = $2`,
-			[status, email]
-		);
-	} finally {
-		await regionalPool.end();
-	}
+	return { email, domain, orgId, orgUserId };
 }
 
 // ============================================================================
@@ -1656,82 +1209,6 @@ export async function removeRoleFromOrgUser(
 		await regionalPool.query(
 			`DELETE FROM org_user_roles WHERE org_user_id = $1 AND role_id = $2`,
 			[orgUserId, roleId]
-		);
-	} finally {
-		await regionalPool.end();
-	}
-}
-
-/**
- * Assigns a role to an agency user.
- * Roles and agency_user_roles are in the regional database.
- *
- * @param agencyUserId - UUID of the agency user
- * @param roleName - Name of the role to assign
- * @param region - Region where the agency user resides (default: 'ind1')
- */
-export async function assignRoleToAgencyUser(
-	agencyUserId: string,
-	roleName: string,
-	region: RegionCode = "ind1"
-): Promise<void> {
-	const regionalPool = getRegionalPool(region);
-	try {
-		// Get role ID from regional roles table
-		const roleResult = await regionalPool.query(
-			`SELECT role_id FROM roles WHERE role_name = $1`,
-			[roleName]
-		);
-
-		if (roleResult.rows.length === 0) {
-			throw new Error(`Role not found in region ${region}: ${roleName}`);
-		}
-
-		const roleId = roleResult.rows[0].role_id;
-
-		// Assign role to agency user in regional DB
-		await regionalPool.query(
-			`INSERT INTO agency_user_roles (agency_user_id, role_id)
-       VALUES ($1, $2)
-       ON CONFLICT (agency_user_id, role_id) DO NOTHING`,
-			[agencyUserId, roleId]
-		);
-	} finally {
-		await regionalPool.end();
-	}
-}
-
-/**
- * Removes a role from an agency user.
- * Roles and agency_user_roles are in the regional database.
- *
- * @param agencyUserId - UUID of the agency user
- * @param roleName - Name of the role to remove
- * @param region - Region where the agency user resides (default: 'ind1')
- */
-export async function removeRoleFromAgencyUser(
-	agencyUserId: string,
-	roleName: string,
-	region: RegionCode = "ind1"
-): Promise<void> {
-	const regionalPool = getRegionalPool(region);
-	try {
-		// Get role ID from regional roles table
-		const roleResult = await regionalPool.query(
-			`SELECT role_id FROM roles WHERE role_name = $1`,
-			[roleName]
-		);
-
-		if (roleResult.rows.length === 0) {
-			throw new Error(`Role not found in region ${region}: ${roleName}`);
-		}
-
-		const roleId = roleResult.rows[0].role_id;
-
-		// Remove role from agency user in regional DB
-		await regionalPool.query(
-			`DELETE FROM agency_user_roles WHERE agency_user_id = $1 AND role_id = $2`,
-			[agencyUserId, roleId]
 		);
 	} finally {
 		await regionalPool.end();

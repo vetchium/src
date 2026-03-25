@@ -161,86 +161,40 @@ INSERT INTO available_regions (region_code, region_name, is_active) VALUES
     ('deu1', 'Germany - Frankfurt', TRUE),
     ('sgp1', 'Singapore', FALSE);
 
--- Employers table (global - for cross-region uniqueness and routing)
-CREATE TABLE employers (
-    employer_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    employer_name TEXT NOT NULL,
+-- Orgs table (global - for cross-region uniqueness and routing)
+CREATE TABLE orgs (
+    org_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    org_name TEXT NOT NULL,
     region region NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Global employer domains table (for cross-region uniqueness and routing)
--- Per spec section 3.4: ensures domain is claimed by ONLY ONE region/employer
-CREATE TABLE global_employer_domains (
+-- Global org domains table (for cross-region uniqueness and routing)
+-- Ensures domain is claimed by ONLY ONE region/org
+CREATE TABLE global_org_domains (
     domain TEXT PRIMARY KEY,
     region region NOT NULL,
-    employer_id UUID NOT NULL REFERENCES employers(employer_id) ON DELETE CASCADE,
+    org_id UUID NOT NULL REFERENCES orgs(org_id) ON DELETE CASCADE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- Org users table (global - routing only)
--- Note: email_address_hash is NOT unique alone - one email can belong to multiple employers
--- (contractor scenario). Uniqueness is enforced per (email_address_hash, employer_id).
+-- Note: email_address_hash is NOT unique alone - one email can belong to multiple orgs
+-- (contractor scenario). Uniqueness is enforced per (email_address_hash, org_id).
 CREATE TABLE org_users (
     org_user_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email_address_hash BYTEA NOT NULL,
     hashing_algorithm email_address_hashing_algorithm NOT NULL DEFAULT 'SHA-256',
-    employer_id UUID NOT NULL REFERENCES employers(employer_id) ON DELETE CASCADE,
+    org_id UUID NOT NULL REFERENCES orgs(org_id) ON DELETE CASCADE,
     home_region region NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE (email_address_hash, employer_id)
+    UNIQUE (email_address_hash, org_id)
 );
 
 -- Org signup tokens (global - for DNS-based signup verification)
 -- signup_token: DNS verification token (goes in TXT record, public)
 -- email_token: Secret token sent via email only (proves email access)
 CREATE TABLE org_signup_tokens (
-    signup_token TEXT PRIMARY KEY NOT NULL,
-    email_token TEXT NOT NULL UNIQUE,
-    email_address TEXT NOT NULL,
-    email_address_hash BYTEA NOT NULL,
-    hashing_algorithm email_address_hashing_algorithm NOT NULL DEFAULT 'SHA-256',
-    domain TEXT NOT NULL,
-    home_region region NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    expires_at TIMESTAMPTZ NOT NULL,
-    consumed_at TIMESTAMPTZ
-);
-
--- Agencies table (global - for cross-region uniqueness and routing)
-CREATE TABLE agencies (
-    agency_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    agency_name TEXT NOT NULL,
-    region region NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- Global agency domains table (for cross-region uniqueness and routing)
--- Ensures domain is claimed by ONLY ONE region/agency
-CREATE TABLE global_agency_domains (
-    domain TEXT PRIMARY KEY,
-    region region NOT NULL,
-    agency_id UUID NOT NULL REFERENCES agencies(agency_id) ON DELETE CASCADE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- Agency users table (global - routing only)
--- Note: email_address_hash is NOT unique alone - one email can belong to multiple agencies
--- (contractor scenario). Uniqueness is enforced per (email_address_hash, agency_id).
-CREATE TABLE agency_users (
-    agency_user_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    email_address_hash BYTEA NOT NULL,
-    hashing_algorithm email_address_hashing_algorithm NOT NULL DEFAULT 'SHA-256',
-    agency_id UUID NOT NULL REFERENCES agencies(agency_id) ON DELETE CASCADE,
-    home_region region NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE (email_address_hash, agency_id)
-);
-
--- Agency signup tokens (global - for DNS-based signup verification)
--- signup_token: DNS verification token (goes in TXT record, public)
--- email_token: Secret token sent via email only (proves email access)
-CREATE TABLE agency_signup_tokens (
     signup_token TEXT PRIMARY KEY NOT NULL,
     email_token TEXT NOT NULL UNIQUE,
     email_address TEXT NOT NULL,
@@ -325,7 +279,7 @@ CREATE TABLE tag_translations (
     PRIMARY KEY (tag_id, locale)
 );
 
--- Insert predefined roles (admin portal only — employer/agency/hub roles live in regional DB)
+-- Insert predefined roles (admin portal only — org/hub roles live in regional DB)
 INSERT INTO roles (role_name, description) VALUES
     ('admin:superadmin', 'Superadmin for the admin portal with full access to all operations'),
     ('admin:view_users', 'Can view admin user list and details (read-only)'),
@@ -358,15 +312,9 @@ ON hub_user_display_names (hub_user_global_id) WHERE is_preferred = TRUE;
 CREATE INDEX idx_org_signup_tokens_expires_at ON org_signup_tokens(expires_at);
 CREATE INDEX idx_org_signup_tokens_email_hash ON org_signup_tokens(email_address_hash);
 CREATE INDEX idx_org_signup_tokens_domain ON org_signup_tokens(domain);
-CREATE INDEX idx_org_users_employer_id ON org_users(employer_id);
+CREATE INDEX idx_org_users_org_id ON org_users(org_id);
 CREATE INDEX idx_org_users_email_hash ON org_users(email_address_hash);
-CREATE INDEX idx_global_employer_domains_employer_id ON global_employer_domains(employer_id);
-CREATE INDEX idx_agency_signup_tokens_expires_at ON agency_signup_tokens(expires_at);
-CREATE INDEX idx_agency_signup_tokens_email_hash ON agency_signup_tokens(email_address_hash);
-CREATE INDEX idx_agency_signup_tokens_domain ON agency_signup_tokens(domain);
-CREATE INDEX idx_agency_users_agency_id ON agency_users(agency_id);
-CREATE INDEX idx_agency_users_email_hash ON agency_users(email_address_hash);
-CREATE INDEX idx_global_agency_domains_agency_id ON global_agency_domains(agency_id);
+CREATE INDEX idx_global_org_domains_org_id ON global_org_domains(org_id);
 CREATE INDEX idx_admin_audit_logs_created_at_id ON admin_audit_logs(created_at DESC, id DESC);
 CREATE INDEX idx_admin_audit_logs_actor_user_id ON admin_audit_logs(actor_user_id);
 CREATE INDEX idx_admin_audit_logs_event_type ON admin_audit_logs(event_type);
@@ -380,15 +328,9 @@ DROP TABLE IF EXISTS tag_translations;
 DROP TABLE IF EXISTS tags;
 DROP TABLE IF EXISTS admin_user_roles;
 DROP TABLE IF EXISTS roles;
-DROP INDEX IF EXISTS idx_global_agency_domains_agency_id;
-DROP INDEX IF EXISTS idx_agency_users_email_hash;
-DROP INDEX IF EXISTS idx_agency_users_agency_id;
-DROP INDEX IF EXISTS idx_agency_signup_tokens_domain;
-DROP INDEX IF EXISTS idx_agency_signup_tokens_email_hash;
-DROP INDEX IF EXISTS idx_agency_signup_tokens_expires_at;
-DROP INDEX IF EXISTS idx_global_employer_domains_employer_id;
+DROP INDEX IF EXISTS idx_global_org_domains_org_id;
 DROP INDEX IF EXISTS idx_org_users_email_hash;
-DROP INDEX IF EXISTS idx_org_users_employer_id;
+DROP INDEX IF EXISTS idx_org_users_org_id;
 DROP INDEX IF EXISTS idx_org_signup_tokens_domain;
 DROP INDEX IF EXISTS idx_org_signup_tokens_email_hash;
 DROP INDEX IF EXISTS idx_org_signup_tokens_expires_at;
@@ -399,14 +341,10 @@ DROP INDEX IF EXISTS idx_admin_password_reset_tokens_expires_at;
 DROP INDEX IF EXISTS idx_admin_invitation_tokens_expires_at;
 DROP INDEX IF EXISTS idx_admin_sessions_expires_at;
 DROP INDEX IF EXISTS idx_admin_tfa_tokens_expires_at;
-DROP TABLE IF EXISTS agency_signup_tokens;
-DROP TABLE IF EXISTS agency_users;
-DROP TABLE IF EXISTS global_agency_domains;
-DROP TABLE IF EXISTS agencies;
 DROP TABLE IF EXISTS org_signup_tokens;
 DROP TABLE IF EXISTS org_users;
-DROP TABLE IF EXISTS global_employer_domains;
-DROP TABLE IF EXISTS employers;
+DROP TABLE IF EXISTS global_org_domains;
+DROP TABLE IF EXISTS orgs;
 DROP TABLE IF EXISTS available_regions;
 DROP TABLE IF EXISTS hub_user_display_names;
 DROP TABLE IF EXISTS hub_signup_tokens;

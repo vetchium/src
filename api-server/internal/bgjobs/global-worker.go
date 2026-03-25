@@ -41,7 +41,6 @@ func (w *GlobalWorker) Run(ctx context.Context) {
 		"admin_invitation_cleanup_interval", w.config.ExpiredAdminInvitationTokensCleanupInterval,
 		"hub_signup_tokens_cleanup_interval", w.config.ExpiredHubSignupTokensCleanupInterval,
 		"org_signup_tokens_cleanup_interval", w.config.ExpiredOrgSignupTokensCleanupInterval,
-		"agency_signup_tokens_cleanup_interval", w.config.ExpiredAgencySignupTokensCleanupInterval,
 		"admin_audit_log_retention", w.config.AdminAuditLogRetention,
 		"admin_audit_log_purge_interval", w.config.AdminAuditLogPurgeInterval,
 	)
@@ -70,10 +69,6 @@ func (w *GlobalWorker) Run(ctx context.Context) {
 	go w.runPeriodicJob(ctx, "org-signup-tokens",
 		w.config.ExpiredOrgSignupTokensCleanupInterval,
 		w.cleanupExpiredOrgSignupTokens)
-
-	go w.runPeriodicJob(ctx, "agency-signup-tokens",
-		w.config.ExpiredAgencySignupTokensCleanupInterval,
-		w.cleanupExpiredAgencySignupTokens)
 
 	go w.runPeriodicJob(ctx, "admin-audit-logs",
 		w.config.AdminAuditLogPurgeInterval,
@@ -162,19 +157,6 @@ func (w *GlobalWorker) cleanupExpiredOrgSignupTokens(ctx context.Context) {
 		return
 	}
 	w.log.Debug("cleaned up expired org signup tokens")
-}
-
-func (w *GlobalWorker) cleanupExpiredAgencySignupTokens(ctx context.Context) {
-	if ctx.Err() != nil {
-		return
-	}
-
-	err := w.queries.DeleteExpiredAgencySignupTokens(ctx)
-	if err != nil {
-		w.log.Error("failed to cleanup expired agency signup tokens", "error", err)
-		return
-	}
-	w.log.Debug("cleaned up expired agency signup tokens")
 }
 
 func (w *GlobalWorker) cleanupExpiredAdminPasswordResetTokens(ctx context.Context) {

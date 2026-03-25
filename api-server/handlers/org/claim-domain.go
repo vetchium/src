@@ -1,0 +1,147 @@
+package org
+
+import (
+	"crypto/rand"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"net/http"
+	"strings"
+	"time"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
+	"vetchium-api-server.gomodule/internal/audit"
+	"vetchium-api-server.gomodule/internal/db/globaldb"
+	"vetchium-api-server.gomodule/internal/db/regionaldb"
+	"vetchium-api-server.gomodule/internal/middleware"
+	"vetchium-api-server.gomodule/internal/server"
+	orgdomains "vetchium-api-server.typespec/org-domains"
+)
+
+func ClaimDomain(s *server.RegionalServer) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		ctx := r.Context()
+
+		// Get authenticated org user from context
+		orgUser := middleware.OrgUserFromContext(ctx)
+		if orgUser == nil {
+			s.Logger(ctx).Debug("org user not found in context")
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		var req orgdomains.ClaimDomainRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			s.Logger(ctx).Debug("failed to decode request", "error", err)
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		if errs := req.Validate(); len(errs) > 0 {
+			s.Logger(ctx).Debug("validation failed", "errors", errs)
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(errs)
+			return
+		}
+
+		// Normalize domain to lowercase
+		domain := strings.ToLower(string(req.Domain))
+
+		// Check if domain is already claimed in global DB
+		_, err := s.Global.GetGlobalOrgDomain(ctx, domain)
+		if err == nil {
+			s.Logger(ctx).Debug("domain already claimed", "domain", domain)
+			w.WriteHeader(http.StatusConflict)
+			json.NewEncoder(w).Encode(map[string]string{"error": "domain already claimed"})
+			return
+		} else if !errors.Is(err, pgx.ErrNoRows) {
+			s.Logger(ctx).Error("failed to check global domain", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
+		// Generate verification token
+		tokenBytes := make([]byte, 32)
+		if _, err := rand.Read(tokenBytes); err != nil {
+			s.Logger(ctx).Error("failed to generate verification token", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+		verificationToken := hex.EncodeToString(tokenBytes)
+
+		// Calculate token expiry
+		tokenExpiresAt := time.Now().AddDate(0, 0, orgdomains.TokenExpiryDays)
+
+		// SAGA pattern: Create in global DB first (for uniqueness)
+		err = s.Global.CreateGlobalOrgDomain(ctx, globaldb.CreateGlobalOrgDomainParams{
+			Domain:     domain,
+			Region:     s.CurrentRegion,
+			OrgID: orgUser.OrgID,
+		})
+		if err != nil {
+			// Check for unique constraint violation (domain already claimed)
+			if strings.Contains(err.Error(), "duplicate key") || strings.Contains(err.Error(), "unique constraint") {
+				s.Logger(ctx).Debug("domain already claimed (race condition)", "domain", domain)
+				w.WriteHeader(http.StatusConflict)
+				json.NewEncoder(w).Encode(map[string]string{"error": "domain already claimed"})
+				return
+			}
+			s.Logger(ctx).Error("failed to create global org domain", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
+		// Create in regional DB and write audit log atomically
+		eventData, _ := json.Marshal(map[string]any{"domain": domain})
+		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
+			if txErr := qtx.CreateOrgDomain(ctx, regionaldb.CreateOrgDomainParams{
+				Domain:            domain,
+				OrgID:        orgUser.OrgID,
+				VerificationToken: verificationToken,
+				TokenExpiresAt:    pgtype.Timestamptz{Time: tokenExpiresAt, Valid: true},
+				Status:            regionaldb.DomainVerificationStatusPENDING,
+			}); txErr != nil {
+				return txErr
+			}
+			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
+				EventType:   "org.claim_domain",
+				ActorUserID: orgUser.OrgUserID,
+				OrgID:       orgUser.OrgID,
+				IpAddress:   audit.ExtractClientIP(r),
+				EventData:   eventData,
+			})
+		})
+		if err != nil {
+			s.Logger(ctx).Error("failed to create regional org domain", "error", err)
+			// Compensating transaction: delete from global DB
+			if delErr := s.Global.DeleteGlobalOrgDomain(ctx, domain); delErr != nil {
+				s.Logger(ctx).Error("CONSISTENCY_ALERT: failed to rollback global org domain", "error", delErr)
+			}
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
+		s.Logger(ctx).Info("domain claimed", "domain", domain, "org_id", orgUser.OrgID)
+
+		// Build DNS instructions
+		instructions := fmt.Sprintf(
+			"Add a TXT record to your DNS with the following values:\n"+
+				"Host: _vetchium-verify.%s\n"+
+				"Value: %s\n\n"+
+				"This token will expire in %d days.",
+			domain, verificationToken, orgdomains.TokenExpiryDays,
+		)
+
+		w.WriteHeader(http.StatusCreated)
+		response := orgdomains.ClaimDomainResponse{
+			Domain:            domain,
+			VerificationToken: orgdomains.DomainVerificationToken(verificationToken),
+			ExpiresAt:         tokenExpiresAt,
+			Instructions:      instructions,
+		}
+		json.NewEncoder(w).Encode(response)
+	}
+}

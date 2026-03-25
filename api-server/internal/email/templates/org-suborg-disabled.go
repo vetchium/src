@@ -11,8 +11,8 @@ const nsOrgSubOrgDisabled = "emails/org_suborg_disabled"
 
 // OrgSubOrgDisabledData contains data for the SubOrg disabled notification email.
 type OrgSubOrgDisabledData struct {
-	SubOrgName   string // Display name of the disabled SubOrg
-	EmployerName string // Name of the employer/organization
+	SubOrgName string // Display name of the disabled SubOrg
+	OrgName    string // Name of the org/organization
 }
 
 // OrgSubOrgDisabledSubject returns the localized email subject.

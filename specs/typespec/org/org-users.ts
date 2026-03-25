@@ -1,0 +1,567 @@
+import {
+	type EmailAddress,
+	type Password,
+	type FullName,
+	type DomainName,
+	type LanguageCode,
+	type TFACode,
+	type ValidationError,
+	newValidationError,
+	validateEmailAddress,
+	validatePassword,
+	validateFullName,
+	validateLanguageCode,
+	validateTFACode,
+	ERR_REQUIRED,
+} from "../common/common";
+import {
+	type RoleName,
+	type AssignRoleRequest,
+	type RemoveRoleRequest,
+	validateAssignRoleRequest,
+	validateRemoveRoleRequest,
+} from "../common/roles";
+
+// Re-export RBAC types for org portal
+export type { RoleName, AssignRoleRequest, RemoveRoleRequest };
+export { validateAssignRoleRequest, validateRemoveRoleRequest };
+
+export type OrgSessionToken = string;
+export type OrgTFAToken = string;
+export type OrgSignupToken = string;
+export type OrgInvitationToken = string;
+export type OrgPasswordResetToken = string;
+
+// ============================================
+// Signup Flow (DNS-based Domain Verification)
+// ============================================
+
+export interface OrgInitSignupRequest {
+	email: EmailAddress;
+	home_region: string;
+}
+
+export function validateOrgInitSignupRequest(
+	request: OrgInitSignupRequest
+): ValidationError[] {
+	const errs: ValidationError[] = [];
+
+	if (!request.email) {
+		errs.push(newValidationError("email", ERR_REQUIRED));
+	} else {
+		const emailErr = validateEmailAddress(request.email);
+		if (emailErr) {
+			errs.push(newValidationError("email", emailErr));
+		}
+	}
+
+	if (!request.home_region) {
+		errs.push(newValidationError("home_region", ERR_REQUIRED));
+	}
+
+	return errs;
+}
+
+export interface OrgInitSignupResponse {
+	domain: DomainName;
+	dns_record_name: string;
+	token_expires_at: string;
+	message: string;
+}
+
+export interface OrgGetSignupDetailsRequest {
+	signup_token: OrgSignupToken;
+}
+
+export function validateOrgGetSignupDetailsRequest(
+	request: OrgGetSignupDetailsRequest
+): ValidationError[] {
+	const errs: ValidationError[] = [];
+
+	if (!request.signup_token) {
+		errs.push(newValidationError("signup_token", ERR_REQUIRED));
+	}
+
+	return errs;
+}
+
+export interface OrgGetSignupDetailsResponse {
+	domain: DomainName;
+}
+
+export interface OrgCompleteSignupRequest {
+	signup_token: OrgSignupToken;
+	password: Password;
+	preferred_language: LanguageCode;
+	has_added_dns_record: boolean;
+	agrees_to_eula: boolean;
+}
+
+export function validateOrgCompleteSignupRequest(
+	request: OrgCompleteSignupRequest
+): ValidationError[] {
+	const errs: ValidationError[] = [];
+
+	if (!request.signup_token) {
+		errs.push(newValidationError("signup_token", ERR_REQUIRED));
+	}
+
+	if (!request.password) {
+		errs.push(newValidationError("password", ERR_REQUIRED));
+	} else {
+		const passwordErr = validatePassword(request.password);
+		if (passwordErr) {
+			errs.push(newValidationError("password", passwordErr));
+		}
+	}
+
+	if (!request.preferred_language) {
+		errs.push(newValidationError("preferred_language", ERR_REQUIRED));
+	} else {
+		const langErr = validateLanguageCode(request.preferred_language);
+		if (langErr) {
+			errs.push(newValidationError("preferred_language", langErr));
+		}
+	}
+
+	if (!request.has_added_dns_record) {
+		errs.push(
+			newValidationError(
+				"has_added_dns_record",
+				"You must confirm that you have added the DNS record"
+			)
+		);
+	}
+
+	if (!request.agrees_to_eula) {
+		errs.push(
+			newValidationError(
+				"agrees_to_eula",
+				"You must agree to the End User License Agreement"
+			)
+		);
+	}
+
+	return errs;
+}
+
+export interface OrgCompleteSignupResponse {
+	session_token: OrgSessionToken;
+	org_user_id: string;
+}
+
+// ============================================
+// Login Flow
+// ============================================
+
+export interface OrgLoginRequest {
+	email: EmailAddress;
+	domain: DomainName;
+	password: Password;
+}
+
+export function validateOrgLoginRequest(
+	request: OrgLoginRequest
+): ValidationError[] {
+	const errs: ValidationError[] = [];
+
+	if (!request.email) {
+		errs.push(newValidationError("email", ERR_REQUIRED));
+	} else {
+		const emailErr = validateEmailAddress(request.email);
+		if (emailErr) {
+			errs.push(newValidationError("email", emailErr));
+		}
+	}
+
+	if (!request.domain) {
+		errs.push(newValidationError("domain", ERR_REQUIRED));
+	}
+
+	if (!request.password) {
+		errs.push(newValidationError("password", ERR_REQUIRED));
+	} else {
+		const passwordErr = validatePassword(request.password);
+		if (passwordErr) {
+			errs.push(newValidationError("password", passwordErr));
+		}
+	}
+
+	return errs;
+}
+
+export interface OrgLoginResponse {
+	tfa_token: OrgTFAToken;
+}
+
+export interface OrgTFARequest {
+	tfa_token: OrgTFAToken;
+	tfa_code: TFACode;
+	remember_me: boolean;
+}
+
+export function validateOrgTFARequest(
+	request: OrgTFARequest
+): ValidationError[] {
+	const errs: ValidationError[] = [];
+
+	if (!request.tfa_token) {
+		errs.push(newValidationError("tfa_token", ERR_REQUIRED));
+	}
+
+	const tfaCodeErr = validateTFACode(request.tfa_code);
+	if (tfaCodeErr) {
+		errs.push(newValidationError("tfa_code", tfaCodeErr));
+	}
+
+	return errs;
+}
+
+export interface OrgTFAResponse {
+	session_token: OrgSessionToken;
+	preferred_language: LanguageCode;
+	org_name: string;
+}
+
+export interface OrgLogoutRequest {
+	// Empty interface - session token passed in Authorization header
+}
+
+export function validateOrgLogoutRequest(
+	_request: OrgLogoutRequest
+): ValidationError[] {
+	// No fields to validate
+	return [];
+}
+
+// ============================================
+// User Invitation Flow
+// ============================================
+
+export interface OrgInviteUserRequest {
+	email_address: EmailAddress;
+	invite_email_language?: LanguageCode;
+	roles: RoleName[];
+}
+
+export function validateOrgInviteUserRequest(
+	request: OrgInviteUserRequest
+): ValidationError[] {
+	const errs: ValidationError[] = [];
+
+	if (!request.email_address) {
+		errs.push(newValidationError("email_address", ERR_REQUIRED));
+	} else {
+		const emailErr = validateEmailAddress(request.email_address);
+		if (emailErr) {
+			errs.push(newValidationError("email_address", emailErr));
+		}
+	}
+
+	if (request.invite_email_language) {
+		const langErr = validateLanguageCode(request.invite_email_language);
+		if (langErr) {
+			errs.push(newValidationError("invite_email_language", langErr));
+		}
+	}
+
+	if (!request.roles || request.roles.length === 0) {
+		errs.push(newValidationError("roles", "at least one role is required"));
+	} else {
+		for (const role of request.roles) {
+			if (!role.startsWith("org:")) {
+				errs.push(
+					newValidationError("roles", "role does not belong to the org portal")
+				);
+			}
+		}
+	}
+
+	return errs;
+}
+
+export interface OrgInviteUserResponse {
+	invitation_id: string;
+	expires_at: string;
+}
+
+export interface OrgCompleteSetupRequest {
+	invitation_token: OrgInvitationToken;
+	password: Password;
+	full_name: FullName;
+	preferred_language?: LanguageCode;
+}
+
+export function validateOrgCompleteSetupRequest(
+	request: OrgCompleteSetupRequest
+): ValidationError[] {
+	const errs: ValidationError[] = [];
+
+	if (!request.invitation_token) {
+		errs.push(newValidationError("invitation_token", ERR_REQUIRED));
+	}
+
+	if (!request.password) {
+		errs.push(newValidationError("password", ERR_REQUIRED));
+	} else {
+		const passwordErr = validatePassword(request.password);
+		if (passwordErr) {
+			errs.push(newValidationError("password", passwordErr));
+		}
+	}
+
+	if (!request.full_name) {
+		errs.push(newValidationError("full_name", ERR_REQUIRED));
+	} else {
+		const fullNameErr = validateFullName(request.full_name);
+		if (fullNameErr) {
+			errs.push(newValidationError("full_name", fullNameErr));
+		}
+	}
+
+	if (request.preferred_language) {
+		const langErr = validateLanguageCode(request.preferred_language);
+		if (langErr) {
+			errs.push(newValidationError("preferred_language", langErr));
+		}
+	}
+
+	return errs;
+}
+
+export interface OrgCompleteSetupResponse {
+	message: string;
+}
+
+// ============================================
+// User Management (Disable/Enable)
+// ============================================
+
+export interface OrgDisableUserRequest {
+	email_address: EmailAddress;
+}
+
+export function validateOrgDisableUserRequest(
+	request: OrgDisableUserRequest
+): ValidationError[] {
+	const errs: ValidationError[] = [];
+
+	if (!request.email_address) {
+		errs.push(newValidationError("email_address", ERR_REQUIRED));
+	} else {
+		const emailErr = validateEmailAddress(request.email_address);
+		if (emailErr) {
+			errs.push(newValidationError("email_address", emailErr));
+		}
+	}
+
+	return errs;
+}
+
+export interface OrgEnableUserRequest {
+	email_address: EmailAddress;
+}
+
+export function validateOrgEnableUserRequest(
+	request: OrgEnableUserRequest
+): ValidationError[] {
+	const errs: ValidationError[] = [];
+
+	if (!request.email_address) {
+		errs.push(newValidationError("email_address", ERR_REQUIRED));
+	} else {
+		const emailErr = validateEmailAddress(request.email_address);
+		if (emailErr) {
+			errs.push(newValidationError("email_address", emailErr));
+		}
+	}
+
+	return errs;
+}
+
+// ============================================================================
+// Org Password Management
+// ============================================================================
+
+export interface OrgRequestPasswordResetRequest {
+	email_address: EmailAddress;
+	domain: DomainName;
+}
+
+export function validateOrgRequestPasswordResetRequest(
+	request: OrgRequestPasswordResetRequest
+): ValidationError[] {
+	const errs: ValidationError[] = [];
+
+	if (!request.email_address) {
+		errs.push(newValidationError("email_address", ERR_REQUIRED));
+	} else {
+		const emailErr = validateEmailAddress(request.email_address);
+		if (emailErr) {
+			errs.push(newValidationError("email_address", emailErr));
+		}
+	}
+
+	if (!request.domain) {
+		errs.push(newValidationError("domain", ERR_REQUIRED));
+	}
+
+	return errs;
+}
+
+export interface OrgRequestPasswordResetResponse {
+	message: string;
+}
+
+export interface OrgCompletePasswordResetRequest {
+	reset_token: OrgPasswordResetToken;
+	new_password: Password;
+}
+
+export function validateOrgCompletePasswordResetRequest(
+	request: OrgCompletePasswordResetRequest
+): ValidationError[] {
+	const errs: ValidationError[] = [];
+
+	if (!request.reset_token) {
+		errs.push(newValidationError("reset_token", ERR_REQUIRED));
+	}
+
+	if (!request.new_password) {
+		errs.push(newValidationError("new_password", ERR_REQUIRED));
+	} else {
+		const passwordErr = validatePassword(request.new_password);
+		if (passwordErr) {
+			errs.push(newValidationError("new_password", passwordErr));
+		}
+	}
+
+	return errs;
+}
+
+export interface OrgChangePasswordRequest {
+	current_password: Password;
+	new_password: Password;
+}
+
+export function validateOrgChangePasswordRequest(
+	request: OrgChangePasswordRequest
+): ValidationError[] {
+	const errs: ValidationError[] = [];
+
+	if (!request.current_password) {
+		errs.push(newValidationError("current_password", ERR_REQUIRED));
+	} else {
+		const currentPasswordErr = validatePassword(request.current_password);
+		if (currentPasswordErr) {
+			errs.push(newValidationError("current_password", currentPasswordErr));
+		}
+	}
+
+	if (!request.new_password) {
+		errs.push(newValidationError("new_password", ERR_REQUIRED));
+	} else {
+		const newPasswordErr = validatePassword(request.new_password);
+		if (newPasswordErr) {
+			errs.push(newValidationError("new_password", newPasswordErr));
+		}
+	}
+
+	// Check if current and new passwords are the same
+	if (
+		request.current_password &&
+		request.new_password &&
+		request.current_password === request.new_password
+	) {
+		errs.push(
+			newValidationError(
+				"new_password",
+				"must be different from current password"
+			)
+		);
+	}
+
+	return errs;
+}
+
+// ============================================
+// User Management (Filter Users)
+// ============================================
+
+export type OrgRole = string;
+
+export const OrgRoleSuperadmin = "org:superadmin";
+export const OrgRoleViewUsers = "org:view_users";
+export const OrgRoleManageUsers = "org:manage_users";
+export const OrgRoleViewDomains = "org:view_domains";
+export const OrgRoleManageDomains = "org:manage_domains";
+export const OrgRoleViewCostCenters = "org:view_costcenters";
+export const OrgRoleManageCostCenters = "org:manage_costcenters";
+export const OrgRoleViewSubOrgs = "org:view_suborgs";
+export const OrgRoleManageSubOrgs = "org:manage_suborgs";
+export const OrgRoleViewAuditLogs = "org:view_audit_logs";
+
+export interface OrgUser {
+	email_address: EmailAddress;
+	name: string;
+	status: string;
+	created_at: string;
+	roles: OrgRole[];
+}
+
+export interface FilterOrgUsersRequest {
+	limit?: number;
+	cursor?: string;
+	filter_email?: string;
+	filter_name?: string;
+	filter_status?: string;
+}
+
+export function validateFilterOrgUsersRequest(
+	_request: FilterOrgUsersRequest
+): ValidationError[] {
+	// Optional fields
+	return [];
+}
+
+export interface FilterOrgUsersResponse {
+	items: OrgUser[];
+	next_cursor: string;
+}
+
+// ===================================
+// Language Management
+// ===================================
+
+export interface OrgSetLanguageRequest {
+	language: LanguageCode;
+}
+
+export function validateOrgSetLanguageRequest(
+	request: OrgSetLanguageRequest
+): ValidationError[] {
+	const errs: ValidationError[] = [];
+
+	if (!request.language) {
+		errs.push(newValidationError("language", ERR_REQUIRED));
+	} else {
+		const langErr = validateLanguageCode(request.language);
+		if (langErr) {
+			errs.push(newValidationError("language", langErr));
+		}
+	}
+
+	return errs;
+}
+
+// ===================================
+// Get Current User Info
+// ===================================
+
+export interface OrgMyInfoResponse {
+	org_user_id: string;
+	full_name: string;
+	preferred_language: LanguageCode;
+	org_name: string;
+	roles: string[];
+}

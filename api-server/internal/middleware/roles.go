@@ -6,8 +6,7 @@ import (
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	adminspec "vetchium-api-server.typespec/admin"
-	agencyspec "vetchium-api-server.typespec/agency"
-	employerspec "vetchium-api-server.typespec/employer"
+	orgspec "vetchium-api-server.typespec/org"
 )
 
 // AdminRole checks if the authenticated admin user has ANY of the required roles.
@@ -66,12 +65,12 @@ func AdminRole(globalDB *globaldb.Queries, requiredRoles ...adminspec.AdminRole)
 	}
 }
 
-// EmployerRole checks if the authenticated employer user has ANY of the required roles.
-// Superadmin (employer:superadmin) is always prepended and bypasses any specific role requirement.
-// If no roles are specified, only authentication is required (any authenticated employer can access).
+// OrgRole checks if the authenticated org user has ANY of the required roles.
+// Superadmin (org:superadmin) is always prepended and bypasses any specific role requirement.
+// If no roles are specified, only authentication is required (any authenticated org user can access).
 // Returns 403 if user lacks all required roles.
 // Must be chained after OrgAuth middleware.
-func EmployerRole(regionalDB *regionaldb.Queries, requiredRoles ...employerspec.OrgRole) func(http.Handler) http.Handler {
+func OrgRole(regionalDB *regionaldb.Queries, requiredRoles ...orgspec.OrgRole) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
@@ -92,7 +91,7 @@ func EmployerRole(regionalDB *regionaldb.Queries, requiredRoles ...employerspec.
 
 			// Check if user has ANY of the required roles (roles are in regional DB)
 			// Superadmin can access everything any specific role can
-			checkRoles := append([]employerspec.OrgRole{employerspec.OrgRoleSuperadmin}, requiredRoles...)
+			checkRoles := append([]orgspec.OrgRole{orgspec.OrgRoleSuperadmin}, requiredRoles...)
 			for _, requiredRole := range checkRoles {
 				role, err := regionalDB.GetRoleByName(ctx, string(requiredRole))
 				if err != nil {
@@ -102,59 +101,6 @@ func EmployerRole(regionalDB *regionaldb.Queries, requiredRoles ...employerspec.
 				hasRole, err := regionalDB.HasOrgUserRole(ctx, regionaldb.HasOrgUserRoleParams{
 					OrgUserID: orgUser.OrgUserID,
 					RoleID:    role.RoleID,
-				})
-				if err != nil {
-					continue
-				}
-
-				if hasRole {
-					next.ServeHTTP(w, r)
-					return
-				}
-			}
-
-			// User doesn't have any of the required roles
-			w.WriteHeader(http.StatusForbidden)
-		})
-	}
-}
-
-// AgencyRole checks if the authenticated agency user has ANY of the required roles.
-// Superadmin (agency:superadmin) is always prepended and bypasses any specific role requirement.
-// If no roles are specified, only authentication is required (any authenticated agency user can access).
-// Returns 403 if user lacks all required roles.
-// Must be chained after AgencyAuth middleware.
-func AgencyRole(regionalDB *regionaldb.Queries, requiredRoles ...agencyspec.AgencyRole) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "application/json")
-			ctx := r.Context()
-
-			// Get agency user from context (set by AgencyAuth)
-			agencyUser := AgencyUserFromContext(ctx)
-			if agencyUser == nil {
-				w.WriteHeader(http.StatusUnauthorized)
-				return
-			}
-
-			// If no roles specified, allow access (auth-only)
-			if len(requiredRoles) == 0 {
-				next.ServeHTTP(w, r)
-				return
-			}
-
-			// Check if user has ANY of the required roles (roles are in regional DB)
-			// Superadmin can access everything any specific role can
-			checkRoles := append([]agencyspec.AgencyRole{agencyspec.AgencyRoleSuperadmin}, requiredRoles...)
-			for _, requiredRole := range checkRoles {
-				role, err := regionalDB.GetRoleByName(ctx, string(requiredRole))
-				if err != nil {
-					continue
-				}
-
-				hasRole, err := regionalDB.HasAgencyUserRole(ctx, regionaldb.HasAgencyUserRoleParams{
-					AgencyUserID: agencyUser.AgencyUserID,
-					RoleID:       role.RoleID,
 				})
 				if err != nil {
 					continue

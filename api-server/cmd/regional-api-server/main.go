@@ -72,10 +72,9 @@ func main() {
 
 	// Load UI configuration
 	uiConfig := &server.UIConfig{
-		HubURL:    getEnvOrDefault("HUB_UI_URL", "http://localhost:3000"),
-		AdminURL:  getEnvOrDefault("ADMIN_UI_URL", "http://localhost:3001"),
-		OrgURL:    getEnvOrDefault("ORG_UI_URL", "http://localhost:3002"),
-		AgencyURL: getEnvOrDefault("AGENCY_UI_URL", "http://localhost:3003"),
+		HubURL:   getEnvOrDefault("HUB_UI_URL", "http://localhost:3000"),
+		AdminURL: getEnvOrDefault("ADMIN_UI_URL", "http://localhost:3001"),
+		OrgURL:   getEnvOrDefault("ORG_UI_URL", "http://localhost:3002"),
 	}
 
 	// Build internal endpoints map for cross-region proxy
@@ -122,8 +121,7 @@ func main() {
 	// Register routes from separate files
 	routes.RegisterGlobalRoutes(mux, s)
 	routes.RegisterHubRoutes(mux, s)
-	routes.RegisterEmployerRoutes(mux, s)
-	routes.RegisterAgencyRoutes(mux, s)
+	routes.RegisterOrgRoutes(mux, s)
 
 	// Wrap mux with middleware (CORS must be outermost to handle preflight)
 	handler := middleware.CORS()(middleware.RequestID(logger)(mux))

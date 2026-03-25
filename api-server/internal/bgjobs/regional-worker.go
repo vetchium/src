@@ -10,8 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
-	agencydomains "vetchium-api-server.typespec/agency-domains"
-	employerdomains "vetchium-api-server.typespec/employer-domains"
+	orgdomains "vetchium-api-server.typespec/org-domains"
 )
 
 // RegionalWorker runs background jobs for a regional database.
@@ -57,10 +56,6 @@ func (w *RegionalWorker) Run(ctx context.Context) {
 		"org_sessions_cleanup_interval", w.config.ExpiredOrgSessionsCleanupInterval,
 		"org_password_reset_cleanup_interval", w.config.ExpiredOrgPasswordResetTokensCleanupInterval,
 		"org_invitation_cleanup_interval", w.config.ExpiredOrgInvitationTokensCleanupInterval,
-		"agency_tfa_cleanup_interval", w.config.ExpiredAgencyTFATokensCleanupInterval,
-		"agency_sessions_cleanup_interval", w.config.ExpiredAgencySessionsCleanupInterval,
-		"agency_password_reset_cleanup_interval", w.config.ExpiredAgencyPasswordResetTokensCleanupInterval,
-		"agency_invitation_cleanup_interval", w.config.ExpiredAgencyInvitationTokensCleanupInterval,
 		"audit_log_retention", w.config.AuditLogRetention,
 		"audit_log_purge_interval", w.config.AuditLogPurgeInterval,
 	)
@@ -98,29 +93,9 @@ func (w *RegionalWorker) Run(ctx context.Context) {
 		w.config.ExpiredOrgInvitationTokensCleanupInterval,
 		w.cleanupExpiredOrgInvitationTokens)
 
-	go w.runPeriodicJob(ctx, "agency-tfa-tokens",
-		w.config.ExpiredAgencyTFATokensCleanupInterval,
-		w.cleanupExpiredAgencyTFATokens)
-
-	go w.runPeriodicJob(ctx, "agency-sessions",
-		w.config.ExpiredAgencySessionsCleanupInterval,
-		w.cleanupExpiredAgencySessions)
-
-	go w.runPeriodicJob(ctx, "agency-password-reset-tokens",
-		w.config.ExpiredAgencyPasswordResetTokensCleanupInterval,
-		w.cleanupExpiredAgencyPasswordResetTokens)
-
-	go w.runPeriodicJob(ctx, "agency-invitation-tokens",
-		w.config.ExpiredAgencyInvitationTokensCleanupInterval,
-		w.cleanupExpiredAgencyInvitationTokens)
-
-	go w.runPeriodicJob(ctx, "employer-domain-verification",
-		w.config.EmployerDomainVerificationInterval,
-		w.verifyEmployerDomains)
-
-	go w.runPeriodicJob(ctx, "agency-domain-verification",
-		w.config.AgencyDomainVerificationInterval,
-		w.verifyAgencyDomains)
+	go w.runPeriodicJob(ctx, "org-domain-verification",
+		w.config.OrgDomainVerificationInterval,
+		w.verifyOrgDomains)
 
 	go w.runPeriodicJob(ctx, "audit-logs",
 		w.config.AuditLogPurgeInterval,
@@ -211,32 +186,6 @@ func (w *RegionalWorker) cleanupExpiredOrgSessions(ctx context.Context) {
 	w.log.Debug("cleaned up expired org sessions")
 }
 
-func (w *RegionalWorker) cleanupExpiredAgencyTFATokens(ctx context.Context) {
-	if ctx.Err() != nil {
-		return
-	}
-
-	err := w.queries.DeleteExpiredAgencyTFATokens(ctx)
-	if err != nil {
-		w.log.Error("failed to cleanup expired agency TFA tokens", "error", err)
-		return
-	}
-	w.log.Debug("cleaned up expired agency TFA tokens")
-}
-
-func (w *RegionalWorker) cleanupExpiredAgencySessions(ctx context.Context) {
-	if ctx.Err() != nil {
-		return
-	}
-
-	err := w.queries.DeleteExpiredAgencySessions(ctx)
-	if err != nil {
-		w.log.Error("failed to cleanup expired agency sessions", "error", err)
-		return
-	}
-	w.log.Debug("cleaned up expired agency sessions")
-}
-
 func (w *RegionalWorker) cleanupExpiredHubPasswordResetTokens(ctx context.Context) {
 	if ctx.Err() != nil {
 		return
@@ -289,45 +238,19 @@ func (w *RegionalWorker) cleanupExpiredOrgInvitationTokens(ctx context.Context) 
 	w.log.Debug("cleaned up expired org invitation tokens")
 }
 
-func (w *RegionalWorker) cleanupExpiredAgencyPasswordResetTokens(ctx context.Context) {
+func (w *RegionalWorker) verifyOrgDomains(ctx context.Context) {
 	if ctx.Err() != nil {
 		return
 	}
 
-	err := w.queries.DeleteExpiredAgencyPasswordResetTokens(ctx)
+	cutoff := time.Now().AddDate(0, 0, -orgdomains.VerificationIntervalDays)
+	domains, err := w.queries.GetOrgDomainsForReverification(ctx, pgtype.Timestamptz{Time: cutoff, Valid: true})
 	if err != nil {
-		w.log.Error("failed to cleanup expired agency password reset tokens", "error", err)
-		return
-	}
-	w.log.Debug("cleaned up expired agency password reset tokens")
-}
-
-func (w *RegionalWorker) cleanupExpiredAgencyInvitationTokens(ctx context.Context) {
-	if ctx.Err() != nil {
+		w.log.Error("failed to get org domains for reverification", "error", err)
 		return
 	}
 
-	err := w.queries.DeleteExpiredAgencyInvitationTokens(ctx)
-	if err != nil {
-		w.log.Error("failed to cleanup expired agency invitation tokens", "error", err)
-		return
-	}
-	w.log.Debug("cleaned up expired agency invitation tokens")
-}
-
-func (w *RegionalWorker) verifyEmployerDomains(ctx context.Context) {
-	if ctx.Err() != nil {
-		return
-	}
-
-	cutoff := time.Now().AddDate(0, 0, -employerdomains.VerificationIntervalDays)
-	domains, err := w.queries.GetEmployerDomainsForReverification(ctx, pgtype.Timestamptz{Time: cutoff, Valid: true})
-	if err != nil {
-		w.log.Error("failed to get employer domains for reverification", "error", err)
-		return
-	}
-
-	w.log.Info("starting employer domain reverification", "count", len(domains))
+	w.log.Info("starting org domain reverification", "count", len(domains))
 
 	for _, d := range domains {
 		if ctx.Err() != nil {
@@ -337,87 +260,33 @@ func (w *RegionalWorker) verifyEmployerDomains(ctx context.Context) {
 		verified := w.checkDNS(d.Domain, d.VerificationToken)
 
 		if verified {
-			err = w.queries.UpdateEmployerDomainStatus(ctx, regionaldb.UpdateEmployerDomainStatusParams{
+			err = w.queries.UpdateOrgDomainStatus(ctx, regionaldb.UpdateOrgDomainStatusParams{
 				Domain:              d.Domain,
 				Status:              regionaldb.DomainVerificationStatusVERIFIED,
 				LastVerifiedAt:      pgtype.Timestamptz{Time: time.Now(), Valid: true},
 				ConsecutiveFailures: 0,
 			})
 			if err != nil {
-				w.log.Error("failed to update employer domain status after verification", "domain", d.Domain, "error", err)
+				w.log.Error("failed to update org domain status after verification", "domain", d.Domain, "error", err)
 			} else {
-				w.log.Info("employer domain reverified successfully", "domain", d.Domain)
+				w.log.Info("org domain reverified successfully", "domain", d.Domain)
 			}
 		} else {
 			newFailures := d.ConsecutiveFailures + 1
 			newStatus := d.Status
-			if newFailures >= employerdomains.MaxConsecutiveFailures && d.Status == regionaldb.DomainVerificationStatusVERIFIED {
+			if newFailures >= orgdomains.MaxConsecutiveFailures && d.Status == regionaldb.DomainVerificationStatusVERIFIED {
 				newStatus = regionaldb.DomainVerificationStatusFAILING
 			}
-			err = w.queries.UpdateEmployerDomainStatus(ctx, regionaldb.UpdateEmployerDomainStatusParams{
+			err = w.queries.UpdateOrgDomainStatus(ctx, regionaldb.UpdateOrgDomainStatusParams{
 				Domain:              d.Domain,
 				Status:              newStatus,
 				LastVerifiedAt:      d.LastVerifiedAt,
 				ConsecutiveFailures: newFailures,
 			})
 			if err != nil {
-				w.log.Error("failed to update employer domain failure count", "domain", d.Domain, "error", err)
+				w.log.Error("failed to update org domain failure count", "domain", d.Domain, "error", err)
 			} else {
-				w.log.Info("employer domain reverification failed", "domain", d.Domain, "failures", newFailures, "status", newStatus)
-			}
-		}
-	}
-}
-
-func (w *RegionalWorker) verifyAgencyDomains(ctx context.Context) {
-	if ctx.Err() != nil {
-		return
-	}
-
-	cutoff := time.Now().AddDate(0, 0, -agencydomains.AgencyVerificationIntervalDays)
-	domains, err := w.queries.GetAgencyDomainsForReverification(ctx, pgtype.Timestamptz{Time: cutoff, Valid: true})
-	if err != nil {
-		w.log.Error("failed to get agency domains for reverification", "error", err)
-		return
-	}
-
-	w.log.Info("starting agency domain reverification", "count", len(domains))
-
-	for _, d := range domains {
-		if ctx.Err() != nil {
-			return
-		}
-
-		verified := w.checkDNS(d.Domain, d.VerificationToken)
-
-		if verified {
-			err = w.queries.UpdateAgencyDomainStatus(ctx, regionaldb.UpdateAgencyDomainStatusParams{
-				Domain:              d.Domain,
-				Status:              regionaldb.DomainVerificationStatusVERIFIED,
-				LastVerifiedAt:      pgtype.Timestamptz{Time: time.Now(), Valid: true},
-				ConsecutiveFailures: 0,
-			})
-			if err != nil {
-				w.log.Error("failed to update agency domain status after verification", "domain", d.Domain, "error", err)
-			} else {
-				w.log.Info("agency domain reverified successfully", "domain", d.Domain)
-			}
-		} else {
-			newFailures := d.ConsecutiveFailures + 1
-			newStatus := d.Status
-			if newFailures >= agencydomains.AgencyMaxConsecutiveFailures && d.Status == regionaldb.DomainVerificationStatusVERIFIED {
-				newStatus = regionaldb.DomainVerificationStatusFAILING
-			}
-			err = w.queries.UpdateAgencyDomainStatus(ctx, regionaldb.UpdateAgencyDomainStatusParams{
-				Domain:              d.Domain,
-				Status:              newStatus,
-				LastVerifiedAt:      d.LastVerifiedAt,
-				ConsecutiveFailures: newFailures,
-			})
-			if err != nil {
-				w.log.Error("failed to update agency domain failure count", "domain", d.Domain, "error", err)
-			} else {
-				w.log.Info("agency domain reverification failed", "domain", d.Domain, "failures", newFailures, "status", newStatus)
+				w.log.Info("org domain reverification failed", "domain", d.Domain, "failures", newFailures, "status", newStatus)
 			}
 		}
 	}

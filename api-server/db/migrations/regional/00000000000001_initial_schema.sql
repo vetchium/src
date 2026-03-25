@@ -20,11 +20,6 @@ CREATE TYPE email_template_type AS ENUM (
     'org_tfa',
     'org_invitation',
     'org_password_reset',
-    'agency_signup_verification',
-    'agency_signup_token',
-    'agency_tfa',
-    'agency_invitation',
-    'agency_password_reset',
     'org_suborg_disabled'
 );
 -- Authentication type enum (extensible for future SSO, hardware tokens, etc.)
@@ -49,12 +44,6 @@ CREATE TYPE org_user_status AS ENUM (
     'disabled'
 );
 
--- Agency user status enum
-CREATE TYPE agency_user_status AS ENUM (
-    'invited',
-    'active',
-    'disabled'
-);
 -- Domain verification status enum
 CREATE TYPE domain_verification_status AS ENUM ('PENDING', 'VERIFIED', 'FAILING');
 -- Cost center status enum
@@ -121,19 +110,19 @@ CREATE TABLE hub_email_verification_tokens (
     expires_at TIMESTAMPTZ NOT NULL
 );
 -- Org users table (regional - stores credentials, PII, and all mutable data)
--- Note: email_address is NOT unique alone - one email can belong to multiple employers
--- (contractor scenario). Uniqueness is enforced per (email_address, employer_id).
+-- Note: email_address is NOT unique alone - one email can belong to multiple orgs
+-- (contractor scenario). Uniqueness is enforced per (email_address, org_id).
 CREATE TABLE org_users (
     org_user_id UUID PRIMARY KEY,
     email_address TEXT NOT NULL,
-    employer_id UUID NOT NULL,
+    org_id UUID NOT NULL,
     full_name TEXT,
     password_hash BYTEA,
     authentication_type authentication_type NOT NULL DEFAULT 'email_password',
     status org_user_status NOT NULL DEFAULT 'active',
     preferred_language TEXT NOT NULL DEFAULT 'en-US',
     created_at TIMESTAMPTZ DEFAULT NOW(),
-    UNIQUE (email_address, employer_id)
+    UNIQUE (email_address, org_id)
 );
 -- Org TFA tokens for email-based two-factor authentication
 CREATE TABLE org_tfa_tokens (
@@ -161,15 +150,15 @@ CREATE TABLE org_password_reset_tokens (
 CREATE TABLE org_invitation_tokens (
     invitation_token TEXT PRIMARY KEY NOT NULL,
     org_user_id UUID NOT NULL REFERENCES org_users(org_user_id) ON DELETE CASCADE,
-    employer_id UUID NOT NULL,
+    org_id UUID NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     expires_at TIMESTAMPTZ NOT NULL
 );
--- Employer domains table (regional - stores operational data)
+-- Org domains table (regional - stores operational data)
 -- Per spec section 3.4: stores tokens, audit logs, and cron-job state
-CREATE TABLE employer_domains (
+CREATE TABLE org_domains (
     domain TEXT PRIMARY KEY,
-    employer_id UUID NOT NULL,
+    org_id UUID NOT NULL,
     verification_token TEXT NOT NULL,
     token_expires_at TIMESTAMPTZ NOT NULL,
     last_verified_at TIMESTAMPTZ,
@@ -178,79 +167,21 @@ CREATE TABLE employer_domains (
     status domain_verification_status NOT NULL DEFAULT 'PENDING',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
--- Agency domains table (regional - stores operational data)
--- Per spec section 3.4: stores tokens, audit logs, and cron-job state
-CREATE TABLE agency_domains (
-    domain TEXT PRIMARY KEY,
-    agency_id UUID NOT NULL,
-    verification_token TEXT NOT NULL,
-    token_expires_at TIMESTAMPTZ NOT NULL,
-    last_verified_at TIMESTAMPTZ,
-    last_verification_requested_at TIMESTAMPTZ,
-    consecutive_failures INT NOT NULL DEFAULT 0,
-    status domain_verification_status NOT NULL DEFAULT 'PENDING',
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
--- Agency users table (regional - stores credentials, PII, and all mutable data)
--- Note: email_address is NOT unique alone - one email can belong to multiple agencies
--- (contractor scenario). Uniqueness is enforced per (email_address, agency_id).
-CREATE TABLE agency_users (
-    agency_user_id UUID PRIMARY KEY,
-    email_address TEXT NOT NULL,
-    agency_id UUID NOT NULL,
-    full_name TEXT,
-    password_hash BYTEA,
-    authentication_type authentication_type NOT NULL DEFAULT 'email_password',
-    status agency_user_status NOT NULL DEFAULT 'active',
-    preferred_language TEXT NOT NULL DEFAULT 'en-US',
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    UNIQUE (email_address, agency_id)
-);
--- Agency TFA tokens for email-based two-factor authentication
-CREATE TABLE agency_tfa_tokens (
-    tfa_token TEXT PRIMARY KEY NOT NULL,
-    agency_user_id UUID NOT NULL REFERENCES agency_users(agency_user_id) ON DELETE CASCADE,
-    tfa_code TEXT NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    expires_at TIMESTAMPTZ NOT NULL
-);
--- Agency sessions (regional storage for data sovereignty)
-CREATE TABLE agency_sessions (
-    session_token TEXT PRIMARY KEY NOT NULL,
-    agency_user_id UUID NOT NULL REFERENCES agency_users(agency_user_id) ON DELETE CASCADE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    expires_at TIMESTAMPTZ NOT NULL
-);
--- Agency password reset tokens
-CREATE TABLE agency_password_reset_tokens (
-    reset_token TEXT PRIMARY KEY NOT NULL,
-    agency_user_global_id UUID NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    expires_at TIMESTAMPTZ NOT NULL
-);
--- Agency invitation tokens for user invitations
-CREATE TABLE agency_invitation_tokens (
-    invitation_token TEXT PRIMARY KEY NOT NULL,
-    agency_user_id UUID NOT NULL REFERENCES agency_users(agency_user_id) ON DELETE CASCADE,
-    agency_id UUID NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    expires_at TIMESTAMPTZ NOT NULL
-);
--- Cost centers for employer organizations
+-- Cost centers for organizations
 CREATE TABLE cost_centers (
     cost_center_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    employer_id    UUID NOT NULL,
+    org_id         UUID NOT NULL,
     id             VARCHAR(64) NOT NULL,
     display_name   VARCHAR(64) NOT NULL,
     status         cost_center_status NOT NULL DEFAULT 'enabled',
     notes          TEXT,
     created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE (employer_id, id)
+    UNIQUE (org_id, id)
 );
--- SubOrgs: sub-entities of an employer, each pinned to a Vetchium region
+-- SubOrgs: sub-entities of an org, each pinned to a Vetchium region
 CREATE TABLE suborgs (
     suborg_id     UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-    employer_id   UUID        NOT NULL,
+    org_id        UUID        NOT NULL,
     name          VARCHAR(64) NOT NULL,
     pinned_region VARCHAR(32) NOT NULL,
     status        VARCHAR(16) NOT NULL DEFAULT 'active',
@@ -277,13 +208,6 @@ CREATE TABLE org_user_roles (
     assigned_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (org_user_id, role_id)
 );
--- RBAC: Agency user roles
-CREATE TABLE agency_user_roles (
-    agency_user_id UUID NOT NULL REFERENCES agency_users(agency_user_id) ON DELETE CASCADE,
-    role_id UUID NOT NULL REFERENCES roles(role_id) ON DELETE RESTRICT,
-    assigned_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    PRIMARY KEY (agency_user_id, role_id)
-);
 -- RBAC: Hub user roles
 CREATE TABLE hub_user_roles (
     hub_user_global_id UUID NOT NULL REFERENCES hub_users(hub_user_global_id) ON DELETE CASCADE,
@@ -291,36 +215,25 @@ CREATE TABLE hub_user_roles (
     assigned_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (hub_user_global_id, role_id)
 );
--- Insert predefined roles (employer/agency/hub portals only — admin roles live in global DB)
+-- Insert predefined roles (org/hub portals only — admin roles live in global DB)
 INSERT INTO roles (role_name, description) VALUES
-    -- Employer portal roles
-    ('employer:view_users', 'Can view org user list and details (read-only)'),
-    ('employer:manage_users', 'Can invite, enable/disable org users and manage their roles'),
-    ('employer:view_domains', 'Can view employer domain list and status (read-only)'),
-    ('employer:manage_domains', 'Can claim, verify and delete employer domains'),
-    ('employer:view_costcenters', 'Can view cost centers for their organization (read-only)'),
-    ('employer:manage_costcenters', 'Can create, update and manage cost centers for their organization'),
-    ('employer:view_suborgs', 'Can view all SubOrgs and their membership details (read-only)'),
-    ('employer:manage_suborgs', 'Can create, rename, disable, re-enable SubOrgs and manage their membership'),
-
-    -- Agency portal roles
-    ('agency:view_users', 'Can view agency user list and details (read-only)'),
-    ('agency:manage_users', 'Can invite, enable/disable agency users and manage their roles'),
-    ('agency:view_domains', 'Can view agency domain list and status (read-only)'),
-    ('agency:manage_domains', 'Can claim, verify and delete agency domains'),
-
-    -- Superadmin roles
-    ('employer:superadmin', 'Superadmin for the employer portal with full access to all operations'),
-    ('agency:superadmin', 'Superadmin for the agency portal with full access to all operations'),
-    -- Audit log roles
-    ('employer:view_audit_logs', 'Can view employer portal audit logs for their organization'),
-    ('agency:view_audit_logs', 'Can view agency portal audit logs for their agency'),
+    -- Org portal roles
+    ('org:view_users', 'Can view org user list and details (read-only)'),
+    ('org:manage_users', 'Can invite, enable/disable org users and manage their roles'),
+    ('org:view_domains', 'Can view org domain list and status (read-only)'),
+    ('org:manage_domains', 'Can claim, verify and delete org domains'),
+    ('org:view_costcenters', 'Can view cost centers for their organization (read-only)'),
+    ('org:manage_costcenters', 'Can create, update and manage cost centers for their organization'),
+    ('org:view_suborgs', 'Can view all SubOrgs and their membership details (read-only)'),
+    ('org:manage_suborgs', 'Can create, rename, disable, re-enable SubOrgs and manage their membership'),
+    ('org:superadmin', 'Superadmin for the org portal with full access to all operations'),
+    ('org:view_audit_logs', 'Can view org portal audit logs for their organization'),
 
     -- Hub portal roles (assigned at signup, additional roles for paid features)
     ('hub:read_posts', 'Can read posts by other hub users'),
     ('hub:write_posts', 'Can create and edit posts (paid feature)'),
     ('hub:apply_jobs', 'Can apply to job postings');
--- Audit logs table (unified audit log for employer, agency, and hub portal write operations)
+-- Audit logs table (unified audit log for org and hub portal write operations)
 CREATE TABLE audit_logs (
     id             UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
     event_type     VARCHAR(64) NOT NULL,
@@ -344,21 +257,12 @@ CREATE INDEX idx_org_sessions_org_user_id ON org_sessions(org_user_id);
 CREATE INDEX idx_org_password_reset_tokens_expires_at ON org_password_reset_tokens(expires_at);
 CREATE INDEX idx_org_invitation_tokens_expires_at ON org_invitation_tokens(expires_at);
 CREATE INDEX idx_org_users_email_address ON org_users(email_address);
-CREATE INDEX idx_org_users_employer_id ON org_users(employer_id);
-CREATE INDEX idx_cost_centers_employer_id_created_at ON cost_centers(employer_id, created_at);
-CREATE INDEX idx_suborgs_employer_id_created_at ON suborgs(employer_id, created_at);
+CREATE INDEX idx_org_users_org_id ON org_users(org_id);
+CREATE INDEX idx_cost_centers_org_id_created_at ON cost_centers(org_id, created_at);
+CREATE INDEX idx_suborgs_org_id_created_at ON suborgs(org_id, created_at);
 CREATE INDEX idx_org_user_suborg_assignments_org_user_id ON org_user_suborg_assignments(org_user_id);
-CREATE INDEX idx_employer_domains_employer_id ON employer_domains(employer_id);
-CREATE INDEX idx_employer_domains_status ON employer_domains(status);
-CREATE INDEX idx_agency_tfa_tokens_expires_at ON agency_tfa_tokens(expires_at);
-CREATE INDEX idx_agency_sessions_expires_at ON agency_sessions(expires_at);
-CREATE INDEX idx_agency_sessions_agency_user_id ON agency_sessions(agency_user_id);
-CREATE INDEX idx_agency_password_reset_tokens_expires_at ON agency_password_reset_tokens(expires_at);
-CREATE INDEX idx_agency_invitation_tokens_expires_at ON agency_invitation_tokens(expires_at);
-CREATE INDEX idx_agency_users_email_address ON agency_users(email_address);
-CREATE INDEX idx_agency_users_agency_id ON agency_users(agency_id);
-CREATE INDEX idx_agency_domains_agency_id ON agency_domains(agency_id);
-CREATE INDEX idx_agency_domains_status ON agency_domains(status);
+CREATE INDEX idx_org_domains_org_id ON org_domains(org_id);
+CREATE INDEX idx_org_domains_status ON org_domains(status);
 CREATE INDEX idx_audit_logs_created_at_id ON audit_logs(created_at DESC, id DESC);
 CREATE INDEX idx_audit_logs_actor_user_id ON audit_logs(actor_user_id);
 CREATE INDEX idx_audit_logs_org_created_at_id ON audit_logs(org_id, created_at DESC, id DESC);
@@ -369,58 +273,44 @@ DROP INDEX IF EXISTS idx_audit_logs_org_created_at_id;
 DROP INDEX IF EXISTS idx_audit_logs_actor_user_id;
 DROP INDEX IF EXISTS idx_audit_logs_created_at_id;
 DROP TABLE IF EXISTS audit_logs;
-DROP INDEX IF EXISTS idx_agency_domains_status;
-DROP INDEX IF EXISTS idx_agency_domains_agency_id;
-DROP INDEX IF EXISTS idx_agency_users_agency_id;
-DROP INDEX IF EXISTS idx_agency_users_email_address;
-DROP INDEX IF EXISTS idx_agency_invitation_tokens_expires_at;
-DROP INDEX IF EXISTS idx_agency_password_reset_tokens_expires_at;
-DROP INDEX IF EXISTS idx_agency_sessions_agency_user_id;
-DROP INDEX IF EXISTS idx_agency_sessions_expires_at;
-DROP INDEX IF EXISTS idx_agency_tfa_tokens_expires_at;
-DROP INDEX IF EXISTS idx_employer_domains_status;
-DROP INDEX IF EXISTS idx_employer_domains_employer_id;
+DROP INDEX IF EXISTS idx_org_domains_status;
+DROP INDEX IF EXISTS idx_org_domains_org_id;
 DROP INDEX IF EXISTS idx_org_user_suborg_assignments_org_user_id;
-DROP INDEX IF EXISTS idx_suborgs_employer_id_created_at;
+DROP INDEX IF EXISTS idx_suborgs_org_id_created_at;
 DROP TABLE IF EXISTS org_user_suborg_assignments;
 DROP TABLE IF EXISTS suborgs;
-DROP INDEX IF EXISTS idx_cost_centers_employer_id_created_at;
-DROP INDEX IF EXISTS idx_org_users_employer_id;
+DROP INDEX IF EXISTS idx_cost_centers_org_id_created_at;
+DROP INDEX IF EXISTS idx_org_users_org_id;
 DROP INDEX IF EXISTS idx_org_users_email_address;
 DROP INDEX IF EXISTS idx_org_invitation_tokens_expires_at;
 DROP INDEX IF EXISTS idx_org_password_reset_tokens_expires_at;
 DROP INDEX IF EXISTS idx_org_sessions_org_user_id;
 DROP INDEX IF EXISTS idx_org_sessions_expires_at;
 DROP INDEX IF EXISTS idx_org_tfa_tokens_expires_at;
+DROP TABLE IF EXISTS hub_user_roles;
+DROP TABLE IF EXISTS org_user_roles;
+DROP TABLE IF EXISTS roles;
+DROP TABLE IF EXISTS org_invitation_tokens;
+DROP TABLE IF EXISTS org_domains;
+DROP TABLE IF EXISTS cost_centers;
+DROP TABLE IF EXISTS org_password_reset_tokens;
+DROP TABLE IF EXISTS org_sessions;
+DROP TABLE IF EXISTS org_tfa_tokens;
+DROP TABLE IF EXISTS org_users;
 DROP INDEX IF EXISTS idx_hub_email_verification_tokens_expires_at;
 DROP INDEX IF EXISTS idx_hub_password_reset_tokens_expires_at;
 DROP INDEX IF EXISTS idx_hub_sessions_hub_user_global_id;
 DROP INDEX IF EXISTS idx_hub_sessions_expires_at;
 DROP INDEX IF EXISTS idx_hub_tfa_tokens_expires_at;
-DROP TABLE IF EXISTS agency_invitation_tokens;
-DROP TABLE IF EXISTS agency_password_reset_tokens;
-DROP TABLE IF EXISTS agency_sessions;
-DROP TABLE IF EXISTS agency_tfa_tokens;
-DROP TABLE IF EXISTS agency_users;
-DROP TABLE IF EXISTS agency_domains;
-DROP TABLE IF EXISTS cost_centers;
-DROP TABLE IF EXISTS employer_domains;
-DROP TABLE IF EXISTS org_invitation_tokens;
-DROP TABLE IF EXISTS org_password_reset_tokens;
-DROP TABLE IF EXISTS org_sessions;
-DROP TABLE IF EXISTS org_tfa_tokens;
-DROP TABLE IF EXISTS org_users;
-DROP TABLE IF EXISTS hub_user_roles;
-DROP TABLE IF EXISTS hub_sessions;
 DROP TABLE IF EXISTS hub_email_verification_tokens;
 DROP TABLE IF EXISTS hub_password_reset_tokens;
+DROP TABLE IF EXISTS hub_sessions;
 DROP TABLE IF EXISTS hub_tfa_tokens;
 DROP TABLE IF EXISTS email_delivery_attempts;
 DROP TABLE IF EXISTS emails;
 DROP TABLE IF EXISTS hub_users;
 DROP TYPE IF EXISTS cost_center_status;
 DROP TYPE IF EXISTS domain_verification_status;
-DROP TYPE IF EXISTS agency_user_status;
 DROP TYPE IF EXISTS org_user_status;
 DROP TYPE IF EXISTS hub_user_status;
 DROP TYPE IF EXISTS authentication_type;

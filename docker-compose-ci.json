@@ -7,10 +7,17 @@
 				"POSTGRES_USER": "vetchium",
 				"POSTGRES_PASSWORD": "vetchium_dev"
 			},
-			"volumes": ["global-db-data:/var/lib/postgresql/data"],
-			"ports": ["5432:5432"],
+			"volumes": [
+				"global-db-data:/var/lib/postgresql/data"
+			],
+			"ports": [
+				"5432:5432"
+			],
 			"healthcheck": {
-				"test": ["CMD-SHELL", "pg_isready -U vetchium -d vetchium_global"],
+				"test": [
+					"CMD-SHELL",
+					"pg_isready -U vetchium -d vetchium_global"
+				],
 				"interval": "5s",
 				"timeout": "5s",
 				"retries": 5
@@ -23,10 +30,17 @@
 				"POSTGRES_USER": "vetchium",
 				"POSTGRES_PASSWORD": "vetchium_dev"
 			},
-			"volumes": ["regional-db-ind1-data:/var/lib/postgresql/data"],
-			"ports": ["5433:5432"],
+			"volumes": [
+				"regional-db-ind1-data:/var/lib/postgresql/data"
+			],
+			"ports": [
+				"5433:5432"
+			],
 			"healthcheck": {
-				"test": ["CMD-SHELL", "pg_isready -U vetchium -d vetchium_ind1"],
+				"test": [
+					"CMD-SHELL",
+					"pg_isready -U vetchium -d vetchium_ind1"
+				],
 				"interval": "5s",
 				"timeout": "5s",
 				"retries": 5
@@ -39,10 +53,17 @@
 				"POSTGRES_USER": "vetchium",
 				"POSTGRES_PASSWORD": "vetchium_dev"
 			},
-			"volumes": ["regional-db-usa1-data:/var/lib/postgresql/data"],
-			"ports": ["5434:5432"],
+			"volumes": [
+				"regional-db-usa1-data:/var/lib/postgresql/data"
+			],
+			"ports": [
+				"5434:5432"
+			],
 			"healthcheck": {
-				"test": ["CMD-SHELL", "pg_isready -U vetchium -d vetchium_usa1"],
+				"test": [
+					"CMD-SHELL",
+					"pg_isready -U vetchium -d vetchium_usa1"
+				],
 				"interval": "5s",
 				"timeout": "5s",
 				"retries": 5
@@ -55,10 +76,17 @@
 				"POSTGRES_USER": "vetchium",
 				"POSTGRES_PASSWORD": "vetchium_dev"
 			},
-			"volumes": ["regional-db-deu1-data:/var/lib/postgresql/data"],
-			"ports": ["5435:5432"],
+			"volumes": [
+				"regional-db-deu1-data:/var/lib/postgresql/data"
+			],
+			"ports": [
+				"5435:5432"
+			],
 			"healthcheck": {
-				"test": ["CMD-SHELL", "pg_isready -U vetchium -d vetchium_deu1"],
+				"test": [
+					"CMD-SHELL",
+					"pg_isready -U vetchium -d vetchium_deu1"
+				],
 				"interval": "5s",
 				"timeout": "5s",
 				"retries": 5
@@ -70,7 +98,9 @@
 				"SERVICES": "s3",
 				"DEBUG": "0"
 			},
-			"ports": ["4566:4566"],
+			"ports": [
+				"4566:4566"
+			],
 			"healthcheck": {
 				"test": [
 					"CMD-SHELL",
@@ -84,9 +114,14 @@
 		"s3-init": {
 			"image": "amazon/aws-cli",
 			"depends_on": {
-				"localstack": { "condition": "service_healthy" }
+				"localstack": {
+					"condition": "service_healthy"
+				}
 			},
-			"entrypoint": ["sh", "-c"],
+			"entrypoint": [
+				"sh",
+				"-c"
+			],
 			"command": [
 				"i=0; until aws --endpoint-url=http://localstack:4566 s3 ls s3://vetchium 2>/dev/null || aws --endpoint-url=http://localstack:4566 s3 mb s3://vetchium 2>/dev/null; do i=$$((i+1)); [ $$i -ge 30 ] && exit 1; sleep 2; done"
 			],
@@ -98,7 +133,10 @@
 		},
 		"mailpit": {
 			"image": "axllent/mailpit:latest",
-			"ports": ["8025:8025", "1025:1025"],
+			"ports": [
+				"8025:8025",
+				"1025:1025"
+			],
 			"environment": {
 				"MP_SMTP_AUTH_ACCEPT_ANY": "true",
 				"MP_SMTP_AUTH_ALLOW_INSECURE": "true"
@@ -276,7 +314,6 @@
 				"ADMIN_PASSWORD_RESET_TOKEN_CLEANUP_INTERVAL": "5s",
 				"HUB_SIGNUP_TOKEN_CLEANUP_INTERVAL": "5s",
 				"ORG_SIGNUP_TOKEN_CLEANUP_INTERVAL": "5s",
-				"AGENCY_SIGNUP_TOKEN_CLEANUP_INTERVAL": "5s",
 				"ADMIN_UI_URL": "http://localhost:3001",
 				"CORS_ALLOWED_ORIGINS": "*",
 				"S3_ENDPOINT": "http://localstack:4566",
@@ -330,10 +367,6 @@
 				"ORG_SESSION_TOKEN_EXPIRY": "60s",
 				"ORG_SIGNUP_TOKEN_EXPIRY": "30s",
 				"ORG_REMEMBER_ME_EXPIRY": "120s",
-				"AGENCY_TFA_TOKEN_EXPIRY": "2m",
-				"AGENCY_SESSION_TOKEN_EXPIRY": "60s",
-				"AGENCY_SIGNUP_TOKEN_EXPIRY": "30s",
-				"AGENCY_REMEMBER_ME_EXPIRY": "120s",
 				"S3_ENDPOINT": "http://localstack:4566",
 				"S3_ACCESS_KEY_ID": "vetchium-dev-key",
 				"S3_SECRET_ACCESS_KEY": "vetchium-dev-secret",
@@ -385,10 +418,6 @@
 				"ORG_SESSION_TOKEN_EXPIRY": "60s",
 				"ORG_SIGNUP_TOKEN_EXPIRY": "30s",
 				"ORG_REMEMBER_ME_EXPIRY": "120s",
-				"AGENCY_TFA_TOKEN_EXPIRY": "2m",
-				"AGENCY_SESSION_TOKEN_EXPIRY": "60s",
-				"AGENCY_SIGNUP_TOKEN_EXPIRY": "30s",
-				"AGENCY_REMEMBER_ME_EXPIRY": "120s",
 				"S3_ENDPOINT": "http://localstack:4566",
 				"S3_ACCESS_KEY_ID": "vetchium-dev-key",
 				"S3_SECRET_ACCESS_KEY": "vetchium-dev-secret",
@@ -440,10 +469,6 @@
 				"ORG_SESSION_TOKEN_EXPIRY": "60s",
 				"ORG_SIGNUP_TOKEN_EXPIRY": "30s",
 				"ORG_REMEMBER_ME_EXPIRY": "120s",
-				"AGENCY_TFA_TOKEN_EXPIRY": "2m",
-				"AGENCY_SESSION_TOKEN_EXPIRY": "60s",
-				"AGENCY_SIGNUP_TOKEN_EXPIRY": "30s",
-				"AGENCY_REMEMBER_ME_EXPIRY": "120s",
 				"S3_ENDPOINT": "http://localstack:4566",
 				"S3_ACCESS_KEY_ID": "vetchium-dev-key",
 				"S3_SECRET_ACCESS_KEY": "vetchium-dev-secret",
@@ -479,9 +504,7 @@
 				"HUB_TFA_TOKEN_CLEANUP_INTERVAL": "5s",
 				"HUB_SESSION_CLEANUP_INTERVAL": "5s",
 				"ORG_TFA_TOKEN_CLEANUP_INTERVAL": "5s",
-				"ORG_SESSION_CLEANUP_INTERVAL": "5s",
-				"AGENCY_TFA_TOKEN_CLEANUP_INTERVAL": "5s",
-				"AGENCY_SESSION_CLEANUP_INTERVAL": "5s"
+				"ORG_SESSION_CLEANUP_INTERVAL": "5s"
 			}
 		},
 		"regional-worker-usa1": {
@@ -512,9 +535,7 @@
 				"HUB_TFA_TOKEN_CLEANUP_INTERVAL": "5s",
 				"HUB_SESSION_CLEANUP_INTERVAL": "5s",
 				"ORG_TFA_TOKEN_CLEANUP_INTERVAL": "5s",
-				"ORG_SESSION_CLEANUP_INTERVAL": "5s",
-				"AGENCY_TFA_TOKEN_CLEANUP_INTERVAL": "5s",
-				"AGENCY_SESSION_CLEANUP_INTERVAL": "5s"
+				"ORG_SESSION_CLEANUP_INTERVAL": "5s"
 			}
 		},
 		"regional-worker-deu1": {
@@ -545,15 +566,17 @@
 				"HUB_TFA_TOKEN_CLEANUP_INTERVAL": "5s",
 				"HUB_SESSION_CLEANUP_INTERVAL": "5s",
 				"ORG_TFA_TOKEN_CLEANUP_INTERVAL": "5s",
-				"ORG_SESSION_CLEANUP_INTERVAL": "5s",
-				"AGENCY_TFA_TOKEN_CLEANUP_INTERVAL": "5s",
-				"AGENCY_SESSION_CLEANUP_INTERVAL": "5s"
+				"ORG_SESSION_CLEANUP_INTERVAL": "5s"
 			}
 		},
 		"api-lb": {
 			"image": "nginx:alpine",
-			"volumes": ["./nginx/api-lb.conf:/etc/nginx/nginx.conf:ro"],
-			"ports": ["8080:80"],
+			"volumes": [
+				"./nginx/api-lb.conf:/etc/nginx/nginx.conf:ro"
+			],
+			"ports": [
+				"8080:80"
+			],
 			"depends_on": [
 				"regional-api-server-ind1",
 				"regional-api-server-usa1",

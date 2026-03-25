@@ -32,12 +32,6 @@ type TokenConfig struct {
 	OrgSessionTokenExpiry time.Duration // Default: 24h
 	OrgRememberMeExpiry   time.Duration // Default: 365 days
 
-	// Agency tokens
-	AgencySignupTokenExpiry  time.Duration // Default: 24h
-	AgencyTFATokenExpiry     time.Duration // Default: 10m
-	AgencySessionTokenExpiry time.Duration // Default: 24h
-	AgencyRememberMeExpiry   time.Duration // Default: 365 days
-
 	// Password reset tokens (all portals)
 	PasswordResetTokenExpiry time.Duration // Default: 1h
 
@@ -45,17 +39,15 @@ type TokenConfig struct {
 	EmailVerificationTokenExpiry time.Duration // Default: 1h
 
 	// Invitation tokens (all entity portals)
-	OrgInvitationTokenExpiry    time.Duration // Default: 168h (7 days)
-	AgencyInvitationTokenExpiry time.Duration // Default: 168h (7 days)
-	AdminInvitationTokenExpiry  time.Duration // Default: 168h (7 days)
+	OrgInvitationTokenExpiry   time.Duration // Default: 168h (7 days)
+	AdminInvitationTokenExpiry time.Duration // Default: 168h (7 days)
 }
 
 // UIConfig holds the base URLs for the various UI portals
 type UIConfig struct {
-	HubURL    string
-	AdminURL  string
-	OrgURL    string
-	AgencyURL string
+	HubURL   string
+	AdminURL string
+	OrgURL   string
 }
 
 // StorageConfig holds S3-compatible object storage connection parameters.

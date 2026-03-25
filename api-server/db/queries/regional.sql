@@ -94,12 +94,12 @@ WHERE expires_at <= NOW();
 SELECT *
 FROM org_users
 WHERE email_address = $1;
--- name: GetOrgUserByEmailAndEmployer :one
--- Composite lookup for login flow - email + employer uniquely identifies user
+-- name: GetOrgUserByEmailAndOrg :one
+-- Composite lookup for login flow - email + org uniquely identifies user
 SELECT *
 FROM org_users
 WHERE email_address = $1
-    AND employer_id = $2;
+    AND org_id = $2;
 -- name: GetOrgUserByID :one
 SELECT *
 FROM org_users
@@ -108,7 +108,7 @@ WHERE org_user_id = $1;
 INSERT INTO org_users (
         org_user_id,
         email_address,
-        employer_id,
+        org_id,
         full_name,
         password_hash,
         status,
@@ -133,22 +133,22 @@ UPDATE org_users
 SET full_name = $2,
     preferred_language = COALESCE($3, preferred_language)
 WHERE org_user_id = $1;
--- name: CountOrgUsersByEmployer :one
+-- name: CountOrgUsersByOrg :one
 SELECT COUNT(*)
 FROM org_users
-WHERE employer_id = $1;
+WHERE org_id = $1;
 -- name: CountActiveOrgUsersWithRole :one
 SELECT COUNT(*)
 FROM org_users u
 JOIN org_user_roles our ON our.org_user_id = u.org_user_id
-WHERE u.employer_id = $1
+WHERE u.org_id = $1
   AND our.role_id = $2
   AND u.status = 'active';
 -- name: LockActiveOrgUsersWithRole :many
 SELECT org_users.org_user_id
 FROM org_users
 JOIN org_user_roles ON org_user_roles.org_user_id = org_users.org_user_id
-WHERE org_users.employer_id = $1
+WHERE org_users.org_id = $1
   AND org_user_roles.role_id = $2
   AND org_users.status = 'active'
 FOR UPDATE OF org_users, org_user_roles;
@@ -221,7 +221,7 @@ WHERE org_user_id = $1;
 INSERT INTO org_invitation_tokens (
         invitation_token,
         org_user_id,
-        employer_id,
+        org_id,
         expires_at
     )
 VALUES ($1, $2, $3, $4);
@@ -245,12 +245,12 @@ SET password_hash = $2,
     preferred_language = COALESCE($6, preferred_language)
 WHERE org_user_id = $1;
 -- ============================================
--- Agency Domain Queries (Regional)
+-- Org Domain Queries (Regional)
 -- ============================================
--- name: CreateAgencyDomain :exec
-INSERT INTO agency_domains (
+-- name: CreateOrgDomain :exec
+INSERT INTO org_domains (
         domain,
-        agency_id,
+        org_id,
         verification_token,
         token_expires_at,
         status,
@@ -258,129 +258,63 @@ INSERT INTO agency_domains (
         last_verified_at
     )
 VALUES ($1, $2, $3, $4, $5, NULL, $6);
--- name: GetAgencyDomainsByAgency :many
+-- name: GetOrgDomain :one
 SELECT *
-FROM agency_domains
-WHERE agency_id = $1
-ORDER BY domain ASC;
--- name: GetAgencyDomainByAgencyAndDomain :one
+FROM org_domains
+WHERE domain = $1;
+-- name: GetOrgDomainByOrgAndDomain :one
 SELECT *
-FROM agency_domains
+FROM org_domains
 WHERE domain = $1
-    AND agency_id = $2;
--- name: UpdateAgencyDomainStatus :exec
-UPDATE agency_domains
+    AND org_id = $2;
+-- name: UpdateOrgDomainStatus :exec
+UPDATE org_domains
 SET status = $2,
     last_verified_at = $3,
     consecutive_failures = $4
 WHERE domain = $1;
--- name: UpdateAgencyDomainToken :exec
-UPDATE agency_domains
+-- name: UpdateOrgDomainToken :exec
+UPDATE org_domains
 SET verification_token = $2,
     token_expires_at = $3
 WHERE domain = $1;
--- name: DeleteAgencyDomain :exec
-DELETE FROM agency_domains
+-- name: DeleteOrgDomain :exec
+DELETE FROM org_domains
 WHERE domain = $1;
--- name: IncrementAgencyDomainFailures :exec
-UPDATE agency_domains
-SET consecutive_failures = consecutive_failures + 1
-WHERE domain = $1;
--- name: ResetAgencyDomainFailures :exec
-UPDATE agency_domains
-SET consecutive_failures = 0,
-    last_verified_at = NOW()
-WHERE domain = $1;
--- name: UpdateAgencyDomainVerificationRequested :exec
-UPDATE agency_domains
-SET last_verification_requested_at = NOW()
-WHERE domain = $1;
--- name: UpdateAgencyDomainTokenAndVerificationRequested :exec
-UPDATE agency_domains
-SET verification_token = $2,
-    token_expires_at = $3,
-    last_verification_requested_at = NOW()
-WHERE domain = $1;
--- ============================================
--- Employer Domain Queries (Regional)
--- ============================================
--- TODO: Add domain_verification_events audit log table for tracking verification history (see specs/Ideas.md)
--- name: CreateEmployerDomain :exec
-INSERT INTO employer_domains (
-        domain,
-        employer_id,
-        verification_token,
-        token_expires_at,
-        status,
-        last_verification_requested_at,
-        last_verified_at
-    )
-VALUES ($1, $2, $3, $4, $5, NULL, $6);
--- name: GetEmployerDomain :one
+-- name: GetOrgDomainsByOrg :many
 SELECT *
-FROM employer_domains
-WHERE domain = $1;
--- name: GetEmployerDomainByEmployerAndDomain :one
-SELECT *
-FROM employer_domains
-WHERE domain = $1
-    AND employer_id = $2;
--- name: UpdateEmployerDomainStatus :exec
-UPDATE employer_domains
-SET status = $2,
-    last_verified_at = $3,
-    consecutive_failures = $4
-WHERE domain = $1;
--- name: UpdateEmployerDomainToken :exec
-UPDATE employer_domains
-SET verification_token = $2,
-    token_expires_at = $3
-WHERE domain = $1;
--- name: DeleteEmployerDomain :exec
-DELETE FROM employer_domains
-WHERE domain = $1;
--- name: GetEmployerDomainsByEmployer :many
-SELECT *
-FROM employer_domains
-WHERE employer_id = $1
+FROM org_domains
+WHERE org_id = $1
 ORDER BY domain ASC;
--- name: IncrementEmployerDomainFailures :exec
-UPDATE employer_domains
+-- name: IncrementOrgDomainFailures :exec
+UPDATE org_domains
 SET consecutive_failures = consecutive_failures + 1
 WHERE domain = $1;
--- name: ResetEmployerDomainFailures :exec
-UPDATE employer_domains
+-- name: ResetOrgDomainFailures :exec
+UPDATE org_domains
 SET consecutive_failures = 0,
     last_verified_at = NOW()
 WHERE domain = $1;
--- name: UpdateEmployerDomainVerificationRequested :exec
-UPDATE employer_domains
+-- name: UpdateOrgDomainVerificationRequested :exec
+UPDATE org_domains
 SET last_verification_requested_at = NOW()
 WHERE domain = $1;
--- name: UpdateEmployerDomainTokenAndVerificationRequested :exec
-UPDATE employer_domains
+-- name: UpdateOrgDomainTokenAndVerificationRequested :exec
+UPDATE org_domains
 SET verification_token = $2,
     token_expires_at = $3,
     last_verification_requested_at = NOW()
 WHERE domain = $1;
--- name: GetEmployerDomainsForReverification :many
+-- name: GetOrgDomainsForReverification :many
 SELECT *
-FROM employer_domains
-WHERE (
-        status = 'VERIFIED'
-        AND last_verified_at < $1
-    )
-    OR status = 'FAILING';
--- name: GetAgencyDomainsForReverification :many
-SELECT *
-FROM agency_domains
+FROM org_domains
 WHERE (
         status = 'VERIFIED'
         AND last_verified_at < $1
     )
     OR status = 'FAILING';
 -- ============================================
--- Agency User Queries (Regional)
+-- Filter Org Users Query (Regional)
 -- ============================================
 -- name: FilterOrgUsers :many
 SELECT u.org_user_id,
@@ -401,7 +335,7 @@ SELECT u.org_user_id,
         '{}'
     )::text [] AS roles
 FROM org_users u
-WHERE u.employer_id = @employer_id
+WHERE u.org_id = @org_id
     AND (
         sqlc.narg('filter_email')::text IS NULL
         OR u.email_address ILIKE '%' || sqlc.narg('filter_email') || '%'
@@ -423,174 +357,6 @@ WHERE u.employer_id = @employer_id
 ORDER BY u.created_at DESC,
     u.org_user_id DESC
 LIMIT @limit_count;
--- Agency Users
--- name: FilterAgencyUsers :many
-SELECT u.agency_user_id,
-    u.email_address,
-    u.full_name,
-    u.status,
-    u.created_at,
-    COALESCE(
-        (
-            SELECT array_agg(
-                    r.role_name
-                    ORDER BY r.role_name
-                )
-            FROM agency_user_roles aur
-                JOIN roles r ON aur.role_id = r.role_id
-            WHERE aur.agency_user_id = u.agency_user_id
-        ),
-        '{}'
-    )::text [] AS roles
-FROM agency_users u
-WHERE u.agency_id = @agency_id
-    AND (
-        sqlc.narg('filter_email')::text IS NULL
-        OR u.email_address ILIKE '%' || sqlc.narg('filter_email') || '%'
-    )
-    AND (
-        sqlc.narg('filter_name')::text IS NULL
-        OR u.full_name ILIKE '%' || sqlc.narg('filter_name') || '%'
-    )
-    AND (
-        @cursor_created_at::timestamp IS NULL
-        OR (
-            u.created_at < @cursor_created_at
-            OR (
-                u.created_at = @cursor_created_at
-                AND u.agency_user_id < @cursor_id
-            )
-        )
-    )
-ORDER BY u.created_at DESC,
-    u.agency_user_id DESC
-LIMIT @limit_count;
--- name: GetAgencyUserByEmail :one
--- Note: This returns ONE user but may fail if email exists for multiple agencies.
--- Prefer GetAgencyUserByEmailAndAgency for login flows.
-SELECT *
-FROM agency_users
-WHERE email_address = $1;
--- name: GetAgencyUserByEmailAndAgency :one
--- Composite lookup for login flow - email + agency uniquely identifies user
-SELECT *
-FROM agency_users
-WHERE email_address = $1
-    AND agency_id = $2;
--- name: GetAgencyUserByID :one
-SELECT *
-FROM agency_users
-WHERE agency_user_id = $1;
--- name: CreateAgencyUser :one
-INSERT INTO agency_users (
-        agency_user_id,
-        email_address,
-        agency_id,
-        full_name,
-        password_hash,
-        status,
-        preferred_language
-    )
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING *;
--- name: DeleteAgencyUser :exec
-DELETE FROM agency_users
-WHERE agency_user_id = $1;
--- Agency user status and preferences queries
--- name: UpdateAgencyUserStatus :exec
-UPDATE agency_users
-SET status = $2
-WHERE agency_user_id = $1;
--- name: UpdateAgencyUserPreferredLanguage :exec
-UPDATE agency_users
-SET preferred_language = $2
-WHERE agency_user_id = $1;
--- name: UpdateAgencyUserFullName :exec
-UPDATE agency_users
-SET full_name = $2,
-    preferred_language = COALESCE($3, preferred_language)
-WHERE agency_user_id = $1;
--- name: CountAgencyUsersByAgency :one
-SELECT COUNT(*)
-FROM agency_users
-WHERE agency_id = $1;
--- name: CountActiveAgencyUsersWithRole :one
-SELECT COUNT(*)
-FROM agency_users u
-JOIN agency_user_roles aur ON aur.agency_user_id = u.agency_user_id
-WHERE u.agency_id = $1
-  AND aur.role_id = $2
-  AND u.status = 'active';
--- name: LockActiveAgencyUsersWithRole :many
-SELECT agency_users.agency_user_id
-FROM agency_users
-JOIN agency_user_roles ON agency_user_roles.agency_user_id = agency_users.agency_user_id
-WHERE agency_users.agency_id = $1
-  AND agency_user_roles.role_id = $2
-  AND agency_users.status = 'active'
-FOR UPDATE OF agency_users, agency_user_roles;
--- ============================================
--- Agency TFA Token Queries
--- ============================================
--- name: CreateAgencyTFAToken :exec
-INSERT INTO agency_tfa_tokens (tfa_token, agency_user_id, tfa_code, expires_at)
-VALUES ($1, $2, $3, $4);
--- name: GetAgencyTFAToken :one
-SELECT *
-FROM agency_tfa_tokens
-WHERE tfa_token = $1
-    AND expires_at > NOW();
--- name: DeleteAgencyTFAToken :exec
-DELETE FROM agency_tfa_tokens
-WHERE tfa_token = $1;
--- name: DeleteExpiredAgencyTFATokens :exec
-DELETE FROM agency_tfa_tokens
-WHERE expires_at <= NOW();
--- ============================================
--- Agency Session Queries
--- ============================================
--- name: CreateAgencySession :exec
-INSERT INTO agency_sessions (session_token, agency_user_id, expires_at)
-VALUES ($1, $2, $3);
--- name: GetAgencySession :one
-SELECT *
-FROM agency_sessions
-WHERE session_token = $1
-    AND expires_at > NOW();
--- name: DeleteAgencySession :exec
-DELETE FROM agency_sessions
-WHERE session_token = $1;
--- name: DeleteExpiredAgencySessions :exec
-DELETE FROM agency_sessions
-WHERE expires_at <= NOW();
--- name: DeleteAllAgencySessionsForUser :exec
-DELETE FROM agency_sessions
-WHERE agency_user_id = $1;
--- name: DeleteAllAgencySessionsExceptCurrent :exec
-DELETE FROM agency_sessions
-WHERE agency_user_id = $1
-    AND session_token != $2;
--- ============================================
--- Agency Password Reset Token Queries
--- ============================================
--- name: CreateAgencyPasswordResetToken :exec
-INSERT INTO agency_password_reset_tokens (reset_token, agency_user_global_id, expires_at)
-VALUES ($1, $2, $3);
--- name: GetAgencyPasswordResetToken :one
-SELECT *
-FROM agency_password_reset_tokens
-WHERE reset_token = $1
-    AND expires_at > NOW();
--- name: DeleteAgencyPasswordResetToken :exec
-DELETE FROM agency_password_reset_tokens
-WHERE reset_token = $1;
--- name: DeleteExpiredAgencyPasswordResetTokens :exec
-DELETE FROM agency_password_reset_tokens
-WHERE expires_at <= NOW();
--- name: UpdateAgencyUserPassword :exec
-UPDATE agency_users
-SET password_hash = $2
-WHERE agency_user_id = $1;
 -- ============================================
 -- Hub Email Verification Token Queries
 -- ============================================
@@ -617,36 +383,6 @@ WHERE expires_at <= NOW();
 UPDATE hub_users
 SET email_address = $2
 WHERE hub_user_global_id = $1;
--- ============================================
--- Agency Invitation Token Queries
--- ============================================
--- name: CreateAgencyInvitationToken :exec
-INSERT INTO agency_invitation_tokens (
-        invitation_token,
-        agency_user_id,
-        agency_id,
-        expires_at
-    )
-VALUES ($1, $2, $3, $4);
--- name: GetAgencyInvitationToken :one
-SELECT *
-FROM agency_invitation_tokens
-WHERE invitation_token = $1
-    AND expires_at > NOW();
--- name: DeleteAgencyInvitationToken :exec
-DELETE FROM agency_invitation_tokens
-WHERE invitation_token = $1;
--- name: DeleteExpiredAgencyInvitationTokens :exec
-DELETE FROM agency_invitation_tokens
-WHERE expires_at <= NOW();
--- name: UpdateAgencyUserSetup :exec
-UPDATE agency_users
-SET password_hash = $2,
-    full_name = $3,
-    authentication_type = $4,
-    status = $5,
-    preferred_language = COALESCE($6, preferred_language)
-WHERE agency_user_id = $1;
 -- ============================================
 -- RBAC Queries (Regional)
 -- ============================================
@@ -679,30 +415,6 @@ VALUES ($1, $2);
 DELETE FROM org_user_roles
 WHERE org_user_id = $1
   AND role_id = $2;
--- Agency user role queries
--- name: GetAgencyUserRoles :many
-SELECT r.role_id,
-  r.role_name,
-  r.description,
-  aur.assigned_at
-FROM agency_user_roles aur
-  JOIN roles r ON aur.role_id = r.role_id
-WHERE aur.agency_user_id = $1
-ORDER BY r.role_name ASC;
--- name: HasAgencyUserRole :one
-SELECT EXISTS(
-    SELECT 1
-    FROM agency_user_roles
-    WHERE agency_user_id = $1
-      AND role_id = $2
-  ) AS has_role;
--- name: AssignAgencyUserRole :exec
-INSERT INTO agency_user_roles (agency_user_id, role_id)
-VALUES ($1, $2);
--- name: RemoveAgencyUserRole :exec
-DELETE FROM agency_user_roles
-WHERE agency_user_id = $1
-  AND role_id = $2;
 -- Hub user role queries
 -- name: GetHubUserRoles :many
 SELECT r.role_id,
@@ -724,25 +436,25 @@ SELECT EXISTS(
 INSERT INTO hub_user_roles (hub_user_global_id, role_id)
 VALUES ($1, $2);
 -- name: CreateCostCenter :one
-INSERT INTO cost_centers (employer_id, id, display_name, notes)
-VALUES (@employer_id, @id, @display_name, @notes)
+INSERT INTO cost_centers (org_id, id, display_name, notes)
+VALUES (@org_id, @id, @display_name, @notes)
 RETURNING *;
 
--- name: GetCostCenterByEmployerAndID :one
+-- name: GetCostCenterByOrgAndID :one
 SELECT * FROM cost_centers
-WHERE employer_id = @employer_id AND id = @id;
+WHERE org_id = @org_id AND id = @id;
 
 -- name: UpdateCostCenter :one
 UPDATE cost_centers
 SET display_name = @display_name,
     status       = @status,
     notes        = @notes
-WHERE employer_id = @employer_id AND id = @id
+WHERE org_id = @org_id AND id = @id
 RETURNING *;
 
 -- name: ListCostCenters :many
 SELECT * FROM cost_centers
-WHERE employer_id = @employer_id
+WHERE org_id = @org_id
   AND (sqlc.narg('filter_status')::cost_center_status IS NULL
        OR status = sqlc.narg('filter_status')::cost_center_status)
   AND (@cursor_created_at::timestamp IS NULL
@@ -795,32 +507,32 @@ WHERE created_at < NOW() - @retention_period::interval;
 -- SubOrg Queries
 -- ============================================
 
--- name: CountSubOrgsByEmployer :one
-SELECT COUNT(*) FROM suborgs WHERE employer_id = @employer_id;
+-- name: CountSubOrgsByOrg :one
+SELECT COUNT(*) FROM suborgs WHERE org_id = @org_id;
 
 -- name: CreateSubOrg :one
-INSERT INTO suborgs (employer_id, name, pinned_region)
-VALUES (@employer_id, @name, @pinned_region)
+INSERT INTO suborgs (org_id, name, pinned_region)
+VALUES (@org_id, @name, @pinned_region)
 RETURNING *;
 
 -- name: GetSubOrgByID :one
-SELECT * FROM suborgs WHERE suborg_id = @suborg_id AND employer_id = @employer_id;
+SELECT * FROM suborgs WHERE suborg_id = @suborg_id AND org_id = @org_id;
 
 -- name: RenameSubOrg :one
 UPDATE suborgs
 SET name = @name
-WHERE suborg_id = @suborg_id AND employer_id = @employer_id
+WHERE suborg_id = @suborg_id AND org_id = @org_id
 RETURNING *;
 
 -- name: UpdateSubOrgStatus :one
 UPDATE suborgs
 SET status = @status
-WHERE suborg_id = @suborg_id AND employer_id = @employer_id
+WHERE suborg_id = @suborg_id AND org_id = @org_id
 RETURNING *;
 
 -- name: ListSubOrgs :many
 SELECT * FROM suborgs
-WHERE employer_id = @employer_id
+WHERE org_id = @org_id
   AND (sqlc.narg('filter_status')::text IS NULL OR status = sqlc.narg('filter_status')::text)
   AND (@cursor_created_at::timestamp IS NULL
        OR (created_at > @cursor_created_at)

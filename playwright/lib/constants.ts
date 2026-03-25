@@ -3,7 +3,7 @@
  */
 
 /**
- * Standard password used for all test users (admin, hub, org, agency).
+ * Standard password used for all test users (admin, hub, org).
  * Meets requirements: min 8 chars, uppercase, lowercase, number, special character.
  */
 export const TEST_PASSWORD = "Password123$";

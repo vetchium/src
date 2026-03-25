@@ -316,14 +316,14 @@ export async function getOrgSignupTokenFromEmail(
 }
 
 /**
- * Extracts the agency signup token from an email body.
+ * Extracts the org signup token from an email body.
  * The token is a 64-character hex string sent in the private signup email.
  *
  * @param emailText - Plain text email body
  * @returns The 64-character signup token
  * @throws Error if no signup token is found
  */
-export function extractAgencySignupToken(emailText: string): string {
+export function extractOrgSignupToken(emailText: string): string {
 	// Look for a 64-character hex string (the signup token)
 	const match = emailText.match(/\b([a-f0-9]{64})\b/);
 	if (!match) {
@@ -335,14 +335,14 @@ export function extractAgencySignupToken(emailText: string): string {
 }
 
 /**
- * Waits for and returns both agency signup emails (DNS instructions + token).
+ * Waits for and returns both org signup emails (DNS instructions + token).
  * Returns the signup token from the private email.
  *
  * @param toEmail - Email address to wait for
  * @param config - Optional configuration for retry behavior
  * @returns The signup token from the private signup email
  */
-export async function getAgencySignupTokenFromEmail(
+export async function getOrgSignupTokenFromEmail(
 	toEmail: string,
 	config: Partial<WaitForEmailConfig> = {}
 ): Promise<string> {
@@ -362,14 +362,14 @@ export async function getAgencySignupTokenFromEmail(
 					fullMessage.Subject.includes("Private Link") ||
 					fullMessage.Text.includes("DO NOT FORWARD")
 				) {
-					return extractAgencySignupToken(fullMessage.Text);
+					return extractOrgSignupToken(fullMessage.Text);
 				}
 			}
 			// If we have 2 emails but neither matches, check all of them for the token
 			for (const msg of messages) {
 				const fullMessage = await getEmailContent(msg.ID);
 				try {
-					return extractAgencySignupToken(fullMessage.Text);
+					return extractOrgSignupToken(fullMessage.Text);
 				} catch {
 					// Continue to next email
 				}
@@ -384,7 +384,7 @@ export async function getAgencySignupTokenFromEmail(
 	}
 
 	throw new Error(
-		`Agency signup token email not received for ${toEmail} after ${
+		`Org signup token email not received for ${toEmail} after ${
 			cfg.maxRetries
 		} attempts (waited ~${Math.round(totalWaitTime / 1000)}s)`
 	);
@@ -437,7 +437,7 @@ export async function deleteEmailsFor(toEmail: string): Promise<void> {
 export function extractPasswordResetToken(message: MailpitMessage): string {
 	const text = message.Text;
 
-	// Try region-prefixed token first (for hub/org/agency users)
+	// Try region-prefixed token first (for hub/org users)
 	const regionalMatch = text.match(/\b(IND1|USA1|DEU1)-([a-f0-9]{64})\b/);
 	if (regionalMatch) {
 		return regionalMatch[0];

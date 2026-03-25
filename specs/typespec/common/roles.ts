@@ -13,29 +13,17 @@ export const VALID_ROLE_NAMES = [
 	"admin:manage_tags",
 	"admin:view_audit_logs",
 
-	// Employer portal roles
-	"employer:superadmin",
-	"employer:view_users",
-	"employer:manage_users",
-	"employer:view_domains",
-	"employer:manage_domains",
-	"employer:view_costcenters",
-	"employer:manage_costcenters",
-	"employer:view_suborgs",
-	"employer:manage_suborgs",
-
-	// Agency portal roles
-	"agency:superadmin",
-	"agency:view_users",
-	"agency:manage_users",
-	"agency:view_domains",
-	"agency:manage_domains",
-
-	// Employer audit log role
-	"employer:view_audit_logs",
-
-	// Agency audit log role
-	"agency:view_audit_logs",
+	// Org portal roles
+	"org:superadmin",
+	"org:view_users",
+	"org:manage_users",
+	"org:view_domains",
+	"org:manage_domains",
+	"org:view_costcenters",
+	"org:manage_costcenters",
+	"org:view_suborgs",
+	"org:manage_suborgs",
+	"org:view_audit_logs",
 
 	// Hub portal roles
 	"hub:read_posts",

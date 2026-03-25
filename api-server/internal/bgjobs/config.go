@@ -15,7 +15,6 @@ type GlobalBgJobsConfig struct {
 	ExpiredAdminInvitationTokensCleanupInterval    time.Duration
 	ExpiredHubSignupTokensCleanupInterval          time.Duration
 	ExpiredOrgSignupTokensCleanupInterval          time.Duration
-	ExpiredAgencySignupTokensCleanupInterval       time.Duration
 	AdminAuditLogRetention                         time.Duration
 	AdminAuditLogPurgeInterval                     time.Duration
 }
@@ -30,12 +29,7 @@ type RegionalBgJobsConfig struct {
 	ExpiredOrgSessionsCleanupInterval                time.Duration
 	ExpiredOrgPasswordResetTokensCleanupInterval     time.Duration
 	ExpiredOrgInvitationTokensCleanupInterval        time.Duration
-	ExpiredAgencyTFATokensCleanupInterval            time.Duration
-	ExpiredAgencySessionsCleanupInterval             time.Duration
-	ExpiredAgencyPasswordResetTokensCleanupInterval  time.Duration
-	ExpiredAgencyInvitationTokensCleanupInterval     time.Duration
-	EmployerDomainVerificationInterval               time.Duration
-	AgencyDomainVerificationInterval                 time.Duration
+	OrgDomainVerificationInterval                    time.Duration
 	AuditLogRetention                                time.Duration
 	AuditLogPurgeInterval                            time.Duration
 }
@@ -67,11 +61,6 @@ func GlobalConfigFromEnv() *GlobalBgJobsConfig {
 		1*time.Hour,
 	)
 
-	agencySignupInterval := parseDurationOrDefault(
-		os.Getenv("AGENCY_SIGNUP_TOKEN_CLEANUP_INTERVAL"),
-		1*time.Hour,
-	)
-
 	adminInvitationInterval := parseDurationOrDefault(
 		os.Getenv("ADMIN_INVITATION_TOKEN_CLEANUP_INTERVAL"),
 		6*time.Hour,
@@ -94,7 +83,6 @@ func GlobalConfigFromEnv() *GlobalBgJobsConfig {
 		ExpiredAdminInvitationTokensCleanupInterval:    adminInvitationInterval,
 		ExpiredHubSignupTokensCleanupInterval:          hubSignupInterval,
 		ExpiredOrgSignupTokensCleanupInterval:          orgSignupInterval,
-		ExpiredAgencySignupTokensCleanupInterval:       agencySignupInterval,
 		AdminAuditLogRetention:                         adminAuditLogRetention,
 		AdminAuditLogPurgeInterval:                     adminAuditLogPurgeInterval,
 	}
@@ -137,38 +125,13 @@ func RegionalConfigFromEnv() *RegionalBgJobsConfig {
 		1*time.Hour,
 	)
 
-	agencyTFAInterval := parseDurationOrDefault(
-		os.Getenv("AGENCY_TFA_TOKEN_CLEANUP_INTERVAL"),
-		1*time.Hour,
-	)
-
-	agencySessionsInterval := parseDurationOrDefault(
-		os.Getenv("AGENCY_SESSION_CLEANUP_INTERVAL"),
-		1*time.Hour,
-	)
-
-	agencyPasswordResetInterval := parseDurationOrDefault(
-		os.Getenv("AGENCY_PASSWORD_RESET_TOKEN_CLEANUP_INTERVAL"),
-		1*time.Hour,
-	)
-
 	orgInvitationInterval := parseDurationOrDefault(
 		os.Getenv("ORG_INVITATION_TOKEN_CLEANUP_INTERVAL"),
 		6*time.Hour,
 	)
 
-	agencyInvitationInterval := parseDurationOrDefault(
-		os.Getenv("AGENCY_INVITATION_TOKEN_CLEANUP_INTERVAL"),
-		6*time.Hour,
-	)
-
-	employerDomainVerificationInterval := parseDurationOrDefault(
-		os.Getenv("EMPLOYER_DOMAIN_VERIFICATION_INTERVAL"),
-		24*time.Hour,
-	)
-
-	agencyDomainVerificationInterval := parseDurationOrDefault(
-		os.Getenv("AGENCY_DOMAIN_VERIFICATION_INTERVAL"),
+	orgDomainVerificationInterval := parseDurationOrDefault(
+		os.Getenv("ORG_DOMAIN_VERIFICATION_INTERVAL"),
 		24*time.Hour,
 	)
 
@@ -191,12 +154,7 @@ func RegionalConfigFromEnv() *RegionalBgJobsConfig {
 		ExpiredOrgSessionsCleanupInterval:                orgSessionsInterval,
 		ExpiredOrgPasswordResetTokensCleanupInterval:     orgPasswordResetInterval,
 		ExpiredOrgInvitationTokensCleanupInterval:        orgInvitationInterval,
-		ExpiredAgencyTFATokensCleanupInterval:            agencyTFAInterval,
-		ExpiredAgencySessionsCleanupInterval:             agencySessionsInterval,
-		ExpiredAgencyPasswordResetTokensCleanupInterval:  agencyPasswordResetInterval,
-		ExpiredAgencyInvitationTokensCleanupInterval:     agencyInvitationInterval,
-		EmployerDomainVerificationInterval:               employerDomainVerificationInterval,
-		AgencyDomainVerificationInterval:                 agencyDomainVerificationInterval,
+		OrgDomainVerificationInterval:                    orgDomainVerificationInterval,
 		AuditLogRetention:                                auditLogRetention,
 		AuditLogPurgeInterval:                            auditLogPurgeInterval,
 	}
@@ -250,24 +208,6 @@ func TokenConfigFromEnv() *server.TokenConfig {
 		365*24*time.Hour,
 	)
 
-	// Agency token expiry durations
-	agencySignupExpiry := parseDurationOrDefault(
-		os.Getenv("AGENCY_SIGNUP_TOKEN_EXPIRY"),
-		24*time.Hour,
-	)
-	agencyTFAExpiry := parseDurationOrDefault(
-		os.Getenv("AGENCY_TFA_TOKEN_EXPIRY"),
-		10*time.Minute,
-	)
-	agencySessionExpiry := parseDurationOrDefault(
-		os.Getenv("AGENCY_SESSION_TOKEN_EXPIRY"),
-		24*time.Hour,
-	)
-	agencyRememberMeExpiry := parseDurationOrDefault(
-		os.Getenv("AGENCY_REMEMBER_ME_EXPIRY"),
-		365*24*time.Hour,
-	)
-
 	// Password reset token expiry (all portals)
 	passwordResetExpiry := parseDurationOrDefault(
 		os.Getenv("PASSWORD_RESET_TOKEN_EXPIRY"),
@@ -283,10 +223,6 @@ func TokenConfigFromEnv() *server.TokenConfig {
 	// Invitation token expiry (all entity portals)
 	orgInvitationExpiry := parseDurationOrDefault(
 		os.Getenv("ORG_INVITATION_TOKEN_EXPIRY"),
-		168*time.Hour, // 7 days
-	)
-	agencyInvitationExpiry := parseDurationOrDefault(
-		os.Getenv("AGENCY_INVITATION_TOKEN_EXPIRY"),
 		168*time.Hour, // 7 days
 	)
 	adminInvitationExpiry := parseDurationOrDefault(
@@ -305,14 +241,9 @@ func TokenConfigFromEnv() *server.TokenConfig {
 		OrgTFATokenExpiry:            orgTFAExpiry,
 		OrgSessionTokenExpiry:        orgSessionExpiry,
 		OrgRememberMeExpiry:          orgRememberMeExpiry,
-		AgencySignupTokenExpiry:      agencySignupExpiry,
-		AgencyTFATokenExpiry:         agencyTFAExpiry,
-		AgencySessionTokenExpiry:     agencySessionExpiry,
-		AgencyRememberMeExpiry:       agencyRememberMeExpiry,
 		PasswordResetTokenExpiry:     passwordResetExpiry,
 		EmailVerificationTokenExpiry: emailVerificationExpiry,
 		OrgInvitationTokenExpiry:     orgInvitationExpiry,
-		AgencyInvitationTokenExpiry:  agencyInvitationExpiry,
 		AdminInvitationTokenExpiry:   adminInvitationExpiry,
 	}
 }

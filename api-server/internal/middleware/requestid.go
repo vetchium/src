@@ -22,9 +22,6 @@ const (
 	orgSessionKey    ctxKey = "orgSession"
 	orgUserKey       ctxKey = "orgUser"
 	orgRegionKey     ctxKey = "orgRegion"
-	agencySessionKey ctxKey = "agencySession"
-	agencyUserKey    ctxKey = "agencyUser"
-	agencyRegionKey  ctxKey = "agencyRegion"
 )
 
 // responseWriter wraps http.ResponseWriter to capture status code

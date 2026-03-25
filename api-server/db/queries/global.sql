@@ -417,26 +417,26 @@ WHERE domain_name = $1
 -- Org User Queries
 -- ============================================
 -- name: GetOrgUserByEmailHash :one
--- Note: This returns ONE user but may fail if email exists for multiple employers.
--- Prefer GetOrgUserByEmailHashAndEmployer for login flows.
+-- Note: This returns ONE user but may fail if email exists for multiple orgs.
+-- Prefer GetOrgUserByEmailHashAndOrg for login flows.
 SELECT *
 FROM org_users
 WHERE email_address_hash = $1;
--- name: GetOrgUserByEmailHashAndEmployer :one
--- Composite lookup for login flow - email + employer uniquely identifies user
+-- name: GetOrgUserByEmailHashAndOrg :one
+-- Composite lookup for login flow - email + org uniquely identifies user
 SELECT *
 FROM org_users
 WHERE email_address_hash = $1
-  AND employer_id = $2;
+  AND org_id = $2;
 -- name: GetOrgUsersByEmailHash :many
--- Returns all org_users for a given email hash (for multi-employer scenarios)
+-- Returns all org_users for a given email hash (for multi-org scenarios)
 -- Note: status filtering now happens at the regional level
 SELECT ou.*,
-  e.employer_name
+  o.org_name
 FROM org_users ou
-  JOIN employers e ON ou.employer_id = e.employer_id
+  JOIN orgs o ON ou.org_id = o.org_id
 WHERE ou.email_address_hash = $1
-ORDER BY e.employer_name;
+ORDER BY o.org_name;
 -- name: GetOrgUserByID :one
 SELECT *
 FROM org_users
@@ -445,7 +445,7 @@ WHERE org_user_id = $1;
 INSERT INTO org_users (
     email_address_hash,
     hashing_algorithm,
-    employer_id,
+    org_id,
     home_region
   )
 VALUES ($1, $2, $3, $4)
@@ -515,183 +515,43 @@ WHERE email_address_hash = $1
 ORDER BY created_at DESC
 LIMIT 1;
 -- ============================================
--- Employer Queries
+-- Org Queries
 -- ============================================
--- name: CreateEmployer :one
-INSERT INTO employers (employer_name, region)
+-- name: CreateOrg :one
+INSERT INTO orgs (org_name, region)
 VALUES ($1, $2)
 RETURNING *;
--- name: GetEmployerByID :one
+-- name: GetOrgByID :one
 SELECT *
-FROM employers
-WHERE employer_id = $1;
--- name: GetEmployerByDomain :one
--- Find employer by domain name (for login flow routing)
+FROM orgs
+WHERE org_id = $1;
+-- name: GetOrgByDomain :one
+-- Find org by domain name (for login flow routing)
 -- Domain verification status is checked in regional DB
-SELECT e.*
-FROM employers e
-  JOIN global_employer_domains ged ON e.employer_id = ged.employer_id
-WHERE ged.domain = $1;
--- name: DeleteEmployer :exec
-DELETE FROM employers
-WHERE employer_id = $1;
+SELECT o.*
+FROM orgs o
+  JOIN global_org_domains god ON o.org_id = god.org_id
+WHERE god.domain = $1;
+-- name: DeleteOrg :exec
+DELETE FROM orgs
+WHERE org_id = $1;
 -- ============================================
--- Global Employer Domain Queries
+-- Global Org Domain Queries
 -- ============================================
--- name: CreateGlobalEmployerDomain :exec
-INSERT INTO global_employer_domains (domain, region, employer_id)
+-- name: CreateGlobalOrgDomain :exec
+INSERT INTO global_org_domains (domain, region, org_id)
 VALUES ($1, $2, $3);
--- name: GetGlobalEmployerDomain :one
+-- name: GetGlobalOrgDomain :one
 SELECT *
-FROM global_employer_domains
+FROM global_org_domains
 WHERE domain = $1;
--- name: DeleteGlobalEmployerDomain :exec
-DELETE FROM global_employer_domains
+-- name: DeleteGlobalOrgDomain :exec
+DELETE FROM global_org_domains
 WHERE domain = $1;
--- name: GetGlobalEmployerDomainsByEmployer :many
+-- name: GetGlobalOrgDomainsByOrg :many
 SELECT *
-FROM global_employer_domains
-WHERE employer_id = $1
-ORDER BY domain ASC;
--- ============================================
--- Agency User Queries
--- ============================================
--- name: GetAgencyUserByEmailHash :one
--- Note: This returns ONE user but may fail if email exists for multiple agencies.
--- Prefer GetAgencyUserByEmailHashAndAgency for login flows.
-SELECT *
-FROM agency_users
-WHERE email_address_hash = $1;
--- name: GetAgencyUserByEmailHashAndAgency :one
--- Composite lookup for login flow - email + agency uniquely identifies user
-SELECT *
-FROM agency_users
-WHERE email_address_hash = $1
-  AND agency_id = $2;
--- name: GetAgencyUsersByEmailHash :many
--- Returns all agency_users for a given email hash (for multi-agency scenarios)
--- Note: status filtering now happens at the regional level
-SELECT au.*,
-  a.agency_name
-FROM agency_users au
-  JOIN agencies a ON au.agency_id = a.agency_id
-WHERE au.email_address_hash = $1
-ORDER BY a.agency_name;
--- name: GetAgencyUserByID :one
-SELECT *
-FROM agency_users
-WHERE agency_user_id = $1;
--- name: CreateAgencyUser :one
-INSERT INTO agency_users (
-    email_address_hash,
-    hashing_algorithm,
-    agency_id,
-    home_region
-  )
-VALUES ($1, $2, $3, $4)
-RETURNING *;
--- name: DeleteAgencyUser :exec
-DELETE FROM agency_users
-WHERE agency_user_id = $1;
--- ============================================
--- Agency Signup Token Queries (DNS-based domain verification)
--- ============================================
--- name: CreateAgencySignupToken :exec
-INSERT INTO agency_signup_tokens (
-    signup_token,
-    email_token,
-    email_address,
-    email_address_hash,
-    hashing_algorithm,
-    expires_at,
-    home_region,
-    domain
-  )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
--- name: GetAgencySignupToken :one
-SELECT *
-FROM agency_signup_tokens
-WHERE signup_token = $1
-  AND expires_at > NOW();
--- name: GetAgencySignupTokenByEmailToken :one
--- Get pending signup by email token (for complete-signup flow - proves email access)
-SELECT *
-FROM agency_signup_tokens
-WHERE email_token = $1
-  AND expires_at > NOW()
-  AND consumed_at IS NULL;
--- name: GetAgencySignupTokenByEmail :one
--- Get pending signup by email address (for resend email flow)
-SELECT *
-FROM agency_signup_tokens
-WHERE email_address = $1
-  AND expires_at > NOW()
-  AND consumed_at IS NULL
-ORDER BY created_at DESC
-LIMIT 1;
--- name: GetPendingAgencySignupByDomain :one
--- Check if a domain has a pending (non-expired, non-consumed) signup
-SELECT *
-FROM agency_signup_tokens
-WHERE domain = $1
-  AND expires_at > NOW()
-  AND consumed_at IS NULL
-LIMIT 1;
--- name: MarkAgencySignupTokenConsumed :exec
-UPDATE agency_signup_tokens
-SET consumed_at = NOW()
-WHERE signup_token = $1;
--- name: DeleteExpiredAgencySignupTokens :exec
-DELETE FROM agency_signup_tokens
-WHERE expires_at <= NOW();
--- name: DeleteAgencySignupToken :exec
-DELETE FROM agency_signup_tokens
-WHERE signup_token = $1;
--- name: GetActiveAgencySignupTokenByEmailHash :one
-SELECT *
-FROM agency_signup_tokens
-WHERE email_address_hash = $1
-  AND expires_at > NOW()
-ORDER BY created_at DESC
-LIMIT 1;
--- ============================================
--- Agency Queries
--- ============================================
--- name: CreateAgency :one
-INSERT INTO agencies (agency_name, region)
-VALUES ($1, $2)
-RETURNING *;
--- name: GetAgencyByID :one
-SELECT *
-FROM agencies
-WHERE agency_id = $1;
--- name: GetAgencyByDomain :one
--- Find agency by domain name (for login flow routing)
--- Domain verification status is checked in regional DB
-SELECT a.*
-FROM agencies a
-  JOIN global_agency_domains gad ON a.agency_id = gad.agency_id
-WHERE gad.domain = $1;
--- name: DeleteAgency :exec
-DELETE FROM agencies
-WHERE agency_id = $1;
--- ============================================
--- Global Agency Domain Queries
--- ============================================
--- name: CreateGlobalAgencyDomain :exec
-INSERT INTO global_agency_domains (domain, region, agency_id)
-VALUES ($1, $2, $3);
--- name: GetGlobalAgencyDomain :one
-SELECT *
-FROM global_agency_domains
-WHERE domain = $1;
--- name: DeleteGlobalAgencyDomain :exec
-DELETE FROM global_agency_domains
-WHERE domain = $1;
--- name: GetGlobalAgencyDomainsByAgency :many
-SELECT *
-FROM global_agency_domains
-WHERE agency_id = $1
+FROM global_org_domains
+WHERE org_id = $1
 ORDER BY domain ASC;
 -- ============================================
 -- Hub User Email Update Queries

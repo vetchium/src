@@ -1,0 +1,622 @@
+import { test, expect } from "@playwright/test";
+import { OrgAPIClient } from "../../../lib/org-api-client";
+import {
+	createTestOrgAdminDirect,
+	deleteTestOrgUser,
+	generateTestOrgEmail,
+} from "../../../lib/db";
+import {
+	waitForEmail,
+	extractPasswordResetToken,
+	getEmailContent,
+	getTfaCodeFromEmail,
+} from "../../../lib/mailpit";
+import { TEST_PASSWORD } from "../../../lib/constants";
+
+test.describe("POST /org/request-password-reset", () => {
+	test("successful request returns 200 and sends email and records org.request_password_reset event", async ({
+		request,
+	}) => {
+		const api = new OrgAPIClient(request);
+		const { email, domain } = generateTestOrgEmail("pwd-reset-success");
+
+		const { orgId } = await createTestOrgAdminDirect(email, TEST_PASSWORD);
+		try {
+			// Login before reset to get session token (old password still valid)
+			const loginResp = await api.login({
+				email,
+				domain,
+				password: TEST_PASSWORD,
+			});
+			expect(loginResp.status).toBe(200);
+			const tfaCode = await getTfaCodeFromEmail(email);
+			const tfaResp = await api.verifyTFA({
+				tfa_token: loginResp.body.tfa_token,
+				tfa_code: tfaCode,
+				remember_me: false,
+			});
+			expect(tfaResp.status).toBe(200);
+			const sessionToken = tfaResp.body.session_token;
+
+			const before = new Date(Date.now() - 2000).toISOString();
+			const response = await api.requestPasswordReset({
+				email_address: email,
+				domain: domain,
+			});
+
+			// Should always return 200 (prevent email enumeration)
+			expect(response.status).toBe(200);
+			expect(response.body.message).toBeDefined();
+
+			// Verify password reset email was sent
+			const emailMessage = await waitForEmail(email, {}, /reset/i);
+			expect(emailMessage).toBeDefined();
+			expect(emailMessage.To[0].Address).toBe(email);
+			expect(emailMessage.Subject).toContain("Reset");
+			expect(emailMessage.Subject).toContain("Password");
+
+			// Verify org.request_password_reset audit log entry was created
+			const auditResp = await api.filterAuditLogs(sessionToken, {
+				event_types: ["org.request_password_reset"],
+				start_time: before,
+			});
+			expect(auditResp.status).toBe(200);
+			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+			expect(auditResp.body.audit_logs[0].event_type).toBe(
+				"org.request_password_reset"
+			);
+		} finally {
+			await deleteTestOrgUser(email);
+		}
+	});
+
+	test("non-existent email returns 200 (prevent enumeration)", async ({
+		request,
+	}) => {
+		const api = new OrgAPIClient(request);
+		const { email, domain } = generateTestOrgEmail("pwd-reset-nonexistent");
+
+		const response = await api.requestPasswordReset({
+			email_address: email,
+			domain: domain,
+		});
+
+		// Should return 200 even for non-existent email
+		expect(response.status).toBe(200);
+		expect(response.body.message).toBeDefined();
+	});
+
+	test("invalid email format returns 400", async ({ request }) => {
+		const api = new OrgAPIClient(request);
+		const { domain } = generateTestOrgEmail("pwd-reset-invalid-email");
+
+		const response = await api.requestPasswordResetRaw({
+			email_address: "not-an-email",
+			domain: domain,
+		});
+
+		expect(response.status).toBe(400);
+		expect(response.errors).toBeDefined();
+	});
+
+	test("missing email returns 400", async ({ request }) => {
+		const api = new OrgAPIClient(request);
+		const { domain } = generateTestOrgEmail("pwd-reset-missing-email");
+
+		const response = await api.requestPasswordResetRaw({
+			domain: domain,
+		});
+
+		expect(response.status).toBe(400);
+		expect(response.errors).toBeDefined();
+	});
+
+	test("empty email returns 400", async ({ request }) => {
+		const api = new OrgAPIClient(request);
+		const { domain } = generateTestOrgEmail("pwd-reset-empty-email");
+
+		const response = await api.requestPasswordResetRaw({
+			email_address: "",
+			domain: domain,
+		});
+
+		expect(response.status).toBe(400);
+		expect(response.errors).toBeDefined();
+	});
+
+	test("invalid domain format returns 400", async ({ request }) => {
+		const api = new OrgAPIClient(request);
+		const { email } = generateTestOrgEmail("pwd-reset-invalid-domain");
+
+		const response = await api.requestPasswordResetRaw({
+			email_address: email,
+			domain: "not a domain",
+		});
+
+		expect(response.status).toBe(400);
+		expect(response.errors).toBeDefined();
+	});
+
+	test("missing domain returns 400", async ({ request }) => {
+		const api = new OrgAPIClient(request);
+		const { email } = generateTestOrgEmail("pwd-reset-missing-domain");
+
+		const response = await api.requestPasswordResetRaw({
+			email_address: email,
+		});
+
+		expect(response.status).toBe(400);
+		expect(response.errors).toBeDefined();
+	});
+});
+
+test.describe("POST /org/complete-password-reset", () => {
+	test("successful reset with valid token returns 200", async ({ request }) => {
+		const api = new OrgAPIClient(request);
+		const { email, domain } = generateTestOrgEmail("pwd-reset-complete");
+		const oldPassword = TEST_PASSWORD;
+		const newPassword = "NewPassword789!";
+
+		await createTestOrgAdminDirect(email, oldPassword);
+		try {
+			// Request password reset
+			await api.requestPasswordReset({ email_address: email, domain: domain });
+
+			// Get reset token from email
+			const emailSummary = await waitForEmail(email, {}, /reset/i);
+			const emailMessage = await getEmailContent(emailSummary.ID);
+			const resetToken = extractPasswordResetToken(emailMessage);
+			expect(resetToken).toBeDefined();
+
+			// Complete password reset
+			const before = new Date(Date.now() - 2000).toISOString();
+			const response = await api.completePasswordReset({
+				reset_token: resetToken!,
+				new_password: newPassword,
+			});
+
+			expect(response.status).toBe(200);
+
+			// Verify can login with new password and get session to check audit log
+			const loginResponse = await api.login({
+				email,
+				domain,
+				password: newPassword,
+			});
+			expect(loginResponse.status).toBe(200);
+			const tfaCode = await getTfaCodeFromEmail(email);
+			const tfaResp = await api.verifyTFA({
+				tfa_token: loginResponse.body.tfa_token,
+				tfa_code: tfaCode,
+				remember_me: false,
+			});
+			expect(tfaResp.status).toBe(200);
+			const sessionToken = tfaResp.body.session_token;
+
+			// Verify org.complete_password_reset audit log entry was created
+			const auditResp = await api.filterAuditLogs(sessionToken, {
+				event_types: ["org.complete_password_reset"],
+				start_time: before,
+			});
+			expect(auditResp.status).toBe(200);
+			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+			expect(auditResp.body.audit_logs[0].event_type).toBe(
+				"org.complete_password_reset"
+			);
+
+			// Verify cannot login with old password
+			const oldLoginResponse = await api.login({
+				email,
+				domain,
+				password: oldPassword,
+			});
+			expect(oldLoginResponse.status).toBe(401);
+		} finally {
+			await deleteTestOrgUser(email);
+		}
+	});
+
+	test("invalid reset token returns 401", async ({ request }) => {
+		const api = new OrgAPIClient(request);
+
+		const response = await api.completePasswordReset({
+			reset_token: "IND1-" + "a".repeat(64), // Invalid region-prefixed token
+			new_password: "NewPassword789!",
+		});
+
+		expect(response.status).toBe(401);
+	});
+
+	test("expired reset token returns 401", async ({ request }) => {
+		const api = new OrgAPIClient(request);
+
+		const response = await api.completePasswordReset({
+			reset_token: "IND1-" + "0".repeat(64), // Valid format but doesn't exist
+			new_password: "NewPassword789!",
+		});
+
+		expect(response.status).toBe(401);
+	});
+
+	test("invalid password format returns 400", async ({ request }) => {
+		const api = new OrgAPIClient(request);
+		const { email, domain } = generateTestOrgEmail("pwd-reset-invalid-pwd");
+
+		await createTestOrgAdminDirect(email, TEST_PASSWORD);
+		try {
+			await api.requestPasswordReset({ email_address: email, domain: domain });
+			const emailSummary = await waitForEmail(email, {}, /reset/i);
+			const emailMessage = await getEmailContent(emailSummary.ID);
+			const resetToken = extractPasswordResetToken(emailMessage);
+
+			// Password too short
+			const response = await api.completePasswordReset({
+				reset_token: resetToken!,
+				new_password: "short",
+			});
+
+			expect(response.status).toBe(400);
+			expect(response.errors).toBeDefined();
+		} finally {
+			await deleteTestOrgUser(email);
+		}
+	});
+
+	test("missing reset_token returns 400", async ({ request }) => {
+		const api = new OrgAPIClient(request);
+
+		const response = await api.completePasswordResetRaw({
+			new_password: "NewPassword789!",
+		});
+
+		expect(response.status).toBe(400);
+		expect(response.errors).toBeDefined();
+	});
+
+	test("missing new_password returns 400", async ({ request }) => {
+		const api = new OrgAPIClient(request);
+
+		const response = await api.completePasswordResetRaw({
+			reset_token: "IND1-" + "a".repeat(64),
+		});
+
+		expect(response.status).toBe(400);
+		expect(response.errors).toBeDefined();
+	});
+
+	test("all sessions invalidated after password reset", async ({ request }) => {
+		const api = new OrgAPIClient(request);
+		const { email, domain } = generateTestOrgEmail("pwd-reset-sessions");
+		const oldPassword = TEST_PASSWORD;
+		const newPassword = "NewPassword789!";
+
+		await createTestOrgAdminDirect(email, oldPassword);
+		try {
+			// Create a session before password reset
+			const loginResp1 = await api.login({
+				email,
+				domain,
+				password: oldPassword,
+			});
+			const tfaEmail1Summary = await waitForEmail(email);
+			const tfaEmail1 = await getEmailContent(tfaEmail1Summary.ID);
+			const tfaCode1 = tfaEmail1.Text.match(/\b\d{6}\b/)?.[0];
+			const tfaResp1 = await api.verifyTFA({
+				tfa_token: loginResp1.body.tfa_token,
+				tfa_code: tfaCode1!,
+				remember_me: false,
+			});
+			const oldSession = tfaResp1.body.session_token;
+
+			// Request and complete password reset
+			await api.requestPasswordReset({ email_address: email, domain: domain });
+			const resetEmailSummary = await waitForEmail(email, {}, /reset/i);
+			const resetEmail = await getEmailContent(resetEmailSummary.ID);
+			const resetToken = extractPasswordResetToken(resetEmail);
+			await api.completePasswordReset({
+				reset_token: resetToken!,
+				new_password: newPassword,
+			});
+
+			// Old session should be invalidated
+			const logoutResponse = await api.logout(oldSession);
+			expect(logoutResponse.status).toBe(401);
+		} finally {
+			await deleteTestOrgUser(email);
+		}
+	});
+});
+
+test.describe("POST /org/change-password", () => {
+	test("successful password change returns 200", async ({ request }) => {
+		const api = new OrgAPIClient(request);
+		const { email, domain } = generateTestOrgEmail("pwd-change-success");
+		const oldPassword = TEST_PASSWORD;
+		const newPassword = "NewPassword789!";
+
+		await createTestOrgAdminDirect(email, oldPassword);
+		try {
+			// Login and get session
+			const loginResp = await api.login({
+				email,
+				domain,
+				password: oldPassword,
+			});
+			const tfaEmailSummary = await waitForEmail(email);
+			const tfaEmail = await getEmailContent(tfaEmailSummary.ID);
+			const tfaCode = tfaEmail.Text.match(/\b\d{6}\b/)?.[0];
+			const tfaResp = await api.verifyTFA({
+				tfa_token: loginResp.body.tfa_token,
+				tfa_code: tfaCode!,
+				remember_me: false,
+			});
+			const sessionToken = tfaResp.body.session_token;
+
+			// Change password
+			const before = new Date(Date.now() - 2000).toISOString();
+			const response = await api.changePassword(sessionToken, {
+				current_password: oldPassword,
+				new_password: newPassword,
+			});
+
+			expect(response.status).toBe(200);
+
+			// Verify can login with new password
+			const newLoginResp = await api.login({
+				email,
+				domain,
+				password: newPassword,
+			});
+			expect(newLoginResp.status).toBe(200);
+
+			// Verify cannot login with old password
+			const oldLoginResp = await api.login({
+				email,
+				domain,
+				password: oldPassword,
+			});
+			expect(oldLoginResp.status).toBe(401);
+
+			// Verify org.change_password audit log entry was created (current session preserved)
+			const auditResp = await api.filterAuditLogs(sessionToken, {
+				event_types: ["org.change_password"],
+				start_time: before,
+			});
+			expect(auditResp.status).toBe(200);
+			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+			expect(auditResp.body.audit_logs[0].event_type).toBe(
+				"org.change_password"
+			);
+		} finally {
+			await deleteTestOrgUser(email);
+		}
+	});
+
+	test("wrong current password returns 401", async ({ request }) => {
+		const api = new OrgAPIClient(request);
+		const { email, domain } = generateTestOrgEmail("pwd-change-wrong");
+
+		await createTestOrgAdminDirect(email, TEST_PASSWORD);
+		try {
+			const loginResp = await api.login({
+				email,
+				domain,
+				password: TEST_PASSWORD,
+			});
+			const tfaEmailSummary = await waitForEmail(email);
+			const tfaEmail = await getEmailContent(tfaEmailSummary.ID);
+			const tfaCode = tfaEmail.Text.match(/\b\d{6}\b/)?.[0];
+			const tfaResp = await api.verifyTFA({
+				tfa_token: loginResp.body.tfa_token,
+				tfa_code: tfaCode!,
+				remember_me: false,
+			});
+			const sessionToken = tfaResp.body.session_token;
+
+			const response = await api.changePassword(sessionToken, {
+				current_password: "WrongPassword123!",
+				new_password: "NewPassword789!",
+			});
+
+			expect(response.status).toBe(401);
+		} finally {
+			await deleteTestOrgUser(email);
+		}
+	});
+
+	test("new password same as current returns 400", async ({ request }) => {
+		const api = new OrgAPIClient(request);
+		const { email, domain } = generateTestOrgEmail("pwd-change-same");
+
+		await createTestOrgAdminDirect(email, TEST_PASSWORD);
+		try {
+			const loginResp = await api.login({
+				email,
+				domain,
+				password: TEST_PASSWORD,
+			});
+			const tfaEmailSummary = await waitForEmail(email);
+			const tfaEmail = await getEmailContent(tfaEmailSummary.ID);
+			const tfaCode = tfaEmail.Text.match(/\b\d{6}\b/)?.[0];
+			const tfaResp = await api.verifyTFA({
+				tfa_token: loginResp.body.tfa_token,
+				tfa_code: tfaCode!,
+				remember_me: false,
+			});
+			const sessionToken = tfaResp.body.session_token;
+
+			const response = await api.changePassword(sessionToken, {
+				current_password: TEST_PASSWORD,
+				new_password: TEST_PASSWORD,
+			});
+
+			expect(response.status).toBe(400);
+			expect(response.errors).toBeDefined();
+		} finally {
+			await deleteTestOrgUser(email);
+		}
+	});
+
+	test("invalid session token returns 401", async ({ request }) => {
+		const api = new OrgAPIClient(request);
+
+		const response = await api.changePassword("invalid-session-token", {
+			current_password: TEST_PASSWORD,
+			new_password: "NewPassword789!",
+		});
+
+		expect(response.status).toBe(401);
+	});
+
+	test("missing current_password returns 400", async ({ request }) => {
+		const api = new OrgAPIClient(request);
+		const { email, domain } = generateTestOrgEmail(
+			"pwd-change-missing-current"
+		);
+
+		await createTestOrgAdminDirect(email, TEST_PASSWORD);
+		try {
+			const loginResp = await api.login({
+				email,
+				domain,
+				password: TEST_PASSWORD,
+			});
+			const tfaEmailSummary = await waitForEmail(email);
+			const tfaEmail = await getEmailContent(tfaEmailSummary.ID);
+			const tfaCode = tfaEmail.Text.match(/\b\d{6}\b/)?.[0];
+			const tfaResp = await api.verifyTFA({
+				tfa_token: loginResp.body.tfa_token,
+				tfa_code: tfaCode!,
+				remember_me: false,
+			});
+			const sessionToken = tfaResp.body.session_token;
+
+			const response = await api.changePasswordRaw(sessionToken, {
+				new_password: "NewPassword789!",
+			});
+
+			expect(response.status).toBe(400);
+			expect(response.errors).toBeDefined();
+		} finally {
+			await deleteTestOrgUser(email);
+		}
+	});
+
+	test("missing new_password returns 400", async ({ request }) => {
+		const api = new OrgAPIClient(request);
+		const { email, domain } = generateTestOrgEmail("pwd-change-missing-new");
+
+		await createTestOrgAdminDirect(email, TEST_PASSWORD);
+		try {
+			const loginResp = await api.login({
+				email,
+				domain,
+				password: TEST_PASSWORD,
+			});
+			const tfaEmailSummary = await waitForEmail(email);
+			const tfaEmail = await getEmailContent(tfaEmailSummary.ID);
+			const tfaCode = tfaEmail.Text.match(/\b\d{6}\b/)?.[0];
+			const tfaResp = await api.verifyTFA({
+				tfa_token: loginResp.body.tfa_token,
+				tfa_code: tfaCode!,
+				remember_me: false,
+			});
+			const sessionToken = tfaResp.body.session_token;
+
+			const response = await api.changePasswordRaw(sessionToken, {
+				current_password: TEST_PASSWORD,
+			});
+
+			expect(response.status).toBe(400);
+			expect(response.errors).toBeDefined();
+		} finally {
+			await deleteTestOrgUser(email);
+		}
+	});
+
+	test("all other sessions invalidated after password change", async ({
+		request,
+	}) => {
+		const api = new OrgAPIClient(request);
+		const { email, domain } = generateTestOrgEmail("pwd-change-sessions");
+		const oldPassword = TEST_PASSWORD;
+		const newPassword = "NewPassword789!";
+
+		await createTestOrgAdminDirect(email, oldPassword);
+		try {
+			// Create first session
+			const login1 = await api.login({ email, domain, password: oldPassword });
+			const tfaEmail1Summary = await waitForEmail(email);
+			const tfaEmail1 = await getEmailContent(tfaEmail1Summary.ID);
+			const tfaCode1 = tfaEmail1.Text.match(/\b\d{6}\b/)?.[0];
+			const tfa1 = await api.verifyTFA({
+				tfa_token: login1.body.tfa_token,
+				tfa_code: tfaCode1!,
+				remember_me: false,
+			});
+			const session1 = tfa1.body.session_token;
+
+			// Create second session
+			const login2 = await api.login({ email, domain, password: oldPassword });
+			const tfaEmail2Summary = await waitForEmail(email);
+			const tfaEmail2 = await getEmailContent(tfaEmail2Summary.ID);
+			const tfaCode2 = tfaEmail2.Text.match(/\b\d{6}\b/)?.[0];
+			const tfa2 = await api.verifyTFA({
+				tfa_token: login2.body.tfa_token,
+				tfa_code: tfaCode2!,
+				remember_me: false,
+			});
+			const session2 = tfa2.body.session_token;
+
+			// Change password using session1
+			await api.changePassword(session1, {
+				current_password: oldPassword,
+				new_password: newPassword,
+			});
+
+			// session1 should still be valid (current session)
+			const logout1 = await api.logout(session1);
+			expect(logout1.status).toBe(200);
+
+			// session2 should be invalidated
+			const logout2 = await api.logout(session2);
+			expect(logout2.status).toBe(401);
+		} finally {
+			await deleteTestOrgUser(email);
+		}
+	});
+
+	test("invalid new password format returns 400", async ({ request }) => {
+		const api = new OrgAPIClient(request);
+		const { email, domain } = generateTestOrgEmail("pwd-change-invalid-format");
+
+		await createTestOrgAdminDirect(email, TEST_PASSWORD);
+		try {
+			const loginResp = await api.login({
+				email,
+				domain,
+				password: TEST_PASSWORD,
+			});
+			const tfaEmailSummary = await waitForEmail(email);
+			const tfaEmail = await getEmailContent(tfaEmailSummary.ID);
+			const tfaCode = tfaEmail.Text.match(/\b\d{6}\b/)?.[0];
+			const tfaResp = await api.verifyTFA({
+				tfa_token: loginResp.body.tfa_token,
+				tfa_code: tfaCode!,
+				remember_me: false,
+			});
+			const sessionToken = tfaResp.body.session_token;
+
+			// Password too short
+			const response = await api.changePassword(sessionToken, {
+				current_password: TEST_PASSWORD,
+				new_password: "short",
+			});
+
+			expect(response.status).toBe(400);
+			expect(response.errors).toBeDefined();
+		} finally {
+			await deleteTestOrgUser(email);
+		}
+	});
+});
