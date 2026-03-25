@@ -24,10 +24,7 @@ test.describe("POST /org/assign-role", () => {
 		const { email: targetEmail } = generateTestOrgEmail("role-assign-target");
 
 		// Create admin and target user in same org
-		const { orgId } = await createTestOrgAdminDirect(
-			adminEmail,
-			TEST_PASSWORD
-		);
+		const { orgId } = await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
 		const { orgUserId: targetUserId } = await createTestOrgUserDirect(
 			targetEmail,
 			TEST_PASSWORD,
@@ -68,9 +65,7 @@ test.describe("POST /org/assign-role", () => {
 			});
 			expect(auditResp.status).toBe(200);
 			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
-			expect(auditResp.body.audit_logs[0].event_type).toBe(
-				"org.assign_role"
-			);
+			expect(auditResp.body.audit_logs[0].event_type).toBe("org.assign_role");
 			expect(auditResp.body.audit_logs[0].target_user_id).toBe(targetUserId);
 			expect(auditResp.body.audit_logs[0].event_data).toHaveProperty(
 				"target_email_hash"
@@ -93,10 +88,7 @@ test.describe("POST /org/assign-role", () => {
 		);
 		const { email: targetEmail } = generateTestOrgEmail("role-conflict-target");
 
-		const { orgId } = await createTestOrgAdminDirect(
-			adminEmail,
-			TEST_PASSWORD
-		);
+		const { orgId } = await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
 		const { orgUserId: targetUserId } = await createTestOrgUserDirect(
 			targetEmail,
 			TEST_PASSWORD,
@@ -148,10 +140,7 @@ test.describe("POST /org/assign-role", () => {
 		// Create non-admin user and target user in same org
 		// Admin creates the org and domain
 		const adminEmail = `admin@${domain}`;
-		const { orgId } = await createTestOrgAdminDirect(
-			adminEmail,
-			TEST_PASSWORD
-		);
+		const { orgId } = await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
 		await createTestOrgUserDirect(userEmail, TEST_PASSWORD, "ind1", {
 			orgId,
 			domain,
@@ -237,10 +226,7 @@ test.describe("POST /org/assign-role", () => {
 			generateTestOrgEmail("role-invalid-admin");
 		const { email: targetEmail } = generateTestOrgEmail("role-invalid-target");
 
-		const { orgId } = await createTestOrgAdminDirect(
-			adminEmail,
-			TEST_PASSWORD
-		);
+		const { orgId } = await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
 		const { orgUserId: targetUserId } = await createTestOrgUserDirect(
 			targetEmail,
 			TEST_PASSWORD,
@@ -360,9 +346,7 @@ test.describe("POST /org/assign-role", () => {
 		}
 	});
 
-	test("can assign all valid org roles via API (200)", async ({
-		request,
-	}) => {
+	test("can assign all valid org roles via API (200)", async ({ request }) => {
 		const api = new OrgAPIClient(request);
 		const { email: adminEmail, domain } = generateTestOrgEmail(
 			"role-all-valid-admin"
@@ -371,10 +355,7 @@ test.describe("POST /org/assign-role", () => {
 			"role-all-valid-target"
 		);
 
-		const { orgId } = await createTestOrgAdminDirect(
-			adminEmail,
-			TEST_PASSWORD
-		);
+		const { orgId } = await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
 		const { orgUserId: targetUserId } = await createTestOrgUserDirect(
 			targetEmail,
 			TEST_PASSWORD,
@@ -422,9 +403,7 @@ test.describe("POST /org/assign-role", () => {
 		}
 	});
 
-	test("assigning hub role to org user returns 400", async ({
-		request,
-	}) => {
+	test("assigning hub role to org user returns 400", async ({ request }) => {
 		const api = new OrgAPIClient(request);
 		const { email: adminEmail, domain } = generateTestOrgEmail(
 			"role-wrong-portal-admin"
@@ -433,10 +412,7 @@ test.describe("POST /org/assign-role", () => {
 			"role-wrong-portal-target"
 		);
 
-		const { orgId } = await createTestOrgAdminDirect(
-			adminEmail,
-			TEST_PASSWORD
-		);
+		const { orgId } = await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
 		const { orgUserId: targetUserId } = await createTestOrgUserDirect(
 			targetEmail,
 			TEST_PASSWORD,
@@ -482,10 +458,7 @@ test.describe("POST /org/remove-role", () => {
 			generateTestOrgEmail("role-remove-admin");
 		const { email: targetEmail } = generateTestOrgEmail("role-remove-target");
 
-		const { orgId } = await createTestOrgAdminDirect(
-			adminEmail,
-			TEST_PASSWORD
-		);
+		const { orgId } = await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
 		const { orgUserId: targetUserId } = await createTestOrgUserDirect(
 			targetEmail,
 			TEST_PASSWORD,
@@ -532,9 +505,7 @@ test.describe("POST /org/remove-role", () => {
 			});
 			expect(auditResp.status).toBe(200);
 			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
-			expect(auditResp.body.audit_logs[0].event_type).toBe(
-				"org.remove_role"
-			);
+			expect(auditResp.body.audit_logs[0].event_type).toBe("org.remove_role");
 			expect(auditResp.body.audit_logs[0].target_user_id).toBe(targetUserId);
 			expect(auditResp.body.audit_logs[0].event_data).toHaveProperty(
 				"target_email_hash"
@@ -554,10 +525,7 @@ test.describe("POST /org/remove-role", () => {
 			generateTestOrgEmail("role-notrole-admin");
 		const { email: targetEmail } = generateTestOrgEmail("role-notrole-target");
 
-		const { orgId } = await createTestOrgAdminDirect(
-			adminEmail,
-			TEST_PASSWORD
-		);
+		const { orgId } = await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
 		const { orgUserId: targetUserId } = await createTestOrgUserDirect(
 			targetEmail,
 			TEST_PASSWORD,

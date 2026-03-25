@@ -61,17 +61,14 @@ export function AuditLogsPage() {
 					...(filters.endTime && { end_time: filters.endTime.toISOString() }),
 					...(cursor && { pagination_key: cursor }),
 				};
-				const response = await fetch(
-					`${apiBaseUrl}/org/filter-audit-logs`,
-					{
-						method: "POST",
-						headers: {
-							"Content-Type": "application/json",
-							Authorization: `Bearer ${sessionToken}`,
-						},
-						body: JSON.stringify(reqBody),
-					}
-				);
+				const response = await fetch(`${apiBaseUrl}/org/filter-audit-logs`, {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${sessionToken}`,
+					},
+					body: JSON.stringify(reqBody),
+				});
 				if (response.status !== 200) {
 					setError(t("error"));
 					return;

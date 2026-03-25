@@ -78,7 +78,7 @@ func RequestPasswordReset(s *server.RegionalServer) http.HandlerFunc {
 		// Look up user in global DB
 		globalUser, err := s.Global.GetOrgUserByEmailHashAndOrg(ctx, globaldb.GetOrgUserByEmailHashAndOrgParams{
 			EmailAddressHash: emailHash[:],
-			OrgID:       employer.OrgID,
+			OrgID:            employer.OrgID,
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {

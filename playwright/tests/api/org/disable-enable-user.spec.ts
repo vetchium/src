@@ -23,10 +23,7 @@ test.describe("POST /org/disable-user", () => {
 		const { email: userEmail } = generateTestOrgEmail("disable-org-user");
 
 		// Create admin and regular user in same org
-		const { orgId } = await createTestOrgAdminDirect(
-			adminEmail,
-			TEST_PASSWORD
-		);
+		const { orgId } = await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
 		await createTestOrgUserDirect(userEmail, TEST_PASSWORD, "ind1", {
 			orgId,
 			domain,
@@ -75,9 +72,7 @@ test.describe("POST /org/disable-user", () => {
 			});
 			expect(auditResp.status).toBe(200);
 			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
-			expect(auditResp.body.audit_logs[0].event_type).toBe(
-				"org.disable_user"
-			);
+			expect(auditResp.body.audit_logs[0].event_type).toBe("org.disable_user");
 			expect(auditResp.body.audit_logs[0].event_data).toHaveProperty(
 				"target_email_hash"
 			);
@@ -97,10 +92,7 @@ test.describe("POST /org/disable-user", () => {
 		const { email: targetEmail } = generateTestOrgEmail("disable-target");
 
 		// Create two non-admin users in same org
-		const { orgId } = await createTestOrgUserDirect(
-			userEmail,
-			TEST_PASSWORD
-		);
+		const { orgId } = await createTestOrgUserDirect(userEmail, TEST_PASSWORD);
 		await createTestOrgUserDirect(targetEmail, TEST_PASSWORD, "ind1", {
 			orgId,
 			domain,
@@ -272,10 +264,7 @@ test.describe("POST /org/disable-user", () => {
 		);
 		const { email: userEmail } = generateTestOrgEmail("disable-twice-user");
 
-		const { orgId } = await createTestOrgAdminDirect(
-			adminEmail,
-			TEST_PASSWORD
-		);
+		const { orgId } = await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
 		await createTestOrgUserDirect(userEmail, TEST_PASSWORD, "ind1", {
 			orgId,
 			domain,
@@ -339,10 +328,7 @@ test.describe("POST /org/enable-user", () => {
 			generateTestOrgEmail("enable-org-admin");
 		const { email: userEmail } = generateTestOrgEmail("enable-org-user");
 
-		const { orgId } = await createTestOrgAdminDirect(
-			adminEmail,
-			TEST_PASSWORD
-		);
+		const { orgId } = await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
 		await createTestOrgUserDirect(userEmail, TEST_PASSWORD, "ind1", {
 			orgId,
 			domain,
@@ -391,9 +377,7 @@ test.describe("POST /org/enable-user", () => {
 			});
 			expect(auditResp.status).toBe(200);
 			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
-			expect(auditResp.body.audit_logs[0].event_type).toBe(
-				"org.enable_user"
-			);
+			expect(auditResp.body.audit_logs[0].event_type).toBe("org.enable_user");
 			expect(auditResp.body.audit_logs[0].event_data).toHaveProperty(
 				"target_email_hash"
 			);
@@ -412,10 +396,7 @@ test.describe("POST /org/enable-user", () => {
 			generateTestOrgEmail("enable-nonadmin");
 		const { email: targetEmail } = generateTestOrgEmail("enable-target");
 
-		const { orgId } = await createTestOrgUserDirect(
-			userEmail,
-			TEST_PASSWORD
-		);
+		const { orgId } = await createTestOrgUserDirect(userEmail, TEST_PASSWORD);
 		await createTestOrgUserDirect(targetEmail, TEST_PASSWORD, "ind1", {
 			orgId,
 			domain,
@@ -462,10 +443,7 @@ test.describe("POST /org/enable-user", () => {
 		);
 		const { email: userEmail } = generateTestOrgEmail("enable-active-user");
 
-		const { orgId } = await createTestOrgAdminDirect(
-			adminEmail,
-			TEST_PASSWORD
-		);
+		const { orgId } = await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
 		await createTestOrgUserDirect(userEmail, TEST_PASSWORD, "ind1", {
 			orgId,
 			domain,

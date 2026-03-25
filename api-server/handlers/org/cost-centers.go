@@ -58,7 +58,7 @@ func AddCostCenter(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		params := regionaldb.CreateCostCenterParams{
-			OrgID:  orgUser.OrgID,
+			OrgID:       orgUser.OrgID,
 			ID:          req.ID,
 			DisplayName: req.DisplayName,
 			Notes:       notes,
@@ -131,7 +131,7 @@ func UpdateCostCenter(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		params := regionaldb.UpdateCostCenterParams{
-			OrgID:  orgUser.OrgID,
+			OrgID:       orgUser.OrgID,
 			ID:          req.ID,
 			DisplayName: req.DisplayName,
 			Status:      regionaldb.CostCenterStatus(req.Status),
@@ -142,7 +142,7 @@ func UpdateCostCenter(s *server.RegionalServer) http.HandlerFunc {
 		err := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
 			oldCC, txErr := qtx.GetCostCenterByOrgAndID(ctx, regionaldb.GetCostCenterByOrgAndIDParams{
 				OrgID: orgUser.OrgID,
-				ID:         req.ID,
+				ID:    req.ID,
 			})
 			if txErr != nil {
 				return txErr
@@ -261,7 +261,7 @@ func ListCostCenters(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		params := regionaldb.ListCostCentersParams{
-			OrgID:      orgUser.OrgID,
+			OrgID:           orgUser.OrgID,
 			FilterStatus:    filterStatus,
 			CursorCreatedAt: cursorCreatedAt,
 			CursorID:        cursorID,

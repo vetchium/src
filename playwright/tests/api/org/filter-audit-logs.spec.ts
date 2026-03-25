@@ -226,10 +226,7 @@ test.describe("POST /org/filter-audit-logs", () => {
 			"ind1",
 			{ orgId: adminResult.orgId, domain }
 		);
-		await assignRoleToOrgUser(
-			viewerResult.orgUserId,
-			"org:view_audit_logs"
-		);
+		await assignRoleToOrgUser(viewerResult.orgUserId, "org:view_audit_logs");
 		try {
 			const sessionToken = await loginOrg(api, viewerEmail, domain);
 			const resp = await api.filterAuditLogs(sessionToken, {});

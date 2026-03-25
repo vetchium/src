@@ -53,7 +53,7 @@ func DisableUser(s *server.RegionalServer) http.HandlerFunc {
 		// Get target user from global DB to find their region
 		globalTargetUser, err := s.Global.GetOrgUserByEmailHashAndOrg(ctx, globaldb.GetOrgUserByEmailHashAndOrgParams{
 			EmailAddressHash: emailHash[:],
-			OrgID:       orgUser.OrgID,
+			OrgID:            orgUser.OrgID,
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
@@ -94,8 +94,8 @@ func DisableUser(s *server.RegionalServer) http.HandlerFunc {
 			}
 
 			lockedSuperadmins, err := qtx.LockActiveOrgUsersWithRole(ctx, regionaldb.LockActiveOrgUsersWithRoleParams{
-				OrgID: targetUser.OrgID,
-				RoleID:     superadminRole.RoleID,
+				OrgID:  targetUser.OrgID,
+				RoleID: superadminRole.RoleID,
 			})
 			if err != nil {
 				return err

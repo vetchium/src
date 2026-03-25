@@ -58,7 +58,7 @@ func InviteUser(s *server.RegionalServer) http.HandlerFunc {
 		// Check if user already exists for this employer in global DB
 		_, err := s.Global.GetOrgUserByEmailHashAndOrg(ctx, globaldb.GetOrgUserByEmailHashAndOrgParams{
 			EmailAddressHash: emailHash[:],
-			OrgID:       orgUser.OrgID,
+			OrgID:            orgUser.OrgID,
 		})
 		if err == nil {
 			// User already exists for this employer
@@ -114,7 +114,7 @@ func InviteUser(s *server.RegionalServer) http.HandlerFunc {
 		globalUser, err := s.Global.CreateOrgUser(ctx, globaldb.CreateOrgUserParams{
 			EmailAddressHash: emailHash[:],
 			HashingAlgorithm: globaldb.EmailAddressHashingAlgorithmSHA256,
-			OrgID:       orgUser.OrgID,
+			OrgID:            orgUser.OrgID,
 			HomeRegion:       s.CurrentRegion,
 		})
 		if err != nil {
@@ -162,7 +162,7 @@ func InviteUser(s *server.RegionalServer) http.HandlerFunc {
 			if _, txErr := qtx.CreateOrgUser(ctx, regionaldb.CreateOrgUserParams{
 				OrgUserID:    globalUser.OrgUserID,
 				EmailAddress: string(req.EmailAddress),
-				OrgID:   orgUser.OrgID,
+				OrgID:        orgUser.OrgID,
 				FullName: pgtype.Text{
 					Valid: false,
 				},
@@ -177,7 +177,7 @@ func InviteUser(s *server.RegionalServer) http.HandlerFunc {
 			if txErr := qtx.CreateOrgInvitationToken(ctx, regionaldb.CreateOrgInvitationTokenParams{
 				InvitationToken: rawToken,
 				OrgUserID:       globalUser.OrgUserID,
-				OrgID:      orgUser.OrgID,
+				OrgID:           orgUser.OrgID,
 				ExpiresAt:       expiresAt,
 			}); txErr != nil {
 				return txErr

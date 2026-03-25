@@ -43,8 +43,8 @@ func GetDomainStatus(s *server.RegionalServer) http.HandlerFunc {
 		domain := strings.ToLower(string(req.Domain))
 
 		domainRecord, err := s.Regional.GetOrgDomainByOrgAndDomain(ctx, regionaldb.GetOrgDomainByOrgAndDomainParams{
-			Domain:     domain,
-			OrgID: orgUser.OrgID,
+			Domain: domain,
+			OrgID:  orgUser.OrgID,
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {

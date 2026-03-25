@@ -240,10 +240,7 @@ test.describe("RBAC: POST /org/verify-domain", () => {
 			"ind1",
 			{ orgId: adminResult.orgId, domain }
 		);
-		await assignRoleToOrgUser(
-			managerResult.orgUserId,
-			"org:manage_domains"
-		);
+		await assignRoleToOrgUser(managerResult.orgUserId, "org:manage_domains");
 
 		const claimedDomain = generateTestDomainName("rbac-vd-emp");
 		try {

@@ -79,9 +79,7 @@ test.describe("POST /org/invite-user", () => {
 			});
 			expect(auditResp.status).toBe(200);
 			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
-			expect(auditResp.body.audit_logs[0].event_type).toBe(
-				"org.invite_user"
-			);
+			expect(auditResp.body.audit_logs[0].event_type).toBe("org.invite_user");
 			// Invited email hash should be in event_data, not raw email
 			expect(auditResp.body.audit_logs[0].event_data).toBeDefined();
 			expect(
@@ -151,10 +149,7 @@ test.describe("POST /org/invite-user", () => {
 		);
 
 		// Create test org admin
-		const { orgId } = await createTestOrgAdminDirect(
-			adminEmail,
-			TEST_PASSWORD
-		);
+		const { orgId } = await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
 		// Create existing user in same org
 		await createTestOrgUserDirect(existingEmail, TEST_PASSWORD, "ind1", {
 			orgId,

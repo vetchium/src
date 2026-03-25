@@ -51,7 +51,7 @@ func EnableUser(s *server.RegionalServer) http.HandlerFunc {
 		// Get target user from global DB to find their region
 		globalTargetUser, err := s.Global.GetOrgUserByEmailHashAndOrg(ctx, globaldb.GetOrgUserByEmailHashAndOrgParams{
 			EmailAddressHash: emailHash[:],
-			OrgID:       orgUser.OrgID,
+			OrgID:            orgUser.OrgID,
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {

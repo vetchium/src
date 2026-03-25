@@ -56,9 +56,7 @@ export function UserDetailDrawer({
 		false;
 
 	// Filter roles to org:* only
-	const EMPLOYER_ROLES = VALID_ROLE_NAMES.filter((r) =>
-		r.startsWith("org:")
-	);
+	const EMPLOYER_ROLES = VALID_ROLE_NAMES.filter((r) => r.startsWith("org:"));
 
 	// Get roles that can be assigned (not already assigned)
 	const availableRoles = EMPLOYER_ROLES.filter(

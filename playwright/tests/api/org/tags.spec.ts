@@ -10,10 +10,7 @@ import {
 } from "../../../lib/db";
 import { getTfaCodeFromEmail } from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
-import type {
-	GetTagRequest,
-	FilterTagsRequest,
-} from "vetchium-specs/org/tags";
+import type { GetTagRequest, FilterTagsRequest } from "vetchium-specs/org/tags";
 
 /**
  * Helper to perform full login flow and get session token.

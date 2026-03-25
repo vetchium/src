@@ -117,7 +117,7 @@ func CompleteSignup(s *server.RegionalServer) http.HandlerFunc {
 			var txErr error
 			employer, txErr = qtx.CreateOrg(ctx, globaldb.CreateOrgParams{
 				OrgName: domain,
-				Region:       region,
+				Region:  region,
 			})
 			if txErr != nil {
 				if server.IsUniqueViolation(txErr) {
@@ -130,9 +130,9 @@ func CompleteSignup(s *server.RegionalServer) http.HandlerFunc {
 
 			// 2. Create domain in global DB (routing only, no status)
 			txErr = qtx.CreateGlobalOrgDomain(ctx, globaldb.CreateGlobalOrgDomainParams{
-				Domain:     domain,
-				Region:     region,
-				OrgID: employer.OrgID,
+				Domain: domain,
+				Region: region,
+				OrgID:  employer.OrgID,
 			})
 			if txErr != nil {
 				if server.IsUniqueViolation(txErr) {
@@ -147,7 +147,7 @@ func CompleteSignup(s *server.RegionalServer) http.HandlerFunc {
 			globalUser, txErr = qtx.CreateOrgUser(ctx, globaldb.CreateOrgUserParams{
 				EmailAddressHash: emailHash,
 				HashingAlgorithm: globaldb.EmailAddressHashingAlgorithmSHA256,
-				OrgID:       employer.OrgID,
+				OrgID:            employer.OrgID,
 				HomeRegion:       region,
 			})
 			if txErr != nil {
@@ -197,7 +197,7 @@ func CompleteSignup(s *server.RegionalServer) http.HandlerFunc {
 			_, txErr := qtx.CreateOrgUser(ctx, regionaldb.CreateOrgUserParams{
 				OrgUserID:         globalUser.OrgUserID,
 				EmailAddress:      email,
-				OrgID:        employer.OrgID,
+				OrgID:             employer.OrgID,
 				PasswordHash:      passwordHash,
 				Status:            regionaldb.OrgUserStatusActive,
 				PreferredLanguage: string(req.PreferredLanguage),
@@ -211,7 +211,7 @@ func CompleteSignup(s *server.RegionalServer) http.HandlerFunc {
 			now := time.Now()
 			txErr = qtx.CreateOrgDomain(ctx, regionaldb.CreateOrgDomainParams{
 				Domain:            domain,
-				OrgID:        employer.OrgID,
+				OrgID:             employer.OrgID,
 				VerificationToken: dnsVerificationToken,
 				TokenExpiresAt:    pgtype.Timestamptz{Time: now.AddDate(0, 0, 30), Valid: true},
 				Status:            regionaldb.DomainVerificationStatusVERIFIED,

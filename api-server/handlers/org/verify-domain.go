@@ -53,8 +53,8 @@ func VerifyDomain(s *server.RegionalServer) http.HandlerFunc {
 
 		// Get domain record from regional DB, ensuring it belongs to this employer
 		domainRecord, err := s.Regional.GetOrgDomainByOrgAndDomain(ctx, regionaldb.GetOrgDomainByOrgAndDomainParams{
-			Domain:     domain,
-			OrgID: orgUser.OrgID,
+			Domain: domain,
+			OrgID:  orgUser.OrgID,
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
@@ -100,8 +100,8 @@ func VerifyDomain(s *server.RegionalServer) http.HandlerFunc {
 			}
 			// Reload domain record with fresh token
 			domainRecord, err = s.Regional.GetOrgDomainByOrgAndDomain(ctx, regionaldb.GetOrgDomainByOrgAndDomainParams{
-				Domain:     domain,
-				OrgID: orgUser.OrgID,
+				Domain: domain,
+				OrgID:  orgUser.OrgID,
 			})
 			if err != nil {
 				s.Logger(ctx).Error("failed to reload domain record after token regeneration", "error", err)

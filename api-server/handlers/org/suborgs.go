@@ -82,7 +82,7 @@ func CreateSubOrg(s *server.RegionalServer) http.HandlerFunc {
 			}
 
 			created, txErr = qtx.CreateSubOrg(ctx, regionaldb.CreateSubOrgParams{
-				OrgID:   orgUser.OrgID,
+				OrgID:        orgUser.OrgID,
 				Name:         req.Name,
 				PinnedRegion: req.PinnedRegion,
 			})
@@ -182,7 +182,7 @@ func ListSubOrgs(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		rows, err := s.Regional.ListSubOrgs(ctx, regionaldb.ListSubOrgsParams{
-			OrgID:      orgUser.OrgID,
+			OrgID:           orgUser.OrgID,
 			FilterStatus:    filterStatus,
 			CursorCreatedAt: cursorCreatedAt,
 			CursorID:        cursorID,
@@ -255,17 +255,17 @@ func RenameSubOrg(s *server.RegionalServer) http.HandlerFunc {
 		var updated regionaldb.Suborg
 		err := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
 			current, txErr := qtx.GetSubOrgByID(ctx, regionaldb.GetSubOrgByIDParams{
-				SuborgID:   suborgID,
-				OrgID: orgUser.OrgID,
+				SuborgID: suborgID,
+				OrgID:    orgUser.OrgID,
 			})
 			if txErr != nil {
 				return txErr
 			}
 
 			updated, txErr = qtx.RenameSubOrg(ctx, regionaldb.RenameSubOrgParams{
-				SuborgID:   suborgID,
-				OrgID: orgUser.OrgID,
-				Name:       req.Name,
+				SuborgID: suborgID,
+				OrgID:    orgUser.OrgID,
+				Name:     req.Name,
 			})
 			if txErr != nil {
 				return txErr
@@ -342,8 +342,8 @@ func DisableSubOrg(s *server.RegionalServer) http.HandlerFunc {
 
 		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
 			suborg, txErr := qtx.GetSubOrgByID(ctx, regionaldb.GetSubOrgByIDParams{
-				SuborgID:   suborgID,
-				OrgID: orgUser.OrgID,
+				SuborgID: suborgID,
+				OrgID:    orgUser.OrgID,
 			})
 			if txErr != nil {
 				return txErr
@@ -353,9 +353,9 @@ func DisableSubOrg(s *server.RegionalServer) http.HandlerFunc {
 			}
 
 			if _, txErr = qtx.UpdateSubOrgStatus(ctx, regionaldb.UpdateSubOrgStatusParams{
-				SuborgID:   suborgID,
-				OrgID: orgUser.OrgID,
-				Status:     "disabled",
+				SuborgID: suborgID,
+				OrgID:    orgUser.OrgID,
+				Status:   "disabled",
 			}); txErr != nil {
 				return txErr
 			}
@@ -453,8 +453,8 @@ func EnableSubOrg(s *server.RegionalServer) http.HandlerFunc {
 
 		err := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
 			suborg, txErr := qtx.GetSubOrgByID(ctx, regionaldb.GetSubOrgByIDParams{
-				SuborgID:   suborgID,
-				OrgID: orgUser.OrgID,
+				SuborgID: suborgID,
+				OrgID:    orgUser.OrgID,
 			})
 			if txErr != nil {
 				return txErr
@@ -464,9 +464,9 @@ func EnableSubOrg(s *server.RegionalServer) http.HandlerFunc {
 			}
 
 			if _, txErr = qtx.UpdateSubOrgStatus(ctx, regionaldb.UpdateSubOrgStatusParams{
-				SuborgID:   suborgID,
-				OrgID: orgUser.OrgID,
-				Status:     "active",
+				SuborgID: suborgID,
+				OrgID:    orgUser.OrgID,
+				Status:   "active",
 			}); txErr != nil {
 				return txErr
 			}
@@ -540,7 +540,7 @@ func AddSubOrgMember(s *server.RegionalServer) http.HandlerFunc {
 		emailHash := sha256.Sum256([]byte(req.EmailAddress))
 		globalTargetUser, err := s.Global.GetOrgUserByEmailHashAndOrg(ctx, globaldb.GetOrgUserByEmailHashAndOrgParams{
 			EmailAddressHash: emailHash[:],
-			OrgID:       orgUser.OrgID,
+			OrgID:            orgUser.OrgID,
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
@@ -557,8 +557,8 @@ func AddSubOrgMember(s *server.RegionalServer) http.HandlerFunc {
 		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
 			// Verify the SubOrg belongs to this orgspec.
 			if _, txErr := qtx.GetSubOrgByID(ctx, regionaldb.GetSubOrgByIDParams{
-				SuborgID:   suborgID,
-				OrgID: orgUser.OrgID,
+				SuborgID: suborgID,
+				OrgID:    orgUser.OrgID,
 			}); txErr != nil {
 				return txErr
 			}
@@ -638,7 +638,7 @@ func RemoveSubOrgMember(s *server.RegionalServer) http.HandlerFunc {
 		emailHash := sha256.Sum256([]byte(req.EmailAddress))
 		globalTargetUser, err := s.Global.GetOrgUserByEmailHashAndOrg(ctx, globaldb.GetOrgUserByEmailHashAndOrgParams{
 			EmailAddressHash: emailHash[:],
-			OrgID:       orgUser.OrgID,
+			OrgID:            orgUser.OrgID,
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
@@ -655,8 +655,8 @@ func RemoveSubOrgMember(s *server.RegionalServer) http.HandlerFunc {
 		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
 			// Verify the SubOrg belongs to this orgspec.
 			if _, txErr := qtx.GetSubOrgByID(ctx, regionaldb.GetSubOrgByIDParams{
-				SuborgID:   suborgID,
-				OrgID: orgUser.OrgID,
+				SuborgID: suborgID,
+				OrgID:    orgUser.OrgID,
 			}); txErr != nil {
 				return txErr
 			}
@@ -736,8 +736,8 @@ func ListSubOrgMembers(s *server.RegionalServer) http.HandlerFunc {
 
 		// Verify the SubOrg belongs to this orgspec.
 		if _, err := s.Regional.GetSubOrgByID(ctx, regionaldb.GetSubOrgByIDParams{
-			SuborgID:   suborgID,
-			OrgID: orgUser.OrgID,
+			SuborgID: suborgID,
+			OrgID:    orgUser.OrgID,
 		}); err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				s.Logger(ctx).Debug("suborg not found", "suborg_id", req.SubOrgID)

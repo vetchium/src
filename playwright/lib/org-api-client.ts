@@ -790,12 +790,9 @@ export class OrgAPIClient {
 	async requestPasswordReset(
 		request: OrgRequestPasswordResetRequest
 	): Promise<APIResponse<OrgRequestPasswordResetResponse>> {
-		const response = await this.request.post(
-			"/org/request-password-reset",
-			{
-				data: request,
-			}
-		);
+		const response = await this.request.post("/org/request-password-reset", {
+			data: request,
+		});
 
 		const body = await response.json().catch(() => ({}));
 		return {
@@ -811,12 +808,9 @@ export class OrgAPIClient {
 	async requestPasswordResetRaw(
 		body: unknown
 	): Promise<APIResponse<OrgRequestPasswordResetResponse>> {
-		const response = await this.request.post(
-			"/org/request-password-reset",
-			{
-				data: body,
-			}
-		);
+		const response = await this.request.post("/org/request-password-reset", {
+			data: body,
+		});
 
 		const responseBody = await response.json().catch(() => ({}));
 		return {
@@ -837,12 +831,9 @@ export class OrgAPIClient {
 	async completePasswordReset(
 		request: OrgCompletePasswordResetRequest
 	): Promise<APIResponse<void>> {
-		const response = await this.request.post(
-			"/org/complete-password-reset",
-			{
-				data: request,
-			}
-		);
+		const response = await this.request.post("/org/complete-password-reset", {
+			data: request,
+		});
 
 		const body = await response.json().catch(() => ({}));
 		return {
@@ -856,12 +847,9 @@ export class OrgAPIClient {
 	 * POST /org/complete-password-reset with raw body for testing invalid payloads
 	 */
 	async completePasswordResetRaw(body: unknown): Promise<APIResponse<void>> {
-		const response = await this.request.post(
-			"/org/complete-password-reset",
-			{
-				data: body,
-			}
-		);
+		const response = await this.request.post("/org/complete-password-reset", {
+			data: body,
+		});
 
 		const responseBody = await response.json().catch(() => ({}));
 		return {
@@ -1058,9 +1046,7 @@ export class OrgAPIClient {
 		sessionToken: string,
 		request: import("vetchium-specs/org/org-users").FilterOrgUsersRequest
 	): Promise<
-		APIResponse<
-			import("vetchium-specs/org/org-users").FilterOrgUsersResponse
-		>
+		APIResponse<import("vetchium-specs/org/org-users").FilterOrgUsersResponse>
 	> {
 		const response = await this.request.post("/org/filter-users", {
 			headers: { Authorization: `Bearer ${sessionToken}`, Cookie: "" },

@@ -7,12 +7,10 @@ const COST_CENTER_NOTES_MAX_LENGTH = 500;
 const COST_CENTER_ID_PATTERN = /^[a-z0-9][a-z0-9_-]*$/;
 
 export const ERR_COST_CENTER_ID_REQUIRED = "id is required";
-export const ERR_COST_CENTER_ID_TOO_LONG =
-	"id must be at most 64 characters";
+export const ERR_COST_CENTER_ID_TOO_LONG = "id must be at most 64 characters";
 export const ERR_COST_CENTER_ID_INVALID =
 	"id must only contain lowercase letters, numbers, hyphens, and underscores, and must start with a letter or number";
-export const ERR_COST_CENTER_DISPLAY_NAME_REQUIRED =
-	"display_name is required";
+export const ERR_COST_CENTER_DISPLAY_NAME_REQUIRED = "display_name is required";
 export const ERR_COST_CENTER_DISPLAY_NAME_TOO_LONG =
 	"display_name must be at most 64 characters";
 export const ERR_COST_CENTER_NOTES_TOO_LONG =
@@ -58,23 +56,20 @@ export function validateAddCostCenterRequest(
 
 	if (!request.display_name) {
 		errs.push(
-			newValidationError(
-				"display_name",
-				ERR_COST_CENTER_DISPLAY_NAME_REQUIRED
-			)
+			newValidationError("display_name", ERR_COST_CENTER_DISPLAY_NAME_REQUIRED)
 		);
 	} else if (
 		request.display_name.length > COST_CENTER_DISPLAY_NAME_MAX_LENGTH
 	) {
 		errs.push(
-			newValidationError(
-				"display_name",
-				ERR_COST_CENTER_DISPLAY_NAME_TOO_LONG
-			)
+			newValidationError("display_name", ERR_COST_CENTER_DISPLAY_NAME_TOO_LONG)
 		);
 	}
 
-	if (request.notes !== undefined && request.notes.length > COST_CENTER_NOTES_MAX_LENGTH) {
+	if (
+		request.notes !== undefined &&
+		request.notes.length > COST_CENTER_NOTES_MAX_LENGTH
+	) {
 		errs.push(newValidationError("notes", ERR_COST_CENTER_NOTES_TOO_LONG));
 	}
 
@@ -106,19 +101,13 @@ export function validateUpdateCostCenterRequest(
 
 	if (!request.display_name) {
 		errs.push(
-			newValidationError(
-				"display_name",
-				ERR_COST_CENTER_DISPLAY_NAME_REQUIRED
-			)
+			newValidationError("display_name", ERR_COST_CENTER_DISPLAY_NAME_REQUIRED)
 		);
 	} else if (
 		request.display_name.length > COST_CENTER_DISPLAY_NAME_MAX_LENGTH
 	) {
 		errs.push(
-			newValidationError(
-				"display_name",
-				ERR_COST_CENTER_DISPLAY_NAME_TOO_LONG
-			)
+			newValidationError("display_name", ERR_COST_CENTER_DISPLAY_NAME_TOO_LONG)
 		);
 	}
 
@@ -127,12 +116,13 @@ export function validateUpdateCostCenterRequest(
 		(request.status !== CostCenterStatusEnabled &&
 			request.status !== CostCenterStatusDisabled)
 	) {
-		errs.push(
-			newValidationError("status", ERR_COST_CENTER_STATUS_INVALID)
-		);
+		errs.push(newValidationError("status", ERR_COST_CENTER_STATUS_INVALID));
 	}
 
-	if (request.notes !== undefined && request.notes.length > COST_CENTER_NOTES_MAX_LENGTH) {
+	if (
+		request.notes !== undefined &&
+		request.notes.length > COST_CENTER_NOTES_MAX_LENGTH
+	) {
 		errs.push(newValidationError("notes", ERR_COST_CENTER_NOTES_TOO_LONG));
 	}
 

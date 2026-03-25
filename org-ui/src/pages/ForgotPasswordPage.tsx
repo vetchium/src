@@ -18,17 +18,14 @@ export function ForgotPasswordPage() {
 
 		try {
 			const apiBaseUrl = await getApiBaseUrl();
-			const response = await fetch(
-				`${apiBaseUrl}/org/request-password-reset`,
-				{
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({
-						email_address: values.email,
-						domain: values.domain,
-					}),
-				}
-			);
+			const response = await fetch(`${apiBaseUrl}/org/request-password-reset`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					email_address: values.email,
+					domain: values.domain,
+				}),
+			});
 
 			// Always show success message to prevent account enumeration
 			if (response.ok || response.status === 200 || response.status === 404) {

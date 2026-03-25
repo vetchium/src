@@ -112,9 +112,7 @@ test.describe("POST /org/login", () => {
 			});
 			expect(auditResp.status).toBe(200);
 			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
-			expect(auditResp.body.audit_logs[0].event_type).toBe(
-				"org.login_failed"
-			);
+			expect(auditResp.body.audit_logs[0].event_type).toBe("org.login_failed");
 		} finally {
 			await deleteTestOrgUser(email);
 		}

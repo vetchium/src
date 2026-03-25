@@ -308,10 +308,7 @@ test.describe("SubOrgs API", () => {
 				"ind1",
 				{ orgId: adminResult.orgId, domain }
 			);
-			await assignRoleToOrgUser(
-				viewerResult.orgUserId,
-				"org:view_suborgs"
-			);
+			await assignRoleToOrgUser(viewerResult.orgUserId, "org:view_suborgs");
 			try {
 				const viewerToken = await loginOrgUser(api, viewerEmail, domain);
 				const res = await api.listSubOrgs(viewerToken, {});
@@ -987,10 +984,7 @@ test.describe("SubOrgs API", () => {
 				"ind1",
 				{ orgId: adminResult.orgId, domain }
 			);
-			await assignRoleToOrgUser(
-				viewerResult.orgUserId,
-				"org:view_suborgs"
-			);
+			await assignRoleToOrgUser(viewerResult.orgUserId, "org:view_suborgs");
 
 			const adminToken = await loginOrgUser(api, adminEmail, domain);
 			const createRes = await api.createSubOrg(adminToken, {
@@ -1074,10 +1068,7 @@ test.describe("SubOrgs API", () => {
 				"ind1",
 				{ orgId: adminResult.orgId, domain }
 			);
-			await assignRoleToOrgUser(
-				managerResult.orgUserId,
-				"org:manage_suborgs"
-			);
+			await assignRoleToOrgUser(managerResult.orgUserId, "org:manage_suborgs");
 
 			try {
 				const managerToken = await loginOrgUser(api, managerEmail, domain);

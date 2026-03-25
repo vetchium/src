@@ -74,7 +74,7 @@ func Login(s *server.RegionalServer) http.HandlerFunc {
 		// Query global database for user by email hash + employer (composite lookup)
 		globalUser, err := s.Global.GetOrgUserByEmailHashAndOrg(ctx, globaldb.GetOrgUserByEmailHashAndOrgParams{
 			EmailAddressHash: emailHash[:],
-			OrgID:       employer.OrgID,
+			OrgID:            employer.OrgID,
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
@@ -96,7 +96,7 @@ func Login(s *server.RegionalServer) http.HandlerFunc {
 		// Query regional database for password hash and status (composite lookup)
 		regionalUser, err := s.Regional.GetOrgUserByEmailAndOrg(ctx, regionaldb.GetOrgUserByEmailAndOrgParams{
 			EmailAddress: string(loginRequest.Email),
-			OrgID:   employer.OrgID,
+			OrgID:        employer.OrgID,
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {

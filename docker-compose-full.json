@@ -7,17 +7,10 @@
 				"POSTGRES_USER": "vetchium",
 				"POSTGRES_PASSWORD": "vetchium_dev"
 			},
-			"volumes": [
-				"global-db-data:/var/lib/postgresql/data"
-			],
-			"ports": [
-				"5432:5432"
-			],
+			"volumes": ["global-db-data:/var/lib/postgresql/data"],
+			"ports": ["5432:5432"],
 			"healthcheck": {
-				"test": [
-					"CMD-SHELL",
-					"pg_isready -U vetchium -d vetchium_global"
-				],
+				"test": ["CMD-SHELL", "pg_isready -U vetchium -d vetchium_global"],
 				"interval": "5s",
 				"timeout": "5s",
 				"retries": 5
@@ -30,17 +23,10 @@
 				"POSTGRES_USER": "vetchium",
 				"POSTGRES_PASSWORD": "vetchium_dev"
 			},
-			"volumes": [
-				"regional-db-ind1-data:/var/lib/postgresql/data"
-			],
-			"ports": [
-				"5433:5432"
-			],
+			"volumes": ["regional-db-ind1-data:/var/lib/postgresql/data"],
+			"ports": ["5433:5432"],
 			"healthcheck": {
-				"test": [
-					"CMD-SHELL",
-					"pg_isready -U vetchium -d vetchium_ind1"
-				],
+				"test": ["CMD-SHELL", "pg_isready -U vetchium -d vetchium_ind1"],
 				"interval": "5s",
 				"timeout": "5s",
 				"retries": 5
@@ -53,17 +39,10 @@
 				"POSTGRES_USER": "vetchium",
 				"POSTGRES_PASSWORD": "vetchium_dev"
 			},
-			"volumes": [
-				"regional-db-usa1-data:/var/lib/postgresql/data"
-			],
-			"ports": [
-				"5434:5432"
-			],
+			"volumes": ["regional-db-usa1-data:/var/lib/postgresql/data"],
+			"ports": ["5434:5432"],
 			"healthcheck": {
-				"test": [
-					"CMD-SHELL",
-					"pg_isready -U vetchium -d vetchium_usa1"
-				],
+				"test": ["CMD-SHELL", "pg_isready -U vetchium -d vetchium_usa1"],
 				"interval": "5s",
 				"timeout": "5s",
 				"retries": 5
@@ -76,17 +55,10 @@
 				"POSTGRES_USER": "vetchium",
 				"POSTGRES_PASSWORD": "vetchium_dev"
 			},
-			"volumes": [
-				"regional-db-deu1-data:/var/lib/postgresql/data"
-			],
-			"ports": [
-				"5435:5432"
-			],
+			"volumes": ["regional-db-deu1-data:/var/lib/postgresql/data"],
+			"ports": ["5435:5432"],
 			"healthcheck": {
-				"test": [
-					"CMD-SHELL",
-					"pg_isready -U vetchium -d vetchium_deu1"
-				],
+				"test": ["CMD-SHELL", "pg_isready -U vetchium -d vetchium_deu1"],
 				"interval": "5s",
 				"timeout": "5s",
 				"retries": 5
@@ -98,9 +70,7 @@
 				"SERVICES": "s3",
 				"DEBUG": "0"
 			},
-			"ports": [
-				"4566:4566"
-			],
+			"ports": ["4566:4566"],
 			"healthcheck": {
 				"test": [
 					"CMD-SHELL",
@@ -118,10 +88,7 @@
 					"condition": "service_healthy"
 				}
 			},
-			"entrypoint": [
-				"sh",
-				"-c"
-			],
+			"entrypoint": ["sh", "-c"],
 			"command": [
 				"i=0; until aws --endpoint-url=http://localstack:4566 s3 ls s3://vetchium 2>/dev/null || aws --endpoint-url=http://localstack:4566 s3 mb s3://vetchium 2>/dev/null; do i=$$((i+1)); [ $$i -ge 30 ] && exit 1; sleep 2; done"
 			],
@@ -133,10 +100,7 @@
 		},
 		"mailpit": {
 			"image": "axllent/mailpit:latest",
-			"ports": [
-				"8025:8025",
-				"1025:1025"
-			],
+			"ports": ["8025:8025", "1025:1025"],
 			"environment": {
 				"MP_SMTP_AUTH_ACCEPT_ANY": "true",
 				"MP_SMTP_AUTH_ALLOW_INSECURE": "true"
@@ -526,12 +490,8 @@
 		},
 		"api-lb": {
 			"image": "nginx:alpine",
-			"volumes": [
-				"./nginx/api-lb.conf:/etc/nginx/nginx.conf:ro"
-			],
-			"ports": [
-				"8080:80"
-			],
+			"volumes": ["./nginx/api-lb.conf:/etc/nginx/nginx.conf:ro"],
+			"ports": ["8080:80"],
 			"depends_on": [
 				"global-service",
 				"regional-api-server-ind1",
@@ -544,9 +504,7 @@
 				"context": ".",
 				"dockerfile": "hub-ui/Dockerfile"
 			},
-			"ports": [
-				"3000:80"
-			],
+			"ports": ["3000:80"],
 			"environment": {
 				"API_URL": "http://localhost:8080"
 			}
@@ -556,9 +514,7 @@
 				"context": ".",
 				"dockerfile": "admin-ui/Dockerfile"
 			},
-			"ports": [
-				"3001:80"
-			],
+			"ports": ["3001:80"],
 			"environment": {
 				"API_URL": "http://localhost:8080"
 			}
@@ -568,9 +524,7 @@
 				"context": ".",
 				"dockerfile": "org-ui/Dockerfile"
 			},
-			"ports": [
-				"3002:80"
-			],
+			"ports": ["3002:80"],
 			"environment": {
 				"API_URL": "http://localhost:8080"
 			}

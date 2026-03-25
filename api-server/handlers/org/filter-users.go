@@ -87,7 +87,7 @@ func FilterUsers(s *server.RegionalServer) http.HandlerFunc {
 
 		// Query Regional DB for items
 		regionalParams := regionaldb.FilterOrgUsersParams{
-			OrgID:      orgUser.OrgID,
+			OrgID:           orgUser.OrgID,
 			FilterEmail:     filterEmail,
 			FilterName:      filterName,
 			CursorCreatedAt: cursorCreatedAt,

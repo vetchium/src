@@ -111,8 +111,8 @@ func RemoveRole(s *server.RegionalServer) http.HandlerFunc {
 			// Guard against removing the last active superadmin's role
 			if string(req.RoleName) == "org:superadmin" {
 				lockedSuperadmins, err := qtx.LockActiveOrgUsersWithRole(ctx, regionaldb.LockActiveOrgUsersWithRoleParams{
-					OrgID: targetUser.OrgID,
-					RoleID:     role.RoleID,
+					OrgID:  targetUser.OrgID,
+					RoleID: role.RoleID,
 				})
 				if err != nil {
 					return err

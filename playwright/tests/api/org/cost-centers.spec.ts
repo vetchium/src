@@ -597,10 +597,7 @@ test.describe("Cost Centers API", () => {
 				"ind1",
 				{ orgId: adminResult.orgId, domain }
 			);
-			await assignRoleToOrgUser(
-				viewerResult.orgUserId,
-				"org:view_costcenters"
-			);
+			await assignRoleToOrgUser(viewerResult.orgUserId, "org:view_costcenters");
 
 			try {
 				const viewerToken = await loginOrgUser(api, viewerEmail, domain);

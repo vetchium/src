@@ -81,14 +81,11 @@ export function SignupCompleteForm() {
 					signup_token: token,
 				};
 
-				const response = await fetch(
-					`${apiBaseUrl}/org/get-signup-details`,
-					{
-						method: "POST",
-						headers: { "Content-Type": "application/json" },
-						body: JSON.stringify(request),
-					}
-				);
+				const response = await fetch(`${apiBaseUrl}/org/get-signup-details`, {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify(request),
+				});
 
 				if (response.status === 200) {
 					const data = await response.json();

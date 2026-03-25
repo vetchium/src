@@ -77,9 +77,9 @@ func ClaimDomain(s *server.RegionalServer) http.HandlerFunc {
 
 		// SAGA pattern: Create in global DB first (for uniqueness)
 		err = s.Global.CreateGlobalOrgDomain(ctx, globaldb.CreateGlobalOrgDomainParams{
-			Domain:     domain,
-			Region:     s.CurrentRegion,
-			OrgID: orgUser.OrgID,
+			Domain: domain,
+			Region: s.CurrentRegion,
+			OrgID:  orgUser.OrgID,
 		})
 		if err != nil {
 			// Check for unique constraint violation (domain already claimed)
@@ -99,7 +99,7 @@ func ClaimDomain(s *server.RegionalServer) http.HandlerFunc {
 		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
 			if txErr := qtx.CreateOrgDomain(ctx, regionaldb.CreateOrgDomainParams{
 				Domain:            domain,
-				OrgID:        orgUser.OrgID,
+				OrgID:             orgUser.OrgID,
 				VerificationToken: verificationToken,
 				TokenExpiresAt:    pgtype.Timestamptz{Time: tokenExpiresAt, Valid: true},
 				Status:            regionaldb.DomainVerificationStatusPENDING,

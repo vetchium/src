@@ -93,9 +93,7 @@ test.describe("POST /org/claim-domain", () => {
 			});
 			expect(auditResp.status).toBe(200);
 			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
-			expect(auditResp.body.audit_logs[0].event_type).toBe(
-				"org.claim_domain"
-			);
+			expect(auditResp.body.audit_logs[0].event_type).toBe("org.claim_domain");
 		} finally {
 			// Cleanup
 			await deleteTestGlobalEmployerDomain(claimedDomain);
@@ -236,10 +234,7 @@ test.describe("RBAC: POST /org/claim-domain", () => {
 			"ind1",
 			{ orgId: adminResult.orgId, domain }
 		);
-		await assignRoleToOrgUser(
-			managerResult.orgUserId,
-			"org:manage_domains"
-		);
+		await assignRoleToOrgUser(managerResult.orgUserId, "org:manage_domains");
 
 		const freshDomain = generateTestDomainName("rbac-emp-clm");
 		try {
