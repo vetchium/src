@@ -193,6 +193,42 @@ export async function updateTestAdminUserLanguage(
 }
 
 /**
+ * Creates a test admin user with superadmin privileges directly in the database.
+ * This is useful for UI tests that need access to all admin features.
+ *
+ * @param email - Email address for the admin user
+ * @param password - Plain text password
+ * @param options - Optional settings
+ * @returns Object with userId
+ */
+export async function createTestSuperadmin(
+	email: string,
+	password: string,
+	options: CreateTestAdminUserOptions | AdminUserStatus = "active"
+): Promise<{ userId: string }> {
+	const adminUserId = await createTestAdminUser(email, password, options);
+
+	// Get superadmin role ID
+	const roleResult = await pool.query(
+		`SELECT role_id FROM roles WHERE role_name = 'admin:superadmin'`
+	);
+
+	if (roleResult.rows.length === 0) {
+		throw new Error("Superadmin role not found in roles table");
+	}
+
+	const roleId = roleResult.rows[0].role_id;
+
+	// Assign superadmin role
+	await pool.query(
+		`INSERT INTO admin_user_roles (admin_user_id, role_id) VALUES ($1, $2)`,
+		[adminUserId, roleId]
+	);
+
+	return { userId: adminUserId };
+}
+
+/**
  * Creates a test admin user with admin roles directly in the database.
  * This creates an admin user and assigns them all admin roles (manage_users, manage_domains).
  *

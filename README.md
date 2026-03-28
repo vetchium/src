@@ -139,10 +139,17 @@ docker compose -f docker-compose-ci.json up --build -d
 # In a separate terminal
 cd playwright
 npm install
-npm test                 # All tests
+npm run env:check        # Verify all services are up and reachable
+npm test                 # All tests (API + UI)
 npm run test:api         # API tests only
 npm run test:api:admin   # Admin API tests only
+npm run test:ui          # All UI tests (Chromium, 1 worker)
+npm run test:ui:admin    # Admin UI tests only
+npm run test:ui:hub      # Hub UI tests only
+npm run test:ui:org      # Org UI tests only
 ```
+
+**Note:** UI tests are configured to run with a single worker (`--workers=1`) to prevent collisions in the Mailpit email inbox when retrieving TFA codes and signup tokens.
 
 The CI configuration uses short token durations to enable expiry scenario tests:
 

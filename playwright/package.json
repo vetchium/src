@@ -6,7 +6,14 @@
 	"scripts": {
 		"test": "playwright test",
 		"test:api": "playwright test tests/api/",
-		"test:api:admin": "playwright test tests/api/admin/"
+		"test:api:admin": "playwright test tests/api/admin/",
+		"test:ui": "playwright test tests/ui/ --project=chromium --workers=1",
+		"test:ui:admin": "playwright test tests/ui/admin/ --project=chromium --workers=1",
+		"test:ui:hub": "playwright test tests/ui/hub/ --project=chromium --workers=1",
+		"test:ui:org": "playwright test tests/ui/org/ --project=chromium --workers=1",
+		"clean:emails": "bun clean-emails.ts",
+		"env:check": "bun check-health.ts",
+		"test:ui:report": "playwright show-report"
 	},
 	"keywords": [],
 	"author": "",
