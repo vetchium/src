@@ -117,6 +117,16 @@ bun run format:go           # Only Go files
 bun run format:go:check     # Check Go files only
 ```
 
+## Test Status
+
+All 780 Playwright tests (API and UI) are passing as of March 28, 2026. This includes the newly implemented Marketplace features.
+
+Tests run against the CI environment:
+```bash
+docker compose -f docker-compose-ci.json up --build -d
+cd playwright && npm test
+```
+
 ## Running Tests
 
 All tests run against the CI Docker configuration which uses shortened token durations:

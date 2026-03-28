@@ -74,8 +74,8 @@ func RegisterAdminGlobalRoutes(mux *http.ServeMux, s *server.GlobalServer) {
 	mux.Handle("POST /admin/reinstate-marketplace-provider-capability", adminAuth(adminRoleManageMarketplace(admin.ReinstateMarketplaceProviderCapability(s))))
 
 	// Marketplace service listing management routes (admin:manage_marketplace required)
-	mux.Handle("POST /admin/list-admin-marketplace-service-listings", adminAuth(adminRoleManageMarketplace(admin.AdminListMarketplaceServiceListings(s))))
-	mux.Handle("POST /admin/get-admin-marketplace-service-listing", adminAuth(adminRoleManageMarketplace(admin.AdminGetMarketplaceServiceListing(s))))
+	mux.Handle("POST /admin/list-marketplace-service-listings", adminAuth(adminRoleManageMarketplace(admin.AdminListMarketplaceServiceListings(s))))
+	mux.Handle("POST /admin/get-marketplace-service-listing", adminAuth(adminRoleManageMarketplace(admin.AdminGetMarketplaceServiceListing(s))))
 	mux.Handle("POST /admin/approve-marketplace-service-listing", adminAuth(adminRoleManageMarketplace(admin.ApproveMarketplaceServiceListing(s))))
 	mux.Handle("POST /admin/reject-marketplace-service-listing", adminAuth(adminRoleManageMarketplace(admin.RejectMarketplaceServiceListing(s))))
 	mux.Handle("POST /admin/suspend-marketplace-service-listing", adminAuth(adminRoleManageMarketplace(admin.SuspendMarketplaceServiceListing(s))))

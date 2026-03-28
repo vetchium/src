@@ -98,6 +98,6 @@ func ArchiveMarketplaceServiceListing(s *server.RegionalServer) http.HandlerFunc
 		}
 
 		log.Info("service listing archived", "service_listing_id", req.ServiceListingID)
-		w.WriteHeader(http.StatusOK)
+		w.WriteHeader(http.StatusNoContent)
 	}
 }

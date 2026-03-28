@@ -77,6 +77,7 @@ test.describe("Marketplace Admin API", () => {
 				TEST_PASSWORD
 			);
 			await assignRoleToAdminUser(adminUserId, "admin:manage_marketplace");
+			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
 
 			const { email: orgEmail, domain: orgDomain } =
 				generateTestOrgEmail("mkt-admin-list-org");
@@ -145,6 +146,7 @@ test.describe("Marketplace Admin API", () => {
 				TEST_PASSWORD
 			);
 			await assignRoleToAdminUser(adminUserId, "admin:manage_marketplace");
+			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
 
 			const { email: orgEmail, domain: orgDomain } = generateTestOrgEmail(
 				"mkt-approve-cap-org"
@@ -210,6 +212,7 @@ test.describe("Marketplace Admin API", () => {
 				TEST_PASSWORD
 			);
 			await assignRoleToAdminUser(adminUserId, "admin:manage_marketplace");
+			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
 
 			const { email: orgEmail } = generateTestOrgEmail(
 				"mkt-approve-cap-422-org"
@@ -245,6 +248,7 @@ test.describe("Marketplace Admin API", () => {
 				TEST_PASSWORD
 			);
 			await assignRoleToAdminUser(adminUserId, "admin:manage_marketplace");
+			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
 
 			try {
 				const adminToken = await loginAdmin(adminApi, adminEmail);
@@ -316,6 +320,7 @@ test.describe("Marketplace Admin API", () => {
 				TEST_PASSWORD
 			);
 			await assignRoleToAdminUser(adminUserId, "admin:manage_marketplace");
+			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
 
 			const { email: orgEmail, domain: orgDomain } =
 				generateTestOrgEmail("mkt-reject-cap-org");
@@ -362,6 +367,7 @@ test.describe("Marketplace Admin API", () => {
 				TEST_PASSWORD
 			);
 			await assignRoleToAdminUser(adminUserId, "admin:manage_marketplace");
+			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
 
 			const { email: orgEmail } = generateTestOrgEmail(
 				"mkt-reject-cap-422-org"
@@ -411,6 +417,7 @@ test.describe("Marketplace Admin API", () => {
 				TEST_PASSWORD
 			);
 			await assignRoleToAdminUser(adminUserId, "admin:manage_marketplace");
+			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
 
 			const { email: orgEmail } = generateTestOrgEmail("mkt-revoke-cap-org");
 			const orgResult = await createTestOrgAdminDirect(orgEmail, TEST_PASSWORD);
@@ -442,6 +449,7 @@ test.describe("Marketplace Admin API", () => {
 				TEST_PASSWORD
 			);
 			await assignRoleToAdminUser(adminUserId, "admin:manage_marketplace");
+			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
 
 			const { email: orgEmail, domain: orgDomain } = generateTestOrgEmail(
 				"mkt-revoke-cap-422-org"
@@ -494,6 +502,7 @@ test.describe("Marketplace Admin API", () => {
 				TEST_PASSWORD
 			);
 			await assignRoleToAdminUser(adminUserId, "admin:manage_marketplace");
+			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
 
 			const { email: orgEmail } = generateTestOrgEmail("mkt-reinstate-cap-org");
 			const orgResult = await createTestOrgAdminDirect(orgEmail, TEST_PASSWORD);
@@ -528,6 +537,7 @@ test.describe("Marketplace Admin API", () => {
 				TEST_PASSWORD
 			);
 			await assignRoleToAdminUser(adminUserId, "admin:manage_marketplace");
+			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
 
 			const { email: orgEmail, domain: orgDomain } = generateTestOrgEmail(
 				"mkt-reinstate-cap-422-org"
@@ -583,6 +593,7 @@ test.describe("Marketplace Admin API", () => {
 				TEST_PASSWORD
 			);
 			await assignRoleToAdminUser(adminUserId, "admin:manage_marketplace");
+			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
 
 			const { email: orgEmail } = generateTestOrgEmail("mkt-renew-cap-org");
 			const orgResult = await createTestOrgAdminDirect(orgEmail, TEST_PASSWORD);
@@ -618,6 +629,7 @@ test.describe("Marketplace Admin API", () => {
 				TEST_PASSWORD
 			);
 			await assignRoleToAdminUser(adminUserId, "admin:manage_marketplace");
+			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
 
 			const { email: orgEmail, domain: orgDomain } = generateTestOrgEmail(
 				"mkt-renew-cap-422-org"
@@ -674,6 +686,7 @@ test.describe("Marketplace Admin API", () => {
 				TEST_PASSWORD
 			);
 			await assignRoleToAdminUser(adminUserId, "admin:manage_marketplace");
+			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
 
 			const { email: orgEmail } = generateTestOrgEmail("mkt-admin-list-sl-org");
 			const orgResult = await createTestOrgAdminDirect(orgEmail, TEST_PASSWORD);
@@ -710,6 +723,7 @@ test.describe("Marketplace Admin API", () => {
 				TEST_PASSWORD
 			);
 			await assignRoleToAdminUser(adminUserId, "admin:manage_marketplace");
+			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
 
 			const { email: orgEmail } = generateTestOrgEmail(
 				"mkt-admin-filter-sl-org"
@@ -788,6 +802,7 @@ test.describe("Marketplace Admin API", () => {
 				TEST_PASSWORD
 			);
 			await assignRoleToAdminUser(adminUserId, "admin:manage_marketplace");
+			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
 
 			const { email: orgEmail, domain: orgDomain } =
 				generateTestOrgEmail("mkt-approve-sl-org");
@@ -864,6 +879,7 @@ test.describe("Marketplace Admin API", () => {
 				TEST_PASSWORD
 			);
 			await assignRoleToAdminUser(adminUserId, "admin:manage_marketplace");
+			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
 
 			const { email: orgEmail } = generateTestOrgEmail(
 				"mkt-approve-sl-422-org"
@@ -945,6 +961,7 @@ test.describe("Marketplace Admin API", () => {
 				TEST_PASSWORD
 			);
 			await assignRoleToAdminUser(adminUserId, "admin:manage_marketplace");
+			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
 
 			const { email: orgEmail } = generateTestOrgEmail("mkt-reject-sl-org");
 			const orgResult = await createTestOrgAdminDirect(orgEmail, TEST_PASSWORD);
@@ -988,6 +1005,7 @@ test.describe("Marketplace Admin API", () => {
 				TEST_PASSWORD
 			);
 			await assignRoleToAdminUser(adminUserId, "admin:manage_marketplace");
+			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
 
 			const { email: orgEmail } = generateTestOrgEmail("mkt-reject-sl-422-org");
 			const orgResult = await createTestOrgAdminDirect(orgEmail, TEST_PASSWORD);
@@ -1038,6 +1056,7 @@ test.describe("Marketplace Admin API", () => {
 				TEST_PASSWORD
 			);
 			await assignRoleToAdminUser(adminUserId, "admin:manage_marketplace");
+			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
 
 			const { email: orgEmail } = generateTestOrgEmail("mkt-suspend-sl-org");
 			const orgResult = await createTestOrgAdminDirect(orgEmail, TEST_PASSWORD);
@@ -1073,6 +1092,7 @@ test.describe("Marketplace Admin API", () => {
 				TEST_PASSWORD
 			);
 			await assignRoleToAdminUser(adminUserId, "admin:manage_marketplace");
+			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
 
 			const { email: orgEmail } = generateTestOrgEmail(
 				"mkt-suspend-sl-422-org"
@@ -1128,6 +1148,7 @@ test.describe("Marketplace Admin API", () => {
 				TEST_PASSWORD
 			);
 			await assignRoleToAdminUser(adminUserId, "admin:manage_marketplace");
+			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
 
 			const { email: orgEmail } = generateTestOrgEmail("mkt-reinstate-sl-org");
 			const orgResult = await createTestOrgAdminDirect(orgEmail, TEST_PASSWORD);
@@ -1162,6 +1183,7 @@ test.describe("Marketplace Admin API", () => {
 				TEST_PASSWORD
 			);
 			await assignRoleToAdminUser(adminUserId, "admin:manage_marketplace");
+			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
 
 			const { email: orgEmail } = generateTestOrgEmail(
 				"mkt-reinstate-sl-422-org"
@@ -1216,11 +1238,13 @@ test.describe("Marketplace Admin API", () => {
 				TEST_PASSWORD
 			);
 			await assignRoleToAdminUser(adminUserId, "admin:manage_marketplace");
+			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
 
 			const { email: orgEmail, domain: orgDomain } = generateTestOrgEmail(
 				"mkt-grant-appeal-org"
 			);
 			const orgResult = await createTestOrgAdminDirect(orgEmail, TEST_PASSWORD);
+			await grantMarketplaceProviderCapability(orgResult.orgId);
 			// Create a suspended listing and submit appeal via API
 			const listingId = await createTestServiceListingDirect(
 				orgResult.orgId,
@@ -1264,6 +1288,7 @@ test.describe("Marketplace Admin API", () => {
 				TEST_PASSWORD
 			);
 			await assignRoleToAdminUser(adminUserId, "admin:manage_marketplace");
+			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
 
 			const { email: orgEmail } = generateTestOrgEmail(
 				"mkt-grant-appeal-422-org"
@@ -1316,11 +1341,13 @@ test.describe("Marketplace Admin API", () => {
 				TEST_PASSWORD
 			);
 			await assignRoleToAdminUser(adminUserId, "admin:manage_marketplace");
+			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
 
 			const { email: orgEmail, domain: orgDomain } = generateTestOrgEmail(
 				"mkt-deny-appeal-org"
 			);
 			const orgResult = await createTestOrgAdminDirect(orgEmail, TEST_PASSWORD);
+			await grantMarketplaceProviderCapability(orgResult.orgId);
 			const listingId = await createTestServiceListingDirect(
 				orgResult.orgId,
 				"Listing for Deny Appeal",
@@ -1363,6 +1390,7 @@ test.describe("Marketplace Admin API", () => {
 				TEST_PASSWORD
 			);
 			await assignRoleToAdminUser(adminUserId, "admin:manage_marketplace");
+			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
 
 			const { email: orgEmail } = generateTestOrgEmail(
 				"mkt-deny-appeal-422-org"
@@ -1413,6 +1441,7 @@ test.describe("Marketplace Admin API", () => {
 				TEST_PASSWORD
 			);
 			await assignRoleToAdminUser(adminUserId, "admin:manage_marketplace");
+			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
 
 			try {
 				const adminToken = await loginAdmin(adminApi, adminEmail);

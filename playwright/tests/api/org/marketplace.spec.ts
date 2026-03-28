@@ -359,6 +359,7 @@ test.describe("Marketplace Org API", () => {
 			const api = new OrgAPIClient(request);
 			const { email, domain } = generateTestOrgEmail("mkt-submit-422");
 			const result = await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			await grantMarketplaceProviderCapability(result.orgId);
 			// Create a listing in pending_review state directly
 			const listingId = await createTestServiceListingDirect(
 				result.orgId,
@@ -380,8 +381,8 @@ test.describe("Marketplace Org API", () => {
 		test("Not found: non-existent listing ID (404)", async ({ request }) => {
 			const api = new OrgAPIClient(request);
 			const { email, domain } = generateTestOrgEmail("mkt-submit-404");
-			await createTestOrgAdminDirect(email, TEST_PASSWORD);
-
+			const result = await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			await grantMarketplaceProviderCapability(result.orgId);
 			try {
 				const token = await loginOrgUser(api, email, domain);
 				const res = await api.submitMarketplaceServiceListing(token, {
@@ -410,6 +411,7 @@ test.describe("Marketplace Org API", () => {
 			const api = new OrgAPIClient(request);
 			const { email, domain } = generateTestOrgEmail("mkt-pause");
 			const result = await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			await grantMarketplaceProviderCapability(result.orgId);
 			const listingId = await createTestServiceListingDirect(
 				result.orgId,
 				"Listing to Pause",
@@ -431,6 +433,7 @@ test.describe("Marketplace Org API", () => {
 			const api = new OrgAPIClient(request);
 			const { email, domain } = generateTestOrgEmail("mkt-pause-422");
 			const result = await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			await grantMarketplaceProviderCapability(result.orgId);
 			const listingId = await createTestServiceListingDirect(
 				result.orgId,
 				"Draft Listing Cannot Pause",
@@ -465,6 +468,7 @@ test.describe("Marketplace Org API", () => {
 			const api = new OrgAPIClient(request);
 			const { email, domain } = generateTestOrgEmail("mkt-unpause");
 			const result = await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			await grantMarketplaceProviderCapability(result.orgId);
 			const listingId = await createTestServiceListingDirect(
 				result.orgId,
 				"Listing to Unpause",
@@ -486,6 +490,7 @@ test.describe("Marketplace Org API", () => {
 			const api = new OrgAPIClient(request);
 			const { email, domain } = generateTestOrgEmail("mkt-unpause-422");
 			const result = await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			await grantMarketplaceProviderCapability(result.orgId);
 			const listingId = await createTestServiceListingDirect(
 				result.orgId,
 				"Active Listing Cannot Unpause",
@@ -520,6 +525,7 @@ test.describe("Marketplace Org API", () => {
 			const api = new OrgAPIClient(request);
 			const { email, domain } = generateTestOrgEmail("mkt-archive");
 			const result = await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			await grantMarketplaceProviderCapability(result.orgId);
 			const listingId = await createTestServiceListingDirect(
 				result.orgId,
 				"Listing to Archive",
@@ -541,6 +547,7 @@ test.describe("Marketplace Org API", () => {
 			const api = new OrgAPIClient(request);
 			const { email, domain } = generateTestOrgEmail("mkt-archive-draft");
 			const result = await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			await grantMarketplaceProviderCapability(result.orgId);
 			const listingId = await createTestServiceListingDirect(
 				result.orgId,
 				"Draft Listing to Archive",
@@ -575,6 +582,7 @@ test.describe("Marketplace Org API", () => {
 			const api = new OrgAPIClient(request);
 			const { email, domain } = generateTestOrgEmail("mkt-appeal");
 			const result = await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			await grantMarketplaceProviderCapability(result.orgId);
 			const listingId = await createTestServiceListingDirect(
 				result.orgId,
 				"Suspended Listing for Appeal",
@@ -599,6 +607,7 @@ test.describe("Marketplace Org API", () => {
 			const api = new OrgAPIClient(request);
 			const { email, domain } = generateTestOrgEmail("mkt-appeal-exhausted");
 			const result = await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			await grantMarketplaceProviderCapability(result.orgId);
 			const listingId = await createTestServiceListingDirect(
 				result.orgId,
 				"Appeal Exhausted Listing",
@@ -625,6 +634,7 @@ test.describe("Marketplace Org API", () => {
 			const api = new OrgAPIClient(request);
 			const { email, domain } = generateTestOrgEmail("mkt-appeal-badstate");
 			const result = await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			await grantMarketplaceProviderCapability(result.orgId);
 			const listingId = await createTestServiceListingDirect(
 				result.orgId,
 				"Active Listing Cannot Appeal",
