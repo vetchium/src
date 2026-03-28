@@ -31,6 +31,7 @@ import { DomainManagementPage } from "./pages/DomainManagement/DomainManagementP
 import { CostCentersPage } from "./pages/CostCenters/CostCentersPage";
 import { SubOrgsPage } from "./pages/SubOrgs/SubOrgsPage";
 import { AuditLogsPage } from "./pages/AuditLogsPage";
+import { MarketplacePage } from "./pages/Marketplace/MarketplacePage";
 import {
 	BrowserRouter,
 	Routes,
@@ -348,6 +349,14 @@ function AppContent() {
 									<AuditLogsRoute>
 										<AuditLogsPage />
 									</AuditLogsRoute>
+								}
+							/>
+							<Route
+								path="/marketplace"
+								element={
+									<ProtectedRoute>
+										<MarketplacePage />
+									</ProtectedRoute>
 								}
 							/>
 							<Route path="/forgot-password" element={<ForgotPasswordPage />} />

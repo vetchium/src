@@ -1254,3 +1254,143 @@ export async function createTestTag(
 export async function deleteTestTag(tagId: string): Promise<void> {
 	await pool.query(`DELETE FROM tags WHERE tag_id = $1`, [tagId]);
 }
+
+// ============================================================================
+// Marketplace Test Helpers
+// ============================================================================
+
+/**
+ * Grants marketplace_provider capability to an org directly in the regional DB.
+ * Sets status = 'active' with granted_at = NOW() and expires_at = NOW() + 365 days.
+ *
+ * @param orgId - The org ID to grant the capability to
+ * @param region - The region where the org resides (default: 'ind1')
+ */
+export async function grantMarketplaceProviderCapability(
+	orgId: string,
+	region: RegionCode = "ind1"
+): Promise<void> {
+	const regionalPool = getRegionalPool(region);
+	try {
+		await regionalPool.query(
+			`INSERT INTO org_capabilities (org_id, capability, status, granted_at, expires_at)
+       VALUES ($1, 'marketplace_provider', 'active', NOW(), NOW() + INTERVAL '365 days')
+       ON CONFLICT (org_id, capability) DO UPDATE
+         SET status = 'active', granted_at = NOW(), expires_at = NOW() + INTERVAL '365 days', updated_at = NOW()`,
+			[orgId]
+		);
+	} finally {
+		await regionalPool.end();
+	}
+}
+
+/**
+ * Creates a test marketplace service listing directly in the regional DB.
+ * Bypasses API validation and capability checks for test setup.
+ *
+ * @param orgId - The org ID that owns the listing
+ * @param name - Display name for the listing
+ * @param state - Initial state of the listing (default: 'active')
+ * @param region - The region where data is stored (default: 'ind1')
+ * @returns The service_listing_id of the created listing
+ */
+export async function createTestServiceListingDirect(
+	orgId: string,
+	name: string,
+	state: string = "active",
+	region: RegionCode = "ind1"
+): Promise<string> {
+	const regionalPool = getRegionalPool(region);
+	try {
+		const result = await regionalPool.query(
+			`INSERT INTO marketplace_service_listings
+       (org_id, name, short_blurb, description, service_category, countries_of_service,
+        contact_url, state, industries_served, company_sizes_served,
+        job_functions_sourced, seniority_levels_sourced, geographic_sourcing_regions)
+       VALUES ($1, $2, 'Short description for test', 'Full description for test listing',
+               'talent_sourcing', ARRAY['IN'], 'https://example.com/contact', $3,
+               ARRAY['technology_software'], ARRAY['startup'],
+               ARRAY['engineering_technology'], ARRAY['mid'], ARRAY['India'])
+       RETURNING service_listing_id`,
+			[orgId, name, state]
+		);
+		return result.rows[0].service_listing_id;
+	} finally {
+		await regionalPool.end();
+	}
+}
+
+/**
+ * Sets a marketplace service listing to 'appealing' state directly in the regional DB.
+ * Used to set up appeal test scenarios.
+ *
+ * @param serviceListingId - The listing ID to update
+ * @param appealExhausted - Whether the appeal has been exhausted (default: false)
+ * @param region - The region where data is stored (default: 'ind1')
+ */
+export async function setServiceListingAppealingState(
+	serviceListingId: string,
+	appealExhausted: boolean = false,
+	region: RegionCode = "ind1"
+): Promise<void> {
+	const regionalPool = getRegionalPool(region);
+	try {
+		await regionalPool.query(
+			`UPDATE marketplace_service_listings
+       SET state = 'appealing', appeal_exhausted = $2, appeal_reason = 'Test appeal reason'
+       WHERE service_listing_id = $1`,
+			[serviceListingId, appealExhausted]
+		);
+	} finally {
+		await regionalPool.end();
+	}
+}
+
+/**
+ * Sets a marketplace service listing state directly in the regional DB.
+ * Used to set up state transition test scenarios.
+ *
+ * @param serviceListingId - The listing ID to update
+ * @param state - The new state to set
+ * @param region - The region where data is stored (default: 'ind1')
+ */
+export async function setServiceListingState(
+	serviceListingId: string,
+	state: string,
+	region: RegionCode = "ind1"
+): Promise<void> {
+	const regionalPool = getRegionalPool(region);
+	try {
+		await regionalPool.query(
+			`UPDATE marketplace_service_listings SET state = $2 WHERE service_listing_id = $1`,
+			[serviceListingId, state]
+		);
+	} finally {
+		await regionalPool.end();
+	}
+}
+
+/**
+ * Sets org_capabilities to a specific state directly in the regional DB.
+ * Used to test admin capability state transitions.
+ *
+ * @param orgId - The org ID
+ * @param status - The capability status to set
+ * @param region - The region (default: 'ind1')
+ */
+export async function setOrgCapabilityStatus(
+	orgId: string,
+	status: string,
+	region: RegionCode = "ind1"
+): Promise<void> {
+	const regionalPool = getRegionalPool(region);
+	try {
+		await regionalPool.query(
+			`UPDATE org_capabilities SET status = $2, updated_at = NOW()
+       WHERE org_id = $1 AND capability = 'marketplace_provider'`,
+			[orgId, status]
+		);
+	} finally {
+		await regionalPool.end();
+	}
+}

@@ -5,6 +5,7 @@ import {
 	TagsOutlined,
 	TeamOutlined,
 	FileSearchOutlined,
+	ShopOutlined,
 } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../hooks/useAuth";
@@ -38,6 +39,11 @@ export function DashboardPage() {
 	const canViewAuditLogs =
 		myInfo?.roles.includes("admin:superadmin") ||
 		myInfo?.roles.includes("admin:view_audit_logs") ||
+		false;
+
+	const canManageMarketplace =
+		myInfo?.roles.includes("admin:superadmin") ||
+		myInfo?.roles.includes("admin:manage_marketplace") ||
 		false;
 
 	return (
@@ -130,6 +136,24 @@ export function DashboardPage() {
 								</Title>
 								<Text type="secondary">
 									{t("dashboard.auditLogs.description")}
+								</Text>
+							</Card>
+						</Link>
+					)}
+					{canManageMarketplace && (
+						<Link to="/marketplace" style={{ textDecoration: "none" }}>
+							<Card
+								hoverable
+								style={{ width: 400, cursor: "pointer", textAlign: "center" }}
+							>
+								<ShopOutlined
+									style={{ fontSize: 48, color: "#eb2f96", marginBottom: 16 }}
+								/>
+								<Title level={4} style={{ marginBottom: 8 }}>
+									{t("dashboard.marketplace.title")}
+								</Title>
+								<Text type="secondary">
+									{t("dashboard.marketplace.description")}
 								</Text>
 							</Card>
 						</Link>

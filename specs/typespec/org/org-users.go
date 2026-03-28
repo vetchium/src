@@ -407,6 +407,7 @@ const (
 	OrgRoleViewSubOrgs       OrgRole = "org:view_suborgs"
 	OrgRoleManageSubOrgs     OrgRole = "org:manage_suborgs"
 	OrgRoleViewAuditLogs     OrgRole = "org:view_audit_logs"
+	OrgRoleManageMarketplace OrgRole = "org:manage_marketplace"
 )
 
 type OrgUser struct {

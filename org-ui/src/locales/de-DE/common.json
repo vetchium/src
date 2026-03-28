@@ -42,6 +42,10 @@
 		"title": "Unterorganisationen",
 		"description": "Unterorganisationen und ihre Mitglieder verwalten"
 	},
+	"marketplace": {
+		"title": "Marktplatz",
+		"description": "Dienste durchsuchen und Ihre Marktplatz-Angebote verwalten"
+	},
 	"action": {
 		"backHome": "Zurück zur Startseite"
 	},

@@ -287,7 +287,8 @@ INSERT INTO roles (role_name, description) VALUES
     ('admin:view_domains', 'Can view approved domain list and details (read-only)'),
     ('admin:manage_domains', 'Can add, enable/disable approved domains'),
     ('admin:manage_tags', 'Can create and update tags'),
-    ('admin:view_audit_logs', 'Can view admin portal audit logs');
+    ('admin:view_audit_logs', 'Can view admin portal audit logs'),
+    ('admin:manage_marketplace', 'Can manage org marketplace capabilities and review/approve/reject/suspend ServiceListings');
 
 -- Admin audit logs table (unified audit log for all admin portal write operations)
 CREATE TABLE admin_audit_logs (

@@ -31,6 +31,7 @@ func RegisterOrgRoutes(mux *http.ServeMux, s *server.RegionalServer) {
 	orgRoleViewAuditLogs := middleware.OrgRole(s.Regional, orgspec.OrgRoleViewAuditLogs)
 	orgRoleViewSubOrgs := middleware.OrgRole(s.Regional, orgspec.OrgRoleViewSubOrgs, orgspec.OrgRoleManageSubOrgs)
 	orgRoleManageSubOrgs := middleware.OrgRole(s.Regional, orgspec.OrgRoleManageSubOrgs)
+	orgRoleManageMarketplace := middleware.OrgRole(s.Regional, orgspec.OrgRoleManageMarketplace)
 
 	// Domain write routes (manage_domains required; superadmin bypasses via middleware)
 	mux.Handle("POST /org/claim-domain", orgAuth(orgRoleManageDomains(org.ClaimDomain(s))))
@@ -74,4 +75,22 @@ func RegisterOrgRoutes(mux *http.ServeMux, s *server.RegionalServer) {
 
 	// Audit log routes
 	mux.Handle("POST /org/filter-audit-logs", orgAuth(orgRoleViewAuditLogs(org.FilterAuditLogs(s))))
+
+	// Marketplace routes (manage_marketplace required for provider operations)
+	mux.Handle("POST /org/apply-marketplace-provider-capability", orgAuth(orgRoleManageMarketplace(org.ApplyMarketplaceProviderCapability(s))))
+	mux.Handle("POST /org/get-marketplace-provider-capability", orgAuth(orgRoleManageMarketplace(org.GetMarketplaceProviderCapability(s))))
+	mux.Handle("POST /org/create-marketplace-service-listing", orgAuth(orgRoleManageMarketplace(org.CreateMarketplaceServiceListing(s))))
+	mux.Handle("POST /org/update-marketplace-service-listing", orgAuth(orgRoleManageMarketplace(org.UpdateMarketplaceServiceListing(s))))
+	mux.Handle("POST /org/submit-marketplace-service-listing", orgAuth(orgRoleManageMarketplace(org.SubmitMarketplaceServiceListing(s))))
+	mux.Handle("POST /org/pause-marketplace-service-listing", orgAuth(orgRoleManageMarketplace(org.PauseMarketplaceServiceListing(s))))
+	mux.Handle("POST /org/unpause-marketplace-service-listing", orgAuth(orgRoleManageMarketplace(org.UnpauseMarketplaceServiceListing(s))))
+	mux.Handle("POST /org/archive-marketplace-service-listing", orgAuth(orgRoleManageMarketplace(org.ArchiveMarketplaceServiceListing(s))))
+	mux.Handle("POST /org/submit-marketplace-service-listing-appeal", orgAuth(orgRoleManageMarketplace(org.SubmitMarketplaceServiceListingAppeal(s))))
+	mux.Handle("POST /org/list-marketplace-service-listings", orgAuth(orgRoleManageMarketplace(org.ListMarketplaceServiceListings(s))))
+	mux.Handle("POST /org/get-marketplace-service-listing", orgAuth(orgRoleManageMarketplace(org.GetMarketplaceServiceListing(s))))
+
+	// Marketplace browse routes (any authenticated org user — buyer perspective)
+	mux.Handle("POST /org/browse-marketplace-service-listings", orgAuth(org.BrowseMarketplaceServiceListings(s)))
+	mux.Handle("POST /org/get-public-marketplace-service-listing", orgAuth(org.GetPublicMarketplaceServiceListing(s)))
+	mux.Handle("POST /org/report-marketplace-service-listing", orgAuth(org.ReportMarketplaceServiceListing(s)))
 }

@@ -6,6 +6,7 @@ import {
 	BankOutlined,
 	ApartmentOutlined,
 	FileSearchOutlined,
+	ShopOutlined,
 } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
@@ -39,6 +40,9 @@ export function DashboardPage() {
 
 	// Any authenticated user can see SubOrgs (list is unrestricted)
 	const hasSubOrgsAccess = !!myInfo;
+
+	// Any authenticated user can access marketplace (browse is for all)
+	const hasMarketplaceAccess = !!myInfo;
 
 	const hasAuditLogsAccess =
 		myInfo?.roles.includes("org:superadmin") ||
@@ -190,6 +194,31 @@ export function DashboardPage() {
 								</Title>
 								<Typography.Text type="secondary">
 									{t("dashboard.auditLogs.description")}
+								</Typography.Text>
+							</Card>
+						</Link>
+					)}
+					{hasMarketplaceAccess && (
+						<Link
+							to="/marketplace"
+							style={{ textDecoration: "none", width: "100%" }}
+						>
+							<Card
+								hoverable
+								style={{
+									width: "100%",
+									cursor: "pointer",
+									textAlign: "center",
+								}}
+							>
+								<ShopOutlined
+									style={{ fontSize: 48, color: "#eb2f96", marginBottom: 16 }}
+								/>
+								<Title level={4} style={{ marginBottom: 8 }}>
+									{t("marketplace.title")}
+								</Title>
+								<Typography.Text type="secondary">
+									{t("marketplace.description")}
 								</Typography.Text>
 							</Card>
 						</Link>

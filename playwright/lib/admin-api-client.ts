@@ -1117,6 +1117,217 @@ export class AdminAPIClient {
 	// Audit Logs
 	// ============================================================================
 
+	// ============================================================================
+	// Marketplace API
+	// ============================================================================
+
+	async listMarketplaceProviderCapabilities(
+		sessionToken: string,
+		req: any
+	): Promise<APIResponse<any>> {
+		const response = await this.request.post(
+			"/admin/list-marketplace-provider-capabilities",
+			{
+				data: req,
+				headers: { Authorization: `Bearer ${sessionToken}` },
+			}
+		);
+		const body = await response.json().catch(() => ({}));
+		return { status: response.status(), body };
+	}
+
+	async approveMarketplaceProviderCapability(
+		sessionToken: string,
+		req: any
+	): Promise<APIResponse<any>> {
+		const response = await this.request.post(
+			"/admin/approve-marketplace-provider-capability",
+			{
+				data: req,
+				headers: { Authorization: `Bearer ${sessionToken}` },
+			}
+		);
+		const body = await response.json().catch(() => ({}));
+		return { status: response.status(), body };
+	}
+
+	async rejectMarketplaceProviderCapability(
+		sessionToken: string,
+		req: any
+	): Promise<APIResponse<any>> {
+		const response = await this.request.post(
+			"/admin/reject-marketplace-provider-capability",
+			{
+				data: req,
+				headers: { Authorization: `Bearer ${sessionToken}` },
+			}
+		);
+		const body = await response.json().catch(() => ({}));
+		return { status: response.status(), body };
+	}
+
+	async renewMarketplaceProviderCapability(
+		sessionToken: string,
+		req: any
+	): Promise<APIResponse<any>> {
+		const response = await this.request.post(
+			"/admin/renew-marketplace-provider-capability",
+			{
+				data: req,
+				headers: { Authorization: `Bearer ${sessionToken}` },
+			}
+		);
+		const body = await response.json().catch(() => ({}));
+		return { status: response.status(), body };
+	}
+
+	async revokeMarketplaceProviderCapability(
+		sessionToken: string,
+		req: any
+	): Promise<APIResponse<any>> {
+		const response = await this.request.post(
+			"/admin/revoke-marketplace-provider-capability",
+			{
+				data: req,
+				headers: { Authorization: `Bearer ${sessionToken}` },
+			}
+		);
+		const body = await response.json().catch(() => ({}));
+		return { status: response.status(), body };
+	}
+
+	async reinstateMarketplaceProviderCapability(
+		sessionToken: string,
+		req: any
+	): Promise<APIResponse<any>> {
+		const response = await this.request.post(
+			"/admin/reinstate-marketplace-provider-capability",
+			{
+				data: req,
+				headers: { Authorization: `Bearer ${sessionToken}` },
+			}
+		);
+		const body = await response.json().catch(() => ({}));
+		return { status: response.status(), body };
+	}
+
+	async listAdminMarketplaceServiceListings(
+		sessionToken: string,
+		req: any
+	): Promise<APIResponse<any>> {
+		const response = await this.request.post(
+			"/admin/list-marketplace-service-listings",
+			{
+				data: req,
+				headers: { Authorization: `Bearer ${sessionToken}` },
+			}
+		);
+		const body = await response.json().catch(() => ({}));
+		return { status: response.status(), body };
+	}
+
+	async getAdminMarketplaceServiceListing(
+		sessionToken: string,
+		req: any
+	): Promise<APIResponse<any>> {
+		const response = await this.request.post(
+			"/admin/get-marketplace-service-listing",
+			{
+				data: req,
+				headers: { Authorization: `Bearer ${sessionToken}` },
+			}
+		);
+		const body = await response.json().catch(() => ({}));
+		return { status: response.status(), body };
+	}
+
+	async approveMarketplaceServiceListing(
+		sessionToken: string,
+		req: any
+	): Promise<APIResponse<any>> {
+		const response = await this.request.post(
+			"/admin/approve-marketplace-service-listing",
+			{
+				data: req,
+				headers: { Authorization: `Bearer ${sessionToken}` },
+			}
+		);
+		const body = await response.json().catch(() => ({}));
+		return { status: response.status(), body };
+	}
+
+	async rejectMarketplaceServiceListing(
+		sessionToken: string,
+		req: any
+	): Promise<APIResponse<any>> {
+		const response = await this.request.post(
+			"/admin/reject-marketplace-service-listing",
+			{
+				data: req,
+				headers: { Authorization: `Bearer ${sessionToken}` },
+			}
+		);
+		const body = await response.json().catch(() => ({}));
+		return { status: response.status(), body };
+	}
+
+	async suspendMarketplaceServiceListing(
+		sessionToken: string,
+		req: any
+	): Promise<APIResponse<any>> {
+		const response = await this.request.post(
+			"/admin/suspend-marketplace-service-listing",
+			{
+				data: req,
+				headers: { Authorization: `Bearer ${sessionToken}` },
+			}
+		);
+		const body = await response.json().catch(() => ({}));
+		return { status: response.status(), body };
+	}
+
+	async reinstateMarketplaceServiceListing(
+		sessionToken: string,
+		req: any
+	): Promise<APIResponse<any>> {
+		const response = await this.request.post(
+			"/admin/reinstate-marketplace-service-listing",
+			{
+				data: req,
+				headers: { Authorization: `Bearer ${sessionToken}` },
+			}
+		);
+		const body = await response.json().catch(() => ({}));
+		return { status: response.status(), body };
+	}
+
+	async grantMarketplaceAppeal(
+		sessionToken: string,
+		req: any
+	): Promise<APIResponse<any>> {
+		const response = await this.request.post(
+			"/admin/grant-marketplace-appeal",
+			{
+				data: req,
+				headers: { Authorization: `Bearer ${sessionToken}` },
+			}
+		);
+		const body = await response.json().catch(() => ({}));
+		return { status: response.status(), body };
+	}
+
+	async denyMarketplaceAppeal(
+		sessionToken: string,
+		req: any
+	): Promise<APIResponse<any>> {
+		const response = await this.request.post("/admin/deny-marketplace-appeal", {
+			data: req,
+			headers: { Authorization: `Bearer ${sessionToken}` },
+		});
+		const body = await response.json().catch(() => ({}));
+		return { status: response.status(), body };
+	}
+
 	/**
 	 * POST /admin/filter-audit-logs
 	 * Filters admin portal audit logs.

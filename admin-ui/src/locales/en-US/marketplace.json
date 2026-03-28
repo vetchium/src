@@ -1,0 +1,212 @@
+{
+  "backToDashboard": "Back to Dashboard",
+  "title": "Marketplace Management",
+  "capabilitiesTab": "Provider Capabilities",
+  "listingsTab": "Service Listings",
+  "capability": {
+    "table": {
+      "orgId": "Org ID",
+      "capability": "Capability",
+      "status": "Status",
+      "appliedAt": "Applied At",
+      "grantedAt": "Granted At",
+      "expiresAt": "Expires At",
+      "subscriptionPrice": "Price",
+      "currency": "Currency",
+      "actions": "Actions"
+    },
+    "statuses": {
+      "pending_approval": "Pending Approval",
+      "active": "Active",
+      "rejected": "Rejected",
+      "expired": "Expired",
+      "revoked": "Revoked"
+    },
+    "actions": {
+      "approve": "Approve",
+      "reject": "Reject",
+      "renew": "Renew",
+      "revoke": "Revoke",
+      "reinstate": "Reinstate"
+    },
+    "approveModal": {
+      "title": "Approve Capability",
+      "orgId": "Org ID",
+      "subscriptionPrice": "Subscription Price",
+      "currency": "Currency (ISO 4217)",
+      "currencyPlaceholder": "e.g. USD",
+      "subscriptionPeriodDays": "Subscription Period (days)",
+      "submit": "Approve"
+    },
+    "rejectModal": {
+      "title": "Reject Capability",
+      "adminNote": "Reason for Rejection",
+      "adminNotePlaceholder": "Explain why this application was rejected",
+      "submit": "Reject"
+    },
+    "renewModal": {
+      "title": "Renew Capability",
+      "subscriptionPrice": "Subscription Price",
+      "currency": "Currency",
+      "subscriptionPeriodDays": "Subscription Period (days)",
+      "submit": "Renew"
+    },
+    "revokeModal": {
+      "title": "Revoke Capability",
+      "adminNote": "Reason for Revocation",
+      "adminNotePlaceholder": "Explain why this capability is being revoked",
+      "submit": "Revoke"
+    },
+    "reinstateModal": {
+      "title": "Reinstate Capability",
+      "subscriptionPrice": "Subscription Price",
+      "currency": "Currency",
+      "subscriptionPeriodDays": "Subscription Period (days)",
+      "submit": "Reinstate"
+    },
+    "filter": {
+      "all": "All Statuses",
+      "pending_approval": "Pending Approval",
+      "active": "Active",
+      "rejected": "Rejected",
+      "expired": "Expired",
+      "revoked": "Revoked"
+    },
+    "applicationNote": "Application Note",
+    "errors": {
+      "loadFailed": "Failed to load capabilities",
+      "approveFailed": "Failed to approve capability",
+      "rejectFailed": "Failed to reject capability",
+      "renewFailed": "Failed to renew capability",
+      "revokeFailed": "Failed to revoke capability",
+      "reinstateFailed": "Failed to reinstate capability",
+      "invalidState": "Capability is not in the required state for this action"
+    },
+    "success": {
+      "approved": "Capability approved",
+      "rejected": "Capability rejected",
+      "renewed": "Capability renewed",
+      "revoked": "Capability revoked",
+      "reinstated": "Capability reinstated"
+    }
+  },
+  "listings": {
+    "table": {
+      "name": "Name",
+      "orgId": "Org ID",
+      "category": "Category",
+      "state": "State",
+      "reportCount": "Reports",
+      "createdAt": "Created At",
+      "actions": "Actions"
+    },
+    "states": {
+      "draft": "Draft",
+      "pending_review": "Pending Review",
+      "active": "Active",
+      "paused": "Paused",
+      "rejected": "Rejected",
+      "suspended": "Suspended",
+      "appealing": "Appealing",
+      "archived": "Archived"
+    },
+    "categories": {
+      "talent_sourcing": "Talent Sourcing"
+    },
+    "actions": {
+      "approve": "Approve",
+      "reject": "Reject",
+      "suspend": "Suspend",
+      "reinstate": "Reinstate",
+      "grantAppeal": "Grant Appeal",
+      "denyAppeal": "Deny Appeal",
+      "view": "View"
+    },
+    "approveModal": {
+      "title": "Approve Service Listing",
+      "verificationNote": "Verification Note",
+      "verificationNotePlaceholder": "Note confirming verification",
+      "verificationId": "Verification ID",
+      "verificationIdPlaceholder": "Internal verification reference",
+      "submit": "Approve"
+    },
+    "rejectModal": {
+      "title": "Reject Service Listing",
+      "adminNote": "Rejection Reason",
+      "adminNotePlaceholder": "Explain why this listing is rejected",
+      "verificationId": "Verification ID (optional)",
+      "submit": "Reject"
+    },
+    "suspendModal": {
+      "title": "Suspend Service Listing",
+      "adminNote": "Suspension Reason",
+      "adminNotePlaceholder": "Explain why this listing is being suspended",
+      "submit": "Suspend"
+    },
+    "reinstateModal": {
+      "title": "Reinstate Service Listing",
+      "adminNote": "Admin Note (optional)",
+      "submit": "Reinstate"
+    },
+    "grantAppealModal": {
+      "title": "Grant Appeal",
+      "adminNote": "Admin Decision Note",
+      "adminNotePlaceholder": "Explain why the appeal is granted",
+      "submit": "Grant Appeal"
+    },
+    "denyAppealModal": {
+      "title": "Deny Appeal",
+      "adminNote": "Admin Decision Note",
+      "adminNotePlaceholder": "Explain why the appeal is denied",
+      "submit": "Deny Appeal"
+    },
+    "filter": {
+      "all": "All States",
+      "pending_review": "Pending Review",
+      "active": "Active",
+      "rejected": "Rejected",
+      "suspended": "Suspended",
+      "appealing": "Appealing"
+    },
+    "detailModal": {
+      "title": "Service Listing Detail",
+      "name": "Name",
+      "orgId": "Org ID",
+      "category": "Category",
+      "state": "State",
+      "shortBlurb": "Short Description",
+      "description": "Description",
+      "contactUrl": "Contact URL",
+      "pricingInfo": "Pricing Info",
+      "countriesOfService": "Countries",
+      "lastReviewNote": "Last Review Note",
+      "appealReason": "Appeal Reason",
+      "appealNote": "Appeal Admin Note",
+      "appealExhausted": "Appeal Exhausted",
+      "createdAt": "Created At",
+      "updatedAt": "Updated At",
+      "region": "Region"
+    },
+    "hasReports": "Has Reports",
+    "region": "Region",
+    "errors": {
+      "loadFailed": "Failed to load service listings",
+      "approveFailed": "Failed to approve listing",
+      "rejectFailed": "Failed to reject listing",
+      "suspendFailed": "Failed to suspend listing",
+      "reinstateFailed": "Failed to reinstate listing",
+      "grantAppealFailed": "Failed to grant appeal",
+      "denyAppealFailed": "Failed to deny appeal",
+      "invalidState": "Listing is not in the required state for this action"
+    },
+    "success": {
+      "approved": "Listing approved",
+      "rejected": "Listing rejected",
+      "suspended": "Listing suspended",
+      "reinstated": "Listing reinstated",
+      "appealGranted": "Appeal granted",
+      "appealDenied": "Appeal denied"
+    },
+    "loadMore": "Load More"
+  }
+}

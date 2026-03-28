@@ -42,6 +42,10 @@
 		"title": "Sub-Organizations",
 		"description": "Manage sub-organizations and their members"
 	},
+	"marketplace": {
+		"title": "Marketplace",
+		"description": "Browse services and manage your marketplace listings"
+	},
 	"action": {
 		"backHome": "Back Home"
 	},

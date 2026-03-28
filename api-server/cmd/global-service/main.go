@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"vetchium-api-server.gomodule/internal/bgjobs"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
+	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/email"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/routes"
@@ -70,6 +71,36 @@ func main() {
 		Bucket:          os.Getenv("S3_BUCKET"),
 	}
 
+	// Connect to all regional databases (needed for admin marketplace operations)
+	regionalConns := map[globaldb.Region]*pgxpool.Pool{}
+	regionalDBs := map[globaldb.Region]*regionaldb.Queries{}
+	regionalConnStrings := map[globaldb.Region]string{
+		globaldb.RegionInd1: getEnvOrDefault("IND1_DB_CONN", ""),
+		globaldb.RegionUsa1: getEnvOrDefault("USA1_DB_CONN", ""),
+		globaldb.RegionDeu1: getEnvOrDefault("DEU1_DB_CONN", ""),
+	}
+	for region, connStr := range regionalConnStrings {
+		if connStr == "" {
+			logger.Info("no regional DB connection configured, skipping", "region", region)
+			continue
+		}
+		rConn, err := pgxpool.New(ctx, connStr)
+		if err != nil {
+			logger.Error("failed to connect to regional DB", "region", region, "error", err)
+			os.Exit(1)
+		}
+		defer rConn.Close()
+		regionalConns[region] = rConn
+		regionalDBs[region] = regionaldb.New(rConn)
+		logger.Info("connected to regional database", "region", region)
+	}
+
+	internalEndpoints := map[globaldb.Region]string{
+		globaldb.RegionInd1: getEnvOrDefault("INTERNAL_ENDPOINT_IND1", "http://regional-api-server-ind1:8080"),
+		globaldb.RegionUsa1: getEnvOrDefault("INTERNAL_ENDPOINT_USA1", "http://regional-api-server-usa1:8080"),
+		globaldb.RegionDeu1: getEnvOrDefault("INTERNAL_ENDPOINT_DEU1", "http://regional-api-server-deu1:8080"),
+	}
+
 	s := &server.GlobalServer{
 		BaseServer: server.BaseServer{
 			Global:        globalQueries,
@@ -80,6 +111,9 @@ func main() {
 			Environment:   environment,
 			StorageConfig: storageConfig,
 		},
+		RegionalPools:     regionalConns,
+		RegionalDBs:       regionalDBs,
+		InternalEndpoints: internalEndpoints,
 	}
 
 	// Setup graceful shutdown context

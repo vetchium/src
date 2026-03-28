@@ -23,6 +23,7 @@ import { ChangePasswordPage } from "./pages/ChangePasswordPage";
 import { UserManagementPage } from "./pages/UserManagement/UserManagementPage";
 import { ManageTagsPage } from "./pages/ManageTagsPage";
 import { AuditLogsPage } from "./pages/AuditLogsPage";
+import { AdminMarketplacePage } from "./pages/Marketplace/AdminMarketplacePage";
 import {
 	BrowserRouter,
 	Routes,
@@ -77,6 +78,34 @@ function TFARoute({ children }: { children: React.ReactNode }) {
 	}
 
 	if (authState === "authenticated") {
+		return <Navigate to="/" replace />;
+	}
+
+	return <>{children}</>;
+}
+
+function MarketplaceRoute({ children }: { children: React.ReactNode }) {
+	const { authState, sessionToken } = useAuth();
+	const { data: myInfo, loading } = useMyInfo(sessionToken);
+	const location = useLocation();
+
+	if (authState === "login") {
+		return <Navigate to="/login" state={{ from: location }} replace />;
+	}
+
+	if (authState === "tfa") {
+		return <Navigate to="/tfa" replace />;
+	}
+
+	if (loading) {
+		return <Spin size="large" />;
+	}
+
+	const hasAccess =
+		myInfo?.roles.includes("admin:superadmin") ||
+		myInfo?.roles.includes("admin:manage_marketplace");
+
+	if (!hasAccess) {
 		return <Navigate to="/" replace />;
 	}
 
@@ -205,6 +234,14 @@ function AppContent() {
 									<AuditLogsRoute>
 										<AuditLogsPage />
 									</AuditLogsRoute>
+								}
+							/>
+							<Route
+								path="/marketplace"
+								element={
+									<MarketplaceRoute>
+										<AdminMarketplacePage />
+									</MarketplaceRoute>
 								}
 							/>
 							<Route path="/forgot-password" element={<ForgotPasswordPage />} />

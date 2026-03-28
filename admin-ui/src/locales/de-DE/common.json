@@ -21,6 +21,10 @@
 		"auditLogs": {
 			"title": "Audit-Protokolle",
 			"description": "Audit-Protokollereignisse anzeigen und filtern"
+		},
+		"marketplace": {
+			"title": "Marktplatzverwaltung",
+			"description": "Marktplatz-Anbieterfähigkeiten und Dienstleistungsangebote verwalten"
 		}
 	},
 	"logout": {

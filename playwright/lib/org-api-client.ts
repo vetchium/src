@@ -1614,4 +1614,203 @@ export class OrgAPIClient {
 			errors: Array.isArray(responseBody) ? responseBody : undefined,
 		};
 	}
+
+	// ============================================================================
+	// Marketplace API
+	// ============================================================================
+
+	async applyMarketplaceProviderCapability(
+		sessionToken: string,
+		req: any
+	): Promise<APIResponse<any>> {
+		const response = await this.request.post(
+			"/org/apply-marketplace-provider-capability",
+			{
+				data: req,
+				headers: { Authorization: `Bearer ${sessionToken}` },
+			}
+		);
+		const body = await response.json().catch(() => ({}));
+		return { status: response.status(), body };
+	}
+
+	async getMarketplaceProviderCapability(
+		sessionToken: string,
+		req: any
+	): Promise<APIResponse<any>> {
+		const response = await this.request.post(
+			"/org/get-marketplace-provider-capability",
+			{
+				data: req,
+				headers: { Authorization: `Bearer ${sessionToken}` },
+			}
+		);
+		const body = await response.json().catch(() => ({}));
+		return { status: response.status(), body };
+	}
+
+	async createMarketplaceServiceListing(
+		sessionToken: string,
+		req: any
+	): Promise<APIResponse<any>> {
+		const response = await this.request.post(
+			"/org/create-marketplace-service-listing",
+			{
+				data: req,
+				headers: { Authorization: `Bearer ${sessionToken}` },
+			}
+		);
+		const body = await response.json().catch(() => ({}));
+		return { status: response.status(), body };
+	}
+
+	async updateMarketplaceServiceListing(
+		sessionToken: string,
+		req: any
+	): Promise<APIResponse<any>> {
+		const response = await this.request.post(
+			"/org/update-marketplace-service-listing",
+			{
+				data: req,
+				headers: { Authorization: `Bearer ${sessionToken}` },
+			}
+		);
+		const body = await response.json().catch(() => ({}));
+		return { status: response.status(), body };
+	}
+
+	async submitMarketplaceServiceListing(
+		sessionToken: string,
+		req: any
+	): Promise<APIResponse<any>> {
+		const response = await this.request.post(
+			"/org/submit-marketplace-service-listing",
+			{
+				data: req,
+				headers: { Authorization: `Bearer ${sessionToken}` },
+			}
+		);
+		const body = await response.json().catch(() => ({}));
+		return { status: response.status(), body };
+	}
+
+	async pauseMarketplaceServiceListing(
+		sessionToken: string,
+		req: any
+	): Promise<APIResponse<any>> {
+		const response = await this.request.post(
+			"/org/pause-marketplace-service-listing",
+			{
+				data: req,
+				headers: { Authorization: `Bearer ${sessionToken}` },
+			}
+		);
+		const body = await response.json().catch(() => ({}));
+		return { status: response.status(), body };
+	}
+
+	async unpauseMarketplaceServiceListing(
+		sessionToken: string,
+		req: any
+	): Promise<APIResponse<any>> {
+		const response = await this.request.post(
+			"/org/unpause-marketplace-service-listing",
+			{
+				data: req,
+				headers: { Authorization: `Bearer ${sessionToken}` },
+			}
+		);
+		const body = await response.json().catch(() => ({}));
+		return { status: response.status(), body };
+	}
+
+	async archiveMarketplaceServiceListing(
+		sessionToken: string,
+		req: any
+	): Promise<APIResponse<any>> {
+		const response = await this.request.post(
+			"/org/archive-marketplace-service-listing",
+			{
+				data: req,
+				headers: { Authorization: `Bearer ${sessionToken}` },
+			}
+		);
+		const body = await response.json().catch(() => ({}));
+		return { status: response.status(), body };
+	}
+
+	async submitMarketplaceServiceListingAppeal(
+		sessionToken: string,
+		req: any
+	): Promise<APIResponse<any>> {
+		const response = await this.request.post(
+			"/org/submit-marketplace-service-listing-appeal",
+			{
+				data: req,
+				headers: { Authorization: `Bearer ${sessionToken}` },
+			}
+		);
+		const body = await response.json().catch(() => ({}));
+		return { status: response.status(), body };
+	}
+
+	async listMarketplaceServiceListings(
+		sessionToken: string,
+		req: any
+	): Promise<APIResponse<any>> {
+		const response = await this.request.post(
+			"/org/list-marketplace-service-listings",
+			{
+				data: req,
+				headers: { Authorization: `Bearer ${sessionToken}` },
+			}
+		);
+		const body = await response.json().catch(() => ({}));
+		return { status: response.status(), body };
+	}
+
+	async getMarketplaceServiceListing(
+		sessionToken: string,
+		req: any
+	): Promise<APIResponse<any>> {
+		const response = await this.request.post(
+			"/org/get-marketplace-service-listing",
+			{
+				data: req,
+				headers: { Authorization: `Bearer ${sessionToken}` },
+			}
+		);
+		const body = await response.json().catch(() => ({}));
+		return { status: response.status(), body };
+	}
+
+	async browseMarketplaceServiceListings(
+		sessionToken: string,
+		req: any
+	): Promise<APIResponse<any>> {
+		const response = await this.request.post(
+			"/org/browse-marketplace-service-listings",
+			{
+				data: req,
+				headers: { Authorization: `Bearer ${sessionToken}` },
+			}
+		);
+		const body = await response.json().catch(() => ({}));
+		return { status: response.status(), body };
+	}
+
+	async reportMarketplaceServiceListing(
+		sessionToken: string,
+		req: any
+	): Promise<APIResponse<any>> {
+		const response = await this.request.post(
+			"/org/report-marketplace-service-listing",
+			{
+				data: req,
+				headers: { Authorization: `Bearer ${sessionToken}` },
+			}
+		);
+		const body = await response.json().catch(() => ({}));
+		return { status: response.status(), body };
+	}
 }

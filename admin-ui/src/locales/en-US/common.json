@@ -21,6 +21,10 @@
 		"auditLogs": {
 			"title": "Audit Logs",
 			"description": "View and filter audit log events"
+		},
+		"marketplace": {
+			"title": "Marketplace Management",
+			"description": "Manage marketplace provider capabilities and service listings"
 		}
 	},
 	"logout": {

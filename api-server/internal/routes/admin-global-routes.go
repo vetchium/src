@@ -31,6 +31,7 @@ func RegisterAdminGlobalRoutes(mux *http.ServeMux, s *server.GlobalServer) {
 	adminRoleManageDomains := middleware.AdminRole(s.Global, adminspec.AdminRoleManageDomains)
 	adminRoleManageTags := middleware.AdminRole(s.Global, adminspec.AdminRoleManageTags)
 	adminRoleViewAuditLogs := middleware.AdminRole(s.Global, adminspec.AdminRoleViewAuditLogs)
+	adminRoleManageMarketplace := middleware.AdminRole(s.Global, adminspec.AdminRoleManageMarketplace)
 
 	// Auth-only routes (no role required)
 	mux.Handle("POST /admin/logout", adminAuth(admin.Logout(s)))
@@ -63,4 +64,22 @@ func RegisterAdminGlobalRoutes(mux *http.ServeMux, s *server.GlobalServer) {
 
 	// Audit log routes
 	mux.Handle("POST /admin/filter-audit-logs", adminAuth(adminRoleViewAuditLogs(admin.FilterAuditLogs(s))))
+
+	// Marketplace capability management routes (admin:manage_marketplace required)
+	mux.Handle("POST /admin/list-marketplace-provider-capabilities", adminAuth(adminRoleManageMarketplace(admin.ListMarketplaceProviderCapabilities(s))))
+	mux.Handle("POST /admin/approve-marketplace-provider-capability", adminAuth(adminRoleManageMarketplace(admin.ApproveMarketplaceProviderCapability(s))))
+	mux.Handle("POST /admin/reject-marketplace-provider-capability", adminAuth(adminRoleManageMarketplace(admin.RejectMarketplaceProviderCapability(s))))
+	mux.Handle("POST /admin/renew-marketplace-provider-capability", adminAuth(adminRoleManageMarketplace(admin.RenewMarketplaceProviderCapability(s))))
+	mux.Handle("POST /admin/revoke-marketplace-provider-capability", adminAuth(adminRoleManageMarketplace(admin.RevokeMarketplaceProviderCapability(s))))
+	mux.Handle("POST /admin/reinstate-marketplace-provider-capability", adminAuth(adminRoleManageMarketplace(admin.ReinstateMarketplaceProviderCapability(s))))
+
+	// Marketplace service listing management routes (admin:manage_marketplace required)
+	mux.Handle("POST /admin/list-admin-marketplace-service-listings", adminAuth(adminRoleManageMarketplace(admin.AdminListMarketplaceServiceListings(s))))
+	mux.Handle("POST /admin/get-admin-marketplace-service-listing", adminAuth(adminRoleManageMarketplace(admin.AdminGetMarketplaceServiceListing(s))))
+	mux.Handle("POST /admin/approve-marketplace-service-listing", adminAuth(adminRoleManageMarketplace(admin.ApproveMarketplaceServiceListing(s))))
+	mux.Handle("POST /admin/reject-marketplace-service-listing", adminAuth(adminRoleManageMarketplace(admin.RejectMarketplaceServiceListing(s))))
+	mux.Handle("POST /admin/suspend-marketplace-service-listing", adminAuth(adminRoleManageMarketplace(admin.SuspendMarketplaceServiceListing(s))))
+	mux.Handle("POST /admin/reinstate-marketplace-service-listing", adminAuth(adminRoleManageMarketplace(admin.ReinstateMarketplaceServiceListing(s))))
+	mux.Handle("POST /admin/grant-marketplace-appeal", adminAuth(adminRoleManageMarketplace(admin.GrantMarketplaceAppeal(s))))
+	mux.Handle("POST /admin/deny-marketplace-appeal", adminAuth(adminRoleManageMarketplace(admin.DenyMarketplaceAppeal(s))))
 }

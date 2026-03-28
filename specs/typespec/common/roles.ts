@@ -12,6 +12,7 @@ export const VALID_ROLE_NAMES = [
 	"admin:manage_domains",
 	"admin:manage_tags",
 	"admin:view_audit_logs",
+	"admin:manage_marketplace",
 
 	// Org portal roles
 	"org:superadmin",
@@ -23,6 +24,7 @@ export const VALID_ROLE_NAMES = [
 	"org:manage_costcenters",
 	"org:view_suborgs",
 	"org:manage_suborgs",
+	"org:manage_marketplace",
 	"org:view_audit_logs",
 
 	// Hub portal roles
