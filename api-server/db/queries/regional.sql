@@ -589,6 +589,7 @@ DO UPDATE SET
     application_note = sqlc.narg('application_note'),
     applied_at       = NOW(),
     updated_at       = NOW()
+WHERE org_capabilities.status IN ('rejected', 'expired', 'revoked')
 RETURNING *;
 
 -- name: GetOrgCapability :one
@@ -732,14 +733,38 @@ UPDATE marketplace_service_listings SET
     geographic_sourcing_regions = @geographic_sourcing_regions,
     state                    = 'pending_review',
     updated_at               = NOW()
-WHERE service_listing_id = @service_listing_id AND org_id = @org_id AND state IN ('active', 'paused', 'rejected')
+WHERE service_listing_id = @service_listing_id AND org_id = @org_id AND state IN ('active', 'paused')
+RETURNING *;
+
+-- name: UpdateRejectedServiceListing :one
+UPDATE marketplace_service_listings SET
+    name                     = @name,
+    short_blurb              = @short_blurb,
+    description              = @description,
+    countries_of_service     = @countries_of_service,
+    contact_url              = @contact_url,
+    pricing_info             = sqlc.narg('pricing_info'),
+    industries_served        = @industries_served,
+    industries_served_other  = sqlc.narg('industries_served_other'),
+    company_sizes_served     = @company_sizes_served,
+    job_functions_sourced    = @job_functions_sourced,
+    seniority_levels_sourced = @seniority_levels_sourced,
+    geographic_sourcing_regions = @geographic_sourcing_regions,
+    changed_since_rejection  = true,
+    updated_at               = NOW()
+WHERE service_listing_id = @service_listing_id AND org_id = @org_id AND state = 'rejected'
 RETURNING *;
 
 -- name: SubmitServiceListingForReview :one
 UPDATE marketplace_service_listings SET
-    state      = 'pending_review',
-    updated_at = NOW()
-WHERE service_listing_id = @service_listing_id AND org_id = @org_id AND state IN ('draft', 'rejected')
+    state                   = 'pending_review',
+    changed_since_rejection = false,
+    updated_at              = NOW()
+WHERE service_listing_id = @service_listing_id AND org_id = @org_id
+  AND (
+    (state = 'draft')
+    OR (state = 'rejected' AND changed_since_rejection = true)
+  )
 RETURNING *;
 
 -- name: PauseServiceListing :one
@@ -801,6 +826,7 @@ RETURNING *;
 -- name: AdminRejectServiceListing :one
 UPDATE marketplace_service_listings SET
     state                       = 'rejected',
+    changed_since_rejection     = false,
     last_review_admin_id        = @admin_id,
     last_review_admin_note      = @admin_note,
     last_review_verification_id = sqlc.narg('verification_id'),

@@ -1,4 +1,8 @@
-import { type ValidationError, newValidationError } from "../common/common";
+import {
+	type ValidationError,
+	newValidationError,
+	validateCountryCodes,
+} from "../common/common";
 
 export type OrgCapabilityStatus =
 	| "pending_approval"
@@ -235,6 +239,13 @@ function validateServiceListingFields(
 				"at least one country of service is required"
 			)
 		);
+	} else {
+		errs.push(
+			...validateCountryCodes(
+				"countries_of_service",
+				fields.countries_of_service
+			)
+		);
 	}
 
 	if (!fields.industries_served || fields.industries_served.length === 0) {
@@ -306,6 +317,13 @@ function validateServiceListingFields(
 			newValidationError(
 				"geographic_sourcing_regions",
 				"at least one geographic sourcing region is required"
+			)
+		);
+	} else {
+		errs.push(
+			...validateCountryCodes(
+				"geographic_sourcing_regions",
+				fields.geographic_sourcing_regions
 			)
 		);
 	}

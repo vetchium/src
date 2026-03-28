@@ -631,6 +631,19 @@ export async function deleteTestOrgUser(email: string): Promise<void> {
 		// Delete from regional DB first (CASCADE handles sessions, roles, etc.)
 		const regionalPool = getRegionalPool(region);
 		try {
+			// Marketplace data has no FK cascade, must be deleted explicitly
+			await regionalPool.query(
+				`DELETE FROM marketplace_service_listing_reports WHERE reporter_org_id = $1`,
+				[orgId]
+			);
+			await regionalPool.query(
+				`DELETE FROM marketplace_service_listings WHERE org_id = $1`,
+				[orgId]
+			);
+			await regionalPool.query(
+				`DELETE FROM org_capabilities WHERE org_id = $1`,
+				[orgId]
+			);
 			await regionalPool.query(`DELETE FROM org_users WHERE org_user_id = $1`, [
 				orgUserId,
 			]);
@@ -1346,7 +1359,7 @@ export async function createTestServiceListingDirect(
        VALUES ($1, $2, 'Short description for test', 'Full description for test listing',
                'talent_sourcing', ARRAY['IN'], 'https://example.com/contact', $3,
                ARRAY['technology_software'], ARRAY['startup'],
-               ARRAY['engineering_technology'], ARRAY['mid'], ARRAY['India'])
+               ARRAY['engineering_technology'], ARRAY['mid'], ARRAY['IN'])
        RETURNING service_listing_id`,
 			[orgId, name, state]
 		);

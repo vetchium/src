@@ -214,6 +214,8 @@ func validateServiceListingFields(
 
 	if len(countriesOfService) == 0 {
 		errs = append(errs, common.NewValidationError("countries_of_service", fmt.Errorf("at least one country of service is required")))
+	} else {
+		errs = append(errs, common.ValidateCountryCodes("countries_of_service", countriesOfService)...)
 	}
 
 	// Talent sourcing specific
@@ -274,6 +276,8 @@ func validateServiceListingFields(
 
 	if len(geographicSourcingRegions) == 0 {
 		errs = append(errs, common.NewValidationError("geographic_sourcing_regions", fmt.Errorf("at least one geographic sourcing region is required")))
+	} else {
+		errs = append(errs, common.ValidateCountryCodes("geographic_sourcing_regions", geographicSourcingRegions)...)
 	}
 
 	return errs

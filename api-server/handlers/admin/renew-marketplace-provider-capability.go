@@ -115,10 +115,11 @@ func RenewMarketplaceProviderCapability(s *server.GlobalServer) http.HandlerFunc
 		}
 
 		eventData, _ := json.Marshal(map[string]any{
-			"org_id":                   req.OrgID,
-			"capability":               "marketplace_provider",
-			"subscription_period_days": req.SubscriptionPeriodDays,
-			"currency":                 req.Currency,
+			"org_id":         req.OrgID,
+			"capability":     "marketplace_provider",
+			"price":          fmt.Sprintf("%.2f", req.SubscriptionPrice),
+			"currency":       req.Currency,
+			"new_expires_at": expiresAt.Time.Format(time.RFC3339),
 		})
 		auditErr := s.WithGlobalTx(ctx, func(qtx *globaldb.Queries) error {
 			return qtx.InsertAdminAuditLog(ctx, globaldb.InsertAdminAuditLogParams{

@@ -1813,4 +1813,19 @@ export class OrgAPIClient {
 		const body = await response.json().catch(() => ({}));
 		return { status: response.status(), body };
 	}
+
+	async getPublicMarketplaceServiceListing(
+		sessionToken: string,
+		req: any
+	): Promise<APIResponse<any>> {
+		const response = await this.request.post(
+			"/org/get-public-marketplace-service-listing",
+			{
+				data: req,
+				headers: { Authorization: `Bearer ${sessionToken}` },
+			}
+		);
+		const body = await response.json().catch(() => ({}));
+		return { status: response.status(), body };
+	}
 }

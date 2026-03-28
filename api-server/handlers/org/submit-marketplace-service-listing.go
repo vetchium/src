@@ -86,8 +86,8 @@ func SubmitMarketplaceServiceListing(s *server.RegionalServer) http.HandlerFunc 
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				// SubmitServiceListingForReview only works for draft/rejected states.
-				// Check the listing to determine the correct response.
+				// SubmitServiceListingForReview works for draft, and for rejected only
+				// when changed_since_rejection=true. Check listing to determine response.
 				listing, getErr := s.Regional.GetServiceListingByIDAndOrg(ctx, regionaldb.GetServiceListingByIDAndOrgParams{
 					ServiceListingID: listingID,
 					OrgID:            orgUser.OrgID,
@@ -101,7 +101,12 @@ func SubmitMarketplaceServiceListing(s *server.RegionalServer) http.HandlerFunc 
 					http.Error(w, "", http.StatusInternalServerError)
 					return
 				}
-				// Listing exists but wrong state
+				// Listing exists; distinguish between wrong state and no-changes cases.
+				if listing.State == regionaldb.ServiceListingStateRejected && !listing.ChangedSinceRejection {
+					log.Debug("rejected listing has no changes since rejection, cannot submit")
+					w.WriteHeader(http.StatusUnprocessableEntity)
+					return
+				}
 				log.Debug("service listing is in wrong state for submit", "state", listing.State)
 				w.WriteHeader(http.StatusUnprocessableEntity)
 				return

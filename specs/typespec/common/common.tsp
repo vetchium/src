@@ -60,3 +60,9 @@ scalar DNSVerificationToken extends string;
 @maxLength(128)
 @doc("A person's full name (letters, spaces, hyphens, apostrophes)")
 scalar FullName extends string;
+
+@minLength(2)
+@maxLength(2)
+@pattern("^[A-Z]{2}$")
+@doc("ISO 3166-1 alpha-2 country code (e.g., US, IN, DE)")
+scalar CountryCode extends string;

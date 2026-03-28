@@ -91,6 +91,10 @@ func UpdateMarketplaceServiceListing(s *server.RegionalServer) http.HandlerFunc 
 			return
 		}
 
+		// Rejected listings are updated differently: they stay rejected and
+		// set changed_since_rejection=true. Active/paused go to pending_review.
+		// Draft stays draft.
+
 		var pricingInfo pgtype.Text
 		if req.PricingInfo != nil {
 			pricingInfo = pgtype.Text{String: *req.PricingInfo, Valid: true}
@@ -120,7 +124,8 @@ func UpdateMarketplaceServiceListing(s *server.RegionalServer) http.HandlerFunc 
 		var updated regionaldb.MarketplaceServiceListing
 		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
 			var txErr error
-			if existing.State == regionaldb.ServiceListingStateDraft {
+			switch existing.State {
+			case regionaldb.ServiceListingStateDraft:
 				updated, txErr = qtx.UpdateServiceListingDraft(ctx, regionaldb.UpdateServiceListingDraftParams{
 					Name:                      req.Name,
 					ShortBlurb:                req.ShortBlurb,
@@ -137,8 +142,27 @@ func UpdateMarketplaceServiceListing(s *server.RegionalServer) http.HandlerFunc 
 					ServiceListingID:          listingID,
 					OrgID:                     orgUser.OrgID,
 				})
-			} else {
-				// active, paused, rejected -> pending_review
+			case regionaldb.ServiceListingStateRejected:
+				// Rejected listings stay rejected; changed_since_rejection is set to true
+				// so that the provider can subsequently submit for review.
+				updated, txErr = qtx.UpdateRejectedServiceListing(ctx, regionaldb.UpdateRejectedServiceListingParams{
+					Name:                      req.Name,
+					ShortBlurb:                req.ShortBlurb,
+					Description:               req.Description,
+					CountriesOfService:        req.CountriesOfService,
+					ContactUrl:                req.ContactURL,
+					PricingInfo:               pricingInfo,
+					IndustriesServed:          industriesServed,
+					IndustriesServedOther:     industriesServedOther,
+					CompanySizesServed:        companySizesServed,
+					JobFunctionsSourced:       jobFunctionsSourced,
+					SeniorityLevelsSourced:    seniorityLevelsSourced,
+					GeographicSourcingRegions: req.GeographicSourcingRegions,
+					ServiceListingID:          listingID,
+					OrgID:                     orgUser.OrgID,
+				})
+			default:
+				// active, paused -> pending_review immediately
 				updated, txErr = qtx.UpdateServiceListingToPendingReview(ctx, regionaldb.UpdateServiceListingToPendingReviewParams{
 					Name:                      req.Name,
 					ShortBlurb:                req.ShortBlurb,

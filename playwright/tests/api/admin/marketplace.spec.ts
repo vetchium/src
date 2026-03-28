@@ -424,6 +424,7 @@ test.describe("Marketplace Admin API", () => {
 			await grantMarketplaceProviderCapability(orgResult.orgId);
 
 			try {
+				const before = new Date(Date.now() - 2000).toISOString();
 				const adminToken = await loginAdmin(adminApi, adminEmail);
 				const res = await adminApi.revokeMarketplaceProviderCapability(
 					adminToken,
@@ -433,6 +434,17 @@ test.describe("Marketplace Admin API", () => {
 					}
 				);
 				expect(res.status).toBe(200);
+
+				// Verify audit log
+				const auditResp = await adminApi.filterAuditLogs(adminToken, {
+					event_types: ["admin.revoke_marketplace_provider_capability"],
+					start_time: before,
+				});
+				expect(auditResp.status).toBe(200);
+				expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+				expect(auditResp.body.audit_logs[0].event_type).toBe(
+					"admin.revoke_marketplace_provider_capability"
+				);
 			} finally {
 				await deleteTestAdminUser(adminEmail);
 				await deleteTestOrgUser(orgEmail);
@@ -510,6 +522,7 @@ test.describe("Marketplace Admin API", () => {
 			await setOrgCapabilityStatus(orgResult.orgId, "revoked");
 
 			try {
+				const before = new Date(Date.now() - 2000).toISOString();
 				const adminToken = await loginAdmin(adminApi, adminEmail);
 				const res = await adminApi.reinstateMarketplaceProviderCapability(
 					adminToken,
@@ -521,6 +534,17 @@ test.describe("Marketplace Admin API", () => {
 					}
 				);
 				expect(res.status).toBe(200);
+
+				// Verify audit log
+				const auditResp = await adminApi.filterAuditLogs(adminToken, {
+					event_types: ["admin.reinstate_marketplace_provider_capability"],
+					start_time: before,
+				});
+				expect(auditResp.status).toBe(200);
+				expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+				expect(auditResp.body.audit_logs[0].event_type).toBe(
+					"admin.reinstate_marketplace_provider_capability"
+				);
 			} finally {
 				await deleteTestAdminUser(adminEmail);
 				await deleteTestOrgUser(orgEmail);
@@ -600,6 +624,7 @@ test.describe("Marketplace Admin API", () => {
 			await grantMarketplaceProviderCapability(orgResult.orgId);
 
 			try {
+				const before = new Date(Date.now() - 2000).toISOString();
 				const adminToken = await loginAdmin(adminApi, adminEmail);
 				const res = await adminApi.renewMarketplaceProviderCapability(
 					adminToken,
@@ -611,6 +636,52 @@ test.describe("Marketplace Admin API", () => {
 					}
 				);
 				expect(res.status).toBe(200);
+
+				// Verify audit log
+				const auditResp = await adminApi.filterAuditLogs(adminToken, {
+					event_types: ["admin.renew_marketplace_provider_capability"],
+					start_time: before,
+				});
+				expect(auditResp.status).toBe(200);
+				expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+				expect(auditResp.body.audit_logs[0].event_type).toBe(
+					"admin.renew_marketplace_provider_capability"
+				);
+			} finally {
+				await deleteTestAdminUser(adminEmail);
+				await deleteTestOrgUser(orgEmail);
+			}
+		});
+
+		test("Success: expired capability renewed (200)", async ({ request }) => {
+			const adminApi = new AdminAPIClient(request);
+
+			const adminEmail = generateTestEmail("mkt-renew-exp-cap");
+			const { userId: adminUserId } = await createTestAdminUserDirect(
+				adminEmail,
+				TEST_PASSWORD
+			);
+			await assignRoleToAdminUser(adminUserId, "admin:manage_marketplace");
+			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
+
+			const { email: orgEmail } = generateTestOrgEmail("mkt-renew-exp-org");
+			const orgResult = await createTestOrgAdminDirect(orgEmail, TEST_PASSWORD);
+			await grantMarketplaceProviderCapability(orgResult.orgId);
+			await setOrgCapabilityStatus(orgResult.orgId, "expired");
+
+			try {
+				const adminToken = await loginAdmin(adminApi, adminEmail);
+				const res = await adminApi.renewMarketplaceProviderCapability(
+					adminToken,
+					{
+						org_id: orgResult.orgId,
+						subscription_price: 100,
+						currency: "USD",
+						subscription_period_days: 365,
+					}
+				);
+				expect(res.status).toBe(200);
+				expect(res.body?.status).toBe("active");
 			} finally {
 				await deleteTestAdminUser(adminEmail);
 				await deleteTestOrgUser(orgEmail);
@@ -789,6 +860,108 @@ test.describe("Marketplace Admin API", () => {
 	});
 
 	// ============================================================================
+	// Get Service Listing (Admin)
+	// ============================================================================
+	test.describe("POST /admin/get-marketplace-service-listing", () => {
+		test("Success: admin can get any listing (200)", async ({ request }) => {
+			const adminApi = new AdminAPIClient(request);
+
+			const adminEmail = generateTestEmail("mkt-admin-get-sl");
+			const { userId: adminUserId } = await createTestAdminUserDirect(
+				adminEmail,
+				TEST_PASSWORD
+			);
+			await assignRoleToAdminUser(adminUserId, "admin:manage_marketplace");
+
+			const { email: orgEmail } = generateTestOrgEmail("mkt-admin-get-sl-org");
+			const orgResult = await createTestOrgAdminDirect(orgEmail, TEST_PASSWORD);
+			await grantMarketplaceProviderCapability(orgResult.orgId);
+			const listingId = await createTestServiceListingDirect(
+				orgResult.orgId,
+				"Admin Get Test Listing",
+				"active"
+			);
+
+			try {
+				const adminToken = await loginAdmin(adminApi, adminEmail);
+				const res = await adminApi.getAdminMarketplaceServiceListing(
+					adminToken,
+					{
+						service_listing_id: listingId,
+						home_region: "ind1",
+					}
+				);
+				expect(res.status).toBe(200);
+				expect(res.body?.service_listing_id).toBe(listingId);
+				expect(res.body?.name).toBe("Admin Get Test Listing");
+				expect(res.body?.state).toBe("active");
+			} finally {
+				await deleteTestAdminUser(adminEmail);
+				await deleteTestOrgUser(orgEmail);
+			}
+		});
+
+		test("Not found: non-existent listing (404)", async ({ request }) => {
+			const adminApi = new AdminAPIClient(request);
+
+			const adminEmail = generateTestEmail("mkt-admin-get-sl-404");
+			const { userId: adminUserId } = await createTestAdminUserDirect(
+				adminEmail,
+				TEST_PASSWORD
+			);
+			await assignRoleToAdminUser(adminUserId, "admin:manage_marketplace");
+
+			try {
+				const adminToken = await loginAdmin(adminApi, adminEmail);
+				const res = await adminApi.getAdminMarketplaceServiceListing(
+					adminToken,
+					{
+						service_listing_id: "00000000-0000-0000-0000-000000000000",
+						home_region: "ind1",
+					}
+				);
+				expect(res.status).toBe(404);
+			} finally {
+				await deleteTestAdminUser(adminEmail);
+			}
+		});
+
+		test("Auth: unauthenticated (401)", async ({ request }) => {
+			const adminApi = new AdminAPIClient(request);
+			const res = await adminApi.getAdminMarketplaceServiceListing(
+				"invalid-token",
+				{
+					service_listing_id: "00000000-0000-0000-0000-000000000000",
+					home_region: "ind1",
+				}
+			);
+			expect(res.status).toBe(401);
+		});
+
+		test("RBAC: admin without manage_marketplace role (403)", async ({
+			request,
+		}) => {
+			const adminApi = new AdminAPIClient(request);
+			const adminEmail = generateTestEmail("mkt-get-sl-norole");
+			await createTestAdminUserDirect(adminEmail, TEST_PASSWORD);
+
+			try {
+				const adminToken = await loginAdmin(adminApi, adminEmail);
+				const res = await adminApi.getAdminMarketplaceServiceListing(
+					adminToken,
+					{
+						service_listing_id: "00000000-0000-0000-0000-000000000000",
+						home_region: "ind1",
+					}
+				);
+				expect(res.status).toBe(403);
+			} finally {
+				await deleteTestAdminUser(adminEmail);
+			}
+		});
+	});
+
+	// ============================================================================
 	// Approve Service Listing
 	// ============================================================================
 	test.describe("POST /admin/approve-marketplace-service-listing", () => {
@@ -825,7 +998,7 @@ test.describe("Marketplace Admin API", () => {
 						company_sizes_served: ["startup"],
 						job_functions_sourced: ["engineering_technology"],
 						seniority_levels_sourced: ["mid"],
-						geographic_sourcing_regions: ["India"],
+						geographic_sourcing_regions: ["IN"],
 					}
 				);
 				expect(createRes.status).toBe(201);
@@ -1067,6 +1240,7 @@ test.describe("Marketplace Admin API", () => {
 			);
 
 			try {
+				const before = new Date(Date.now() - 2000).toISOString();
 				const adminToken = await loginAdmin(adminApi, adminEmail);
 				const res = await adminApi.suspendMarketplaceServiceListing(
 					adminToken,
@@ -1077,6 +1251,17 @@ test.describe("Marketplace Admin API", () => {
 					}
 				);
 				expect(res.status).toBe(200);
+
+				// Verify audit log
+				const auditResp = await adminApi.filterAuditLogs(adminToken, {
+					event_types: ["admin.suspend_marketplace_service_listing"],
+					start_time: before,
+				});
+				expect(auditResp.status).toBe(200);
+				expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+				expect(auditResp.body.audit_logs[0].event_type).toBe(
+					"admin.suspend_marketplace_service_listing"
+				);
 			} finally {
 				await deleteTestAdminUser(adminEmail);
 				await deleteTestOrgUser(orgEmail);
@@ -1159,6 +1344,7 @@ test.describe("Marketplace Admin API", () => {
 			);
 
 			try {
+				const before = new Date(Date.now() - 2000).toISOString();
 				const adminToken = await loginAdmin(adminApi, adminEmail);
 				const res = await adminApi.reinstateMarketplaceServiceListing(
 					adminToken,
@@ -1168,6 +1354,17 @@ test.describe("Marketplace Admin API", () => {
 					}
 				);
 				expect(res.status).toBe(200);
+
+				// Verify audit log
+				const auditResp = await adminApi.filterAuditLogs(adminToken, {
+					event_types: ["admin.reinstate_marketplace_service_listing"],
+					start_time: before,
+				});
+				expect(auditResp.status).toBe(200);
+				expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+				expect(auditResp.body.audit_logs[0].event_type).toBe(
+					"admin.reinstate_marketplace_service_listing"
+				);
 			} finally {
 				await deleteTestAdminUser(adminEmail);
 				await deleteTestOrgUser(orgEmail);
@@ -1264,6 +1461,7 @@ test.describe("Marketplace Admin API", () => {
 				expect(appealRes.status).toBe(200);
 
 				// Admin grants appeal
+				const before = new Date(Date.now() - 2000).toISOString();
 				const adminToken = await loginAdmin(adminApi, adminEmail);
 				const grantRes = await adminApi.grantMarketplaceAppeal(adminToken, {
 					service_listing_id: listingId,
@@ -1271,6 +1469,17 @@ test.describe("Marketplace Admin API", () => {
 					admin_note: "Appeal granted, issues verified fixed.",
 				});
 				expect(grantRes.status).toBe(200);
+
+				// Verify audit log
+				const auditResp = await adminApi.filterAuditLogs(adminToken, {
+					event_types: ["admin.grant_marketplace_appeal"],
+					start_time: before,
+				});
+				expect(auditResp.status).toBe(200);
+				expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+				expect(auditResp.body.audit_logs[0].event_type).toBe(
+					"admin.grant_marketplace_appeal"
+				);
 			} finally {
 				await deleteTestAdminUser(adminEmail);
 				await deleteTestOrgUser(orgEmail);
@@ -1366,6 +1575,7 @@ test.describe("Marketplace Admin API", () => {
 				expect(appealRes.status).toBe(200);
 
 				// Admin denies appeal
+				const before = new Date(Date.now() - 2000).toISOString();
 				const adminToken = await loginAdmin(adminApi, adminEmail);
 				const denyRes = await adminApi.denyMarketplaceAppeal(adminToken, {
 					service_listing_id: listingId,
@@ -1373,6 +1583,17 @@ test.describe("Marketplace Admin API", () => {
 					admin_note: "Appeal denied, policy violation confirmed.",
 				});
 				expect(denyRes.status).toBe(200);
+
+				// Verify audit log
+				const auditResp = await adminApi.filterAuditLogs(adminToken, {
+					event_types: ["admin.deny_marketplace_appeal"],
+					start_time: before,
+				});
+				expect(auditResp.status).toBe(200);
+				expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+				expect(auditResp.body.audit_logs[0].event_type).toBe(
+					"admin.deny_marketplace_appeal"
+				);
 			} finally {
 				await deleteTestAdminUser(adminEmail);
 				await deleteTestOrgUser(orgEmail);

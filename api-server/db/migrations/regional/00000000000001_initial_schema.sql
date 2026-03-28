@@ -301,6 +301,7 @@ CREATE TABLE marketplace_service_listings (
     pricing_info        VARCHAR(500),
     state               service_listing_state NOT NULL DEFAULT 'draft',
     appeal_exhausted    BOOLEAN NOT NULL DEFAULT false,
+    changed_since_rejection BOOLEAN NOT NULL DEFAULT false,
     last_activated_at   TIMESTAMPTZ,
     -- Talent sourcing specific fields
     industries_served       TEXT[] NOT NULL DEFAULT '{}',

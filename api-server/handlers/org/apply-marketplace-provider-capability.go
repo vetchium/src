@@ -2,8 +2,10 @@ package org
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"vetchium-api-server.gomodule/internal/audit"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
@@ -67,6 +69,13 @@ func ApplyMarketplaceProviderCapability(s *server.RegionalServer) http.HandlerFu
 			})
 		})
 		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				// Capability exists but is in a state that does not allow re-applying
+				// (e.g., active or pending_approval)
+				log.Debug("org capability not in re-appliable state")
+				w.WriteHeader(http.StatusUnprocessableEntity)
+				return
+			}
 			log.Error("failed to apply marketplace provider capability", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
