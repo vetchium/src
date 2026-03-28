@@ -138,10 +138,7 @@ export function validateAdminApproveMarketplaceServiceListingRequest(
 	const errs: ValidationError[] = [];
 	if (!req.service_listing_id) {
 		errs.push(
-			newValidationError(
-				"service_listing_id",
-				"service_listing_id is required"
-			)
+			newValidationError("service_listing_id", "service_listing_id is required")
 		);
 	}
 	if (!req.home_region) {
@@ -176,10 +173,7 @@ export function validateAdminRejectMarketplaceServiceListingRequest(
 	const errs: ValidationError[] = [];
 	if (!req.service_listing_id) {
 		errs.push(
-			newValidationError(
-				"service_listing_id",
-				"service_listing_id is required"
-			)
+			newValidationError("service_listing_id", "service_listing_id is required")
 		);
 	}
 	if (!req.home_region) {
@@ -209,10 +203,7 @@ export function validateAdminSuspendMarketplaceServiceListingRequest(
 	const errs: ValidationError[] = [];
 	if (!req.service_listing_id) {
 		errs.push(
-			newValidationError(
-				"service_listing_id",
-				"service_listing_id is required"
-			)
+			newValidationError("service_listing_id", "service_listing_id is required")
 		);
 	}
 	if (!req.home_region) {
@@ -247,10 +238,7 @@ export function validateAdminGrantMarketplaceAppealRequest(
 	const errs: ValidationError[] = [];
 	if (!req.service_listing_id) {
 		errs.push(
-			newValidationError(
-				"service_listing_id",
-				"service_listing_id is required"
-			)
+			newValidationError("service_listing_id", "service_listing_id is required")
 		);
 	}
 	if (!req.home_region) {
@@ -274,10 +262,7 @@ export function validateAdminDenyMarketplaceAppealRequest(
 	const errs: ValidationError[] = [];
 	if (!req.service_listing_id) {
 		errs.push(
-			newValidationError(
-				"service_listing_id",
-				"service_listing_id is required"
-			)
+			newValidationError("service_listing_id", "service_listing_id is required")
 		);
 	}
 	if (!req.home_region) {

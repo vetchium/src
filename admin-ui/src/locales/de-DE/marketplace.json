@@ -1,212 +1,212 @@
 {
-  "backToDashboard": "Zurück zum Dashboard",
-  "title": "Marktplatzverwaltung",
-  "capabilitiesTab": "Anbieterfähigkeiten",
-  "listingsTab": "Dienstleistungsangebote",
-  "capability": {
-    "table": {
-      "orgId": "Org-ID",
-      "capability": "Fähigkeit",
-      "status": "Status",
-      "appliedAt": "Beantragt am",
-      "grantedAt": "Genehmigt am",
-      "expiresAt": "Läuft ab am",
-      "subscriptionPrice": "Preis",
-      "currency": "Währung",
-      "actions": "Aktionen"
-    },
-    "statuses": {
-      "pending_approval": "Ausstehende Genehmigung",
-      "active": "Aktiv",
-      "rejected": "Abgelehnt",
-      "expired": "Abgelaufen",
-      "revoked": "Widerrufen"
-    },
-    "actions": {
-      "approve": "Genehmigen",
-      "reject": "Ablehnen",
-      "renew": "Erneuern",
-      "revoke": "Widerrufen",
-      "reinstate": "Wiederherstellen"
-    },
-    "approveModal": {
-      "title": "Fähigkeit genehmigen",
-      "orgId": "Org-ID",
-      "subscriptionPrice": "Abonnementpreis",
-      "currency": "Währung (ISO 4217)",
-      "currencyPlaceholder": "z.B. USD",
-      "subscriptionPeriodDays": "Abonnementzeitraum (Tage)",
-      "submit": "Genehmigen"
-    },
-    "rejectModal": {
-      "title": "Fähigkeit ablehnen",
-      "adminNote": "Ablehnungsgrund",
-      "adminNotePlaceholder": "Erklären Sie, warum dieser Antrag abgelehnt wurde",
-      "submit": "Ablehnen"
-    },
-    "renewModal": {
-      "title": "Fähigkeit erneuern",
-      "subscriptionPrice": "Abonnementpreis",
-      "currency": "Währung",
-      "subscriptionPeriodDays": "Abonnementzeitraum (Tage)",
-      "submit": "Erneuern"
-    },
-    "revokeModal": {
-      "title": "Fähigkeit widerrufen",
-      "adminNote": "Widerrufsgrund",
-      "adminNotePlaceholder": "Erklären Sie, warum diese Fähigkeit widerrufen wird",
-      "submit": "Widerrufen"
-    },
-    "reinstateModal": {
-      "title": "Fähigkeit wiederherstellen",
-      "subscriptionPrice": "Abonnementpreis",
-      "currency": "Währung",
-      "subscriptionPeriodDays": "Abonnementzeitraum (Tage)",
-      "submit": "Wiederherstellen"
-    },
-    "filter": {
-      "all": "Alle Status",
-      "pending_approval": "Ausstehende Genehmigung",
-      "active": "Aktiv",
-      "rejected": "Abgelehnt",
-      "expired": "Abgelaufen",
-      "revoked": "Widerrufen"
-    },
-    "applicationNote": "Antragsnotiz",
-    "errors": {
-      "loadFailed": "Fähigkeiten konnten nicht geladen werden",
-      "approveFailed": "Fähigkeit konnte nicht genehmigt werden",
-      "rejectFailed": "Fähigkeit konnte nicht abgelehnt werden",
-      "renewFailed": "Fähigkeit konnte nicht erneuert werden",
-      "revokeFailed": "Fähigkeit konnte nicht widerrufen werden",
-      "reinstateFailed": "Fähigkeit konnte nicht wiederhergestellt werden",
-      "invalidState": "Fähigkeit befindet sich nicht im erforderlichen Status für diese Aktion"
-    },
-    "success": {
-      "approved": "Fähigkeit genehmigt",
-      "rejected": "Fähigkeit abgelehnt",
-      "renewed": "Fähigkeit erneuert",
-      "revoked": "Fähigkeit widerrufen",
-      "reinstated": "Fähigkeit wiederhergestellt"
-    }
-  },
-  "listings": {
-    "table": {
-      "name": "Name",
-      "orgId": "Org-ID",
-      "category": "Kategorie",
-      "state": "Status",
-      "reportCount": "Meldungen",
-      "createdAt": "Erstellt am",
-      "actions": "Aktionen"
-    },
-    "states": {
-      "draft": "Entwurf",
-      "pending_review": "Ausstehende Prüfung",
-      "active": "Aktiv",
-      "paused": "Pausiert",
-      "rejected": "Abgelehnt",
-      "suspended": "Gesperrt",
-      "appealing": "In Berufung",
-      "archived": "Archiviert"
-    },
-    "categories": {
-      "talent_sourcing": "Talentbeschaffung"
-    },
-    "actions": {
-      "approve": "Genehmigen",
-      "reject": "Ablehnen",
-      "suspend": "Sperren",
-      "reinstate": "Wiederherstellen",
-      "grantAppeal": "Berufung stattgeben",
-      "denyAppeal": "Berufung ablehnen",
-      "view": "Anzeigen"
-    },
-    "approveModal": {
-      "title": "Dienstleistungsangebot genehmigen",
-      "verificationNote": "Verifizierungsnotiz",
-      "verificationNotePlaceholder": "Notiz zur Bestätigung der Verifizierung",
-      "verificationId": "Verifizierungs-ID",
-      "verificationIdPlaceholder": "Interne Verifizierungsreferenz",
-      "submit": "Genehmigen"
-    },
-    "rejectModal": {
-      "title": "Dienstleistungsangebot ablehnen",
-      "adminNote": "Ablehnungsgrund",
-      "adminNotePlaceholder": "Erklären Sie, warum dieses Angebot abgelehnt wird",
-      "verificationId": "Verifizierungs-ID (optional)",
-      "submit": "Ablehnen"
-    },
-    "suspendModal": {
-      "title": "Dienstleistungsangebot sperren",
-      "adminNote": "Sperrgrund",
-      "adminNotePlaceholder": "Erklären Sie, warum dieses Angebot gesperrt wird",
-      "submit": "Sperren"
-    },
-    "reinstateModal": {
-      "title": "Dienstleistungsangebot wiederherstellen",
-      "adminNote": "Admin-Notiz (optional)",
-      "submit": "Wiederherstellen"
-    },
-    "grantAppealModal": {
-      "title": "Berufung stattgeben",
-      "adminNote": "Admin-Entscheidungsnotiz",
-      "adminNotePlaceholder": "Erklären Sie, warum der Berufung stattgegeben wird",
-      "submit": "Berufung stattgeben"
-    },
-    "denyAppealModal": {
-      "title": "Berufung ablehnen",
-      "adminNote": "Admin-Entscheidungsnotiz",
-      "adminNotePlaceholder": "Erklären Sie, warum die Berufung abgelehnt wird",
-      "submit": "Berufung ablehnen"
-    },
-    "filter": {
-      "all": "Alle Status",
-      "pending_review": "Ausstehende Prüfung",
-      "active": "Aktiv",
-      "rejected": "Abgelehnt",
-      "suspended": "Gesperrt",
-      "appealing": "In Berufung"
-    },
-    "detailModal": {
-      "title": "Dienstleistungsangebot-Detail",
-      "name": "Name",
-      "orgId": "Org-ID",
-      "category": "Kategorie",
-      "state": "Status",
-      "shortBlurb": "Kurzbeschreibung",
-      "description": "Beschreibung",
-      "contactUrl": "Kontakt-URL",
-      "pricingInfo": "Preisinformationen",
-      "countriesOfService": "Länder",
-      "lastReviewNote": "Letzte Prüfungsnotiz",
-      "appealReason": "Berufungsgrund",
-      "appealNote": "Berufungs-Admin-Notiz",
-      "appealExhausted": "Berufung erschöpft",
-      "createdAt": "Erstellt am",
-      "updatedAt": "Aktualisiert am",
-      "region": "Region"
-    },
-    "hasReports": "Hat Meldungen",
-    "region": "Region",
-    "errors": {
-      "loadFailed": "Dienstleistungsangebote konnten nicht geladen werden",
-      "approveFailed": "Angebot konnte nicht genehmigt werden",
-      "rejectFailed": "Angebot konnte nicht abgelehnt werden",
-      "suspendFailed": "Angebot konnte nicht gesperrt werden",
-      "reinstateFailed": "Angebot konnte nicht wiederhergestellt werden",
-      "grantAppealFailed": "Berufung konnte nicht stattgegeben werden",
-      "denyAppealFailed": "Berufung konnte nicht abgelehnt werden",
-      "invalidState": "Angebot befindet sich nicht im erforderlichen Status für diese Aktion"
-    },
-    "success": {
-      "approved": "Angebot genehmigt",
-      "rejected": "Angebot abgelehnt",
-      "suspended": "Angebot gesperrt",
-      "reinstated": "Angebot wiederhergestellt",
-      "appealGranted": "Berufung stattgegeben",
-      "appealDenied": "Berufung abgelehnt"
-    },
-    "loadMore": "Mehr laden"
-  }
+	"backToDashboard": "Zurück zum Dashboard",
+	"title": "Marktplatzverwaltung",
+	"capabilitiesTab": "Anbieterfähigkeiten",
+	"listingsTab": "Dienstleistungsangebote",
+	"capability": {
+		"table": {
+			"orgId": "Org-ID",
+			"capability": "Fähigkeit",
+			"status": "Status",
+			"appliedAt": "Beantragt am",
+			"grantedAt": "Genehmigt am",
+			"expiresAt": "Läuft ab am",
+			"subscriptionPrice": "Preis",
+			"currency": "Währung",
+			"actions": "Aktionen"
+		},
+		"statuses": {
+			"pending_approval": "Ausstehende Genehmigung",
+			"active": "Aktiv",
+			"rejected": "Abgelehnt",
+			"expired": "Abgelaufen",
+			"revoked": "Widerrufen"
+		},
+		"actions": {
+			"approve": "Genehmigen",
+			"reject": "Ablehnen",
+			"renew": "Erneuern",
+			"revoke": "Widerrufen",
+			"reinstate": "Wiederherstellen"
+		},
+		"approveModal": {
+			"title": "Fähigkeit genehmigen",
+			"orgId": "Org-ID",
+			"subscriptionPrice": "Abonnementpreis",
+			"currency": "Währung (ISO 4217)",
+			"currencyPlaceholder": "z.B. USD",
+			"subscriptionPeriodDays": "Abonnementzeitraum (Tage)",
+			"submit": "Genehmigen"
+		},
+		"rejectModal": {
+			"title": "Fähigkeit ablehnen",
+			"adminNote": "Ablehnungsgrund",
+			"adminNotePlaceholder": "Erklären Sie, warum dieser Antrag abgelehnt wurde",
+			"submit": "Ablehnen"
+		},
+		"renewModal": {
+			"title": "Fähigkeit erneuern",
+			"subscriptionPrice": "Abonnementpreis",
+			"currency": "Währung",
+			"subscriptionPeriodDays": "Abonnementzeitraum (Tage)",
+			"submit": "Erneuern"
+		},
+		"revokeModal": {
+			"title": "Fähigkeit widerrufen",
+			"adminNote": "Widerrufsgrund",
+			"adminNotePlaceholder": "Erklären Sie, warum diese Fähigkeit widerrufen wird",
+			"submit": "Widerrufen"
+		},
+		"reinstateModal": {
+			"title": "Fähigkeit wiederherstellen",
+			"subscriptionPrice": "Abonnementpreis",
+			"currency": "Währung",
+			"subscriptionPeriodDays": "Abonnementzeitraum (Tage)",
+			"submit": "Wiederherstellen"
+		},
+		"filter": {
+			"all": "Alle Status",
+			"pending_approval": "Ausstehende Genehmigung",
+			"active": "Aktiv",
+			"rejected": "Abgelehnt",
+			"expired": "Abgelaufen",
+			"revoked": "Widerrufen"
+		},
+		"applicationNote": "Antragsnotiz",
+		"errors": {
+			"loadFailed": "Fähigkeiten konnten nicht geladen werden",
+			"approveFailed": "Fähigkeit konnte nicht genehmigt werden",
+			"rejectFailed": "Fähigkeit konnte nicht abgelehnt werden",
+			"renewFailed": "Fähigkeit konnte nicht erneuert werden",
+			"revokeFailed": "Fähigkeit konnte nicht widerrufen werden",
+			"reinstateFailed": "Fähigkeit konnte nicht wiederhergestellt werden",
+			"invalidState": "Fähigkeit befindet sich nicht im erforderlichen Status für diese Aktion"
+		},
+		"success": {
+			"approved": "Fähigkeit genehmigt",
+			"rejected": "Fähigkeit abgelehnt",
+			"renewed": "Fähigkeit erneuert",
+			"revoked": "Fähigkeit widerrufen",
+			"reinstated": "Fähigkeit wiederhergestellt"
+		}
+	},
+	"listings": {
+		"table": {
+			"name": "Name",
+			"orgId": "Org-ID",
+			"category": "Kategorie",
+			"state": "Status",
+			"reportCount": "Meldungen",
+			"createdAt": "Erstellt am",
+			"actions": "Aktionen"
+		},
+		"states": {
+			"draft": "Entwurf",
+			"pending_review": "Ausstehende Prüfung",
+			"active": "Aktiv",
+			"paused": "Pausiert",
+			"rejected": "Abgelehnt",
+			"suspended": "Gesperrt",
+			"appealing": "In Berufung",
+			"archived": "Archiviert"
+		},
+		"categories": {
+			"talent_sourcing": "Talentbeschaffung"
+		},
+		"actions": {
+			"approve": "Genehmigen",
+			"reject": "Ablehnen",
+			"suspend": "Sperren",
+			"reinstate": "Wiederherstellen",
+			"grantAppeal": "Berufung stattgeben",
+			"denyAppeal": "Berufung ablehnen",
+			"view": "Anzeigen"
+		},
+		"approveModal": {
+			"title": "Dienstleistungsangebot genehmigen",
+			"verificationNote": "Verifizierungsnotiz",
+			"verificationNotePlaceholder": "Notiz zur Bestätigung der Verifizierung",
+			"verificationId": "Verifizierungs-ID",
+			"verificationIdPlaceholder": "Interne Verifizierungsreferenz",
+			"submit": "Genehmigen"
+		},
+		"rejectModal": {
+			"title": "Dienstleistungsangebot ablehnen",
+			"adminNote": "Ablehnungsgrund",
+			"adminNotePlaceholder": "Erklären Sie, warum dieses Angebot abgelehnt wird",
+			"verificationId": "Verifizierungs-ID (optional)",
+			"submit": "Ablehnen"
+		},
+		"suspendModal": {
+			"title": "Dienstleistungsangebot sperren",
+			"adminNote": "Sperrgrund",
+			"adminNotePlaceholder": "Erklären Sie, warum dieses Angebot gesperrt wird",
+			"submit": "Sperren"
+		},
+		"reinstateModal": {
+			"title": "Dienstleistungsangebot wiederherstellen",
+			"adminNote": "Admin-Notiz (optional)",
+			"submit": "Wiederherstellen"
+		},
+		"grantAppealModal": {
+			"title": "Berufung stattgeben",
+			"adminNote": "Admin-Entscheidungsnotiz",
+			"adminNotePlaceholder": "Erklären Sie, warum der Berufung stattgegeben wird",
+			"submit": "Berufung stattgeben"
+		},
+		"denyAppealModal": {
+			"title": "Berufung ablehnen",
+			"adminNote": "Admin-Entscheidungsnotiz",
+			"adminNotePlaceholder": "Erklären Sie, warum die Berufung abgelehnt wird",
+			"submit": "Berufung ablehnen"
+		},
+		"filter": {
+			"all": "Alle Status",
+			"pending_review": "Ausstehende Prüfung",
+			"active": "Aktiv",
+			"rejected": "Abgelehnt",
+			"suspended": "Gesperrt",
+			"appealing": "In Berufung"
+		},
+		"detailModal": {
+			"title": "Dienstleistungsangebot-Detail",
+			"name": "Name",
+			"orgId": "Org-ID",
+			"category": "Kategorie",
+			"state": "Status",
+			"shortBlurb": "Kurzbeschreibung",
+			"description": "Beschreibung",
+			"contactUrl": "Kontakt-URL",
+			"pricingInfo": "Preisinformationen",
+			"countriesOfService": "Länder",
+			"lastReviewNote": "Letzte Prüfungsnotiz",
+			"appealReason": "Berufungsgrund",
+			"appealNote": "Berufungs-Admin-Notiz",
+			"appealExhausted": "Berufung erschöpft",
+			"createdAt": "Erstellt am",
+			"updatedAt": "Aktualisiert am",
+			"region": "Region"
+		},
+		"hasReports": "Hat Meldungen",
+		"region": "Region",
+		"errors": {
+			"loadFailed": "Dienstleistungsangebote konnten nicht geladen werden",
+			"approveFailed": "Angebot konnte nicht genehmigt werden",
+			"rejectFailed": "Angebot konnte nicht abgelehnt werden",
+			"suspendFailed": "Angebot konnte nicht gesperrt werden",
+			"reinstateFailed": "Angebot konnte nicht wiederhergestellt werden",
+			"grantAppealFailed": "Berufung konnte nicht stattgegeben werden",
+			"denyAppealFailed": "Berufung konnte nicht abgelehnt werden",
+			"invalidState": "Angebot befindet sich nicht im erforderlichen Status für diese Aktion"
+		},
+		"success": {
+			"approved": "Angebot genehmigt",
+			"rejected": "Angebot abgelehnt",
+			"suspended": "Angebot gesperrt",
+			"reinstated": "Angebot wiederhergestellt",
+			"appealGranted": "Berufung stattgegeben",
+			"appealDenied": "Berufung abgelehnt"
+		},
+		"loadMore": "Mehr laden"
+	}
 }

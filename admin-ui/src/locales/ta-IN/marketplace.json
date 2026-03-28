@@ -1,212 +1,212 @@
 {
-  "backToDashboard": "டாஷ்போர்டுக்கு திரும்பு",
-  "title": "சந்தை நிர்வாகம்",
-  "capabilitiesTab": "வழங்குநர் திறன்கள்",
-  "listingsTab": "சேவை பட்டியல்கள்",
-  "capability": {
-    "table": {
-      "orgId": "நிறுவன ஐடி",
-      "capability": "திறன்",
-      "status": "நிலை",
-      "appliedAt": "விண்ணப்பித்த தேதி",
-      "grantedAt": "வழங்கப்பட்ட தேதி",
-      "expiresAt": "காலாவதி தேதி",
-      "subscriptionPrice": "விலை",
-      "currency": "நாணயம்",
-      "actions": "செயல்கள்"
-    },
-    "statuses": {
-      "pending_approval": "அனுமதி நிலுவையில்",
-      "active": "செயலில்",
-      "rejected": "நிராகரிக்கப்பட்டது",
-      "expired": "காலாவதியானது",
-      "revoked": "திரும்பப்பெறப்பட்டது"
-    },
-    "actions": {
-      "approve": "அனுமதி",
-      "reject": "நிராகரி",
-      "renew": "புதுப்பி",
-      "revoke": "திரும்பப்பெறு",
-      "reinstate": "மீட்டமை"
-    },
-    "approveModal": {
-      "title": "திறனை அனுமதி",
-      "orgId": "நிறுவன ஐடி",
-      "subscriptionPrice": "சந்தா விலை",
-      "currency": "நாணயம் (ISO 4217)",
-      "currencyPlaceholder": "எ.கா. USD",
-      "subscriptionPeriodDays": "சந்தா காலம் (நாட்கள்)",
-      "submit": "அனுமதி"
-    },
-    "rejectModal": {
-      "title": "திறனை நிராகரி",
-      "adminNote": "நிராகரிப்பு காரணம்",
-      "adminNotePlaceholder": "இந்த விண்ணப்பம் ஏன் நிராகரிக்கப்பட்டது என்று விளக்குங்கள்",
-      "submit": "நிராகரி"
-    },
-    "renewModal": {
-      "title": "திறனை புதுப்பி",
-      "subscriptionPrice": "சந்தா விலை",
-      "currency": "நாணயம்",
-      "subscriptionPeriodDays": "சந்தா காலம் (நாட்கள்)",
-      "submit": "புதுப்பி"
-    },
-    "revokeModal": {
-      "title": "திறனை திரும்பப்பெறு",
-      "adminNote": "திரும்பப்பெறுதல் காரணம்",
-      "adminNotePlaceholder": "இந்த திறன் ஏன் திரும்பப்பெறப்படுகிறது என்று விளக்குங்கள்",
-      "submit": "திரும்பப்பெறு"
-    },
-    "reinstateModal": {
-      "title": "திறனை மீட்டமை",
-      "subscriptionPrice": "சந்தா விலை",
-      "currency": "நாணயம்",
-      "subscriptionPeriodDays": "சந்தா காலம் (நாட்கள்)",
-      "submit": "மீட்டமை"
-    },
-    "filter": {
-      "all": "அனைத்து நிலைகள்",
-      "pending_approval": "அனுமதி நிலுவையில்",
-      "active": "செயலில்",
-      "rejected": "நிராகரிக்கப்பட்டது",
-      "expired": "காலாவதியானது",
-      "revoked": "திரும்பப்பெறப்பட்டது"
-    },
-    "applicationNote": "விண்ணப்ப குறிப்பு",
-    "errors": {
-      "loadFailed": "திறன்களை ஏற்ற முடியவில்லை",
-      "approveFailed": "திறனை அனுமதிக்க முடியவில்லை",
-      "rejectFailed": "திறனை நிராகரிக்க முடியவில்லை",
-      "renewFailed": "திறனை புதுப்பிக்க முடியவில்லை",
-      "revokeFailed": "திறனை திரும்பப்பெற முடியவில்லை",
-      "reinstateFailed": "திறனை மீட்டமைக்க முடியவில்லை",
-      "invalidState": "இந்த செயலுக்கு தேவையான நிலையில் திறன் இல்லை"
-    },
-    "success": {
-      "approved": "திறன் அனுமதிக்கப்பட்டது",
-      "rejected": "திறன் நிராகரிக்கப்பட்டது",
-      "renewed": "திறன் புதுப்பிக்கப்பட்டது",
-      "revoked": "திறன் திரும்பப்பெறப்பட்டது",
-      "reinstated": "திறன் மீட்டமைக்கப்பட்டது"
-    }
-  },
-  "listings": {
-    "table": {
-      "name": "பெயர்",
-      "orgId": "நிறுவன ஐடி",
-      "category": "வகை",
-      "state": "நிலை",
-      "reportCount": "புகார்கள்",
-      "createdAt": "உருவாக்கப்பட்ட தேதி",
-      "actions": "செயல்கள்"
-    },
-    "states": {
-      "draft": "வரைவு",
-      "pending_review": "மதிப்பாய்வு நிலுவையில்",
-      "active": "செயலில்",
-      "paused": "இடைநிறுத்தப்பட்டது",
-      "rejected": "நிராகரிக்கப்பட்டது",
-      "suspended": "தடை செய்யப்பட்டது",
-      "appealing": "மேல்முறையீட்டில்",
-      "archived": "காப்பகப்படுத்தப்பட்டது"
-    },
-    "categories": {
-      "talent_sourcing": "திறமை ஆட்சேர்ப்பு"
-    },
-    "actions": {
-      "approve": "அனுமதி",
-      "reject": "நிராகரி",
-      "suspend": "தடை செய்",
-      "reinstate": "மீட்டமை",
-      "grantAppeal": "மேல்முறையீட்டை அனுமதி",
-      "denyAppeal": "மேல்முறையீட்டை நிராகரி",
-      "view": "பார்"
-    },
-    "approveModal": {
-      "title": "சேவை பட்டியலை அனுமதி",
-      "verificationNote": "சரிபார்ப்பு குறிப்பு",
-      "verificationNotePlaceholder": "சரிபார்ப்பை உறுதிப்படுத்தும் குறிப்பு",
-      "verificationId": "சரிபார்ப்பு ஐடி",
-      "verificationIdPlaceholder": "உள் சரிபார்ப்பு குறிப்பு",
-      "submit": "அனுமதி"
-    },
-    "rejectModal": {
-      "title": "சேவை பட்டியலை நிராகரி",
-      "adminNote": "நிராகரிப்பு காரணம்",
-      "adminNotePlaceholder": "இந்த பட்டியல் ஏன் நிராகரிக்கப்படுகிறது என்று விளக்குங்கள்",
-      "verificationId": "சரிபார்ப்பு ஐடி (விரும்பினால்)",
-      "submit": "நிராகரி"
-    },
-    "suspendModal": {
-      "title": "சேவை பட்டியலை தடை செய்",
-      "adminNote": "தடை காரணம்",
-      "adminNotePlaceholder": "இந்த பட்டியல் ஏன் தடை செய்யப்படுகிறது என்று விளக்குங்கள்",
-      "submit": "தடை செய்"
-    },
-    "reinstateModal": {
-      "title": "சேவை பட்டியலை மீட்டமை",
-      "adminNote": "நிர்வாக குறிப்பு (விரும்பினால்)",
-      "submit": "மீட்டமை"
-    },
-    "grantAppealModal": {
-      "title": "மேல்முறையீட்டை அனுமதி",
-      "adminNote": "நிர்வாக முடிவு குறிப்பு",
-      "adminNotePlaceholder": "மேல்முறையீடு ஏன் அனுமதிக்கப்படுகிறது என்று விளக்குங்கள்",
-      "submit": "மேல்முறையீட்டை அனுமதி"
-    },
-    "denyAppealModal": {
-      "title": "மேல்முறையீட்டை நிராகரி",
-      "adminNote": "நிர்வாக முடிவு குறிப்பு",
-      "adminNotePlaceholder": "மேல்முறையீடு ஏன் நிராகரிக்கப்படுகிறது என்று விளக்குங்கள்",
-      "submit": "மேல்முறையீட்டை நிராகரி"
-    },
-    "filter": {
-      "all": "அனைத்து நிலைகள்",
-      "pending_review": "மதிப்பாய்வு நிலுவையில்",
-      "active": "செயலில்",
-      "rejected": "நிராகரிக்கப்பட்டது",
-      "suspended": "தடை செய்யப்பட்டது",
-      "appealing": "மேல்முறையீட்டில்"
-    },
-    "detailModal": {
-      "title": "சேவை பட்டியல் விவரம்",
-      "name": "பெயர்",
-      "orgId": "நிறுவன ஐடி",
-      "category": "வகை",
-      "state": "நிலை",
-      "shortBlurb": "சுருக்கமான விளக்கம்",
-      "description": "விளக்கம்",
-      "contactUrl": "தொடர்பு URL",
-      "pricingInfo": "விலை தகவல்",
-      "countriesOfService": "நாடுகள்",
-      "lastReviewNote": "கடைசி மதிப்பாய்வு குறிப்பு",
-      "appealReason": "மேல்முறையீட்டு காரணம்",
-      "appealNote": "மேல்முறையீட்டு நிர்வாக குறிப்பு",
-      "appealExhausted": "மேல்முறையீடு முழுமையாக பயன்படுத்தப்பட்டது",
-      "createdAt": "உருவாக்கப்பட்ட தேதி",
-      "updatedAt": "புதுப்பிக்கப்பட்ட தேதி",
-      "region": "பிராந்தியம்"
-    },
-    "hasReports": "புகார்கள் உள்ளன",
-    "region": "பிராந்தியம்",
-    "errors": {
-      "loadFailed": "சேவை பட்டியல்களை ஏற்ற முடியவில்லை",
-      "approveFailed": "பட்டியலை அனுமதிக்க முடியவில்லை",
-      "rejectFailed": "பட்டியலை நிராகரிக்க முடியவில்லை",
-      "suspendFailed": "பட்டியலை தடை செய்ய முடியவில்லை",
-      "reinstateFailed": "பட்டியலை மீட்டமைக்க முடியவில்லை",
-      "grantAppealFailed": "மேல்முறையீட்டை அனுமதிக்க முடியவில்லை",
-      "denyAppealFailed": "மேல்முறையீட்டை நிராகரிக்க முடியவில்லை",
-      "invalidState": "இந்த செயலுக்கு தேவையான நிலையில் பட்டியல் இல்லை"
-    },
-    "success": {
-      "approved": "பட்டியல் அனுமதிக்கப்பட்டது",
-      "rejected": "பட்டியல் நிராகரிக்கப்பட்டது",
-      "suspended": "பட்டியல் தடை செய்யப்பட்டது",
-      "reinstated": "பட்டியல் மீட்டமைக்கப்பட்டது",
-      "appealGranted": "மேல்முறையீடு அனுமதிக்கப்பட்டது",
-      "appealDenied": "மேல்முறையீடு நிராகரிக்கப்பட்டது"
-    },
-    "loadMore": "மேலும் ஏற்று"
-  }
+	"backToDashboard": "டாஷ்போர்டுக்கு திரும்பு",
+	"title": "சந்தை நிர்வாகம்",
+	"capabilitiesTab": "வழங்குநர் திறன்கள்",
+	"listingsTab": "சேவை பட்டியல்கள்",
+	"capability": {
+		"table": {
+			"orgId": "நிறுவன ஐடி",
+			"capability": "திறன்",
+			"status": "நிலை",
+			"appliedAt": "விண்ணப்பித்த தேதி",
+			"grantedAt": "வழங்கப்பட்ட தேதி",
+			"expiresAt": "காலாவதி தேதி",
+			"subscriptionPrice": "விலை",
+			"currency": "நாணயம்",
+			"actions": "செயல்கள்"
+		},
+		"statuses": {
+			"pending_approval": "அனுமதி நிலுவையில்",
+			"active": "செயலில்",
+			"rejected": "நிராகரிக்கப்பட்டது",
+			"expired": "காலாவதியானது",
+			"revoked": "திரும்பப்பெறப்பட்டது"
+		},
+		"actions": {
+			"approve": "அனுமதி",
+			"reject": "நிராகரி",
+			"renew": "புதுப்பி",
+			"revoke": "திரும்பப்பெறு",
+			"reinstate": "மீட்டமை"
+		},
+		"approveModal": {
+			"title": "திறனை அனுமதி",
+			"orgId": "நிறுவன ஐடி",
+			"subscriptionPrice": "சந்தா விலை",
+			"currency": "நாணயம் (ISO 4217)",
+			"currencyPlaceholder": "எ.கா. USD",
+			"subscriptionPeriodDays": "சந்தா காலம் (நாட்கள்)",
+			"submit": "அனுமதி"
+		},
+		"rejectModal": {
+			"title": "திறனை நிராகரி",
+			"adminNote": "நிராகரிப்பு காரணம்",
+			"adminNotePlaceholder": "இந்த விண்ணப்பம் ஏன் நிராகரிக்கப்பட்டது என்று விளக்குங்கள்",
+			"submit": "நிராகரி"
+		},
+		"renewModal": {
+			"title": "திறனை புதுப்பி",
+			"subscriptionPrice": "சந்தா விலை",
+			"currency": "நாணயம்",
+			"subscriptionPeriodDays": "சந்தா காலம் (நாட்கள்)",
+			"submit": "புதுப்பி"
+		},
+		"revokeModal": {
+			"title": "திறனை திரும்பப்பெறு",
+			"adminNote": "திரும்பப்பெறுதல் காரணம்",
+			"adminNotePlaceholder": "இந்த திறன் ஏன் திரும்பப்பெறப்படுகிறது என்று விளக்குங்கள்",
+			"submit": "திரும்பப்பெறு"
+		},
+		"reinstateModal": {
+			"title": "திறனை மீட்டமை",
+			"subscriptionPrice": "சந்தா விலை",
+			"currency": "நாணயம்",
+			"subscriptionPeriodDays": "சந்தா காலம் (நாட்கள்)",
+			"submit": "மீட்டமை"
+		},
+		"filter": {
+			"all": "அனைத்து நிலைகள்",
+			"pending_approval": "அனுமதி நிலுவையில்",
+			"active": "செயலில்",
+			"rejected": "நிராகரிக்கப்பட்டது",
+			"expired": "காலாவதியானது",
+			"revoked": "திரும்பப்பெறப்பட்டது"
+		},
+		"applicationNote": "விண்ணப்ப குறிப்பு",
+		"errors": {
+			"loadFailed": "திறன்களை ஏற்ற முடியவில்லை",
+			"approveFailed": "திறனை அனுமதிக்க முடியவில்லை",
+			"rejectFailed": "திறனை நிராகரிக்க முடியவில்லை",
+			"renewFailed": "திறனை புதுப்பிக்க முடியவில்லை",
+			"revokeFailed": "திறனை திரும்பப்பெற முடியவில்லை",
+			"reinstateFailed": "திறனை மீட்டமைக்க முடியவில்லை",
+			"invalidState": "இந்த செயலுக்கு தேவையான நிலையில் திறன் இல்லை"
+		},
+		"success": {
+			"approved": "திறன் அனுமதிக்கப்பட்டது",
+			"rejected": "திறன் நிராகரிக்கப்பட்டது",
+			"renewed": "திறன் புதுப்பிக்கப்பட்டது",
+			"revoked": "திறன் திரும்பப்பெறப்பட்டது",
+			"reinstated": "திறன் மீட்டமைக்கப்பட்டது"
+		}
+	},
+	"listings": {
+		"table": {
+			"name": "பெயர்",
+			"orgId": "நிறுவன ஐடி",
+			"category": "வகை",
+			"state": "நிலை",
+			"reportCount": "புகார்கள்",
+			"createdAt": "உருவாக்கப்பட்ட தேதி",
+			"actions": "செயல்கள்"
+		},
+		"states": {
+			"draft": "வரைவு",
+			"pending_review": "மதிப்பாய்வு நிலுவையில்",
+			"active": "செயலில்",
+			"paused": "இடைநிறுத்தப்பட்டது",
+			"rejected": "நிராகரிக்கப்பட்டது",
+			"suspended": "தடை செய்யப்பட்டது",
+			"appealing": "மேல்முறையீட்டில்",
+			"archived": "காப்பகப்படுத்தப்பட்டது"
+		},
+		"categories": {
+			"talent_sourcing": "திறமை ஆட்சேர்ப்பு"
+		},
+		"actions": {
+			"approve": "அனுமதி",
+			"reject": "நிராகரி",
+			"suspend": "தடை செய்",
+			"reinstate": "மீட்டமை",
+			"grantAppeal": "மேல்முறையீட்டை அனுமதி",
+			"denyAppeal": "மேல்முறையீட்டை நிராகரி",
+			"view": "பார்"
+		},
+		"approveModal": {
+			"title": "சேவை பட்டியலை அனுமதி",
+			"verificationNote": "சரிபார்ப்பு குறிப்பு",
+			"verificationNotePlaceholder": "சரிபார்ப்பை உறுதிப்படுத்தும் குறிப்பு",
+			"verificationId": "சரிபார்ப்பு ஐடி",
+			"verificationIdPlaceholder": "உள் சரிபார்ப்பு குறிப்பு",
+			"submit": "அனுமதி"
+		},
+		"rejectModal": {
+			"title": "சேவை பட்டியலை நிராகரி",
+			"adminNote": "நிராகரிப்பு காரணம்",
+			"adminNotePlaceholder": "இந்த பட்டியல் ஏன் நிராகரிக்கப்படுகிறது என்று விளக்குங்கள்",
+			"verificationId": "சரிபார்ப்பு ஐடி (விரும்பினால்)",
+			"submit": "நிராகரி"
+		},
+		"suspendModal": {
+			"title": "சேவை பட்டியலை தடை செய்",
+			"adminNote": "தடை காரணம்",
+			"adminNotePlaceholder": "இந்த பட்டியல் ஏன் தடை செய்யப்படுகிறது என்று விளக்குங்கள்",
+			"submit": "தடை செய்"
+		},
+		"reinstateModal": {
+			"title": "சேவை பட்டியலை மீட்டமை",
+			"adminNote": "நிர்வாக குறிப்பு (விரும்பினால்)",
+			"submit": "மீட்டமை"
+		},
+		"grantAppealModal": {
+			"title": "மேல்முறையீட்டை அனுமதி",
+			"adminNote": "நிர்வாக முடிவு குறிப்பு",
+			"adminNotePlaceholder": "மேல்முறையீடு ஏன் அனுமதிக்கப்படுகிறது என்று விளக்குங்கள்",
+			"submit": "மேல்முறையீட்டை அனுமதி"
+		},
+		"denyAppealModal": {
+			"title": "மேல்முறையீட்டை நிராகரி",
+			"adminNote": "நிர்வாக முடிவு குறிப்பு",
+			"adminNotePlaceholder": "மேல்முறையீடு ஏன் நிராகரிக்கப்படுகிறது என்று விளக்குங்கள்",
+			"submit": "மேல்முறையீட்டை நிராகரி"
+		},
+		"filter": {
+			"all": "அனைத்து நிலைகள்",
+			"pending_review": "மதிப்பாய்வு நிலுவையில்",
+			"active": "செயலில்",
+			"rejected": "நிராகரிக்கப்பட்டது",
+			"suspended": "தடை செய்யப்பட்டது",
+			"appealing": "மேல்முறையீட்டில்"
+		},
+		"detailModal": {
+			"title": "சேவை பட்டியல் விவரம்",
+			"name": "பெயர்",
+			"orgId": "நிறுவன ஐடி",
+			"category": "வகை",
+			"state": "நிலை",
+			"shortBlurb": "சுருக்கமான விளக்கம்",
+			"description": "விளக்கம்",
+			"contactUrl": "தொடர்பு URL",
+			"pricingInfo": "விலை தகவல்",
+			"countriesOfService": "நாடுகள்",
+			"lastReviewNote": "கடைசி மதிப்பாய்வு குறிப்பு",
+			"appealReason": "மேல்முறையீட்டு காரணம்",
+			"appealNote": "மேல்முறையீட்டு நிர்வாக குறிப்பு",
+			"appealExhausted": "மேல்முறையீடு முழுமையாக பயன்படுத்தப்பட்டது",
+			"createdAt": "உருவாக்கப்பட்ட தேதி",
+			"updatedAt": "புதுப்பிக்கப்பட்ட தேதி",
+			"region": "பிராந்தியம்"
+		},
+		"hasReports": "புகார்கள் உள்ளன",
+		"region": "பிராந்தியம்",
+		"errors": {
+			"loadFailed": "சேவை பட்டியல்களை ஏற்ற முடியவில்லை",
+			"approveFailed": "பட்டியலை அனுமதிக்க முடியவில்லை",
+			"rejectFailed": "பட்டியலை நிராகரிக்க முடியவில்லை",
+			"suspendFailed": "பட்டியலை தடை செய்ய முடியவில்லை",
+			"reinstateFailed": "பட்டியலை மீட்டமைக்க முடியவில்லை",
+			"grantAppealFailed": "மேல்முறையீட்டை அனுமதிக்க முடியவில்லை",
+			"denyAppealFailed": "மேல்முறையீட்டை நிராகரிக்க முடியவில்லை",
+			"invalidState": "இந்த செயலுக்கு தேவையான நிலையில் பட்டியல் இல்லை"
+		},
+		"success": {
+			"approved": "பட்டியல் அனுமதிக்கப்பட்டது",
+			"rejected": "பட்டியல் நிராகரிக்கப்பட்டது",
+			"suspended": "பட்டியல் தடை செய்யப்பட்டது",
+			"reinstated": "பட்டியல் மீட்டமைக்கப்பட்டது",
+			"appealGranted": "மேல்முறையீடு அனுமதிக்கப்பட்டது",
+			"appealDenied": "மேல்முறையீடு நிராகரிக்கப்பட்டது"
+		},
+		"loadMore": "மேலும் ஏற்று"
+	}
 }

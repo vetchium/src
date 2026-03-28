@@ -50,49 +50,49 @@ const (
 type SeniorityLevel string
 
 const (
-	SeniorityLevelIntern    SeniorityLevel = "intern"
-	SeniorityLevelJunior    SeniorityLevel = "junior"
-	SeniorityLevelMid       SeniorityLevel = "mid"
-	SeniorityLevelSenior    SeniorityLevel = "senior"
-	SeniorityLevelLead      SeniorityLevel = "lead"
-	SeniorityLevelDirector  SeniorityLevel = "director"
-	SeniorityLevelCSuite    SeniorityLevel = "c_suite"
+	SeniorityLevelIntern   SeniorityLevel = "intern"
+	SeniorityLevelJunior   SeniorityLevel = "junior"
+	SeniorityLevelMid      SeniorityLevel = "mid"
+	SeniorityLevelSenior   SeniorityLevel = "senior"
+	SeniorityLevelLead     SeniorityLevel = "lead"
+	SeniorityLevelDirector SeniorityLevel = "director"
+	SeniorityLevelCSuite   SeniorityLevel = "c_suite"
 )
 
 type Industry string
 
 const (
-	IndustryTechnologySoftware              Industry = "technology_software"
-	IndustryFinanceBanking                  Industry = "finance_banking"
-	IndustryHealthcareLifeSciences          Industry = "healthcare_life_sciences"
-	IndustryManufacturingEngineering        Industry = "manufacturing_engineering"
-	IndustryRetailConsumerGoods             Industry = "retail_consumer_goods"
-	IndustryMediaEntertainment              Industry = "media_entertainment"
-	IndustryEducationTraining               Industry = "education_training"
-	IndustryLegalServices                   Industry = "legal_services"
-	IndustryConsultingProfessionalServices  Industry = "consulting_professional_services"
-	IndustryRealEstateConstruction          Industry = "real_estate_construction"
-	IndustryEnergyUtilities                 Industry = "energy_utilities"
-	IndustryLogisticsSupplyChain            Industry = "logistics_supply_chain"
-	IndustryGovernmentPublicSector          Industry = "government_public_sector"
-	IndustryNonprofitNGO                    Industry = "nonprofit_ngo"
-	IndustryOther                           Industry = "other"
+	IndustryTechnologySoftware             Industry = "technology_software"
+	IndustryFinanceBanking                 Industry = "finance_banking"
+	IndustryHealthcareLifeSciences         Industry = "healthcare_life_sciences"
+	IndustryManufacturingEngineering       Industry = "manufacturing_engineering"
+	IndustryRetailConsumerGoods            Industry = "retail_consumer_goods"
+	IndustryMediaEntertainment             Industry = "media_entertainment"
+	IndustryEducationTraining              Industry = "education_training"
+	IndustryLegalServices                  Industry = "legal_services"
+	IndustryConsultingProfessionalServices Industry = "consulting_professional_services"
+	IndustryRealEstateConstruction         Industry = "real_estate_construction"
+	IndustryEnergyUtilities                Industry = "energy_utilities"
+	IndustryLogisticsSupplyChain           Industry = "logistics_supply_chain"
+	IndustryGovernmentPublicSector         Industry = "government_public_sector"
+	IndustryNonprofitNGO                   Industry = "nonprofit_ngo"
+	IndustryOther                          Industry = "other"
 )
 
 type JobFunction string
 
 const (
-	JobFunctionEngineeringTechnology     JobFunction = "engineering_technology"
-	JobFunctionSalesBusinessDevelopment  JobFunction = "sales_business_development"
-	JobFunctionMarketing                 JobFunction = "marketing"
-	JobFunctionFinanceAccounting         JobFunction = "finance_accounting"
-	JobFunctionHumanResources            JobFunction = "human_resources"
-	JobFunctionOperationsSupplyChain     JobFunction = "operations_supply_chain"
-	JobFunctionProductManagement         JobFunction = "product_management"
-	JobFunctionDesignCreative            JobFunction = "design_creative"
-	JobFunctionLegalCompliance           JobFunction = "legal_compliance"
-	JobFunctionCustomerSuccessSupport    JobFunction = "customer_success_support"
-	JobFunctionDataAnalytics             JobFunction = "data_analytics"
+	JobFunctionEngineeringTechnology      JobFunction = "engineering_technology"
+	JobFunctionSalesBusinessDevelopment   JobFunction = "sales_business_development"
+	JobFunctionMarketing                  JobFunction = "marketing"
+	JobFunctionFinanceAccounting          JobFunction = "finance_accounting"
+	JobFunctionHumanResources             JobFunction = "human_resources"
+	JobFunctionOperationsSupplyChain      JobFunction = "operations_supply_chain"
+	JobFunctionProductManagement          JobFunction = "product_management"
+	JobFunctionDesignCreative             JobFunction = "design_creative"
+	JobFunctionLegalCompliance            JobFunction = "legal_compliance"
+	JobFunctionCustomerSuccessSupport     JobFunction = "customer_success_support"
+	JobFunctionDataAnalytics              JobFunction = "data_analytics"
 	JobFunctionExecutiveGeneralManagement JobFunction = "executive_general_management"
 )
 
@@ -296,16 +296,16 @@ type OrgCapability struct {
 }
 
 type ServiceListingSummary struct {
-	ServiceListingID  string          `json:"service_listing_id"`
-	HomeRegion        string          `json:"home_region"`
-	OrgID             string          `json:"org_id"`
-	Name              string          `json:"name"`
-	ShortBlurb        string          `json:"short_blurb"`
-	LogoURL           *string         `json:"logo_url,omitempty"`
-	OrgName           string          `json:"org_name"`
-	ServiceCategory   ServiceCategory `json:"service_category"`
-	CountriesOfService []string       `json:"countries_of_service"`
-	CreatedAt         string          `json:"created_at"`
+	ServiceListingID   string          `json:"service_listing_id"`
+	HomeRegion         string          `json:"home_region"`
+	OrgID              string          `json:"org_id"`
+	Name               string          `json:"name"`
+	ShortBlurb         string          `json:"short_blurb"`
+	LogoURL            *string         `json:"logo_url,omitempty"`
+	OrgName            string          `json:"org_name"`
+	ServiceCategory    ServiceCategory `json:"service_category"`
+	CountriesOfService []string        `json:"countries_of_service"`
+	CreatedAt          string          `json:"created_at"`
 }
 
 type ServiceListing struct {
@@ -357,19 +357,19 @@ func (r GetMarketplaceProviderCapabilityRequest) Validate() []common.ValidationE
 // ---- ServiceListing create/update request ----
 
 type ServiceListingRequest struct {
-	Name                      string          `json:"name"`
-	ShortBlurb                string          `json:"short_blurb"`
-	Description               string          `json:"description"`
-	ServiceCategory           ServiceCategory `json:"service_category"`
-	CountriesOfService        []string        `json:"countries_of_service"`
-	ContactURL                string          `json:"contact_url"`
-	PricingInfo               *string         `json:"pricing_info,omitempty"`
-	IndustriesServed          []Industry      `json:"industries_served"`
-	IndustriesServedOther     *string         `json:"industries_served_other,omitempty"`
-	CompanySizesServed        []CompanySize   `json:"company_sizes_served"`
-	JobFunctionsSourced       []JobFunction   `json:"job_functions_sourced"`
+	Name                      string           `json:"name"`
+	ShortBlurb                string           `json:"short_blurb"`
+	Description               string           `json:"description"`
+	ServiceCategory           ServiceCategory  `json:"service_category"`
+	CountriesOfService        []string         `json:"countries_of_service"`
+	ContactURL                string           `json:"contact_url"`
+	PricingInfo               *string          `json:"pricing_info,omitempty"`
+	IndustriesServed          []Industry       `json:"industries_served"`
+	IndustriesServedOther     *string          `json:"industries_served_other,omitempty"`
+	CompanySizesServed        []CompanySize    `json:"company_sizes_served"`
+	JobFunctionsSourced       []JobFunction    `json:"job_functions_sourced"`
 	SeniorityLevelsSourced    []SeniorityLevel `json:"seniority_levels_sourced"`
-	GeographicSourcingRegions []string        `json:"geographic_sourcing_regions"`
+	GeographicSourcingRegions []string         `json:"geographic_sourcing_regions"`
 }
 
 func (r ServiceListingRequest) validate() []common.ValidationError {
@@ -504,16 +504,16 @@ func (r GetMarketplaceServiceListingRequest) Validate() []common.ValidationError
 // ---- Browse (buyer) endpoints ----
 
 type BrowseMarketplaceServiceListingsRequest struct {
-	Keyword                  *string          `json:"keyword,omitempty"`
-	ServiceCategory          *ServiceCategory `json:"service_category,omitempty"`
-	Industries               []Industry       `json:"industries,omitempty"`
-	CompanySizes             []CompanySize    `json:"company_sizes,omitempty"`
-	JobFunctions             []JobFunction    `json:"job_functions,omitempty"`
-	SeniorityLevels          []SeniorityLevel `json:"seniority_levels,omitempty"`
-	CountriesOfService       []string         `json:"countries_of_service,omitempty"`
-	GeographicSourcingRegions []string        `json:"geographic_sourcing_regions,omitempty"`
-	Cursor                   *string          `json:"cursor,omitempty"`
-	Limit                    *int             `json:"limit,omitempty"`
+	Keyword                   *string          `json:"keyword,omitempty"`
+	ServiceCategory           *ServiceCategory `json:"service_category,omitempty"`
+	Industries                []Industry       `json:"industries,omitempty"`
+	CompanySizes              []CompanySize    `json:"company_sizes,omitempty"`
+	JobFunctions              []JobFunction    `json:"job_functions,omitempty"`
+	SeniorityLevels           []SeniorityLevel `json:"seniority_levels,omitempty"`
+	CountriesOfService        []string         `json:"countries_of_service,omitempty"`
+	GeographicSourcingRegions []string         `json:"geographic_sourcing_regions,omitempty"`
+	Cursor                    *string          `json:"cursor,omitempty"`
+	Limit                     *int             `json:"limit,omitempty"`
 }
 
 func (r BrowseMarketplaceServiceListingsRequest) Validate() []common.ValidationError {

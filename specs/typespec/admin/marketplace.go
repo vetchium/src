@@ -189,10 +189,10 @@ func (r AdminGetMarketplaceServiceListingRequest) Validate() []common.Validation
 }
 
 type AdminApproveMarketplaceServiceListingRequest struct {
-	ServiceListingID       string `json:"service_listing_id"`
-	HomeRegion             string `json:"home_region"`
-	AdminVerificationNote  string `json:"admin_verification_note"`
-	VerificationID         string `json:"verification_id"`
+	ServiceListingID      string `json:"service_listing_id"`
+	HomeRegion            string `json:"home_region"`
+	AdminVerificationNote string `json:"admin_verification_note"`
+	VerificationID        string `json:"verification_id"`
 }
 
 func (r AdminApproveMarketplaceServiceListingRequest) Validate() []common.ValidationError {

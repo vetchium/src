@@ -113,9 +113,9 @@ function CapabilitiesTab() {
 	const [loading, setLoading] = useState(true);
 	const [nextCursor, setNextCursor] = useState<string | null>(null);
 	const [hasMore, setHasMore] = useState(false);
-	const [filterStatus, setFilterStatus] = useState<
-		OrgCapabilityStatus | "all"
-	>("all");
+	const [filterStatus, setFilterStatus] = useState<OrgCapabilityStatus | "all">(
+		"all"
+	);
 
 	const [actionModal, setActionModal] = useState<{
 		visible: boolean;
@@ -146,7 +146,10 @@ function CapabilitiesTab() {
 	};
 
 	const fetchCapabilities = useCallback(
-		async (cursor: string | null = null, status: OrgCapabilityStatus | "all" = filterStatus) => {
+		async (
+			cursor: string | null = null,
+			status: OrgCapabilityStatus | "all" = filterStatus
+		) => {
 			setLoading(true);
 			try {
 				const apiBaseUrl = await getApiBaseUrl();
@@ -354,9 +357,7 @@ function CapabilitiesTab() {
 			key: "org_id",
 			render: (id: string) => (
 				<Tooltip title={id}>
-					<Text style={{ fontFamily: "monospace" }}>
-						{id.slice(0, 8)}...
-					</Text>
+					<Text style={{ fontFamily: "monospace" }}>{id.slice(0, 8)}...</Text>
 				</Tooltip>
 			),
 		},
@@ -431,10 +432,7 @@ function CapabilitiesTab() {
 					)}
 					{record.status === "active" && (
 						<>
-							<Button
-								size="small"
-								onClick={() => openModal("renew", record)}
-							>
+							<Button size="small" onClick={() => openModal("renew", record)}>
 								{t("capability.actions.renew")}
 							</Button>
 							<Button
@@ -448,10 +446,7 @@ function CapabilitiesTab() {
 						</>
 					)}
 					{record.status === "expired" && (
-						<Button
-							size="small"
-							onClick={() => openModal("renew", record)}
-						>
+						<Button size="small" onClick={() => openModal("renew", record)}>
 							{t("capability.actions.renew")}
 						</Button>
 					)}
@@ -978,9 +973,7 @@ function ServiceListingsTab() {
 						rules={[{ required: true }]}
 					>
 						<Input
-							placeholder={t(
-								"listings.approveModal.verificationIdPlaceholder"
-							)}
+							placeholder={t("listings.approveModal.verificationIdPlaceholder")}
 						/>
 					</Form.Item>
 				</Form>
@@ -1294,7 +1287,9 @@ function ServiceListingsTab() {
 				open={detailModal.visible}
 				onCancel={closeDetailModal}
 				footer={
-					<Button onClick={closeDetailModal}>{t("common:close", "Close")}</Button>
+					<Button onClick={closeDetailModal}>
+						{t("common:close", "Close")}
+					</Button>
 				}
 				width={700}
 			>
@@ -1318,7 +1313,9 @@ function ServiceListingsTab() {
 							)}
 						</Descriptions.Item>
 						<Descriptions.Item label={t("listings.detailModal.state")}>
-							<Tag color={listingStateColor(detailModal.selected.listing.state)}>
+							<Tag
+								color={listingStateColor(detailModal.selected.listing.state)}
+							>
 								{t(`listings.states.${detailModal.selected.listing.state}`)}
 							</Tag>
 						</Descriptions.Item>
@@ -1349,7 +1346,9 @@ function ServiceListingsTab() {
 						>
 							{detailModal.selected.listing.countries_of_service.join(", ")}
 						</Descriptions.Item>
-						<Descriptions.Item label={t("listings.detailModal.appealExhausted")}>
+						<Descriptions.Item
+							label={t("listings.detailModal.appealExhausted")}
+						>
 							{detailModal.selected.listing.appeal_exhausted ? "Yes" : "No"}
 						</Descriptions.Item>
 						{detailModal.selected.listing.last_review_admin_note && (

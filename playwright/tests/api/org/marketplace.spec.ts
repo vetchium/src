@@ -47,7 +47,8 @@ function validListingRequest(nameSuffix: string = "1") {
 	return {
 		name: `Test Service Listing ${nameSuffix}`,
 		short_blurb: "A short description of the test service",
-		description: "A full description of the test service listing for Playwright tests.",
+		description:
+			"A full description of the test service listing for Playwright tests.",
 		service_category: "talent_sourcing",
 		countries_of_service: ["IN"],
 		contact_url: "https://example.com/contact",
@@ -592,7 +593,9 @@ test.describe("Marketplace Org API", () => {
 			}
 		});
 
-		test("Invalid state: appeal_exhausted = true (422)", async ({ request }) => {
+		test("Invalid state: appeal_exhausted = true (422)", async ({
+			request,
+		}) => {
 			const api = new OrgAPIClient(request);
 			const { email, domain } = generateTestOrgEmail("mkt-appeal-exhausted");
 			const result = await createTestOrgAdminDirect(email, TEST_PASSWORD);
@@ -632,7 +635,8 @@ test.describe("Marketplace Org API", () => {
 				const token = await loginOrgUser(api, email, domain);
 				const res = await api.submitMarketplaceServiceListingAppeal(token, {
 					service_listing_id: listingId,
-					appeal_reason: "This listing is active, should not be able to appeal.",
+					appeal_reason:
+						"This listing is active, should not be able to appeal.",
 				});
 				expect(res.status).toBe(422);
 			} finally {
@@ -857,12 +861,15 @@ test.describe("Marketplace Org API", () => {
 			}
 		});
 
-		test("Conflict: duplicate report by same user (409)", async ({ request }) => {
+		test("Conflict: duplicate report by same user (409)", async ({
+			request,
+		}) => {
 			const api = new OrgAPIClient(request);
 
 			// Provider org
-			const { email: providerEmail } =
-				generateTestOrgEmail("mkt-report-dup-prov");
+			const { email: providerEmail } = generateTestOrgEmail(
+				"mkt-report-dup-prov"
+			);
 			const providerResult = await createTestOrgAdminDirect(
 				providerEmail,
 				TEST_PASSWORD

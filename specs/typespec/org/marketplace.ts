@@ -225,7 +225,10 @@ function validateServiceListingFields(
 		);
 	}
 
-	if (!fields.countries_of_service || fields.countries_of_service.length === 0) {
+	if (
+		!fields.countries_of_service ||
+		fields.countries_of_service.length === 0
+	) {
 		errs.push(
 			newValidationError(
 				"countries_of_service",
@@ -259,7 +262,10 @@ function validateServiceListingFields(
 		}
 	}
 
-	if (!fields.company_sizes_served || fields.company_sizes_served.length === 0) {
+	if (
+		!fields.company_sizes_served ||
+		fields.company_sizes_served.length === 0
+	) {
 		errs.push(
 			newValidationError(
 				"company_sizes_served",
@@ -309,8 +315,7 @@ function validateServiceListingFields(
 
 // ---- Create / Update ----
 
-export interface CreateMarketplaceServiceListingRequest
-	extends ServiceListingFields {}
+export interface CreateMarketplaceServiceListingRequest extends ServiceListingFields {}
 
 export function validateCreateMarketplaceServiceListingRequest(
 	req: CreateMarketplaceServiceListingRequest
@@ -322,8 +327,7 @@ export interface CreateMarketplaceServiceListingResponse {
 	service_listing_id: string;
 }
 
-export interface UpdateMarketplaceServiceListingRequest
-	extends ServiceListingFields {
+export interface UpdateMarketplaceServiceListingRequest extends ServiceListingFields {
 	service_listing_id: string;
 }
 
@@ -333,10 +337,7 @@ export function validateUpdateMarketplaceServiceListingRequest(
 	const errs: ValidationError[] = [];
 	if (!req.service_listing_id) {
 		errs.push(
-			newValidationError(
-				"service_listing_id",
-				"service_listing_id is required"
-			)
+			newValidationError("service_listing_id", "service_listing_id is required")
 		);
 	}
 	errs.push(...validateServiceListingFields(req));
@@ -370,16 +371,11 @@ export function validateSubmitMarketplaceServiceListingAppealRequest(
 	const errs: ValidationError[] = [];
 	if (!req.service_listing_id) {
 		errs.push(
-			newValidationError(
-				"service_listing_id",
-				"service_listing_id is required"
-			)
+			newValidationError("service_listing_id", "service_listing_id is required")
 		);
 	}
 	if (!req.appeal_reason) {
-		errs.push(
-			newValidationError("appeal_reason", "appeal_reason is required")
-		);
+		errs.push(newValidationError("appeal_reason", "appeal_reason is required"));
 	} else if (req.appeal_reason.length > 2000) {
 		errs.push(
 			newValidationError(
@@ -444,10 +440,7 @@ export function validateReportMarketplaceServiceListingRequest(
 	const errs: ValidationError[] = [];
 	if (!req.service_listing_id) {
 		errs.push(
-			newValidationError(
-				"service_listing_id",
-				"service_listing_id is required"
-			)
+			newValidationError("service_listing_id", "service_listing_id is required")
 		);
 	}
 	if (!req.home_region) {
