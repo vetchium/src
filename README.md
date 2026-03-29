@@ -119,18 +119,18 @@ bun run format:go:check     # Check Go files only
 
 ## Test Status
 
-All 780 Playwright tests (API and UI) are passing as of March 28, 2026. This includes the newly implemented Marketplace features.
+All 820 Playwright tests (809 API and 11 UI) are passing as of March 29, 2026. The environment has been optimized for stability and performance.
 
 Tests run against the CI environment:
 
 ```bash
 docker compose -f docker-compose-ci.json up --build -d
-cd playwright && npm test
+cd playwright && CI=1 npm test
 ```
 
 ## Running Tests
 
-All tests run against the CI Docker configuration which uses shortened token durations:
+All tests run against the CI Docker configuration which uses shortened token durations and healthchecks for all services:
 
 ```bash
 # Start services
@@ -139,17 +139,13 @@ docker compose -f docker-compose-ci.json up --build -d
 # In a separate terminal
 cd playwright
 npm install
-npm run env:check        # Verify all services are up and reachable
-npm test                 # All tests (API + UI)
-npm run test:api         # API tests only
-npm run test:api:admin   # Admin API tests only
-npm run test:ui          # All UI tests (Chromium, 1 worker)
-npm run test:ui:admin    # Admin UI tests only
-npm run test:ui:hub      # Hub UI tests only
-npm run test:ui:org      # Org UI tests only
+npm run env:check        # Verify all services are up and healthy
+CI=1 npm test            # All tests (API + UI)
+CI=1 npm run test:api    # API tests only
+CI=1 npm run test:ui     # All UI tests (Chromium, 1 worker)
 ```
 
-**Note:** UI tests are configured to run with a single worker (`--workers=1`) to prevent collisions in the Mailpit email inbox when retrieving TFA codes and signup tokens.
+**Note:** The `CI=1` environment variable is recommended to limit the number of parallel workers (to 4 for API tests) ensuring stability across the multi-service architecture. UI tests are automatically restricted to 1 worker to prevent Mailpit collisions.
 
 The CI configuration uses short token durations to enable expiry scenario tests:
 

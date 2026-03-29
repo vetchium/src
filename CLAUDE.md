@@ -60,8 +60,8 @@ go build -o regional-api-server  ./cmd/regional-api-server/
 go build -o regional-worker      ./cmd/regional-worker/
 
 # Docker (from src/)
-docker compose -f docker-compose-full.json up --build
-docker compose -f docker-compose-full.json down -v
+docker compose -f docker-compose-ci.json up --build -d
+docker compose -f docker-compose-ci.json down -v
 ```
 
 ## Object Storage (LocalStack / S3-compatible)

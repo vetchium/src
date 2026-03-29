@@ -7,13 +7,13 @@
 				"POSTGRES_USER": "vetchium",
 				"POSTGRES_PASSWORD": "vetchium_dev"
 			},
-			"volumes": ["global-db-data:/var/lib/postgresql/data"],
+			"tmpfs": ["/var/lib/postgresql/data"],
 			"ports": ["5432:5432"],
 			"healthcheck": {
 				"test": ["CMD-SHELL", "pg_isready -U vetchium -d vetchium_global"],
-				"interval": "5s",
+				"interval": "2s",
 				"timeout": "5s",
-				"retries": 5
+				"retries": 10
 			}
 		},
 		"regional-db-ind1": {
@@ -23,13 +23,13 @@
 				"POSTGRES_USER": "vetchium",
 				"POSTGRES_PASSWORD": "vetchium_dev"
 			},
-			"volumes": ["regional-db-ind1-data:/var/lib/postgresql/data"],
+			"tmpfs": ["/var/lib/postgresql/data"],
 			"ports": ["5433:5432"],
 			"healthcheck": {
 				"test": ["CMD-SHELL", "pg_isready -U vetchium -d vetchium_ind1"],
-				"interval": "5s",
+				"interval": "2s",
 				"timeout": "5s",
-				"retries": 5
+				"retries": 10
 			}
 		},
 		"regional-db-usa1": {
@@ -39,13 +39,13 @@
 				"POSTGRES_USER": "vetchium",
 				"POSTGRES_PASSWORD": "vetchium_dev"
 			},
-			"volumes": ["regional-db-usa1-data:/var/lib/postgresql/data"],
+			"tmpfs": ["/var/lib/postgresql/data"],
 			"ports": ["5434:5432"],
 			"healthcheck": {
 				"test": ["CMD-SHELL", "pg_isready -U vetchium -d vetchium_usa1"],
-				"interval": "5s",
+				"interval": "2s",
 				"timeout": "5s",
-				"retries": 5
+				"retries": 10
 			}
 		},
 		"regional-db-deu1": {
@@ -55,13 +55,13 @@
 				"POSTGRES_USER": "vetchium",
 				"POSTGRES_PASSWORD": "vetchium_dev"
 			},
-			"volumes": ["regional-db-deu1-data:/var/lib/postgresql/data"],
+			"tmpfs": ["/var/lib/postgresql/data"],
 			"ports": ["5435:5432"],
 			"healthcheck": {
 				"test": ["CMD-SHELL", "pg_isready -U vetchium -d vetchium_deu1"],
-				"interval": "5s",
+				"interval": "2s",
 				"timeout": "5s",
-				"retries": 5
+				"retries": 10
 			}
 		},
 		"localstack": {
@@ -275,8 +275,8 @@
 				"SMTP_FROM_ADDRESS": "noreply@vetchium.com",
 				"SMTP_FROM_NAME": "Vetchium",
 				"EMAIL_WORKER_POLL_INTERVAL": "1s",
-				"ADMIN_TFA_TOKEN_EXPIRY": "2m",
-				"ADMIN_SESSION_TOKEN_EXPIRY": "60s",
+				"ADMIN_TFA_TOKEN_EXPIRY": "15s",
+				"ADMIN_SESSION_TOKEN_EXPIRY": "30s",
 				"ADMIN_INVITATION_TOKEN_EXPIRY": "30s",
 				"ADMIN_PASSWORD_RESET_TOKEN_EXPIRY": "30s",
 				"ADMIN_TFA_TOKEN_CLEANUP_INTERVAL": "5s",
@@ -291,7 +291,14 @@
 				"S3_SECRET_ACCESS_KEY": "vetchium-dev-secret",
 				"S3_REGION": "us-east-1",
 				"S3_BUCKET": "vetchium"
-			}
+			},
+			"healthcheck": {
+				"test": ["CMD-SHELL", "nc -z localhost 8081 || exit 1"],
+				"interval": "5s",
+				"timeout": "5s",
+				"retries": 5
+			},
+			"restart": "unless-stopped"
 		},
 		"regional-api-server-ind1": {
 			"build": {
@@ -327,22 +334,29 @@
 				"INTERNAL_ENDPOINT_IND1": "http://regional-api-server-ind1:8080",
 				"INTERNAL_ENDPOINT_USA1": "http://regional-api-server-usa1:8080",
 				"INTERNAL_ENDPOINT_DEU1": "http://regional-api-server-deu1:8080",
-				"ADMIN_TFA_TOKEN_EXPIRY": "2m",
-				"ADMIN_SESSION_TOKEN_EXPIRY": "60s",
-				"HUB_TFA_TOKEN_EXPIRY": "2m",
-				"HUB_SESSION_TOKEN_EXPIRY": "60s",
+				"ADMIN_TFA_TOKEN_EXPIRY": "15s",
+				"ADMIN_SESSION_TOKEN_EXPIRY": "30s",
+				"HUB_TFA_TOKEN_EXPIRY": "15s",
+				"HUB_SESSION_TOKEN_EXPIRY": "30s",
 				"HUB_SIGNUP_TOKEN_EXPIRY": "30s",
-				"HUB_REMEMBER_ME_EXPIRY": "120s",
-				"ORG_TFA_TOKEN_EXPIRY": "2m",
-				"ORG_SESSION_TOKEN_EXPIRY": "60s",
+				"HUB_REMEMBER_ME_EXPIRY": "60s",
+				"ORG_TFA_TOKEN_EXPIRY": "15s",
+				"ORG_SESSION_TOKEN_EXPIRY": "30s",
 				"ORG_SIGNUP_TOKEN_EXPIRY": "30s",
-				"ORG_REMEMBER_ME_EXPIRY": "120s",
+				"ORG_REMEMBER_ME_EXPIRY": "60s",
 				"S3_ENDPOINT": "http://localstack:4566",
 				"S3_ACCESS_KEY_ID": "vetchium-dev-key",
 				"S3_SECRET_ACCESS_KEY": "vetchium-dev-secret",
 				"S3_REGION": "us-east-1",
 				"S3_BUCKET": "vetchium"
-			}
+			},
+			"healthcheck": {
+				"test": ["CMD-SHELL", "nc -z localhost 8080 || exit 1"],
+				"interval": "5s",
+				"timeout": "5s",
+				"retries": 5
+			},
+			"restart": "unless-stopped"
 		},
 		"regional-api-server-usa1": {
 			"build": {
@@ -378,22 +392,29 @@
 				"INTERNAL_ENDPOINT_IND1": "http://regional-api-server-ind1:8080",
 				"INTERNAL_ENDPOINT_USA1": "http://regional-api-server-usa1:8080",
 				"INTERNAL_ENDPOINT_DEU1": "http://regional-api-server-deu1:8080",
-				"ADMIN_TFA_TOKEN_EXPIRY": "2m",
-				"ADMIN_SESSION_TOKEN_EXPIRY": "60s",
-				"HUB_TFA_TOKEN_EXPIRY": "2m",
-				"HUB_SESSION_TOKEN_EXPIRY": "60s",
+				"ADMIN_TFA_TOKEN_EXPIRY": "15s",
+				"ADMIN_SESSION_TOKEN_EXPIRY": "30s",
+				"HUB_TFA_TOKEN_EXPIRY": "15s",
+				"HUB_SESSION_TOKEN_EXPIRY": "30s",
 				"HUB_SIGNUP_TOKEN_EXPIRY": "30s",
-				"HUB_REMEMBER_ME_EXPIRY": "120s",
-				"ORG_TFA_TOKEN_EXPIRY": "2m",
-				"ORG_SESSION_TOKEN_EXPIRY": "60s",
+				"HUB_REMEMBER_ME_EXPIRY": "60s",
+				"ORG_TFA_TOKEN_EXPIRY": "15s",
+				"ORG_SESSION_TOKEN_EXPIRY": "30s",
 				"ORG_SIGNUP_TOKEN_EXPIRY": "30s",
-				"ORG_REMEMBER_ME_EXPIRY": "120s",
+				"ORG_REMEMBER_ME_EXPIRY": "60s",
 				"S3_ENDPOINT": "http://localstack:4566",
 				"S3_ACCESS_KEY_ID": "vetchium-dev-key",
 				"S3_SECRET_ACCESS_KEY": "vetchium-dev-secret",
 				"S3_REGION": "us-east-1",
 				"S3_BUCKET": "vetchium"
-			}
+			},
+			"healthcheck": {
+				"test": ["CMD-SHELL", "nc -z localhost 8080 || exit 1"],
+				"interval": "5s",
+				"timeout": "5s",
+				"retries": 5
+			},
+			"restart": "unless-stopped"
 		},
 		"regional-api-server-deu1": {
 			"build": {
@@ -429,22 +450,29 @@
 				"INTERNAL_ENDPOINT_IND1": "http://regional-api-server-ind1:8080",
 				"INTERNAL_ENDPOINT_USA1": "http://regional-api-server-usa1:8080",
 				"INTERNAL_ENDPOINT_DEU1": "http://regional-api-server-deu1:8080",
-				"ADMIN_TFA_TOKEN_EXPIRY": "2m",
-				"ADMIN_SESSION_TOKEN_EXPIRY": "60s",
-				"HUB_TFA_TOKEN_EXPIRY": "2m",
-				"HUB_SESSION_TOKEN_EXPIRY": "60s",
+				"ADMIN_TFA_TOKEN_EXPIRY": "15s",
+				"ADMIN_SESSION_TOKEN_EXPIRY": "30s",
+				"HUB_TFA_TOKEN_EXPIRY": "15s",
+				"HUB_SESSION_TOKEN_EXPIRY": "30s",
 				"HUB_SIGNUP_TOKEN_EXPIRY": "30s",
-				"HUB_REMEMBER_ME_EXPIRY": "120s",
-				"ORG_TFA_TOKEN_EXPIRY": "2m",
-				"ORG_SESSION_TOKEN_EXPIRY": "60s",
+				"HUB_REMEMBER_ME_EXPIRY": "60s",
+				"ORG_TFA_TOKEN_EXPIRY": "15s",
+				"ORG_SESSION_TOKEN_EXPIRY": "30s",
 				"ORG_SIGNUP_TOKEN_EXPIRY": "30s",
-				"ORG_REMEMBER_ME_EXPIRY": "120s",
+				"ORG_REMEMBER_ME_EXPIRY": "60s",
 				"S3_ENDPOINT": "http://localstack:4566",
 				"S3_ACCESS_KEY_ID": "vetchium-dev-key",
 				"S3_SECRET_ACCESS_KEY": "vetchium-dev-secret",
 				"S3_REGION": "us-east-1",
 				"S3_BUCKET": "vetchium"
-			}
+			},
+			"healthcheck": {
+				"test": ["CMD-SHELL", "nc -z localhost 8080 || exit 1"],
+				"interval": "5s",
+				"timeout": "5s",
+				"retries": 5
+			},
+			"restart": "unless-stopped"
 		},
 		"regional-worker-ind1": {
 			"build": {
@@ -475,7 +503,8 @@
 				"HUB_SESSION_CLEANUP_INTERVAL": "5s",
 				"ORG_TFA_TOKEN_CLEANUP_INTERVAL": "5s",
 				"ORG_SESSION_CLEANUP_INTERVAL": "5s"
-			}
+			},
+			"restart": "unless-stopped"
 		},
 		"regional-worker-usa1": {
 			"build": {
@@ -506,7 +535,8 @@
 				"HUB_SESSION_CLEANUP_INTERVAL": "5s",
 				"ORG_TFA_TOKEN_CLEANUP_INTERVAL": "5s",
 				"ORG_SESSION_CLEANUP_INTERVAL": "5s"
-			}
+			},
+			"restart": "unless-stopped"
 		},
 		"regional-worker-deu1": {
 			"build": {
@@ -537,18 +567,20 @@
 				"HUB_SESSION_CLEANUP_INTERVAL": "5s",
 				"ORG_TFA_TOKEN_CLEANUP_INTERVAL": "5s",
 				"ORG_SESSION_CLEANUP_INTERVAL": "5s"
-			}
+			},
+			"restart": "unless-stopped"
 		},
 		"api-lb": {
 			"image": "nginx:alpine",
 			"volumes": ["./nginx/api-lb.conf:/etc/nginx/nginx.conf:ro"],
 			"ports": ["8080:80"],
-			"depends_on": [
-				"regional-api-server-ind1",
-				"regional-api-server-usa1",
-				"regional-api-server-deu1",
-				"global-service"
-			]
+			"depends_on": {
+				"regional-api-server-ind1": { "condition": "service_healthy" },
+				"regional-api-server-usa1": { "condition": "service_healthy" },
+				"regional-api-server-deu1": { "condition": "service_healthy" },
+				"global-service": { "condition": "service_healthy" }
+			},
+			"restart": "unless-stopped"
 		},
 		"hub-ui": {
 			"build": {
@@ -559,7 +591,10 @@
 			"environment": {
 				"API_URL": "http://localhost:8080"
 			},
-			"depends_on": ["api-lb"]
+			"depends_on": {
+				"api-lb": { "condition": "service_started" }
+			},
+			"restart": "unless-stopped"
 		},
 		"admin-ui": {
 			"build": {
@@ -570,7 +605,10 @@
 			"environment": {
 				"API_URL": "http://localhost:8080"
 			},
-			"depends_on": ["api-lb"]
+			"depends_on": {
+				"api-lb": { "condition": "service_started" }
+			},
+			"restart": "unless-stopped"
 		},
 		"org-ui": {
 			"build": {
@@ -581,7 +619,10 @@
 			"environment": {
 				"API_URL": "http://localhost:8080"
 			},
-			"depends_on": ["api-lb"]
+			"depends_on": {
+				"api-lb": { "condition": "service_started" }
+			},
+			"restart": "unless-stopped"
 		}
 	},
 	"volumes": {

@@ -7,7 +7,7 @@
 				"POSTGRES_USER": "vetchium",
 				"POSTGRES_PASSWORD": "vetchium_dev"
 			},
-			"volumes": ["global-db-data:/var/lib/postgresql/data"],
+			"tmpfs": ["/var/lib/postgresql/data"],
 			"ports": ["5432:5432"],
 			"healthcheck": {
 				"test": ["CMD-SHELL", "pg_isready -U vetchium -d vetchium_global"],
@@ -23,7 +23,7 @@
 				"POSTGRES_USER": "vetchium",
 				"POSTGRES_PASSWORD": "vetchium_dev"
 			},
-			"volumes": ["regional-db-ind1-data:/var/lib/postgresql/data"],
+			"tmpfs": ["/var/lib/postgresql/data"],
 			"ports": ["5433:5432"],
 			"healthcheck": {
 				"test": ["CMD-SHELL", "pg_isready -U vetchium -d vetchium_ind1"],
@@ -39,7 +39,7 @@
 				"POSTGRES_USER": "vetchium",
 				"POSTGRES_PASSWORD": "vetchium_dev"
 			},
-			"volumes": ["regional-db-usa1-data:/var/lib/postgresql/data"],
+			"tmpfs": ["/var/lib/postgresql/data"],
 			"ports": ["5434:5432"],
 			"healthcheck": {
 				"test": ["CMD-SHELL", "pg_isready -U vetchium -d vetchium_usa1"],
@@ -55,7 +55,7 @@
 				"POSTGRES_USER": "vetchium",
 				"POSTGRES_PASSWORD": "vetchium_dev"
 			},
-			"volumes": ["regional-db-deu1-data:/var/lib/postgresql/data"],
+			"tmpfs": ["/var/lib/postgresql/data"],
 			"ports": ["5435:5432"],
 			"healthcheck": {
 				"test": ["CMD-SHELL", "pg_isready -U vetchium -d vetchium_deu1"],
@@ -259,6 +259,9 @@
 			"environment": {
 				"LOG_LEVEL": "DEBUG",
 				"GLOBAL_DB_CONN": "postgres://vetchium:vetchium_dev@global-db:5432/vetchium_global?sslmode=disable",
+				"INTERNAL_ENDPOINT_IND1": "http://regional-api-server-ind1:8080",
+				"INTERNAL_ENDPOINT_USA1": "http://regional-api-server-usa1:8080",
+				"INTERNAL_ENDPOINT_DEU1": "http://regional-api-server-deu1:8080",
 				"ADMIN_TFA_TOKEN_CLEANUP_INTERVAL": "1m",
 				"ADMIN_SESSION_CLEANUP_INTERVAL": "1m",
 				"HUB_SIGNUP_TOKEN_CLEANUP_INTERVAL": "1m",
@@ -281,6 +284,12 @@
 				"S3_SECRET_ACCESS_KEY": "vetchium-dev-secret",
 				"S3_REGION": "us-east-1",
 				"S3_BUCKET": "vetchium"
+			},
+			"healthcheck": {
+				"test": ["CMD-SHELL", "nc -z localhost 8081 || exit 1"],
+				"interval": "10s",
+				"timeout": "5s",
+				"retries": 5
 			}
 		},
 		"regional-api-server-ind1": {
@@ -327,6 +336,12 @@
 				"S3_SECRET_ACCESS_KEY": "vetchium-dev-secret",
 				"S3_REGION": "us-east-1",
 				"S3_BUCKET": "vetchium"
+			},
+			"healthcheck": {
+				"test": ["CMD-SHELL", "nc -z localhost 8080 || exit 1"],
+				"interval": "10s",
+				"timeout": "5s",
+				"retries": 5
 			}
 		},
 		"regional-api-server-usa1": {
@@ -373,6 +388,12 @@
 				"S3_SECRET_ACCESS_KEY": "vetchium-dev-secret",
 				"S3_REGION": "us-east-1",
 				"S3_BUCKET": "vetchium"
+			},
+			"healthcheck": {
+				"test": ["CMD-SHELL", "nc -z localhost 8080 || exit 1"],
+				"interval": "10s",
+				"timeout": "5s",
+				"retries": 5
 			}
 		},
 		"regional-api-server-deu1": {
@@ -419,6 +440,12 @@
 				"S3_SECRET_ACCESS_KEY": "vetchium-dev-secret",
 				"S3_REGION": "us-east-1",
 				"S3_BUCKET": "vetchium"
+			},
+			"healthcheck": {
+				"test": ["CMD-SHELL", "nc -z localhost 8080 || exit 1"],
+				"interval": "10s",
+				"timeout": "5s",
+				"retries": 5
 			}
 		},
 		"regional-worker-ind1": {
@@ -509,12 +536,12 @@
 			"image": "nginx:alpine",
 			"volumes": ["./nginx/api-lb.conf:/etc/nginx/nginx.conf:ro"],
 			"ports": ["8080:80"],
-			"depends_on": [
-				"global-service",
-				"regional-api-server-ind1",
-				"regional-api-server-usa1",
-				"regional-api-server-deu1"
-			]
+			"depends_on": {
+				"global-service": { "condition": "service_healthy" },
+				"regional-api-server-ind1": { "condition": "service_healthy" },
+				"regional-api-server-usa1": { "condition": "service_healthy" },
+				"regional-api-server-deu1": { "condition": "service_healthy" }
+			}
 		}
 	},
 	"volumes": {

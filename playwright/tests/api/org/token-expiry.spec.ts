@@ -30,9 +30,9 @@ import type {
 } from "vetchium-specs/org/org-users";
 
 // Token expiry durations in CI environment (with buffer for test reliability)
-const TFA_TOKEN_EXPIRY_MS = 120000; // 120 seconds (2 minutes)
-const SESSION_TOKEN_EXPIRY_MS = 60000; // 60 seconds
-const REMEMBER_ME_EXPIRY_MS = 120000; // 120 seconds
+const TFA_TOKEN_EXPIRY_MS = 15000; // 15 seconds
+const SESSION_TOKEN_EXPIRY_MS = 30000; // 30 seconds
+const REMEMBER_ME_EXPIRY_MS = 60000; // 60 seconds
 const EXPIRY_BUFFER_MS = 8000; // 8 seconds buffer for cleanup job
 
 /**

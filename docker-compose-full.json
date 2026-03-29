@@ -7,7 +7,7 @@
 				"POSTGRES_USER": "vetchium",
 				"POSTGRES_PASSWORD": "vetchium_dev"
 			},
-			"volumes": ["global-db-data:/var/lib/postgresql/data"],
+			"tmpfs": ["/var/lib/postgresql/data"],
 			"ports": ["5432:5432"],
 			"healthcheck": {
 				"test": ["CMD-SHELL", "pg_isready -U vetchium -d vetchium_global"],
@@ -23,7 +23,7 @@
 				"POSTGRES_USER": "vetchium",
 				"POSTGRES_PASSWORD": "vetchium_dev"
 			},
-			"volumes": ["regional-db-ind1-data:/var/lib/postgresql/data"],
+			"tmpfs": ["/var/lib/postgresql/data"],
 			"ports": ["5433:5432"],
 			"healthcheck": {
 				"test": ["CMD-SHELL", "pg_isready -U vetchium -d vetchium_ind1"],
@@ -39,7 +39,7 @@
 				"POSTGRES_USER": "vetchium",
 				"POSTGRES_PASSWORD": "vetchium_dev"
 			},
-			"volumes": ["regional-db-usa1-data:/var/lib/postgresql/data"],
+			"tmpfs": ["/var/lib/postgresql/data"],
 			"ports": ["5434:5432"],
 			"healthcheck": {
 				"test": ["CMD-SHELL", "pg_isready -U vetchium -d vetchium_usa1"],
@@ -55,7 +55,7 @@
 				"POSTGRES_USER": "vetchium",
 				"POSTGRES_PASSWORD": "vetchium_dev"
 			},
-			"volumes": ["regional-db-deu1-data:/var/lib/postgresql/data"],
+			"tmpfs": ["/var/lib/postgresql/data"],
 			"ports": ["5435:5432"],
 			"healthcheck": {
 				"test": ["CMD-SHELL", "pg_isready -U vetchium -d vetchium_deu1"],
@@ -288,6 +288,12 @@
 				"S3_SECRET_ACCESS_KEY": "vetchium-dev-secret",
 				"S3_REGION": "us-east-1",
 				"S3_BUCKET": "vetchium"
+			},
+			"healthcheck": {
+				"test": ["CMD-SHELL", "nc -z localhost 8081 || exit 1"],
+				"interval": "10s",
+				"timeout": "5s",
+				"retries": 5
 			}
 		},
 		"regional-api-server-ind1": {
@@ -330,6 +336,12 @@
 				"S3_SECRET_ACCESS_KEY": "vetchium-dev-secret",
 				"S3_REGION": "us-east-1",
 				"S3_BUCKET": "vetchium"
+			},
+			"healthcheck": {
+				"test": ["CMD-SHELL", "nc -z localhost 8080 || exit 1"],
+				"interval": "10s",
+				"timeout": "5s",
+				"retries": 5
 			}
 		},
 		"regional-api-server-usa1": {
@@ -372,6 +384,12 @@
 				"S3_SECRET_ACCESS_KEY": "vetchium-dev-secret",
 				"S3_REGION": "us-east-1",
 				"S3_BUCKET": "vetchium"
+			},
+			"healthcheck": {
+				"test": ["CMD-SHELL", "nc -z localhost 8080 || exit 1"],
+				"interval": "10s",
+				"timeout": "5s",
+				"retries": 5
 			}
 		},
 		"regional-api-server-deu1": {
@@ -414,6 +432,12 @@
 				"S3_SECRET_ACCESS_KEY": "vetchium-dev-secret",
 				"S3_REGION": "us-east-1",
 				"S3_BUCKET": "vetchium"
+			},
+			"healthcheck": {
+				"test": ["CMD-SHELL", "nc -z localhost 8080 || exit 1"],
+				"interval": "10s",
+				"timeout": "5s",
+				"retries": 5
 			}
 		},
 		"regional-worker-ind1": {
@@ -498,12 +522,12 @@
 			"image": "nginx:alpine",
 			"volumes": ["./nginx/api-lb.conf:/etc/nginx/nginx.conf:ro"],
 			"ports": ["8080:80"],
-			"depends_on": [
-				"global-service",
-				"regional-api-server-ind1",
-				"regional-api-server-usa1",
-				"regional-api-server-deu1"
-			]
+			"depends_on": {
+				"global-service": { "condition": "service_healthy" },
+				"regional-api-server-ind1": { "condition": "service_healthy" },
+				"regional-api-server-usa1": { "condition": "service_healthy" },
+				"regional-api-server-deu1": { "condition": "service_healthy" }
+			}
 		},
 		"hub-ui": {
 			"build": {
@@ -513,7 +537,8 @@
 			"ports": ["3000:80"],
 			"environment": {
 				"API_URL": "http://localhost:8080"
-			}
+			},
+			"depends_on": ["api-lb"]
 		},
 		"admin-ui": {
 			"build": {
@@ -523,7 +548,8 @@
 			"ports": ["3001:80"],
 			"environment": {
 				"API_URL": "http://localhost:8080"
-			}
+			},
+			"depends_on": ["api-lb"]
 		},
 		"org-ui": {
 			"build": {
@@ -533,7 +559,8 @@
 			"ports": ["3002:80"],
 			"environment": {
 				"API_URL": "http://localhost:8080"
-			}
+			},
+			"depends_on": ["api-lb"]
 		}
 	},
 	"volumes": {
