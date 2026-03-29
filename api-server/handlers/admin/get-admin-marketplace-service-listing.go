@@ -6,8 +6,7 @@ import (
 	"net/http"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
-	"vetchium-api-server.gomodule/internal/db/globaldb"
+	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
 	admintypes "vetchium-api-server.typespec/admin"
@@ -40,22 +39,29 @@ func AdminGetMarketplaceServiceListing(s *server.GlobalServer) http.HandlerFunc 
 			return
 		}
 
-		var serviceListingID pgtype.UUID
-		if err := serviceListingID.Scan(req.ServiceListingID); err != nil {
-			log.Debug("invalid service_listing_id", "error", err)
-			http.Error(w, "invalid service_listing_id", http.StatusBadRequest)
+		// Look up org by domain to get org_id and region
+		org, err := s.Global.GetOrgByDomain(ctx, req.OrgDomain)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			log.Error("failed to get org by domain", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		region := globaldb.Region(req.HomeRegion)
-		rdb := s.GetRegionalDB(region)
+		rdb := s.GetRegionalDB(org.Region)
 		if rdb == nil {
-			log.Debug("unknown home_region", "region", req.HomeRegion)
-			w.WriteHeader(http.StatusNotFound)
+			log.Debug("unknown region for org", "region", org.Region)
+			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		sl, err := rdb.GetServiceListingByID(ctx, serviceListingID)
+		sl, err := rdb.GetServiceListingByOrgAndName(ctx, regionaldb.GetServiceListingByOrgAndNameParams{
+			OrgID: org.OrgID,
+			Name:  req.Name,
+		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				w.WriteHeader(http.StatusNotFound)
@@ -66,7 +72,7 @@ func AdminGetMarketplaceServiceListing(s *server.GlobalServer) http.HandlerFunc 
 			return
 		}
 
-		if err := json.NewEncoder(w).Encode(adminDbServiceListingToAPI(sl)); err != nil {
+		if err := json.NewEncoder(w).Encode(adminDbServiceListingToAPI(sl, req.OrgDomain)); err != nil {
 			log.Error("failed to encode response", "error", err)
 		}
 	}

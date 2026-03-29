@@ -9,7 +9,6 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"vetchium-api-server.gomodule/internal/audit"
-	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/proxy"
@@ -19,7 +18,7 @@ import (
 
 // ReportMarketplaceServiceListing handles POST /org/report-marketplace-service-listing
 // Allows a buyer org to report a service listing.
-// Routes to the correct region based on home_region in the request.
+// Routes to the correct region based on the org_domain's home region.
 func ReportMarketplaceServiceListing(s *server.RegionalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -55,23 +54,29 @@ func ReportMarketplaceServiceListing(s *server.RegionalServer) http.HandlerFunc 
 			return
 		}
 
-		// Proxy to the correct region if home_region != current region
-		targetRegion := globaldb.Region(req.HomeRegion)
-		if targetRegion != s.CurrentRegion {
-			s.ProxyToRegion(w, r, targetRegion, bodyBytes)
+		// Look up the org by domain to get org_id and region
+		providerOrg, err := s.Global.GetOrgByDomain(ctx, req.OrgDomain)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			log.Error("failed to get org by domain", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		// Local region: validate listing and create report
-		var listingID pgtype.UUID
-		if err := listingID.Scan(req.ServiceListingID); err != nil {
-			log.Debug("invalid service_listing_id", "error", err)
-			w.WriteHeader(http.StatusBadRequest)
+		// Proxy to the correct region if the org's home region != current region
+		if providerOrg.Region != s.CurrentRegion {
+			s.ProxyToRegion(w, r, providerOrg.Region, bodyBytes)
 			return
 		}
 
-		// Get listing to verify it exists and the caller is not the owner
-		listing, err := s.Regional.GetActiveServiceListingByID(ctx, listingID)
+		// Look up listing by org + name
+		listing, err := s.Regional.GetServiceListingByOrgAndName(ctx, regionaldb.GetServiceListingByOrgAndNameParams{
+			OrgID: providerOrg.OrgID,
+			Name:  req.Name,
+		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				w.WriteHeader(http.StatusNotFound)
@@ -79,6 +84,12 @@ func ReportMarketplaceServiceListing(s *server.RegionalServer) http.HandlerFunc 
 			}
 			log.Error("failed to get service listing for report", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
+		// Only active listings can be reported
+		if listing.State != regionaldb.ServiceListingStateActive {
+			w.WriteHeader(http.StatusNotFound)
 			return
 		}
 
@@ -95,7 +106,7 @@ func ReportMarketplaceServiceListing(s *server.RegionalServer) http.HandlerFunc 
 
 		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
 			_, txErr := qtx.CreateServiceListingReport(ctx, regionaldb.CreateServiceListingReportParams{
-				ServiceListingID:  listingID,
+				ServiceListingID:  listing.ServiceListingID,
 				ReporterOrgUserID: orgUser.OrgUserID,
 				ReporterOrgID:     orgUser.OrgID,
 				Reason:            regionaldb.ServiceListingReportReason(req.Reason),
@@ -106,8 +117,9 @@ func ReportMarketplaceServiceListing(s *server.RegionalServer) http.HandlerFunc 
 			}
 
 			eventData, _ := json.Marshal(map[string]any{
-				"service_listing_id": req.ServiceListingID,
-				"reason":             string(req.Reason),
+				"name":       req.Name,
+				"org_domain": req.OrgDomain,
+				"reason":     string(req.Reason),
 			})
 			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
 				EventType:   "marketplace.report_service_listing",
@@ -129,7 +141,7 @@ func ReportMarketplaceServiceListing(s *server.RegionalServer) http.HandlerFunc 
 			return
 		}
 
-		log.Info("service listing reported", "service_listing_id", req.ServiceListingID, "reporter_org_id", orgUser.OrgID)
+		log.Info("service listing reported", "name", req.Name, "org_domain", req.OrgDomain)
 		w.WriteHeader(http.StatusOK)
 	}
 }

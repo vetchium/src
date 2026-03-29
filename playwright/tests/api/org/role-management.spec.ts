@@ -25,12 +25,10 @@ test.describe("POST /org/assign-role", () => {
 
 		// Create admin and target user in same org
 		const { orgId } = await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
-		const { orgUserId: targetUserId } = await createTestOrgUserDirect(
-			targetEmail,
-			TEST_PASSWORD,
-			"ind1",
-			{ orgId, domain }
-		);
+		await createTestOrgUserDirect(targetEmail, TEST_PASSWORD, "ind1", {
+			orgId,
+			domain,
+		});
 
 		try {
 			// Login as admin
@@ -50,7 +48,7 @@ test.describe("POST /org/assign-role", () => {
 			// Assign role
 			const before = new Date(Date.now() - 2000).toISOString();
 			const assignRequest: AssignRoleRequest = {
-				target_user_id: targetUserId,
+				email_address: targetEmail,
 				role_name: "org:manage_users",
 			};
 			const assignResponse = await api.assignRole(sessionToken, assignRequest);
@@ -66,7 +64,7 @@ test.describe("POST /org/assign-role", () => {
 			expect(auditResp.status).toBe(200);
 			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
 			expect(auditResp.body.audit_logs[0].event_type).toBe("org.assign_role");
-			expect(auditResp.body.audit_logs[0].target_user_id).toBe(targetUserId);
+			expect(auditResp.body.audit_logs[0].target_email).toBeDefined();
 			expect(auditResp.body.audit_logs[0].event_data).toHaveProperty(
 				"target_email_hash"
 			);
@@ -89,12 +87,10 @@ test.describe("POST /org/assign-role", () => {
 		const { email: targetEmail } = generateTestOrgEmail("role-conflict-target");
 
 		const { orgId } = await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
-		const { orgUserId: targetUserId } = await createTestOrgUserDirect(
-			targetEmail,
-			TEST_PASSWORD,
-			"ind1",
-			{ orgId, domain }
-		);
+		await createTestOrgUserDirect(targetEmail, TEST_PASSWORD, "ind1", {
+			orgId,
+			domain,
+		});
 
 		try {
 			// Login
@@ -113,7 +109,7 @@ test.describe("POST /org/assign-role", () => {
 
 			// Assign role first time
 			const assignRequest: AssignRoleRequest = {
-				target_user_id: targetUserId,
+				email_address: targetEmail,
 				role_name: "org:manage_users",
 			};
 			await api.assignRole(sessionToken, assignRequest);
@@ -145,12 +141,10 @@ test.describe("POST /org/assign-role", () => {
 			orgId,
 			domain,
 		});
-		const { orgUserId: targetUserId } = await createTestOrgUserDirect(
-			targetEmail,
-			TEST_PASSWORD,
-			"ind1",
-			{ orgId, domain }
-		);
+		await createTestOrgUserDirect(targetEmail, TEST_PASSWORD, "ind1", {
+			orgId,
+			domain,
+		});
 
 		try {
 			// Login as non-admin
@@ -169,7 +163,7 @@ test.describe("POST /org/assign-role", () => {
 
 			// Try to assign role (should fail)
 			const assignRequest: AssignRoleRequest = {
-				target_user_id: targetUserId,
+				email_address: targetEmail,
 				role_name: "org:manage_users",
 			};
 			const response = await api.assignRole(sessionToken, assignRequest);
@@ -209,7 +203,7 @@ test.describe("POST /org/assign-role", () => {
 
 			// Try to assign role to non-existent user
 			const assignRequest: AssignRoleRequest = {
-				target_user_id: "00000000-0000-0000-0000-000000000000",
+				email_address: "nonexistent-user@nonexistent.example.com",
 				role_name: "org:manage_users",
 			};
 			const response = await api.assignRole(sessionToken, assignRequest);
@@ -227,12 +221,10 @@ test.describe("POST /org/assign-role", () => {
 		const { email: targetEmail } = generateTestOrgEmail("role-invalid-target");
 
 		const { orgId } = await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
-		const { orgUserId: targetUserId } = await createTestOrgUserDirect(
-			targetEmail,
-			TEST_PASSWORD,
-			"ind1",
-			{ orgId, domain }
-		);
+		await createTestOrgUserDirect(targetEmail, TEST_PASSWORD, "ind1", {
+			orgId,
+			domain,
+		});
 
 		try {
 			// Login
@@ -251,7 +243,7 @@ test.describe("POST /org/assign-role", () => {
 
 			// Try to assign invalid role
 			const assignRequest = {
-				target_user_id: targetUserId,
+				email_address: targetEmail,
 				role_name: "invalid_role_name",
 			};
 			const response = await api.assignRoleRaw(sessionToken, assignRequest);
@@ -263,7 +255,7 @@ test.describe("POST /org/assign-role", () => {
 		}
 	});
 
-	test("missing target_user_id returns 400", async ({ request }) => {
+	test("missing email_address returns 400", async ({ request }) => {
 		const api = new OrgAPIClient(request);
 		const { email: adminEmail, domain } = generateTestOrgEmail(
 			"role-notarget-admin"
@@ -286,7 +278,7 @@ test.describe("POST /org/assign-role", () => {
 			});
 			const sessionToken = tfaResponse.body.session_token;
 
-			// Try to assign without target_user_id
+			// Try to assign without email_address
 			const response = await api.assignRoleRaw(sessionToken, {
 				role_name: "org:manage_users",
 			});
@@ -301,14 +293,11 @@ test.describe("POST /org/assign-role", () => {
 		const api = new OrgAPIClient(request);
 		const { email: targetEmail } = generateTestOrgEmail("role-noauth-target");
 
-		const { orgUserId: targetUserId } = await createTestOrgUserDirect(
-			targetEmail,
-			TEST_PASSWORD
-		);
+		await createTestOrgUserDirect(targetEmail, TEST_PASSWORD);
 
 		try {
 			const assignRequest: AssignRoleRequest = {
-				target_user_id: targetUserId,
+				email_address: targetEmail,
 				role_name: "org:manage_users",
 			};
 			const response = await api.assignRoleWithoutAuth(assignRequest);
@@ -325,14 +314,11 @@ test.describe("POST /org/assign-role", () => {
 			"role-badsession-target"
 		);
 
-		const { orgUserId: targetUserId } = await createTestOrgUserDirect(
-			targetEmail,
-			TEST_PASSWORD
-		);
+		await createTestOrgUserDirect(targetEmail, TEST_PASSWORD);
 
 		try {
 			const assignRequest: AssignRoleRequest = {
-				target_user_id: targetUserId,
+				email_address: targetEmail,
 				role_name: "org:manage_users",
 			};
 			const response = await api.assignRole(
@@ -356,12 +342,10 @@ test.describe("POST /org/assign-role", () => {
 		);
 
 		const { orgId } = await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
-		const { orgUserId: targetUserId } = await createTestOrgUserDirect(
-			targetEmail,
-			TEST_PASSWORD,
-			"ind1",
-			{ orgId, domain }
-		);
+		await createTestOrgUserDirect(targetEmail, TEST_PASSWORD, "ind1", {
+			orgId,
+			domain,
+		});
 
 		try {
 			const loginResponse = await api.login({
@@ -387,13 +371,13 @@ test.describe("POST /org/assign-role", () => {
 			];
 			for (const role of newRoles) {
 				const res = await api.assignRole(sessionToken, {
-					target_user_id: targetUserId,
+					email_address: targetEmail,
 					role_name: role,
 				});
 				expect(res.status, `assigning ${role} should succeed`).toBe(200);
 				// Clean up: remove role before assigning next
 				await api.removeRole(sessionToken, {
-					target_user_id: targetUserId,
+					email_address: targetEmail,
 					role_name: role,
 				});
 			}
@@ -413,12 +397,10 @@ test.describe("POST /org/assign-role", () => {
 		);
 
 		const { orgId } = await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
-		const { orgUserId: targetUserId } = await createTestOrgUserDirect(
-			targetEmail,
-			TEST_PASSWORD,
-			"ind1",
-			{ orgId, domain }
-		);
+		await createTestOrgUserDirect(targetEmail, TEST_PASSWORD, "ind1", {
+			orgId,
+			domain,
+		});
 
 		try {
 			// Login
@@ -437,7 +419,7 @@ test.describe("POST /org/assign-role", () => {
 
 			// Try to assign a hub role (wrong portal)
 			const response = await api.assignRoleRaw(sessionToken, {
-				target_user_id: targetUserId,
+				email_address: targetEmail,
 				role_name: "hub:write_posts",
 			});
 
@@ -459,12 +441,10 @@ test.describe("POST /org/remove-role", () => {
 		const { email: targetEmail } = generateTestOrgEmail("role-remove-target");
 
 		const { orgId } = await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
-		const { orgUserId: targetUserId } = await createTestOrgUserDirect(
-			targetEmail,
-			TEST_PASSWORD,
-			"ind1",
-			{ orgId, domain }
-		);
+		await createTestOrgUserDirect(targetEmail, TEST_PASSWORD, "ind1", {
+			orgId,
+			domain,
+		});
 
 		try {
 			// Login
@@ -483,14 +463,14 @@ test.describe("POST /org/remove-role", () => {
 
 			// First assign a role
 			await api.assignRole(sessionToken, {
-				target_user_id: targetUserId,
+				email_address: targetEmail,
 				role_name: "org:manage_users",
 			});
 
 			// Then remove it
 			const before = new Date(Date.now() - 2000).toISOString();
 			const removeRequest: RemoveRoleRequest = {
-				target_user_id: targetUserId,
+				email_address: targetEmail,
 				role_name: "org:manage_users",
 			};
 			const removeResponse = await api.removeRole(sessionToken, removeRequest);
@@ -506,7 +486,7 @@ test.describe("POST /org/remove-role", () => {
 			expect(auditResp.status).toBe(200);
 			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
 			expect(auditResp.body.audit_logs[0].event_type).toBe("org.remove_role");
-			expect(auditResp.body.audit_logs[0].target_user_id).toBe(targetUserId);
+			expect(auditResp.body.audit_logs[0].target_email).toBeDefined();
 			expect(auditResp.body.audit_logs[0].event_data).toHaveProperty(
 				"target_email_hash"
 			);
@@ -526,12 +506,10 @@ test.describe("POST /org/remove-role", () => {
 		const { email: targetEmail } = generateTestOrgEmail("role-notrole-target");
 
 		const { orgId } = await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
-		const { orgUserId: targetUserId } = await createTestOrgUserDirect(
-			targetEmail,
-			TEST_PASSWORD,
-			"ind1",
-			{ orgId, domain }
-		);
+		await createTestOrgUserDirect(targetEmail, TEST_PASSWORD, "ind1", {
+			orgId,
+			domain,
+		});
 
 		try {
 			// Login
@@ -550,7 +528,7 @@ test.describe("POST /org/remove-role", () => {
 
 			// Try to remove role user doesn't have
 			const removeRequest: RemoveRoleRequest = {
-				target_user_id: targetUserId,
+				email_address: targetEmail,
 				role_name: "org:manage_users",
 			};
 			const response = await api.removeRole(sessionToken, removeRequest);
@@ -589,7 +567,7 @@ test.describe("POST /org/remove-role", () => {
 
 			// Try to remove from non-existent user
 			const removeRequest: RemoveRoleRequest = {
-				target_user_id: "00000000-0000-0000-0000-000000000000",
+				email_address: "nonexistent-user@nonexistent.example.com",
 				role_name: "org:manage_users",
 			};
 			const response = await api.removeRole(sessionToken, removeRequest);
@@ -604,14 +582,11 @@ test.describe("POST /org/remove-role", () => {
 		const api = new OrgAPIClient(request);
 		const { email: targetEmail } = generateTestOrgEmail("role-remove-noauth");
 
-		const { orgUserId: targetUserId } = await createTestOrgUserDirect(
-			targetEmail,
-			TEST_PASSWORD
-		);
+		await createTestOrgUserDirect(targetEmail, TEST_PASSWORD);
 
 		try {
 			const removeRequest: RemoveRoleRequest = {
-				target_user_id: targetUserId,
+				email_address: targetEmail,
 				role_name: "org:manage_users",
 			};
 			const response = await api.removeRoleWithoutAuth(removeRequest);
@@ -626,14 +601,11 @@ test.describe("POST /org/remove-role", () => {
 		const api = new OrgAPIClient(request);
 		const { email: targetEmail } = generateTestOrgEmail("role-remove-bad");
 
-		const { orgUserId: targetUserId } = await createTestOrgUserDirect(
-			targetEmail,
-			TEST_PASSWORD
-		);
+		await createTestOrgUserDirect(targetEmail, TEST_PASSWORD);
 
 		try {
 			const removeRequest: RemoveRoleRequest = {
-				target_user_id: targetUserId,
+				email_address: targetEmail,
 				role_name: "org:manage_users",
 			};
 			const response = await api.removeRole(
@@ -656,10 +628,7 @@ test.describe("POST /org/remove-role", () => {
 		);
 
 		// Create only one superadmin
-		const { orgUserId: adminId } = await createTestOrgAdminDirect(
-			adminEmail,
-			TEST_PASSWORD
-		);
+		await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
 
 		try {
 			// Login as admin
@@ -678,7 +647,7 @@ test.describe("POST /org/remove-role", () => {
 
 			// Try to remove superadmin role from self (last superadmin)
 			const removeRequest: RemoveRoleRequest = {
-				target_user_id: adminId,
+				email_address: adminEmail,
 				role_name: "org:superadmin",
 			};
 			const response = await api.removeRole(sessionToken, removeRequest);
@@ -703,12 +672,10 @@ test.describe("POST /org/remove-role", () => {
 			admin1Email,
 			TEST_PASSWORD
 		);
-		const { orgUserId: admin2Id } = await createTestOrgAdminDirect(
-			admin2Email,
-			TEST_PASSWORD,
-			"ind1",
-			{ orgId, domain }
-		);
+		await createTestOrgAdminDirect(admin2Email, TEST_PASSWORD, "ind1", {
+			orgId,
+			domain,
+		});
 
 		try {
 			// Login as admin1
@@ -727,7 +694,7 @@ test.describe("POST /org/remove-role", () => {
 
 			// Remove superadmin role from admin2 (admin1 still remains as superadmin)
 			const removeRequest: RemoveRoleRequest = {
-				target_user_id: admin2Id,
+				email_address: admin2Email,
 				role_name: "org:superadmin",
 			};
 			const response = await api.removeRole(sessionToken, removeRequest);
@@ -763,12 +730,9 @@ test.describe("RBAC: POST /org/assign-role and /org/remove-role", () => {
 		await assignRoleToOrgUser(managerResult.orgUserId, "org:manage_users");
 
 		const targetEmail = `tgt-${crypto.randomUUID().substring(0, 8)}@${domain}`;
-		const targetResult = await createTestOrgUserDirect(
-			targetEmail,
-			TEST_PASSWORD,
-			"ind1",
-			{ orgId: adminResult.orgId }
-		);
+		await createTestOrgUserDirect(targetEmail, TEST_PASSWORD, "ind1", {
+			orgId: adminResult.orgId,
+		});
 
 		try {
 			const loginRes = await api.login({
@@ -785,7 +749,7 @@ test.describe("RBAC: POST /org/assign-role and /org/remove-role", () => {
 			const sessionToken = tfaRes.body.session_token;
 
 			const assignRequest: AssignRoleRequest = {
-				target_user_id: targetResult.orgUserId,
+				email_address: targetEmail,
 				role_name: "org:view_users",
 			};
 			const response = await api.assignRole(sessionToken, assignRequest);
@@ -842,7 +806,7 @@ test.describe("RBAC: POST /org/assign-role and /org/remove-role", () => {
 			const sessionToken = tfaRes.body.session_token;
 
 			const removeRequest: RemoveRoleRequest = {
-				target_user_id: targetResult.orgUserId,
+				email_address: targetEmail,
 				role_name: "org:view_users",
 			};
 			const response = await api.removeRole(sessionToken, removeRequest);
@@ -893,7 +857,7 @@ test.describe("RBAC: POST /org/assign-role and /org/remove-role", () => {
 			const noRoleToken = tfaRes.body.session_token;
 
 			const removeRequest: RemoveRoleRequest = {
-				target_user_id: targetResult.orgUserId,
+				email_address: targetEmail,
 				role_name: "org:view_users",
 			};
 			const response = await api.removeRole(noRoleToken, removeRequest);

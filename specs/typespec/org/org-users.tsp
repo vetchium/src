@@ -77,7 +77,6 @@ model OrgCompleteSignupRequest {
 
 model OrgCompleteSignupResponse {
   session_token: OrgSessionToken;
-  org_user_id: string;
 }
 
 model OrgLoginRequest {
@@ -109,7 +108,6 @@ model OrgInviteUserRequest {
 }
 
 model OrgInviteUserResponse {
-  invitation_id: string;
   expires_at: string;
 }
 
@@ -177,7 +175,6 @@ model OrgSetLanguageRequest {
 }
 
 model OrgMyInfoResponse {
-  org_user_id: string;
   full_name: string;
   preferred_language: LanguageCode;
   org_name: string;

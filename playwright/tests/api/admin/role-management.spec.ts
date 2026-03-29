@@ -25,10 +25,7 @@ test.describe("POST /admin/assign-role", () => {
 
 		// Create admin and target user
 		await createTestAdminAdminDirect(adminEmail, TEST_PASSWORD);
-		const { userId: targetUserId } = await createTestAdminUserDirect(
-			targetEmail,
-			TEST_PASSWORD
-		);
+		await createTestAdminUserDirect(targetEmail, TEST_PASSWORD);
 
 		try {
 			// Login as admin
@@ -46,7 +43,7 @@ test.describe("POST /admin/assign-role", () => {
 			// Assign role
 			const before = new Date(Date.now() - 2000).toISOString();
 			const assignRequest: AssignRoleRequest = {
-				target_user_id: targetUserId,
+				email_address: targetEmail,
 				role_name: "admin:manage_users",
 			};
 			const assignResponse = await api.assignRole(sessionToken, assignRequest);
@@ -61,7 +58,7 @@ test.describe("POST /admin/assign-role", () => {
 			});
 			expect(auditResp.status).toBe(200);
 			const auditEntry = auditResp.body.audit_logs.find(
-				(e) => e.target_user_id === targetUserId
+				(e) => e.event_type === "admin.assign_role"
 			);
 			expect(auditEntry).toBeDefined();
 			expect(auditEntry!.event_type).toBe("admin.assign_role");
@@ -81,10 +78,7 @@ test.describe("POST /admin/assign-role", () => {
 		const targetEmail = generateTestAdminEmail("role-conflict-target");
 
 		await createTestAdminAdminDirect(adminEmail, TEST_PASSWORD);
-		const { userId: targetUserId } = await createTestAdminUserDirect(
-			targetEmail,
-			TEST_PASSWORD
-		);
+		await createTestAdminUserDirect(targetEmail, TEST_PASSWORD);
 
 		try {
 			// Login
@@ -101,7 +95,7 @@ test.describe("POST /admin/assign-role", () => {
 
 			// Assign role first time
 			const assignRequest: AssignRoleRequest = {
-				target_user_id: targetUserId,
+				email_address: targetEmail,
 				role_name: "admin:manage_users",
 			};
 			await api.assignRole(sessionToken, assignRequest);
@@ -142,7 +136,7 @@ test.describe("POST /admin/assign-role", () => {
 
 			// Try to assign role to non-existent user
 			const assignRequest: AssignRoleRequest = {
-				target_user_id: "00000000-0000-0000-0000-000000000000",
+				email_address: "nonexistent-user@test.vetchium.com",
 				role_name: "admin:manage_users",
 			};
 			const response = await api.assignRole(sessionToken, assignRequest);
@@ -159,10 +153,7 @@ test.describe("POST /admin/assign-role", () => {
 		const targetEmail = generateTestAdminEmail("role-invalid-target");
 
 		await createTestAdminAdminDirect(adminEmail, TEST_PASSWORD);
-		const { userId: targetUserId } = await createTestAdminUserDirect(
-			targetEmail,
-			TEST_PASSWORD
-		);
+		await createTestAdminUserDirect(targetEmail, TEST_PASSWORD);
 
 		try {
 			// Login
@@ -179,7 +170,7 @@ test.describe("POST /admin/assign-role", () => {
 
 			// Try to assign invalid role
 			const assignRequest = {
-				target_user_id: targetUserId,
+				email_address: targetEmail,
 				role_name: "invalid_role_name",
 			};
 			const response = await api.assignRoleRaw(sessionToken, assignRequest);
@@ -191,7 +182,7 @@ test.describe("POST /admin/assign-role", () => {
 		}
 	});
 
-	test("missing target_user_id returns 400", async ({ request }) => {
+	test("missing email_address returns 400", async ({ request }) => {
 		const api = new AdminAPIClient(request);
 		const adminEmail = generateTestAdminEmail("role-notarget-admin");
 
@@ -210,7 +201,7 @@ test.describe("POST /admin/assign-role", () => {
 			});
 			const sessionToken = tfaResponse.body.session_token;
 
-			// Try to assign without target_user_id
+			// Try to assign without email_address
 			const response = await api.assignRoleRaw(sessionToken, {
 				role_name: "admin:manage_users",
 			});
@@ -227,10 +218,7 @@ test.describe("POST /admin/assign-role", () => {
 		const targetEmail = generateTestAdminEmail("role-norole-target");
 
 		await createTestAdminAdminDirect(adminEmail, TEST_PASSWORD);
-		const { userId: targetUserId } = await createTestAdminUserDirect(
-			targetEmail,
-			TEST_PASSWORD
-		);
+		await createTestAdminUserDirect(targetEmail, TEST_PASSWORD);
 
 		try {
 			// Login
@@ -247,7 +235,7 @@ test.describe("POST /admin/assign-role", () => {
 
 			// Try to assign without role_name
 			const response = await api.assignRoleRaw(sessionToken, {
-				target_user_id: targetUserId,
+				email_address: targetEmail,
 			});
 
 			expect(response.status).toBe(400);
@@ -261,14 +249,11 @@ test.describe("POST /admin/assign-role", () => {
 		const api = new AdminAPIClient(request);
 		const targetEmail = generateTestAdminEmail("role-noauth-target");
 
-		const { userId: targetUserId } = await createTestAdminUserDirect(
-			targetEmail,
-			TEST_PASSWORD
-		);
+		await createTestAdminUserDirect(targetEmail, TEST_PASSWORD);
 
 		try {
 			const assignRequest: AssignRoleRequest = {
-				target_user_id: targetUserId,
+				email_address: targetEmail,
 				role_name: "admin:manage_users",
 			};
 			const response = await api.assignRoleWithoutAuth(assignRequest);
@@ -283,14 +268,11 @@ test.describe("POST /admin/assign-role", () => {
 		const api = new AdminAPIClient(request);
 		const targetEmail = generateTestAdminEmail("role-badsession-target");
 
-		const { userId: targetUserId } = await createTestAdminUserDirect(
-			targetEmail,
-			TEST_PASSWORD
-		);
+		await createTestAdminUserDirect(targetEmail, TEST_PASSWORD);
 
 		try {
 			const assignRequest: AssignRoleRequest = {
-				target_user_id: targetUserId,
+				email_address: targetEmail,
 				role_name: "admin:manage_users",
 			};
 			const response = await api.assignRole("invalid-token", assignRequest);
@@ -311,10 +293,7 @@ test.describe("POST /admin/remove-role", () => {
 		const targetEmail = generateTestAdminEmail("role-remove-target");
 
 		await createTestAdminAdminDirect(adminEmail, TEST_PASSWORD);
-		const { userId: targetUserId } = await createTestAdminUserDirect(
-			targetEmail,
-			TEST_PASSWORD
-		);
+		await createTestAdminUserDirect(targetEmail, TEST_PASSWORD);
 
 		try {
 			// Login
@@ -331,14 +310,14 @@ test.describe("POST /admin/remove-role", () => {
 
 			// First assign a role
 			await api.assignRole(sessionToken, {
-				target_user_id: targetUserId,
+				email_address: targetEmail,
 				role_name: "admin:manage_users",
 			});
 
 			// Then remove it
 			const before = new Date(Date.now() - 2000).toISOString();
 			const removeRequest: RemoveRoleRequest = {
-				target_user_id: targetUserId,
+				email_address: targetEmail,
 				role_name: "admin:manage_users",
 			};
 			const removeResponse = await api.removeRole(sessionToken, removeRequest);
@@ -353,7 +332,7 @@ test.describe("POST /admin/remove-role", () => {
 			});
 			expect(auditResp.status).toBe(200);
 			const auditEntry = auditResp.body.audit_logs.find(
-				(e) => e.target_user_id === targetUserId
+				(e) => e.event_type === "admin.remove_role"
 			);
 			expect(auditEntry).toBeDefined();
 			expect(auditEntry!.event_type).toBe("admin.remove_role");
@@ -371,10 +350,7 @@ test.describe("POST /admin/remove-role", () => {
 		const targetEmail = generateTestAdminEmail("role-notrole-target");
 
 		await createTestAdminAdminDirect(adminEmail, TEST_PASSWORD);
-		const { userId: targetUserId } = await createTestAdminUserDirect(
-			targetEmail,
-			TEST_PASSWORD
-		);
+		await createTestAdminUserDirect(targetEmail, TEST_PASSWORD);
 
 		try {
 			// Login
@@ -391,7 +367,7 @@ test.describe("POST /admin/remove-role", () => {
 
 			// Try to remove role user doesn't have
 			const removeRequest: RemoveRoleRequest = {
-				target_user_id: targetUserId,
+				email_address: targetEmail,
 				role_name: "admin:manage_users",
 			};
 			const response = await api.removeRole(sessionToken, removeRequest);
@@ -426,7 +402,7 @@ test.describe("POST /admin/remove-role", () => {
 
 			// Try to remove from non-existent user
 			const removeRequest: RemoveRoleRequest = {
-				target_user_id: "00000000-0000-0000-0000-000000000000",
+				email_address: "nonexistent-user@test.vetchium.com",
 				role_name: "admin:manage_users",
 			};
 			const response = await api.removeRole(sessionToken, removeRequest);
@@ -441,14 +417,11 @@ test.describe("POST /admin/remove-role", () => {
 		const api = new AdminAPIClient(request);
 		const targetEmail = generateTestAdminEmail("role-remove-noauth");
 
-		const { userId: targetUserId } = await createTestAdminUserDirect(
-			targetEmail,
-			TEST_PASSWORD
-		);
+		await createTestAdminUserDirect(targetEmail, TEST_PASSWORD);
 
 		try {
 			const removeRequest: RemoveRoleRequest = {
-				target_user_id: targetUserId,
+				email_address: targetEmail,
 				role_name: "admin:manage_users",
 			};
 			const response = await api.removeRoleWithoutAuth(removeRequest);
@@ -463,14 +436,11 @@ test.describe("POST /admin/remove-role", () => {
 		const api = new AdminAPIClient(request);
 		const targetEmail = generateTestAdminEmail("role-remove-bad");
 
-		const { userId: targetUserId } = await createTestAdminUserDirect(
-			targetEmail,
-			TEST_PASSWORD
-		);
+		await createTestAdminUserDirect(targetEmail, TEST_PASSWORD);
 
 		try {
 			const removeRequest: RemoveRoleRequest = {
-				target_user_id: targetUserId,
+				email_address: targetEmail,
 				role_name: "admin:manage_users",
 			};
 			const response = await api.removeRole("invalid-token", removeRequest);
@@ -513,7 +483,7 @@ test.describe("POST /admin/remove-role", () => {
 			// Remove superadmin role from admin2 (admin1 still remains as superadmin,
 			// plus any other active superadmins in the system)
 			const removeRequest: RemoveRoleRequest = {
-				target_user_id: admin2UserId,
+				email_address: admin2Email,
 				role_name: "admin:superadmin",
 			};
 			const response = await api.removeRole(sessionToken, removeRequest);
@@ -578,14 +548,14 @@ test.describe("RBAC: POST /admin/assign-role and /admin/remove-role", () => {
 	test("admin WITH manage_users can assign-role (200)", async ({ request }) => {
 		const api = new AdminAPIClient(request);
 		const assignRequest: AssignRoleRequest = {
-			target_user_id: targetId,
+			email_address: targetEmail,
 			role_name: "admin:view_users",
 		};
 		const response = await api.assignRole(managerToken, assignRequest);
 		expect(response.status).toBe(200);
 		// Clean up: remove the role we just assigned
 		await api.removeRole(managerToken, {
-			target_user_id: targetId,
+			email_address: targetEmail,
 			role_name: "admin:view_users",
 		});
 	});
@@ -595,7 +565,7 @@ test.describe("RBAC: POST /admin/assign-role and /admin/remove-role", () => {
 	}) => {
 		const api = new AdminAPIClient(request);
 		const assignRequest: AssignRoleRequest = {
-			target_user_id: targetId,
+			email_address: targetEmail,
 			role_name: "admin:view_users",
 		};
 		const response = await api.assignRole(noRoleToken, assignRequest);
@@ -607,7 +577,7 @@ test.describe("RBAC: POST /admin/assign-role and /admin/remove-role", () => {
 		// First assign the role directly so we can remove it
 		await assignRoleToAdminUser(targetId, "admin:view_users");
 		const removeRequest: RemoveRoleRequest = {
-			target_user_id: targetId,
+			email_address: targetEmail,
 			role_name: "admin:view_users",
 		};
 		const response = await api.removeRole(managerToken, removeRequest);
@@ -619,7 +589,7 @@ test.describe("RBAC: POST /admin/assign-role and /admin/remove-role", () => {
 	}) => {
 		const api = new AdminAPIClient(request);
 		const removeRequest: RemoveRoleRequest = {
-			target_user_id: managerId,
+			email_address: managerEmail,
 			role_name: "admin:manage_users",
 		};
 		const response = await api.removeRole(noRoleToken, removeRequest);

@@ -1341,7 +1341,7 @@ export async function grantMarketplaceProviderCapability(
  * @param name - Display name for the listing
  * @param state - Initial state of the listing (default: 'active')
  * @param region - The region where data is stored (default: 'ind1')
- * @returns The service_listing_id of the created listing
+ * @returns The name of the created listing (used as natural key in API calls)
  */
 export async function createTestServiceListingDirect(
 	orgId: string,
@@ -1351,7 +1351,7 @@ export async function createTestServiceListingDirect(
 ): Promise<string> {
 	const regionalPool = getRegionalPool(region);
 	try {
-		const result = await regionalPool.query(
+		await regionalPool.query(
 			`INSERT INTO marketplace_service_listings
        (org_id, name, short_blurb, description, service_category, countries_of_service,
         contact_url, state, industries_served, company_sizes_served,
@@ -1359,11 +1359,10 @@ export async function createTestServiceListingDirect(
        VALUES ($1, $2, 'Short description for test', 'Full description for test listing',
                'talent_sourcing', ARRAY['IN'], 'https://example.com/contact', $3,
                ARRAY['technology_software'], ARRAY['startup'],
-               ARRAY['engineering_technology'], ARRAY['mid'], ARRAY['IN'])
-       RETURNING service_listing_id`,
+               ARRAY['engineering_technology'], ARRAY['mid'], ARRAY['IN'])`,
 			[orgId, name, state]
 		);
-		return result.rows[0].service_listing_id;
+		return name;
 	} finally {
 		await regionalPool.end();
 	}
@@ -1373,12 +1372,12 @@ export async function createTestServiceListingDirect(
  * Sets a marketplace service listing to 'appealing' state directly in the regional DB.
  * Used to set up appeal test scenarios.
  *
- * @param serviceListingId - The listing ID to update
+ * @param listingName - The name of the listing to update
  * @param appealExhausted - Whether the appeal has been exhausted (default: false)
  * @param region - The region where data is stored (default: 'ind1')
  */
 export async function setServiceListingAppealingState(
-	serviceListingId: string,
+	listingName: string,
 	appealExhausted: boolean = false,
 	region: RegionCode = "ind1"
 ): Promise<void> {
@@ -1387,8 +1386,8 @@ export async function setServiceListingAppealingState(
 		await regionalPool.query(
 			`UPDATE marketplace_service_listings
        SET state = 'appealing', appeal_exhausted = $2, appeal_reason = 'Test appeal reason'
-       WHERE service_listing_id = $1`,
-			[serviceListingId, appealExhausted]
+       WHERE name = $1`,
+			[listingName, appealExhausted]
 		);
 	} finally {
 		await regionalPool.end();
@@ -1399,20 +1398,20 @@ export async function setServiceListingAppealingState(
  * Sets a marketplace service listing state directly in the regional DB.
  * Used to set up state transition test scenarios.
  *
- * @param serviceListingId - The listing ID to update
+ * @param listingName - The name of the listing to update
  * @param state - The new state to set
  * @param region - The region where data is stored (default: 'ind1')
  */
 export async function setServiceListingState(
-	serviceListingId: string,
+	listingName: string,
 	state: string,
 	region: RegionCode = "ind1"
 ): Promise<void> {
 	const regionalPool = getRegionalPool(region);
 	try {
 		await regionalPool.query(
-			`UPDATE marketplace_service_listings SET state = $2 WHERE service_listing_id = $1`,
-			[serviceListingId, state]
+			`UPDATE marketplace_service_listings SET state = $2 WHERE name = $1`,
+			[listingName, state]
 		);
 	} finally {
 		await regionalPool.end();

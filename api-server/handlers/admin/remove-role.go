@@ -8,13 +8,11 @@ import (
 	"net/http"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"vetchium-api-server.gomodule/internal/audit"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
 	"vetchium-api-server.typespec/admin"
-	common "vetchium-api-server.typespec/common"
 )
 
 func RemoveRole(s *server.GlobalServer) http.HandlerFunc {
@@ -46,22 +44,11 @@ func RemoveRole(s *server.GlobalServer) http.HandlerFunc {
 			return
 		}
 
-		// Parse target user ID as UUID
-		var targetUserID pgtype.UUID
-		if err := targetUserID.Scan(req.TargetUserID); err != nil {
-			s.Logger(ctx).Debug("invalid target user ID", "error", err)
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode([]common.ValidationError{
-				common.NewValidationError("target_user_id", errors.New("invalid UUID format")),
-			})
-			return
-		}
-
-		// Get target admin user (verify exists)
-		targetUser, err := s.Global.GetAdminUserByID(ctx, targetUserID)
+		// Get target admin user by email
+		targetUser, err := s.Global.GetAdminUserByEmail(ctx, req.EmailAddress)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				s.Logger(ctx).Debug("target admin user not found", "target_user_id", req.TargetUserID)
+				s.Logger(ctx).Debug("target admin user not found", "email_address", req.EmailAddress)
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}

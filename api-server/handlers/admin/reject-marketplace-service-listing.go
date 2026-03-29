@@ -42,14 +42,38 @@ func RejectMarketplaceServiceListing(s *server.GlobalServer) http.HandlerFunc {
 			return
 		}
 
-		var serviceListingID pgtype.UUID
-		if err := serviceListingID.Scan(req.ServiceListingID); err != nil {
-			log.Debug("invalid service_listing_id", "error", err)
-			http.Error(w, "invalid service_listing_id", http.StatusBadRequest)
+		// Look up org by domain to get org_id and region
+		org, err := s.Global.GetOrgByDomain(ctx, req.OrgDomain)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			log.Error("failed to get org by domain", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		region := globaldb.Region(req.HomeRegion)
+		// Look up listing in regional DB to get its ID
+		rdb := s.GetRegionalDB(org.Region)
+		if rdb == nil {
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
+		listing, err := rdb.GetServiceListingByOrgAndName(ctx, regionaldb.GetServiceListingByOrgAndNameParams{
+			OrgID: org.OrgID,
+			Name:  req.Name,
+		})
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			log.Error("failed to get service listing", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
 
 		var verificationID pgtype.Text
 		if req.VerificationID != nil {
@@ -57,29 +81,19 @@ func RejectMarketplaceServiceListing(s *server.GlobalServer) http.HandlerFunc {
 		}
 
 		var updatedListing regionaldb.MarketplaceServiceListing
-		err := s.WithRegionalTx(ctx, region, func(qtx *regionaldb.Queries) error {
+		err = s.WithRegionalTx(ctx, org.Region, func(qtx *regionaldb.Queries) error {
 			var txErr error
 			updatedListing, txErr = qtx.AdminRejectServiceListing(ctx, regionaldb.AdminRejectServiceListingParams{
 				AdminID:          adminUser.AdminUserID,
 				AdminNote:        pgtype.Text{String: req.AdminVerificationNote, Valid: true},
 				VerificationID:   verificationID,
-				ServiceListingID: serviceListingID,
+				ServiceListingID: listing.ServiceListingID,
 			})
 			return txErr
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				rdb := s.GetRegionalDB(region)
-				if rdb == nil {
-					http.Error(w, "", http.StatusInternalServerError)
-					return
-				}
-				_, checkErr := rdb.GetServiceListingByID(ctx, serviceListingID)
-				if errors.Is(checkErr, pgx.ErrNoRows) {
-					w.WriteHeader(http.StatusNotFound)
-				} else {
-					w.WriteHeader(http.StatusUnprocessableEntity)
-				}
+				w.WriteHeader(http.StatusUnprocessableEntity)
 				return
 			}
 			log.Error("failed to reject service listing", "error", err)
@@ -88,8 +102,8 @@ func RejectMarketplaceServiceListing(s *server.GlobalServer) http.HandlerFunc {
 		}
 
 		eventData, _ := json.Marshal(map[string]any{
-			"service_listing_id": req.ServiceListingID,
-			"home_region":        req.HomeRegion,
+			"org_domain": req.OrgDomain,
+			"name":       req.Name,
 		})
 		auditErr := s.WithGlobalTx(ctx, func(qtx *globaldb.Queries) error {
 			return qtx.InsertAdminAuditLog(ctx, globaldb.InsertAdminAuditLogParams{
@@ -101,12 +115,12 @@ func RejectMarketplaceServiceListing(s *server.GlobalServer) http.HandlerFunc {
 		})
 		if auditErr != nil {
 			log.Error("CONSISTENCY_ALERT: failed to write audit log after successful service listing rejection",
-				"error", auditErr, "service_listing_id", req.ServiceListingID)
+				"error", auditErr, "org_domain", req.OrgDomain, "name", req.Name)
 		}
 
-		log.Info("marketplace service listing rejected", "service_listing_id", req.ServiceListingID, "admin_id", uuidToString(adminUser.AdminUserID))
+		log.Info("marketplace service listing rejected", "org_domain", req.OrgDomain, "name", req.Name, "admin_id", uuidToString(adminUser.AdminUserID))
 
-		if err := json.NewEncoder(w).Encode(adminDbServiceListingToAPI(updatedListing)); err != nil {
+		if err := json.NewEncoder(w).Encode(adminDbServiceListingToAPI(updatedListing, req.OrgDomain)); err != nil {
 			log.Error("failed to encode response", "error", err)
 		}
 	}

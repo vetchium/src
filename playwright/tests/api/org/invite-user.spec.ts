@@ -56,7 +56,6 @@ test.describe("POST /org/invite-user", () => {
 			const inviteResponse = await api.inviteUser(sessionToken, inviteRequest);
 
 			expect(inviteResponse.status).toBe(201);
-			expect(inviteResponse.body.invitation_id).toBeDefined();
 			expect(inviteResponse.body.expires_at).toBeDefined();
 
 			// Verify invitation email was sent

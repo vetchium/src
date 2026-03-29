@@ -4,13 +4,14 @@ const SUBORG_NAME_MAX_LENGTH = 64;
 
 export const ERR_SUBORG_NAME_REQUIRED = "name is required";
 export const ERR_SUBORG_NAME_TOO_LONG = "name must be at most 64 characters";
-export const ERR_SUBORG_ID_REQUIRED = "suborg_id is required";
+export const ERR_SUBORG_NEW_NAME_REQUIRED = "new_name is required";
+export const ERR_SUBORG_NEW_NAME_TOO_LONG =
+	"new_name must be at most 64 characters";
 export const ERR_SUBORG_REGION_REQUIRED = "pinned_region is required";
 export const ERR_SUBORG_EMAIL_REQUIRED = "email_address is required";
 
 // SubOrg is the response type for SubOrg reads.
 export interface SubOrg {
-	id: string;
 	name: string;
 	pinned_region: string;
 	status: string;
@@ -20,7 +21,7 @@ export interface SubOrg {
 // SubOrgMember is a member of a SubOrg.
 export interface SubOrgMember {
 	email_address: string;
-	name: string;
+	full_name?: string;
 	assigned_at: string;
 }
 
@@ -51,7 +52,7 @@ export function validateCreateSubOrgRequest(
 // ListSubOrgsRequest is the request body for POST /org/list-suborgs.
 export interface ListSubOrgsRequest {
 	filter_status?: string;
-	cursor?: string;
+	pagination_key?: string;
 	limit?: number;
 }
 
@@ -79,13 +80,13 @@ export function validateListSubOrgsRequest(
 // ListSubOrgsResponse is the response for POST /org/list-suborgs.
 export interface ListSubOrgsResponse {
 	suborgs: SubOrg[];
-	next_cursor: string;
+	next_pagination_key: string;
 }
 
 // RenameSubOrgRequest is the request body for POST /org/rename-suborg.
 export interface RenameSubOrgRequest {
-	suborg_id: string;
 	name: string;
+	new_name: string;
 }
 
 export function validateRenameSubOrgRequest(
@@ -93,14 +94,16 @@ export function validateRenameSubOrgRequest(
 ): ValidationError[] {
 	const errs: ValidationError[] = [];
 
-	if (!request.suborg_id) {
-		errs.push(newValidationError("suborg_id", ERR_SUBORG_ID_REQUIRED));
-	}
-
 	if (!request.name) {
 		errs.push(newValidationError("name", ERR_SUBORG_NAME_REQUIRED));
 	} else if (request.name.length > SUBORG_NAME_MAX_LENGTH) {
 		errs.push(newValidationError("name", ERR_SUBORG_NAME_TOO_LONG));
+	}
+
+	if (!request.new_name) {
+		errs.push(newValidationError("new_name", ERR_SUBORG_NEW_NAME_REQUIRED));
+	} else if (request.new_name.length > SUBORG_NAME_MAX_LENGTH) {
+		errs.push(newValidationError("new_name", ERR_SUBORG_NEW_NAME_TOO_LONG));
 	}
 
 	return errs;
@@ -108,7 +111,7 @@ export function validateRenameSubOrgRequest(
 
 // DisableSubOrgRequest is the request body for POST /org/disable-suborg.
 export interface DisableSubOrgRequest {
-	suborg_id: string;
+	name: string;
 }
 
 export function validateDisableSubOrgRequest(
@@ -116,8 +119,8 @@ export function validateDisableSubOrgRequest(
 ): ValidationError[] {
 	const errs: ValidationError[] = [];
 
-	if (!request.suborg_id) {
-		errs.push(newValidationError("suborg_id", ERR_SUBORG_ID_REQUIRED));
+	if (!request.name) {
+		errs.push(newValidationError("name", ERR_SUBORG_NAME_REQUIRED));
 	}
 
 	return errs;
@@ -125,7 +128,7 @@ export function validateDisableSubOrgRequest(
 
 // EnableSubOrgRequest is the request body for POST /org/enable-suborg.
 export interface EnableSubOrgRequest {
-	suborg_id: string;
+	name: string;
 }
 
 export function validateEnableSubOrgRequest(
@@ -133,8 +136,8 @@ export function validateEnableSubOrgRequest(
 ): ValidationError[] {
 	const errs: ValidationError[] = [];
 
-	if (!request.suborg_id) {
-		errs.push(newValidationError("suborg_id", ERR_SUBORG_ID_REQUIRED));
+	if (!request.name) {
+		errs.push(newValidationError("name", ERR_SUBORG_NAME_REQUIRED));
 	}
 
 	return errs;
@@ -142,7 +145,7 @@ export function validateEnableSubOrgRequest(
 
 // AddSubOrgMemberRequest is the request body for POST /org/add-suborg-member.
 export interface AddSubOrgMemberRequest {
-	suborg_id: string;
+	name: string;
 	email_address: string;
 }
 
@@ -151,8 +154,8 @@ export function validateAddSubOrgMemberRequest(
 ): ValidationError[] {
 	const errs: ValidationError[] = [];
 
-	if (!request.suborg_id) {
-		errs.push(newValidationError("suborg_id", ERR_SUBORG_ID_REQUIRED));
+	if (!request.name) {
+		errs.push(newValidationError("name", ERR_SUBORG_NAME_REQUIRED));
 	}
 
 	if (!request.email_address) {
@@ -164,7 +167,7 @@ export function validateAddSubOrgMemberRequest(
 
 // RemoveSubOrgMemberRequest is the request body for POST /org/remove-suborg-member.
 export interface RemoveSubOrgMemberRequest {
-	suborg_id: string;
+	name: string;
 	email_address: string;
 }
 
@@ -173,8 +176,8 @@ export function validateRemoveSubOrgMemberRequest(
 ): ValidationError[] {
 	const errs: ValidationError[] = [];
 
-	if (!request.suborg_id) {
-		errs.push(newValidationError("suborg_id", ERR_SUBORG_ID_REQUIRED));
+	if (!request.name) {
+		errs.push(newValidationError("name", ERR_SUBORG_NAME_REQUIRED));
 	}
 
 	if (!request.email_address) {
@@ -186,9 +189,8 @@ export function validateRemoveSubOrgMemberRequest(
 
 // ListSubOrgMembersRequest is the request body for POST /org/list-suborg-members.
 export interface ListSubOrgMembersRequest {
-	suborg_id: string;
-	cursor?: string;
-	limit?: number;
+	name: string;
+	pagination_key?: string;
 }
 
 export function validateListSubOrgMembersRequest(
@@ -196,8 +198,8 @@ export function validateListSubOrgMembersRequest(
 ): ValidationError[] {
 	const errs: ValidationError[] = [];
 
-	if (!request.suborg_id) {
-		errs.push(newValidationError("suborg_id", ERR_SUBORG_ID_REQUIRED));
+	if (!request.name) {
+		errs.push(newValidationError("name", ERR_SUBORG_NAME_REQUIRED));
 	}
 
 	return errs;
@@ -206,5 +208,5 @@ export function validateListSubOrgMembersRequest(
 // ListSubOrgMembersResponse is the response for POST /org/list-suborg-members.
 export interface ListSubOrgMembersResponse {
 	members: SubOrgMember[];
-	next_cursor: string;
+	next_pagination_key: string;
 }

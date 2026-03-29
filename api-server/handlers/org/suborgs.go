@@ -91,7 +91,6 @@ func CreateSubOrg(s *server.RegionalServer) http.HandlerFunc {
 			}
 
 			eventDataWithID, _ := json.Marshal(map[string]any{
-				"suborg_id":     created.SuborgID,
 				"suborg_name":   req.Name,
 				"pinned_region": req.PinnedRegion,
 			})
@@ -152,8 +151,8 @@ func ListSubOrgs(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		limit := defaultSubOrgLimit
-		if req.Limit != nil {
-			limit = int(*req.Limit)
+		if req.Limit != nil && *req.Limit > 0 {
+			limit = *req.Limit
 			if limit > maxSubOrgLimit {
 				limit = maxSubOrgLimit
 			}
@@ -161,17 +160,17 @@ func ListSubOrgs(s *server.RegionalServer) http.HandlerFunc {
 
 		var cursorCreatedAt pgtype.Timestamp
 		var cursorID pgtype.UUID
-		if req.Cursor != nil && *req.Cursor != "" {
-			ca, id, err := decodeSubOrgCursor(*req.Cursor)
+		if req.PaginationKey != nil && *req.PaginationKey != "" {
+			ca, id, err := decodeSubOrgCursor(*req.PaginationKey)
 			if err != nil {
-				s.Logger(ctx).Debug("invalid cursor", "error", err)
-				http.Error(w, "invalid cursor format", http.StatusBadRequest)
+				s.Logger(ctx).Debug("invalid pagination_key", "error", err)
+				http.Error(w, "invalid pagination_key format", http.StatusBadRequest)
 				return
 			}
 			cursorCreatedAt = pgtype.Timestamp{Time: ca, Valid: true}
 			if err := cursorID.Scan(id); err != nil {
-				s.Logger(ctx).Debug("invalid cursor id", "error", err)
-				http.Error(w, "invalid cursor format", http.StatusBadRequest)
+				s.Logger(ctx).Debug("invalid pagination_key id", "error", err)
+				http.Error(w, "invalid pagination_key format", http.StatusBadRequest)
 				return
 			}
 		}
@@ -204,17 +203,17 @@ func ListSubOrgs(s *server.RegionalServer) http.HandlerFunc {
 			items = append(items, dbSubOrgToResponse(row))
 		}
 
-		var nextCursor string
+		var nextPaginationKey string
 		if hasMore && len(rows) > 0 {
 			last := rows[len(rows)-1]
 			if last.CreatedAt.Valid {
-				nextCursor = encodeSubOrgCursor(last.CreatedAt.Time, last.SuborgID)
+				nextPaginationKey = encodeSubOrgCursor(last.CreatedAt.Time, last.SuborgID)
 			}
 		}
 
 		json.NewEncoder(w).Encode(orgspec.ListSubOrgsResponse{
-			SubOrgs:    items,
-			NextCursor: nextCursor,
+			SubOrgs:           items,
+			NextPaginationKey: nextPaginationKey,
 		})
 	}
 }
@@ -245,36 +244,21 @@ func RenameSubOrg(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		var suborgID pgtype.UUID
-		if err := suborgID.Scan(req.SubOrgID); err != nil {
-			s.Logger(ctx).Debug("invalid suborg_id", "error", err)
-			http.Error(w, "invalid suborg_id", http.StatusBadRequest)
-			return
-		}
-
 		var updated regionaldb.Suborg
 		err := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
-			current, txErr := qtx.GetSubOrgByID(ctx, regionaldb.GetSubOrgByIDParams{
-				SuborgID: suborgID,
-				OrgID:    orgUser.OrgID,
-			})
-			if txErr != nil {
-				return txErr
-			}
-
-			updated, txErr = qtx.RenameSubOrg(ctx, regionaldb.RenameSubOrgParams{
-				SuborgID: suborgID,
-				OrgID:    orgUser.OrgID,
-				Name:     req.Name,
+			var txErr error
+			updated, txErr = qtx.RenameSubOrgByName(ctx, regionaldb.RenameSubOrgByNameParams{
+				NewName: req.NewName,
+				OrgID:   orgUser.OrgID,
+				Name:    req.Name,
 			})
 			if txErr != nil {
 				return txErr
 			}
 
 			eventData, _ := json.Marshal(map[string]any{
-				"suborg_id": req.SubOrgID,
-				"old_name":  current.Name,
-				"new_name":  req.Name,
+				"old_name": req.Name,
+				"new_name": req.NewName,
 			})
 			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
 				EventType:   "org.rename_suborg",
@@ -286,7 +270,7 @@ func RenameSubOrg(s *server.RegionalServer) http.HandlerFunc {
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				s.Logger(ctx).Debug("suborg not found", "suborg_id", req.SubOrgID)
+				s.Logger(ctx).Debug("suborg not found", "name", req.Name)
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
@@ -325,13 +309,6 @@ func DisableSubOrg(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		var suborgID pgtype.UUID
-		if err := suborgID.Scan(req.SubOrgID); err != nil {
-			s.Logger(ctx).Debug("invalid suborg_id", "error", err)
-			http.Error(w, "invalid suborg_id", http.StatusBadRequest)
-			return
-		}
-
 		// Look up org name for the notification email.
 		employer_, err := s.Global.GetOrgByID(ctx, orgUser.OrgID)
 		if err != nil {
@@ -341,9 +318,9 @@ func DisableSubOrg(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
-			suborg, txErr := qtx.GetSubOrgByID(ctx, regionaldb.GetSubOrgByIDParams{
-				SuborgID: suborgID,
-				OrgID:    orgUser.OrgID,
+			suborg, txErr := qtx.GetSubOrgByOrgAndName(ctx, regionaldb.GetSubOrgByOrgAndNameParams{
+				OrgID: orgUser.OrgID,
+				Name:  req.Name,
 			})
 			if txErr != nil {
 				return txErr
@@ -353,7 +330,7 @@ func DisableSubOrg(s *server.RegionalServer) http.HandlerFunc {
 			}
 
 			if _, txErr = qtx.UpdateSubOrgStatus(ctx, regionaldb.UpdateSubOrgStatusParams{
-				SuborgID: suborgID,
+				SuborgID: suborg.SuborgID,
 				OrgID:    orgUser.OrgID,
 				Status:   "disabled",
 			}); txErr != nil {
@@ -361,8 +338,7 @@ func DisableSubOrg(s *server.RegionalServer) http.HandlerFunc {
 			}
 
 			eventData, _ := json.Marshal(map[string]any{
-				"suborg_id":   req.SubOrgID,
-				"suborg_name": suborg.Name,
+				"suborg_name": req.Name,
 			})
 			if txErr = qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
 				EventType:   "org.disable_suborg",
@@ -376,7 +352,7 @@ func DisableSubOrg(s *server.RegionalServer) http.HandlerFunc {
 
 			// Enqueue notification emails inside the transaction so they
 			// roll back if anything else fails.
-			members, txErr := qtx.ListSubOrgMembersForNotification(ctx, suborgID)
+			members, txErr := qtx.ListSubOrgMembersForNotification(ctx, suborg.SuborgID)
 			if txErr != nil {
 				return txErr
 			}
@@ -400,12 +376,12 @@ func DisableSubOrg(s *server.RegionalServer) http.HandlerFunc {
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				s.Logger(ctx).Debug("suborg not found", "suborg_id", req.SubOrgID)
+				s.Logger(ctx).Debug("suborg not found", "name", req.Name)
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
 			if errors.Is(err, server.ErrInvalidState) {
-				s.Logger(ctx).Debug("suborg already disabled", "suborg_id", req.SubOrgID)
+				s.Logger(ctx).Debug("suborg already disabled", "name", req.Name)
 				w.WriteHeader(http.StatusUnprocessableEntity)
 				return
 			}
@@ -444,17 +420,10 @@ func EnableSubOrg(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		var suborgID pgtype.UUID
-		if err := suborgID.Scan(req.SubOrgID); err != nil {
-			s.Logger(ctx).Debug("invalid suborg_id", "error", err)
-			http.Error(w, "invalid suborg_id", http.StatusBadRequest)
-			return
-		}
-
 		err := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
-			suborg, txErr := qtx.GetSubOrgByID(ctx, regionaldb.GetSubOrgByIDParams{
-				SuborgID: suborgID,
-				OrgID:    orgUser.OrgID,
+			suborg, txErr := qtx.GetSubOrgByOrgAndName(ctx, regionaldb.GetSubOrgByOrgAndNameParams{
+				OrgID: orgUser.OrgID,
+				Name:  req.Name,
 			})
 			if txErr != nil {
 				return txErr
@@ -464,7 +433,7 @@ func EnableSubOrg(s *server.RegionalServer) http.HandlerFunc {
 			}
 
 			if _, txErr = qtx.UpdateSubOrgStatus(ctx, regionaldb.UpdateSubOrgStatusParams{
-				SuborgID: suborgID,
+				SuborgID: suborg.SuborgID,
 				OrgID:    orgUser.OrgID,
 				Status:   "active",
 			}); txErr != nil {
@@ -472,8 +441,7 @@ func EnableSubOrg(s *server.RegionalServer) http.HandlerFunc {
 			}
 
 			eventData, _ := json.Marshal(map[string]any{
-				"suborg_id":   req.SubOrgID,
-				"suborg_name": suborg.Name,
+				"suborg_name": req.Name,
 			})
 			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
 				EventType:   "org.enable_suborg",
@@ -485,12 +453,12 @@ func EnableSubOrg(s *server.RegionalServer) http.HandlerFunc {
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				s.Logger(ctx).Debug("suborg not found", "suborg_id", req.SubOrgID)
+				s.Logger(ctx).Debug("suborg not found", "name", req.Name)
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
 			if errors.Is(err, server.ErrInvalidState) {
-				s.Logger(ctx).Debug("suborg already active", "suborg_id", req.SubOrgID)
+				s.Logger(ctx).Debug("suborg already active", "name", req.Name)
 				w.WriteHeader(http.StatusUnprocessableEntity)
 				return
 			}
@@ -529,13 +497,6 @@ func AddSubOrgMember(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		var suborgID pgtype.UUID
-		if err := suborgID.Scan(req.SubOrgID); err != nil {
-			s.Logger(ctx).Debug("invalid suborg_id", "error", err)
-			http.Error(w, "invalid suborg_id", http.StatusBadRequest)
-			return
-		}
-
 		// Resolve email → org_user_id via global DB.
 		emailHash := sha256.Sum256([]byte(req.EmailAddress))
 		globalTargetUser, err := s.Global.GetOrgUserByEmailHashAndOrg(ctx, globaldb.GetOrgUserByEmailHashAndOrgParams{
@@ -555,22 +516,23 @@ func AddSubOrgMember(s *server.RegionalServer) http.HandlerFunc {
 		targetUserID := globalTargetUser.OrgUserID
 
 		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
-			// Verify the SubOrg belongs to this orgspec.
-			if _, txErr := qtx.GetSubOrgByID(ctx, regionaldb.GetSubOrgByIDParams{
-				SuborgID: suborgID,
-				OrgID:    orgUser.OrgID,
-			}); txErr != nil {
+			// Verify the SubOrg belongs to this org.
+			suborg, txErr := qtx.GetSubOrgByOrgAndName(ctx, regionaldb.GetSubOrgByOrgAndNameParams{
+				OrgID: orgUser.OrgID,
+				Name:  req.Name,
+			})
+			if txErr != nil {
 				return txErr
 			}
 
 			if txErr := qtx.AddSubOrgMember(ctx, regionaldb.AddSubOrgMemberParams{
-				SuborgID:  suborgID,
+				SuborgID:  suborg.SuborgID,
 				OrgUserID: targetUserID,
 			}); txErr != nil {
 				return txErr
 			}
 
-			eventData, _ := json.Marshal(map[string]any{"suborg_id": req.SubOrgID})
+			eventData, _ := json.Marshal(map[string]any{"suborg_name": req.Name})
 			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
 				EventType:    "org.add_suborg_member",
 				ActorUserID:  orgUser.OrgUserID,
@@ -582,13 +544,13 @@ func AddSubOrgMember(s *server.RegionalServer) http.HandlerFunc {
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				s.Logger(ctx).Debug("suborg not found", "suborg_id", req.SubOrgID)
+				s.Logger(ctx).Debug("suborg not found", "name", req.Name)
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
 			var pgErr *pgconn.PgError
 			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-				s.Logger(ctx).Debug("user already a member of suborg", "suborg_id", req.SubOrgID, "user_id", targetUserID)
+				s.Logger(ctx).Debug("user already a member of suborg", "name", req.Name, "user_id", targetUserID)
 				w.WriteHeader(http.StatusConflict)
 				return
 			}
@@ -627,13 +589,6 @@ func RemoveSubOrgMember(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		var suborgID pgtype.UUID
-		if err := suborgID.Scan(req.SubOrgID); err != nil {
-			s.Logger(ctx).Debug("invalid suborg_id", "error", err)
-			http.Error(w, "invalid suborg_id", http.StatusBadRequest)
-			return
-		}
-
 		// Resolve email → org_user_id via global DB.
 		emailHash := sha256.Sum256([]byte(req.EmailAddress))
 		globalTargetUser, err := s.Global.GetOrgUserByEmailHashAndOrg(ctx, globaldb.GetOrgUserByEmailHashAndOrgParams{
@@ -653,30 +608,31 @@ func RemoveSubOrgMember(s *server.RegionalServer) http.HandlerFunc {
 		targetUserID := globalTargetUser.OrgUserID
 
 		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
-			// Verify the SubOrg belongs to this orgspec.
-			if _, txErr := qtx.GetSubOrgByID(ctx, regionaldb.GetSubOrgByIDParams{
-				SuborgID: suborgID,
-				OrgID:    orgUser.OrgID,
-			}); txErr != nil {
+			// Verify the SubOrg belongs to this org.
+			suborg, txErr := qtx.GetSubOrgByOrgAndName(ctx, regionaldb.GetSubOrgByOrgAndNameParams{
+				OrgID: orgUser.OrgID,
+				Name:  req.Name,
+			})
+			if txErr != nil {
 				return txErr
 			}
 
 			// Verify the membership exists.
 			if _, txErr := qtx.GetSubOrgMembership(ctx, regionaldb.GetSubOrgMembershipParams{
-				SuborgID:  suborgID,
+				SuborgID:  suborg.SuborgID,
 				OrgUserID: targetUserID,
 			}); txErr != nil {
 				return txErr
 			}
 
 			if txErr := qtx.RemoveSubOrgMember(ctx, regionaldb.RemoveSubOrgMemberParams{
-				SuborgID:  suborgID,
+				SuborgID:  suborg.SuborgID,
 				OrgUserID: targetUserID,
 			}); txErr != nil {
 				return txErr
 			}
 
-			eventData, _ := json.Marshal(map[string]any{"suborg_id": req.SubOrgID})
+			eventData, _ := json.Marshal(map[string]any{"suborg_name": req.Name})
 			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
 				EventType:    "org.remove_suborg_member",
 				ActorUserID:  orgUser.OrgUserID,
@@ -688,7 +644,7 @@ func RemoveSubOrgMember(s *server.RegionalServer) http.HandlerFunc {
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				s.Logger(ctx).Debug("suborg or membership not found", "suborg_id", req.SubOrgID, "email", req.EmailAddress)
+				s.Logger(ctx).Debug("suborg or membership not found", "name", req.Name, "email", req.EmailAddress)
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
@@ -727,20 +683,13 @@ func ListSubOrgMembers(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		var suborgID pgtype.UUID
-		if err := suborgID.Scan(req.SubOrgID); err != nil {
-			s.Logger(ctx).Debug("invalid suborg_id", "error", err)
-			http.Error(w, "invalid suborg_id", http.StatusBadRequest)
-			return
-		}
-
-		// Verify the SubOrg belongs to this orgspec.
-		if _, err := s.Regional.GetSubOrgByID(ctx, regionaldb.GetSubOrgByIDParams{
-			SuborgID: suborgID,
-			OrgID:    orgUser.OrgID,
+		// Verify the SubOrg belongs to this org.
+		if _, err := s.Regional.GetSubOrgByOrgAndName(ctx, regionaldb.GetSubOrgByOrgAndNameParams{
+			OrgID: orgUser.OrgID,
+			Name:  req.Name,
 		}); err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				s.Logger(ctx).Debug("suborg not found", "suborg_id", req.SubOrgID)
+				s.Logger(ctx).Debug("suborg not found", "name", req.Name)
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
@@ -750,32 +699,27 @@ func ListSubOrgMembers(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		limit := defaultSubOrgLimit
-		if req.Limit != nil {
-			limit = int(*req.Limit)
-			if limit > maxSubOrgLimit {
-				limit = maxSubOrgLimit
-			}
-		}
 
 		var cursorAssignedAt pgtype.Timestamp
 		var cursorID pgtype.UUID
-		if req.Cursor != nil && *req.Cursor != "" {
-			ca, id, err := decodeSubOrgMemberCursor(*req.Cursor)
+		if req.PaginationKey != nil && *req.PaginationKey != "" {
+			ca, id, err := decodeSubOrgMemberCursor(*req.PaginationKey)
 			if err != nil {
-				s.Logger(ctx).Debug("invalid cursor", "error", err)
-				http.Error(w, "invalid cursor format", http.StatusBadRequest)
+				s.Logger(ctx).Debug("invalid pagination_key", "error", err)
+				http.Error(w, "invalid pagination_key format", http.StatusBadRequest)
 				return
 			}
 			cursorAssignedAt = pgtype.Timestamp{Time: ca, Valid: true}
 			if err := cursorID.Scan(id); err != nil {
-				s.Logger(ctx).Debug("invalid cursor format", "error", err)
-				http.Error(w, "invalid cursor format", http.StatusBadRequest)
+				s.Logger(ctx).Debug("invalid pagination_key format", "error", err)
+				http.Error(w, "invalid pagination_key format", http.StatusBadRequest)
 				return
 			}
 		}
 
-		rows, err := s.Regional.ListSubOrgMembers(ctx, regionaldb.ListSubOrgMembersParams{
-			SuborgID:         suborgID,
+		rows, err := s.Regional.ListSubOrgMembersByName(ctx, regionaldb.ListSubOrgMembersByNameParams{
+			OrgID:            orgUser.OrgID,
+			SuborgName:       req.Name,
 			CursorAssignedAt: cursorAssignedAt,
 			CursorID:         cursorID,
 			LimitCount:       int32(limit + 1),
@@ -793,24 +737,27 @@ func ListSubOrgMembers(s *server.RegionalServer) http.HandlerFunc {
 
 		members := make([]orgspec.SubOrgMember, 0, len(rows))
 		for _, row := range rows {
-			members = append(members, orgspec.SubOrgMember{
+			m := orgspec.SubOrgMember{
 				EmailAddress: row.EmailAddress,
-				Name:         row.FullName.String,
 				AssignedAt:   row.AssignedAt.Time.UTC().Format(time.RFC3339),
-			})
+			}
+			if row.FullName.Valid {
+				m.FullName = &row.FullName.String
+			}
+			members = append(members, m)
 		}
 
-		var nextCursor string
+		var nextPaginationKey string
 		if hasMore && len(rows) > 0 {
 			last := rows[len(rows)-1]
 			if last.AssignedAt.Valid {
-				nextCursor = encodeSubOrgMemberCursor(last.AssignedAt.Time, last.OrgUserID)
+				nextPaginationKey = encodeSubOrgMemberCursor(last.AssignedAt.Time, last.OrgUserID)
 			}
 		}
 
 		json.NewEncoder(w).Encode(orgspec.ListSubOrgMembersResponse{
-			Members:    members,
-			NextCursor: nextCursor,
+			Members:           members,
+			NextPaginationKey: nextPaginationKey,
 		})
 	}
 }
@@ -818,7 +765,6 @@ func ListSubOrgMembers(s *server.RegionalServer) http.HandlerFunc {
 // dbSubOrgToResponse converts a DB Suborg row to the API response type.
 func dbSubOrgToResponse(s regionaldb.Suborg) orgspec.SubOrg {
 	return orgspec.SubOrg{
-		ID:           uuidToString(s.SuborgID),
 		Name:         s.Name,
 		PinnedRegion: s.PinnedRegion,
 		Status:       s.Status,

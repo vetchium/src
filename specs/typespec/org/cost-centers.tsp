@@ -22,7 +22,6 @@ model UpdateCostCenterRequest {
 }
 
 model CostCenter {
-  cost_center_id: string;
   id: string;
   display_name: string;
   status: string;

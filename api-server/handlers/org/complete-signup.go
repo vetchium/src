@@ -273,7 +273,6 @@ func CompleteSignup(s *server.RegionalServer) http.HandlerFunc {
 		w.WriteHeader(http.StatusCreated)
 		response := orgtypes.OrgCompleteSignupResponse{
 			SessionToken: orgtypes.OrgSessionToken(sessionToken),
-			OrgUserID:    globalUser.OrgUserID.String(),
 		}
 		json.NewEncoder(w).Encode(response)
 	}

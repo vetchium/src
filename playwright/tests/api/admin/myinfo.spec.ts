@@ -46,7 +46,6 @@ test.describe("GET /admin/myinfo", () => {
 			const response = await api.getMyInfo(sessionToken);
 
 			expect(response.status).toBe(200);
-			expect(response.body.admin_user_id).toBeDefined();
 			expect(response.body.email_address).toBe(email);
 			expect(response.body.full_name).toBeDefined();
 			expect(response.body.preferred_language).toBeDefined();

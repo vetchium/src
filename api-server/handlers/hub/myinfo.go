@@ -35,7 +35,6 @@ func MyInfo(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		response := hubtypes.HubMyInfoResponse{
-			HubUserID:         hubUser.HubUserGlobalID.String(),
 			Handle:            hubtypes.Handle(hubUser.Handle),
 			EmailAddress:      common.EmailAddress(hubUser.EmailAddress),
 			PreferredLanguage: common.LanguageCode(hubUser.PreferredLanguage),

@@ -2,9 +2,11 @@ package admin
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"sort"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
@@ -58,12 +60,18 @@ func ListMarketplaceProviderCapabilities(s *server.GlobalServer) http.HandlerFun
 		}
 
 		var filterOrgID pgtype.UUID
-		if req.FilterOrgID != nil && *req.FilterOrgID != "" {
-			if err := filterOrgID.Scan(*req.FilterOrgID); err != nil {
-				log.Debug("invalid filter_org_id", "error", err)
-				http.Error(w, "invalid filter_org_id", http.StatusBadRequest)
+		if req.FilterOrgDomain != nil && *req.FilterOrgDomain != "" {
+			org, err := s.Global.GetOrgByDomain(ctx, *req.FilterOrgDomain)
+			if err != nil {
+				if errors.Is(err, pgx.ErrNoRows) {
+					w.WriteHeader(http.StatusNotFound)
+					return
+				}
+				log.Error("failed to get org by domain", "error", err)
+				http.Error(w, "", http.StatusInternalServerError)
 				return
 			}
+			filterOrgID = org.OrgID
 		}
 
 		// Fan out to all regions

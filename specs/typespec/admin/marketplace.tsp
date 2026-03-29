@@ -12,7 +12,7 @@ namespace Vetchium;
 
 model ListMarketplaceProviderCapabilitiesRequest {
   filter_status?: OrgCapabilityStatus;
-  filter_org_id?: string;
+  filter_org_domain?: string;
   cursor?: string;
   limit?: int32;
 }
@@ -23,31 +23,31 @@ model ListMarketplaceProviderCapabilitiesResponse {
 }
 
 model ApproveMarketplaceProviderCapabilityRequest {
-  org_id: string;
+  org_domain: string;
   subscription_price: float64;
   currency: string;
   subscription_period_days: int32;
 }
 
 model RejectMarketplaceProviderCapabilityRequest {
-  org_id: string;
+  org_domain: string;
   admin_note: string;
 }
 
 model RenewMarketplaceProviderCapabilityRequest {
-  org_id: string;
+  org_domain: string;
   subscription_price: float64;
   currency: string;
   subscription_period_days: int32;
 }
 
 model RevokeMarketplaceProviderCapabilityRequest {
-  org_id: string;
+  org_domain: string;
   admin_note: string;
 }
 
 model ReinstateMarketplaceProviderCapabilityRequest {
-  org_id: string;
+  org_domain: string;
   subscription_price: float64;
   currency: string;
   subscription_period_days: int32;
@@ -57,7 +57,7 @@ model ReinstateMarketplaceProviderCapabilityRequest {
 
 model AdminListMarketplaceServiceListingsRequest {
   filter_state?: ServiceListingState;
-  filter_org_id?: string;
+  filter_org_domain?: string;
   has_reports?: boolean;
   cursor?: string;
   limit?: int32;
@@ -69,48 +69,48 @@ model AdminListMarketplaceServiceListingsResponse {
 }
 
 model AdminGetMarketplaceServiceListingRequest {
-  service_listing_id: string;
-  home_region: string;
+  org_domain: string;
+  name: string;
 }
 
 model AdminApproveMarketplaceServiceListingRequest {
-  service_listing_id: string;
-  home_region: string;
+  org_domain: string;
+  name: string;
   admin_verification_note: string;
   verification_id: string;
 }
 
 model AdminRejectMarketplaceServiceListingRequest {
-  service_listing_id: string;
-  home_region: string;
+  org_domain: string;
+  name: string;
   admin_verification_note: string;
   verification_id?: string;
 }
 
 model AdminSuspendMarketplaceServiceListingRequest {
-  service_listing_id: string;
-  home_region: string;
+  org_domain: string;
+  name: string;
   admin_verification_note: string;
   verification_id?: string;
 }
 
 model AdminReinstateMarketplaceServiceListingRequest {
-  service_listing_id: string;
-  home_region: string;
+  org_domain: string;
+  name: string;
   admin_verification_note: string;
   verification_id?: string;
 }
 
 model AdminGrantMarketplaceAppealRequest {
-  service_listing_id: string;
-  home_region: string;
+  org_domain: string;
+  name: string;
   admin_verification_note: string;
   verification_id?: string;
 }
 
 model AdminDenyMarketplaceAppealRequest {
-  service_listing_id: string;
-  home_region: string;
+  org_domain: string;
+  name: string;
   admin_verification_note: string;
   verification_id?: string;
 }

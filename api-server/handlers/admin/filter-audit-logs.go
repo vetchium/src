@@ -3,11 +3,13 @@ package admin
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
@@ -50,11 +52,18 @@ func FilterAuditLogs(s *server.GlobalServer) http.HandlerFunc {
 			params.EventTypes = req.EventTypes
 		}
 
-		if req.ActorUserID != nil {
-			if err := params.ActorUserID.Scan(*req.ActorUserID); err != nil {
-				http.Error(w, "invalid actor_user_id", http.StatusBadRequest)
+		if req.ActorEmail != nil {
+			actorUser, err := s.Global.GetAdminUserByEmail(ctx, *req.ActorEmail)
+			if err != nil {
+				if errors.Is(err, pgx.ErrNoRows) {
+					w.WriteHeader(http.StatusNotFound)
+					return
+				}
+				s.Logger(ctx).Error("failed to get admin user by email", "error", err)
+				http.Error(w, "", http.StatusInternalServerError)
 				return
 			}
+			params.ActorUserID = actorUser.AdminUserID
 		}
 
 		if req.StartTime != nil {
@@ -94,9 +103,30 @@ func FilterAuditLogs(s *server.GlobalServer) http.HandlerFunc {
 			rows = rows[:limit]
 		}
 
+		// Build UUID→email map for actors and targets
+		uuidEmailMap := make(map[string]string)
+		for _, row := range rows {
+			if row.ActorUserID.Valid {
+				uidStr := uuidToString(row.ActorUserID)
+				if _, ok := uuidEmailMap[uidStr]; !ok {
+					if user, err := s.Global.GetAdminUserByID(ctx, row.ActorUserID); err == nil {
+						uuidEmailMap[uidStr] = user.EmailAddress
+					}
+				}
+			}
+			if row.TargetUserID.Valid {
+				uidStr := uuidToString(row.TargetUserID)
+				if _, ok := uuidEmailMap[uidStr]; !ok {
+					if user, err := s.Global.GetAdminUserByID(ctx, row.TargetUserID); err == nil {
+						uuidEmailMap[uidStr] = user.EmailAddress
+					}
+				}
+			}
+		}
+
 		entries := make([]auditlogs.AuditLogEntry, 0, len(rows))
 		for _, row := range rows {
-			entries = append(entries, adminAuditLogToEntry(row))
+			entries = append(entries, adminAuditLogToEntry(row, uuidEmailMap))
 		}
 
 		var paginationKey *string
@@ -119,21 +149,24 @@ func FilterAuditLogs(s *server.GlobalServer) http.HandlerFunc {
 	}
 }
 
-func adminAuditLogToEntry(row globaldb.AdminAuditLog) auditlogs.AuditLogEntry {
+func adminAuditLogToEntry(row globaldb.AdminAuditLog, uuidEmailMap map[string]string) auditlogs.AuditLogEntry {
 	entry := auditlogs.AuditLogEntry{
-		ID:        uuidToString(row.ID),
 		EventType: row.EventType,
 		IPAddress: row.IpAddress,
 		CreatedAt: row.CreatedAt.Time.UTC().Format(time.RFC3339),
 		EventData: make(map[string]interface{}),
 	}
 	if row.ActorUserID.Valid {
-		s := uuidToString(row.ActorUserID)
-		entry.ActorUserID = &s
+		uidStr := uuidToString(row.ActorUserID)
+		if email, ok := uuidEmailMap[uidStr]; ok {
+			entry.ActorEmail = &email
+		}
 	}
 	if row.TargetUserID.Valid {
-		s := uuidToString(row.TargetUserID)
-		entry.TargetUserID = &s
+		uidStr := uuidToString(row.TargetUserID)
+		if email, ok := uuidEmailMap[uidStr]; ok {
+			entry.TargetEmail = &email
+		}
 	}
 	if len(row.EventData) > 0 {
 		json.Unmarshal(row.EventData, &entry.EventData) //nolint:errcheck

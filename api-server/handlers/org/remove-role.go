@@ -8,12 +8,11 @@ import (
 	"net/http"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"vetchium-api-server.gomodule/internal/audit"
+	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
-	common "vetchium-api-server.typespec/common"
 	"vetchium-api-server.typespec/org"
 )
 
@@ -46,22 +45,28 @@ func RemoveRole(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		// Parse target user ID as UUID
-		var targetUserID pgtype.UUID
-		if err := targetUserID.Scan(req.TargetUserID); err != nil {
-			s.Logger(ctx).Debug("invalid target user ID", "error", err)
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode([]common.ValidationError{
-				common.NewValidationError("target_user_id", errors.New("invalid UUID format")),
-			})
+		// Resolve email → org_user via global DB
+		emailHash := sha256.Sum256([]byte(req.EmailAddress))
+		globalTargetUser, err := s.Global.GetOrgUserByEmailHashAndOrg(ctx, globaldb.GetOrgUserByEmailHashAndOrgParams{
+			EmailAddressHash: emailHash[:],
+			OrgID:            orgUser.OrgID,
+		})
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				s.Logger(ctx).Debug("target org user not found", "email_address", req.EmailAddress)
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			s.Logger(ctx).Error("failed to look up target org user", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
 		// Get target org user from regional DB (verify exists and same employer)
-		targetUser, err := s.Regional.GetOrgUserByID(ctx, targetUserID)
+		targetUser, err := s.Regional.GetOrgUserByID(ctx, globalTargetUser.OrgUserID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				s.Logger(ctx).Debug("target org user not found", "target_user_id", req.TargetUserID)
+				s.Logger(ctx).Debug("target org user not found in regional DB", "email_address", req.EmailAddress)
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}

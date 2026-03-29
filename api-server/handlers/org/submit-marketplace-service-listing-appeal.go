@@ -57,17 +57,10 @@ func SubmitMarketplaceServiceListingAppeal(s *server.RegionalServer) http.Handle
 			return
 		}
 
-		var listingID pgtype.UUID
-		if err := listingID.Scan(req.ServiceListingID); err != nil {
-			log.Debug("invalid service_listing_id", "error", err)
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-
-		// Get the listing to check appeal_exhausted flag
-		existing, err := s.Regional.GetServiceListingByIDAndOrg(ctx, regionaldb.GetServiceListingByIDAndOrgParams{
-			ServiceListingID: listingID,
-			OrgID:            orgUser.OrgID,
+		// Look up listing by name
+		existing, err := s.Regional.GetServiceListingByOrgAndName(ctx, regionaldb.GetServiceListingByOrgAndNameParams{
+			OrgID: orgUser.OrgID,
+			Name:  req.Name,
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
@@ -80,7 +73,7 @@ func SubmitMarketplaceServiceListingAppeal(s *server.RegionalServer) http.Handle
 		}
 
 		if existing.AppealExhausted {
-			log.Debug("appeal already exhausted for service listing", "service_listing_id", req.ServiceListingID)
+			log.Debug("appeal already exhausted for service listing", "name", req.Name)
 			w.WriteHeader(http.StatusUnprocessableEntity)
 			return
 		}
@@ -88,7 +81,7 @@ func SubmitMarketplaceServiceListingAppeal(s *server.RegionalServer) http.Handle
 		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
 			_, txErr := qtx.SubmitServiceListingAppeal(ctx, regionaldb.SubmitServiceListingAppealParams{
 				AppealReason:     pgtype.Text{String: req.AppealReason, Valid: true},
-				ServiceListingID: listingID,
+				ServiceListingID: existing.ServiceListingID,
 				OrgID:            orgUser.OrgID,
 			})
 			if txErr != nil {
@@ -96,7 +89,7 @@ func SubmitMarketplaceServiceListingAppeal(s *server.RegionalServer) http.Handle
 			}
 
 			eventData, _ := json.Marshal(map[string]any{
-				"service_listing_id": req.ServiceListingID,
+				"name": req.Name,
 			})
 			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
 				EventType:   "marketplace.submit_service_listing_appeal",
@@ -118,7 +111,7 @@ func SubmitMarketplaceServiceListingAppeal(s *server.RegionalServer) http.Handle
 			return
 		}
 
-		log.Info("service listing appeal submitted", "service_listing_id", req.ServiceListingID)
+		log.Info("service listing appeal submitted", "name", req.Name)
 		w.WriteHeader(http.StatusOK)
 	}
 }

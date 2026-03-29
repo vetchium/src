@@ -1,11 +1,9 @@
 import { newValidationError, type ValidationError } from "../common/common";
 
 export interface AuditLogEntry {
-	id: string;
 	event_type: string;
-	actor_user_id: string | null;
-	target_user_id: string | null;
-	org_id: string | null;
+	actor_email: string | null;
+	target_email: string | null;
 	ip_address: string;
 	event_data: Record<string, unknown>;
 	created_at: string; // ISO 8601
@@ -13,7 +11,7 @@ export interface AuditLogEntry {
 
 export interface FilterAuditLogsRequest {
 	event_types?: string[];
-	actor_user_id?: string;
+	actor_email?: string;
 	start_time?: string; // ISO 8601
 	end_time?: string; // ISO 8601
 	pagination_key?: string;

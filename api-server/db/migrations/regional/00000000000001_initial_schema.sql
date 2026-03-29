@@ -185,7 +185,8 @@ CREATE TABLE suborgs (
     name          VARCHAR(64) NOT NULL,
     pinned_region VARCHAR(32) NOT NULL,
     status        VARCHAR(16) NOT NULL DEFAULT 'active',
-    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (org_id, name)
 );
 -- SubOrg membership: org users assigned to a SubOrg
 CREATE TABLE org_user_suborg_assignments (
@@ -321,7 +322,8 @@ CREATE TABLE marketplace_service_listings (
     appeal_admin_note   TEXT,
     appeal_decided_at   TIMESTAMPTZ,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (org_id, name)
 );
 
 -- Marketplace service listing reports (one per OrgUser per listing)

@@ -14,7 +14,6 @@ model CreateSubOrgRequest {
 }
 
 model SubOrg {
-  suborg_id: string;
   name: string;
   pinned_region: string;
   status: string;
@@ -24,6 +23,7 @@ model SubOrg {
 model ListSubOrgsRequest {
   filter_status?: string;
   pagination_key?: string;
+  limit?: int32;
 }
 
 model ListSubOrgsResponse {
@@ -32,33 +32,32 @@ model ListSubOrgsResponse {
 }
 
 model RenameSubOrgRequest {
-  suborg_id: string;
   name: string;
+  new_name: string;
 }
 
 model UpdateSubOrgStatusRequest {
-  suborg_id: string;
+  name: string;
 }
 
 model AddSubOrgMemberRequest {
-  suborg_id: string;
-  org_user_id: string;
+  name: string;
+  email_address: string;
 }
 
 model RemoveSubOrgMemberRequest {
-  suborg_id: string;
-  org_user_id: string;
+  name: string;
+  email_address: string;
 }
 
 model SubOrgMember {
-  org_user_id: string;
   full_name?: string;
   email_address: string;
   assigned_at: string;
 }
 
 model ListSubOrgMembersRequest {
-  suborg_id: string;
+  name: string;
   pagination_key?: string;
 }
 

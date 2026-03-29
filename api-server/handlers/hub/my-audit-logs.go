@@ -42,7 +42,7 @@ func MyAuditLogs(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		params := regionaldb.FilterMyAuditLogsParams{
+		params := regionaldb.FilterMyAuditLogsWithEmailParams{
 			ActorUserID: hubUser.HubUserGlobalID,
 			LimitCount:  req.EffectiveLimit() + 1,
 		}
@@ -75,7 +75,7 @@ func MyAuditLogs(s *server.RegionalServer) http.HandlerFunc {
 			}
 		}
 
-		rows, err := s.Regional.FilterMyAuditLogs(ctx, params)
+		rows, err := s.Regional.FilterMyAuditLogsWithEmail(ctx, params)
 		if err != nil {
 			s.Logger(ctx).Error("failed to filter audit logs", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
@@ -88,9 +88,12 @@ func MyAuditLogs(s *server.RegionalServer) http.HandlerFunc {
 			rows = rows[:limit]
 		}
 
+		// Hub user is always the actor in "my audit logs", use their email from context.
+		actorEmail := string(hubUser.EmailAddress)
+
 		entries := make([]auditlogs.AuditLogEntry, 0, len(rows))
 		for _, row := range rows {
-			entries = append(entries, hubAuditLogToEntry(row))
+			entries = append(entries, hubAuditLogToEntry(row, actorEmail))
 		}
 
 		var paginationKey *string
@@ -113,25 +116,17 @@ func MyAuditLogs(s *server.RegionalServer) http.HandlerFunc {
 	}
 }
 
-func hubAuditLogToEntry(row regionaldb.AuditLog) auditlogs.AuditLogEntry {
+func hubAuditLogToEntry(row regionaldb.FilterMyAuditLogsWithEmailRow, actorEmail string) auditlogs.AuditLogEntry {
 	entry := auditlogs.AuditLogEntry{
-		ID:        hubUUIDToString(row.ID),
 		EventType: row.EventType,
 		IPAddress: row.IpAddress,
 		CreatedAt: row.CreatedAt.Time.UTC().Format(time.RFC3339),
 		EventData: make(map[string]any),
 	}
-	if row.ActorUserID.Valid {
-		s := hubUUIDToString(row.ActorUserID)
-		entry.ActorUserID = &s
-	}
-	if row.TargetUserID.Valid {
-		s := hubUUIDToString(row.TargetUserID)
-		entry.TargetUserID = &s
-	}
-	if row.OrgID.Valid {
-		s := hubUUIDToString(row.OrgID)
-		entry.OrgID = &s
+	entry.ActorEmail = &actorEmail
+	if row.TargetEmail.Valid {
+		e := row.TargetEmail.String
+		entry.TargetEmail = &e
 	}
 	if len(row.EventData) > 0 {
 		json.Unmarshal(row.EventData, &entry.EventData) //nolint:errcheck

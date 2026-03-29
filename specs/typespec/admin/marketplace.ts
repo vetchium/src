@@ -17,7 +17,7 @@ export type {
 
 export interface ListMarketplaceProviderCapabilitiesRequest {
 	filter_status?: OrgCapabilityStatus;
-	filter_org_id?: string;
+	filter_org_domain?: string;
 	cursor?: string;
 	limit?: number;
 }
@@ -28,7 +28,7 @@ export interface ListMarketplaceProviderCapabilitiesResponse {
 }
 
 export interface ApproveMarketplaceProviderCapabilityRequest {
-	org_id: string;
+	org_domain: string;
 	subscription_price: number;
 	currency: string;
 	subscription_period_days: number;
@@ -38,8 +38,8 @@ export function validateApproveMarketplaceProviderCapabilityRequest(
 	req: ApproveMarketplaceProviderCapabilityRequest
 ): ValidationError[] {
 	const errs: ValidationError[] = [];
-	if (!req.org_id) {
-		errs.push(newValidationError("org_id", "org_id is required"));
+	if (!req.org_domain) {
+		errs.push(newValidationError("org_domain", "org_domain is required"));
 	}
 	if (req.subscription_price < 0) {
 		errs.push(
@@ -69,7 +69,7 @@ export function validateApproveMarketplaceProviderCapabilityRequest(
 }
 
 export interface RejectMarketplaceProviderCapabilityRequest {
-	org_id: string;
+	org_domain: string;
 	admin_note: string;
 }
 
@@ -77,8 +77,8 @@ export function validateRejectMarketplaceProviderCapabilityRequest(
 	req: RejectMarketplaceProviderCapabilityRequest
 ): ValidationError[] {
 	const errs: ValidationError[] = [];
-	if (!req.org_id) {
-		errs.push(newValidationError("org_id", "org_id is required"));
+	if (!req.org_domain) {
+		errs.push(newValidationError("org_domain", "org_domain is required"));
 	}
 	if (!req.admin_note) {
 		errs.push(newValidationError("admin_note", "admin_note is required"));
@@ -87,19 +87,19 @@ export function validateRejectMarketplaceProviderCapabilityRequest(
 }
 
 export interface RenewMarketplaceProviderCapabilityRequest {
-	org_id: string;
+	org_domain: string;
 	subscription_price: number;
 	currency: string;
 	subscription_period_days: number;
 }
 
 export interface RevokeMarketplaceProviderCapabilityRequest {
-	org_id: string;
+	org_domain: string;
 	admin_note: string;
 }
 
 export interface ReinstateMarketplaceProviderCapabilityRequest {
-	org_id: string;
+	org_domain: string;
 	subscription_price: number;
 	currency: string;
 	subscription_period_days: number;
@@ -109,7 +109,7 @@ export interface ReinstateMarketplaceProviderCapabilityRequest {
 
 export interface AdminListMarketplaceServiceListingsRequest {
 	filter_state?: ServiceListingState;
-	filter_org_id?: string;
+	filter_org_domain?: string;
 	has_reports?: boolean;
 	cursor?: string;
 	limit?: number;
@@ -121,13 +121,13 @@ export interface AdminListMarketplaceServiceListingsResponse {
 }
 
 export interface AdminGetMarketplaceServiceListingRequest {
-	service_listing_id: string;
-	home_region: string;
+	org_domain: string;
+	name: string;
 }
 
 export interface AdminApproveMarketplaceServiceListingRequest {
-	service_listing_id: string;
-	home_region: string;
+	org_domain: string;
+	name: string;
 	admin_verification_note: string;
 	verification_id: string;
 }
@@ -136,13 +136,11 @@ export function validateAdminApproveMarketplaceServiceListingRequest(
 	req: AdminApproveMarketplaceServiceListingRequest
 ): ValidationError[] {
 	const errs: ValidationError[] = [];
-	if (!req.service_listing_id) {
-		errs.push(
-			newValidationError("service_listing_id", "service_listing_id is required")
-		);
+	if (!req.org_domain) {
+		errs.push(newValidationError("org_domain", "org_domain is required"));
 	}
-	if (!req.home_region) {
-		errs.push(newValidationError("home_region", "home_region is required"));
+	if (!req.name) {
+		errs.push(newValidationError("name", "name is required"));
 	}
 	if (!req.admin_verification_note) {
 		errs.push(
@@ -161,8 +159,8 @@ export function validateAdminApproveMarketplaceServiceListingRequest(
 }
 
 export interface AdminRejectMarketplaceServiceListingRequest {
-	service_listing_id: string;
-	home_region: string;
+	org_domain: string;
+	name: string;
 	admin_verification_note: string;
 	verification_id?: string;
 }
@@ -171,13 +169,11 @@ export function validateAdminRejectMarketplaceServiceListingRequest(
 	req: AdminRejectMarketplaceServiceListingRequest
 ): ValidationError[] {
 	const errs: ValidationError[] = [];
-	if (!req.service_listing_id) {
-		errs.push(
-			newValidationError("service_listing_id", "service_listing_id is required")
-		);
+	if (!req.org_domain) {
+		errs.push(newValidationError("org_domain", "org_domain is required"));
 	}
-	if (!req.home_region) {
-		errs.push(newValidationError("home_region", "home_region is required"));
+	if (!req.name) {
+		errs.push(newValidationError("name", "name is required"));
 	}
 	if (!req.admin_verification_note) {
 		errs.push(
@@ -191,8 +187,8 @@ export function validateAdminRejectMarketplaceServiceListingRequest(
 }
 
 export interface AdminSuspendMarketplaceServiceListingRequest {
-	service_listing_id: string;
-	home_region: string;
+	org_domain: string;
+	name: string;
 	admin_verification_note: string;
 	verification_id?: string;
 }
@@ -201,13 +197,11 @@ export function validateAdminSuspendMarketplaceServiceListingRequest(
 	req: AdminSuspendMarketplaceServiceListingRequest
 ): ValidationError[] {
 	const errs: ValidationError[] = [];
-	if (!req.service_listing_id) {
-		errs.push(
-			newValidationError("service_listing_id", "service_listing_id is required")
-		);
+	if (!req.org_domain) {
+		errs.push(newValidationError("org_domain", "org_domain is required"));
 	}
-	if (!req.home_region) {
-		errs.push(newValidationError("home_region", "home_region is required"));
+	if (!req.name) {
+		errs.push(newValidationError("name", "name is required"));
 	}
 	if (!req.admin_verification_note) {
 		errs.push(
@@ -221,55 +215,64 @@ export function validateAdminSuspendMarketplaceServiceListingRequest(
 }
 
 export interface AdminReinstateMarketplaceServiceListingRequest {
-	service_listing_id: string;
-	home_region: string;
-	admin_note?: string;
+	org_domain: string;
+	name: string;
+	admin_verification_note?: string;
+	verification_id?: string;
 }
 
 export interface AdminGrantMarketplaceAppealRequest {
-	service_listing_id: string;
-	home_region: string;
-	admin_note: string;
+	org_domain: string;
+	name: string;
+	admin_verification_note: string;
+	verification_id?: string;
 }
 
 export function validateAdminGrantMarketplaceAppealRequest(
 	req: AdminGrantMarketplaceAppealRequest
 ): ValidationError[] {
 	const errs: ValidationError[] = [];
-	if (!req.service_listing_id) {
+	if (!req.org_domain) {
+		errs.push(newValidationError("org_domain", "org_domain is required"));
+	}
+	if (!req.name) {
+		errs.push(newValidationError("name", "name is required"));
+	}
+	if (!req.admin_verification_note) {
 		errs.push(
-			newValidationError("service_listing_id", "service_listing_id is required")
+			newValidationError(
+				"admin_verification_note",
+				"admin_verification_note is required"
+			)
 		);
-	}
-	if (!req.home_region) {
-		errs.push(newValidationError("home_region", "home_region is required"));
-	}
-	if (!req.admin_note) {
-		errs.push(newValidationError("admin_note", "admin_note is required"));
 	}
 	return errs;
 }
 
 export interface AdminDenyMarketplaceAppealRequest {
-	service_listing_id: string;
-	home_region: string;
-	admin_note: string;
+	org_domain: string;
+	name: string;
+	admin_verification_note: string;
+	verification_id?: string;
 }
 
 export function validateAdminDenyMarketplaceAppealRequest(
 	req: AdminDenyMarketplaceAppealRequest
 ): ValidationError[] {
 	const errs: ValidationError[] = [];
-	if (!req.service_listing_id) {
+	if (!req.org_domain) {
+		errs.push(newValidationError("org_domain", "org_domain is required"));
+	}
+	if (!req.name) {
+		errs.push(newValidationError("name", "name is required"));
+	}
+	if (!req.admin_verification_note) {
 		errs.push(
-			newValidationError("service_listing_id", "service_listing_id is required")
+			newValidationError(
+				"admin_verification_note",
+				"admin_verification_note is required"
+			)
 		);
-	}
-	if (!req.home_region) {
-		errs.push(newValidationError("home_region", "home_region is required"));
-	}
-	if (!req.admin_note) {
-		errs.push(newValidationError("admin_note", "admin_note is required"));
 	}
 	return errs;
 }

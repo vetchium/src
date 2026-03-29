@@ -147,7 +147,6 @@ export function validateOrgCompleteSignupRequest(
 
 export interface OrgCompleteSignupResponse {
 	session_token: OrgSessionToken;
-	org_user_id: string;
 }
 
 // ============================================
@@ -281,7 +280,6 @@ export function validateOrgInviteUserRequest(
 }
 
 export interface OrgInviteUserResponse {
-	invitation_id: string;
 	expires_at: string;
 }
 
@@ -559,7 +557,6 @@ export function validateOrgSetLanguageRequest(
 // ===================================
 
 export interface OrgMyInfoResponse {
-	org_user_id: string;
 	full_name: string;
 	preferred_language: LanguageCode;
 	org_name: string;

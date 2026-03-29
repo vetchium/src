@@ -42,20 +42,13 @@ func RejectMarketplaceProviderCapability(s *server.GlobalServer) http.HandlerFun
 			return
 		}
 
-		var orgID pgtype.UUID
-		if err := orgID.Scan(req.OrgID); err != nil {
-			log.Debug("invalid org_id", "error", err)
-			http.Error(w, "invalid org_id", http.StatusBadRequest)
-			return
-		}
-
-		org, err := s.Global.GetOrgByID(ctx, orgID)
+		org, err := s.Global.GetOrgByDomain(ctx, req.OrgDomain)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
-			log.Error("failed to get org", "error", err)
+			log.Error("failed to get org by domain", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -66,7 +59,7 @@ func RejectMarketplaceProviderCapability(s *server.GlobalServer) http.HandlerFun
 			updatedCap, txErr = qtx.AdminRejectOrgCapability(ctx, regionaldb.AdminRejectOrgCapabilityParams{
 				AdminID:    adminUser.AdminUserID,
 				AdminNote:  pgtype.Text{String: req.AdminNote, Valid: true},
-				OrgID:      orgID,
+				OrgID:      org.OrgID,
 				Capability: "marketplace_provider",
 			})
 			return txErr
@@ -79,7 +72,7 @@ func RejectMarketplaceProviderCapability(s *server.GlobalServer) http.HandlerFun
 					return
 				}
 				_, checkErr := rdb.GetOrgCapability(ctx, regionaldb.GetOrgCapabilityParams{
-					OrgID:      orgID,
+					OrgID:      org.OrgID,
 					Capability: "marketplace_provider",
 				})
 				if errors.Is(checkErr, pgx.ErrNoRows) {
@@ -95,7 +88,7 @@ func RejectMarketplaceProviderCapability(s *server.GlobalServer) http.HandlerFun
 		}
 
 		eventData, _ := json.Marshal(map[string]any{
-			"org_id":     req.OrgID,
+			"org_domain": req.OrgDomain,
 			"capability": "marketplace_provider",
 		})
 		auditErr := s.WithGlobalTx(ctx, func(qtx *globaldb.Queries) error {
@@ -108,10 +101,10 @@ func RejectMarketplaceProviderCapability(s *server.GlobalServer) http.HandlerFun
 		})
 		if auditErr != nil {
 			log.Error("CONSISTENCY_ALERT: failed to write audit log after successful regional capability rejection",
-				"error", auditErr, "org_id", req.OrgID)
+				"error", auditErr, "org_domain", req.OrgDomain)
 		}
 
-		log.Info("marketplace provider capability rejected", "org_id", req.OrgID, "admin_id", uuidToString(adminUser.AdminUserID))
+		log.Info("marketplace provider capability rejected", "org_domain", req.OrgDomain, "admin_id", uuidToString(adminUser.AdminUserID))
 
 		if err := json.NewEncoder(w).Encode(dbOrgCapabilityToAPI(updatedCap)); err != nil {
 			log.Error("failed to encode response", "error", err)

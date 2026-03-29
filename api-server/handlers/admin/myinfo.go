@@ -35,7 +35,6 @@ func MyInfo(s *server.GlobalServer) http.HandlerFunc {
 		}
 
 		response := admin.AdminMyInfoResponse{
-			AdminUserID:       adminUser.AdminUserID.String(),
 			EmailAddress:      common.EmailAddress(adminUser.EmailAddress),
 			FullName:          adminUser.FullName.String,
 			PreferredLanguage: common.LanguageCode(adminUser.PreferredLanguage),

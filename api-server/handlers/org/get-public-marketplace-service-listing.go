@@ -6,8 +6,7 @@ import (
 	"net/http"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
-	"vetchium-api-server.gomodule/internal/db/globaldb"
+	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/proxy"
 	"vetchium-api-server.gomodule/internal/server"
@@ -16,7 +15,7 @@ import (
 
 // GetPublicMarketplaceServiceListing handles POST /org/get-public-marketplace-service-listing
 // Returns a publicly-visible (active) service listing for the buyer view.
-// Routes to the correct region based on home_region in the request.
+// Routes to the correct region based on the org_domain's home region.
 func GetPublicMarketplaceServiceListing(s *server.RegionalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -52,22 +51,29 @@ func GetPublicMarketplaceServiceListing(s *server.RegionalServer) http.HandlerFu
 			return
 		}
 
-		// Proxy to the correct region if home_region != current region
-		targetRegion := globaldb.Region(req.HomeRegion)
-		if targetRegion != s.CurrentRegion {
-			s.ProxyToRegion(w, r, targetRegion, bodyBytes)
+		// Look up the org by domain to get org_id and region
+		providerOrg, err := s.Global.GetOrgByDomain(ctx, req.OrgDomain)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			log.Error("failed to get org by domain", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		// Local region: query the active listing
-		var listingID pgtype.UUID
-		if err := listingID.Scan(req.ServiceListingID); err != nil {
-			log.Debug("invalid service_listing_id", "error", err)
-			w.WriteHeader(http.StatusBadRequest)
+		// Proxy to the correct region if the org's home region != current region
+		if providerOrg.Region != s.CurrentRegion {
+			s.ProxyToRegion(w, r, providerOrg.Region, bodyBytes)
 			return
 		}
 
-		listing, err := s.Regional.GetActiveServiceListingByID(ctx, listingID)
+		// Local region: query the active listing by org + name
+		listing, err := s.Regional.GetServiceListingByOrgAndName(ctx, regionaldb.GetServiceListingByOrgAndNameParams{
+			OrgID: providerOrg.OrgID,
+			Name:  req.Name,
+		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				w.WriteHeader(http.StatusNotFound)
@@ -78,12 +84,18 @@ func GetPublicMarketplaceServiceListing(s *server.RegionalServer) http.HandlerFu
 			return
 		}
 
+		// Only active listings are publicly visible
+		if listing.State != regionaldb.ServiceListingStateActive {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+
 		// Prevent org from viewing its own listing via the buyer endpoint
 		if listing.OrgID == orgUser.OrgID {
 			w.WriteHeader(http.StatusForbidden)
 			return
 		}
 
-		json.NewEncoder(w).Encode(dbServiceListingToAPI(listing))
+		json.NewEncoder(w).Encode(dbServiceListingToAPI(listing, req.OrgDomain))
 	}
 }

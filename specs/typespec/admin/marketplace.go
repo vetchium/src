@@ -34,10 +34,10 @@ const (
 // ---- Admin Capability endpoints ----
 
 type ListMarketplaceProviderCapabilitiesRequest struct {
-	FilterStatus *OrgCapabilityStatus `json:"filter_status,omitempty"`
-	FilterOrgID  *string              `json:"filter_org_id,omitempty"`
-	Cursor       *string              `json:"cursor,omitempty"`
-	Limit        *int                 `json:"limit,omitempty"`
+	FilterStatus    *OrgCapabilityStatus `json:"filter_status,omitempty"`
+	FilterOrgDomain *string              `json:"filter_org_domain,omitempty"`
+	Cursor          *string              `json:"cursor,omitempty"`
+	Limit           *int                 `json:"limit,omitempty"`
 }
 
 func (r ListMarketplaceProviderCapabilitiesRequest) Validate() []common.ValidationError {
@@ -50,7 +50,7 @@ type ListMarketplaceProviderCapabilitiesResponse struct {
 }
 
 type ApproveMarketplaceProviderCapabilityRequest struct {
-	OrgID                  string  `json:"org_id"`
+	OrgDomain              string  `json:"org_domain"`
 	SubscriptionPrice      float64 `json:"subscription_price"`
 	Currency               string  `json:"currency"`
 	SubscriptionPeriodDays int     `json:"subscription_period_days"`
@@ -58,8 +58,8 @@ type ApproveMarketplaceProviderCapabilityRequest struct {
 
 func (r ApproveMarketplaceProviderCapabilityRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
-	if r.OrgID == "" {
-		errs = append(errs, common.NewValidationError("org_id", fmt.Errorf("org_id is required")))
+	if r.OrgDomain == "" {
+		errs = append(errs, common.NewValidationError("org_domain", fmt.Errorf("org_domain is required")))
 	}
 	if r.SubscriptionPrice < 0 {
 		errs = append(errs, common.NewValidationError("subscription_price", fmt.Errorf("subscription_price must be non-negative")))
@@ -74,14 +74,14 @@ func (r ApproveMarketplaceProviderCapabilityRequest) Validate() []common.Validat
 }
 
 type RejectMarketplaceProviderCapabilityRequest struct {
-	OrgID     string `json:"org_id"`
+	OrgDomain string `json:"org_domain"`
 	AdminNote string `json:"admin_note"`
 }
 
 func (r RejectMarketplaceProviderCapabilityRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
-	if r.OrgID == "" {
-		errs = append(errs, common.NewValidationError("org_id", fmt.Errorf("org_id is required")))
+	if r.OrgDomain == "" {
+		errs = append(errs, common.NewValidationError("org_domain", fmt.Errorf("org_domain is required")))
 	}
 	if r.AdminNote == "" {
 		errs = append(errs, common.NewValidationError("admin_note", fmt.Errorf("admin_note is required")))
@@ -90,7 +90,7 @@ func (r RejectMarketplaceProviderCapabilityRequest) Validate() []common.Validati
 }
 
 type RenewMarketplaceProviderCapabilityRequest struct {
-	OrgID                  string  `json:"org_id"`
+	OrgDomain              string  `json:"org_domain"`
 	SubscriptionPrice      float64 `json:"subscription_price"`
 	Currency               string  `json:"currency"`
 	SubscriptionPeriodDays int     `json:"subscription_period_days"`
@@ -98,8 +98,8 @@ type RenewMarketplaceProviderCapabilityRequest struct {
 
 func (r RenewMarketplaceProviderCapabilityRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
-	if r.OrgID == "" {
-		errs = append(errs, common.NewValidationError("org_id", fmt.Errorf("org_id is required")))
+	if r.OrgDomain == "" {
+		errs = append(errs, common.NewValidationError("org_domain", fmt.Errorf("org_domain is required")))
 	}
 	if r.SubscriptionPrice < 0 {
 		errs = append(errs, common.NewValidationError("subscription_price", fmt.Errorf("subscription_price must be non-negative")))
@@ -114,14 +114,14 @@ func (r RenewMarketplaceProviderCapabilityRequest) Validate() []common.Validatio
 }
 
 type RevokeMarketplaceProviderCapabilityRequest struct {
-	OrgID     string `json:"org_id"`
+	OrgDomain string `json:"org_domain"`
 	AdminNote string `json:"admin_note"`
 }
 
 func (r RevokeMarketplaceProviderCapabilityRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
-	if r.OrgID == "" {
-		errs = append(errs, common.NewValidationError("org_id", fmt.Errorf("org_id is required")))
+	if r.OrgDomain == "" {
+		errs = append(errs, common.NewValidationError("org_domain", fmt.Errorf("org_domain is required")))
 	}
 	if r.AdminNote == "" {
 		errs = append(errs, common.NewValidationError("admin_note", fmt.Errorf("admin_note is required")))
@@ -130,7 +130,7 @@ func (r RevokeMarketplaceProviderCapabilityRequest) Validate() []common.Validati
 }
 
 type ReinstateMarketplaceProviderCapabilityRequest struct {
-	OrgID                  string  `json:"org_id"`
+	OrgDomain              string  `json:"org_domain"`
 	SubscriptionPrice      float64 `json:"subscription_price"`
 	Currency               string  `json:"currency"`
 	SubscriptionPeriodDays int     `json:"subscription_period_days"`
@@ -138,8 +138,8 @@ type ReinstateMarketplaceProviderCapabilityRequest struct {
 
 func (r ReinstateMarketplaceProviderCapabilityRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
-	if r.OrgID == "" {
-		errs = append(errs, common.NewValidationError("org_id", fmt.Errorf("org_id is required")))
+	if r.OrgDomain == "" {
+		errs = append(errs, common.NewValidationError("org_domain", fmt.Errorf("org_domain is required")))
 	}
 	if r.SubscriptionPrice < 0 {
 		errs = append(errs, common.NewValidationError("subscription_price", fmt.Errorf("subscription_price must be non-negative")))
@@ -156,11 +156,11 @@ func (r ReinstateMarketplaceProviderCapabilityRequest) Validate() []common.Valid
 // ---- Admin ServiceListing endpoints ----
 
 type AdminListMarketplaceServiceListingsRequest struct {
-	FilterState *ServiceListingState `json:"filter_state,omitempty"`
-	FilterOrgID *string              `json:"filter_org_id,omitempty"`
-	HasReports  *bool                `json:"has_reports,omitempty"`
-	Cursor      *string              `json:"cursor,omitempty"`
-	Limit       *int                 `json:"limit,omitempty"`
+	FilterState     *ServiceListingState `json:"filter_state,omitempty"`
+	FilterOrgDomain *string              `json:"filter_org_domain,omitempty"`
+	HasReports      *bool                `json:"has_reports,omitempty"`
+	Cursor          *string              `json:"cursor,omitempty"`
+	Limit           *int                 `json:"limit,omitempty"`
 }
 
 func (r AdminListMarketplaceServiceListingsRequest) Validate() []common.ValidationError {
@@ -173,35 +173,35 @@ type AdminListMarketplaceServiceListingsResponse struct {
 }
 
 type AdminGetMarketplaceServiceListingRequest struct {
-	ServiceListingID string `json:"service_listing_id"`
-	HomeRegion       string `json:"home_region"`
+	OrgDomain string `json:"org_domain"`
+	Name      string `json:"name"`
 }
 
 func (r AdminGetMarketplaceServiceListingRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
-	if r.ServiceListingID == "" {
-		errs = append(errs, common.NewValidationError("service_listing_id", fmt.Errorf("service_listing_id is required")))
+	if r.OrgDomain == "" {
+		errs = append(errs, common.NewValidationError("org_domain", fmt.Errorf("org_domain is required")))
 	}
-	if r.HomeRegion == "" {
-		errs = append(errs, common.NewValidationError("home_region", fmt.Errorf("home_region is required")))
+	if r.Name == "" {
+		errs = append(errs, common.NewValidationError("name", fmt.Errorf("name is required")))
 	}
 	return errs
 }
 
 type AdminApproveMarketplaceServiceListingRequest struct {
-	ServiceListingID      string `json:"service_listing_id"`
-	HomeRegion            string `json:"home_region"`
+	OrgDomain             string `json:"org_domain"`
+	Name                  string `json:"name"`
 	AdminVerificationNote string `json:"admin_verification_note"`
 	VerificationID        string `json:"verification_id"`
 }
 
 func (r AdminApproveMarketplaceServiceListingRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
-	if r.ServiceListingID == "" {
-		errs = append(errs, common.NewValidationError("service_listing_id", fmt.Errorf("service_listing_id is required")))
+	if r.OrgDomain == "" {
+		errs = append(errs, common.NewValidationError("org_domain", fmt.Errorf("org_domain is required")))
 	}
-	if r.HomeRegion == "" {
-		errs = append(errs, common.NewValidationError("home_region", fmt.Errorf("home_region is required")))
+	if r.Name == "" {
+		errs = append(errs, common.NewValidationError("name", fmt.Errorf("name is required")))
 	}
 	if r.AdminVerificationNote == "" {
 		errs = append(errs, common.NewValidationError("admin_verification_note", fmt.Errorf("admin_verification_note is required")))
@@ -213,19 +213,19 @@ func (r AdminApproveMarketplaceServiceListingRequest) Validate() []common.Valida
 }
 
 type AdminRejectMarketplaceServiceListingRequest struct {
-	ServiceListingID      string  `json:"service_listing_id"`
-	HomeRegion            string  `json:"home_region"`
+	OrgDomain             string  `json:"org_domain"`
+	Name                  string  `json:"name"`
 	AdminVerificationNote string  `json:"admin_verification_note"`
 	VerificationID        *string `json:"verification_id,omitempty"`
 }
 
 func (r AdminRejectMarketplaceServiceListingRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
-	if r.ServiceListingID == "" {
-		errs = append(errs, common.NewValidationError("service_listing_id", fmt.Errorf("service_listing_id is required")))
+	if r.OrgDomain == "" {
+		errs = append(errs, common.NewValidationError("org_domain", fmt.Errorf("org_domain is required")))
 	}
-	if r.HomeRegion == "" {
-		errs = append(errs, common.NewValidationError("home_region", fmt.Errorf("home_region is required")))
+	if r.Name == "" {
+		errs = append(errs, common.NewValidationError("name", fmt.Errorf("name is required")))
 	}
 	if r.AdminVerificationNote == "" {
 		errs = append(errs, common.NewValidationError("admin_verification_note", fmt.Errorf("admin_verification_note is required")))
@@ -234,19 +234,19 @@ func (r AdminRejectMarketplaceServiceListingRequest) Validate() []common.Validat
 }
 
 type AdminSuspendMarketplaceServiceListingRequest struct {
-	ServiceListingID      string  `json:"service_listing_id"`
-	HomeRegion            string  `json:"home_region"`
+	OrgDomain             string  `json:"org_domain"`
+	Name                  string  `json:"name"`
 	AdminVerificationNote string  `json:"admin_verification_note"`
 	VerificationID        *string `json:"verification_id,omitempty"`
 }
 
 func (r AdminSuspendMarketplaceServiceListingRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
-	if r.ServiceListingID == "" {
-		errs = append(errs, common.NewValidationError("service_listing_id", fmt.Errorf("service_listing_id is required")))
+	if r.OrgDomain == "" {
+		errs = append(errs, common.NewValidationError("org_domain", fmt.Errorf("org_domain is required")))
 	}
-	if r.HomeRegion == "" {
-		errs = append(errs, common.NewValidationError("home_region", fmt.Errorf("home_region is required")))
+	if r.Name == "" {
+		errs = append(errs, common.NewValidationError("name", fmt.Errorf("name is required")))
 	}
 	if r.AdminVerificationNote == "" {
 		errs = append(errs, common.NewValidationError("admin_verification_note", fmt.Errorf("admin_verification_note is required")))
@@ -255,58 +255,61 @@ func (r AdminSuspendMarketplaceServiceListingRequest) Validate() []common.Valida
 }
 
 type AdminReinstateMarketplaceServiceListingRequest struct {
-	ServiceListingID string  `json:"service_listing_id"`
-	HomeRegion       string  `json:"home_region"`
-	AdminNote        *string `json:"admin_note,omitempty"`
+	OrgDomain             string  `json:"org_domain"`
+	Name                  string  `json:"name"`
+	AdminVerificationNote string  `json:"admin_verification_note"`
+	VerificationID        *string `json:"verification_id,omitempty"`
 }
 
 func (r AdminReinstateMarketplaceServiceListingRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
-	if r.ServiceListingID == "" {
-		errs = append(errs, common.NewValidationError("service_listing_id", fmt.Errorf("service_listing_id is required")))
+	if r.OrgDomain == "" {
+		errs = append(errs, common.NewValidationError("org_domain", fmt.Errorf("org_domain is required")))
 	}
-	if r.HomeRegion == "" {
-		errs = append(errs, common.NewValidationError("home_region", fmt.Errorf("home_region is required")))
+	if r.Name == "" {
+		errs = append(errs, common.NewValidationError("name", fmt.Errorf("name is required")))
 	}
 	return errs
 }
 
 type AdminGrantMarketplaceAppealRequest struct {
-	ServiceListingID string `json:"service_listing_id"`
-	HomeRegion       string `json:"home_region"`
-	AdminNote        string `json:"admin_note"`
+	OrgDomain             string  `json:"org_domain"`
+	Name                  string  `json:"name"`
+	AdminVerificationNote string  `json:"admin_verification_note"`
+	VerificationID        *string `json:"verification_id,omitempty"`
 }
 
 func (r AdminGrantMarketplaceAppealRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
-	if r.ServiceListingID == "" {
-		errs = append(errs, common.NewValidationError("service_listing_id", fmt.Errorf("service_listing_id is required")))
+	if r.OrgDomain == "" {
+		errs = append(errs, common.NewValidationError("org_domain", fmt.Errorf("org_domain is required")))
 	}
-	if r.HomeRegion == "" {
-		errs = append(errs, common.NewValidationError("home_region", fmt.Errorf("home_region is required")))
+	if r.Name == "" {
+		errs = append(errs, common.NewValidationError("name", fmt.Errorf("name is required")))
 	}
-	if r.AdminNote == "" {
-		errs = append(errs, common.NewValidationError("admin_note", fmt.Errorf("admin_note is required")))
+	if r.AdminVerificationNote == "" {
+		errs = append(errs, common.NewValidationError("admin_verification_note", fmt.Errorf("admin_verification_note is required")))
 	}
 	return errs
 }
 
 type AdminDenyMarketplaceAppealRequest struct {
-	ServiceListingID string `json:"service_listing_id"`
-	HomeRegion       string `json:"home_region"`
-	AdminNote        string `json:"admin_note"`
+	OrgDomain             string  `json:"org_domain"`
+	Name                  string  `json:"name"`
+	AdminVerificationNote string  `json:"admin_verification_note"`
+	VerificationID        *string `json:"verification_id,omitempty"`
 }
 
 func (r AdminDenyMarketplaceAppealRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
-	if r.ServiceListingID == "" {
-		errs = append(errs, common.NewValidationError("service_listing_id", fmt.Errorf("service_listing_id is required")))
+	if r.OrgDomain == "" {
+		errs = append(errs, common.NewValidationError("org_domain", fmt.Errorf("org_domain is required")))
 	}
-	if r.HomeRegion == "" {
-		errs = append(errs, common.NewValidationError("home_region", fmt.Errorf("home_region is required")))
+	if r.Name == "" {
+		errs = append(errs, common.NewValidationError("name", fmt.Errorf("name is required")))
 	}
-	if r.AdminNote == "" {
-		errs = append(errs, common.NewValidationError("admin_note", fmt.Errorf("admin_note is required")))
+	if r.AdminVerificationNote == "" {
+		errs = append(errs, common.NewValidationError("admin_verification_note", fmt.Errorf("admin_verification_note is required")))
 	}
 	return errs
 }

@@ -155,8 +155,7 @@ func InviteUser(s *server.GlobalServer) http.HandlerFunc {
 
 		// Return response
 		response := admin.AdminInviteUserResponse{
-			InvitationID: createdUserID.String(),
-			ExpiresAt:    expiresAt.Time.Format(time.RFC3339),
+			ExpiresAt: expiresAt.Time.Format(time.RFC3339),
 		}
 
 		w.WriteHeader(http.StatusCreated)

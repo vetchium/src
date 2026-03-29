@@ -228,8 +228,7 @@ func InviteUser(s *server.RegionalServer) http.HandlerFunc {
 
 		// Return response
 		response := orgtypes.OrgInviteUserResponse{
-			InvitationID: globalUser.OrgUserID.String(),
-			ExpiresAt:    expiresAt.Time.Format(time.RFC3339),
+			ExpiresAt: expiresAt.Time.Format(time.RFC3339),
 		}
 
 		w.WriteHeader(http.StatusCreated)

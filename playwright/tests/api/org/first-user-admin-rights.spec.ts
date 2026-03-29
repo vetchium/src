@@ -47,7 +47,6 @@ test.describe("First user admin rights - Org Portal", () => {
 			const completeResponse = await api.completeSignup(completeRequest);
 			expect(completeResponse.status).toBe(201);
 			expect(completeResponse.body.session_token).toBeDefined();
-			expect(completeResponse.body.org_user_id).toBeDefined();
 
 			const sessionToken = completeResponse.body.session_token;
 

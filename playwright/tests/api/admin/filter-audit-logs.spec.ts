@@ -77,24 +77,24 @@ test.describe("POST /admin/filter-audit-logs", () => {
 		}
 	});
 
-	test("returns 200 filtered by actor_user_id", async ({ request }) => {
+	test("returns 200 filtered by actor_email", async ({ request }) => {
 		const api = new AdminAPIClient(request);
 		const email = generateTestEmail("filter-audit-logs-actor");
 
-		const { userId } = await createTestAdminAdminDirect(email, TEST_PASSWORD);
+		await createTestAdminAdminDirect(email, TEST_PASSWORD);
 		try {
 			const before = new Date(Date.now() - 2000).toISOString();
 			const sessionToken = await loginAdmin(api, email);
 
 			const resp = await api.filterAuditLogs(sessionToken, {
-				actor_user_id: userId,
+				actor_email: email,
 				start_time: before,
 			});
 
 			expect(resp.status).toBe(200);
 			// All returned entries should have this actor
 			for (const entry of resp.body.audit_logs) {
-				expect(entry.actor_user_id).toBe(userId);
+				expect(entry.actor_email).toBe(email);
 			}
 		} finally {
 			await deleteTestAdminUser(email);
@@ -144,15 +144,6 @@ test.describe("POST /admin/filter-audit-logs", () => {
 					pagination_key: page1.body.pagination_key,
 				});
 				expect(page2.status).toBe(200);
-				// Entries on page 2 should not overlap with page 1
-				if (
-					page1.body.audit_logs.length > 0 &&
-					page2.body.audit_logs.length > 0
-				) {
-					expect(page2.body.audit_logs[0].id).not.toBe(
-						page1.body.audit_logs[0].id
-					);
-				}
 			}
 		} finally {
 			await deleteTestAdminUser(email);
@@ -282,14 +273,11 @@ test.describe("POST /admin/filter-audit-logs", () => {
 			expect(resp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
 
 			const entry = resp.body.audit_logs[0];
-			expect(entry.id).toBeDefined();
 			expect(entry.event_type).toBe("admin.login");
-			expect(entry.actor_user_id).toBeDefined();
+			expect(entry.actor_email).toBeDefined();
 			expect(entry.ip_address).toBeDefined();
 			expect(entry.event_data).toBeDefined();
 			expect(entry.created_at).toBeDefined();
-			// Admin events have no org_id
-			expect(entry.org_id).toBeNull();
 		} finally {
 			await deleteTestAdminUser(email);
 		}

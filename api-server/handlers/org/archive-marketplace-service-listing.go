@@ -6,7 +6,6 @@ import (
 	"net/http"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"vetchium-api-server.gomodule/internal/audit"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
@@ -42,18 +41,26 @@ func ArchiveMarketplaceServiceListing(s *server.RegionalServer) http.HandlerFunc
 			return
 		}
 
-		var listingID pgtype.UUID
-		if err := listingID.Scan(req.ServiceListingID); err != nil {
-			log.Debug("invalid service_listing_id", "error", err)
-			w.WriteHeader(http.StatusBadRequest)
+		// Look up listing by name
+		listing, err := s.Regional.GetServiceListingByOrgAndName(ctx, regionaldb.GetServiceListingByOrgAndNameParams{
+			OrgID: orgUser.OrgID,
+			Name:  req.Name,
+		})
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			log.Error("failed to get service listing", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
 		// Archive can be done by the org regardless of capability status,
 		// so no capability check here.
-		err := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
+		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
 			_, txErr := qtx.ArchiveServiceListing(ctx, regionaldb.ArchiveServiceListingParams{
-				ServiceListingID: listingID,
+				ServiceListingID: listing.ServiceListingID,
 				OrgID:            orgUser.OrgID,
 			})
 			if txErr != nil {
@@ -61,7 +68,7 @@ func ArchiveMarketplaceServiceListing(s *server.RegionalServer) http.HandlerFunc
 			}
 
 			eventData, _ := json.Marshal(map[string]any{
-				"service_listing_id": req.ServiceListingID,
+				"name": req.Name,
 			})
 			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
 				EventType:   "marketplace.archive_service_listing",
@@ -73,22 +80,7 @@ func ArchiveMarketplaceServiceListing(s *server.RegionalServer) http.HandlerFunc
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				// ArchiveServiceListing returns no rows if not found or already archived.
-				// Distinguish by checking existence.
-				_, getErr := s.Regional.GetServiceListingByIDAndOrg(ctx, regionaldb.GetServiceListingByIDAndOrgParams{
-					ServiceListingID: listingID,
-					OrgID:            orgUser.OrgID,
-				})
-				if getErr != nil {
-					if errors.Is(getErr, pgx.ErrNoRows) {
-						w.WriteHeader(http.StatusNotFound)
-						return
-					}
-					log.Error("failed to get service listing for state check", "error", getErr)
-					http.Error(w, "", http.StatusInternalServerError)
-					return
-				}
-				// Listing exists but is in a state that cannot be archived (already archived?)
+				// ArchiveServiceListing returns no rows if already archived or in invalid state.
 				w.WriteHeader(http.StatusUnprocessableEntity)
 				return
 			}
@@ -97,7 +89,7 @@ func ArchiveMarketplaceServiceListing(s *server.RegionalServer) http.HandlerFunc
 			return
 		}
 
-		log.Info("service listing archived", "service_listing_id", req.ServiceListingID)
+		log.Info("service listing archived", "name", req.Name)
 		w.WriteHeader(http.StatusNoContent)
 	}
 }

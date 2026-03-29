@@ -117,7 +117,6 @@ func (r OrgCompleteSignupRequest) Validate() []common.ValidationError {
 
 type OrgCompleteSignupResponse struct {
 	SessionToken OrgSessionToken `json:"session_token"`
-	OrgUserID    string          `json:"org_user_id"`
 }
 
 // ============================================
@@ -235,8 +234,7 @@ func (r OrgInviteUserRequest) Validate() []common.ValidationError {
 }
 
 type OrgInviteUserResponse struct {
-	InvitationID string `json:"invitation_id"`
-	ExpiresAt    string `json:"expires_at"`
+	ExpiresAt string `json:"expires_at"`
 }
 
 type OrgCompleteSetupRequest struct {
@@ -461,7 +459,6 @@ func (r OrgSetLanguageRequest) Validate() []common.ValidationError {
 // ===================================
 
 type OrgMyInfoResponse struct {
-	OrgUserID         string              `json:"org_user_id"`
 	FullName          string              `json:"full_name"`
 	PreferredLanguage common.LanguageCode `json:"preferred_language"`
 	OrgName           string              `json:"org_name"`

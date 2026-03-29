@@ -19,20 +19,18 @@ const (
 
 // AuditLogEntry is a single audit log record returned by the filter APIs.
 type AuditLogEntry struct {
-	ID           string                 `json:"id"`
-	EventType    string                 `json:"event_type"`
-	ActorUserID  *string                `json:"actor_user_id"`
-	TargetUserID *string                `json:"target_user_id"`
-	OrgID        *string                `json:"org_id"`
-	IPAddress    string                 `json:"ip_address"`
-	EventData    map[string]interface{} `json:"event_data"`
-	CreatedAt    string                 `json:"created_at"`
+	EventType   string                 `json:"event_type"`
+	ActorEmail  *string                `json:"actor_email"`
+	TargetEmail *string                `json:"target_email"`
+	IPAddress   string                 `json:"ip_address"`
+	EventData   map[string]interface{} `json:"event_data"`
+	CreatedAt   string                 `json:"created_at"`
 }
 
 // FilterAuditLogsRequest is the shared request body for all filter-audit-logs endpoints.
 type FilterAuditLogsRequest struct {
 	EventTypes    []string `json:"event_types,omitempty"`
-	ActorUserID   *string  `json:"actor_user_id,omitempty"`
+	ActorEmail    *string  `json:"actor_email,omitempty"`
 	StartTime     *string  `json:"start_time,omitempty"`
 	EndTime       *string  `json:"end_time,omitempty"`
 	PaginationKey *string  `json:"pagination_key,omitempty"`

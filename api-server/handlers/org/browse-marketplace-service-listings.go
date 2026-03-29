@@ -116,10 +116,22 @@ func BrowseMarketplaceServiceListings(s *server.RegionalServer) http.HandlerFunc
 			rows = rows[:limit]
 		}
 
-		currentRegion := string(s.CurrentRegion)
+		// Build a cache of org_id -> primary domain for efficient lookup
+		orgDomainCache := make(map[pgtype.UUID]string)
 		items := make([]orgtypes.ServiceListingSummary, 0, len(rows))
 		for _, row := range rows {
-			items = append(items, dbBrowseRowToSummary(row, currentRegion))
+			orgDomain, ok := orgDomainCache[row.OrgID]
+			if !ok {
+				domains, domErr := s.Global.GetGlobalOrgDomainsByOrg(ctx, row.OrgID)
+				if domErr != nil || len(domains) == 0 {
+					log.Error("failed to get org domain for browse result", "error", domErr)
+					http.Error(w, "", http.StatusInternalServerError)
+					return
+				}
+				orgDomain = domains[0].Domain
+				orgDomainCache[row.OrgID] = orgDomain
+			}
+			items = append(items, dbBrowseRowToSummary(row, orgDomain))
 		}
 
 		var nextCursor *string

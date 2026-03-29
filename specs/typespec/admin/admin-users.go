@@ -109,8 +109,7 @@ func (r AdminInviteUserRequest) Validate() []common.ValidationError {
 }
 
 type AdminInviteUserResponse struct {
-	InvitationID string `json:"invitation_id"`
-	ExpiresAt    string `json:"expires_at"`
+	ExpiresAt string `json:"expires_at"`
 }
 
 type AdminCompleteSetupRequest struct {
@@ -286,7 +285,6 @@ type FilterAdminUsersResponse struct {
 // ============================================
 
 type AdminMyInfoResponse struct {
-	AdminUserID       string              `json:"admin_user_id"`
 	EmailAddress      common.EmailAddress `json:"email_address"`
 	FullName          string              `json:"full_name"`
 	PreferredLanguage common.LanguageCode `json:"preferred_language"`

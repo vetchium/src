@@ -6,7 +6,6 @@ import (
 	"net/http"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
@@ -42,16 +41,9 @@ func GetMarketplaceServiceListing(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		var listingID pgtype.UUID
-		if err := listingID.Scan(req.ServiceListingID); err != nil {
-			log.Debug("invalid service_listing_id", "error", err)
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-
-		listing, err := s.Regional.GetServiceListingByIDAndOrg(ctx, regionaldb.GetServiceListingByIDAndOrgParams{
-			ServiceListingID: listingID,
-			OrgID:            orgUser.OrgID,
+		listing, err := s.Regional.GetServiceListingByOrgAndName(ctx, regionaldb.GetServiceListingByOrgAndNameParams{
+			OrgID: orgUser.OrgID,
+			Name:  req.Name,
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
@@ -63,6 +55,15 @@ func GetMarketplaceServiceListing(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		json.NewEncoder(w).Encode(dbServiceListingToAPI(listing))
+		// Get the org's primary domain from global DB for the response
+		domains, err := s.Global.GetGlobalOrgDomainsByOrg(ctx, orgUser.OrgID)
+		if err != nil || len(domains) == 0 {
+			log.Error("failed to get org domain", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+		orgDomain := domains[0].Domain
+
+		json.NewEncoder(w).Encode(dbServiceListingToAPI(listing, orgDomain))
 	}
 }

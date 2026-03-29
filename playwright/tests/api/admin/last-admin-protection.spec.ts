@@ -336,7 +336,7 @@ test.describe("Last Admin Protection", () => {
 
 			// Try to remove superadmin role from self (last active superadmin)
 			const removeRequest: RemoveRoleRequest = {
-				target_user_id: adminId,
+				email_address: adminEmail,
 				role_name: "admin:superadmin",
 			};
 			const removeResponse = await api.removeRole(sessionToken, removeRequest);

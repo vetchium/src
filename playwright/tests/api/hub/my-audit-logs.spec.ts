@@ -127,9 +127,9 @@ test.describe("POST /hub/my-audit-logs", () => {
 
 			// All entries should belong to user2; none should belong to user1
 			// (We can't easily get the hub_user_global_id here so we just assert
-			//  that the response is 200 and all entries have actor_user_id set)
+			//  that the response is 200 and all entries have actor_email set)
 			for (const entry of resp.body.audit_logs) {
-				expect(entry.actor_user_id).not.toBeNull();
+				expect(entry.actor_email).not.toBeNull();
 			}
 		} finally {
 			await deleteTestHubUser(email1);
@@ -198,8 +198,8 @@ test.describe("POST /hub/my-audit-logs", () => {
 					page1.body.audit_logs.length > 0 &&
 					page2.body.audit_logs.length > 0
 				) {
-					expect(page2.body.audit_logs[0].id).not.toBe(
-						page1.body.audit_logs[0].id
+					expect(page2.body.audit_logs[0].created_at).not.toBe(
+						page1.body.audit_logs[0].created_at
 					);
 				}
 			}
@@ -281,14 +281,11 @@ test.describe("POST /hub/my-audit-logs", () => {
 			expect(resp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
 
 			const entry = resp.body.audit_logs[0];
-			expect(entry.id).toBeDefined();
 			expect(entry.event_type).toBe("hub.login");
-			expect(entry.actor_user_id).toBeDefined();
+			expect(entry.actor_email).toBeDefined();
 			expect(entry.ip_address).toBeDefined();
 			expect(entry.event_data).toBeDefined();
 			expect(entry.created_at).toBeDefined();
-			// Hub events have no org_id
-			expect(entry.org_id).toBeNull();
 		} finally {
 			await deleteTestHubUser(email);
 			await permanentlyDeleteTestApprovedDomain(domain);

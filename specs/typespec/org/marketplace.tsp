@@ -93,7 +93,6 @@ enum ReportReason {
 // ---- Models ----
 
 model OrgCapability {
-  org_id: string;
   capability: string;
   status: OrgCapabilityStatus;
   application_note?: string;
@@ -123,9 +122,7 @@ model ServiceListingFields {
 }
 
 model ServiceListingSummary {
-  service_listing_id: string;
-  home_region: string;
-  org_id: string;
+  org_domain: string;
   name: string;
   short_blurb: string;
   logo_url?: string;
@@ -136,8 +133,7 @@ model ServiceListingSummary {
 }
 
 model ServiceListing {
-  service_listing_id: string;
-  org_id: string;
+  org_domain: string;
   name: string;
   short_blurb: string;
   description: string;
@@ -170,31 +166,43 @@ model ApplyMarketplaceProviderCapabilityRequest {
 model CreateMarketplaceServiceListingRequest extends ServiceListingFields {}
 
 model CreateMarketplaceServiceListingResponse {
-  service_listing_id: string;
+  name: string;
 }
 
-model UpdateMarketplaceServiceListingRequest extends ServiceListingFields {
-  service_listing_id: string;
+model UpdateMarketplaceServiceListingRequest {
+  name: string;
+  short_blurb: string;
+  description: string;
+  service_category: ServiceCategory;
+  countries_of_service: CountryCode[];
+  contact_url: string;
+  pricing_info?: string;
+  industries_served: Industry[];
+  industries_served_other?: string;
+  company_sizes_served: CompanySize[];
+  job_functions_sourced: JobFunction[];
+  seniority_levels_sourced: SeniorityLevel[];
+  geographic_sourcing_regions: CountryCode[];
 }
 
 model SubmitMarketplaceServiceListingRequest {
-  service_listing_id: string;
+  name: string;
 }
 
 model PauseMarketplaceServiceListingRequest {
-  service_listing_id: string;
+  name: string;
 }
 
 model UnpauseMarketplaceServiceListingRequest {
-  service_listing_id: string;
+  name: string;
 }
 
 model ArchiveMarketplaceServiceListingRequest {
-  service_listing_id: string;
+  name: string;
 }
 
 model SubmitMarketplaceServiceListingAppealRequest {
-  service_listing_id: string;
+  name: string;
   appeal_reason: string;
 }
 
@@ -210,7 +218,7 @@ model ListMarketplaceServiceListingsResponse {
 }
 
 model GetMarketplaceServiceListingRequest {
-  service_listing_id: string;
+  name: string;
 }
 
 model BrowseMarketplaceServiceListingsRequest {
@@ -232,13 +240,13 @@ model BrowseMarketplaceServiceListingsResponse {
 }
 
 model GetPublicMarketplaceServiceListingRequest {
-  service_listing_id: string;
-  home_region: string;
+  name: string;
+  org_domain: string;
 }
 
 model ReportMarketplaceServiceListingRequest {
-  service_listing_id: string;
-  home_region: string;
+  name: string;
+  org_domain: string;
   reason: ReportReason;
   reason_other?: string;
 }

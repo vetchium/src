@@ -36,7 +36,7 @@ export type ValidRoleName = (typeof VALID_ROLE_NAMES)[number];
 
 // Validation error messages
 export const ERR_ROLE_NAME_INVALID = "must be a valid role name";
-export const ERR_TARGET_USER_ID_REQUIRED = "target user ID is required";
+export const ERR_TARGET_EMAIL_REQUIRED = "email_address is required";
 
 // Validates role name, returns error message or null
 export function validateRoleName(roleName: RoleName): string | null {
@@ -48,7 +48,7 @@ export function validateRoleName(roleName: RoleName): string | null {
 
 // Request to assign a role to a user
 export interface AssignRoleRequest {
-	target_user_id: string;
+	email_address: string;
 	role_name: RoleName;
 }
 
@@ -58,10 +58,8 @@ export function validateAssignRoleRequest(
 ): ValidationError[] {
 	const errs: ValidationError[] = [];
 
-	if (!request.target_user_id || request.target_user_id.trim() === "") {
-		errs.push(
-			newValidationError("target_user_id", ERR_TARGET_USER_ID_REQUIRED)
-		);
+	if (!request.email_address || request.email_address.trim() === "") {
+		errs.push(newValidationError("email_address", ERR_TARGET_EMAIL_REQUIRED));
 	}
 
 	if (!request.role_name) {
@@ -78,7 +76,7 @@ export function validateAssignRoleRequest(
 
 // Request to remove a role from a user
 export interface RemoveRoleRequest {
-	target_user_id: string;
+	email_address: string;
 	role_name: RoleName;
 }
 
@@ -88,10 +86,8 @@ export function validateRemoveRoleRequest(
 ): ValidationError[] {
 	const errs: ValidationError[] = [];
 
-	if (!request.target_user_id || request.target_user_id.trim() === "") {
-		errs.push(
-			newValidationError("target_user_id", ERR_TARGET_USER_ID_REQUIRED)
-		);
+	if (!request.email_address || request.email_address.trim() === "") {
+		errs.push(newValidationError("email_address", ERR_TARGET_EMAIL_REQUIRED));
 	}
 
 	if (!request.role_name) {

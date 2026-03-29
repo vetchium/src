@@ -14,7 +14,6 @@ import (
 // dbOrgCapabilityToAPI converts a regional DB OrgCapability to the API type.
 func dbOrgCapabilityToAPI(cap regionaldb.OrgCapability) orgtypes.OrgCapability {
 	result := orgtypes.OrgCapability{
-		OrgID:      uuidToString(cap.OrgID),
 		Capability: cap.Capability,
 		Status:     orgtypes.OrgCapabilityStatus(cap.Status),
 		CreatedAt:  cap.CreatedAt.Time.UTC().Format(time.RFC3339),
@@ -53,10 +52,10 @@ func dbOrgCapabilityToAPI(cap regionaldb.OrgCapability) orgtypes.OrgCapability {
 }
 
 // adminDbServiceListingToAPI converts a regional DB MarketplaceServiceListing to the full API ServiceListing type.
-func adminDbServiceListingToAPI(sl regionaldb.MarketplaceServiceListing) orgtypes.ServiceListing {
+// orgDomain is the primary domain of the owning org (looked up from global DB by the caller).
+func adminDbServiceListingToAPI(sl regionaldb.MarketplaceServiceListing, orgDomain string) orgtypes.ServiceListing {
 	result := orgtypes.ServiceListing{
-		ServiceListingID:          uuidToString(sl.ServiceListingID),
-		OrgID:                     uuidToString(sl.OrgID),
+		OrgDomain:                 orgDomain,
 		Name:                      sl.Name,
 		ShortBlurb:                sl.ShortBlurb,
 		Description:               sl.Description,

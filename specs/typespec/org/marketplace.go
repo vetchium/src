@@ -286,7 +286,6 @@ func validateServiceListingFields(
 // ---- Response types ----
 
 type OrgCapability struct {
-	OrgID             string              `json:"org_id"`
 	Capability        string              `json:"capability"`
 	Status            OrgCapabilityStatus `json:"status"`
 	ApplicationNote   *string             `json:"application_note,omitempty"`
@@ -300,9 +299,7 @@ type OrgCapability struct {
 }
 
 type ServiceListingSummary struct {
-	ServiceListingID   string          `json:"service_listing_id"`
-	HomeRegion         string          `json:"home_region"`
-	OrgID              string          `json:"org_id"`
+	OrgDomain          string          `json:"org_domain"`
 	Name               string          `json:"name"`
 	ShortBlurb         string          `json:"short_blurb"`
 	LogoURL            *string         `json:"logo_url,omitempty"`
@@ -313,8 +310,7 @@ type ServiceListingSummary struct {
 }
 
 type ServiceListing struct {
-	ServiceListingID          string              `json:"service_listing_id"`
-	OrgID                     string              `json:"org_id"`
+	OrgDomain                 string              `json:"org_domain"`
 	Name                      string              `json:"name"`
 	ShortBlurb                string              `json:"short_blurb"`
 	Description               string              `json:"description"`
@@ -395,80 +391,99 @@ func (r CreateMarketplaceServiceListingRequest) Validate() []common.ValidationEr
 }
 
 type CreateMarketplaceServiceListingResponse struct {
-	ServiceListingID string `json:"service_listing_id"`
+	Name string `json:"name"`
 }
 
+// UpdateMarketplaceServiceListingRequest identifies the listing by name
+// and allows updating all fields except name (since name is the natural key).
 type UpdateMarketplaceServiceListingRequest struct {
-	ServiceListingID string `json:"service_listing_id"`
-	ServiceListingRequest
+	Name                      string           `json:"name"`
+	ShortBlurb                string           `json:"short_blurb"`
+	Description               string           `json:"description"`
+	ServiceCategory           ServiceCategory  `json:"service_category"`
+	CountriesOfService        []string         `json:"countries_of_service"`
+	ContactURL                string           `json:"contact_url"`
+	PricingInfo               *string          `json:"pricing_info,omitempty"`
+	IndustriesServed          []Industry       `json:"industries_served"`
+	IndustriesServedOther     *string          `json:"industries_served_other,omitempty"`
+	CompanySizesServed        []CompanySize    `json:"company_sizes_served"`
+	JobFunctionsSourced       []JobFunction    `json:"job_functions_sourced"`
+	SeniorityLevelsSourced    []SeniorityLevel `json:"seniority_levels_sourced"`
+	GeographicSourcingRegions []string         `json:"geographic_sourcing_regions"`
 }
 
 func (r UpdateMarketplaceServiceListingRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
-	if r.ServiceListingID == "" {
-		errs = append(errs, common.NewValidationError("service_listing_id", fmt.Errorf("service_listing_id is required")))
+	if r.Name == "" {
+		errs = append(errs, common.NewValidationError("name", fmt.Errorf("name is required")))
 	}
-	errs = append(errs, r.ServiceListingRequest.validate()...)
+	errs = append(errs, validateServiceListingFields(
+		r.Name, r.ShortBlurb, r.Description, r.ContactURL, r.PricingInfo,
+		r.ServiceCategory, r.CountriesOfService,
+		r.IndustriesServed, r.IndustriesServedOther,
+		r.CompanySizesServed, r.JobFunctionsSourced,
+		r.SeniorityLevelsSourced, r.GeographicSourcingRegions,
+	)...)
 	return errs
 }
 
 type SubmitMarketplaceServiceListingRequest struct {
-	ServiceListingID string `json:"service_listing_id"`
+	Name string `json:"name"`
 }
 
 func (r SubmitMarketplaceServiceListingRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
-	if r.ServiceListingID == "" {
-		errs = append(errs, common.NewValidationError("service_listing_id", fmt.Errorf("service_listing_id is required")))
+	if r.Name == "" {
+		errs = append(errs, common.NewValidationError("name", fmt.Errorf("name is required")))
 	}
 	return errs
 }
 
 type PauseMarketplaceServiceListingRequest struct {
-	ServiceListingID string `json:"service_listing_id"`
+	Name string `json:"name"`
 }
 
 func (r PauseMarketplaceServiceListingRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
-	if r.ServiceListingID == "" {
-		errs = append(errs, common.NewValidationError("service_listing_id", fmt.Errorf("service_listing_id is required")))
+	if r.Name == "" {
+		errs = append(errs, common.NewValidationError("name", fmt.Errorf("name is required")))
 	}
 	return errs
 }
 
 type UnpauseMarketplaceServiceListingRequest struct {
-	ServiceListingID string `json:"service_listing_id"`
+	Name string `json:"name"`
 }
 
 func (r UnpauseMarketplaceServiceListingRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
-	if r.ServiceListingID == "" {
-		errs = append(errs, common.NewValidationError("service_listing_id", fmt.Errorf("service_listing_id is required")))
+	if r.Name == "" {
+		errs = append(errs, common.NewValidationError("name", fmt.Errorf("name is required")))
 	}
 	return errs
 }
 
 type ArchiveMarketplaceServiceListingRequest struct {
-	ServiceListingID string `json:"service_listing_id"`
+	Name string `json:"name"`
 }
 
 func (r ArchiveMarketplaceServiceListingRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
-	if r.ServiceListingID == "" {
-		errs = append(errs, common.NewValidationError("service_listing_id", fmt.Errorf("service_listing_id is required")))
+	if r.Name == "" {
+		errs = append(errs, common.NewValidationError("name", fmt.Errorf("name is required")))
 	}
 	return errs
 }
 
 type SubmitMarketplaceServiceListingAppealRequest struct {
-	ServiceListingID string `json:"service_listing_id"`
-	AppealReason     string `json:"appeal_reason"`
+	Name         string `json:"name"`
+	AppealReason string `json:"appeal_reason"`
 }
 
 func (r SubmitMarketplaceServiceListingAppealRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
-	if r.ServiceListingID == "" {
-		errs = append(errs, common.NewValidationError("service_listing_id", fmt.Errorf("service_listing_id is required")))
+	if r.Name == "" {
+		errs = append(errs, common.NewValidationError("name", fmt.Errorf("name is required")))
 	}
 	if r.AppealReason == "" {
 		errs = append(errs, common.NewValidationError("appeal_reason", fmt.Errorf("appeal_reason is required")))
@@ -494,13 +509,13 @@ type ListMarketplaceServiceListingsResponse struct {
 }
 
 type GetMarketplaceServiceListingRequest struct {
-	ServiceListingID string `json:"service_listing_id"`
+	Name string `json:"name"`
 }
 
 func (r GetMarketplaceServiceListingRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
-	if r.ServiceListingID == "" {
-		errs = append(errs, common.NewValidationError("service_listing_id", fmt.Errorf("service_listing_id is required")))
+	if r.Name == "" {
+		errs = append(errs, common.NewValidationError("name", fmt.Errorf("name is required")))
 	}
 	return errs
 }
@@ -530,35 +545,35 @@ type BrowseMarketplaceServiceListingsResponse struct {
 }
 
 type GetPublicMarketplaceServiceListingRequest struct {
-	ServiceListingID string `json:"service_listing_id"`
-	HomeRegion       string `json:"home_region"`
+	Name      string `json:"name"`
+	OrgDomain string `json:"org_domain"`
 }
 
 func (r GetPublicMarketplaceServiceListingRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
-	if r.ServiceListingID == "" {
-		errs = append(errs, common.NewValidationError("service_listing_id", fmt.Errorf("service_listing_id is required")))
+	if r.Name == "" {
+		errs = append(errs, common.NewValidationError("name", fmt.Errorf("name is required")))
 	}
-	if r.HomeRegion == "" {
-		errs = append(errs, common.NewValidationError("home_region", fmt.Errorf("home_region is required")))
+	if r.OrgDomain == "" {
+		errs = append(errs, common.NewValidationError("org_domain", fmt.Errorf("org_domain is required")))
 	}
 	return errs
 }
 
 type ReportMarketplaceServiceListingRequest struct {
-	ServiceListingID string       `json:"service_listing_id"`
-	HomeRegion       string       `json:"home_region"`
-	Reason           ReportReason `json:"reason"`
-	ReasonOther      *string      `json:"reason_other,omitempty"`
+	Name        string       `json:"name"`
+	OrgDomain   string       `json:"org_domain"`
+	Reason      ReportReason `json:"reason"`
+	ReasonOther *string      `json:"reason_other,omitempty"`
 }
 
 func (r ReportMarketplaceServiceListingRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
-	if r.ServiceListingID == "" {
-		errs = append(errs, common.NewValidationError("service_listing_id", fmt.Errorf("service_listing_id is required")))
+	if r.Name == "" {
+		errs = append(errs, common.NewValidationError("name", fmt.Errorf("name is required")))
 	}
-	if r.HomeRegion == "" {
-		errs = append(errs, common.NewValidationError("home_region", fmt.Errorf("home_region is required")))
+	if r.OrgDomain == "" {
+		errs = append(errs, common.NewValidationError("org_domain", fmt.Errorf("org_domain is required")))
 	}
 	if !validReportReasons[r.Reason] {
 		errs = append(errs, common.NewValidationError("reason", fmt.Errorf("reason must be a valid report reason")))

@@ -503,6 +503,53 @@ LIMIT @limit_count;
 DELETE FROM audit_logs
 WHERE created_at < NOW() - @retention_period::interval;
 
+-- name: FilterAuditLogsWithEmail :many
+SELECT
+    al.id,
+    al.event_type,
+    al.ip_address,
+    al.event_data,
+    al.created_at,
+    actor.email_address AS actor_email,
+    target.email_address AS target_email
+FROM audit_logs al
+LEFT JOIN org_users actor ON al.actor_user_id = actor.org_user_id
+LEFT JOIN org_users target ON al.target_user_id = target.org_user_id
+WHERE
+    al.org_id = @org_id
+    AND (sqlc.narg('event_types')::text[] IS NULL OR al.event_type = ANY(sqlc.narg('event_types')::text[]))
+    AND (sqlc.narg('actor_email')::text IS NULL OR actor.email_address = sqlc.narg('actor_email')::text)
+    AND (sqlc.narg('start_time')::timestamptz IS NULL OR al.created_at >= sqlc.narg('start_time')::timestamptz)
+    AND (sqlc.narg('end_time')::timestamptz IS NULL OR al.created_at <= sqlc.narg('end_time')::timestamptz)
+    AND (sqlc.narg('cursor_created_at')::timestamptz IS NULL
+         OR al.created_at < sqlc.narg('cursor_created_at')::timestamptz
+         OR (al.created_at = sqlc.narg('cursor_created_at')::timestamptz AND al.id < sqlc.narg('cursor_id')::uuid))
+ORDER BY al.created_at DESC, al.id DESC
+LIMIT @limit_count;
+
+-- name: FilterMyAuditLogsWithEmail :many
+SELECT
+    al.id,
+    al.event_type,
+    al.ip_address,
+    al.event_data,
+    al.created_at,
+    actor.email_address AS actor_email,
+    target.email_address AS target_email
+FROM audit_logs al
+LEFT JOIN org_users actor ON al.actor_user_id = actor.org_user_id
+LEFT JOIN org_users target ON al.target_user_id = target.org_user_id
+WHERE
+    al.actor_user_id = @actor_user_id
+    AND (sqlc.narg('event_types')::text[] IS NULL OR al.event_type = ANY(sqlc.narg('event_types')::text[]))
+    AND (sqlc.narg('start_time')::timestamptz IS NULL OR al.created_at >= sqlc.narg('start_time')::timestamptz)
+    AND (sqlc.narg('end_time')::timestamptz IS NULL OR al.created_at <= sqlc.narg('end_time')::timestamptz)
+    AND (sqlc.narg('cursor_created_at')::timestamptz IS NULL
+         OR al.created_at < sqlc.narg('cursor_created_at')::timestamptz
+         OR (al.created_at = sqlc.narg('cursor_created_at')::timestamptz AND al.id < sqlc.narg('cursor_id')::uuid))
+ORDER BY al.created_at DESC, al.id DESC
+LIMIT @limit_count;
+
 -- ============================================
 -- SubOrg Queries
 -- ============================================
@@ -575,6 +622,56 @@ SELECT u.email_address, u.preferred_language, u.org_user_id
 FROM org_user_suborg_assignments a
 JOIN org_users u ON u.org_user_id = a.org_user_id
 WHERE a.suborg_id = @suborg_id;
+
+-- ---- Natural-key based SubOrg queries ----
+
+-- name: GetSubOrgByOrgAndName :one
+SELECT * FROM suborgs WHERE org_id = @org_id AND name = @name;
+
+-- name: RenameSubOrgByName :one
+UPDATE suborgs SET name = @new_name WHERE org_id = @org_id AND name = @name RETURNING *;
+
+-- name: DisableSubOrgByName :one
+UPDATE suborgs SET status = 'inactive' WHERE org_id = @org_id AND name = @name RETURNING *;
+
+-- name: EnableSubOrgByName :one
+UPDATE suborgs SET status = 'active' WHERE org_id = @org_id AND name = @name RETURNING *;
+
+-- name: AddSubOrgMemberByEmail :exec
+INSERT INTO org_user_suborg_assignments (suborg_id, org_user_id)
+SELECT s.suborg_id, u.org_user_id
+FROM suborgs s, org_users u
+WHERE s.org_id = @org_id AND s.name = @suborg_name
+  AND u.email_address = @email_address AND u.org_id = @org_id;
+
+-- name: RemoveSubOrgMemberByEmail :exec
+DELETE FROM org_user_suborg_assignments ousa
+WHERE ousa.suborg_id = (SELECT s.suborg_id FROM suborgs s WHERE s.org_id = @org_id AND s.name = @suborg_name)
+  AND ousa.org_user_id = (SELECT u.org_user_id FROM org_users u WHERE u.email_address = @email_address AND u.org_id = @org_id);
+
+-- name: GetSubOrgMembershipByEmail :one
+SELECT a.* FROM org_user_suborg_assignments a
+JOIN suborgs s ON a.suborg_id = s.suborg_id
+JOIN org_users u ON a.org_user_id = u.org_user_id
+WHERE s.org_id = @org_id AND s.name = @suborg_name
+  AND u.email_address = @email_address AND u.org_id = @org_id;
+
+-- name: ListSubOrgMembersByName :many
+SELECT u.org_user_id, u.full_name, u.email_address, a.assigned_at
+FROM org_user_suborg_assignments a
+JOIN org_users u ON a.org_user_id = u.org_user_id
+JOIN suborgs s ON a.suborg_id = s.suborg_id
+WHERE s.org_id = @org_id AND s.name = @suborg_name
+  AND (@cursor_assigned_at::timestamp IS NULL
+       OR (a.assigned_at > @cursor_assigned_at)
+       OR (a.assigned_at = @cursor_assigned_at AND a.org_user_id > @cursor_id))
+ORDER BY a.assigned_at ASC, a.org_user_id ASC
+LIMIT @limit_count;
+
+-- ---- Natural-key based Marketplace ServiceListing queries ----
+
+-- name: GetServiceListingByOrgAndName :one
+SELECT * FROM marketplace_service_listings WHERE org_id = @org_id AND name = @name;
 
 -- ============================================================
 -- Marketplace: org_capabilities queries

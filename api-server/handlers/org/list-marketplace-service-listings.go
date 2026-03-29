@@ -93,9 +93,18 @@ func ListMarketplaceServiceListings(s *server.RegionalServer) http.HandlerFunc {
 			listings = listings[:limit]
 		}
 
+		// Get the org's primary domain from global DB for the response
+		domains, err := s.Global.GetGlobalOrgDomainsByOrg(ctx, orgUser.OrgID)
+		if err != nil || len(domains) == 0 {
+			log.Error("failed to get org domain", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+		orgDomain := domains[0].Domain
+
 		items := make([]orgtypes.ServiceListing, 0, len(listings))
 		for _, l := range listings {
-			items = append(items, dbServiceListingToAPI(l))
+			items = append(items, dbServiceListingToAPI(l, orgDomain))
 		}
 
 		var nextCursor *string

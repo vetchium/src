@@ -14,20 +14,14 @@ namespace Vetchium;
 
 @doc("A single audit log entry returned by the filter APIs.")
 model AuditLogEntry {
-  @doc("Primary key UUID")
-  id: string;
-
   @doc("Event type string, e.g. 'admin.invite_user'")
   event_type: string;
 
-  @doc("UUID of the user who performed the action; null for unauthenticated events (init_signup, login_failed)")
-  actor_user_id: string | null;
+  @doc("Email of the user who performed the action; null for unauthenticated events (init_signup, login_failed)")
+  actor_email: string | null;
 
-  @doc("UUID of the user affected by the action; null if not applicable")
-  target_user_id: string | null;
-
-  @doc("Employer or agency org UUID; null for admin/hub events")
-  org_id: string | null;
+  @doc("Email of the user affected by the action; null if not applicable")
+  target_email: string | null;
 
   @doc("Remote IP extracted from X-Forwarded-For header (first entry), falling back to RemoteAddr")
   ip_address: string;
@@ -44,8 +38,8 @@ model FilterAuditLogsRequest {
   @doc("Filter to specific event types; omit to return all event types")
   event_types?: string[];
 
-  @doc("Filter by actor UUID; ignored on /hub/my-audit-logs (always scoped to caller)")
-  actor_user_id?: string;
+  @doc("Filter by actor email; ignored on /hub/my-audit-logs (always scoped to caller)")
+  actor_email?: string;
 
   @doc("ISO 8601 inclusive lower bound on created_at")
   start_time?: string;

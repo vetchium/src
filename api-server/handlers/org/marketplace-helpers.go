@@ -13,12 +13,7 @@ import (
 
 // dbOrgCapabilityToAPI converts a DB OrgCapability to the API type.
 func dbOrgCapabilityToAPI(cap regionaldb.OrgCapability) orgtypes.OrgCapability {
-	orgIDBytes := cap.OrgID.Bytes
-	orgIDStr := fmt.Sprintf("%x-%x-%x-%x-%x",
-		orgIDBytes[0:4], orgIDBytes[4:6], orgIDBytes[6:8], orgIDBytes[8:10], orgIDBytes[10:16])
-
 	result := orgtypes.OrgCapability{
-		OrgID:      orgIDStr,
 		Capability: cap.Capability,
 		Status:     orgtypes.OrgCapabilityStatus(cap.Status),
 		CreatedAt:  cap.CreatedAt.Time.UTC().Format(time.RFC3339),
@@ -58,17 +53,10 @@ func dbOrgCapabilityToAPI(cap regionaldb.OrgCapability) orgtypes.OrgCapability {
 }
 
 // dbServiceListingToAPI converts a DB MarketplaceServiceListing to the full API ServiceListing type.
-func dbServiceListingToAPI(sl regionaldb.MarketplaceServiceListing) orgtypes.ServiceListing {
-	slIDBytes := sl.ServiceListingID.Bytes
-	slIDStr := fmt.Sprintf("%x-%x-%x-%x-%x",
-		slIDBytes[0:4], slIDBytes[4:6], slIDBytes[6:8], slIDBytes[8:10], slIDBytes[10:16])
-	orgIDBytes := sl.OrgID.Bytes
-	orgIDStr := fmt.Sprintf("%x-%x-%x-%x-%x",
-		orgIDBytes[0:4], orgIDBytes[4:6], orgIDBytes[6:8], orgIDBytes[8:10], orgIDBytes[10:16])
-
+// orgDomain is the primary domain of the owning org (looked up from global DB by the caller).
+func dbServiceListingToAPI(sl regionaldb.MarketplaceServiceListing, orgDomain string) orgtypes.ServiceListing {
 	result := orgtypes.ServiceListing{
-		ServiceListingID:          slIDStr,
-		OrgID:                     orgIDStr,
+		OrgDomain:                 orgDomain,
 		Name:                      sl.Name,
 		ShortBlurb:                sl.ShortBlurb,
 		Description:               sl.Description,
@@ -110,18 +98,10 @@ func dbServiceListingToAPI(sl regionaldb.MarketplaceServiceListing) orgtypes.Ser
 }
 
 // dbBrowseRowToSummary converts a BrowseActiveServiceListingsRow to ServiceListingSummary.
-func dbBrowseRowToSummary(row regionaldb.BrowseActiveServiceListingsRow, homeRegion string) orgtypes.ServiceListingSummary {
-	slIDBytes := row.ServiceListingID.Bytes
-	slIDStr := fmt.Sprintf("%x-%x-%x-%x-%x",
-		slIDBytes[0:4], slIDBytes[4:6], slIDBytes[6:8], slIDBytes[8:10], slIDBytes[10:16])
-	orgIDBytes := row.OrgID.Bytes
-	orgIDStr := fmt.Sprintf("%x-%x-%x-%x-%x",
-		orgIDBytes[0:4], orgIDBytes[4:6], orgIDBytes[6:8], orgIDBytes[8:10], orgIDBytes[10:16])
-
+// orgDomain is the primary domain of the owning org (looked up from global DB by the caller).
+func dbBrowseRowToSummary(row regionaldb.BrowseActiveServiceListingsRow, orgDomain string) orgtypes.ServiceListingSummary {
 	return orgtypes.ServiceListingSummary{
-		ServiceListingID:   slIDStr,
-		HomeRegion:         homeRegion,
-		OrgID:              orgIDStr,
+		OrgDomain:          orgDomain,
 		Name:               row.Name,
 		ShortBlurb:         row.ShortBlurb,
 		OrgName:            "", // populated by caller if needed

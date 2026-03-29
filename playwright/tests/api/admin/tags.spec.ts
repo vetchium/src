@@ -130,7 +130,7 @@ test.describe("Admin Tags API", () => {
 				expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
 				const auditEntry = auditResp.body.audit_logs[0];
 				expect(auditEntry.event_type).toBe("admin.add_tag");
-				expect(auditEntry.actor_user_id).toBe(manageTagsUserId);
+				expect(auditEntry.actor_email).toBe(manageTagsEmail);
 				expect(auditEntry.event_data).toHaveProperty("tag_id");
 			} finally {
 				await deleteTestTag(tagId);
@@ -395,7 +395,7 @@ test.describe("Admin Tags API", () => {
 				expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
 				const auditEntry = auditResp.body.audit_logs[0];
 				expect(auditEntry.event_type).toBe("admin.update_tag");
-				expect(auditEntry.actor_user_id).toBe(manageTagsUserId);
+				expect(auditEntry.actor_email).toBe(manageTagsEmail);
 				expect(auditEntry.event_data).toHaveProperty("tag_id");
 			} finally {
 				await deleteTestTag(tagId);
@@ -640,7 +640,7 @@ test.describe("Admin Tags API", () => {
 				expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
 				const auditEntry = auditResp.body.audit_logs[0];
 				expect(auditEntry.event_type).toBe("admin.upload_tag_icon");
-				expect(auditEntry.actor_user_id).toBe(manageTagsUserId);
+				expect(auditEntry.actor_email).toBe(manageTagsEmail);
 				expect(auditEntry.event_data).toHaveProperty("tag_id");
 				expect(auditEntry.event_data).toHaveProperty("icon_size");
 				expect(auditEntry.event_data["icon_size"]).toBe("small");
@@ -808,7 +808,7 @@ test.describe("Admin Tags API", () => {
 				expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
 				const auditEntry = auditResp.body.audit_logs[0];
 				expect(auditEntry.event_type).toBe("admin.delete_tag_icon");
-				expect(auditEntry.actor_user_id).toBe(manageTagsUserId);
+				expect(auditEntry.actor_email).toBe(manageTagsEmail);
 				expect(auditEntry.event_data).toHaveProperty("tag_id");
 				expect(auditEntry.event_data).toHaveProperty("icon_size");
 				expect(auditEntry.event_data["icon_size"]).toBe("small");

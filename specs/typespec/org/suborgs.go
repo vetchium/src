@@ -9,16 +9,16 @@ import (
 const (
 	subOrgNameMaxLength = 64
 
-	errSubOrgNameRequired   = "name is required"
-	errSubOrgNameTooLong    = "name must be at most 64 characters"
-	errSubOrgIDRequired     = "suborg_id is required"
-	errSubOrgRegionRequired = "pinned_region is required"
-	errSubOrgEmailRequired  = "email_address is required"
+	errSubOrgNameRequired    = "name is required"
+	errSubOrgNameTooLong     = "name must be at most 64 characters"
+	errSubOrgNewNameRequired = "new_name is required"
+	errSubOrgNewNameTooLong  = "new_name must be at most 64 characters"
+	errSubOrgRegionRequired  = "pinned_region is required"
+	errSubOrgEmailRequired   = "email_address is required"
 )
 
 // SubOrg is the response type for SubOrg reads.
 type SubOrg struct {
-	ID           string `json:"id"`
 	Name         string `json:"name"`
 	PinnedRegion string `json:"pinned_region"`
 	Status       string `json:"status"`
@@ -27,9 +27,9 @@ type SubOrg struct {
 
 // SubOrgMember is a member of a SubOrg.
 type SubOrgMember struct {
-	EmailAddress string `json:"email_address"`
-	Name         string `json:"name"`
-	AssignedAt   string `json:"assigned_at"`
+	EmailAddress string  `json:"email_address"`
+	FullName     *string `json:"full_name,omitempty"`
+	AssignedAt   string  `json:"assigned_at"`
 }
 
 // CreateSubOrgRequest is the request body for POST /org/create-suborg.
@@ -56,9 +56,9 @@ func (r CreateSubOrgRequest) Validate() []common.ValidationError {
 
 // ListSubOrgsRequest is the request body for POST /org/list-suborgs.
 type ListSubOrgsRequest struct {
-	FilterStatus *string `json:"filter_status,omitempty"`
-	Cursor       *string `json:"cursor,omitempty"`
-	Limit        *int32  `json:"limit,omitempty"`
+	FilterStatus  *string `json:"filter_status,omitempty"`
+	PaginationKey *string `json:"pagination_key,omitempty"`
+	Limit         *int    `json:"limit,omitempty"`
 }
 
 func (r ListSubOrgsRequest) Validate() []common.ValidationError {
@@ -73,22 +73,18 @@ func (r ListSubOrgsRequest) Validate() []common.ValidationError {
 
 // ListSubOrgsResponse is the response for POST /org/list-suborgs.
 type ListSubOrgsResponse struct {
-	SubOrgs    []SubOrg `json:"suborgs"`
-	NextCursor string   `json:"next_cursor"`
+	SubOrgs           []SubOrg `json:"suborgs"`
+	NextPaginationKey string   `json:"next_pagination_key"`
 }
 
 // RenameSubOrgRequest is the request body for POST /org/rename-suborg.
 type RenameSubOrgRequest struct {
-	SubOrgID string `json:"suborg_id"`
-	Name     string `json:"name"`
+	Name    string `json:"name"`
+	NewName string `json:"new_name"`
 }
 
 func (r RenameSubOrgRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
-
-	if r.SubOrgID == "" {
-		errs = append(errs, common.NewValidationError("suborg_id", fmt.Errorf(errSubOrgIDRequired)))
-	}
 
 	if r.Name == "" {
 		errs = append(errs, common.NewValidationError("name", fmt.Errorf(errSubOrgNameRequired)))
@@ -96,19 +92,25 @@ func (r RenameSubOrgRequest) Validate() []common.ValidationError {
 		errs = append(errs, common.NewValidationError("name", fmt.Errorf(errSubOrgNameTooLong)))
 	}
 
+	if r.NewName == "" {
+		errs = append(errs, common.NewValidationError("new_name", fmt.Errorf(errSubOrgNewNameRequired)))
+	} else if len(r.NewName) > subOrgNameMaxLength {
+		errs = append(errs, common.NewValidationError("new_name", fmt.Errorf(errSubOrgNewNameTooLong)))
+	}
+
 	return errs
 }
 
 // DisableSubOrgRequest is the request body for POST /org/disable-suborg.
 type DisableSubOrgRequest struct {
-	SubOrgID string `json:"suborg_id"`
+	Name string `json:"name"`
 }
 
 func (r DisableSubOrgRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
 
-	if r.SubOrgID == "" {
-		errs = append(errs, common.NewValidationError("suborg_id", fmt.Errorf(errSubOrgIDRequired)))
+	if r.Name == "" {
+		errs = append(errs, common.NewValidationError("name", fmt.Errorf(errSubOrgNameRequired)))
 	}
 
 	return errs
@@ -116,14 +118,14 @@ func (r DisableSubOrgRequest) Validate() []common.ValidationError {
 
 // EnableSubOrgRequest is the request body for POST /org/enable-suborg.
 type EnableSubOrgRequest struct {
-	SubOrgID string `json:"suborg_id"`
+	Name string `json:"name"`
 }
 
 func (r EnableSubOrgRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
 
-	if r.SubOrgID == "" {
-		errs = append(errs, common.NewValidationError("suborg_id", fmt.Errorf(errSubOrgIDRequired)))
+	if r.Name == "" {
+		errs = append(errs, common.NewValidationError("name", fmt.Errorf(errSubOrgNameRequired)))
 	}
 
 	return errs
@@ -131,15 +133,15 @@ func (r EnableSubOrgRequest) Validate() []common.ValidationError {
 
 // AddSubOrgMemberRequest is the request body for POST /org/add-suborg-member.
 type AddSubOrgMemberRequest struct {
-	SubOrgID     string `json:"suborg_id"`
+	Name         string `json:"name"`
 	EmailAddress string `json:"email_address"`
 }
 
 func (r AddSubOrgMemberRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
 
-	if r.SubOrgID == "" {
-		errs = append(errs, common.NewValidationError("suborg_id", fmt.Errorf(errSubOrgIDRequired)))
+	if r.Name == "" {
+		errs = append(errs, common.NewValidationError("name", fmt.Errorf(errSubOrgNameRequired)))
 	}
 
 	if r.EmailAddress == "" {
@@ -151,15 +153,15 @@ func (r AddSubOrgMemberRequest) Validate() []common.ValidationError {
 
 // RemoveSubOrgMemberRequest is the request body for POST /org/remove-suborg-member.
 type RemoveSubOrgMemberRequest struct {
-	SubOrgID     string `json:"suborg_id"`
+	Name         string `json:"name"`
 	EmailAddress string `json:"email_address"`
 }
 
 func (r RemoveSubOrgMemberRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
 
-	if r.SubOrgID == "" {
-		errs = append(errs, common.NewValidationError("suborg_id", fmt.Errorf(errSubOrgIDRequired)))
+	if r.Name == "" {
+		errs = append(errs, common.NewValidationError("name", fmt.Errorf(errSubOrgNameRequired)))
 	}
 
 	if r.EmailAddress == "" {
@@ -171,16 +173,15 @@ func (r RemoveSubOrgMemberRequest) Validate() []common.ValidationError {
 
 // ListSubOrgMembersRequest is the request body for POST /org/list-suborg-members.
 type ListSubOrgMembersRequest struct {
-	SubOrgID string  `json:"suborg_id"`
-	Cursor   *string `json:"cursor,omitempty"`
-	Limit    *int32  `json:"limit,omitempty"`
+	Name          string  `json:"name"`
+	PaginationKey *string `json:"pagination_key,omitempty"`
 }
 
 func (r ListSubOrgMembersRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
 
-	if r.SubOrgID == "" {
-		errs = append(errs, common.NewValidationError("suborg_id", fmt.Errorf(errSubOrgIDRequired)))
+	if r.Name == "" {
+		errs = append(errs, common.NewValidationError("name", fmt.Errorf(errSubOrgNameRequired)))
 	}
 
 	return errs
@@ -188,6 +189,6 @@ func (r ListSubOrgMembersRequest) Validate() []common.ValidationError {
 
 // ListSubOrgMembersResponse is the response for POST /org/list-suborg-members.
 type ListSubOrgMembersResponse struct {
-	Members    []SubOrgMember `json:"members"`
-	NextCursor string         `json:"next_cursor"`
+	Members           []SubOrgMember `json:"members"`
+	NextPaginationKey string         `json:"next_pagination_key"`
 }

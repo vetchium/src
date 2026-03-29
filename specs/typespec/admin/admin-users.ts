@@ -150,7 +150,6 @@ export function validateAdminInviteUserRequest(
 }
 
 export interface AdminInviteUserResponse {
-	invitation_id: string;
 	expires_at: string;
 }
 
@@ -385,7 +384,6 @@ export interface FilterAdminUsersResponse {
 // ============================================================================
 
 export interface AdminMyInfoResponse {
-	admin_user_id: string;
 	email_address: EmailAddress;
 	full_name: string;
 	preferred_language: LanguageCode;

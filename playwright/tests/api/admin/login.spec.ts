@@ -98,7 +98,7 @@ test.describe("POST /admin/login", () => {
 				"admin.login_failed"
 			);
 			// login_failed events have no actor (unauthenticated)
-			expect(auditResp.body.audit_logs[0].actor_user_id).toBeNull();
+			expect(auditResp.body.audit_logs[0].actor_email).toBeNull();
 		} finally {
 			await deleteTestAdminUser(email);
 			await deleteTestAdminUser(watcherEmail);

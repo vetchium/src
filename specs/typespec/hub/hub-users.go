@@ -324,7 +324,6 @@ func (r HubCompleteEmailChangeRequest) Validate() []common.ValidationError {
 
 // HubMyInfoResponse is the response for GET /hub/myinfo
 type HubMyInfoResponse struct {
-	HubUserID         string              `json:"hub_user_id"`
 	Handle            Handle              `json:"handle"`
 	EmailAddress      common.EmailAddress `json:"email_address"`
 	PreferredLanguage common.LanguageCode `json:"preferred_language"`

@@ -42,7 +42,6 @@ func MyInfo(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		response := orgtypes.OrgMyInfoResponse{
-			OrgUserID:         orgUser.OrgUserID.String(),
 			FullName:          orgUser.FullName.String,
 			PreferredLanguage: common.LanguageCode(orgUser.PreferredLanguage),
 			OrgName:           employer.OrgName,

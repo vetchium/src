@@ -368,8 +368,6 @@ interface HubCompleteEmailChange {
 // ============================================
 
 model HubMyInfoResponse {
-    @doc("Hub user ID")
-    hub_user_id: string;
     @doc("User's unique handle")
     handle: Handle;
     @doc("Email address of the hub user")

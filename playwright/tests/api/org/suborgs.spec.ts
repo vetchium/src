@@ -64,7 +64,6 @@ test.describe("SubOrgs API", () => {
 				expect(res.body?.name).toBe("Acme Corp LLC");
 				expect(res.body?.pinned_region).toBe("ind1");
 				expect(res.body?.status).toBe("active");
-				expect(res.body?.id).toBeDefined();
 				expect(res.body?.created_at).toBeDefined();
 
 				// Audit log: org.create_suborg
@@ -76,8 +75,7 @@ test.describe("SubOrgs API", () => {
 				expect(auditRes.body.audit_logs.length).toBeGreaterThanOrEqual(1);
 				const entry = auditRes.body.audit_logs[0];
 				expect(entry.event_type).toBe("org.create_suborg");
-				expect(entry.actor_user_id).toBeDefined();
-				expect(entry.event_data).toHaveProperty("suborg_id");
+				expect(entry.actor_email).toBeDefined();
 				expect(entry.event_data).toHaveProperty("suborg_name");
 				expect(entry.event_data).toHaveProperty("pinned_region");
 			} finally {
@@ -194,7 +192,7 @@ test.describe("SubOrgs API", () => {
 				const res = await api.listSubOrgs(token, {});
 				expect(res.status).toBe(200);
 				expect(res.body?.suborgs).toEqual([]);
-				expect(res.body?.next_cursor).toBe("");
+				expect(res.body?.next_pagination_key).toBe("");
 			} finally {
 				await deleteTestOrgUser(email);
 			}
@@ -234,30 +232,30 @@ test.describe("SubOrgs API", () => {
 					pinned_region: "ind1",
 				});
 				expect(createRes.status).toBe(201);
-				const soId = createRes.body!.id;
+				const soName = createRes.body!.name;
 
 				const createRes2 = await api.createSubOrg(token, {
 					name: "To Be Disabled",
 					pinned_region: "usa1",
 				});
 				expect(createRes2.status).toBe(201);
-				const soId2 = createRes2.body!.id;
-				await api.disableSubOrg(token, { suborg_id: soId2 });
+				const soName2 = createRes2.body!.name;
+				await api.disableSubOrg(token, { name: soName2 });
 
 				const activeRes = await api.listSubOrgs(token, {
 					filter_status: "active",
 				});
 				expect(activeRes.status).toBe(200);
-				const activeIds = activeRes.body!.suborgs.map((s) => s.id);
-				expect(activeIds).toContain(soId);
-				expect(activeIds).not.toContain(soId2);
+				const activeNames = activeRes.body!.suborgs.map((s) => s.name);
+				expect(activeNames).toContain(soName);
+				expect(activeNames).not.toContain(soName2);
 
 				const disabledRes = await api.listSubOrgs(token, {
 					filter_status: "disabled",
 				});
 				expect(disabledRes.status).toBe(200);
-				const disabledIds = disabledRes.body!.suborgs.map((s) => s.id);
-				expect(disabledIds).toContain(soId2);
+				const disabledNames = disabledRes.body!.suborgs.map((s) => s.name);
+				expect(disabledNames).toContain(soName2);
 			} finally {
 				await deleteTestOrgUser(email);
 			}
@@ -279,15 +277,15 @@ test.describe("SubOrgs API", () => {
 				const page1 = await api.listSubOrgs(token, { limit: 3 });
 				expect(page1.status).toBe(200);
 				expect(page1.body?.suborgs).toHaveLength(3);
-				expect(page1.body?.next_cursor).not.toBe("");
+				expect(page1.body?.next_pagination_key).not.toBe("");
 
 				const page2 = await api.listSubOrgs(token, {
 					limit: 3,
-					cursor: page1.body?.next_cursor,
+					pagination_key: page1.body?.next_pagination_key,
 				});
 				expect(page2.status).toBe(200);
 				expect(page2.body?.suborgs).toHaveLength(2);
-				expect(page2.body?.next_cursor).toBe("");
+				expect(page2.body?.next_pagination_key).toBe("");
 			} finally {
 				await deleteTestOrgUser(email);
 			}
@@ -369,13 +367,12 @@ test.describe("SubOrgs API", () => {
 
 				const before = new Date(Date.now() - 2000).toISOString();
 				const req: RenameSubOrgRequest = {
-					suborg_id: createRes.body!.id,
-					name: "New Name",
+					name: "Old Name",
+					new_name: "New Name",
 				};
 				const res = await api.renameSubOrg(token, req);
 				expect(res.status).toBe(200);
 				expect(res.body?.name).toBe("New Name");
-				expect(res.body?.id).toBe(createRes.body!.id);
 
 				// Audit log: org.rename_suborg
 				const auditRes = await api.filterAuditLogs(token, {
@@ -392,15 +389,15 @@ test.describe("SubOrgs API", () => {
 			}
 		});
 
-		test("Not found: non-existent suborg_id (404)", async ({ request }) => {
+		test("Not found: non-existent suborg name (404)", async ({ request }) => {
 			const api = new OrgAPIClient(request);
 			const { email, domain } = generateTestOrgEmail("so-ren404");
 			await createTestOrgAdminDirect(email, TEST_PASSWORD);
 			try {
 				const token = await loginOrgUser(api, email, domain);
 				const res = await api.renameSubOrg(token, {
-					suborg_id: "00000000-0000-0000-0000-000000000000",
-					name: "Ghost",
+					name: "nonexistent-suborg-name",
+					new_name: "Ghost",
 				});
 				expect(res.status).toBe(404);
 			} finally {
@@ -408,13 +405,13 @@ test.describe("SubOrgs API", () => {
 			}
 		});
 
-		test("Validation: missing suborg_id (400)", async ({ request }) => {
+		test("Validation: missing name (400)", async ({ request }) => {
 			const api = new OrgAPIClient(request);
 			const { email, domain } = generateTestOrgEmail("so-ren-noid");
 			await createTestOrgAdminDirect(email, TEST_PASSWORD);
 			try {
 				const token = await loginOrgUser(api, email, domain);
-				const res = await api.renameSubOrgRaw(token, { name: "New Name" });
+				const res = await api.renameSubOrgRaw(token, { new_name: "New Name" });
 				expect(res.status).toBe(400);
 			} finally {
 				await deleteTestOrgUser(email);
@@ -424,8 +421,8 @@ test.describe("SubOrgs API", () => {
 		test("Auth: unauthenticated (401)", async ({ request }) => {
 			const api = new OrgAPIClient(request);
 			const res = await api.renameSubOrgRaw("bad-token", {
-				suborg_id: "00000000-0000-0000-0000-000000000000",
-				name: "X",
+				name: "nonexistent-suborg-name",
+				new_name: "X",
 			});
 			expect(res.status).toBe(401);
 		});
@@ -453,8 +450,8 @@ test.describe("SubOrgs API", () => {
 			try {
 				const userToken = await loginOrgUser(api, userEmail, domain);
 				const res = await api.renameSubOrg(userToken, {
-					suborg_id: createRes.body!.id,
-					name: "Hacked Name",
+					name: createRes.body!.name,
+					new_name: "Hacked Name",
 				});
 				expect(res.status).toBe(403);
 			} finally {
@@ -481,12 +478,12 @@ test.describe("SubOrgs API", () => {
 					pinned_region: "ind1",
 				});
 				expect(createRes.status).toBe(201);
-				const soId = createRes.body!.id;
+				const soName = createRes.body!.name;
 
 				// Disable
 				const beforeDisable = new Date(Date.now() - 2000).toISOString();
 				const disableRes = await api.disableSubOrg(token, {
-					suborg_id: soId,
+					name: soName,
 				});
 				expect(disableRes.status).toBe(200);
 
@@ -494,7 +491,7 @@ test.describe("SubOrgs API", () => {
 				const listRes = await api.listSubOrgs(token, {
 					filter_status: "disabled",
 				});
-				expect(listRes.body!.suborgs.map((s) => s.id)).toContain(soId);
+				expect(listRes.body!.suborgs.map((s) => s.name)).toContain(soName);
 
 				// Audit log: org.disable_suborg
 				const auditDisable = await api.filterAuditLogs(token, {
@@ -502,13 +499,10 @@ test.describe("SubOrgs API", () => {
 					start_time: beforeDisable,
 				});
 				expect(auditDisable.body.audit_logs.length).toBeGreaterThanOrEqual(1);
-				expect(auditDisable.body.audit_logs[0].event_data).toHaveProperty(
-					"suborg_id"
-				);
 
 				// Re-enable
 				const beforeEnable = new Date(Date.now() - 2000).toISOString();
-				const enableRes = await api.enableSubOrg(token, { suborg_id: soId });
+				const enableRes = await api.enableSubOrg(token, { name: soName });
 				expect(enableRes.status).toBe(200);
 
 				const auditEnable = await api.filterAuditLogs(token, {
@@ -533,9 +527,9 @@ test.describe("SubOrgs API", () => {
 					name: "Double Disable",
 					pinned_region: "ind1",
 				});
-				const soId = createRes.body!.id;
-				await api.disableSubOrg(token, { suborg_id: soId });
-				const res = await api.disableSubOrg(token, { suborg_id: soId });
+				const soName = createRes.body!.name;
+				await api.disableSubOrg(token, { name: soName });
+				const res = await api.disableSubOrg(token, { name: soName });
 				expect(res.status).toBe(422);
 			} finally {
 				await deleteTestOrgUser(email);
@@ -555,7 +549,7 @@ test.describe("SubOrgs API", () => {
 					pinned_region: "ind1",
 				});
 				const res = await api.enableSubOrg(token, {
-					suborg_id: createRes.body!.id,
+					name: createRes.body!.name,
 				});
 				expect(res.status).toBe(422);
 			} finally {
@@ -572,7 +566,7 @@ test.describe("SubOrgs API", () => {
 			try {
 				const token = await loginOrgUser(api, email, domain);
 				const res = await api.disableSubOrg(token, {
-					suborg_id: "00000000-0000-0000-0000-000000000000",
+					name: "nonexistent-suborg-name",
 				});
 				expect(res.status).toBe(404);
 			} finally {
@@ -583,7 +577,7 @@ test.describe("SubOrgs API", () => {
 		test("Auth: unauthenticated disable (401)", async ({ request }) => {
 			const api = new OrgAPIClient(request);
 			const res = await api.disableSubOrgRaw("bad-token", {
-				suborg_id: "00000000-0000-0000-0000-000000000000",
+				name: "nonexistent-suborg-name",
 			});
 			expect(res.status).toBe(401);
 		});
@@ -613,7 +607,7 @@ test.describe("SubOrgs API", () => {
 			try {
 				const userToken = await loginOrgUser(api, userEmail, domain);
 				const res = await api.disableSubOrg(userToken, {
-					suborg_id: createRes.body!.id,
+					name: createRes.body!.name,
 				});
 				expect(res.status).toBe(403);
 			} finally {
@@ -643,12 +637,12 @@ test.describe("SubOrgs API", () => {
 				pinned_region: "ind1",
 			});
 			expect(createRes.status).toBe(201);
-			await api.disableSubOrg(adminToken, { suborg_id: createRes.body!.id });
+			await api.disableSubOrg(adminToken, { name: createRes.body!.name });
 
 			try {
 				const userToken = await loginOrgUser(api, userEmail, domain);
 				const res = await api.enableSubOrg(userToken, {
-					suborg_id: createRes.body!.id,
+					name: createRes.body!.name,
 				});
 				expect(res.status).toBe(403);
 			} finally {
@@ -670,12 +664,10 @@ test.describe("SubOrgs API", () => {
 				TEST_PASSWORD
 			);
 			const memberEmail = `member@${domain}`;
-			const memberResult = await createTestOrgUserDirect(
-				memberEmail,
-				TEST_PASSWORD,
-				"ind1",
-				{ orgId: adminResult.orgId, domain }
-			);
+			await createTestOrgUserDirect(memberEmail, TEST_PASSWORD, "ind1", {
+				orgId: adminResult.orgId,
+				domain,
+			});
 
 			try {
 				const token = await loginOrgUser(api, adminEmail, domain);
@@ -685,12 +677,12 @@ test.describe("SubOrgs API", () => {
 					pinned_region: "ind1",
 				});
 				expect(createRes.status).toBe(201);
-				const soId = createRes.body!.id;
+				const soName = createRes.body!.name;
 
 				// Add member
 				const beforeAdd = new Date(Date.now() - 2000).toISOString();
 				const req: AddSubOrgMemberRequest = {
-					suborg_id: soId,
+					name: soName,
 					email_address: memberEmail,
 				};
 				const addRes = await api.addSubOrgMember(token, req);
@@ -703,13 +695,12 @@ test.describe("SubOrgs API", () => {
 				});
 				expect(auditAdd.body.audit_logs.length).toBeGreaterThanOrEqual(1);
 				const addEntry = auditAdd.body.audit_logs[0];
-				expect(addEntry.target_user_id).toBe(memberResult.orgUserId);
-				expect(addEntry.event_data).toHaveProperty("suborg_id");
+				expect(addEntry.target_email).toBeDefined();
 
 				// Remove member
 				const beforeRemove = new Date(Date.now() - 2000).toISOString();
 				const removeReq: RemoveSubOrgMemberRequest = {
-					suborg_id: soId,
+					name: soName,
 					email_address: memberEmail,
 				};
 				const removeRes = await api.removeSubOrgMember(token, removeReq);
@@ -721,9 +712,7 @@ test.describe("SubOrgs API", () => {
 					start_time: beforeRemove,
 				});
 				expect(auditRemove.body.audit_logs.length).toBeGreaterThanOrEqual(1);
-				expect(auditRemove.body.audit_logs[0].target_user_id).toBe(
-					memberResult.orgUserId
-				);
+				expect(auditRemove.body.audit_logs[0].target_email).toBeDefined();
 			} finally {
 				await deleteTestOrgUser(memberEmail);
 				await deleteTestOrgUser(adminEmail);
@@ -749,9 +738,9 @@ test.describe("SubOrgs API", () => {
 					name: "Dup Member SubOrg",
 					pinned_region: "ind1",
 				});
-				const soId = createRes.body!.id;
+				const soName = createRes.body!.name;
 				const req: AddSubOrgMemberRequest = {
-					suborg_id: soId,
+					name: soName,
 					email_address: memberEmail,
 				};
 				const first = await api.addSubOrgMember(token, req);
@@ -783,10 +772,10 @@ test.describe("SubOrgs API", () => {
 					name: "Remove 404 SubOrg",
 					pinned_region: "ind1",
 				});
-				const soId = createRes.body!.id;
+				const soName = createRes.body!.name;
 
 				const res = await api.removeSubOrgMember(token, {
-					suborg_id: soId,
+					name: soName,
 					email_address: nonMemberEmail,
 				});
 				expect(res.status).toBe(404);
@@ -796,7 +785,7 @@ test.describe("SubOrgs API", () => {
 			}
 		});
 
-		test("Validation: missing suborg_id (400)", async ({ request }) => {
+		test("Validation: missing name (400)", async ({ request }) => {
 			const api = new OrgAPIClient(request);
 			const { email, domain } = generateTestOrgEmail("so-mem-noid");
 			await createTestOrgAdminDirect(email, TEST_PASSWORD);
@@ -814,7 +803,7 @@ test.describe("SubOrgs API", () => {
 		test("Auth: unauthenticated add member (401)", async ({ request }) => {
 			const api = new OrgAPIClient(request);
 			const res = await api.addSubOrgMemberRaw("bad-token", {
-				suborg_id: "00000000-0000-0000-0000-000000000000",
+				name: "nonexistent-suborg-name",
 				email_address: "test@example.com",
 			});
 			expect(res.status).toBe(401);
@@ -848,14 +837,14 @@ test.describe("SubOrgs API", () => {
 				pinned_region: "ind1",
 			});
 			await api.addSubOrgMember(adminToken, {
-				suborg_id: createRes.body!.id,
+				name: createRes.body!.name,
 				email_address: memberEmail,
 			});
 
 			try {
 				const noRoleToken = await loginOrgUser(api, noRoleEmail, domain);
 				const res = await api.removeSubOrgMember(noRoleToken, {
-					suborg_id: createRes.body!.id,
+					name: createRes.body!.name,
 					email_address: memberEmail,
 				});
 				expect(res.status).toBe(403);
@@ -888,7 +877,7 @@ test.describe("SubOrgs API", () => {
 			try {
 				const userToken = await loginOrgUser(api, userEmail, domain);
 				const res = await api.addSubOrgMember(userToken, {
-					suborg_id: createRes.body!.id,
+					name: createRes.body!.name,
 					email_address: userEmail,
 				});
 				expect(res.status).toBe(403);
@@ -931,18 +920,18 @@ test.describe("SubOrgs API", () => {
 					name: "List Members SubOrg",
 					pinned_region: "ind1",
 				});
-				const soId = createRes.body!.id;
+				const soName = createRes.body!.name;
 
 				await api.addSubOrgMember(token, {
-					suborg_id: soId,
+					name: soName,
 					email_address: m1Email,
 				});
 				await api.addSubOrgMember(token, {
-					suborg_id: soId,
+					name: soName,
 					email_address: m2Email,
 				});
 
-				const res = await api.listSubOrgMembers(token, { suborg_id: soId });
+				const res = await api.listSubOrgMembers(token, { name: soName });
 				expect(res.status).toBe(200);
 				expect(res.body?.members).toHaveLength(2);
 				const emails = res.body!.members.map((m) => m.email_address);
@@ -955,14 +944,14 @@ test.describe("SubOrgs API", () => {
 			}
 		});
 
-		test("Not found: non-existent suborg_id (404)", async ({ request }) => {
+		test("Not found: non-existent suborg name (404)", async ({ request }) => {
 			const api = new OrgAPIClient(request);
 			const { email, domain } = generateTestOrgEmail("so-lm404");
 			await createTestOrgAdminDirect(email, TEST_PASSWORD);
 			try {
 				const token = await loginOrgUser(api, email, domain);
 				const res = await api.listSubOrgMembers(token, {
-					suborg_id: "00000000-0000-0000-0000-000000000000",
+					name: "nonexistent-suborg-name",
 				});
 				expect(res.status).toBe(404);
 			} finally {
@@ -991,12 +980,12 @@ test.describe("SubOrgs API", () => {
 				name: "Viewer Test SubOrg",
 				pinned_region: "ind1",
 			});
-			const soId = createRes.body!.id;
+			const soName = createRes.body!.name;
 
 			try {
 				const viewerToken = await loginOrgUser(api, viewerEmail, domain);
 				const res = await api.listSubOrgMembers(viewerToken, {
-					suborg_id: soId,
+					name: soName,
 				});
 				expect(res.status).toBe(200);
 			} finally {
@@ -1030,7 +1019,7 @@ test.describe("SubOrgs API", () => {
 			try {
 				const userToken = await loginOrgUser(api, userEmail, domain);
 				const res = await api.listSubOrgMembers(userToken, {
-					suborg_id: createRes.body!.id,
+					name: createRes.body!.name,
 				});
 				expect(res.status).toBe(403);
 			} finally {
@@ -1042,7 +1031,7 @@ test.describe("SubOrgs API", () => {
 		test("Auth: unauthenticated (401)", async ({ request }) => {
 			const api = new OrgAPIClient(request);
 			const res = await api.listSubOrgMembersRaw("bad-token", {
-				suborg_id: "00000000-0000-0000-0000-000000000000",
+				name: "nonexistent-suborg-name",
 			});
 			expect(res.status).toBe(401);
 		});
@@ -1079,38 +1068,38 @@ test.describe("SubOrgs API", () => {
 					pinned_region: "ind1",
 				});
 				expect(createRes.status).toBe(201);
-				const soId = createRes.body!.id;
+				const soName = createRes.body!.name;
 
 				// rename-suborg
 				const renameRes = await api.renameSubOrg(managerToken, {
-					suborg_id: soId,
-					name: "RBAC Positive Renamed",
+					name: soName,
+					new_name: "RBAC Positive Renamed",
 				});
 				expect(renameRes.status).toBe(200);
 
 				// add-suborg-member (add self)
 				const addRes = await api.addSubOrgMember(managerToken, {
-					suborg_id: soId,
+					name: "RBAC Positive Renamed",
 					email_address: managerEmail,
 				});
 				expect(addRes.status).toBe(200);
 
 				// remove-suborg-member
 				const removeRes = await api.removeSubOrgMember(managerToken, {
-					suborg_id: soId,
+					name: "RBAC Positive Renamed",
 					email_address: managerEmail,
 				});
 				expect(removeRes.status).toBe(200);
 
 				// disable-suborg
 				const disableRes = await api.disableSubOrg(managerToken, {
-					suborg_id: soId,
+					name: "RBAC Positive Renamed",
 				});
 				expect(disableRes.status).toBe(200);
 
 				// enable-suborg
 				const enableRes = await api.enableSubOrg(managerToken, {
-					suborg_id: soId,
+					name: "RBAC Positive Renamed",
 				});
 				expect(enableRes.status).toBe(200);
 			} finally {
@@ -1148,17 +1137,17 @@ test.describe("SubOrgs API", () => {
 					name: "Revoke Test SubOrg",
 					pinned_region: "ind1",
 				});
-				const soId = createRes.body!.id;
+				const soName = createRes.body!.name;
 
 				// Assign member
 				await api.addSubOrgMember(token, {
-					suborg_id: soId,
+					name: soName,
 					email_address: memberEmail,
 				});
 
 				// Verify member is listed
 				const beforeDisable = await api.listSubOrgMembers(token, {
-					suborg_id: soId,
+					name: soName,
 				});
 				expect(
 					beforeDisable.body!.members.map((m) => m.email_address)
@@ -1172,7 +1161,7 @@ test.describe("SubOrgs API", () => {
 
 				// Verify member is no longer listed
 				const afterDisable = await api.listSubOrgMembers(token, {
-					suborg_id: soId,
+					name: soName,
 				});
 				expect(
 					afterDisable.body!.members.map((m) => m.email_address)

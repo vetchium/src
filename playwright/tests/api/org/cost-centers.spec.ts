@@ -77,7 +77,7 @@ test.describe("Cost Centers API", () => {
 				expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
 				const auditEntry = auditResp.body.audit_logs[0];
 				expect(auditEntry.event_type).toBe("org.add_cost_center");
-				expect(auditEntry.actor_user_id).toBeDefined();
+				expect(auditEntry.actor_email).toBeDefined();
 				expect(auditEntry.event_data).toHaveProperty("cost_center_id");
 			} finally {
 				await deleteTestOrgUser(email);
@@ -377,7 +377,7 @@ test.describe("Cost Centers API", () => {
 				expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
 				const auditEntry = auditResp.body.audit_logs[0];
 				expect(auditEntry.event_type).toBe("org.update_cost_center");
-				expect(auditEntry.actor_user_id).toBeDefined();
+				expect(auditEntry.actor_email).toBeDefined();
 				expect(auditEntry.event_data).toHaveProperty("cost_center_id");
 			} finally {
 				await deleteTestOrgUser(email);

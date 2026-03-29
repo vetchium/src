@@ -44,22 +44,14 @@ func ApproveMarketplaceProviderCapability(s *server.GlobalServer) http.HandlerFu
 			return
 		}
 
-		// Parse org_id
-		var orgID pgtype.UUID
-		if err := orgID.Scan(req.OrgID); err != nil {
-			log.Debug("invalid org_id", "error", err)
-			http.Error(w, "invalid org_id", http.StatusBadRequest)
-			return
-		}
-
-		// Look up org to get region
-		org, err := s.Global.GetOrgByID(ctx, orgID)
+		// Look up org by domain
+		org, err := s.Global.GetOrgByDomain(ctx, req.OrgDomain)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
-			log.Error("failed to get org", "error", err)
+			log.Error("failed to get org by domain", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -85,7 +77,7 @@ func ApproveMarketplaceProviderCapability(s *server.GlobalServer) http.HandlerFu
 				SubscriptionPrice: subPrice,
 				Currency:          pgtype.Text{String: req.Currency, Valid: true},
 				ExpiresAt:         expiresAt,
-				OrgID:             orgID,
+				OrgID:             org.OrgID,
 				Capability:        "marketplace_provider",
 			})
 			return txErr
@@ -99,7 +91,7 @@ func ApproveMarketplaceProviderCapability(s *server.GlobalServer) http.HandlerFu
 					return
 				}
 				_, checkErr := rdb.GetOrgCapability(ctx, regionaldb.GetOrgCapabilityParams{
-					OrgID:      orgID,
+					OrgID:      org.OrgID,
 					Capability: "marketplace_provider",
 				})
 				if errors.Is(checkErr, pgx.ErrNoRows) {
@@ -116,7 +108,7 @@ func ApproveMarketplaceProviderCapability(s *server.GlobalServer) http.HandlerFu
 
 		// Write audit log in a separate global transaction
 		eventData, _ := json.Marshal(map[string]any{
-			"org_id":     req.OrgID,
+			"org_domain": req.OrgDomain,
 			"capability": "marketplace_provider",
 			"price":      fmt.Sprintf("%.2f", req.SubscriptionPrice),
 			"currency":   req.Currency,
@@ -132,10 +124,10 @@ func ApproveMarketplaceProviderCapability(s *server.GlobalServer) http.HandlerFu
 		})
 		if auditErr != nil {
 			log.Error("CONSISTENCY_ALERT: failed to write audit log after successful regional capability approval",
-				"error", auditErr, "org_id", req.OrgID)
+				"error", auditErr, "org_domain", req.OrgDomain)
 		}
 
-		log.Info("marketplace provider capability approved", "org_id", req.OrgID, "admin_id", uuidToString(adminUser.AdminUserID))
+		log.Info("marketplace provider capability approved", "org_domain", req.OrgDomain, "admin_id", uuidToString(adminUser.AdminUserID))
 
 		if err := json.NewEncoder(w).Encode(dbOrgCapabilityToAPI(updatedCap)); err != nil {
 			log.Error("failed to encode response", "error", err)

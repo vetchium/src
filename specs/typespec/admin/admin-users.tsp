@@ -183,8 +183,6 @@ model AdminInviteUserRequest {
 }
 
 model AdminInviteUserResponse {
-    @doc("Invitation ID")
-    invitation_id: string;
     @doc("Expiration timestamp")
     expires_at: string;
 }
@@ -320,8 +318,6 @@ interface AdminFilterUsers {
 // ===================================
 
 model AdminMyInfoResponse {
-    @doc("Admin user ID")
-    admin_user_id: string;
     @doc("Email address of the admin user")
     email_address: EmailAddress;
     @doc("Full name of the admin user")

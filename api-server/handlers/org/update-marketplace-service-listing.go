@@ -57,17 +57,10 @@ func UpdateMarketplaceServiceListing(s *server.RegionalServer) http.HandlerFunc 
 			return
 		}
 
-		// Get the listing to check its current state
-		var listingID pgtype.UUID
-		if err := listingID.Scan(req.ServiceListingID); err != nil {
-			log.Debug("invalid service_listing_id", "error", err)
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-
-		existing, err := s.Regional.GetServiceListingByIDAndOrg(ctx, regionaldb.GetServiceListingByIDAndOrgParams{
-			ServiceListingID: listingID,
-			OrgID:            orgUser.OrgID,
+		// Look up listing by name (name is the natural key)
+		existing, err := s.Regional.GetServiceListingByOrgAndName(ctx, regionaldb.GetServiceListingByOrgAndNameParams{
+			OrgID: orgUser.OrgID,
+			Name:  req.Name,
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
@@ -90,10 +83,6 @@ func UpdateMarketplaceServiceListing(s *server.RegionalServer) http.HandlerFunc 
 			w.WriteHeader(http.StatusUnprocessableEntity)
 			return
 		}
-
-		// Rejected listings are updated differently: they stay rejected and
-		// set changed_since_rejection=true. Active/paused go to pending_review.
-		// Draft stays draft.
 
 		var pricingInfo pgtype.Text
 		if req.PricingInfo != nil {
@@ -124,6 +113,9 @@ func UpdateMarketplaceServiceListing(s *server.RegionalServer) http.HandlerFunc 
 		var updated regionaldb.MarketplaceServiceListing
 		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
 			var txErr error
+			// Rejected listings stay rejected; changed_since_rejection is set to true
+			// so that the provider can subsequently submit for review.
+			// Active/paused go to pending_review. Draft stays draft.
 			switch existing.State {
 			case regionaldb.ServiceListingStateDraft:
 				updated, txErr = qtx.UpdateServiceListingDraft(ctx, regionaldb.UpdateServiceListingDraftParams{
@@ -139,12 +131,10 @@ func UpdateMarketplaceServiceListing(s *server.RegionalServer) http.HandlerFunc 
 					JobFunctionsSourced:       jobFunctionsSourced,
 					SeniorityLevelsSourced:    seniorityLevelsSourced,
 					GeographicSourcingRegions: req.GeographicSourcingRegions,
-					ServiceListingID:          listingID,
+					ServiceListingID:          existing.ServiceListingID,
 					OrgID:                     orgUser.OrgID,
 				})
 			case regionaldb.ServiceListingStateRejected:
-				// Rejected listings stay rejected; changed_since_rejection is set to true
-				// so that the provider can subsequently submit for review.
 				updated, txErr = qtx.UpdateRejectedServiceListing(ctx, regionaldb.UpdateRejectedServiceListingParams{
 					Name:                      req.Name,
 					ShortBlurb:                req.ShortBlurb,
@@ -158,7 +148,7 @@ func UpdateMarketplaceServiceListing(s *server.RegionalServer) http.HandlerFunc 
 					JobFunctionsSourced:       jobFunctionsSourced,
 					SeniorityLevelsSourced:    seniorityLevelsSourced,
 					GeographicSourcingRegions: req.GeographicSourcingRegions,
-					ServiceListingID:          listingID,
+					ServiceListingID:          existing.ServiceListingID,
 					OrgID:                     orgUser.OrgID,
 				})
 			default:
@@ -176,7 +166,7 @@ func UpdateMarketplaceServiceListing(s *server.RegionalServer) http.HandlerFunc 
 					JobFunctionsSourced:       jobFunctionsSourced,
 					SeniorityLevelsSourced:    seniorityLevelsSourced,
 					GeographicSourcingRegions: req.GeographicSourcingRegions,
-					ServiceListingID:          listingID,
+					ServiceListingID:          existing.ServiceListingID,
 					OrgID:                     orgUser.OrgID,
 				})
 			}
@@ -185,7 +175,7 @@ func UpdateMarketplaceServiceListing(s *server.RegionalServer) http.HandlerFunc 
 			}
 
 			eventData, _ := json.Marshal(map[string]any{
-				"service_listing_id": req.ServiceListingID,
+				"name": req.Name,
 			})
 			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
 				EventType:   "marketplace.update_service_listing",
@@ -205,7 +195,16 @@ func UpdateMarketplaceServiceListing(s *server.RegionalServer) http.HandlerFunc 
 			return
 		}
 
-		log.Info("service listing updated", "service_listing_id", req.ServiceListingID)
-		json.NewEncoder(w).Encode(dbServiceListingToAPI(updated))
+		// Get org domain for response
+		domains, err := s.Global.GetGlobalOrgDomainsByOrg(ctx, orgUser.OrgID)
+		if err != nil || len(domains) == 0 {
+			log.Error("failed to get org domain", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+		orgDomain := domains[0].Domain
+
+		log.Info("service listing updated", "name", req.Name)
+		json.NewEncoder(w).Encode(dbServiceListingToAPI(updated, orgDomain))
 	}
 }

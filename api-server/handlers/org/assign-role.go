@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"vetchium-api-server.gomodule/internal/audit"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
@@ -57,37 +56,19 @@ func AssignRole(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		// Parse target user ID as UUID
-		var targetUserID pgtype.UUID
-		if err := targetUserID.Scan(req.TargetUserID); err != nil {
-			s.Logger(ctx).Debug("invalid target user ID", "error", err)
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode([]common.ValidationError{
-				common.NewValidationError("target_user_id", errors.New("invalid UUID format")),
-			})
-			return
-		}
-
-		// Get target org user from regional DB (verify exists)
-		targetUser, err := s.Regional.GetOrgUserByID(ctx, targetUserID)
+		// Get target org user by email within the same org
+		targetUser, err := s.Regional.GetOrgUserByEmailAndOrg(ctx, regionaldb.GetOrgUserByEmailAndOrgParams{
+			EmailAddress: req.EmailAddress,
+			OrgID:        orgUser.OrgID,
+		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				s.Logger(ctx).Debug("target org user not found", "target_user_id", req.TargetUserID)
+				s.Logger(ctx).Debug("target org user not found", "email_address", req.EmailAddress)
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
 			s.Logger(ctx).Error("failed to get target org user", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-
-		// Verify target user belongs to same employer
-		if targetUser.OrgID != orgUser.OrgID {
-			s.Logger(ctx).Debug("target user belongs to different employer",
-				"target_user_id", targetUser.OrgUserID,
-				"target_employer_id", targetUser.OrgID,
-				"current_employer_id", orgUser.OrgID)
-			w.WriteHeader(http.StatusForbidden)
 			return
 		}
 
@@ -129,7 +110,6 @@ func AssignRole(s *server.RegionalServer) http.HandlerFunc {
 		// Assign role and write audit log atomically
 		targetEmailHash := sha256.Sum256([]byte(targetUser.EmailAddress))
 		eventData, _ := json.Marshal(map[string]any{
-			"target_user_id":    targetUser.OrgUserID.String(),
 			"target_email_hash": hex.EncodeToString(targetEmailHash[:]),
 			"role_name":         string(req.RoleName),
 		})

@@ -81,7 +81,6 @@ test.describe("Marketplace Org API", () => {
 				expect(res.status).toBe(200);
 				expect(res.body?.capability).toBe("marketplace_provider");
 				expect(res.body?.status).toBe("pending_approval");
-				expect(res.body?.org_id).toBe(result.orgId);
 
 				// Verify audit log
 				const auditResp = await api.filterAuditLogs(token, {
@@ -92,7 +91,7 @@ test.describe("Marketplace Org API", () => {
 				expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
 				const entry = auditResp.body.audit_logs[0];
 				expect(entry.event_type).toBe("marketplace.apply_provider_capability");
-				expect(entry.actor_user_id).toBeDefined();
+				expect(entry.actor_email).toBeDefined();
 			} finally {
 				await deleteTestOrgUser(email);
 			}
@@ -329,7 +328,7 @@ test.describe("Marketplace Org API", () => {
 					validListingRequest("create")
 				);
 				expect(res.status).toBe(201);
-				expect(res.body?.service_listing_id).toBeDefined();
+				expect(res.body?.name).toBeDefined();
 
 				// Verify audit log
 				const auditResp = await api.filterAuditLogs(token, {
@@ -475,11 +474,11 @@ test.describe("Marketplace Org API", () => {
 					validListingRequest("submit")
 				);
 				expect(createRes.status).toBe(201);
-				const listingId = createRes.body?.service_listing_id;
+				const listingName = createRes.body?.name;
 
 				// Submit it
 				const submitRes = await api.submitMarketplaceServiceListing(token, {
-					service_listing_id: listingId,
+					name: listingName,
 				});
 				expect(submitRes.status).toBe(200);
 
@@ -506,7 +505,7 @@ test.describe("Marketplace Org API", () => {
 			const result = await createTestOrgAdminDirect(email, TEST_PASSWORD);
 			await grantMarketplaceProviderCapability(result.orgId);
 			// Create a listing in pending_review state directly
-			const listingId = await createTestServiceListingDirect(
+			const listingName = await createTestServiceListingDirect(
 				result.orgId,
 				"Already Submitted Listing",
 				"pending_review"
@@ -515,7 +514,7 @@ test.describe("Marketplace Org API", () => {
 			try {
 				const token = await loginOrgUser(api, email, domain);
 				const submitRes = await api.submitMarketplaceServiceListing(token, {
-					service_listing_id: listingId,
+					name: listingName,
 				});
 				expect(submitRes.status).toBe(422);
 			} finally {
@@ -531,7 +530,7 @@ test.describe("Marketplace Org API", () => {
 			try {
 				const token = await loginOrgUser(api, email, domain);
 				const res = await api.submitMarketplaceServiceListing(token, {
-					service_listing_id: "00000000-0000-0000-0000-000000000000",
+					name: "nonexistent-listing-name",
 				});
 				expect(res.status).toBe(404);
 			} finally {
@@ -542,7 +541,7 @@ test.describe("Marketplace Org API", () => {
 		test("Auth: unauthenticated (401)", async ({ request }) => {
 			const api = new OrgAPIClient(request);
 			const res = await api.submitMarketplaceServiceListing("invalid-token", {
-				service_listing_id: "00000000-0000-0000-0000-000000000000",
+				name: "nonexistent-listing-name",
 			});
 			expect(res.status).toBe(401);
 		});
@@ -554,7 +553,7 @@ test.describe("Marketplace Org API", () => {
 			const { email, domain } = generateTestOrgEmail("mkt-submit-rej-nochange");
 			const result = await createTestOrgAdminDirect(email, TEST_PASSWORD);
 			await grantMarketplaceProviderCapability(result.orgId);
-			const listingId = await createTestServiceListingDirect(
+			const listingName = await createTestServiceListingDirect(
 				result.orgId,
 				"Rejected Listing No Changes",
 				"rejected"
@@ -564,7 +563,7 @@ test.describe("Marketplace Org API", () => {
 			try {
 				const token = await loginOrgUser(api, email, domain);
 				const res = await api.submitMarketplaceServiceListing(token, {
-					service_listing_id: listingId,
+					name: listingName,
 				});
 				expect(res.status).toBe(422);
 			} finally {
@@ -579,7 +578,7 @@ test.describe("Marketplace Org API", () => {
 			const { email, domain } = generateTestOrgEmail("mkt-submit-rej-changed");
 			const result = await createTestOrgAdminDirect(email, TEST_PASSWORD);
 			await grantMarketplaceProviderCapability(result.orgId);
-			const listingId = await createTestServiceListingDirect(
+			const listingName = await createTestServiceListingDirect(
 				result.orgId,
 				"Rejected Listing With Changes",
 				"rejected"
@@ -591,14 +590,14 @@ test.describe("Marketplace Org API", () => {
 				// Update listing to set changed_since_rejection = true
 				const updateRes = await api.updateMarketplaceServiceListing(token, {
 					...validListingRequest("rej-updated"),
-					service_listing_id: listingId,
+					name: listingName,
 				});
 				expect(updateRes.status).toBe(200);
 				expect(updateRes.body?.state).toBe("rejected");
 
 				// Now submit should succeed
 				const submitRes = await api.submitMarketplaceServiceListing(token, {
-					service_listing_id: listingId,
+					name: listingName,
 				});
 				expect(submitRes.status).toBe(200);
 				expect(submitRes.body?.state).toBe("pending_review");
@@ -617,7 +616,7 @@ test.describe("Marketplace Org API", () => {
 			const { email, domain } = generateTestOrgEmail("mkt-pause");
 			const result = await createTestOrgAdminDirect(email, TEST_PASSWORD);
 			await grantMarketplaceProviderCapability(result.orgId);
-			const listingId = await createTestServiceListingDirect(
+			const listingName = await createTestServiceListingDirect(
 				result.orgId,
 				"Listing to Pause",
 				"active"
@@ -627,7 +626,7 @@ test.describe("Marketplace Org API", () => {
 				const before = new Date(Date.now() - 2000).toISOString();
 				const token = await loginOrgUser(api, email, domain);
 				const res = await api.pauseMarketplaceServiceListing(token, {
-					service_listing_id: listingId,
+					name: listingName,
 				});
 				expect(res.status).toBe(200);
 
@@ -651,7 +650,7 @@ test.describe("Marketplace Org API", () => {
 			const { email, domain } = generateTestOrgEmail("mkt-pause-422");
 			const result = await createTestOrgAdminDirect(email, TEST_PASSWORD);
 			await grantMarketplaceProviderCapability(result.orgId);
-			const listingId = await createTestServiceListingDirect(
+			const listingName = await createTestServiceListingDirect(
 				result.orgId,
 				"Draft Listing Cannot Pause",
 				"draft"
@@ -660,7 +659,7 @@ test.describe("Marketplace Org API", () => {
 			try {
 				const token = await loginOrgUser(api, email, domain);
 				const res = await api.pauseMarketplaceServiceListing(token, {
-					service_listing_id: listingId,
+					name: listingName,
 				});
 				expect(res.status).toBe(422);
 			} finally {
@@ -671,7 +670,7 @@ test.describe("Marketplace Org API", () => {
 		test("Auth: unauthenticated (401)", async ({ request }) => {
 			const api = new OrgAPIClient(request);
 			const res = await api.pauseMarketplaceServiceListing("invalid-token", {
-				service_listing_id: "00000000-0000-0000-0000-000000000000",
+				name: "nonexistent-listing-name",
 			});
 			expect(res.status).toBe(401);
 		});
@@ -686,7 +685,7 @@ test.describe("Marketplace Org API", () => {
 			const { email, domain } = generateTestOrgEmail("mkt-unpause");
 			const result = await createTestOrgAdminDirect(email, TEST_PASSWORD);
 			await grantMarketplaceProviderCapability(result.orgId);
-			const listingId = await createTestServiceListingDirect(
+			const listingName = await createTestServiceListingDirect(
 				result.orgId,
 				"Listing to Unpause",
 				"paused"
@@ -696,7 +695,7 @@ test.describe("Marketplace Org API", () => {
 				const before = new Date(Date.now() - 2000).toISOString();
 				const token = await loginOrgUser(api, email, domain);
 				const res = await api.unpauseMarketplaceServiceListing(token, {
-					service_listing_id: listingId,
+					name: listingName,
 				});
 				expect(res.status).toBe(200);
 
@@ -720,7 +719,7 @@ test.describe("Marketplace Org API", () => {
 			const { email, domain } = generateTestOrgEmail("mkt-unpause-422");
 			const result = await createTestOrgAdminDirect(email, TEST_PASSWORD);
 			await grantMarketplaceProviderCapability(result.orgId);
-			const listingId = await createTestServiceListingDirect(
+			const listingName = await createTestServiceListingDirect(
 				result.orgId,
 				"Active Listing Cannot Unpause",
 				"active"
@@ -729,7 +728,7 @@ test.describe("Marketplace Org API", () => {
 			try {
 				const token = await loginOrgUser(api, email, domain);
 				const res = await api.unpauseMarketplaceServiceListing(token, {
-					service_listing_id: listingId,
+					name: listingName,
 				});
 				expect(res.status).toBe(422);
 			} finally {
@@ -740,7 +739,7 @@ test.describe("Marketplace Org API", () => {
 		test("Auth: unauthenticated (401)", async ({ request }) => {
 			const api = new OrgAPIClient(request);
 			const res = await api.unpauseMarketplaceServiceListing("invalid-token", {
-				service_listing_id: "00000000-0000-0000-0000-000000000000",
+				name: "nonexistent-listing-name",
 			});
 			expect(res.status).toBe(401);
 		});
@@ -755,7 +754,7 @@ test.describe("Marketplace Org API", () => {
 			const { email, domain } = generateTestOrgEmail("mkt-archive");
 			const result = await createTestOrgAdminDirect(email, TEST_PASSWORD);
 			await grantMarketplaceProviderCapability(result.orgId);
-			const listingId = await createTestServiceListingDirect(
+			const listingName = await createTestServiceListingDirect(
 				result.orgId,
 				"Listing to Archive",
 				"active"
@@ -765,7 +764,7 @@ test.describe("Marketplace Org API", () => {
 				const before = new Date(Date.now() - 2000).toISOString();
 				const token = await loginOrgUser(api, email, domain);
 				const res = await api.archiveMarketplaceServiceListing(token, {
-					service_listing_id: listingId,
+					name: listingName,
 				});
 				expect(res.status).toBe(204);
 
@@ -789,7 +788,7 @@ test.describe("Marketplace Org API", () => {
 			const { email, domain } = generateTestOrgEmail("mkt-archive-draft");
 			const result = await createTestOrgAdminDirect(email, TEST_PASSWORD);
 			await grantMarketplaceProviderCapability(result.orgId);
-			const listingId = await createTestServiceListingDirect(
+			const listingName = await createTestServiceListingDirect(
 				result.orgId,
 				"Draft Listing to Archive",
 				"draft"
@@ -798,7 +797,7 @@ test.describe("Marketplace Org API", () => {
 			try {
 				const token = await loginOrgUser(api, email, domain);
 				const res = await api.archiveMarketplaceServiceListing(token, {
-					service_listing_id: listingId,
+					name: listingName,
 				});
 				expect(res.status).toBe(204);
 			} finally {
@@ -809,7 +808,7 @@ test.describe("Marketplace Org API", () => {
 		test("Auth: unauthenticated (401)", async ({ request }) => {
 			const api = new OrgAPIClient(request);
 			const res = await api.archiveMarketplaceServiceListing("invalid-token", {
-				service_listing_id: "00000000-0000-0000-0000-000000000000",
+				name: "nonexistent-listing-name",
 			});
 			expect(res.status).toBe(401);
 		});
@@ -824,7 +823,7 @@ test.describe("Marketplace Org API", () => {
 			const { email, domain } = generateTestOrgEmail("mkt-appeal");
 			const result = await createTestOrgAdminDirect(email, TEST_PASSWORD);
 			await grantMarketplaceProviderCapability(result.orgId);
-			const listingId = await createTestServiceListingDirect(
+			const listingName = await createTestServiceListingDirect(
 				result.orgId,
 				"Suspended Listing for Appeal",
 				"suspended"
@@ -834,7 +833,7 @@ test.describe("Marketplace Org API", () => {
 				const before = new Date(Date.now() - 2000).toISOString();
 				const token = await loginOrgUser(api, email, domain);
 				const res = await api.submitMarketplaceServiceListingAppeal(token, {
-					service_listing_id: listingId,
+					name: listingName,
 					appeal_reason: "We believe this suspension was made in error.",
 				});
 				expect(res.status).toBe(200);
@@ -861,20 +860,20 @@ test.describe("Marketplace Org API", () => {
 			const { email, domain } = generateTestOrgEmail("mkt-appeal-exhausted");
 			const result = await createTestOrgAdminDirect(email, TEST_PASSWORD);
 			await grantMarketplaceProviderCapability(result.orgId);
-			const listingId = await createTestServiceListingDirect(
+			const listingName = await createTestServiceListingDirect(
 				result.orgId,
 				"Appeal Exhausted Listing",
 				"suspended"
 			);
 			// Set appeal_exhausted = true
-			await setServiceListingAppealingState(listingId, true);
+			await setServiceListingAppealingState(listingName, true);
 			// Reset back to suspended with exhausted flag
-			await setServiceListingState(listingId, "suspended");
+			await setServiceListingState(listingName, "suspended");
 
 			try {
 				const token = await loginOrgUser(api, email, domain);
 				const res = await api.submitMarketplaceServiceListingAppeal(token, {
-					service_listing_id: listingId,
+					name: listingName,
 					appeal_reason: "Trying to appeal again.",
 				});
 				expect(res.status).toBe(422);
@@ -888,7 +887,7 @@ test.describe("Marketplace Org API", () => {
 			const { email, domain } = generateTestOrgEmail("mkt-appeal-badstate");
 			const result = await createTestOrgAdminDirect(email, TEST_PASSWORD);
 			await grantMarketplaceProviderCapability(result.orgId);
-			const listingId = await createTestServiceListingDirect(
+			const listingName = await createTestServiceListingDirect(
 				result.orgId,
 				"Active Listing Cannot Appeal",
 				"active"
@@ -897,7 +896,7 @@ test.describe("Marketplace Org API", () => {
 			try {
 				const token = await loginOrgUser(api, email, domain);
 				const res = await api.submitMarketplaceServiceListingAppeal(token, {
-					service_listing_id: listingId,
+					name: listingName,
 					appeal_reason:
 						"This listing is active, should not be able to appeal.",
 				});
@@ -912,7 +911,7 @@ test.describe("Marketplace Org API", () => {
 			const res = await api.submitMarketplaceServiceListingAppeal(
 				"invalid-token",
 				{
-					service_listing_id: "00000000-0000-0000-0000-000000000000",
+					name: "nonexistent-listing-name",
 					appeal_reason: "Some reason",
 				}
 			);
@@ -939,15 +938,15 @@ test.describe("Marketplace Org API", () => {
 					validListingRequest("update-draft")
 				);
 				expect(createRes.status).toBe(201);
-				const listingId = createRes.body?.service_listing_id;
+				const listingName = createRes.body?.name;
 
 				const updateRes = await api.updateMarketplaceServiceListing(token, {
 					...validListingRequest("updated"),
-					service_listing_id: listingId,
+					name: listingName,
 				});
 				expect(updateRes.status).toBe(200);
 				expect(updateRes.body?.state).toBe("draft");
-				expect(updateRes.body?.name).toBe("Test Service Listing updated");
+				expect(updateRes.body?.name).toBe(listingName);
 
 				// Verify audit log
 				const auditResp = await api.filterAuditLogs(token, {
@@ -971,7 +970,7 @@ test.describe("Marketplace Org API", () => {
 			const { email, domain } = generateTestOrgEmail("mkt-update-rejected");
 			const result = await createTestOrgAdminDirect(email, TEST_PASSWORD);
 			await grantMarketplaceProviderCapability(result.orgId);
-			const listingId = await createTestServiceListingDirect(
+			const listingName = await createTestServiceListingDirect(
 				result.orgId,
 				"Rejected Listing to Update",
 				"rejected"
@@ -982,7 +981,7 @@ test.describe("Marketplace Org API", () => {
 
 				const updateRes = await api.updateMarketplaceServiceListing(token, {
 					...validListingRequest("rejected-updated"),
-					service_listing_id: listingId,
+					name: listingName,
 				});
 				expect(updateRes.status).toBe(200);
 				// Must stay rejected (NOT move to pending_review)
@@ -999,7 +998,7 @@ test.describe("Marketplace Org API", () => {
 			const { email, domain } = generateTestOrgEmail("mkt-update-active");
 			const result = await createTestOrgAdminDirect(email, TEST_PASSWORD);
 			await grantMarketplaceProviderCapability(result.orgId);
-			const listingId = await createTestServiceListingDirect(
+			const listingName = await createTestServiceListingDirect(
 				result.orgId,
 				"Active Listing to Update",
 				"active"
@@ -1010,7 +1009,7 @@ test.describe("Marketplace Org API", () => {
 
 				const updateRes = await api.updateMarketplaceServiceListing(token, {
 					...validListingRequest("active-updated"),
-					service_listing_id: listingId,
+					name: listingName,
 				});
 				expect(updateRes.status).toBe(200);
 				// Editing an active listing moves it to pending_review immediately
@@ -1027,7 +1026,7 @@ test.describe("Marketplace Org API", () => {
 			const { email, domain } = generateTestOrgEmail("mkt-update-paused");
 			const result = await createTestOrgAdminDirect(email, TEST_PASSWORD);
 			await grantMarketplaceProviderCapability(result.orgId);
-			const listingId = await createTestServiceListingDirect(
+			const listingName = await createTestServiceListingDirect(
 				result.orgId,
 				"Paused Listing to Update",
 				"paused"
@@ -1038,7 +1037,7 @@ test.describe("Marketplace Org API", () => {
 
 				const updateRes = await api.updateMarketplaceServiceListing(token, {
 					...validListingRequest("paused-updated"),
-					service_listing_id: listingId,
+					name: listingName,
 				});
 				expect(updateRes.status).toBe(200);
 				// Editing a paused listing moves it to pending_review immediately
@@ -1053,7 +1052,7 @@ test.describe("Marketplace Org API", () => {
 			const { email, domain } = generateTestOrgEmail("mkt-update-pending");
 			const result = await createTestOrgAdminDirect(email, TEST_PASSWORD);
 			await grantMarketplaceProviderCapability(result.orgId);
-			const listingId = await createTestServiceListingDirect(
+			const listingName = await createTestServiceListingDirect(
 				result.orgId,
 				"Pending Review Listing",
 				"pending_review"
@@ -1063,7 +1062,7 @@ test.describe("Marketplace Org API", () => {
 				const token = await loginOrgUser(api, email, domain);
 				const updateRes = await api.updateMarketplaceServiceListing(token, {
 					...validListingRequest("pending-updated"),
-					service_listing_id: listingId,
+					name: listingName,
 				});
 				expect(updateRes.status).toBe(422);
 			} finally {
@@ -1081,7 +1080,7 @@ test.describe("Marketplace Org API", () => {
 				const token = await loginOrgUser(api, email, domain);
 				const updateRes = await api.updateMarketplaceServiceListing(token, {
 					...validListingRequest("no-cap"),
-					service_listing_id: "00000000-0000-0000-0000-000000000000",
+					name: "nonexistent-listing-name",
 				});
 				expect(updateRes.status).toBe(403);
 			} finally {
@@ -1099,7 +1098,7 @@ test.describe("Marketplace Org API", () => {
 				const token = await loginOrgUser(api, email, domain);
 				const updateRes = await api.updateMarketplaceServiceListing(token, {
 					...validListingRequest("notfound"),
-					service_listing_id: "00000000-0000-0000-0000-000000000000",
+					name: "nonexistent-listing-name",
 				});
 				expect(updateRes.status).toBe(404);
 			} finally {
@@ -1111,7 +1110,7 @@ test.describe("Marketplace Org API", () => {
 			const api = new OrgAPIClient(request);
 			const res = await api.updateMarketplaceServiceListing("invalid-token", {
 				...validListingRequest("unauth"),
-				service_listing_id: "00000000-0000-0000-0000-000000000000",
+				name: "nonexistent-listing-name",
 			});
 			expect(res.status).toBe(401);
 		});
@@ -1136,7 +1135,7 @@ test.describe("Marketplace Org API", () => {
 				const token = await loginOrgUser(api, noRoleEmail, domain);
 				const res = await api.updateMarketplaceServiceListing(token, {
 					...validListingRequest("rbac"),
-					service_listing_id: "00000000-0000-0000-0000-000000000000",
+					name: "nonexistent-listing-name",
 				});
 				expect(res.status).toBe(403);
 			} finally {
@@ -1155,7 +1154,7 @@ test.describe("Marketplace Org API", () => {
 			const { email, domain } = generateTestOrgEmail("mkt-get-sl");
 			const result = await createTestOrgAdminDirect(email, TEST_PASSWORD);
 			await grantMarketplaceProviderCapability(result.orgId);
-			const listingId = await createTestServiceListingDirect(
+			const listingName = await createTestServiceListingDirect(
 				result.orgId,
 				"My Service Listing",
 				"draft"
@@ -1164,10 +1163,9 @@ test.describe("Marketplace Org API", () => {
 			try {
 				const token = await loginOrgUser(api, email, domain);
 				const res = await api.getMarketplaceServiceListing(token, {
-					service_listing_id: listingId,
+					name: listingName,
 				});
 				expect(res.status).toBe(200);
-				expect(res.body?.service_listing_id).toBe(listingId);
 				expect(res.body?.name).toBe("My Service Listing");
 			} finally {
 				await deleteTestOrgUser(email);
@@ -1183,7 +1181,7 @@ test.describe("Marketplace Org API", () => {
 			try {
 				const token = await loginOrgUser(api, email, domain);
 				const res = await api.getMarketplaceServiceListing(token, {
-					service_listing_id: "00000000-0000-0000-0000-000000000000",
+					name: "nonexistent-listing-name",
 				});
 				expect(res.status).toBe(404);
 			} finally {
@@ -1194,7 +1192,7 @@ test.describe("Marketplace Org API", () => {
 		test("Auth: unauthenticated (401)", async ({ request }) => {
 			const api = new OrgAPIClient(request);
 			const res = await api.getMarketplaceServiceListing("invalid-token", {
-				service_listing_id: "00000000-0000-0000-0000-000000000000",
+				name: "nonexistent-listing-name",
 			});
 			expect(res.status).toBe(401);
 		});
@@ -1218,7 +1216,7 @@ test.describe("Marketplace Org API", () => {
 			try {
 				const token = await loginOrgUser(api, noRoleEmail, domain);
 				const res = await api.getMarketplaceServiceListing(token, {
-					service_listing_id: "00000000-0000-0000-0000-000000000000",
+					name: "nonexistent-listing-name",
 				});
 				expect(res.status).toBe(403);
 			} finally {
@@ -1243,7 +1241,7 @@ test.describe("Marketplace Org API", () => {
 				TEST_PASSWORD
 			);
 			await grantMarketplaceProviderCapability(providerResult.orgId);
-			const listingId = await createTestServiceListingDirect(
+			const listingName = await createTestServiceListingDirect(
 				providerResult.orgId,
 				"Public Listing for Buyer",
 				"active"
@@ -1257,11 +1255,11 @@ test.describe("Marketplace Org API", () => {
 			try {
 				const buyerToken = await loginOrgUser(api, buyerEmail, buyerDomain);
 				const res = await api.getPublicMarketplaceServiceListing(buyerToken, {
-					service_listing_id: listingId,
-					home_region: "ind1",
+					name: listingName,
+					org_domain: providerDomain,
 				});
 				expect(res.status).toBe(200);
-				expect(res.body?.service_listing_id).toBe(listingId);
+				expect(res.body?.name).toBe(listingName);
 			} finally {
 				await deleteTestOrgUser(providerEmail);
 				await deleteTestOrgUser(buyerEmail);
@@ -1275,7 +1273,7 @@ test.describe("Marketplace Org API", () => {
 			const { email, domain } = generateTestOrgEmail("mkt-getpub-self");
 			const result = await createTestOrgAdminDirect(email, TEST_PASSWORD);
 			await grantMarketplaceProviderCapability(result.orgId);
-			const listingId = await createTestServiceListingDirect(
+			const listingName = await createTestServiceListingDirect(
 				result.orgId,
 				"Own Active Listing",
 				"active"
@@ -1284,8 +1282,8 @@ test.describe("Marketplace Org API", () => {
 			try {
 				const token = await loginOrgUser(api, email, domain);
 				const res = await api.getPublicMarketplaceServiceListing(token, {
-					service_listing_id: listingId,
-					home_region: "ind1",
+					name: listingName,
+					org_domain: domain,
 				});
 				expect(res.status).toBe(403);
 			} finally {
@@ -1304,7 +1302,7 @@ test.describe("Marketplace Org API", () => {
 				TEST_PASSWORD
 			);
 			await grantMarketplaceProviderCapability(providerResult.orgId);
-			const listingId = await createTestServiceListingDirect(
+			const listingName = await createTestServiceListingDirect(
 				providerResult.orgId,
 				"Draft Listing Not Visible",
 				"draft"
@@ -1319,8 +1317,8 @@ test.describe("Marketplace Org API", () => {
 			try {
 				const buyerToken = await loginOrgUser(api, buyerEmail, buyerDomain);
 				const res = await api.getPublicMarketplaceServiceListing(buyerToken, {
-					service_listing_id: listingId,
-					home_region: "ind1",
+					name: listingName,
+					org_domain: providerDomain,
 				});
 				expect(res.status).toBe(404);
 			} finally {
@@ -1337,8 +1335,8 @@ test.describe("Marketplace Org API", () => {
 			try {
 				const token = await loginOrgUser(api, email, domain);
 				const res = await api.getPublicMarketplaceServiceListing(token, {
-					service_listing_id: "00000000-0000-0000-0000-000000000000",
-					home_region: "ind1",
+					name: "nonexistent-listing-name",
+					org_domain: "nonexistent-org.test.vetchium.com",
 				});
 				expect(res.status).toBe(404);
 			} finally {
@@ -1351,8 +1349,8 @@ test.describe("Marketplace Org API", () => {
 			const res = await api.getPublicMarketplaceServiceListing(
 				"invalid-token",
 				{
-					service_listing_id: "00000000-0000-0000-0000-000000000000",
-					home_region: "ind1",
+					name: "nonexistent-listing-name",
+					org_domain: "nonexistent-org.test.vetchium.com",
 				}
 			);
 			expect(res.status).toBe(401);
@@ -1461,7 +1459,7 @@ test.describe("Marketplace Org API", () => {
 				expect(res.body?.service_listings).toBeDefined();
 				// Should contain the provider's listing
 				const providerListing = res.body?.service_listings.find(
-					(l: any) => l.org_id === providerResult.orgId
+					(l: any) => l.org_domain === providerDomain
 				);
 				expect(providerListing).toBeDefined();
 			} finally {
@@ -1497,7 +1495,7 @@ test.describe("Marketplace Org API", () => {
 				TEST_PASSWORD
 			);
 			await grantMarketplaceProviderCapability(providerResult.orgId);
-			const listingId = await createTestServiceListingDirect(
+			const listingName = await createTestServiceListingDirect(
 				providerResult.orgId,
 				"Listing to Report",
 				"active"
@@ -1516,8 +1514,8 @@ test.describe("Marketplace Org API", () => {
 					reporterDomain
 				);
 				const res = await api.reportMarketplaceServiceListing(reporterToken, {
-					service_listing_id: listingId,
-					home_region: "ind1",
+					name: listingName,
+					org_domain: providerDomain,
 					reason: "misleading_information",
 				});
 				expect(res.status).toBe(200);
@@ -1544,7 +1542,7 @@ test.describe("Marketplace Org API", () => {
 			const { email, domain } = generateTestOrgEmail("mkt-report-own");
 			const result = await createTestOrgAdminDirect(email, TEST_PASSWORD);
 			await grantMarketplaceProviderCapability(result.orgId);
-			const listingId = await createTestServiceListingDirect(
+			const listingName = await createTestServiceListingDirect(
 				result.orgId,
 				"Own Listing Cannot Report",
 				"active"
@@ -1553,8 +1551,8 @@ test.describe("Marketplace Org API", () => {
 			try {
 				const token = await loginOrgUser(api, email, domain);
 				const res = await api.reportMarketplaceServiceListing(token, {
-					service_listing_id: listingId,
-					home_region: "ind1",
+					name: listingName,
+					org_domain: domain,
 					reason: "spam",
 				});
 				expect(res.status).toBe(403);
@@ -1569,15 +1567,14 @@ test.describe("Marketplace Org API", () => {
 			const api = new OrgAPIClient(request);
 
 			// Provider org
-			const { email: providerEmail } = generateTestOrgEmail(
-				"mkt-report-dup-prov"
-			);
+			const { email: providerEmail, domain: providerDomain } =
+				generateTestOrgEmail("mkt-report-dup-prov");
 			const providerResult = await createTestOrgAdminDirect(
 				providerEmail,
 				TEST_PASSWORD
 			);
 			await grantMarketplaceProviderCapability(providerResult.orgId);
-			const listingId = await createTestServiceListingDirect(
+			const listingName = await createTestServiceListingDirect(
 				providerResult.orgId,
 				"Listing for Dup Report",
 				"active"
@@ -1597,8 +1594,8 @@ test.describe("Marketplace Org API", () => {
 
 				// First report
 				const first = await api.reportMarketplaceServiceListing(reporterToken, {
-					service_listing_id: listingId,
-					home_region: "ind1",
+					name: listingName,
+					org_domain: providerDomain,
 					reason: "spam",
 				});
 				expect(first.status).toBe(200);
@@ -1607,8 +1604,8 @@ test.describe("Marketplace Org API", () => {
 				const second = await api.reportMarketplaceServiceListing(
 					reporterToken,
 					{
-						service_listing_id: listingId,
-						home_region: "ind1",
+						name: listingName,
+						org_domain: providerDomain,
 						reason: "spam",
 					}
 				);
@@ -1622,8 +1619,8 @@ test.describe("Marketplace Org API", () => {
 		test("Auth: unauthenticated (401)", async ({ request }) => {
 			const api = new OrgAPIClient(request);
 			const res = await api.reportMarketplaceServiceListing("invalid-token", {
-				service_listing_id: "00000000-0000-0000-0000-000000000000",
-				home_region: "ind1",
+				name: "nonexistent-listing-name",
+				org_domain: "nonexistent-org.test.vetchium.com",
 				reason: "spam",
 			});
 			expect(res.status).toBe(401);

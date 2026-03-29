@@ -39,8 +39,8 @@ var ValidRoleNames = []RoleName{
 
 // Validation errors for RBAC
 var (
-	ErrRoleNameInvalid      = errors.New("must be a valid role name")
-	ErrTargetUserIDRequired = errors.New("target user ID is required")
+	ErrRoleNameInvalid     = errors.New("must be a valid role name")
+	ErrTargetEmailRequired = errors.New("email_address is required")
 )
 
 // Validate checks if the role name is valid
@@ -55,7 +55,7 @@ func (r RoleName) Validate() error {
 
 // AssignRoleRequest represents a request to assign a role to a user
 type AssignRoleRequest struct {
-	TargetUserID string   `json:"target_user_id"`
+	EmailAddress string   `json:"email_address"`
 	RoleName     RoleName `json:"role_name"`
 }
 
@@ -63,8 +63,8 @@ type AssignRoleRequest struct {
 func (r AssignRoleRequest) Validate() []ValidationError {
 	var errs []ValidationError
 
-	if r.TargetUserID == "" {
-		errs = append(errs, NewValidationError("target_user_id", ErrTargetUserIDRequired))
+	if r.EmailAddress == "" {
+		errs = append(errs, NewValidationError("email_address", ErrTargetEmailRequired))
 	}
 
 	if r.RoleName == "" {
@@ -78,7 +78,7 @@ func (r AssignRoleRequest) Validate() []ValidationError {
 
 // RemoveRoleRequest represents a request to remove a role from a user
 type RemoveRoleRequest struct {
-	TargetUserID string   `json:"target_user_id"`
+	EmailAddress string   `json:"email_address"`
 	RoleName     RoleName `json:"role_name"`
 }
 
@@ -86,8 +86,8 @@ type RemoveRoleRequest struct {
 func (r RemoveRoleRequest) Validate() []ValidationError {
 	var errs []ValidationError
 
-	if r.TargetUserID == "" {
-		errs = append(errs, NewValidationError("target_user_id", ErrTargetUserIDRequired))
+	if r.EmailAddress == "" {
+		errs = append(errs, NewValidationError("email_address", ErrTargetEmailRequired))
 	}
 
 	if r.RoleName == "" {

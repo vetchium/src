@@ -141,10 +141,10 @@ func CreateMarketplaceServiceListing(s *server.RegionalServer) http.HandlerFunc 
 			return
 		}
 
-		log.Info("service listing created", "service_listing_id", uuidToString(listing.ServiceListingID))
+		log.Info("service listing created", "name", listing.Name)
 		w.WriteHeader(http.StatusCreated)
 		json.NewEncoder(w).Encode(orgtypes.CreateMarketplaceServiceListingResponse{
-			ServiceListingID: uuidToString(listing.ServiceListingID),
+			Name: listing.Name,
 		})
 	}
 }

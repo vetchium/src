@@ -99,7 +99,6 @@ test.describe("GET /hub/myinfo", () => {
 			const response = await api.getMyInfo(sessionToken);
 
 			expect(response.status).toBe(200);
-			expect(response.body.hub_user_id).toBeDefined();
 			expect(response.body.handle).toBeDefined();
 			expect(response.body.email_address).toBe(email);
 			expect(response.body.preferred_language).toBeDefined();

@@ -45,20 +45,13 @@ func ReinstateMarketplaceProviderCapability(s *server.GlobalServer) http.Handler
 			return
 		}
 
-		var orgID pgtype.UUID
-		if err := orgID.Scan(req.OrgID); err != nil {
-			log.Debug("invalid org_id", "error", err)
-			http.Error(w, "invalid org_id", http.StatusBadRequest)
-			return
-		}
-
-		org, err := s.Global.GetOrgByID(ctx, orgID)
+		org, err := s.Global.GetOrgByDomain(ctx, req.OrgDomain)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
-			log.Error("failed to get org", "error", err)
+			log.Error("failed to get org by domain", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -84,7 +77,7 @@ func ReinstateMarketplaceProviderCapability(s *server.GlobalServer) http.Handler
 				SubscriptionPrice: subPrice,
 				Currency:          pgtype.Text{String: req.Currency, Valid: true},
 				ExpiresAt:         expiresAt,
-				OrgID:             orgID,
+				OrgID:             org.OrgID,
 				Capability:        "marketplace_provider",
 			})
 			return txErr
@@ -97,7 +90,7 @@ func ReinstateMarketplaceProviderCapability(s *server.GlobalServer) http.Handler
 					return
 				}
 				_, checkErr := rdb.GetOrgCapability(ctx, regionaldb.GetOrgCapabilityParams{
-					OrgID:      orgID,
+					OrgID:      org.OrgID,
 					Capability: "marketplace_provider",
 				})
 				if errors.Is(checkErr, pgx.ErrNoRows) {
@@ -113,7 +106,7 @@ func ReinstateMarketplaceProviderCapability(s *server.GlobalServer) http.Handler
 		}
 
 		eventData, _ := json.Marshal(map[string]any{
-			"org_id":                   req.OrgID,
+			"org_domain":               req.OrgDomain,
 			"capability":               "marketplace_provider",
 			"subscription_period_days": req.SubscriptionPeriodDays,
 			"currency":                 req.Currency,
@@ -128,10 +121,10 @@ func ReinstateMarketplaceProviderCapability(s *server.GlobalServer) http.Handler
 		})
 		if auditErr != nil {
 			log.Error("CONSISTENCY_ALERT: failed to write audit log after successful regional capability reinstatement",
-				"error", auditErr, "org_id", req.OrgID)
+				"error", auditErr, "org_domain", req.OrgDomain)
 		}
 
-		log.Info("marketplace provider capability reinstated", "org_id", req.OrgID, "admin_id", uuidToString(adminUser.AdminUserID))
+		log.Info("marketplace provider capability reinstated", "org_domain", req.OrgDomain, "admin_id", uuidToString(adminUser.AdminUserID))
 
 		if err := json.NewEncoder(w).Encode(dbOrgCapabilityToAPI(updatedCap)); err != nil {
 			log.Error("failed to encode response", "error", err)

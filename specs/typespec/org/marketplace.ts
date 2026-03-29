@@ -75,7 +75,6 @@ export type ReportReason =
 // ---- Response types ----
 
 export interface OrgCapability {
-	org_id: string;
 	capability: string;
 	status: OrgCapabilityStatus;
 	application_note?: string;
@@ -89,9 +88,7 @@ export interface OrgCapability {
 }
 
 export interface ServiceListingSummary {
-	service_listing_id: string;
-	home_region: string;
-	org_id: string;
+	org_domain: string;
 	name: string;
 	short_blurb: string;
 	logo_url?: string;
@@ -102,8 +99,7 @@ export interface ServiceListingSummary {
 }
 
 export interface ServiceListing {
-	service_listing_id: string;
-	org_id: string;
+	org_domain: string;
 	name: string;
 	short_blurb: string;
 	description: string;
@@ -342,44 +338,55 @@ export function validateCreateMarketplaceServiceListingRequest(
 }
 
 export interface CreateMarketplaceServiceListingResponse {
-	service_listing_id: string;
+	name: string;
 }
 
-export interface UpdateMarketplaceServiceListingRequest extends ServiceListingFields {
-	service_listing_id: string;
+export interface UpdateMarketplaceServiceListingRequest {
+	name: string;
+	short_blurb: string;
+	description: string;
+	service_category: ServiceCategory;
+	countries_of_service: string[];
+	contact_url: string;
+	pricing_info?: string;
+	industries_served: Industry[];
+	industries_served_other?: string;
+	company_sizes_served: CompanySize[];
+	job_functions_sourced: JobFunction[];
+	seniority_levels_sourced: SeniorityLevel[];
+	geographic_sourcing_regions: string[];
 }
 
 export function validateUpdateMarketplaceServiceListingRequest(
 	req: UpdateMarketplaceServiceListingRequest
 ): ValidationError[] {
 	const errs: ValidationError[] = [];
-	if (!req.service_listing_id) {
-		errs.push(
-			newValidationError("service_listing_id", "service_listing_id is required")
-		);
+	if (!req.name) {
+		errs.push(newValidationError("name", "name is required"));
 	}
-	errs.push(...validateServiceListingFields(req));
+	// Validate all fields via shared validation
+	errs.push(...validateServiceListingFields(req as ServiceListingFields));
 	return errs;
 }
 
 export interface SubmitMarketplaceServiceListingRequest {
-	service_listing_id: string;
+	name: string;
 }
 
 export interface PauseMarketplaceServiceListingRequest {
-	service_listing_id: string;
+	name: string;
 }
 
 export interface UnpauseMarketplaceServiceListingRequest {
-	service_listing_id: string;
+	name: string;
 }
 
 export interface ArchiveMarketplaceServiceListingRequest {
-	service_listing_id: string;
+	name: string;
 }
 
 export interface SubmitMarketplaceServiceListingAppealRequest {
-	service_listing_id: string;
+	name: string;
 	appeal_reason: string;
 }
 
@@ -387,10 +394,8 @@ export function validateSubmitMarketplaceServiceListingAppealRequest(
 	req: SubmitMarketplaceServiceListingAppealRequest
 ): ValidationError[] {
 	const errs: ValidationError[] = [];
-	if (!req.service_listing_id) {
-		errs.push(
-			newValidationError("service_listing_id", "service_listing_id is required")
-		);
+	if (!req.name) {
+		errs.push(newValidationError("name", "name is required"));
 	}
 	if (!req.appeal_reason) {
 		errs.push(newValidationError("appeal_reason", "appeal_reason is required"));
@@ -417,7 +422,7 @@ export interface ListMarketplaceServiceListingsResponse {
 }
 
 export interface GetMarketplaceServiceListingRequest {
-	service_listing_id: string;
+	name: string;
 }
 
 // ---- Browse (buyer) ----
@@ -441,13 +446,13 @@ export interface BrowseMarketplaceServiceListingsResponse {
 }
 
 export interface GetPublicMarketplaceServiceListingRequest {
-	service_listing_id: string;
-	home_region: string;
+	name: string;
+	org_domain: string;
 }
 
 export interface ReportMarketplaceServiceListingRequest {
-	service_listing_id: string;
-	home_region: string;
+	name: string;
+	org_domain: string;
 	reason: ReportReason;
 	reason_other?: string;
 }
@@ -456,13 +461,11 @@ export function validateReportMarketplaceServiceListingRequest(
 	req: ReportMarketplaceServiceListingRequest
 ): ValidationError[] {
 	const errs: ValidationError[] = [];
-	if (!req.service_listing_id) {
-		errs.push(
-			newValidationError("service_listing_id", "service_listing_id is required")
-		);
+	if (!req.name) {
+		errs.push(newValidationError("name", "name is required"));
 	}
-	if (!req.home_region) {
-		errs.push(newValidationError("home_region", "home_region is required"));
+	if (!req.org_domain) {
+		errs.push(newValidationError("org_domain", "org_domain is required"));
 	}
 	const validReasons: ReportReason[] = [
 		"misleading_information",

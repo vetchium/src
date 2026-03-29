@@ -49,7 +49,6 @@ test.describe("GET /org/myinfo", () => {
 			const response = await api.getMyInfo(sessionToken);
 
 			expect(response.status).toBe(200);
-			expect(response.body.org_user_id).toBeDefined();
 			expect(response.body.full_name).toBeDefined();
 			expect(response.body.preferred_language).toBeDefined();
 			expect(response.body.org_name).toBe(domain);

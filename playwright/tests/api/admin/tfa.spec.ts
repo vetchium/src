@@ -54,7 +54,7 @@ test.describe("POST /admin/tfa", () => {
 			expect(auditResp.status).toBe(200);
 			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
 			expect(auditResp.body.audit_logs[0].event_type).toBe("admin.login");
-			expect(auditResp.body.audit_logs[0].actor_user_id).toBeDefined();
+			expect(auditResp.body.audit_logs[0].actor_email).toBeDefined();
 		} finally {
 			await deleteTestAdminUser(email);
 		}

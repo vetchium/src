@@ -168,7 +168,7 @@ test.describe("Marketplace Admin API", () => {
 				const approveRes = await adminApi.approveMarketplaceProviderCapability(
 					adminToken,
 					{
-						org_id: orgResult.orgId,
+						org_domain: orgResult.domain,
 						subscription_price: 100,
 						currency: "USD",
 						subscription_period_days: 365,
@@ -226,7 +226,7 @@ test.describe("Marketplace Admin API", () => {
 				const res = await adminApi.approveMarketplaceProviderCapability(
 					adminToken,
 					{
-						org_id: orgResult.orgId,
+						org_domain: orgResult.domain,
 						subscription_price: 100,
 						currency: "USD",
 						subscription_period_days: 365,
@@ -255,7 +255,7 @@ test.describe("Marketplace Admin API", () => {
 				const res = await adminApi.approveMarketplaceProviderCapability(
 					adminToken,
 					{
-						org_id: "00000000-0000-0000-0000-000000000000",
+						org_domain: "nonexistent-org.test.vetchium.com",
 						subscription_price: 100,
 						currency: "USD",
 						subscription_period_days: 365,
@@ -272,7 +272,7 @@ test.describe("Marketplace Admin API", () => {
 			const res = await adminApi.approveMarketplaceProviderCapability(
 				"invalid-token",
 				{
-					org_id: "00000000-0000-0000-0000-000000000000",
+					org_domain: "nonexistent-org.test.vetchium.com",
 					subscription_price: 100,
 					currency: "USD",
 					subscription_period_days: 365,
@@ -293,7 +293,7 @@ test.describe("Marketplace Admin API", () => {
 				const res = await adminApi.approveMarketplaceProviderCapability(
 					adminToken,
 					{
-						org_id: "00000000-0000-0000-0000-000000000000",
+						org_domain: "nonexistent-org.test.vetchium.com",
 						subscription_price: 100,
 						currency: "USD",
 						subscription_period_days: 365,
@@ -337,7 +337,7 @@ test.describe("Marketplace Admin API", () => {
 				const res = await adminApi.rejectMarketplaceProviderCapability(
 					adminToken,
 					{
-						org_id: orgResult.orgId,
+						org_domain: orgResult.domain,
 						admin_note: "Does not meet our quality standards.",
 					}
 				);
@@ -380,7 +380,7 @@ test.describe("Marketplace Admin API", () => {
 				const res = await adminApi.rejectMarketplaceProviderCapability(
 					adminToken,
 					{
-						org_id: orgResult.orgId,
+						org_domain: orgResult.domain,
 						admin_note: "Rejecting active capability should fail.",
 					}
 				);
@@ -396,7 +396,7 @@ test.describe("Marketplace Admin API", () => {
 			const res = await adminApi.rejectMarketplaceProviderCapability(
 				"invalid-token",
 				{
-					org_id: "00000000-0000-0000-0000-000000000000",
+					org_domain: "nonexistent-org.test.vetchium.com",
 					admin_note: "Some reason",
 				}
 			);
@@ -429,7 +429,7 @@ test.describe("Marketplace Admin API", () => {
 				const res = await adminApi.revokeMarketplaceProviderCapability(
 					adminToken,
 					{
-						org_id: orgResult.orgId,
+						org_domain: orgResult.domain,
 						admin_note: "Revoking for policy violation.",
 					}
 				);
@@ -477,7 +477,7 @@ test.describe("Marketplace Admin API", () => {
 				const res = await adminApi.revokeMarketplaceProviderCapability(
 					adminToken,
 					{
-						org_id: orgResult.orgId,
+						org_domain: orgResult.domain,
 						admin_note: "Should fail, not active.",
 					}
 				);
@@ -493,7 +493,7 @@ test.describe("Marketplace Admin API", () => {
 			const res = await adminApi.revokeMarketplaceProviderCapability(
 				"invalid-token",
 				{
-					org_id: "00000000-0000-0000-0000-000000000000",
+					org_domain: "nonexistent-org.test.vetchium.com",
 					admin_note: "Some reason",
 				}
 			);
@@ -527,7 +527,7 @@ test.describe("Marketplace Admin API", () => {
 				const res = await adminApi.reinstateMarketplaceProviderCapability(
 					adminToken,
 					{
-						org_id: orgResult.orgId,
+						org_domain: orgResult.domain,
 						subscription_price: 100,
 						currency: "USD",
 						subscription_period_days: 365,
@@ -576,7 +576,7 @@ test.describe("Marketplace Admin API", () => {
 				const res = await adminApi.reinstateMarketplaceProviderCapability(
 					adminToken,
 					{
-						org_id: orgResult.orgId,
+						org_domain: orgResult.domain,
 						subscription_price: 100,
 						currency: "USD",
 						subscription_period_days: 365,
@@ -594,7 +594,7 @@ test.describe("Marketplace Admin API", () => {
 			const res = await adminApi.reinstateMarketplaceProviderCapability(
 				"invalid-token",
 				{
-					org_id: "00000000-0000-0000-0000-000000000000",
+					org_domain: "nonexistent-org.test.vetchium.com",
 					subscription_price: 100,
 					currency: "USD",
 					subscription_period_days: 365,
@@ -629,7 +629,7 @@ test.describe("Marketplace Admin API", () => {
 				const res = await adminApi.renewMarketplaceProviderCapability(
 					adminToken,
 					{
-						org_id: orgResult.orgId,
+						org_domain: orgResult.domain,
 						subscription_price: 150,
 						currency: "USD",
 						subscription_period_days: 365,
@@ -674,7 +674,7 @@ test.describe("Marketplace Admin API", () => {
 				const res = await adminApi.renewMarketplaceProviderCapability(
 					adminToken,
 					{
-						org_id: orgResult.orgId,
+						org_domain: orgResult.domain,
 						subscription_price: 100,
 						currency: "USD",
 						subscription_period_days: 365,
@@ -716,7 +716,7 @@ test.describe("Marketplace Admin API", () => {
 				const res = await adminApi.renewMarketplaceProviderCapability(
 					adminToken,
 					{
-						org_id: orgResult.orgId,
+						org_domain: orgResult.domain,
 						subscription_price: 100,
 						currency: "USD",
 						subscription_period_days: 365,
@@ -734,7 +734,7 @@ test.describe("Marketplace Admin API", () => {
 			const res = await adminApi.renewMarketplaceProviderCapability(
 				"invalid-token",
 				{
-					org_id: "00000000-0000-0000-0000-000000000000",
+					org_domain: "nonexistent-org.test.vetchium.com",
 					subscription_price: 100,
 					currency: "USD",
 					subscription_period_days: 365,
@@ -876,7 +876,7 @@ test.describe("Marketplace Admin API", () => {
 			const { email: orgEmail } = generateTestOrgEmail("mkt-admin-get-sl-org");
 			const orgResult = await createTestOrgAdminDirect(orgEmail, TEST_PASSWORD);
 			await grantMarketplaceProviderCapability(orgResult.orgId);
-			const listingId = await createTestServiceListingDirect(
+			const listingName = await createTestServiceListingDirect(
 				orgResult.orgId,
 				"Admin Get Test Listing",
 				"active"
@@ -887,12 +887,11 @@ test.describe("Marketplace Admin API", () => {
 				const res = await adminApi.getAdminMarketplaceServiceListing(
 					adminToken,
 					{
-						service_listing_id: listingId,
-						home_region: "ind1",
+						org_domain: orgResult.domain,
+						name: listingName,
 					}
 				);
 				expect(res.status).toBe(200);
-				expect(res.body?.service_listing_id).toBe(listingId);
 				expect(res.body?.name).toBe("Admin Get Test Listing");
 				expect(res.body?.state).toBe("active");
 			} finally {
@@ -916,8 +915,8 @@ test.describe("Marketplace Admin API", () => {
 				const res = await adminApi.getAdminMarketplaceServiceListing(
 					adminToken,
 					{
-						service_listing_id: "00000000-0000-0000-0000-000000000000",
-						home_region: "ind1",
+						org_domain: "nonexistent-org.test.vetchium.com",
+						name: "nonexistent-listing-name",
 					}
 				);
 				expect(res.status).toBe(404);
@@ -931,8 +930,8 @@ test.describe("Marketplace Admin API", () => {
 			const res = await adminApi.getAdminMarketplaceServiceListing(
 				"invalid-token",
 				{
-					service_listing_id: "00000000-0000-0000-0000-000000000000",
-					home_region: "ind1",
+					org_domain: "nonexistent-org.test.vetchium.com",
+					name: "nonexistent-listing-name",
 				}
 			);
 			expect(res.status).toBe(401);
@@ -950,8 +949,8 @@ test.describe("Marketplace Admin API", () => {
 				const res = await adminApi.getAdminMarketplaceServiceListing(
 					adminToken,
 					{
-						service_listing_id: "00000000-0000-0000-0000-000000000000",
-						home_region: "ind1",
+						org_domain: "nonexistent-org.test.vetchium.com",
+						name: "nonexistent-listing-name",
 					}
 				);
 				expect(res.status).toBe(403);
@@ -1002,11 +1001,11 @@ test.describe("Marketplace Admin API", () => {
 					}
 				);
 				expect(createRes.status).toBe(201);
-				const listingId = createRes.body?.service_listing_id;
+				const listingName = createRes.body?.name;
 
 				const submitRes = await orgApi.submitMarketplaceServiceListing(
 					orgToken,
-					{ service_listing_id: listingId }
+					{ name: listingName }
 				);
 				expect(submitRes.status).toBe(200);
 
@@ -1016,8 +1015,8 @@ test.describe("Marketplace Admin API", () => {
 				const approveRes = await adminApi.approveMarketplaceServiceListing(
 					adminToken,
 					{
-						service_listing_id: listingId,
-						home_region: "ind1",
+						org_domain: orgResult.domain,
+						name: listingName,
 						admin_verification_note: "Verified and approved.",
 						verification_id: "VER-001",
 					}
@@ -1058,7 +1057,7 @@ test.describe("Marketplace Admin API", () => {
 				"mkt-approve-sl-422-org"
 			);
 			const orgResult = await createTestOrgAdminDirect(orgEmail, TEST_PASSWORD);
-			const listingId = await createTestServiceListingDirect(
+			const listingName = await createTestServiceListingDirect(
 				orgResult.orgId,
 				"Already Active Listing",
 				"active"
@@ -1069,8 +1068,8 @@ test.describe("Marketplace Admin API", () => {
 				const res = await adminApi.approveMarketplaceServiceListing(
 					adminToken,
 					{
-						service_listing_id: listingId,
-						home_region: "ind1",
+						org_domain: orgResult.domain,
+						name: listingName,
 						admin_verification_note: "Should fail.",
 						verification_id: "VER-002",
 					}
@@ -1087,8 +1086,8 @@ test.describe("Marketplace Admin API", () => {
 			const res = await adminApi.approveMarketplaceServiceListing(
 				"invalid-token",
 				{
-					service_listing_id: "00000000-0000-0000-0000-000000000000",
-					home_region: "ind1",
+					org_domain: "nonexistent.example.com",
+					name: "nonexistent-listing",
 					admin_verification_note: "Some note",
 					verification_id: "VER-000",
 				}
@@ -1108,8 +1107,8 @@ test.describe("Marketplace Admin API", () => {
 				const res = await adminApi.approveMarketplaceServiceListing(
 					adminToken,
 					{
-						service_listing_id: "00000000-0000-0000-0000-000000000000",
-						home_region: "ind1",
+						org_domain: "nonexistent.example.com",
+						name: "nonexistent-listing",
 						admin_verification_note: "Some note",
 						verification_id: "VER-000",
 					}
@@ -1138,7 +1137,7 @@ test.describe("Marketplace Admin API", () => {
 
 			const { email: orgEmail } = generateTestOrgEmail("mkt-reject-sl-org");
 			const orgResult = await createTestOrgAdminDirect(orgEmail, TEST_PASSWORD);
-			const listingId = await createTestServiceListingDirect(
+			const listingName = await createTestServiceListingDirect(
 				orgResult.orgId,
 				"Listing to Reject",
 				"pending_review"
@@ -1148,8 +1147,8 @@ test.describe("Marketplace Admin API", () => {
 				const before = new Date(Date.now() - 2000).toISOString();
 				const adminToken = await loginAdmin(adminApi, adminEmail);
 				const res = await adminApi.rejectMarketplaceServiceListing(adminToken, {
-					service_listing_id: listingId,
-					home_region: "ind1",
+					org_domain: orgResult.domain,
+					name: listingName,
 					admin_verification_note: "Does not meet quality standards.",
 				});
 				expect(res.status).toBe(200);
@@ -1182,7 +1181,7 @@ test.describe("Marketplace Admin API", () => {
 
 			const { email: orgEmail } = generateTestOrgEmail("mkt-reject-sl-422-org");
 			const orgResult = await createTestOrgAdminDirect(orgEmail, TEST_PASSWORD);
-			const listingId = await createTestServiceListingDirect(
+			const listingName = await createTestServiceListingDirect(
 				orgResult.orgId,
 				"Draft Cannot Be Rejected",
 				"draft"
@@ -1191,8 +1190,8 @@ test.describe("Marketplace Admin API", () => {
 			try {
 				const adminToken = await loginAdmin(adminApi, adminEmail);
 				const res = await adminApi.rejectMarketplaceServiceListing(adminToken, {
-					service_listing_id: listingId,
-					home_region: "ind1",
+					org_domain: orgResult.domain,
+					name: listingName,
 					admin_verification_note: "Should fail.",
 				});
 				expect(res.status).toBe(422);
@@ -1207,8 +1206,8 @@ test.describe("Marketplace Admin API", () => {
 			const res = await adminApi.rejectMarketplaceServiceListing(
 				"invalid-token",
 				{
-					service_listing_id: "00000000-0000-0000-0000-000000000000",
-					home_region: "ind1",
+					org_domain: "nonexistent.example.com",
+					name: "nonexistent-listing",
 					admin_verification_note: "Some note",
 				}
 			);
@@ -1233,7 +1232,7 @@ test.describe("Marketplace Admin API", () => {
 
 			const { email: orgEmail } = generateTestOrgEmail("mkt-suspend-sl-org");
 			const orgResult = await createTestOrgAdminDirect(orgEmail, TEST_PASSWORD);
-			const listingId = await createTestServiceListingDirect(
+			const listingName = await createTestServiceListingDirect(
 				orgResult.orgId,
 				"Listing to Suspend",
 				"active"
@@ -1245,8 +1244,8 @@ test.describe("Marketplace Admin API", () => {
 				const res = await adminApi.suspendMarketplaceServiceListing(
 					adminToken,
 					{
-						service_listing_id: listingId,
-						home_region: "ind1",
+						org_domain: orgResult.domain,
+						name: listingName,
 						admin_verification_note: "Suspended for policy violation.",
 					}
 				);
@@ -1283,7 +1282,7 @@ test.describe("Marketplace Admin API", () => {
 				"mkt-suspend-sl-422-org"
 			);
 			const orgResult = await createTestOrgAdminDirect(orgEmail, TEST_PASSWORD);
-			const listingId = await createTestServiceListingDirect(
+			const listingName = await createTestServiceListingDirect(
 				orgResult.orgId,
 				"Draft Cannot Be Suspended",
 				"draft"
@@ -1294,8 +1293,8 @@ test.describe("Marketplace Admin API", () => {
 				const res = await adminApi.suspendMarketplaceServiceListing(
 					adminToken,
 					{
-						service_listing_id: listingId,
-						home_region: "ind1",
+						org_domain: orgResult.domain,
+						name: listingName,
 						admin_verification_note: "Should fail.",
 					}
 				);
@@ -1311,8 +1310,8 @@ test.describe("Marketplace Admin API", () => {
 			const res = await adminApi.suspendMarketplaceServiceListing(
 				"invalid-token",
 				{
-					service_listing_id: "00000000-0000-0000-0000-000000000000",
-					home_region: "ind1",
+					org_domain: "nonexistent.example.com",
+					name: "nonexistent-listing",
 					admin_verification_note: "Some note",
 				}
 			);
@@ -1337,7 +1336,7 @@ test.describe("Marketplace Admin API", () => {
 
 			const { email: orgEmail } = generateTestOrgEmail("mkt-reinstate-sl-org");
 			const orgResult = await createTestOrgAdminDirect(orgEmail, TEST_PASSWORD);
-			const listingId = await createTestServiceListingDirect(
+			const listingName = await createTestServiceListingDirect(
 				orgResult.orgId,
 				"Suspended Listing to Reinstate",
 				"suspended"
@@ -1349,8 +1348,8 @@ test.describe("Marketplace Admin API", () => {
 				const res = await adminApi.reinstateMarketplaceServiceListing(
 					adminToken,
 					{
-						service_listing_id: listingId,
-						home_region: "ind1",
+						org_domain: orgResult.domain,
+						name: listingName,
 					}
 				);
 				expect(res.status).toBe(200);
@@ -1386,7 +1385,7 @@ test.describe("Marketplace Admin API", () => {
 				"mkt-reinstate-sl-422-org"
 			);
 			const orgResult = await createTestOrgAdminDirect(orgEmail, TEST_PASSWORD);
-			const listingId = await createTestServiceListingDirect(
+			const listingName = await createTestServiceListingDirect(
 				orgResult.orgId,
 				"Active Listing Cannot Be Reinstated",
 				"active"
@@ -1397,8 +1396,8 @@ test.describe("Marketplace Admin API", () => {
 				const res = await adminApi.reinstateMarketplaceServiceListing(
 					adminToken,
 					{
-						service_listing_id: listingId,
-						home_region: "ind1",
+						org_domain: orgResult.domain,
+						name: listingName,
 					}
 				);
 				expect(res.status).toBe(422);
@@ -1413,8 +1412,8 @@ test.describe("Marketplace Admin API", () => {
 			const res = await adminApi.reinstateMarketplaceServiceListing(
 				"invalid-token",
 				{
-					service_listing_id: "00000000-0000-0000-0000-000000000000",
-					home_region: "ind1",
+					org_domain: "nonexistent.example.com",
+					name: "nonexistent-listing",
 				}
 			);
 			expect(res.status).toBe(401);
@@ -1443,7 +1442,7 @@ test.describe("Marketplace Admin API", () => {
 			const orgResult = await createTestOrgAdminDirect(orgEmail, TEST_PASSWORD);
 			await grantMarketplaceProviderCapability(orgResult.orgId);
 			// Create a suspended listing and submit appeal via API
-			const listingId = await createTestServiceListingDirect(
+			const listingName = await createTestServiceListingDirect(
 				orgResult.orgId,
 				"Listing for Grant Appeal",
 				"suspended"
@@ -1454,7 +1453,7 @@ test.describe("Marketplace Admin API", () => {
 				const appealRes = await orgApi.submitMarketplaceServiceListingAppeal(
 					orgToken,
 					{
-						service_listing_id: listingId,
+						name: listingName,
 						appeal_reason: "We have corrected the issues.",
 					}
 				);
@@ -1464,9 +1463,9 @@ test.describe("Marketplace Admin API", () => {
 				const before = new Date(Date.now() - 2000).toISOString();
 				const adminToken = await loginAdmin(adminApi, adminEmail);
 				const grantRes = await adminApi.grantMarketplaceAppeal(adminToken, {
-					service_listing_id: listingId,
-					home_region: "ind1",
-					admin_note: "Appeal granted, issues verified fixed.",
+					org_domain: orgResult.domain,
+					name: listingName,
+					admin_verification_note: "Appeal granted, issues verified fixed.",
 				});
 				expect(grantRes.status).toBe(200);
 
@@ -1503,7 +1502,7 @@ test.describe("Marketplace Admin API", () => {
 				"mkt-grant-appeal-422-org"
 			);
 			const orgResult = await createTestOrgAdminDirect(orgEmail, TEST_PASSWORD);
-			const listingId = await createTestServiceListingDirect(
+			const listingName = await createTestServiceListingDirect(
 				orgResult.orgId,
 				"Active Listing Cannot Grant Appeal",
 				"active"
@@ -1512,9 +1511,9 @@ test.describe("Marketplace Admin API", () => {
 			try {
 				const adminToken = await loginAdmin(adminApi, adminEmail);
 				const res = await adminApi.grantMarketplaceAppeal(adminToken, {
-					service_listing_id: listingId,
-					home_region: "ind1",
-					admin_note: "Should fail.",
+					org_domain: orgResult.domain,
+					name: listingName,
+					admin_verification_note: "Should fail.",
 				});
 				expect(res.status).toBe(422);
 			} finally {
@@ -1526,9 +1525,9 @@ test.describe("Marketplace Admin API", () => {
 		test("Auth: unauthenticated (401)", async ({ request }) => {
 			const adminApi = new AdminAPIClient(request);
 			const res = await adminApi.grantMarketplaceAppeal("invalid-token", {
-				service_listing_id: "00000000-0000-0000-0000-000000000000",
-				home_region: "ind1",
-				admin_note: "Some note",
+				org_domain: "nonexistent.example.com",
+				name: "nonexistent-listing",
+				admin_verification_note: "Some note",
 			});
 			expect(res.status).toBe(401);
 		});
@@ -1557,7 +1556,7 @@ test.describe("Marketplace Admin API", () => {
 			);
 			const orgResult = await createTestOrgAdminDirect(orgEmail, TEST_PASSWORD);
 			await grantMarketplaceProviderCapability(orgResult.orgId);
-			const listingId = await createTestServiceListingDirect(
+			const listingName = await createTestServiceListingDirect(
 				orgResult.orgId,
 				"Listing for Deny Appeal",
 				"suspended"
@@ -1568,7 +1567,7 @@ test.describe("Marketplace Admin API", () => {
 				const appealRes = await orgApi.submitMarketplaceServiceListingAppeal(
 					orgToken,
 					{
-						service_listing_id: listingId,
+						name: listingName,
 						appeal_reason: "We believe the suspension was wrong.",
 					}
 				);
@@ -1578,9 +1577,9 @@ test.describe("Marketplace Admin API", () => {
 				const before = new Date(Date.now() - 2000).toISOString();
 				const adminToken = await loginAdmin(adminApi, adminEmail);
 				const denyRes = await adminApi.denyMarketplaceAppeal(adminToken, {
-					service_listing_id: listingId,
-					home_region: "ind1",
-					admin_note: "Appeal denied, policy violation confirmed.",
+					org_domain: orgResult.domain,
+					name: listingName,
+					admin_verification_note: "Appeal denied, policy violation confirmed.",
 				});
 				expect(denyRes.status).toBe(200);
 
@@ -1617,7 +1616,7 @@ test.describe("Marketplace Admin API", () => {
 				"mkt-deny-appeal-422-org"
 			);
 			const orgResult = await createTestOrgAdminDirect(orgEmail, TEST_PASSWORD);
-			const listingId = await createTestServiceListingDirect(
+			const listingName = await createTestServiceListingDirect(
 				orgResult.orgId,
 				"Suspended Listing Not Appealing",
 				"suspended"
@@ -1626,9 +1625,9 @@ test.describe("Marketplace Admin API", () => {
 			try {
 				const adminToken = await loginAdmin(adminApi, adminEmail);
 				const res = await adminApi.denyMarketplaceAppeal(adminToken, {
-					service_listing_id: listingId,
-					home_region: "ind1",
-					admin_note: "Should fail, not appealing.",
+					org_domain: orgResult.domain,
+					name: listingName,
+					admin_verification_note: "Should fail, not appealing.",
 				});
 				expect(res.status).toBe(422);
 			} finally {
@@ -1640,9 +1639,9 @@ test.describe("Marketplace Admin API", () => {
 		test("Auth: unauthenticated (401)", async ({ request }) => {
 			const adminApi = new AdminAPIClient(request);
 			const res = await adminApi.denyMarketplaceAppeal("invalid-token", {
-				service_listing_id: "00000000-0000-0000-0000-000000000000",
-				home_region: "ind1",
-				admin_note: "Some note",
+				org_domain: "nonexistent.example.com",
+				name: "nonexistent-listing",
+				admin_verification_note: "Some note",
 			});
 			expect(res.status).toBe(401);
 		});
