@@ -13,13 +13,27 @@ import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
 	testDir: "./tests",
 
-	// Web server configuration to start hub-ui dev server before running UI tests
-	webServer: {
-		command: "cd ../hub-ui && bun run dev",
-		url: "http://localhost:5173",
-		reuseExistingServer: !process.env.CI,
-		timeout: 120000,
-	},
+	// Web server configuration: starts UI servers for local dev, reuses Docker services in CI
+	webServer: [
+		{
+			command: "cd ../hub-ui && bun run dev -- --port 3000",
+			url: "http://localhost:3000",
+			reuseExistingServer: true,
+			timeout: 120000,
+		},
+		{
+			command: "cd ../admin-ui && PORT=3001 bun --hot src/index.ts",
+			url: "http://localhost:3001",
+			reuseExistingServer: true,
+			timeout: 120000,
+		},
+		{
+			command: "cd ../org-ui && PORT=3002 bun --hot src/index.ts",
+			url: "http://localhost:3002",
+			reuseExistingServer: true,
+			timeout: 120000,
+		},
+	],
 
 	// Run all tests in parallel - each test is fully independent
 	fullyParallel: true,

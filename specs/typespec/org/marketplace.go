@@ -286,6 +286,7 @@ func validateServiceListingFields(
 // ---- Response types ----
 
 type OrgCapability struct {
+	OrgDomain         string              `json:"org_domain"`
 	Capability        string              `json:"capability"`
 	Status            OrgCapabilityStatus `json:"status"`
 	ApplicationNote   *string             `json:"application_note,omitempty"`

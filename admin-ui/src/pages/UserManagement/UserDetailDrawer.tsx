@@ -66,7 +66,7 @@ export function UserDetailDrawer({
 		try {
 			const apiBaseUrl = await getApiBaseUrl();
 			const request: AssignRoleRequest = {
-				target_user_id: user.email_address,
+				email_address: user.email_address,
 				role_name: selectedRole,
 			};
 
@@ -144,7 +144,7 @@ export function UserDetailDrawer({
 		try {
 			const apiBaseUrl = await getApiBaseUrl();
 			const request: RemoveRoleRequest = {
-				target_user_id: user.email_address,
+				email_address: user.email_address,
 				role_name: roleName,
 			};
 

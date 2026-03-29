@@ -93,6 +93,7 @@ enum ReportReason {
 // ---- Models ----
 
 model OrgCapability {
+  org_domain: string;
   capability: string;
   status: OrgCapabilityStatus;
   application_note?: string;

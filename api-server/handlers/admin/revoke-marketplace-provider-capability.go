@@ -106,7 +106,7 @@ func RevokeMarketplaceProviderCapability(s *server.GlobalServer) http.HandlerFun
 
 		log.Info("marketplace provider capability revoked", "org_domain", req.OrgDomain, "admin_id", uuidToString(adminUser.AdminUserID))
 
-		if err := json.NewEncoder(w).Encode(dbOrgCapabilityToAPI(updatedCap)); err != nil {
+		if err := json.NewEncoder(w).Encode(dbOrgCapabilityToAPI(updatedCap, req.OrgDomain)); err != nil {
 			log.Error("failed to encode response", "error", err)
 		}
 	}

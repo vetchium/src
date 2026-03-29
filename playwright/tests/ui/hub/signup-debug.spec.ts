@@ -12,7 +12,7 @@ import { waitForEmail, getEmailContent } from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
 
 // Hub UI base URL
-const HUB_UI_URL = "http://localhost:5173";
+const HUB_UI_URL = "http://localhost:3000";
 
 test.describe("Signup Complete Form Debug", () => {
 	test("signup form validation test", async ({ page, request }) => {

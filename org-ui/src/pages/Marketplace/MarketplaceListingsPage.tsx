@@ -240,8 +240,8 @@ export function MarketplaceListingsPage({ hasCapability }: Props) {
 		try {
 			const baseUrl = await getApiBaseUrl();
 			const req: UpdateMarketplaceServiceListingRequest = {
-				service_listing_id: editingListing.service_listing_id,
 				...formValuesToRequest(values),
+				name: editingListing.name,
 			};
 			const resp = await fetch(
 				`${baseUrl}/org/update-marketplace-service-listing`,
@@ -290,7 +290,7 @@ export function MarketplaceListingsPage({ hasCapability }: Props) {
 						"Content-Type": "application/json",
 						Authorization: `Bearer ${sessionToken}`,
 					},
-					body: JSON.stringify({ service_listing_id: id }),
+					body: JSON.stringify({ name: id }),
 				}
 			);
 			if (resp.status === 200) {
@@ -321,7 +321,7 @@ export function MarketplaceListingsPage({ hasCapability }: Props) {
 						"Content-Type": "application/json",
 						Authorization: `Bearer ${sessionToken}`,
 					},
-					body: JSON.stringify({ service_listing_id: id }),
+					body: JSON.stringify({ name: id }),
 				}
 			);
 			if (resp.status === 200) {
@@ -352,7 +352,7 @@ export function MarketplaceListingsPage({ hasCapability }: Props) {
 						"Content-Type": "application/json",
 						Authorization: `Bearer ${sessionToken}`,
 					},
-					body: JSON.stringify({ service_listing_id: id }),
+					body: JSON.stringify({ name: id }),
 				}
 			);
 			if (resp.status === 200) {
@@ -383,7 +383,7 @@ export function MarketplaceListingsPage({ hasCapability }: Props) {
 						"Content-Type": "application/json",
 						Authorization: `Bearer ${sessionToken}`,
 					},
-					body: JSON.stringify({ service_listing_id: id }),
+					body: JSON.stringify({ name: id }),
 				}
 			);
 			if (resp.status === 200) {
@@ -415,7 +415,7 @@ export function MarketplaceListingsPage({ hasCapability }: Props) {
 		try {
 			const baseUrl = await getApiBaseUrl();
 			const req: SubmitMarketplaceServiceListingAppealRequest = {
-				service_listing_id: appealListingId,
+				name: appealListingId,
 				appeal_reason: appealReason,
 			};
 			const resp = await fetch(
@@ -525,7 +525,7 @@ export function MarketplaceListingsPage({ hasCapability }: Props) {
 			title: t("listings.table.actions"),
 			key: "actions",
 			render: (_: unknown, record: ServiceListing) => {
-				const id = record.service_listing_id;
+				const id = record.name;
 				const isLoading = actionLoadingId === id;
 				return (
 					<Space size="small" wrap>
@@ -868,7 +868,7 @@ export function MarketplaceListingsPage({ hasCapability }: Props) {
 				<Table
 					dataSource={listings}
 					columns={columns}
-					rowKey="service_listing_id"
+					rowKey="name"
 					pagination={false}
 					expandable={{
 						expandedRowRender: (record) => (

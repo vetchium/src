@@ -60,17 +60,23 @@ test.describe("Admin UI - User Management", () => {
 				.filter({ hasText: "User invited successfully" })
 		).toBeVisible();
 
+		// Re-navigate to get a clean page state (avoids race between search fetch
+		// and the invite-success auto-refresh fetch)
+		await page.goto(`${ADMIN_UI_URL}/user-management`);
+		await page.waitForLoadState("networkidle");
+
 		// Search for invited user
 		const searchInput = page.locator(
 			'input[placeholder="Search by email or name..."]'
 		);
 		await searchInput.fill(testUserEmail);
+		await page.waitForLoadState("networkidle");
 
 		// Wait for user to appear in the table
 		const row = page.locator("tbody tr").filter({ hasText: testUserEmail });
 		await expect(row).toBeVisible({ timeout: 15000 });
 
 		// Verify invited status
-		await expect(row).toContainText("invited", { ignoreCase: true });
+		await expect(row).toContainText("invited", { ignoreCase: true, timeout: 10000 });
 	});
 });

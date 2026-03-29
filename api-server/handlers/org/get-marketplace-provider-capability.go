@@ -39,6 +39,13 @@ func GetMarketplaceProviderCapability(s *server.RegionalServer) http.HandlerFunc
 			return
 		}
 
-		json.NewEncoder(w).Encode(dbOrgCapabilityToAPI(cap))
+		domains, err := s.Global.GetGlobalOrgDomainsByOrg(ctx, orgUser.OrgID)
+		if err != nil || len(domains) == 0 {
+			log.Error("failed to get org domain", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
+		json.NewEncoder(w).Encode(dbOrgCapabilityToAPI(cap, domains[0].Domain))
 	}
 }

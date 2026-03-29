@@ -70,7 +70,7 @@ export function UserDetailDrawer({
 		try {
 			const apiBaseUrl = await getApiBaseUrl();
 			const request: AssignRoleRequest = {
-				target_user_id: user.email_address,
+				email_address: user.email_address,
 				role_name: selectedRole,
 			};
 
@@ -135,21 +135,13 @@ export function UserDetailDrawer({
 	const handleRemoveRole = async (roleName: string) => {
 		if (!user) return;
 
-		// Prevent removing own manage_users role
-		if (
-			!myInfo?.roles.includes("org:superadmin") &&
-			myInfo?.org_user_id === user.email_address &&
-			roleName === "org:manage_users"
-		) {
-			message.error(t("errors.cannotRemoveOwnRole"));
-			return;
-		}
+		// Note: backend enforces that superadmin cannot remove their own last role
 
 		setRemovingRole(roleName);
 		try {
 			const apiBaseUrl = await getApiBaseUrl();
 			const request: RemoveRoleRequest = {
-				target_user_id: user.email_address,
+				email_address: user.email_address,
 				role_name: roleName,
 			};
 

@@ -12,8 +12,10 @@ import (
 )
 
 // dbOrgCapabilityToAPI converts a regional DB OrgCapability to the API type.
-func dbOrgCapabilityToAPI(cap regionaldb.OrgCapability) orgtypes.OrgCapability {
+// orgDomain is the primary domain of the owning org.
+func dbOrgCapabilityToAPI(cap regionaldb.OrgCapability, orgDomain string) orgtypes.OrgCapability {
 	result := orgtypes.OrgCapability{
+		OrgDomain:  orgDomain,
 		Capability: cap.Capability,
 		Status:     orgtypes.OrgCapabilityStatus(cap.Status),
 		CreatedAt:  cap.CreatedAt.Time.UTC().Format(time.RFC3339),

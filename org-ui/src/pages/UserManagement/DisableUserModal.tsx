@@ -4,7 +4,6 @@ import { useTranslation } from "react-i18next";
 import type { OrgDisableUserRequest } from "vetchium-specs/org/org-users";
 import { getApiBaseUrl } from "../../config";
 import { useAuth } from "../../hooks/useAuth";
-import { useMyInfo } from "../../hooks/useMyInfo";
 
 const { Text } = Typography;
 
@@ -24,18 +23,11 @@ export function DisableUserModal({
 	const { t } = useTranslation("userManagement");
 	const { sessionToken } = useAuth();
 	const { message } = App.useApp();
-	const { data: myInfo } = useMyInfo(sessionToken);
 
 	const [loading, setLoading] = useState(false);
 
 	const handleDisable = async () => {
 		if (!email) return;
-
-		// Prevent disabling yourself
-		if (myInfo?.org_user_id === email) {
-			message.error(t("errors.cannotDisableSelf"));
-			return;
-		}
 
 		setLoading(true);
 		try {

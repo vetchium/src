@@ -75,6 +75,7 @@ export type ReportReason =
 // ---- Response types ----
 
 export interface OrgCapability {
+	org_domain: string;
 	capability: string;
 	status: OrgCapabilityStatus;
 	application_note?: string;

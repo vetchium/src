@@ -229,8 +229,8 @@ export function SubOrgsPage() {
 		try {
 			const baseUrl = await getApiBaseUrl();
 			const req: RenameSubOrgRequest = {
-				suborg_id: renamingSuborg.id,
-				name: values.name,
+				name: renamingSuborg.name,
+				new_name: values.name,
 			};
 			const resp = await fetch(`${baseUrl}/org/rename-suborg`, {
 				method: "POST",
@@ -260,7 +260,7 @@ export function SubOrgsPage() {
 
 	const handleToggleStatus = async (suborg: SubOrg) => {
 		if (!sessionToken) return;
-		setTogglingId(suborg.id);
+		setTogglingId(suborg.name);
 		try {
 			const baseUrl = await getApiBaseUrl();
 			const endpoint =
@@ -268,7 +268,7 @@ export function SubOrgsPage() {
 					? "/org/disable-suborg"
 					: "/org/enable-suborg";
 			const req: DisableSubOrgRequest | EnableSubOrgRequest = {
-				suborg_id: suborg.id,
+				name: suborg.name,
 			};
 			const resp = await fetch(`${baseUrl}${endpoint}`, {
 				method: "POST",
@@ -306,9 +306,8 @@ export function SubOrgsPage() {
 			try {
 				const baseUrl = await getApiBaseUrl();
 				const req: ListSubOrgMembersRequest = {
-					suborg_id: suborgId,
-					limit: 20,
-					...(cursor ? { cursor } : {}),
+					name: suborgId,
+					...(cursor ? { pagination_key: cursor } : {}),
 				};
 				const resp = await fetch(`${baseUrl}/org/list-suborg-members`, {
 					method: "POST",
@@ -343,7 +342,7 @@ export function SubOrgsPage() {
 		setMembers([]);
 		setMembersCursor("");
 		setMembersDrawerOpen(true);
-		loadMembers(suborg.id, undefined, true);
+		loadMembers(suborg.name, undefined, true);
 	};
 
 	const handleSearchUsers = async (query: string) => {
@@ -383,7 +382,7 @@ export function SubOrgsPage() {
 		try {
 			const baseUrl = await getApiBaseUrl();
 			const req: AddSubOrgMemberRequest = {
-				suborg_id: selectedSuborg.id,
+				name: selectedSuborg.name,
 				email_address: selectedUserId,
 			};
 			const resp = await fetch(`${baseUrl}/org/add-suborg-member`, {
@@ -399,7 +398,7 @@ export function SubOrgsPage() {
 				setAddMemberModalOpen(false);
 				setSelectedUserId(undefined);
 				setUserSearchResults([]);
-				loadMembers(selectedSuborg.id, undefined, true);
+				loadMembers(selectedSuborg.name, undefined, true);
 			} else if (resp.status === 409) {
 				message.error(t("errors.memberAlreadyAdded"));
 			} else if (resp.status === 404) {
@@ -420,7 +419,7 @@ export function SubOrgsPage() {
 		try {
 			const baseUrl = await getApiBaseUrl();
 			const req: RemoveSubOrgMemberRequest = {
-				suborg_id: selectedSuborg.id,
+				name: selectedSuborg.name,
 				email_address: member.email_address,
 			};
 			const resp = await fetch(`${baseUrl}/org/remove-suborg-member`, {
@@ -433,7 +432,7 @@ export function SubOrgsPage() {
 			});
 			if (resp.status === 200) {
 				message.success(t("success.memberRemoved"));
-				loadMembers(selectedSuborg.id, undefined, true);
+				loadMembers(selectedSuborg.name, undefined, true);
 			} else if (resp.status === 404) {
 				message.error(t("errors.memberNotFound"));
 			} else {
@@ -498,7 +497,7 @@ export function SubOrgsPage() {
 							</Button>
 							<Button
 								size="small"
-								loading={togglingId === record.id}
+								loading={togglingId === record.name}
 								onClick={() => handleToggleStatus(record)}
 							>
 								{record.status === "active"
@@ -755,7 +754,7 @@ export function SubOrgsPage() {
 					<Button
 						onClick={() =>
 							selectedSuborg &&
-							loadMembers(selectedSuborg.id, membersCursor, false)
+							loadMembers(selectedSuborg.name, membersCursor, false)
 						}
 						loading={membersLoading}
 						block

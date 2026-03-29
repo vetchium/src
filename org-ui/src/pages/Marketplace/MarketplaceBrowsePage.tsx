@@ -112,8 +112,8 @@ export function MarketplaceBrowsePage() {
 		try {
 			const baseUrl = await getApiBaseUrl();
 			const req: ReportMarketplaceServiceListingRequest = {
-				service_listing_id: reportListing.service_listing_id,
-				home_region: reportListing.home_region,
+				name: reportListing.name,
+				org_domain: reportListing.org_domain,
 				reason:
 					reportReason as ReportMarketplaceServiceListingRequest["reason"],
 				...(reportReason === "other" && reportOther
@@ -187,7 +187,7 @@ export function MarketplaceBrowsePage() {
 				) : (
 					<Row gutter={[16, 16]}>
 						{listings.map((listing) => (
-							<Col key={listing.service_listing_id} xs={24} sm={12} lg={8}>
+							<Col key={`${listing.org_domain}/${listing.name}`} xs={24} sm={12} lg={8}>
 								<Card
 									hoverable
 									style={{
@@ -199,7 +199,7 @@ export function MarketplaceBrowsePage() {
 										<Button
 											key="contact"
 											type="link"
-											href={listing.service_listing_id}
+											href="#"
 											target="_blank"
 											rel="noopener noreferrer"
 										>

@@ -129,7 +129,7 @@ func ApproveMarketplaceProviderCapability(s *server.GlobalServer) http.HandlerFu
 
 		log.Info("marketplace provider capability approved", "org_domain", req.OrgDomain, "admin_id", uuidToString(adminUser.AdminUserID))
 
-		if err := json.NewEncoder(w).Encode(dbOrgCapabilityToAPI(updatedCap)); err != nil {
+		if err := json.NewEncoder(w).Encode(dbOrgCapabilityToAPI(updatedCap, req.OrgDomain)); err != nil {
 			log.Error("failed to encode response", "error", err)
 		}
 	}

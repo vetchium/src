@@ -549,6 +549,39 @@
 				"regional-api-server-deu1",
 				"global-service"
 			]
+		},
+		"hub-ui": {
+			"build": {
+				"context": ".",
+				"dockerfile": "hub-ui/Dockerfile"
+			},
+			"ports": ["3000:80"],
+			"environment": {
+				"API_URL": "http://localhost:8080"
+			},
+			"depends_on": ["api-lb"]
+		},
+		"admin-ui": {
+			"build": {
+				"context": ".",
+				"dockerfile": "admin-ui/Dockerfile"
+			},
+			"ports": ["3001:80"],
+			"environment": {
+				"API_URL": "http://localhost:8080"
+			},
+			"depends_on": ["api-lb"]
+		},
+		"org-ui": {
+			"build": {
+				"context": ".",
+				"dockerfile": "org-ui/Dockerfile"
+			},
+			"ports": ["3002:80"],
+			"environment": {
+				"API_URL": "http://localhost:8080"
+			},
+			"depends_on": ["api-lb"]
 		}
 	},
 	"volumes": {

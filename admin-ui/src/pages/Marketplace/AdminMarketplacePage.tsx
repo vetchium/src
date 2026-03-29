@@ -262,7 +262,7 @@ function CapabilitiesTab() {
 		try {
 			const apiBaseUrl = await getApiBaseUrl();
 			let endpoint = "";
-			let body: Record<string, unknown> = { org_id: cap.org_id };
+			let body: Record<string, unknown> = { org_domain: cap.org_domain };
 			let successKey = "";
 			let errorKey = "";
 
@@ -270,7 +270,7 @@ function CapabilitiesTab() {
 				case "approve":
 					endpoint = "/admin/approve-marketplace-provider-capability";
 					body = {
-						org_id: cap.org_id,
+						org_domain: cap.org_domain,
 						subscription_price: values.subscription_price,
 						currency: values.currency,
 						subscription_period_days: values.subscription_period_days,
@@ -280,14 +280,14 @@ function CapabilitiesTab() {
 					break;
 				case "reject":
 					endpoint = "/admin/reject-marketplace-provider-capability";
-					body = { org_id: cap.org_id, admin_note: values.admin_note };
+					body = { org_domain: cap.org_domain, admin_note: values.admin_note };
 					successKey = "capability.success.rejected";
 					errorKey = "capability.errors.rejectFailed";
 					break;
 				case "renew":
 					endpoint = "/admin/renew-marketplace-provider-capability";
 					body = {
-						org_id: cap.org_id,
+						org_domain: cap.org_domain,
 						subscription_price: values.subscription_price,
 						currency: values.currency,
 						subscription_period_days: values.subscription_period_days,
@@ -297,14 +297,14 @@ function CapabilitiesTab() {
 					break;
 				case "revoke":
 					endpoint = "/admin/revoke-marketplace-provider-capability";
-					body = { org_id: cap.org_id, admin_note: values.admin_note };
+					body = { org_domain: cap.org_domain, admin_note: values.admin_note };
 					successKey = "capability.success.revoked";
 					errorKey = "capability.errors.revokeFailed";
 					break;
 				case "reinstate":
 					endpoint = "/admin/reinstate-marketplace-provider-capability";
 					body = {
-						org_id: cap.org_id,
+						org_domain: cap.org_domain,
 						subscription_price: values.subscription_price,
 						currency: values.currency,
 						subscription_period_days: values.subscription_period_days,
@@ -574,7 +574,7 @@ function CapabilitiesTab() {
 				<Table
 					dataSource={capabilities}
 					columns={columns}
-					rowKey={(r) => `${r.org_id}-${r.capability}`}
+					rowKey={(r) => `${r.org_domain}-${r.capability}`}
 					pagination={false}
 					expandable={{
 						expandedRowRender,
@@ -726,7 +726,7 @@ function ServiceListingsTab() {
 					const regionsMap = new Map<string, Region>();
 					newListings.forEach((l) => {
 						// Default to ind1 as placeholder; admin will set region in action modals
-						regionsMap.set(l.service_listing_id, "ind1");
+						regionsMap.set(`${l.org_domain}/${l.name}`, "ind1");
 					});
 					setListingRegions(regionsMap);
 				} else {
@@ -734,8 +734,9 @@ function ServiceListingsTab() {
 					setListingRegions((prev) => {
 						const updated = new Map(prev);
 						newListings.forEach((l) => {
-							if (!updated.has(l.service_listing_id)) {
-								updated.set(l.service_listing_id, "ind1");
+							const key = `${l.org_domain}/${l.name}`;
+							if (!updated.has(key)) {
+								updated.set(key, "ind1");
 							}
 						});
 						return updated;
@@ -763,7 +764,7 @@ function ServiceListingsTab() {
 	}, [fetchListings, filterState, hasReports]);
 
 	const openActionModal = (action: ListingAction, listing: ServiceListing) => {
-		const homeRegion = listingRegions.get(listing.service_listing_id) ?? "ind1";
+		const homeRegion = listingRegions.get(`${listing.org_domain}/${listing.name}`) ?? "ind1";
 		setActionModal({
 			visible: true,
 			action,
@@ -780,7 +781,7 @@ function ServiceListingsTab() {
 	};
 
 	const openDetailModal = (listing: ServiceListing) => {
-		const homeRegion = listingRegions.get(listing.service_listing_id) ?? "ind1";
+		const homeRegion = listingRegions.get(`${listing.org_domain}/${listing.name}`) ?? "ind1";
 		setDetailModal({ visible: true, selected: { listing, homeRegion } });
 	};
 
@@ -804,7 +805,8 @@ function ServiceListingsTab() {
 		try {
 			const apiBaseUrl = await getApiBaseUrl();
 			const homeRegion = (values.home_region as Region) ?? selected.homeRegion;
-			const listingId = selected.listing.service_listing_id;
+			const listingOrgDomain = selected.listing.org_domain;
+			const listingName = selected.listing.name;
 
 			let endpoint = "";
 			let body: Record<string, unknown> = {};
@@ -815,8 +817,8 @@ function ServiceListingsTab() {
 				case "approve":
 					endpoint = "/admin/approve-marketplace-service-listing";
 					body = {
-						service_listing_id: listingId,
-						home_region: homeRegion,
+						org_domain: listingOrgDomain,
+						name: listingName,
 						admin_verification_note: values.admin_verification_note,
 						verification_id: values.verification_id,
 					};
@@ -826,8 +828,8 @@ function ServiceListingsTab() {
 				case "reject":
 					endpoint = "/admin/reject-marketplace-service-listing";
 					body = {
-						service_listing_id: listingId,
-						home_region: homeRegion,
+						org_domain: listingOrgDomain,
+						name: listingName,
 						admin_verification_note: values.admin_verification_note,
 					};
 					if (values.verification_id) {
@@ -839,8 +841,8 @@ function ServiceListingsTab() {
 				case "suspend":
 					endpoint = "/admin/suspend-marketplace-service-listing";
 					body = {
-						service_listing_id: listingId,
-						home_region: homeRegion,
+						org_domain: listingOrgDomain,
+						name: listingName,
 						admin_verification_note: values.admin_verification_note,
 					};
 					successKey = "listings.success.suspended";
@@ -849,8 +851,8 @@ function ServiceListingsTab() {
 				case "reinstate":
 					endpoint = "/admin/reinstate-marketplace-service-listing";
 					body = {
-						service_listing_id: listingId,
-						home_region: homeRegion,
+						org_domain: listingOrgDomain,
+						name: listingName,
 					};
 					if (values.admin_note) {
 						body.admin_note = values.admin_note;
@@ -861,8 +863,8 @@ function ServiceListingsTab() {
 				case "grantAppeal":
 					endpoint = "/admin/grant-marketplace-appeal";
 					body = {
-						service_listing_id: listingId,
-						home_region: homeRegion,
+						org_domain: listingOrgDomain,
+						name: listingName,
 						admin_note: values.admin_note,
 					};
 					successKey = "listings.success.appealGranted";
@@ -871,8 +873,8 @@ function ServiceListingsTab() {
 				case "denyAppeal":
 					endpoint = "/admin/deny-marketplace-appeal";
 					body = {
-						service_listing_id: listingId,
-						home_region: homeRegion,
+						org_domain: listingOrgDomain,
+						name: listingName,
 						admin_note: values.admin_note,
 					};
 					successKey = "listings.success.appealDenied";
@@ -910,7 +912,7 @@ function ServiceListingsTab() {
 			// Update the known region for this listing
 			setListingRegions((prev) => {
 				const updated = new Map(prev);
-				updated.set(listingId, homeRegion);
+				updated.set(`${listingOrgDomain}/${listingName}`, homeRegion);
 				return updated;
 			});
 			closeActionModal();
@@ -936,7 +938,7 @@ function ServiceListingsTab() {
 						setListingRegions((prev) => {
 							const updated = new Map(prev);
 							updated.set(
-								actionModal.selected!.listing.service_listing_id,
+								`${actionModal.selected!.listing.org_domain}/${actionModal.selected!.listing.name}`,
 								val
 							);
 							return updated;
@@ -1300,7 +1302,7 @@ function ServiceListingsTab() {
 						</Descriptions.Item>
 						<Descriptions.Item label={t("listings.detailModal.orgId")}>
 							<Text style={{ fontFamily: "monospace" }}>
-								{detailModal.selected.listing.org_id}
+								{detailModal.selected.listing.org_domain}
 							</Text>
 						</Descriptions.Item>
 						<Descriptions.Item label={t("listings.detailModal.region")}>

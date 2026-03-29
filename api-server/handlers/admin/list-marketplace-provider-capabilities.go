@@ -121,9 +121,24 @@ func ListMarketplaceProviderCapabilities(s *server.GlobalServer) http.HandlerFun
 			allCaps = allCaps[:limit]
 		}
 
+		// Build orgID→domain map for all capabilities
+		orgDomainMap := make(map[[16]byte]string)
+		for _, cap := range allCaps {
+			key := cap.OrgID.Bytes
+			if _, ok := orgDomainMap[key]; !ok {
+				domains, err := s.Global.GetGlobalOrgDomainsByOrg(ctx, cap.OrgID)
+				if err != nil || len(domains) == 0 {
+					orgDomainMap[key] = ""
+				} else {
+					orgDomainMap[key] = domains[0].Domain
+				}
+			}
+		}
+
 		capabilities := make([]orgtypes.OrgCapability, 0, len(allCaps))
 		for _, cap := range allCaps {
-			capabilities = append(capabilities, dbOrgCapabilityToAPI(cap))
+			domain := orgDomainMap[cap.OrgID.Bytes]
+			capabilities = append(capabilities, dbOrgCapabilityToAPI(cap, domain))
 		}
 
 		resp := admintypes.ListMarketplaceProviderCapabilitiesResponse{
