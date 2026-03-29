@@ -187,7 +187,12 @@ export function MarketplaceBrowsePage() {
 				) : (
 					<Row gutter={[16, 16]}>
 						{listings.map((listing) => (
-							<Col key={`${listing.org_domain}/${listing.name}`} xs={24} sm={12} lg={8}>
+							<Col
+								key={`${listing.org_domain}/${listing.name}`}
+								xs={24}
+								sm={12}
+								lg={8}
+							>
 								<Card
 									hoverable
 									style={{

@@ -764,7 +764,8 @@ function ServiceListingsTab() {
 	}, [fetchListings, filterState, hasReports]);
 
 	const openActionModal = (action: ListingAction, listing: ServiceListing) => {
-		const homeRegion = listingRegions.get(`${listing.org_domain}/${listing.name}`) ?? "ind1";
+		const homeRegion =
+			listingRegions.get(`${listing.org_domain}/${listing.name}`) ?? "ind1";
 		setActionModal({
 			visible: true,
 			action,
@@ -781,7 +782,8 @@ function ServiceListingsTab() {
 	};
 
 	const openDetailModal = (listing: ServiceListing) => {
-		const homeRegion = listingRegions.get(`${listing.org_domain}/${listing.name}`) ?? "ind1";
+		const homeRegion =
+			listingRegions.get(`${listing.org_domain}/${listing.name}`) ?? "ind1";
 		setDetailModal({ visible: true, selected: { listing, homeRegion } });
 	};
 

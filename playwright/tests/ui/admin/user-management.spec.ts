@@ -77,6 +77,9 @@ test.describe("Admin UI - User Management", () => {
 		await expect(row).toBeVisible({ timeout: 15000 });
 
 		// Verify invited status
-		await expect(row).toContainText("invited", { ignoreCase: true, timeout: 10000 });
+		await expect(row).toContainText("invited", {
+			ignoreCase: true,
+			timeout: 10000,
+		});
 	});
 });
