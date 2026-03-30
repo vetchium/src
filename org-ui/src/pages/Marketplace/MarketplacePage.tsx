@@ -134,9 +134,16 @@ export function MarketplacePage() {
 								onClick={() => navigate("/marketplace/capability")}
 								style={{ height: "100%", cursor: "pointer" }}
 							>
-								<div style={{ display: "flex", alignItems: "flex-start", gap: 16 }}>
+								<div
+									style={{ display: "flex", alignItems: "flex-start", gap: 16 }}
+								>
 									<TeamOutlined
-										style={{ fontSize: 32, color: "#1890ff", marginTop: 2, flexShrink: 0 }}
+										style={{
+											fontSize: 32,
+											color: "#1890ff",
+											marginTop: 2,
+											flexShrink: 0,
+										}}
 									/>
 									<div style={{ flex: 1 }}>
 										<div

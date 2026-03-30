@@ -316,7 +316,9 @@ export function MarketplaceListingsPage({ hasCapability }: Props) {
 							<Button
 								size="small"
 								onClick={() =>
-									navigate(`/marketplace/service-listings/${encodeURIComponent(record.name)}/edit`)
+									navigate(
+										`/marketplace/service-listings/${encodeURIComponent(record.name)}/edit`
+									)
 								}
 							>
 								{t("listings.table.edit")}

@@ -1,6 +1,4 @@
-import {
-	ArrowLeftOutlined,
-} from "@ant-design/icons";
+import { ArrowLeftOutlined } from "@ant-design/icons";
 import {
 	App,
 	Button,
@@ -217,7 +215,9 @@ export function MarketplaceListingFormPage() {
 					} else if (resp.status === 400) {
 						const errs = await resp.json().catch(() => []);
 						if (Array.isArray(errs) && errs.length > 0) {
-							message.error(errs[0].message ?? t("listings.errors.createFailed"));
+							message.error(
+								errs[0].message ?? t("listings.errors.createFailed")
+							);
 						} else {
 							message.error(t("listings.errors.createFailed"));
 						}
@@ -264,7 +264,9 @@ export function MarketplaceListingFormPage() {
 					} else if (createResp.status === 400) {
 						const errs = await createResp.json().catch(() => []);
 						if (Array.isArray(errs) && errs.length > 0) {
-							message.error(errs[0].message ?? t("listings.errors.createFailed"));
+							message.error(
+								errs[0].message ?? t("listings.errors.createFailed")
+							);
 						} else {
 							message.error(t("listings.errors.createFailed"));
 						}
@@ -284,7 +286,9 @@ export function MarketplaceListingFormPage() {
 		[form, isEdit, listingName, sessionToken, message, t, navigate]
 	);
 
-	const pageTitle = isEdit ? t("listings.editTitle") : t("listings.createTitle");
+	const pageTitle = isEdit
+		? t("listings.editTitle")
+		: t("listings.createTitle");
 
 	if (loadError) {
 		return (

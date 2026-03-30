@@ -42,7 +42,6 @@ import { formatDateTime } from "../../utils/dateFormat";
 const { Title, Text } = Typography;
 const { TextArea } = Input;
 
-
 // ---- Capability status colors ----
 function capabilityStatusColor(status: OrgCapabilityStatus): string {
 	switch (status) {
@@ -579,10 +578,7 @@ function CapabilitiesTab() {
 							>
 								<div>
 									<Text strong>{cap.org_domain}</Text>
-									<Tag
-										color="gold"
-										style={{ marginLeft: 8 }}
-									>
+									<Tag color="gold" style={{ marginLeft: 8 }}>
 										{t("capability.statuses.pending_approval")}
 									</Tag>
 									{cap.applied_at && (
@@ -590,7 +586,8 @@ function CapabilitiesTab() {
 											type="secondary"
 											style={{ fontSize: 12, marginLeft: 8 }}
 										>
-											{t("capability.table.appliedAt")}: {formatDateTime(cap.applied_at)}
+											{t("capability.table.appliedAt")}:{" "}
+											{formatDateTime(cap.applied_at)}
 										</Text>
 									)}
 									{cap.application_note && (
@@ -965,7 +962,9 @@ function ServiceListingsTab() {
 					>
 						<TextArea
 							rows={3}
-							placeholder={t("listings.approveModal.verificationNotePlaceholder")}
+							placeholder={t(
+								"listings.approveModal.verificationNotePlaceholder"
+							)}
 						/>
 					</Form.Item>
 					<Form.Item
@@ -1485,11 +1484,15 @@ function ServiceListingsTab() {
 						>
 							{detailModal.listing.countries_of_service.join(", ")}
 						</Descriptions.Item>
-						<Descriptions.Item label={t("listings.detailModal.appealExhausted")}>
+						<Descriptions.Item
+							label={t("listings.detailModal.appealExhausted")}
+						>
 							{detailModal.listing.appeal_exhausted ? "Yes" : "No"}
 						</Descriptions.Item>
 						{detailModal.listing.last_review_admin_note && (
-							<Descriptions.Item label={t("listings.detailModal.lastReviewNote")}>
+							<Descriptions.Item
+								label={t("listings.detailModal.lastReviewNote")}
+							>
 								{detailModal.listing.last_review_admin_note}
 							</Descriptions.Item>
 						)}

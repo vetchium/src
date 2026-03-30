@@ -160,26 +160,26 @@ export function MarketplaceCapabilityPage() {
 		>
 			<div style={{ marginBottom: 16 }}>
 				<Link to="/">
-					<Button icon={<ArrowLeftOutlined />}>
-						{t("backToDashboard")}
-					</Button>
+					<Button icon={<ArrowLeftOutlined />}>{t("backToDashboard")}</Button>
 				</Link>
 			</div>
 
 			<Spin spinning={loading}>
 				{/* Page header */}
 				<div
-					style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 8 }}
+					style={{
+						display: "flex",
+						alignItems: "center",
+						gap: 16,
+						marginBottom: 8,
+					}}
 				>
 					<TeamOutlined style={{ fontSize: 36, color: "#1890ff" }} />
 					<div>
 						<Title level={2} style={{ margin: 0 }}>
 							{t("providerHub.talentSourcing.title")}
 						</Title>
-						<Paragraph
-							type="secondary"
-							style={{ margin: 0, marginTop: 4 }}
-						>
+						<Paragraph type="secondary" style={{ margin: 0, marginTop: 4 }}>
 							{t("providerHub.talentSourcing.description")}
 						</Paragraph>
 					</div>
@@ -242,7 +242,9 @@ export function MarketplaceCapabilityPage() {
 
 						{capability.application_note && (
 							<div style={{ marginTop: 12 }}>
-								<Text type="secondary">{t("capability.applicationNote")}: </Text>
+								<Text type="secondary">
+									{t("capability.applicationNote")}:{" "}
+								</Text>
 								<Text>{capability.application_note}</Text>
 							</div>
 						)}
@@ -283,7 +285,14 @@ export function MarketplaceCapabilityPage() {
 				)}
 
 				{showApplyForm && (
-					<Card title={capability ? t("capability.reapplyTitle") : t("capability.applyTitle")} style={{ maxWidth: 640 }}>
+					<Card
+						title={
+							capability
+								? t("capability.reapplyTitle")
+								: t("capability.applyTitle")
+						}
+						style={{ maxWidth: 640 }}
+					>
 						<Form layout="vertical">
 							<Form.Item
 								label={t("capability.applicationNote")}
