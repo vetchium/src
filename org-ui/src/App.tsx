@@ -31,7 +31,10 @@ import { DomainManagementPage } from "./pages/DomainManagement/DomainManagementP
 import { CostCentersPage } from "./pages/CostCenters/CostCentersPage";
 import { SubOrgsPage } from "./pages/SubOrgs/SubOrgsPage";
 import { AuditLogsPage } from "./pages/AuditLogsPage";
-import { MarketplacePage } from "./pages/Marketplace/MarketplacePage";
+import { MarketplaceBrowsePage } from "./pages/Marketplace/MarketplaceBrowsePage";
+import { MarketplaceCapabilityPage } from "./pages/Marketplace/MarketplaceCapabilityPage";
+import { MarketplaceListingsPage } from "./pages/Marketplace/MarketplaceListingsPage";
+import { MarketplaceListingFormPage } from "./pages/Marketplace/MarketplaceListingFormPage";
 import {
 	BrowserRouter,
 	Routes,
@@ -202,6 +205,34 @@ function CostCentersRoute({ children }: { children: React.ReactNode }) {
 	return <>{children}</>;
 }
 
+function MarketplaceProviderRoute({ children }: { children: React.ReactNode }) {
+	const { authState, sessionToken } = useAuth();
+	const { data: myInfo, loading } = useMyInfo(sessionToken);
+	const location = useLocation();
+
+	if (authState === "login") {
+		return <Navigate to="/login" state={{ from: location }} replace />;
+	}
+
+	if (authState === "tfa") {
+		return <Navigate to="/tfa" replace />;
+	}
+
+	if (loading) {
+		return <Spin size="large" />;
+	}
+
+	const hasAccess =
+		myInfo?.roles.includes("org:superadmin") ||
+		myInfo?.roles.includes("org:manage_marketplace");
+
+	if (!hasAccess) {
+		return <Navigate to="/marketplace" replace />;
+	}
+
+	return <>{children}</>;
+}
+
 function AuditLogsRoute({ children }: { children: React.ReactNode }) {
 	const { authState, sessionToken } = useAuth();
 	const { data: myInfo, loading } = useMyInfo(sessionToken);
@@ -355,8 +386,40 @@ function AppContent() {
 								path="/marketplace"
 								element={
 									<ProtectedRoute>
-										<MarketplacePage />
+										<MarketplaceBrowsePage />
 									</ProtectedRoute>
+								}
+							/>
+							<Route
+								path="/marketplace/provider"
+								element={
+									<MarketplaceProviderRoute>
+										<MarketplaceCapabilityPage />
+									</MarketplaceProviderRoute>
+								}
+							/>
+							<Route
+								path="/marketplace/service-listings"
+								element={
+									<MarketplaceProviderRoute>
+										<MarketplaceListingsPage hasCapability={true} />
+									</MarketplaceProviderRoute>
+								}
+							/>
+							<Route
+								path="/marketplace/service-listings/new"
+								element={
+									<MarketplaceProviderRoute>
+										<MarketplaceListingFormPage />
+									</MarketplaceProviderRoute>
+								}
+							/>
+							<Route
+								path="/marketplace/service-listings/:name/edit"
+								element={
+									<MarketplaceProviderRoute>
+										<MarketplaceListingFormPage />
+									</MarketplaceProviderRoute>
 								}
 							/>
 							<Route path="/forgot-password" element={<ForgotPasswordPage />} />

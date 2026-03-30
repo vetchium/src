@@ -42,9 +42,13 @@
 		"title": "Unterorganisationen",
 		"description": "Unterorganisationen und ihre Mitglieder verwalten"
 	},
-	"marketplace": {
-		"title": "Marktplatz",
-		"description": "Dienste durchsuchen und Ihre Marktplatz-Angebote verwalten"
+	"providerHub": {
+		"title": "Dienste anbieten",
+		"description": "Bewerben Sie sich für die Marktplatz-Anbieter-Berechtigung und verwalten Sie Ihre Dienstangebote"
+	},
+	"browseMarketplace": {
+		"title": "Dienste suchen",
+		"description": "Entdecken Sie Dienstleister im Vetchium-Netzwerk und nehmen Sie Kontakt auf"
 	},
 	"action": {
 		"backHome": "Zurück zur Startseite"

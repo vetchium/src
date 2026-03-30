@@ -38,7 +38,6 @@ import {
 	DomainVerificationStatusPending,
 	DomainVerificationStatusFailing,
 } from "vetchium-specs/org-domains/org-domains";
-import type { DomainVerificationStatus } from "vetchium-specs/org-domains/org-domains";
 import {
 	DOMAIN_MAX_LENGTH,
 	DOMAIN_MIN_LENGTH,

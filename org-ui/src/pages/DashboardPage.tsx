@@ -7,6 +7,7 @@ import {
 	ApartmentOutlined,
 	FileSearchOutlined,
 	ShopOutlined,
+	RocketOutlined,
 } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
@@ -41,8 +42,14 @@ export function DashboardPage() {
 	// Any authenticated user can see SubOrgs (list is unrestricted)
 	const hasSubOrgsAccess = !!myInfo;
 
-	// Any authenticated user can access marketplace (browse is for all)
-	const hasMarketplaceAccess = !!myInfo;
+	// Provider Hub: only superadmin or manage_marketplace role
+	const hasProviderHubAccess =
+		myInfo?.roles.includes("org:superadmin") ||
+		myInfo?.roles.includes("org:manage_marketplace") ||
+		false;
+
+	// Browse: any authenticated user
+	const hasBrowseAccess = !!myInfo;
 
 	const hasAuditLogsAccess =
 		myInfo?.roles.includes("org:superadmin") ||
@@ -198,7 +205,32 @@ export function DashboardPage() {
 							</Card>
 						</Link>
 					)}
-					{hasMarketplaceAccess && (
+					{hasProviderHubAccess && (
+						<Link
+							to="/marketplace/provider"
+							style={{ textDecoration: "none", width: "100%" }}
+						>
+							<Card
+								hoverable
+								style={{
+									width: "100%",
+									cursor: "pointer",
+									textAlign: "center",
+								}}
+							>
+								<RocketOutlined
+									style={{ fontSize: 48, color: "#fa541c", marginBottom: 16 }}
+								/>
+								<Title level={4} style={{ marginBottom: 8 }}>
+									{t("providerHub.title")}
+								</Title>
+								<Typography.Text type="secondary">
+									{t("providerHub.description")}
+								</Typography.Text>
+							</Card>
+						</Link>
+					)}
+					{hasBrowseAccess && (
 						<Link
 							to="/marketplace"
 							style={{ textDecoration: "none", width: "100%" }}
@@ -212,13 +244,13 @@ export function DashboardPage() {
 								}}
 							>
 								<ShopOutlined
-									style={{ fontSize: 48, color: "#eb2f96", marginBottom: 16 }}
+									style={{ fontSize: 48, color: "#1890ff", marginBottom: 16 }}
 								/>
 								<Title level={4} style={{ marginBottom: 8 }}>
-									{t("marketplace.title")}
+									{t("browseMarketplace.title")}
 								</Title>
 								<Typography.Text type="secondary">
-									{t("marketplace.description")}
+									{t("browseMarketplace.description")}
 								</Typography.Text>
 							</Card>
 						</Link>

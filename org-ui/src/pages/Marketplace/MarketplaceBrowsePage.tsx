@@ -12,8 +12,10 @@ import {
 	Tag,
 	Typography,
 } from "antd";
+import { ArrowLeftOutlined } from "@ant-design/icons";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router-dom";
 import type {
 	BrowseMarketplaceServiceListingsRequest,
 	ReportMarketplaceServiceListingRequest,
@@ -160,8 +162,23 @@ export function MarketplaceBrowsePage() {
 	].map((v) => ({ value: v, label: t(`browse.reportReasons.${v}`) }));
 
 	return (
-		<div>
-			<Title level={4}>{t("browse.title")}</Title>
+		<div
+			style={{
+				width: "100%",
+				maxWidth: 1200,
+				padding: "24px 16px",
+				alignSelf: "flex-start",
+			}}
+		>
+			<div style={{ marginBottom: 16 }}>
+				<Link to="/">
+					<Button icon={<ArrowLeftOutlined />}>{t("backToDashboard")}</Button>
+				</Link>
+			</div>
+
+			<Title level={2} style={{ marginBottom: 24 }}>
+				{t("browse.title")}
+			</Title>
 
 			<div style={{ display: "flex", gap: 8, marginBottom: 24 }}>
 				<Input

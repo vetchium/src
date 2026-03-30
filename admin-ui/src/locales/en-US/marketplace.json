@@ -73,6 +73,7 @@
 			"revoked": "Revoked"
 		},
 		"applicationNote": "Application Note",
+		"needsAction": "{{count}} pending approval",
 		"errors": {
 			"loadFailed": "Failed to load capabilities",
 			"approveFailed": "Failed to approve capability",
@@ -188,22 +189,23 @@
 			"region": "Region"
 		},
 		"hasReports": "Has Reports",
-		"region": "Region",
+		"needsAction": "{{count}} items need action",
+		"retry": "Retry",
 		"errors": {
 			"loadFailed": "Failed to load service listings",
-			"approveFailed": "Failed to approve listing",
-			"rejectFailed": "Failed to reject listing",
-			"suspendFailed": "Failed to suspend listing",
-			"reinstateFailed": "Failed to reinstate listing",
+			"approveFailed": "Failed to approve service listing",
+			"rejectFailed": "Failed to reject service listing",
+			"suspendFailed": "Failed to suspend service listing",
+			"reinstateFailed": "Failed to reinstate service listing",
 			"grantAppealFailed": "Failed to grant appeal",
 			"denyAppealFailed": "Failed to deny appeal",
-			"invalidState": "Listing is not in the required state for this action"
+			"invalidState": "Service listing is not in the required state for this action"
 		},
 		"success": {
-			"approved": "Listing approved",
-			"rejected": "Listing rejected",
-			"suspended": "Listing suspended",
-			"reinstated": "Listing reinstated",
+			"approved": "Service listing approved",
+			"rejected": "Service listing rejected",
+			"suspended": "Service listing suspended",
+			"reinstated": "Service listing reinstated",
 			"appealGranted": "Appeal granted",
 			"appealDenied": "Appeal denied"
 		},

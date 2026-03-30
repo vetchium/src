@@ -42,9 +42,13 @@
 		"title": "Sub-Organizations",
 		"description": "Manage sub-organizations and their members"
 	},
-	"marketplace": {
-		"title": "Marketplace",
-		"description": "Browse services and manage your marketplace listings"
+	"providerHub": {
+		"title": "Offer Services",
+		"description": "Apply for marketplace provider capability and manage your service listings"
+	},
+	"browseMarketplace": {
+		"title": "Browse Services",
+		"description": "Discover and contact service providers in the Vetchium network"
 	},
 	"action": {
 		"backHome": "Back Home"

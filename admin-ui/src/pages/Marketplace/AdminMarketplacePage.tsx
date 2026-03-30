@@ -8,6 +8,7 @@ import {
 import {
 	App,
 	Button,
+	Card,
 	Checkbox,
 	Descriptions,
 	Form,
@@ -23,7 +24,7 @@ import {
 	Tooltip,
 	Typography,
 } from "antd";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import type {
@@ -41,8 +42,6 @@ import { formatDateTime } from "../../utils/dateFormat";
 const { Title, Text } = Typography;
 const { TextArea } = Input;
 
-const REGIONS = ["ind1", "usa1", "deu1"] as const;
-type Region = (typeof REGIONS)[number];
 
 // ---- Capability status colors ----
 function capabilityStatusColor(status: OrgCapabilityStatus): string {
@@ -98,7 +97,6 @@ type ListingAction =
 
 interface SelectedListing {
 	listing: ServiceListing;
-	homeRegion: Region;
 }
 
 // ============================================================
@@ -173,14 +171,6 @@ function CapabilitiesTab() {
 					}
 				);
 
-				if (response.status === 401) {
-					message.error(t("capability.errors.loadFailed"));
-					return;
-				}
-				if (response.status === 403) {
-					message.error(t("capability.errors.loadFailed"));
-					return;
-				}
 				if (response.status !== 200) {
 					message.error(t("capability.errors.loadFailed"));
 					return;
@@ -217,12 +207,10 @@ function CapabilitiesTab() {
 	const handleFilterChange = (value: OrgCapabilityStatus | "all") => {
 		setFilterStatus(value);
 		setNextCursor(null);
-		// fetchCapabilities will run via useEffect dependency change
 	};
 
 	const openModal = (action: CapabilityAction, cap: OrgCapability) => {
 		setActionModal({ visible: true, action, capability: cap });
-		// Reset the relevant form
 		switch (action) {
 			case "approve":
 				approveForm.resetFields();
@@ -327,14 +315,6 @@ function CapabilitiesTab() {
 				message.error(t("capability.errors.invalidState"));
 				return;
 			}
-			if (response.status === 401) {
-				message.error(t(errorKey));
-				return;
-			}
-			if (response.status === 403) {
-				message.error(t(errorKey));
-				return;
-			}
 			if (response.status !== 200) {
 				message.error(t(errorKey));
 				return;
@@ -350,21 +330,81 @@ function CapabilitiesTab() {
 		}
 	};
 
-	const columns = [
+	// Split capabilities into pending (needs action) and others
+	const pendingCapabilities = useMemo(
+		() =>
+			filterStatus === "all"
+				? capabilities.filter((c) => c.status === "pending_approval")
+				: [],
+		[capabilities, filterStatus]
+	);
+
+	const otherCapabilities = useMemo(
+		() =>
+			filterStatus === "all"
+				? capabilities.filter((c) => c.status !== "pending_approval")
+				: capabilities,
+		[capabilities, filterStatus]
+	);
+
+	const renderCapabilityActions = (record: OrgCapability) => (
+		<Space wrap>
+			{record.status === "pending_approval" && (
+				<>
+					<Button
+						type="primary"
+						icon={<CheckCircleOutlined />}
+						size="small"
+						onClick={() => openModal("approve", record)}
+					>
+						{t("capability.actions.approve")}
+					</Button>
+					<Button
+						danger
+						size="small"
+						onClick={() => openModal("reject", record)}
+					>
+						{t("capability.actions.reject")}
+					</Button>
+				</>
+			)}
+			{record.status === "active" && (
+				<>
+					<Button size="small" onClick={() => openModal("renew", record)}>
+						{t("capability.actions.renew")}
+					</Button>
+					<Button
+						danger
+						icon={<StopOutlined />}
+						size="small"
+						onClick={() => openModal("revoke", record)}
+					>
+						{t("capability.actions.revoke")}
+					</Button>
+				</>
+			)}
+			{record.status === "expired" && (
+				<Button size="small" onClick={() => openModal("renew", record)}>
+					{t("capability.actions.renew")}
+				</Button>
+			)}
+			{record.status === "revoked" && (
+				<Button
+					type="primary"
+					size="small"
+					onClick={() => openModal("reinstate", record)}
+				>
+					{t("capability.actions.reinstate")}
+				</Button>
+			)}
+		</Space>
+	);
+
+	const tableColumns = [
 		{
 			title: t("capability.table.orgId"),
-			dataIndex: "org_id",
-			key: "org_id",
-			render: (id: string) => (
-				<Tooltip title={id}>
-					<Text style={{ fontFamily: "monospace" }}>{id.slice(0, 8)}...</Text>
-				</Tooltip>
-			),
-		},
-		{
-			title: t("capability.table.capability"),
-			dataIndex: "capability",
-			key: "capability",
+			dataIndex: "org_domain",
+			key: "org_domain",
 		},
 		{
 			title: t("capability.table.status"),
@@ -409,58 +449,8 @@ function CapabilitiesTab() {
 		{
 			title: t("capability.table.actions"),
 			key: "actions",
-			render: (_: unknown, record: OrgCapability) => (
-				<Space wrap>
-					{record.status === "pending_approval" && (
-						<>
-							<Button
-								type="primary"
-								icon={<CheckCircleOutlined />}
-								size="small"
-								onClick={() => openModal("approve", record)}
-							>
-								{t("capability.actions.approve")}
-							</Button>
-							<Button
-								danger
-								size="small"
-								onClick={() => openModal("reject", record)}
-							>
-								{t("capability.actions.reject")}
-							</Button>
-						</>
-					)}
-					{record.status === "active" && (
-						<>
-							<Button size="small" onClick={() => openModal("renew", record)}>
-								{t("capability.actions.renew")}
-							</Button>
-							<Button
-								danger
-								icon={<StopOutlined />}
-								size="small"
-								onClick={() => openModal("revoke", record)}
-							>
-								{t("capability.actions.revoke")}
-							</Button>
-						</>
-					)}
-					{record.status === "expired" && (
-						<Button size="small" onClick={() => openModal("renew", record)}>
-							{t("capability.actions.renew")}
-						</Button>
-					)}
-					{record.status === "revoked" && (
-						<Button
-							type="primary"
-							size="small"
-							onClick={() => openModal("reinstate", record)}
-						>
-							{t("capability.actions.reinstate")}
-						</Button>
-					)}
-				</Space>
-			),
+			render: (_: unknown, record: OrgCapability) =>
+				renderCapabilityActions(record),
 		},
 	];
 
@@ -474,7 +464,6 @@ function CapabilitiesTab() {
 		);
 	};
 
-	// Modal title and form body based on action
 	const modalTitle = actionModal.action
 		? t(`capability.${actionModal.action}Modal.title`)
 		: "";
@@ -551,6 +540,94 @@ function CapabilitiesTab() {
 
 	return (
 		<div>
+			{/* Needs Action section — shown when filter is "all" and there are pending items */}
+			{filterStatus === "all" && pendingCapabilities.length > 0 && (
+				<div style={{ marginBottom: 24 }}>
+					<div
+						style={{
+							display: "flex",
+							alignItems: "center",
+							gap: 8,
+							marginBottom: 12,
+						}}
+					>
+						<WarningOutlined style={{ color: "#faad14", fontSize: 16 }} />
+						<Text strong style={{ color: "#faad14" }}>
+							{t("capability.needsAction", {
+								count: pendingCapabilities.length,
+							})}
+						</Text>
+					</div>
+					{pendingCapabilities.map((cap) => (
+						<Card
+							key={`${cap.org_domain}-${cap.capability}`}
+							size="small"
+							style={{
+								marginBottom: 8,
+								borderLeft: "4px solid #faad14",
+								borderRadius: 6,
+							}}
+						>
+							<div
+								style={{
+									display: "flex",
+									justifyContent: "space-between",
+									alignItems: "flex-start",
+									flexWrap: "wrap",
+									gap: 8,
+								}}
+							>
+								<div>
+									<Text strong>{cap.org_domain}</Text>
+									<Tag
+										color="gold"
+										style={{ marginLeft: 8 }}
+									>
+										{t("capability.statuses.pending_approval")}
+									</Tag>
+									{cap.applied_at && (
+										<Text
+											type="secondary"
+											style={{ fontSize: 12, marginLeft: 8 }}
+										>
+											{t("capability.table.appliedAt")}: {formatDateTime(cap.applied_at)}
+										</Text>
+									)}
+									{cap.application_note && (
+										<div style={{ marginTop: 4 }}>
+											<Text
+												type="secondary"
+												style={{ fontSize: 12, fontStyle: "italic" }}
+											>
+												"{cap.application_note}"
+											</Text>
+										</div>
+									)}
+								</div>
+								<Space>
+									<Button
+										type="primary"
+										icon={<CheckCircleOutlined />}
+										size="small"
+										onClick={() => openModal("approve", cap)}
+									>
+										{t("capability.actions.approve")}
+									</Button>
+									<Button
+										danger
+										size="small"
+										onClick={() => openModal("reject", cap)}
+									>
+										{t("capability.actions.reject")}
+									</Button>
+								</Space>
+							</div>
+						</Card>
+					))}
+				</div>
+			)}
+
+			{/* Filter + table for all other items */}
 			<div style={{ marginBottom: 16 }}>
 				<Select
 					value={filterStatus}
@@ -572,8 +649,8 @@ function CapabilitiesTab() {
 
 			<Spin spinning={loading}>
 				<Table
-					dataSource={capabilities}
-					columns={columns}
+					dataSource={otherCapabilities}
+					columns={tableColumns}
 					rowKey={(r) => `${r.org_domain}-${r.capability}`}
 					pagination={false}
 					expandable={{
@@ -621,11 +698,8 @@ function ServiceListingsTab() {
 	const { message } = App.useApp();
 
 	const [listings, setListings] = useState<ServiceListing[]>([]);
-	// We need to track home_region per listing since it's not in ServiceListing
-	const [listingRegions, setListingRegions] = useState<Map<string, Region>>(
-		new Map()
-	);
 	const [loading, setLoading] = useState(true);
+	const [loadError, setLoadError] = useState(false);
 	const [nextCursor, setNextCursor] = useState<string | null>(null);
 	const [hasMore, setHasMore] = useState(false);
 	const [filterState, setFilterState] = useState<ServiceListingState | "all">(
@@ -641,8 +715,8 @@ function ServiceListingsTab() {
 
 	const [detailModal, setDetailModal] = useState<{
 		visible: boolean;
-		selected: SelectedListing | null;
-	}>({ visible: false, selected: null });
+		listing: ServiceListing | null;
+	}>({ visible: false, listing: null });
 
 	const [submitting, setSubmitting] = useState(false);
 
@@ -691,7 +765,7 @@ function ServiceListingsTab() {
 				}
 
 				const response = await fetch(
-					`${apiBaseUrl}/admin/list-admin-marketplace-service-listings`,
+					`${apiBaseUrl}/admin/list-marketplace-service-listings`,
 					{
 						method: "POST",
 						headers: {
@@ -702,19 +776,12 @@ function ServiceListingsTab() {
 					}
 				);
 
-				if (response.status === 401) {
-					message.error(t("listings.errors.loadFailed"));
-					return;
-				}
-				if (response.status === 403) {
-					message.error(t("listings.errors.loadFailed"));
-					return;
-				}
 				if (response.status !== 200) {
-					message.error(t("listings.errors.loadFailed"));
+					setLoadError(true);
 					return;
 				}
 
+				setLoadError(false);
 				const data: AdminListMarketplaceServiceListingsResponse =
 					await response.json();
 
@@ -722,25 +789,8 @@ function ServiceListingsTab() {
 
 				if (cursor === null) {
 					setListings(newListings);
-					// Reset regions map for fresh load
-					const regionsMap = new Map<string, Region>();
-					newListings.forEach((l) => {
-						// Default to ind1 as placeholder; admin will set region in action modals
-						regionsMap.set(`${l.org_domain}/${l.name}`, "ind1");
-					});
-					setListingRegions(regionsMap);
 				} else {
 					setListings((prev) => [...prev, ...newListings]);
-					setListingRegions((prev) => {
-						const updated = new Map(prev);
-						newListings.forEach((l) => {
-							const key = `${l.org_domain}/${l.name}`;
-							if (!updated.has(key)) {
-								updated.set(key, "ind1");
-							}
-						});
-						return updated;
-					});
 				}
 
 				if (data.next_cursor) {
@@ -751,12 +801,12 @@ function ServiceListingsTab() {
 					setHasMore(false);
 				}
 			} catch {
-				message.error(t("listings.errors.loadFailed"));
+				setLoadError(true);
 			} finally {
 				setLoading(false);
 			}
 		},
-		[sessionToken, filterState, hasReports, t, message]
+		[sessionToken, filterState, hasReports]
 	);
 
 	useEffect(() => {
@@ -764,17 +814,13 @@ function ServiceListingsTab() {
 	}, [fetchListings, filterState, hasReports]);
 
 	const openActionModal = (action: ListingAction, listing: ServiceListing) => {
-		const homeRegion =
-			listingRegions.get(`${listing.org_domain}/${listing.name}`) ?? "ind1";
 		setActionModal({
 			visible: true,
 			action,
-			selected: { listing, homeRegion },
+			selected: { listing },
 		});
 		const form = getFormForAction(action);
 		form.resetFields();
-		// Pre-set the region field in the form
-		form.setFieldsValue({ home_region: homeRegion });
 	};
 
 	const closeActionModal = () => {
@@ -782,13 +828,11 @@ function ServiceListingsTab() {
 	};
 
 	const openDetailModal = (listing: ServiceListing) => {
-		const homeRegion =
-			listingRegions.get(`${listing.org_domain}/${listing.name}`) ?? "ind1";
-		setDetailModal({ visible: true, selected: { listing, homeRegion } });
+		setDetailModal({ visible: true, listing });
 	};
 
 	const closeDetailModal = () => {
-		setDetailModal({ visible: false, selected: null });
+		setDetailModal({ visible: false, listing: null });
 	};
 
 	const handleSubmit = async () => {
@@ -806,7 +850,6 @@ function ServiceListingsTab() {
 		setSubmitting(true);
 		try {
 			const apiBaseUrl = await getApiBaseUrl();
-			const homeRegion = (values.home_region as Region) ?? selected.homeRegion;
 			const listingOrgDomain = selected.listing.org_domain;
 			const listingName = selected.listing.name;
 
@@ -852,12 +895,9 @@ function ServiceListingsTab() {
 					break;
 				case "reinstate":
 					endpoint = "/admin/reinstate-marketplace-service-listing";
-					body = {
-						org_domain: listingOrgDomain,
-						name: listingName,
-					};
+					body = { org_domain: listingOrgDomain, name: listingName };
 					if (values.admin_note) {
-						body.admin_note = values.admin_note;
+						body.admin_verification_note = values.admin_note;
 					}
 					successKey = "listings.success.reinstated";
 					errorKey = "listings.errors.reinstateFailed";
@@ -867,7 +907,7 @@ function ServiceListingsTab() {
 					body = {
 						org_domain: listingOrgDomain,
 						name: listingName,
-						admin_note: values.admin_note,
+						admin_verification_note: values.admin_note,
 					};
 					successKey = "listings.success.appealGranted";
 					errorKey = "listings.errors.grantAppealFailed";
@@ -877,7 +917,7 @@ function ServiceListingsTab() {
 					body = {
 						org_domain: listingOrgDomain,
 						name: listingName,
-						admin_note: values.admin_note,
+						admin_verification_note: values.admin_note,
 					};
 					successKey = "listings.success.appealDenied";
 					errorKey = "listings.errors.denyAppealFailed";
@@ -897,26 +937,12 @@ function ServiceListingsTab() {
 				message.error(t("listings.errors.invalidState"));
 				return;
 			}
-			if (response.status === 401) {
-				message.error(t(errorKey));
-				return;
-			}
-			if (response.status === 403) {
-				message.error(t(errorKey));
-				return;
-			}
 			if (response.status !== 200) {
 				message.error(t(errorKey));
 				return;
 			}
 
 			message.success(t(successKey));
-			// Update the known region for this listing
-			setListingRegions((prev) => {
-				const updated = new Map(prev);
-				updated.set(`${listingOrgDomain}/${listingName}`, homeRegion);
-				return updated;
-			});
 			closeActionModal();
 			fetchListings(null, filterState, hasReports);
 		} catch {
@@ -926,39 +952,12 @@ function ServiceListingsTab() {
 		}
 	};
 
-	const regionField = (form: ReturnType<typeof Form.useForm>[0]) => (
-		<Form.Item
-			name="home_region"
-			label={t("listings.region")}
-			rules={[{ required: true }]}
-		>
-			<Select
-				options={REGIONS.map((r) => ({ value: r, label: r }))}
-				onChange={(val: Region) => {
-					// Also update the listingRegions map for the selected listing
-					if (actionModal.selected) {
-						setListingRegions((prev) => {
-							const updated = new Map(prev);
-							updated.set(
-								`${actionModal.selected!.listing.org_domain}/${actionModal.selected!.listing.name}`,
-								val
-							);
-							return updated;
-						});
-					}
-					form.setFieldsValue({ home_region: val });
-				}}
-			/>
-		</Form.Item>
-	);
-
 	const renderActionModalContent = () => {
 		const action = actionModal.action;
 
 		if (action === "approve") {
 			return (
 				<Form form={approveForm} layout="vertical">
-					{regionField(approveForm)}
 					<Form.Item
 						name="admin_verification_note"
 						label={t("listings.approveModal.verificationNote")}
@@ -966,9 +965,7 @@ function ServiceListingsTab() {
 					>
 						<TextArea
 							rows={3}
-							placeholder={t(
-								"listings.approveModal.verificationNotePlaceholder"
-							)}
+							placeholder={t("listings.approveModal.verificationNotePlaceholder")}
 						/>
 					</Form.Item>
 					<Form.Item
@@ -987,7 +984,6 @@ function ServiceListingsTab() {
 		if (action === "reject") {
 			return (
 				<Form form={rejectForm} layout="vertical">
-					{regionField(rejectForm)}
 					<Form.Item
 						name="admin_verification_note"
 						label={t("listings.rejectModal.adminNote")}
@@ -1011,7 +1007,6 @@ function ServiceListingsTab() {
 		if (action === "suspend") {
 			return (
 				<Form form={suspendForm} layout="vertical">
-					{regionField(suspendForm)}
 					<Form.Item
 						name="admin_verification_note"
 						label={t("listings.suspendModal.adminNote")}
@@ -1029,7 +1024,6 @@ function ServiceListingsTab() {
 		if (action === "reinstate") {
 			return (
 				<Form form={reinstateForm} layout="vertical">
-					{regionField(reinstateForm)}
 					<Form.Item
 						name="admin_note"
 						label={t("listings.reinstateModal.adminNote")}
@@ -1043,7 +1037,6 @@ function ServiceListingsTab() {
 		if (action === "grantAppeal") {
 			return (
 				<Form form={grantAppealForm} layout="vertical">
-					{regionField(grantAppealForm)}
 					<Form.Item
 						name="admin_note"
 						label={t("listings.grantAppealModal.adminNote")}
@@ -1061,7 +1054,6 @@ function ServiceListingsTab() {
 		if (action === "denyAppeal") {
 			return (
 				<Form form={denyAppealForm} layout="vertical">
-					{regionField(denyAppealForm)}
 					<Form.Item
 						name="admin_note"
 						label={t("listings.denyAppealModal.adminNote")}
@@ -1079,6 +1071,95 @@ function ServiceListingsTab() {
 		return null;
 	};
 
+	// Split listings into "needs action" and others
+	const actionableListings = useMemo(
+		() =>
+			filterState === "all"
+				? listings.filter(
+						(l) => l.state === "pending_review" || l.state === "appealing"
+					)
+				: [],
+		[listings, filterState]
+	);
+
+	const otherListings = useMemo(
+		() =>
+			filterState === "all"
+				? listings.filter(
+						(l) => l.state !== "pending_review" && l.state !== "appealing"
+					)
+				: listings,
+		[listings, filterState]
+	);
+
+	const renderListingActions = (record: ServiceListing) => (
+		<Space wrap>
+			<Button
+				icon={<EyeOutlined />}
+				size="small"
+				onClick={() => openDetailModal(record)}
+			>
+				{t("listings.actions.view")}
+			</Button>
+			{record.state === "pending_review" && (
+				<>
+					<Button
+						type="primary"
+						icon={<CheckCircleOutlined />}
+						size="small"
+						onClick={() => openActionModal("approve", record)}
+					>
+						{t("listings.actions.approve")}
+					</Button>
+					<Button
+						danger
+						size="small"
+						onClick={() => openActionModal("reject", record)}
+					>
+						{t("listings.actions.reject")}
+					</Button>
+				</>
+			)}
+			{record.state === "active" && (
+				<Button
+					danger
+					icon={<StopOutlined />}
+					size="small"
+					onClick={() => openActionModal("suspend", record)}
+				>
+					{t("listings.actions.suspend")}
+				</Button>
+			)}
+			{record.state === "suspended" && (
+				<Button
+					type="primary"
+					size="small"
+					onClick={() => openActionModal("reinstate", record)}
+				>
+					{t("listings.actions.reinstate")}
+				</Button>
+			)}
+			{record.state === "appealing" && (
+				<>
+					<Button
+						type="primary"
+						size="small"
+						onClick={() => openActionModal("grantAppeal", record)}
+					>
+						{t("listings.actions.grantAppeal")}
+					</Button>
+					<Button
+						danger
+						size="small"
+						onClick={() => openActionModal("denyAppeal", record)}
+					>
+						{t("listings.actions.denyAppeal")}
+					</Button>
+				</>
+			)}
+		</Space>
+	);
+
 	const columns = [
 		{
 			title: t("listings.table.name"),
@@ -1087,11 +1168,11 @@ function ServiceListingsTab() {
 		},
 		{
 			title: t("listings.table.orgId"),
-			dataIndex: "org_id",
-			key: "org_id",
-			render: (id: string) => (
-				<Tooltip title={id}>
-					<Text style={{ fontFamily: "monospace" }}>{id.slice(0, 8)}...</Text>
+			dataIndex: "org_domain",
+			key: "org_domain",
+			render: (domain: string) => (
+				<Tooltip title={domain}>
+					<Text style={{ fontFamily: "monospace" }}>{domain}</Text>
 				</Tooltip>
 			),
 		},
@@ -1121,73 +1202,8 @@ function ServiceListingsTab() {
 		{
 			title: t("listings.table.actions"),
 			key: "actions",
-			render: (_: unknown, record: ServiceListing) => (
-				<Space wrap>
-					<Button
-						icon={<EyeOutlined />}
-						size="small"
-						onClick={() => openDetailModal(record)}
-					>
-						{t("listings.actions.view")}
-					</Button>
-					{record.state === "pending_review" && (
-						<>
-							<Button
-								type="primary"
-								icon={<CheckCircleOutlined />}
-								size="small"
-								onClick={() => openActionModal("approve", record)}
-							>
-								{t("listings.actions.approve")}
-							</Button>
-							<Button
-								danger
-								size="small"
-								onClick={() => openActionModal("reject", record)}
-							>
-								{t("listings.actions.reject")}
-							</Button>
-						</>
-					)}
-					{record.state === "active" && (
-						<Button
-							danger
-							icon={<StopOutlined />}
-							size="small"
-							onClick={() => openActionModal("suspend", record)}
-						>
-							{t("listings.actions.suspend")}
-						</Button>
-					)}
-					{record.state === "suspended" && (
-						<Button
-							type="primary"
-							size="small"
-							onClick={() => openActionModal("reinstate", record)}
-						>
-							{t("listings.actions.reinstate")}
-						</Button>
-					)}
-					{record.state === "appealing" && (
-						<>
-							<Button
-								type="primary"
-								size="small"
-								onClick={() => openActionModal("grantAppeal", record)}
-							>
-								{t("listings.actions.grantAppeal")}
-							</Button>
-							<Button
-								danger
-								size="small"
-								onClick={() => openActionModal("denyAppeal", record)}
-							>
-								{t("listings.actions.denyAppeal")}
-							</Button>
-						</>
-					)}
-				</Space>
-			),
+			render: (_: unknown, record: ServiceListing) =>
+				renderListingActions(record),
 		},
 	];
 
@@ -1205,6 +1221,119 @@ function ServiceListingsTab() {
 
 	return (
 		<div>
+			{/* Needs Action section */}
+			{filterState === "all" && actionableListings.length > 0 && (
+				<div style={{ marginBottom: 24 }}>
+					<div
+						style={{
+							display: "flex",
+							alignItems: "center",
+							gap: 8,
+							marginBottom: 12,
+						}}
+					>
+						<WarningOutlined style={{ color: "#faad14", fontSize: 16 }} />
+						<Text strong style={{ color: "#faad14" }}>
+							{t("listings.needsAction", { count: actionableListings.length })}
+						</Text>
+					</div>
+					{actionableListings.map((listing) => (
+						<Card
+							key={`${listing.org_domain}/${listing.name}`}
+							size="small"
+							style={{
+								marginBottom: 8,
+								borderLeft: `4px solid ${listing.state === "appealing" ? "#722ed1" : "#faad14"}`,
+								borderRadius: 6,
+							}}
+						>
+							<div
+								style={{
+									display: "flex",
+									justifyContent: "space-between",
+									alignItems: "flex-start",
+									flexWrap: "wrap",
+									gap: 8,
+								}}
+							>
+								<div>
+									<Text strong>{listing.name}</Text>
+									<Tag
+										color={listingStateColor(listing.state)}
+										style={{ marginLeft: 8 }}
+									>
+										{t(`listings.states.${listing.state}`)}
+									</Tag>
+									<Text
+										type="secondary"
+										style={{ fontSize: 12, marginLeft: 8 }}
+									>
+										{listing.org_domain}
+									</Text>
+									{listing.state === "appealing" && listing.appeal_reason && (
+										<div style={{ marginTop: 4 }}>
+											<Text
+												type="secondary"
+												style={{ fontSize: 12, fontStyle: "italic" }}
+											>
+												"{listing.appeal_reason}"
+											</Text>
+										</div>
+									)}
+								</div>
+								<Space>
+									<Button
+										icon={<EyeOutlined />}
+										size="small"
+										onClick={() => openDetailModal(listing)}
+									>
+										{t("listings.actions.view")}
+									</Button>
+									{listing.state === "pending_review" && (
+										<>
+											<Button
+												type="primary"
+												icon={<CheckCircleOutlined />}
+												size="small"
+												onClick={() => openActionModal("approve", listing)}
+											>
+												{t("listings.actions.approve")}
+											</Button>
+											<Button
+												danger
+												size="small"
+												onClick={() => openActionModal("reject", listing)}
+											>
+												{t("listings.actions.reject")}
+											</Button>
+										</>
+									)}
+									{listing.state === "appealing" && (
+										<>
+											<Button
+												type="primary"
+												size="small"
+												onClick={() => openActionModal("grantAppeal", listing)}
+											>
+												{t("listings.actions.grantAppeal")}
+											</Button>
+											<Button
+												danger
+												size="small"
+												onClick={() => openActionModal("denyAppeal", listing)}
+											>
+												{t("listings.actions.denyAppeal")}
+											</Button>
+										</>
+									)}
+								</Space>
+							</div>
+						</Card>
+					))}
+				</div>
+			)}
+
+			{/* Filters + table */}
 			<Space style={{ marginBottom: 16 }} wrap>
 				<Select
 					value={filterState}
@@ -1237,11 +1366,22 @@ function ServiceListingsTab() {
 				</Checkbox>
 			</Space>
 
+			{loadError && (
+				<div style={{ marginBottom: 16 }}>
+					<Text type="danger">{t("listings.errors.loadFailed")}</Text>{" "}
+					<Button
+						size="small"
+						onClick={() => fetchListings(null, filterState, hasReports)}
+					>
+						{t("listings.retry")}
+					</Button>
+				</div>
+			)}
 			<Spin spinning={loading}>
 				<Table
-					dataSource={listings}
+					dataSource={otherListings}
 					columns={columns}
-					rowKey="service_listing_id"
+					rowKey={(r) => `${r.org_domain}/${r.name}`}
 					pagination={false}
 				/>
 				{hasMore && !loading && (
@@ -1297,86 +1437,77 @@ function ServiceListingsTab() {
 				}
 				width={700}
 			>
-				{detailModal.selected && (
+				{detailModal.listing && (
 					<Descriptions bordered column={1} size="small">
 						<Descriptions.Item label={t("listings.detailModal.name")}>
-							{detailModal.selected.listing.name}
+							{detailModal.listing.name}
 						</Descriptions.Item>
 						<Descriptions.Item label={t("listings.detailModal.orgId")}>
 							<Text style={{ fontFamily: "monospace" }}>
-								{detailModal.selected.listing.org_domain}
+								{detailModal.listing.org_domain}
 							</Text>
-						</Descriptions.Item>
-						<Descriptions.Item label={t("listings.detailModal.region")}>
-							{detailModal.selected.homeRegion}
 						</Descriptions.Item>
 						<Descriptions.Item label={t("listings.detailModal.category")}>
 							{t(
-								`listings.categories.${detailModal.selected.listing.service_category}`,
-								{ defaultValue: detailModal.selected.listing.service_category }
+								`listings.categories.${detailModal.listing.service_category}`,
+								{ defaultValue: detailModal.listing.service_category }
 							)}
 						</Descriptions.Item>
 						<Descriptions.Item label={t("listings.detailModal.state")}>
-							<Tag
-								color={listingStateColor(detailModal.selected.listing.state)}
-							>
-								{t(`listings.states.${detailModal.selected.listing.state}`)}
+							<Tag color={listingStateColor(detailModal.listing.state)}>
+								{t(`listings.states.${detailModal.listing.state}`)}
 							</Tag>
 						</Descriptions.Item>
 						<Descriptions.Item label={t("listings.detailModal.shortBlurb")}>
-							{detailModal.selected.listing.short_blurb}
+							{detailModal.listing.short_blurb}
 						</Descriptions.Item>
 						<Descriptions.Item label={t("listings.detailModal.description")}>
 							<div style={{ whiteSpace: "pre-wrap" }}>
-								{detailModal.selected.listing.description}
+								{detailModal.listing.description}
 							</div>
 						</Descriptions.Item>
 						<Descriptions.Item label={t("listings.detailModal.contactUrl")}>
 							<a
-								href={detailModal.selected.listing.contact_url}
+								href={detailModal.listing.contact_url}
 								target="_blank"
 								rel="noopener noreferrer"
 							>
-								{detailModal.selected.listing.contact_url}
+								{detailModal.listing.contact_url}
 							</a>
 						</Descriptions.Item>
-						{detailModal.selected.listing.pricing_info && (
+						{detailModal.listing.pricing_info && (
 							<Descriptions.Item label={t("listings.detailModal.pricingInfo")}>
-								{detailModal.selected.listing.pricing_info}
+								{detailModal.listing.pricing_info}
 							</Descriptions.Item>
 						)}
 						<Descriptions.Item
 							label={t("listings.detailModal.countriesOfService")}
 						>
-							{detailModal.selected.listing.countries_of_service.join(", ")}
+							{detailModal.listing.countries_of_service.join(", ")}
 						</Descriptions.Item>
-						<Descriptions.Item
-							label={t("listings.detailModal.appealExhausted")}
-						>
-							{detailModal.selected.listing.appeal_exhausted ? "Yes" : "No"}
+						<Descriptions.Item label={t("listings.detailModal.appealExhausted")}>
+							{detailModal.listing.appeal_exhausted ? "Yes" : "No"}
 						</Descriptions.Item>
-						{detailModal.selected.listing.last_review_admin_note && (
-							<Descriptions.Item
-								label={t("listings.detailModal.lastReviewNote")}
-							>
-								{detailModal.selected.listing.last_review_admin_note}
+						{detailModal.listing.last_review_admin_note && (
+							<Descriptions.Item label={t("listings.detailModal.lastReviewNote")}>
+								{detailModal.listing.last_review_admin_note}
 							</Descriptions.Item>
 						)}
-						{detailModal.selected.listing.appeal_reason && (
+						{detailModal.listing.appeal_reason && (
 							<Descriptions.Item label={t("listings.detailModal.appealReason")}>
-								{detailModal.selected.listing.appeal_reason}
+								{detailModal.listing.appeal_reason}
 							</Descriptions.Item>
 						)}
-						{detailModal.selected.listing.appeal_admin_note && (
+						{detailModal.listing.appeal_admin_note && (
 							<Descriptions.Item label={t("listings.detailModal.appealNote")}>
-								{detailModal.selected.listing.appeal_admin_note}
+								{detailModal.listing.appeal_admin_note}
 							</Descriptions.Item>
 						)}
 						<Descriptions.Item label={t("listings.detailModal.createdAt")}>
-							{formatDateTime(detailModal.selected.listing.created_at)}
+							{formatDateTime(detailModal.listing.created_at)}
 						</Descriptions.Item>
 						<Descriptions.Item label={t("listings.detailModal.updatedAt")}>
-							{formatDateTime(detailModal.selected.listing.updated_at)}
+							{formatDateTime(detailModal.listing.updated_at)}
 						</Descriptions.Item>
 					</Descriptions>
 				)}

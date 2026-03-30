@@ -73,6 +73,7 @@
 			"revoked": "Widerrufen"
 		},
 		"applicationNote": "Antragsnotiz",
+		"needsAction": "{{count}} ausstehende Genehmigung",
 		"errors": {
 			"loadFailed": "Fähigkeiten konnten nicht geladen werden",
 			"approveFailed": "Fähigkeit konnte nicht genehmigt werden",
@@ -188,22 +189,23 @@
 			"region": "Region"
 		},
 		"hasReports": "Hat Meldungen",
-		"region": "Region",
+		"needsAction": "{{count}} Elemente erfordern Aktion",
+		"retry": "Wiederholen",
 		"errors": {
 			"loadFailed": "Dienstleistungsangebote konnten nicht geladen werden",
-			"approveFailed": "Angebot konnte nicht genehmigt werden",
-			"rejectFailed": "Angebot konnte nicht abgelehnt werden",
-			"suspendFailed": "Angebot konnte nicht gesperrt werden",
-			"reinstateFailed": "Angebot konnte nicht wiederhergestellt werden",
+			"approveFailed": "Dienstangebot konnte nicht genehmigt werden",
+			"rejectFailed": "Dienstangebot konnte nicht abgelehnt werden",
+			"suspendFailed": "Dienstangebot konnte nicht gesperrt werden",
+			"reinstateFailed": "Dienstangebot konnte nicht wiederhergestellt werden",
 			"grantAppealFailed": "Berufung konnte nicht stattgegeben werden",
 			"denyAppealFailed": "Berufung konnte nicht abgelehnt werden",
-			"invalidState": "Angebot befindet sich nicht im erforderlichen Status für diese Aktion"
+			"invalidState": "Dienstangebot befindet sich nicht im erforderlichen Status für diese Aktion"
 		},
 		"success": {
-			"approved": "Angebot genehmigt",
-			"rejected": "Angebot abgelehnt",
-			"suspended": "Angebot gesperrt",
-			"reinstated": "Angebot wiederhergestellt",
+			"approved": "Dienstangebot genehmigt",
+			"rejected": "Dienstangebot abgelehnt",
+			"suspended": "Dienstangebot gesperrt",
+			"reinstated": "Dienstangebot wiederhergestellt",
 			"appealGranted": "Berufung stattgegeben",
 			"appealDenied": "Berufung abgelehnt"
 		},
