@@ -25,6 +25,7 @@ import type {
 	AdminRecordPaymentRequest,
 	AdminWaivePaymentRequest,
 } from "vetchium-specs/admin/marketplace";
+import { MarketplaceSubscriptionStatus } from "vetchium-specs/org/marketplace";
 import { getApiBaseUrl } from "../../config";
 import { useAuth } from "../../hooks/useAuth";
 import { useMyInfo } from "../../hooks/useMyInfo";
@@ -275,7 +276,7 @@ export function SubscriptionsPage() {
 								label: string;
 								danger?: boolean;
 							}> = [];
-							if (record.status === "pending_admin_approval") {
+							if (record.status === MarketplaceSubscriptionStatus.AdminReview) {
 								actions.push({
 									action: "approve",
 									label: t("actions.approve"),
@@ -287,8 +288,8 @@ export function SubscriptionsPage() {
 								});
 							}
 							if (
-								record.status === "active" ||
-								record.status === "pending_contract"
+								record.status === MarketplaceSubscriptionStatus.Active ||
+								record.status === MarketplaceSubscriptionStatus.AwaitingContract
 							) {
 								actions.push({
 									action: "markContractSigned",
@@ -300,8 +301,8 @@ export function SubscriptionsPage() {
 								});
 							}
 							if (
-								record.status === "active" ||
-								record.status === "pending_payment"
+								record.status === MarketplaceSubscriptionStatus.Active ||
+								record.status === MarketplaceSubscriptionStatus.AwaitingPayment
 							) {
 								actions.push({
 									action: "recordPayment",
@@ -380,15 +381,18 @@ export function SubscriptionsPage() {
 						fetchSubscriptions(true, val);
 					}}
 				>
-					{[
-						"pending_provider_approval",
-						"pending_admin_approval",
-						"pending_contract",
-						"pending_payment",
-						"active",
-						"rejected",
-						"cancelled",
-					].map((s) => (
+					{(
+						[
+							MarketplaceSubscriptionStatus.Requested,
+							MarketplaceSubscriptionStatus.ProviderReview,
+							MarketplaceSubscriptionStatus.AdminReview,
+							MarketplaceSubscriptionStatus.AwaitingContract,
+							MarketplaceSubscriptionStatus.AwaitingPayment,
+							MarketplaceSubscriptionStatus.Active,
+							MarketplaceSubscriptionStatus.Rejected,
+							MarketplaceSubscriptionStatus.Cancelled,
+						] as MarketplaceSubscriptionStatus[]
+					).map((s) => (
 						<Select.Option key={s} value={s}>
 							{s}
 						</Select.Option>

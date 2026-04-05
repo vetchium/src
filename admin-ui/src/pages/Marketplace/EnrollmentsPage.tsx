@@ -23,6 +23,7 @@ import type {
 	AdminSuspendEnrollmentRequest,
 	AdminRenewEnrollmentRequest,
 } from "vetchium-specs/admin/marketplace";
+import { MarketplaceEnrollmentStatus } from "vetchium-specs/org/marketplace";
 import { getApiBaseUrl } from "../../config";
 import { useAuth } from "../../hooks/useAuth";
 import { useMyInfo } from "../../hooks/useMyInfo";
@@ -255,7 +256,7 @@ export function EnrollmentsPage() {
 								label: string;
 								danger?: boolean;
 							}> = [];
-							if (record.status === "pending_review") {
+							if (record.status === MarketplaceEnrollmentStatus.PendingReview) {
 								actions.push({
 									action: "approve",
 									label: t("actions.approve"),
@@ -266,7 +267,7 @@ export function EnrollmentsPage() {
 									danger: true,
 								});
 							}
-							if (record.status === "active") {
+							if (record.status === MarketplaceEnrollmentStatus.Approved) {
 								actions.push({
 									action: "suspend",
 									label: t("actions.suspend"),
@@ -274,7 +275,7 @@ export function EnrollmentsPage() {
 								});
 								actions.push({ action: "renew", label: t("actions.renew") });
 							}
-							if (record.status === "suspended") {
+							if (record.status === MarketplaceEnrollmentStatus.Suspended) {
 								actions.push({
 									action: "reinstate",
 									label: t("actions.reinstate"),
@@ -340,13 +341,19 @@ export function EnrollmentsPage() {
 						fetchEnrollments(true, val);
 					}}
 				>
-					{["pending_review", "active", "rejected", "suspended", "expired"].map(
-						(s) => (
-							<Select.Option key={s} value={s}>
-								{s}
-							</Select.Option>
-						)
-					)}
+					{(
+						[
+							MarketplaceEnrollmentStatus.PendingReview,
+							MarketplaceEnrollmentStatus.Approved,
+							MarketplaceEnrollmentStatus.Rejected,
+							MarketplaceEnrollmentStatus.Suspended,
+							MarketplaceEnrollmentStatus.Expired,
+						] as MarketplaceEnrollmentStatus[]
+					).map((s) => (
+						<Select.Option key={s} value={s}>
+							{s}
+						</Select.Option>
+					))}
 				</Select>
 			</div>
 			<Spin spinning={loading}>

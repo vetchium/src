@@ -63,9 +63,8 @@ test.describe("POST /org/login", () => {
 			const response = await api.login(loginRequest);
 
 			expect(response.status).toBe(400);
-			const errors = await response.json();
-			expect(Array.isArray(errors)).toBe(true);
-			expect(errors[0].field).toBe("domain");
+			expect(Array.isArray(response.errors)).toBe(true);
+			expect(response.errors[0].field).toBe("domain");
 		} finally {
 			await deleteTestOrgUser(email);
 		}

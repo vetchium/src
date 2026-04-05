@@ -3,6 +3,11 @@ import { type ValidationError, newValidationError } from "../common/common";
 // ---- Enums ----
 
 export type MarketplaceCapabilityStatus = "draft" | "active" | "disabled";
+export namespace MarketplaceCapabilityStatus {
+	export const Draft: MarketplaceCapabilityStatus = "draft";
+	export const Active: MarketplaceCapabilityStatus = "active";
+	export const Disabled: MarketplaceCapabilityStatus = "disabled";
+}
 
 export type MarketplaceEnrollmentStatus =
 	| "pending_review"
@@ -10,6 +15,13 @@ export type MarketplaceEnrollmentStatus =
 	| "rejected"
 	| "suspended"
 	| "expired";
+export namespace MarketplaceEnrollmentStatus {
+	export const PendingReview: MarketplaceEnrollmentStatus = "pending_review";
+	export const Approved: MarketplaceEnrollmentStatus = "approved";
+	export const Rejected: MarketplaceEnrollmentStatus = "rejected";
+	export const Suspended: MarketplaceEnrollmentStatus = "suspended";
+	export const Expired: MarketplaceEnrollmentStatus = "expired";
+}
 
 export type MarketplaceOfferStatus =
 	| "draft"
@@ -18,6 +30,14 @@ export type MarketplaceOfferStatus =
 	| "rejected"
 	| "suspended"
 	| "archived";
+export namespace MarketplaceOfferStatus {
+	export const Draft: MarketplaceOfferStatus = "draft";
+	export const PendingReview: MarketplaceOfferStatus = "pending_review";
+	export const Active: MarketplaceOfferStatus = "active";
+	export const Rejected: MarketplaceOfferStatus = "rejected";
+	export const Suspended: MarketplaceOfferStatus = "suspended";
+	export const Archived: MarketplaceOfferStatus = "archived";
+}
 
 export type MarketplaceSubscriptionStatus =
 	| "requested"
@@ -29,11 +49,30 @@ export type MarketplaceSubscriptionStatus =
 	| "rejected"
 	| "cancelled"
 	| "expired";
+export namespace MarketplaceSubscriptionStatus {
+	export const Requested: MarketplaceSubscriptionStatus = "requested";
+	export const ProviderReview: MarketplaceSubscriptionStatus =
+		"provider_review";
+	export const AdminReview: MarketplaceSubscriptionStatus = "admin_review";
+	export const AwaitingContract: MarketplaceSubscriptionStatus =
+		"awaiting_contract";
+	export const AwaitingPayment: MarketplaceSubscriptionStatus =
+		"awaiting_payment";
+	export const Active: MarketplaceSubscriptionStatus = "active";
+	export const Rejected: MarketplaceSubscriptionStatus = "rejected";
+	export const Cancelled: MarketplaceSubscriptionStatus = "cancelled";
+	export const Expired: MarketplaceSubscriptionStatus = "expired";
+}
 
 export type MarketplaceContactMode =
 	| "platform_message"
 	| "external_url"
 	| "email";
+export namespace MarketplaceContactMode {
+	export const PlatformMessage: MarketplaceContactMode = "platform_message";
+	export const ExternalUrl: MarketplaceContactMode = "external_url";
+	export const Email: MarketplaceContactMode = "email";
+}
 
 // ---- Models ----
 
