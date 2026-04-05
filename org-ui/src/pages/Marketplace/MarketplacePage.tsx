@@ -1,4 +1,9 @@
-import { ArrowLeftOutlined, ShopOutlined, RocketOutlined, ShoppingCartOutlined } from "@ant-design/icons";
+import {
+	ArrowLeftOutlined,
+	ShopOutlined,
+	RocketOutlined,
+	ShoppingCartOutlined,
+} from "@ant-design/icons";
 import { Button, Card, Col, Row, Typography } from "antd";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router-dom";
@@ -44,7 +49,9 @@ export function MarketplacePage() {
 						style={{ height: "100%", cursor: "pointer", textAlign: "center" }}
 						onClick={() => navigate("/marketplace/capabilities")}
 					>
-						<ShopOutlined style={{ fontSize: 48, color: "#1890ff", marginBottom: 16 }} />
+						<ShopOutlined
+							style={{ fontSize: 48, color: "#1890ff", marginBottom: 16 }}
+						/>
 						<Title level={4}>{t("launcher.exploreTitle")}</Title>
 						<Paragraph type="secondary" style={{ minHeight: 44 }}>
 							{t("launcher.exploreSubtitle")}
@@ -61,7 +68,9 @@ export function MarketplacePage() {
 							style={{ height: "100%", cursor: "pointer", textAlign: "center" }}
 							onClick={() => navigate("/marketplace/provide")}
 						>
-							<RocketOutlined style={{ fontSize: 48, color: "#fa541c", marginBottom: 16 }} />
+							<RocketOutlined
+								style={{ fontSize: 48, color: "#fa541c", marginBottom: 16 }}
+							/>
 							<Title level={4}>{t("launcher.provideTitle")}</Title>
 							<Paragraph type="secondary" style={{ minHeight: 44 }}>
 								{t("launcher.provideSubtitle")}
@@ -78,7 +87,9 @@ export function MarketplacePage() {
 						style={{ height: "100%", cursor: "pointer", textAlign: "center" }}
 						onClick={() => navigate("/marketplace/purchases")}
 					>
-						<ShoppingCartOutlined style={{ fontSize: 48, color: "#52c41a", marginBottom: 16 }} />
+						<ShoppingCartOutlined
+							style={{ fontSize: 48, color: "#52c41a", marginBottom: 16 }}
+						/>
 						<Title level={4}>{t("launcher.purchasesTitle")}</Title>
 						<Paragraph type="secondary" style={{ minHeight: 44 }}>
 							{t("launcher.purchasesSubtitle")}
