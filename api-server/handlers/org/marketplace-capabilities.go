@@ -53,14 +53,14 @@ func ListMarketplaceCapabilities(s *server.RegionalServer) http.HandlerFunc {
 			}
 		}
 
-		params := globaldb.ListActiveConsumerCapabilitiesParams{
+		params := globaldb.ListActiveMarketplaceCapabilitiesParams{
 			LimitCount: limit + 1,
 		}
 		if req.PaginationKey != nil && *req.PaginationKey != "" {
 			params.PaginationKey = pgtype.Text{String: *req.PaginationKey, Valid: true}
 		}
 
-		rows, err := s.Global.ListActiveConsumerCapabilities(ctx, params)
+		rows, err := s.Global.ListActiveMarketplaceCapabilities(ctx, params)
 		if err != nil {
 			log.Error("failed to list marketplace capabilities", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)

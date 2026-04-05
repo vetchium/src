@@ -321,6 +321,10 @@ CREATE TABLE marketplace_capabilities (
     updated_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Initial marketplace capabilities
+INSERT INTO marketplace_capabilities (capability_slug, display_name, description, provider_enabled, consumer_enabled, enrollment_approval, offer_review, subscription_approval, contract_required, payment_required, status) VALUES
+    ('staffing', 'Staffing', 'Professional staffing and recruitment services', TRUE, TRUE, 'manual', 'manual', 'provider', FALSE, FALSE, 'active');
+
 -- Global offer catalog mirror (list-view subset, updated on offer status changes)
 CREATE TABLE marketplace_offer_catalog (
     id                     UUID        PRIMARY KEY DEFAULT gen_random_uuid(),

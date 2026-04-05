@@ -180,7 +180,7 @@ export function MarketplaceProvideDashboard() {
 				</Title>
 				<Button
 					type="primary"
-					onClick={() => navigate("/marketplace/capabilities")}
+					onClick={() => navigate("/marketplace/capabilities?mode=provide")}
 				>
 					{t("provide.applyButton")}
 				</Button>

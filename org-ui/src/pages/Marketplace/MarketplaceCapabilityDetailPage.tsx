@@ -20,12 +20,14 @@ import type {
 } from "vetchium-specs/org/marketplace";
 import { getApiBaseUrl } from "../../config";
 import { useAuth } from "../../hooks/useAuth";
+import { useMyInfo } from "../../hooks/useMyInfo";
 
 const { Title, Paragraph, Text } = Typography;
 
 export function MarketplaceCapabilityDetailPage() {
 	const { t } = useTranslation("marketplace");
 	const { sessionToken } = useAuth();
+	const { data: myInfo } = useMyInfo(sessionToken);
 	const { message } = App.useApp();
 	const navigate = useNavigate();
 	const { capability_slug } = useParams<{ capability_slug: string }>();
@@ -111,6 +113,11 @@ export function MarketplaceCapabilityDetailPage() {
 		loadProviders(undefined, true);
 	}, [loadCapability, loadProviders]);
 
+	const canManage =
+		myInfo?.roles.includes("org:superadmin") ||
+		myInfo?.roles.includes("org:manage_marketplace") ||
+		false;
+
 	return (
 		<div
 			style={{
@@ -130,17 +137,36 @@ export function MarketplaceCapabilityDetailPage() {
 
 			<Spin spinning={capabilityLoading}>
 				{capability && (
-					<>
-						<Title level={2} style={{ marginBottom: 8 }}>
-							{capability.display_name}
-						</Title>
-						<Paragraph type="secondary" style={{ marginBottom: 24 }}>
-							{capability.description}
-						</Paragraph>
-						{capability.pricing_hint && (
-							<Text type="secondary">{capability.pricing_hint}</Text>
+					<div
+						style={{
+							display: "flex",
+							justifyContent: "space-between",
+							alignItems: "flex-start",
+							marginBottom: 24,
+						}}
+					>
+						<div>
+							<Title level={2} style={{ marginBottom: 8 }}>
+								{capability.display_name}
+							</Title>
+							<Paragraph type="secondary" style={{ marginBottom: 8 }}>
+								{capability.description}
+							</Paragraph>
+							{capability.pricing_hint && (
+								<Text type="secondary">{capability.pricing_hint}</Text>
+							)}
+						</div>
+						{canManage && capability.provider_enabled && (
+							<Button
+								type="primary"
+								onClick={() =>
+									navigate(`/marketplace/provide/${capability.capability_slug}`)
+								}
+							>
+								{t("provide.applyButton")}
+							</Button>
 						)}
-					</>
+					</div>
 				)}
 			</Spin>
 

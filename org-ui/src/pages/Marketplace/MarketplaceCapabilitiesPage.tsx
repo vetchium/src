@@ -2,7 +2,7 @@ import { ArrowLeftOutlined } from "@ant-design/icons";
 import { App, Button, Card, Col, Row, Spin, Tag, Typography } from "antd";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import type {
 	ListMarketplaceCapabilitiesRequest,
 	MarketplaceCapability,
@@ -30,6 +30,9 @@ export function MarketplaceCapabilitiesPage() {
 	const { sessionToken } = useAuth();
 	const { message } = App.useApp();
 	const navigate = useNavigate();
+	const [searchParams] = useSearchParams();
+	const mode = searchParams.get("mode");
+	const isProvideMode = mode === "provide";
 
 	const [capabilities, setCapabilities] = useState<MarketplaceCapability[]>([]);
 	const [loading, setLoading] = useState(false);
@@ -87,6 +90,19 @@ export function MarketplaceCapabilitiesPage() {
 		loadCapabilities(undefined, true);
 	}, [loadCapabilities]);
 
+	const handleCapabilityClick = (cap: MarketplaceCapability) => {
+		if (isProvideMode) {
+			navigate(`/marketplace/provide/${cap.capability_slug}`);
+		} else {
+			navigate(`/marketplace/capabilities/${cap.capability_slug}`);
+		}
+	};
+
+	const backPath = isProvideMode ? "/marketplace/provide" : "/marketplace";
+	const backLabel = isProvideMode
+		? t("provideCapability.backToProvide")
+		: t("capabilities.backToMarketplace");
+
 	return (
 		<div
 			style={{
@@ -97,10 +113,8 @@ export function MarketplaceCapabilitiesPage() {
 			}}
 		>
 			<div style={{ marginBottom: 16 }}>
-				<Link to="/marketplace">
-					<Button icon={<ArrowLeftOutlined />}>
-						{t("capabilities.backToMarketplace")}
-					</Button>
+				<Link to={backPath}>
+					<Button icon={<ArrowLeftOutlined />}>{backLabel}</Button>
 				</Link>
 			</div>
 
@@ -118,9 +132,7 @@ export function MarketplaceCapabilitiesPage() {
 								<Card
 									hoverable
 									style={{ height: "100%", cursor: "pointer" }}
-									onClick={() =>
-										navigate(`/marketplace/capabilities/${cap.capability_slug}`)
-									}
+									onClick={() => handleCapabilityClick(cap)}
 								>
 									<div
 										style={{
@@ -155,12 +167,12 @@ export function MarketplaceCapabilitiesPage() {
 											size="small"
 											onClick={(e) => {
 												e.stopPropagation();
-												navigate(
-													`/marketplace/capabilities/${cap.capability_slug}`
-												);
+												handleCapabilityClick(cap);
 											}}
 										>
-											{t("capabilities.viewProviders")}
+											{isProvideMode
+												? t("provide.applyButton")
+												: t("capabilities.viewProviders")}
 										</Button>
 									</div>
 								</Card>

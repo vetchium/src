@@ -923,6 +923,13 @@ WHERE status = 'active' AND consumer_enabled = TRUE
 ORDER BY capability_slug ASC
 LIMIT @limit_count;
 
+-- name: ListActiveMarketplaceCapabilities :many
+SELECT * FROM marketplace_capabilities
+WHERE status = 'active'
+  AND (sqlc.narg('pagination_key')::text IS NULL OR capability_slug > sqlc.narg('pagination_key')::text)
+ORDER BY capability_slug ASC
+LIMIT @limit_count;
+
 -- ============================================================
 -- Marketplace V3: offer catalog mirror (global)
 -- ============================================================
