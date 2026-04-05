@@ -95,11 +95,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
 					return;
 				}
 
-				if (response.status === 404) {
-					setError(t("login.domainNotFound"));
-					return;
-				}
-
 				if (response.status === 422) {
 					setError(t("login.accountInvalidState"));
 					return;

@@ -47,7 +47,7 @@ test.describe("POST /org/login", () => {
 		}
 	});
 
-	test("login with non-existent domain returns 404", async ({ request }) => {
+	test("login with non-existent domain returns 400", async ({ request }) => {
 		const api = new OrgAPIClient(request);
 		const { email } = generateTestOrgEmail("org-login-no-domain");
 
@@ -62,7 +62,10 @@ test.describe("POST /org/login", () => {
 			};
 			const response = await api.login(loginRequest);
 
-			expect(response.status).toBe(404);
+			expect(response.status).toBe(400);
+			const errors = await response.json();
+			expect(Array.isArray(errors)).toBe(true);
+			expect(errors[0].field).toBe("domain");
 		} finally {
 			await deleteTestOrgUser(email);
 		}

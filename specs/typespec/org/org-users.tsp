@@ -29,7 +29,7 @@ interface OrgPortal {
   @route("/init-signup") @post initSignup(@body body: OrgInitSignupRequest): OrgInitSignupResponse | BadRequestResponse;
   @route("/get-signup-details") @post getSignupDetails(@body body: OrgGetSignupDetailsRequest): OrgGetSignupDetailsResponse | BadRequestResponse;
   @route("/complete-signup") @post completeSignup(@body body: OrgCompleteSignupRequest): OrgCompleteSignupResponse | BadRequestResponse;
-  @route("/login") @post login(@body body: OrgLoginRequest): OrgLoginResponse | BadRequestResponse;
+  @route("/login") @post login(@body body: OrgLoginRequest): OrgLoginResponse | BadRequestResponse | UnauthorizedResponse | { @statusCode statusCode: 422; };
   @route("/tfa") @post tfa(@body body: OrgTFARequest): OrgTFAResponse | BadRequestResponse;
   @route("/logout") @post logout(): NoContentResponse | UnauthorizedResponse;
   @route("/myinfo") @get myInfo(): OrgMyInfoResponse | UnauthorizedResponse;

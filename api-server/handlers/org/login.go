@@ -23,6 +23,7 @@ import (
 	"vetchium-api-server.gomodule/internal/proxy"
 	"vetchium-api-server.gomodule/internal/server"
 	"vetchium-api-server.gomodule/internal/tokens"
+	"vetchium-api-server.typespec/common"
 	orgtypes "vetchium-api-server.typespec/org"
 )
 
@@ -60,7 +61,12 @@ func Login(s *server.RegionalServer) http.HandlerFunc {
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				s.Logger(ctx).Debug("domain not found or not verified", "domain", loginRequest.Domain)
-				w.WriteHeader(http.StatusNotFound)
+				w.WriteHeader(http.StatusBadRequest)
+				if encErr := json.NewEncoder(w).Encode([]common.ValidationError{
+					{Field: "domain", Message: "Domain not found or not verified"},
+				}); encErr != nil {
+					s.Logger(ctx).Error("failed to encode domain error", "error", encErr)
+				}
 				return
 			}
 			s.Logger(ctx).Error("failed to get org by domain", "error", err)
