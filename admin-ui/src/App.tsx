@@ -23,7 +23,11 @@ import { ChangePasswordPage } from "./pages/ChangePasswordPage";
 import { UserManagementPage } from "./pages/UserManagement/UserManagementPage";
 import { ManageTagsPage } from "./pages/ManageTagsPage";
 import { AuditLogsPage } from "./pages/AuditLogsPage";
-import { AdminMarketplacePage } from "./pages/Marketplace/AdminMarketplacePage";
+import { CapabilitiesPage } from "./pages/Marketplace/CapabilitiesPage";
+import { EnrollmentsPage } from "./pages/Marketplace/EnrollmentsPage";
+import { OffersPage } from "./pages/Marketplace/OffersPage";
+import { SubscriptionsPage } from "./pages/Marketplace/SubscriptionsPage";
+import { BillingPage } from "./pages/Marketplace/BillingPage";
 import {
 	BrowserRouter,
 	Routes,
@@ -237,10 +241,42 @@ function AppContent() {
 								}
 							/>
 							<Route
-								path="/marketplace"
+								path="/marketplace/capabilities"
 								element={
 									<MarketplaceRoute>
-										<AdminMarketplacePage />
+										<CapabilitiesPage />
+									</MarketplaceRoute>
+								}
+							/>
+							<Route
+								path="/marketplace/enrollments"
+								element={
+									<MarketplaceRoute>
+										<EnrollmentsPage />
+									</MarketplaceRoute>
+								}
+							/>
+							<Route
+								path="/marketplace/offers"
+								element={
+									<MarketplaceRoute>
+										<OffersPage />
+									</MarketplaceRoute>
+								}
+							/>
+							<Route
+								path="/marketplace/subscriptions"
+								element={
+									<MarketplaceRoute>
+										<SubscriptionsPage />
+									</MarketplaceRoute>
+								}
+							/>
+							<Route
+								path="/marketplace/billing"
+								element={
+									<MarketplaceRoute>
+										<BillingPage />
 									</MarketplaceRoute>
 								}
 							/>

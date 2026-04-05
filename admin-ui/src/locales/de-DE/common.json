@@ -22,9 +22,25 @@
 			"title": "Audit-Protokolle",
 			"description": "Audit-Protokollereignisse anzeigen und filtern"
 		},
-		"marketplace": {
-			"title": "Marktplatzverwaltung",
-			"description": "Marktplatz-Anbieterfähigkeiten und Dienstleistungsangebote verwalten"
+		"capabilities": {
+			"title": "Fähigkeiten",
+			"description": "Marktplatz-Fähigkeiten erstellen und verwalten"
+		},
+		"enrollments": {
+			"title": "Anbieter-Registrierungen",
+			"description": "Anbieter-Registrierungsanträge prüfen und verwalten"
+		},
+		"offers": {
+			"title": "Anbieter-Angebote",
+			"description": "Anbieter-Serviceangebote prüfen und verwalten"
+		},
+		"subscriptions": {
+			"title": "Verbraucher-Abonnements",
+			"description": "Abonnementanträge von Verbrauchern prüfen und verwalten"
+		},
+		"billing": {
+			"title": "Abrechnungsaufzeichnungen",
+			"description": "Abrechnungsaufzeichnungen und Zahlungsereignisse anzeigen"
 		}
 	},
 	"logout": {

@@ -22,9 +22,25 @@
 			"title": "Audit Logs",
 			"description": "View and filter audit log events"
 		},
-		"marketplace": {
-			"title": "Marketplace Management",
-			"description": "Manage marketplace provider capabilities and service listings"
+		"capabilities": {
+			"title": "Capabilities",
+			"description": "Create and manage marketplace capabilities"
+		},
+		"enrollments": {
+			"title": "Provider Enrollments",
+			"description": "Review and manage provider enrollment requests"
+		},
+		"offers": {
+			"title": "Provider Offers",
+			"description": "Review and manage provider service offers"
+		},
+		"subscriptions": {
+			"title": "Consumer Subscriptions",
+			"description": "Review and manage consumer subscription requests"
+		},
+		"billing": {
+			"title": "Billing Records",
+			"description": "View marketplace billing records and payment events"
 		}
 	},
 	"logout": {
