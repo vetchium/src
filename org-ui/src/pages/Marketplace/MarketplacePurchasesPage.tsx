@@ -147,10 +147,8 @@ export function MarketplacePurchasesPage() {
 			}}
 		>
 			<div style={{ marginBottom: 16 }}>
-				<Link to="/marketplace">
-					<Button icon={<ArrowLeftOutlined />}>
-						{t("purchases.backToMarketplace")}
-					</Button>
+				<Link to="/">
+					<Button icon={<ArrowLeftOutlined />}>{t("backToDashboard")}</Button>
 				</Link>
 			</div>
 

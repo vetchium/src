@@ -98,10 +98,10 @@ export function MarketplaceCapabilitiesPage() {
 		}
 	};
 
-	const backPath = isProvideMode ? "/marketplace/provide" : "/marketplace";
+	const backPath = isProvideMode ? "/marketplace/provide" : "/";
 	const backLabel = isProvideMode
 		? t("provideCapability.backToProvide")
-		: t("capabilities.backToMarketplace");
+		: t("backToDashboard");
 
 	return (
 		<div

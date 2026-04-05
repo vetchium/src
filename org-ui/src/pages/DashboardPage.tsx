@@ -1,4 +1,4 @@
-import { Card, Skeleton, Typography, Button } from "antd";
+import { Card, Col, Row, Skeleton, Typography, Button } from "antd";
 import {
 	LogoutOutlined,
 	TeamOutlined,
@@ -8,6 +8,7 @@ import {
 	FileSearchOutlined,
 	ShopOutlined,
 	RocketOutlined,
+	ShoppingCartOutlined,
 } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
@@ -39,17 +40,15 @@ export function DashboardPage() {
 		myInfo?.roles.includes("org:manage_costcenters") ||
 		false;
 
-	// Any authenticated user can see SubOrgs (list is unrestricted)
 	const hasSubOrgsAccess = !!myInfo;
 
-	// Provider Hub: only superadmin or manage_marketplace role
 	const hasProviderHubAccess =
 		myInfo?.roles.includes("org:superadmin") ||
 		myInfo?.roles.includes("org:manage_marketplace") ||
 		false;
 
-	// Browse: any authenticated user
 	const hasBrowseAccess = !!myInfo;
+	const hasPurchasesAccess = !!myInfo;
 
 	const hasAuditLogsAccess =
 		myInfo?.roles.includes("org:superadmin") ||
@@ -59,222 +58,330 @@ export function DashboardPage() {
 	return (
 		<div
 			style={{
-				display: "flex",
-				flexDirection: "column",
-				alignItems: "center",
-				gap: 24,
-				maxWidth: 600,
 				width: "100%",
-				padding: "0 16px",
+				maxWidth: 1200,
+				padding: "24px 16px",
+				alignSelf: "flex-start",
 			}}
 		>
+			<Title level={2} style={{ marginBottom: 24 }}>
+				{t("dashboard.title")}
+			</Title>
+
 			{myInfoLoading ? (
-				<>
-					<Card style={{ width: "100%" }}>
-						<Skeleton active />
-					</Card>
-					<Card style={{ width: "100%" }}>
-						<Skeleton active />
-					</Card>
-				</>
+				<Row gutter={[24, 24]}>
+					{[1, 2, 3].map((i) => (
+						<Col key={i} xs={24} sm={12} lg={8}>
+							<Card>
+								<Skeleton active />
+							</Card>
+						</Col>
+					))}
+				</Row>
 			) : (
-				<>
+				<Row gutter={[24, 24]}>
 					{hasUserManagementAccess && (
-						<Link
-							to="/user-management"
-							style={{ textDecoration: "none", width: "100%" }}
-						>
-							<Card
-								hoverable
+						<Col xs={24} sm={12} lg={8}>
+							<Link
+								to="/user-management"
 								style={{
-									width: "100%",
-									cursor: "pointer",
-									textAlign: "center",
+									textDecoration: "none",
+									display: "block",
+									height: "100%",
 								}}
 							>
-								<TeamOutlined
-									style={{ fontSize: 48, color: "#722ed1", marginBottom: 16 }}
-								/>
-								<Title level={4} style={{ marginBottom: 8 }}>
-									{t("userManagement.title")}
-								</Title>
-								<Typography.Text type="secondary">
-									{t("userManagement.description")}
-								</Typography.Text>
-							</Card>
-						</Link>
+								<Card
+									hoverable
+									style={{
+										height: "100%",
+										cursor: "pointer",
+										textAlign: "center",
+									}}
+								>
+									<TeamOutlined
+										style={{
+											fontSize: 48,
+											color: "#722ed1",
+											marginBottom: 16,
+										}}
+									/>
+									<Title level={4} style={{ marginBottom: 8 }}>
+										{t("userManagement.title")}
+									</Title>
+									<Typography.Text type="secondary">
+										{t("userManagement.description")}
+									</Typography.Text>
+								</Card>
+							</Link>
+						</Col>
 					)}
 
 					{hasSubOrgsAccess && (
-						<Link
-							to="/suborgs"
-							style={{ textDecoration: "none", width: "100%" }}
-						>
-							<Card
-								hoverable
+						<Col xs={24} sm={12} lg={8}>
+							<Link
+								to="/suborgs"
 								style={{
-									width: "100%",
-									cursor: "pointer",
-									textAlign: "center",
+									textDecoration: "none",
+									display: "block",
+									height: "100%",
 								}}
 							>
-								<ApartmentOutlined
-									style={{ fontSize: 48, color: "#fa8c16", marginBottom: 16 }}
-								/>
-								<Title level={4} style={{ marginBottom: 8 }}>
-									{t("subOrgs.title")}
-								</Title>
-								<Typography.Text type="secondary">
-									{t("subOrgs.description")}
-								</Typography.Text>
-							</Card>
-						</Link>
+								<Card
+									hoverable
+									style={{
+										height: "100%",
+										cursor: "pointer",
+										textAlign: "center",
+									}}
+								>
+									<ApartmentOutlined
+										style={{
+											fontSize: 48,
+											color: "#fa8c16",
+											marginBottom: 16,
+										}}
+									/>
+									<Title level={4} style={{ marginBottom: 8 }}>
+										{t("subOrgs.title")}
+									</Title>
+									<Typography.Text type="secondary">
+										{t("subOrgs.description")}
+									</Typography.Text>
+								</Card>
+							</Link>
+						</Col>
 					)}
+
 					{hasDomainManagementAccess && (
-						<Link
-							to="/domain-management"
-							style={{ textDecoration: "none", width: "100%" }}
-						>
-							<Card
-								hoverable
+						<Col xs={24} sm={12} lg={8}>
+							<Link
+								to="/domain-management"
 								style={{
-									width: "100%",
-									cursor: "pointer",
-									textAlign: "center",
+									textDecoration: "none",
+									display: "block",
+									height: "100%",
 								}}
 							>
-								<GlobalOutlined
-									style={{ fontSize: 48, color: "#1890ff", marginBottom: 16 }}
-								/>
-								<Title level={4} style={{ marginBottom: 8 }}>
-									{t("domainManagement.title")}
-								</Title>
-								<Typography.Text type="secondary">
-									{t("domainManagement.description")}
-								</Typography.Text>
-							</Card>
-						</Link>
+								<Card
+									hoverable
+									style={{
+										height: "100%",
+										cursor: "pointer",
+										textAlign: "center",
+									}}
+								>
+									<GlobalOutlined
+										style={{
+											fontSize: 48,
+											color: "#1890ff",
+											marginBottom: 16,
+										}}
+									/>
+									<Title level={4} style={{ marginBottom: 8 }}>
+										{t("domainManagement.title")}
+									</Title>
+									<Typography.Text type="secondary">
+										{t("domainManagement.description")}
+									</Typography.Text>
+								</Card>
+							</Link>
+						</Col>
 					)}
+
 					{hasCostCentersAccess && (
-						<Link
-							to="/cost-centers"
-							style={{ textDecoration: "none", width: "100%" }}
-						>
-							<Card
-								hoverable
+						<Col xs={24} sm={12} lg={8}>
+							<Link
+								to="/cost-centers"
 								style={{
-									width: "100%",
-									cursor: "pointer",
-									textAlign: "center",
+									textDecoration: "none",
+									display: "block",
+									height: "100%",
 								}}
 							>
-								<BankOutlined
-									style={{ fontSize: 48, color: "#52c41a", marginBottom: 16 }}
-								/>
-								<Title level={4} style={{ marginBottom: 8 }}>
-									{t("costCenters.title")}
-								</Title>
-								<Typography.Text type="secondary">
-									{t("costCenters.description")}
-								</Typography.Text>
-							</Card>
-						</Link>
+								<Card
+									hoverable
+									style={{
+										height: "100%",
+										cursor: "pointer",
+										textAlign: "center",
+									}}
+								>
+									<BankOutlined
+										style={{
+											fontSize: 48,
+											color: "#52c41a",
+											marginBottom: 16,
+										}}
+									/>
+									<Title level={4} style={{ marginBottom: 8 }}>
+										{t("costCenters.title")}
+									</Title>
+									<Typography.Text type="secondary">
+										{t("costCenters.description")}
+									</Typography.Text>
+								</Card>
+							</Link>
+						</Col>
 					)}
+
 					{hasAuditLogsAccess && (
-						<Link
-							to="/audit-logs"
-							style={{ textDecoration: "none", width: "100%" }}
-						>
-							<Card
-								hoverable
+						<Col xs={24} sm={12} lg={8}>
+							<Link
+								to="/audit-logs"
 								style={{
-									width: "100%",
-									cursor: "pointer",
-									textAlign: "center",
+									textDecoration: "none",
+									display: "block",
+									height: "100%",
 								}}
 							>
-								<FileSearchOutlined
-									style={{ fontSize: 48, color: "#13c2c2", marginBottom: 16 }}
-								/>
-								<Title level={4} style={{ marginBottom: 8 }}>
-									{t("dashboard.auditLogs.title")}
-								</Title>
-								<Typography.Text type="secondary">
-									{t("dashboard.auditLogs.description")}
-								</Typography.Text>
-							</Card>
-						</Link>
+								<Card
+									hoverable
+									style={{
+										height: "100%",
+										cursor: "pointer",
+										textAlign: "center",
+									}}
+								>
+									<FileSearchOutlined
+										style={{
+											fontSize: 48,
+											color: "#13c2c2",
+											marginBottom: 16,
+										}}
+									/>
+									<Title level={4} style={{ marginBottom: 8 }}>
+										{t("dashboard.auditLogs.title")}
+									</Title>
+									<Typography.Text type="secondary">
+										{t("dashboard.auditLogs.description")}
+									</Typography.Text>
+								</Card>
+							</Link>
+						</Col>
 					)}
+
 					{hasProviderHubAccess && (
-						<Link
-							to="/marketplace/provide"
-							style={{ textDecoration: "none", width: "100%" }}
-						>
-							<Card
-								hoverable
+						<Col xs={24} sm={12} lg={8}>
+							<Link
+								to="/marketplace/provide"
 								style={{
-									width: "100%",
-									cursor: "pointer",
-									textAlign: "center",
+									textDecoration: "none",
+									display: "block",
+									height: "100%",
 								}}
 							>
-								<RocketOutlined
-									style={{ fontSize: 48, color: "#fa541c", marginBottom: 16 }}
-								/>
-								<Title level={4} style={{ marginBottom: 8 }}>
-									{t("providerHub.title")}
-								</Title>
-								<Typography.Text type="secondary">
-									{t("providerHub.description")}
-								</Typography.Text>
-							</Card>
-						</Link>
+								<Card
+									hoverable
+									style={{
+										height: "100%",
+										cursor: "pointer",
+										textAlign: "center",
+									}}
+								>
+									<RocketOutlined
+										style={{
+											fontSize: 48,
+											color: "#fa541c",
+											marginBottom: 16,
+										}}
+									/>
+									<Title level={4} style={{ marginBottom: 8 }}>
+										{t("providerHub.title")}
+									</Title>
+									<Typography.Text type="secondary">
+										{t("providerHub.description")}
+									</Typography.Text>
+								</Card>
+							</Link>
+						</Col>
 					)}
+
 					{hasBrowseAccess && (
-						<Link
-							to="/marketplace"
-							style={{ textDecoration: "none", width: "100%" }}
-						>
-							<Card
-								hoverable
+						<Col xs={24} sm={12} lg={8}>
+							<Link
+								to="/marketplace/capabilities"
 								style={{
-									width: "100%",
-									cursor: "pointer",
-									textAlign: "center",
+									textDecoration: "none",
+									display: "block",
+									height: "100%",
 								}}
 							>
-								<ShopOutlined
-									style={{ fontSize: 48, color: "#1890ff", marginBottom: 16 }}
-								/>
-								<Title level={4} style={{ marginBottom: 8 }}>
-									{t("browseMarketplace.title")}
-								</Title>
-								<Typography.Text type="secondary">
-									{t("browseMarketplace.description")}
-								</Typography.Text>
-							</Card>
-						</Link>
+								<Card
+									hoverable
+									style={{
+										height: "100%",
+										cursor: "pointer",
+										textAlign: "center",
+									}}
+								>
+									<ShopOutlined
+										style={{
+											fontSize: 48,
+											color: "#1890ff",
+											marginBottom: 16,
+										}}
+									/>
+									<Title level={4} style={{ marginBottom: 8 }}>
+										{t("browseMarketplace.title")}
+									</Title>
+									<Typography.Text type="secondary">
+										{t("browseMarketplace.description")}
+									</Typography.Text>
+								</Card>
+							</Link>
+						</Col>
 					)}
-				</>
+
+					{hasPurchasesAccess && (
+						<Col xs={24} sm={12} lg={8}>
+							<Link
+								to="/marketplace/purchases"
+								style={{
+									textDecoration: "none",
+									display: "block",
+									height: "100%",
+								}}
+							>
+								<Card
+									hoverable
+									style={{
+										height: "100%",
+										cursor: "pointer",
+										textAlign: "center",
+									}}
+								>
+									<ShoppingCartOutlined
+										style={{
+											fontSize: 48,
+											color: "#52c41a",
+											marginBottom: 16,
+										}}
+									/>
+									<Title level={4} style={{ marginBottom: 8 }}>
+										{t("myPurchases.title")}
+									</Title>
+									<Typography.Text type="secondary">
+										{t("myPurchases.description")}
+									</Typography.Text>
+								</Card>
+							</Link>
+						</Col>
+					)}
+				</Row>
 			)}
 
-			<Card style={{ width: "100%", textAlign: "center" }}>
-				<Title level={3} style={{ marginBottom: 24 }}>
-					{t("dashboard.title")}
-				</Title>
-
+			<div style={{ marginTop: 32, textAlign: "center" }}>
 				<Button
 					type="primary"
 					danger
 					onClick={logout}
 					loading={loading}
-					block
 					size="large"
 					icon={<LogoutOutlined />}
 				>
 					{t("logout.button")}
 				</Button>
-			</Card>
+			</div>
 		</div>
 	);
 }

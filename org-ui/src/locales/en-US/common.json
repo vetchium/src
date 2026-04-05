@@ -50,6 +50,10 @@
 		"title": "Browse Services",
 		"description": "Discover and contact service providers in the Vetchium network"
 	},
+	"myPurchases": {
+		"title": "My Purchases",
+		"description": "View and manage your active service subscriptions"
+	},
 	"action": {
 		"backHome": "Back Home"
 	},

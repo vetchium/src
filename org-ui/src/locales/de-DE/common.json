@@ -50,6 +50,10 @@
 		"title": "Dienste suchen",
 		"description": "Entdecken Sie Dienstleister im Vetchium-Netzwerk und nehmen Sie Kontakt auf"
 	},
+	"myPurchases": {
+		"title": "Meine Käufe",
+		"description": "Aktive Dienstabonnements anzeigen und verwalten"
+	},
 	"action": {
 		"backHome": "Zurück zur Startseite"
 	},
