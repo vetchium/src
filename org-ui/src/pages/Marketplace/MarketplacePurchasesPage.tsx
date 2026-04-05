@@ -38,9 +38,9 @@ export function MarketplacePurchasesPage() {
 	const { message } = App.useApp();
 	const navigate = useNavigate();
 
-	const [subscriptions, setSubscriptions] = useState<
-		MarketplaceSubscription[]
-	>([]);
+	const [subscriptions, setSubscriptions] = useState<MarketplaceSubscription[]>(
+		[]
+	);
 	const [loading, setLoading] = useState(false);
 	const [nextPaginationKey, setNextPaginationKey] = useState<
 		string | undefined

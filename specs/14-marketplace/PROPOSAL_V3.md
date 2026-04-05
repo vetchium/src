@@ -25,12 +25,12 @@ off-platform.
 
 Marketplace is modelled as four independent subdomains with their own state machines:
 
-| Subdomain | What it represents | Governed by |
-|-----------|--------------------|-------------|
-| Capability Catalog | Admin-defined types of service that can be offered on the marketplace | Admin only |
-| Provider Enrollment | An org's authorization to provide a specific capability | Org + Admin |
-| Provider Offer | The discoverable commercial record buyers can see | Org + Admin |
-| Consumer Subscription | An org's request to consume a provider's offer | Org + Admin |
+| Subdomain             | What it represents                                                    | Governed by |
+| --------------------- | --------------------------------------------------------------------- | ----------- |
+| Capability Catalog    | Admin-defined types of service that can be offered on the marketplace | Admin only  |
+| Provider Enrollment   | An org's authorization to provide a specific capability               | Org + Admin |
+| Provider Offer        | The discoverable commercial record buyers can see                     | Org + Admin |
+| Consumer Subscription | An org's request to consume a provider's offer                        | Org + Admin |
 
 These are independent relationships. Approving an enrollment does not automatically create
 an offer. Approving an offer does not automatically create a subscription. Each step requires
@@ -63,26 +63,26 @@ These are never merged into a single approval queue.
 
 Every marketplace record uses two identity layers:
 
-| Layer | Used for | Mutable? |
-|-------|----------|----------|
-| Internal UUID | DB primary keys, foreign keys, joins, routing | Never |
+| Layer                | Used for                                           | Mutable?               |
+| -------------------- | -------------------------------------------------- | ---------------------- |
+| Internal UUID        | DB primary keys, foreign keys, joins, routing      | Never                  |
 | External natural key | UI routes, API body parameters, user communication | Can rename via aliases |
 
 Internal UUIDs are never exposed in UI routes or API contracts.
 
 ### Stable external identifiers
 
-| Entity | External identity |
-|--------|-------------------|
-| Capability | `capability_slug` (e.g. `talent-sourcing`) |
-| Org | `org_domain` (e.g. `acme.com`) |
-| Provider enrollment (org-side) | `capability_slug` (org is known from auth) |
-| Provider enrollment (admin-side) | `org_domain + capability_slug` |
-| Provider offer (org-side) | `capability_slug` |
-| Provider offer (buyer/admin-side) | `provider_org_domain + capability_slug` |
-| Consumer subscription (consumer-side) | `provider_org_domain + capability_slug` |
-| Consumer subscription (provider-side) | `consumer_org_domain + capability_slug` |
-| Consumer subscription (admin-side) | `consumer_org_domain + provider_org_domain + capability_slug` |
+| Entity                                | External identity                                             |
+| ------------------------------------- | ------------------------------------------------------------- |
+| Capability                            | `capability_slug` (e.g. `talent-sourcing`)                    |
+| Org                                   | `org_domain` (e.g. `acme.com`)                                |
+| Provider enrollment (org-side)        | `capability_slug` (org is known from auth)                    |
+| Provider enrollment (admin-side)      | `org_domain + capability_slug`                                |
+| Provider offer (org-side)             | `capability_slug`                                             |
+| Provider offer (buyer/admin-side)     | `provider_org_domain + capability_slug`                       |
+| Consumer subscription (consumer-side) | `provider_org_domain + capability_slug`                       |
+| Consumer subscription (provider-side) | `consumer_org_domain + capability_slug`                       |
+| Consumer subscription (admin-side)    | `consumer_org_domain + provider_org_domain + capability_slug` |
 
 V1 allows exactly one offer per `(provider_org, capability_slug)` and exactly one
 subscription per `(consumer_org, provider_org, capability_slug)`. No external offer ID
@@ -99,17 +99,17 @@ values. This decouples readable external identifiers from internal UUIDs.
 
 ## 3. Data Architecture
 
-| Table | DB | Rationale |
-|-------|----|-----------|
-| `marketplace_capabilities` | Global | Admin-owned capability catalog; must be readable from all regions |
-| `marketplace_capability_slug_aliases` | Global | Capability rename resolution |
-| `marketplace_org_domain_aliases` | Global | Org domain rename resolution |
-| `marketplace_offer_catalog` | Global | Buyer discovery mirror; lets buyers in any region see all active offers |
-| `marketplace_subscription_routing` | Global | Lets providers query incoming subscriptions across consumer regions |
-| `marketplace_billing_records` | Global | Vetchium billing records for centralized invoicing |
-| `marketplace_enrollments` | Regional (provider's home region) | Provider operational state; stays close to the provider |
-| `marketplace_offers` | Regional (provider's home region) | Provider operational state |
-| `marketplace_subscriptions` | Regional (consumer's home region) | Consumer operational state; stays close to the consumer |
+| Table                                 | DB                                | Rationale                                                               |
+| ------------------------------------- | --------------------------------- | ----------------------------------------------------------------------- |
+| `marketplace_capabilities`            | Global                            | Admin-owned capability catalog; must be readable from all regions       |
+| `marketplace_capability_slug_aliases` | Global                            | Capability rename resolution                                            |
+| `marketplace_org_domain_aliases`      | Global                            | Org domain rename resolution                                            |
+| `marketplace_offer_catalog`           | Global                            | Buyer discovery mirror; lets buyers in any region see all active offers |
+| `marketplace_subscription_routing`    | Global                            | Lets providers query incoming subscriptions across consumer regions     |
+| `marketplace_billing_records`         | Global                            | Vetchium billing records for centralized invoicing                      |
+| `marketplace_enrollments`             | Regional (provider's home region) | Provider operational state; stays close to the provider                 |
+| `marketplace_offers`                  | Regional (provider's home region) | Provider operational state                                              |
+| `marketplace_subscriptions`           | Regional (consumer's home region) | Consumer operational state; stays close to the consumer                 |
 
 ### Why subscriptions stay with the consumer
 
@@ -153,20 +153,20 @@ Admin-managed. Stored in the global DB.
 
 ### 4.1 Fields
 
-| Field | Type | Constraints |
-|-------|------|-------------|
-| `capability_slug` | string | Unique. Lowercase alphanumeric + hyphens. 3–50 chars. |
-| `display_name` | string | 1–100 chars. |
-| `description` | string | Markdown. Max 5000 chars. |
-| `provider_enabled` | bool | Whether orgs may apply to provide. |
-| `consumer_enabled` | bool | Whether orgs may request subscriptions. |
-| `enrollment_approval` | enum | `open` \| `manual` |
-| `offer_review` | enum | `auto` \| `manual` |
-| `subscription_approval` | enum | `direct` \| `provider` \| `admin` \| `provider_and_admin` |
-| `contract_required` | bool | Whether contract confirmation is required before activation. |
-| `payment_required` | bool | Whether payment recording is required before activation. |
-| `pricing_hint` | string nullable | Max 200 chars. |
-| `status` | enum | `draft` \| `active` \| `disabled` |
+| Field                   | Type            | Constraints                                                  |
+| ----------------------- | --------------- | ------------------------------------------------------------ |
+| `capability_slug`       | string          | Unique. Lowercase alphanumeric + hyphens. 3–50 chars.        |
+| `display_name`          | string          | 1–100 chars.                                                 |
+| `description`           | string          | Markdown. Max 5000 chars.                                    |
+| `provider_enabled`      | bool            | Whether orgs may apply to provide.                           |
+| `consumer_enabled`      | bool            | Whether orgs may request subscriptions.                      |
+| `enrollment_approval`   | enum            | `open` \| `manual`                                           |
+| `offer_review`          | enum            | `auto` \| `manual`                                           |
+| `subscription_approval` | enum            | `direct` \| `provider` \| `admin` \| `provider_and_admin`    |
+| `contract_required`     | bool            | Whether contract confirmation is required before activation. |
+| `payment_required`      | bool            | Whether payment recording is required before activation.     |
+| `pricing_hint`          | string nullable | Max 200 chars.                                               |
+| `status`                | enum            | `draft` \| `active` \| `disabled`                            |
 
 ### 4.2 Status Semantics
 
@@ -215,20 +215,20 @@ Stored in the provider's regional DB.
 
 ### 5.1 Fields
 
-| Field | Type | Constraints |
-|-------|------|-------------|
-| `id` | UUID | Internal only |
-| `org_id` | UUID | Internal FK |
-| `capability_slug` | string | Canonical slug |
-| `status` | enum | See below |
-| `application_note` | string nullable | Max 2000 chars |
-| `review_note` | string nullable | Max 2000 chars |
-| `approved_at` | timestamptz nullable | Set when approved |
-| `expires_at` | timestamptz nullable | Null means no expiry |
-| `billing_reference` | string nullable | External billing system reference |
-| `billing_status` | enum | `not_applicable` \| `pending` \| `active` \| `suspended` |
-| `created_at` | timestamptz | |
-| `updated_at` | timestamptz | |
+| Field               | Type                 | Constraints                                              |
+| ------------------- | -------------------- | -------------------------------------------------------- |
+| `id`                | UUID                 | Internal only                                            |
+| `org_id`            | UUID                 | Internal FK                                              |
+| `capability_slug`   | string               | Canonical slug                                           |
+| `status`            | enum                 | See below                                                |
+| `application_note`  | string nullable      | Max 2000 chars                                           |
+| `review_note`       | string nullable      | Max 2000 chars                                           |
+| `approved_at`       | timestamptz nullable | Set when approved                                        |
+| `expires_at`        | timestamptz nullable | Null means no expiry                                     |
+| `billing_reference` | string nullable      | External billing system reference                        |
+| `billing_status`    | enum                 | `not_applicable` \| `pending` \| `active` \| `suspended` |
+| `created_at`        | timestamptz          |                                                          |
+| `updated_at`        | timestamptz          |                                                          |
 
 ### 5.2 States
 
@@ -242,21 +242,21 @@ Stored in the provider's regional DB.
 
 ### 5.3 Transition Table
 
-| From | To | Actor | Trigger | Notes |
-|------|----|-------|---------|-------|
-| none | `approved` | System | `apply` when `enrollment_approval = open` | Creates the row already approved |
-| none | `pending_review` | Org | `apply` when `enrollment_approval = manual` | Creates the row awaiting review |
-| `pending_review` | `approved` | Admin | `approve` | Sets `approved_at`, optional `expires_at` |
-| `pending_review` | `rejected` | Admin | `reject` | `review_note` required |
-| `approved` | `approved` | Admin | `renew` | Updates `expires_at`, optional `billing_reference` |
-| `expired` | `approved` | Admin | `renew` | Reactivates without requiring reapplication |
-| `approved` | `suspended` | Admin | `suspend` | Cascades to offers |
-| `suspended` | `approved` | Admin | `reinstate` | Does not auto-reinstate suspended offers |
-| `approved` | `expired` | System | expiry worker | When `NOW() >= expires_at` |
-| `rejected` | `pending_review` | Org | `reapply` | Manual capabilities |
-| `rejected` | `approved` | System | `reapply` when `enrollment_approval = open` | Open capabilities |
-| `expired` | `pending_review` | Org | `reapply` when `enrollment_approval = manual` | |
-| `expired` | `approved` | System | `reapply` when `enrollment_approval = open` | |
+| From             | To               | Actor  | Trigger                                       | Notes                                              |
+| ---------------- | ---------------- | ------ | --------------------------------------------- | -------------------------------------------------- |
+| none             | `approved`       | System | `apply` when `enrollment_approval = open`     | Creates the row already approved                   |
+| none             | `pending_review` | Org    | `apply` when `enrollment_approval = manual`   | Creates the row awaiting review                    |
+| `pending_review` | `approved`       | Admin  | `approve`                                     | Sets `approved_at`, optional `expires_at`          |
+| `pending_review` | `rejected`       | Admin  | `reject`                                      | `review_note` required                             |
+| `approved`       | `approved`       | Admin  | `renew`                                       | Updates `expires_at`, optional `billing_reference` |
+| `expired`        | `approved`       | Admin  | `renew`                                       | Reactivates without requiring reapplication        |
+| `approved`       | `suspended`      | Admin  | `suspend`                                     | Cascades to offers                                 |
+| `suspended`      | `approved`       | Admin  | `reinstate`                                   | Does not auto-reinstate suspended offers           |
+| `approved`       | `expired`        | System | expiry worker                                 | When `NOW() >= expires_at`                         |
+| `rejected`       | `pending_review` | Org    | `reapply`                                     | Manual capabilities                                |
+| `rejected`       | `approved`       | System | `reapply` when `enrollment_approval = open`   | Open capabilities                                  |
+| `expired`        | `pending_review` | Org    | `reapply` when `enrollment_approval = manual` |                                                    |
+| `expired`        | `approved`       | System | `reapply` when `enrollment_approval = open`   |                                                    |
 
 Invalid transitions return HTTP 422.
 
@@ -284,23 +284,23 @@ Stored in the provider's regional DB. Mirrored into the global offer catalog for
 
 ### 6.1 Fields
 
-| Field | Type | Constraints |
-|-------|------|-------------|
-| `id` | UUID | Internal only |
-| `enrollment_id` | UUID | Internal FK |
-| `org_id` | UUID | Internal FK |
-| `capability_slug` | string | Canonical slug |
-| `headline` | string | Max 100 chars |
-| `summary` | string | Max 500 chars |
-| `description` | string | Markdown. Max 10000 chars |
-| `regions_served` | string[] | Non-empty. Region codes or `all` |
-| `pricing_hint` | string nullable | Max 200 chars |
-| `contact_mode` | enum | `platform_message` \| `external_url` \| `email` |
-| `contact_value` | string | Validated according to mode |
-| `status` | enum | See below |
-| `review_note` | string nullable | Admin moderation note |
-| `created_at` | timestamptz | |
-| `updated_at` | timestamptz | |
+| Field             | Type            | Constraints                                     |
+| ----------------- | --------------- | ----------------------------------------------- |
+| `id`              | UUID            | Internal only                                   |
+| `enrollment_id`   | UUID            | Internal FK                                     |
+| `org_id`          | UUID            | Internal FK                                     |
+| `capability_slug` | string          | Canonical slug                                  |
+| `headline`        | string          | Max 100 chars                                   |
+| `summary`         | string          | Max 500 chars                                   |
+| `description`     | string          | Markdown. Max 10000 chars                       |
+| `regions_served`  | string[]        | Non-empty. Region codes or `all`                |
+| `pricing_hint`    | string nullable | Max 200 chars                                   |
+| `contact_mode`    | enum            | `platform_message` \| `external_url` \| `email` |
+| `contact_value`   | string          | Validated according to mode                     |
+| `status`          | enum            | See below                                       |
+| `review_note`     | string nullable | Admin moderation note                           |
+| `created_at`      | timestamptz     |                                                 |
+| `updated_at`      | timestamptz     |                                                 |
 
 ### 6.2 States
 
@@ -313,23 +313,23 @@ Stored in the provider's regional DB. Mirrored into the global offer catalog for
 
 ### 6.3 Transition Table
 
-| From | To | Actor | Trigger | Notes |
-|------|----|-------|---------|-------|
-| none | `draft` | Org | `create` | Enrollment must be `approved` |
-| `draft` | `draft` | Org | `update` | Free editing |
-| `rejected` | `draft` | Org | `update` | Any edit reopens into draft |
-| `draft` | `active` | System | `submit` when `offer_review = auto` | Mirror updated |
-| `draft` | `pending_review` | Org | `submit` when `offer_review = manual` | |
-| `pending_review` | `active` | Admin | `approve` | Mirror updated |
-| `pending_review` | `rejected` | Admin | `reject` | `review_note` required |
-| `active` | `pending_review` | Org | `update` | Any active edit triggers re-review |
-| `archived` | `draft` | Org | `update` | Any archived edit reopens the offer |
-| `active` | `archived` | Org | `archive` | Mirror updated |
-| `pending_review` | `archived` | Org | `archive` | Mirror updated |
-| `rejected` | `archived` | Org | `archive` | |
-| `active` | `suspended` | Admin | `suspend` | Mirror updated |
-| `pending_review` | `suspended` | Admin | `suspend` | Mirror updated |
-| `suspended` | `active` | Admin | `reinstate` | Enrollment must still be `approved` |
+| From             | To               | Actor  | Trigger                               | Notes                               |
+| ---------------- | ---------------- | ------ | ------------------------------------- | ----------------------------------- |
+| none             | `draft`          | Org    | `create`                              | Enrollment must be `approved`       |
+| `draft`          | `draft`          | Org    | `update`                              | Free editing                        |
+| `rejected`       | `draft`          | Org    | `update`                              | Any edit reopens into draft         |
+| `draft`          | `active`         | System | `submit` when `offer_review = auto`   | Mirror updated                      |
+| `draft`          | `pending_review` | Org    | `submit` when `offer_review = manual` |                                     |
+| `pending_review` | `active`         | Admin  | `approve`                             | Mirror updated                      |
+| `pending_review` | `rejected`       | Admin  | `reject`                              | `review_note` required              |
+| `active`         | `pending_review` | Org    | `update`                              | Any active edit triggers re-review  |
+| `archived`       | `draft`          | Org    | `update`                              | Any archived edit reopens the offer |
+| `active`         | `archived`       | Org    | `archive`                             | Mirror updated                      |
+| `pending_review` | `archived`       | Org    | `archive`                             | Mirror updated                      |
+| `rejected`       | `archived`       | Org    | `archive`                             |                                     |
+| `active`         | `suspended`      | Admin  | `suspend`                             | Mirror updated                      |
+| `pending_review` | `suspended`      | Admin  | `suspend`                             | Mirror updated                      |
+| `suspended`      | `active`         | Admin  | `reinstate`                           | Enrollment must still be `approved` |
 
 Invalid transitions return HTTP 422.
 
@@ -359,26 +359,26 @@ Requesting against a non-active offer returns HTTP 422.
 
 ### 7.1 Fields
 
-| Field | Type | Constraints |
-|-------|------|-------------|
-| `id` | UUID | Internal only |
-| `consumer_org_id` | UUID | Internal FK in consumer region |
-| `consumer_org_domain` | string | Canonical current value |
-| `provider_org_global_id` | UUID | Internal reference |
-| `provider_org_domain` | string | Canonical current value |
-| `provider_region` | string | Denormalized for routing |
-| `capability_slug` | string | Canonical slug |
-| `request_note` | string nullable | Max 2000 chars |
-| `requires_provider_review` | bool | Frozen at request time from capability config |
-| `requires_admin_review` | bool | Frozen at request time from capability config |
-| `requires_contract` | bool | Frozen at request time from capability config |
-| `requires_payment` | bool | Frozen at request time from capability config |
-| `status` | enum | See below |
-| `review_note` | string nullable | Last admin/provider decision note |
-| `starts_at` | timestamptz nullable | Set when active |
-| `expires_at` | timestamptz nullable | Null means no expiry |
-| `created_at` | timestamptz | First creation time |
-| `updated_at` | timestamptz | Last lifecycle change time |
+| Field                      | Type                 | Constraints                                   |
+| -------------------------- | -------------------- | --------------------------------------------- |
+| `id`                       | UUID                 | Internal only                                 |
+| `consumer_org_id`          | UUID                 | Internal FK in consumer region                |
+| `consumer_org_domain`      | string               | Canonical current value                       |
+| `provider_org_global_id`   | UUID                 | Internal reference                            |
+| `provider_org_domain`      | string               | Canonical current value                       |
+| `provider_region`          | string               | Denormalized for routing                      |
+| `capability_slug`          | string               | Canonical slug                                |
+| `request_note`             | string nullable      | Max 2000 chars                                |
+| `requires_provider_review` | bool                 | Frozen at request time from capability config |
+| `requires_admin_review`    | bool                 | Frozen at request time from capability config |
+| `requires_contract`        | bool                 | Frozen at request time from capability config |
+| `requires_payment`         | bool                 | Frozen at request time from capability config |
+| `status`                   | enum                 | See below                                     |
+| `review_note`              | string nullable      | Last admin/provider decision note             |
+| `starts_at`                | timestamptz nullable | Set when active                               |
+| `expires_at`               | timestamptz nullable | Null means no expiry                          |
+| `created_at`               | timestamptz          | First creation time                           |
+| `updated_at`               | timestamptz          | Last lifecycle change time                    |
 
 ### 7.2 States
 
@@ -414,22 +414,22 @@ review gates, but contract confirmation is still required before activation.
 
 ### 7.4 Transition Table
 
-| From | To | Actor | Trigger | Notes |
-|------|----|-------|---------|-------|
-| none or terminal | `requested` | Consumer | `request` | Creates or reuses the row; captures frozen gates |
-| `requested` | `provider_review` | System | auto | When provider review required |
-| `requested` | `admin_review` | System | auto | When provider review not required and admin review required |
-| `requested` | `awaiting_contract` | System | auto | When no review gates remain and contract required |
-| `requested` | `awaiting_payment` | System | auto | When no earlier gates remain and payment required |
-| `requested` | `active` | System | auto | When no gates apply |
-| `provider_review` | next gate or `active` | Provider | `provider-approve` | Advances automatically through remaining gates |
-| `provider_review` | `rejected` | Provider | `provider-reject` | `review_note` required |
-| `admin_review` | next gate or `active` | Admin | `approve` | Advances automatically through remaining gates |
-| `admin_review` | `rejected` | Admin | `reject` | `review_note` required |
-| `awaiting_contract` | next gate or `active` | Admin | `mark-contract-signed` or `waive-contract` | |
-| `awaiting_payment` | `active` | Admin | `record-payment` or `waive-payment` | Sets `starts_at` |
-| any non-terminal | `cancelled` | Consumer or Admin | `cancel` | |
-| `active` | `expired` | System | expiry worker | When `NOW() >= expires_at` |
+| From                | To                    | Actor             | Trigger                                    | Notes                                                       |
+| ------------------- | --------------------- | ----------------- | ------------------------------------------ | ----------------------------------------------------------- |
+| none or terminal    | `requested`           | Consumer          | `request`                                  | Creates or reuses the row; captures frozen gates            |
+| `requested`         | `provider_review`     | System            | auto                                       | When provider review required                               |
+| `requested`         | `admin_review`        | System            | auto                                       | When provider review not required and admin review required |
+| `requested`         | `awaiting_contract`   | System            | auto                                       | When no review gates remain and contract required           |
+| `requested`         | `awaiting_payment`    | System            | auto                                       | When no earlier gates remain and payment required           |
+| `requested`         | `active`              | System            | auto                                       | When no gates apply                                         |
+| `provider_review`   | next gate or `active` | Provider          | `provider-approve`                         | Advances automatically through remaining gates              |
+| `provider_review`   | `rejected`            | Provider          | `provider-reject`                          | `review_note` required                                      |
+| `admin_review`      | next gate or `active` | Admin             | `approve`                                  | Advances automatically through remaining gates              |
+| `admin_review`      | `rejected`            | Admin             | `reject`                                   | `review_note` required                                      |
+| `awaiting_contract` | next gate or `active` | Admin             | `mark-contract-signed` or `waive-contract` |                                                             |
+| `awaiting_payment`  | `active`              | Admin             | `record-payment` or `waive-payment`        | Sets `starts_at`                                            |
+| any non-terminal    | `cancelled`           | Consumer or Admin | `cancel`                                   |                                                             |
+| `active`            | `expired`             | System            | expiry worker                              | When `NOW() >= expires_at`                                  |
 
 Invalid transitions return HTTP 422.
 
@@ -437,16 +437,16 @@ Invalid transitions return HTTP 422.
 
 ## 8. Cross-Entity Cascades
 
-| Trigger | Cascades to | Effect |
-|---------|-------------|--------|
-| Capability disabled | Active offers | `suspended` |
-| Capability disabled | Approved enrollments | No change |
-| Capability disabled | Active subscriptions | No change |
-| Enrollment suspended or expired | Active or pending-review offers | `suspended` |
-| Enrollment suspended or expired | Active subscriptions | No change |
-| Offer suspended or archived | Non-active subscriptions for that offer | `cancelled` |
-| Offer suspended or archived | Active subscriptions | No change |
-| Offer reinstated | Previously auto-cancelled subscriptions | No automatic reinstatement |
+| Trigger                         | Cascades to                             | Effect                     |
+| ------------------------------- | --------------------------------------- | -------------------------- |
+| Capability disabled             | Active offers                           | `suspended`                |
+| Capability disabled             | Approved enrollments                    | No change                  |
+| Capability disabled             | Active subscriptions                    | No change                  |
+| Enrollment suspended or expired | Active or pending-review offers         | `suspended`                |
+| Enrollment suspended or expired | Active subscriptions                    | No change                  |
+| Offer suspended or archived     | Non-active subscriptions for that offer | `cancelled`                |
+| Offer suspended or archived     | Active subscriptions                    | No change                  |
+| Offer reinstated                | Previously auto-cancelled subscriptions | No automatic reinstatement |
 
 ---
 
@@ -520,6 +520,7 @@ POST /org/marketplace/capabilities/get
 ```
 
 Pagination:
+
 - sort: `capability_slug ASC`
 - cursor: `capability_slug`
 
@@ -542,8 +543,8 @@ POST /org/marketplace/provider-enrollments/reapply
 
 ```json
 {
-  "capability_slug": "talent-sourcing",
-  "application_note": "We have operated in this space for 8 years..."
+	"capability_slug": "talent-sourcing",
+	"application_note": "We have operated in this space for 8 years..."
 }
 ```
 
@@ -551,12 +552,13 @@ POST /org/marketplace/provider-enrollments/reapply
 
 ```json
 {
-  "capability_slug": "talent-sourcing",
-  "application_note": "We have addressed the concerns raised..."
+	"capability_slug": "talent-sourcing",
+	"application_note": "We have addressed the concerns raised..."
 }
 ```
 
 Pagination:
+
 - sort: `created_at DESC, capability_slug ASC`
 - cursor: `{created_at, capability_slug}`
 
@@ -580,14 +582,14 @@ POST /org/marketplace/provider-offers/archive
 
 ```json
 {
-  "capability_slug": "talent-sourcing",
-  "headline": "Enterprise Talent Sourcing",
-  "summary": "End-to-end talent acquisition for enterprise hiring programmes.",
-  "description": "# About Our Service\n...",
-  "regions_served": ["ind1", "usa1"],
-  "pricing_hint": "Starting from $2,000/month",
-  "contact_mode": "external_url",
-  "contact_value": "https://acme.com/marketplace-contact"
+	"capability_slug": "talent-sourcing",
+	"headline": "Enterprise Talent Sourcing",
+	"summary": "End-to-end talent acquisition for enterprise hiring programmes.",
+	"description": "# About Our Service\n...",
+	"regions_served": ["ind1", "usa1"],
+	"pricing_hint": "Starting from $2,000/month",
+	"contact_mode": "external_url",
+	"contact_value": "https://acme.com/marketplace-contact"
 }
 ```
 
@@ -602,9 +604,9 @@ POST /org/marketplace/providers/get-offer
 
 ```json
 {
-  "capability_slug": "talent-sourcing",
-  "pagination_key": null,
-  "limit": 40
+	"capability_slug": "talent-sourcing",
+	"pagination_key": null,
+	"limit": 40
 }
 ```
 
@@ -612,14 +614,15 @@ POST /org/marketplace/providers/get-offer
 
 ```json
 {
-  "provider_org_domain": "acme.com",
-  "capability_slug": "talent-sourcing"
+	"provider_org_domain": "acme.com",
+	"capability_slug": "talent-sourcing"
 }
 ```
 
 `get-offer` returns HTTP 403 if the caller's org is the provider org.
 
 Pagination:
+
 - sort: `provider_org_domain ASC, capability_slug ASC`
 - cursor: `{provider_org_domain, capability_slug}`
 
@@ -636,8 +639,8 @@ POST /org/marketplace/consumer-subscriptions/cancel
 
 ```json
 {
-  "provider_org_domain": "acme.com",
-  "capability_slug": "talent-sourcing"
+	"provider_org_domain": "acme.com",
+	"capability_slug": "talent-sourcing"
 }
 ```
 
@@ -645,13 +648,14 @@ POST /org/marketplace/consumer-subscriptions/cancel
 
 ```json
 {
-  "provider_org_domain": "acme.com",
-  "capability_slug": "talent-sourcing",
-  "request_note": "We need this service for our Q3 hiring campaign."
+	"provider_org_domain": "acme.com",
+	"capability_slug": "talent-sourcing",
+	"request_note": "We need this service for our Q3 hiring campaign."
 }
 ```
 
 Pagination:
+
 - sort: `updated_at DESC, provider_org_domain ASC, capability_slug ASC`
 - cursor: `{updated_at, provider_org_domain, capability_slug}`
 
@@ -668,14 +672,15 @@ POST /org/marketplace/incoming-subscriptions/provider-reject
 
 ```json
 {
-  "consumer_org_domain": "globex.com",
-  "capability_slug": "talent-sourcing"
+	"consumer_org_domain": "globex.com",
+	"capability_slug": "talent-sourcing"
 }
 ```
 
 `provider-reject` additionally requires `review_note`.
 
 Pagination:
+
 - sort: `updated_at DESC, consumer_org_domain ASC, capability_slug ASC`
 - cursor: `{updated_at, consumer_org_domain, capability_slug}`
 
@@ -712,8 +717,8 @@ Identifier body:
 
 ```json
 {
-  "org_domain": "acme.com",
-  "capability_slug": "talent-sourcing"
+	"org_domain": "acme.com",
+	"capability_slug": "talent-sourcing"
 }
 ```
 
@@ -721,13 +726,14 @@ Identifier body:
 
 ```json
 {
-  "expires_at": "2027-03-31T00:00:00Z",
-  "billing_reference": null,
-  "review_note": "Verified. Documents on file."
+	"expires_at": "2027-03-31T00:00:00Z",
+	"billing_reference": null,
+	"review_note": "Verified. Documents on file."
 }
 ```
 
 Pagination:
+
 - sort: `created_at DESC, org_domain ASC, capability_slug ASC`
 - cursor: `{created_at, org_domain, capability_slug}`
 
@@ -746,14 +752,15 @@ Identifier body:
 
 ```json
 {
-  "org_domain": "acme.com",
-  "capability_slug": "talent-sourcing"
+	"org_domain": "acme.com",
+	"capability_slug": "talent-sourcing"
 }
 ```
 
 `reject` and `suspend` require `review_note`.
 
 Pagination:
+
 - sort: `updated_at DESC, org_domain ASC, capability_slug ASC`
 - cursor: `{updated_at, org_domain, capability_slug}`
 
@@ -775,13 +782,14 @@ Identifier body:
 
 ```json
 {
-  "consumer_org_domain": "globex.com",
-  "provider_org_domain": "acme.com",
-  "capability_slug": "talent-sourcing"
+	"consumer_org_domain": "globex.com",
+	"provider_org_domain": "acme.com",
+	"capability_slug": "talent-sourcing"
 }
 ```
 
 Pagination:
+
 - sort: `updated_at DESC, consumer_org_domain ASC, provider_org_domain ASC, capability_slug ASC`
 - cursor: `{updated_at, consumer_org_domain, provider_org_domain, capability_slug}`
 
@@ -794,6 +802,7 @@ POST /admin/marketplace/billing/list
 Filters: `filter_consumer_org_domain`, `filter_provider_org_domain`, `filter_capability_slug`
 
 Pagination:
+
 - sort: `created_at DESC, consumer_org_domain ASC, provider_org_domain ASC, capability_slug ASC`
 - cursor: `{created_at, consumer_org_domain, provider_org_domain, capability_slug}`
 
@@ -819,6 +828,7 @@ The entry point to the marketplace. Shows three cards:
 3. **Purchases** — Track the org's outgoing subscription requests and active subscriptions.
 
 Below the cards, show a summary of the org's current marketplace activity:
+
 - Number of active enrollments (org is an approved provider).
 - Number of active subscriptions (org is an active consumer).
 - Any pending items needing attention (enrollment pending review, offer pending review,
@@ -912,28 +922,28 @@ The operational hub for providing a specific capability. Shows two sections side
 
 Shows the current enrollment status and the next available action:
 
-| Enrollment status | What is shown |
-|-------------------|---------------|
-| Not applied | "You have not applied to provide this capability." Apply button. |
-| `pending_review` | "Your application is under review." No action. |
-| `approved` | "Approved provider." Expiry date if set. Renew prompt if within 30 days. |
-| `rejected` | Admin review note. Reapply button. |
-| `suspended` | Admin review note. No org action available. |
-| `expired` | "Your enrollment has expired." Reapply button. |
+| Enrollment status | What is shown                                                            |
+| ----------------- | ------------------------------------------------------------------------ |
+| Not applied       | "You have not applied to provide this capability." Apply button.         |
+| `pending_review`  | "Your application is under review." No action.                           |
+| `approved`        | "Approved provider." Expiry date if set. Renew prompt if within 30 days. |
+| `rejected`        | Admin review note. Reapply button.                                       |
+| `suspended`       | Admin review note. No org action available.                              |
+| `expired`         | "Your enrollment has expired." Reapply button.                           |
 
 **Offer section**
 
 Shows the current offer status and the next available action:
 
-| Offer status | What is shown |
-|--------------|---------------|
-| No offer | "You have not created an offer for this capability yet." Create offer button. Visible only when enrollment is `approved`. |
-| `draft` | Offer headline preview. Edit and Submit buttons. |
-| `pending_review` | Offer headline preview. "Under admin review." |
-| `active` | Offer headline preview. Edit, Archive buttons. |
-| `rejected` | Offer headline preview. Admin review note. Edit button to address feedback. |
-| `suspended` | Offer headline preview. Admin review note. No org action. |
-| `archived` | "Your offer is archived." Reopen link (which opens the edit form). |
+| Offer status     | What is shown                                                                                                             |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| No offer         | "You have not created an offer for this capability yet." Create offer button. Visible only when enrollment is `approved`. |
+| `draft`          | Offer headline preview. Edit and Submit buttons.                                                                          |
+| `pending_review` | Offer headline preview. "Under admin review."                                                                             |
+| `active`         | Offer headline preview. Edit, Archive buttons.                                                                            |
+| `rejected`       | Offer headline preview. Admin review note. Edit button to address feedback.                                               |
+| `suspended`      | Offer headline preview. Admin review note. No org action.                                                                 |
+| `archived`       | "Your offer is archived." Reopen link (which opens the edit form).                                                        |
 
 A link to the Activity page (incoming subscriptions) is shown when the enrollment is
 `approved` and the offer is `active`.
@@ -972,14 +982,14 @@ If the offer is in `rejected` state, prominently shows the admin review note at 
 
 Shows available actions based on current status:
 
-| Status | Available actions |
-|--------|-------------------|
-| `draft` | Edit, Submit for review, Archive |
-| `pending_review` | Archive (editing is not allowed while in review) |
-| `active` | Edit (with warning that editing will pause the offer pending re-review), Archive |
-| `rejected` | Edit to address feedback, Archive |
-| `suspended` | Archive only |
-| `archived` | Reopen for editing |
+| Status           | Available actions                                                                |
+| ---------------- | -------------------------------------------------------------------------------- |
+| `draft`          | Edit, Submit for review, Archive                                                 |
+| `pending_review` | Archive (editing is not allowed while in review)                                 |
+| `active`         | Edit (with warning that editing will pause the offer pending re-review), Archive |
+| `rejected`       | Edit to address feedback, Archive                                                |
+| `suspended`      | Archive only                                                                     |
+| `archived`       | Reopen for editing                                                               |
 
 ---
 
@@ -1044,10 +1054,10 @@ Shows the full subscription record from the provider's perspective:
 
 Available actions depend on current status:
 
-| Status | Available actions |
-|--------|-------------------|
-| `provider_review` | Approve, Reject (review note required) |
-| All other statuses | View only |
+| Status             | Available actions                      |
+| ------------------ | -------------------------------------- |
+| `provider_review`  | Approve, Reject (review note required) |
+| All other statuses | View only                              |
 
 ---
 
@@ -1144,11 +1154,11 @@ of active subscriptions.
 
 Available status actions:
 
-| Current status | Available action |
-|----------------|-----------------|
-| `draft` | Enable (moves to `active`) |
-| `active` | Disable (moves to `disabled`; cascades to offers) |
-| `disabled` | Re-enable (moves to `active`) |
+| Current status | Available action                                  |
+| -------------- | ------------------------------------------------- |
+| `draft`        | Enable (moves to `active`)                        |
+| `active`       | Disable (moves to `disabled`; cascades to offers) |
+| `disabled`     | Re-enable (moves to `active`)                     |
 
 Disabling a capability shows a confirmation warning listing the number of active offers
 that will be suspended as a result.
@@ -1219,13 +1229,13 @@ Clicking a row navigates to the enrollment detail page.
 
 Shows the full enrollment record and all available admin actions:
 
-| Current status | Available actions |
-|----------------|-----------------|
-| `approved` | Suspend (note required), Renew (update expires_at and billing_reference) |
-| `suspended` | Reinstate |
-| `expired` | Renew (reactivates without requiring reapplication) |
-| `rejected` | No admin action needed; org can reapply |
-| `pending_review` | Redirects to the enrollment applications page for this record |
+| Current status   | Available actions                                                        |
+| ---------------- | ------------------------------------------------------------------------ |
+| `approved`       | Suspend (note required), Renew (update expires_at and billing_reference) |
+| `suspended`      | Reinstate                                                                |
+| `expired`        | Renew (reactivates without requiring reapplication)                      |
+| `rejected`       | No admin action needed; org can reapply                                  |
+| `pending_review` | Redirects to the enrollment applications page for this record            |
 
 Renewing an expiring enrollment extends `expires_at` from the current value (for proactive
 renewal before lapse) or from now (if the enrollment has already expired).
@@ -1258,11 +1268,11 @@ enrollment record for context on their approval status.
 
 Available actions based on current offer status:
 
-| Status | Available admin actions |
-|--------|------------------------|
+| Status           | Available admin actions                                                            |
+| ---------------- | ---------------------------------------------------------------------------------- |
 | `pending_review` | Approve (moves to `active`; global catalog mirror updated), Reject (note required) |
-| `active` | Suspend (note required; global catalog mirror updated) |
-| `suspended` | Reinstate (moves to `active` if enrollment is still `approved`) |
+| `active`         | Suspend (note required; global catalog mirror updated)                             |
+| `suspended`      | Reinstate (moves to `active` if enrollment is still `approved`)                    |
 
 Approving an offer that belongs to a provider with an `expired` or `suspended` enrollment
 is blocked. The page shows the enrollment status as context.
@@ -1296,12 +1306,12 @@ A status timeline shows the history of state transitions (from audit logs).
 
 Available actions depend on current status:
 
-| Status | Available admin actions |
-|--------|------------------------|
-| `admin_review` | Approve (advances to next gate or active), Reject (note required) |
-| `awaiting_contract` | Mark Contract Signed, Waive Contract Requirement |
-| `awaiting_payment` | Record Payment (sets starts_at), Waive Payment Requirement |
-| Any non-terminal | Cancel |
+| Status              | Available admin actions                                           |
+| ------------------- | ----------------------------------------------------------------- |
+| `admin_review`      | Approve (advances to next gate or active), Reject (note required) |
+| `awaiting_contract` | Mark Contract Signed, Waive Contract Requirement                  |
+| `awaiting_payment`  | Record Payment (sets starts_at), Waive Payment Requirement        |
+| Any non-terminal    | Cancel                                                            |
 
 Waiving contract or payment requires an admin note explaining the reason (this note is
 stored in the billing record for audit purposes).
@@ -1480,17 +1490,17 @@ CREATE INDEX marketplace_subscriptions_consumer_org
 
 ## 14. Keyset Pagination Reference
 
-| Endpoint | Sort order | Cursor |
-|----------|------------|--------|
-| `capabilities/list` | `capability_slug ASC` | `capability_slug` |
-| `provider-enrollments/list` | `created_at DESC, capability_slug ASC` | `{created_at, capability_slug}` |
-| `providers/list` | `provider_org_domain ASC, capability_slug ASC` | `{provider_org_domain, capability_slug}` |
-| `consumer-subscriptions/list` | `updated_at DESC, provider_org_domain ASC, capability_slug ASC` | `{updated_at, provider_org_domain, capability_slug}` |
-| `incoming-subscriptions/list` | `updated_at DESC, consumer_org_domain ASC, capability_slug ASC` | `{updated_at, consumer_org_domain, capability_slug}` |
-| `admin/provider-enrollments/list` | `created_at DESC, org_domain ASC, capability_slug ASC` | `{created_at, org_domain, capability_slug}` |
-| `admin/provider-offers/list` | `updated_at DESC, org_domain ASC, capability_slug ASC` | `{updated_at, org_domain, capability_slug}` |
+| Endpoint                            | Sort order                                                                               | Cursor                                                                    |
+| ----------------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `capabilities/list`                 | `capability_slug ASC`                                                                    | `capability_slug`                                                         |
+| `provider-enrollments/list`         | `created_at DESC, capability_slug ASC`                                                   | `{created_at, capability_slug}`                                           |
+| `providers/list`                    | `provider_org_domain ASC, capability_slug ASC`                                           | `{provider_org_domain, capability_slug}`                                  |
+| `consumer-subscriptions/list`       | `updated_at DESC, provider_org_domain ASC, capability_slug ASC`                          | `{updated_at, provider_org_domain, capability_slug}`                      |
+| `incoming-subscriptions/list`       | `updated_at DESC, consumer_org_domain ASC, capability_slug ASC`                          | `{updated_at, consumer_org_domain, capability_slug}`                      |
+| `admin/provider-enrollments/list`   | `created_at DESC, org_domain ASC, capability_slug ASC`                                   | `{created_at, org_domain, capability_slug}`                               |
+| `admin/provider-offers/list`        | `updated_at DESC, org_domain ASC, capability_slug ASC`                                   | `{updated_at, org_domain, capability_slug}`                               |
 | `admin/consumer-subscriptions/list` | `updated_at DESC, consumer_org_domain ASC, provider_org_domain ASC, capability_slug ASC` | `{updated_at, consumer_org_domain, provider_org_domain, capability_slug}` |
-| `admin/billing/list` | `created_at DESC, consumer_org_domain ASC, provider_org_domain ASC, capability_slug ASC` | `{created_at, consumer_org_domain, provider_org_domain, capability_slug}` |
+| `admin/billing/list`                | `created_at DESC, consumer_org_domain ASC, provider_org_domain ASC, capability_slug ASC` | `{created_at, consumer_org_domain, provider_org_domain, capability_slug}` |
 
 All `limit` values must be between 1 and 100 inclusive.
 

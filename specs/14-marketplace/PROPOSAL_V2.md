@@ -607,8 +607,8 @@ Example request:
 
 ```json
 {
-  "org_domain": "acme.com",
-  "capability_slug": "talent-sourcing"
+	"org_domain": "acme.com",
+	"capability_slug": "talent-sourcing"
 }
 ```
 
@@ -630,9 +630,9 @@ Example request:
 
 ```json
 {
-  "org_domain": "acme.com",
-  "capability_slug": "talent-sourcing",
-  "offer_slug": "default"
+	"org_domain": "acme.com",
+	"capability_slug": "talent-sourcing",
+	"offer_slug": "default"
 }
 ```
 
@@ -645,8 +645,8 @@ Example request:
 
 ```json
 {
-  "capability_slug": "talent-sourcing",
-  "org_domain": "acme.com"
+	"capability_slug": "talent-sourcing",
+	"org_domain": "acme.com"
 }
 ```
 
@@ -666,9 +666,9 @@ Example request:
 
 ```json
 {
-  "consumer_org_domain": "globex.com",
-  "provider_org_domain": "acme.com",
-  "capability_slug": "talent-sourcing"
+	"consumer_org_domain": "globex.com",
+	"provider_org_domain": "acme.com",
+	"capability_slug": "talent-sourcing"
 }
 ```
 

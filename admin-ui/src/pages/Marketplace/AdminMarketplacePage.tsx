@@ -716,7 +716,10 @@ function EnrollmentsTab({ sessionToken, canManage }: EnrollmentsTabProps) {
 								danger?: boolean;
 							}> = [];
 							if (record.status === "pending_approval") {
-								actions.push({ action: "approve", label: t("actions.approve") });
+								actions.push({
+									action: "approve",
+									label: t("actions.approve"),
+								});
 								actions.push({
 									action: "reject",
 									label: t("actions.reject"),
@@ -760,14 +763,13 @@ function EnrollmentsTab({ sessionToken, canManage }: EnrollmentsTabProps) {
 			: []),
 	];
 
-	const modalTitle =
-		modalState ? t(`enrollments.modal.${modalState.action}.title`) : "";
+	const modalTitle = modalState
+		? t(`enrollments.modal.${modalState.action}.title`)
+		: "";
 	const needsNote =
-		modalState &&
-		["reject", "suspend"].includes(modalState.action);
+		modalState && ["reject", "suspend"].includes(modalState.action);
 	const hasOptionalFields =
-		modalState &&
-		["approve", "renew"].includes(modalState.action);
+		modalState && ["approve", "renew"].includes(modalState.action);
 
 	return (
 		<div>
@@ -782,13 +784,17 @@ function EnrollmentsTab({ sessionToken, canManage }: EnrollmentsTabProps) {
 						fetchEnrollments(true, val);
 					}}
 				>
-					{["pending_approval", "active", "rejected", "suspended", "expired"].map(
-						(s) => (
-							<Select.Option key={s} value={s}>
-								{s}
-							</Select.Option>
-						)
-					)}
+					{[
+						"pending_approval",
+						"active",
+						"rejected",
+						"suspended",
+						"expired",
+					].map((s) => (
+						<Select.Option key={s} value={s}>
+							{s}
+						</Select.Option>
+					))}
 				</Select>
 			</div>
 			<Spin spinning={loading}>
@@ -802,7 +808,9 @@ function EnrollmentsTab({ sessionToken, canManage }: EnrollmentsTabProps) {
 			</Spin>
 			{hasMore && (
 				<div style={{ marginTop: 16 }}>
-					<Button onClick={() => fetchEnrollments(false)}>{t("loadMore")}</Button>
+					<Button onClick={() => fetchEnrollments(false)}>
+						{t("loadMore")}
+					</Button>
 				</div>
 			)}
 
@@ -1082,7 +1090,10 @@ function OffersTab({ sessionToken, canManage }: OffersTabProps) {
 								danger?: boolean;
 							}> = [];
 							if (record.status === "pending_review") {
-								actions.push({ action: "approve", label: t("actions.approve") });
+								actions.push({
+									action: "approve",
+									label: t("actions.approve"),
+								});
 								actions.push({
 									action: "reject",
 									label: t("actions.reject"),
@@ -1165,9 +1176,7 @@ function OffersTab({ sessionToken, canManage }: OffersTabProps) {
 			)}
 
 			<Modal
-				title={
-					modalState ? t(`offers.modal.${modalState.action}.title`) : ""
-				}
+				title={modalState ? t(`offers.modal.${modalState.action}.title`) : ""}
 				open={!!modalState}
 				onCancel={() => {
 					setModalState(null);
@@ -1250,8 +1259,9 @@ function SubscriptionsTab({ sessionToken, canManage }: SubscriptionsTabProps) {
 	const [hasMore, setHasMore] = useState(false);
 	const [filterStatus, setFilterStatus] = useState<string | undefined>();
 
-	const [modalState, setModalState] =
-		useState<SubscriptionModalState | null>(null);
+	const [modalState, setModalState] = useState<SubscriptionModalState | null>(
+		null
+	);
 	const [actionLoading, setActionLoading] = useState(false);
 	const [actionForm] = Form.useForm();
 
@@ -1345,7 +1355,10 @@ function SubscriptionsTab({ sessionToken, canManage }: SubscriptionsTabProps) {
 				case "markContractSigned":
 					endpoint =
 						"/admin/marketplace/consumer-subscriptions/mark-contract-signed";
-					body = { ...base, note: values.note || undefined } as AdminMarkContractSignedRequest;
+					body = {
+						...base,
+						note: values.note || undefined,
+					} as AdminMarkContractSignedRequest;
 					break;
 				case "waiveContract":
 					endpoint = "/admin/marketplace/consumer-subscriptions/waive-contract";
@@ -1353,7 +1366,10 @@ function SubscriptionsTab({ sessionToken, canManage }: SubscriptionsTabProps) {
 					break;
 				case "recordPayment":
 					endpoint = "/admin/marketplace/consumer-subscriptions/record-payment";
-					body = { ...base, note: values.note || undefined } as AdminRecordPaymentRequest;
+					body = {
+						...base,
+						note: values.note || undefined,
+					} as AdminRecordPaymentRequest;
 					break;
 				case "waivePayment":
 					endpoint = "/admin/marketplace/consumer-subscriptions/waive-payment";
@@ -1452,14 +1468,20 @@ function SubscriptionsTab({ sessionToken, canManage }: SubscriptionsTabProps) {
 								danger?: boolean;
 							}> = [];
 							if (record.status === "pending_admin_approval") {
-								actions.push({ action: "approve", label: t("actions.approve") });
+								actions.push({
+									action: "approve",
+									label: t("actions.approve"),
+								});
 								actions.push({
 									action: "reject",
 									label: t("actions.reject"),
 									danger: true,
 								});
 							}
-							if (record.status === "active" || record.status === "pending_contract") {
+							if (
+								record.status === "active" ||
+								record.status === "pending_contract"
+							) {
 								actions.push({
 									action: "markContractSigned",
 									label: t("actions.markContractSigned"),
@@ -1469,7 +1491,10 @@ function SubscriptionsTab({ sessionToken, canManage }: SubscriptionsTabProps) {
 									label: t("actions.waiveContract"),
 								});
 							}
-							if (record.status === "active" || record.status === "pending_payment") {
+							if (
+								record.status === "active" ||
+								record.status === "pending_payment"
+							) {
 								actions.push({
 									action: "recordPayment",
 									label: t("actions.recordPayment"),
@@ -1510,7 +1535,8 @@ function SubscriptionsTab({ sessionToken, canManage }: SubscriptionsTabProps) {
 	];
 
 	const requiresNote =
-		modalState && ["reject", "waiveContract", "waivePayment"].includes(modalState.action);
+		modalState &&
+		["reject", "waiveContract", "waivePayment"].includes(modalState.action);
 	const hasOptionalNote =
 		modalState &&
 		["approve", "markContractSigned", "recordPayment"].includes(
@@ -1566,9 +1592,7 @@ function SubscriptionsTab({ sessionToken, canManage }: SubscriptionsTabProps) {
 
 			<Modal
 				title={
-					modalState
-						? t(`subscriptions.modal.${modalState.action}.title`)
-						: ""
+					modalState ? t(`subscriptions.modal.${modalState.action}.title`) : ""
 				}
 				open={!!modalState}
 				onCancel={() => {
@@ -1773,9 +1797,7 @@ export function AdminMarketplacePage() {
 			key: "offers",
 			label: t("tabs.offers"),
 			icon: <PlusOutlined />,
-			children: (
-				<OffersTab sessionToken={sessionToken} canManage={canManage} />
-			),
+			children: <OffersTab sessionToken={sessionToken} canManage={canManage} />,
 		},
 		{
 			key: "subscriptions",

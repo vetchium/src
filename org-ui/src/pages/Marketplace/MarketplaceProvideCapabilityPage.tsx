@@ -252,9 +252,7 @@ export function MarketplaceProvideCapabilityPage() {
 					{enrollment && (
 						<Descriptions column={{ xs: 1, sm: 2 }} size="small">
 							{enrollment.approved_at && (
-								<Descriptions.Item
-									label={t("provideCapability.approvedAt")}
-								>
+								<Descriptions.Item label={t("provideCapability.approvedAt")}>
 									{new Date(enrollment.approved_at).toLocaleString()}
 								</Descriptions.Item>
 							)}
@@ -286,9 +284,7 @@ export function MarketplaceProvideCapabilityPage() {
 							<Button
 								type="primary"
 								onClick={() =>
-									navigate(
-										`/marketplace/provide/${capability_slug}/apply`
-									)
+									navigate(`/marketplace/provide/${capability_slug}/apply`)
 								}
 							>
 								{enrollment
@@ -349,9 +345,7 @@ export function MarketplaceProvideCapabilityPage() {
 								{offer && (
 									<Button
 										onClick={() =>
-											navigate(
-												`/marketplace/provide/${capability_slug}/offer`
-											)
+											navigate(`/marketplace/provide/${capability_slug}/offer`)
 										}
 									>
 										{t("provideCapability.editOfferButton")}
@@ -367,8 +361,7 @@ export function MarketplaceProvideCapabilityPage() {
 									</Button>
 								)}
 								{offer &&
-									(offer.status === "draft" ||
-										offer.status === "rejected") && (
+									(offer.status === "draft" || offer.status === "rejected") && (
 										<Button
 											danger
 											loading={actionLoading}
@@ -388,9 +381,7 @@ export function MarketplaceProvideCapabilityPage() {
 				<div>
 					<Button
 						onClick={() =>
-							navigate(
-								`/marketplace/provide/${capability_slug}/activity`
-							)
+							navigate(`/marketplace/provide/${capability_slug}/activity`)
 						}
 					>
 						{t("provideCapability.viewActivityButton")}

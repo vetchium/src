@@ -51,17 +51,14 @@ export function MarketplaceProvideDashboard() {
 		try {
 			const baseUrl = await getApiBaseUrl();
 			const req: ListMarketplaceCapabilitiesRequest = { limit: 100 };
-			const resp = await fetch(
-				`${baseUrl}/org/marketplace/capabilities/list`,
-				{
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-						Authorization: `Bearer ${sessionToken}`,
-					},
-					body: JSON.stringify(req),
-				}
-			);
+			const resp = await fetch(`${baseUrl}/org/marketplace/capabilities/list`, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${sessionToken}`,
+				},
+				body: JSON.stringify(req),
+			});
 			if (resp.status === 200) {
 				const data = await resp.json();
 				const map = new Map<string, MarketplaceCapability>();
@@ -127,8 +124,7 @@ export function MarketplaceProvideDashboard() {
 			title: t("provide.dashboardTitle"),
 			dataIndex: "capability_slug",
 			key: "capability_slug",
-			render: (slug: string) =>
-				capabilities.get(slug)?.display_name ?? slug,
+			render: (slug: string) => capabilities.get(slug)?.display_name ?? slug,
 		},
 		{
 			title: t("provide.enrollmentsTitle"),

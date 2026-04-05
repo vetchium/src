@@ -17,13 +17,13 @@ const AdminRoleManageMarketplace AdminRole = "admin:manage_marketplace"
 var adminCapabilitySlugRegex = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$`)
 
 const (
-	adminMinCapabilitySlugLen    = 3
-	adminMaxCapabilitySlugLen    = 50
-	adminMaxDisplayNameLen       = 100
-	adminMaxReviewNoteLen        = 2000
-	adminMaxBillingReferenceLen  = 200
-	adminMaxPricingHintLen       = 200
-	adminMaxDescriptionLen       = 5000
+	adminMinCapabilitySlugLen   = 3
+	adminMaxCapabilitySlugLen   = 50
+	adminMaxDisplayNameLen      = 100
+	adminMaxReviewNoteLen       = 2000
+	adminMaxBillingReferenceLen = 200
+	adminMaxPricingHintLen      = 200
+	adminMaxDescriptionLen      = 5000
 )
 
 var validEnrollmentApproval = map[string]bool{
@@ -37,9 +37,9 @@ var validOfferReview = map[string]bool{
 }
 
 var validSubscriptionApproval = map[string]bool{
-	"direct":           true,
-	"provider":         true,
-	"admin":            true,
+	"direct":             true,
+	"provider":           true,
+	"admin":              true,
 	"provider_and_admin": true,
 }
 
@@ -258,11 +258,11 @@ func (r AdminDisableCapabilityRequest) Validate() []common.ValidationError {
 // ---- Enrollment request types ----
 
 type AdminListEnrollmentsRequest struct {
-	FilterOrgDomain       *string `json:"filter_org_domain,omitempty"`
-	FilterCapabilitySlug  *string `json:"filter_capability_slug,omitempty"`
-	FilterStatus          *string `json:"filter_status,omitempty"`
-	PaginationKey         *string `json:"pagination_key,omitempty"`
-	Limit                 *int    `json:"limit,omitempty"`
+	FilterOrgDomain      *string `json:"filter_org_domain,omitempty"`
+	FilterCapabilitySlug *string `json:"filter_capability_slug,omitempty"`
+	FilterStatus         *string `json:"filter_status,omitempty"`
+	PaginationKey        *string `json:"pagination_key,omitempty"`
+	Limit                *int    `json:"limit,omitempty"`
 }
 
 func (r AdminListEnrollmentsRequest) Validate() []common.ValidationError {

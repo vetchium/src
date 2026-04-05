@@ -115,9 +115,7 @@ export function MarketplaceCapabilitiesPage() {
 									hoverable
 									style={{ height: "100%", cursor: "pointer" }}
 									onClick={() =>
-										navigate(
-											`/marketplace/capabilities/${cap.capability_slug}`
-										)
+										navigate(`/marketplace/capabilities/${cap.capability_slug}`)
 									}
 								>
 									<div

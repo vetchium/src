@@ -189,9 +189,7 @@ export function MarketplaceProvideOfferEditPage() {
 								},
 							]}
 						>
-							<Input
-								placeholder={t("provideOfferEdit.headlinePlaceholder")}
-							/>
+							<Input placeholder={t("provideOfferEdit.headlinePlaceholder")} />
 						</Form.Item>
 
 						<Form.Item
@@ -256,9 +254,7 @@ export function MarketplaceProvideOfferEditPage() {
 							name="pricing_hint"
 							label={t("provideOfferEdit.pricingLabel")}
 						>
-							<Input
-								placeholder={t("provideOfferEdit.pricingPlaceholder")}
-							/>
+							<Input placeholder={t("provideOfferEdit.pricingPlaceholder")} />
 						</Form.Item>
 
 						<Form.Item

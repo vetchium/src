@@ -177,10 +177,7 @@ export function MarketplaceProviderOfferPage() {
 								{offer.contact_value}
 							</Descriptions.Item>
 							{offer.pricing_hint && (
-								<Descriptions.Item
-									label={t("providerOffer.pricing")}
-									span={2}
-								>
+								<Descriptions.Item label={t("providerOffer.pricing")} span={2}>
 									{offer.pricing_hint}
 								</Descriptions.Item>
 							)}

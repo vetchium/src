@@ -207,33 +207,23 @@ export function MarketplaceProvideActivityDetailPage() {
 							bordered
 							style={{ marginBottom: 24 }}
 						>
-							<Descriptions.Item
-								label={t("provideActivityDetail.consumer")}
-							>
+							<Descriptions.Item label={t("provideActivityDetail.consumer")}>
 								{subscription.consumer_org_domain}
 							</Descriptions.Item>
-							<Descriptions.Item
-								label={t("provideActivityDetail.capability")}
-							>
+							<Descriptions.Item label={t("provideActivityDetail.capability")}>
 								{subscription.capability_slug}
 							</Descriptions.Item>
-							<Descriptions.Item
-								label={t("provideActivityDetail.status")}
-							>
+							<Descriptions.Item label={t("provideActivityDetail.status")}>
 								<Tag color={subscriptionStatusColor(subscription.status)}>
 									{t(
 										`provideActivityDetail.subscriptionStatuses.${subscription.status}`
 									)}
 								</Tag>
 							</Descriptions.Item>
-							<Descriptions.Item
-								label={t("provideActivityDetail.createdAt")}
-							>
+							<Descriptions.Item label={t("provideActivityDetail.createdAt")}>
 								{new Date(subscription.created_at).toLocaleString()}
 							</Descriptions.Item>
-							<Descriptions.Item
-								label={t("provideActivityDetail.updatedAt")}
-							>
+							<Descriptions.Item label={t("provideActivityDetail.updatedAt")}>
 								{new Date(subscription.updated_at).toLocaleString()}
 							</Descriptions.Item>
 							{subscription.request_note && (
@@ -294,9 +284,7 @@ export function MarketplaceProvideActivityDetailPage() {
 						>
 							<TextArea
 								rows={4}
-								placeholder={t(
-									"provideActivityDetail.rejectNotePlaceholder"
-								)}
+								placeholder={t("provideActivityDetail.rejectNotePlaceholder")}
 								value={rejectNote}
 								onChange={(e) => setRejectNote(e.target.value)}
 							/>

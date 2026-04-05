@@ -1,13 +1,5 @@
 import { ArrowLeftOutlined } from "@ant-design/icons";
-import {
-	App,
-	Button,
-	Descriptions,
-	Modal,
-	Spin,
-	Tag,
-	Typography,
-} from "antd";
+import { App, Button, Descriptions, Modal, Spin, Tag, Typography } from "antd";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useParams } from "react-router-dom";

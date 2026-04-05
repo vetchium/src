@@ -191,14 +191,10 @@ export function MarketplaceCapabilityDetailPage() {
 										{provider.summary}
 									</Paragraph>
 									<Descriptions size="small" column={1}>
-										<Descriptions.Item
-											label={t("capabilityDetail.regions")}
-										>
+										<Descriptions.Item label={t("capabilityDetail.regions")}>
 											{provider.regions_served.join(", ")}
 										</Descriptions.Item>
-										<Descriptions.Item
-											label={t("capabilityDetail.contact")}
-										>
+										<Descriptions.Item label={t("capabilityDetail.contact")}>
 											<Tag>
 												{t(
 													`capabilityDetail.contactModes.${provider.contact_mode}`
