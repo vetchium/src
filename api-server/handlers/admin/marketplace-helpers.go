@@ -7,6 +7,7 @@ import (
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	admintypes "vetchium-api-server.typespec/admin"
+	org "vetchium-api-server.typespec/org"
 )
 
 // adminCapabilityToAPI converts a globaldb MarketplaceCapability to the admin API type.
@@ -22,7 +23,7 @@ func adminCapabilityToAPI(c globaldb.MarketplaceCapability) admintypes.AdminMark
 		SubscriptionApproval: c.SubscriptionApproval,
 		ContractRequired:     c.ContractRequired,
 		PaymentRequired:      c.PaymentRequired,
-		Status:               c.Status,
+		Status:               org.MarketplaceCapabilityStatus(c.Status),
 		CreatedAt:            c.CreatedAt.Time.UTC().Format(time.RFC3339),
 		UpdatedAt:            c.UpdatedAt.Time.UTC().Format(time.RFC3339),
 	}
@@ -37,7 +38,7 @@ func adminEnrollmentToAPI(orgDomain string, e regionaldb.MarketplaceEnrollment) 
 	result := admintypes.AdminMarketplaceEnrollment{
 		OrgDomain:      orgDomain,
 		CapabilitySlug: e.CapabilitySlug,
-		Status:         string(e.Status),
+		Status:         org.MarketplaceEnrollmentStatus(e.Status),
 		BillingStatus:  e.BillingStatus,
 		CreatedAt:      e.CreatedAt.Time.UTC().Format(time.RFC3339),
 		UpdatedAt:      e.UpdatedAt.Time.UTC().Format(time.RFC3339),
@@ -71,9 +72,9 @@ func adminOfferToAPI(orgDomain string, o regionaldb.MarketplaceOffer) admintypes
 		Summary:        o.Summary,
 		Description:    o.Description,
 		RegionsServed:  o.RegionsServed,
-		ContactMode:    o.ContactMode,
+		ContactMode:    org.MarketplaceContactMode(o.ContactMode),
 		ContactValue:   o.ContactValue,
-		Status:         string(o.Status),
+		Status:         org.MarketplaceOfferStatus(o.Status),
 		CreatedAt:      o.CreatedAt.Time.UTC().Format(time.RFC3339),
 		UpdatedAt:      o.UpdatedAt.Time.UTC().Format(time.RFC3339),
 	}
@@ -92,7 +93,7 @@ func adminSubscriptionToAPI(s regionaldb.MarketplaceSubscription) admintypes.Adm
 		ConsumerOrgDomain:      s.ConsumerOrgDomain,
 		ProviderOrgDomain:      s.ProviderOrgDomain,
 		CapabilitySlug:         s.CapabilitySlug,
-		Status:                 string(s.Status),
+		Status:                 org.MarketplaceSubscriptionStatus(s.Status),
 		RequiresProviderReview: s.RequiresProviderReview,
 		RequiresAdminReview:    s.RequiresAdminReview,
 		RequiresContract:       s.RequiresContract,

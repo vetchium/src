@@ -227,6 +227,32 @@ TypeScript validators: `validate{TypeName}(request): ValidationError[]`. Field v
 
 Go: types from `vetchium-api-server.typespec/{package}` with `.Validate()` method returning `[]ValidationError`.
 
+### Enum Types: No String Literals
+
+**CRITICAL**: TypeSpec enums compile to TypeScript union types (e.g. `type MarketplaceEnrollmentStatus = "pending_review" | "approved" | ...`). These have no runtime value — there is no `MarketplaceEnrollmentStatus.pending_review` constant. But they MUST still be used to get compile-time safety.
+
+Rules:
+
+1. **In `.tsp` files**: use enum types for all status/mode fields — never `string`. Cross-namespace enums require an explicit import (`import "../org/marketplace.tsp"`).
+2. **In `.ts` files**: model fields and `filter_status` request fields must use the enum type, not `string`. Cross-package enums must be imported explicitly.
+3. **In `.go` files**: same — use the typed enum, not `string`. Import the package and cast with `org.MarketplaceEnrollmentStatus(dbRow.Status)`.
+4. **In frontend UI**: annotate status arrays and comparisons with the enum type so TypeScript catches wrong literals:
+
+```typescript
+// ✅ CORRECT — TypeScript flags "pending_approval" as a type error
+import type { MarketplaceEnrollmentStatus } from "vetchium-specs/org/marketplace";
+const filterOptions: MarketplaceEnrollmentStatus[] = [
+    "pending_review", "active", "rejected", "suspended", "expired",
+];
+if (record.status === "pending_review") { ... }  // record.status: MarketplaceEnrollmentStatus
+
+// ❌ WRONG — untyped; any typo silently passes
+const filterOptions = ["pending_approval", ...];   // "pending_approval" doesn't exist
+if (record.status === "pending_approval") { ... }  // status: string — no error raised
+```
+
+The pattern that caused the `"pending_approval"` bug: admin TypeSpec used `status: string` instead of the proper enum type, so TypeScript had no basis to reject the wrong literal. Always use the narrowest possible type.
+
 ## Frontend Architecture
 
 ```

@@ -5,6 +5,7 @@ import (
 	"regexp"
 
 	"vetchium-api-server.typespec/common"
+	org "vetchium-api-server.typespec/org"
 )
 
 // ---- Admin Role constants ----
@@ -59,67 +60,67 @@ func validateAdminCapabilitySlug(slug string) error {
 // ---- Response models ----
 
 type AdminMarketplaceCapability struct {
-	CapabilitySlug       string  `json:"capability_slug"`
-	DisplayName          string  `json:"display_name"`
-	Description          string  `json:"description"`
-	ProviderEnabled      bool    `json:"provider_enabled"`
-	ConsumerEnabled      bool    `json:"consumer_enabled"`
-	EnrollmentApproval   string  `json:"enrollment_approval"`
-	OfferReview          string  `json:"offer_review"`
-	SubscriptionApproval string  `json:"subscription_approval"`
-	ContractRequired     bool    `json:"contract_required"`
-	PaymentRequired      bool    `json:"payment_required"`
-	PricingHint          *string `json:"pricing_hint,omitempty"`
-	Status               string  `json:"status"`
-	CreatedAt            string  `json:"created_at"`
-	UpdatedAt            string  `json:"updated_at"`
+	CapabilitySlug       string                          `json:"capability_slug"`
+	DisplayName          string                          `json:"display_name"`
+	Description          string                          `json:"description"`
+	ProviderEnabled      bool                            `json:"provider_enabled"`
+	ConsumerEnabled      bool                            `json:"consumer_enabled"`
+	EnrollmentApproval   string                          `json:"enrollment_approval"`
+	OfferReview          string                          `json:"offer_review"`
+	SubscriptionApproval string                          `json:"subscription_approval"`
+	ContractRequired     bool                            `json:"contract_required"`
+	PaymentRequired      bool                            `json:"payment_required"`
+	PricingHint          *string                         `json:"pricing_hint,omitempty"`
+	Status               org.MarketplaceCapabilityStatus `json:"status"`
+	CreatedAt            string                          `json:"created_at"`
+	UpdatedAt            string                          `json:"updated_at"`
 }
 
 type AdminMarketplaceEnrollment struct {
-	OrgDomain        string  `json:"org_domain"`
-	CapabilitySlug   string  `json:"capability_slug"`
-	Status           string  `json:"status"`
-	ApplicationNote  *string `json:"application_note,omitempty"`
-	ReviewNote       *string `json:"review_note,omitempty"`
-	ApprovedAt       *string `json:"approved_at,omitempty"`
-	ExpiresAt        *string `json:"expires_at,omitempty"`
-	BillingReference *string `json:"billing_reference,omitempty"`
-	BillingStatus    string  `json:"billing_status"`
-	CreatedAt        string  `json:"created_at"`
-	UpdatedAt        string  `json:"updated_at"`
+	OrgDomain        string                          `json:"org_domain"`
+	CapabilitySlug   string                          `json:"capability_slug"`
+	Status           org.MarketplaceEnrollmentStatus `json:"status"`
+	ApplicationNote  *string                         `json:"application_note,omitempty"`
+	ReviewNote       *string                         `json:"review_note,omitempty"`
+	ApprovedAt       *string                         `json:"approved_at,omitempty"`
+	ExpiresAt        *string                         `json:"expires_at,omitempty"`
+	BillingReference *string                         `json:"billing_reference,omitempty"`
+	BillingStatus    string                          `json:"billing_status"`
+	CreatedAt        string                          `json:"created_at"`
+	UpdatedAt        string                          `json:"updated_at"`
 }
 
 type AdminMarketplaceOffer struct {
-	OrgDomain      string   `json:"org_domain"`
-	CapabilitySlug string   `json:"capability_slug"`
-	Headline       string   `json:"headline"`
-	Summary        string   `json:"summary"`
-	Description    string   `json:"description"`
-	RegionsServed  []string `json:"regions_served"`
-	PricingHint    *string  `json:"pricing_hint,omitempty"`
-	ContactMode    string   `json:"contact_mode"`
-	ContactValue   string   `json:"contact_value"`
-	Status         string   `json:"status"`
-	ReviewNote     *string  `json:"review_note,omitempty"`
-	CreatedAt      string   `json:"created_at"`
-	UpdatedAt      string   `json:"updated_at"`
+	OrgDomain      string                     `json:"org_domain"`
+	CapabilitySlug string                     `json:"capability_slug"`
+	Headline       string                     `json:"headline"`
+	Summary        string                     `json:"summary"`
+	Description    string                     `json:"description"`
+	RegionsServed  []string                   `json:"regions_served"`
+	PricingHint    *string                    `json:"pricing_hint,omitempty"`
+	ContactMode    org.MarketplaceContactMode `json:"contact_mode"`
+	ContactValue   string                     `json:"contact_value"`
+	Status         org.MarketplaceOfferStatus `json:"status"`
+	ReviewNote     *string                    `json:"review_note,omitempty"`
+	CreatedAt      string                     `json:"created_at"`
+	UpdatedAt      string                     `json:"updated_at"`
 }
 
 type AdminMarketplaceSubscription struct {
-	ConsumerOrgDomain      string  `json:"consumer_org_domain"`
-	ProviderOrgDomain      string  `json:"provider_org_domain"`
-	CapabilitySlug         string  `json:"capability_slug"`
-	RequestNote            *string `json:"request_note,omitempty"`
-	Status                 string  `json:"status"`
-	ReviewNote             *string `json:"review_note,omitempty"`
-	RequiresProviderReview bool    `json:"requires_provider_review"`
-	RequiresAdminReview    bool    `json:"requires_admin_review"`
-	RequiresContract       bool    `json:"requires_contract"`
-	RequiresPayment        bool    `json:"requires_payment"`
-	StartsAt               *string `json:"starts_at,omitempty"`
-	ExpiresAt              *string `json:"expires_at,omitempty"`
-	CreatedAt              string  `json:"created_at"`
-	UpdatedAt              string  `json:"updated_at"`
+	ConsumerOrgDomain      string                            `json:"consumer_org_domain"`
+	ProviderOrgDomain      string                            `json:"provider_org_domain"`
+	CapabilitySlug         string                            `json:"capability_slug"`
+	RequestNote            *string                           `json:"request_note,omitempty"`
+	Status                 org.MarketplaceSubscriptionStatus `json:"status"`
+	ReviewNote             *string                           `json:"review_note,omitempty"`
+	RequiresProviderReview bool                              `json:"requires_provider_review"`
+	RequiresAdminReview    bool                              `json:"requires_admin_review"`
+	RequiresContract       bool                              `json:"requires_contract"`
+	RequiresPayment        bool                              `json:"requires_payment"`
+	StartsAt               *string                           `json:"starts_at,omitempty"`
+	ExpiresAt              *string                           `json:"expires_at,omitempty"`
+	CreatedAt              string                            `json:"created_at"`
+	UpdatedAt              string                            `json:"updated_at"`
 }
 
 type AdminBillingRecord struct {
@@ -258,11 +259,11 @@ func (r AdminDisableCapabilityRequest) Validate() []common.ValidationError {
 // ---- Enrollment request types ----
 
 type AdminListEnrollmentsRequest struct {
-	FilterOrgDomain      *string `json:"filter_org_domain,omitempty"`
-	FilterCapabilitySlug *string `json:"filter_capability_slug,omitempty"`
-	FilterStatus         *string `json:"filter_status,omitempty"`
-	PaginationKey        *string `json:"pagination_key,omitempty"`
-	Limit                *int    `json:"limit,omitempty"`
+	FilterOrgDomain      *string                          `json:"filter_org_domain,omitempty"`
+	FilterCapabilitySlug *string                          `json:"filter_capability_slug,omitempty"`
+	FilterStatus         *org.MarketplaceEnrollmentStatus `json:"filter_status,omitempty"`
+	PaginationKey        *string                          `json:"pagination_key,omitempty"`
+	Limit                *int                             `json:"limit,omitempty"`
 }
 
 func (r AdminListEnrollmentsRequest) Validate() []common.ValidationError {
@@ -395,11 +396,11 @@ func (r AdminRenewEnrollmentRequest) Validate() []common.ValidationError {
 // ---- Offer request types ----
 
 type AdminListOffersRequest struct {
-	FilterOrgDomain      *string `json:"filter_org_domain,omitempty"`
-	FilterCapabilitySlug *string `json:"filter_capability_slug,omitempty"`
-	FilterStatus         *string `json:"filter_status,omitempty"`
-	PaginationKey        *string `json:"pagination_key,omitempty"`
-	Limit                *int    `json:"limit,omitempty"`
+	FilterOrgDomain      *string                     `json:"filter_org_domain,omitempty"`
+	FilterCapabilitySlug *string                     `json:"filter_capability_slug,omitempty"`
+	FilterStatus         *org.MarketplaceOfferStatus `json:"filter_status,omitempty"`
+	PaginationKey        *string                     `json:"pagination_key,omitempty"`
+	Limit                *int                        `json:"limit,omitempty"`
 }
 
 func (r AdminListOffersRequest) Validate() []common.ValidationError {
@@ -503,12 +504,12 @@ func (r AdminReinstateOfferRequest) Validate() []common.ValidationError {
 // ---- Subscription request types ----
 
 type AdminListSubscriptionsRequest struct {
-	FilterConsumerOrgDomain *string `json:"filter_consumer_org_domain,omitempty"`
-	FilterProviderOrgDomain *string `json:"filter_provider_org_domain,omitempty"`
-	FilterCapabilitySlug    *string `json:"filter_capability_slug,omitempty"`
-	FilterStatus            *string `json:"filter_status,omitempty"`
-	PaginationKey           *string `json:"pagination_key,omitempty"`
-	Limit                   *int    `json:"limit,omitempty"`
+	FilterConsumerOrgDomain *string                            `json:"filter_consumer_org_domain,omitempty"`
+	FilterProviderOrgDomain *string                            `json:"filter_provider_org_domain,omitempty"`
+	FilterCapabilitySlug    *string                            `json:"filter_capability_slug,omitempty"`
+	FilterStatus            *org.MarketplaceSubscriptionStatus `json:"filter_status,omitempty"`
+	PaginationKey           *string                            `json:"pagination_key,omitempty"`
+	Limit                   *int                               `json:"limit,omitempty"`
 }
 
 func (r AdminListSubscriptionsRequest) Validate() []common.ValidationError {

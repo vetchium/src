@@ -255,7 +255,7 @@ export function EnrollmentsPage() {
 								label: string;
 								danger?: boolean;
 							}> = [];
-							if (record.status === "pending_approval") {
+							if (record.status === "pending_review") {
 								actions.push({
 									action: "approve",
 									label: t("actions.approve"),
@@ -340,17 +340,13 @@ export function EnrollmentsPage() {
 						fetchEnrollments(true, val);
 					}}
 				>
-					{[
-						"pending_approval",
-						"active",
-						"rejected",
-						"suspended",
-						"expired",
-					].map((s) => (
-						<Select.Option key={s} value={s}>
-							{s}
-						</Select.Option>
-					))}
+					{["pending_review", "active", "rejected", "suspended", "expired"].map(
+						(s) => (
+							<Select.Option key={s} value={s}>
+								{s}
+							</Select.Option>
+						)
+					)}
 				</Select>
 			</div>
 			<Spin spinning={loading}>

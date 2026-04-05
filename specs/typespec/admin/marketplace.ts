@@ -1,4 +1,11 @@
 import { type ValidationError, newValidationError } from "../common/common";
+import type {
+	MarketplaceCapabilityStatus,
+	MarketplaceContactMode,
+	MarketplaceEnrollmentStatus,
+	MarketplaceOfferStatus,
+	MarketplaceSubscriptionStatus,
+} from "../org/marketplace";
 
 // ---- Models ----
 
@@ -14,7 +21,7 @@ export interface AdminMarketplaceCapability {
 	contract_required: boolean;
 	payment_required: boolean;
 	pricing_hint?: string;
-	status: string;
+	status: MarketplaceCapabilityStatus;
 	created_at: string;
 	updated_at: string;
 }
@@ -22,7 +29,7 @@ export interface AdminMarketplaceCapability {
 export interface AdminMarketplaceEnrollment {
 	org_domain: string;
 	capability_slug: string;
-	status: string;
+	status: MarketplaceEnrollmentStatus;
 	application_note?: string;
 	review_note?: string;
 	approved_at?: string;
@@ -41,9 +48,9 @@ export interface AdminMarketplaceOffer {
 	description: string;
 	regions_served: string[];
 	pricing_hint?: string;
-	contact_mode: string;
+	contact_mode: MarketplaceContactMode;
 	contact_value: string;
-	status: string;
+	status: MarketplaceOfferStatus;
 	review_note?: string;
 	created_at: string;
 	updated_at: string;
@@ -54,7 +61,7 @@ export interface AdminMarketplaceSubscription {
 	provider_org_domain: string;
 	capability_slug: string;
 	request_note?: string;
-	status: string;
+	status: MarketplaceSubscriptionStatus;
 	review_note?: string;
 	requires_provider_review: boolean;
 	requires_admin_review: boolean;
@@ -178,7 +185,7 @@ export interface AdminDisableCapabilityRequest {
 export interface AdminListEnrollmentsRequest {
 	filter_org_domain?: string;
 	filter_capability_slug?: string;
-	filter_status?: string;
+	filter_status?: MarketplaceEnrollmentStatus;
 	pagination_key?: string;
 	limit?: number;
 }
@@ -231,7 +238,7 @@ export interface AdminRenewEnrollmentRequest {
 export interface AdminListOffersRequest {
 	filter_org_domain?: string;
 	filter_capability_slug?: string;
-	filter_status?: string;
+	filter_status?: MarketplaceOfferStatus;
 	pagination_key?: string;
 	limit?: number;
 }
@@ -275,7 +282,7 @@ export interface AdminListSubscriptionsRequest {
 	filter_consumer_org_domain?: string;
 	filter_provider_org_domain?: string;
 	filter_capability_slug?: string;
-	filter_status?: string;
+	filter_status?: MarketplaceSubscriptionStatus;
 	pagination_key?: string;
 	limit?: number;
 }

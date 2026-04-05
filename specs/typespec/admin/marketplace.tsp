@@ -3,6 +3,7 @@ import "@typespec/rest";
 import "@typespec/openapi3";
 
 import "../common/common.tsp";
+import "../org/marketplace.tsp";
 
 using TypeSpec.Http;
 
@@ -22,7 +23,7 @@ model AdminMarketplaceCapability {
   contract_required: boolean;
   payment_required: boolean;
   pricing_hint?: string;
-  status: string;
+  status: MarketplaceCapabilityStatus;
   created_at: string;
   updated_at: string;
 }
@@ -30,7 +31,7 @@ model AdminMarketplaceCapability {
 model AdminMarketplaceEnrollment {
   org_domain: string;
   capability_slug: string;
-  status: string;
+  status: MarketplaceEnrollmentStatus;
   application_note?: string;
   review_note?: string;
   approved_at?: string;
@@ -49,9 +50,9 @@ model AdminMarketplaceOffer {
   description: string;
   regions_served: string[];
   pricing_hint?: string;
-  contact_mode: string;
+  contact_mode: MarketplaceContactMode;
   contact_value: string;
-  status: string;
+  status: MarketplaceOfferStatus;
   review_note?: string;
   created_at: string;
   updated_at: string;
@@ -62,7 +63,7 @@ model AdminMarketplaceSubscription {
   provider_org_domain: string;
   capability_slug: string;
   request_note?: string;
-  status: string;
+  status: MarketplaceSubscriptionStatus;
   review_note?: string;
   requires_provider_review: boolean;
   requires_admin_review: boolean;
@@ -140,7 +141,7 @@ model AdminDisableCapabilityRequest {
 model AdminListEnrollmentsRequest {
   filter_org_domain?: string;
   filter_capability_slug?: string;
-  filter_status?: string;
+  filter_status?: MarketplaceEnrollmentStatus;
   pagination_key?: string;
   limit?: int32;
 }
@@ -193,7 +194,7 @@ model AdminRenewEnrollmentRequest {
 model AdminListOffersRequest {
   filter_org_domain?: string;
   filter_capability_slug?: string;
-  filter_status?: string;
+  filter_status?: MarketplaceOfferStatus;
   pagination_key?: string;
   limit?: int32;
 }
@@ -237,7 +238,7 @@ model AdminListSubscriptionsRequest {
   filter_consumer_org_domain?: string;
   filter_provider_org_domain?: string;
   filter_capability_slug?: string;
-  filter_status?: string;
+  filter_status?: MarketplaceSubscriptionStatus;
   pagination_key?: string;
   limit?: int32;
 }
