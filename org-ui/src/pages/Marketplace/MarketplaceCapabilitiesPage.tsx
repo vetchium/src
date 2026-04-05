@@ -33,6 +33,7 @@ export function MarketplaceCapabilitiesPage() {
 
 	const [capabilities, setCapabilities] = useState<MarketplaceCapability[]>([]);
 	const [loading, setLoading] = useState(false);
+	const [loadError, setLoadError] = useState(false);
 	const [nextPaginationKey, setNextPaginationKey] = useState<
 		string | undefined
 	>(undefined);
@@ -41,6 +42,7 @@ export function MarketplaceCapabilitiesPage() {
 		async (paginationKey?: string, reset?: boolean) => {
 			if (!sessionToken) return;
 			setLoading(true);
+			if (reset) setLoadError(false);
 			try {
 				const baseUrl = await getApiBaseUrl();
 				const req: ListMarketplaceCapabilitiesRequest = {
@@ -68,9 +70,11 @@ export function MarketplaceCapabilitiesPage() {
 					}
 					setNextPaginationKey(data.next_pagination_key ?? undefined);
 				} else {
+					setLoadError(true);
 					message.error(t("capabilities.errors.loadFailed"));
 				}
 			} catch {
+				setLoadError(true);
 				message.error(t("capabilities.errors.loadFailed"));
 			} finally {
 				setLoading(false);
@@ -105,8 +109,8 @@ export function MarketplaceCapabilitiesPage() {
 			</Title>
 
 			<Spin spinning={loading}>
-				{capabilities.length === 0 && !loading ? (
-					<Text type="secondary">{t("capabilities.errors.loadFailed")}</Text>
+				{!loading && capabilities.length === 0 && !loadError ? (
+					<Text type="secondary">{t("capabilities.noCapabilities")}</Text>
 				) : (
 					<Row gutter={[16, 16]}>
 						{capabilities.map((cap) => (

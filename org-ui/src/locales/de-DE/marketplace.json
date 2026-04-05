@@ -17,6 +17,7 @@
 		"backToMarketplace": "Zurück zum Marktplatz",
 		"loadMore": "Mehr laden",
 		"viewProviders": "Anbieter anzeigen",
+		"noCapabilities": "Es sind noch keine Marktplatz-Fähigkeiten verfügbar.",
 		"status": {
 			"draft": "Entwurf",
 			"active": "Aktiv",

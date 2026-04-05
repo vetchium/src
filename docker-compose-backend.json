@@ -259,6 +259,9 @@
 			"environment": {
 				"LOG_LEVEL": "DEBUG",
 				"GLOBAL_DB_CONN": "postgres://vetchium:vetchium_dev@global-db:5432/vetchium_global?sslmode=disable",
+				"IND1_DB_CONN": "postgres://vetchium:vetchium_dev@regional-db-ind1:5432/vetchium_ind1?sslmode=disable",
+				"USA1_DB_CONN": "postgres://vetchium:vetchium_dev@regional-db-usa1:5432/vetchium_usa1?sslmode=disable",
+				"DEU1_DB_CONN": "postgres://vetchium:vetchium_dev@regional-db-deu1:5432/vetchium_deu1?sslmode=disable",
 				"INTERNAL_ENDPOINT_IND1": "http://regional-api-server-ind1:8080",
 				"INTERNAL_ENDPOINT_USA1": "http://regional-api-server-usa1:8080",
 				"INTERNAL_ENDPOINT_DEU1": "http://regional-api-server-deu1:8080",
@@ -266,7 +269,6 @@
 				"ADMIN_SESSION_CLEANUP_INTERVAL": "1m",
 				"HUB_SIGNUP_TOKEN_CLEANUP_INTERVAL": "1m",
 				"ORG_SIGNUP_TOKEN_CLEANUP_INTERVAL": "1m",
-				"AGENCY_SIGNUP_TOKEN_CLEANUP_INTERVAL": "1m",
 				"SMTP_HOST": "mailpit",
 				"SMTP_PORT": "1025",
 				"SMTP_FROM_ADDRESS": "noreply@vetchium.com",
@@ -327,10 +329,7 @@
 				"ORG_SESSION_TOKEN_EXPIRY": "24h",
 				"ORG_SIGNUP_TOKEN_EXPIRY": "24h",
 				"ORG_REMEMBER_ME_EXPIRY": "8760h",
-				"AGENCY_TFA_TOKEN_EXPIRY": "10m",
-				"AGENCY_SESSION_TOKEN_EXPIRY": "24h",
-				"AGENCY_SIGNUP_TOKEN_EXPIRY": "24h",
-				"AGENCY_REMEMBER_ME_EXPIRY": "8760h",
+				"CORS_ALLOWED_ORIGINS": "*",
 				"S3_ENDPOINT": "http://localstack:4566",
 				"S3_ACCESS_KEY_ID": "vetchium-dev-key",
 				"S3_SECRET_ACCESS_KEY": "vetchium-dev-secret",
@@ -379,10 +378,7 @@
 				"ORG_SESSION_TOKEN_EXPIRY": "24h",
 				"ORG_SIGNUP_TOKEN_EXPIRY": "24h",
 				"ORG_REMEMBER_ME_EXPIRY": "8760h",
-				"AGENCY_TFA_TOKEN_EXPIRY": "10m",
-				"AGENCY_SESSION_TOKEN_EXPIRY": "24h",
-				"AGENCY_SIGNUP_TOKEN_EXPIRY": "24h",
-				"AGENCY_REMEMBER_ME_EXPIRY": "8760h",
+				"CORS_ALLOWED_ORIGINS": "*",
 				"S3_ENDPOINT": "http://localstack:4566",
 				"S3_ACCESS_KEY_ID": "vetchium-dev-key",
 				"S3_SECRET_ACCESS_KEY": "vetchium-dev-secret",
@@ -431,10 +427,7 @@
 				"ORG_SESSION_TOKEN_EXPIRY": "24h",
 				"ORG_SIGNUP_TOKEN_EXPIRY": "24h",
 				"ORG_REMEMBER_ME_EXPIRY": "8760h",
-				"AGENCY_TFA_TOKEN_EXPIRY": "10m",
-				"AGENCY_SESSION_TOKEN_EXPIRY": "24h",
-				"AGENCY_SIGNUP_TOKEN_EXPIRY": "24h",
-				"AGENCY_REMEMBER_ME_EXPIRY": "8760h",
+				"CORS_ALLOWED_ORIGINS": "*",
 				"S3_ENDPOINT": "http://localstack:4566",
 				"S3_ACCESS_KEY_ID": "vetchium-dev-key",
 				"S3_SECRET_ACCESS_KEY": "vetchium-dev-secret",
@@ -471,9 +464,7 @@
 				"SMTP_FROM_NAME": "Vetchium",
 				"EMAIL_WORKER_POLL_INTERVAL": "10s",
 				"ORG_TFA_TOKEN_CLEANUP_INTERVAL": "1h",
-				"ORG_SESSION_CLEANUP_INTERVAL": "1h",
-				"AGENCY_TFA_TOKEN_CLEANUP_INTERVAL": "1h",
-				"AGENCY_SESSION_CLEANUP_INTERVAL": "1h"
+				"ORG_SESSION_CLEANUP_INTERVAL": "1h"
 			}
 		},
 		"regional-worker-usa1": {
@@ -499,9 +490,7 @@
 				"SMTP_FROM_NAME": "Vetchium",
 				"EMAIL_WORKER_POLL_INTERVAL": "10s",
 				"ORG_TFA_TOKEN_CLEANUP_INTERVAL": "1h",
-				"ORG_SESSION_CLEANUP_INTERVAL": "1h",
-				"AGENCY_TFA_TOKEN_CLEANUP_INTERVAL": "1h",
-				"AGENCY_SESSION_CLEANUP_INTERVAL": "1h"
+				"ORG_SESSION_CLEANUP_INTERVAL": "1h"
 			}
 		},
 		"regional-worker-deu1": {
@@ -527,9 +516,7 @@
 				"SMTP_FROM_NAME": "Vetchium",
 				"EMAIL_WORKER_POLL_INTERVAL": "10s",
 				"ORG_TFA_TOKEN_CLEANUP_INTERVAL": "1h",
-				"ORG_SESSION_CLEANUP_INTERVAL": "1h",
-				"AGENCY_TFA_TOKEN_CLEANUP_INTERVAL": "1h",
-				"AGENCY_SESSION_CLEANUP_INTERVAL": "1h"
+				"ORG_SESSION_CLEANUP_INTERVAL": "1h"
 			}
 		},
 		"api-lb": {

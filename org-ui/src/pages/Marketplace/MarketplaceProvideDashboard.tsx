@@ -162,9 +162,9 @@ export function MarketplaceProvideDashboard() {
 			}}
 		>
 			<div style={{ marginBottom: 16 }}>
-				<Link to="/marketplace">
+				<Link to="/">
 					<Button icon={<ArrowLeftOutlined />}>
-						{t("provide.backToMarketplace")}
+						{t("backToDashboard")}
 					</Button>
 				</Link>
 			</div>

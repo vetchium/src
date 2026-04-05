@@ -29,7 +29,7 @@ export function MarketplacePage() {
 			</Title>
 
 			<Row gutter={[24, 24]}>
-				<Col xs={24} md={8}>
+				<Col xs={24} md={12}>
 					<Card
 						hoverable
 						style={{ height: "100%", cursor: "pointer" }}
@@ -44,22 +44,7 @@ export function MarketplacePage() {
 						</Button>
 					</Card>
 				</Col>
-				<Col xs={24} md={8}>
-					<Card
-						hoverable
-						style={{ height: "100%", cursor: "pointer" }}
-						onClick={() => navigate("/marketplace/provide")}
-					>
-						<Title level={4}>{t("launcher.provideTitle")}</Title>
-						<Paragraph type="secondary">
-							{t("launcher.provideSubtitle")}
-						</Paragraph>
-						<Button type="default" block>
-							{t("launcher.provideAction")}
-						</Button>
-					</Card>
-				</Col>
-				<Col xs={24} md={8}>
+				<Col xs={24} md={12}>
 					<Card
 						hoverable
 						style={{ height: "100%", cursor: "pointer" }}

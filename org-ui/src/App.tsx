@@ -237,7 +237,7 @@ function MarketplaceProviderRoute({ children }: { children: React.ReactNode }) {
 		myInfo?.roles.includes("org:manage_marketplace");
 
 	if (!hasAccess) {
-		return <Navigate to="/marketplace" replace />;
+		return <Navigate to="/" replace />;
 	}
 
 	return <>{children}</>;

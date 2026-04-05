@@ -5,7 +5,7 @@ const API_URL = process.env.API_URL || "http://localhost:8080";
 const ASSETS_DIR = join(import.meta.dir, "..", "dist");
 
 const server = serve({
-	port: 3001,
+	port: 3000,
 	async fetch(req) {
 		const url = new URL(req.url);
 

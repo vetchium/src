@@ -17,6 +17,7 @@
 		"backToMarketplace": "Back to Marketplace",
 		"loadMore": "Load More",
 		"viewProviders": "View Providers",
+		"noCapabilities": "No marketplace capabilities are available yet.",
 		"status": {
 			"draft": "Draft",
 			"active": "Active",

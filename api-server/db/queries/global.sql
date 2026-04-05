@@ -687,12 +687,18 @@ SELECT u.admin_user_id,
   )::text [] AS roles
 FROM admin_users u
 WHERE (
-    sqlc.narg('filter_email')::text IS NULL
-    OR u.email_address ILIKE '%' || sqlc.narg('filter_email') || '%'
-  )
-  AND (
-    sqlc.narg('filter_name')::text IS NULL
-    OR u.full_name ILIKE '%' || sqlc.narg('filter_name') || '%'
+    (
+      sqlc.narg('filter_email')::text IS NULL
+      AND sqlc.narg('filter_name')::text IS NULL
+    )
+    OR (
+      sqlc.narg('filter_email')::text IS NOT NULL
+      AND u.email_address ILIKE '%' || sqlc.narg('filter_email') || '%'
+    )
+    OR (
+      sqlc.narg('filter_name')::text IS NOT NULL
+      AND u.full_name ILIKE '%' || sqlc.narg('filter_name') || '%'
+    )
   )
   AND (
     sqlc.narg('filter_status')::text IS NULL

@@ -207,7 +207,7 @@ export function DashboardPage() {
 					)}
 					{hasProviderHubAccess && (
 						<Link
-							to="/marketplace/provider"
+							to="/marketplace/provide"
 							style={{ textDecoration: "none", width: "100%" }}
 						>
 							<Card
