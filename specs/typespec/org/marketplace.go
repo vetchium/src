@@ -2,7 +2,8 @@ package org
 
 import (
 	"fmt"
-	"net/url"
+	"net/mail"
+	"regexp"
 	"strings"
 
 	"vetchium-api-server.typespec/common"
@@ -10,580 +11,550 @@ import (
 
 // ---- Enums ----
 
-type OrgCapabilityStatus string
+type MarketplaceCapabilityStatus string
 
 const (
-	OrgCapabilityStatusPendingApproval OrgCapabilityStatus = "pending_approval"
-	OrgCapabilityStatusActive          OrgCapabilityStatus = "active"
-	OrgCapabilityStatusRejected        OrgCapabilityStatus = "rejected"
-	OrgCapabilityStatusExpired         OrgCapabilityStatus = "expired"
-	OrgCapabilityStatusRevoked         OrgCapabilityStatus = "revoked"
+	MarketplaceCapabilityStatusDraft    MarketplaceCapabilityStatus = "draft"
+	MarketplaceCapabilityStatusActive   MarketplaceCapabilityStatus = "active"
+	MarketplaceCapabilityStatusDisabled MarketplaceCapabilityStatus = "disabled"
 )
 
-type ServiceListingState string
+type MarketplaceEnrollmentStatus string
 
 const (
-	ServiceListingStateDraft         ServiceListingState = "draft"
-	ServiceListingStatePendingReview ServiceListingState = "pending_review"
-	ServiceListingStateActive        ServiceListingState = "active"
-	ServiceListingStatePaused        ServiceListingState = "paused"
-	ServiceListingStateRejected      ServiceListingState = "rejected"
-	ServiceListingStateSuspended     ServiceListingState = "suspended"
-	ServiceListingStateAppealing     ServiceListingState = "appealing"
-	ServiceListingStateArchived      ServiceListingState = "archived"
+	MarketplaceEnrollmentStatusPendingReview MarketplaceEnrollmentStatus = "pending_review"
+	MarketplaceEnrollmentStatusApproved      MarketplaceEnrollmentStatus = "approved"
+	MarketplaceEnrollmentStatusRejected      MarketplaceEnrollmentStatus = "rejected"
+	MarketplaceEnrollmentStatusSuspended     MarketplaceEnrollmentStatus = "suspended"
+	MarketplaceEnrollmentStatusExpired       MarketplaceEnrollmentStatus = "expired"
 )
 
-type ServiceCategory string
+type MarketplaceOfferStatus string
 
 const (
-	ServiceCategoryTalentSourcing ServiceCategory = "talent_sourcing"
+	MarketplaceOfferStatusDraft         MarketplaceOfferStatus = "draft"
+	MarketplaceOfferStatusPendingReview MarketplaceOfferStatus = "pending_review"
+	MarketplaceOfferStatusActive        MarketplaceOfferStatus = "active"
+	MarketplaceOfferStatusRejected      MarketplaceOfferStatus = "rejected"
+	MarketplaceOfferStatusSuspended     MarketplaceOfferStatus = "suspended"
+	MarketplaceOfferStatusArchived      MarketplaceOfferStatus = "archived"
 )
 
-type CompanySize string
+type MarketplaceSubscriptionStatus string
 
 const (
-	CompanySizeStartup    CompanySize = "startup"
-	CompanySizeSMB        CompanySize = "smb"
-	CompanySizeEnterprise CompanySize = "enterprise"
+	MarketplaceSubscriptionStatusRequested        MarketplaceSubscriptionStatus = "requested"
+	MarketplaceSubscriptionStatusProviderReview   MarketplaceSubscriptionStatus = "provider_review"
+	MarketplaceSubscriptionStatusAdminReview      MarketplaceSubscriptionStatus = "admin_review"
+	MarketplaceSubscriptionStatusAwaitingContract MarketplaceSubscriptionStatus = "awaiting_contract"
+	MarketplaceSubscriptionStatusAwaitingPayment  MarketplaceSubscriptionStatus = "awaiting_payment"
+	MarketplaceSubscriptionStatusActive           MarketplaceSubscriptionStatus = "active"
+	MarketplaceSubscriptionStatusRejected         MarketplaceSubscriptionStatus = "rejected"
+	MarketplaceSubscriptionStatusCancelled        MarketplaceSubscriptionStatus = "cancelled"
+	MarketplaceSubscriptionStatusExpired          MarketplaceSubscriptionStatus = "expired"
 )
 
-type SeniorityLevel string
+type MarketplaceContactMode string
 
 const (
-	SeniorityLevelIntern   SeniorityLevel = "intern"
-	SeniorityLevelJunior   SeniorityLevel = "junior"
-	SeniorityLevelMid      SeniorityLevel = "mid"
-	SeniorityLevelSenior   SeniorityLevel = "senior"
-	SeniorityLevelLead     SeniorityLevel = "lead"
-	SeniorityLevelDirector SeniorityLevel = "director"
-	SeniorityLevelCSuite   SeniorityLevel = "c_suite"
+	MarketplaceContactModePlatformMessage MarketplaceContactMode = "platform_message"
+	MarketplaceContactModeExternalURL     MarketplaceContactMode = "external_url"
+	MarketplaceContactModeEmail           MarketplaceContactMode = "email"
 )
 
-type Industry string
+// ---- Validation constants ----
 
 const (
-	IndustryTechnologySoftware             Industry = "technology_software"
-	IndustryFinanceBanking                 Industry = "finance_banking"
-	IndustryHealthcareLifeSciences         Industry = "healthcare_life_sciences"
-	IndustryManufacturingEngineering       Industry = "manufacturing_engineering"
-	IndustryRetailConsumerGoods            Industry = "retail_consumer_goods"
-	IndustryMediaEntertainment             Industry = "media_entertainment"
-	IndustryEducationTraining              Industry = "education_training"
-	IndustryLegalServices                  Industry = "legal_services"
-	IndustryConsultingProfessionalServices Industry = "consulting_professional_services"
-	IndustryRealEstateConstruction         Industry = "real_estate_construction"
-	IndustryEnergyUtilities                Industry = "energy_utilities"
-	IndustryLogisticsSupplyChain           Industry = "logistics_supply_chain"
-	IndustryGovernmentPublicSector         Industry = "government_public_sector"
-	IndustryNonprofitNGO                   Industry = "nonprofit_ngo"
-	IndustryOther                          Industry = "other"
+	minCapabilitySlugLen   = 3
+	maxCapabilitySlugLen   = 50
+	maxHeadlineLen         = 100
+	maxSummaryLen          = 500
+	maxOfferDescriptionLen = 10000
+	maxPricingHintLen      = 200
+	maxApplicationNoteLen  = 2000
+	maxRequestNoteLen      = 2000
+	maxReviewNoteLen       = 2000
+	maxContactValueLen     = 500
 )
 
-type JobFunction string
+var capabilitySlugRegex = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$`)
 
-const (
-	JobFunctionEngineeringTechnology      JobFunction = "engineering_technology"
-	JobFunctionSalesBusinessDevelopment   JobFunction = "sales_business_development"
-	JobFunctionMarketing                  JobFunction = "marketing"
-	JobFunctionFinanceAccounting          JobFunction = "finance_accounting"
-	JobFunctionHumanResources             JobFunction = "human_resources"
-	JobFunctionOperationsSupplyChain      JobFunction = "operations_supply_chain"
-	JobFunctionProductManagement          JobFunction = "product_management"
-	JobFunctionDesignCreative             JobFunction = "design_creative"
-	JobFunctionLegalCompliance            JobFunction = "legal_compliance"
-	JobFunctionCustomerSuccessSupport     JobFunction = "customer_success_support"
-	JobFunctionDataAnalytics              JobFunction = "data_analytics"
-	JobFunctionExecutiveGeneralManagement JobFunction = "executive_general_management"
-)
-
-type ReportReason string
-
-const (
-	ReportReasonMisleadingInformation ReportReason = "misleading_information"
-	ReportReasonFraudulent            ReportReason = "fraudulent"
-	ReportReasonInappropriateContent  ReportReason = "inappropriate_content"
-	ReportReasonSpam                  ReportReason = "spam"
-	ReportReasonOther                 ReportReason = "other"
-)
-
-// ---- Validation helpers ----
-
-var validIndustries = map[Industry]bool{
-	IndustryTechnologySoftware: true, IndustryFinanceBanking: true,
-	IndustryHealthcareLifeSciences: true, IndustryManufacturingEngineering: true,
-	IndustryRetailConsumerGoods: true, IndustryMediaEntertainment: true,
-	IndustryEducationTraining: true, IndustryLegalServices: true,
-	IndustryConsultingProfessionalServices: true, IndustryRealEstateConstruction: true,
-	IndustryEnergyUtilities: true, IndustryLogisticsSupplyChain: true,
-	IndustryGovernmentPublicSector: true, IndustryNonprofitNGO: true,
-	IndustryOther: true,
-}
-
-var validJobFunctions = map[JobFunction]bool{
-	JobFunctionEngineeringTechnology: true, JobFunctionSalesBusinessDevelopment: true,
-	JobFunctionMarketing: true, JobFunctionFinanceAccounting: true,
-	JobFunctionHumanResources: true, JobFunctionOperationsSupplyChain: true,
-	JobFunctionProductManagement: true, JobFunctionDesignCreative: true,
-	JobFunctionLegalCompliance: true, JobFunctionCustomerSuccessSupport: true,
-	JobFunctionDataAnalytics: true, JobFunctionExecutiveGeneralManagement: true,
-}
-
-var validSeniorityLevels = map[SeniorityLevel]bool{
-	SeniorityLevelIntern: true, SeniorityLevelJunior: true, SeniorityLevelMid: true,
-	SeniorityLevelSenior: true, SeniorityLevelLead: true, SeniorityLevelDirector: true,
-	SeniorityLevelCSuite: true,
-}
-
-var validCompanySizes = map[CompanySize]bool{
-	CompanySizeStartup: true, CompanySizeSMB: true, CompanySizeEnterprise: true,
-}
-
-var validReportReasons = map[ReportReason]bool{
-	ReportReasonMisleadingInformation: true, ReportReasonFraudulent: true,
-	ReportReasonInappropriateContent: true, ReportReasonSpam: true,
-	ReportReasonOther: true,
-}
-
-const (
-	maxServiceListingName        = 100
-	maxServiceListingBlurb       = 250
-	maxServiceListingDescription = 5000
-	maxPricingInfo               = 500
-	maxIndustriesOther           = 100
-	maxApplicationNote           = 1000
-	maxAppealReason              = 2000
-	maxReportOther               = 500
-)
-
-func validateContactURL(u string) error {
-	if u == "" {
-		return fmt.Errorf("contact_url is required")
+func validateCapabilitySlug(slug string) error {
+	if len(slug) < minCapabilitySlugLen {
+		return fmt.Errorf("capability_slug must be at least %d characters", minCapabilitySlugLen)
 	}
-	if !strings.HasPrefix(u, "https://") {
-		return fmt.Errorf("contact_url must start with https://")
+	if len(slug) > maxCapabilitySlugLen {
+		return fmt.Errorf("capability_slug must be at most %d characters", maxCapabilitySlugLen)
 	}
-	if _, err := url.ParseRequestURI(u); err != nil {
-		return fmt.Errorf("contact_url must be a valid URL")
+	if !capabilitySlugRegex.MatchString(slug) {
+		return fmt.Errorf("capability_slug must be lowercase alphanumeric with hyphens (not starting or ending with hyphen)")
 	}
 	return nil
 }
 
-func validateServiceListingFields(
-	name, shortBlurb, description, contactURL string,
-	pricingInfo *string,
-	serviceCategory ServiceCategory,
-	countriesOfService []string,
-	industriesServed []Industry,
-	industriesServedOther *string,
-	companySizesServed []CompanySize,
-	jobFunctionsSourced []JobFunction,
-	seniorityLevelsSourced []SeniorityLevel,
-	geographicSourcingRegions []string,
-) []common.ValidationError {
+func validateContactValue(mode MarketplaceContactMode, value string) error {
+	if value == "" {
+		return fmt.Errorf("contact_value is required")
+	}
+	if len(value) > maxContactValueLen {
+		return fmt.Errorf("contact_value must be at most %d characters", maxContactValueLen)
+	}
+	switch mode {
+	case MarketplaceContactModeExternalURL:
+		if !strings.HasPrefix(value, "https://") {
+			return fmt.Errorf("contact_value must be a valid https URL")
+		}
+	case MarketplaceContactModeEmail:
+		if _, err := mail.ParseAddress(value); err != nil {
+			return fmt.Errorf("contact_value must be a valid email address")
+		}
+	}
+	return nil
+}
+
+// ---- Response models ----
+
+type MarketplaceCapability struct {
+	CapabilitySlug  string                      `json:"capability_slug"`
+	DisplayName     string                      `json:"display_name"`
+	Description     string                      `json:"description"`
+	ProviderEnabled bool                        `json:"provider_enabled"`
+	ConsumerEnabled bool                        `json:"consumer_enabled"`
+	Status          MarketplaceCapabilityStatus `json:"status"`
+	PricingHint     *string                     `json:"pricing_hint,omitempty"`
+}
+
+type MarketplaceEnrollment struct {
+	CapabilitySlug  string                      `json:"capability_slug"`
+	Status          MarketplaceEnrollmentStatus `json:"status"`
+	ApplicationNote *string                     `json:"application_note,omitempty"`
+	ReviewNote      *string                     `json:"review_note,omitempty"`
+	ApprovedAt      *string                     `json:"approved_at,omitempty"`
+	ExpiresAt       *string                     `json:"expires_at,omitempty"`
+	BillingStatus   string                      `json:"billing_status"`
+	CreatedAt       string                      `json:"created_at"`
+	UpdatedAt       string                      `json:"updated_at"`
+}
+
+type MarketplaceOffer struct {
+	CapabilitySlug string                 `json:"capability_slug"`
+	Headline       string                 `json:"headline"`
+	Summary        string                 `json:"summary"`
+	Description    string                 `json:"description"`
+	RegionsServed  []string               `json:"regions_served"`
+	PricingHint    *string                `json:"pricing_hint,omitempty"`
+	ContactMode    MarketplaceContactMode `json:"contact_mode"`
+	ContactValue   string                 `json:"contact_value"`
+	Status         MarketplaceOfferStatus `json:"status"`
+	ReviewNote     *string                `json:"review_note,omitempty"`
+	CreatedAt      string                 `json:"created_at"`
+	UpdatedAt      string                 `json:"updated_at"`
+}
+
+type MarketplaceProviderSummary struct {
+	ProviderOrgDomain string                 `json:"provider_org_domain"`
+	CapabilitySlug    string                 `json:"capability_slug"`
+	Headline          string                 `json:"headline"`
+	Summary           string                 `json:"summary"`
+	PricingHint       *string                `json:"pricing_hint,omitempty"`
+	RegionsServed     []string               `json:"regions_served"`
+	ContactMode       MarketplaceContactMode `json:"contact_mode"`
+	ContactValue      string                 `json:"contact_value"`
+}
+
+type MarketplaceSubscription struct {
+	ProviderOrgDomain      string                        `json:"provider_org_domain"`
+	CapabilitySlug         string                        `json:"capability_slug"`
+	RequestNote            *string                       `json:"request_note,omitempty"`
+	Status                 MarketplaceSubscriptionStatus `json:"status"`
+	ReviewNote             *string                       `json:"review_note,omitempty"`
+	RequiresProviderReview bool                          `json:"requires_provider_review"`
+	RequiresAdminReview    bool                          `json:"requires_admin_review"`
+	RequiresContract       bool                          `json:"requires_contract"`
+	RequiresPayment        bool                          `json:"requires_payment"`
+	StartsAt               *string                       `json:"starts_at,omitempty"`
+	ExpiresAt              *string                       `json:"expires_at,omitempty"`
+	CreatedAt              string                        `json:"created_at"`
+	UpdatedAt              string                        `json:"updated_at"`
+}
+
+type MarketplaceIncomingSubscription struct {
+	ConsumerOrgDomain string                        `json:"consumer_org_domain"`
+	CapabilitySlug    string                        `json:"capability_slug"`
+	Status            MarketplaceSubscriptionStatus `json:"status"`
+	RequestNote       *string                       `json:"request_note,omitempty"`
+	ReviewNote        *string                       `json:"review_note,omitempty"`
+	UpdatedAt         string                        `json:"updated_at"`
+	CreatedAt         string                        `json:"created_at"`
+}
+
+// ---- Request types with Validate() ----
+
+type ListMarketplaceCapabilitiesRequest struct {
+	PaginationKey *string `json:"pagination_key,omitempty"`
+	Limit         *int    `json:"limit,omitempty"`
+}
+
+func (r ListMarketplaceCapabilitiesRequest) Validate() []common.ValidationError {
+	return nil
+}
+
+type ListMarketplaceCapabilitiesResponse struct {
+	Capabilities      []MarketplaceCapability `json:"capabilities"`
+	NextPaginationKey *string                 `json:"next_pagination_key,omitempty"`
+}
+
+type GetMarketplaceCapabilityRequest struct {
+	CapabilitySlug string `json:"capability_slug"`
+}
+
+func (r GetMarketplaceCapabilityRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
-
-	if name == "" {
-		errs = append(errs, common.NewValidationError("name", fmt.Errorf("name is required")))
-	} else if len(name) > maxServiceListingName {
-		errs = append(errs, common.NewValidationError("name", fmt.Errorf("name must be at most %d characters", maxServiceListingName)))
+	if err := validateCapabilitySlug(r.CapabilitySlug); err != nil {
+		errs = append(errs, common.NewValidationError("capability_slug", err))
 	}
-
-	if shortBlurb == "" {
-		errs = append(errs, common.NewValidationError("short_blurb", fmt.Errorf("short_blurb is required")))
-	} else if len(shortBlurb) > maxServiceListingBlurb {
-		errs = append(errs, common.NewValidationError("short_blurb", fmt.Errorf("short_blurb must be at most %d characters", maxServiceListingBlurb)))
-	}
-
-	if description == "" {
-		errs = append(errs, common.NewValidationError("description", fmt.Errorf("description is required")))
-	} else if len(description) > maxServiceListingDescription {
-		errs = append(errs, common.NewValidationError("description", fmt.Errorf("description must be at most %d characters", maxServiceListingDescription)))
-	}
-
-	if err := validateContactURL(contactURL); err != nil {
-		errs = append(errs, common.NewValidationError("contact_url", err))
-	}
-
-	if pricingInfo != nil && len(*pricingInfo) > maxPricingInfo {
-		errs = append(errs, common.NewValidationError("pricing_info", fmt.Errorf("pricing_info must be at most %d characters", maxPricingInfo)))
-	}
-
-	if serviceCategory != ServiceCategoryTalentSourcing {
-		errs = append(errs, common.NewValidationError("service_category", fmt.Errorf("service_category must be 'talent_sourcing'")))
-	}
-
-	if len(countriesOfService) == 0 {
-		errs = append(errs, common.NewValidationError("countries_of_service", fmt.Errorf("at least one country of service is required")))
-	} else {
-		errs = append(errs, common.ValidateCountryCodes("countries_of_service", countriesOfService)...)
-	}
-
-	// Talent sourcing specific
-	if len(industriesServed) == 0 {
-		errs = append(errs, common.NewValidationError("industries_served", fmt.Errorf("at least one industry is required")))
-	} else {
-		hasOther := false
-		for _, ind := range industriesServed {
-			if !validIndustries[ind] {
-				errs = append(errs, common.NewValidationError("industries_served", fmt.Errorf("invalid industry: %s", ind)))
-				break
-			}
-			if ind == IndustryOther {
-				hasOther = true
-			}
-		}
-		if hasOther {
-			if industriesServedOther == nil || *industriesServedOther == "" {
-				errs = append(errs, common.NewValidationError("industries_served_other", fmt.Errorf("industries_served_other is required when 'other' is selected")))
-			} else if len(*industriesServedOther) > maxIndustriesOther {
-				errs = append(errs, common.NewValidationError("industries_served_other", fmt.Errorf("industries_served_other must be at most %d characters", maxIndustriesOther)))
-			}
-		}
-	}
-
-	if len(companySizesServed) == 0 {
-		errs = append(errs, common.NewValidationError("company_sizes_served", fmt.Errorf("at least one company size is required")))
-	} else {
-		for _, cs := range companySizesServed {
-			if !validCompanySizes[cs] {
-				errs = append(errs, common.NewValidationError("company_sizes_served", fmt.Errorf("invalid company size: %s", cs)))
-				break
-			}
-		}
-	}
-
-	if len(jobFunctionsSourced) == 0 {
-		errs = append(errs, common.NewValidationError("job_functions_sourced", fmt.Errorf("at least one job function is required")))
-	} else {
-		for _, jf := range jobFunctionsSourced {
-			if !validJobFunctions[jf] {
-				errs = append(errs, common.NewValidationError("job_functions_sourced", fmt.Errorf("invalid job function: %s", jf)))
-				break
-			}
-		}
-	}
-
-	if len(seniorityLevelsSourced) == 0 {
-		errs = append(errs, common.NewValidationError("seniority_levels_sourced", fmt.Errorf("at least one seniority level is required")))
-	} else {
-		for _, sl := range seniorityLevelsSourced {
-			if !validSeniorityLevels[sl] {
-				errs = append(errs, common.NewValidationError("seniority_levels_sourced", fmt.Errorf("invalid seniority level: %s", sl)))
-				break
-			}
-		}
-	}
-
-	if len(geographicSourcingRegions) == 0 {
-		errs = append(errs, common.NewValidationError("geographic_sourcing_regions", fmt.Errorf("at least one geographic sourcing region is required")))
-	} else {
-		errs = append(errs, common.ValidateCountryCodes("geographic_sourcing_regions", geographicSourcingRegions)...)
-	}
-
 	return errs
 }
 
-// ---- Response types ----
-
-type OrgCapability struct {
-	OrgDomain         string              `json:"org_domain"`
-	Capability        string              `json:"capability"`
-	Status            OrgCapabilityStatus `json:"status"`
-	ApplicationNote   *string             `json:"application_note,omitempty"`
-	AppliedAt         *string             `json:"applied_at,omitempty"`
-	AdminNote         *string             `json:"admin_note,omitempty"`
-	SubscriptionPrice *string             `json:"subscription_price,omitempty"`
-	Currency          *string             `json:"currency,omitempty"`
-	GrantedAt         *string             `json:"granted_at,omitempty"`
-	ExpiresAt         *string             `json:"expires_at,omitempty"`
-	CreatedAt         string              `json:"created_at"`
+type ListProviderEnrollmentsRequest struct {
+	PaginationKey *string `json:"pagination_key,omitempty"`
+	Limit         *int    `json:"limit,omitempty"`
 }
 
-type ServiceListingSummary struct {
-	OrgDomain          string          `json:"org_domain"`
-	Name               string          `json:"name"`
-	ShortBlurb         string          `json:"short_blurb"`
-	LogoURL            *string         `json:"logo_url,omitempty"`
-	OrgName            string          `json:"org_name"`
-	ServiceCategory    ServiceCategory `json:"service_category"`
-	CountriesOfService []string        `json:"countries_of_service"`
-	CreatedAt          string          `json:"created_at"`
+func (r ListProviderEnrollmentsRequest) Validate() []common.ValidationError {
+	return nil
 }
 
-type ServiceListing struct {
-	OrgDomain                 string              `json:"org_domain"`
-	Name                      string              `json:"name"`
-	ShortBlurb                string              `json:"short_blurb"`
-	Description               string              `json:"description"`
-	ServiceCategory           ServiceCategory     `json:"service_category"`
-	CountriesOfService        []string            `json:"countries_of_service"`
-	ContactURL                string              `json:"contact_url"`
-	PricingInfo               *string             `json:"pricing_info,omitempty"`
-	State                     ServiceListingState `json:"state"`
-	AppealExhausted           bool                `json:"appeal_exhausted"`
-	LastActivatedAt           *string             `json:"last_activated_at,omitempty"`
-	IndustriesServed          []string            `json:"industries_served"`
-	IndustriesServedOther     *string             `json:"industries_served_other,omitempty"`
-	CompanySizesServed        []string            `json:"company_sizes_served"`
-	JobFunctionsSourced       []string            `json:"job_functions_sourced"`
-	SeniorityLevelsSourced    []string            `json:"seniority_levels_sourced"`
-	GeographicSourcingRegions []string            `json:"geographic_sourcing_regions"`
-	LastReviewAdminNote       *string             `json:"last_review_admin_note,omitempty"`
-	AppealReason              *string             `json:"appeal_reason,omitempty"`
-	AppealAdminNote           *string             `json:"appeal_admin_note,omitempty"`
-	CreatedAt                 string              `json:"created_at"`
-	UpdatedAt                 string              `json:"updated_at"`
+type ListProviderEnrollmentsResponse struct {
+	Enrollments       []MarketplaceEnrollment `json:"enrollments"`
+	NextPaginationKey *string                 `json:"next_pagination_key,omitempty"`
 }
 
-// ---- Capability endpoints ----
+type GetProviderEnrollmentRequest struct {
+	CapabilitySlug string `json:"capability_slug"`
+}
 
-type ApplyMarketplaceProviderCapabilityRequest struct {
+func (r GetProviderEnrollmentRequest) Validate() []common.ValidationError {
+	var errs []common.ValidationError
+	if err := validateCapabilitySlug(r.CapabilitySlug); err != nil {
+		errs = append(errs, common.NewValidationError("capability_slug", err))
+	}
+	return errs
+}
+
+type ApplyProviderEnrollmentRequest struct {
+	CapabilitySlug  string  `json:"capability_slug"`
 	ApplicationNote *string `json:"application_note,omitempty"`
 }
 
-func (r ApplyMarketplaceProviderCapabilityRequest) Validate() []common.ValidationError {
+func (r ApplyProviderEnrollmentRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
-	if r.ApplicationNote != nil && len(*r.ApplicationNote) > maxApplicationNote {
-		errs = append(errs, common.NewValidationError("application_note", fmt.Errorf("application_note must be at most %d characters", maxApplicationNote)))
+	if err := validateCapabilitySlug(r.CapabilitySlug); err != nil {
+		errs = append(errs, common.NewValidationError("capability_slug", err))
+	}
+	if r.ApplicationNote != nil && len(*r.ApplicationNote) > maxApplicationNoteLen {
+		errs = append(errs, common.NewValidationError("application_note",
+			fmt.Errorf("application_note must be at most %d characters", maxApplicationNoteLen)))
 	}
 	return errs
 }
 
-type GetMarketplaceProviderCapabilityRequest struct{}
+type ReapplyProviderEnrollmentRequest struct {
+	CapabilitySlug  string  `json:"capability_slug"`
+	ApplicationNote *string `json:"application_note,omitempty"`
+}
 
-func (r GetMarketplaceProviderCapabilityRequest) Validate() []common.ValidationError {
+func (r ReapplyProviderEnrollmentRequest) Validate() []common.ValidationError {
+	var errs []common.ValidationError
+	if err := validateCapabilitySlug(r.CapabilitySlug); err != nil {
+		errs = append(errs, common.NewValidationError("capability_slug", err))
+	}
+	if r.ApplicationNote != nil && len(*r.ApplicationNote) > maxApplicationNoteLen {
+		errs = append(errs, common.NewValidationError("application_note",
+			fmt.Errorf("application_note must be at most %d characters", maxApplicationNoteLen)))
+	}
+	return errs
+}
+
+type GetProviderOfferRequest struct {
+	CapabilitySlug string `json:"capability_slug"`
+}
+
+func (r GetProviderOfferRequest) Validate() []common.ValidationError {
+	var errs []common.ValidationError
+	if err := validateCapabilitySlug(r.CapabilitySlug); err != nil {
+		errs = append(errs, common.NewValidationError("capability_slug", err))
+	}
+	return errs
+}
+
+func validateOfferFields(capSlug, headline, summary, description string, regionsServed []string, pricingHint *string, contactMode MarketplaceContactMode, contactValue string) []common.ValidationError {
+	var errs []common.ValidationError
+	if err := validateCapabilitySlug(capSlug); err != nil {
+		errs = append(errs, common.NewValidationError("capability_slug", err))
+	}
+	if headline == "" {
+		errs = append(errs, common.NewValidationError("headline", fmt.Errorf("headline is required")))
+	} else if len(headline) > maxHeadlineLen {
+		errs = append(errs, common.NewValidationError("headline",
+			fmt.Errorf("headline must be at most %d characters", maxHeadlineLen)))
+	}
+	if summary == "" {
+		errs = append(errs, common.NewValidationError("summary", fmt.Errorf("summary is required")))
+	} else if len(summary) > maxSummaryLen {
+		errs = append(errs, common.NewValidationError("summary",
+			fmt.Errorf("summary must be at most %d characters", maxSummaryLen)))
+	}
+	if description == "" {
+		errs = append(errs, common.NewValidationError("description", fmt.Errorf("description is required")))
+	} else if len(description) > maxOfferDescriptionLen {
+		errs = append(errs, common.NewValidationError("description",
+			fmt.Errorf("description must be at most %d characters", maxOfferDescriptionLen)))
+	}
+	if len(regionsServed) == 0 {
+		errs = append(errs, common.NewValidationError("regions_served", fmt.Errorf("at least one region is required")))
+	}
+	if pricingHint != nil && len(*pricingHint) > maxPricingHintLen {
+		errs = append(errs, common.NewValidationError("pricing_hint",
+			fmt.Errorf("pricing_hint must be at most %d characters", maxPricingHintLen)))
+	}
+	if err := validateContactValue(contactMode, contactValue); err != nil {
+		errs = append(errs, common.NewValidationError("contact_value", err))
+	}
+	return errs
+}
+
+type CreateProviderOfferRequest struct {
+	CapabilitySlug string                 `json:"capability_slug"`
+	Headline       string                 `json:"headline"`
+	Summary        string                 `json:"summary"`
+	Description    string                 `json:"description"`
+	RegionsServed  []string               `json:"regions_served"`
+	PricingHint    *string                `json:"pricing_hint,omitempty"`
+	ContactMode    MarketplaceContactMode `json:"contact_mode"`
+	ContactValue   string                 `json:"contact_value"`
+}
+
+func (r CreateProviderOfferRequest) Validate() []common.ValidationError {
+	return validateOfferFields(r.CapabilitySlug, r.Headline, r.Summary, r.Description,
+		r.RegionsServed, r.PricingHint, r.ContactMode, r.ContactValue)
+}
+
+type UpdateProviderOfferRequest struct {
+	CapabilitySlug string                 `json:"capability_slug"`
+	Headline       string                 `json:"headline"`
+	Summary        string                 `json:"summary"`
+	Description    string                 `json:"description"`
+	RegionsServed  []string               `json:"regions_served"`
+	PricingHint    *string                `json:"pricing_hint,omitempty"`
+	ContactMode    MarketplaceContactMode `json:"contact_mode"`
+	ContactValue   string                 `json:"contact_value"`
+}
+
+func (r UpdateProviderOfferRequest) Validate() []common.ValidationError {
+	return validateOfferFields(r.CapabilitySlug, r.Headline, r.Summary, r.Description,
+		r.RegionsServed, r.PricingHint, r.ContactMode, r.ContactValue)
+}
+
+type SubmitProviderOfferRequest struct {
+	CapabilitySlug string `json:"capability_slug"`
+}
+
+func (r SubmitProviderOfferRequest) Validate() []common.ValidationError {
+	var errs []common.ValidationError
+	if err := validateCapabilitySlug(r.CapabilitySlug); err != nil {
+		errs = append(errs, common.NewValidationError("capability_slug", err))
+	}
+	return errs
+}
+
+type ArchiveProviderOfferRequest struct {
+	CapabilitySlug string `json:"capability_slug"`
+}
+
+func (r ArchiveProviderOfferRequest) Validate() []common.ValidationError {
+	var errs []common.ValidationError
+	if err := validateCapabilitySlug(r.CapabilitySlug); err != nil {
+		errs = append(errs, common.NewValidationError("capability_slug", err))
+	}
+	return errs
+}
+
+type ListMarketplaceProvidersRequest struct {
+	CapabilitySlug string  `json:"capability_slug"`
+	PaginationKey  *string `json:"pagination_key,omitempty"`
+	Limit          *int    `json:"limit,omitempty"`
+}
+
+func (r ListMarketplaceProvidersRequest) Validate() []common.ValidationError {
+	var errs []common.ValidationError
+	if err := validateCapabilitySlug(r.CapabilitySlug); err != nil {
+		errs = append(errs, common.NewValidationError("capability_slug", err))
+	}
+	return errs
+}
+
+type ListMarketplaceProvidersResponse struct {
+	Providers         []MarketplaceProviderSummary `json:"providers"`
+	NextPaginationKey *string                      `json:"next_pagination_key,omitempty"`
+}
+
+type GetMarketplaceProviderOfferRequest struct {
+	ProviderOrgDomain string `json:"provider_org_domain"`
+	CapabilitySlug    string `json:"capability_slug"`
+}
+
+func (r GetMarketplaceProviderOfferRequest) Validate() []common.ValidationError {
+	var errs []common.ValidationError
+	if r.ProviderOrgDomain == "" {
+		errs = append(errs, common.NewValidationError("provider_org_domain",
+			fmt.Errorf("provider_org_domain is required")))
+	}
+	if err := validateCapabilitySlug(r.CapabilitySlug); err != nil {
+		errs = append(errs, common.NewValidationError("capability_slug", err))
+	}
+	return errs
+}
+
+type ListConsumerSubscriptionsRequest struct {
+	PaginationKey *string `json:"pagination_key,omitempty"`
+	Limit         *int    `json:"limit,omitempty"`
+}
+
+func (r ListConsumerSubscriptionsRequest) Validate() []common.ValidationError {
 	return nil
 }
 
-// ---- ServiceListing create/update request ----
-
-type ServiceListingRequest struct {
-	Name                      string           `json:"name"`
-	ShortBlurb                string           `json:"short_blurb"`
-	Description               string           `json:"description"`
-	ServiceCategory           ServiceCategory  `json:"service_category"`
-	CountriesOfService        []string         `json:"countries_of_service"`
-	ContactURL                string           `json:"contact_url"`
-	PricingInfo               *string          `json:"pricing_info,omitempty"`
-	IndustriesServed          []Industry       `json:"industries_served"`
-	IndustriesServedOther     *string          `json:"industries_served_other,omitempty"`
-	CompanySizesServed        []CompanySize    `json:"company_sizes_served"`
-	JobFunctionsSourced       []JobFunction    `json:"job_functions_sourced"`
-	SeniorityLevelsSourced    []SeniorityLevel `json:"seniority_levels_sourced"`
-	GeographicSourcingRegions []string         `json:"geographic_sourcing_regions"`
+type ListConsumerSubscriptionsResponse struct {
+	Subscriptions     []MarketplaceSubscription `json:"subscriptions"`
+	NextPaginationKey *string                   `json:"next_pagination_key,omitempty"`
 }
 
-func (r ServiceListingRequest) validate() []common.ValidationError {
-	return validateServiceListingFields(
-		r.Name, r.ShortBlurb, r.Description, r.ContactURL, r.PricingInfo,
-		r.ServiceCategory, r.CountriesOfService,
-		r.IndustriesServed, r.IndustriesServedOther,
-		r.CompanySizesServed, r.JobFunctionsSourced,
-		r.SeniorityLevelsSourced, r.GeographicSourcingRegions,
-	)
+type GetConsumerSubscriptionRequest struct {
+	ProviderOrgDomain string `json:"provider_org_domain"`
+	CapabilitySlug    string `json:"capability_slug"`
 }
 
-type CreateMarketplaceServiceListingRequest struct {
-	ServiceListingRequest
-}
-
-func (r CreateMarketplaceServiceListingRequest) Validate() []common.ValidationError {
-	return r.ServiceListingRequest.validate()
-}
-
-type CreateMarketplaceServiceListingResponse struct {
-	Name string `json:"name"`
-}
-
-// UpdateMarketplaceServiceListingRequest identifies the listing by name
-// and allows updating all fields except name (since name is the natural key).
-type UpdateMarketplaceServiceListingRequest struct {
-	Name                      string           `json:"name"`
-	ShortBlurb                string           `json:"short_blurb"`
-	Description               string           `json:"description"`
-	ServiceCategory           ServiceCategory  `json:"service_category"`
-	CountriesOfService        []string         `json:"countries_of_service"`
-	ContactURL                string           `json:"contact_url"`
-	PricingInfo               *string          `json:"pricing_info,omitempty"`
-	IndustriesServed          []Industry       `json:"industries_served"`
-	IndustriesServedOther     *string          `json:"industries_served_other,omitempty"`
-	CompanySizesServed        []CompanySize    `json:"company_sizes_served"`
-	JobFunctionsSourced       []JobFunction    `json:"job_functions_sourced"`
-	SeniorityLevelsSourced    []SeniorityLevel `json:"seniority_levels_sourced"`
-	GeographicSourcingRegions []string         `json:"geographic_sourcing_regions"`
-}
-
-func (r UpdateMarketplaceServiceListingRequest) Validate() []common.ValidationError {
+func (r GetConsumerSubscriptionRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
-	if r.Name == "" {
-		errs = append(errs, common.NewValidationError("name", fmt.Errorf("name is required")))
+	if r.ProviderOrgDomain == "" {
+		errs = append(errs, common.NewValidationError("provider_org_domain",
+			fmt.Errorf("provider_org_domain is required")))
 	}
-	errs = append(errs, validateServiceListingFields(
-		r.Name, r.ShortBlurb, r.Description, r.ContactURL, r.PricingInfo,
-		r.ServiceCategory, r.CountriesOfService,
-		r.IndustriesServed, r.IndustriesServedOther,
-		r.CompanySizesServed, r.JobFunctionsSourced,
-		r.SeniorityLevelsSourced, r.GeographicSourcingRegions,
-	)...)
-	return errs
-}
-
-type SubmitMarketplaceServiceListingRequest struct {
-	Name string `json:"name"`
-}
-
-func (r SubmitMarketplaceServiceListingRequest) Validate() []common.ValidationError {
-	var errs []common.ValidationError
-	if r.Name == "" {
-		errs = append(errs, common.NewValidationError("name", fmt.Errorf("name is required")))
+	if err := validateCapabilitySlug(r.CapabilitySlug); err != nil {
+		errs = append(errs, common.NewValidationError("capability_slug", err))
 	}
 	return errs
 }
 
-type PauseMarketplaceServiceListingRequest struct {
-	Name string `json:"name"`
+type RequestConsumerSubscriptionRequest struct {
+	ProviderOrgDomain string  `json:"provider_org_domain"`
+	CapabilitySlug    string  `json:"capability_slug"`
+	RequestNote       *string `json:"request_note,omitempty"`
 }
 
-func (r PauseMarketplaceServiceListingRequest) Validate() []common.ValidationError {
+func (r RequestConsumerSubscriptionRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
-	if r.Name == "" {
-		errs = append(errs, common.NewValidationError("name", fmt.Errorf("name is required")))
+	if r.ProviderOrgDomain == "" {
+		errs = append(errs, common.NewValidationError("provider_org_domain",
+			fmt.Errorf("provider_org_domain is required")))
+	}
+	if err := validateCapabilitySlug(r.CapabilitySlug); err != nil {
+		errs = append(errs, common.NewValidationError("capability_slug", err))
+	}
+	if r.RequestNote != nil && len(*r.RequestNote) > maxRequestNoteLen {
+		errs = append(errs, common.NewValidationError("request_note",
+			fmt.Errorf("request_note must be at most %d characters", maxRequestNoteLen)))
 	}
 	return errs
 }
 
-type UnpauseMarketplaceServiceListingRequest struct {
-	Name string `json:"name"`
+type CancelConsumerSubscriptionRequest struct {
+	ProviderOrgDomain string `json:"provider_org_domain"`
+	CapabilitySlug    string `json:"capability_slug"`
 }
 
-func (r UnpauseMarketplaceServiceListingRequest) Validate() []common.ValidationError {
+func (r CancelConsumerSubscriptionRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
-	if r.Name == "" {
-		errs = append(errs, common.NewValidationError("name", fmt.Errorf("name is required")))
+	if r.ProviderOrgDomain == "" {
+		errs = append(errs, common.NewValidationError("provider_org_domain",
+			fmt.Errorf("provider_org_domain is required")))
+	}
+	if err := validateCapabilitySlug(r.CapabilitySlug); err != nil {
+		errs = append(errs, common.NewValidationError("capability_slug", err))
 	}
 	return errs
 }
 
-type ArchiveMarketplaceServiceListingRequest struct {
-	Name string `json:"name"`
+type ListIncomingSubscriptionsRequest struct {
+	CapabilitySlug *string `json:"capability_slug,omitempty"`
+	PaginationKey  *string `json:"pagination_key,omitempty"`
+	Limit          *int    `json:"limit,omitempty"`
 }
 
-func (r ArchiveMarketplaceServiceListingRequest) Validate() []common.ValidationError {
-	var errs []common.ValidationError
-	if r.Name == "" {
-		errs = append(errs, common.NewValidationError("name", fmt.Errorf("name is required")))
-	}
-	return errs
-}
-
-type SubmitMarketplaceServiceListingAppealRequest struct {
-	Name         string `json:"name"`
-	AppealReason string `json:"appeal_reason"`
-}
-
-func (r SubmitMarketplaceServiceListingAppealRequest) Validate() []common.ValidationError {
-	var errs []common.ValidationError
-	if r.Name == "" {
-		errs = append(errs, common.NewValidationError("name", fmt.Errorf("name is required")))
-	}
-	if r.AppealReason == "" {
-		errs = append(errs, common.NewValidationError("appeal_reason", fmt.Errorf("appeal_reason is required")))
-	} else if len(r.AppealReason) > maxAppealReason {
-		errs = append(errs, common.NewValidationError("appeal_reason", fmt.Errorf("appeal_reason must be at most %d characters", maxAppealReason)))
-	}
-	return errs
-}
-
-type ListMarketplaceServiceListingsRequest struct {
-	FilterState *ServiceListingState `json:"filter_state,omitempty"`
-	Cursor      *string              `json:"cursor,omitempty"`
-	Limit       *int                 `json:"limit,omitempty"`
-}
-
-func (r ListMarketplaceServiceListingsRequest) Validate() []common.ValidationError {
+func (r ListIncomingSubscriptionsRequest) Validate() []common.ValidationError {
 	return nil
 }
 
-type ListMarketplaceServiceListingsResponse struct {
-	ServiceListings []ServiceListing `json:"service_listings"`
-	NextCursor      *string          `json:"next_cursor,omitempty"`
+type ListIncomingSubscriptionsResponse struct {
+	Subscriptions     []MarketplaceIncomingSubscription `json:"subscriptions"`
+	NextPaginationKey *string                           `json:"next_pagination_key,omitempty"`
 }
 
-type GetMarketplaceServiceListingRequest struct {
-	Name string `json:"name"`
+type GetIncomingSubscriptionRequest struct {
+	ConsumerOrgDomain string `json:"consumer_org_domain"`
+	CapabilitySlug    string `json:"capability_slug"`
 }
 
-func (r GetMarketplaceServiceListingRequest) Validate() []common.ValidationError {
+func (r GetIncomingSubscriptionRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
-	if r.Name == "" {
-		errs = append(errs, common.NewValidationError("name", fmt.Errorf("name is required")))
+	if r.ConsumerOrgDomain == "" {
+		errs = append(errs, common.NewValidationError("consumer_org_domain",
+			fmt.Errorf("consumer_org_domain is required")))
+	}
+	if err := validateCapabilitySlug(r.CapabilitySlug); err != nil {
+		errs = append(errs, common.NewValidationError("capability_slug", err))
 	}
 	return errs
 }
 
-// ---- Browse (buyer) endpoints ----
-
-type BrowseMarketplaceServiceListingsRequest struct {
-	Keyword                   *string          `json:"keyword,omitempty"`
-	ServiceCategory           *ServiceCategory `json:"service_category,omitempty"`
-	Industries                []Industry       `json:"industries,omitempty"`
-	CompanySizes              []CompanySize    `json:"company_sizes,omitempty"`
-	JobFunctions              []JobFunction    `json:"job_functions,omitempty"`
-	SeniorityLevels           []SeniorityLevel `json:"seniority_levels,omitempty"`
-	CountriesOfService        []string         `json:"countries_of_service,omitempty"`
-	GeographicSourcingRegions []string         `json:"geographic_sourcing_regions,omitempty"`
-	Cursor                    *string          `json:"cursor,omitempty"`
-	Limit                     *int             `json:"limit,omitempty"`
+type ProviderApproveSubscriptionRequest struct {
+	ConsumerOrgDomain string `json:"consumer_org_domain"`
+	CapabilitySlug    string `json:"capability_slug"`
 }
 
-func (r BrowseMarketplaceServiceListingsRequest) Validate() []common.ValidationError {
-	return nil
-}
-
-type BrowseMarketplaceServiceListingsResponse struct {
-	ServiceListings []ServiceListingSummary `json:"service_listings"`
-	NextCursor      *string                 `json:"next_cursor,omitempty"`
-}
-
-type GetPublicMarketplaceServiceListingRequest struct {
-	Name      string `json:"name"`
-	OrgDomain string `json:"org_domain"`
-}
-
-func (r GetPublicMarketplaceServiceListingRequest) Validate() []common.ValidationError {
+func (r ProviderApproveSubscriptionRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
-	if r.Name == "" {
-		errs = append(errs, common.NewValidationError("name", fmt.Errorf("name is required")))
+	if r.ConsumerOrgDomain == "" {
+		errs = append(errs, common.NewValidationError("consumer_org_domain",
+			fmt.Errorf("consumer_org_domain is required")))
 	}
-	if r.OrgDomain == "" {
-		errs = append(errs, common.NewValidationError("org_domain", fmt.Errorf("org_domain is required")))
+	if err := validateCapabilitySlug(r.CapabilitySlug); err != nil {
+		errs = append(errs, common.NewValidationError("capability_slug", err))
 	}
 	return errs
 }
 
-type ReportMarketplaceServiceListingRequest struct {
-	Name        string       `json:"name"`
-	OrgDomain   string       `json:"org_domain"`
-	Reason      ReportReason `json:"reason"`
-	ReasonOther *string      `json:"reason_other,omitempty"`
+type ProviderRejectSubscriptionRequest struct {
+	ConsumerOrgDomain string `json:"consumer_org_domain"`
+	CapabilitySlug    string `json:"capability_slug"`
+	ReviewNote        string `json:"review_note"`
 }
 
-func (r ReportMarketplaceServiceListingRequest) Validate() []common.ValidationError {
+func (r ProviderRejectSubscriptionRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
-	if r.Name == "" {
-		errs = append(errs, common.NewValidationError("name", fmt.Errorf("name is required")))
+	if r.ConsumerOrgDomain == "" {
+		errs = append(errs, common.NewValidationError("consumer_org_domain",
+			fmt.Errorf("consumer_org_domain is required")))
 	}
-	if r.OrgDomain == "" {
-		errs = append(errs, common.NewValidationError("org_domain", fmt.Errorf("org_domain is required")))
+	if err := validateCapabilitySlug(r.CapabilitySlug); err != nil {
+		errs = append(errs, common.NewValidationError("capability_slug", err))
 	}
-	if !validReportReasons[r.Reason] {
-		errs = append(errs, common.NewValidationError("reason", fmt.Errorf("reason must be a valid report reason")))
-	} else if r.Reason == ReportReasonOther {
-		if r.ReasonOther == nil || *r.ReasonOther == "" {
-			errs = append(errs, common.NewValidationError("reason_other", fmt.Errorf("reason_other is required when reason is 'other'")))
-		} else if len(*r.ReasonOther) > maxReportOther {
-			errs = append(errs, common.NewValidationError("reason_other", fmt.Errorf("reason_other must be at most %d characters", maxReportOther)))
-		}
+	if r.ReviewNote == "" {
+		errs = append(errs, common.NewValidationError("review_note", fmt.Errorf("review_note is required")))
+	} else if len(r.ReviewNote) > maxReviewNoteLen {
+		errs = append(errs, common.NewValidationError("review_note",
+			fmt.Errorf("review_note must be at most %d characters", maxReviewNoteLen)))
 	}
 	return errs
 }

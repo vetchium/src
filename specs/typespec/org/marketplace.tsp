@@ -10,291 +10,330 @@ namespace Vetchium;
 
 // ---- Enums ----
 
-enum OrgCapabilityStatus {
-  pending_approval,
+enum MarketplaceCapabilityStatus {
+  draft,
   active,
-  rejected,
-  expired,
-  revoked,
+  disabled,
 }
 
-enum ServiceListingState {
+enum MarketplaceEnrollmentStatus {
+  pending_review,
+  approved,
+  rejected,
+  suspended,
+  expired,
+}
+
+enum MarketplaceOfferStatus {
   draft,
   pending_review,
   active,
-  paused,
   rejected,
   suspended,
-  appealing,
   archived,
 }
 
-enum ServiceCategory {
-  talent_sourcing,
+enum MarketplaceSubscriptionStatus {
+  requested,
+  provider_review,
+  admin_review,
+  awaiting_contract,
+  awaiting_payment,
+  active,
+  rejected,
+  cancelled,
+  expired,
 }
 
-enum CompanySize {
-  startup,
-  smb,
-  enterprise,
-}
-
-enum SeniorityLevel {
-  intern,
-  junior,
-  mid,
-  senior,
-  lead,
-  director,
-  c_suite,
-}
-
-enum Industry {
-  technology_software,
-  finance_banking,
-  healthcare_life_sciences,
-  manufacturing_engineering,
-  retail_consumer_goods,
-  media_entertainment,
-  education_training,
-  legal_services,
-  consulting_professional_services,
-  real_estate_construction,
-  energy_utilities,
-  logistics_supply_chain,
-  government_public_sector,
-  nonprofit_ngo,
-  other,
-}
-
-enum JobFunction {
-  engineering_technology,
-  sales_business_development,
-  marketing,
-  finance_accounting,
-  human_resources,
-  operations_supply_chain,
-  product_management,
-  design_creative,
-  legal_compliance,
-  customer_success_support,
-  data_analytics,
-  executive_general_management,
-}
-
-enum ReportReason {
-  misleading_information,
-  fraudulent,
-  inappropriate_content,
-  spam,
-  other,
+enum MarketplaceContactMode {
+  platform_message,
+  external_url,
+  email,
 }
 
 // ---- Models ----
 
-model OrgCapability {
-  org_domain: string;
-  capability: string;
-  status: OrgCapabilityStatus;
+model MarketplaceCapability {
+  capability_slug: string;
+  display_name: string;
+  description: string;
+  provider_enabled: boolean;
+  consumer_enabled: boolean;
+  status: MarketplaceCapabilityStatus;
+  pricing_hint?: string;
+}
+
+model MarketplaceEnrollment {
+  capability_slug: string;
+  status: MarketplaceEnrollmentStatus;
   application_note?: string;
-  applied_at?: string;
-  admin_note?: string;
-  subscription_price?: string;
-  currency?: string;
-  granted_at?: string;
+  review_note?: string;
+  approved_at?: string;
   expires_at?: string;
-  created_at: string;
-}
-
-model ServiceListingFields {
-  name: string;
-  short_blurb: string;
-  description: string;
-  service_category: ServiceCategory;
-  countries_of_service: CountryCode[];
-  contact_url: string;
-  pricing_info?: string;
-  industries_served: Industry[];
-  industries_served_other?: string;
-  company_sizes_served: CompanySize[];
-  job_functions_sourced: JobFunction[];
-  seniority_levels_sourced: SeniorityLevel[];
-  geographic_sourcing_regions: CountryCode[];
-}
-
-model ServiceListingSummary {
-  org_domain: string;
-  name: string;
-  short_blurb: string;
-  logo_url?: string;
-  org_name: string;
-  service_category: ServiceCategory;
-  countries_of_service: CountryCode[];
-  created_at: string;
-}
-
-model ServiceListing {
-  org_domain: string;
-  name: string;
-  short_blurb: string;
-  description: string;
-  service_category: ServiceCategory;
-  countries_of_service: CountryCode[];
-  contact_url: string;
-  pricing_info?: string;
-  state: ServiceListingState;
-  appeal_exhausted: boolean;
-  last_activated_at?: string;
-  industries_served: string[];
-  industries_served_other?: string;
-  company_sizes_served: string[];
-  job_functions_sourced: string[];
-  seniority_levels_sourced: string[];
-  geographic_sourcing_regions: CountryCode[];
-  last_review_admin_note?: string;
-  appeal_reason?: string;
-  appeal_admin_note?: string;
+  billing_status: string;
   created_at: string;
   updated_at: string;
 }
 
-// ---- Capability requests ----
+model MarketplaceOffer {
+  capability_slug: string;
+  headline: string;
+  summary: string;
+  description: string;
+  regions_served: string[];
+  pricing_hint?: string;
+  contact_mode: MarketplaceContactMode;
+  contact_value: string;
+  status: MarketplaceOfferStatus;
+  review_note?: string;
+  created_at: string;
+  updated_at: string;
+}
 
-model ApplyMarketplaceProviderCapabilityRequest {
+model MarketplaceProviderSummary {
+  provider_org_domain: string;
+  capability_slug: string;
+  headline: string;
+  summary: string;
+  pricing_hint?: string;
+  regions_served: string[];
+  contact_mode: MarketplaceContactMode;
+  contact_value: string;
+}
+
+model MarketplaceSubscription {
+  provider_org_domain: string;
+  capability_slug: string;
+  request_note?: string;
+  status: MarketplaceSubscriptionStatus;
+  review_note?: string;
+  requires_provider_review: boolean;
+  requires_admin_review: boolean;
+  requires_contract: boolean;
+  requires_payment: boolean;
+  starts_at?: string;
+  expires_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+model MarketplaceIncomingSubscription {
+  consumer_org_domain: string;
+  capability_slug: string;
+  status: MarketplaceSubscriptionStatus;
+  request_note?: string;
+  review_note?: string;
+  updated_at: string;
+  created_at: string;
+}
+
+// ---- Request/Response types ----
+
+model ListMarketplaceCapabilitiesRequest {
+  pagination_key?: string;
+  limit?: int32;
+}
+
+model ListMarketplaceCapabilitiesResponse {
+  capabilities: MarketplaceCapability[];
+  next_pagination_key?: string;
+}
+
+model GetMarketplaceCapabilityRequest {
+  capability_slug: string;
+}
+
+model ListProviderEnrollmentsRequest {
+  pagination_key?: string;
+  limit?: int32;
+}
+
+model ListProviderEnrollmentsResponse {
+  enrollments: MarketplaceEnrollment[];
+  next_pagination_key?: string;
+}
+
+model GetProviderEnrollmentRequest {
+  capability_slug: string;
+}
+
+model ApplyProviderEnrollmentRequest {
+  capability_slug: string;
   application_note?: string;
 }
 
-model CreateMarketplaceServiceListingRequest extends ServiceListingFields {}
-
-model CreateMarketplaceServiceListingResponse {
-  name: string;
+model ReapplyProviderEnrollmentRequest {
+  capability_slug: string;
+  application_note?: string;
 }
 
-model UpdateMarketplaceServiceListingRequest {
-  name: string;
-  short_blurb: string;
+model GetProviderOfferRequest {
+  capability_slug: string;
+}
+
+model CreateProviderOfferRequest {
+  capability_slug: string;
+  headline: string;
+  summary: string;
   description: string;
-  service_category: ServiceCategory;
-  countries_of_service: CountryCode[];
-  contact_url: string;
-  pricing_info?: string;
-  industries_served: Industry[];
-  industries_served_other?: string;
-  company_sizes_served: CompanySize[];
-  job_functions_sourced: JobFunction[];
-  seniority_levels_sourced: SeniorityLevel[];
-  geographic_sourcing_regions: CountryCode[];
+  regions_served: string[];
+  pricing_hint?: string;
+  contact_mode: MarketplaceContactMode;
+  contact_value: string;
 }
 
-model SubmitMarketplaceServiceListingRequest {
-  name: string;
+model UpdateProviderOfferRequest {
+  capability_slug: string;
+  headline: string;
+  summary: string;
+  description: string;
+  regions_served: string[];
+  pricing_hint?: string;
+  contact_mode: MarketplaceContactMode;
+  contact_value: string;
 }
 
-model PauseMarketplaceServiceListingRequest {
-  name: string;
+model SubmitProviderOfferRequest {
+  capability_slug: string;
 }
 
-model UnpauseMarketplaceServiceListingRequest {
-  name: string;
+model ArchiveProviderOfferRequest {
+  capability_slug: string;
 }
 
-model ArchiveMarketplaceServiceListingRequest {
-  name: string;
-}
-
-model SubmitMarketplaceServiceListingAppealRequest {
-  name: string;
-  appeal_reason: string;
-}
-
-model ListMarketplaceServiceListingsRequest {
-  filter_state?: ServiceListingState;
-  cursor?: string;
+model ListMarketplaceProvidersRequest {
+  capability_slug: string;
+  pagination_key?: string;
   limit?: int32;
 }
 
-model ListMarketplaceServiceListingsResponse {
-  service_listings: ServiceListing[];
-  next_cursor?: string;
+model ListMarketplaceProvidersResponse {
+  providers: MarketplaceProviderSummary[];
+  next_pagination_key?: string;
 }
 
-model GetMarketplaceServiceListingRequest {
-  name: string;
+model GetMarketplaceProviderOfferRequest {
+  provider_org_domain: string;
+  capability_slug: string;
 }
 
-model BrowseMarketplaceServiceListingsRequest {
-  keyword?: string;
-  service_category?: ServiceCategory;
-  industries?: Industry[];
-  company_sizes?: CompanySize[];
-  job_functions?: JobFunction[];
-  seniority_levels?: SeniorityLevel[];
-  countries_of_service?: CountryCode[];
-  geographic_sourcing_regions?: CountryCode[];
-  cursor?: string;
+model ListConsumerSubscriptionsRequest {
+  pagination_key?: string;
   limit?: int32;
 }
 
-model BrowseMarketplaceServiceListingsResponse {
-  service_listings: ServiceListingSummary[];
-  next_cursor?: string;
+model ListConsumerSubscriptionsResponse {
+  subscriptions: MarketplaceSubscription[];
+  next_pagination_key?: string;
 }
 
-model GetPublicMarketplaceServiceListingRequest {
-  name: string;
-  org_domain: string;
+model GetConsumerSubscriptionRequest {
+  provider_org_domain: string;
+  capability_slug: string;
 }
 
-model ReportMarketplaceServiceListingRequest {
-  name: string;
-  org_domain: string;
-  reason: ReportReason;
-  reason_other?: string;
+model RequestConsumerSubscriptionRequest {
+  provider_org_domain: string;
+  capability_slug: string;
+  request_note?: string;
+}
+
+model CancelConsumerSubscriptionRequest {
+  provider_org_domain: string;
+  capability_slug: string;
+}
+
+model ListIncomingSubscriptionsRequest {
+  capability_slug?: string;
+  pagination_key?: string;
+  limit?: int32;
+}
+
+model ListIncomingSubscriptionsResponse {
+  subscriptions: MarketplaceIncomingSubscription[];
+  next_pagination_key?: string;
+}
+
+model GetIncomingSubscriptionRequest {
+  consumer_org_domain: string;
+  capability_slug: string;
+}
+
+model ProviderApproveSubscriptionRequest {
+  consumer_org_domain: string;
+  capability_slug: string;
+}
+
+model ProviderRejectSubscriptionRequest {
+  consumer_org_domain: string;
+  capability_slug: string;
+  review_note: string;
 }
 
 // ---- API Routes ----
 
 @route("/org")
 interface OrgMarketplace {
-  @route("/apply-marketplace-provider-capability") @post
-  applyMarketplaceProviderCapability(@body body: ApplyMarketplaceProviderCapabilityRequest): OrgCapability | BadRequestResponse;
+  @route("/marketplace/capabilities/list") @post
+  listMarketplaceCapabilities(@body body: ListMarketplaceCapabilitiesRequest): ListMarketplaceCapabilitiesResponse;
 
-  @route("/get-marketplace-provider-capability") @post
-  getMarketplaceProviderCapability(): OrgCapability | NotFoundResponse;
+  @route("/marketplace/capabilities/get") @post
+  getMarketplaceCapability(@body body: GetMarketplaceCapabilityRequest): MarketplaceCapability | NotFoundResponse;
 
-  @route("/create-marketplace-service-listing") @post
-  createMarketplaceServiceListing(@body body: CreateMarketplaceServiceListingRequest): CreateMarketplaceServiceListingResponse | BadRequestResponse;
+  @route("/marketplace/provider-enrollments/list") @post
+  listProviderEnrollments(@body body: ListProviderEnrollmentsRequest): ListProviderEnrollmentsResponse;
 
-  @route("/update-marketplace-service-listing") @post
-  updateMarketplaceServiceListing(@body body: UpdateMarketplaceServiceListingRequest): ServiceListing | BadRequestResponse;
+  @route("/marketplace/provider-enrollments/get") @post
+  getProviderEnrollment(@body body: GetProviderEnrollmentRequest): MarketplaceEnrollment | NotFoundResponse;
 
-  @route("/submit-marketplace-service-listing") @post
-  submitMarketplaceServiceListing(@body body: SubmitMarketplaceServiceListingRequest): ServiceListing | BadRequestResponse;
+  @route("/marketplace/provider-enrollments/apply") @post
+  applyProviderEnrollment(@body body: ApplyProviderEnrollmentRequest): MarketplaceEnrollment | BadRequestResponse;
 
-  @route("/pause-marketplace-service-listing") @post
-  pauseMarketplaceServiceListing(@body body: PauseMarketplaceServiceListingRequest): ServiceListing | BadRequestResponse;
+  @route("/marketplace/provider-enrollments/reapply") @post
+  reapplyProviderEnrollment(@body body: ReapplyProviderEnrollmentRequest): MarketplaceEnrollment | BadRequestResponse;
 
-  @route("/unpause-marketplace-service-listing") @post
-  unpauseMarketplaceServiceListing(@body body: UnpauseMarketplaceServiceListingRequest): ServiceListing | BadRequestResponse;
+  @route("/marketplace/provider-offers/get") @post
+  getProviderOffer(@body body: GetProviderOfferRequest): MarketplaceOffer | NotFoundResponse;
 
-  @route("/archive-marketplace-service-listing") @post
-  archiveMarketplaceServiceListing(@body body: ArchiveMarketplaceServiceListingRequest): ServiceListing | BadRequestResponse;
+  @route("/marketplace/provider-offers/create") @post
+  createProviderOffer(@body body: CreateProviderOfferRequest): MarketplaceOffer | BadRequestResponse;
 
-  @route("/submit-marketplace-service-listing-appeal") @post
-  submitMarketplaceServiceListingAppeal(@body body: SubmitMarketplaceServiceListingAppealRequest): ServiceListing | BadRequestResponse;
+  @route("/marketplace/provider-offers/update") @post
+  updateProviderOffer(@body body: UpdateProviderOfferRequest): MarketplaceOffer | BadRequestResponse;
 
-  @route("/list-marketplace-service-listings") @post
-  listMarketplaceServiceListings(@body body: ListMarketplaceServiceListingsRequest): ListMarketplaceServiceListingsResponse;
+  @route("/marketplace/provider-offers/submit") @post
+  submitProviderOffer(@body body: SubmitProviderOfferRequest): MarketplaceOffer | BadRequestResponse;
 
-  @route("/get-marketplace-service-listing") @post
-  getMarketplaceServiceListing(@body body: GetMarketplaceServiceListingRequest): ServiceListing | NotFoundResponse;
+  @route("/marketplace/provider-offers/archive") @post
+  archiveProviderOffer(@body body: ArchiveProviderOfferRequest): MarketplaceOffer | BadRequestResponse;
 
-  @route("/browse-marketplace-service-listings") @post
-  browseMarketplaceServiceListings(@body body: BrowseMarketplaceServiceListingsRequest): BrowseMarketplaceServiceListingsResponse;
+  @route("/marketplace/providers/list") @post
+  listMarketplaceProviders(@body body: ListMarketplaceProvidersRequest): ListMarketplaceProvidersResponse;
 
-  @route("/get-public-marketplace-service-listing") @post
-  getPublicMarketplaceServiceListing(@body body: GetPublicMarketplaceServiceListingRequest): ServiceListing | NotFoundResponse;
+  @route("/marketplace/providers/get-offer") @post
+  getMarketplaceProviderOffer(@body body: GetMarketplaceProviderOfferRequest): MarketplaceOffer | NotFoundResponse;
 
-  @route("/report-marketplace-service-listing") @post
-  reportMarketplaceServiceListing(@body body: ReportMarketplaceServiceListingRequest): NoContentResponse | BadRequestResponse;
+  @route("/marketplace/consumer-subscriptions/list") @post
+  listConsumerSubscriptions(@body body: ListConsumerSubscriptionsRequest): ListConsumerSubscriptionsResponse;
+
+  @route("/marketplace/consumer-subscriptions/get") @post
+  getConsumerSubscription(@body body: GetConsumerSubscriptionRequest): MarketplaceSubscription | NotFoundResponse;
+
+  @route("/marketplace/consumer-subscriptions/request") @post
+  requestConsumerSubscription(@body body: RequestConsumerSubscriptionRequest): MarketplaceSubscription | BadRequestResponse;
+
+  @route("/marketplace/consumer-subscriptions/cancel") @post
+  cancelConsumerSubscription(@body body: CancelConsumerSubscriptionRequest): MarketplaceSubscription | BadRequestResponse;
+
+  @route("/marketplace/incoming-subscriptions/list") @post
+  listIncomingSubscriptions(@body body: ListIncomingSubscriptionsRequest): ListIncomingSubscriptionsResponse;
+
+  @route("/marketplace/incoming-subscriptions/get") @post
+  getIncomingSubscription(@body body: GetIncomingSubscriptionRequest): MarketplaceIncomingSubscription | NotFoundResponse;
+
+  @route("/marketplace/incoming-subscriptions/provider-approve") @post
+  providerApproveSubscription(@body body: ProviderApproveSubscriptionRequest): MarketplaceIncomingSubscription | BadRequestResponse;
+
+  @route("/marketplace/incoming-subscriptions/provider-reject") @post
+  providerRejectSubscription(@body body: ProviderRejectSubscriptionRequest): MarketplaceIncomingSubscription | BadRequestResponse;
 }

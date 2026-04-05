@@ -1,214 +1,252 @@
 {
 	"backToDashboard": "டாஷ்போர்டுக்கு திரும்பு",
 	"title": "சந்தை நிர்வாகம்",
-	"capabilitiesTab": "வழங்குநர் திறன்கள்",
-	"listingsTab": "சேவை பட்டியல்கள்",
-	"capability": {
+	"loadMore": "மேலும் ஏற்று",
+	"submit": "சமர்பி",
+	"cancel": "ரத்து செய்",
+	"yes": "ஆம்",
+	"no": "இல்லை",
+	"tabs": {
+		"capabilities": "திறன்கள்",
+		"enrollments": "பதிவுகள்",
+		"offers": "சலுகைகள்",
+		"subscriptions": "சந்தாக்கள்",
+		"billing": "கட்டணம்"
+	},
+	"actions": {
+		"approve": "அனுமதி",
+		"reject": "நிராகரி",
+		"suspend": "தடை செய்",
+		"reinstate": "மீட்டமை",
+		"renew": "புதுப்பி",
+		"cancel": "ரத்து செய்",
+		"enable": "இயக்கு",
+		"disable": "நிறுத்து",
+		"markContractSigned": "ஒப்பந்தத்தை கையொப்பமிட்டதாக குறி",
+		"waiveContract": "ஒப்பந்தத்தை தள்ளுபடி செய்",
+		"recordPayment": "கட்டணம் பதிவு செய்",
+		"waivePayment": "கட்டணம் தள்ளுபடி செய்"
+	},
+	"approval": {
+		"open": "திறந்த",
+		"manual": "கையேடு"
+	},
+	"review": {
+		"auto": "தானியங்கி",
+		"manual": "கையேடு"
+	},
+	"subApproval": {
+		"direct": "நேரடி",
+		"provider": "வழங்குநர்",
+		"admin": "நிர்வாகி",
+		"providerAndAdmin": "வழங்குநர் மற்றும் நிர்வாகி"
+	},
+	"capabilities": {
+		"createButton": "திறன் உருவாக்கு",
 		"table": {
-			"orgId": "நிறுவன ஐடி",
-			"capability": "திறன்",
+			"slug": "திறன் அடையாளம்",
+			"displayName": "காட்சிப் பெயர்",
 			"status": "நிலை",
-			"appliedAt": "விண்ணப்பித்த தேதி",
-			"grantedAt": "வழங்கப்பட்ட தேதி",
-			"expiresAt": "காலாவதி தேதி",
-			"subscriptionPrice": "விலை",
-			"currency": "நாணயம்",
+			"providerEnabled": "வழங்குநர் இயக்கப்பட்டது",
+			"consumerEnabled": "நுகர்வோர் இயக்கப்பட்டது",
+			"contractRequired": "ஒப்பந்தம் தேவை",
+			"paymentRequired": "கட்டணம் தேவை",
+			"updatedAt": "புதுப்பிக்கப்பட்ட தேதி",
 			"actions": "செயல்கள்"
 		},
-		"statuses": {
-			"pending_approval": "அனுமதி நிலுவையில்",
-			"active": "செயலில்",
-			"rejected": "நிராகரிக்கப்பட்டது",
-			"expired": "காலாவதியானது",
-			"revoked": "திரும்பப்பெறப்பட்டது"
+		"createModal": {
+			"title": "திறன் உருவாக்கு",
+			"slug": "திறன் அடையாளம்",
+			"displayName": "காட்சிப் பெயர்",
+			"description": "விளக்கம்",
+			"enrollmentApproval": "பதிவு அனுமதி",
+			"offerReview": "சலுகை மதிப்பாய்வு",
+			"subscriptionApproval": "சந்தா அனுமதி",
+			"providerEnabled": "வழங்குநர் இயக்கப்பட்டது",
+			"consumerEnabled": "நுகர்வோர் இயக்கப்பட்டது",
+			"contractRequired": "ஒப்பந்தம் தேவை",
+			"paymentRequired": "கட்டணம் தேவை",
+			"pricingHint": "விலை குறிப்பு (விரும்பினால்)",
+			"submit": "உருவாக்கு"
 		},
 		"actions": {
-			"approve": "அனுமதி",
-			"reject": "நிராகரி",
-			"renew": "புதுப்பி",
-			"revoke": "திரும்பப்பெறு",
-			"reinstate": "மீட்டமை"
+			"enable": "இயக்கு",
+			"disable": "நிறுத்து"
 		},
-		"approveModal": {
-			"title": "திறனை அனுமதி",
-			"orgId": "நிறுவன ஐடி",
-			"subscriptionPrice": "சந்தா விலை",
-			"currency": "நாணயம் (ISO 4217)",
-			"currencyPlaceholder": "எ.கா. USD",
-			"subscriptionPeriodDays": "சந்தா காலம் (நாட்கள்)",
-			"submit": "அனுமதி"
-		},
-		"rejectModal": {
-			"title": "திறனை நிராகரி",
-			"adminNote": "நிராகரிப்பு காரணம்",
-			"adminNotePlaceholder": "இந்த விண்ணப்பம் ஏன் நிராகரிக்கப்பட்டது என்று விளக்குங்கள்",
-			"submit": "நிராகரி"
-		},
-		"renewModal": {
-			"title": "திறனை புதுப்பி",
-			"subscriptionPrice": "சந்தா விலை",
-			"currency": "நாணயம்",
-			"subscriptionPeriodDays": "சந்தா காலம் (நாட்கள்)",
-			"submit": "புதுப்பி"
-		},
-		"revokeModal": {
-			"title": "திறனை திரும்பப்பெறு",
-			"adminNote": "திரும்பப்பெறுதல் காரணம்",
-			"adminNotePlaceholder": "இந்த திறன் ஏன் திரும்பப்பெறப்படுகிறது என்று விளக்குங்கள்",
-			"submit": "திரும்பப்பெறு"
-		},
-		"reinstateModal": {
-			"title": "திறனை மீட்டமை",
-			"subscriptionPrice": "சந்தா விலை",
-			"currency": "நாணயம்",
-			"subscriptionPeriodDays": "சந்தா காலம் (நாட்கள்)",
-			"submit": "மீட்டமை"
-		},
-		"filter": {
-			"all": "அனைத்து நிலைகள்",
-			"pending_approval": "அனுமதி நிலுவையில்",
-			"active": "செயலில்",
-			"rejected": "நிராகரிக்கப்பட்டது",
-			"expired": "காலாவதியானது",
-			"revoked": "திரும்பப்பெறப்பட்டது"
-		},
-		"applicationNote": "விண்ணப்ப குறிப்பு",
-		"needsAction": "{{count}} அனுமதி நிலுவையில்",
 		"errors": {
 			"loadFailed": "திறன்களை ஏற்ற முடியவில்லை",
-			"approveFailed": "திறனை அனுமதிக்க முடியவில்லை",
-			"rejectFailed": "திறனை நிராகரிக்க முடியவில்லை",
-			"renewFailed": "திறனை புதுப்பிக்க முடியவில்லை",
-			"revokeFailed": "திறனை திரும்பப்பெற முடியவில்லை",
-			"reinstateFailed": "திறனை மீட்டமைக்க முடியவில்லை",
-			"invalidState": "இந்த செயலுக்கு தேவையான நிலையில் திறன் இல்லை"
+			"createFailed": "திறனை உருவாக்க முடியவில்லை",
+			"conflict": "இந்த அடையாளத்துடன் ஒரு திறன் ஏற்கனவே உள்ளது",
+			"enableFailed": "திறனை இயக்க முடியவில்லை",
+			"disableFailed": "திறனை நிறுத்த முடியவில்லை"
 		},
 		"success": {
-			"approved": "திறன் அனுமதிக்கப்பட்டது",
-			"rejected": "திறன் நிராகரிக்கப்பட்டது",
-			"renewed": "திறன் புதுப்பிக்கப்பட்டது",
-			"revoked": "திறன் திரும்பப்பெறப்பட்டது",
-			"reinstated": "திறன் மீட்டமைக்கப்பட்டது"
+			"created": "திறன் உருவாக்கப்பட்டது",
+			"enabled": "திறன் இயக்கப்பட்டது",
+			"disabled": "திறன் நிறுத்தப்பட்டது"
 		}
 	},
-	"listings": {
+	"enrollments": {
+		"filterStatus": "நிலை அடிப்படையில் வடிகட்டு",
 		"table": {
-			"name": "பெயர்",
-			"orgId": "நிறுவன ஐடி",
-			"category": "வகை",
-			"state": "நிலை",
-			"reportCount": "புகார்கள்",
+			"orgDomain": "நிறுவன டொமைன்",
+			"capabilitySlug": "திறன்",
+			"status": "நிலை",
+			"billingStatus": "கட்டண நிலை",
+			"expiresAt": "காலாவதி தேதி",
 			"createdAt": "உருவாக்கப்பட்ட தேதி",
 			"actions": "செயல்கள்"
 		},
-		"states": {
-			"draft": "வரைவு",
-			"pending_review": "மதிப்பாய்வு நிலுவையில்",
-			"active": "செயலில்",
-			"paused": "இடைநிறுத்தப்பட்டது",
-			"rejected": "நிராகரிக்கப்பட்டது",
-			"suspended": "தடை செய்யப்பட்டது",
-			"appealing": "மேல்முறையீட்டில்",
-			"archived": "காப்பகப்படுத்தப்பட்டது"
+		"modal": {
+			"approve": {
+				"title": "பதிவை அனுமதி"
+			},
+			"reject": {
+				"title": "பதிவை நிராகரி"
+			},
+			"suspend": {
+				"title": "பதிவை தடை செய்"
+			},
+			"reinstate": {
+				"title": "பதிவை மீட்டமை"
+			},
+			"renew": {
+				"title": "பதிவை புதுப்பி"
+			},
+			"reviewNote": "மதிப்பாய்வு குறிப்பு",
+			"expiresAt": "காலாவதி தேதி (ISO 8601, விரும்பினால்)",
+			"billingReference": "கட்டண குறிப்பு (விரும்பினால்)"
 		},
-		"categories": {
-			"talent_sourcing": "திறமை ஆட்சேர்ப்பு"
-		},
-		"actions": {
-			"approve": "அனுமதி",
-			"reject": "நிராகரி",
-			"suspend": "தடை செய்",
-			"reinstate": "மீட்டமை",
-			"grantAppeal": "மேல்முறையீட்டை அனுமதி",
-			"denyAppeal": "மேல்முறையீட்டை நிராகரி",
-			"view": "பார்"
-		},
-		"approveModal": {
-			"title": "சேவை பட்டியலை அனுமதி",
-			"verificationNote": "சரிபார்ப்பு குறிப்பு",
-			"verificationNotePlaceholder": "சரிபார்ப்பை உறுதிப்படுத்தும் குறிப்பு",
-			"verificationId": "சரிபார்ப்பு ஐடி",
-			"verificationIdPlaceholder": "உள் சரிபார்ப்பு குறிப்பு",
-			"submit": "அனுமதி"
-		},
-		"rejectModal": {
-			"title": "சேவை பட்டியலை நிராகரி",
-			"adminNote": "நிராகரிப்பு காரணம்",
-			"adminNotePlaceholder": "இந்த பட்டியல் ஏன் நிராகரிக்கப்படுகிறது என்று விளக்குங்கள்",
-			"verificationId": "சரிபார்ப்பு ஐடி (விரும்பினால்)",
-			"submit": "நிராகரி"
-		},
-		"suspendModal": {
-			"title": "சேவை பட்டியலை தடை செய்",
-			"adminNote": "தடை காரணம்",
-			"adminNotePlaceholder": "இந்த பட்டியல் ஏன் தடை செய்யப்படுகிறது என்று விளக்குங்கள்",
-			"submit": "தடை செய்"
-		},
-		"reinstateModal": {
-			"title": "சேவை பட்டியலை மீட்டமை",
-			"adminNote": "நிர்வாக குறிப்பு (விரும்பினால்)",
-			"submit": "மீட்டமை"
-		},
-		"grantAppealModal": {
-			"title": "மேல்முறையீட்டை அனுமதி",
-			"adminNote": "நிர்வாக முடிவு குறிப்பு",
-			"adminNotePlaceholder": "மேல்முறையீடு ஏன் அனுமதிக்கப்படுகிறது என்று விளக்குங்கள்",
-			"submit": "மேல்முறையீட்டை அனுமதி"
-		},
-		"denyAppealModal": {
-			"title": "மேல்முறையீட்டை நிராகரி",
-			"adminNote": "நிர்வாக முடிவு குறிப்பு",
-			"adminNotePlaceholder": "மேல்முறையீடு ஏன் நிராகரிக்கப்படுகிறது என்று விளக்குங்கள்",
-			"submit": "மேல்முறையீட்டை நிராகரி"
-		},
-		"filter": {
-			"all": "அனைத்து நிலைகள்",
-			"pending_review": "மதிப்பாய்வு நிலுவையில்",
-			"active": "செயலில்",
-			"rejected": "நிராகரிக்கப்பட்டது",
-			"suspended": "தடை செய்யப்பட்டது",
-			"appealing": "மேல்முறையீட்டில்"
-		},
-		"detailModal": {
-			"title": "சேவை பட்டியல் விவரம்",
-			"name": "பெயர்",
-			"orgId": "நிறுவன ஐடி",
-			"category": "வகை",
-			"state": "நிலை",
-			"shortBlurb": "சுருக்கமான விளக்கம்",
-			"description": "விளக்கம்",
-			"contactUrl": "தொடர்பு URL",
-			"pricingInfo": "விலை தகவல்",
-			"countriesOfService": "நாடுகள்",
-			"lastReviewNote": "கடைசி மதிப்பாய்வு குறிப்பு",
-			"appealReason": "மேல்முறையீட்டு காரணம்",
-			"appealNote": "மேல்முறையீட்டு நிர்வாக குறிப்பு",
-			"appealExhausted": "மேல்முறையீடு முழுமையாக பயன்படுத்தப்பட்டது",
-			"createdAt": "உருவாக்கப்பட்ட தேதி",
-			"updatedAt": "புதுப்பிக்கப்பட்ட தேதி",
-			"region": "பிராந்தியம்"
-		},
-		"hasReports": "புகார்கள் உள்ளன",
-		"needsAction": "{{count}} உருப்படிகளுக்கு நடவடிக்கை தேவை",
-		"retry": "மீண்டும் முயற்சி",
 		"errors": {
-			"loadFailed": "சேவை பட்டியல்களை ஏற்ற முடியவில்லை",
-			"approveFailed": "சேவை பட்டியலை அனுமதிக்க முடியவில்லை",
-			"rejectFailed": "சேவை பட்டியலை நிராகரிக்க முடியவில்லை",
-			"suspendFailed": "சேவை பட்டியலை தடை செய்ய முடியவில்லை",
-			"reinstateFailed": "சேவை பட்டியலை மீட்டமைக்க முடியவில்லை",
-			"grantAppealFailed": "மேல்முறையீட்டை அனுமதிக்க முடியவில்லை",
-			"denyAppealFailed": "மேல்முறையீட்டை நிராகரிக்க முடியவில்லை",
-			"invalidState": "இந்த செயலுக்கு தேவையான நிலையில் சேவை பட்டியல் இல்லை"
+			"loadFailed": "பதிவுகளை ஏற்ற முடியவில்லை",
+			"approveFailed": "பதிவை அனுமதிக்க முடியவில்லை",
+			"rejectFailed": "பதிவை நிராகரிக்க முடியவில்லை",
+			"suspendFailed": "பதிவை தடை செய்ய முடியவில்லை",
+			"reinstateFailed": "பதிவை மீட்டமைக்க முடியவில்லை",
+			"renewFailed": "பதிவை புதுப்பிக்க முடியவில்லை",
+			"invalidState": "இந்த செயலுக்கு தேவையான நிலையில் பதிவு இல்லை",
+			"actionFailed": "செயல் தோல்வியுற்றது"
 		},
 		"success": {
-			"approved": "சேவை பட்டியல் அனுமதிக்கப்பட்டது",
-			"rejected": "சேவை பட்டியல் நிராகரிக்கப்பட்டது",
-			"suspended": "சேவை பட்டியல் தடை செய்யப்பட்டது",
-			"reinstated": "சேவை பட்டியல் மீட்டமைக்கப்பட்டது",
-			"appealGranted": "மேல்முறையீடு அனுமதிக்கப்பட்டது",
-			"appealDenied": "மேல்முறையீடு நிராகரிக்கப்பட்டது"
+			"approve": "பதிவு அனுமதிக்கப்பட்டது",
+			"reject": "பதிவு நிராகரிக்கப்பட்டது",
+			"suspend": "பதிவு தடை செய்யப்பட்டது",
+			"reinstate": "பதிவு மீட்டமைக்கப்பட்டது",
+			"renew": "பதிவு புதுப்பிக்கப்பட்டது"
+		}
+	},
+	"offers": {
+		"filterStatus": "நிலை அடிப்படையில் வடிகட்டு",
+		"table": {
+			"orgDomain": "நிறுவன டொமைன்",
+			"capabilitySlug": "திறன்",
+			"headline": "தலைப்பு",
+			"status": "நிலை",
+			"contactMode": "தொடர்பு முறை",
+			"updatedAt": "புதுப்பிக்கப்பட்ட தேதி",
+			"actions": "செயல்கள்"
 		},
-		"loadMore": "மேலும் ஏற்று"
+		"modal": {
+			"approve": {
+				"title": "சலுகையை அனுமதி"
+			},
+			"reject": {
+				"title": "சலுகையை நிராகரி"
+			},
+			"suspend": {
+				"title": "சலுகையை தடை செய்"
+			},
+			"reinstate": {
+				"title": "சலுகையை மீட்டமை"
+			},
+			"reviewNote": "மதிப்பாய்வு குறிப்பு"
+		},
+		"errors": {
+			"loadFailed": "சலுகைகளை ஏற்ற முடியவில்லை",
+			"approveFailed": "சலுகையை அனுமதிக்க முடியவில்லை",
+			"rejectFailed": "சலுகையை நிராகரிக்க முடியவில்லை",
+			"suspendFailed": "சலுகையை தடை செய்ய முடியவில்லை",
+			"reinstateFailed": "சலுகையை மீட்டமைக்க முடியவில்லை",
+			"invalidState": "இந்த செயலுக்கு தேவையான நிலையில் சலுகை இல்லை",
+			"actionFailed": "செயல் தோல்வியுற்றது"
+		},
+		"success": {
+			"approve": "சலுகை அனுமதிக்கப்பட்டது",
+			"reject": "சலுகை நிராகரிக்கப்பட்டது",
+			"suspend": "சலுகை தடை செய்யப்பட்டது",
+			"reinstate": "சலுகை மீட்டமைக்கப்பட்டது"
+		}
+	},
+	"subscriptions": {
+		"filterStatus": "நிலை அடிப்படையில் வடிகட்டு",
+		"table": {
+			"consumerOrgDomain": "நுகர்வோர் நிறுவனம்",
+			"providerOrgDomain": "வழங்குநர் நிறுவனம்",
+			"capabilitySlug": "திறன்",
+			"status": "நிலை",
+			"requiresAdminReview": "நிர்வாக மதிப்பாய்வு",
+			"requiresContract": "ஒப்பந்தம்",
+			"requiresPayment": "கட்டணம்",
+			"createdAt": "உருவாக்கப்பட்ட தேதி",
+			"actions": "செயல்கள்"
+		},
+		"modal": {
+			"approve": {
+				"title": "சந்தாவை அனுமதி"
+			},
+			"reject": {
+				"title": "சந்தாவை நிராகரி"
+			},
+			"markContractSigned": {
+				"title": "ஒப்பந்தத்தை கையொப்பமிட்டதாக குறி"
+			},
+			"waiveContract": {
+				"title": "ஒப்பந்தத்தை தள்ளுபடி செய்"
+			},
+			"recordPayment": {
+				"title": "கட்டணம் பதிவு செய்"
+			},
+			"waivePayment": {
+				"title": "கட்டணம் தள்ளுபடி செய்"
+			},
+			"cancel": {
+				"title": "சந்தாவை ரத்து செய்"
+			},
+			"note": "குறிப்பு"
+		},
+		"errors": {
+			"loadFailed": "சந்தாக்களை ஏற்ற முடியவில்லை",
+			"approveFailed": "சந்தாவை அனுமதிக்க முடியவில்லை",
+			"rejectFailed": "சந்தாவை நிராகரிக்க முடியவில்லை",
+			"markContractSignedFailed": "ஒப்பந்தத்தை கையொப்பமிட்டதாக குறிக்க முடியவில்லை",
+			"waiveContractFailed": "ஒப்பந்தத்தை தள்ளுபடி செய்ய முடியவில்லை",
+			"recordPaymentFailed": "கட்டணம் பதிவு செய்ய முடியவில்லை",
+			"waivePaymentFailed": "கட்டணம் தள்ளுபடி செய்ய முடியவில்லை",
+			"cancelFailed": "சந்தாவை ரத்து செய்ய முடியவில்லை",
+			"invalidState": "இந்த செயலுக்கு தேவையான நிலையில் சந்தா இல்லை",
+			"actionFailed": "செயல் தோல்வியுற்றது"
+		},
+		"success": {
+			"approve": "சந்தா அனுமதிக்கப்பட்டது",
+			"reject": "சந்தா நிராகரிக்கப்பட்டது",
+			"markContractSigned": "ஒப்பந்தம் கையொப்பமிட்டதாக குறிக்கப்பட்டது",
+			"waiveContract": "ஒப்பந்தம் தள்ளுபடி செய்யப்பட்டது",
+			"recordPayment": "கட்டணம் பதிவு செய்யப்பட்டது",
+			"waivePayment": "கட்டணம் தள்ளுபடி செய்யப்பட்டது",
+			"cancel": "சந்தா ரத்து செய்யப்பட்டது"
+		}
+	},
+	"billing": {
+		"table": {
+			"consumerOrgDomain": "நுகர்வோர் நிறுவனம்",
+			"providerOrgDomain": "வழங்குநர் நிறுவனம்",
+			"capabilitySlug": "திறன்",
+			"eventType": "நிகழ்வு வகை",
+			"note": "குறிப்பு",
+			"createdAt": "உருவாக்கப்பட்ட தேதி"
+		},
+		"errors": {
+			"loadFailed": "கட்டண பதிவுகளை ஏற்ற முடியவில்லை"
+		}
 	}
 }

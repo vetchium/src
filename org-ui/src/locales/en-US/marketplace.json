@@ -1,245 +1,317 @@
 {
 	"backToDashboard": "Back to Dashboard",
 	"title": "Marketplace",
-	"providerSection": "Provider Management",
-	"browseSection": "Browse Services",
-	"browseSectionSubtitle": "Discover services offered by other organizations on the Vetchium network.",
-	"providerHub": {
-		"title": "Offer Your Services",
-		"subtitle": "Apply to list your services on the Vetchium marketplace and reach organizations looking for your expertise.",
-		"clickToApply": "Click to apply and become a marketplace provider",
-		"clickToManage": "Click to manage your listings",
-		"clickToView": "Click to view your application status",
-		"talentSourcing": {
-			"title": "Talent Sourcing",
-			"description": "Recruit talent on behalf of other organizations. Showcase your recruitment expertise and reach clients across the Vetchium network."
-		}
+	"launcher": {
+		"exploreTitle": "Explore Capabilities",
+		"exploreSubtitle": "Browse marketplace capabilities and subscribe to services from other organizations.",
+		"exploreAction": "Browse Capabilities",
+		"provideTitle": "Provide Services",
+		"provideSubtitle": "Enroll to offer your services on the marketplace and manage your offer listings.",
+		"provideAction": "Manage Provider Dashboard",
+		"purchasesTitle": "My Purchases",
+		"purchasesSubtitle": "View and manage your active subscriptions to marketplace services.",
+		"purchasesAction": "View Subscriptions"
 	},
-	"capability": {
-		"title": "Marketplace Provider Capability",
-		"status": "Status",
-		"currentStatus": "Provider Status",
-		"apply": "Apply to Become a Provider",
-		"reapply": "Re-apply",
-		"applyTitle": "Apply for Marketplace Provider Capability",
-		"reapplyTitle": "Re-apply for Marketplace Provider Capability",
-		"applyDescription": "Apply to list your services on the Vetchium marketplace. A Vetchium admin will review your application.",
+	"capabilities": {
+		"title": "Marketplace Capabilities",
 		"backToMarketplace": "Back to Marketplace",
-		"manageListings": "Manage My Service Listings",
-		"applicationNoteHint": "Optional. Max 1000 characters.",
-		"applicationNote": "Application Note",
-		"applicationNotePlaceholder": "Describe your services and why you want to be a marketplace provider (optional, max 1000 chars)",
-		"submitApplication": "Submit Application",
-		"notApplied": "You have not applied for marketplace provider capability yet.",
-		"adminNote": "Admin Note",
-		"subscriptionPrice": "Subscription Price",
-		"currency": "Currency",
-		"grantedAt": "Granted At",
-		"expiresAt": "Expires At",
-		"appliedAt": "Applied At",
-		"statuses": {
-			"pending_approval": "Pending Approval",
+		"loadMore": "Load More",
+		"viewProviders": "View Providers",
+		"status": {
+			"draft": "Draft",
 			"active": "Active",
-			"rejected": "Rejected",
-			"expired": "Expired",
-			"revoked": "Revoked"
+			"disabled": "Disabled"
 		},
 		"errors": {
-			"applicationNoteTooLong": "Application note must be at most 1000 characters",
-			"loadFailed": "Failed to load capability status",
-			"applyFailed": "Failed to submit application"
+			"loadFailed": "Failed to load capabilities"
+		}
+	},
+	"capabilityDetail": {
+		"backToCapabilities": "Back to Capabilities",
+		"providersTitle": "Available Providers",
+		"loadMoreProviders": "Load More Providers",
+		"viewOffer": "View Offer",
+		"subscribe": "Subscribe",
+		"noProviders": "No providers available for this capability yet.",
+		"regions": "Regions Served",
+		"contact": "Contact",
+		"contactModes": {
+			"platform_message": "Platform Message",
+			"external_url": "External URL",
+			"email": "Email"
+		},
+		"errors": {
+			"loadFailed": "Failed to load capability details",
+			"providersFailed": "Failed to load providers"
+		}
+	},
+	"providerOffer": {
+		"backToCapability": "Back to Capability",
+		"headline": "Headline",
+		"summary": "Summary",
+		"description": "Description",
+		"regions": "Regions Served",
+		"pricing": "Pricing",
+		"contact": "Contact",
+		"subscribeButton": "Request Subscription",
+		"alreadySubscribed": "Already Subscribed",
+		"requestNote": "Request Note",
+		"requestNotePlaceholder": "Optional note to the provider (max 1000 chars)",
+		"confirmSubscribe": "Confirm Subscription Request",
+		"subscribeConfirmMessage": "Send a subscription request to this provider?",
+		"errors": {
+			"loadFailed": "Failed to load provider offer",
+			"subscribeFailed": "Failed to request subscription"
+		},
+		"success": {
+			"subscribed": "Subscription request sent successfully"
+		}
+	},
+	"provide": {
+		"dashboardTitle": "Provider Dashboard",
+		"backToMarketplace": "Back to Marketplace",
+		"enrollmentsTitle": "My Enrollments",
+		"loadMore": "Load More",
+		"applyButton": "Apply for Enrollment",
+		"viewDetails": "View Details",
+		"noEnrollments": "You are not enrolled in any marketplace capabilities yet.",
+		"enrollmentStatuses": {
+			"pending_review": "Pending Review",
+			"approved": "Approved",
+			"rejected": "Rejected",
+			"suspended": "Suspended",
+			"expired": "Expired"
+		},
+		"errors": {
+			"loadFailed": "Failed to load enrollments"
+		}
+	},
+	"provideCapability": {
+		"backToProvide": "Back to Provider Dashboard",
+		"enrollmentTitle": "Enrollment Status",
+		"offerTitle": "My Offer",
+		"applyButton": "Apply for Enrollment",
+		"reapplyButton": "Re-apply",
+		"createOfferButton": "Create Offer",
+		"editOfferButton": "Edit Offer",
+		"submitOfferButton": "Submit for Review",
+		"archiveOfferButton": "Archive Offer",
+		"viewActivityButton": "View Incoming Subscriptions",
+		"noEnrollment": "You have not applied for this capability yet.",
+		"noOffer": "No offer created yet.",
+		"approvedAt": "Approved At",
+		"expiresAt": "Expires At",
+		"reviewNote": "Review Note",
+		"applicationNote": "Application Note",
+		"offerStatuses": {
+			"draft": "Draft",
+			"pending_review": "Pending Review",
+			"active": "Active",
+			"rejected": "Rejected",
+			"suspended": "Suspended",
+			"archived": "Archived"
+		},
+		"errors": {
+			"loadFailed": "Failed to load capability details",
+			"submitFailed": "Failed to submit offer",
+			"archiveFailed": "Failed to archive offer"
+		},
+		"success": {
+			"submitted": "Offer submitted for review",
+			"archived": "Offer archived"
+		}
+	},
+	"provideApply": {
+		"applyTitle": "Apply for Enrollment",
+		"reapplyTitle": "Re-apply for Enrollment",
+		"backToCapability": "Back to Capability",
+		"capabilityLabel": "Capability",
+		"applicationNoteLabel": "Application Note",
+		"applicationNotePlaceholder": "Describe your services and why you want to be a provider (optional, max 1000 chars)",
+		"applicationNoteHelp": "Optional. Max 1000 characters.",
+		"submitButton": "Submit Application",
+		"errors": {
+			"noteTooLong": "Application note must be at most 1000 characters",
+			"submitFailed": "Failed to submit application",
+			"loadFailed": "Failed to load capability"
 		},
 		"success": {
 			"applied": "Application submitted successfully"
 		}
 	},
-	"listings": {
-		"title": "My Service Listings",
-		"addButton": "New Service Listing",
-		"noCapability": "Your organization needs an active marketplace provider capability to manage service listings.",
-		"createTitle": "Create Service Listing",
-		"editTitle": "Edit Service Listing",
-		"name": "Name",
-		"namePlaceholder": "e.g. Senior Software Engineer Recruitment",
-		"shortBlurb": "Short Description",
-		"shortBlurbPlaceholder": "Brief description (max 250 chars)",
-		"description": "Full Description",
-		"descriptionPlaceholder": "Detailed description of your service",
-		"serviceCategory": "Service Category",
-		"contactUrl": "Contact URL",
-		"contactUrlPlaceholder": "https://yourwebsite.com/contact",
-		"pricingInfo": "Pricing Information",
-		"pricingInfoPlaceholder": "Describe your pricing (optional, max 500 chars)",
-		"countriesOfService": "Countries of Service",
-		"countriesOfServicePlaceholder": "e.g. US, IN, DE",
-		"industriesServed": "Industries Served",
-		"industriesServedOther": "Other Industry Description",
-		"industriesServedOtherPlaceholder": "Describe the other industry (max 100 chars)",
-		"companySizesServed": "Company Sizes Served",
-		"jobFunctionsSourced": "Job Functions Sourced",
-		"seniorityLevelsSourced": "Seniority Levels Sourced",
-		"geographicSourcingRegions": "Geographic Sourcing Regions",
-		"geographicSourcingRegionsPlaceholder": "e.g. North America, Europe",
-		"submit": "Submit for Review",
-		"pause": "Pause",
-		"unpause": "Unpause",
-		"archive": "Archive",
-		"appeal": "Submit Appeal",
-		"appealReason": "Appeal Reason",
-		"appealReasonPlaceholder": "Explain why this suspension should be reconsidered (max 2000 chars)",
-		"lastReviewNote": "Review Note",
-		"states": {
-			"draft": "Draft",
-			"pending_review": "Pending Review",
-			"active": "Active",
-			"paused": "Paused",
-			"rejected": "Rejected",
-			"suspended": "Suspended",
-			"appealing": "Appealing",
-			"archived": "Archived"
-		},
-		"serviceCategories": {
-			"talent_sourcing": "Talent Sourcing"
-		},
-		"industries": {
-			"technology_software": "Technology / Software",
-			"finance_banking": "Finance / Banking",
-			"healthcare_life_sciences": "Healthcare / Life Sciences",
-			"manufacturing_engineering": "Manufacturing / Engineering",
-			"retail_consumer_goods": "Retail / Consumer Goods",
-			"media_entertainment": "Media / Entertainment",
-			"education_training": "Education / Training",
-			"legal_services": "Legal Services",
-			"consulting_professional_services": "Consulting / Professional Services",
-			"real_estate_construction": "Real Estate / Construction",
-			"energy_utilities": "Energy / Utilities",
-			"logistics_supply_chain": "Logistics / Supply Chain",
-			"government_public_sector": "Government / Public Sector",
-			"nonprofit_ngo": "Nonprofit / NGO",
-			"other": "Other"
-		},
-		"companySizes": {
-			"startup": "Startup",
-			"smb": "SMB",
-			"enterprise": "Enterprise"
-		},
-		"jobFunctions": {
-			"engineering_technology": "Engineering / Technology",
-			"sales_business_development": "Sales / Business Development",
-			"marketing": "Marketing",
-			"finance_accounting": "Finance / Accounting",
-			"human_resources": "Human Resources",
-			"operations_supply_chain": "Operations / Supply Chain",
-			"product_management": "Product Management",
-			"design_creative": "Design / Creative",
-			"legal_compliance": "Legal / Compliance",
-			"customer_success_support": "Customer Success / Support",
-			"data_analytics": "Data / Analytics",
-			"executive_general_management": "Executive / General Management"
-		},
-		"seniorityLevels": {
-			"intern": "Intern",
-			"junior": "Junior",
-			"mid": "Mid",
-			"senior": "Senior",
-			"lead": "Lead",
-			"director": "Director",
-			"c_suite": "C-Suite"
-		},
-		"table": {
-			"name": "Name",
-			"category": "Category",
-			"state": "State",
-			"createdAt": "Created",
-			"actions": "Actions",
-			"view": "View",
-			"edit": "Edit"
-		},
-		"backToProvider": "Back to Provider Capability",
-		"backToListings": "Back to Service Listings",
-		"noListings": "No service listings yet. Create your first listing to start offering your services.",
-		"saveAsDraft": "Save as Draft",
-		"saveChanges": "Save Changes",
-		"submitForReview": "Submit for Review",
-		"formSections": {
-			"basicInfo": "Basic Information",
-			"talentSourcing": "Talent Sourcing Details"
-		},
+	"provideOffer": {
+		"backToCapability": "Back to Capability",
+		"title": "My Offer",
+		"headline": "Headline",
+		"summary": "Summary",
+		"description": "Description",
+		"regions": "Regions Served",
+		"pricing": "Pricing",
+		"contact": "Contact",
+		"editButton": "Edit Offer",
+		"status": "Status",
+		"reviewNote": "Review Note",
 		"errors": {
-			"nameRequired": "Name is required",
-			"nameTooLong": "Name must be at most 100 characters",
-			"nameTaken": "A listing with this name already exists",
-			"shortBlurbRequired": "Short description is required",
-			"shortBlurbTooLong": "Short description must be at most 250 characters",
+			"loadFailed": "Failed to load offer"
+		}
+	},
+	"provideOfferEdit": {
+		"createTitle": "Create Offer",
+		"editTitle": "Edit Offer",
+		"backToOffer": "Back to Offer",
+		"backToCapability": "Back to Capability",
+		"headlineLabel": "Headline",
+		"headlinePlaceholder": "Short headline for your service offer",
+		"summaryLabel": "Summary",
+		"summaryPlaceholder": "A brief summary of what you offer (max 500 chars)",
+		"descriptionLabel": "Description",
+		"descriptionPlaceholder": "Detailed description of your service offer (max 5000 chars)",
+		"regionsLabel": "Regions Served",
+		"regionsPlaceholder": "e.g. North America, Europe, Asia",
+		"pricingLabel": "Pricing Hint",
+		"pricingPlaceholder": "e.g. Starting from $500/month (optional)",
+		"contactModeLabel": "Contact Mode",
+		"contactValueLabel": "Contact Value",
+		"contactValuePlaceholder": "URL, email, or platform username",
+		"contactModes": {
+			"platform_message": "Platform Message",
+			"external_url": "External URL",
+			"email": "Email"
+		},
+		"submitButton": "Save Offer",
+		"errors": {
+			"headlineRequired": "Headline is required",
+			"headlineTooLong": "Headline must be at most 200 characters",
+			"summaryRequired": "Summary is required",
+			"summaryTooLong": "Summary must be at most 500 characters",
 			"descriptionRequired": "Description is required",
 			"descriptionTooLong": "Description must be at most 5000 characters",
-			"categoryRequired": "Service category is required",
-			"contactUrlRequired": "Contact URL is required",
-			"contactUrlInvalid": "Contact URL must start with https://",
-			"countriesRequired": "At least one country is required",
-			"industriesRequired": "At least one industry is required",
-			"industriesOtherRequired": "Please describe the other industry",
-			"industriesOtherTooLong": "Other industry description must be at most 100 characters",
-			"companySizesRequired": "At least one company size is required",
-			"jobFunctionsRequired": "At least one job function is required",
-			"seniorityLevelsRequired": "At least one seniority level is required",
-			"geographicRegionsRequired": "At least one geographic sourcing region is required",
-			"pricingInfoTooLong": "Pricing information must be at most 500 characters",
-			"appealReasonRequired": "Appeal reason is required",
-			"appealReasonTooLong": "Appeal reason must be at most 2000 characters",
-			"loadFailed": "Failed to load service listings",
-			"createFailed": "Failed to create service listing",
-			"submitFailed": "Failed to submit service listing",
-			"pauseFailed": "Failed to pause service listing",
-			"unpauseFailed": "Failed to unpause service listing",
-			"archiveFailed": "Failed to archive service listing",
-			"appealFailed": "Failed to submit appeal",
-			"appealAlreadyExhausted": "Appeal has already been exhausted for this suspension"
+			"regionsRequired": "At least one region is required",
+			"contactValueRequired": "Contact value is required",
+			"loadFailed": "Failed to load offer",
+			"saveFailed": "Failed to save offer"
 		},
 		"success": {
-			"created": "Service listing created successfully",
-			"updated": "Service listing updated successfully",
-			"submitted": "Service listing submitted for review",
-			"paused": "Service listing paused",
-			"unpaused": "Service listing unpaused and submitted for review",
-			"archived": "Service listing archived",
-			"appealed": "Appeal submitted successfully"
-		},
-		"loadMore": "Load More"
+			"saved": "Offer saved successfully"
+		}
 	},
-	"browse": {
-		"title": "Browse Services",
-		"searchPlaceholder": "Search service listings...",
-		"noResults": "No service listings found",
-		"contactProvider": "Contact Provider",
-		"report": "Report",
-		"reportTitle": "Report Service Listing",
-		"reportReason": "Reason",
-		"reportDetails": "Details",
-		"reportDetailsPlaceholder": "Describe the issue (optional, max 500 chars)",
-		"reportSubmit": "Submit Report",
-		"categories": {
-			"talent_sourcing": "Talent Sourcing"
-		},
-		"reportReasons": {
-			"misleading_information": "Misleading Information",
-			"fraudulent": "Fraudulent",
-			"inappropriate_content": "Inappropriate Content",
-			"spam": "Spam",
-			"other": "Other"
+	"provideActivity": {
+		"title": "Incoming Subscriptions",
+		"backToCapability": "Back to Capability",
+		"loadMore": "Load More",
+		"viewDetails": "View Details",
+		"noSubscriptions": "No incoming subscription requests.",
+		"consumer": "Consumer",
+		"status": "Status",
+		"createdAt": "Created At",
+		"subscriptionStatuses": {
+			"requested": "Requested",
+			"provider_review": "Provider Review",
+			"admin_review": "Admin Review",
+			"awaiting_contract": "Awaiting Contract",
+			"awaiting_payment": "Awaiting Payment",
+			"active": "Active",
+			"rejected": "Rejected",
+			"cancelled": "Cancelled",
+			"expired": "Expired"
 		},
 		"errors": {
-			"loadFailed": "Failed to load listings",
-			"reportFailed": "Failed to submit report",
-			"alreadyReported": "You have already reported this listing",
-			"ownListing": "You cannot view your own organization's listings",
-			"reasonRequired": "Please select a reason",
-			"reasonOtherRequired": "Please describe the issue",
-			"reasonOtherTooLong": "Details must be at most 500 characters"
+			"loadFailed": "Failed to load subscriptions"
+		}
+	},
+	"provideActivityDetail": {
+		"backToActivity": "Back to Incoming Subscriptions",
+		"title": "Subscription Detail",
+		"consumer": "Consumer",
+		"capability": "Capability",
+		"status": "Status",
+		"requestNote": "Request Note",
+		"reviewNote": "Review Note",
+		"createdAt": "Created At",
+		"updatedAt": "Updated At",
+		"approveButton": "Approve",
+		"rejectButton": "Reject",
+		"rejectTitle": "Reject Subscription",
+		"rejectNoteLabel": "Review Note",
+		"rejectNotePlaceholder": "Provide a reason for rejection (required)",
+		"confirmApprove": "Approve this subscription request?",
+		"subscriptionStatuses": {
+			"requested": "Requested",
+			"provider_review": "Provider Review",
+			"admin_review": "Admin Review",
+			"awaiting_contract": "Awaiting Contract",
+			"awaiting_payment": "Awaiting Payment",
+			"active": "Active",
+			"rejected": "Rejected",
+			"cancelled": "Cancelled",
+			"expired": "Expired"
+		},
+		"errors": {
+			"loadFailed": "Failed to load subscription",
+			"approveFailed": "Failed to approve subscription",
+			"rejectFailed": "Failed to reject subscription",
+			"reviewNoteRequired": "Review note is required for rejection"
 		},
 		"success": {
-			"reported": "Report submitted successfully"
+			"approved": "Subscription approved",
+			"rejected": "Subscription rejected"
+		}
+	},
+	"purchases": {
+		"title": "My Purchases",
+		"backToMarketplace": "Back to Marketplace",
+		"loadMore": "Load More",
+		"viewDetails": "View Details",
+		"noSubscriptions": "No active subscriptions yet.",
+		"provider": "Provider",
+		"capability": "Capability",
+		"status": "Status",
+		"createdAt": "Created At",
+		"subscriptionStatuses": {
+			"requested": "Requested",
+			"provider_review": "Provider Review",
+			"admin_review": "Admin Review",
+			"awaiting_contract": "Awaiting Contract",
+			"awaiting_payment": "Awaiting Payment",
+			"active": "Active",
+			"rejected": "Rejected",
+			"cancelled": "Cancelled",
+			"expired": "Expired"
 		},
-		"loadMore": "Load More"
+		"errors": {
+			"loadFailed": "Failed to load subscriptions"
+		}
+	},
+	"purchaseDetail": {
+		"backToPurchases": "Back to Purchases",
+		"title": "Purchase Detail",
+		"provider": "Provider",
+		"capability": "Capability",
+		"status": "Status",
+		"requestNote": "Request Note",
+		"reviewNote": "Review Note",
+		"startsAt": "Starts At",
+		"expiresAt": "Expires At",
+		"createdAt": "Created At",
+		"cancelButton": "Cancel Subscription",
+		"confirmCancel": "Cancel this subscription?",
+		"subscriptionStatuses": {
+			"requested": "Requested",
+			"provider_review": "Provider Review",
+			"admin_review": "Admin Review",
+			"awaiting_contract": "Awaiting Contract",
+			"awaiting_payment": "Awaiting Payment",
+			"active": "Active",
+			"rejected": "Rejected",
+			"cancelled": "Cancelled",
+			"expired": "Expired"
+		},
+		"errors": {
+			"loadFailed": "Failed to load subscription",
+			"cancelFailed": "Failed to cancel subscription"
+		},
+		"success": {
+			"cancelled": "Subscription cancelled"
+		}
 	}
 }

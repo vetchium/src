@@ -1,278 +1,355 @@
 import { type ValidationError, newValidationError } from "../common/common";
-import type {
-	OrgCapabilityStatus,
-	ServiceListingState,
-	OrgCapability,
-	ServiceListing,
-} from "../org/marketplace";
 
-export type {
-	OrgCapabilityStatus,
-	ServiceListingState,
-	OrgCapability,
-	ServiceListing,
-};
+// ---- Models ----
 
-// ---- Capability admin requests ----
+export interface AdminMarketplaceCapability {
+	capability_slug: string;
+	display_name: string;
+	description: string;
+	provider_enabled: boolean;
+	consumer_enabled: boolean;
+	enrollment_approval: string;
+	offer_review: string;
+	subscription_approval: string;
+	contract_required: boolean;
+	payment_required: boolean;
+	pricing_hint?: string;
+	status: string;
+	created_at: string;
+	updated_at: string;
+}
 
-export interface ListMarketplaceProviderCapabilitiesRequest {
-	filter_status?: OrgCapabilityStatus;
-	filter_org_domain?: string;
-	cursor?: string;
+export interface AdminMarketplaceEnrollment {
+	org_domain: string;
+	capability_slug: string;
+	status: string;
+	application_note?: string;
+	review_note?: string;
+	approved_at?: string;
+	expires_at?: string;
+	billing_reference?: string;
+	billing_status: string;
+	created_at: string;
+	updated_at: string;
+}
+
+export interface AdminMarketplaceOffer {
+	org_domain: string;
+	capability_slug: string;
+	headline: string;
+	summary: string;
+	description: string;
+	regions_served: string[];
+	pricing_hint?: string;
+	contact_mode: string;
+	contact_value: string;
+	status: string;
+	review_note?: string;
+	created_at: string;
+	updated_at: string;
+}
+
+export interface AdminMarketplaceSubscription {
+	consumer_org_domain: string;
+	provider_org_domain: string;
+	capability_slug: string;
+	request_note?: string;
+	status: string;
+	review_note?: string;
+	requires_provider_review: boolean;
+	requires_admin_review: boolean;
+	requires_contract: boolean;
+	requires_payment: boolean;
+	starts_at?: string;
+	expires_at?: string;
+	created_at: string;
+	updated_at: string;
+}
+
+export interface AdminBillingRecord {
+	consumer_org_domain: string;
+	provider_org_domain: string;
+	capability_slug: string;
+	event_type: string;
+	note?: string;
+	created_at: string;
+}
+
+// ---- Capability Catalog request types ----
+
+export interface AdminListCapabilitiesRequest {
+	pagination_key?: string;
 	limit?: number;
 }
 
-export interface ListMarketplaceProviderCapabilitiesResponse {
-	capabilities: OrgCapability[];
-	next_cursor?: string;
+export interface AdminListCapabilitiesResponse {
+	capabilities: AdminMarketplaceCapability[];
+	next_pagination_key?: string;
 }
 
-export interface ApproveMarketplaceProviderCapabilityRequest {
-	org_domain: string;
-	subscription_price: number;
-	currency: string;
-	subscription_period_days: number;
+export interface AdminGetCapabilityRequest {
+	capability_slug: string;
 }
 
-export function validateApproveMarketplaceProviderCapabilityRequest(
-	req: ApproveMarketplaceProviderCapabilityRequest
+export interface AdminCreateCapabilityRequest {
+	capability_slug: string;
+	display_name: string;
+	description: string;
+	provider_enabled: boolean;
+	consumer_enabled: boolean;
+	enrollment_approval: string;
+	offer_review: string;
+	subscription_approval: string;
+	contract_required: boolean;
+	payment_required: boolean;
+	pricing_hint?: string;
+}
+
+export function validateAdminCreateCapabilityRequest(
+	req: AdminCreateCapabilityRequest
 ): ValidationError[] {
 	const errs: ValidationError[] = [];
-	if (!req.org_domain) {
-		errs.push(newValidationError("org_domain", "org_domain is required"));
-	}
-	if (req.subscription_price < 0) {
+	if (!req.capability_slug || req.capability_slug.length < 3) {
 		errs.push(
 			newValidationError(
-				"subscription_price",
-				"subscription_price must be non-negative"
+				"capability_slug",
+				"capability_slug must be at least 3 characters"
 			)
 		);
 	}
-	if (!req.currency || req.currency.length !== 3) {
+	if (!req.display_name) {
+		errs.push(newValidationError("display_name", "display_name is required"));
+	}
+	if (!["open", "manual"].includes(req.enrollment_approval)) {
 		errs.push(
 			newValidationError(
-				"currency",
-				"currency must be a 3-letter ISO 4217 code"
+				"enrollment_approval",
+				"enrollment_approval must be 'open' or 'manual'"
 			)
 		);
 	}
-	if (!req.subscription_period_days || req.subscription_period_days <= 0) {
+	if (!["auto", "manual"].includes(req.offer_review)) {
 		errs.push(
 			newValidationError(
-				"subscription_period_days",
-				"subscription_period_days must be positive"
+				"offer_review",
+				"offer_review must be 'auto' or 'manual'"
+			)
+		);
+	}
+	if (
+		!["direct", "provider", "admin", "provider_and_admin"].includes(
+			req.subscription_approval
+		)
+	) {
+		errs.push(
+			newValidationError(
+				"subscription_approval",
+				"subscription_approval must be 'direct', 'provider', 'admin', or 'provider_and_admin'"
 			)
 		);
 	}
 	return errs;
 }
 
-export interface RejectMarketplaceProviderCapabilityRequest {
-	org_domain: string;
-	admin_note: string;
+export interface AdminUpdateCapabilityRequest {
+	capability_slug: string;
+	display_name: string;
+	description: string;
+	provider_enabled: boolean;
+	consumer_enabled: boolean;
+	enrollment_approval: string;
+	offer_review: string;
+	subscription_approval: string;
+	contract_required: boolean;
+	payment_required: boolean;
+	pricing_hint?: string;
 }
 
-export function validateRejectMarketplaceProviderCapabilityRequest(
-	req: RejectMarketplaceProviderCapabilityRequest
-): ValidationError[] {
-	const errs: ValidationError[] = [];
-	if (!req.org_domain) {
-		errs.push(newValidationError("org_domain", "org_domain is required"));
-	}
-	if (!req.admin_note) {
-		errs.push(newValidationError("admin_note", "admin_note is required"));
-	}
-	return errs;
+export interface AdminEnableCapabilityRequest {
+	capability_slug: string;
 }
 
-export interface RenewMarketplaceProviderCapabilityRequest {
-	org_domain: string;
-	subscription_price: number;
-	currency: string;
-	subscription_period_days: number;
+export interface AdminDisableCapabilityRequest {
+	capability_slug: string;
 }
 
-export interface RevokeMarketplaceProviderCapabilityRequest {
-	org_domain: string;
-	admin_note: string;
-}
+// ---- Enrollment request types ----
 
-export interface ReinstateMarketplaceProviderCapabilityRequest {
-	org_domain: string;
-	subscription_price: number;
-	currency: string;
-	subscription_period_days: number;
-}
-
-// ---- ServiceListing admin requests ----
-
-export interface AdminListMarketplaceServiceListingsRequest {
-	filter_state?: ServiceListingState;
+export interface AdminListEnrollmentsRequest {
 	filter_org_domain?: string;
-	has_reports?: boolean;
-	cursor?: string;
+	filter_capability_slug?: string;
+	filter_status?: string;
+	pagination_key?: string;
 	limit?: number;
 }
 
-export interface AdminListMarketplaceServiceListingsResponse {
-	service_listings: ServiceListing[];
-	next_cursor?: string;
+export interface AdminListEnrollmentsResponse {
+	enrollments: AdminMarketplaceEnrollment[];
+	next_pagination_key?: string;
 }
 
-export interface AdminGetMarketplaceServiceListingRequest {
+export interface AdminGetEnrollmentRequest {
 	org_domain: string;
-	name: string;
+	capability_slug: string;
 }
 
-export interface AdminApproveMarketplaceServiceListingRequest {
+export interface AdminApproveEnrollmentRequest {
 	org_domain: string;
-	name: string;
-	admin_verification_note: string;
-	verification_id: string;
+	capability_slug: string;
+	expires_at?: string;
+	billing_reference?: string;
+	review_note?: string;
 }
 
-export function validateAdminApproveMarketplaceServiceListingRequest(
-	req: AdminApproveMarketplaceServiceListingRequest
-): ValidationError[] {
-	const errs: ValidationError[] = [];
-	if (!req.org_domain) {
-		errs.push(newValidationError("org_domain", "org_domain is required"));
-	}
-	if (!req.name) {
-		errs.push(newValidationError("name", "name is required"));
-	}
-	if (!req.admin_verification_note) {
-		errs.push(
-			newValidationError(
-				"admin_verification_note",
-				"admin_verification_note is required"
-			)
-		);
-	}
-	if (!req.verification_id) {
-		errs.push(
-			newValidationError("verification_id", "verification_id is required")
-		);
-	}
-	return errs;
-}
-
-export interface AdminRejectMarketplaceServiceListingRequest {
+export interface AdminRejectEnrollmentRequest {
 	org_domain: string;
-	name: string;
-	admin_verification_note: string;
-	verification_id?: string;
+	capability_slug: string;
+	review_note: string;
 }
 
-export function validateAdminRejectMarketplaceServiceListingRequest(
-	req: AdminRejectMarketplaceServiceListingRequest
-): ValidationError[] {
-	const errs: ValidationError[] = [];
-	if (!req.org_domain) {
-		errs.push(newValidationError("org_domain", "org_domain is required"));
-	}
-	if (!req.name) {
-		errs.push(newValidationError("name", "name is required"));
-	}
-	if (!req.admin_verification_note) {
-		errs.push(
-			newValidationError(
-				"admin_verification_note",
-				"admin_verification_note is required"
-			)
-		);
-	}
-	return errs;
-}
-
-export interface AdminSuspendMarketplaceServiceListingRequest {
+export interface AdminSuspendEnrollmentRequest {
 	org_domain: string;
-	name: string;
-	admin_verification_note: string;
-	verification_id?: string;
+	capability_slug: string;
+	review_note: string;
 }
 
-export function validateAdminSuspendMarketplaceServiceListingRequest(
-	req: AdminSuspendMarketplaceServiceListingRequest
-): ValidationError[] {
-	const errs: ValidationError[] = [];
-	if (!req.org_domain) {
-		errs.push(newValidationError("org_domain", "org_domain is required"));
-	}
-	if (!req.name) {
-		errs.push(newValidationError("name", "name is required"));
-	}
-	if (!req.admin_verification_note) {
-		errs.push(
-			newValidationError(
-				"admin_verification_note",
-				"admin_verification_note is required"
-			)
-		);
-	}
-	return errs;
-}
-
-export interface AdminReinstateMarketplaceServiceListingRequest {
+export interface AdminReinstateEnrollmentRequest {
 	org_domain: string;
-	name: string;
-	admin_verification_note?: string;
-	verification_id?: string;
+	capability_slug: string;
 }
 
-export interface AdminGrantMarketplaceAppealRequest {
+export interface AdminRenewEnrollmentRequest {
 	org_domain: string;
-	name: string;
-	admin_verification_note: string;
-	verification_id?: string;
+	capability_slug: string;
+	expires_at?: string;
+	billing_reference?: string;
+	review_note?: string;
 }
 
-export function validateAdminGrantMarketplaceAppealRequest(
-	req: AdminGrantMarketplaceAppealRequest
-): ValidationError[] {
-	const errs: ValidationError[] = [];
-	if (!req.org_domain) {
-		errs.push(newValidationError("org_domain", "org_domain is required"));
-	}
-	if (!req.name) {
-		errs.push(newValidationError("name", "name is required"));
-	}
-	if (!req.admin_verification_note) {
-		errs.push(
-			newValidationError(
-				"admin_verification_note",
-				"admin_verification_note is required"
-			)
-		);
-	}
-	return errs;
+// ---- Offer request types ----
+
+export interface AdminListOffersRequest {
+	filter_org_domain?: string;
+	filter_capability_slug?: string;
+	filter_status?: string;
+	pagination_key?: string;
+	limit?: number;
 }
 
-export interface AdminDenyMarketplaceAppealRequest {
+export interface AdminListOffersResponse {
+	offers: AdminMarketplaceOffer[];
+	next_pagination_key?: string;
+}
+
+export interface AdminGetOfferRequest {
 	org_domain: string;
-	name: string;
-	admin_verification_note: string;
-	verification_id?: string;
+	capability_slug: string;
 }
 
-export function validateAdminDenyMarketplaceAppealRequest(
-	req: AdminDenyMarketplaceAppealRequest
-): ValidationError[] {
-	const errs: ValidationError[] = [];
-	if (!req.org_domain) {
-		errs.push(newValidationError("org_domain", "org_domain is required"));
-	}
-	if (!req.name) {
-		errs.push(newValidationError("name", "name is required"));
-	}
-	if (!req.admin_verification_note) {
-		errs.push(
-			newValidationError(
-				"admin_verification_note",
-				"admin_verification_note is required"
-			)
-		);
-	}
-	return errs;
+export interface AdminApproveOfferRequest {
+	org_domain: string;
+	capability_slug: string;
+	review_note?: string;
+}
+
+export interface AdminRejectOfferRequest {
+	org_domain: string;
+	capability_slug: string;
+	review_note: string;
+}
+
+export interface AdminSuspendOfferRequest {
+	org_domain: string;
+	capability_slug: string;
+	review_note: string;
+}
+
+export interface AdminReinstateOfferRequest {
+	org_domain: string;
+	capability_slug: string;
+}
+
+// ---- Subscription request types ----
+
+export interface AdminListSubscriptionsRequest {
+	filter_consumer_org_domain?: string;
+	filter_provider_org_domain?: string;
+	filter_capability_slug?: string;
+	filter_status?: string;
+	pagination_key?: string;
+	limit?: number;
+}
+
+export interface AdminListSubscriptionsResponse {
+	subscriptions: AdminMarketplaceSubscription[];
+	next_pagination_key?: string;
+}
+
+export interface AdminGetSubscriptionRequest {
+	consumer_org_domain: string;
+	provider_org_domain: string;
+	capability_slug: string;
+}
+
+export interface AdminApproveSubscriptionRequest {
+	consumer_org_domain: string;
+	provider_org_domain: string;
+	capability_slug: string;
+	review_note?: string;
+}
+
+export interface AdminRejectSubscriptionRequest {
+	consumer_org_domain: string;
+	provider_org_domain: string;
+	capability_slug: string;
+	review_note: string;
+}
+
+export interface AdminMarkContractSignedRequest {
+	consumer_org_domain: string;
+	provider_org_domain: string;
+	capability_slug: string;
+	note?: string;
+}
+
+export interface AdminWaiveContractRequest {
+	consumer_org_domain: string;
+	provider_org_domain: string;
+	capability_slug: string;
+	note: string;
+}
+
+export interface AdminRecordPaymentRequest {
+	consumer_org_domain: string;
+	provider_org_domain: string;
+	capability_slug: string;
+	note?: string;
+}
+
+export interface AdminWaivePaymentRequest {
+	consumer_org_domain: string;
+	provider_org_domain: string;
+	capability_slug: string;
+	note: string;
+}
+
+export interface AdminCancelSubscriptionRequest {
+	consumer_org_domain: string;
+	provider_org_domain: string;
+	capability_slug: string;
+}
+
+// ---- Billing request types ----
+
+export interface AdminListBillingRequest {
+	filter_consumer_org_domain?: string;
+	filter_provider_org_domain?: string;
+	filter_capability_slug?: string;
+	pagination_key?: string;
+	limit?: number;
+}
+
+export interface AdminListBillingResponse {
+	records: AdminBillingRecord[];
+	next_pagination_key?: string;
 }

@@ -1,138 +1,184 @@
 package org
 
 import (
-	"encoding/base64"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
+	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	orgtypes "vetchium-api-server.typespec/org"
 )
 
-// dbOrgCapabilityToAPI converts a DB OrgCapability to the API type.
-// orgDomain is the primary domain of the owning org.
-func dbOrgCapabilityToAPI(cap regionaldb.OrgCapability, orgDomain string) orgtypes.OrgCapability {
-	result := orgtypes.OrgCapability{
-		OrgDomain:  orgDomain,
-		Capability: cap.Capability,
-		Status:     orgtypes.OrgCapabilityStatus(cap.Status),
-		CreatedAt:  cap.CreatedAt.Time.UTC().Format(time.RFC3339),
+// dbEnrollmentToAPI converts a regionaldb MarketplaceEnrollment to the API type.
+func dbEnrollmentToAPI(e regionaldb.MarketplaceEnrollment) orgtypes.MarketplaceEnrollment {
+	result := orgtypes.MarketplaceEnrollment{
+		CapabilitySlug: e.CapabilitySlug,
+		Status:         orgtypes.MarketplaceEnrollmentStatus(e.Status),
+		BillingStatus:  e.BillingStatus,
+		CreatedAt:      e.CreatedAt.Time.UTC().Format(time.RFC3339),
+		UpdatedAt:      e.UpdatedAt.Time.UTC().Format(time.RFC3339),
 	}
-
-	if cap.ApplicationNote.Valid {
-		result.ApplicationNote = &cap.ApplicationNote.String
+	if e.ApplicationNote.Valid {
+		result.ApplicationNote = &e.ApplicationNote.String
 	}
-	if cap.AppliedAt.Valid {
-		s := cap.AppliedAt.Time.UTC().Format(time.RFC3339)
-		result.AppliedAt = &s
+	if e.ReviewNote.Valid {
+		result.ReviewNote = &e.ReviewNote.String
 	}
-	if cap.AdminNote.Valid {
-		result.AdminNote = &cap.AdminNote.String
+	if e.ApprovedAt.Valid {
+		s := e.ApprovedAt.Time.UTC().Format(time.RFC3339)
+		result.ApprovedAt = &s
 	}
-	if cap.GrantedAt.Valid {
-		s := cap.GrantedAt.Time.UTC().Format(time.RFC3339)
-		result.GrantedAt = &s
-	}
-	if cap.ExpiresAt.Valid {
-		s := cap.ExpiresAt.Time.UTC().Format(time.RFC3339)
+	if e.ExpiresAt.Valid {
+		s := e.ExpiresAt.Time.UTC().Format(time.RFC3339)
 		result.ExpiresAt = &s
 	}
-	// SubscriptionPrice and Currency: only set if valid
-	if cap.SubscriptionPrice.Valid {
-		s := cap.SubscriptionPrice.Int.String()
-		if cap.SubscriptionPrice.Exp != 0 {
-			s = fmt.Sprintf("%se%d", s, cap.SubscriptionPrice.Exp)
-		}
-		result.SubscriptionPrice = &s
-	}
-	if cap.Currency.Valid {
-		result.Currency = &cap.Currency.String
-	}
-
 	return result
 }
 
-// dbServiceListingToAPI converts a DB MarketplaceServiceListing to the full API ServiceListing type.
-// orgDomain is the primary domain of the owning org (looked up from global DB by the caller).
-func dbServiceListingToAPI(sl regionaldb.MarketplaceServiceListing, orgDomain string) orgtypes.ServiceListing {
-	result := orgtypes.ServiceListing{
-		OrgDomain:                 orgDomain,
-		Name:                      sl.Name,
-		ShortBlurb:                sl.ShortBlurb,
-		Description:               sl.Description,
-		ServiceCategory:           orgtypes.ServiceCategory(sl.ServiceCategory),
-		CountriesOfService:        sl.CountriesOfService,
-		ContactURL:                sl.ContactUrl,
-		State:                     orgtypes.ServiceListingState(sl.State),
-		AppealExhausted:           sl.AppealExhausted,
-		IndustriesServed:          sl.IndustriesServed,
-		CompanySizesServed:        sl.CompanySizesServed,
-		JobFunctionsSourced:       sl.JobFunctionsSourced,
-		SeniorityLevelsSourced:    sl.SeniorityLevelsSourced,
-		GeographicSourcingRegions: sl.GeographicSourcingRegions,
-		CreatedAt:                 sl.CreatedAt.Time.UTC().Format(time.RFC3339),
-		UpdatedAt:                 sl.UpdatedAt.Time.UTC().Format(time.RFC3339),
+// dbOfferToAPI converts a regionaldb MarketplaceOffer to the API type.
+func dbOfferToAPI(o regionaldb.MarketplaceOffer) orgtypes.MarketplaceOffer {
+	result := orgtypes.MarketplaceOffer{
+		CapabilitySlug: o.CapabilitySlug,
+		Headline:       o.Headline,
+		Summary:        o.Summary,
+		Description:    o.Description,
+		RegionsServed:  o.RegionsServed,
+		ContactMode:    orgtypes.MarketplaceContactMode(o.ContactMode),
+		ContactValue:   o.ContactValue,
+		Status:         orgtypes.MarketplaceOfferStatus(o.Status),
+		CreatedAt:      o.CreatedAt.Time.UTC().Format(time.RFC3339),
+		UpdatedAt:      o.UpdatedAt.Time.UTC().Format(time.RFC3339),
 	}
-
-	if sl.PricingInfo.Valid {
-		result.PricingInfo = &sl.PricingInfo.String
+	if o.PricingHint.Valid {
+		result.PricingHint = &o.PricingHint.String
 	}
-	if sl.LastActivatedAt.Valid {
-		s := sl.LastActivatedAt.Time.UTC().Format(time.RFC3339)
-		result.LastActivatedAt = &s
+	if o.ReviewNote.Valid {
+		result.ReviewNote = &o.ReviewNote.String
 	}
-	if sl.IndustriesServedOther.Valid {
-		result.IndustriesServedOther = &sl.IndustriesServedOther.String
-	}
-	if sl.LastReviewAdminNote.Valid {
-		result.LastReviewAdminNote = &sl.LastReviewAdminNote.String
-	}
-	if sl.AppealReason.Valid {
-		result.AppealReason = &sl.AppealReason.String
-	}
-	if sl.AppealAdminNote.Valid {
-		result.AppealAdminNote = &sl.AppealAdminNote.String
-	}
-
 	return result
 }
 
-// dbBrowseRowToSummary converts a BrowseActiveServiceListingsRow to ServiceListingSummary.
-// orgDomain is the primary domain of the owning org (looked up from global DB by the caller).
-func dbBrowseRowToSummary(row regionaldb.BrowseActiveServiceListingsRow, orgDomain string) orgtypes.ServiceListingSummary {
-	return orgtypes.ServiceListingSummary{
-		OrgDomain:          orgDomain,
-		Name:               row.Name,
-		ShortBlurb:         row.ShortBlurb,
-		OrgName:            "", // populated by caller if needed
-		ServiceCategory:    orgtypes.ServiceCategory(row.ServiceCategory),
-		CountriesOfService: row.CountriesOfService,
-		CreatedAt:          row.CreatedAt.Time.UTC().Format(time.RFC3339),
+// dbSubscriptionToAPI converts a regionaldb MarketplaceSubscription to the consumer API type.
+func dbSubscriptionToAPI(s regionaldb.MarketplaceSubscription) orgtypes.MarketplaceSubscription {
+	result := orgtypes.MarketplaceSubscription{
+		ProviderOrgDomain:      s.ProviderOrgDomain,
+		CapabilitySlug:         s.CapabilitySlug,
+		Status:                 orgtypes.MarketplaceSubscriptionStatus(s.Status),
+		RequiresProviderReview: s.RequiresProviderReview,
+		RequiresAdminReview:    s.RequiresAdminReview,
+		RequiresContract:       s.RequiresContract,
+		RequiresPayment:        s.RequiresPayment,
+		CreatedAt:              s.CreatedAt.Time.UTC().Format(time.RFC3339),
+		UpdatedAt:              s.UpdatedAt.Time.UTC().Format(time.RFC3339),
 	}
+	if s.RequestNote.Valid {
+		result.RequestNote = &s.RequestNote.String
+	}
+	if s.ReviewNote.Valid {
+		result.ReviewNote = &s.ReviewNote.String
+	}
+	if s.StartsAt.Valid {
+		ts := s.StartsAt.Time.UTC().Format(time.RFC3339)
+		result.StartsAt = &ts
+	}
+	if s.ExpiresAt.Valid {
+		ts := s.ExpiresAt.Time.UTC().Format(time.RFC3339)
+		result.ExpiresAt = &ts
+	}
+	return result
 }
 
-// encodeServiceListingCursor encodes (createdAt, id) into a base64 cursor string.
-func encodeServiceListingCursor(createdAt time.Time, id pgtype.UUID) string {
-	idStr := uuidToString(id)
-	data := fmt.Sprintf("%s|%s", createdAt.UTC().Format(time.RFC3339Nano), idStr)
-	return base64.URLEncoding.EncodeToString([]byte(data))
+// dbSubscriptionToIncomingAPI converts a regionaldb MarketplaceSubscription to the incoming/provider API type.
+func dbSubscriptionToIncomingAPI(s regionaldb.MarketplaceSubscription) orgtypes.MarketplaceIncomingSubscription {
+	result := orgtypes.MarketplaceIncomingSubscription{
+		ConsumerOrgDomain: s.ConsumerOrgDomain,
+		CapabilitySlug:    s.CapabilitySlug,
+		Status:            orgtypes.MarketplaceSubscriptionStatus(s.Status),
+		UpdatedAt:         s.UpdatedAt.Time.UTC().Format(time.RFC3339),
+		CreatedAt:         s.CreatedAt.Time.UTC().Format(time.RFC3339),
+	}
+	if s.RequestNote.Valid {
+		result.RequestNote = &s.RequestNote.String
+	}
+	if s.ReviewNote.Valid {
+		result.ReviewNote = &s.ReviewNote.String
+	}
+	return result
 }
 
-// decodeServiceListingCursor decodes a cursor string back to (createdAt, uuidStr, error).
-func decodeServiceListingCursor(cursor string) (time.Time, string, error) {
-	data, err := base64.URLEncoding.DecodeString(cursor)
-	if err != nil {
-		return time.Time{}, "", err
+// dbCapabilityToAPI converts a globaldb MarketplaceCapability to the org-facing API type.
+func dbCapabilityToAPI(c globaldb.MarketplaceCapability) orgtypes.MarketplaceCapability {
+	result := orgtypes.MarketplaceCapability{
+		CapabilitySlug:  c.CapabilitySlug,
+		DisplayName:     c.DisplayName,
+		Description:     c.Description,
+		ProviderEnabled: c.ProviderEnabled,
+		ConsumerEnabled: c.ConsumerEnabled,
+		Status:          orgtypes.MarketplaceCapabilityStatus(c.Status),
 	}
-	parts := strings.SplitN(string(data), "|", 2)
-	if len(parts) != 2 {
-		return time.Time{}, "", fmt.Errorf("invalid cursor format")
+	if c.PricingHint.Valid {
+		result.PricingHint = &c.PricingHint.String
 	}
-	t, err := time.Parse(time.RFC3339Nano, parts[0])
-	if err != nil {
-		return time.Time{}, "", fmt.Errorf("invalid cursor timestamp: %w", err)
+	return result
+}
+
+// dbCatalogEntryToProviderSummary converts a globaldb MarketplaceOfferCatalog to the provider summary.
+func dbCatalogEntryToProviderSummary(c globaldb.MarketplaceOfferCatalog) orgtypes.MarketplaceProviderSummary {
+	result := orgtypes.MarketplaceProviderSummary{
+		ProviderOrgDomain: c.ProviderOrgDomain,
+		CapabilitySlug:    c.CapabilitySlug,
+		Headline:          c.Headline,
+		Summary:           c.Summary,
+		RegionsServed:     c.RegionsServed,
+		ContactMode:       orgtypes.MarketplaceContactMode(c.ContactMode),
+		ContactValue:      c.ContactValue,
 	}
-	return t, parts[1], nil
+	if c.PricingHint.Valid {
+		result.PricingHint = &c.PricingHint.String
+	}
+	return result
+}
+
+// encodeEnrollmentPaginationKey encodes updatedAt + capability_slug as a cursor.
+func encodeEnrollmentPaginationKey(updatedAt time.Time, capabilitySlug string) string {
+	return fmt.Sprintf("%s|%s", updatedAt.UTC().Format(time.RFC3339Nano), capabilitySlug)
+}
+
+// encodeSubscriptionPaginationKey encodes updatedAt + providerDomain + capabilitySlug as a cursor.
+func encodeSubscriptionPaginationKey(updatedAt time.Time, providerDomain, capabilitySlug string) string {
+	return fmt.Sprintf("%s|%s|%s", updatedAt.UTC().Format(time.RFC3339Nano), providerDomain, capabilitySlug)
+}
+
+// encodeIncomingSubscriptionPaginationKey encodes updatedAt + consumerDomain + capabilitySlug as a cursor.
+func encodeIncomingSubscriptionPaginationKey(updatedAt time.Time, consumerDomain, capabilitySlug string) string {
+	return fmt.Sprintf("%s|%s|%s", updatedAt.UTC().Format(time.RFC3339Nano), consumerDomain, capabilitySlug)
+}
+
+// uuidFromPgtype converts pgtype.UUID to a UUID string.
+func uuidToPgtypeUUID(id pgtype.UUID) pgtype.UUID {
+	return id
+}
+
+// globalOfferCatalogParams builds the UpsertMarketplaceOfferCatalogParams from a regional offer.
+func globalOfferCatalogParams(
+	globalOrgID pgtype.UUID,
+	providerOrgDomain string,
+	offer regionaldb.MarketplaceOffer,
+	pricingHint pgtype.Text,
+	region string,
+) globaldb.UpsertMarketplaceOfferCatalogParams {
+	return globaldb.UpsertMarketplaceOfferCatalogParams{
+		ProviderOrgGlobalID: globalOrgID,
+		ProviderOrgDomain:   providerOrgDomain,
+		ProviderRegion:      region,
+		CapabilitySlug:      offer.CapabilitySlug,
+		Headline:            offer.Headline,
+		Summary:             offer.Summary,
+		PricingHint:         pricingHint,
+		RegionsServed:       offer.RegionsServed,
+		ContactMode:         offer.ContactMode,
+		ContactValue:        offer.ContactValue,
+		Status:              string(offer.Status),
+	}
 }

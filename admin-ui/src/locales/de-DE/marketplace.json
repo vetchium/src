@@ -1,214 +1,252 @@
 {
 	"backToDashboard": "Zurück zum Dashboard",
 	"title": "Marktplatzverwaltung",
-	"capabilitiesTab": "Anbieterfähigkeiten",
-	"listingsTab": "Dienstleistungsangebote",
-	"capability": {
+	"loadMore": "Mehr laden",
+	"submit": "Absenden",
+	"cancel": "Abbrechen",
+	"yes": "Ja",
+	"no": "Nein",
+	"tabs": {
+		"capabilities": "Fähigkeiten",
+		"enrollments": "Registrierungen",
+		"offers": "Angebote",
+		"subscriptions": "Abonnements",
+		"billing": "Abrechnung"
+	},
+	"actions": {
+		"approve": "Genehmigen",
+		"reject": "Ablehnen",
+		"suspend": "Sperren",
+		"reinstate": "Wiederherstellen",
+		"renew": "Erneuern",
+		"cancel": "Stornieren",
+		"enable": "Aktivieren",
+		"disable": "Deaktivieren",
+		"markContractSigned": "Vertrag als unterzeichnet markieren",
+		"waiveContract": "Vertrag aufheben",
+		"recordPayment": "Zahlung erfassen",
+		"waivePayment": "Zahlung aufheben"
+	},
+	"approval": {
+		"open": "Offen",
+		"manual": "Manuell"
+	},
+	"review": {
+		"auto": "Automatisch",
+		"manual": "Manuell"
+	},
+	"subApproval": {
+		"direct": "Direkt",
+		"provider": "Anbieter",
+		"admin": "Admin",
+		"providerAndAdmin": "Anbieter und Admin"
+	},
+	"capabilities": {
+		"createButton": "Fähigkeit erstellen",
 		"table": {
-			"orgId": "Org-ID",
-			"capability": "Fähigkeit",
+			"slug": "Fähigkeitskennung",
+			"displayName": "Anzeigename",
 			"status": "Status",
-			"appliedAt": "Beantragt am",
-			"grantedAt": "Genehmigt am",
-			"expiresAt": "Läuft ab am",
-			"subscriptionPrice": "Preis",
-			"currency": "Währung",
+			"providerEnabled": "Anbieter aktiviert",
+			"consumerEnabled": "Verbraucher aktiviert",
+			"contractRequired": "Vertrag erforderlich",
+			"paymentRequired": "Zahlung erforderlich",
+			"updatedAt": "Aktualisiert am",
 			"actions": "Aktionen"
 		},
-		"statuses": {
-			"pending_approval": "Ausstehende Genehmigung",
-			"active": "Aktiv",
-			"rejected": "Abgelehnt",
-			"expired": "Abgelaufen",
-			"revoked": "Widerrufen"
+		"createModal": {
+			"title": "Fähigkeit erstellen",
+			"slug": "Fähigkeitskennung",
+			"displayName": "Anzeigename",
+			"description": "Beschreibung",
+			"enrollmentApproval": "Registrierungsgenehmigung",
+			"offerReview": "Angebotsprüfung",
+			"subscriptionApproval": "Abonnementgenehmigung",
+			"providerEnabled": "Anbieter aktiviert",
+			"consumerEnabled": "Verbraucher aktiviert",
+			"contractRequired": "Vertrag erforderlich",
+			"paymentRequired": "Zahlung erforderlich",
+			"pricingHint": "Preishinweis (optional)",
+			"submit": "Erstellen"
 		},
 		"actions": {
-			"approve": "Genehmigen",
-			"reject": "Ablehnen",
-			"renew": "Erneuern",
-			"revoke": "Widerrufen",
-			"reinstate": "Wiederherstellen"
+			"enable": "Aktivieren",
+			"disable": "Deaktivieren"
 		},
-		"approveModal": {
-			"title": "Fähigkeit genehmigen",
-			"orgId": "Org-ID",
-			"subscriptionPrice": "Abonnementpreis",
-			"currency": "Währung (ISO 4217)",
-			"currencyPlaceholder": "z.B. USD",
-			"subscriptionPeriodDays": "Abonnementzeitraum (Tage)",
-			"submit": "Genehmigen"
-		},
-		"rejectModal": {
-			"title": "Fähigkeit ablehnen",
-			"adminNote": "Ablehnungsgrund",
-			"adminNotePlaceholder": "Erklären Sie, warum dieser Antrag abgelehnt wurde",
-			"submit": "Ablehnen"
-		},
-		"renewModal": {
-			"title": "Fähigkeit erneuern",
-			"subscriptionPrice": "Abonnementpreis",
-			"currency": "Währung",
-			"subscriptionPeriodDays": "Abonnementzeitraum (Tage)",
-			"submit": "Erneuern"
-		},
-		"revokeModal": {
-			"title": "Fähigkeit widerrufen",
-			"adminNote": "Widerrufsgrund",
-			"adminNotePlaceholder": "Erklären Sie, warum diese Fähigkeit widerrufen wird",
-			"submit": "Widerrufen"
-		},
-		"reinstateModal": {
-			"title": "Fähigkeit wiederherstellen",
-			"subscriptionPrice": "Abonnementpreis",
-			"currency": "Währung",
-			"subscriptionPeriodDays": "Abonnementzeitraum (Tage)",
-			"submit": "Wiederherstellen"
-		},
-		"filter": {
-			"all": "Alle Status",
-			"pending_approval": "Ausstehende Genehmigung",
-			"active": "Aktiv",
-			"rejected": "Abgelehnt",
-			"expired": "Abgelaufen",
-			"revoked": "Widerrufen"
-		},
-		"applicationNote": "Antragsnotiz",
-		"needsAction": "{{count}} ausstehende Genehmigung",
 		"errors": {
 			"loadFailed": "Fähigkeiten konnten nicht geladen werden",
-			"approveFailed": "Fähigkeit konnte nicht genehmigt werden",
-			"rejectFailed": "Fähigkeit konnte nicht abgelehnt werden",
-			"renewFailed": "Fähigkeit konnte nicht erneuert werden",
-			"revokeFailed": "Fähigkeit konnte nicht widerrufen werden",
-			"reinstateFailed": "Fähigkeit konnte nicht wiederhergestellt werden",
-			"invalidState": "Fähigkeit befindet sich nicht im erforderlichen Status für diese Aktion"
+			"createFailed": "Fähigkeit konnte nicht erstellt werden",
+			"conflict": "Eine Fähigkeit mit dieser Kennung existiert bereits",
+			"enableFailed": "Fähigkeit konnte nicht aktiviert werden",
+			"disableFailed": "Fähigkeit konnte nicht deaktiviert werden"
 		},
 		"success": {
-			"approved": "Fähigkeit genehmigt",
-			"rejected": "Fähigkeit abgelehnt",
-			"renewed": "Fähigkeit erneuert",
-			"revoked": "Fähigkeit widerrufen",
-			"reinstated": "Fähigkeit wiederhergestellt"
+			"created": "Fähigkeit erstellt",
+			"enabled": "Fähigkeit aktiviert",
+			"disabled": "Fähigkeit deaktiviert"
 		}
 	},
-	"listings": {
+	"enrollments": {
+		"filterStatus": "Nach Status filtern",
 		"table": {
-			"name": "Name",
-			"orgId": "Org-ID",
-			"category": "Kategorie",
-			"state": "Status",
-			"reportCount": "Meldungen",
+			"orgDomain": "Org-Domain",
+			"capabilitySlug": "Fähigkeit",
+			"status": "Status",
+			"billingStatus": "Abrechnungsstatus",
+			"expiresAt": "Läuft ab am",
 			"createdAt": "Erstellt am",
 			"actions": "Aktionen"
 		},
-		"states": {
-			"draft": "Entwurf",
-			"pending_review": "Ausstehende Prüfung",
-			"active": "Aktiv",
-			"paused": "Pausiert",
-			"rejected": "Abgelehnt",
-			"suspended": "Gesperrt",
-			"appealing": "In Berufung",
-			"archived": "Archiviert"
+		"modal": {
+			"approve": {
+				"title": "Registrierung genehmigen"
+			},
+			"reject": {
+				"title": "Registrierung ablehnen"
+			},
+			"suspend": {
+				"title": "Registrierung sperren"
+			},
+			"reinstate": {
+				"title": "Registrierung wiederherstellen"
+			},
+			"renew": {
+				"title": "Registrierung erneuern"
+			},
+			"reviewNote": "Prüfungsnotiz",
+			"expiresAt": "Läuft ab am (ISO 8601, optional)",
+			"billingReference": "Abrechnungsreferenz (optional)"
 		},
-		"categories": {
-			"talent_sourcing": "Talentbeschaffung"
-		},
-		"actions": {
-			"approve": "Genehmigen",
-			"reject": "Ablehnen",
-			"suspend": "Sperren",
-			"reinstate": "Wiederherstellen",
-			"grantAppeal": "Berufung stattgeben",
-			"denyAppeal": "Berufung ablehnen",
-			"view": "Anzeigen"
-		},
-		"approveModal": {
-			"title": "Dienstleistungsangebot genehmigen",
-			"verificationNote": "Verifizierungsnotiz",
-			"verificationNotePlaceholder": "Notiz zur Bestätigung der Verifizierung",
-			"verificationId": "Verifizierungs-ID",
-			"verificationIdPlaceholder": "Interne Verifizierungsreferenz",
-			"submit": "Genehmigen"
-		},
-		"rejectModal": {
-			"title": "Dienstleistungsangebot ablehnen",
-			"adminNote": "Ablehnungsgrund",
-			"adminNotePlaceholder": "Erklären Sie, warum dieses Angebot abgelehnt wird",
-			"verificationId": "Verifizierungs-ID (optional)",
-			"submit": "Ablehnen"
-		},
-		"suspendModal": {
-			"title": "Dienstleistungsangebot sperren",
-			"adminNote": "Sperrgrund",
-			"adminNotePlaceholder": "Erklären Sie, warum dieses Angebot gesperrt wird",
-			"submit": "Sperren"
-		},
-		"reinstateModal": {
-			"title": "Dienstleistungsangebot wiederherstellen",
-			"adminNote": "Admin-Notiz (optional)",
-			"submit": "Wiederherstellen"
-		},
-		"grantAppealModal": {
-			"title": "Berufung stattgeben",
-			"adminNote": "Admin-Entscheidungsnotiz",
-			"adminNotePlaceholder": "Erklären Sie, warum der Berufung stattgegeben wird",
-			"submit": "Berufung stattgeben"
-		},
-		"denyAppealModal": {
-			"title": "Berufung ablehnen",
-			"adminNote": "Admin-Entscheidungsnotiz",
-			"adminNotePlaceholder": "Erklären Sie, warum die Berufung abgelehnt wird",
-			"submit": "Berufung ablehnen"
-		},
-		"filter": {
-			"all": "Alle Status",
-			"pending_review": "Ausstehende Prüfung",
-			"active": "Aktiv",
-			"rejected": "Abgelehnt",
-			"suspended": "Gesperrt",
-			"appealing": "In Berufung"
-		},
-		"detailModal": {
-			"title": "Dienstleistungsangebot-Detail",
-			"name": "Name",
-			"orgId": "Org-ID",
-			"category": "Kategorie",
-			"state": "Status",
-			"shortBlurb": "Kurzbeschreibung",
-			"description": "Beschreibung",
-			"contactUrl": "Kontakt-URL",
-			"pricingInfo": "Preisinformationen",
-			"countriesOfService": "Länder",
-			"lastReviewNote": "Letzte Prüfungsnotiz",
-			"appealReason": "Berufungsgrund",
-			"appealNote": "Berufungs-Admin-Notiz",
-			"appealExhausted": "Berufung erschöpft",
-			"createdAt": "Erstellt am",
-			"updatedAt": "Aktualisiert am",
-			"region": "Region"
-		},
-		"hasReports": "Hat Meldungen",
-		"needsAction": "{{count}} Elemente erfordern Aktion",
-		"retry": "Wiederholen",
 		"errors": {
-			"loadFailed": "Dienstleistungsangebote konnten nicht geladen werden",
-			"approveFailed": "Dienstangebot konnte nicht genehmigt werden",
-			"rejectFailed": "Dienstangebot konnte nicht abgelehnt werden",
-			"suspendFailed": "Dienstangebot konnte nicht gesperrt werden",
-			"reinstateFailed": "Dienstangebot konnte nicht wiederhergestellt werden",
-			"grantAppealFailed": "Berufung konnte nicht stattgegeben werden",
-			"denyAppealFailed": "Berufung konnte nicht abgelehnt werden",
-			"invalidState": "Dienstangebot befindet sich nicht im erforderlichen Status für diese Aktion"
+			"loadFailed": "Registrierungen konnten nicht geladen werden",
+			"approveFailed": "Registrierung konnte nicht genehmigt werden",
+			"rejectFailed": "Registrierung konnte nicht abgelehnt werden",
+			"suspendFailed": "Registrierung konnte nicht gesperrt werden",
+			"reinstateFailed": "Registrierung konnte nicht wiederhergestellt werden",
+			"renewFailed": "Registrierung konnte nicht erneuert werden",
+			"invalidState": "Registrierung befindet sich nicht im erforderlichen Status für diese Aktion",
+			"actionFailed": "Aktion fehlgeschlagen"
 		},
 		"success": {
-			"approved": "Dienstangebot genehmigt",
-			"rejected": "Dienstangebot abgelehnt",
-			"suspended": "Dienstangebot gesperrt",
-			"reinstated": "Dienstangebot wiederhergestellt",
-			"appealGranted": "Berufung stattgegeben",
-			"appealDenied": "Berufung abgelehnt"
+			"approve": "Registrierung genehmigt",
+			"reject": "Registrierung abgelehnt",
+			"suspend": "Registrierung gesperrt",
+			"reinstate": "Registrierung wiederhergestellt",
+			"renew": "Registrierung erneuert"
+		}
+	},
+	"offers": {
+		"filterStatus": "Nach Status filtern",
+		"table": {
+			"orgDomain": "Org-Domain",
+			"capabilitySlug": "Fähigkeit",
+			"headline": "Überschrift",
+			"status": "Status",
+			"contactMode": "Kontaktmodus",
+			"updatedAt": "Aktualisiert am",
+			"actions": "Aktionen"
 		},
-		"loadMore": "Mehr laden"
+		"modal": {
+			"approve": {
+				"title": "Angebot genehmigen"
+			},
+			"reject": {
+				"title": "Angebot ablehnen"
+			},
+			"suspend": {
+				"title": "Angebot sperren"
+			},
+			"reinstate": {
+				"title": "Angebot wiederherstellen"
+			},
+			"reviewNote": "Prüfungsnotiz"
+		},
+		"errors": {
+			"loadFailed": "Angebote konnten nicht geladen werden",
+			"approveFailed": "Angebot konnte nicht genehmigt werden",
+			"rejectFailed": "Angebot konnte nicht abgelehnt werden",
+			"suspendFailed": "Angebot konnte nicht gesperrt werden",
+			"reinstateFailed": "Angebot konnte nicht wiederhergestellt werden",
+			"invalidState": "Angebot befindet sich nicht im erforderlichen Status für diese Aktion",
+			"actionFailed": "Aktion fehlgeschlagen"
+		},
+		"success": {
+			"approve": "Angebot genehmigt",
+			"reject": "Angebot abgelehnt",
+			"suspend": "Angebot gesperrt",
+			"reinstate": "Angebot wiederhergestellt"
+		}
+	},
+	"subscriptions": {
+		"filterStatus": "Nach Status filtern",
+		"table": {
+			"consumerOrgDomain": "Verbraucher-Org",
+			"providerOrgDomain": "Anbieter-Org",
+			"capabilitySlug": "Fähigkeit",
+			"status": "Status",
+			"requiresAdminReview": "Admin-Prüfung",
+			"requiresContract": "Vertrag",
+			"requiresPayment": "Zahlung",
+			"createdAt": "Erstellt am",
+			"actions": "Aktionen"
+		},
+		"modal": {
+			"approve": {
+				"title": "Abonnement genehmigen"
+			},
+			"reject": {
+				"title": "Abonnement ablehnen"
+			},
+			"markContractSigned": {
+				"title": "Vertrag als unterzeichnet markieren"
+			},
+			"waiveContract": {
+				"title": "Vertrag aufheben"
+			},
+			"recordPayment": {
+				"title": "Zahlung erfassen"
+			},
+			"waivePayment": {
+				"title": "Zahlung aufheben"
+			},
+			"cancel": {
+				"title": "Abonnement stornieren"
+			},
+			"note": "Notiz"
+		},
+		"errors": {
+			"loadFailed": "Abonnements konnten nicht geladen werden",
+			"approveFailed": "Abonnement konnte nicht genehmigt werden",
+			"rejectFailed": "Abonnement konnte nicht abgelehnt werden",
+			"markContractSignedFailed": "Vertrag konnte nicht als unterzeichnet markiert werden",
+			"waiveContractFailed": "Vertrag konnte nicht aufgehoben werden",
+			"recordPaymentFailed": "Zahlung konnte nicht erfasst werden",
+			"waivePaymentFailed": "Zahlung konnte nicht aufgehoben werden",
+			"cancelFailed": "Abonnement konnte nicht storniert werden",
+			"invalidState": "Abonnement befindet sich nicht im erforderlichen Status für diese Aktion",
+			"actionFailed": "Aktion fehlgeschlagen"
+		},
+		"success": {
+			"approve": "Abonnement genehmigt",
+			"reject": "Abonnement abgelehnt",
+			"markContractSigned": "Vertrag als unterzeichnet markiert",
+			"waiveContract": "Vertrag aufgehoben",
+			"recordPayment": "Zahlung erfasst",
+			"waivePayment": "Zahlung aufgehoben",
+			"cancel": "Abonnement storniert"
+		}
+	},
+	"billing": {
+		"table": {
+			"consumerOrgDomain": "Verbraucher-Org",
+			"providerOrgDomain": "Anbieter-Org",
+			"capabilitySlug": "Fähigkeit",
+			"eventType": "Ereignistyp",
+			"note": "Notiz",
+			"createdAt": "Erstellt am"
+		},
+		"errors": {
+			"loadFailed": "Abrechnungsdatensätze konnten nicht geladen werden"
+		}
 	}
 }

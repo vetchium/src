@@ -405,6 +405,7 @@ const (
 	OrgRoleViewSubOrgs       OrgRole = "org:view_suborgs"
 	OrgRoleManageSubOrgs     OrgRole = "org:manage_suborgs"
 	OrgRoleViewAuditLogs     OrgRole = "org:view_audit_logs"
+	OrgRoleViewMarketplace   OrgRole = "org:view_marketplace"
 	OrgRoleManageMarketplace OrgRole = "org:manage_marketplace"
 )
 

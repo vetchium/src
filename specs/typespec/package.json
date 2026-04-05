@@ -16,7 +16,10 @@
 		"./org-domains/org-domains": "./org-domains/org-domains.ts",
 		"./global/global": "./global/global.ts",
 		"./common/common": "./common/common.ts",
-		"./common/roles": "./common/roles.ts"
+		"./common/roles": "./common/roles.ts",
+		"./org/marketplace": "./org/marketplace.ts",
+		"./admin/marketplace": "./admin/marketplace.ts",
+		"./audit-logs/audit-logs": "./audit-logs/audit-logs.ts"
 	},
 	"dependencies": {
 		"@typespec/compiler": "latest",

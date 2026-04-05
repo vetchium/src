@@ -229,113 +229,104 @@ INSERT INTO roles (role_name, description) VALUES
     ('org:manage_suborgs', 'Can create, rename, disable, re-enable SubOrgs and manage their membership'),
     ('org:superadmin', 'Superadmin for the org portal with full access to all operations'),
     ('org:view_audit_logs', 'Can view org portal audit logs for their organization'),
-    ('org:manage_marketplace', 'Can apply for marketplace provider capability, and create/edit/submit/pause/appeal/archive this Org''s ServiceListings'),
+    ('org:view_marketplace', 'Can view marketplace capabilities, enrollments, offers, and subscriptions (read-only)'),
+    ('org:manage_marketplace', 'Can manage marketplace provider enrollments, offers, and consumer subscriptions'),
 
     -- Hub portal roles (assigned at signup, additional roles for paid features)
     ('hub:read_posts', 'Can read posts by other hub users'),
     ('hub:write_posts', 'Can create and edit posts (paid feature)'),
     ('hub:apply_jobs', 'Can apply to job postings');
 
--- Marketplace: org capability status enum
-CREATE TYPE org_capability_status AS ENUM (
-    'pending_approval',
-    'active',
+-- Marketplace: enrollment status enum
+CREATE TYPE marketplace_enrollment_status AS ENUM (
+    'pending_review',
+    'approved',
     'rejected',
-    'expired',
-    'revoked'
+    'suspended',
+    'expired'
 );
 
--- Marketplace: service listing state enum
-CREATE TYPE service_listing_state AS ENUM (
+-- Marketplace: offer status enum
+CREATE TYPE marketplace_offer_status AS ENUM (
     'draft',
     'pending_review',
     'active',
-    'paused',
     'rejected',
     'suspended',
-    'appealing',
     'archived'
 );
 
--- Marketplace: service category enum
-CREATE TYPE service_category AS ENUM (
-    'talent_sourcing'
+-- Marketplace: subscription status enum
+CREATE TYPE marketplace_subscription_status AS ENUM (
+    'requested',
+    'provider_review',
+    'admin_review',
+    'awaiting_contract',
+    'awaiting_payment',
+    'active',
+    'rejected',
+    'cancelled',
+    'expired'
 );
 
--- Marketplace: report reason enum
-CREATE TYPE service_listing_report_reason AS ENUM (
-    'misleading_information',
-    'fraudulent',
-    'inappropriate_content',
-    'spam',
-    'other'
+-- Provider enrollments (one per org per capability)
+CREATE TABLE marketplace_enrollments (
+    id                UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    org_id            UUID        NOT NULL,
+    capability_slug   TEXT        NOT NULL,
+    status            marketplace_enrollment_status NOT NULL DEFAULT 'pending_review',
+    application_note  TEXT,
+    review_note       TEXT,
+    approved_at       TIMESTAMPTZ,
+    expires_at        TIMESTAMPTZ,
+    billing_reference TEXT,
+    billing_status    TEXT        NOT NULL DEFAULT 'not_applicable' CHECK (billing_status IN ('not_applicable', 'pending', 'active', 'suspended')),
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (org_id, capability_slug)
 );
 
--- Org capabilities table (one row per org per capability type)
-CREATE TABLE org_capabilities (
-    org_id          UUID NOT NULL,
-    capability      TEXT NOT NULL,
-    status          org_capability_status NOT NULL DEFAULT 'pending_approval',
-    application_note TEXT,
-    applied_at      TIMESTAMPTZ,
-    admin_id        UUID,
-    admin_note      TEXT,
-    subscription_price NUMERIC(12,2),
-    currency        VARCHAR(3),
-    granted_at      TIMESTAMPTZ,
-    expires_at      TIMESTAMPTZ,
+-- Provider offers (one per org per capability)
+CREATE TABLE marketplace_offers (
+    id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    enrollment_id   UUID        NOT NULL REFERENCES marketplace_enrollments(id),
+    org_id          UUID        NOT NULL,
+    capability_slug TEXT        NOT NULL,
+    headline        TEXT        NOT NULL DEFAULT '',
+    summary         TEXT        NOT NULL DEFAULT '',
+    description     TEXT        NOT NULL DEFAULT '',
+    regions_served  TEXT[]      NOT NULL DEFAULT '{}',
+    pricing_hint    TEXT,
+    contact_mode    TEXT        NOT NULL DEFAULT 'external_url' CHECK (contact_mode IN ('platform_message', 'external_url', 'email')),
+    contact_value   TEXT        NOT NULL DEFAULT '',
+    status          marketplace_offer_status NOT NULL DEFAULT 'draft',
+    review_note     TEXT,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    PRIMARY KEY (org_id, capability)
+    UNIQUE (org_id, capability_slug)
 );
 
--- Marketplace service listings table
-CREATE TABLE marketplace_service_listings (
-    service_listing_id  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    org_id              UUID NOT NULL,
-    name                VARCHAR(100) NOT NULL,
-    short_blurb         VARCHAR(250) NOT NULL,
-    description         TEXT NOT NULL,
-    service_category    service_category NOT NULL,
-    countries_of_service TEXT[] NOT NULL DEFAULT '{}',
-    contact_url         TEXT NOT NULL,
-    pricing_info        VARCHAR(500),
-    state               service_listing_state NOT NULL DEFAULT 'draft',
-    appeal_exhausted    BOOLEAN NOT NULL DEFAULT false,
-    changed_since_rejection BOOLEAN NOT NULL DEFAULT false,
-    last_activated_at   TIMESTAMPTZ,
-    -- Talent sourcing specific fields
-    industries_served       TEXT[] NOT NULL DEFAULT '{}',
-    industries_served_other VARCHAR(100),
-    company_sizes_served    TEXT[] NOT NULL DEFAULT '{}',
-    job_functions_sourced   TEXT[] NOT NULL DEFAULT '{}',
-    seniority_levels_sourced TEXT[] NOT NULL DEFAULT '{}',
-    geographic_sourcing_regions TEXT[] NOT NULL DEFAULT '{}',
-    -- Review metadata (overwritten on each admin action; history in audit logs)
-    last_review_admin_id        UUID,
-    last_review_admin_note      TEXT,
-    last_review_verification_id TEXT,
-    last_reviewed_at            TIMESTAMPTZ,
-    -- Appeal metadata (overwritten on each suspension cycle; history in audit logs)
-    appeal_reason       TEXT,
-    appeal_submitted_at TIMESTAMPTZ,
-    appeal_admin_note   TEXT,
-    appeal_decided_at   TIMESTAMPTZ,
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE (org_id, name)
-);
-
--- Marketplace service listing reports (one per OrgUser per listing)
-CREATE TABLE marketplace_service_listing_reports (
-    report_id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    service_listing_id  UUID NOT NULL REFERENCES marketplace_service_listings(service_listing_id) ON DELETE CASCADE,
-    reporter_org_user_id UUID NOT NULL,
-    reporter_org_id     UUID NOT NULL,
-    reason              service_listing_report_reason NOT NULL,
-    reason_other        VARCHAR(500),
-    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE (service_listing_id, reporter_org_user_id)
+-- Consumer subscriptions (one per consumer+provider+capability)
+CREATE TABLE marketplace_subscriptions (
+    id                       UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    consumer_org_id          UUID        NOT NULL,
+    consumer_org_domain      TEXT        NOT NULL,
+    provider_org_global_id   UUID        NOT NULL,
+    provider_org_domain      TEXT        NOT NULL,
+    provider_region          TEXT        NOT NULL,
+    capability_slug          TEXT        NOT NULL,
+    request_note             TEXT,
+    requires_provider_review BOOLEAN     NOT NULL DEFAULT FALSE,
+    requires_admin_review    BOOLEAN     NOT NULL DEFAULT FALSE,
+    requires_contract        BOOLEAN     NOT NULL DEFAULT FALSE,
+    requires_payment         BOOLEAN     NOT NULL DEFAULT FALSE,
+    status                   marketplace_subscription_status NOT NULL DEFAULT 'requested',
+    review_note              TEXT,
+    starts_at                TIMESTAMPTZ,
+    expires_at               TIMESTAMPTZ,
+    created_at               TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at               TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (consumer_org_id, provider_org_global_id, capability_slug)
 );
 
 -- Audit logs table (unified audit log for org and hub portal write operations)
@@ -372,24 +363,25 @@ CREATE INDEX idx_audit_logs_created_at_id ON audit_logs(created_at DESC, id DESC
 CREATE INDEX idx_audit_logs_actor_user_id ON audit_logs(actor_user_id);
 CREATE INDEX idx_audit_logs_org_created_at_id ON audit_logs(org_id, created_at DESC, id DESC);
 CREATE INDEX idx_audit_logs_event_type ON audit_logs(event_type);
-CREATE INDEX idx_marketplace_service_listings_org_id ON marketplace_service_listings(org_id);
-CREATE INDEX idx_marketplace_service_listings_state ON marketplace_service_listings(state);
-CREATE INDEX idx_marketplace_service_listings_created_at_id ON marketplace_service_listings(created_at DESC, service_listing_id DESC);
-CREATE INDEX idx_org_capabilities_status ON org_capabilities(status);
-CREATE INDEX idx_marketplace_reports_listing ON marketplace_service_listing_reports(service_listing_id);
+CREATE INDEX idx_marketplace_enrollments_org_id ON marketplace_enrollments(org_id);
+CREATE INDEX idx_marketplace_enrollments_status ON marketplace_enrollments(status);
+CREATE INDEX idx_marketplace_offers_org_id ON marketplace_offers(org_id);
+CREATE INDEX idx_marketplace_offers_status ON marketplace_offers(status);
+CREATE INDEX idx_marketplace_subscriptions_consumer ON marketplace_subscriptions(consumer_org_id, status, updated_at DESC);
+CREATE INDEX idx_marketplace_subscriptions_provider ON marketplace_subscriptions(provider_org_global_id, status, updated_at DESC);
 -- +goose Down
-DROP INDEX IF EXISTS idx_marketplace_reports_listing;
-DROP INDEX IF EXISTS idx_org_capabilities_status;
-DROP INDEX IF EXISTS idx_marketplace_service_listings_created_at_id;
-DROP INDEX IF EXISTS idx_marketplace_service_listings_state;
-DROP INDEX IF EXISTS idx_marketplace_service_listings_org_id;
-DROP TABLE IF EXISTS marketplace_service_listing_reports;
-DROP TABLE IF EXISTS marketplace_service_listings;
-DROP TABLE IF EXISTS org_capabilities;
-DROP TYPE IF EXISTS service_listing_report_reason;
-DROP TYPE IF EXISTS service_category;
-DROP TYPE IF EXISTS service_listing_state;
-DROP TYPE IF EXISTS org_capability_status;
+DROP INDEX IF EXISTS idx_marketplace_subscriptions_provider;
+DROP INDEX IF EXISTS idx_marketplace_subscriptions_consumer;
+DROP INDEX IF EXISTS idx_marketplace_offers_status;
+DROP INDEX IF EXISTS idx_marketplace_offers_org_id;
+DROP INDEX IF EXISTS idx_marketplace_enrollments_status;
+DROP INDEX IF EXISTS idx_marketplace_enrollments_org_id;
+DROP TABLE IF EXISTS marketplace_subscriptions;
+DROP TABLE IF EXISTS marketplace_offers;
+DROP TABLE IF EXISTS marketplace_enrollments;
+DROP TYPE IF EXISTS marketplace_subscription_status;
+DROP TYPE IF EXISTS marketplace_offer_status;
+DROP TYPE IF EXISTS marketplace_enrollment_status;
 DROP INDEX IF EXISTS idx_audit_logs_event_type;
 DROP INDEX IF EXISTS idx_audit_logs_org_created_at_id;
 DROP INDEX IF EXISTS idx_audit_logs_actor_user_id;

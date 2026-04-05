@@ -871,3 +871,128 @@ LIMIT @limit_count;
 -- name: DeleteExpiredAdminAuditLogs :exec
 DELETE FROM admin_audit_logs
 WHERE created_at < NOW() - @retention_period::interval;
+
+-- ============================================================
+-- Marketplace V3: capability catalog (global)
+-- ============================================================
+
+-- name: CreateMarketplaceCapability :one
+INSERT INTO marketplace_capabilities (capability_slug, display_name, description, provider_enabled, consumer_enabled, enrollment_approval, offer_review, subscription_approval, contract_required, payment_required, pricing_hint, status)
+VALUES (@capability_slug, @display_name, @description, @provider_enabled, @consumer_enabled, @enrollment_approval, @offer_review, @subscription_approval, @contract_required, @payment_required, @pricing_hint, 'draft')
+RETURNING *;
+
+-- name: GetMarketplaceCapabilityBySlug :one
+SELECT * FROM marketplace_capabilities WHERE capability_slug = @capability_slug;
+
+-- name: UpdateMarketplaceCapability :one
+UPDATE marketplace_capabilities
+SET display_name = @display_name, description = @description, provider_enabled = @provider_enabled,
+    consumer_enabled = @consumer_enabled, enrollment_approval = @enrollment_approval,
+    offer_review = @offer_review, subscription_approval = @subscription_approval,
+    contract_required = @contract_required, payment_required = @payment_required,
+    pricing_hint = @pricing_hint, updated_at = NOW()
+WHERE capability_slug = @capability_slug
+RETURNING *;
+
+-- name: EnableMarketplaceCapability :one
+UPDATE marketplace_capabilities SET status = 'active', updated_at = NOW()
+WHERE capability_slug = @capability_slug AND status IN ('draft', 'disabled')
+RETURNING *;
+
+-- name: DisableMarketplaceCapability :one
+UPDATE marketplace_capabilities SET status = 'disabled', updated_at = NOW()
+WHERE capability_slug = @capability_slug AND status = 'active'
+RETURNING *;
+
+-- name: ListMarketplaceCapabilities :many
+SELECT * FROM marketplace_capabilities
+WHERE (sqlc.narg('pagination_key')::text IS NULL OR capability_slug > sqlc.narg('pagination_key')::text)
+ORDER BY capability_slug ASC
+LIMIT @limit_count;
+
+-- name: ListActiveConsumerCapabilities :many
+SELECT * FROM marketplace_capabilities
+WHERE status = 'active' AND consumer_enabled = TRUE
+  AND (sqlc.narg('pagination_key')::text IS NULL OR capability_slug > sqlc.narg('pagination_key')::text)
+ORDER BY capability_slug ASC
+LIMIT @limit_count;
+
+-- ============================================================
+-- Marketplace V3: offer catalog mirror (global)
+-- ============================================================
+
+-- name: UpsertMarketplaceOfferCatalog :one
+INSERT INTO marketplace_offer_catalog (
+    provider_org_global_id, provider_org_domain, provider_region, capability_slug,
+    headline, summary, pricing_hint, regions_served, contact_mode, contact_value, status
+) VALUES (
+    @provider_org_global_id, @provider_org_domain, @provider_region, @capability_slug,
+    @headline, @summary, @pricing_hint, @regions_served, @contact_mode, @contact_value, @status
+)
+ON CONFLICT (provider_org_global_id, capability_slug) DO UPDATE
+SET provider_org_domain = @provider_org_domain, headline = @headline, summary = @summary,
+    pricing_hint = @pricing_hint, regions_served = @regions_served,
+    contact_mode = @contact_mode, contact_value = @contact_value,
+    status = @status, updated_at = NOW()
+RETURNING *;
+
+-- name: ListMarketplaceOfferCatalog :many
+SELECT * FROM marketplace_offer_catalog
+WHERE capability_slug = @capability_slug AND status = 'active'
+  AND (sqlc.narg('pagination_key_domain')::text IS NULL OR provider_org_domain > sqlc.narg('pagination_key_domain')::text)
+ORDER BY provider_org_domain ASC
+LIMIT @limit_count;
+
+-- name: GetMarketplaceOfferCatalogEntry :one
+SELECT * FROM marketplace_offer_catalog
+WHERE provider_org_domain = @provider_org_domain AND capability_slug = @capability_slug;
+
+-- ============================================================
+-- Marketplace V3: subscription routing (global)
+-- ============================================================
+
+-- name: UpsertMarketplaceSubscriptionRouting :exec
+INSERT INTO marketplace_subscription_routing (
+    consumer_org_global_id, consumer_org_domain, consumer_region,
+    provider_org_global_id, provider_org_domain, provider_region,
+    capability_slug, status
+) VALUES (
+    @consumer_org_global_id, @consumer_org_domain, @consumer_region,
+    @provider_org_global_id, @provider_org_domain, @provider_region,
+    @capability_slug, @status
+)
+ON CONFLICT (consumer_org_global_id, provider_org_global_id, capability_slug) DO UPDATE
+SET consumer_org_domain = @consumer_org_domain, provider_org_domain = @provider_org_domain,
+    status = @status, updated_at = NOW();
+
+-- name: ListMarketplaceSubscriptionRoutingByProvider :many
+SELECT * FROM marketplace_subscription_routing
+WHERE provider_org_global_id = @provider_org_global_id
+  AND (sqlc.narg('filter_capability_slug')::text IS NULL OR capability_slug = sqlc.narg('filter_capability_slug')::text)
+ORDER BY updated_at DESC, consumer_org_domain ASC, capability_slug ASC
+LIMIT @limit_count;
+
+-- ============================================================
+-- Marketplace V3: billing records (global)
+-- ============================================================
+
+-- name: InsertMarketplaceBillingRecord :one
+INSERT INTO marketplace_billing_records (
+    consumer_org_global_id, consumer_org_domain,
+    provider_org_global_id, provider_org_domain,
+    capability_slug, event_type, note
+) VALUES (
+    @consumer_org_global_id, @consumer_org_domain,
+    @provider_org_global_id, @provider_org_domain,
+    @capability_slug, @event_type, @note
+)
+RETURNING *;
+
+-- name: ListMarketplaceBillingRecords :many
+SELECT * FROM marketplace_billing_records
+WHERE (sqlc.narg('filter_consumer_org_domain')::text IS NULL OR consumer_org_domain = sqlc.narg('filter_consumer_org_domain')::text)
+  AND (sqlc.narg('filter_provider_org_domain')::text IS NULL OR provider_org_domain = sqlc.narg('filter_provider_org_domain')::text)
+  AND (sqlc.narg('filter_capability_slug')::text IS NULL OR capability_slug = sqlc.narg('filter_capability_slug')::text)
+ORDER BY created_at DESC
+LIMIT @limit_count;
+

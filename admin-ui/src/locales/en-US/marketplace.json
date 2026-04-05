@@ -1,214 +1,252 @@
 {
 	"backToDashboard": "Back to Dashboard",
 	"title": "Marketplace Management",
-	"capabilitiesTab": "Provider Capabilities",
-	"listingsTab": "Service Listings",
-	"capability": {
+	"loadMore": "Load More",
+	"submit": "Submit",
+	"cancel": "Cancel",
+	"yes": "Yes",
+	"no": "No",
+	"tabs": {
+		"capabilities": "Capabilities",
+		"enrollments": "Enrollments",
+		"offers": "Offers",
+		"subscriptions": "Subscriptions",
+		"billing": "Billing"
+	},
+	"actions": {
+		"approve": "Approve",
+		"reject": "Reject",
+		"suspend": "Suspend",
+		"reinstate": "Reinstate",
+		"renew": "Renew",
+		"cancel": "Cancel",
+		"enable": "Enable",
+		"disable": "Disable",
+		"markContractSigned": "Mark Contract Signed",
+		"waiveContract": "Waive Contract",
+		"recordPayment": "Record Payment",
+		"waivePayment": "Waive Payment"
+	},
+	"approval": {
+		"open": "Open",
+		"manual": "Manual"
+	},
+	"review": {
+		"auto": "Auto",
+		"manual": "Manual"
+	},
+	"subApproval": {
+		"direct": "Direct",
+		"provider": "Provider",
+		"admin": "Admin",
+		"providerAndAdmin": "Provider and Admin"
+	},
+	"capabilities": {
+		"createButton": "Create Capability",
 		"table": {
-			"orgId": "Org ID",
-			"capability": "Capability",
+			"slug": "Capability Slug",
+			"displayName": "Display Name",
 			"status": "Status",
-			"appliedAt": "Applied At",
-			"grantedAt": "Granted At",
-			"expiresAt": "Expires At",
-			"subscriptionPrice": "Price",
-			"currency": "Currency",
+			"providerEnabled": "Provider Enabled",
+			"consumerEnabled": "Consumer Enabled",
+			"contractRequired": "Contract Required",
+			"paymentRequired": "Payment Required",
+			"updatedAt": "Updated At",
 			"actions": "Actions"
 		},
-		"statuses": {
-			"pending_approval": "Pending Approval",
-			"active": "Active",
-			"rejected": "Rejected",
-			"expired": "Expired",
-			"revoked": "Revoked"
+		"createModal": {
+			"title": "Create Capability",
+			"slug": "Capability Slug",
+			"displayName": "Display Name",
+			"description": "Description",
+			"enrollmentApproval": "Enrollment Approval",
+			"offerReview": "Offer Review",
+			"subscriptionApproval": "Subscription Approval",
+			"providerEnabled": "Provider Enabled",
+			"consumerEnabled": "Consumer Enabled",
+			"contractRequired": "Contract Required",
+			"paymentRequired": "Payment Required",
+			"pricingHint": "Pricing Hint (optional)",
+			"submit": "Create"
 		},
 		"actions": {
-			"approve": "Approve",
-			"reject": "Reject",
-			"renew": "Renew",
-			"revoke": "Revoke",
-			"reinstate": "Reinstate"
+			"enable": "Enable",
+			"disable": "Disable"
 		},
-		"approveModal": {
-			"title": "Approve Capability",
-			"orgId": "Org ID",
-			"subscriptionPrice": "Subscription Price",
-			"currency": "Currency (ISO 4217)",
-			"currencyPlaceholder": "e.g. USD",
-			"subscriptionPeriodDays": "Subscription Period (days)",
-			"submit": "Approve"
-		},
-		"rejectModal": {
-			"title": "Reject Capability",
-			"adminNote": "Reason for Rejection",
-			"adminNotePlaceholder": "Explain why this application was rejected",
-			"submit": "Reject"
-		},
-		"renewModal": {
-			"title": "Renew Capability",
-			"subscriptionPrice": "Subscription Price",
-			"currency": "Currency",
-			"subscriptionPeriodDays": "Subscription Period (days)",
-			"submit": "Renew"
-		},
-		"revokeModal": {
-			"title": "Revoke Capability",
-			"adminNote": "Reason for Revocation",
-			"adminNotePlaceholder": "Explain why this capability is being revoked",
-			"submit": "Revoke"
-		},
-		"reinstateModal": {
-			"title": "Reinstate Capability",
-			"subscriptionPrice": "Subscription Price",
-			"currency": "Currency",
-			"subscriptionPeriodDays": "Subscription Period (days)",
-			"submit": "Reinstate"
-		},
-		"filter": {
-			"all": "All Statuses",
-			"pending_approval": "Pending Approval",
-			"active": "Active",
-			"rejected": "Rejected",
-			"expired": "Expired",
-			"revoked": "Revoked"
-		},
-		"applicationNote": "Application Note",
-		"needsAction": "{{count}} pending approval",
 		"errors": {
 			"loadFailed": "Failed to load capabilities",
-			"approveFailed": "Failed to approve capability",
-			"rejectFailed": "Failed to reject capability",
-			"renewFailed": "Failed to renew capability",
-			"revokeFailed": "Failed to revoke capability",
-			"reinstateFailed": "Failed to reinstate capability",
-			"invalidState": "Capability is not in the required state for this action"
+			"createFailed": "Failed to create capability",
+			"conflict": "A capability with this slug already exists",
+			"enableFailed": "Failed to enable capability",
+			"disableFailed": "Failed to disable capability"
 		},
 		"success": {
-			"approved": "Capability approved",
-			"rejected": "Capability rejected",
-			"renewed": "Capability renewed",
-			"revoked": "Capability revoked",
-			"reinstated": "Capability reinstated"
+			"created": "Capability created",
+			"enabled": "Capability enabled",
+			"disabled": "Capability disabled"
 		}
 	},
-	"listings": {
+	"enrollments": {
+		"filterStatus": "Filter by Status",
 		"table": {
-			"name": "Name",
-			"orgId": "Org ID",
-			"category": "Category",
-			"state": "State",
-			"reportCount": "Reports",
+			"orgDomain": "Org Domain",
+			"capabilitySlug": "Capability",
+			"status": "Status",
+			"billingStatus": "Billing Status",
+			"expiresAt": "Expires At",
 			"createdAt": "Created At",
 			"actions": "Actions"
 		},
-		"states": {
-			"draft": "Draft",
-			"pending_review": "Pending Review",
-			"active": "Active",
-			"paused": "Paused",
-			"rejected": "Rejected",
-			"suspended": "Suspended",
-			"appealing": "Appealing",
-			"archived": "Archived"
+		"modal": {
+			"approve": {
+				"title": "Approve Enrollment"
+			},
+			"reject": {
+				"title": "Reject Enrollment"
+			},
+			"suspend": {
+				"title": "Suspend Enrollment"
+			},
+			"reinstate": {
+				"title": "Reinstate Enrollment"
+			},
+			"renew": {
+				"title": "Renew Enrollment"
+			},
+			"reviewNote": "Review Note",
+			"expiresAt": "Expires At (ISO 8601, optional)",
+			"billingReference": "Billing Reference (optional)"
 		},
-		"categories": {
-			"talent_sourcing": "Talent Sourcing"
-		},
-		"actions": {
-			"approve": "Approve",
-			"reject": "Reject",
-			"suspend": "Suspend",
-			"reinstate": "Reinstate",
-			"grantAppeal": "Grant Appeal",
-			"denyAppeal": "Deny Appeal",
-			"view": "View"
-		},
-		"approveModal": {
-			"title": "Approve Service Listing",
-			"verificationNote": "Verification Note",
-			"verificationNotePlaceholder": "Note confirming verification",
-			"verificationId": "Verification ID",
-			"verificationIdPlaceholder": "Internal verification reference",
-			"submit": "Approve"
-		},
-		"rejectModal": {
-			"title": "Reject Service Listing",
-			"adminNote": "Rejection Reason",
-			"adminNotePlaceholder": "Explain why this listing is rejected",
-			"verificationId": "Verification ID (optional)",
-			"submit": "Reject"
-		},
-		"suspendModal": {
-			"title": "Suspend Service Listing",
-			"adminNote": "Suspension Reason",
-			"adminNotePlaceholder": "Explain why this listing is being suspended",
-			"submit": "Suspend"
-		},
-		"reinstateModal": {
-			"title": "Reinstate Service Listing",
-			"adminNote": "Admin Note (optional)",
-			"submit": "Reinstate"
-		},
-		"grantAppealModal": {
-			"title": "Grant Appeal",
-			"adminNote": "Admin Decision Note",
-			"adminNotePlaceholder": "Explain why the appeal is granted",
-			"submit": "Grant Appeal"
-		},
-		"denyAppealModal": {
-			"title": "Deny Appeal",
-			"adminNote": "Admin Decision Note",
-			"adminNotePlaceholder": "Explain why the appeal is denied",
-			"submit": "Deny Appeal"
-		},
-		"filter": {
-			"all": "All States",
-			"pending_review": "Pending Review",
-			"active": "Active",
-			"rejected": "Rejected",
-			"suspended": "Suspended",
-			"appealing": "Appealing"
-		},
-		"detailModal": {
-			"title": "Service Listing Detail",
-			"name": "Name",
-			"orgId": "Org ID",
-			"category": "Category",
-			"state": "State",
-			"shortBlurb": "Short Description",
-			"description": "Description",
-			"contactUrl": "Contact URL",
-			"pricingInfo": "Pricing Info",
-			"countriesOfService": "Countries",
-			"lastReviewNote": "Last Review Note",
-			"appealReason": "Appeal Reason",
-			"appealNote": "Appeal Admin Note",
-			"appealExhausted": "Appeal Exhausted",
-			"createdAt": "Created At",
-			"updatedAt": "Updated At",
-			"region": "Region"
-		},
-		"hasReports": "Has Reports",
-		"needsAction": "{{count}} items need action",
-		"retry": "Retry",
 		"errors": {
-			"loadFailed": "Failed to load service listings",
-			"approveFailed": "Failed to approve service listing",
-			"rejectFailed": "Failed to reject service listing",
-			"suspendFailed": "Failed to suspend service listing",
-			"reinstateFailed": "Failed to reinstate service listing",
-			"grantAppealFailed": "Failed to grant appeal",
-			"denyAppealFailed": "Failed to deny appeal",
-			"invalidState": "Service listing is not in the required state for this action"
+			"loadFailed": "Failed to load enrollments",
+			"approveFailed": "Failed to approve enrollment",
+			"rejectFailed": "Failed to reject enrollment",
+			"suspendFailed": "Failed to suspend enrollment",
+			"reinstateFailed": "Failed to reinstate enrollment",
+			"renewFailed": "Failed to renew enrollment",
+			"invalidState": "Enrollment is not in the required state for this action",
+			"actionFailed": "Action failed"
 		},
 		"success": {
-			"approved": "Service listing approved",
-			"rejected": "Service listing rejected",
-			"suspended": "Service listing suspended",
-			"reinstated": "Service listing reinstated",
-			"appealGranted": "Appeal granted",
-			"appealDenied": "Appeal denied"
+			"approve": "Enrollment approved",
+			"reject": "Enrollment rejected",
+			"suspend": "Enrollment suspended",
+			"reinstate": "Enrollment reinstated",
+			"renew": "Enrollment renewed"
+		}
+	},
+	"offers": {
+		"filterStatus": "Filter by Status",
+		"table": {
+			"orgDomain": "Org Domain",
+			"capabilitySlug": "Capability",
+			"headline": "Headline",
+			"status": "Status",
+			"contactMode": "Contact Mode",
+			"updatedAt": "Updated At",
+			"actions": "Actions"
 		},
-		"loadMore": "Load More"
+		"modal": {
+			"approve": {
+				"title": "Approve Offer"
+			},
+			"reject": {
+				"title": "Reject Offer"
+			},
+			"suspend": {
+				"title": "Suspend Offer"
+			},
+			"reinstate": {
+				"title": "Reinstate Offer"
+			},
+			"reviewNote": "Review Note"
+		},
+		"errors": {
+			"loadFailed": "Failed to load offers",
+			"approveFailed": "Failed to approve offer",
+			"rejectFailed": "Failed to reject offer",
+			"suspendFailed": "Failed to suspend offer",
+			"reinstateFailed": "Failed to reinstate offer",
+			"invalidState": "Offer is not in the required state for this action",
+			"actionFailed": "Action failed"
+		},
+		"success": {
+			"approve": "Offer approved",
+			"reject": "Offer rejected",
+			"suspend": "Offer suspended",
+			"reinstate": "Offer reinstated"
+		}
+	},
+	"subscriptions": {
+		"filterStatus": "Filter by Status",
+		"table": {
+			"consumerOrgDomain": "Consumer Org",
+			"providerOrgDomain": "Provider Org",
+			"capabilitySlug": "Capability",
+			"status": "Status",
+			"requiresAdminReview": "Admin Review",
+			"requiresContract": "Contract",
+			"requiresPayment": "Payment",
+			"createdAt": "Created At",
+			"actions": "Actions"
+		},
+		"modal": {
+			"approve": {
+				"title": "Approve Subscription"
+			},
+			"reject": {
+				"title": "Reject Subscription"
+			},
+			"markContractSigned": {
+				"title": "Mark Contract Signed"
+			},
+			"waiveContract": {
+				"title": "Waive Contract"
+			},
+			"recordPayment": {
+				"title": "Record Payment"
+			},
+			"waivePayment": {
+				"title": "Waive Payment"
+			},
+			"cancel": {
+				"title": "Cancel Subscription"
+			},
+			"note": "Note"
+		},
+		"errors": {
+			"loadFailed": "Failed to load subscriptions",
+			"approveFailed": "Failed to approve subscription",
+			"rejectFailed": "Failed to reject subscription",
+			"markContractSignedFailed": "Failed to mark contract signed",
+			"waiveContractFailed": "Failed to waive contract",
+			"recordPaymentFailed": "Failed to record payment",
+			"waivePaymentFailed": "Failed to waive payment",
+			"cancelFailed": "Failed to cancel subscription",
+			"invalidState": "Subscription is not in the required state for this action",
+			"actionFailed": "Action failed"
+		},
+		"success": {
+			"approve": "Subscription approved",
+			"reject": "Subscription rejected",
+			"markContractSigned": "Contract marked as signed",
+			"waiveContract": "Contract waived",
+			"recordPayment": "Payment recorded",
+			"waivePayment": "Payment waived",
+			"cancel": "Subscription cancelled"
+		}
+	},
+	"billing": {
+		"table": {
+			"consumerOrgDomain": "Consumer Org",
+			"providerOrgDomain": "Provider Org",
+			"capabilitySlug": "Capability",
+			"eventType": "Event Type",
+			"note": "Note",
+			"createdAt": "Created At"
+		},
+		"errors": {
+			"loadFailed": "Failed to load billing records"
+		}
 	}
 }

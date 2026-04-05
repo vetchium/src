@@ -66,6 +66,39 @@ import type {
 	ListSubOrgMembersRequest,
 	ListSubOrgMembersResponse,
 } from "vetchium-specs/org/suborgs";
+import type {
+	ListMarketplaceCapabilitiesRequest,
+	ListMarketplaceCapabilitiesResponse,
+	GetMarketplaceCapabilityRequest,
+	MarketplaceCapability,
+	ListProviderEnrollmentsRequest,
+	ListProviderEnrollmentsResponse,
+	GetProviderEnrollmentRequest,
+	ApplyProviderEnrollmentRequest,
+	ReapplyProviderEnrollmentRequest,
+	MarketplaceEnrollment,
+	GetProviderOfferRequest,
+	CreateProviderOfferRequest,
+	UpdateProviderOfferRequest,
+	SubmitProviderOfferRequest,
+	ArchiveProviderOfferRequest,
+	MarketplaceOffer,
+	ListMarketplaceProvidersRequest,
+	ListMarketplaceProvidersResponse,
+	GetMarketplaceProviderOfferRequest,
+	ListConsumerSubscriptionsRequest,
+	ListConsumerSubscriptionsResponse,
+	GetConsumerSubscriptionRequest,
+	RequestConsumerSubscriptionRequest,
+	CancelConsumerSubscriptionRequest,
+	MarketplaceSubscription,
+	ListIncomingSubscriptionsRequest,
+	ListIncomingSubscriptionsResponse,
+	GetIncomingSubscriptionRequest,
+	ProviderApproveSubscriptionRequest,
+	ProviderRejectSubscriptionRequest,
+	MarketplaceIncomingSubscription,
+} from "vetchium-specs/org/marketplace";
 import type { APIResponse } from "./api-client";
 
 /**
@@ -1616,214 +1649,256 @@ export class OrgAPIClient {
 	}
 
 	// ============================================================================
-	// Marketplace API
+	// Marketplace API (V3)
 	// ============================================================================
 
-	async applyMarketplaceProviderCapability(
+	async listMarketplaceCapabilities(
 		sessionToken: string,
-		req: any
-	): Promise<APIResponse<any>> {
+		req: ListMarketplaceCapabilitiesRequest
+	): Promise<APIResponse<ListMarketplaceCapabilitiesResponse>> {
 		const response = await this.request.post(
-			"/org/apply-marketplace-provider-capability",
-			{
-				data: req,
-				headers: { Authorization: `Bearer ${sessionToken}` },
-			}
+			"/org/marketplace/capabilities/list",
+			{ data: req, headers: { Authorization: `Bearer ${sessionToken}` } }
 		);
 		const body = await response.json().catch(() => ({}));
 		return { status: response.status(), body };
 	}
 
-	async getMarketplaceProviderCapability(
+	async getMarketplaceCapability(
 		sessionToken: string,
-		req: any
-	): Promise<APIResponse<any>> {
+		req: GetMarketplaceCapabilityRequest
+	): Promise<APIResponse<MarketplaceCapability>> {
 		const response = await this.request.post(
-			"/org/get-marketplace-provider-capability",
-			{
-				data: req,
-				headers: { Authorization: `Bearer ${sessionToken}` },
-			}
+			"/org/marketplace/capabilities/get",
+			{ data: req, headers: { Authorization: `Bearer ${sessionToken}` } }
 		);
 		const body = await response.json().catch(() => ({}));
 		return { status: response.status(), body };
 	}
 
-	async createMarketplaceServiceListing(
+	async listProviderEnrollments(
 		sessionToken: string,
-		req: any
-	): Promise<APIResponse<any>> {
+		req: ListProviderEnrollmentsRequest
+	): Promise<APIResponse<ListProviderEnrollmentsResponse>> {
 		const response = await this.request.post(
-			"/org/create-marketplace-service-listing",
-			{
-				data: req,
-				headers: { Authorization: `Bearer ${sessionToken}` },
-			}
+			"/org/marketplace/provider-enrollments/list",
+			{ data: req, headers: { Authorization: `Bearer ${sessionToken}` } }
 		);
 		const body = await response.json().catch(() => ({}));
 		return { status: response.status(), body };
 	}
 
-	async updateMarketplaceServiceListing(
+	async getProviderEnrollment(
 		sessionToken: string,
-		req: any
-	): Promise<APIResponse<any>> {
+		req: GetProviderEnrollmentRequest
+	): Promise<APIResponse<MarketplaceEnrollment>> {
 		const response = await this.request.post(
-			"/org/update-marketplace-service-listing",
-			{
-				data: req,
-				headers: { Authorization: `Bearer ${sessionToken}` },
-			}
+			"/org/marketplace/provider-enrollments/get",
+			{ data: req, headers: { Authorization: `Bearer ${sessionToken}` } }
 		);
 		const body = await response.json().catch(() => ({}));
 		return { status: response.status(), body };
 	}
 
-	async submitMarketplaceServiceListing(
+	async applyProviderEnrollment(
 		sessionToken: string,
-		req: any
-	): Promise<APIResponse<any>> {
+		req: ApplyProviderEnrollmentRequest
+	): Promise<APIResponse<MarketplaceEnrollment>> {
 		const response = await this.request.post(
-			"/org/submit-marketplace-service-listing",
-			{
-				data: req,
-				headers: { Authorization: `Bearer ${sessionToken}` },
-			}
+			"/org/marketplace/provider-enrollments/apply",
+			{ data: req, headers: { Authorization: `Bearer ${sessionToken}` } }
 		);
 		const body = await response.json().catch(() => ({}));
 		return { status: response.status(), body };
 	}
 
-	async pauseMarketplaceServiceListing(
+	async reapplyProviderEnrollment(
 		sessionToken: string,
-		req: any
-	): Promise<APIResponse<any>> {
+		req: ReapplyProviderEnrollmentRequest
+	): Promise<APIResponse<MarketplaceEnrollment>> {
 		const response = await this.request.post(
-			"/org/pause-marketplace-service-listing",
-			{
-				data: req,
-				headers: { Authorization: `Bearer ${sessionToken}` },
-			}
+			"/org/marketplace/provider-enrollments/reapply",
+			{ data: req, headers: { Authorization: `Bearer ${sessionToken}` } }
 		);
 		const body = await response.json().catch(() => ({}));
 		return { status: response.status(), body };
 	}
 
-	async unpauseMarketplaceServiceListing(
+	async getProviderOffer(
 		sessionToken: string,
-		req: any
-	): Promise<APIResponse<any>> {
+		req: GetProviderOfferRequest
+	): Promise<APIResponse<MarketplaceOffer>> {
 		const response = await this.request.post(
-			"/org/unpause-marketplace-service-listing",
-			{
-				data: req,
-				headers: { Authorization: `Bearer ${sessionToken}` },
-			}
+			"/org/marketplace/provider-offers/get",
+			{ data: req, headers: { Authorization: `Bearer ${sessionToken}` } }
 		);
 		const body = await response.json().catch(() => ({}));
 		return { status: response.status(), body };
 	}
 
-	async archiveMarketplaceServiceListing(
+	async createProviderOffer(
 		sessionToken: string,
-		req: any
-	): Promise<APIResponse<any>> {
+		req: CreateProviderOfferRequest
+	): Promise<APIResponse<MarketplaceOffer>> {
 		const response = await this.request.post(
-			"/org/archive-marketplace-service-listing",
-			{
-				data: req,
-				headers: { Authorization: `Bearer ${sessionToken}` },
-			}
+			"/org/marketplace/provider-offers/create",
+			{ data: req, headers: { Authorization: `Bearer ${sessionToken}` } }
 		);
 		const body = await response.json().catch(() => ({}));
 		return { status: response.status(), body };
 	}
 
-	async submitMarketplaceServiceListingAppeal(
+	async updateProviderOffer(
 		sessionToken: string,
-		req: any
-	): Promise<APIResponse<any>> {
+		req: UpdateProviderOfferRequest
+	): Promise<APIResponse<MarketplaceOffer>> {
 		const response = await this.request.post(
-			"/org/submit-marketplace-service-listing-appeal",
-			{
-				data: req,
-				headers: { Authorization: `Bearer ${sessionToken}` },
-			}
+			"/org/marketplace/provider-offers/update",
+			{ data: req, headers: { Authorization: `Bearer ${sessionToken}` } }
 		);
 		const body = await response.json().catch(() => ({}));
 		return { status: response.status(), body };
 	}
 
-	async listMarketplaceServiceListings(
+	async submitProviderOffer(
 		sessionToken: string,
-		req: any
-	): Promise<APIResponse<any>> {
+		req: SubmitProviderOfferRequest
+	): Promise<APIResponse<MarketplaceOffer>> {
 		const response = await this.request.post(
-			"/org/list-marketplace-service-listings",
-			{
-				data: req,
-				headers: { Authorization: `Bearer ${sessionToken}` },
-			}
+			"/org/marketplace/provider-offers/submit",
+			{ data: req, headers: { Authorization: `Bearer ${sessionToken}` } }
 		);
 		const body = await response.json().catch(() => ({}));
 		return { status: response.status(), body };
 	}
 
-	async getMarketplaceServiceListing(
+	async archiveProviderOffer(
 		sessionToken: string,
-		req: any
-	): Promise<APIResponse<any>> {
+		req: ArchiveProviderOfferRequest
+	): Promise<APIResponse<MarketplaceOffer>> {
 		const response = await this.request.post(
-			"/org/get-marketplace-service-listing",
-			{
-				data: req,
-				headers: { Authorization: `Bearer ${sessionToken}` },
-			}
+			"/org/marketplace/provider-offers/archive",
+			{ data: req, headers: { Authorization: `Bearer ${sessionToken}` } }
 		);
 		const body = await response.json().catch(() => ({}));
 		return { status: response.status(), body };
 	}
 
-	async browseMarketplaceServiceListings(
+	async listMarketplaceProviders(
 		sessionToken: string,
-		req: any
-	): Promise<APIResponse<any>> {
+		req: ListMarketplaceProvidersRequest
+	): Promise<APIResponse<ListMarketplaceProvidersResponse>> {
 		const response = await this.request.post(
-			"/org/browse-marketplace-service-listings",
-			{
-				data: req,
-				headers: { Authorization: `Bearer ${sessionToken}` },
-			}
+			"/org/marketplace/providers/list",
+			{ data: req, headers: { Authorization: `Bearer ${sessionToken}` } }
 		);
 		const body = await response.json().catch(() => ({}));
 		return { status: response.status(), body };
 	}
 
-	async reportMarketplaceServiceListing(
+	async getMarketplaceProviderOffer(
 		sessionToken: string,
-		req: any
-	): Promise<APIResponse<any>> {
+		req: GetMarketplaceProviderOfferRequest
+	): Promise<APIResponse<MarketplaceOffer>> {
 		const response = await this.request.post(
-			"/org/report-marketplace-service-listing",
-			{
-				data: req,
-				headers: { Authorization: `Bearer ${sessionToken}` },
-			}
+			"/org/marketplace/providers/get-offer",
+			{ data: req, headers: { Authorization: `Bearer ${sessionToken}` } }
 		);
 		const body = await response.json().catch(() => ({}));
 		return { status: response.status(), body };
 	}
 
-	async getPublicMarketplaceServiceListing(
+	async listConsumerSubscriptions(
 		sessionToken: string,
-		req: any
-	): Promise<APIResponse<any>> {
+		req: ListConsumerSubscriptionsRequest
+	): Promise<APIResponse<ListConsumerSubscriptionsResponse>> {
 		const response = await this.request.post(
-			"/org/get-public-marketplace-service-listing",
-			{
-				data: req,
-				headers: { Authorization: `Bearer ${sessionToken}` },
-			}
+			"/org/marketplace/consumer-subscriptions/list",
+			{ data: req, headers: { Authorization: `Bearer ${sessionToken}` } }
+		);
+		const body = await response.json().catch(() => ({}));
+		return { status: response.status(), body };
+	}
+
+	async getConsumerSubscription(
+		sessionToken: string,
+		req: GetConsumerSubscriptionRequest
+	): Promise<APIResponse<MarketplaceSubscription>> {
+		const response = await this.request.post(
+			"/org/marketplace/consumer-subscriptions/get",
+			{ data: req, headers: { Authorization: `Bearer ${sessionToken}` } }
+		);
+		const body = await response.json().catch(() => ({}));
+		return { status: response.status(), body };
+	}
+
+	async requestConsumerSubscription(
+		sessionToken: string,
+		req: RequestConsumerSubscriptionRequest
+	): Promise<APIResponse<MarketplaceSubscription>> {
+		const response = await this.request.post(
+			"/org/marketplace/consumer-subscriptions/request",
+			{ data: req, headers: { Authorization: `Bearer ${sessionToken}` } }
+		);
+		const body = await response.json().catch(() => ({}));
+		return { status: response.status(), body };
+	}
+
+	async cancelConsumerSubscription(
+		sessionToken: string,
+		req: CancelConsumerSubscriptionRequest
+	): Promise<APIResponse<MarketplaceSubscription>> {
+		const response = await this.request.post(
+			"/org/marketplace/consumer-subscriptions/cancel",
+			{ data: req, headers: { Authorization: `Bearer ${sessionToken}` } }
+		);
+		const body = await response.json().catch(() => ({}));
+		return { status: response.status(), body };
+	}
+
+	async listIncomingSubscriptions(
+		sessionToken: string,
+		req: ListIncomingSubscriptionsRequest
+	): Promise<APIResponse<ListIncomingSubscriptionsResponse>> {
+		const response = await this.request.post(
+			"/org/marketplace/incoming-subscriptions/list",
+			{ data: req, headers: { Authorization: `Bearer ${sessionToken}` } }
+		);
+		const body = await response.json().catch(() => ({}));
+		return { status: response.status(), body };
+	}
+
+	async getIncomingSubscription(
+		sessionToken: string,
+		req: GetIncomingSubscriptionRequest
+	): Promise<APIResponse<MarketplaceIncomingSubscription>> {
+		const response = await this.request.post(
+			"/org/marketplace/incoming-subscriptions/get",
+			{ data: req, headers: { Authorization: `Bearer ${sessionToken}` } }
+		);
+		const body = await response.json().catch(() => ({}));
+		return { status: response.status(), body };
+	}
+
+	async providerApproveSubscription(
+		sessionToken: string,
+		req: ProviderApproveSubscriptionRequest
+	): Promise<APIResponse<MarketplaceIncomingSubscription>> {
+		const response = await this.request.post(
+			"/org/marketplace/incoming-subscriptions/provider-approve",
+			{ data: req, headers: { Authorization: `Bearer ${sessionToken}` } }
+		);
+		const body = await response.json().catch(() => ({}));
+		return { status: response.status(), body };
+	}
+
+	async providerRejectSubscription(
+		sessionToken: string,
+		req: ProviderRejectSubscriptionRequest
+	): Promise<APIResponse<MarketplaceIncomingSubscription>> {
+		const response = await this.request.post(
+			"/org/marketplace/incoming-subscriptions/provider-reject",
+			{ data: req, headers: { Authorization: `Bearer ${sessionToken}` } }
 		);
 		const body = await response.json().catch(() => ({}));
 		return { status: response.status(), body };

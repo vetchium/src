@@ -16,6 +16,7 @@ var ValidRoleNames = []RoleName{
 	"admin:manage_domains",
 	"admin:manage_tags",
 	"admin:view_audit_logs",
+	"admin:view_marketplace",
 	"admin:manage_marketplace",
 
 	// Org portal roles
@@ -28,6 +29,7 @@ var ValidRoleNames = []RoleName{
 	"org:manage_costcenters",
 	"org:view_suborgs",
 	"org:manage_suborgs",
+	"org:view_marketplace",
 	"org:manage_marketplace",
 	"org:view_audit_logs",
 

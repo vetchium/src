@@ -1,500 +1,358 @@
-import {
-	type ValidationError,
-	newValidationError,
-	validateCountryCodes,
-} from "../common/common";
+import { type ValidationError, newValidationError } from "../common/common";
 
-export type OrgCapabilityStatus =
-	| "pending_approval"
-	| "active"
+// ---- Enums ----
+
+export type MarketplaceCapabilityStatus = "draft" | "active" | "disabled";
+
+export type MarketplaceEnrollmentStatus =
+	| "pending_review"
+	| "approved"
 	| "rejected"
-	| "expired"
-	| "revoked";
+	| "suspended"
+	| "expired";
 
-export type ServiceListingState =
+export type MarketplaceOfferStatus =
 	| "draft"
 	| "pending_review"
 	| "active"
-	| "paused"
 	| "rejected"
 	| "suspended"
-	| "appealing"
 	| "archived";
 
-export type ServiceCategory = "talent_sourcing";
+export type MarketplaceSubscriptionStatus =
+	| "requested"
+	| "provider_review"
+	| "admin_review"
+	| "awaiting_contract"
+	| "awaiting_payment"
+	| "active"
+	| "rejected"
+	| "cancelled"
+	| "expired";
 
-export type CompanySize = "startup" | "smb" | "enterprise";
+export type MarketplaceContactMode =
+	| "platform_message"
+	| "external_url"
+	| "email";
 
-export type SeniorityLevel =
-	| "intern"
-	| "junior"
-	| "mid"
-	| "senior"
-	| "lead"
-	| "director"
-	| "c_suite";
+// ---- Models ----
 
-export type Industry =
-	| "technology_software"
-	| "finance_banking"
-	| "healthcare_life_sciences"
-	| "manufacturing_engineering"
-	| "retail_consumer_goods"
-	| "media_entertainment"
-	| "education_training"
-	| "legal_services"
-	| "consulting_professional_services"
-	| "real_estate_construction"
-	| "energy_utilities"
-	| "logistics_supply_chain"
-	| "government_public_sector"
-	| "nonprofit_ngo"
-	| "other";
-
-export type JobFunction =
-	| "engineering_technology"
-	| "sales_business_development"
-	| "marketing"
-	| "finance_accounting"
-	| "human_resources"
-	| "operations_supply_chain"
-	| "product_management"
-	| "design_creative"
-	| "legal_compliance"
-	| "customer_success_support"
-	| "data_analytics"
-	| "executive_general_management";
-
-export type ReportReason =
-	| "misleading_information"
-	| "fraudulent"
-	| "inappropriate_content"
-	| "spam"
-	| "other";
-
-// ---- Response types ----
-
-export interface OrgCapability {
-	org_domain: string;
-	capability: string;
-	status: OrgCapabilityStatus;
-	application_note?: string;
-	applied_at?: string;
-	admin_note?: string;
-	subscription_price?: string;
-	currency?: string;
-	granted_at?: string;
-	expires_at?: string;
-	created_at: string;
-}
-
-export interface ServiceListingSummary {
-	org_domain: string;
-	name: string;
-	short_blurb: string;
-	logo_url?: string;
-	org_name: string;
-	service_category: ServiceCategory;
-	countries_of_service: string[];
-	created_at: string;
-}
-
-export interface ServiceListing {
-	org_domain: string;
-	name: string;
-	short_blurb: string;
+export interface MarketplaceCapability {
+	capability_slug: string;
+	display_name: string;
 	description: string;
-	service_category: ServiceCategory;
-	countries_of_service: string[];
-	contact_url: string;
-	pricing_info?: string;
-	state: ServiceListingState;
-	appeal_exhausted: boolean;
-	last_activated_at?: string;
-	industries_served: string[];
-	industries_served_other?: string;
-	company_sizes_served: string[];
-	job_functions_sourced: string[];
-	seniority_levels_sourced: string[];
-	geographic_sourcing_regions: string[];
-	last_review_admin_note?: string;
-	appeal_reason?: string;
-	appeal_admin_note?: string;
+	provider_enabled: boolean;
+	consumer_enabled: boolean;
+	status: MarketplaceCapabilityStatus;
+	pricing_hint?: string;
+}
+
+export interface MarketplaceEnrollment {
+	capability_slug: string;
+	status: MarketplaceEnrollmentStatus;
+	application_note?: string;
+	review_note?: string;
+	approved_at?: string;
+	expires_at?: string;
+	billing_status: string;
 	created_at: string;
 	updated_at: string;
 }
 
-// ---- Capability requests ----
+export interface MarketplaceOffer {
+	capability_slug: string;
+	headline: string;
+	summary: string;
+	description: string;
+	regions_served: string[];
+	pricing_hint?: string;
+	contact_mode: MarketplaceContactMode;
+	contact_value: string;
+	status: MarketplaceOfferStatus;
+	review_note?: string;
+	created_at: string;
+	updated_at: string;
+}
 
-export interface ApplyMarketplaceProviderCapabilityRequest {
+export interface MarketplaceProviderSummary {
+	provider_org_domain: string;
+	capability_slug: string;
+	headline: string;
+	summary: string;
+	pricing_hint?: string;
+	regions_served: string[];
+	contact_mode: MarketplaceContactMode;
+	contact_value: string;
+}
+
+export interface MarketplaceSubscription {
+	provider_org_domain: string;
+	capability_slug: string;
+	request_note?: string;
+	status: MarketplaceSubscriptionStatus;
+	review_note?: string;
+	requires_provider_review: boolean;
+	requires_admin_review: boolean;
+	requires_contract: boolean;
+	requires_payment: boolean;
+	starts_at?: string;
+	expires_at?: string;
+	created_at: string;
+	updated_at: string;
+}
+
+export interface MarketplaceIncomingSubscription {
+	consumer_org_domain: string;
+	capability_slug: string;
+	status: MarketplaceSubscriptionStatus;
+	request_note?: string;
+	review_note?: string;
+	updated_at: string;
+	created_at: string;
+}
+
+// ---- Request/Response types ----
+
+export interface ListMarketplaceCapabilitiesRequest {
+	pagination_key?: string;
+	limit?: number;
+}
+
+export interface ListMarketplaceCapabilitiesResponse {
+	capabilities: MarketplaceCapability[];
+	next_pagination_key?: string;
+}
+
+export interface GetMarketplaceCapabilityRequest {
+	capability_slug: string;
+}
+
+export function validateGetMarketplaceCapabilityRequest(
+	req: GetMarketplaceCapabilityRequest
+): ValidationError[] {
+	const errs: ValidationError[] = [];
+	if (!req.capability_slug || req.capability_slug.length < 3) {
+		errs.push(
+			newValidationError(
+				"capability_slug",
+				"capability_slug must be at least 3 characters"
+			)
+		);
+	}
+	return errs;
+}
+
+export interface ListProviderEnrollmentsRequest {
+	pagination_key?: string;
+	limit?: number;
+}
+
+export interface ListProviderEnrollmentsResponse {
+	enrollments: MarketplaceEnrollment[];
+	next_pagination_key?: string;
+}
+
+export interface GetProviderEnrollmentRequest {
+	capability_slug: string;
+}
+
+export interface ApplyProviderEnrollmentRequest {
+	capability_slug: string;
 	application_note?: string;
 }
 
-export function validateApplyMarketplaceProviderCapabilityRequest(
-	req: ApplyMarketplaceProviderCapabilityRequest
+export function validateApplyProviderEnrollmentRequest(
+	req: ApplyProviderEnrollmentRequest
 ): ValidationError[] {
 	const errs: ValidationError[] = [];
-	if (req.application_note && req.application_note.length > 1000) {
+	if (!req.capability_slug || req.capability_slug.length < 3) {
 		errs.push(
 			newValidationError(
-				"application_note",
-				"application_note must be at most 1000 characters"
+				"capability_slug",
+				"capability_slug must be at least 3 characters"
 			)
 		);
 	}
 	return errs;
 }
 
-export interface GetMarketplaceProviderCapabilityRequest {}
-
-// ---- ServiceListing fields shared ----
-
-export interface ServiceListingFields {
-	name: string;
-	short_blurb: string;
-	description: string;
-	service_category: ServiceCategory;
-	countries_of_service: string[];
-	contact_url: string;
-	pricing_info?: string;
-	industries_served: Industry[];
-	industries_served_other?: string;
-	company_sizes_served: CompanySize[];
-	job_functions_sourced: JobFunction[];
-	seniority_levels_sourced: SeniorityLevel[];
-	geographic_sourcing_regions: string[];
+export interface ReapplyProviderEnrollmentRequest {
+	capability_slug: string;
+	application_note?: string;
 }
 
-function validateServiceListingFields(
-	fields: ServiceListingFields
+export interface GetProviderOfferRequest {
+	capability_slug: string;
+}
+
+export interface CreateProviderOfferRequest {
+	capability_slug: string;
+	headline: string;
+	summary: string;
+	description: string;
+	regions_served: string[];
+	pricing_hint?: string;
+	contact_mode: MarketplaceContactMode;
+	contact_value: string;
+}
+
+export function validateCreateProviderOfferRequest(
+	req: CreateProviderOfferRequest
 ): ValidationError[] {
 	const errs: ValidationError[] = [];
-
-	if (!fields.name) {
-		errs.push(newValidationError("name", "name is required"));
-	} else if (fields.name.length > 100) {
-		errs.push(
-			newValidationError("name", "name must be at most 100 characters")
-		);
-	}
-
-	if (!fields.short_blurb) {
-		errs.push(newValidationError("short_blurb", "short_blurb is required"));
-	} else if (fields.short_blurb.length > 250) {
+	if (!req.capability_slug || req.capability_slug.length < 3) {
 		errs.push(
 			newValidationError(
-				"short_blurb",
-				"short_blurb must be at most 250 characters"
+				"capability_slug",
+				"capability_slug must be at least 3 characters"
 			)
 		);
 	}
-
-	if (!fields.description) {
+	if (!req.headline) {
+		errs.push(newValidationError("headline", "headline is required"));
+	}
+	if (!req.summary) {
+		errs.push(newValidationError("summary", "summary is required"));
+	}
+	if (!req.description) {
 		errs.push(newValidationError("description", "description is required"));
-	} else if (fields.description.length > 5000) {
+	}
+	if (!req.regions_served || req.regions_served.length === 0) {
 		errs.push(
-			newValidationError(
-				"description",
-				"description must be at most 5000 characters"
-			)
+			newValidationError("regions_served", "at least one region is required")
 		);
 	}
-
-	if (!fields.contact_url) {
-		errs.push(newValidationError("contact_url", "contact_url is required"));
-	} else if (!fields.contact_url.startsWith("https://")) {
-		errs.push(
-			newValidationError("contact_url", "contact_url must start with https://")
-		);
+	if (!req.contact_value) {
+		errs.push(newValidationError("contact_value", "contact_value is required"));
 	}
-
-	if (fields.pricing_info && fields.pricing_info.length > 500) {
-		errs.push(
-			newValidationError(
-				"pricing_info",
-				"pricing_info must be at most 500 characters"
-			)
-		);
-	}
-
-	if (fields.service_category !== "talent_sourcing") {
-		errs.push(
-			newValidationError(
-				"service_category",
-				"service_category must be 'talent_sourcing'"
-			)
-		);
-	}
-
-	if (
-		!fields.countries_of_service ||
-		fields.countries_of_service.length === 0
-	) {
-		errs.push(
-			newValidationError(
-				"countries_of_service",
-				"at least one country of service is required"
-			)
-		);
-	} else {
-		errs.push(
-			...validateCountryCodes(
-				"countries_of_service",
-				fields.countries_of_service
-			)
-		);
-	}
-
-	if (!fields.industries_served || fields.industries_served.length === 0) {
-		errs.push(
-			newValidationError(
-				"industries_served",
-				"at least one industry is required"
-			)
-		);
-	} else if (fields.industries_served.includes("other")) {
-		if (!fields.industries_served_other) {
-			errs.push(
-				newValidationError(
-					"industries_served_other",
-					"industries_served_other is required when 'other' is selected"
-				)
-			);
-		} else if (fields.industries_served_other.length > 100) {
-			errs.push(
-				newValidationError(
-					"industries_served_other",
-					"industries_served_other must be at most 100 characters"
-				)
-			);
-		}
-	}
-
-	if (
-		!fields.company_sizes_served ||
-		fields.company_sizes_served.length === 0
-	) {
-		errs.push(
-			newValidationError(
-				"company_sizes_served",
-				"at least one company size is required"
-			)
-		);
-	}
-
-	if (
-		!fields.job_functions_sourced ||
-		fields.job_functions_sourced.length === 0
-	) {
-		errs.push(
-			newValidationError(
-				"job_functions_sourced",
-				"at least one job function is required"
-			)
-		);
-	}
-
-	if (
-		!fields.seniority_levels_sourced ||
-		fields.seniority_levels_sourced.length === 0
-	) {
-		errs.push(
-			newValidationError(
-				"seniority_levels_sourced",
-				"at least one seniority level is required"
-			)
-		);
-	}
-
-	if (
-		!fields.geographic_sourcing_regions ||
-		fields.geographic_sourcing_regions.length === 0
-	) {
-		errs.push(
-			newValidationError(
-				"geographic_sourcing_regions",
-				"at least one geographic sourcing region is required"
-			)
-		);
-	} else {
-		errs.push(
-			...validateCountryCodes(
-				"geographic_sourcing_regions",
-				fields.geographic_sourcing_regions
-			)
-		);
-	}
-
 	return errs;
 }
 
-// ---- Create / Update ----
-
-export interface CreateMarketplaceServiceListingRequest extends ServiceListingFields {}
-
-export function validateCreateMarketplaceServiceListingRequest(
-	req: CreateMarketplaceServiceListingRequest
-): ValidationError[] {
-	return validateServiceListingFields(req);
-}
-
-export interface CreateMarketplaceServiceListingResponse {
-	name: string;
-}
-
-export interface UpdateMarketplaceServiceListingRequest {
-	name: string;
-	short_blurb: string;
+export interface UpdateProviderOfferRequest {
+	capability_slug: string;
+	headline: string;
+	summary: string;
 	description: string;
-	service_category: ServiceCategory;
-	countries_of_service: string[];
-	contact_url: string;
-	pricing_info?: string;
-	industries_served: Industry[];
-	industries_served_other?: string;
-	company_sizes_served: CompanySize[];
-	job_functions_sourced: JobFunction[];
-	seniority_levels_sourced: SeniorityLevel[];
-	geographic_sourcing_regions: string[];
+	regions_served: string[];
+	pricing_hint?: string;
+	contact_mode: MarketplaceContactMode;
+	contact_value: string;
 }
 
-export function validateUpdateMarketplaceServiceListingRequest(
-	req: UpdateMarketplaceServiceListingRequest
+export interface SubmitProviderOfferRequest {
+	capability_slug: string;
+}
+
+export interface ArchiveProviderOfferRequest {
+	capability_slug: string;
+}
+
+export interface ListMarketplaceProvidersRequest {
+	capability_slug: string;
+	pagination_key?: string;
+	limit?: number;
+}
+
+export interface ListMarketplaceProvidersResponse {
+	providers: MarketplaceProviderSummary[];
+	next_pagination_key?: string;
+}
+
+export interface GetMarketplaceProviderOfferRequest {
+	provider_org_domain: string;
+	capability_slug: string;
+}
+
+export interface ListConsumerSubscriptionsRequest {
+	pagination_key?: string;
+	limit?: number;
+}
+
+export interface ListConsumerSubscriptionsResponse {
+	subscriptions: MarketplaceSubscription[];
+	next_pagination_key?: string;
+}
+
+export interface GetConsumerSubscriptionRequest {
+	provider_org_domain: string;
+	capability_slug: string;
+}
+
+export interface RequestConsumerSubscriptionRequest {
+	provider_org_domain: string;
+	capability_slug: string;
+	request_note?: string;
+}
+
+export function validateRequestConsumerSubscriptionRequest(
+	req: RequestConsumerSubscriptionRequest
 ): ValidationError[] {
 	const errs: ValidationError[] = [];
-	if (!req.name) {
-		errs.push(newValidationError("name", "name is required"));
-	}
-	// Validate all fields via shared validation
-	errs.push(...validateServiceListingFields(req as ServiceListingFields));
-	return errs;
-}
-
-export interface SubmitMarketplaceServiceListingRequest {
-	name: string;
-}
-
-export interface PauseMarketplaceServiceListingRequest {
-	name: string;
-}
-
-export interface UnpauseMarketplaceServiceListingRequest {
-	name: string;
-}
-
-export interface ArchiveMarketplaceServiceListingRequest {
-	name: string;
-}
-
-export interface SubmitMarketplaceServiceListingAppealRequest {
-	name: string;
-	appeal_reason: string;
-}
-
-export function validateSubmitMarketplaceServiceListingAppealRequest(
-	req: SubmitMarketplaceServiceListingAppealRequest
-): ValidationError[] {
-	const errs: ValidationError[] = [];
-	if (!req.name) {
-		errs.push(newValidationError("name", "name is required"));
-	}
-	if (!req.appeal_reason) {
-		errs.push(newValidationError("appeal_reason", "appeal_reason is required"));
-	} else if (req.appeal_reason.length > 2000) {
+	if (!req.provider_org_domain) {
 		errs.push(
 			newValidationError(
-				"appeal_reason",
-				"appeal_reason must be at most 2000 characters"
+				"provider_org_domain",
+				"provider_org_domain is required"
+			)
+		);
+	}
+	if (!req.capability_slug || req.capability_slug.length < 3) {
+		errs.push(
+			newValidationError(
+				"capability_slug",
+				"capability_slug must be at least 3 characters"
 			)
 		);
 	}
 	return errs;
 }
 
-export interface ListMarketplaceServiceListingsRequest {
-	filter_state?: ServiceListingState;
-	cursor?: string;
+export interface CancelConsumerSubscriptionRequest {
+	provider_org_domain: string;
+	capability_slug: string;
+}
+
+export interface ListIncomingSubscriptionsRequest {
+	capability_slug?: string;
+	pagination_key?: string;
 	limit?: number;
 }
 
-export interface ListMarketplaceServiceListingsResponse {
-	service_listings: ServiceListing[];
-	next_cursor?: string;
+export interface ListIncomingSubscriptionsResponse {
+	subscriptions: MarketplaceIncomingSubscription[];
+	next_pagination_key?: string;
 }
 
-export interface GetMarketplaceServiceListingRequest {
-	name: string;
+export interface GetIncomingSubscriptionRequest {
+	consumer_org_domain: string;
+	capability_slug: string;
 }
 
-// ---- Browse (buyer) ----
-
-export interface BrowseMarketplaceServiceListingsRequest {
-	keyword?: string;
-	service_category?: ServiceCategory;
-	industries?: Industry[];
-	company_sizes?: CompanySize[];
-	job_functions?: JobFunction[];
-	seniority_levels?: SeniorityLevel[];
-	countries_of_service?: string[];
-	geographic_sourcing_regions?: string[];
-	cursor?: string;
-	limit?: number;
+export interface ProviderApproveSubscriptionRequest {
+	consumer_org_domain: string;
+	capability_slug: string;
 }
 
-export interface BrowseMarketplaceServiceListingsResponse {
-	service_listings: ServiceListingSummary[];
-	next_cursor?: string;
+export interface ProviderRejectSubscriptionRequest {
+	consumer_org_domain: string;
+	capability_slug: string;
+	review_note: string;
 }
 
-export interface GetPublicMarketplaceServiceListingRequest {
-	name: string;
-	org_domain: string;
-}
-
-export interface ReportMarketplaceServiceListingRequest {
-	name: string;
-	org_domain: string;
-	reason: ReportReason;
-	reason_other?: string;
-}
-
-export function validateReportMarketplaceServiceListingRequest(
-	req: ReportMarketplaceServiceListingRequest
+export function validateProviderRejectSubscriptionRequest(
+	req: ProviderRejectSubscriptionRequest
 ): ValidationError[] {
 	const errs: ValidationError[] = [];
-	if (!req.name) {
-		errs.push(newValidationError("name", "name is required"));
-	}
-	if (!req.org_domain) {
-		errs.push(newValidationError("org_domain", "org_domain is required"));
-	}
-	const validReasons: ReportReason[] = [
-		"misleading_information",
-		"fraudulent",
-		"inappropriate_content",
-		"spam",
-		"other",
-	];
-	if (!validReasons.includes(req.reason)) {
+	if (!req.consumer_org_domain) {
 		errs.push(
-			newValidationError("reason", "reason must be a valid report reason")
+			newValidationError(
+				"consumer_org_domain",
+				"consumer_org_domain is required"
+			)
 		);
-	} else if (req.reason === "other") {
-		if (!req.reason_other) {
-			errs.push(
-				newValidationError(
-					"reason_other",
-					"reason_other is required when reason is 'other'"
-				)
-			);
-		} else if (req.reason_other.length > 500) {
-			errs.push(
-				newValidationError(
-					"reason_other",
-					"reason_other must be at most 500 characters"
-				)
-			);
-		}
+	}
+	if (!req.review_note) {
+		errs.push(newValidationError("review_note", "review_note is required"));
 	}
 	return errs;
 }

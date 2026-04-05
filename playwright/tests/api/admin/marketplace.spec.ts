@@ -1,1697 +1,438 @@
 import { test, expect } from "@playwright/test";
 import { AdminAPIClient } from "../../../lib/admin-api-client";
-import { OrgAPIClient } from "../../../lib/org-api-client";
 import {
 	createTestAdminUser,
-	createTestAdminAdminDirect,
-	createTestAdminUserDirect,
 	deleteTestAdminUser,
 	generateTestEmail,
 	assignRoleToAdminUser,
-	createTestOrgAdminDirect,
-	deleteTestOrgUser,
-	generateTestOrgEmail,
-	grantMarketplaceProviderCapability,
-	createTestServiceListingDirect,
-	setOrgCapabilityStatus,
-	setServiceListingState,
-	setServiceListingAppealingState,
+	deleteTestMarketplaceCapability,
 } from "../../../lib/db";
 import { getTfaCodeFromEmail } from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
 import type {
-	OrgLoginRequest,
-	OrgTFARequest,
-} from "vetchium-specs/org/org-users";
+	AdminCreateCapabilityRequest,
+	AdminUpdateCapabilityRequest,
+	AdminEnableCapabilityRequest,
+	AdminDisableCapabilityRequest,
+	AdminGetCapabilityRequest,
+	AdminListCapabilitiesRequest,
+} from "vetchium-specs/admin/marketplace";
 
-async function loginAdmin(api: AdminAPIClient, email: string): Promise<string> {
-	const loginRes = await api.login({ email, password: TEST_PASSWORD });
-	expect(loginRes.status).toBe(200);
-	const tfaCode = await getTfaCodeFromEmail(email);
-	const tfaRes = await api.verifyTFA({
-		tfa_token: loginRes.body.tfa_token,
-		tfa_code: tfaCode,
-	});
-	expect(tfaRes.status).toBe(200);
-	return tfaRes.body.session_token;
+function generateCapabilitySlug(prefix: string = "cap"): string {
+	const hex = Math.random().toString(16).substring(2, 10);
+	return `${prefix}-${hex}`;
 }
 
-async function loginOrgUser(
-	api: OrgAPIClient,
-	email: string,
-	domain: string
-): Promise<string> {
-	const loginReq: OrgLoginRequest = {
-		email,
-		domain,
-		password: TEST_PASSWORD,
-	};
-	const loginRes = await api.login(loginReq);
-	expect(loginRes.status).toBe(200);
+test.describe("Admin Marketplace API", () => {
+	let manageEmail: string;
+	let manageToken: string;
+	let manageUserId: string;
 
-	const tfaCode = await getTfaCodeFromEmail(email);
-	const tfaReq: OrgTFARequest = {
-		tfa_token: loginRes.body!.tfa_token,
-		tfa_code: tfaCode,
-		remember_me: true,
-	};
-	const tfaRes = await api.verifyTFA(tfaReq);
-	expect(tfaRes.status).toBe(200);
-	return tfaRes.body!.session_token;
-}
+	let viewEmail: string;
+	let viewToken: string;
 
-test.describe("Marketplace Admin API", () => {
-	// ============================================================================
-	// List Marketplace Provider Capabilities
-	// ============================================================================
-	test.describe("POST /admin/list-marketplace-provider-capabilities", () => {
-		test("Success: admin with admin:manage_marketplace can list (200)", async ({
-			request,
-		}) => {
-			const adminApi = new AdminAPIClient(request);
-			const orgApi = new OrgAPIClient(request);
+	let noRoleEmail: string;
+	let noRoleToken: string;
 
-			const adminEmail = generateTestEmail("mkt-admin-list-caps");
-			const { userId: adminUserId } = await createTestAdminUserDirect(
-				adminEmail,
-				TEST_PASSWORD
-			);
-			await assignRoleToAdminUser(adminUserId, "admin:manage_marketplace");
-			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
+	test.beforeAll(async ({ request }) => {
+		const api = new AdminAPIClient(request);
 
-			const { email: orgEmail, domain: orgDomain } =
-				generateTestOrgEmail("mkt-admin-list-org");
-			await createTestOrgAdminDirect(orgEmail, TEST_PASSWORD);
+		// Admin user with manage_marketplace + view_audit_logs
+		manageEmail = generateTestEmail("mkt-manage");
+		manageUserId = await createTestAdminUser(manageEmail, TEST_PASSWORD);
+		await assignRoleToAdminUser(manageUserId, "admin:manage_marketplace");
+		await assignRoleToAdminUser(manageUserId, "admin:view_audit_logs");
 
-			try {
-				// Org applies for capability
-				const orgToken = await loginOrgUser(orgApi, orgEmail, orgDomain);
-				await orgApi.applyMarketplaceProviderCapability(orgToken, {});
-
-				// Admin lists capabilities
-				const adminToken = await loginAdmin(adminApi, adminEmail);
-				const res = await adminApi.listMarketplaceProviderCapabilities(
-					adminToken,
-					{}
-				);
-				expect(res.status).toBe(200);
-				expect(res.body?.capabilities).toBeDefined();
-				expect(Array.isArray(res.body?.capabilities)).toBe(true);
-			} finally {
-				await deleteTestAdminUser(adminEmail);
-				await deleteTestOrgUser(orgEmail);
-			}
+		const lr1 = await api.login({
+			email: manageEmail,
+			password: TEST_PASSWORD,
 		});
-
-		test("Auth: unauthenticated (401)", async ({ request }) => {
-			const adminApi = new AdminAPIClient(request);
-			const res = await adminApi.listMarketplaceProviderCapabilities(
-				"invalid-token",
-				{}
-			);
-			expect(res.status).toBe(401);
+		expect(lr1.status).toBe(200);
+		const tfa1 = await getTfaCodeFromEmail(manageEmail);
+		const tr1 = await api.verifyTFA({
+			tfa_token: lr1.body!.tfa_token,
+			tfa_code: tfa1,
 		});
+		expect(tr1.status).toBe(200);
+		manageToken = tr1.body!.session_token;
 
-		test("RBAC: admin without manage_marketplace role (403)", async ({
-			request,
-		}) => {
-			const adminApi = new AdminAPIClient(request);
-			const adminEmail = generateTestEmail("mkt-list-caps-norole");
-			await createTestAdminUserDirect(adminEmail, TEST_PASSWORD);
+		// Admin user with view_marketplace only
+		viewEmail = generateTestEmail("mkt-view");
+		const viewUserId = await createTestAdminUser(viewEmail, TEST_PASSWORD);
+		await assignRoleToAdminUser(viewUserId, "admin:view_marketplace");
 
-			try {
-				const adminToken = await loginAdmin(adminApi, adminEmail);
-				const res = await adminApi.listMarketplaceProviderCapabilities(
-					adminToken,
-					{}
-				);
-				expect(res.status).toBe(403);
-			} finally {
-				await deleteTestAdminUser(adminEmail);
-			}
+		const lr2 = await api.login({ email: viewEmail, password: TEST_PASSWORD });
+		expect(lr2.status).toBe(200);
+		const tfa2 = await getTfaCodeFromEmail(viewEmail);
+		const tr2 = await api.verifyTFA({
+			tfa_token: lr2.body!.tfa_token,
+			tfa_code: tfa2,
 		});
+		expect(tr2.status).toBe(200);
+		viewToken = tr2.body!.session_token;
+
+		// Admin user with no roles (for 403 tests)
+		noRoleEmail = generateTestEmail("mkt-norole");
+		await createTestAdminUser(noRoleEmail, TEST_PASSWORD);
+		const lr3 = await api.login({
+			email: noRoleEmail,
+			password: TEST_PASSWORD,
+		});
+		expect(lr3.status).toBe(200);
+		const tfa3 = await getTfaCodeFromEmail(noRoleEmail);
+		const tr3 = await api.verifyTFA({
+			tfa_token: lr3.body!.tfa_token,
+			tfa_code: tfa3,
+		});
+		expect(tr3.status).toBe(200);
+		noRoleToken = tr3.body!.session_token;
 	});
 
-	// ============================================================================
-	// Approve Marketplace Provider Capability
-	// ============================================================================
-	test.describe("POST /admin/approve-marketplace-provider-capability", () => {
-		test("Success: pending_approval -> active (200)", async ({ request }) => {
-			const adminApi = new AdminAPIClient(request);
-			const orgApi = new OrgAPIClient(request);
-
-			const adminEmail = generateTestEmail("mkt-approve-cap");
-			const { userId: adminUserId } = await createTestAdminUserDirect(
-				adminEmail,
-				TEST_PASSWORD
-			);
-			await assignRoleToAdminUser(adminUserId, "admin:manage_marketplace");
-			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
-
-			const { email: orgEmail, domain: orgDomain } = generateTestOrgEmail(
-				"mkt-approve-cap-org"
-			);
-			const orgResult = await createTestOrgAdminDirect(orgEmail, TEST_PASSWORD);
-
-			try {
-				// Org applies
-				const orgToken = await loginOrgUser(orgApi, orgEmail, orgDomain);
-				const applyRes = await orgApi.applyMarketplaceProviderCapability(
-					orgToken,
-					{}
-				);
-				expect(applyRes.status).toBe(200);
-
-				// Admin approves
-				const before = new Date(Date.now() - 2000).toISOString();
-				const adminToken = await loginAdmin(adminApi, adminEmail);
-				const approveRes = await adminApi.approveMarketplaceProviderCapability(
-					adminToken,
-					{
-						org_domain: orgResult.domain,
-						subscription_price: 100,
-						currency: "USD",
-						subscription_period_days: 365,
-					}
-				);
-				expect(approveRes.status).toBe(200);
-
-				// Verify capability is now active
-				const getRes = await orgApi.getMarketplaceProviderCapability(
-					orgToken,
-					{}
-				);
-				expect(getRes.status).toBe(200);
-				expect(getRes.body?.status).toBe("active");
-
-				// Verify audit log
-				const auditResp = await adminApi.filterAuditLogs(adminToken, {
-					event_types: ["admin.approve_marketplace_provider_capability"],
-					start_time: before,
-				});
-				expect(auditResp.status).toBe(200);
-				expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
-				const entry = auditResp.body.audit_logs[0];
-				expect(entry.event_type).toBe(
-					"admin.approve_marketplace_provider_capability"
-				);
-			} finally {
-				await deleteTestAdminUser(adminEmail);
-				await deleteTestOrgUser(orgEmail);
-			}
-		});
-
-		test("Invalid state: capability not pending_approval (422)", async ({
-			request,
-		}) => {
-			const adminApi = new AdminAPIClient(request);
-
-			const adminEmail = generateTestEmail("mkt-approve-cap-422");
-			const { userId: adminUserId } = await createTestAdminUserDirect(
-				adminEmail,
-				TEST_PASSWORD
-			);
-			await assignRoleToAdminUser(adminUserId, "admin:manage_marketplace");
-			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
-
-			const { email: orgEmail } = generateTestOrgEmail(
-				"mkt-approve-cap-422-org"
-			);
-			const orgResult = await createTestOrgAdminDirect(orgEmail, TEST_PASSWORD);
-			// Grant capability directly (already active)
-			await grantMarketplaceProviderCapability(orgResult.orgId);
-
-			try {
-				const adminToken = await loginAdmin(adminApi, adminEmail);
-				const res = await adminApi.approveMarketplaceProviderCapability(
-					adminToken,
-					{
-						org_domain: orgResult.domain,
-						subscription_price: 100,
-						currency: "USD",
-						subscription_period_days: 365,
-					}
-				);
-				expect(res.status).toBe(422);
-			} finally {
-				await deleteTestAdminUser(adminEmail);
-				await deleteTestOrgUser(orgEmail);
-			}
-		});
-
-		test("Not found: org not found (404)", async ({ request }) => {
-			const adminApi = new AdminAPIClient(request);
-
-			const adminEmail = generateTestEmail("mkt-approve-cap-404");
-			const { userId: adminUserId } = await createTestAdminUserDirect(
-				adminEmail,
-				TEST_PASSWORD
-			);
-			await assignRoleToAdminUser(adminUserId, "admin:manage_marketplace");
-			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
-
-			try {
-				const adminToken = await loginAdmin(adminApi, adminEmail);
-				const res = await adminApi.approveMarketplaceProviderCapability(
-					adminToken,
-					{
-						org_domain: "nonexistent-org.test.vetchium.com",
-						subscription_price: 100,
-						currency: "USD",
-						subscription_period_days: 365,
-					}
-				);
-				expect(res.status).toBe(404);
-			} finally {
-				await deleteTestAdminUser(adminEmail);
-			}
-		});
-
-		test("Auth: unauthenticated (401)", async ({ request }) => {
-			const adminApi = new AdminAPIClient(request);
-			const res = await adminApi.approveMarketplaceProviderCapability(
-				"invalid-token",
-				{
-					org_domain: "nonexistent-org.test.vetchium.com",
-					subscription_price: 100,
-					currency: "USD",
-					subscription_period_days: 365,
-				}
-			);
-			expect(res.status).toBe(401);
-		});
-
-		test("RBAC: admin without manage_marketplace role (403)", async ({
-			request,
-		}) => {
-			const adminApi = new AdminAPIClient(request);
-			const adminEmail = generateTestEmail("mkt-approve-cap-norole");
-			await createTestAdminUserDirect(adminEmail, TEST_PASSWORD);
-
-			try {
-				const adminToken = await loginAdmin(adminApi, adminEmail);
-				const res = await adminApi.approveMarketplaceProviderCapability(
-					adminToken,
-					{
-						org_domain: "nonexistent-org.test.vetchium.com",
-						subscription_price: 100,
-						currency: "USD",
-						subscription_period_days: 365,
-					}
-				);
-				expect(res.status).toBe(403);
-			} finally {
-				await deleteTestAdminUser(adminEmail);
-			}
-		});
+	test.afterAll(async () => {
+		await deleteTestAdminUser(manageEmail);
+		await deleteTestAdminUser(viewEmail);
+		await deleteTestAdminUser(noRoleEmail);
 	});
 
-	// ============================================================================
-	// Reject Marketplace Provider Capability
-	// ============================================================================
-	test.describe("POST /admin/reject-marketplace-provider-capability", () => {
-		test("Success: pending_approval -> rejected (200)", async ({ request }) => {
-			const adminApi = new AdminAPIClient(request);
-			const orgApi = new OrgAPIClient(request);
+	// ===========================================================================
+	// POST /admin/marketplace/capabilities/create
+	// ===========================================================================
 
-			const adminEmail = generateTestEmail("mkt-reject-cap");
-			const { userId: adminUserId } = await createTestAdminUserDirect(
-				adminEmail,
-				TEST_PASSWORD
-			);
-			await assignRoleToAdminUser(adminUserId, "admin:manage_marketplace");
-			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
+	test.describe("POST /admin/marketplace/capabilities/create", () => {
+		let slug: string;
 
-			const { email: orgEmail, domain: orgDomain } =
-				generateTestOrgEmail("mkt-reject-cap-org");
-			const orgResult = await createTestOrgAdminDirect(orgEmail, TEST_PASSWORD);
-
-			try {
-				// Org applies
-				const orgToken = await loginOrgUser(orgApi, orgEmail, orgDomain);
-				await orgApi.applyMarketplaceProviderCapability(orgToken, {});
-
-				// Admin rejects
-				const before = new Date(Date.now() - 2000).toISOString();
-				const adminToken = await loginAdmin(adminApi, adminEmail);
-				const res = await adminApi.rejectMarketplaceProviderCapability(
-					adminToken,
-					{
-						org_domain: orgResult.domain,
-						admin_note: "Does not meet our quality standards.",
-					}
-				);
-				expect(res.status).toBe(200);
-
-				// Verify audit log
-				const auditResp = await adminApi.filterAuditLogs(adminToken, {
-					event_types: ["admin.reject_marketplace_provider_capability"],
-					start_time: before,
-				});
-				expect(auditResp.status).toBe(200);
-				expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
-			} finally {
-				await deleteTestAdminUser(adminEmail);
-				await deleteTestOrgUser(orgEmail);
-			}
+		test.afterAll(async () => {
+			if (slug) await deleteTestMarketplaceCapability(slug).catch(() => {});
 		});
 
-		test("Invalid state: capability not pending_approval (422)", async ({
-			request,
-		}) => {
-			const adminApi = new AdminAPIClient(request);
-
-			const adminEmail = generateTestEmail("mkt-reject-cap-422");
-			const { userId: adminUserId } = await createTestAdminUserDirect(
-				adminEmail,
-				TEST_PASSWORD
-			);
-			await assignRoleToAdminUser(adminUserId, "admin:manage_marketplace");
-			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
-
-			const { email: orgEmail } = generateTestOrgEmail(
-				"mkt-reject-cap-422-org"
-			);
-			const orgResult = await createTestOrgAdminDirect(orgEmail, TEST_PASSWORD);
-			await grantMarketplaceProviderCapability(orgResult.orgId); // already active
-
-			try {
-				const adminToken = await loginAdmin(adminApi, adminEmail);
-				const res = await adminApi.rejectMarketplaceProviderCapability(
-					adminToken,
-					{
-						org_domain: orgResult.domain,
-						admin_note: "Rejecting active capability should fail.",
-					}
-				);
-				expect(res.status).toBe(422);
-			} finally {
-				await deleteTestAdminUser(adminEmail);
-				await deleteTestOrgUser(orgEmail);
-			}
-		});
-
-		test("Auth: unauthenticated (401)", async ({ request }) => {
-			const adminApi = new AdminAPIClient(request);
-			const res = await adminApi.rejectMarketplaceProviderCapability(
-				"invalid-token",
-				{
-					org_domain: "nonexistent-org.test.vetchium.com",
-					admin_note: "Some reason",
-				}
-			);
-			expect(res.status).toBe(401);
-		});
-	});
-
-	// ============================================================================
-	// Revoke Marketplace Provider Capability
-	// ============================================================================
-	test.describe("POST /admin/revoke-marketplace-provider-capability", () => {
-		test("Success: active -> revoked (200)", async ({ request }) => {
-			const adminApi = new AdminAPIClient(request);
-
-			const adminEmail = generateTestEmail("mkt-revoke-cap");
-			const { userId: adminUserId } = await createTestAdminUserDirect(
-				adminEmail,
-				TEST_PASSWORD
-			);
-			await assignRoleToAdminUser(adminUserId, "admin:manage_marketplace");
-			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
-
-			const { email: orgEmail } = generateTestOrgEmail("mkt-revoke-cap-org");
-			const orgResult = await createTestOrgAdminDirect(orgEmail, TEST_PASSWORD);
-			await grantMarketplaceProviderCapability(orgResult.orgId);
-
-			try {
-				const before = new Date(Date.now() - 2000).toISOString();
-				const adminToken = await loginAdmin(adminApi, adminEmail);
-				const res = await adminApi.revokeMarketplaceProviderCapability(
-					adminToken,
-					{
-						org_domain: orgResult.domain,
-						admin_note: "Revoking for policy violation.",
-					}
-				);
-				expect(res.status).toBe(200);
-
-				// Verify audit log
-				const auditResp = await adminApi.filterAuditLogs(adminToken, {
-					event_types: ["admin.revoke_marketplace_provider_capability"],
-					start_time: before,
-				});
-				expect(auditResp.status).toBe(200);
-				expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
-				expect(auditResp.body.audit_logs[0].event_type).toBe(
-					"admin.revoke_marketplace_provider_capability"
-				);
-			} finally {
-				await deleteTestAdminUser(adminEmail);
-				await deleteTestOrgUser(orgEmail);
-			}
-		});
-
-		test("Invalid state: capability not active (422)", async ({ request }) => {
-			const adminApi = new AdminAPIClient(request);
-			const orgApi = new OrgAPIClient(request);
-
-			const adminEmail = generateTestEmail("mkt-revoke-cap-422");
-			const { userId: adminUserId } = await createTestAdminUserDirect(
-				adminEmail,
-				TEST_PASSWORD
-			);
-			await assignRoleToAdminUser(adminUserId, "admin:manage_marketplace");
-			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
-
-			const { email: orgEmail, domain: orgDomain } = generateTestOrgEmail(
-				"mkt-revoke-cap-422-org"
-			);
-			const orgResult = await createTestOrgAdminDirect(orgEmail, TEST_PASSWORD);
-
-			try {
-				// Org applies (puts it in pending_approval)
-				const orgToken = await loginOrgUser(orgApi, orgEmail, orgDomain);
-				await orgApi.applyMarketplaceProviderCapability(orgToken, {});
-
-				const adminToken = await loginAdmin(adminApi, adminEmail);
-				const res = await adminApi.revokeMarketplaceProviderCapability(
-					adminToken,
-					{
-						org_domain: orgResult.domain,
-						admin_note: "Should fail, not active.",
-					}
-				);
-				expect(res.status).toBe(422);
-			} finally {
-				await deleteTestAdminUser(adminEmail);
-				await deleteTestOrgUser(orgEmail);
-			}
-		});
-
-		test("Auth: unauthenticated (401)", async ({ request }) => {
-			const adminApi = new AdminAPIClient(request);
-			const res = await adminApi.revokeMarketplaceProviderCapability(
-				"invalid-token",
-				{
-					org_domain: "nonexistent-org.test.vetchium.com",
-					admin_note: "Some reason",
-				}
-			);
-			expect(res.status).toBe(401);
-		});
-	});
-
-	// ============================================================================
-	// Reinstate Marketplace Provider Capability
-	// ============================================================================
-	test.describe("POST /admin/reinstate-marketplace-provider-capability", () => {
-		test("Success: revoked -> active (200)", async ({ request }) => {
-			const adminApi = new AdminAPIClient(request);
-
-			const adminEmail = generateTestEmail("mkt-reinstate-cap");
-			const { userId: adminUserId } = await createTestAdminUserDirect(
-				adminEmail,
-				TEST_PASSWORD
-			);
-			await assignRoleToAdminUser(adminUserId, "admin:manage_marketplace");
-			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
-
-			const { email: orgEmail } = generateTestOrgEmail("mkt-reinstate-cap-org");
-			const orgResult = await createTestOrgAdminDirect(orgEmail, TEST_PASSWORD);
-			await grantMarketplaceProviderCapability(orgResult.orgId);
-			await setOrgCapabilityStatus(orgResult.orgId, "revoked");
-
-			try {
-				const before = new Date(Date.now() - 2000).toISOString();
-				const adminToken = await loginAdmin(adminApi, adminEmail);
-				const res = await adminApi.reinstateMarketplaceProviderCapability(
-					adminToken,
-					{
-						org_domain: orgResult.domain,
-						subscription_price: 100,
-						currency: "USD",
-						subscription_period_days: 365,
-					}
-				);
-				expect(res.status).toBe(200);
-
-				// Verify audit log
-				const auditResp = await adminApi.filterAuditLogs(adminToken, {
-					event_types: ["admin.reinstate_marketplace_provider_capability"],
-					start_time: before,
-				});
-				expect(auditResp.status).toBe(200);
-				expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
-				expect(auditResp.body.audit_logs[0].event_type).toBe(
-					"admin.reinstate_marketplace_provider_capability"
-				);
-			} finally {
-				await deleteTestAdminUser(adminEmail);
-				await deleteTestOrgUser(orgEmail);
-			}
-		});
-
-		test("Invalid state: capability not revoked (422)", async ({ request }) => {
-			const adminApi = new AdminAPIClient(request);
-			const orgApi = new OrgAPIClient(request);
-
-			const adminEmail = generateTestEmail("mkt-reinstate-cap-422");
-			const { userId: adminUserId } = await createTestAdminUserDirect(
-				adminEmail,
-				TEST_PASSWORD
-			);
-			await assignRoleToAdminUser(adminUserId, "admin:manage_marketplace");
-			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
-
-			const { email: orgEmail, domain: orgDomain } = generateTestOrgEmail(
-				"mkt-reinstate-cap-422-org"
-			);
-			const orgResult = await createTestOrgAdminDirect(orgEmail, TEST_PASSWORD);
-
-			try {
-				const orgToken = await loginOrgUser(orgApi, orgEmail, orgDomain);
-				await orgApi.applyMarketplaceProviderCapability(orgToken, {});
-
-				const adminToken = await loginAdmin(adminApi, adminEmail);
-				const res = await adminApi.reinstateMarketplaceProviderCapability(
-					adminToken,
-					{
-						org_domain: orgResult.domain,
-						subscription_price: 100,
-						currency: "USD",
-						subscription_period_days: 365,
-					}
-				);
-				expect(res.status).toBe(422);
-			} finally {
-				await deleteTestAdminUser(adminEmail);
-				await deleteTestOrgUser(orgEmail);
-			}
-		});
-
-		test("Auth: unauthenticated (401)", async ({ request }) => {
-			const adminApi = new AdminAPIClient(request);
-			const res = await adminApi.reinstateMarketplaceProviderCapability(
-				"invalid-token",
-				{
-					org_domain: "nonexistent-org.test.vetchium.com",
-					subscription_price: 100,
-					currency: "USD",
-					subscription_period_days: 365,
-				}
-			);
-			expect(res.status).toBe(401);
-		});
-	});
-
-	// ============================================================================
-	// Renew Marketplace Provider Capability
-	// ============================================================================
-	test.describe("POST /admin/renew-marketplace-provider-capability", () => {
-		test("Success: active capability renewed (200)", async ({ request }) => {
-			const adminApi = new AdminAPIClient(request);
-
-			const adminEmail = generateTestEmail("mkt-renew-cap");
-			const { userId: adminUserId } = await createTestAdminUserDirect(
-				adminEmail,
-				TEST_PASSWORD
-			);
-			await assignRoleToAdminUser(adminUserId, "admin:manage_marketplace");
-			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
-
-			const { email: orgEmail } = generateTestOrgEmail("mkt-renew-cap-org");
-			const orgResult = await createTestOrgAdminDirect(orgEmail, TEST_PASSWORD);
-			await grantMarketplaceProviderCapability(orgResult.orgId);
-
-			try {
-				const before = new Date(Date.now() - 2000).toISOString();
-				const adminToken = await loginAdmin(adminApi, adminEmail);
-				const res = await adminApi.renewMarketplaceProviderCapability(
-					adminToken,
-					{
-						org_domain: orgResult.domain,
-						subscription_price: 150,
-						currency: "USD",
-						subscription_period_days: 365,
-					}
-				);
-				expect(res.status).toBe(200);
-
-				// Verify audit log
-				const auditResp = await adminApi.filterAuditLogs(adminToken, {
-					event_types: ["admin.renew_marketplace_provider_capability"],
-					start_time: before,
-				});
-				expect(auditResp.status).toBe(200);
-				expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
-				expect(auditResp.body.audit_logs[0].event_type).toBe(
-					"admin.renew_marketplace_provider_capability"
-				);
-			} finally {
-				await deleteTestAdminUser(adminEmail);
-				await deleteTestOrgUser(orgEmail);
-			}
-		});
-
-		test("Success: expired capability renewed (200)", async ({ request }) => {
-			const adminApi = new AdminAPIClient(request);
-
-			const adminEmail = generateTestEmail("mkt-renew-exp-cap");
-			const { userId: adminUserId } = await createTestAdminUserDirect(
-				adminEmail,
-				TEST_PASSWORD
-			);
-			await assignRoleToAdminUser(adminUserId, "admin:manage_marketplace");
-			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
-
-			const { email: orgEmail } = generateTestOrgEmail("mkt-renew-exp-org");
-			const orgResult = await createTestOrgAdminDirect(orgEmail, TEST_PASSWORD);
-			await grantMarketplaceProviderCapability(orgResult.orgId);
-			await setOrgCapabilityStatus(orgResult.orgId, "expired");
-
-			try {
-				const adminToken = await loginAdmin(adminApi, adminEmail);
-				const res = await adminApi.renewMarketplaceProviderCapability(
-					adminToken,
-					{
-						org_domain: orgResult.domain,
-						subscription_price: 100,
-						currency: "USD",
-						subscription_period_days: 365,
-					}
-				);
-				expect(res.status).toBe(200);
-				expect(res.body?.status).toBe("active");
-			} finally {
-				await deleteTestAdminUser(adminEmail);
-				await deleteTestOrgUser(orgEmail);
-			}
-		});
-
-		test("Invalid state: capability not active or expired (422)", async ({
-			request,
-		}) => {
-			const adminApi = new AdminAPIClient(request);
-			const orgApi = new OrgAPIClient(request);
-
-			const adminEmail = generateTestEmail("mkt-renew-cap-422");
-			const { userId: adminUserId } = await createTestAdminUserDirect(
-				adminEmail,
-				TEST_PASSWORD
-			);
-			await assignRoleToAdminUser(adminUserId, "admin:manage_marketplace");
-			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
-
-			const { email: orgEmail, domain: orgDomain } = generateTestOrgEmail(
-				"mkt-renew-cap-422-org"
-			);
-			const orgResult = await createTestOrgAdminDirect(orgEmail, TEST_PASSWORD);
-
-			try {
-				const orgToken = await loginOrgUser(orgApi, orgEmail, orgDomain);
-				await orgApi.applyMarketplaceProviderCapability(orgToken, {});
-				// Still pending_approval
-
-				const adminToken = await loginAdmin(adminApi, adminEmail);
-				const res = await adminApi.renewMarketplaceProviderCapability(
-					adminToken,
-					{
-						org_domain: orgResult.domain,
-						subscription_price: 100,
-						currency: "USD",
-						subscription_period_days: 365,
-					}
-				);
-				expect(res.status).toBe(422);
-			} finally {
-				await deleteTestAdminUser(adminEmail);
-				await deleteTestOrgUser(orgEmail);
-			}
-		});
-
-		test("Auth: unauthenticated (401)", async ({ request }) => {
-			const adminApi = new AdminAPIClient(request);
-			const res = await adminApi.renewMarketplaceProviderCapability(
-				"invalid-token",
-				{
-					org_domain: "nonexistent-org.test.vetchium.com",
-					subscription_price: 100,
-					currency: "USD",
-					subscription_period_days: 365,
-				}
-			);
-			expect(res.status).toBe(401);
-		});
-	});
-
-	// ============================================================================
-	// List Admin Service Listings
-	// ============================================================================
-	test.describe("POST /admin/list-marketplace-service-listings", () => {
-		test("Success: returns all service listings (200)", async ({ request }) => {
-			const adminApi = new AdminAPIClient(request);
-
-			const adminEmail = generateTestEmail("mkt-admin-list-sl");
-			const { userId: adminUserId } = await createTestAdminUserDirect(
-				adminEmail,
-				TEST_PASSWORD
-			);
-			await assignRoleToAdminUser(adminUserId, "admin:manage_marketplace");
-			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
-
-			const { email: orgEmail } = generateTestOrgEmail("mkt-admin-list-sl-org");
-			const orgResult = await createTestOrgAdminDirect(orgEmail, TEST_PASSWORD);
-			await grantMarketplaceProviderCapability(orgResult.orgId);
-			await createTestServiceListingDirect(
-				orgResult.orgId,
-				"Admin List Test Listing",
-				"active"
-			);
-
-			try {
-				const adminToken = await loginAdmin(adminApi, adminEmail);
-				const res = await adminApi.listAdminMarketplaceServiceListings(
-					adminToken,
-					{}
-				);
-				expect(res.status).toBe(200);
-				expect(res.body?.service_listings).toBeDefined();
-				expect(Array.isArray(res.body?.service_listings)).toBe(true);
-			} finally {
-				await deleteTestAdminUser(adminEmail);
-				await deleteTestOrgUser(orgEmail);
-			}
-		});
-
-		test("Filter by state returns only matching listings (200)", async ({
-			request,
-		}) => {
-			const adminApi = new AdminAPIClient(request);
-
-			const adminEmail = generateTestEmail("mkt-admin-filter-sl");
-			const { userId: adminUserId } = await createTestAdminUserDirect(
-				adminEmail,
-				TEST_PASSWORD
-			);
-			await assignRoleToAdminUser(adminUserId, "admin:manage_marketplace");
-			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
-
-			const { email: orgEmail } = generateTestOrgEmail(
-				"mkt-admin-filter-sl-org"
-			);
-			const orgResult = await createTestOrgAdminDirect(orgEmail, TEST_PASSWORD);
-			await grantMarketplaceProviderCapability(orgResult.orgId);
-			await createTestServiceListingDirect(
-				orgResult.orgId,
-				"Admin Filter Active Listing",
-				"active"
-			);
-			await createTestServiceListingDirect(
-				orgResult.orgId,
-				"Admin Filter Draft Listing",
-				"draft"
-			);
-
-			try {
-				const adminToken = await loginAdmin(adminApi, adminEmail);
-				const res = await adminApi.listAdminMarketplaceServiceListings(
-					adminToken,
-					{ filter_state: "active" }
-				);
-				expect(res.status).toBe(200);
-				const listings = res.body?.service_listings ?? [];
-				// All returned listings should be active
-				listings.forEach((l: any) => {
-					expect(l.state).toBe("active");
-				});
-			} finally {
-				await deleteTestAdminUser(adminEmail);
-				await deleteTestOrgUser(orgEmail);
-			}
-		});
-
-		test("Auth: unauthenticated (401)", async ({ request }) => {
-			const adminApi = new AdminAPIClient(request);
-			const res = await adminApi.listAdminMarketplaceServiceListings(
-				"invalid-token",
-				{}
-			);
-			expect(res.status).toBe(401);
-		});
-
-		test("RBAC: admin without manage_marketplace role (403)", async ({
-			request,
-		}) => {
-			const adminApi = new AdminAPIClient(request);
-			const adminEmail = generateTestEmail("mkt-list-sl-norole");
-			await createTestAdminUserDirect(adminEmail, TEST_PASSWORD);
-
-			try {
-				const adminToken = await loginAdmin(adminApi, adminEmail);
-				const res = await adminApi.listAdminMarketplaceServiceListings(
-					adminToken,
-					{}
-				);
-				expect(res.status).toBe(403);
-			} finally {
-				await deleteTestAdminUser(adminEmail);
-			}
-		});
-	});
-
-	// ============================================================================
-	// Get Service Listing (Admin)
-	// ============================================================================
-	test.describe("POST /admin/get-marketplace-service-listing", () => {
-		test("Success: admin can get any listing (200)", async ({ request }) => {
-			const adminApi = new AdminAPIClient(request);
-
-			const adminEmail = generateTestEmail("mkt-admin-get-sl");
-			const { userId: adminUserId } = await createTestAdminUserDirect(
-				adminEmail,
-				TEST_PASSWORD
-			);
-			await assignRoleToAdminUser(adminUserId, "admin:manage_marketplace");
-
-			const { email: orgEmail } = generateTestOrgEmail("mkt-admin-get-sl-org");
-			const orgResult = await createTestOrgAdminDirect(orgEmail, TEST_PASSWORD);
-			await grantMarketplaceProviderCapability(orgResult.orgId);
-			const listingName = await createTestServiceListingDirect(
-				orgResult.orgId,
-				"Admin Get Test Listing",
-				"active"
-			);
-
-			try {
-				const adminToken = await loginAdmin(adminApi, adminEmail);
-				const res = await adminApi.getAdminMarketplaceServiceListing(
-					adminToken,
-					{
-						org_domain: orgResult.domain,
-						name: listingName,
-					}
-				);
-				expect(res.status).toBe(200);
-				expect(res.body?.name).toBe("Admin Get Test Listing");
-				expect(res.body?.state).toBe("active");
-			} finally {
-				await deleteTestAdminUser(adminEmail);
-				await deleteTestOrgUser(orgEmail);
-			}
-		});
-
-		test("Not found: non-existent listing (404)", async ({ request }) => {
-			const adminApi = new AdminAPIClient(request);
-
-			const adminEmail = generateTestEmail("mkt-admin-get-sl-404");
-			const { userId: adminUserId } = await createTestAdminUserDirect(
-				adminEmail,
-				TEST_PASSWORD
-			);
-			await assignRoleToAdminUser(adminUserId, "admin:manage_marketplace");
-
-			try {
-				const adminToken = await loginAdmin(adminApi, adminEmail);
-				const res = await adminApi.getAdminMarketplaceServiceListing(
-					adminToken,
-					{
-						org_domain: "nonexistent-org.test.vetchium.com",
-						name: "nonexistent-listing-name",
-					}
-				);
-				expect(res.status).toBe(404);
-			} finally {
-				await deleteTestAdminUser(adminEmail);
-			}
-		});
-
-		test("Auth: unauthenticated (401)", async ({ request }) => {
-			const adminApi = new AdminAPIClient(request);
-			const res = await adminApi.getAdminMarketplaceServiceListing(
-				"invalid-token",
-				{
-					org_domain: "nonexistent-org.test.vetchium.com",
-					name: "nonexistent-listing-name",
-				}
-			);
-			expect(res.status).toBe(401);
-		});
-
-		test("RBAC: admin without manage_marketplace role (403)", async ({
-			request,
-		}) => {
-			const adminApi = new AdminAPIClient(request);
-			const adminEmail = generateTestEmail("mkt-get-sl-norole");
-			await createTestAdminUserDirect(adminEmail, TEST_PASSWORD);
-
-			try {
-				const adminToken = await loginAdmin(adminApi, adminEmail);
-				const res = await adminApi.getAdminMarketplaceServiceListing(
-					adminToken,
-					{
-						org_domain: "nonexistent-org.test.vetchium.com",
-						name: "nonexistent-listing-name",
-					}
-				);
-				expect(res.status).toBe(403);
-			} finally {
-				await deleteTestAdminUser(adminEmail);
-			}
-		});
-	});
-
-	// ============================================================================
-	// Approve Service Listing
-	// ============================================================================
-	test.describe("POST /admin/approve-marketplace-service-listing", () => {
-		test("Success: pending_review -> active (200)", async ({ request }) => {
-			const adminApi = new AdminAPIClient(request);
-			const orgApi = new OrgAPIClient(request);
-
-			const adminEmail = generateTestEmail("mkt-approve-sl");
-			const { userId: adminUserId } = await createTestAdminUserDirect(
-				adminEmail,
-				TEST_PASSWORD
-			);
-			await assignRoleToAdminUser(adminUserId, "admin:manage_marketplace");
-			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
-
-			const { email: orgEmail, domain: orgDomain } =
-				generateTestOrgEmail("mkt-approve-sl-org");
-			const orgResult = await createTestOrgAdminDirect(orgEmail, TEST_PASSWORD);
-			await grantMarketplaceProviderCapability(orgResult.orgId);
-
-			try {
-				// Create and submit listing
-				const orgToken = await loginOrgUser(orgApi, orgEmail, orgDomain);
-				const createRes = await orgApi.createMarketplaceServiceListing(
-					orgToken,
-					{
-						name: "Listing for Admin Approval",
-						short_blurb: "A short description",
-						description: "Full description of the listing for approval test.",
-						service_category: "talent_sourcing",
-						countries_of_service: ["IN"],
-						contact_url: "https://example.com/contact",
-						industries_served: ["technology_software"],
-						company_sizes_served: ["startup"],
-						job_functions_sourced: ["engineering_technology"],
-						seniority_levels_sourced: ["mid"],
-						geographic_sourcing_regions: ["IN"],
-					}
-				);
-				expect(createRes.status).toBe(201);
-				const listingName = createRes.body?.name;
-
-				const submitRes = await orgApi.submitMarketplaceServiceListing(
-					orgToken,
-					{ name: listingName }
-				);
-				expect(submitRes.status).toBe(200);
-
-				// Admin approves
-				const before = new Date(Date.now() - 2000).toISOString();
-				const adminToken = await loginAdmin(adminApi, adminEmail);
-				const approveRes = await adminApi.approveMarketplaceServiceListing(
-					adminToken,
-					{
-						org_domain: orgResult.domain,
-						name: listingName,
-						admin_verification_note: "Verified and approved.",
-						verification_id: "VER-001",
-					}
-				);
-				expect(approveRes.status).toBe(200);
-
-				// Verify audit log
-				const auditResp = await adminApi.filterAuditLogs(adminToken, {
-					event_types: ["admin.approve_marketplace_service_listing"],
-					start_time: before,
-				});
-				expect(auditResp.status).toBe(200);
-				expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
-				const entry = auditResp.body.audit_logs[0];
-				expect(entry.event_type).toBe(
-					"admin.approve_marketplace_service_listing"
-				);
-			} finally {
-				await deleteTestAdminUser(adminEmail);
-				await deleteTestOrgUser(orgEmail);
-			}
-		});
-
-		test("Invalid state: listing not pending_review (422)", async ({
-			request,
-		}) => {
-			const adminApi = new AdminAPIClient(request);
-
-			const adminEmail = generateTestEmail("mkt-approve-sl-422");
-			const { userId: adminUserId } = await createTestAdminUserDirect(
-				adminEmail,
-				TEST_PASSWORD
-			);
-			await assignRoleToAdminUser(adminUserId, "admin:manage_marketplace");
-			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
-
-			const { email: orgEmail } = generateTestOrgEmail(
-				"mkt-approve-sl-422-org"
-			);
-			const orgResult = await createTestOrgAdminDirect(orgEmail, TEST_PASSWORD);
-			const listingName = await createTestServiceListingDirect(
-				orgResult.orgId,
-				"Already Active Listing",
-				"active"
-			);
-
-			try {
-				const adminToken = await loginAdmin(adminApi, adminEmail);
-				const res = await adminApi.approveMarketplaceServiceListing(
-					adminToken,
-					{
-						org_domain: orgResult.domain,
-						name: listingName,
-						admin_verification_note: "Should fail.",
-						verification_id: "VER-002",
-					}
-				);
-				expect(res.status).toBe(422);
-			} finally {
-				await deleteTestAdminUser(adminEmail);
-				await deleteTestOrgUser(orgEmail);
-			}
-		});
-
-		test("Auth: unauthenticated (401)", async ({ request }) => {
-			const adminApi = new AdminAPIClient(request);
-			const res = await adminApi.approveMarketplaceServiceListing(
-				"invalid-token",
-				{
-					org_domain: "nonexistent.example.com",
-					name: "nonexistent-listing",
-					admin_verification_note: "Some note",
-					verification_id: "VER-000",
-				}
-			);
-			expect(res.status).toBe(401);
-		});
-
-		test("RBAC: admin without manage_marketplace role (403)", async ({
-			request,
-		}) => {
-			const adminApi = new AdminAPIClient(request);
-			const adminEmail = generateTestEmail("mkt-approve-sl-norole");
-			await createTestAdminUserDirect(adminEmail, TEST_PASSWORD);
-
-			try {
-				const adminToken = await loginAdmin(adminApi, adminEmail);
-				const res = await adminApi.approveMarketplaceServiceListing(
-					adminToken,
-					{
-						org_domain: "nonexistent.example.com",
-						name: "nonexistent-listing",
-						admin_verification_note: "Some note",
-						verification_id: "VER-000",
-					}
-				);
-				expect(res.status).toBe(403);
-			} finally {
-				await deleteTestAdminUser(adminEmail);
-			}
-		});
-	});
-
-	// ============================================================================
-	// Reject Service Listing
-	// ============================================================================
-	test.describe("POST /admin/reject-marketplace-service-listing", () => {
-		test("Success: pending_review -> rejected (200)", async ({ request }) => {
-			const adminApi = new AdminAPIClient(request);
-
-			const adminEmail = generateTestEmail("mkt-reject-sl");
-			const { userId: adminUserId } = await createTestAdminUserDirect(
-				adminEmail,
-				TEST_PASSWORD
-			);
-			await assignRoleToAdminUser(adminUserId, "admin:manage_marketplace");
-			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
-
-			const { email: orgEmail } = generateTestOrgEmail("mkt-reject-sl-org");
-			const orgResult = await createTestOrgAdminDirect(orgEmail, TEST_PASSWORD);
-			const listingName = await createTestServiceListingDirect(
-				orgResult.orgId,
-				"Listing to Reject",
-				"pending_review"
-			);
-
-			try {
-				const before = new Date(Date.now() - 2000).toISOString();
-				const adminToken = await loginAdmin(adminApi, adminEmail);
-				const res = await adminApi.rejectMarketplaceServiceListing(adminToken, {
-					org_domain: orgResult.domain,
-					name: listingName,
-					admin_verification_note: "Does not meet quality standards.",
-				});
-				expect(res.status).toBe(200);
-
-				// Verify audit log
-				const auditResp = await adminApi.filterAuditLogs(adminToken, {
-					event_types: ["admin.reject_marketplace_service_listing"],
-					start_time: before,
-				});
-				expect(auditResp.status).toBe(200);
-				expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
-			} finally {
-				await deleteTestAdminUser(adminEmail);
-				await deleteTestOrgUser(orgEmail);
-			}
-		});
-
-		test("Invalid state: listing not pending_review (422)", async ({
-			request,
-		}) => {
-			const adminApi = new AdminAPIClient(request);
-
-			const adminEmail = generateTestEmail("mkt-reject-sl-422");
-			const { userId: adminUserId } = await createTestAdminUserDirect(
-				adminEmail,
-				TEST_PASSWORD
-			);
-			await assignRoleToAdminUser(adminUserId, "admin:manage_marketplace");
-			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
-
-			const { email: orgEmail } = generateTestOrgEmail("mkt-reject-sl-422-org");
-			const orgResult = await createTestOrgAdminDirect(orgEmail, TEST_PASSWORD);
-			const listingName = await createTestServiceListingDirect(
-				orgResult.orgId,
-				"Draft Cannot Be Rejected",
-				"draft"
-			);
-
-			try {
-				const adminToken = await loginAdmin(adminApi, adminEmail);
-				const res = await adminApi.rejectMarketplaceServiceListing(adminToken, {
-					org_domain: orgResult.domain,
-					name: listingName,
-					admin_verification_note: "Should fail.",
-				});
-				expect(res.status).toBe(422);
-			} finally {
-				await deleteTestAdminUser(adminEmail);
-				await deleteTestOrgUser(orgEmail);
-			}
-		});
-
-		test("Auth: unauthenticated (401)", async ({ request }) => {
-			const adminApi = new AdminAPIClient(request);
-			const res = await adminApi.rejectMarketplaceServiceListing(
-				"invalid-token",
-				{
-					org_domain: "nonexistent.example.com",
-					name: "nonexistent-listing",
-					admin_verification_note: "Some note",
-				}
-			);
-			expect(res.status).toBe(401);
-		});
-	});
-
-	// ============================================================================
-	// Suspend Service Listing
-	// ============================================================================
-	test.describe("POST /admin/suspend-marketplace-service-listing", () => {
-		test("Success: active -> suspended (200)", async ({ request }) => {
-			const adminApi = new AdminAPIClient(request);
-
-			const adminEmail = generateTestEmail("mkt-suspend-sl");
-			const { userId: adminUserId } = await createTestAdminUserDirect(
-				adminEmail,
-				TEST_PASSWORD
-			);
-			await assignRoleToAdminUser(adminUserId, "admin:manage_marketplace");
-			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
-
-			const { email: orgEmail } = generateTestOrgEmail("mkt-suspend-sl-org");
-			const orgResult = await createTestOrgAdminDirect(orgEmail, TEST_PASSWORD);
-			const listingName = await createTestServiceListingDirect(
-				orgResult.orgId,
-				"Listing to Suspend",
-				"active"
-			);
-
-			try {
-				const before = new Date(Date.now() - 2000).toISOString();
-				const adminToken = await loginAdmin(adminApi, adminEmail);
-				const res = await adminApi.suspendMarketplaceServiceListing(
-					adminToken,
-					{
-						org_domain: orgResult.domain,
-						name: listingName,
-						admin_verification_note: "Suspended for policy violation.",
-					}
-				);
-				expect(res.status).toBe(200);
-
-				// Verify audit log
-				const auditResp = await adminApi.filterAuditLogs(adminToken, {
-					event_types: ["admin.suspend_marketplace_service_listing"],
-					start_time: before,
-				});
-				expect(auditResp.status).toBe(200);
-				expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
-				expect(auditResp.body.audit_logs[0].event_type).toBe(
-					"admin.suspend_marketplace_service_listing"
-				);
-			} finally {
-				await deleteTestAdminUser(adminEmail);
-				await deleteTestOrgUser(orgEmail);
-			}
-		});
-
-		test("Invalid state: listing not active (422)", async ({ request }) => {
-			const adminApi = new AdminAPIClient(request);
-
-			const adminEmail = generateTestEmail("mkt-suspend-sl-422");
-			const { userId: adminUserId } = await createTestAdminUserDirect(
-				adminEmail,
-				TEST_PASSWORD
-			);
-			await assignRoleToAdminUser(adminUserId, "admin:manage_marketplace");
-			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
-
-			const { email: orgEmail } = generateTestOrgEmail(
-				"mkt-suspend-sl-422-org"
-			);
-			const orgResult = await createTestOrgAdminDirect(orgEmail, TEST_PASSWORD);
-			const listingName = await createTestServiceListingDirect(
-				orgResult.orgId,
-				"Draft Cannot Be Suspended",
-				"draft"
-			);
-
-			try {
-				const adminToken = await loginAdmin(adminApi, adminEmail);
-				const res = await adminApi.suspendMarketplaceServiceListing(
-					adminToken,
-					{
-						org_domain: orgResult.domain,
-						name: listingName,
-						admin_verification_note: "Should fail.",
-					}
-				);
-				expect(res.status).toBe(422);
-			} finally {
-				await deleteTestAdminUser(adminEmail);
-				await deleteTestOrgUser(orgEmail);
-			}
-		});
-
-		test("Auth: unauthenticated (401)", async ({ request }) => {
-			const adminApi = new AdminAPIClient(request);
-			const res = await adminApi.suspendMarketplaceServiceListing(
-				"invalid-token",
-				{
-					org_domain: "nonexistent.example.com",
-					name: "nonexistent-listing",
-					admin_verification_note: "Some note",
-				}
-			);
-			expect(res.status).toBe(401);
-		});
-	});
-
-	// ============================================================================
-	// Reinstate Service Listing
-	// ============================================================================
-	test.describe("POST /admin/reinstate-marketplace-service-listing", () => {
-		test("Success: suspended -> active (200)", async ({ request }) => {
-			const adminApi = new AdminAPIClient(request);
-
-			const adminEmail = generateTestEmail("mkt-reinstate-sl");
-			const { userId: adminUserId } = await createTestAdminUserDirect(
-				adminEmail,
-				TEST_PASSWORD
-			);
-			await assignRoleToAdminUser(adminUserId, "admin:manage_marketplace");
-			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
-
-			const { email: orgEmail } = generateTestOrgEmail("mkt-reinstate-sl-org");
-			const orgResult = await createTestOrgAdminDirect(orgEmail, TEST_PASSWORD);
-			const listingName = await createTestServiceListingDirect(
-				orgResult.orgId,
-				"Suspended Listing to Reinstate",
-				"suspended"
-			);
-
-			try {
-				const before = new Date(Date.now() - 2000).toISOString();
-				const adminToken = await loginAdmin(adminApi, adminEmail);
-				const res = await adminApi.reinstateMarketplaceServiceListing(
-					adminToken,
-					{
-						org_domain: orgResult.domain,
-						name: listingName,
-					}
-				);
-				expect(res.status).toBe(200);
-
-				// Verify audit log
-				const auditResp = await adminApi.filterAuditLogs(adminToken, {
-					event_types: ["admin.reinstate_marketplace_service_listing"],
-					start_time: before,
-				});
-				expect(auditResp.status).toBe(200);
-				expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
-				expect(auditResp.body.audit_logs[0].event_type).toBe(
-					"admin.reinstate_marketplace_service_listing"
-				);
-			} finally {
-				await deleteTestAdminUser(adminEmail);
-				await deleteTestOrgUser(orgEmail);
-			}
-		});
-
-		test("Invalid state: listing not suspended (422)", async ({ request }) => {
-			const adminApi = new AdminAPIClient(request);
-
-			const adminEmail = generateTestEmail("mkt-reinstate-sl-422");
-			const { userId: adminUserId } = await createTestAdminUserDirect(
-				adminEmail,
-				TEST_PASSWORD
-			);
-			await assignRoleToAdminUser(adminUserId, "admin:manage_marketplace");
-			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
-
-			const { email: orgEmail } = generateTestOrgEmail(
-				"mkt-reinstate-sl-422-org"
-			);
-			const orgResult = await createTestOrgAdminDirect(orgEmail, TEST_PASSWORD);
-			const listingName = await createTestServiceListingDirect(
-				orgResult.orgId,
-				"Active Listing Cannot Be Reinstated",
-				"active"
-			);
-
-			try {
-				const adminToken = await loginAdmin(adminApi, adminEmail);
-				const res = await adminApi.reinstateMarketplaceServiceListing(
-					adminToken,
-					{
-						org_domain: orgResult.domain,
-						name: listingName,
-					}
-				);
-				expect(res.status).toBe(422);
-			} finally {
-				await deleteTestAdminUser(adminEmail);
-				await deleteTestOrgUser(orgEmail);
-			}
-		});
-
-		test("Auth: unauthenticated (401)", async ({ request }) => {
-			const adminApi = new AdminAPIClient(request);
-			const res = await adminApi.reinstateMarketplaceServiceListing(
-				"invalid-token",
-				{
-					org_domain: "nonexistent.example.com",
-					name: "nonexistent-listing",
-				}
-			);
-			expect(res.status).toBe(401);
-		});
-	});
-
-	// ============================================================================
-	// Grant Marketplace Appeal
-	// ============================================================================
-	test.describe("POST /admin/grant-marketplace-appeal", () => {
-		test("Success: appealing -> active (200)", async ({ request }) => {
-			const adminApi = new AdminAPIClient(request);
-			const orgApi = new OrgAPIClient(request);
-
-			const adminEmail = generateTestEmail("mkt-grant-appeal");
-			const { userId: adminUserId } = await createTestAdminUserDirect(
-				adminEmail,
-				TEST_PASSWORD
-			);
-			await assignRoleToAdminUser(adminUserId, "admin:manage_marketplace");
-			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
-
-			const { email: orgEmail, domain: orgDomain } = generateTestOrgEmail(
-				"mkt-grant-appeal-org"
-			);
-			const orgResult = await createTestOrgAdminDirect(orgEmail, TEST_PASSWORD);
-			await grantMarketplaceProviderCapability(orgResult.orgId);
-			// Create a suspended listing and submit appeal via API
-			const listingName = await createTestServiceListingDirect(
-				orgResult.orgId,
-				"Listing for Grant Appeal",
-				"suspended"
-			);
-
-			try {
-				const orgToken = await loginOrgUser(orgApi, orgEmail, orgDomain);
-				const appealRes = await orgApi.submitMarketplaceServiceListingAppeal(
-					orgToken,
-					{
-						name: listingName,
-						appeal_reason: "We have corrected the issues.",
-					}
-				);
-				expect(appealRes.status).toBe(200);
-
-				// Admin grants appeal
-				const before = new Date(Date.now() - 2000).toISOString();
-				const adminToken = await loginAdmin(adminApi, adminEmail);
-				const grantRes = await adminApi.grantMarketplaceAppeal(adminToken, {
-					org_domain: orgResult.domain,
-					name: listingName,
-					admin_verification_note: "Appeal granted, issues verified fixed.",
-				});
-				expect(grantRes.status).toBe(200);
-
-				// Verify audit log
-				const auditResp = await adminApi.filterAuditLogs(adminToken, {
-					event_types: ["admin.grant_marketplace_appeal"],
-					start_time: before,
-				});
-				expect(auditResp.status).toBe(200);
-				expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
-				expect(auditResp.body.audit_logs[0].event_type).toBe(
-					"admin.grant_marketplace_appeal"
-				);
-			} finally {
-				await deleteTestAdminUser(adminEmail);
-				await deleteTestOrgUser(orgEmail);
-			}
-		});
-
-		test("Invalid state: listing not in appealing state (422)", async ({
-			request,
-		}) => {
-			const adminApi = new AdminAPIClient(request);
-
-			const adminEmail = generateTestEmail("mkt-grant-appeal-422");
-			const { userId: adminUserId } = await createTestAdminUserDirect(
-				adminEmail,
-				TEST_PASSWORD
-			);
-			await assignRoleToAdminUser(adminUserId, "admin:manage_marketplace");
-			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
-
-			const { email: orgEmail } = generateTestOrgEmail(
-				"mkt-grant-appeal-422-org"
-			);
-			const orgResult = await createTestOrgAdminDirect(orgEmail, TEST_PASSWORD);
-			const listingName = await createTestServiceListingDirect(
-				orgResult.orgId,
-				"Active Listing Cannot Grant Appeal",
-				"active"
-			);
-
-			try {
-				const adminToken = await loginAdmin(adminApi, adminEmail);
-				const res = await adminApi.grantMarketplaceAppeal(adminToken, {
-					org_domain: orgResult.domain,
-					name: listingName,
-					admin_verification_note: "Should fail.",
-				});
-				expect(res.status).toBe(422);
-			} finally {
-				await deleteTestAdminUser(adminEmail);
-				await deleteTestOrgUser(orgEmail);
-			}
-		});
-
-		test("Auth: unauthenticated (401)", async ({ request }) => {
-			const adminApi = new AdminAPIClient(request);
-			const res = await adminApi.grantMarketplaceAppeal("invalid-token", {
-				org_domain: "nonexistent.example.com",
-				name: "nonexistent-listing",
-				admin_verification_note: "Some note",
+		test("creates capability successfully (201)", async ({ request }) => {
+			const api = new AdminAPIClient(request);
+			slug = generateCapabilitySlug("create");
+			const req: AdminCreateCapabilityRequest = {
+				capability_slug: slug,
+				display_name: "Test Capability",
+				description: "A capability for testing",
+				provider_enabled: true,
+				consumer_enabled: true,
+				enrollment_approval: "manual",
+				offer_review: "manual",
+				subscription_approval: "direct",
+				contract_required: false,
+				payment_required: false,
+			};
+			const res = await api.adminCreateCapability(manageToken, req);
+			expect(res.status).toBe(201);
+			expect(res.body!.capability_slug).toBe(slug);
+			expect(res.body!.status).toBe("draft");
+
+			// Audit log assertion
+			const auditRes = await api.filterAuditLogs(manageToken, {
+				event_types: ["admin.marketplace_capability_created"],
+				limit: 10,
 			});
-			expect(res.status).toBe(401);
+			expect(auditRes.status).toBe(200);
+			const entry = auditRes.body!.audit_logs.find(
+				(e: any) => e.event_data?.capability_slug === slug
+			);
+			expect(entry).toBeDefined();
+		});
+
+		test("returns 400 for invalid slug (too short)", async ({ request }) => {
+			const api = new AdminAPIClient(request);
+			const req: AdminCreateCapabilityRequest = {
+				capability_slug: "ab",
+				display_name: "x",
+				description: "",
+				provider_enabled: true,
+				consumer_enabled: true,
+				enrollment_approval: "manual",
+				offer_review: "manual",
+				subscription_approval: "direct",
+				contract_required: false,
+				payment_required: false,
+			};
+			const res = await api.adminCreateCapability(manageToken, req);
+			expect(res.status).toBe(400);
+		});
+
+		test("returns 401 without auth", async ({ request }) => {
+			const api = new AdminAPIClient(request);
+			const req: AdminCreateCapabilityRequest = {
+				capability_slug: generateCapabilitySlug("noauth"),
+				display_name: "x",
+				description: "",
+				provider_enabled: true,
+				consumer_enabled: true,
+				enrollment_approval: "manual",
+				offer_review: "manual",
+				subscription_approval: "direct",
+				contract_required: false,
+				payment_required: false,
+			};
+			const response = await request.post(
+				"/admin/marketplace/capabilities/create",
+				{ data: req }
+			);
+			expect(response.status()).toBe(401);
+		});
+
+		test("returns 403 for user without marketplace role", async ({
+			request,
+		}) => {
+			const api = new AdminAPIClient(request);
+			const req: AdminCreateCapabilityRequest = {
+				capability_slug: generateCapabilitySlug("norole"),
+				display_name: "x",
+				description: "",
+				provider_enabled: true,
+				consumer_enabled: true,
+				enrollment_approval: "manual",
+				offer_review: "manual",
+				subscription_approval: "direct",
+				contract_required: false,
+				payment_required: false,
+			};
+			const res = await api.adminCreateCapability(noRoleToken, req);
+			expect(res.status).toBe(403);
 		});
 	});
 
-	// ============================================================================
-	// Deny Marketplace Appeal
-	// ============================================================================
-	test.describe("POST /admin/deny-marketplace-appeal", () => {
-		test("Success: appealing -> suspended with appeal_exhausted=true (200)", async ({
-			request,
-		}) => {
-			const adminApi = new AdminAPIClient(request);
-			const orgApi = new OrgAPIClient(request);
+	// ===========================================================================
+	// POST /admin/marketplace/capabilities/list
+	// ===========================================================================
 
-			const adminEmail = generateTestEmail("mkt-deny-appeal");
-			const { userId: adminUserId } = await createTestAdminUserDirect(
-				adminEmail,
-				TEST_PASSWORD
-			);
-			await assignRoleToAdminUser(adminUserId, "admin:manage_marketplace");
-			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
-
-			const { email: orgEmail, domain: orgDomain } = generateTestOrgEmail(
-				"mkt-deny-appeal-org"
-			);
-			const orgResult = await createTestOrgAdminDirect(orgEmail, TEST_PASSWORD);
-			await grantMarketplaceProviderCapability(orgResult.orgId);
-			const listingName = await createTestServiceListingDirect(
-				orgResult.orgId,
-				"Listing for Deny Appeal",
-				"suspended"
-			);
-
-			try {
-				const orgToken = await loginOrgUser(orgApi, orgEmail, orgDomain);
-				const appealRes = await orgApi.submitMarketplaceServiceListingAppeal(
-					orgToken,
-					{
-						name: listingName,
-						appeal_reason: "We believe the suspension was wrong.",
-					}
-				);
-				expect(appealRes.status).toBe(200);
-
-				// Admin denies appeal
-				const before = new Date(Date.now() - 2000).toISOString();
-				const adminToken = await loginAdmin(adminApi, adminEmail);
-				const denyRes = await adminApi.denyMarketplaceAppeal(adminToken, {
-					org_domain: orgResult.domain,
-					name: listingName,
-					admin_verification_note: "Appeal denied, policy violation confirmed.",
-				});
-				expect(denyRes.status).toBe(200);
-
-				// Verify audit log
-				const auditResp = await adminApi.filterAuditLogs(adminToken, {
-					event_types: ["admin.deny_marketplace_appeal"],
-					start_time: before,
-				});
-				expect(auditResp.status).toBe(200);
-				expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
-				expect(auditResp.body.audit_logs[0].event_type).toBe(
-					"admin.deny_marketplace_appeal"
-				);
-			} finally {
-				await deleteTestAdminUser(adminEmail);
-				await deleteTestOrgUser(orgEmail);
-			}
+	test.describe("POST /admin/marketplace/capabilities/list", () => {
+		test("lists capabilities (200) with view role", async ({ request }) => {
+			const api = new AdminAPIClient(request);
+			const req: AdminListCapabilitiesRequest = {};
+			const res = await api.adminListCapabilities(viewToken, req);
+			expect(res.status).toBe(200);
+			expect(Array.isArray(res.body!.capabilities)).toBe(true);
 		});
 
-		test("Invalid state: listing not in appealing state (422)", async ({
-			request,
-		}) => {
-			const adminApi = new AdminAPIClient(request);
-
-			const adminEmail = generateTestEmail("mkt-deny-appeal-422");
-			const { userId: adminUserId } = await createTestAdminUserDirect(
-				adminEmail,
-				TEST_PASSWORD
+		test("returns 401 without auth", async ({ request }) => {
+			const response = await request.post(
+				"/admin/marketplace/capabilities/list",
+				{ data: {} }
 			);
-			await assignRoleToAdminUser(adminUserId, "admin:manage_marketplace");
-			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
-
-			const { email: orgEmail } = generateTestOrgEmail(
-				"mkt-deny-appeal-422-org"
-			);
-			const orgResult = await createTestOrgAdminDirect(orgEmail, TEST_PASSWORD);
-			const listingName = await createTestServiceListingDirect(
-				orgResult.orgId,
-				"Suspended Listing Not Appealing",
-				"suspended"
-			);
-
-			try {
-				const adminToken = await loginAdmin(adminApi, adminEmail);
-				const res = await adminApi.denyMarketplaceAppeal(adminToken, {
-					org_domain: orgResult.domain,
-					name: listingName,
-					admin_verification_note: "Should fail, not appealing.",
-				});
-				expect(res.status).toBe(422);
-			} finally {
-				await deleteTestAdminUser(adminEmail);
-				await deleteTestOrgUser(orgEmail);
-			}
+			expect(response.status()).toBe(401);
 		});
 
-		test("Auth: unauthenticated (401)", async ({ request }) => {
-			const adminApi = new AdminAPIClient(request);
-			const res = await adminApi.denyMarketplaceAppeal("invalid-token", {
-				org_domain: "nonexistent.example.com",
-				name: "nonexistent-listing",
-				admin_verification_note: "Some note",
+		test("returns 403 for user without marketplace role", async ({
+			request,
+		}) => {
+			const api = new AdminAPIClient(request);
+			const res = await api.adminListCapabilities(noRoleToken, {});
+			expect(res.status).toBe(403);
+		});
+	});
+
+	// ===========================================================================
+	// POST /admin/marketplace/capabilities/get
+	// ===========================================================================
+
+	test.describe("POST /admin/marketplace/capabilities/get", () => {
+		let slug: string;
+
+		test.beforeAll(async ({ request }) => {
+			const api = new AdminAPIClient(request);
+			slug = generateCapabilitySlug("get");
+			const res = await api.adminCreateCapability(manageToken, {
+				capability_slug: slug,
+				display_name: "Get Test",
+				description: "",
+				provider_enabled: true,
+				consumer_enabled: true,
+				enrollment_approval: "open",
+				offer_review: "auto",
+				subscription_approval: "direct",
+				contract_required: false,
+				payment_required: false,
 			});
-			expect(res.status).toBe(401);
+			expect(res.status).toBe(201);
+		});
+
+		test.afterAll(async () => {
+			await deleteTestMarketplaceCapability(slug).catch(() => {});
+		});
+
+		test("gets capability by slug (200)", async ({ request }) => {
+			const api = new AdminAPIClient(request);
+			const req: AdminGetCapabilityRequest = { capability_slug: slug };
+			const res = await api.adminGetCapability(viewToken, req);
+			expect(res.status).toBe(200);
+			expect(res.body!.capability_slug).toBe(slug);
+		});
+
+		test("returns 404 for unknown slug", async ({ request }) => {
+			const api = new AdminAPIClient(request);
+			const res = await api.adminGetCapability(viewToken, {
+				capability_slug: generateCapabilitySlug("notfound"),
+			});
+			expect(res.status).toBe(404);
+		});
+
+		test("returns 403 for user without marketplace role", async ({
+			request,
+		}) => {
+			const api = new AdminAPIClient(request);
+			const res = await api.adminGetCapability(noRoleToken, {
+				capability_slug: slug,
+			});
+			expect(res.status).toBe(403);
 		});
 	});
 
-	// ============================================================================
-	// RBAC Tests
-	// ============================================================================
-	test.describe("RBAC", () => {
-		test("Positive: admin WITH admin:manage_marketplace can list capabilities (200)", async ({
-			request,
-		}) => {
-			const adminApi = new AdminAPIClient(request);
-			const adminEmail = generateTestEmail("mkt-rbac-pos-admin");
-			const { userId: adminUserId } = await createTestAdminUserDirect(
-				adminEmail,
-				TEST_PASSWORD
-			);
-			await assignRoleToAdminUser(adminUserId, "admin:manage_marketplace");
-			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
+	// ===========================================================================
+	// POST /admin/marketplace/capabilities/enable + /disable
+	// ===========================================================================
 
-			try {
-				const adminToken = await loginAdmin(adminApi, adminEmail);
-				const res = await adminApi.listMarketplaceProviderCapabilities(
-					adminToken,
-					{}
-				);
-				expect(res.status).toBe(200);
-			} finally {
-				await deleteTestAdminUser(adminEmail);
-			}
+	test.describe("POST /admin/marketplace/capabilities/enable and /disable", () => {
+		test.describe.configure({ mode: "serial" });
+
+		let slug: string;
+
+		test.beforeAll(async ({ request }) => {
+			const api = new AdminAPIClient(request);
+			slug = generateCapabilitySlug("endis");
+			const res = await api.adminCreateCapability(manageToken, {
+				capability_slug: slug,
+				display_name: "Enable/Disable Test",
+				description: "",
+				provider_enabled: true,
+				consumer_enabled: true,
+				enrollment_approval: "manual",
+				offer_review: "manual",
+				subscription_approval: "direct",
+				contract_required: false,
+				payment_required: false,
+			});
+			expect(res.status).toBe(201);
 		});
 
-		test("Negative: admin WITHOUT admin:manage_marketplace role gets 403", async ({
+		test.afterAll(async () => {
+			await deleteTestMarketplaceCapability(slug).catch(() => {});
+		});
+
+		test("enables a draft capability (200)", async ({ request }) => {
+			const api = new AdminAPIClient(request);
+			const req: AdminEnableCapabilityRequest = { capability_slug: slug };
+			const res = await api.adminEnableCapability(manageToken, req);
+			expect(res.status).toBe(200);
+			expect(res.body!.status).toBe("active");
+		});
+
+		test("disables an active capability (200)", async ({ request }) => {
+			const api = new AdminAPIClient(request);
+			const req: AdminDisableCapabilityRequest = { capability_slug: slug };
+			const res = await api.adminDisableCapability(manageToken, req);
+			expect(res.status).toBe(200);
+			expect(res.body!.status).toBe("disabled");
+		});
+
+		test("returns 403 on enable for user without manage role", async ({
 			request,
 		}) => {
-			const adminApi = new AdminAPIClient(request);
-			const adminEmail = generateTestEmail("mkt-rbac-neg-admin");
-			await createTestAdminUserDirect(adminEmail, TEST_PASSWORD);
+			const api = new AdminAPIClient(request);
+			const res = await api.adminEnableCapability(noRoleToken, {
+				capability_slug: slug,
+			});
+			expect(res.status).toBe(403);
+		});
+	});
 
-			try {
-				const adminToken = await loginAdmin(adminApi, adminEmail);
-				const res = await adminApi.listMarketplaceProviderCapabilities(
-					adminToken,
-					{}
-				);
-				expect(res.status).toBe(403);
-			} finally {
-				await deleteTestAdminUser(adminEmail);
-			}
+	// ===========================================================================
+	// POST /admin/marketplace/capabilities/update
+	// ===========================================================================
+
+	test.describe("POST /admin/marketplace/capabilities/update", () => {
+		let slug: string;
+
+		test.beforeAll(async ({ request }) => {
+			const api = new AdminAPIClient(request);
+			slug = generateCapabilitySlug("upd");
+			await api.adminCreateCapability(manageToken, {
+				capability_slug: slug,
+				display_name: "Original Name",
+				description: "original",
+				provider_enabled: true,
+				consumer_enabled: true,
+				enrollment_approval: "manual",
+				offer_review: "manual",
+				subscription_approval: "direct",
+				contract_required: false,
+				payment_required: false,
+			});
+		});
+
+		test.afterAll(async () => {
+			await deleteTestMarketplaceCapability(slug).catch(() => {});
+		});
+
+		test("updates capability (200)", async ({ request }) => {
+			const api = new AdminAPIClient(request);
+			const req: AdminUpdateCapabilityRequest = {
+				capability_slug: slug,
+				display_name: "Updated Name",
+				description: "updated description",
+				provider_enabled: true,
+				consumer_enabled: false,
+				enrollment_approval: "open",
+				offer_review: "auto",
+				subscription_approval: "provider",
+				contract_required: false,
+				payment_required: false,
+			};
+			const res = await api.adminUpdateCapability(manageToken, req);
+			expect(res.status).toBe(200);
+			expect(res.body!.display_name).toBe("Updated Name");
+			expect(res.body!.consumer_enabled).toBe(false);
+		});
+
+		test("returns 403 for user without manage role", async ({ request }) => {
+			const api = new AdminAPIClient(request);
+			const res = await api.adminUpdateCapability(noRoleToken, {
+				capability_slug: slug,
+				display_name: "x",
+				description: "",
+				provider_enabled: true,
+				consumer_enabled: true,
+				enrollment_approval: "manual",
+				offer_review: "manual",
+				subscription_approval: "direct",
+				contract_required: false,
+				payment_required: false,
+			});
+			expect(res.status).toBe(403);
+		});
+	});
+
+	// ===========================================================================
+	// RBAC: view_marketplace can list/get but not create/update/enable/disable
+	// ===========================================================================
+
+	test.describe("RBAC: view_marketplace role", () => {
+		test("view role can list capabilities (200)", async ({ request }) => {
+			const api = new AdminAPIClient(request);
+			const res = await api.adminListCapabilities(viewToken, {});
+			expect(res.status).toBe(200);
+		});
+
+		test("view role cannot create capability (403)", async ({ request }) => {
+			const api = new AdminAPIClient(request);
+			const res = await api.adminCreateCapability(viewToken, {
+				capability_slug: generateCapabilitySlug("viewblock"),
+				display_name: "x",
+				description: "",
+				provider_enabled: true,
+				consumer_enabled: true,
+				enrollment_approval: "manual",
+				offer_review: "manual",
+				subscription_approval: "direct",
+				contract_required: false,
+				payment_required: false,
+			});
+			expect(res.status).toBe(403);
 		});
 	});
 });

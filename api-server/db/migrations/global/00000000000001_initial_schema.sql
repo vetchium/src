@@ -288,7 +288,8 @@ INSERT INTO roles (role_name, description) VALUES
     ('admin:manage_domains', 'Can add, enable/disable approved domains'),
     ('admin:manage_tags', 'Can create and update tags'),
     ('admin:view_audit_logs', 'Can view admin portal audit logs'),
-    ('admin:manage_marketplace', 'Can manage org marketplace capabilities and review/approve/reject/suspend ServiceListings');
+    ('admin:view_marketplace', 'Can view marketplace capabilities, enrollments, offers, and subscriptions (read-only)'),
+    ('admin:manage_marketplace', 'Can manage marketplace capabilities, review enrollments, offers, and subscriptions');
 
 -- Admin audit logs table (unified audit log for all admin portal write operations)
 CREATE TABLE admin_audit_logs (
@@ -299,6 +300,73 @@ CREATE TABLE admin_audit_logs (
     ip_address     TEXT        NOT NULL,
     event_data     JSONB       NOT NULL DEFAULT '{}',
     created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Marketplace: capability catalog (admin-managed, global)
+CREATE TABLE marketplace_capabilities (
+    id                    UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    capability_slug       TEXT        NOT NULL UNIQUE,
+    display_name          TEXT        NOT NULL,
+    description           TEXT        NOT NULL DEFAULT '',
+    provider_enabled      BOOLEAN     NOT NULL DEFAULT FALSE,
+    consumer_enabled      BOOLEAN     NOT NULL DEFAULT FALSE,
+    enrollment_approval   TEXT        NOT NULL DEFAULT 'manual' CHECK (enrollment_approval IN ('open', 'manual')),
+    offer_review          TEXT        NOT NULL DEFAULT 'manual' CHECK (offer_review IN ('auto', 'manual')),
+    subscription_approval TEXT        NOT NULL DEFAULT 'direct' CHECK (subscription_approval IN ('direct', 'provider', 'admin', 'provider_and_admin')),
+    contract_required     BOOLEAN     NOT NULL DEFAULT FALSE,
+    payment_required      BOOLEAN     NOT NULL DEFAULT FALSE,
+    pricing_hint          TEXT,
+    status                TEXT        NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'active', 'disabled')),
+    created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Global offer catalog mirror (list-view subset, updated on offer status changes)
+CREATE TABLE marketplace_offer_catalog (
+    id                     UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    provider_org_global_id UUID        NOT NULL,
+    provider_org_domain    TEXT        NOT NULL,
+    provider_region        TEXT        NOT NULL,
+    capability_slug        TEXT        NOT NULL,
+    headline               TEXT        NOT NULL DEFAULT '',
+    summary                TEXT        NOT NULL DEFAULT '',
+    pricing_hint           TEXT,
+    regions_served         TEXT[]      NOT NULL DEFAULT '{}',
+    contact_mode           TEXT        NOT NULL DEFAULT 'external_url' CHECK (contact_mode IN ('platform_message', 'external_url', 'email')),
+    contact_value          TEXT        NOT NULL DEFAULT '',
+    status                 TEXT        NOT NULL CHECK (status IN ('active', 'suspended', 'archived')),
+    created_at             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (provider_org_global_id, capability_slug)
+);
+
+-- Global subscription routing (for provider inbox cross-region queries)
+CREATE TABLE marketplace_subscription_routing (
+    id                     UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    consumer_org_global_id UUID        NOT NULL,
+    consumer_org_domain    TEXT        NOT NULL,
+    consumer_region        TEXT        NOT NULL,
+    provider_org_global_id UUID        NOT NULL,
+    provider_org_domain    TEXT        NOT NULL,
+    provider_region        TEXT        NOT NULL,
+    capability_slug        TEXT        NOT NULL,
+    status                 TEXT        NOT NULL,
+    created_at             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (consumer_org_global_id, provider_org_global_id, capability_slug)
+);
+
+-- Marketplace billing records (global, centralized)
+CREATE TABLE marketplace_billing_records (
+    id                     UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    consumer_org_global_id UUID        NOT NULL,
+    consumer_org_domain    TEXT        NOT NULL,
+    provider_org_global_id UUID        NOT NULL,
+    provider_org_domain    TEXT        NOT NULL,
+    capability_slug        TEXT        NOT NULL,
+    event_type             TEXT        NOT NULL,
+    note                   TEXT,
+    created_at             TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- Indexes
@@ -319,8 +387,20 @@ CREATE INDEX idx_global_org_domains_org_id ON global_org_domains(org_id);
 CREATE INDEX idx_admin_audit_logs_created_at_id ON admin_audit_logs(created_at DESC, id DESC);
 CREATE INDEX idx_admin_audit_logs_actor_user_id ON admin_audit_logs(actor_user_id);
 CREATE INDEX idx_admin_audit_logs_event_type ON admin_audit_logs(event_type);
+CREATE INDEX idx_marketplace_capabilities_status ON marketplace_capabilities(status);
+CREATE INDEX idx_marketplace_offer_catalog_capability ON marketplace_offer_catalog(capability_slug, status);
+CREATE INDEX idx_marketplace_subscription_routing_provider ON marketplace_subscription_routing(provider_org_global_id, status, updated_at DESC);
+CREATE INDEX idx_marketplace_billing_records_created_at ON marketplace_billing_records(created_at DESC);
 
 -- +goose Down
+DROP INDEX IF EXISTS idx_marketplace_billing_records_created_at;
+DROP INDEX IF EXISTS idx_marketplace_subscription_routing_provider;
+DROP INDEX IF EXISTS idx_marketplace_offer_catalog_capability;
+DROP INDEX IF EXISTS idx_marketplace_capabilities_status;
+DROP TABLE IF EXISTS marketplace_billing_records;
+DROP TABLE IF EXISTS marketplace_subscription_routing;
+DROP TABLE IF EXISTS marketplace_offer_catalog;
+DROP TABLE IF EXISTS marketplace_capabilities;
 DROP INDEX IF EXISTS idx_admin_audit_logs_event_type;
 DROP INDEX IF EXISTS idx_admin_audit_logs_actor_user_id;
 DROP INDEX IF EXISTS idx_admin_audit_logs_created_at_id;
