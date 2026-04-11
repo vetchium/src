@@ -93,6 +93,7 @@
 			"descriptionTooLong": "Beschreibung darf höchstens 10000 Zeichen haben",
 			"regionsRequired": "Mindestens eine Region ist erforderlich",
 			"contactValueRequired": "Kontaktwert ist erforderlich",
+			"contactValueHttps": "Externe URL muss mit https:// beginnen",
 			"noOrgDomain": "Ihre Organisation hat keine verifizierte Domain. Bitte verifizieren Sie zuerst eine Domain.",
 			"loadFailed": "Angebot konnte nicht geladen werden",
 			"saveFailed": "Angebot konnte nicht gespeichert werden"

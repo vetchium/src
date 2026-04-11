@@ -93,6 +93,7 @@
 			"descriptionTooLong": "Description must be at most 10000 characters",
 			"regionsRequired": "At least one region is required",
 			"contactValueRequired": "Contact value is required",
+			"contactValueHttps": "External URL must start with https://",
 			"noOrgDomain": "Your organization has no verified domain. Please verify a domain first.",
 			"loadFailed": "Failed to load listing",
 			"saveFailed": "Failed to save listing"

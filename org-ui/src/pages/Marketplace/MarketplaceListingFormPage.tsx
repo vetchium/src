@@ -157,6 +157,17 @@ export function MarketplaceListingFormPage() {
 			}
 			if (resp.status === 200 || resp.status === 201) {
 				navigate("/marketplace/listings");
+			} else if (resp.status === 400) {
+				try {
+					const errs: { field: string; message: string }[] = await resp.json();
+					if (Array.isArray(errs) && errs.length > 0) {
+						setError(errs.map((e) => e.message).join("; "));
+					} else {
+						setError(t("listingForm.errors.saveFailed"));
+					}
+				} catch {
+					setError(t("listingForm.errors.saveFailed"));
+				}
 			} else if (resp.status === 422) {
 				setError(t("listingForm.errors.noOrgDomain"));
 			} else {
@@ -326,19 +337,27 @@ export function MarketplaceListingFormPage() {
 								required: true,
 								message: t("listingForm.errors.contactValueRequired"),
 							},
+							({ getFieldValue }) => ({
+								validator(_, value) {
+									const mode = getFieldValue("contact_mode");
+									if (!value) return Promise.resolve();
+									if (
+										mode === "external_url" &&
+										!value.startsWith("https://")
+									) {
+										return Promise.reject(
+											new Error(t("listingForm.errors.contactValueHttps"))
+										);
+									}
+									return Promise.resolve();
+								},
+							}),
 						]}
 					>
 						<Input placeholder={t("listingForm.contactValuePlaceholder")} />
 					</Form.Item>
 
-					<Form.Item
-						shouldUpdate={(prev, curr) =>
-							prev.headline !== curr.headline ||
-							prev.summary !== curr.summary ||
-							prev.description !== curr.description ||
-							prev.contact_value !== curr.contact_value
-						}
-					>
+					<Form.Item shouldUpdate>
 						{() => {
 							const hasErrors = form
 								.getFieldsError()

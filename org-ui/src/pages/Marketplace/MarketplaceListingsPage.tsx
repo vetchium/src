@@ -146,7 +146,9 @@ export function MarketplaceListingsPage() {
 				<Button
 					type="link"
 					style={{ padding: 0 }}
-					onClick={() => navigate(`/marketplace/listings/${record.listing_id}`)}
+					onClick={() =>
+						navigate(`/marketplace/listings/${record.listing_id}/edit`)
+					}
 				>
 					{text}
 				</Button>
