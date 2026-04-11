@@ -1,318 +1,146 @@
 {
 	"backToDashboard": "Zurück zum Dashboard",
-	"title": "Marktplatz",
-	"launcher": {
-		"exploreTitle": "Fähigkeiten erkunden",
-		"exploreSubtitle": "Marktplatz-Fähigkeiten durchsuchen und Dienste anderer Organisationen abonnieren.",
-		"exploreAction": "Fähigkeiten durchsuchen",
-		"provideTitle": "Dienste anbieten",
-		"provideSubtitle": "Für Angebote anmelden und Ihre Dienstleistungen auf dem Marktplatz verwalten.",
-		"provideAction": "Anbieter-Dashboard verwalten",
-		"purchasesTitle": "Meine Käufe",
-		"purchasesSubtitle": "Aktive Abonnements für Marktplatz-Dienste anzeigen und verwalten.",
-		"purchasesAction": "Abonnements anzeigen"
-	},
-	"capabilities": {
-		"title": "Marktplatz-Fähigkeiten",
-		"backToMarketplace": "Zurück zum Marktplatz",
+
+	"discover": {
+		"title": "Dienste entdecken",
+		"noListings": "Noch keine Angebote verfügbar.",
 		"loadMore": "Mehr laden",
-		"viewProviders": "Anbieter anzeigen",
-		"noCapabilities": "Es sind noch keine Marktplatz-Fähigkeiten verfügbar.",
-		"status": {
-			"draft": "Entwurf",
-			"active": "Aktiv",
-			"disabled": "Deaktiviert"
-		},
 		"errors": {
-			"loadFailed": "Fähigkeiten konnten nicht geladen werden"
+			"loadFailed": "Angebote konnten nicht geladen werden"
 		}
 	},
-	"capabilityDetail": {
-		"backToCapabilities": "Zurück zu Fähigkeiten",
-		"providersTitle": "Verfügbare Anbieter",
-		"loadMoreProviders": "Mehr Anbieter laden",
-		"viewOffer": "Angebot anzeigen",
-		"subscribe": "Abonnieren",
-		"noProviders": "Noch keine Anbieter für diese Fähigkeit verfügbar.",
-		"regions": "Bediente Regionen",
-		"contact": "Kontakt",
-		"contactModes": {
-			"platform_message": "Plattform-Nachricht",
-			"external_url": "Externe URL",
-			"email": "E-Mail"
-		},
-		"errors": {
-			"loadFailed": "Fähigkeitsdetails konnten nicht geladen werden",
-			"providersFailed": "Anbieter konnten nicht geladen werden"
-		}
-	},
-	"providerOffer": {
-		"backToCapability": "Zurück zur Fähigkeit",
-		"headline": "Überschrift",
+
+	"discoverDetail": {
+		"backToDiscover": "Zurück zur Übersicht",
+		"provider": "Anbieter",
+		"capability": "Fähigkeit",
 		"summary": "Zusammenfassung",
-		"description": "Beschreibung",
-		"regions": "Bediente Regionen",
+		"regions": "Regionen",
 		"pricing": "Preisgestaltung",
 		"contact": "Kontakt",
-		"subscribeButton": "Abonnement anfordern",
-		"alreadySubscribed": "Bereits abonniert",
-		"requestNote": "Anfragennotiz",
-		"requestNotePlaceholder": "Optionale Notiz an den Anbieter (max. 1000 Zeichen)",
-		"confirmSubscribe": "Abonnementanfrage bestätigen",
-		"subscribeConfirmMessage": "Eine Abonnementanfrage an diesen Anbieter senden?",
+		"listedAt": "Gelistet am",
+		"subscribeButton": "Abonnieren",
+		"subscribed": "Abonniert",
+		"subscribeTitle": "Abonnement bestätigen",
+		"subscribeConfirmMessage": "Dieses Angebot abonnieren?",
+		"requestNotePlaceholder": "Optionale Notiz an den Anbieter (max. 2000 Zeichen)",
 		"errors": {
-			"loadFailed": "Anbieterangebot konnte nicht geladen werden",
-			"subscribeFailed": "Abonnement konnte nicht angefordert werden"
-		},
-		"success": {
-			"subscribed": "Abonnementanfrage erfolgreich gesendet"
+			"notFound": "Angebot nicht gefunden",
+			"loadFailed": "Angebot konnte nicht geladen werden",
+			"subscribeFailed": "Abonnement fehlgeschlagen",
+			"subscribeForbidden": "Keine Berechtigung zum Abonnieren"
 		}
 	},
-	"provide": {
-		"dashboardTitle": "Anbieter-Dashboard",
-		"backToMarketplace": "Zurück zum Marktplatz",
-		"enrollmentsTitle": "Meine Anmeldungen",
+
+	"listings": {
+		"title": "Meine Angebote",
+		"noListings": "Noch keine Angebote. Erstellen Sie Ihr erstes Angebot.",
 		"loadMore": "Mehr laden",
-		"applyButton": "Für Anmeldung bewerben",
-		"viewDetails": "Details anzeigen",
-		"noEnrollments": "Sie sind noch bei keiner Marktplatz-Fähigkeit angemeldet.",
-		"enrollmentStatuses": {
-			"pending_review": "Ausstehende Überprüfung",
-			"approved": "Genehmigt",
-			"rejected": "Abgelehnt",
-			"suspended": "Gesperrt",
-			"expired": "Abgelaufen"
+		"createButton": "Angebot erstellen",
+		"publishButton": "Veröffentlichen",
+		"archiveButton": "Archivieren",
+		"editButton": "Bearbeiten",
+		"columns": {
+			"headline": "Titel",
+			"capability": "Fähigkeit",
+			"status": "Status",
+			"createdAt": "Erstellt",
+			"actions": "Aktionen"
 		},
-		"errors": {
-			"loadFailed": "Anmeldungen konnten nicht geladen werden"
-		}
-	},
-	"provideCapability": {
-		"backToProvide": "Zurück zum Anbieter-Dashboard",
-		"enrollmentTitle": "Anmeldestatus",
-		"offerTitle": "Mein Angebot",
-		"applyButton": "Für Anmeldung bewerben",
-		"reapplyButton": "Erneut bewerben",
-		"createOfferButton": "Angebot erstellen",
-		"editOfferButton": "Angebot bearbeiten",
-		"submitOfferButton": "Zur Überprüfung einreichen",
-		"archiveOfferButton": "Angebot archivieren",
-		"viewActivityButton": "Eingehende Abonnements anzeigen",
-		"noEnrollment": "Sie haben sich für diese Fähigkeit noch nicht beworben.",
-		"noOffer": "Noch kein Angebot erstellt.",
-		"approvedAt": "Genehmigt am",
-		"expiresAt": "Läuft ab am",
-		"reviewNote": "Überprüfungsnotiz",
-		"applicationNote": "Bewerbungsnotiz",
-		"offerStatuses": {
+		"statuses": {
 			"draft": "Entwurf",
-			"pending_review": "Ausstehende Überprüfung",
 			"active": "Aktiv",
-			"rejected": "Abgelehnt",
 			"suspended": "Gesperrt",
 			"archived": "Archiviert"
 		},
 		"errors": {
-			"loadFailed": "Fähigkeitsdetails konnten nicht geladen werden",
-			"submitFailed": "Angebot konnte nicht eingereicht werden",
-			"archiveFailed": "Angebot konnte nicht archiviert werden"
-		},
-		"success": {
-			"submitted": "Angebot zur Überprüfung eingereicht",
-			"archived": "Angebot archiviert"
+			"loadFailed": "Angebote konnten nicht geladen werden"
 		}
 	},
-	"provideApply": {
-		"applyTitle": "Für Anmeldung bewerben",
-		"reapplyTitle": "Erneut für Anmeldung bewerben",
-		"backToCapability": "Zurück zur Fähigkeit",
-		"capabilityLabel": "Fähigkeit",
-		"applicationNoteLabel": "Bewerbungsnotiz",
-		"applicationNotePlaceholder": "Beschreiben Sie Ihre Dienste und warum Sie Anbieter werden möchten (optional, max. 1000 Zeichen)",
-		"applicationNoteHelp": "Optional. Max. 1000 Zeichen.",
-		"submitButton": "Bewerbung einreichen",
-		"errors": {
-			"noteTooLong": "Bewerbungsnotiz darf maximal 1000 Zeichen lang sein",
-			"submitFailed": "Bewerbung konnte nicht eingereicht werden",
-			"loadFailed": "Fähigkeit konnte nicht geladen werden"
-		},
-		"success": {
-			"applied": "Bewerbung erfolgreich eingereicht"
-		}
-	},
-	"provideOffer": {
-		"backToCapability": "Zurück zur Fähigkeit",
-		"title": "Mein Angebot",
-		"headline": "Überschrift",
-		"summary": "Zusammenfassung",
-		"description": "Beschreibung",
-		"regions": "Bediente Regionen",
-		"pricing": "Preisgestaltung",
-		"contact": "Kontakt",
-		"editButton": "Angebot bearbeiten",
-		"status": "Status",
-		"reviewNote": "Überprüfungsnotiz",
-		"errors": {
-			"loadFailed": "Angebot konnte nicht geladen werden"
-		}
-	},
-	"provideOfferEdit": {
+
+	"listingForm": {
 		"createTitle": "Angebot erstellen",
 		"editTitle": "Angebot bearbeiten",
-		"backToOffer": "Zurück zum Angebot",
-		"backToCapability": "Zurück zur Fähigkeit",
-		"headlineLabel": "Überschrift",
-		"headlinePlaceholder": "Kurze Überschrift für Ihr Dienstangebot",
+		"backToListings": "Zurück zu Angeboten",
+		"capabilityLabel": "Fähigkeit",
+		"capabilityPlaceholder": "Fähigkeit auswählen",
+		"headlineLabel": "Titel",
+		"headlinePlaceholder": "Kurzer Titel für Ihren Dienst (max. 100 Zeichen)",
 		"summaryLabel": "Zusammenfassung",
-		"summaryPlaceholder": "Eine kurze Zusammenfassung Ihres Angebots (max. 500 Zeichen)",
+		"summaryPlaceholder": "Kurze Beschreibung Ihres Dienstes (max. 500 Zeichen)",
 		"descriptionLabel": "Beschreibung",
-		"descriptionPlaceholder": "Detaillierte Beschreibung Ihres Dienstangebots (max. 5000 Zeichen)",
+		"descriptionPlaceholder": "Ausführliche Beschreibung (max. 10000 Zeichen)",
 		"regionsLabel": "Bediente Regionen",
-		"regionsPlaceholder": "z.B. Nordamerika, Europa, Asien",
+		"regionsPlaceholder": "Eingabe und Enter drücken",
 		"pricingLabel": "Preishinweis",
-		"pricingPlaceholder": "z.B. Ab 500€/Monat (optional)",
+		"pricingPlaceholder": "Optional (max. 200 Zeichen)",
 		"contactModeLabel": "Kontaktmodus",
 		"contactValueLabel": "Kontaktwert",
-		"contactValuePlaceholder": "URL, E-Mail oder Plattform-Benutzername",
+		"contactValuePlaceholder": "URL, E-Mail oder Benutzername",
 		"contactModes": {
-			"platform_message": "Plattform-Nachricht",
 			"external_url": "Externe URL",
-			"email": "E-Mail"
+			"email": "E-Mail",
+			"platform_message": "Plattformnachricht"
 		},
 		"submitButton": "Angebot speichern",
 		"errors": {
-			"headlineRequired": "Überschrift ist erforderlich",
-			"headlineTooLong": "Überschrift darf maximal 200 Zeichen lang sein",
+			"capabilityRequired": "Fähigkeit ist erforderlich",
+			"headlineRequired": "Titel ist erforderlich",
+			"headlineTooLong": "Titel darf höchstens 100 Zeichen haben",
 			"summaryRequired": "Zusammenfassung ist erforderlich",
-			"summaryTooLong": "Zusammenfassung darf maximal 500 Zeichen lang sein",
+			"summaryTooLong": "Zusammenfassung darf höchstens 500 Zeichen haben",
 			"descriptionRequired": "Beschreibung ist erforderlich",
-			"descriptionTooLong": "Beschreibung darf maximal 5000 Zeichen lang sein",
+			"descriptionTooLong": "Beschreibung darf höchstens 10000 Zeichen haben",
 			"regionsRequired": "Mindestens eine Region ist erforderlich",
 			"contactValueRequired": "Kontaktwert ist erforderlich",
+			"noOrgDomain": "Ihre Organisation hat keine verifizierte Domain. Bitte verifizieren Sie zuerst eine Domain.",
 			"loadFailed": "Angebot konnte nicht geladen werden",
 			"saveFailed": "Angebot konnte nicht gespeichert werden"
-		},
-		"success": {
-			"saved": "Angebot erfolgreich gespeichert"
 		}
 	},
-	"provideActivity": {
-		"title": "Eingehende Abonnements",
-		"backToCapability": "Zurück zur Fähigkeit",
+
+	"subscriptions": {
+		"title": "Meine Abonnements",
+		"noSubscriptions": "Noch keine Abonnements. Entdecken Sie Angebote.",
 		"loadMore": "Mehr laden",
-		"viewDetails": "Details anzeigen",
-		"noSubscriptions": "Keine eingehenden Abonnementanfragen.",
-		"consumer": "Verbraucher",
-		"status": "Status",
-		"createdAt": "Erstellt am",
-		"subscriptionStatuses": {
-			"requested": "Angefordert",
-			"provider_review": "Anbieterüberprüfung",
-			"admin_review": "Admin-Überprüfung",
-			"awaiting_contract": "Warte auf Vertrag",
-			"awaiting_payment": "Warte auf Zahlung",
+		"cancelButton": "Kündigen",
+		"cancelTitle": "Abonnement kündigen",
+		"cancelConfirm": "Möchten Sie dieses Abonnement wirklich kündigen?",
+		"columns": {
+			"provider": "Anbieter",
+			"capability": "Fähigkeit",
+			"status": "Status",
+			"startedAt": "Beginn",
+			"actions": "Aktionen"
+		},
+		"statuses": {
 			"active": "Aktiv",
-			"rejected": "Abgelehnt",
-			"cancelled": "Abgebrochen",
+			"cancelled": "Gekündigt",
 			"expired": "Abgelaufen"
 		},
 		"errors": {
 			"loadFailed": "Abonnements konnten nicht geladen werden"
 		}
 	},
-	"provideActivityDetail": {
-		"backToActivity": "Zurück zu eingehenden Abonnements",
-		"title": "Abonnementdetail",
-		"consumer": "Verbraucher",
-		"capability": "Fähigkeit",
-		"status": "Status",
-		"requestNote": "Anfragennotiz",
-		"reviewNote": "Überprüfungsnotiz",
-		"createdAt": "Erstellt am",
-		"updatedAt": "Aktualisiert am",
-		"approveButton": "Genehmigen",
-		"rejectButton": "Ablehnen",
-		"rejectTitle": "Abonnement ablehnen",
-		"rejectNoteLabel": "Überprüfungsnotiz",
-		"rejectNotePlaceholder": "Geben Sie einen Ablehnungsgrund an (erforderlich)",
-		"confirmApprove": "Diese Abonnementanfrage genehmigen?",
-		"subscriptionStatuses": {
-			"requested": "Angefordert",
-			"provider_review": "Anbieterüberprüfung",
-			"admin_review": "Admin-Überprüfung",
-			"awaiting_contract": "Warte auf Vertrag",
-			"awaiting_payment": "Warte auf Zahlung",
-			"active": "Aktiv",
-			"rejected": "Abgelehnt",
-			"cancelled": "Abgebrochen",
-			"expired": "Abgelaufen"
-		},
-		"errors": {
-			"loadFailed": "Abonnement konnte nicht geladen werden",
-			"approveFailed": "Abonnement konnte nicht genehmigt werden",
-			"rejectFailed": "Abonnement konnte nicht abgelehnt werden",
-			"reviewNoteRequired": "Überprüfungsnotiz ist für die Ablehnung erforderlich"
-		},
-		"success": {
-			"approved": "Abonnement genehmigt",
-			"rejected": "Abonnement abgelehnt"
-		}
-	},
-	"purchases": {
-		"title": "Meine Käufe",
-		"backToMarketplace": "Zurück zum Marktplatz",
+
+	"clients": {
+		"title": "Meine Kunden",
+		"noClients": "Noch keine Kunden. Veröffentlichen Sie ein Angebot.",
 		"loadMore": "Mehr laden",
-		"viewDetails": "Details anzeigen",
-		"noSubscriptions": "Noch keine aktiven Abonnements.",
-		"provider": "Anbieter",
-		"capability": "Fähigkeit",
-		"status": "Status",
-		"createdAt": "Erstellt am",
-		"subscriptionStatuses": {
-			"requested": "Angefordert",
-			"provider_review": "Anbieterüberprüfung",
-			"admin_review": "Admin-Überprüfung",
-			"awaiting_contract": "Warte auf Vertrag",
-			"awaiting_payment": "Warte auf Zahlung",
+		"columns": {
+			"consumer": "Kunde",
+			"capability": "Fähigkeit",
+			"status": "Status",
+			"startedAt": "Beginn",
+			"expiresAt": "Läuft ab"
+		},
+		"statuses": {
 			"active": "Aktiv",
-			"rejected": "Abgelehnt",
-			"cancelled": "Abgebrochen",
+			"cancelled": "Gekündigt",
 			"expired": "Abgelaufen"
 		},
 		"errors": {
-			"loadFailed": "Abonnements konnten nicht geladen werden"
-		}
-	},
-	"purchaseDetail": {
-		"backToPurchases": "Zurück zu Käufen",
-		"title": "Kaufdetail",
-		"provider": "Anbieter",
-		"capability": "Fähigkeit",
-		"status": "Status",
-		"requestNote": "Anfragennotiz",
-		"reviewNote": "Überprüfungsnotiz",
-		"startsAt": "Beginnt am",
-		"expiresAt": "Läuft ab am",
-		"createdAt": "Erstellt am",
-		"cancelButton": "Abonnement kündigen",
-		"confirmCancel": "Dieses Abonnement kündigen?",
-		"subscriptionStatuses": {
-			"requested": "Angefordert",
-			"provider_review": "Anbieterüberprüfung",
-			"admin_review": "Admin-Überprüfung",
-			"awaiting_contract": "Warte auf Vertrag",
-			"awaiting_payment": "Warte auf Zahlung",
-			"active": "Aktiv",
-			"rejected": "Abgelehnt",
-			"cancelled": "Abgebrochen",
-			"expired": "Abgelaufen"
-		},
-		"errors": {
-			"loadFailed": "Abonnement konnte nicht geladen werden",
-			"cancelFailed": "Abonnement konnte nicht gekündigt werden"
-		},
-		"success": {
-			"cancelled": "Abonnement gekündigt"
+			"loadFailed": "Kunden konnten nicht geladen werden"
 		}
 	}
 }

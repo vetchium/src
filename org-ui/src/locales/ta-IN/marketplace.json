@@ -1,218 +1,120 @@
 {
 	"backToDashboard": "டாஷ்போர்டுக்கு திரும்பு",
-	"title": "சந்தை இடம்",
-	"launcher": {
-		"exploreTitle": "திறன்களை ஆராய்",
-		"exploreSubtitle": "சந்தை இட திறன்களை உலாவு மற்றும் மற்ற நிறுவனங்களின் சேவைகளை சந்தா செலுத்து.",
-		"exploreAction": "திறன்களை உலாவு",
-		"provideTitle": "சேவைகளை வழங்கு",
-		"provideSubtitle": "சந்தை இடத்தில் உங்கள் சேவைகளை வழங்க பதிவு செய்து நிர்வகி.",
-		"provideAction": "வழங்குநர் டாஷ்போர்டை நிர்வகி",
-		"purchasesTitle": "என் கொள்முதல்கள்",
-		"purchasesSubtitle": "சந்தை இட சேவைகளுக்கான செயலில் உள்ள சந்தாக்களை காண்க மற்றும் நிர்வகி.",
-		"purchasesAction": "சந்தாக்களை காண்"
-	},
-	"capabilities": {
-		"title": "சந்தை இட திறன்கள்",
-		"backToMarketplace": "சந்தை இடத்திற்கு திரும்பு",
+
+	"discover": {
+		"title": "சேவைகளை கண்டறி",
+		"noListings": "இன்னும் பட்டியல்கள் இல்லை.",
 		"loadMore": "மேலும் ஏற்று",
-		"viewProviders": "வழங்குநர்களை காண்",
-		"noCapabilities": "இன்னும் எந்த சந்தை இட திறன்களும் கிடைக்கவில்லை.",
-		"status": {
-			"draft": "வரைவு",
-			"active": "செயலில்",
-			"disabled": "முடக்கப்பட்டது"
-		},
 		"errors": {
-			"loadFailed": "திறன்களை ஏற்றுவதில் தோல்வி"
+			"loadFailed": "பட்டியல்களை ஏற்றுவதில் தோல்வி"
 		}
 	},
-	"capabilityDetail": {
-		"backToCapabilities": "திறன்களுக்கு திரும்பு",
-		"providersTitle": "கிடைக்கும் வழங்குநர்கள்",
-		"loadMoreProviders": "மேலும் வழங்குநர்களை ஏற்று",
-		"viewOffer": "சலுகையை காண்",
-		"subscribe": "சந்தா செலுத்து",
-		"noProviders": "இந்த திறனுக்கு இன்னும் வழங்குநர்கள் இல்லை.",
-		"regions": "சேவை செய்யப்படும் பகுதிகள்",
-		"contact": "தொடர்பு",
-		"contactModes": {
-			"platform_message": "தளம் செய்தி",
-			"external_url": "வெளி URL",
-			"email": "மின்னஞ்சல்"
-		},
-		"errors": {
-			"loadFailed": "திறன் விவரங்களை ஏற்றுவதில் தோல்வி",
-			"providersFailed": "வழங்குநர்களை ஏற்றுவதில் தோல்வி"
-		}
-	},
-	"providerOffer": {
-		"backToCapability": "திறனுக்கு திரும்பு",
-		"headline": "தலைப்பு",
+
+	"discoverDetail": {
+		"backToDiscover": "பட்டியலுக்கு திரும்பு",
+		"provider": "வழங்குநர்",
+		"capability": "திறன்",
 		"summary": "சுருக்கம்",
-		"description": "விவரம்",
-		"regions": "சேவை செய்யப்படும் பகுதிகள்",
-		"pricing": "விலை நிர்ணயம்",
+		"regions": "சேவை பகுதிகள்",
+		"pricing": "விலை",
 		"contact": "தொடர்பு",
-		"subscribeButton": "சந்தா கோரிக்கை",
-		"alreadySubscribed": "ஏற்கனவே சந்தா செலுத்தப்பட்டது",
-		"requestNote": "கோரிக்கை குறிப்பு",
-		"requestNotePlaceholder": "வழங்குநருக்கு விருப்பமான குறிப்பு (அதிகபட்சம் 1000 எழுத்துகள்)",
-		"confirmSubscribe": "சந்தா கோரிக்கையை உறுதிப்படுத்து",
-		"subscribeConfirmMessage": "இந்த வழங்குநருக்கு சந்தா கோரிக்கை அனுப்புவதா?",
+		"listedAt": "பட்டியலிடப்பட்ட தேதி",
+		"subscribeButton": "சந்தா செய்",
+		"subscribed": "சந்தா செய்யப்பட்டது",
+		"subscribeTitle": "சந்தா உறுதிப்படுத்தல்",
+		"subscribeConfirmMessage": "இந்த சேவைக்கு சந்தா செய்யவா?",
+		"requestNotePlaceholder": "வழங்குநருக்கு விருப்பமான குறிப்பு (அதிகபட்சம் 2000 எழுத்துகள்)",
 		"errors": {
-			"loadFailed": "வழங்குநர் சலுகையை ஏற்றுவதில் தோல்வி",
-			"subscribeFailed": "சந்தா கோர முடியவில்லை"
-		},
-		"success": {
-			"subscribed": "சந்தா கோரிக்கை வெற்றிகரமாக அனுப்பப்பட்டது"
+			"notFound": "பட்டியல் கிடைக்கவில்லை",
+			"loadFailed": "பட்டியலை ஏற்றுவதில் தோல்வி",
+			"subscribeFailed": "சந்தா செய்வதில் தோல்வி",
+			"subscribeForbidden": "சந்தா செய்ய அனுமதி இல்லை"
 		}
 	},
-	"provide": {
-		"dashboardTitle": "வழங்குநர் டாஷ்போர்டு",
-		"backToMarketplace": "சந்தை இடத்திற்கு திரும்பு",
-		"enrollmentsTitle": "என் பதிவுகள்",
+
+	"listings": {
+		"title": "என் பட்டியல்கள்",
+		"noListings": "இன்னும் பட்டியல்கள் இல்லை. உங்கள் முதல் பட்டியலை உருவாக்குங்கள்.",
 		"loadMore": "மேலும் ஏற்று",
-		"applyButton": "பதிவிற்கு விண்ணப்பி",
-		"viewDetails": "விவரங்களை காண்",
-		"noEnrollments": "நீங்கள் இன்னும் எந்த சந்தை இட திறனிலும் பதிவு செய்யவில்லை.",
-		"enrollmentStatuses": {
-			"pending_review": "மதிப்பாய்வு நிலுவையில்",
-			"approved": "அனுமதிக்கப்பட்டது",
-			"rejected": "நிராகரிக்கப்பட்டது",
-			"suspended": "நிறுத்தப்பட்டது",
-			"expired": "காலாவதியானது"
+		"createButton": "பட்டியல் உருவாக்கு",
+		"publishButton": "வெளியிடு",
+		"archiveButton": "காப்பகப்படுத்து",
+		"editButton": "திருத்து",
+		"columns": {
+			"headline": "தலைப்பு",
+			"capability": "திறன்",
+			"status": "நிலை",
+			"createdAt": "உருவாக்கப்பட்டது",
+			"actions": "செயல்கள்"
 		},
-		"errors": {
-			"loadFailed": "பதிவுகளை ஏற்றுவதில் தோல்வி"
-		}
-	},
-	"provideCapability": {
-		"backToProvide": "வழங்குநர் டாஷ்போர்டுக்கு திரும்பு",
-		"enrollmentTitle": "பதிவு நிலை",
-		"offerTitle": "என் சலுகை",
-		"applyButton": "பதிவிற்கு விண்ணப்பி",
-		"reapplyButton": "மீண்டும் விண்ணப்பி",
-		"createOfferButton": "சலுகை உருவாக்கு",
-		"editOfferButton": "சலுகை திருத்து",
-		"submitOfferButton": "மதிப்பாய்விற்கு சமர்ப்பி",
-		"archiveOfferButton": "சலுகை காப்பகப்படுத்து",
-		"viewActivityButton": "வரும் சந்தாக்களை காண்",
-		"noEnrollment": "நீங்கள் இந்த திறனுக்கு இன்னும் விண்ணப்பிக்கவில்லை.",
-		"noOffer": "இன்னும் சலுகை உருவாக்கப்படவில்லை.",
-		"approvedAt": "அனுமதிக்கப்பட்ட தேதி",
-		"expiresAt": "காலாவதி தேதி",
-		"reviewNote": "மதிப்பாய்வு குறிப்பு",
-		"applicationNote": "விண்ணப்ப குறிப்பு",
-		"offerStatuses": {
+		"statuses": {
 			"draft": "வரைவு",
-			"pending_review": "மதிப்பாய்வு நிலுவையில்",
 			"active": "செயலில்",
-			"rejected": "நிராகரிக்கப்பட்டது",
 			"suspended": "நிறுத்தப்பட்டது",
 			"archived": "காப்பகப்படுத்தப்பட்டது"
 		},
 		"errors": {
-			"loadFailed": "திறன் விவரங்களை ஏற்றுவதில் தோல்வி",
-			"submitFailed": "சலுகை சமர்ப்பிப்பதில் தோல்வி",
-			"archiveFailed": "சலுகை காப்பகப்படுத்துவதில் தோல்வி"
-		},
-		"success": {
-			"submitted": "சலுகை மதிப்பாய்விற்கு சமர்ப்பிக்கப்பட்டது",
-			"archived": "சலுகை காப்பகப்படுத்தப்பட்டது"
+			"loadFailed": "பட்டியல்களை ஏற்றுவதில் தோல்வி"
 		}
 	},
-	"provideApply": {
-		"applyTitle": "பதிவிற்கு விண்ணப்பி",
-		"reapplyTitle": "பதிவிற்கு மீண்டும் விண்ணப்பி",
-		"backToCapability": "திறனுக்கு திரும்பு",
+
+	"listingForm": {
+		"createTitle": "பட்டியல் உருவாக்கு",
+		"editTitle": "பட்டியலை திருத்து",
+		"backToListings": "பட்டியல்களுக்கு திரும்பு",
 		"capabilityLabel": "திறன்",
-		"applicationNoteLabel": "விண்ணப்ப குறிப்பு",
-		"applicationNotePlaceholder": "உங்கள் சேவைகளையும் ஏன் வழங்குநராக விரும்புகிறீர்கள் என்பதையும் விவரிக்கவும் (விருப்பமானது, அதிகபட்சம் 1000 எழுத்துகள்)",
-		"applicationNoteHelp": "விருப்பமானது. அதிகபட்சம் 1000 எழுத்துகள்.",
-		"submitButton": "விண்ணப்பம் சமர்ப்பி",
-		"errors": {
-			"noteTooLong": "விண்ணப்ப குறிப்பு அதிகபட்சம் 1000 எழுத்துகளாக இருக்க வேண்டும்",
-			"submitFailed": "விண்ணப்பம் சமர்ப்பிப்பதில் தோல்வி",
-			"loadFailed": "திறன் ஏற்றுவதில் தோல்வி"
-		},
-		"success": {
-			"applied": "விண்ணப்பம் வெற்றிகரமாக சமர்ப்பிக்கப்பட்டது"
-		}
-	},
-	"provideOffer": {
-		"backToCapability": "திறனுக்கு திரும்பு",
-		"title": "என் சலுகை",
-		"headline": "தலைப்பு",
-		"summary": "சுருக்கம்",
-		"description": "விவரம்",
-		"regions": "சேவை செய்யப்படும் பகுதிகள்",
-		"pricing": "விலை நிர்ணயம்",
-		"contact": "தொடர்பு",
-		"editButton": "சலுகை திருத்து",
-		"status": "நிலை",
-		"reviewNote": "மதிப்பாய்வு குறிப்பு",
-		"errors": {
-			"loadFailed": "சலுகை ஏற்றுவதில் தோல்வி"
-		}
-	},
-	"provideOfferEdit": {
-		"createTitle": "சலுகை உருவாக்கு",
-		"editTitle": "சலுகை திருத்து",
-		"backToOffer": "சலுகைக்கு திரும்பு",
-		"backToCapability": "திறனுக்கு திரும்பு",
+		"capabilityPlaceholder": "திறனை தேர்ந்தெடு",
 		"headlineLabel": "தலைப்பு",
-		"headlinePlaceholder": "உங்கள் சேவை சலுகைக்கான குறுகிய தலைப்பு",
+		"headlinePlaceholder": "சேவைக்கான குறுகிய தலைப்பு (அதிகபட்சம் 100 எழுத்துகள்)",
 		"summaryLabel": "சுருக்கம்",
-		"summaryPlaceholder": "நீங்கள் வழங்குவதன் சுருக்கமான சுருக்கம் (அதிகபட்சம் 500 எழுத்துகள்)",
-		"descriptionLabel": "விவரம்",
-		"descriptionPlaceholder": "உங்கள் சேவை சலுகையின் விரிவான விவரம் (அதிகபட்சம் 5000 எழுத்துகள்)",
-		"regionsLabel": "சேவை செய்யப்படும் பகுதிகள்",
-		"regionsPlaceholder": "எ.கா. வட அமெரிக்கா, ஐரோப்பா, ஆசியா",
+		"summaryPlaceholder": "சேவையின் சுருக்கமான விளக்கம் (அதிகபட்சம் 500 எழுத்துகள்)",
+		"descriptionLabel": "விளக்கம்",
+		"descriptionPlaceholder": "சேவையின் விரிவான விளக்கம் (அதிகபட்சம் 10000 எழுத்துகள்)",
+		"regionsLabel": "சேவை பகுதிகள்",
+		"regionsPlaceholder": "தட்டச்சு செய்து Enter அழுத்துங்கள்",
 		"pricingLabel": "விலை குறிப்பு",
-		"pricingPlaceholder": "எ.கா. மாதம் $500 முதல் (விருப்பமானது)",
+		"pricingPlaceholder": "விருப்பமான விலை தகவல் (அதிகபட்சம் 200 எழுத்துகள்)",
 		"contactModeLabel": "தொடர்பு முறை",
 		"contactValueLabel": "தொடர்பு மதிப்பு",
-		"contactValuePlaceholder": "URL, மின்னஞ்சல் அல்லது தள பயனர்பெயர்",
+		"contactValuePlaceholder": "URL, மின்னஞ்சல் அல்லது பயனர்பெயர்",
 		"contactModes": {
-			"platform_message": "தளம் செய்தி",
 			"external_url": "வெளி URL",
-			"email": "மின்னஞ்சல்"
+			"email": "மின்னஞ்சல்",
+			"platform_message": "தளத்தில் செய்தி"
 		},
-		"submitButton": "சலுகை சேமி",
+		"submitButton": "பட்டியலை சேமி",
 		"errors": {
+			"capabilityRequired": "திறன் தேவை",
 			"headlineRequired": "தலைப்பு தேவை",
-			"headlineTooLong": "தலைப்பு அதிகபட்சம் 200 எழுத்துகளாக இருக்க வேண்டும்",
+			"headlineTooLong": "தலைப்பு அதிகபட்சம் 100 எழுத்துகள் மட்டுமே",
 			"summaryRequired": "சுருக்கம் தேவை",
-			"summaryTooLong": "சுருக்கம் அதிகபட்சம் 500 எழுத்துகளாக இருக்க வேண்டும்",
-			"descriptionRequired": "விவரம் தேவை",
-			"descriptionTooLong": "விவரம் அதிகபட்சம் 5000 எழுத்துகளாக இருக்க வேண்டும்",
+			"summaryTooLong": "சுருக்கம் அதிகபட்சம் 500 எழுத்துகள் மட்டுமே",
+			"descriptionRequired": "விளக்கம் தேவை",
+			"descriptionTooLong": "விளக்கம் அதிகபட்சம் 10000 எழுத்துகள் மட்டுமே",
 			"regionsRequired": "குறைந்தது ஒரு பகுதி தேவை",
 			"contactValueRequired": "தொடர்பு மதிப்பு தேவை",
-			"loadFailed": "சலுகை ஏற்றுவதில் தோல்வி",
-			"saveFailed": "சலுகை சேமிப்பதில் தோல்வி"
-		},
-		"success": {
-			"saved": "சலுகை வெற்றிகரமாக சேமிக்கப்பட்டது"
+			"noOrgDomain": "உங்கள் நிறுவனத்திற்கு சரிபார்க்கப்பட்ட டொமைன் இல்லை. முதலில் டொமைனை சரிபார்க்கவும்.",
+			"loadFailed": "பட்டியலை ஏற்றுவதில் தோல்வி",
+			"saveFailed": "பட்டியலை சேமிப்பதில் தோல்வி"
 		}
 	},
-	"provideActivity": {
-		"title": "வரும் சந்தாக்கள்",
-		"backToCapability": "திறனுக்கு திரும்பு",
+
+	"subscriptions": {
+		"title": "என் சந்தாக்கள்",
+		"noSubscriptions": "இன்னும் சந்தாக்கள் இல்லை. பட்டியல்களை கண்டறியுங்கள்.",
 		"loadMore": "மேலும் ஏற்று",
-		"viewDetails": "விவரங்களை காண்",
-		"noSubscriptions": "வரும் சந்தா கோரிக்கைகள் இல்லை.",
-		"consumer": "நுகர்வோர்",
-		"status": "நிலை",
-		"createdAt": "உருவாக்கப்பட்ட தேதி",
-		"subscriptionStatuses": {
-			"requested": "கோரப்பட்டது",
-			"provider_review": "வழங்குநர் மதிப்பாய்வு",
-			"admin_review": "நிர்வாக மதிப்பாய்வு",
-			"awaiting_contract": "ஒப்பந்தத்திற்கு காத்திருக்கிறது",
-			"awaiting_payment": "கட்டணத்திற்கு காத்திருக்கிறது",
+		"cancelButton": "ரத்து செய்",
+		"cancelTitle": "சந்தாவை ரத்து செய்",
+		"cancelConfirm": "இந்த சந்தாவை ரத்து செய்ய விரும்புகிறீர்களா?",
+		"columns": {
+			"provider": "வழங்குநர்",
+			"capability": "திறன்",
+			"status": "நிலை",
+			"startedAt": "தொடங்கியது",
+			"actions": "செயல்கள்"
+		},
+		"statuses": {
 			"active": "செயலில்",
-			"rejected": "நிராகரிக்கப்பட்டது",
 			"cancelled": "ரத்து செய்யப்பட்டது",
 			"expired": "காலாவதியானது"
 		},
@@ -220,99 +122,25 @@
 			"loadFailed": "சந்தாக்களை ஏற்றுவதில் தோல்வி"
 		}
 	},
-	"provideActivityDetail": {
-		"backToActivity": "வரும் சந்தாக்களுக்கு திரும்பு",
-		"title": "சந்தா விவரம்",
-		"consumer": "நுகர்வோர்",
-		"capability": "திறன்",
-		"status": "நிலை",
-		"requestNote": "கோரிக்கை குறிப்பு",
-		"reviewNote": "மதிப்பாய்வு குறிப்பு",
-		"createdAt": "உருவாக்கப்பட்ட தேதி",
-		"updatedAt": "புதுப்பிக்கப்பட்ட தேதி",
-		"approveButton": "அனுமதி",
-		"rejectButton": "நிராகரி",
-		"rejectTitle": "சந்தாவை நிராகரி",
-		"rejectNoteLabel": "மதிப்பாய்வு குறிப்பு",
-		"rejectNotePlaceholder": "நிராகரிப்பதற்கான காரணம் வழங்கவும் (தேவை)",
-		"confirmApprove": "இந்த சந்தா கோரிக்கையை அனுமதிக்கவா?",
-		"subscriptionStatuses": {
-			"requested": "கோரப்பட்டது",
-			"provider_review": "வழங்குநர் மதிப்பாய்வு",
-			"admin_review": "நிர்வாக மதிப்பாய்வு",
-			"awaiting_contract": "ஒப்பந்தத்திற்கு காத்திருக்கிறது",
-			"awaiting_payment": "கட்டணத்திற்கு காத்திருக்கிறது",
-			"active": "செயலில்",
-			"rejected": "நிராகரிக்கப்பட்டது",
-			"cancelled": "ரத்து செய்யப்பட்டது",
-			"expired": "காலாவதியானது"
-		},
-		"errors": {
-			"loadFailed": "சந்தா ஏற்றுவதில் தோல்வி",
-			"approveFailed": "சந்தா அனுமதிக்க முடியவில்லை",
-			"rejectFailed": "சந்தா நிராகரிக்க முடியவில்லை",
-			"reviewNoteRequired": "நிராகரிப்பிற்கு மதிப்பாய்வு குறிப்பு தேவை"
-		},
-		"success": {
-			"approved": "சந்தா அனுமதிக்கப்பட்டது",
-			"rejected": "சந்தா நிராகரிக்கப்பட்டது"
-		}
-	},
-	"purchases": {
-		"title": "என் கொள்முதல்கள்",
-		"backToMarketplace": "சந்தை இடத்திற்கு திரும்பு",
+
+	"clients": {
+		"title": "என் வாடிக்கையாளர்கள்",
+		"noClients": "இன்னும் வாடிக்கையாளர்கள் இல்லை. ஒரு பட்டியலை வெளியிடுங்கள்.",
 		"loadMore": "மேலும் ஏற்று",
-		"viewDetails": "விவரங்களை காண்",
-		"noSubscriptions": "இன்னும் செயலில் சந்தாக்கள் இல்லை.",
-		"provider": "வழங்குநர்",
-		"capability": "திறன்",
-		"status": "நிலை",
-		"createdAt": "உருவாக்கப்பட்ட தேதி",
-		"subscriptionStatuses": {
-			"requested": "கோரப்பட்டது",
-			"provider_review": "வழங்குநர் மதிப்பாய்வு",
-			"admin_review": "நிர்வாக மதிப்பாய்வு",
-			"awaiting_contract": "ஒப்பந்தத்திற்கு காத்திருக்கிறது",
-			"awaiting_payment": "கட்டணத்திற்கு காத்திருக்கிறது",
+		"columns": {
+			"consumer": "வாடிக்கையாளர்",
+			"capability": "திறன்",
+			"status": "நிலை",
+			"startedAt": "தொடங்கியது",
+			"expiresAt": "காலாவதி"
+		},
+		"statuses": {
 			"active": "செயலில்",
-			"rejected": "நிராகரிக்கப்பட்டது",
 			"cancelled": "ரத்து செய்யப்பட்டது",
 			"expired": "காலாவதியானது"
 		},
 		"errors": {
-			"loadFailed": "சந்தாக்களை ஏற்றுவதில் தோல்வி"
-		}
-	},
-	"purchaseDetail": {
-		"backToPurchases": "கொள்முதல்களுக்கு திரும்பு",
-		"title": "கொள்முதல் விவரம்",
-		"provider": "வழங்குநர்",
-		"capability": "திறன்",
-		"status": "நிலை",
-		"requestNote": "கோரிக்கை குறிப்பு",
-		"reviewNote": "மதிப்பாய்வு குறிப்பு",
-		"startsAt": "தொடங்கும் தேதி",
-		"expiresAt": "காலாவதி தேதி",
-		"createdAt": "உருவாக்கப்பட்ட தேதி",
-		"cancelButton": "சந்தாவை ரத்து செய்",
-		"confirmCancel": "இந்த சந்தாவை ரத்து செய்வதா?",
-		"subscriptionStatuses": {
-			"requested": "கோரப்பட்டது",
-			"provider_review": "வழங்குநர் மதிப்பாய்வு",
-			"admin_review": "நிர்வாக மதிப்பாய்வு",
-			"awaiting_contract": "ஒப்பந்தத்திற்கு காத்திருக்கிறது",
-			"awaiting_payment": "கட்டணத்திற்கு காத்திருக்கிறது",
-			"active": "செயலில்",
-			"rejected": "நிராகரிக்கப்பட்டது",
-			"cancelled": "ரத்து செய்யப்பட்டது",
-			"expired": "காலாவதியானது"
-		},
-		"errors": {
-			"loadFailed": "சந்தா ஏற்றுவதில் தோல்வி",
-			"cancelFailed": "சந்தா ரத்து செய்ய முடியவில்லை"
-		},
-		"success": {
-			"cancelled": "சந்தா ரத்து செய்யப்பட்டது"
+			"loadFailed": "வாடிக்கையாளர்களை ஏற்றுவதில் தோல்வி"
 		}
 	}
 }

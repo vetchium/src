@@ -9,57 +9,24 @@ export namespace MarketplaceCapabilityStatus {
 	export const Disabled: MarketplaceCapabilityStatus = "disabled";
 }
 
-export type MarketplaceEnrollmentStatus =
-	| "pending_review"
-	| "approved"
-	| "rejected"
-	| "suspended"
-	| "expired";
-export namespace MarketplaceEnrollmentStatus {
-	export const PendingReview: MarketplaceEnrollmentStatus = "pending_review";
-	export const Approved: MarketplaceEnrollmentStatus = "approved";
-	export const Rejected: MarketplaceEnrollmentStatus = "rejected";
-	export const Suspended: MarketplaceEnrollmentStatus = "suspended";
-	export const Expired: MarketplaceEnrollmentStatus = "expired";
-}
-
-export type MarketplaceOfferStatus =
+export type MarketplaceListingStatus =
 	| "draft"
-	| "pending_review"
 	| "active"
-	| "rejected"
 	| "suspended"
 	| "archived";
-export namespace MarketplaceOfferStatus {
-	export const Draft: MarketplaceOfferStatus = "draft";
-	export const PendingReview: MarketplaceOfferStatus = "pending_review";
-	export const Active: MarketplaceOfferStatus = "active";
-	export const Rejected: MarketplaceOfferStatus = "rejected";
-	export const Suspended: MarketplaceOfferStatus = "suspended";
-	export const Archived: MarketplaceOfferStatus = "archived";
+export namespace MarketplaceListingStatus {
+	export const Draft: MarketplaceListingStatus = "draft";
+	export const Active: MarketplaceListingStatus = "active";
+	export const Suspended: MarketplaceListingStatus = "suspended";
+	export const Archived: MarketplaceListingStatus = "archived";
 }
 
 export type MarketplaceSubscriptionStatus =
-	| "requested"
-	| "provider_review"
-	| "admin_review"
-	| "awaiting_contract"
-	| "awaiting_payment"
 	| "active"
-	| "rejected"
 	| "cancelled"
 	| "expired";
 export namespace MarketplaceSubscriptionStatus {
-	export const Requested: MarketplaceSubscriptionStatus = "requested";
-	export const ProviderReview: MarketplaceSubscriptionStatus =
-		"provider_review";
-	export const AdminReview: MarketplaceSubscriptionStatus = "admin_review";
-	export const AwaitingContract: MarketplaceSubscriptionStatus =
-		"awaiting_contract";
-	export const AwaitingPayment: MarketplaceSubscriptionStatus =
-		"awaiting_payment";
 	export const Active: MarketplaceSubscriptionStatus = "active";
-	export const Rejected: MarketplaceSubscriptionStatus = "rejected";
 	export const Cancelled: MarketplaceSubscriptionStatus = "cancelled";
 	export const Expired: MarketplaceSubscriptionStatus = "expired";
 }
@@ -77,29 +44,16 @@ export namespace MarketplaceContactMode {
 // ---- Models ----
 
 export interface MarketplaceCapability {
-	capability_slug: string;
+	capability_id: string;
 	display_name: string;
 	description: string;
-	provider_enabled: boolean;
-	consumer_enabled: boolean;
 	status: MarketplaceCapabilityStatus;
-	pricing_hint?: string;
 }
 
-export interface MarketplaceEnrollment {
-	capability_slug: string;
-	status: MarketplaceEnrollmentStatus;
-	application_note?: string;
-	review_note?: string;
-	approved_at?: string;
-	expires_at?: string;
-	billing_status: string;
-	created_at: string;
-	updated_at: string;
-}
-
-export interface MarketplaceOffer {
-	capability_slug: string;
+export interface MarketplaceListing {
+	listing_id: string;
+	org_domain: string;
+	capability_id: string;
 	headline: string;
 	summary: string;
 	description: string;
@@ -107,50 +61,54 @@ export interface MarketplaceOffer {
 	pricing_hint?: string;
 	contact_mode: MarketplaceContactMode;
 	contact_value: string;
-	status: MarketplaceOfferStatus;
-	review_note?: string;
+	status: MarketplaceListingStatus;
+	suspension_note?: string;
+	listed_at?: string;
 	created_at: string;
 	updated_at: string;
 }
 
-export interface MarketplaceProviderSummary {
-	provider_org_domain: string;
-	capability_slug: string;
+export interface MarketplaceListingCard {
+	listing_id: string;
+	org_domain: string;
+	capability_id: string;
 	headline: string;
 	summary: string;
-	pricing_hint?: string;
 	regions_served: string[];
+	pricing_hint?: string;
 	contact_mode: MarketplaceContactMode;
 	contact_value: string;
+	listed_at: string;
 }
 
 export interface MarketplaceSubscription {
+	subscription_id: string;
+	listing_id: string;
+	consumer_org_domain: string;
 	provider_org_domain: string;
-	capability_slug: string;
+	capability_id: string;
 	request_note?: string;
 	status: MarketplaceSubscriptionStatus;
-	review_note?: string;
-	requires_provider_review: boolean;
-	requires_admin_review: boolean;
-	requires_contract: boolean;
-	requires_payment: boolean;
-	starts_at?: string;
+	started_at: string;
+	expires_at?: string;
+	cancelled_at?: string;
+	created_at: string;
+	updated_at: string;
+}
+
+export interface MarketplaceClient {
+	subscription_id: string;
+	listing_id: string;
+	consumer_org_domain: string;
+	capability_id: string;
+	request_note?: string;
+	status: MarketplaceSubscriptionStatus;
+	started_at: string;
 	expires_at?: string;
 	created_at: string;
-	updated_at: string;
 }
 
-export interface MarketplaceIncomingSubscription {
-	consumer_org_domain: string;
-	capability_slug: string;
-	status: MarketplaceSubscriptionStatus;
-	request_note?: string;
-	review_note?: string;
-	updated_at: string;
-	created_at: string;
-}
-
-// ---- Request/Response types ----
+// ---- Request / Response types ----
 
 export interface ListMarketplaceCapabilitiesRequest {
 	pagination_key?: string;
@@ -163,69 +121,53 @@ export interface ListMarketplaceCapabilitiesResponse {
 }
 
 export interface GetMarketplaceCapabilityRequest {
-	capability_slug: string;
+	capability_id: string;
 }
 
 export function validateGetMarketplaceCapabilityRequest(
 	req: GetMarketplaceCapabilityRequest
 ): ValidationError[] {
 	const errs: ValidationError[] = [];
-	if (!req.capability_slug || req.capability_slug.length < 3) {
+	if (!req.capability_id || req.capability_id.length < 3) {
 		errs.push(
 			newValidationError(
-				"capability_slug",
-				"capability_slug must be at least 3 characters"
+				"capability_id",
+				"capability_id must be at least 3 characters"
 			)
 		);
 	}
 	return errs;
 }
 
-export interface ListProviderEnrollmentsRequest {
+// --- Listings (provider side) ---
+
+export interface ListMyListingsRequest {
+	capability_id?: string;
 	pagination_key?: string;
 	limit?: number;
 }
 
-export interface ListProviderEnrollmentsResponse {
-	enrollments: MarketplaceEnrollment[];
+export interface ListMyListingsResponse {
+	listings: MarketplaceListing[];
 	next_pagination_key?: string;
 }
 
-export interface GetProviderEnrollmentRequest {
-	capability_slug: string;
+export interface GetMyListingRequest {
+	listing_id: string;
 }
 
-export interface ApplyProviderEnrollmentRequest {
-	capability_slug: string;
-	application_note?: string;
-}
-
-export function validateApplyProviderEnrollmentRequest(
-	req: ApplyProviderEnrollmentRequest
+export function validateGetMyListingRequest(
+	req: GetMyListingRequest
 ): ValidationError[] {
 	const errs: ValidationError[] = [];
-	if (!req.capability_slug || req.capability_slug.length < 3) {
-		errs.push(
-			newValidationError(
-				"capability_slug",
-				"capability_slug must be at least 3 characters"
-			)
-		);
+	if (!req.listing_id) {
+		errs.push(newValidationError("listing_id", "listing_id is required"));
 	}
 	return errs;
 }
 
-export interface ReapplyProviderEnrollmentRequest {
-	capability_slug: string;
-	application_note?: string;
-}
-
-export interface GetProviderOfferRequest {
-	capability_slug: string;
-}
-
-export interface CreateProviderOfferRequest {
-	capability_slug: string;
+export interface CreateListingRequest {
+	capability_id: string;
 	headline: string;
 	summary: string;
 	description: string;
@@ -235,26 +177,41 @@ export interface CreateProviderOfferRequest {
 	contact_value: string;
 }
 
-export function validateCreateProviderOfferRequest(
-	req: CreateProviderOfferRequest
+export function validateCreateListingRequest(
+	req: CreateListingRequest
 ): ValidationError[] {
 	const errs: ValidationError[] = [];
-	if (!req.capability_slug || req.capability_slug.length < 3) {
+	if (!req.capability_id || req.capability_id.length < 3) {
 		errs.push(
 			newValidationError(
-				"capability_slug",
-				"capability_slug must be at least 3 characters"
+				"capability_id",
+				"capability_id must be at least 3 characters"
 			)
 		);
 	}
 	if (!req.headline) {
 		errs.push(newValidationError("headline", "headline is required"));
+	} else if (req.headline.length > 100) {
+		errs.push(
+			newValidationError("headline", "headline must be at most 100 characters")
+		);
 	}
 	if (!req.summary) {
 		errs.push(newValidationError("summary", "summary is required"));
+	} else if (req.summary.length > 500) {
+		errs.push(
+			newValidationError("summary", "summary must be at most 500 characters")
+		);
 	}
 	if (!req.description) {
 		errs.push(newValidationError("description", "description is required"));
+	} else if (req.description.length > 10000) {
+		errs.push(
+			newValidationError(
+				"description",
+				"description must be at most 10000 characters"
+			)
+		);
 	}
 	if (!req.regions_served || req.regions_served.length === 0) {
 		errs.push(
@@ -262,13 +219,15 @@ export function validateCreateProviderOfferRequest(
 		);
 	}
 	if (!req.contact_value) {
-		errs.push(newValidationError("contact_value", "contact_value is required"));
+		errs.push(
+			newValidationError("contact_value", "contact_value is required")
+		);
 	}
 	return errs;
 }
 
-export interface UpdateProviderOfferRequest {
-	capability_slug: string;
+export interface UpdateListingRequest {
+	listing_id: string;
 	headline: string;
 	summary: string;
 	description: string;
@@ -278,120 +237,133 @@ export interface UpdateProviderOfferRequest {
 	contact_value: string;
 }
 
-export interface SubmitProviderOfferRequest {
-	capability_slug: string;
+export function validateUpdateListingRequest(
+	req: UpdateListingRequest
+): ValidationError[] {
+	const errs: ValidationError[] = [];
+	if (!req.listing_id) {
+		errs.push(newValidationError("listing_id", "listing_id is required"));
+	}
+	if (!req.headline) {
+		errs.push(newValidationError("headline", "headline is required"));
+	} else if (req.headline.length > 100) {
+		errs.push(
+			newValidationError("headline", "headline must be at most 100 characters")
+		);
+	}
+	if (!req.summary) {
+		errs.push(newValidationError("summary", "summary is required"));
+	} else if (req.summary.length > 500) {
+		errs.push(
+			newValidationError("summary", "summary must be at most 500 characters")
+		);
+	}
+	if (!req.description) {
+		errs.push(newValidationError("description", "description is required"));
+	} else if (req.description.length > 10000) {
+		errs.push(
+			newValidationError(
+				"description",
+				"description must be at most 10000 characters"
+			)
+		);
+	}
+	if (!req.regions_served || req.regions_served.length === 0) {
+		errs.push(
+			newValidationError("regions_served", "at least one region is required")
+		);
+	}
+	if (!req.contact_value) {
+		errs.push(
+			newValidationError("contact_value", "contact_value is required")
+		);
+	}
+	return errs;
 }
 
-export interface ArchiveProviderOfferRequest {
-	capability_slug: string;
+export interface PublishListingRequest {
+	listing_id: string;
 }
 
-export interface ListMarketplaceProvidersRequest {
-	capability_slug: string;
+export interface ArchiveListingRequest {
+	listing_id: string;
+}
+
+// --- Discover (buyer browse) ---
+
+export interface DiscoverListingsRequest {
+	capability_id?: string;
 	pagination_key?: string;
 	limit?: number;
 }
 
-export interface ListMarketplaceProvidersResponse {
-	providers: MarketplaceProviderSummary[];
+export interface DiscoverListingsResponse {
+	listings: MarketplaceListingCard[];
 	next_pagination_key?: string;
 }
 
-export interface GetMarketplaceProviderOfferRequest {
-	provider_org_domain: string;
-	capability_slug: string;
+export interface GetListingRequest {
+	listing_id: string;
 }
 
-export interface ListConsumerSubscriptionsRequest {
+// --- Subscriptions (consumer side) ---
+
+export interface RequestSubscriptionRequest {
+	listing_id: string;
+	request_note?: string;
+}
+
+export function validateRequestSubscriptionRequest(
+	req: RequestSubscriptionRequest
+): ValidationError[] {
+	const errs: ValidationError[] = [];
+	if (!req.listing_id) {
+		errs.push(newValidationError("listing_id", "listing_id is required"));
+	}
+	if (req.request_note && req.request_note.length > 2000) {
+		errs.push(
+			newValidationError(
+				"request_note",
+				"request_note must be at most 2000 characters"
+			)
+		);
+	}
+	return errs;
+}
+
+export interface CancelSubscriptionRequest {
+	subscription_id: string;
+}
+
+export interface ListSubscriptionsRequest {
+	filter_status?: MarketplaceSubscriptionStatus;
 	pagination_key?: string;
 	limit?: number;
 }
 
-export interface ListConsumerSubscriptionsResponse {
+export interface ListSubscriptionsResponse {
 	subscriptions: MarketplaceSubscription[];
 	next_pagination_key?: string;
 }
 
-export interface GetConsumerSubscriptionRequest {
-	provider_org_domain: string;
-	capability_slug: string;
+export interface GetSubscriptionRequest {
+	subscription_id: string;
 }
 
-export interface RequestConsumerSubscriptionRequest {
-	provider_org_domain: string;
-	capability_slug: string;
-	request_note?: string;
-}
+// --- Clients (provider side) ---
 
-export function validateRequestConsumerSubscriptionRequest(
-	req: RequestConsumerSubscriptionRequest
-): ValidationError[] {
-	const errs: ValidationError[] = [];
-	if (!req.provider_org_domain) {
-		errs.push(
-			newValidationError(
-				"provider_org_domain",
-				"provider_org_domain is required"
-			)
-		);
-	}
-	if (!req.capability_slug || req.capability_slug.length < 3) {
-		errs.push(
-			newValidationError(
-				"capability_slug",
-				"capability_slug must be at least 3 characters"
-			)
-		);
-	}
-	return errs;
-}
-
-export interface CancelConsumerSubscriptionRequest {
-	provider_org_domain: string;
-	capability_slug: string;
-}
-
-export interface ListIncomingSubscriptionsRequest {
-	capability_slug?: string;
+export interface ListClientsRequest {
+	listing_id?: string;
+	filter_status?: MarketplaceSubscriptionStatus;
 	pagination_key?: string;
 	limit?: number;
 }
 
-export interface ListIncomingSubscriptionsResponse {
-	subscriptions: MarketplaceIncomingSubscription[];
+export interface ListClientsResponse {
+	clients: MarketplaceClient[];
 	next_pagination_key?: string;
 }
 
-export interface GetIncomingSubscriptionRequest {
-	consumer_org_domain: string;
-	capability_slug: string;
-}
-
-export interface ProviderApproveSubscriptionRequest {
-	consumer_org_domain: string;
-	capability_slug: string;
-}
-
-export interface ProviderRejectSubscriptionRequest {
-	consumer_org_domain: string;
-	capability_slug: string;
-	review_note: string;
-}
-
-export function validateProviderRejectSubscriptionRequest(
-	req: ProviderRejectSubscriptionRequest
-): ValidationError[] {
-	const errs: ValidationError[] = [];
-	if (!req.consumer_org_domain) {
-		errs.push(
-			newValidationError(
-				"consumer_org_domain",
-				"consumer_org_domain is required"
-			)
-		);
-	}
-	if (!req.review_note) {
-		errs.push(newValidationError("review_note", "review_note is required"));
-	}
-	return errs;
+export interface GetClientRequest {
+	subscription_id: string;
 }

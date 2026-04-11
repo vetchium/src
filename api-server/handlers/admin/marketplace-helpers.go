@@ -10,125 +10,77 @@ import (
 	org "vetchium-api-server.typespec/org"
 )
 
-// adminCapabilityToAPI converts a globaldb MarketplaceCapability to the admin API type.
-func adminCapabilityToAPI(c globaldb.MarketplaceCapability) admintypes.AdminMarketplaceCapability {
-	result := admintypes.AdminMarketplaceCapability{
-		CapabilitySlug:       c.CapabilitySlug,
-		DisplayName:          c.DisplayName,
-		Description:          c.Description,
-		ProviderEnabled:      c.ProviderEnabled,
-		ConsumerEnabled:      c.ConsumerEnabled,
-		EnrollmentApproval:   c.EnrollmentApproval,
-		OfferReview:          c.OfferReview,
-		SubscriptionApproval: c.SubscriptionApproval,
-		ContractRequired:     c.ContractRequired,
-		PaymentRequired:      c.PaymentRequired,
-		Status:               org.MarketplaceCapabilityStatus(c.Status),
-		CreatedAt:            c.CreatedAt.Time.UTC().Format(time.RFC3339),
-		UpdatedAt:            c.UpdatedAt.Time.UTC().Format(time.RFC3339),
+// adminCapabilityToAPI converts a globaldb MarketplaceCapability + translations to the admin API type.
+func adminCapabilityToAPI(c globaldb.MarketplaceCapability, translations []globaldb.MarketplaceCapabilityTranslation) admintypes.AdminMarketplaceCapability {
+	ts := make([]admintypes.AdminCapabilityTranslation, 0, len(translations))
+	for _, t := range translations {
+		ts = append(ts, admintypes.AdminCapabilityTranslation{
+			Locale:      t.Locale,
+			DisplayName: t.DisplayName,
+			Description: t.Description,
+		})
 	}
-	if c.PricingHint.Valid {
-		result.PricingHint = &c.PricingHint.String
+	return admintypes.AdminMarketplaceCapability{
+		CapabilityID: c.CapabilityID,
+		Status:       org.MarketplaceCapabilityStatus(c.Status),
+		Translations: ts,
+		CreatedAt:    c.CreatedAt.Time.UTC().Format(time.RFC3339),
+		UpdatedAt:    c.UpdatedAt.Time.UTC().Format(time.RFC3339),
 	}
-	return result
 }
 
-// adminEnrollmentToAPI converts a regionaldb MarketplaceEnrollment to the admin API type.
-func adminEnrollmentToAPI(orgDomain string, e regionaldb.MarketplaceEnrollment) admintypes.AdminMarketplaceEnrollment {
-	result := admintypes.AdminMarketplaceEnrollment{
-		OrgDomain:      orgDomain,
-		CapabilitySlug: e.CapabilitySlug,
-		Status:         org.MarketplaceEnrollmentStatus(e.Status),
-		BillingStatus:  e.BillingStatus,
-		CreatedAt:      e.CreatedAt.Time.UTC().Format(time.RFC3339),
-		UpdatedAt:      e.UpdatedAt.Time.UTC().Format(time.RFC3339),
+// adminListingToAPI converts a regionaldb MarketplaceListing to the admin API type.
+func adminListingToAPI(l regionaldb.MarketplaceListing) admintypes.AdminMarketplaceListing {
+	result := admintypes.AdminMarketplaceListing{
+		ListingID:     uuidToString(l.ListingID),
+		OrgDomain:     l.OrgDomain,
+		CapabilityID:  l.CapabilityID,
+		Headline:      l.Headline,
+		Summary:       l.Summary,
+		Description:   l.Description,
+		RegionsServed: l.RegionsServed,
+		ContactMode:   org.MarketplaceContactMode(l.ContactMode),
+		ContactValue:  l.ContactValue,
+		Status:        org.MarketplaceListingStatus(l.Status),
+		CreatedAt:     l.CreatedAt.Time.UTC().Format(time.RFC3339),
+		UpdatedAt:     l.UpdatedAt.Time.UTC().Format(time.RFC3339),
 	}
-	if e.ApplicationNote.Valid {
-		result.ApplicationNote = &e.ApplicationNote.String
+	if l.PricingHint.Valid {
+		result.PricingHint = &l.PricingHint.String
 	}
-	if e.ReviewNote.Valid {
-		result.ReviewNote = &e.ReviewNote.String
+	if l.SuspensionNote.Valid {
+		result.SuspensionNote = &l.SuspensionNote.String
 	}
-	if e.ApprovedAt.Valid {
-		s := e.ApprovedAt.Time.UTC().Format(time.RFC3339)
-		result.ApprovedAt = &s
-	}
-	if e.ExpiresAt.Valid {
-		s := e.ExpiresAt.Time.UTC().Format(time.RFC3339)
-		result.ExpiresAt = &s
-	}
-	if e.BillingReference.Valid {
-		result.BillingReference = &e.BillingReference.String
-	}
-	return result
-}
-
-// adminOfferToAPI converts a regionaldb MarketplaceOffer to the admin API type.
-func adminOfferToAPI(orgDomain string, o regionaldb.MarketplaceOffer) admintypes.AdminMarketplaceOffer {
-	result := admintypes.AdminMarketplaceOffer{
-		OrgDomain:      orgDomain,
-		CapabilitySlug: o.CapabilitySlug,
-		Headline:       o.Headline,
-		Summary:        o.Summary,
-		Description:    o.Description,
-		RegionsServed:  o.RegionsServed,
-		ContactMode:    org.MarketplaceContactMode(o.ContactMode),
-		ContactValue:   o.ContactValue,
-		Status:         org.MarketplaceOfferStatus(o.Status),
-		CreatedAt:      o.CreatedAt.Time.UTC().Format(time.RFC3339),
-		UpdatedAt:      o.UpdatedAt.Time.UTC().Format(time.RFC3339),
-	}
-	if o.PricingHint.Valid {
-		result.PricingHint = &o.PricingHint.String
-	}
-	if o.ReviewNote.Valid {
-		result.ReviewNote = &o.ReviewNote.String
+	if l.ListedAt.Valid {
+		s := l.ListedAt.Time.UTC().Format(time.RFC3339)
+		result.ListedAt = &s
 	}
 	return result
 }
 
 // adminSubscriptionToAPI converts a regionaldb MarketplaceSubscription to the admin API type.
-func adminSubscriptionToAPI(s regionaldb.MarketplaceSubscription) admintypes.AdminMarketplaceSubscription {
+func adminSubscriptionToAPI(sub regionaldb.MarketplaceSubscription) admintypes.AdminMarketplaceSubscription {
 	result := admintypes.AdminMarketplaceSubscription{
-		ConsumerOrgDomain:      s.ConsumerOrgDomain,
-		ProviderOrgDomain:      s.ProviderOrgDomain,
-		CapabilitySlug:         s.CapabilitySlug,
-		Status:                 org.MarketplaceSubscriptionStatus(s.Status),
-		RequiresProviderReview: s.RequiresProviderReview,
-		RequiresAdminReview:    s.RequiresAdminReview,
-		RequiresContract:       s.RequiresContract,
-		RequiresPayment:        s.RequiresPayment,
-		CreatedAt:              s.CreatedAt.Time.UTC().Format(time.RFC3339),
-		UpdatedAt:              s.UpdatedAt.Time.UTC().Format(time.RFC3339),
+		SubscriptionID:    uuidToString(sub.SubscriptionID),
+		ListingID:         uuidToString(sub.ListingID),
+		ConsumerOrgDomain: sub.ConsumerOrgDomain,
+		ProviderOrgDomain: sub.ProviderOrgDomain,
+		CapabilityID:      sub.CapabilityID,
+		Status:            org.MarketplaceSubscriptionStatus(sub.Status),
+		StartedAt:         sub.StartedAt.Time.UTC().Format(time.RFC3339),
+		CreatedAt:         sub.CreatedAt.Time.UTC().Format(time.RFC3339),
+		UpdatedAt:         sub.UpdatedAt.Time.UTC().Format(time.RFC3339),
 	}
-	if s.RequestNote.Valid {
-		result.RequestNote = &s.RequestNote.String
+	if sub.RequestNote.Valid {
+		result.RequestNote = &sub.RequestNote.String
 	}
-	if s.ReviewNote.Valid {
-		result.ReviewNote = &s.ReviewNote.String
+	if sub.ExpiresAt.Valid {
+		s := sub.ExpiresAt.Time.UTC().Format(time.RFC3339)
+		result.ExpiresAt = &s
 	}
-	if s.StartsAt.Valid {
-		ts := s.StartsAt.Time.UTC().Format(time.RFC3339)
-		result.StartsAt = &ts
-	}
-	if s.ExpiresAt.Valid {
-		ts := s.ExpiresAt.Time.UTC().Format(time.RFC3339)
-		result.ExpiresAt = &ts
-	}
-	return result
-}
-
-// adminBillingRecordToAPI converts a globaldb MarketplaceBillingRecord to the admin API type.
-func adminBillingRecordToAPI(b globaldb.MarketplaceBillingRecord) admintypes.AdminBillingRecord {
-	result := admintypes.AdminBillingRecord{
-		ConsumerOrgDomain: b.ConsumerOrgDomain,
-		ProviderOrgDomain: b.ProviderOrgDomain,
-		CapabilitySlug:    b.CapabilitySlug,
-		EventType:         b.EventType,
-		CreatedAt:         b.CreatedAt.Time.UTC().Format(time.RFC3339),
-	}
-	if b.Note.Valid {
-		result.Note = &b.Note.String
+	if sub.CancelledAt.Valid {
+		s := sub.CancelledAt.Time.UTC().Format(time.RFC3339)
+		result.CancelledAt = &s
 	}
 	return result
 }
@@ -141,13 +93,11 @@ func optionalText(s *string) pgtype.Text {
 	return pgtype.Text{}
 }
 
-// optionalTimestamptz parses an optional RFC3339 time string to pgtype.Timestamptz.
-func optionalTimestamptz(s *string) pgtype.Timestamptz {
-	if s != nil && *s != "" {
-		t, err := time.Parse(time.RFC3339, *s)
-		if err == nil {
-			return pgtype.Timestamptz{Time: t, Valid: true}
-		}
+// parseUUID parses a UUID string to pgtype.UUID. Returns invalid UUID on error.
+func parseUUID(s string) pgtype.UUID {
+	var u pgtype.UUID
+	if err := u.Scan(s); err != nil {
+		return pgtype.UUID{}
 	}
-	return pgtype.Timestamptz{}
+	return u
 }

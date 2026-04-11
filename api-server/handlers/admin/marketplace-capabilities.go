@@ -26,7 +26,6 @@ func AdminListCapabilities(s *server.GlobalServer) http.HandlerFunc {
 
 		adminUser := middleware.AdminUserFromContext(ctx)
 		if adminUser == nil {
-			log.Debug("admin user not found in context")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
@@ -37,9 +36,7 @@ func AdminListCapabilities(s *server.GlobalServer) http.HandlerFunc {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-
 		if errs := req.Validate(); len(errs) > 0 {
-			log.Debug("validation failed", "errors", errs)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(errs)
 			return
@@ -75,22 +72,25 @@ func AdminListCapabilities(s *server.GlobalServer) http.HandlerFunc {
 
 		caps := make([]admintypes.AdminMarketplaceCapability, 0, len(rows))
 		for _, row := range rows {
-			caps = append(caps, adminCapabilityToAPI(row))
+			translations, tErr := s.Global.ListCapabilityTranslations(ctx, row.CapabilityID)
+			if tErr != nil {
+				log.Error("failed to list translations", "capability_id", row.CapabilityID, "error", tErr)
+				http.Error(w, "", http.StatusInternalServerError)
+				return
+			}
+			caps = append(caps, adminCapabilityToAPI(row, translations))
 		}
 
 		var nextKey *string
 		if hasMore && len(rows) > 0 {
 			last := rows[len(rows)-1]
-			nextKey = &last.CapabilitySlug
+			nextKey = &last.CapabilityID
 		}
 
-		resp := admintypes.AdminListCapabilitiesResponse{
+		json.NewEncoder(w).Encode(admintypes.AdminListCapabilitiesResponse{
 			Capabilities:      caps,
 			NextPaginationKey: nextKey,
-		}
-		if err := json.NewEncoder(w).Encode(resp); err != nil {
-			log.Error("failed to encode response", "error", err)
-		}
+		})
 	}
 }
 
@@ -103,7 +103,6 @@ func AdminGetCapability(s *server.GlobalServer) http.HandlerFunc {
 
 		adminUser := middleware.AdminUserFromContext(ctx)
 		if adminUser == nil {
-			log.Debug("admin user not found in context")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
@@ -114,15 +113,13 @@ func AdminGetCapability(s *server.GlobalServer) http.HandlerFunc {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-
 		if errs := req.Validate(); len(errs) > 0 {
-			log.Debug("validation failed", "errors", errs)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(errs)
 			return
 		}
 
-		cap, err := s.Global.GetMarketplaceCapabilityBySlug(ctx, req.CapabilitySlug)
+		cap, err := s.Global.GetMarketplaceCapabilityByID(ctx, req.CapabilityID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				w.WriteHeader(http.StatusNotFound)
@@ -133,9 +130,14 @@ func AdminGetCapability(s *server.GlobalServer) http.HandlerFunc {
 			return
 		}
 
-		if err := json.NewEncoder(w).Encode(adminCapabilityToAPI(cap)); err != nil {
-			log.Error("failed to encode response", "error", err)
+		translations, err := s.Global.ListCapabilityTranslations(ctx, req.CapabilityID)
+		if err != nil {
+			log.Error("failed to list translations", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
 		}
+
+		json.NewEncoder(w).Encode(adminCapabilityToAPI(cap, translations))
 	}
 }
 
@@ -148,7 +150,6 @@ func AdminCreateCapability(s *server.GlobalServer) http.HandlerFunc {
 
 		adminUser := middleware.AdminUserFromContext(ctx)
 		if adminUser == nil {
-			log.Debug("admin user not found in context")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
@@ -159,38 +160,39 @@ func AdminCreateCapability(s *server.GlobalServer) http.HandlerFunc {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-
 		if errs := req.Validate(); len(errs) > 0 {
-			log.Debug("validation failed", "errors", errs)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(errs)
 			return
 		}
 
 		var cap globaldb.MarketplaceCapability
+		var translations []globaldb.MarketplaceCapabilityTranslation
 		err := s.WithGlobalTx(ctx, func(qtx *globaldb.Queries) error {
 			var txErr error
 			cap, txErr = qtx.CreateMarketplaceCapability(ctx, globaldb.CreateMarketplaceCapabilityParams{
-				CapabilitySlug:       req.CapabilitySlug,
-				DisplayName:          req.DisplayName,
-				Description:          req.Description,
-				ProviderEnabled:      req.ProviderEnabled,
-				ConsumerEnabled:      req.ConsumerEnabled,
-				EnrollmentApproval:   req.EnrollmentApproval,
-				OfferReview:          req.OfferReview,
-				SubscriptionApproval: req.SubscriptionApproval,
-				ContractRequired:     req.ContractRequired,
-				PaymentRequired:      req.PaymentRequired,
-				PricingHint:          optionalText(req.PricingHint),
+				CapabilityID: req.CapabilityID,
+				Status:       string(req.Status),
 			})
 			if txErr != nil {
 				return txErr
+			}
+			for _, t := range req.Translations {
+				txErr = qtx.UpsertCapabilityTranslation(ctx, globaldb.UpsertCapabilityTranslationParams{
+					CapabilityID: req.CapabilityID,
+					Locale:       t.Locale,
+					DisplayName:  t.DisplayName,
+					Description:  t.Description,
+				})
+				if txErr != nil {
+					return txErr
+				}
 			}
 			return qtx.InsertAdminAuditLog(ctx, globaldb.InsertAdminAuditLogParams{
 				EventType:   "admin.marketplace_capability_created",
 				ActorUserID: adminUser.AdminUserID,
 				IpAddress:   audit.ExtractClientIP(r),
-				EventData:   []byte(`{"capability_slug":"` + req.CapabilitySlug + `"}`),
+				EventData:   []byte(`{"capability_id":"` + req.CapabilityID + `"}`),
 			})
 		})
 		if err != nil {
@@ -199,14 +201,22 @@ func AdminCreateCapability(s *server.GlobalServer) http.HandlerFunc {
 			return
 		}
 
-		w.WriteHeader(http.StatusCreated)
-		if err := json.NewEncoder(w).Encode(adminCapabilityToAPI(cap)); err != nil {
-			log.Error("failed to encode response", "error", err)
+		for _, t := range req.Translations {
+			translations = append(translations, globaldb.MarketplaceCapabilityTranslation{
+				CapabilityID: req.CapabilityID,
+				Locale:       t.Locale,
+				DisplayName:  t.DisplayName,
+				Description:  t.Description,
+			})
 		}
+
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(adminCapabilityToAPI(cap, translations))
 	}
 }
 
 // AdminUpdateCapability handles POST /admin/marketplace/capabilities/update
+// Updates translations only (capability_id and status are immutable here).
 func AdminUpdateCapability(s *server.GlobalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -215,7 +225,6 @@ func AdminUpdateCapability(s *server.GlobalServer) http.HandlerFunc {
 
 		adminUser := middleware.AdminUserFromContext(ctx)
 		if adminUser == nil {
-			log.Debug("admin user not found in context")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
@@ -226,53 +235,56 @@ func AdminUpdateCapability(s *server.GlobalServer) http.HandlerFunc {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-
 		if errs := req.Validate(); len(errs) > 0 {
-			log.Debug("validation failed", "errors", errs)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(errs)
 			return
 		}
 
-		var cap globaldb.MarketplaceCapability
-		err := s.WithGlobalTx(ctx, func(qtx *globaldb.Queries) error {
-			var txErr error
-			cap, txErr = qtx.UpdateMarketplaceCapability(ctx, globaldb.UpdateMarketplaceCapabilityParams{
-				CapabilitySlug:       req.CapabilitySlug,
-				DisplayName:          req.DisplayName,
-				Description:          req.Description,
-				ProviderEnabled:      req.ProviderEnabled,
-				ConsumerEnabled:      req.ConsumerEnabled,
-				EnrollmentApproval:   req.EnrollmentApproval,
-				OfferReview:          req.OfferReview,
-				SubscriptionApproval: req.SubscriptionApproval,
-				ContractRequired:     req.ContractRequired,
-				PaymentRequired:      req.PaymentRequired,
-				PricingHint:          optionalText(req.PricingHint),
-			})
-			if txErr != nil {
-				return txErr
-			}
-			return qtx.InsertAdminAuditLog(ctx, globaldb.InsertAdminAuditLogParams{
-				EventType:   "admin.marketplace_capability_updated",
-				ActorUserID: adminUser.AdminUserID,
-				IpAddress:   audit.ExtractClientIP(r),
-				EventData:   []byte(`{"capability_slug":"` + req.CapabilitySlug + `"}`),
-			})
-		})
+		// Verify capability exists first.
+		cap, err := s.Global.GetMarketplaceCapabilityByID(ctx, req.CapabilityID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
-			log.Error("failed to update capability", "error", err)
+			log.Error("failed to get capability", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		if err := json.NewEncoder(w).Encode(adminCapabilityToAPI(cap)); err != nil {
-			log.Error("failed to encode response", "error", err)
+		err = s.WithGlobalTx(ctx, func(qtx *globaldb.Queries) error {
+			for _, t := range req.Translations {
+				if txErr := qtx.UpsertCapabilityTranslation(ctx, globaldb.UpsertCapabilityTranslationParams{
+					CapabilityID: req.CapabilityID,
+					Locale:       t.Locale,
+					DisplayName:  t.DisplayName,
+					Description:  t.Description,
+				}); txErr != nil {
+					return txErr
+				}
+			}
+			return qtx.InsertAdminAuditLog(ctx, globaldb.InsertAdminAuditLogParams{
+				EventType:   "admin.marketplace_capability_updated",
+				ActorUserID: adminUser.AdminUserID,
+				IpAddress:   audit.ExtractClientIP(r),
+				EventData:   []byte(`{"capability_id":"` + req.CapabilityID + `"}`),
+			})
+		})
+		if err != nil {
+			log.Error("failed to update capability translations", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
 		}
+
+		translations, err := s.Global.ListCapabilityTranslations(ctx, req.CapabilityID)
+		if err != nil {
+			log.Error("failed to list translations", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
+		json.NewEncoder(w).Encode(adminCapabilityToAPI(cap, translations))
 	}
 }
 
@@ -285,7 +297,6 @@ func AdminEnableCapability(s *server.GlobalServer) http.HandlerFunc {
 
 		adminUser := middleware.AdminUserFromContext(ctx)
 		if adminUser == nil {
-			log.Debug("admin user not found in context")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
@@ -296,9 +307,7 @@ func AdminEnableCapability(s *server.GlobalServer) http.HandlerFunc {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-
 		if errs := req.Validate(); len(errs) > 0 {
-			log.Debug("validation failed", "errors", errs)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(errs)
 			return
@@ -307,7 +316,7 @@ func AdminEnableCapability(s *server.GlobalServer) http.HandlerFunc {
 		var cap globaldb.MarketplaceCapability
 		err := s.WithGlobalTx(ctx, func(qtx *globaldb.Queries) error {
 			var txErr error
-			cap, txErr = qtx.EnableMarketplaceCapability(ctx, req.CapabilitySlug)
+			cap, txErr = qtx.EnableMarketplaceCapability(ctx, req.CapabilityID)
 			if txErr != nil {
 				return txErr
 			}
@@ -315,7 +324,7 @@ func AdminEnableCapability(s *server.GlobalServer) http.HandlerFunc {
 				EventType:   "admin.marketplace_capability_enabled",
 				ActorUserID: adminUser.AdminUserID,
 				IpAddress:   audit.ExtractClientIP(r),
-				EventData:   []byte(`{"capability_slug":"` + req.CapabilitySlug + `"}`),
+				EventData:   []byte(`{"capability_id":"` + req.CapabilityID + `"}`),
 			})
 		})
 		if err != nil {
@@ -328,9 +337,14 @@ func AdminEnableCapability(s *server.GlobalServer) http.HandlerFunc {
 			return
 		}
 
-		if err := json.NewEncoder(w).Encode(adminCapabilityToAPI(cap)); err != nil {
-			log.Error("failed to encode response", "error", err)
+		translations, err := s.Global.ListCapabilityTranslations(ctx, req.CapabilityID)
+		if err != nil {
+			log.Error("failed to list translations", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
 		}
+
+		json.NewEncoder(w).Encode(adminCapabilityToAPI(cap, translations))
 	}
 }
 
@@ -343,7 +357,6 @@ func AdminDisableCapability(s *server.GlobalServer) http.HandlerFunc {
 
 		adminUser := middleware.AdminUserFromContext(ctx)
 		if adminUser == nil {
-			log.Debug("admin user not found in context")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
@@ -354,9 +367,7 @@ func AdminDisableCapability(s *server.GlobalServer) http.HandlerFunc {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-
 		if errs := req.Validate(); len(errs) > 0 {
-			log.Debug("validation failed", "errors", errs)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(errs)
 			return
@@ -365,7 +376,7 @@ func AdminDisableCapability(s *server.GlobalServer) http.HandlerFunc {
 		var cap globaldb.MarketplaceCapability
 		err := s.WithGlobalTx(ctx, func(qtx *globaldb.Queries) error {
 			var txErr error
-			cap, txErr = qtx.DisableMarketplaceCapability(ctx, req.CapabilitySlug)
+			cap, txErr = qtx.DisableMarketplaceCapability(ctx, req.CapabilityID)
 			if txErr != nil {
 				return txErr
 			}
@@ -373,7 +384,7 @@ func AdminDisableCapability(s *server.GlobalServer) http.HandlerFunc {
 				EventType:   "admin.marketplace_capability_disabled",
 				ActorUserID: adminUser.AdminUserID,
 				IpAddress:   audit.ExtractClientIP(r),
-				EventData:   []byte(`{"capability_slug":"` + req.CapabilitySlug + `"}`),
+				EventData:   []byte(`{"capability_id":"` + req.CapabilityID + `"}`),
 			})
 		})
 		if err != nil {
@@ -386,8 +397,13 @@ func AdminDisableCapability(s *server.GlobalServer) http.HandlerFunc {
 			return
 		}
 
-		if err := json.NewEncoder(w).Encode(adminCapabilityToAPI(cap)); err != nil {
-			log.Error("failed to encode response", "error", err)
+		translations, err := s.Global.ListCapabilityTranslations(ctx, req.CapabilityID)
+		if err != nil {
+			log.Error("failed to list translations", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
 		}
+
+		json.NewEncoder(w).Encode(adminCapabilityToAPI(cap, translations))
 	}
 }

@@ -288,8 +288,8 @@ INSERT INTO roles (role_name, description) VALUES
     ('admin:manage_domains', 'Can add, enable/disable approved domains'),
     ('admin:manage_tags', 'Can create and update tags'),
     ('admin:view_audit_logs', 'Can view admin portal audit logs'),
-    ('admin:view_marketplace', 'Can view marketplace capabilities, enrollments, offers, and subscriptions (read-only)'),
-    ('admin:manage_marketplace', 'Can manage marketplace capabilities, review enrollments, offers, and subscriptions');
+    ('admin:view_marketplace', 'Can view marketplace capabilities, listings, and subscriptions (read-only)'),
+    ('admin:manage_marketplace', 'Can manage marketplace capabilities, suspend/reinstate listings, and cancel subscriptions');
 
 -- Admin audit logs table (unified audit log for all admin portal write operations)
 CREATE TABLE admin_audit_logs (
@@ -303,71 +303,73 @@ CREATE TABLE admin_audit_logs (
 );
 
 -- Marketplace: capability catalog (admin-managed, global)
+-- Only stores operational settings; display_name and description are in translations table
 CREATE TABLE marketplace_capabilities (
-    id                    UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-    capability_slug       TEXT        NOT NULL UNIQUE,
-    display_name          TEXT        NOT NULL,
-    description           TEXT        NOT NULL DEFAULT '',
-    provider_enabled      BOOLEAN     NOT NULL DEFAULT FALSE,
-    consumer_enabled      BOOLEAN     NOT NULL DEFAULT FALSE,
-    enrollment_approval   TEXT        NOT NULL DEFAULT 'manual' CHECK (enrollment_approval IN ('open', 'manual')),
-    offer_review          TEXT        NOT NULL DEFAULT 'manual' CHECK (offer_review IN ('auto', 'manual')),
-    subscription_approval TEXT        NOT NULL DEFAULT 'direct' CHECK (subscription_approval IN ('direct', 'provider', 'admin', 'provider_and_admin')),
-    contract_required     BOOLEAN     NOT NULL DEFAULT FALSE,
-    payment_required      BOOLEAN     NOT NULL DEFAULT FALSE,
-    pricing_hint          TEXT,
-    status                TEXT        NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'active', 'disabled')),
-    created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    capability_id TEXT        PRIMARY KEY,
+    status        TEXT        NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'active', 'disabled')),
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Initial marketplace capabilities
-INSERT INTO marketplace_capabilities (capability_slug, display_name, description, provider_enabled, consumer_enabled, enrollment_approval, offer_review, subscription_approval, contract_required, payment_required, status) VALUES
-    ('staffing', 'Staffing', 'Professional staffing and recruitment services', TRUE, TRUE, 'manual', 'manual', 'provider', FALSE, FALSE, 'active');
+-- Marketplace: capability translations (i18n names and descriptions)
+CREATE TABLE marketplace_capability_translations (
+    capability_id TEXT        NOT NULL REFERENCES marketplace_capabilities(capability_id),
+    locale        TEXT        NOT NULL,
+    display_name  TEXT        NOT NULL,
+    description   TEXT        NOT NULL DEFAULT '',
+    PRIMARY KEY (capability_id, locale)
+);
 
--- Global offer catalog mirror (list-view subset, updated on offer status changes)
-CREATE TABLE marketplace_offer_catalog (
-    id                     UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-    provider_org_global_id UUID        NOT NULL,
-    provider_org_domain    TEXT        NOT NULL,
-    provider_region        TEXT        NOT NULL,
-    capability_slug        TEXT        NOT NULL,
-    headline               TEXT        NOT NULL DEFAULT '',
+-- Initial marketplace capability
+INSERT INTO marketplace_capabilities (capability_id, status) VALUES ('staffing', 'active');
+INSERT INTO marketplace_capability_translations (capability_id, locale, display_name, description) VALUES
+    ('staffing', 'en-US', 'Staffing', 'Professional staffing and recruitment services'),
+    ('staffing', 'de-DE', 'Personalvermittlung', 'Professionelle Personalvermittlung und Rekrutierung'),
+    ('staffing', 'ta-IN', 'பணியாளர் நியமனம்', 'தொழில்முறை பணியாளர் நியமன மற்றும் ஆட்சேர்ப்பு சேவைகள்');
+
+-- Global listing catalog mirror (browse-card fields for active listings across all regions)
+-- Updated transactionally when a listing is published or deactivated in the regional DB
+CREATE TABLE marketplace_listing_catalog (
+    listing_id             UUID        PRIMARY KEY,
+    org_global_id          UUID        NOT NULL,
+    org_domain             TEXT        NOT NULL,
+    org_region             TEXT        NOT NULL,
+    capability_id          TEXT        NOT NULL REFERENCES marketplace_capabilities(capability_id),
+    headline               TEXT        NOT NULL,
     summary                TEXT        NOT NULL DEFAULT '',
-    pricing_hint           TEXT,
     regions_served         TEXT[]      NOT NULL DEFAULT '{}',
+    pricing_hint           TEXT,
     contact_mode           TEXT        NOT NULL DEFAULT 'external_url' CHECK (contact_mode IN ('platform_message', 'external_url', 'email')),
     contact_value          TEXT        NOT NULL DEFAULT '',
-    status                 TEXT        NOT NULL CHECK (status IN ('active', 'suspended', 'archived')),
+    listed_at              TIMESTAMPTZ NOT NULL,
     created_at             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE (provider_org_global_id, capability_slug)
+    updated_at             TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Global subscription routing (for provider inbox cross-region queries)
-CREATE TABLE marketplace_subscription_routing (
-    id                     UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+-- Global subscription index (routing table for provider client view across regions)
+-- Updated transactionally whenever a subscription is created, reactivated, or cancelled
+CREATE TABLE marketplace_subscription_index (
+    subscription_id        UUID        PRIMARY KEY,
+    listing_id             UUID        NOT NULL,
     consumer_org_global_id UUID        NOT NULL,
     consumer_org_domain    TEXT        NOT NULL,
     consumer_region        TEXT        NOT NULL,
     provider_org_global_id UUID        NOT NULL,
     provider_org_domain    TEXT        NOT NULL,
-    provider_region        TEXT        NOT NULL,
-    capability_slug        TEXT        NOT NULL,
+    capability_id          TEXT        NOT NULL,
     status                 TEXT        NOT NULL,
+    started_at             TIMESTAMPTZ,
     created_at             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE (consumer_org_global_id, provider_org_global_id, capability_slug)
+    UNIQUE (consumer_org_global_id, listing_id)
 );
 
 -- Marketplace billing records (global, centralized)
 CREATE TABLE marketplace_billing_records (
     id                     UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-    consumer_org_global_id UUID        NOT NULL,
-    consumer_org_domain    TEXT        NOT NULL,
     provider_org_global_id UUID        NOT NULL,
     provider_org_domain    TEXT        NOT NULL,
-    capability_slug        TEXT        NOT NULL,
+    capability_id          TEXT        NOT NULL,
     event_type             TEXT        NOT NULL,
     note                   TEXT,
     created_at             TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -392,18 +394,23 @@ CREATE INDEX idx_admin_audit_logs_created_at_id ON admin_audit_logs(created_at D
 CREATE INDEX idx_admin_audit_logs_actor_user_id ON admin_audit_logs(actor_user_id);
 CREATE INDEX idx_admin_audit_logs_event_type ON admin_audit_logs(event_type);
 CREATE INDEX idx_marketplace_capabilities_status ON marketplace_capabilities(status);
-CREATE INDEX idx_marketplace_offer_catalog_capability ON marketplace_offer_catalog(capability_slug, status);
-CREATE INDEX idx_marketplace_subscription_routing_provider ON marketplace_subscription_routing(provider_org_global_id, status, updated_at DESC);
+CREATE INDEX idx_marketplace_listing_catalog_capability ON marketplace_listing_catalog(capability_id, listed_at DESC);
+CREATE INDEX idx_marketplace_listing_catalog_org ON marketplace_listing_catalog(org_global_id);
+CREATE INDEX idx_marketplace_subscription_index_provider ON marketplace_subscription_index(provider_org_global_id, status, updated_at DESC);
+CREATE INDEX idx_marketplace_subscription_index_consumer ON marketplace_subscription_index(consumer_org_global_id, status, updated_at DESC);
 CREATE INDEX idx_marketplace_billing_records_created_at ON marketplace_billing_records(created_at DESC);
 
 -- +goose Down
 DROP INDEX IF EXISTS idx_marketplace_billing_records_created_at;
-DROP INDEX IF EXISTS idx_marketplace_subscription_routing_provider;
-DROP INDEX IF EXISTS idx_marketplace_offer_catalog_capability;
+DROP INDEX IF EXISTS idx_marketplace_subscription_index_consumer;
+DROP INDEX IF EXISTS idx_marketplace_subscription_index_provider;
+DROP INDEX IF EXISTS idx_marketplace_listing_catalog_org;
+DROP INDEX IF EXISTS idx_marketplace_listing_catalog_capability;
 DROP INDEX IF EXISTS idx_marketplace_capabilities_status;
 DROP TABLE IF EXISTS marketplace_billing_records;
-DROP TABLE IF EXISTS marketplace_subscription_routing;
-DROP TABLE IF EXISTS marketplace_offer_catalog;
+DROP TABLE IF EXISTS marketplace_subscription_index;
+DROP TABLE IF EXISTS marketplace_listing_catalog;
+DROP TABLE IF EXISTS marketplace_capability_translations;
 DROP TABLE IF EXISTS marketplace_capabilities;
 DROP INDEX IF EXISTS idx_admin_audit_logs_event_type;
 DROP INDEX IF EXISTS idx_admin_audit_logs_actor_user_id;

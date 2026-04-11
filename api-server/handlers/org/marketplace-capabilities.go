@@ -1,8 +1,10 @@
 package org
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 
 	"github.com/jackc/pgx/v5"
@@ -13,10 +15,11 @@ import (
 	orgtypes "vetchium-api-server.typespec/org"
 )
 
-const defaultMarketplaceCapabilityLimit = 20
-const maxMarketplaceCapabilityLimit = 100
+const defaultOrgCapabilityLimit = 50
+const maxOrgCapabilityLimit = 200
 
 // ListMarketplaceCapabilities handles POST /org/marketplace/capabilities/list
+// Returns active capabilities with translations for the user's preferred locale (en-US fallback).
 func ListMarketplaceCapabilities(s *server.RegionalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -25,7 +28,6 @@ func ListMarketplaceCapabilities(s *server.RegionalServer) http.HandlerFunc {
 
 		orgUser := middleware.OrgUserFromContext(ctx)
 		if orgUser == nil {
-			log.Debug("org user not found in context")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
@@ -36,20 +38,18 @@ func ListMarketplaceCapabilities(s *server.RegionalServer) http.HandlerFunc {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-
 		if errs := req.Validate(); len(errs) > 0 {
-			log.Debug("validation failed", "errors", errs)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(errs)
 			return
 		}
 
-		limit := int32(defaultMarketplaceCapabilityLimit)
+		limit := int32(defaultOrgCapabilityLimit)
 		if req.Limit != nil && *req.Limit > 0 {
-			if int32(*req.Limit) < maxMarketplaceCapabilityLimit {
+			if int32(*req.Limit) < maxOrgCapabilityLimit {
 				limit = int32(*req.Limit)
 			} else {
-				limit = maxMarketplaceCapabilityLimit
+				limit = maxOrgCapabilityLimit
 			}
 		}
 
@@ -62,7 +62,7 @@ func ListMarketplaceCapabilities(s *server.RegionalServer) http.HandlerFunc {
 
 		rows, err := s.Global.ListActiveMarketplaceCapabilities(ctx, params)
 		if err != nil {
-			log.Error("failed to list marketplace capabilities", "error", err)
+			log.Error("failed to list capabilities", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -72,25 +72,26 @@ func ListMarketplaceCapabilities(s *server.RegionalServer) http.HandlerFunc {
 			rows = rows[:limit]
 		}
 
+		locale := orgUser.PreferredLanguage
+		if locale == "" {
+			locale = "en-US"
+		}
+
 		caps := make([]orgtypes.MarketplaceCapability, 0, len(rows))
 		for _, row := range rows {
-			caps = append(caps, dbCapabilityToAPI(row))
+			caps = append(caps, resolveCapabilityLocale(s, ctx, log, row, locale))
 		}
 
 		var nextKey *string
 		if hasMore && len(rows) > 0 {
 			last := rows[len(rows)-1]
-			key := last.CapabilitySlug
-			nextKey = &key
+			nextKey = &last.CapabilityID
 		}
 
-		resp := orgtypes.ListMarketplaceCapabilitiesResponse{
+		json.NewEncoder(w).Encode(orgtypes.ListMarketplaceCapabilitiesResponse{
 			Capabilities:      caps,
 			NextPaginationKey: nextKey,
-		}
-		if err := json.NewEncoder(w).Encode(resp); err != nil {
-			log.Error("failed to encode response", "error", err)
-		}
+		})
 	}
 }
 
@@ -103,7 +104,6 @@ func GetMarketplaceCapability(s *server.RegionalServer) http.HandlerFunc {
 
 		orgUser := middleware.OrgUserFromContext(ctx)
 		if orgUser == nil {
-			log.Debug("org user not found in context")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
@@ -114,27 +114,57 @@ func GetMarketplaceCapability(s *server.RegionalServer) http.HandlerFunc {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-
 		if errs := req.Validate(); len(errs) > 0 {
-			log.Debug("validation failed", "errors", errs)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(errs)
 			return
 		}
 
-		cap, err := s.Global.GetMarketplaceCapabilityBySlug(ctx, req.CapabilitySlug)
+		row, err := s.Global.GetMarketplaceCapabilityByID(ctx, req.CapabilityID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
-			log.Error("failed to get marketplace capability", "error", err)
+			log.Error("failed to get capability", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		if err := json.NewEncoder(w).Encode(dbCapabilityToAPI(cap)); err != nil {
-			log.Error("failed to encode response", "error", err)
+		locale := orgUser.PreferredLanguage
+		if locale == "" {
+			locale = "en-US"
 		}
+
+		json.NewEncoder(w).Encode(resolveCapabilityLocale(s, ctx, log, row, locale))
+	}
+}
+
+// resolveCapabilityLocale returns a MarketplaceCapability with translated display_name/description
+// for the given locale, falling back to en-US.
+func resolveCapabilityLocale(s *server.RegionalServer, ctx context.Context, log *slog.Logger, row globaldb.MarketplaceCapability, locale string) orgtypes.MarketplaceCapability {
+	displayName := ""
+	description := ""
+
+	for _, tryLocale := range []string{locale, "en-US"} {
+		t, err := s.Global.GetCapabilityTranslation(ctx, globaldb.GetCapabilityTranslationParams{
+			CapabilityID: row.CapabilityID,
+			Locale:       tryLocale,
+		})
+		if err == nil {
+			displayName = t.DisplayName
+			description = t.Description
+			break
+		}
+		if !errors.Is(err, pgx.ErrNoRows) {
+			log.Error("failed to get translation", "capability_id", row.CapabilityID, "locale", tryLocale)
+		}
+	}
+
+	return orgtypes.MarketplaceCapability{
+		CapabilityID: row.CapabilityID,
+		DisplayName:  displayName,
+		Description:  description,
+		Status:       orgtypes.MarketplaceCapabilityStatus(row.Status),
 	}
 }

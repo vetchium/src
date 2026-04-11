@@ -19,39 +19,21 @@ const (
 	MarketplaceCapabilityStatusDisabled MarketplaceCapabilityStatus = "disabled"
 )
 
-type MarketplaceEnrollmentStatus string
+type MarketplaceListingStatus string
 
 const (
-	MarketplaceEnrollmentStatusPendingReview MarketplaceEnrollmentStatus = "pending_review"
-	MarketplaceEnrollmentStatusApproved      MarketplaceEnrollmentStatus = "approved"
-	MarketplaceEnrollmentStatusRejected      MarketplaceEnrollmentStatus = "rejected"
-	MarketplaceEnrollmentStatusSuspended     MarketplaceEnrollmentStatus = "suspended"
-	MarketplaceEnrollmentStatusExpired       MarketplaceEnrollmentStatus = "expired"
-)
-
-type MarketplaceOfferStatus string
-
-const (
-	MarketplaceOfferStatusDraft         MarketplaceOfferStatus = "draft"
-	MarketplaceOfferStatusPendingReview MarketplaceOfferStatus = "pending_review"
-	MarketplaceOfferStatusActive        MarketplaceOfferStatus = "active"
-	MarketplaceOfferStatusRejected      MarketplaceOfferStatus = "rejected"
-	MarketplaceOfferStatusSuspended     MarketplaceOfferStatus = "suspended"
-	MarketplaceOfferStatusArchived      MarketplaceOfferStatus = "archived"
+	MarketplaceListingStatusDraft     MarketplaceListingStatus = "draft"
+	MarketplaceListingStatusActive    MarketplaceListingStatus = "active"
+	MarketplaceListingStatusSuspended MarketplaceListingStatus = "suspended"
+	MarketplaceListingStatusArchived  MarketplaceListingStatus = "archived"
 )
 
 type MarketplaceSubscriptionStatus string
 
 const (
-	MarketplaceSubscriptionStatusRequested        MarketplaceSubscriptionStatus = "requested"
-	MarketplaceSubscriptionStatusProviderReview   MarketplaceSubscriptionStatus = "provider_review"
-	MarketplaceSubscriptionStatusAdminReview      MarketplaceSubscriptionStatus = "admin_review"
-	MarketplaceSubscriptionStatusAwaitingContract MarketplaceSubscriptionStatus = "awaiting_contract"
-	MarketplaceSubscriptionStatusAwaitingPayment  MarketplaceSubscriptionStatus = "awaiting_payment"
-	MarketplaceSubscriptionStatusActive           MarketplaceSubscriptionStatus = "active"
-	MarketplaceSubscriptionStatusRejected         MarketplaceSubscriptionStatus = "rejected"
-	MarketplaceSubscriptionStatusCancelled        MarketplaceSubscriptionStatus = "cancelled"
-	MarketplaceSubscriptionStatusExpired          MarketplaceSubscriptionStatus = "expired"
+	MarketplaceSubscriptionStatusActive    MarketplaceSubscriptionStatus = "active"
+	MarketplaceSubscriptionStatusCancelled MarketplaceSubscriptionStatus = "cancelled"
+	MarketplaceSubscriptionStatusExpired   MarketplaceSubscriptionStatus = "expired"
 )
 
 type MarketplaceContactMode string
@@ -65,29 +47,27 @@ const (
 // ---- Validation constants ----
 
 const (
-	minCapabilitySlugLen   = 3
-	maxCapabilitySlugLen   = 50
+	minCapabilityIDLen     = 3
+	maxCapabilityIDLen     = 50
 	maxHeadlineLen         = 100
 	maxSummaryLen          = 500
-	maxOfferDescriptionLen = 10000
+	maxListingDescLen      = 10000
 	maxPricingHintLen      = 200
-	maxApplicationNoteLen  = 2000
 	maxRequestNoteLen      = 2000
-	maxReviewNoteLen       = 2000
 	maxContactValueLen     = 500
 )
 
-var capabilitySlugRegex = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$`)
+var capabilityIDRegex = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$`)
 
-func validateCapabilitySlug(slug string) error {
-	if len(slug) < minCapabilitySlugLen {
-		return fmt.Errorf("capability_slug must be at least %d characters", minCapabilitySlugLen)
+func validateCapabilityID(id string) error {
+	if len(id) < minCapabilityIDLen {
+		return fmt.Errorf("capability_id must be at least %d characters", minCapabilityIDLen)
 	}
-	if len(slug) > maxCapabilitySlugLen {
-		return fmt.Errorf("capability_slug must be at most %d characters", maxCapabilitySlugLen)
+	if len(id) > maxCapabilityIDLen {
+		return fmt.Errorf("capability_id must be at most %d characters", maxCapabilityIDLen)
 	}
-	if !capabilitySlugRegex.MatchString(slug) {
-		return fmt.Errorf("capability_slug must be lowercase alphanumeric with hyphens (not starting or ending with hyphen)")
+	if !capabilityIDRegex.MatchString(id) {
+		return fmt.Errorf("capability_id must be lowercase alphanumeric with hyphens (not starting or ending with hyphen)")
 	}
 	return nil
 }
@@ -115,77 +95,68 @@ func validateContactValue(mode MarketplaceContactMode, value string) error {
 // ---- Response models ----
 
 type MarketplaceCapability struct {
-	CapabilitySlug  string                      `json:"capability_slug"`
-	DisplayName     string                      `json:"display_name"`
-	Description     string                      `json:"description"`
-	ProviderEnabled bool                        `json:"provider_enabled"`
-	ConsumerEnabled bool                        `json:"consumer_enabled"`
-	Status          MarketplaceCapabilityStatus `json:"status"`
-	PricingHint     *string                     `json:"pricing_hint,omitempty"`
+	CapabilityID string                      `json:"capability_id"`
+	DisplayName  string                      `json:"display_name"`
+	Description  string                      `json:"description"`
+	Status       MarketplaceCapabilityStatus `json:"status"`
 }
 
-type MarketplaceEnrollment struct {
-	CapabilitySlug  string                      `json:"capability_slug"`
-	Status          MarketplaceEnrollmentStatus `json:"status"`
-	ApplicationNote *string                     `json:"application_note,omitempty"`
-	ReviewNote      *string                     `json:"review_note,omitempty"`
-	ApprovedAt      *string                     `json:"approved_at,omitempty"`
-	ExpiresAt       *string                     `json:"expires_at,omitempty"`
-	BillingStatus   string                      `json:"billing_status"`
-	CreatedAt       string                      `json:"created_at"`
-	UpdatedAt       string                      `json:"updated_at"`
+type MarketplaceListing struct {
+	ListingID      string                   `json:"listing_id"`
+	OrgDomain      string                   `json:"org_domain"`
+	CapabilityID   string                   `json:"capability_id"`
+	Headline       string                   `json:"headline"`
+	Summary        string                   `json:"summary"`
+	Description    string                   `json:"description"`
+	RegionsServed  []string                 `json:"regions_served"`
+	PricingHint    *string                  `json:"pricing_hint,omitempty"`
+	ContactMode    MarketplaceContactMode   `json:"contact_mode"`
+	ContactValue   string                   `json:"contact_value"`
+	Status         MarketplaceListingStatus `json:"status"`
+	SuspensionNote *string                  `json:"suspension_note,omitempty"`
+	ListedAt       *string                  `json:"listed_at,omitempty"`
+	CreatedAt      string                   `json:"created_at"`
+	UpdatedAt      string                   `json:"updated_at"`
 }
 
-type MarketplaceOffer struct {
-	CapabilitySlug string                 `json:"capability_slug"`
-	Headline       string                 `json:"headline"`
-	Summary        string                 `json:"summary"`
-	Description    string                 `json:"description"`
-	RegionsServed  []string               `json:"regions_served"`
-	PricingHint    *string                `json:"pricing_hint,omitempty"`
-	ContactMode    MarketplaceContactMode `json:"contact_mode"`
-	ContactValue   string                 `json:"contact_value"`
-	Status         MarketplaceOfferStatus `json:"status"`
-	ReviewNote     *string                `json:"review_note,omitempty"`
-	CreatedAt      string                 `json:"created_at"`
-	UpdatedAt      string                 `json:"updated_at"`
-}
-
-type MarketplaceProviderSummary struct {
-	ProviderOrgDomain string                 `json:"provider_org_domain"`
-	CapabilitySlug    string                 `json:"capability_slug"`
-	Headline          string                 `json:"headline"`
-	Summary           string                 `json:"summary"`
-	PricingHint       *string                `json:"pricing_hint,omitempty"`
-	RegionsServed     []string               `json:"regions_served"`
-	ContactMode       MarketplaceContactMode `json:"contact_mode"`
-	ContactValue      string                 `json:"contact_value"`
+type MarketplaceListingCard struct {
+	ListingID     string                 `json:"listing_id"`
+	OrgDomain     string                 `json:"org_domain"`
+	CapabilityID  string                 `json:"capability_id"`
+	Headline      string                 `json:"headline"`
+	Summary       string                 `json:"summary"`
+	RegionsServed []string               `json:"regions_served"`
+	PricingHint   *string                `json:"pricing_hint,omitempty"`
+	ContactMode   MarketplaceContactMode `json:"contact_mode"`
+	ContactValue  string                 `json:"contact_value"`
+	ListedAt      string                 `json:"listed_at"`
 }
 
 type MarketplaceSubscription struct {
-	ProviderOrgDomain      string                        `json:"provider_org_domain"`
-	CapabilitySlug         string                        `json:"capability_slug"`
-	RequestNote            *string                       `json:"request_note,omitempty"`
-	Status                 MarketplaceSubscriptionStatus `json:"status"`
-	ReviewNote             *string                       `json:"review_note,omitempty"`
-	RequiresProviderReview bool                          `json:"requires_provider_review"`
-	RequiresAdminReview    bool                          `json:"requires_admin_review"`
-	RequiresContract       bool                          `json:"requires_contract"`
-	RequiresPayment        bool                          `json:"requires_payment"`
-	StartsAt               *string                       `json:"starts_at,omitempty"`
-	ExpiresAt              *string                       `json:"expires_at,omitempty"`
-	CreatedAt              string                        `json:"created_at"`
-	UpdatedAt              string                        `json:"updated_at"`
+	SubscriptionID  string                        `json:"subscription_id"`
+	ListingID       string                        `json:"listing_id"`
+	ConsumerOrgDomain string                      `json:"consumer_org_domain"`
+	ProviderOrgDomain string                      `json:"provider_org_domain"`
+	CapabilityID    string                        `json:"capability_id"`
+	RequestNote     *string                       `json:"request_note,omitempty"`
+	Status          MarketplaceSubscriptionStatus `json:"status"`
+	StartedAt       string                        `json:"started_at"`
+	ExpiresAt       *string                       `json:"expires_at,omitempty"`
+	CancelledAt     *string                       `json:"cancelled_at,omitempty"`
+	CreatedAt       string                        `json:"created_at"`
+	UpdatedAt       string                        `json:"updated_at"`
 }
 
-type MarketplaceIncomingSubscription struct {
-	ConsumerOrgDomain string                        `json:"consumer_org_domain"`
-	CapabilitySlug    string                        `json:"capability_slug"`
-	Status            MarketplaceSubscriptionStatus `json:"status"`
-	RequestNote       *string                       `json:"request_note,omitempty"`
-	ReviewNote        *string                       `json:"review_note,omitempty"`
-	UpdatedAt         string                        `json:"updated_at"`
-	CreatedAt         string                        `json:"created_at"`
+type MarketplaceClient struct {
+	SubscriptionID  string                        `json:"subscription_id"`
+	ListingID       string                        `json:"listing_id"`
+	ConsumerOrgDomain string                      `json:"consumer_org_domain"`
+	CapabilityID    string                        `json:"capability_id"`
+	RequestNote     *string                       `json:"request_note,omitempty"`
+	Status          MarketplaceSubscriptionStatus `json:"status"`
+	StartedAt       string                        `json:"started_at"`
+	ExpiresAt       *string                       `json:"expires_at,omitempty"`
+	CreatedAt       string                        `json:"created_at"`
 }
 
 // ---- Request types with Validate() ----
@@ -205,94 +176,46 @@ type ListMarketplaceCapabilitiesResponse struct {
 }
 
 type GetMarketplaceCapabilityRequest struct {
-	CapabilitySlug string `json:"capability_slug"`
+	CapabilityID string `json:"capability_id"`
 }
 
 func (r GetMarketplaceCapabilityRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
-	if err := validateCapabilitySlug(r.CapabilitySlug); err != nil {
-		errs = append(errs, common.NewValidationError("capability_slug", err))
+	if err := validateCapabilityID(r.CapabilityID); err != nil {
+		errs = append(errs, common.NewValidationError("capability_id", err))
 	}
 	return errs
 }
 
-type ListProviderEnrollmentsRequest struct {
+type ListMyListingsRequest struct {
+	CapabilityID  *string `json:"capability_id,omitempty"`
 	PaginationKey *string `json:"pagination_key,omitempty"`
 	Limit         *int    `json:"limit,omitempty"`
 }
 
-func (r ListProviderEnrollmentsRequest) Validate() []common.ValidationError {
+func (r ListMyListingsRequest) Validate() []common.ValidationError {
 	return nil
 }
 
-type ListProviderEnrollmentsResponse struct {
-	Enrollments       []MarketplaceEnrollment `json:"enrollments"`
-	NextPaginationKey *string                 `json:"next_pagination_key,omitempty"`
+type ListMyListingsResponse struct {
+	Listings          []MarketplaceListing `json:"listings"`
+	NextPaginationKey *string              `json:"next_pagination_key,omitempty"`
 }
 
-type GetProviderEnrollmentRequest struct {
-	CapabilitySlug string `json:"capability_slug"`
+type GetMyListingRequest struct {
+	ListingID string `json:"listing_id"`
 }
 
-func (r GetProviderEnrollmentRequest) Validate() []common.ValidationError {
+func (r GetMyListingRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
-	if err := validateCapabilitySlug(r.CapabilitySlug); err != nil {
-		errs = append(errs, common.NewValidationError("capability_slug", err))
+	if r.ListingID == "" {
+		errs = append(errs, common.NewValidationError("listing_id", fmt.Errorf("listing_id is required")))
 	}
 	return errs
 }
 
-type ApplyProviderEnrollmentRequest struct {
-	CapabilitySlug  string  `json:"capability_slug"`
-	ApplicationNote *string `json:"application_note,omitempty"`
-}
-
-func (r ApplyProviderEnrollmentRequest) Validate() []common.ValidationError {
+func validateListingFields(headline, summary, description string, regionsServed []string, pricingHint *string, contactMode MarketplaceContactMode, contactValue string) []common.ValidationError {
 	var errs []common.ValidationError
-	if err := validateCapabilitySlug(r.CapabilitySlug); err != nil {
-		errs = append(errs, common.NewValidationError("capability_slug", err))
-	}
-	if r.ApplicationNote != nil && len(*r.ApplicationNote) > maxApplicationNoteLen {
-		errs = append(errs, common.NewValidationError("application_note",
-			fmt.Errorf("application_note must be at most %d characters", maxApplicationNoteLen)))
-	}
-	return errs
-}
-
-type ReapplyProviderEnrollmentRequest struct {
-	CapabilitySlug  string  `json:"capability_slug"`
-	ApplicationNote *string `json:"application_note,omitempty"`
-}
-
-func (r ReapplyProviderEnrollmentRequest) Validate() []common.ValidationError {
-	var errs []common.ValidationError
-	if err := validateCapabilitySlug(r.CapabilitySlug); err != nil {
-		errs = append(errs, common.NewValidationError("capability_slug", err))
-	}
-	if r.ApplicationNote != nil && len(*r.ApplicationNote) > maxApplicationNoteLen {
-		errs = append(errs, common.NewValidationError("application_note",
-			fmt.Errorf("application_note must be at most %d characters", maxApplicationNoteLen)))
-	}
-	return errs
-}
-
-type GetProviderOfferRequest struct {
-	CapabilitySlug string `json:"capability_slug"`
-}
-
-func (r GetProviderOfferRequest) Validate() []common.ValidationError {
-	var errs []common.ValidationError
-	if err := validateCapabilitySlug(r.CapabilitySlug); err != nil {
-		errs = append(errs, common.NewValidationError("capability_slug", err))
-	}
-	return errs
-}
-
-func validateOfferFields(capSlug, headline, summary, description string, regionsServed []string, pricingHint *string, contactMode MarketplaceContactMode, contactValue string) []common.ValidationError {
-	var errs []common.ValidationError
-	if err := validateCapabilitySlug(capSlug); err != nil {
-		errs = append(errs, common.NewValidationError("capability_slug", err))
-	}
 	if headline == "" {
 		errs = append(errs, common.NewValidationError("headline", fmt.Errorf("headline is required")))
 	} else if len(headline) > maxHeadlineLen {
@@ -307,9 +230,9 @@ func validateOfferFields(capSlug, headline, summary, description string, regions
 	}
 	if description == "" {
 		errs = append(errs, common.NewValidationError("description", fmt.Errorf("description is required")))
-	} else if len(description) > maxOfferDescriptionLen {
+	} else if len(description) > maxListingDescLen {
 		errs = append(errs, common.NewValidationError("description",
-			fmt.Errorf("description must be at most %d characters", maxOfferDescriptionLen)))
+			fmt.Errorf("description must be at most %d characters", maxListingDescLen)))
 	}
 	if len(regionsServed) == 0 {
 		errs = append(errs, common.NewValidationError("regions_served", fmt.Errorf("at least one region is required")))
@@ -324,143 +247,108 @@ func validateOfferFields(capSlug, headline, summary, description string, regions
 	return errs
 }
 
-type CreateProviderOfferRequest struct {
-	CapabilitySlug string                 `json:"capability_slug"`
-	Headline       string                 `json:"headline"`
-	Summary        string                 `json:"summary"`
-	Description    string                 `json:"description"`
-	RegionsServed  []string               `json:"regions_served"`
-	PricingHint    *string                `json:"pricing_hint,omitempty"`
-	ContactMode    MarketplaceContactMode `json:"contact_mode"`
-	ContactValue   string                 `json:"contact_value"`
+type CreateListingRequest struct {
+	CapabilityID  string                 `json:"capability_id"`
+	Headline      string                 `json:"headline"`
+	Summary       string                 `json:"summary"`
+	Description   string                 `json:"description"`
+	RegionsServed []string               `json:"regions_served"`
+	PricingHint   *string                `json:"pricing_hint,omitempty"`
+	ContactMode   MarketplaceContactMode `json:"contact_mode"`
+	ContactValue  string                 `json:"contact_value"`
 }
 
-func (r CreateProviderOfferRequest) Validate() []common.ValidationError {
-	return validateOfferFields(r.CapabilitySlug, r.Headline, r.Summary, r.Description,
-		r.RegionsServed, r.PricingHint, r.ContactMode, r.ContactValue)
-}
-
-type UpdateProviderOfferRequest struct {
-	CapabilitySlug string                 `json:"capability_slug"`
-	Headline       string                 `json:"headline"`
-	Summary        string                 `json:"summary"`
-	Description    string                 `json:"description"`
-	RegionsServed  []string               `json:"regions_served"`
-	PricingHint    *string                `json:"pricing_hint,omitempty"`
-	ContactMode    MarketplaceContactMode `json:"contact_mode"`
-	ContactValue   string                 `json:"contact_value"`
-}
-
-func (r UpdateProviderOfferRequest) Validate() []common.ValidationError {
-	return validateOfferFields(r.CapabilitySlug, r.Headline, r.Summary, r.Description,
-		r.RegionsServed, r.PricingHint, r.ContactMode, r.ContactValue)
-}
-
-type SubmitProviderOfferRequest struct {
-	CapabilitySlug string `json:"capability_slug"`
-}
-
-func (r SubmitProviderOfferRequest) Validate() []common.ValidationError {
+func (r CreateListingRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
-	if err := validateCapabilitySlug(r.CapabilitySlug); err != nil {
-		errs = append(errs, common.NewValidationError("capability_slug", err))
+	if err := validateCapabilityID(r.CapabilityID); err != nil {
+		errs = append(errs, common.NewValidationError("capability_id", err))
+	}
+	errs = append(errs, validateListingFields(r.Headline, r.Summary, r.Description,
+		r.RegionsServed, r.PricingHint, r.ContactMode, r.ContactValue)...)
+	return errs
+}
+
+type UpdateListingRequest struct {
+	ListingID     string                 `json:"listing_id"`
+	Headline      string                 `json:"headline"`
+	Summary       string                 `json:"summary"`
+	Description   string                 `json:"description"`
+	RegionsServed []string               `json:"regions_served"`
+	PricingHint   *string                `json:"pricing_hint,omitempty"`
+	ContactMode   MarketplaceContactMode `json:"contact_mode"`
+	ContactValue  string                 `json:"contact_value"`
+}
+
+func (r UpdateListingRequest) Validate() []common.ValidationError {
+	var errs []common.ValidationError
+	if r.ListingID == "" {
+		errs = append(errs, common.NewValidationError("listing_id", fmt.Errorf("listing_id is required")))
+	}
+	errs = append(errs, validateListingFields(r.Headline, r.Summary, r.Description,
+		r.RegionsServed, r.PricingHint, r.ContactMode, r.ContactValue)...)
+	return errs
+}
+
+type PublishListingRequest struct {
+	ListingID string `json:"listing_id"`
+}
+
+func (r PublishListingRequest) Validate() []common.ValidationError {
+	var errs []common.ValidationError
+	if r.ListingID == "" {
+		errs = append(errs, common.NewValidationError("listing_id", fmt.Errorf("listing_id is required")))
 	}
 	return errs
 }
 
-type ArchiveProviderOfferRequest struct {
-	CapabilitySlug string `json:"capability_slug"`
+type ArchiveListingRequest struct {
+	ListingID string `json:"listing_id"`
 }
 
-func (r ArchiveProviderOfferRequest) Validate() []common.ValidationError {
+func (r ArchiveListingRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
-	if err := validateCapabilitySlug(r.CapabilitySlug); err != nil {
-		errs = append(errs, common.NewValidationError("capability_slug", err))
+	if r.ListingID == "" {
+		errs = append(errs, common.NewValidationError("listing_id", fmt.Errorf("listing_id is required")))
 	}
 	return errs
 }
 
-type ListMarketplaceProvidersRequest struct {
-	CapabilitySlug string  `json:"capability_slug"`
-	PaginationKey  *string `json:"pagination_key,omitempty"`
-	Limit          *int    `json:"limit,omitempty"`
-}
-
-func (r ListMarketplaceProvidersRequest) Validate() []common.ValidationError {
-	var errs []common.ValidationError
-	if err := validateCapabilitySlug(r.CapabilitySlug); err != nil {
-		errs = append(errs, common.NewValidationError("capability_slug", err))
-	}
-	return errs
-}
-
-type ListMarketplaceProvidersResponse struct {
-	Providers         []MarketplaceProviderSummary `json:"providers"`
-	NextPaginationKey *string                      `json:"next_pagination_key,omitempty"`
-}
-
-type GetMarketplaceProviderOfferRequest struct {
-	ProviderOrgDomain string `json:"provider_org_domain"`
-	CapabilitySlug    string `json:"capability_slug"`
-}
-
-func (r GetMarketplaceProviderOfferRequest) Validate() []common.ValidationError {
-	var errs []common.ValidationError
-	if r.ProviderOrgDomain == "" {
-		errs = append(errs, common.NewValidationError("provider_org_domain",
-			fmt.Errorf("provider_org_domain is required")))
-	}
-	if err := validateCapabilitySlug(r.CapabilitySlug); err != nil {
-		errs = append(errs, common.NewValidationError("capability_slug", err))
-	}
-	return errs
-}
-
-type ListConsumerSubscriptionsRequest struct {
+type DiscoverListingsRequest struct {
+	CapabilityID  *string `json:"capability_id,omitempty"`
 	PaginationKey *string `json:"pagination_key,omitempty"`
 	Limit         *int    `json:"limit,omitempty"`
 }
 
-func (r ListConsumerSubscriptionsRequest) Validate() []common.ValidationError {
+func (r DiscoverListingsRequest) Validate() []common.ValidationError {
 	return nil
 }
 
-type ListConsumerSubscriptionsResponse struct {
-	Subscriptions     []MarketplaceSubscription `json:"subscriptions"`
-	NextPaginationKey *string                   `json:"next_pagination_key,omitempty"`
+type DiscoverListingsResponse struct {
+	Listings          []MarketplaceListingCard `json:"listings"`
+	NextPaginationKey *string                  `json:"next_pagination_key,omitempty"`
 }
 
-type GetConsumerSubscriptionRequest struct {
-	ProviderOrgDomain string `json:"provider_org_domain"`
-	CapabilitySlug    string `json:"capability_slug"`
+type GetListingRequest struct {
+	ListingID string `json:"listing_id"`
 }
 
-func (r GetConsumerSubscriptionRequest) Validate() []common.ValidationError {
+func (r GetListingRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
-	if r.ProviderOrgDomain == "" {
-		errs = append(errs, common.NewValidationError("provider_org_domain",
-			fmt.Errorf("provider_org_domain is required")))
-	}
-	if err := validateCapabilitySlug(r.CapabilitySlug); err != nil {
-		errs = append(errs, common.NewValidationError("capability_slug", err))
+	if r.ListingID == "" {
+		errs = append(errs, common.NewValidationError("listing_id", fmt.Errorf("listing_id is required")))
 	}
 	return errs
 }
 
-type RequestConsumerSubscriptionRequest struct {
-	ProviderOrgDomain string  `json:"provider_org_domain"`
-	CapabilitySlug    string  `json:"capability_slug"`
-	RequestNote       *string `json:"request_note,omitempty"`
+type RequestSubscriptionRequest struct {
+	ListingID   string  `json:"listing_id"`
+	RequestNote *string `json:"request_note,omitempty"`
 }
 
-func (r RequestConsumerSubscriptionRequest) Validate() []common.ValidationError {
+func (r RequestSubscriptionRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
-	if r.ProviderOrgDomain == "" {
-		errs = append(errs, common.NewValidationError("provider_org_domain",
-			fmt.Errorf("provider_org_domain is required")))
-	}
-	if err := validateCapabilitySlug(r.CapabilitySlug); err != nil {
-		errs = append(errs, common.NewValidationError("capability_slug", err))
+	if r.ListingID == "" {
+		errs = append(errs, common.NewValidationError("listing_id", fmt.Errorf("listing_id is required")))
 	}
 	if r.RequestNote != nil && len(*r.RequestNote) > maxRequestNoteLen {
 		errs = append(errs, common.NewValidationError("request_note",
@@ -469,92 +357,69 @@ func (r RequestConsumerSubscriptionRequest) Validate() []common.ValidationError 
 	return errs
 }
 
-type CancelConsumerSubscriptionRequest struct {
-	ProviderOrgDomain string `json:"provider_org_domain"`
-	CapabilitySlug    string `json:"capability_slug"`
+type CancelSubscriptionRequest struct {
+	SubscriptionID string `json:"subscription_id"`
 }
 
-func (r CancelConsumerSubscriptionRequest) Validate() []common.ValidationError {
+func (r CancelSubscriptionRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
-	if r.ProviderOrgDomain == "" {
-		errs = append(errs, common.NewValidationError("provider_org_domain",
-			fmt.Errorf("provider_org_domain is required")))
-	}
-	if err := validateCapabilitySlug(r.CapabilitySlug); err != nil {
-		errs = append(errs, common.NewValidationError("capability_slug", err))
+	if r.SubscriptionID == "" {
+		errs = append(errs, common.NewValidationError("subscription_id", fmt.Errorf("subscription_id is required")))
 	}
 	return errs
 }
 
-type ListIncomingSubscriptionsRequest struct {
-	CapabilitySlug *string `json:"capability_slug,omitempty"`
-	PaginationKey  *string `json:"pagination_key,omitempty"`
-	Limit          *int    `json:"limit,omitempty"`
+type ListSubscriptionsRequest struct {
+	FilterStatus  *MarketplaceSubscriptionStatus `json:"filter_status,omitempty"`
+	PaginationKey *string                        `json:"pagination_key,omitempty"`
+	Limit         *int                           `json:"limit,omitempty"`
 }
 
-func (r ListIncomingSubscriptionsRequest) Validate() []common.ValidationError {
+func (r ListSubscriptionsRequest) Validate() []common.ValidationError {
 	return nil
 }
 
-type ListIncomingSubscriptionsResponse struct {
-	Subscriptions     []MarketplaceIncomingSubscription `json:"subscriptions"`
-	NextPaginationKey *string                           `json:"next_pagination_key,omitempty"`
+type ListSubscriptionsResponse struct {
+	Subscriptions     []MarketplaceSubscription `json:"subscriptions"`
+	NextPaginationKey *string                   `json:"next_pagination_key,omitempty"`
 }
 
-type GetIncomingSubscriptionRequest struct {
-	ConsumerOrgDomain string `json:"consumer_org_domain"`
-	CapabilitySlug    string `json:"capability_slug"`
+type GetSubscriptionRequest struct {
+	SubscriptionID string `json:"subscription_id"`
 }
 
-func (r GetIncomingSubscriptionRequest) Validate() []common.ValidationError {
+func (r GetSubscriptionRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
-	if r.ConsumerOrgDomain == "" {
-		errs = append(errs, common.NewValidationError("consumer_org_domain",
-			fmt.Errorf("consumer_org_domain is required")))
-	}
-	if err := validateCapabilitySlug(r.CapabilitySlug); err != nil {
-		errs = append(errs, common.NewValidationError("capability_slug", err))
+	if r.SubscriptionID == "" {
+		errs = append(errs, common.NewValidationError("subscription_id", fmt.Errorf("subscription_id is required")))
 	}
 	return errs
 }
 
-type ProviderApproveSubscriptionRequest struct {
-	ConsumerOrgDomain string `json:"consumer_org_domain"`
-	CapabilitySlug    string `json:"capability_slug"`
+type ListClientsRequest struct {
+	ListingID     *string                        `json:"listing_id,omitempty"`
+	FilterStatus  *MarketplaceSubscriptionStatus `json:"filter_status,omitempty"`
+	PaginationKey *string                        `json:"pagination_key,omitempty"`
+	Limit         *int                           `json:"limit,omitempty"`
 }
 
-func (r ProviderApproveSubscriptionRequest) Validate() []common.ValidationError {
+func (r ListClientsRequest) Validate() []common.ValidationError {
+	return nil
+}
+
+type ListClientsResponse struct {
+	Clients           []MarketplaceClient `json:"clients"`
+	NextPaginationKey *string             `json:"next_pagination_key,omitempty"`
+}
+
+type GetClientRequest struct {
+	SubscriptionID string `json:"subscription_id"`
+}
+
+func (r GetClientRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
-	if r.ConsumerOrgDomain == "" {
-		errs = append(errs, common.NewValidationError("consumer_org_domain",
-			fmt.Errorf("consumer_org_domain is required")))
-	}
-	if err := validateCapabilitySlug(r.CapabilitySlug); err != nil {
-		errs = append(errs, common.NewValidationError("capability_slug", err))
-	}
-	return errs
-}
-
-type ProviderRejectSubscriptionRequest struct {
-	ConsumerOrgDomain string `json:"consumer_org_domain"`
-	CapabilitySlug    string `json:"capability_slug"`
-	ReviewNote        string `json:"review_note"`
-}
-
-func (r ProviderRejectSubscriptionRequest) Validate() []common.ValidationError {
-	var errs []common.ValidationError
-	if r.ConsumerOrgDomain == "" {
-		errs = append(errs, common.NewValidationError("consumer_org_domain",
-			fmt.Errorf("consumer_org_domain is required")))
-	}
-	if err := validateCapabilitySlug(r.CapabilitySlug); err != nil {
-		errs = append(errs, common.NewValidationError("capability_slug", err))
-	}
-	if r.ReviewNote == "" {
-		errs = append(errs, common.NewValidationError("review_note", fmt.Errorf("review_note is required")))
-	} else if len(r.ReviewNote) > maxReviewNoteLen {
-		errs = append(errs, common.NewValidationError("review_note",
-			fmt.Errorf("review_note must be at most %d characters", maxReviewNoteLen)))
+	if r.SubscriptionID == "" {
+		errs = append(errs, common.NewValidationError("subscription_id", fmt.Errorf("subscription_id is required")))
 	}
 	return errs
 }

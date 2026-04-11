@@ -31,6 +31,7 @@ func RegisterAdminGlobalRoutes(mux *http.ServeMux, s *server.GlobalServer) {
 	adminRoleManageDomains := middleware.AdminRole(s.Global, adminspec.AdminRoleManageDomains)
 	adminRoleManageTags := middleware.AdminRole(s.Global, adminspec.AdminRoleManageTags)
 	adminRoleViewAuditLogs := middleware.AdminRole(s.Global, adminspec.AdminRoleViewAuditLogs)
+	adminRoleViewMarketplace := middleware.AdminRole(s.Global, adminspec.AdminRoleViewMarketplace, adminspec.AdminRoleManageMarketplace)
 	adminRoleManageMarketplace := middleware.AdminRole(s.Global, adminspec.AdminRoleManageMarketplace)
 
 	// Auth-only routes (no role required)
@@ -65,8 +66,6 @@ func RegisterAdminGlobalRoutes(mux *http.ServeMux, s *server.GlobalServer) {
 	// Audit log routes
 	mux.Handle("POST /admin/filter-audit-logs", adminAuth(adminRoleViewAuditLogs(admin.FilterAuditLogs(s))))
 
-	adminRoleViewMarketplace := middleware.AdminRole(s.Global, adminspec.AdminRoleViewMarketplace, adminspec.AdminRoleManageMarketplace)
-
 	// Marketplace capability management routes
 	mux.Handle("POST /admin/marketplace/capabilities/list", adminAuth(adminRoleViewMarketplace(admin.AdminListCapabilities(s))))
 	mux.Handle("POST /admin/marketplace/capabilities/get", adminAuth(adminRoleViewMarketplace(admin.AdminGetCapability(s))))
@@ -75,34 +74,14 @@ func RegisterAdminGlobalRoutes(mux *http.ServeMux, s *server.GlobalServer) {
 	mux.Handle("POST /admin/marketplace/capabilities/enable", adminAuth(adminRoleManageMarketplace(admin.AdminEnableCapability(s))))
 	mux.Handle("POST /admin/marketplace/capabilities/disable", adminAuth(adminRoleManageMarketplace(admin.AdminDisableCapability(s))))
 
-	// Marketplace enrollment management routes
-	mux.Handle("POST /admin/marketplace/provider-enrollments/list", adminAuth(adminRoleViewMarketplace(admin.AdminListEnrollments(s))))
-	mux.Handle("POST /admin/marketplace/provider-enrollments/get", adminAuth(adminRoleViewMarketplace(admin.AdminGetEnrollment(s))))
-	mux.Handle("POST /admin/marketplace/provider-enrollments/approve", adminAuth(adminRoleManageMarketplace(admin.AdminApproveEnrollment(s))))
-	mux.Handle("POST /admin/marketplace/provider-enrollments/reject", adminAuth(adminRoleManageMarketplace(admin.AdminRejectEnrollment(s))))
-	mux.Handle("POST /admin/marketplace/provider-enrollments/suspend", adminAuth(adminRoleManageMarketplace(admin.AdminSuspendEnrollment(s))))
-	mux.Handle("POST /admin/marketplace/provider-enrollments/reinstate", adminAuth(adminRoleManageMarketplace(admin.AdminReinstateEnrollment(s))))
-	mux.Handle("POST /admin/marketplace/provider-enrollments/renew", adminAuth(adminRoleManageMarketplace(admin.AdminRenewEnrollment(s))))
+	// Marketplace listing oversight routes
+	mux.Handle("POST /admin/marketplace/listings/list", adminAuth(adminRoleViewMarketplace(admin.AdminListListings(s))))
+	mux.Handle("POST /admin/marketplace/listings/get", adminAuth(adminRoleViewMarketplace(admin.AdminGetListing(s))))
+	mux.Handle("POST /admin/marketplace/listings/suspend", adminAuth(adminRoleManageMarketplace(admin.AdminSuspendListing(s))))
+	mux.Handle("POST /admin/marketplace/listings/reinstate", adminAuth(adminRoleManageMarketplace(admin.AdminReinstateListing(s))))
 
-	// Marketplace offer management routes
-	mux.Handle("POST /admin/marketplace/provider-offers/list", adminAuth(adminRoleViewMarketplace(admin.AdminListOffers(s))))
-	mux.Handle("POST /admin/marketplace/provider-offers/get", adminAuth(adminRoleViewMarketplace(admin.AdminGetOffer(s))))
-	mux.Handle("POST /admin/marketplace/provider-offers/approve", adminAuth(adminRoleManageMarketplace(admin.AdminApproveOffer(s))))
-	mux.Handle("POST /admin/marketplace/provider-offers/reject", adminAuth(adminRoleManageMarketplace(admin.AdminRejectOffer(s))))
-	mux.Handle("POST /admin/marketplace/provider-offers/suspend", adminAuth(adminRoleManageMarketplace(admin.AdminSuspendOffer(s))))
-	mux.Handle("POST /admin/marketplace/provider-offers/reinstate", adminAuth(adminRoleManageMarketplace(admin.AdminReinstateOffer(s))))
-
-	// Marketplace subscription management routes
-	mux.Handle("POST /admin/marketplace/consumer-subscriptions/list", adminAuth(adminRoleViewMarketplace(admin.AdminListSubscriptions(s))))
-	mux.Handle("POST /admin/marketplace/consumer-subscriptions/get", adminAuth(adminRoleViewMarketplace(admin.AdminGetSubscription(s))))
-	mux.Handle("POST /admin/marketplace/consumer-subscriptions/approve", adminAuth(adminRoleManageMarketplace(admin.AdminApproveSubscription(s))))
-	mux.Handle("POST /admin/marketplace/consumer-subscriptions/reject", adminAuth(adminRoleManageMarketplace(admin.AdminRejectSubscription(s))))
-	mux.Handle("POST /admin/marketplace/consumer-subscriptions/mark-contract-signed", adminAuth(adminRoleManageMarketplace(admin.AdminMarkContractSigned(s))))
-	mux.Handle("POST /admin/marketplace/consumer-subscriptions/waive-contract", adminAuth(adminRoleManageMarketplace(admin.AdminWaiveContract(s))))
-	mux.Handle("POST /admin/marketplace/consumer-subscriptions/record-payment", adminAuth(adminRoleManageMarketplace(admin.AdminRecordPayment(s))))
-	mux.Handle("POST /admin/marketplace/consumer-subscriptions/waive-payment", adminAuth(adminRoleManageMarketplace(admin.AdminWaivePayment(s))))
-	mux.Handle("POST /admin/marketplace/consumer-subscriptions/cancel", adminAuth(adminRoleManageMarketplace(admin.AdminCancelSubscription(s))))
-
-	// Marketplace billing routes
-	mux.Handle("POST /admin/marketplace/billing/list", adminAuth(adminRoleViewMarketplace(admin.AdminListBilling(s))))
+	// Marketplace subscription oversight routes
+	mux.Handle("POST /admin/marketplace/subscriptions/list", adminAuth(adminRoleViewMarketplace(admin.AdminListSubscriptions(s))))
+	mux.Handle("POST /admin/marketplace/subscriptions/get", adminAuth(adminRoleViewMarketplace(admin.AdminGetSubscription(s))))
+	mux.Handle("POST /admin/marketplace/subscriptions/cancel", adminAuth(adminRoleManageMarketplace(admin.AdminCancelSubscription(s))))
 }

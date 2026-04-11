@@ -879,133 +879,146 @@ DELETE FROM admin_audit_logs
 WHERE created_at < NOW() - @retention_period::interval;
 
 -- ============================================================
--- Marketplace V3: capability catalog (global)
+-- Marketplace: capability catalog (global)
 -- ============================================================
 
 -- name: CreateMarketplaceCapability :one
-INSERT INTO marketplace_capabilities (capability_slug, display_name, description, provider_enabled, consumer_enabled, enrollment_approval, offer_review, subscription_approval, contract_required, payment_required, pricing_hint, status)
-VALUES (@capability_slug, @display_name, @description, @provider_enabled, @consumer_enabled, @enrollment_approval, @offer_review, @subscription_approval, @contract_required, @payment_required, @pricing_hint, 'draft')
+INSERT INTO marketplace_capabilities (capability_id, status)
+VALUES (@capability_id, @status)
 RETURNING *;
 
--- name: GetMarketplaceCapabilityBySlug :one
-SELECT * FROM marketplace_capabilities WHERE capability_slug = @capability_slug;
-
--- name: UpdateMarketplaceCapability :one
-UPDATE marketplace_capabilities
-SET display_name = @display_name, description = @description, provider_enabled = @provider_enabled,
-    consumer_enabled = @consumer_enabled, enrollment_approval = @enrollment_approval,
-    offer_review = @offer_review, subscription_approval = @subscription_approval,
-    contract_required = @contract_required, payment_required = @payment_required,
-    pricing_hint = @pricing_hint, updated_at = NOW()
-WHERE capability_slug = @capability_slug
-RETURNING *;
+-- name: GetMarketplaceCapabilityByID :one
+SELECT * FROM marketplace_capabilities WHERE capability_id = @capability_id;
 
 -- name: EnableMarketplaceCapability :one
 UPDATE marketplace_capabilities SET status = 'active', updated_at = NOW()
-WHERE capability_slug = @capability_slug AND status IN ('draft', 'disabled')
+WHERE capability_id = @capability_id AND status IN ('draft', 'disabled')
 RETURNING *;
 
 -- name: DisableMarketplaceCapability :one
 UPDATE marketplace_capabilities SET status = 'disabled', updated_at = NOW()
-WHERE capability_slug = @capability_slug AND status = 'active'
+WHERE capability_id = @capability_id AND status = 'active'
 RETURNING *;
 
 -- name: ListMarketplaceCapabilities :many
 SELECT * FROM marketplace_capabilities
-WHERE (sqlc.narg('pagination_key')::text IS NULL OR capability_slug > sqlc.narg('pagination_key')::text)
-ORDER BY capability_slug ASC
-LIMIT @limit_count;
-
--- name: ListActiveConsumerCapabilities :many
-SELECT * FROM marketplace_capabilities
-WHERE status = 'active' AND consumer_enabled = TRUE
-  AND (sqlc.narg('pagination_key')::text IS NULL OR capability_slug > sqlc.narg('pagination_key')::text)
-ORDER BY capability_slug ASC
+WHERE (sqlc.narg('pagination_key')::text IS NULL OR capability_id > sqlc.narg('pagination_key')::text)
+ORDER BY capability_id ASC
 LIMIT @limit_count;
 
 -- name: ListActiveMarketplaceCapabilities :many
 SELECT * FROM marketplace_capabilities
 WHERE status = 'active'
-  AND (sqlc.narg('pagination_key')::text IS NULL OR capability_slug > sqlc.narg('pagination_key')::text)
-ORDER BY capability_slug ASC
+  AND (sqlc.narg('pagination_key')::text IS NULL OR capability_id > sqlc.narg('pagination_key')::text)
+ORDER BY capability_id ASC
 LIMIT @limit_count;
 
 -- ============================================================
--- Marketplace V3: offer catalog mirror (global)
+-- Marketplace: capability translations (global)
 -- ============================================================
 
--- name: UpsertMarketplaceOfferCatalog :one
-INSERT INTO marketplace_offer_catalog (
-    provider_org_global_id, provider_org_domain, provider_region, capability_slug,
-    headline, summary, pricing_hint, regions_served, contact_mode, contact_value, status
+-- name: UpsertCapabilityTranslation :exec
+INSERT INTO marketplace_capability_translations (capability_id, locale, display_name, description)
+VALUES (@capability_id, @locale, @display_name, @description)
+ON CONFLICT (capability_id, locale) DO UPDATE
+SET display_name = @display_name, description = @description;
+
+-- name: GetCapabilityTranslation :one
+SELECT * FROM marketplace_capability_translations
+WHERE capability_id = @capability_id AND locale = @locale;
+
+-- name: ListCapabilityTranslations :many
+SELECT * FROM marketplace_capability_translations
+WHERE capability_id = @capability_id
+ORDER BY locale ASC;
+
+-- name: ListCapabilityTranslationsForLocale :many
+-- Returns best translation per capability: exact locale match, fallback to en-US
+SELECT DISTINCT ON (ct.capability_id)
+    ct.capability_id, ct.locale, ct.display_name, ct.description
+FROM marketplace_capability_translations ct
+WHERE ct.capability_id = ANY(@capability_ids::text[])
+  AND ct.locale IN (@locale::text, 'en-US')
+ORDER BY ct.capability_id, (ct.locale = @locale::text) DESC;
+
+-- ============================================================
+-- Marketplace: listing catalog mirror (global)
+-- ============================================================
+
+-- name: UpsertListingCatalog :exec
+INSERT INTO marketplace_listing_catalog (
+    listing_id, org_global_id, org_domain, org_region, capability_id,
+    headline, summary, regions_served, pricing_hint, contact_mode, contact_value, listed_at
 ) VALUES (
-    @provider_org_global_id, @provider_org_domain, @provider_region, @capability_slug,
-    @headline, @summary, @pricing_hint, @regions_served, @contact_mode, @contact_value, @status
+    @listing_id, @org_global_id, @org_domain, @org_region, @capability_id,
+    @headline, @summary, @regions_served, @pricing_hint, @contact_mode, @contact_value, @listed_at
 )
-ON CONFLICT (provider_org_global_id, capability_slug) DO UPDATE
-SET provider_org_domain = @provider_org_domain, headline = @headline, summary = @summary,
-    pricing_hint = @pricing_hint, regions_served = @regions_served,
+ON CONFLICT (listing_id) DO UPDATE
+SET org_domain = @org_domain, headline = @headline, summary = @summary,
+    regions_served = @regions_served, pricing_hint = @pricing_hint,
     contact_mode = @contact_mode, contact_value = @contact_value,
-    status = @status, updated_at = NOW()
-RETURNING *;
+    listed_at = @listed_at, updated_at = NOW();
 
--- name: ListMarketplaceOfferCatalog :many
-SELECT * FROM marketplace_offer_catalog
-WHERE capability_slug = @capability_slug AND status = 'active'
-  AND (sqlc.narg('pagination_key_domain')::text IS NULL OR provider_org_domain > sqlc.narg('pagination_key_domain')::text)
-ORDER BY provider_org_domain ASC
+-- name: DeleteListingCatalog :exec
+DELETE FROM marketplace_listing_catalog WHERE listing_id = @listing_id;
+
+-- name: ListListingCatalog :many
+SELECT * FROM marketplace_listing_catalog
+WHERE (sqlc.narg('filter_capability_id')::text IS NULL OR capability_id = sqlc.narg('filter_capability_id')::text)
+  AND (sqlc.narg('pagination_key')::uuid IS NULL OR listing_id > sqlc.narg('pagination_key')::uuid)
+ORDER BY listing_id ASC
 LIMIT @limit_count;
 
--- name: GetMarketplaceOfferCatalogEntry :one
-SELECT * FROM marketplace_offer_catalog
-WHERE provider_org_domain = @provider_org_domain AND capability_slug = @capability_slug;
+-- name: GetListingCatalogEntry :one
+SELECT * FROM marketplace_listing_catalog WHERE listing_id = @listing_id;
 
 -- ============================================================
--- Marketplace V3: subscription routing (global)
+-- Marketplace: subscription index (global)
 -- ============================================================
 
--- name: UpsertMarketplaceSubscriptionRouting :exec
-INSERT INTO marketplace_subscription_routing (
+-- name: UpsertSubscriptionIndex :exec
+INSERT INTO marketplace_subscription_index (
+    subscription_id, listing_id,
     consumer_org_global_id, consumer_org_domain, consumer_region,
-    provider_org_global_id, provider_org_domain, provider_region,
-    capability_slug, status
+    provider_org_global_id, provider_org_domain,
+    capability_id, status, started_at
 ) VALUES (
+    @subscription_id, @listing_id,
     @consumer_org_global_id, @consumer_org_domain, @consumer_region,
-    @provider_org_global_id, @provider_org_domain, @provider_region,
-    @capability_slug, @status
+    @provider_org_global_id, @provider_org_domain,
+    @capability_id, @status, @started_at
 )
-ON CONFLICT (consumer_org_global_id, provider_org_global_id, capability_slug) DO UPDATE
-SET consumer_org_domain = @consumer_org_domain, provider_org_domain = @provider_org_domain,
-    status = @status, updated_at = NOW();
+ON CONFLICT (consumer_org_global_id, listing_id) DO UPDATE
+SET status = @status, started_at = @started_at, updated_at = NOW();
 
--- name: ListMarketplaceSubscriptionRoutingByProvider :many
-SELECT * FROM marketplace_subscription_routing
+-- name: ListSubscriptionIndexByProvider :many
+SELECT * FROM marketplace_subscription_index
 WHERE provider_org_global_id = @provider_org_global_id
-  AND (sqlc.narg('filter_capability_slug')::text IS NULL OR capability_slug = sqlc.narg('filter_capability_slug')::text)
-ORDER BY updated_at DESC, consumer_org_domain ASC, capability_slug ASC
+  AND (sqlc.narg('filter_listing_id')::uuid IS NULL OR listing_id = sqlc.narg('filter_listing_id')::uuid)
+  AND (sqlc.narg('filter_status')::text IS NULL OR status = sqlc.narg('filter_status')::text)
+  AND (sqlc.narg('pagination_key')::uuid IS NULL OR subscription_id > sqlc.narg('pagination_key')::uuid)
+ORDER BY subscription_id ASC
 LIMIT @limit_count;
 
+-- name: GetSubscriptionIndexEntry :one
+SELECT * FROM marketplace_subscription_index WHERE subscription_id = @subscription_id;
+
 -- ============================================================
--- Marketplace V3: billing records (global)
+-- Marketplace: billing records (global)
 -- ============================================================
 
 -- name: InsertMarketplaceBillingRecord :one
 INSERT INTO marketplace_billing_records (
-    consumer_org_global_id, consumer_org_domain,
-    provider_org_global_id, provider_org_domain,
-    capability_slug, event_type, note
+    provider_org_global_id, provider_org_domain, capability_id, event_type, note
 ) VALUES (
-    @consumer_org_global_id, @consumer_org_domain,
-    @provider_org_global_id, @provider_org_domain,
-    @capability_slug, @event_type, @note
+    @provider_org_global_id, @provider_org_domain, @capability_id, @event_type, @note
 )
 RETURNING *;
 
 -- name: ListMarketplaceBillingRecords :many
 SELECT * FROM marketplace_billing_records
-WHERE (sqlc.narg('filter_consumer_org_domain')::text IS NULL OR consumer_org_domain = sqlc.narg('filter_consumer_org_domain')::text)
-  AND (sqlc.narg('filter_provider_org_domain')::text IS NULL OR provider_org_domain = sqlc.narg('filter_provider_org_domain')::text)
-  AND (sqlc.narg('filter_capability_slug')::text IS NULL OR capability_slug = sqlc.narg('filter_capability_slug')::text)
+WHERE (sqlc.narg('filter_provider_org_domain')::text IS NULL OR provider_org_domain = sqlc.narg('filter_provider_org_domain')::text)
+  AND (sqlc.narg('filter_capability_id')::text IS NULL OR capability_id = sqlc.narg('filter_capability_id')::text)
 ORDER BY created_at DESC
 LIMIT @limit_count;
 

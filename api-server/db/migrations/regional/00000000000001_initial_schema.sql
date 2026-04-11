@@ -229,104 +229,69 @@ INSERT INTO roles (role_name, description) VALUES
     ('org:manage_suborgs', 'Can create, rename, disable, re-enable SubOrgs and manage their membership'),
     ('org:superadmin', 'Superadmin for the org portal with full access to all operations'),
     ('org:view_audit_logs', 'Can view org portal audit logs for their organization'),
-    ('org:view_marketplace', 'Can view marketplace capabilities, enrollments, offers, and subscriptions (read-only)'),
-    ('org:manage_marketplace', 'Can manage marketplace provider enrollments, offers, and consumer subscriptions'),
+    ('org:view_listings', 'Can view own marketplace listings and their subscriber list (read-only)'),
+    ('org:manage_listings', 'Can create, edit, publish, and archive own marketplace listings'),
+    ('org:view_subscriptions', 'Can view own marketplace subscriptions (read-only)'),
+    ('org:manage_subscriptions', 'Can create and cancel marketplace subscriptions'),
 
     -- Hub portal roles (assigned at signup, additional roles for paid features)
     ('hub:read_posts', 'Can read posts by other hub users'),
     ('hub:write_posts', 'Can create and edit posts (paid feature)'),
     ('hub:apply_jobs', 'Can apply to job postings');
 
--- Marketplace: enrollment status enum
-CREATE TYPE marketplace_enrollment_status AS ENUM (
-    'pending_review',
-    'approved',
-    'rejected',
-    'suspended',
-    'expired'
-);
-
--- Marketplace: offer status enum
-CREATE TYPE marketplace_offer_status AS ENUM (
+-- Marketplace: listing status enum
+CREATE TYPE marketplace_listing_status AS ENUM (
     'draft',
-    'pending_review',
     'active',
-    'rejected',
     'suspended',
     'archived'
 );
 
 -- Marketplace: subscription status enum
 CREATE TYPE marketplace_subscription_status AS ENUM (
-    'requested',
-    'provider_review',
-    'admin_review',
-    'awaiting_contract',
-    'awaiting_payment',
     'active',
-    'rejected',
     'cancelled',
     'expired'
 );
 
--- Provider enrollments (one per org per capability)
-CREATE TABLE marketplace_enrollments (
-    id                UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-    org_id            UUID        NOT NULL,
-    capability_slug   TEXT        NOT NULL,
-    status            marketplace_enrollment_status NOT NULL DEFAULT 'pending_review',
-    application_note  TEXT,
-    review_note       TEXT,
-    approved_at       TIMESTAMPTZ,
-    expires_at        TIMESTAMPTZ,
-    billing_reference TEXT,
-    billing_status    TEXT        NOT NULL DEFAULT 'not_applicable' CHECK (billing_status IN ('not_applicable', 'pending', 'active', 'suspended')),
-    created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE (org_id, capability_slug)
-);
-
--- Provider offers (one per org per capability)
-CREATE TABLE marketplace_offers (
-    id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-    enrollment_id   UUID        NOT NULL REFERENCES marketplace_enrollments(id),
-    org_id          UUID        NOT NULL,
-    capability_slug TEXT        NOT NULL,
-    headline        TEXT        NOT NULL DEFAULT '',
-    summary         TEXT        NOT NULL DEFAULT '',
-    description     TEXT        NOT NULL DEFAULT '',
-    regions_served  TEXT[]      NOT NULL DEFAULT '{}',
+-- Provider listings (multiple per org per capability allowed)
+CREATE TABLE marketplace_listings (
+    listing_id      UUID                     PRIMARY KEY DEFAULT gen_random_uuid(),
+    org_id          UUID                     NOT NULL,
+    org_domain      TEXT                     NOT NULL,
+    capability_id   TEXT                     NOT NULL,
+    headline        TEXT                     NOT NULL DEFAULT '',
+    summary         TEXT                     NOT NULL DEFAULT '',
+    description     TEXT                     NOT NULL DEFAULT '',
+    regions_served  TEXT[]                   NOT NULL DEFAULT '{}',
     pricing_hint    TEXT,
-    contact_mode    TEXT        NOT NULL DEFAULT 'external_url' CHECK (contact_mode IN ('platform_message', 'external_url', 'email')),
-    contact_value   TEXT        NOT NULL DEFAULT '',
-    status          marketplace_offer_status NOT NULL DEFAULT 'draft',
-    review_note     TEXT,
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE (org_id, capability_slug)
+    contact_mode    TEXT                     NOT NULL DEFAULT 'external_url' CHECK (contact_mode IN ('platform_message', 'external_url', 'email')),
+    contact_value   TEXT                     NOT NULL DEFAULT '',
+    status          marketplace_listing_status NOT NULL DEFAULT 'draft',
+    suspension_note TEXT,
+    listed_at       TIMESTAMPTZ,
+    created_at      TIMESTAMPTZ              NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ              NOT NULL DEFAULT NOW()
 );
 
--- Consumer subscriptions (one per consumer+provider+capability)
+-- Consumer subscriptions (one active subscription per consumer org per listing)
 CREATE TABLE marketplace_subscriptions (
-    id                       UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-    consumer_org_id          UUID        NOT NULL,
-    consumer_org_domain      TEXT        NOT NULL,
-    provider_org_global_id   UUID        NOT NULL,
-    provider_org_domain      TEXT        NOT NULL,
-    provider_region          TEXT        NOT NULL,
-    capability_slug          TEXT        NOT NULL,
-    request_note             TEXT,
-    requires_provider_review BOOLEAN     NOT NULL DEFAULT FALSE,
-    requires_admin_review    BOOLEAN     NOT NULL DEFAULT FALSE,
-    requires_contract        BOOLEAN     NOT NULL DEFAULT FALSE,
-    requires_payment         BOOLEAN     NOT NULL DEFAULT FALSE,
-    status                   marketplace_subscription_status NOT NULL DEFAULT 'requested',
-    review_note              TEXT,
-    starts_at                TIMESTAMPTZ,
-    expires_at               TIMESTAMPTZ,
-    created_at               TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at               TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE (consumer_org_id, provider_org_global_id, capability_slug)
+    subscription_id        UUID                          PRIMARY KEY DEFAULT gen_random_uuid(),
+    listing_id             UUID                          NOT NULL,
+    consumer_org_id        UUID                          NOT NULL,
+    consumer_org_domain    TEXT                          NOT NULL,
+    provider_org_global_id UUID                          NOT NULL,
+    provider_org_domain    TEXT                          NOT NULL,
+    provider_region        TEXT                          NOT NULL,
+    capability_id          TEXT                          NOT NULL,
+    request_note           TEXT,
+    status                 marketplace_subscription_status NOT NULL DEFAULT 'active',
+    started_at             TIMESTAMPTZ                   NOT NULL DEFAULT NOW(),
+    expires_at             TIMESTAMPTZ,
+    cancelled_at           TIMESTAMPTZ,
+    created_at             TIMESTAMPTZ                   NOT NULL DEFAULT NOW(),
+    updated_at             TIMESTAMPTZ                   NOT NULL DEFAULT NOW(),
+    UNIQUE (consumer_org_id, listing_id)
 );
 
 -- Audit logs table (unified audit log for org and hub portal write operations)
@@ -363,25 +328,19 @@ CREATE INDEX idx_audit_logs_created_at_id ON audit_logs(created_at DESC, id DESC
 CREATE INDEX idx_audit_logs_actor_user_id ON audit_logs(actor_user_id);
 CREATE INDEX idx_audit_logs_org_created_at_id ON audit_logs(org_id, created_at DESC, id DESC);
 CREATE INDEX idx_audit_logs_event_type ON audit_logs(event_type);
-CREATE INDEX idx_marketplace_enrollments_org_id ON marketplace_enrollments(org_id);
-CREATE INDEX idx_marketplace_enrollments_status ON marketplace_enrollments(status);
-CREATE INDEX idx_marketplace_offers_org_id ON marketplace_offers(org_id);
-CREATE INDEX idx_marketplace_offers_status ON marketplace_offers(status);
+CREATE INDEX idx_marketplace_listings_org_id ON marketplace_listings(org_id, updated_at DESC);
+CREATE INDEX idx_marketplace_listings_capability ON marketplace_listings(capability_id, status);
 CREATE INDEX idx_marketplace_subscriptions_consumer ON marketplace_subscriptions(consumer_org_id, status, updated_at DESC);
-CREATE INDEX idx_marketplace_subscriptions_provider ON marketplace_subscriptions(provider_org_global_id, status, updated_at DESC);
+CREATE INDEX idx_marketplace_subscriptions_listing ON marketplace_subscriptions(listing_id, status);
 -- +goose Down
-DROP INDEX IF EXISTS idx_marketplace_subscriptions_provider;
+DROP INDEX IF EXISTS idx_marketplace_subscriptions_listing;
 DROP INDEX IF EXISTS idx_marketplace_subscriptions_consumer;
-DROP INDEX IF EXISTS idx_marketplace_offers_status;
-DROP INDEX IF EXISTS idx_marketplace_offers_org_id;
-DROP INDEX IF EXISTS idx_marketplace_enrollments_status;
-DROP INDEX IF EXISTS idx_marketplace_enrollments_org_id;
+DROP INDEX IF EXISTS idx_marketplace_listings_capability;
+DROP INDEX IF EXISTS idx_marketplace_listings_org_id;
 DROP TABLE IF EXISTS marketplace_subscriptions;
-DROP TABLE IF EXISTS marketplace_offers;
-DROP TABLE IF EXISTS marketplace_enrollments;
+DROP TABLE IF EXISTS marketplace_listings;
 DROP TYPE IF EXISTS marketplace_subscription_status;
-DROP TYPE IF EXISTS marketplace_offer_status;
-DROP TYPE IF EXISTS marketplace_enrollment_status;
+DROP TYPE IF EXISTS marketplace_listing_status;
 DROP INDEX IF EXISTS idx_audit_logs_event_type;
 DROP INDEX IF EXISTS idx_audit_logs_org_created_at_id;
 DROP INDEX IF EXISTS idx_audit_logs_actor_user_id;

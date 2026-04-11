@@ -669,282 +669,128 @@ ORDER BY a.assigned_at ASC, a.org_user_id ASC
 LIMIT @limit_count;
 
 -- ============================================================
--- Marketplace V3: marketplace_enrollments queries
+-- Marketplace: listings (regional, provider's home region)
 -- ============================================================
 
--- name: GetMarketplaceEnrollmentByOrgAndCapability :one
-SELECT * FROM marketplace_enrollments
-WHERE org_id = @org_id AND capability_slug = @capability_slug;
-
--- name: CreateMarketplaceEnrollmentPendingReview :one
-INSERT INTO marketplace_enrollments (org_id, capability_slug, status, application_note)
-VALUES (@org_id, @capability_slug, 'pending_review', @application_note)
-ON CONFLICT (org_id, capability_slug) DO UPDATE
-  SET status = 'pending_review', application_note = @application_note, updated_at = NOW()
-  WHERE marketplace_enrollments.status IN ('rejected', 'expired')
+-- name: CreateMarketplaceListing :one
+INSERT INTO marketplace_listings (org_id, org_domain, capability_id, headline, summary, description, regions_served, pricing_hint, contact_mode, contact_value)
+VALUES (@org_id, @org_domain, @capability_id, @headline, @summary, @description, @regions_served, @pricing_hint, @contact_mode, @contact_value)
 RETURNING *;
 
--- name: CreateMarketplaceEnrollmentApproved :one
-INSERT INTO marketplace_enrollments (org_id, capability_slug, status, application_note, approved_at)
-VALUES (@org_id, @capability_slug, 'approved', @application_note, NOW())
-ON CONFLICT (org_id, capability_slug) DO UPDATE
-  SET status = 'approved', application_note = @application_note, approved_at = NOW(), updated_at = NOW()
-  WHERE marketplace_enrollments.status IN ('rejected', 'expired')
-RETURNING *;
+-- name: GetMarketplaceListingByID :one
+SELECT * FROM marketplace_listings WHERE listing_id = @listing_id;
 
--- name: AdminApproveMarketplaceEnrollment :one
-UPDATE marketplace_enrollments
-SET status = 'approved', approved_at = NOW(), expires_at = @expires_at,
-    billing_reference = @billing_reference, review_note = @review_note, updated_at = NOW()
-WHERE org_id = @org_id AND capability_slug = @capability_slug AND status = 'pending_review'
-RETURNING *;
+-- name: GetMarketplaceListingByIDAndOrg :one
+SELECT * FROM marketplace_listings WHERE listing_id = @listing_id AND org_id = @org_id;
 
--- name: AdminRejectMarketplaceEnrollment :one
-UPDATE marketplace_enrollments
-SET status = 'rejected', review_note = @review_note, updated_at = NOW()
-WHERE org_id = @org_id AND capability_slug = @capability_slug AND status = 'pending_review'
-RETURNING *;
-
--- name: AdminSuspendMarketplaceEnrollment :one
-UPDATE marketplace_enrollments
-SET status = 'suspended', review_note = @review_note, updated_at = NOW()
-WHERE org_id = @org_id AND capability_slug = @capability_slug AND status = 'approved'
-RETURNING *;
-
--- name: AdminReinstateMarketplaceEnrollment :one
-UPDATE marketplace_enrollments
-SET status = 'approved', review_note = NULL, updated_at = NOW()
-WHERE org_id = @org_id AND capability_slug = @capability_slug AND status = 'suspended'
-RETURNING *;
-
--- name: AdminRenewMarketplaceEnrollment :one
-UPDATE marketplace_enrollments
-SET status = 'approved', expires_at = @expires_at, billing_reference = @billing_reference,
-    review_note = @review_note, updated_at = NOW()
-WHERE org_id = @org_id AND capability_slug = @capability_slug AND status IN ('approved', 'expired')
-RETURNING *;
-
--- name: ExpireMarketplaceEnrollments :exec
-UPDATE marketplace_enrollments
-SET status = 'expired', updated_at = NOW()
-WHERE status = 'approved' AND expires_at IS NOT NULL AND expires_at <= NOW();
-
--- name: ListMarketplaceEnrollmentsByOrg :many
-SELECT * FROM marketplace_enrollments
-WHERE org_id = @org_id
-  AND (@pagination_key_updated_at::timestamptz IS NULL OR @pagination_key_capability_slug::text IS NULL
-    OR (updated_at, capability_slug) < (@pagination_key_updated_at, @pagination_key_capability_slug::text))
-ORDER BY updated_at DESC, capability_slug ASC
-LIMIT @limit_count;
-
--- name: ListAllMarketplaceEnrollments :many
-SELECT * FROM marketplace_enrollments
-WHERE (sqlc.narg('filter_org_id')::uuid IS NULL OR org_id = sqlc.narg('filter_org_id')::uuid)
-  AND (sqlc.narg('filter_capability_slug')::text IS NULL OR capability_slug = sqlc.narg('filter_capability_slug')::text)
-  AND (sqlc.narg('filter_status')::marketplace_enrollment_status IS NULL OR status = sqlc.narg('filter_status')::marketplace_enrollment_status)
-  AND (sqlc.narg('pagination_key')::text IS NULL OR capability_slug > sqlc.narg('pagination_key')::text)
-ORDER BY capability_slug ASC
-LIMIT @limit_count;
-
--- ============================================================
--- Marketplace V3: marketplace_offers queries
--- ============================================================
-
--- name: GetMarketplaceOfferByOrgAndCapability :one
-SELECT * FROM marketplace_offers
-WHERE org_id = @org_id AND capability_slug = @capability_slug;
-
--- name: CreateMarketplaceOffer :one
-INSERT INTO marketplace_offers (enrollment_id, org_id, capability_slug, headline, summary, description, regions_served, pricing_hint, contact_mode, contact_value)
-VALUES (@enrollment_id, @org_id, @capability_slug, @headline, @summary, @description, @regions_served, @pricing_hint, @contact_mode, @contact_value)
-RETURNING *;
-
--- name: UpdateMarketplaceOffer :one
-UPDATE marketplace_offers
+-- name: UpdateMarketplaceListing :one
+UPDATE marketplace_listings
 SET headline = @headline, summary = @summary, description = @description,
     regions_served = @regions_served, pricing_hint = @pricing_hint,
     contact_mode = @contact_mode, contact_value = @contact_value, updated_at = NOW()
-WHERE org_id = @org_id AND capability_slug = @capability_slug
-  AND status IN ('draft', 'rejected', 'archived')
+WHERE listing_id = @listing_id AND org_id = @org_id
+  AND status IN ('draft', 'active')
 RETURNING *;
 
--- name: SubmitMarketplaceOfferForReview :one
-UPDATE marketplace_offers
-SET status = 'pending_review', updated_at = NOW()
-WHERE org_id = @org_id AND capability_slug = @capability_slug AND status = 'draft'
+-- name: PublishMarketplaceListing :one
+UPDATE marketplace_listings
+SET status = 'active', listed_at = COALESCE(listed_at, NOW()), updated_at = NOW()
+WHERE listing_id = @listing_id AND org_id = @org_id AND status = 'draft'
 RETURNING *;
 
--- name: SubmitMarketplaceOfferAutoApprove :one
-UPDATE marketplace_offers
-SET status = 'active', review_note = NULL, updated_at = NOW()
-WHERE org_id = @org_id AND capability_slug = @capability_slug AND status = 'draft'
-RETURNING *;
-
--- name: ArchiveMarketplaceOffer :one
-UPDATE marketplace_offers
+-- name: ArchiveMarketplaceListing :one
+UPDATE marketplace_listings
 SET status = 'archived', updated_at = NOW()
-WHERE org_id = @org_id AND capability_slug = @capability_slug
-  AND status NOT IN ('archived')
+WHERE listing_id = @listing_id AND org_id = @org_id AND status IN ('active', 'draft')
 RETURNING *;
 
--- name: AdminApproveMarketplaceOffer :one
-UPDATE marketplace_offers
-SET status = 'active', review_note = @review_note, updated_at = NOW()
-WHERE org_id = @org_id AND capability_slug = @capability_slug AND status = 'pending_review'
+-- name: AdminSuspendMarketplaceListing :one
+UPDATE marketplace_listings
+SET status = 'suspended', suspension_note = @suspension_note, updated_at = NOW()
+WHERE listing_id = @listing_id AND status = 'active'
 RETURNING *;
 
--- name: AdminRejectMarketplaceOffer :one
-UPDATE marketplace_offers
-SET status = 'rejected', review_note = @review_note, updated_at = NOW()
-WHERE org_id = @org_id AND capability_slug = @capability_slug AND status = 'pending_review'
+-- name: AdminReinstateMarketplaceListing :one
+UPDATE marketplace_listings
+SET status = 'active', suspension_note = NULL, updated_at = NOW()
+WHERE listing_id = @listing_id AND status = 'suspended'
 RETURNING *;
 
--- name: AdminSuspendMarketplaceOffer :one
-UPDATE marketplace_offers
-SET status = 'suspended', review_note = @review_note, updated_at = NOW()
-WHERE org_id = @org_id AND capability_slug = @capability_slug AND status IN ('pending_review', 'active')
-RETURNING *;
+-- name: ListMarketplaceListingsByOrg :many
+SELECT * FROM marketplace_listings
+WHERE org_id = @org_id
+  AND (sqlc.narg('filter_capability_id')::text IS NULL OR capability_id = sqlc.narg('filter_capability_id')::text)
+  AND (sqlc.narg('pagination_key')::uuid IS NULL OR listing_id > sqlc.narg('pagination_key')::uuid)
+ORDER BY listing_id ASC
+LIMIT @limit_count;
 
--- name: AdminReinstateMarketplaceOffer :one
-UPDATE marketplace_offers
-SET status = 'active', review_note = NULL, updated_at = NOW()
-WHERE org_id = @org_id AND capability_slug = @capability_slug AND status = 'suspended'
-RETURNING *;
-
--- name: SuspendMarketplaceOffersByEnrollment :exec
-UPDATE marketplace_offers
-SET status = 'suspended', updated_at = NOW()
-WHERE enrollment_id = @enrollment_id AND status IN ('active', 'pending_review');
-
--- name: ListMarketplaceOffers :many
-SELECT * FROM marketplace_offers
-WHERE (sqlc.narg('filter_status')::marketplace_offer_status IS NULL OR status = sqlc.narg('filter_status')::marketplace_offer_status)
+-- name: ListAllMarketplaceListings :many
+SELECT * FROM marketplace_listings
+WHERE (sqlc.narg('filter_capability_id')::text IS NULL OR capability_id = sqlc.narg('filter_capability_id')::text)
   AND (sqlc.narg('filter_org_id')::uuid IS NULL OR org_id = sqlc.narg('filter_org_id')::uuid)
-ORDER BY updated_at DESC, capability_slug ASC
+  AND (sqlc.narg('filter_status')::marketplace_listing_status IS NULL OR status = sqlc.narg('filter_status')::marketplace_listing_status)
+  AND (sqlc.narg('pagination_key')::uuid IS NULL OR listing_id > sqlc.narg('pagination_key')::uuid)
+ORDER BY listing_id ASC
 LIMIT @limit_count;
 
 -- ============================================================
--- Marketplace V3: marketplace_subscriptions queries
+-- Marketplace: subscriptions (regional, consumer's home region)
 -- ============================================================
 
--- name: GetMarketplaceSubscriptionByConsumerAndProvider :one
+-- name: GetMarketplaceSubscriptionByID :one
+SELECT * FROM marketplace_subscriptions WHERE subscription_id = @subscription_id;
+
+-- name: GetMarketplaceSubscriptionByConsumerAndListing :one
 SELECT * FROM marketplace_subscriptions
-WHERE consumer_org_id = @consumer_org_id
-  AND provider_org_global_id = @provider_org_global_id
-  AND capability_slug = @capability_slug;
+WHERE consumer_org_id = @consumer_org_id AND listing_id = @listing_id;
 
--- name: UpsertMarketplaceSubscriptionRequested :one
+-- name: UpsertMarketplaceSubscriptionActive :one
 INSERT INTO marketplace_subscriptions (
-    consumer_org_id, consumer_org_domain, provider_org_global_id, provider_org_domain,
-    provider_region, capability_slug, request_note,
-    requires_provider_review, requires_admin_review, requires_contract, requires_payment,
-    status
+    listing_id, consumer_org_id, consumer_org_domain,
+    provider_org_global_id, provider_org_domain, provider_region,
+    capability_id, request_note, status, started_at
 ) VALUES (
-    @consumer_org_id, @consumer_org_domain, @provider_org_global_id, @provider_org_domain,
-    @provider_region, @capability_slug, @request_note,
-    @requires_provider_review, @requires_admin_review, @requires_contract, @requires_payment,
-    'requested'
+    @listing_id, @consumer_org_id, @consumer_org_domain,
+    @provider_org_global_id, @provider_org_domain, @provider_region,
+    @capability_id, @request_note, 'active', NOW()
 )
-ON CONFLICT (consumer_org_id, provider_org_global_id, capability_slug) DO UPDATE
-  SET request_note = @request_note, requires_provider_review = @requires_provider_review,
-      requires_admin_review = @requires_admin_review, requires_contract = @requires_contract,
-      requires_payment = @requires_payment, status = 'requested',
-      review_note = NULL, starts_at = NULL, updated_at = NOW()
-  WHERE marketplace_subscriptions.status IN ('rejected', 'cancelled', 'expired')
-RETURNING *;
-
--- name: AdvanceMarketplaceSubscriptionStatus :one
-UPDATE marketplace_subscriptions
-SET status = @new_status, updated_at = NOW()
-WHERE consumer_org_id = @consumer_org_id
-  AND provider_org_global_id = @provider_org_global_id
-  AND capability_slug = @capability_slug
-  AND status = @expected_status
-RETURNING *;
-
--- name: ActivateMarketplaceSubscription :one
-UPDATE marketplace_subscriptions
-SET status = 'active', starts_at = NOW(), updated_at = NOW()
-WHERE consumer_org_id = @consumer_org_id
-  AND provider_org_global_id = @provider_org_global_id
-  AND capability_slug = @capability_slug
-  AND status = @expected_status
+ON CONFLICT (consumer_org_id, listing_id) DO UPDATE
+  SET request_note = @request_note, status = 'active',
+      started_at = NOW(), cancelled_at = NULL, updated_at = NOW()
+  WHERE marketplace_subscriptions.status IN ('cancelled', 'expired')
 RETURNING *;
 
 -- name: CancelMarketplaceSubscription :one
 UPDATE marketplace_subscriptions
-SET status = 'cancelled', updated_at = NOW()
-WHERE consumer_org_id = @consumer_org_id
-  AND provider_org_global_id = @provider_org_global_id
-  AND capability_slug = @capability_slug
-  AND status NOT IN ('cancelled', 'expired', 'rejected')
-RETURNING *;
-
--- name: ProviderRejectMarketplaceSubscription :one
-UPDATE marketplace_subscriptions
-SET status = 'rejected', review_note = @review_note, updated_at = NOW()
-WHERE provider_org_global_id = @provider_org_global_id
+SET status = 'cancelled', cancelled_at = NOW(), updated_at = NOW()
+WHERE subscription_id = @subscription_id
   AND consumer_org_id = @consumer_org_id
-  AND capability_slug = @capability_slug
-  AND status = 'provider_review'
+  AND status = 'active'
 RETURNING *;
 
--- name: AdminRejectMarketplaceSubscription :one
+-- name: AdminCancelMarketplaceSubscription :one
 UPDATE marketplace_subscriptions
-SET status = 'rejected', review_note = @review_note, updated_at = NOW()
-WHERE consumer_org_id = @consumer_org_id
-  AND provider_org_global_id = @provider_org_global_id
-  AND capability_slug = @capability_slug
-  AND status = 'admin_review'
-RETURNING *;
-
--- name: AdminActivateMarketplaceSubscription :one
-UPDATE marketplace_subscriptions
-SET status = 'active', starts_at = NOW(), updated_at = NOW()
-WHERE consumer_org_id = @consumer_org_id
-  AND provider_org_global_id = @provider_org_global_id
-  AND capability_slug = @capability_slug
-  AND status IN ('admin_review', 'awaiting_contract', 'awaiting_payment')
+SET status = 'cancelled', cancelled_at = NOW(), updated_at = NOW()
+WHERE subscription_id = @subscription_id AND status = 'active'
 RETURNING *;
 
 -- name: ListConsumerMarketplaceSubscriptions :many
 SELECT * FROM marketplace_subscriptions
 WHERE consumer_org_id = @consumer_org_id
-  AND (@pagination_key_updated_at::timestamptz IS NULL
-    OR (updated_at, provider_org_domain, capability_slug) < (@pagination_key_updated_at, @pagination_key_provider_domain::text, @pagination_key_capability_slug::text))
-ORDER BY updated_at DESC, provider_org_domain ASC, capability_slug ASC
+  AND (sqlc.narg('filter_status')::marketplace_subscription_status IS NULL OR status = sqlc.narg('filter_status')::marketplace_subscription_status)
+  AND (sqlc.narg('pagination_key')::uuid IS NULL OR subscription_id > sqlc.narg('pagination_key')::uuid)
+ORDER BY subscription_id ASC
 LIMIT @limit_count;
 
--- name: ListIncomingMarketplaceSubscriptions :many
+-- name: GetMarketplaceSubscriptionsByIDs :many
 SELECT * FROM marketplace_subscriptions
-WHERE provider_org_global_id = @provider_org_global_id
-  AND (sqlc.narg('filter_capability_slug')::text IS NULL OR capability_slug = sqlc.narg('filter_capability_slug')::text)
-  AND (@pagination_key_updated_at::timestamptz IS NULL
-    OR (updated_at, consumer_org_domain, capability_slug) < (@pagination_key_updated_at, @pagination_key_consumer_domain::text, @pagination_key_capability_slug::text))
-ORDER BY updated_at DESC, consumer_org_domain ASC, capability_slug ASC
-LIMIT @limit_count;
-
--- name: GetIncomingMarketplaceSubscription :one
-SELECT * FROM marketplace_subscriptions
-WHERE provider_org_global_id = @provider_org_global_id
-  AND consumer_org_id = @consumer_org_id
-  AND capability_slug = @capability_slug;
-
--- name: AdminCancelMarketplaceSubscription :one
-UPDATE marketplace_subscriptions
-SET status = 'cancelled', updated_at = NOW()
-WHERE consumer_org_id = @consumer_org_id
-  AND provider_org_global_id = @provider_org_global_id
-  AND capability_slug = @capability_slug
-  AND status NOT IN ('cancelled', 'expired', 'rejected')
-RETURNING *;
+WHERE subscription_id = ANY(@subscription_ids::uuid[]);
 
 -- name: ListAllMarketplaceSubscriptions :many
 SELECT * FROM marketplace_subscriptions
-WHERE (sqlc.narg('filter_consumer_org_id')::uuid IS NULL OR consumer_org_id = sqlc.narg('filter_consumer_org_id')::uuid)
-  AND (sqlc.narg('filter_provider_org_global_id')::uuid IS NULL OR provider_org_global_id = sqlc.narg('filter_provider_org_global_id')::uuid)
-  AND (sqlc.narg('filter_capability_slug')::text IS NULL OR capability_slug = sqlc.narg('filter_capability_slug')::text)
+WHERE (sqlc.narg('filter_capability_id')::text IS NULL OR capability_id = sqlc.narg('filter_capability_id')::text)
+  AND (sqlc.narg('filter_consumer_org_id')::uuid IS NULL OR consumer_org_id = sqlc.narg('filter_consumer_org_id')::uuid)
   AND (sqlc.narg('filter_status')::marketplace_subscription_status IS NULL OR status = sqlc.narg('filter_status')::marketplace_subscription_status)
-  AND (sqlc.narg('pagination_key')::text IS NULL OR (consumer_org_domain, provider_org_domain, capability_slug) > (sqlc.narg('pagination_key')::text, '', ''))
-ORDER BY consumer_org_domain ASC, provider_org_domain ASC, capability_slug ASC
+  AND (sqlc.narg('pagination_key')::uuid IS NULL OR subscription_id > sqlc.narg('pagination_key')::uuid)
+ORDER BY subscription_id ASC
 LIMIT @limit_count;

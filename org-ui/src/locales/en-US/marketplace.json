@@ -1,218 +1,120 @@
 {
 	"backToDashboard": "Back to Dashboard",
-	"title": "Marketplace",
-	"launcher": {
-		"exploreTitle": "Explore Capabilities",
-		"exploreSubtitle": "Browse marketplace capabilities and subscribe to services from other organizations.",
-		"exploreAction": "Browse Capabilities",
-		"provideTitle": "Provide Services",
-		"provideSubtitle": "Enroll to offer your services on the marketplace and manage your offer listings.",
-		"provideAction": "Manage Provider Dashboard",
-		"purchasesTitle": "My Purchases",
-		"purchasesSubtitle": "View and manage your active subscriptions to marketplace services.",
-		"purchasesAction": "View Subscriptions"
-	},
-	"capabilities": {
-		"title": "Marketplace Capabilities",
-		"backToMarketplace": "Back to Marketplace",
+
+	"discover": {
+		"title": "Browse Services",
+		"noListings": "No listings available yet.",
 		"loadMore": "Load More",
-		"viewProviders": "View Providers",
-		"noCapabilities": "No marketplace capabilities are available yet.",
-		"status": {
-			"draft": "Draft",
-			"active": "Active",
-			"disabled": "Disabled"
-		},
 		"errors": {
-			"loadFailed": "Failed to load capabilities"
+			"loadFailed": "Failed to load listings"
 		}
 	},
-	"capabilityDetail": {
-		"backToCapabilities": "Back to Capabilities",
-		"providersTitle": "Available Providers",
-		"loadMoreProviders": "Load More Providers",
-		"viewOffer": "View Offer",
-		"subscribe": "Subscribe",
-		"noProviders": "No providers available for this capability yet.",
-		"regions": "Regions Served",
-		"contact": "Contact",
-		"contactModes": {
-			"platform_message": "Platform Message",
-			"external_url": "External URL",
-			"email": "Email"
-		},
-		"errors": {
-			"loadFailed": "Failed to load capability details",
-			"providersFailed": "Failed to load providers"
-		}
-	},
-	"providerOffer": {
-		"backToCapability": "Back to Capability",
-		"headline": "Headline",
+
+	"discoverDetail": {
+		"backToDiscover": "Back to Browse",
+		"provider": "Provider",
+		"capability": "Capability",
 		"summary": "Summary",
-		"description": "Description",
 		"regions": "Regions Served",
 		"pricing": "Pricing",
 		"contact": "Contact",
-		"subscribeButton": "Request Subscription",
-		"alreadySubscribed": "Already Subscribed",
-		"requestNote": "Request Note",
-		"requestNotePlaceholder": "Optional note to the provider (max 1000 chars)",
-		"confirmSubscribe": "Confirm Subscription Request",
-		"subscribeConfirmMessage": "Send a subscription request to this provider?",
+		"listedAt": "Listed At",
+		"subscribeButton": "Subscribe",
+		"subscribed": "Subscribed",
+		"subscribeTitle": "Confirm Subscription",
+		"subscribeConfirmMessage": "Subscribe to this service listing?",
+		"requestNotePlaceholder": "Optional note to the provider (max 2000 chars)",
 		"errors": {
-			"loadFailed": "Failed to load provider offer",
-			"subscribeFailed": "Failed to request subscription"
-		},
-		"success": {
-			"subscribed": "Subscription request sent successfully"
+			"notFound": "Listing not found",
+			"loadFailed": "Failed to load listing",
+			"subscribeFailed": "Failed to subscribe",
+			"subscribeForbidden": "You do not have permission to subscribe"
 		}
 	},
-	"provide": {
-		"dashboardTitle": "Provider Dashboard",
-		"backToMarketplace": "Back to Marketplace",
-		"enrollmentsTitle": "My Enrollments",
+
+	"listings": {
+		"title": "My Listings",
+		"noListings": "No listings yet. Create your first listing.",
 		"loadMore": "Load More",
-		"applyButton": "Apply for Enrollment",
-		"viewDetails": "View Details",
-		"noEnrollments": "You are not enrolled in any marketplace capabilities yet.",
-		"enrollmentStatuses": {
-			"pending_review": "Pending Review",
-			"approved": "Approved",
-			"rejected": "Rejected",
-			"suspended": "Suspended",
-			"expired": "Expired"
+		"createButton": "Create Listing",
+		"publishButton": "Publish",
+		"archiveButton": "Archive",
+		"editButton": "Edit",
+		"columns": {
+			"headline": "Headline",
+			"capability": "Capability",
+			"status": "Status",
+			"createdAt": "Created",
+			"actions": "Actions"
 		},
-		"errors": {
-			"loadFailed": "Failed to load enrollments"
-		}
-	},
-	"provideCapability": {
-		"backToProvide": "Back to Provider Dashboard",
-		"enrollmentTitle": "Enrollment Status",
-		"offerTitle": "My Offer",
-		"applyButton": "Apply for Enrollment",
-		"reapplyButton": "Re-apply",
-		"createOfferButton": "Create Offer",
-		"editOfferButton": "Edit Offer",
-		"submitOfferButton": "Submit for Review",
-		"archiveOfferButton": "Archive Offer",
-		"viewActivityButton": "View Incoming Subscriptions",
-		"noEnrollment": "You have not applied for this capability yet.",
-		"noOffer": "No offer created yet.",
-		"approvedAt": "Approved At",
-		"expiresAt": "Expires At",
-		"reviewNote": "Review Note",
-		"applicationNote": "Application Note",
-		"offerStatuses": {
+		"statuses": {
 			"draft": "Draft",
-			"pending_review": "Pending Review",
 			"active": "Active",
-			"rejected": "Rejected",
 			"suspended": "Suspended",
 			"archived": "Archived"
 		},
 		"errors": {
-			"loadFailed": "Failed to load capability details",
-			"submitFailed": "Failed to submit offer",
-			"archiveFailed": "Failed to archive offer"
-		},
-		"success": {
-			"submitted": "Offer submitted for review",
-			"archived": "Offer archived"
+			"loadFailed": "Failed to load listings"
 		}
 	},
-	"provideApply": {
-		"applyTitle": "Apply for Enrollment",
-		"reapplyTitle": "Re-apply for Enrollment",
-		"backToCapability": "Back to Capability",
+
+	"listingForm": {
+		"createTitle": "Create Listing",
+		"editTitle": "Edit Listing",
+		"backToListings": "Back to Listings",
 		"capabilityLabel": "Capability",
-		"applicationNoteLabel": "Application Note",
-		"applicationNotePlaceholder": "Describe your services and why you want to be a provider (optional, max 1000 chars)",
-		"applicationNoteHelp": "Optional. Max 1000 characters.",
-		"submitButton": "Submit Application",
-		"errors": {
-			"noteTooLong": "Application note must be at most 1000 characters",
-			"submitFailed": "Failed to submit application",
-			"loadFailed": "Failed to load capability"
-		},
-		"success": {
-			"applied": "Application submitted successfully"
-		}
-	},
-	"provideOffer": {
-		"backToCapability": "Back to Capability",
-		"title": "My Offer",
-		"headline": "Headline",
-		"summary": "Summary",
-		"description": "Description",
-		"regions": "Regions Served",
-		"pricing": "Pricing",
-		"contact": "Contact",
-		"editButton": "Edit Offer",
-		"status": "Status",
-		"reviewNote": "Review Note",
-		"errors": {
-			"loadFailed": "Failed to load offer"
-		}
-	},
-	"provideOfferEdit": {
-		"createTitle": "Create Offer",
-		"editTitle": "Edit Offer",
-		"backToOffer": "Back to Offer",
-		"backToCapability": "Back to Capability",
+		"capabilityPlaceholder": "Select a capability",
 		"headlineLabel": "Headline",
-		"headlinePlaceholder": "Short headline for your service offer",
+		"headlinePlaceholder": "Short headline for your service (max 100 chars)",
 		"summaryLabel": "Summary",
-		"summaryPlaceholder": "A brief summary of what you offer (max 500 chars)",
+		"summaryPlaceholder": "Brief summary of your service (max 500 chars)",
 		"descriptionLabel": "Description",
-		"descriptionPlaceholder": "Detailed description of your service offer (max 5000 chars)",
+		"descriptionPlaceholder": "Detailed description of your service (max 10000 chars)",
 		"regionsLabel": "Regions Served",
-		"regionsPlaceholder": "e.g. North America, Europe, Asia",
+		"regionsPlaceholder": "Type and press Enter to add regions",
 		"pricingLabel": "Pricing Hint",
-		"pricingPlaceholder": "e.g. Starting from $500/month (optional)",
+		"pricingPlaceholder": "Optional pricing info (max 200 chars)",
 		"contactModeLabel": "Contact Mode",
 		"contactValueLabel": "Contact Value",
 		"contactValuePlaceholder": "URL, email, or platform username",
 		"contactModes": {
-			"platform_message": "Platform Message",
 			"external_url": "External URL",
-			"email": "Email"
+			"email": "Email",
+			"platform_message": "Platform Message"
 		},
-		"submitButton": "Save Offer",
+		"submitButton": "Save Listing",
 		"errors": {
+			"capabilityRequired": "Capability is required",
 			"headlineRequired": "Headline is required",
-			"headlineTooLong": "Headline must be at most 200 characters",
+			"headlineTooLong": "Headline must be at most 100 characters",
 			"summaryRequired": "Summary is required",
 			"summaryTooLong": "Summary must be at most 500 characters",
 			"descriptionRequired": "Description is required",
-			"descriptionTooLong": "Description must be at most 5000 characters",
+			"descriptionTooLong": "Description must be at most 10000 characters",
 			"regionsRequired": "At least one region is required",
 			"contactValueRequired": "Contact value is required",
-			"loadFailed": "Failed to load offer",
-			"saveFailed": "Failed to save offer"
-		},
-		"success": {
-			"saved": "Offer saved successfully"
+			"noOrgDomain": "Your organization has no verified domain. Please verify a domain first.",
+			"loadFailed": "Failed to load listing",
+			"saveFailed": "Failed to save listing"
 		}
 	},
-	"provideActivity": {
-		"title": "Incoming Subscriptions",
-		"backToCapability": "Back to Capability",
+
+	"subscriptions": {
+		"title": "My Subscriptions",
+		"noSubscriptions": "No subscriptions yet. Browse listings to subscribe.",
 		"loadMore": "Load More",
-		"viewDetails": "View Details",
-		"noSubscriptions": "No incoming subscription requests.",
-		"consumer": "Consumer",
-		"status": "Status",
-		"createdAt": "Created At",
-		"subscriptionStatuses": {
-			"requested": "Requested",
-			"provider_review": "Provider Review",
-			"admin_review": "Admin Review",
-			"awaiting_contract": "Awaiting Contract",
-			"awaiting_payment": "Awaiting Payment",
+		"cancelButton": "Cancel",
+		"cancelTitle": "Cancel Subscription",
+		"cancelConfirm": "Are you sure you want to cancel this subscription?",
+		"columns": {
+			"provider": "Provider",
+			"capability": "Capability",
+			"status": "Status",
+			"startedAt": "Started",
+			"actions": "Actions"
+		},
+		"statuses": {
 			"active": "Active",
-			"rejected": "Rejected",
 			"cancelled": "Cancelled",
 			"expired": "Expired"
 		},
@@ -220,99 +122,25 @@
 			"loadFailed": "Failed to load subscriptions"
 		}
 	},
-	"provideActivityDetail": {
-		"backToActivity": "Back to Incoming Subscriptions",
-		"title": "Subscription Detail",
-		"consumer": "Consumer",
-		"capability": "Capability",
-		"status": "Status",
-		"requestNote": "Request Note",
-		"reviewNote": "Review Note",
-		"createdAt": "Created At",
-		"updatedAt": "Updated At",
-		"approveButton": "Approve",
-		"rejectButton": "Reject",
-		"rejectTitle": "Reject Subscription",
-		"rejectNoteLabel": "Review Note",
-		"rejectNotePlaceholder": "Provide a reason for rejection (required)",
-		"confirmApprove": "Approve this subscription request?",
-		"subscriptionStatuses": {
-			"requested": "Requested",
-			"provider_review": "Provider Review",
-			"admin_review": "Admin Review",
-			"awaiting_contract": "Awaiting Contract",
-			"awaiting_payment": "Awaiting Payment",
-			"active": "Active",
-			"rejected": "Rejected",
-			"cancelled": "Cancelled",
-			"expired": "Expired"
-		},
-		"errors": {
-			"loadFailed": "Failed to load subscription",
-			"approveFailed": "Failed to approve subscription",
-			"rejectFailed": "Failed to reject subscription",
-			"reviewNoteRequired": "Review note is required for rejection"
-		},
-		"success": {
-			"approved": "Subscription approved",
-			"rejected": "Subscription rejected"
-		}
-	},
-	"purchases": {
-		"title": "My Purchases",
-		"backToMarketplace": "Back to Marketplace",
+
+	"clients": {
+		"title": "My Clients",
+		"noClients": "No clients yet. Publish a listing to start receiving subscriptions.",
 		"loadMore": "Load More",
-		"viewDetails": "View Details",
-		"noSubscriptions": "No active subscriptions yet.",
-		"provider": "Provider",
-		"capability": "Capability",
-		"status": "Status",
-		"createdAt": "Created At",
-		"subscriptionStatuses": {
-			"requested": "Requested",
-			"provider_review": "Provider Review",
-			"admin_review": "Admin Review",
-			"awaiting_contract": "Awaiting Contract",
-			"awaiting_payment": "Awaiting Payment",
+		"columns": {
+			"consumer": "Consumer",
+			"capability": "Capability",
+			"status": "Status",
+			"startedAt": "Started",
+			"expiresAt": "Expires"
+		},
+		"statuses": {
 			"active": "Active",
-			"rejected": "Rejected",
 			"cancelled": "Cancelled",
 			"expired": "Expired"
 		},
 		"errors": {
-			"loadFailed": "Failed to load subscriptions"
-		}
-	},
-	"purchaseDetail": {
-		"backToPurchases": "Back to Purchases",
-		"title": "Purchase Detail",
-		"provider": "Provider",
-		"capability": "Capability",
-		"status": "Status",
-		"requestNote": "Request Note",
-		"reviewNote": "Review Note",
-		"startsAt": "Starts At",
-		"expiresAt": "Expires At",
-		"createdAt": "Created At",
-		"cancelButton": "Cancel Subscription",
-		"confirmCancel": "Cancel this subscription?",
-		"subscriptionStatuses": {
-			"requested": "Requested",
-			"provider_review": "Provider Review",
-			"admin_review": "Admin Review",
-			"awaiting_contract": "Awaiting Contract",
-			"awaiting_payment": "Awaiting Payment",
-			"active": "Active",
-			"rejected": "Rejected",
-			"cancelled": "Cancelled",
-			"expired": "Expired"
-		},
-		"errors": {
-			"loadFailed": "Failed to load subscription",
-			"cancelFailed": "Failed to cancel subscription"
-		},
-		"success": {
-			"cancelled": "Subscription cancelled"
+			"loadFailed": "Failed to load clients"
 		}
 	}
 }

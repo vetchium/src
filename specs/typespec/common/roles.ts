@@ -25,8 +25,10 @@ export const VALID_ROLE_NAMES = [
 	"org:manage_costcenters",
 	"org:view_suborgs",
 	"org:manage_suborgs",
-	"org:view_marketplace",
-	"org:manage_marketplace",
+	"org:view_listings",
+	"org:manage_listings",
+	"org:view_subscriptions",
+	"org:manage_subscriptions",
 	"org:view_audit_logs",
 
 	// Hub portal roles

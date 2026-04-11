@@ -31,18 +31,12 @@ import { DomainManagementPage } from "./pages/DomainManagement/DomainManagementP
 import { CostCentersPage } from "./pages/CostCenters/CostCentersPage";
 import { SubOrgsPage } from "./pages/SubOrgs/SubOrgsPage";
 import { AuditLogsPage } from "./pages/AuditLogsPage";
-import { MarketplaceCapabilitiesPage } from "./pages/Marketplace/MarketplaceCapabilitiesPage";
-import { MarketplaceCapabilityDetailPage } from "./pages/Marketplace/MarketplaceCapabilityDetailPage";
-import { MarketplaceProviderOfferPage } from "./pages/Marketplace/MarketplaceProviderOfferPage";
-import { MarketplaceProvideDashboard } from "./pages/Marketplace/MarketplaceProvideDashboard";
-import { MarketplaceProvideCapabilityPage } from "./pages/Marketplace/MarketplaceProvideCapabilityPage";
-import { MarketplaceProvideApplyPage } from "./pages/Marketplace/MarketplaceProvideApplyPage";
-import { MarketplaceProvideOfferPage } from "./pages/Marketplace/MarketplaceProvideOfferPage";
-import { MarketplaceProvideOfferEditPage } from "./pages/Marketplace/MarketplaceProvideOfferEditPage";
-import { MarketplaceProvideActivityPage } from "./pages/Marketplace/MarketplaceProvideActivityPage";
-import { MarketplaceProvideActivityDetailPage } from "./pages/Marketplace/MarketplaceProvideActivityDetailPage";
-import { MarketplacePurchasesPage } from "./pages/Marketplace/MarketplacePurchasesPage";
-import { MarketplacePurchaseDetailPage } from "./pages/Marketplace/MarketplacePurchaseDetailPage";
+import { MarketplaceDiscoverPage } from "./pages/Marketplace/MarketplaceDiscoverPage";
+import { MarketplaceDiscoverDetailPage } from "./pages/Marketplace/MarketplaceDiscoverDetailPage";
+import { MarketplaceListingsPage } from "./pages/Marketplace/MarketplaceListingsPage";
+import { MarketplaceListingFormPage } from "./pages/Marketplace/MarketplaceListingFormPage";
+import { MarketplaceSubscriptionsPage } from "./pages/Marketplace/MarketplaceSubscriptionsPage";
+import { MarketplaceClientsPage } from "./pages/Marketplace/MarketplaceClientsPage";
 import {
 	BrowserRouter,
 	Routes,
@@ -213,7 +207,7 @@ function CostCentersRoute({ children }: { children: React.ReactNode }) {
 	return <>{children}</>;
 }
 
-function MarketplaceProviderRoute({ children }: { children: React.ReactNode }) {
+function MarketplaceListingsRoute({ children }: { children: React.ReactNode }) {
 	const { authState, sessionToken } = useAuth();
 	const { data: myInfo, loading } = useMyInfo(sessionToken);
 	const location = useLocation();
@@ -232,8 +226,41 @@ function MarketplaceProviderRoute({ children }: { children: React.ReactNode }) {
 
 	const hasAccess =
 		myInfo?.roles.includes("org:superadmin") ||
-		myInfo?.roles.includes("org:view_marketplace") ||
-		myInfo?.roles.includes("org:manage_marketplace");
+		myInfo?.roles.includes("org:view_listings") ||
+		myInfo?.roles.includes("org:manage_listings");
+
+	if (!hasAccess) {
+		return <Navigate to="/" replace />;
+	}
+
+	return <>{children}</>;
+}
+
+function MarketplaceSubscriptionsRoute({
+	children,
+}: {
+	children: React.ReactNode;
+}) {
+	const { authState, sessionToken } = useAuth();
+	const { data: myInfo, loading } = useMyInfo(sessionToken);
+	const location = useLocation();
+
+	if (authState === "login") {
+		return <Navigate to="/login" state={{ from: location }} replace />;
+	}
+
+	if (authState === "tfa") {
+		return <Navigate to="/tfa" replace />;
+	}
+
+	if (loading) {
+		return <Spin size="large" />;
+	}
+
+	const hasAccess =
+		myInfo?.roles.includes("org:superadmin") ||
+		myInfo?.roles.includes("org:view_subscriptions") ||
+		myInfo?.roles.includes("org:manage_subscriptions");
 
 	if (!hasAccess) {
 		return <Navigate to="/" replace />;
@@ -393,102 +420,62 @@ function AppContent() {
 							/>
 							<Route
 								path="/marketplace"
-								element={<Navigate to="/marketplace/capabilities" replace />}
+								element={<Navigate to="/marketplace/discover" replace />}
 							/>
 							<Route
-								path="/marketplace/capabilities"
+								path="/marketplace/discover"
 								element={
 									<ProtectedRoute>
-										<MarketplaceCapabilitiesPage />
+										<MarketplaceDiscoverPage />
 									</ProtectedRoute>
 								}
 							/>
 							<Route
-								path="/marketplace/capabilities/:capability_slug"
+								path="/marketplace/discover/:listing_id"
 								element={
 									<ProtectedRoute>
-										<MarketplaceCapabilityDetailPage />
+										<MarketplaceDiscoverDetailPage />
 									</ProtectedRoute>
 								}
 							/>
 							<Route
-								path="/marketplace/capabilities/:capability_slug/providers/:provider_org_domain"
+								path="/marketplace/listings"
 								element={
-									<ProtectedRoute>
-										<MarketplaceProviderOfferPage />
-									</ProtectedRoute>
+									<MarketplaceListingsRoute>
+										<MarketplaceListingsPage />
+									</MarketplaceListingsRoute>
 								}
 							/>
 							<Route
-								path="/marketplace/provide"
+								path="/marketplace/listings/new"
 								element={
-									<MarketplaceProviderRoute>
-										<MarketplaceProvideDashboard />
-									</MarketplaceProviderRoute>
+									<MarketplaceListingsRoute>
+										<MarketplaceListingFormPage />
+									</MarketplaceListingsRoute>
 								}
 							/>
 							<Route
-								path="/marketplace/provide/:capability_slug"
+								path="/marketplace/listings/:listing_id/edit"
 								element={
-									<MarketplaceProviderRoute>
-										<MarketplaceProvideCapabilityPage />
-									</MarketplaceProviderRoute>
+									<MarketplaceListingsRoute>
+										<MarketplaceListingFormPage />
+									</MarketplaceListingsRoute>
 								}
 							/>
 							<Route
-								path="/marketplace/provide/:capability_slug/apply"
+								path="/marketplace/subscriptions"
 								element={
-									<MarketplaceProviderRoute>
-										<MarketplaceProvideApplyPage />
-									</MarketplaceProviderRoute>
+									<MarketplaceSubscriptionsRoute>
+										<MarketplaceSubscriptionsPage />
+									</MarketplaceSubscriptionsRoute>
 								}
 							/>
 							<Route
-								path="/marketplace/provide/:capability_slug/offer"
+								path="/marketplace/clients"
 								element={
-									<MarketplaceProviderRoute>
-										<MarketplaceProvideOfferPage />
-									</MarketplaceProviderRoute>
-								}
-							/>
-							<Route
-								path="/marketplace/provide/:capability_slug/offer/edit"
-								element={
-									<MarketplaceProviderRoute>
-										<MarketplaceProvideOfferEditPage />
-									</MarketplaceProviderRoute>
-								}
-							/>
-							<Route
-								path="/marketplace/provide/:capability_slug/activity"
-								element={
-									<MarketplaceProviderRoute>
-										<MarketplaceProvideActivityPage />
-									</MarketplaceProviderRoute>
-								}
-							/>
-							<Route
-								path="/marketplace/provide/:capability_slug/activity/:consumer_org_domain"
-								element={
-									<MarketplaceProviderRoute>
-										<MarketplaceProvideActivityDetailPage />
-									</MarketplaceProviderRoute>
-								}
-							/>
-							<Route
-								path="/marketplace/purchases"
-								element={
-									<ProtectedRoute>
-										<MarketplacePurchasesPage />
-									</ProtectedRoute>
-								}
-							/>
-							<Route
-								path="/marketplace/purchases/from/:provider_org_domain/:capability_slug"
-								element={
-									<ProtectedRoute>
-										<MarketplacePurchaseDetailPage />
-									</ProtectedRoute>
+									<MarketplaceListingsRoute>
+										<MarketplaceClientsPage />
+									</MarketplaceListingsRoute>
 								}
 							/>
 							<Route path="/forgot-password" element={<ForgotPasswordPage />} />

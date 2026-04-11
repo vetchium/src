@@ -404,9 +404,11 @@ const (
 	OrgRoleManageCostCenters OrgRole = "org:manage_costcenters"
 	OrgRoleViewSubOrgs       OrgRole = "org:view_suborgs"
 	OrgRoleManageSubOrgs     OrgRole = "org:manage_suborgs"
-	OrgRoleViewAuditLogs     OrgRole = "org:view_audit_logs"
-	OrgRoleViewMarketplace   OrgRole = "org:view_marketplace"
-	OrgRoleManageMarketplace OrgRole = "org:manage_marketplace"
+	OrgRoleViewAuditLogs        OrgRole = "org:view_audit_logs"
+	OrgRoleViewListings         OrgRole = "org:view_listings"
+	OrgRoleManageListings       OrgRole = "org:manage_listings"
+	OrgRoleViewSubscriptions    OrgRole = "org:view_subscriptions"
+	OrgRoleManageSubscriptions  OrgRole = "org:manage_subscriptions"
 )
 
 type OrgUser struct {
