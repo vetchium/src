@@ -804,11 +804,6 @@ export async function getTestOrgUser(email: string): Promise<{
 }
 
 /**
- * Domain verification status enum matching the database enum
- */
-export type DomainVerificationStatus = "PENDING" | "VERIFIED" | "FAILING";
-
-/**
  * Creates a verified global org domain for testing.
  * This allows testing the login flow which requires a verified domain.
  *

@@ -15,9 +15,13 @@ import taINAuth from "./locales/ta-IN/auth.json";
 import taINSignup from "./locales/ta-IN/signup.json";
 import taINAuditLogs from "./locales/ta-IN/audit-logs.json";
 
-export const SUPPORTED_LANGUAGES = ["en-US", "de-DE", "ta-IN"] as const;
-export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
-export const DEFAULT_LANGUAGE: SupportedLanguage = "en-US";
+import {
+	SUPPORTED_LANGUAGES,
+	DEFAULT_LANGUAGE,
+} from "vetchium-specs/common/common";
+import type { SupportedLanguage } from "vetchium-specs/common/common";
+export { SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE };
+export type { SupportedLanguage };
 
 const LANGUAGE_STORAGE_KEY = "vetchium_hub_language";
 
