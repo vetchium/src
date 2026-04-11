@@ -716,6 +716,12 @@ SET status = 'active', suspension_note = NULL, updated_at = NOW()
 WHERE listing_id = @listing_id AND status = 'suspended'
 RETURNING *;
 
+-- name: AdminApproveMarketplaceListing :one
+UPDATE marketplace_listings
+SET status = 'active', listed_at = COALESCE(listed_at, NOW()), updated_at = NOW()
+WHERE listing_id = @listing_id AND status = 'draft'
+RETURNING *;
+
 -- name: ListMarketplaceListingsByOrg :many
 SELECT * FROM marketplace_listings
 WHERE org_id = @org_id

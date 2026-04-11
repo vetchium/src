@@ -177,6 +177,42 @@
 			"reinstate": "Angebot wiederhergestellt"
 		}
 	},
+	"listings": {
+		"filterStatus": "Nach Status filtern",
+		"table": {
+			"orgDomain": "Org-Domain",
+			"capabilityId": "Fähigkeit",
+			"headline": "Überschrift",
+			"status": "Status",
+			"updatedAt": "Aktualisiert am",
+			"actions": "Aktionen"
+		},
+		"modal": {
+			"approve": {
+				"title": "Angebot genehmigen",
+				"confirm": "Möchten Sie dieses Angebot wirklich genehmigen? Es wird aktiv und für Verbraucher sichtbar."
+			},
+			"suspend": {
+				"title": "Angebot sperren"
+			},
+			"reinstate": {
+				"title": "Angebot wiederherstellen"
+			},
+			"suspensionNote": "Sperrnotiz"
+		},
+		"errors": {
+			"loadFailed": "Angebote konnten nicht geladen werden",
+			"approveFailed": "Angebot konnte nicht genehmigt werden",
+			"suspendFailed": "Angebot konnte nicht gesperrt werden",
+			"reinstateFailed": "Angebot konnte nicht wiederhergestellt werden",
+			"actionFailed": "Aktion fehlgeschlagen"
+		},
+		"success": {
+			"approve": "Angebot genehmigt",
+			"suspend": "Angebot gesperrt",
+			"reinstate": "Angebot wiederhergestellt"
+		}
+	},
 	"subscriptions": {
 		"filterStatus": "Nach Status filtern",
 		"table": {

@@ -270,6 +270,18 @@ func (r AdminReinstateListingRequest) Validate() []common.ValidationError {
 	return errs
 }
 
+type AdminApproveListingRequest struct {
+	ListingID string `json:"listing_id"`
+}
+
+func (r AdminApproveListingRequest) Validate() []common.ValidationError {
+	var errs []common.ValidationError
+	if r.ListingID == "" {
+		errs = append(errs, common.NewValidationError("listing_id", fmt.Errorf("listing_id is required")))
+	}
+	return errs
+}
+
 type AdminListSubscriptionsRequest struct {
 	CapabilityID  *string                            `json:"capability_id,omitempty"`
 	OrgDomain     *string                            `json:"org_domain,omitempty"`

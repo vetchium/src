@@ -307,6 +307,115 @@ func AdminSuspendListing(s *server.GlobalServer) http.HandlerFunc {
 	}
 }
 
+// AdminApproveListing handles POST /admin/marketplace/listings/approve
+// Approves a draft listing by transitioning it to active and adding it to the global catalog.
+func AdminApproveListing(s *server.GlobalServer) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		ctx := r.Context()
+		log := s.Logger(ctx)
+
+		adminUser := middleware.AdminUserFromContext(ctx)
+		if adminUser == nil {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		var req admintypes.AdminApproveListingRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			log.Debug("failed to decode request", "error", err)
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if errs := req.Validate(); len(errs) > 0 {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(errs)
+			return
+		}
+
+		listingUUID := parseUUID(req.ListingID)
+		if !listingUUID.Valid {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+
+		// Draft listings are not in the global catalog, so search all regions.
+		var listing regionaldb.MarketplaceListing
+		var foundRegion globaldb.Region
+		for _, region := range s.AllRegions() {
+			rdb := s.GetRegionalDB(region)
+			if rdb == nil {
+				continue
+			}
+			l, err := rdb.GetMarketplaceListingByID(ctx, listingUUID)
+			if err != nil {
+				if errors.Is(err, pgx.ErrNoRows) {
+					continue
+				}
+				log.Error("failed to search listing in region", "region", region, "error", err)
+				http.Error(w, "", http.StatusInternalServerError)
+				return
+			}
+			listing = l
+			foundRegion = region
+			break
+		}
+		if foundRegion == "" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		if listing.Status != regionaldb.MarketplaceListingStatusDraft {
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			return
+		}
+
+		// Approve in regional DB.
+		err := s.WithRegionalTx(ctx, foundRegion, func(qtx *regionaldb.Queries) error {
+			var txErr error
+			listing, txErr = qtx.AdminApproveMarketplaceListing(ctx, listingUUID)
+			return txErr
+		})
+		if err != nil {
+			log.Error("failed to approve listing", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
+		// Add to global catalog.
+		upsertErr := s.Global.UpsertListingCatalog(ctx, globaldb.UpsertListingCatalogParams{
+			ListingID:     listing.ListingID,
+			OrgGlobalID:   listing.OrgID,
+			OrgDomain:     listing.OrgDomain,
+			OrgRegion:     string(foundRegion),
+			CapabilityID:  listing.CapabilityID,
+			Headline:      listing.Headline,
+			Summary:       listing.Summary,
+			RegionsServed: listing.RegionsServed,
+			PricingHint:   listing.PricingHint,
+			ContactMode:   listing.ContactMode,
+			ContactValue:  listing.ContactValue,
+			ListedAt:      listing.ListedAt,
+		})
+		if upsertErr != nil {
+			log.Error("CONSISTENCY_ALERT: failed to add approved listing to global catalog", "listing_id", req.ListingID, "error", upsertErr)
+		}
+
+		// Write admin audit log.
+		if auditErr := s.WithGlobalTx(ctx, func(qtx *globaldb.Queries) error {
+			return qtx.InsertAdminAuditLog(ctx, globaldb.InsertAdminAuditLogParams{
+				EventType:   "admin.marketplace_listing_approved",
+				ActorUserID: adminUser.AdminUserID,
+				IpAddress:   audit.ExtractClientIP(r),
+				EventData:   []byte(`{"listing_id":"` + req.ListingID + `"}`),
+			})
+		}); auditErr != nil {
+			log.Error("failed to write audit log", "error", auditErr)
+		}
+
+		json.NewEncoder(w).Encode(adminListingToAPI(listing))
+	}
+}
+
 // AdminReinstateListing handles POST /admin/marketplace/listings/reinstate
 // Reinstates a suspended listing and adds it back to the global catalog.
 func AdminReinstateListing(s *server.GlobalServer) http.HandlerFunc {

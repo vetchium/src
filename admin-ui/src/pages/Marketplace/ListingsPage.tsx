@@ -18,6 +18,7 @@ import { Link } from "react-router-dom";
 import type {
 	AdminMarketplaceListing,
 	AdminListListingsResponse,
+	AdminApproveListingRequest,
 	AdminSuspendListingRequest,
 	AdminReinstateListingRequest,
 } from "vetchium-specs/admin/marketplace";
@@ -32,7 +33,7 @@ const { Title, Text } = Typography;
 const { TextArea } = Input;
 
 interface ListingModalState {
-	action: "suspend" | "reinstate";
+	action: "approve" | "suspend" | "reinstate";
 	listing: AdminMarketplaceListing;
 }
 
@@ -115,9 +116,15 @@ export function ListingsPage() {
 			const apiBaseUrl = await getApiBaseUrl();
 			const { action, listing } = modalState;
 			let endpoint = "";
-			let body: AdminSuspendListingRequest | AdminReinstateListingRequest;
+			let body:
+				| AdminApproveListingRequest
+				| AdminSuspendListingRequest
+				| AdminReinstateListingRequest;
 
-			if (action === "suspend") {
+			if (action === "approve") {
+				endpoint = "/admin/marketplace/listings/approve";
+				body = { listing_id: listing.listing_id };
+			} else if (action === "suspend") {
 				endpoint = "/admin/marketplace/listings/suspend";
 				body = {
 					listing_id: listing.listing_id,
@@ -125,9 +132,7 @@ export function ListingsPage() {
 				};
 			} else {
 				endpoint = "/admin/marketplace/listings/reinstate";
-				body = {
-					listing_id: listing.listing_id,
-				};
+				body = { listing_id: listing.listing_id };
 			}
 
 			const resp = await fetch(`${apiBaseUrl}${endpoint}`, {
@@ -190,6 +195,17 @@ export function ListingsPage() {
 						key: "actions",
 						render: (_: unknown, record: AdminMarketplaceListing) => (
 							<Space>
+								{record.status === MarketplaceListingStatus.Draft && (
+									<Button
+										size="small"
+										type="primary"
+										onClick={() =>
+											setModalState({ action: "approve", listing: record })
+										}
+									>
+										{t("actions.approve")}
+									</Button>
+								)}
 								{record.status === MarketplaceListingStatus.Active && (
 									<Button
 										size="small"
@@ -287,6 +303,11 @@ export function ListingsPage() {
 			>
 				<Spin spinning={actionLoading}>
 					<Form form={actionForm} layout="vertical" onFinish={handleAction}>
+						{modalState?.action === "approve" && (
+							<div style={{ marginBottom: 16 }}>
+								<Text>{t("listings.modal.approve.confirm")}</Text>
+							</div>
+						)}
 						{modalState?.action === "suspend" && (
 							<Form.Item
 								name="note"
