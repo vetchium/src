@@ -409,7 +409,7 @@ export function DashboardPage() {
 							</Link>
 						</Col>
 					)}
-					</Row>
+				</Row>
 			)}
 
 			<div style={{ marginTop: 32, textAlign: "center" }}>

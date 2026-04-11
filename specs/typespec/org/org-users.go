@@ -395,20 +395,20 @@ func (r OrgChangePasswordRequest) Validate() []common.ValidationError {
 type OrgRole string
 
 const (
-	OrgRoleSuperadmin        OrgRole = "org:superadmin"
-	OrgRoleViewUsers         OrgRole = "org:view_users"
-	OrgRoleManageUsers       OrgRole = "org:manage_users"
-	OrgRoleViewDomains       OrgRole = "org:view_domains"
-	OrgRoleManageDomains     OrgRole = "org:manage_domains"
-	OrgRoleViewCostCenters   OrgRole = "org:view_costcenters"
-	OrgRoleManageCostCenters OrgRole = "org:manage_costcenters"
-	OrgRoleViewSubOrgs       OrgRole = "org:view_suborgs"
-	OrgRoleManageSubOrgs     OrgRole = "org:manage_suborgs"
-	OrgRoleViewAuditLogs        OrgRole = "org:view_audit_logs"
-	OrgRoleViewListings         OrgRole = "org:view_listings"
-	OrgRoleManageListings       OrgRole = "org:manage_listings"
-	OrgRoleViewSubscriptions    OrgRole = "org:view_subscriptions"
-	OrgRoleManageSubscriptions  OrgRole = "org:manage_subscriptions"
+	OrgRoleSuperadmin          OrgRole = "org:superadmin"
+	OrgRoleViewUsers           OrgRole = "org:view_users"
+	OrgRoleManageUsers         OrgRole = "org:manage_users"
+	OrgRoleViewDomains         OrgRole = "org:view_domains"
+	OrgRoleManageDomains       OrgRole = "org:manage_domains"
+	OrgRoleViewCostCenters     OrgRole = "org:view_costcenters"
+	OrgRoleManageCostCenters   OrgRole = "org:manage_costcenters"
+	OrgRoleViewSubOrgs         OrgRole = "org:view_suborgs"
+	OrgRoleManageSubOrgs       OrgRole = "org:manage_suborgs"
+	OrgRoleViewAuditLogs       OrgRole = "org:view_audit_logs"
+	OrgRoleViewListings        OrgRole = "org:view_listings"
+	OrgRoleManageListings      OrgRole = "org:manage_listings"
+	OrgRoleViewSubscriptions   OrgRole = "org:view_subscriptions"
+	OrgRoleManageSubscriptions OrgRole = "org:manage_subscriptions"
 )
 
 type OrgUser struct {

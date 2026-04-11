@@ -1,14 +1,6 @@
 import { ArrowLeftOutlined } from "@ant-design/icons";
 import { useState, useCallback, useEffect } from "react";
-import {
-	Alert,
-	Button,
-	Form,
-	Input,
-	Select,
-	Spin,
-	Typography,
-} from "antd";
+import { Alert, Button, Form, Input, Select, Spin, Typography } from "antd";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
@@ -72,17 +64,14 @@ export function MarketplaceListingFormPage() {
 		try {
 			const apiBaseUrl = await getApiBaseUrl();
 			const reqBody: GetMyListingRequest = { listing_id };
-			const resp = await fetch(
-				`${apiBaseUrl}/org/marketplace/listings/get`,
-				{
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-						Authorization: `Bearer ${sessionToken}`,
-					},
-					body: JSON.stringify(reqBody),
-				}
-			);
+			const resp = await fetch(`${apiBaseUrl}/org/marketplace/listings/get`, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${sessionToken}`,
+				},
+				body: JSON.stringify(reqBody),
+			});
 			if (resp.status === 200) {
 				const data: MarketplaceListing = await resp.json();
 				form.setFieldsValue({
@@ -138,17 +127,14 @@ export function MarketplaceListingFormPage() {
 					contact_mode: values.contact_mode as never,
 					contact_value: values.contact_value,
 				};
-				resp = await fetch(
-					`${apiBaseUrl}/org/marketplace/listings/update`,
-					{
-						method: "POST",
-						headers: {
-							"Content-Type": "application/json",
-							Authorization: `Bearer ${sessionToken}`,
-						},
-						body: JSON.stringify(reqBody),
-					}
-				);
+				resp = await fetch(`${apiBaseUrl}/org/marketplace/listings/update`, {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${sessionToken}`,
+					},
+					body: JSON.stringify(reqBody),
+				});
 			} else {
 				const reqBody: CreateListingRequest = {
 					capability_id: values.capability_id,
@@ -160,17 +146,14 @@ export function MarketplaceListingFormPage() {
 					contact_mode: values.contact_mode as never,
 					contact_value: values.contact_value,
 				};
-				resp = await fetch(
-					`${apiBaseUrl}/org/marketplace/listings/create`,
-					{
-						method: "POST",
-						headers: {
-							"Content-Type": "application/json",
-							Authorization: `Bearer ${sessionToken}`,
-						},
-						body: JSON.stringify(reqBody),
-					}
-				);
+				resp = await fetch(`${apiBaseUrl}/org/marketplace/listings/create`, {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${sessionToken}`,
+					},
+					body: JSON.stringify(reqBody),
+				});
 			}
 			if (resp.status === 200 || resp.status === 201) {
 				navigate("/marketplace/listings");
@@ -210,11 +193,7 @@ export function MarketplaceListingFormPage() {
 			</Title>
 
 			{error && (
-				<Alert
-					type="error"
-					title={error}
-					style={{ marginBottom: 16 }}
-				/>
+				<Alert type="error" title={error} style={{ marginBottom: 16 }} />
 			)}
 
 			<Spin spinning={submitting}>
@@ -257,9 +236,7 @@ export function MarketplaceListingFormPage() {
 							{ max: 100, message: t("listingForm.errors.headlineTooLong") },
 						]}
 					>
-						<Input
-							placeholder={t("listingForm.headlinePlaceholder")}
-						/>
+						<Input placeholder={t("listingForm.headlinePlaceholder")} />
 					</Form.Item>
 
 					<Form.Item
@@ -315,13 +292,8 @@ export function MarketplaceListingFormPage() {
 						/>
 					</Form.Item>
 
-					<Form.Item
-						name="pricing_hint"
-						label={t("listingForm.pricingLabel")}
-					>
-						<Input
-							placeholder={t("listingForm.pricingPlaceholder")}
-						/>
+					<Form.Item name="pricing_hint" label={t("listingForm.pricingLabel")}>
+						<Input placeholder={t("listingForm.pricingPlaceholder")} />
 					</Form.Item>
 
 					<Form.Item
@@ -356,9 +328,7 @@ export function MarketplaceListingFormPage() {
 							},
 						]}
 					>
-						<Input
-							placeholder={t("listingForm.contactValuePlaceholder")}
-						/>
+						<Input placeholder={t("listingForm.contactValuePlaceholder")} />
 					</Form.Item>
 
 					<Form.Item

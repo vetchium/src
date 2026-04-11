@@ -1,6 +1,16 @@
 import { ArrowLeftOutlined } from "@ant-design/icons";
 import { useState, useCallback, useEffect } from "react";
-import { Alert, Button, Card, Col, Row, Space, Spin, Tag, Typography } from "antd";
+import {
+	Alert,
+	Button,
+	Card,
+	Col,
+	Row,
+	Space,
+	Spin,
+	Tag,
+	Typography,
+} from "antd";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
@@ -85,9 +95,7 @@ export function MarketplaceDiscoverPage() {
 		>
 			<div style={{ marginBottom: 16 }}>
 				<Link to="/">
-					<Button icon={<ArrowLeftOutlined />}>
-						{t("backToDashboard")}
-					</Button>
+					<Button icon={<ArrowLeftOutlined />}>{t("backToDashboard")}</Button>
 				</Link>
 			</div>
 
@@ -110,9 +118,7 @@ export function MarketplaceDiscoverPage() {
 									hoverable
 									style={{ height: "100%", cursor: "pointer" }}
 									onClick={() =>
-										navigate(
-											`/marketplace/discover/${listing.listing_id}`
-										)
+										navigate(`/marketplace/discover/${listing.listing_id}`)
 									}
 								>
 									<Title level={5} style={{ marginBottom: 4 }}>
@@ -122,10 +128,7 @@ export function MarketplaceDiscoverPage() {
 										<Tag color="blue">{listing.capability_id}</Tag>
 										<Tag>{listing.org_domain}</Tag>
 									</Space>
-									<Paragraph
-										ellipsis={{ rows: 3 }}
-										style={{ marginBottom: 8 }}
-									>
+									<Paragraph ellipsis={{ rows: 3 }} style={{ marginBottom: 8 }}>
 										{listing.summary}
 									</Paragraph>
 									{listing.pricing_hint && (
@@ -140,10 +143,7 @@ export function MarketplaceDiscoverPage() {
 
 					{paginationKey && (
 						<div style={{ textAlign: "center", marginTop: 24 }}>
-							<Button
-								onClick={handleLoadMore}
-								loading={loadingMore}
-							>
+							<Button onClick={handleLoadMore} loading={loadingMore}>
 								{t("discover.loadMore")}
 							</Button>
 						</div>

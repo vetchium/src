@@ -1,14 +1,6 @@
 import { ArrowLeftOutlined } from "@ant-design/icons";
 import { useState, useCallback, useEffect } from "react";
-import {
-	Alert,
-	Button,
-	Modal,
-	Spin,
-	Table,
-	Tag,
-	Typography,
-} from "antd";
+import { Alert, Button, Modal, Spin, Table, Tag, Typography } from "antd";
 import type { TableColumnsType } from "antd";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
@@ -42,9 +34,9 @@ export function MarketplaceSubscriptionsPage() {
 		myInfo?.roles.includes("org:manage_subscriptions") ||
 		false;
 
-	const [subscriptions, setSubscriptions] = useState<
-		MarketplaceSubscription[]
-	>([]);
+	const [subscriptions, setSubscriptions] = useState<MarketplaceSubscription[]>(
+		[]
+	);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [paginationKey, setPaginationKey] = useState<string | null>(null);
@@ -184,9 +176,7 @@ export function MarketplaceSubscriptionsPage() {
 		>
 			<div style={{ marginBottom: 16 }}>
 				<Link to="/">
-					<Button icon={<ArrowLeftOutlined />}>
-						{t("backToDashboard")}
-					</Button>
+					<Button icon={<ArrowLeftOutlined />}>{t("backToDashboard")}</Button>
 				</Link>
 			</div>
 

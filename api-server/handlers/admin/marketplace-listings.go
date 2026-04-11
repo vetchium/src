@@ -416,4 +416,3 @@ func AdminReinstateListing(s *server.GlobalServer) http.HandlerFunc {
 		json.NewEncoder(w).Encode(adminListingToAPI(listing))
 	}
 }
-

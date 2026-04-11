@@ -21,11 +21,11 @@ facilitation of payment between organizations.
 
 ## 2. Participants
 
-| Participant  | Role                                                                                  |
-| ------------ | ------------------------------------------------------------------------------------- |
+| Participant  | Role                                                                                                                                               |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Vetchium     | Platform operator. Defines and manages the Capability catalog. Bills Provider Orgs for their active Listings. Can suspend any Listing at any time. |
-| Provider Org | An organization that offers professional services. Publishes Listings to be discovered and subscribed to. |
-| Consumer Org | An organization that needs a professional service. Browses the directory, selects a Listing, and creates a Subscription. |
+| Provider Org | An organization that offers professional services. Publishes Listings to be discovered and subscribed to.                                          |
+| Consumer Org | An organization that needs a professional service. Browses the directory, selects a Listing, and creates a Subscription.                           |
 
 An organization may simultaneously be a Provider for some Capabilities and a Consumer for
 others.
@@ -80,12 +80,12 @@ organizing unit of the marketplace. Examples:
 
 **Translations (`marketplace_capability_translations` table):**
 
-| Field            | Type   | Description                                      |
-| ---------------- | ------ | ------------------------------------------------ |
-| `capability_id`  | string | FK to `marketplace_capabilities`.                |
-| `locale`         | string | e.g. `en-US`, `de-DE`, `ta-IN`                   |
-| `display_name`   | string | 1–100 chars.                                     |
-| `description`    | string | Markdown. Max 5000 chars.                        |
+| Field           | Type   | Description                       |
+| --------------- | ------ | --------------------------------- |
+| `capability_id` | string | FK to `marketplace_capabilities`. |
+| `locale`        | string | e.g. `en-US`, `de-DE`, `ta-IN`    |
+| `display_name`  | string | 1–100 chars.                      |
+| `description`   | string | Markdown. Max 5000 chars.         |
 
 Every API response that includes a Capability returns the `display_name` and `description`
 for the requesting user's preferred locale. If a translation for the user's locale does not
@@ -113,23 +113,23 @@ Each Listing has its own lifecycle and billing record.
 
 **Fields:**
 
-| Field            | Type            | Description                                                          |
-| ---------------- | --------------- | -------------------------------------------------------------------- |
-| `listing_id`     | UUID            | Unique identifier.                                                   |
-| `org_domain`     | string          | Provider org. Canonical current domain.                              |
-| `capability_id`  | string          | Which Capability this Listing covers.                                |
-| `headline`       | string          | Max 100 chars. Name of this specific service offering.               |
-| `summary`        | string          | Max 500 chars. Shown in browse cards.                                |
-| `description`    | string          | Markdown. Max 10000 chars. Full detail page content.                 |
-| `regions_served` | string[]        | Non-empty. Region codes or `all`.                                    |
-| `pricing_hint`   | string nullable | Max 200 chars. Free-form pricing guidance shown to Consumer Orgs.    |
-| `contact_mode`   | enum            | `platform_message` \| `external_url` \| `email`                      |
-| `contact_value`  | string          | Validated per `contact_mode`.                                        |
-| `status`         | enum            | See 4.2.1                                                            |
-| `suspension_note`| string nullable | Admin note explaining why a Listing was suspended.                   |
-| `listed_at`      | timestamptz     | When the Listing first became active.                                |
-| `created_at`     | timestamptz     |                                                                      |
-| `updated_at`     | timestamptz     |                                                                      |
+| Field             | Type            | Description                                                       |
+| ----------------- | --------------- | ----------------------------------------------------------------- |
+| `listing_id`      | UUID            | Unique identifier.                                                |
+| `org_domain`      | string          | Provider org. Canonical current domain.                           |
+| `capability_id`   | string          | Which Capability this Listing covers.                             |
+| `headline`        | string          | Max 100 chars. Name of this specific service offering.            |
+| `summary`         | string          | Max 500 chars. Shown in browse cards.                             |
+| `description`     | string          | Markdown. Max 10000 chars. Full detail page content.              |
+| `regions_served`  | string[]        | Non-empty. Region codes or `all`.                                 |
+| `pricing_hint`    | string nullable | Max 200 chars. Free-form pricing guidance shown to Consumer Orgs. |
+| `contact_mode`    | enum            | `platform_message` \| `external_url` \| `email`                   |
+| `contact_value`   | string          | Validated per `contact_mode`.                                     |
+| `status`          | enum            | See 4.2.1                                                         |
+| `suspension_note` | string nullable | Admin note explaining why a Listing was suspended.                |
+| `listed_at`       | timestamptz     | When the Listing first became active.                             |
+| `created_at`      | timestamptz     |                                                                   |
+| `updated_at`      | timestamptz     |                                                                   |
 
 #### 4.2.1 Listing States
 
@@ -159,20 +159,20 @@ new `started_at`.
 
 **Fields:**
 
-| Field                  | Type            | Description                                                        |
-| ---------------------- | --------------- | ------------------------------------------------------------------ |
-| `subscription_id`      | UUID            | Unique identifier.                                                 |
-| `listing_id`           | UUID            | Which Listing is being subscribed to.                              |
-| `consumer_org_domain`  | string          | Consumer org. Canonical current domain.                            |
-| `provider_org_domain`  | string          | Provider org. Denormalized for querying.                           |
-| `capability_id`        | string          | Denormalized for querying.                                         |
-| `request_note`         | string nullable | Max 2000 chars. Consumer's introductory note to the provider.      |
-| `status`               | enum            | `active` \| `cancelled` \| `expired`                               |
-| `started_at`           | timestamptz     | When the Subscription became active.                               |
-| `expires_at`           | timestamptz nullable | Null = no expiry. Set for time-bounded arrangements.          |
-| `cancelled_at`         | timestamptz nullable |                                                               |
-| `created_at`           | timestamptz     |                                                                    |
-| `updated_at`           | timestamptz     |                                                                    |
+| Field                 | Type                 | Description                                                   |
+| --------------------- | -------------------- | ------------------------------------------------------------- |
+| `subscription_id`     | UUID                 | Unique identifier.                                            |
+| `listing_id`          | UUID                 | Which Listing is being subscribed to.                         |
+| `consumer_org_domain` | string               | Consumer org. Canonical current domain.                       |
+| `provider_org_domain` | string               | Provider org. Denormalized for querying.                      |
+| `capability_id`       | string               | Denormalized for querying.                                    |
+| `request_note`        | string nullable      | Max 2000 chars. Consumer's introductory note to the provider. |
+| `status`              | enum                 | `active` \| `cancelled` \| `expired`                          |
+| `started_at`          | timestamptz          | When the Subscription became active.                          |
+| `expires_at`          | timestamptz nullable | Null = no expiry. Set for time-bounded arrangements.          |
+| `cancelled_at`        | timestamptz nullable |                                                               |
+| `created_at`          | timestamptz          |                                                               |
+| `updated_at`          | timestamptz          |                                                               |
 
 ---
 
@@ -191,28 +191,28 @@ new `started_at`.
 
 ### Access rules
 
-| Action                                            | Required role                                   |
-| ------------------------------------------------- | ----------------------------------------------- |
-| Browse active Capabilities and Listings           | Any authenticated org user                      |
-| Create or edit own Listings                       | `org:manage_listings`                           |
-| View own Listings                                 | `org:view_listings` or `org:manage_listings`    |
-| View Subscribers of own Listings                  | `org:view_listings` or `org:manage_listings`    |
-| Create or cancel Subscriptions                    | `org:manage_subscriptions`                      |
-| View own Subscriptions                            | `org:view_subscriptions` or `org:manage_subscriptions` |
+| Action                                  | Required role                                          |
+| --------------------------------------- | ------------------------------------------------------ |
+| Browse active Capabilities and Listings | Any authenticated org user                             |
+| Create or edit own Listings             | `org:manage_listings`                                  |
+| View own Listings                       | `org:view_listings` or `org:manage_listings`           |
+| View Subscribers of own Listings        | `org:view_listings` or `org:manage_listings`           |
+| Create or cancel Subscriptions          | `org:manage_subscriptions`                             |
+| View own Subscriptions                  | `org:view_subscriptions` or `org:manage_subscriptions` |
 
 ---
 
 ## 6. Data Architecture
 
-| Table                           | DB                                 | Notes                                                          |
-| ------------------------------- | ---------------------------------- | -------------------------------------------------------------- |
-| `marketplace_capabilities`      | Global                             | Admin-owned Capability catalog (capability_id, approval type, status). |
-| `marketplace_capability_translations` | Global                       | Display name and description per capability per locale. Fallback to `en-US` when user's locale is missing. |
-| `marketplace_listings`          | Regional (provider's home region)  | Provider operational state                                     |
-| `marketplace_listing_catalog`   | Global                             | Discovery mirror: active listing fields for fast cross-region browse |
-| `marketplace_subscriptions`     | Regional (consumer's home region)  | Consumer operational state                                     |
-| `marketplace_subscription_index`| Global                             | Routing index: lets providers query their subscribers across regions |
-| `marketplace_billing_records`   | Global                             | Listing fee records per org per Capability                     |
+| Table                                 | DB                                | Notes                                                                                                      |
+| ------------------------------------- | --------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `marketplace_capabilities`            | Global                            | Admin-owned Capability catalog (capability_id, approval type, status).                                     |
+| `marketplace_capability_translations` | Global                            | Display name and description per capability per locale. Fallback to `en-US` when user's locale is missing. |
+| `marketplace_listings`                | Regional (provider's home region) | Provider operational state                                                                                 |
+| `marketplace_listing_catalog`         | Global                            | Discovery mirror: active listing fields for fast cross-region browse                                       |
+| `marketplace_subscriptions`           | Regional (consumer's home region) | Consumer operational state                                                                                 |
+| `marketplace_subscription_index`      | Global                            | Routing index: lets providers query their subscribers across regions                                       |
+| `marketplace_billing_records`         | Global                            | Listing fee records per org per Capability                                                                 |
 
 `marketplace_listing_catalog` is a mirror of the fields needed to render a browse card for
 every active Listing. When a Listing becomes active or stops being active, both the
@@ -231,11 +231,11 @@ records, then retrieves the full records from those regional DBs.
 
 Three marketplace tiles on the main org dashboard:
 
-| Tile                  | Route                         | Visible when                                   |
-| --------------------- | ----------------------------- | ---------------------------------------------- |
-| **My Listings**       | `/marketplace/listings`       | User has `org:manage_listings` or `org:view_listings` |
-| **Browse Capabilities** | `/marketplace/capabilities` | Any authenticated user                         |
-| **My Subscriptions**  | `/marketplace/subscriptions`  | Any authenticated user                         |
+| Tile                    | Route                        | Visible when                                          |
+| ----------------------- | ---------------------------- | ----------------------------------------------------- |
+| **My Listings**         | `/marketplace/listings`      | User has `org:manage_listings` or `org:view_listings` |
+| **Browse Capabilities** | `/marketplace/capabilities`  | Any authenticated user                                |
+| **My Subscriptions**    | `/marketplace/subscriptions` | Any authenticated user                                |
 
 ---
 
@@ -304,11 +304,11 @@ for that Capability.
 
 A summary table of own Listings:
 
-| Capability           | Listing Name            | Status         | Active Subscribers | Actions              |
-| -------------------- | ----------------------- | -------------- | ------------------ | -------------------- |
-| Talent Sourcing      | Executive Search        | Active         | 4                  | Edit / View Subscribers |
-| Talent Sourcing      | Engineering Recruitment | Pending Review | —                  | View Status          |
-| Background Verif.    | Standard Screening      | Draft          | —                  | Edit / Publish       |
+| Capability        | Listing Name            | Status         | Active Subscribers | Actions                 |
+| ----------------- | ----------------------- | -------------- | ------------------ | ----------------------- |
+| Talent Sourcing   | Executive Search        | Active         | 4                  | Edit / View Subscribers |
+| Talent Sourcing   | Engineering Recruitment | Pending Review | —                  | View Status             |
+| Background Verif. | Standard Screening      | Draft          | —                  | Edit / Publish          |
 
 An **"Add a new Listing"** button is always visible at the top. Clicking it opens the
 Capability picker (same grid as the empty state), then navigates to the Create Listing form.
@@ -341,21 +341,21 @@ Operational hub for a specific Listing. Two sections:
 
 Shows current status, all listing fields, and available actions:
 
-| Status      | Available actions                                                              |
-| ----------- | ------------------------------------------------------------------------------ |
-| `draft`     | Edit, Publish                                                                  |
-| `active`    | Edit, Archive                                                                  |
-| `suspended` | Admin suspension note shown. Archive. (Only admin can reinstate.)              |
+| Status      | Available actions                                                                |
+| ----------- | -------------------------------------------------------------------------------- |
+| `draft`     | Edit, Publish                                                                    |
+| `active`    | Edit, Archive                                                                    |
+| `suspended` | Admin suspension note shown. Archive. (Only admin can reinstate.)                |
 | `archived`  | Reopen — navigates to Create Listing form pre-populated with this Listing's data |
 
 **Subscribers section** (shown when Listing is `active`):
 
 Table of Consumer Orgs currently subscribed to this Listing:
 
-| Organization  | Subscribed Since | Note                              |
-| ------------- | ---------------- | --------------------------------- |
-| globex.com    | 2026-03-15       | We're expanding our team.         |
-| initech.com   | 2026-04-01       | (no note)                         |
+| Organization | Subscribed Since | Note                      |
+| ------------ | ---------------- | ------------------------- |
+| globex.com   | 2026-03-15       | We're expanding our team. |
+| initech.com  | 2026-04-01       | (no note)                 |
 
 ---
 

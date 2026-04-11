@@ -18,11 +18,11 @@ const AdminRoleManageMarketplace AdminRole = "admin:manage_marketplace"
 var adminCapabilityIDRegex = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$`)
 
 const (
-	adminMinCapabilityIDLen  = 3
-	adminMaxCapabilityIDLen  = 50
-	adminMaxDisplayNameLen   = 100
-	adminMaxDescriptionLen   = 5000
-	adminMaxSuspensionNote   = 2000
+	adminMinCapabilityIDLen = 3
+	adminMaxCapabilityIDLen = 50
+	adminMaxDisplayNameLen  = 100
+	adminMaxDescriptionLen  = 5000
+	adminMaxSuspensionNote  = 2000
 )
 
 func validateAdminCapabilityID(id string) error {
@@ -47,44 +47,44 @@ type AdminCapabilityTranslation struct {
 }
 
 type AdminMarketplaceCapability struct {
-	CapabilityID string                             `json:"capability_id"`
-	Status       org.MarketplaceCapabilityStatus    `json:"status"`
-	Translations []AdminCapabilityTranslation       `json:"translations"`
-	CreatedAt    string                             `json:"created_at"`
-	UpdatedAt    string                             `json:"updated_at"`
+	CapabilityID string                          `json:"capability_id"`
+	Status       org.MarketplaceCapabilityStatus `json:"status"`
+	Translations []AdminCapabilityTranslation    `json:"translations"`
+	CreatedAt    string                          `json:"created_at"`
+	UpdatedAt    string                          `json:"updated_at"`
 }
 
 type AdminMarketplaceListing struct {
-	ListingID      string                      `json:"listing_id"`
-	OrgDomain      string                      `json:"org_domain"`
-	CapabilityID   string                      `json:"capability_id"`
-	Headline       string                      `json:"headline"`
-	Summary        string                      `json:"summary"`
-	Description    string                      `json:"description"`
-	RegionsServed  []string                    `json:"regions_served"`
-	PricingHint    *string                     `json:"pricing_hint,omitempty"`
-	ContactMode    org.MarketplaceContactMode  `json:"contact_mode"`
-	ContactValue   string                      `json:"contact_value"`
+	ListingID      string                       `json:"listing_id"`
+	OrgDomain      string                       `json:"org_domain"`
+	CapabilityID   string                       `json:"capability_id"`
+	Headline       string                       `json:"headline"`
+	Summary        string                       `json:"summary"`
+	Description    string                       `json:"description"`
+	RegionsServed  []string                     `json:"regions_served"`
+	PricingHint    *string                      `json:"pricing_hint,omitempty"`
+	ContactMode    org.MarketplaceContactMode   `json:"contact_mode"`
+	ContactValue   string                       `json:"contact_value"`
 	Status         org.MarketplaceListingStatus `json:"status"`
-	SuspensionNote *string                     `json:"suspension_note,omitempty"`
-	ListedAt       *string                     `json:"listed_at,omitempty"`
-	CreatedAt      string                      `json:"created_at"`
-	UpdatedAt      string                      `json:"updated_at"`
+	SuspensionNote *string                      `json:"suspension_note,omitempty"`
+	ListedAt       *string                      `json:"listed_at,omitempty"`
+	CreatedAt      string                       `json:"created_at"`
+	UpdatedAt      string                       `json:"updated_at"`
 }
 
 type AdminMarketplaceSubscription struct {
-	SubscriptionID    string                             `json:"subscription_id"`
-	ListingID         string                             `json:"listing_id"`
-	ConsumerOrgDomain string                             `json:"consumer_org_domain"`
-	ProviderOrgDomain string                             `json:"provider_org_domain"`
-	CapabilityID      string                             `json:"capability_id"`
-	RequestNote       *string                            `json:"request_note,omitempty"`
-	Status            org.MarketplaceSubscriptionStatus  `json:"status"`
-	StartedAt         string                             `json:"started_at"`
-	ExpiresAt         *string                            `json:"expires_at,omitempty"`
-	CancelledAt       *string                            `json:"cancelled_at,omitempty"`
-	CreatedAt         string                             `json:"created_at"`
-	UpdatedAt         string                             `json:"updated_at"`
+	SubscriptionID    string                            `json:"subscription_id"`
+	ListingID         string                            `json:"listing_id"`
+	ConsumerOrgDomain string                            `json:"consumer_org_domain"`
+	ProviderOrgDomain string                            `json:"provider_org_domain"`
+	CapabilityID      string                            `json:"capability_id"`
+	RequestNote       *string                           `json:"request_note,omitempty"`
+	Status            org.MarketplaceSubscriptionStatus `json:"status"`
+	StartedAt         string                            `json:"started_at"`
+	ExpiresAt         *string                           `json:"expires_at,omitempty"`
+	CancelledAt       *string                           `json:"cancelled_at,omitempty"`
+	CreatedAt         string                            `json:"created_at"`
+	UpdatedAt         string                            `json:"updated_at"`
 }
 
 // ---- Request types with Validate() ----

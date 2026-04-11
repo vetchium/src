@@ -1,14 +1,6 @@
 import { ArrowLeftOutlined, PlusOutlined } from "@ant-design/icons";
 import { useState, useCallback, useEffect } from "react";
-import {
-	Alert,
-	Button,
-	Space,
-	Spin,
-	Table,
-	Tag,
-	Typography,
-} from "antd";
+import { Alert, Button, Space, Spin, Table, Tag, Typography } from "antd";
 import type { TableColumnsType } from "antd";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router-dom";
@@ -154,9 +146,7 @@ export function MarketplaceListingsPage() {
 				<Button
 					type="link"
 					style={{ padding: 0 }}
-					onClick={() =>
-						navigate(`/marketplace/listings/${record.listing_id}`)
-					}
+					onClick={() => navigate(`/marketplace/listings/${record.listing_id}`)}
 				>
 					{text}
 				</Button>
@@ -211,8 +201,7 @@ export function MarketplaceListingsPage() {
 										{t("listings.archiveButton")}
 									</Button>
 								)}
-								{(record.status === "draft" ||
-									record.status === "active") && (
+								{(record.status === "draft" || record.status === "active") && (
 									<Button
 										size="small"
 										onClick={() =>
@@ -242,9 +231,7 @@ export function MarketplaceListingsPage() {
 		>
 			<div style={{ marginBottom: 16 }}>
 				<Link to="/">
-					<Button icon={<ArrowLeftOutlined />}>
-						{t("backToDashboard")}
-					</Button>
+					<Button icon={<ArrowLeftOutlined />}>{t("backToDashboard")}</Button>
 				</Link>
 			</div>
 
@@ -281,7 +268,11 @@ export function MarketplaceListingsPage() {
 						columns={columns}
 						rowKey="listing_id"
 						pagination={false}
-						locale={{ emptyText: <Text type="secondary">{t("listings.noListings")}</Text> }}
+						locale={{
+							emptyText: (
+								<Text type="secondary">{t("listings.noListings")}</Text>
+							),
+						}}
 					/>
 					{paginationKey && (
 						<div style={{ textAlign: "center", marginTop: 16 }}>

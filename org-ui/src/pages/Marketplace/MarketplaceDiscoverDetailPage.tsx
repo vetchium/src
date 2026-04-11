@@ -44,17 +44,14 @@ export function MarketplaceDiscoverDetailPage() {
 		try {
 			const apiBaseUrl = await getApiBaseUrl();
 			const reqBody: GetListingRequest = { listing_id };
-			const resp = await fetch(
-				`${apiBaseUrl}/org/marketplace/discover/get`,
-				{
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-						Authorization: `Bearer ${sessionToken}`,
-					},
-					body: JSON.stringify(reqBody),
-				}
-			);
+			const resp = await fetch(`${apiBaseUrl}/org/marketplace/discover/get`, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${sessionToken}`,
+				},
+				body: JSON.stringify(reqBody),
+			});
 			if (resp.status === 200) {
 				const data: MarketplaceListingCard = await resp.json();
 				setListing(data);

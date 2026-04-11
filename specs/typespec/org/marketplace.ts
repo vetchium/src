@@ -21,10 +21,7 @@ export namespace MarketplaceListingStatus {
 	export const Archived: MarketplaceListingStatus = "archived";
 }
 
-export type MarketplaceSubscriptionStatus =
-	| "active"
-	| "cancelled"
-	| "expired";
+export type MarketplaceSubscriptionStatus = "active" | "cancelled" | "expired";
 export namespace MarketplaceSubscriptionStatus {
 	export const Active: MarketplaceSubscriptionStatus = "active";
 	export const Cancelled: MarketplaceSubscriptionStatus = "cancelled";
@@ -219,9 +216,7 @@ export function validateCreateListingRequest(
 		);
 	}
 	if (!req.contact_value) {
-		errs.push(
-			newValidationError("contact_value", "contact_value is required")
-		);
+		errs.push(newValidationError("contact_value", "contact_value is required"));
 	}
 	return errs;
 }
@@ -274,9 +269,7 @@ export function validateUpdateListingRequest(
 		);
 	}
 	if (!req.contact_value) {
-		errs.push(
-			newValidationError("contact_value", "contact_value is required")
-		);
+		errs.push(newValidationError("contact_value", "contact_value is required"));
 	}
 	return errs;
 }

@@ -47,14 +47,14 @@ const (
 // ---- Validation constants ----
 
 const (
-	minCapabilityIDLen     = 3
-	maxCapabilityIDLen     = 50
-	maxHeadlineLen         = 100
-	maxSummaryLen          = 500
-	maxListingDescLen      = 10000
-	maxPricingHintLen      = 200
-	maxRequestNoteLen      = 2000
-	maxContactValueLen     = 500
+	minCapabilityIDLen = 3
+	maxCapabilityIDLen = 50
+	maxHeadlineLen     = 100
+	maxSummaryLen      = 500
+	maxListingDescLen  = 10000
+	maxPricingHintLen  = 200
+	maxRequestNoteLen  = 2000
+	maxContactValueLen = 500
 )
 
 var capabilityIDRegex = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$`)
@@ -133,30 +133,30 @@ type MarketplaceListingCard struct {
 }
 
 type MarketplaceSubscription struct {
-	SubscriptionID  string                        `json:"subscription_id"`
-	ListingID       string                        `json:"listing_id"`
-	ConsumerOrgDomain string                      `json:"consumer_org_domain"`
-	ProviderOrgDomain string                      `json:"provider_org_domain"`
-	CapabilityID    string                        `json:"capability_id"`
-	RequestNote     *string                       `json:"request_note,omitempty"`
-	Status          MarketplaceSubscriptionStatus `json:"status"`
-	StartedAt       string                        `json:"started_at"`
-	ExpiresAt       *string                       `json:"expires_at,omitempty"`
-	CancelledAt     *string                       `json:"cancelled_at,omitempty"`
-	CreatedAt       string                        `json:"created_at"`
-	UpdatedAt       string                        `json:"updated_at"`
+	SubscriptionID    string                        `json:"subscription_id"`
+	ListingID         string                        `json:"listing_id"`
+	ConsumerOrgDomain string                        `json:"consumer_org_domain"`
+	ProviderOrgDomain string                        `json:"provider_org_domain"`
+	CapabilityID      string                        `json:"capability_id"`
+	RequestNote       *string                       `json:"request_note,omitempty"`
+	Status            MarketplaceSubscriptionStatus `json:"status"`
+	StartedAt         string                        `json:"started_at"`
+	ExpiresAt         *string                       `json:"expires_at,omitempty"`
+	CancelledAt       *string                       `json:"cancelled_at,omitempty"`
+	CreatedAt         string                        `json:"created_at"`
+	UpdatedAt         string                        `json:"updated_at"`
 }
 
 type MarketplaceClient struct {
-	SubscriptionID  string                        `json:"subscription_id"`
-	ListingID       string                        `json:"listing_id"`
-	ConsumerOrgDomain string                      `json:"consumer_org_domain"`
-	CapabilityID    string                        `json:"capability_id"`
-	RequestNote     *string                       `json:"request_note,omitempty"`
-	Status          MarketplaceSubscriptionStatus `json:"status"`
-	StartedAt       string                        `json:"started_at"`
-	ExpiresAt       *string                       `json:"expires_at,omitempty"`
-	CreatedAt       string                        `json:"created_at"`
+	SubscriptionID    string                        `json:"subscription_id"`
+	ListingID         string                        `json:"listing_id"`
+	ConsumerOrgDomain string                        `json:"consumer_org_domain"`
+	CapabilityID      string                        `json:"capability_id"`
+	RequestNote       *string                       `json:"request_note,omitempty"`
+	Status            MarketplaceSubscriptionStatus `json:"status"`
+	StartedAt         string                        `json:"started_at"`
+	ExpiresAt         *string                       `json:"expires_at,omitempty"`
+	CreatedAt         string                        `json:"created_at"`
 }
 
 // ---- Request types with Validate() ----

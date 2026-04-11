@@ -1,13 +1,6 @@
 import { ArrowLeftOutlined } from "@ant-design/icons";
 import { useState, useCallback, useEffect } from "react";
-import {
-	Alert,
-	Button,
-	Spin,
-	Table,
-	Tag,
-	Typography,
-} from "antd";
+import { Alert, Button, Spin, Table, Tag, Typography } from "antd";
 import type { TableColumnsType } from "antd";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
@@ -48,17 +41,14 @@ export function MarketplaceClientsPage() {
 					limit: 20,
 					...(cursor && { pagination_key: cursor }),
 				};
-				const resp = await fetch(
-					`${apiBaseUrl}/org/marketplace/clients/list`,
-					{
-						method: "POST",
-						headers: {
-							"Content-Type": "application/json",
-							Authorization: `Bearer ${sessionToken}`,
-						},
-						body: JSON.stringify(reqBody),
-					}
-				);
+				const resp = await fetch(`${apiBaseUrl}/org/marketplace/clients/list`, {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${sessionToken}`,
+					},
+					body: JSON.stringify(reqBody),
+				});
 				if (resp.status === 200) {
 					const data: ListClientsResponse = await resp.json();
 					setClients((prev) =>
@@ -131,9 +121,7 @@ export function MarketplaceClientsPage() {
 		>
 			<div style={{ marginBottom: 16 }}>
 				<Link to="/">
-					<Button icon={<ArrowLeftOutlined />}>
-						{t("backToDashboard")}
-					</Button>
+					<Button icon={<ArrowLeftOutlined />}>{t("backToDashboard")}</Button>
 				</Link>
 			</div>
 
@@ -153,9 +141,7 @@ export function MarketplaceClientsPage() {
 						rowKey="subscription_id"
 						pagination={false}
 						locale={{
-							emptyText: (
-								<Text type="secondary">{t("clients.noClients")}</Text>
-							),
+							emptyText: <Text type="secondary">{t("clients.noClients")}</Text>,
 						}}
 					/>
 					{paginationKey && (
