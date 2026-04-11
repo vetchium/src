@@ -7,7 +7,6 @@ import {
 	Descriptions,
 	Input,
 	Modal,
-	Space,
 	Spin,
 	Tag,
 	Typography,
@@ -169,23 +168,8 @@ export function MarketplaceDiscoverDetailPage() {
 							<Descriptions.Item label={t("discoverDetail.capability")}>
 								<Tag color="blue">{listing.capability_id}</Tag>
 							</Descriptions.Item>
-							<Descriptions.Item label={t("discoverDetail.summary")}>
-								{listing.summary}
-							</Descriptions.Item>
-							<Descriptions.Item label={t("discoverDetail.regions")}>
-								<Space wrap>
-									{listing.regions_served.map((r) => (
-										<Tag key={r}>{r}</Tag>
-									))}
-								</Space>
-							</Descriptions.Item>
-							{listing.pricing_hint && (
-								<Descriptions.Item label={t("discoverDetail.pricing")}>
-									{listing.pricing_hint}
-								</Descriptions.Item>
-							)}
-							<Descriptions.Item label={t("discoverDetail.contact")}>
-								{listing.contact_mode}: {listing.contact_value}
+							<Descriptions.Item label={t("discoverDetail.description")}>
+								{listing.description}
 							</Descriptions.Item>
 							<Descriptions.Item label={t("discoverDetail.listedAt")}>
 								{new Date(listing.listed_at).toLocaleDateString()}

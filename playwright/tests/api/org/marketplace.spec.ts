@@ -203,11 +203,7 @@ test.describe("Org Marketplace API", () => {
 			const createReq: CreateListingRequest = {
 				capability_id: capId,
 				headline: "Test Service Headline",
-				summary: "Service summary",
 				description: "Full service description",
-				regions_served: ["ind1"],
-				contact_mode: "email",
-				contact_value: "contact@provider.com",
 			};
 			const createRes = await api.createListing(providerToken, createReq);
 			expect(createRes.status).toBe(201);
@@ -252,16 +248,11 @@ test.describe("Org Marketplace API", () => {
 			const req: UpdateListingRequest = {
 				listing_id: listingId,
 				headline: "Updated Headline",
-				summary: "Updated summary",
 				description: "Updated full description",
-				regions_served: ["ind1", "usa1"],
-				contact_mode: "external_url",
-				contact_value: "https://provider.example.com",
 			};
 			const res = await api.updateListing(providerToken, req);
 			expect(res.status).toBe(200);
 			expect(res.body!.headline).toBe("Updated Headline");
-			expect(res.body!.contact_value).toBe("https://provider.example.com");
 
 			// Audit log assertion
 			const auditRes = await api.filterAuditLogs(providerAuditToken, {
@@ -357,11 +348,7 @@ test.describe("Org Marketplace API", () => {
 			const createRes = await api.createListing(providerToken, {
 				capability_id: capId,
 				headline: "Subscribable Service",
-				summary: "summary",
 				description: "desc",
-				regions_served: ["all"],
-				contact_mode: "external_url",
-				contact_value: "https://example.com",
 			});
 			expect(createRes.status).toBe(201);
 			subListingId = createRes.body!.listing_id;
@@ -450,27 +437,7 @@ test.describe("Org Marketplace API", () => {
 		const res = await api.createListing(providerToken, {
 			capability_id: capId,
 			headline: "",
-			summary: "summary",
 			description: "desc",
-			regions_served: ["ind1"],
-			contact_mode: "email",
-			contact_value: "x@x.com",
-		});
-		expect(res.status).toBe(400);
-	});
-
-	test("create listing returns 400 for non-https external_url", async ({
-		request,
-	}) => {
-		const api = new OrgAPIClient(request);
-		const res = await api.createListing(providerToken, {
-			capability_id: capId,
-			headline: "Valid headline",
-			summary: "summary",
-			description: "desc",
-			regions_served: ["ind1"],
-			contact_mode: "external_url",
-			contact_value: "http://not-https.com",
 		});
 		expect(res.status).toBe(400);
 	});
@@ -480,11 +447,7 @@ test.describe("Org Marketplace API", () => {
 			data: {
 				capability_id: capId,
 				headline: "Test",
-				summary: "x",
 				description: "x",
-				regions_served: ["ind1"],
-				contact_mode: "email",
-				contact_value: "x@x.com",
 			},
 		});
 		expect(res.status()).toBe(401);
@@ -540,11 +503,7 @@ test.describe("Org Marketplace API", () => {
 		const res = await api.createListing(noRoleToken, {
 			capability_id: capId,
 			headline: "Unauthorized",
-			summary: "x",
 			description: "x",
-			regions_served: ["ind1"],
-			contact_mode: "email",
-			contact_value: "x@x.com",
 		});
 		expect(res.status).toBe(403);
 	});
@@ -567,11 +526,7 @@ test.describe("Org Marketplace API", () => {
 		const res = await api.updateListing(noRoleToken, {
 			listing_id: "some-uuid",
 			headline: "Updated",
-			summary: "x",
 			description: "x",
-			regions_served: ["ind1"],
-			contact_mode: "email",
-			contact_value: "x@x.com",
 		});
 		expect(res.status).toBe(403);
 	});

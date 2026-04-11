@@ -673,8 +673,8 @@ LIMIT @limit_count;
 -- ============================================================
 
 -- name: CreateMarketplaceListing :one
-INSERT INTO marketplace_listings (org_id, org_domain, capability_id, headline, summary, description, regions_served, pricing_hint, contact_mode, contact_value)
-VALUES (@org_id, @org_domain, @capability_id, @headline, @summary, @description, @regions_served, @pricing_hint, @contact_mode, @contact_value)
+INSERT INTO marketplace_listings (org_id, org_domain, capability_id, headline, description)
+VALUES (@org_id, @org_domain, @capability_id, @headline, @description)
 RETURNING *;
 
 -- name: GetMarketplaceListingByID :one
@@ -685,9 +685,7 @@ SELECT * FROM marketplace_listings WHERE listing_id = @listing_id AND org_id = @
 
 -- name: UpdateMarketplaceListing :one
 UPDATE marketplace_listings
-SET headline = @headline, summary = @summary, description = @description,
-    regions_served = @regions_served, pricing_hint = @pricing_hint,
-    contact_mode = @contact_mode, contact_value = @contact_value, updated_at = NOW()
+SET headline = @headline, description = @description, updated_at = NOW()
 WHERE listing_id = @listing_id AND org_id = @org_id
   AND status IN ('draft', 'active')
 RETURNING *;

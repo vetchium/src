@@ -12,21 +12,14 @@ import (
 // dbListingToAPI converts a regionaldb MarketplaceListing to the org API type.
 func dbListingToAPI(l regionaldb.MarketplaceListing) orgtypes.MarketplaceListing {
 	result := orgtypes.MarketplaceListing{
-		ListingID:     uuidToString(l.ListingID),
-		OrgDomain:     l.OrgDomain,
-		CapabilityID:  l.CapabilityID,
-		Headline:      l.Headline,
-		Summary:       l.Summary,
-		Description:   l.Description,
-		RegionsServed: l.RegionsServed,
-		ContactMode:   orgtypes.MarketplaceContactMode(l.ContactMode),
-		ContactValue:  l.ContactValue,
-		Status:        orgtypes.MarketplaceListingStatus(l.Status),
-		CreatedAt:     l.CreatedAt.Time.UTC().Format(time.RFC3339),
-		UpdatedAt:     l.UpdatedAt.Time.UTC().Format(time.RFC3339),
-	}
-	if l.PricingHint.Valid {
-		result.PricingHint = &l.PricingHint.String
+		ListingID:    uuidToString(l.ListingID),
+		OrgDomain:    l.OrgDomain,
+		CapabilityID: l.CapabilityID,
+		Headline:     l.Headline,
+		Description:  l.Description,
+		Status:       orgtypes.MarketplaceListingStatus(l.Status),
+		CreatedAt:    l.CreatedAt.Time.UTC().Format(time.RFC3339),
+		UpdatedAt:    l.UpdatedAt.Time.UTC().Format(time.RFC3339),
 	}
 	if l.SuspensionNote.Valid {
 		result.SuspensionNote = &l.SuspensionNote.String
@@ -40,21 +33,14 @@ func dbListingToAPI(l regionaldb.MarketplaceListing) orgtypes.MarketplaceListing
 
 // dbCatalogToCard converts a globaldb MarketplaceListingCatalog to the listing card API type.
 func dbCatalogToCard(c globaldb.MarketplaceListingCatalog) orgtypes.MarketplaceListingCard {
-	result := orgtypes.MarketplaceListingCard{
-		ListingID:     uuidToString(c.ListingID),
-		OrgDomain:     c.OrgDomain,
-		CapabilityID:  c.CapabilityID,
-		Headline:      c.Headline,
-		Summary:       c.Summary,
-		RegionsServed: c.RegionsServed,
-		ContactMode:   orgtypes.MarketplaceContactMode(c.ContactMode),
-		ContactValue:  c.ContactValue,
-		ListedAt:      c.ListedAt.Time.UTC().Format(time.RFC3339),
+	return orgtypes.MarketplaceListingCard{
+		ListingID:    uuidToString(c.ListingID),
+		OrgDomain:    c.OrgDomain,
+		CapabilityID: c.CapabilityID,
+		Headline:     c.Headline,
+		Description:  c.Description,
+		ListedAt:     c.ListedAt.Time.UTC().Format(time.RFC3339),
 	}
-	if c.PricingHint.Valid {
-		result.PricingHint = &c.PricingHint.String
-	}
-	return result
 }
 
 // dbSubscriptionToAPI converts a regionaldb MarketplaceSubscription to the consumer API type.

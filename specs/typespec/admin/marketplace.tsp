@@ -34,12 +34,7 @@ model AdminMarketplaceListing {
   org_domain: string;
   capability_id: string;
   headline: string;
-  summary: string;
   description: string;
-  regions_served: string[];
-  pricing_hint?: string;
-  contact_mode: MarketplaceContactMode;
-  contact_value: string;
   status: MarketplaceListingStatus;
   suspension_note?: string;
   listed_at?: string;

@@ -113,23 +113,18 @@ Each Listing has its own lifecycle and billing record.
 
 **Fields:**
 
-| Field             | Type            | Description                                                       |
-| ----------------- | --------------- | ----------------------------------------------------------------- |
-| `listing_id`      | UUID            | Unique identifier.                                                |
-| `org_domain`      | string          | Provider org. Canonical current domain.                           |
-| `capability_id`   | string          | Which Capability this Listing covers.                             |
-| `headline`        | string          | Max 100 chars. Name of this specific service offering.            |
-| `summary`         | string          | Max 500 chars. Shown in browse cards.                             |
-| `description`     | string          | Markdown. Max 10000 chars. Full detail page content.              |
-| `regions_served`  | string[]        | Non-empty. Region codes or `all`.                                 |
-| `pricing_hint`    | string nullable | Max 200 chars. Free-form pricing guidance shown to Consumer Orgs. |
-| `contact_mode`    | enum            | `platform_message` \| `external_url` \| `email`                   |
-| `contact_value`   | string          | Validated per `contact_mode`.                                     |
-| `status`          | enum            | See 4.2.1                                                         |
-| `suspension_note` | string nullable | Admin note explaining why a Listing was suspended.                |
-| `listed_at`       | timestamptz     | When the Listing first became active.                             |
-| `created_at`      | timestamptz     |                                                                   |
-| `updated_at`      | timestamptz     |                                                                   |
+| Field             | Type            | Description                                            |
+| ----------------- | --------------- | ------------------------------------------------------ |
+| `listing_id`      | UUID            | Unique identifier.                                     |
+| `org_domain`      | string          | Provider org. Canonical current domain.                |
+| `capability_id`   | string          | Which Capability this Listing covers.                  |
+| `headline`        | string          | Max 100 chars. Name of this specific service offering. |
+| `description`     | string          | Markdown. Max 10000 chars. Full service detail.        |
+| `status`          | enum            | See 4.2.1                                              |
+| `suspension_note` | string nullable | Admin note explaining why a Listing was suspended.     |
+| `listed_at`       | timestamptz     | When the Listing first became active.                  |
+| `created_at`      | timestamptz     |                                                        |
+| `updated_at`      | timestamptz     |                                                        |
 
 #### 4.2.1 Listing States
 
@@ -209,7 +204,7 @@ new `started_at`.
 | `marketplace_capabilities`            | Global                            | Admin-owned Capability catalog (capability_id, approval type, status).                                     |
 | `marketplace_capability_translations` | Global                            | Display name and description per capability per locale. Fallback to `en-US` when user's locale is missing. |
 | `marketplace_listings`                | Regional (provider's home region) | Provider operational state                                                                                 |
-| `marketplace_listing_catalog`         | Global                            | Discovery mirror: active listing fields for fast cross-region browse                                       |
+| `marketplace_listing_catalog`         | Global                            | Discovery mirror: headline + description for active listings, for fast cross-region browse                 |
 | `marketplace_subscriptions`           | Regional (consumer's home region) | Consumer operational state                                                                                 |
 | `marketplace_subscription_index`      | Global                            | Routing index: lets providers query their subscribers across regions                                       |
 | `marketplace_billing_records`         | Global                            | Listing fee records per org per Capability                                                                 |
@@ -258,9 +253,7 @@ for this Capability. Each Listing card shows:
 
 - Provider org domain
 - Listing headline
-- Summary
-- Regions served
-- Pricing hint
+- Description (truncated)
 
 If the viewing org has an active Subscription to a particular Listing, that card shows a
 **"Subscribed"** badge.
@@ -274,15 +267,11 @@ Clicking a Listing card navigates to the Listing detail page (buyer view).
 Full Listing page from the buyer's perspective:
 
 - Headline
-- Summary
 - Full markdown description
-- Regions served
-- Pricing hint
 
 If the viewing org does not have an active Subscription to this Listing, a
 **"Subscribe"** button is shown. Clicking it opens a panel with an optional request note
-field and a confirm button. On confirm, the Subscription is created immediately and the
-provider's contact information is shown.
+field and a confirm button. On confirm, the Subscription is created immediately.
 
 If a Subscription exists in a terminal state (cancelled or expired), a **"Re-subscribe"**
 button is shown instead.
@@ -323,8 +312,7 @@ A grid of all active Capabilities. The user selects one.
 
 **Step 2 — Listing form:**
 
-Fields: Headline, Summary, Description (markdown editor), Regions Served, Pricing Hint,
-Contact Mode, Contact Value.
+Fields: Headline, Description (markdown editor).
 
 Two actions:
 
@@ -379,7 +367,6 @@ Lists all Subscriptions where the viewing org is the Consumer. Each row shows:
 - Listing headline
 - Status
 - Subscribed since date
-- Contact action button
 
 A status filter (All / Active / Historical) narrows the list.
 
@@ -396,12 +383,11 @@ Full Subscription details:
 - Listing headline
 - Request note (if provided)
 - Status and dates
-- Provider's contact information
 
 For `active` Subscriptions: **"Cancel Subscription"** button with a confirmation dialog.
 
 For cancelled or expired Subscriptions: **"Re-subscribe"** button that navigates to the
-Listing detail page (7.4), where the provider's current listing and contact info are shown.
+Listing detail page (7.4), where the provider's current listing is shown.
 
 ---
 

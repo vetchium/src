@@ -29,12 +29,6 @@ enum MarketplaceSubscriptionStatus {
   expired,
 }
 
-enum MarketplaceContactMode {
-  platform_message,
-  external_url,
-  email,
-}
-
 // ---- Models ----
 
 model MarketplaceCapability {
@@ -50,12 +44,7 @@ model MarketplaceListing {
   org_domain: string;
   capability_id: string;
   headline: string;
-  summary: string;
   description: string;
-  regions_served: string[];
-  pricing_hint?: string;
-  contact_mode: MarketplaceContactMode;
-  contact_value: string;
   status: MarketplaceListingStatus;
   suspension_note?: string;
   listed_at?: string;
@@ -69,11 +58,7 @@ model MarketplaceListingCard {
   org_domain: string;
   capability_id: string;
   headline: string;
-  summary: string;
-  regions_served: string[];
-  pricing_hint?: string;
-  contact_mode: MarketplaceContactMode;
-  contact_value: string;
+  description: string;
   listed_at: string;
 }
 
@@ -140,23 +125,13 @@ model GetMyListingRequest {
 model CreateListingRequest {
   capability_id: string;
   headline: string;
-  summary: string;
   description: string;
-  regions_served: string[];
-  pricing_hint?: string;
-  contact_mode: MarketplaceContactMode;
-  contact_value: string;
 }
 
 model UpdateListingRequest {
   listing_id: string;
   headline: string;
-  summary: string;
   description: string;
-  regions_served: string[];
-  pricing_hint?: string;
-  contact_mode: MarketplaceContactMode;
-  contact_value: string;
 }
 
 model PublishListingRequest {

@@ -336,11 +336,7 @@ CREATE TABLE marketplace_listing_catalog (
     org_region             TEXT        NOT NULL,
     capability_id          TEXT        NOT NULL REFERENCES marketplace_capabilities(capability_id),
     headline               TEXT        NOT NULL,
-    summary                TEXT        NOT NULL DEFAULT '',
-    regions_served         TEXT[]      NOT NULL DEFAULT '{}',
-    pricing_hint           TEXT,
-    contact_mode           TEXT        NOT NULL DEFAULT 'external_url' CHECK (contact_mode IN ('platform_message', 'external_url', 'email')),
-    contact_value          TEXT        NOT NULL DEFAULT '',
+    description            TEXT        NOT NULL DEFAULT '',
     listed_at              TIMESTAMPTZ NOT NULL,
     created_at             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at             TIMESTAMPTZ NOT NULL DEFAULT NOW()

@@ -58,12 +58,7 @@ type AdminMarketplaceListing struct {
 	OrgDomain      string                       `json:"org_domain"`
 	CapabilityID   string                       `json:"capability_id"`
 	Headline       string                       `json:"headline"`
-	Summary        string                       `json:"summary"`
 	Description    string                       `json:"description"`
-	RegionsServed  []string                     `json:"regions_served"`
-	PricingHint    *string                      `json:"pricing_hint,omitempty"`
-	ContactMode    org.MarketplaceContactMode   `json:"contact_mode"`
-	ContactValue   string                       `json:"contact_value"`
 	Status         org.MarketplaceListingStatus `json:"status"`
 	SuspensionNote *string                      `json:"suspension_note,omitempty"`
 	ListedAt       *string                      `json:"listed_at,omitempty"`

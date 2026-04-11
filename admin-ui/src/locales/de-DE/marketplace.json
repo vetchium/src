@@ -66,7 +66,6 @@
 			"consumerEnabled": "Verbraucher aktiviert",
 			"contractRequired": "Vertrag erforderlich",
 			"paymentRequired": "Zahlung erforderlich",
-			"pricingHint": "Preishinweis (optional)",
 			"submit": "Erstellen"
 		},
 		"actions": {
@@ -142,7 +141,6 @@
 			"capabilitySlug": "Fähigkeit",
 			"headline": "Überschrift",
 			"status": "Status",
-			"contactMode": "Kontaktmodus",
 			"updatedAt": "Aktualisiert am",
 			"actions": "Aktionen"
 		},

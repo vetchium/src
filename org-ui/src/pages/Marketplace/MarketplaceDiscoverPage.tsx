@@ -129,13 +129,8 @@ export function MarketplaceDiscoverPage() {
 										<Tag>{listing.org_domain}</Tag>
 									</Space>
 									<Paragraph ellipsis={{ rows: 3 }} style={{ marginBottom: 8 }}>
-										{listing.summary}
+										{listing.description}
 									</Paragraph>
-									{listing.pricing_hint && (
-										<Text type="secondary" style={{ fontSize: 12 }}>
-											{listing.pricing_hint}
-										</Text>
-									)}
 								</Card>
 							</Col>
 						))}

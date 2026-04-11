@@ -383,18 +383,14 @@ func AdminApproveListing(s *server.GlobalServer) http.HandlerFunc {
 
 		// Add to global catalog.
 		upsertErr := s.Global.UpsertListingCatalog(ctx, globaldb.UpsertListingCatalogParams{
-			ListingID:     listing.ListingID,
-			OrgGlobalID:   listing.OrgID,
-			OrgDomain:     listing.OrgDomain,
-			OrgRegion:     string(foundRegion),
-			CapabilityID:  listing.CapabilityID,
-			Headline:      listing.Headline,
-			Summary:       listing.Summary,
-			RegionsServed: listing.RegionsServed,
-			PricingHint:   listing.PricingHint,
-			ContactMode:   listing.ContactMode,
-			ContactValue:  listing.ContactValue,
-			ListedAt:      listing.ListedAt,
+			ListingID:    listing.ListingID,
+			OrgGlobalID:  listing.OrgID,
+			OrgDomain:    listing.OrgDomain,
+			OrgRegion:    string(foundRegion),
+			CapabilityID: listing.CapabilityID,
+			Headline:     listing.Headline,
+			Description:  listing.Description,
+			ListedAt:     listing.ListedAt,
 		})
 		if upsertErr != nil {
 			log.Error("CONSISTENCY_ALERT: failed to add approved listing to global catalog", "listing_id", req.ListingID, "error", upsertErr)
@@ -493,18 +489,14 @@ func AdminReinstateListing(s *server.GlobalServer) http.HandlerFunc {
 
 		// Add back to global catalog.
 		upsertErr := s.Global.UpsertListingCatalog(ctx, globaldb.UpsertListingCatalogParams{
-			ListingID:     listing.ListingID,
-			OrgGlobalID:   listing.OrgID,
-			OrgDomain:     listing.OrgDomain,
-			OrgRegion:     string(foundRegion),
-			CapabilityID:  listing.CapabilityID,
-			Headline:      listing.Headline,
-			Summary:       listing.Summary,
-			RegionsServed: listing.RegionsServed,
-			PricingHint:   listing.PricingHint,
-			ContactMode:   listing.ContactMode,
-			ContactValue:  listing.ContactValue,
-			ListedAt:      listing.ListedAt,
+			ListingID:    listing.ListingID,
+			OrgGlobalID:  listing.OrgID,
+			OrgDomain:    listing.OrgDomain,
+			OrgRegion:    string(foundRegion),
+			CapabilityID: listing.CapabilityID,
+			Headline:     listing.Headline,
+			Description:  listing.Description,
+			ListedAt:     listing.ListedAt,
 		})
 		if upsertErr != nil {
 			log.Error("CONSISTENCY_ALERT: failed to add reinstated listing back to catalog", "listing_id", req.ListingID, "error", upsertErr)

@@ -77,12 +77,7 @@ export function MarketplaceListingFormPage() {
 				form.setFieldsValue({
 					capability_id: data.capability_id,
 					headline: data.headline,
-					summary: data.summary,
 					description: data.description,
-					regions_served: data.regions_served,
-					pricing_hint: data.pricing_hint,
-					contact_mode: data.contact_mode,
-					contact_value: data.contact_value,
 				});
 			} else {
 				setError(t("listingForm.errors.loadFailed"));
@@ -103,12 +98,7 @@ export function MarketplaceListingFormPage() {
 	const handleSubmit = async (values: {
 		capability_id: string;
 		headline: string;
-		summary: string;
 		description: string;
-		regions_served: string[];
-		pricing_hint?: string;
-		contact_mode: string;
-		contact_value: string;
 	}) => {
 		if (!sessionToken) return;
 		setSubmitting(true);
@@ -120,12 +110,7 @@ export function MarketplaceListingFormPage() {
 				const reqBody: UpdateListingRequest = {
 					listing_id,
 					headline: values.headline,
-					summary: values.summary,
 					description: values.description,
-					regions_served: values.regions_served,
-					pricing_hint: values.pricing_hint,
-					contact_mode: values.contact_mode as never,
-					contact_value: values.contact_value,
 				};
 				resp = await fetch(`${apiBaseUrl}/org/marketplace/listings/update`, {
 					method: "POST",
@@ -139,12 +124,7 @@ export function MarketplaceListingFormPage() {
 				const reqBody: CreateListingRequest = {
 					capability_id: values.capability_id,
 					headline: values.headline,
-					summary: values.summary,
 					description: values.description,
-					regions_served: values.regions_served,
-					pricing_hint: values.pricing_hint,
-					contact_mode: values.contact_mode as never,
-					contact_value: values.contact_value,
 				};
 				resp = await fetch(`${apiBaseUrl}/org/marketplace/listings/create`, {
 					method: "POST",
@@ -208,12 +188,7 @@ export function MarketplaceListingFormPage() {
 			)}
 
 			<Spin spinning={submitting}>
-				<Form
-					form={form}
-					layout="vertical"
-					onFinish={handleSubmit}
-					initialValues={{ contact_mode: "external_url" }}
-				>
+				<Form form={form} layout="vertical" onFinish={handleSubmit}>
 					{!isEdit && (
 						<Form.Item
 							name="capability_id"
@@ -251,23 +226,6 @@ export function MarketplaceListingFormPage() {
 					</Form.Item>
 
 					<Form.Item
-						name="summary"
-						label={t("listingForm.summaryLabel")}
-						rules={[
-							{
-								required: true,
-								message: t("listingForm.errors.summaryRequired"),
-							},
-							{ max: 500, message: t("listingForm.errors.summaryTooLong") },
-						]}
-					>
-						<Input.TextArea
-							rows={3}
-							placeholder={t("listingForm.summaryPlaceholder")}
-						/>
-					</Form.Item>
-
-					<Form.Item
 						name="description"
 						label={t("listingForm.descriptionLabel")}
 						rules={[
@@ -285,76 +243,6 @@ export function MarketplaceListingFormPage() {
 							rows={8}
 							placeholder={t("listingForm.descriptionPlaceholder")}
 						/>
-					</Form.Item>
-
-					<Form.Item
-						name="regions_served"
-						label={t("listingForm.regionsLabel")}
-						rules={[
-							{
-								required: true,
-								message: t("listingForm.errors.regionsRequired"),
-							},
-						]}
-					>
-						<Select
-							mode="tags"
-							placeholder={t("listingForm.regionsPlaceholder")}
-						/>
-					</Form.Item>
-
-					<Form.Item name="pricing_hint" label={t("listingForm.pricingLabel")}>
-						<Input placeholder={t("listingForm.pricingPlaceholder")} />
-					</Form.Item>
-
-					<Form.Item
-						name="contact_mode"
-						label={t("listingForm.contactModeLabel")}
-					>
-						<Select
-							options={[
-								{
-									value: "external_url",
-									label: t("listingForm.contactModes.external_url"),
-								},
-								{
-									value: "email",
-									label: t("listingForm.contactModes.email"),
-								},
-								{
-									value: "platform_message",
-									label: t("listingForm.contactModes.platform_message"),
-								},
-							]}
-						/>
-					</Form.Item>
-
-					<Form.Item
-						name="contact_value"
-						label={t("listingForm.contactValueLabel")}
-						rules={[
-							{
-								required: true,
-								message: t("listingForm.errors.contactValueRequired"),
-							},
-							({ getFieldValue }) => ({
-								validator(_, value) {
-									const mode = getFieldValue("contact_mode");
-									if (!value) return Promise.resolve();
-									if (
-										mode === "external_url" &&
-										!value.startsWith("https://")
-									) {
-										return Promise.reject(
-											new Error(t("listingForm.errors.contactValueHttps"))
-										);
-									}
-									return Promise.resolve();
-								},
-							}),
-						]}
-					>
-						<Input placeholder={t("listingForm.contactValuePlaceholder")} />
 					</Form.Item>
 
 					<Form.Item shouldUpdate>

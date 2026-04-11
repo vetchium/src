@@ -197,16 +197,11 @@ func CreateListing(s *server.RegionalServer) http.HandlerFunc {
 		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
 			var txErr error
 			listing, txErr = qtx.CreateMarketplaceListing(ctx, regionaldb.CreateMarketplaceListingParams{
-				OrgID:         orgUser.OrgID,
-				OrgDomain:     orgDomain,
-				CapabilityID:  req.CapabilityID,
-				Headline:      req.Headline,
-				Summary:       req.Summary,
-				Description:   req.Description,
-				RegionsServed: req.RegionsServed,
-				PricingHint:   optionalListingText(req.PricingHint),
-				ContactMode:   string(req.ContactMode),
-				ContactValue:  req.ContactValue,
+				OrgID:        orgUser.OrgID,
+				OrgDomain:    orgDomain,
+				CapabilityID: req.CapabilityID,
+				Headline:     req.Headline,
+				Description:  req.Description,
 			})
 			if txErr != nil {
 				return txErr
@@ -288,15 +283,10 @@ func UpdateListing(s *server.RegionalServer) http.HandlerFunc {
 		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
 			var txErr error
 			listing, txErr = qtx.UpdateMarketplaceListing(ctx, regionaldb.UpdateMarketplaceListingParams{
-				ListingID:     listingUUID,
-				OrgID:         orgUser.OrgID,
-				Headline:      req.Headline,
-				Summary:       req.Summary,
-				Description:   req.Description,
-				RegionsServed: req.RegionsServed,
-				PricingHint:   optionalListingText(req.PricingHint),
-				ContactMode:   string(req.ContactMode),
-				ContactValue:  req.ContactValue,
+				ListingID:   listingUUID,
+				OrgID:       orgUser.OrgID,
+				Headline:    req.Headline,
+				Description: req.Description,
 			})
 			if txErr != nil {
 				return txErr
@@ -323,18 +313,14 @@ func UpdateListing(s *server.RegionalServer) http.HandlerFunc {
 		if listing.Status == regionaldb.MarketplaceListingStatusActive {
 			region := middleware.OrgRegionFromContext(ctx)
 			if upsertErr := s.Global.UpsertListingCatalog(ctx, globaldb.UpsertListingCatalogParams{
-				ListingID:     listing.ListingID,
-				OrgGlobalID:   listing.OrgID,
-				OrgDomain:     listing.OrgDomain,
-				OrgRegion:     region,
-				CapabilityID:  listing.CapabilityID,
-				Headline:      listing.Headline,
-				Summary:       listing.Summary,
-				RegionsServed: listing.RegionsServed,
-				PricingHint:   listing.PricingHint,
-				ContactMode:   listing.ContactMode,
-				ContactValue:  listing.ContactValue,
-				ListedAt:      listing.ListedAt,
+				ListingID:    listing.ListingID,
+				OrgGlobalID:  listing.OrgID,
+				OrgDomain:    listing.OrgDomain,
+				OrgRegion:    region,
+				CapabilityID: listing.CapabilityID,
+				Headline:     listing.Headline,
+				Description:  listing.Description,
+				ListedAt:     listing.ListedAt,
 			}); upsertErr != nil {
 				log.Error("CONSISTENCY_ALERT: failed to update listing catalog after update", "listing_id", req.ListingID, "error", upsertErr)
 			}
@@ -407,18 +393,14 @@ func PublishListing(s *server.RegionalServer) http.HandlerFunc {
 		// Add to global catalog.
 		region := middleware.OrgRegionFromContext(ctx)
 		if upsertErr := s.Global.UpsertListingCatalog(ctx, globaldb.UpsertListingCatalogParams{
-			ListingID:     listing.ListingID,
-			OrgGlobalID:   listing.OrgID,
-			OrgDomain:     listing.OrgDomain,
-			OrgRegion:     region,
-			CapabilityID:  listing.CapabilityID,
-			Headline:      listing.Headline,
-			Summary:       listing.Summary,
-			RegionsServed: listing.RegionsServed,
-			PricingHint:   listing.PricingHint,
-			ContactMode:   listing.ContactMode,
-			ContactValue:  listing.ContactValue,
-			ListedAt:      listing.ListedAt,
+			ListingID:    listing.ListingID,
+			OrgGlobalID:  listing.OrgID,
+			OrgDomain:    listing.OrgDomain,
+			OrgRegion:    region,
+			CapabilityID: listing.CapabilityID,
+			Headline:     listing.Headline,
+			Description:  listing.Description,
+			ListedAt:     listing.ListedAt,
 		}); upsertErr != nil {
 			log.Error("CONSISTENCY_ALERT: failed to add listing to global catalog after publish", "listing_id", req.ListingID, "error", upsertErr)
 		}

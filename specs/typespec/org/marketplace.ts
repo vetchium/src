@@ -28,16 +28,6 @@ export namespace MarketplaceSubscriptionStatus {
 	export const Expired: MarketplaceSubscriptionStatus = "expired";
 }
 
-export type MarketplaceContactMode =
-	| "platform_message"
-	| "external_url"
-	| "email";
-export namespace MarketplaceContactMode {
-	export const PlatformMessage: MarketplaceContactMode = "platform_message";
-	export const ExternalUrl: MarketplaceContactMode = "external_url";
-	export const Email: MarketplaceContactMode = "email";
-}
-
 // ---- Models ----
 
 export interface MarketplaceCapability {
@@ -52,12 +42,7 @@ export interface MarketplaceListing {
 	org_domain: string;
 	capability_id: string;
 	headline: string;
-	summary: string;
 	description: string;
-	regions_served: string[];
-	pricing_hint?: string;
-	contact_mode: MarketplaceContactMode;
-	contact_value: string;
 	status: MarketplaceListingStatus;
 	suspension_note?: string;
 	listed_at?: string;
@@ -70,11 +55,7 @@ export interface MarketplaceListingCard {
 	org_domain: string;
 	capability_id: string;
 	headline: string;
-	summary: string;
-	regions_served: string[];
-	pricing_hint?: string;
-	contact_mode: MarketplaceContactMode;
-	contact_value: string;
+	description: string;
 	listed_at: string;
 }
 
@@ -166,12 +147,7 @@ export function validateGetMyListingRequest(
 export interface CreateListingRequest {
 	capability_id: string;
 	headline: string;
-	summary: string;
 	description: string;
-	regions_served: string[];
-	pricing_hint?: string;
-	contact_mode: MarketplaceContactMode;
-	contact_value: string;
 }
 
 export function validateCreateListingRequest(
@@ -193,13 +169,6 @@ export function validateCreateListingRequest(
 			newValidationError("headline", "headline must be at most 100 characters")
 		);
 	}
-	if (!req.summary) {
-		errs.push(newValidationError("summary", "summary is required"));
-	} else if (req.summary.length > 500) {
-		errs.push(
-			newValidationError("summary", "summary must be at most 500 characters")
-		);
-	}
 	if (!req.description) {
 		errs.push(newValidationError("description", "description is required"));
 	} else if (req.description.length > 10000) {
@@ -210,26 +179,13 @@ export function validateCreateListingRequest(
 			)
 		);
 	}
-	if (!req.regions_served || req.regions_served.length === 0) {
-		errs.push(
-			newValidationError("regions_served", "at least one region is required")
-		);
-	}
-	if (!req.contact_value) {
-		errs.push(newValidationError("contact_value", "contact_value is required"));
-	}
 	return errs;
 }
 
 export interface UpdateListingRequest {
 	listing_id: string;
 	headline: string;
-	summary: string;
 	description: string;
-	regions_served: string[];
-	pricing_hint?: string;
-	contact_mode: MarketplaceContactMode;
-	contact_value: string;
 }
 
 export function validateUpdateListingRequest(
@@ -246,13 +202,6 @@ export function validateUpdateListingRequest(
 			newValidationError("headline", "headline must be at most 100 characters")
 		);
 	}
-	if (!req.summary) {
-		errs.push(newValidationError("summary", "summary is required"));
-	} else if (req.summary.length > 500) {
-		errs.push(
-			newValidationError("summary", "summary must be at most 500 characters")
-		);
-	}
 	if (!req.description) {
 		errs.push(newValidationError("description", "description is required"));
 	} else if (req.description.length > 10000) {
@@ -262,14 +211,6 @@ export function validateUpdateListingRequest(
 				"description must be at most 10000 characters"
 			)
 		);
-	}
-	if (!req.regions_served || req.regions_served.length === 0) {
-		errs.push(
-			newValidationError("regions_served", "at least one region is required")
-		);
-	}
-	if (!req.contact_value) {
-		errs.push(newValidationError("contact_value", "contact_value is required"));
 	}
 	return errs;
 }

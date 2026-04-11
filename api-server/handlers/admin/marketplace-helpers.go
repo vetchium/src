@@ -32,21 +32,14 @@ func adminCapabilityToAPI(c globaldb.MarketplaceCapability, translations []globa
 // adminListingToAPI converts a regionaldb MarketplaceListing to the admin API type.
 func adminListingToAPI(l regionaldb.MarketplaceListing) admintypes.AdminMarketplaceListing {
 	result := admintypes.AdminMarketplaceListing{
-		ListingID:     uuidToString(l.ListingID),
-		OrgDomain:     l.OrgDomain,
-		CapabilityID:  l.CapabilityID,
-		Headline:      l.Headline,
-		Summary:       l.Summary,
-		Description:   l.Description,
-		RegionsServed: l.RegionsServed,
-		ContactMode:   org.MarketplaceContactMode(l.ContactMode),
-		ContactValue:  l.ContactValue,
-		Status:        org.MarketplaceListingStatus(l.Status),
-		CreatedAt:     l.CreatedAt.Time.UTC().Format(time.RFC3339),
-		UpdatedAt:     l.UpdatedAt.Time.UTC().Format(time.RFC3339),
-	}
-	if l.PricingHint.Valid {
-		result.PricingHint = &l.PricingHint.String
+		ListingID:    uuidToString(l.ListingID),
+		OrgDomain:    l.OrgDomain,
+		CapabilityID: l.CapabilityID,
+		Headline:     l.Headline,
+		Description:  l.Description,
+		Status:       org.MarketplaceListingStatus(l.Status),
+		CreatedAt:    l.CreatedAt.Time.UTC().Format(time.RFC3339),
+		UpdatedAt:    l.UpdatedAt.Time.UTC().Format(time.RFC3339),
 	}
 	if l.SuspensionNote.Valid {
 		result.SuspensionNote = &l.SuspensionNote.String
@@ -83,14 +76,6 @@ func adminSubscriptionToAPI(sub regionaldb.MarketplaceSubscription) admintypes.A
 		result.CancelledAt = &s
 	}
 	return result
-}
-
-// optionalText converts a *string to pgtype.Text.
-func optionalText(s *string) pgtype.Text {
-	if s != nil {
-		return pgtype.Text{String: *s, Valid: true}
-	}
-	return pgtype.Text{}
 }
 
 // parseUUID parses a UUID string to pgtype.UUID. Returns invalid UUID on error.

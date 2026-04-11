@@ -66,7 +66,6 @@
 			"consumerEnabled": "நுகர்வோர் இயக்கப்பட்டது",
 			"contractRequired": "ஒப்பந்தம் தேவை",
 			"paymentRequired": "கட்டணம் தேவை",
-			"pricingHint": "விலை குறிப்பு (விரும்பினால்)",
 			"submit": "உருவாக்கு"
 		},
 		"actions": {
@@ -142,7 +141,6 @@
 			"capabilitySlug": "திறன்",
 			"headline": "தலைப்பு",
 			"status": "நிலை",
-			"contactMode": "தொடர்பு முறை",
 			"updatedAt": "புதுப்பிக்கப்பட்ட தேதி",
 			"actions": "செயல்கள்"
 		},

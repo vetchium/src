@@ -948,15 +948,13 @@ ORDER BY ct.capability_id, (ct.locale = @locale::text) DESC;
 -- name: UpsertListingCatalog :exec
 INSERT INTO marketplace_listing_catalog (
     listing_id, org_global_id, org_domain, org_region, capability_id,
-    headline, summary, regions_served, pricing_hint, contact_mode, contact_value, listed_at
+    headline, description, listed_at
 ) VALUES (
     @listing_id, @org_global_id, @org_domain, @org_region, @capability_id,
-    @headline, @summary, @regions_served, @pricing_hint, @contact_mode, @contact_value, @listed_at
+    @headline, @description, @listed_at
 )
 ON CONFLICT (listing_id) DO UPDATE
-SET org_domain = @org_domain, headline = @headline, summary = @summary,
-    regions_served = @regions_served, pricing_hint = @pricing_hint,
-    contact_mode = @contact_mode, contact_value = @contact_value,
+SET org_domain = @org_domain, headline = @headline, description = @description,
     listed_at = @listed_at, updated_at = NOW();
 
 -- name: DeleteListingCatalog :exec
