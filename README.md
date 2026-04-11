@@ -119,7 +119,7 @@ bun run format:go:check     # Check Go files only
 
 ## Test Status
 
-All 820 Playwright tests (809 API and 11 UI) are passing as of March 29, 2026. The environment has been optimized for stability and performance.
+All 727 Playwright tests (716 API and 11 UI) are passing as of April 11, 2026. The environment has been optimized for stability and performance.
 
 Tests run against the CI environment:
 

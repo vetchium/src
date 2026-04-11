@@ -24,8 +24,7 @@ import { UserManagementPage } from "./pages/UserManagement/UserManagementPage";
 import { ManageTagsPage } from "./pages/ManageTagsPage";
 import { AuditLogsPage } from "./pages/AuditLogsPage";
 import { CapabilitiesPage } from "./pages/Marketplace/CapabilitiesPage";
-import { EnrollmentsPage } from "./pages/Marketplace/EnrollmentsPage";
-import { OffersPage } from "./pages/Marketplace/OffersPage";
+import { ListingsPage } from "./pages/Marketplace/ListingsPage";
 import { SubscriptionsPage } from "./pages/Marketplace/SubscriptionsPage";
 import { BillingPage } from "./pages/Marketplace/BillingPage";
 import {
@@ -249,18 +248,10 @@ function AppContent() {
 								}
 							/>
 							<Route
-								path="/marketplace/enrollments"
+								path="/marketplace/listings"
 								element={
 									<MarketplaceRoute>
-										<EnrollmentsPage />
-									</MarketplaceRoute>
-								}
-							/>
-							<Route
-								path="/marketplace/offers"
-								element={
-									<MarketplaceRoute>
-										<OffersPage />
+										<ListingsPage />
 									</MarketplaceRoute>
 								}
 							/>

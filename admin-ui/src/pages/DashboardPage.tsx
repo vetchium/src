@@ -236,39 +236,7 @@ export function DashboardPage() {
 					{canManageMarketplace && (
 						<Col xs={24} sm={12} lg={8}>
 							<Link
-								to="/marketplace/enrollments"
-								style={{
-									textDecoration: "none",
-									display: "block",
-									height: "100%",
-								}}
-							>
-								<Card
-									hoverable
-									style={{
-										height: "100%",
-										cursor: "pointer",
-										textAlign: "center",
-									}}
-								>
-									<CheckCircleOutlined
-										style={{ fontSize: 48, color: "#52c41a", marginBottom: 16 }}
-									/>
-									<Title level={4} style={{ marginBottom: 8 }}>
-										{t("dashboard.enrollments.title")}
-									</Title>
-									<Text type="secondary">
-										{t("dashboard.enrollments.description")}
-									</Text>
-								</Card>
-							</Link>
-						</Col>
-					)}
-
-					{canManageMarketplace && (
-						<Col xs={24} sm={12} lg={8}>
-							<Link
-								to="/marketplace/offers"
+								to="/marketplace/listings"
 								style={{
 									textDecoration: "none",
 									display: "block",
@@ -287,10 +255,10 @@ export function DashboardPage() {
 										style={{ fontSize: 48, color: "#fa541c", marginBottom: 16 }}
 									/>
 									<Title level={4} style={{ marginBottom: 8 }}>
-										{t("dashboard.offers.title")}
+										{t("marketplace:tabs.listings")}
 									</Title>
 									<Text type="secondary">
-										{t("dashboard.offers.description")}
+										{t("dashboard.listings.description")}
 									</Text>
 								</Card>
 							</Link>

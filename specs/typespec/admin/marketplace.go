@@ -10,8 +10,7 @@ import (
 
 // ---- Admin Role constants ----
 
-const AdminRoleViewMarketplace AdminRole = "admin:view_marketplace"
-const AdminRoleManageMarketplace AdminRole = "admin:manage_marketplace"
+// (role values defined in admin-users.go)
 
 // ---- Validation helpers ----
 
@@ -87,7 +86,16 @@ type AdminMarketplaceSubscription struct {
 	UpdatedAt         string                            `json:"updated_at"`
 }
 
-// ---- Request types with Validate() ----
+type AdminBillingRecord struct {
+	ConsumerOrgDomain string  `json:"consumer_org_domain"`
+	ProviderOrgDomain string  `json:"provider_org_domain"`
+	CapabilityID      string  `json:"capability_id"`
+	EventType         string  `json:"event_type"`
+	Note              *string `json:"note,omitempty"`
+	CreatedAt         string  `json:"created_at"`
+}
+
+// ---- Request/Response types ----
 
 type AdminListCapabilitiesRequest struct {
 	PaginationKey *string `json:"pagination_key,omitempty"`
@@ -123,19 +131,24 @@ func validateCapabilityTranslations(translations []AdminCapabilityTranslation) [
 	}
 	hasEnUS := false
 	for i, t := range translations {
-		if t.Locale == "en-US" {
-			hasEnUS = true
+		prefix := fmt.Sprintf("translations[%d]", i)
+		if t.Locale == "" {
+			errs = append(errs, common.NewValidationError(prefix+".locale",
+				fmt.Errorf("locale is required")))
 		}
 		if t.DisplayName == "" {
-			errs = append(errs, common.NewValidationError(fmt.Sprintf("translations[%d].display_name", i),
+			errs = append(errs, common.NewValidationError(prefix+".display_name",
 				fmt.Errorf("display_name is required")))
 		} else if len(t.DisplayName) > adminMaxDisplayNameLen {
-			errs = append(errs, common.NewValidationError(fmt.Sprintf("translations[%d].display_name", i),
+			errs = append(errs, common.NewValidationError(prefix+".display_name",
 				fmt.Errorf("display_name must be at most %d characters", adminMaxDisplayNameLen)))
 		}
 		if len(t.Description) > adminMaxDescriptionLen {
-			errs = append(errs, common.NewValidationError(fmt.Sprintf("translations[%d].description", i),
+			errs = append(errs, common.NewValidationError(prefix+".description",
 				fmt.Errorf("description must be at most %d characters", adminMaxDescriptionLen)))
+		}
+		if t.Locale == "en-US" {
+			hasEnUS = true
 		}
 	}
 	if !hasEnUS {
@@ -296,4 +309,20 @@ func (r AdminCancelSubscriptionRequest) Validate() []common.ValidationError {
 		errs = append(errs, common.NewValidationError("subscription_id", fmt.Errorf("subscription_id is required")))
 	}
 	return errs
+}
+
+type AdminListBillingRequest struct {
+	CapabilityID  *string `json:"capability_id,omitempty"`
+	OrgDomain     *string `json:"org_domain,omitempty"`
+	PaginationKey *string `json:"pagination_key,omitempty"`
+	Limit         *int    `json:"limit,omitempty"`
+}
+
+func (r AdminListBillingRequest) Validate() []common.ValidationError {
+	return nil
+}
+
+type AdminListBillingResponse struct {
+	Records           []AdminBillingRecord `json:"records"`
+	NextPaginationKey *string              `json:"next_pagination_key,omitempty"`
 }

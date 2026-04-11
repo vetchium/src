@@ -263,7 +263,7 @@ interface OrgMarketplace {
   getListing(@body body: GetListingRequest): MarketplaceListing | NotFoundResponse;
 
   // Consumer subscriptions
-  @route("/marketplace/subscriptions/request") @post
+  @route("/marketplace/subscriptions/subscribe") @post
   requestSubscription(@body body: RequestSubscriptionRequest): MarketplaceSubscription | BadRequestResponse;
 
   @route("/marketplace/subscriptions/cancel") @post

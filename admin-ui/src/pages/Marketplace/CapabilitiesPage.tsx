@@ -3,6 +3,7 @@ import {
 	CheckOutlined,
 	PlusOutlined,
 	StopOutlined,
+	EditOutlined,
 } from "@ant-design/icons";
 import {
 	App,
@@ -10,13 +11,12 @@ import {
 	Form,
 	Input,
 	Modal,
-	Select,
 	Space,
 	Spin,
-	Switch,
 	Table,
 	Tag,
 	Typography,
+	Tabs,
 } from "antd";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -25,6 +25,7 @@ import type {
 	AdminMarketplaceCapability,
 	AdminListCapabilitiesResponse,
 	AdminCreateCapabilityRequest,
+	AdminUpdateCapabilityRequest,
 } from "vetchium-specs/admin/marketplace";
 import { getApiBaseUrl } from "../../config";
 import { useAuth } from "../../hooks/useAuth";
@@ -34,6 +35,8 @@ import { statusColor } from "./marketplaceUtils";
 
 const { Title } = Typography;
 const { TextArea } = Input;
+
+const SUPPORTED_LOCALES = ["en-US", "de-DE", "ta-IN"];
 
 export function CapabilitiesPage() {
 	const { t } = useTranslation("marketplace");
@@ -53,9 +56,11 @@ export function CapabilitiesPage() {
 	const [nextKey, setNextKey] = useState<string | undefined>();
 	const [hasMore, setHasMore] = useState(false);
 
-	const [createModalOpen, setCreateModalOpen] = useState(false);
-	const [createLoading, setCreateLoading] = useState(false);
-	const [createForm] = Form.useForm();
+	const [modalMode, setModalMode] = useState<"create" | "edit" | null>(null);
+	const [selectedCapability, setSelectedCapability] =
+		useState<AdminMarketplaceCapability | null>(null);
+	const [modalLoading, setModalLoading] = useState(false);
+	const [form] = Form.useForm();
 
 	const [actionLoading, setActionLoading] = useState<Record<string, boolean>>(
 		{}
@@ -113,8 +118,8 @@ export function CapabilitiesPage() {
 		capability: AdminMarketplaceCapability,
 		enable: boolean
 	) {
-		const slug = capability.capability_slug;
-		setActionLoading((prev) => ({ ...prev, [slug]: true }));
+		const id = capability.capability_id;
+		setActionLoading((prev) => ({ ...prev, [id]: true }));
 		try {
 			const apiBaseUrl = await getApiBaseUrl();
 			const endpoint = enable
@@ -126,9 +131,9 @@ export function CapabilitiesPage() {
 					"Content-Type": "application/json",
 					Authorization: `Bearer ${sessionToken}`,
 				},
-				body: JSON.stringify({ capability_slug: slug }),
+				body: JSON.stringify({ capability_id: id }),
 			});
-			if (resp.status === 200 || resp.status === 204) {
+			if (resp.status === 200) {
 				message.success(
 					enable
 						? t("capabilities.success.enabled")
@@ -143,54 +148,102 @@ export function CapabilitiesPage() {
 				);
 			}
 		} catch {
-			message.error(t("capabilities.errors.enableFailed"));
+			message.error(t("capabilities.errors.actionFailed"));
 		} finally {
-			setActionLoading((prev) => ({ ...prev, [slug]: false }));
+			setActionLoading((prev) => ({ ...prev, [id]: false }));
 		}
 	}
 
-	async function handleCreate(values: AdminCreateCapabilityRequest) {
-		setCreateLoading(true);
+	async function handleSubmit(values: any) {
+		setModalLoading(true);
 		try {
 			const apiBaseUrl = await getApiBaseUrl();
-			const resp = await fetch(
-				`${apiBaseUrl}/admin/marketplace/capabilities/create`,
-				{
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-						Authorization: `Bearer ${sessionToken}`,
-					},
-					body: JSON.stringify(values),
-				}
-			);
+
+			// Transform flat form values to translations array
+			const translations = SUPPORTED_LOCALES.map((locale) => ({
+				locale,
+				display_name: values[`name_${locale}`],
+				description: values[`desc_${locale}`] || "",
+			})).filter((t) => t.display_name); // Only include if name is provided
+
+			let endpoint = "";
+			let body: any = {};
+
+			if (modalMode === "create") {
+				endpoint = "/admin/marketplace/capabilities/create";
+				body = {
+					capability_id: values.capability_id,
+					status: "draft",
+					translations,
+				} as AdminCreateCapabilityRequest;
+			} else {
+				endpoint = "/admin/marketplace/capabilities/update";
+				body = {
+					capability_id: selectedCapability!.capability_id,
+					translations,
+				} as AdminUpdateCapabilityRequest;
+			}
+
+			const resp = await fetch(`${apiBaseUrl}${endpoint}`, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${sessionToken}`,
+				},
+				body: JSON.stringify(body),
+			});
+
 			if (resp.status === 200 || resp.status === 201) {
-				message.success(t("capabilities.success.created"));
-				setCreateModalOpen(false);
-				createForm.resetFields();
+				message.success(
+					t(
+						`capabilities.success.${modalMode === "create" ? "created" : "updated"}`
+					)
+				);
+				setModalMode(null);
+				form.resetFields();
 				fetchCapabilities(true);
 			} else if (resp.status === 409) {
 				message.error(t("capabilities.errors.conflict"));
 			} else {
-				message.error(t("capabilities.errors.createFailed"));
+				message.error(
+					t(
+						`capabilities.errors.${modalMode === "create" ? "create" : "update"}Failed`
+					)
+				);
 			}
 		} catch {
-			message.error(t("capabilities.errors.createFailed"));
+			message.error(t("capabilities.errors.actionFailed"));
 		} finally {
-			setCreateLoading(false);
+			setModalLoading(false);
 		}
 	}
 
+	const openEditModal = (capability: AdminMarketplaceCapability) => {
+		setSelectedCapability(capability);
+		setModalMode("edit");
+
+		// Fill form with existing translations
+		const initialValues: any = {};
+		capability.translations.forEach((tr) => {
+			initialValues[`name_${tr.locale}`] = tr.display_name;
+			initialValues[`desc_${tr.locale}`] = tr.description;
+		});
+		form.setFieldsValue(initialValues);
+	};
+
 	const columns = [
 		{
-			title: t("capabilities.table.slug"),
-			dataIndex: "capability_slug",
-			key: "capability_slug",
+			title: t("capabilities.table.id"),
+			dataIndex: "capability_id",
+			key: "capability_id",
 		},
 		{
 			title: t("capabilities.table.displayName"),
-			dataIndex: "display_name",
 			key: "display_name",
+			render: (record: AdminMarketplaceCapability) => {
+				const enUs = record.translations.find((t) => t.locale === "en-US");
+				return enUs?.display_name || record.capability_id;
+			},
 		},
 		{
 			title: t("capabilities.table.status"),
@@ -199,30 +252,6 @@ export function CapabilitiesPage() {
 			render: (status: string) => (
 				<Tag color={statusColor(status)}>{status}</Tag>
 			),
-		},
-		{
-			title: t("capabilities.table.providerEnabled"),
-			dataIndex: "provider_enabled",
-			key: "provider_enabled",
-			render: (v: boolean) => (v ? t("yes") : t("no")),
-		},
-		{
-			title: t("capabilities.table.consumerEnabled"),
-			dataIndex: "consumer_enabled",
-			key: "consumer_enabled",
-			render: (v: boolean) => (v ? t("yes") : t("no")),
-		},
-		{
-			title: t("capabilities.table.contractRequired"),
-			dataIndex: "contract_required",
-			key: "contract_required",
-			render: (v: boolean) => (v ? t("yes") : t("no")),
-		},
-		{
-			title: t("capabilities.table.paymentRequired"),
-			dataIndex: "payment_required",
-			key: "payment_required",
-			render: (v: boolean) => (v ? t("yes") : t("no")),
 		},
 		{
 			title: t("capabilities.table.updatedAt"),
@@ -237,12 +266,19 @@ export function CapabilitiesPage() {
 						key: "actions",
 						render: (_: unknown, record: AdminMarketplaceCapability) => (
 							<Space>
+								<Button
+									size="small"
+									icon={<EditOutlined />}
+									onClick={() => openEditModal(record)}
+								>
+									{t("actions.edit")}
+								</Button>
 								{record.status === "active" ? (
 									<Button
 										size="small"
 										icon={<StopOutlined />}
 										danger
-										loading={actionLoading[record.capability_slug]}
+										loading={actionLoading[record.capability_id]}
 										onClick={() => handleToggleStatus(record, false)}
 									>
 										{t("capabilities.actions.disable")}
@@ -251,7 +287,7 @@ export function CapabilitiesPage() {
 									<Button
 										size="small"
 										icon={<CheckOutlined />}
-										loading={actionLoading[record.capability_slug]}
+										loading={actionLoading[record.capability_id]}
 										onClick={() => handleToggleStatus(record, true)}
 									>
 										{t("capabilities.actions.enable")}
@@ -293,7 +329,11 @@ export function CapabilitiesPage() {
 					<Button
 						type="primary"
 						icon={<PlusOutlined />}
-						onClick={() => setCreateModalOpen(true)}
+						onClick={() => {
+							setModalMode("create");
+							setSelectedCapability(null);
+							form.resetFields();
+						}}
 					>
 						{t("capabilities.createButton")}
 					</Button>
@@ -304,7 +344,7 @@ export function CapabilitiesPage() {
 				<Table
 					dataSource={capabilities}
 					columns={columns}
-					rowKey="capability_slug"
+					rowKey="capability_id"
 					pagination={false}
 					size="small"
 				/>
@@ -318,140 +358,60 @@ export function CapabilitiesPage() {
 			)}
 
 			<Modal
-				title={t("capabilities.createModal.title")}
-				open={createModalOpen}
-				onCancel={() => {
-					setCreateModalOpen(false);
-					createForm.resetFields();
-				}}
+				title={
+					modalMode === "create"
+						? t("capabilities.createModal.title")
+						: t("capabilities.editModal.title")
+				}
+				open={!!modalMode}
+				onCancel={() => setModalMode(null)}
 				footer={null}
-				width={600}
+				width={700}
 			>
-				<Spin spinning={createLoading}>
-					<Form
-						form={createForm}
-						layout="vertical"
-						onFinish={handleCreate}
-						initialValues={{
-							provider_enabled: true,
-							consumer_enabled: true,
-							enrollment_approval: "manual",
-							offer_review: "manual",
-							subscription_approval: "admin",
-							contract_required: false,
-							payment_required: false,
-						}}
-					>
-						<Form.Item
-							name="capability_slug"
-							label={t("capabilities.createModal.slug")}
-							rules={[{ required: true }]}
-						>
-							<Input />
-						</Form.Item>
-						<Form.Item
-							name="display_name"
-							label={t("capabilities.createModal.displayName")}
-							rules={[{ required: true }]}
-						>
-							<Input />
-						</Form.Item>
-						<Form.Item
-							name="description"
-							label={t("capabilities.createModal.description")}
-							rules={[{ required: true }]}
-						>
-							<TextArea rows={3} />
-						</Form.Item>
-						<Form.Item
-							name="enrollment_approval"
-							label={t("capabilities.createModal.enrollmentApproval")}
-							rules={[{ required: true }]}
-						>
-							<Select>
-								<Select.Option value="open">{t("approval.open")}</Select.Option>
-								<Select.Option value="manual">
-									{t("approval.manual")}
-								</Select.Option>
-							</Select>
-						</Form.Item>
-						<Form.Item
-							name="offer_review"
-							label={t("capabilities.createModal.offerReview")}
-							rules={[{ required: true }]}
-						>
-							<Select>
-								<Select.Option value="auto">{t("review.auto")}</Select.Option>
-								<Select.Option value="manual">
-									{t("review.manual")}
-								</Select.Option>
-							</Select>
-						</Form.Item>
-						<Form.Item
-							name="subscription_approval"
-							label={t("capabilities.createModal.subscriptionApproval")}
-							rules={[{ required: true }]}
-						>
-							<Select>
-								<Select.Option value="direct">
-									{t("subApproval.direct")}
-								</Select.Option>
-								<Select.Option value="provider">
-									{t("subApproval.provider")}
-								</Select.Option>
-								<Select.Option value="admin">
-									{t("subApproval.admin")}
-								</Select.Option>
-								<Select.Option value="provider_and_admin">
-									{t("subApproval.providerAndAdmin")}
-								</Select.Option>
-							</Select>
-						</Form.Item>
-						<Form.Item
-							name="provider_enabled"
-							label={t("capabilities.createModal.providerEnabled")}
-							valuePropName="checked"
-						>
-							<Switch />
-						</Form.Item>
-						<Form.Item
-							name="consumer_enabled"
-							label={t("capabilities.createModal.consumerEnabled")}
-							valuePropName="checked"
-						>
-							<Switch />
-						</Form.Item>
-						<Form.Item
-							name="contract_required"
-							label={t("capabilities.createModal.contractRequired")}
-							valuePropName="checked"
-						>
-							<Switch />
-						</Form.Item>
-						<Form.Item
-							name="payment_required"
-							label={t("capabilities.createModal.paymentRequired")}
-							valuePropName="checked"
-						>
-							<Switch />
-						</Form.Item>
-						<Form.Item
-							name="pricing_hint"
-							label={t("capabilities.createModal.pricingHint")}
-						>
-							<Input />
-						</Form.Item>
-						<Form.Item>
+				<Spin spinning={modalLoading}>
+					<Form form={form} layout="vertical" onFinish={handleSubmit}>
+						{modalMode === "create" && (
+							<Form.Item
+								name="capability_id"
+								label={t("capabilities.createModal.id")}
+								rules={[
+									{ required: true },
+									{
+										pattern: /^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/,
+										message: "Invalid ID format",
+									},
+								]}
+							>
+								<Input placeholder="e.g. talent-sourcing" />
+							</Form.Item>
+						)}
+
+						<Tabs defaultActiveKey="en-US">
+							{SUPPORTED_LOCALES.map((locale) => (
+								<Tabs.TabPane tab={locale} key={locale}>
+									<Form.Item
+										name={`name_${locale}`}
+										label={t("capabilities.createModal.displayName")}
+										rules={[{ required: locale === "en-US" }]}
+									>
+										<Input />
+									</Form.Item>
+									<Form.Item
+										name={`desc_${locale}`}
+										label={t("capabilities.createModal.description")}
+									>
+										<TextArea rows={4} />
+									</Form.Item>
+								</Tabs.TabPane>
+							))}
+						</Tabs>
+
+						<Form.Item style={{ marginTop: 24 }}>
 							<Space>
 								<Button type="primary" htmlType="submit">
-									{t("capabilities.createModal.submit")}
+									{t("submit")}
 								</Button>
-								<Button
-									onClick={() => {
-										setCreateModalOpen(false);
-										createForm.resetFields();
-									}}
-								>
+								<Button onClick={() => setModalMode(null)}>
 									{t("cancel")}
 								</Button>
 							</Space>

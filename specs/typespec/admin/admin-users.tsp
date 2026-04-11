@@ -261,6 +261,8 @@ enum AdminRole {
     `admin:manage_domains`,
     `admin:manage_tags`,
     `admin:view_audit_logs`,
+    `admin:view_marketplace`,
+    `admin:manage_marketplace`,
 }
 
 model AdminUser {

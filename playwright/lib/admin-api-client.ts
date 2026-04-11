@@ -50,36 +50,17 @@ import type {
 	AdminEnableCapabilityRequest,
 	AdminDisableCapabilityRequest,
 	AdminMarketplaceCapability,
-	AdminListEnrollmentsRequest,
-	AdminListEnrollmentsResponse,
-	AdminGetEnrollmentRequest,
-	AdminApproveEnrollmentRequest,
-	AdminRejectEnrollmentRequest,
-	AdminSuspendEnrollmentRequest,
-	AdminReinstateEnrollmentRequest,
-	AdminRenewEnrollmentRequest,
-	AdminMarketplaceEnrollment,
-	AdminListOffersRequest,
-	AdminListOffersResponse,
-	AdminGetOfferRequest,
-	AdminApproveOfferRequest,
-	AdminRejectOfferRequest,
-	AdminSuspendOfferRequest,
-	AdminReinstateOfferRequest,
-	AdminMarketplaceOffer,
+	AdminListListingsRequest,
+	AdminListListingsResponse,
+	AdminGetListingRequest,
+	AdminSuspendListingRequest,
+	AdminReinstateListingRequest,
+	AdminMarketplaceListing,
 	AdminListSubscriptionsRequest,
 	AdminListSubscriptionsResponse,
 	AdminGetSubscriptionRequest,
-	AdminApproveSubscriptionRequest,
-	AdminRejectSubscriptionRequest,
-	AdminMarkContractSignedRequest,
-	AdminWaiveContractRequest,
-	AdminRecordPaymentRequest,
-	AdminWaivePaymentRequest,
 	AdminCancelSubscriptionRequest,
 	AdminMarketplaceSubscription,
-	AdminListBillingRequest,
-	AdminListBillingResponse,
 } from "vetchium-specs/admin/marketplace";
 import type { APIResponse } from "./api-client";
 
@@ -1233,156 +1214,48 @@ export class AdminAPIClient {
 		return { status: response.status(), body };
 	}
 
-	async adminListEnrollments(
+	async adminListListings(
 		sessionToken: string,
-		req: AdminListEnrollmentsRequest
-	): Promise<APIResponse<AdminListEnrollmentsResponse>> {
+		req: AdminListListingsRequest
+	): Promise<APIResponse<AdminListListingsResponse>> {
 		const response = await this.request.post(
-			"/admin/marketplace/provider-enrollments/list",
+			"/admin/marketplace/listings/list",
 			{ data: req, headers: { Authorization: `Bearer ${sessionToken}` } }
 		);
 		const body = await response.json().catch(() => ({}));
 		return { status: response.status(), body };
 	}
 
-	async adminGetEnrollment(
+	async adminGetListing(
 		sessionToken: string,
-		req: AdminGetEnrollmentRequest
-	): Promise<APIResponse<AdminMarketplaceEnrollment>> {
+		req: AdminGetListingRequest
+	): Promise<APIResponse<AdminMarketplaceListing>> {
 		const response = await this.request.post(
-			"/admin/marketplace/provider-enrollments/get",
+			"/admin/marketplace/listings/get",
 			{ data: req, headers: { Authorization: `Bearer ${sessionToken}` } }
 		);
 		const body = await response.json().catch(() => ({}));
 		return { status: response.status(), body };
 	}
 
-	async adminApproveEnrollment(
+	async adminSuspendListing(
 		sessionToken: string,
-		req: AdminApproveEnrollmentRequest
-	): Promise<APIResponse<AdminMarketplaceEnrollment>> {
+		req: AdminSuspendListingRequest
+	): Promise<APIResponse<AdminMarketplaceListing>> {
 		const response = await this.request.post(
-			"/admin/marketplace/provider-enrollments/approve",
+			"/admin/marketplace/listings/suspend",
 			{ data: req, headers: { Authorization: `Bearer ${sessionToken}` } }
 		);
 		const body = await response.json().catch(() => ({}));
 		return { status: response.status(), body };
 	}
 
-	async adminRejectEnrollment(
+	async adminReinstateListing(
 		sessionToken: string,
-		req: AdminRejectEnrollmentRequest
-	): Promise<APIResponse<AdminMarketplaceEnrollment>> {
+		req: AdminReinstateListingRequest
+	): Promise<APIResponse<AdminMarketplaceListing>> {
 		const response = await this.request.post(
-			"/admin/marketplace/provider-enrollments/reject",
-			{ data: req, headers: { Authorization: `Bearer ${sessionToken}` } }
-		);
-		const body = await response.json().catch(() => ({}));
-		return { status: response.status(), body };
-	}
-
-	async adminSuspendEnrollment(
-		sessionToken: string,
-		req: AdminSuspendEnrollmentRequest
-	): Promise<APIResponse<AdminMarketplaceEnrollment>> {
-		const response = await this.request.post(
-			"/admin/marketplace/provider-enrollments/suspend",
-			{ data: req, headers: { Authorization: `Bearer ${sessionToken}` } }
-		);
-		const body = await response.json().catch(() => ({}));
-		return { status: response.status(), body };
-	}
-
-	async adminReinstateEnrollment(
-		sessionToken: string,
-		req: AdminReinstateEnrollmentRequest
-	): Promise<APIResponse<AdminMarketplaceEnrollment>> {
-		const response = await this.request.post(
-			"/admin/marketplace/provider-enrollments/reinstate",
-			{ data: req, headers: { Authorization: `Bearer ${sessionToken}` } }
-		);
-		const body = await response.json().catch(() => ({}));
-		return { status: response.status(), body };
-	}
-
-	async adminRenewEnrollment(
-		sessionToken: string,
-		req: AdminRenewEnrollmentRequest
-	): Promise<APIResponse<AdminMarketplaceEnrollment>> {
-		const response = await this.request.post(
-			"/admin/marketplace/provider-enrollments/renew",
-			{ data: req, headers: { Authorization: `Bearer ${sessionToken}` } }
-		);
-		const body = await response.json().catch(() => ({}));
-		return { status: response.status(), body };
-	}
-
-	async adminListOffers(
-		sessionToken: string,
-		req: AdminListOffersRequest
-	): Promise<APIResponse<AdminListOffersResponse>> {
-		const response = await this.request.post(
-			"/admin/marketplace/provider-offers/list",
-			{ data: req, headers: { Authorization: `Bearer ${sessionToken}` } }
-		);
-		const body = await response.json().catch(() => ({}));
-		return { status: response.status(), body };
-	}
-
-	async adminGetOffer(
-		sessionToken: string,
-		req: AdminGetOfferRequest
-	): Promise<APIResponse<AdminMarketplaceOffer>> {
-		const response = await this.request.post(
-			"/admin/marketplace/provider-offers/get",
-			{ data: req, headers: { Authorization: `Bearer ${sessionToken}` } }
-		);
-		const body = await response.json().catch(() => ({}));
-		return { status: response.status(), body };
-	}
-
-	async adminApproveOffer(
-		sessionToken: string,
-		req: AdminApproveOfferRequest
-	): Promise<APIResponse<AdminMarketplaceOffer>> {
-		const response = await this.request.post(
-			"/admin/marketplace/provider-offers/approve",
-			{ data: req, headers: { Authorization: `Bearer ${sessionToken}` } }
-		);
-		const body = await response.json().catch(() => ({}));
-		return { status: response.status(), body };
-	}
-
-	async adminRejectOffer(
-		sessionToken: string,
-		req: AdminRejectOfferRequest
-	): Promise<APIResponse<AdminMarketplaceOffer>> {
-		const response = await this.request.post(
-			"/admin/marketplace/provider-offers/reject",
-			{ data: req, headers: { Authorization: `Bearer ${sessionToken}` } }
-		);
-		const body = await response.json().catch(() => ({}));
-		return { status: response.status(), body };
-	}
-
-	async adminSuspendOffer(
-		sessionToken: string,
-		req: AdminSuspendOfferRequest
-	): Promise<APIResponse<AdminMarketplaceOffer>> {
-		const response = await this.request.post(
-			"/admin/marketplace/provider-offers/suspend",
-			{ data: req, headers: { Authorization: `Bearer ${sessionToken}` } }
-		);
-		const body = await response.json().catch(() => ({}));
-		return { status: response.status(), body };
-	}
-
-	async adminReinstateOffer(
-		sessionToken: string,
-		req: AdminReinstateOfferRequest
-	): Promise<APIResponse<AdminMarketplaceOffer>> {
-		const response = await this.request.post(
-			"/admin/marketplace/provider-offers/reinstate",
+			"/admin/marketplace/listings/reinstate",
 			{ data: req, headers: { Authorization: `Bearer ${sessionToken}` } }
 		);
 		const body = await response.json().catch(() => ({}));
@@ -1394,7 +1267,7 @@ export class AdminAPIClient {
 		req: AdminListSubscriptionsRequest
 	): Promise<APIResponse<AdminListSubscriptionsResponse>> {
 		const response = await this.request.post(
-			"/admin/marketplace/consumer-subscriptions/list",
+			"/admin/marketplace/subscriptions/list",
 			{ data: req, headers: { Authorization: `Bearer ${sessionToken}` } }
 		);
 		const body = await response.json().catch(() => ({}));
@@ -1406,79 +1279,7 @@ export class AdminAPIClient {
 		req: AdminGetSubscriptionRequest
 	): Promise<APIResponse<AdminMarketplaceSubscription>> {
 		const response = await this.request.post(
-			"/admin/marketplace/consumer-subscriptions/get",
-			{ data: req, headers: { Authorization: `Bearer ${sessionToken}` } }
-		);
-		const body = await response.json().catch(() => ({}));
-		return { status: response.status(), body };
-	}
-
-	async adminApproveSubscription(
-		sessionToken: string,
-		req: AdminApproveSubscriptionRequest
-	): Promise<APIResponse<AdminMarketplaceSubscription>> {
-		const response = await this.request.post(
-			"/admin/marketplace/consumer-subscriptions/approve",
-			{ data: req, headers: { Authorization: `Bearer ${sessionToken}` } }
-		);
-		const body = await response.json().catch(() => ({}));
-		return { status: response.status(), body };
-	}
-
-	async adminRejectSubscription(
-		sessionToken: string,
-		req: AdminRejectSubscriptionRequest
-	): Promise<APIResponse<AdminMarketplaceSubscription>> {
-		const response = await this.request.post(
-			"/admin/marketplace/consumer-subscriptions/reject",
-			{ data: req, headers: { Authorization: `Bearer ${sessionToken}` } }
-		);
-		const body = await response.json().catch(() => ({}));
-		return { status: response.status(), body };
-	}
-
-	async adminMarkContractSigned(
-		sessionToken: string,
-		req: AdminMarkContractSignedRequest
-	): Promise<APIResponse<AdminMarketplaceSubscription>> {
-		const response = await this.request.post(
-			"/admin/marketplace/consumer-subscriptions/mark-contract-signed",
-			{ data: req, headers: { Authorization: `Bearer ${sessionToken}` } }
-		);
-		const body = await response.json().catch(() => ({}));
-		return { status: response.status(), body };
-	}
-
-	async adminWaiveContract(
-		sessionToken: string,
-		req: AdminWaiveContractRequest
-	): Promise<APIResponse<AdminMarketplaceSubscription>> {
-		const response = await this.request.post(
-			"/admin/marketplace/consumer-subscriptions/waive-contract",
-			{ data: req, headers: { Authorization: `Bearer ${sessionToken}` } }
-		);
-		const body = await response.json().catch(() => ({}));
-		return { status: response.status(), body };
-	}
-
-	async adminRecordPayment(
-		sessionToken: string,
-		req: AdminRecordPaymentRequest
-	): Promise<APIResponse<AdminMarketplaceSubscription>> {
-		const response = await this.request.post(
-			"/admin/marketplace/consumer-subscriptions/record-payment",
-			{ data: req, headers: { Authorization: `Bearer ${sessionToken}` } }
-		);
-		const body = await response.json().catch(() => ({}));
-		return { status: response.status(), body };
-	}
-
-	async adminWaivePayment(
-		sessionToken: string,
-		req: AdminWaivePaymentRequest
-	): Promise<APIResponse<AdminMarketplaceSubscription>> {
-		const response = await this.request.post(
-			"/admin/marketplace/consumer-subscriptions/waive-payment",
+			"/admin/marketplace/subscriptions/get",
 			{ data: req, headers: { Authorization: `Bearer ${sessionToken}` } }
 		);
 		const body = await response.json().catch(() => ({}));
@@ -1490,19 +1291,7 @@ export class AdminAPIClient {
 		req: AdminCancelSubscriptionRequest
 	): Promise<APIResponse<AdminMarketplaceSubscription>> {
 		const response = await this.request.post(
-			"/admin/marketplace/consumer-subscriptions/cancel",
-			{ data: req, headers: { Authorization: `Bearer ${sessionToken}` } }
-		);
-		const body = await response.json().catch(() => ({}));
-		return { status: response.status(), body };
-	}
-
-	async adminListBilling(
-		sessionToken: string,
-		req: AdminListBillingRequest
-	): Promise<APIResponse<AdminListBillingResponse>> {
-		const response = await this.request.post(
-			"/admin/marketplace/billing/list",
+			"/admin/marketplace/subscriptions/cancel",
 			{ data: req, headers: { Authorization: `Bearer ${sessionToken}` } }
 		);
 		const body = await response.json().catch(() => ({}));

@@ -62,6 +62,15 @@ model AdminMarketplaceSubscription {
   updated_at: string;
 }
 
+model AdminBillingRecord {
+  consumer_org_domain: string;
+  provider_org_domain: string;
+  capability_id: string;
+  event_type: string;
+  note?: string;
+  created_at: string;
+}
+
 // ---- Request/Response types ----
 
 model AdminListCapabilitiesRequest {
@@ -144,6 +153,18 @@ model AdminCancelSubscriptionRequest {
   subscription_id: string;
 }
 
+model AdminListBillingRequest {
+  capability_id?: string;
+  org_domain?: string;
+  pagination_key?: string;
+  limit?: int32;
+}
+
+model AdminListBillingResponse {
+  records: AdminBillingRecord[];
+  next_pagination_key?: string;
+}
+
 // ---- API Routes ----
 
 @route("/admin")
@@ -189,4 +210,8 @@ interface AdminMarketplace {
 
   @route("/marketplace/subscriptions/cancel") @post
   adminCancelSubscription(@body body: AdminCancelSubscriptionRequest): AdminMarketplaceSubscription | BadRequestResponse;
+
+  // Billing management
+  @route("/marketplace/billing/list") @post
+  adminListBilling(@body body: AdminListBillingRequest): AdminListBillingResponse;
 }

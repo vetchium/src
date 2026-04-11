@@ -26,13 +26,9 @@
 			"title": "Capabilities",
 			"description": "Create and manage marketplace capabilities"
 		},
-		"enrollments": {
-			"title": "Provider Enrollments",
-			"description": "Review and manage provider enrollment requests"
-		},
-		"offers": {
-			"title": "Provider Offers",
-			"description": "Review and manage provider service offers"
+		"listings": {
+			"title": "Provider Listings",
+			"description": "Review and manage provider service listings"
 		},
 		"subscriptions": {
 			"title": "Consumer Subscriptions",

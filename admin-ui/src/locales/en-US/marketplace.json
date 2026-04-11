@@ -8,8 +8,7 @@
 	"no": "No",
 	"tabs": {
 		"capabilities": "Capabilities",
-		"enrollments": "Enrollments",
-		"offers": "Offers",
+		"listings": "Listings",
 		"subscriptions": "Subscriptions",
 		"billing": "Billing"
 	},
@@ -44,137 +43,65 @@
 	"capabilities": {
 		"createButton": "Create Capability",
 		"table": {
-			"slug": "Capability Slug",
+			"id": "Capability ID",
 			"displayName": "Display Name",
 			"status": "Status",
-			"providerEnabled": "Provider Enabled",
-			"consumerEnabled": "Consumer Enabled",
-			"contractRequired": "Contract Required",
-			"paymentRequired": "Payment Required",
 			"updatedAt": "Updated At",
 			"actions": "Actions"
 		},
 		"createModal": {
 			"title": "Create Capability",
-			"slug": "Capability Slug",
+			"id": "Capability ID",
 			"displayName": "Display Name",
 			"description": "Description",
-			"enrollmentApproval": "Enrollment Approval",
-			"offerReview": "Offer Review",
-			"subscriptionApproval": "Subscription Approval",
-			"providerEnabled": "Provider Enabled",
-			"consumerEnabled": "Consumer Enabled",
-			"contractRequired": "Contract Required",
-			"paymentRequired": "Payment Required",
-			"pricingHint": "Pricing Hint (optional)",
 			"submit": "Create"
 		},
-		"actions": {
-			"enable": "Enable",
-			"disable": "Disable"
+		"editModal": {
+			"title": "Edit Capability"
 		},
 		"errors": {
 			"loadFailed": "Failed to load capabilities",
 			"createFailed": "Failed to create capability",
-			"conflict": "A capability with this slug already exists",
+			"updateFailed": "Failed to update capability",
+			"conflict": "A capability with this ID already exists",
 			"enableFailed": "Failed to enable capability",
 			"disableFailed": "Failed to disable capability"
 		},
 		"success": {
 			"created": "Capability created",
+			"updated": "Capability updated",
 			"enabled": "Capability enabled",
 			"disabled": "Capability disabled"
 		}
 	},
-	"enrollments": {
+	"listings": {
 		"filterStatus": "Filter by Status",
 		"table": {
 			"orgDomain": "Org Domain",
-			"capabilitySlug": "Capability",
-			"status": "Status",
-			"billingStatus": "Billing Status",
-			"expiresAt": "Expires At",
-			"createdAt": "Created At",
-			"actions": "Actions"
-		},
-		"modal": {
-			"approve": {
-				"title": "Approve Enrollment"
-			},
-			"reject": {
-				"title": "Reject Enrollment"
-			},
-			"suspend": {
-				"title": "Suspend Enrollment"
-			},
-			"reinstate": {
-				"title": "Reinstate Enrollment"
-			},
-			"renew": {
-				"title": "Renew Enrollment"
-			},
-			"reviewNote": "Review Note",
-			"expiresAt": "Expires At (ISO 8601, optional)",
-			"billingReference": "Billing Reference (optional)"
-		},
-		"errors": {
-			"loadFailed": "Failed to load enrollments",
-			"approveFailed": "Failed to approve enrollment",
-			"rejectFailed": "Failed to reject enrollment",
-			"suspendFailed": "Failed to suspend enrollment",
-			"reinstateFailed": "Failed to reinstate enrollment",
-			"renewFailed": "Failed to renew enrollment",
-			"invalidState": "Enrollment is not in the required state for this action",
-			"actionFailed": "Action failed"
-		},
-		"success": {
-			"approve": "Enrollment approved",
-			"reject": "Enrollment rejected",
-			"suspend": "Enrollment suspended",
-			"reinstate": "Enrollment reinstated",
-			"renew": "Enrollment renewed"
-		}
-	},
-	"offers": {
-		"filterStatus": "Filter by Status",
-		"table": {
-			"orgDomain": "Org Domain",
-			"capabilitySlug": "Capability",
+			"capabilityId": "Capability",
 			"headline": "Headline",
 			"status": "Status",
-			"contactMode": "Contact Mode",
 			"updatedAt": "Updated At",
 			"actions": "Actions"
 		},
 		"modal": {
-			"approve": {
-				"title": "Approve Offer"
-			},
-			"reject": {
-				"title": "Reject Offer"
-			},
 			"suspend": {
-				"title": "Suspend Offer"
+				"title": "Suspend Listing"
 			},
 			"reinstate": {
-				"title": "Reinstate Offer"
+				"title": "Reinstate Listing"
 			},
-			"reviewNote": "Review Note"
+			"suspensionNote": "Suspension Note"
 		},
 		"errors": {
-			"loadFailed": "Failed to load offers",
-			"approveFailed": "Failed to approve offer",
-			"rejectFailed": "Failed to reject offer",
-			"suspendFailed": "Failed to suspend offer",
-			"reinstateFailed": "Failed to reinstate offer",
-			"invalidState": "Offer is not in the required state for this action",
+			"loadFailed": "Failed to load listings",
+			"suspendFailed": "Failed to suspend listing",
+			"reinstateFailed": "Failed to reinstate listing",
 			"actionFailed": "Action failed"
 		},
 		"success": {
-			"approve": "Offer approved",
-			"reject": "Offer rejected",
-			"suspend": "Offer suspended",
-			"reinstate": "Offer reinstated"
+			"suspend": "Listing suspended",
+			"reinstate": "Listing reinstated"
 		}
 	},
 	"subscriptions": {
@@ -182,57 +109,22 @@
 		"table": {
 			"consumerOrgDomain": "Consumer Org",
 			"providerOrgDomain": "Provider Org",
-			"capabilitySlug": "Capability",
+			"capabilityId": "Capability",
 			"status": "Status",
-			"requiresAdminReview": "Admin Review",
-			"requiresContract": "Contract",
-			"requiresPayment": "Payment",
 			"createdAt": "Created At",
 			"actions": "Actions"
 		},
 		"modal": {
-			"approve": {
-				"title": "Approve Subscription"
-			},
-			"reject": {
-				"title": "Reject Subscription"
-			},
-			"markContractSigned": {
-				"title": "Mark Contract Signed"
-			},
-			"waiveContract": {
-				"title": "Waive Contract"
-			},
-			"recordPayment": {
-				"title": "Record Payment"
-			},
-			"waivePayment": {
-				"title": "Waive Payment"
-			},
 			"cancel": {
 				"title": "Cancel Subscription"
-			},
-			"note": "Note"
+			}
 		},
 		"errors": {
 			"loadFailed": "Failed to load subscriptions",
-			"approveFailed": "Failed to approve subscription",
-			"rejectFailed": "Failed to reject subscription",
-			"markContractSignedFailed": "Failed to mark contract signed",
-			"waiveContractFailed": "Failed to waive contract",
-			"recordPaymentFailed": "Failed to record payment",
-			"waivePaymentFailed": "Failed to waive payment",
 			"cancelFailed": "Failed to cancel subscription",
-			"invalidState": "Subscription is not in the required state for this action",
 			"actionFailed": "Action failed"
 		},
 		"success": {
-			"approve": "Subscription approved",
-			"reject": "Subscription rejected",
-			"markContractSigned": "Contract marked as signed",
-			"waiveContract": "Contract waived",
-			"recordPayment": "Payment recorded",
-			"waivePayment": "Payment waived",
 			"cancel": "Subscription cancelled"
 		}
 	},
@@ -240,7 +132,7 @@
 		"table": {
 			"consumerOrgDomain": "Consumer Org",
 			"providerOrgDomain": "Provider Org",
-			"capabilitySlug": "Capability",
+			"capabilityId": "Capability",
 			"eventType": "Event Type",
 			"note": "Note",
 			"createdAt": "Created At"

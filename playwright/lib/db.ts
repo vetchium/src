@@ -637,11 +637,7 @@ export async function deleteTestOrgUser(email: string): Promise<void> {
 				[orgId]
 			);
 			await regionalPool.query(
-				`DELETE FROM marketplace_offers WHERE org_id = $1`,
-				[orgId]
-			);
-			await regionalPool.query(
-				`DELETE FROM marketplace_enrollments WHERE org_id = $1`,
+				`DELETE FROM marketplace_listings WHERE org_id = $1`,
 				[orgId]
 			);
 			await regionalPool.query(`DELETE FROM org_users WHERE org_user_id = $1`, [
@@ -662,15 +658,15 @@ export async function deleteTestOrgUser(email: string): Promise<void> {
 
 		// Clean up global marketplace tables (no FK cascade from orgs)
 		await pool.query(
-			`DELETE FROM marketplace_billing_records WHERE consumer_org_global_id = $1 OR provider_org_global_id = $1`,
+			`DELETE FROM marketplace_billing_records WHERE provider_org_global_id = $1`,
 			[orgId]
 		);
 		await pool.query(
-			`DELETE FROM marketplace_subscription_routing WHERE consumer_org_global_id = $1 OR provider_org_global_id = $1`,
+			`DELETE FROM marketplace_subscription_index WHERE consumer_org_global_id = $1 OR provider_org_global_id = $1`,
 			[orgId]
 		);
 		await pool.query(
-			`DELETE FROM marketplace_offer_catalog WHERE provider_org_global_id = $1`,
+			`DELETE FROM marketplace_listing_catalog WHERE org_global_id = $1`,
 			[orgId]
 		);
 
@@ -1333,69 +1329,49 @@ export async function deleteTestTag(tagId: string): Promise<void> {
  * Creates a marketplace capability directly in the global database.
  * Used to set up test data without going through the admin API.
  *
- * @param slug - The capability slug (e.g., 'talent-sourcing')
+ * @param id - The capability ID (e.g., 'talent-sourcing')
  * @param status - The capability status (default: 'active')
- * @returns The capability slug
+ * @returns The capability ID
  */
 export async function createTestMarketplaceCapability(
-	slug: string,
+	id: string,
 	status: string = "active"
 ): Promise<string> {
 	await pool.query(
-		`INSERT INTO marketplace_capabilities
-     (capability_slug, display_name, description, provider_enabled, consumer_enabled,
-      enrollment_approval, offer_review, subscription_approval,
-      contract_required, payment_required, status)
-     VALUES ($1, $2, 'Test capability description', true, true,
-             'manual', 'manual', 'direct',
-             false, false, $3)
-     ON CONFLICT (capability_slug) DO UPDATE
-       SET status = $3, updated_at = NOW()`,
-		[slug, `Test Capability ${slug}`, status]
+		`INSERT INTO marketplace_capabilities (capability_id, status)
+     VALUES ($1, $2)
+     ON CONFLICT (capability_id) DO UPDATE
+       SET status = $2, updated_at = NOW()`,
+		[id, status]
 	);
-	return slug;
+
+	// Insert mandatory en-US translation
+	await pool.query(
+		`INSERT INTO marketplace_capability_translations (capability_id, locale, display_name, description)
+     VALUES ($1, 'en-US', $2, 'Test capability description')
+     ON CONFLICT (capability_id, locale) DO UPDATE
+       SET display_name = $2, description = 'Test capability description'`,
+		[id, `Test Capability ${id}`]
+	);
+
+	return id;
 }
 
 /**
  * Deletes a marketplace capability from the global database.
  *
- * @param slug - The capability slug to delete
+ * @param id - The capability ID to delete
  */
 export async function deleteTestMarketplaceCapability(
-	slug: string
+	id: string
 ): Promise<void> {
+	// First delete translations due to FK
 	await pool.query(
-		`DELETE FROM marketplace_capabilities WHERE capability_slug = $1`,
-		[slug]
+		`DELETE FROM marketplace_capability_translations WHERE capability_id = $1`,
+		[id]
 	);
-}
-
-/**
- * Creates a marketplace enrollment directly in the regional DB.
- * Bypasses API validation for test setup.
- *
- * @param orgId - The org ID
- * @param capabilitySlug - The capability slug
- * @param status - The enrollment status (default: 'pending_review')
- * @param region - The region (default: 'ind1')
- */
-export async function createTestMarketplaceEnrollment(
-	orgId: string,
-	capabilitySlug: string,
-	status: string = "pending_review",
-	region: RegionCode = "ind1"
-): Promise<void> {
-	const regionalPool = getRegionalPool(region);
-	try {
-		await regionalPool.query(
-			`INSERT INTO marketplace_enrollments
-       (org_id, capability_slug, status)
-       VALUES ($1, $2, $3::marketplace_enrollment_status)
-       ON CONFLICT (org_id, capability_slug) DO UPDATE
-         SET status = $3::marketplace_enrollment_status, updated_at = NOW()`,
-			[orgId, capabilitySlug, status]
-		);
-	} finally {
-		await regionalPool.end();
-	}
+	await pool.query(
+		`DELETE FROM marketplace_capabilities WHERE capability_id = $1`,
+		[id]
+	);
 }

@@ -80,8 +80,8 @@ export function BillingPage() {
 		},
 		{
 			title: t("billing.table.capabilitySlug"),
-			dataIndex: "capability_slug",
-			key: "capability_slug",
+			dataIndex: "capability_id",
+			key: "capability_id",
 		},
 		{
 			title: t("billing.table.eventType"),
@@ -126,7 +126,7 @@ export function BillingPage() {
 					dataSource={records}
 					columns={columns}
 					rowKey={(r, i) =>
-						`${r.consumer_org_domain}:${r.provider_org_domain}:${r.capability_slug}:${i}`
+						`${r.consumer_org_domain}:${r.provider_org_domain}:${r.capability_id}:${i}`
 					}
 					pagination={false}
 					size="small"
