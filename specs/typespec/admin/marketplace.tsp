@@ -127,10 +127,6 @@ model AdminReinstateListingRequest {
   listing_id: string;
 }
 
-model AdminApproveListingRequest {
-  listing_id: string;
-}
-
 model AdminListSubscriptionsRequest {
   capability_id?: string;
   org_domain?: string;
@@ -199,9 +195,6 @@ interface AdminMarketplace {
 
   @route("/marketplace/listings/reinstate") @post
   adminReinstateListing(@body body: AdminReinstateListingRequest): AdminMarketplaceListing | BadRequestResponse;
-
-  @route("/marketplace/listings/approve") @post
-  adminApproveListing(@body body: AdminApproveListingRequest): AdminMarketplaceListing | BadRequestResponse;
 
   // Subscription oversight
   @route("/marketplace/subscriptions/list") @post

@@ -36,11 +36,13 @@
 		"createButton": "Angebot erstellen",
 		"publishButton": "Veröffentlichen",
 		"archiveButton": "Archivieren",
+		"reopenButton": "Wiedereröffnen",
 		"editButton": "Bearbeiten",
 		"columns": {
 			"headline": "Titel",
 			"capability": "Fähigkeit",
 			"status": "Status",
+			"subscribers": "Aktive Abonnenten",
 			"createdAt": "Erstellt",
 			"actions": "Aktionen"
 		},
@@ -82,6 +84,9 @@
 		"title": "Meine Abonnements",
 		"noSubscriptions": "Noch keine Abonnements. Entdecken Sie Angebote.",
 		"loadMore": "Mehr laden",
+		"filterAll": "Alle",
+		"filterActive": "Aktiv",
+		"filterHistorical": "Historisch",
 		"cancelButton": "Kündigen",
 		"cancelTitle": "Abonnement kündigen",
 		"cancelConfirm": "Möchten Sie dieses Abonnement wirklich kündigen?",

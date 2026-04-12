@@ -14,6 +14,7 @@ import type {
 	MarketplaceListingStatus,
 	PublishListingRequest,
 	ArchiveListingRequest,
+	ReopenListingRequest,
 } from "vetchium-specs/org/marketplace";
 
 const { Title, Text } = Typography;
@@ -137,6 +138,31 @@ export function MarketplaceListingsPage() {
 		}
 	};
 
+	const handleReopen = async (listingId: string) => {
+		if (!sessionToken) return;
+		setActionLoading(listingId);
+		try {
+			const apiBaseUrl = await getApiBaseUrl();
+			const reqBody: ReopenListingRequest = { listing_id: listingId };
+			const resp = await fetch(
+				`${apiBaseUrl}/org/marketplace/listings/reopen`,
+				{
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${sessionToken}`,
+					},
+					body: JSON.stringify(reqBody),
+				}
+			);
+			if (resp.status === 200) {
+				fetchListings(null, false);
+			}
+		} finally {
+			setActionLoading(null);
+		}
+	};
+
 	const columns: TableColumnsType<MarketplaceListing> = [
 		{
 			title: t("listings.columns.headline"),
@@ -171,6 +197,11 @@ export function MarketplaceListingsPage() {
 			),
 		},
 		{
+			title: t("listings.columns.subscribers"),
+			dataIndex: "active_subscriber_count",
+			key: "active_subscriber_count",
+		},
+		{
 			title: t("listings.columns.createdAt"),
 			dataIndex: "created_at",
 			key: "created_at",
@@ -201,6 +232,15 @@ export function MarketplaceListingsPage() {
 										onClick={() => handleArchive(record.listing_id)}
 									>
 										{t("listings.archiveButton")}
+									</Button>
+								)}
+								{record.status === "archived" && (
+									<Button
+										size="small"
+										loading={actionLoading === record.listing_id}
+										onClick={() => handleReopen(record.listing_id)}
+									>
+										{t("listings.reopenButton")}
 									</Button>
 								)}
 								{(record.status === "draft" || record.status === "active") && (

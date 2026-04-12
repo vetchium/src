@@ -77,7 +77,6 @@ func RegisterAdminGlobalRoutes(mux *http.ServeMux, s *server.GlobalServer) {
 	// Marketplace listing oversight routes
 	mux.Handle("POST /admin/marketplace/listings/list", adminAuth(adminRoleViewMarketplace(admin.AdminListListings(s))))
 	mux.Handle("POST /admin/marketplace/listings/get", adminAuth(adminRoleViewMarketplace(admin.AdminGetListing(s))))
-	mux.Handle("POST /admin/marketplace/listings/approve", adminAuth(adminRoleManageMarketplace(admin.AdminApproveListing(s))))
 	mux.Handle("POST /admin/marketplace/listings/suspend", adminAuth(adminRoleManageMarketplace(admin.AdminSuspendListing(s))))
 	mux.Handle("POST /admin/marketplace/listings/reinstate", adminAuth(adminRoleManageMarketplace(admin.AdminReinstateListing(s))))
 

@@ -186,10 +186,6 @@
 			"actions": "Aktionen"
 		},
 		"modal": {
-			"approve": {
-				"title": "Angebot genehmigen",
-				"confirm": "Möchten Sie dieses Angebot wirklich genehmigen? Es wird aktiv und für Verbraucher sichtbar."
-			},
 			"suspend": {
 				"title": "Angebot sperren"
 			},
@@ -200,13 +196,11 @@
 		},
 		"errors": {
 			"loadFailed": "Angebote konnten nicht geladen werden",
-			"approveFailed": "Angebot konnte nicht genehmigt werden",
 			"suspendFailed": "Angebot konnte nicht gesperrt werden",
 			"reinstateFailed": "Angebot konnte nicht wiederhergestellt werden",
 			"actionFailed": "Aktion fehlgeschlagen"
 		},
 		"success": {
-			"approve": "Angebot genehmigt",
 			"suspend": "Angebot gesperrt",
 			"reinstate": "Angebot wiederhergestellt"
 		}

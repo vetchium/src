@@ -94,6 +94,7 @@ func RegisterOrgRoutes(mux *http.ServeMux, s *server.RegionalServer) {
 	mux.Handle("POST /org/marketplace/listings/update", orgAuth(orgRoleManageListings(org.UpdateListing(s))))
 	mux.Handle("POST /org/marketplace/listings/publish", orgAuth(orgRoleManageListings(org.PublishListing(s))))
 	mux.Handle("POST /org/marketplace/listings/archive", orgAuth(orgRoleManageListings(org.ArchiveListing(s))))
+	mux.Handle("POST /org/marketplace/listings/reopen", orgAuth(orgRoleManageListings(org.ReopenListing(s))))
 
 	// Marketplace client routes (provider perspective — view_listings or manage_listings)
 	mux.Handle("POST /org/marketplace/clients/list", orgAuth(orgRoleViewListings(org.ListClients(s))))

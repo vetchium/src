@@ -36,11 +36,13 @@
 		"createButton": "Create Listing",
 		"publishButton": "Publish",
 		"archiveButton": "Archive",
+		"reopenButton": "Reopen",
 		"editButton": "Edit",
 		"columns": {
 			"headline": "Headline",
 			"capability": "Capability",
 			"status": "Status",
+			"subscribers": "Active Subscribers",
 			"createdAt": "Created",
 			"actions": "Actions"
 		},
@@ -82,6 +84,9 @@
 		"title": "My Subscriptions",
 		"noSubscriptions": "No subscriptions yet. Browse listings to subscribe.",
 		"loadMore": "Load More",
+		"filterAll": "All",
+		"filterActive": "Active",
+		"filterHistorical": "Historical",
 		"cancelButton": "Cancel",
 		"cancelTitle": "Cancel Subscription",
 		"cancelConfirm": "Are you sure you want to cancel this subscription?",

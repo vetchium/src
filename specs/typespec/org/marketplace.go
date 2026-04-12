@@ -69,16 +69,17 @@ type MarketplaceCapability struct {
 }
 
 type MarketplaceListing struct {
-	ListingID      string                   `json:"listing_id"`
-	OrgDomain      string                   `json:"org_domain"`
-	CapabilityID   string                   `json:"capability_id"`
-	Headline       string                   `json:"headline"`
-	Description    string                   `json:"description"`
-	Status         MarketplaceListingStatus `json:"status"`
-	SuspensionNote *string                  `json:"suspension_note,omitempty"`
-	ListedAt       *string                  `json:"listed_at,omitempty"`
-	CreatedAt      string                   `json:"created_at"`
-	UpdatedAt      string                   `json:"updated_at"`
+	ListingID             string                   `json:"listing_id"`
+	OrgDomain             string                   `json:"org_domain"`
+	CapabilityID          string                   `json:"capability_id"`
+	Headline              string                   `json:"headline"`
+	Description           string                   `json:"description"`
+	Status                MarketplaceListingStatus `json:"status"`
+	SuspensionNote        *string                  `json:"suspension_note,omitempty"`
+	ListedAt              *string                  `json:"listed_at,omitempty"`
+	ActiveSubscriberCount int32                    `json:"active_subscriber_count"`
+	CreatedAt             string                   `json:"created_at"`
+	UpdatedAt             string                   `json:"updated_at"`
 }
 
 type MarketplaceListingCard struct {
@@ -243,6 +244,18 @@ func (r ArchiveListingRequest) Validate() []common.ValidationError {
 	return errs
 }
 
+type ReopenListingRequest struct {
+	ListingID string `json:"listing_id"`
+}
+
+func (r ReopenListingRequest) Validate() []common.ValidationError {
+	var errs []common.ValidationError
+	if r.ListingID == "" {
+		errs = append(errs, common.NewValidationError("listing_id", fmt.Errorf("listing_id is required")))
+	}
+	return errs
+}
+
 type DiscoverListingsRequest struct {
 	CapabilityID  *string `json:"capability_id,omitempty"`
 	PaginationKey *string `json:"pagination_key,omitempty"`
@@ -300,9 +313,10 @@ func (r CancelSubscriptionRequest) Validate() []common.ValidationError {
 }
 
 type ListSubscriptionsRequest struct {
-	FilterStatus  *MarketplaceSubscriptionStatus `json:"filter_status,omitempty"`
-	PaginationKey *string                        `json:"pagination_key,omitempty"`
-	Limit         *int                           `json:"limit,omitempty"`
+	// When nil, returns all. When true, returns cancelled+expired. When false, returns active only.
+	IncludeHistorical *bool   `json:"include_historical,omitempty"`
+	PaginationKey     *string `json:"pagination_key,omitempty"`
+	Limit             *int    `json:"limit,omitempty"`
 }
 
 func (r ListSubscriptionsRequest) Validate() []common.ValidationError {

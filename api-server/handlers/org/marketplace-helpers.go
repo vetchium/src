@@ -10,16 +10,18 @@ import (
 )
 
 // dbListingToAPI converts a regionaldb MarketplaceListing to the org API type.
-func dbListingToAPI(l regionaldb.MarketplaceListing) orgtypes.MarketplaceListing {
+// activeSubscriberCount is the number of active subscriptions for this listing (from the global subscription index).
+func dbListingToAPI(l regionaldb.MarketplaceListing, activeSubscriberCount int32) orgtypes.MarketplaceListing {
 	result := orgtypes.MarketplaceListing{
-		ListingID:    uuidToString(l.ListingID),
-		OrgDomain:    l.OrgDomain,
-		CapabilityID: l.CapabilityID,
-		Headline:     l.Headline,
-		Description:  l.Description,
-		Status:       orgtypes.MarketplaceListingStatus(l.Status),
-		CreatedAt:    l.CreatedAt.Time.UTC().Format(time.RFC3339),
-		UpdatedAt:    l.UpdatedAt.Time.UTC().Format(time.RFC3339),
+		ListingID:             uuidToString(l.ListingID),
+		OrgDomain:             l.OrgDomain,
+		CapabilityID:          l.CapabilityID,
+		Headline:              l.Headline,
+		Description:           l.Description,
+		Status:                orgtypes.MarketplaceListingStatus(l.Status),
+		ActiveSubscriberCount: activeSubscriberCount,
+		CreatedAt:             l.CreatedAt.Time.UTC().Format(time.RFC3339),
+		UpdatedAt:             l.UpdatedAt.Time.UTC().Format(time.RFC3339),
 	}
 	if l.SuspensionNote.Valid {
 		result.SuspensionNote = &l.SuspensionNote.String

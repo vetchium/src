@@ -85,10 +85,6 @@
 			"actions": "Actions"
 		},
 		"modal": {
-			"approve": {
-				"title": "Approve Listing",
-				"confirm": "Are you sure you want to approve this listing? It will become active and visible to consumers."
-			},
 			"suspend": {
 				"title": "Suspend Listing"
 			},
@@ -99,13 +95,11 @@
 		},
 		"errors": {
 			"loadFailed": "Failed to load listings",
-			"approveFailed": "Failed to approve listing",
 			"suspendFailed": "Failed to suspend listing",
 			"reinstateFailed": "Failed to reinstate listing",
 			"actionFailed": "Action failed"
 		},
 		"success": {
-			"approve": "Listing approved",
 			"suspend": "Listing suspended",
 			"reinstate": "Listing reinstated"
 		}

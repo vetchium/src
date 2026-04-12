@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"vetchium-api-server.gomodule/internal/audit"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
@@ -232,11 +233,8 @@ func ListSubscriptions(s *server.RegionalServer) http.HandlerFunc {
 		if req.PaginationKey != nil && *req.PaginationKey != "" {
 			params.PaginationKey = parseListingUUID(*req.PaginationKey)
 		}
-		if req.FilterStatus != nil {
-			params.FilterStatus = regionaldb.NullMarketplaceSubscriptionStatus{
-				MarketplaceSubscriptionStatus: regionaldb.MarketplaceSubscriptionStatus(*req.FilterStatus),
-				Valid:                         true,
-			}
+		if req.IncludeHistorical != nil {
+			params.IncludeHistorical = pgtype.Bool{Bool: *req.IncludeHistorical, Valid: true}
 		}
 
 		rows, err := s.Regional.ListConsumerMarketplaceSubscriptions(ctx, params)

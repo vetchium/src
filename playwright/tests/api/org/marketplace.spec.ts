@@ -25,6 +25,7 @@ import type {
 	GetMyListingRequest,
 	PublishListingRequest,
 	ArchiveListingRequest,
+	ReopenListingRequest,
 	RequestSubscriptionRequest,
 	CancelSubscriptionRequest,
 	GetSubscriptionRequest,
@@ -33,6 +34,7 @@ import type {
 	GetMarketplaceCapabilityRequest,
 	DiscoverListingsRequest,
 	GetListingRequest,
+	ListSubscriptionsRequest,
 } from "vetchium-specs/org/marketplace";
 import type { FilterAuditLogsRequest } from "vetchium-specs/audit-logs/audit-logs";
 
@@ -330,6 +332,49 @@ test.describe("Org Marketplace API", () => {
 			);
 			expect(found).toBeDefined();
 		});
+
+		test("provider can reopen an archived listing (200)", async ({
+			request,
+		}) => {
+			const api = new OrgAPIClient(request);
+			const req: ReopenListingRequest = { listing_id: listingId };
+			const res = await api.reopenListing(providerToken, req);
+			expect(res.status).toBe(200);
+			expect(res.body!.status).toBe("draft");
+			expect(typeof res.body!.active_subscriber_count).toBe("number");
+
+			// Audit log assertion
+			const auditRes = await api.filterAuditLogs(providerAuditToken, {
+				event_types: ["org.marketplace_listing_reopened"],
+				limit: 5,
+			});
+			expect(auditRes.status).toBe(200);
+			const found = auditRes.body!.audit_logs.find(
+				(e) => e.event_data["listing_id"] === listingId
+			);
+			expect(found).toBeDefined();
+		});
+
+		test("listing response includes active_subscriber_count", async ({
+			request,
+		}) => {
+			const api = new OrgAPIClient(request);
+			// get listing
+			const getRes = await api.getMyListing(providerToken, {
+				listing_id: listingId,
+			});
+			expect(getRes.status).toBe(200);
+			expect(typeof getRes.body!.active_subscriber_count).toBe("number");
+
+			// list listings
+			const listRes = await api.listMyListings(providerToken, { limit: 20 });
+			expect(listRes.status).toBe(200);
+			const found = listRes.body!.listings.find(
+				(l) => l.listing_id === listingId
+			);
+			expect(found).toBeDefined();
+			expect(typeof found!.active_subscriber_count).toBe("number");
+		});
 	});
 
 	// ===========================================================================
@@ -413,6 +458,25 @@ test.describe("Org Marketplace API", () => {
 			expect(res.body!.subscription_id).toBe(subscriptionId);
 		});
 
+		test("consumer can list active-only subscriptions (200)", async ({
+			request,
+		}) => {
+			const api = new OrgAPIClient(request);
+			const req: ListSubscriptionsRequest = {
+				include_historical: false,
+			};
+			const listRes = await api.listSubscriptions(consumerToken, req);
+			expect(listRes.status).toBe(200);
+			const found = listRes.body!.subscriptions.find(
+				(s) => s.subscription_id === subscriptionId
+			);
+			expect(found).toBeDefined();
+			// all returned subscriptions should be active
+			for (const s of listRes.body!.subscriptions) {
+				expect(s.status).toBe("active");
+			}
+		});
+
 		test("consumer can cancel their subscription (200)", async ({
 			request,
 		}) => {
@@ -423,6 +487,22 @@ test.describe("Org Marketplace API", () => {
 			const res = await api.cancelSubscription(consumerToken, req);
 			expect(res.status).toBe(200);
 			expect(res.body!.status).toBe("cancelled");
+		});
+
+		test("consumer can list historical subscriptions after cancel (200)", async ({
+			request,
+		}) => {
+			const api = new OrgAPIClient(request);
+			const req: ListSubscriptionsRequest = {
+				include_historical: true,
+			};
+			const listRes = await api.listSubscriptions(consumerToken, req);
+			expect(listRes.status).toBe(200);
+			const found = listRes.body!.subscriptions.find(
+				(s) => s.subscription_id === subscriptionId
+			);
+			expect(found).toBeDefined();
+			expect(found!.status).toBe("cancelled");
 		});
 	});
 
@@ -546,6 +626,16 @@ test.describe("Org Marketplace API", () => {
 	}) => {
 		const api = new OrgAPIClient(request);
 		const res = await api.archiveListing(noRoleToken, {
+			listing_id: "some-uuid",
+		});
+		expect(res.status).toBe(403);
+	});
+
+	test("user without manage_listings cannot reopen listing (403)", async ({
+		request,
+	}) => {
+		const api = new OrgAPIClient(request);
+		const res = await api.reopenListing(noRoleToken, {
 			listing_id: "some-uuid",
 		});
 		expect(res.status).toBe(403);

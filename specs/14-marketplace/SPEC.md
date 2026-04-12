@@ -113,18 +113,19 @@ Each Listing has its own lifecycle and billing record.
 
 **Fields:**
 
-| Field             | Type            | Description                                            |
-| ----------------- | --------------- | ------------------------------------------------------ |
-| `listing_id`      | UUID            | Unique identifier.                                     |
-| `org_domain`      | string          | Provider org. Canonical current domain.                |
-| `capability_id`   | string          | Which Capability this Listing covers.                  |
-| `headline`        | string          | Max 100 chars. Name of this specific service offering. |
-| `description`     | string          | Markdown. Max 10000 chars. Full service detail.        |
-| `status`          | enum            | See 4.2.1                                              |
-| `suspension_note` | string nullable | Admin note explaining why a Listing was suspended.     |
-| `listed_at`       | timestamptz     | When the Listing first became active.                  |
-| `created_at`      | timestamptz     |                                                        |
-| `updated_at`      | timestamptz     |                                                        |
+| Field                     | Type            | Description                                                                                |
+| ------------------------- | --------------- | ------------------------------------------------------------------------------------------ |
+| `listing_id`              | UUID            | Unique identifier.                                                                         |
+| `org_domain`              | string          | Provider org. Canonical current domain.                                                    |
+| `capability_id`           | string          | Which Capability this Listing covers.                                                      |
+| `headline`                | string          | Max 100 chars. Name of this specific service offering.                                     |
+| `description`             | string          | Markdown. Max 10000 chars. Full service detail.                                            |
+| `status`                  | enum            | See 4.2.1                                                                                  |
+| `suspension_note`         | string nullable | Admin note explaining why a Listing was suspended.                                         |
+| `listed_at`               | timestamptz     | When the Listing first became active.                                                      |
+| `active_subscriber_count` | int32           | Count of active Subscriptions for this Listing. Computed from `marketplace_subscriptions`. |
+| `created_at`              | timestamptz     |                                                                                            |
+| `updated_at`              | timestamptz     |                                                                                            |
 
 #### 4.2.1 Listing States
 
@@ -293,11 +294,11 @@ for that Capability.
 
 A summary table of own Listings:
 
-| Capability        | Listing Name            | Status         | Active Subscribers | Actions                 |
-| ----------------- | ----------------------- | -------------- | ------------------ | ----------------------- |
-| Talent Sourcing   | Executive Search        | Active         | 4                  | Edit / View Subscribers |
-| Talent Sourcing   | Engineering Recruitment | Pending Review | —                  | View Status             |
-| Background Verif. | Standard Screening      | Draft          | —                  | Edit / Publish          |
+| Capability        | Listing Name            | Status   | Active Subscribers | Actions        |
+| ----------------- | ----------------------- | -------- | ------------------ | -------------- |
+| Talent Sourcing   | Executive Search        | Active   | 4                  | Edit / Archive |
+| Talent Sourcing   | Engineering Recruitment | Archived | —                  | Reopen         |
+| Background Verif. | Standard Screening      | Draft    | —                  | Edit / Publish |
 
 An **"Add a new Listing"** button is always visible at the top. Clicking it opens the
 Capability picker (same grid as the empty state), then navigates to the Create Listing form.
@@ -329,12 +330,12 @@ Operational hub for a specific Listing. Two sections:
 
 Shows current status, all listing fields, and available actions:
 
-| Status      | Available actions                                                                |
-| ----------- | -------------------------------------------------------------------------------- |
-| `draft`     | Edit, Publish                                                                    |
-| `active`    | Edit, Archive                                                                    |
-| `suspended` | Admin suspension note shown. Archive. (Only admin can reinstate.)                |
-| `archived`  | Reopen — navigates to Create Listing form pre-populated with this Listing's data |
+| Status      | Available actions                                                                                                                                    |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `draft`     | Edit, Publish                                                                                                                                        |
+| `active`    | Edit, Archive                                                                                                                                        |
+| `suspended` | Admin suspension note shown. Archive. (Only admin can reinstate.)                                                                                    |
+| `archived`  | Reopen — transitions the Listing back to `draft` state (preserving its ID and history). The Edit form is shown pre-populated with the existing data. |
 
 **Subscribers section** (shown when Listing is `active`):
 
@@ -368,7 +369,7 @@ Lists all Subscriptions where the viewing org is the Consumer. Each row shows:
 - Status
 - Subscribed since date
 
-A status filter (All / Active / Historical) narrows the list.
+A status filter (All / Active / Historical) narrows the list. "Historical" covers both `cancelled` and `expired` subscriptions and maps to `include_historical: true` in the API request.
 
 Clicking a row navigates to the Subscription detail page.
 

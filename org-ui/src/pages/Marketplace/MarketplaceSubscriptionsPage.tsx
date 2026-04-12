@@ -1,6 +1,15 @@
 import { ArrowLeftOutlined } from "@ant-design/icons";
 import { useState, useCallback, useEffect } from "react";
-import { Alert, Button, Modal, Spin, Table, Tag, Typography } from "antd";
+import {
+	Alert,
+	Button,
+	Modal,
+	Segmented,
+	Spin,
+	Table,
+	Tag,
+	Typography,
+} from "antd";
 import type { TableColumnsType } from "antd";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
@@ -44,15 +53,27 @@ export function MarketplaceSubscriptionsPage() {
 
 	const [cancelTarget, setCancelTarget] = useState<string | null>(null);
 	const [cancelling, setCancelling] = useState(false);
+	const [filterMode, setFilterMode] = useState<"all" | "active" | "historical">(
+		"all"
+	);
 
 	const fetchSubscriptions = useCallback(
-		async (cursor: string | null, append: boolean) => {
+		async (
+			cursor: string | null,
+			append: boolean,
+			mode: "all" | "active" | "historical" = "all"
+		) => {
 			if (!sessionToken) return;
 			try {
 				const apiBaseUrl = await getApiBaseUrl();
+				const includeHistorical =
+					mode === "historical" ? true : mode === "active" ? false : undefined;
 				const reqBody: ListSubscriptionsRequest = {
 					limit: 20,
 					...(cursor && { pagination_key: cursor }),
+					...(includeHistorical !== undefined && {
+						include_historical: includeHistorical,
+					}),
 				};
 				const resp = await fetch(
 					`${apiBaseUrl}/org/marketplace/subscriptions/list`,
@@ -86,8 +107,8 @@ export function MarketplaceSubscriptionsPage() {
 	);
 
 	useEffect(() => {
-		fetchSubscriptions(null, false);
-	}, [fetchSubscriptions]);
+		fetchSubscriptions(null, false, filterMode);
+	}, [fetchSubscriptions, filterMode]);
 
 	const handleCancel = async () => {
 		if (!sessionToken || !cancelTarget) return;
@@ -110,7 +131,7 @@ export function MarketplaceSubscriptionsPage() {
 			);
 			if (resp.status === 200) {
 				setCancelTarget(null);
-				fetchSubscriptions(null, false);
+				fetchSubscriptions(null, false, filterMode);
 			}
 		} finally {
 			setCancelling(false);
@@ -184,6 +205,22 @@ export function MarketplaceSubscriptionsPage() {
 				{t("subscriptions.title")}
 			</Title>
 
+			<div style={{ marginBottom: 16 }}>
+				<Segmented
+					value={filterMode}
+					onChange={(val) => {
+						setFilterMode(val as "all" | "active" | "historical");
+						setPaginationKey(null);
+						setLoading(true);
+					}}
+					options={[
+						{ label: t("subscriptions.filterAll"), value: "all" },
+						{ label: t("subscriptions.filterActive"), value: "active" },
+						{ label: t("subscriptions.filterHistorical"), value: "historical" },
+					]}
+				/>
+			</div>
+
 			{loading ? (
 				<Spin size="large" />
 			) : error ? (
@@ -208,7 +245,7 @@ export function MarketplaceSubscriptionsPage() {
 							<Button
 								onClick={() => {
 									setLoadingMore(true);
-									fetchSubscriptions(paginationKey, true);
+									fetchSubscriptions(paginationKey, true, filterMode);
 								}}
 								loading={loadingMore}
 							>

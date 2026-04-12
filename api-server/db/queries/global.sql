@@ -1001,6 +1001,12 @@ LIMIT @limit_count;
 -- name: GetSubscriptionIndexEntry :one
 SELECT * FROM marketplace_subscription_index WHERE subscription_id = @subscription_id;
 
+-- name: CountActiveSubscriptionsByListings :many
+SELECT listing_id, COUNT(*)::bigint AS count
+FROM marketplace_subscription_index
+WHERE listing_id = ANY(@listing_ids::uuid[]) AND status = 'active'
+GROUP BY listing_id;
+
 -- ============================================================
 -- Marketplace: billing records (global)
 -- ============================================================

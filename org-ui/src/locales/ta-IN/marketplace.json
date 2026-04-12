@@ -36,11 +36,13 @@
 		"createButton": "பட்டியல் உருவாக்கு",
 		"publishButton": "வெளியிடு",
 		"archiveButton": "காப்பகப்படுத்து",
+		"reopenButton": "மீண்டும் திற",
 		"editButton": "திருத்து",
 		"columns": {
 			"headline": "தலைப்பு",
 			"capability": "திறன்",
 			"status": "நிலை",
+			"subscribers": "செயலில் உள்ள சந்தாதாரர்கள்",
 			"createdAt": "உருவாக்கப்பட்டது",
 			"actions": "செயல்கள்"
 		},
@@ -82,6 +84,9 @@
 		"title": "என் சந்தாக்கள்",
 		"noSubscriptions": "இன்னும் சந்தாக்கள் இல்லை. பட்டியல்களை கண்டறியுங்கள்.",
 		"loadMore": "மேலும் ஏற்று",
+		"filterAll": "அனைத்தும்",
+		"filterActive": "செயலில்",
+		"filterHistorical": "வரலாற்று",
 		"cancelButton": "ரத்து செய்",
 		"cancelTitle": "சந்தாவை ரத்து செய்",
 		"cancelConfirm": "இந்த சந்தாவை ரத்து செய்ய விரும்புகிறீர்களா?",

@@ -79,6 +79,7 @@ import type {
 	UpdateListingRequest,
 	PublishListingRequest,
 	ArchiveListingRequest,
+	ReopenListingRequest,
 	MarketplaceListing,
 	DiscoverListingsRequest,
 	DiscoverListingsResponse,
@@ -1735,6 +1736,18 @@ export class OrgAPIClient {
 	): Promise<APIResponse<MarketplaceListing>> {
 		const response = await this.request.post(
 			"/org/marketplace/listings/archive",
+			{ data: req, headers: { Authorization: `Bearer ${sessionToken}` } }
+		);
+		const body = await response.json().catch(() => ({}));
+		return { status: response.status(), body };
+	}
+
+	async reopenListing(
+		sessionToken: string,
+		req: ReopenListingRequest
+	): Promise<APIResponse<MarketplaceListing>> {
+		const response = await this.request.post(
+			"/org/marketplace/listings/reopen",
 			{ data: req, headers: { Authorization: `Bearer ${sessionToken}` } }
 		);
 		const body = await response.json().catch(() => ({}));

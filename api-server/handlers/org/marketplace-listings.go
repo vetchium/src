@@ -75,9 +75,26 @@ func ListMyListings(s *server.RegionalServer) http.HandlerFunc {
 			rows = rows[:limit]
 		}
 
+		// Batch-fetch active subscriber counts from global subscription index.
+		countByListingID := map[string]int32{}
+		if len(rows) > 0 {
+			listingUUIDs := make([]pgtype.UUID, 0, len(rows))
+			for _, row := range rows {
+				listingUUIDs = append(listingUUIDs, row.ListingID)
+			}
+			countRows, countErr := s.Global.CountActiveSubscriptionsByListings(ctx, listingUUIDs)
+			if countErr != nil {
+				log.Error("failed to count active subscriptions", "error", countErr)
+			} else {
+				for _, cr := range countRows {
+					countByListingID[uuidToString(cr.ListingID)] = int32(cr.Count)
+				}
+			}
+		}
+
 		listings := make([]orgtypes.MarketplaceListing, 0, len(rows))
 		for _, row := range rows {
-			listings = append(listings, dbListingToAPI(row))
+			listings = append(listings, dbListingToAPI(row, countByListingID[uuidToString(row.ListingID)]))
 		}
 
 		var nextKey *string
@@ -139,7 +156,11 @@ func GetMyListing(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		json.NewEncoder(w).Encode(dbListingToAPI(listing))
+		count := int32(0)
+		if countRows, countErr := s.Global.CountActiveSubscriptionsByListings(ctx, []pgtype.UUID{listingUUID}); countErr == nil && len(countRows) > 0 {
+			count = int32(countRows[0].Count)
+		}
+		json.NewEncoder(w).Encode(dbListingToAPI(listing, count))
 	}
 }
 
@@ -221,7 +242,7 @@ func CreateListing(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(dbListingToAPI(listing))
+		json.NewEncoder(w).Encode(dbListingToAPI(listing, 0))
 	}
 }
 
@@ -326,7 +347,7 @@ func UpdateListing(s *server.RegionalServer) http.HandlerFunc {
 			}
 		}
 
-		json.NewEncoder(w).Encode(dbListingToAPI(listing))
+		json.NewEncoder(w).Encode(dbListingToAPI(listing, 0))
 	}
 }
 
@@ -405,7 +426,7 @@ func PublishListing(s *server.RegionalServer) http.HandlerFunc {
 			log.Error("CONSISTENCY_ALERT: failed to add listing to global catalog after publish", "listing_id", req.ListingID, "error", upsertErr)
 		}
 
-		json.NewEncoder(w).Encode(dbListingToAPI(listing))
+		json.NewEncoder(w).Encode(dbListingToAPI(listing, 0))
 	}
 }
 
@@ -474,6 +495,70 @@ func ArchiveListing(s *server.RegionalServer) http.HandlerFunc {
 			log.Error("CONSISTENCY_ALERT: failed to remove archived listing from catalog", "listing_id", req.ListingID, "error", delErr)
 		}
 
-		json.NewEncoder(w).Encode(dbListingToAPI(listing))
+		json.NewEncoder(w).Encode(dbListingToAPI(listing, 0))
+	}
+}
+
+// ReopenListing handles POST /org/marketplace/listings/reopen
+// Transitions an archived listing back to draft state (archived → draft).
+func ReopenListing(s *server.RegionalServer) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		ctx := r.Context()
+		log := s.Logger(ctx)
+
+		orgUser := middleware.OrgUserFromContext(ctx)
+		if orgUser == nil {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		var req orgtypes.ReopenListingRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			log.Debug("failed to decode request", "error", err)
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if errs := req.Validate(); len(errs) > 0 {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(errs)
+			return
+		}
+
+		listingUUID := parseListingUUID(req.ListingID)
+		if !listingUUID.Valid {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+
+		var listing regionaldb.MarketplaceListing
+		err := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
+			var txErr error
+			listing, txErr = qtx.ReopenMarketplaceListing(ctx, regionaldb.ReopenMarketplaceListingParams{
+				ListingID: listingUUID,
+				OrgID:     orgUser.OrgID,
+			})
+			if txErr != nil {
+				return txErr
+			}
+			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
+				EventType:   "org.marketplace_listing_reopened",
+				ActorUserID: orgUser.OrgUserID,
+				OrgID:       orgUser.OrgID,
+				IpAddress:   audit.ExtractClientIP(r),
+				EventData:   []byte(`{"listing_id":"` + req.ListingID + `"}`),
+			})
+		})
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			log.Error("failed to reopen listing", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
+		json.NewEncoder(w).Encode(dbListingToAPI(listing, 0))
 	}
 }

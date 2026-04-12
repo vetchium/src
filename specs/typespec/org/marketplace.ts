@@ -46,6 +46,7 @@ export interface MarketplaceListing {
 	status: MarketplaceListingStatus;
 	suspension_note?: string;
 	listed_at?: string;
+	active_subscriber_count: number;
 	created_at: string;
 	updated_at: string;
 }
@@ -223,6 +224,10 @@ export interface ArchiveListingRequest {
 	listing_id: string;
 }
 
+export interface ReopenListingRequest {
+	listing_id: string;
+}
+
 // --- Discover (buyer browse) ---
 
 export interface DiscoverListingsRequest {
@@ -270,7 +275,8 @@ export interface CancelSubscriptionRequest {
 }
 
 export interface ListSubscriptionsRequest {
-	filter_status?: MarketplaceSubscriptionStatus;
+	// When omitted, returns all. When true, returns cancelled+expired. When false, returns active only.
+	include_historical?: boolean;
 	pagination_key?: string;
 	limit?: number;
 }

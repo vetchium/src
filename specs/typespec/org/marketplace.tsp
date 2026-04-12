@@ -48,6 +48,7 @@ model MarketplaceListing {
   status: MarketplaceListingStatus;
   suspension_note?: string;
   listed_at?: string;
+  active_subscriber_count: int32;
   created_at: string;
   updated_at: string;
 }
@@ -142,6 +143,10 @@ model ArchiveListingRequest {
   listing_id: string;
 }
 
+model ReopenListingRequest {
+  listing_id: string;
+}
+
 // Discovery: buyer browse
 model DiscoverListingsRequest {
   capability_id?: string;
@@ -169,7 +174,8 @@ model CancelSubscriptionRequest {
 }
 
 model ListSubscriptionsRequest {
-  filter_status?: MarketplaceSubscriptionStatus;
+  // When true, returns cancelled + expired subscriptions. When false/omitted, returns active only.
+  include_historical?: boolean;
   pagination_key?: string;
   limit?: int32;
 }
@@ -229,6 +235,9 @@ interface OrgMarketplace {
 
   @route("/marketplace/listings/archive") @post
   archiveListing(@body body: ArchiveListingRequest): MarketplaceListing | BadRequestResponse;
+
+  @route("/marketplace/listings/reopen") @post
+  reopenListing(@body body: ReopenListingRequest): MarketplaceListing | BadRequestResponse;
 
   // Discovery: buyer browse (any authenticated org user)
   @route("/marketplace/discover/list") @post

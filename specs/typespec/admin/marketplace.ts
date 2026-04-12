@@ -176,10 +176,6 @@ export interface AdminReinstateListingRequest {
 	listing_id: string;
 }
 
-export interface AdminApproveListingRequest {
-	listing_id: string;
-}
-
 export interface AdminListSubscriptionsRequest {
 	capability_id?: string;
 	org_domain?: string;

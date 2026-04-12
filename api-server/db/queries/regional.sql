@@ -714,10 +714,10 @@ SET status = 'active', suspension_note = NULL, updated_at = NOW()
 WHERE listing_id = @listing_id AND status = 'suspended'
 RETURNING *;
 
--- name: AdminApproveMarketplaceListing :one
+-- name: ReopenMarketplaceListing :one
 UPDATE marketplace_listings
-SET status = 'active', listed_at = COALESCE(listed_at, NOW()), updated_at = NOW()
-WHERE listing_id = @listing_id AND status = 'draft'
+SET status = 'draft', updated_at = NOW()
+WHERE listing_id = @listing_id AND org_id = @org_id AND status = 'archived'
 RETURNING *;
 
 -- name: ListMarketplaceListingsByOrg :many
@@ -781,7 +781,11 @@ RETURNING *;
 -- name: ListConsumerMarketplaceSubscriptions :many
 SELECT * FROM marketplace_subscriptions
 WHERE consumer_org_id = @consumer_org_id
-  AND (sqlc.narg('filter_status')::marketplace_subscription_status IS NULL OR status = sqlc.narg('filter_status')::marketplace_subscription_status)
+  AND (
+    sqlc.narg('include_historical')::boolean IS NULL
+    OR (sqlc.narg('include_historical')::boolean = true AND status IN ('cancelled', 'expired'))
+    OR (sqlc.narg('include_historical')::boolean = false AND status = 'active')
+  )
   AND (sqlc.narg('pagination_key')::uuid IS NULL OR subscription_id > sqlc.narg('pagination_key')::uuid)
 ORDER BY subscription_id ASC
 LIMIT @limit_count;
