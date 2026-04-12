@@ -1,16 +1,6 @@
 import { ArrowLeftOutlined, PlusOutlined } from "@ant-design/icons";
 import { useState, useCallback, useEffect } from "react";
-import {
-	Alert,
-	Button,
-	Card,
-	Col,
-	Row,
-	Spin,
-	Table,
-	Tag,
-	Typography,
-} from "antd";
+import { Alert, Button, Spin, Table, Tag, Typography } from "antd";
 import type { TableColumnsType } from "antd";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router-dom";
@@ -22,15 +12,13 @@ import type {
 	ListMyListingsResponse,
 	MarketplaceListing,
 	MarketplaceListingStatus,
-	ListMarketplaceCapabilitiesRequest,
-	ListMarketplaceCapabilitiesResponse,
-	MarketplaceCapability,
 } from "vetchium-specs/org/marketplace";
 
-const { Title, Text, Paragraph } = Typography;
+const { Title, Text } = Typography;
 
 const listingStatusColors: Record<MarketplaceListingStatus, string> = {
 	draft: "default",
+	pending_review: "warning",
 	active: "green",
 	suspended: "orange",
 	archived: "red",
@@ -52,11 +40,6 @@ export function MarketplaceListingsPage() {
 	const [error, setError] = useState<string | null>(null);
 	const [paginationKey, setPaginationKey] = useState<string | null>(null);
 	const [loadingMore, setLoadingMore] = useState(false);
-
-	const [capabilities, setCapabilities] = useState<MarketplaceCapability[]>([]);
-	const [capabilitiesError, setCapabilitiesError] = useState<string | null>(
-		null
-	);
 
 	const fetchListings = useCallback(
 		async (cursor: string | null, append: boolean) => {
@@ -98,43 +81,9 @@ export function MarketplaceListingsPage() {
 		[sessionToken, t]
 	);
 
-	const fetchCapabilities = useCallback(async () => {
-		if (!sessionToken) return;
-		try {
-			const apiBaseUrl = await getApiBaseUrl();
-			const reqBody: ListMarketplaceCapabilitiesRequest = { limit: 50 };
-			const resp = await fetch(
-				`${apiBaseUrl}/org/marketplace/capabilities/list`,
-				{
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-						Authorization: `Bearer ${sessionToken}`,
-					},
-					body: JSON.stringify(reqBody),
-				}
-			);
-			if (resp.status === 200) {
-				const data: ListMarketplaceCapabilitiesResponse = await resp.json();
-				setCapabilities(data.capabilities);
-			} else {
-				setCapabilitiesError(t("listings.errors.capabilitiesLoadFailed"));
-			}
-		} catch {
-			setCapabilitiesError(t("listings.errors.capabilitiesLoadFailed"));
-		}
-	}, [sessionToken, t]);
-
 	useEffect(() => {
 		fetchListings(null, false);
 	}, [fetchListings]);
-
-	useEffect(() => {
-		// Only fetch capabilities when listings are done loading and empty
-		if (!loading && listings.length === 0 && canManage) {
-			fetchCapabilities();
-		}
-	}, [loading, listings.length, canManage, fetchCapabilities]);
 
 	const columns: TableColumnsType<MarketplaceListing> = [
 		{
@@ -180,63 +129,6 @@ export function MarketplaceListingsPage() {
 		},
 	];
 
-	const renderEmptyState = () => {
-		if (capabilitiesError) {
-			return <Alert type="error" title={capabilitiesError} />;
-		}
-
-		if (capabilities.length === 0) {
-			return <Text type="secondary">{t("listings.noListings")}</Text>;
-		}
-
-		return (
-			<>
-				<Paragraph style={{ marginBottom: 24 }}>
-					{t("listings.emptyStateDescription")}
-				</Paragraph>
-				<Row gutter={[16, 16]}>
-					{capabilities.map((cap) => (
-						<Col key={cap.capability_id} xs={24} sm={12} lg={8}>
-							<Card
-								hoverable
-								style={{ height: "100%" }}
-								actions={
-									canManage
-										? [
-												<Button
-													type="primary"
-													key="create"
-													onClick={() =>
-														navigate(
-															`/marketplace/listings/new?capability=${cap.capability_id}`
-														)
-													}
-												>
-													{t("listings.emptyStateCreateButton")}
-												</Button>,
-											]
-										: undefined
-								}
-							>
-								<Card.Meta
-									title={cap.display_name}
-									description={
-										<Paragraph
-											ellipsis={{ rows: 3 }}
-											style={{ marginBottom: 0 }}
-										>
-											{cap.description}
-										</Paragraph>
-									}
-								/>
-							</Card>
-						</Col>
-					))}
-				</Row>
-			</>
-		);
-	};
-
 	return (
 		<div
 			style={{
@@ -263,7 +155,7 @@ export function MarketplaceListingsPage() {
 				<Title level={2} style={{ margin: 0 }}>
 					{t("listings.title")}
 				</Title>
-				{canManage && listings.length > 0 && (
+				{canManage && (
 					<Button
 						type="primary"
 						icon={<PlusOutlined />}
@@ -278,8 +170,6 @@ export function MarketplaceListingsPage() {
 				<Spin size="large" />
 			) : error ? (
 				<Alert type="error" title={error} />
-			) : listings.length === 0 ? (
-				renderEmptyState()
 			) : (
 				<>
 					<Table

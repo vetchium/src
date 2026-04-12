@@ -33,6 +33,7 @@ func RegisterOrgRoutes(mux *http.ServeMux, s *server.RegionalServer) {
 	orgRoleManageSubOrgs := middleware.OrgRole(s.Regional, orgspec.OrgRoleManageSubOrgs)
 	orgRoleViewListings := middleware.OrgRole(s.Regional, orgspec.OrgRoleViewListings, orgspec.OrgRoleManageListings)
 	orgRoleManageListings := middleware.OrgRole(s.Regional, orgspec.OrgRoleManageListings)
+	orgRoleSuperadmin := middleware.OrgRole(s.Regional, orgspec.OrgRoleSuperadmin)
 	orgRoleViewSubscriptions := middleware.OrgRole(s.Regional, orgspec.OrgRoleViewSubscriptions, orgspec.OrgRoleManageSubscriptions)
 	orgRoleManageSubscriptions := middleware.OrgRole(s.Regional, orgspec.OrgRoleManageSubscriptions)
 
@@ -95,6 +96,8 @@ func RegisterOrgRoutes(mux *http.ServeMux, s *server.RegionalServer) {
 	mux.Handle("POST /org/marketplace/listings/publish", orgAuth(orgRoleManageListings(org.PublishListing(s))))
 	mux.Handle("POST /org/marketplace/listings/archive", orgAuth(orgRoleManageListings(org.ArchiveListing(s))))
 	mux.Handle("POST /org/marketplace/listings/reopen", orgAuth(orgRoleManageListings(org.ReopenListing(s))))
+	mux.Handle("POST /org/marketplace/listings/approve", orgAuth(orgRoleSuperadmin(org.ApproveListing(s))))
+	mux.Handle("POST /org/marketplace/listings/reject", orgAuth(orgRoleSuperadmin(org.RejectListing(s))))
 
 	// Marketplace client routes (provider perspective — view_listings or manage_listings)
 	mux.Handle("POST /org/marketplace/clients/list", orgAuth(orgRoleViewListings(org.ListClients(s))))

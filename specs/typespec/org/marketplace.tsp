@@ -18,6 +18,7 @@ enum MarketplaceCapabilityStatus {
 
 enum MarketplaceListingStatus {
   draft,
+  pending_review,
   active,
   suspended,
   archived,
@@ -47,6 +48,7 @@ model MarketplaceListing {
   description: string;
   status: MarketplaceListingStatus;
   suspension_note?: string;
+  rejection_note?: string;
   listed_at?: string;
   active_subscriber_count: int32;
   created_at: string;
@@ -147,6 +149,15 @@ model ReopenListingRequest {
   listing_id: string;
 }
 
+model ApproveListingRequest {
+  listing_id: string;
+}
+
+model RejectListingRequest {
+  listing_id: string;
+  rejection_note: string;
+}
+
 // Discovery: buyer browse
 model DiscoverListingsRequest {
   capability_id?: string;
@@ -238,6 +249,12 @@ interface OrgMarketplace {
 
   @route("/marketplace/listings/reopen") @post
   reopenListing(@body body: ReopenListingRequest): MarketplaceListing | BadRequestResponse;
+
+  @route("/marketplace/listings/approve") @post
+  approveListing(@body body: ApproveListingRequest): MarketplaceListing | BadRequestResponse;
+
+  @route("/marketplace/listings/reject") @post
+  rejectListing(@body body: RejectListingRequest): MarketplaceListing | BadRequestResponse;
 
   // Discovery: buyer browse (any authenticated org user)
   @route("/marketplace/discover/list") @post

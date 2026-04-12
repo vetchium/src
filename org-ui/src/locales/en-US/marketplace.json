@@ -2,7 +2,7 @@
 	"backToDashboard": "Back to Dashboard",
 
 	"discover": {
-		"title": "Browse Services",
+		"title": "Marketplace",
 		"noListings": "No listings available yet.",
 		"loadMore": "Load More",
 		"errors": {
@@ -38,8 +38,6 @@
 		"archiveButton": "Archive",
 		"reopenButton": "Reopen",
 		"editButton": "Edit",
-		"emptyStateDescription": "List your organization's services on the Vetchium Marketplace. Other organizations can discover and subscribe to your offerings.",
-		"emptyStateCreateButton": "Create Listing",
 		"columns": {
 			"headline": "Headline",
 			"capability": "Capability",
@@ -50,13 +48,13 @@
 		},
 		"statuses": {
 			"draft": "Draft",
+			"pending_review": "Pending Review",
 			"active": "Active",
 			"suspended": "Suspended",
 			"archived": "Archived"
 		},
 		"errors": {
-			"loadFailed": "Failed to load listings",
-			"capabilitiesLoadFailed": "Failed to load capabilities"
+			"loadFailed": "Failed to load listings"
 		}
 	},
 
@@ -70,16 +68,24 @@
 		"createdAt": "Created",
 		"suspensionNote": "Suspension Note",
 		"suspensionNoteHint": "This listing has been suspended by Vetchium. Contact support to resolve.",
+		"rejectionNote": "Rejection Note",
+		"awaitingApproval": "This listing is awaiting superadmin approval before it goes live.",
 		"editButton": "Edit",
 		"publishButton": "Publish",
 		"archiveButton": "Archive",
 		"reopenButton": "Reopen",
+		"approveButton": "Approve",
+		"rejectButton": "Reject",
 		"publishConfirmTitle": "Publish Listing",
 		"publishConfirm": "Make this listing visible to all organizations?",
 		"archiveConfirmTitle": "Archive Listing",
 		"archiveConfirm": "Remove this listing from the marketplace? Active subscribers will not be automatically cancelled.",
 		"reopenConfirmTitle": "Reopen Listing",
 		"reopenConfirm": "Move this listing back to draft status?",
+		"approveConfirmTitle": "Approve Listing",
+		"approveConfirm": "Approve this listing and make it visible to all organizations?",
+		"rejectTitle": "Reject Listing",
+		"rejectNotePlaceholder": "Reason for rejection (required, max 2000 chars)",
 		"subscribersTitle": "Subscribers",
 		"noSubscribers": "No active subscribers yet.",
 		"loadMoreSubscribers": "Load More",
@@ -90,6 +96,7 @@
 		},
 		"statuses": {
 			"draft": "Draft",
+			"pending_review": "Pending Review",
 			"active": "Active",
 			"suspended": "Suspended",
 			"archived": "Archived"
@@ -111,7 +118,8 @@
 		"headlinePlaceholder": "Short headline for your service (max 100 chars)",
 		"descriptionLabel": "Description",
 		"descriptionPlaceholder": "Detailed description of your service (max 10000 chars)",
-		"submitButton": "Save Listing",
+		"saveDraftButton": "Save Draft",
+		"publishButton": "Publish",
 		"errors": {
 			"capabilityRequired": "Capability is required",
 			"headlineRequired": "Headline is required",

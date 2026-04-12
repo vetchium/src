@@ -690,10 +690,37 @@ WHERE listing_id = @listing_id AND org_id = @org_id
   AND status IN ('draft', 'active')
 RETURNING *;
 
+-- name: IsOrgUserSuperAdmin :one
+SELECT EXISTS(
+    SELECT 1
+    FROM org_user_roles our
+    JOIN roles r ON our.role_id = r.role_id
+    WHERE our.org_user_id = @org_user_id
+      AND r.role_name = 'org:superadmin'
+) AS is_superadmin;
+
 -- name: PublishMarketplaceListing :one
 UPDATE marketplace_listings
 SET status = 'active', listed_at = COALESCE(listed_at, NOW()), updated_at = NOW()
 WHERE listing_id = @listing_id AND org_id = @org_id AND status = 'draft'
+RETURNING *;
+
+-- name: SubmitMarketplaceListingForReview :one
+UPDATE marketplace_listings
+SET status = 'pending_review', rejection_note = NULL, updated_at = NOW()
+WHERE listing_id = @listing_id AND org_id = @org_id AND status = 'draft'
+RETURNING *;
+
+-- name: ApproveMarketplaceListing :one
+UPDATE marketplace_listings
+SET status = 'active', rejection_note = NULL, listed_at = COALESCE(listed_at, NOW()), updated_at = NOW()
+WHERE listing_id = @listing_id AND org_id = @org_id AND status = 'pending_review'
+RETURNING *;
+
+-- name: RejectMarketplaceListing :one
+UPDATE marketplace_listings
+SET status = 'draft', rejection_note = @rejection_note, updated_at = NOW()
+WHERE listing_id = @listing_id AND org_id = @org_id AND status = 'pending_review'
 RETURNING *;
 
 -- name: ArchiveMarketplaceListing :one

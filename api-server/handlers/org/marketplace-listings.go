@@ -352,7 +352,8 @@ func UpdateListing(s *server.RegionalServer) http.HandlerFunc {
 }
 
 // PublishListing handles POST /org/marketplace/listings/publish
-// Transitions a draft listing to active and adds it to the global catalog.
+// For org:superadmin: transitions draft → active (self-approval).
+// For other org:manage_listings users: transitions draft → pending_review.
 func PublishListing(s *server.RegionalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -383,10 +384,128 @@ func PublishListing(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
+		// Determine if this user is a superadmin for self-approval.
+		isSuperAdmin, err := s.Regional.IsOrgUserSuperAdmin(ctx, orgUser.OrgUserID)
+		if err != nil {
+			log.Error("failed to check superadmin status", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
+		var listing regionaldb.MarketplaceListing
+		if isSuperAdmin {
+			// Superadmin: direct draft → active (self-approval).
+			err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
+				var txErr error
+				listing, txErr = qtx.PublishMarketplaceListing(ctx, regionaldb.PublishMarketplaceListingParams{
+					ListingID: listingUUID,
+					OrgID:     orgUser.OrgID,
+				})
+				if txErr != nil {
+					return txErr
+				}
+				return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
+					EventType:   "org.marketplace_listing_published",
+					ActorUserID: orgUser.OrgUserID,
+					OrgID:       orgUser.OrgID,
+					IpAddress:   audit.ExtractClientIP(r),
+					EventData:   []byte(`{"listing_id":"` + req.ListingID + `"}`),
+				})
+			})
+			if err != nil {
+				if errors.Is(err, pgx.ErrNoRows) {
+					w.WriteHeader(http.StatusNotFound)
+					return
+				}
+				log.Error("failed to publish listing", "error", err)
+				http.Error(w, "", http.StatusInternalServerError)
+				return
+			}
+
+			// Add to global catalog.
+			region := middleware.OrgRegionFromContext(ctx)
+			if upsertErr := s.Global.UpsertListingCatalog(ctx, globaldb.UpsertListingCatalogParams{
+				ListingID:    listing.ListingID,
+				OrgGlobalID:  listing.OrgID,
+				OrgDomain:    listing.OrgDomain,
+				OrgRegion:    region,
+				CapabilityID: listing.CapabilityID,
+				Headline:     listing.Headline,
+				Description:  listing.Description,
+				ListedAt:     listing.ListedAt,
+			}); upsertErr != nil {
+				log.Error("CONSISTENCY_ALERT: failed to add listing to global catalog after publish", "listing_id", req.ListingID, "error", upsertErr)
+			}
+		} else {
+			// Non-superadmin: draft → pending_review (awaiting superadmin approval).
+			err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
+				var txErr error
+				listing, txErr = qtx.SubmitMarketplaceListingForReview(ctx, regionaldb.SubmitMarketplaceListingForReviewParams{
+					ListingID: listingUUID,
+					OrgID:     orgUser.OrgID,
+				})
+				if txErr != nil {
+					return txErr
+				}
+				return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
+					EventType:   "org.marketplace_listing_submitted_for_review",
+					ActorUserID: orgUser.OrgUserID,
+					OrgID:       orgUser.OrgID,
+					IpAddress:   audit.ExtractClientIP(r),
+					EventData:   []byte(`{"listing_id":"` + req.ListingID + `"}`),
+				})
+			})
+			if err != nil {
+				if errors.Is(err, pgx.ErrNoRows) {
+					w.WriteHeader(http.StatusNotFound)
+					return
+				}
+				log.Error("failed to submit listing for review", "error", err)
+				http.Error(w, "", http.StatusInternalServerError)
+				return
+			}
+		}
+
+		json.NewEncoder(w).Encode(dbListingToAPI(listing, 0))
+	}
+}
+
+// ApproveListing handles POST /org/marketplace/listings/approve
+// Only org:superadmin may approve. Transitions pending_review → active.
+func ApproveListing(s *server.RegionalServer) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		ctx := r.Context()
+		log := s.Logger(ctx)
+
+		orgUser := middleware.OrgUserFromContext(ctx)
+		if orgUser == nil {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		var req orgtypes.ApproveListingRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			log.Debug("failed to decode request", "error", err)
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if errs := req.Validate(); len(errs) > 0 {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(errs)
+			return
+		}
+
+		listingUUID := parseListingUUID(req.ListingID)
+		if !listingUUID.Valid {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+
 		var listing regionaldb.MarketplaceListing
 		err := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
 			var txErr error
-			listing, txErr = qtx.PublishMarketplaceListing(ctx, regionaldb.PublishMarketplaceListingParams{
+			listing, txErr = qtx.ApproveMarketplaceListing(ctx, regionaldb.ApproveMarketplaceListingParams{
 				ListingID: listingUUID,
 				OrgID:     orgUser.OrgID,
 			})
@@ -394,7 +513,7 @@ func PublishListing(s *server.RegionalServer) http.HandlerFunc {
 				return txErr
 			}
 			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
-				EventType:   "org.marketplace_listing_published",
+				EventType:   "org.marketplace_listing_approved",
 				ActorUserID: orgUser.OrgUserID,
 				OrgID:       orgUser.OrgID,
 				IpAddress:   audit.ExtractClientIP(r),
@@ -406,7 +525,7 @@ func PublishListing(s *server.RegionalServer) http.HandlerFunc {
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
-			log.Error("failed to publish listing", "error", err)
+			log.Error("failed to approve listing", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -423,7 +542,72 @@ func PublishListing(s *server.RegionalServer) http.HandlerFunc {
 			Description:  listing.Description,
 			ListedAt:     listing.ListedAt,
 		}); upsertErr != nil {
-			log.Error("CONSISTENCY_ALERT: failed to add listing to global catalog after publish", "listing_id", req.ListingID, "error", upsertErr)
+			log.Error("CONSISTENCY_ALERT: failed to add listing to global catalog after approval", "listing_id", req.ListingID, "error", upsertErr)
+		}
+
+		json.NewEncoder(w).Encode(dbListingToAPI(listing, 0))
+	}
+}
+
+// RejectListing handles POST /org/marketplace/listings/reject
+// Only org:superadmin may reject. Transitions pending_review → draft with a rejection_note.
+func RejectListing(s *server.RegionalServer) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		ctx := r.Context()
+		log := s.Logger(ctx)
+
+		orgUser := middleware.OrgUserFromContext(ctx)
+		if orgUser == nil {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		var req orgtypes.RejectListingRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			log.Debug("failed to decode request", "error", err)
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if errs := req.Validate(); len(errs) > 0 {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(errs)
+			return
+		}
+
+		listingUUID := parseListingUUID(req.ListingID)
+		if !listingUUID.Valid {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+
+		var listing regionaldb.MarketplaceListing
+		err := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
+			var txErr error
+			listing, txErr = qtx.RejectMarketplaceListing(ctx, regionaldb.RejectMarketplaceListingParams{
+				ListingID:     listingUUID,
+				OrgID:         orgUser.OrgID,
+				RejectionNote: pgtype.Text{String: req.RejectionNote, Valid: true},
+			})
+			if txErr != nil {
+				return txErr
+			}
+			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
+				EventType:   "org.marketplace_listing_rejected",
+				ActorUserID: orgUser.OrgUserID,
+				OrgID:       orgUser.OrgID,
+				IpAddress:   audit.ExtractClientIP(r),
+				EventData:   []byte(`{"listing_id":"` + req.ListingID + `"}`),
+			})
+		})
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			log.Error("failed to reject listing", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
 		}
 
 		json.NewEncoder(w).Encode(dbListingToAPI(listing, 0))

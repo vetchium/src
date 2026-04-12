@@ -26,6 +26,9 @@ func dbListingToAPI(l regionaldb.MarketplaceListing, activeSubscriberCount int32
 	if l.SuspensionNote.Valid {
 		result.SuspensionNote = &l.SuspensionNote.String
 	}
+	if l.RejectionNote.Valid {
+		result.RejectionNote = &l.RejectionNote.String
+	}
 	if l.ListedAt.Valid {
 		s := l.ListedAt.Time.UTC().Format(time.RFC3339)
 		result.ListedAt = &s

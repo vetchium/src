@@ -11,11 +11,13 @@ export namespace MarketplaceCapabilityStatus {
 
 export type MarketplaceListingStatus =
 	| "draft"
+	| "pending_review"
 	| "active"
 	| "suspended"
 	| "archived";
 export namespace MarketplaceListingStatus {
 	export const Draft: MarketplaceListingStatus = "draft";
+	export const PendingReview: MarketplaceListingStatus = "pending_review";
 	export const Active: MarketplaceListingStatus = "active";
 	export const Suspended: MarketplaceListingStatus = "suspended";
 	export const Archived: MarketplaceListingStatus = "archived";
@@ -45,6 +47,7 @@ export interface MarketplaceListing {
 	description: string;
 	status: MarketplaceListingStatus;
 	suspension_note?: string;
+	rejection_note?: string;
 	listed_at?: string;
 	active_subscriber_count: number;
 	created_at: string;
@@ -226,6 +229,47 @@ export interface ArchiveListingRequest {
 
 export interface ReopenListingRequest {
 	listing_id: string;
+}
+
+export interface ApproveListingRequest {
+	listing_id: string;
+}
+
+export function validateApproveListingRequest(
+	req: ApproveListingRequest
+): ValidationError[] {
+	const errs: ValidationError[] = [];
+	if (!req.listing_id) {
+		errs.push(newValidationError("listing_id", "listing_id is required"));
+	}
+	return errs;
+}
+
+export interface RejectListingRequest {
+	listing_id: string;
+	rejection_note: string;
+}
+
+export function validateRejectListingRequest(
+	req: RejectListingRequest
+): ValidationError[] {
+	const errs: ValidationError[] = [];
+	if (!req.listing_id) {
+		errs.push(newValidationError("listing_id", "listing_id is required"));
+	}
+	if (!req.rejection_note) {
+		errs.push(
+			newValidationError("rejection_note", "rejection_note is required")
+		);
+	} else if (req.rejection_note.length > 2000) {
+		errs.push(
+			newValidationError(
+				"rejection_note",
+				"rejection_note must be at most 2000 characters"
+			)
+		);
+	}
+	return errs;
 }
 
 // --- Discover (buyer browse) ---

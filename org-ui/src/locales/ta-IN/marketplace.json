@@ -2,7 +2,7 @@
 	"backToDashboard": "டாஷ்போர்டுக்கு திரும்பு",
 
 	"discover": {
-		"title": "சேவைகளை கண்டறி",
+		"title": "மார்க்கெட்பிளேஸ்",
 		"noListings": "இன்னும் பட்டியல்கள் இல்லை.",
 		"loadMore": "மேலும் ஏற்று",
 		"errors": {
@@ -38,8 +38,6 @@
 		"archiveButton": "காப்பகப்படுத்து",
 		"reopenButton": "மீண்டும் திற",
 		"editButton": "திருத்து",
-		"emptyStateDescription": "Vetchium மார்க்கெட்பிளேசில் உங்கள் நிறுவனத்தின் சேவைகளை பட்டியலிடுங்கள். மற்ற நிறுவனங்கள் உங்கள் சேவைகளை கண்டறிந்து சந்தா செய்யலாம்.",
-		"emptyStateCreateButton": "பட்டியல் உருவாக்கு",
 		"columns": {
 			"headline": "தலைப்பு",
 			"capability": "திறன்",
@@ -50,13 +48,13 @@
 		},
 		"statuses": {
 			"draft": "வரைவு",
+			"pending_review": "ஆய்வு நிலுவையில்",
 			"active": "செயலில்",
 			"suspended": "நிறுத்தப்பட்டது",
 			"archived": "காப்பகப்படுத்தப்பட்டது"
 		},
 		"errors": {
-			"loadFailed": "பட்டியல்களை ஏற்றுவதில் தோல்வி",
-			"capabilitiesLoadFailed": "திறன்களை ஏற்றுவதில் தோல்வி"
+			"loadFailed": "பட்டியல்களை ஏற்றுவதில் தோல்வி"
 		}
 	},
 
@@ -70,16 +68,24 @@
 		"createdAt": "உருவாக்கப்பட்டது",
 		"suspensionNote": "நிறுத்த காரணம்",
 		"suspensionNoteHint": "இந்த பட்டியல் Vetchium ஆல் நிறுத்தப்பட்டது. தொடர்புக்கு ஆதரவை தொடர்பு கொள்ளுங்கள்.",
+		"rejectionNote": "நிராகரிப்பு குறிப்பு",
+		"awaitingApproval": "இந்த பட்டியல் வெளியாவதற்கு முன் சூப்பர் நிர்வாகி அனுமதியை காத்திருக்கிறது.",
 		"editButton": "திருத்து",
 		"publishButton": "வெளியிடு",
 		"archiveButton": "காப்பகப்படுத்து",
 		"reopenButton": "மீண்டும் திற",
+		"approveButton": "அனுமதி",
+		"rejectButton": "நிராகரி",
 		"publishConfirmTitle": "பட்டியலை வெளியிடு",
 		"publishConfirm": "இந்த பட்டியலை அனைத்து நிறுவனங்களுக்கும் காட்டவா?",
 		"archiveConfirmTitle": "பட்டியலை காப்பகப்படுத்து",
 		"archiveConfirm": "இந்த பட்டியலை மார்க்கெட்பிளேசிலிருந்து அகற்றவா? செயலில் உள்ள சந்தாக்கள் தானாக ரத்து ஆகாது.",
 		"reopenConfirmTitle": "பட்டியலை மீண்டும் திற",
 		"reopenConfirm": "இந்த பட்டியலை வரைவு நிலைக்கு மாற்றவா?",
+		"approveConfirmTitle": "பட்டியலை அனுமதி",
+		"approveConfirm": "இந்த பட்டியலை அனுமதித்து அனைத்து நிறுவனங்களுக்கும் காட்டவா?",
+		"rejectTitle": "பட்டியலை நிராகரி",
+		"rejectNotePlaceholder": "நிராகரிப்பு காரணம் (கட்டாயம், அதிகபட்சம் 2000 எழுத்துகள்)",
 		"subscribersTitle": "சந்தாதாரர்கள்",
 		"noSubscribers": "இன்னும் செயலில் உள்ள சந்தாதாரர்கள் இல்லை.",
 		"loadMoreSubscribers": "மேலும் ஏற்று",
@@ -90,6 +96,7 @@
 		},
 		"statuses": {
 			"draft": "வரைவு",
+			"pending_review": "ஆய்வு நிலுவையில்",
 			"active": "செயலில்",
 			"suspended": "நிறுத்தப்பட்டது",
 			"archived": "காப்பகப்படுத்தப்பட்டது"
@@ -111,7 +118,8 @@
 		"headlinePlaceholder": "சேவைக்கான குறுகிய தலைப்பு (அதிகபட்சம் 100 எழுத்துகள்)",
 		"descriptionLabel": "விளக்கம்",
 		"descriptionPlaceholder": "சேவையின் விரிவான விளக்கம் (அதிகபட்சம் 10000 எழுத்துகள்)",
-		"submitButton": "பட்டியலை சேமி",
+		"saveDraftButton": "வரைவாக சேமி",
+		"publishButton": "வெளியிடு",
 		"errors": {
 			"capabilityRequired": "திறன் தேவை",
 			"headlineRequired": "தலைப்பு தேவை",

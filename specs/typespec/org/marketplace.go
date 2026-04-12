@@ -20,10 +20,11 @@ const (
 type MarketplaceListingStatus string
 
 const (
-	MarketplaceListingStatusDraft     MarketplaceListingStatus = "draft"
-	MarketplaceListingStatusActive    MarketplaceListingStatus = "active"
-	MarketplaceListingStatusSuspended MarketplaceListingStatus = "suspended"
-	MarketplaceListingStatusArchived  MarketplaceListingStatus = "archived"
+	MarketplaceListingStatusDraft         MarketplaceListingStatus = "draft"
+	MarketplaceListingStatusPendingReview MarketplaceListingStatus = "pending_review"
+	MarketplaceListingStatusActive        MarketplaceListingStatus = "active"
+	MarketplaceListingStatusSuspended     MarketplaceListingStatus = "suspended"
+	MarketplaceListingStatusArchived      MarketplaceListingStatus = "archived"
 )
 
 type MarketplaceSubscriptionStatus string
@@ -76,6 +77,7 @@ type MarketplaceListing struct {
 	Description           string                   `json:"description"`
 	Status                MarketplaceListingStatus `json:"status"`
 	SuspensionNote        *string                  `json:"suspension_note,omitempty"`
+	RejectionNote         *string                  `json:"rejection_note,omitempty"`
 	ListedAt              *string                  `json:"listed_at,omitempty"`
 	ActiveSubscriberCount int32                    `json:"active_subscriber_count"`
 	CreatedAt             string                   `json:"created_at"`
@@ -252,6 +254,37 @@ func (r ReopenListingRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
 	if r.ListingID == "" {
 		errs = append(errs, common.NewValidationError("listing_id", fmt.Errorf("listing_id is required")))
+	}
+	return errs
+}
+
+type ApproveListingRequest struct {
+	ListingID string `json:"listing_id"`
+}
+
+func (r ApproveListingRequest) Validate() []common.ValidationError {
+	var errs []common.ValidationError
+	if r.ListingID == "" {
+		errs = append(errs, common.NewValidationError("listing_id", fmt.Errorf("listing_id is required")))
+	}
+	return errs
+}
+
+type RejectListingRequest struct {
+	ListingID     string `json:"listing_id"`
+	RejectionNote string `json:"rejection_note"`
+}
+
+func (r RejectListingRequest) Validate() []common.ValidationError {
+	var errs []common.ValidationError
+	if r.ListingID == "" {
+		errs = append(errs, common.NewValidationError("listing_id", fmt.Errorf("listing_id is required")))
+	}
+	if r.RejectionNote == "" {
+		errs = append(errs, common.NewValidationError("rejection_note", fmt.Errorf("rejection_note is required")))
+	} else if len(r.RejectionNote) > maxRequestNoteLen {
+		errs = append(errs, common.NewValidationError("rejection_note",
+			fmt.Errorf("rejection_note must be at most %d characters", maxRequestNoteLen)))
 	}
 	return errs
 }

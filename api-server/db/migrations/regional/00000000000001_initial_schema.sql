@@ -242,6 +242,7 @@ INSERT INTO roles (role_name, description) VALUES
 -- Marketplace: listing status enum
 CREATE TYPE marketplace_listing_status AS ENUM (
     'draft',
+    'pending_review',
     'active',
     'suspended',
     'archived'
@@ -264,6 +265,7 @@ CREATE TABLE marketplace_listings (
     description     TEXT                     NOT NULL DEFAULT '',
     status          marketplace_listing_status NOT NULL DEFAULT 'draft',
     suspension_note TEXT,
+    rejection_note  TEXT,
     listed_at       TIMESTAMPTZ,
     created_at      TIMESTAMPTZ              NOT NULL DEFAULT NOW(),
     updated_at      TIMESTAMPTZ              NOT NULL DEFAULT NOW()

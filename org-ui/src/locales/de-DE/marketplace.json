@@ -2,7 +2,7 @@
 	"backToDashboard": "Zurück zum Dashboard",
 
 	"discover": {
-		"title": "Dienste entdecken",
+		"title": "Marktplatz",
 		"noListings": "Noch keine Angebote verfügbar.",
 		"loadMore": "Mehr laden",
 		"errors": {
@@ -38,8 +38,6 @@
 		"archiveButton": "Archivieren",
 		"reopenButton": "Wiedereröffnen",
 		"editButton": "Bearbeiten",
-		"emptyStateDescription": "Listen Sie die Dienste Ihrer Organisation im Vetchium Marketplace auf. Andere Organisationen können Ihre Angebote entdecken und abonnieren.",
-		"emptyStateCreateButton": "Angebot erstellen",
 		"columns": {
 			"headline": "Titel",
 			"capability": "Fähigkeit",
@@ -50,13 +48,13 @@
 		},
 		"statuses": {
 			"draft": "Entwurf",
+			"pending_review": "Prüfung ausstehend",
 			"active": "Aktiv",
 			"suspended": "Gesperrt",
 			"archived": "Archiviert"
 		},
 		"errors": {
-			"loadFailed": "Angebote konnten nicht geladen werden",
-			"capabilitiesLoadFailed": "Fähigkeiten konnten nicht geladen werden"
+			"loadFailed": "Angebote konnten nicht geladen werden"
 		}
 	},
 
@@ -70,16 +68,24 @@
 		"createdAt": "Erstellt",
 		"suspensionNote": "Sperrhinweis",
 		"suspensionNoteHint": "Dieses Angebot wurde von Vetchium gesperrt. Wenden Sie sich an den Support.",
+		"rejectionNote": "Ablehnungshinweis",
+		"awaitingApproval": "Dieses Angebot wartet auf die Genehmigung eines Superadmins.",
 		"editButton": "Bearbeiten",
 		"publishButton": "Veröffentlichen",
 		"archiveButton": "Archivieren",
 		"reopenButton": "Wiedereröffnen",
+		"approveButton": "Genehmigen",
+		"rejectButton": "Ablehnen",
 		"publishConfirmTitle": "Angebot veröffentlichen",
 		"publishConfirm": "Dieses Angebot für alle Organisationen sichtbar machen?",
 		"archiveConfirmTitle": "Angebot archivieren",
 		"archiveConfirm": "Dieses Angebot aus dem Marketplace entfernen? Aktive Abonnenten werden nicht automatisch gekündigt.",
 		"reopenConfirmTitle": "Angebot wiedereröffnen",
 		"reopenConfirm": "Dieses Angebot in den Entwurfsstatus verschieben?",
+		"approveConfirmTitle": "Angebot genehmigen",
+		"approveConfirm": "Dieses Angebot genehmigen und für alle Organisationen sichtbar machen?",
+		"rejectTitle": "Angebot ablehnen",
+		"rejectNotePlaceholder": "Ablehnungsgrund (erforderlich, max. 2000 Zeichen)",
 		"subscribersTitle": "Abonnenten",
 		"noSubscribers": "Noch keine aktiven Abonnenten.",
 		"loadMoreSubscribers": "Mehr laden",
@@ -90,6 +96,7 @@
 		},
 		"statuses": {
 			"draft": "Entwurf",
+			"pending_review": "Prüfung ausstehend",
 			"active": "Aktiv",
 			"suspended": "Gesperrt",
 			"archived": "Archiviert"
@@ -111,7 +118,8 @@
 		"headlinePlaceholder": "Kurzer Titel für Ihren Dienst (max. 100 Zeichen)",
 		"descriptionLabel": "Beschreibung",
 		"descriptionPlaceholder": "Ausführliche Beschreibung (max. 10000 Zeichen)",
-		"submitButton": "Angebot speichern",
+		"saveDraftButton": "Entwurf speichern",
+		"publishButton": "Veröffentlichen",
 		"errors": {
 			"capabilityRequired": "Fähigkeit ist erforderlich",
 			"headlineRequired": "Titel ist erforderlich",

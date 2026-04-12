@@ -130,15 +130,44 @@ Each Listing has its own lifecycle and billing record.
 #### 4.2.1 Listing States
 
 ```
-draft → active      (on publish — any org may publish immediately)
-active → suspended  (admin action: violation or billing failure)
-suspended → active  (admin reinstates)
-active → archived   (provider stops listing)
-archived → draft    (provider wants to re-list)
+draft            → pending_review  (non-superadmin with org:manage_listings submits for review)
+draft            → active          (org:superadmin publishes — self-approval)
+pending_review   → active          (org:superadmin approves)
+pending_review   → draft           (org:superadmin rejects, with rejection_note)
+active           → suspended       (Vetchium admin action: violation or billing failure)
+suspended        → active          (Vetchium admin reinstates)
+active           → archived        (provider with org:manage_listings archives)
+suspended        → archived        (provider archives a suspended listing)
+archived         → draft           (provider wants to re-list)
 ```
 
-A provider may edit a Listing in `draft` or `active` state. Editing an `active` Listing
-does not make it invisible while the changes are being saved.
+A provider may edit a Listing only in `draft` or `active` state. `pending_review`,
+`suspended`, and `archived` listings cannot be edited. If a non-superadmin wants to
+revise a listing that is `pending_review`, a superadmin must first reject it (returning
+it to `draft`).
+
+Editing an `active` Listing does not make it invisible while changes are being saved.
+
+**Publish authorization — two distinct layers:**
+
+1. **Vetchium admin gate**: There is none. Vetchium does not review or approve Listings
+   before they go live. Vetchium can only suspend a Listing after the fact.
+
+2. **Intra-org approval**: When a non-superadmin org user with `org:manage_listings`
+   clicks "Publish", the Listing enters `pending_review` — it is not yet visible to
+   Consumer Orgs. An `org:superadmin` within the same org must approve it before it
+   goes live.
+
+   **Superadmin self-approval exemption**: When an `org:superadmin` clicks "Publish",
+   the Listing goes directly to `active` with no countersignature required. This is
+   essential for single-user orgs where the only user is also the superadmin — without
+   this exemption they would be permanently blocked from ever publishing.
+
+**Additional `Listing` fields for the approval flow:**
+
+| Field            | Type            | Description                                            |
+| ---------------- | --------------- | ------------------------------------------------------ |
+| `rejection_note` | string nullable | Set by the rejecting superadmin. Cleared on re-submit. |
 
 ---
 
@@ -229,14 +258,14 @@ Three marketplace tiles on the main org dashboard:
 
 | Tile                 | Route                        | Visible when                                                    |
 | -------------------- | ---------------------------- | --------------------------------------------------------------- |
-| **Browse Services**  | `/marketplace/discover`      | Any authenticated user                                          |
+| **Marketplace**      | `/marketplace/discover`      | Any authenticated user                                          |
 | **My Subscriptions** | `/marketplace/subscriptions` | User has `org:manage_subscriptions` or `org:view_subscriptions` |
 | **My Listings**      | `/marketplace/listings`      | User has `org:manage_listings` or `org:view_listings`           |
 | **My Clients**       | `/marketplace/clients`       | User has `org:manage_listings` or `org:view_listings`           |
 
 ---
 
-### 7.2 `/marketplace/discover` — Browse Listings
+### 7.2 `/marketplace/discover` — Marketplace
 
 Shows a flat paginated list of all active Listings across all Capabilities. Each card shows:
 
@@ -245,9 +274,9 @@ Shows a flat paginated list of all active Listings across all Capabilities. Each
 - Capability tag
 - Description (truncated to 3 lines)
 
-A flat list is preferred over a capability-first browse because providers typically know
-what service category they want, and the capability tag on each card gives sufficient
-context without the extra navigation step.
+A flat list is preferred over a capability-first browse because consumers typically know
+what service category they need, and the capability tag on each card gives sufficient
+context without an extra navigation step.
 
 Clicking a card navigates to the Listing detail page (buyer view).
 
@@ -274,44 +303,42 @@ If a Subscription already exists in a terminal state (cancelled or expired), a
 
 ### 7.4 `/marketplace/listings` — My Listings (Provider Dashboard)
 
-**Empty state (org has no Listings):**
+A consistent table view of the org's Listings, regardless of whether any exist. A
+**"Create Listing"** button is always shown at the top right (for users with
+`org:manage_listings`).
 
-Explanation text: "List your organization's services on the Vetchium Marketplace. Other
-organizations can discover and subscribe to your offerings."
+The empty state shows a simple prompt inside the table. The table columns and the
+"Create Listing" button are always present — the page never switches to a different
+layout. This matches the standard pattern used by major marketplace provider portals
+(AWS Seller Central, Shopify Partners, Salesforce AppExchange).
 
-Below the explanation, all active Capabilities are shown as cards, each with a
-**"Create Listing"** button. Clicking it navigates directly to the Create Listing form
-for that Capability.
+| Headline                | Capability       | Status   | Active Subscribers | Created    |
+| ----------------------- | ---------------- | -------- | ------------------ | ---------- |
+| Executive Search        | talent-sourcing  | Active   | 4                  | 2026-03-01 |
+| Engineering Recruitment | talent-sourcing  | Archived | —                  | 2026-02-15 |
+| Standard Screening      | background-verif | Draft    | —                  | 2026-04-01 |
 
-**Populated state (org has at least one Listing):**
-
-A summary table of own Listings:
-
-| Capability        | Listing Name            | Status   | Active Subscribers | Actions        |
-| ----------------- | ----------------------- | -------- | ------------------ | -------------- |
-| Talent Sourcing   | Executive Search        | Active   | 4                  | Edit / Archive |
-| Talent Sourcing   | Engineering Recruitment | Archived | —                  | Reopen         |
-| Background Verif. | Standard Screening      | Draft    | —                  | Edit / Publish |
-
-An **"Add a new Listing"** button is always visible at the top. Clicking it opens the
-Capability picker (same grid as the empty state), then navigates to the Create Listing form.
+Clicking a listing's headline navigates to the Manage One Listing page (7.6).
 
 ---
 
 ### 7.5 `/marketplace/listings/new` — Create Listing
 
-**Step 1 — Pick a Capability** (skipped when arriving from a Capability card):
+The Create Listing form has a single step with all fields on one page:
 
-A grid of all active Capabilities. The user selects one.
-
-**Step 2 — Listing form:**
-
-Fields: Headline, Description (markdown editor).
+- **Capability** — searchable dropdown of all active Capabilities. Pre-selected if
+  `?capability=<id>` is present in the URL.
+- **Headline** — max 100 chars.
+- **Description** — markdown, max 10000 chars.
 
 Two actions:
 
-- **"Save as Draft"** — saves without publishing.
+- **"Save Draft"** — saves without publishing.
 - **"Publish"** — saves and immediately makes the Listing visible to all Consumer Orgs.
+
+In edit mode, **"Publish"** is only shown when the Listing is currently in `draft` state.
+For active listings, only **"Save Draft"** is shown (the listing remains visible while
+changes are saved).
 
 ---
 
@@ -322,14 +349,19 @@ Listings table.
 
 **Listing section:**
 
-Shows current status, all listing fields, and available actions:
+Shows current status, all listing fields, and available actions. Actions and messages differ by status and user role:
 
-| Status      | Available actions                                                                                                                                    |
-| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `draft`     | Edit, Publish                                                                                                                                        |
-| `active`    | Edit, Archive                                                                                                                                        |
-| `suspended` | Admin suspension note shown. Archive. (Only admin can reinstate.)                                                                                    |
-| `archived`  | Reopen — transitions the Listing back to `draft` state (preserving its ID and history). The Edit form is shown pre-populated with the existing data. |
+| Status           | `org:superadmin` sees                                   | `org:manage_listings` (non-superadmin) sees               |
+| ---------------- | ------------------------------------------------------- | --------------------------------------------------------- |
+| `draft`          | Edit, Publish (→ active directly)                       | Edit, Publish (→ pending_review)                          |
+| `pending_review` | Approve (→ active), Reject with required note (→ draft) | Info message: "Awaiting superadmin approval." No actions. |
+| `active`         | Edit, Archive                                           | Edit, Archive                                             |
+| `suspended`      | Suspension note shown. Archive.                         | Suspension note shown. Archive.                           |
+| `archived`       | Reopen (→ draft)                                        | Reopen (→ draft)                                          |
+
+**Rejection note**: When a superadmin rejects a `pending_review` listing, they must provide a `rejection_note` (required, up to 2000 chars) explaining the reason. This note is displayed prominently on the listing detail page when the listing is in `draft` state after rejection. It is cleared when the listing is re-submitted for review (next Publish action).
+
+**Reject action**: Clicking "Reject" opens a modal dialog containing a required text area for the rejection note. The Reject button in the modal is disabled until text is entered.
 
 **Subscribers section** (shown when Listing is `active`):
 

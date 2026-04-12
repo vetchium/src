@@ -26,6 +26,8 @@ import type {
 	PublishListingRequest,
 	ArchiveListingRequest,
 	ReopenListingRequest,
+	ApproveListingRequest,
+	RejectListingRequest,
 	RequestSubscriptionRequest,
 	CancelSubscriptionRequest,
 	GetSubscriptionRequest,
@@ -268,7 +270,11 @@ test.describe("Org Marketplace API", () => {
 			expect(found).toBeDefined();
 		});
 
-		test("provider can publish their listing (200)", async ({ request }) => {
+		test("superadmin publish goes directly to active (200)", async ({
+			request,
+		}) => {
+			// providerToken belongs to a superadmin (createTestOrgAdminDirect)
+			// so publish bypasses pending_review and goes straight to active.
 			const api = new OrgAPIClient(request);
 			const req: PublishListingRequest = { listing_id: listingId };
 			const res = await api.publishListing(providerToken, req);
@@ -649,5 +655,281 @@ test.describe("Org Marketplace API", () => {
 			subscription_id: "some-uuid",
 		});
 		expect(res.status).toBe(403);
+	});
+
+	// ===========================================================================
+	// Intra-org Approval Flow
+	// ===========================================================================
+
+	test.describe("Intra-org Approval Flow", () => {
+		test.describe.configure({ mode: "serial" });
+
+		// A non-superadmin user with only org:manage_listings
+		let nonAdminEmail: string;
+		let nonAdminToken: string;
+		let nonAdminOrgUserId: string;
+
+		// Superadmin in the same org as the non-admin
+		let superadminEmail: string;
+		let superadminToken: string;
+		let superadminAuditToken: string;
+
+		let approvalCapId: string;
+		let approvalListingId: string;
+
+		test.beforeAll(async ({ request }) => {
+			const orgApi = new OrgAPIClient(request);
+
+			approvalCapId = generateCapabilityId("approval-test");
+			await createTestMarketplaceCapability(approvalCapId, "active");
+
+			// Create an org whose first user is a superadmin
+			const superadminOrgInfo = generateTestOrgEmail("approval-sa");
+			superadminEmail = superadminOrgInfo.email;
+			const superadminOrg = await createTestOrgAdminDirect(
+				superadminEmail,
+				TEST_PASSWORD,
+				"ind1",
+				{ domain: superadminOrgInfo.domain }
+			);
+			await assignRoleToOrgUser(superadminOrg.orgUserId, "org:view_audit_logs");
+			superadminToken = await loginOrgUser(
+				orgApi,
+				superadminEmail,
+				superadminOrg.domain
+			);
+			superadminAuditToken = superadminToken;
+
+			// Create a non-superadmin user in the same org
+			nonAdminEmail = `nonadmin-${Math.random().toString(16).substring(2, 10)}@${superadminOrg.domain}`;
+			const nonAdminUser = await createTestOrgUserDirect(
+				nonAdminEmail,
+				TEST_PASSWORD,
+				"ind1",
+				{ orgId: superadminOrg.orgId, domain: superadminOrg.domain }
+			);
+			nonAdminOrgUserId = nonAdminUser.orgUserId;
+			await assignRoleToOrgUser(nonAdminOrgUserId, "org:manage_listings");
+			nonAdminToken = await loginOrgUser(
+				orgApi,
+				nonAdminEmail,
+				superadminOrg.domain
+			);
+		});
+
+		test.afterAll(async () => {
+			await deleteTestMarketplaceCapability(approvalCapId).catch(() => {});
+			await deleteTestOrgUser(superadminEmail).catch(() => {});
+			await deleteTestOrgUser(nonAdminEmail).catch(() => {});
+		});
+
+		test("non-superadmin publish moves listing to pending_review (200)", async ({
+			request,
+		}) => {
+			const api = new OrgAPIClient(request);
+
+			// Create listing as non-superadmin
+			const createRes = await api.createListing(nonAdminToken, {
+				capability_id: approvalCapId,
+				headline: "Approval Test Service",
+				description: "Needs superadmin approval",
+			});
+			expect(createRes.status).toBe(201);
+			approvalListingId = createRes.body!.listing_id;
+			expect(createRes.body!.status).toBe("draft");
+
+			// Publish as non-superadmin → should go to pending_review, not active
+			const publishRes = await api.publishListing(nonAdminToken, {
+				listing_id: approvalListingId,
+			});
+			expect(publishRes.status).toBe(200);
+			expect(publishRes.body!.status).toBe("pending_review");
+
+			// Audit log: submitted_for_review
+			const auditRes = await api.filterAuditLogs(superadminAuditToken, {
+				event_types: ["org.marketplace_listing_submitted_for_review"],
+				limit: 5,
+			});
+			expect(auditRes.status).toBe(200);
+			const found = auditRes.body!.audit_logs.find(
+				(e) => e.event_data["listing_id"] === approvalListingId
+			);
+			expect(found).toBeDefined();
+		});
+
+		test("pending_review listing is not discoverable (not in discover results)", async ({
+			request,
+		}) => {
+			const api = new OrgAPIClient(request);
+			const discoverRes = await api.discoverListings(consumerToken, {
+				capability_id: approvalCapId,
+			});
+			expect(discoverRes.status).toBe(200);
+			const found = discoverRes.body!.listings.find(
+				(l) => l.listing_id === approvalListingId
+			);
+			expect(found).toBeUndefined();
+		});
+
+		test("superadmin can reject a pending_review listing (200)", async ({
+			request,
+		}) => {
+			const api = new OrgAPIClient(request);
+			const rejectReq: RejectListingRequest = {
+				listing_id: approvalListingId,
+				rejection_note: "Please add more details to the description",
+			};
+			const res = await api.rejectListing(superadminToken, rejectReq);
+			expect(res.status).toBe(200);
+			expect(res.body!.status).toBe("draft");
+			expect(res.body!.rejection_note).toBe(
+				"Please add more details to the description"
+			);
+
+			// Audit log: rejected
+			const auditRes = await api.filterAuditLogs(superadminAuditToken, {
+				event_types: ["org.marketplace_listing_rejected"],
+				limit: 5,
+			});
+			expect(auditRes.status).toBe(200);
+			const found = auditRes.body!.audit_logs.find(
+				(e) => e.event_data["listing_id"] === approvalListingId
+			);
+			expect(found).toBeDefined();
+		});
+
+		test("rejected listing shows rejection_note when fetched (200)", async ({
+			request,
+		}) => {
+			const api = new OrgAPIClient(request);
+			const getRes = await api.getMyListing(nonAdminToken, {
+				listing_id: approvalListingId,
+			});
+			expect(getRes.status).toBe(200);
+			expect(getRes.body!.status).toBe("draft");
+			expect(getRes.body!.rejection_note).toBe(
+				"Please add more details to the description"
+			);
+		});
+
+		test("non-superadmin can resubmit rejected listing for review (200)", async ({
+			request,
+		}) => {
+			// Update the listing first
+			const api = new OrgAPIClient(request);
+			await api.updateListing(nonAdminToken, {
+				listing_id: approvalListingId,
+				headline: "Approval Test Service — Updated",
+				description: "Now with more details in the description",
+			});
+
+			// Re-publish → pending_review again, rejection_note should be cleared
+			const publishRes = await api.publishListing(nonAdminToken, {
+				listing_id: approvalListingId,
+			});
+			expect(publishRes.status).toBe(200);
+			expect(publishRes.body!.status).toBe("pending_review");
+		});
+
+		test("superadmin can approve a pending_review listing (200)", async ({
+			request,
+		}) => {
+			const api = new OrgAPIClient(request);
+			const approveReq: ApproveListingRequest = {
+				listing_id: approvalListingId,
+			};
+			const res = await api.approveListing(superadminToken, approveReq);
+			expect(res.status).toBe(200);
+			expect(res.body!.status).toBe("active");
+			expect(res.body!.rejection_note).toBeUndefined();
+
+			// Audit log: approved
+			const auditRes = await api.filterAuditLogs(superadminAuditToken, {
+				event_types: ["org.marketplace_listing_approved"],
+				limit: 5,
+			});
+			expect(auditRes.status).toBe(200);
+			const found = auditRes.body!.audit_logs.find(
+				(e) => e.event_data["listing_id"] === approvalListingId
+			);
+			expect(found).toBeDefined();
+		});
+
+		test("approved listing is discoverable (200)", async ({ request }) => {
+			const api = new OrgAPIClient(request);
+			const discoverRes = await api.discoverListings(consumerToken, {
+				capability_id: approvalCapId,
+			});
+			expect(discoverRes.status).toBe(200);
+			const found = discoverRes.body!.listings.find(
+				(l) => l.listing_id === approvalListingId
+			);
+			expect(found).toBeDefined();
+		});
+
+		test("reject returns 400 when rejection_note is empty (400)", async ({
+			request,
+		}) => {
+			// First need another pending_review listing
+			const api = new OrgAPIClient(request);
+			// Archive the active one to reopen it as draft
+			await api.archiveListing(superadminToken, {
+				listing_id: approvalListingId,
+			});
+			await api.reopenListing(superadminToken, {
+				listing_id: approvalListingId,
+			});
+			await api.publishListing(nonAdminToken, {
+				listing_id: approvalListingId,
+			});
+
+			// Now try to reject with empty note
+			const res = await api.rejectListing(superadminToken, {
+				listing_id: approvalListingId,
+				rejection_note: "",
+			});
+			expect(res.status).toBe(400);
+
+			// Restore: approve it so afterAll cleanup works
+			await api.approveListing(superadminToken, {
+				listing_id: approvalListingId,
+			});
+		});
+
+		// RBAC: approve/reject only superadmin
+		test("non-superadmin cannot approve listing (403)", async ({ request }) => {
+			const api = new OrgAPIClient(request);
+			// Use a valid UUID — no matter which, should be 403 before reaching the DB check
+			const res = await api.approveListing(nonAdminToken, {
+				listing_id: "00000000-0000-0000-0000-000000000001",
+			});
+			expect(res.status).toBe(403);
+		});
+
+		test("non-superadmin cannot reject listing (403)", async ({ request }) => {
+			const api = new OrgAPIClient(request);
+			const res = await api.rejectListing(nonAdminToken, {
+				listing_id: "00000000-0000-0000-0000-000000000001",
+				rejection_note: "Should not get here",
+			});
+			expect(res.status).toBe(403);
+		});
+
+		test("approve returns 401 without auth", async ({ request }) => {
+			const res = await request.post("/org/marketplace/listings/approve", {
+				data: { listing_id: "00000000-0000-0000-0000-000000000001" },
+			});
+			expect(res.status()).toBe(401);
+		});
+
+		test("reject returns 401 without auth", async ({ request }) => {
+			const res = await request.post("/org/marketplace/listings/reject", {
+				data: {
+					listing_id: "00000000-0000-0000-0000-000000000001",
+					rejection_note: "note",
+				},
+			});
+			expect(res.status()).toBe(401);
+		});
 	});
 });

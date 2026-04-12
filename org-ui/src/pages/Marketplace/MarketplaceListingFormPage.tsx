@@ -1,15 +1,31 @@
 import { ArrowLeftOutlined } from "@ant-design/icons";
-import { useState, useCallback, useEffect } from "react";
-import { Alert, Button, Form, Input, Select, Spin, Typography } from "antd";
+import { useState, useCallback, useEffect, useRef } from "react";
+import {
+	Alert,
+	Button,
+	Form,
+	Input,
+	Select,
+	Space,
+	Spin,
+	Typography,
+} from "antd";
 import { useTranslation } from "react-i18next";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import {
+	Link,
+	useNavigate,
+	useParams,
+	useSearchParams,
+} from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { getApiBaseUrl } from "../../config";
 import type {
 	CreateListingRequest,
 	GetMyListingRequest,
 	MarketplaceListing,
+	MarketplaceListingStatus,
 	UpdateListingRequest,
+	PublishListingRequest,
 	ListMarketplaceCapabilitiesRequest,
 	ListMarketplaceCapabilitiesResponse,
 	MarketplaceCapability,
@@ -22,6 +38,7 @@ export function MarketplaceListingFormPage() {
 	const { sessionToken } = useAuth();
 	const navigate = useNavigate();
 	const { listing_id } = useParams<{ listing_id?: string }>();
+	const [searchParams] = useSearchParams();
 	const isEdit = !!listing_id;
 
 	const [form] = Form.useForm();
@@ -29,6 +46,11 @@ export function MarketplaceListingFormPage() {
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [capabilities, setCapabilities] = useState<MarketplaceCapability[]>([]);
+	const [listingStatus, setListingStatus] =
+		useState<MarketplaceListingStatus | null>(null);
+
+	// Track which button was clicked so the submit handler knows what to do
+	const submitActionRef = useRef<"draft" | "publish">("draft");
 
 	// Load capabilities for the capability_id dropdown
 	useEffect(() => {
@@ -51,12 +73,22 @@ export function MarketplaceListingFormPage() {
 				if (resp.status === 200) {
 					const data: ListMarketplaceCapabilitiesResponse = await resp.json();
 					setCapabilities(data.capabilities);
+					// Pre-select capability from query param (e.g. ?capability=talent-sourcing)
+					const preselected = searchParams.get("capability");
+					if (!isEdit && preselected) {
+						const match = data.capabilities.find(
+							(c) => c.capability_id === preselected
+						);
+						if (match) {
+							form.setFieldValue("capability_id", match.capability_id);
+						}
+					}
 				}
 			} catch {
 				// non-fatal; capabilities just won't be in dropdown
 			}
 		})();
-	}, [sessionToken]);
+	}, [sessionToken, searchParams, isEdit, form]);
 
 	// Load existing listing for edit mode
 	const fetchListing = useCallback(async () => {
@@ -79,6 +111,7 @@ export function MarketplaceListingFormPage() {
 					headline: data.headline,
 					description: data.description,
 				});
+				setListingStatus(data.status);
 			} else {
 				setError(t("listingForm.errors.loadFailed"));
 			}
@@ -105,60 +138,104 @@ export function MarketplaceListingFormPage() {
 		setError(null);
 		try {
 			const apiBaseUrl = await getApiBaseUrl();
-			let resp: Response;
+			let savedListing: MarketplaceListing | null = null;
+
 			if (isEdit && listing_id) {
 				const reqBody: UpdateListingRequest = {
 					listing_id,
 					headline: values.headline,
 					description: values.description,
 				};
-				resp = await fetch(`${apiBaseUrl}/org/marketplace/listings/update`, {
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-						Authorization: `Bearer ${sessionToken}`,
-					},
-					body: JSON.stringify(reqBody),
-				});
+				const resp = await fetch(
+					`${apiBaseUrl}/org/marketplace/listings/update`,
+					{
+						method: "POST",
+						headers: {
+							"Content-Type": "application/json",
+							Authorization: `Bearer ${sessionToken}`,
+						},
+						body: JSON.stringify(reqBody),
+					}
+				);
+				if (resp.status === 200) {
+					savedListing = await resp.json();
+				} else {
+					await handleError(resp);
+					return;
+				}
 			} else {
 				const reqBody: CreateListingRequest = {
 					capability_id: values.capability_id,
 					headline: values.headline,
 					description: values.description,
 				};
-				resp = await fetch(`${apiBaseUrl}/org/marketplace/listings/create`, {
+				const resp = await fetch(
+					`${apiBaseUrl}/org/marketplace/listings/create`,
+					{
+						method: "POST",
+						headers: {
+							"Content-Type": "application/json",
+							Authorization: `Bearer ${sessionToken}`,
+						},
+						body: JSON.stringify(reqBody),
+					}
+				);
+				if (resp.status === 200 || resp.status === 201) {
+					savedListing = await resp.json();
+				} else {
+					await handleError(resp);
+					return;
+				}
+			}
+
+			if (!savedListing) return;
+
+			// If Publish was requested and the listing is in draft, publish it now
+			if (
+				submitActionRef.current === "publish" &&
+				savedListing.status === "draft"
+			) {
+				const publishReq: PublishListingRequest = {
+					listing_id: savedListing.listing_id,
+				};
+				await fetch(`${apiBaseUrl}/org/marketplace/listings/publish`, {
 					method: "POST",
 					headers: {
 						"Content-Type": "application/json",
 						Authorization: `Bearer ${sessionToken}`,
 					},
-					body: JSON.stringify(reqBody),
+					body: JSON.stringify(publishReq),
 				});
+				// Navigate regardless of publish result — user can publish from detail page
 			}
-			if (resp.status === 200 || resp.status === 201) {
-				navigate("/marketplace/listings");
-			} else if (resp.status === 400) {
-				try {
-					const errs: { field: string; message: string }[] = await resp.json();
-					if (Array.isArray(errs) && errs.length > 0) {
-						setError(errs.map((e) => e.message).join("; "));
-					} else {
-						setError(t("listingForm.errors.saveFailed"));
-					}
-				} catch {
-					setError(t("listingForm.errors.saveFailed"));
-				}
-			} else if (resp.status === 422) {
-				setError(t("listingForm.errors.noOrgDomain"));
-			} else {
-				setError(t("listingForm.errors.saveFailed"));
-			}
-		} catch {
-			setError(t("listingForm.errors.saveFailed"));
+
+			navigate(`/marketplace/listings/${savedListing.listing_id}`);
 		} finally {
 			setSubmitting(false);
 		}
 	};
+
+	const handleError = async (resp: Response) => {
+		if (resp.status === 400) {
+			try {
+				const errs: { field: string; message: string }[] = await resp.json();
+				if (Array.isArray(errs) && errs.length > 0) {
+					setError(errs.map((e) => e.message).join("; "));
+				} else {
+					setError(t("listingForm.errors.saveFailed"));
+				}
+			} catch {
+				setError(t("listingForm.errors.saveFailed"));
+			}
+		} else if (resp.status === 422) {
+			setError(t("listingForm.errors.noOrgDomain"));
+		} else {
+			setError(t("listingForm.errors.saveFailed"));
+		}
+	};
+
+	const showPublishButton =
+		!isEdit || listingStatus === "draft" || listingStatus === null;
 
 	if (loading) return <Spin size="large" style={{ padding: 48 }} />;
 
@@ -251,14 +328,33 @@ export function MarketplaceListingFormPage() {
 								.getFieldsError()
 								.some(({ errors }) => errors.length > 0);
 							return (
-								<Button
-									type="primary"
-									htmlType="submit"
-									disabled={hasErrors}
-									loading={submitting}
-								>
-									{t("listingForm.submitButton")}
-								</Button>
+								<Space>
+									<Button
+										htmlType="submit"
+										disabled={hasErrors}
+										loading={submitting && submitActionRef.current === "draft"}
+										onClick={() => {
+											submitActionRef.current = "draft";
+										}}
+									>
+										{t("listingForm.saveDraftButton")}
+									</Button>
+									{showPublishButton && (
+										<Button
+											type="primary"
+											htmlType="submit"
+											disabled={hasErrors}
+											loading={
+												submitting && submitActionRef.current === "publish"
+											}
+											onClick={() => {
+												submitActionRef.current = "publish";
+											}}
+										>
+											{t("listingForm.publishButton")}
+										</Button>
+									)}
+								</Space>
 							);
 						}}
 					</Form.Item>
