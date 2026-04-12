@@ -227,12 +227,12 @@ records, then retrieves the full records from those regional DBs.
 
 Three marketplace tiles on the main org dashboard:
 
-| Tile                 | Route                        | Visible when                                                   |
-| -------------------- | ---------------------------- | -------------------------------------------------------------- |
-| **Browse Services**  | `/marketplace/discover`      | Any authenticated user                                         |
-| **My Subscriptions** | `/marketplace/subscriptions` | User has `org:manage_subscriptions` or `org:view_subscriptions`|
-| **My Listings**      | `/marketplace/listings`      | User has `org:manage_listings` or `org:view_listings`          |
-| **My Clients**       | `/marketplace/clients`       | User has `org:manage_listings` or `org:view_listings`          |
+| Tile                 | Route                        | Visible when                                                    |
+| -------------------- | ---------------------------- | --------------------------------------------------------------- |
+| **Browse Services**  | `/marketplace/discover`      | Any authenticated user                                          |
+| **My Subscriptions** | `/marketplace/subscriptions` | User has `org:manage_subscriptions` or `org:view_subscriptions` |
+| **My Listings**      | `/marketplace/listings`      | User has `org:manage_listings` or `org:view_listings`           |
+| **My Clients**       | `/marketplace/clients`       | User has `org:manage_listings` or `org:view_listings`           |
 
 ---
 

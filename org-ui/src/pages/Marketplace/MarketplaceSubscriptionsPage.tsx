@@ -1,14 +1,6 @@
 import { ArrowLeftOutlined } from "@ant-design/icons";
 import { useState, useCallback, useEffect } from "react";
-import {
-	Alert,
-	Button,
-	Segmented,
-	Spin,
-	Table,
-	Tag,
-	Typography,
-} from "antd";
+import { Alert, Button, Segmented, Spin, Table, Tag, Typography } from "antd";
 import type { TableColumnsType } from "antd";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router-dom";

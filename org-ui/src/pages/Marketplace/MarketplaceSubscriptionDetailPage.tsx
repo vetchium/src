@@ -188,9 +188,7 @@ export function MarketplaceSubscriptionDetailPage() {
 							type="link"
 							style={{ padding: 0 }}
 							onClick={() =>
-								navigate(
-									`/marketplace/discover/${subscription.listing_id}`
-								)
+								navigate(`/marketplace/discover/${subscription.listing_id}`)
 							}
 						>
 							{t("subscriptionDetail.viewListing")}
@@ -234,9 +232,7 @@ export function MarketplaceSubscriptionDetailPage() {
 						<Button
 							type="primary"
 							onClick={() =>
-								navigate(
-									`/marketplace/discover/${subscription.listing_id}`
-								)
+								navigate(`/marketplace/discover/${subscription.listing_id}`)
 							}
 						>
 							{t("subscriptionDetail.resubscribeButton")}

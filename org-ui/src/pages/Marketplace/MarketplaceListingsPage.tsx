@@ -145,9 +145,7 @@ export function MarketplaceListingsPage() {
 				<Button
 					type="link"
 					style={{ padding: 0 }}
-					onClick={() =>
-						navigate(`/marketplace/listings/${record.listing_id}`)
-					}
+					onClick={() => navigate(`/marketplace/listings/${record.listing_id}`)}
 				>
 					{text}
 				</Button>
@@ -188,9 +186,7 @@ export function MarketplaceListingsPage() {
 		}
 
 		if (capabilities.length === 0) {
-			return (
-				<Text type="secondary">{t("listings.noListings")}</Text>
-			);
+			return <Text type="secondary">{t("listings.noListings")}</Text>;
 		}
 
 		return (

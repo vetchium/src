@@ -120,17 +120,14 @@ export function MarketplaceListingDetailPage() {
 					limit: 20,
 					...(cursor && { pagination_key: cursor }),
 				};
-				const resp = await fetch(
-					`${apiBaseUrl}/org/marketplace/clients/list`,
-					{
-						method: "POST",
-						headers: {
-							"Content-Type": "application/json",
-							Authorization: `Bearer ${sessionToken}`,
-						},
-						body: JSON.stringify(reqBody),
-					}
-				);
+				const resp = await fetch(`${apiBaseUrl}/org/marketplace/clients/list`, {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${sessionToken}`,
+					},
+					body: JSON.stringify(reqBody),
+				});
 				if (resp.status === 200) {
 					const data: ListClientsResponse = await resp.json();
 					setSubscribers((prev) =>
