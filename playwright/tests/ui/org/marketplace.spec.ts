@@ -41,12 +41,7 @@ test.describe("Marketplace UI — provider listing and subscriber flow", () => {
 		const providerContext = await browser.newContext();
 		const providerPage = await providerContext.newPage();
 
-		await orgLogin(
-			providerPage,
-			providerDomain,
-			providerEmail,
-			TEST_PASSWORD
-		);
+		await orgLogin(providerPage, providerDomain, providerEmail, TEST_PASSWORD);
 
 		// Navigate directly to create listing with staffing capability pre-selected
 		// The form supports ?capability=<id> query param for pre-selection
@@ -59,9 +54,9 @@ test.describe("Marketplace UI — provider listing and subscriber flow", () => {
 
 		// Wait for capabilities to load and the staffing option to be pre-selected
 		// The form pre-selects the capability from the query param once capabilities arrive
-		await expect(
-			providerPage.locator("text=staffing — Staffing")
-		).toBeVisible({ timeout: 15000 });
+		await expect(providerPage.locator("text=staffing — Staffing")).toBeVisible({
+			timeout: 15000,
+		});
 
 		// Fill headline and description
 		const headline = `Staffing Service by ${providerDomain}`;
@@ -94,12 +89,7 @@ test.describe("Marketplace UI — provider listing and subscriber flow", () => {
 		const consumerContext = await browser.newContext();
 		const consumerPage = await consumerContext.newPage();
 
-		await orgLogin(
-			consumerPage,
-			consumerDomain,
-			consumerEmail,
-			TEST_PASSWORD
-		);
+		await orgLogin(consumerPage, consumerDomain, consumerEmail, TEST_PASSWORD);
 
 		// Navigate to Marketplace discover page
 		await consumerPage.goto(`${ORG_UI_URL}/marketplace/discover`);
@@ -113,9 +103,7 @@ test.describe("Marketplace UI — provider listing and subscriber flow", () => {
 		).toBeVisible({ timeout: 15000 });
 
 		// Click on the listing card
-		await consumerPage
-			.locator(".ant-card", { hasText: headline })
-			.click();
+		await consumerPage.locator(".ant-card", { hasText: headline }).click();
 
 		// Should be on the discover detail page
 		await expect(consumerPage).toHaveURL(
@@ -151,14 +139,14 @@ test.describe("Marketplace UI — provider listing and subscriber flow", () => {
 		).toBeVisible();
 
 		// Scroll down to the Subscribers section
-		await expect(
-			providerPage.locator("text=Subscribers")
-		).toBeVisible({ timeout: 10000 });
+		await expect(providerPage.locator("text=Subscribers")).toBeVisible({
+			timeout: 10000,
+		});
 
 		// The consumer's domain should appear in the subscribers table
-		await expect(
-			providerPage.locator("text=" + consumerDomain)
-		).toBeVisible({ timeout: 10000 });
+		await expect(providerPage.locator("text=" + consumerDomain)).toBeVisible({
+			timeout: 10000,
+		});
 
 		await providerContext.close();
 		await consumerContext.close();
