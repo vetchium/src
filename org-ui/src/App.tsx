@@ -36,7 +36,9 @@ import { MarketplaceDiscoverDetailPage } from "./pages/Marketplace/MarketplaceDi
 import { MarketplaceListingsPage } from "./pages/Marketplace/MarketplaceListingsPage";
 import { MarketplaceListingFormPage } from "./pages/Marketplace/MarketplaceListingFormPage";
 import { MarketplaceSubscriptionsPage } from "./pages/Marketplace/MarketplaceSubscriptionsPage";
+import { MarketplaceSubscriptionDetailPage } from "./pages/Marketplace/MarketplaceSubscriptionDetailPage";
 import { MarketplaceClientsPage } from "./pages/Marketplace/MarketplaceClientsPage";
+import { MarketplaceListingDetailPage } from "./pages/Marketplace/MarketplaceListingDetailPage";
 import {
 	BrowserRouter,
 	Routes,
@@ -455,6 +457,14 @@ function AppContent() {
 								}
 							/>
 							<Route
+								path="/marketplace/listings/:listing_id"
+								element={
+									<MarketplaceListingsRoute>
+										<MarketplaceListingDetailPage />
+									</MarketplaceListingsRoute>
+								}
+							/>
+							<Route
 								path="/marketplace/listings/:listing_id/edit"
 								element={
 									<MarketplaceListingsRoute>
@@ -467,6 +477,14 @@ function AppContent() {
 								element={
 									<MarketplaceSubscriptionsRoute>
 										<MarketplaceSubscriptionsPage />
+									</MarketplaceSubscriptionsRoute>
+								}
+							/>
+							<Route
+								path="/marketplace/subscriptions/:subscription_id"
+								element={
+									<MarketplaceSubscriptionsRoute>
+										<MarketplaceSubscriptionDetailPage />
 									</MarketplaceSubscriptionsRoute>
 								}
 							/>

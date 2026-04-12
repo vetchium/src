@@ -3,7 +3,6 @@ import { useState, useCallback, useEffect } from "react";
 import {
 	Alert,
 	Button,
-	Modal,
 	Segmented,
 	Spin,
 	Table,
@@ -12,16 +11,14 @@ import {
 } from "antd";
 import type { TableColumnsType } from "antd";
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
-import { useMyInfo } from "../../hooks/useMyInfo";
 import { getApiBaseUrl } from "../../config";
 import type {
 	ListSubscriptionsRequest,
 	ListSubscriptionsResponse,
 	MarketplaceSubscription,
 	MarketplaceSubscriptionStatus,
-	CancelSubscriptionRequest,
 } from "vetchium-specs/org/marketplace";
 
 const { Title, Text } = Typography;
@@ -36,12 +33,7 @@ const subscriptionStatusColors: Record<MarketplaceSubscriptionStatus, string> =
 export function MarketplaceSubscriptionsPage() {
 	const { t } = useTranslation("marketplace");
 	const { sessionToken } = useAuth();
-	const { data: myInfo } = useMyInfo(sessionToken);
-
-	const canManage =
-		myInfo?.roles.includes("org:superadmin") ||
-		myInfo?.roles.includes("org:manage_subscriptions") ||
-		false;
+	const navigate = useNavigate();
 
 	const [subscriptions, setSubscriptions] = useState<MarketplaceSubscription[]>(
 		[]
@@ -50,9 +42,6 @@ export function MarketplaceSubscriptionsPage() {
 	const [error, setError] = useState<string | null>(null);
 	const [paginationKey, setPaginationKey] = useState<string | null>(null);
 	const [loadingMore, setLoadingMore] = useState(false);
-
-	const [cancelTarget, setCancelTarget] = useState<string | null>(null);
-	const [cancelling, setCancelling] = useState(false);
 	const [filterMode, setFilterMode] = useState<"all" | "active" | "historical">(
 		"all"
 	);
@@ -110,34 +99,6 @@ export function MarketplaceSubscriptionsPage() {
 		fetchSubscriptions(null, false, filterMode);
 	}, [fetchSubscriptions, filterMode]);
 
-	const handleCancel = async () => {
-		if (!sessionToken || !cancelTarget) return;
-		setCancelling(true);
-		try {
-			const apiBaseUrl = await getApiBaseUrl();
-			const reqBody: CancelSubscriptionRequest = {
-				subscription_id: cancelTarget,
-			};
-			const resp = await fetch(
-				`${apiBaseUrl}/org/marketplace/subscriptions/cancel`,
-				{
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-						Authorization: `Bearer ${sessionToken}`,
-					},
-					body: JSON.stringify(reqBody),
-				}
-			);
-			if (resp.status === 200) {
-				setCancelTarget(null);
-				fetchSubscriptions(null, false, filterMode);
-			}
-		} finally {
-			setCancelling(false);
-		}
-	};
-
 	const columns: TableColumnsType<MarketplaceSubscription> = [
 		{
 			title: t("subscriptions.columns.provider"),
@@ -166,24 +127,6 @@ export function MarketplaceSubscriptionsPage() {
 			key: "started_at",
 			render: (date: string) => new Date(date).toLocaleDateString(),
 		},
-		...(canManage
-			? [
-					{
-						title: t("subscriptions.columns.actions"),
-						key: "actions",
-						render: (_: unknown, record: MarketplaceSubscription) =>
-							record.status === "active" ? (
-								<Button
-									size="small"
-									danger
-									onClick={() => setCancelTarget(record.subscription_id)}
-								>
-									{t("subscriptions.cancelButton")}
-								</Button>
-							) : null,
-					},
-				]
-			: []),
 	];
 
 	return (
@@ -232,6 +175,13 @@ export function MarketplaceSubscriptionsPage() {
 						columns={columns}
 						rowKey="subscription_id"
 						pagination={false}
+						onRow={(record) => ({
+							onClick: () =>
+								navigate(
+									`/marketplace/subscriptions/${record.subscription_id}`
+								),
+							style: { cursor: "pointer" },
+						})}
 						locale={{
 							emptyText: (
 								<Text type="secondary">
@@ -255,16 +205,6 @@ export function MarketplaceSubscriptionsPage() {
 					)}
 				</>
 			)}
-
-			<Modal
-				title={t("subscriptions.cancelTitle")}
-				open={!!cancelTarget}
-				onOk={handleCancel}
-				onCancel={() => setCancelTarget(null)}
-				confirmLoading={cancelling}
-			>
-				{t("subscriptions.cancelConfirm")}
-			</Modal>
 		</div>
 	);
 }

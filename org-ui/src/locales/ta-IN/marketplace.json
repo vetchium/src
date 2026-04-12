@@ -31,13 +31,15 @@
 
 	"listings": {
 		"title": "என் பட்டியல்கள்",
-		"noListings": "இன்னும் பட்டியல்கள் இல்லை. உங்கள் முதல் பட்டியலை உருவாக்குங்கள்.",
+		"noListings": "இன்னும் பட்டியல்கள் இல்லை.",
 		"loadMore": "மேலும் ஏற்று",
 		"createButton": "பட்டியல் உருவாக்கு",
 		"publishButton": "வெளியிடு",
 		"archiveButton": "காப்பகப்படுத்து",
 		"reopenButton": "மீண்டும் திற",
 		"editButton": "திருத்து",
+		"emptyStateDescription": "Vetchium மார்க்கெட்பிளேசில் உங்கள் நிறுவனத்தின் சேவைகளை பட்டியலிடுங்கள். மற்ற நிறுவனங்கள் உங்கள் சேவைகளை கண்டறிந்து சந்தா செய்யலாம்.",
+		"emptyStateCreateButton": "பட்டியல் உருவாக்கு",
 		"columns": {
 			"headline": "தலைப்பு",
 			"capability": "திறன்",
@@ -53,7 +55,49 @@
 			"archived": "காப்பகப்படுத்தப்பட்டது"
 		},
 		"errors": {
-			"loadFailed": "பட்டியல்களை ஏற்றுவதில் தோல்வி"
+			"loadFailed": "பட்டியல்களை ஏற்றுவதில் தோல்வி",
+			"capabilitiesLoadFailed": "திறன்களை ஏற்றுவதில் தோல்வி"
+		}
+	},
+
+	"listingDetail": {
+		"backToListings": "என் பட்டியல்களுக்கு திரும்பு",
+		"headline": "தலைப்பு",
+		"capability": "திறன்",
+		"status": "நிலை",
+		"description": "விளக்கம்",
+		"listedAt": "பட்டியலிடப்பட்ட தேதி",
+		"createdAt": "உருவாக்கப்பட்டது",
+		"suspensionNote": "நிறுத்த காரணம்",
+		"suspensionNoteHint": "இந்த பட்டியல் Vetchium ஆல் நிறுத்தப்பட்டது. தொடர்புக்கு ஆதரவை தொடர்பு கொள்ளுங்கள்.",
+		"editButton": "திருத்து",
+		"publishButton": "வெளியிடு",
+		"archiveButton": "காப்பகப்படுத்து",
+		"reopenButton": "மீண்டும் திற",
+		"publishConfirmTitle": "பட்டியலை வெளியிடு",
+		"publishConfirm": "இந்த பட்டியலை அனைத்து நிறுவனங்களுக்கும் காட்டவா?",
+		"archiveConfirmTitle": "பட்டியலை காப்பகப்படுத்து",
+		"archiveConfirm": "இந்த பட்டியலை மார்க்கெட்பிளேசிலிருந்து அகற்றவா? செயலில் உள்ள சந்தாக்கள் தானாக ரத்து ஆகாது.",
+		"reopenConfirmTitle": "பட்டியலை மீண்டும் திற",
+		"reopenConfirm": "இந்த பட்டியலை வரைவு நிலைக்கு மாற்றவா?",
+		"subscribersTitle": "சந்தாதாரர்கள்",
+		"noSubscribers": "இன்னும் செயலில் உள்ள சந்தாதாரர்கள் இல்லை.",
+		"loadMoreSubscribers": "மேலும் ஏற்று",
+		"subscriberColumns": {
+			"consumer": "வாடிக்கையாளர்",
+			"since": "சந்தா தொடங்கியது",
+			"note": "குறிப்பு"
+		},
+		"statuses": {
+			"draft": "வரைவு",
+			"active": "செயலில்",
+			"suspended": "நிறுத்தப்பட்டது",
+			"archived": "காப்பகப்படுத்தப்பட்டது"
+		},
+		"errors": {
+			"loadFailed": "பட்டியலை ஏற்றுவதில் தோல்வி",
+			"actionFailed": "செயல் தோல்வியுற்றது",
+			"subscribersLoadFailed": "சந்தாதாரர்களை ஏற்றுவதில் தோல்வி"
 		}
 	},
 
@@ -87,15 +131,11 @@
 		"filterAll": "அனைத்தும்",
 		"filterActive": "செயலில்",
 		"filterHistorical": "வரலாற்று",
-		"cancelButton": "ரத்து செய்",
-		"cancelTitle": "சந்தாவை ரத்து செய்",
-		"cancelConfirm": "இந்த சந்தாவை ரத்து செய்ய விரும்புகிறீர்களா?",
 		"columns": {
 			"provider": "வழங்குநர்",
 			"capability": "திறன்",
 			"status": "நிலை",
-			"startedAt": "தொடங்கியது",
-			"actions": "செயல்கள்"
+			"startedAt": "தொடங்கியது"
 		},
 		"statuses": {
 			"active": "செயலில்",
@@ -104,6 +144,32 @@
 		},
 		"errors": {
 			"loadFailed": "சந்தாக்களை ஏற்றுவதில் தோல்வி"
+		}
+	},
+
+	"subscriptionDetail": {
+		"backToSubscriptions": "என் சந்தாக்களுக்கு திரும்பு",
+		"provider": "வழங்குநர்",
+		"capability": "திறன்",
+		"listingId": "பட்டியல்",
+		"requestNote": "கோரிக்கை குறிப்பு",
+		"status": "நிலை",
+		"startedAt": "தொடங்கியது",
+		"expiresAt": "காலாவதி",
+		"cancelledAt": "ரத்து செய்யப்பட்ட தேதி",
+		"cancelButton": "சந்தாவை ரத்து செய்",
+		"cancelTitle": "சந்தாவை ரத்து செய்",
+		"cancelConfirm": "இந்த சந்தாவை ரத்து செய்ய விரும்புகிறீர்களா?",
+		"resubscribeButton": "மீண்டும் சந்தா செய்",
+		"viewListing": "பட்டியலை காண்",
+		"statuses": {
+			"active": "செயலில்",
+			"cancelled": "ரத்து செய்யப்பட்டது",
+			"expired": "காலாவதியானது"
+		},
+		"errors": {
+			"loadFailed": "சந்தாவை ஏற்றுவதில் தோல்வி",
+			"cancelFailed": "ரத்து செய்வதில் தோல்வி"
 		}
 	},
 

@@ -31,13 +31,15 @@
 
 	"listings": {
 		"title": "My Listings",
-		"noListings": "No listings yet. Create your first listing.",
+		"noListings": "No listings yet.",
 		"loadMore": "Load More",
 		"createButton": "Create Listing",
 		"publishButton": "Publish",
 		"archiveButton": "Archive",
 		"reopenButton": "Reopen",
 		"editButton": "Edit",
+		"emptyStateDescription": "List your organization's services on the Vetchium Marketplace. Other organizations can discover and subscribe to your offerings.",
+		"emptyStateCreateButton": "Create Listing",
 		"columns": {
 			"headline": "Headline",
 			"capability": "Capability",
@@ -53,7 +55,49 @@
 			"archived": "Archived"
 		},
 		"errors": {
-			"loadFailed": "Failed to load listings"
+			"loadFailed": "Failed to load listings",
+			"capabilitiesLoadFailed": "Failed to load capabilities"
+		}
+	},
+
+	"listingDetail": {
+		"backToListings": "Back to My Listings",
+		"headline": "Headline",
+		"capability": "Capability",
+		"status": "Status",
+		"description": "Description",
+		"listedAt": "Listed At",
+		"createdAt": "Created",
+		"suspensionNote": "Suspension Note",
+		"suspensionNoteHint": "This listing has been suspended by Vetchium. Contact support to resolve.",
+		"editButton": "Edit",
+		"publishButton": "Publish",
+		"archiveButton": "Archive",
+		"reopenButton": "Reopen",
+		"publishConfirmTitle": "Publish Listing",
+		"publishConfirm": "Make this listing visible to all organizations?",
+		"archiveConfirmTitle": "Archive Listing",
+		"archiveConfirm": "Remove this listing from the marketplace? Active subscribers will not be automatically cancelled.",
+		"reopenConfirmTitle": "Reopen Listing",
+		"reopenConfirm": "Move this listing back to draft status?",
+		"subscribersTitle": "Subscribers",
+		"noSubscribers": "No active subscribers yet.",
+		"loadMoreSubscribers": "Load More",
+		"subscriberColumns": {
+			"consumer": "Consumer",
+			"since": "Subscribed Since",
+			"note": "Note"
+		},
+		"statuses": {
+			"draft": "Draft",
+			"active": "Active",
+			"suspended": "Suspended",
+			"archived": "Archived"
+		},
+		"errors": {
+			"loadFailed": "Failed to load listing",
+			"actionFailed": "Action failed",
+			"subscribersLoadFailed": "Failed to load subscribers"
 		}
 	},
 
@@ -87,15 +131,11 @@
 		"filterAll": "All",
 		"filterActive": "Active",
 		"filterHistorical": "Historical",
-		"cancelButton": "Cancel",
-		"cancelTitle": "Cancel Subscription",
-		"cancelConfirm": "Are you sure you want to cancel this subscription?",
 		"columns": {
 			"provider": "Provider",
 			"capability": "Capability",
 			"status": "Status",
-			"startedAt": "Started",
-			"actions": "Actions"
+			"startedAt": "Started"
 		},
 		"statuses": {
 			"active": "Active",
@@ -104,6 +144,32 @@
 		},
 		"errors": {
 			"loadFailed": "Failed to load subscriptions"
+		}
+	},
+
+	"subscriptionDetail": {
+		"backToSubscriptions": "Back to My Subscriptions",
+		"provider": "Provider",
+		"capability": "Capability",
+		"listingId": "Listing",
+		"requestNote": "Request Note",
+		"status": "Status",
+		"startedAt": "Started",
+		"expiresAt": "Expires",
+		"cancelledAt": "Cancelled At",
+		"cancelButton": "Cancel Subscription",
+		"cancelTitle": "Cancel Subscription",
+		"cancelConfirm": "Are you sure you want to cancel this subscription?",
+		"resubscribeButton": "Re-subscribe",
+		"viewListing": "View Listing",
+		"statuses": {
+			"active": "Active",
+			"cancelled": "Cancelled",
+			"expired": "Expired"
+		},
+		"errors": {
+			"loadFailed": "Failed to load subscription",
+			"cancelFailed": "Failed to cancel subscription"
 		}
 	},
 

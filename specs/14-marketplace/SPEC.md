@@ -227,59 +227,52 @@ records, then retrieves the full records from those regional DBs.
 
 Three marketplace tiles on the main org dashboard:
 
-| Tile                    | Route                        | Visible when                                          |
-| ----------------------- | ---------------------------- | ----------------------------------------------------- |
-| **My Listings**         | `/marketplace/listings`      | User has `org:manage_listings` or `org:view_listings` |
-| **Browse Capabilities** | `/marketplace/capabilities`  | Any authenticated user                                |
-| **My Subscriptions**    | `/marketplace/subscriptions` | Any authenticated user                                |
+| Tile                 | Route                        | Visible when                                                   |
+| -------------------- | ---------------------------- | -------------------------------------------------------------- |
+| **Browse Services**  | `/marketplace/discover`      | Any authenticated user                                         |
+| **My Subscriptions** | `/marketplace/subscriptions` | User has `org:manage_subscriptions` or `org:view_subscriptions`|
+| **My Listings**      | `/marketplace/listings`      | User has `org:manage_listings` or `org:view_listings`          |
+| **My Clients**       | `/marketplace/clients`       | User has `org:manage_listings` or `org:view_listings`          |
 
 ---
 
-### 7.2 `/marketplace/capabilities` — Browse Capabilities
+### 7.2 `/marketplace/discover` — Browse Listings
 
-Lists all Capabilities with `status = active`. Each card shows:
+Shows a flat paginated list of all active Listings across all Capabilities. Each card shows:
 
-- Capability display name
-- Short description
-- Number of active Listings
-
-Clicking a card navigates to the Capability detail page.
-
----
-
-### 7.3 `/marketplace/capabilities/:capability_id` — Capability Detail
-
-Shows the full Capability description. Below it, lists all Listings with `status = active`
-for this Capability. Each Listing card shows:
-
-- Provider org domain
 - Listing headline
-- Description (truncated)
+- Provider org domain
+- Capability tag
+- Description (truncated to 3 lines)
 
-If the viewing org has an active Subscription to a particular Listing, that card shows a
-**"Subscribed"** badge.
+A flat list is preferred over a capability-first browse because providers typically know
+what service category they want, and the capability tag on each card gives sufficient
+context without the extra navigation step.
 
-Clicking a Listing card navigates to the Listing detail page (buyer view).
+Clicking a card navigates to the Listing detail page (buyer view).
 
 ---
 
-### 7.4 `/marketplace/capabilities/:capability_id/listings/:listing_id` — Listing Detail (Buyer View)
+### 7.3 `/marketplace/discover/:listing_id` — Listing Detail (Buyer View)
 
 Full Listing page from the buyer's perspective:
 
 - Headline
-- Full markdown description
+- Provider org domain
+- Capability tag
+- Full description
+- Listed date
 
 If the viewing org does not have an active Subscription to this Listing, a
 **"Subscribe"** button is shown. Clicking it opens a panel with an optional request note
 field and a confirm button. On confirm, the Subscription is created immediately.
 
-If a Subscription exists in a terminal state (cancelled or expired), a **"Re-subscribe"**
-button is shown instead.
+If a Subscription already exists in a terminal state (cancelled or expired), a
+**"Re-subscribe"** button is shown instead.
 
 ---
 
-### 7.5 `/marketplace/listings` — My Listings (Provider Dashboard)
+### 7.4 `/marketplace/listings` — My Listings (Provider Dashboard)
 
 **Empty state (org has no Listings):**
 
@@ -305,7 +298,7 @@ Capability picker (same grid as the empty state), then navigates to the Create L
 
 ---
 
-### 7.6 `/marketplace/listings/new` — Create Listing
+### 7.5 `/marketplace/listings/new` — Create Listing
 
 **Step 1 — Pick a Capability** (skipped when arriving from a Capability card):
 
@@ -322,9 +315,10 @@ Two actions:
 
 ---
 
-### 7.7 `/marketplace/listings/:listing_id` — Manage One Listing
+### 7.6 `/marketplace/listings/:listing_id` — Manage One Listing
 
-Operational hub for a specific Listing. Two sections:
+Operational hub for a specific Listing. Reached by clicking a listing name in the My
+Listings table.
 
 **Listing section:**
 
@@ -339,7 +333,9 @@ Shows current status, all listing fields, and available actions:
 
 **Subscribers section** (shown when Listing is `active`):
 
-Table of Consumer Orgs currently subscribed to this Listing:
+Table of Consumer Orgs currently subscribed to **this specific Listing** (not all
+listings). This per-listing view is more useful than a global client list when a provider
+has multiple listings.
 
 | Organization | Subscribed Since | Note                      |
 | ------------ | ---------------- | ------------------------- |
@@ -348,7 +344,7 @@ Table of Consumer Orgs currently subscribed to this Listing:
 
 ---
 
-### 7.8 `/marketplace/listings/:listing_id/edit` — Edit Listing
+### 7.7 `/marketplace/listings/:listing_id/edit` — Edit Listing
 
 Same form as Create Listing Step 2, pre-populated with the existing Listing's values.
 
@@ -359,36 +355,52 @@ remains visible to buyers while the edit is in progress.
 
 ---
 
-### 7.9 `/marketplace/subscriptions` — My Subscriptions (Consumer View)
+### 7.8 `/marketplace/subscriptions` — My Subscriptions (Consumer View)
 
 Lists all Subscriptions where the viewing org is the Consumer. Each row shows:
 
 - Provider org domain
-- Capability display name
-- Listing headline
+- Capability
 - Status
 - Subscribed since date
 
-A status filter (All / Active / Historical) narrows the list. "Historical" covers both `cancelled` and `expired` subscriptions and maps to `include_historical: true` in the API request.
+A status filter (All / Active / Historical) narrows the list. "Historical" covers both
+`cancelled` and `expired` subscriptions and maps to `include_historical: true` in the
+API request.
 
 Clicking a row navigates to the Subscription detail page.
 
 ---
 
-### 7.10 `/marketplace/subscriptions/:subscription_id` — Subscription Detail
+### 7.9 `/marketplace/subscriptions/:subscription_id` — Subscription Detail
 
 Full Subscription details:
 
 - Provider org domain
-- Capability display name
-- Listing headline
+- Capability
 - Request note (if provided)
-- Status and dates
+- Status and dates (started, expires, cancelled)
 
 For `active` Subscriptions: **"Cancel Subscription"** button with a confirmation dialog.
 
 For cancelled or expired Subscriptions: **"Re-subscribe"** button that navigates to the
-Listing detail page (7.4), where the provider's current listing is shown.
+Listing detail page (7.3), where the provider's current listing is shown.
+
+---
+
+### 7.10 `/marketplace/clients` — My Clients (Provider View)
+
+Lists all active and historical Subscriptions where the viewing org is the Provider,
+across all their Listings. Each row shows:
+
+- Consumer org domain
+- Capability
+- Status
+- Started date
+- Expires date (if set)
+
+This is a global view across all listings. For a per-listing subscriber view, see the
+Subscribers section within 7.6.
 
 ---
 

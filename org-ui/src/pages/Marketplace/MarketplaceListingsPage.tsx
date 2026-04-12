@@ -1,6 +1,16 @@
 import { ArrowLeftOutlined, PlusOutlined } from "@ant-design/icons";
 import { useState, useCallback, useEffect } from "react";
-import { Alert, Button, Space, Spin, Table, Tag, Typography } from "antd";
+import {
+	Alert,
+	Button,
+	Card,
+	Col,
+	Row,
+	Spin,
+	Table,
+	Tag,
+	Typography,
+} from "antd";
 import type { TableColumnsType } from "antd";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router-dom";
@@ -12,12 +22,12 @@ import type {
 	ListMyListingsResponse,
 	MarketplaceListing,
 	MarketplaceListingStatus,
-	PublishListingRequest,
-	ArchiveListingRequest,
-	ReopenListingRequest,
+	ListMarketplaceCapabilitiesRequest,
+	ListMarketplaceCapabilitiesResponse,
+	MarketplaceCapability,
 } from "vetchium-specs/org/marketplace";
 
-const { Title, Text } = Typography;
+const { Title, Text, Paragraph } = Typography;
 
 const listingStatusColors: Record<MarketplaceListingStatus, string> = {
 	draft: "default",
@@ -42,7 +52,11 @@ export function MarketplaceListingsPage() {
 	const [error, setError] = useState<string | null>(null);
 	const [paginationKey, setPaginationKey] = useState<string | null>(null);
 	const [loadingMore, setLoadingMore] = useState(false);
-	const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+	const [capabilities, setCapabilities] = useState<MarketplaceCapability[]>([]);
+	const [capabilitiesError, setCapabilitiesError] = useState<string | null>(
+		null
+	);
 
 	const fetchListings = useCallback(
 		async (cursor: string | null, append: boolean) => {
@@ -84,84 +98,43 @@ export function MarketplaceListingsPage() {
 		[sessionToken, t]
 	);
 
+	const fetchCapabilities = useCallback(async () => {
+		if (!sessionToken) return;
+		try {
+			const apiBaseUrl = await getApiBaseUrl();
+			const reqBody: ListMarketplaceCapabilitiesRequest = { limit: 50 };
+			const resp = await fetch(
+				`${apiBaseUrl}/org/marketplace/capabilities/list`,
+				{
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${sessionToken}`,
+					},
+					body: JSON.stringify(reqBody),
+				}
+			);
+			if (resp.status === 200) {
+				const data: ListMarketplaceCapabilitiesResponse = await resp.json();
+				setCapabilities(data.capabilities);
+			} else {
+				setCapabilitiesError(t("listings.errors.capabilitiesLoadFailed"));
+			}
+		} catch {
+			setCapabilitiesError(t("listings.errors.capabilitiesLoadFailed"));
+		}
+	}, [sessionToken, t]);
+
 	useEffect(() => {
 		fetchListings(null, false);
 	}, [fetchListings]);
 
-	const handlePublish = async (listingId: string) => {
-		if (!sessionToken) return;
-		setActionLoading(listingId);
-		try {
-			const apiBaseUrl = await getApiBaseUrl();
-			const reqBody: PublishListingRequest = { listing_id: listingId };
-			const resp = await fetch(
-				`${apiBaseUrl}/org/marketplace/listings/publish`,
-				{
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-						Authorization: `Bearer ${sessionToken}`,
-					},
-					body: JSON.stringify(reqBody),
-				}
-			);
-			if (resp.status === 200) {
-				fetchListings(null, false);
-			}
-		} finally {
-			setActionLoading(null);
+	useEffect(() => {
+		// Only fetch capabilities when listings are done loading and empty
+		if (!loading && listings.length === 0 && canManage) {
+			fetchCapabilities();
 		}
-	};
-
-	const handleArchive = async (listingId: string) => {
-		if (!sessionToken) return;
-		setActionLoading(listingId);
-		try {
-			const apiBaseUrl = await getApiBaseUrl();
-			const reqBody: ArchiveListingRequest = { listing_id: listingId };
-			const resp = await fetch(
-				`${apiBaseUrl}/org/marketplace/listings/archive`,
-				{
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-						Authorization: `Bearer ${sessionToken}`,
-					},
-					body: JSON.stringify(reqBody),
-				}
-			);
-			if (resp.status === 200) {
-				fetchListings(null, false);
-			}
-		} finally {
-			setActionLoading(null);
-		}
-	};
-
-	const handleReopen = async (listingId: string) => {
-		if (!sessionToken) return;
-		setActionLoading(listingId);
-		try {
-			const apiBaseUrl = await getApiBaseUrl();
-			const reqBody: ReopenListingRequest = { listing_id: listingId };
-			const resp = await fetch(
-				`${apiBaseUrl}/org/marketplace/listings/reopen`,
-				{
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-						Authorization: `Bearer ${sessionToken}`,
-					},
-					body: JSON.stringify(reqBody),
-				}
-			);
-			if (resp.status === 200) {
-				fetchListings(null, false);
-			}
-		} finally {
-			setActionLoading(null);
-		}
-	};
+	}, [loading, listings.length, canManage, fetchCapabilities]);
 
 	const columns: TableColumnsType<MarketplaceListing> = [
 		{
@@ -173,7 +146,7 @@ export function MarketplaceListingsPage() {
 					type="link"
 					style={{ padding: 0 }}
 					onClick={() =>
-						navigate(`/marketplace/listings/${record.listing_id}/edit`)
+						navigate(`/marketplace/listings/${record.listing_id}`)
 					}
 				>
 					{text}
@@ -207,60 +180,66 @@ export function MarketplaceListingsPage() {
 			key: "created_at",
 			render: (date: string) => new Date(date).toLocaleDateString(),
 		},
-		...(canManage
-			? [
-					{
-						title: t("listings.columns.actions"),
-						key: "actions",
-						render: (_: unknown, record: MarketplaceListing) => (
-							<Space>
-								{record.status === "draft" && (
-									<Button
-										size="small"
-										type="primary"
-										loading={actionLoading === record.listing_id}
-										onClick={() => handlePublish(record.listing_id)}
-									>
-										{t("listings.publishButton")}
-									</Button>
-								)}
-								{record.status === "active" && (
-									<Button
-										size="small"
-										danger
-										loading={actionLoading === record.listing_id}
-										onClick={() => handleArchive(record.listing_id)}
-									>
-										{t("listings.archiveButton")}
-									</Button>
-								)}
-								{record.status === "archived" && (
-									<Button
-										size="small"
-										loading={actionLoading === record.listing_id}
-										onClick={() => handleReopen(record.listing_id)}
-									>
-										{t("listings.reopenButton")}
-									</Button>
-								)}
-								{(record.status === "draft" || record.status === "active") && (
-									<Button
-										size="small"
-										onClick={() =>
-											navigate(
-												`/marketplace/listings/${record.listing_id}/edit`
-											)
-										}
-									>
-										{t("listings.editButton")}
-									</Button>
-								)}
-							</Space>
-						),
-					},
-				]
-			: []),
 	];
+
+	const renderEmptyState = () => {
+		if (capabilitiesError) {
+			return <Alert type="error" title={capabilitiesError} />;
+		}
+
+		if (capabilities.length === 0) {
+			return (
+				<Text type="secondary">{t("listings.noListings")}</Text>
+			);
+		}
+
+		return (
+			<>
+				<Paragraph style={{ marginBottom: 24 }}>
+					{t("listings.emptyStateDescription")}
+				</Paragraph>
+				<Row gutter={[16, 16]}>
+					{capabilities.map((cap) => (
+						<Col key={cap.capability_id} xs={24} sm={12} lg={8}>
+							<Card
+								hoverable
+								style={{ height: "100%" }}
+								actions={
+									canManage
+										? [
+												<Button
+													type="primary"
+													key="create"
+													onClick={() =>
+														navigate(
+															`/marketplace/listings/new?capability=${cap.capability_id}`
+														)
+													}
+												>
+													{t("listings.emptyStateCreateButton")}
+												</Button>,
+											]
+										: undefined
+								}
+							>
+								<Card.Meta
+									title={cap.display_name}
+									description={
+										<Paragraph
+											ellipsis={{ rows: 3 }}
+											style={{ marginBottom: 0 }}
+										>
+											{cap.description}
+										</Paragraph>
+									}
+								/>
+							</Card>
+						</Col>
+					))}
+				</Row>
+			</>
+		);
+	};
 
 	return (
 		<div
@@ -288,7 +267,7 @@ export function MarketplaceListingsPage() {
 				<Title level={2} style={{ margin: 0 }}>
 					{t("listings.title")}
 				</Title>
-				{canManage && (
+				{canManage && listings.length > 0 && (
 					<Button
 						type="primary"
 						icon={<PlusOutlined />}
@@ -303,6 +282,8 @@ export function MarketplaceListingsPage() {
 				<Spin size="large" />
 			) : error ? (
 				<Alert type="error" title={error} />
+			) : listings.length === 0 ? (
+				renderEmptyState()
 			) : (
 				<>
 					<Table
