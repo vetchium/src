@@ -126,6 +126,7 @@ test.describe("Org Marketplace API", () => {
 		consumerOrgDomain = consumerOrg.domain;
 		consumerOrgUserId = consumerOrg.orgUserId;
 		await assignRoleToOrgUser(consumerOrgUserId, "org:manage_subscriptions");
+		await assignRoleToOrgUser(consumerOrgUserId, "org:view_audit_logs");
 		consumerToken = await loginOrgUser(
 			orgApi,
 			consumerEmail,
@@ -417,9 +418,17 @@ test.describe("Org Marketplace API", () => {
 			expect(subRes.body!.status).toBe("active");
 			subscriptionId = subRes.body!.subscription_id;
 
-			// Audit log for subscription on consumer side - consumer doesn't have view_audit_logs
-			// so just check the subscription was created
-			expect(subscriptionId).toBeDefined();
+			// Audit log assertion for subscription creation
+			const auditRes = await api.filterAuditLogs(consumerToken, {
+				event_types: ["org.marketplace_subscription_created"],
+				limit: 5,
+			});
+			expect(auditRes.status).toBe(200);
+			const found = auditRes.body!.audit_logs.find(
+				(e) => e.event_data["listing_id"] === subListingId
+			);
+			expect(found).toBeDefined();
+			expect(found!.event_type).toBe("org.marketplace_subscription_created");
 		});
 
 		test("consumer can list their subscriptions (200)", async ({ request }) => {
@@ -493,6 +502,18 @@ test.describe("Org Marketplace API", () => {
 			const res = await api.cancelSubscription(consumerToken, req);
 			expect(res.status).toBe(200);
 			expect(res.body!.status).toBe("cancelled");
+
+			// Audit log assertion for subscription cancellation
+			const auditRes = await api.filterAuditLogs(consumerToken, {
+				event_types: ["org.marketplace_subscription_cancelled"],
+				limit: 5,
+			});
+			expect(auditRes.status).toBe(200);
+			const found = auditRes.body!.audit_logs.find(
+				(e) => e.event_data["subscription_id"] === subscriptionId
+			);
+			expect(found).toBeDefined();
+			expect(found!.event_type).toBe("org.marketplace_subscription_cancelled");
 		});
 
 		test("consumer can list historical subscriptions after cancel (200)", async ({
