@@ -275,7 +275,70 @@ CREATE INDEX idx_audit_logs_created_at_id ON audit_logs(created_at DESC, id DESC
 CREATE INDEX idx_audit_logs_actor_user_id ON audit_logs(actor_user_id);
 CREATE INDEX idx_audit_logs_org_created_at_id ON audit_logs(org_id, created_at DESC, id DESC);
 CREATE INDEX idx_audit_logs_event_type ON audit_logs(event_type);
+
+-- Marketplace
+CREATE TYPE marketplace_listing_status AS ENUM ('draft','pending_review','active','suspended','archived');
+CREATE TYPE marketplace_subscription_status AS ENUM ('active','cancelled','expired');
+
+-- Per-org atomic listing number counter
+CREATE TABLE org_marketplace_listing_counters (
+    org_id            UUID NOT NULL REFERENCES orgs(org_id) ON DELETE CASCADE PRIMARY KEY,
+    last_listing_number INT NOT NULL DEFAULT 0
+);
+
+CREATE TABLE marketplace_listings (
+    listing_id        UUID NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
+    org_id            UUID NOT NULL REFERENCES orgs(org_id),
+    org_domain        TEXT NOT NULL,
+    listing_number    INT  NOT NULL,
+    headline          TEXT NOT NULL CHECK (char_length(headline) <= 100),
+    description       TEXT NOT NULL CHECK (char_length(description) <= 10000),
+    status            marketplace_listing_status NOT NULL DEFAULT 'draft',
+    suspension_note   TEXT,
+    rejection_note    TEXT,
+    listed_at         TIMESTAMPTZ,
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (org_id, listing_number)
+);
+
+CREATE TABLE marketplace_listing_capabilities (
+    listing_id      UUID NOT NULL REFERENCES marketplace_listings(listing_id) ON DELETE CASCADE,
+    capability_id   TEXT NOT NULL,
+    added_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    removed_at      TIMESTAMPTZ,
+    PRIMARY KEY (listing_id, capability_id)
+);
+CREATE INDEX idx_marketplace_listings_org ON marketplace_listings(org_id, status, updated_at DESC);
+
+CREATE TABLE marketplace_subscriptions (
+    subscription_id           UUID NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
+    listing_id                UUID NOT NULL,
+    consumer_org_id           UUID NOT NULL REFERENCES orgs(org_id),
+    consumer_org_domain       TEXT NOT NULL,
+    provider_org_id           UUID NOT NULL,
+    provider_org_domain       TEXT NOT NULL,
+    provider_listing_number   INT  NOT NULL,
+    request_note              TEXT NOT NULL DEFAULT '' CHECK (char_length(request_note) <= 2000),
+    status                    marketplace_subscription_status NOT NULL DEFAULT 'active',
+    started_at                TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    expires_at                TIMESTAMPTZ,
+    cancelled_at              TIMESTAMPTZ,
+    created_at                TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at                TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (consumer_org_id, listing_id)
+);
+CREATE INDEX idx_marketplace_subscriptions_consumer ON marketplace_subscriptions(consumer_org_id, status, updated_at DESC);
+
 -- +goose Down
+DROP INDEX IF EXISTS idx_marketplace_subscriptions_consumer;
+DROP TABLE IF EXISTS marketplace_subscriptions;
+DROP INDEX IF EXISTS idx_marketplace_listings_org;
+DROP TABLE IF EXISTS marketplace_listing_capabilities;
+DROP TABLE IF EXISTS marketplace_listings;
+DROP TABLE IF EXISTS org_marketplace_listing_counters;
+DROP TYPE IF EXISTS marketplace_subscription_status;
+DROP TYPE IF EXISTS marketplace_listing_status;
 DROP INDEX IF EXISTS idx_audit_logs_event_type;
 DROP INDEX IF EXISTS idx_audit_logs_org_created_at_id;
 DROP INDEX IF EXISTS idx_audit_logs_actor_user_id;

@@ -33,6 +33,8 @@ func RegisterAdminGlobalRoutes(mux *http.ServeMux, s *server.GlobalServer) {
 	adminRoleViewAuditLogs := middleware.AdminRole(s.Global, adminspec.AdminRoleViewAuditLogs)
 	adminRoleViewOrgSubscriptions := middleware.AdminRole(s.Global, adminspec.AdminRoleViewOrgSubscriptions, adminspec.AdminRoleManageOrgSubscriptions)
 	adminRoleManageOrgSubscriptions := middleware.AdminRole(s.Global, adminspec.AdminRoleManageOrgSubscriptions)
+	adminRoleViewMarketplace := middleware.AdminRole(s.Global, adminspec.AdminRoleViewMarketplace, adminspec.AdminRoleManageMarketplace)
+	adminRoleManageMarketplace := middleware.AdminRole(s.Global, adminspec.AdminRoleManageMarketplace)
 
 	// Auth-only routes (no role required)
 	mux.Handle("POST /admin/logout", adminAuth(admin.Logout(s)))
@@ -69,5 +71,19 @@ func RegisterAdminGlobalRoutes(mux *http.ServeMux, s *server.GlobalServer) {
 	// Org subscription / tier management routes
 	mux.Handle("POST /admin/org-subscriptions/list", adminAuth(adminRoleViewOrgSubscriptions(admin.ListOrgSubscriptions(s))))
 	mux.Handle("POST /admin/org-subscriptions/set-tier", adminAuth(adminRoleManageOrgSubscriptions(admin.SetOrgTier(s))))
+
+	// Marketplace capability management routes (admin:manage_marketplace required)
+	mux.Handle("POST /admin/marketplace/capability/create", adminAuth(adminRoleManageMarketplace(admin.CreateMarketplaceCapability(s))))
+	mux.Handle("POST /admin/marketplace/capability/update", adminAuth(adminRoleManageMarketplace(admin.UpdateMarketplaceCapability(s))))
+	mux.Handle("POST /admin/marketplace/capability/list", adminAuth(adminRoleViewMarketplace(admin.ListMarketplaceCapabilities(s))))
+
+	// Marketplace listing oversight routes
+	mux.Handle("POST /admin/marketplace/listing/list", adminAuth(adminRoleViewMarketplace(admin.AdminListMarketplaceListings(s))))
+	mux.Handle("POST /admin/marketplace/listing/suspend", adminAuth(adminRoleManageMarketplace(admin.AdminSuspendListing(s))))
+	mux.Handle("POST /admin/marketplace/listing/reinstate", adminAuth(adminRoleManageMarketplace(admin.AdminReinstateListing(s))))
+
+	// Marketplace subscription oversight routes
+	mux.Handle("POST /admin/marketplace/subscription/list", adminAuth(adminRoleViewMarketplace(admin.AdminListMarketplaceSubscriptions(s))))
+	mux.Handle("POST /admin/marketplace/subscription/cancel", adminAuth(adminRoleManageMarketplace(admin.AdminCancelMarketplaceSubscription(s))))
 
 }

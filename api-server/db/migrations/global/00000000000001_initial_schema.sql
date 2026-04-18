@@ -385,7 +385,63 @@ CREATE INDEX idx_global_org_domains_org_id ON global_org_domains(org_id);
 CREATE INDEX idx_admin_audit_logs_created_at_id ON admin_audit_logs(created_at DESC, id DESC);
 CREATE INDEX idx_admin_audit_logs_actor_user_id ON admin_audit_logs(actor_user_id);
 CREATE INDEX idx_admin_audit_logs_event_type ON admin_audit_logs(event_type);
+
+-- Marketplace
+CREATE TABLE marketplace_capabilities (
+    capability_id TEXT        PRIMARY KEY CHECK (capability_id ~ '^[a-z0-9][a-z0-9-]{1,48}[a-z0-9]$'),
+    status        TEXT        NOT NULL CHECK (status IN ('draft','active','disabled')) DEFAULT 'draft',
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE marketplace_capability_translations (
+    capability_id TEXT NOT NULL REFERENCES marketplace_capabilities(capability_id),
+    locale        TEXT NOT NULL,
+    display_name  TEXT NOT NULL,
+    description   TEXT NOT NULL DEFAULT '',
+    PRIMARY KEY (capability_id, locale)
+);
+
+-- Global mirror of active listings (for cross-region discovery)
+CREATE TABLE marketplace_listing_catalog (
+    listing_id          UUID        PRIMARY KEY,
+    org_id              UUID        NOT NULL REFERENCES orgs(org_id),
+    org_domain          TEXT        NOT NULL,
+    listing_number      INT         NOT NULL,
+    headline            TEXT        NOT NULL,
+    description         TEXT        NOT NULL,
+    capability_ids      TEXT[]      NOT NULL,
+    listed_at           TIMESTAMPTZ NOT NULL,
+    updated_at          TIMESTAMPTZ NOT NULL,
+    UNIQUE (org_domain, listing_number)
+);
+CREATE INDEX idx_marketplace_listing_catalog_capability ON marketplace_listing_catalog USING GIN (capability_ids);
+
+-- Global subscription index (routing for provider cross-region client view)
+CREATE TABLE marketplace_subscription_index (
+    subscription_id        UUID        PRIMARY KEY,
+    listing_id             UUID        NOT NULL,
+    consumer_org_id        UUID        NOT NULL REFERENCES orgs(org_id),
+    consumer_region        TEXT        NOT NULL,
+    provider_org_id        UUID        NOT NULL REFERENCES orgs(org_id),
+    provider_region        TEXT        NOT NULL,
+    status                 TEXT        NOT NULL,
+    updated_at             TIMESTAMPTZ NOT NULL,
+    UNIQUE (consumer_org_id, listing_id)
+);
+
+-- Seed a sample capability so discovery isn't empty
+INSERT INTO marketplace_capabilities (capability_id, status) VALUES ('staffing', 'active');
+INSERT INTO marketplace_capability_translations VALUES
+    ('staffing', 'en-US', 'Staffing', 'Recruitment and staffing services'),
+    ('staffing', 'de-DE', 'Personalvermittlung', ''),
+    ('staffing', 'ta-IN', 'பணியாளர் சேர்க்கை', '');
+
 -- +goose Down
+DROP TABLE IF EXISTS marketplace_subscription_index;
+DROP TABLE IF EXISTS marketplace_listing_catalog;
+DROP TABLE IF EXISTS marketplace_capability_translations;
+DROP TABLE IF EXISTS marketplace_capabilities;
 DROP TABLE IF EXISTS org_subscription_history;
 DROP TABLE IF EXISTS org_subscriptions;
 DROP TABLE IF EXISTS org_tier_translations;

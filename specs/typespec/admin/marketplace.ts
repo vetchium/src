@@ -1,0 +1,32 @@
+// Admin marketplace types are co-located in org/marketplace.ts
+export type {
+	MarketplaceCapability,
+	ListCapabilitiesResponse,
+	MarketplaceListing,
+	AdminCreateCapabilityRequest,
+	AdminUpdateCapabilityRequest,
+	AdminListListingsRequest,
+	AdminListListingsResponse,
+	AdminSuspendListingRequest,
+	AdminReinstateListingRequest,
+	AdminApproveListingRequest,
+	AdminRejectListingRequest,
+	MarketplaceSubscription,
+	AdminListSubscriptionsRequest,
+	AdminListSubscriptionsResponse,
+	AdminCancelSubscriptionRequest,
+	CapabilityStatus,
+	MarketplaceListingStatus,
+	MarketplaceSubscriptionStatus,
+} from "../org/marketplace";
+export {
+	validateAdminCreateCapabilityRequest,
+	validateAdminUpdateCapabilityRequest,
+	validateAdminListListingsRequest,
+	validateAdminSuspendListingRequest,
+	validateAdminReinstateListingRequest,
+	validateAdminApproveListingRequest,
+	validateAdminRejectListingRequest,
+	validateAdminListSubscriptionsRequest,
+	validateAdminCancelSubscriptionRequest,
+} from "../org/marketplace";

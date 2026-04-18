@@ -87,8 +87,7 @@ func EnforceQuota(
 	case QuotaSubOrgs:
 		count, err = regional.CountSubOrgsForOrg(ctx, orgID)
 	case QuotaMarketplaceListings:
-		// Phase 2 will add CountActiveOrPendingListingsForOrg; return nil for now.
-		return nil, nil
+		count, err = regional.CountActiveOrPendingListingsForOrg(ctx, orgID)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("orgtiers: count %s: %w", key, err)

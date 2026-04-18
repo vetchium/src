@@ -1,0 +1,102 @@
+package org
+
+import (
+	"encoding/json"
+	"errors"
+	"net/http"
+
+	"github.com/jackc/pgx/v5"
+	"vetchium-api-server.gomodule/internal/audit"
+	"vetchium-api-server.gomodule/internal/db/regionaldb"
+	"vetchium-api-server.gomodule/internal/middleware"
+	"vetchium-api-server.gomodule/internal/server"
+	orgspec "vetchium-api-server.typespec/org"
+)
+
+func ReopenMarketplaceListing(s *server.RegionalServer) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		ctx := r.Context()
+
+		orgUser := middleware.OrgUserFromContext(ctx)
+		if orgUser == nil {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		var req orgspec.ReopenListingRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			s.Logger(ctx).Debug("failed to decode request", "error", err)
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if errs := req.Validate(); len(errs) > 0 {
+			s.Logger(ctx).Debug("validation failed", "errors", errs)
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(errs)
+			return
+		}
+
+		orgRecord, err := s.Global.GetOrgByID(ctx, orgUser.OrgID)
+		if err != nil {
+			s.Logger(ctx).Error("failed to get org", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
+		existing, err := s.Regional.GetMarketplaceListingByDomainAndNumber(ctx, regionaldb.GetMarketplaceListingByDomainAndNumberParams{
+			OrgDomain:     orgRecord.OrgName,
+			ListingNumber: req.ListingNumber,
+		})
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			s.Logger(ctx).Error("failed to get listing", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
+		if existing.Status != regionaldb.MarketplaceListingStatusArchived {
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			return
+		}
+
+		var reopened regionaldb.MarketplaceListing
+		var capabilities []string
+
+		txErr := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
+			ro, err := qtx.ReopenMarketplaceListing(ctx, existing.ListingID)
+			if err != nil {
+				return err
+			}
+			reopened = ro
+
+			caps, err := qtx.ListCurrentCapabilitiesForListing(ctx, reopened.ListingID)
+			if err != nil {
+				return err
+			}
+			capabilities = caps
+
+			eventData, _ := json.Marshal(map[string]any{
+				"listing_id":     uuidToString(reopened.ListingID),
+				"listing_number": reopened.ListingNumber,
+			})
+			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
+				EventType:   "org.marketplace_listing_reopened",
+				ActorUserID: orgUser.OrgUserID,
+				OrgID:       orgUser.OrgID,
+				IpAddress:   audit.ExtractClientIP(r),
+				EventData:   eventData,
+			})
+		})
+		if txErr != nil {
+			s.Logger(ctx).Error("failed to reopen listing", "error", txErr)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
+		json.NewEncoder(w).Encode(buildListingFromRow(ctx, reopened, capabilities, 0))
+	}
+}

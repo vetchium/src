@@ -34,6 +34,11 @@ func buildOrgSubscription(
 		return orgtypes.OrgSubscription{}, fmt.Errorf("count suborgs: %w", err)
 	}
 
+	marketplaceListings, err := regional.CountActiveOrPendingListingsForOrg(ctx, orgID)
+	if err != nil {
+		return orgtypes.OrgSubscription{}, fmt.Errorf("count marketplace listings: %w", err)
+	}
+
 	tier := buildOrgTier(sub)
 
 	return orgtypes.OrgSubscription{
@@ -44,7 +49,7 @@ func buildOrgSubscription(
 			OrgUsers:            orgUsers,
 			DomainsVerified:     domainsVerified,
 			Suborgs:             suborgs,
-			MarketplaceListings: 0, // Phase 2 will wire this
+			MarketplaceListings: marketplaceListings,
 		},
 		UpdatedAt: sub.UpdatedAt.Time.Format("2006-01-02T15:04:05Z07:00"),
 		Note:      sub.Note,

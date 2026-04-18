@@ -683,3 +683,127 @@ SELECT COUNT(*)::int FROM suborgs WHERE org_id = @org_id;
 
 -- name: CountVerifiedDomainsForOrg :one
 SELECT COUNT(*)::int FROM org_domains WHERE org_id = @org_id AND status = 'VERIFIED';
+
+-- Marketplace: listings
+
+-- name: NextListingNumberForOrg :one
+INSERT INTO org_marketplace_listing_counters (org_id, last_listing_number)
+VALUES (@org_id, 1)
+ON CONFLICT (org_id) DO UPDATE SET last_listing_number = org_marketplace_listing_counters.last_listing_number + 1
+RETURNING last_listing_number;
+
+-- name: CreateMarketplaceListing :one
+INSERT INTO marketplace_listings (org_id, org_domain, listing_number, headline, description, status)
+VALUES (@org_id, @org_domain, @listing_number, @headline, @description, 'draft')
+RETURNING *;
+
+-- name: GetMarketplaceListing :one
+SELECT * FROM marketplace_listings WHERE listing_id = @listing_id;
+
+-- name: GetMarketplaceListingByDomainAndNumber :one
+SELECT * FROM marketplace_listings WHERE org_domain = @org_domain AND listing_number = @listing_number;
+
+-- name: ListMarketplaceListingsByOrg :many
+SELECT * FROM marketplace_listings
+WHERE org_id = @org_id
+  AND (sqlc.narg('filter_status')::marketplace_listing_status IS NULL OR status = sqlc.narg('filter_status')::marketplace_listing_status)
+  AND (sqlc.narg('pagination_key')::uuid IS NULL OR listing_id > sqlc.narg('pagination_key')::uuid)
+ORDER BY listing_id ASC
+LIMIT @row_limit;
+
+-- name: UpdateMarketplaceListing :one
+UPDATE marketplace_listings
+SET headline = @headline, description = @description, updated_at = NOW()
+WHERE listing_id = @listing_id
+RETURNING *;
+
+-- name: PublishMarketplaceListing :one
+UPDATE marketplace_listings
+SET status = @status, listed_at = CASE WHEN @status::marketplace_listing_status = 'active' THEN NOW() ELSE listed_at END, updated_at = NOW()
+WHERE listing_id = @listing_id
+RETURNING *;
+
+-- name: RejectMarketplaceListing :one
+UPDATE marketplace_listings
+SET status = 'draft', rejection_note = @rejection_note, updated_at = NOW()
+WHERE listing_id = @listing_id AND status = 'pending_review'
+RETURNING *;
+
+-- name: SuspendMarketplaceListing :one
+UPDATE marketplace_listings
+SET status = 'suspended', suspension_note = @suspension_note, updated_at = NOW()
+WHERE listing_id = @listing_id AND status = 'active'
+RETURNING *;
+
+-- name: ReinstateMarketplaceListing :one
+UPDATE marketplace_listings
+SET status = 'active', suspension_note = NULL, updated_at = NOW()
+WHERE listing_id = @listing_id AND status = 'suspended'
+RETURNING *;
+
+-- name: ArchiveMarketplaceListing :one
+UPDATE marketplace_listings
+SET status = 'archived', updated_at = NOW()
+WHERE listing_id = @listing_id AND status IN ('active','suspended')
+RETURNING *;
+
+-- name: ReopenMarketplaceListing :one
+UPDATE marketplace_listings
+SET status = 'draft', updated_at = NOW()
+WHERE listing_id = @listing_id AND status = 'archived'
+RETURNING *;
+
+-- name: CountActiveOrPendingListingsForOrg :one
+SELECT COUNT(*)::int FROM marketplace_listings
+WHERE org_id = @org_id AND status IN ('active','pending_review');
+
+-- Marketplace: listing capabilities
+
+-- name: AddListingCapability :exec
+INSERT INTO marketplace_listing_capabilities (listing_id, capability_id)
+VALUES (@listing_id, @capability_id)
+ON CONFLICT (listing_id, capability_id) DO UPDATE SET removed_at = NULL;
+
+-- name: RemoveListingCapability :exec
+UPDATE marketplace_listing_capabilities
+SET removed_at = NOW()
+WHERE listing_id = @listing_id AND capability_id = @capability_id;
+
+-- name: ListCurrentCapabilitiesForListing :many
+SELECT capability_id FROM marketplace_listing_capabilities
+WHERE listing_id = @listing_id AND removed_at IS NULL
+ORDER BY capability_id;
+
+-- name: CountCurrentCapabilitiesForListing :one
+SELECT COUNT(*)::int FROM marketplace_listing_capabilities
+WHERE listing_id = @listing_id AND removed_at IS NULL;
+
+-- Marketplace: subscriptions
+
+-- name: GetMarketplaceSubscription :one
+SELECT * FROM marketplace_subscriptions
+WHERE consumer_org_id = @consumer_org_id AND listing_id = @listing_id;
+
+-- name: GetMarketplaceSubscriptionByID :one
+SELECT * FROM marketplace_subscriptions WHERE subscription_id = @subscription_id;
+
+-- name: UpsertMarketplaceSubscription :one
+INSERT INTO marketplace_subscriptions (subscription_id, listing_id, consumer_org_id, consumer_org_domain, provider_org_id, provider_org_domain, provider_listing_number, request_note, status, started_at)
+VALUES (gen_random_uuid(), @listing_id, @consumer_org_id, @consumer_org_domain, @provider_org_id, @provider_org_domain, @provider_listing_number, @request_note, 'active', NOW())
+ON CONFLICT (consumer_org_id, listing_id) DO UPDATE
+SET status = 'active', started_at = NOW(), request_note = EXCLUDED.request_note, updated_at = NOW(), cancelled_at = NULL, expires_at = NULL
+RETURNING *;
+
+-- name: CancelMarketplaceSubscription :one
+UPDATE marketplace_subscriptions
+SET status = 'cancelled', cancelled_at = NOW(), updated_at = NOW()
+WHERE subscription_id = @subscription_id AND status = 'active'
+RETURNING *;
+
+-- name: ListMarketplaceSubscriptionsByConsumer :many
+SELECT * FROM marketplace_subscriptions
+WHERE consumer_org_id = @consumer_org_id
+  AND (sqlc.narg('filter_status')::marketplace_subscription_status IS NULL OR status = sqlc.narg('filter_status')::marketplace_subscription_status)
+  AND (sqlc.narg('pagination_key')::uuid IS NULL OR subscription_id > sqlc.narg('pagination_key')::uuid)
+ORDER BY subscription_id ASC
+LIMIT @row_limit;

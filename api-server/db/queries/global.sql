@@ -928,3 +928,88 @@ LIMIT @row_limit;
 -- name: CountOrgUsers :one
 SELECT COUNT(*)::int FROM org_users WHERE org_id = @org_id;
 
+
+-- Marketplace: capability catalog (global)
+
+-- name: CreateCapability :exec
+INSERT INTO marketplace_capabilities (capability_id, status)
+VALUES (@capability_id, @status);
+
+-- name: UpdateCapabilityStatus :exec
+UPDATE marketplace_capabilities SET status = @status, updated_at = NOW()
+WHERE capability_id = @capability_id;
+
+-- name: UpsertCapabilityTranslation :exec
+INSERT INTO marketplace_capability_translations (capability_id, locale, display_name, description)
+VALUES (@capability_id, @locale, @display_name, @description)
+ON CONFLICT (capability_id, locale) DO UPDATE
+SET display_name = EXCLUDED.display_name, description = EXCLUDED.description;
+
+-- name: GetCapability :one
+SELECT c.*, COALESCE(tr.display_name, c.capability_id) AS display_name, COALESCE(tr.description, '') AS description
+FROM marketplace_capabilities c
+LEFT JOIN marketplace_capability_translations tr ON c.capability_id = tr.capability_id AND tr.locale = @locale::text
+WHERE c.capability_id = @capability_id;
+
+-- name: ListActiveCapabilities :many
+SELECT c.capability_id, c.status, c.created_at, c.updated_at,
+       COALESCE(tr.display_name, c.capability_id) AS display_name,
+       COALESCE(tr.description, '') AS description
+FROM marketplace_capabilities c
+LEFT JOIN marketplace_capability_translations tr ON c.capability_id = tr.capability_id AND tr.locale = @locale::text
+WHERE c.status = 'active'
+ORDER BY c.capability_id;
+
+-- name: ListAllCapabilities :many
+SELECT c.capability_id, c.status, c.created_at, c.updated_at,
+       COALESCE(tr.display_name, c.capability_id) AS display_name,
+       COALESCE(tr.description, '') AS description
+FROM marketplace_capabilities c
+LEFT JOIN marketplace_capability_translations tr ON c.capability_id = tr.capability_id AND tr.locale = @locale::text
+ORDER BY c.capability_id;
+
+-- name: CapabilityExists :one
+SELECT COUNT(*)::int FROM marketplace_capabilities WHERE capability_id = @capability_id AND status = 'active';
+
+-- Marketplace: listing catalog (global)
+
+-- name: UpsertListingCatalog :exec
+INSERT INTO marketplace_listing_catalog (listing_id, org_id, org_domain, listing_number, headline, description, capability_ids, listed_at, updated_at)
+VALUES (@listing_id, @org_id, @org_domain, @listing_number, @headline, @description, @capability_ids, @listed_at, NOW())
+ON CONFLICT (listing_id) DO UPDATE
+SET headline = EXCLUDED.headline, description = EXCLUDED.description,
+    capability_ids = EXCLUDED.capability_ids, listed_at = EXCLUDED.listed_at, updated_at = NOW();
+
+-- name: DeleteListingCatalog :exec
+DELETE FROM marketplace_listing_catalog WHERE listing_id = @listing_id;
+
+-- name: GetListingCatalogByDomainAndNumber :one
+SELECT * FROM marketplace_listing_catalog
+WHERE org_domain = @org_domain AND listing_number = @listing_number;
+
+-- name: ListListingCatalogByCapability :many
+SELECT * FROM marketplace_listing_catalog
+WHERE (@capability_id::text = '' OR @capability_id::text = ANY(capability_ids))
+  AND (sqlc.narg('pagination_key')::uuid IS NULL OR listing_id > sqlc.narg('pagination_key')::uuid)
+  AND (@search_text::text = '' OR headline ILIKE '%' || @search_text::text || '%' OR description ILIKE '%' || @search_text::text || '%')
+ORDER BY listing_id ASC
+LIMIT @row_limit;
+
+-- Marketplace: subscription index (global)
+
+-- name: UpsertSubscriptionIndex :exec
+INSERT INTO marketplace_subscription_index (subscription_id, listing_id, consumer_org_id, consumer_region, provider_org_id, provider_region, status, updated_at)
+VALUES (@subscription_id, @listing_id, @consumer_org_id, @consumer_region, @provider_org_id, @provider_region, @status, NOW())
+ON CONFLICT (consumer_org_id, listing_id) DO UPDATE
+SET subscription_id = EXCLUDED.subscription_id, status = EXCLUDED.status, updated_at = NOW();
+
+-- name: UpdateSubscriptionIndexStatus :exec
+UPDATE marketplace_subscription_index SET status = @status, updated_at = NOW()
+WHERE subscription_id = @subscription_id;
+
+-- name: ListSubscriptionsForProvider :many
+SELECT * FROM marketplace_subscription_index
+WHERE provider_org_id = @provider_org_id
+  AND (sqlc.narg('pagination_key')::uuid IS NULL OR subscription_id > sqlc.narg('pagination_key')::uuid)
+ORDER BY subscription_id ASC
+LIMIT @row_limit;
