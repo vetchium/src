@@ -31,14 +31,6 @@ import { DomainManagementPage } from "./pages/DomainManagement/DomainManagementP
 import { CostCentersPage } from "./pages/CostCenters/CostCentersPage";
 import { SubOrgsPage } from "./pages/SubOrgs/SubOrgsPage";
 import { AuditLogsPage } from "./pages/AuditLogsPage";
-import { MarketplaceDiscoverPage } from "./pages/Marketplace/MarketplaceDiscoverPage";
-import { MarketplaceDiscoverDetailPage } from "./pages/Marketplace/MarketplaceDiscoverDetailPage";
-import { MarketplaceListingsPage } from "./pages/Marketplace/MarketplaceListingsPage";
-import { MarketplaceListingFormPage } from "./pages/Marketplace/MarketplaceListingFormPage";
-import { MarketplaceSubscriptionsPage } from "./pages/Marketplace/MarketplaceSubscriptionsPage";
-import { MarketplaceSubscriptionDetailPage } from "./pages/Marketplace/MarketplaceSubscriptionDetailPage";
-import { MarketplaceClientsPage } from "./pages/Marketplace/MarketplaceClientsPage";
-import { MarketplaceListingDetailPage } from "./pages/Marketplace/MarketplaceListingDetailPage";
 import {
 	BrowserRouter,
 	Routes,
@@ -209,68 +201,6 @@ function CostCentersRoute({ children }: { children: React.ReactNode }) {
 	return <>{children}</>;
 }
 
-function MarketplaceListingsRoute({ children }: { children: React.ReactNode }) {
-	const { authState, sessionToken } = useAuth();
-	const { data: myInfo, loading } = useMyInfo(sessionToken);
-	const location = useLocation();
-
-	if (authState === "login") {
-		return <Navigate to="/login" state={{ from: location }} replace />;
-	}
-
-	if (authState === "tfa") {
-		return <Navigate to="/tfa" replace />;
-	}
-
-	if (loading) {
-		return <Spin size="large" />;
-	}
-
-	const hasAccess =
-		myInfo?.roles.includes("org:superadmin") ||
-		myInfo?.roles.includes("org:view_listings") ||
-		myInfo?.roles.includes("org:manage_listings");
-
-	if (!hasAccess) {
-		return <Navigate to="/" replace />;
-	}
-
-	return <>{children}</>;
-}
-
-function MarketplaceSubscriptionsRoute({
-	children,
-}: {
-	children: React.ReactNode;
-}) {
-	const { authState, sessionToken } = useAuth();
-	const { data: myInfo, loading } = useMyInfo(sessionToken);
-	const location = useLocation();
-
-	if (authState === "login") {
-		return <Navigate to="/login" state={{ from: location }} replace />;
-	}
-
-	if (authState === "tfa") {
-		return <Navigate to="/tfa" replace />;
-	}
-
-	if (loading) {
-		return <Spin size="large" />;
-	}
-
-	const hasAccess =
-		myInfo?.roles.includes("org:superadmin") ||
-		myInfo?.roles.includes("org:view_subscriptions") ||
-		myInfo?.roles.includes("org:manage_subscriptions");
-
-	if (!hasAccess) {
-		return <Navigate to="/" replace />;
-	}
-
-	return <>{children}</>;
-}
-
 function AuditLogsRoute({ children }: { children: React.ReactNode }) {
 	const { authState, sessionToken } = useAuth();
 	const { data: myInfo, loading } = useMyInfo(sessionToken);
@@ -418,82 +348,6 @@ function AppContent() {
 									<AuditLogsRoute>
 										<AuditLogsPage />
 									</AuditLogsRoute>
-								}
-							/>
-							<Route
-								path="/marketplace"
-								element={<Navigate to="/marketplace/discover" replace />}
-							/>
-							<Route
-								path="/marketplace/discover"
-								element={
-									<ProtectedRoute>
-										<MarketplaceDiscoverPage />
-									</ProtectedRoute>
-								}
-							/>
-							<Route
-								path="/marketplace/discover/:listing_id"
-								element={
-									<ProtectedRoute>
-										<MarketplaceDiscoverDetailPage />
-									</ProtectedRoute>
-								}
-							/>
-							<Route
-								path="/marketplace/listings"
-								element={
-									<MarketplaceListingsRoute>
-										<MarketplaceListingsPage />
-									</MarketplaceListingsRoute>
-								}
-							/>
-							<Route
-								path="/marketplace/listings/new"
-								element={
-									<MarketplaceListingsRoute>
-										<MarketplaceListingFormPage />
-									</MarketplaceListingsRoute>
-								}
-							/>
-							<Route
-								path="/marketplace/listings/:listing_id"
-								element={
-									<MarketplaceListingsRoute>
-										<MarketplaceListingDetailPage />
-									</MarketplaceListingsRoute>
-								}
-							/>
-							<Route
-								path="/marketplace/listings/:listing_id/edit"
-								element={
-									<MarketplaceListingsRoute>
-										<MarketplaceListingFormPage />
-									</MarketplaceListingsRoute>
-								}
-							/>
-							<Route
-								path="/marketplace/subscriptions"
-								element={
-									<MarketplaceSubscriptionsRoute>
-										<MarketplaceSubscriptionsPage />
-									</MarketplaceSubscriptionsRoute>
-								}
-							/>
-							<Route
-								path="/marketplace/subscriptions/:subscription_id"
-								element={
-									<MarketplaceSubscriptionsRoute>
-										<MarketplaceSubscriptionDetailPage />
-									</MarketplaceSubscriptionsRoute>
-								}
-							/>
-							<Route
-								path="/marketplace/clients"
-								element={
-									<MarketplaceListingsRoute>
-										<MarketplaceClientsPage />
-									</MarketplaceListingsRoute>
 								}
 							/>
 							<Route path="/forgot-password" element={<ForgotPasswordPage />} />

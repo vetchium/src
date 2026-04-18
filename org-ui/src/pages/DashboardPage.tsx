@@ -6,9 +6,6 @@ import {
 	BankOutlined,
 	ApartmentOutlined,
 	FileSearchOutlined,
-	ShopOutlined,
-	RocketOutlined,
-	ShoppingCartOutlined,
 } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
@@ -41,20 +38,6 @@ export function DashboardPage() {
 		false;
 
 	const hasSubOrgsAccess = !!myInfo;
-
-	const hasListingsAccess =
-		myInfo?.roles.includes("org:superadmin") ||
-		myInfo?.roles.includes("org:view_listings") ||
-		myInfo?.roles.includes("org:manage_listings") ||
-		false;
-
-	const hasSubscriptionsAccess =
-		myInfo?.roles.includes("org:superadmin") ||
-		myInfo?.roles.includes("org:view_subscriptions") ||
-		myInfo?.roles.includes("org:manage_subscriptions") ||
-		false;
-
-	const hasDiscoverAccess = !!myInfo;
 
 	const hasAuditLogsAccess =
 		myInfo?.roles.includes("org:superadmin") ||
@@ -266,149 +249,6 @@ export function DashboardPage() {
 						</Col>
 					)}
 
-					{hasDiscoverAccess && (
-						<Col xs={24} sm={12} lg={8}>
-							<Link
-								to="/marketplace/discover"
-								style={{
-									textDecoration: "none",
-									display: "block",
-									height: "100%",
-								}}
-							>
-								<Card
-									hoverable
-									style={{
-										height: "100%",
-										cursor: "pointer",
-										textAlign: "center",
-									}}
-								>
-									<ShopOutlined
-										style={{
-											fontSize: 48,
-											color: "#1890ff",
-											marginBottom: 16,
-										}}
-									/>
-									<Title level={4} style={{ marginBottom: 8 }}>
-										{t("browseMarketplace.title")}
-									</Title>
-									<Typography.Text type="secondary">
-										{t("browseMarketplace.description")}
-									</Typography.Text>
-								</Card>
-							</Link>
-						</Col>
-					)}
-
-					{hasSubscriptionsAccess && (
-						<Col xs={24} sm={12} lg={8}>
-							<Link
-								to="/marketplace/subscriptions"
-								style={{
-									textDecoration: "none",
-									display: "block",
-									height: "100%",
-								}}
-							>
-								<Card
-									hoverable
-									style={{
-										height: "100%",
-										cursor: "pointer",
-										textAlign: "center",
-									}}
-								>
-									<ShoppingCartOutlined
-										style={{
-											fontSize: 48,
-											color: "#52c41a",
-											marginBottom: 16,
-										}}
-									/>
-									<Title level={4} style={{ marginBottom: 8 }}>
-										{t("mySubscriptions.title")}
-									</Title>
-									<Typography.Text type="secondary">
-										{t("mySubscriptions.description")}
-									</Typography.Text>
-								</Card>
-							</Link>
-						</Col>
-					)}
-
-					{hasListingsAccess && (
-						<Col xs={24} sm={12} lg={8}>
-							<Link
-								to="/marketplace/listings"
-								style={{
-									textDecoration: "none",
-									display: "block",
-									height: "100%",
-								}}
-							>
-								<Card
-									hoverable
-									style={{
-										height: "100%",
-										cursor: "pointer",
-										textAlign: "center",
-									}}
-								>
-									<RocketOutlined
-										style={{
-											fontSize: 48,
-											color: "#fa541c",
-											marginBottom: 16,
-										}}
-									/>
-									<Title level={4} style={{ marginBottom: 8 }}>
-										{t("myListings.title")}
-									</Title>
-									<Typography.Text type="secondary">
-										{t("myListings.description")}
-									</Typography.Text>
-								</Card>
-							</Link>
-						</Col>
-					)}
-
-					{hasListingsAccess && (
-						<Col xs={24} sm={12} lg={8}>
-							<Link
-								to="/marketplace/clients"
-								style={{
-									textDecoration: "none",
-									display: "block",
-									height: "100%",
-								}}
-							>
-								<Card
-									hoverable
-									style={{
-										height: "100%",
-										cursor: "pointer",
-										textAlign: "center",
-									}}
-								>
-									<TeamOutlined
-										style={{
-											fontSize: 48,
-											color: "#13c2c2",
-											marginBottom: 16,
-										}}
-									/>
-									<Title level={4} style={{ marginBottom: 8 }}>
-										{t("myClients.title")}
-									</Title>
-									<Typography.Text type="secondary">
-										{t("myClients.description")}
-									</Typography.Text>
-								</Card>
-							</Link>
-						</Col>
-					)}
 				</Row>
 			)}
 

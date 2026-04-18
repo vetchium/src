@@ -11,8 +11,6 @@ import "./org/org-users.tsp";
 import "./org/cost-centers.tsp";
 import "./org/suborgs.tsp";
 import "./org/tags.tsp";
-import "./org/marketplace.tsp";
-import "./admin/marketplace.tsp";
 import "./org-domains/org-domains.tsp";
 import "./audit-logs/audit-logs.tsp";
 

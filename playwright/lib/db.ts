@@ -631,15 +631,6 @@ export async function deleteTestOrgUser(email: string): Promise<void> {
 		// Delete from regional DB first (CASCADE handles sessions, roles, etc.)
 		const regionalPool = getRegionalPool(region);
 		try {
-			// Marketplace data has no FK cascade, must be deleted explicitly
-			await regionalPool.query(
-				`DELETE FROM marketplace_subscriptions WHERE consumer_org_id = $1`,
-				[orgId]
-			);
-			await regionalPool.query(
-				`DELETE FROM marketplace_listings WHERE org_id = $1`,
-				[orgId]
-			);
 			await regionalPool.query(`DELETE FROM org_users WHERE org_user_id = $1`, [
 				orgUserId,
 			]);
@@ -655,20 +646,6 @@ export async function deleteTestOrgUser(email: string): Promise<void> {
 		await pool.query(`DELETE FROM org_users WHERE email_address_hash = $1`, [
 			emailHash,
 		]);
-
-		// Clean up global marketplace tables (no FK cascade from orgs)
-		await pool.query(
-			`DELETE FROM marketplace_billing_records WHERE provider_org_global_id = $1`,
-			[orgId]
-		);
-		await pool.query(
-			`DELETE FROM marketplace_subscription_index WHERE consumer_org_global_id = $1 OR provider_org_global_id = $1`,
-			[orgId]
-		);
-		await pool.query(
-			`DELETE FROM marketplace_listing_catalog WHERE org_global_id = $1`,
-			[orgId]
-		);
 
 		// Delete the org and associated domains
 		// This will CASCADE delete global_org_domains as well
@@ -1309,64 +1286,3 @@ export async function deleteTestTag(tagId: string): Promise<void> {
 	await pool.query(`DELETE FROM tags WHERE tag_id = $1`, [tagId]);
 }
 
-// ============================================================================
-// Marketplace Test Helpers
-// ============================================================================
-
-/**
- * Grants marketplace_provider capability to an org directly in the regional DB.
- * Sets status = 'active' with granted_at = NOW() and expires_at = NOW() + 365 days.
- *
- * @param orgId - The org ID to grant the capability to
- * @param region - The region where the org resides (default: 'ind1')
- */
-/**
- * Creates a marketplace capability directly in the global database.
- * Used to set up test data without going through the admin API.
- *
- * @param id - The capability ID (e.g., 'talent-sourcing')
- * @param status - The capability status (default: 'active')
- * @returns The capability ID
- */
-export async function createTestMarketplaceCapability(
-	id: string,
-	status: string = "active"
-): Promise<string> {
-	await pool.query(
-		`INSERT INTO marketplace_capabilities (capability_id, status)
-     VALUES ($1, $2)
-     ON CONFLICT (capability_id) DO UPDATE
-       SET status = $2, updated_at = NOW()`,
-		[id, status]
-	);
-
-	// Insert mandatory en-US translation
-	await pool.query(
-		`INSERT INTO marketplace_capability_translations (capability_id, locale, display_name, description)
-     VALUES ($1, 'en-US', $2, 'Test capability description')
-     ON CONFLICT (capability_id, locale) DO UPDATE
-       SET display_name = $2, description = 'Test capability description'`,
-		[id, `Test Capability ${id}`]
-	);
-
-	return id;
-}
-
-/**
- * Deletes a marketplace capability from the global database.
- *
- * @param id - The capability ID to delete
- */
-export async function deleteTestMarketplaceCapability(
-	id: string
-): Promise<void> {
-	// First delete translations due to FK
-	await pool.query(
-		`DELETE FROM marketplace_capability_translations WHERE capability_id = $1`,
-		[id]
-	);
-	await pool.query(
-		`DELETE FROM marketplace_capabilities WHERE capability_id = $1`,
-		[id]
-	);
-}

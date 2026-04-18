@@ -5,11 +5,6 @@ import {
 	TagsOutlined,
 	TeamOutlined,
 	FileSearchOutlined,
-	SyncOutlined,
-	CheckCircleOutlined,
-	ShopOutlined,
-	DollarOutlined,
-	ShoppingCartOutlined,
 } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../hooks/useAuth";
@@ -43,11 +38,6 @@ export function DashboardPage() {
 	const canViewAuditLogs =
 		myInfo?.roles.includes("admin:superadmin") ||
 		myInfo?.roles.includes("admin:view_audit_logs") ||
-		false;
-
-	const canManageMarketplace =
-		myInfo?.roles.includes("admin:superadmin") ||
-		myInfo?.roles.includes("admin:manage_marketplace") ||
 		false;
 
 	return (
@@ -201,133 +191,6 @@ export function DashboardPage() {
 						</Col>
 					)}
 
-					{canManageMarketplace && (
-						<Col xs={24} sm={12} lg={8}>
-							<Link
-								to="/marketplace/capabilities"
-								style={{
-									textDecoration: "none",
-									display: "block",
-									height: "100%",
-								}}
-							>
-								<Card
-									hoverable
-									style={{
-										height: "100%",
-										cursor: "pointer",
-										textAlign: "center",
-									}}
-								>
-									<SyncOutlined
-										style={{ fontSize: 48, color: "#eb2f96", marginBottom: 16 }}
-									/>
-									<Title level={4} style={{ marginBottom: 8 }}>
-										{t("dashboard.capabilities.title")}
-									</Title>
-									<Text type="secondary">
-										{t("dashboard.capabilities.description")}
-									</Text>
-								</Card>
-							</Link>
-						</Col>
-					)}
-
-					{canManageMarketplace && (
-						<Col xs={24} sm={12} lg={8}>
-							<Link
-								to="/marketplace/listings"
-								style={{
-									textDecoration: "none",
-									display: "block",
-									height: "100%",
-								}}
-							>
-								<Card
-									hoverable
-									style={{
-										height: "100%",
-										cursor: "pointer",
-										textAlign: "center",
-									}}
-								>
-									<ShopOutlined
-										style={{ fontSize: 48, color: "#fa541c", marginBottom: 16 }}
-									/>
-									<Title level={4} style={{ marginBottom: 8 }}>
-										{t("marketplace:tabs.listings")}
-									</Title>
-									<Text type="secondary">
-										{t("dashboard.listings.description")}
-									</Text>
-								</Card>
-							</Link>
-						</Col>
-					)}
-
-					{canManageMarketplace && (
-						<Col xs={24} sm={12} lg={8}>
-							<Link
-								to="/marketplace/subscriptions"
-								style={{
-									textDecoration: "none",
-									display: "block",
-									height: "100%",
-								}}
-							>
-								<Card
-									hoverable
-									style={{
-										height: "100%",
-										cursor: "pointer",
-										textAlign: "center",
-									}}
-								>
-									<ShoppingCartOutlined
-										style={{ fontSize: 48, color: "#1890ff", marginBottom: 16 }}
-									/>
-									<Title level={4} style={{ marginBottom: 8 }}>
-										{t("dashboard.subscriptions.title")}
-									</Title>
-									<Text type="secondary">
-										{t("dashboard.subscriptions.description")}
-									</Text>
-								</Card>
-							</Link>
-						</Col>
-					)}
-
-					{canManageMarketplace && (
-						<Col xs={24} sm={12} lg={8}>
-							<Link
-								to="/marketplace/billing"
-								style={{
-									textDecoration: "none",
-									display: "block",
-									height: "100%",
-								}}
-							>
-								<Card
-									hoverable
-									style={{
-										height: "100%",
-										cursor: "pointer",
-										textAlign: "center",
-									}}
-								>
-									<DollarOutlined
-										style={{ fontSize: 48, color: "#722ed1", marginBottom: 16 }}
-									/>
-									<Title level={4} style={{ marginBottom: 8 }}>
-										{t("dashboard.billing.title")}
-									</Title>
-									<Text type="secondary">
-										{t("dashboard.billing.description")}
-									</Text>
-								</Card>
-							</Link>
-						</Col>
-					)}
 				</Row>
 			)}
 

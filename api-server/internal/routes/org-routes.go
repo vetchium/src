@@ -31,11 +31,6 @@ func RegisterOrgRoutes(mux *http.ServeMux, s *server.RegionalServer) {
 	orgRoleViewAuditLogs := middleware.OrgRole(s.Regional, orgspec.OrgRoleViewAuditLogs)
 	orgRoleViewSubOrgs := middleware.OrgRole(s.Regional, orgspec.OrgRoleViewSubOrgs, orgspec.OrgRoleManageSubOrgs)
 	orgRoleManageSubOrgs := middleware.OrgRole(s.Regional, orgspec.OrgRoleManageSubOrgs)
-	orgRoleViewListings := middleware.OrgRole(s.Regional, orgspec.OrgRoleViewListings, orgspec.OrgRoleManageListings)
-	orgRoleManageListings := middleware.OrgRole(s.Regional, orgspec.OrgRoleManageListings)
-	orgRoleSuperadmin := middleware.OrgRole(s.Regional, orgspec.OrgRoleSuperadmin)
-	orgRoleViewSubscriptions := middleware.OrgRole(s.Regional, orgspec.OrgRoleViewSubscriptions, orgspec.OrgRoleManageSubscriptions)
-	orgRoleManageSubscriptions := middleware.OrgRole(s.Regional, orgspec.OrgRoleManageSubscriptions)
 
 	// Domain write routes (manage_domains required; superadmin bypasses via middleware)
 	mux.Handle("POST /org/claim-domain", orgAuth(orgRoleManageDomains(org.ClaimDomain(s))))
@@ -80,32 +75,4 @@ func RegisterOrgRoutes(mux *http.ServeMux, s *server.RegionalServer) {
 	// Audit log routes
 	mux.Handle("POST /org/filter-audit-logs", orgAuth(orgRoleViewAuditLogs(org.FilterAuditLogs(s))))
 
-	// Marketplace capability catalog routes (any authenticated org user)
-	mux.Handle("POST /org/marketplace/capabilities/list", orgAuth(org.ListMarketplaceCapabilities(s)))
-	mux.Handle("POST /org/marketplace/capabilities/get", orgAuth(org.GetMarketplaceCapability(s)))
-
-	// Marketplace discover routes (any authenticated org user — buyer browse)
-	mux.Handle("POST /org/marketplace/discover/list", orgAuth(org.DiscoverListings(s)))
-	mux.Handle("POST /org/marketplace/discover/get", orgAuth(org.GetDiscoverListing(s)))
-
-	// Marketplace listing routes (provider perspective — view_listings or manage_listings)
-	mux.Handle("POST /org/marketplace/listings/list", orgAuth(orgRoleViewListings(org.ListMyListings(s))))
-	mux.Handle("POST /org/marketplace/listings/get", orgAuth(orgRoleViewListings(org.GetMyListing(s))))
-	mux.Handle("POST /org/marketplace/listings/create", orgAuth(orgRoleManageListings(org.CreateListing(s))))
-	mux.Handle("POST /org/marketplace/listings/update", orgAuth(orgRoleManageListings(org.UpdateListing(s))))
-	mux.Handle("POST /org/marketplace/listings/publish", orgAuth(orgRoleManageListings(org.PublishListing(s))))
-	mux.Handle("POST /org/marketplace/listings/archive", orgAuth(orgRoleManageListings(org.ArchiveListing(s))))
-	mux.Handle("POST /org/marketplace/listings/reopen", orgAuth(orgRoleManageListings(org.ReopenListing(s))))
-	mux.Handle("POST /org/marketplace/listings/approve", orgAuth(orgRoleSuperadmin(org.ApproveListing(s))))
-	mux.Handle("POST /org/marketplace/listings/reject", orgAuth(orgRoleSuperadmin(org.RejectListing(s))))
-
-	// Marketplace client routes (provider perspective — view_listings or manage_listings)
-	mux.Handle("POST /org/marketplace/clients/list", orgAuth(orgRoleViewListings(org.ListClients(s))))
-	mux.Handle("POST /org/marketplace/clients/get", orgAuth(orgRoleViewListings(org.GetClient(s))))
-
-	// Marketplace subscription routes (consumer perspective — view_subscriptions or manage_subscriptions)
-	mux.Handle("POST /org/marketplace/subscriptions/list", orgAuth(orgRoleViewSubscriptions(org.ListSubscriptions(s))))
-	mux.Handle("POST /org/marketplace/subscriptions/get", orgAuth(orgRoleViewSubscriptions(org.GetSubscription(s))))
-	mux.Handle("POST /org/marketplace/subscriptions/subscribe", orgAuth(orgRoleManageSubscriptions(org.RequestSubscription(s))))
-	mux.Handle("POST /org/marketplace/subscriptions/cancel", orgAuth(orgRoleManageSubscriptions(org.CancelSubscription(s))))
 }

@@ -239,58 +239,6 @@ INSERT INTO roles (role_name, description) VALUES
     ('hub:write_posts', 'Can create and edit posts (paid feature)'),
     ('hub:apply_jobs', 'Can apply to job postings');
 
--- Marketplace: listing status enum
-CREATE TYPE marketplace_listing_status AS ENUM (
-    'draft',
-    'pending_review',
-    'active',
-    'suspended',
-    'archived'
-);
-
--- Marketplace: subscription status enum
-CREATE TYPE marketplace_subscription_status AS ENUM (
-    'active',
-    'cancelled',
-    'expired'
-);
-
--- Provider listings (multiple per org per capability allowed)
-CREATE TABLE marketplace_listings (
-    listing_id      UUID                     PRIMARY KEY DEFAULT gen_random_uuid(),
-    org_id          UUID                     NOT NULL,
-    org_domain      TEXT                     NOT NULL,
-    capability_id   TEXT                     NOT NULL,
-    headline        TEXT                     NOT NULL DEFAULT '',
-    description     TEXT                     NOT NULL DEFAULT '',
-    status          marketplace_listing_status NOT NULL DEFAULT 'draft',
-    suspension_note TEXT,
-    rejection_note  TEXT,
-    listed_at       TIMESTAMPTZ,
-    created_at      TIMESTAMPTZ              NOT NULL DEFAULT NOW(),
-    updated_at      TIMESTAMPTZ              NOT NULL DEFAULT NOW()
-);
-
--- Consumer subscriptions (one active subscription per consumer org per listing)
-CREATE TABLE marketplace_subscriptions (
-    subscription_id        UUID                          PRIMARY KEY DEFAULT gen_random_uuid(),
-    listing_id             UUID                          NOT NULL,
-    consumer_org_id        UUID                          NOT NULL,
-    consumer_org_domain    TEXT                          NOT NULL,
-    provider_org_global_id UUID                          NOT NULL,
-    provider_org_domain    TEXT                          NOT NULL,
-    provider_region        TEXT                          NOT NULL,
-    capability_id          TEXT                          NOT NULL,
-    request_note           TEXT,
-    status                 marketplace_subscription_status NOT NULL DEFAULT 'active',
-    started_at             TIMESTAMPTZ                   NOT NULL DEFAULT NOW(),
-    expires_at             TIMESTAMPTZ,
-    cancelled_at           TIMESTAMPTZ,
-    created_at             TIMESTAMPTZ                   NOT NULL DEFAULT NOW(),
-    updated_at             TIMESTAMPTZ                   NOT NULL DEFAULT NOW(),
-    UNIQUE (consumer_org_id, listing_id)
-);
-
 -- Audit logs table (unified audit log for org and hub portal write operations)
 CREATE TABLE audit_logs (
     id             UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -325,19 +273,7 @@ CREATE INDEX idx_audit_logs_created_at_id ON audit_logs(created_at DESC, id DESC
 CREATE INDEX idx_audit_logs_actor_user_id ON audit_logs(actor_user_id);
 CREATE INDEX idx_audit_logs_org_created_at_id ON audit_logs(org_id, created_at DESC, id DESC);
 CREATE INDEX idx_audit_logs_event_type ON audit_logs(event_type);
-CREATE INDEX idx_marketplace_listings_org_id ON marketplace_listings(org_id, updated_at DESC);
-CREATE INDEX idx_marketplace_listings_capability ON marketplace_listings(capability_id, status);
-CREATE INDEX idx_marketplace_subscriptions_consumer ON marketplace_subscriptions(consumer_org_id, status, updated_at DESC);
-CREATE INDEX idx_marketplace_subscriptions_listing ON marketplace_subscriptions(listing_id, status);
 -- +goose Down
-DROP INDEX IF EXISTS idx_marketplace_subscriptions_listing;
-DROP INDEX IF EXISTS idx_marketplace_subscriptions_consumer;
-DROP INDEX IF EXISTS idx_marketplace_listings_capability;
-DROP INDEX IF EXISTS idx_marketplace_listings_org_id;
-DROP TABLE IF EXISTS marketplace_subscriptions;
-DROP TABLE IF EXISTS marketplace_listings;
-DROP TYPE IF EXISTS marketplace_subscription_status;
-DROP TYPE IF EXISTS marketplace_listing_status;
 DROP INDEX IF EXISTS idx_audit_logs_event_type;
 DROP INDEX IF EXISTS idx_audit_logs_org_created_at_id;
 DROP INDEX IF EXISTS idx_audit_logs_actor_user_id;
