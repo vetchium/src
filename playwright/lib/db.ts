@@ -981,6 +981,13 @@ export async function createTestOrgUserDirect(
      VALUES ($1, $2, $3)`,
 			[domain, region, orgId]
 		);
+
+		// 2b. Create org subscription (free tier) in global DB
+		await pool.query(
+			`INSERT INTO org_subscriptions (org_id, current_tier_id, note)
+     VALUES ($1, 'free', 'created by test helper')`,
+			[orgId]
+		);
 	}
 
 	// 3. Create org user in global DB (routing only)
@@ -1061,6 +1068,13 @@ export async function createTestOrgAdminDirect(
 			`INSERT INTO global_org_domains (domain, region, org_id)
      VALUES ($1, $2, $3)`,
 			[domain, region, orgId]
+		);
+
+		// 2b. Create org subscription (free tier) in global DB
+		await pool.query(
+			`INSERT INTO org_subscriptions (org_id, current_tier_id, note)
+     VALUES ($1, 'free', 'created by test helper')`,
+			[orgId]
 		);
 	}
 
@@ -1286,3 +1300,20 @@ export async function deleteTestTag(tagId: string): Promise<void> {
 	await pool.query(`DELETE FROM tags WHERE tag_id = $1`, [tagId]);
 }
 
+// ============================================================================
+// Org Subscription / Tier Test Helpers
+// ============================================================================
+
+/**
+ * Directly sets an org's subscription tier in the global DB.
+ * Used by quota and tier upgrade tests to bypass the self-upgrade API.
+ *
+ * @param orgId - The UUID of the org
+ * @param tierId - One of 'free', 'silver', 'gold', 'enterprise'
+ */
+export async function setOrgTier(orgId: string, tierId: string): Promise<void> {
+	await pool.query(
+		`UPDATE org_subscriptions SET current_tier_id = $2, updated_at = NOW() WHERE org_id = $1`,
+		[orgId, tierId]
+	);
+}

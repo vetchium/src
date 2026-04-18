@@ -41,6 +41,12 @@ import type {
 	FilterAuditLogsRequest,
 	FilterAuditLogsResponse,
 } from "vetchium-specs/audit-logs/audit-logs";
+import type {
+	AdminListOrgSubscriptionsRequest,
+	AdminListOrgSubscriptionsResponse,
+	AdminSetOrgTierRequest,
+	OrgSubscription as AdminSetOrgTierResponse,
+} from "vetchium-specs/org/tiers";
 import type { APIResponse } from "./api-client";
 
 /**
@@ -1171,6 +1177,88 @@ export class AdminAPIClient {
 			status: response.status(),
 			body: body as FilterAuditLogsResponse,
 			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	/**
+	 * POST /admin/org-subscriptions/list
+	 */
+	async listOrgSubscriptions(
+		sessionToken: string,
+		request: AdminListOrgSubscriptionsRequest
+	): Promise<APIResponse<AdminListOrgSubscriptionsResponse>> {
+		const response = await this.request.post("/admin/org-subscriptions/list", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as AdminListOrgSubscriptionsResponse,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	/**
+	 * POST /admin/org-subscriptions/list with raw body for testing invalid payloads
+	 */
+	async listOrgSubscriptionsRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<AdminListOrgSubscriptionsResponse>> {
+		const response = await this.request.post("/admin/org-subscriptions/list", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: body,
+		});
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as AdminListOrgSubscriptionsResponse,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	/**
+	 * POST /admin/org-subscriptions/set-tier
+	 */
+	async setOrgTier(
+		sessionToken: string,
+		request: AdminSetOrgTierRequest
+	): Promise<APIResponse<AdminSetOrgTierResponse>> {
+		const response = await this.request.post(
+			"/admin/org-subscriptions/set-tier",
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: request,
+			}
+		);
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as AdminSetOrgTierResponse,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	/**
+	 * POST /admin/org-subscriptions/set-tier with raw body for testing invalid payloads
+	 */
+	async setOrgTierRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<AdminSetOrgTierResponse>> {
+		const response = await this.request.post(
+			"/admin/org-subscriptions/set-tier",
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: body,
+			}
+		);
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as AdminSetOrgTierResponse,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
 		};
 	}
 }

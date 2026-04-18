@@ -6,6 +6,7 @@ import {
 	BankOutlined,
 	ApartmentOutlined,
 	FileSearchOutlined,
+	CrownOutlined,
 } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
@@ -42,6 +43,12 @@ export function DashboardPage() {
 	const hasAuditLogsAccess =
 		myInfo?.roles.includes("org:superadmin") ||
 		myInfo?.roles.includes("org:view_audit_logs") ||
+		false;
+
+	const hasSubscriptionAccess =
+		myInfo?.roles.includes("org:superadmin") ||
+		myInfo?.roles.includes("org:view_subscription") ||
+		myInfo?.roles.includes("org:manage_subscription") ||
 		false;
 
 	return (
@@ -243,6 +250,42 @@ export function DashboardPage() {
 									</Title>
 									<Typography.Text type="secondary">
 										{t("dashboard.auditLogs.description")}
+									</Typography.Text>
+								</Card>
+							</Link>
+						</Col>
+					)}
+
+					{hasSubscriptionAccess && (
+						<Col xs={24} sm={12} lg={8}>
+							<Link
+								to="/settings/subscription"
+								style={{
+									textDecoration: "none",
+									display: "block",
+									height: "100%",
+								}}
+							>
+								<Card
+									hoverable
+									style={{
+										height: "100%",
+										cursor: "pointer",
+										textAlign: "center",
+									}}
+								>
+									<CrownOutlined
+										style={{
+											fontSize: 48,
+											color: "#eb2f96",
+											marginBottom: 16,
+										}}
+									/>
+									<Title level={4} style={{ marginBottom: 8 }}>
+										{t("subscription.title")}
+									</Title>
+									<Typography.Text type="secondary">
+										{t("subscription.description")}
 									</Typography.Text>
 								</Card>
 							</Link>

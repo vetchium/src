@@ -677,3 +677,9 @@ SELECT EXISTS(
       AND r.role_name = 'org:superadmin'
 ) AS is_superadmin;
 
+
+-- name: CountSubOrgsForOrg :one
+SELECT COUNT(*)::int FROM suborgs WHERE org_id = @org_id;
+
+-- name: CountVerifiedDomainsForOrg :one
+SELECT COUNT(*)::int FROM org_domains WHERE org_id = @org_id AND status = 'VERIFIED';

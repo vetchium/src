@@ -498,6 +498,12 @@ export const OrgRoleManageCostCenters = "org:manage_costcenters";
 export const OrgRoleViewSubOrgs = "org:view_suborgs";
 export const OrgRoleManageSubOrgs = "org:manage_suborgs";
 export const OrgRoleViewAuditLogs = "org:view_audit_logs";
+export const OrgRoleViewListings = "org:view_listings";
+export const OrgRoleManageListings = "org:manage_listings";
+export const OrgRoleViewSubscriptions = "org:view_subscriptions";
+export const OrgRoleManageSubscriptions = "org:manage_subscriptions";
+export const OrgRoleViewSubscription = "org:view_subscription";
+export const OrgRoleManageSubscription = "org:manage_subscription";
 
 export interface OrgUser {
 	email_address: EmailAddress;

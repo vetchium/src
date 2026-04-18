@@ -289,7 +289,9 @@ INSERT INTO roles (role_name, description) VALUES
     ('admin:manage_tags', 'Can create and update tags'),
     ('admin:view_audit_logs', 'Can view admin portal audit logs'),
     ('admin:view_marketplace', 'Can view marketplace capabilities, listings, and subscriptions (read-only)'),
-    ('admin:manage_marketplace', 'Can manage marketplace capabilities, suspend/reinstate listings, and cancel subscriptions');
+    ('admin:manage_marketplace', 'Can manage marketplace capabilities, suspend/reinstate listings, and cancel subscriptions'),
+    ('admin:view_org_subscriptions', 'Can view org tier subscriptions (read-only)'),
+    ('admin:manage_org_subscriptions', 'Can grant tiers, waive fees, suspend, and force-downgrade');
 
 -- Admin audit logs table (unified audit log for all admin portal write operations)
 CREATE TABLE admin_audit_logs (
@@ -300,6 +302,69 @@ CREATE TABLE admin_audit_logs (
     ip_address     TEXT        NOT NULL,
     event_data     JSONB       NOT NULL DEFAULT '{}',
     created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Org Tiers
+CREATE TABLE org_tiers (
+    tier_id                        TEXT        PRIMARY KEY,
+    display_order                  INT         NOT NULL UNIQUE,
+    org_users_cap                  INT,
+    domains_verified_cap           INT,
+    suborgs_cap                    INT,
+    marketplace_listings_cap       INT,
+    audit_retention_days           INT,
+    self_upgradeable               BOOLEAN     NOT NULL DEFAULT FALSE,
+    status                         TEXT        NOT NULL CHECK (status IN ('active','retired')) DEFAULT 'active',
+    created_at                     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at                     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE org_tier_translations (
+    tier_id                        TEXT        NOT NULL REFERENCES org_tiers(tier_id),
+    locale                         TEXT        NOT NULL,
+    display_name                   TEXT        NOT NULL,
+    description                    TEXT        NOT NULL DEFAULT '',
+    PRIMARY KEY (tier_id, locale)
+);
+
+INSERT INTO org_tiers (tier_id, display_order, org_users_cap, domains_verified_cap, suborgs_cap, marketplace_listings_cap, audit_retention_days, self_upgradeable, status) VALUES
+    ('free',       1, 5,    2,    0,  0,  30,  FALSE, 'active'),
+    ('silver',     2, 25,   5,    3,  5,  365, TRUE,  'active'),
+    ('gold',       3, 100,  NULL, 10, 20, 1095,TRUE,  'active'),
+    ('enterprise', 4, NULL, NULL, NULL, NULL, NULL, FALSE, 'active');
+
+INSERT INTO org_tier_translations (tier_id, locale, display_name, description) VALUES
+    ('free',       'en-US', 'Free',       'Free tier. Discover and consume marketplace. No publishing.'),
+    ('silver',     'en-US', 'Silver',     'For orgs running hiring + modest marketplace listings.'),
+    ('gold',       'en-US', 'Gold',       'For heavy operators — staffing firms, multi-site employers.'),
+    ('enterprise', 'en-US', 'Enterprise', 'Custom commercial terms. Contact us.'),
+    ('free', 'de-DE', 'Kostenlos', ''),
+    ('silver', 'de-DE', 'Silber', ''),
+    ('gold', 'de-DE', 'Gold', ''),
+    ('enterprise', 'de-DE', 'Enterprise', ''),
+    ('free', 'ta-IN', 'இலவசம்', ''),
+    ('silver', 'ta-IN', 'வெள்ளி', ''),
+    ('gold', 'ta-IN', 'தங்கம்', ''),
+    ('enterprise', 'ta-IN', 'நிறுவனம்', '');
+
+CREATE TABLE org_subscriptions (
+    org_id                    UUID         PRIMARY KEY REFERENCES orgs(org_id),
+    current_tier_id           TEXT         NOT NULL REFERENCES org_tiers(tier_id),
+    updated_at                TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_by_admin_id       UUID,
+    updated_by_org_user_id    UUID,
+    note                      TEXT         NOT NULL DEFAULT ''
+);
+
+CREATE TABLE org_subscription_history (
+    history_id                UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    org_id                    UUID         NOT NULL,
+    from_tier_id              TEXT,
+    to_tier_id                TEXT         NOT NULL,
+    changed_at                TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    changed_by_admin_id       UUID,
+    changed_by_org_user_id    UUID,
+    reason                    TEXT         NOT NULL DEFAULT ''
 );
 
 -- Indexes
@@ -321,6 +386,10 @@ CREATE INDEX idx_admin_audit_logs_created_at_id ON admin_audit_logs(created_at D
 CREATE INDEX idx_admin_audit_logs_actor_user_id ON admin_audit_logs(actor_user_id);
 CREATE INDEX idx_admin_audit_logs_event_type ON admin_audit_logs(event_type);
 -- +goose Down
+DROP TABLE IF EXISTS org_subscription_history;
+DROP TABLE IF EXISTS org_subscriptions;
+DROP TABLE IF EXISTS org_tier_translations;
+DROP TABLE IF EXISTS org_tiers;
 DROP INDEX IF EXISTS idx_admin_audit_logs_event_type;
 DROP INDEX IF EXISTS idx_admin_audit_logs_actor_user_id;
 DROP INDEX IF EXISTS idx_admin_audit_logs_created_at_id;

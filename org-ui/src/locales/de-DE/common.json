@@ -42,6 +42,10 @@
 		"title": "Unterorganisationen",
 		"description": "Unterorganisationen und ihre Mitglieder verwalten"
 	},
+	"subscription": {
+		"title": "Abonnement",
+		"description": "Plan anzeigen und Abonnement upgraden"
+	},
 	"browseMarketplace": {
 		"title": "Dienste entdecken",
 		"description": "Dienstangebote im Vetchium-Marktplatz entdecken"

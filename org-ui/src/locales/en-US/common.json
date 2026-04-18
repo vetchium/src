@@ -42,6 +42,10 @@
 		"title": "Sub-Organizations",
 		"description": "Manage sub-organizations and their members"
 	},
+	"subscription": {
+		"title": "Subscription",
+		"description": "View your plan and upgrade your subscription"
+	},
 	"browseMarketplace": {
 		"title": "Browse Services",
 		"description": "Discover service listings in the Vetchium marketplace"

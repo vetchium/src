@@ -17,6 +17,7 @@ import (
 	"vetchium-api-server.gomodule/internal/audit"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
+	"vetchium-api-server.gomodule/internal/orgtiers"
 	"vetchium-api-server.gomodule/internal/server"
 	orgdomains "vetchium-api-server.typespec/org-domains"
 )
@@ -161,6 +162,18 @@ func VerifyDomain(s *server.RegionalServer) http.HandlerFunc {
 				Message: &message,
 			}
 			json.NewEncoder(w).Encode(response)
+			return
+		}
+
+		// Enforce domains_verified quota before transitioning to verified status
+		quotaPayload, quotaErr := orgtiers.EnforceQuota(ctx, orgtiers.QuotaDomainsVerified, orgUser.OrgID, s.Global, s.Regional)
+		if quotaErr != nil {
+			if errors.Is(quotaErr, orgtiers.ErrQuotaExceeded) {
+				orgtiers.WriteQuotaError(w, quotaPayload)
+				return
+			}
+			s.Logger(ctx).Error("failed to check domains_verified quota", "error", quotaErr)
+			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 

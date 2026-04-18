@@ -159,6 +159,31 @@ func CompleteSignup(s *server.RegionalServer) http.HandlerFunc {
 				return txErr
 			}
 
+			// 4. Assign free tier subscription on signup
+			txErr = qtx.CreateOrgSubscription(ctx, globaldb.CreateOrgSubscriptionParams{
+				OrgID:              employer.OrgID,
+				CurrentTierID:      "free",
+				UpdatedByAdminID:   pgtype.UUID{Valid: false},
+				UpdatedByOrgUserID: pgtype.UUID{Valid: false},
+				Note:               "",
+			})
+			if txErr != nil {
+				s.Logger(ctx).Error("failed to create org subscription", "error", txErr)
+				return txErr
+			}
+			txErr = qtx.InsertOrgSubscriptionHistory(ctx, globaldb.InsertOrgSubscriptionHistoryParams{
+				OrgID:              employer.OrgID,
+				FromTierID:         pgtype.Text{Valid: false},
+				ToTierID:           "free",
+				ChangedByAdminID:   pgtype.UUID{Valid: false},
+				ChangedByOrgUserID: pgtype.UUID{Valid: false},
+				Reason:             "signup",
+			})
+			if txErr != nil {
+				s.Logger(ctx).Error("failed to insert org subscription history", "error", txErr)
+				return txErr
+			}
+
 			return nil
 		})
 

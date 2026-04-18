@@ -18,6 +18,7 @@ import (
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/email/templates"
 	"vetchium-api-server.gomodule/internal/middleware"
+	"vetchium-api-server.gomodule/internal/orgtiers"
 	"vetchium-api-server.gomodule/internal/server"
 	orgspec "vetchium-api-server.typespec/org"
 )
@@ -68,6 +69,18 @@ func CreateSubOrg(s *server.RegionalServer) http.HandlerFunc {
 		if !region.IsActive {
 			s.Logger(ctx).Debug("region is not active", "region", req.PinnedRegion)
 			http.Error(w, "pinned_region is not available", http.StatusBadRequest)
+			return
+		}
+
+		// Enforce suborgs quota before creating
+		quotaPayload, quotaErr := orgtiers.EnforceQuota(ctx, orgtiers.QuotaSubOrgs, orgUser.OrgID, s.Global, s.Regional)
+		if quotaErr != nil {
+			if errors.Is(quotaErr, orgtiers.ErrQuotaExceeded) {
+				orgtiers.WriteQuotaError(w, quotaPayload)
+				return
+			}
+			s.Logger(ctx).Error("failed to check suborgs quota", "error", quotaErr)
+			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 

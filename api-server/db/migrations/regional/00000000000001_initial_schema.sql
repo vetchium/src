@@ -233,6 +233,8 @@ INSERT INTO roles (role_name, description) VALUES
     ('org:manage_listings', 'Can create, edit, publish, and archive own marketplace listings'),
     ('org:view_subscriptions', 'Can view own marketplace subscriptions (read-only)'),
     ('org:manage_subscriptions', 'Can create and cancel marketplace subscriptions'),
+    ('org:view_subscription', 'Can view own org tier subscription and usage (read-only)'),
+    ('org:manage_subscription', 'Can upgrade own org tier subscription'),
 
     -- Hub portal roles (assigned at signup, additional roles for paid features)
     ('hub:read_posts', 'Can read posts by other hub users'),

@@ -6,6 +6,7 @@ import {
 	createTestOrgUserDirect,
 	createTestOrgAdminDirect,
 	assignRoleToOrgUser,
+	setOrgTier,
 } from "../../../lib/db";
 import {
 	getTfaCodeFromEmail,
@@ -414,4 +415,56 @@ test.describe("RBAC: POST /org/invite-user", () => {
 
 	// Negative RBAC (no role → 403) is covered by
 	// "non-admin cannot invite users (403 forbidden)" above.
+
+	// ============================================================================
+	// Quota enforcement
+	// ============================================================================
+	test("returns 403 when org_users quota is exceeded", async ({ request }) => {
+		const api = new OrgAPIClient(request);
+		const { email: adminEmail, domain } =
+			generateTestOrgEmail("org-invite-quota");
+
+		// createTestOrgAdminDirect creates 1 user; free tier cap is 5.
+		// Create 4 more to reach the cap.
+		const { orgId } = await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
+		const extraEmails: string[] = [];
+		for (let i = 0; i < 4; i++) {
+			const extra = `extra${i}@${domain}`;
+			extraEmails.push(extra);
+			await createTestOrgUserDirect(extra, TEST_PASSWORD, "ind1", {
+				orgId,
+				domain,
+			});
+		}
+
+		try {
+			// Login as admin
+			const loginResponse = await api.login({
+				email: adminEmail,
+				domain,
+				password: TEST_PASSWORD,
+			});
+			expect(loginResponse.status).toBe(200);
+			const tfaCode = await getTfaCodeFromEmail(adminEmail);
+			const tfaResponse = await api.verifyTFA({
+				tfa_token: loginResponse.body.tfa_token,
+				tfa_code: tfaCode,
+				remember_me: false,
+			});
+			expect(tfaResponse.status).toBe(200);
+			const sessionToken = tfaResponse.body.session_token;
+
+			// Now 5 users exist (the cap). Inviting a 6th should hit quota.
+			const inviteResponse = await api.inviteUser(sessionToken, {
+				email_address: `over-cap@${domain}`,
+				roles: [],
+			});
+			expect(inviteResponse.status).toBe(403);
+		} finally {
+			for (const extra of extraEmails) {
+				await deleteTestOrgUser(extra);
+			}
+			await deleteTestOrgUser(adminEmail);
+		}
+	});
 });

@@ -31,6 +31,7 @@ import { DomainManagementPage } from "./pages/DomainManagement/DomainManagementP
 import { CostCentersPage } from "./pages/CostCenters/CostCentersPage";
 import { SubOrgsPage } from "./pages/SubOrgs/SubOrgsPage";
 import { AuditLogsPage } from "./pages/AuditLogsPage";
+import { SubscriptionPage } from "./pages/Subscription/SubscriptionPage";
 import {
 	BrowserRouter,
 	Routes,
@@ -358,6 +359,14 @@ function AppContent() {
 									<AuthRoute>
 										<CompleteSetupPage />
 									</AuthRoute>
+								}
+							/>
+							<Route
+								path="/settings/subscription"
+								element={
+									<ProtectedRoute>
+										<SubscriptionPage />
+									</ProtectedRoute>
 								}
 							/>
 							<Route path="*" element={<NotFoundPage />} />

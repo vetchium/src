@@ -1,0 +1,51 @@
+{
+	"title": "Subscription",
+	"backToDashboard": "Back to Dashboard",
+	"currentTier": {
+		"title": "Current Plan",
+		"name": "Plan",
+		"description": "Description",
+		"updatedAt": "Last Updated"
+	},
+	"usage": {
+		"title": "Usage",
+		"resource": "Resource",
+		"current": "Current",
+		"cap": "Limit",
+		"unlimited": "Unlimited",
+		"orgUsers": "Org Users",
+		"domainsVerified": "Verified Domains",
+		"suborgs": "Sub-Organizations",
+		"marketplaceListings": "Marketplace Listings"
+	},
+	"plans": {
+		"title": "Available Plans",
+		"currentBadge": "Current Plan",
+		"unlimited": "Unlimited",
+		"orgUsers": "Users",
+		"domains": "Domains",
+		"suborgs": "Sub-Orgs",
+		"listings": "Listings",
+		"upgradeButton": "Upgrade to {{tier}}",
+		"enterpriseContact": "Contact us for Enterprise pricing"
+	},
+	"upgradeModal": {
+		"title": "Upgrade to {{tier}}",
+		"content": "Are you sure you want to upgrade to the {{tier}} plan?",
+		"confirm": "Upgrade",
+		"cancel": "Cancel"
+	},
+	"quotaExceeded": {
+		"title": "Quota Exceeded",
+		"message": "Your organization has reached the {{quota}} limit ({{cap}}) on the {{tier}} plan.",
+		"viewPlans": "View upgrade options"
+	},
+	"errors": {
+		"loadFailed": "Failed to load subscription details",
+		"upgradeFailed": "Failed to upgrade subscription",
+		"upgradeNotAllowed": "This plan cannot be selected via self-upgrade"
+	},
+	"success": {
+		"upgraded": "Successfully upgraded to {{tier}}"
+	}
+}

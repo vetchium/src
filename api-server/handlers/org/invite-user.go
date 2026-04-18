@@ -17,6 +17,7 @@ import (
 	"vetchium-api-server.gomodule/internal/email/templates"
 	"vetchium-api-server.gomodule/internal/i18n"
 	"vetchium-api-server.gomodule/internal/middleware"
+	"vetchium-api-server.gomodule/internal/orgtiers"
 	"vetchium-api-server.gomodule/internal/server"
 	"vetchium-api-server.gomodule/internal/tokens"
 	common "vetchium-api-server.typespec/common"
@@ -106,6 +107,18 @@ func InviteUser(s *server.RegionalServer) http.HandlerFunc {
 		employer, err := s.Global.GetOrgByID(ctx, orgUser.OrgID)
 		if err != nil {
 			s.Logger(ctx).Error("failed to get org info", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
+		// Enforce org_users quota before creating the new user
+		quotaPayload, err := orgtiers.EnforceQuota(ctx, orgtiers.QuotaOrgUsers, orgUser.OrgID, s.Global, s.Regional)
+		if err != nil {
+			if errors.Is(err, orgtiers.ErrQuotaExceeded) {
+				orgtiers.WriteQuotaError(w, quotaPayload)
+				return
+			}
+			s.Logger(ctx).Error("failed to check org_users quota", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}

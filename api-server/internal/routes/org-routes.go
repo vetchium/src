@@ -31,6 +31,8 @@ func RegisterOrgRoutes(mux *http.ServeMux, s *server.RegionalServer) {
 	orgRoleViewAuditLogs := middleware.OrgRole(s.Regional, orgspec.OrgRoleViewAuditLogs)
 	orgRoleViewSubOrgs := middleware.OrgRole(s.Regional, orgspec.OrgRoleViewSubOrgs, orgspec.OrgRoleManageSubOrgs)
 	orgRoleManageSubOrgs := middleware.OrgRole(s.Regional, orgspec.OrgRoleManageSubOrgs)
+	orgRoleViewSubscription := middleware.OrgRole(s.Regional, orgspec.OrgRoleViewSubscription, orgspec.OrgRoleManageSubscription)
+	orgRoleManageSubscription := middleware.OrgRole(s.Regional, orgspec.OrgRoleManageSubscription)
 
 	// Domain write routes (manage_domains required; superadmin bypasses via middleware)
 	mux.Handle("POST /org/claim-domain", orgAuth(orgRoleManageDomains(org.ClaimDomain(s))))
@@ -74,5 +76,10 @@ func RegisterOrgRoutes(mux *http.ServeMux, s *server.RegionalServer) {
 
 	// Audit log routes
 	mux.Handle("POST /org/filter-audit-logs", orgAuth(orgRoleViewAuditLogs(org.FilterAuditLogs(s))))
+
+	// Org subscription / tier routes
+	mux.Handle("POST /org/org-subscriptions/list-tiers", orgAuth(org.ListOrgTiers(s)))
+	mux.Handle("POST /org/org-subscriptions/get", orgAuth(orgRoleViewSubscription(org.GetMyOrgSubscription(s))))
+	mux.Handle("POST /org/org-subscriptions/self-upgrade", orgAuth(orgRoleManageSubscription(org.SelfUpgradeOrgSubscription(s))))
 
 }

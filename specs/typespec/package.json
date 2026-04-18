@@ -19,6 +19,7 @@
 		"./common/roles": "./common/roles.ts",
 		"./org/marketplace": "./org/marketplace.ts",
 		"./admin/marketplace": "./admin/marketplace.ts",
+		"./org/tiers": "./org/tiers.ts",
 		"./audit-logs/audit-logs": "./audit-logs/audit-logs.ts"
 	},
 	"dependencies": {

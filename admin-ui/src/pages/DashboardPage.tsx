@@ -5,6 +5,7 @@ import {
 	TagsOutlined,
 	TeamOutlined,
 	FileSearchOutlined,
+	CrownOutlined,
 } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../hooks/useAuth";
@@ -38,6 +39,12 @@ export function DashboardPage() {
 	const canViewAuditLogs =
 		myInfo?.roles.includes("admin:superadmin") ||
 		myInfo?.roles.includes("admin:view_audit_logs") ||
+		false;
+
+	const canViewOrgSubscriptions =
+		myInfo?.roles.includes("admin:superadmin") ||
+		myInfo?.roles.includes("admin:view_org_subscriptions") ||
+		myInfo?.roles.includes("admin:manage_org_subscriptions") ||
 		false;
 
 	return (
@@ -185,6 +192,38 @@ export function DashboardPage() {
 									</Title>
 									<Text type="secondary">
 										{t("dashboard.auditLogs.description")}
+									</Text>
+								</Card>
+							</Link>
+						</Col>
+					)}
+
+					{canViewOrgSubscriptions && (
+						<Col xs={24} sm={12} lg={8}>
+							<Link
+								to="/org-subscriptions"
+								style={{
+									textDecoration: "none",
+									display: "block",
+									height: "100%",
+								}}
+							>
+								<Card
+									hoverable
+									style={{
+										height: "100%",
+										cursor: "pointer",
+										textAlign: "center",
+									}}
+								>
+									<CrownOutlined
+										style={{ fontSize: 48, color: "#eb2f96", marginBottom: 16 }}
+									/>
+									<Title level={4} style={{ marginBottom: 8 }}>
+										{t("orgSubscriptions:dashboardTitle")}
+									</Title>
+									<Text type="secondary">
+										{t("orgSubscriptions:dashboardDescription")}
 									</Text>
 								</Card>
 							</Link>

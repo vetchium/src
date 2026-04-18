@@ -67,6 +67,11 @@ import type {
 	ListSubOrgMembersRequest,
 	ListSubOrgMembersResponse,
 } from "vetchium-specs/org/suborgs";
+import type {
+	OrgSubscription,
+	ListOrgTiersResponse,
+	SelfUpgradeOrgSubscriptionRequest,
+} from "vetchium-specs/org/tiers";
 import type { APIResponse } from "./api-client";
 
 /**
@@ -1501,7 +1506,7 @@ export class OrgAPIClient {
 			headers: { Authorization: `Bearer ${sessionToken}` },
 			data: request,
 		});
-		return { status: response.status() };
+		return { status: response.status(), body: undefined };
 	}
 
 	async disableSubOrgRaw(
@@ -1512,7 +1517,7 @@ export class OrgAPIClient {
 			headers: { Authorization: `Bearer ${sessionToken}` },
 			data: body,
 		});
-		return { status: response.status() };
+		return { status: response.status(), body: undefined };
 	}
 
 	async enableSubOrg(
@@ -1523,7 +1528,7 @@ export class OrgAPIClient {
 			headers: { Authorization: `Bearer ${sessionToken}` },
 			data: request,
 		});
-		return { status: response.status() };
+		return { status: response.status(), body: undefined };
 	}
 
 	async enableSubOrgRaw(
@@ -1534,7 +1539,7 @@ export class OrgAPIClient {
 			headers: { Authorization: `Bearer ${sessionToken}` },
 			data: body,
 		});
-		return { status: response.status() };
+		return { status: response.status(), body: undefined };
 	}
 
 	async addSubOrgMember(
@@ -1545,7 +1550,7 @@ export class OrgAPIClient {
 			headers: { Authorization: `Bearer ${sessionToken}` },
 			data: request,
 		});
-		return { status: response.status() };
+		return { status: response.status(), body: undefined };
 	}
 
 	async addSubOrgMemberRaw(
@@ -1556,7 +1561,7 @@ export class OrgAPIClient {
 			headers: { Authorization: `Bearer ${sessionToken}` },
 			data: body,
 		});
-		return { status: response.status() };
+		return { status: response.status(), body: undefined };
 	}
 
 	async removeSubOrgMember(
@@ -1567,7 +1572,7 @@ export class OrgAPIClient {
 			headers: { Authorization: `Bearer ${sessionToken}` },
 			data: request,
 		});
-		return { status: response.status() };
+		return { status: response.status(), body: undefined };
 	}
 
 	async removeSubOrgMemberRaw(
@@ -1578,7 +1583,7 @@ export class OrgAPIClient {
 			headers: { Authorization: `Bearer ${sessionToken}` },
 			data: body,
 		});
-		return { status: response.status() };
+		return { status: response.status(), body: undefined };
 	}
 
 	async listSubOrgMembers(
@@ -1613,4 +1618,74 @@ export class OrgAPIClient {
 		};
 	}
 
+	async listOrgTiers(
+		sessionToken: string
+	): Promise<APIResponse<ListOrgTiersResponse>> {
+		const response = await this.request.post(
+			"/org/org-subscriptions/list-tiers",
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: {},
+			}
+		);
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as ListOrgTiersResponse,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	async getMyOrgSubscription(
+		sessionToken: string
+	): Promise<APIResponse<OrgSubscription>> {
+		const response = await this.request.post("/org/org-subscriptions/get", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: {},
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as OrgSubscription,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	async selfUpgradeOrgSubscription(
+		sessionToken: string,
+		request: SelfUpgradeOrgSubscriptionRequest
+	): Promise<APIResponse<OrgSubscription>> {
+		const response = await this.request.post(
+			"/org/org-subscriptions/self-upgrade",
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: request,
+			}
+		);
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as OrgSubscription,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	async selfUpgradeOrgSubscriptionRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<OrgSubscription>> {
+		const response = await this.request.post(
+			"/org/org-subscriptions/self-upgrade",
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: body,
+			}
+		);
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as OrgSubscription,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
 }

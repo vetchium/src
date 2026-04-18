@@ -2,6 +2,7 @@ package common
 
 import (
 	"errors"
+	"slices"
 )
 
 type RoleName string
@@ -18,6 +19,8 @@ var ValidRoleNames = []RoleName{
 	"admin:view_audit_logs",
 	"admin:view_marketplace",
 	"admin:manage_marketplace",
+	"admin:view_org_subscriptions",
+	"admin:manage_org_subscriptions",
 
 	// Org portal roles
 	"org:superadmin",
@@ -34,6 +37,8 @@ var ValidRoleNames = []RoleName{
 	"org:view_subscriptions",
 	"org:manage_subscriptions",
 	"org:view_audit_logs",
+	"org:view_subscription",
+	"org:manage_subscription",
 
 	// Hub portal roles
 	"hub:read_posts",
@@ -49,10 +54,8 @@ var (
 
 // Validate checks if the role name is valid
 func (r RoleName) Validate() error {
-	for _, valid := range ValidRoleNames {
-		if r == valid {
-			return nil
-		}
+	if slices.Contains(ValidRoleNames, r) {
+		return nil
 	}
 	return ErrRoleNameInvalid
 }

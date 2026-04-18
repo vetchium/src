@@ -23,6 +23,7 @@ import { ChangePasswordPage } from "./pages/ChangePasswordPage";
 import { UserManagementPage } from "./pages/UserManagement/UserManagementPage";
 import { ManageTagsPage } from "./pages/ManageTagsPage";
 import { AuditLogsPage } from "./pages/AuditLogsPage";
+import { OrgSubscriptionsPage } from "./pages/OrgSubscriptions/OrgSubscriptionsPage";
 import {
 	BrowserRouter,
 	Routes,
@@ -210,6 +211,14 @@ function AppContent() {
 							<Route path="/forgot-password" element={<ForgotPasswordPage />} />
 							<Route path="/reset-password" element={<ResetPasswordPage />} />
 							<Route path="/complete-setup" element={<CompleteSetupPage />} />
+							<Route
+								path="/org-subscriptions"
+								element={
+									<ProtectedRoute>
+										<OrgSubscriptionsPage />
+									</ProtectedRoute>
+								}
+							/>
 							<Route path="*" element={<NotFoundPage />} />
 						</Routes>
 					</Content>
