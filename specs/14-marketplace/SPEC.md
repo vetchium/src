@@ -23,11 +23,11 @@ agreed off-platform.
 
 ## 2. Participants
 
-| Participant  | Role                                                                                                    |
-| ------------ | ------------------------------------------------------------------------------------------------------- |
+| Participant  | Role                                                                                                      |
+| ------------ | --------------------------------------------------------------------------------------------------------- |
 | Vetchium     | Platform operator. Defines the Capability catalog. Can suspend any Listing. Does not touch Org↔Org money. |
-| Provider Org | Publishes Listings. Delivers services to Consumer Orgs.                                                 |
-| Consumer Org | Browses, subscribes, engages Provider Orgs for services.                                                |
+| Provider Org | Publishes Listings. Delivers services to Consumer Orgs.                                                   |
+| Consumer Org | Browses, subscribes, engages Provider Orgs for services.                                                  |
 
 An organization may simultaneously be a Provider for some Capabilities and a Consumer
 for others. An organization may not subscribe to its own Listing.
@@ -197,7 +197,7 @@ while the listing is in `draft` and cleared on the next re-submit.
 A Subscription records that a Consumer Org has subscribed to a specific Provider
 Listing. **One Subscription covers all Capabilities on that Listing** — the Consumer
 does not subscribe per-Capability. This matches buyer intent (they subscribe to the
-*offering*, not individual service categories).
+_offering_, not individual service categories).
 
 When a Subscription is created it goes directly to `active` — the Consumer immediately
 sees the Provider's contact information to initiate the relationship off-platform.
@@ -252,15 +252,15 @@ routing index lets Providers query their subscribers across regions.
 - `admin:view_marketplace` — read-only.
 - `admin:superadmin` — bypasses.
 
-| Action                                                          | Required role                                          |
-| --------------------------------------------------------------- | ------------------------------------------------------ |
-| Browse active Capabilities and Listings                         | Any authenticated org user                             |
-| Create / edit own Listings                                      | `org:manage_listings`                                  |
-| View own Listings + subscribers                                 | `org:view_listings` or `org:manage_listings`           |
-| Create / cancel Subscriptions                                   | `org:manage_subscriptions`                             |
-| View own Subscriptions                                          | `org:view_subscriptions` or `org:manage_subscriptions` |
-| Admin: Capability CRUD, suspend Listing, cancel Subscription    | `admin:manage_marketplace`                             |
-| Admin: read-only views                                          | `admin:view_marketplace` or `admin:manage_marketplace` |
+| Action                                                       | Required role                                          |
+| ------------------------------------------------------------ | ------------------------------------------------------ |
+| Browse active Capabilities and Listings                      | Any authenticated org user                             |
+| Create / edit own Listings                                   | `org:manage_listings`                                  |
+| View own Listings + subscribers                              | `org:view_listings` or `org:manage_listings`           |
+| Create / cancel Subscriptions                                | `org:manage_subscriptions`                             |
+| View own Subscriptions                                       | `org:view_subscriptions` or `org:manage_subscriptions` |
+| Admin: Capability CRUD, suspend Listing, cancel Subscription | `admin:manage_marketplace`                             |
+| Admin: read-only views                                       | `admin:view_marketplace` or `admin:manage_marketplace` |
 
 ---
 
@@ -287,12 +287,12 @@ Column-level schemas are deferred until the spec is implementation-ready.
 
 ### 7.1 Dashboard Tiles
 
-| Tile                 | Route                        | Visible when                                                    |
-| -------------------- | ---------------------------- | --------------------------------------------------------------- |
-| **Marketplace**      | `/marketplace/discover`      | Any authenticated user                                          |
-| **My Subscriptions** | `/marketplace/subscriptions` | `org:manage_subscriptions` or `org:view_subscriptions`          |
-| **My Listings**      | `/marketplace/listings`      | `org:manage_listings` or `org:view_listings`                    |
-| **My Clients**       | `/marketplace/clients`       | `org:manage_listings` or `org:view_listings`                    |
+| Tile                 | Route                        | Visible when                                           |
+| -------------------- | ---------------------------- | ------------------------------------------------------ |
+| **Marketplace**      | `/marketplace/discover`      | Any authenticated user                                 |
+| **My Subscriptions** | `/marketplace/subscriptions` | `org:manage_subscriptions` or `org:view_subscriptions` |
+| **My Listings**      | `/marketplace/listings`      | `org:manage_listings` or `org:view_listings`           |
+| **My Clients**       | `/marketplace/clients`       | `org:manage_listings` or `org:view_listings`           |
 
 (The Invoices tile lives under `specs/15-invoicing/`.)
 

@@ -152,7 +152,7 @@ All admin actions emit `admin_audit_logs` entries.
   reconciled. Vetchium may integrate an external billing provider (e.g., Stripe) at
   launch and feed results into the Org Subscription state, or use the in-platform
   Invoicing infrastructure (`specs/15-invoicing/` with `source_type =
-  org_subscription`). Decision deferred.
+org_subscription`). Decision deferred.
 - One Org Subscription record per Org, with billing periods as child records.
 
 ### 4.6 First-Party Vetchium Services
@@ -220,12 +220,12 @@ tier → quotas.
 - `admin:view_org_subscriptions` — read-only.
 - `admin:superadmin` — bypasses.
 
-| Action                                           | Required role                                       |
-| ------------------------------------------------ | --------------------------------------------------- |
-| View own tier + usage dashboard                  | `org:view_subscription` or `org:manage_subscription`|
-| Upgrade / downgrade own Org's tier               | `org:manage_subscription`                           |
-| Admin: grant / waive / suspend / force-downgrade | `admin:manage_org_subscriptions`                    |
-| Admin: read-only views                           | `admin:view_org_subscriptions` or manage            |
+| Action                                           | Required role                                        |
+| ------------------------------------------------ | ---------------------------------------------------- |
+| View own tier + usage dashboard                  | `org:view_subscription` or `org:manage_subscription` |
+| Upgrade / downgrade own Org's tier               | `org:manage_subscription`                            |
+| Admin: grant / waive / suspend / force-downgrade | `admin:manage_org_subscriptions`                     |
+| Admin: read-only views                           | `admin:view_org_subscriptions` or manage             |
 
 ---
 

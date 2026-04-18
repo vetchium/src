@@ -38,11 +38,11 @@ Additional source types may be added later without changing the core shape.
 
 ## 2. Participants
 
-| Participant           | Role                                                                                                                           |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| Issuer                | Creates and sends the Invoice. Authoritative for its content (line items, totals, tax assertions).                             |
-| Recipient             | Acknowledges receipt, raises disputes, or records payment after paying off-platform.                                           |
-| Vetchium              | Generates PDF, assigns per-Issuer sequential invoice numbers, tracks lifecycle, audits events, hosts a read-only admin view.   |
+| Participant | Role                                                                                                                         |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Issuer      | Creates and sends the Invoice. Authoritative for its content (line items, totals, tax assertions).                           |
+| Recipient   | Acknowledges receipt, raises disputes, or records payment after paying off-platform.                                         |
+| Vetchium    | Generates PDF, assigns per-Issuer sequential invoice numbers, tracks lifecycle, audits events, hosts a read-only admin view. |
 
 **Vetchium does NOT:**
 
@@ -138,12 +138,12 @@ the voided record retains its number to preserve an auditable sequence.
   is the source of truth.
 - `admin:superadmin` — bypasses.
 
-| Action                                              | Required role                                  |
-| --------------------------------------------------- | ---------------------------------------------- |
-| Issue / edit draft / void (Issuer)                  | `org:manage_invoices`                          |
-| Acknowledge / dispute / mark paid (Recipient)       | `org:manage_invoices`                          |
-| View invoices to/from own org                       | `org:view_invoices` or `org:manage_invoices`   |
-| Admin: read-only views, moderation flags            | `admin:view_invoices`                          |
+| Action                                        | Required role                                |
+| --------------------------------------------- | -------------------------------------------- |
+| Issue / edit draft / void (Issuer)            | `org:manage_invoices`                        |
+| Acknowledge / dispute / mark paid (Recipient) | `org:manage_invoices`                        |
+| View invoices to/from own org                 | `org:view_invoices` or `org:manage_invoices` |
+| Admin: read-only views, moderation flags      | `admin:view_invoices`                        |
 
 ---
 
@@ -169,11 +169,11 @@ Column-level schemas deferred. Rough shape:
 All invoice URLs use the per-Issuer `invoice_number`, mirroring the Marketplace
 Listing scheme. UUIDs are never exposed.
 
-| Route                                             | Purpose                                                             |
-| ------------------------------------------------- | ------------------------------------------------------------------- |
-| `/invoices`                                       | My Invoices — unified Sent/Received view.                           |
-| `/invoices/new?source_type=<type>&source_id=<id>` | Issue Invoice form (Issuer side).                                   |
-| `/invoices/<issuer-org-domain>/<invoice_number>`  | Canonical Invoice page — role-aware (Issuer, Recipient, Admin).     |
+| Route                                             | Purpose                                                         |
+| ------------------------------------------------- | --------------------------------------------------------------- |
+| `/invoices`                                       | My Invoices — unified Sent/Received view.                       |
+| `/invoices/new?source_type=<type>&source_id=<id>` | Issue Invoice form (Issuer side).                               |
+| `/invoices/<issuer-org-domain>/<invoice_number>`  | Canonical Invoice page — role-aware (Issuer, Recipient, Admin). |
 
 Router note: `/invoices` and `/invoices/new` are literal routes; the
 `:issuer-org-domain/:invoice_number` pattern matches everything else.
@@ -194,7 +194,8 @@ org is Recipient).
 
 Rows: counterparty org, `#<invoice_number>`, source (e.g. "Marketplace: Executive
 Search `#42`" or "Staffing: Placement for Senior SWE"), issue date, due date, amount
-+ currency, status.
+
+- currency, status.
 
 Filters: status, date range, counterparty, source type.
 
@@ -238,16 +239,16 @@ content.
 
 ## 9. Notifications
 
-| Event                     | Notified                                                                  |
-| ------------------------- | ------------------------------------------------------------------------- |
-| Invoice issued            | Recipient users with `org:manage_invoices` or `org:view_invoices`.        |
-| Invoice acknowledged      | Issuer users (same roles).                                                |
-| Invoice disputed          | Issuer users.                                                             |
-| Dispute withdrawn         | Issuer users.                                                             |
-| Invoice marked paid       | Issuer users.                                                             |
-| Invoice voided            | Recipient users.                                                          |
-| Due-date approaching      | Recipient users, a configurable number of days before `due_date` (default 3). Only for `issued` and `acknowledged`. |
-| Invoice overdue           | Recipient users, on `due_date + 1` and weekly thereafter, while still `issued` / `acknowledged`. |
+| Event                | Notified                                                                                                            |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Invoice issued       | Recipient users with `org:manage_invoices` or `org:view_invoices`.                                                  |
+| Invoice acknowledged | Issuer users (same roles).                                                                                          |
+| Invoice disputed     | Issuer users.                                                                                                       |
+| Dispute withdrawn    | Issuer users.                                                                                                       |
+| Invoice marked paid  | Issuer users.                                                                                                       |
+| Invoice voided       | Recipient users.                                                                                                    |
+| Due-date approaching | Recipient users, a configurable number of days before `due_date` (default 3). Only for `issued` and `acknowledged`. |
+| Invoice overdue      | Recipient users, on `due_date + 1` and weekly thereafter, while still `issued` / `acknowledged`.                    |
 
 Notification transport uses the platform's existing notification pipeline.
 
