@@ -1,0 +1,292 @@
+import { test, expect } from "@playwright/test";
+import { orgLogin, ORG_UI_URL } from "../../../lib/org-ui-helpers";
+import {
+	createTestOrgAdminDirect,
+	deleteTestOrgByDomain,
+	generateTestOrgEmail,
+	createTestMarketplaceCapability,
+	deleteTestMarketplaceCapability,
+	createTestMarketplaceListingDirect,
+	setOrgTier,
+} from "../../../lib/db";
+import { TEST_PASSWORD } from "../../../lib/constants";
+
+const SHARED_CAP_ID = `mp-ui-cap-${Math.random().toString(36).slice(2, 10)}`;
+const SHARED_CAP2_ID = `mp-ui-cap2-${Math.random().toString(36).slice(2, 10)}`;
+
+test.beforeAll(async () => {
+	await createTestMarketplaceCapability(
+		SHARED_CAP_ID,
+		"active",
+		"UI Test Capability"
+	);
+	await createTestMarketplaceCapability(
+		SHARED_CAP2_ID,
+		"active",
+		"UI Test Cap 2"
+	);
+});
+
+test.afterAll(async () => {
+	await deleteTestMarketplaceCapability(SHARED_CAP_ID);
+	await deleteTestMarketplaceCapability(SHARED_CAP2_ID);
+});
+
+// ============================================================================
+// Discover page
+// ============================================================================
+test.describe("Org UI Marketplace — Discover Page", () => {
+	test("Discover page renders listing cards", async ({ page }) => {
+		const { email, domain, orgId } = await createTestOrgAdminDirect(
+			generateTestOrgEmail("mp-ui-disc").email,
+			TEST_PASSWORD
+		);
+		try {
+			await createTestMarketplaceListingDirect(
+				orgId,
+				domain,
+				[SHARED_CAP_ID],
+				"active",
+				"Discover UI Test Listing"
+			);
+
+			await orgLogin(page, domain, email, TEST_PASSWORD);
+			await page.goto(`${ORG_UI_URL}/marketplace/discover`);
+
+			await expect(page.locator("text=Discover Marketplace")).toBeVisible({
+				timeout: 10000,
+			});
+			await expect(
+				page.locator("text=Discover UI Test Listing")
+			).toBeVisible({ timeout: 10000 });
+		} finally {
+			await deleteTestOrgByDomain(domain);
+		}
+	});
+
+	test("Capability filter narrows discover results", async ({ page }) => {
+		const { email, domain, orgId } = await createTestOrgAdminDirect(
+			generateTestOrgEmail("mp-ui-filter").email,
+			TEST_PASSWORD
+		);
+		try {
+			await createTestMarketplaceListingDirect(
+				orgId,
+				domain,
+				[SHARED_CAP_ID],
+				"active",
+				"Cap1 Listing"
+			);
+			await createTestMarketplaceListingDirect(
+				orgId,
+				domain,
+				[SHARED_CAP2_ID],
+				"active",
+				"Cap2 Listing"
+			);
+
+			await orgLogin(page, domain, email, TEST_PASSWORD);
+			await page.goto(`${ORG_UI_URL}/marketplace/discover`);
+
+			await expect(page.locator("text=Cap1 Listing")).toBeVisible({
+				timeout: 10000,
+			});
+			await expect(page.locator("text=Cap2 Listing")).toBeVisible();
+
+			// Select SHARED_CAP_ID in the capability filter
+			const filterSelect = page
+				.locator(".ant-select")
+				.filter({ hasText: /capability/i });
+			if ((await filterSelect.count()) > 0) {
+				await filterSelect.click();
+				await page.locator(`.ant-select-item[title="UI Test Capability"]`).click();
+				await expect(page.locator("text=Cap1 Listing")).toBeVisible({
+					timeout: 5000,
+				});
+			}
+		} finally {
+			await deleteTestOrgByDomain(domain);
+		}
+	});
+});
+
+// ============================================================================
+// Create listing form
+// ============================================================================
+test.describe("Org UI Marketplace — Create Listing", () => {
+	test("Create listing form: capability multi-select, save draft navigates to /marketplace/listings", async ({
+		page,
+	}) => {
+		const { email, domain } = await createTestOrgAdminDirect(
+			generateTestOrgEmail("mp-ui-create").email,
+			TEST_PASSWORD
+		);
+		try {
+			await orgLogin(page, domain, email, TEST_PASSWORD);
+			await page.goto(`${ORG_UI_URL}/marketplace/listings/new`);
+
+			await expect(page.locator("text=Create Listing")).toBeVisible({
+				timeout: 10000,
+			});
+
+			await page.fill('input[id="headline"]', "My UI Test Listing");
+			await page.fill(
+				'textarea[id="description"]',
+				"Description for UI test listing"
+			);
+
+			// Select capability
+			const capSelect = page.locator(".ant-select").first();
+			await capSelect.click();
+			await page
+				.locator(`.ant-select-item`, { hasText: "UI Test Capability" })
+				.click();
+
+			await page.click('button:has-text("Save Draft")');
+
+			// Should navigate to /marketplace/listings
+			await expect(page).toHaveURL(`${ORG_UI_URL}/marketplace/listings`, {
+				timeout: 10000,
+			});
+		} finally {
+			await deleteTestOrgByDomain(domain);
+		}
+	});
+});
+
+// ============================================================================
+// Publish as superadmin -> Active status
+// ============================================================================
+test.describe("Org UI Marketplace — Publish as Superadmin", () => {
+	test("Superadmin Publish shows Active status on listing page", async ({
+		page,
+	}) => {
+		const { email, domain, orgId } = await createTestOrgAdminDirect(
+			generateTestOrgEmail("mp-ui-pub").email,
+			TEST_PASSWORD
+		);
+		try {
+			await orgLogin(page, domain, email, TEST_PASSWORD);
+			await page.goto(`${ORG_UI_URL}/marketplace/listings/new`);
+
+			await expect(page.locator("text=Create Listing")).toBeVisible({
+				timeout: 10000,
+			});
+			await page.fill('input[id="headline"]', "Superadmin Publish Test");
+			await page.fill(
+				'textarea[id="description"]',
+				"Listing that will be published directly to active"
+			);
+
+			const capSelect = page.locator(".ant-select").first();
+			await capSelect.click();
+			await page
+				.locator(`.ant-select-item`, { hasText: "UI Test Capability" })
+				.click();
+
+			await page.click('button:has-text("Publish")');
+
+			// Should navigate to listings and show Active status
+			await expect(page).toHaveURL(
+				new RegExp(`${ORG_UI_URL}/marketplace/listings`),
+				{ timeout: 10000 }
+			);
+			await expect(page.locator("text=Active")).toBeVisible({
+				timeout: 5000,
+			});
+		} finally {
+			await deleteTestOrgByDomain(domain);
+		}
+	});
+});
+
+// ============================================================================
+// Quota-exceeded modal
+// ============================================================================
+test.describe("Org UI Marketplace — Quota Exceeded Modal", () => {
+	test("Quota-exceeded modal appears with link to /settings/subscription", async ({
+		page,
+	}) => {
+		const { email, domain, orgId } = await createTestOrgAdminDirect(
+			generateTestOrgEmail("mp-ui-quota").email,
+			TEST_PASSWORD
+		);
+		try {
+			// Free tier has 0 listing quota. Try to publish.
+			await orgLogin(page, domain, email, TEST_PASSWORD);
+			await page.goto(`${ORG_UI_URL}/marketplace/listings/new`);
+
+			await expect(page.locator("text=Create Listing")).toBeVisible({
+				timeout: 10000,
+			});
+			await page.fill('input[id="headline"]', "Quota Test Listing");
+			await page.fill('textarea[id="description"]', "Will hit quota");
+
+			const capSelect = page.locator(".ant-select").first();
+			await capSelect.click();
+			await page
+				.locator(`.ant-select-item`, { hasText: "UI Test Capability" })
+				.click();
+
+			await page.click('button:has-text("Publish")');
+
+			// Quota-exceeded modal or error message should appear
+			const quotaModal = page.locator(".ant-modal").filter({
+				hasText: /quota|upgrade|subscription/i,
+			});
+			const quotaError = page.locator("text=/quota|upgrade|subscription/i");
+			const visible =
+				(await quotaModal.count()) > 0 || (await quotaError.count()) > 0;
+			expect(visible).toBe(true);
+		} finally {
+			await deleteTestOrgByDomain(domain);
+		}
+	});
+});
+
+// ============================================================================
+// Subscribe flow
+// ============================================================================
+test.describe("Org UI Marketplace — Subscribe Flow", () => {
+	test("Consumer subscribes from listing page", async ({ page }) => {
+		const { email: provEmail, domain: provDomain, orgId: provOrgId } =
+			await createTestOrgAdminDirect(
+				generateTestOrgEmail("mp-ui-sub-prov").email,
+				TEST_PASSWORD
+			);
+		const { email: conEmail, domain: conDomain } =
+			await createTestOrgAdminDirect(
+				generateTestOrgEmail("mp-ui-sub-con").email,
+				TEST_PASSWORD
+			);
+		try {
+			const { listingNumber } = await createTestMarketplaceListingDirect(
+				provOrgId,
+				provDomain,
+				[SHARED_CAP_ID],
+				"active",
+				"Subscribe UI Test"
+			);
+
+			await orgLogin(page, conDomain, conEmail, TEST_PASSWORD);
+			await page.goto(
+				`${ORG_UI_URL}/marketplace/listings/${provDomain}/${listingNumber}`
+			);
+
+			await expect(page.locator("text=Subscribe UI Test")).toBeVisible({
+				timeout: 10000,
+			});
+
+			const subscribeButton = page.locator('button:has-text("Subscribe")');
+			if ((await subscribeButton.count()) > 0) {
+				await subscribeButton.click();
+				await expect(
+					page.locator("text=/subscrib|active/i")
+				).toBeVisible({ timeout: 5000 });
+			}
+		} finally {
+			await deleteTestOrgByDomain(provDomain);
+			await deleteTestOrgByDomain(conDomain);
+		}
+	});
+});

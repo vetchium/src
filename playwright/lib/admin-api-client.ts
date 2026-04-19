@@ -47,6 +47,23 @@ import type {
 	AdminSetOrgTierRequest,
 	OrgSubscription as AdminSetOrgTierResponse,
 } from "vetchium-specs/org/tiers";
+import type {
+	MarketplaceCapability,
+	ListCapabilitiesResponse,
+	MarketplaceListing,
+	AdminCreateCapabilityRequest,
+	AdminUpdateCapabilityRequest,
+	AdminListListingsRequest,
+	AdminListListingsResponse,
+	AdminSuspendListingRequest,
+	AdminReinstateListingRequest,
+	AdminApproveListingRequest,
+	AdminRejectListingRequest,
+	MarketplaceSubscription,
+	AdminListSubscriptionsRequest,
+	AdminListSubscriptionsResponse,
+	AdminCancelSubscriptionRequest,
+} from "vetchium-specs/admin/marketplace";
 import type { APIResponse } from "./api-client";
 
 /**
@@ -1260,5 +1277,291 @@ export class AdminAPIClient {
 			body: responseBody as AdminSetOrgTierResponse,
 			errors: Array.isArray(responseBody) ? responseBody : undefined,
 		};
+	}
+
+	// ============================================================================
+	// Admin Marketplace — Capabilities
+	// ============================================================================
+
+	async createMarketplaceCapability(
+		sessionToken: string,
+		request: AdminCreateCapabilityRequest
+	): Promise<APIResponse<MarketplaceCapability>> {
+		const response = await this.request.post(
+			"/admin/marketplace/capability/create",
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: request,
+			}
+		);
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as MarketplaceCapability,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	async createMarketplaceCapabilityRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<MarketplaceCapability>> {
+		const response = await this.request.post(
+			"/admin/marketplace/capability/create",
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: body,
+			}
+		);
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as MarketplaceCapability,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	async updateMarketplaceCapability(
+		sessionToken: string,
+		request: AdminUpdateCapabilityRequest
+	): Promise<APIResponse<MarketplaceCapability>> {
+		const response = await this.request.post(
+			"/admin/marketplace/capability/update",
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: request,
+			}
+		);
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as MarketplaceCapability,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	async updateMarketplaceCapabilityRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<MarketplaceCapability>> {
+		const response = await this.request.post(
+			"/admin/marketplace/capability/update",
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: body,
+			}
+		);
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as MarketplaceCapability,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	async listMarketplaceCapabilities(
+		sessionToken: string
+	): Promise<APIResponse<ListCapabilitiesResponse>> {
+		const response = await this.request.post(
+			"/admin/marketplace/capability/list",
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: {},
+			}
+		);
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as ListCapabilitiesResponse,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	// ============================================================================
+	// Admin Marketplace — Listings
+	// ============================================================================
+
+	async adminListListings(
+		sessionToken: string,
+		request: AdminListListingsRequest
+	): Promise<APIResponse<AdminListListingsResponse>> {
+		const response = await this.request.post(
+			"/admin/marketplace/listing/list",
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: request,
+			}
+		);
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as AdminListListingsResponse,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	async adminListListingsRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<AdminListListingsResponse>> {
+		const response = await this.request.post(
+			"/admin/marketplace/listing/list",
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: body,
+			}
+		);
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as AdminListListingsResponse,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	async adminSuspendListing(
+		sessionToken: string,
+		request: AdminSuspendListingRequest
+	): Promise<APIResponse<MarketplaceListing>> {
+		const response = await this.request.post(
+			"/admin/marketplace/listing/suspend",
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: request,
+			}
+		);
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as MarketplaceListing,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	async adminSuspendListingRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<MarketplaceListing>> {
+		const response = await this.request.post(
+			"/admin/marketplace/listing/suspend",
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: body,
+			}
+		);
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as MarketplaceListing,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	async adminReinstateListing(
+		sessionToken: string,
+		request: AdminReinstateListingRequest
+	): Promise<APIResponse<MarketplaceListing>> {
+		const response = await this.request.post(
+			"/admin/marketplace/listing/reinstate",
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: request,
+			}
+		);
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as MarketplaceListing,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	async adminReinstateListingRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<MarketplaceListing>> {
+		const response = await this.request.post(
+			"/admin/marketplace/listing/reinstate",
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: body,
+			}
+		);
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as MarketplaceListing,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	// ============================================================================
+	// Admin Marketplace — Subscriptions
+	// ============================================================================
+
+	async adminListSubscriptions(
+		sessionToken: string,
+		request: AdminListSubscriptionsRequest
+	): Promise<APIResponse<AdminListSubscriptionsResponse>> {
+		const response = await this.request.post(
+			"/admin/marketplace/subscription/list",
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: request,
+			}
+		);
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as AdminListSubscriptionsResponse,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	async adminListSubscriptionsRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<AdminListSubscriptionsResponse>> {
+		const response = await this.request.post(
+			"/admin/marketplace/subscription/list",
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: body,
+			}
+		);
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as AdminListSubscriptionsResponse,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	async adminCancelSubscription(
+		sessionToken: string,
+		request: AdminCancelSubscriptionRequest
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post(
+			"/admin/marketplace/subscription/cancel",
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: request,
+			}
+		);
+		return { status: response.status(), body: undefined };
+	}
+
+	async adminCancelSubscriptionRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post(
+			"/admin/marketplace/subscription/cancel",
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: body,
+			}
+		);
+		return { status: response.status(), body: undefined };
 	}
 }

@@ -631,6 +631,22 @@ export async function deleteTestOrgUser(email: string): Promise<void> {
 		// Delete from regional DB first (CASCADE handles sessions, roles, etc.)
 		const regionalPool = getRegionalPool(region);
 		try {
+			await regionalPool.query(
+				`DELETE FROM marketplace_subscriptions WHERE consumer_org_id = $1`,
+				[orgId]
+			);
+			await regionalPool.query(
+				`DELETE FROM marketplace_listing_capabilities WHERE listing_id IN (SELECT listing_id FROM marketplace_listings WHERE org_id = $1)`,
+				[orgId]
+			);
+			await regionalPool.query(
+				`DELETE FROM marketplace_listings WHERE org_id = $1`,
+				[orgId]
+			);
+			await regionalPool.query(
+				`DELETE FROM org_marketplace_listing_counters WHERE org_id = $1`,
+				[orgId]
+			);
 			await regionalPool.query(`DELETE FROM org_users WHERE org_user_id = $1`, [
 				orgUserId,
 			]);
@@ -641,6 +657,16 @@ export async function deleteTestOrgUser(email: string): Promise<void> {
 		} finally {
 			await regionalPool.end();
 		}
+
+		// Clean up global marketplace data
+		await pool.query(
+			`DELETE FROM marketplace_subscription_index WHERE consumer_org_id = $1 OR provider_org_id = $1`,
+			[orgId]
+		);
+		await pool.query(
+			`DELETE FROM marketplace_listing_catalog WHERE org_id = $1`,
+			[orgId]
+		);
 
 		// Delete from global DB
 		await pool.query(`DELETE FROM org_users WHERE email_address_hash = $1`, [
@@ -661,6 +687,138 @@ export async function deleteTestOrgUser(email: string): Promise<void> {
 export async function deleteTestOrg(orgId: string): Promise<void> {
 	// CASCADE delete will handle org_users and global_org_domains
 	await pool.query(`DELETE FROM orgs WHERE org_id = $1`, [orgId]);
+}
+
+// ============================================================================
+// Marketplace Test Helpers
+// ============================================================================
+
+/**
+ * Creates a test marketplace capability in the global database.
+ *
+ * @param capabilityId - Unique capability ID (lowercase alphanumeric + hyphens)
+ * @param status - Capability status: 'draft', 'active', or 'disabled'
+ * @param displayName - Display name for the capability (en-US)
+ */
+export async function createTestMarketplaceCapability(
+	capabilityId: string,
+	status: "draft" | "active" | "disabled",
+	displayName: string
+): Promise<void> {
+	await pool.query(
+		`INSERT INTO marketplace_capabilities (capability_id, status)
+     VALUES ($1, $2)
+     ON CONFLICT (capability_id) DO UPDATE SET status = $2`,
+		[capabilityId, status]
+	);
+	await pool.query(
+		`INSERT INTO marketplace_capability_translations (capability_id, locale, display_name, description)
+     VALUES ($1, 'en-US', $2, '')
+     ON CONFLICT (capability_id, locale) DO UPDATE SET display_name = $2`,
+		[capabilityId, displayName]
+	);
+}
+
+/**
+ * Deletes a test marketplace capability from the global database.
+ * Cascades to translations.
+ *
+ * @param capabilityId - Capability ID to delete
+ */
+export async function deleteTestMarketplaceCapability(
+	capabilityId: string
+): Promise<void> {
+	await pool.query(
+		`DELETE FROM marketplace_capability_translations WHERE capability_id = $1`,
+		[capabilityId]
+	);
+	await pool.query(
+		`DELETE FROM marketplace_capabilities WHERE capability_id = $1`,
+		[capabilityId]
+	);
+}
+
+/**
+ * Creates a test marketplace listing directly in the database (bypassing the API).
+ * Useful for quota and RBAC tests that need pre-seeded data.
+ *
+ * @param orgId - UUID of the org that owns the listing
+ * @param orgDomain - Domain of the org (used as org_domain)
+ * @param capabilityIds - Array of capability IDs for this listing
+ * @param status - Listing status: 'draft', 'pending_review', or 'active'
+ * @param headline - Listing headline (optional, defaults to "Test Listing")
+ * @param description - Listing description (optional, defaults to "Test description")
+ * @param region - Region where the org is registered (default: 'ind1')
+ * @returns Object with listingId and listingNumber
+ */
+export async function createTestMarketplaceListingDirect(
+	orgId: string,
+	orgDomain: string,
+	capabilityIds: string[],
+	status: "draft" | "pending_review" | "active",
+	headline: string = "Test Listing",
+	description: string = "Test description for marketplace listing",
+	region: RegionCode = "ind1"
+): Promise<{ listingId: string; listingNumber: number }> {
+	const { v4: uuidv4 } = require("crypto");
+	const listingId = require("crypto").randomUUID();
+
+	const regionalPool = getRegionalPool(region);
+	try {
+		// Bump the counter atomically
+		const counterResult = await regionalPool.query(
+			`INSERT INTO org_marketplace_listing_counters (org_id, last_listing_number)
+       VALUES ($1, 1)
+       ON CONFLICT (org_id) DO UPDATE SET last_listing_number = org_marketplace_listing_counters.last_listing_number + 1
+       RETURNING last_listing_number`,
+			[orgId]
+		);
+		const listingNumber = counterResult.rows[0].last_listing_number as number;
+
+		// Insert the listing
+		const listedAt = status === "active" ? "NOW()" : null;
+		await regionalPool.query(
+			`INSERT INTO marketplace_listings (listing_id, org_id, org_domain, listing_number, headline, description, status, listed_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, ${listedAt !== null ? "NOW()" : "NULL"})`,
+			[listingId, orgId, orgDomain, listingNumber, headline, description, status]
+		);
+
+		// Insert capability join rows
+		for (const capId of capabilityIds) {
+			await regionalPool.query(
+				`INSERT INTO marketplace_listing_capabilities (listing_id, capability_id)
+         VALUES ($1, $2)`,
+				[listingId, capId]
+			);
+		}
+
+		// If active, upsert the global catalog row
+		if (status === "active") {
+			await pool.query(
+				`INSERT INTO marketplace_listing_catalog
+           (listing_id, org_id, org_domain, listing_number, headline, description, capability_ids, listed_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+         ON CONFLICT (org_domain, listing_number) DO UPDATE
+           SET headline = EXCLUDED.headline,
+               description = EXCLUDED.description,
+               capability_ids = EXCLUDED.capability_ids,
+               updated_at = NOW()`,
+				[
+					listingId,
+					orgId,
+					orgDomain,
+					listingNumber,
+					headline,
+					description,
+					capabilityIds,
+				]
+			);
+		}
+
+		return { listingId, listingNumber };
+	} finally {
+		await regionalPool.end();
+	}
 }
 
 /**
@@ -718,6 +876,22 @@ export async function deleteTestOrgByDomain(domain: string): Promise<void> {
 
 	const regionalPool = getRegionalPool(region as RegionCode);
 	try {
+		await regionalPool.query(
+			`DELETE FROM marketplace_subscriptions WHERE consumer_org_id = $1`,
+			[org_id]
+		);
+		await regionalPool.query(
+			`DELETE FROM marketplace_listing_capabilities WHERE listing_id IN (SELECT listing_id FROM marketplace_listings WHERE org_id = $1)`,
+			[org_id]
+		);
+		await regionalPool.query(
+			`DELETE FROM marketplace_listings WHERE org_id = $1`,
+			[org_id]
+		);
+		await regionalPool.query(
+			`DELETE FROM org_marketplace_listing_counters WHERE org_id = $1`,
+			[org_id]
+		);
 		await regionalPool.query(`DELETE FROM org_users WHERE org_id = $1`, [
 			org_id,
 		]);
@@ -727,6 +901,16 @@ export async function deleteTestOrgByDomain(domain: string): Promise<void> {
 	} finally {
 		await regionalPool.end();
 	}
+
+	// Clean up global marketplace data
+	await pool.query(
+		`DELETE FROM marketplace_subscription_index WHERE consumer_org_id = $1 OR provider_org_id = $1`,
+		[org_id]
+	);
+	await pool.query(
+		`DELETE FROM marketplace_listing_catalog WHERE org_id = $1`,
+		[org_id]
+	);
 
 	// Cascades to global org_users and global_org_domains
 	await pool.query(`DELETE FROM orgs WHERE org_id = $1`, [org_id]);
