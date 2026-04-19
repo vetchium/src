@@ -42,10 +42,10 @@ import type {
 	FilterAuditLogsResponse,
 } from "vetchium-specs/audit-logs/audit-logs";
 import type {
-	AdminListOrgSubscriptionsRequest,
-	AdminListOrgSubscriptionsResponse,
-	AdminSetOrgTierRequest,
-	OrgSubscription as AdminSetOrgTierResponse,
+	AdminListOrgPlansRequest,
+	AdminListOrgPlansResponse,
+	AdminSetOrgPlanRequest,
+	OrgPlan as AdminSetOrgPlanResponse,
 } from "vetchium-specs/org/tiers";
 import type {
 	MarketplaceCapability,
@@ -1198,83 +1198,77 @@ export class AdminAPIClient {
 	}
 
 	/**
-	 * POST /admin/org-subscriptions/list
+	 * POST /admin/org-plan/list
 	 */
-	async listOrgSubscriptions(
+	async listOrgPlans(
 		sessionToken: string,
-		request: AdminListOrgSubscriptionsRequest
-	): Promise<APIResponse<AdminListOrgSubscriptionsResponse>> {
-		const response = await this.request.post("/admin/org-subscriptions/list", {
+		request: AdminListOrgPlansRequest
+	): Promise<APIResponse<AdminListOrgPlansResponse>> {
+		const response = await this.request.post("/admin/org-plan/list", {
 			headers: { Authorization: `Bearer ${sessionToken}` },
 			data: request,
 		});
 		const body = await response.json().catch(() => ({}));
 		return {
 			status: response.status(),
-			body: body as AdminListOrgSubscriptionsResponse,
+			body: body as AdminListOrgPlansResponse,
 			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 
 	/**
-	 * POST /admin/org-subscriptions/list with raw body for testing invalid payloads
+	 * POST /admin/org-plan/list with raw body for testing invalid payloads
 	 */
-	async listOrgSubscriptionsRaw(
+	async listOrgPlansRaw(
 		sessionToken: string,
 		body: unknown
-	): Promise<APIResponse<AdminListOrgSubscriptionsResponse>> {
-		const response = await this.request.post("/admin/org-subscriptions/list", {
+	): Promise<APIResponse<AdminListOrgPlansResponse>> {
+		const response = await this.request.post("/admin/org-plan/list", {
 			headers: { Authorization: `Bearer ${sessionToken}` },
 			data: body,
 		});
 		const responseBody = await response.json().catch(() => ({}));
 		return {
 			status: response.status(),
-			body: responseBody as AdminListOrgSubscriptionsResponse,
+			body: responseBody as AdminListOrgPlansResponse,
 			errors: Array.isArray(responseBody) ? responseBody : undefined,
 		};
 	}
 
 	/**
-	 * POST /admin/org-subscriptions/set-tier
+	 * POST /admin/org-plan/set
 	 */
-	async setOrgTier(
+	async setOrgPlan(
 		sessionToken: string,
-		request: AdminSetOrgTierRequest
-	): Promise<APIResponse<AdminSetOrgTierResponse>> {
-		const response = await this.request.post(
-			"/admin/org-subscriptions/set-tier",
-			{
-				headers: { Authorization: `Bearer ${sessionToken}` },
-				data: request,
-			}
-		);
+		request: AdminSetOrgPlanRequest
+	): Promise<APIResponse<AdminSetOrgPlanResponse>> {
+		const response = await this.request.post("/admin/org-plan/set", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
 		const body = await response.json().catch(() => ({}));
 		return {
 			status: response.status(),
-			body: body as AdminSetOrgTierResponse,
+			body: body as AdminSetOrgPlanResponse,
 			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 
 	/**
-	 * POST /admin/org-subscriptions/set-tier with raw body for testing invalid payloads
+	 * POST /admin/org-plan/set with raw body for testing invalid payloads
 	 */
-	async setOrgTierRaw(
+	async setOrgPlanRaw(
 		sessionToken: string,
 		body: unknown
-	): Promise<APIResponse<AdminSetOrgTierResponse>> {
-		const response = await this.request.post(
-			"/admin/org-subscriptions/set-tier",
-			{
-				headers: { Authorization: `Bearer ${sessionToken}` },
-				data: body,
-			}
-		);
+	): Promise<APIResponse<AdminSetOrgPlanResponse>> {
+		const response = await this.request.post("/admin/org-plan/set", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: body,
+		});
 		const responseBody = await response.json().catch(() => ({}));
 		return {
 			status: response.status(),
-			body: responseBody as AdminSetOrgTierResponse,
+			body: responseBody as AdminSetOrgPlanResponse,
 			errors: Array.isArray(responseBody) ? responseBody : undefined,
 		};
 	}

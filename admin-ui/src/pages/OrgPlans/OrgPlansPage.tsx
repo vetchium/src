@@ -15,9 +15,9 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import type {
-	OrgSubscription,
-	AdminListOrgSubscriptionsRequest,
-	AdminSetOrgTierRequest,
+	OrgPlan,
+	AdminListOrgPlansRequest,
+	AdminSetOrgPlanRequest,
 } from "vetchium-specs/org/tiers";
 import { getApiBaseUrl } from "../../config";
 import { useAuth } from "../../hooks/useAuth";
@@ -25,28 +25,28 @@ import { useMyInfo } from "../../hooks/useMyInfo";
 
 const { Title } = Typography;
 
-const TIERS = ["free", "silver", "gold", "enterprise"] as const;
+const PLANS = ["free", "silver", "gold", "enterprise"] as const;
 
-export function OrgSubscriptionsPage() {
-	const { t } = useTranslation("orgSubscriptions");
+export function OrgPlansPage() {
+	const { t } = useTranslation("orgPlans");
 	const { sessionToken } = useAuth();
 	const { data: myInfo } = useMyInfo(sessionToken);
 	const { message } = App.useApp();
 
 	const canManage =
 		myInfo?.roles.includes("admin:superadmin") ||
-		myInfo?.roles.includes("admin:manage_org_subscriptions") ||
+		myInfo?.roles.includes("admin:manage_org_plans") ||
 		false;
 
-	const [items, setItems] = useState<OrgSubscription[]>([]);
+	const [items, setItems] = useState<OrgPlan[]>([]);
 	const [loading, setLoading] = useState(false);
 	const [nextPaginationKey, setNextPaginationKey] = useState<
 		string | undefined
 	>();
-	const [filterTier, setFilterTier] = useState<string | undefined>();
+	const [filterPlan, setFilterPlan] = useState<string | undefined>();
 	const [filterDomain, setFilterDomain] = useState<string>("");
-	const [settingTier, setSettingTier] = useState(false);
-	const [selectedOrg, setSelectedOrg] = useState<OrgSubscription | null>(null);
+	const [settingPlan, setSettingPlan] = useState(false);
+	const [selectedOrg, setSelectedOrg] = useState<OrgPlan | null>(null);
 	const [form] = Form.useForm();
 
 	const fetchItems = useCallback(
@@ -55,14 +55,14 @@ export function OrgSubscriptionsPage() {
 			setLoading(true);
 			try {
 				const baseUrl = await getApiBaseUrl();
-				const req: AdminListOrgSubscriptionsRequest = {
+				const req: AdminListOrgPlansRequest = {
 					limit: 20,
 				};
-				if (filterTier) req.filter_tier_id = filterTier;
+				if (filterPlan) req.filter_plan_id = filterPlan;
 				if (filterDomain) req.filter_domain = filterDomain;
 				if (paginationKey) req.pagination_key = paginationKey;
 
-				const resp = await fetch(`${baseUrl}/admin/org-subscriptions/list`, {
+				const resp = await fetch(`${baseUrl}/admin/org-plan/list`, {
 					method: "POST",
 					headers: {
 						"Content-Type": "application/json",
@@ -85,7 +85,7 @@ export function OrgSubscriptionsPage() {
 				setLoading(false);
 			}
 		},
-		[sessionToken, filterTier, filterDomain, message, t]
+		[sessionToken, filterPlan, filterDomain, message, t]
 	);
 
 	useEffect(() => {
@@ -93,19 +93,19 @@ export function OrgSubscriptionsPage() {
 		setNextPaginationKey(undefined);
 		fetchItems();
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [sessionToken, filterTier]);
+	}, [sessionToken, filterPlan]);
 
-	const handleSetTier = async (values: { tier_id: string; reason: string }) => {
+	const handleSetPlan = async (values: { plan_id: string; reason: string }) => {
 		if (!selectedOrg || !sessionToken) return;
-		setSettingTier(true);
+		setSettingPlan(true);
 		try {
 			const baseUrl = await getApiBaseUrl();
-			const req: AdminSetOrgTierRequest = {
+			const req: AdminSetOrgPlanRequest = {
 				org_id: selectedOrg.org_id,
-				tier_id: values.tier_id,
+				plan_id: values.plan_id,
 				reason: values.reason,
 			};
-			const resp = await fetch(`${baseUrl}/admin/org-subscriptions/set-tier`, {
+			const resp = await fetch(`${baseUrl}/admin/org-plan/set`, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
@@ -114,7 +114,7 @@ export function OrgSubscriptionsPage() {
 				body: JSON.stringify(req),
 			});
 			if (resp.status === 200) {
-				message.success(t("success.tierSet"));
+				message.success(t("success.planSet"));
 				setSelectedOrg(null);
 				form.resetFields();
 				setItems([]);
@@ -126,12 +126,12 @@ export function OrgSubscriptionsPage() {
 					t("errors.downgradeBlocked", { details: JSON.stringify(blocked) })
 				);
 			} else {
-				message.error(t("errors.setTierFailed"));
+				message.error(t("errors.setPlanFailed"));
 			}
 		} catch {
-			message.error(t("errors.setTierFailed"));
+			message.error(t("errors.setPlanFailed"));
 		} finally {
-			setSettingTier(false);
+			setSettingPlan(false);
 		}
 	};
 
@@ -142,9 +142,9 @@ export function OrgSubscriptionsPage() {
 			key: "org_domain",
 		},
 		{
-			title: t("table.currentTier"),
-			dataIndex: ["current_tier", "display_name"],
-			key: "current_tier",
+			title: t("table.currentPlan"),
+			dataIndex: ["current_plan", "display_name"],
+			key: "current_plan",
 		},
 		{
 			title: t("table.updatedAt"),
@@ -155,19 +155,19 @@ export function OrgSubscriptionsPage() {
 		{
 			title: t("table.actions"),
 			key: "actions",
-			render: (_: unknown, record: OrgSubscription) =>
+			render: (_: unknown, record: OrgPlan) =>
 				canManage ? (
 					<Button
 						size="small"
 						onClick={() => {
 							setSelectedOrg(record);
 							form.setFieldsValue({
-								tier_id: record.current_tier.tier_id,
+								plan_id: record.current_plan.plan_id,
 								reason: "",
 							});
 						}}
 					>
-						{t("table.changeTier")}
+						{t("table.changePlan")}
 					</Button>
 				) : null,
 		},
@@ -217,10 +217,10 @@ export function OrgSubscriptionsPage() {
 				</Button>
 				<Select
 					allowClear
-					placeholder={t("filter.tierPlaceholder")}
+					placeholder={t("filter.planPlaceholder")}
 					style={{ width: 180 }}
-					onChange={(v) => setFilterTier(v)}
-					options={TIERS.map((id) => ({ value: id, label: id }))}
+					onChange={(v) => setFilterPlan(v)}
+					options={PLANS.map((id) => ({ value: id, label: id }))}
 				/>
 			</Space>
 
@@ -250,14 +250,14 @@ export function OrgSubscriptionsPage() {
 				}}
 				footer={null}
 			>
-				<Spin spinning={settingTier}>
-					<Form form={form} layout="vertical" onFinish={handleSetTier}>
+				<Spin spinning={settingPlan}>
+					<Form form={form} layout="vertical" onFinish={handleSetPlan}>
 						<Form.Item
-							name="tier_id"
-							label={t("modal.tierLabel")}
+							name="plan_id"
+							label={t("modal.planLabel")}
 							rules={[{ required: true }]}
 						>
-							<Select options={TIERS.map((id) => ({ value: id, label: id }))} />
+							<Select options={PLANS.map((id) => ({ value: id, label: id }))} />
 						</Form.Item>
 						<Form.Item
 							name="reason"

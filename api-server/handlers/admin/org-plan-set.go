@@ -14,10 +14,10 @@ import (
 	orgtypes "vetchium-api-server.typespec/org"
 )
 
-// SetOrgTier allows an admin to set any org's tier.
-// Requires admin:manage_org_subscriptions.
-// Returns 409 if downgrading when current usage exceeds the target tier caps.
-func SetOrgTier(s *server.GlobalServer) http.HandlerFunc {
+// SetOrgPlan allows an admin to set any org's plan.
+// Requires admin:manage_org_plans.
+// Returns 409 if downgrading when current usage exceeds the target plan caps.
+func SetOrgPlan(s *server.GlobalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()
@@ -28,7 +28,7 @@ func SetOrgTier(s *server.GlobalServer) http.HandlerFunc {
 			return
 		}
 
-		var req orgtypes.AdminSetOrgTierRequest
+		var req orgtypes.AdminSetOrgPlanRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			s.Logger(ctx).Debug("failed to decode request", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -59,28 +59,28 @@ func SetOrgTier(s *server.GlobalServer) http.HandlerFunc {
 			return
 		}
 
-		// Get target tier
-		targetTier, err := s.Global.GetOrgTier(ctx, req.TierID)
+		// Get target plan
+		targetPlan, err := s.Global.GetPlan(ctx, req.PlanID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
-			s.Logger(ctx).Error("failed to get target tier", "error", err)
+			s.Logger(ctx).Error("failed to get target plan", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		// Get current subscription
-		sub, err := s.Global.GetOrgSubscription(ctx, orgID)
+		// Get current plan
+		sub, err := s.Global.GetOrgPlan(ctx, orgID)
 		if err != nil {
-			s.Logger(ctx).Error("failed to get org subscription", "error", err)
+			s.Logger(ctx).Error("failed to get org plan", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		// For downgrades, check if current usage fits in the target tier caps
-		if targetTier.DisplayOrder < sub.DisplayOrder {
+		// For downgrades, check if current usage fits in the target plan caps
+		if targetPlan.DisplayOrder < sub.DisplayOrder {
 			regionalDB := s.GetRegionalDB(org.Region)
 
 			type usageBlock struct {
@@ -96,8 +96,8 @@ func SetOrgTier(s *server.GlobalServer) http.HandlerFunc {
 				http.Error(w, "", http.StatusInternalServerError)
 				return
 			}
-			if targetTier.OrgUsersCap.Valid && orgUsersCount > targetTier.OrgUsersCap.Int32 {
-				blocked = append(blocked, usageBlock{"org_users", orgUsersCount, targetTier.OrgUsersCap.Int32})
+			if targetPlan.OrgUsersCap.Valid && orgUsersCount > targetPlan.OrgUsersCap.Int32 {
+				blocked = append(blocked, usageBlock{"org_users", orgUsersCount, targetPlan.OrgUsersCap.Int32})
 			}
 
 			if regionalDB != nil {
@@ -107,8 +107,8 @@ func SetOrgTier(s *server.GlobalServer) http.HandlerFunc {
 					http.Error(w, "", http.StatusInternalServerError)
 					return
 				}
-				if targetTier.DomainsVerifiedCap.Valid && domains > targetTier.DomainsVerifiedCap.Int32 {
-					blocked = append(blocked, usageBlock{"domains_verified", domains, targetTier.DomainsVerifiedCap.Int32})
+				if targetPlan.DomainsVerifiedCap.Valid && domains > targetPlan.DomainsVerifiedCap.Int32 {
+					blocked = append(blocked, usageBlock{"domains_verified", domains, targetPlan.DomainsVerifiedCap.Int32})
 				}
 
 				suborgs, err := regionalDB.CountSubOrgsForOrg(ctx, orgID)
@@ -117,8 +117,8 @@ func SetOrgTier(s *server.GlobalServer) http.HandlerFunc {
 					http.Error(w, "", http.StatusInternalServerError)
 					return
 				}
-				if targetTier.SuborgsCap.Valid && suborgs > targetTier.SuborgsCap.Int32 {
-					blocked = append(blocked, usageBlock{"suborgs", suborgs, targetTier.SuborgsCap.Int32})
+				if targetPlan.SuborgsCap.Valid && suborgs > targetPlan.SuborgsCap.Int32 {
+					blocked = append(blocked, usageBlock{"suborgs", suborgs, targetPlan.SuborgsCap.Int32})
 				}
 			}
 
@@ -129,11 +129,11 @@ func SetOrgTier(s *server.GlobalServer) http.HandlerFunc {
 			}
 		}
 
-		fromTierID := sub.CurrentTierID
+		fromPlanID := sub.CurrentPlanID
 
 		err = s.WithGlobalTx(ctx, func(qtx *globaldb.Queries) error {
-			if txErr := qtx.UpdateOrgSubscriptionTier(ctx, globaldb.UpdateOrgSubscriptionTierParams{
-				CurrentTierID:      req.TierID,
+			if txErr := qtx.UpdateOrgPlan(ctx, globaldb.UpdateOrgPlanParams{
+				CurrentPlanID:      req.PlanID,
 				UpdatedByAdminID:   adminUser.AdminUserID,
 				UpdatedByOrgUserID: pgtype.UUID{Valid: false},
 				Note:               req.Reason,
@@ -142,10 +142,10 @@ func SetOrgTier(s *server.GlobalServer) http.HandlerFunc {
 				return txErr
 			}
 
-			if txErr := qtx.InsertOrgSubscriptionHistory(ctx, globaldb.InsertOrgSubscriptionHistoryParams{
+			if txErr := qtx.InsertOrgPlanHistory(ctx, globaldb.InsertOrgPlanHistoryParams{
 				OrgID:              orgID,
-				FromTierID:         pgtype.Text{String: fromTierID, Valid: true},
-				ToTierID:           req.TierID,
+				FromPlanID:         pgtype.Text{String: fromPlanID, Valid: true},
+				ToPlanID:           req.PlanID,
 				ChangedByAdminID:   adminUser.AdminUserID,
 				ChangedByOrgUserID: pgtype.UUID{Valid: false},
 				Reason:             req.Reason,
@@ -155,12 +155,12 @@ func SetOrgTier(s *server.GlobalServer) http.HandlerFunc {
 
 			eventData, _ := json.Marshal(map[string]any{
 				"org_id":       req.OrgID,
-				"from_tier_id": fromTierID,
-				"to_tier_id":   req.TierID,
+				"from_plan_id": fromPlanID,
+				"to_plan_id":   req.PlanID,
 				"reason":       req.Reason,
 			})
 			return qtx.InsertAdminAuditLog(ctx, globaldb.InsertAdminAuditLogParams{
-				EventType:    "admin.org_subscription_granted",
+				EventType:    "admin.org_plan_granted",
 				ActorUserID:  adminUser.AdminUserID,
 				TargetUserID: pgtype.UUID{Valid: false},
 				IpAddress:    audit.ExtractClientIP(r),
@@ -168,15 +168,15 @@ func SetOrgTier(s *server.GlobalServer) http.HandlerFunc {
 			})
 		})
 		if err != nil {
-			s.Logger(ctx).Error("failed to set org tier", "error", err)
+			s.Logger(ctx).Error("failed to set org plan", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		// Fetch updated subscription for response
-		updatedSub, err := s.Global.GetOrgSubscription(ctx, orgID)
+		// Fetch updated plan for response
+		updatedSub, err := s.Global.GetOrgPlan(ctx, orgID)
 		if err != nil {
-			s.Logger(ctx).Error("failed to get updated subscription", "error", err)
+			s.Logger(ctx).Error("failed to get updated plan", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -190,12 +190,12 @@ func SetOrgTier(s *server.GlobalServer) http.HandlerFunc {
 			suborgs, _ = regionalDB.CountSubOrgsForOrg(ctx, orgID)
 		}
 
-		tier := buildOrgTier(updatedSub)
-		resp := orgtypes.OrgSubscription{
+		plan := buildPlan(updatedSub)
+		resp := orgtypes.OrgPlan{
 			OrgID:       req.OrgID,
 			OrgDomain:   org.OrgName,
-			CurrentTier: tier,
-			Usage: orgtypes.OrgTierUsage{
+			CurrentPlan: plan,
+			Usage: orgtypes.PlanUsage{
 				OrgUsers:            orgUsersCount,
 				DomainsVerified:     domainsVerified,
 				Suborgs:             suborgs,

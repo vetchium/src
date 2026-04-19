@@ -4,7 +4,7 @@ import {
 	createTestOrgAdminDirect,
 	deleteTestOrgByDomain,
 	generateTestOrgEmail,
-	setOrgTier,
+	setOrgPlan,
 } from "../../../lib/db";
 import { TEST_PASSWORD } from "../../../lib/constants";
 
@@ -21,9 +21,9 @@ test.describe("Org UI — Subscription Page", () => {
 		);
 		try {
 			await orgLogin(page, domain, email, TEST_PASSWORD);
-			await page.goto(`${ORG_UI_URL}/settings/subscription`);
+			await page.goto(`${ORG_UI_URL}/settings/plan`);
 
-			await expect(page.locator("text=Subscription")).toBeVisible({
+			await expect(page.locator("text=Vetchium Plan")).toBeVisible({
 				timeout: 10000,
 			});
 			await expect(page.getByRole("heading", { name: "Free" })).toBeVisible({
@@ -60,9 +60,9 @@ test.describe("Org UI — Subscription Page", () => {
 		);
 		try {
 			await orgLogin(page, domain, email, TEST_PASSWORD);
-			await page.goto(`${ORG_UI_URL}/settings/subscription`);
+			await page.goto(`${ORG_UI_URL}/settings/plan`);
 
-			await expect(page.locator("text=Subscription")).toBeVisible({
+			await expect(page.locator("text=Vetchium Plan")).toBeVisible({
 				timeout: 10000,
 			});
 			await expect(page.getByRole("heading", { name: "Free" })).toBeVisible({
@@ -105,11 +105,11 @@ test.describe("Org UI — Subscription Page", () => {
 			TEST_PASSWORD
 		);
 		try {
-			await setOrgTier(orgId, "enterprise");
+			await setOrgPlan(orgId, "enterprise");
 			await orgLogin(page, domain, email, TEST_PASSWORD);
-			await page.goto(`${ORG_UI_URL}/settings/subscription`);
+			await page.goto(`${ORG_UI_URL}/settings/plan`);
 
-			await expect(page.locator("text=Subscription")).toBeVisible({
+			await expect(page.locator("text=Vetchium Plan")).toBeVisible({
 				timeout: 10000,
 			});
 			await expect(page.locator("text=/enterprise/i").first()).toBeVisible({

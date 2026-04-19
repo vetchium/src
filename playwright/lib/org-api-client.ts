@@ -68,9 +68,9 @@ import type {
 	ListSubOrgMembersResponse,
 } from "vetchium-specs/org/suborgs";
 import type {
-	OrgSubscription,
-	ListOrgTiersResponse,
-	SelfUpgradeOrgSubscriptionRequest,
+	OrgPlan,
+	ListPlansResponse,
+	UpgradeOrgPlanRequest,
 } from "vetchium-specs/org/tiers";
 import type {
 	MarketplaceCapability,
@@ -1643,73 +1643,62 @@ export class OrgAPIClient {
 		};
 	}
 
-	async listOrgTiers(
+	async listPlans(
 		sessionToken: string
-	): Promise<APIResponse<ListOrgTiersResponse>> {
-		const response = await this.request.post(
-			"/org/org-subscriptions/list-tiers",
-			{
-				headers: { Authorization: `Bearer ${sessionToken}` },
-				data: {},
-			}
-		);
-		const body = await response.json().catch(() => ({}));
-		return {
-			status: response.status(),
-			body: body as ListOrgTiersResponse,
-			errors: Array.isArray(body) ? body : body.errors,
-		};
-	}
-
-	async getMyOrgSubscription(
-		sessionToken: string
-	): Promise<APIResponse<OrgSubscription>> {
-		const response = await this.request.post("/org/org-subscriptions/get", {
+	): Promise<APIResponse<ListPlansResponse>> {
+		const response = await this.request.post("/org/org-plan/list-plans", {
 			headers: { Authorization: `Bearer ${sessionToken}` },
 			data: {},
 		});
 		const body = await response.json().catch(() => ({}));
 		return {
 			status: response.status(),
-			body: body as OrgSubscription,
+			body: body as ListPlansResponse,
 			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 
-	async selfUpgradeOrgSubscription(
-		sessionToken: string,
-		request: SelfUpgradeOrgSubscriptionRequest
-	): Promise<APIResponse<OrgSubscription>> {
-		const response = await this.request.post(
-			"/org/org-subscriptions/self-upgrade",
-			{
-				headers: { Authorization: `Bearer ${sessionToken}` },
-				data: request,
-			}
-		);
+	async getMyOrgPlan(sessionToken: string): Promise<APIResponse<OrgPlan>> {
+		const response = await this.request.post("/org/org-plan/get", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: {},
+		});
 		const body = await response.json().catch(() => ({}));
 		return {
 			status: response.status(),
-			body: body as OrgSubscription,
+			body: body as OrgPlan,
 			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}
 
-	async selfUpgradeOrgSubscriptionRaw(
+	async upgradeOrgPlan(
+		sessionToken: string,
+		request: UpgradeOrgPlanRequest
+	): Promise<APIResponse<OrgPlan>> {
+		const response = await this.request.post("/org/org-plan/upgrade", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as OrgPlan,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	async upgradeOrgPlanRaw(
 		sessionToken: string,
 		body: unknown
-	): Promise<APIResponse<OrgSubscription>> {
-		const response = await this.request.post(
-			"/org/org-subscriptions/self-upgrade",
-			{
-				headers: { Authorization: `Bearer ${sessionToken}` },
-				data: body,
-			}
-		);
+	): Promise<APIResponse<OrgPlan>> {
+		const response = await this.request.post("/org/org-plan/upgrade", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: body,
+		});
 		const responseBody = await response.json().catch(() => ({}));
 		return {
 			status: response.status(),
-			body: responseBody as OrgSubscription,
+			body: responseBody as OrgPlan,
 			errors: Array.isArray(responseBody) ? responseBody : undefined,
 		};
 	}

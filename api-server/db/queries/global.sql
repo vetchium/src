@@ -883,47 +883,47 @@ WHERE created_at < NOW() - @retention_period::interval;
 -- Org Tiers
 -- ============================================================
 
--- name: ListOrgTiers :many
-SELECT t.*, COALESCE(tr.display_name, t.tier_id) AS display_name, COALESCE(tr.description, '') AS description
-FROM org_tiers t
-LEFT JOIN org_tier_translations tr ON t.tier_id = tr.tier_id AND tr.locale = @locale::text
+-- name: ListPlans :many
+SELECT t.*, COALESCE(tr.display_name, t.plan_id) AS display_name, COALESCE(tr.description, '') AS description
+FROM plans t
+LEFT JOIN plan_translations tr ON t.plan_id = tr.plan_id AND tr.locale = @locale::text
 WHERE t.status = 'active'
 ORDER BY t.display_order;
 
--- name: GetOrgTier :one
-SELECT * FROM org_tiers WHERE tier_id = @tier_id;
+-- name: GetPlan :one
+SELECT * FROM plans WHERE plan_id = @plan_id;
 
--- name: GetOrgSubscription :one
-SELECT s.*, t.tier_id AS tier_key, t.display_order, t.org_users_cap, t.domains_verified_cap,
+-- name: GetOrgPlan :one
+SELECT s.*, t.plan_id AS plan_key, t.display_order, t.org_users_cap, t.domains_verified_cap,
        t.suborgs_cap, t.marketplace_listings_cap, t.audit_retention_days, t.self_upgradeable,
-       t.status AS tier_status, t.created_at AS tier_created_at, t.updated_at AS tier_updated_at
-FROM org_subscriptions s
-JOIN org_tiers t ON s.current_tier_id = t.tier_id
+       t.status AS plan_status, t.created_at AS plan_created_at, t.updated_at AS plan_updated_at
+FROM org_plans s
+JOIN plans t ON s.current_plan_id = t.plan_id
 WHERE s.org_id = @org_id;
 
--- name: CreateOrgSubscription :exec
-INSERT INTO org_subscriptions (org_id, current_tier_id, updated_by_admin_id, updated_by_org_user_id, note)
-VALUES (@org_id, @current_tier_id, @updated_by_admin_id, @updated_by_org_user_id, @note);
+-- name: UpsertOrgPlan :exec
+INSERT INTO org_plans (org_id, current_plan_id, updated_by_admin_id, updated_by_org_user_id, note)
+VALUES (@org_id, @current_plan_id, @updated_by_admin_id, @updated_by_org_user_id, @note);
 
--- name: UpdateOrgSubscriptionTier :exec
-UPDATE org_subscriptions
-SET current_tier_id = @current_tier_id, updated_at = NOW(),
+-- name: UpdateOrgPlan :exec
+UPDATE org_plans
+SET current_plan_id = @current_plan_id, updated_at = NOW(),
     updated_by_admin_id = @updated_by_admin_id, updated_by_org_user_id = @updated_by_org_user_id, note = @note
 WHERE org_id = @org_id;
 
--- name: InsertOrgSubscriptionHistory :exec
-INSERT INTO org_subscription_history (org_id, from_tier_id, to_tier_id, changed_by_admin_id, changed_by_org_user_id, reason)
-VALUES (@org_id, @from_tier_id, @to_tier_id, @changed_by_admin_id, @changed_by_org_user_id, @reason);
+-- name: InsertOrgPlanHistory :exec
+INSERT INTO org_plan_history (org_id, from_plan_id, to_plan_id, changed_by_admin_id, changed_by_org_user_id, reason)
+VALUES (@org_id, @from_plan_id, @to_plan_id, @changed_by_admin_id, @changed_by_org_user_id, @reason);
 
--- name: AdminListOrgSubscriptions :many
+-- name: AdminListOrgPlans :many
 SELECT s.*, COALESCE(gd.domain, o.org_name) AS org_domain
-FROM org_subscriptions s
+FROM org_plans s
 JOIN orgs o ON s.org_id = o.org_id
 LEFT JOIN global_org_domains gd ON gd.org_id = s.org_id
-WHERE (sqlc.narg('filter_tier_id')::text IS NULL OR s.current_tier_id = sqlc.narg('filter_tier_id')::text)
+WHERE (sqlc.narg('filter_plan_id')::text IS NULL OR s.current_plan_id = sqlc.narg('filter_plan_id')::text)
   AND (sqlc.narg('filter_domain')::text IS NULL OR COALESCE(gd.domain, o.org_name) ILIKE '%' || sqlc.narg('filter_domain')::text || '%')
   AND (sqlc.narg('pagination_key')::uuid IS NULL OR s.org_id > sqlc.narg('pagination_key')::uuid)
-GROUP BY s.org_id, s.current_tier_id, s.updated_at, s.updated_by_admin_id, s.updated_by_org_user_id, s.note, gd.domain, o.org_name
+GROUP BY s.org_id, s.current_plan_id, s.updated_at, s.updated_by_admin_id, s.updated_by_org_user_id, s.note, gd.domain, o.org_name
 ORDER BY s.org_id ASC
 LIMIT @row_limit;
 

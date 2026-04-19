@@ -8,7 +8,7 @@ import enUSApprovedDomains from "./locales/en-US/approved-domains.json";
 import enUSUserManagement from "./locales/en-US/user-management.json";
 import enUSTags from "./locales/en-US/tags.json";
 import enUSAuditLogs from "./locales/en-US/audit-logs.json";
-import enUSOrgSubscriptions from "./locales/en-US/org-subscriptions.json";
+import enUSOrgPlans from "./locales/en-US/org-plans.json";
 import enUSMarketplace from "./locales/en-US/marketplace.json";
 import deDECommon from "./locales/de-DE/common.json";
 import deDEAuth from "./locales/de-DE/auth.json";
@@ -16,7 +16,7 @@ import deDEApprovedDomains from "./locales/de-DE/approved-domains.json";
 import deDEUserManagement from "./locales/de-DE/user-management.json";
 import deDETags from "./locales/de-DE/tags.json";
 import deDEAuditLogs from "./locales/de-DE/audit-logs.json";
-import deDEOrgSubscriptions from "./locales/de-DE/org-subscriptions.json";
+import deDEOrgPlans from "./locales/de-DE/org-plans.json";
 import deDEMarketplace from "./locales/de-DE/marketplace.json";
 import taINCommon from "./locales/ta-IN/common.json";
 import taINAuth from "./locales/ta-IN/auth.json";
@@ -24,7 +24,7 @@ import taINApprovedDomains from "./locales/ta-IN/approved-domains.json";
 import taINUserManagement from "./locales/ta-IN/user-management.json";
 import taINTags from "./locales/ta-IN/tags.json";
 import taINAuditLogs from "./locales/ta-IN/audit-logs.json";
-import taINOrgSubscriptions from "./locales/ta-IN/org-subscriptions.json";
+import taINOrgPlans from "./locales/ta-IN/org-plans.json";
 import taINMarketplace from "./locales/ta-IN/marketplace.json";
 
 import {
@@ -73,7 +73,7 @@ const resources = {
 		userManagement: enUSUserManagement,
 		tags: enUSTags,
 		auditLogs: enUSAuditLogs,
-		orgSubscriptions: enUSOrgSubscriptions,
+		orgPlans: enUSOrgPlans,
 		marketplace: enUSMarketplace,
 	},
 	"de-DE": {
@@ -83,7 +83,7 @@ const resources = {
 		userManagement: deDEUserManagement,
 		tags: deDETags,
 		auditLogs: deDEAuditLogs,
-		orgSubscriptions: deDEOrgSubscriptions,
+		orgPlans: deDEOrgPlans,
 		marketplace: deDEMarketplace,
 	},
 	"ta-IN": {
@@ -93,7 +93,7 @@ const resources = {
 		userManagement: taINUserManagement,
 		tags: taINTags,
 		auditLogs: taINAuditLogs,
-		orgSubscriptions: taINOrgSubscriptions,
+		orgPlans: taINOrgPlans,
 		marketplace: taINMarketplace,
 	},
 };
@@ -110,7 +110,7 @@ i18n.use(initReactI18next).init({
 		"userManagement",
 		"tags",
 		"auditLogs",
-		"orgSubscriptions",
+		"orgPlans",
 		"marketplace",
 	],
 	interpolation: {

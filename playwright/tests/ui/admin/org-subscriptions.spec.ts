@@ -7,15 +7,15 @@ import {
 	createTestOrgAdminDirect,
 	deleteTestOrgByDomain,
 	generateTestOrgEmail,
-	setOrgTier,
+	setOrgPlan,
 } from "../../../lib/db";
 import { TEST_PASSWORD } from "../../../lib/constants";
 
 // ============================================================================
 // Admin Org Subscriptions Page
 // ============================================================================
-test.describe("Admin UI — Org Subscriptions", () => {
-	test("Admin sets org tier with required reason", async ({ page }) => {
+test.describe("Admin UI — Org Plans", () => {
+	test("Admin sets org plan with required reason", async ({ page }) => {
 		const adminEmail = generateTestEmail("admin-org-sub-ui");
 		await createTestSuperadmin(adminEmail, TEST_PASSWORD);
 		const { email: orgEmail, domain: orgDomain } =
@@ -26,9 +26,9 @@ test.describe("Admin UI — Org Subscriptions", () => {
 
 		try {
 			await adminLogin(page, adminEmail, TEST_PASSWORD);
-			await page.goto(`${ADMIN_UI_URL}/org-subscriptions`);
+			await page.goto(`${ADMIN_UI_URL}/org-plans`);
 
-			await expect(page.locator("text=Org Subscriptions")).toBeVisible({
+			await expect(page.locator("text=Org Vetchium Plans")).toBeVisible({
 				timeout: 10000,
 			});
 
@@ -47,7 +47,7 @@ test.describe("Admin UI — Org Subscriptions", () => {
 			// Click "Change Tier" for that org
 			const row = page.locator("tr").filter({ hasText: orgDomain });
 			const changeTierBtn = row.locator("button", {
-				hasText: /change tier|set tier/i,
+				hasText: /change plan|set plan/i,
 			});
 			if ((await changeTierBtn.count()) > 0) {
 				await changeTierBtn.click();
@@ -98,12 +98,12 @@ test.describe("Admin UI — Org Subscriptions", () => {
 
 		try {
 			// Put on Gold so a downgrade to Free might be blocked
-			await setOrgTier(orgId, "gold");
+			await setOrgPlan(orgId, "gold");
 
 			await adminLogin(page, adminEmail, TEST_PASSWORD);
-			await page.goto(`${ADMIN_UI_URL}/org-subscriptions`);
+			await page.goto(`${ADMIN_UI_URL}/org-plans`);
 
-			await expect(page.locator("text=Org Subscriptions")).toBeVisible({
+			await expect(page.locator("text=Org Vetchium Plans")).toBeVisible({
 				timeout: 10000,
 			});
 
@@ -120,7 +120,7 @@ test.describe("Admin UI — Org Subscriptions", () => {
 
 			const row = page.locator("tr").filter({ hasText: orgDomain });
 			const changeTierBtn = row.locator("button", {
-				hasText: /change tier|set tier/i,
+				hasText: /change plan|set plan/i,
 			});
 			if ((await changeTierBtn.count()) > 0) {
 				await changeTierBtn.click();

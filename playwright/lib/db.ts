@@ -667,12 +667,8 @@ export async function deleteTestOrgUser(email: string): Promise<void> {
 			`DELETE FROM marketplace_listing_catalog WHERE org_id = $1`,
 			[orgId]
 		);
-		await pool.query(`DELETE FROM org_subscription_history WHERE org_id = $1`, [
-			orgId,
-		]);
-		await pool.query(`DELETE FROM org_subscriptions WHERE org_id = $1`, [
-			orgId,
-		]);
+		await pool.query(`DELETE FROM org_plan_history WHERE org_id = $1`, [orgId]);
+		await pool.query(`DELETE FROM org_plans WHERE org_id = $1`, [orgId]);
 
 		// Delete from global DB
 		await pool.query(`DELETE FROM org_users WHERE email_address_hash = $1`, [
@@ -691,10 +687,8 @@ export async function deleteTestOrgUser(email: string): Promise<void> {
  * @param orgId - Org UUID to delete
  */
 export async function deleteTestOrg(orgId: string): Promise<void> {
-	await pool.query(`DELETE FROM org_subscription_history WHERE org_id = $1`, [
-		orgId,
-	]);
-	await pool.query(`DELETE FROM org_subscriptions WHERE org_id = $1`, [orgId]);
+	await pool.query(`DELETE FROM org_plan_history WHERE org_id = $1`, [orgId]);
+	await pool.query(`DELETE FROM org_plans WHERE org_id = $1`, [orgId]);
 	// CASCADE delete will handle org_users and global_org_domains
 	await pool.query(`DELETE FROM orgs WHERE org_id = $1`, [orgId]);
 }
@@ -929,10 +923,8 @@ export async function deleteTestOrgByDomain(domain: string): Promise<void> {
 		`DELETE FROM marketplace_listing_catalog WHERE org_id = $1`,
 		[org_id]
 	);
-	await pool.query(`DELETE FROM org_subscription_history WHERE org_id = $1`, [
-		org_id,
-	]);
-	await pool.query(`DELETE FROM org_subscriptions WHERE org_id = $1`, [org_id]);
+	await pool.query(`DELETE FROM org_plan_history WHERE org_id = $1`, [org_id]);
+	await pool.query(`DELETE FROM org_plans WHERE org_id = $1`, [org_id]);
 
 	// Cascades to global org_users and global_org_domains
 	await pool.query(`DELETE FROM orgs WHERE org_id = $1`, [org_id]);
@@ -1190,7 +1182,7 @@ export async function createTestOrgUserDirect(
 
 		// 2b. Create org subscription (free tier) in global DB
 		await pool.query(
-			`INSERT INTO org_subscriptions (org_id, current_tier_id, note)
+			`INSERT INTO org_plans (org_id, current_plan_id, note)
      VALUES ($1, 'free', 'created by test helper')`,
 			[orgId]
 		);
@@ -1278,7 +1270,7 @@ export async function createTestOrgAdminDirect(
 
 		// 2b. Create org subscription (free tier) in global DB
 		await pool.query(
-			`INSERT INTO org_subscriptions (org_id, current_tier_id, note)
+			`INSERT INTO org_plans (org_id, current_plan_id, note)
      VALUES ($1, 'free', 'created by test helper')`,
 			[orgId]
 		);
@@ -1517,9 +1509,9 @@ export async function deleteTestTag(tagId: string): Promise<void> {
  * @param orgId - The UUID of the org
  * @param tierId - One of 'free', 'silver', 'gold', 'enterprise'
  */
-export async function setOrgTier(orgId: string, tierId: string): Promise<void> {
+export async function setOrgPlan(orgId: string, planId: string): Promise<void> {
 	await pool.query(
-		`UPDATE org_subscriptions SET current_tier_id = $2, updated_at = NOW() WHERE org_id = $1`,
-		[orgId, tierId]
+		`UPDATE org_plans SET current_plan_id = $2, updated_at = NOW() WHERE org_id = $1`,
+		[orgId, planId]
 	);
 }

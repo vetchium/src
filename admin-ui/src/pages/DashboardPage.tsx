@@ -44,10 +44,10 @@ export function DashboardPage() {
 		myInfo?.roles.includes("admin:view_audit_logs") ||
 		false;
 
-	const canViewOrgSubscriptions =
+	const canViewOrgPlans =
 		myInfo?.roles.includes("admin:superadmin") ||
-		myInfo?.roles.includes("admin:view_org_subscriptions") ||
-		myInfo?.roles.includes("admin:manage_org_subscriptions") ||
+		myInfo?.roles.includes("admin:view_org_plans") ||
+		myInfo?.roles.includes("admin:manage_org_plans") ||
 		false;
 
 	const canViewMarketplace =
@@ -207,10 +207,10 @@ export function DashboardPage() {
 						</Col>
 					)}
 
-					{canViewOrgSubscriptions && (
+					{canViewOrgPlans && (
 						<Col xs={24} sm={12} lg={8}>
 							<Link
-								to="/org-subscriptions"
+								to="/org-plans"
 								style={{
 									textDecoration: "none",
 									display: "block",
@@ -229,10 +229,10 @@ export function DashboardPage() {
 										style={{ fontSize: 48, color: "#eb2f96", marginBottom: 16 }}
 									/>
 									<Title level={4} style={{ marginBottom: 8 }}>
-										{t("orgSubscriptions:dashboardTitle")}
+										{t("orgPlans:dashboardTitle")}
 									</Title>
 									<Text type="secondary">
-										{t("orgSubscriptions:dashboardDescription")}
+										{t("orgPlans:dashboardDescription")}
 									</Text>
 								</Card>
 							</Link>

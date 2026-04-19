@@ -49,10 +49,10 @@ export function DashboardPage() {
 		myInfo?.roles.includes("org:view_audit_logs") ||
 		false;
 
-	const hasSubscriptionAccess =
+	const hasPlanAccess =
 		myInfo?.roles.includes("org:superadmin") ||
-		myInfo?.roles.includes("org:view_subscription") ||
-		myInfo?.roles.includes("org:manage_subscription") ||
+		myInfo?.roles.includes("org:view_plan") ||
+		myInfo?.roles.includes("org:manage_plan") ||
 		false;
 
 	// Marketplace: discover = all authenticated users; listings/subscriptions/clients by role
@@ -281,10 +281,10 @@ export function DashboardPage() {
 						</Col>
 					)}
 
-					{hasSubscriptionAccess && (
+					{hasPlanAccess && (
 						<Col xs={24} sm={12} lg={8}>
 							<Link
-								to="/settings/subscription"
+								to="/settings/plan"
 								style={{
 									textDecoration: "none",
 									display: "block",
@@ -307,10 +307,10 @@ export function DashboardPage() {
 										}}
 									/>
 									<Title level={4} style={{ marginBottom: 8 }}>
-										{t("subscription.title")}
+										{t("plan.title")}
 									</Title>
 									<Typography.Text type="secondary">
-										{t("subscription.description")}
+										{t("plan.description")}
 									</Typography.Text>
 								</Card>
 							</Link>

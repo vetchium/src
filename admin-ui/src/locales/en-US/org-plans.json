@@ -1,0 +1,31 @@
+{
+	"title": "Org Vetchium Plans",
+	"backToDashboard": "Back to Dashboard",
+	"loadMore": "Load More",
+	"filter": {
+		"planPlaceholder": "Filter by plan"
+	},
+	"table": {
+		"domain": "Domain",
+		"currentPlan": "Current Plan",
+		"updatedAt": "Updated At",
+		"actions": "Actions",
+		"changePlan": "Change Plan"
+	},
+	"modal": {
+		"title": "Change Plan for {{domain}}",
+		"planLabel": "New Plan",
+		"reasonLabel": "Reason",
+		"submit": "Apply"
+	},
+	"errors": {
+		"loadFailed": "Failed to load org plans",
+		"setPlanFailed": "Failed to update plan",
+		"downgradeBlocked": "Downgrade blocked: usage exceeds target plan caps. {{details}}"
+	},
+	"success": {
+		"planSet": "Plan updated successfully"
+	},
+	"dashboardTitle": "Org Plans",
+	"dashboardDescription": "Manage organization Vetchium plans"
+}

@@ -8,9 +8,9 @@ import (
 	"vetchium-api-server.gomodule/internal/server"
 )
 
-// GetMyOrgSubscription returns the calling org's subscription + usage.
-// Requires org:view_subscription or org:manage_subscription (or superadmin via middleware).
-func GetMyOrgSubscription(s *server.RegionalServer) http.HandlerFunc {
+// GetMyOrgPlan returns the calling org's plan + usage.
+// Requires org:view_plan or org:manage_plan (or superadmin via middleware).
+func GetMyOrgPlan(s *server.RegionalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()
@@ -21,9 +21,9 @@ func GetMyOrgSubscription(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		sub, err := s.Global.GetOrgSubscription(ctx, orgUser.OrgID)
+		sub, err := s.Global.GetOrgPlan(ctx, orgUser.OrgID)
 		if err != nil {
-			s.Logger(ctx).Error("failed to get org subscription", "error", err)
+			s.Logger(ctx).Error("failed to get org plan", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -35,9 +35,9 @@ func GetMyOrgSubscription(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		resp, err := buildOrgSubscription(ctx, sub, org.OrgName, s.Global, s.Regional)
+		resp, err := buildOrgPlan(ctx, sub, org.OrgName, s.Global, s.Regional)
 		if err != nil {
-			s.Logger(ctx).Error("failed to build org subscription response", "error", err)
+			s.Logger(ctx).Error("failed to build org plan response", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}

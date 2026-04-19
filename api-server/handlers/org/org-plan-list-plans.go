@@ -9,8 +9,8 @@ import (
 	orgtypes "vetchium-api-server.typespec/org"
 )
 
-// ListOrgTiers returns the active tier catalog. Any authenticated org user can call this.
-func ListOrgTiers(s *server.RegionalServer) http.HandlerFunc {
+// ListPlans returns the active plan catalog. Any authenticated org user can call this.
+func ListPlans(s *server.RegionalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()
@@ -26,18 +26,18 @@ func ListOrgTiers(s *server.RegionalServer) http.HandlerFunc {
 			locale = "en-US"
 		}
 
-		rows, err := s.Global.ListOrgTiers(ctx, locale)
+		rows, err := s.Global.ListPlans(ctx, locale)
 		if err != nil {
-			s.Logger(ctx).Error("failed to list org tiers", "error", err)
+			s.Logger(ctx).Error("failed to list plans", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		tiers := make([]orgtypes.OrgTier, 0, len(rows))
+		plans := make([]orgtypes.Plan, 0, len(rows))
 		for _, row := range rows {
-			tiers = append(tiers, buildOrgTierFromRow(row))
+			plans = append(plans, buildPlanFromRow(row))
 		}
 
-		json.NewEncoder(w).Encode(orgtypes.ListOrgTiersResponse{Tiers: tiers})
+		json.NewEncoder(w).Encode(orgtypes.ListPlansResponse{Plans: plans})
 	}
 }

@@ -1,7 +1,7 @@
 {
-	"title": "Subscription",
+	"title": "Vetchium Plan",
 	"backToDashboard": "Back to Dashboard",
-	"currentTier": {
+	"currentPlan": {
 		"title": "Current Plan",
 		"name": "Plan",
 		"description": "Description",
@@ -26,26 +26,26 @@
 		"domains": "Domains",
 		"suborgs": "Sub-Orgs",
 		"listings": "Listings",
-		"upgradeButton": "Upgrade to {{tier}}",
+		"upgradeButton": "Upgrade to {{plan}}",
 		"enterpriseContact": "Contact us for Enterprise pricing"
 	},
 	"upgradeModal": {
-		"title": "Upgrade to {{tier}}",
-		"content": "Are you sure you want to upgrade to the {{tier}} plan?",
+		"title": "Upgrade to {{plan}}",
+		"content": "Are you sure you want to upgrade to the {{plan}} plan?",
 		"confirm": "Upgrade",
 		"cancel": "Cancel"
 	},
 	"quotaExceeded": {
 		"title": "Quota Exceeded",
-		"message": "Your organization has reached the {{quota}} limit ({{cap}}) on the {{tier}} plan.",
+		"message": "Your organization has reached the {{quota}} limit ({{cap}}) on the {{plan}} plan.",
 		"viewPlans": "View upgrade options"
 	},
 	"errors": {
-		"loadFailed": "Failed to load subscription details",
-		"upgradeFailed": "Failed to upgrade subscription",
+		"loadFailed": "Failed to load plan details",
+		"upgradeFailed": "Failed to upgrade plan",
 		"upgradeNotAllowed": "This plan cannot be selected via self-upgrade"
 	},
 	"success": {
-		"upgraded": "Successfully upgraded to {{tier}}"
+		"upgraded": "Successfully upgraded to {{plan}}"
 	}
 }

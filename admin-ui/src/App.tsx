@@ -23,7 +23,7 @@ import { ChangePasswordPage } from "./pages/ChangePasswordPage";
 import { UserManagementPage } from "./pages/UserManagement/UserManagementPage";
 import { ManageTagsPage } from "./pages/ManageTagsPage";
 import { AuditLogsPage } from "./pages/AuditLogsPage";
-import { OrgSubscriptionsPage } from "./pages/OrgSubscriptions/OrgSubscriptionsPage";
+import { OrgPlansPage } from "./pages/OrgPlans/OrgPlansPage";
 import { CapabilitiesPage } from "./pages/Marketplace/CapabilitiesPage";
 import { AdminListingsPage } from "./pages/Marketplace/AdminListingsPage";
 import { AdminSubscriptionsPage } from "./pages/Marketplace/AdminSubscriptionsPage";
@@ -215,10 +215,10 @@ function AppContent() {
 							<Route path="/reset-password" element={<ResetPasswordPage />} />
 							<Route path="/complete-setup" element={<CompleteSetupPage />} />
 							<Route
-								path="/org-subscriptions"
+								path="/org-plans"
 								element={
 									<ProtectedRoute>
-										<OrgSubscriptionsPage />
+										<OrgPlansPage />
 									</ProtectedRoute>
 								}
 							/>

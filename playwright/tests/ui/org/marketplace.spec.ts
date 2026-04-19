@@ -8,7 +8,7 @@ import {
 	createTestMarketplaceCapability,
 	deleteTestMarketplaceCapability,
 	createTestMarketplaceListingDirect,
-	setOrgTier,
+	setOrgPlan,
 } from "../../../lib/db";
 import { TEST_PASSWORD } from "../../../lib/constants";
 
@@ -39,7 +39,7 @@ test.describe("Org UI Marketplace — Discover Page", () => {
 			TEST_PASSWORD
 		);
 		try {
-			await setOrgTier(orgId, "silver");
+			await setOrgPlan(orgId, "silver");
 			await createTestMarketplaceListingDirect(
 				orgId,
 				domain,
@@ -128,7 +128,7 @@ test.describe("Org UI Marketplace — Create Listing", () => {
 			TEST_PASSWORD
 		);
 		try {
-			await setOrgTier(orgId, "silver");
+			await setOrgPlan(orgId, "silver");
 			await orgLogin(page, domain, email, TEST_PASSWORD);
 			await page.goto(`${ORG_UI_URL}/marketplace/listings/new`);
 
@@ -180,7 +180,7 @@ test.describe("Org UI Marketplace — Publish as Superadmin", () => {
 			TEST_PASSWORD
 		);
 		try {
-			await setOrgTier(orgId, "silver");
+			await setOrgPlan(orgId, "silver");
 			await orgLogin(page, domain, email, TEST_PASSWORD);
 			await page.goto(`${ORG_UI_URL}/marketplace/listings/new`);
 

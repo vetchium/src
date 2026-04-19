@@ -51,12 +51,16 @@
 		"updated": "Zuletzt aktualisiert",
 		"actions": "Aktionen",
 		"view": "Anzeigen",
-		"filterByStatus": "Nach Status filtern"
+		"filterByStatus": "Nach Status filtern",
+		"quotaTooltip": "Ihr {{tier}}-Plan erlaubt {{cap}} Angebot(e). Upgraden Sie Ihren Plan für mehr.",
+		"quotaTooltipZero": "Marktplatzangebote sind im {{tier}}-Plan nicht verfügbar. Upgraden Sie, um Angebote zu erstellen."
 	},
 
 	"create": {
 		"title": "Marktplatzangebot erstellen",
 		"back": "Zurück zu Angeboten",
+		"quotaBanner": "Ihr {{tier}}-Plan erlaubt keine Veröffentlichung von Marktplatzangeboten (Limit: {{cap}}). Sie können als Entwurf speichern, müssen aber upgraden, um zu veröffentlichen.",
+		"upgradePlan": "Plan upgraden",
 		"headline": "Überschrift",
 		"headlineRequired": "Überschrift ist erforderlich",
 		"headlineMax": "Überschrift darf maximal 100 Zeichen lang sein",
@@ -93,6 +97,8 @@
 
 		"edit": "Bearbeiten",
 		"publish": "Zur Überprüfung einreichen",
+		"publishDirect": "Veröffentlichen",
+		"publishQuotaTooltip": "Ihr {{tier}}-Plan erlaubt keine Veröffentlichung von Angeboten (Limit: {{cap}}). Upgraden Sie Ihren Plan.",
 		"approve": "Genehmigen",
 		"reject": "Ablehnen",
 		"archive": "Archivieren",

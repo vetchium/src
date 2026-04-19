@@ -51,12 +51,16 @@
 		"updated": "Last Updated",
 		"actions": "Actions",
 		"view": "View",
-		"filterByStatus": "Filter by status"
+		"filterByStatus": "Filter by status",
+		"quotaTooltip": "Your {{tier}} plan allows {{cap}} listing(s). Upgrade your plan to create more.",
+		"quotaTooltipZero": "Marketplace listings are not available on the {{tier}} plan. Upgrade to create listings."
 	},
 
 	"create": {
 		"title": "Create Marketplace Listing",
 		"back": "Back to Listings",
+		"quotaBanner": "Your {{tier}} plan does not allow publishing marketplace listings (limit: {{cap}}). You can save as a draft, but upgrade your plan to publish.",
+		"upgradePlan": "Upgrade Plan",
 		"headline": "Headline",
 		"headlineRequired": "Headline is required",
 		"headlineMax": "Headline must be at most 100 characters",
@@ -93,6 +97,8 @@
 
 		"edit": "Edit",
 		"publish": "Submit for Review",
+		"publishDirect": "Publish",
+		"publishQuotaTooltip": "Your {{tier}} plan does not allow publishing listings (limit: {{cap}}). Upgrade your plan.",
 		"approve": "Approve",
 		"reject": "Reject",
 		"archive": "Archive",

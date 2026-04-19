@@ -7,7 +7,7 @@ import {
 	deleteTestOrgUser,
 	generateTestOrgEmail,
 	assignRoleToOrgUser,
-	setOrgTier,
+	setOrgPlan,
 	createTestMarketplaceCapability,
 	deleteTestMarketplaceCapability,
 	createTestMarketplaceListingDirect,
@@ -88,7 +88,7 @@ test.describe("POST /org/marketplace/list-capabilities", () => {
 		const { email, domain } = generateTestOrgEmail("mp-cap-list");
 		const { orgId } = await createTestOrgAdminDirect(email, TEST_PASSWORD);
 		try {
-			await setOrgTier(orgId, "silver");
+			await setOrgPlan(orgId, "silver");
 			const token = await loginOrg(api, email, domain);
 			const res = await api.listMarketplaceCapabilities(token);
 			expect(res.status).toBe(200);
@@ -121,7 +121,7 @@ test.describe("Listing CRUD — superadmin publish to active", () => {
 		const { email, domain } = generateTestOrgEmail("mp-crud");
 		const { orgId } = await createTestOrgAdminDirect(email, TEST_PASSWORD);
 		try {
-			await setOrgTier(orgId, "silver");
+			await setOrgPlan(orgId, "silver");
 			const token = await loginOrg(api, email, domain);
 			const before = new Date(Date.now() - 2000).toISOString();
 
@@ -145,12 +145,23 @@ test.describe("Listing CRUD — superadmin publish to active", () => {
 			expect(publishRes.body!.listed_at).toBeDefined();
 
 			// Audit log: org.marketplace_listing_created
-			const auditRes = await api.filterAuditLogs(token, {
+			const auditCreateRes = await api.filterAuditLogs(token, {
 				event_types: ["org.marketplace_listing_created"],
 				start_time: before,
 			});
-			expect(auditRes.status).toBe(200);
-			expect(auditRes.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+			expect(auditCreateRes.status).toBe(200);
+			expect(auditCreateRes.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+
+			// Audit log: org.marketplace_listing_published
+			const auditPubRes = await api.filterAuditLogs(token, {
+				event_types: ["org.marketplace_listing_published"],
+				start_time: before,
+			});
+			expect(auditPubRes.status).toBe(200);
+			expect(auditPubRes.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+			const pubLog = auditPubRes.body.audit_logs[0];
+			expect(pubLog.event_data.listing_number).toBe(listingNum);
+			expect(pubLog.event_data.status).toBe("active");
 		} finally {
 			await deleteTestOrgUser(email);
 		}
@@ -175,7 +186,7 @@ test.describe("Listing approval flow (non-superadmin -> pending_review -> active
 			domain,
 			orgId,
 		});
-		await setOrgTier(orgId, "silver");
+		await setOrgPlan(orgId, "silver");
 		await assignRoleToOrgUser(orgUserId, "org:manage_listings", "ind1");
 
 		try {
@@ -224,7 +235,7 @@ test.describe("Listing approval flow (non-superadmin -> pending_review -> active
 			domain,
 			orgId,
 		});
-		await setOrgTier(orgId, "silver");
+		await setOrgPlan(orgId, "silver");
 		await assignRoleToOrgUser(orgUserId, "org:manage_listings", "ind1");
 
 		try {
@@ -276,7 +287,7 @@ test.describe("Multi-capability listing", () => {
 		const { email, domain } = generateTestOrgEmail("mp-multicap");
 		const { orgId } = await createTestOrgAdminDirect(email, TEST_PASSWORD);
 		try {
-			await setOrgTier(orgId, "silver");
+			await setOrgPlan(orgId, "silver");
 			const token = await loginOrg(api, email, domain);
 
 			const createRes = await api.createListing(token, {
@@ -319,7 +330,7 @@ test.describe("Quota: marketplace_listings cap enforced on publish", () => {
 			TEST_PASSWORD
 		);
 		try {
-			await setOrgTier(orgId, "silver");
+			await setOrgPlan(orgId, "silver");
 			const token = await loginOrg(api, email, domain);
 
 			// Create 5 active listings via DB helper (bypassing API)
@@ -369,7 +380,7 @@ test.describe("Subscription flows", () => {
 			generateTestOrgEmail("mp-sub-provider").email,
 			TEST_PASSWORD
 		);
-		await setOrgTier(provOrgId, "silver");
+		await setOrgPlan(provOrgId, "silver");
 		const { email: conEmail, domain: conDomain } =
 			await createTestOrgAdminDirect(
 				generateTestOrgEmail("mp-sub-consumer").email,
@@ -550,7 +561,7 @@ test.describe("RBAC — Marketplace Listings", () => {
 			generateTestOrgEmail("mp-rbac-prov").email,
 			TEST_PASSWORD
 		);
-		await setOrgTier(provOrgId, "silver");
+		await setOrgPlan(provOrgId, "silver");
 		const {
 			email: conEmail,
 			domain: conDomain,
@@ -638,7 +649,7 @@ test.describe("Audit logs for marketplace write operations", () => {
 		const { email, domain } = generateTestOrgEmail("mp-audit");
 		const { orgId } = await createTestOrgAdminDirect(email, TEST_PASSWORD);
 		try {
-			await setOrgTier(orgId, "silver");
+			await setOrgPlan(orgId, "silver");
 			const token = await loginOrg(api, email, domain);
 			const before = new Date(Date.now() - 2000).toISOString();
 

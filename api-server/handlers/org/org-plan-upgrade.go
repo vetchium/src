@@ -14,10 +14,10 @@ import (
 	orgtypes "vetchium-api-server.typespec/org"
 )
 
-// SelfUpgradeOrgSubscription upgrades the calling org to the given tier.
-// Requires org:manage_subscription (or superadmin). Only self_upgradeable tiers are accepted
-// via this endpoint; admin can bypass via /admin/org-subscriptions/set-tier.
-func SelfUpgradeOrgSubscription(s *server.RegionalServer) http.HandlerFunc {
+// UpgradeOrgPlan upgrades the calling org to the given plan.
+// Requires org:manage_plan (or superadmin). Only self_upgradeable plans are accepted
+// via this endpoint; admin can bypass via /admin/org-plan/set.
+func UpgradeOrgPlan(s *server.RegionalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()
@@ -28,7 +28,7 @@ func SelfUpgradeOrgSubscription(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		var req orgtypes.SelfUpgradeOrgSubscriptionRequest
+		var req orgtypes.UpgradeOrgPlanRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			s.Logger(ctx).Debug("failed to decode request", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -41,31 +41,31 @@ func SelfUpgradeOrgSubscription(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		var fromTierID string
+		var fromPlanID string
 		err := s.WithGlobalTx(ctx, func(qtx *globaldb.Queries) error {
-			sub, txErr := qtx.GetOrgSubscription(ctx, orgUser.OrgID)
+			sub, txErr := qtx.GetOrgPlan(ctx, orgUser.OrgID)
 			if txErr != nil {
 				return txErr
 			}
-			fromTierID = sub.CurrentTierID
+			fromPlanID = sub.CurrentPlanID
 
-			targetTier, txErr := qtx.GetOrgTier(ctx, req.TierID)
+			targetPlan, txErr := qtx.GetPlan(ctx, req.PlanID)
 			if txErr != nil {
 				return txErr
 			}
 
-			if !targetTier.SelfUpgradeable {
+			if !targetPlan.SelfUpgradeable {
 				return server.ErrInvalidState
 			}
-			if req.TierID == sub.CurrentTierID {
+			if req.PlanID == sub.CurrentPlanID {
 				return server.ErrInvalidState
 			}
-			if targetTier.DisplayOrder < sub.DisplayOrder {
+			if targetPlan.DisplayOrder < sub.DisplayOrder {
 				return server.ErrInvalidState
 			}
 
-			if txErr = qtx.UpdateOrgSubscriptionTier(ctx, globaldb.UpdateOrgSubscriptionTierParams{
-				CurrentTierID:      req.TierID,
+			if txErr = qtx.UpdateOrgPlan(ctx, globaldb.UpdateOrgPlanParams{
+				CurrentPlanID:      req.PlanID,
 				UpdatedByAdminID:   pgtype.UUID{Valid: false},
 				UpdatedByOrgUserID: orgUser.OrgUserID,
 				Note:               "",
@@ -74,10 +74,10 @@ func SelfUpgradeOrgSubscription(s *server.RegionalServer) http.HandlerFunc {
 				return txErr
 			}
 
-			return qtx.InsertOrgSubscriptionHistory(ctx, globaldb.InsertOrgSubscriptionHistoryParams{
+			return qtx.InsertOrgPlanHistory(ctx, globaldb.InsertOrgPlanHistoryParams{
 				OrgID:              orgUser.OrgID,
-				FromTierID:         pgtype.Text{String: sub.CurrentTierID, Valid: true},
-				ToTierID:           req.TierID,
+				FromPlanID:         pgtype.Text{String: sub.CurrentPlanID, Valid: true},
+				ToPlanID:           req.PlanID,
 				ChangedByAdminID:   pgtype.UUID{Valid: false},
 				ChangedByOrgUserID: orgUser.OrgUserID,
 				Reason:             "self-upgrade",
@@ -88,20 +88,20 @@ func SelfUpgradeOrgSubscription(s *server.RegionalServer) http.HandlerFunc {
 				w.WriteHeader(http.StatusUnprocessableEntity)
 				return
 			}
-			s.Logger(ctx).Error("failed to upgrade org subscription", "error", err)
+			s.Logger(ctx).Error("failed to upgrade org plan", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
 		// Write regional audit log (cross-DB pattern: global first, then regional)
 		eventData, _ := json.Marshal(map[string]any{
-			"from_tier_id": fromTierID,
-			"to_tier_id":   req.TierID,
+			"from_plan_id": fromPlanID,
+			"to_plan_id":   req.PlanID,
 			"org_id":       uuidToString(orgUser.OrgID),
 		})
 		auditErr := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
 			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
-				EventType:   "org.subscription_tier_upgraded",
+				EventType:   "org.plan_upgraded",
 				ActorUserID: orgUser.OrgUserID,
 				OrgID:       orgUser.OrgID,
 				IpAddress:   audit.ExtractClientIP(r),
@@ -109,13 +109,13 @@ func SelfUpgradeOrgSubscription(s *server.RegionalServer) http.HandlerFunc {
 			})
 		})
 		if auditErr != nil {
-			s.Logger(ctx).Error("CONSISTENCY_ALERT: failed to write audit log for tier upgrade", "error", auditErr, "org_id", uuidToString(orgUser.OrgID))
+			s.Logger(ctx).Error("CONSISTENCY_ALERT: failed to write audit log for plan upgrade", "error", auditErr, "org_id", uuidToString(orgUser.OrgID))
 		}
 
-		// Fetch updated subscription for response
-		sub, err := s.Global.GetOrgSubscription(ctx, orgUser.OrgID)
+		// Fetch updated plan for response
+		sub, err := s.Global.GetOrgPlan(ctx, orgUser.OrgID)
 		if err != nil {
-			s.Logger(ctx).Error("failed to get updated org subscription", "error", err)
+			s.Logger(ctx).Error("failed to get updated org plan", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -125,9 +125,9 @@ func SelfUpgradeOrgSubscription(s *server.RegionalServer) http.HandlerFunc {
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
-		resp, err := buildOrgSubscription(ctx, sub, org.OrgName, s.Global, s.Regional)
+		resp, err := buildOrgPlan(ctx, sub, org.OrgName, s.Global, s.Regional)
 		if err != nil {
-			s.Logger(ctx).Error("failed to build subscription response", "error", err)
+			s.Logger(ctx).Error("failed to build plan response", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}

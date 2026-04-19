@@ -290,8 +290,8 @@ INSERT INTO roles (role_name, description) VALUES
     ('admin:view_audit_logs', 'Can view admin portal audit logs'),
     ('admin:view_marketplace', 'Can view marketplace capabilities, listings, and subscriptions (read-only)'),
     ('admin:manage_marketplace', 'Can manage marketplace capabilities, suspend/reinstate listings, and cancel subscriptions'),
-    ('admin:view_org_subscriptions', 'Can view org tier subscriptions (read-only)'),
-    ('admin:manage_org_subscriptions', 'Can grant tiers, waive fees, suspend, and force-downgrade');
+    ('admin:view_org_plans', 'Can view org plan subscriptions (read-only)'),
+    ('admin:manage_org_plans', 'Can grant plans, waive fees, suspend, and force-downgrade');
 
 -- Admin audit logs table (unified audit log for all admin portal write operations)
 CREATE TABLE admin_audit_logs (
@@ -304,9 +304,9 @@ CREATE TABLE admin_audit_logs (
     created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Org Tiers
-CREATE TABLE org_tiers (
-    tier_id                        TEXT        PRIMARY KEY,
+-- Org Plans
+CREATE TABLE plans (
+    plan_id                        TEXT        PRIMARY KEY,
     display_order                  INT         NOT NULL UNIQUE,
     org_users_cap                  INT,
     domains_verified_cap           INT,
@@ -319,21 +319,21 @@ CREATE TABLE org_tiers (
     updated_at                     TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE org_tier_translations (
-    tier_id                        TEXT        NOT NULL REFERENCES org_tiers(tier_id),
+CREATE TABLE plan_translations (
+    plan_id                        TEXT        NOT NULL REFERENCES plans(plan_id),
     locale                         TEXT        NOT NULL,
     display_name                   TEXT        NOT NULL,
     description                    TEXT        NOT NULL DEFAULT '',
-    PRIMARY KEY (tier_id, locale)
+    PRIMARY KEY (plan_id, locale)
 );
 
-INSERT INTO org_tiers (tier_id, display_order, org_users_cap, domains_verified_cap, suborgs_cap, marketplace_listings_cap, audit_retention_days, self_upgradeable, status) VALUES
+INSERT INTO plans (plan_id, display_order, org_users_cap, domains_verified_cap, suborgs_cap, marketplace_listings_cap, audit_retention_days, self_upgradeable, status) VALUES
     ('free',       1, 5,    2,    0,  0,  30,  FALSE, 'active'),
     ('silver',     2, 25,   5,    3,  5,  365, TRUE,  'active'),
     ('gold',       3, 100,  NULL, 10, 20, 1095,TRUE,  'active'),
     ('enterprise', 4, NULL, NULL, NULL, NULL, NULL, FALSE, 'active');
 
-INSERT INTO org_tier_translations (tier_id, locale, display_name, description) VALUES
+INSERT INTO plan_translations (plan_id, locale, display_name, description) VALUES
     ('free',       'en-US', 'Free',       'Free tier. Discover and consume marketplace. No publishing.'),
     ('silver',     'en-US', 'Silver',     'For orgs running hiring + modest marketplace listings.'),
     ('gold',       'en-US', 'Gold',       'For heavy operators — staffing firms, multi-site employers.'),
@@ -347,20 +347,20 @@ INSERT INTO org_tier_translations (tier_id, locale, display_name, description) V
     ('gold', 'ta-IN', 'தங்கம்', ''),
     ('enterprise', 'ta-IN', 'நிறுவனம்', '');
 
-CREATE TABLE org_subscriptions (
+CREATE TABLE org_plans (
     org_id                    UUID         PRIMARY KEY REFERENCES orgs(org_id),
-    current_tier_id           TEXT         NOT NULL REFERENCES org_tiers(tier_id),
+    current_plan_id           TEXT         NOT NULL REFERENCES plans(plan_id),
     updated_at                TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_by_admin_id       UUID,
     updated_by_org_user_id    UUID,
     note                      TEXT         NOT NULL DEFAULT ''
 );
 
-CREATE TABLE org_subscription_history (
+CREATE TABLE org_plan_history (
     history_id                UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
     org_id                    UUID         NOT NULL,
-    from_tier_id              TEXT,
-    to_tier_id                TEXT         NOT NULL,
+    from_plan_id              TEXT,
+    to_plan_id                TEXT         NOT NULL,
     changed_at                TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     changed_by_admin_id       UUID,
     changed_by_org_user_id    UUID,
@@ -442,10 +442,10 @@ DROP TABLE IF EXISTS marketplace_subscription_index;
 DROP TABLE IF EXISTS marketplace_listing_catalog;
 DROP TABLE IF EXISTS marketplace_capability_translations;
 DROP TABLE IF EXISTS marketplace_capabilities;
-DROP TABLE IF EXISTS org_subscription_history;
-DROP TABLE IF EXISTS org_subscriptions;
-DROP TABLE IF EXISTS org_tier_translations;
-DROP TABLE IF EXISTS org_tiers;
+DROP TABLE IF EXISTS org_plan_history;
+DROP TABLE IF EXISTS org_plans;
+DROP TABLE IF EXISTS plan_translations;
+DROP TABLE IF EXISTS plans;
 DROP INDEX IF EXISTS idx_admin_audit_logs_event_type;
 DROP INDEX IF EXISTS idx_admin_audit_logs_actor_user_id;
 DROP INDEX IF EXISTS idx_admin_audit_logs_created_at_id;

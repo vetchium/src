@@ -29,11 +29,11 @@ var ErrQuotaExceeded = errors.New("quota exceeded")
 type QuotaExceededPayload struct {
 	Quota      QuotaKey `json:"quota"`
 	CurrentCap int32    `json:"current_cap"`
-	TierID     string   `json:"tier_id"`
+	PlanID     string   `json:"plan_id"`
 }
 
-// capFor returns the cap for the given key from a subscription row, and -1 for unlimited.
-func capFor(key QuotaKey, sub globaldb.GetOrgSubscriptionRow) int32 {
+// capFor returns the cap for the given key from a plan row, and -1 for unlimited.
+func capFor(key QuotaKey, sub globaldb.GetOrgPlanRow) int32 {
 	switch key {
 	case QuotaOrgUsers:
 		if sub.OrgUsersCap.Valid {
@@ -55,7 +55,7 @@ func capFor(key QuotaKey, sub globaldb.GetOrgSubscriptionRow) int32 {
 	return -1 // unlimited
 }
 
-// EnforceQuota checks whether the org is within its tier cap for the given quota key.
+// EnforceQuota checks whether the org is within its plan cap for the given quota key.
 // It calls the appropriate count query and compares to the cap.
 // On ErrQuotaExceeded, callers should write a 403 with WriteQuotaError.
 //
@@ -68,9 +68,9 @@ func EnforceQuota(
 	global *globaldb.Queries,
 	regional *regionaldb.Queries,
 ) (*QuotaExceededPayload, error) {
-	sub, err := global.GetOrgSubscription(ctx, orgID)
+	sub, err := global.GetOrgPlan(ctx, orgID)
 	if err != nil {
-		return nil, fmt.Errorf("orgtiers: get subscription: %w", err)
+		return nil, fmt.Errorf("orgtiers: get plan: %w", err)
 	}
 
 	cap := capFor(key, sub)
@@ -97,7 +97,7 @@ func EnforceQuota(
 		return &QuotaExceededPayload{
 			Quota:      key,
 			CurrentCap: cap,
-			TierID:     sub.CurrentTierID,
+			PlanID:     sub.CurrentPlanID,
 		}, ErrQuotaExceeded
 	}
 	return nil, nil

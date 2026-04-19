@@ -40,7 +40,7 @@ export function QuotaExceededModal({
 						})}
 					</Text>
 					<div style={{ marginTop: 16 }}>
-						<Link to="/settings/subscription" onClick={onClose}>
+						<Link to="/settings/plan" onClick={onClose}>
 							{t("quotaExceeded.viewPlans")}
 						</Link>
 					</div>

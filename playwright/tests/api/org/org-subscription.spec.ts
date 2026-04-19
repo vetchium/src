@@ -6,7 +6,7 @@ import {
 	deleteTestOrgUser,
 	generateTestOrgEmail,
 	assignRoleToOrgUser,
-	setOrgTier,
+	setOrgPlan,
 } from "../../../lib/db";
 import { getTfaCodeFromEmail } from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
@@ -14,7 +14,7 @@ import type {
 	OrgLoginRequest,
 	OrgTFARequest,
 } from "vetchium-specs/org/org-users";
-import type { SelfUpgradeOrgSubscriptionRequest } from "vetchium-specs/org/tiers";
+import type { UpgradeOrgPlanRequest } from "vetchium-specs/org/tiers";
 
 async function loginOrgUser(
 	api: OrgAPIClient,
@@ -41,10 +41,10 @@ async function loginOrgUser(
 }
 
 // ============================================================================
-// POST /org/org-subscriptions/list-tiers
+// POST /org/org-plan/list-plans
 // ============================================================================
-test.describe("POST /org/org-subscriptions/list-tiers", () => {
-	test("Success: returns list of tiers for authenticated user (200)", async ({
+test.describe("POST /org/org-plan/list-plans", () => {
+	test("Success: returns list of plans for authenticated user (200)", async ({
 		request,
 	}) => {
 		const api = new OrgAPIClient(request);
@@ -52,18 +52,18 @@ test.describe("POST /org/org-subscriptions/list-tiers", () => {
 		await createTestOrgAdminDirect(email, TEST_PASSWORD);
 		try {
 			const token = await loginOrgUser(api, email, domain);
-			const res = await api.listOrgTiers(token);
+			const res = await api.listPlans(token);
 			expect(res.status).toBe(200);
-			expect(res.body!.tiers).toBeDefined();
-			expect(res.body!.tiers.length).toBeGreaterThanOrEqual(1);
-			// verify free tier exists
-			const freeTier = res.body!.tiers.find((t) => t.tier_id === "free");
-			expect(freeTier).toBeDefined();
-			expect(freeTier!.self_upgradeable).toBe(false);
-			// verify silver tier is self-upgradeable
-			const silverTier = res.body!.tiers.find((t) => t.tier_id === "silver");
-			expect(silverTier).toBeDefined();
-			expect(silverTier!.self_upgradeable).toBe(true);
+			expect(res.body!.plans).toBeDefined();
+			expect(res.body!.plans.length).toBeGreaterThanOrEqual(1);
+			// verify free plan exists
+			const freePlan = res.body!.plans.find((t) => t.plan_id === "free");
+			expect(freePlan).toBeDefined();
+			expect(freePlan!.self_upgradeable).toBe(false);
+			// verify silver plan is self-upgradeable
+			const silverPlan = res.body!.plans.find((t) => t.plan_id === "silver");
+			expect(silverPlan).toBeDefined();
+			expect(silverPlan!.self_upgradeable).toBe(true);
 		} finally {
 			await deleteTestOrgUser(email);
 		}
@@ -71,28 +71,26 @@ test.describe("POST /org/org-subscriptions/list-tiers", () => {
 
 	test("returns 401 without authentication", async ({ request }) => {
 		const api = new OrgAPIClient(request);
-		const res = await api.listOrgTiers("invalid-token");
+		const res = await api.listPlans("invalid-token");
 		expect(res.status).toBe(401);
 	});
 });
 
 // ============================================================================
-// POST /org/org-subscriptions/get
+// POST /org/org-plan/get
 // ============================================================================
-test.describe("POST /org/org-subscriptions/get", () => {
-	test("Success: superadmin can get own subscription (200)", async ({
-		request,
-	}) => {
+test.describe("POST /org/org-plan/get", () => {
+	test("Success: superadmin can get own plan (200)", async ({ request }) => {
 		const api = new OrgAPIClient(request);
 		const { email, domain } = generateTestOrgEmail("sub-get");
 		const { orgId } = await createTestOrgAdminDirect(email, TEST_PASSWORD);
 		try {
 			const token = await loginOrgUser(api, email, domain);
-			const res = await api.getMyOrgSubscription(token);
+			const res = await api.getMyOrgPlan(token);
 			expect(res.status).toBe(200);
 			expect(res.body!.org_id).toBe(orgId);
-			expect(res.body!.current_tier).toBeDefined();
-			expect(res.body!.current_tier.tier_id).toBe("free");
+			expect(res.body!.current_plan).toBeDefined();
+			expect(res.body!.current_plan.plan_id).toBe("free");
 			expect(res.body!.usage).toBeDefined();
 		} finally {
 			await deleteTestOrgUser(email);
@@ -101,12 +99,12 @@ test.describe("POST /org/org-subscriptions/get", () => {
 
 	test("returns 401 without authentication", async ({ request }) => {
 		const api = new OrgAPIClient(request);
-		const res = await api.getMyOrgSubscription("invalid-token");
+		const res = await api.getMyOrgPlan("invalid-token");
 		expect(res.status).toBe(401);
 	});
 
 	test.describe("RBAC", () => {
-		test("user with org:view_subscription role can get subscription (200)", async ({
+		test("user with org:view_plan role can get plan (200)", async ({
 			request,
 		}) => {
 			const api = new OrgAPIClient(request);
@@ -124,9 +122,9 @@ test.describe("POST /org/org-subscriptions/get", () => {
 				{ orgId, domain }
 			);
 			try {
-				await assignRoleToOrgUser(orgUserId, "org:view_subscription");
+				await assignRoleToOrgUser(orgUserId, "org:view_plan");
 				const token = await loginOrgUser(api, viewerEmail, domain);
-				const res = await api.getMyOrgSubscription(token);
+				const res = await api.getMyOrgPlan(token);
 				expect(res.status).toBe(200);
 			} finally {
 				await deleteTestOrgUser(viewerEmail);
@@ -134,9 +132,7 @@ test.describe("POST /org/org-subscriptions/get", () => {
 			}
 		});
 
-		test("user with no roles cannot get subscription (403)", async ({
-			request,
-		}) => {
+		test("user with no roles cannot get plan (403)", async ({ request }) => {
 			const api = new OrgAPIClient(request);
 			const { email: adminEmail, domain } =
 				generateTestOrgEmail("sub-get-rbac-none");
@@ -151,7 +147,7 @@ test.describe("POST /org/org-subscriptions/get", () => {
 			});
 			try {
 				const token = await loginOrgUser(api, noRoleEmail, domain);
-				const res = await api.getMyOrgSubscription(token);
+				const res = await api.getMyOrgPlan(token);
 				expect(res.status).toBe(403);
 			} finally {
 				await deleteTestOrgUser(noRoleEmail);
@@ -162,9 +158,9 @@ test.describe("POST /org/org-subscriptions/get", () => {
 });
 
 // ============================================================================
-// POST /org/org-subscriptions/self-upgrade
+// POST /org/org-plan/upgrade
 // ============================================================================
-test.describe("POST /org/org-subscriptions/self-upgrade", () => {
+test.describe("POST /org/org-plan/upgrade", () => {
 	test("Success: superadmin can self-upgrade from free to silver (200)", async ({
 		request,
 	}) => {
@@ -174,21 +170,21 @@ test.describe("POST /org/org-subscriptions/self-upgrade", () => {
 		try {
 			const before = new Date(Date.now() - 2000).toISOString();
 			const token = await loginOrgUser(api, email, domain);
-			const req: SelfUpgradeOrgSubscriptionRequest = { tier_id: "silver" };
-			const res = await api.selfUpgradeOrgSubscription(token, req);
+			const req: UpgradeOrgPlanRequest = { plan_id: "silver" };
+			const res = await api.upgradeOrgPlan(token, req);
 			expect(res.status).toBe(200);
 
-			// Verify subscription updated via the returned body
+			// Verify plan updated via the returned body
 			expect(res.body).toBeDefined();
 
 			// Verify with explicit get
-			const getRes = await api.getMyOrgSubscription(token);
+			const getRes = await api.getMyOrgPlan(token);
 			expect(getRes.status).toBe(200);
-			expect(getRes.body!.current_tier.tier_id).toBe("silver");
+			expect(getRes.body!.current_plan.plan_id).toBe("silver");
 
 			// Audit log assertion
 			const auditRes = await api.filterAuditLogs(token, {
-				event_types: ["org.subscription_tier_upgraded"],
+				event_types: ["org.plan_upgraded"],
 				start_time: before,
 			});
 			expect(auditRes.status).toBe(200);
@@ -206,8 +202,8 @@ test.describe("POST /org/org-subscriptions/self-upgrade", () => {
 		await createTestOrgAdminDirect(email, TEST_PASSWORD);
 		try {
 			const token = await loginOrgUser(api, email, domain);
-			const req: SelfUpgradeOrgSubscriptionRequest = { tier_id: "enterprise" };
-			const res = await api.selfUpgradeOrgSubscription(token, req);
+			const req: UpgradeOrgPlanRequest = { plan_id: "enterprise" };
+			const res = await api.upgradeOrgPlan(token, req);
 			expect(res.status).toBe(422);
 		} finally {
 			await deleteTestOrgUser(email);
@@ -222,24 +218,24 @@ test.describe("POST /org/org-subscriptions/self-upgrade", () => {
 		const { orgId } = await createTestOrgAdminDirect(email, TEST_PASSWORD);
 		try {
 			// Set to silver first
-			await setOrgTier(orgId, "silver");
+			await setOrgPlan(orgId, "silver");
 			const token = await loginOrgUser(api, email, domain);
-			const req: SelfUpgradeOrgSubscriptionRequest = { tier_id: "free" };
-			const res = await api.selfUpgradeOrgSubscription(token, req);
+			const req: UpgradeOrgPlanRequest = { plan_id: "free" };
+			const res = await api.upgradeOrgPlan(token, req);
 			expect(res.status).toBe(422);
 		} finally {
 			await deleteTestOrgUser(email);
 		}
 	});
 
-	test("returns 400 with invalid tier_id", async ({ request }) => {
+	test("returns 400 with invalid plan_id", async ({ request }) => {
 		const api = new OrgAPIClient(request);
 		const { email, domain } = generateTestOrgEmail("sub-upgrade-bad");
 		await createTestOrgAdminDirect(email, TEST_PASSWORD);
 		try {
 			const token = await loginOrgUser(api, email, domain);
-			const res = await api.selfUpgradeOrgSubscriptionRaw(token, {
-				tier_id: "invalid-tier",
+			const res = await api.upgradeOrgPlanRaw(token, {
+				plan_id: "invalid-plan",
 			});
 			expect(res.status).toBe(400);
 		} finally {
@@ -249,13 +245,13 @@ test.describe("POST /org/org-subscriptions/self-upgrade", () => {
 
 	test("returns 401 without authentication", async ({ request }) => {
 		const api = new OrgAPIClient(request);
-		const req: SelfUpgradeOrgSubscriptionRequest = { tier_id: "silver" };
-		const res = await api.selfUpgradeOrgSubscription("invalid-token", req);
+		const req: UpgradeOrgPlanRequest = { plan_id: "silver" };
+		const res = await api.upgradeOrgPlan("invalid-token", req);
 		expect(res.status).toBe(401);
 	});
 
 	test.describe("RBAC", () => {
-		test("user with org:manage_subscription role can self-upgrade (204)", async ({
+		test("user with org:manage_plan role can self-upgrade (200)", async ({
 			request,
 		}) => {
 			const api = new OrgAPIClient(request);
@@ -274,10 +270,10 @@ test.describe("POST /org/org-subscriptions/self-upgrade", () => {
 				{ orgId, domain }
 			);
 			try {
-				await assignRoleToOrgUser(orgUserId, "org:manage_subscription");
+				await assignRoleToOrgUser(orgUserId, "org:manage_plan");
 				const token = await loginOrgUser(api, managerEmail, domain);
-				const req: SelfUpgradeOrgSubscriptionRequest = { tier_id: "silver" };
-				const res = await api.selfUpgradeOrgSubscription(token, req);
+				const req: UpgradeOrgPlanRequest = { plan_id: "silver" };
+				const res = await api.upgradeOrgPlan(token, req);
 				expect(res.status).toBe(200);
 			} finally {
 				await deleteTestOrgUser(managerEmail);
@@ -303,8 +299,8 @@ test.describe("POST /org/org-subscriptions/self-upgrade", () => {
 			});
 			try {
 				const token = await loginOrgUser(api, noRoleEmail, domain);
-				const req: SelfUpgradeOrgSubscriptionRequest = { tier_id: "silver" };
-				const res = await api.selfUpgradeOrgSubscription(token, req);
+				const req: UpgradeOrgPlanRequest = { plan_id: "silver" };
+				const res = await api.upgradeOrgPlan(token, req);
 				expect(res.status).toBe(403);
 			} finally {
 				await deleteTestOrgUser(noRoleEmail);

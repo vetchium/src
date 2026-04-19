@@ -14,8 +14,8 @@ export const VALID_ROLE_NAMES = [
 	"admin:view_audit_logs",
 	"admin:view_marketplace",
 	"admin:manage_marketplace",
-	"admin:view_org_subscriptions",
-	"admin:manage_org_subscriptions",
+	"admin:view_org_plans",
+	"admin:manage_org_plans",
 
 	// Org portal roles
 	"org:superadmin",
@@ -32,8 +32,8 @@ export const VALID_ROLE_NAMES = [
 	"org:view_subscriptions",
 	"org:manage_subscriptions",
 	"org:view_audit_logs",
-	"org:view_subscription",
-	"org:manage_subscription",
+	"org:view_plan",
+	"org:manage_plan",
 
 	// Hub portal roles
 	"hub:read_posts",

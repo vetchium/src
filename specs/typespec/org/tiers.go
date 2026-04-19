@@ -7,15 +7,15 @@ import (
 	"vetchium-api-server.typespec/common"
 )
 
-var validTierIDs = []string{"free", "silver", "gold", "enterprise"}
+var validPlanIDs = []string{"free", "silver", "gold", "enterprise"}
 
-func isValidTierID(id string) bool {
-	return slices.Contains(validTierIDs, id)
+func isValidPlanID(id string) bool {
+	return slices.Contains(validPlanIDs, id)
 }
 
-// OrgTier describes a platform tier with its quota caps.
-type OrgTier struct {
-	TierID                 string `json:"tier_id"`
+// Plan describes a platform plan with its quota caps.
+type Plan struct {
+	PlanID                 string `json:"plan_id"`
 	DisplayName            string `json:"display_name"`
 	Description            string `json:"description"`
 	DisplayOrder           int32  `json:"display_order"`
@@ -27,64 +27,64 @@ type OrgTier struct {
 	SelfUpgradeable        bool   `json:"self_upgradeable"`
 }
 
-// OrgTierUsage holds current usage counts for quota-tracked resources.
-type OrgTierUsage struct {
+// PlanUsage holds current usage counts for quota-tracked resources.
+type PlanUsage struct {
 	OrgUsers            int32 `json:"org_users"`
 	DomainsVerified     int32 `json:"domains_verified"`
 	Suborgs             int32 `json:"suborgs"`
 	MarketplaceListings int32 `json:"marketplace_listings"`
 }
 
-// OrgSubscription is the full subscription record with tier and usage.
-type OrgSubscription struct {
-	OrgID       string       `json:"org_id"`
-	OrgDomain   string       `json:"org_domain"`
-	CurrentTier OrgTier      `json:"current_tier"`
-	Usage       OrgTierUsage `json:"usage"`
-	UpdatedAt   string       `json:"updated_at"`
-	Note        string       `json:"note"`
+// OrgPlan is the full subscription record with plan and usage.
+type OrgPlan struct {
+	OrgID       string    `json:"org_id"`
+	OrgDomain   string    `json:"org_domain"`
+	CurrentPlan Plan      `json:"current_plan"`
+	Usage       PlanUsage `json:"usage"`
+	UpdatedAt   string    `json:"updated_at"`
+	Note        string    `json:"note"`
 }
 
-// ListOrgTiersRequest is the request to list all active tiers.
-type ListOrgTiersRequest struct{}
+// ListPlansRequest is the request to list all active plans.
+type ListPlansRequest struct{}
 
-func (r ListOrgTiersRequest) Validate() []common.ValidationError { return nil }
+func (r ListPlansRequest) Validate() []common.ValidationError { return nil }
 
-// ListOrgTiersResponse wraps the tiers list.
-type ListOrgTiersResponse struct {
-	Tiers []OrgTier `json:"tiers"`
+// ListPlansResponse wraps the plans list.
+type ListPlansResponse struct {
+	Plans []Plan `json:"plans"`
 }
 
-// GetMyOrgSubscriptionRequest is the request to get the caller's org subscription.
-type GetMyOrgSubscriptionRequest struct{}
+// GetMyOrgPlanRequest is the request to get the caller's org plan.
+type GetMyOrgPlanRequest struct{}
 
-func (r GetMyOrgSubscriptionRequest) Validate() []common.ValidationError { return nil }
+func (r GetMyOrgPlanRequest) Validate() []common.ValidationError { return nil }
 
-// SelfUpgradeOrgSubscriptionRequest upgrades to the given tier.
-type SelfUpgradeOrgSubscriptionRequest struct {
-	TierID string `json:"tier_id"`
+// UpgradeOrgPlanRequest upgrades to the given plan.
+type UpgradeOrgPlanRequest struct {
+	PlanID string `json:"plan_id"`
 }
 
-func (r SelfUpgradeOrgSubscriptionRequest) Validate() []common.ValidationError {
+func (r UpgradeOrgPlanRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
-	if !isValidTierID(r.TierID) {
-		errs = append(errs, common.NewValidationError("tier_id", errInvalidTierID))
+	if !isValidPlanID(r.PlanID) {
+		errs = append(errs, common.NewValidationError("plan_id", errInvalidPlanID))
 	}
 	return errs
 }
 
-// AdminListOrgSubscriptionsRequest lists all org subscriptions (admin).
-type AdminListOrgSubscriptionsRequest struct {
-	FilterTierID  *string `json:"filter_tier_id,omitempty"`
+// AdminListOrgPlansRequest lists all org plans (admin).
+type AdminListOrgPlansRequest struct {
+	FilterPlanID  *string `json:"filter_plan_id,omitempty"`
 	FilterDomain  *string `json:"filter_domain,omitempty"`
 	PaginationKey *string `json:"pagination_key,omitempty"`
 	Limit         *int32  `json:"limit,omitempty"`
 }
 
-func (r AdminListOrgSubscriptionsRequest) Validate() []common.ValidationError {
+func (r AdminListOrgPlansRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
-	if r.FilterTierID != nil && *r.FilterTierID != "" && !isValidTierID(*r.FilterTierID) {
-		errs = append(errs, common.NewValidationError("filter_tier_id", errInvalidTierID))
+	if r.FilterPlanID != nil && *r.FilterPlanID != "" && !isValidPlanID(*r.FilterPlanID) {
+		errs = append(errs, common.NewValidationError("filter_plan_id", errInvalidPlanID))
 	}
 	if r.Limit != nil && (*r.Limit < 1 || *r.Limit > 100) {
 		errs = append(errs, common.NewValidationError("limit", errLimitOutOfRange))
@@ -92,26 +92,26 @@ func (r AdminListOrgSubscriptionsRequest) Validate() []common.ValidationError {
 	return errs
 }
 
-// AdminListOrgSubscriptionsResponse wraps the subscription list.
-type AdminListOrgSubscriptionsResponse struct {
-	Items             []OrgSubscription `json:"items"`
-	NextPaginationKey *string           `json:"next_pagination_key,omitempty"`
+// AdminListOrgPlansResponse wraps the plan list.
+type AdminListOrgPlansResponse struct {
+	Items             []OrgPlan `json:"items"`
+	NextPaginationKey *string   `json:"next_pagination_key,omitempty"`
 }
 
-// AdminSetOrgTierRequest sets the tier for a given org (admin).
-type AdminSetOrgTierRequest struct {
+// AdminSetOrgPlanRequest sets the plan for a given org (admin).
+type AdminSetOrgPlanRequest struct {
 	OrgID  string `json:"org_id"`
-	TierID string `json:"tier_id"`
+	PlanID string `json:"plan_id"`
 	Reason string `json:"reason"`
 }
 
-func (r AdminSetOrgTierRequest) Validate() []common.ValidationError {
+func (r AdminSetOrgPlanRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
 	if r.OrgID == "" {
 		errs = append(errs, common.NewValidationError("org_id", errOrgIDRequired))
 	}
-	if !isValidTierID(r.TierID) {
-		errs = append(errs, common.NewValidationError("tier_id", errInvalidTierID))
+	if !isValidPlanID(r.PlanID) {
+		errs = append(errs, common.NewValidationError("plan_id", errInvalidPlanID))
 	}
 	if r.Reason == "" {
 		errs = append(errs, common.NewValidationError("reason", errReasonRequired))
@@ -122,7 +122,7 @@ func (r AdminSetOrgTierRequest) Validate() []common.ValidationError {
 }
 
 var (
-	errInvalidTierID   = errors.New("must be a valid tier id (free, silver, gold, enterprise)")
+	errInvalidPlanID   = errors.New("must be a valid plan id (free, silver, gold, enterprise)")
 	errLimitOutOfRange = errors.New("must be between 1 and 100")
 	errOrgIDRequired   = errors.New("org_id is required")
 	errReasonRequired  = errors.New("reason is required")

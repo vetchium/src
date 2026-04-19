@@ -13,7 +13,7 @@ import {
 	createTestMarketplaceCapability,
 	deleteTestMarketplaceCapability,
 	createTestMarketplaceListingDirect,
-	setOrgTier,
+	setOrgPlan,
 } from "../../../lib/db";
 import { getTfaCodeFromEmail } from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
@@ -173,7 +173,7 @@ test.describe("Admin Marketplace Listing Suspend/Reinstate", () => {
 			TEST_PASSWORD
 		);
 		try {
-			await setOrgTier(orgId, "silver");
+			await setOrgPlan(orgId, "silver");
 			const adminToken = await loginAdmin(adminApi, adminEmail);
 			const orgToken = await loginOrg(orgApi, orgEmail, orgDomain);
 
@@ -258,7 +258,7 @@ test.describe("Admin Marketplace Cancel Subscription", () => {
 				TEST_PASSWORD
 			);
 		try {
-			await setOrgTier(provOrgId, "silver");
+			await setOrgPlan(provOrgId, "silver");
 			const adminToken = await loginAdmin(adminApi, adminEmail);
 			const provToken = await loginOrg(orgApi, provEmail, provDomain);
 			const conToken = await loginOrg(orgApi, conEmail, conDomain);

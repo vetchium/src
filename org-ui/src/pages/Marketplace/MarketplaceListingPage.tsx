@@ -8,6 +8,7 @@ import {
 	UndoOutlined,
 } from "@ant-design/icons";
 import {
+	Alert,
 	App,
 	Button,
 	Card,
@@ -28,6 +29,7 @@ import type {
 	MarketplaceListing,
 	MarketplaceListingStatus,
 } from "vetchium-specs/org/marketplace";
+import type { OrgPlan } from "vetchium-specs/org/tiers";
 import { getApiBaseUrl } from "../../config";
 import { useAuth } from "../../hooks/useAuth";
 import { useMyInfo } from "../../hooks/useMyInfo";
@@ -57,15 +59,16 @@ export function MarketplaceListingPage() {
 	const [listing, setListing] = useState<MarketplaceListing | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [actionLoading, setActionLoading] = useState(false);
+	const [subscription, setSubscription] = useState<OrgPlan | null>(null);
 
 	const [approveModalOpen, setApproveModalOpen] = useState(false);
 	const [rejectModalOpen, setRejectModalOpen] = useState(false);
 	const [rejectForm] = Form.useForm();
 
+	const isSuperAdmin = myInfo?.roles.includes("org:superadmin") ?? false;
+
 	const canManageListings =
-		myInfo?.roles.includes("org:superadmin") ||
-		myInfo?.roles.includes("org:manage_listings") ||
-		false;
+		isSuperAdmin || myInfo?.roles.includes("org:manage_listings") || false;
 
 	const canSubscribe =
 		myInfo?.roles.includes("org:superadmin") ||
@@ -103,6 +106,32 @@ export function MarketplaceListingPage() {
 		loadListing();
 	}, [loadListing]);
 
+	useEffect(() => {
+		if (!sessionToken) return;
+		(async () => {
+			try {
+				const baseUrl = await getApiBaseUrl();
+				const resp = await fetch(`${baseUrl}/org/org-plan/get`, {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${sessionToken}`,
+					},
+					body: JSON.stringify({}),
+				});
+				if (resp.status === 200) setSubscription(await resp.json());
+			} catch {
+				// ignore — quota banner is best-effort
+			}
+		})();
+	}, [sessionToken]);
+
+	const listingsCap = subscription?.current_plan.marketplace_listings_cap;
+	const atQuota =
+		listingsCap !== undefined &&
+		(listingsCap === 0 ||
+			(subscription?.usage.marketplace_listings ?? 0) >= listingsCap);
+
 	const handlePublish = async () => {
 		if (!sessionToken || !listing) return;
 		setActionLoading(true);
@@ -124,7 +153,7 @@ export function MarketplaceListingPage() {
 				if (payload.quota) {
 					message.error(
 						t("quotaExceeded", {
-							tier: payload.tier_id,
+							tier: payload.plan_id,
 							cap: payload.current_cap,
 						})
 					);
@@ -382,6 +411,25 @@ export function MarketplaceListingPage() {
 
 			<Divider />
 
+			{isOwnListing && listing.status === "draft" && atQuota && (
+				<Alert
+					type="warning"
+					showIcon
+					style={{ marginBottom: 16 }}
+					description={t("listing.publishQuotaTooltip", {
+						tier: subscription?.current_plan.plan_id ?? "",
+						cap: listingsCap,
+					})}
+					action={
+						<Link to="/settings/plan">
+							<Button size="small" type="primary">
+								{t("create.upgradePlan")}
+							</Button>
+						</Link>
+					}
+				/>
+			)}
+
 			<Space wrap>
 				{/* Provider actions */}
 				{isOwnListing && listing.status === "draft" && (
@@ -400,9 +448,10 @@ export function MarketplaceListingPage() {
 							type="primary"
 							icon={<SendOutlined />}
 							loading={actionLoading}
+							disabled={atQuota}
 							onClick={handlePublish}
 						>
-							{t("listing.publish")}
+							{isSuperAdmin ? t("listing.publishDirect") : t("listing.publish")}
 						</Button>
 					</>
 				)}

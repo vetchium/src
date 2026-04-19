@@ -1,0 +1,31 @@
+{
+	"title": "Org Vetchium-Pläne",
+	"backToDashboard": "Zurück zum Dashboard",
+	"loadMore": "Mehr laden",
+	"filter": {
+		"planPlaceholder": "Nach Plan filtern"
+	},
+	"table": {
+		"domain": "Domain",
+		"currentPlan": "Aktueller Plan",
+		"updatedAt": "Aktualisiert am",
+		"actions": "Aktionen",
+		"changePlan": "Plan ändern"
+	},
+	"modal": {
+		"title": "Plan für {{domain}} ändern",
+		"planLabel": "Neuer Plan",
+		"reasonLabel": "Grund",
+		"submit": "Anwenden"
+	},
+	"errors": {
+		"loadFailed": "Org-Pläne konnten nicht geladen werden",
+		"setPlanFailed": "Plan konnte nicht aktualisiert werden",
+		"downgradeBlocked": "Herabstufung blockiert: Nutzung überschreitet Zielobergrenzen. {{details}}"
+	},
+	"success": {
+		"planSet": "Plan erfolgreich aktualisiert"
+	},
+	"dashboardTitle": "Org-Pläne",
+	"dashboardDescription": "Org-Vetchium-Pläne verwalten"
+}

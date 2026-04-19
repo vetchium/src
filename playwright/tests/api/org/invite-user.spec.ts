@@ -6,7 +6,7 @@ import {
 	createTestOrgUserDirect,
 	createTestOrgAdminDirect,
 	assignRoleToOrgUser,
-	setOrgTier,
+	setOrgPlan,
 } from "../../../lib/db";
 import {
 	getTfaCodeFromEmail,

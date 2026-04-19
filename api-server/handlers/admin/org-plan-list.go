@@ -13,9 +13,9 @@ import (
 	orgtypes "vetchium-api-server.typespec/org"
 )
 
-// ListOrgSubscriptions returns all org subscriptions with optional tier filter.
-// Requires admin:view_org_subscriptions or admin:manage_org_subscriptions.
-func ListOrgSubscriptions(s *server.GlobalServer) http.HandlerFunc {
+// ListOrgPlans returns all org plans with optional plan filter.
+// Requires admin:view_org_plans or admin:manage_org_plans.
+func ListOrgPlans(s *server.GlobalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()
@@ -26,7 +26,7 @@ func ListOrgSubscriptions(s *server.GlobalServer) http.HandlerFunc {
 			return
 		}
 
-		var req orgtypes.AdminListOrgSubscriptionsRequest
+		var req orgtypes.AdminListOrgPlansRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			s.Logger(ctx).Debug("failed to decode request", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -44,9 +44,9 @@ func ListOrgSubscriptions(s *server.GlobalServer) http.HandlerFunc {
 			rowLimit = *req.Limit
 		}
 
-		var filterTierID pgtype.Text
-		if req.FilterTierID != nil && *req.FilterTierID != "" {
-			filterTierID = pgtype.Text{String: *req.FilterTierID, Valid: true}
+		var filterPlanID pgtype.Text
+		if req.FilterPlanID != nil && *req.FilterPlanID != "" {
+			filterPlanID = pgtype.Text{String: *req.FilterPlanID, Valid: true}
 		}
 
 		var filterDomain pgtype.Text
@@ -62,14 +62,14 @@ func ListOrgSubscriptions(s *server.GlobalServer) http.HandlerFunc {
 			}
 		}
 
-		rows, err := s.Global.AdminListOrgSubscriptions(ctx, globaldb.AdminListOrgSubscriptionsParams{
-			FilterTierID:  filterTierID,
+		rows, err := s.Global.AdminListOrgPlans(ctx, globaldb.AdminListOrgPlansParams{
+			FilterPlanID:  filterPlanID,
 			FilterDomain:  filterDomain,
 			PaginationKey: paginationKey,
 			RowLimit:      rowLimit + 1,
 		})
 		if err != nil {
-			s.Logger(ctx).Error("failed to list org subscriptions", "error", err)
+			s.Logger(ctx).Error("failed to list org plans", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -81,17 +81,17 @@ func ListOrgSubscriptions(s *server.GlobalServer) http.HandlerFunc {
 			nextPaginationKey = &last
 		}
 
-		items := make([]orgtypes.OrgSubscription, 0, len(rows))
+		items := make([]orgtypes.OrgPlan, 0, len(rows))
 		for _, row := range rows {
 			domain := row.OrgDomain
 
-			sub, err := s.Global.GetOrgSubscription(ctx, row.OrgID)
+			sub, err := s.Global.GetOrgPlan(ctx, row.OrgID)
 			if err != nil {
 				if errors.Is(err, pgx.ErrNoRows) {
-					s.Logger(ctx).Debug("org subscription row disappeared mid-list", "org_id", uuidToString(row.OrgID))
+					s.Logger(ctx).Debug("org plan row disappeared mid-list", "org_id", uuidToString(row.OrgID))
 					continue
 				}
-				s.Logger(ctx).Error("failed to get subscription detail", "error", err, "org_id", uuidToString(row.OrgID))
+				s.Logger(ctx).Error("failed to get plan detail", "error", err, "org_id", uuidToString(row.OrgID))
 				http.Error(w, "", http.StatusInternalServerError)
 				return
 			}
@@ -133,13 +133,13 @@ func ListOrgSubscriptions(s *server.GlobalServer) http.HandlerFunc {
 				}
 			}
 
-			tier := buildOrgTier(sub)
+			plan := buildPlan(sub)
 
-			items = append(items, orgtypes.OrgSubscription{
+			items = append(items, orgtypes.OrgPlan{
 				OrgID:       uuidToString(row.OrgID),
 				OrgDomain:   domain,
-				CurrentTier: tier,
-				Usage: orgtypes.OrgTierUsage{
+				CurrentPlan: plan,
+				Usage: orgtypes.PlanUsage{
 					OrgUsers:            orgUsers,
 					DomainsVerified:     domainsVerified,
 					Suborgs:             suborgs,
@@ -150,7 +150,7 @@ func ListOrgSubscriptions(s *server.GlobalServer) http.HandlerFunc {
 			})
 		}
 
-		json.NewEncoder(w).Encode(orgtypes.AdminListOrgSubscriptionsResponse{
+		json.NewEncoder(w).Encode(orgtypes.AdminListOrgPlansResponse{
 			Items:             items,
 			NextPaginationKey: nextPaginationKey,
 		})

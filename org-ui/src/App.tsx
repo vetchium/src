@@ -31,7 +31,7 @@ import { DomainManagementPage } from "./pages/DomainManagement/DomainManagementP
 import { CostCentersPage } from "./pages/CostCenters/CostCentersPage";
 import { SubOrgsPage } from "./pages/SubOrgs/SubOrgsPage";
 import { AuditLogsPage } from "./pages/AuditLogsPage";
-import { SubscriptionPage } from "./pages/Subscription/SubscriptionPage";
+import { PlanPage } from "./pages/Plan/PlanPage";
 import { MarketplaceDiscoverPage } from "./pages/Marketplace/MarketplaceDiscoverPage";
 import { MyListingsPage } from "./pages/Marketplace/MyListingsPage";
 import { CreateListingPage } from "./pages/Marketplace/CreateListingPage";
@@ -370,10 +370,10 @@ function AppContent() {
 								}
 							/>
 							<Route
-								path="/settings/subscription"
+								path="/settings/plan"
 								element={
 									<ProtectedRoute>
-										<SubscriptionPage />
+										<PlanPage />
 									</ProtectedRoute>
 								}
 							/>

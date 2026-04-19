@@ -31,8 +31,8 @@ func RegisterAdminGlobalRoutes(mux *http.ServeMux, s *server.GlobalServer) {
 	adminRoleManageDomains := middleware.AdminRole(s.Global, adminspec.AdminRoleManageDomains)
 	adminRoleManageTags := middleware.AdminRole(s.Global, adminspec.AdminRoleManageTags)
 	adminRoleViewAuditLogs := middleware.AdminRole(s.Global, adminspec.AdminRoleViewAuditLogs)
-	adminRoleViewOrgSubscriptions := middleware.AdminRole(s.Global, adminspec.AdminRoleViewOrgSubscriptions, adminspec.AdminRoleManageOrgSubscriptions)
-	adminRoleManageOrgSubscriptions := middleware.AdminRole(s.Global, adminspec.AdminRoleManageOrgSubscriptions)
+	adminRoleViewOrgPlans := middleware.AdminRole(s.Global, adminspec.AdminRoleViewOrgPlans, adminspec.AdminRoleManageOrgPlans)
+	adminRoleManageOrgPlans := middleware.AdminRole(s.Global, adminspec.AdminRoleManageOrgPlans)
 	adminRoleViewMarketplace := middleware.AdminRole(s.Global, adminspec.AdminRoleViewMarketplace, adminspec.AdminRoleManageMarketplace)
 	adminRoleManageMarketplace := middleware.AdminRole(s.Global, adminspec.AdminRoleManageMarketplace)
 
@@ -68,9 +68,9 @@ func RegisterAdminGlobalRoutes(mux *http.ServeMux, s *server.GlobalServer) {
 	// Audit log routes
 	mux.Handle("POST /admin/filter-audit-logs", adminAuth(adminRoleViewAuditLogs(admin.FilterAuditLogs(s))))
 
-	// Org subscription / tier management routes
-	mux.Handle("POST /admin/org-subscriptions/list", adminAuth(adminRoleViewOrgSubscriptions(admin.ListOrgSubscriptions(s))))
-	mux.Handle("POST /admin/org-subscriptions/set-tier", adminAuth(adminRoleManageOrgSubscriptions(admin.SetOrgTier(s))))
+	// Org plan management routes
+	mux.Handle("POST /admin/org-plan/list", adminAuth(adminRoleViewOrgPlans(admin.ListOrgPlans(s))))
+	mux.Handle("POST /admin/org-plan/set", adminAuth(adminRoleManageOrgPlans(admin.SetOrgPlan(s))))
 
 	// Marketplace capability management routes (admin:manage_marketplace required)
 	mux.Handle("POST /admin/marketplace/capability/create", adminAuth(adminRoleManageMarketplace(admin.CreateMarketplaceCapability(s))))
