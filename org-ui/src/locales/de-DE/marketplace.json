@@ -1,0 +1,169 @@
+{
+	"backToDashboard": "Zurück zum Dashboard",
+	"loadMore": "Mehr laden",
+	"quotaExceeded": "Kontingent im {{tier}}-Plan überschritten (Limit: {{cap}}). Bitte upgraden Sie Ihren Plan.",
+
+	"status": {
+		"draft": "Entwurf",
+		"pending_review": "Ausstehende Prüfung",
+		"active": "Aktiv",
+		"suspended": "Gesperrt",
+		"archived": "Archiviert"
+	},
+
+	"subStatus": {
+		"active": "Aktiv",
+		"cancelled": "Storniert",
+		"expired": "Abgelaufen"
+	},
+
+	"capStatus": {
+		"draft": "Entwurf",
+		"active": "Aktiv",
+		"disabled": "Deaktiviert"
+	},
+
+	"dashboard": {
+		"discoverTitle": "Marktplatz",
+		"discoverDescription": "Entdecken und abonnieren Sie Dienstleistungsangebote anderer Organisationen.",
+		"listingsTitle": "Meine Angebote",
+		"listingsDescription": "Verwalten Sie die Marktplatzangebote Ihrer Organisation.",
+		"subscriptionsTitle": "Meine Abonnements",
+		"subscriptionsDescription": "Anzeigen und Verwalten Ihrer Abonnements.",
+		"clientsTitle": "Meine Kunden",
+		"clientsDescription": "Sehen Sie, welche Organisationen Ihre Angebote abonniert haben."
+	},
+
+	"discover": {
+		"title": "Marktplatzangebote entdecken",
+		"filterByCapability": "Nach Fähigkeit filtern",
+		"searchPlaceholder": "Angebote suchen...",
+		"noListings": "Keine Angebote gefunden.",
+		"loadMore": "Mehr laden"
+	},
+
+	"listings": {
+		"title": "Meine Angebote",
+		"create": "Angebot erstellen",
+		"number": "#",
+		"headline": "Überschrift",
+		"status": "Status",
+		"updated": "Zuletzt aktualisiert",
+		"actions": "Aktionen",
+		"view": "Anzeigen",
+		"filterByStatus": "Nach Status filtern"
+	},
+
+	"create": {
+		"title": "Marktplatzangebot erstellen",
+		"back": "Zurück zu Angeboten",
+		"headline": "Überschrift",
+		"headlineRequired": "Überschrift ist erforderlich",
+		"headlineMax": "Überschrift darf maximal 100 Zeichen lang sein",
+		"capabilities": "Fähigkeiten",
+		"capabilitiesRequired": "Mindestens eine Fähigkeit ist erforderlich",
+		"capabilitiesRange": "Wählen Sie zwischen 1 und 5 Fähigkeiten",
+		"capabilitiesPlaceholder": "Fähigkeiten auswählen (bis zu 5)",
+		"description": "Beschreibung",
+		"descriptionRequired": "Beschreibung ist erforderlich",
+		"descriptionMax": "Beschreibung darf maximal 10.000 Zeichen lang sein",
+		"submit": "Angebot erstellen",
+		"success": "Angebot erfolgreich erstellt.",
+		"error": "Angebot konnte nicht erstellt werden. Bitte versuchen Sie es erneut."
+	},
+
+	"edit": {
+		"title": "Angebot bearbeiten",
+		"back": "Zurück zum Angebot",
+		"submit": "Änderungen speichern",
+		"success": "Angebot erfolgreich aktualisiert.",
+		"error": "Angebot konnte nicht aktualisiert werden. Bitte versuchen Sie es erneut."
+	},
+
+	"listing": {
+		"back": "Zurück zu Angeboten",
+		"listingNumber": "Angebotsnummer",
+		"capabilities": "Fähigkeiten",
+		"listedAt": "Veröffentlicht am",
+		"subscribers": "Aktive Abonnenten",
+		"updatedAt": "Zuletzt aktualisiert",
+		"description": "Beschreibung",
+		"rejectionNote": "Ablehnungsnotiz",
+		"suspensionNote": "Sperrnotiz",
+
+		"edit": "Bearbeiten",
+		"publish": "Zur Überprüfung einreichen",
+		"approve": "Genehmigen",
+		"reject": "Ablehnen",
+		"archive": "Archivieren",
+		"reopen": "Erneut öffnen",
+		"subscribe": "Abonnieren",
+
+		"publishSuccess": "Angebot zur Überprüfung eingereicht.",
+		"publishError": "Angebot konnte nicht eingereicht werden. Bitte versuchen Sie es erneut.",
+		"approveSuccess": "Angebot genehmigt und ist jetzt aktiv.",
+		"approveError": "Angebot konnte nicht genehmigt werden. Bitte versuchen Sie es erneut.",
+		"rejectSuccess": "Angebot wurde abgelehnt.",
+		"rejectError": "Angebot konnte nicht abgelehnt werden. Bitte versuchen Sie es erneut.",
+		"archiveSuccess": "Angebot archiviert.",
+		"archiveError": "Angebot konnte nicht archiviert werden. Bitte versuchen Sie es erneut.",
+		"reopenSuccess": "Angebot als Entwurf erneut geöffnet.",
+		"reopenError": "Angebot konnte nicht erneut geöffnet werden. Bitte versuchen Sie es erneut.",
+		"subscribeSuccess": "Erfolgreich abonniert.",
+		"subscribeError": "Abonnement fehlgeschlagen. Bitte versuchen Sie es erneut.",
+		"alreadySubscribed": "Sie haben dieses Angebot bereits abonniert.",
+		"selfSubscribeError": "Sie können das Angebot Ihrer eigenen Organisation nicht abonnieren.",
+
+		"approveModal": {
+			"title": "Angebot genehmigen",
+			"content": "Möchten Sie dieses Angebot wirklich genehmigen? Es wird öffentlich sichtbar.",
+			"confirm": "Genehmigen"
+		},
+
+		"rejectModal": {
+			"title": "Angebot ablehnen",
+			"noteLabel": "Ablehnungsnotiz",
+			"noteRequired": "Bitte geben Sie eine Ablehnungsnotiz an.",
+			"noteMax": "Ablehnungsnotiz darf maximal 2.000 Zeichen lang sein.",
+			"confirm": "Ablehnen"
+		}
+	},
+
+	"subscriptions": {
+		"title": "Meine Abonnements",
+		"provider": "Anbieter",
+		"listingNumber": "Angebot",
+		"status": "Status",
+		"subscribedAt": "Abonniert am",
+		"actions": "Aktionen",
+		"view": "Anzeigen",
+		"filterByStatus": "Nach Status filtern"
+	},
+
+	"subscriptionDetail": {
+		"title": "Abonnementdetails",
+		"back": "Zurück zu Abonnements",
+		"provider": "Anbieter",
+		"listing": "Angebot",
+		"status": "Status",
+		"subscribedAt": "Abonniert am",
+		"cancelledAt": "Storniert am",
+		"expiresAt": "Läuft ab am",
+		"cancel": "Abonnement kündigen",
+		"cancelSuccess": "Abonnement gekündigt.",
+		"cancelError": "Kündigung fehlgeschlagen. Bitte versuchen Sie es erneut.",
+		"confirmCancel": "Möchten Sie dieses Abonnement wirklich kündigen?",
+		"confirmCancelOk": "Ja, kündigen",
+		"confirmCancelNo": "Abonnement behalten"
+	},
+
+	"clients": {
+		"title": "Meine Kunden",
+		"consumerDomain": "Kundenorganisation",
+		"listingNumber": "Angebot",
+		"status": "Status",
+		"subscribedAt": "Abonniert am",
+		"actions": "Aktionen",
+		"viewListing": "Angebot anzeigen"
+	}
+}

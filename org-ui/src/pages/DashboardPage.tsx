@@ -7,6 +7,10 @@ import {
 	ApartmentOutlined,
 	FileSearchOutlined,
 	CrownOutlined,
+	ShopOutlined,
+	UnorderedListOutlined,
+	StarOutlined,
+	UsergroupAddOutlined,
 } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
@@ -49,6 +53,27 @@ export function DashboardPage() {
 		myInfo?.roles.includes("org:superadmin") ||
 		myInfo?.roles.includes("org:view_subscription") ||
 		myInfo?.roles.includes("org:manage_subscription") ||
+		false;
+
+	// Marketplace: discover = all authenticated users; listings/subscriptions/clients by role
+	const hasMarketplaceAccess = !!myInfo;
+
+	const hasListingsAccess =
+		myInfo?.roles.includes("org:superadmin") ||
+		myInfo?.roles.includes("org:view_listings") ||
+		myInfo?.roles.includes("org:manage_listings") ||
+		false;
+
+	const hasSubscriptionsAccess =
+		myInfo?.roles.includes("org:superadmin") ||
+		myInfo?.roles.includes("org:view_subscriptions") ||
+		myInfo?.roles.includes("org:manage_subscriptions") ||
+		false;
+
+	const hasClientsAccess =
+		myInfo?.roles.includes("org:superadmin") ||
+		myInfo?.roles.includes("org:view_listings") ||
+		myInfo?.roles.includes("org:manage_listings") ||
 		false;
 
 	return (
@@ -286,6 +311,150 @@ export function DashboardPage() {
 									</Title>
 									<Typography.Text type="secondary">
 										{t("subscription.description")}
+									</Typography.Text>
+								</Card>
+							</Link>
+						</Col>
+					)}
+
+					{hasMarketplaceAccess && (
+						<Col xs={24} sm={12} lg={8}>
+							<Link
+								to="/marketplace"
+								style={{
+									textDecoration: "none",
+									display: "block",
+									height: "100%",
+								}}
+							>
+								<Card
+									hoverable
+									style={{
+										height: "100%",
+										cursor: "pointer",
+										textAlign: "center",
+									}}
+								>
+									<ShopOutlined
+										style={{
+											fontSize: 48,
+											color: "#096dd9",
+											marginBottom: 16,
+										}}
+									/>
+									<Title level={4} style={{ marginBottom: 8 }}>
+										{t("marketplace:dashboard.discoverTitle")}
+									</Title>
+									<Typography.Text type="secondary">
+										{t("marketplace:dashboard.discoverDescription")}
+									</Typography.Text>
+								</Card>
+							</Link>
+						</Col>
+					)}
+
+					{hasListingsAccess && (
+						<Col xs={24} sm={12} lg={8}>
+							<Link
+								to="/marketplace/listings"
+								style={{
+									textDecoration: "none",
+									display: "block",
+									height: "100%",
+								}}
+							>
+								<Card
+									hoverable
+									style={{
+										height: "100%",
+										cursor: "pointer",
+										textAlign: "center",
+									}}
+								>
+									<UnorderedListOutlined
+										style={{
+											fontSize: 48,
+											color: "#08979c",
+											marginBottom: 16,
+										}}
+									/>
+									<Title level={4} style={{ marginBottom: 8 }}>
+										{t("marketplace:dashboard.listingsTitle")}
+									</Title>
+									<Typography.Text type="secondary">
+										{t("marketplace:dashboard.listingsDescription")}
+									</Typography.Text>
+								</Card>
+							</Link>
+						</Col>
+					)}
+
+					{hasSubscriptionsAccess && (
+						<Col xs={24} sm={12} lg={8}>
+							<Link
+								to="/marketplace/subscriptions"
+								style={{
+									textDecoration: "none",
+									display: "block",
+									height: "100%",
+								}}
+							>
+								<Card
+									hoverable
+									style={{
+										height: "100%",
+										cursor: "pointer",
+										textAlign: "center",
+									}}
+								>
+									<StarOutlined
+										style={{
+											fontSize: 48,
+											color: "#d48806",
+											marginBottom: 16,
+										}}
+									/>
+									<Title level={4} style={{ marginBottom: 8 }}>
+										{t("marketplace:dashboard.subscriptionsTitle")}
+									</Title>
+									<Typography.Text type="secondary">
+										{t("marketplace:dashboard.subscriptionsDescription")}
+									</Typography.Text>
+								</Card>
+							</Link>
+						</Col>
+					)}
+
+					{hasClientsAccess && (
+						<Col xs={24} sm={12} lg={8}>
+							<Link
+								to="/marketplace/clients"
+								style={{
+									textDecoration: "none",
+									display: "block",
+									height: "100%",
+								}}
+							>
+								<Card
+									hoverable
+									style={{
+										height: "100%",
+										cursor: "pointer",
+										textAlign: "center",
+									}}
+								>
+									<UsergroupAddOutlined
+										style={{
+											fontSize: 48,
+											color: "#389e0d",
+											marginBottom: 16,
+										}}
+									/>
+									<Title level={4} style={{ marginBottom: 8 }}>
+										{t("marketplace:dashboard.clientsTitle")}
+									</Title>
+									<Typography.Text type="secondary">
+										{t("marketplace:dashboard.clientsDescription")}
 									</Typography.Text>
 								</Card>
 							</Link>

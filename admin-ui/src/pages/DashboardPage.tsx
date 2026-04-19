@@ -6,6 +6,9 @@ import {
 	TeamOutlined,
 	FileSearchOutlined,
 	CrownOutlined,
+	AppstoreOutlined,
+	UnorderedListOutlined,
+	StarOutlined,
 } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../hooks/useAuth";
@@ -45,6 +48,12 @@ export function DashboardPage() {
 		myInfo?.roles.includes("admin:superadmin") ||
 		myInfo?.roles.includes("admin:view_org_subscriptions") ||
 		myInfo?.roles.includes("admin:manage_org_subscriptions") ||
+		false;
+
+	const canViewMarketplace =
+		myInfo?.roles.includes("admin:superadmin") ||
+		myInfo?.roles.includes("admin:view_marketplace") ||
+		myInfo?.roles.includes("admin:manage_marketplace") ||
 		false;
 
 	return (
@@ -224,6 +233,102 @@ export function DashboardPage() {
 									</Title>
 									<Text type="secondary">
 										{t("orgSubscriptions:dashboardDescription")}
+									</Text>
+								</Card>
+							</Link>
+						</Col>
+					)}
+
+					{canViewMarketplace && (
+						<Col xs={24} sm={12} lg={8}>
+							<Link
+								to="/marketplace/capabilities"
+								style={{
+									textDecoration: "none",
+									display: "block",
+									height: "100%",
+								}}
+							>
+								<Card
+									hoverable
+									style={{
+										height: "100%",
+										cursor: "pointer",
+										textAlign: "center",
+									}}
+								>
+									<AppstoreOutlined
+										style={{ fontSize: 48, color: "#531dab", marginBottom: 16 }}
+									/>
+									<Title level={4} style={{ marginBottom: 8 }}>
+										{t("marketplace:dashboard.capabilitiesTitle")}
+									</Title>
+									<Text type="secondary">
+										{t("marketplace:dashboard.capabilitiesDescription")}
+									</Text>
+								</Card>
+							</Link>
+						</Col>
+					)}
+
+					{canViewMarketplace && (
+						<Col xs={24} sm={12} lg={8}>
+							<Link
+								to="/marketplace/listings"
+								style={{
+									textDecoration: "none",
+									display: "block",
+									height: "100%",
+								}}
+							>
+								<Card
+									hoverable
+									style={{
+										height: "100%",
+										cursor: "pointer",
+										textAlign: "center",
+									}}
+								>
+									<UnorderedListOutlined
+										style={{ fontSize: 48, color: "#096dd9", marginBottom: 16 }}
+									/>
+									<Title level={4} style={{ marginBottom: 8 }}>
+										{t("marketplace:dashboard.listingsTitle")}
+									</Title>
+									<Text type="secondary">
+										{t("marketplace:dashboard.listingsDescription")}
+									</Text>
+								</Card>
+							</Link>
+						</Col>
+					)}
+
+					{canViewMarketplace && (
+						<Col xs={24} sm={12} lg={8}>
+							<Link
+								to="/marketplace/subscriptions"
+								style={{
+									textDecoration: "none",
+									display: "block",
+									height: "100%",
+								}}
+							>
+								<Card
+									hoverable
+									style={{
+										height: "100%",
+										cursor: "pointer",
+										textAlign: "center",
+									}}
+								>
+									<StarOutlined
+										style={{ fontSize: 48, color: "#d48806", marginBottom: 16 }}
+									/>
+									<Title level={4} style={{ marginBottom: 8 }}>
+										{t("marketplace:dashboard.subscriptionsTitle")}
+									</Title>
+									<Text type="secondary">
+										{t("marketplace:dashboard.subscriptionsDescription")}
 									</Text>
 								</Card>
 							</Link>

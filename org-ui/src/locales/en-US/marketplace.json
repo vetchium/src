@@ -1,0 +1,169 @@
+{
+	"backToDashboard": "Back to Dashboard",
+	"loadMore": "Load More",
+	"quotaExceeded": "Quota exceeded on the {{tier}} plan (limit: {{cap}}). Please upgrade your plan.",
+
+	"status": {
+		"draft": "Draft",
+		"pending_review": "Pending Review",
+		"active": "Active",
+		"suspended": "Suspended",
+		"archived": "Archived"
+	},
+
+	"subStatus": {
+		"active": "Active",
+		"cancelled": "Cancelled",
+		"expired": "Expired"
+	},
+
+	"capStatus": {
+		"draft": "Draft",
+		"active": "Active",
+		"disabled": "Disabled"
+	},
+
+	"dashboard": {
+		"discoverTitle": "Marketplace",
+		"discoverDescription": "Discover and subscribe to service offerings from other organizations.",
+		"listingsTitle": "My Listings",
+		"listingsDescription": "Manage your organization's marketplace listings.",
+		"subscriptionsTitle": "My Subscriptions",
+		"subscriptionsDescription": "View and manage your subscriptions to other organizations' listings.",
+		"clientsTitle": "My Clients",
+		"clientsDescription": "See which organizations have subscribed to your listings."
+	},
+
+	"discover": {
+		"title": "Discover Marketplace Listings",
+		"filterByCapability": "Filter by capability",
+		"searchPlaceholder": "Search listings...",
+		"noListings": "No listings found matching your criteria.",
+		"loadMore": "Load More"
+	},
+
+	"listings": {
+		"title": "My Listings",
+		"create": "Create Listing",
+		"number": "#",
+		"headline": "Headline",
+		"status": "Status",
+		"updated": "Last Updated",
+		"actions": "Actions",
+		"view": "View",
+		"filterByStatus": "Filter by status"
+	},
+
+	"create": {
+		"title": "Create Marketplace Listing",
+		"back": "Back to Listings",
+		"headline": "Headline",
+		"headlineRequired": "Headline is required",
+		"headlineMax": "Headline must be at most 100 characters",
+		"capabilities": "Capabilities",
+		"capabilitiesRequired": "At least one capability is required",
+		"capabilitiesRange": "Select between 1 and 5 capabilities",
+		"capabilitiesPlaceholder": "Select capabilities (up to 5)",
+		"description": "Description",
+		"descriptionRequired": "Description is required",
+		"descriptionMax": "Description must be at most 10,000 characters",
+		"submit": "Create Listing",
+		"success": "Listing created successfully.",
+		"error": "Failed to create listing. Please try again."
+	},
+
+	"edit": {
+		"title": "Edit Listing",
+		"back": "Back to Listing",
+		"submit": "Save Changes",
+		"success": "Listing updated successfully.",
+		"error": "Failed to update listing. Please try again."
+	},
+
+	"listing": {
+		"back": "Back to Listings",
+		"listingNumber": "Listing Number",
+		"capabilities": "Capabilities",
+		"listedAt": "Listed At",
+		"subscribers": "Active Subscribers",
+		"updatedAt": "Last Updated",
+		"description": "Description",
+		"rejectionNote": "Rejection Note",
+		"suspensionNote": "Suspension Note",
+
+		"edit": "Edit",
+		"publish": "Submit for Review",
+		"approve": "Approve",
+		"reject": "Reject",
+		"archive": "Archive",
+		"reopen": "Reopen",
+		"subscribe": "Subscribe",
+
+		"publishSuccess": "Listing submitted for review.",
+		"publishError": "Failed to submit listing. Please try again.",
+		"approveSuccess": "Listing approved and is now active.",
+		"approveError": "Failed to approve listing. Please try again.",
+		"rejectSuccess": "Listing has been rejected.",
+		"rejectError": "Failed to reject listing. Please try again.",
+		"archiveSuccess": "Listing archived.",
+		"archiveError": "Failed to archive listing. Please try again.",
+		"reopenSuccess": "Listing reopened as draft.",
+		"reopenError": "Failed to reopen listing. Please try again.",
+		"subscribeSuccess": "Successfully subscribed to listing.",
+		"subscribeError": "Failed to subscribe. Please try again.",
+		"alreadySubscribed": "You are already subscribed to this listing.",
+		"selfSubscribeError": "You cannot subscribe to your own organization's listing.",
+
+		"approveModal": {
+			"title": "Approve Listing",
+			"content": "Are you sure you want to approve this listing? It will become publicly visible.",
+			"confirm": "Approve"
+		},
+
+		"rejectModal": {
+			"title": "Reject Listing",
+			"noteLabel": "Rejection Note",
+			"noteRequired": "Please provide a rejection note.",
+			"noteMax": "Rejection note must be at most 2,000 characters.",
+			"confirm": "Reject"
+		}
+	},
+
+	"subscriptions": {
+		"title": "My Subscriptions",
+		"provider": "Provider",
+		"listingNumber": "Listing",
+		"status": "Status",
+		"subscribedAt": "Subscribed At",
+		"actions": "Actions",
+		"view": "View",
+		"filterByStatus": "Filter by status"
+	},
+
+	"subscriptionDetail": {
+		"title": "Subscription Details",
+		"back": "Back to Subscriptions",
+		"provider": "Provider",
+		"listing": "Listing",
+		"status": "Status",
+		"subscribedAt": "Subscribed At",
+		"cancelledAt": "Cancelled At",
+		"expiresAt": "Expires At",
+		"cancel": "Cancel Subscription",
+		"cancelSuccess": "Subscription cancelled.",
+		"cancelError": "Failed to cancel subscription. Please try again.",
+		"confirmCancel": "Are you sure you want to cancel this subscription?",
+		"confirmCancelOk": "Yes, Cancel",
+		"confirmCancelNo": "Keep Subscription"
+	},
+
+	"clients": {
+		"title": "My Clients",
+		"consumerDomain": "Client Organization",
+		"listingNumber": "Listing",
+		"status": "Status",
+		"subscribedAt": "Subscribed At",
+		"actions": "Actions",
+		"viewListing": "View Listing"
+	}
+}

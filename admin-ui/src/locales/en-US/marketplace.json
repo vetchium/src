@@ -1,0 +1,95 @@
+{
+	"backToDashboard": "Back to Dashboard",
+	"loadMore": "Load More",
+
+	"status": {
+		"draft": "Draft",
+		"pending_review": "Pending Review",
+		"active": "Active",
+		"suspended": "Suspended",
+		"archived": "Archived"
+	},
+
+	"subStatus": {
+		"active": "Active",
+		"cancelled": "Cancelled",
+		"expired": "Expired"
+	},
+
+	"capStatus": {
+		"draft": "Draft",
+		"active": "Active",
+		"disabled": "Disabled"
+	},
+
+	"dashboard": {
+		"capabilitiesTitle": "Marketplace Capabilities",
+		"capabilitiesDescription": "Manage marketplace capabilities that organizations can list.",
+		"listingsTitle": "Marketplace Listings",
+		"listingsDescription": "View and moderate all marketplace listings.",
+		"subscriptionsTitle": "Marketplace Subscriptions",
+		"subscriptionsDescription": "View and manage all marketplace subscriptions."
+	},
+
+	"listings": {
+		"number": "#",
+		"headline": "Headline",
+		"status": "Status",
+		"updated": "Last Updated",
+		"actions": "Actions",
+		"view": "View",
+		"filterByStatus": "Filter by status"
+	},
+
+	"capabilities": {
+		"title": "Marketplace Capabilities",
+		"create": "Create Capability",
+		"createTitle": "Create Capability",
+		"createSubmit": "Create",
+		"editTitle": "Edit Capability",
+		"updateSubmit": "Save",
+		"edit": "Edit",
+		"id": "ID",
+		"idRequired": "Capability ID is required",
+		"idPattern": "Must be 3–50 lowercase alphanumeric chars or hyphens, not starting/ending with hyphen",
+		"displayName": "Display Name",
+		"displayNameRequired": "Display name is required",
+		"description": "Description",
+		"status": "Status",
+		"statusRequired": "Status is required",
+		"actions": "Actions",
+		"createSuccess": "Capability created successfully.",
+		"createError": "Failed to create capability.",
+		"idConflict": "A capability with this ID already exists.",
+		"updateSuccess": "Capability updated successfully.",
+		"updateError": "Failed to update capability."
+	},
+
+	"adminListings": {
+		"title": "Marketplace Listings",
+		"orgDomain": "Organization",
+		"subscribers": "Subscribers",
+		"suspend": "Suspend",
+		"reinstate": "Reinstate",
+		"suspendTitle": "Suspend Listing",
+		"suspendSubmit": "Suspend",
+		"suspensionNote": "Suspension Note",
+		"suspensionNoteRequired": "Please provide a suspension note.",
+		"suspensionNoteMax": "Suspension note must be at most 2,000 characters.",
+		"suspendSuccess": "Listing suspended.",
+		"suspendError": "Failed to suspend listing.",
+		"reinstateSuccess": "Listing reinstated.",
+		"reinstateError": "Failed to reinstate listing."
+	},
+
+	"adminSubscriptions": {
+		"title": "Marketplace Subscriptions",
+		"consumer": "Consumer",
+		"cancel": "Cancel",
+		"confirmCancel": "Are you sure you want to cancel this subscription?",
+		"confirmCancelOk": "Yes, Cancel",
+		"confirmCancelNo": "Keep",
+		"cancelSuccess": "Subscription cancelled.",
+		"cancelError": "Failed to cancel subscription."
+	}
+}

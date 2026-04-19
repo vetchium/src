@@ -1,0 +1,95 @@
+{
+	"backToDashboard": "டாஷ்போர்டுக்கு திரும்பு",
+	"loadMore": "மேலும் ஏற்று",
+
+	"status": {
+		"draft": "வரைவு",
+		"pending_review": "மதிப்பாய்வு நிலுவையில்",
+		"active": "செயலில்",
+		"suspended": "இடைநிறுத்தப்பட்டது",
+		"archived": "காப்பகப்படுத்தப்பட்டது"
+	},
+
+	"subStatus": {
+		"active": "செயலில்",
+		"cancelled": "ரத்து செய்யப்பட்டது",
+		"expired": "காலாவதியானது"
+	},
+
+	"capStatus": {
+		"draft": "வரைவு",
+		"active": "செயலில்",
+		"disabled": "முடக்கப்பட்டது"
+	},
+
+	"dashboard": {
+		"capabilitiesTitle": "சந்தை திறன்கள்",
+		"capabilitiesDescription": "நிறுவனங்கள் பட்டியலிடக்கூடிய சந்தை திறன்களை நிர்வகிக்கவும்.",
+		"listingsTitle": "சந்தை விளம்பரங்கள்",
+		"listingsDescription": "அனைத்து சந்தை விளம்பரங்களையும் பார்க்கவும் மிதப்படுத்தவும்.",
+		"subscriptionsTitle": "சந்தை சந்தாக்கள்",
+		"subscriptionsDescription": "அனைத்து சந்தை சந்தாக்களையும் பார்க்கவும் நிர்வகிக்கவும்."
+	},
+
+	"listings": {
+		"number": "#",
+		"headline": "தலைப்பு",
+		"status": "நிலை",
+		"updated": "கடைசியாக புதுப்பிக்கப்பட்டது",
+		"actions": "செயல்கள்",
+		"view": "பார்",
+		"filterByStatus": "நிலையால் வடிகட்டு"
+	},
+
+	"capabilities": {
+		"title": "சந்தை திறன்கள்",
+		"create": "திறன் உருவாக்கு",
+		"createTitle": "திறன் உருவாக்கு",
+		"createSubmit": "உருவாக்கு",
+		"editTitle": "திறன் திருத்து",
+		"updateSubmit": "சேமி",
+		"edit": "திருத்து",
+		"id": "ஐடி",
+		"idRequired": "திறன் ஐடி தேவை",
+		"idPattern": "3–50 சிறிய எழுத்துக்கள், எண்கள் அல்லது கோடுகள் மட்டுமே, ஆரம்பம்/முடிவில் கோடு வேண்டாம்",
+		"displayName": "காட்சிப் பெயர்",
+		"displayNameRequired": "காட்சிப் பெயர் தேவை",
+		"description": "விவரம்",
+		"status": "நிலை",
+		"statusRequired": "நிலை தேவை",
+		"actions": "செயல்கள்",
+		"createSuccess": "திறன் வெற்றிகரமாக உருவாக்கப்பட்டது.",
+		"createError": "திறன் உருவாக்க முடியவில்லை.",
+		"idConflict": "இந்த ஐடியுடன் ஒரு திறன் ஏற்கனவே உள்ளது.",
+		"updateSuccess": "திறன் வெற்றிகரமாக புதுப்பிக்கப்பட்டது.",
+		"updateError": "திறன் புதுப்பிக்க முடியவில்லை."
+	},
+
+	"adminListings": {
+		"title": "சந்தை விளம்பரங்கள்",
+		"orgDomain": "நிறுவனம்",
+		"subscribers": "சந்தாதாரர்கள்",
+		"suspend": "இடைநிறுத்து",
+		"reinstate": "மீட்டமை",
+		"suspendTitle": "விளம்பரத்தை இடைநிறுத்து",
+		"suspendSubmit": "இடைநிறுத்து",
+		"suspensionNote": "இடைநிறுத்த குறிப்பு",
+		"suspensionNoteRequired": "இடைநிறுத்த குறிப்பை உள்ளிடவும்.",
+		"suspensionNoteMax": "இடைநிறுத்த குறிப்பு அதிகபட்சம் 2,000 எழுத்துக்கள் மட்டுமே.",
+		"suspendSuccess": "விளம்பரம் இடைநிறுத்தப்பட்டது.",
+		"suspendError": "விளம்பரம் இடைநிறுத்த முடியவில்லை.",
+		"reinstateSuccess": "விளம்பரம் மீட்டமைக்கப்பட்டது.",
+		"reinstateError": "விளம்பரம் மீட்டமைக்க முடியவில்லை."
+	},
+
+	"adminSubscriptions": {
+		"title": "சந்தை சந்தாக்கள்",
+		"consumer": "நுகர்வோர்",
+		"cancel": "ரத்து செய்",
+		"confirmCancel": "இந்த சந்தாவை ரத்து செய்ய விரும்புகிறீர்களா?",
+		"confirmCancelOk": "ஆம், ரத்து செய்",
+		"confirmCancelNo": "வை",
+		"cancelSuccess": "சந்தா ரத்து செய்யப்பட்டது.",
+		"cancelError": "சந்தா ரத்து செய்ய முடியவில்லை."
+	}
+}

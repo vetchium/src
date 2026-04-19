@@ -9,6 +9,7 @@ import enUSCostCenters from "./locales/en-US/cost-centers.json";
 import enUSSubOrgs from "./locales/en-US/suborgs.json";
 import enUSAuditLogs from "./locales/en-US/audit-logs.json";
 import enUSSubscription from "./locales/en-US/subscription.json";
+import enUSMarketplace from "./locales/en-US/marketplace.json";
 import deDECommon from "./locales/de-DE/common.json";
 import deDEAuth from "./locales/de-DE/auth.json";
 import deDEUserManagement from "./locales/de-DE/user-management.json";
@@ -16,6 +17,7 @@ import deDECostCenters from "./locales/de-DE/cost-centers.json";
 import deDESubOrgs from "./locales/de-DE/suborgs.json";
 import deDEAuditLogs from "./locales/de-DE/audit-logs.json";
 import deDESubscription from "./locales/de-DE/subscription.json";
+import deDEMarketplace from "./locales/de-DE/marketplace.json";
 import taINCommon from "./locales/ta-IN/common.json";
 import taINAuth from "./locales/ta-IN/auth.json";
 import taINUserManagement from "./locales/ta-IN/user-management.json";
@@ -23,6 +25,7 @@ import taINCostCenters from "./locales/ta-IN/cost-centers.json";
 import taINSubOrgs from "./locales/ta-IN/suborgs.json";
 import taINAuditLogs from "./locales/ta-IN/audit-logs.json";
 import taINSubscription from "./locales/ta-IN/subscription.json";
+import taINMarketplace from "./locales/ta-IN/marketplace.json";
 
 import {
 	SUPPORTED_LANGUAGES,
@@ -71,6 +74,7 @@ const resources = {
 		suborgs: enUSSubOrgs,
 		auditLogs: enUSAuditLogs,
 		subscription: enUSSubscription,
+		marketplace: enUSMarketplace,
 	},
 	"de-DE": {
 		common: deDECommon,
@@ -80,6 +84,7 @@ const resources = {
 		suborgs: deDESubOrgs,
 		auditLogs: deDEAuditLogs,
 		subscription: deDESubscription,
+		marketplace: deDEMarketplace,
 	},
 	"ta-IN": {
 		common: taINCommon,
@@ -89,6 +94,7 @@ const resources = {
 		suborgs: taINSubOrgs,
 		auditLogs: taINAuditLogs,
 		subscription: taINSubscription,
+		marketplace: taINMarketplace,
 	},
 };
 
@@ -105,6 +111,7 @@ i18n.use(initReactI18next).init({
 		"suborgs",
 		"auditLogs",
 		"subscription",
+		"marketplace",
 	],
 	interpolation: {
 		escapeValue: false, // React already escapes

@@ -1,0 +1,95 @@
+{
+	"backToDashboard": "Zurück zum Dashboard",
+	"loadMore": "Mehr laden",
+
+	"status": {
+		"draft": "Entwurf",
+		"pending_review": "Ausstehende Prüfung",
+		"active": "Aktiv",
+		"suspended": "Gesperrt",
+		"archived": "Archiviert"
+	},
+
+	"subStatus": {
+		"active": "Aktiv",
+		"cancelled": "Storniert",
+		"expired": "Abgelaufen"
+	},
+
+	"capStatus": {
+		"draft": "Entwurf",
+		"active": "Aktiv",
+		"disabled": "Deaktiviert"
+	},
+
+	"dashboard": {
+		"capabilitiesTitle": "Marktplatz-Fähigkeiten",
+		"capabilitiesDescription": "Verwalten Sie die Fähigkeiten, die Organisationen auflisten können.",
+		"listingsTitle": "Marktplatzangebote",
+		"listingsDescription": "Alle Marktplatzangebote anzeigen und moderieren.",
+		"subscriptionsTitle": "Marktplatz-Abonnements",
+		"subscriptionsDescription": "Alle Marktplatz-Abonnements anzeigen und verwalten."
+	},
+
+	"listings": {
+		"number": "#",
+		"headline": "Überschrift",
+		"status": "Status",
+		"updated": "Zuletzt aktualisiert",
+		"actions": "Aktionen",
+		"view": "Anzeigen",
+		"filterByStatus": "Nach Status filtern"
+	},
+
+	"capabilities": {
+		"title": "Marktplatz-Fähigkeiten",
+		"create": "Fähigkeit erstellen",
+		"createTitle": "Fähigkeit erstellen",
+		"createSubmit": "Erstellen",
+		"editTitle": "Fähigkeit bearbeiten",
+		"updateSubmit": "Speichern",
+		"edit": "Bearbeiten",
+		"id": "ID",
+		"idRequired": "Fähigkeits-ID ist erforderlich",
+		"idPattern": "Muss 3–50 Kleinbuchstaben, Ziffern oder Bindestriche enthalten, nicht am Anfang/Ende",
+		"displayName": "Anzeigename",
+		"displayNameRequired": "Anzeigename ist erforderlich",
+		"description": "Beschreibung",
+		"status": "Status",
+		"statusRequired": "Status ist erforderlich",
+		"actions": "Aktionen",
+		"createSuccess": "Fähigkeit erfolgreich erstellt.",
+		"createError": "Fähigkeit konnte nicht erstellt werden.",
+		"idConflict": "Eine Fähigkeit mit dieser ID existiert bereits.",
+		"updateSuccess": "Fähigkeit erfolgreich aktualisiert.",
+		"updateError": "Fähigkeit konnte nicht aktualisiert werden."
+	},
+
+	"adminListings": {
+		"title": "Marktplatzangebote",
+		"orgDomain": "Organisation",
+		"subscribers": "Abonnenten",
+		"suspend": "Sperren",
+		"reinstate": "Wiederherstellen",
+		"suspendTitle": "Angebot sperren",
+		"suspendSubmit": "Sperren",
+		"suspensionNote": "Sperrnotiz",
+		"suspensionNoteRequired": "Bitte geben Sie eine Sperrnotiz an.",
+		"suspensionNoteMax": "Sperrnotiz darf maximal 2.000 Zeichen lang sein.",
+		"suspendSuccess": "Angebot gesperrt.",
+		"suspendError": "Angebot konnte nicht gesperrt werden.",
+		"reinstateSuccess": "Angebot wiederhergestellt.",
+		"reinstateError": "Angebot konnte nicht wiederhergestellt werden."
+	},
+
+	"adminSubscriptions": {
+		"title": "Marktplatz-Abonnements",
+		"consumer": "Verbraucher",
+		"cancel": "Stornieren",
+		"confirmCancel": "Möchten Sie dieses Abonnement wirklich stornieren?",
+		"confirmCancelOk": "Ja, stornieren",
+		"confirmCancelNo": "Behalten",
+		"cancelSuccess": "Abonnement storniert.",
+		"cancelError": "Abonnement konnte nicht storniert werden."
+	}
+}

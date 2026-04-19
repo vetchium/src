@@ -24,6 +24,9 @@ import { UserManagementPage } from "./pages/UserManagement/UserManagementPage";
 import { ManageTagsPage } from "./pages/ManageTagsPage";
 import { AuditLogsPage } from "./pages/AuditLogsPage";
 import { OrgSubscriptionsPage } from "./pages/OrgSubscriptions/OrgSubscriptionsPage";
+import { CapabilitiesPage } from "./pages/Marketplace/CapabilitiesPage";
+import { AdminListingsPage } from "./pages/Marketplace/AdminListingsPage";
+import { AdminSubscriptionsPage } from "./pages/Marketplace/AdminSubscriptionsPage";
 import {
 	BrowserRouter,
 	Routes,
@@ -216,6 +219,30 @@ function AppContent() {
 								element={
 									<ProtectedRoute>
 										<OrgSubscriptionsPage />
+									</ProtectedRoute>
+								}
+							/>
+							<Route
+								path="/marketplace/capabilities"
+								element={
+									<ProtectedRoute>
+										<CapabilitiesPage />
+									</ProtectedRoute>
+								}
+							/>
+							<Route
+								path="/marketplace/listings"
+								element={
+									<ProtectedRoute>
+										<AdminListingsPage />
+									</ProtectedRoute>
+								}
+							/>
+							<Route
+								path="/marketplace/subscriptions"
+								element={
+									<ProtectedRoute>
+										<AdminSubscriptionsPage />
 									</ProtectedRoute>
 								}
 							/>

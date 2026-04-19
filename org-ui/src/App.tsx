@@ -32,6 +32,14 @@ import { CostCentersPage } from "./pages/CostCenters/CostCentersPage";
 import { SubOrgsPage } from "./pages/SubOrgs/SubOrgsPage";
 import { AuditLogsPage } from "./pages/AuditLogsPage";
 import { SubscriptionPage } from "./pages/Subscription/SubscriptionPage";
+import { MarketplaceDiscoverPage } from "./pages/Marketplace/MarketplaceDiscoverPage";
+import { MyListingsPage } from "./pages/Marketplace/MyListingsPage";
+import { CreateListingPage } from "./pages/Marketplace/CreateListingPage";
+import { MarketplaceListingPage } from "./pages/Marketplace/MarketplaceListingPage";
+import { EditListingPage } from "./pages/Marketplace/EditListingPage";
+import { MySubscriptionsPage } from "./pages/Marketplace/MySubscriptionsPage";
+import { SubscriptionDetailPage } from "./pages/Marketplace/SubscriptionDetailPage";
+import { MyClientsPage } from "./pages/Marketplace/MyClientsPage";
 import {
 	BrowserRouter,
 	Routes,
@@ -366,6 +374,72 @@ function AppContent() {
 								element={
 									<ProtectedRoute>
 										<SubscriptionPage />
+									</ProtectedRoute>
+								}
+							/>
+							{/* Marketplace — literal routes first, then pattern routes */}
+							<Route
+								path="/marketplace"
+								element={
+									<ProtectedRoute>
+										<MarketplaceDiscoverPage />
+									</ProtectedRoute>
+								}
+							/>
+							<Route
+								path="/marketplace/listings"
+								element={
+									<ProtectedRoute>
+										<MyListingsPage />
+									</ProtectedRoute>
+								}
+							/>
+							<Route
+								path="/marketplace/listings/new"
+								element={
+									<ProtectedRoute>
+										<CreateListingPage />
+									</ProtectedRoute>
+								}
+							/>
+							<Route
+								path="/marketplace/subscriptions"
+								element={
+									<ProtectedRoute>
+										<MySubscriptionsPage />
+									</ProtectedRoute>
+								}
+							/>
+							<Route
+								path="/marketplace/clients"
+								element={
+									<ProtectedRoute>
+										<MyClientsPage />
+									</ProtectedRoute>
+								}
+							/>
+							{/* Pattern routes after literal routes */}
+							<Route
+								path="/marketplace/listings/:orgDomain/:listingNumber/edit"
+								element={
+									<ProtectedRoute>
+										<EditListingPage />
+									</ProtectedRoute>
+								}
+							/>
+							<Route
+								path="/marketplace/listings/:orgDomain/:listingNumber"
+								element={
+									<ProtectedRoute>
+										<MarketplaceListingPage />
+									</ProtectedRoute>
+								}
+							/>
+							<Route
+								path="/marketplace/subscriptions/:providerOrgDomain/:listingNumber"
+								element={
+									<ProtectedRoute>
+										<SubscriptionDetailPage />
 									</ProtectedRoute>
 								}
 							/>
