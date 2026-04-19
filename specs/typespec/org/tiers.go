@@ -15,16 +15,16 @@ func isValidTierID(id string) bool {
 
 // OrgTier describes a platform tier with its quota caps.
 type OrgTier struct {
-	TierID                 string  `json:"tier_id"`
-	DisplayName            string  `json:"display_name"`
-	Description            string  `json:"description"`
-	DisplayOrder           int32   `json:"display_order"`
-	OrgUsersCap            *int32  `json:"org_users_cap,omitempty"`
-	DomainsVerifiedCap     *int32  `json:"domains_verified_cap,omitempty"`
-	SuborgsCap             *int32  `json:"suborgs_cap,omitempty"`
-	MarketplaceListingsCap *int32  `json:"marketplace_listings_cap,omitempty"`
-	AuditRetentionDays     *int32  `json:"audit_retention_days,omitempty"`
-	SelfUpgradeable        bool    `json:"self_upgradeable"`
+	TierID                 string `json:"tier_id"`
+	DisplayName            string `json:"display_name"`
+	Description            string `json:"description"`
+	DisplayOrder           int32  `json:"display_order"`
+	OrgUsersCap            *int32 `json:"org_users_cap,omitempty"`
+	DomainsVerifiedCap     *int32 `json:"domains_verified_cap,omitempty"`
+	SuborgsCap             *int32 `json:"suborgs_cap,omitempty"`
+	MarketplaceListingsCap *int32 `json:"marketplace_listings_cap,omitempty"`
+	AuditRetentionDays     *int32 `json:"audit_retention_days,omitempty"`
+	SelfUpgradeable        bool   `json:"self_upgradeable"`
 }
 
 // OrgTierUsage holds current usage counts for quota-tracked resources.
@@ -93,8 +93,8 @@ func (r AdminListOrgSubscriptionsRequest) Validate() []common.ValidationError {
 
 // AdminListOrgSubscriptionsResponse wraps the subscription list.
 type AdminListOrgSubscriptionsResponse struct {
-	Items           []OrgSubscription `json:"items"`
-	NextPaginationKey *string         `json:"next_pagination_key,omitempty"`
+	Items             []OrgSubscription `json:"items"`
+	NextPaginationKey *string           `json:"next_pagination_key,omitempty"`
 }
 
 // AdminSetOrgTierRequest sets the tier for a given org (admin).
@@ -119,8 +119,8 @@ func (r AdminSetOrgTierRequest) Validate() []common.ValidationError {
 }
 
 var (
-	errInvalidTierID      = errors.New("must be a valid tier id (free, silver, gold, enterprise)")
-	errLimitOutOfRange    = errors.New("must be between 1 and 100")
-	errOrgIDRequired      = errors.New("org_id is required")
-	errReasonTooLong      = errors.New("must be at most 2000 characters")
+	errInvalidTierID   = errors.New("must be a valid tier id (free, silver, gold, enterprise)")
+	errLimitOutOfRange = errors.New("must be between 1 and 100")
+	errOrgIDRequired   = errors.New("org_id is required")
+	errReasonTooLong   = errors.New("must be at most 2000 characters")
 )

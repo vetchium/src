@@ -329,10 +329,7 @@ export function MarketplaceListingPage() {
 			</div>
 
 			{listing.rejection_note && (
-				<Card
-					style={{ marginBottom: 24, borderColor: "#ff4d4f" }}
-					size="small"
-				>
+				<Card style={{ marginBottom: 24, borderColor: "#ff4d4f" }} size="small">
 					<Text type="danger">
 						<strong>{t("listing.rejectionNote")}:</strong>{" "}
 						{listing.rejection_note}
@@ -341,10 +338,7 @@ export function MarketplaceListingPage() {
 			)}
 
 			{listing.suspension_note && (
-				<Card
-					style={{ marginBottom: 24, borderColor: "#faad14" }}
-					size="small"
-				>
+				<Card style={{ marginBottom: 24, borderColor: "#faad14" }} size="small">
 					<Text type="warning">
 						<strong>{t("listing.suspensionNote")}:</strong>{" "}
 						{listing.suspension_note}

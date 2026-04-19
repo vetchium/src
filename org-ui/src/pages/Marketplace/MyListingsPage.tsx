@@ -1,12 +1,5 @@
 import { ArrowLeftOutlined, PlusOutlined } from "@ant-design/icons";
-import {
-	Button,
-	Select,
-	Spin,
-	Table,
-	Tag,
-	Typography,
-} from "antd";
+import { Button, Select, Spin, Table, Tag, Typography } from "antd";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router-dom";
@@ -42,7 +35,9 @@ export function MyListingsPage() {
 	const [listings, setListings] = useState<MarketplaceListing[]>([]);
 	const [loading, setLoading] = useState(false);
 	const [nextKey, setNextKey] = useState<string | undefined>();
-	const [filterStatus, setFilterStatus] = useState<MarketplaceListingStatus | undefined>();
+	const [filterStatus, setFilterStatus] = useState<
+		MarketplaceListingStatus | undefined
+	>();
 
 	const loadListings = useCallback(
 		async (paginationKey?: string) => {

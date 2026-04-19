@@ -246,13 +246,13 @@ func (r AdminChangePasswordRequest) Validate() []common.ValidationError {
 type AdminRole string
 
 const (
-	AdminRoleSuperadmin        AdminRole = "admin:superadmin"
-	AdminRoleViewUsers         AdminRole = "admin:view_users"
-	AdminRoleManageUsers       AdminRole = "admin:manage_users"
-	AdminRoleViewDomains       AdminRole = "admin:view_domains"
-	AdminRoleManageDomains     AdminRole = "admin:manage_domains"
-	AdminRoleManageTags        AdminRole = "admin:manage_tags"
-	AdminRoleViewAuditLogs     AdminRole = "admin:view_audit_logs"
+	AdminRoleSuperadmin             AdminRole = "admin:superadmin"
+	AdminRoleViewUsers              AdminRole = "admin:view_users"
+	AdminRoleManageUsers            AdminRole = "admin:manage_users"
+	AdminRoleViewDomains            AdminRole = "admin:view_domains"
+	AdminRoleManageDomains          AdminRole = "admin:manage_domains"
+	AdminRoleManageTags             AdminRole = "admin:manage_tags"
+	AdminRoleViewAuditLogs          AdminRole = "admin:view_audit_logs"
 	AdminRoleViewMarketplace        AdminRole = "admin:view_marketplace"
 	AdminRoleManageMarketplace      AdminRole = "admin:manage_marketplace"
 	AdminRoleViewOrgSubscriptions   AdminRole = "admin:view_org_subscriptions"

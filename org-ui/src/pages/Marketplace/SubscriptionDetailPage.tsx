@@ -54,20 +54,17 @@ export function SubscriptionDetailPage() {
 		setLoading(true);
 		try {
 			const baseUrl = await getApiBaseUrl();
-			const resp = await fetch(
-				`${baseUrl}/org/marketplace/subscription/get`,
-				{
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-						Authorization: `Bearer ${sessionToken}`,
-					},
-					body: JSON.stringify({
-						provider_org_domain: providerOrgDomain,
-						listing_number: parseInt(listingNumber, 10),
-					}),
-				}
-			);
+			const resp = await fetch(`${baseUrl}/org/marketplace/subscription/get`, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${sessionToken}`,
+				},
+				body: JSON.stringify({
+					provider_org_domain: providerOrgDomain,
+					listing_number: parseInt(listingNumber, 10),
+				}),
+			});
 			if (resp.status === 200) {
 				const data = await resp.json();
 				setSubscription(data);

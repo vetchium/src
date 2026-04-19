@@ -80,9 +80,7 @@ export function validateAdminListOrgSubscriptionsRequest(
 		req.filter_tier_id !== "" &&
 		!VALID_TIER_IDS.includes(req.filter_tier_id as TierId)
 	) {
-		errs.push(
-			newValidationError("filter_tier_id", "must be a valid tier id")
-		);
+		errs.push(newValidationError("filter_tier_id", "must be a valid tier id"));
 	}
 	if (req.limit !== undefined && (req.limit < 1 || req.limit > 100)) {
 		errs.push(newValidationError("limit", "must be between 1 and 100"));
@@ -103,9 +101,7 @@ export function validateAdminSetOrgTierRequest(
 	if (req.reason === undefined || req.reason === null) {
 		errs.push(newValidationError("reason", "reason is required"));
 	} else if (req.reason.length > 2000) {
-		errs.push(
-			newValidationError("reason", "must be at most 2000 characters")
-		);
+		errs.push(newValidationError("reason", "must be at most 2000 characters"));
 	}
 	return errs;
 }

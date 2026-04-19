@@ -99,8 +99,8 @@ func Subscribe(s *server.RegionalServer) http.HandlerFunc {
 			sub = s2
 
 			eventData, _ := json.Marshal(map[string]any{
-				"subscription_id":        uuidToString(sub.SubscriptionID),
-				"provider_org_domain":    catalog.OrgDomain,
+				"subscription_id":         uuidToString(sub.SubscriptionID),
+				"provider_org_domain":     catalog.OrgDomain,
 				"provider_listing_number": catalog.ListingNumber,
 			})
 			if err := qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{

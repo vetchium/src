@@ -2163,13 +2163,10 @@ export class OrgAPIClient {
 		sessionToken: string,
 		request: ListMyClientsRequest
 	): Promise<APIResponse<ListMyClientsResponse>> {
-		const response = await this.request.post(
-			"/org/marketplace/clients/list",
-			{
-				headers: { Authorization: `Bearer ${sessionToken}` },
-				data: request,
-			}
-		);
+		const response = await this.request.post("/org/marketplace/clients/list", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
 		const body = await response.json().catch(() => ({}));
 		return {
 			status: response.status(),

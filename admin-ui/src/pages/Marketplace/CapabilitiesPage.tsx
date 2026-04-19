@@ -218,9 +218,7 @@ export function CapabilitiesPage() {
 		>
 			<div style={{ marginBottom: 16 }}>
 				<Link to="/">
-					<Button icon={<ArrowLeftOutlined />}>
-						{t("backToDashboard")}
-					</Button>
+					<Button icon={<ArrowLeftOutlined />}>{t("backToDashboard")}</Button>
 				</Link>
 			</div>
 
@@ -327,10 +325,7 @@ export function CapabilitiesPage() {
 							}))}
 						/>
 					</Form.Item>
-					<Form.Item
-						name="display_name"
-						label={t("capabilities.displayName")}
-					>
+					<Form.Item name="display_name" label={t("capabilities.displayName")}>
 						<Input />
 					</Form.Item>
 					<Form.Item name="description" label={t("capabilities.description")}>

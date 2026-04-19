@@ -1,13 +1,5 @@
 import { ArrowLeftOutlined } from "@ant-design/icons";
-import {
-	App,
-	Button,
-	Form,
-	Input,
-	Select,
-	Spin,
-	Typography,
-} from "antd";
+import { App, Button, Form, Input, Select, Spin, Typography } from "antd";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router-dom";
@@ -75,7 +67,9 @@ export function CreateListingPage() {
 				navigate("/marketplace/listings");
 			} else if (resp.status === 400) {
 				const errs = await resp.json();
-				message.error(errs.map((e: { message: string }) => e.message).join(", "));
+				message.error(
+					errs.map((e: { message: string }) => e.message).join(", ")
+				);
 			} else if (resp.status === 403) {
 				const payload = await resp.json();
 				message.error(
@@ -129,7 +123,12 @@ export function CreateListingPage() {
 						label={t("create.capabilities")}
 						rules={[
 							{ required: true, message: t("create.capabilitiesRequired") },
-							{ type: "array", min: 1, max: 5, message: t("create.capabilitiesRange") },
+							{
+								type: "array",
+								min: 1,
+								max: 5,
+								message: t("create.capabilitiesRange"),
+							},
 						]}
 					>
 						<Select

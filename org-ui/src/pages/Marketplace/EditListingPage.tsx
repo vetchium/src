@@ -1,12 +1,5 @@
 import { ArrowLeftOutlined } from "@ant-design/icons";
-import {
-	App,
-	Button,
-	Form,
-	Input,
-	Spin,
-	Typography,
-} from "antd";
+import { App, Button, Form, Input, Spin, Typography } from "antd";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -93,7 +86,9 @@ export function EditListingPage() {
 				);
 			} else if (resp.status === 400) {
 				const errs = await resp.json();
-				message.error(errs.map((e: { message: string }) => e.message).join(", "));
+				message.error(
+					errs.map((e: { message: string }) => e.message).join(", ")
+				);
 			} else {
 				message.error(t("edit.error"));
 			}

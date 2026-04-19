@@ -107,21 +107,18 @@ export function AdminListingsPage() {
 		setSubmitting(true);
 		try {
 			const baseUrl = await getApiBaseUrl();
-			const resp = await fetch(
-				`${baseUrl}/admin/marketplace/listing/suspend`,
-				{
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-						Authorization: `Bearer ${sessionToken}`,
-					},
-					body: JSON.stringify({
-						org_domain: selectedListing.org_domain,
-						listing_number: selectedListing.listing_number,
-						suspension_note: values.suspension_note,
-					}),
-				}
-			);
+			const resp = await fetch(`${baseUrl}/admin/marketplace/listing/suspend`, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${sessionToken}`,
+				},
+				body: JSON.stringify({
+					org_domain: selectedListing.org_domain,
+					listing_number: selectedListing.listing_number,
+					suspension_note: values.suspension_note,
+				}),
+			});
 			if (resp.status === 200) {
 				message.success(t("adminListings.suspendSuccess"));
 				setSuspendModalOpen(false);

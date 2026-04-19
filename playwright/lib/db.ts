@@ -780,7 +780,15 @@ export async function createTestMarketplaceListingDirect(
 		await regionalPool.query(
 			`INSERT INTO marketplace_listings (listing_id, org_id, org_domain, listing_number, headline, description, status, listed_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, ${listedAt !== null ? "NOW()" : "NULL"})`,
-			[listingId, orgId, orgDomain, listingNumber, headline, description, status]
+			[
+				listingId,
+				orgId,
+				orgDomain,
+				listingNumber,
+				headline,
+				description,
+				status,
+			]
 		);
 
 		// Insert capability join rows

@@ -104,4 +104,3 @@ func AdminListMarketplaceListings(s *server.GlobalServer) http.HandlerFunc {
 		})
 	}
 }
-

@@ -1,12 +1,5 @@
 import { ArrowLeftOutlined } from "@ant-design/icons";
-import {
-	Button,
-	Select,
-	Spin,
-	Table,
-	Tag,
-	Typography,
-} from "antd";
+import { Button, Select, Spin, Table, Tag, Typography } from "antd";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router-dom";
@@ -30,7 +23,9 @@ export function MySubscriptionsPage() {
 	const { sessionToken } = useAuth();
 	const navigate = useNavigate();
 
-	const [subscriptions, setSubscriptions] = useState<MarketplaceSubscription[]>([]);
+	const [subscriptions, setSubscriptions] = useState<MarketplaceSubscription[]>(
+		[]
+	);
 	const [loading, setLoading] = useState(false);
 	const [nextKey, setNextKey] = useState<string | undefined>();
 	const [filterStatus, setFilterStatus] = useState<

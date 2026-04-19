@@ -108,9 +108,7 @@ export function MarketplaceDiscoverPage() {
 		>
 			<div style={{ marginBottom: 16 }}>
 				<Link to="/">
-					<Button icon={<ArrowLeftOutlined />}>
-						{t("backToDashboard")}
-					</Button>
+					<Button icon={<ArrowLeftOutlined />}>{t("backToDashboard")}</Button>
 				</Link>
 			</div>
 

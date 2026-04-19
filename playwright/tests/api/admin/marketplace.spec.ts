@@ -164,11 +164,14 @@ test.describe("Admin Marketplace Listing Suspend/Reinstate", () => {
 			adminEmail,
 			TEST_PASSWORD
 		);
-		const { email: orgEmail, domain: orgDomain, orgId } =
-			await createTestOrgAdminDirect(
-				generateTestOrgEmail("mp-suspend-org").email,
-				TEST_PASSWORD
-			);
+		const {
+			email: orgEmail,
+			domain: orgDomain,
+			orgId,
+		} = await createTestOrgAdminDirect(
+			generateTestOrgEmail("mp-suspend-org").email,
+			TEST_PASSWORD
+		);
 		try {
 			const adminToken = await loginAdmin(adminApi, adminEmail);
 			const orgToken = await loginOrg(orgApi, orgEmail, orgDomain);
@@ -196,8 +199,7 @@ test.describe("Admin Marketplace Listing Suspend/Reinstate", () => {
 				suspension_note: "Policy violation test",
 			});
 			expect(suspendRes.status).toBe(200);
-			const suspendedStatus: MarketplaceListingStatus =
-				suspendRes.body!.status;
+			const suspendedStatus: MarketplaceListingStatus = suspendRes.body!.status;
 			expect(suspendedStatus).toBe("suspended");
 			expect(suspendRes.body!.suspension_note).toBe("Policy violation test");
 

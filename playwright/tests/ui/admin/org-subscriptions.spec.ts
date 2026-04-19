@@ -40,7 +40,7 @@ test.describe("Admin UI — Org Subscriptions", () => {
 			// Click "Change Tier" for that org
 			const row = page.locator("tr").filter({ hasText: orgDomain });
 			const changeTierBtn = row.locator(
-				'button:has-text(/change tier|set tier/i)'
+				"button:has-text(/change tier|set tier/i)"
 			);
 			if ((await changeTierBtn.count()) > 0) {
 				await changeTierBtn.click();
@@ -54,9 +54,9 @@ test.describe("Admin UI — Org Subscriptions", () => {
 				await page.locator(".ant-select-item", { hasText: /silver/i }).click();
 
 				// Try submitting without reason — should be disabled or show error
-				const submitBtn = modal.locator(
-					'button:has-text(/save|update|apply/i)'
-				).first();
+				const submitBtn = modal
+					.locator("button:has-text(/save|update|apply/i)")
+					.first();
 
 				// Fill reason
 				const reasonTextarea = modal.locator("textarea");
@@ -65,9 +65,9 @@ test.describe("Admin UI — Org Subscriptions", () => {
 				await submitBtn.click();
 
 				// Success: tier should update
-				await expect(
-					page.locator("text=/silver/i").first()
-				).toBeVisible({ timeout: 10000 });
+				await expect(page.locator("text=/silver/i").first()).toBeVisible({
+					timeout: 10000,
+				});
 			}
 		} finally {
 			await deleteTestAdminUser(adminEmail);
@@ -80,11 +80,14 @@ test.describe("Admin UI — Org Subscriptions", () => {
 	}) => {
 		const adminEmail = generateTestEmail("admin-org-sub-block-ui");
 		await createTestSuperadmin(adminEmail, TEST_PASSWORD);
-		const { email: orgEmail, domain: orgDomain, orgId } =
-			await createTestOrgAdminDirect(
-				generateTestOrgEmail("admin-sub-block-org").email,
-				TEST_PASSWORD
-			);
+		const {
+			email: orgEmail,
+			domain: orgDomain,
+			orgId,
+		} = await createTestOrgAdminDirect(
+			generateTestOrgEmail("admin-sub-block-org").email,
+			TEST_PASSWORD
+		);
 
 		try {
 			// Put on Gold so a downgrade to Free might be blocked
@@ -102,7 +105,7 @@ test.describe("Admin UI — Org Subscriptions", () => {
 
 			const row = page.locator("tr").filter({ hasText: orgDomain });
 			const changeTierBtn = row.locator(
-				'button:has-text(/change tier|set tier/i)'
+				"button:has-text(/change tier|set tier/i)"
 			);
 			if ((await changeTierBtn.count()) > 0) {
 				await changeTierBtn.click();
@@ -119,7 +122,7 @@ test.describe("Admin UI — Org Subscriptions", () => {
 				await reasonTextarea.fill("Testing downgrade block UI");
 
 				const submitBtn = modal
-					.locator('button:has-text(/save|update|apply/i)')
+					.locator("button:has-text(/save|update|apply/i)")
 					.first();
 				await submitBtn.click();
 

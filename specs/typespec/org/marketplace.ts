@@ -7,10 +7,7 @@ export type MarketplaceListingStatus =
 	| "suspended"
 	| "archived";
 
-export type MarketplaceSubscriptionStatus =
-	| "active"
-	| "cancelled"
-	| "expired";
+export type MarketplaceSubscriptionStatus = "active" | "cancelled" | "expired";
 
 export type CapabilityStatus = "draft" | "active" | "disabled";
 
@@ -291,7 +288,9 @@ export function validateUpdateListingRequest(
 ): ValidationError[] {
 	const errs: ValidationError[] = [];
 	if (!req.listing_number || req.listing_number < 1) {
-		errs.push(newValidationError("listing_number", "listing_number is required"));
+		errs.push(
+			newValidationError("listing_number", "listing_number is required")
+		);
 	}
 	if (!req.headline || req.headline.length === 0) {
 		errs.push(newValidationError("headline", "headline is required"));
@@ -316,7 +315,9 @@ export function validateGetListingRequest(
 		errs.push(newValidationError("org_domain", "org_domain is required"));
 	}
 	if (!req.listing_number || req.listing_number < 1) {
-		errs.push(newValidationError("listing_number", "listing_number is required"));
+		errs.push(
+			newValidationError("listing_number", "listing_number is required")
+		);
 	}
 	return errs;
 }
@@ -344,7 +345,9 @@ export function validatePublishListingRequest(
 ): ValidationError[] {
 	const errs: ValidationError[] = [];
 	if (!req.listing_number || req.listing_number < 1) {
-		errs.push(newValidationError("listing_number", "listing_number is required"));
+		errs.push(
+			newValidationError("listing_number", "listing_number is required")
+		);
 	}
 	return errs;
 }
@@ -354,7 +357,9 @@ export function validateArchiveListingRequest(
 ): ValidationError[] {
 	const errs: ValidationError[] = [];
 	if (!req.listing_number || req.listing_number < 1) {
-		errs.push(newValidationError("listing_number", "listing_number is required"));
+		errs.push(
+			newValidationError("listing_number", "listing_number is required")
+		);
 	}
 	return errs;
 }
@@ -364,7 +369,9 @@ export function validateReopenListingRequest(
 ): ValidationError[] {
 	const errs: ValidationError[] = [];
 	if (!req.listing_number || req.listing_number < 1) {
-		errs.push(newValidationError("listing_number", "listing_number is required"));
+		errs.push(
+			newValidationError("listing_number", "listing_number is required")
+		);
 	}
 	return errs;
 }
@@ -374,12 +381,12 @@ export function validateAddListingCapabilityRequest(
 ): ValidationError[] {
 	const errs: ValidationError[] = [];
 	if (!req.listing_number || req.listing_number < 1) {
-		errs.push(newValidationError("listing_number", "listing_number is required"));
+		errs.push(
+			newValidationError("listing_number", "listing_number is required")
+		);
 	}
 	if (!req.capability_id) {
-		errs.push(
-			newValidationError("capability_id", "capability_id is required")
-		);
+		errs.push(newValidationError("capability_id", "capability_id is required"));
 	}
 	return errs;
 }
@@ -406,7 +413,10 @@ export function validateSubscribeRequest(
 	const errs: ValidationError[] = [];
 	if (!req.provider_org_domain) {
 		errs.push(
-			newValidationError("provider_org_domain", "provider_org_domain is required")
+			newValidationError(
+				"provider_org_domain",
+				"provider_org_domain is required"
+			)
 		);
 	}
 	if (!req.provider_listing_number || req.provider_listing_number < 1) {
@@ -417,10 +427,7 @@ export function validateSubscribeRequest(
 			)
 		);
 	}
-	if (
-		req.request_note !== undefined &&
-		req.request_note.length > 2000
-	) {
+	if (req.request_note !== undefined && req.request_note.length > 2000) {
 		errs.push(
 			newValidationError("request_note", "must be at most 2000 characters")
 		);
@@ -446,7 +453,10 @@ export function validateGetSubscriptionRequest(
 	const errs: ValidationError[] = [];
 	if (!req.provider_org_domain) {
 		errs.push(
-			newValidationError("provider_org_domain", "provider_org_domain is required")
+			newValidationError(
+				"provider_org_domain",
+				"provider_org_domain is required"
+			)
 		);
 	}
 	if (!req.provider_listing_number || req.provider_listing_number < 1) {
@@ -493,9 +503,7 @@ export function validateAdminCreateCapabilityRequest(
 ): ValidationError[] {
 	const errs: ValidationError[] = [];
 	if (!req.capability_id) {
-		errs.push(
-			newValidationError("capability_id", "capability_id is required")
-		);
+		errs.push(newValidationError("capability_id", "capability_id is required"));
 	} else if (!/^[a-z0-9][a-z0-9-]{1,48}[a-z0-9]$/.test(req.capability_id)) {
 		errs.push(
 			newValidationError(
@@ -515,12 +523,12 @@ export function validateAdminUpdateCapabilityRequest(
 ): ValidationError[] {
 	const errs: ValidationError[] = [];
 	if (!req.capability_id) {
-		errs.push(
-			newValidationError("capability_id", "capability_id is required")
-		);
+		errs.push(newValidationError("capability_id", "capability_id is required"));
 	}
 	if (!VALID_CAPABILITY_STATUSES.includes(req.status)) {
-		errs.push(newValidationError("status", "must be a valid capability status"));
+		errs.push(
+			newValidationError("status", "must be a valid capability status")
+		);
 	}
 	return errs;
 }
@@ -551,7 +559,9 @@ export function validateAdminSuspendListingRequest(
 		errs.push(newValidationError("org_domain", "org_domain is required"));
 	}
 	if (!req.listing_number || req.listing_number < 1) {
-		errs.push(newValidationError("listing_number", "listing_number is required"));
+		errs.push(
+			newValidationError("listing_number", "listing_number is required")
+		);
 	}
 	if (!req.suspension_note) {
 		errs.push(
@@ -573,7 +583,9 @@ export function validateAdminReinstateListingRequest(
 		errs.push(newValidationError("org_domain", "org_domain is required"));
 	}
 	if (!req.listing_number || req.listing_number < 1) {
-		errs.push(newValidationError("listing_number", "listing_number is required"));
+		errs.push(
+			newValidationError("listing_number", "listing_number is required")
+		);
 	}
 	return errs;
 }
@@ -592,7 +604,9 @@ export function validateAdminRejectListingRequest(
 		errs.push(newValidationError("org_domain", "org_domain is required"));
 	}
 	if (!req.listing_number || req.listing_number < 1) {
-		errs.push(newValidationError("listing_number", "listing_number is required"));
+		errs.push(
+			newValidationError("listing_number", "listing_number is required")
+		);
 	}
 	if (!req.rejection_note) {
 		errs.push(

@@ -334,7 +334,6 @@ export function DashboardPage() {
 							</Link>
 						</Col>
 					)}
-
 				</Row>
 			)}
 

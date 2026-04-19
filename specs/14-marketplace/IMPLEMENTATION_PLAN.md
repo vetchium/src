@@ -22,6 +22,7 @@ Phase 0 → 1 → 2 → 3 → 4. Do not interleave. Commit between phases.
 Delete every file below. Do NOT edit them first.
 
 **API server**
+
 - `api-server/handlers/org/marketplace-capabilities.go`
 - `api-server/handlers/org/marketplace-clients.go`
 - `api-server/handlers/org/marketplace-discover.go`
@@ -34,19 +35,23 @@ Delete every file below. Do NOT edit them first.
 - `api-server/handlers/admin/marketplace-subscriptions.go`
 
 **Frontend**
+
 - `org-ui/src/pages/Marketplace/` (whole dir)
 - `admin-ui/src/pages/Marketplace/` (whole dir)
 
 **TypeSpec** (will be rewritten in Phase 2)
+
 - `specs/typespec/org/marketplace.{tsp,ts,go}`
 - `specs/typespec/admin/marketplace.{tsp,ts,go}`
 
 **Playwright tests**
+
 - `playwright/tests/api/org/marketplace.spec.ts`
 - `playwright/tests/api/admin/marketplace.spec.ts`
 - `playwright/tests/ui/org/marketplace.spec.ts` — delete whole file; new UI tests written in Phase 2.9.
 
 **Playwright helper libraries — strip marketplace sections in place (do not delete the files)**
+
 - `playwright/lib/admin-api-client.ts` (~28 marketplace refs): remove all `marketplace*` methods (capability CRUD, listings, subscriptions, billing) — V1 shapes are wrong for V2 and will be re-added in Phase 2.
 - `playwright/lib/org-api-client.ts` (~48 refs): remove every `marketplace*` method (capabilities, listings, subscriptions, discover, clients).
 - `playwright/lib/db.ts` (~17 refs): remove
@@ -56,21 +61,26 @@ Delete every file below. Do NOT edit them first.
 Any test file that imports the deleted helpers/methods should already be in the delete list above. If the compiler flags a stray import, remove it.
 
 **Migrations — remove marketplace sections in place (do not delete the files)**
+
 - In `api-server/db/migrations/global/00000000000001_initial_schema.sql`: delete everything under the `-- Marketplace: ...` sections (capabilities, capability_translations, listing_catalog, subscription_index, billing_records, their indexes, and the staffing seed INSERTs). Keep the admin role seeds for `admin:view_marketplace` / `admin:manage_marketplace` (they will be reused).
 - In `api-server/db/migrations/regional/00000000000001_initial_schema.sql`: delete everything under `-- Marketplace: ...` sections (listing_status ENUM, subscription_status ENUM, marketplace_listings, marketplace_subscriptions, their indexes). Keep org role seeds for `org:view_listings`, `org:manage_listings`, `org:view_subscriptions`, `org:manage_subscriptions`.
 
 **sqlc queries — remove marketplace sections**
+
 - `api-server/db/queries/global.sql`: delete `-- Marketplace: capability catalog (global)` block and any related queries (lines ~882 onward through end of marketplace block).
 - `api-server/db/queries/regional.sql`: delete `-- Marketplace: listings` and `-- Marketplace: subscriptions` blocks.
 
 **App.tsx route registrations**
+
 - `org-ui/src/App.tsx`: remove the 8 marketplace imports and every `<Route path="/marketplace/...">` JSX block, plus the `MarketplaceListingsRoute` / `MarketplaceSubscriptionsRoute` helper components. Also remove the `MarketplaceListingsTile`/`MarketplaceDiscoverTile`/`MarketplaceSubscriptionsTile`/`MarketplaceClientsTile` from the dashboard (leave placeholders only if they rely on state you need — they don't).
 - `admin-ui/src/App.tsx`: remove marketplace imports and routes (including `BillingPage`).
 
 **Admin-ui i18n**
+
 - Delete marketplace-scoped i18n files. Keep only the keys that will be reused in Phase 2 (you can just rewrite from scratch in Phase 2 — easier than merging).
 
 **DashboardPage tiles**
+
 - `org-ui/src/pages/DashboardPage.tsx`: remove marketplace tiles.
 - `admin-ui/src/pages/DashboardPage.tsx`: remove marketplace tiles.
 
@@ -92,12 +102,14 @@ Fix any residual compile errors by removing the leftover references. Do NOT inve
 ### 1.1 Roles — add to schema + TypeSpec
 
 **`api-server/db/migrations/global/00000000000001_initial_schema.sql`** — in the admin roles INSERT block, add:
+
 ```sql
 ('admin:view_org_subscriptions', 'Can view org tier subscriptions (read-only)'),
 ('admin:manage_org_subscriptions', 'Can grant tiers, waive fees, suspend, and force-downgrade'),
 ```
 
 **`api-server/db/migrations/regional/00000000000001_initial_schema.sql`** — in the org roles INSERT block, add:
+
 ```sql
 ('org:view_subscription', 'Can view own org tier subscription and usage (read-only)'),
 ('org:manage_subscription', 'Can upgrade own org tier subscription'),
@@ -256,6 +268,7 @@ SELECT COUNT(*)::int FROM suborgs WHERE org_id = @org_id;
 Create `specs/typespec/org/tiers.tsp` (`.tsp`, `.ts`, `.go`):
 
 Types:
+
 - `OrgTier { tier_id: string; display_name: string; description: string; display_order: int32; org_users_cap?: int32; domains_verified_cap?: int32; suborgs_cap?: int32; marketplace_listings_cap?: int32; audit_retention_days?: int32; self_upgradeable: boolean; }` — null means unlimited; omit the prop.
 - `OrgTierUsage { org_users: int32; domains_verified: int32; suborgs: int32; marketplace_listings: int32; }`
 - `OrgSubscription { org_id: string; org_domain: string; current_tier: OrgTier; usage: OrgTierUsage; updated_at: string; note: string; }`
@@ -264,6 +277,7 @@ Types:
 Create `specs/typespec/admin/org-subscriptions.tsp` for the admin-side routes or fold them into the same file — pick org/tiers.tsp as single source and put both routes there (keep one namespace).
 
 Routes:
+
 - `POST /org/org-subscriptions/list-tiers` — any authenticated org user → `ListOrgTiersResponse`.
 - `POST /org/org-subscriptions/get` — `org:view_subscription` or `org:manage_subscription` or `org:superadmin` → `OrgSubscription`.
 - `POST /org/org-subscriptions/self-upgrade` — `org:manage_subscription` or `org:superadmin` → `OrgSubscription`. Rejects with 422 if `tier.self_upgradeable = false` or if the org already has that tier or higher display_order.
@@ -275,6 +289,7 @@ Validation: `tier_id` must match one of the known tier ids; `reason` 0–2000 ch
 ### 1.6 Handlers
 
 **Create files**:
+
 - `api-server/handlers/org/org-subscription-list-tiers.go`
 - `api-server/handlers/org/org-subscription-get.go`
 - `api-server/handlers/org/org-subscription-self-upgrade.go`
@@ -305,6 +320,7 @@ const (
 Define `server.ErrQuotaExceeded` (new sentinel error) and handle in callers as 403 with body `{"quota": "marketplace_listings", "current_cap": 5, "tier_id": "silver"}` so the UI can show the upgrade modal.
 
 **Self-upgrade logic** (`org-subscription-self-upgrade.go`):
+
 1. Decode + validate request.
 2. `OrgUserFromContext(ctx)`; require `org:manage_subscription` or `org:superadmin` (middleware handles role); extract `org_id`.
 3. `s.WithGlobalTx`:
@@ -319,10 +335,10 @@ Define `server.ErrQuotaExceeded` (new sentinel error) and handle in callers as 4
 
 ### 1.7 Quota enforcement at write sites
 
-In the existing handlers below, add a call to `orgtiers.EnforceQuota(...)` *inside the existing tx*, right before the INSERT. On `ErrQuotaExceeded` return 403 with the JSON payload shape above.
+In the existing handlers below, add a call to `orgtiers.EnforceQuota(...)` _inside the existing tx_, right before the INSERT. On `ErrQuotaExceeded` return 403 with the JSON payload shape above.
 
 - `handlers/org/invite-user.go` — `QuotaOrgUsers`. (The org-user invite likely inserts a new row; count with `CountOrgUsers` BEFORE the insert.)
-- `handlers/org/claim-domain.go` — `QuotaDomainsVerified`. (But only bump when the domain is *verified*, not claimed. So enforce inside `handlers/org/verify-domain.go` instead, right before the status→verified update.)
+- `handlers/org/claim-domain.go` — `QuotaDomainsVerified`. (But only bump when the domain is _verified_, not claimed. So enforce inside `handlers/org/verify-domain.go` instead, right before the status→verified update.)
 - `handlers/org/suborgs.go` create-suborg path — `QuotaSubOrgs`.
 - Phase-2 marketplace create-listing — `QuotaMarketplaceListings` (deferred to Phase 2).
 
@@ -368,6 +384,7 @@ Add keys in `en-US`, `de-DE`, `ta-IN` for both new pages. Keep strings minimal.
 ### 1.11 Playwright tests
 
 Create `playwright/tests/api/org/org-subscription.spec.ts`:
+
 - On signup → org has `free` tier (assert via GET).
 - Self-upgrade to `silver` as superadmin → 200, returns updated subscription.
 - Self-upgrade to `silver` as `org:manage_subscription` (no superadmin) → 200.
@@ -377,12 +394,13 @@ Create `playwright/tests/api/org/org-subscription.spec.ts`:
 - Audit log written on success; no audit log on failure.
 
 Create `playwright/tests/api/admin/org-subscription.spec.ts`:
+
 - Admin list orgs → paginated, filterable.
 - Admin set-tier `free → gold` → 200.
 - Admin downgrade when over cap → 409 with blocking usage payload.
 - RBAC positive/negative (same pattern as other admin endpoints).
 
-Quota-enforcement tests go in *the existing* feature spec files for invite-user / verify-domain / create-suborg — add a test that drives each to its cap and asserts 403 with the quota payload. Restore by deleting the over-cap resources in `afterAll`.
+Quota-enforcement tests go in _the existing_ feature spec files for invite-user / verify-domain / create-suborg — add a test that drives each to its cap and asserts 403 with the quota payload. Restore by deleting the over-cap resources in `afterAll`.
 
 **Commit**: `feat: org tiers (free/silver/gold/enterprise) with self-upgrade + admin management`
 
@@ -506,11 +524,13 @@ CREATE INDEX idx_marketplace_subscriptions_consumer ON marketplace_subscriptions
 ### 2.3 sqlc queries
 
 **global.sql** (new section `-- Marketplace`):
+
 - `CreateCapability`, `UpdateCapabilityStatus`, `UpsertCapabilityTranslation`, `GetCapability` (with translation join), `ListActiveCapabilities` (with translation fallback to en-US), `ListAllCapabilities` (admin).
 - `UpsertListingCatalog`, `DeleteListingCatalog`, `ListListingCatalogByCapability` (keyset paginated, GIN), `GetListingCatalogByDomainAndNumber`, `FullTextSearchListingCatalog` (basic `headline ILIKE` + `description ILIKE`; do not introduce pg_trgm in V1).
 - `UpsertSubscriptionIndex`, `UpdateSubscriptionIndexStatus`, `ListSubscriptionsForProvider` (by `provider_org_id`, keyset).
 
 **regional.sql** (new section `-- Marketplace`):
+
 - `NextListingNumberForOrg`:
   ```sql
   -- name: NextListingNumberForOrg :one
@@ -541,6 +561,7 @@ Create `specs/typespec/org/marketplace.tsp` fresh. Differences from the v1 file:
 - `RejectListingRequest` now requires `rejection_note` (1–2000 chars).
 
 Create `specs/typespec/admin/marketplace.tsp`:
+
 - `CreateCapability`, `UpdateCapability` (status + translations map), `ListCapabilities` (all statuses), admin-suspend-listing, admin-reinstate-listing, admin-cancel-subscription, admin-list-listings (across regions via `marketplace_listing_catalog` + per-region joins).
 
 Compile TypeSpec, then handwrite the `.ts` and `.go` sibling files with validators.
@@ -548,6 +569,7 @@ Compile TypeSpec, then handwrite the `.ts` and `.go` sibling files with validato
 ### 2.5 Backend handlers
 
 New files under `api-server/handlers/org/`:
+
 - `marketplace-capability-list.go` (reads active capabilities from global DB with locale fallback)
 - `marketplace-capability-get.go`
 - `marketplace-listing-create.go`
@@ -569,6 +591,7 @@ New files under `api-server/handlers/org/`:
 - `marketplace-helpers.go` — capability-resolution helpers (validate capability_ids exist and are `active`/`draft` for admin / `active` for non-admin), catalog upsert helpers.
 
 Admin handlers under `api-server/handlers/admin/`:
+
 - `marketplace-capability-create.go`, `-update.go`, `-list.go` (admin sees all statuses).
 - `marketplace-listing-admin-list.go`, `-suspend.go`, `-reinstate.go`, `-admin-get.go` (admin reads across regions via catalog + then pulls full record from the right regional DB using the existing cross-region query mechanism the admin layer already uses).
 - `marketplace-subscription-admin-list.go`, `-admin-cancel.go`.
@@ -578,6 +601,7 @@ Admin handlers under `api-server/handlers/admin/`:
 ### 2.6 Frontend — org portal
 
 New files under `org-ui/src/pages/Marketplace/`:
+
 - `MarketplaceDiscoverPage.tsx` — `/marketplace/discover`. Grid of listing cards (headline, provider org, capability pills, truncated description). Filters: multi-select capabilities, full-text box.
 - `MarketplaceListingPage.tsx` — `/marketplace/listings/:orgDomain/:listingNumber`. Role-aware: buyer view (Subscribe/Re-subscribe button, existing subscription banner), provider view (Edit/Archive/Publish/Approve/Reject/Reopen + Subscribers list), admin view (Suspend/Reinstate).
 - `MyListingsPage.tsx` — `/marketplace/listings`. Table of own listings. Create button, disabled with upgrade prompt at cap.
@@ -594,6 +618,7 @@ Dashboard tiles: Marketplace (all users), My Listings (view/manage_listings), My
 ### 2.7 Frontend — admin portal
 
 Under `admin-ui/src/pages/Marketplace/`:
+
 - `CapabilitiesPage.tsx` — list + create/edit modal with per-locale display_name/description, status dropdown. No fee fields.
 - `ListingsPage.tsx` — admin view across all orgs. Filters: org, capability, status. Row click → detail page with Suspend/Reinstate actions.
 - `SubscriptionsPage.tsx` — all subscriptions. Admin-cancel action.
@@ -607,6 +632,7 @@ Add `marketplace` translations for `en-US` / `de-DE` / `ta-IN`. Keep strings min
 ### 2.9 Playwright tests
 
 **Re-add test helpers first**, in the same files they were stripped from in Phase 0:
+
 - `playwright/lib/org-api-client.ts`: add typed V2 methods (one per new `/org/marketplace/...` endpoint) plus `*Raw()` variants for 400 coverage. Import request/response types from `vetchium-specs/org/marketplace`.
 - `playwright/lib/admin-api-client.ts`: add V2 methods for admin endpoints.
 - `playwright/lib/db.ts`:
@@ -616,6 +642,7 @@ Add `marketplace` translations for `en-US` / `de-DE` / `ta-IN`. Keep strings min
   - Add `setOrgTier(orgId, tierId)` helper that directly updates `org_subscriptions.current_tier_id` — quota tests need to put an org on Silver/Gold without driving the self-upgrade flow.
 
 Create `playwright/tests/api/org/marketplace.spec.ts` covering:
+
 - Capability list (public to authenticated org user).
 - Listing CRUD happy path (draft → active via superadmin publish).
 - Non-superadmin publish → pending_review; superadmin approve → active; reject with note → draft with rejection_note surfaced.
@@ -628,12 +655,14 @@ Create `playwright/tests/api/org/marketplace.spec.ts` covering:
 - Audit logs assertions on every write.
 
 Create `playwright/tests/api/admin/marketplace.spec.ts`:
+
 - Capability create (draft → active → disable).
 - Admin suspend/reinstate listing.
 - Admin cancel subscription.
 - Admin RBAC.
 
 **UI tests** — rewrite `playwright/tests/ui/org/marketplace.spec.ts` from scratch, covering:
+
 - Discover page renders cards, capability filter narrows results.
 - Create listing form — capability multi-select, headline/description limits, Save Draft navigates to /marketplace/listings.
 - Publish as superadmin → card shows Active status.
@@ -641,15 +670,18 @@ Create `playwright/tests/api/admin/marketplace.spec.ts`:
 - Subscribe flow: consumer org logs in, opens listing, clicks Subscribe → Subscription Detail page shows Provider contact.
 
 Create `playwright/tests/ui/admin/marketplace.spec.ts`:
+
 - Capability list + create.
 - Listing admin view with Suspend action.
 
 **Org Tiers UI tests** — add `playwright/tests/ui/org/subscription.spec.ts`:
+
 - `/settings/subscription` shows current tier Free, usage rows, Upgrade to Silver button present.
 - Click Upgrade to Silver → confirm modal → success toast → current tier flips to Silver.
 - `self_upgradeable=false` tier (Enterprise) has no Upgrade button.
 
 And `playwright/tests/ui/admin/org-subscriptions.spec.ts`:
+
 - Admin opens `/admin/org-subscriptions`, sets a listed org's tier via modal, reason required.
 - Downgrade blocked response surfaces blocking-usage table in the modal.
 
@@ -658,6 +690,7 @@ And `playwright/tests/ui/admin/org-subscriptions.spec.ts`:
 In `marketplace-listing-create.go` and `marketplace-listing-publish.go` (for the `draft → pending_review` path), call `orgtiers.EnforceQuota(ctx, QuotaMarketplaceListings, orgID)` before transitioning the listing to a counted state. Counted states = `active` + `pending_review`. Draft creation does not count — only `Publish` / `SubmitForReview` counts.
 
 Wait — re-reading §4.2 of the spec: quota applies when "publish or submit-for-review". So:
+
 - `Create` just creates a `draft`. No quota check.
 - `Publish` / submit-for-review → quota check before transitioning to `active` / `pending_review`.
 
@@ -681,6 +714,7 @@ Update the handlers to do the check at the right step.
 ## Phase 4 — Memory
 
 Update `MEMORY.md` with:
+
 - Org Tiers system exists with 4 tiers (free/silver/gold/enterprise).
 - Quotas enforced for: org_users, domains_verified, suborgs, marketplace_listings.
 - Marketplace uses multi-capability listings, `(org_domain, listing_number)` URL key, per-org counter.

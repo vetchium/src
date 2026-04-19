@@ -131,16 +131,14 @@ test.describe("Listing CRUD — superadmin publish to active", () => {
 			const createRes = await api.createListing(token, createReq);
 			expect(createRes.status).toBe(201);
 			const listingNum = createRes.body!.listing_number;
-			const listingStatus: MarketplaceListingStatus =
-				createRes.body!.status;
+			const listingStatus: MarketplaceListingStatus = createRes.body!.status;
 			expect(listingStatus).toBe("draft");
 
 			const publishRes = await api.publishListing(token, {
 				listing_number: listingNum,
 			} as PublishListingRequest);
 			expect(publishRes.status).toBe(200);
-			const publishedStatus: MarketplaceListingStatus =
-				publishRes.body!.status;
+			const publishedStatus: MarketplaceListingStatus = publishRes.body!.status;
 			expect(publishedStatus).toBe("active");
 			expect(publishRes.body!.listed_at).toBeDefined();
 
@@ -166,11 +164,10 @@ test.describe("Listing approval flow (non-superadmin -> pending_review -> active
 		request,
 	}) => {
 		const api = new OrgAPIClient(request);
-		const { email, domain, orgUserId } =
-			await createTestOrgUserDirect(
-				generateTestOrgEmail("mp-approve").email,
-				TEST_PASSWORD
-			);
+		const { email, domain, orgUserId } = await createTestOrgUserDirect(
+			generateTestOrgEmail("mp-approve").email,
+			TEST_PASSWORD
+		);
 		const { email: adminEmail, domain: adminDomain } =
 			await createTestOrgAdminDirect(
 				generateTestOrgEmail("mp-approve-admin", domain).email,
@@ -197,8 +194,7 @@ test.describe("Listing approval flow (non-superadmin -> pending_review -> active
 				listing_number: listingNum,
 			} as PublishListingRequest);
 			expect(publishRes.status).toBe(200);
-			const pendingStatus: MarketplaceListingStatus =
-				publishRes.body!.status;
+			const pendingStatus: MarketplaceListingStatus = publishRes.body!.status;
 			expect(pendingStatus).toBe("pending_review");
 
 			const approveRes = await api.approveListing(adminToken, {
@@ -206,8 +202,7 @@ test.describe("Listing approval flow (non-superadmin -> pending_review -> active
 				listing_number: listingNum,
 			});
 			expect(approveRes.status).toBe(200);
-			const approvedStatus: MarketplaceListingStatus =
-				approveRes.body!.status;
+			const approvedStatus: MarketplaceListingStatus = approveRes.body!.status;
 			expect(approvedStatus).toBe("active");
 		} finally {
 			await deleteTestOrgUser(email);
@@ -219,11 +214,10 @@ test.describe("Listing approval flow (non-superadmin -> pending_review -> active
 		request,
 	}) => {
 		const api = new OrgAPIClient(request);
-		const { email, domain, orgUserId } =
-			await createTestOrgUserDirect(
-				generateTestOrgEmail("mp-reject").email,
-				TEST_PASSWORD
-			);
+		const { email, domain, orgUserId } = await createTestOrgUserDirect(
+			generateTestOrgEmail("mp-reject").email,
+			TEST_PASSWORD
+		);
 		const { email: adminEmail } = await createTestOrgAdminDirect(
 			generateTestOrgEmail("mp-reject-admin", domain).email,
 			TEST_PASSWORD,
@@ -248,7 +242,7 @@ test.describe("Listing approval flow (non-superadmin -> pending_review -> active
 				listing_number: listingNum,
 			} as PublishListingRequest);
 			expect(publishRes.status).toBe(200);
-			expect((publishRes.body!.status as MarketplaceListingStatus)).toBe(
+			expect(publishRes.body!.status as MarketplaceListingStatus).toBe(
 				"pending_review"
 			);
 
@@ -258,8 +252,7 @@ test.describe("Listing approval flow (non-superadmin -> pending_review -> active
 				rejection_note: "Not ready for marketplace yet.",
 			});
 			expect(rejectRes.status).toBe(200);
-			const rejectedStatus: MarketplaceListingStatus =
-				rejectRes.body!.status;
+			const rejectedStatus: MarketplaceListingStatus = rejectRes.body!.status;
 			expect(rejectedStatus).toBe("draft");
 			expect(rejectRes.body!.rejection_note).toBe(
 				"Not ready for marketplace yet."
@@ -366,11 +359,14 @@ test.describe("Subscription flows", () => {
 		request,
 	}) => {
 		const api = new OrgAPIClient(request);
-		const { email: provEmail, domain: provDomain, orgId: provOrgId } =
-			await createTestOrgAdminDirect(
-				generateTestOrgEmail("mp-sub-provider").email,
-				TEST_PASSWORD
-			);
+		const {
+			email: provEmail,
+			domain: provDomain,
+			orgId: provOrgId,
+		} = await createTestOrgAdminDirect(
+			generateTestOrgEmail("mp-sub-provider").email,
+			TEST_PASSWORD
+		);
 		const { email: conEmail, domain: conDomain } =
 			await createTestOrgAdminDirect(
 				generateTestOrgEmail("mp-sub-consumer").email,
@@ -393,7 +389,7 @@ test.describe("Subscription flows", () => {
 				listing_number: listingNum,
 			} as PublishListingRequest);
 			expect(pubRes.status).toBe(200);
-			expect((pubRes.body!.status as MarketplaceListingStatus)).toBe("active");
+			expect(pubRes.body!.status as MarketplaceListingStatus).toBe("active");
 
 			// Consumer subscribes
 			const subReq: SubscribeRequest = {
@@ -403,8 +399,7 @@ test.describe("Subscription flows", () => {
 			};
 			const subRes = await api.subscribe(conToken, subReq);
 			expect(subRes.status).toBe(200);
-			const subStatus: MarketplaceSubscriptionStatus =
-				subRes.body!.status;
+			const subStatus: MarketplaceSubscriptionStatus = subRes.body!.status;
 			expect(subStatus).toBe("active");
 
 			const subId = subRes.body!.subscription_id;
@@ -418,8 +413,7 @@ test.describe("Subscription flows", () => {
 			// Re-subscribe reactivates
 			const resubRes = await api.subscribe(conToken, subReq);
 			expect(resubRes.status).toBe(200);
-			const resubStatus: MarketplaceSubscriptionStatus =
-				resubRes.body!.status;
+			const resubStatus: MarketplaceSubscriptionStatus = resubRes.body!.status;
 			expect(resubStatus).toBe("active");
 		} finally {
 			await deleteTestOrgUser(provEmail);
@@ -550,11 +544,14 @@ test.describe("RBAC — Marketplace Listings", () => {
 				generateTestOrgEmail("mp-rbac-prov").email,
 				TEST_PASSWORD
 			);
-		const { email: conEmail, domain: conDomain, orgUserId: conUserId } =
-			await createTestOrgUserDirect(
-				generateTestOrgEmail("mp-rbac-con").email,
-				TEST_PASSWORD
-			);
+		const {
+			email: conEmail,
+			domain: conDomain,
+			orgUserId: conUserId,
+		} = await createTestOrgUserDirect(
+			generateTestOrgEmail("mp-rbac-con").email,
+			TEST_PASSWORD
+		);
 		await assignRoleToOrgUser(conUserId, "org:manage_subscriptions");
 		try {
 			const provToken = await loginOrg(api, provEmail, provDomain);

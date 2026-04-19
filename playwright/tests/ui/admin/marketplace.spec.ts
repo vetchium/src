@@ -43,9 +43,9 @@ test.describe("Admin UI Marketplace — Capabilities", () => {
 			await expect(page.locator("text=Capabilities")).toBeVisible({
 				timeout: 10000,
 			});
-			await expect(
-				page.locator("text=Admin UI Test Cap")
-			).toBeVisible({ timeout: 10000 });
+			await expect(page.locator("text=Admin UI Test Cap")).toBeVisible({
+				timeout: 10000,
+			});
 
 			// Open create modal
 			const addButton = page.locator('button:has-text("Add Capability")');
@@ -61,11 +61,13 @@ test.describe("Admin UI Marketplace — Capabilities", () => {
 				const nameInput = page.locator(".ant-modal input").nth(1);
 				await nameInput.fill("Created in UI Test");
 
-				await page.locator('.ant-modal-footer button:has-text("Create")').click();
+				await page
+					.locator('.ant-modal-footer button:has-text("Create")')
+					.click();
 
-				await expect(
-					page.locator("text=Created in UI Test")
-				).toBeVisible({ timeout: 5000 });
+				await expect(page.locator("text=Created in UI Test")).toBeVisible({
+					timeout: 5000,
+				});
 			}
 		} finally {
 			await deleteTestMarketplaceCapability(newCapId).catch(() => {});
@@ -81,11 +83,14 @@ test.describe("Admin UI Marketplace — Listing Suspend", () => {
 	test("Listing admin view shows Suspend action", async ({ page }) => {
 		const adminEmail = generateTestEmail("admin-mp-list-ui");
 		await createTestSuperadmin(adminEmail, TEST_PASSWORD);
-		const { email: orgEmail, domain: orgDomain, orgId } =
-			await createTestOrgAdminDirect(
-				generateTestOrgEmail("admin-mp-list-org").email,
-				TEST_PASSWORD
-			);
+		const {
+			email: orgEmail,
+			domain: orgDomain,
+			orgId,
+		} = await createTestOrgAdminDirect(
+			generateTestOrgEmail("admin-mp-list-org").email,
+			TEST_PASSWORD
+		);
 
 		try {
 			const { listingNumber } = await createTestMarketplaceListingDirect(
@@ -117,11 +122,10 @@ test.describe("Admin UI Marketplace — Listing Suspend", () => {
 					timeout: 5000,
 				});
 				// Fill suspension note
-				await page.fill(
-					'.ant-modal textarea',
-					"Suspended by admin UI test"
-				);
-				await page.locator('.ant-modal-footer button:has-text("Suspend")').click();
+				await page.fill(".ant-modal textarea", "Suspended by admin UI test");
+				await page
+					.locator('.ant-modal-footer button:has-text("Suspend")')
+					.click();
 				await expect(page.locator("text=Suspended")).toBeVisible({
 					timeout: 5000,
 				});

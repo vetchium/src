@@ -33,20 +33,17 @@ export function MyClientsPage() {
 			setLoading(true);
 			try {
 				const baseUrl = await getApiBaseUrl();
-				const resp = await fetch(
-					`${baseUrl}/org/marketplace/clients/list`,
-					{
-						method: "POST",
-						headers: {
-							"Content-Type": "application/json",
-							Authorization: `Bearer ${sessionToken}`,
-						},
-						body: JSON.stringify({
-							...(paginationKey ? { pagination_key: paginationKey } : {}),
-							limit: 20,
-						}),
-					}
-				);
+				const resp = await fetch(`${baseUrl}/org/marketplace/clients/list`, {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${sessionToken}`,
+					},
+					body: JSON.stringify({
+						...(paginationKey ? { pagination_key: paginationKey } : {}),
+						limit: 20,
+					}),
+				});
 				if (resp.status === 200) {
 					const data = await resp.json();
 					if (paginationKey) {
@@ -77,9 +74,7 @@ export function MyClientsPage() {
 			title: t("clients.listingNumber"),
 			dataIndex: "listing_number",
 			key: "listing_number",
-			render: (num: number) => (
-				<span>#{num}</span>
-			),
+			render: (num: number) => <span>#{num}</span>,
 		},
 		{
 			title: t("clients.status"),
@@ -99,14 +94,7 @@ export function MyClientsPage() {
 			title: t("clients.actions"),
 			key: "actions",
 			render: (_: unknown, record: MarketplaceClient) => (
-				<Button
-					size="small"
-					onClick={() =>
-						navigate(
-							`/marketplace/listings`
-						)
-					}
-				>
+				<Button size="small" onClick={() => navigate(`/marketplace/listings`)}>
 					{t("clients.viewListing")}
 				</Button>
 			),

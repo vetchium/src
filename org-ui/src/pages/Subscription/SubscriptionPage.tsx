@@ -135,7 +135,8 @@ export function SubscriptionPage() {
 			title: t("usage.cap"),
 			dataIndex: "cap",
 			key: "cap",
-			render: (cap: number | null) => (cap == null ? t("usage.unlimited") : cap),
+			render: (cap: number | null) =>
+				cap == null ? t("usage.unlimited") : cap,
 		},
 	];
 
@@ -283,7 +284,9 @@ export function SubscriptionPage() {
 											</div>
 										</div>
 										{tier.tier_id === "enterprise" ? (
-											<Text type="secondary">{t("plans.enterpriseContact")}</Text>
+											<Text type="secondary">
+												{t("plans.enterpriseContact")}
+											</Text>
 										) : canUpgrade ? (
 											<Button
 												type="primary"

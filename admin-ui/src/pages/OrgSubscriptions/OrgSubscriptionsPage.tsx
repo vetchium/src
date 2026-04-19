@@ -232,9 +232,7 @@ export function OrgSubscriptionsPage() {
 							label={t("modal.tierLabel")}
 							rules={[{ required: true }]}
 						>
-							<Select
-								options={TIERS.map((id) => ({ value: id, label: id }))}
-							/>
+							<Select options={TIERS.map((id) => ({ value: id, label: id }))} />
 						</Form.Item>
 						<Form.Item
 							name="reason"

@@ -56,9 +56,9 @@ test.describe("Org UI Marketplace — Discover Page", () => {
 			await expect(page.locator("text=Discover Marketplace")).toBeVisible({
 				timeout: 10000,
 			});
-			await expect(
-				page.locator("text=Discover UI Test Listing")
-			).toBeVisible({ timeout: 10000 });
+			await expect(page.locator("text=Discover UI Test Listing")).toBeVisible({
+				timeout: 10000,
+			});
 		} finally {
 			await deleteTestOrgByDomain(domain);
 		}
@@ -99,7 +99,9 @@ test.describe("Org UI Marketplace — Discover Page", () => {
 				.filter({ hasText: /capability/i });
 			if ((await filterSelect.count()) > 0) {
 				await filterSelect.click();
-				await page.locator(`.ant-select-item[title="UI Test Capability"]`).click();
+				await page
+					.locator(`.ant-select-item[title="UI Test Capability"]`)
+					.click();
 				await expect(page.locator("text=Cap1 Listing")).toBeVisible({
 					timeout: 5000,
 				});
@@ -249,11 +251,14 @@ test.describe("Org UI Marketplace — Quota Exceeded Modal", () => {
 // ============================================================================
 test.describe("Org UI Marketplace — Subscribe Flow", () => {
 	test("Consumer subscribes from listing page", async ({ page }) => {
-		const { email: provEmail, domain: provDomain, orgId: provOrgId } =
-			await createTestOrgAdminDirect(
-				generateTestOrgEmail("mp-ui-sub-prov").email,
-				TEST_PASSWORD
-			);
+		const {
+			email: provEmail,
+			domain: provDomain,
+			orgId: provOrgId,
+		} = await createTestOrgAdminDirect(
+			generateTestOrgEmail("mp-ui-sub-prov").email,
+			TEST_PASSWORD
+		);
 		const { email: conEmail, domain: conDomain } =
 			await createTestOrgAdminDirect(
 				generateTestOrgEmail("mp-ui-sub-con").email,
@@ -280,9 +285,9 @@ test.describe("Org UI Marketplace — Subscribe Flow", () => {
 			const subscribeButton = page.locator('button:has-text("Subscribe")');
 			if ((await subscribeButton.count()) > 0) {
 				await subscribeButton.click();
-				await expect(
-					page.locator("text=/subscrib|active/i")
-				).toBeVisible({ timeout: 5000 });
+				await expect(page.locator("text=/subscrib|active/i")).toBeVisible({
+					timeout: 5000,
+				});
 			}
 		} finally {
 			await deleteTestOrgByDomain(provDomain);
