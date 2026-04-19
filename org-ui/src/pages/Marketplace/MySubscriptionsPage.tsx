@@ -89,11 +89,11 @@ export function MySubscriptionsPage() {
 		},
 		{
 			title: t("subscriptions.listingNumber"),
-			dataIndex: "listing_number",
-			key: "listing_number",
+			dataIndex: "provider_listing_number",
+			key: "provider_listing_number",
 			render: (num: number, record: MarketplaceSubscription) => (
 				<Link
-					to={`/marketplace/listings/${record.provider_org_domain}/${record.listing_number}`}
+					to={`/marketplace/listings/${record.provider_org_domain}/${record.provider_listing_number}`}
 				>
 					#{num}
 				</Link>
@@ -109,8 +109,8 @@ export function MySubscriptionsPage() {
 		},
 		{
 			title: t("subscriptions.subscribedAt"),
-			dataIndex: "subscribed_at",
-			key: "subscribed_at",
+			dataIndex: "started_at",
+			key: "started_at",
 			render: (v: string) => new Date(v).toLocaleDateString(),
 		},
 		{
@@ -121,7 +121,7 @@ export function MySubscriptionsPage() {
 					size="small"
 					onClick={() =>
 						navigate(
-							`/marketplace/subscriptions/${record.provider_org_domain}/${record.listing_number}`
+							`/marketplace/subscriptions/${record.provider_org_domain}/${record.provider_listing_number}`
 						)
 					}
 				>

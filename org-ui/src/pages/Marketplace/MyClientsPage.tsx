@@ -77,12 +77,8 @@ export function MyClientsPage() {
 			title: t("clients.listingNumber"),
 			dataIndex: "listing_number",
 			key: "listing_number",
-			render: (num: number, record: MarketplaceClient) => (
-				<Link
-					to={`/marketplace/listings/${record.provider_org_domain}/${record.listing_number}`}
-				>
-					#{num}
-				</Link>
+			render: (num: number) => (
+				<span>#{num}</span>
 			),
 		},
 		{
@@ -95,8 +91,8 @@ export function MyClientsPage() {
 		},
 		{
 			title: t("clients.subscribedAt"),
-			dataIndex: "subscribed_at",
-			key: "subscribed_at",
+			dataIndex: "started_at",
+			key: "started_at",
 			render: (v: string) => new Date(v).toLocaleDateString(),
 		},
 		{
@@ -107,7 +103,7 @@ export function MyClientsPage() {
 					size="small"
 					onClick={() =>
 						navigate(
-							`/marketplace/listings/${record.provider_org_domain}/${record.listing_number}`
+							`/marketplace/listings`
 						)
 					}
 				>

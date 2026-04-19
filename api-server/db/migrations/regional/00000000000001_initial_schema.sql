@@ -282,13 +282,13 @@ CREATE TYPE marketplace_subscription_status AS ENUM ('active','cancelled','expir
 
 -- Per-org atomic listing number counter
 CREATE TABLE org_marketplace_listing_counters (
-    org_id            UUID NOT NULL REFERENCES orgs(org_id) ON DELETE CASCADE PRIMARY KEY,
+    org_id            UUID NOT NULL PRIMARY KEY,
     last_listing_number INT NOT NULL DEFAULT 0
 );
 
 CREATE TABLE marketplace_listings (
     listing_id        UUID NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
-    org_id            UUID NOT NULL REFERENCES orgs(org_id),
+    org_id            UUID NOT NULL,
     org_domain        TEXT NOT NULL,
     listing_number    INT  NOT NULL,
     headline          TEXT NOT NULL CHECK (char_length(headline) <= 100),
@@ -314,7 +314,7 @@ CREATE INDEX idx_marketplace_listings_org ON marketplace_listings(org_id, status
 CREATE TABLE marketplace_subscriptions (
     subscription_id           UUID NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
     listing_id                UUID NOT NULL,
-    consumer_org_id           UUID NOT NULL REFERENCES orgs(org_id),
+    consumer_org_id           UUID NOT NULL,
     consumer_org_domain       TEXT NOT NULL,
     provider_org_id           UUID NOT NULL,
     provider_org_domain       TEXT NOT NULL,

@@ -149,16 +149,16 @@ export function SubscriptionDetailPage() {
 				<Descriptions column={1} bordered>
 					<Descriptions.Item label={t("subscriptionDetail.provider")}>
 						<Link
-							to={`/marketplace/listings/${subscription.provider_org_domain}/${subscription.listing_number}`}
+							to={`/marketplace/listings/${subscription.provider_org_domain}/${subscription.provider_listing_number}`}
 						>
 							{subscription.provider_org_domain}
 						</Link>
 					</Descriptions.Item>
 					<Descriptions.Item label={t("subscriptionDetail.listing")}>
 						<Link
-							to={`/marketplace/listings/${subscription.provider_org_domain}/${subscription.listing_number}`}
+							to={`/marketplace/listings/${subscription.provider_org_domain}/${subscription.provider_listing_number}`}
 						>
-							#{subscription.listing_number}
+							#{subscription.provider_listing_number}
 						</Link>
 					</Descriptions.Item>
 					<Descriptions.Item label={t("subscriptionDetail.status")}>
@@ -167,7 +167,7 @@ export function SubscriptionDetailPage() {
 						</Tag>
 					</Descriptions.Item>
 					<Descriptions.Item label={t("subscriptionDetail.subscribedAt")}>
-						{new Date(subscription.subscribed_at).toLocaleString()}
+						{new Date(subscription.started_at).toLocaleString()}
 					</Descriptions.Item>
 					{subscription.cancelled_at && (
 						<Descriptions.Item label={t("subscriptionDetail.cancelledAt")}>
