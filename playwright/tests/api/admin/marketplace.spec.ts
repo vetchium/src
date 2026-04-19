@@ -173,6 +173,7 @@ test.describe("Admin Marketplace Listing Suspend/Reinstate", () => {
 			TEST_PASSWORD
 		);
 		try {
+			await setOrgTier(orgId, "silver");
 			const adminToken = await loginAdmin(adminApi, adminEmail);
 			const orgToken = await loginOrg(orgApi, orgEmail, orgDomain);
 
@@ -243,17 +244,21 @@ test.describe("Admin Marketplace Cancel Subscription", () => {
 
 		const adminEmail = generateTestEmail("mp-admin-cancel-sub");
 		await createTestSuperadmin(adminEmail, TEST_PASSWORD);
-		const { email: provEmail, domain: provDomain } =
-			await createTestOrgAdminDirect(
-				generateTestOrgEmail("mp-admin-cancel-prov").email,
-				TEST_PASSWORD
-			);
+		const {
+			email: provEmail,
+			domain: provDomain,
+			orgId: provOrgId,
+		} = await createTestOrgAdminDirect(
+			generateTestOrgEmail("mp-admin-cancel-prov").email,
+			TEST_PASSWORD
+		);
 		const { email: conEmail, domain: conDomain } =
 			await createTestOrgAdminDirect(
 				generateTestOrgEmail("mp-admin-cancel-con").email,
 				TEST_PASSWORD
 			);
 		try {
+			await setOrgTier(provOrgId, "silver");
 			const adminToken = await loginAdmin(adminApi, adminEmail);
 			const provToken = await loginOrg(orgApi, provEmail, provDomain);
 			const conToken = await loginOrg(orgApi, conEmail, conDomain);
@@ -271,14 +276,14 @@ test.describe("Admin Marketplace Cancel Subscription", () => {
 				provider_org_domain: provDomain,
 				provider_listing_number: listingNum,
 			});
-			expect(subRes.status).toBe(200);
+			expect(subRes.status).toBe(201);
 			const subId = subRes.body!.subscription_id;
 
 			// Admin cancels the subscription
 			const cancelRes = await adminApi.adminCancelSubscription(adminToken, {
 				subscription_id: subId,
 			});
-			expect(cancelRes.status).toBe(204);
+			expect(cancelRes.status).toBe(200);
 		} finally {
 			await deleteTestAdminUser(adminEmail);
 			await deleteTestOrgUser(provEmail);

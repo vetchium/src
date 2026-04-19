@@ -32,16 +32,23 @@ test.describe("Admin UI — Org Subscriptions", () => {
 				timeout: 10000,
 			});
 
+			// Search for the org domain
+			await page.fill('input[placeholder="Search by domain..."]', orgDomain);
+			await page.click('button:has-text("Search")');
+			await page.waitForLoadState("networkidle");
+
 			// Find the org row
-			await expect(page.locator(`text=${orgDomain}`)).toBeVisible({
+			await expect(
+				page.getByRole("cell", { name: orgDomain }).first()
+			).toBeVisible({
 				timeout: 10000,
 			});
 
 			// Click "Change Tier" for that org
 			const row = page.locator("tr").filter({ hasText: orgDomain });
-			const changeTierBtn = row.locator(
-				"button:has-text(/change tier|set tier/i)"
-			);
+			const changeTierBtn = row.locator("button", {
+				hasText: /change tier|set tier/i,
+			});
 			if ((await changeTierBtn.count()) > 0) {
 				await changeTierBtn.click();
 
@@ -55,7 +62,7 @@ test.describe("Admin UI — Org Subscriptions", () => {
 
 				// Try submitting without reason — should be disabled or show error
 				const submitBtn = modal
-					.locator("button:has-text(/save|update|apply/i)")
+					.locator("button", { hasText: /save|update|apply/i })
 					.first();
 
 				// Fill reason
@@ -99,14 +106,22 @@ test.describe("Admin UI — Org Subscriptions", () => {
 			await expect(page.locator("text=Org Subscriptions")).toBeVisible({
 				timeout: 10000,
 			});
-			await expect(page.locator(`text=${orgDomain}`)).toBeVisible({
+
+			// Search for the org domain
+			await page.fill('input[placeholder="Search by domain..."]', orgDomain);
+			await page.click('button:has-text("Search")');
+			await page.waitForLoadState("networkidle");
+
+			await expect(
+				page.getByRole("cell", { name: orgDomain }).first()
+			).toBeVisible({
 				timeout: 10000,
 			});
 
 			const row = page.locator("tr").filter({ hasText: orgDomain });
-			const changeTierBtn = row.locator(
-				"button:has-text(/change tier|set tier/i)"
-			);
+			const changeTierBtn = row.locator("button", {
+				hasText: /change tier|set tier/i,
+			});
 			if ((await changeTierBtn.count()) > 0) {
 				await changeTierBtn.click();
 
@@ -122,7 +137,7 @@ test.describe("Admin UI — Org Subscriptions", () => {
 				await reasonTextarea.fill("Testing downgrade block UI");
 
 				const submitBtn = modal
-					.locator("button:has-text(/save|update|apply/i)")
+					.locator("button", { hasText: /save|update|apply/i })
 					.first();
 				await submitBtn.click();
 

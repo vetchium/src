@@ -86,8 +86,9 @@ test.describe("POST /org/marketplace/list-capabilities", () => {
 	}) => {
 		const api = new OrgAPIClient(request);
 		const { email, domain } = generateTestOrgEmail("mp-cap-list");
-		await createTestOrgAdminDirect(email, TEST_PASSWORD);
+		const { orgId } = await createTestOrgAdminDirect(email, TEST_PASSWORD);
 		try {
+			await setOrgTier(orgId, "silver");
 			const token = await loginOrg(api, email, domain);
 			const res = await api.listMarketplaceCapabilities(token);
 			expect(res.status).toBe(200);
@@ -118,8 +119,9 @@ test.describe("Listing CRUD — superadmin publish to active", () => {
 	}) => {
 		const api = new OrgAPIClient(request);
 		const { email, domain } = generateTestOrgEmail("mp-crud");
-		await createTestOrgAdminDirect(email, TEST_PASSWORD);
+		const { orgId } = await createTestOrgAdminDirect(email, TEST_PASSWORD);
 		try {
+			await setOrgTier(orgId, "silver");
 			const token = await loginOrg(api, email, domain);
 			const before = new Date(Date.now() - 2000).toISOString();
 
@@ -164,18 +166,17 @@ test.describe("Listing approval flow (non-superadmin -> pending_review -> active
 		request,
 	}) => {
 		const api = new OrgAPIClient(request);
-		const { email, domain, orgUserId } = await createTestOrgUserDirect(
+		const { email, domain, orgUserId, orgId } = await createTestOrgUserDirect(
 			generateTestOrgEmail("mp-approve").email,
 			TEST_PASSWORD
 		);
-		const { email: adminEmail, domain: adminDomain } =
-			await createTestOrgAdminDirect(
-				generateTestOrgEmail("mp-approve-admin", domain).email,
-				TEST_PASSWORD,
-				"ind1",
-				{ domain, orgId: undefined }
-			);
-		await assignRoleToOrgUser(orgUserId, "org:manage_listings");
+		const adminEmail = `admin-${crypto.randomUUID().substring(0, 8)}@${domain}`;
+		await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD, "ind1", {
+			domain,
+			orgId,
+		});
+		await setOrgTier(orgId, "silver");
+		await assignRoleToOrgUser(orgUserId, "org:manage_listings", "ind1");
 
 		try {
 			const memberToken = await loginOrg(api, email, domain);
@@ -214,17 +215,17 @@ test.describe("Listing approval flow (non-superadmin -> pending_review -> active
 		request,
 	}) => {
 		const api = new OrgAPIClient(request);
-		const { email, domain, orgUserId } = await createTestOrgUserDirect(
+		const { email, domain, orgUserId, orgId } = await createTestOrgUserDirect(
 			generateTestOrgEmail("mp-reject").email,
 			TEST_PASSWORD
 		);
-		const { email: adminEmail } = await createTestOrgAdminDirect(
-			generateTestOrgEmail("mp-reject-admin", domain).email,
-			TEST_PASSWORD,
-			"ind1",
-			{ domain, orgId: undefined }
-		);
-		await assignRoleToOrgUser(orgUserId, "org:manage_listings");
+		const adminEmail = `admin-${crypto.randomUUID().substring(0, 8)}@${domain}`;
+		await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD, "ind1", {
+			domain,
+			orgId,
+		});
+		await setOrgTier(orgId, "silver");
+		await assignRoleToOrgUser(orgUserId, "org:manage_listings", "ind1");
 
 		try {
 			const memberToken = await loginOrg(api, email, domain);
@@ -273,8 +274,9 @@ test.describe("Multi-capability listing", () => {
 	}) => {
 		const api = new OrgAPIClient(request);
 		const { email, domain } = generateTestOrgEmail("mp-multicap");
-		await createTestOrgAdminDirect(email, TEST_PASSWORD);
+		const { orgId } = await createTestOrgAdminDirect(email, TEST_PASSWORD);
 		try {
+			await setOrgTier(orgId, "silver");
 			const token = await loginOrg(api, email, domain);
 
 			const createRes = await api.createListing(token, {
@@ -367,6 +369,7 @@ test.describe("Subscription flows", () => {
 			generateTestOrgEmail("mp-sub-provider").email,
 			TEST_PASSWORD
 		);
+		await setOrgTier(provOrgId, "silver");
 		const { email: conEmail, domain: conDomain } =
 			await createTestOrgAdminDirect(
 				generateTestOrgEmail("mp-sub-consumer").email,
@@ -398,7 +401,7 @@ test.describe("Subscription flows", () => {
 				request_note: "I need this service",
 			};
 			const subRes = await api.subscribe(conToken, subReq);
-			expect(subRes.status).toBe(200);
+			expect(subRes.status).toBe(201);
 			const subStatus: MarketplaceSubscriptionStatus = subRes.body!.status;
 			expect(subStatus).toBe("active");
 
@@ -408,11 +411,11 @@ test.describe("Subscription flows", () => {
 			const cancelRes = await api.cancelSubscription(conToken, {
 				subscription_id: subId,
 			});
-			expect(cancelRes.status).toBe(204);
+			expect(cancelRes.status).toBe(200);
 
 			// Re-subscribe reactivates
 			const resubRes = await api.subscribe(conToken, subReq);
-			expect(resubRes.status).toBe(200);
+			expect(resubRes.status).toBe(201);
 			const resubStatus: MarketplaceSubscriptionStatus = resubRes.body!.status;
 			expect(resubStatus).toBe("active");
 		} finally {
@@ -539,11 +542,15 @@ test.describe("RBAC — Marketplace Listings", () => {
 		request,
 	}) => {
 		const api = new OrgAPIClient(request);
-		const { email: provEmail, domain: provDomain } =
-			await createTestOrgAdminDirect(
-				generateTestOrgEmail("mp-rbac-prov").email,
-				TEST_PASSWORD
-			);
+		const {
+			email: provEmail,
+			domain: provDomain,
+			orgId: provOrgId,
+		} = await createTestOrgAdminDirect(
+			generateTestOrgEmail("mp-rbac-prov").email,
+			TEST_PASSWORD
+		);
+		await setOrgTier(provOrgId, "silver");
 		const {
 			email: conEmail,
 			domain: conDomain,
@@ -573,7 +580,7 @@ test.describe("RBAC — Marketplace Listings", () => {
 				provider_org_domain: provDomain,
 				provider_listing_number: listingNum,
 			});
-			expect(subRes.status).toBe(200);
+			expect(subRes.status).toBe(201);
 		} finally {
 			await deleteTestOrgUser(provEmail);
 			await deleteTestOrgUser(conEmail);
@@ -629,8 +636,9 @@ test.describe("Audit logs for marketplace write operations", () => {
 	test("Create listing -> audit log recorded", async ({ request }) => {
 		const api = new OrgAPIClient(request);
 		const { email, domain } = generateTestOrgEmail("mp-audit");
-		await createTestOrgAdminDirect(email, TEST_PASSWORD);
+		const { orgId } = await createTestOrgAdminDirect(email, TEST_PASSWORD);
 		try {
+			await setOrgTier(orgId, "silver");
 			const token = await loginOrg(api, email, domain);
 			const before = new Date(Date.now() - 2000).toISOString();
 

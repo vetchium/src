@@ -43,6 +43,7 @@ export interface SelfUpgradeOrgSubscriptionRequest {
 
 export interface AdminListOrgSubscriptionsRequest {
 	filter_tier_id?: string;
+	filter_domain?: string;
 	pagination_key?: string;
 	limit?: number;
 }
@@ -98,7 +99,7 @@ export function validateAdminSetOrgTierRequest(
 	if (!req.tier_id || !VALID_TIER_IDS.includes(req.tier_id as TierId)) {
 		errs.push(newValidationError("tier_id", "must be a valid tier id"));
 	}
-	if (req.reason === undefined || req.reason === null) {
+	if (req.reason === undefined || req.reason === null || req.reason === "") {
 		errs.push(newValidationError("reason", "reason is required"));
 	} else if (req.reason.length > 2000) {
 		errs.push(newValidationError("reason", "must be at most 2000 characters"));

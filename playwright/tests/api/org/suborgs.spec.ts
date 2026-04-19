@@ -6,6 +6,7 @@ import {
 	deleteTestOrgUser,
 	generateTestOrgEmail,
 	assignRoleToOrgUser,
+	setOrgTier,
 } from "../../../lib/db";
 import { getTfaCodeFromEmail } from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
@@ -50,7 +51,8 @@ test.describe("SubOrgs API", () => {
 		test("Success: create a SubOrg (201)", async ({ request }) => {
 			const api = new OrgAPIClient(request);
 			const { email, domain } = generateTestOrgEmail("so-create");
-			await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			const { orgId } = await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			await setOrgTier(orgId, "silver");
 
 			try {
 				const token = await loginOrgUser(api, email, domain);
@@ -86,7 +88,8 @@ test.describe("SubOrgs API", () => {
 		test("Validation: missing name (400)", async ({ request }) => {
 			const api = new OrgAPIClient(request);
 			const { email, domain } = generateTestOrgEmail("so-noname");
-			await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			const { orgId } = await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			await setOrgTier(orgId, "silver");
 			try {
 				const token = await loginOrgUser(api, email, domain);
 				const res = await api.createSubOrgRaw(token, { pinned_region: "ind1" });
@@ -99,7 +102,8 @@ test.describe("SubOrgs API", () => {
 		test("Validation: name too long (400)", async ({ request }) => {
 			const api = new OrgAPIClient(request);
 			const { email, domain } = generateTestOrgEmail("so-namelong");
-			await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			const { orgId } = await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			await setOrgTier(orgId, "silver");
 			try {
 				const token = await loginOrgUser(api, email, domain);
 				const res = await api.createSubOrgRaw(token, {
@@ -115,7 +119,8 @@ test.describe("SubOrgs API", () => {
 		test("Validation: missing pinned_region (400)", async ({ request }) => {
 			const api = new OrgAPIClient(request);
 			const { email, domain } = generateTestOrgEmail("so-noregion");
-			await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			const { orgId } = await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			await setOrgTier(orgId, "silver");
 			try {
 				const token = await loginOrgUser(api, email, domain);
 				const res = await api.createSubOrgRaw(token, {
@@ -130,7 +135,8 @@ test.describe("SubOrgs API", () => {
 		test("Validation: invalid pinned_region (400)", async ({ request }) => {
 			const api = new OrgAPIClient(request);
 			const { email, domain } = generateTestOrgEmail("so-badregion");
-			await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			const { orgId } = await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			await setOrgTier(orgId, "silver");
 			try {
 				const token = await loginOrgUser(api, email, domain);
 				const res = await api.createSubOrgRaw(token, {
@@ -154,12 +160,9 @@ test.describe("SubOrgs API", () => {
 
 		test("RBAC: no manage_suborgs role returns 403", async ({ request }) => {
 			const api = new OrgAPIClient(request);
-			const { email: adminEmail, domain } =
-				generateTestOrgEmail("so-create-rbac");
-			const adminResult = await createTestOrgAdminDirect(
-				adminEmail,
-				TEST_PASSWORD
-			);
+			const { email, domain } = generateTestOrgEmail("so-create-rbac");
+			const adminResult = await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			await setOrgTier(adminResult.orgId, "silver");
 			const userEmail = `norole@${domain}`;
 			await createTestOrgUserDirect(userEmail, TEST_PASSWORD, "ind1", {
 				orgId: adminResult.orgId,
@@ -174,7 +177,7 @@ test.describe("SubOrgs API", () => {
 				expect(res.status).toBe(403);
 			} finally {
 				await deleteTestOrgUser(userEmail);
-				await deleteTestOrgUser(adminEmail);
+				await deleteTestOrgUser(email);
 			}
 		});
 	});
@@ -186,7 +189,8 @@ test.describe("SubOrgs API", () => {
 		test("Success: empty list for new org (200)", async ({ request }) => {
 			const api = new OrgAPIClient(request);
 			const { email, domain } = generateTestOrgEmail("so-list-empty");
-			await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			const { orgId } = await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			await setOrgTier(orgId, "silver");
 			try {
 				const token = await loginOrgUser(api, email, domain);
 				const res = await api.listSubOrgs(token, {});
@@ -201,7 +205,8 @@ test.describe("SubOrgs API", () => {
 		test("Success: list returns created SubOrgs (200)", async ({ request }) => {
 			const api = new OrgAPIClient(request);
 			const { email, domain } = generateTestOrgEmail("so-list");
-			await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			const { orgId } = await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			await setOrgTier(orgId, "silver");
 			try {
 				const token = await loginOrgUser(api, email, domain);
 				await api.createSubOrg(token, {
@@ -224,7 +229,8 @@ test.describe("SubOrgs API", () => {
 		test("Success: filter by status active (200)", async ({ request }) => {
 			const api = new OrgAPIClient(request);
 			const { email, domain } = generateTestOrgEmail("so-filter-active");
-			await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			const { orgId } = await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			await setOrgTier(orgId, "silver");
 			try {
 				const token = await loginOrgUser(api, email, domain);
 				const createRes = await api.createSubOrg(token, {
@@ -264,7 +270,8 @@ test.describe("SubOrgs API", () => {
 		test("Pagination: keyset pagination works (200)", async ({ request }) => {
 			const api = new OrgAPIClient(request);
 			const { email, domain } = generateTestOrgEmail("so-pages");
-			await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			const { orgId } = await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			await setOrgTier(orgId, "gold");
 			try {
 				const token = await loginOrgUser(api, email, domain);
 				for (let i = 1; i <= 5; i++) {
@@ -293,12 +300,9 @@ test.describe("SubOrgs API", () => {
 
 		test("RBAC: view_suborgs can list suborgs (200)", async ({ request }) => {
 			const api = new OrgAPIClient(request);
-			const { email: adminEmail, domain } =
-				generateTestOrgEmail("so-list-view");
-			const adminResult = await createTestOrgAdminDirect(
-				adminEmail,
-				TEST_PASSWORD
-			);
+			const { email, domain } = generateTestOrgEmail("so-list-view");
+			const adminResult = await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			await setOrgTier(adminResult.orgId, "silver");
 			const viewerEmail = `viewer@${domain}`;
 			const viewerResult = await createTestOrgUserDirect(
 				viewerEmail,
@@ -313,7 +317,7 @@ test.describe("SubOrgs API", () => {
 				expect(res.status).toBe(200);
 			} finally {
 				await deleteTestOrgUser(viewerEmail);
-				await deleteTestOrgUser(adminEmail);
+				await deleteTestOrgUser(email);
 			}
 		});
 
@@ -321,12 +325,9 @@ test.describe("SubOrgs API", () => {
 			request,
 		}) => {
 			const api = new OrgAPIClient(request);
-			const { email: adminEmail, domain } =
-				generateTestOrgEmail("so-list-norole");
-			const adminResult = await createTestOrgAdminDirect(
-				adminEmail,
-				TEST_PASSWORD
-			);
+			const { email, domain } = generateTestOrgEmail("so-list-norole");
+			const adminResult = await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			await setOrgTier(adminResult.orgId, "silver");
 			const userEmail = `norole@${domain}`;
 			await createTestOrgUserDirect(userEmail, TEST_PASSWORD, "ind1", {
 				orgId: adminResult.orgId,
@@ -338,7 +339,7 @@ test.describe("SubOrgs API", () => {
 				expect(res.status).toBe(403);
 			} finally {
 				await deleteTestOrgUser(userEmail);
-				await deleteTestOrgUser(adminEmail);
+				await deleteTestOrgUser(email);
 			}
 		});
 
@@ -356,7 +357,8 @@ test.describe("SubOrgs API", () => {
 		test("Success: rename a SubOrg (200)", async ({ request }) => {
 			const api = new OrgAPIClient(request);
 			const { email, domain } = generateTestOrgEmail("so-rename");
-			await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			const { orgId } = await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			await setOrgTier(orgId, "silver");
 			try {
 				const token = await loginOrgUser(api, email, domain);
 				const createRes = await api.createSubOrg(token, {
@@ -392,7 +394,8 @@ test.describe("SubOrgs API", () => {
 		test("Not found: non-existent suborg name (404)", async ({ request }) => {
 			const api = new OrgAPIClient(request);
 			const { email, domain } = generateTestOrgEmail("so-ren404");
-			await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			const { orgId } = await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			await setOrgTier(orgId, "silver");
 			try {
 				const token = await loginOrgUser(api, email, domain);
 				const res = await api.renameSubOrg(token, {
@@ -408,7 +411,8 @@ test.describe("SubOrgs API", () => {
 		test("Validation: missing name (400)", async ({ request }) => {
 			const api = new OrgAPIClient(request);
 			const { email, domain } = generateTestOrgEmail("so-ren-noid");
-			await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			const { orgId } = await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			await setOrgTier(orgId, "silver");
 			try {
 				const token = await loginOrgUser(api, email, domain);
 				const res = await api.renameSubOrgRaw(token, { new_name: "New Name" });
@@ -429,18 +433,16 @@ test.describe("SubOrgs API", () => {
 
 		test("RBAC: no manage_suborgs returns 403", async ({ request }) => {
 			const api = new OrgAPIClient(request);
-			const { email: adminEmail, domain } = generateTestOrgEmail("so-ren-rbac");
-			const adminResult = await createTestOrgAdminDirect(
-				adminEmail,
-				TEST_PASSWORD
-			);
+			const { email, domain } = generateTestOrgEmail("so-ren-rbac");
+			const adminResult = await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			await setOrgTier(adminResult.orgId, "silver");
 			const userEmail = `norole@${domain}`;
 			await createTestOrgUserDirect(userEmail, TEST_PASSWORD, "ind1", {
 				orgId: adminResult.orgId,
 				domain,
 			});
 
-			const adminToken = await loginOrgUser(api, adminEmail, domain);
+			const adminToken = await loginOrgUser(api, email, domain);
 			const createRes = await api.createSubOrg(adminToken, {
 				name: "Rename Test",
 				pinned_region: "ind1",
@@ -456,7 +458,7 @@ test.describe("SubOrgs API", () => {
 				expect(res.status).toBe(403);
 			} finally {
 				await deleteTestOrgUser(userEmail);
-				await deleteTestOrgUser(adminEmail);
+				await deleteTestOrgUser(email);
 			}
 		});
 	});
@@ -470,7 +472,8 @@ test.describe("SubOrgs API", () => {
 		}) => {
 			const api = new OrgAPIClient(request);
 			const { email, domain } = generateTestOrgEmail("so-dis-en");
-			await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			const { orgId } = await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			await setOrgTier(orgId, "silver");
 			try {
 				const token = await loginOrgUser(api, email, domain);
 				const createRes = await api.createSubOrg(token, {
@@ -520,7 +523,8 @@ test.describe("SubOrgs API", () => {
 		}) => {
 			const api = new OrgAPIClient(request);
 			const { email, domain } = generateTestOrgEmail("so-dis-twice");
-			await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			const { orgId } = await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			await setOrgTier(orgId, "silver");
 			try {
 				const token = await loginOrgUser(api, email, domain);
 				const createRes = await api.createSubOrg(token, {
@@ -541,7 +545,8 @@ test.describe("SubOrgs API", () => {
 		}) => {
 			const api = new OrgAPIClient(request);
 			const { email, domain } = generateTestOrgEmail("so-en-twice");
-			await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			const { orgId } = await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			await setOrgTier(orgId, "silver");
 			try {
 				const token = await loginOrgUser(api, email, domain);
 				const createRes = await api.createSubOrg(token, {
@@ -562,7 +567,8 @@ test.describe("SubOrgs API", () => {
 		}) => {
 			const api = new OrgAPIClient(request);
 			const { email, domain } = generateTestOrgEmail("so-dis404");
-			await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			const { orgId } = await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			await setOrgTier(orgId, "silver");
 			try {
 				const token = await loginOrgUser(api, email, domain);
 				const res = await api.disableSubOrg(token, {
@@ -586,18 +592,16 @@ test.describe("SubOrgs API", () => {
 			request,
 		}) => {
 			const api = new OrgAPIClient(request);
-			const { email: adminEmail, domain } = generateTestOrgEmail("so-dis-rbac");
-			const adminResult = await createTestOrgAdminDirect(
-				adminEmail,
-				TEST_PASSWORD
-			);
+			const { email, domain } = generateTestOrgEmail("so-dis-rbac");
+			const adminResult = await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			await setOrgTier(adminResult.orgId, "silver");
 			const userEmail = `norole@${domain}`;
 			await createTestOrgUserDirect(userEmail, TEST_PASSWORD, "ind1", {
 				orgId: adminResult.orgId,
 				domain,
 			});
 
-			const adminToken = await loginOrgUser(api, adminEmail, domain);
+			const adminToken = await loginOrgUser(api, email, domain);
 			const createRes = await api.createSubOrg(adminToken, {
 				name: "RBAC Disable SubOrg",
 				pinned_region: "ind1",
@@ -612,7 +616,7 @@ test.describe("SubOrgs API", () => {
 				expect(res.status).toBe(403);
 			} finally {
 				await deleteTestOrgUser(userEmail);
-				await deleteTestOrgUser(adminEmail);
+				await deleteTestOrgUser(email);
 			}
 		});
 
@@ -620,18 +624,16 @@ test.describe("SubOrgs API", () => {
 			request,
 		}) => {
 			const api = new OrgAPIClient(request);
-			const { email: adminEmail, domain } = generateTestOrgEmail("so-en-rbac");
-			const adminResult = await createTestOrgAdminDirect(
-				adminEmail,
-				TEST_PASSWORD
-			);
+			const { email, domain } = generateTestOrgEmail("so-en-rbac");
+			const adminResult = await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			await setOrgTier(adminResult.orgId, "silver");
 			const userEmail = `norole@${domain}`;
 			await createTestOrgUserDirect(userEmail, TEST_PASSWORD, "ind1", {
 				orgId: adminResult.orgId,
 				domain,
 			});
 
-			const adminToken = await loginOrgUser(api, adminEmail, domain);
+			const adminToken = await loginOrgUser(api, email, domain);
 			const createRes = await api.createSubOrg(adminToken, {
 				name: "RBAC Enable SubOrg",
 				pinned_region: "ind1",
@@ -647,7 +649,7 @@ test.describe("SubOrgs API", () => {
 				expect(res.status).toBe(403);
 			} finally {
 				await deleteTestOrgUser(userEmail);
-				await deleteTestOrgUser(adminEmail);
+				await deleteTestOrgUser(email);
 			}
 		});
 	});
@@ -658,11 +660,9 @@ test.describe("SubOrgs API", () => {
 	test.describe("POST /org/add-suborg-member and remove-suborg-member", () => {
 		test("Success: add then remove a member (200)", async ({ request }) => {
 			const api = new OrgAPIClient(request);
-			const { email: adminEmail, domain } = generateTestOrgEmail("so-member");
-			const adminResult = await createTestOrgAdminDirect(
-				adminEmail,
-				TEST_PASSWORD
-			);
+			const { email, domain } = generateTestOrgEmail("so-member");
+			const adminResult = await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			await setOrgTier(adminResult.orgId, "silver");
 			const memberEmail = `member@${domain}`;
 			await createTestOrgUserDirect(memberEmail, TEST_PASSWORD, "ind1", {
 				orgId: adminResult.orgId,
@@ -670,7 +670,7 @@ test.describe("SubOrgs API", () => {
 			});
 
 			try {
-				const token = await loginOrgUser(api, adminEmail, domain);
+				const token = await loginOrgUser(api, email, domain);
 
 				const createRes = await api.createSubOrg(token, {
 					name: "Member Test SubOrg",
@@ -715,17 +715,15 @@ test.describe("SubOrgs API", () => {
 				expect(auditRemove.body.audit_logs[0].target_email).toBeDefined();
 			} finally {
 				await deleteTestOrgUser(memberEmail);
-				await deleteTestOrgUser(adminEmail);
+				await deleteTestOrgUser(email);
 			}
 		});
 
 		test("Conflict: add same member twice (409)", async ({ request }) => {
 			const api = new OrgAPIClient(request);
-			const { email: adminEmail, domain } = generateTestOrgEmail("so-mem-dup");
-			const adminResult = await createTestOrgAdminDirect(
-				adminEmail,
-				TEST_PASSWORD
-			);
+			const { email, domain } = generateTestOrgEmail("so-mem-dup");
+			const adminResult = await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			await setOrgTier(adminResult.orgId, "silver");
 			const memberEmail = `member@${domain}`;
 			await createTestOrgUserDirect(memberEmail, TEST_PASSWORD, "ind1", {
 				orgId: adminResult.orgId,
@@ -733,7 +731,7 @@ test.describe("SubOrgs API", () => {
 			});
 
 			try {
-				const token = await loginOrgUser(api, adminEmail, domain);
+				const token = await loginOrgUser(api, email, domain);
 				const createRes = await api.createSubOrg(token, {
 					name: "Dup Member SubOrg",
 					pinned_region: "ind1",
@@ -749,17 +747,15 @@ test.describe("SubOrgs API", () => {
 				expect(second.status).toBe(409);
 			} finally {
 				await deleteTestOrgUser(memberEmail);
-				await deleteTestOrgUser(adminEmail);
+				await deleteTestOrgUser(email);
 			}
 		});
 
 		test("Not found: remove non-member (404)", async ({ request }) => {
 			const api = new OrgAPIClient(request);
-			const { email: adminEmail, domain } = generateTestOrgEmail("so-rem404");
-			const adminResult = await createTestOrgAdminDirect(
-				adminEmail,
-				TEST_PASSWORD
-			);
+			const { email, domain } = generateTestOrgEmail("so-rem404");
+			const adminResult = await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			await setOrgTier(adminResult.orgId, "silver");
 			const nonMemberEmail = `nonmember@${domain}`;
 			await createTestOrgUserDirect(nonMemberEmail, TEST_PASSWORD, "ind1", {
 				orgId: adminResult.orgId,
@@ -767,7 +763,7 @@ test.describe("SubOrgs API", () => {
 			});
 
 			try {
-				const token = await loginOrgUser(api, adminEmail, domain);
+				const token = await loginOrgUser(api, email, domain);
 				const createRes = await api.createSubOrg(token, {
 					name: "Remove 404 SubOrg",
 					pinned_region: "ind1",
@@ -781,14 +777,15 @@ test.describe("SubOrgs API", () => {
 				expect(res.status).toBe(404);
 			} finally {
 				await deleteTestOrgUser(nonMemberEmail);
-				await deleteTestOrgUser(adminEmail);
+				await deleteTestOrgUser(email);
 			}
 		});
 
 		test("Validation: missing name (400)", async ({ request }) => {
 			const api = new OrgAPIClient(request);
 			const { email, domain } = generateTestOrgEmail("so-mem-noid");
-			await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			const { orgId } = await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			await setOrgTier(orgId, "silver");
 			try {
 				const token = await loginOrgUser(api, email, domain);
 				const res = await api.addSubOrgMemberRaw(token, {
@@ -813,11 +810,9 @@ test.describe("SubOrgs API", () => {
 			request,
 		}) => {
 			const api = new OrgAPIClient(request);
-			const { email: adminEmail, domain } = generateTestOrgEmail("so-rem-rbac");
-			const adminResult = await createTestOrgAdminDirect(
-				adminEmail,
-				TEST_PASSWORD
-			);
+			const { email, domain } = generateTestOrgEmail("so-rem-rbac");
+			const adminResult = await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			await setOrgTier(adminResult.orgId, "silver");
 			const memberEmail = `member@${domain}`;
 			const memberResult = await createTestOrgUserDirect(
 				memberEmail,
@@ -831,7 +826,7 @@ test.describe("SubOrgs API", () => {
 				domain,
 			});
 
-			const adminToken = await loginOrgUser(api, adminEmail, domain);
+			const adminToken = await loginOrgUser(api, email, domain);
 			const createRes = await api.createSubOrg(adminToken, {
 				name: "RBAC Remove Member SubOrg",
 				pinned_region: "ind1",
@@ -851,24 +846,22 @@ test.describe("SubOrgs API", () => {
 			} finally {
 				await deleteTestOrgUser(noRoleEmail);
 				await deleteTestOrgUser(memberEmail);
-				await deleteTestOrgUser(adminEmail);
+				await deleteTestOrgUser(email);
 			}
 		});
 
 		test("RBAC: no manage_suborgs returns 403", async ({ request }) => {
 			const api = new OrgAPIClient(request);
-			const { email: adminEmail, domain } = generateTestOrgEmail("so-mem-rbac");
-			const adminResult = await createTestOrgAdminDirect(
-				adminEmail,
-				TEST_PASSWORD
-			);
+			const { email, domain } = generateTestOrgEmail("so-mem-rbac");
+			const adminResult = await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			await setOrgTier(adminResult.orgId, "silver");
 			const userEmail = `norole@${domain}`;
 			await createTestOrgUserDirect(userEmail, TEST_PASSWORD, "ind1", {
 				orgId: adminResult.orgId,
 				domain,
 			});
 
-			const adminToken = await loginOrgUser(api, adminEmail, domain);
+			const adminToken = await loginOrgUser(api, email, domain);
 			const createRes = await api.createSubOrg(adminToken, {
 				name: "RBAC SubOrg",
 				pinned_region: "ind1",
@@ -883,7 +876,7 @@ test.describe("SubOrgs API", () => {
 				expect(res.status).toBe(403);
 			} finally {
 				await deleteTestOrgUser(userEmail);
-				await deleteTestOrgUser(adminEmail);
+				await deleteTestOrgUser(email);
 			}
 		});
 	});
@@ -894,11 +887,9 @@ test.describe("SubOrgs API", () => {
 	test.describe("POST /org/list-suborg-members", () => {
 		test("Success: list members of a SubOrg (200)", async ({ request }) => {
 			const api = new OrgAPIClient(request);
-			const { email: adminEmail, domain } = generateTestOrgEmail("so-list-mem");
-			const adminResult = await createTestOrgAdminDirect(
-				adminEmail,
-				TEST_PASSWORD
-			);
+			const { email, domain } = generateTestOrgEmail("so-list-mem");
+			const adminResult = await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			await setOrgTier(adminResult.orgId, "silver");
 			const m1Email = `m1@${domain}`;
 			const m2Email = `m2@${domain}`;
 			const m1Result = await createTestOrgUserDirect(
@@ -915,7 +906,7 @@ test.describe("SubOrgs API", () => {
 			);
 
 			try {
-				const token = await loginOrgUser(api, adminEmail, domain);
+				const token = await loginOrgUser(api, email, domain);
 				const createRes = await api.createSubOrg(token, {
 					name: "List Members SubOrg",
 					pinned_region: "ind1",
@@ -940,14 +931,15 @@ test.describe("SubOrgs API", () => {
 			} finally {
 				await deleteTestOrgUser(m1Email);
 				await deleteTestOrgUser(m2Email);
-				await deleteTestOrgUser(adminEmail);
+				await deleteTestOrgUser(email);
 			}
 		});
 
 		test("Not found: non-existent suborg name (404)", async ({ request }) => {
 			const api = new OrgAPIClient(request);
 			const { email, domain } = generateTestOrgEmail("so-lm404");
-			await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			const { orgId } = await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			await setOrgTier(orgId, "silver");
 			try {
 				const token = await loginOrgUser(api, email, domain);
 				const res = await api.listSubOrgMembers(token, {
@@ -961,11 +953,9 @@ test.describe("SubOrgs API", () => {
 
 		test("RBAC: view_suborgs can list members (200)", async ({ request }) => {
 			const api = new OrgAPIClient(request);
-			const { email: adminEmail, domain } = generateTestOrgEmail("so-lm-view");
-			const adminResult = await createTestOrgAdminDirect(
-				adminEmail,
-				TEST_PASSWORD
-			);
+			const { email, domain } = generateTestOrgEmail("so-lm-view");
+			const adminResult = await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			await setOrgTier(adminResult.orgId, "silver");
 			const viewerEmail = `viewer@${domain}`;
 			const viewerResult = await createTestOrgUserDirect(
 				viewerEmail,
@@ -975,7 +965,7 @@ test.describe("SubOrgs API", () => {
 			);
 			await assignRoleToOrgUser(viewerResult.orgUserId, "org:view_suborgs");
 
-			const adminToken = await loginOrgUser(api, adminEmail, domain);
+			const adminToken = await loginOrgUser(api, email, domain);
 			const createRes = await api.createSubOrg(adminToken, {
 				name: "Viewer Test SubOrg",
 				pinned_region: "ind1",
@@ -990,7 +980,7 @@ test.describe("SubOrgs API", () => {
 				expect(res.status).toBe(200);
 			} finally {
 				await deleteTestOrgUser(viewerEmail);
-				await deleteTestOrgUser(adminEmail);
+				await deleteTestOrgUser(email);
 			}
 		});
 
@@ -998,19 +988,16 @@ test.describe("SubOrgs API", () => {
 			request,
 		}) => {
 			const api = new OrgAPIClient(request);
-			const { email: adminEmail, domain } =
-				generateTestOrgEmail("so-lm-norole");
-			const adminResult = await createTestOrgAdminDirect(
-				adminEmail,
-				TEST_PASSWORD
-			);
+			const { email, domain } = generateTestOrgEmail("so-lm-norole");
+			const adminResult = await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			await setOrgTier(adminResult.orgId, "silver");
 			const userEmail = `norole@${domain}`;
 			await createTestOrgUserDirect(userEmail, TEST_PASSWORD, "ind1", {
 				orgId: adminResult.orgId,
 				domain,
 			});
 
-			const adminToken = await loginOrgUser(api, adminEmail, domain);
+			const adminToken = await loginOrgUser(api, email, domain);
 			const createRes = await api.createSubOrg(adminToken, {
 				name: "No Role SubOrg",
 				pinned_region: "ind1",
@@ -1024,7 +1011,7 @@ test.describe("SubOrgs API", () => {
 				expect(res.status).toBe(403);
 			} finally {
 				await deleteTestOrgUser(userEmail);
-				await deleteTestOrgUser(adminEmail);
+				await deleteTestOrgUser(email);
 			}
 		});
 
@@ -1045,11 +1032,9 @@ test.describe("SubOrgs API", () => {
 			request,
 		}) => {
 			const api = new OrgAPIClient(request);
-			const { email: adminEmail, domain } = generateTestOrgEmail("so-rbac-pos");
-			const adminResult = await createTestOrgAdminDirect(
-				adminEmail,
-				TEST_PASSWORD
-			);
+			const { email, domain } = generateTestOrgEmail("so-rbac-pos");
+			const adminResult = await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			await setOrgTier(adminResult.orgId, "silver");
 			const managerEmail = `manager@${domain}`;
 			const managerResult = await createTestOrgUserDirect(
 				managerEmail,
@@ -1104,7 +1089,7 @@ test.describe("SubOrgs API", () => {
 				expect(enableRes.status).toBe(200);
 			} finally {
 				await deleteTestOrgUser(managerEmail);
-				await deleteTestOrgUser(adminEmail);
+				await deleteTestOrgUser(email);
 			}
 		});
 	});
@@ -1117,11 +1102,9 @@ test.describe("SubOrgs API", () => {
 			request,
 		}) => {
 			const api = new OrgAPIClient(request);
-			const { email: adminEmail, domain } = generateTestOrgEmail("so-revoke");
-			const adminResult = await createTestOrgAdminDirect(
-				adminEmail,
-				TEST_PASSWORD
-			);
+			const { email, domain } = generateTestOrgEmail("so-revoke");
+			const adminResult = await createTestOrgAdminDirect(email, TEST_PASSWORD);
+			await setOrgTier(adminResult.orgId, "silver");
 			const memberEmail = `member@${domain}`;
 			const memberResult = await createTestOrgUserDirect(
 				memberEmail,
@@ -1131,7 +1114,7 @@ test.describe("SubOrgs API", () => {
 			);
 
 			try {
-				const token = await loginOrgUser(api, adminEmail, domain);
+				const token = await loginOrgUser(api, email, domain);
 
 				const createRes = await api.createSubOrg(token, {
 					name: "Revoke Test SubOrg",
@@ -1168,7 +1151,7 @@ test.describe("SubOrgs API", () => {
 				).not.toContain(memberEmail);
 			} finally {
 				await deleteTestOrgUser(memberEmail);
-				await deleteTestOrgUser(adminEmail);
+				await deleteTestOrgUser(email);
 			}
 		});
 	});

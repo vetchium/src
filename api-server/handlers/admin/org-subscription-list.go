@@ -2,8 +2,10 @@ package admin
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
@@ -47,6 +49,11 @@ func ListOrgSubscriptions(s *server.GlobalServer) http.HandlerFunc {
 			filterTierID = pgtype.Text{String: *req.FilterTierID, Valid: true}
 		}
 
+		var filterDomain pgtype.Text
+		if req.FilterDomain != nil && *req.FilterDomain != "" {
+			filterDomain = pgtype.Text{String: *req.FilterDomain, Valid: true}
+		}
+
 		var paginationKey pgtype.UUID
 		if req.PaginationKey != nil && *req.PaginationKey != "" {
 			if err := paginationKey.Scan(*req.PaginationKey); err != nil {
@@ -57,6 +64,7 @@ func ListOrgSubscriptions(s *server.GlobalServer) http.HandlerFunc {
 
 		rows, err := s.Global.AdminListOrgSubscriptions(ctx, globaldb.AdminListOrgSubscriptionsParams{
 			FilterTierID:  filterTierID,
+			FilterDomain:  filterDomain,
 			PaginationKey: paginationKey,
 			RowLimit:      rowLimit + 1,
 		})
@@ -75,13 +83,14 @@ func ListOrgSubscriptions(s *server.GlobalServer) http.HandlerFunc {
 
 		items := make([]orgtypes.OrgSubscription, 0, len(rows))
 		for _, row := range rows {
-			domain := ""
-			if row.OrgDomain.Valid {
-				domain = row.OrgDomain.String
-			}
+			domain := row.OrgDomain
 
 			sub, err := s.Global.GetOrgSubscription(ctx, row.OrgID)
 			if err != nil {
+				if errors.Is(err, pgx.ErrNoRows) {
+					s.Logger(ctx).Debug("org subscription row disappeared mid-list", "org_id", uuidToString(row.OrgID))
+					continue
+				}
 				s.Logger(ctx).Error("failed to get subscription detail", "error", err, "org_id", uuidToString(row.OrgID))
 				http.Error(w, "", http.StatusInternalServerError)
 				return
@@ -90,6 +99,10 @@ func ListOrgSubscriptions(s *server.GlobalServer) http.HandlerFunc {
 			// Determine the region for this org to get regional counts
 			org, err := s.Global.GetOrgByID(ctx, row.OrgID)
 			if err != nil {
+				if errors.Is(err, pgx.ErrNoRows) {
+					s.Logger(ctx).Debug("org row disappeared mid-list", "org_id", uuidToString(row.OrgID))
+					continue
+				}
 				s.Logger(ctx).Error("failed to get org", "error", err)
 				http.Error(w, "", http.StatusInternalServerError)
 				return

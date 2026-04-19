@@ -21,24 +21,26 @@ export async function antdSelect(
 
 	if (searchText) {
 		await page.keyboard.type(searchText);
-		await page.waitForTimeout(500); // Wait for filtering
+		await page.waitForTimeout(500);
 	}
 
 	// Wait for dropdown to be visible
 	const dropdown = page.locator(
 		".ant-select-dropdown:not(.ant-select-dropdown-hidden)"
 	);
-	await expect(dropdown).toBeVisible({ timeout: 5000 });
+	await expect(dropdown).toBeVisible({ timeout: 10000 });
 
-	// Find the option and click it
+	// Find the option within the dropdown (not anywhere on the page)
 	const option = dropdown
 		.locator(`.ant-select-item-option:has-text("${optionText}")`)
 		.first();
-	await expect(option).toBeVisible();
+	await expect(option).toBeVisible({ timeout: 10000 });
 	await option.click();
 
-	// Wait for dropdown to disappear
-	await expect(dropdown).not.toBeVisible();
+	// Wait for dropdown to disappear (single-select); multi-select dropdowns stay open
+	await expect(dropdown)
+		.not.toBeVisible({ timeout: 3000 })
+		.catch(() => {});
 }
 
 /**

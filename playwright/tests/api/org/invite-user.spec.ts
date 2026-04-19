@@ -457,7 +457,7 @@ test.describe("RBAC: POST /org/invite-user", () => {
 			// Now 5 users exist (the cap). Inviting a 6th should hit quota.
 			const inviteResponse = await api.inviteUser(sessionToken, {
 				email_address: `over-cap@${domain}`,
-				roles: [],
+				roles: ["org:view_users"],
 			});
 			expect(inviteResponse.status).toBe(403);
 		} finally {

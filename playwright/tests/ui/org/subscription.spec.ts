@@ -26,7 +26,9 @@ test.describe("Org UI — Subscription Page", () => {
 			await expect(page.locator("text=Subscription")).toBeVisible({
 				timeout: 10000,
 			});
-			await expect(page.locator("text=Free")).toBeVisible({ timeout: 5000 });
+			await expect(page.getByRole("heading", { name: "Free" })).toBeVisible({
+				timeout: 5000,
+			});
 
 			// Usage rows
 			await expect(page.locator("text=/org user|users/i").first()).toBeVisible({
@@ -34,7 +36,9 @@ test.describe("Org UI — Subscription Page", () => {
 			});
 
 			// Upgrade to Silver button should exist (Silver is self-upgradeable)
-			const upgradeBtn = page.locator("button:has-text(/upgrade to silver/i)");
+			const upgradeBtn = page.locator("button", {
+				hasText: /upgrade to silver/i,
+			});
 			if ((await upgradeBtn.count()) > 0) {
 				await expect(upgradeBtn).toBeVisible();
 			} else {
@@ -61,7 +65,9 @@ test.describe("Org UI — Subscription Page", () => {
 			await expect(page.locator("text=Subscription")).toBeVisible({
 				timeout: 10000,
 			});
-			await expect(page.locator("text=Free")).toBeVisible({ timeout: 5000 });
+			await expect(page.getByRole("heading", { name: "Free" })).toBeVisible({
+				timeout: 5000,
+			});
 
 			// Click Upgrade to Silver
 			const upgradeBtn = page
@@ -80,7 +86,7 @@ test.describe("Org UI — Subscription Page", () => {
 
 			// Click confirm/OK
 			const confirmBtn = modal
-				.locator("button:has-text(/confirm|ok|upgrade/i)")
+				.locator("button", { hasText: /confirm|ok|upgrade/i })
 				.first();
 			await confirmBtn.click();
 
@@ -111,7 +117,7 @@ test.describe("Org UI — Subscription Page", () => {
 			});
 
 			// There should be no "Upgrade" button when on Enterprise
-			const upgradeBtn = page.locator("button:has-text(/upgrade/i)");
+			const upgradeBtn = page.locator("button", { hasText: /upgrade/i });
 			const count = await upgradeBtn.count();
 			expect(count).toBe(0);
 		} finally {

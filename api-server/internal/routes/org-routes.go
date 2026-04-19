@@ -98,6 +98,8 @@ func RegisterOrgRoutes(mux *http.ServeMux, s *server.RegionalServer) {
 	mux.Handle("POST /org/marketplace/listing/reject", orgAuth(orgRoleSuperadmin(org.RejectListing(s))))
 	mux.Handle("POST /org/marketplace/listing/archive", orgAuth(orgRoleManageListings(org.ArchiveMarketplaceListing(s))))
 	mux.Handle("POST /org/marketplace/listing/reopen", orgAuth(orgRoleManageListings(org.ReopenMarketplaceListing(s))))
+	mux.Handle("POST /org/marketplace/listing/add-capability", orgAuth(orgRoleManageListings(org.AddListingCapability(s))))
+	mux.Handle("POST /org/marketplace/listing/remove-capability", orgAuth(orgRoleManageListings(org.RemoveListingCapability(s))))
 	mux.Handle("POST /org/marketplace/listing/list", orgAuth(orgRoleViewListings(org.ListMyListings(s))))
 	mux.Handle("POST /org/marketplace/listing/get", orgAuth(org.GetMarketplaceListing(s)))
 

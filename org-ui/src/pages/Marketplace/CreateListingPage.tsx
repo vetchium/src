@@ -1,5 +1,14 @@
 import { ArrowLeftOutlined } from "@ant-design/icons";
-import { App, Button, Form, Input, Select, Spin, Typography } from "antd";
+import {
+	App,
+	Button,
+	Form,
+	Input,
+	Select,
+	Space,
+	Spin,
+	Typography,
+} from "antd";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router-dom";
@@ -45,14 +54,11 @@ export function CreateListingPage() {
 		loadCapabilities();
 	}, [loadCapabilities]);
 
-	const handleSubmit = async (values: {
-		headline: string;
-		description: string;
-		capabilities: string[];
-	}) => {
+	const handleSubmit = async (publish: boolean) => {
 		if (!sessionToken) return;
-		setSubmitting(true);
 		try {
+			const values = await form.validateFields();
+			setSubmitting(true);
 			const baseUrl = await getApiBaseUrl();
 			const resp = await fetch(`${baseUrl}/org/marketplace/listing/create`, {
 				method: "POST",
@@ -63,8 +69,32 @@ export function CreateListingPage() {
 				body: JSON.stringify(values),
 			});
 			if (resp.status === 201) {
-				message.success(t("create.success"));
-				navigate("/marketplace/listings");
+				const created = await resp.json();
+				if (publish) {
+					const pubResp = await fetch(
+						`${baseUrl}/org/marketplace/listing/publish`,
+						{
+							method: "POST",
+							headers: {
+								"Content-Type": "application/json",
+								Authorization: `Bearer ${sessionToken}`,
+							},
+							body: JSON.stringify({ listing_number: created.listing_number }),
+						}
+					);
+					if (pubResp.status === 200) {
+						message.success(t("listing.publishSuccess"));
+						navigate("/marketplace/listings");
+					} else {
+						message.warning(
+							t("create.success") + " " + t("listing.publishError")
+						);
+						navigate("/marketplace/listings");
+					}
+				} else {
+					message.success(t("create.success"));
+					navigate("/marketplace/listings");
+				}
 			} else if (resp.status === 400) {
 				const errs = await resp.json();
 				message.error(
@@ -81,6 +111,8 @@ export function CreateListingPage() {
 			} else {
 				message.error(t("create.error"));
 			}
+		} catch (err) {
+			// form validation failed or fetch error
 		} finally {
 			setSubmitting(false);
 		}
@@ -106,7 +138,7 @@ export function CreateListingPage() {
 			</Title>
 
 			<Spin spinning={submitting}>
-				<Form form={form} layout="vertical" onFinish={handleSubmit}>
+				<Form form={form} layout="vertical">
 					<Form.Item
 						name="headline"
 						label={t("create.headline")}
@@ -133,6 +165,7 @@ export function CreateListingPage() {
 					>
 						<Select
 							mode="multiple"
+							showSearch
 							maxCount={5}
 							placeholder={t("create.capabilitiesPlaceholder")}
 							options={capabilities.map((c) => ({
@@ -154,9 +187,18 @@ export function CreateListingPage() {
 					</Form.Item>
 
 					<Form.Item>
-						<Button type="primary" htmlType="submit" loading={submitting}>
-							{t("create.submit")}
-						</Button>
+						<Space>
+							<Button onClick={() => handleSubmit(false)} loading={submitting}>
+								{t("listings.saveDraft", "Save Draft")}
+							</Button>
+							<Button
+								type="primary"
+								onClick={() => handleSubmit(true)}
+								loading={submitting}
+							>
+								{t("listing.publish")}
+							</Button>
+						</Space>
 					</Form.Item>
 				</Form>
 			</Spin>

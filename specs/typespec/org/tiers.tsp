@@ -51,6 +51,7 @@ model SelfUpgradeOrgSubscriptionRequest {
 
 model AdminListOrgSubscriptionsRequest {
   filter_tier_id?: string;
+  filter_domain?: string;
   pagination_key?: string;
   limit?: int32;
 }

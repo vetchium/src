@@ -658,7 +658,7 @@ export async function deleteTestOrgUser(email: string): Promise<void> {
 			await regionalPool.end();
 		}
 
-		// Clean up global marketplace data
+		// Clean up global marketplace and subscription data
 		await pool.query(
 			`DELETE FROM marketplace_subscription_index WHERE consumer_org_id = $1 OR provider_org_id = $1`,
 			[orgId]
@@ -667,6 +667,12 @@ export async function deleteTestOrgUser(email: string): Promise<void> {
 			`DELETE FROM marketplace_listing_catalog WHERE org_id = $1`,
 			[orgId]
 		);
+		await pool.query(`DELETE FROM org_subscription_history WHERE org_id = $1`, [
+			orgId,
+		]);
+		await pool.query(`DELETE FROM org_subscriptions WHERE org_id = $1`, [
+			orgId,
+		]);
 
 		// Delete from global DB
 		await pool.query(`DELETE FROM org_users WHERE email_address_hash = $1`, [
@@ -685,6 +691,10 @@ export async function deleteTestOrgUser(email: string): Promise<void> {
  * @param orgId - Org UUID to delete
  */
 export async function deleteTestOrg(orgId: string): Promise<void> {
+	await pool.query(`DELETE FROM org_subscription_history WHERE org_id = $1`, [
+		orgId,
+	]);
+	await pool.query(`DELETE FROM org_subscriptions WHERE org_id = $1`, [orgId]);
 	// CASCADE delete will handle org_users and global_org_domains
 	await pool.query(`DELETE FROM orgs WHERE org_id = $1`, [orgId]);
 }
@@ -910,7 +920,7 @@ export async function deleteTestOrgByDomain(domain: string): Promise<void> {
 		await regionalPool.end();
 	}
 
-	// Clean up global marketplace data
+	// Clean up global marketplace and subscription data
 	await pool.query(
 		`DELETE FROM marketplace_subscription_index WHERE consumer_org_id = $1 OR provider_org_id = $1`,
 		[org_id]
@@ -919,6 +929,10 @@ export async function deleteTestOrgByDomain(domain: string): Promise<void> {
 		`DELETE FROM marketplace_listing_catalog WHERE org_id = $1`,
 		[org_id]
 	);
+	await pool.query(`DELETE FROM org_subscription_history WHERE org_id = $1`, [
+		org_id,
+	]);
+	await pool.query(`DELETE FROM org_subscriptions WHERE org_id = $1`, [org_id]);
 
 	// Cascades to global org_users and global_org_domains
 	await pool.query(`DELETE FROM orgs WHERE org_id = $1`, [org_id]);

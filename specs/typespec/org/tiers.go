@@ -76,6 +76,7 @@ func (r SelfUpgradeOrgSubscriptionRequest) Validate() []common.ValidationError {
 // AdminListOrgSubscriptionsRequest lists all org subscriptions (admin).
 type AdminListOrgSubscriptionsRequest struct {
 	FilterTierID  *string `json:"filter_tier_id,omitempty"`
+	FilterDomain  *string `json:"filter_domain,omitempty"`
 	PaginationKey *string `json:"pagination_key,omitempty"`
 	Limit         *int32  `json:"limit,omitempty"`
 }
@@ -112,7 +113,9 @@ func (r AdminSetOrgTierRequest) Validate() []common.ValidationError {
 	if !isValidTierID(r.TierID) {
 		errs = append(errs, common.NewValidationError("tier_id", errInvalidTierID))
 	}
-	if len(r.Reason) > 2000 {
+	if r.Reason == "" {
+		errs = append(errs, common.NewValidationError("reason", errReasonRequired))
+	} else if len(r.Reason) > 2000 {
 		errs = append(errs, common.NewValidationError("reason", errReasonTooLong))
 	}
 	return errs
@@ -122,5 +125,6 @@ var (
 	errInvalidTierID   = errors.New("must be a valid tier id (free, silver, gold, enterprise)")
 	errLimitOutOfRange = errors.New("must be between 1 and 100")
 	errOrgIDRequired   = errors.New("org_id is required")
+	errReasonRequired  = errors.New("reason is required")
 	errReasonTooLong   = errors.New("must be at most 2000 characters")
 )

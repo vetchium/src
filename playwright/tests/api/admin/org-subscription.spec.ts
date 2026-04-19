@@ -46,6 +46,7 @@ test.describe("POST /admin/org-subscriptions/list", () => {
 		await createTestOrgAdminDirect(orgEmail, TEST_PASSWORD);
 		try {
 			await assignRoleToAdminUser(adminUserId, "admin:view_org_subscriptions");
+			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
 			const token = await loginAdmin(api, adminEmail);
 
 			const req: AdminListOrgSubscriptionsRequest = {};
@@ -173,6 +174,7 @@ test.describe("POST /admin/org-subscriptions/set-tier", () => {
 				adminUserId,
 				"admin:manage_org_subscriptions"
 			);
+			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
 			const before = new Date(Date.now() - 2000).toISOString();
 			const token = await loginAdmin(api, adminEmail);
 
@@ -215,6 +217,7 @@ test.describe("POST /admin/org-subscriptions/set-tier", () => {
 				adminUserId,
 				"admin:manage_org_subscriptions"
 			);
+			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
 			// Set to gold first
 			await setOrgTier(orgId, "gold");
 			const token = await loginAdmin(api, adminEmail);
@@ -245,6 +248,7 @@ test.describe("POST /admin/org-subscriptions/set-tier", () => {
 				adminUserId,
 				"admin:manage_org_subscriptions"
 			);
+			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
 			const token = await loginAdmin(api, adminEmail);
 			const req: AdminSetOrgTierRequest = {
 				org_id: "00000000-0000-0000-0000-000000000000",
@@ -272,6 +276,7 @@ test.describe("POST /admin/org-subscriptions/set-tier", () => {
 				adminUserId,
 				"admin:manage_org_subscriptions"
 			);
+			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
 			const token = await loginAdmin(api, adminEmail);
 			const res = await api.setOrgTierRaw(token, {
 				org_id: orgId,
@@ -299,6 +304,7 @@ test.describe("POST /admin/org-subscriptions/set-tier", () => {
 				adminUserId,
 				"admin:manage_org_subscriptions"
 			);
+			await assignRoleToAdminUser(adminUserId, "admin:view_audit_logs");
 			const token = await loginAdmin(api, adminEmail);
 			const res = await api.setOrgTierRaw(token, {
 				org_id: orgId,

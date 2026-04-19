@@ -44,6 +44,7 @@ export function OrgSubscriptionsPage() {
 		string | undefined
 	>();
 	const [filterTier, setFilterTier] = useState<string | undefined>();
+	const [filterDomain, setFilterDomain] = useState<string>("");
 	const [settingTier, setSettingTier] = useState(false);
 	const [selectedOrg, setSelectedOrg] = useState<OrgSubscription | null>(null);
 	const [form] = Form.useForm();
@@ -58,6 +59,7 @@ export function OrgSubscriptionsPage() {
 					limit: 20,
 				};
 				if (filterTier) req.filter_tier_id = filterTier;
+				if (filterDomain) req.filter_domain = filterDomain;
 				if (paginationKey) req.pagination_key = paginationKey;
 
 				const resp = await fetch(`${baseUrl}/admin/org-subscriptions/list`, {
@@ -83,14 +85,15 @@ export function OrgSubscriptionsPage() {
 				setLoading(false);
 			}
 		},
-		[sessionToken, filterTier, message, t]
+		[sessionToken, filterTier, filterDomain, message, t]
 	);
 
 	useEffect(() => {
 		setItems([]);
 		setNextPaginationKey(undefined);
 		fetchItems();
-	}, [fetchItems]);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [sessionToken, filterTier]);
 
 	const handleSetTier = async (values: { tier_id: string; reason: string }) => {
 		if (!selectedOrg || !sessionToken) return;
@@ -190,6 +193,28 @@ export function OrgSubscriptionsPage() {
 			</Title>
 
 			<Space style={{ marginBottom: 16 }}>
+				<Input
+					placeholder={t("filter.domainPlaceholder", "Search by domain...")}
+					style={{ width: 250 }}
+					allowClear
+					value={filterDomain}
+					onChange={(e) => setFilterDomain(e.target.value)}
+					onPressEnter={() => {
+						setItems([]);
+						setNextPaginationKey(undefined);
+						fetchItems();
+					}}
+				/>
+				<Button
+					type="primary"
+					onClick={() => {
+						setItems([]);
+						setNextPaginationKey(undefined);
+						fetchItems();
+					}}
+				>
+					{t("filter.search", "Search")}
+				</Button>
 				<Select
 					allowClear
 					placeholder={t("filter.tierPlaceholder")}

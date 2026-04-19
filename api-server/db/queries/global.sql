@@ -916,12 +916,14 @@ INSERT INTO org_subscription_history (org_id, from_tier_id, to_tier_id, changed_
 VALUES (@org_id, @from_tier_id, @to_tier_id, @changed_by_admin_id, @changed_by_org_user_id, @reason);
 
 -- name: AdminListOrgSubscriptions :many
-SELECT s.*, gd.domain AS org_domain
+SELECT s.*, COALESCE(gd.domain, o.org_name) AS org_domain
 FROM org_subscriptions s
+JOIN orgs o ON s.org_id = o.org_id
 LEFT JOIN global_org_domains gd ON gd.org_id = s.org_id
 WHERE (sqlc.narg('filter_tier_id')::text IS NULL OR s.current_tier_id = sqlc.narg('filter_tier_id')::text)
+  AND (sqlc.narg('filter_domain')::text IS NULL OR COALESCE(gd.domain, o.org_name) ILIKE '%' || sqlc.narg('filter_domain')::text || '%')
   AND (sqlc.narg('pagination_key')::uuid IS NULL OR s.org_id > sqlc.narg('pagination_key')::uuid)
-GROUP BY s.org_id, s.current_tier_id, s.updated_at, s.updated_by_admin_id, s.updated_by_org_user_id, s.note, gd.domain
+GROUP BY s.org_id, s.current_tier_id, s.updated_at, s.updated_by_admin_id, s.updated_by_org_user_id, s.note, gd.domain, o.org_name
 ORDER BY s.org_id ASC
 LIMIT @row_limit;
 

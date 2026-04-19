@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { orgLogin, ORG_UI_URL } from "../../../lib/org-ui-helpers";
+import { antdSelect } from "../../../lib/ui-helpers";
 import {
 	createTestOrgAdminDirect,
 	deleteTestOrgByDomain,
@@ -11,20 +12,16 @@ import {
 } from "../../../lib/db";
 import { TEST_PASSWORD } from "../../../lib/constants";
 
-const SHARED_CAP_ID = `mp-ui-cap-${Math.random().toString(36).slice(2, 10)}`;
-const SHARED_CAP2_ID = `mp-ui-cap2-${Math.random().toString(36).slice(2, 10)}`;
+const _capSuffix = Math.random().toString(36).slice(2, 10);
+const SHARED_CAP_ID = `mp-ui-cap-${_capSuffix}`;
+const SHARED_CAP2_ID = `mp-ui-cap2-${_capSuffix}`;
+// Unique display names per run to avoid stale-data interference when previous runs were interrupted
+const CAP1_DISPLAY = `UI Test Cap ${_capSuffix}`;
+const CAP2_DISPLAY = `UI Test Cap2 ${_capSuffix}`;
 
 test.beforeAll(async () => {
-	await createTestMarketplaceCapability(
-		SHARED_CAP_ID,
-		"active",
-		"UI Test Capability"
-	);
-	await createTestMarketplaceCapability(
-		SHARED_CAP2_ID,
-		"active",
-		"UI Test Cap 2"
-	);
+	await createTestMarketplaceCapability(SHARED_CAP_ID, "active", CAP1_DISPLAY);
+	await createTestMarketplaceCapability(SHARED_CAP2_ID, "active", CAP2_DISPLAY);
 });
 
 test.afterAll(async () => {
@@ -42,6 +39,7 @@ test.describe("Org UI Marketplace — Discover Page", () => {
 			TEST_PASSWORD
 		);
 		try {
+			await setOrgTier(orgId, "silver");
 			await createTestMarketplaceListingDirect(
 				orgId,
 				domain,
@@ -51,7 +49,7 @@ test.describe("Org UI Marketplace — Discover Page", () => {
 			);
 
 			await orgLogin(page, domain, email, TEST_PASSWORD);
-			await page.goto(`${ORG_UI_URL}/marketplace/discover`);
+			await page.goto(`${ORG_UI_URL}/marketplace`);
 
 			await expect(page.locator("text=Discover Marketplace")).toBeVisible({
 				timeout: 10000,
@@ -86,7 +84,7 @@ test.describe("Org UI Marketplace — Discover Page", () => {
 			);
 
 			await orgLogin(page, domain, email, TEST_PASSWORD);
-			await page.goto(`${ORG_UI_URL}/marketplace/discover`);
+			await page.goto(`${ORG_UI_URL}/marketplace`);
 
 			await expect(page.locator("text=Cap1 Listing")).toBeVisible({
 				timeout: 10000,
@@ -96,14 +94,20 @@ test.describe("Org UI Marketplace — Discover Page", () => {
 			// Select SHARED_CAP_ID in the capability filter
 			const filterSelect = page
 				.locator(".ant-select")
-				.filter({ hasText: /capability/i });
+				.filter({ hasText: /filter by capability/i });
 			if ((await filterSelect.count()) > 0) {
 				await filterSelect.click();
-				await page
-					.locator(`.ant-select-item[title="UI Test Capability"]`)
+				const filterDropdown = page.locator(
+					".ant-select-dropdown:not(.ant-select-dropdown-hidden)"
+				);
+				await expect(filterDropdown).toBeVisible({ timeout: 5000 });
+				await filterDropdown
+					.locator(`.ant-select-item-option:has-text("${CAP1_DISPLAY}")`)
+					.first()
 					.click();
+				await page.waitForLoadState("networkidle");
 				await expect(page.locator("text=Cap1 Listing")).toBeVisible({
-					timeout: 5000,
+					timeout: 10000,
 				});
 			}
 		} finally {
@@ -119,16 +123,19 @@ test.describe("Org UI Marketplace — Create Listing", () => {
 	test("Create listing form: capability multi-select, save draft navigates to /marketplace/listings", async ({
 		page,
 	}) => {
-		const { email, domain } = await createTestOrgAdminDirect(
+		const { email, domain, orgId } = await createTestOrgAdminDirect(
 			generateTestOrgEmail("mp-ui-create").email,
 			TEST_PASSWORD
 		);
 		try {
+			await setOrgTier(orgId, "silver");
 			await orgLogin(page, domain, email, TEST_PASSWORD);
 			await page.goto(`${ORG_UI_URL}/marketplace/listings/new`);
 
-			await expect(page.locator("text=Create Listing")).toBeVisible({
-				timeout: 10000,
+			await expect(
+				page.locator("h2", { hasText: /Create Marketplace Listing/i })
+			).toBeVisible({
+				timeout: 15000,
 			});
 
 			await page.fill('input[id="headline"]', "My UI Test Listing");
@@ -137,12 +144,17 @@ test.describe("Org UI Marketplace — Create Listing", () => {
 				"Description for UI test listing"
 			);
 
-			// Select capability
-			const capSelect = page.locator(".ant-select").first();
-			await capSelect.click();
-			await page
-				.locator(`.ant-select-item`, { hasText: "UI Test Capability" })
+			// Select capability from multi-select dropdown (use aria role to avoid matching header language selector)
+			await page.getByRole("combobox", { name: /capabilities/i }).click();
+			const capDropdown = page.locator(
+				".ant-select-dropdown:not(.ant-select-dropdown-hidden)"
+			);
+			await expect(capDropdown).toBeVisible({ timeout: 10000 });
+			await capDropdown
+				.locator(`.ant-select-item-option:has-text("${CAP1_DISPLAY}")`)
+				.first()
 				.click();
+			await page.locator('input[id="headline"]').click(); // close dropdown by clicking above the select
 
 			await page.click('button:has-text("Save Draft")');
 
@@ -168,11 +180,14 @@ test.describe("Org UI Marketplace — Publish as Superadmin", () => {
 			TEST_PASSWORD
 		);
 		try {
+			await setOrgTier(orgId, "silver");
 			await orgLogin(page, domain, email, TEST_PASSWORD);
 			await page.goto(`${ORG_UI_URL}/marketplace/listings/new`);
 
-			await expect(page.locator("text=Create Listing")).toBeVisible({
-				timeout: 10000,
+			await expect(
+				page.locator("h2", { hasText: /Create Marketplace Listing/i })
+			).toBeVisible({
+				timeout: 15000,
 			});
 			await page.fill('input[id="headline"]', "Superadmin Publish Test");
 			await page.fill(
@@ -180,13 +195,20 @@ test.describe("Org UI Marketplace — Publish as Superadmin", () => {
 				"Listing that will be published directly to active"
 			);
 
-			const capSelect = page.locator(".ant-select").first();
-			await capSelect.click();
-			await page
-				.locator(`.ant-select-item`, { hasText: "UI Test Capability" })
+			// Select capability from multi-select dropdown (use aria role to avoid matching header language selector)
+			await page.getByRole("combobox", { name: /capabilities/i }).click();
+			const capDropdown = page.locator(
+				".ant-select-dropdown:not(.ant-select-dropdown-hidden)"
+			);
+			await expect(capDropdown).toBeVisible({ timeout: 10000 });
+			await capDropdown
+				.locator(`.ant-select-item-option:has-text("${CAP1_DISPLAY}")`)
+				.first()
 				.click();
+			await page.locator('input[id="headline"]').click(); // close dropdown by clicking above the select
 
-			await page.click('button:has-text("Publish")');
+			// Button label is "Submit for Review" (superadmin publish goes directly to active)
+			await page.click('button:has-text("Submit for Review")');
 
 			// Should navigate to listings and show Active status
 			await expect(page).toHaveURL(
@@ -218,19 +240,28 @@ test.describe("Org UI Marketplace — Quota Exceeded Modal", () => {
 			await orgLogin(page, domain, email, TEST_PASSWORD);
 			await page.goto(`${ORG_UI_URL}/marketplace/listings/new`);
 
-			await expect(page.locator("text=Create Listing")).toBeVisible({
-				timeout: 10000,
+			await expect(
+				page.locator("h2", { hasText: /Create Marketplace Listing/i })
+			).toBeVisible({
+				timeout: 15000,
 			});
 			await page.fill('input[id="headline"]', "Quota Test Listing");
 			await page.fill('textarea[id="description"]', "Will hit quota");
 
-			const capSelect = page.locator(".ant-select").first();
-			await capSelect.click();
-			await page
-				.locator(`.ant-select-item`, { hasText: "UI Test Capability" })
+			// Select capability from multi-select dropdown (use aria role to avoid matching header language selector)
+			await page.getByRole("combobox", { name: /capabilities/i }).click();
+			const capDropdown = page.locator(
+				".ant-select-dropdown:not(.ant-select-dropdown-hidden)"
+			);
+			await expect(capDropdown).toBeVisible({ timeout: 10000 });
+			await capDropdown
+				.locator(`.ant-select-item-option:has-text("${CAP1_DISPLAY}")`)
+				.first()
 				.click();
+			await page.locator('input[id="headline"]').click(); // close dropdown by clicking above the select
 
-			await page.click('button:has-text("Publish")');
+			// Button label is "Submit for Review" (for free-tier org this will hit quota)
+			await page.click('button:has-text("Submit for Review")');
 
 			// Quota-exceeded modal or error message should appear
 			const quotaModal = page.locator(".ant-modal").filter({

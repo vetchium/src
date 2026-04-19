@@ -13,13 +13,16 @@ import {
 } from "../../../lib/db";
 import { TEST_PASSWORD } from "../../../lib/constants";
 
-const SHARED_CAP_ID = `admin-mp-ui-cap-${Math.random().toString(36).slice(2, 10)}`;
+const _adminCapSuffix = Math.random().toString(36).slice(2, 10);
+const SHARED_CAP_ID = `admin-mp-ui-cap-${_adminCapSuffix}`;
+// Unique display name per run to avoid stale-data interference from interrupted previous runs
+const SHARED_CAP_DISPLAY = `Admin UI Test Cap ${_adminCapSuffix}`;
 
 test.beforeAll(async () => {
 	await createTestMarketplaceCapability(
 		SHARED_CAP_ID,
 		"active",
-		"Admin UI Test Cap"
+		SHARED_CAP_DISPLAY
 	);
 });
 
@@ -43,7 +46,7 @@ test.describe("Admin UI Marketplace — Capabilities", () => {
 			await expect(page.locator("text=Capabilities")).toBeVisible({
 				timeout: 10000,
 			});
-			await expect(page.locator("text=Admin UI Test Cap")).toBeVisible({
+			await expect(page.locator(`text=${SHARED_CAP_DISPLAY}`)).toBeVisible({
 				timeout: 10000,
 			});
 
