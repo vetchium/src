@@ -175,8 +175,14 @@ CREATE TABLE global_org_domains (
     domain TEXT PRIMARY KEY,
     region region NOT NULL,
     org_id UUID NOT NULL REFERENCES orgs(org_id) ON DELETE CASCADE,
+    is_primary BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Ensure only one primary domain per org
+CREATE UNIQUE INDEX idx_global_org_domains_primary
+ON global_org_domains (org_id)
+WHERE is_primary = TRUE;
 
 -- Org users table (global - routing only)
 -- Note: email_address_hash is NOT unique alone - one email can belong to multiple orgs

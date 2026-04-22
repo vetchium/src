@@ -318,10 +318,7 @@ export function MarketplaceListingPage() {
 
 	// Determine if this is the provider org's own listing
 	// (we check by org_domain matching what is in the listing)
-	// For simplicity, we show provider actions if canManageListings is set
-	// and the listing has the actions available by status.
-
-	const isOwnListing = canManageListings;
+	const isOwnListing = myInfo?.org_domain === orgDomain;
 
 	return (
 		<div
@@ -333,9 +330,9 @@ export function MarketplaceListingPage() {
 			}}
 		>
 			<div style={{ marginBottom: 16 }}>
-				<Link to="/marketplace/listings">
-					<Button icon={<ArrowLeftOutlined />}>{t("listing.back")}</Button>
-				</Link>
+				<Button icon={<ArrowLeftOutlined />} onClick={() => navigate(-1)}>
+					{t("listing.back")}
+				</Button>
 			</div>
 
 			<div
@@ -411,28 +408,31 @@ export function MarketplaceListingPage() {
 
 			<Divider />
 
-			{isOwnListing && listing.status === "draft" && atQuota && (
-				<Alert
-					type="warning"
-					showIcon
-					style={{ marginBottom: 16 }}
-					description={t("listing.publishQuotaTooltip", {
-						tier: subscription?.current_plan.plan_id ?? "",
-						cap: listingsCap,
-					})}
-					action={
-						<Link to="/settings/plan">
-							<Button size="small" type="primary">
-								{t("create.upgradePlan")}
-							</Button>
-						</Link>
-					}
-				/>
-			)}
+			{isOwnListing &&
+				canManageListings &&
+				listing.status === "draft" &&
+				atQuota && (
+					<Alert
+						type="warning"
+						showIcon
+						style={{ marginBottom: 16 }}
+						description={t("listing.publishQuotaTooltip", {
+							tier: subscription?.current_plan.plan_id ?? "",
+							cap: listingsCap,
+						})}
+						action={
+							<Link to="/settings/plan">
+								<Button size="small" type="primary">
+									{t("create.upgradePlan")}
+								</Button>
+							</Link>
+						}
+					/>
+				)}
 
 			<Space wrap>
 				{/* Provider actions */}
-				{isOwnListing && listing.status === "draft" && (
+				{isOwnListing && canManageListings && listing.status === "draft" && (
 					<>
 						<Button
 							icon={<EditOutlined />}
@@ -456,28 +456,30 @@ export function MarketplaceListingPage() {
 					</>
 				)}
 
-				{isOwnListing && listing.status === "pending_review" && (
-					<>
-						<Button
-							type="primary"
-							icon={<CheckOutlined />}
-							loading={actionLoading}
-							onClick={() => setApproveModalOpen(true)}
-						>
-							{t("listing.approve")}
-						</Button>
-						<Button
-							danger
-							icon={<CloseOutlined />}
-							loading={actionLoading}
-							onClick={() => setRejectModalOpen(true)}
-						>
-							{t("listing.reject")}
-						</Button>
-					</>
-				)}
+				{isOwnListing &&
+					canManageListings &&
+					listing.status === "pending_review" && (
+						<>
+							<Button
+								type="primary"
+								icon={<CheckOutlined />}
+								loading={actionLoading}
+								onClick={() => setApproveModalOpen(true)}
+							>
+								{t("listing.approve")}
+							</Button>
+							<Button
+								danger
+								icon={<CloseOutlined />}
+								loading={actionLoading}
+								onClick={() => setRejectModalOpen(true)}
+							>
+								{t("listing.reject")}
+							</Button>
+						</>
+					)}
 
-				{isOwnListing && listing.status === "active" && (
+				{isOwnListing && canManageListings && listing.status === "active" && (
 					<>
 						<Button
 							icon={<EditOutlined />}
@@ -499,7 +501,7 @@ export function MarketplaceListingPage() {
 					</>
 				)}
 
-				{isOwnListing && listing.status === "archived" && (
+				{isOwnListing && canManageListings && listing.status === "archived" && (
 					<Button
 						icon={<UndoOutlined />}
 						loading={actionLoading}

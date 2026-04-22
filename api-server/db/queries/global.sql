@@ -539,12 +539,16 @@ WHERE org_id = $1;
 -- Global Org Domain Queries
 -- ============================================
 -- name: CreateGlobalOrgDomain :exec
-INSERT INTO global_org_domains (domain, region, org_id)
-VALUES ($1, $2, $3);
+INSERT INTO global_org_domains (domain, region, org_id, is_primary)
+VALUES ($1, $2, $3, $4);
 -- name: GetGlobalOrgDomain :one
 SELECT *
 FROM global_org_domains
 WHERE domain = $1;
+-- name: GetPrimaryDomainByOrg :one
+SELECT domain
+FROM global_org_domains
+WHERE org_id = $1 AND is_primary = TRUE;
 -- name: DeleteGlobalOrgDomain :exec
 DELETE FROM global_org_domains
 WHERE domain = $1;

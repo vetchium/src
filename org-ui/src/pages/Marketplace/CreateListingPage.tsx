@@ -160,9 +160,9 @@ export function CreateListingPage() {
 			}}
 		>
 			<div style={{ marginBottom: 16 }}>
-				<Link to="/marketplace/listings">
-					<Button icon={<ArrowLeftOutlined />}>{t("create.back")}</Button>
-				</Link>
+				<Button icon={<ArrowLeftOutlined />} onClick={() => navigate(-1)}>
+					{t("create.back")}
+				</Button>
 			</div>
 
 			<Title level={2} style={{ marginBottom: 24 }}>

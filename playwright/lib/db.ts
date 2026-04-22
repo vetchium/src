@@ -993,8 +993,8 @@ export async function createTestVerifiedDomain(
 ): Promise<void> {
 	// Create domain in global DB (routing only, no status column)
 	await pool.query(
-		`INSERT INTO global_org_domains (domain, region, org_id)
-     VALUES ($1, $2, $3)
+		`INSERT INTO global_org_domains (domain, region, org_id, is_primary)
+     VALUES ($1, $2, $3, FALSE)
      ON CONFLICT (domain) DO NOTHING`,
 		[domain.toLowerCase(), region, orgId]
 	);
@@ -1175,8 +1175,8 @@ export async function createTestOrgUserDirect(
 
 		// 2. Create verified domain in global DB
 		await pool.query(
-			`INSERT INTO global_org_domains (domain, region, org_id)
-     VALUES ($1, $2, $3)`,
+			`INSERT INTO global_org_domains (domain, region, org_id, is_primary)
+     VALUES ($1, $2, $3, TRUE)`,
 			[domain, region, orgId]
 		);
 
@@ -1263,8 +1263,8 @@ export async function createTestOrgAdminDirect(
 
 		// 2. Create verified domain in global DB
 		await pool.query(
-			`INSERT INTO global_org_domains (domain, region, org_id)
-     VALUES ($1, $2, $3)`,
+			`INSERT INTO global_org_domains (domain, region, org_id, is_primary)
+     VALUES ($1, $2, $3, TRUE)`,
 			[domain, region, orgId]
 		);
 

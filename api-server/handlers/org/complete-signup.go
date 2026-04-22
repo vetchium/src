@@ -130,9 +130,10 @@ func CompleteSignup(s *server.RegionalServer) http.HandlerFunc {
 
 			// 2. Create domain in global DB (routing only, no status)
 			txErr = qtx.CreateGlobalOrgDomain(ctx, globaldb.CreateGlobalOrgDomainParams{
-				Domain: domain,
-				Region: region,
-				OrgID:  employer.OrgID,
+				Domain:    domain,
+				Region:    region,
+				OrgID:     employer.OrgID,
+				IsPrimary: true,
 			})
 			if txErr != nil {
 				if server.IsUniqueViolation(txErr) {

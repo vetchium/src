@@ -2,7 +2,7 @@ import { ArrowLeftOutlined } from "@ant-design/icons";
 import { App, Button, Form, Input, Spin, Typography } from "antd";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import type { MarketplaceListing } from "vetchium-specs/org/marketplace";
 import { getApiBaseUrl } from "../../config";
 import { useAuth } from "../../hooks/useAuth";
@@ -115,9 +115,9 @@ export function EditListingPage() {
 			}}
 		>
 			<div style={{ marginBottom: 16 }}>
-				<Link to={`/marketplace/listings/${orgDomain}/${listingNumber}`}>
-					<Button icon={<ArrowLeftOutlined />}>{t("edit.back")}</Button>
-				</Link>
+				<Button icon={<ArrowLeftOutlined />} onClick={() => navigate(-1)}>
+					{t("edit.back")}
+				</Button>
 			</div>
 
 			<Title level={2} style={{ marginBottom: 24 }}>

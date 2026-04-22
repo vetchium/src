@@ -2,8 +2,10 @@ package org
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
+	"github.com/jackc/pgx/v5"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
 	"vetchium-api-server.typespec/common"
@@ -41,10 +43,22 @@ func MyInfo(s *server.RegionalServer) http.HandlerFunc {
 			roles[i] = role.RoleName
 		}
 
+		primaryDomain, err := s.Global.GetPrimaryDomainByOrg(ctx, orgUser.OrgID)
+		if err != nil {
+			if !errors.Is(err, pgx.ErrNoRows) {
+				s.Logger(ctx).Error("failed to fetch primary domain", "error", err)
+				http.Error(w, "", http.StatusInternalServerError)
+				return
+			}
+			// Fallback if no primary domain found (should not happen for verified orgs)
+			s.Logger(ctx).Warn("no primary domain found for org", "org_id", orgUser.OrgID)
+		}
+
 		response := orgtypes.OrgMyInfoResponse{
 			FullName:          orgUser.FullName.String,
 			PreferredLanguage: common.LanguageCode(orgUser.PreferredLanguage),
 			OrgName:           employer.OrgName,
+			OrgDomain:         common.DomainName(primaryDomain),
 			Roles:             roles,
 		}
 

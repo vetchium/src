@@ -467,5 +467,6 @@ type OrgMyInfoResponse struct {
 	FullName          string              `json:"full_name"`
 	PreferredLanguage common.LanguageCode `json:"preferred_language"`
 	OrgName           string              `json:"org_name"`
+	OrgDomain         common.DomainName   `json:"org_domain"`
 	Roles             []string            `json:"roles"`
 }

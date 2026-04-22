@@ -131,11 +131,9 @@ export function SubscriptionDetailPage() {
 			}}
 		>
 			<div style={{ marginBottom: 16 }}>
-				<Link to="/marketplace/subscriptions">
-					<Button icon={<ArrowLeftOutlined />}>
-						{t("subscriptionDetail.back")}
-					</Button>
-				</Link>
+				<Button icon={<ArrowLeftOutlined />} onClick={() => navigate(-1)}>
+					{t("subscriptionDetail.back")}
+				</Button>
 			</div>
 
 			<Title level={2} style={{ marginBottom: 24 }}>

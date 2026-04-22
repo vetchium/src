@@ -566,5 +566,6 @@ export interface OrgMyInfoResponse {
 	full_name: string;
 	preferred_language: LanguageCode;
 	org_name: string;
+	org_domain: DomainName;
 	roles: string[];
 }
