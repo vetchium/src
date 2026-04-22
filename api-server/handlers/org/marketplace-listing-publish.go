@@ -155,6 +155,6 @@ func PublishMarketplaceListing(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		json.NewEncoder(w).Encode(buildListingFromRow(ctx, published, capabilities, 0))
+		json.NewEncoder(w).Encode(buildListingFromRow(ctx, published, capabilities, 0, false))
 	}
 }

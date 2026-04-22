@@ -68,7 +68,7 @@ func GetMarketplaceListing(s *server.RegionalServer) http.HandlerFunc {
 				return
 			}
 
-			json.NewEncoder(w).Encode(buildListingFromRow(ctx, listing, caps, 0))
+			json.NewEncoder(w).Encode(buildListingFromRow(ctx, listing, caps, 0, false))
 			return
 		}
 
@@ -87,6 +87,15 @@ func GetMarketplaceListing(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
+		isSubscribed, err := s.Regional.HasActiveSubscriptionForListing(ctx, regionaldb.HasActiveSubscriptionForListingParams{
+			ConsumerOrgID: orgUser.OrgID,
+			ListingID:     catalog.ListingID,
+		})
+		if err != nil {
+			s.Logger(ctx).Error("failed to check subscription status", "error", err)
+			// Non-fatal, default to false
+		}
+
 		listedAt := catalog.ListedAt.Time.Format(time.RFC3339)
 		listing := orgspec.MarketplaceListing{
 			ListingID:             uuidToString(catalog.ListingID),
@@ -100,6 +109,7 @@ func GetMarketplaceListing(s *server.RegionalServer) http.HandlerFunc {
 			ActiveSubscriberCount: 0,
 			CreatedAt:             catalog.ListedAt.Time.Format(time.RFC3339),
 			UpdatedAt:             catalog.UpdatedAt.Time.Format(time.RFC3339),
+			IsSubscribed:          isSubscribed,
 		}
 		json.NewEncoder(w).Encode(listing)
 	}

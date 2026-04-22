@@ -62,7 +62,7 @@ export function SubscriptionDetailPage() {
 				},
 				body: JSON.stringify({
 					provider_org_domain: providerOrgDomain,
-					listing_number: parseInt(listingNumber, 10),
+					provider_listing_number: parseInt(listingNumber, 10),
 				}),
 			});
 			if (resp.status === 200) {
@@ -147,13 +147,6 @@ export function SubscriptionDetailPage() {
 							to={`/marketplace/listings/${subscription.provider_org_domain}/${subscription.provider_listing_number}`}
 						>
 							{subscription.provider_org_domain}
-						</Link>
-					</Descriptions.Item>
-					<Descriptions.Item label={t("subscriptionDetail.listing")}>
-						<Link
-							to={`/marketplace/listings/${subscription.provider_org_domain}/${subscription.provider_listing_number}`}
-						>
-							#{subscription.provider_listing_number}
 						</Link>
 					</Descriptions.Item>
 					<Descriptions.Item label={t("subscriptionDetail.status")}>

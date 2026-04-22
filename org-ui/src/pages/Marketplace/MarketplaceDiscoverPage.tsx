@@ -6,6 +6,7 @@ import {
 	Input,
 	Row,
 	Select,
+	Space,
 	Spin,
 	Tag,
 	Typography,
@@ -152,7 +153,14 @@ export function MarketplaceDiscoverPage() {
 								>
 									<Card
 										hoverable
-										title={listing.headline}
+										title={
+											<Space>
+												{listing.headline}
+												{listing.is_subscribed && (
+													<Tag color="cyan">{t("status.subscribed")}</Tag>
+												)}
+											</Space>
+										}
 										extra={<Text type="secondary">{listing.org_domain}</Text>}
 										style={{ height: "100%" }}
 									>

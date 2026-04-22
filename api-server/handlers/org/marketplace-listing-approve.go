@@ -113,6 +113,6 @@ func ApproveListing(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		json.NewEncoder(w).Encode(buildListingFromRow(ctx, approved, capabilities, 0))
+		json.NewEncoder(w).Encode(buildListingFromRow(ctx, approved, capabilities, 0, false))
 	}
 }

@@ -87,6 +87,7 @@ type MarketplaceListing struct {
 	ActiveSubscriberCount int32                    `json:"active_subscriber_count"`
 	CreatedAt             string                   `json:"created_at"`
 	UpdatedAt             string                   `json:"updated_at"`
+	IsSubscribed          bool                     `json:"is_subscribed"`
 }
 
 type CreateListingRequest struct {
@@ -260,6 +261,7 @@ type ListingCard struct {
 	Description   string   `json:"description"`
 	CapabilityIDs []string `json:"capability_ids"`
 	ListedAt      string   `json:"listed_at"`
+	IsSubscribed  bool     `json:"is_subscribed"`
 }
 
 type DiscoverListingsResponse struct {

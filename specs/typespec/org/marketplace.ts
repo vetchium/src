@@ -36,6 +36,7 @@ export interface MarketplaceListing {
 	active_subscriber_count: number;
 	created_at: string;
 	updated_at: string;
+	is_subscribed: boolean;
 }
 
 export interface CreateListingRequest {
@@ -103,6 +104,7 @@ export interface ListingCard {
 	description: string;
 	capability_ids: string[];
 	listed_at: string;
+	is_subscribed: boolean;
 }
 
 export interface DiscoverListingsResponse {

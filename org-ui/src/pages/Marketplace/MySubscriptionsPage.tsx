@@ -83,18 +83,6 @@ export function MySubscriptionsPage() {
 			key: "provider_org_domain",
 		},
 		{
-			title: t("subscriptions.listingNumber"),
-			dataIndex: "provider_listing_number",
-			key: "provider_listing_number",
-			render: (num: number, record: MarketplaceSubscription) => (
-				<Link
-					to={`/marketplace/listings/${record.provider_org_domain}/${record.provider_listing_number}`}
-				>
-					#{num}
-				</Link>
-			),
-		},
-		{
 			title: t("subscriptions.status"),
 			dataIndex: "status",
 			key: "status",

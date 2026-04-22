@@ -33,6 +33,7 @@ import type { OrgPlan } from "vetchium-specs/org/tiers";
 import { getApiBaseUrl } from "../../config";
 import { useAuth } from "../../hooks/useAuth";
 import { useMyInfo } from "../../hooks/useMyInfo";
+import { formatDateTime } from "../../utils/dateFormat";
 
 const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
@@ -285,13 +286,27 @@ export function MarketplaceListingPage() {
 					},
 					body: JSON.stringify({
 						provider_org_domain: listing.org_domain,
-						listing_number: listing.listing_number,
+						provider_listing_number: listing.listing_number,
 					}),
 				}
 			);
 			if (resp.status === 201) {
 				message.success(t("listing.subscribeSuccess"));
 				navigate("/marketplace/subscriptions");
+			} else if (resp.status === 400) {
+				const text = await resp.text();
+				try {
+					const errs = JSON.parse(text);
+					if (Array.isArray(errs)) {
+						message.error(
+							errs.map((e: { message: string }) => e.message).join(", ")
+						);
+					} else {
+						message.error(t("listing.subscribeError"));
+					}
+				} catch {
+					message.error(text || t("listing.subscribeError"));
+				}
 			} else if (resp.status === 409) {
 				message.error(t("listing.alreadySubscribed"));
 			} else if (resp.status === 422) {
@@ -349,9 +364,14 @@ export function MarketplaceListingPage() {
 					</Title>
 					<Text type="secondary">{listing.org_domain}</Text>
 				</div>
-				<Tag color={STATUS_COLORS[listing.status]}>
-					{t(`status.${listing.status}`)}
-				</Tag>
+				<Space>
+					{listing.is_subscribed && (
+						<Tag color="cyan">{t("status.subscribed")}</Tag>
+					)}
+					<Tag color={STATUS_COLORS[listing.status]}>
+						{t(`status.${listing.status}`)}
+					</Tag>
+				</Space>
 			</div>
 
 			{listing.rejection_note && (
@@ -374,9 +394,6 @@ export function MarketplaceListingPage() {
 
 			<Card style={{ marginBottom: 24 }}>
 				<Descriptions column={1} bordered size="small">
-					<Descriptions.Item label={t("listing.listingNumber")}>
-						#{listing.listing_number}
-					</Descriptions.Item>
 					<Descriptions.Item label={t("listing.capabilities")}>
 						<Space wrap>
 							{listing.capabilities.map((cap) => (
@@ -388,14 +405,14 @@ export function MarketplaceListingPage() {
 					</Descriptions.Item>
 					{listing.listed_at && (
 						<Descriptions.Item label={t("listing.listedAt")}>
-							{new Date(listing.listed_at).toLocaleDateString()}
+							{formatDateTime(listing.listed_at)}
 						</Descriptions.Item>
 					)}
 					<Descriptions.Item label={t("listing.subscribers")}>
 						{listing.active_subscriber_count}
 					</Descriptions.Item>
 					<Descriptions.Item label={t("listing.updatedAt")}>
-						{new Date(listing.updated_at).toLocaleDateString()}
+						{formatDateTime(listing.updated_at)}
 					</Descriptions.Item>
 				</Descriptions>
 			</Card>
@@ -517,6 +534,7 @@ export function MarketplaceListingPage() {
 						type="primary"
 						loading={actionLoading}
 						onClick={handleSubscribe}
+						disabled={listing.is_subscribed}
 					>
 						{t("listing.subscribe")}
 					</Button>

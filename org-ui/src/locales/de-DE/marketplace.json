@@ -8,7 +8,8 @@
 		"pending_review": "Ausstehende Prüfung",
 		"active": "Aktiv",
 		"suspended": "Gesperrt",
-		"archived": "Archiviert"
+		"archived": "Archiviert",
+		"subscribed": "Abonniert"
 	},
 
 	"subStatus": {

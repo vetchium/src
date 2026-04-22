@@ -97,6 +97,6 @@ func RejectListing(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		json.NewEncoder(w).Encode(buildListingFromRow(ctx, rejected, capabilities, 0))
+		json.NewEncoder(w).Encode(buildListingFromRow(ctx, rejected, capabilities, 0, false))
 	}
 }

@@ -7,6 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
+	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
 	orgspec "vetchium-api-server.typespec/org"
@@ -71,6 +72,24 @@ func DiscoverListings(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
+		// Fetch current org's active subscriptions to mark is_subscribed
+		activeSubs, err := s.Regional.ListMarketplaceSubscriptionsByConsumer(ctx, regionaldb.ListMarketplaceSubscriptionsByConsumerParams{
+			ConsumerOrgID: orgUser.OrgID,
+			FilterStatus: regionaldb.NullMarketplaceSubscriptionStatus{
+				MarketplaceSubscriptionStatus: regionaldb.MarketplaceSubscriptionStatusActive,
+				Valid:                         true,
+			},
+			RowLimit: 1000, // Reasonable limit for active subs per org
+		})
+		if err != nil {
+			s.Logger(ctx).Error("failed to fetch active subscriptions", "error", err)
+			// Non-fatal
+		}
+		subscribedListingIDs := make(map[pgtype.UUID]bool)
+		for _, sub := range activeSubs {
+			subscribedListingIDs[sub.ListingID] = true
+		}
+
 		var nextKey *string
 		if int32(len(rows)) > limit {
 			rows = rows[:limit]
@@ -88,6 +107,7 @@ func DiscoverListings(s *server.RegionalServer) http.HandlerFunc {
 				Description:   row.Description,
 				CapabilityIDs: row.CapabilityIds,
 				ListedAt:      row.ListedAt.Time.Format(time.RFC3339),
+				IsSubscribed:  subscribedListingIDs[row.ListingID],
 			})
 		}
 

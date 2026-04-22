@@ -113,6 +113,6 @@ func CreateMarketplaceListing(s *server.RegionalServer) http.HandlerFunc {
 
 		s.Logger(ctx).Info("marketplace listing created", "listing_id", uuidToString(listing.ListingID))
 		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(buildListingFromRow(ctx, listing, capabilities, 0))
+		json.NewEncoder(w).Encode(buildListingFromRow(ctx, listing, capabilities, 0, false))
 	}
 }

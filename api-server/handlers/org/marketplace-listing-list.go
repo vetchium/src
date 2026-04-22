@@ -83,7 +83,7 @@ func ListMyListings(s *server.RegionalServer) http.HandlerFunc {
 				http.Error(w, "", http.StatusInternalServerError)
 				return
 			}
-			listings = append(listings, buildListingFromRow(ctx, row, caps, 0))
+			listings = append(listings, buildListingFromRow(ctx, row, caps, 0, false))
 		}
 
 		json.NewEncoder(w).Encode(orgspec.ListMyListingsResponse{

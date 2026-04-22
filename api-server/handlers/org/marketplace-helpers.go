@@ -25,6 +25,7 @@ func buildListingFromRow(
 	listing regionaldb.MarketplaceListing,
 	capabilities []string,
 	activeSubCount int32,
+	isSubscribed bool,
 ) orgspec.MarketplaceListing {
 	result := orgspec.MarketplaceListing{
 		ListingID:             uuidToString(listing.ListingID),
@@ -37,6 +38,7 @@ func buildListingFromRow(
 		ActiveSubscriberCount: activeSubCount,
 		CreatedAt:             listing.CreatedAt.Time.Format(time.RFC3339),
 		UpdatedAt:             listing.UpdatedAt.Time.Format(time.RFC3339),
+		IsSubscribed:          isSubscribed,
 	}
 	if listing.SuspensionNote.Valid {
 		result.SuspensionNote = &listing.SuspensionNote.String

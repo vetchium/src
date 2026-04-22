@@ -265,11 +265,6 @@ export function CostCentersPage() {
 
 	const columns = [
 		{
-			title: t("table.id"),
-			dataIndex: "id",
-			key: "id",
-		},
-		{
 			title: t("table.displayName"),
 			dataIndex: "display_name",
 			key: "display_name",

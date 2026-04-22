@@ -37,6 +37,7 @@ model MarketplaceListing {
   active_subscriber_count: int32;
   created_at: string;
   updated_at: string;
+  is_subscribed: boolean;
 }
 
 model CreateListingRequest {
@@ -106,6 +107,7 @@ model ListingCard {
   description: string;
   capability_ids: string[];
   listed_at: string;
+  is_subscribed: boolean;
 }
 
 model DiscoverListingsResponse {

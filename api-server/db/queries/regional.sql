@@ -807,3 +807,9 @@ WHERE consumer_org_id = @consumer_org_id
   AND (sqlc.narg('pagination_key')::uuid IS NULL OR subscription_id > sqlc.narg('pagination_key')::uuid)
 ORDER BY subscription_id ASC
 LIMIT @row_limit;
+
+-- name: HasActiveSubscriptionForListing :one
+SELECT EXISTS(
+    SELECT 1 FROM marketplace_subscriptions
+    WHERE consumer_org_id = @consumer_org_id AND listing_id = @listing_id AND status = 'active'
+) AS is_subscribed;
