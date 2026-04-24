@@ -107,6 +107,7 @@
 		"subscribe": "Abonnieren",
 
 		"publishSuccess": "Angebot zur Überprüfung eingereicht.",
+		"publishDirectSuccess": "Angebot veröffentlicht.",
 		"publishError": "Angebot konnte nicht eingereicht werden. Bitte versuchen Sie es erneut.",
 		"approveSuccess": "Angebot genehmigt und ist jetzt aktiv.",
 		"approveError": "Angebot konnte nicht genehmigt werden. Bitte versuchen Sie es erneut.",

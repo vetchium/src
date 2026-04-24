@@ -1017,6 +1017,11 @@ SET subscription_id = EXCLUDED.subscription_id, status = EXCLUDED.status, update
 UPDATE marketplace_subscription_index SET status = @status, updated_at = NOW()
 WHERE subscription_id = @subscription_id;
 
+-- name: GetActiveSubscriberCountByListingID :one
+SELECT COUNT(*)::int AS active_subscriber_count
+FROM marketplace_subscription_index
+WHERE listing_id = @listing_id AND status = 'active';
+
 -- name: ListSubscriptionsForProvider :many
 SELECT 
     si.subscription_id,

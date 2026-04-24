@@ -17,6 +17,7 @@ import type { MarketplaceCapability } from "vetchium-specs/org/marketplace";
 import type { OrgPlan } from "vetchium-specs/org/tiers";
 import { getApiBaseUrl } from "../../config";
 import { useAuth } from "../../hooks/useAuth";
+import { useMyInfo } from "../../hooks/useMyInfo";
 
 const { Title } = Typography;
 const { TextArea } = Input;
@@ -27,6 +28,9 @@ export function CreateListingPage() {
 	const navigate = useNavigate();
 	const { message } = App.useApp();
 	const [form] = Form.useForm();
+
+	const { data: myInfo } = useMyInfo(sessionToken);
+	const isSuperAdmin = myInfo?.roles.includes("org:superadmin") ?? false;
 
 	const [capabilities, setCapabilities] = useState<MarketplaceCapability[]>([]);
 	const [submitting, setSubmitting] = useState(false);
@@ -112,7 +116,11 @@ export function CreateListingPage() {
 						}
 					);
 					if (pubResp.status === 200) {
-						message.success(t("listing.publishSuccess"));
+						message.success(
+							isSuperAdmin
+								? t("listing.publishDirectSuccess")
+								: t("listing.publishSuccess")
+						);
 						navigate("/marketplace/listings");
 					} else if (pubResp.status === 403) {
 						const payload = await pubResp.json().catch(() => null);
@@ -247,7 +255,9 @@ export function CreateListingPage() {
 								onClick={() => handleSubmit(true)}
 								loading={submitting}
 							>
-								{t("listing.publish")}
+								{isSuperAdmin
+									? t("listing.publishDirect")
+									: t("listing.publish")}
 							</Button>
 						</Space>
 					</Form.Item>

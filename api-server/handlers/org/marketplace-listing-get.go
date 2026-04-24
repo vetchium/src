@@ -38,25 +38,24 @@ func GetMarketplaceListing(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		orgRecord, err := s.Global.GetOrgByID(ctx, orgUser.OrgID)
-		if err != nil {
-			s.Logger(ctx).Error("failed to get org", "error", err)
+		// Try the regional DB first. If found and the listing belongs to this org,
+		// serve it as the owner's full view. Subscriptions may be in any region's DB,
+		// so count them from the global index instead of the local regional table.
+		listing, err := s.Regional.GetMarketplaceListingByDomainAndNumber(ctx, regionaldb.GetMarketplaceListingByDomainAndNumberParams{
+			OrgDomain:     req.OrgDomain,
+			ListingNumber: req.ListingNumber,
+		})
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			s.Logger(ctx).Error("failed to get listing", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		// If requesting own listing, return full record from regional DB
-		if req.OrgDomain == orgRecord.OrgName {
-			listing, err := s.Regional.GetMarketplaceListingByDomainAndNumber(ctx, regionaldb.GetMarketplaceListingByDomainAndNumberParams{
-				OrgDomain:     req.OrgDomain,
-				ListingNumber: req.ListingNumber,
-			})
+		if err == nil && listing.OrgID == orgUser.OrgID {
+			// Own listing: use global subscription index for an accurate cross-region count.
+			subscriberCount, err := s.Global.GetActiveSubscriberCountByListingID(ctx, listing.ListingID)
 			if err != nil {
-				if errors.Is(err, pgx.ErrNoRows) {
-					w.WriteHeader(http.StatusNotFound)
-					return
-				}
-				s.Logger(ctx).Error("failed to get listing", "error", err)
+				s.Logger(ctx).Error("failed to get subscriber count", "error", err)
 				http.Error(w, "", http.StatusInternalServerError)
 				return
 			}
@@ -69,7 +68,7 @@ func GetMarketplaceListing(s *server.RegionalServer) http.HandlerFunc {
 				Description:           listing.Description,
 				Capabilities:          listing.Capabilities,
 				Status:                orgspec.MarketplaceListingStatus(listing.Status),
-				ActiveSubscriberCount: listing.ActiveSubscriberCount,
+				ActiveSubscriberCount: subscriberCount,
 				CreatedAt:             listing.CreatedAt.Time.Format(time.RFC3339),
 				UpdatedAt:             listing.UpdatedAt.Time.Format(time.RFC3339),
 			}

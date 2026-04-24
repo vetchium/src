@@ -107,6 +107,7 @@
 		"subscribe": "Subscribe",
 
 		"publishSuccess": "Listing submitted for review.",
+		"publishDirectSuccess": "Listing published.",
 		"publishError": "Failed to submit listing. Please try again.",
 		"approveSuccess": "Listing approved and is now active.",
 		"approveError": "Failed to approve listing. Please try again.",
