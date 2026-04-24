@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"vetchium-api-server.gomodule/internal/audit"
@@ -58,6 +59,12 @@ func UpdateMarketplaceListing(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
+		// Security check: must own the listing
+		if existing.OrgID != orgUser.OrgID {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+
 		// Only draft and active listings are editable
 		if existing.Status != regionaldb.MarketplaceListingStatusDraft &&
 			existing.Status != regionaldb.MarketplaceListingStatusActive {
@@ -66,7 +73,6 @@ func UpdateMarketplaceListing(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		var updated regionaldb.MarketplaceListing
-		var capabilities []string
 
 		txErr := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
 			u, err := qtx.UpdateMarketplaceListing(ctx, regionaldb.UpdateMarketplaceListingParams{
@@ -78,12 +84,6 @@ func UpdateMarketplaceListing(s *server.RegionalServer) http.HandlerFunc {
 				return err
 			}
 			updated = u
-
-			caps, err := qtx.ListCurrentCapabilitiesForListing(ctx, updated.ListingID)
-			if err != nil {
-				return err
-			}
-			capabilities = caps
 
 			eventData, _ := json.Marshal(map[string]any{
 				"listing_id":     uuidToString(updated.ListingID),
@@ -103,6 +103,28 @@ func UpdateMarketplaceListing(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		json.NewEncoder(w).Encode(buildListingFromRow(ctx, updated, capabilities, 0, false))
+		resp := orgspec.MarketplaceListing{
+			ListingID:             uuidToString(updated.ListingID),
+			OrgDomain:             updated.OrgDomain,
+			ListingNumber:         updated.ListingNumber,
+			Headline:              updated.Headline,
+			Description:           updated.Description,
+			Capabilities:          existing.Capabilities,
+			Status:                orgspec.MarketplaceListingStatus(updated.Status),
+			ActiveSubscriberCount: existing.ActiveSubscriberCount,
+			CreatedAt:             updated.CreatedAt.Time.Format(time.RFC3339),
+			UpdatedAt:             updated.UpdatedAt.Time.Format(time.RFC3339),
+		}
+		if updated.SuspensionNote.Valid {
+			resp.SuspensionNote = &updated.SuspensionNote.String
+		}
+		if updated.RejectionNote.Valid {
+			resp.RejectionNote = &updated.RejectionNote.String
+		}
+		if updated.ListedAt.Valid {
+			t := updated.ListedAt.Time.Format(time.RFC3339)
+			resp.ListedAt = &t
+		}
+		json.NewEncoder(w).Encode(resp)
 	}
 }

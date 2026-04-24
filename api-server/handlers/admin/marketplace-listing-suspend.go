@@ -143,7 +143,7 @@ func AdminSuspendListing(s *server.GlobalServer) http.HandlerFunc {
 			Capabilities:          caps,
 			Status:                orgspec.MarketplaceListingStatusSuspended,
 			SuspensionNote:        &suspNote,
-			ActiveSubscriberCount: 0,
+			ActiveSubscriberCount: catalog.ActiveSubscriberCount,
 			CreatedAt:             suspended.CreatedAt.Time.Format(time.RFC3339),
 			UpdatedAt:             suspended.UpdatedAt.Time.Format(time.RFC3339),
 		})

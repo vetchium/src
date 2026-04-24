@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"vetchium-api-server.gomodule/internal/audit"
@@ -66,7 +67,6 @@ func ArchiveMarketplaceListing(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		var archived regionaldb.MarketplaceListing
-		var capabilities []string
 
 		txErr := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
 			a, err := qtx.ArchiveMarketplaceListing(ctx, existing.ListingID)
@@ -74,12 +74,6 @@ func ArchiveMarketplaceListing(s *server.RegionalServer) http.HandlerFunc {
 				return err
 			}
 			archived = a
-
-			caps, err := qtx.ListCurrentCapabilitiesForListing(ctx, archived.ListingID)
-			if err != nil {
-				return err
-			}
-			capabilities = caps
 
 			eventData, _ := json.Marshal(map[string]any{
 				"listing_id":     uuidToString(archived.ListingID),
@@ -104,6 +98,28 @@ func ArchiveMarketplaceListing(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		json.NewEncoder(w).Encode(buildListingFromRow(ctx, archived, capabilities, 0, false))
+		resp := orgspec.MarketplaceListing{
+			ListingID:             uuidToString(archived.ListingID),
+			OrgDomain:             archived.OrgDomain,
+			ListingNumber:         archived.ListingNumber,
+			Headline:              archived.Headline,
+			Description:           archived.Description,
+			Capabilities:          existing.Capabilities,
+			Status:                orgspec.MarketplaceListingStatus(archived.Status),
+			ActiveSubscriberCount: existing.ActiveSubscriberCount,
+			CreatedAt:             archived.CreatedAt.Time.Format(time.RFC3339),
+			UpdatedAt:             archived.UpdatedAt.Time.Format(time.RFC3339),
+		}
+		if archived.SuspensionNote.Valid {
+			resp.SuspensionNote = &archived.SuspensionNote.String
+		}
+		if archived.RejectionNote.Valid {
+			resp.RejectionNote = &archived.RejectionNote.String
+		}
+		if archived.ListedAt.Valid {
+			t := archived.ListedAt.Time.Format(time.RFC3339)
+			resp.ListedAt = &t
+		}
+		json.NewEncoder(w).Encode(resp)
 	}
 }

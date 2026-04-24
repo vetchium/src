@@ -3,6 +3,7 @@ package org
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
@@ -77,13 +78,29 @@ func ListMyListings(s *server.RegionalServer) http.HandlerFunc {
 
 		listings := make([]orgspec.MarketplaceListing, 0, len(rows))
 		for _, row := range rows {
-			caps, err := s.Regional.ListCurrentCapabilitiesForListing(ctx, row.ListingID)
-			if err != nil {
-				s.Logger(ctx).Error("failed to fetch capabilities", "error", err)
-				http.Error(w, "", http.StatusInternalServerError)
-				return
+			resp := orgspec.MarketplaceListing{
+				ListingID:             uuidToString(row.ListingID),
+				OrgDomain:             row.OrgDomain,
+				ListingNumber:         row.ListingNumber,
+				Headline:              row.Headline,
+				Description:           row.Description,
+				Capabilities:          row.Capabilities,
+				Status:                orgspec.MarketplaceListingStatus(row.Status),
+				ActiveSubscriberCount: row.ActiveSubscriberCount,
+				CreatedAt:             row.CreatedAt.Time.Format(time.RFC3339),
+				UpdatedAt:             row.UpdatedAt.Time.Format(time.RFC3339),
 			}
-			listings = append(listings, buildListingFromRow(ctx, row, caps, 0, false))
+			if row.SuspensionNote.Valid {
+				resp.SuspensionNote = &row.SuspensionNote.String
+			}
+			if row.RejectionNote.Valid {
+				resp.RejectionNote = &row.RejectionNote.String
+			}
+			if row.ListedAt.Valid {
+				t := row.ListedAt.Time.Format(time.RFC3339)
+				resp.ListedAt = &t
+			}
+			listings = append(listings, resp)
 		}
 
 		json.NewEncoder(w).Encode(orgspec.ListMyListingsResponse{

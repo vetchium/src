@@ -43,7 +43,7 @@ func PublishMarketplaceListing(s *server.RegionalServer) http.HandlerFunc {
 
 		orgRecord, err := s.Global.GetOrgByID(ctx, orgUser.OrgID)
 		if err != nil {
-			s.Logger(ctx).Error("failed to get org", "error", err)
+			s.Logger(ctx).Error("failed to get org from global", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -57,8 +57,14 @@ func PublishMarketplaceListing(s *server.RegionalServer) http.HandlerFunc {
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
-			s.Logger(ctx).Error("failed to get listing", "error", err)
+			s.Logger(ctx).Error("failed to get listing from regional", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
+		// Security: verify ownership (GetMarketplaceListingByDomainAndNumber doesn't filter by org_id)
+		if existing.OrgID != orgUser.OrgID {
+			w.WriteHeader(http.StatusNotFound)
 			return
 		}
 
@@ -95,7 +101,6 @@ func PublishMarketplaceListing(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		var published regionaldb.MarketplaceListing
-		var capabilities []string
 
 		txErr := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
 			targetStatus := regionaldb.MarketplaceListingStatusPendingReview
@@ -111,12 +116,6 @@ func PublishMarketplaceListing(s *server.RegionalServer) http.HandlerFunc {
 				return err
 			}
 			published = p
-
-			caps, err := qtx.ListCurrentCapabilitiesForListing(ctx, published.ListingID)
-			if err != nil {
-				return err
-			}
-			capabilities = caps
 
 			eventData, _ := json.Marshal(map[string]any{
 				"listing_id":     uuidToString(published.ListingID),
@@ -143,7 +142,7 @@ func PublishMarketplaceListing(s *server.RegionalServer) http.HandlerFunc {
 					ListingNumber: published.ListingNumber,
 					Headline:      published.Headline,
 					Description:   published.Description,
-					CapabilityIds: capabilities,
+					CapabilityIds: existing.Capabilities,
 					ListedAt:      now,
 				})
 			}
@@ -155,6 +154,28 @@ func PublishMarketplaceListing(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		json.NewEncoder(w).Encode(buildListingFromRow(ctx, published, capabilities, 0, false))
+		resp := orgspec.MarketplaceListing{
+			ListingID:             uuidToString(published.ListingID),
+			OrgDomain:             published.OrgDomain,
+			ListingNumber:         published.ListingNumber,
+			Headline:              published.Headline,
+			Description:           published.Description,
+			Capabilities:          existing.Capabilities,
+			Status:                orgspec.MarketplaceListingStatus(published.Status),
+			ActiveSubscriberCount: existing.ActiveSubscriberCount,
+			CreatedAt:             published.CreatedAt.Time.Format(time.RFC3339),
+			UpdatedAt:             published.UpdatedAt.Time.Format(time.RFC3339),
+		}
+		if published.SuspensionNote.Valid {
+			resp.SuspensionNote = &published.SuspensionNote.String
+		}
+		if published.RejectionNote.Valid {
+			resp.RejectionNote = &published.RejectionNote.String
+		}
+		if published.ListedAt.Valid {
+			t := published.ListedAt.Time.Format(time.RFC3339)
+			resp.ListedAt = &t
+		}
+		json.NewEncoder(w).Encode(resp)
 	}
 }

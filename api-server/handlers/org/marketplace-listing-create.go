@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"time"
 
 	"vetchium-api-server.gomodule/internal/audit"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
@@ -113,6 +114,28 @@ func CreateMarketplaceListing(s *server.RegionalServer) http.HandlerFunc {
 
 		s.Logger(ctx).Info("marketplace listing created", "listing_id", uuidToString(listing.ListingID))
 		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(buildListingFromRow(ctx, listing, capabilities, 0, false))
+		resp := orgspec.MarketplaceListing{
+			ListingID:             uuidToString(listing.ListingID),
+			OrgDomain:             listing.OrgDomain,
+			ListingNumber:         listing.ListingNumber,
+			Headline:              listing.Headline,
+			Description:           listing.Description,
+			Capabilities:          capabilities,
+			Status:                orgspec.MarketplaceListingStatus(listing.Status),
+			ActiveSubscriberCount: 0,
+			CreatedAt:             listing.CreatedAt.Time.Format(time.RFC3339),
+			UpdatedAt:             listing.UpdatedAt.Time.Format(time.RFC3339),
+		}
+		if listing.SuspensionNote.Valid {
+			resp.SuspensionNote = &listing.SuspensionNote.String
+		}
+		if listing.RejectionNote.Valid {
+			resp.RejectionNote = &listing.RejectionNote.String
+		}
+		if listing.ListedAt.Valid {
+			t := listing.ListedAt.Time.Format(time.RFC3339)
+			resp.ListedAt = &t
+		}
+		json.NewEncoder(w).Encode(resp)
 	}
 }

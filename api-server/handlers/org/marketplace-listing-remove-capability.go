@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"vetchium-api-server.gomodule/internal/audit"
@@ -59,6 +60,12 @@ func RemoveListingCapability(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
+		// Security check: must own the listing
+		if existing.OrgID != orgUser.OrgID {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+
 		// Only draft and active listings are editable
 		if existing.Status != regionaldb.MarketplaceListingStatusDraft &&
 			existing.Status != regionaldb.MarketplaceListingStatusActive {
@@ -66,46 +73,43 @@ func RemoveListingCapability(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		var updated regionaldb.MarketplaceListing
 		var capabilities []string
 
 		txErr := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
-			// Check last-capability constraint (422)
-			count, txErr := qtx.CountCurrentCapabilitiesForListing(ctx, existing.ListingID)
-			if txErr != nil {
-				return txErr
+			count, err := qtx.CountCurrentCapabilitiesForListing(ctx, existing.ListingID)
+			if err != nil {
+				return err
 			}
 			if count <= 1 {
 				return server.ErrInvalidState
 			}
 
-			if txErr := qtx.RemoveListingCapability(ctx, regionaldb.RemoveListingCapabilityParams{
+			if err := qtx.RemoveListingCapability(ctx, regionaldb.RemoveListingCapabilityParams{
 				ListingID:    existing.ListingID,
 				CapabilityID: req.CapabilityID,
-			}); txErr != nil {
-				return txErr
+			}); err != nil {
+				return err
 			}
 
-			caps, txErr := qtx.ListCurrentCapabilitiesForListing(ctx, existing.ListingID)
-			if txErr != nil {
-				return txErr
+			caps, err := qtx.ListCurrentCapabilitiesForListing(ctx, existing.ListingID)
+			if err != nil {
+				return err
 			}
 			capabilities = caps
-			updated = existing
 
 			eventData, _ := json.Marshal(map[string]any{
 				"listing_id":     uuidToString(existing.ListingID),
 				"listing_number": existing.ListingNumber,
 				"capability_id":  req.CapabilityID,
 			})
-			if txErr := qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
+			if err := qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
 				EventType:   "org.marketplace_listing_updated",
 				ActorUserID: orgUser.OrgUserID,
 				OrgID:       orgUser.OrgID,
 				IpAddress:   audit.ExtractClientIP(r),
 				EventData:   eventData,
-			}); txErr != nil {
-				return txErr
+			}); err != nil {
+				return err
 			}
 
 			// If active, update global catalog
@@ -134,6 +138,28 @@ func RemoveListingCapability(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		json.NewEncoder(w).Encode(buildListingFromRow(ctx, updated, capabilities, 0, false))
+		resp := orgspec.MarketplaceListing{
+			ListingID:             uuidToString(existing.ListingID),
+			OrgDomain:             existing.OrgDomain,
+			ListingNumber:         existing.ListingNumber,
+			Headline:              existing.Headline,
+			Description:           existing.Description,
+			Capabilities:          capabilities,
+			Status:                orgspec.MarketplaceListingStatus(existing.Status),
+			ActiveSubscriberCount: existing.ActiveSubscriberCount,
+			CreatedAt:             existing.CreatedAt.Time.Format(time.RFC3339),
+			UpdatedAt:             existing.UpdatedAt.Time.Format(time.RFC3339),
+		}
+		if existing.SuspensionNote.Valid {
+			resp.SuspensionNote = &existing.SuspensionNote.String
+		}
+		if existing.RejectionNote.Valid {
+			resp.RejectionNote = &existing.RejectionNote.String
+		}
+		if existing.ListedAt.Valid {
+			t := existing.ListedAt.Time.Format(time.RFC3339)
+			resp.ListedAt = &t
+		}
+		json.NewEncoder(w).Encode(resp)
 	}
 }

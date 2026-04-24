@@ -49,7 +49,8 @@ func ListMyClients(s *server.RegionalServer) http.HandlerFunc {
 			}
 		}
 
-		// Read subscription index from global DB (provider-centric view)
+		// Use the new query that joins 'orgs' for the domain and includes 'provider_listing_number'.
+		// This is exactly ONE database call.
 		rows, err := s.Global.ListSubscriptionsForProvider(ctx, globaldb.ListSubscriptionsForProviderParams{
 			ProviderOrgID: orgUser.OrgID,
 			PaginationKey: paginationKey,
@@ -70,18 +71,11 @@ func ListMyClients(s *server.RegionalServer) http.HandlerFunc {
 
 		clients := make([]orgspec.MarketplaceClient, 0, len(rows))
 		for _, row := range rows {
-			// Look up consumer org domain from global DB
-			consumerOrgDomain := ""
-			consumerOrg, err := s.Global.GetOrgByID(ctx, row.ConsumerOrgID)
-			if err == nil {
-				consumerOrgDomain = consumerOrg.OrgName
-			}
-
 			clients = append(clients, orgspec.MarketplaceClient{
 				SubscriptionID:    uuidToString(row.SubscriptionID),
-				ConsumerOrgDomain: consumerOrgDomain,
-				ListingNumber:     0, // cross-region lookup required for full detail
-				RequestNote:       "",
+				ConsumerOrgDomain: row.ConsumerOrgDomain,
+				ListingNumber:     row.ProviderListingNumber.Int32,
+				RequestNote:       "", // Global index doesn't have notes ( sovereignty)
 				Status:            orgspec.MarketplaceSubscriptionStatus(row.Status),
 				StartedAt:         row.UpdatedAt.Time.Format(time.RFC3339),
 			})

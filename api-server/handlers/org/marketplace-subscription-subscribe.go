@@ -113,8 +113,20 @@ func Subscribe(s *server.RegionalServer) http.HandlerFunc {
 				return err
 			}
 
-			// Upsert global subscription index (fire and forget on failure per convention)
-			upsertGlobalSubscriptionIndex(ctx, s, sub, s.CurrentRegion, catalog.OrgID, providerOrg.Region)
+			// Upsert global subscription index. (Subscriber count is handled via JOINs now).
+			err = s.Global.UpsertSubscriptionIndex(ctx, globaldb.UpsertSubscriptionIndexParams{
+				SubscriptionID: sub.SubscriptionID,
+				ListingID:      sub.ListingID,
+				ConsumerOrgID:  sub.ConsumerOrgID,
+				ConsumerRegion: string(s.CurrentRegion),
+				ProviderOrgID:  catalog.OrgID,
+				ProviderRegion: string(providerOrg.Region),
+				Status:         string(sub.Status),
+			})
+			if err != nil {
+				s.Logger(ctx).Error("CONSISTENCY_ALERT: failed to upsert subscription index", "error", err, "subscription_id", uuidToString(sub.SubscriptionID))
+			}
+
 			return nil
 		})
 		if txErr != nil {

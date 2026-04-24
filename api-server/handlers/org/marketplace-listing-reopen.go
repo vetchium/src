@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"vetchium-api-server.gomodule/internal/audit"
@@ -58,13 +59,18 @@ func ReopenMarketplaceListing(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
+		// Security check: must own the listing
+		if existing.OrgID != orgUser.OrgID {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+
 		if existing.Status != regionaldb.MarketplaceListingStatusArchived {
 			w.WriteHeader(http.StatusUnprocessableEntity)
 			return
 		}
 
 		var reopened regionaldb.MarketplaceListing
-		var capabilities []string
 
 		txErr := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
 			ro, err := qtx.ReopenMarketplaceListing(ctx, existing.ListingID)
@@ -72,12 +78,6 @@ func ReopenMarketplaceListing(s *server.RegionalServer) http.HandlerFunc {
 				return err
 			}
 			reopened = ro
-
-			caps, err := qtx.ListCurrentCapabilitiesForListing(ctx, reopened.ListingID)
-			if err != nil {
-				return err
-			}
-			capabilities = caps
 
 			eventData, _ := json.Marshal(map[string]any{
 				"listing_id":     uuidToString(reopened.ListingID),
@@ -97,6 +97,28 @@ func ReopenMarketplaceListing(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		json.NewEncoder(w).Encode(buildListingFromRow(ctx, reopened, capabilities, 0, false))
+		resp := orgspec.MarketplaceListing{
+			ListingID:             uuidToString(reopened.ListingID),
+			OrgDomain:             reopened.OrgDomain,
+			ListingNumber:         reopened.ListingNumber,
+			Headline:              reopened.Headline,
+			Description:           reopened.Description,
+			Capabilities:          existing.Capabilities,
+			Status:                orgspec.MarketplaceListingStatus(reopened.Status),
+			ActiveSubscriberCount: existing.ActiveSubscriberCount,
+			CreatedAt:             reopened.CreatedAt.Time.Format(time.RFC3339),
+			UpdatedAt:             reopened.UpdatedAt.Time.Format(time.RFC3339),
+		}
+		if reopened.SuspensionNote.Valid {
+			resp.SuspensionNote = &reopened.SuspensionNote.String
+		}
+		if reopened.RejectionNote.Valid {
+			resp.RejectionNote = &reopened.RejectionNote.String
+		}
+		if reopened.ListedAt.Valid {
+			t := reopened.ListedAt.Time.Format(time.RFC3339)
+			resp.ListedAt = &t
+		}
+		json.NewEncoder(w).Encode(resp)
 	}
 }

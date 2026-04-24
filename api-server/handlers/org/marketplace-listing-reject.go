@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -60,7 +61,6 @@ func RejectListing(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		var rejected regionaldb.MarketplaceListing
-		var capabilities []string
 
 		txErr := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
 			rj, err := qtx.RejectMarketplaceListing(ctx, regionaldb.RejectMarketplaceListingParams{
@@ -72,24 +72,22 @@ func RejectListing(s *server.RegionalServer) http.HandlerFunc {
 			}
 			rejected = rj
 
-			caps, err := qtx.ListCurrentCapabilitiesForListing(ctx, rejected.ListingID)
-			if err != nil {
-				return err
-			}
-			capabilities = caps
-
 			eventData, _ := json.Marshal(map[string]any{
 				"listing_id":     uuidToString(rejected.ListingID),
 				"listing_number": rejected.ListingNumber,
 				"org_domain":     req.OrgDomain,
 			})
-			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
+			if err := qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
 				EventType:   "org.marketplace_listing_rejected",
 				ActorUserID: orgUser.OrgUserID,
 				OrgID:       orgUser.OrgID,
 				IpAddress:   audit.ExtractClientIP(r),
 				EventData:   eventData,
-			})
+			}); err != nil {
+				return err
+			}
+
+			return nil
 		})
 		if txErr != nil {
 			s.Logger(ctx).Error("failed to reject listing", "error", txErr)
@@ -97,6 +95,28 @@ func RejectListing(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		json.NewEncoder(w).Encode(buildListingFromRow(ctx, rejected, capabilities, 0, false))
+		resp := orgspec.MarketplaceListing{
+			ListingID:             uuidToString(rejected.ListingID),
+			OrgDomain:             rejected.OrgDomain,
+			ListingNumber:         rejected.ListingNumber,
+			Headline:              rejected.Headline,
+			Description:           rejected.Description,
+			Capabilities:          existing.Capabilities,
+			Status:                orgspec.MarketplaceListingStatus(rejected.Status),
+			ActiveSubscriberCount: existing.ActiveSubscriberCount,
+			CreatedAt:             rejected.CreatedAt.Time.Format(time.RFC3339),
+			UpdatedAt:             rejected.UpdatedAt.Time.Format(time.RFC3339),
+		}
+		if rejected.SuspensionNote.Valid {
+			resp.SuspensionNote = &rejected.SuspensionNote.String
+		}
+		if rejected.RejectionNote.Valid {
+			resp.RejectionNote = &rejected.RejectionNote.String
+		}
+		if rejected.ListedAt.Valid {
+			t := rejected.ListedAt.Time.Format(time.RFC3339)
+			resp.ListedAt = &t
+		}
+		json.NewEncoder(w).Encode(resp)
 	}
 }

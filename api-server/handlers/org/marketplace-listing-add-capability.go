@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"vetchium-api-server.gomodule/internal/audit"
@@ -71,6 +72,12 @@ func AddListingCapability(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
+		// Security check: must own the listing
+		if existing.OrgID != orgUser.OrgID {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+
 		// Only draft and active listings are editable
 		if existing.Status != regionaldb.MarketplaceListingStatusDraft &&
 			existing.Status != regionaldb.MarketplaceListingStatusActive {
@@ -78,7 +85,6 @@ func AddListingCapability(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		var updated regionaldb.MarketplaceListing
 		var capabilities []string
 
 		txErr := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
@@ -94,7 +100,6 @@ func AddListingCapability(s *server.RegionalServer) http.HandlerFunc {
 				return err
 			}
 			capabilities = caps
-			updated = existing
 
 			eventData, _ := json.Marshal(map[string]any{
 				"listing_id":     uuidToString(existing.ListingID),
@@ -132,6 +137,28 @@ func AddListingCapability(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		json.NewEncoder(w).Encode(buildListingFromRow(ctx, updated, capabilities, 0, false))
+		resp := orgspec.MarketplaceListing{
+			ListingID:             uuidToString(existing.ListingID),
+			OrgDomain:             existing.OrgDomain,
+			ListingNumber:         existing.ListingNumber,
+			Headline:              existing.Headline,
+			Description:           existing.Description,
+			Capabilities:          capabilities,
+			Status:                orgspec.MarketplaceListingStatus(existing.Status),
+			ActiveSubscriberCount: existing.ActiveSubscriberCount,
+			CreatedAt:             existing.CreatedAt.Time.Format(time.RFC3339),
+			UpdatedAt:             existing.UpdatedAt.Time.Format(time.RFC3339),
+		}
+		if existing.SuspensionNote.Valid {
+			resp.SuspensionNote = &existing.SuspensionNote.String
+		}
+		if existing.RejectionNote.Valid {
+			resp.RejectionNote = &existing.RejectionNote.String
+		}
+		if existing.ListedAt.Valid {
+			t := existing.ListedAt.Time.Format(time.RFC3339)
+			resp.ListedAt = &t
+		}
+		json.NewEncoder(w).Encode(resp)
 	}
 }

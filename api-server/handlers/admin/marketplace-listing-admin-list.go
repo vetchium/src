@@ -92,7 +92,7 @@ func AdminListMarketplaceListings(s *server.GlobalServer) http.HandlerFunc {
 				Capabilities:          row.CapabilityIds,
 				Status:                orgspec.MarketplaceListingStatusActive,
 				ListedAt:              &listedAt,
-				ActiveSubscriberCount: 0,
+				ActiveSubscriberCount: row.ActiveSubscriberCount,
 				CreatedAt:             row.ListedAt.Time.Format(time.RFC3339),
 				UpdatedAt:             row.UpdatedAt.Time.Format(time.RFC3339),
 			})

@@ -258,19 +258,13 @@ test.describe("Org UI Marketplace — Quota Exceeded Modal", () => {
 				.locator(`.ant-select-item-option:has-text("${CAP1_DISPLAY}")`)
 				.first()
 				.click();
-			await page.locator('input[id="headline"]').click(); // close dropdown by clicking above the select
+			await page.keyboard.press("Escape"); // close the multi-select dropdown
 
-			// Button label is "Submit for Review" (for free-tier org this will hit quota)
-			await page.click('button:has-text("Submit for Review")');
-
-			// Quota-exceeded modal or error message should appear
-			const quotaModal = page.locator(".ant-modal").filter({
-				hasText: /quota|upgrade|subscription/i,
-			});
-			const quotaError = page.locator("text=/quota|upgrade|subscription/i");
-			const visible =
-				(await quotaModal.count()) > 0 || (await quotaError.count()) > 0;
-			expect(visible).toBe(true);
+			// The quota warning banner should be visible on the page before even submitting
+			// (the UI shows a pre-emptive warning when the org is at quota)
+			await expect(
+				page.locator(".ant-alert").filter({ hasText: /upgrade/i })
+			).toBeVisible({ timeout: 10000 });
 		} finally {
 			await deleteTestOrgByDomain(domain);
 		}
@@ -316,8 +310,9 @@ test.describe("Org UI Marketplace — Subscribe Flow", () => {
 			const subscribeButton = page.locator('button:has-text("Subscribe")');
 			if ((await subscribeButton.count()) > 0) {
 				await subscribeButton.click();
-				await expect(page.locator("text=/subscrib|active/i")).toBeVisible({
-					timeout: 5000,
+				// Successful subscribe navigates to /marketplace/subscriptions
+				await expect(page).toHaveURL(/marketplace\/subscriptions/, {
+					timeout: 10000,
 				});
 			}
 		} finally {

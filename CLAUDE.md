@@ -114,6 +114,15 @@ Region determined at signup, stored in global DB. Use `s.GetRegionalDB(region)` 
 
 **CRITICAL**: All list APIs MUST use keyset pagination. Never use OFFSET.
 
+## Database Performance & Efficiency
+
+**CRITICAL**: Within a single handler, you MUST NOT perform more than one round-trip to the **same** logical database (Global or Regional).
+
+- **Cross-DB Data**: If data lives in both Global and Regional DBs, make **exactly one call to each**. Do NOT denormalize global data into regions just to save a single round-trip.
+- **Avoid N+1 Problem**: Never perform database calls inside a loop.
+- **Bulk Operations**: If you have a list of items from one DB and need data from another, use **one bulk lookup** (e.g., `WHERE id IN (...)` or `ANY($1)`) instead of individual calls.
+- **One Round-Trip**: Use complex SQL (JOINs, CTEs, correlated subqueries) to fetch or update all required data for that database in a single round-trip. Use `RETURNING *` for atomic read-after-write.
+
 ## Backend Conventions
 
 ### HTTP Response Conventions

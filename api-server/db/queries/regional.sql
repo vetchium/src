@@ -701,14 +701,25 @@ RETURNING *;
 SELECT * FROM marketplace_listings WHERE listing_id = @listing_id;
 
 -- name: GetMarketplaceListingByDomainAndNumber :one
-SELECT * FROM marketplace_listings WHERE org_domain = @org_domain AND listing_number = @listing_number;
+SELECT ml.*,
+       (SELECT COUNT(*)::int FROM marketplace_subscriptions ms WHERE ms.listing_id = ml.listing_id AND ms.status = 'active') as active_subscriber_count,
+       COALESCE(array_agg(mlc.capability_id) FILTER (WHERE mlc.capability_id IS NOT NULL), '{}')::text[] as capabilities
+FROM marketplace_listings ml
+LEFT JOIN marketplace_listing_capabilities mlc ON ml.listing_id = mlc.listing_id AND mlc.removed_at IS NULL
+WHERE ml.org_domain = @org_domain AND ml.listing_number = @listing_number
+GROUP BY ml.listing_id;
 
 -- name: ListMarketplaceListingsByOrg :many
-SELECT * FROM marketplace_listings
-WHERE org_id = @org_id
-  AND (sqlc.narg('filter_status')::marketplace_listing_status IS NULL OR status = sqlc.narg('filter_status')::marketplace_listing_status)
-  AND (sqlc.narg('pagination_key')::uuid IS NULL OR listing_id > sqlc.narg('pagination_key')::uuid)
-ORDER BY listing_id ASC
+SELECT ml.*,
+       (SELECT COUNT(*)::int FROM marketplace_subscriptions ms WHERE ms.listing_id = ml.listing_id AND ms.status = 'active') as active_subscriber_count,
+       COALESCE(array_agg(mlc.capability_id) FILTER (WHERE mlc.capability_id IS NOT NULL), '{}')::text[] as capabilities
+FROM marketplace_listings ml
+LEFT JOIN marketplace_listing_capabilities mlc ON ml.listing_id = mlc.listing_id AND mlc.removed_at IS NULL
+WHERE ml.org_id = @org_id
+  AND (sqlc.narg('filter_status')::marketplace_listing_status IS NULL OR ml.status = sqlc.narg('filter_status')::marketplace_listing_status)
+  AND (sqlc.narg('pagination_key')::uuid IS NULL OR ml.listing_id > sqlc.narg('pagination_key')::uuid)
+GROUP BY ml.listing_id
+ORDER BY ml.listing_id ASC
 LIMIT @row_limit;
 
 -- name: UpdateMarketplaceListing :one
@@ -813,3 +824,8 @@ SELECT EXISTS(
     SELECT 1 FROM marketplace_subscriptions
     WHERE consumer_org_id = @consumer_org_id AND listing_id = @listing_id AND status = 'active'
 ) AS is_subscribed;
+
+-- name: GetMyListingStatus :one
+SELECT
+    EXISTS(SELECT 1 FROM marketplace_listings ml WHERE ml.listing_id = @param_listing_id AND ml.org_id = @param_org_id) AS is_owner,
+    EXISTS(SELECT 1 FROM marketplace_subscriptions ms WHERE ms.listing_id = @param_listing_id AND ms.consumer_org_id = @param_org_id AND ms.status = 'active') AS is_subscribed;

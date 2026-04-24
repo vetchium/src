@@ -139,7 +139,7 @@ func AdminReinstateListing(s *server.GlobalServer) http.HandlerFunc {
 			Description:           reinstated.Description,
 			Capabilities:          caps,
 			Status:                orgspec.MarketplaceListingStatusActive,
-			ActiveSubscriberCount: 0,
+			ActiveSubscriberCount: listing.ActiveSubscriberCount,
 			CreatedAt:             reinstated.CreatedAt.Time.Format(time.RFC3339),
 			UpdatedAt:             reinstated.UpdatedAt.Time.Format(time.RFC3339),
 		})

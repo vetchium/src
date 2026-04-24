@@ -990,15 +990,19 @@ SET headline = EXCLUDED.headline, description = EXCLUDED.description,
 DELETE FROM marketplace_listing_catalog WHERE listing_id = @listing_id;
 
 -- name: GetListingCatalogByDomainAndNumber :one
-SELECT * FROM marketplace_listing_catalog
-WHERE org_domain = @org_domain AND listing_number = @listing_number;
+SELECT mlc.*,
+       (SELECT COUNT(*)::int FROM marketplace_subscription_index msi WHERE msi.listing_id = mlc.listing_id AND msi.status = 'active') as active_subscriber_count
+FROM marketplace_listing_catalog mlc
+WHERE mlc.org_domain = @org_domain AND mlc.listing_number = @listing_number;
 
 -- name: ListListingCatalogByCapability :many
-SELECT * FROM marketplace_listing_catalog
-WHERE (@capability_id::text = '' OR @capability_id::text = ANY(capability_ids))
-  AND (sqlc.narg('pagination_key')::uuid IS NULL OR listing_id > sqlc.narg('pagination_key')::uuid)
-  AND (@search_text::text = '' OR headline ILIKE '%' || @search_text::text || '%' OR description ILIKE '%' || @search_text::text || '%')
-ORDER BY listing_id ASC
+SELECT mlc.*,
+       (SELECT COUNT(*)::int FROM marketplace_subscription_index msi WHERE msi.listing_id = mlc.listing_id AND msi.status = 'active') as active_subscriber_count
+FROM marketplace_listing_catalog mlc
+WHERE (@capability_id::text = '' OR @capability_id::text = ANY(mlc.capability_ids))
+  AND (sqlc.narg('pagination_key')::uuid IS NULL OR mlc.listing_id > sqlc.narg('pagination_key')::uuid)
+  AND (@search_text::text = '' OR mlc.headline ILIKE '%' || @search_text::text || '%' OR mlc.description ILIKE '%' || @search_text::text || '%')
+ORDER BY mlc.listing_id ASC
 LIMIT @row_limit;
 
 -- Marketplace: subscription index (global)
@@ -1014,8 +1018,21 @@ UPDATE marketplace_subscription_index SET status = @status, updated_at = NOW()
 WHERE subscription_id = @subscription_id;
 
 -- name: ListSubscriptionsForProvider :many
-SELECT * FROM marketplace_subscription_index
-WHERE provider_org_id = @provider_org_id
-  AND (sqlc.narg('pagination_key')::uuid IS NULL OR subscription_id > sqlc.narg('pagination_key')::uuid)
-ORDER BY subscription_id ASC
+SELECT 
+    si.subscription_id,
+    si.listing_id,
+    si.consumer_org_id,
+    si.consumer_region,
+    si.provider_org_id,
+    si.provider_region,
+    si.status,
+    si.updated_at,
+    o.org_name as consumer_org_domain,
+    mlc.listing_number as provider_listing_number
+FROM marketplace_subscription_index si
+JOIN orgs o ON si.consumer_org_id = o.org_id
+LEFT JOIN marketplace_listing_catalog mlc ON si.listing_id = mlc.listing_id
+WHERE si.provider_org_id = @provider_org_id
+  AND (sqlc.narg('pagination_key')::uuid IS NULL OR si.subscription_id > sqlc.narg('pagination_key')::uuid)
+ORDER BY si.subscription_id ASC
 LIMIT @row_limit;

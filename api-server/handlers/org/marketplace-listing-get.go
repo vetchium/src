@@ -61,14 +61,29 @@ func GetMarketplaceListing(s *server.RegionalServer) http.HandlerFunc {
 				return
 			}
 
-			caps, err := s.Regional.ListCurrentCapabilitiesForListing(ctx, listing.ListingID)
-			if err != nil {
-				s.Logger(ctx).Error("failed to fetch capabilities", "error", err)
-				http.Error(w, "", http.StatusInternalServerError)
-				return
+			resp := orgspec.MarketplaceListing{
+				ListingID:             uuidToString(listing.ListingID),
+				OrgDomain:             listing.OrgDomain,
+				ListingNumber:         listing.ListingNumber,
+				Headline:              listing.Headline,
+				Description:           listing.Description,
+				Capabilities:          listing.Capabilities,
+				Status:                orgspec.MarketplaceListingStatus(listing.Status),
+				ActiveSubscriberCount: listing.ActiveSubscriberCount,
+				CreatedAt:             listing.CreatedAt.Time.Format(time.RFC3339),
+				UpdatedAt:             listing.UpdatedAt.Time.Format(time.RFC3339),
 			}
-
-			json.NewEncoder(w).Encode(buildListingFromRow(ctx, listing, caps, 0, false))
+			if listing.SuspensionNote.Valid {
+				resp.SuspensionNote = &listing.SuspensionNote.String
+			}
+			if listing.RejectionNote.Valid {
+				resp.RejectionNote = &listing.RejectionNote.String
+			}
+			if listing.ListedAt.Valid {
+				t := listing.ListedAt.Time.Format(time.RFC3339)
+				resp.ListedAt = &t
+			}
+			json.NewEncoder(w).Encode(resp)
 			return
 		}
 
@@ -97,7 +112,7 @@ func GetMarketplaceListing(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		listedAt := catalog.ListedAt.Time.Format(time.RFC3339)
-		listing := orgspec.MarketplaceListing{
+		json.NewEncoder(w).Encode(orgspec.MarketplaceListing{
 			ListingID:             uuidToString(catalog.ListingID),
 			OrgDomain:             catalog.OrgDomain,
 			ListingNumber:         catalog.ListingNumber,
@@ -106,11 +121,10 @@ func GetMarketplaceListing(s *server.RegionalServer) http.HandlerFunc {
 			Capabilities:          catalog.CapabilityIds,
 			Status:                orgspec.MarketplaceListingStatusActive,
 			ListedAt:              &listedAt,
-			ActiveSubscriberCount: 0,
+			ActiveSubscriberCount: catalog.ActiveSubscriberCount,
 			CreatedAt:             catalog.ListedAt.Time.Format(time.RFC3339),
 			UpdatedAt:             catalog.UpdatedAt.Time.Format(time.RFC3339),
 			IsSubscribed:          isSubscribed,
-		}
-		json.NewEncoder(w).Encode(listing)
+		})
 	}
 }

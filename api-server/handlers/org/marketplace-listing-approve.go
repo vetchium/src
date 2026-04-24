@@ -62,7 +62,6 @@ func ApproveListing(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		var approved regionaldb.MarketplaceListing
-		var capabilities []string
 		now := pgtype.Timestamptz{Time: time.Now(), Valid: true}
 
 		txErr := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
@@ -74,12 +73,6 @@ func ApproveListing(s *server.RegionalServer) http.HandlerFunc {
 				return err
 			}
 			approved = a
-
-			caps, err := qtx.ListCurrentCapabilitiesForListing(ctx, approved.ListingID)
-			if err != nil {
-				return err
-			}
-			capabilities = caps
 
 			eventData, _ := json.Marshal(map[string]any{
 				"listing_id":     uuidToString(approved.ListingID),
@@ -103,7 +96,7 @@ func ApproveListing(s *server.RegionalServer) http.HandlerFunc {
 				ListingNumber: approved.ListingNumber,
 				Headline:      approved.Headline,
 				Description:   approved.Description,
-				CapabilityIds: capabilities,
+				CapabilityIds: existing.Capabilities,
 				ListedAt:      now,
 			})
 		})
@@ -113,6 +106,28 @@ func ApproveListing(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		json.NewEncoder(w).Encode(buildListingFromRow(ctx, approved, capabilities, 0, false))
+		resp := orgspec.MarketplaceListing{
+			ListingID:             uuidToString(approved.ListingID),
+			OrgDomain:             approved.OrgDomain,
+			ListingNumber:         approved.ListingNumber,
+			Headline:              approved.Headline,
+			Description:           approved.Description,
+			Capabilities:          existing.Capabilities,
+			Status:                orgspec.MarketplaceListingStatus(approved.Status),
+			ActiveSubscriberCount: existing.ActiveSubscriberCount,
+			CreatedAt:             approved.CreatedAt.Time.Format(time.RFC3339),
+			UpdatedAt:             approved.UpdatedAt.Time.Format(time.RFC3339),
+		}
+		if approved.SuspensionNote.Valid {
+			resp.SuspensionNote = &approved.SuspensionNote.String
+		}
+		if approved.RejectionNote.Valid {
+			resp.RejectionNote = &approved.RejectionNote.String
+		}
+		if approved.ListedAt.Valid {
+			t := approved.ListedAt.Time.Format(time.RFC3339)
+			resp.ListedAt = &t
+		}
+		json.NewEncoder(w).Encode(resp)
 	}
 }
