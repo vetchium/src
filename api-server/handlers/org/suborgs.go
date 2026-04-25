@@ -24,9 +24,9 @@ import (
 )
 
 const (
-	defaultSubOrgLimit    = 40
-	maxSubOrgLimit        = 100
-	maxSubOrgsPerOrg = 256
+	defaultSubOrgLimit = 40
+	maxSubOrgLimit     = 100
+	maxSubOrgsPerOrg   = 256
 )
 
 // CreateSubOrg handles POST /org/create-suborg
