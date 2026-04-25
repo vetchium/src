@@ -26,9 +26,15 @@ import type {
 	PublishListingRequest,
 	ArchiveListingRequest,
 	ReopenListingRequest,
+	UpdateListingRequest,
+	AddListingCapabilityRequest,
+	RemoveListingCapabilityRequest,
+	AdminApproveListingRequest,
+	AdminRejectListingRequest,
 	GetListingRequest,
 	DiscoverListingsRequest,
 	SubscribeRequest,
+	CancelSubscriptionRequest,
 	GetSubscriptionRequest,
 	ListMySubscriptionsRequest,
 	ListMyClientsRequest,
@@ -281,6 +287,25 @@ test.describe("Listing approval flow (non-superadmin -> pending_review -> active
 			await deleteTestOrgUser(adminEmail);
 		}
 	});
+
+	test("Auth: approve without token -> 401", async ({ request }) => {
+		const api = new OrgAPIClient(request);
+		const res = await api.approveListing("invalid-token", {
+			org_domain: "example.com",
+			listing_number: 1,
+		} as AdminApproveListingRequest);
+		expect(res.status).toBe(401);
+	});
+
+	test("Auth: reject without token -> 401", async ({ request }) => {
+		const api = new OrgAPIClient(request);
+		const res = await api.rejectListing("invalid-token", {
+			org_domain: "example.com",
+			listing_number: 1,
+			rejection_note: "test",
+		} as AdminRejectListingRequest);
+		expect(res.status).toBe(401);
+	});
 });
 
 // ============================================================================
@@ -321,6 +346,34 @@ test.describe("Multi-capability listing", () => {
 		} finally {
 			await deleteTestOrgUser(email);
 		}
+	});
+
+	test("Auth: update listing without token -> 401", async ({ request }) => {
+		const api = new OrgAPIClient(request);
+		const res = await api.updateListing("invalid-token", {
+			listing_number: 1,
+			headline: "Updated",
+			description: "Updated description",
+		} as UpdateListingRequest);
+		expect(res.status).toBe(401);
+	});
+
+	test("Auth: add capability without token -> 401", async ({ request }) => {
+		const api = new OrgAPIClient(request);
+		const res = await api.addListingCapability("invalid-token", {
+			listing_number: 1,
+			capability_id: "some-cap",
+		} as AddListingCapabilityRequest);
+		expect(res.status).toBe(401);
+	});
+
+	test("Auth: remove capability without token -> 401", async ({ request }) => {
+		const api = new OrgAPIClient(request);
+		const res = await api.removeListingCapability("invalid-token", {
+			listing_number: 1,
+			capability_id: "some-cap",
+		} as RemoveListingCapabilityRequest);
+		expect(res.status).toBe(401);
 	});
 });
 
@@ -471,6 +524,23 @@ test.describe("Subscription flows", () => {
 		} finally {
 			await deleteTestOrgUser(email);
 		}
+	});
+
+	test("Auth: subscribe without token -> 401", async ({ request }) => {
+		const api = new OrgAPIClient(request);
+		const res = await api.subscribe("invalid-token", {
+			provider_org_domain: "example.com",
+			provider_listing_number: 1,
+		} as SubscribeRequest);
+		expect(res.status).toBe(401);
+	});
+
+	test("Auth: cancel subscription without token -> 401", async ({ request }) => {
+		const api = new OrgAPIClient(request);
+		const res = await api.cancelSubscription("invalid-token", {
+			subscription_id: "00000000-0000-0000-0000-000000000000",
+		} as CancelSubscriptionRequest);
+		expect(res.status).toBe(401);
 	});
 });
 
@@ -645,6 +715,431 @@ test.describe("RBAC — Marketplace Listings", () => {
 			await deleteTestOrgUser(conEmail);
 		}
 	});
+
+	test("Positive: user with org:manage_listings can update listing (200)", async ({
+		request,
+	}) => {
+		const api = new OrgAPIClient(request);
+		const {
+			email: adminEmail,
+			domain,
+			orgId,
+		} = await createTestOrgAdminDirect(
+			generateTestOrgEmail("mp-rbac-upd-admin").email,
+			TEST_PASSWORD
+		);
+		const { email: userEmail, orgUserId } = await createTestOrgUserDirect(
+			generateTestOrgEmail("mp-rbac-upd-user").email,
+			TEST_PASSWORD,
+			"ind1",
+			{ domain, orgId }
+		);
+		await setOrgPlan(orgId, "silver");
+		await assignRoleToOrgUser(orgUserId, "org:manage_listings", "ind1");
+		try {
+			const adminToken = await loginOrg(api, adminEmail, domain);
+			const userToken = await loginOrg(api, userEmail, domain);
+
+			const createRes = await api.createListing(adminToken, {
+				headline: "Update RBAC Listing",
+				description: "For update RBAC test",
+				capabilities: [TEST_CAP_ID],
+			});
+			expect(createRes.status).toBe(201);
+			const listingNum = createRes.body!.listing_number;
+
+			const updateRes = await api.updateListing(userToken, {
+				listing_number: listingNum,
+				headline: "Updated Headline",
+				description: "Updated description",
+			} as UpdateListingRequest);
+			expect(updateRes.status).toBe(200);
+		} finally {
+			await deleteTestOrgUser(adminEmail);
+			await deleteTestOrgUser(userEmail);
+		}
+	});
+
+	test("Negative: user with no roles cannot update listing (403)", async ({
+		request,
+	}) => {
+		const api = new OrgAPIClient(request);
+		const { email, domain } = await createTestOrgUserDirect(
+			generateTestOrgEmail("mp-rbac-upd-neg").email,
+			TEST_PASSWORD
+		);
+		try {
+			const token = await loginOrg(api, email, domain);
+			const res = await api.updateListing(token, {
+				listing_number: 1,
+				headline: "Updated",
+				description: "Updated",
+			} as UpdateListingRequest);
+			expect(res.status).toBe(403);
+		} finally {
+			await deleteTestOrgUser(email);
+		}
+	});
+
+	test("Positive: user with org:manage_listings can add capability (200)", async ({
+		request,
+	}) => {
+		const api = new OrgAPIClient(request);
+		const {
+			email: adminEmail,
+			domain,
+			orgId,
+		} = await createTestOrgAdminDirect(
+			generateTestOrgEmail("mp-rbac-addcap-admin").email,
+			TEST_PASSWORD
+		);
+		const { email: userEmail, orgUserId } = await createTestOrgUserDirect(
+			generateTestOrgEmail("mp-rbac-addcap-user").email,
+			TEST_PASSWORD,
+			"ind1",
+			{ domain, orgId }
+		);
+		await setOrgPlan(orgId, "silver");
+		await assignRoleToOrgUser(orgUserId, "org:manage_listings", "ind1");
+		try {
+			const adminToken = await loginOrg(api, adminEmail, domain);
+			const userToken = await loginOrg(api, userEmail, domain);
+
+			const createRes = await api.createListing(adminToken, {
+				headline: "Add Cap RBAC Listing",
+				description: "For add-cap RBAC test",
+				capabilities: [TEST_CAP_ID],
+			});
+			expect(createRes.status).toBe(201);
+			const listingNum = createRes.body!.listing_number;
+
+			const addRes = await api.addListingCapability(userToken, {
+				listing_number: listingNum,
+				capability_id: TEST_CAP2_ID,
+			} as AddListingCapabilityRequest);
+			expect(addRes.status).toBe(200);
+		} finally {
+			await deleteTestOrgUser(adminEmail);
+			await deleteTestOrgUser(userEmail);
+		}
+	});
+
+	test("Negative: user with no roles cannot add capability (403)", async ({
+		request,
+	}) => {
+		const api = new OrgAPIClient(request);
+		const { email, domain } = await createTestOrgUserDirect(
+			generateTestOrgEmail("mp-rbac-addcap-neg").email,
+			TEST_PASSWORD
+		);
+		try {
+			const token = await loginOrg(api, email, domain);
+			const res = await api.addListingCapability(token, {
+				listing_number: 1,
+				capability_id: "some-cap",
+			} as AddListingCapabilityRequest);
+			expect(res.status).toBe(403);
+		} finally {
+			await deleteTestOrgUser(email);
+		}
+	});
+
+	test("Positive: user with org:manage_listings can remove capability (200)", async ({
+		request,
+	}) => {
+		const api = new OrgAPIClient(request);
+		const {
+			email: adminEmail,
+			domain,
+			orgId,
+		} = await createTestOrgAdminDirect(
+			generateTestOrgEmail("mp-rbac-remcap-admin").email,
+			TEST_PASSWORD
+		);
+		const { email: userEmail, orgUserId } = await createTestOrgUserDirect(
+			generateTestOrgEmail("mp-rbac-remcap-user").email,
+			TEST_PASSWORD,
+			"ind1",
+			{ domain, orgId }
+		);
+		await setOrgPlan(orgId, "silver");
+		await assignRoleToOrgUser(orgUserId, "org:manage_listings", "ind1");
+		try {
+			const adminToken = await loginOrg(api, adminEmail, domain);
+			const userToken = await loginOrg(api, userEmail, domain);
+
+			const createRes = await api.createListing(adminToken, {
+				headline: "Remove Cap RBAC Listing",
+				description: "For remove-cap RBAC test",
+				capabilities: [TEST_CAP_ID, TEST_CAP2_ID],
+			});
+			expect(createRes.status).toBe(201);
+			const listingNum = createRes.body!.listing_number;
+
+			const removeRes = await api.removeListingCapability(userToken, {
+				listing_number: listingNum,
+				capability_id: TEST_CAP2_ID,
+			} as RemoveListingCapabilityRequest);
+			expect(removeRes.status).toBe(200);
+		} finally {
+			await deleteTestOrgUser(adminEmail);
+			await deleteTestOrgUser(userEmail);
+		}
+	});
+
+	test("Negative: user with no roles cannot remove capability (403)", async ({
+		request,
+	}) => {
+		const api = new OrgAPIClient(request);
+		const { email, domain } = await createTestOrgUserDirect(
+			generateTestOrgEmail("mp-rbac-remcap-neg").email,
+			TEST_PASSWORD
+		);
+		try {
+			const token = await loginOrg(api, email, domain);
+			const res = await api.removeListingCapability(token, {
+				listing_number: 1,
+				capability_id: "some-cap",
+			} as RemoveListingCapabilityRequest);
+			expect(res.status).toBe(403);
+		} finally {
+			await deleteTestOrgUser(email);
+		}
+	});
+
+	test("Positive: org superadmin can approve pending_review listing (200)", async ({
+		request,
+	}) => {
+		const api = new OrgAPIClient(request);
+		const {
+			email: memberEmail,
+			domain,
+			orgId,
+			orgUserId: memberUserId,
+		} = await createTestOrgUserDirect(
+			generateTestOrgEmail("mp-rbac-approve-member").email,
+			TEST_PASSWORD
+		);
+		const { email: adminEmail } = await createTestOrgAdminDirect(
+			generateTestOrgEmail("mp-rbac-approve-admin").email,
+			TEST_PASSWORD,
+			"ind1",
+			{ domain, orgId }
+		);
+		await setOrgPlan(orgId, "silver");
+		await assignRoleToOrgUser(memberUserId, "org:manage_listings", "ind1");
+		try {
+			const memberToken = await loginOrg(api, memberEmail, domain);
+			const adminToken = await loginOrg(api, adminEmail, domain);
+
+			const createRes = await api.createListing(memberToken, {
+				headline: "RBAC Approve Listing",
+				description: "For approve RBAC test",
+				capabilities: [TEST_CAP_ID],
+			});
+			expect(createRes.status).toBe(201);
+			const listingNum = createRes.body!.listing_number;
+
+			await api.publishListing(memberToken, {
+				listing_number: listingNum,
+			} as PublishListingRequest);
+
+			const approveRes = await api.approveListing(adminToken, {
+				org_domain: domain,
+				listing_number: listingNum,
+			} as AdminApproveListingRequest);
+			expect(approveRes.status).toBe(200);
+		} finally {
+			await deleteTestOrgUser(memberEmail);
+			await deleteTestOrgUser(adminEmail);
+		}
+	});
+
+	test("Negative: user with only manage_listings cannot approve (non-superadmin) (403)", async ({
+		request,
+	}) => {
+		const api = new OrgAPIClient(request);
+		const {
+			email: memberEmail,
+			domain,
+			orgId,
+			orgUserId: memberUserId,
+		} = await createTestOrgUserDirect(
+			generateTestOrgEmail("mp-rbac-approve-neg").email,
+			TEST_PASSWORD
+		);
+		await setOrgPlan(orgId, "silver");
+		await assignRoleToOrgUser(memberUserId, "org:manage_listings", "ind1");
+		try {
+			const memberToken = await loginOrg(api, memberEmail, domain);
+			const approveRes = await api.approveListing(memberToken, {
+				org_domain: domain,
+				listing_number: 1,
+			} as AdminApproveListingRequest);
+			expect(approveRes.status).toBe(403);
+		} finally {
+			await deleteTestOrgUser(memberEmail);
+		}
+	});
+
+	test("Positive: org superadmin can reject pending_review listing (200)", async ({
+		request,
+	}) => {
+		const api = new OrgAPIClient(request);
+		const {
+			email: memberEmail,
+			domain,
+			orgId,
+			orgUserId: memberUserId,
+		} = await createTestOrgUserDirect(
+			generateTestOrgEmail("mp-rbac-reject-member").email,
+			TEST_PASSWORD
+		);
+		const { email: adminEmail } = await createTestOrgAdminDirect(
+			generateTestOrgEmail("mp-rbac-reject-admin").email,
+			TEST_PASSWORD,
+			"ind1",
+			{ domain, orgId }
+		);
+		await setOrgPlan(orgId, "silver");
+		await assignRoleToOrgUser(memberUserId, "org:manage_listings", "ind1");
+		try {
+			const memberToken = await loginOrg(api, memberEmail, domain);
+			const adminToken = await loginOrg(api, adminEmail, domain);
+
+			const createRes = await api.createListing(memberToken, {
+				headline: "RBAC Reject Listing",
+				description: "For reject RBAC test",
+				capabilities: [TEST_CAP_ID],
+			});
+			expect(createRes.status).toBe(201);
+			const listingNum = createRes.body!.listing_number;
+
+			await api.publishListing(memberToken, {
+				listing_number: listingNum,
+			} as PublishListingRequest);
+
+			const rejectRes = await api.rejectListing(adminToken, {
+				org_domain: domain,
+				listing_number: listingNum,
+				rejection_note: "RBAC reject test",
+			} as AdminRejectListingRequest);
+			expect(rejectRes.status).toBe(200);
+		} finally {
+			await deleteTestOrgUser(memberEmail);
+			await deleteTestOrgUser(adminEmail);
+		}
+	});
+
+	test("Negative: user with only manage_listings cannot reject (non-superadmin) (403)", async ({
+		request,
+	}) => {
+		const api = new OrgAPIClient(request);
+		const {
+			email: memberEmail,
+			domain,
+			orgId,
+			orgUserId: memberUserId,
+		} = await createTestOrgUserDirect(
+			generateTestOrgEmail("mp-rbac-reject-neg").email,
+			TEST_PASSWORD
+		);
+		await setOrgPlan(orgId, "silver");
+		await assignRoleToOrgUser(memberUserId, "org:manage_listings", "ind1");
+		try {
+			const memberToken = await loginOrg(api, memberEmail, domain);
+			const rejectRes = await api.rejectListing(memberToken, {
+				org_domain: domain,
+				listing_number: 1,
+				rejection_note: "RBAC reject negative",
+			} as AdminRejectListingRequest);
+			expect(rejectRes.status).toBe(403);
+		} finally {
+			await deleteTestOrgUser(memberEmail);
+		}
+	});
+
+	test("Positive: user with org:manage_subscriptions can cancel subscription (200)", async ({
+		request,
+	}) => {
+		const api = new OrgAPIClient(request);
+		const {
+			email: provEmail,
+			domain: provDomain,
+			orgId: provOrgId,
+		} = await createTestOrgAdminDirect(
+			generateTestOrgEmail("mp-rbac-cancel-prov").email,
+			TEST_PASSWORD
+		);
+		await setOrgPlan(provOrgId, "silver");
+		const {
+			email: conAdminEmail,
+			domain: conDomain,
+			orgId: conOrgId,
+		} = await createTestOrgAdminDirect(
+			generateTestOrgEmail("mp-rbac-cancel-conadmin").email,
+			TEST_PASSWORD
+		);
+		const { email: conUserEmail, orgUserId: conUserId } =
+			await createTestOrgUserDirect(
+				generateTestOrgEmail("mp-rbac-cancel-conuser").email,
+				TEST_PASSWORD,
+				"ind1",
+				{ domain: conDomain, orgId: conOrgId }
+			);
+		await assignRoleToOrgUser(conUserId, "org:manage_subscriptions", "ind1");
+		try {
+			const provToken = await loginOrg(api, provEmail, provDomain);
+			const conAdminToken = await loginOrg(api, conAdminEmail, conDomain);
+			const conUserToken = await loginOrg(api, conUserEmail, conDomain);
+
+			const createRes = await api.createListing(provToken, {
+				headline: "RBAC Cancel Sub Listing",
+				description: "For cancel subscription RBAC test",
+				capabilities: [TEST_CAP_ID],
+			});
+			expect(createRes.status).toBe(201);
+			const listingNum = createRes.body!.listing_number;
+			await api.publishListing(provToken, {
+				listing_number: listingNum,
+			} as PublishListingRequest);
+
+			const subRes = await api.subscribe(conAdminToken, {
+				provider_org_domain: provDomain,
+				provider_listing_number: listingNum,
+			} as SubscribeRequest);
+			expect(subRes.status).toBe(201);
+			const subId = subRes.body!.subscription_id;
+
+			const cancelRes = await api.cancelSubscription(conUserToken, {
+				subscription_id: subId,
+			} as CancelSubscriptionRequest);
+			expect(cancelRes.status).toBe(200);
+		} finally {
+			await deleteTestOrgUser(provEmail);
+			await deleteTestOrgUser(conAdminEmail);
+			await deleteTestOrgUser(conUserEmail);
+		}
+	});
+
+	test("Negative: user with no roles cannot cancel subscription (403)", async ({
+		request,
+	}) => {
+		const api = new OrgAPIClient(request);
+		const { email, domain } = await createTestOrgUserDirect(
+			generateTestOrgEmail("mp-rbac-cancel-neg").email,
+			TEST_PASSWORD
+		);
+		try {
+			const token = await loginOrg(api, email, domain);
+			const res = await api.cancelSubscription(token, {
+				subscription_id: "00000000-0000-0000-0000-000000000000",
+			} as CancelSubscriptionRequest);
+			expect(res.status).toBe(403);
+		} finally {
+			await deleteTestOrgUser(email);
+		}
+	});
 });
 
 // ============================================================================
@@ -676,6 +1171,362 @@ test.describe("Audit logs for marketplace write operations", () => {
 			expect(entry.event_type).toBe("org.marketplace_listing_created");
 		} finally {
 			await deleteTestOrgUser(email);
+		}
+	});
+
+	test("Update listing -> audit log recorded (org.marketplace_listing_updated)", async ({
+		request,
+	}) => {
+		const api = new OrgAPIClient(request);
+		const { email, domain, orgId } = await createTestOrgAdminDirect(
+			generateTestOrgEmail("mp-audit-upd").email,
+			TEST_PASSWORD
+		);
+		try {
+			await setOrgPlan(orgId, "silver");
+			const token = await loginOrg(api, email, domain);
+			const before = new Date(Date.now() - 2000).toISOString();
+
+			const createRes = await api.createListing(token, {
+				headline: "Update Audit Listing",
+				description: "For update audit test",
+				capabilities: [TEST_CAP_ID],
+			});
+			expect(createRes.status).toBe(201);
+			const listingNum = createRes.body!.listing_number;
+
+			await api.updateListing(token, {
+				listing_number: listingNum,
+				headline: "Updated Audit Headline",
+				description: "Updated audit description",
+			} as UpdateListingRequest);
+
+			const auditRes = await api.filterAuditLogs(token, {
+				event_types: ["org.marketplace_listing_updated"],
+				start_time: before,
+			});
+			expect(auditRes.status).toBe(200);
+			expect(auditRes.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+			expect(auditRes.body.audit_logs[0].event_type).toBe(
+				"org.marketplace_listing_updated"
+			);
+		} finally {
+			await deleteTestOrgUser(email);
+		}
+	});
+
+	test("Add capability -> audit log recorded (org.marketplace_listing_updated)", async ({
+		request,
+	}) => {
+		const api = new OrgAPIClient(request);
+		const { email, domain, orgId } = await createTestOrgAdminDirect(
+			generateTestOrgEmail("mp-audit-addcap").email,
+			TEST_PASSWORD
+		);
+		try {
+			await setOrgPlan(orgId, "silver");
+			const token = await loginOrg(api, email, domain);
+			const before = new Date(Date.now() - 2000).toISOString();
+
+			const createRes = await api.createListing(token, {
+				headline: "Add Cap Audit Listing",
+				description: "For add-cap audit test",
+				capabilities: [TEST_CAP_ID],
+			});
+			expect(createRes.status).toBe(201);
+			const listingNum = createRes.body!.listing_number;
+
+			await api.addListingCapability(token, {
+				listing_number: listingNum,
+				capability_id: TEST_CAP2_ID,
+			} as AddListingCapabilityRequest);
+
+			const auditRes = await api.filterAuditLogs(token, {
+				event_types: ["org.marketplace_listing_updated"],
+				start_time: before,
+			});
+			expect(auditRes.status).toBe(200);
+			expect(auditRes.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+			expect(auditRes.body.audit_logs[0].event_type).toBe(
+				"org.marketplace_listing_updated"
+			);
+		} finally {
+			await deleteTestOrgUser(email);
+		}
+	});
+
+	test("Remove capability -> audit log recorded (org.marketplace_listing_updated)", async ({
+		request,
+	}) => {
+		const api = new OrgAPIClient(request);
+		const { email, domain, orgId } = await createTestOrgAdminDirect(
+			generateTestOrgEmail("mp-audit-remcap").email,
+			TEST_PASSWORD
+		);
+		try {
+			await setOrgPlan(orgId, "silver");
+			const token = await loginOrg(api, email, domain);
+			const before = new Date(Date.now() - 2000).toISOString();
+
+			const createRes = await api.createListing(token, {
+				headline: "Remove Cap Audit Listing",
+				description: "For remove-cap audit test",
+				capabilities: [TEST_CAP_ID, TEST_CAP2_ID],
+			});
+			expect(createRes.status).toBe(201);
+			const listingNum = createRes.body!.listing_number;
+
+			await api.removeListingCapability(token, {
+				listing_number: listingNum,
+				capability_id: TEST_CAP2_ID,
+			} as RemoveListingCapabilityRequest);
+
+			const auditRes = await api.filterAuditLogs(token, {
+				event_types: ["org.marketplace_listing_updated"],
+				start_time: before,
+			});
+			expect(auditRes.status).toBe(200);
+			expect(auditRes.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+			expect(auditRes.body.audit_logs[0].event_type).toBe(
+				"org.marketplace_listing_updated"
+			);
+		} finally {
+			await deleteTestOrgUser(email);
+		}
+	});
+
+	test("Subscribe -> audit log recorded (org.marketplace_subscription_created)", async ({
+		request,
+	}) => {
+		const api = new OrgAPIClient(request);
+		const {
+			email: provEmail,
+			domain: provDomain,
+			orgId: provOrgId,
+		} = await createTestOrgAdminDirect(
+			generateTestOrgEmail("mp-audit-sub-prov").email,
+			TEST_PASSWORD
+		);
+		const { email: conEmail, domain: conDomain } =
+			await createTestOrgAdminDirect(
+				generateTestOrgEmail("mp-audit-sub-con").email,
+				TEST_PASSWORD
+			);
+		try {
+			await setOrgPlan(provOrgId, "silver");
+			const provToken = await loginOrg(api, provEmail, provDomain);
+			const conToken = await loginOrg(api, conEmail, conDomain);
+			const before = new Date(Date.now() - 2000).toISOString();
+
+			const createRes = await api.createListing(provToken, {
+				headline: "Subscribe Audit Listing",
+				description: "For subscribe audit test",
+				capabilities: [TEST_CAP_ID],
+			});
+			expect(createRes.status).toBe(201);
+			const listingNum = createRes.body!.listing_number;
+			await api.publishListing(provToken, {
+				listing_number: listingNum,
+			} as PublishListingRequest);
+
+			const subRes = await api.subscribe(conToken, {
+				provider_org_domain: provDomain,
+				provider_listing_number: listingNum,
+			} as SubscribeRequest);
+			expect(subRes.status).toBe(201);
+
+			const auditRes = await api.filterAuditLogs(conToken, {
+				event_types: ["org.marketplace_subscription_created"],
+				start_time: before,
+			});
+			expect(auditRes.status).toBe(200);
+			expect(auditRes.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+			expect(auditRes.body.audit_logs[0].event_type).toBe(
+				"org.marketplace_subscription_created"
+			);
+		} finally {
+			await deleteTestOrgUser(provEmail);
+			await deleteTestOrgUser(conEmail);
+		}
+	});
+
+	test("Cancel subscription -> audit log recorded (org.marketplace_subscription_cancelled)", async ({
+		request,
+	}) => {
+		const api = new OrgAPIClient(request);
+		const {
+			email: provEmail,
+			domain: provDomain,
+			orgId: provOrgId,
+		} = await createTestOrgAdminDirect(
+			generateTestOrgEmail("mp-audit-cancel-prov").email,
+			TEST_PASSWORD
+		);
+		const { email: conEmail, domain: conDomain } =
+			await createTestOrgAdminDirect(
+				generateTestOrgEmail("mp-audit-cancel-con").email,
+				TEST_PASSWORD
+			);
+		try {
+			await setOrgPlan(provOrgId, "silver");
+			const provToken = await loginOrg(api, provEmail, provDomain);
+			const conToken = await loginOrg(api, conEmail, conDomain);
+
+			const createRes = await api.createListing(provToken, {
+				headline: "Cancel Audit Listing",
+				description: "For cancel audit test",
+				capabilities: [TEST_CAP_ID],
+			});
+			expect(createRes.status).toBe(201);
+			const listingNum = createRes.body!.listing_number;
+			await api.publishListing(provToken, {
+				listing_number: listingNum,
+			} as PublishListingRequest);
+
+			const subRes = await api.subscribe(conToken, {
+				provider_org_domain: provDomain,
+				provider_listing_number: listingNum,
+			} as SubscribeRequest);
+			expect(subRes.status).toBe(201);
+			const subId = subRes.body!.subscription_id;
+
+			const before = new Date(Date.now() - 2000).toISOString();
+
+			await api.cancelSubscription(conToken, {
+				subscription_id: subId,
+			} as CancelSubscriptionRequest);
+
+			const auditRes = await api.filterAuditLogs(conToken, {
+				event_types: ["org.marketplace_subscription_cancelled"],
+				start_time: before,
+			});
+			expect(auditRes.status).toBe(200);
+			expect(auditRes.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+			expect(auditRes.body.audit_logs[0].event_type).toBe(
+				"org.marketplace_subscription_cancelled"
+			);
+		} finally {
+			await deleteTestOrgUser(provEmail);
+			await deleteTestOrgUser(conEmail);
+		}
+	});
+
+	test("Approve listing -> audit log recorded (org.marketplace_listing_approved)", async ({
+		request,
+	}) => {
+		const api = new OrgAPIClient(request);
+		const {
+			email: memberEmail,
+			domain,
+			orgId,
+			orgUserId: memberUserId,
+		} = await createTestOrgUserDirect(
+			generateTestOrgEmail("mp-audit-approve-member").email,
+			TEST_PASSWORD
+		);
+		const { email: adminEmail } = await createTestOrgAdminDirect(
+			generateTestOrgEmail("mp-audit-approve-admin").email,
+			TEST_PASSWORD,
+			"ind1",
+			{ domain, orgId }
+		);
+		await setOrgPlan(orgId, "silver");
+		await assignRoleToOrgUser(memberUserId, "org:manage_listings", "ind1");
+		try {
+			const memberToken = await loginOrg(api, memberEmail, domain);
+			const adminToken = await loginOrg(api, adminEmail, domain);
+			const before = new Date(Date.now() - 2000).toISOString();
+
+			const createRes = await api.createListing(memberToken, {
+				headline: "Approve Audit Listing",
+				description: "For approve audit test",
+				capabilities: [TEST_CAP_ID],
+			});
+			expect(createRes.status).toBe(201);
+			const listingNum = createRes.body!.listing_number;
+
+			await api.publishListing(memberToken, {
+				listing_number: listingNum,
+			} as PublishListingRequest);
+
+			const approveRes = await api.approveListing(adminToken, {
+				org_domain: domain,
+				listing_number: listingNum,
+			} as AdminApproveListingRequest);
+			expect(approveRes.status).toBe(200);
+
+			const auditRes = await api.filterAuditLogs(adminToken, {
+				event_types: ["org.marketplace_listing_approved"],
+				start_time: before,
+			});
+			expect(auditRes.status).toBe(200);
+			expect(auditRes.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+			expect(auditRes.body.audit_logs[0].event_type).toBe(
+				"org.marketplace_listing_approved"
+			);
+		} finally {
+			await deleteTestOrgUser(memberEmail);
+			await deleteTestOrgUser(adminEmail);
+		}
+	});
+
+	test("Reject listing -> audit log recorded (org.marketplace_listing_rejected)", async ({
+		request,
+	}) => {
+		const api = new OrgAPIClient(request);
+		const {
+			email: memberEmail,
+			domain,
+			orgId,
+			orgUserId: memberUserId,
+		} = await createTestOrgUserDirect(
+			generateTestOrgEmail("mp-audit-reject-member").email,
+			TEST_PASSWORD
+		);
+		const { email: adminEmail } = await createTestOrgAdminDirect(
+			generateTestOrgEmail("mp-audit-reject-admin").email,
+			TEST_PASSWORD,
+			"ind1",
+			{ domain, orgId }
+		);
+		await setOrgPlan(orgId, "silver");
+		await assignRoleToOrgUser(memberUserId, "org:manage_listings", "ind1");
+		try {
+			const memberToken = await loginOrg(api, memberEmail, domain);
+			const adminToken = await loginOrg(api, adminEmail, domain);
+			const before = new Date(Date.now() - 2000).toISOString();
+
+			const createRes = await api.createListing(memberToken, {
+				headline: "Reject Audit Listing",
+				description: "For reject audit test",
+				capabilities: [TEST_CAP_ID],
+			});
+			expect(createRes.status).toBe(201);
+			const listingNum = createRes.body!.listing_number;
+
+			await api.publishListing(memberToken, {
+				listing_number: listingNum,
+			} as PublishListingRequest);
+
+			const rejectRes = await api.rejectListing(adminToken, {
+				org_domain: domain,
+				listing_number: listingNum,
+				rejection_note: "Audit reject test",
+			} as AdminRejectListingRequest);
+			expect(rejectRes.status).toBe(200);
+
+			const auditRes = await api.filterAuditLogs(adminToken, {
+				event_types: ["org.marketplace_listing_rejected"],
+				start_time: before,
+			});
+			expect(auditRes.status).toBe(200);
+			expect(auditRes.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+			expect(auditRes.body.audit_logs[0].event_type).toBe(
+				"org.marketplace_listing_rejected"
+			);
+		} finally {
+			await deleteTestOrgUser(memberEmail);
+			await deleteTestOrgUser(adminEmail);
 		}
 	});
 });

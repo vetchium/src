@@ -137,6 +137,24 @@ test.describe("Admin Marketplace Capability Lifecycle", () => {
 			await deleteTestAdminUser(adminEmail);
 		}
 	});
+
+	test("Auth: create capability without token -> 401", async ({ request }) => {
+		const api = new AdminAPIClient(request);
+		const res = await api.createMarketplaceCapabilityRaw("invalid-token", {
+			capability_id: "some-cap",
+			display_name: "No Auth",
+		});
+		expect(res.status).toBe(401);
+	});
+
+	test("Auth: update capability without token -> 401", async ({ request }) => {
+		const api = new AdminAPIClient(request);
+		const res = await api.updateMarketplaceCapabilityRaw("invalid-token", {
+			capability_id: "some-cap",
+			status: "active",
+		});
+		expect(res.status).toBe(401);
+	});
 });
 
 // ============================================================================
@@ -222,6 +240,25 @@ test.describe("Admin Marketplace Listing Suspend/Reinstate", () => {
 			await deleteTestOrgUser(orgEmail);
 		}
 	});
+
+	test("Auth: suspend listing without token -> 401", async ({ request }) => {
+		const api = new AdminAPIClient(request);
+		const res = await api.adminSuspendListingRaw("invalid-token", {
+			org_domain: "example.com",
+			listing_number: 1,
+			suspension_note: "test",
+		});
+		expect(res.status).toBe(401);
+	});
+
+	test("Auth: reinstate listing without token -> 401", async ({ request }) => {
+		const api = new AdminAPIClient(request);
+		const res = await api.adminReinstateListingRaw("invalid-token", {
+			org_domain: "example.com",
+			listing_number: 1,
+		});
+		expect(res.status).toBe(401);
+	});
 });
 
 // ============================================================================
@@ -293,6 +330,16 @@ test.describe("Admin Marketplace Cancel Subscription", () => {
 			await deleteTestOrgUser(provEmail);
 			await deleteTestOrgUser(conEmail);
 		}
+	});
+
+	test("Auth: admin cancel subscription without token -> 401", async ({
+		request,
+	}) => {
+		const api = new AdminAPIClient(request);
+		const res = await api.adminCancelSubscriptionRaw("invalid-token", {
+			subscription_id: "00000000-0000-0000-0000-000000000000",
+		});
+		expect(res.status).toBe(401);
 	});
 });
 
@@ -383,6 +430,250 @@ test.describe("RBAC — Admin Marketplace", () => {
 		try {
 			const token = await loginAdmin(api, email);
 			const res = await api.listMarketplaceCapabilities(token);
+			expect(res.status).toBe(403);
+		} finally {
+			await deleteTestAdminUser(email);
+		}
+	});
+
+	test("Positive: admin with manage_marketplace can update capability (200)", async ({
+		request,
+	}) => {
+		const api = new AdminAPIClient(request);
+		const email = generateTestEmail("mp-rbac-update-cap-pos");
+		const { userId } = await createTestAdminUser(email, TEST_PASSWORD).then(
+			(id) => ({ userId: id })
+		);
+		await assignRoleToAdminUser(userId, "admin:manage_marketplace");
+		try {
+			const token = await loginAdmin(api, email);
+			const res = await api.updateMarketplaceCapability(token, {
+				capability_id: TEST_CAP_ID,
+				status: "active",
+			});
+			expect(res.status).toBe(200);
+		} finally {
+			await deleteTestAdminUser(email);
+		}
+	});
+
+	test("Negative: admin with no roles cannot update capability (403)", async ({
+		request,
+	}) => {
+		const api = new AdminAPIClient(request);
+		const email = generateTestEmail("mp-rbac-update-cap-neg");
+		await createTestAdminUser(email, TEST_PASSWORD);
+		try {
+			const token = await loginAdmin(api, email);
+			const res = await api.updateMarketplaceCapability(token, {
+				capability_id: TEST_CAP_ID,
+				status: "active",
+			});
+			expect(res.status).toBe(403);
+		} finally {
+			await deleteTestAdminUser(email);
+		}
+	});
+
+	test("Positive: admin with manage_marketplace can suspend listing (200)", async ({
+		request,
+	}) => {
+		const adminApi = new AdminAPIClient(request);
+		const orgApi = new OrgAPIClient(request);
+		const adminEmail = generateTestEmail("mp-rbac-suspend-pos");
+		const { userId } = await createTestAdminUser(adminEmail, TEST_PASSWORD).then(
+			(id) => ({ userId: id })
+		);
+		await assignRoleToAdminUser(userId, "admin:manage_marketplace");
+		const {
+			email: orgEmail,
+			domain: orgDomain,
+			orgId,
+		} = await createTestOrgAdminDirect(
+			generateTestOrgEmail("mp-rbac-suspend-org").email,
+			TEST_PASSWORD
+		);
+		try {
+			await setOrgPlan(orgId, "silver");
+			const adminToken = await loginAdmin(adminApi, adminEmail);
+			const orgToken = await loginOrg(orgApi, orgEmail, orgDomain);
+
+			const { listingId, listingNumber } =
+				await createTestMarketplaceListingDirect(
+					orgId,
+					orgDomain,
+					[TEST_CAP_ID],
+					"active",
+					"RBAC Suspend Listing"
+				);
+
+			const suspendRes = await adminApi.adminSuspendListing(adminToken, {
+				org_domain: orgDomain,
+				listing_number: listingNumber,
+				suspension_note: "RBAC suspend test",
+			});
+			expect(suspendRes.status).toBe(200);
+		} finally {
+			await deleteTestAdminUser(adminEmail);
+			await deleteTestOrgUser(orgEmail);
+		}
+	});
+
+	test("Negative: admin with no roles cannot suspend listing (403)", async ({
+		request,
+	}) => {
+		const api = new AdminAPIClient(request);
+		const email = generateTestEmail("mp-rbac-suspend-neg");
+		await createTestAdminUser(email, TEST_PASSWORD);
+		try {
+			const token = await loginAdmin(api, email);
+			const res = await api.adminSuspendListing(token, {
+				org_domain: "example.com",
+				listing_number: 1,
+				suspension_note: "RBAC suspend negative",
+			});
+			expect(res.status).toBe(403);
+		} finally {
+			await deleteTestAdminUser(email);
+		}
+	});
+
+	test("Positive: admin with manage_marketplace can reinstate listing (200)", async ({
+		request,
+	}) => {
+		const adminApi = new AdminAPIClient(request);
+		const adminEmail = generateTestEmail("mp-rbac-reinstate-pos");
+		const superAdminEmail = generateTestEmail("mp-rbac-reinstate-super");
+		const { userId } = await createTestAdminUser(adminEmail, TEST_PASSWORD).then(
+			(id) => ({ userId: id })
+		);
+		await assignRoleToAdminUser(userId, "admin:manage_marketplace");
+		await createTestSuperadmin(superAdminEmail, TEST_PASSWORD);
+		const {
+			email: orgEmail,
+			domain: orgDomain,
+			orgId,
+		} = await createTestOrgAdminDirect(
+			generateTestOrgEmail("mp-rbac-reinstate-org").email,
+			TEST_PASSWORD
+		);
+		try {
+			await setOrgPlan(orgId, "silver");
+			const adminToken = await loginAdmin(adminApi, adminEmail);
+			const superToken = await loginAdmin(adminApi, superAdminEmail);
+
+			const { listingNumber } = await createTestMarketplaceListingDirect(
+				orgId,
+				orgDomain,
+				[TEST_CAP_ID],
+				"active",
+				"RBAC Reinstate Listing"
+			);
+
+			// First suspend via superadmin
+			await adminApi.adminSuspendListing(superToken, {
+				org_domain: orgDomain,
+				listing_number: listingNumber,
+				suspension_note: "For RBAC reinstate test",
+			});
+
+			const reinstateRes = await adminApi.adminReinstateListing(adminToken, {
+				org_domain: orgDomain,
+				listing_number: listingNumber,
+			});
+			expect(reinstateRes.status).toBe(200);
+		} finally {
+			await deleteTestAdminUser(adminEmail);
+			await deleteTestAdminUser(superAdminEmail);
+			await deleteTestOrgUser(orgEmail);
+		}
+	});
+
+	test("Negative: admin with no roles cannot reinstate listing (403)", async ({
+		request,
+	}) => {
+		const api = new AdminAPIClient(request);
+		const email = generateTestEmail("mp-rbac-reinstate-neg");
+		await createTestAdminUser(email, TEST_PASSWORD);
+		try {
+			const token = await loginAdmin(api, email);
+			const res = await api.adminReinstateListing(token, {
+				org_domain: "example.com",
+				listing_number: 1,
+			});
+			expect(res.status).toBe(403);
+		} finally {
+			await deleteTestAdminUser(email);
+		}
+	});
+
+	test("Positive: admin with manage_marketplace can cancel subscription (200)", async ({
+		request,
+	}) => {
+		const adminApi = new AdminAPIClient(request);
+		const orgApi = new OrgAPIClient(request);
+		const adminEmail = generateTestEmail("mp-rbac-cancel-sub-pos");
+		const { userId } = await createTestAdminUser(adminEmail, TEST_PASSWORD).then(
+			(id) => ({ userId: id })
+		);
+		await assignRoleToAdminUser(userId, "admin:manage_marketplace");
+		const {
+			email: provEmail,
+			domain: provDomain,
+			orgId: provOrgId,
+		} = await createTestOrgAdminDirect(
+			generateTestOrgEmail("mp-rbac-cancel-prov").email,
+			TEST_PASSWORD
+		);
+		const { email: conEmail, domain: conDomain } =
+			await createTestOrgAdminDirect(
+				generateTestOrgEmail("mp-rbac-cancel-con").email,
+				TEST_PASSWORD
+			);
+		try {
+			await setOrgPlan(provOrgId, "silver");
+			const adminToken = await loginAdmin(adminApi, adminEmail);
+			const provToken = await loginOrg(orgApi, provEmail, provDomain);
+			const conToken = await loginOrg(orgApi, conEmail, conDomain);
+
+			const createRes = await orgApi.createListing(provToken, {
+				headline: "RBAC Cancel Sub Listing",
+				description: "For RBAC cancel subscription test",
+				capabilities: [TEST_CAP_ID],
+			});
+			expect(createRes.status).toBe(201);
+			await orgApi.publishListing(provToken, {
+				listing_number: createRes.body!.listing_number,
+			});
+
+			const subRes = await orgApi.subscribe(conToken, {
+				provider_org_domain: provDomain,
+				provider_listing_number: createRes.body!.listing_number,
+			});
+			expect(subRes.status).toBe(201);
+
+			const cancelRes = await adminApi.adminCancelSubscription(adminToken, {
+				subscription_id: subRes.body!.subscription_id,
+			});
+			expect(cancelRes.status).toBe(200);
+		} finally {
+			await deleteTestAdminUser(adminEmail);
+			await deleteTestOrgUser(provEmail);
+			await deleteTestOrgUser(conEmail);
+		}
+	});
+
+	test("Negative: admin with no roles cannot cancel subscription (403)", async ({
+		request,
+	}) => {
+		const api = new AdminAPIClient(request);
+		const email = generateTestEmail("mp-rbac-cancel-sub-neg");
+		await createTestAdminUser(email, TEST_PASSWORD);
+		try {
+			const token = await loginAdmin(api, email);
+			const res = await api.adminCancelSubscription(token, {
+				subscription_id: "00000000-0000-0000-0000-000000000000",
+			});
 			expect(res.status).toBe(403);
 		} finally {
 			await deleteTestAdminUser(email);
@@ -843,6 +1134,253 @@ test.describe("POST /admin/marketplace/subscription/list", () => {
 			expect(res.status).toBe(403);
 		} finally {
 			await deleteTestAdminUser(email);
+		}
+	});
+});
+
+// ============================================================================
+// Audit log assertions for admin marketplace write operations
+// ============================================================================
+test.describe("Audit logs for admin marketplace write operations", () => {
+	const AUDIT_CAP_ID = `mp-admin-audit-cap-${Math.random().toString(36).slice(2, 10)}`;
+
+	test.beforeAll(async () => {
+		await createTestMarketplaceCapability(AUDIT_CAP_ID, "active", "Audit Cap");
+	});
+
+	test.afterAll(async () => {
+		await deleteTestMarketplaceCapability(AUDIT_CAP_ID);
+	});
+
+	test("Create capability -> admin.marketplace_capability_created audit recorded", async ({
+		request,
+	}) => {
+		const api = new AdminAPIClient(request);
+		const adminEmail = generateTestEmail("mp-admin-audit-cap-create");
+		await createTestSuperadmin(adminEmail, TEST_PASSWORD);
+		const capId = `mp-audit-create-${Math.random().toString(36).slice(2, 10)}`;
+		try {
+			const token = await loginAdmin(api, adminEmail);
+			const before = new Date(Date.now() - 2000).toISOString();
+
+			const res = await api.createMarketplaceCapability(token, {
+				capability_id: capId,
+				display_name: "Audit Create Cap",
+			});
+			expect(res.status).toBe(201);
+
+			const auditRes = await api.filterAuditLogs(token, {
+				event_types: ["admin.marketplace_capability_created"],
+				start_time: before,
+			});
+			expect(auditRes.status).toBe(200);
+			expect(auditRes.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+			expect(auditRes.body.audit_logs[0].event_type).toBe(
+				"admin.marketplace_capability_created"
+			);
+		} finally {
+			await deleteTestMarketplaceCapability(capId).catch(() => {});
+			await deleteTestAdminUser(adminEmail);
+		}
+	});
+
+	test("Update capability -> admin.marketplace_capability_updated audit recorded", async ({
+		request,
+	}) => {
+		const api = new AdminAPIClient(request);
+		const adminEmail = generateTestEmail("mp-admin-audit-cap-update");
+		await createTestSuperadmin(adminEmail, TEST_PASSWORD);
+		try {
+			const token = await loginAdmin(api, adminEmail);
+			const before = new Date(Date.now() - 2000).toISOString();
+
+			const res = await api.updateMarketplaceCapability(token, {
+				capability_id: AUDIT_CAP_ID,
+				status: "active",
+			});
+			expect(res.status).toBe(200);
+
+			const auditRes = await api.filterAuditLogs(token, {
+				event_types: ["admin.marketplace_capability_updated"],
+				start_time: before,
+			});
+			expect(auditRes.status).toBe(200);
+			expect(auditRes.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+			expect(auditRes.body.audit_logs[0].event_type).toBe(
+				"admin.marketplace_capability_updated"
+			);
+		} finally {
+			await deleteTestAdminUser(adminEmail);
+		}
+	});
+
+	test("Suspend listing -> admin.marketplace_listing_suspended audit recorded", async ({
+		request,
+	}) => {
+		const adminApi = new AdminAPIClient(request);
+		const adminEmail = generateTestEmail("mp-admin-audit-suspend");
+		await createTestSuperadmin(adminEmail, TEST_PASSWORD);
+		const {
+			email: orgEmail,
+			domain: orgDomain,
+			orgId,
+		} = await createTestOrgAdminDirect(
+			generateTestOrgEmail("mp-admin-audit-susp-org").email,
+			TEST_PASSWORD
+		);
+		try {
+			await setOrgPlan(orgId, "silver");
+			const adminToken = await loginAdmin(adminApi, adminEmail);
+			const before = new Date(Date.now() - 2000).toISOString();
+
+			const { listingNumber } = await createTestMarketplaceListingDirect(
+				orgId,
+				orgDomain,
+				[AUDIT_CAP_ID],
+				"active",
+				"Audit Suspend Listing"
+			);
+
+			const suspendRes = await adminApi.adminSuspendListing(adminToken, {
+				org_domain: orgDomain,
+				listing_number: listingNumber,
+				suspension_note: "Audit suspend test",
+			});
+			expect(suspendRes.status).toBe(200);
+
+			const auditRes = await adminApi.filterAuditLogs(adminToken, {
+				event_types: ["admin.marketplace_listing_suspended"],
+				start_time: before,
+			});
+			expect(auditRes.status).toBe(200);
+			expect(auditRes.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+			expect(auditRes.body.audit_logs[0].event_type).toBe(
+				"admin.marketplace_listing_suspended"
+			);
+		} finally {
+			await deleteTestAdminUser(adminEmail);
+			await deleteTestOrgUser(orgEmail);
+		}
+	});
+
+	test("Reinstate listing -> admin.marketplace_listing_reinstated audit recorded", async ({
+		request,
+	}) => {
+		const adminApi = new AdminAPIClient(request);
+		const adminEmail = generateTestEmail("mp-admin-audit-reinstate");
+		await createTestSuperadmin(adminEmail, TEST_PASSWORD);
+		const {
+			email: orgEmail,
+			domain: orgDomain,
+			orgId,
+		} = await createTestOrgAdminDirect(
+			generateTestOrgEmail("mp-admin-audit-reinst-org").email,
+			TEST_PASSWORD
+		);
+		try {
+			await setOrgPlan(orgId, "silver");
+			const adminToken = await loginAdmin(adminApi, adminEmail);
+
+			const { listingNumber } = await createTestMarketplaceListingDirect(
+				orgId,
+				orgDomain,
+				[AUDIT_CAP_ID],
+				"active",
+				"Audit Reinstate Listing"
+			);
+
+			await adminApi.adminSuspendListing(adminToken, {
+				org_domain: orgDomain,
+				listing_number: listingNumber,
+				suspension_note: "Setup for reinstate audit test",
+			});
+
+			const before = new Date(Date.now() - 2000).toISOString();
+
+			const reinstateRes = await adminApi.adminReinstateListing(adminToken, {
+				org_domain: orgDomain,
+				listing_number: listingNumber,
+			});
+			expect(reinstateRes.status).toBe(200);
+
+			const auditRes = await adminApi.filterAuditLogs(adminToken, {
+				event_types: ["admin.marketplace_listing_reinstated"],
+				start_time: before,
+			});
+			expect(auditRes.status).toBe(200);
+			expect(auditRes.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+			expect(auditRes.body.audit_logs[0].event_type).toBe(
+				"admin.marketplace_listing_reinstated"
+			);
+		} finally {
+			await deleteTestAdminUser(adminEmail);
+			await deleteTestOrgUser(orgEmail);
+		}
+	});
+
+	test("Admin cancel subscription -> admin.marketplace_subscription_cancelled audit recorded", async ({
+		request,
+	}) => {
+		const adminApi = new AdminAPIClient(request);
+		const orgApi = new OrgAPIClient(request);
+		const adminEmail = generateTestEmail("mp-admin-audit-cancel-sub");
+		await createTestSuperadmin(adminEmail, TEST_PASSWORD);
+		const {
+			email: provEmail,
+			domain: provDomain,
+			orgId: provOrgId,
+		} = await createTestOrgAdminDirect(
+			generateTestOrgEmail("mp-admin-audit-cancel-prov").email,
+			TEST_PASSWORD
+		);
+		const { email: conEmail, domain: conDomain } =
+			await createTestOrgAdminDirect(
+				generateTestOrgEmail("mp-admin-audit-cancel-con").email,
+				TEST_PASSWORD
+			);
+		try {
+			await setOrgPlan(provOrgId, "silver");
+			const adminToken = await loginAdmin(adminApi, adminEmail);
+			const provToken = await loginOrg(orgApi, provEmail, provDomain);
+			const conToken = await loginOrg(orgApi, conEmail, conDomain);
+
+			const createRes = await orgApi.createListing(provToken, {
+				headline: "Audit Cancel Sub Listing",
+				description: "For admin cancel subscription audit test",
+				capabilities: [AUDIT_CAP_ID],
+			});
+			expect(createRes.status).toBe(201);
+			await orgApi.publishListing(provToken, {
+				listing_number: createRes.body!.listing_number,
+			});
+
+			const subRes = await orgApi.subscribe(conToken, {
+				provider_org_domain: provDomain,
+				provider_listing_number: createRes.body!.listing_number,
+			});
+			expect(subRes.status).toBe(201);
+			const subId = subRes.body!.subscription_id;
+
+			const before = new Date(Date.now() - 2000).toISOString();
+
+			const cancelRes = await adminApi.adminCancelSubscription(adminToken, {
+				subscription_id: subId,
+			});
+			expect(cancelRes.status).toBe(200);
+
+			const auditRes = await adminApi.filterAuditLogs(adminToken, {
+				event_types: ["admin.marketplace_subscription_cancelled"],
+				start_time: before,
+			});
+			expect(auditRes.status).toBe(200);
+			expect(auditRes.body.audit_logs.length).toBeGreaterThanOrEqual(1);
+			expect(auditRes.body.audit_logs[0].event_type).toBe(
+				"admin.marketplace_subscription_cancelled"
+			);
+		} finally {
+			await deleteTestAdminUser(adminEmail);
+			await deleteTestOrgUser(provEmail);
+			await deleteTestOrgUser(conEmail);
 		}
 	});
 });
