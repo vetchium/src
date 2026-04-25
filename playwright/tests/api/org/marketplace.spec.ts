@@ -29,8 +29,8 @@ import type {
 	UpdateListingRequest,
 	AddListingCapabilityRequest,
 	RemoveListingCapabilityRequest,
-	AdminApproveListingRequest,
-	AdminRejectListingRequest,
+	OrgApproveListingRequest,
+	OrgRejectListingRequest,
 	GetListingRequest,
 	DiscoverListingsRequest,
 	SubscribeRequest,
@@ -293,7 +293,7 @@ test.describe("Listing approval flow (non-superadmin -> pending_review -> active
 		const res = await api.approveListing("invalid-token", {
 			org_domain: "example.com",
 			listing_number: 1,
-		} as AdminApproveListingRequest);
+		} as OrgApproveListingRequest);
 		expect(res.status).toBe(401);
 	});
 
@@ -303,7 +303,7 @@ test.describe("Listing approval flow (non-superadmin -> pending_review -> active
 			org_domain: "example.com",
 			listing_number: 1,
 			rejection_note: "test",
-		} as AdminRejectListingRequest);
+		} as OrgRejectListingRequest);
 		expect(res.status).toBe(401);
 	});
 });
@@ -949,7 +949,7 @@ test.describe("RBAC — Marketplace Listings", () => {
 			const approveRes = await api.approveListing(adminToken, {
 				org_domain: domain,
 				listing_number: listingNum,
-			} as AdminApproveListingRequest);
+			} as OrgApproveListingRequest);
 			expect(approveRes.status).toBe(200);
 		} finally {
 			await deleteTestOrgUser(memberEmail);
@@ -977,7 +977,7 @@ test.describe("RBAC — Marketplace Listings", () => {
 			const approveRes = await api.approveListing(memberToken, {
 				org_domain: domain,
 				listing_number: 1,
-			} as AdminApproveListingRequest);
+			} as OrgApproveListingRequest);
 			expect(approveRes.status).toBe(403);
 		} finally {
 			await deleteTestOrgUser(memberEmail);
@@ -1025,7 +1025,7 @@ test.describe("RBAC — Marketplace Listings", () => {
 				org_domain: domain,
 				listing_number: listingNum,
 				rejection_note: "RBAC reject test",
-			} as AdminRejectListingRequest);
+			} as OrgRejectListingRequest);
 			expect(rejectRes.status).toBe(200);
 		} finally {
 			await deleteTestOrgUser(memberEmail);
@@ -1054,7 +1054,7 @@ test.describe("RBAC — Marketplace Listings", () => {
 				org_domain: domain,
 				listing_number: 1,
 				rejection_note: "RBAC reject negative",
-			} as AdminRejectListingRequest);
+			} as OrgRejectListingRequest);
 			expect(rejectRes.status).toBe(403);
 		} finally {
 			await deleteTestOrgUser(memberEmail);
@@ -1454,7 +1454,7 @@ test.describe("Audit logs for marketplace write operations", () => {
 			const approveRes = await api.approveListing(adminToken, {
 				org_domain: domain,
 				listing_number: listingNum,
-			} as AdminApproveListingRequest);
+			} as OrgApproveListingRequest);
 			expect(approveRes.status).toBe(200);
 
 			const auditRes = await api.filterAuditLogs(adminToken, {
@@ -1514,7 +1514,7 @@ test.describe("Audit logs for marketplace write operations", () => {
 				org_domain: domain,
 				listing_number: listingNum,
 				rejection_note: "Audit reject test",
-			} as AdminRejectListingRequest);
+			} as OrgRejectListingRequest);
 			expect(rejectRes.status).toBe(200);
 
 			const auditRes = await api.filterAuditLogs(adminToken, {

@@ -495,15 +495,15 @@ func (r AdminReinstateListingRequest) Validate() []common.ValidationError {
 	return errs
 }
 
-type AdminApproveListingRequest = AdminReinstateListingRequest
+type OrgApproveListingRequest = AdminReinstateListingRequest
 
-type AdminRejectListingRequest struct {
+type OrgRejectListingRequest struct {
 	OrgDomain     string `json:"org_domain"`
 	ListingNumber int32  `json:"listing_number"`
 	RejectionNote string `json:"rejection_note"`
 }
 
-func (r AdminRejectListingRequest) Validate() []common.ValidationError {
+func (r OrgRejectListingRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
 	if r.OrgDomain == "" {
 		errs = append(errs, common.NewValidationError("org_domain", errOrgDomainRequired))

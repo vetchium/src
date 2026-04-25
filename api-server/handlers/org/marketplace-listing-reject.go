@@ -28,7 +28,7 @@ func RejectListing(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		var req orgspec.AdminRejectListingRequest
+		var req orgspec.OrgRejectListingRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			s.Logger(ctx).Debug("failed to decode request", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)

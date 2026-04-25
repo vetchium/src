@@ -1,4 +1,6 @@
-// Admin marketplace types are co-located in org/marketplace.ts
+// Admin marketplace types are co-located in org/marketplace.ts.
+// Org-side approve/reject (OrgApproveListingRequest, OrgRejectListingRequest) are
+// intentionally excluded — those are intra-org operations, not admin portal operations.
 export type {
 	MarketplaceCapability,
 	ListCapabilitiesResponse,
@@ -9,8 +11,6 @@ export type {
 	AdminListListingsResponse,
 	AdminSuspendListingRequest,
 	AdminReinstateListingRequest,
-	AdminApproveListingRequest,
-	AdminRejectListingRequest,
 	MarketplaceSubscription,
 	AdminListSubscriptionsRequest,
 	AdminListSubscriptionsResponse,
@@ -25,8 +25,6 @@ export {
 	validateAdminListListingsRequest,
 	validateAdminSuspendListingRequest,
 	validateAdminReinstateListingRequest,
-	validateAdminApproveListingRequest,
-	validateAdminRejectListingRequest,
 	validateAdminListSubscriptionsRequest,
 	validateAdminCancelSubscriptionRequest,
 } from "../org/marketplace";

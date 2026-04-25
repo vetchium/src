@@ -217,12 +217,12 @@ model AdminReinstateListingRequest {
   listing_number: int32;
 }
 
-model AdminApproveListingRequest {
+model OrgApproveListingRequest {
   org_domain: string;
   listing_number: int32;
 }
 
-model AdminRejectListingRequest {
+model OrgRejectListingRequest {
   org_domain: string;
   listing_number: int32;
   rejection_note: string;

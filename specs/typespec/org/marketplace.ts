@@ -210,12 +210,12 @@ export interface AdminReinstateListingRequest {
 	listing_number: number;
 }
 
-export interface AdminApproveListingRequest {
+export interface OrgApproveListingRequest {
 	org_domain: string;
 	listing_number: number;
 }
 
-export interface AdminRejectListingRequest {
+export interface OrgRejectListingRequest {
 	org_domain: string;
 	listing_number: number;
 	rejection_note: string;
@@ -592,14 +592,14 @@ export function validateAdminReinstateListingRequest(
 	return errs;
 }
 
-export function validateAdminApproveListingRequest(
-	req: AdminApproveListingRequest
+export function validateOrgApproveListingRequest(
+	req: OrgApproveListingRequest
 ): ValidationError[] {
 	return validateAdminReinstateListingRequest(req);
 }
 
-export function validateAdminRejectListingRequest(
-	req: AdminRejectListingRequest
+export function validateOrgRejectListingRequest(
+	req: OrgRejectListingRequest
 ): ValidationError[] {
 	const errs: ValidationError[] = [];
 	if (!req.org_domain) {

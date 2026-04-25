@@ -29,7 +29,7 @@ func ApproveListing(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		var req orgspec.AdminApproveListingRequest
+		var req orgspec.OrgApproveListingRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			s.Logger(ctx).Debug("failed to decode request", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -62,7 +62,6 @@ func ApproveListing(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		var approved regionaldb.MarketplaceListing
-		now := pgtype.Timestamptz{Time: time.Now(), Valid: true}
 
 		txErr := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
 			a, err := qtx.PublishMarketplaceListing(ctx, regionaldb.PublishMarketplaceListingParams{
@@ -79,31 +78,34 @@ func ApproveListing(s *server.RegionalServer) http.HandlerFunc {
 				"listing_number": approved.ListingNumber,
 				"org_domain":     req.OrgDomain,
 			})
-			if err := qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
+			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
 				EventType:   "org.marketplace_listing_approved",
 				ActorUserID: orgUser.OrgUserID,
 				OrgID:       orgUser.OrgID,
 				IpAddress:   audit.ExtractClientIP(r),
 				EventData:   eventData,
-			}); err != nil {
-				return err
-			}
-
-			return s.Global.UpsertListingCatalog(ctx, globaldb.UpsertListingCatalogParams{
-				ListingID:     approved.ListingID,
-				OrgID:         existing.OrgID,
-				OrgDomain:     req.OrgDomain,
-				ListingNumber: approved.ListingNumber,
-				Headline:      approved.Headline,
-				Description:   approved.Description,
-				CapabilityIds: existing.Capabilities,
-				ListedAt:      now,
 			})
 		})
 		if txErr != nil {
 			s.Logger(ctx).Error("failed to approve listing", "error", txErr)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
+		}
+
+		// Update global catalog after regional tx commits; log CONSISTENCY_ALERT on failure.
+		now := pgtype.Timestamptz{Time: time.Now(), Valid: true}
+		if err := s.Global.UpsertListingCatalog(ctx, globaldb.UpsertListingCatalogParams{
+			ListingID:     approved.ListingID,
+			OrgID:         existing.OrgID,
+			OrgDomain:     req.OrgDomain,
+			ListingNumber: approved.ListingNumber,
+			Headline:      approved.Headline,
+			Description:   approved.Description,
+			CapabilityIds: existing.Capabilities,
+			ListedAt:      now,
+		}); err != nil {
+			s.Logger(ctx).Error("CONSISTENCY_ALERT: failed to upsert listing catalog after approve", "error", err,
+				"listing_id", uuidToString(approved.ListingID))
 		}
 
 		subscriberCount, err := s.Global.GetActiveSubscriberCountByListingID(ctx, existing.ListingID)

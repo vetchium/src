@@ -57,8 +57,6 @@ import type {
 	AdminListListingsResponse,
 	AdminSuspendListingRequest,
 	AdminReinstateListingRequest,
-	AdminApproveListingRequest,
-	AdminRejectListingRequest,
 	MarketplaceSubscription,
 	AdminListSubscriptionsRequest,
 	AdminListSubscriptionsResponse,
