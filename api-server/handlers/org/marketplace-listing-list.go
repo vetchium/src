@@ -76,6 +76,22 @@ func ListMyListings(s *server.RegionalServer) http.HandlerFunc {
 			nextKey = &k
 		}
 
+		listingIDs := make([]pgtype.UUID, 0, len(rows))
+		for _, row := range rows {
+			listingIDs = append(listingIDs, row.ListingID)
+		}
+
+		countRows, err := s.Global.GetActiveSubscriberCountsByListingIDs(ctx, listingIDs)
+		if err != nil {
+			s.Logger(ctx).Error("failed to get subscriber counts", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+		subCounts := make(map[pgtype.UUID]int32, len(countRows))
+		for _, cr := range countRows {
+			subCounts[cr.ListingID] = cr.ActiveSubscriberCount
+		}
+
 		listings := make([]orgspec.MarketplaceListing, 0, len(rows))
 		for _, row := range rows {
 			resp := orgspec.MarketplaceListing{
@@ -86,7 +102,7 @@ func ListMyListings(s *server.RegionalServer) http.HandlerFunc {
 				Description:           row.Description,
 				Capabilities:          row.Capabilities,
 				Status:                orgspec.MarketplaceListingStatus(row.Status),
-				ActiveSubscriberCount: row.ActiveSubscriberCount,
+				ActiveSubscriberCount: subCounts[row.ListingID],
 				CreatedAt:             row.CreatedAt.Time.Format(time.RFC3339),
 				UpdatedAt:             row.UpdatedAt.Time.Format(time.RFC3339),
 			}

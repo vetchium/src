@@ -1022,8 +1022,14 @@ SELECT COUNT(*)::int AS active_subscriber_count
 FROM marketplace_subscription_index
 WHERE listing_id = @listing_id AND status = 'active';
 
+-- name: GetActiveSubscriberCountsByListingIDs :many
+SELECT listing_id, COUNT(*)::int AS active_subscriber_count
+FROM marketplace_subscription_index
+WHERE listing_id = ANY(@listing_ids::uuid[]) AND status = 'active'
+GROUP BY listing_id;
+
 -- name: ListSubscriptionsForProvider :many
-SELECT 
+SELECT
     si.subscription_id,
     si.listing_id,
     si.consumer_org_id,
@@ -1038,6 +1044,7 @@ FROM marketplace_subscription_index si
 JOIN orgs o ON si.consumer_org_id = o.org_id
 LEFT JOIN marketplace_listing_catalog mlc ON si.listing_id = mlc.listing_id
 WHERE si.provider_org_id = @provider_org_id
+  AND (sqlc.narg('filter_listing_number')::int4 IS NULL OR mlc.listing_number = sqlc.narg('filter_listing_number')::int4)
   AND (sqlc.narg('pagination_key')::uuid IS NULL OR si.subscription_id > sqlc.narg('pagination_key')::uuid)
 ORDER BY si.subscription_id ASC
 LIMIT @row_limit;

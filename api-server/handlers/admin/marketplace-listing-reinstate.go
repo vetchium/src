@@ -131,6 +131,13 @@ func AdminReinstateListing(s *server.GlobalServer) http.HandlerFunc {
 			s.Logger(ctx).Error("failed to write audit log", "error", err)
 		}
 
+		subscriberCount, err := s.Global.GetActiveSubscriberCountByListingID(ctx, reinstated.ListingID)
+		if err != nil {
+			s.Logger(ctx).Error("failed to get subscriber count", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
 		json.NewEncoder(w).Encode(orgspec.MarketplaceListing{
 			ListingID:             uuidToString(reinstated.ListingID),
 			OrgDomain:             req.OrgDomain,
@@ -139,7 +146,7 @@ func AdminReinstateListing(s *server.GlobalServer) http.HandlerFunc {
 			Description:           reinstated.Description,
 			Capabilities:          caps,
 			Status:                orgspec.MarketplaceListingStatusActive,
-			ActiveSubscriberCount: listing.ActiveSubscriberCount,
+			ActiveSubscriberCount: subscriberCount,
 			CreatedAt:             reinstated.CreatedAt.Time.Format(time.RFC3339),
 			UpdatedAt:             reinstated.UpdatedAt.Time.Format(time.RFC3339),
 		})

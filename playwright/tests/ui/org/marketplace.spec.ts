@@ -207,8 +207,7 @@ test.describe("Org UI Marketplace — Publish as Superadmin", () => {
 				.click();
 			await page.locator('input[id="headline"]').click(); // close dropdown by clicking above the select
 
-			// Button label is "Submit for Review" (superadmin publish goes directly to active)
-			await page.click('button:has-text("Submit for Review")');
+			await page.click('button:has-text("Publish")');
 
 			// Should navigate to listings and show Active status
 			await expect(page).toHaveURL(

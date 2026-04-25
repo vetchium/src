@@ -95,6 +95,13 @@ func RejectListing(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
+		subscriberCount, err := s.Global.GetActiveSubscriberCountByListingID(ctx, existing.ListingID)
+		if err != nil {
+			s.Logger(ctx).Error("failed to get subscriber count", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
 		resp := orgspec.MarketplaceListing{
 			ListingID:             uuidToString(rejected.ListingID),
 			OrgDomain:             rejected.OrgDomain,
@@ -103,7 +110,7 @@ func RejectListing(s *server.RegionalServer) http.HandlerFunc {
 			Description:           rejected.Description,
 			Capabilities:          existing.Capabilities,
 			Status:                orgspec.MarketplaceListingStatus(rejected.Status),
-			ActiveSubscriberCount: existing.ActiveSubscriberCount,
+			ActiveSubscriberCount: subscriberCount,
 			CreatedAt:             rejected.CreatedAt.Time.Format(time.RFC3339),
 			UpdatedAt:             rejected.UpdatedAt.Time.Format(time.RFC3339),
 		}

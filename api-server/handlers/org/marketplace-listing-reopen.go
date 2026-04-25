@@ -97,6 +97,13 @@ func ReopenMarketplaceListing(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
+		subscriberCount, err := s.Global.GetActiveSubscriberCountByListingID(ctx, existing.ListingID)
+		if err != nil {
+			s.Logger(ctx).Error("failed to get subscriber count", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
 		resp := orgspec.MarketplaceListing{
 			ListingID:             uuidToString(reopened.ListingID),
 			OrgDomain:             reopened.OrgDomain,
@@ -105,7 +112,7 @@ func ReopenMarketplaceListing(s *server.RegionalServer) http.HandlerFunc {
 			Description:           reopened.Description,
 			Capabilities:          existing.Capabilities,
 			Status:                orgspec.MarketplaceListingStatus(reopened.Status),
-			ActiveSubscriberCount: existing.ActiveSubscriberCount,
+			ActiveSubscriberCount: subscriberCount,
 			CreatedAt:             reopened.CreatedAt.Time.Format(time.RFC3339),
 			UpdatedAt:             reopened.UpdatedAt.Time.Format(time.RFC3339),
 		}

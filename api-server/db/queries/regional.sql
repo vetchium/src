@@ -702,7 +702,6 @@ SELECT * FROM marketplace_listings WHERE listing_id = @listing_id;
 
 -- name: GetMarketplaceListingByDomainAndNumber :one
 SELECT ml.*,
-       (SELECT COUNT(*)::int FROM marketplace_subscriptions ms WHERE ms.listing_id = ml.listing_id AND ms.status = 'active') as active_subscriber_count,
        COALESCE(array_agg(mlc.capability_id) FILTER (WHERE mlc.capability_id IS NOT NULL), '{}')::text[] as capabilities
 FROM marketplace_listings ml
 LEFT JOIN marketplace_listing_capabilities mlc ON ml.listing_id = mlc.listing_id AND mlc.removed_at IS NULL
@@ -711,7 +710,6 @@ GROUP BY ml.listing_id;
 
 -- name: ListMarketplaceListingsByOrg :many
 SELECT ml.*,
-       (SELECT COUNT(*)::int FROM marketplace_subscriptions ms WHERE ms.listing_id = ml.listing_id AND ms.status = 'active') as active_subscriber_count,
        COALESCE(array_agg(mlc.capability_id) FILTER (WHERE mlc.capability_id IS NOT NULL), '{}')::text[] as capabilities
 FROM marketplace_listings ml
 LEFT JOIN marketplace_listing_capabilities mlc ON ml.listing_id = mlc.listing_id AND mlc.removed_at IS NULL

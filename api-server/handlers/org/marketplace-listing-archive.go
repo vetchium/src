@@ -98,6 +98,13 @@ func ArchiveMarketplaceListing(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
+		subscriberCount, err := s.Global.GetActiveSubscriberCountByListingID(ctx, existing.ListingID)
+		if err != nil {
+			s.Logger(ctx).Error("failed to get subscriber count", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
 		resp := orgspec.MarketplaceListing{
 			ListingID:             uuidToString(archived.ListingID),
 			OrgDomain:             archived.OrgDomain,
@@ -106,7 +113,7 @@ func ArchiveMarketplaceListing(s *server.RegionalServer) http.HandlerFunc {
 			Description:           archived.Description,
 			Capabilities:          existing.Capabilities,
 			Status:                orgspec.MarketplaceListingStatus(archived.Status),
-			ActiveSubscriberCount: existing.ActiveSubscriberCount,
+			ActiveSubscriberCount: subscriberCount,
 			CreatedAt:             archived.CreatedAt.Time.Format(time.RFC3339),
 			UpdatedAt:             archived.UpdatedAt.Time.Format(time.RFC3339),
 		}

@@ -51,10 +51,16 @@ func ListMyClients(s *server.RegionalServer) http.HandlerFunc {
 
 		// Use the new query that joins 'orgs' for the domain and includes 'provider_listing_number'.
 		// This is exactly ONE database call.
+		var filterListingNumber pgtype.Int4
+		if req.ListingNumber != nil {
+			filterListingNumber = pgtype.Int4{Int32: *req.ListingNumber, Valid: true}
+		}
+
 		rows, err := s.Global.ListSubscriptionsForProvider(ctx, globaldb.ListSubscriptionsForProviderParams{
-			ProviderOrgID: orgUser.OrgID,
-			PaginationKey: paginationKey,
-			RowLimit:      limit + 1,
+			ProviderOrgID:       orgUser.OrgID,
+			FilterListingNumber: filterListingNumber,
+			PaginationKey:       paginationKey,
+			RowLimit:            limit + 1,
 		})
 		if err != nil {
 			s.Logger(ctx).Error("failed to list clients", "error", err)
