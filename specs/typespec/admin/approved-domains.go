@@ -87,9 +87,7 @@ func (r ListApprovedDomainsRequest) Validate() []common.ValidationError {
 }
 
 type GetApprovedDomainRequest struct {
-	DomainName  common.DomainName `json:"domain_name"`
-	AuditCursor *string           `json:"audit_cursor,omitempty"`
-	AuditLimit  *int32            `json:"audit_limit,omitempty"`
+	DomainName common.DomainName `json:"domain_name"`
 }
 
 func (r GetApprovedDomainRequest) Validate() []common.ValidationError {
@@ -99,14 +97,6 @@ func (r GetApprovedDomainRequest) Validate() []common.ValidationError {
 		errs = append(errs, common.NewValidationError("domain_name", common.ErrRequired))
 	} else if err := r.DomainName.Validate(); err != nil {
 		errs = append(errs, common.NewValidationError("domain_name", err))
-	}
-
-	if r.AuditLimit != nil {
-		if *r.AuditLimit <= 0 {
-			errs = append(errs, common.NewValidationError("audit_limit", fmt.Errorf("Audit limit must be a positive number")))
-		} else if *r.AuditLimit > 100 {
-			errs = append(errs, common.NewValidationError("audit_limit", fmt.Errorf("Audit limit cannot exceed 100")))
-		}
 	}
 
 	return errs
@@ -173,21 +163,5 @@ type ApprovedDomainListResponse struct {
 }
 
 type ApprovedDomainDetailResponse struct {
-	Domain          ApprovedDomain           `json:"domain"`
-	AuditLogs       []ApprovedDomainAuditLog `json:"audit_logs"`
-	NextAuditCursor string                   `json:"next_audit_cursor"`
-	HasMoreAudit    bool                     `json:"has_more_audit"`
-}
-
-type ApprovedDomainAuditLog struct {
-	AdminEmail       common.EmailAddress    `json:"admin_email"`
-	Action           AuditAction            `json:"action"`
-	TargetDomainName *common.DomainName     `json:"target_domain_name,omitempty"`
-	Reason           *string                `json:"reason,omitempty"`
-	OldValue         map[string]interface{} `json:"old_value,omitempty"`
-	NewValue         map[string]interface{} `json:"new_value,omitempty"`
-	IpAddress        *string                `json:"ip_address,omitempty"`
-	UserAgent        *string                `json:"user_agent,omitempty"`
-	RequestID        *string                `json:"request_id,omitempty"`
-	CreatedAt        string                 `json:"created_at"`
+	Domain ApprovedDomain `json:"domain"`
 }

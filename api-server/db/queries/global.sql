@@ -739,9 +739,10 @@ WHERE (
 -- ============================================
 -- Tag Queries
 -- ============================================
--- name: CreateTag :exec
+-- name: CreateTag :one
 INSERT INTO tags (tag_id)
-VALUES ($1);
+VALUES ($1)
+RETURNING *;
 -- name: GetTag :one
 SELECT *
 FROM tags

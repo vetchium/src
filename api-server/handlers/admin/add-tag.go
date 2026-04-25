@@ -40,13 +40,15 @@ func AddTag(s *server.GlobalServer) http.HandlerFunc {
 			return
 		}
 
-		// Create tag, translations, and audit log in a transaction
+		var newTag globaldb.Tag
 		err := s.WithGlobalTx(ctx, func(qtx *globaldb.Queries) error {
-			if err := qtx.CreateTag(ctx, req.TagID); err != nil {
-				if server.IsUniqueViolation(err) {
+			var txErr error
+			newTag, txErr = qtx.CreateTag(ctx, req.TagID)
+			if txErr != nil {
+				if server.IsUniqueViolation(txErr) {
 					return server.ErrConflict
 				}
-				return err
+				return txErr
 			}
 			for _, t := range req.Translations {
 				upsertParams := globaldb.UpsertTagTranslationParams{
@@ -80,23 +82,19 @@ func AddTag(s *server.GlobalServer) http.HandlerFunc {
 			return
 		}
 
-		// Fetch back to return full response
-		tag, err := s.Global.GetTag(ctx, req.TagID)
-		if err != nil {
-			s.Logger(ctx).Error("failed to get created tag", "error", err)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-
-		translations, err := s.Global.GetTagTranslations(ctx, req.TagID)
-		if err != nil {
-			s.Logger(ctx).Error("failed to get tag translations", "error", err)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
+		translationsForResponse := make([]globaldb.GetTagTranslationsRow, len(req.Translations))
+		for i, t := range req.Translations {
+			translationsForResponse[i] = globaldb.GetTagTranslationsRow{
+				Locale:      t.Locale,
+				DisplayName: t.DisplayName,
+			}
+			if t.Description != nil {
+				translationsForResponse[i].Description = pgtype.Text{String: *t.Description, Valid: true}
+			}
 		}
 
 		s.Logger(ctx).Info("tag created", "tag_id", req.TagID)
 		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(buildAdminTagResponse(tag, translations))
+		json.NewEncoder(w).Encode(buildAdminTagResponse(newTag, translationsForResponse))
 	}
 }
