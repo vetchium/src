@@ -481,9 +481,10 @@ test.describe("RBAC — Admin Marketplace", () => {
 		const adminApi = new AdminAPIClient(request);
 		const orgApi = new OrgAPIClient(request);
 		const adminEmail = generateTestEmail("mp-rbac-suspend-pos");
-		const { userId } = await createTestAdminUser(adminEmail, TEST_PASSWORD).then(
-			(id) => ({ userId: id })
-		);
+		const { userId } = await createTestAdminUser(
+			adminEmail,
+			TEST_PASSWORD
+		).then((id) => ({ userId: id }));
 		await assignRoleToAdminUser(userId, "admin:manage_marketplace");
 		const {
 			email: orgEmail,
@@ -544,9 +545,10 @@ test.describe("RBAC — Admin Marketplace", () => {
 		const adminApi = new AdminAPIClient(request);
 		const adminEmail = generateTestEmail("mp-rbac-reinstate-pos");
 		const superAdminEmail = generateTestEmail("mp-rbac-reinstate-super");
-		const { userId } = await createTestAdminUser(adminEmail, TEST_PASSWORD).then(
-			(id) => ({ userId: id })
-		);
+		const { userId } = await createTestAdminUser(
+			adminEmail,
+			TEST_PASSWORD
+		).then((id) => ({ userId: id }));
 		await assignRoleToAdminUser(userId, "admin:manage_marketplace");
 		await createTestSuperadmin(superAdminEmail, TEST_PASSWORD);
 		const {
@@ -613,9 +615,10 @@ test.describe("RBAC — Admin Marketplace", () => {
 		const adminApi = new AdminAPIClient(request);
 		const orgApi = new OrgAPIClient(request);
 		const adminEmail = generateTestEmail("mp-rbac-cancel-sub-pos");
-		const { userId } = await createTestAdminUser(adminEmail, TEST_PASSWORD).then(
-			(id) => ({ userId: id })
-		);
+		const { userId } = await createTestAdminUser(
+			adminEmail,
+			TEST_PASSWORD
+		).then((id) => ({ userId: id }));
 		await assignRoleToAdminUser(userId, "admin:manage_marketplace");
 		const {
 			email: provEmail,

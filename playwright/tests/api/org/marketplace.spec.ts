@@ -535,7 +535,9 @@ test.describe("Subscription flows", () => {
 		expect(res.status).toBe(401);
 	});
 
-	test("Auth: cancel subscription without token -> 401", async ({ request }) => {
+	test("Auth: cancel subscription without token -> 401", async ({
+		request,
+	}) => {
 		const api = new OrgAPIClient(request);
 		const res = await api.cancelSubscription("invalid-token", {
 			subscription_id: "00000000-0000-0000-0000-000000000000",
