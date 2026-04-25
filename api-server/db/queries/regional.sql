@@ -89,8 +89,8 @@ WHERE expires_at <= NOW();
 -- Org User Queries (Regional)
 -- ============================================
 -- name: GetOrgUserByEmail :one
--- Note: This returns ONE user but may fail if email exists for multiple employers.
--- Prefer GetOrgUserByEmailAndEmployer for login flows.
+-- Note: This returns ONE user but may fail if email exists for multiple orgs.
+-- Prefer GetOrgUserByEmailAndOrg for login flows.
 SELECT *
 FROM org_users
 WHERE email_address = $1;

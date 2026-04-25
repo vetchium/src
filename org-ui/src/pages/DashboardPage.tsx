@@ -307,10 +307,10 @@ export function DashboardPage() {
 										}}
 									/>
 									<Title level={4} style={{ marginBottom: 8 }}>
-										{t("plan.title")}
+										{t("subscription.title")}
 									</Title>
 									<Typography.Text type="secondary">
-										{t("plan.description")}
+										{t("subscription.description")}
 									</Typography.Text>
 								</Card>
 							</Link>

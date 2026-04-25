@@ -103,8 +103,8 @@ func TFA(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		// Get employer to return employer_name in response
-		employer, err := s.Global.GetOrgByID(ctx, regionalUser.OrgID)
+		// Get org to return org_name in response
+		org, err := s.Global.GetOrgByID(ctx, regionalUser.OrgID)
 		if err != nil {
 			s.Logger(ctx).Error("failed to fetch org", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
@@ -160,7 +160,7 @@ func TFA(s *server.RegionalServer) http.HandlerFunc {
 		response := orgtypes.OrgTFAResponse{
 			SessionToken:      orgtypes.OrgSessionToken(sessionToken),
 			PreferredLanguage: common.LanguageCode(regionalUser.PreferredLanguage),
-			OrgName:           employer.OrgName,
+			OrgName:           org.OrgName,
 		}
 
 		if err := json.NewEncoder(w).Encode(response); err != nil {

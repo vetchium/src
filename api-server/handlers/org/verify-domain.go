@@ -52,7 +52,7 @@ func VerifyDomain(s *server.RegionalServer) http.HandlerFunc {
 		// Normalize domain to lowercase
 		domain := strings.ToLower(string(req.Domain))
 
-		// Get domain record from regional DB, ensuring it belongs to this employer
+		// Get domain record from regional DB, ensuring it belongs to this org
 		domainRecord, err := s.Regional.GetOrgDomainByOrgAndDomain(ctx, regionaldb.GetOrgDomainByOrgAndDomainParams{
 			Domain: domain,
 			OrgID:  orgUser.OrgID,

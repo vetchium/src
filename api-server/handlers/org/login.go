@@ -56,8 +56,8 @@ func Login(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		// Look up employer by domain - must be verified
-		employer, err := s.Global.GetOrgByDomain(ctx, string(loginRequest.Domain))
+		// Look up org by domain - must be verified
+		org, err := s.Global.GetOrgByDomain(ctx, string(loginRequest.Domain))
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				s.Logger(ctx).Debug("domain not found or not verified", "domain", loginRequest.Domain)
@@ -77,14 +77,14 @@ func Login(s *server.RegionalServer) http.HandlerFunc {
 		// Hash email to query global database
 		emailHash := sha256.Sum256([]byte(loginRequest.Email))
 
-		// Query global database for user by email hash + employer (composite lookup)
+		// Query global database for user by email hash + org (composite lookup)
 		globalUser, err := s.Global.GetOrgUserByEmailHashAndOrg(ctx, globaldb.GetOrgUserByEmailHashAndOrgParams{
 			EmailAddressHash: emailHash[:],
-			OrgID:            employer.OrgID,
+			OrgID:            org.OrgID,
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				s.Logger(ctx).Debug("invalid credentials - user not found for this employer")
+				s.Logger(ctx).Debug("invalid credentials - user not found for this org")
 				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
@@ -102,7 +102,7 @@ func Login(s *server.RegionalServer) http.HandlerFunc {
 		// Query regional database for password hash and status (composite lookup)
 		regionalUser, err := s.Regional.GetOrgUserByEmailAndOrg(ctx, regionaldb.GetOrgUserByEmailAndOrgParams{
 			EmailAddress: string(loginRequest.Email),
-			OrgID:        employer.OrgID,
+			OrgID:        org.OrgID,
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {

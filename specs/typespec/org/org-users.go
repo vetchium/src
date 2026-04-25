@@ -33,8 +33,8 @@ func (r OrgInitSignupRequest) Validate() []common.ValidationError {
 
 	if r.Email == "" {
 		errs = append(errs, common.NewValidationError("email", common.ErrRequired))
-	} else if err := common.ValidateEmployerEmail(r.Email); err != nil {
-		// Use employer email validation which blocks personal email domains
+	} else if err := common.ValidateOrgEmail(r.Email); err != nil {
+		// Use org email validation which blocks personal email domains
 		errs = append(errs, common.NewValidationError("email", err))
 	}
 

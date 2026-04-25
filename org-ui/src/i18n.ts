@@ -110,7 +110,7 @@ i18n.use(initReactI18next).init({
 		"cost-centers",
 		"suborgs",
 		"auditLogs",
-		"subscription",
+		"plan",
 		"marketplace",
 	],
 	interpolation: {

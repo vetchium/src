@@ -125,7 +125,7 @@ var (
 	ErrDomainTooShort           = errors.New("must be at least 3 characters")
 	ErrDomainTooLong            = errors.New("must be at most 255 characters")
 	ErrDomainInvalidFormat      = errors.New("must be a valid domain name in lowercase")
-	ErrPersonalEmailDomain      = errors.New("personal email addresses are not allowed for employer signup")
+	ErrPersonalEmailDomain      = errors.New("personal email addresses are not allowed for org signup")
 	ErrFullNameTooShort         = errors.New("must be at least 1 character")
 	ErrFullNameTooLong          = errors.New("must be at most 128 characters")
 	ErrFullNameInvalidFormat    = errors.New("may only contain letters, spaces, hyphens, and apostrophes")
@@ -196,8 +196,8 @@ func IsPersonalEmailDomain(email EmailAddress) bool {
 	return false
 }
 
-// ValidateEmployerEmail validates email for employer signup (blocks personal email domains)
-func ValidateEmployerEmail(email EmailAddress) error {
+// ValidateOrgEmail validates email for org signup (blocks personal email domains)
+func ValidateOrgEmail(email EmailAddress) error {
 	// First run standard email validation
 	if err := email.Validate(); err != nil {
 		return err

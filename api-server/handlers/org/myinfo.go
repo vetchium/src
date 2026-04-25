@@ -24,7 +24,7 @@ func MyInfo(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		employer, err := s.Global.GetOrgByID(ctx, orgUser.OrgID)
+		org, err := s.Global.GetOrgByID(ctx, orgUser.OrgID)
 		if err != nil {
 			s.Logger(ctx).Error("failed to fetch org", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
@@ -57,7 +57,7 @@ func MyInfo(s *server.RegionalServer) http.HandlerFunc {
 		response := orgtypes.OrgMyInfoResponse{
 			FullName:          orgUser.FullName.String,
 			PreferredLanguage: common.LanguageCode(orgUser.PreferredLanguage),
-			OrgName:           employer.OrgName,
+			OrgName:           org.OrgName,
 			OrgDomain:         common.DomainName(primaryDomain),
 			Roles:             roles,
 		}

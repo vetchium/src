@@ -108,14 +108,14 @@ func CompleteSignup(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		// Variables to capture from transaction
-		var employer globaldb.Org
+		var newOrg globaldb.Org
 		var globalUser globaldb.OrgUser
 
 		// Execute all global operations in a single transaction
 		err = s.WithGlobalTx(ctx, func(qtx *globaldb.Queries) error {
-			// 1. Create employer
+			// 1. Create newOrg
 			var txErr error
-			employer, txErr = qtx.CreateOrg(ctx, globaldb.CreateOrgParams{
+			newOrg, txErr = qtx.CreateOrg(ctx, globaldb.CreateOrgParams{
 				OrgName: domain,
 				Region:  region,
 			})
@@ -132,7 +132,7 @@ func CompleteSignup(s *server.RegionalServer) http.HandlerFunc {
 			txErr = qtx.CreateGlobalOrgDomain(ctx, globaldb.CreateGlobalOrgDomainParams{
 				Domain:    domain,
 				Region:    region,
-				OrgID:     employer.OrgID,
+				OrgID:     newOrg.OrgID,
 				IsPrimary: true,
 			})
 			if txErr != nil {
@@ -148,7 +148,7 @@ func CompleteSignup(s *server.RegionalServer) http.HandlerFunc {
 			globalUser, txErr = qtx.CreateOrgUser(ctx, globaldb.CreateOrgUserParams{
 				EmailAddressHash: emailHash,
 				HashingAlgorithm: globaldb.EmailAddressHashingAlgorithmSHA256,
-				OrgID:            employer.OrgID,
+				OrgID:            newOrg.OrgID,
 				HomeRegion:       region,
 			})
 			if txErr != nil {
@@ -162,7 +162,7 @@ func CompleteSignup(s *server.RegionalServer) http.HandlerFunc {
 
 			// 4. Assign free plan on signup
 			txErr = qtx.UpsertOrgPlan(ctx, globaldb.UpsertOrgPlanParams{
-				OrgID:              employer.OrgID,
+				OrgID:              newOrg.OrgID,
 				CurrentPlanID:      "free",
 				UpdatedByAdminID:   pgtype.UUID{Valid: false},
 				UpdatedByOrgUserID: pgtype.UUID{Valid: false},
@@ -173,7 +173,7 @@ func CompleteSignup(s *server.RegionalServer) http.HandlerFunc {
 				return txErr
 			}
 			txErr = qtx.InsertOrgPlanHistory(ctx, globaldb.InsertOrgPlanHistoryParams{
-				OrgID:              employer.OrgID,
+				OrgID:              newOrg.OrgID,
 				FromPlanID:         pgtype.Text{Valid: false},
 				ToPlanID:           "free",
 				ChangedByAdminID:   pgtype.UUID{Valid: false},
@@ -199,7 +199,7 @@ func CompleteSignup(s *server.RegionalServer) http.HandlerFunc {
 		passwordHash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 		if err != nil {
 			s.Logger(ctx).Error("failed to hash password", "error", err)
-			s.Global.DeleteOrg(ctx, employer.OrgID)
+			s.Global.DeleteOrg(ctx, newOrg.OrgID)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -208,7 +208,7 @@ func CompleteSignup(s *server.RegionalServer) http.HandlerFunc {
 		sessionTokenBytes := make([]byte, 32)
 		if _, err := rand.Read(sessionTokenBytes); err != nil {
 			s.Logger(ctx).Error("failed to generate session token", "error", err)
-			s.Global.DeleteOrg(ctx, employer.OrgID)
+			s.Global.DeleteOrg(ctx, newOrg.OrgID)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -216,14 +216,14 @@ func CompleteSignup(s *server.RegionalServer) http.HandlerFunc {
 		sessionToken := tokens.AddRegionPrefix(region, rawSessionToken)
 
 		// Execute all regional operations in a single transaction.
-		// The employer is always newly created above, so this is definitionally
+		// The org is always newly created above, so this is definitionally
 		// the first user — assign the superadmin role unconditionally.
 		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
 			// 1. Create regional user with full details
 			_, txErr := qtx.CreateOrgUser(ctx, regionaldb.CreateOrgUserParams{
 				OrgUserID:         globalUser.OrgUserID,
 				EmailAddress:      email,
-				OrgID:             employer.OrgID,
+				OrgID:             newOrg.OrgID,
 				PasswordHash:      passwordHash,
 				Status:            regionaldb.OrgUserStatusActive,
 				PreferredLanguage: string(req.PreferredLanguage),
@@ -237,7 +237,7 @@ func CompleteSignup(s *server.RegionalServer) http.HandlerFunc {
 			now := time.Now()
 			txErr = qtx.CreateOrgDomain(ctx, regionaldb.CreateOrgDomainParams{
 				Domain:            domain,
-				OrgID:             employer.OrgID,
+				OrgID:             newOrg.OrgID,
 				VerificationToken: dnsVerificationToken,
 				TokenExpiresAt:    pgtype.Timestamptz{Time: now.AddDate(0, 0, 30), Valid: true},
 				Status:            regionaldb.DomainVerificationStatusVERIFIED,
@@ -279,14 +279,14 @@ func CompleteSignup(s *server.RegionalServer) http.HandlerFunc {
 			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
 				EventType:   "org.complete_signup",
 				ActorUserID: globalUser.OrgUserID,
-				OrgID:       employer.OrgID,
+				OrgID:       newOrg.OrgID,
 				IpAddress:   audit.ExtractClientIP(r),
 				EventData:   []byte("{}"),
 			})
 		})
 		if err != nil {
 			// Compensating: delete from global (cascades to global user/domain)
-			s.Global.DeleteOrg(ctx, employer.OrgID)
+			s.Global.DeleteOrg(ctx, newOrg.OrgID)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -294,7 +294,7 @@ func CompleteSignup(s *server.RegionalServer) http.HandlerFunc {
 		// Mark signup token as consumed (best effort, non-critical)
 		_ = s.Global.MarkOrgSignupTokenConsumed(ctx, dnsVerificationToken)
 
-		s.Logger(ctx).Info("org user signup completed via DNS verification", "org_user_id", globalUser.OrgUserID, "employer_id", employer.OrgID, "domain", domain)
+		s.Logger(ctx).Info("org user signup completed via DNS verification", "org_user_id", globalUser.OrgUserID, "org_id", newOrg.OrgID, "domain", domain)
 
 		w.WriteHeader(http.StatusCreated)
 		response := orgtypes.OrgCompleteSignupResponse{

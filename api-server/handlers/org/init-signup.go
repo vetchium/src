@@ -101,7 +101,7 @@ func InitSignup(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		// Check if domain is already claimed by an existing employer
+		// Check if domain is already claimed by an existing org
 		_, err = s.Global.GetGlobalOrgDomain(ctx, domain)
 		if err == nil {
 			s.Logger(ctx).Debug("domain already claimed by existing org", "domain", domain)

@@ -330,14 +330,14 @@ export const ERR_DOMAIN_TOO_LONG = "must be at most 255 characters";
 export const ERR_DOMAIN_INVALID_FORMAT =
 	"must be a valid domain name in lowercase";
 export const ERR_PERSONAL_EMAIL_DOMAIN =
-	"personal email addresses are not allowed for employer signup";
+	"personal email addresses are not allowed for org signup";
 export const ERR_FULL_NAME_TOO_SHORT = "must be at least 1 character";
 export const ERR_FULL_NAME_TOO_LONG = "must be at most 128 characters";
 export const ERR_FULL_NAME_INVALID_FORMAT =
 	"may only contain letters, spaces, hyphens, and apostrophes";
 export const ERR_FULL_NAME_ONLY_WHITESPACE = "cannot be only whitespace";
 
-// List of blocked personal email domains for employer signup
+// List of blocked personal email domains for org signup
 // This list contains major free email providers that should not be used for professional accounts
 export const PERSONAL_EMAIL_DOMAINS = [
 	"gmail.com",
@@ -398,8 +398,8 @@ export function isPersonalEmailDomain(email: EmailAddress): boolean {
 	);
 }
 
-// Validates email for employer signup (blocks personal email domains)
-export function validateEmployerEmail(email: EmailAddress): string | null {
+// Validates email for org signup (blocks personal email domains)
+export function validateOrgEmail(email: EmailAddress): string | null {
 	// First run standard email validation
 	const emailErr = validateEmailAddress(email);
 	if (emailErr) {

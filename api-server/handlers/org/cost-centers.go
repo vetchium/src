@@ -83,7 +83,7 @@ func AddCostCenter(s *server.RegionalServer) http.HandlerFunc {
 		if err != nil {
 			var pgErr *pgconn.PgError
 			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-				// unique_violation: duplicate (employer_id, id)
+				// unique_violation: duplicate (org_id, id)
 				w.WriteHeader(http.StatusConflict)
 				return
 			}

@@ -33,7 +33,7 @@ scalar TFACode extends string;
 model AssignRoleRequest {
     @doc("Email address of the user to assign the role to")
     email_address: string;
-    @doc("Role name to assign (e.g., employer:manage_users)")
+    @doc("Role name to assign (e.g., org:manage_users)")
     role_name: string;
 }
 
@@ -41,7 +41,7 @@ model AssignRoleRequest {
 model RemoveRoleRequest {
     @doc("Email address of the user to remove the role from")
     email_address: string;
-    @doc("Role name to remove (e.g., employer:manage_users)")
+    @doc("Role name to remove (e.g., org:manage_users)")
     role_name: string;
 }
 

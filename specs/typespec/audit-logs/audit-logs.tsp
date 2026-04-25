@@ -82,42 +82,6 @@ interface AdminFilterAuditLogsOps {
 }
 
 // ============================================
-// Employer Audit Log Endpoint
-// ============================================
-
-@route("/employer/filter-audit-logs")
-interface EmployerFilterAuditLogsOps {
-  @doc("Filter employer portal audit logs scoped to the caller's org. Requires employer:view_audit_logs or employer:superadmin role.")
-  @post
-  filterEmployerAuditLogs(@body request: FilterAuditLogsRequest): FilterAuditLogsResponse | {
-    @statusCode statusCode: 400;
-    @body errors: ValidationError[];
-  } | {
-    @statusCode statusCode: 401;
-  } | {
-    @statusCode statusCode: 403;
-  };
-}
-
-// ============================================
-// Agency Audit Log Endpoint
-// ============================================
-
-@route("/agency/filter-audit-logs")
-interface AgencyFilterAuditLogsOps {
-  @doc("Filter agency portal audit logs scoped to the caller's agency. Requires agency:view_audit_logs or agency:superadmin role.")
-  @post
-  filterAgencyAuditLogs(@body request: FilterAuditLogsRequest): FilterAuditLogsResponse | {
-    @statusCode statusCode: 400;
-    @body errors: ValidationError[];
-  } | {
-    @statusCode statusCode: 401;
-  } | {
-    @statusCode statusCode: 403;
-  };
-}
-
-// ============================================
 // Hub Audit Log Endpoint
 // ============================================
 

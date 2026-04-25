@@ -26,13 +26,9 @@
 			"title": "Fähigkeiten",
 			"description": "Marktplatz-Fähigkeiten erstellen und verwalten"
 		},
-		"enrollments": {
-			"title": "Anbieter-Registrierungen",
-			"description": "Anbieter-Registrierungsanträge prüfen und verwalten"
-		},
-		"offers": {
-			"title": "Anbieter-Angebote",
-			"description": "Anbieter-Serviceangebote prüfen und verwalten"
+		"listings": {
+			"title": "Provider Listings",
+			"description": "Review and manage provider service listings"
 		},
 		"subscriptions": {
 			"title": "Verbraucher-Abonnements",

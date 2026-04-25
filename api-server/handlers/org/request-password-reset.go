@@ -57,8 +57,8 @@ func RequestPasswordReset(s *server.RegionalServer) http.HandlerFunc {
 			Message: "If an account exists with this email address, a password reset link has been sent.",
 		}
 
-		// Look up employer by domain
-		employer, err := s.Global.GetOrgByDomain(ctx, string(req.Domain))
+		// Look up org by domain
+		org, err := s.Global.GetOrgByDomain(ctx, string(req.Domain))
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				// Domain not found - return generic success to prevent enumeration
@@ -78,12 +78,12 @@ func RequestPasswordReset(s *server.RegionalServer) http.HandlerFunc {
 		// Look up user in global DB
 		globalUser, err := s.Global.GetOrgUserByEmailHashAndOrg(ctx, globaldb.GetOrgUserByEmailHashAndOrgParams{
 			EmailAddressHash: emailHash[:],
-			OrgID:            employer.OrgID,
+			OrgID:            org.OrgID,
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				// User not found - return generic success to prevent enumeration
-				s.Logger(ctx).Debug("user not found for this employer")
+				s.Logger(ctx).Debug("user not found for this org")
 				w.WriteHeader(http.StatusOK)
 				json.NewEncoder(w).Encode(genericResponse)
 				return
@@ -164,7 +164,7 @@ func RequestPasswordReset(s *server.RegionalServer) http.HandlerFunc {
 			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
 				EventType:    "org.request_password_reset",
 				TargetUserID: globalUser.OrgUserID,
-				OrgID:        employer.OrgID,
+				OrgID:        org.OrgID,
 				IpAddress:    audit.ExtractClientIP(r),
 				EventData:    []byte("{}"),
 			})

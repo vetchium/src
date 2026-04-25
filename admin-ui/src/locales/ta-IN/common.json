@@ -26,13 +26,9 @@
 			"title": "திறன்கள்",
 			"description": "சந்தை திறன்களை உருவாக்கி நிர்வகிக்கவும்"
 		},
-		"enrollments": {
-			"title": "வழங்குநர் பதிவுகள்",
-			"description": "வழங்குநர் பதிவு கோரிக்கைகளை மதிப்பாய்வு செய்யவும்"
-		},
-		"offers": {
-			"title": "வழங்குநர் சலுகைகள்",
-			"description": "வழங்குநர் சேவை சலுகைகளை மதிப்பாய்வு செய்யவும்"
+		"listings": {
+			"title": "Provider Listings",
+			"description": "Review and manage provider service listings"
 		},
 		"subscriptions": {
 			"title": "நுகர்வோர் சந்தாக்கள்",

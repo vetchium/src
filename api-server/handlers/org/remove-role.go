@@ -62,7 +62,7 @@ func RemoveRole(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		// Get target org user from regional DB (verify exists and same employer)
+		// Get target org user from regional DB (verify exists and same org)
 		targetUser, err := s.Regional.GetOrgUserByID(ctx, globalTargetUser.OrgUserID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
@@ -75,12 +75,12 @@ func RemoveRole(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		// Verify target user belongs to same employer
+		// Verify target user belongs to same org
 		if targetUser.OrgID != orgUser.OrgID {
-			s.Logger(ctx).Debug("target user belongs to different employer",
+			s.Logger(ctx).Debug("target user belongs to different org",
 				"target_user_id", targetUser.OrgUserID,
-				"target_employer_id", targetUser.OrgID,
-				"current_employer_id", orgUser.OrgID)
+				"target_org_id", targetUser.OrgID,
+				"current_org_id", orgUser.OrgID)
 			w.WriteHeader(http.StatusForbidden)
 			return
 		}

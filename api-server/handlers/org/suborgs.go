@@ -26,7 +26,7 @@ import (
 const (
 	defaultSubOrgLimit    = 40
 	maxSubOrgLimit        = 100
-	maxSubOrgsPerEmployer = 256
+	maxSubOrgsPerOrg = 256
 )
 
 // CreateSubOrg handles POST /org/create-suborg
@@ -90,7 +90,7 @@ func CreateSubOrg(s *server.RegionalServer) http.HandlerFunc {
 			if txErr != nil {
 				return txErr
 			}
-			if count >= maxSubOrgsPerEmployer {
+			if count >= maxSubOrgsPerOrg {
 				return server.ErrConflict
 			}
 
@@ -323,7 +323,7 @@ func DisableSubOrg(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		// Look up org name for the notification email.
-		employer_, err := s.Global.GetOrgByID(ctx, orgUser.OrgID)
+		orgForEmail, err := s.Global.GetOrgByID(ctx, orgUser.OrgID)
 		if err != nil {
 			s.Logger(ctx).Error("failed to get org", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
@@ -371,7 +371,7 @@ func DisableSubOrg(s *server.RegionalServer) http.HandlerFunc {
 			}
 			emailData := templates.OrgSubOrgDisabledData{
 				SubOrgName: suborg.Name,
-				OrgName:    employer_.OrgName,
+				OrgName:    orgForEmail.OrgName,
 			}
 			for _, m := range members {
 				lang := string(m.PreferredLanguage)

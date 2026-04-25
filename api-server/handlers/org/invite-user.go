@@ -56,17 +56,17 @@ func InviteUser(s *server.RegionalServer) http.HandlerFunc {
 		// Hash email for global DB lookup
 		emailHash := sha256.Sum256([]byte(req.EmailAddress))
 
-		// Check if user already exists for this employer in global DB
+		// Check if user already exists for this org in global DB
 		_, err := s.Global.GetOrgUserByEmailHashAndOrg(ctx, globaldb.GetOrgUserByEmailHashAndOrgParams{
 			EmailAddressHash: emailHash[:],
 			OrgID:            orgUser.OrgID,
 		})
 		if err == nil {
-			// User already exists for this employer
-			s.Logger(ctx).Debug("user already exists for this employer", "email_hash", hex.EncodeToString(emailHash[:]))
+			// User already exists for this org
+			s.Logger(ctx).Debug("user already exists for this org", "email_hash", hex.EncodeToString(emailHash[:]))
 			w.WriteHeader(http.StatusConflict)
 			json.NewEncoder(w).Encode(map[string]string{
-				"error": "User with this email already exists for this employer",
+				"error": "User with this email already exists for this org",
 			})
 			return
 		}
@@ -96,7 +96,7 @@ func InviteUser(s *server.RegionalServer) http.HandlerFunc {
 			roleIDs = append(roleIDs, role.RoleID)
 		}
 
-		// Pre-fetch inviter and employer info (needed for email template)
+		// Pre-fetch inviter and org info (needed for email template)
 		inviter, err := s.Regional.GetOrgUserByID(ctx, orgUser.OrgUserID)
 		if err != nil {
 			s.Logger(ctx).Error("failed to get inviter info", "error", err)
@@ -104,7 +104,7 @@ func InviteUser(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		employer, err := s.Global.GetOrgByID(ctx, orgUser.OrgID)
+		org, err := s.Global.GetOrgByID(ctx, orgUser.OrgID)
 		if err != nil {
 			s.Logger(ctx).Error("failed to get org info", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
@@ -164,7 +164,7 @@ func InviteUser(s *server.RegionalServer) http.HandlerFunc {
 		emailData := templates.OrgInvitationData{
 			InvitationToken: invitationToken,
 			InviterName:     inviterName,
-			OrgName:         employer.OrgName,
+			OrgName:         org.OrgName,
 			Days:            int(invitationExpiry.Hours() / 24),
 			BaseURL:         s.UIConfig.OrgURL,
 		}

@@ -79,7 +79,7 @@ func CompletePasswordReset(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		// Look up org user to get employer_id for audit log
+		// Look up org user to get org_id for audit log
 		orgUser, err := s.Regional.GetOrgUserByID(ctx, resetTokenRecord.OrgUserGlobalID)
 		if err != nil {
 			s.Logger(ctx).Error("failed to get org user for audit log", "error", err)

@@ -8,8 +8,8 @@ using TypeSpec.Http;
 
 namespace Vetchium;
 
-model OrgTier {
-  tier_id: string;
+model Plan {
+  plan_id: string;
   display_name: string;
   description: string;
   display_order: int32;
@@ -21,48 +21,48 @@ model OrgTier {
   self_upgradeable: boolean;
 }
 
-model OrgTierUsage {
+model PlanUsage {
   org_users: int32;
   domains_verified: int32;
   suborgs: int32;
   marketplace_listings: int32;
 }
 
-model OrgSubscription {
+model OrgPlan {
   org_id: string;
   org_domain: string;
-  current_tier: OrgTier;
-  usage: OrgTierUsage;
+  current_plan: Plan;
+  usage: PlanUsage;
   updated_at: string;
   note: string;
 }
 
-model ListOrgTiersRequest {}
+model ListPlansRequest {}
 
-model ListOrgTiersResponse {
-  tiers: OrgTier[];
+model ListPlansResponse {
+  plans: Plan[];
 }
 
-model GetMyOrgSubscriptionRequest {}
+model GetMyOrgPlanRequest {}
 
-model SelfUpgradeOrgSubscriptionRequest {
-  tier_id: string;
+model UpgradeOrgPlanRequest {
+  plan_id: string;
 }
 
-model AdminListOrgSubscriptionsRequest {
-  filter_tier_id?: string;
+model AdminListOrgPlansRequest {
+  filter_plan_id?: string;
   filter_domain?: string;
   pagination_key?: string;
   limit?: int32;
 }
 
-model AdminListOrgSubscriptionsResponse {
-  items: OrgSubscription[];
+model AdminListOrgPlansResponse {
+  items: OrgPlan[];
   next_pagination_key?: string;
 }
 
-model AdminSetOrgTierRequest {
+model AdminSetOrgPlanRequest {
   org_id: string;
-  tier_id: string;
+  plan_id: string;
   reason: string;
 }
