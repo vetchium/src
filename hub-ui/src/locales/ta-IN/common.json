@@ -20,10 +20,16 @@
 		"dark": "இருள்"
 	},
 	"dashboard": {
+		"title": "வெட்சியம் ஹப்",
+		"changePassword": "கடவுச்சொல் மாற்று",
+		"changeEmail": "மின்னஞ்சல் மாற்று",
 		"myActivity": {
 			"title": "என் செயல்பாடுகள்",
 			"description": "உங்கள் செயல்பாட்டு வரலாற்றைப் பார்க்கவும்"
 		}
+	},
+	"logout": {
+		"button": "வெளியேறு"
 	},
 	"action": {
 		"backHome": "முகப்புக்குச் செல்"

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Form, Input, Button, Card, Typography, Alert } from "antd";
 import { MailOutlined } from "@ant-design/icons";
+import { useTranslation } from "react-i18next";
 import { getApiBaseUrl } from "../config";
 import { useAuth } from "../hooks/useAuth";
 
@@ -8,6 +9,7 @@ const { Title, Text } = Typography;
 
 export function ChangeEmailPage() {
 	const { sessionToken } = useAuth();
+	const { t } = useTranslation("auth");
 	const [loading, setLoading] = useState(false);
 	const [success, setSuccess] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -32,10 +34,10 @@ export function ChangeEmailPage() {
 				setSuccess(true);
 			} else {
 				const data = await response.json();
-				setError(data.message || "Failed to request email change.");
+				setError(data.message || t("changeEmail.failed"));
 			}
 		} catch (err) {
-			setError("Failed to connect to the server. Please try again later.");
+			setError(t("changeEmail.failed"));
 			console.error("Change email error:", err);
 		} finally {
 			setLoading(false);
@@ -46,11 +48,8 @@ export function ChangeEmailPage() {
 		return (
 			<Card style={{ width: 400, boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}>
 				<div style={{ textAlign: "center" }}>
-					<Title level={3}>Check New Email</Title>
-					<Text>
-						We have sent a verification link to your new email address. Please
-						click the link to confirm the change.
-					</Text>
+					<Title level={3}>{t("changeEmail.successTitle")}</Title>
+					<Text>{t("changeEmail.successMessage")}</Text>
 				</div>
 			</Card>
 		);
@@ -59,7 +58,7 @@ export function ChangeEmailPage() {
 	return (
 		<Card style={{ width: 400, boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}>
 			<Title level={3} style={{ textAlign: "center", marginBottom: 24 }}>
-				Change Email
+				{t("changeEmail.title")}
 			</Title>
 
 			{error && (
@@ -79,18 +78,27 @@ export function ChangeEmailPage() {
 			>
 				<Form.Item
 					name="email"
-					label="New Email Address"
+					label={t("changeEmail.newEmailLabel")}
 					rules={[
-						{ required: true, message: "Please input new email!" },
-						{ type: "email", message: "Please enter a valid email!" },
+						{
+							required: true,
+							message: t("changeEmail.emailRequired"),
+						},
+						{
+							type: "email",
+							message: t("changeEmail.emailInvalid"),
+						},
 					]}
 				>
-					<Input prefix={<MailOutlined />} placeholder="New Email Address" />
+					<Input
+						prefix={<MailOutlined />}
+						placeholder={t("changeEmail.newEmailPlaceholder")}
+					/>
 				</Form.Item>
 
 				<Form.Item>
 					<Button type="primary" htmlType="submit" block loading={loading}>
-						Send Verification Link
+						{t("changeEmail.submit")}
 					</Button>
 				</Form.Item>
 			</Form>

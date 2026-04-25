@@ -1,6 +1,7 @@
 import { LockOutlined } from "@ant-design/icons";
 import { Alert, Button, Card, Form, Input, message, Typography } from "antd";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { getApiBaseUrl } from "../config";
 import { useAuth } from "../hooks/useAuth";
 
@@ -8,8 +9,11 @@ const { Title } = Typography;
 
 export function ChangePasswordPage() {
 	const { sessionToken, logout } = useAuth();
+	const { t } = useTranslation("auth");
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+
+	const [form] = Form.useForm();
 
 	const onFinish = async (values: { current: string; new: string }) => {
 		setLoading(true);
@@ -30,35 +34,33 @@ export function ChangePasswordPage() {
 			});
 
 			if (response.ok) {
-				message.success("Password changed successfully.");
+				message.success(t("changePassword.success"));
 				// Spec says: "All existing sessions except current are invalidated".
 				// User stays logged in.
 				form.resetFields();
 			} else {
 				const data = await response.json();
 				if (response.status === 401) {
-					setError("Current password is incorrect or session expired.");
+					setError(t("changePassword.incorrectPassword"));
 					if (data.message === "Invalid session") {
 						logout();
 					}
 				} else {
-					setError(data.message || "Failed to change password.");
+					setError(data.message || t("changePassword.failed"));
 				}
 			}
 		} catch (err) {
-			setError("Failed to connect to the server. Please try again later.");
+			setError(t("changePassword.failed"));
 			console.error("Change password error:", err);
 		} finally {
 			setLoading(false);
 		}
 	};
 
-	const [form] = Form.useForm();
-
 	return (
 		<Card style={{ width: 400, boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}>
 			<Title level={3} style={{ textAlign: "center", marginBottom: 24 }}>
-				Change Password
+				{t("changePassword.title")}
 			</Title>
 
 			{error && (
@@ -79,42 +81,56 @@ export function ChangePasswordPage() {
 			>
 				<Form.Item
 					name="current"
-					label="Current Password"
-					rules={[{ required: true, message: "Please enter current password" }]}
+					label={t("changePassword.currentPasswordLabel")}
+					rules={[
+						{
+							required: true,
+							message: t("changePassword.currentPasswordRequired"),
+						},
+					]}
 				>
 					<Input.Password
 						prefix={<LockOutlined />}
-						placeholder="Current Password"
+						placeholder={t("changePassword.currentPasswordPlaceholder")}
 					/>
 				</Form.Item>
 
 				<Form.Item
 					name="new"
-					label="New Password"
+					label={t("changePassword.newPasswordLabel")}
 					rules={[
-						{ required: true, message: "Please enter new password" },
-						{ min: 12, message: "Password must be at least 12 characters" },
+						{
+							required: true,
+							message: t("changePassword.newPasswordRequired"),
+						},
+						{
+							min: 12,
+							message: t("changePassword.passwordMinLength", { min: 12 }),
+						},
 					]}
 				>
 					<Input.Password
 						prefix={<LockOutlined />}
-						placeholder="New Password"
+						placeholder={t("changePassword.newPasswordPlaceholder")}
 					/>
 				</Form.Item>
 
 				<Form.Item
 					name="confirm"
-					label="Confirm New Password"
+					label={t("changePassword.confirmPasswordLabel")}
 					dependencies={["new"]}
 					rules={[
-						{ required: true, message: "Please confirm new password" },
+						{
+							required: true,
+							message: t("changePassword.confirmPasswordRequired"),
+						},
 						({ getFieldValue }) => ({
 							validator(_, value) {
 								if (!value || getFieldValue("new") === value) {
 									return Promise.resolve();
 								}
 								return Promise.reject(
-									new Error("The two passwords do not match!")
+									new Error(t("changePassword.passwordMismatch"))
 								);
 							},
 						}),
@@ -122,13 +138,13 @@ export function ChangePasswordPage() {
 				>
 					<Input.Password
 						prefix={<LockOutlined />}
-						placeholder="Confirm New Password"
+						placeholder={t("changePassword.confirmPasswordPlaceholder")}
 					/>
 				</Form.Item>
 
 				<Form.Item>
 					<Button type="primary" htmlType="submit" block loading={loading}>
-						Update Password
+						{t("changePassword.submit")}
 					</Button>
 				</Form.Item>
 			</Form>

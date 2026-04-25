@@ -20,10 +20,16 @@
 		"dark": "Dunkel"
 	},
 	"dashboard": {
+		"title": "Vetchium Hub",
+		"changePassword": "Passwort ändern",
+		"changeEmail": "E-Mail ändern",
 		"myActivity": {
 			"title": "Meine Aktivitäten",
 			"description": "Ihre Aktivitätshistorie anzeigen"
 		}
+	},
+	"logout": {
+		"button": "Abmelden"
 	},
 	"action": {
 		"backHome": "Zur Startseite"

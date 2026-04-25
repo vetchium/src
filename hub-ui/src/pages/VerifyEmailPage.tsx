@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Button, Card, Typography, Alert, Spin } from "antd";
+import { useTranslation } from "react-i18next";
 import { getApiBaseUrl } from "../config";
 import { useAuth } from "../hooks/useAuth";
 
@@ -9,6 +10,7 @@ const { Title, Text } = Typography;
 export function VerifyEmailPage() {
 	const [searchParams] = useSearchParams();
 	const { logout } = useAuth();
+	const { t } = useTranslation("auth");
 	const token = searchParams.get("token");
 
 	const [verifying, setVerifying] = useState(true);
@@ -17,7 +19,7 @@ export function VerifyEmailPage() {
 
 	useEffect(() => {
 		if (!token) {
-			setError("Invalid or missing verification token.");
+			setError(t("verifyEmail.invalidToken"));
 			setVerifying(false);
 			return;
 		}
@@ -40,10 +42,10 @@ export function VerifyEmailPage() {
 					logout();
 				} else {
 					const data = await response.json();
-					setError(data.message || "Failed to verify email change.");
+					setError(data.message || t("verifyEmail.failed"));
 				}
 			} catch (err) {
-				setError("Failed to connect to the server. Please try again later.");
+				setError(t("verifyEmail.failed"));
 				console.error("Verify email error:", err);
 			} finally {
 				setVerifying(false);
@@ -51,13 +53,13 @@ export function VerifyEmailPage() {
 		};
 
 		verifyToken();
-	}, [token, logout]);
+	}, [token, logout, t]);
 
 	if (verifying) {
 		return (
 			<Card style={{ width: 400, textAlign: "center" }}>
 				<Spin size="large" />
-				<div style={{ marginTop: 16 }}>Verifying email change...</div>
+				<div style={{ marginTop: 16 }}>{t("verifyEmail.verifying")}</div>
 			</Card>
 		);
 	}
@@ -66,15 +68,12 @@ export function VerifyEmailPage() {
 		return (
 			<Card style={{ width: 400, textAlign: "center" }}>
 				<Title level={3} style={{ color: "#52c41a" }}>
-					Success!
+					{t("verifyEmail.successTitle")}
 				</Title>
-				<Text>
-					Your email address has been updated successfully. Please login with
-					your new email.
-				</Text>
+				<Text>{t("verifyEmail.successMessage")}</Text>
 				<div style={{ marginTop: 24 }}>
 					<Link to="/login">
-						<Button type="primary">Go to Login</Button>
+						<Button type="primary">{t("verifyEmail.goToLogin")}</Button>
 					</Link>
 				</div>
 			</Card>
@@ -84,14 +83,14 @@ export function VerifyEmailPage() {
 	return (
 		<Card style={{ width: 400 }}>
 			<Alert
-				title="Verification Failed"
-				description={error}
+				title={t("verifyEmail.failedTitle")}
+				description={error ?? undefined}
 				type="error"
 				showIcon
 			/>
 			<div style={{ marginTop: 24, textAlign: "center" }}>
 				<Link to="/">
-					<Button type="default">Go Home</Button>
+					<Button type="default">{t("verifyEmail.goHome")}</Button>
 				</Link>
 			</div>
 		</Card>

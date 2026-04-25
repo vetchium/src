@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { Form, Input, Button, Card, Typography, Alert, message } from "antd";
 import { LockOutlined } from "@ant-design/icons";
+import { useTranslation } from "react-i18next";
 import { getApiBaseUrl } from "../config";
 
 const { Title, Text } = Typography;
@@ -9,6 +10,7 @@ const { Title, Text } = Typography;
 export function ResetPasswordPage() {
 	const [searchParams] = useSearchParams();
 	const navigate = useNavigate();
+	const { t } = useTranslation("auth");
 	const token = searchParams.get("token");
 
 	const [loading, setLoading] = useState(false);
@@ -16,9 +18,9 @@ export function ResetPasswordPage() {
 
 	useEffect(() => {
 		if (!token) {
-			setError("Invalid or missing reset token.");
+			setError(t("resetPassword.invalidToken"));
 		}
-	}, [token]);
+	}, [token, t]);
 
 	const onFinish = async (values: { password: string }) => {
 		if (!token) return;
@@ -41,18 +43,18 @@ export function ResetPasswordPage() {
 			);
 
 			if (response.ok) {
-				message.success("Password has been reset successfully. Please login.");
+				message.success(t("resetPassword.success"));
 				navigate("/login");
 			} else {
 				const data = await response.json();
 				if (response.status === 401) {
-					setError("The reset link has expired or is invalid.");
+					setError(t("resetPassword.linkExpired"));
 				} else {
-					setError(data.message || "Failed to reset password.");
+					setError(data.message || t("resetPassword.failed"));
 				}
 			}
 		} catch (err) {
-			setError("Failed to connect to the server. Please try again later.");
+			setError(t("resetPassword.failed"));
 			console.error("Reset password error:", err);
 		} finally {
 			setLoading(false);
@@ -63,14 +65,14 @@ export function ResetPasswordPage() {
 		return (
 			<Card style={{ width: 400, boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}>
 				<Alert
-					title="Invalid Link"
-					description="The password reset link is invalid or missing."
+					title={t("resetPassword.invalidLinkTitle")}
+					description={t("resetPassword.invalidLinkDesc")}
 					type="error"
 					showIcon
 				/>
 				<div style={{ marginTop: 24, textAlign: "center" }}>
 					<Link to="/login">
-						<Button type="primary">Back to Login</Button>
+						<Button type="primary">{t("resetPassword.backToLogin")}</Button>
 					</Link>
 				</div>
 			</Card>
@@ -80,8 +82,8 @@ export function ResetPasswordPage() {
 	return (
 		<Card style={{ width: 400, boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}>
 			<div style={{ textAlign: "center", marginBottom: 24 }}>
-				<Title level={3}>Set New Password</Title>
-				<Text type="secondary">Please enter your new password below.</Text>
+				<Title level={3}>{t("resetPassword.title")}</Title>
+				<Text type="secondary">{t("resetPassword.subtitle")}</Text>
 			</div>
 
 			{error && (
@@ -101,35 +103,43 @@ export function ResetPasswordPage() {
 			>
 				<Form.Item
 					name="password"
-					label="New Password"
+					label={t("resetPassword.newPasswordLabel")}
 					rules={[
-						{ required: true, message: "Please input your new password!" },
-						{ min: 12, message: "Password must be at least 12 characters" },
-						// Add more complexity rules if needed matching backend
+						{
+							required: true,
+							message: t("resetPassword.newPasswordRequired"),
+						},
+						{
+							min: 12,
+							message: t("resetPassword.passwordMinLength", { min: 12 }),
+						},
 					]}
 					hasFeedback
 				>
 					<Input.Password
 						prefix={<LockOutlined />}
-						placeholder="New Password"
+						placeholder={t("resetPassword.newPasswordPlaceholder")}
 						size="large"
 					/>
 				</Form.Item>
 
 				<Form.Item
 					name="confirm"
-					label="Confirm Password"
+					label={t("resetPassword.confirmPasswordLabel")}
 					dependencies={["password"]}
 					hasFeedback
 					rules={[
-						{ required: true, message: "Please confirm your password!" },
+						{
+							required: true,
+							message: t("resetPassword.confirmPasswordRequired"),
+						},
 						({ getFieldValue }) => ({
 							validator(_, value) {
 								if (!value || getFieldValue("password") === value) {
 									return Promise.resolve();
 								}
 								return Promise.reject(
-									new Error("The two passwords that you entered do not match!")
+									new Error(t("resetPassword.passwordMismatch"))
 								);
 							},
 						}),
@@ -137,7 +147,7 @@ export function ResetPasswordPage() {
 				>
 					<Input.Password
 						prefix={<LockOutlined />}
-						placeholder="Confirm Password"
+						placeholder={t("resetPassword.confirmPasswordPlaceholder")}
 						size="large"
 					/>
 				</Form.Item>
@@ -150,7 +160,7 @@ export function ResetPasswordPage() {
 						size="large"
 						loading={loading}
 					>
-						Reset Password
+						{t("resetPassword.submit")}
 					</Button>
 				</Form.Item>
 			</Form>

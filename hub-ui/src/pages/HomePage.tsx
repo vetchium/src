@@ -1,6 +1,11 @@
 import { useEffect } from "react";
-import { Card, Typography, Button, Alert } from "antd";
-import { FileSearchOutlined } from "@ant-design/icons";
+import { Card, Col, Row, Typography, Button } from "antd";
+import {
+	FileSearchOutlined,
+	LockOutlined,
+	MailOutlined,
+	LogoutOutlined,
+} from "@ant-design/icons";
 import { useNavigate, Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../hooks/useAuth";
@@ -10,7 +15,7 @@ const { Title, Text } = Typography;
 export function HomePage() {
 	const navigate = useNavigate();
 	const { t } = useTranslation();
-	const { sessionToken, handle, logout, isAuthenticated } = useAuth();
+	const { logout, isAuthenticated } = useAuth();
 
 	useEffect(() => {
 		if (!isAuthenticated) {
@@ -30,75 +35,89 @@ export function HomePage() {
 	return (
 		<div
 			style={{
-				display: "flex",
-				flexDirection: "column",
-				alignItems: "center",
-				gap: 24,
-				width: 500,
+				width: "100%",
+				maxWidth: 1200,
+				padding: "24px 16px",
+				alignSelf: "flex-start",
 			}}
 		>
-			<Link to="/my-activity" style={{ textDecoration: "none", width: "100%" }}>
-				<Card
-					hoverable
-					style={{ width: "100%", cursor: "pointer", textAlign: "center" }}
+			<Title level={2} style={{ marginBottom: 24 }}>
+				{t("dashboard.title")}
+			</Title>
+
+			<Row gutter={[24, 24]}>
+				<Col xs={24} sm={12} lg={8}>
+					<Link
+						to="/my-activity"
+						style={{ textDecoration: "none", display: "block", height: "100%" }}
+					>
+						<Card
+							hoverable
+							style={{ height: "100%", cursor: "pointer", textAlign: "center" }}
+						>
+							<FileSearchOutlined
+								style={{ fontSize: 48, color: "#52c41a", marginBottom: 16 }}
+							/>
+							<Title level={4} style={{ marginBottom: 8 }}>
+								{t("dashboard.myActivity.title")}
+							</Title>
+							<Text type="secondary">
+								{t("dashboard.myActivity.description")}
+							</Text>
+						</Card>
+					</Link>
+				</Col>
+
+				<Col xs={24} sm={12} lg={8}>
+					<Link
+						to="/change-password"
+						style={{ textDecoration: "none", display: "block", height: "100%" }}
+					>
+						<Card
+							hoverable
+							style={{ height: "100%", cursor: "pointer", textAlign: "center" }}
+						>
+							<LockOutlined
+								style={{ fontSize: 48, color: "#1677ff", marginBottom: 16 }}
+							/>
+							<Title level={4} style={{ marginBottom: 8 }}>
+								{t("dashboard.changePassword")}
+							</Title>
+						</Card>
+					</Link>
+				</Col>
+
+				<Col xs={24} sm={12} lg={8}>
+					<Link
+						to="/change-email"
+						style={{ textDecoration: "none", display: "block", height: "100%" }}
+					>
+						<Card
+							hoverable
+							style={{ height: "100%", cursor: "pointer", textAlign: "center" }}
+						>
+							<MailOutlined
+								style={{ fontSize: 48, color: "#fa8c16", marginBottom: 16 }}
+							/>
+							<Title level={4} style={{ marginBottom: 8 }}>
+								{t("dashboard.changeEmail")}
+							</Title>
+						</Card>
+					</Link>
+				</Col>
+			</Row>
+
+			<div style={{ marginTop: 32, textAlign: "center" }}>
+				<Button
+					type="primary"
+					danger
+					onClick={handleLogout}
+					size="large"
+					icon={<LogoutOutlined />}
 				>
-					<FileSearchOutlined
-						style={{ fontSize: 48, color: "#52c41a", marginBottom: 16 }}
-					/>
-					<Title level={4} style={{ marginBottom: 8 }}>
-						{t("dashboard.myActivity.title")}
-					</Title>
-					<Text type="secondary">{t("dashboard.myActivity.description")}</Text>
-				</Card>
-			</Link>
-
-			<Card style={{ width: "100%" }}>
-				<Title level={3} style={{ textAlign: "center", marginBottom: 24 }}>
-					Welcome to Vetchium Hub
-				</Title>
-
-				<Alert
-					description={
-						<div>
-							<Text strong>Login Successful</Text>
-							<br />
-							{handle && (
-								<Text>
-									Handle: <strong>{handle}</strong>
-									<br />
-								</Text>
-							)}
-							<Text>Session Token: {sessionToken?.substring(0, 16)}...</Text>
-						</div>
-					}
-					type="success"
-					showIcon
-					style={{ marginBottom: 16 }}
-				/>
-
-				<div style={{ marginTop: 24, marginBottom: 16 }}>
-					<Button
-						type="default"
-						block
-						style={{ marginBottom: 12 }}
-						onClick={() => navigate("/change-password")}
-					>
-						Change Password
-					</Button>
-					<Button
-						type="default"
-						block
-						style={{ marginBottom: 12 }}
-						onClick={() => navigate("/change-email")}
-					>
-						Change Email
-					</Button>
-				</div>
-
-				<Button type="primary" onClick={handleLogout} block size="large">
-					Logout
+					{t("logout.button")}
 				</Button>
-			</Card>
+			</div>
 		</div>
 	);
 }
