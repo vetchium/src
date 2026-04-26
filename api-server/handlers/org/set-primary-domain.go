@@ -62,8 +62,16 @@ func SetPrimaryDomain(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		// Atomically update is_primary in global DB + write audit log in regional DB.
-		// Global first (source of truth for primary), then regional for audit.
+		// Remember the current primary for compensation if the regional write fails.
+		oldPrimary, err := s.Global.GetPrimaryDomainByOrg(ctx, orgUser.OrgID)
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			s.Logger(ctx).Error("failed to get current primary domain", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+		hadPreviousPrimary := err == nil
+
+		// Global write first (source of truth for primary domain).
 		if err := s.Global.SetPrimaryDomain(ctx, globaldb.SetPrimaryDomainParams{
 			OrgID:  orgUser.OrgID,
 			Domain: domain,
@@ -73,6 +81,7 @@ func SetPrimaryDomain(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
+		// Regional audit log. If this fails, compensate the global write.
 		eventData, _ := json.Marshal(map[string]any{"domain": domain})
 		if err := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
 			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
@@ -83,9 +92,23 @@ func SetPrimaryDomain(s *server.RegionalServer) http.HandlerFunc {
 				EventData:   eventData,
 			})
 		}); err != nil {
-			s.Logger(ctx).Error("failed to write audit log for set_primary_domain", "error", err)
-			// Non-fatal: primary was already updated; log the inconsistency.
-			s.Logger(ctx).Error("CONSISTENCY_ALERT: set_primary_domain audit log missing", "domain", domain, "org_id", orgUser.OrgID)
+			s.Logger(ctx).Error("failed to write audit log for set_primary_domain, compensating global write", "error", err)
+			if hadPreviousPrimary {
+				if compErr := s.Global.SetPrimaryDomain(ctx, globaldb.SetPrimaryDomainParams{
+					OrgID:  orgUser.OrgID,
+					Domain: oldPrimary,
+				}); compErr != nil {
+					s.Logger(ctx).Error("CONSISTENCY_ALERT: failed to revert primary domain after audit log failure",
+						"error", compErr, "domain", domain, "old_primary", oldPrimary, "org_id", orgUser.OrgID)
+				}
+			} else {
+				if compErr := s.Global.ClearOrgPrimaryDomain(ctx, orgUser.OrgID); compErr != nil {
+					s.Logger(ctx).Error("CONSISTENCY_ALERT: failed to clear primary domain after audit log failure",
+						"error", compErr, "domain", domain, "org_id", orgUser.OrgID)
+				}
+			}
+			http.Error(w, "", http.StatusInternalServerError)
+			return
 		}
 
 		s.Logger(ctx).Info("primary domain updated", "domain", domain, "org_id", orgUser.OrgID)

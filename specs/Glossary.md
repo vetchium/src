@@ -1,19 +1,14 @@
 ## Portals
 
-### Employer Portal
+### Org Portal
 
-- Used by Employers via OrgUsers
-- Employers are Organizations that post job openings
+- Used by Organizations via OrgUsers
+- Organizations post job openings and manage hiring
 
 ### Hub Portal
 
 - Used by Professionals (HubUsers)
 - For job searching, applications, professional networking
-
-### Agency Portal
-
-- Used by Agencies via AgencyUsers
-- For sourcing candidates and managing hiring
 
 ### Admin Portal
 
@@ -22,18 +17,18 @@
 
 ## Core Entities
 
-### Employer
+### Org (Organization)
 
-- Organization that posts job openings
+- Entity that posts job openings
 - Must have at least one verified domain
 - Has a primary region and operating regions
 - Contains OrgUsers
 
 ### OrgUser
 
-- User belonging to an Employer
-- Logs into Employer Portal
-- Roles: ADMIN, RECRUITER, HIRING_MANAGER, VIEWER
+- User belonging to an Org
+- Logs into Org Portal
+- Roles enforced via RBAC (`org:superadmin`, `org:manage_users`, etc.)
 
 ### HubUser
 
@@ -41,19 +36,9 @@
 - Has a HomeRegion where PII is stored
 - Can apply to openings in any region
 
-### Agency
-
-- Third-party organization helping Employers source candidates
-- Similar domain verification as Employers
-
-### AgencyUser
-
-- User belonging to an Agency
-- Logs into Agency Portal
-
 ### Opening
 
-- Job posting created by Employer
+- Job posting created by an Org
 - States: DRAFT, PUBLISHED, PAUSED, CLOSED, ARCHIVED
 - Stored in a specific region, never migrates
 

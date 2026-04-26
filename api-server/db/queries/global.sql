@@ -571,6 +571,13 @@ UPDATE global_org_domains
 SET is_primary = (domain = $2)
 WHERE org_id = $1
     AND (is_primary = TRUE OR domain = $2);
+-- name: ClearOrgPrimaryDomain :exec
+-- Clears the is_primary flag on all domains for an org.
+-- Used as a compensating transaction when set-primary-domain's regional audit log write fails
+-- and there was no prior primary domain to revert to.
+UPDATE global_org_domains
+SET is_primary = FALSE
+WHERE org_id = $1;
 -- name: GetNonPrimaryDomainsByOrg :many
 -- Used by the primary-failover background job: returns all non-primary domains for an org,
 -- ordered oldest-first. The caller filters by VERIFIED status from regional DB.

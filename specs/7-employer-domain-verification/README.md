@@ -2,14 +2,14 @@ Status: COMPLETED
 Authors: @psankar
 Dependencies: None
 
-# Employer Domain Verification Specification
+# Org Domain Verification Specification
 
-This document defines the authoritative state machine and workflows for verifying Employer identity via DNS within Vetchium's distributed global architecture.
+This document defines the authoritative state machine and workflows for verifying Org identity via DNS within Vetchium's distributed global architecture.
 
 ## 1. Acceptance Criteria
 
-- **Global Uniqueness**: An Employer Domain (e.g., `example.com`) must be unique across the entire platform, regardless of region.
-- **Regional Sovereignty**: Detailed verification logs and employer profile data must reside in the region where the employer signed up.
+- **Global Uniqueness**: An Org Domain (e.g., `example.com`) must be unique across the entire platform, regardless of region.
+- **Regional Sovereignty**: Detailed verification logs and org profile data must reside in the region where the org signed up.
 - **Zero-Downtime Verification**: DNS checks must be performed by regional workers but synchronized globally to prevent race conditions.
 - **Strict Root Domains**: Only root domains (e.g., `example.com`) are allowed. Subdomains are invalid.
 
@@ -31,17 +31,17 @@ We evaluated two models for storing domain verification data.
 
 ### 2.2 Data Split Strategy
 
-| Logic Layer            | Database        | Table                     | Responsibility                                                                                               |
-| :--------------------- | :-------------- | :------------------------ | :----------------------------------------------------------------------------------------------------------- |
-| **Routing / Identity** | **Global DB**   | `global_employer_domains` | Ensures `example.com` is claimed by ONLY ONE region/employer. Stores `verification_status` for fast routing. |
-| **Operational Data**   | **Regional DB** | `employer_domains`        | Stores tokens, full audit logs, and cron-job state (`consecutive_failures`).                                 |
+| Logic Layer            | Database        | Table                | Responsibility                                                                                          |
+| :--------------------- | :-------------- | :------------------- | :------------------------------------------------------------------------------------------------------ |
+| **Routing / Identity** | **Global DB**   | `global_org_domains` | Ensures `example.com` is claimed by ONLY ONE region/org. Stores `verification_status` for fast routing. |
+| **Operational Data**   | **Regional DB** | `org_domains`        | Stores tokens, full audit logs, and cron-job state (`consecutive_failures`).                            |
 
 ### 2.3 Global vs Regional Synchronization
 
 1.  **Claim (Write)**:
     - Happen as a distributed transaction.
     - **Lock in Global**: Insert `domain='example.com', region='USA1', status='PENDING'`. (Fails if exists).
-    - **Write in Regional**: Insert into `employer_domains` with generated token.
+    - **Write in Regional**: Insert into `org_domains` with generated token.
     - _Compensating Transaction_: If Regional write fails, delete Global lock.
 
 2.  **Verify (Read/Update)**:
@@ -52,7 +52,7 @@ We evaluated two models for storing domain verification data.
 
 ### 3.1 Domain Asset (Concept)
 
-The unique identifier for an employer.
+The unique identifier for an org.
 
 ### 3.2 Constants
 
@@ -80,11 +80,11 @@ Note: `UNCLAIMED` is not a status stored in the database - it means no record ex
 #### Global Database
 
 ```dbml
-Table global_employer_domains {
+Table global_org_domains {
   domain text [pk, note: "lowercase, punycode"]
   region region [note: "Enum: IND1, USA1, DEU1"]
-  employer_id uuid [ref: > global_employers.id]
-  status domain_verification_status [note: "PENDING, VERIFIED, FAILING"]
+  org_id uuid [ref: > orgs.org_id]
+  is_primary boolean
   created_at timestamp
 }
 ```
@@ -92,9 +92,9 @@ Table global_employer_domains {
 #### Regional Database
 
 ```dbml
-Table employer_domains {
+Table org_domains {
   domain text [pk]
-  employer_id uuid [ref: > employers.id]
+  org_id uuid
   verification_token text [note: "Secret expected in DNS"]
   token_expires_at timestamp
   last_verified_at timestamp
@@ -133,11 +133,11 @@ stateDiagram-v2
 
 1.  **Validation**: Check format (Root domain only).
 2.  **Global Lock (Critical)**:
-    - Attempt `INSERT INTO global_employer_domains (domain, region, status) VALUES ('example.com', 'USA1', 'PENDING')`.
+    - Attempt `INSERT INTO global_org_domains (domain, region, org_id) VALUES ('example.com', 'USA1', ...)`.
     - **IF ERROR (Duplicate)**: Return "Domain already claimed".
 3.  **Regional Creation**:
     - Generate `token`.
-    - `INSERT INTO employer_domains` in `USA1` DB.
+    - `INSERT INTO org_domains` in `USA1` DB.
 4.  **Output**: Show DNS instructions.
 
 ### 5.2 Verification (Manual & Automated)
@@ -168,13 +168,13 @@ See [specs/typespec/org/org-domains.tsp](../typespec/org/org-domains.tsp) for th
 
 #### API Endpoints Summary
 
-| Endpoint                           | Auth         | Description                              |
-| :--------------------------------- | :----------- | :--------------------------------------- |
-| `POST /employer/init-signup`       | None         | Send magic link to user's email          |
-| `POST /employer/complete-signup`   | Signup Token | Complete signup after email verification |
-| `POST /employer/claim-domain`      | Session      | Claim a domain for verification          |
-| `POST /employer/verify-domain`     | Session      | Trigger manual DNS verification          |
-| `POST /employer/get-domain-status` | Session      | Get current domain verification status   |
+| Endpoint                      | Auth         | Description                              |
+| :---------------------------- | :----------- | :--------------------------------------- |
+| `POST /org/init-signup`       | None         | Send magic link to user's email          |
+| `POST /org/complete-signup`   | Signup Token | Complete signup after email verification |
+| `POST /org/claim-domain`      | Session      | Claim a domain for verification          |
+| `POST /org/verify-domain`     | Session      | Trigger manual DNS verification          |
+| `POST /org/get-domain-status` | Session      | Get current domain verification status   |
 
 #### HTTP Response Codes
 
@@ -183,6 +183,6 @@ See [specs/typespec/org/org-domains.tsp](../typespec/org/org-domains.tsp) for th
 | Success                | 200/201     | Request successful                               |
 | Validation Error       | 400         | Invalid request body or field validation failed  |
 | Invalid Token          | 401         | Expired or invalid signup/session token          |
-| Domain Already Claimed | 409         | Domain is already claimed by another employer    |
+| Domain Already Claimed | 409         | Domain is already claimed by another org         |
 | Invalid State          | 422         | Account or domain in invalid state for operation |
 | Server Error           | 500         | Internal server error                            |
