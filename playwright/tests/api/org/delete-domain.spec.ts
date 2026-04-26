@@ -97,7 +97,8 @@ test.describe("DELETE /org/delete-domain", () => {
 			await createTestOrgAdminDirect(email, TEST_PASSWORD);
 			const token = await loginAsAdmin(api, email, domain);
 
-			// No other domains — deleting the primary should be allowed.
+			// The org has only one domain (the signup/primary domain).
+			// Deleting it should succeed because it is the last global domain.
 			const res = await api.deleteDomain(token, {
 				domain,
 			} as DeleteDomainRequest);
@@ -123,7 +124,8 @@ test.describe("DELETE /org/delete-domain", () => {
 			expect(claimRes.status).toBe(201);
 			await setOrgDomainVerified(secondDomain);
 
-			// Attempting to delete the primary while secondDomain exists → 422.
+			// Attempting to delete the primary (signup domain) while secondDomain
+			// also exists in global → 422.
 			const res = await api.deleteDomain(token, {
 				domain,
 			} as DeleteDomainRequest);

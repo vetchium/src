@@ -1285,7 +1285,7 @@ export async function createTestOrgAdminDirect(
 		[orgUserId, emailHash, orgId, region]
 	);
 
-	// 4. Create org admin user in regional DB (mutable data)
+	// 4. Create org admin user and verified domain in regional DB (mirrors complete-signup.go)
 	const regionalPool = getRegionalPool(region);
 	try {
 		await regionalPool.query(
@@ -1299,6 +1299,14 @@ export async function createTestOrgAdminDirect(
        SELECT $1, role_id FROM roles WHERE role_name = 'org:superadmin'`,
 			[orgUserId]
 		);
+		// Create the signup domain in regional DB as VERIFIED (mirrors what complete-signup does)
+		if (!options?.orgId) {
+			await regionalPool.query(
+				`INSERT INTO org_domains (domain, org_id, verification_token, token_expires_at, status, last_verified_at)
+         VALUES ($1, $2, 'test-signup-token', NOW() + INTERVAL '30 days', 'VERIFIED', NOW())`,
+				[domain, orgId]
+			);
+		}
 	} finally {
 		await regionalPool.end();
 	}

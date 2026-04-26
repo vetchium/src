@@ -26,7 +26,7 @@ import type {
 async function createOrgAdminAndGetSession(
 	api: OrgAPIClient,
 	emailPrefix: string
-): Promise<{ email: string; sessionToken: string }> {
+): Promise<{ email: string; domain: string; sessionToken: string }> {
 	const { email, domain } = generateTestOrgEmail(emailPrefix);
 
 	await createTestOrgAdminDirect(email, TEST_PASSWORD);
@@ -49,16 +49,16 @@ async function createOrgAdminAndGetSession(
 	const tfaResponse = await api.verifyTFA(tfaRequest);
 	expect(tfaResponse.status).toBe(200);
 
-	return { email, sessionToken: tfaResponse.body.session_token };
+	return { email, domain, sessionToken: tfaResponse.body.session_token };
 }
 
 test.describe("POST /org/list-domains", () => {
-	test("no domains returns empty list", async ({ request }) => {
+	test("new org has only its signup domain", async ({ request }) => {
 		const api = new OrgAPIClient(request);
 		let userEmail = "";
 
 		try {
-			const { email, sessionToken } = await createOrgAdminAndGetSession(
+			const { email, domain, sessionToken } = await createOrgAdminAndGetSession(
 				api,
 				"org-list-empty"
 			);
@@ -70,7 +70,11 @@ test.describe("POST /org/list-domains", () => {
 			expect(response.status).toBe(200);
 			expect(response.body.items).toBeDefined();
 			expect(Array.isArray(response.body.items)).toBe(true);
-			expect(response.body.items.length).toBe(0);
+			// Every new org always has its signup domain as a VERIFIED primary domain.
+			expect(response.body.items.length).toBe(1);
+			expect(response.body.items[0].domain).toBe(domain.toLowerCase());
+			expect(response.body.items[0].status).toBe("VERIFIED");
+			expect(response.body.items[0].is_primary).toBe(true);
 		} finally {
 			if (userEmail) await deleteTestOrgUser(userEmail);
 		}
@@ -82,10 +86,11 @@ test.describe("POST /org/list-domains", () => {
 		const claimedDomain = generateTestDomainName("org-list-one");
 
 		try {
-			const { email, sessionToken } = await createOrgAdminAndGetSession(
-				api,
-				"org-list-one"
-			);
+			const {
+				email,
+				domain: signupDomain,
+				sessionToken,
+			} = await createOrgAdminAndGetSession(api, "org-list-one");
 			userEmail = email;
 
 			// Claim a domain
@@ -95,17 +100,25 @@ test.describe("POST /org/list-domains", () => {
 			const claimResponse = await api.claimDomain(sessionToken, claimRequest);
 			expect(claimResponse.status).toBe(201);
 
-			// List domains
+			// List domains — signup domain + newly claimed domain = 2 total
 			const listRequest: ListDomainStatusRequest = {};
 			const response = await api.listDomains(sessionToken, listRequest);
 
 			expect(response.status).toBe(200);
 			expect(response.body.items).toBeDefined();
-			expect(response.body.items.length).toBe(1);
-			expect(response.body.items[0].domain).toBe(claimedDomain.toLowerCase());
-			expect(response.body.items[0].status).toBe("PENDING");
-			// Newly claimed domains are never primary (primary is the signup domain).
-			expect(response.body.items[0].is_primary).toBe(false);
+			expect(response.body.items.length).toBe(2);
+
+			const signupItem = response.body.items.find(
+				(i) => i.domain === signupDomain.toLowerCase()
+			);
+			expect(signupItem?.status).toBe("VERIFIED");
+			expect(signupItem?.is_primary).toBe(true);
+
+			const claimedItem = response.body.items.find(
+				(i) => i.domain === claimedDomain.toLowerCase()
+			);
+			expect(claimedItem?.status).toBe("PENDING");
+			expect(claimedItem?.is_primary).toBe(false);
 		} finally {
 			await deleteTestGlobalOrgDomain(claimedDomain);
 			if (userEmail) await deleteTestOrgUser(userEmail);
@@ -119,10 +132,11 @@ test.describe("POST /org/list-domains", () => {
 		const domain2 = generateTestDomainName("org-list-pag2");
 
 		try {
-			const { email, sessionToken } = await createOrgAdminAndGetSession(
-				api,
-				"org-list-pag"
-			);
+			const {
+				email,
+				domain: signupDomain,
+				sessionToken,
+			} = await createOrgAdminAndGetSession(api, "org-list-pag");
 			userEmail = email;
 
 			// Claim two domains
@@ -131,16 +145,17 @@ test.describe("POST /org/list-domains", () => {
 			const claim2 = await api.claimDomain(sessionToken, { domain: domain2 });
 			expect(claim2.status).toBe(201);
 
-			// List domains without cursor - should return both
+			// List domains without cursor — signup domain + 2 claimed = 3 total
 			const listRequest: ListDomainStatusRequest = {};
 			const response = await api.listDomains(sessionToken, listRequest);
 
 			expect(response.status).toBe(200);
 			expect(response.body.items).toBeDefined();
-			expect(response.body.items.length).toBe(2);
+			expect(response.body.items.length).toBe(3);
 
-			// The domains should be in the list
+			// All three domains should be in the list
 			const domains = response.body.items.map((item) => item.domain);
+			expect(domains).toContain(signupDomain.toLowerCase());
 			expect(domains).toContain(domain1.toLowerCase());
 			expect(domains).toContain(domain2.toLowerCase());
 		} finally {
