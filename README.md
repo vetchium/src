@@ -1,6 +1,6 @@
 # Vetchium
 
-A multi-region job search and hiring platform.
+A FOSS platform that is globally distributed and for Professional Networking, Jobs and Human Resources related operations
 
 ## Architecture
 
@@ -10,10 +10,9 @@ A multi-region job search and hiring platform.
 - **3 Regional Workers**: Run background cleanup jobs per region
 - **1 Global Service**: Runs background cleanup jobs for the global database
 - **Load Balancer**: nginx distributing traffic across regional API servers
-- **Hub UI**: Vite + React application for professionals
+- **Hub UI**: React application for professionals
+- **Org UI**: React application for employers (organizations)
 - **Admin UI**: React application for platform administration
-- **Employer UI**: React application for employers (organizations)
-- **Agency UI**: React application for recruitment agencies
 
 ## Prerequisites
 
@@ -23,18 +22,14 @@ A multi-region job search and hiring platform.
 - [goimports](https://pkg.go.dev/golang.org/x/tools/cmd/goimports) — **Required** for git pre-push hooks
 
 ```bash
-# Install goimports
 go install golang.org/x/tools/cmd/goimports@latest
 ```
 
 For local development (optional):
 
-- [sqlc](https://sqlc.dev/) — for IDE navigation through generated SQL code
-- [goose](https://github.com/pressly/goose) — for creating new database migrations
-
 ```bash
-go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
-go install github.com/pressly/goose/v3/cmd/goose@latest
+go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest   # IDE navigation through generated SQL
+go install github.com/pressly/goose/v3/cmd/goose@latest  # Creating new DB migrations
 ```
 
 ## Quick Start
@@ -45,6 +40,12 @@ bun install
 
 # Start all services
 docker compose -f docker-compose-full.json up --build
+
+# Stop
+docker compose -f docker-compose-full.json down
+
+# Stop and wipe database volumes
+docker compose -f docker-compose-full.json down -v
 ```
 
 Access the services:
@@ -53,101 +54,44 @@ Access the services:
 | --------------- | --------------------- |
 | Hub UI          | http://localhost:3000 |
 | Admin UI        | http://localhost:3001 |
-| Employer UI     | http://localhost:3002 |
-| Agency UI       | http://localhost:3003 |
+| Org UI          | http://localhost:3002 |
 | API (LB)        | http://localhost:8080 |
 | Mailpit (webUI) | http://localhost:8025 |
 
-## Stopping Services
+## Frontend Development
 
 ```bash
-# Stop all services
-docker compose -f docker-compose-full.json down
-
-# Stop and remove volumes (clears database data)
-docker compose -f docker-compose-full.json down -v
-```
-
-## Local Frontend Development
-
-Run only the backend services in Docker and the frontend locally for faster iteration:
-
-```bash
-# Start backend services (databases, API servers, load balancer)
 docker compose -f docker-compose-backend.json up --build
-
-# In a separate terminal, run the desired frontend locally
-cd hub-ui      && bun install && bun dev   # Hub UI      at http://localhost:5173
-cd admin-ui    && bun install && bun dev   # Admin UI    at http://localhost:5173
-cd employer-ui && bun install && bun dev   # Employer UI at http://localhost:5173
-cd agency-ui   && bun install && bun dev   # Agency UI   at http://localhost:5173
-```
-
-This provides hot module reloading and faster rebuild times.
-
-## Development Tools
-
-```bash
-# Generate Go code from SQL (for IDE navigation)
-cd api-server && sqlc generate
-
-# Create a new database migration
-cd api-server/db/migrations/global   # or regional
-goose create migration_name sql
+cd hub-ui && bun install && bun run dev
 ```
 
 ## Code Formatting
 
-The repository uses [Husky](https://typicode.github.io/husky/) to enforce formatting before pushes. Git hooks are set up when you run `bun install` at the repo root.
-
-### Pre-Push Hook
-
-- **Prettier** — `.ts`, `.tsx`, `.js`, `.jsx`, `.json`, `.yaml`, `.yml`, `.md` files
-- **goimports** — `.go` files (must be installed separately, see Prerequisites)
-
-### Format Commands
-
-Run from the repo root:
+[Husky](https://typicode.github.io/husky/) enforces formatting on `git push` (set up by `bun install`).
 
 ```bash
 bun run format              # Format all files (prettier + goimports)
-bun run format:check        # Check formatting without modifying
-bun run format:prettier     # Only JS/TS/JSON/MD files
-bun run format:go           # Only Go files
-bun run format:go:check     # Check Go files only
-```
-
-## Test Status
-
-All 727 Playwright tests (716 API and 11 UI) are passing as of April 11, 2026. The environment has been optimized for stability and performance.
-
-Tests run against the CI environment:
-
-```bash
-docker compose -f docker-compose-ci.json up --build -d
-cd playwright && CI=1 npm test
+bun run format:check        # Check without modifying
 ```
 
 ## Running Tests
 
-All tests run against the CI Docker configuration which uses shortened token durations and healthchecks for all services:
-
 ```bash
-# Start services
+# Start CI stack
 docker compose -f docker-compose-ci.json up --build -d
 
-# In a separate terminal
+# Run tests
 cd playwright
 npm install
-npm run env:check        # Verify all services are up and healthy
+npm run env:check        # Verify all services are healthy
 CI=1 npm test            # All tests (API + UI)
 CI=1 npm run test:api    # API tests only
-CI=1 npm run test:ui     # All UI tests (Chromium, 1 worker)
+CI=1 npm run test:ui     # UI tests (Chromium, 1 worker)
 ```
 
-**Note:** The `CI=1` environment variable is recommended to limit the number of parallel workers (to 4 for API tests) ensuring stability across the multi-service architecture. UI tests are automatically restricted to 1 worker to prevent Mailpit collisions.
+`CI=1` limits parallel workers (4 for API tests) for stability across the multi-service setup. UI tests are restricted to 1 worker to prevent Mailpit collisions.
 
-The CI configuration uses short token durations to enable expiry scenario tests:
+The CI stack uses short token durations to enable expiry scenario tests:
 
 | Token type       | CI duration |
 | ---------------- | ----------- |
@@ -193,93 +137,25 @@ src/
 │   │   ├── migrations/  # Goose migrations (global/ and regional/)
 │   │   ├── queries/     # sqlc SQL queries
 │   │   └── dev-seed/    # Seed data for development
-│   ├── handlers/        # HTTP handlers (admin/, hub/, org/, agency/)
-│   └── internal/server/ # Server struct and dependencies
-├── specs/typespec/      # API contract (TypeSpec + hand-maintained .ts/.go types)
-├── hub-ui/              # Professional portal (React + Vite)
-├── admin-ui/            # Admin portal (React + Vite)
-├── employer-ui/         # Employer portal (React + Vite)
-├── agency-ui/           # Agency portal (React + Vite)
+│   └── handlers/        # HTTP handlers (admin/, hub/, org/)
+├── specs/               # Feature specs and TypeSpec API contracts
+│   └── typespec/        # Source of truth for all API types
+├── hub-ui/              # Professional portal (React + Bun)
+├── org-ui/              # Org portal (React + Bun)
+├── admin-ui/            # Admin portal (React + Bun)
 └── playwright/          # API and UI tests
     ├── lib/             # Shared helpers (db.ts, api-client.ts, mailpit.ts)
-    └── tests/api/       # API test specs (admin/, hub/, org/, agency/)
+    └── tests/api/       # API test specs (admin/, hub/, org/)
 ```
 
 ## Development Workflow
 
-1. Define the API contract in `specs/typespec/` (`.tsp`, `.ts`, and `.go` files)
-2. Implement the backend handler in `api-server/handlers/`
-3. Add SQL queries to `api-server/db/queries/` and run `sqlc generate`
+1. **Write the spec** — run `/new-spec` in Claude Code; review and approve Stage 1, then run `/fill-spec` for the implementation plan
+2. Add/update `.tsp` files under `specs/typespec/` and confirm API endpoints before proceeding
+3. Implement backend handler in `api-server/handlers/`; add SQL queries and run `sqlc generate`
 4. Implement UI changes in the relevant `*-ui/` directory
 5. Write Playwright tests in `playwright/tests/api/`
 
 See [CLAUDE.md](./CLAUDE.md) for detailed conventions, patterns, and architecture decisions.
 
-See [ADD_NEW_REGION.md](./ADD_NEW_REGION.md) for the region architecture overview and the runbook for adding a new geographic region.
-
-## Environment Variables
-
-### Global Service
-
-| Variable                               | Default | CI Value | Description                                       |
-| -------------------------------------- | ------- | -------- | ------------------------------------------------- |
-| `GLOBAL_DB_CONN`                       | —       | —        | PostgreSQL connection string for global DB        |
-| `LOG_LEVEL`                            | INFO    | DEBUG    | Log level (DEBUG, INFO, WARN, ERROR)              |
-| `ADMIN_TFA_TOKEN_CLEANUP_INTERVAL`     | 1h      | 5s       | Cleanup interval for expired admin TFA tokens     |
-| `ADMIN_SESSION_CLEANUP_INTERVAL`       | 1h      | 5s       | Cleanup interval for expired admin sessions       |
-| `HUB_SIGNUP_TOKEN_CLEANUP_INTERVAL`    | 1h      | 5s       | Cleanup interval for expired hub signup tokens    |
-| `ORG_SIGNUP_TOKEN_CLEANUP_INTERVAL`    | 1h      | 5s       | Cleanup interval for expired org signup tokens    |
-| `AGENCY_SIGNUP_TOKEN_CLEANUP_INTERVAL` | 1h      | 5s       | Cleanup interval for expired agency signup tokens |
-
-### Regional API Servers
-
-**Database connections:**
-
-| Variable                | Description                                       |
-| ----------------------- | ------------------------------------------------- |
-| `REGION`                | Region identifier (ind1, usa1, deu1)              |
-| `GLOBAL_DB_CONN`        | PostgreSQL connection string for global DB        |
-| `REGIONAL_DB_IND1_CONN` | PostgreSQL connection string for IND1 regional DB |
-| `REGIONAL_DB_USA1_CONN` | PostgreSQL connection string for USA1 regional DB |
-| `REGIONAL_DB_DEU1_CONN` | PostgreSQL connection string for DEU1 regional DB |
-
-**Token expiry:**
-
-| Variable                      | Default | CI Value | Description                              |
-| ----------------------------- | ------- | -------- | ---------------------------------------- |
-| `ADMIN_TFA_TOKEN_EXPIRY`      | 10m     | 15s      | Admin TFA token validity duration        |
-| `ADMIN_SESSION_TOKEN_EXPIRY`  | 24h     | 30s      | Admin session token validity duration    |
-| `HUB_TFA_TOKEN_EXPIRY`        | 10m     | 15s      | Hub user TFA token validity duration     |
-| `HUB_SESSION_TOKEN_EXPIRY`    | 24h     | 30s      | Hub user session token validity          |
-| `HUB_SIGNUP_TOKEN_EXPIRY`     | 24h     | 30s      | Hub signup token validity duration       |
-| `HUB_REMEMBER_ME_EXPIRY`      | 365d    | 60s      | Hub remember-me session validity         |
-| `ORG_TFA_TOKEN_EXPIRY`        | 10m     | 15s      | Employer TFA token validity duration     |
-| `ORG_SESSION_TOKEN_EXPIRY`    | 24h     | 30s      | Employer session token validity duration |
-| `ORG_SIGNUP_TOKEN_EXPIRY`     | 24h     | 30s      | Employer signup token validity duration  |
-| `ORG_REMEMBER_ME_EXPIRY`      | 365d    | 60s      | Employer remember-me session validity    |
-| `AGENCY_TFA_TOKEN_EXPIRY`     | 10m     | 15s      | Agency TFA token validity duration       |
-| `AGENCY_SESSION_TOKEN_EXPIRY` | 24h     | 30s      | Agency session token validity duration   |
-| `AGENCY_SIGNUP_TOKEN_EXPIRY`  | 24h     | 30s      | Agency signup token validity duration    |
-| `AGENCY_REMEMBER_ME_EXPIRY`   | 365d    | 60s      | Agency remember-me session validity      |
-| `PASSWORD_RESET_TOKEN_EXPIRY` | 1h      | 30s      | Password reset token validity duration   |
-
-### Regional Workers
-
-| Variable                            | Default | CI Value | Description                                      |
-| ----------------------------------- | ------- | -------- | ------------------------------------------------ |
-| `HUB_TFA_TOKEN_CLEANUP_INTERVAL`    | 1h      | 5s       | Cleanup interval for expired hub TFA tokens      |
-| `HUB_SESSION_CLEANUP_INTERVAL`      | 1h      | 5s       | Cleanup interval for expired hub sessions        |
-| `ORG_TFA_TOKEN_CLEANUP_INTERVAL`    | 1h      | 5s       | Cleanup interval for expired employer TFA tokens |
-| `ORG_SESSION_CLEANUP_INTERVAL`      | 1h      | 5s       | Cleanup interval for expired employer sessions   |
-| `AGENCY_TFA_TOKEN_CLEANUP_INTERVAL` | 1h      | 5s       | Cleanup interval for expired agency TFA tokens   |
-| `AGENCY_SESSION_CLEANUP_INTERVAL`   | 1h      | 5s       | Cleanup interval for expired agency sessions     |
-
-**Email:**
-
-| Variable                     | Default | Description                   |
-| ---------------------------- | ------- | ----------------------------- |
-| `SMTP_HOST`                  | —       | SMTP server hostname          |
-| `SMTP_PORT`                  | —       | SMTP server port              |
-| `SMTP_FROM_ADDRESS`          | —       | From email address            |
-| `SMTP_FROM_NAME`             | —       | From name for emails          |
-| `EMAIL_WORKER_POLL_INTERVAL` | 10s     | Email worker polling interval |
+See [ADD_NEW_REGION.md](./ADD_NEW_REGION.md) for the region architecture runbook.
