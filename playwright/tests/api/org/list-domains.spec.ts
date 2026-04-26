@@ -104,6 +104,8 @@ test.describe("POST /org/list-domains", () => {
 			expect(response.body.items.length).toBe(1);
 			expect(response.body.items[0].domain).toBe(claimedDomain.toLowerCase());
 			expect(response.body.items[0].status).toBe("PENDING");
+			// Newly claimed domains are never primary (primary is the signup domain).
+			expect(response.body.items[0].is_primary).toBe(false);
 		} finally {
 			await deleteTestGlobalOrgDomain(claimedDomain);
 			if (userEmail) await deleteTestOrgUser(userEmail);

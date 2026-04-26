@@ -9,6 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"vetchium-api-server.gomodule/internal/bgjobs"
+	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/email"
 )
@@ -40,6 +41,17 @@ func main() {
 
 	ctx := context.Background()
 
+	// Connect to global database (for primary-domain failover logic)
+	globalConn, err := pgxpool.New(ctx, os.Getenv("GLOBAL_DB_CONN"))
+	if err != nil {
+		logger.Error("failed to connect to global DB", "error", err)
+		os.Exit(1)
+	}
+	defer globalConn.Close()
+	logger.Info("connected to global database")
+
+	globalQueries := globaldb.New(globalConn)
+
 	// Connect to regional database (only this region's DB)
 	regionalConn, err := pgxpool.New(ctx, os.Getenv("REGIONAL_DB_CONN"))
 	if err != nil {
@@ -70,7 +82,7 @@ func main() {
 		environment = "PROD"
 	}
 	regionalConfig := bgjobs.RegionalConfigFromEnv()
-	regionalWorker := bgjobs.NewRegionalWorker(regionalQueries, regionalConfig, logger, region, environment)
+	regionalWorker := bgjobs.NewRegionalWorker(regionalQueries, globalQueries, regionalConfig, logger, region, environment)
 	go regionalWorker.Run(ctx)
 
 	logger.Info("regional-worker started, email and cleanup workers running", "region", region)

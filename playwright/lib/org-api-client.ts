@@ -49,6 +49,8 @@ import type {
 	GetDomainStatusResponse,
 	ListDomainStatusRequest,
 	ListDomainStatusResponse,
+	SetPrimaryDomainRequest,
+	DeleteDomainRequest,
 } from "vetchium-specs/org-domains/org-domains";
 import type {
 	FilterAuditLogsRequest,
@@ -467,6 +469,74 @@ export class OrgAPIClient {
 			body: body as ListDomainStatusResponse,
 			errors: Array.isArray(body) ? body : body.errors,
 		};
+	}
+
+	/**
+	 * POST /org/set-primary-domain
+	 */
+	async setPrimaryDomain(
+		sessionToken: string,
+		request: SetPrimaryDomainRequest
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/org/set-primary-domain", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		return { status: response.status(), body: undefined };
+	}
+
+	async setPrimaryDomainRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/org/set-primary-domain", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: body,
+		});
+		return { status: response.status(), body: undefined };
+	}
+
+	async setPrimaryDomainWithoutAuth(
+		request: SetPrimaryDomainRequest
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/org/set-primary-domain", {
+			data: request,
+		});
+		return { status: response.status(), body: undefined };
+	}
+
+	/**
+	 * DELETE /org/delete-domain
+	 */
+	async deleteDomain(
+		sessionToken: string,
+		request: DeleteDomainRequest
+	): Promise<APIResponse<void>> {
+		const response = await this.request.delete("/org/delete-domain", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		return { status: response.status(), body: undefined };
+	}
+
+	async deleteDomainRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<void>> {
+		const response = await this.request.delete("/org/delete-domain", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: body,
+		});
+		return { status: response.status(), body: undefined };
+	}
+
+	async deleteDomainWithoutAuth(
+		request: DeleteDomainRequest
+	): Promise<APIResponse<void>> {
+		const response = await this.request.delete("/org/delete-domain", {
+			data: request,
+		});
+		return { status: response.status(), body: undefined };
 	}
 
 	// ============================================================================

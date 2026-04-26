@@ -1,4 +1,5 @@
 import {
+	Alert,
 	App as AntApp,
 	Button,
 	Card,
@@ -42,6 +43,7 @@ import { SubscriptionDetailPage } from "./pages/Marketplace/SubscriptionDetailPa
 import { MyClientsPage } from "./pages/Marketplace/MyClientsPage";
 import {
 	BrowserRouter,
+	Link,
 	Routes,
 	Route,
 	Navigate,
@@ -238,6 +240,29 @@ function AuditLogsRoute({ children }: { children: React.ReactNode }) {
 	return <>{children}</>;
 }
 
+function FailingDomainsWarning() {
+	const { t } = useTranslation("auth");
+	const { authState, sessionToken } = useAuth();
+	const { data: myInfo } = useMyInfo(sessionToken);
+
+	if (authState !== "authenticated" || !myInfo?.has_failing_domains) {
+		return null;
+	}
+
+	return (
+		<Alert
+			type="warning"
+			banner
+			title={
+				<>
+					{t("domain.failingDomainsWarning")}{" "}
+					<Link to="/domain-management">{t("domainManagement.title")}</Link>
+				</>
+			}
+		/>
+	);
+}
+
 function AppContent() {
 	const { theme } = useTheme();
 
@@ -261,6 +286,7 @@ function AppContent() {
 			<AntApp>
 				<Layout style={{ minHeight: "100vh" }}>
 					<AppHeader />
+					<FailingDomainsWarning />
 					<Content
 						style={{
 							display: "flex",

@@ -1515,3 +1515,57 @@ export async function setOrgPlan(orgId: string, planId: string): Promise<void> {
 		[orgId, planId]
 	);
 }
+
+/**
+ * Sets a domain's status to VERIFIED in the regional DB.
+ * Used in test setup when we need a VERIFIED domain without DNS.
+ */
+export async function setOrgDomainVerified(
+	domain: string,
+	region: RegionCode = "ind1"
+): Promise<void> {
+	const regionalPool = getRegionalPool(region);
+	try {
+		await regionalPool.query(
+			`UPDATE org_domains
+			 SET status = 'VERIFIED', last_verified_at = NOW(), consecutive_failures = 0, failing_since = NULL
+			 WHERE domain = $1`,
+			[domain.toLowerCase()]
+		);
+	} finally {
+		await regionalPool.end();
+	}
+}
+
+/**
+ * Sets a domain's status to FAILING in the regional DB with a failing_since timestamp.
+ * Used in test setup to simulate a failing primary domain.
+ */
+export async function setOrgDomainFailing(
+	domain: string,
+	failingSinceDaysAgo: number = 0,
+	region: RegionCode = "ind1"
+): Promise<void> {
+	const regionalPool = getRegionalPool(region);
+	try {
+		await regionalPool.query(
+			`UPDATE org_domains
+			 SET status = 'FAILING', consecutive_failures = 3,
+			     failing_since = NOW() - $2::interval
+			 WHERE domain = $1`,
+			[domain.toLowerCase(), `${failingSinceDaysAgo} days`]
+		);
+	} finally {
+		await regionalPool.end();
+	}
+}
+
+/**
+ * Deletes an entry from domain_cooldowns in the global DB.
+ * Used in test cleanup after delete-domain tests.
+ */
+export async function deleteTestDomainCooldown(domain: string): Promise<void> {
+	await pool.query(`DELETE FROM domain_cooldowns WHERE domain = $1`, [
+		domain.toLowerCase(),
+	]);
+}

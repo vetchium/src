@@ -165,6 +165,9 @@ CREATE TABLE org_domains (
     last_verification_requested_at TIMESTAMPTZ,
     consecutive_failures INT NOT NULL DEFAULT 0,
     status domain_verification_status NOT NULL DEFAULT 'PENDING',
+    -- Set when domain first transitions to FAILING; cleared on recovery to VERIFIED.
+    -- Used to trigger primary-domain failover after PrimaryFailoverGrace.
+    failing_since TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 -- Cost centers for organizations

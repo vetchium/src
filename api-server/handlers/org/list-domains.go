@@ -39,6 +39,7 @@ func ListDomains(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
+		// One regional round-trip: all domains for this org.
 		domains, err := s.Regional.GetOrgDomainsByOrg(ctx, orgUser.OrgID)
 		if err != nil {
 			s.Logger(ctx).Error("failed to get org domains", "error", err)
@@ -46,7 +47,21 @@ func ListDomains(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		// Apply cursor filtering
+		// One global round-trip: is_primary flags for all domains.
+		globalDomains, err := s.Global.GetGlobalOrgDomainsByOrg(ctx, orgUser.OrgID)
+		if err != nil {
+			s.Logger(ctx).Error("failed to get global org domains", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+		primarySet := make(map[string]bool, len(globalDomains))
+		for _, gd := range globalDomains {
+			if gd.IsPrimary {
+				primarySet[gd.Domain] = true
+			}
+		}
+
+		// Apply cursor filtering.
 		startIdx := 0
 		if req.PaginationKey != nil && *req.PaginationKey != "" {
 			for i, d := range domains {
@@ -57,14 +72,11 @@ func ListDomains(s *server.RegionalServer) http.HandlerFunc {
 			}
 		}
 
-		cooldown := time.Duration(orgdomains.VerificationCooldownMinutes) * time.Minute
+		cooldown := time.Duration(orgdomains.ManualVerificationCooldown) * time.Minute
 		items := make([]orgdomains.ListDomainStatusItem, 0, domainPageSize)
 		for i := startIdx; i < len(domains) && len(items) < domainPageSize; i++ {
 			d := domains[i]
 
-			// Use the more recent of last_verification_requested_at and last_verified_at
-			// so that domains verified at signup (last_verified_at set, last_verification_requested_at NULL)
-			// also respect the cooldown.
 			lastActivity := d.LastVerificationRequestedAt
 			if d.LastVerifiedAt.Valid && (!lastActivity.Valid || d.LastVerifiedAt.Time.After(lastActivity.Time)) {
 				lastActivity = d.LastVerifiedAt
@@ -74,16 +86,15 @@ func ListDomains(s *server.RegionalServer) http.HandlerFunc {
 			item := orgdomains.ListDomainStatusItem{
 				Domain:                 d.Domain,
 				Status:                 orgdomains.DomainVerificationStatus(d.Status),
+				IsPrimary:              primarySet[d.Domain],
 				CanRequestVerification: canRequest,
 			}
 
-			// Expose when verification was last requested (for UX: "last tried X ago")
 			if d.LastVerificationRequestedAt.Valid {
 				t := d.LastVerificationRequestedAt.Time
 				item.LastAttemptedAt = &t
 			}
 
-			// When rate-limited, tell the client exactly when they can retry
 			if !canRequest {
 				nextAllowed := lastActivity.Time.Add(cooldown)
 				item.NextVerificationAllowedAt = &nextAllowed
@@ -96,6 +107,11 @@ func ListDomains(s *server.RegionalServer) http.HandlerFunc {
 				if d.TokenExpiresAt.Valid {
 					item.ExpiresAt = &d.TokenExpiresAt.Time
 				}
+			}
+
+			if d.Status == regionaldb.DomainVerificationStatusFAILING && d.FailingSince.Valid {
+				t := d.FailingSince.Time
+				item.FailingSince = &t
 			}
 
 			if d.Status == regionaldb.DomainVerificationStatusVERIFIED {

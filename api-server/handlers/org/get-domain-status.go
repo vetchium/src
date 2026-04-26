@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
@@ -42,6 +43,7 @@ func GetDomainStatus(s *server.RegionalServer) http.HandlerFunc {
 
 		domain := strings.ToLower(string(req.Domain))
 
+		// One regional round-trip.
 		domainRecord, err := s.Regional.GetOrgDomainByOrgAndDomain(ctx, regionaldb.GetOrgDomainByOrgAndDomainParams{
 			Domain: domain,
 			OrgID:  orgUser.OrgID,
@@ -57,10 +59,19 @@ func GetDomainStatus(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		// Use the more recent of last_verification_requested_at and last_verified_at
-		// so that domains verified at signup (last_verified_at set, last_verification_requested_at NULL)
-		// also respect the cooldown.
-		cooldown := time.Duration(orgdomains.VerificationCooldownMinutes) * time.Minute
+		// One global round-trip: is_primary flag.
+		globalDomain, err := s.Global.GetGlobalOrgDomain(ctx, domain)
+		if err != nil {
+			if !errors.Is(err, pgx.ErrNoRows) {
+				s.Logger(ctx).Error("failed to get global domain record", "error", err)
+				http.Error(w, "", http.StatusInternalServerError)
+				return
+			}
+			// Missing from global DB is abnormal but non-fatal for status display.
+			globalDomain = globaldb.GlobalOrgDomain{}
+		}
+
+		cooldown := time.Duration(orgdomains.ManualVerificationCooldown) * time.Minute
 		lastActivity := domainRecord.LastVerificationRequestedAt
 		if domainRecord.LastVerifiedAt.Valid && (!lastActivity.Valid || domainRecord.LastVerifiedAt.Time.After(lastActivity.Time)) {
 			lastActivity = domainRecord.LastVerifiedAt
@@ -70,16 +81,15 @@ func GetDomainStatus(s *server.RegionalServer) http.HandlerFunc {
 		response := orgdomains.GetDomainStatusResponse{
 			Domain:                 domain,
 			Status:                 orgdomains.DomainVerificationStatus(domainRecord.Status),
+			IsPrimary:              globalDomain.IsPrimary,
 			CanRequestVerification: canRequest,
 		}
 
-		// Expose when verification was last requested (for UX: "last tried X ago")
 		if domainRecord.LastVerificationRequestedAt.Valid {
 			t := domainRecord.LastVerificationRequestedAt.Time
 			response.LastAttemptedAt = &t
 		}
 
-		// When rate-limited, tell the client exactly when they can retry
 		if !canRequest {
 			nextAllowed := lastActivity.Time.Add(cooldown)
 			response.NextVerificationAllowedAt = &nextAllowed
@@ -89,6 +99,11 @@ func GetDomainStatus(s *server.RegionalServer) http.HandlerFunc {
 			domainRecord.Status == regionaldb.DomainVerificationStatusFAILING {
 			token := orgdomains.DomainVerificationToken(domainRecord.VerificationToken)
 			response.VerificationToken = &token
+		}
+
+		if domainRecord.Status == regionaldb.DomainVerificationStatusFAILING && domainRecord.FailingSince.Valid {
+			t := domainRecord.FailingSince.Time
+			response.FailingSince = &t
 		}
 
 		if domainRecord.Status == regionaldb.DomainVerificationStatusPENDING {

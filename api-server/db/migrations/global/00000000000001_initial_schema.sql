@@ -184,6 +184,15 @@ CREATE UNIQUE INDEX idx_global_org_domains_primary
 ON global_org_domains (org_id)
 WHERE is_primary = TRUE;
 
+-- Quarantine table: after an org unclaims a domain it sits here for DomainReleaseCooldown
+-- before any org may re-claim it. Prevents domain-squatting race conditions.
+CREATE TABLE domain_cooldowns (
+    domain          TEXT        PRIMARY KEY,
+    prev_org_id     UUID        NOT NULL REFERENCES orgs(org_id),
+    released_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    claimable_after TIMESTAMPTZ NOT NULL
+);
+
 -- Org users table (global - routing only)
 -- Note: email_address_hash is NOT unique alone - one email can belong to multiple orgs
 -- (contractor scenario). Uniqueness is enforced per (email_address_hash, org_id).
@@ -460,6 +469,7 @@ DROP TABLE IF EXISTS tag_translations;
 DROP TABLE IF EXISTS tags;
 DROP TABLE IF EXISTS admin_user_roles;
 DROP TABLE IF EXISTS roles;
+DROP TABLE IF EXISTS domain_cooldowns;
 DROP INDEX IF EXISTS idx_global_org_domains_org_id;
 DROP INDEX IF EXISTS idx_org_users_email_hash;
 DROP INDEX IF EXISTS idx_org_users_org_id;

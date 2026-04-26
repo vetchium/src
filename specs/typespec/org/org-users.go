@@ -469,4 +469,7 @@ type OrgMyInfoResponse struct {
 	OrgName           string              `json:"org_name"`
 	OrgDomain         common.DomainName   `json:"org_domain"`
 	Roles             []string            `json:"roles"`
+	// HasFailingDomains is true when at least one of the org's domains is in FAILING state.
+	// Used by the frontend to show a persistent warning banner to all org users.
+	HasFailingDomains bool `json:"has_failing_domains"`
 }

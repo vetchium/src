@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import type { OrgMyInfoResponse } from "vetchium-specs/org/org-users";
 import { getApiBaseUrl } from "../config";
 
@@ -16,6 +16,7 @@ export function useMyInfo(sessionToken: string | null) {
 		loading: !cachedMyInfo,
 		error: null,
 	});
+	const [fetchTrigger, setFetchTrigger] = useState(0);
 
 	useEffect(() => {
 		if (!sessionToken) {
@@ -58,9 +59,15 @@ export function useMyInfo(sessionToken: string | null) {
 		};
 
 		fetchMyInfo();
-	}, [sessionToken]);
+	}, [sessionToken, fetchTrigger]);
 
-	return state;
+	// Clears the module-level cache and increments the trigger so the effect re-runs.
+	const refetch = useCallback(() => {
+		cachedMyInfo = null;
+		setFetchTrigger((n) => n + 1);
+	}, []);
+
+	return { ...state, refetch };
 }
 
 export function clearMyInfoCache() {

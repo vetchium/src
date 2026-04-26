@@ -165,16 +165,20 @@ func VerifyDomain(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		// Enforce domains_verified quota before transitioning to verified status
-		quotaPayload, quotaErr := orgtiers.EnforceQuota(ctx, orgtiers.QuotaDomainsVerified, orgUser.OrgID, s.Global, s.Regional)
-		if quotaErr != nil {
-			if errors.Is(quotaErr, orgtiers.ErrQuotaExceeded) {
-				orgtiers.WriteQuotaError(w, quotaPayload)
+		// Quota check: only enforce for PENDING→VERIFIED transitions.
+		// A FAILING domain recovering to VERIFIED was already counted in the quota when
+		// it was first verified, so re-checking would incorrectly block recovery.
+		if domainRecord.Status == regionaldb.DomainVerificationStatusPENDING {
+			quotaPayload, quotaErr := orgtiers.EnforceQuota(ctx, orgtiers.QuotaDomainsVerified, orgUser.OrgID, s.Global, s.Regional)
+			if quotaErr != nil {
+				if errors.Is(quotaErr, orgtiers.ErrQuotaExceeded) {
+					orgtiers.WriteQuotaError(w, quotaPayload)
+					return
+				}
+				s.Logger(ctx).Error("failed to check domains_verified quota", "error", quotaErr)
+				http.Error(w, "", http.StatusInternalServerError)
 				return
 			}
-			s.Logger(ctx).Error("failed to check domains_verified quota", "error", quotaErr)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
 		}
 
 		// Verification successful!
@@ -186,6 +190,7 @@ func VerifyDomain(s *server.RegionalServer) http.HandlerFunc {
 				Status:              regionaldb.DomainVerificationStatusVERIFIED,
 				LastVerifiedAt:      pgtype.Timestamptz{Time: now, Valid: true},
 				ConsecutiveFailures: 0,
+				FailingSince:        pgtype.Timestamptz{Valid: false}, // clear on recovery
 			}); txErr != nil {
 				return txErr
 			}
@@ -218,24 +223,27 @@ func VerifyDomain(s *server.RegionalServer) http.HandlerFunc {
 func handleVerificationFailure(ctx context.Context, regionalDB *regionaldb.Queries, domain string, domainRecord regionaldb.OrgDomain) error {
 	newFailures := domainRecord.ConsecutiveFailures + 1
 
-	// Check if we should transition to FAILING status
 	var newStatus regionaldb.DomainVerificationStatus
-	if newFailures >= orgdomains.MaxConsecutiveFailures && domainRecord.Status == regionaldb.DomainVerificationStatusVERIFIED {
+	var failingSince pgtype.Timestamptz
+
+	if newFailures >= orgdomains.FailureThreshold && domainRecord.Status == regionaldb.DomainVerificationStatusVERIFIED {
 		newStatus = regionaldb.DomainVerificationStatusFAILING
+		// Record when the failure streak began; don't overwrite if already set.
+		if domainRecord.FailingSince.Valid {
+			failingSince = domainRecord.FailingSince
+		} else {
+			failingSince = pgtype.Timestamptz{Time: time.Now(), Valid: true}
+		}
 	} else {
 		newStatus = domainRecord.Status
+		failingSince = domainRecord.FailingSince // preserve existing value
 	}
 
-	// Update regional DB
-	err := regionalDB.UpdateOrgDomainStatus(ctx, regionaldb.UpdateOrgDomainStatusParams{
+	return regionalDB.UpdateOrgDomainStatus(ctx, regionaldb.UpdateOrgDomainStatusParams{
 		Domain:              domain,
 		Status:              newStatus,
-		LastVerifiedAt:      domainRecord.LastVerifiedAt, // Keep existing
+		LastVerifiedAt:      domainRecord.LastVerifiedAt,
 		ConsecutiveFailures: newFailures,
+		FailingSince:        failingSince,
 	})
-	if err != nil {
-		return err
-	}
-
-	return nil
 }

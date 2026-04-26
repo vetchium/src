@@ -42,6 +42,8 @@ func RegisterOrgRoutes(mux *http.ServeMux, s *server.RegionalServer) {
 	// Domain write routes (manage_domains required; superadmin bypasses via middleware)
 	mux.Handle("POST /org/claim-domain", orgAuth(orgRoleManageDomains(org.ClaimDomain(s))))
 	mux.Handle("POST /org/verify-domain", orgAuth(orgRoleManageDomains(org.VerifyDomain(s))))
+	mux.Handle("POST /org/set-primary-domain", orgAuth(orgRoleManageDomains(org.SetPrimaryDomain(s))))
+	mux.Handle("DELETE /org/delete-domain", orgAuth(orgRoleManageDomains(org.DeleteDomain(s))))
 	// Domain read routes (view_domains or manage_domains)
 	mux.Handle("POST /org/get-domain-status", orgAuth(orgRoleViewDomains(org.GetDomainStatus(s))))
 	mux.Handle("POST /org/list-domains", orgAuth(orgRoleViewDomains(org.ListDomains(s))))

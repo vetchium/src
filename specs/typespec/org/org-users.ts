@@ -568,4 +568,6 @@ export interface OrgMyInfoResponse {
 	org_name: string;
 	org_domain: DomainName;
 	roles: string[];
+	/** True when at least one of the org's domains is in FAILING state. Used for warning banners. */
+	has_failing_domains: boolean;
 }

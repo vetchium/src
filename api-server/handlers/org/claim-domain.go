@@ -50,7 +50,7 @@ func ClaimDomain(s *server.RegionalServer) http.HandlerFunc {
 		// Normalize domain to lowercase
 		domain := strings.ToLower(string(req.Domain))
 
-		// Check if domain is already claimed in global DB
+		// Check if domain is already claimed in global DB.
 		_, err := s.Global.GetGlobalOrgDomain(ctx, domain)
 		if err == nil {
 			s.Logger(ctx).Debug("domain already claimed", "domain", domain)
@@ -59,6 +59,30 @@ func ClaimDomain(s *server.RegionalServer) http.HandlerFunc {
 			return
 		} else if !errors.Is(err, pgx.ErrNoRows) {
 			s.Logger(ctx).Error("failed to check global domain", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
+		// Check domain release cooldown: quarantine after a previous org unclaimed it.
+		cooldownRecord, err := s.Global.GetDomainCooldown(ctx, domain)
+		if err == nil {
+			// Cooldown row exists; check if it has expired.
+			if cooldownRecord.ClaimableAfter.Valid && cooldownRecord.ClaimableAfter.Time.After(time.Now()) {
+				s.Logger(ctx).Debug("domain in release cooldown", "domain", domain,
+					"claimable_after", cooldownRecord.ClaimableAfter.Time)
+				w.WriteHeader(http.StatusConflict)
+				json.NewEncoder(w).Encode(orgdomains.ClaimDomainCooldownResponse{
+					Error:          "domain is in release cooldown and cannot be claimed yet",
+					ClaimableAfter: cooldownRecord.ClaimableAfter.Time,
+				})
+				return
+			}
+			// Cooldown expired but cleanup job hasn't run yet; delete it now.
+			if delErr := s.Global.DeleteDomainCooldown(ctx, domain); delErr != nil {
+				s.Logger(ctx).Error("failed to delete expired domain cooldown", "error", delErr)
+			}
+		} else if !errors.Is(err, pgx.ErrNoRows) {
+			s.Logger(ctx).Error("failed to check domain cooldown", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}

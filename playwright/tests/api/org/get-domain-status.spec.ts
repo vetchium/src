@@ -93,6 +93,8 @@ test.describe("POST /org/get-domain-status", () => {
 			expect(response.body.status).toBe("PENDING");
 			expect(response.body.verification_token).toBe(verificationToken);
 			expect(response.body.expires_at).toBeDefined();
+			// Newly claimed domains are not primary.
+			expect(response.body.is_primary).toBe(false);
 		} finally {
 			await deleteTestGlobalOrgDomain(claimedDomain);
 			if (userEmail) await deleteTestOrgUser(userEmail);

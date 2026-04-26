@@ -525,6 +525,13 @@ RETURNING *;
 SELECT *
 FROM orgs
 WHERE org_id = $1;
+-- name: GetOrgWithPrimaryDomain :one
+-- Single round-trip for myinfo: returns org fields + primary domain in one query.
+SELECT o.org_id, o.org_name, o.region, o.created_at,
+    COALESCE(g.domain, '') AS primary_domain
+FROM orgs o
+LEFT JOIN global_org_domains g ON g.org_id = o.org_id AND g.is_primary = TRUE
+WHERE o.org_id = $1;
 -- name: GetOrgByDomain :one
 -- Find org by domain name (for login flow routing)
 -- Domain verification status is checked in regional DB
@@ -557,6 +564,43 @@ SELECT *
 FROM global_org_domains
 WHERE org_id = $1
 ORDER BY domain ASC;
+-- name: SetPrimaryDomain :exec
+-- Atomically moves is_primary from the current primary to the new domain.
+-- Both UPDATE statements run in the same transaction (caller's responsibility).
+UPDATE global_org_domains
+SET is_primary = (domain = $2)
+WHERE org_id = $1
+    AND (is_primary = TRUE OR domain = $2);
+-- name: GetNonPrimaryDomainsByOrg :many
+-- Used by the primary-failover background job: returns all non-primary domains for an org,
+-- ordered oldest-first. The caller filters by VERIFIED status from regional DB.
+SELECT domain
+FROM global_org_domains
+WHERE org_id = $1
+    AND is_primary = FALSE
+ORDER BY created_at ASC;
+-- name: IsDomainPrimaryForOrg :one
+-- Used by the failover job to confirm a FAILING domain is actually primary before acting.
+SELECT is_primary
+FROM global_org_domains
+WHERE domain = $1
+    AND org_id = $2;
+-- ============================================
+-- Domain Cooldown Queries
+-- ============================================
+-- name: InsertDomainCooldown :exec
+INSERT INTO domain_cooldowns (domain, prev_org_id, released_at, claimable_after)
+VALUES ($1, $2, NOW(), $3);
+-- name: GetDomainCooldown :one
+SELECT *
+FROM domain_cooldowns
+WHERE domain = $1;
+-- name: DeleteDomainCooldown :exec
+DELETE FROM domain_cooldowns
+WHERE domain = $1;
+-- name: DeleteExpiredDomainCooldowns :exec
+DELETE FROM domain_cooldowns
+WHERE claimable_after < NOW();
 -- ============================================
 -- Hub User Email Update Queries
 -- ============================================

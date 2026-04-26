@@ -73,6 +73,10 @@ func (w *GlobalWorker) Run(ctx context.Context) {
 	go w.runPeriodicJob(ctx, "admin-audit-logs",
 		w.config.AdminAuditLogPurgeInterval,
 		w.purgeExpiredAdminAuditLogs)
+
+	go w.runPeriodicJob(ctx, "domain-cooldowns",
+		w.config.DomainCooldownCleanupInterval,
+		w.cleanupExpiredDomainCooldowns)
 }
 
 // runPeriodicJob runs a job function in a loop with the given interval.
@@ -197,4 +201,17 @@ func (w *GlobalWorker) purgeExpiredAdminAuditLogs(ctx context.Context) {
 		return
 	}
 	w.log.Debug("purged expired admin audit logs")
+}
+
+func (w *GlobalWorker) cleanupExpiredDomainCooldowns(ctx context.Context) {
+	if ctx.Err() != nil {
+		return
+	}
+
+	err := w.queries.DeleteExpiredDomainCooldowns(ctx)
+	if err != nil {
+		w.log.Error("failed to cleanup expired domain cooldowns", "error", err)
+		return
+	}
+	w.log.Debug("cleaned up expired domain cooldowns")
 }

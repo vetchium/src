@@ -104,6 +104,16 @@ WHERE email_address = $1
 SELECT *
 FROM org_users
 WHERE org_user_id = $1;
+-- name: GetOrgUserWithDomainWarning :one
+-- Returns org user fields plus a boolean indicating whether the org has any FAILING domains.
+-- Single round-trip: used by myinfo to avoid a separate failing-domain query.
+SELECT u.*,
+    EXISTS (
+        SELECT 1 FROM org_domains d
+        WHERE d.org_id = u.org_id AND d.status = 'FAILING'
+    ) AS has_failing_domains
+FROM org_users u
+WHERE u.org_user_id = $1;
 -- name: CreateOrgUser :one
 INSERT INTO org_users (
         org_user_id,
@@ -271,7 +281,8 @@ WHERE domain = $1
 UPDATE org_domains
 SET status = $2,
     last_verified_at = $3,
-    consecutive_failures = $4
+    consecutive_failures = $4,
+    failing_since = $5
 WHERE domain = $1;
 -- name: UpdateOrgDomainToken :exec
 UPDATE org_domains
@@ -313,6 +324,30 @@ WHERE (
         AND last_verified_at < $1
     )
     OR status = 'FAILING';
+-- name: GetFailingPrimaryDomainsForFailover :many
+-- Returns org_id + domain for primary domains that have been FAILING for longer than
+-- PrimaryFailoverGrace. Used by the background worker to trigger auto-promotion.
+SELECT r.org_id, r.domain
+FROM org_domains r
+WHERE r.status = 'FAILING'
+    AND r.failing_since IS NOT NULL
+    AND r.failing_since < $1;
+-- name: GetOrgDomainCountByStatus :one
+SELECT COUNT(*)::INT as count
+FROM org_domains
+WHERE org_id = $1
+    AND status = $2;
+-- name: HasOrgDomainInUseByMarketplaceListing :one
+SELECT EXISTS (
+    SELECT 1 FROM marketplace_listings
+    WHERE org_domain = $1
+        AND status NOT IN ('archived')
+) AS in_use;
+-- name: GetOrgFailingDomainCount :one
+SELECT COUNT(*)::INT as count
+FROM org_domains
+WHERE org_id = $1
+    AND status = 'FAILING';
 -- ============================================
 -- Filter Org Users Query (Regional)
 -- ============================================
@@ -401,6 +436,20 @@ FROM org_user_roles our
   JOIN roles r ON our.role_id = r.role_id
 WHERE our.org_user_id = $1
 ORDER BY r.role_name ASC;
+-- name: GetOrgUserRolesWithDomainWarning :one
+-- Single round-trip for myinfo: returns role list + has_failing_domains in one query.
+SELECT COALESCE(
+        (
+            SELECT array_agg(r2.role_name ORDER BY r2.role_name)
+            FROM org_user_roles our2
+            JOIN roles r2 ON our2.role_id = r2.role_id
+            WHERE our2.org_user_id = $1
+        ),
+        '{}'
+    )::text[] AS roles,
+    EXISTS (
+        SELECT 1 FROM org_domains d WHERE d.org_id = $2 AND d.status = 'FAILING'
+    ) AS has_failing_domains;
 -- name: HasOrgUserRole :one
 SELECT EXISTS(
     SELECT 1

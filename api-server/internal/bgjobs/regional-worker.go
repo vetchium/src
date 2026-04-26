@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
+	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	orgdomains "vetchium-api-server.typespec/org-domains"
 )
@@ -20,6 +21,7 @@ import (
 // following the same pattern as the email worker.
 type RegionalWorker struct {
 	queries     *regionaldb.Queries
+	globalDB    *globaldb.Queries
 	config      *RegionalBgJobsConfig
 	log         *slog.Logger
 	regionName  string
@@ -29,6 +31,7 @@ type RegionalWorker struct {
 // NewRegionalWorker creates a new regional background jobs worker
 func NewRegionalWorker(
 	queries *regionaldb.Queries,
+	globalDB *globaldb.Queries,
 	config *RegionalBgJobsConfig,
 	log *slog.Logger,
 	regionName string,
@@ -36,6 +39,7 @@ func NewRegionalWorker(
 ) *RegionalWorker {
 	return &RegionalWorker{
 		queries:     queries,
+		globalDB:    globalDB,
 		config:      config,
 		log:         log.With("component", "regional-bgjobs-worker", "region", regionName),
 		regionName:  regionName,
@@ -243,7 +247,7 @@ func (w *RegionalWorker) verifyOrgDomains(ctx context.Context) {
 		return
 	}
 
-	cutoff := time.Now().AddDate(0, 0, -orgdomains.VerificationIntervalDays)
+	cutoff := time.Now().AddDate(0, 0, -orgdomains.PeriodicReverificationCycle)
 	domains, err := w.queries.GetOrgDomainsForReverification(ctx, pgtype.Timestamptz{Time: cutoff, Valid: true})
 	if err != nil {
 		w.log.Error("failed to get org domains for reverification", "error", err)
@@ -257,14 +261,13 @@ func (w *RegionalWorker) verifyOrgDomains(ctx context.Context) {
 			return
 		}
 
-		verified := w.checkDNS(d.Domain, d.VerificationToken)
-
-		if verified {
+		if w.checkDNS(d.Domain, d.VerificationToken) {
 			err = w.queries.UpdateOrgDomainStatus(ctx, regionaldb.UpdateOrgDomainStatusParams{
 				Domain:              d.Domain,
 				Status:              regionaldb.DomainVerificationStatusVERIFIED,
 				LastVerifiedAt:      pgtype.Timestamptz{Time: time.Now(), Valid: true},
 				ConsecutiveFailures: 0,
+				FailingSince:        pgtype.Timestamptz{Valid: false}, // clear on recovery
 			})
 			if err != nil {
 				w.log.Error("failed to update org domain status after verification", "domain", d.Domain, "error", err)
@@ -274,20 +277,103 @@ func (w *RegionalWorker) verifyOrgDomains(ctx context.Context) {
 		} else {
 			newFailures := d.ConsecutiveFailures + 1
 			newStatus := d.Status
-			if newFailures >= orgdomains.MaxConsecutiveFailures && d.Status == regionaldb.DomainVerificationStatusVERIFIED {
+			var failingSince pgtype.Timestamptz
+
+			if newFailures >= orgdomains.FailureThreshold && d.Status == regionaldb.DomainVerificationStatusVERIFIED {
 				newStatus = regionaldb.DomainVerificationStatusFAILING
 			}
+
+			// Track when the failure streak began; don't overwrite once set.
+			if newStatus == regionaldb.DomainVerificationStatusFAILING {
+				if d.FailingSince.Valid {
+					failingSince = d.FailingSince
+				} else {
+					failingSince = pgtype.Timestamptz{Time: time.Now(), Valid: true}
+				}
+			} else {
+				failingSince = d.FailingSince
+			}
+
 			err = w.queries.UpdateOrgDomainStatus(ctx, regionaldb.UpdateOrgDomainStatusParams{
 				Domain:              d.Domain,
 				Status:              newStatus,
 				LastVerifiedAt:      d.LastVerifiedAt,
 				ConsecutiveFailures: newFailures,
+				FailingSince:        failingSince,
 			})
 			if err != nil {
 				w.log.Error("failed to update org domain failure count", "domain", d.Domain, "error", err)
 			} else {
 				w.log.Info("org domain reverification failed", "domain", d.Domain, "failures", newFailures, "status", newStatus)
 			}
+		}
+	}
+
+	// After processing all domains, check for primary domains that need failover.
+	w.promoteFailedPrimaryDomains(ctx)
+}
+
+// promoteFailedPrimaryDomains finds orgs whose primary domain has been FAILING for
+// longer than PrimaryFailoverGrace and promotes the oldest available VERIFIED domain.
+func (w *RegionalWorker) promoteFailedPrimaryDomains(ctx context.Context) {
+	graceCutoff := time.Now().AddDate(0, 0, -orgdomains.PrimaryFailoverGrace)
+	candidates, err := w.queries.GetFailingPrimaryDomainsForFailover(ctx,
+		pgtype.Timestamptz{Time: graceCutoff, Valid: true},
+	)
+	if err != nil {
+		w.log.Error("failed to get failing primary domain candidates", "error", err)
+		return
+	}
+
+	for _, c := range candidates {
+		if ctx.Err() != nil {
+			return
+		}
+
+		// Confirm this domain is actually primary in global DB (source of truth).
+		isPrimary, err := w.globalDB.IsDomainPrimaryForOrg(ctx, globaldb.IsDomainPrimaryForOrgParams{
+			Domain: c.Domain,
+			OrgID:  c.OrgID,
+		})
+		if err != nil || !isPrimary {
+			continue
+		}
+
+		// Find all non-primary domains for this org from global DB.
+		nonPrimaryDomains, err := w.globalDB.GetNonPrimaryDomainsByOrg(ctx, c.OrgID)
+		if err != nil {
+			w.log.Error("failed to get non-primary domains for failover", "org_id", c.OrgID, "error", err)
+			continue
+		}
+
+		// Pick the first one that is VERIFIED in regional DB (oldest by global created_at).
+		promoted := ""
+		for _, candidate := range nonPrimaryDomains {
+			domainRecord, err := w.queries.GetOrgDomain(ctx, candidate)
+			if err != nil {
+				continue
+			}
+			if domainRecord.Status == regionaldb.DomainVerificationStatusVERIFIED {
+				promoted = candidate
+				break
+			}
+		}
+
+		if promoted == "" {
+			w.log.Error("CONSISTENCY_ALERT: primary domain FAILING past grace period but no VERIFIED replacement found",
+				"org_id", c.OrgID, "failing_domain", c.Domain)
+			continue
+		}
+
+		if err := w.globalDB.SetPrimaryDomain(ctx, globaldb.SetPrimaryDomainParams{
+			OrgID:  c.OrgID,
+			Domain: promoted,
+		}); err != nil {
+			w.log.Error("failed to promote replacement primary domain",
+				"org_id", c.OrgID, "new_primary", promoted, "error", err)
+		} else {
+			w.log.Info("primary domain auto-promoted due to sustained failure",
+				"org_id", c.OrgID, "old_primary", c.Domain, "new_primary", promoted)
 		}
 	}
 }

@@ -17,6 +17,7 @@ type GlobalBgJobsConfig struct {
 	ExpiredOrgSignupTokensCleanupInterval          time.Duration
 	AdminAuditLogRetention                         time.Duration
 	AdminAuditLogPurgeInterval                     time.Duration
+	DomainCooldownCleanupInterval                  time.Duration
 }
 
 // RegionalBgJobsConfig holds configuration for regional database background jobs
@@ -76,6 +77,11 @@ func GlobalConfigFromEnv() *GlobalBgJobsConfig {
 		24*time.Hour,
 	)
 
+	domainCooldownCleanupInterval := parseDurationOrDefault(
+		os.Getenv("DOMAIN_COOLDOWN_CLEANUP_INTERVAL"),
+		24*time.Hour,
+	)
+
 	return &GlobalBgJobsConfig{
 		ExpiredAdminTFATokensCleanupInterval:           adminTFAInterval,
 		ExpiredAdminSessionsCleanupInterval:            adminSessionsInterval,
@@ -85,6 +91,7 @@ func GlobalConfigFromEnv() *GlobalBgJobsConfig {
 		ExpiredOrgSignupTokensCleanupInterval:          orgSignupInterval,
 		AdminAuditLogRetention:                         adminAuditLogRetention,
 		AdminAuditLogPurgeInterval:                     adminAuditLogPurgeInterval,
+		DomainCooldownCleanupInterval:                  domainCooldownCleanupInterval,
 	}
 }
 

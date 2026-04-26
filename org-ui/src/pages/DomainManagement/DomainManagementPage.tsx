@@ -3,8 +3,10 @@ import {
 	CheckCircleOutlined,
 	ClockCircleOutlined,
 	CopyOutlined,
+	DeleteOutlined,
 	ExclamationCircleOutlined,
 	GlobalOutlined,
+	StarFilled,
 	SyncOutlined,
 } from "@ant-design/icons";
 import {
@@ -26,10 +28,13 @@ import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router-dom";
 import type {
 	ClaimDomainRequest,
+	ClaimDomainCooldownResponse,
 	ClaimDomainResponse,
+	DeleteDomainRequest,
 	ListDomainStatusItem,
 	ListDomainStatusRequest,
 	ListDomainStatusResponse,
+	SetPrimaryDomainRequest,
 	VerifyDomainRequest,
 	VerifyDomainResponse,
 } from "vetchium-specs/org-domains/org-domains";
@@ -55,8 +60,8 @@ interface ClaimFormValues {
 export function DomainManagementPage() {
 	const { t } = useTranslation("auth");
 	const { sessionToken } = useAuth();
-	const { data: myInfo } = useMyInfo(sessionToken);
-	const { message } = App.useApp();
+	const { data: myInfo, refetch: refetchMyInfo } = useMyInfo(sessionToken);
+	const { message, modal } = App.useApp();
 
 	const canWriteDomains =
 		myInfo?.roles.includes("org:superadmin") ||
@@ -73,7 +78,6 @@ export function DomainManagementPage() {
 		null
 	);
 	const [error, setError] = useState<string | null>(null);
-	// The domain whose DNS instructions modal is currently open
 	const [instructionsDomain, setInstructionsDomain] =
 		useState<ListDomainStatusItem | null>(null);
 
@@ -171,7 +175,17 @@ export function DomainManagementPage() {
 			}
 
 			if (response.status === 409) {
-				setError(t("domain.alreadyClaimed"));
+				const body: ClaimDomainCooldownResponse = await response.json();
+				if (body.claimable_after) {
+					const claimableDate = new Date(body.claimable_after).toLocaleString(
+						navigator.language
+					);
+					setError(
+						t("domain.cooldownMessage", { claimableAfter: claimableDate })
+					);
+				} else {
+					setError(t("domain.alreadyClaimed"));
+				}
 				return;
 			}
 
@@ -211,6 +225,7 @@ export function DomainManagementPage() {
 					message.info(data.message ?? t("domain.verificationPending"));
 				}
 				await loadDomains();
+				await refetchMyInfo?.();
 				return;
 			}
 
@@ -232,6 +247,102 @@ export function DomainManagementPage() {
 		}
 	};
 
+	const handleSetPrimary = async (domain: string) => {
+		setActionDomain(`primary-${domain}`);
+		setError(null);
+
+		try {
+			const apiBaseUrl = await getApiBaseUrl();
+			const request: SetPrimaryDomainRequest = { domain };
+
+			const response = await fetch(`${apiBaseUrl}/org/set-primary-domain`, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${sessionToken}`,
+				},
+				body: JSON.stringify(request),
+			});
+
+			if (response.status === 200) {
+				message.success(t("domain.setPrimarySuccess"));
+				await loadDomains();
+				return;
+			}
+
+			if (response.status === 422) {
+				setError(t("domain.setPrimaryNotVerified"));
+				return;
+			}
+
+			if (response.status === 404) {
+				setError(t("domain.notFound"));
+				return;
+			}
+
+			setError(t("domain.setPrimaryFailed"));
+		} catch (err) {
+			setError(
+				err instanceof Error ? err.message : t("domain.setPrimaryFailed")
+			);
+		} finally {
+			setActionDomain(null);
+		}
+	};
+
+	const handleDeleteDomain = async (domain: string) => {
+		modal.confirm({
+			title: t("domain.deleteConfirmTitle"),
+			content: t("domain.deleteConfirmContent", { domain }),
+			okText: t("domain.deleteDomain"),
+			okButtonProps: { danger: true },
+			onOk: async () => {
+				setActionDomain(`delete-${domain}`);
+				setError(null);
+
+				try {
+					const apiBaseUrl = await getApiBaseUrl();
+					const request: DeleteDomainRequest = { domain };
+
+					const response = await fetch(`${apiBaseUrl}/org/delete-domain`, {
+						method: "DELETE",
+						headers: {
+							"Content-Type": "application/json",
+							Authorization: `Bearer ${sessionToken}`,
+						},
+						body: JSON.stringify(request),
+					});
+
+					if (response.status === 204) {
+						message.success(t("domain.deleteDomainSuccess"));
+						await loadDomains();
+						await refetchMyInfo?.();
+						return;
+					}
+
+					if (response.status === 422) {
+						const body = await response.json().catch(() => ({}));
+						setError(body.error ?? t("domain.deleteDomainFailed"));
+						return;
+					}
+
+					if (response.status === 404) {
+						setError(t("domain.notFound"));
+						return;
+					}
+
+					setError(t("domain.deleteDomainFailed"));
+				} catch (err) {
+					setError(
+						err instanceof Error ? err.message : t("domain.deleteDomainFailed")
+					);
+				} finally {
+					setActionDomain(null);
+				}
+			},
+		});
+	};
+
 	const formatLocalTime = (isoString: string) =>
 		new Date(isoString).toLocaleString(navigator.language);
 
@@ -240,7 +351,16 @@ export function DomainManagementPage() {
 			title: t("domain.yourDomain"),
 			dataIndex: "domain",
 			key: "domain",
-			render: (domain: string) => <Tag icon={<GlobalOutlined />}>{domain}</Tag>,
+			render: (domain: string, record: ListDomainStatusItem) => (
+				<Space size={4}>
+					<Tag icon={<GlobalOutlined />}>{domain}</Tag>
+					{record.is_primary && (
+						<Tag icon={<StarFilled />} color="gold">
+							{t("domain.primaryBadge")}
+						</Tag>
+					)}
+				</Space>
+			),
 		},
 		{
 			title: t("domain.statusLabel"),
@@ -284,6 +404,16 @@ export function DomainManagementPage() {
 									{formatLocalTime(record.last_verified_at)}
 								</Text>
 							)}
+							{canWriteDomains && !record.is_primary && (
+								<Button
+									size="small"
+									icon={<StarFilled />}
+									loading={actionDomain === `primary-${record.domain}`}
+									onClick={() => handleSetPrimary(record.domain)}
+								>
+									{t("domain.setPrimary")}
+								</Button>
+							)}
 							{record.can_request_verification && (
 								<Button
 									size="small"
@@ -300,6 +430,12 @@ export function DomainManagementPage() {
 				// PENDING or FAILING
 				return (
 					<Space orientation="vertical" size={4}>
+						{record.failing_since && (
+							<Text type="warning" style={{ fontSize: 12 }}>
+								{t("domain.failingSince")}:{" "}
+								{formatLocalTime(record.failing_since)}
+							</Text>
+						)}
 						{record.expires_at && (
 							<Text type="secondary" style={{ fontSize: 12 }}>
 								{t("domain.tokenExpires")}: {formatLocalTime(record.expires_at)}
@@ -317,6 +453,25 @@ export function DomainManagementPage() {
 				);
 			},
 		},
+		...(canWriteDomains
+			? [
+					{
+						title: t("domain.actionsLabel"),
+						key: "actions",
+						render: (_: unknown, record: ListDomainStatusItem) => (
+							<Button
+								size="small"
+								danger
+								icon={<DeleteOutlined />}
+								loading={actionDomain === `delete-${record.domain}`}
+								onClick={() => handleDeleteDomain(record.domain)}
+							>
+								{t("domain.deleteDomain")}
+							</Button>
+						),
+					},
+				]
+			: []),
 	];
 
 	return (
@@ -396,7 +551,7 @@ export function DomainManagementPage() {
 				/>
 			</Spin>
 
-			{/* DNS instructions modal — title always names the domain so ownership is unambiguous */}
+			{/* DNS instructions modal */}
 			<Modal
 				open={!!instructionsDomain}
 				onCancel={() => setInstructionsDomain(null)}
