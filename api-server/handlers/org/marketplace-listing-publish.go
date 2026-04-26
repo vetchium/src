@@ -122,36 +122,36 @@ func PublishMarketplaceListing(s *server.RegionalServer) http.HandlerFunc {
 				"listing_number": published.ListingNumber,
 				"status":         string(published.Status),
 			})
-			if err := qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
+			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
 				EventType:   "org.marketplace_listing_published",
 				ActorUserID: orgUser.OrgUserID,
 				OrgID:       orgUser.OrgID,
 				IpAddress:   audit.ExtractClientIP(r),
 				EventData:   eventData,
-			}); err != nil {
-				return err
-			}
-
-			// If directly activated (superadmin), upsert global catalog
-			if isSuperAdmin {
-				now := pgtype.Timestamptz{Time: time.Now(), Valid: true}
-				return s.Global.UpsertListingCatalog(ctx, globaldb.UpsertListingCatalogParams{
-					ListingID:     published.ListingID,
-					OrgID:         orgUser.OrgID,
-					OrgDomain:     orgRecord.OrgName,
-					ListingNumber: published.ListingNumber,
-					Headline:      published.Headline,
-					Description:   published.Description,
-					CapabilityIds: existing.Capabilities,
-					ListedAt:      now,
-				})
-			}
-			return nil
+			})
 		})
 		if txErr != nil {
 			s.Logger(ctx).Error("failed to publish listing", "error", txErr)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
+		}
+
+		// Update global catalog after regional tx commits; log CONSISTENCY_ALERT on failure.
+		if isSuperAdmin {
+			now := pgtype.Timestamptz{Time: time.Now(), Valid: true}
+			if err := s.Global.UpsertListingCatalog(ctx, globaldb.UpsertListingCatalogParams{
+				ListingID:     published.ListingID,
+				OrgID:         orgUser.OrgID,
+				OrgDomain:     orgRecord.OrgName,
+				ListingNumber: published.ListingNumber,
+				Headline:      published.Headline,
+				Description:   published.Description,
+				CapabilityIds: existing.Capabilities,
+				ListedAt:      now,
+			}); err != nil {
+				s.Logger(ctx).Error("CONSISTENCY_ALERT: failed to upsert listing catalog after publish", "error", err,
+					"listing_id", uuidToString(published.ListingID))
+			}
 		}
 
 		subscriberCount, err := s.Global.GetActiveSubscriberCountByListingID(ctx, existing.ListingID)
