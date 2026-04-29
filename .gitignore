@@ -2,7 +2,8 @@
 node_modules/
 
 .env
-.claude
+.claude/settings.local.json
+.claude/worktrees/
 api-server/regional-api-server
 api-server/global-api-server
 api-server/global-service

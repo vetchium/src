@@ -177,8 +177,8 @@ See existing handlers in `api-server/handlers/` for full examples.
 The only exception is `login_failed` events (no wrapping transaction exists since no DB write succeeds) — these are written as standalone single-row inserts.
 
 - Admin portal events → `admin_audit_logs` table in Global DB
-- Employer / Agency / Hub portal events → `audit_logs` table in Regional DB
-- `event_type` follows the `portal.action_name` convention (e.g. `admin.invite_user`, `employer.add_cost_center`)
+- Org / Hub portal events → `audit_logs` table in Regional DB
+- `event_type` follows the `portal.action_name` convention (e.g. `admin.invite_user`, `org.add_cost_center`)
 - Never store raw email addresses in `event_data`; use SHA-256 hash only
 - Extract the client IP from `X-Forwarded-For` (first entry), falling back to `r.RemoteAddr`
 
@@ -195,7 +195,7 @@ Never log passwords, session tokens, TFA codes, or full email addresses.
 
 ### Handler Organization & Middleware
 
-Handlers in `api-server/handlers/{admin,hub,org,agency}/`. All deps via `*server.RegionalServer` (for regional portals) or `*server.GlobalServer` (for admin).
+Handlers in `api-server/handlers/{admin,hub,org}/`. All deps via `*server.RegionalServer` (for regional portals) or `*server.GlobalServer` (for admin).
 
 ```go
 // Without auth
@@ -331,14 +331,14 @@ Every new feature MUST complete this checklist.
 
 Current roles — see `specs/typespec/common/roles.ts` and `MEMORY.md` for the full list. Key roles:
 
-- `admin:superadmin` / `employer:superadmin` / `agency:superadmin` — bypass all role checks
+- `admin:superadmin` / `org:superadmin` — bypass all role checks
 - `hub:read_posts` (auto-assigned at signup), `hub:write_posts`, `hub:apply_jobs`
 - Pattern: `view_*` = read-only, `manage_*` = all writes
 
 ### Where Roles Are Stored
 
 - Admin → Global DB (`admin_user_roles`)
-- Employer/Agency/Hub → Regional DB (`org_user_roles`, `agency_user_roles`, `hub_user_roles`)
+- Org/Hub → Regional DB (`org_user_roles`, `hub_user_roles`)
 
 ### Checklist: Adding a New Feature
 
@@ -364,19 +364,18 @@ Current roles — see `specs/typespec/common/roles.ts` and `MEMORY.md` for the f
 Rules:
 
 - Add RBAC tests directly in the endpoint's feature spec file (e.g., `claim-domain.spec.ts`, `invite-user.spec.ts`) alongside the functional and 401 tests — add a dedicated `describe` block for RBAC within the file
-- Use `assignRoleToAdminUser` / `assignRoleToOrgUser` / `assignRoleToAgencyUser` DB helpers to grant roles directly (bypassing API validation) for test setup
-- Use `createTestAdminUser` / `createTestOrgUserDirect` / `createTestAgencyUserDirect` for no-role users
+- Use `assignRoleToAdminUser` / `assignRoleToOrgUser` DB helpers to grant roles directly (bypassing API validation) for test setup
+- Use `createTestAdminUser` / `createTestOrgUserDirect` for no-role users
 - `describe` blocks that share state via `beforeAll` must use `test.describe.configure({ mode: "serial" })` when tests have ordering dependencies (e.g., disable before enable)
 - Cleanup: always delete created resources in `afterAll`/`finally`; use fresh `generateTestDomainName()` domains when testing claim-domain (not the org's own domain which is already in `global_employer_domains`)
 
 **Why superadmin tests are not sufficient**: superadmin bypasses all role checks, so a passing superadmin test does NOT prove the role grant works. You need a non-superadmin with the specific role.
 
-| Portal   | Middleware                                 | Superadmin role       | Roles DB |
-| -------- | ------------------------------------------ | --------------------- | -------- |
-| Admin    | `middleware.AdminRole(s.Global, ...)`      | `admin:superadmin`    | Global   |
-| Employer | `middleware.EmployerRole(s.Regional, ...)` | `employer:superadmin` | Regional |
-| Agency   | `middleware.AgencyRole(s.Regional, ...)`   | `agency:superadmin`   | Regional |
-| Hub      | `middleware.HubRole(s.Regional, ...)`      | (none)                | Regional |
+| Portal | Middleware                            | Superadmin role    | Roles DB |
+| ------ | ------------------------------------- | ------------------ | -------- |
+| Admin  | `middleware.AdminRole(s.Global, ...)` | `admin:superadmin` | Global   |
+| Org    | `middleware.OrgRole(s.Regional, ...)` | `org:superadmin`   | Regional |
+| Hub    | `middleware.HubRole(s.Regional, ...)` | (none)             | Regional |
 
 ## Security Best Practices
 
