@@ -492,6 +492,15 @@ npm run test:api:admin
 - **No test data in migrations**: use `lib/db.ts` helpers
 - **Cleanup in finally blocks**: always
 
+### Test Isolation: Unique Domains and Emails
+
+**CRITICAL**: Every test that creates an org or org user MUST use globally-unique identifiers so parallel test runs never conflict:
+
+- **Org domains**: always use `generateTestOrgEmail(prefix)` or `generateTestDomainName(prefix)` — these embed a UUID substring, e.g. `rbac-spd-adm-a1b2c3d4.test.vetchium.com`. Never hard-code or reuse a domain across tests.
+- **User emails**: always derived from the org domain (`user@{generatedDomain}`) so they are equally unique.
+- **RBAC tests with shared orgs**: when multiple users must belong to the same org (e.g. an admin who creates a resource + a viewer who reads it), create the admin first, capture its `orgId`, then pass `{ orgId: adminResult.orgId, domain: adminDomain }` to `createTestOrgUserDirect` for additional users. **Never** create the additional user in a separate org and expect them to share resources.
+- **Cleanup**: delete every created resource/user in `afterAll`/`finally`; also call `deleteTestGlobalOrgDomain` for any extra domains claimed during the test.
+
 ### Required Test Scenarios
 
 | Scenario               | Expected Status |

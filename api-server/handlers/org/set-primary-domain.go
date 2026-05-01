@@ -71,10 +71,17 @@ func SetPrimaryDomain(s *server.RegionalServer) http.HandlerFunc {
 		}
 		hadPreviousPrimary := err == nil
 
-		// Global write first (source of truth for primary domain).
-		if err := s.Global.SetPrimaryDomain(ctx, globaldb.SetPrimaryDomainParams{
-			OrgID:  orgUser.OrgID,
-			Domain: domain,
+		// Global write: clear the current primary then set the new one atomically in
+		// a single transaction so the partial-unique-index constraint is never
+		// violated mid-statement.
+		if err := s.WithGlobalTx(ctx, func(qtx *globaldb.Queries) error {
+			if err := qtx.ClearOrgPrimaryDomain(ctx, orgUser.OrgID); err != nil {
+				return err
+			}
+			return qtx.SetPrimaryDomain(ctx, globaldb.SetPrimaryDomainParams{
+				OrgID:  orgUser.OrgID,
+				Domain: domain,
+			})
 		}); err != nil {
 			s.Logger(ctx).Error("failed to set primary domain in global DB", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
@@ -94,9 +101,14 @@ func SetPrimaryDomain(s *server.RegionalServer) http.HandlerFunc {
 		}); err != nil {
 			s.Logger(ctx).Error("failed to write audit log for set_primary_domain, compensating global write", "error", err)
 			if hadPreviousPrimary {
-				if compErr := s.Global.SetPrimaryDomain(ctx, globaldb.SetPrimaryDomainParams{
-					OrgID:  orgUser.OrgID,
-					Domain: oldPrimary,
+				if compErr := s.WithGlobalTx(ctx, func(qtx *globaldb.Queries) error {
+					if err := qtx.ClearOrgPrimaryDomain(ctx, orgUser.OrgID); err != nil {
+						return err
+					}
+					return qtx.SetPrimaryDomain(ctx, globaldb.SetPrimaryDomainParams{
+						OrgID:  orgUser.OrgID,
+						Domain: oldPrimary,
+					})
 				}); compErr != nil {
 					s.Logger(ctx).Error("CONSISTENCY_ALERT: failed to revert primary domain after audit log failure",
 						"error", compErr, "domain", domain, "old_primary", oldPrimary, "org_id", orgUser.OrgID)

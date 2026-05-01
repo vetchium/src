@@ -388,19 +388,29 @@ test.describe("Company Addresses API", () => {
 
 		test("RBAC: with view_addresses role (200)", async ({ request }) => {
 			const api = new OrgAPIClient(request);
-			const { email, domain, orgUserId } = await createTestOrgUserDirect(
-				generateTestOrgEmail("addr-getviewrole").email,
+			// Create the admin first to get the orgId, then add the viewer to the same org.
+			const { email: adminEmail, domain: adminDomain } =
+				generateTestOrgEmail("addr-getadmin");
+			const adminResult = await createTestOrgAdminDirect(
+				adminEmail,
 				TEST_PASSWORD
 			);
 
-			try {
-				await assignRoleToOrgUser(orgUserId, "org:view_addresses");
-				const token = await loginOrgUser(api, email, domain);
+			const viewerGenerated = generateTestOrgEmail("addr-getviewrole");
+			const viewerResult = await createTestOrgUserDirect(
+				viewerGenerated.email,
+				TEST_PASSWORD,
+				"ind1",
+				{ orgId: adminResult.orgId, domain: adminDomain }
+			);
 
-				// Create an address with a different superadmin user
-				const { email: adminEmail, domain: adminDomain } =
-					generateTestOrgEmail("addr-getadmin");
-				await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
+			try {
+				await assignRoleToOrgUser(viewerResult.orgUserId, "org:view_addresses");
+				const viewerToken = await loginOrgUser(
+					api,
+					viewerGenerated.email,
+					adminDomain
+				);
 
 				const adminToken = await loginOrgUser(api, adminEmail, adminDomain);
 				const createReq: CreateAddressRequest = {
@@ -415,12 +425,11 @@ test.describe("Company Addresses API", () => {
 				const getReq: GetAddressRequest = {
 					address_id: createRes.body!.address_id,
 				};
-				const getRes = await api.getAddress(token, getReq);
+				const getRes = await api.getAddress(viewerToken, getReq);
 				expect(getRes.status).toBe(200);
-
-				await deleteTestOrgUser(adminEmail);
 			} finally {
-				await deleteTestOrgUser(email);
+				await deleteTestOrgUser(viewerGenerated.email);
+				await deleteTestOrgUser(adminEmail);
 			}
 		});
 
