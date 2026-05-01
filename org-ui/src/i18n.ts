@@ -10,6 +10,7 @@ import enUSSubOrgs from "./locales/en-US/suborgs.json";
 import enUSAuditLogs from "./locales/en-US/audit-logs.json";
 import enUSPlan from "./locales/en-US/plan.json";
 import enUSMarketplace from "./locales/en-US/marketplace.json";
+import enUSAddresses from "./locales/en-US/addresses.json";
 import deDECommon from "./locales/de-DE/common.json";
 import deDEAuth from "./locales/de-DE/auth.json";
 import deDEUserManagement from "./locales/de-DE/user-management.json";
@@ -18,6 +19,7 @@ import deDESubOrgs from "./locales/de-DE/suborgs.json";
 import deDEAuditLogs from "./locales/de-DE/audit-logs.json";
 import deDEPlan from "./locales/de-DE/plan.json";
 import deDEMarketplace from "./locales/de-DE/marketplace.json";
+import deDEAddresses from "./locales/de-DE/addresses.json";
 import taINCommon from "./locales/ta-IN/common.json";
 import taINAuth from "./locales/ta-IN/auth.json";
 import taINUserManagement from "./locales/ta-IN/user-management.json";
@@ -26,6 +28,7 @@ import taINSubOrgs from "./locales/ta-IN/suborgs.json";
 import taINAuditLogs from "./locales/ta-IN/audit-logs.json";
 import taINPlan from "./locales/ta-IN/plan.json";
 import taINMarketplace from "./locales/ta-IN/marketplace.json";
+import taINAddresses from "./locales/ta-IN/addresses.json";
 
 import {
 	SUPPORTED_LANGUAGES,
@@ -75,6 +78,7 @@ const resources = {
 		auditLogs: enUSAuditLogs,
 		plan: enUSPlan,
 		marketplace: enUSMarketplace,
+		addresses: enUSAddresses,
 	},
 	"de-DE": {
 		common: deDECommon,
@@ -85,6 +89,7 @@ const resources = {
 		auditLogs: deDEAuditLogs,
 		plan: deDEPlan,
 		marketplace: deDEMarketplace,
+		addresses: deDEAddresses,
 	},
 	"ta-IN": {
 		common: taINCommon,
@@ -95,6 +100,7 @@ const resources = {
 		auditLogs: taINAuditLogs,
 		plan: taINPlan,
 		marketplace: taINMarketplace,
+		addresses: taINAddresses,
 	},
 };
 
@@ -112,6 +118,7 @@ i18n.use(initReactI18next).init({
 		"auditLogs",
 		"plan",
 		"marketplace",
+		"addresses",
 	],
 	interpolation: {
 		escapeValue: false, // React already escapes

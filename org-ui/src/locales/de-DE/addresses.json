@@ -1,5 +1,6 @@
 {
-	"title": "Company Addresses",
+	"title": "Unternehmensadressen",
+	"description": "Physische Adressen des Unternehmens verwalten",
 	"addAddress": "Add Address",
 	"backToDashboard": "Back to Dashboard",
 	"filterAll": "All",

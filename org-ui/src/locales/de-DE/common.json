@@ -6,6 +6,8 @@
 	"cancel": "Abbrechen",
 	"save": "Speichern",
 	"close": "Schließen",
+	"yes": "Ja",
+	"no": "Nein",
 	"theme": {
 		"light": "Hell",
 		"dark": "Dunkel"

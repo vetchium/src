@@ -1,5 +1,6 @@
 {
 	"title": "Company Addresses",
+	"description": "Manage company physical addresses",
 	"addAddress": "Add Address",
 	"backToDashboard": "Back to Dashboard",
 	"filterAll": "All",

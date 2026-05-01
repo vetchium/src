@@ -4,6 +4,7 @@ import {
 	TeamOutlined,
 	GlobalOutlined,
 	BankOutlined,
+	EnvironmentOutlined,
 	ApartmentOutlined,
 	FileSearchOutlined,
 	CrownOutlined,
@@ -40,6 +41,12 @@ export function DashboardPage() {
 		myInfo?.roles.includes("org:superadmin") ||
 		myInfo?.roles.includes("org:view_costcenters") ||
 		myInfo?.roles.includes("org:manage_costcenters") ||
+		false;
+
+	const hasAddressesAccess =
+		myInfo?.roles.includes("org:superadmin") ||
+		myInfo?.roles.includes("org:view_addresses") ||
+		myInfo?.roles.includes("org:manage_addresses") ||
 		false;
 
 	const hasSubOrgsAccess = !!myInfo;
@@ -239,6 +246,45 @@ export function DashboardPage() {
 									</Title>
 									<Typography.Text type="secondary">
 										{t("costCenters.description")}
+									</Typography.Text>
+								</Card>
+							</Link>
+						</Col>
+					)}
+
+					{hasAddressesAccess && (
+						<Col xs={24} sm={12} lg={8}>
+							<Link
+								to="/settings/addresses"
+								style={{
+									textDecoration: "none",
+									display: "block",
+									height: "100%",
+								}}
+							>
+								<Card
+									hoverable
+									style={{
+										height: "100%",
+										cursor: "pointer",
+										textAlign: "center",
+									}}
+								>
+									<EnvironmentOutlined
+										style={{
+											fontSize: 48,
+											color: "#ff4d4f",
+											marginBottom: 16,
+										}}
+									/>
+									<Title level={4} style={{ marginBottom: 8 }}>
+										{t("addresses:title")}
+									</Title>
+									<Typography.Text type="secondary">
+										{t(
+											"addresses:description",
+											"Manage company physical addresses"
+										)}
 									</Typography.Text>
 								</Card>
 							</Link>

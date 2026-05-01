@@ -30,6 +30,7 @@ import { CompleteSetupPage } from "./pages/CompleteSetupPage";
 import { UserManagementPage } from "./pages/UserManagement/UserManagementPage";
 import { DomainManagementPage } from "./pages/DomainManagement/DomainManagementPage";
 import { CostCentersPage } from "./pages/CostCenters/CostCentersPage";
+import { AddressesPage } from "./pages/Addresses/AddressesPage";
 import { SubOrgsPage } from "./pages/SubOrgs/SubOrgsPage";
 import { AuditLogsPage } from "./pages/AuditLogsPage";
 import { PlanPage } from "./pages/Plan/PlanPage";
@@ -212,6 +213,35 @@ function CostCentersRoute({ children }: { children: React.ReactNode }) {
 	return <>{children}</>;
 }
 
+function AddressesRoute({ children }: { children: React.ReactNode }) {
+	const { authState, sessionToken } = useAuth();
+	const { data: myInfo, loading } = useMyInfo(sessionToken);
+	const location = useLocation();
+
+	if (authState === "login") {
+		return <Navigate to="/login" state={{ from: location }} replace />;
+	}
+
+	if (authState === "tfa") {
+		return <Navigate to="/tfa" replace />;
+	}
+
+	if (loading) {
+		return <Spin size="large" />;
+	}
+
+	const hasAddressesAccess =
+		myInfo?.roles.includes("org:superadmin") ||
+		myInfo?.roles.includes("org:view_addresses") ||
+		myInfo?.roles.includes("org:manage_addresses");
+
+	if (!hasAddressesAccess) {
+		return <Navigate to="/" replace />;
+	}
+
+	return <>{children}</>;
+}
+
 function AuditLogsRoute({ children }: { children: React.ReactNode }) {
 	const { authState, sessionToken } = useAuth();
 	const { data: myInfo, loading } = useMyInfo(sessionToken);
@@ -359,6 +389,14 @@ function AppContent() {
 									<CostCentersRoute>
 										<CostCentersPage />
 									</CostCentersRoute>
+								}
+							/>
+							<Route
+								path="/settings/addresses"
+								element={
+									<AddressesRoute>
+										<AddressesPage />
+									</AddressesRoute>
 								}
 							/>
 							<Route

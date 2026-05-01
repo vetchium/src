@@ -1,5 +1,6 @@
 {
-	"title": "Company Addresses",
+	"title": "நிறுவன முகவரிகள்",
+	"description": "நிறுவனத்தின் முகவரிகளை நிர்வகிக்கவும்",
 	"addAddress": "Add Address",
 	"backToDashboard": "Back to Dashboard",
 	"filterAll": "All",

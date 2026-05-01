@@ -35,3 +35,45 @@ export async function orgLogin(
 	await expect(page).toHaveURL(`${ORG_UI_URL}/`);
 	await expect(page.locator("text=Org Dashboard")).toBeVisible();
 }
+
+/**
+ * Navigates to the addresses page.
+ */
+export async function gotoAddresses(page: Page) {
+	await page.goto(`${ORG_UI_URL}/settings/addresses`);
+	await expect(page.locator('h2:has-text("Company Addresses")')).toBeVisible();
+}
+
+/**
+ * Adds a new address via the UI.
+ */
+export async function addAddress(
+	page: Page,
+	data: {
+		title: string;
+		addressLine1: string;
+		city: string;
+		country: string;
+		addressLine2?: string;
+		state?: string;
+		postalCode?: string;
+	}
+) {
+	await page.click('button:has-text("Add Address")');
+	const modal = page.locator(".ant-modal-content");
+	await expect(modal).toBeVisible();
+	await modal.getByLabel("Title").fill(data.title);
+	await modal.getByLabel("Address Line 1").fill(data.addressLine1);
+	if (data.addressLine2) {
+		await modal.getByLabel("Address Line 2").fill(data.addressLine2);
+	}
+	await modal.getByLabel("City").fill(data.city);
+	if (data.state) {
+		await modal.getByLabel("State / Province").fill(data.state);
+	}
+	if (data.postalCode) {
+		await modal.getByLabel("Postal Code").fill(data.postalCode);
+	}
+	await modal.getByLabel("Country").fill(data.country);
+	await page.click('button:has-text("Save Address")');
+}
