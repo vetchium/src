@@ -298,8 +298,8 @@ model FilterAdminUsersResponse {
     next_cursor: string;
 }
 
-@route("/admin/filter-users")
-interface AdminFilterUsers {
+@route("/admin/list-users")
+interface AdminListUsers {
     @tag("AdminUsers")
     @post
     @doc("List/Filter admin users with pagination")

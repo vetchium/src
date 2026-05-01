@@ -37,14 +37,14 @@ interface OrgPortal {
   @route("/complete-setup") @post completeSetup(@body body: OrgCompleteSetupRequest): OrgCompleteSetupResponse | BadRequestResponse;
   @route("/disable-user") @post disableUser(@body body: OrgDisableUserRequest): NoContentResponse | BadRequestResponse;
   @route("/enable-user") @post enableUser(@body body: OrgEnableUserRequest): NoContentResponse | BadRequestResponse;
-  @route("/filter-users") @post filterUsers(@body body: FilterOrgUsersRequest): FilterOrgUsersResponse | BadRequestResponse;
+  @route("/list-users") @post filterUsers(@body body: FilterOrgUsersRequest): FilterOrgUsersResponse | BadRequestResponse;
   @route("/assign-role") @post assignRole(@body body: AssignRoleRequest): NoContentResponse | BadRequestResponse;
   @route("/remove-role") @post removeRole(@body body: RemoveRoleRequest): NoContentResponse | BadRequestResponse;
   @route("/change-password") @post changePassword(@body body: OrgChangePasswordRequest): NoContentResponse | BadRequestResponse;
   @route("/request-password-reset") @post requestPasswordReset(@body body: OrgRequestPasswordResetRequest): OrgRequestPasswordResetResponse | BadRequestResponse;
   @route("/complete-password-reset") @post completePasswordReset(@body body: OrgCompletePasswordResetRequest): NoContentResponse | BadRequestResponse;
   @route("/set-language") @post setLanguage(@body body: OrgSetLanguageRequest): NoContentResponse | BadRequestResponse;
-  @route("/filter-audit-logs") @post filterAuditLogs(@body body: FilterAuditLogsRequest): FilterAuditLogsResponse | BadRequestResponse;
+  @route("/list-audit-logs") @post filterAuditLogs(@body body: FilterAuditLogsRequest): FilterAuditLogsResponse | BadRequestResponse;
 }
 
 model OrgInitSignupRequest {

@@ -32,31 +32,31 @@ const (
 
 // CostCenter is the response type for cost center reads.
 type CostCenter struct {
-	ID          string           `json:"id"`
-	DisplayName string           `json:"display_name"`
-	Status      CostCenterStatus `json:"status"`
-	Notes       *string          `json:"notes,omitempty"`
-	CreatedAt   string           `json:"created_at"`
+	CostCenterID string           `json:"cost_center_id"`
+	DisplayName  string           `json:"display_name"`
+	Status       CostCenterStatus `json:"status"`
+	Notes        *string          `json:"notes,omitempty"`
+	CreatedAt    string           `json:"created_at"`
 }
 
-// AddCostCenterRequest is the request body for POST /org/add-cost-center.
+// AddCostCenterRequest is the request body for POST /org/create-cost-center.
 type AddCostCenterRequest struct {
-	ID          string  `json:"id"`
-	DisplayName string  `json:"display_name"`
-	Notes       *string `json:"notes,omitempty"`
+	CostCenterID string  `json:"cost_center_id"`
+	DisplayName  string  `json:"display_name"`
+	Notes        *string `json:"notes,omitempty"`
 }
 
 func (r AddCostCenterRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
 
-	if r.ID == "" {
-		errs = append(errs, common.NewValidationError("id", fmt.Errorf(errCostCenterIDRequired)))
+	if r.CostCenterID == "" {
+		errs = append(errs, common.NewValidationError("cost_center_id", fmt.Errorf(errCostCenterIDRequired)))
 		return errs
 	}
-	if len(r.ID) > costCenterIDMaxLength {
-		errs = append(errs, common.NewValidationError("id", fmt.Errorf(errCostCenterIDTooLong)))
-	} else if !costCenterIDPattern.MatchString(r.ID) {
-		errs = append(errs, common.NewValidationError("id", fmt.Errorf(errCostCenterIDInvalid)))
+	if len(r.CostCenterID) > costCenterIDMaxLength {
+		errs = append(errs, common.NewValidationError("cost_center_id", fmt.Errorf(errCostCenterIDTooLong)))
+	} else if !costCenterIDPattern.MatchString(r.CostCenterID) {
+		errs = append(errs, common.NewValidationError("cost_center_id", fmt.Errorf(errCostCenterIDInvalid)))
 	}
 
 	if r.DisplayName == "" {
@@ -74,23 +74,23 @@ func (r AddCostCenterRequest) Validate() []common.ValidationError {
 
 // UpdateCostCenterRequest is the request body for POST /org/update-cost-center.
 type UpdateCostCenterRequest struct {
-	ID          string           `json:"id"`
-	DisplayName string           `json:"display_name"`
-	Status      CostCenterStatus `json:"status"`
-	Notes       *string          `json:"notes,omitempty"`
+	CostCenterID string           `json:"cost_center_id"`
+	DisplayName  string           `json:"display_name"`
+	Status       CostCenterStatus `json:"status"`
+	Notes        *string          `json:"notes,omitempty"`
 }
 
 func (r UpdateCostCenterRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
 
-	if r.ID == "" {
-		errs = append(errs, common.NewValidationError("id", fmt.Errorf(errCostCenterIDRequired)))
+	if r.CostCenterID == "" {
+		errs = append(errs, common.NewValidationError("cost_center_id", fmt.Errorf(errCostCenterIDRequired)))
 		return errs
 	}
-	if len(r.ID) > costCenterIDMaxLength {
-		errs = append(errs, common.NewValidationError("id", fmt.Errorf(errCostCenterIDTooLong)))
-	} else if !costCenterIDPattern.MatchString(r.ID) {
-		errs = append(errs, common.NewValidationError("id", fmt.Errorf(errCostCenterIDInvalid)))
+	if len(r.CostCenterID) > costCenterIDMaxLength {
+		errs = append(errs, common.NewValidationError("cost_center_id", fmt.Errorf(errCostCenterIDTooLong)))
+	} else if !costCenterIDPattern.MatchString(r.CostCenterID) {
+		errs = append(errs, common.NewValidationError("cost_center_id", fmt.Errorf(errCostCenterIDInvalid)))
 	}
 
 	if r.DisplayName == "" {

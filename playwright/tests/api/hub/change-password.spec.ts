@@ -117,7 +117,7 @@ test.describe("POST /hub/change-password", () => {
 			expect(loginNewResponse.status).toBe(200);
 
 			// Verify hub.change_password audit log entry was created (current session preserved)
-			const auditResp = await api.myAuditLogs(sessionToken, {
+			const auditResp = await api.listAuditLogs(sessionToken, {
 				event_types: ["hub.change_password"],
 				start_time: before,
 			});

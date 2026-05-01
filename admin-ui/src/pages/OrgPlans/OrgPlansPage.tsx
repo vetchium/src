@@ -62,7 +62,7 @@ export function OrgPlansPage() {
 				if (filterDomain) req.filter_domain = filterDomain;
 				if (paginationKey) req.pagination_key = paginationKey;
 
-				const resp = await fetch(`${baseUrl}/admin/org-plan/list`, {
+				const resp = await fetch(`${baseUrl}/admin/list-org-plans`, {
 					method: "POST",
 					headers: {
 						"Content-Type": "application/json",
@@ -73,7 +73,7 @@ export function OrgPlansPage() {
 				if (resp.status === 200) {
 					const data = await resp.json();
 					setItems((prev) =>
-						paginationKey ? [...prev, ...data.items] : data.items
+						paginationKey ? [...prev, ...data.org_plans] : data.org_plans
 					);
 					setNextPaginationKey(data.next_pagination_key);
 				} else {
@@ -105,7 +105,7 @@ export function OrgPlansPage() {
 				plan_id: values.plan_id,
 				reason: values.reason,
 			};
-			const resp = await fetch(`${baseUrl}/admin/org-plan/set`, {
+			const resp = await fetch(`${baseUrl}/admin/set-org-plan`, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",

@@ -60,14 +60,17 @@ export function CapabilitiesPage() {
 		setLoading(true);
 		try {
 			const baseUrl = await getApiBaseUrl();
-			const resp = await fetch(`${baseUrl}/admin/marketplace/capability/list`, {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					Authorization: `Bearer ${sessionToken}`,
-				},
-				body: JSON.stringify({ limit: 100 }),
-			});
+			const resp = await fetch(
+				`${baseUrl}/admin/marketplace/list-capabilities`,
+				{
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${sessionToken}`,
+					},
+					body: JSON.stringify({ limit: 100 }),
+				}
+			);
 			if (resp.status === 200) {
 				const data = await resp.json();
 				setCapabilities(data.capabilities || []);
@@ -91,7 +94,7 @@ export function CapabilitiesPage() {
 		try {
 			const baseUrl = await getApiBaseUrl();
 			const resp = await fetch(
-				`${baseUrl}/admin/marketplace/capability/create`,
+				`${baseUrl}/admin/marketplace/create-capability`,
 				{
 					method: "POST",
 					headers: {
@@ -131,7 +134,7 @@ export function CapabilitiesPage() {
 		try {
 			const baseUrl = await getApiBaseUrl();
 			const resp = await fetch(
-				`${baseUrl}/admin/marketplace/capability/update`,
+				`${baseUrl}/admin/marketplace/update-capability`,
 				{
 					method: "POST",
 					headers: {

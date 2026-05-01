@@ -100,7 +100,7 @@ test.describe("Org (Employer) Set Language API", () => {
 		expect(response.status).toBe(200);
 
 		// Verify org.set_language audit log entry was created
-		const auditResp = await api.filterAuditLogs(sessionToken, {
+		const auditResp = await api.listAuditLogs(sessionToken, {
 			event_types: ["org.set_language"],
 			start_time: before,
 		});

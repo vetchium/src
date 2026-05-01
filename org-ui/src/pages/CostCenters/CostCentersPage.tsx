@@ -123,7 +123,7 @@ export function CostCentersPage() {
 	};
 
 	const handleAdd = async (values: {
-		id: string;
+		cost_center_id: string;
 		display_name: string;
 		notes?: string;
 	}) => {
@@ -132,11 +132,11 @@ export function CostCentersPage() {
 		try {
 			const baseUrl = await getApiBaseUrl();
 			const req: AddCostCenterRequest = {
-				id: values.id,
+				cost_center_id: values.cost_center_id,
 				display_name: values.display_name,
 				...(values.notes ? { notes: values.notes } : {}),
 			};
-			const resp = await fetch(`${baseUrl}/org/add-cost-center`, {
+			const resp = await fetch(`${baseUrl}/org/create-cost-center`, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
@@ -171,7 +171,7 @@ export function CostCentersPage() {
 	const handleEdit = (cc: CostCenter) => {
 		setEditingCostCenter(cc);
 		editForm.setFieldsValue({
-			id: cc.id,
+			cost_center_id: cc.cost_center_id,
 			display_name: cc.display_name,
 			status: cc.status,
 			notes: cc.notes ?? "",
@@ -180,7 +180,7 @@ export function CostCentersPage() {
 	};
 
 	const handleUpdate = async (values: {
-		id: string;
+		cost_center_id: string;
 		display_name: string;
 		status: "enabled" | "disabled";
 		notes?: string;
@@ -190,7 +190,7 @@ export function CostCentersPage() {
 		try {
 			const baseUrl = await getApiBaseUrl();
 			const req: UpdateCostCenterRequest = {
-				id: editingCostCenter.id,
+				cost_center_id: editingCostCenter.cost_center_id,
 				display_name: values.display_name,
 				status: values.status,
 				...(values.notes ? { notes: values.notes } : {}),
@@ -231,11 +231,11 @@ export function CostCentersPage() {
 	const handleToggleStatus = async (cc: CostCenter) => {
 		if (!sessionToken) return;
 		const newStatus = cc.status === "enabled" ? "disabled" : "enabled";
-		setTogglingId(cc.id);
+		setTogglingId(cc.cost_center_id);
 		try {
 			const baseUrl = await getApiBaseUrl();
 			const req: UpdateCostCenterRequest = {
-				id: cc.id,
+				cost_center_id: cc.cost_center_id,
 				display_name: cc.display_name,
 				status: newStatus,
 				...(cc.notes ? { notes: cc.notes } : {}),
@@ -307,7 +307,7 @@ export function CostCentersPage() {
 								</Button>
 								<Button
 									size="small"
-									loading={togglingId === record.id}
+									loading={togglingId === record.cost_center_id}
 									onClick={() => handleToggleStatus(record)}
 								>
 									{record.status === "enabled"
@@ -372,7 +372,7 @@ export function CostCentersPage() {
 				<Table
 					dataSource={costCenters}
 					columns={columns}
-					rowKey="id"
+					rowKey="cost_center_id"
 					pagination={false}
 					locale={{ emptyText: t("table.id") }}
 				/>
@@ -398,7 +398,7 @@ export function CostCentersPage() {
 				<Spin spinning={addLoading}>
 					<Form form={addForm} layout="vertical" onFinish={handleAdd}>
 						<Form.Item
-							name="id"
+							name="cost_center_id"
 							label={t("addModal.idLabel")}
 							help={t("addModal.idHelp")}
 							rules={[
@@ -469,7 +469,7 @@ export function CostCentersPage() {
 				<Spin spinning={editLoading}>
 					<Form form={editForm} layout="vertical" onFinish={handleUpdate}>
 						<Form.Item
-							name="id"
+							name="cost_center_id"
 							label={t("editModal.idLabel")}
 							help={t("editModal.idHelp")}
 						>

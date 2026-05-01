@@ -67,8 +67,8 @@ model FilterAuditLogsResponse {
 // Admin Audit Log Endpoint
 // ============================================
 
-@route("/admin/filter-audit-logs")
-interface AdminFilterAuditLogsOps {
+@route("/admin/list-audit-logs")
+interface AdminListAuditLogsOps {
   @doc("Filter admin portal audit logs. Requires admin:view_audit_logs or admin:superadmin role.")
   @post
   filterAdminAuditLogs(@body request: FilterAuditLogsRequest): FilterAuditLogsResponse | {
@@ -85,8 +85,8 @@ interface AdminFilterAuditLogsOps {
 // Hub Audit Log Endpoint
 // ============================================
 
-@route("/hub/my-audit-logs")
-interface HubMyAuditLogsOps {
+@route("/hub/list-audit-logs")
+interface HubListAuditLogsOps {
   @doc("Retrieve the calling hub user's own audit log entries. No special role required; results are always scoped to the authenticated user. The actor_user_id filter field is ignored.")
   @post
   hubMyAuditLogs(@body request: FilterAuditLogsRequest): FilterAuditLogsResponse | {

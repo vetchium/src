@@ -123,7 +123,7 @@ test.describe("POST /hub/login", () => {
 			expect(tfaResp.status).toBe(200);
 			const sessionToken = tfaResp.body.session_token;
 
-			const auditResp = await api.myAuditLogs(sessionToken, {
+			const auditResp = await api.listAuditLogs(sessionToken, {
 				event_types: ["hub.login_failed"],
 				start_time: before,
 			});

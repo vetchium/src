@@ -151,10 +151,10 @@ test.describe("Hub Tags API", () => {
 	});
 
 	// ===========================================================================
-	// POST /hub/filter-tags
+	// POST /hub/list-tags
 	// ===========================================================================
 
-	test.describe("POST /hub/filter-tags", () => {
+	test.describe("POST /hub/list-tags", () => {
 		test("returns tags with no query (200)", async ({ request }) => {
 			const api = new HubAPIClient(request);
 			const tagId1 = generateTestTagId("hubflt1");
@@ -167,7 +167,7 @@ test.describe("Hub Tags API", () => {
 			]);
 			try {
 				const req: FilterTagsRequest = {};
-				const response = await api.filterTags(sessionToken, req);
+				const response = await api.listTags(sessionToken, req);
 
 				expect(response.status).toBe(200);
 				expect(Array.isArray(response.body.tags)).toBe(true);
@@ -188,7 +188,7 @@ test.describe("Hub Tags API", () => {
 			]);
 			try {
 				const req: FilterTagsRequest = { query: tagId };
-				const response = await api.filterTags(sessionToken, req);
+				const response = await api.listTags(sessionToken, req);
 
 				expect(response.status).toBe(200);
 				expect(response.body.tags.length).toBeGreaterThan(0);
@@ -206,7 +206,7 @@ test.describe("Hub Tags API", () => {
 			const req: FilterTagsRequest = {
 				query: "xyzzy-hub-no-match-ever-99999",
 			};
-			const response = await api.filterTags(sessionToken, req);
+			const response = await api.listTags(sessionToken, req);
 
 			expect(response.status).toBe(200);
 			expect(response.body.tags).toHaveLength(0);
@@ -214,7 +214,7 @@ test.describe("Hub Tags API", () => {
 		});
 
 		test("unauthenticated request returns 401", async ({ request }) => {
-			const response = await request.post("/hub/filter-tags", {
+			const response = await request.post("/hub/list-tags", {
 				data: {},
 			});
 			expect(response.status()).toBe(401);
@@ -260,7 +260,7 @@ test.describe("Hub Tags API", () => {
 			const base = paginationTagIds[0].substring(0, 8);
 
 			const firstReq: FilterTagsRequest = { query: base };
-			const firstPage = await api.filterTags(sessionToken, firstReq);
+			const firstPage = await api.listTags(sessionToken, firstReq);
 			expect(firstPage.status).toBe(200);
 
 			// Should have pagination_key since we created 51 tags (> default limit 50)
@@ -272,7 +272,7 @@ test.describe("Hub Tags API", () => {
 				query: base,
 				pagination_key: firstPage.body.pagination_key,
 			};
-			const secondPage = await api.filterTags(sessionToken, secondReq);
+			const secondPage = await api.listTags(sessionToken, secondReq);
 			expect(secondPage.status).toBe(200);
 			expect(secondPage.body.tags.length).toBeGreaterThanOrEqual(1);
 			expect(secondPage.body.pagination_key).toBeUndefined();

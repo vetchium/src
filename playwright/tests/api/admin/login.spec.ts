@@ -88,7 +88,7 @@ test.describe("POST /admin/login", () => {
 			const watcherToken = watcherTfaResp.body.session_token;
 
 			// login_failed should be recorded even though login returned 401
-			const auditResp = await api.filterAuditLogs(watcherToken, {
+			const auditResp = await api.listAuditLogs(watcherToken, {
 				event_types: ["admin.login_failed"],
 				start_time: before,
 			});

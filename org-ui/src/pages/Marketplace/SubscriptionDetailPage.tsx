@@ -54,7 +54,7 @@ export function SubscriptionDetailPage() {
 		setLoading(true);
 		try {
 			const baseUrl = await getApiBaseUrl();
-			const resp = await fetch(`${baseUrl}/org/marketplace/subscription/get`, {
+			const resp = await fetch(`${baseUrl}/org/marketplace/get-subscription`, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
@@ -86,7 +86,7 @@ export function SubscriptionDetailPage() {
 		try {
 			const baseUrl = await getApiBaseUrl();
 			const resp = await fetch(
-				`${baseUrl}/org/marketplace/subscription/cancel`,
+				`${baseUrl}/org/marketplace/cancel-subscription`,
 				{
 					method: "POST",
 					headers: {

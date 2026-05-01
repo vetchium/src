@@ -57,19 +57,19 @@ test.describe("Cost Centers API", () => {
 				const token = await loginOrgUser(api, email, domain);
 				const before = new Date(Date.now() - 2000).toISOString();
 				const req: AddCostCenterRequest = {
-					id: "engineering-us",
+					cost_center_id: "engineering-us",
 					display_name: "Engineering US",
 					notes: "US engineering team",
 				};
 				const res = await api.addCostCenter(token, req);
 				expect(res.status).toBe(201);
-				expect(res.body?.id).toBe("engineering-us");
+				expect(res.body?.cost_center_id).toBe("engineering-us");
 				expect(res.body?.display_name).toBe("Engineering US");
 				expect(res.body?.status).toBe("enabled");
 				expect(res.body?.notes).toBe("US engineering team");
 
 				// Verify org.add_cost_center audit log entry was created
-				const auditResp = await api.filterAuditLogs(token, {
+				const auditResp = await api.listAuditLogs(token, {
 					event_types: ["org.add_cost_center"],
 					start_time: before,
 				});
@@ -94,12 +94,12 @@ test.describe("Cost Centers API", () => {
 			try {
 				const token = await loginOrgUser(api, email, domain);
 				const req: AddCostCenterRequest = {
-					id: "marketing",
+					cost_center_id: "marketing",
 					display_name: "Marketing",
 				};
 				const res = await api.addCostCenter(token, req);
 				expect(res.status).toBe(201);
-				expect(res.body?.id).toBe("marketing");
+				expect(res.body?.cost_center_id).toBe("marketing");
 				expect(res.body?.notes).toBeUndefined();
 			} finally {
 				await deleteTestOrgUser(email);
@@ -130,7 +130,7 @@ test.describe("Cost Centers API", () => {
 			try {
 				const token = await loginOrgUser(api, email, domain);
 				const res = await api.addCostCenterRaw(token, {
-					id: "a".repeat(65),
+					cost_center_id: "a".repeat(65),
 					display_name: "Too Long ID",
 				});
 				expect(res.status).toBe(400);
@@ -147,7 +147,7 @@ test.describe("Cost Centers API", () => {
 			try {
 				const token = await loginOrgUser(api, email, domain);
 				const res = await api.addCostCenterRaw(token, {
-					id: "valid-id",
+					cost_center_id: "valid-id",
 				});
 				expect(res.status).toBe(400);
 			} finally {
@@ -163,7 +163,7 @@ test.describe("Cost Centers API", () => {
 			try {
 				const token = await loginOrgUser(api, email, domain);
 				const res = await api.addCostCenterRaw(token, {
-					id: "valid-id",
+					cost_center_id: "valid-id",
 					display_name: "a".repeat(65),
 				});
 				expect(res.status).toBe(400);
@@ -180,7 +180,7 @@ test.describe("Cost Centers API", () => {
 			try {
 				const token = await loginOrgUser(api, email, domain);
 				const res = await api.addCostCenterRaw(token, {
-					id: "valid-id",
+					cost_center_id: "valid-id",
 					display_name: "Valid Name",
 					notes: "a".repeat(501),
 				});
@@ -198,7 +198,7 @@ test.describe("Cost Centers API", () => {
 			try {
 				const token = await loginOrgUser(api, email, domain);
 				const res = await api.addCostCenterRaw(token, {
-					id: "valid-id ",
+					cost_center_id: "valid-id ",
 					display_name: "Trailing Space",
 				});
 				expect(res.status).toBe(400);
@@ -215,7 +215,7 @@ test.describe("Cost Centers API", () => {
 			try {
 				const token = await loginOrgUser(api, email, domain);
 				const res = await api.addCostCenterRaw(token, {
-					id: " valid-id",
+					cost_center_id: " valid-id",
 					display_name: "Leading Space",
 				});
 				expect(res.status).toBe(400);
@@ -232,7 +232,7 @@ test.describe("Cost Centers API", () => {
 			try {
 				const token = await loginOrgUser(api, email, domain);
 				const res = await api.addCostCenterRaw(token, {
-					id: "valid id",
+					cost_center_id: "valid id",
 					display_name: "Middle Space",
 				});
 				expect(res.status).toBe(400);
@@ -249,7 +249,7 @@ test.describe("Cost Centers API", () => {
 			try {
 				const token = await loginOrgUser(api, email, domain);
 				const res = await api.addCostCenterRaw(token, {
-					id: "-invalid",
+					cost_center_id: "-invalid",
 					display_name: "Starts With Hyphen",
 				});
 				expect(res.status).toBe(400);
@@ -266,7 +266,7 @@ test.describe("Cost Centers API", () => {
 			try {
 				const token = await loginOrgUser(api, email, domain);
 				const res = await api.addCostCenterRaw(token, {
-					id: "Engineering-US",
+					cost_center_id: "Engineering-US",
 					display_name: "Uppercase ID",
 				});
 				expect(res.status).toBe(400);
@@ -283,7 +283,7 @@ test.describe("Cost Centers API", () => {
 			try {
 				const token = await loginOrgUser(api, email, domain);
 				const req: AddCostCenterRequest = {
-					id: "duplicate-test",
+					cost_center_id: "duplicate-test",
 					display_name: "Duplicate Test",
 				};
 				const first = await api.addCostCenter(token, req);
@@ -310,7 +310,7 @@ test.describe("Cost Centers API", () => {
 				const token2 = await loginOrgUser(api, email2, domain2);
 
 				const req: AddCostCenterRequest = {
-					id: "shared-id",
+					cost_center_id: "shared-id",
 					display_name: "Shared ID Cost Center",
 				};
 
@@ -328,7 +328,7 @@ test.describe("Cost Centers API", () => {
 		test("Auth: unauthenticated (401)", async ({ request }) => {
 			const api = new OrgAPIClient(request);
 			const res = await api.addCostCenterRaw("invalid-token", {
-				id: "test",
+				cost_center_id: "test",
 				display_name: "Test",
 			});
 			expect(res.status).toBe(401);
@@ -349,7 +349,7 @@ test.describe("Cost Centers API", () => {
 
 				// First create
 				const addRes = await api.addCostCenter(token, {
-					id: "to-update",
+					cost_center_id: "to-update",
 					display_name: "Original Name",
 				});
 				expect(addRes.status).toBe(201);
@@ -357,7 +357,7 @@ test.describe("Cost Centers API", () => {
 				// Then update
 				const before = new Date(Date.now() - 2000).toISOString();
 				const updateReq: UpdateCostCenterRequest = {
-					id: "to-update",
+					cost_center_id: "to-update",
 					display_name: "Updated Name",
 					status: "disabled",
 					notes: "now disabled",
@@ -369,7 +369,7 @@ test.describe("Cost Centers API", () => {
 				expect(updateRes.body?.notes).toBe("now disabled");
 
 				// Verify org.update_cost_center audit log entry was created
-				const auditResp = await api.filterAuditLogs(token, {
+				const auditResp = await api.listAuditLogs(token, {
 					event_types: ["org.update_cost_center"],
 					start_time: before,
 				});
@@ -392,7 +392,7 @@ test.describe("Cost Centers API", () => {
 			try {
 				const token = await loginOrgUser(api, email, domain);
 				const updateReq: UpdateCostCenterRequest = {
-					id: "does-not-exist",
+					cost_center_id: "does-not-exist",
 					display_name: "Whatever",
 					status: "enabled",
 				};
@@ -411,7 +411,7 @@ test.describe("Cost Centers API", () => {
 			try {
 				const token = await loginOrgUser(api, email, domain);
 				const res = await api.updateCostCenterRaw(token, {
-					id: "some-id",
+					cost_center_id: "some-id",
 					display_name: "Some Name",
 					status: "invalid-status",
 				});
@@ -429,7 +429,7 @@ test.describe("Cost Centers API", () => {
 			try {
 				const token = await loginOrgUser(api, email, domain);
 				const res = await api.updateCostCenterRaw(token, {
-					id: "some-id",
+					cost_center_id: "some-id",
 					status: "enabled",
 				});
 				expect(res.status).toBe(400);
@@ -441,7 +441,7 @@ test.describe("Cost Centers API", () => {
 		test("Auth: unauthenticated (401)", async ({ request }) => {
 			const api = new OrgAPIClient(request);
 			const res = await api.updateCostCenterRaw("invalid-token", {
-				id: "test",
+				cost_center_id: "test",
 				display_name: "Test",
 				status: "enabled",
 			});
@@ -478,9 +478,18 @@ test.describe("Cost Centers API", () => {
 			try {
 				const token = await loginOrgUser(api, email, domain);
 
-				await api.addCostCenter(token, { id: "alpha", display_name: "Alpha" });
-				await api.addCostCenter(token, { id: "beta", display_name: "Beta" });
-				await api.addCostCenter(token, { id: "gamma", display_name: "Gamma" });
+				await api.addCostCenter(token, {
+					cost_center_id: "alpha",
+					display_name: "Alpha",
+				});
+				await api.addCostCenter(token, {
+					cost_center_id: "beta",
+					display_name: "Beta",
+				});
+				await api.addCostCenter(token, {
+					cost_center_id: "gamma",
+					display_name: "Gamma",
+				});
 
 				const res = await api.listCostCenters(token, {});
 				expect(res.status).toBe(200);
@@ -499,16 +508,16 @@ test.describe("Cost Centers API", () => {
 				const token = await loginOrgUser(api, email, domain);
 
 				await api.addCostCenter(token, {
-					id: "enabled-cc",
+					cost_center_id: "enabled-cc",
 					display_name: "Enabled CC",
 				});
 				// Create and then disable
 				await api.addCostCenter(token, {
-					id: "disabled-cc",
+					cost_center_id: "disabled-cc",
 					display_name: "Disabled CC",
 				});
 				await api.updateCostCenter(token, {
-					id: "disabled-cc",
+					cost_center_id: "disabled-cc",
 					display_name: "Disabled CC",
 					status: "disabled",
 				});
@@ -544,7 +553,7 @@ test.describe("Cost Centers API", () => {
 				// Create 5 cost centers
 				for (let i = 1; i <= 5; i++) {
 					await api.addCostCenter(token, {
-						id: `cc-page-${i}`,
+						cost_center_id: `cc-page-${i}`,
 						display_name: `Cost Center ${i}`,
 					});
 				}
@@ -608,14 +617,14 @@ test.describe("Cost Centers API", () => {
 
 				// Cannot add
 				const addRes = await api.addCostCenter(viewerToken, {
-					id: "rbac-test",
+					cost_center_id: "rbac-test",
 					display_name: "RBAC Test",
 				});
 				expect(addRes.status).toBe(403);
 
 				// Cannot update
 				const updateRes = await api.updateCostCenterRaw(viewerToken, {
-					id: "rbac-test",
+					cost_center_id: "rbac-test",
 					display_name: "RBAC Test",
 					status: "enabled",
 				});
@@ -653,14 +662,14 @@ test.describe("Cost Centers API", () => {
 
 				// Can add
 				const addRes = await api.addCostCenter(managerToken, {
-					id: "mgr-test",
+					cost_center_id: "mgr-test",
 					display_name: "Manager Test",
 				});
 				expect(addRes.status).toBe(201);
 
 				// Can update
 				const updateRes = await api.updateCostCenter(managerToken, {
-					id: "mgr-test",
+					cost_center_id: "mgr-test",
 					display_name: "Manager Test Updated",
 					status: "disabled",
 				});
@@ -695,7 +704,7 @@ test.describe("Cost Centers API", () => {
 			// Admin creates a cost center to attempt update on
 			const adminToken = await loginOrgUser(api, adminEmail, domain);
 			await api.addCostCenter(adminToken, {
-				id: "rbac-none-cc",
+				cost_center_id: "rbac-none-cc",
 				display_name: "RBAC None Test",
 			});
 
@@ -706,13 +715,13 @@ test.describe("Cost Centers API", () => {
 				expect(listRes.status).toBe(403);
 
 				const addRes = await api.addCostCenterRaw(noRoleToken, {
-					id: "test",
+					cost_center_id: "test",
 					display_name: "Test",
 				});
 				expect(addRes.status).toBe(403);
 
 				const updateRes = await api.updateCostCenterRaw(noRoleToken, {
-					id: "rbac-none-cc",
+					cost_center_id: "rbac-none-cc",
 					display_name: "Hacked Name",
 					status: "disabled",
 				});
@@ -734,7 +743,7 @@ test.describe("Cost Centers API", () => {
 				const token = await loginOrgUser(api, email, domain);
 
 				const addRes = await api.addCostCenter(token, {
-					id: "super-test",
+					cost_center_id: "super-test",
 					display_name: "Superadmin Test",
 				});
 				expect(addRes.status).toBe(201);
@@ -743,7 +752,7 @@ test.describe("Cost Centers API", () => {
 				expect(listRes.status).toBe(200);
 
 				const updateRes = await api.updateCostCenter(token, {
-					id: "super-test",
+					cost_center_id: "super-test",
 					display_name: "Superadmin Test Updated",
 					status: "enabled",
 				});
@@ -760,13 +769,13 @@ test.describe("Cost Centers API", () => {
 			expect(listRes.status).toBe(401);
 
 			const addRes = await api.addCostCenterRaw("bad-token", {
-				id: "test",
+				cost_center_id: "test",
 				display_name: "Test",
 			});
 			expect(addRes.status).toBe(401);
 
 			const updateRes = await api.updateCostCenterRaw("bad-token", {
-				id: "test",
+				cost_center_id: "test",
 				display_name: "Test",
 				status: "enabled",
 			});

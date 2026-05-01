@@ -81,7 +81,7 @@ export function MarketplaceListingPage() {
 		setLoading(true);
 		try {
 			const baseUrl = await getApiBaseUrl();
-			const resp = await fetch(`${baseUrl}/org/marketplace/listing/get`, {
+			const resp = await fetch(`${baseUrl}/org/marketplace/get-listing`, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
@@ -112,7 +112,7 @@ export function MarketplaceListingPage() {
 		(async () => {
 			try {
 				const baseUrl = await getApiBaseUrl();
-				const resp = await fetch(`${baseUrl}/org/org-plan/get`, {
+				const resp = await fetch(`${baseUrl}/org/get-plan`, {
 					method: "POST",
 					headers: {
 						"Content-Type": "application/json",
@@ -138,7 +138,7 @@ export function MarketplaceListingPage() {
 		setActionLoading(true);
 		try {
 			const baseUrl = await getApiBaseUrl();
-			const resp = await fetch(`${baseUrl}/org/marketplace/listing/publish`, {
+			const resp = await fetch(`${baseUrl}/org/marketplace/publish-listing`, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
@@ -174,7 +174,7 @@ export function MarketplaceListingPage() {
 		setActionLoading(true);
 		try {
 			const baseUrl = await getApiBaseUrl();
-			const resp = await fetch(`${baseUrl}/org/marketplace/listing/approve`, {
+			const resp = await fetch(`${baseUrl}/org/marketplace/approve-listing`, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
@@ -199,7 +199,7 @@ export function MarketplaceListingPage() {
 		setActionLoading(true);
 		try {
 			const baseUrl = await getApiBaseUrl();
-			const resp = await fetch(`${baseUrl}/org/marketplace/listing/reject`, {
+			const resp = await fetch(`${baseUrl}/org/marketplace/reject-listing`, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
@@ -228,7 +228,7 @@ export function MarketplaceListingPage() {
 		setActionLoading(true);
 		try {
 			const baseUrl = await getApiBaseUrl();
-			const resp = await fetch(`${baseUrl}/org/marketplace/listing/archive`, {
+			const resp = await fetch(`${baseUrl}/org/marketplace/archive-listing`, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
@@ -252,7 +252,7 @@ export function MarketplaceListingPage() {
 		setActionLoading(true);
 		try {
 			const baseUrl = await getApiBaseUrl();
-			const resp = await fetch(`${baseUrl}/org/marketplace/listing/reopen`, {
+			const resp = await fetch(`${baseUrl}/org/marketplace/reopen-listing`, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
@@ -277,7 +277,7 @@ export function MarketplaceListingPage() {
 		try {
 			const baseUrl = await getApiBaseUrl();
 			const resp = await fetch(
-				`${baseUrl}/org/marketplace/subscription/subscribe`,
+				`${baseUrl}/org/marketplace/create-subscription`,
 				{
 					method: "POST",
 					headers: {

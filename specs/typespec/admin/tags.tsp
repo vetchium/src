@@ -76,6 +76,9 @@ model AdminFilterTagsRequest {
 
   @doc("Keyset cursor for the next page")
   pagination_key?: string;
+
+  @doc("Number of items to return (default and max enforced server-side)")
+  limit?: int32;
 }
 
 @doc("Response for the admin filter-tags endpoint.")
@@ -100,8 +103,8 @@ model DeleteTagIconRequest {
 // Admin Tag Endpoints
 // ============================================
 
-@route("/admin/add-tag")
-interface AdminAddTagOps {
+@route("/admin/create-tag")
+interface AdminCreateTagOps {
   @doc("Create a new tag. Requires admin:manage_tags role.")
   @post
   addTag(@body request: CreateTagRequest): {
@@ -149,8 +152,8 @@ interface AdminGetTagOps {
   };
 }
 
-@route("/admin/filter-tags")
-interface AdminFilterTagsOps {
+@route("/admin/list-tags")
+interface AdminListTagsOps {
   @doc("Filter/search tags with optional query and pagination.")
   @post
   filterTags(@body request: AdminFilterTagsRequest): AdminFilterTagsResponse | {

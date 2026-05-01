@@ -47,7 +47,7 @@ test.describe("POST /admin/tfa", () => {
 
 			// Verify admin.login audit log entry was created
 			const sessionToken = tfaResponse.body.session_token;
-			const auditResp = await api.filterAuditLogs(sessionToken, {
+			const auditResp = await api.listAuditLogs(sessionToken, {
 				event_types: ["admin.login"],
 				start_time: before,
 			});

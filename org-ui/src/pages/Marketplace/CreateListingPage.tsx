@@ -66,7 +66,7 @@ export function CreateListingPage() {
 		(async () => {
 			try {
 				const baseUrl = await getApiBaseUrl();
-				const resp = await fetch(`${baseUrl}/org/org-plan/get`, {
+				const resp = await fetch(`${baseUrl}/org/get-plan`, {
 					method: "POST",
 					headers: {
 						"Content-Type": "application/json",
@@ -93,7 +93,7 @@ export function CreateListingPage() {
 			const values = await form.validateFields();
 			setSubmitting(true);
 			const baseUrl = await getApiBaseUrl();
-			const resp = await fetch(`${baseUrl}/org/marketplace/listing/create`, {
+			const resp = await fetch(`${baseUrl}/org/marketplace/create-listing`, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
@@ -105,7 +105,7 @@ export function CreateListingPage() {
 				const created = await resp.json();
 				if (publish) {
 					const pubResp = await fetch(
-						`${baseUrl}/org/marketplace/listing/publish`,
+						`${baseUrl}/org/marketplace/publish-listing`,
 						{
 							method: "POST",
 							headers: {

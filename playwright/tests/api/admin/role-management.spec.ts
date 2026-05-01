@@ -52,7 +52,7 @@ test.describe("POST /admin/assign-role", () => {
 			expect(assignResponse.body.message).toContain("successfully");
 
 			// Verify admin.assign_role audit log entry was created
-			const auditResp = await api.filterAuditLogs(sessionToken, {
+			const auditResp = await api.listAuditLogs(sessionToken, {
 				event_types: ["admin.assign_role"],
 				start_time: before,
 			});
@@ -326,7 +326,7 @@ test.describe("POST /admin/remove-role", () => {
 			expect(removeResponse.body.message).toContain("successfully");
 
 			// Verify admin.remove_role audit log entry was created
-			const auditResp = await api.filterAuditLogs(sessionToken, {
+			const auditResp = await api.listAuditLogs(sessionToken, {
 				event_types: ["admin.remove_role"],
 				start_time: before,
 			});

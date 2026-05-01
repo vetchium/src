@@ -69,7 +69,7 @@ test.describe("SubOrgs API", () => {
 				expect(res.body?.created_at).toBeDefined();
 
 				// Audit log: org.create_suborg
-				const auditRes = await api.filterAuditLogs(token, {
+				const auditRes = await api.listAuditLogs(token, {
 					event_types: ["org.create_suborg"],
 					start_time: before,
 				});
@@ -377,7 +377,7 @@ test.describe("SubOrgs API", () => {
 				expect(res.body?.name).toBe("New Name");
 
 				// Audit log: org.rename_suborg
-				const auditRes = await api.filterAuditLogs(token, {
+				const auditRes = await api.listAuditLogs(token, {
 					event_types: ["org.rename_suborg"],
 					start_time: before,
 				});
@@ -497,7 +497,7 @@ test.describe("SubOrgs API", () => {
 				expect(listRes.body!.suborgs.map((s) => s.name)).toContain(soName);
 
 				// Audit log: org.disable_suborg
-				const auditDisable = await api.filterAuditLogs(token, {
+				const auditDisable = await api.listAuditLogs(token, {
 					event_types: ["org.disable_suborg"],
 					start_time: beforeDisable,
 				});
@@ -508,7 +508,7 @@ test.describe("SubOrgs API", () => {
 				const enableRes = await api.enableSubOrg(token, { name: soName });
 				expect(enableRes.status).toBe(200);
 
-				const auditEnable = await api.filterAuditLogs(token, {
+				const auditEnable = await api.listAuditLogs(token, {
 					event_types: ["org.enable_suborg"],
 					start_time: beforeEnable,
 				});
@@ -689,7 +689,7 @@ test.describe("SubOrgs API", () => {
 				expect(addRes.status).toBe(200);
 
 				// Audit log: org.add_suborg_member
-				const auditAdd = await api.filterAuditLogs(token, {
+				const auditAdd = await api.listAuditLogs(token, {
 					event_types: ["org.add_suborg_member"],
 					start_time: beforeAdd,
 				});
@@ -707,7 +707,7 @@ test.describe("SubOrgs API", () => {
 				expect(removeRes.status).toBe(200);
 
 				// Audit log: org.remove_suborg_member
-				const auditRemove = await api.filterAuditLogs(token, {
+				const auditRemove = await api.listAuditLogs(token, {
 					event_types: ["org.remove_suborg_member"],
 					start_time: beforeRemove,
 				});

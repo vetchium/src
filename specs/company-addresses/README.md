@@ -1,59 +1,86 @@
 ## Stage 1: Requirements
 
-Status: DRAFT | REVIEW | APPROVED
-Authors: @
-Dependencies:
+Status: DRAFT
+Authors: @psankar
+Dependencies: none
+Dependents: job-openings (on_site/hybrid openings reference an org address)
+Future specs: none
 
 ### Overview
 
-One paragraph: what problem this solves, which portal(s) are affected (Admin / Org / Hub), and which user types are involved.
+Company Addresses let OrgUsers maintain a named address book for their organisation. Each address has a human-readable title, a full postal address, and optional map URLs (e.g. Google Maps, Apple Maps, OpenStreetMap). Addresses are used as the location reference when creating on-site or hybrid Job Openings, replacing free-form city/country text.
+
+Portals affected: Org portal. All write operations are initiated by OrgUsers.
 
 ### Acceptance Criteria
 
-- [ ] Bullet points from both the user and developer perspectives
+- [ ] OrgUser with `org:manage_addresses` can add a new address; it starts in `active` status
+- [ ] Required fields: title, address_line1, city, country
+- [ ] Optional fields: address_line2, state, postal_code, map_urls (array of URLs, max 5 entries)
+- [ ] OrgUser with `org:manage_addresses` can update any field on an address
+- [ ] OrgUser with `org:manage_addresses` can disable an address → `disabled` status
+- [ ] OrgUser with `org:manage_addresses` can re-enable a disabled address → `active` status
+- [ ] Disabling an address that is referenced by one or more `draft` openings is allowed; those openings will fail validation on submit until the address is replaced or re-enabled
+- [ ] Disabling an address that is referenced by a `pending_review`, `published`, or `paused` opening is blocked → 422 (opening is still live or can be unpaused)
+- [ ] OrgUser with `org:view_addresses` can list and view addresses (read-only); write operations require `org:manage_addresses`
+- [ ] Address list supports filtering by status (`active` / `disabled` / all) and keyset pagination
+- [ ] Audit log written inside the same transaction for every write operation
+- [ ] New roles `org:view_addresses` and `org:manage_addresses` defined in roles.ts, roles.go, and initial_schema.sql
+
+### Field Constraints
+
+| Field         | Required | Max length | Notes                                                |
+| ------------- | -------- | ---------- | ---------------------------------------------------- |
+| title         | yes      | 100 chars  | Short internal label, e.g. "HQ", "London Office"     |
+| address_line1 | yes      | 200 chars  | Street address                                       |
+| address_line2 | no       | 200 chars  | Floor, suite, building name, etc.                    |
+| city          | yes      | 100 chars  |                                                      |
+| state         | no       | 100 chars  | State, province, or region                           |
+| postal_code   | no       | 20 chars   |                                                      |
+| country       | yes      | 100 chars  | Full country name or ISO 3166-1 alpha-2 code         |
+| map_urls      | no       | 5 entries  | Each URL max 500 chars; free-form (any map provider) |
 
 ### User-Facing Screens
 
-Describe each screen in terms of what the user sees and does. Use HTML to sketch inputs and table columns — no implementation details yet.
+**Screen: Address List (Org)**
 
-**Screen: Foo List**
+Portal: org-ui | Route: `/settings/addresses`
 
-Portal: org-ui | Route: `/foo`
+Header: Back to Dashboard button | "Company Addresses" title (h2) | "Add Address" button (right)
 
-```html
-<table>
-	<Column title="Name" />
-	<Column title="Status" />
-	<Column title="Created At" />
-	<Column title="Actions">Edit | Delete</Column>
-</table>
-```
+Filter: Status dropdown — All / Active / Disabled
 
-**Screen: Create Foo**
+| Title | Address | City | Country | Status | Created At | Actions                    |
+| ----- | ------- | ---- | ------- | ------ | ---------- | -------------------------- |
+| …     | …       | …    | …       | …      | …          | Edit · Disable / Re-enable |
 
-Triggered by: "Add Foo" button on the list page
+**Screen: Add / Edit Address**
 
-```html
-<form>
-	<label>Name (required, max 100 chars)</label>
-	<input type="text" id="name" required maxlength="100" />
+Portal: org-ui | Route: `/settings/addresses/new` (add) and `/settings/addresses/:address_id/edit` (edit)
 
-	<label>Description (optional, max 500 chars)</label>
-	<textarea id="description" maxlength="500"></textarea>
+| Field          | Type                | Constraints                                   |
+| -------------- | ------------------- | --------------------------------------------- |
+| Title          | text                | required, max 100 chars                       |
+| Address Line 1 | text                | required, max 200 chars                       |
+| Address Line 2 | text                | optional, max 200 chars                       |
+| City           | text                | required, max 100 chars                       |
+| State          | text                | optional, max 100 chars                       |
+| Postal Code    | text                | optional, max 20 chars                        |
+| Country        | text                | required, max 100 chars                       |
+| Map URLs       | list of text inputs | optional, up to 5 entries, each max 500 chars |
 
-	<button type="submit">Create</button>
-</form>
-```
+Submit button: "Save Address"
 
 ### API Surface
 
-List the endpoints by name and intent only — no TypeSpec yet. Confirm these with the team before proceeding to Stage 2.
-
-| Endpoint               | Portal | Who calls it | What it does               |
-| ---------------------- | ------ | ------------ | -------------------------- |
-| `POST /org/create-foo` | org    | Org user     | Creates a new Foo          |
-| `POST /org/list-foos`  | org    | Org user     | Paginates Foos for the org |
-| `POST /org/delete-foo` | org    | Org user     | Deletes a Foo by ID        |
+| Endpoint                    | Portal | Who calls it               | What it does                                         |
+| --------------------------- | ------ | -------------------------- | ---------------------------------------------------- |
+| `POST /org/create-address`  | org    | OrgUser (manage_addresses) | Creates a new address in `active` status             |
+| `POST /org/update-address`  | org    | OrgUser (manage_addresses) | Updates all fields on an address                     |
+| `POST /org/disable-address` | org    | OrgUser (manage_addresses) | Moves `active` → `disabled`; blocked if in-use (422) |
+| `POST /org/enable-address`  | org    | OrgUser (manage_addresses) | Moves `disabled` → `active`                          |
+| `POST /org/list-addresses`  | org    | OrgUser (view_addresses)   | Paginates addresses; optional status filter          |
+| `POST /org/get-address`     | org    | OrgUser (view_addresses)   | Gets a single address by ID                          |
 
 ---
 
@@ -61,7 +88,7 @@ List the endpoints by name and intent only — no TypeSpec yet. Confirm these wi
 
 > **Do not fill this section until Stage 1 status is APPROVED.**
 
-Status: DRAFT | REVIEW | READY
+Status: DRAFT
 Authors: @
 
 ### API Contract

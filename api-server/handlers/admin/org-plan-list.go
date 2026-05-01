@@ -151,7 +151,7 @@ func ListOrgPlans(s *server.GlobalServer) http.HandlerFunc {
 		}
 
 		json.NewEncoder(w).Encode(orgtypes.AdminListOrgPlansResponse{
-			Items:             items,
+			OrgPlans:          items,
 			NextPaginationKey: nextPaginationKey,
 		})
 	}

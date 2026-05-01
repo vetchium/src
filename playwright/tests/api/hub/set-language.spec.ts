@@ -130,7 +130,7 @@ test.describe("Hub Set Language API", () => {
 		expect(response.status).toBe(200);
 
 		// Verify hub.set_language audit log entry was created
-		const auditResp = await api.myAuditLogs(sessionToken, {
+		const auditResp = await api.listAuditLogs(sessionToken, {
 			event_types: ["hub.set_language"],
 			start_time: before,
 		});

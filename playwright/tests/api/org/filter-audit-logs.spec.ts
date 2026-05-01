@@ -41,7 +41,7 @@ test.describe("POST /org/filter-audit-logs", () => {
 			const before = new Date(Date.now() - 2000).toISOString();
 			const sessionToken = await loginOrg(api, email, domain);
 
-			const resp = await api.filterAuditLogs(sessionToken, {
+			const resp = await api.listAuditLogs(sessionToken, {
 				event_types: ["org.login"],
 				start_time: before,
 			});
@@ -65,7 +65,7 @@ test.describe("POST /org/filter-audit-logs", () => {
 			const before = new Date(Date.now() - 2000).toISOString();
 			const sessionToken = await loginOrg(api, email, domain);
 
-			const resp = await api.filterAuditLogs(sessionToken, {
+			const resp = await api.listAuditLogs(sessionToken, {
 				actor_email: email,
 				start_time: before,
 			});
@@ -97,7 +97,7 @@ test.describe("POST /org/filter-audit-logs", () => {
 
 			// Login org2 and query from org2's perspective — should not see org1's entries
 			const sessionToken2 = await loginOrg(api, email2, domain2);
-			const resp = await api.filterAuditLogs(sessionToken2, {
+			const resp = await api.listAuditLogs(sessionToken2, {
 				start_time: before,
 				event_types: ["org.login"],
 			});
@@ -124,7 +124,7 @@ test.describe("POST /org/filter-audit-logs", () => {
 			const sessionToken = await loginOrg(api, email, domain);
 
 			const futureTime = new Date(Date.now() + 1_000_000).toISOString();
-			const resp = await api.filterAuditLogs(sessionToken, {
+			const resp = await api.listAuditLogs(sessionToken, {
 				start_time: futureTime,
 			});
 
@@ -145,14 +145,14 @@ test.describe("POST /org/filter-audit-logs", () => {
 			const before = new Date(Date.now() - 2000).toISOString();
 			const sessionToken = await loginOrg(api, email, domain);
 
-			const page1 = await api.filterAuditLogs(sessionToken, {
+			const page1 = await api.listAuditLogs(sessionToken, {
 				start_time: before,
 				limit: 1,
 			});
 			expect(page1.status).toBe(200);
 
 			if (page1.body.pagination_key) {
-				const page2 = await api.filterAuditLogs(sessionToken, {
+				const page2 = await api.listAuditLogs(sessionToken, {
 					start_time: before,
 					limit: 1,
 					pagination_key: page1.body.pagination_key,
@@ -179,7 +179,7 @@ test.describe("POST /org/filter-audit-logs", () => {
 		await createTestOrgAdminDirect(email, TEST_PASSWORD);
 		try {
 			const sessionToken = await loginOrg(api, email, domain);
-			const resp = await api.filterAuditLogsRaw(sessionToken, { limit: 0 });
+			const resp = await api.listAuditLogsRaw(sessionToken, { limit: 0 });
 			expect(resp.status).toBe(400);
 		} finally {
 			await deleteTestOrgUser(email);
@@ -193,7 +193,7 @@ test.describe("POST /org/filter-audit-logs", () => {
 		await createTestOrgAdminDirect(email, TEST_PASSWORD);
 		try {
 			const sessionToken = await loginOrg(api, email, domain);
-			const resp = await api.filterAuditLogsRaw(sessionToken, {
+			const resp = await api.listAuditLogsRaw(sessionToken, {
 				start_time: "not-a-date",
 			});
 			expect(resp.status).toBe(400);
@@ -204,7 +204,7 @@ test.describe("POST /org/filter-audit-logs", () => {
 
 	test("returns 401 without Authorization header", async ({ request }) => {
 		const api = new OrgAPIClient(request);
-		const resp = await api.filterAuditLogsWithoutAuth({});
+		const resp = await api.listAuditLogsWithoutAuth({});
 		expect(resp.status).toBe(401);
 	});
 
@@ -229,7 +229,7 @@ test.describe("POST /org/filter-audit-logs", () => {
 		await assignRoleToOrgUser(viewerResult.orgUserId, "org:view_audit_logs");
 		try {
 			const sessionToken = await loginOrg(api, viewerEmail, domain);
-			const resp = await api.filterAuditLogs(sessionToken, {});
+			const resp = await api.listAuditLogs(sessionToken, {});
 			expect(resp.status).toBe(200);
 		} finally {
 			await deleteTestOrgUser(viewerEmail);
@@ -247,7 +247,7 @@ test.describe("POST /org/filter-audit-logs", () => {
 		await createTestOrgUserDirect(email, TEST_PASSWORD);
 		try {
 			const sessionToken = await loginOrg(api, email, domain);
-			const resp = await api.filterAuditLogs(sessionToken, {});
+			const resp = await api.listAuditLogs(sessionToken, {});
 			expect(resp.status).toBe(403);
 		} finally {
 			await deleteTestOrgUser(email);
@@ -263,7 +263,7 @@ test.describe("POST /org/filter-audit-logs", () => {
 			const before = new Date(Date.now() - 2000).toISOString();
 			const sessionToken = await loginOrg(api, email, domain);
 
-			const resp = await api.filterAuditLogs(sessionToken, {
+			const resp = await api.listAuditLogs(sessionToken, {
 				start_time: before,
 				event_types: ["org.login"],
 			});

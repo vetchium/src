@@ -2,34 +2,43 @@
 
 Status: DRAFT
 Authors: @psankar
-Dependencies: marketplace-v2 (staffing provider notification relies on marketplace capabilities)
+Dependencies: marketplace-v2 (staffing provider notification relies on marketplace capabilities), company-addresses (on_site/hybrid openings reference a pre-defined org address)
+Future specs: hub-job-discovery (HubUser browse/search/view openings — role: `hub:apply_jobs`), hub-job-applications (HubUser apply flow)
 
 ### Overview
 
-Job Openings let OrgUsers create and publish job postings on the Vetchium platform. Each opening goes through an intra-org approval flow (Draft → Pending Review → Published) before becoming visible to HubUsers. A hiring manager — always an active OrgUser in the same org — must be assigned at creation time. When published, an opening can optionally notify marketplace providers that have the Staffing capability. This spec covers only opening creation and lifecycle management; the HubUser application process is a separate spec.
+Job Openings let OrgUsers create and publish job postings on the Vetchium platform. Each opening goes through an intra-org approval flow (Draft → Pending Review → Published) before becoming visible to HubUsers. A hiring manager — always an active OrgUser in the same org — must be assigned at creation time. When published, an opening can optionally notify marketplace providers that have the Staffing capability.
 
-Portals affected: Org portal (full lifecycle), Hub portal (discovery and read-only view). All write operations are initiated by OrgUsers.
+Openings automatically expire 180 days after first publication; the `expired` state blocks new applications while allowing candidates already in the pipeline to complete their process. A background worker handles this transition.
+
+An opening can be marked `is_internal` at creation time, making it visible only to OrgUsers (an internal job board, not surfaced on the Hub). This flag is immutable after the draft is created. On-site and hybrid openings reference a pre-defined org address (from the company-addresses spec) rather than free-form city/country text.
+
+This spec covers only opening creation and lifecycle management on the Org portal. Hub-side discovery (search, browse, URL design) and the HubUser application process are separate specs.
+
+Portals affected: Org portal (full lifecycle). All write operations are initiated by OrgUsers.
 
 ### Acceptance Criteria
 
 - [ ] OrgUser with `org:manage_openings` can create a new opening; it starts in `draft` state
-- [ ] Required fields: title, description, employment type, work location type, number of positions, hiring manager
-- [ ] Optional fields: location (city + country — required when work_location_type is `on_site` or `hybrid`), experience range (min/max years), salary range (min, max, currency), cost center, tags, expiry date, internal notes, notify staffing providers flag
+- [ ] Required fields: title, description, employment type, work location type, number of positions, hiring manager, is_internal flag
+- [ ] Optional fields: address (required when work_location_type is `on_site` or `hybrid` — must be an active org address), experience range (min/max years), salary range (min, max, currency), cost center, tags, internal notes, notify staffing providers flag
+- [ ] `is_internal` is set at creation and is immutable; internal openings are never surfaced to HubUsers
+- [ ] `on_site` and `hybrid` openings must reference an active address from the org's address book (see company-addresses spec); `remote` openings have no address
 - [ ] Hiring manager must be an active OrgUser belonging to the same org
-- [ ] A `draft` opening can be edited; editing is blocked once it leaves `draft`
-- [ ] OrgUser with `org:manage_openings` can submit a `draft` opening for review → `pending_review`
+- [ ] A `draft` opening can be edited (except `is_internal`); editing is blocked once it leaves `draft`
+- [ ] OrgUser with `org:manage_openings` can submit a `draft` opening for review → `pending_review`; if the submitter is `org:superadmin`, the opening goes directly to `published` (skipping review — accommodates single-person orgs)
 - [ ] OrgUser with `org:manage_openings` can approve a `pending_review` opening → `published`
 - [ ] OrgUser with `org:manage_openings` can reject a `pending_review` opening → back to `draft` with a rejection note stored on the opening
 - [ ] On approval, if `notify_staffing_providers` is true, all orgs with an active marketplace listing containing the Staffing capability receive a notification (mechanism defined in Stage 2)
 - [ ] OrgUser with `org:manage_openings` can pause a `published` opening → `paused` (hidden from Hub)
 - [ ] OrgUser with `org:manage_openings` can reopen a `paused` opening → `published`
 - [ ] OrgUser with `org:manage_openings` can close a `published` or `paused` opening → `closed`
-- [ ] OrgUser with `org:manage_openings` can archive a `closed` opening → `archived`
-- [ ] OrgUser with `org:manage_openings` can duplicate any opening → creates a new `draft` copy with the same fields
+- [ ] OrgUser with `org:manage_openings` can archive a `closed` or `expired` opening → `archived`
+- [ ] A published or paused opening is automatically moved to `expired` by a background worker 180 days after `first_published_at`; `expired` openings accept no new applications but permit existing pipeline candidates to continue
+- [ ] The background worker runs periodically (e.g. daily); it queries for published/paused openings where `first_published_at + 180 days ≤ now`, transitions each to `expired`, and writes an audit log entry (actor_user_id = null, event_type = `org.expire_opening`)
+- [ ] OrgUser with `org:manage_openings` can duplicate any opening → creates a new `draft` copy with the same fields (including `is_internal`)
 - [ ] OrgUser with `org:view_openings` can list and view openings (read-only); write operations require `org:manage_openings`
 - [ ] Opening list supports filtering by status and keyset pagination
-- [ ] HubUser with `hub:read_posts` can browse `published` openings and view individual opening details
-- [ ] Hub opening list supports filtering by employment type and work location type, with keyset pagination
 - [ ] Audit log written inside the same transaction for every state-changing operation
 - [ ] New roles `org:view_openings` and `org:manage_openings` defined in roles.ts, roles.go, and initial_schema.sql
 
@@ -41,36 +50,37 @@ Portal: org-ui | Route: `/openings`
 
 Header: Back to Dashboard button | "Job Openings" title (h2) | "Create Opening" button (right)
 
-Filter: Status dropdown — All / Draft / Pending Review / Published / Paused / Closed / Archived
+Filter: Status dropdown — All / Draft / Pending Review / Published / Paused / Expired / Closed / Archived
 
-| Title | Hiring Manager | Employment Type | Location | Positions | Status | Created At | Actions                                                                                                                      |
-| ----- | -------------- | --------------- | -------- | --------- | ------ | ---------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| …     | …              | …               | …        | …         | …      | …          | View · Edit · Submit · Approve/Reject · Pause · Reopen · Close · Archive · Duplicate (shown contextually by status and role) |
+| Title | Hiring Manager | Employment Type | Location | Positions | Visibility        | Status | Created At | Actions                                                                                                                      |
+| ----- | -------------- | --------------- | -------- | --------- | ----------------- | ------ | ---------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| …     | …              | …               | …        | …         | Internal / Public | …      | …          | View · Edit · Submit · Approve/Reject · Pause · Reopen · Close · Archive · Duplicate (shown contextually by status and role) |
 
 **Screen: Create Opening**
 
 Triggered by: "Create Opening" button on list page | Portal: org-ui | Route: `/openings/new`
 
-| Field                     | Type         | Constraints                                                       |
-| ------------------------- | ------------ | ----------------------------------------------------------------- |
-| Title                     | text         | required, max 200 chars                                           |
-| Description               | textarea     | required, max 10 000 chars                                        |
-| Employment Type           | select       | required — `full_time` / `part_time` / `contract` / `internship`  |
-| Work Location Type        | select       | required — `remote` / `on_site` / `hybrid`                        |
-| City                      | text         | required when work_location_type is `on_site` or `hybrid`         |
-| Country                   | text         | required when work_location_type is `on_site` or `hybrid`         |
-| Min Experience (years)    | number       | optional, 0–50                                                    |
-| Max Experience (years)    | number       | optional, 0–50, ≥ min                                             |
-| Min Salary                | number       | optional, ≥ 0                                                     |
-| Max Salary                | number       | optional, ≥ min salary                                            |
-| Salary Currency           | text         | optional, ISO 4217, max 3 chars (e.g. USD)                        |
-| Number of Positions       | number       | required, min 1                                                   |
-| Hiring Manager            | select       | required — populated from active OrgUsers in the same org         |
-| Cost Center               | select       | optional — populated from org cost centers                        |
-| Tags / Skills             | multi-select | optional, max 20 tags                                             |
-| Expiry Date               | date         | optional — opening auto-closes on this date                       |
-| Internal Notes            | textarea     | optional, max 2 000 chars — not visible to HubUsers               |
-| Notify Staffing Providers | checkbox     | optional — notifies providers with Staffing capability on publish |
+> **Note:** Published openings are automatically expired after 180 days from first publication. Plan accordingly.
+
+| Field                     | Type         | Constraints                                                                                     |
+| ------------------------- | ------------ | ----------------------------------------------------------------------------------------------- |
+| Title                     | text         | required, max 200 chars                                                                         |
+| Description               | textarea     | required, max 10 000 chars                                                                      |
+| Internal Opening          | checkbox     | required — if checked, visible to OrgUsers only; immutable after creation                       |
+| Employment Type           | select       | required — `full_time` / `part_time` / `contract` / `internship`                                |
+| Work Location Type        | select       | required — `remote` / `on_site` / `hybrid`                                                      |
+| Address                   | select       | required when work_location_type is `on_site` or `hybrid` — populated from active org addresses |
+| Min Experience (years)    | number       | optional, 0–50                                                                                  |
+| Max Experience (years)    | number       | optional, 0–50, ≥ min                                                                           |
+| Min Salary                | number       | optional, ≥ 0                                                                                   |
+| Max Salary                | number       | optional, ≥ min salary                                                                          |
+| Salary Currency           | text         | optional, ISO 4217, max 3 chars (e.g. USD)                                                      |
+| Number of Positions       | number       | required, min 1                                                                                 |
+| Hiring Manager            | select       | required — populated from active OrgUsers in the same org                                       |
+| Cost Center               | select       | optional — populated from org cost centers                                                      |
+| Tags / Skills             | multi-select | optional, max 20 tags                                                                           |
+| Internal Notes            | textarea     | optional, max 2 000 chars — not visible to HubUsers                                             |
+| Notify Staffing Providers | checkbox     | optional — notifies providers with Staffing capability on publish; hidden for internal openings |
 
 Submit button: "Save as Draft"
 
@@ -82,8 +92,9 @@ Displays all opening fields in read mode. Action buttons rendered based on statu
 
 - DRAFT: Edit, Submit for Review, Duplicate
 - PENDING_REVIEW: Approve, Reject (with rejection note input), Duplicate; rejection note from prior rejection shown if present
-- PUBLISHED: Pause, Close, Duplicate
-- PAUSED: Reopen, Close, Duplicate
+- PUBLISHED: Pause, Close, Duplicate; banner: "This opening will be automatically expired 180 days after first publication on {date}."
+- PAUSED: Reopen, Close, Duplicate; same 180-day expiry banner as PUBLISHED
+- EXPIRED: Archive, Duplicate; banner: "This opening expired automatically and no longer accepts new applications."
 - CLOSED: Archive, Duplicate
 - ARCHIVED: Duplicate only
 
@@ -91,44 +102,28 @@ Displays all opening fields in read mode. Action buttons rendered based on statu
 
 Portal: org-ui | Route: `/openings/:opening_id/edit`
 
-Same form as Create Opening, pre-populated. Available only when status is `draft`. Saving replaces all editable fields.
-
-**Screen: Opening Browse (Hub)**
-
-Portal: hub-ui | Route: `/openings`
-
-Header: Back to Dashboard button | "Job Openings" title (h2)
-
-Filters: Employment Type dropdown (All / Full-time / Part-time / Contract / Internship) · Work Location dropdown (All / Remote / On-site / Hybrid)
-
-| Title | Organization | Location | Employment Type | Posted At | Actions |
-| ----- | ------------ | -------- | --------------- | --------- | ------- |
-| …     | …            | …        | …               | …         | View    |
-
-**Screen: Opening Detail (Hub)**
-
-Portal: hub-ui | Route: `/openings/:opening_id`
-
-Displays: title, org name, description, employment type, work location type, location, experience range, salary range (if provided), tags, number of positions, published date. Internal notes and hiring manager details are NOT shown. Apply button is rendered but labelled "Applications opening soon" and is disabled (application spec is separate).
+Same form as Create Opening, pre-populated. Available only when status is `draft`. Saving replaces all editable fields. The `is_internal` checkbox is shown but disabled (read-only) — it cannot be changed after creation.
 
 ### API Surface
 
-| Endpoint                       | Portal | Who calls it              | What it does                                                                     |
-| ------------------------------ | ------ | ------------------------- | -------------------------------------------------------------------------------- |
-| `POST /org/openings/create`    | org    | OrgUser (manage_openings) | Creates a new opening in `draft` state                                           |
-| `POST /org/openings/list`      | org    | OrgUser (view_openings)   | Paginates openings for the org; optional status filter                           |
-| `POST /org/openings/get`       | org    | OrgUser (view_openings)   | Gets a single opening by ID including internal notes                             |
-| `POST /org/openings/update`    | org    | OrgUser (manage_openings) | Replaces all editable fields on a `draft` opening                                |
-| `POST /org/openings/duplicate` | org    | OrgUser (manage_openings) | Creates a new `draft` copy of any existing opening                               |
-| `POST /org/openings/submit`    | org    | OrgUser (manage_openings) | Moves a `draft` opening to `pending_review`                                      |
-| `POST /org/openings/approve`   | org    | OrgUser (manage_openings) | Moves `pending_review` → `published`; triggers provider notifications if flagged |
-| `POST /org/openings/reject`    | org    | OrgUser (manage_openings) | Moves `pending_review` → `draft` with a required rejection note                  |
-| `POST /org/openings/pause`     | org    | OrgUser (manage_openings) | Moves `published` → `paused`                                                     |
-| `POST /org/openings/reopen`    | org    | OrgUser (manage_openings) | Moves `paused` → `published`                                                     |
-| `POST /org/openings/close`     | org    | OrgUser (manage_openings) | Moves `published` or `paused` → `closed`                                         |
-| `POST /org/openings/archive`   | org    | OrgUser (manage_openings) | Moves `closed` → `archived`                                                      |
-| `POST /hub/openings/list`      | hub    | HubUser (read_posts)      | Paginates `published` openings; filters by employment type / location type       |
-| `POST /hub/openings/get`       | hub    | HubUser (read_posts)      | Gets a single `published` opening by ID (no internal notes)                      |
+| Endpoint                      | Portal | Who calls it              | What it does                                                                     |
+| ----------------------------- | ------ | ------------------------- | -------------------------------------------------------------------------------- |
+| `POST /org/create-opening`    | org    | OrgUser (manage_openings) | Creates a new opening in `draft` state                                           |
+| `POST /org/list-openings`     | org    | OrgUser (view_openings)   | Paginates openings for the org; optional status filter                           |
+| `POST /org/get-opening`       | org    | OrgUser (view_openings)   | Gets a single opening by ID including internal notes                             |
+| `POST /org/update-opening`    | org    | OrgUser (manage_openings) | Replaces all editable fields on a `draft` opening                                |
+| `POST /org/duplicate-opening` | org    | OrgUser (manage_openings) | Creates a new `draft` copy of any existing opening                               |
+| `POST /org/submit-opening`    | org    | OrgUser (manage_openings) | Moves a `draft` opening to `pending_review`                                      |
+| `POST /org/approve-opening`   | org    | OrgUser (manage_openings) | Moves `pending_review` → `published`; triggers provider notifications if flagged |
+| `POST /org/reject-opening`    | org    | OrgUser (manage_openings) | Moves `pending_review` → `draft` with a required rejection note                  |
+| `POST /org/pause-opening`     | org    | OrgUser (manage_openings) | Moves `published` → `paused`                                                     |
+| `POST /org/reopen-opening`    | org    | OrgUser (manage_openings) | Moves `paused` → `published`                                                     |
+| `POST /org/close-opening`     | org    | OrgUser (manage_openings) | Moves `published` or `paused` → `closed`                                         |
+| `POST /org/archive-opening`   | org    | OrgUser (manage_openings) | Moves `closed` or `expired` → `archived`                                         |
+
+The `expired` transition is not a user-callable endpoint — it is performed exclusively by the regional background worker. The worker writes the audit log entry with `actor_user_id = null`.
+
+Hub-side read endpoints (`/hub/list-openings`, `/hub/get-opening`) are deferred to the Hub Job Discovery spec. When defined, the correct role for HubUsers browsing openings is `hub:apply_jobs` (not `hub:read_posts`, which covers social/blog content).
 
 ---
 
@@ -157,10 +152,10 @@ model FooResponse {
   created_at: utcDateTime;
 }
 
-@route("/org/foo/create")
+@route("/org/create-foo")
 op createFoo(...CreateFooRequest): CreatedResponse<FooResponse> | BadRequestResponse;
 
-@route("/org/foo/list")
+@route("/org/list-foos")
 op listFoo(...ListFooRequest): OkResponse<FooListResponse> | BadRequestResponse;
 ```
 
@@ -204,8 +199,8 @@ LIMIT $3;
 
 | Method | Path              | Handler file          | Auth middleware | Role required    |
 | ------ | ----------------- | --------------------- | --------------- | ---------------- |
-| POST   | `/org/foo/create` | `handlers/org/foo.go` | `OrgAuth`       | `org:manage_foo` |
-| POST   | `/org/foo/list`   | `handlers/org/foo.go` | `OrgAuth`       | `org:view_foo`   |
+| POST   | `/org/create-foo` | `handlers/org/foo.go` | `OrgAuth`       | `org:manage_foo` |
+| POST   | `/org/list-foos`  | `handlers/org/foo.go` | `OrgAuth`       | `org:view_foo`   |
 
 #### Handler Notes
 

@@ -52,8 +52,8 @@ test.describe("POST /admin/org-plan/list", () => {
 			const req: AdminListOrgPlansRequest = {};
 			const res = await api.listOrgPlans(token, req);
 			expect(res.status).toBe(200);
-			expect(res.body!.items).toBeDefined();
-			expect(Array.isArray(res.body!.items)).toBe(true);
+			expect(res.body!.org_plans).toBeDefined();
+			expect(Array.isArray(res.body!.org_plans)).toBe(true);
 		} finally {
 			await deleteTestOrgUser(orgEmail);
 			await deleteTestAdminUser(adminEmail);
@@ -82,7 +82,7 @@ test.describe("POST /admin/org-plan/list", () => {
 			};
 			const res = await api.listOrgPlans(token, req);
 			expect(res.status).toBe(200);
-			for (const item of res.body!.items) {
+			for (const item of res.body!.org_plans) {
 				expect(item.current_plan.plan_id).toBe("gold");
 			}
 		} finally {
@@ -186,7 +186,7 @@ test.describe("POST /admin/org-plan/set", () => {
 			expect(res.body!.org_id).toBe(orgId);
 
 			// Audit log assertion
-			const auditRes = await api.filterAuditLogs(token, {
+			const auditRes = await api.listAuditLogs(token, {
 				event_types: ["admin.org_plan_granted"],
 				start_time: before,
 			});

@@ -224,7 +224,7 @@ test.describe("POST /hub/complete-signup", () => {
 
 			// Verify hub.complete_signup audit log entry was created
 			const sessionToken = response.body.session_token;
-			const auditResp = await api.myAuditLogs(sessionToken, {
+			const auditResp = await api.listAuditLogs(sessionToken, {
 				event_types: ["hub.complete_signup"],
 				start_time: before,
 			});

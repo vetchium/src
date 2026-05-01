@@ -45,7 +45,7 @@ async function loginAsAdmin(
 	return tfaRes.body.session_token;
 }
 
-test.describe("DELETE /org/delete-domain", () => {
+test.describe("POST /org/delete-domain", () => {
 	test("delete a non-primary verified domain returns 204 and audit log recorded", async ({
 		request,
 	}) => {
@@ -76,7 +76,7 @@ test.describe("DELETE /org/delete-domain", () => {
 			expect(found).toBeUndefined();
 
 			// Audit log recorded.
-			const auditRes = await api.filterAuditLogs(token, {
+			const auditRes = await api.listAuditLogs(token, {
 				event_types: ["org.delete_domain"],
 			});
 			expect(auditRes.status).toBe(200);
@@ -275,7 +275,7 @@ test.describe("DELETE /org/delete-domain", () => {
 	});
 });
 
-test.describe("RBAC: DELETE /org/delete-domain", () => {
+test.describe("RBAC: POST /org/delete-domain", () => {
 	test.describe.configure({ mode: "serial" });
 
 	let adminEmail: string;

@@ -102,7 +102,7 @@ test.describe("POST /hub/request-password-reset", () => {
 			expect(resetToken).toMatch(/^(IND1|USA1|DEU1)-[a-f0-9]{64}$/);
 
 			// Verify hub.request_password_reset audit log entry was created
-			const auditResp = await api.myAuditLogs(sessionToken, {
+			const auditResp = await api.listAuditLogs(sessionToken, {
 				event_types: ["hub.request_password_reset"],
 				start_time: before,
 			});
@@ -303,7 +303,7 @@ test.describe("POST /hub/complete-password-reset", () => {
 			const newSessionToken = newTfaResp.body.session_token;
 
 			// Verify hub.complete_password_reset audit log entry was created
-			const auditResp = await api.myAuditLogs(newSessionToken, {
+			const auditResp = await api.listAuditLogs(newSessionToken, {
 				event_types: ["hub.complete_password_reset"],
 				start_time: before,
 			});

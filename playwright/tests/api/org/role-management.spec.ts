@@ -57,7 +57,7 @@ test.describe("POST /org/assign-role", () => {
 			expect(assignResponse.body.message).toContain("successfully");
 
 			// Verify org.assign_role audit log entry was created
-			const auditResp = await api.filterAuditLogs(sessionToken, {
+			const auditResp = await api.listAuditLogs(sessionToken, {
 				event_types: ["org.assign_role"],
 				start_time: before,
 			});
@@ -479,7 +479,7 @@ test.describe("POST /org/remove-role", () => {
 			expect(removeResponse.body.message).toContain("successfully");
 
 			// Verify org.remove_role audit log entry was created
-			const auditResp = await api.filterAuditLogs(sessionToken, {
+			const auditResp = await api.listAuditLogs(sessionToken, {
 				event_types: ["org.remove_role"],
 				start_time: before,
 			});

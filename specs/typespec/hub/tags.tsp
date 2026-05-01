@@ -49,6 +49,9 @@ model HubFilterTagsRequest {
 
   @doc("BCP 47 locale code; defaults to en-US when omitted")
   locale?: string;
+
+  @doc("Number of items to return (default and max enforced server-side)")
+  limit?: int32;
 }
 
 @doc("Response for the hub filter-tags endpoint.")
@@ -78,8 +81,8 @@ interface HubGetTagOps {
   };
 }
 
-@route("/hub/filter-tags")
-interface HubFilterTagsOps {
+@route("/hub/list-tags")
+interface HubListTagsOps {
   @doc("Filter/search tags with optional query, locale, and pagination.")
   @post
   filterTags(@body request: HubFilterTagsRequest): HubFilterTagsResponse | {

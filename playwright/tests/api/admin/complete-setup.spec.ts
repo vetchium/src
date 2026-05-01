@@ -75,7 +75,7 @@ test.describe("POST /admin/complete-setup", () => {
 			expect(newLoginResponse.body.tfa_token).toBeDefined();
 
 			// Verify admin.complete_setup audit log entry was created (query with inviting admin's token)
-			const auditResp = await api.filterAuditLogs(sessionToken, {
+			const auditResp = await api.listAuditLogs(sessionToken, {
 				event_types: ["admin.complete_setup"],
 				start_time: before,
 			});

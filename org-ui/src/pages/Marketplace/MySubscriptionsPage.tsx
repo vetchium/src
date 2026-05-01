@@ -39,7 +39,7 @@ export function MySubscriptionsPage() {
 			try {
 				const baseUrl = await getApiBaseUrl();
 				const resp = await fetch(
-					`${baseUrl}/org/marketplace/subscription/list`,
+					`${baseUrl}/org/marketplace/list-subscriptions`,
 					{
 						method: "POST",
 						headers: {

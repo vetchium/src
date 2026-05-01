@@ -9,20 +9,20 @@ using TypeSpec.Http;
 namespace Vetchium;
 
 model AddCostCenterRequest {
-  id: string;
+  cost_center_id: string;
   display_name: string;
   notes?: string;
 }
 
 model UpdateCostCenterRequest {
-  id: string;
+  cost_center_id: string;
   display_name: string;
   status: string;
   notes?: string;
 }
 
 model CostCenter {
-  id: string;
+  cost_center_id: string;
   display_name: string;
   status: string;
   notes?: string;
@@ -32,6 +32,7 @@ model CostCenter {
 model ListCostCentersRequest {
   filter_status?: string;
   pagination_key?: string;
+  limit?: int32;
 }
 
 model ListCostCentersResponse {
@@ -41,7 +42,7 @@ model ListCostCentersResponse {
 
 @route("/org")
 interface OrgCostCenters {
-  @route("/add-cost-center") @post addCostCenter(@body body: AddCostCenterRequest): CostCenter | BadRequestResponse;
+  @route("/create-cost-center") @post addCostCenter(@body body: AddCostCenterRequest): CostCenter | BadRequestResponse;
   @route("/update-cost-center") @post updateCostCenter(@body body: UpdateCostCenterRequest): CostCenter | BadRequestResponse;
   @route("/list-cost-centers") @post listCostCenters(@body body: ListCostCentersRequest): ListCostCentersResponse | BadRequestResponse;
 }

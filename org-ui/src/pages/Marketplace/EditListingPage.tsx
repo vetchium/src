@@ -29,7 +29,7 @@ export function EditListingPage() {
 		if (!sessionToken || !orgDomain || !listingNumber) return;
 		try {
 			const baseUrl = await getApiBaseUrl();
-			const resp = await fetch(`${baseUrl}/org/marketplace/listing/get`, {
+			const resp = await fetch(`${baseUrl}/org/marketplace/get-listing`, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
@@ -67,7 +67,7 @@ export function EditListingPage() {
 		setSubmitting(true);
 		try {
 			const baseUrl = await getApiBaseUrl();
-			const resp = await fetch(`${baseUrl}/org/marketplace/listing/update`, {
+			const resp = await fetch(`${baseUrl}/org/marketplace/update-listing`, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",

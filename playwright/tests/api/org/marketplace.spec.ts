@@ -158,7 +158,7 @@ test.describe("Listing CRUD — superadmin publish to active", () => {
 			expect(publishRes.body!.listed_at).toBeDefined();
 
 			// Audit log: org.marketplace_listing_created
-			const auditCreateRes = await api.filterAuditLogs(token, {
+			const auditCreateRes = await api.listAuditLogs(token, {
 				event_types: ["org.marketplace_listing_created"],
 				start_time: before,
 			});
@@ -166,7 +166,7 @@ test.describe("Listing CRUD — superadmin publish to active", () => {
 			expect(auditCreateRes.body.audit_logs.length).toBeGreaterThanOrEqual(1);
 
 			// Audit log: org.marketplace_listing_published
-			const auditPubRes = await api.filterAuditLogs(token, {
+			const auditPubRes = await api.listAuditLogs(token, {
 				event_types: ["org.marketplace_listing_published"],
 				start_time: before,
 			});
@@ -1163,7 +1163,7 @@ test.describe("Audit logs for marketplace write operations", () => {
 				capabilities: [TEST_CAP_ID],
 			});
 
-			const auditRes = await api.filterAuditLogs(token, {
+			const auditRes = await api.listAuditLogs(token, {
 				event_types: ["org.marketplace_listing_created"],
 				start_time: before,
 			});
@@ -1203,7 +1203,7 @@ test.describe("Audit logs for marketplace write operations", () => {
 				description: "Updated audit description",
 			} as UpdateListingRequest);
 
-			const auditRes = await api.filterAuditLogs(token, {
+			const auditRes = await api.listAuditLogs(token, {
 				event_types: ["org.marketplace_listing_updated"],
 				start_time: before,
 			});
@@ -1243,7 +1243,7 @@ test.describe("Audit logs for marketplace write operations", () => {
 				capability_id: TEST_CAP2_ID,
 			} as AddListingCapabilityRequest);
 
-			const auditRes = await api.filterAuditLogs(token, {
+			const auditRes = await api.listAuditLogs(token, {
 				event_types: ["org.marketplace_listing_updated"],
 				start_time: before,
 			});
@@ -1283,7 +1283,7 @@ test.describe("Audit logs for marketplace write operations", () => {
 				capability_id: TEST_CAP2_ID,
 			} as RemoveListingCapabilityRequest);
 
-			const auditRes = await api.filterAuditLogs(token, {
+			const auditRes = await api.listAuditLogs(token, {
 				event_types: ["org.marketplace_listing_updated"],
 				start_time: before,
 			});
@@ -1337,7 +1337,7 @@ test.describe("Audit logs for marketplace write operations", () => {
 			} as SubscribeRequest);
 			expect(subRes.status).toBe(201);
 
-			const auditRes = await api.filterAuditLogs(conToken, {
+			const auditRes = await api.listAuditLogs(conToken, {
 				event_types: ["org.marketplace_subscription_created"],
 				start_time: before,
 			});
@@ -1398,7 +1398,7 @@ test.describe("Audit logs for marketplace write operations", () => {
 				subscription_id: subId,
 			} as CancelSubscriptionRequest);
 
-			const auditRes = await api.filterAuditLogs(conToken, {
+			const auditRes = await api.listAuditLogs(conToken, {
 				event_types: ["org.marketplace_subscription_cancelled"],
 				start_time: before,
 			});
@@ -1457,7 +1457,7 @@ test.describe("Audit logs for marketplace write operations", () => {
 			} as OrgApproveListingRequest);
 			expect(approveRes.status).toBe(200);
 
-			const auditRes = await api.filterAuditLogs(adminToken, {
+			const auditRes = await api.listAuditLogs(adminToken, {
 				event_types: ["org.marketplace_listing_approved"],
 				start_time: before,
 			});
@@ -1517,7 +1517,7 @@ test.describe("Audit logs for marketplace write operations", () => {
 			} as OrgRejectListingRequest);
 			expect(rejectRes.status).toBe(200);
 
-			const auditRes = await api.filterAuditLogs(adminToken, {
+			const auditRes = await api.listAuditLogs(adminToken, {
 				event_types: ["org.marketplace_listing_rejected"],
 				start_time: before,
 			});
@@ -1704,7 +1704,7 @@ test.describe("POST /org/marketplace/listing/archive", () => {
 			} as ArchiveListingRequest);
 			expect(archiveRes.status).toBe(200);
 
-			const auditRes = await api.filterAuditLogs(token, {
+			const auditRes = await api.listAuditLogs(token, {
 				event_types: ["org.marketplace_listing_archived"],
 				start_time: before,
 			});
@@ -1899,7 +1899,7 @@ test.describe("POST /org/marketplace/listing/reopen", () => {
 			} as ReopenListingRequest);
 			expect(reopenRes.status).toBe(200);
 
-			const auditRes = await api.filterAuditLogs(token, {
+			const auditRes = await api.listAuditLogs(token, {
 				event_types: ["org.marketplace_listing_reopened"],
 				start_time: before,
 			});

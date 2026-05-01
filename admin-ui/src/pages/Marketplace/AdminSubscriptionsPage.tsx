@@ -56,7 +56,7 @@ export function AdminSubscriptionsPage() {
 			try {
 				const baseUrl = await getApiBaseUrl();
 				const resp = await fetch(
-					`${baseUrl}/admin/marketplace/subscription/list`,
+					`${baseUrl}/admin/marketplace/list-subscriptions`,
 					{
 						method: "POST",
 						headers: {
@@ -99,7 +99,7 @@ export function AdminSubscriptionsPage() {
 		try {
 			const baseUrl = await getApiBaseUrl();
 			const resp = await fetch(
-				`${baseUrl}/admin/marketplace/subscription/cancel`,
+				`${baseUrl}/admin/marketplace/cancel-subscription`,
 				{
 					method: "POST",
 					headers: {

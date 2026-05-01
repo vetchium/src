@@ -66,7 +66,7 @@ test.describe("POST /org/disable-user", () => {
 			expect(user!.status).toBe("disabled");
 
 			// Verify org.disable_user audit log entry was created
-			const auditResp = await api.filterAuditLogs(sessionToken, {
+			const auditResp = await api.listAuditLogs(sessionToken, {
 				event_types: ["org.disable_user"],
 				start_time: before,
 			});
@@ -371,7 +371,7 @@ test.describe("POST /org/enable-user", () => {
 			expect(user!.status).toBe("active");
 
 			// Verify org.enable_user audit log entry was created
-			const auditResp = await api.filterAuditLogs(sessionToken, {
+			const auditResp = await api.listAuditLogs(sessionToken, {
 				event_types: ["org.enable_user"],
 				start_time: before,
 			});

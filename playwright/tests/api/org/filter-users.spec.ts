@@ -78,7 +78,7 @@ test.describe("Org Filter Users API", () => {
 
 	test("should list users for current org", async ({ request }) => {
 		const orgApiClient = new OrgAPIClient(request);
-		const response = await orgApiClient.filterUsers(mainOrgToken, {
+		const response = await orgApiClient.listUsers(mainOrgToken, {
 			limit: 10,
 		});
 		expect(response.status).toBe(200);
@@ -87,7 +87,7 @@ test.describe("Org Filter Users API", () => {
 
 	test("should filter users by partial email", async ({ request }) => {
 		const orgApiClient = new OrgAPIClient(request);
-		const response = await orgApiClient.filterUsers(mainOrgToken, {
+		const response = await orgApiClient.listUsers(mainOrgToken, {
 			filter_email: "user", // Matches user1, user2, user3
 			limit: 10,
 		});
@@ -101,7 +101,7 @@ test.describe("Org Filter Users API", () => {
 
 	test("should filter users by status", async ({ request }) => {
 		const orgApiClient = new OrgAPIClient(request);
-		const response = await orgApiClient.filterUsers(mainOrgToken, {
+		const response = await orgApiClient.listUsers(mainOrgToken, {
 			filter_status: "disabled",
 		});
 		expect(response.status).toBe(200);
@@ -114,14 +114,14 @@ test.describe("Org Filter Users API", () => {
 
 	test("should support keyset pagination", async ({ request }) => {
 		const orgApiClient = new OrgAPIClient(request);
-		const res1 = await orgApiClient.filterUsers(mainOrgToken, {
+		const res1 = await orgApiClient.listUsers(mainOrgToken, {
 			limit: 2,
 		});
 		expect(res1.body!.items.length).toBe(2);
 		const cursor = res1.body!.next_cursor;
 		expect(cursor).toBeTruthy();
 
-		const res2 = await orgApiClient.filterUsers(mainOrgToken, {
+		const res2 = await orgApiClient.listUsers(mainOrgToken, {
 			limit: 2,
 			cursor: cursor,
 		});
@@ -160,7 +160,7 @@ test.describe("Org Filter Users API", () => {
 		expect(tfaRes.status).toBe(200);
 		const noRoleToken = tfaRes.body!.session_token;
 
-		const response = await orgApiClient.filterUsers(noRoleToken, {
+		const response = await orgApiClient.listUsers(noRoleToken, {
 			limit: 10,
 		});
 		expect(response.status).toBe(403);

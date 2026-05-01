@@ -129,7 +129,7 @@ test.describe("POST /hub/logout", () => {
 			expect(response.status).toBe(200);
 
 			// Verify hub.logout audit log entry was created (query with session2)
-			const auditResp = await api.myAuditLogs(sessionToken2, {
+			const auditResp = await api.listAuditLogs(sessionToken2, {
 				event_types: ["hub.logout"],
 				start_time: before,
 			});

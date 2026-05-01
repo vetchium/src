@@ -104,7 +104,7 @@ export function DashboardPage() {
 					{hasUserManagementAccess && (
 						<Col xs={24} sm={12} lg={8}>
 							<Link
-								to="/user-management"
+								to="/users"
 								style={{
 									textDecoration: "none",
 									display: "block",
@@ -176,7 +176,7 @@ export function DashboardPage() {
 					{hasDomainManagementAccess && (
 						<Col xs={24} sm={12} lg={8}>
 							<Link
-								to="/domain-management"
+								to="/domains"
 								style={{
 									textDecoration: "none",
 									display: "block",

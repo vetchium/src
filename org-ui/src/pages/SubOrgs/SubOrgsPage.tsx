@@ -357,7 +357,7 @@ export function SubOrgsPage() {
 				filter_name: query,
 				limit: 10,
 			};
-			const resp = await fetch(`${baseUrl}/org/filter-users`, {
+			const resp = await fetch(`${baseUrl}/org/list-users`, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",

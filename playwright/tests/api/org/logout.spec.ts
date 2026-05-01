@@ -104,7 +104,7 @@ test.describe("POST /org/logout", () => {
 			expect(response.status).toBe(200);
 
 			// Verify org.logout audit log entry was created (query with session2)
-			const auditResp = await api.filterAuditLogs(sessionToken2, {
+			const auditResp = await api.listAuditLogs(sessionToken2, {
 				event_types: ["org.logout"],
 				start_time: before,
 			});

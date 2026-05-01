@@ -259,7 +259,7 @@ export class AdminAPIClient {
 	// ============================================================================
 
 	/**
-	 * POST /admin/add-approved-domain
+	 * POST /admin/create-approved-domain
 	 * Creates a new approved domain.
 	 *
 	 * @param sessionToken - Session token for authentication
@@ -270,7 +270,7 @@ export class AdminAPIClient {
 		sessionToken: string,
 		request: AddApprovedDomainRequest
 	): Promise<APIResponse<ApprovedDomainDetailResponse["domain"]>> {
-		const response = await this.request.post("/admin/add-approved-domain", {
+		const response = await this.request.post("/admin/create-approved-domain", {
 			headers: { Authorization: `Bearer ${sessionToken}` },
 			data: request,
 		});
@@ -284,13 +284,13 @@ export class AdminAPIClient {
 	}
 
 	/**
-	 * POST /admin/add-approved-domain with raw body for testing invalid payloads
+	 * POST /admin/create-approved-domain with raw body for testing invalid payloads
 	 */
 	async createApprovedDomainRaw(
 		sessionToken: string,
 		body: unknown
 	): Promise<APIResponse<ApprovedDomainDetailResponse["domain"]>> {
-		const response = await this.request.post("/admin/add-approved-domain", {
+		const response = await this.request.post("/admin/create-approved-domain", {
 			headers: { Authorization: `Bearer ${sessionToken}` },
 			data: body,
 		});
@@ -937,10 +937,10 @@ export class AdminAPIClient {
 	// ============================================================================
 
 	/**
-	 * POST /admin/filter-users
+	 * POST /admin/list-users
 	 * Filters admin users.
 	 */
-	async filterUsers(
+	async listUsers(
 		sessionToken: string,
 		request: import("vetchium-specs/admin/admin-users").FilterAdminUsersRequest
 	): Promise<
@@ -948,7 +948,7 @@ export class AdminAPIClient {
 			import("vetchium-specs/admin/admin-users").FilterAdminUsersResponse
 		>
 	> {
-		const response = await this.request.post("/admin/filter-users", {
+		const response = await this.request.post("/admin/list-users", {
 			headers: { Authorization: `Bearer ${sessionToken}` },
 			data: request,
 		});
@@ -1003,14 +1003,14 @@ export class AdminAPIClient {
 	// ============================================================================
 
 	/**
-	 * POST /admin/add-tag
+	 * POST /admin/create-tag
 	 * Creates a new tag with translations.
 	 */
 	async addTag(
 		sessionToken: string,
 		request: CreateTagRequest
 	): Promise<APIResponse<AdminTag>> {
-		const response = await this.request.post("/admin/add-tag", {
+		const response = await this.request.post("/admin/create-tag", {
 			headers: { Authorization: `Bearer ${sessionToken}` },
 			data: request,
 		});
@@ -1063,14 +1063,14 @@ export class AdminAPIClient {
 	}
 
 	/**
-	 * POST /admin/filter-tags
+	 * POST /admin/list-tags
 	 * Filters/searches tags with optional query and keyset pagination.
 	 */
-	async filterTags(
+	async listTags(
 		sessionToken: string,
 		request: FilterTagsRequest
 	): Promise<APIResponse<FilterTagsResponse>> {
-		const response = await this.request.post("/admin/filter-tags", {
+		const response = await this.request.post("/admin/list-tags", {
 			headers: { Authorization: `Bearer ${sessionToken}` },
 			data: request,
 		});
@@ -1139,15 +1139,15 @@ export class AdminAPIClient {
 	// ============================================================================
 
 	/**
-	 * POST /admin/filter-audit-logs
+	 * POST /admin/list-audit-logs
 	 * Filters admin portal audit logs.
 	 * Requires admin:view_audit_logs or admin:superadmin role.
 	 */
-	async filterAuditLogs(
+	async listAuditLogs(
 		sessionToken: string,
 		request: FilterAuditLogsRequest
 	): Promise<APIResponse<FilterAuditLogsResponse>> {
-		const response = await this.request.post("/admin/filter-audit-logs", {
+		const response = await this.request.post("/admin/list-audit-logs", {
 			headers: { Authorization: `Bearer ${sessionToken}` },
 			data: request,
 		});
@@ -1160,13 +1160,13 @@ export class AdminAPIClient {
 	}
 
 	/**
-	 * POST /admin/filter-audit-logs with raw body for testing invalid payloads
+	 * POST /admin/list-audit-logs with raw body for testing invalid payloads
 	 */
-	async filterAuditLogsRaw(
+	async listAuditLogsRaw(
 		sessionToken: string,
 		body: unknown
 	): Promise<APIResponse<FilterAuditLogsResponse>> {
-		const response = await this.request.post("/admin/filter-audit-logs", {
+		const response = await this.request.post("/admin/list-audit-logs", {
 			headers: { Authorization: `Bearer ${sessionToken}` },
 			data: body,
 		});
@@ -1179,12 +1179,12 @@ export class AdminAPIClient {
 	}
 
 	/**
-	 * POST /admin/filter-audit-logs without Authorization header (for testing 401)
+	 * POST /admin/list-audit-logs without Authorization header (for testing 401)
 	 */
-	async filterAuditLogsWithoutAuth(
+	async listAuditLogsWithoutAuth(
 		request: FilterAuditLogsRequest
 	): Promise<APIResponse<FilterAuditLogsResponse>> {
-		const response = await this.request.post("/admin/filter-audit-logs", {
+		const response = await this.request.post("/admin/list-audit-logs", {
 			data: request,
 		});
 		const body = await response.json().catch(() => ({}));
@@ -1196,13 +1196,13 @@ export class AdminAPIClient {
 	}
 
 	/**
-	 * POST /admin/org-plan/list
+	 * POST /admin/list-org-plans
 	 */
 	async listOrgPlans(
 		sessionToken: string,
 		request: AdminListOrgPlansRequest
 	): Promise<APIResponse<AdminListOrgPlansResponse>> {
-		const response = await this.request.post("/admin/org-plan/list", {
+		const response = await this.request.post("/admin/list-org-plans", {
 			headers: { Authorization: `Bearer ${sessionToken}` },
 			data: request,
 		});
@@ -1215,13 +1215,13 @@ export class AdminAPIClient {
 	}
 
 	/**
-	 * POST /admin/org-plan/list with raw body for testing invalid payloads
+	 * POST /admin/list-org-plans with raw body for testing invalid payloads
 	 */
 	async listOrgPlansRaw(
 		sessionToken: string,
 		body: unknown
 	): Promise<APIResponse<AdminListOrgPlansResponse>> {
-		const response = await this.request.post("/admin/org-plan/list", {
+		const response = await this.request.post("/admin/list-org-plans", {
 			headers: { Authorization: `Bearer ${sessionToken}` },
 			data: body,
 		});
@@ -1234,13 +1234,13 @@ export class AdminAPIClient {
 	}
 
 	/**
-	 * POST /admin/org-plan/set
+	 * POST /admin/set-org-plan
 	 */
 	async setOrgPlan(
 		sessionToken: string,
 		request: AdminSetOrgPlanRequest
 	): Promise<APIResponse<AdminSetOrgPlanResponse>> {
-		const response = await this.request.post("/admin/org-plan/set", {
+		const response = await this.request.post("/admin/set-org-plan", {
 			headers: { Authorization: `Bearer ${sessionToken}` },
 			data: request,
 		});
@@ -1253,13 +1253,13 @@ export class AdminAPIClient {
 	}
 
 	/**
-	 * POST /admin/org-plan/set with raw body for testing invalid payloads
+	 * POST /admin/set-org-plan with raw body for testing invalid payloads
 	 */
 	async setOrgPlanRaw(
 		sessionToken: string,
 		body: unknown
 	): Promise<APIResponse<AdminSetOrgPlanResponse>> {
-		const response = await this.request.post("/admin/org-plan/set", {
+		const response = await this.request.post("/admin/set-org-plan", {
 			headers: { Authorization: `Bearer ${sessionToken}` },
 			data: body,
 		});
@@ -1280,7 +1280,7 @@ export class AdminAPIClient {
 		request: AdminCreateCapabilityRequest
 	): Promise<APIResponse<MarketplaceCapability>> {
 		const response = await this.request.post(
-			"/admin/marketplace/capability/create",
+			"/admin/marketplace/create-capability",
 			{
 				headers: { Authorization: `Bearer ${sessionToken}` },
 				data: request,
@@ -1299,7 +1299,7 @@ export class AdminAPIClient {
 		body: unknown
 	): Promise<APIResponse<MarketplaceCapability>> {
 		const response = await this.request.post(
-			"/admin/marketplace/capability/create",
+			"/admin/marketplace/create-capability",
 			{
 				headers: { Authorization: `Bearer ${sessionToken}` },
 				data: body,
@@ -1318,7 +1318,7 @@ export class AdminAPIClient {
 		request: AdminUpdateCapabilityRequest
 	): Promise<APIResponse<MarketplaceCapability>> {
 		const response = await this.request.post(
-			"/admin/marketplace/capability/update",
+			"/admin/marketplace/update-capability",
 			{
 				headers: { Authorization: `Bearer ${sessionToken}` },
 				data: request,
@@ -1337,7 +1337,7 @@ export class AdminAPIClient {
 		body: unknown
 	): Promise<APIResponse<MarketplaceCapability>> {
 		const response = await this.request.post(
-			"/admin/marketplace/capability/update",
+			"/admin/marketplace/update-capability",
 			{
 				headers: { Authorization: `Bearer ${sessionToken}` },
 				data: body,
@@ -1355,7 +1355,7 @@ export class AdminAPIClient {
 		sessionToken: string
 	): Promise<APIResponse<ListCapabilitiesResponse>> {
 		const response = await this.request.post(
-			"/admin/marketplace/capability/list",
+			"/admin/marketplace/list-capabilities",
 			{
 				headers: { Authorization: `Bearer ${sessionToken}` },
 				data: {},
@@ -1378,7 +1378,7 @@ export class AdminAPIClient {
 		request: AdminListListingsRequest
 	): Promise<APIResponse<AdminListListingsResponse>> {
 		const response = await this.request.post(
-			"/admin/marketplace/listing/list",
+			"/admin/marketplace/list-listings",
 			{
 				headers: { Authorization: `Bearer ${sessionToken}` },
 				data: request,
@@ -1397,7 +1397,7 @@ export class AdminAPIClient {
 		body: unknown
 	): Promise<APIResponse<AdminListListingsResponse>> {
 		const response = await this.request.post(
-			"/admin/marketplace/listing/list",
+			"/admin/marketplace/list-listings",
 			{
 				headers: { Authorization: `Bearer ${sessionToken}` },
 				data: body,
@@ -1416,7 +1416,7 @@ export class AdminAPIClient {
 		request: AdminSuspendListingRequest
 	): Promise<APIResponse<MarketplaceListing>> {
 		const response = await this.request.post(
-			"/admin/marketplace/listing/suspend",
+			"/admin/marketplace/suspend-listing",
 			{
 				headers: { Authorization: `Bearer ${sessionToken}` },
 				data: request,
@@ -1435,7 +1435,7 @@ export class AdminAPIClient {
 		body: unknown
 	): Promise<APIResponse<MarketplaceListing>> {
 		const response = await this.request.post(
-			"/admin/marketplace/listing/suspend",
+			"/admin/marketplace/suspend-listing",
 			{
 				headers: { Authorization: `Bearer ${sessionToken}` },
 				data: body,
@@ -1454,7 +1454,7 @@ export class AdminAPIClient {
 		request: AdminReinstateListingRequest
 	): Promise<APIResponse<MarketplaceListing>> {
 		const response = await this.request.post(
-			"/admin/marketplace/listing/reinstate",
+			"/admin/marketplace/reinstate-listing",
 			{
 				headers: { Authorization: `Bearer ${sessionToken}` },
 				data: request,
@@ -1473,7 +1473,7 @@ export class AdminAPIClient {
 		body: unknown
 	): Promise<APIResponse<MarketplaceListing>> {
 		const response = await this.request.post(
-			"/admin/marketplace/listing/reinstate",
+			"/admin/marketplace/reinstate-listing",
 			{
 				headers: { Authorization: `Bearer ${sessionToken}` },
 				data: body,
@@ -1496,7 +1496,7 @@ export class AdminAPIClient {
 		request: AdminListSubscriptionsRequest
 	): Promise<APIResponse<AdminListSubscriptionsResponse>> {
 		const response = await this.request.post(
-			"/admin/marketplace/subscription/list",
+			"/admin/marketplace/list-subscriptions",
 			{
 				headers: { Authorization: `Bearer ${sessionToken}` },
 				data: request,
@@ -1515,7 +1515,7 @@ export class AdminAPIClient {
 		body: unknown
 	): Promise<APIResponse<AdminListSubscriptionsResponse>> {
 		const response = await this.request.post(
-			"/admin/marketplace/subscription/list",
+			"/admin/marketplace/list-subscriptions",
 			{
 				headers: { Authorization: `Bearer ${sessionToken}` },
 				data: body,
@@ -1534,7 +1534,7 @@ export class AdminAPIClient {
 		request: AdminCancelSubscriptionRequest
 	): Promise<APIResponse<void>> {
 		const response = await this.request.post(
-			"/admin/marketplace/subscription/cancel",
+			"/admin/marketplace/cancel-subscription",
 			{
 				headers: { Authorization: `Bearer ${sessionToken}` },
 				data: request,
@@ -1548,7 +1548,7 @@ export class AdminAPIClient {
 		body: unknown
 	): Promise<APIResponse<void>> {
 		const response = await this.request.post(
-			"/admin/marketplace/subscription/cancel",
+			"/admin/marketplace/cancel-subscription",
 			{
 				headers: { Authorization: `Bearer ${sessionToken}` },
 				data: body,

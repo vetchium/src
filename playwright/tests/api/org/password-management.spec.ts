@@ -56,7 +56,7 @@ test.describe("POST /org/request-password-reset", () => {
 			expect(emailMessage.Subject).toContain("Password");
 
 			// Verify org.request_password_reset audit log entry was created
-			const auditResp = await api.filterAuditLogs(sessionToken, {
+			const auditResp = await api.listAuditLogs(sessionToken, {
 				event_types: ["org.request_password_reset"],
 				start_time: before,
 			});
@@ -194,7 +194,7 @@ test.describe("POST /org/complete-password-reset", () => {
 			const sessionToken = tfaResp.body.session_token;
 
 			// Verify org.complete_password_reset audit log entry was created
-			const auditResp = await api.filterAuditLogs(sessionToken, {
+			const auditResp = await api.listAuditLogs(sessionToken, {
 				event_types: ["org.complete_password_reset"],
 				start_time: before,
 			});
@@ -378,7 +378,7 @@ test.describe("POST /org/change-password", () => {
 			expect(oldLoginResp.status).toBe(401);
 
 			// Verify org.change_password audit log entry was created (current session preserved)
-			const auditResp = await api.filterAuditLogs(sessionToken, {
+			const auditResp = await api.listAuditLogs(sessionToken, {
 				event_types: ["org.change_password"],
 				start_time: before,
 			});

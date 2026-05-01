@@ -25,16 +25,16 @@ export const CostCenterStatusDisabled: CostCenterStatus = "disabled";
 
 // CostCenter is the response type for cost center reads.
 export interface CostCenter {
-	id: string;
+	cost_center_id: string;
 	display_name: string;
 	status: CostCenterStatus;
 	notes?: string;
 	created_at: string;
 }
 
-// AddCostCenterRequest is the request body for POST /org/add-cost-center.
+// AddCostCenterRequest is the request body for POST /org/create-cost-center.
 export interface AddCostCenterRequest {
-	id: string;
+	cost_center_id: string;
 	display_name: string;
 	notes?: string;
 }
@@ -44,14 +44,18 @@ export function validateAddCostCenterRequest(
 ): ValidationError[] {
 	const errs: ValidationError[] = [];
 
-	if (!request.id) {
-		errs.push(newValidationError("id", ERR_COST_CENTER_ID_REQUIRED));
+	if (!request.cost_center_id) {
+		errs.push(
+			newValidationError("cost_center_id", ERR_COST_CENTER_ID_REQUIRED)
+		);
 		return errs;
 	}
-	if (request.id.length > COST_CENTER_ID_MAX_LENGTH) {
-		errs.push(newValidationError("id", ERR_COST_CENTER_ID_TOO_LONG));
-	} else if (!COST_CENTER_ID_PATTERN.test(request.id)) {
-		errs.push(newValidationError("id", ERR_COST_CENTER_ID_INVALID));
+	if (request.cost_center_id.length > COST_CENTER_ID_MAX_LENGTH) {
+		errs.push(
+			newValidationError("cost_center_id", ERR_COST_CENTER_ID_TOO_LONG)
+		);
+	} else if (!COST_CENTER_ID_PATTERN.test(request.cost_center_id)) {
+		errs.push(newValidationError("cost_center_id", ERR_COST_CENTER_ID_INVALID));
 	}
 
 	if (!request.display_name) {
@@ -78,7 +82,7 @@ export function validateAddCostCenterRequest(
 
 // UpdateCostCenterRequest is the request body for POST /org/update-cost-center.
 export interface UpdateCostCenterRequest {
-	id: string;
+	cost_center_id: string;
 	display_name: string;
 	status: CostCenterStatus;
 	notes?: string;
@@ -89,14 +93,18 @@ export function validateUpdateCostCenterRequest(
 ): ValidationError[] {
 	const errs: ValidationError[] = [];
 
-	if (!request.id) {
-		errs.push(newValidationError("id", ERR_COST_CENTER_ID_REQUIRED));
+	if (!request.cost_center_id) {
+		errs.push(
+			newValidationError("cost_center_id", ERR_COST_CENTER_ID_REQUIRED)
+		);
 		return errs;
 	}
-	if (request.id.length > COST_CENTER_ID_MAX_LENGTH) {
-		errs.push(newValidationError("id", ERR_COST_CENTER_ID_TOO_LONG));
-	} else if (!COST_CENTER_ID_PATTERN.test(request.id)) {
-		errs.push(newValidationError("id", ERR_COST_CENTER_ID_INVALID));
+	if (request.cost_center_id.length > COST_CENTER_ID_MAX_LENGTH) {
+		errs.push(
+			newValidationError("cost_center_id", ERR_COST_CENTER_ID_TOO_LONG)
+		);
+	} else if (!COST_CENTER_ID_PATTERN.test(request.cost_center_id)) {
+		errs.push(newValidationError("cost_center_id", ERR_COST_CENTER_ID_INVALID));
 	}
 
 	if (!request.display_name) {

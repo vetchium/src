@@ -73,7 +73,7 @@ test.describe("POST /org/tfa", () => {
 
 			// Verify org.login audit log entry was created
 			const sessionToken = response.body.session_token;
-			const auditResp = await api.filterAuditLogs(sessionToken, {
+			const auditResp = await api.listAuditLogs(sessionToken, {
 				event_types: ["org.login"],
 				start_time: before,
 			});

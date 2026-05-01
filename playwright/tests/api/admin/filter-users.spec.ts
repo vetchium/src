@@ -71,7 +71,7 @@ test.describe("Admin Filter Users API", () => {
 
 	test("should list users with default pagination", async ({ request }) => {
 		const adminApiClient = new AdminAPIClient(request);
-		const response = await adminApiClient.filterUsers(mainAdminToken, {
+		const response = await adminApiClient.listUsers(mainAdminToken, {
 			limit: 10,
 		});
 		expect(response.status).toBe(200);
@@ -81,7 +81,7 @@ test.describe("Admin Filter Users API", () => {
 
 	test("should filter users by partial email", async ({ request }) => {
 		const adminApiClient = new AdminAPIClient(request);
-		const response = await adminApiClient.filterUsers(mainAdminToken, {
+		const response = await adminApiClient.listUsers(mainAdminToken, {
 			filter_email: "filter-target",
 			limit: 10,
 		});
@@ -97,7 +97,7 @@ test.describe("Admin Filter Users API", () => {
 
 	test("should filter users by partial name", async ({ request }) => {
 		const adminApiClient = new AdminAPIClient(request);
-		const response = await adminApiClient.filterUsers(mainAdminToken, {
+		const response = await adminApiClient.listUsers(mainAdminToken, {
 			filter_name: "Filter Target",
 			limit: 10,
 		});
@@ -110,7 +110,7 @@ test.describe("Admin Filter Users API", () => {
 
 	test("should filter users by status", async ({ request }) => {
 		const adminApiClient = new AdminAPIClient(request);
-		const response = await adminApiClient.filterUsers(mainAdminToken, {
+		const response = await adminApiClient.listUsers(mainAdminToken, {
 			filter_status: "disabled",
 			filter_email: "filter-disabled", // Combine to narrow down
 		});
@@ -124,7 +124,7 @@ test.describe("Admin Filter Users API", () => {
 	test("should support keyset pagination", async ({ request }) => {
 		const adminApiClient = new AdminAPIClient(request);
 		// First page
-		const res1 = await adminApiClient.filterUsers(mainAdminToken, {
+		const res1 = await adminApiClient.listUsers(mainAdminToken, {
 			limit: 2,
 		});
 		expect(res1.status).toBe(200);
@@ -133,7 +133,7 @@ test.describe("Admin Filter Users API", () => {
 		expect(cursor).toBeTruthy();
 
 		// Second page
-		const res2 = await adminApiClient.filterUsers(mainAdminToken, {
+		const res2 = await adminApiClient.listUsers(mainAdminToken, {
 			limit: 2,
 			cursor: cursor,
 		});
@@ -150,7 +150,7 @@ test.describe("Admin Filter Users API", () => {
 		request,
 	}) => {
 		const adminApiClient = new AdminAPIClient(request);
-		const response = await adminApiClient.filterUsers(mainAdminToken, {
+		const response = await adminApiClient.listUsers(mainAdminToken, {
 			filter_email: "non-existent-random-user-xyz",
 		});
 		expect(response.status).toBe(200);
@@ -203,7 +203,7 @@ test.describe("RBAC: POST /admin/filter-users", () => {
 
 	test("admin WITH view_users can filter-users (200)", async ({ request }) => {
 		const api = new AdminAPIClient(request);
-		const response = await api.filterUsers(viewerToken, {});
+		const response = await api.listUsers(viewerToken, {});
 		expect(response.status).toBe(200);
 	});
 
@@ -211,7 +211,7 @@ test.describe("RBAC: POST /admin/filter-users", () => {
 		request,
 	}) => {
 		const api = new AdminAPIClient(request);
-		const response = await api.filterUsers(noRoleToken, {});
+		const response = await api.listUsers(noRoleToken, {});
 		expect(response.status).toBe(403);
 	});
 });

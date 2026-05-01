@@ -305,7 +305,7 @@ export function DomainManagementPage() {
 					const request: DeleteDomainRequest = { domain };
 
 					const response = await fetch(`${apiBaseUrl}/org/delete-domain`, {
-						method: "DELETE",
+						method: "POST",
 						headers: {
 							"Content-Type": "application/json",
 							Authorization: `Bearer ${sessionToken}`,

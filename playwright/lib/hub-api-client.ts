@@ -543,14 +543,14 @@ export class HubAPIClient {
 	}
 
 	/**
-	 * POST /hub/filter-tags
+	 * POST /hub/list-tags
 	 * Filters tags by query with pagination
 	 */
-	async filterTags(
+	async listTags(
 		sessionToken: string,
 		request: FilterTagsRequest
 	): Promise<APIResponse<FilterTagsResponse>> {
-		const response = await this.request.post("/hub/filter-tags", {
+		const response = await this.request.post("/hub/list-tags", {
 			headers: {
 				Authorization: `Bearer ${sessionToken}`,
 			},
@@ -570,15 +570,15 @@ export class HubAPIClient {
 	// ============================================================================
 
 	/**
-	 * POST /hub/my-audit-logs
+	 * POST /hub/list-audit-logs
 	 * Retrieves the calling hub user's own audit log entries.
 	 * No special role required; results are always scoped to the authenticated user.
 	 */
-	async myAuditLogs(
+	async listAuditLogs(
 		sessionToken: string,
 		request: FilterAuditLogsRequest
 	): Promise<APIResponse<FilterAuditLogsResponse>> {
-		const response = await this.request.post("/hub/my-audit-logs", {
+		const response = await this.request.post("/hub/list-audit-logs", {
 			headers: { Authorization: `Bearer ${sessionToken}` },
 			data: request,
 		});
@@ -591,13 +591,13 @@ export class HubAPIClient {
 	}
 
 	/**
-	 * POST /hub/my-audit-logs with raw body for testing invalid payloads
+	 * POST /hub/list-audit-logs with raw body for testing invalid payloads
 	 */
-	async myAuditLogsRaw(
+	async listAuditLogsRaw(
 		sessionToken: string,
 		body: unknown
 	): Promise<APIResponse<FilterAuditLogsResponse>> {
-		const response = await this.request.post("/hub/my-audit-logs", {
+		const response = await this.request.post("/hub/list-audit-logs", {
 			headers: { Authorization: `Bearer ${sessionToken}` },
 			data: body,
 		});
@@ -610,12 +610,12 @@ export class HubAPIClient {
 	}
 
 	/**
-	 * POST /hub/my-audit-logs without Authorization header (for testing 401)
+	 * POST /hub/list-audit-logs without Authorization header (for testing 401)
 	 */
-	async myAuditLogsWithoutAuth(
+	async listAuditLogsWithoutAuth(
 		request: FilterAuditLogsRequest
 	): Promise<APIResponse<FilterAuditLogsResponse>> {
-		const response = await this.request.post("/hub/my-audit-logs", {
+		const response = await this.request.post("/hub/list-audit-logs", {
 			data: request,
 		});
 		const body = await response.json().catch(() => ({}));

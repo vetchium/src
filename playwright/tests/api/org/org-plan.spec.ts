@@ -183,7 +183,7 @@ test.describe("POST /org/org-plan/upgrade", () => {
 			expect(getRes.body!.current_plan.plan_id).toBe("silver");
 
 			// Audit log assertion
-			const auditRes = await api.filterAuditLogs(token, {
+			const auditRes = await api.listAuditLogs(token, {
 				event_types: ["org.plan_upgraded"],
 				start_time: before,
 			});

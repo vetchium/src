@@ -45,6 +45,9 @@ model OrgFilterTagsRequest {
 
   @doc("BCP 47 locale code; defaults to en-US when omitted")
   locale?: string;
+
+  @doc("Number of items to return (default and max enforced server-side)")
+  limit?: int32;
 }
 
 @doc("Response for the org filter-tags endpoint.")
@@ -69,8 +72,8 @@ interface OrgGetTagOps {
   };
 }
 
-@route("/org/filter-tags")
-interface OrgFilterTagsOps {
+@route("/org/list-tags")
+interface OrgListTagsOps {
   @post
   filterTags(@body request: OrgFilterTagsRequest): OrgFilterTagsResponse | {
     @statusCode statusCode: 401;

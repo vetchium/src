@@ -14,7 +14,7 @@ import {
 import { getTfaCodeFromEmail } from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
 
-test.describe("POST /admin/add-approved-domain", () => {
+test.describe("POST /admin/create-approved-domain", () => {
 	test("successful domain creation returns 201 with domain details", async ({
 		request,
 	}) => {
@@ -48,7 +48,7 @@ test.describe("POST /admin/add-approved-domain", () => {
 			expect(response.body.status).toBe("active");
 
 			// Verify admin.add_approved_domain event in the unified audit log
-			const auditResp = await api.filterAuditLogs(sessionToken, {
+			const auditResp = await api.listAuditLogs(sessionToken, {
 				event_types: ["admin.add_approved_domain"],
 				start_time: before,
 			});
@@ -184,7 +184,7 @@ test.describe("POST /admin/add-approved-domain", () => {
 			const sessionToken = tfaResponse.body.session_token;
 
 			// Try with raw request to send empty domain_name
-			const response = await request.post("/admin/add-approved-domain", {
+			const response = await request.post("/admin/create-approved-domain", {
 				headers: { Authorization: `Bearer ${sessionToken} ` },
 				data: { domain_name: "" },
 			});
@@ -211,7 +211,7 @@ test.describe("POST /admin/add-approved-domain", () => {
 			});
 			const sessionToken = tfaResponse.body.session_token;
 
-			const response = await request.post("/admin/add-approved-domain", {
+			const response = await request.post("/admin/create-approved-domain", {
 				headers: { Authorization: `Bearer ${sessionToken} ` },
 				data: { domain_name: domainName, reason: "" },
 			});
@@ -240,7 +240,7 @@ test.describe("POST /admin/add-approved-domain", () => {
 
 			const longReason = "a".repeat(257);
 
-			const response = await request.post("/admin/add-approved-domain", {
+			const response = await request.post("/admin/create-approved-domain", {
 				headers: { Authorization: `Bearer ${sessionToken} ` },
 				data: { domain_name: domainName, reason: longReason },
 			});
@@ -633,7 +633,7 @@ test.describe("POST /admin/disable-approved-domain", () => {
 			expect(response.status).toBe(200);
 
 			// Verify admin.disable_approved_domain audit log entry in unified audit log
-			const auditResp = await api.filterAuditLogs(sessionToken, {
+			const auditResp = await api.listAuditLogs(sessionToken, {
 				event_types: ["admin.disable_approved_domain"],
 				start_time: before,
 			});
@@ -888,7 +888,7 @@ test.describe("POST /admin/enable-approved-domain", () => {
 			expect(response.status).toBe(200);
 
 			// Verify admin.enable_approved_domain audit log entry in unified audit log
-			const auditResp = await api.filterAuditLogs(sessionToken, {
+			const auditResp = await api.listAuditLogs(sessionToken, {
 				event_types: ["admin.enable_approved_domain"],
 				start_time: before,
 			});

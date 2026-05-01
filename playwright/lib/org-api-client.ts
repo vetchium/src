@@ -506,13 +506,13 @@ export class OrgAPIClient {
 	}
 
 	/**
-	 * DELETE /org/delete-domain
+	 * POST /org/delete-domain
 	 */
 	async deleteDomain(
 		sessionToken: string,
 		request: DeleteDomainRequest
 	): Promise<APIResponse<void>> {
-		const response = await this.request.delete("/org/delete-domain", {
+		const response = await this.request.post("/org/delete-domain", {
 			headers: { Authorization: `Bearer ${sessionToken}` },
 			data: request,
 		});
@@ -523,7 +523,7 @@ export class OrgAPIClient {
 		sessionToken: string,
 		body: unknown
 	): Promise<APIResponse<void>> {
-		const response = await this.request.delete("/org/delete-domain", {
+		const response = await this.request.post("/org/delete-domain", {
 			headers: { Authorization: `Bearer ${sessionToken}` },
 			data: body,
 		});
@@ -533,7 +533,7 @@ export class OrgAPIClient {
 	async deleteDomainWithoutAuth(
 		request: DeleteDomainRequest
 	): Promise<APIResponse<void>> {
-		const response = await this.request.delete("/org/delete-domain", {
+		const response = await this.request.post("/org/delete-domain", {
 			data: request,
 		});
 		return { status: response.status(), body: undefined };
@@ -1137,16 +1137,16 @@ export class OrgAPIClient {
 	// ============================================================================
 
 	/**
-	 * POST /org/filter-users
+	 * POST /org/list-users
 	 * Filters org users.
 	 */
-	async filterUsers(
+	async listUsers(
 		sessionToken: string,
 		request: import("vetchium-specs/org/org-users").FilterOrgUsersRequest
 	): Promise<
 		APIResponse<import("vetchium-specs/org/org-users").FilterOrgUsersResponse>
 	> {
-		const response = await this.request.post("/org/filter-users", {
+		const response = await this.request.post("/org/list-users", {
 			headers: { Authorization: `Bearer ${sessionToken}` },
 			data: request,
 		});
@@ -1283,14 +1283,14 @@ export class OrgAPIClient {
 	}
 
 	/**
-	 * POST /org/filter-tags
+	 * POST /org/list-tags
 	 * Filters tags by query with pagination
 	 */
-	async filterTags(
+	async listTags(
 		sessionToken: string,
 		request: FilterTagsRequest
 	): Promise<APIResponse<FilterTagsResponse>> {
-		const response = await this.request.post("/org/filter-tags", {
+		const response = await this.request.post("/org/list-tags", {
 			headers: {
 				Authorization: `Bearer ${sessionToken}`,
 			},
@@ -1310,14 +1310,14 @@ export class OrgAPIClient {
 	// ============================================================================
 
 	/**
-	 * POST /org/add-cost-center
+	 * POST /org/create-cost-center
 	 * Adds a new cost center for the org.
 	 */
 	async addCostCenter(
 		sessionToken: string,
 		request: AddCostCenterRequest
 	): Promise<APIResponse<CostCenter>> {
-		const response = await this.request.post("/org/add-cost-center", {
+		const response = await this.request.post("/org/create-cost-center", {
 			headers: { Authorization: `Bearer ${sessionToken}` },
 			data: request,
 		});
@@ -1331,13 +1331,13 @@ export class OrgAPIClient {
 	}
 
 	/**
-	 * POST /org/add-cost-center with raw body for testing invalid payloads
+	 * POST /org/create-cost-center with raw body for testing invalid payloads
 	 */
 	async addCostCenterRaw(
 		sessionToken: string,
 		body: unknown
 	): Promise<APIResponse<CostCenter>> {
-		const response = await this.request.post("/org/add-cost-center", {
+		const response = await this.request.post("/org/create-cost-center", {
 			headers: { Authorization: `Bearer ${sessionToken}` },
 			data: body,
 		});
@@ -1437,15 +1437,15 @@ export class OrgAPIClient {
 	// ============================================================================
 
 	/**
-	 * POST /org/filter-audit-logs
+	 * POST /org/list-audit-logs
 	 * Filters org portal audit logs scoped to the caller's org.
 	 * Requires org:view_audit_logs or org:superadmin role.
 	 */
-	async filterAuditLogs(
+	async listAuditLogs(
 		sessionToken: string,
 		request: FilterAuditLogsRequest
 	): Promise<APIResponse<FilterAuditLogsResponse>> {
-		const response = await this.request.post("/org/filter-audit-logs", {
+		const response = await this.request.post("/org/list-audit-logs", {
 			headers: { Authorization: `Bearer ${sessionToken}` },
 			data: request,
 		});
@@ -1458,13 +1458,13 @@ export class OrgAPIClient {
 	}
 
 	/**
-	 * POST /org/filter-audit-logs with raw body for testing invalid payloads
+	 * POST /org/list-audit-logs with raw body for testing invalid payloads
 	 */
-	async filterAuditLogsRaw(
+	async listAuditLogsRaw(
 		sessionToken: string,
 		body: unknown
 	): Promise<APIResponse<FilterAuditLogsResponse>> {
-		const response = await this.request.post("/org/filter-audit-logs", {
+		const response = await this.request.post("/org/list-audit-logs", {
 			headers: { Authorization: `Bearer ${sessionToken}` },
 			data: body,
 		});
@@ -1477,12 +1477,12 @@ export class OrgAPIClient {
 	}
 
 	/**
-	 * POST /org/filter-audit-logs without Authorization header (for testing 401)
+	 * POST /org/list-audit-logs without Authorization header (for testing 401)
 	 */
-	async filterAuditLogsWithoutAuth(
+	async listAuditLogsWithoutAuth(
 		request: FilterAuditLogsRequest
 	): Promise<APIResponse<FilterAuditLogsResponse>> {
-		const response = await this.request.post("/org/filter-audit-logs", {
+		const response = await this.request.post("/org/list-audit-logs", {
 			data: request,
 		});
 		const body = await response.json().catch(() => ({}));
@@ -1716,7 +1716,7 @@ export class OrgAPIClient {
 	async listPlans(
 		sessionToken: string
 	): Promise<APIResponse<ListPlansResponse>> {
-		const response = await this.request.post("/org/org-plan/list-plans", {
+		const response = await this.request.post("/org/list-plans", {
 			headers: { Authorization: `Bearer ${sessionToken}` },
 			data: {},
 		});
@@ -1729,7 +1729,7 @@ export class OrgAPIClient {
 	}
 
 	async getMyOrgPlan(sessionToken: string): Promise<APIResponse<OrgPlan>> {
-		const response = await this.request.post("/org/org-plan/get", {
+		const response = await this.request.post("/org/get-plan", {
 			headers: { Authorization: `Bearer ${sessionToken}` },
 			data: {},
 		});
@@ -1745,7 +1745,7 @@ export class OrgAPIClient {
 		sessionToken: string,
 		request: UpgradeOrgPlanRequest
 	): Promise<APIResponse<OrgPlan>> {
-		const response = await this.request.post("/org/org-plan/upgrade", {
+		const response = await this.request.post("/org/upgrade-plan", {
 			headers: { Authorization: `Bearer ${sessionToken}` },
 			data: request,
 		});
@@ -1761,7 +1761,7 @@ export class OrgAPIClient {
 		sessionToken: string,
 		body: unknown
 	): Promise<APIResponse<OrgPlan>> {
-		const response = await this.request.post("/org/org-plan/upgrade", {
+		const response = await this.request.post("/org/upgrade-plan", {
 			headers: { Authorization: `Bearer ${sessionToken}` },
 			data: body,
 		});
@@ -1804,7 +1804,7 @@ export class OrgAPIClient {
 		request: CreateListingRequest
 	): Promise<APIResponse<MarketplaceListing>> {
 		const response = await this.request.post(
-			"/org/marketplace/listing/create",
+			"/org/marketplace/create-listing",
 			{
 				headers: { Authorization: `Bearer ${sessionToken}` },
 				data: request,
@@ -1823,7 +1823,7 @@ export class OrgAPIClient {
 		body: unknown
 	): Promise<APIResponse<MarketplaceListing>> {
 		const response = await this.request.post(
-			"/org/marketplace/listing/create",
+			"/org/marketplace/create-listing",
 			{
 				headers: { Authorization: `Bearer ${sessionToken}` },
 				data: body,
@@ -1842,7 +1842,7 @@ export class OrgAPIClient {
 		request: UpdateListingRequest
 	): Promise<APIResponse<MarketplaceListing>> {
 		const response = await this.request.post(
-			"/org/marketplace/listing/update",
+			"/org/marketplace/update-listing",
 			{
 				headers: { Authorization: `Bearer ${sessionToken}` },
 				data: request,
@@ -1861,7 +1861,7 @@ export class OrgAPIClient {
 		body: unknown
 	): Promise<APIResponse<MarketplaceListing>> {
 		const response = await this.request.post(
-			"/org/marketplace/listing/update",
+			"/org/marketplace/update-listing",
 			{
 				headers: { Authorization: `Bearer ${sessionToken}` },
 				data: body,
@@ -1879,7 +1879,7 @@ export class OrgAPIClient {
 		sessionToken: string,
 		request: GetListingRequest
 	): Promise<APIResponse<MarketplaceListing>> {
-		const response = await this.request.post("/org/marketplace/listing/get", {
+		const response = await this.request.post("/org/marketplace/get-listing", {
 			headers: { Authorization: `Bearer ${sessionToken}` },
 			data: request,
 		});
@@ -1895,7 +1895,7 @@ export class OrgAPIClient {
 		sessionToken: string,
 		request: ListMyListingsRequest
 	): Promise<APIResponse<ListMyListingsResponse>> {
-		const response = await this.request.post("/org/marketplace/listing/list", {
+		const response = await this.request.post("/org/marketplace/list-listings", {
 			headers: { Authorization: `Bearer ${sessionToken}` },
 			data: request,
 		});
@@ -1911,7 +1911,7 @@ export class OrgAPIClient {
 		sessionToken: string,
 		body: unknown
 	): Promise<APIResponse<ListMyListingsResponse>> {
-		const response = await this.request.post("/org/marketplace/listing/list", {
+		const response = await this.request.post("/org/marketplace/list-listings", {
 			headers: { Authorization: `Bearer ${sessionToken}` },
 			data: body,
 		});
@@ -1928,7 +1928,7 @@ export class OrgAPIClient {
 		request: PublishListingRequest
 	): Promise<APIResponse<MarketplaceListing>> {
 		const response = await this.request.post(
-			"/org/marketplace/listing/publish",
+			"/org/marketplace/publish-listing",
 			{
 				headers: { Authorization: `Bearer ${sessionToken}` },
 				data: request,
@@ -1947,7 +1947,7 @@ export class OrgAPIClient {
 		body: unknown
 	): Promise<APIResponse<MarketplaceListing>> {
 		const response = await this.request.post(
-			"/org/marketplace/listing/publish",
+			"/org/marketplace/publish-listing",
 			{
 				headers: { Authorization: `Bearer ${sessionToken}` },
 				data: body,
@@ -1966,7 +1966,7 @@ export class OrgAPIClient {
 		request: GetListingRequest
 	): Promise<APIResponse<MarketplaceListing>> {
 		const response = await this.request.post(
-			"/org/marketplace/listing/approve",
+			"/org/marketplace/approve-listing",
 			{
 				headers: { Authorization: `Bearer ${sessionToken}` },
 				data: request,
@@ -1985,7 +1985,7 @@ export class OrgAPIClient {
 		request: GetListingRequest & { rejection_note: string }
 	): Promise<APIResponse<MarketplaceListing>> {
 		const response = await this.request.post(
-			"/org/marketplace/listing/reject",
+			"/org/marketplace/reject-listing",
 			{
 				headers: { Authorization: `Bearer ${sessionToken}` },
 				data: request,
@@ -2004,7 +2004,7 @@ export class OrgAPIClient {
 		request: ArchiveListingRequest
 	): Promise<APIResponse<void>> {
 		const response = await this.request.post(
-			"/org/marketplace/listing/archive",
+			"/org/marketplace/archive-listing",
 			{
 				headers: { Authorization: `Bearer ${sessionToken}` },
 				data: request,
@@ -2018,7 +2018,7 @@ export class OrgAPIClient {
 		request: ReopenListingRequest
 	): Promise<APIResponse<MarketplaceListing>> {
 		const response = await this.request.post(
-			"/org/marketplace/listing/reopen",
+			"/org/marketplace/reopen-listing",
 			{
 				headers: { Authorization: `Bearer ${sessionToken}` },
 				data: request,
@@ -2037,7 +2037,7 @@ export class OrgAPIClient {
 		request: AddListingCapabilityRequest
 	): Promise<APIResponse<MarketplaceListing>> {
 		const response = await this.request.post(
-			"/org/marketplace/listing/add-capability",
+			"/org/marketplace/add-listing-capability",
 			{
 				headers: { Authorization: `Bearer ${sessionToken}` },
 				data: request,
@@ -2056,7 +2056,7 @@ export class OrgAPIClient {
 		request: RemoveListingCapabilityRequest
 	): Promise<APIResponse<MarketplaceListing>> {
 		const response = await this.request.post(
-			"/org/marketplace/listing/remove-capability",
+			"/org/marketplace/remove-listing-capability",
 			{
 				headers: { Authorization: `Bearer ${sessionToken}` },
 				data: request,
@@ -2115,7 +2115,7 @@ export class OrgAPIClient {
 		request: SubscribeRequest
 	): Promise<APIResponse<MarketplaceSubscription>> {
 		const response = await this.request.post(
-			"/org/marketplace/subscription/subscribe",
+			"/org/marketplace/create-subscription",
 			{
 				headers: { Authorization: `Bearer ${sessionToken}` },
 				data: request,
@@ -2134,7 +2134,7 @@ export class OrgAPIClient {
 		body: unknown
 	): Promise<APIResponse<MarketplaceSubscription>> {
 		const response = await this.request.post(
-			"/org/marketplace/subscription/subscribe",
+			"/org/marketplace/create-subscription",
 			{
 				headers: { Authorization: `Bearer ${sessionToken}` },
 				data: body,
@@ -2153,7 +2153,7 @@ export class OrgAPIClient {
 		request: CancelSubscriptionRequest
 	): Promise<APIResponse<void>> {
 		const response = await this.request.post(
-			"/org/marketplace/subscription/cancel",
+			"/org/marketplace/cancel-subscription",
 			{
 				headers: { Authorization: `Bearer ${sessionToken}` },
 				data: request,
@@ -2167,7 +2167,7 @@ export class OrgAPIClient {
 		body: unknown
 	): Promise<APIResponse<void>> {
 		const response = await this.request.post(
-			"/org/marketplace/subscription/cancel",
+			"/org/marketplace/cancel-subscription",
 			{
 				headers: { Authorization: `Bearer ${sessionToken}` },
 				data: body,
@@ -2181,7 +2181,7 @@ export class OrgAPIClient {
 		request: GetSubscriptionRequest
 	): Promise<APIResponse<MarketplaceSubscription>> {
 		const response = await this.request.post(
-			"/org/marketplace/subscription/get",
+			"/org/marketplace/get-subscription",
 			{
 				headers: { Authorization: `Bearer ${sessionToken}` },
 				data: request,
@@ -2200,7 +2200,7 @@ export class OrgAPIClient {
 		request: ListMySubscriptionsRequest
 	): Promise<APIResponse<ListMySubscriptionsResponse>> {
 		const response = await this.request.post(
-			"/org/marketplace/subscription/list",
+			"/org/marketplace/list-subscriptions",
 			{
 				headers: { Authorization: `Bearer ${sessionToken}` },
 				data: request,
@@ -2222,7 +2222,7 @@ export class OrgAPIClient {
 		sessionToken: string,
 		request: ListMyClientsRequest
 	): Promise<APIResponse<ListMyClientsResponse>> {
-		const response = await this.request.post("/org/marketplace/clients/list", {
+		const response = await this.request.post("/org/marketplace/list-clients", {
 			headers: { Authorization: `Bearer ${sessionToken}` },
 			data: request,
 		});

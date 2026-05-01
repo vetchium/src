@@ -87,10 +87,10 @@ test.describe("Admin Tags API", () => {
 	});
 
 	// ===========================================================================
-	// POST /admin/add-tag
+	// POST /admin/create-tag
 	// ===========================================================================
 
-	test.describe("POST /admin/add-tag", () => {
+	test.describe("POST /admin/create-tag", () => {
 		test("creates tag successfully (201)", async ({ request }) => {
 			const api = new AdminAPIClient(request);
 			const tagId = generateTestTagId("add");
@@ -122,7 +122,7 @@ test.describe("Admin Tags API", () => {
 				expect(response.body.updated_at).toBeDefined();
 
 				// Verify admin.add_tag audit log entry was created
-				const auditResp = await api.filterAuditLogs(manageTagsToken, {
+				const auditResp = await api.listAuditLogs(manageTagsToken, {
 					event_types: ["admin.add_tag"],
 					start_time: before,
 				});
@@ -258,7 +258,7 @@ test.describe("Admin Tags API", () => {
 
 		test("unauthenticated request returns 401", async ({ request }) => {
 			const tagId = generateTestTagId("unauth");
-			const response = await request.post("/admin/add-tag", {
+			const response = await request.post("/admin/create-tag", {
 				data: {
 					tag_id: tagId,
 					translations: [{ locale: "en-US", display_name: "Test" }],
@@ -387,7 +387,7 @@ test.describe("Admin Tags API", () => {
 				expect(enUS!.description).toBe("Updated description");
 
 				// Verify admin.update_tag audit log entry was created
-				const auditResp = await api.filterAuditLogs(manageTagsToken, {
+				const auditResp = await api.listAuditLogs(manageTagsToken, {
 					event_types: ["admin.update_tag"],
 					start_time: before,
 				});
@@ -480,10 +480,10 @@ test.describe("Admin Tags API", () => {
 	});
 
 	// ===========================================================================
-	// POST /admin/filter-tags
+	// POST /admin/list-tags
 	// ===========================================================================
 
-	test.describe("POST /admin/filter-tags", () => {
+	test.describe("POST /admin/list-tags", () => {
 		let filterTagIds: string[] = [];
 
 		test.beforeAll(async () => {
@@ -516,7 +516,7 @@ test.describe("Admin Tags API", () => {
 		test("returns tags with no query (200)", async ({ request }) => {
 			const api = new AdminAPIClient(request);
 			const req: FilterTagsRequest = {};
-			const response = await api.filterTags(manageTagsToken, req);
+			const response = await api.listTags(manageTagsToken, req);
 
 			expect(response.status).toBe(200);
 			expect(Array.isArray(response.body.tags)).toBe(true);
@@ -534,7 +534,7 @@ test.describe("Admin Tags API", () => {
 			// Query by the unique base prefix to find our test tags
 			const base = filterTagIds[0].substring(0, 8);
 			const req: FilterTagsRequest = { query: base };
-			const response = await api.filterTags(manageTagsToken, req);
+			const response = await api.listTags(manageTagsToken, req);
 
 			expect(response.status).toBe(200);
 			expect(response.body.tags.length).toBeGreaterThan(0);
@@ -551,7 +551,7 @@ test.describe("Admin Tags API", () => {
 			const req: FilterTagsRequest = {
 				query: "xyzzy-no-match-ever-12345",
 			};
-			const response = await api.filterTags(manageTagsToken, req);
+			const response = await api.listTags(manageTagsToken, req);
 
 			expect(response.status).toBe(200);
 			expect(response.body.tags).toHaveLength(0);
@@ -564,7 +564,7 @@ test.describe("Admin Tags API", () => {
 
 			// First page
 			const firstReq: FilterTagsRequest = { query: base };
-			const firstPage = await api.filterTags(manageTagsToken, firstReq);
+			const firstPage = await api.listTags(manageTagsToken, firstReq);
 			expect(firstPage.status).toBe(200);
 
 			// Should have pagination_key since we created 51 tags (> default limit 50)
@@ -576,7 +576,7 @@ test.describe("Admin Tags API", () => {
 				query: base,
 				pagination_key: firstPage.body.pagination_key,
 			};
-			const secondPage = await api.filterTags(manageTagsToken, secondReq);
+			const secondPage = await api.listTags(manageTagsToken, secondReq);
 			expect(secondPage.status).toBe(200);
 			expect(secondPage.body.tags.length).toBeGreaterThanOrEqual(1);
 			// Second page should not have more pagination
@@ -590,7 +590,7 @@ test.describe("Admin Tags API", () => {
 		});
 
 		test("unauthenticated request returns 401", async ({ request }) => {
-			const response = await request.post("/admin/filter-tags", {
+			const response = await request.post("/admin/list-tags", {
 				data: {},
 			});
 			expect(response.status()).toBe(401);
@@ -599,7 +599,7 @@ test.describe("Admin Tags API", () => {
 		test("user without role can filter tags (200)", async ({ request }) => {
 			const api = new AdminAPIClient(request);
 			const req: FilterTagsRequest = {};
-			const response = await api.filterTags(noRoleToken, req);
+			const response = await api.listTags(noRoleToken, req);
 			expect(response.status).toBe(200);
 		});
 	});
@@ -632,7 +632,7 @@ test.describe("Admin Tags API", () => {
 				expect(getResponse.body.small_icon_url).toContain(tagId);
 
 				// Verify admin.upload_tag_icon audit log entry was created
-				const auditResp = await api.filterAuditLogs(manageTagsToken, {
+				const auditResp = await api.listAuditLogs(manageTagsToken, {
 					event_types: ["admin.upload_tag_icon"],
 					start_time: before,
 				});
@@ -800,7 +800,7 @@ test.describe("Admin Tags API", () => {
 				expect(getResponse.body.small_icon_url).toBeUndefined();
 
 				// Verify admin.delete_tag_icon audit log entry was created
-				const auditResp = await api.filterAuditLogs(manageTagsToken, {
+				const auditResp = await api.listAuditLogs(manageTagsToken, {
 					event_types: ["admin.delete_tag_icon"],
 					start_time: before,
 				});

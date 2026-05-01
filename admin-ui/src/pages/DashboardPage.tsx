@@ -116,7 +116,7 @@ export function DashboardPage() {
 					{canViewUsers && (
 						<Col xs={24} sm={12} lg={8}>
 							<Link
-								to="/user-management"
+								to="/users"
 								style={{
 									textDecoration: "none",
 									display: "block",
@@ -148,7 +148,7 @@ export function DashboardPage() {
 					{canManageTags && (
 						<Col xs={24} sm={12} lg={8}>
 							<Link
-								to="/manage-tags"
+								to="/tags"
 								style={{
 									textDecoration: "none",
 									display: "block",

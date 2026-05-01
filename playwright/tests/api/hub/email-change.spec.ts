@@ -103,7 +103,7 @@ test.describe("Hub Email Change API", () => {
 			expect(response.body.message).toBeTruthy();
 
 			// Verify hub.request_email_change audit log entry was created
-			const auditResp = await api.myAuditLogs(sessionToken, {
+			const auditResp = await api.listAuditLogs(sessionToken, {
 				event_types: ["hub.request_email_change"],
 				start_time: before,
 			});
@@ -413,7 +413,7 @@ test.describe("Hub Email Change API", () => {
 			const newSessionToken = newTfaResp.body.session_token;
 
 			// Verify hub.complete_email_change audit log entry was created
-			const auditResp = await api.myAuditLogs(newSessionToken, {
+			const auditResp = await api.listAuditLogs(newSessionToken, {
 				event_types: ["hub.complete_email_change"],
 				start_time: before,
 			});

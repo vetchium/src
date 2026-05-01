@@ -82,7 +82,7 @@ test.describe("POST /hub/my-audit-logs", () => {
 			const before = new Date(Date.now() - 2000).toISOString();
 			const sessionToken = await loginHub(api, email, TEST_PASSWORD);
 
-			const resp = await api.myAuditLogs(sessionToken, {
+			const resp = await api.listAuditLogs(sessionToken, {
 				event_types: ["hub.login"],
 				start_time: before,
 			});
@@ -120,7 +120,7 @@ test.describe("POST /hub/my-audit-logs", () => {
 			const token2 = await loginHub(api, email2, TEST_PASSWORD);
 
 			// User2 queries — should only see their own entries even without actor_user_id filter
-			const resp = await api.myAuditLogs(token2, {
+			const resp = await api.listAuditLogs(token2, {
 				start_time: before,
 			});
 			expect(resp.status).toBe(200);
@@ -154,7 +154,7 @@ test.describe("POST /hub/my-audit-logs", () => {
 			const sessionToken = await loginHub(api, email, TEST_PASSWORD);
 
 			const futureTime = new Date(Date.now() + 1_000_000).toISOString();
-			const resp = await api.myAuditLogs(sessionToken, {
+			const resp = await api.listAuditLogs(sessionToken, {
 				start_time: futureTime,
 			});
 
@@ -181,14 +181,14 @@ test.describe("POST /hub/my-audit-logs", () => {
 			const before = new Date(Date.now() - 2000).toISOString();
 			const sessionToken = await loginHub(api, email, TEST_PASSWORD);
 
-			const page1 = await api.myAuditLogs(sessionToken, {
+			const page1 = await api.listAuditLogs(sessionToken, {
 				start_time: before,
 				limit: 1,
 			});
 			expect(page1.status).toBe(200);
 
 			if (page1.body.pagination_key) {
-				const page2 = await api.myAuditLogs(sessionToken, {
+				const page2 = await api.listAuditLogs(sessionToken, {
 					start_time: before,
 					limit: 1,
 					pagination_key: page1.body.pagination_key,
@@ -222,7 +222,7 @@ test.describe("POST /hub/my-audit-logs", () => {
 			await createHubUserViaSignup(api, email, TEST_PASSWORD);
 			const sessionToken = await loginHub(api, email, TEST_PASSWORD);
 
-			const resp = await api.myAuditLogsRaw(sessionToken, { limit: 0 });
+			const resp = await api.listAuditLogsRaw(sessionToken, { limit: 0 });
 			expect(resp.status).toBe(400);
 		} finally {
 			await deleteTestHubUser(email);
@@ -243,7 +243,7 @@ test.describe("POST /hub/my-audit-logs", () => {
 			await createHubUserViaSignup(api, email, TEST_PASSWORD);
 			const sessionToken = await loginHub(api, email, TEST_PASSWORD);
 
-			const resp = await api.myAuditLogsRaw(sessionToken, {
+			const resp = await api.listAuditLogsRaw(sessionToken, {
 				start_time: "not-a-date",
 			});
 			expect(resp.status).toBe(400);
@@ -256,7 +256,7 @@ test.describe("POST /hub/my-audit-logs", () => {
 
 	test("returns 401 without Authorization header", async ({ request }) => {
 		const api = new HubAPIClient(request);
-		const resp = await api.myAuditLogsWithoutAuth({});
+		const resp = await api.listAuditLogsWithoutAuth({});
 		expect(resp.status).toBe(401);
 	});
 
@@ -273,7 +273,7 @@ test.describe("POST /hub/my-audit-logs", () => {
 			const before = new Date(Date.now() - 2000).toISOString();
 			const sessionToken = await loginHub(api, email, TEST_PASSWORD);
 
-			const resp = await api.myAuditLogs(sessionToken, {
+			const resp = await api.listAuditLogs(sessionToken, {
 				start_time: before,
 				event_types: ["hub.login"],
 			});
@@ -306,7 +306,7 @@ test.describe("POST /hub/my-audit-logs", () => {
 			await createHubUserViaSignup(api, email, TEST_PASSWORD);
 			const sessionToken = await loginHub(api, email, TEST_PASSWORD);
 
-			const resp = await api.myAuditLogs(sessionToken, {
+			const resp = await api.listAuditLogs(sessionToken, {
 				start_time: before,
 				event_types: ["hub.complete_signup"],
 			});

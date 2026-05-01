@@ -180,7 +180,7 @@ function AppContent() {
 								}
 							/>
 							<Route
-								path="/user-management"
+								path="/users"
 								element={
 									<ProtectedRoute>
 										<UserManagementPage />
@@ -196,7 +196,7 @@ function AppContent() {
 								}
 							/>
 							<Route
-								path="/manage-tags"
+								path="/tags"
 								element={
 									<ProtectedRoute>
 										<ManageTagsPage />

@@ -57,7 +57,7 @@ model AdminListOrgPlansRequest {
 }
 
 model AdminListOrgPlansResponse {
-  items: OrgPlan[];
+  org_plans: OrgPlan[];
   next_pagination_key?: string;
 }
 

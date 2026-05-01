@@ -87,7 +87,7 @@ test.describe("POST /org/claim-domain", () => {
 			expect(response.body.instructions).toBeDefined();
 
 			// Verify org.claim_domain audit log entry was created
-			const auditResp = await api.filterAuditLogs(sessionToken, {
+			const auditResp = await api.listAuditLogs(sessionToken, {
 				event_types: ["org.claim_domain"],
 				start_time: before,
 			});

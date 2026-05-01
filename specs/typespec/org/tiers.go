@@ -94,7 +94,7 @@ func (r AdminListOrgPlansRequest) Validate() []common.ValidationError {
 
 // AdminListOrgPlansResponse wraps the plan list.
 type AdminListOrgPlansResponse struct {
-	Items             []OrgPlan `json:"items"`
+	OrgPlans          []OrgPlan `json:"org_plans"`
 	NextPaginationKey *string   `json:"next_pagination_key,omitempty"`
 }
 

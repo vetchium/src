@@ -70,7 +70,7 @@ export function AdminListingsPage() {
 			setLoading(true);
 			try {
 				const baseUrl = await getApiBaseUrl();
-				const resp = await fetch(`${baseUrl}/admin/marketplace/listing/list`, {
+				const resp = await fetch(`${baseUrl}/admin/marketplace/list-listings`, {
 					method: "POST",
 					headers: {
 						"Content-Type": "application/json",
@@ -107,7 +107,7 @@ export function AdminListingsPage() {
 		setSubmitting(true);
 		try {
 			const baseUrl = await getApiBaseUrl();
-			const resp = await fetch(`${baseUrl}/admin/marketplace/listing/suspend`, {
+			const resp = await fetch(`${baseUrl}/admin/marketplace/suspend-listing`, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
@@ -144,7 +144,7 @@ export function AdminListingsPage() {
 		try {
 			const baseUrl = await getApiBaseUrl();
 			const resp = await fetch(
-				`${baseUrl}/admin/marketplace/listing/reinstate`,
+				`${baseUrl}/admin/marketplace/reinstate-listing`,
 				{
 					method: "POST",
 					headers: {

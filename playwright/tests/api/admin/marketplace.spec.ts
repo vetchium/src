@@ -1172,7 +1172,7 @@ test.describe("Audit logs for admin marketplace write operations", () => {
 			});
 			expect(res.status).toBe(201);
 
-			const auditRes = await api.filterAuditLogs(token, {
+			const auditRes = await api.listAuditLogs(token, {
 				event_types: ["admin.marketplace_capability_created"],
 				start_time: before,
 			});
@@ -1203,7 +1203,7 @@ test.describe("Audit logs for admin marketplace write operations", () => {
 			});
 			expect(res.status).toBe(200);
 
-			const auditRes = await api.filterAuditLogs(token, {
+			const auditRes = await api.listAuditLogs(token, {
 				event_types: ["admin.marketplace_capability_updated"],
 				start_time: before,
 			});
@@ -1251,7 +1251,7 @@ test.describe("Audit logs for admin marketplace write operations", () => {
 			});
 			expect(suspendRes.status).toBe(200);
 
-			const auditRes = await adminApi.filterAuditLogs(adminToken, {
+			const auditRes = await adminApi.listAuditLogs(adminToken, {
 				event_types: ["admin.marketplace_listing_suspended"],
 				start_time: before,
 			});
@@ -1306,7 +1306,7 @@ test.describe("Audit logs for admin marketplace write operations", () => {
 			});
 			expect(reinstateRes.status).toBe(200);
 
-			const auditRes = await adminApi.filterAuditLogs(adminToken, {
+			const auditRes = await adminApi.listAuditLogs(adminToken, {
 				event_types: ["admin.marketplace_listing_reinstated"],
 				start_time: before,
 			});
@@ -1371,7 +1371,7 @@ test.describe("Audit logs for admin marketplace write operations", () => {
 			});
 			expect(cancelRes.status).toBe(200);
 
-			const auditRes = await adminApi.filterAuditLogs(adminToken, {
+			const auditRes = await adminApi.listAuditLogs(adminToken, {
 				event_types: ["admin.marketplace_subscription_cancelled"],
 				start_time: before,
 			});

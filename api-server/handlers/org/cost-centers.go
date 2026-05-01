@@ -59,13 +59,13 @@ func AddCostCenter(s *server.RegionalServer) http.HandlerFunc {
 
 		params := regionaldb.CreateCostCenterParams{
 			OrgID:       orgUser.OrgID,
-			ID:          req.ID,
+			ID:          req.CostCenterID,
 			DisplayName: req.DisplayName,
 			Notes:       notes,
 		}
 
 		var cc regionaldb.CostCenter
-		eventData, _ := json.Marshal(map[string]any{"cost_center_id": req.ID})
+		eventData, _ := json.Marshal(map[string]any{"cost_center_id": req.CostCenterID})
 		err := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
 			var txErr error
 			cc, txErr = qtx.CreateCostCenter(ctx, params)
@@ -132,7 +132,7 @@ func UpdateCostCenter(s *server.RegionalServer) http.HandlerFunc {
 
 		params := regionaldb.UpdateCostCenterParams{
 			OrgID:       orgUser.OrgID,
-			ID:          req.ID,
+			ID:          req.CostCenterID,
 			DisplayName: req.DisplayName,
 			Status:      regionaldb.CostCenterStatus(req.Status),
 			Notes:       notes,
@@ -142,7 +142,7 @@ func UpdateCostCenter(s *server.RegionalServer) http.HandlerFunc {
 		err := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
 			oldCC, txErr := qtx.GetCostCenterByOrgAndID(ctx, regionaldb.GetCostCenterByOrgAndIDParams{
 				OrgID: orgUser.OrgID,
-				ID:    req.ID,
+				ID:    req.CostCenterID,
 			})
 			if txErr != nil {
 				return txErr
@@ -173,7 +173,7 @@ func UpdateCostCenter(s *server.RegionalServer) http.HandlerFunc {
 			}
 
 			updateEventData, _ := json.Marshal(map[string]any{
-				"cost_center_id": req.ID,
+				"cost_center_id": req.CostCenterID,
 				"fields_changed": fieldsChanged,
 			})
 			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
@@ -306,10 +306,10 @@ func ListCostCenters(s *server.RegionalServer) http.HandlerFunc {
 
 func dbCostCenterToResponse(cc regionaldb.CostCenter) org.CostCenter {
 	resp := org.CostCenter{
-		ID:          cc.ID,
-		DisplayName: cc.DisplayName,
-		Status:      org.CostCenterStatus(cc.Status),
-		CreatedAt:   cc.CreatedAt.Time.UTC().Format(time.RFC3339),
+		CostCenterID: cc.ID,
+		DisplayName:  cc.DisplayName,
+		Status:       org.CostCenterStatus(cc.Status),
+		CreatedAt:    cc.CreatedAt.Time.UTC().Format(time.RFC3339),
 	}
 	if cc.Notes.Valid {
 		resp.Notes = &cc.Notes.String

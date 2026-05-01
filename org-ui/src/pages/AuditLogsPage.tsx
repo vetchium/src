@@ -61,7 +61,7 @@ export function AuditLogsPage() {
 					...(filters.endTime && { end_time: filters.endTime.toISOString() }),
 					...(cursor && { pagination_key: cursor }),
 				};
-				const response = await fetch(`${apiBaseUrl}/org/filter-audit-logs`, {
+				const response = await fetch(`${apiBaseUrl}/org/list-audit-logs`, {
 					method: "POST",
 					headers: {
 						"Content-Type": "application/json",

@@ -38,7 +38,7 @@ test.describe("POST /admin/filter-audit-logs", () => {
 
 			// Use a future start_time so no events match
 			const futureTime = new Date(Date.now() + 1_000_000).toISOString();
-			const resp = await api.filterAuditLogs(sessionToken, {
+			const resp = await api.listAuditLogs(sessionToken, {
 				start_time: futureTime,
 			});
 
@@ -62,7 +62,7 @@ test.describe("POST /admin/filter-audit-logs", () => {
 			const sessionToken = await loginAdmin(api, email);
 
 			// After login we expect an admin.login entry; filter for it
-			const resp = await api.filterAuditLogs(sessionToken, {
+			const resp = await api.listAuditLogs(sessionToken, {
 				event_types: ["admin.login"],
 				start_time: before,
 			});
@@ -86,7 +86,7 @@ test.describe("POST /admin/filter-audit-logs", () => {
 			const before = new Date(Date.now() - 2000).toISOString();
 			const sessionToken = await loginAdmin(api, email);
 
-			const resp = await api.filterAuditLogs(sessionToken, {
+			const resp = await api.listAuditLogs(sessionToken, {
 				actor_email: email,
 				start_time: before,
 			});
@@ -109,7 +109,7 @@ test.describe("POST /admin/filter-audit-logs", () => {
 		try {
 			const sessionToken = await loginAdmin(api, email);
 
-			const resp = await api.filterAuditLogs(sessionToken, {
+			const resp = await api.listAuditLogs(sessionToken, {
 				limit: 1,
 			});
 
@@ -130,7 +130,7 @@ test.describe("POST /admin/filter-audit-logs", () => {
 			const sessionToken = await loginAdmin(api, email);
 
 			// Page 1 with limit=1
-			const page1 = await api.filterAuditLogs(sessionToken, {
+			const page1 = await api.listAuditLogs(sessionToken, {
 				start_time: before,
 				limit: 1,
 			});
@@ -138,7 +138,7 @@ test.describe("POST /admin/filter-audit-logs", () => {
 
 			if (page1.body.pagination_key) {
 				// Page 2
-				const page2 = await api.filterAuditLogs(sessionToken, {
+				const page2 = await api.listAuditLogs(sessionToken, {
 					start_time: before,
 					limit: 1,
 					pagination_key: page1.body.pagination_key,
@@ -158,7 +158,7 @@ test.describe("POST /admin/filter-audit-logs", () => {
 		try {
 			const sessionToken = await loginAdmin(api, email);
 
-			const resp = await api.filterAuditLogsRaw(sessionToken, { limit: 0 });
+			const resp = await api.listAuditLogsRaw(sessionToken, { limit: 0 });
 			expect(resp.status).toBe(400);
 		} finally {
 			await deleteTestAdminUser(email);
@@ -173,7 +173,7 @@ test.describe("POST /admin/filter-audit-logs", () => {
 		try {
 			const sessionToken = await loginAdmin(api, email);
 
-			const resp = await api.filterAuditLogsRaw(sessionToken, { limit: 101 });
+			const resp = await api.listAuditLogsRaw(sessionToken, { limit: 101 });
 			expect(resp.status).toBe(400);
 		} finally {
 			await deleteTestAdminUser(email);
@@ -188,7 +188,7 @@ test.describe("POST /admin/filter-audit-logs", () => {
 		try {
 			const sessionToken = await loginAdmin(api, email);
 
-			const resp = await api.filterAuditLogsRaw(sessionToken, {
+			const resp = await api.listAuditLogsRaw(sessionToken, {
 				start_time: "not-a-timestamp",
 			});
 			expect(resp.status).toBe(400);
@@ -205,7 +205,7 @@ test.describe("POST /admin/filter-audit-logs", () => {
 		try {
 			const sessionToken = await loginAdmin(api, email);
 
-			const resp = await api.filterAuditLogsRaw(sessionToken, {
+			const resp = await api.listAuditLogsRaw(sessionToken, {
 				end_time: "bad-date",
 			});
 			expect(resp.status).toBe(400);
@@ -217,7 +217,7 @@ test.describe("POST /admin/filter-audit-logs", () => {
 	test("returns 401 without Authorization header", async ({ request }) => {
 		const api = new AdminAPIClient(request);
 
-		const resp = await api.filterAuditLogsWithoutAuth({});
+		const resp = await api.listAuditLogsWithoutAuth({});
 		expect(resp.status).toBe(401);
 	});
 
@@ -231,7 +231,7 @@ test.describe("POST /admin/filter-audit-logs", () => {
 		await assignRoleToAdminUser(userId, "admin:view_audit_logs");
 		try {
 			const sessionToken = await loginAdmin(api, email);
-			const resp = await api.filterAuditLogs(sessionToken, {});
+			const resp = await api.listAuditLogs(sessionToken, {});
 			expect(resp.status).toBe(200);
 		} finally {
 			await deleteTestAdminUser(email);
@@ -249,7 +249,7 @@ test.describe("POST /admin/filter-audit-logs", () => {
 		try {
 			const sessionToken = await loginAdmin(api, email);
 
-			const resp = await api.filterAuditLogs(sessionToken, {});
+			const resp = await api.listAuditLogs(sessionToken, {});
 			expect(resp.status).toBe(403);
 		} finally {
 			await deleteTestAdminUser(email);
@@ -265,7 +265,7 @@ test.describe("POST /admin/filter-audit-logs", () => {
 			const before = new Date(Date.now() - 2000).toISOString();
 			const sessionToken = await loginAdmin(api, email);
 
-			const resp = await api.filterAuditLogs(sessionToken, {
+			const resp = await api.listAuditLogs(sessionToken, {
 				start_time: before,
 				event_types: ["admin.login"],
 			});

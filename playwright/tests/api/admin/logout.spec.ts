@@ -57,7 +57,7 @@ test.describe("POST /admin/logout", () => {
 			expect(response.status).toBe(200);
 
 			// Verify admin.logout audit log entry was created (query with auditToken)
-			const auditResp = await api.filterAuditLogs(auditToken, {
+			const auditResp = await api.listAuditLogs(auditToken, {
 				event_types: ["admin.logout"],
 				start_time: before,
 			});

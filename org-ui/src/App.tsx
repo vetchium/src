@@ -256,7 +256,7 @@ function FailingDomainsWarning() {
 			title={
 				<>
 					{t("domain.failingDomainsWarning")}{" "}
-					<Link to="/domain-management">{t("domainManagement.title")}</Link>
+					<Link to="/domains">{t("domainManagement.title")}</Link>
 				</>
 			}
 		/>
@@ -338,7 +338,7 @@ function AppContent() {
 							/>
 							<Route path="/eula" element={<EULAPage />} />
 							<Route
-								path="/user-management"
+								path="/users"
 								element={
 									<UserManagementRoute>
 										<UserManagementPage />
@@ -346,7 +346,7 @@ function AppContent() {
 								}
 							/>
 							<Route
-								path="/domain-management"
+								path="/domains"
 								element={
 									<DomainManagementRoute>
 										<DomainManagementPage />

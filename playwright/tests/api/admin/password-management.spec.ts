@@ -55,7 +55,7 @@ test.describe("POST /admin/request-password-reset", () => {
 			expect(emailMessage.Subject).toContain("Admin");
 
 			// Verify admin.request_password_reset audit log entry was created
-			const auditResp = await api.filterAuditLogs(watcherToken, {
+			const auditResp = await api.listAuditLogs(watcherToken, {
 				event_types: ["admin.request_password_reset"],
 				start_time: before,
 			});
@@ -175,7 +175,7 @@ test.describe("POST /admin/complete-password-reset", () => {
 			expect(oldLoginResponse.status).toBe(401);
 
 			// Verify admin.complete_password_reset audit log entry was created
-			const auditResp = await api.filterAuditLogs(watcherToken, {
+			const auditResp = await api.listAuditLogs(watcherToken, {
 				event_types: ["admin.complete_password_reset"],
 				start_time: before,
 			});
@@ -348,7 +348,7 @@ test.describe("POST /admin/change-password", () => {
 			expect(oldLoginResp.status).toBe(401);
 
 			// Verify admin.change_password audit log entry was created (current session preserved)
-			const auditResp = await api.filterAuditLogs(sessionToken, {
+			const auditResp = await api.listAuditLogs(sessionToken, {
 				event_types: ["admin.change_password"],
 				start_time: before,
 			});

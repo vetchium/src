@@ -55,7 +55,7 @@ test.describe("POST /admin/set-language", () => {
 			expect(response.status).toBe(200);
 
 			// Verify admin.set_language audit log entry was created
-			const auditResp = await api.filterAuditLogs(sessionToken, {
+			const auditResp = await api.listAuditLogs(sessionToken, {
 				event_types: ["admin.set_language"],
 				start_time: before,
 			});

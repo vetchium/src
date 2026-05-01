@@ -46,12 +46,12 @@ export function PlanPage() {
 			};
 
 			const [subResp, plansResp] = await Promise.all([
-				fetch(`${baseUrl}/org/org-plan/get`, {
+				fetch(`${baseUrl}/org/get-plan`, {
 					method: "POST",
 					headers,
 					body: "{}",
 				}),
-				fetch(`${baseUrl}/org/org-plan/list-plans`, {
+				fetch(`${baseUrl}/org/list-plans`, {
 					method: "POST",
 					headers,
 					body: "{}",
@@ -90,7 +90,7 @@ export function PlanPage() {
 					const req: UpgradeOrgPlanRequest = {
 						plan_id: plan.plan_id,
 					};
-					const resp = await fetch(`${baseUrl}/org/org-plan/upgrade`, {
+					const resp = await fetch(`${baseUrl}/org/upgrade-plan`, {
 						method: "POST",
 						headers: {
 							"Content-Type": "application/json",

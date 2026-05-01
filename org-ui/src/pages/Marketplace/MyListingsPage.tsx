@@ -47,7 +47,7 @@ export function MyListingsPage() {
 		(async () => {
 			try {
 				const baseUrl = await getApiBaseUrl();
-				const resp = await fetch(`${baseUrl}/org/org-plan/get`, {
+				const resp = await fetch(`${baseUrl}/org/get-plan`, {
 					method: "POST",
 					headers: {
 						"Content-Type": "application/json",
@@ -85,7 +85,7 @@ export function MyListingsPage() {
 			setLoading(true);
 			try {
 				const baseUrl = await getApiBaseUrl();
-				const resp = await fetch(`${baseUrl}/org/marketplace/listing/list`, {
+				const resp = await fetch(`${baseUrl}/org/marketplace/list-listings`, {
 					method: "POST",
 					headers: {
 						"Content-Type": "application/json",

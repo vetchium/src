@@ -33,7 +33,7 @@ export function MyClientsPage() {
 			setLoading(true);
 			try {
 				const baseUrl = await getApiBaseUrl();
-				const resp = await fetch(`${baseUrl}/org/marketplace/clients/list`, {
+				const resp = await fetch(`${baseUrl}/org/marketplace/list-clients`, {
 					method: "POST",
 					headers: {
 						"Content-Type": "application/json",

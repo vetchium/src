@@ -74,7 +74,7 @@ test.describe("POST /org/set-primary-domain", () => {
 			expect(firstItem?.is_primary).toBe(false);
 
 			// Audit log recorded.
-			const auditRes = await api.filterAuditLogs(token, {
+			const auditRes = await api.listAuditLogs(token, {
 				event_types: ["org.set_primary_domain"],
 			});
 			expect(auditRes.status).toBe(200);

@@ -69,7 +69,7 @@ test.describe("POST /admin/invite-user", () => {
 			expect(invitationToken).toBeDefined();
 
 			// Verify admin.invite_user audit log entry was created
-			const auditResp = await api.filterAuditLogs(sessionToken, {
+			const auditResp = await api.listAuditLogs(sessionToken, {
 				event_types: ["admin.invite_user"],
 				start_time: before,
 			});

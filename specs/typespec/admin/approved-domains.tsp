@@ -111,7 +111,7 @@ model ApprovedDomainDetailResponse {
 @route("/admin")
 @tag("ApprovedDomains")
 interface ApprovedDomains {
-    @route("/add-approved-domain")
+    @route("/create-approved-domain")
     @post
     @doc("Add a domain to the approved list. Domain names are normalized to lowercase. Starts as active.")
     addDomain(@body request: AddApprovedDomainRequest): {

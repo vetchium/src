@@ -142,7 +142,7 @@ test.describe("POST /hub/tfa", () => {
 
 			// Verify hub.login audit log entry was created
 			const sessionToken = tfaResponse.body.session_token;
-			const auditResp = await api.myAuditLogs(sessionToken, {
+			const auditResp = await api.listAuditLogs(sessionToken, {
 				event_types: ["hub.login"],
 				start_time: before,
 			});

@@ -108,7 +108,7 @@ test.describe("POST /org/login", () => {
 			expect(tfaResp.status).toBe(200);
 			const sessionToken = tfaResp.body.session_token;
 
-			const auditResp = await api.filterAuditLogs(sessionToken, {
+			const auditResp = await api.listAuditLogs(sessionToken, {
 				event_types: ["org.login_failed"],
 				start_time: before,
 			});

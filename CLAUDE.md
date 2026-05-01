@@ -213,12 +213,74 @@ All JSON fields use **snake_case**: `tfa_token`, `domain_name`, `created_at`. Go
 
 ## API Endpoints Convention
 
-- Use POST for most operations; pass all params in request body
-- Use DELETE only for actual deletions (prefer disabling over deleting)
+- Use POST for all CRUD and state-changing operations; pass all params in request body
+- Use GET only for parameterless reads (`GET /org/myinfo`, `GET /public/tag-icon`)
+- No DELETE routes — use `POST /org/delete-{resource}` for permanent removal
 - Pass session tokens in `Authorization: Bearer <token>` header, not body
-- Use distinct endpoint names to avoid accidental handler conflicts:
-  - ✅ `/admin/add-approved-domain`, `/admin/list-approved-domains`
-  - ❌ `/admin/approved-domains` (GET vs POST collision risk)
+
+### API Path Structure
+
+One universal pattern:
+
+```
+POST /{portal}/{verb}-{resource}
+POST /{portal}/{namespace}/{verb}-{resource}   ← namespace only when grouping is needed
+```
+
+Examples:
+
+```
+POST /org/create-opening
+POST /org/list-openings
+POST /org/marketplace/create-listing
+POST /org/marketplace/list-subscriptions
+POST /admin/marketplace/create-capability
+```
+
+Auth/session ops stay flat with no resource: `login`, `logout`, `tfa`, `myinfo`, `change-password`, `set-language`, `complete-signup`, `request-password-reset`, etc.
+
+### Action Verbs
+
+| Intent                 | Verb        | Example                                                                                                                                                           |
+| ---------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Create new resource    | `create-*`  | `create-opening`, `create-address`                                                                                                                                |
+| Read single resource   | `get-*`     | `get-opening`, `get-cost-center`                                                                                                                                  |
+| Paginated list         | `list-*`    | `list-openings`, `list-users`, `list-audit-logs`                                                                                                                  |
+| Update resource fields | `update-*`  | `update-opening`                                                                                                                                                  |
+| Permanently remove     | `delete-*`  | `delete-domain`                                                                                                                                                   |
+| Toggle off             | `disable-*` | `disable-address`, `disable-suborg`                                                                                                                               |
+| Toggle on              | `enable-*`  | `enable-address`, `enable-suborg`                                                                                                                                 |
+| Add to a collection    | `add-*`     | `add-suborg-member`, `add-cost-center`                                                                                                                            |
+| Remove from collection | `remove-*`  | `remove-suborg-member`                                                                                                                                            |
+| Semantic lifecycle     | `{verb}-*`  | `submit-opening`, `approve-opening`, `reject-opening`, `pause-opening`, `reopen-opening`, `archive-opening`, `duplicate-opening`, `claim-domain`, `verify-domain` |
+
+**`add-*` vs `create-*`**: `add-*` for items that belong to an existing parent collection (suborg members, cost centers, tags, approved domains). `create-*` for standalone entities (suborgs, openings, addresses).
+
+**`list-*` for all paginated endpoints** — no `filter-*` verb.
+
+### Request Body Conventions
+
+**Identifying a resource:**
+
+- Use `{resource}_id: string` for UUID-keyed resources — e.g. `opening_id`, `address_id`, `cost_center_id`
+- Never use bare `id` — always prefix with the resource name
+- Use the natural key when no UUID exists — e.g. `domain_name`, `email_address`
+- Composite-key resources (marketplace listings) use their public key fields: `org_domain` + `listing_number`
+
+**All paginated list request bodies must include:**
+
+```typescript
+pagination_key?: string;   // keyset cursor
+limit?: int32;             // page size; default and max enforced server-side
+filter_{field}?: type;     // zero or more optional filter fields
+```
+
+**All paginated list response bodies must include:**
+
+```typescript
+{resources}: ResourceType[];   // plural snake_case of the resource name — never `items`
+next_pagination_key?: string;
+```
 
 ## TypeSpec Validation
 
@@ -308,6 +370,24 @@ Rules:
 - No outer Card wrapper (Cards are fine inside the page for sub-sections)
 - **Form pages** (login, change-password, etc.) are exempt — they use centered Cards
 
+### UI Route Structure
+
+**All new feature routes MUST follow this pattern:**
+
+| Page           | Route pattern                  | Example                                 |
+| -------------- | ------------------------------ | --------------------------------------- |
+| List           | `/{resource}`                  | `/openings`, `/cost-centers`            |
+| Create         | `/{resource}/new`              | `/openings/new`                         |
+| Detail         | `/{resource}/:resourceId`      | `/openings/:openingId`                  |
+| Edit           | `/{resource}/:resourceId/edit` | `/openings/:openingId/edit`             |
+| Settings-scope | `/settings/{resource}`         | `/settings/plan`, `/settings/addresses` |
+
+Rules:
+
+- Always plural kebab-case for the resource segment: `/cost-centers` not `/cost-center` or `/costCenters`
+- Never use `-management` suffix or `manage-` prefix for list pages — those are legacy violations documented in `specs/api-ui-inconsistencies.md`
+- Settings-scoped config (plan, addresses) lives under `/settings/`; core admin features (users, domains) live at top level
+
 ### i18n
 
 Use `react-i18next`. Supported: en-US (default), de-DE, ta-IN. All user-visible strings must be translated. Language preference stored server-side when authenticated, cached locally.
@@ -334,6 +414,17 @@ Current roles — see `specs/typespec/common/roles.ts` and `MEMORY.md` for the f
 - `admin:superadmin` / `org:superadmin` — bypass all role checks
 - `hub:read_posts` (auto-assigned at signup), `hub:write_posts`, `hub:apply_jobs`
 - Pattern: `view_*` = read-only, `manage_*` = all writes
+
+### Superadmin and Approval Flows
+
+For any intra-org approval flow (e.g. Draft → Pending Review → Published), if the actor is `org:superadmin` the approval step is skipped and the resource goes directly to the final approved state. This accommodates single-person companies where the same user would otherwise have to approve their own submissions.
+
+Example (from marketplace listings and job openings):
+
+- Non-superadmin submits → `pending_review`
+- `org:superadmin` submits → `published` / `active` directly
+
+Always add a test scenario for this shortcut path alongside the normal submit test.
 
 ### Where Roles Are Stored
 
@@ -416,7 +507,7 @@ npm run test:api:admin
 
 ### Audit Log Tests
 
-Every write API test MUST include an audit log assertion after the success case. After calling the write endpoint, query the appropriate filter-audit-logs API and assert:
+Every write API test MUST include an audit log assertion after the success case. After calling the write endpoint, query the appropriate list-audit-logs API and assert:
 
 - An entry exists with the correct `event_type`
 - `actor_user_id` matches the authenticated user (or is null for unauthenticated events)
