@@ -1,0 +1,53 @@
+{
+	"title": "Company Addresses",
+	"addAddress": "Add Address",
+	"backToDashboard": "Back to Dashboard",
+	"filterAll": "All",
+	"filterActive": "Active",
+	"filterDisabled": "Disabled",
+	"loadMore": "Load More",
+	"table": {
+		"title": "Title",
+		"address": "Address",
+		"city": "City",
+		"country": "Country",
+		"status": "Status",
+		"createdAt": "Created At",
+		"actions": "Actions",
+		"edit": "Edit",
+		"disable": "Disable",
+		"reenable": "Re-enable"
+	},
+	"form": {
+		"titleLabel": "Title",
+		"titlePlaceholder": "e.g. HQ, London Office",
+		"addressLine1Label": "Address Line 1",
+		"addressLine2Label": "Address Line 2",
+		"cityLabel": "City",
+		"stateLabel": "State / Province",
+		"postalCodeLabel": "Postal Code",
+		"countryLabel": "Country",
+		"mapUrlsLabel": "Map URLs",
+		"addMapUrl": "Add URL",
+		"saveAddress": "Save Address"
+	},
+	"addModal": { "title": "Add Address" },
+	"editModal": { "title": "Edit Address" },
+	"disableConfirm": "Disable this address?",
+	"enableConfirm": "Re-enable this address?",
+	"statusActive": "Active",
+	"statusDisabled": "Disabled",
+	"success": {
+		"created": "Address created successfully",
+		"updated": "Address updated successfully",
+		"disabled": "Address disabled",
+		"enabled": "Address re-enabled"
+	},
+	"errors": {
+		"loadFailed": "Failed to load addresses",
+		"saveFailed": "Failed to save address",
+		"disableFailed": "Failed to disable address",
+		"enableFailed": "Failed to re-enable address",
+		"inUse": "Cannot disable: address is used by one or more active job openings"
+	}
+}

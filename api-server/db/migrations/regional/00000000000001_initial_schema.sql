@@ -48,6 +48,8 @@ CREATE TYPE org_user_status AS ENUM (
 CREATE TYPE domain_verification_status AS ENUM ('PENDING', 'VERIFIED', 'FAILING');
 -- Cost center status enum
 CREATE TYPE cost_center_status AS ENUM ('enabled', 'disabled');
+-- Company address status enum
+CREATE TYPE org_address_status AS ENUM ('active', 'disabled');
 -- Hub users table (regional - all mutable data)
 -- Uses hub_user_global_id as primary key (same ID as global DB for simplicity)
 CREATE TABLE hub_users (
@@ -191,6 +193,22 @@ CREATE TABLE suborgs (
     created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (org_id, name)
 );
+-- Company addresses: named address book for organizations
+CREATE TABLE org_addresses (
+    address_id    UUID               PRIMARY KEY DEFAULT gen_random_uuid(),
+    org_id        UUID               NOT NULL,
+    title         VARCHAR(100)       NOT NULL,
+    address_line1 VARCHAR(200)       NOT NULL,
+    address_line2 VARCHAR(200),
+    city          VARCHAR(100)       NOT NULL,
+    state         VARCHAR(100),
+    postal_code   VARCHAR(20),
+    country       VARCHAR(100)       NOT NULL,
+    map_urls      TEXT[]             NOT NULL DEFAULT '{}',
+    status        org_address_status NOT NULL DEFAULT 'active',
+    created_at    TIMESTAMPTZ        NOT NULL DEFAULT NOW(),
+    updated_at    TIMESTAMPTZ        NOT NULL DEFAULT NOW()
+);
 -- SubOrg membership: org users assigned to a SubOrg
 CREATE TABLE org_user_suborg_assignments (
     suborg_id   UUID      NOT NULL REFERENCES suborgs(suborg_id) ON DELETE CASCADE,
@@ -238,6 +256,8 @@ INSERT INTO roles (role_name, description) VALUES
     ('org:manage_subscriptions', 'Can create and cancel marketplace subscriptions'),
     ('org:view_plan', 'Can view own org plan subscription and usage (read-only)'),
     ('org:manage_plan', 'Can upgrade own org plan subscription'),
+    ('org:view_addresses', 'Can view company addresses (read-only)'),
+    ('org:manage_addresses', 'Can create, update, enable and disable company addresses'),
 
     -- Hub portal roles (assigned at signup, additional roles for paid features)
     ('hub:read_posts', 'Can read posts by other hub users'),
@@ -270,6 +290,7 @@ CREATE INDEX idx_org_invitation_tokens_expires_at ON org_invitation_tokens(expir
 CREATE INDEX idx_org_users_email_address ON org_users(email_address);
 CREATE INDEX idx_org_users_org_id ON org_users(org_id);
 CREATE INDEX idx_cost_centers_org_id_created_at ON cost_centers(org_id, created_at);
+CREATE INDEX idx_org_addresses_org_id_created_at ON org_addresses(org_id, created_at);
 CREATE INDEX idx_suborgs_org_id_created_at ON suborgs(org_id, created_at);
 CREATE INDEX idx_org_user_suborg_assignments_org_user_id ON org_user_suborg_assignments(org_user_id);
 CREATE INDEX idx_org_domains_org_id ON org_domains(org_id);
@@ -353,6 +374,7 @@ DROP INDEX IF EXISTS idx_org_user_suborg_assignments_org_user_id;
 DROP INDEX IF EXISTS idx_suborgs_org_id_created_at;
 DROP TABLE IF EXISTS org_user_suborg_assignments;
 DROP TABLE IF EXISTS suborgs;
+DROP INDEX IF EXISTS idx_org_addresses_org_id_created_at;
 DROP INDEX IF EXISTS idx_cost_centers_org_id_created_at;
 DROP INDEX IF EXISTS idx_org_users_org_id;
 DROP INDEX IF EXISTS idx_org_users_email_address;
@@ -366,6 +388,7 @@ DROP TABLE IF EXISTS org_user_roles;
 DROP TABLE IF EXISTS roles;
 DROP TABLE IF EXISTS org_invitation_tokens;
 DROP TABLE IF EXISTS org_domains;
+DROP TABLE IF EXISTS org_addresses;
 DROP TABLE IF EXISTS cost_centers;
 DROP TABLE IF EXISTS org_password_reset_tokens;
 DROP TABLE IF EXISTS org_sessions;
@@ -383,6 +406,7 @@ DROP TABLE IF EXISTS hub_tfa_tokens;
 DROP TABLE IF EXISTS email_delivery_attempts;
 DROP TABLE IF EXISTS emails;
 DROP TABLE IF EXISTS hub_users;
+DROP TYPE IF EXISTS org_address_status;
 DROP TYPE IF EXISTS cost_center_status;
 DROP TYPE IF EXISTS domain_verification_status;
 DROP TYPE IF EXISTS org_user_status;

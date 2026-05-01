@@ -17,6 +17,16 @@ import type {
 	CostCenter,
 } from "vetchium-specs/org/cost-centers";
 import type {
+	CreateAddressRequest,
+	UpdateAddressRequest,
+	DisableAddressRequest,
+	EnableAddressRequest,
+	GetAddressRequest,
+	ListAddressesRequest,
+	ListAddressesResponse,
+	OrgAddress,
+} from "vetchium-specs/org/company-addresses";
+import type {
 	OrgInitSignupRequest,
 	OrgInitSignupResponse,
 	OrgGetSignupDetailsRequest,
@@ -1428,6 +1438,256 @@ export class OrgAPIClient {
 		return {
 			status: response.status(),
 			body: responseBody as ListCostCentersResponse,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	// ============================================================================
+	// Company Addresses
+	// ============================================================================
+
+	/**
+	 * POST /org/create-address
+	 * Creates a new company address.
+	 */
+	async createAddress(
+		sessionToken: string,
+		request: CreateAddressRequest
+	): Promise<APIResponse<OrgAddress>> {
+		const response = await this.request.post("/org/create-address", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as OrgAddress,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	/**
+	 * POST /org/create-address with raw body for testing invalid payloads
+	 */
+	async createAddressRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<OrgAddress>> {
+		const response = await this.request.post("/org/create-address", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: body,
+		});
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as OrgAddress,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	/**
+	 * POST /org/update-address
+	 * Updates an existing company address.
+	 */
+	async updateAddress(
+		sessionToken: string,
+		request: UpdateAddressRequest
+	): Promise<APIResponse<OrgAddress>> {
+		const response = await this.request.post("/org/update-address", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as OrgAddress,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	/**
+	 * POST /org/update-address with raw body for testing invalid payloads
+	 */
+	async updateAddressRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<OrgAddress>> {
+		const response = await this.request.post("/org/update-address", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: body,
+		});
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as OrgAddress,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	/**
+	 * POST /org/disable-address
+	 * Disables a company address.
+	 */
+	async disableAddress(
+		sessionToken: string,
+		request: DisableAddressRequest
+	): Promise<APIResponse<OrgAddress>> {
+		const response = await this.request.post("/org/disable-address", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as OrgAddress,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	/**
+	 * POST /org/disable-address with raw body for testing invalid payloads
+	 */
+	async disableAddressRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<OrgAddress>> {
+		const response = await this.request.post("/org/disable-address", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: body,
+		});
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as OrgAddress,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	/**
+	 * POST /org/enable-address
+	 * Enables a company address.
+	 */
+	async enableAddress(
+		sessionToken: string,
+		request: EnableAddressRequest
+	): Promise<APIResponse<OrgAddress>> {
+		const response = await this.request.post("/org/enable-address", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as OrgAddress,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	/**
+	 * POST /org/enable-address with raw body for testing invalid payloads
+	 */
+	async enableAddressRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<OrgAddress>> {
+		const response = await this.request.post("/org/enable-address", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: body,
+		});
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as OrgAddress,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	/**
+	 * POST /org/get-address
+	 * Gets a single company address by ID.
+	 */
+	async getAddress(
+		sessionToken: string,
+		request: GetAddressRequest
+	): Promise<APIResponse<OrgAddress>> {
+		const response = await this.request.post("/org/get-address", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as OrgAddress,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	/**
+	 * POST /org/get-address with raw body for testing invalid payloads
+	 */
+	async getAddressRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<OrgAddress>> {
+		const response = await this.request.post("/org/get-address", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: body,
+		});
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as OrgAddress,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	/**
+	 * POST /org/list-addresses
+	 * Lists company addresses for the org.
+	 */
+	async listAddresses(
+		sessionToken: string,
+		request: ListAddressesRequest
+	): Promise<APIResponse<ListAddressesResponse>> {
+		const response = await this.request.post("/org/list-addresses", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as ListAddressesResponse,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	/**
+	 * POST /org/list-addresses with raw body for testing invalid payloads
+	 */
+	async listAddressesRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<ListAddressesResponse>> {
+		const response = await this.request.post("/org/list-addresses", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: body,
+		});
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as ListAddressesResponse,
 			errors: Array.isArray(responseBody) ? responseBody : undefined,
 		};
 	}

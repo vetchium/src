@@ -34,6 +34,8 @@ export const VALID_ROLE_NAMES = [
 	"org:view_audit_logs",
 	"org:view_plan",
 	"org:manage_plan",
+	"org:view_addresses",
+	"org:manage_addresses",
 
 	// Hub portal roles
 	"hub:read_posts",

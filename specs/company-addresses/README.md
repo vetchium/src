@@ -86,157 +86,493 @@ Submit button: "Save Address"
 
 ## Stage 2: Implementation Plan
 
-> **Do not fill this section until Stage 1 status is APPROVED.**
-
 Status: DRAFT
-Authors: @
+Authors: @psankar
 
 ### API Contract
 
-TypeSpec definitions in `specs/typespec/{portal}/{feature}.tsp` with matching `.ts` and `.go` files. These are the source of truth — all request/response types must be defined here and imported everywhere else.
+TypeSpec definitions in `specs/typespec/org/company-addresses.tsp` with matching `.ts` and `.go` files.
+
+**`specs/typespec/org/company-addresses.tsp`:**
 
 ```typespec
-// specs/typespec/org/feature.tsp
+import "@typespec/http";
+import "@typespec/rest";
+import "@typespec/openapi3";
+import "../common/common.tsp";
 
-model CreateFooRequest {
-  name: string;
-  description?: string;
+using TypeSpec.Http;
+namespace Vetchium;
+
+model CreateAddressRequest {
+  title: string;
+  address_line1: string;
+  address_line2?: string;
+  city: string;
+  state?: string;
+  postal_code?: string;
+  country: string;
+  map_urls?: string[];
 }
 
-model FooResponse {
-  id: string;
-  name: string;
-  created_at: utcDateTime;
+model UpdateAddressRequest {
+  address_id: string;
+  title: string;
+  address_line1: string;
+  address_line2?: string;
+  city: string;
+  state?: string;
+  postal_code?: string;
+  country: string;
+  map_urls?: string[];
 }
 
-@route("/org/create-foo")
-op createFoo(...CreateFooRequest): CreatedResponse<FooResponse> | BadRequestResponse;
+model DisableAddressRequest { address_id: string; }
+model EnableAddressRequest  { address_id: string; }
+model GetAddressRequest     { address_id: string; }
 
-@route("/org/list-foos")
-op listFoo(...ListFooRequest): OkResponse<FooListResponse> | BadRequestResponse;
+model ListAddressesRequest {
+  filter_status?: string;
+  pagination_key?: string;
+  limit?: int32;
+}
+
+model OrgAddress {
+  address_id:    string;
+  title:         string;
+  address_line1: string;
+  address_line2?: string;
+  city:          string;
+  state?:        string;
+  postal_code?:  string;
+  country:       string;
+  map_urls:      string[];
+  status:        string;
+  created_at:    string;
+}
+
+model ListAddressesResponse {
+  addresses:          OrgAddress[];
+  next_pagination_key?: string;
+}
+
+@route("/org")
+interface OrgAddresses {
+  @route("/create-address")  @post createAddress (...CreateAddressRequest) : OrgAddress | BadRequestResponse;
+  @route("/update-address")  @post updateAddress (...UpdateAddressRequest) : OrgAddress | BadRequestResponse | NotFoundResponse;
+  @route("/disable-address") @post disableAddress(...DisableAddressRequest): OrgAddress | NotFoundResponse | UnprocessableEntityResponse;
+  @route("/enable-address")  @post enableAddress (...EnableAddressRequest) : OrgAddress | NotFoundResponse | UnprocessableEntityResponse;
+  @route("/get-address")     @post getAddress    (...GetAddressRequest)    : OrgAddress | NotFoundResponse;
+  @route("/list-addresses")  @post listAddresses (...ListAddressesRequest) : ListAddressesResponse | BadRequestResponse;
+}
 ```
+
+**`specs/typespec/org/company-addresses.ts`** — hand-written TypeScript types with validators:
+
+```typescript
+import { type ValidationError, newValidationError } from "../common/common";
+
+const ADDRESS_TITLE_MAX = 100;
+const ADDRESS_LINE1_MAX = 200;
+const ADDRESS_LINE2_MAX = 200;
+const ADDRESS_CITY_MAX  = 100;
+const ADDRESS_STATE_MAX = 100;
+const ADDRESS_POSTAL_CODE_MAX = 20;
+const ADDRESS_COUNTRY_MAX = 100;
+const ADDRESS_MAP_URL_MAX = 500;
+const ADDRESS_MAP_URLS_MAX_ENTRIES = 5;
+
+export type OrgAddressStatus = "active" | "disabled";
+
+export interface OrgAddress {
+  address_id:    string;
+  title:         string;
+  address_line1: string;
+  address_line2?: string;
+  city:          string;
+  state?:        string;
+  postal_code?:  string;
+  country:       string;
+  map_urls:      string[];
+  status:        OrgAddressStatus;
+  created_at:    string;
+}
+
+export interface CreateAddressRequest {
+  title:         string;
+  address_line1: string;
+  address_line2?: string;
+  city:          string;
+  state?:        string;
+  postal_code?:  string;
+  country:       string;
+  map_urls?:     string[];
+}
+
+export function validateCreateAddressRequest(r: CreateAddressRequest): ValidationError[] { ... }
+
+export interface UpdateAddressRequest {
+  address_id:    string;
+  title:         string;
+  address_line1: string;
+  address_line2?: string;
+  city:          string;
+  state?:        string;
+  postal_code?:  string;
+  country:       string;
+  map_urls?:     string[];
+}
+
+export function validateUpdateAddressRequest(r: UpdateAddressRequest): ValidationError[] { ... }
+
+export interface DisableAddressRequest { address_id: string; }
+export function validateDisableAddressRequest(r: DisableAddressRequest): ValidationError[] { ... }
+
+export interface EnableAddressRequest  { address_id: string; }
+export function validateEnableAddressRequest(r: EnableAddressRequest): ValidationError[] { ... }
+
+export interface GetAddressRequest     { address_id: string; }
+export function validateGetAddressRequest(r: GetAddressRequest): ValidationError[] { ... }
+
+export interface ListAddressesRequest {
+  filter_status?:   OrgAddressStatus;
+  pagination_key?:  string;
+  limit?:           number;
+}
+
+export function validateListAddressesRequest(r: ListAddressesRequest): ValidationError[] { ... }
+
+export interface ListAddressesResponse {
+  addresses:           OrgAddress[];
+  next_pagination_key?: string;
+}
+```
+
+Validation rules (apply identically in `.ts` and `.go`):
+
+| Field         | Validations                                           |
+| ------------- | ----------------------------------------------------- |
+| title         | required; max 100 chars                               |
+| address_line1 | required; max 200 chars                               |
+| address_line2 | optional; max 200 chars when present                  |
+| city          | required; max 100 chars                               |
+| state         | optional; max 100 chars when present                  |
+| postal_code   | optional; max 20 chars when present                   |
+| country       | required; max 100 chars                               |
+| map_urls      | optional; at most 5 entries; each entry max 500 chars |
+| address_id    | required (in update/disable/enable/get); non-empty    |
+| filter_status | optional; must be `"active"` or `"disabled"` if given |
+
+**`specs/typespec/org/company-addresses.go`** — matching Go struct + `Validate()` methods using the same rules.
 
 ### Database Schema
 
-Changes to `api-server/db/migrations/{global,regional}/00000000000001_initial_schema.sql`. No new migration files — edit the initial schema directly.
+Changes to `api-server/db/migrations/regional/00000000000001_initial_schema.sql`.
 
-#### Tables / Columns
+#### New ENUM type (add near other ENUM declarations at the top)
 
 ```sql
--- Regional DB
-CREATE TABLE foos (
-    id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    org_id     UUID NOT NULL,
-    name       TEXT NOT NULL,
-    status     TEXT NOT NULL DEFAULT 'active',
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+CREATE TYPE org_address_status AS ENUM ('active', 'disabled');
+```
+
+#### New table (add after the `suborgs` table)
+
+```sql
+CREATE TABLE org_addresses (
+    address_id    UUID               PRIMARY KEY DEFAULT gen_random_uuid(),
+    org_id        UUID               NOT NULL,
+    title         VARCHAR(100)       NOT NULL,
+    address_line1 VARCHAR(200)       NOT NULL,
+    address_line2 VARCHAR(200),
+    city          VARCHAR(100)       NOT NULL,
+    state         VARCHAR(100),
+    postal_code   VARCHAR(20),
+    country       VARCHAR(100)       NOT NULL,
+    map_urls      TEXT[]             NOT NULL DEFAULT '{}',
+    status        org_address_status NOT NULL DEFAULT 'active',
+    created_at    TIMESTAMPTZ        NOT NULL DEFAULT NOW(),
+    updated_at    TIMESTAMPTZ        NOT NULL DEFAULT NOW()
 );
+
+CREATE INDEX idx_org_addresses_org_id_created_at ON org_addresses(org_id, created_at);
+```
+
+#### New roles (add to the INSERT INTO roles block)
+
+```sql
+('org:view_addresses',   'Can view company addresses (read-only)'),
+('org:manage_addresses', 'Can create, update, enable and disable company addresses'),
+```
+
+#### DOWN section additions (add DROP statements in reverse creation order)
+
+```sql
+DROP INDEX IF EXISTS idx_org_addresses_org_id_created_at;
+DROP TABLE IF EXISTS org_addresses;
+DROP TYPE  IF EXISTS org_address_status;
 ```
 
 #### SQL Queries
 
-New query files in `api-server/db/{global,regional}/queries/`. Annotate with sqlc directives.
+Add to `api-server/db/queries/regional.sql`:
 
 ```sql
--- name: CreateFoo :one
-INSERT INTO foos (org_id, name) VALUES ($1, $2) RETURNING *;
+-- ============================================
+-- Company Address Queries (Regional)
+-- ============================================
 
--- name: ListFoos :many
-SELECT * FROM foos
-WHERE org_id = $1
-  AND ($2::uuid IS NULL OR id < $2)
-ORDER BY id DESC
-LIMIT $3;
+-- name: CreateOrgAddress :one
+INSERT INTO org_addresses (org_id, title, address_line1, address_line2, city, state, postal_code, country, map_urls)
+VALUES (@org_id, @title, @address_line1, @address_line2, @city, @state, @postal_code, @country, @map_urls)
+RETURNING *;
+
+-- name: GetOrgAddress :one
+SELECT * FROM org_addresses
+WHERE address_id = @address_id AND org_id = @org_id;
+
+-- name: UpdateOrgAddress :one
+UPDATE org_addresses
+SET title         = @title,
+    address_line1 = @address_line1,
+    address_line2 = @address_line2,
+    city          = @city,
+    state         = @state,
+    postal_code   = @postal_code,
+    country       = @country,
+    map_urls      = @map_urls,
+    updated_at    = NOW()
+WHERE address_id = @address_id AND org_id = @org_id
+RETURNING *;
+
+-- name: DisableOrgAddress :one
+UPDATE org_addresses
+SET status = 'disabled', updated_at = NOW()
+WHERE address_id = @address_id AND org_id = @org_id AND status = 'active'
+RETURNING *;
+
+-- name: EnableOrgAddress :one
+UPDATE org_addresses
+SET status = 'active', updated_at = NOW()
+WHERE address_id = @address_id AND org_id = @org_id AND status = 'disabled'
+RETURNING *;
+
+-- name: ListOrgAddresses :many
+SELECT * FROM org_addresses
+WHERE org_id = @org_id
+  AND (sqlc.narg('filter_status')::org_address_status IS NULL
+       OR status = sqlc.narg('filter_status')::org_address_status)
+  AND (@cursor_created_at::timestamp IS NULL
+       OR (created_at > @cursor_created_at)
+       OR (created_at = @cursor_created_at AND address_id > @cursor_id))
+ORDER BY created_at ASC, address_id ASC
+LIMIT @limit_count;
 ```
+
+`DisableOrgAddress` and `EnableOrgAddress` use a WHERE guard on the current status: if no rows are updated (pgx.ErrNoRows) the handler must first check if the address exists at all (separate `GetOrgAddress` within the tx) and return 404 vs 422 accordingly.
 
 ### Backend
 
 #### Endpoints
 
-| Method | Path              | Handler file          | Auth middleware | Role required    |
-| ------ | ----------------- | --------------------- | --------------- | ---------------- |
-| POST   | `/org/create-foo` | `handlers/org/foo.go` | `OrgAuth`       | `org:manage_foo` |
-| POST   | `/org/list-foos`  | `handlers/org/foo.go` | `OrgAuth`       | `org:view_foo`   |
+| Method | Path                   | Handler file                        | Auth middleware | Role required          |
+| ------ | ---------------------- | ----------------------------------- | --------------- | ---------------------- |
+| POST   | `/org/create-address`  | `handlers/org/company-addresses.go` | `OrgAuth`       | `org:manage_addresses` |
+| POST   | `/org/update-address`  | `handlers/org/company-addresses.go` | `OrgAuth`       | `org:manage_addresses` |
+| POST   | `/org/disable-address` | `handlers/org/company-addresses.go` | `OrgAuth`       | `org:manage_addresses` |
+| POST   | `/org/enable-address`  | `handlers/org/company-addresses.go` | `OrgAuth`       | `org:manage_addresses` |
+| POST   | `/org/get-address`     | `handlers/org/company-addresses.go` | `OrgAuth`       | `org:view_addresses`   |
+| POST   | `/org/list-addresses`  | `handlers/org/company-addresses.go` | `OrgAuth`       | `org:view_addresses`   |
 
 #### Handler Notes
 
-- Decode → validate → tx → respond
-- All writes use `s.WithRegionalTx` / `s.WithGlobalTx`
-- Audit log write MUST be inside the same transaction as the primary write
+- All handlers: decode → validate → tx (for writes) / direct query (for reads) → respond.
+- `create-address` returns **201** + OrgAddress JSON.
+- `update-address` returns **200** + OrgAddress JSON; 404 if unknown address_id.
+- `disable-address` returns **200** + OrgAddress JSON; 404 if not found; **422** if already `disabled`. Job-openings check (pending_review/published/paused → 422) is a TODO for when the openings feature is added.
+- `enable-address` returns **200** + OrgAddress JSON; 404 if not found; **422** if already `active`.
+- `get-address` returns **200** + OrgAddress JSON; 404 if not found.
+- `list-addresses` returns **200** + ListAddressesResponse; keyset cursor encoded as `base64(created_at|address_id)`.
+- `map_urls` stored as `TEXT[]`; when `nil` or absent in request, write `[]string{}` to DB.
+- UUID parsing for address_id: use `pgtype.UUID.Scan(req.AddressID)`; return 400 if scan fails.
 
 #### Audit Log Events
 
-| event_type       | DB table                | actor_user_id | target_user_id | event_data keys  |
-| ---------------- | ----------------------- | ------------- | -------------- | ---------------- |
-| `org.create_foo` | `audit_logs` (regional) | org user      | —              | `foo_id`, `name` |
+| event_type            | DB table                | actor_user_id | target_user_id | event_data keys       |
+| --------------------- | ----------------------- | ------------- | -------------- | --------------------- |
+| `org.create_address`  | `audit_logs` (regional) | org user      | —              | `address_id`, `title` |
+| `org.update_address`  | `audit_logs` (regional) | org user      | —              | `address_id`, `title` |
+| `org.disable_address` | `audit_logs` (regional) | org user      | —              | `address_id`          |
+| `org.enable_address`  | `audit_logs` (regional) | org user      | —              | `address_id`          |
 
 ### Frontend
 
 #### New Routes
 
-| Portal | Route path | Page component              |
-| ------ | ---------- | --------------------------- |
-| org-ui | `/foo`     | `src/pages/FooListPage.tsx` |
+| Portal | Route path            | Page component                          |
+| ------ | --------------------- | --------------------------------------- |
+| org-ui | `/settings/addresses` | `src/pages/Addresses/AddressesPage.tsx` |
 
-#### Implementation Notes
+#### AddressesPage layout
 
-- Standard page layout: maxWidth 1200, back button first, Title level=2, no outer Card
-- Wrap network calls with `<Spin spinning={loading}>` to prevent double-submission
-- Disable submit while form has validation errors
+Standard feature page layout (maxWidth 1200, back button → Dashboard, Title level=2, no outer Card).
+
+- **Header row**: `Title level={2}` "Company Addresses" (left) + "Add Address" primary button (right, hidden when no `manage_addresses` role)
+- **Filter**: Ant Design `Segmented` or `Select` — All / Active / Disabled
+- **Table** columns: Title | Address | City | Country | Status | Created At | Actions
+  - "Address" column renders `address_line1` (and `address_line2` on next line if present)
+  - Actions column: **Edit** (manage_addresses only) · **Disable** / **Re-enable** (manage_addresses only)
+- **Add/Edit modal**: Ant Design `Modal` + `Form` with all fields; map_urls rendered as a dynamic list of text inputs (max 5, Add URL / Remove buttons)
+- **Disable/Enable**: inline `Popconfirm` on the action link; no separate page
+- **Load more** button at the bottom of the table for pagination (cursor-based, not page numbers)
+- Wrap all network calls in `<Spin spinning={loading}>` to prevent double-submission
+- Derive `canManage` from `myInfo.roles.includes("org:superadmin") || myInfo.roles.includes("org:manage_addresses")`
+
+#### Route guard in `App.tsx`
+
+Add `AddressesRoute` component (identical pattern to `CostCentersRoute`) checking for `org:view_addresses`, `org:manage_addresses`, or `org:superadmin`. Add `<Route path="/settings/addresses" element={<AddressesRoute><AddressesPage /></AddressesRoute>} />`.
 
 ### RBAC
 
-#### New roles (if any)
+#### New roles
 
-All three locations must be kept in sync:
+All four locations must be kept in sync:
 
-- `specs/typespec/common/roles.ts`
-- `specs/typespec/common/roles.go`
-- `api-server/db/migrations/.../00000000000001_initial_schema.sql` (INSERT into `roles`)
+- `specs/typespec/common/roles.ts` — add to `VALID_ROLE_NAMES` array
+- `specs/typespec/common/roles.go` — add to `ValidRoleNames` slice
+- `specs/typespec/org/org-users.ts` — add `OrgRoleViewAddresses` and `OrgRoleManageAddresses` constants
+- `specs/typespec/org/org-users.go` — add matching Go constants in the `const` block
 
-| Role name        | Portal | Description               |
-| ---------------- | ------ | ------------------------- |
-| `org:view_foo`   | org    | Read-only access to foos  |
-| `org:manage_foo` | org    | Create, edit, delete foos |
+| Role name              | Portal | Description                                              |
+| ---------------------- | ------ | -------------------------------------------------------- |
+| `org:view_addresses`   | org    | Can view company addresses (read-only)                   |
+| `org:manage_addresses` | org    | Can create, update, enable and disable company addresses |
 
-#### Existing roles reused
+Also register the two middleware instances in `api-server/internal/routes/org-routes.go`:
 
-List any existing roles this feature checks against.
+```go
+orgRoleViewAddresses   := middleware.OrgRole(s.Regional, orgspec.OrgRoleViewAddresses, orgspec.OrgRoleManageAddresses)
+orgRoleManageAddresses := middleware.OrgRole(s.Regional, orgspec.OrgRoleManageAddresses)
+```
 
 ### i18n
 
-Minimum: provide `en-US` values. Add matching keys to `de-DE` and `ta-IN`.
+Files: `org-ui/src/locales/en-US/addresses.json`, `de-DE/addresses.json`, `ta-IN/addresses.json`.
+
+Minimum `en-US` keys:
 
 ```json
 {
-	"fooList": {
-		"title": "Foos",
-		"addFoo": "Add Foo",
-		"backToDashboard": "Back to Dashboard",
-		"name": "Name",
+	"title": "Company Addresses",
+	"addAddress": "Add Address",
+	"backToDashboard": "Back to Dashboard",
+	"filterAll": "All",
+	"filterActive": "Active",
+	"filterDisabled": "Disabled",
+	"table": {
+		"title": "Title",
+		"address": "Address",
+		"city": "City",
+		"country": "Country",
 		"status": "Status",
 		"createdAt": "Created At",
-		"createSuccess": "Foo created successfully",
-		"deleteSuccess": "Foo deleted successfully"
+		"actions": "Actions",
+		"edit": "Edit",
+		"disable": "Disable",
+		"reenable": "Re-enable"
+	},
+	"form": {
+		"title": "Title",
+		"addressLine1": "Address Line 1",
+		"addressLine2": "Address Line 2",
+		"city": "City",
+		"state": "State / Province",
+		"postalCode": "Postal Code",
+		"country": "Country",
+		"mapUrls": "Map URLs",
+		"addMapUrl": "Add URL",
+		"saveAddress": "Save Address"
+	},
+	"addModal": { "title": "Add Address" },
+	"editModal": { "title": "Edit Address" },
+	"disableConfirm": "Disable this address?",
+	"enableConfirm": "Re-enable this address?",
+	"success": {
+		"created": "Address created successfully",
+		"updated": "Address updated successfully",
+		"disabled": "Address disabled",
+		"enabled": "Address re-enabled"
+	},
+	"errors": {
+		"loadFailed": "Failed to load addresses",
+		"saveFailed": "Failed to save address",
+		"disableFailed": "Failed to disable address",
+		"enableFailed": "Failed to re-enable address",
+		"inUse": "Cannot disable: address is used by one or more active job openings"
 	}
 }
 ```
 
+Provide placeholder translations (same English text) in `de-DE/addresses.json` and `ta-IN/addresses.json`.
+
 ### Test Matrix
 
-Tests in `playwright/tests/api/{portal}/foo.spec.ts`. All types imported from `specs/typespec/`.
+Tests in `playwright/tests/api/org/company-addresses.spec.ts`. Types imported from `vetchium-specs/org/company-addresses`.
 
-| Scenario                     | Request                              | Expected status                 |
-| ---------------------------- | ------------------------------------ | ------------------------------- |
-| Success — create             | valid body                           | 201 + resource in response      |
-| Success — list               | valid pagination                     | 200 + items array               |
-| Missing required field       | `name` omitted                       | 400                             |
-| Invalid field value          | `name: ""`                           | 400                             |
-| Unauthenticated              | no / invalid token                   | 401                             |
-| Wrong role (RBAC negative)   | authenticated, no roles              | 403                             |
-| Correct role (RBAC positive) | non-superadmin with `org:manage_foo` | 201                             |
-| Not found                    | unknown ID                           | 404                             |
-| Invalid state                | e.g. already deleted                 | 422                             |
-| Audit log written            | after success case                   | entry with correct `event_type` |
-| No audit log on failure      | after 4xx                            | count unchanged                 |
+Also add methods to `playwright/lib/org-api-client.ts`:
+
+- `createAddress`, `createAddressRaw`
+- `updateAddress`, `updateAddressRaw`
+- `disableAddress`, `disableAddressRaw`
+- `enableAddress`, `enableAddressRaw`
+- `getAddress`, `getAddressRaw`
+- `listAddresses`, `listAddressesRaw`
+
+| Scenario                                | Endpoint        | Expected status                         |
+| --------------------------------------- | --------------- | --------------------------------------- |
+| Success — all required fields only      | create-address  | 201 + OrgAddress in response            |
+| Success — all fields including optional | create-address  | 201 + OrgAddress in response            |
+| Missing required field (title)          | create-address  | 400                                     |
+| Missing required field (address_line1)  | create-address  | 400                                     |
+| Missing required field (city)           | create-address  | 400                                     |
+| Missing required field (country)        | create-address  | 400                                     |
+| Field too long (title > 100)            | create-address  | 400                                     |
+| map_urls > 5 entries                    | create-address  | 400                                     |
+| map_url entry > 500 chars               | create-address  | 400                                     |
+| Unauthenticated                         | create-address  | 401                                     |
+| RBAC negative (no roles)                | create-address  | 403                                     |
+| RBAC positive (manage_addresses role)   | create-address  | 201                                     |
+| Audit log written on success            | create-address  | `org.create_address` entry present      |
+| No audit log on failure                 | create-address  | count unchanged                         |
+| Success                                 | get-address     | 200 + OrgAddress                        |
+| Missing address_id                      | get-address     | 400                                     |
+| Unauthenticated                         | get-address     | 401                                     |
+| RBAC negative (no roles)                | get-address     | 403                                     |
+| RBAC positive (view_addresses role)     | get-address     | 200                                     |
+| Not found                               | get-address     | 404                                     |
+| Success                                 | update-address  | 200 + updated OrgAddress                |
+| Missing required field                  | update-address  | 400                                     |
+| Unauthenticated                         | update-address  | 401                                     |
+| RBAC negative (no roles)                | update-address  | 403                                     |
+| Not found                               | update-address  | 404                                     |
+| Audit log written on success            | update-address  | `org.update_address` entry present      |
+| Success (active → disabled)             | disable-address | 200 + OrgAddress with status=disabled   |
+| Missing address_id                      | disable-address | 400                                     |
+| Unauthenticated                         | disable-address | 401                                     |
+| RBAC negative (no roles)                | disable-address | 403                                     |
+| Not found                               | disable-address | 404                                     |
+| Already disabled (invalid state)        | disable-address | 422                                     |
+| Audit log written on success            | disable-address | `org.disable_address` entry present     |
+| Success (disabled → active)             | enable-address  | 200 + OrgAddress with status=active     |
+| Missing address_id                      | enable-address  | 400                                     |
+| Unauthenticated                         | enable-address  | 401                                     |
+| RBAC negative (no roles)                | enable-address  | 403                                     |
+| Not found                               | enable-address  | 404                                     |
+| Already active (invalid state)          | enable-address  | 422                                     |
+| Audit log written on success            | enable-address  | `org.enable_address` entry present      |
+| Success — all addresses                 | list-addresses  | 200 + addresses array                   |
+| Success — filter active                 | list-addresses  | 200 + only active addresses             |
+| Success — filter disabled               | list-addresses  | 200 + only disabled addresses           |
+| Pagination (cursor)                     | list-addresses  | 200 + next_pagination_key when has more |
+| Unauthenticated                         | list-addresses  | 401                                     |
+| RBAC negative (no roles)                | list-addresses  | 403                                     |
+| RBAC positive (view_addresses role)     | list-addresses  | 200                                     |

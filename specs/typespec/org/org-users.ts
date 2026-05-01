@@ -504,6 +504,8 @@ export const OrgRoleViewSubscriptions = "org:view_subscriptions";
 export const OrgRoleManageSubscriptions = "org:manage_subscriptions";
 export const OrgRoleViewPlan = "org:view_plan";
 export const OrgRoleManagePlan = "org:manage_plan";
+export const OrgRoleViewAddresses = "org:view_addresses";
+export const OrgRoleManageAddresses = "org:manage_addresses";
 
 export interface OrgUser {
 	email_address: EmailAddress;

@@ -38,6 +38,8 @@ func RegisterOrgRoutes(mux *http.ServeMux, s *server.RegionalServer) {
 	orgRoleSuperadmin := middleware.OrgRole(s.Regional, orgspec.OrgRoleSuperadmin)
 	orgRoleViewSubscriptions := middleware.OrgRole(s.Regional, orgspec.OrgRoleViewSubscriptions, orgspec.OrgRoleManageSubscriptions)
 	orgRoleManageSubscriptions := middleware.OrgRole(s.Regional, orgspec.OrgRoleManageSubscriptions)
+	orgRoleViewAddresses := middleware.OrgRole(s.Regional, orgspec.OrgRoleViewAddresses, orgspec.OrgRoleManageAddresses)
+	orgRoleManageAddresses := middleware.OrgRole(s.Regional, orgspec.OrgRoleManageAddresses)
 
 	// Domain write routes (manage_domains required; superadmin bypasses via middleware)
 	mux.Handle("POST /org/claim-domain", orgAuth(orgRoleManageDomains(org.ClaimDomain(s))))
@@ -70,6 +72,14 @@ func RegisterOrgRoutes(mux *http.ServeMux, s *server.RegionalServer) {
 	mux.Handle("POST /org/create-cost-center", orgAuth(orgRoleManageCostCenters(org.AddCostCenter(s))))
 	mux.Handle("POST /org/update-cost-center", orgAuth(orgRoleManageCostCenters(org.UpdateCostCenter(s))))
 	mux.Handle("POST /org/list-cost-centers", orgAuth(orgRoleViewCostCenters(org.ListCostCenters(s))))
+
+	// Company Address routes
+	mux.Handle("POST /org/create-address", orgAuth(orgRoleManageAddresses(org.CreateAddress(s))))
+	mux.Handle("POST /org/update-address", orgAuth(orgRoleManageAddresses(org.UpdateAddress(s))))
+	mux.Handle("POST /org/disable-address", orgAuth(orgRoleManageAddresses(org.DisableAddress(s))))
+	mux.Handle("POST /org/enable-address", orgAuth(orgRoleManageAddresses(org.EnableAddress(s))))
+	mux.Handle("POST /org/get-address", orgAuth(orgRoleViewAddresses(org.GetAddress(s))))
+	mux.Handle("POST /org/list-addresses", orgAuth(orgRoleViewAddresses(org.ListAddresses(s))))
 
 	// SubOrg routes
 	mux.Handle("POST /org/create-suborg", orgAuth(orgRoleManageSubOrgs(org.CreateSubOrg(s))))

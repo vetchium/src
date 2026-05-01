@@ -513,6 +513,56 @@ ORDER BY created_at ASC, cost_center_id ASC
 LIMIT @limit_count;
 
 -- ============================================
+-- Company Address Queries (Regional)
+-- ============================================
+
+-- name: CreateOrgAddress :one
+INSERT INTO org_addresses (org_id, title, address_line1, address_line2, city, state, postal_code, country, map_urls)
+VALUES (@org_id, @title, @address_line1, @address_line2, @city, @state, @postal_code, @country, @map_urls)
+RETURNING *;
+
+-- name: GetOrgAddress :one
+SELECT * FROM org_addresses
+WHERE address_id = @address_id AND org_id = @org_id;
+
+-- name: UpdateOrgAddress :one
+UPDATE org_addresses
+SET title         = @title,
+    address_line1 = @address_line1,
+    address_line2 = @address_line2,
+    city          = @city,
+    state         = @state,
+    postal_code   = @postal_code,
+    country       = @country,
+    map_urls      = @map_urls,
+    updated_at    = NOW()
+WHERE address_id = @address_id AND org_id = @org_id
+RETURNING *;
+
+-- name: DisableOrgAddress :one
+UPDATE org_addresses
+SET status = 'disabled', updated_at = NOW()
+WHERE address_id = @address_id AND org_id = @org_id AND status = 'active'
+RETURNING *;
+
+-- name: EnableOrgAddress :one
+UPDATE org_addresses
+SET status = 'active', updated_at = NOW()
+WHERE address_id = @address_id AND org_id = @org_id AND status = 'disabled'
+RETURNING *;
+
+-- name: ListOrgAddresses :many
+SELECT * FROM org_addresses
+WHERE org_id = @org_id
+  AND (sqlc.narg('filter_status')::org_address_status IS NULL
+       OR status = sqlc.narg('filter_status')::org_address_status)
+  AND (@cursor_created_at::timestamp IS NULL
+       OR (created_at > @cursor_created_at)
+       OR (created_at = @cursor_created_at AND address_id > @cursor_id))
+ORDER BY created_at ASC, address_id ASC
+LIMIT @limit_count;
+
+-- ============================================
 -- Audit Log Queries (Regional)
 -- ============================================
 -- name: InsertAuditLog :exec

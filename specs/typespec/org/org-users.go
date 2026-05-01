@@ -411,6 +411,8 @@ const (
 	OrgRoleManageSubscriptions OrgRole = "org:manage_subscriptions"
 	OrgRoleViewPlan            OrgRole = "org:view_plan"
 	OrgRoleManagePlan          OrgRole = "org:manage_plan"
+	OrgRoleViewAddresses       OrgRole = "org:view_addresses"
+	OrgRoleManageAddresses     OrgRole = "org:manage_addresses"
 )
 
 type OrgUser struct {
