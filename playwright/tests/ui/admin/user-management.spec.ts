@@ -27,7 +27,7 @@ test.describe("Admin UI - User Management", () => {
 	test("should invite a new admin user", async ({ page }) => {
 		// Navigate to User Management
 		await page.click("text=User Management");
-		await expect(page).toHaveURL(`${ADMIN_UI_URL}/user-management`);
+		await expect(page).toHaveURL(`${ADMIN_UI_URL}/users`);
 
 		// Click Invite User button on the User Management page
 		await page.locator('button:has-text("Invite User")').click();
@@ -62,7 +62,7 @@ test.describe("Admin UI - User Management", () => {
 
 		// Re-navigate to get a clean page state (avoids race between search fetch
 		// and the invite-success auto-refresh fetch)
-		await page.goto(`${ADMIN_UI_URL}/user-management`);
+		await page.goto(`${ADMIN_UI_URL}/users`);
 		await page.waitForLoadState("networkidle");
 
 		// Search for invited user

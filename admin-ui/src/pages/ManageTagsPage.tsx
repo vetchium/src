@@ -94,7 +94,7 @@ export function ManageTagsPage() {
 					query: query || undefined,
 					pagination_key: cursor || undefined,
 				};
-				const resp = await fetch(`${apiBaseUrl}/admin/filter-tags`, {
+				const resp = await fetch(`${apiBaseUrl}/admin/list-tags`, {
 					method: "POST",
 					headers: {
 						"Content-Type": "application/json",
@@ -158,7 +158,7 @@ export function ManageTagsPage() {
 		setAddLoading(true);
 		try {
 			const apiBaseUrl = await getApiBaseUrl();
-			const resp = await fetch(`${apiBaseUrl}/admin/add-tag`, {
+			const resp = await fetch(`${apiBaseUrl}/admin/create-tag`, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",

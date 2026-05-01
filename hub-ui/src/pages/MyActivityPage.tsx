@@ -61,7 +61,7 @@ export function MyActivityPage() {
 					...(filters.endTime && { end_time: filters.endTime.toISOString() }),
 					...(cursor && { pagination_key: cursor }),
 				};
-				const response = await fetch(`${apiBaseUrl}/hub/my-audit-logs`, {
+				const response = await fetch(`${apiBaseUrl}/hub/list-audit-logs`, {
 					method: "POST",
 					headers: {
 						"Content-Type": "application/json",

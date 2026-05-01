@@ -89,7 +89,7 @@ export function UserManagementPage() {
 					requestBody.filter_status = status;
 				}
 
-				const response = await fetch(`${apiBaseUrl}/admin/filter-users`, {
+				const response = await fetch(`${apiBaseUrl}/admin/list-users`, {
 					method: "POST",
 					headers: {
 						"Content-Type": "application/json",

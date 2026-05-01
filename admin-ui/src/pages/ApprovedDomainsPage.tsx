@@ -178,14 +178,17 @@ export function ApprovedDomainsPage() {
 
 			setAddingDomain(true);
 			const apiBaseUrl = await getApiBaseUrl();
-			const response = await fetch(`${apiBaseUrl}/admin/add-approved-domain`, {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					Authorization: `Bearer ${sessionToken}`,
-				},
-				body: JSON.stringify(request),
-			});
+			const response = await fetch(
+				`${apiBaseUrl}/admin/create-approved-domain`,
+				{
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${sessionToken}`,
+					},
+					body: JSON.stringify(request),
+				}
+			);
 
 			if (response.status === 400) {
 				const errors: unknown = await response.json();

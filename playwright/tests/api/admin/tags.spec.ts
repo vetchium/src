@@ -638,12 +638,14 @@ test.describe("Admin Tags API", () => {
 				});
 				expect(auditResp.status).toBe(200);
 				expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
-				const auditEntry = auditResp.body.audit_logs[0];
-				expect(auditEntry.event_type).toBe("admin.upload_tag_icon");
-				expect(auditEntry.actor_email).toBe(manageTagsEmail);
-				expect(auditEntry.event_data).toHaveProperty("tag_id");
-				expect(auditEntry.event_data).toHaveProperty("icon_size");
-				expect(auditEntry.event_data["icon_size"]).toBe("small");
+				const auditEntry = auditResp.body.audit_logs.find(
+					(e) => e.event_data?.tag_id === tagId
+				);
+				expect(auditEntry).toBeDefined();
+				expect(auditEntry!.event_type).toBe("admin.upload_tag_icon");
+				expect(auditEntry!.actor_email).toBe(manageTagsEmail);
+				expect(auditEntry!.event_data).toHaveProperty("icon_size");
+				expect(auditEntry!.event_data["icon_size"]).toBe("small");
 			} finally {
 				await deleteTestTag(tagId);
 			}

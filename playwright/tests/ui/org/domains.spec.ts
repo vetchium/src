@@ -34,7 +34,7 @@ test.describe("Org UI - Domain Management", () => {
 	}) => {
 		// Navigate to Domain Management
 		await page.click("text=Domain Management");
-		await expect(page).toHaveURL(`${ORG_UI_URL}/domain-management`);
+		await expect(page).toHaveURL(`${ORG_UI_URL}/domains`);
 
 		// Fill claim form
 		await page.fill('input[placeholder="example.com"]', newDomain);

@@ -31,7 +31,7 @@ test.describe("Admin UI - Manage Tags", () => {
 	test("should create and search for a tag", async ({ page }) => {
 		// Navigate to Manage Tags
 		await page.click("text=Manage Tags");
-		await expect(page).toHaveURL(`${ADMIN_UI_URL}/manage-tags`);
+		await expect(page).toHaveURL(`${ADMIN_UI_URL}/tags`);
 
 		// Click Add Tag
 		await page.click('button:has-text("Add Tag")');
@@ -68,8 +68,7 @@ test.describe("Admin UI - Manage Tags", () => {
 
 		// Wait for API
 		await page.waitForResponse(
-			(resp) =>
-				resp.url().includes("/admin/filter-tags") && resp.status() === 200
+			(resp) => resp.url().includes("/admin/list-tags") && resp.status() === 200
 		);
 
 		// Verify it appears in the table
