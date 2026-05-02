@@ -22,11 +22,12 @@ import type {
 } from "vetchium-specs/org/tiers";
 import { getApiBaseUrl } from "../../config";
 import { useAuth } from "../../hooks/useAuth";
+import { formatDate } from "../../utils/dateFormat";
 
 const { Title, Text } = Typography;
 
 export function PlanPage() {
-	const { t } = useTranslation("plan");
+	const { t, i18n } = useTranslation("plan");
 	const { sessionToken } = useAuth();
 	const { message } = App.useApp();
 
@@ -204,7 +205,7 @@ export function PlanPage() {
 								{subscription.current_plan.description || "-"}
 							</Descriptions.Item>
 							<Descriptions.Item label={t("currentPlan.updatedAt")}>
-								{new Date(subscription.updated_at).toLocaleDateString()}
+								{formatDate(subscription.updated_at, i18n.language)}
 							</Descriptions.Item>
 						</Descriptions>
 					</Card>

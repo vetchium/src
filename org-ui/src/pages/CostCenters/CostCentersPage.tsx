@@ -29,13 +29,14 @@ import type {
 import { getApiBaseUrl } from "../../config";
 import { useAuth } from "../../hooks/useAuth";
 import { useMyInfo } from "../../hooks/useMyInfo";
+import { formatDateTime } from "../../utils/dateFormat";
 
 const { Title } = Typography;
 
 type FilterStatus = "enabled" | "disabled" | undefined;
 
 export function CostCentersPage() {
-	const { t } = useTranslation("cost-centers");
+	const { t, i18n } = useTranslation("cost-centers");
 	const { sessionToken } = useAuth();
 	const { data: myInfo } = useMyInfo(sessionToken);
 	const { message } = App.useApp();
@@ -289,7 +290,7 @@ export function CostCentersPage() {
 			title: t("table.createdAt"),
 			dataIndex: "created_at",
 			key: "created_at",
-			render: (createdAt: string) => new Date(createdAt).toLocaleString(),
+			render: (createdAt: string) => formatDateTime(createdAt, i18n.language),
 		},
 		...(canManage
 			? [

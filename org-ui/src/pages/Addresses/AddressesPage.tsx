@@ -150,7 +150,7 @@ function AddressFormItems() {
 }
 
 export function AddressesPage() {
-	const { t } = useTranslation("addresses");
+	const { t, i18n } = useTranslation("addresses");
 	const { sessionToken } = useAuth();
 	const { data: myInfo } = useMyInfo(sessionToken);
 	const { message } = App.useApp();
@@ -407,7 +407,7 @@ export function AddressesPage() {
 			title: t("table.createdAt"),
 			dataIndex: "created_at",
 			key: "created_at",
-			render: (createdAt: string) => formatDateTime(createdAt),
+			render: (createdAt: string) => formatDateTime(createdAt, i18n.language),
 		},
 		...(canManage
 			? [

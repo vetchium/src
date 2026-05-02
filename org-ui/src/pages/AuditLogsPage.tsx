@@ -16,6 +16,7 @@ import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { getApiBaseUrl } from "../config";
+import { formatDateTime } from "../utils/dateFormat";
 import type {
 	FilterAuditLogsRequest,
 	FilterAuditLogsResponse,
@@ -35,7 +36,7 @@ const emptyFilters: Filters = {
 };
 
 export function AuditLogsPage() {
-	const { t } = useTranslation("auditLogs");
+	const { t, i18n } = useTranslation("auditLogs");
 	const { sessionToken } = useAuth();
 
 	const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
@@ -124,7 +125,7 @@ export function AuditLogsPage() {
 			title: t("table.timestamp"),
 			dataIndex: "created_at",
 			key: "created_at",
-			render: (val: string) => new Date(val).toLocaleString(),
+			render: (val: string) => formatDateTime(val, i18n.language),
 			width: 180,
 		},
 		{

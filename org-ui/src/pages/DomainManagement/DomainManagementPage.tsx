@@ -49,6 +49,7 @@ import {
 } from "vetchium-specs/common/common";
 import { getApiBaseUrl } from "../../config";
 import { useAuth } from "../../hooks/useAuth";
+import { formatDateTime } from "../../utils/dateFormat";
 import { useMyInfo } from "../../hooks/useMyInfo";
 
 const { Text, Paragraph, Title } = Typography;
@@ -58,7 +59,7 @@ interface ClaimFormValues {
 }
 
 export function DomainManagementPage() {
-	const { t } = useTranslation("auth");
+	const { t, i18n } = useTranslation("auth");
 	const { sessionToken } = useAuth();
 	const { data: myInfo, refetch: refetchMyInfo } = useMyInfo(sessionToken);
 	const { message, modal } = App.useApp();
@@ -177,8 +178,9 @@ export function DomainManagementPage() {
 			if (response.status === 409) {
 				const body: ClaimDomainCooldownResponse = await response.json();
 				if (body.claimable_after) {
-					const claimableDate = new Date(body.claimable_after).toLocaleString(
-						navigator.language
+					const claimableDate = formatDateTime(
+						body.claimable_after,
+						i18n.language
 					);
 					setError(
 						t("domain.cooldownMessage", { claimableAfter: claimableDate })
@@ -344,7 +346,7 @@ export function DomainManagementPage() {
 	};
 
 	const formatLocalTime = (isoString: string) =>
-		new Date(isoString).toLocaleString(navigator.language);
+		formatDateTime(isoString, i18n.language);
 
 	const columns = [
 		{

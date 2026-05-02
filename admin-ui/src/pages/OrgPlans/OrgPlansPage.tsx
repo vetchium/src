@@ -14,6 +14,7 @@ import {
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
+import { formatDate } from "../../utils/dateFormat";
 import type {
 	OrgPlan,
 	AdminListOrgPlansRequest,
@@ -28,7 +29,7 @@ const { Title } = Typography;
 const PLANS = ["free", "silver", "gold", "enterprise"] as const;
 
 export function OrgPlansPage() {
-	const { t } = useTranslation("orgPlans");
+	const { t, i18n } = useTranslation("orgPlans");
 	const { sessionToken } = useAuth();
 	const { data: myInfo } = useMyInfo(sessionToken);
 	const { message } = App.useApp();
@@ -150,7 +151,7 @@ export function OrgPlansPage() {
 			title: t("table.updatedAt"),
 			dataIndex: "updated_at",
 			key: "updated_at",
-			render: (v: string) => new Date(v).toLocaleDateString(),
+			render: (v: string) => formatDate(v, i18n.language),
 		},
 		{
 			title: t("table.actions"),

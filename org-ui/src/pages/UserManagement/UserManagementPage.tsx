@@ -38,7 +38,7 @@ const { Title } = Typography;
 type UserStatus = "all" | "active" | "pending" | "disabled";
 
 export function UserManagementPage() {
-	const { t } = useTranslation("userManagement");
+	const { t, i18n } = useTranslation("userManagement");
 	const { sessionToken } = useAuth();
 	const { message } = App.useApp();
 	const { data: myInfo } = useMyInfo(sessionToken);
@@ -231,7 +231,7 @@ export function UserManagementPage() {
 			title: t("table.createdAt"),
 			dataIndex: "created_at",
 			key: "created_at",
-			render: (date: string) => formatDateTime(date),
+			render: (date: string) => formatDateTime(date, i18n.language),
 		},
 		{
 			title: t("table.actions"),

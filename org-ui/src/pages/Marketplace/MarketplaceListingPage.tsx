@@ -47,7 +47,7 @@ const STATUS_COLORS: Record<MarketplaceListingStatus, string> = {
 };
 
 export function MarketplaceListingPage() {
-	const { t } = useTranslation("marketplace");
+	const { t, i18n } = useTranslation("marketplace");
 	const { orgDomain, listingNumber } = useParams<{
 		orgDomain: string;
 		listingNumber: string;
@@ -405,14 +405,14 @@ export function MarketplaceListingPage() {
 					</Descriptions.Item>
 					{listing.listed_at && (
 						<Descriptions.Item label={t("listing.listedAt")}>
-							{formatDateTime(listing.listed_at)}
+							{formatDateTime(listing.listed_at, i18n.language)}
 						</Descriptions.Item>
 					)}
 					<Descriptions.Item label={t("listing.subscribers")}>
 						{listing.active_subscriber_count}
 					</Descriptions.Item>
 					<Descriptions.Item label={t("listing.updatedAt")}>
-						{formatDateTime(listing.updated_at)}
+						{formatDateTime(listing.updated_at, i18n.language)}
 					</Descriptions.Item>
 				</Descriptions>
 			</Card>

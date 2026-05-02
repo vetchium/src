@@ -48,7 +48,7 @@ const { Title } = Typography;
 const { TextArea } = Input;
 
 export function ApprovedDomainsPage() {
-	const { t } = useTranslation("approvedDomains");
+	const { t, i18n } = useTranslation("approvedDomains");
 	const { sessionToken } = useAuth();
 	const { message } = App.useApp();
 
@@ -493,7 +493,7 @@ export function ApprovedDomainsPage() {
 			title: t("table.createdAt"),
 			dataIndex: "created_at",
 			key: "created_at",
-			render: (date: string) => formatDateTime(date),
+			render: (date: string) => formatDateTime(date, i18n.language),
 		},
 		{
 			title: t("table.actions"),
@@ -811,10 +811,16 @@ export function ApprovedDomainsPage() {
 										{domainDetail.domain.created_by_admin_email}
 									</Descriptions.Item>
 									<Descriptions.Item label={t("detailDrawer.createdAt")}>
-										{formatDateTime(domainDetail.domain.created_at)}
+										{formatDateTime(
+											domainDetail.domain.created_at,
+											i18n.language
+										)}
 									</Descriptions.Item>
 									<Descriptions.Item label={t("detailDrawer.updatedAt")}>
-										{formatDateTime(domainDetail.domain.updated_at)}
+										{formatDateTime(
+											domainDetail.domain.updated_at,
+											i18n.language
+										)}
 									</Descriptions.Item>
 								</Descriptions>
 							</div>

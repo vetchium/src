@@ -19,6 +19,7 @@ import type {
 import { getApiBaseUrl } from "../../config";
 import { useAuth } from "../../hooks/useAuth";
 import { useMyInfo } from "../../hooks/useMyInfo";
+import { formatDateTime } from "../../utils/dateFormat";
 
 const { Title } = Typography;
 
@@ -29,7 +30,7 @@ const SUB_STATUS_COLORS: Record<MarketplaceSubscriptionStatus, string> = {
 };
 
 export function SubscriptionDetailPage() {
-	const { t } = useTranslation("marketplace");
+	const { t, i18n } = useTranslation("marketplace");
 	const { providerOrgDomain, listingNumber } = useParams<{
 		providerOrgDomain: string;
 		listingNumber: string;
@@ -155,16 +156,16 @@ export function SubscriptionDetailPage() {
 						</Tag>
 					</Descriptions.Item>
 					<Descriptions.Item label={t("subscriptionDetail.subscribedAt")}>
-						{new Date(subscription.started_at).toLocaleString()}
+						{formatDateTime(subscription.started_at, i18n.language)}
 					</Descriptions.Item>
 					{subscription.cancelled_at && (
 						<Descriptions.Item label={t("subscriptionDetail.cancelledAt")}>
-							{new Date(subscription.cancelled_at).toLocaleString()}
+							{formatDateTime(subscription.cancelled_at, i18n.language)}
 						</Descriptions.Item>
 					)}
 					{subscription.expires_at && (
 						<Descriptions.Item label={t("subscriptionDetail.expiresAt")}>
-							{new Date(subscription.expires_at).toLocaleString()}
+							{formatDateTime(subscription.expires_at, i18n.language)}
 						</Descriptions.Item>
 					)}
 				</Descriptions>

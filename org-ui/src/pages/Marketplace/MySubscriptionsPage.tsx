@@ -9,6 +9,7 @@ import type {
 } from "vetchium-specs/org/marketplace";
 import { getApiBaseUrl } from "../../config";
 import { useAuth } from "../../hooks/useAuth";
+import { formatDate } from "../../utils/dateFormat";
 
 const { Title } = Typography;
 
@@ -19,7 +20,7 @@ const SUB_STATUS_COLORS: Record<MarketplaceSubscriptionStatus, string> = {
 };
 
 export function MySubscriptionsPage() {
-	const { t } = useTranslation("marketplace");
+	const { t, i18n } = useTranslation("marketplace");
 	const { sessionToken } = useAuth();
 	const navigate = useNavigate();
 
@@ -94,7 +95,7 @@ export function MySubscriptionsPage() {
 			title: t("subscriptions.subscribedAt"),
 			dataIndex: "started_at",
 			key: "started_at",
-			render: (v: string) => new Date(v).toLocaleDateString(),
+			render: (v: string) => formatDate(v, i18n.language),
 		},
 		{
 			title: t("subscriptions.actions"),

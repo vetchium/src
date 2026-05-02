@@ -392,6 +392,26 @@ Rules:
 
 Use `react-i18next`. Supported: en-US (default), de-DE, ta-IN. All user-visible strings must be translated. Language preference stored server-side when authenticated, cached locally.
 
+### Date and Time Formatting
+
+**CRITICAL**: Never call `.toLocaleString()`, `.toLocaleDateString()`, or `.toLocaleTimeString()` directly. Always use the shared utilities and pass the active i18n locale so the format matches the user's app language:
+
+```typescript
+import { formatDateTime, formatDate } from "../../utils/dateFormat";
+// in the component:
+const { t, i18n } = useTranslation("namespace");
+// in JSX / table render:
+formatDateTime(record.created_at, i18n.language); // date + time (timestamps, audit logs)
+formatDate(record.updated_at, i18n.language); // date only (subscription dates, etc.)
+```
+
+Rules:
+
+- Use `formatDateTime` for timestamps where the time matters (created_at, assigned_at, event times)
+- Use `formatDate` for date-only fields (updated_at on subscriptions, started_at subscription dates)
+- Both functions use `month: "short"` to avoid MM/DD vs DD/MM ambiguity regardless of locale
+- The utilities live at `{ui}/src/utils/dateFormat.ts` and are identical across all three UIs
+
 ### Forms
 
 - Disable submit when form has errors (use `Form.Item shouldUpdate` + `form.getFieldsError()`)

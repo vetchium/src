@@ -11,6 +11,7 @@ import type { OrgPlan } from "vetchium-specs/org/tiers";
 import { getApiBaseUrl } from "../../config";
 import { useAuth } from "../../hooks/useAuth";
 import { useMyInfo } from "../../hooks/useMyInfo";
+import { formatDate } from "../../utils/dateFormat";
 
 const { Title } = Typography;
 
@@ -23,7 +24,7 @@ const STATUS_COLORS: Record<MarketplaceListingStatus, string> = {
 };
 
 export function MyListingsPage() {
-	const { t } = useTranslation("marketplace");
+	const { t, i18n } = useTranslation("marketplace");
 	const { sessionToken } = useAuth();
 	const { data: myInfo } = useMyInfo(sessionToken);
 	const navigate = useNavigate();
@@ -147,7 +148,7 @@ export function MyListingsPage() {
 			title: t("listings.updated"),
 			dataIndex: "updated_at",
 			key: "updated_at",
-			render: (v: string) => new Date(v).toLocaleDateString(),
+			render: (v: string) => formatDate(v, i18n.language),
 		},
 		{
 			title: t("listings.actions"),

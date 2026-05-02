@@ -38,7 +38,7 @@ export function UserDetailDrawer({
 	onClose,
 	onUserUpdated,
 }: UserDetailDrawerProps) {
-	const { t } = useTranslation("userManagement");
+	const { t, i18n } = useTranslation("userManagement");
 	const { sessionToken } = useAuth();
 	const { message } = App.useApp();
 	const { data: myInfo } = useMyInfo(sessionToken);
@@ -238,7 +238,7 @@ export function UserDetailDrawer({
 							</Tag>
 						</Descriptions.Item>
 						<Descriptions.Item label={t("table.createdAt")}>
-							{formatDateTime(user.created_at)}
+							{formatDateTime(user.created_at, i18n.language)}
 						</Descriptions.Item>
 					</Descriptions>
 				</div>

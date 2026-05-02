@@ -42,13 +42,14 @@ import type { Region } from "vetchium-specs/global/global";
 import { getApiBaseUrl } from "../../config";
 import { useAuth } from "../../hooks/useAuth";
 import { useMyInfo } from "../../hooks/useMyInfo";
+import { formatDateTime } from "../../utils/dateFormat";
 
 const { Title } = Typography;
 
 type FilterStatus = "active" | "disabled" | undefined;
 
 export function SubOrgsPage() {
-	const { t } = useTranslation("suborgs");
+	const { t, i18n } = useTranslation("suborgs");
 	const { sessionToken } = useAuth();
 	const { data: myInfo } = useMyInfo(sessionToken);
 	const { message } = App.useApp();
@@ -470,7 +471,7 @@ export function SubOrgsPage() {
 			title: t("table.createdAt"),
 			dataIndex: "created_at",
 			key: "created_at",
-			render: (val: string) => new Date(val).toLocaleString(),
+			render: (val: string) => formatDateTime(val, i18n.language),
 		},
 		{
 			title: t("table.actions"),
@@ -521,7 +522,7 @@ export function SubOrgsPage() {
 			title: t("members.assignedAt"),
 			dataIndex: "assigned_at",
 			key: "assigned_at",
-			render: (val: string) => new Date(val).toLocaleString(),
+			render: (val: string) => formatDateTime(val, i18n.language),
 		},
 		...(canManage
 			? [
