@@ -54,7 +54,7 @@ test.describe("Org UI Company Addresses", () => {
 
 		// 3. Edit address
 		await page.click('button:has-text("Edit")');
-		const editModal = page.locator(".ant-modal-content");
+		const editModal = page.getByRole("dialog", { name: "Edit Address" });
 		await expect(editModal).toBeVisible();
 		await editModal.getByLabel("Title").fill("Global HQ");
 		await page.click('button:has-text("Save Address")');
@@ -67,13 +67,14 @@ test.describe("Org UI Company Addresses", () => {
 		await page.click('button:has-text("Disable")');
 		await page.click('button:has-text("Yes")');
 		await expect(page.locator("text=Address disabled")).toBeVisible();
-		await expect(page.locator("text=Disabled")).toBeVisible();
+		const row = page.getByRole("row").filter({ hasText: "Global HQ" });
+		await expect(row.getByText("Disabled")).toBeVisible();
 
 		// 5. Re-enable address
 		await page.click('button:has-text("Re-enable")');
 		await page.click('button:has-text("Yes")');
 		await expect(page.locator("text=Address re-enabled")).toBeVisible();
-		await expect(page.locator("text=Active")).toBeVisible();
+		await expect(row.getByText("Active")).toBeVisible();
 	});
 
 	test("Addresses page handles empty state and filters", async ({ page }) => {

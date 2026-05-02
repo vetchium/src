@@ -60,7 +60,7 @@ export async function addAddress(
 	}
 ) {
 	await page.click('button:has-text("Add Address")');
-	const modal = page.locator(".ant-modal-content");
+	const modal = page.getByRole("dialog", { name: "Add Address" });
 	await expect(modal).toBeVisible();
 	await modal.getByLabel("Title").fill(data.title);
 	await modal.getByLabel("Address Line 1").fill(data.addressLine1);
