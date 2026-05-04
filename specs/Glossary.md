@@ -39,8 +39,38 @@
 ### Opening
 
 - Job posting created by an Org
-- States: DRAFT, PUBLISHED, PAUSED, CLOSED, ARCHIVED
-- Stored in a specific region, never migrates
+- States: DRAFT, PENDING_REVIEW, PUBLISHED, PAUSED, EXPIRED, CLOSED, ARCHIVED
+- Identified externally by the composite `(org_domain, opening_number)`; `opening_number` is a per-org atomic counter starting at 1
+- Editable only while in DRAFT; once it leaves DRAFT, content is frozen — to change a published opening, close it and create a new one (the `duplicate` action seeds a fresh DRAFT from the old fields)
+- Auto-expires 180 days after `first_published_at` via a regional background worker; the clock keeps ticking while PAUSED
+- Stored in the org's home region, never migrates
+
+### Hiring Team (on an Opening)
+
+- **Hiring Manager** — single OrgUser ultimately accountable for the hire (required)
+- **Recruiter** — single OrgUser running the talent-acquisition pipeline (required)
+- **Hiring Team Members** — 0..10 OrgUsers who are potential team-mates (optional)
+- **Watchers** — 0..25 OrgUsers who receive notifications but have no decision rights (optional)
+
+### Work Email Stint (HubUser)
+
+- A continuous period during which a HubUser is verifiably employed at a given employer domain (per the `hub-employer-ids` spec)
+- States: `pending_verification` → `active` → `ended`; one row in `hub_employer_stints` per stint
+- Carries `(first_verified_at, last_verified_at, ended_at?)`; the active period requires re-verification once every 365 days, with a 30-day grace before auto-end
+- Globally unique per active stint (at most one HubUser holds a given email in `pending_verification` or `active` state at a time)
+- Public profile shows only the **domain** of the stint plus the year-range; the address is private to the owning HubUser
+
+### Hub Connection
+
+- A bilateral relationship between two HubUsers, gated by overlapping verified work-email stints at the same domain (per the `hub-connections` spec)
+- One canonical pair row in `hub_connections`; states: `pending` / `connected` / `rejected` / `disconnected`
+- Asymmetric: the actor that ends a relationship (rejecter, disconnector, withdrawer) retains the option to restart it; the other party does not
+- Block (`hub_blocks`) is a separate, one-way override that severs any pending or connected pair
+
+### HubUser Profile
+
+- The public surface of a HubUser: handle, multi-language display names, short_bio, long_bio, optional city, country, profile picture (per the `hub-profile` spec)
+- Reachable by exact handle only in Phase 1 (no search). Any authenticated HubUser can view any active HubUser's profile
 
 ### Application
 
