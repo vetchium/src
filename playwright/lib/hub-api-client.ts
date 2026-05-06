@@ -1340,9 +1340,7 @@ export class HubAPIClient {
 		};
 	}
 
-	async getConnectionCounts(
-		sessionToken: string
-	): Promise<
+	async getConnectionCounts(sessionToken: string): Promise<
 		APIResponse<{
 			pending_incoming: number;
 			pending_outgoing: number;
