@@ -16,11 +16,11 @@ const (
 	WorkEmailStintStatusActive              WorkEmailStintStatus = "active"
 	WorkEmailStintStatusEnded               WorkEmailStintStatus = "ended"
 
-	WorkEmailStintEndedReasonUserRemoved          WorkEmailStintEndedReason = "user_removed"
-	WorkEmailStintEndedReasonUserRemovedPending   WorkEmailStintEndedReason = "user_removed_pending"
-	WorkEmailStintEndedReasonVerificationExpired  WorkEmailStintEndedReason = "verification_expired"
-	WorkEmailStintEndedReasonReverifyTimeout      WorkEmailStintEndedReason = "reverify_timeout"
-	WorkEmailStintEndedReasonSuperseded           WorkEmailStintEndedReason = "superseded"
+	WorkEmailStintEndedReasonUserRemoved         WorkEmailStintEndedReason = "user_removed"
+	WorkEmailStintEndedReasonUserRemovedPending  WorkEmailStintEndedReason = "user_removed_pending"
+	WorkEmailStintEndedReasonVerificationExpired WorkEmailStintEndedReason = "verification_expired"
+	WorkEmailStintEndedReasonReverifyTimeout     WorkEmailStintEndedReason = "reverify_timeout"
+	WorkEmailStintEndedReasonSuperseded          WorkEmailStintEndedReason = "superseded"
 )
 
 type WorkEmailStintOwnerView struct {
@@ -41,10 +41,10 @@ type WorkEmailStintOwnerView struct {
 }
 
 type PublicEmployerStint struct {
-	Domain    string  `json:"domain"`
-	IsCurrent bool    `json:"is_current"`
-	StartYear int32   `json:"start_year"`
-	EndYear   *int32  `json:"end_year,omitempty"`
+	Domain    string `json:"domain"`
+	IsCurrent bool   `json:"is_current"`
+	StartYear int32  `json:"start_year"`
+	EndYear   *int32 `json:"end_year,omitempty"`
 }
 
 type AddWorkEmailRequest struct {
@@ -52,8 +52,8 @@ type AddWorkEmailRequest struct {
 }
 
 type AddWorkEmailResponse struct {
-	StintID               string `json:"stint_id"`
-	PendingCodeExpiresAt  string `json:"pending_code_expires_at"`
+	StintID              string `json:"stint_id"`
+	PendingCodeExpiresAt string `json:"pending_code_expires_at"`
 }
 
 type VerifyWorkEmailRequest struct {
@@ -79,10 +79,10 @@ type GetMyWorkEmailRequest struct {
 }
 
 type ListMyWorkEmailsRequest struct {
-	FilterStatus   []WorkEmailStintStatus `json:"filter_status,omitempty"`
-	FilterDomain   *string                `json:"filter_domain,omitempty"`
-	PaginationKey  *string                `json:"pagination_key,omitempty"`
-	Limit          *int32                 `json:"limit,omitempty"`
+	FilterStatus  []WorkEmailStintStatus `json:"filter_status,omitempty"`
+	FilterDomain  *string                `json:"filter_domain,omitempty"`
+	PaginationKey *string                `json:"pagination_key,omitempty"`
+	Limit         *int32                 `json:"limit,omitempty"`
 }
 
 type ListMyWorkEmailsResponse struct {
@@ -100,13 +100,13 @@ type ListPublicEmployerStintsResponse struct {
 
 // Validation errors
 var (
-	ErrEmailRequired    = errors.New("email_address is required")
-	ErrEmailInvalid     = errors.New("email_address is not a valid email")
-	ErrEmailTooLong     = errors.New("email_address must be at most 254 characters")
-	ErrStintIDRequired  = errors.New("stint_id is required")
-	ErrCodeRequired     = errors.New("code is required")
-	ErrCodeInvalid      = errors.New("code must be a 6-digit number")
-	ErrHandleRequired   = errors.New("handle is required")
+	ErrEmailRequired   = errors.New("email_address is required")
+	ErrEmailInvalid    = errors.New("email_address is not a valid email")
+	ErrEmailTooLong    = errors.New("email_address must be at most 254 characters")
+	ErrStintIDRequired = errors.New("stint_id is required")
+	ErrCodeRequired    = errors.New("code is required")
+	ErrCodeInvalid     = errors.New("code must be a 6-digit number")
+	ErrHandleRequired  = errors.New("handle is required")
 )
 
 var codeRegex = regexp.MustCompile(`^\d{6}$`)

@@ -4,10 +4,7 @@ import {
 	ERR_REQUIRED,
 } from "../common/common";
 
-export type WorkEmailStintStatus =
-	| "pending_verification"
-	| "active"
-	| "ended";
+export type WorkEmailStintStatus = "pending_verification" | "active" | "ended";
 
 export type WorkEmailStintEndedReason =
 	| "user_removed"
@@ -96,7 +93,8 @@ export const EMAIL_MAX_LENGTH = 254;
 export const CODE_LENGTH = 6;
 export const ERR_EMAIL_REQUIRED = "email_address is required";
 export const ERR_EMAIL_INVALID = "email_address is not a valid email";
-export const ERR_EMAIL_TOO_LONG = "email_address must be at most 254 characters";
+export const ERR_EMAIL_TOO_LONG =
+	"email_address must be at most 254 characters";
 export const ERR_STINT_ID_REQUIRED = "stint_id is required";
 export const ERR_CODE_REQUIRED = "code is required";
 export const ERR_CODE_INVALID = "code must be a 6-digit number";

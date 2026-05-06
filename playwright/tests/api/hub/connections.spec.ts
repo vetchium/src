@@ -13,14 +13,9 @@ import {
 	updateTestHubUserStatus,
 	createTestHubUserDirect,
 } from "../../../lib/db";
-import {
-	waitForEmail,
-	getEmailContent,
-} from "../../../lib/mailpit";
+import { waitForEmail, getEmailContent } from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
-import type {
-	CompleteSignupRequest,
-} from "vetchium-specs/hub/hub-users";
+import type { CompleteSignupRequest } from "vetchium-specs/hub/hub-users";
 
 /**
  * Helper function to create and authenticate a test hub user
@@ -32,7 +27,12 @@ async function createAuthenticatedHubUser(
 	handle: string,
 	region: string = "ind1"
 ): Promise<{ sessionToken: string; handle: string }> {
-	const user = await createTestHubUserDirect(email, password, handle, region as any);
+	const user = await createTestHubUserDirect(
+		email,
+		password,
+		handle,
+		region as any
+	);
 	return {
 		sessionToken: user.sessionToken,
 		handle: user.handle,
@@ -58,7 +58,13 @@ test.describe("POST /hub/connections", () => {
 		await createTestApprovedDomain(domain, adminEmail);
 
 		try {
-			const user = await createAuthenticatedHubUser(api, email, TEST_PASSWORD, "testuser", "ind1");
+			const user = await createAuthenticatedHubUser(
+				api,
+				email,
+				TEST_PASSWORD,
+				"testuser",
+				"ind1"
+			);
 			const response = await api.getConnectionStatus(user.sessionToken, {
 				handle: "nonexistent_user_12345",
 			});
@@ -70,7 +76,9 @@ test.describe("POST /hub/connections", () => {
 		}
 	});
 
-	test("get-status returns not_connected when no relationship exists", async ({ request }) => {
+	test("get-status returns not_connected when no relationship exists", async ({
+		request,
+	}) => {
 		const api = new HubAPIClient(request);
 		const adminEmail = generateTestEmail("admin");
 		const domain = generateTestDomainName();
@@ -81,8 +89,20 @@ test.describe("POST /hub/connections", () => {
 		await createTestApprovedDomain(domain, adminEmail);
 
 		try {
-			const user1 = await createAuthenticatedHubUser(api, email1, TEST_PASSWORD, "user1", "ind1");
-			const user2 = await createAuthenticatedHubUser(api, email2, TEST_PASSWORD, "user2", "ind1");
+			const user1 = await createAuthenticatedHubUser(
+				api,
+				email1,
+				TEST_PASSWORD,
+				"user1",
+				"ind1"
+			);
+			const user2 = await createAuthenticatedHubUser(
+				api,
+				email2,
+				TEST_PASSWORD,
+				"user2",
+				"ind1"
+			);
 
 			// Note: Without employer stint verification, these users are ineligible
 			// This test assumes the backend correctly handles the eligibility check
@@ -91,10 +111,9 @@ test.describe("POST /hub/connections", () => {
 			});
 			expect(response.status).toBe(200);
 			// Depending on employer verification status, could be ineligible or not_connected
-			expect([
-				"ineligible",
-				"not_connected",
-			]).toContain(response.body.connection_state);
+			expect(["ineligible", "not_connected"]).toContain(
+				response.body.connection_state
+			);
 		} finally {
 			await deleteTestHubUser(email1);
 			await deleteTestHubUser(email2);
@@ -113,7 +132,13 @@ test.describe("POST /hub/connections", () => {
 		await createTestApprovedDomain(domain, adminEmail);
 
 		try {
-			const user = await createAuthenticatedHubUser(api, email, TEST_PASSWORD, "testuser", "ind1");
+			const user = await createAuthenticatedHubUser(
+				api,
+				email,
+				TEST_PASSWORD,
+				"testuser",
+				"ind1"
+			);
 			const response = await api.sendConnectionRequest(user.sessionToken, {
 				handle: user.handle,
 			});
@@ -135,7 +160,13 @@ test.describe("POST /hub/connections", () => {
 		await createTestApprovedDomain(domain, adminEmail);
 
 		try {
-			const user = await createAuthenticatedHubUser(api, email, TEST_PASSWORD, "testuser", "ind1");
+			const user = await createAuthenticatedHubUser(
+				api,
+				email,
+				TEST_PASSWORD,
+				"testuser",
+				"ind1"
+			);
 			const response = await api.sendConnectionRequest(user.sessionToken, {
 				handle: "nonexistent_user_12345",
 			});
@@ -157,7 +188,13 @@ test.describe("POST /hub/connections", () => {
 		await createTestApprovedDomain(domain, adminEmail);
 
 		try {
-			const user = await createAuthenticatedHubUser(api, email, TEST_PASSWORD, "testuser", "ind1");
+			const user = await createAuthenticatedHubUser(
+				api,
+				email,
+				TEST_PASSWORD,
+				"testuser",
+				"ind1"
+			);
 			const response = await api.blockUser(user.sessionToken, {
 				handle: user.handle,
 			});
@@ -179,7 +216,13 @@ test.describe("POST /hub/connections", () => {
 		await createTestApprovedDomain(domain, adminEmail);
 
 		try {
-			const user = await createAuthenticatedHubUser(api, email, TEST_PASSWORD, "testuser", "ind1");
+			const user = await createAuthenticatedHubUser(
+				api,
+				email,
+				TEST_PASSWORD,
+				"testuser",
+				"ind1"
+			);
 			const response = await api.blockUser(user.sessionToken, {
 				handle: "nonexistent_user_12345",
 			});
@@ -191,7 +234,9 @@ test.describe("POST /hub/connections", () => {
 		}
 	});
 
-	test("get-status returns 404 when handle does not exist", async ({ request }) => {
+	test("get-status returns 404 when handle does not exist", async ({
+		request,
+	}) => {
 		const api = new HubAPIClient(request);
 		const adminEmail = generateTestEmail("admin");
 		const domain = generateTestDomainName();
@@ -201,7 +246,13 @@ test.describe("POST /hub/connections", () => {
 		await createTestApprovedDomain(domain, adminEmail);
 
 		try {
-			const user = await createAuthenticatedHubUser(api, email, TEST_PASSWORD, "testuser", "ind1");
+			const user = await createAuthenticatedHubUser(
+				api,
+				email,
+				TEST_PASSWORD,
+				"testuser",
+				"ind1"
+			);
 			const response = await api.getConnectionStatus(user.sessionToken, {
 				handle: "this_user_definitely_does_not_exist_xyz",
 			});
@@ -223,7 +274,13 @@ test.describe("POST /hub/connections", () => {
 		await createTestApprovedDomain(domain, adminEmail);
 
 		try {
-			const user = await createAuthenticatedHubUser(api, email, TEST_PASSWORD, "testuser", "ind1");
+			const user = await createAuthenticatedHubUser(
+				api,
+				email,
+				TEST_PASSWORD,
+				"testuser",
+				"ind1"
+			);
 			const response = await api.listConnections(user.sessionToken);
 			expect(response.status).toBe(200);
 			expect(response.body.connections).toBeDefined();
@@ -246,7 +303,13 @@ test.describe("POST /hub/connections", () => {
 		await createTestApprovedDomain(domain, adminEmail);
 
 		try {
-			const user = await createAuthenticatedHubUser(api, email, TEST_PASSWORD, "testuser", "ind1");
+			const user = await createAuthenticatedHubUser(
+				api,
+				email,
+				TEST_PASSWORD,
+				"testuser",
+				"ind1"
+			);
 			const response = await api.getConnectionCounts(user.sessionToken);
 			expect(response.status).toBe(200);
 			expect(response.body.pending_incoming).toBeDefined();
@@ -274,7 +337,13 @@ test.describe("POST /hub/connections", () => {
 		await createTestApprovedDomain(domain, adminEmail);
 
 		try {
-			const user = await createAuthenticatedHubUser(api, email, TEST_PASSWORD, "testuser", "ind1");
+			const user = await createAuthenticatedHubUser(
+				api,
+				email,
+				TEST_PASSWORD,
+				"testuser",
+				"ind1"
+			);
 			const response = await api.listIncomingRequests(user.sessionToken);
 			expect(response.status).toBe(200);
 			expect(response.body.incoming).toBeDefined();
@@ -297,7 +366,13 @@ test.describe("POST /hub/connections", () => {
 		await createTestApprovedDomain(domain, adminEmail);
 
 		try {
-			const user = await createAuthenticatedHubUser(api, email, TEST_PASSWORD, "testuser", "ind1");
+			const user = await createAuthenticatedHubUser(
+				api,
+				email,
+				TEST_PASSWORD,
+				"testuser",
+				"ind1"
+			);
 			const response = await api.listOutgoingRequests(user.sessionToken);
 			expect(response.status).toBe(200);
 			expect(response.body.outgoing).toBeDefined();
@@ -320,7 +395,13 @@ test.describe("POST /hub/connections", () => {
 		await createTestApprovedDomain(domain, adminEmail);
 
 		try {
-			const user = await createAuthenticatedHubUser(api, email, TEST_PASSWORD, "testuser", "ind1");
+			const user = await createAuthenticatedHubUser(
+				api,
+				email,
+				TEST_PASSWORD,
+				"testuser",
+				"ind1"
+			);
 			const response = await api.listBlockedUsers(user.sessionToken);
 			expect(response.status).toBe(200);
 			expect(response.body.blocked).toBeDefined();
@@ -333,7 +414,9 @@ test.describe("POST /hub/connections", () => {
 		}
 	});
 
-	test("search returns empty results for no connections", async ({ request }) => {
+	test("search returns empty results for no connections", async ({
+		request,
+	}) => {
 		const api = new HubAPIClient(request);
 		const adminEmail = generateTestEmail("admin");
 		const domain = generateTestDomainName();
@@ -343,8 +426,16 @@ test.describe("POST /hub/connections", () => {
 		await createTestApprovedDomain(domain, adminEmail);
 
 		try {
-			const user = await createAuthenticatedHubUser(api, email, TEST_PASSWORD, "testuser", "ind1");
-			const response = await api.searchConnections(user.sessionToken, { query: "any" });
+			const user = await createAuthenticatedHubUser(
+				api,
+				email,
+				TEST_PASSWORD,
+				"testuser",
+				"ind1"
+			);
+			const response = await api.searchConnections(user.sessionToken, {
+				query: "any",
+			});
 			expect(response.status).toBe(200);
 			expect(response.body.results).toBeDefined();
 			expect(Array.isArray(response.body.results)).toBe(true);

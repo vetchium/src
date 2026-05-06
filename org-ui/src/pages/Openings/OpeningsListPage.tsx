@@ -62,16 +62,14 @@ export default function OpeningsListPage() {
 		try {
 			const api = new OrgAPIClient();
 			const req: ListOpeningsRequest = {
-				filter_status:
-					statusFilter.length > 0 ? statusFilter : undefined,
+				filter_status: statusFilter.length > 0 ? statusFilter : undefined,
 				filter_is_internal:
 					visibilityFilter === "internal"
 						? true
 						: visibilityFilter === "public"
 							? false
 							: undefined,
-				filter_hiring_manager_org_user_id:
-					hiringManagerFilter || undefined,
+				filter_hiring_manager_org_user_id: hiringManagerFilter || undefined,
 				filter_recruiter_org_user_id: recruiterFilter || undefined,
 				filter_tag_ids: tagsFilter.length > 0 ? tagsFilter : undefined,
 				filter_title_prefix: titlePrefixFilter || undefined,
@@ -148,10 +146,7 @@ export default function OpeningsListPage() {
 				},
 				{
 					label: t("table.edit"),
-					onClick: () =>
-						navigate(
-							`/openings/${record.opening_number}/edit`
-						),
+					onClick: () => navigate(`/openings/${record.opening_number}/edit`),
 				},
 				{
 					label: t("table.submit"),
@@ -339,9 +334,7 @@ export default function OpeningsListPage() {
 			cancelText: "Cancel",
 			onOk: async () => {
 				const note = (
-					document.getElementById(
-						"rejection-note"
-					) as HTMLTextAreaElement
+					document.getElementById("rejection-note") as HTMLTextAreaElement
 				).value;
 				try {
 					const api = new OrgAPIClient();
@@ -491,7 +484,9 @@ export default function OpeningsListPage() {
 			key: "work_location_type",
 			width: 120,
 			render: (type: string) =>
-				type === "on_site" ? "On-Site" : type.charAt(0).toUpperCase() + type.slice(1),
+				type === "on_site"
+					? "On-Site"
+					: type.charAt(0).toUpperCase() + type.slice(1),
 		},
 		{
 			title: t("table.positions"),
@@ -528,9 +523,7 @@ export default function OpeningsListPage() {
 		>
 			<div style={{ marginBottom: 16 }}>
 				<Link to="/">
-					<Button icon={<ArrowLeftOutlined />}>
-						{t("backToDashboard")}
-					</Button>
+					<Button icon={<ArrowLeftOutlined />}>{t("backToDashboard")}</Button>
 				</Link>
 			</div>
 
@@ -567,9 +560,7 @@ export default function OpeningsListPage() {
 				{pagination.next_pagination_key && (
 					<Button
 						style={{ marginTop: 16 }}
-						onClick={() =>
-							fetchOpenings(pagination.next_pagination_key)
-						}
+						onClick={() => fetchOpenings(pagination.next_pagination_key)}
 					>
 						Load More
 					</Button>

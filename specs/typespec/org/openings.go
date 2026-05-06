@@ -7,33 +7,33 @@ import (
 )
 
 const (
-	titleMax          = 200
-	descriptionMax    = 10000
-	internalNotesMax  = 2000
-	rejectionNoteMax  = 2000
-	addressIDsMin     = 1
-	addressIDsMax     = 10
-	hiringTeamMax     = 10
-	watchersMax       = 25
-	tagIDsMax         = 20
-	yoeMin            = 0
-	yoeMax            = 100
-	positionsMax      = 100
+	titleMax         = 200
+	descriptionMax   = 10000
+	internalNotesMax = 2000
+	rejectionNoteMax = 2000
+	addressIDsMin    = 1
+	addressIDsMax    = 10
+	hiringTeamMax    = 10
+	watchersMax      = 25
+	tagIDsMax        = 20
+	yoeMin           = 0
+	yoeMax           = 100
+	positionsMax     = 100
 )
 
 // Error messages
 const (
-	errTitleRequired                = "title is required"
-	errTitleTooLong                 = "title must be at most 200 characters"
-	errDescriptionRequired          = "description is required"
-	errDescriptionTooLong           = "description must be at most 10000 characters"
-	errEmploymentTypeRequired       = "employment_type is required"
-	errWorkLocationTypeRequired     = "work_location_type is required"
-	errAddressIDsRequired           = "address_ids is required"
-	errNumberOfPositionsRequired    = "number_of_positions is required"
-	errHiringManagerRequired        = "hiring_manager_org_user_id is required"
-	errRecruiterRequired            = "recruiter_org_user_id is required"
-	errManagerEqualsRecruiter       = "hiring_manager and recruiter must be different users"
+	errTitleRequired             = "title is required"
+	errTitleTooLong              = "title must be at most 200 characters"
+	errDescriptionRequired       = "description is required"
+	errDescriptionTooLong        = "description must be at most 10000 characters"
+	errEmploymentTypeRequired    = "employment_type is required"
+	errWorkLocationTypeRequired  = "work_location_type is required"
+	errAddressIDsRequired        = "address_ids is required"
+	errNumberOfPositionsRequired = "number_of_positions is required"
+	errHiringManagerRequired     = "hiring_manager_org_user_id is required"
+	errRecruiterRequired         = "recruiter_org_user_id is required"
+	errManagerEqualsRecruiter    = "hiring_manager and recruiter must be different users"
 )
 
 type OpeningStatus string
@@ -81,24 +81,24 @@ type Salary struct {
 }
 
 type CreateOpeningRequest struct {
-	Title                    string          `json:"title"`
-	Description              string          `json:"description"`
-	IsInternal               bool            `json:"is_internal"`
-	EmploymentType           EmploymentType  `json:"employment_type"`
-	WorkLocationType         WorkLocationType `json:"work_location_type"`
-	AddressIDs               []string        `json:"address_ids"`
-	MinYOE                   *int32          `json:"min_yoe,omitempty"`
-	MaxYOE                   *int32          `json:"max_yoe,omitempty"`
-	MinEducationLevel        *EducationLevel `json:"min_education_level,omitempty"`
-	Salary                   *Salary         `json:"salary,omitempty"`
-	NumberOfPositions        int32           `json:"number_of_positions"`
-	HiringManagerOrgUserID   string          `json:"hiring_manager_org_user_id"`
-	RecruiterOrgUserID       string          `json:"recruiter_org_user_id"`
-	HiringTeamMemberIDs      []string        `json:"hiring_team_member_ids,omitempty"`
-	WatcherIDs               []string        `json:"watcher_ids,omitempty"`
-	CostCenterID             *string         `json:"cost_center_id,omitempty"`
-	TagIDs                   []string        `json:"tag_ids,omitempty"`
-	InternalNotes            *string         `json:"internal_notes,omitempty"`
+	Title                  string           `json:"title"`
+	Description            string           `json:"description"`
+	IsInternal             bool             `json:"is_internal"`
+	EmploymentType         EmploymentType   `json:"employment_type"`
+	WorkLocationType       WorkLocationType `json:"work_location_type"`
+	AddressIDs             []string         `json:"address_ids"`
+	MinYOE                 *int32           `json:"min_yoe,omitempty"`
+	MaxYOE                 *int32           `json:"max_yoe,omitempty"`
+	MinEducationLevel      *EducationLevel  `json:"min_education_level,omitempty"`
+	Salary                 *Salary          `json:"salary,omitempty"`
+	NumberOfPositions      int32            `json:"number_of_positions"`
+	HiringManagerOrgUserID string           `json:"hiring_manager_org_user_id"`
+	RecruiterOrgUserID     string           `json:"recruiter_org_user_id"`
+	HiringTeamMemberIDs    []string         `json:"hiring_team_member_ids,omitempty"`
+	WatcherIDs             []string         `json:"watcher_ids,omitempty"`
+	CostCenterID           *string          `json:"cost_center_id,omitempty"`
+	TagIDs                 []string         `json:"tag_ids,omitempty"`
+	InternalNotes          *string          `json:"internal_notes,omitempty"`
 }
 
 type CreateOpeningResponse struct {
@@ -123,69 +123,69 @@ type OpeningSummary struct {
 }
 
 type Opening struct {
-	OpeningID         string                   `json:"opening_id"`
-	OpeningNumber     int32                    `json:"opening_number"`
-	Title             string                   `json:"title"`
-	Description       string                   `json:"description"`
-	IsInternal        bool                     `json:"is_internal"`
-	Status            OpeningStatus            `json:"status"`
-	EmploymentType    EmploymentType           `json:"employment_type"`
-	WorkLocationType  WorkLocationType         `json:"work_location_type"`
-	Addresses         []OrgAddress             `json:"addresses"`
-	MinYOE            *int32                   `json:"min_yoe,omitempty"`
-	MaxYOE            *int32                   `json:"max_yoe,omitempty"`
-	MinEducationLevel *EducationLevel          `json:"min_education_level,omitempty"`
-	Salary            *Salary                  `json:"salary,omitempty"`
-	NumberOfPositions int32                    `json:"number_of_positions"`
-	FilledPositions   int32                    `json:"filled_positions"`
-	HiringManager     map[string]string        `json:"hiring_manager"`
-	Recruiter         map[string]string        `json:"recruiter"`
-	HiringTeamMembers []map[string]string      `json:"hiring_team_members"`
-	Watchers          []map[string]string      `json:"watchers"`
-	CostCenter        map[string]interface{}   `json:"cost_center,omitempty"`
-	Tags              []map[string]string      `json:"tags"`
-	InternalNotes     *string                  `json:"internal_notes,omitempty"`
-	RejectionNote     *string                  `json:"rejection_note,omitempty"`
-	CreatedAt         string                   `json:"created_at"`
-	UpdatedAt         string                   `json:"updated_at"`
-	FirstPublishedAt  *string                  `json:"first_published_at,omitempty"`
+	OpeningID         string                 `json:"opening_id"`
+	OpeningNumber     int32                  `json:"opening_number"`
+	Title             string                 `json:"title"`
+	Description       string                 `json:"description"`
+	IsInternal        bool                   `json:"is_internal"`
+	Status            OpeningStatus          `json:"status"`
+	EmploymentType    EmploymentType         `json:"employment_type"`
+	WorkLocationType  WorkLocationType       `json:"work_location_type"`
+	Addresses         []OrgAddress           `json:"addresses"`
+	MinYOE            *int32                 `json:"min_yoe,omitempty"`
+	MaxYOE            *int32                 `json:"max_yoe,omitempty"`
+	MinEducationLevel *EducationLevel        `json:"min_education_level,omitempty"`
+	Salary            *Salary                `json:"salary,omitempty"`
+	NumberOfPositions int32                  `json:"number_of_positions"`
+	FilledPositions   int32                  `json:"filled_positions"`
+	HiringManager     map[string]string      `json:"hiring_manager"`
+	Recruiter         map[string]string      `json:"recruiter"`
+	HiringTeamMembers []map[string]string    `json:"hiring_team_members"`
+	Watchers          []map[string]string    `json:"watchers"`
+	CostCenter        map[string]interface{} `json:"cost_center,omitempty"`
+	Tags              []map[string]string    `json:"tags"`
+	InternalNotes     *string                `json:"internal_notes,omitempty"`
+	RejectionNote     *string                `json:"rejection_note,omitempty"`
+	CreatedAt         string                 `json:"created_at"`
+	UpdatedAt         string                 `json:"updated_at"`
+	FirstPublishedAt  *string                `json:"first_published_at,omitempty"`
 }
 
 type UpdateOpeningRequest struct {
-	OpeningNumber            int32            `json:"opening_number"`
-	Title                    string           `json:"title"`
-	Description              string           `json:"description"`
-	EmploymentType           EmploymentType   `json:"employment_type"`
-	WorkLocationType         WorkLocationType `json:"work_location_type"`
-	AddressIDs               []string         `json:"address_ids"`
-	MinYOE                   *int32           `json:"min_yoe,omitempty"`
-	MaxYOE                   *int32           `json:"max_yoe,omitempty"`
-	MinEducationLevel        *EducationLevel  `json:"min_education_level,omitempty"`
-	Salary                   *Salary          `json:"salary,omitempty"`
-	NumberOfPositions        int32            `json:"number_of_positions"`
-	HiringManagerOrgUserID   string           `json:"hiring_manager_org_user_id"`
-	RecruiterOrgUserID       string           `json:"recruiter_org_user_id"`
-	HiringTeamMemberIDs      []string         `json:"hiring_team_member_ids,omitempty"`
-	WatcherIDs               []string         `json:"watcher_ids,omitempty"`
-	CostCenterID             *string          `json:"cost_center_id,omitempty"`
-	TagIDs                   []string         `json:"tag_ids,omitempty"`
-	InternalNotes            *string          `json:"internal_notes,omitempty"`
+	OpeningNumber          int32            `json:"opening_number"`
+	Title                  string           `json:"title"`
+	Description            string           `json:"description"`
+	EmploymentType         EmploymentType   `json:"employment_type"`
+	WorkLocationType       WorkLocationType `json:"work_location_type"`
+	AddressIDs             []string         `json:"address_ids"`
+	MinYOE                 *int32           `json:"min_yoe,omitempty"`
+	MaxYOE                 *int32           `json:"max_yoe,omitempty"`
+	MinEducationLevel      *EducationLevel  `json:"min_education_level,omitempty"`
+	Salary                 *Salary          `json:"salary,omitempty"`
+	NumberOfPositions      int32            `json:"number_of_positions"`
+	HiringManagerOrgUserID string           `json:"hiring_manager_org_user_id"`
+	RecruiterOrgUserID     string           `json:"recruiter_org_user_id"`
+	HiringTeamMemberIDs    []string         `json:"hiring_team_member_ids,omitempty"`
+	WatcherIDs             []string         `json:"watcher_ids,omitempty"`
+	CostCenterID           *string          `json:"cost_center_id,omitempty"`
+	TagIDs                 []string         `json:"tag_ids,omitempty"`
+	InternalNotes          *string          `json:"internal_notes,omitempty"`
 }
 
 type ListOpeningsRequest struct {
-	FilterStatus                    []OpeningStatus `json:"filter_status,omitempty"`
-	FilterIsInternal                *bool           `json:"filter_is_internal,omitempty"`
-	FilterHiringManagerOrgUserID    *string         `json:"filter_hiring_manager_org_user_id,omitempty"`
-	FilterRecruiterOrgUserID        *string         `json:"filter_recruiter_org_user_id,omitempty"`
-	FilterTagIDs                    []string        `json:"filter_tag_ids,omitempty"`
-	FilterTitlePrefix               *string         `json:"filter_title_prefix,omitempty"`
-	PaginationKey                   *string         `json:"pagination_key,omitempty"`
-	Limit                           *int32          `json:"limit,omitempty"`
+	FilterStatus                 []OpeningStatus `json:"filter_status,omitempty"`
+	FilterIsInternal             *bool           `json:"filter_is_internal,omitempty"`
+	FilterHiringManagerOrgUserID *string         `json:"filter_hiring_manager_org_user_id,omitempty"`
+	FilterRecruiterOrgUserID     *string         `json:"filter_recruiter_org_user_id,omitempty"`
+	FilterTagIDs                 []string        `json:"filter_tag_ids,omitempty"`
+	FilterTitlePrefix            *string         `json:"filter_title_prefix,omitempty"`
+	PaginationKey                *string         `json:"pagination_key,omitempty"`
+	Limit                        *int32          `json:"limit,omitempty"`
 }
 
 type ListOpeningsResponse struct {
-	Openings         []OpeningSummary `json:"openings"`
-	NextPaginationKey *string         `json:"next_pagination_key,omitempty"`
+	Openings          []OpeningSummary `json:"openings"`
+	NextPaginationKey *string          `json:"next_pagination_key,omitempty"`
 }
 
 type OpeningNumberRequest struct {

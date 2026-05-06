@@ -14,7 +14,10 @@ import {
 import { ArrowLeftOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useParams, Link } from "react-router-dom";
-import type { Opening, UpdateOpeningRequest } from "vetchium-specs/org/openings";
+import type {
+	Opening,
+	UpdateOpeningRequest,
+} from "vetchium-specs/org/openings";
 import { OrgAPIClient } from "../../lib/org-api-client";
 import { Title } from "antd/es/typography/Title";
 
@@ -56,9 +59,7 @@ export default function EditOpeningPage() {
 					is_internal: response.body.is_internal,
 					employment_type: response.body.employment_type,
 					work_location_type: response.body.work_location_type,
-					address_ids: response.body.addresses.map(
-						(a) => a.address_id
-					),
+					address_ids: response.body.addresses.map((a) => a.address_id),
 					min_yoe: response.body.min_yoe,
 					max_yoe: response.body.max_yoe,
 					min_education_level: response.body.min_education_level,
@@ -66,16 +67,12 @@ export default function EditOpeningPage() {
 					salary_max: response.body.salary?.max_amount,
 					salary_currency: response.body.salary?.currency,
 					number_of_positions: response.body.number_of_positions,
-					hiring_manager_org_user_id:
-						response.body.hiring_manager.org_user_id,
-					recruiter_org_user_id:
-						response.body.recruiter.org_user_id,
+					hiring_manager_org_user_id: response.body.hiring_manager.org_user_id,
+					recruiter_org_user_id: response.body.recruiter.org_user_id,
 					hiring_team_member_ids: response.body.hiring_team_members.map(
 						(m) => m.org_user_id
 					),
-					watcher_ids: response.body.watchers.map(
-						(w) => w.org_user_id
-					),
+					watcher_ids: response.body.watchers.map((w) => w.org_user_id),
 					cost_center_id: response.body.cost_center?.cost_center_id,
 					tag_ids: response.body.tags.map((tag) => tag.tag_id),
 					internal_notes: response.body.internal_notes,
@@ -154,9 +151,7 @@ export default function EditOpeningPage() {
 	const hasErrors = formErrors.length > 0;
 
 	if (loading) {
-		return (
-			<Spin spinning={true} style={{ display: "flex", minHeight: 400 }} />
-		);
+		return <Spin spinning={true} style={{ display: "flex", minHeight: 400 }} />;
 	}
 
 	return (
@@ -170,9 +165,7 @@ export default function EditOpeningPage() {
 		>
 			<div style={{ marginBottom: 16 }}>
 				<Link to="/openings">
-					<Button icon={<ArrowLeftOutlined />}>
-						{t("backToDashboard")}
-					</Button>
+					<Button icon={<ArrowLeftOutlined />}>{t("backToDashboard")}</Button>
 				</Link>
 			</div>
 
@@ -199,10 +192,7 @@ export default function EditOpeningPage() {
 								},
 							]}
 						>
-							<Input
-								maxLength={200}
-								placeholder={t("form.title")}
-							/>
+							<Input maxLength={200} placeholder={t("form.title")} />
 						</Form.Item>
 
 						<Form.Item
@@ -227,9 +217,7 @@ export default function EditOpeningPage() {
 							name="is_internal"
 							valuePropName="checked"
 						>
-							<Checkbox disabled>
-								{t("form.isInternal")} (immutable)
-							</Checkbox>
+							<Checkbox disabled>{t("form.isInternal")} (immutable)</Checkbox>
 						</Form.Item>
 					</Card>
 
@@ -317,26 +305,12 @@ export default function EditOpeningPage() {
 
 					{/* Requirements */}
 					<Card title="Requirements" style={{ marginBottom: 16 }}>
-						<Form.Item
-							label={t("form.minYoe")}
-							name="min_yoe"
-						>
-							<InputNumber
-								min={0}
-								max={100}
-								placeholder={t("form.minYoe")}
-							/>
+						<Form.Item label={t("form.minYoe")} name="min_yoe">
+							<InputNumber min={0} max={100} placeholder={t("form.minYoe")} />
 						</Form.Item>
 
-						<Form.Item
-							label={t("form.maxYoe")}
-							name="max_yoe"
-						>
-							<InputNumber
-								min={1}
-								max={100}
-								placeholder={t("form.maxYoe")}
-							/>
+						<Form.Item label={t("form.maxYoe")} name="max_yoe">
+							<InputNumber min={1} max={100} placeholder={t("form.maxYoe")} />
 						</Form.Item>
 
 						<Form.Item
@@ -369,34 +343,16 @@ export default function EditOpeningPage() {
 
 					{/* Compensation */}
 					<Card title="Compensation" style={{ marginBottom: 16 }}>
-						<Form.Item
-							label={t("form.salaryMin")}
-							name="salary_min"
-						>
-							<InputNumber
-								min={0}
-								placeholder={t("form.salaryMin")}
-							/>
+						<Form.Item label={t("form.salaryMin")} name="salary_min">
+							<InputNumber min={0} placeholder={t("form.salaryMin")} />
 						</Form.Item>
 
-						<Form.Item
-							label={t("form.salaryMax")}
-							name="salary_max"
-						>
-							<InputNumber
-								min={0}
-								placeholder={t("form.salaryMax")}
-							/>
+						<Form.Item label={t("form.salaryMax")} name="salary_max">
+							<InputNumber min={0} placeholder={t("form.salaryMax")} />
 						</Form.Item>
 
-						<Form.Item
-							label={t("form.salaryCurrency")}
-							name="salary_currency"
-						>
-							<Input
-								maxLength={3}
-								placeholder="USD"
-							/>
+						<Form.Item label={t("form.salaryCurrency")} name="salary_currency">
+							<Input maxLength={3} placeholder="USD" />
 						</Form.Item>
 					</Card>
 
@@ -412,10 +368,7 @@ export default function EditOpeningPage() {
 								},
 							]}
 						>
-							<Select
-								placeholder={t("form.hiringManager")}
-								options={[]}
-							/>
+							<Select placeholder={t("form.hiringManager")} options={[]} />
 						</Form.Item>
 
 						<Form.Item
@@ -428,10 +381,7 @@ export default function EditOpeningPage() {
 								},
 							]}
 						>
-							<Select
-								placeholder={t("form.recruiter")}
-								options={[]}
-							/>
+							<Select placeholder={t("form.recruiter")} options={[]} />
 						</Form.Item>
 
 						<Form.Item
@@ -445,10 +395,7 @@ export default function EditOpeningPage() {
 							/>
 						</Form.Item>
 
-						<Form.Item
-							label={t("form.watchers")}
-							name="watcher_ids"
-						>
+						<Form.Item label={t("form.watchers")} name="watcher_ids">
 							<Select
 								mode="multiple"
 								placeholder={t("form.watchers")}
@@ -459,20 +406,11 @@ export default function EditOpeningPage() {
 
 					{/* Cost Center & Tags */}
 					<Card title="Additional" style={{ marginBottom: 16 }}>
-						<Form.Item
-							label={t("form.costCenter")}
-							name="cost_center_id"
-						>
-							<Select
-								placeholder={t("form.costCenter")}
-								options={[]}
-							/>
+						<Form.Item label={t("form.costCenter")} name="cost_center_id">
+							<Select placeholder={t("form.costCenter")} options={[]} />
 						</Form.Item>
 
-						<Form.Item
-							label={t("form.tags")}
-							name="tag_ids"
-						>
+						<Form.Item label={t("form.tags")} name="tag_ids">
 							<Select
 								mode="multiple"
 								placeholder={t("form.tags")}
@@ -480,10 +418,7 @@ export default function EditOpeningPage() {
 							/>
 						</Form.Item>
 
-						<Form.Item
-							label={t("form.internalNotes")}
-							name="internal_notes"
-						>
+						<Form.Item label={t("form.internalNotes")} name="internal_notes">
 							<Input.TextArea
 								maxLength={2000}
 								rows={3}
@@ -518,10 +453,7 @@ export default function EditOpeningPage() {
 							}}
 						>
 							{formErrors.map((error, idx) => (
-								<div
-									key={idx}
-									style={{ color: "#ff4d4f" }}
-								>
+								<div key={idx} style={{ color: "#ff4d4f" }}>
 									{error.field}: {error.message}
 								</div>
 							))}

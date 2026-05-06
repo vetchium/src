@@ -673,7 +673,9 @@ test.describe("POST /hub/get-profile", () => {
 
 	test("unknown handle returns 404", async ({ request }) => {
 		const api = new HubAPIClient(request);
-		const req: GetProfileRequest = { handle: "this-handle-does-not-exist" as any };
+		const req: GetProfileRequest = {
+			handle: "this-handle-does-not-exist" as any,
+		};
 		const resp = await api.getProfile(viewerToken, req);
 		expect(resp.status).toBe(404);
 	});

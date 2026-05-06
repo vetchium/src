@@ -112,9 +112,7 @@ export default function OpeningDetailPage() {
 			cancelText: "Cancel",
 			onOk: async () => {
 				const note = (
-					document.getElementById(
-						"rejection-note"
-					) as HTMLTextAreaElement
+					document.getElementById("rejection-note") as HTMLTextAreaElement
 				).value;
 				try {
 					const api = new OrgAPIClient();
@@ -215,78 +213,48 @@ export default function OpeningDetailPage() {
 		const actions = {
 			draft: [
 				<Button
-					onClick={() =>
-						navigate(`/openings/${opening.opening_number}/edit`)
-					}
+					onClick={() => navigate(`/openings/${opening.opening_number}/edit`)}
 				>
 					{t("table.edit")}
 				</Button>,
-				<Button onClick={handleSubmit}>
-					{t("table.submit")}
-				</Button>,
-				<Button onClick={handleDuplicate}>
-					{t("table.duplicate")}
-				</Button>,
+				<Button onClick={handleSubmit}>{t("table.submit")}</Button>,
+				<Button onClick={handleDuplicate}>{t("table.duplicate")}</Button>,
 			],
 			pending_review: [
-				<Button onClick={handleApprove}>
-					{t("table.approve")}
-				</Button>,
-				<Button onClick={handleRejectModal}>
-					{t("table.reject")}
-				</Button>,
-				<Button onClick={handleDuplicate}>
-					{t("table.duplicate")}
-				</Button>,
+				<Button onClick={handleApprove}>{t("table.approve")}</Button>,
+				<Button onClick={handleRejectModal}>{t("table.reject")}</Button>,
+				<Button onClick={handleDuplicate}>{t("table.duplicate")}</Button>,
 			],
 			published: [
 				<Button onClick={handlePause}>{t("table.pause")}</Button>,
 				<Button onClick={handleClose}>{t("table.close")}</Button>,
-				<Button onClick={handleDuplicate}>
-					{t("table.duplicate")}
-				</Button>,
+				<Button onClick={handleDuplicate}>{t("table.duplicate")}</Button>,
 			],
 			paused: [
 				<Button onClick={handleReopen}>{t("table.reopen")}</Button>,
 				<Button onClick={handleClose}>{t("table.close")}</Button>,
-				<Button onClick={handleDuplicate}>
-					{t("table.duplicate")}
-				</Button>,
+				<Button onClick={handleDuplicate}>{t("table.duplicate")}</Button>,
 			],
 			expired: [
-				<Button onClick={handleArchive}>
-					{t("table.archive")}
-				</Button>,
-				<Button onClick={handleDuplicate}>
-					{t("table.duplicate")}
-				</Button>,
+				<Button onClick={handleArchive}>{t("table.archive")}</Button>,
+				<Button onClick={handleDuplicate}>{t("table.duplicate")}</Button>,
 			],
 			closed: [
-				<Button onClick={handleArchive}>
-					{t("table.archive")}
-				</Button>,
-				<Button onClick={handleDuplicate}>
-					{t("table.duplicate")}
-				</Button>,
+				<Button onClick={handleArchive}>{t("table.archive")}</Button>,
+				<Button onClick={handleDuplicate}>{t("table.duplicate")}</Button>,
 			],
 			archived: [
-				<Button onClick={handleDuplicate}>
-					{t("table.duplicate")}
-				</Button>,
+				<Button onClick={handleDuplicate}>{t("table.duplicate")}</Button>,
 			],
 		};
 
 		return (actions[status as keyof typeof actions] || []).map(
-			(action, idx) => (
-				<span key={idx}>{action}</span>
-			)
+			(action, idx) => <span key={idx}>{action}</span>
 		);
 	};
 
 	if (loading || !opening) {
-		return (
-			<Spin spinning={true} style={{ display: "flex", minHeight: 400 }} />
-		);
+		return <Spin spinning={true} style={{ display: "flex", minHeight: 400 }} />;
 	}
 
 	const expiryDate = getExpiryDate(opening.first_published_at);
@@ -302,9 +270,7 @@ export default function OpeningDetailPage() {
 		>
 			<div style={{ marginBottom: 16 }}>
 				<Link to="/openings">
-					<Button icon={<ArrowLeftOutlined />}>
-						{t("backToDashboard")}
-					</Button>
+					<Button icon={<ArrowLeftOutlined />}>{t("backToDashboard")}</Button>
 				</Link>
 			</div>
 
@@ -360,10 +326,7 @@ export default function OpeningDetailPage() {
 				>
 					<Text>
 						{t("detail.publishedBanner", {
-							expiresOn: formatDate(
-								expiryDate.toISOString(),
-								i18n.language
-							),
+							expiresOn: formatDate(expiryDate.toISOString(), i18n.language),
 						})}
 					</Text>
 				</Card>
@@ -379,10 +342,7 @@ export default function OpeningDetailPage() {
 				>
 					<Text>
 						{t("detail.pausedBanner", {
-							expiresOn: formatDate(
-								expiryDate.toISOString(),
-								i18n.language
-							),
+							expiresOn: formatDate(expiryDate.toISOString(), i18n.language),
 						})}
 					</Text>
 				</Card>
@@ -400,8 +360,7 @@ export default function OpeningDetailPage() {
 						{t("detail.expiredBanner", {
 							expiredOn: formatDate(
 								opening.first_published_at
-									? new Date(opening.first_published_at)
-										.toISOString()
+									? new Date(opening.first_published_at).toISOString()
 									: new Date().toISOString(),
 								i18n.language
 							),
@@ -442,14 +401,12 @@ export default function OpeningDetailPage() {
 				{opening.salary && (
 					<Paragraph>
 						<strong>Salary:</strong> {opening.salary.currency}{" "}
-						{opening.salary.min_amount} -{" "}
-						{opening.salary.max_amount}
+						{opening.salary.min_amount} - {opening.salary.max_amount}
 					</Paragraph>
 				)}
 
 				<Paragraph>
-					<strong>Hiring Manager:</strong>{" "}
-					{opening.hiring_manager.full_name}
+					<strong>Hiring Manager:</strong> {opening.hiring_manager.full_name}
 				</Paragraph>
 				<Paragraph>
 					<strong>Recruiter:</strong> {opening.recruiter.full_name}

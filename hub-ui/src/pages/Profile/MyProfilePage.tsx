@@ -285,25 +285,14 @@ export function MyProfilePage() {
 			</Title>
 
 			{loadError && (
-				<Alert
-					type="error"
-					title={loadError}
-					style={{ marginBottom: 16 }}
-				/>
+				<Alert type="error" title={loadError} style={{ marginBottom: 16 }} />
 			)}
 			{saveError && (
-				<Alert
-					type="error"
-					title={saveError}
-					style={{ marginBottom: 16 }}
-				/>
+				<Alert type="error" title={saveError} style={{ marginBottom: 16 }} />
 			)}
 
 			{/* Profile picture */}
-			<Card
-				title={t("myProfile.picture.title")}
-				style={{ marginBottom: 24 }}
-			>
+			<Card title={t("myProfile.picture.title")} style={{ marginBottom: 24 }}>
 				<Space align="center" style={{ flexWrap: "wrap" }}>
 					{profile?.has_profile_picture && (
 						<img
@@ -383,10 +372,7 @@ export function MyProfilePage() {
 							}
 							style={{ width: 200 }}
 						/>
-						<Radio
-							checked={dn.is_preferred}
-							onChange={() => setPreferred(idx)}
-						>
+						<Radio checked={dn.is_preferred} onChange={() => setPreferred(idx)}>
 							{t("myProfile.displayNames.isPreferred")}
 						</Radio>
 						<Button
@@ -410,10 +396,7 @@ export function MyProfilePage() {
 			</Card>
 
 			{/* Bio */}
-			<Card
-				title={t("myProfile.bio.title")}
-				style={{ marginBottom: 24 }}
-			>
+			<Card title={t("myProfile.bio.title")} style={{ marginBottom: 24 }}>
 				<Form layout="vertical">
 					<Form.Item
 						label={
@@ -452,10 +435,7 @@ export function MyProfilePage() {
 			</Card>
 
 			{/* Location */}
-			<Card
-				title={t("myProfile.location.title")}
-				style={{ marginBottom: 24 }}
-			>
+			<Card title={t("myProfile.location.title")} style={{ marginBottom: 24 }}>
 				<Form layout="vertical">
 					<Form.Item label={t("myProfile.location.country")}>
 						<Select

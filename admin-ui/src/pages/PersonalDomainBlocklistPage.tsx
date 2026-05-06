@@ -1,14 +1,9 @@
-import { ArrowLeftOutlined, DeleteOutlined, PlusOutlined } from "@ant-design/icons";
 import {
-	App,
-	Button,
-	Form,
-	Input,
-	Modal,
-	Spin,
-	Table,
-	Typography,
-} from "antd";
+	ArrowLeftOutlined,
+	DeleteOutlined,
+	PlusOutlined,
+} from "@ant-design/icons";
+import { App, Button, Form, Input, Modal, Spin, Table, Typography } from "antd";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
@@ -48,8 +43,7 @@ export function PersonalDomainBlocklistPage() {
 				const req: AdminListBlockedDomainsRequest = {
 					limit: 50,
 				};
-				const effectivePrefix =
-					prefix !== undefined ? prefix : filterPrefix;
+				const effectivePrefix = prefix !== undefined ? prefix : filterPrefix;
 				if (effectivePrefix) req.filter_domain_prefix = effectivePrefix;
 				if (paginationKey) req.pagination_key = paginationKey;
 
@@ -131,7 +125,9 @@ export function PersonalDomainBlocklistPage() {
 				const errs = await response.json().catch(() => []);
 				if (Array.isArray(errs) && errs.length > 0) {
 					message.error(
-						errs.map((e: { field: string; message: string }) => e.message).join(", ")
+						errs
+							.map((e: { field: string; message: string }) => e.message)
+							.join(", ")
 					);
 				} else {
 					message.error(t("errors.addFailed"));
@@ -324,7 +320,9 @@ export function PersonalDomainBlocklistPage() {
 								{
 									validator: (_, value) => {
 										if (value && value.includes("@")) {
-											return Promise.reject(`${t("domain")} must not contain @`);
+											return Promise.reject(
+												`${t("domain")} must not contain @`
+											);
 										}
 										return Promise.resolve();
 									},

@@ -52,7 +52,10 @@ export function WorkEmailsListPage() {
 	const [removingId, setRemovingId] = useState<string | null>(null);
 
 	const fetchStints = useCallback(
-		async (cursor: string | null = null, filter: FilterOption = filterOption) => {
+		async (
+			cursor: string | null = null,
+			filter: FilterOption = filterOption
+		) => {
 			if (!sessionToken) return;
 			setLoading(true);
 			setLoadError(null);
@@ -155,7 +158,9 @@ export function WorkEmailsListPage() {
 				message.success(t("success.removed"));
 				setStints((prev) =>
 					prev.map((s) =>
-						s.stint_id === stintId ? { ...s, status: "ended" as WorkEmailStintStatus } : s
+						s.stint_id === stintId
+							? { ...s, status: "ended" as WorkEmailStintStatus }
+							: s
 					)
 				);
 				// Refresh to get updated data
@@ -236,9 +241,7 @@ export function WorkEmailsListPage() {
 									size="small"
 									type="link"
 									onClick={() =>
-										navigate(
-											`/settings/work-emails/${record.stint_id}/verify`
-										)
+										navigate(`/settings/work-emails/${record.stint_id}/verify`)
 									}
 								>
 									{t("table.enterCode")}
@@ -263,12 +266,7 @@ export function WorkEmailsListPage() {
 							okText={t("table.remove")}
 							cancelText={t("filter.all")}
 						>
-							<Button
-								size="small"
-								type="link"
-								danger
-								loading={isRemoving}
-							>
+							<Button size="small" type="link" danger loading={isRemoving}>
 								{t("table.remove")}
 							</Button>
 						</Popconfirm>
@@ -325,11 +323,7 @@ export function WorkEmailsListPage() {
 			</div>
 
 			{loadError && (
-				<Alert
-					type="error"
-					title={loadError}
-					style={{ marginBottom: 16 }}
-				/>
+				<Alert type="error" title={loadError} style={{ marginBottom: 16 }} />
 			)}
 
 			<Segmented
@@ -379,11 +373,7 @@ export function WorkEmailsListPage() {
 			>
 				<Spin spinning={adding}>
 					{addError && (
-						<Alert
-							type="error"
-							title={addError}
-							style={{ marginBottom: 16 }}
-						/>
+						<Alert type="error" title={addError} style={{ marginBottom: 16 }} />
 					)}
 					<Form form={addForm} layout="vertical">
 						<Form.Item

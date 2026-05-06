@@ -1146,13 +1146,10 @@ export class HubAPIClient {
 		sessionToken: string,
 		request: { handle: string }
 	): Promise<APIResponse<unknown>> {
-		const response = await this.request.post(
-			"/hub/connections/send-request",
-			{
-				headers: { Authorization: `Bearer ${sessionToken}` },
-				data: request,
-			}
-		);
+		const response = await this.request.post("/hub/connections/send-request", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
 		const body = await response.json().catch(() => ({}));
 		return {
 			status: response.status(),
@@ -1164,13 +1161,10 @@ export class HubAPIClient {
 		sessionToken: string,
 		request: { handle: string }
 	): Promise<APIResponse<{ connection_state: string }>> {
-		const response = await this.request.post(
-			"/hub/connections/get-status",
-			{
-				headers: { Authorization: `Bearer ${sessionToken}` },
-				data: request,
-			}
-		);
+		const response = await this.request.post("/hub/connections/get-status", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
 		const body = await response.json().catch(() => ({}));
 		return {
 			status: response.status(),
@@ -1235,13 +1229,10 @@ export class HubAPIClient {
 		sessionToken: string,
 		request: { handle: string }
 	): Promise<APIResponse<unknown>> {
-		const response = await this.request.post(
-			"/hub/connections/disconnect",
-			{
-				headers: { Authorization: `Bearer ${sessionToken}` },
-				data: request,
-			}
-		);
+		const response = await this.request.post("/hub/connections/disconnect", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
 		return {
 			status: response.status(),
 			body: null,
@@ -1252,13 +1243,10 @@ export class HubAPIClient {
 		sessionToken: string,
 		request: { handle: string }
 	): Promise<APIResponse<unknown>> {
-		const response = await this.request.post(
-			"/hub/connections/block",
-			{
-				headers: { Authorization: `Bearer ${sessionToken}` },
-				data: request,
-			}
-		);
+		const response = await this.request.post("/hub/connections/block", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
 		const body = await response.json().catch(() => ({}));
 		return {
 			status: response.status(),
@@ -1270,13 +1258,10 @@ export class HubAPIClient {
 		sessionToken: string,
 		request: { handle: string }
 	): Promise<APIResponse<unknown>> {
-		const response = await this.request.post(
-			"/hub/connections/unblock",
-			{
-				headers: { Authorization: `Bearer ${sessionToken}` },
-				data: request,
-			}
-		);
+		const response = await this.request.post("/hub/connections/unblock", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
 		return {
 			status: response.status(),
 			body: null,
@@ -1286,14 +1271,13 @@ export class HubAPIClient {
 	async listConnections(
 		sessionToken: string,
 		request?: { limit?: number; pagination_key?: string; filter_query?: string }
-	): Promise<APIResponse<{ connections: unknown[]; next_pagination_key?: string }>> {
-		const response = await this.request.post(
-			"/hub/connections/list",
-			{
-				headers: { Authorization: `Bearer ${sessionToken}` },
-				data: request || {},
-			}
-		);
+	): Promise<
+		APIResponse<{ connections: unknown[]; next_pagination_key?: string }>
+	> {
+		const response = await this.request.post("/hub/connections/list", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request || {},
+		});
 		const body = await response.json().catch(() => ({}));
 		return {
 			status: response.status(),
@@ -1304,7 +1288,9 @@ export class HubAPIClient {
 	async listIncomingRequests(
 		sessionToken: string,
 		request?: { limit?: number; pagination_key?: string }
-	): Promise<APIResponse<{ incoming: unknown[]; next_pagination_key?: string }>> {
+	): Promise<
+		APIResponse<{ incoming: unknown[]; next_pagination_key?: string }>
+	> {
 		const response = await this.request.post(
 			"/hub/connections/list-incoming-requests",
 			{
@@ -1322,7 +1308,9 @@ export class HubAPIClient {
 	async listOutgoingRequests(
 		sessionToken: string,
 		request?: { limit?: number; pagination_key?: string }
-	): Promise<APIResponse<{ outgoing: unknown[]; next_pagination_key?: string }>> {
+	): Promise<
+		APIResponse<{ outgoing: unknown[]; next_pagination_key?: string }>
+	> {
 		const response = await this.request.post(
 			"/hub/connections/list-outgoing-requests",
 			{
@@ -1341,13 +1329,10 @@ export class HubAPIClient {
 		sessionToken: string,
 		request: { query: string }
 	): Promise<APIResponse<{ results: unknown[] }>> {
-		const response = await this.request.post(
-			"/hub/connections/search",
-			{
-				headers: { Authorization: `Bearer ${sessionToken}` },
-				data: request,
-			}
-		);
+		const response = await this.request.post("/hub/connections/search", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
 		const body = await response.json().catch(() => ({}));
 		return {
 			status: response.status(),
@@ -1357,13 +1342,17 @@ export class HubAPIClient {
 
 	async getConnectionCounts(
 		sessionToken: string
-	): Promise<APIResponse<{ pending_incoming: number; pending_outgoing: number; connected: number; blocked: number }>> {
-		const response = await this.request.get(
-			"/hub/connections/counts",
-			{
-				headers: { Authorization: `Bearer ${sessionToken}` },
-			}
-		);
+	): Promise<
+		APIResponse<{
+			pending_incoming: number;
+			pending_outgoing: number;
+			connected: number;
+			blocked: number;
+		}>
+	> {
+		const response = await this.request.get("/hub/connections/counts", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+		});
 		const body = await response.json().catch(() => ({}));
 		return {
 			status: response.status(),
@@ -1374,14 +1363,13 @@ export class HubAPIClient {
 	async listBlockedUsers(
 		sessionToken: string,
 		request?: { limit?: number; pagination_key?: string }
-	): Promise<APIResponse<{ blocked: unknown[]; next_pagination_key?: string }>> {
-		const response = await this.request.post(
-			"/hub/connections/list-blocked",
-			{
-				headers: { Authorization: `Bearer ${sessionToken}` },
-				data: request || {},
-			}
-		);
+	): Promise<
+		APIResponse<{ blocked: unknown[]; next_pagination_key?: string }>
+	> {
+		const response = await this.request.post("/hub/connections/list-blocked", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request || {},
+		});
 		const body = await response.json().catch(() => ({}));
 		return {
 			status: response.status(),

@@ -95,9 +95,7 @@ export default function CreateOpeningPage() {
 		>
 			<div style={{ marginBottom: 16 }}>
 				<Link to="/openings">
-					<Button icon={<ArrowLeftOutlined />}>
-						{t("backToDashboard")}
-					</Button>
+					<Button icon={<ArrowLeftOutlined />}>{t("backToDashboard")}</Button>
 				</Link>
 			</div>
 
@@ -124,10 +122,7 @@ export default function CreateOpeningPage() {
 								},
 							]}
 						>
-							<Input
-								maxLength={200}
-								placeholder={t("form.title")}
-							/>
+							<Input maxLength={200} placeholder={t("form.title")} />
 						</Form.Item>
 
 						<Form.Item
@@ -240,26 +235,12 @@ export default function CreateOpeningPage() {
 
 					{/* Requirements */}
 					<Card title="Requirements" style={{ marginBottom: 16 }}>
-						<Form.Item
-							label={t("form.minYoe")}
-							name="min_yoe"
-						>
-							<InputNumber
-								min={0}
-								max={100}
-								placeholder={t("form.minYoe")}
-							/>
+						<Form.Item label={t("form.minYoe")} name="min_yoe">
+							<InputNumber min={0} max={100} placeholder={t("form.minYoe")} />
 						</Form.Item>
 
-						<Form.Item
-							label={t("form.maxYoe")}
-							name="max_yoe"
-						>
-							<InputNumber
-								min={1}
-								max={100}
-								placeholder={t("form.maxYoe")}
-							/>
+						<Form.Item label={t("form.maxYoe")} name="max_yoe">
+							<InputNumber min={1} max={100} placeholder={t("form.maxYoe")} />
 						</Form.Item>
 
 						<Form.Item
@@ -292,34 +273,16 @@ export default function CreateOpeningPage() {
 
 					{/* Compensation */}
 					<Card title="Compensation" style={{ marginBottom: 16 }}>
-						<Form.Item
-							label={t("form.salaryMin")}
-							name="salary_min"
-						>
-							<InputNumber
-								min={0}
-								placeholder={t("form.salaryMin")}
-							/>
+						<Form.Item label={t("form.salaryMin")} name="salary_min">
+							<InputNumber min={0} placeholder={t("form.salaryMin")} />
 						</Form.Item>
 
-						<Form.Item
-							label={t("form.salaryMax")}
-							name="salary_max"
-						>
-							<InputNumber
-								min={0}
-								placeholder={t("form.salaryMax")}
-							/>
+						<Form.Item label={t("form.salaryMax")} name="salary_max">
+							<InputNumber min={0} placeholder={t("form.salaryMax")} />
 						</Form.Item>
 
-						<Form.Item
-							label={t("form.salaryCurrency")}
-							name="salary_currency"
-						>
-							<Input
-								maxLength={3}
-								placeholder="USD"
-							/>
+						<Form.Item label={t("form.salaryCurrency")} name="salary_currency">
+							<Input maxLength={3} placeholder="USD" />
 						</Form.Item>
 					</Card>
 
@@ -335,10 +298,7 @@ export default function CreateOpeningPage() {
 								},
 							]}
 						>
-							<Select
-								placeholder={t("form.hiringManager")}
-								options={[]}
-							/>
+							<Select placeholder={t("form.hiringManager")} options={[]} />
 						</Form.Item>
 
 						<Form.Item
@@ -351,10 +311,7 @@ export default function CreateOpeningPage() {
 								},
 							]}
 						>
-							<Select
-								placeholder={t("form.recruiter")}
-								options={[]}
-							/>
+							<Select placeholder={t("form.recruiter")} options={[]} />
 						</Form.Item>
 
 						<Form.Item
@@ -368,10 +325,7 @@ export default function CreateOpeningPage() {
 							/>
 						</Form.Item>
 
-						<Form.Item
-							label={t("form.watchers")}
-							name="watcher_ids"
-						>
+						<Form.Item label={t("form.watchers")} name="watcher_ids">
 							<Select
 								mode="multiple"
 								placeholder={t("form.watchers")}
@@ -382,20 +336,11 @@ export default function CreateOpeningPage() {
 
 					{/* Cost Center & Tags */}
 					<Card title="Additional" style={{ marginBottom: 16 }}>
-						<Form.Item
-							label={t("form.costCenter")}
-							name="cost_center_id"
-						>
-							<Select
-								placeholder={t("form.costCenter")}
-								options={[]}
-							/>
+						<Form.Item label={t("form.costCenter")} name="cost_center_id">
+							<Select placeholder={t("form.costCenter")} options={[]} />
 						</Form.Item>
 
-						<Form.Item
-							label={t("form.tags")}
-							name="tag_ids"
-						>
+						<Form.Item label={t("form.tags")} name="tag_ids">
 							<Select
 								mode="multiple"
 								placeholder={t("form.tags")}
@@ -403,10 +348,7 @@ export default function CreateOpeningPage() {
 							/>
 						</Form.Item>
 
-						<Form.Item
-							label={t("form.internalNotes")}
-							name="internal_notes"
-						>
+						<Form.Item label={t("form.internalNotes")} name="internal_notes">
 							<Input.TextArea
 								maxLength={2000}
 								rows={3}
@@ -441,10 +383,7 @@ export default function CreateOpeningPage() {
 							}}
 						>
 							{formErrors.map((error, idx) => (
-								<div
-									key={idx}
-									style={{ color: "#ff4d4f" }}
-								>
+								<div key={idx} style={{ color: "#ff4d4f" }}>
 									{error.field}: {error.message}
 								</div>
 							))}

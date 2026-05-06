@@ -3,18 +3,25 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { getApiBaseUrl } from "../config";
 import { useAuth } from "../hooks/useAuth";
-import type { ConnectionState, GetStatusResponse } from "vetchium-specs/hub/connections";
+import type {
+	ConnectionState,
+	GetStatusResponse,
+} from "vetchium-specs/hub/connections";
 
 interface ConnectWidgetProps {
 	handle: string;
 	onConnectionStateChange?: (state: ConnectionState) => void;
 }
 
-export function ConnectWidget({ handle, onConnectionStateChange }: ConnectWidgetProps) {
+export function ConnectWidget({
+	handle,
+	onConnectionStateChange,
+}: ConnectWidgetProps) {
 	const { t } = useTranslation("connections");
 	const { sessionToken } = useAuth();
 
-	const [connectionState, setConnectionState] = useState<ConnectionState | null>(null);
+	const [connectionState, setConnectionState] =
+		useState<ConnectionState | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [actionInProgress, setActionInProgress] = useState(false);
 
@@ -59,14 +66,17 @@ export function ConnectWidget({ handle, onConnectionStateChange }: ConnectWidget
 		setActionInProgress(true);
 		try {
 			const apiBaseUrl = await getApiBaseUrl();
-			const response = await fetch(`${apiBaseUrl}/hub/connections/send-request`, {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					Authorization: `Bearer ${sessionToken}`,
-				},
-				body: JSON.stringify({ handle }),
-			});
+			const response = await fetch(
+				`${apiBaseUrl}/hub/connections/send-request`,
+				{
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${sessionToken}`,
+					},
+					body: JSON.stringify({ handle }),
+				}
+			);
 			if (response.status === 201) {
 				setConnectionState("request_sent");
 				message.success(t("widget.requestSent"));
@@ -100,14 +110,17 @@ export function ConnectWidget({ handle, onConnectionStateChange }: ConnectWidget
 		setActionInProgress(true);
 		try {
 			const apiBaseUrl = await getApiBaseUrl();
-			const response = await fetch(`${apiBaseUrl}/hub/connections/withdraw-request`, {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					Authorization: `Bearer ${sessionToken}`,
-				},
-				body: JSON.stringify({ handle }),
-			});
+			const response = await fetch(
+				`${apiBaseUrl}/hub/connections/withdraw-request`,
+				{
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${sessionToken}`,
+					},
+					body: JSON.stringify({ handle }),
+				}
+			);
 			if (response.status === 204) {
 				setConnectionState("not_connected");
 				message.success(t("widget.requestWithdrawn"));
@@ -129,14 +142,17 @@ export function ConnectWidget({ handle, onConnectionStateChange }: ConnectWidget
 		setActionInProgress(true);
 		try {
 			const apiBaseUrl = await getApiBaseUrl();
-			const response = await fetch(`${apiBaseUrl}/hub/connections/accept-request`, {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					Authorization: `Bearer ${sessionToken}`,
-				},
-				body: JSON.stringify({ handle }),
-			});
+			const response = await fetch(
+				`${apiBaseUrl}/hub/connections/accept-request`,
+				{
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${sessionToken}`,
+					},
+					body: JSON.stringify({ handle }),
+				}
+			);
 			if (response.status === 200) {
 				setConnectionState("connected");
 				message.success(t("widget.requestAccepted"));
@@ -158,14 +174,17 @@ export function ConnectWidget({ handle, onConnectionStateChange }: ConnectWidget
 		setActionInProgress(true);
 		try {
 			const apiBaseUrl = await getApiBaseUrl();
-			const response = await fetch(`${apiBaseUrl}/hub/connections/reject-request`, {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					Authorization: `Bearer ${sessionToken}`,
-				},
-				body: JSON.stringify({ handle }),
-			});
+			const response = await fetch(
+				`${apiBaseUrl}/hub/connections/reject-request`,
+				{
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${sessionToken}`,
+					},
+					body: JSON.stringify({ handle }),
+				}
+			);
 			if (response.status === 204) {
 				setConnectionState("not_connected");
 				message.success(t("widget.requestRejected"));
@@ -476,9 +495,7 @@ export function ConnectWidget({ handle, onConnectionStateChange }: ConnectWidget
 
 		case "blocked_by_them":
 			return (
-				<span style={{ color: "#999" }}>
-					🚫 {t("widget.blockedByThem")}
-				</span>
+				<span style={{ color: "#999" }}>🚫 {t("widget.blockedByThem")}</span>
 			);
 
 		default:

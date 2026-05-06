@@ -24,15 +24,15 @@ import (
 
 // Custom 4xx connection error codes
 const (
-	httpStatusSelf              = 452 // Self-targeting
-	httpStatusIneligible        = 453 // No shared employer domain with overlapping tenure
-	httpStatusStateConflict     = 454 // pending/connected record already exists
-	httpStatusRequesterBarred   = 455 // target previously rejected this requester
+	httpStatusSelf               = 452 // Self-targeting
+	httpStatusIneligible         = 453 // No shared employer domain with overlapping tenure
+	httpStatusStateConflict      = 454 // pending/connected record already exists
+	httpStatusRequesterBarred    = 455 // target previously rejected this requester
 	httpStatusDisconnectedBarred = 456 // target disconnected from this requester
-	httpStatusCallerBlocked     = 457 // caller has blocked the target
-	httpStatusAlreadyBlocked    = 458 // caller already blocked this user
-	httpStatusNotBlocked        = 459 // not blocked
-	httpStatusTargetBlocked     = 460 // target has blocked the caller
+	httpStatusCallerBlocked      = 457 // caller has blocked the target
+	httpStatusAlreadyBlocked     = 458 // caller already blocked this user
+	httpStatusNotBlocked         = 459 // not blocked
+	httpStatusTargetBlocked      = 460 // target has blocked the caller
 )
 
 // hashUserID computes SHA-256 of the UUID bytes for audit event_data.

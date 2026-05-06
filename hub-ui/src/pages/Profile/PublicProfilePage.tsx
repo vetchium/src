@@ -21,9 +21,7 @@ export function PublicProfilePage() {
 	const [notFound, setNotFound] = useState(false);
 
 	const getPreferredDisplayName = useCallback(
-		(
-			displayNames: HubProfilePublicView["display_names"]
-		): string => {
+		(displayNames: HubProfilePublicView["display_names"]): string => {
 			if (!displayNames || displayNames.length === 0) return handle ?? "";
 			// Try to match viewer's locale
 			const locale = i18n.language;
@@ -204,9 +202,7 @@ export function PublicProfilePage() {
 			{/* Verified employers card — TODO(hub-employer-ids) */}
 			{/* TODO(hub-employer-ids): Replace with actual employer stints when hub-employer-ids ships */}
 			<Card title={t("publicProfile.verifiedEmployers")}>
-				<Text type="secondary">
-					{t("publicProfile.noVerifiedEmployers")}
-				</Text>
+				<Text type="secondary">{t("publicProfile.noVerifiedEmployers")}</Text>
 			</Card>
 		</div>
 	);

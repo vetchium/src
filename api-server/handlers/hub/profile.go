@@ -884,4 +884,3 @@ func GetProfilePicture(s *server.RegionalServer) http.HandlerFunc {
 		}
 	}
 }
-

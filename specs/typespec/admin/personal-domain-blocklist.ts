@@ -1,7 +1,4 @@
-import {
-	type ValidationError,
-	newValidationError,
-} from "../common/common";
+import { type ValidationError, newValidationError } from "../common/common";
 
 export interface BlockedPersonalDomain {
 	domain: string;

@@ -385,10 +385,7 @@ test.describe("POST /hub/verify-work-email", () => {
 			const stintId = addResp.body.stint_id;
 
 			// Expire the code via direct DB update
-			await setStintPendingCodeExpiresAt(
-				stintId,
-				new Date(Date.now() - 1000)
-			);
+			await setStintPendingCodeExpiresAt(stintId, new Date(Date.now() - 1000));
 
 			// Get the code (even though it's expired)
 			const codeSummary = await waitForEmail(workEmail);
@@ -535,9 +532,7 @@ test.describe("POST /hub/resend-work-email-code", () => {
 		}
 	});
 
-	test("stint not in pending_verification returns 422", async ({
-		request,
-	}) => {
+	test("stint not in pending_verification returns 422", async ({ request }) => {
 		const api = new HubAPIClient(request);
 		const hubEmail = `we-resend-notpend@${sharedDomain}`;
 		const workEmail = `resend-np-${Date.now()}@acme-np.corp`;
@@ -899,9 +894,7 @@ test.describe("POST /hub/list-my-work-emails", () => {
 		}
 	});
 
-	test("filter_status=active returns only active rows", async ({
-		request,
-	}) => {
+	test("filter_status=active returns only active rows", async ({ request }) => {
 		const api = new HubAPIClient(request);
 		const hubEmail = `we-list-filt@${sharedDomain}`;
 		const sessionToken = await createHubUserAndLogin(

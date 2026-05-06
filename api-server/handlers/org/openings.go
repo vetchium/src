@@ -143,7 +143,7 @@ func CreateOpening(s *server.RegionalServer) http.HandlerFunc {
 					teamIDs[i] = parseUUID(id)
 				}
 				if err := qtx.ReplaceOpeningHiringTeam(ctx, regionaldb.ReplaceOpeningHiringTeamParams{
-					OpeningID:   created.OpeningID,
+					OpeningID:  created.OpeningID,
 					OrgUserIds: teamIDs,
 				}); err != nil {
 					return err
@@ -156,7 +156,7 @@ func CreateOpening(s *server.RegionalServer) http.HandlerFunc {
 					watcherIDs[i] = parseUUID(id)
 				}
 				if err := qtx.ReplaceOpeningWatchers(ctx, regionaldb.ReplaceOpeningWatchersParams{
-					OpeningID:   created.OpeningID,
+					OpeningID:  created.OpeningID,
 					OrgUserIds: watcherIDs,
 				}); err != nil {
 					return err
@@ -223,7 +223,7 @@ func validateOpeningReferences(ctx context.Context, s *server.RegionalServer, or
 		addressIDs[i] = parseUUID(id)
 	}
 	validAddrs, err := s.Regional.ValidateOrgAddressesActive(ctx, regionaldb.ValidateOrgAddressesActiveParams{
-		OrgID:       orgID,
+		OrgID:      orgID,
 		AddressIds: addressIDs,
 	})
 	if err != nil || len(validAddrs) != len(req.AddressIDs) {
@@ -282,7 +282,7 @@ func validateUpdateOpeningReferences(ctx context.Context, s *server.RegionalServ
 		addressIDs[i] = parseUUID(id)
 	}
 	validAddrs, err := s.Regional.ValidateOrgAddressesActive(ctx, regionaldb.ValidateOrgAddressesActiveParams{
-		OrgID:       orgID,
+		OrgID:      orgID,
 		AddressIds: addressIDs,
 	})
 	if err != nil || len(validAddrs) != len(req.AddressIDs) {
@@ -411,22 +411,22 @@ func decodeOpeningCursor(cursor string) (time.Time, int32, error) {
 
 func dbOpeningToResponse(ctx context.Context, s *server.RegionalServer, opening regionaldb.Opening) org.Opening {
 	resp := org.Opening{
-		OpeningID:        opening.OpeningID.String(),
-		OpeningNumber:    opening.OpeningNumber,
-		Title:            opening.Title,
-		Description:      opening.Description,
-		IsInternal:       opening.IsInternal,
-		Status:           org.OpeningStatus(opening.Status),
-		EmploymentType:   org.EmploymentType(opening.EmploymentType),
-		WorkLocationType: org.WorkLocationType(opening.WorkLocationType),
+		OpeningID:         opening.OpeningID.String(),
+		OpeningNumber:     opening.OpeningNumber,
+		Title:             opening.Title,
+		Description:       opening.Description,
+		IsInternal:        opening.IsInternal,
+		Status:            org.OpeningStatus(opening.Status),
+		EmploymentType:    org.EmploymentType(opening.EmploymentType),
+		WorkLocationType:  org.WorkLocationType(opening.WorkLocationType),
 		NumberOfPositions: opening.NumberOfPositions,
 		FilledPositions:   opening.FilledPositions,
-		Addresses:        make([]org.OrgAddress, 0),
+		Addresses:         make([]org.OrgAddress, 0),
 		HiringTeamMembers: make([]map[string]string, 0),
-		Watchers:         make([]map[string]string, 0),
-		Tags:             make([]map[string]string, 0),
-		CreatedAt:        opening.CreatedAt.Time.UTC().Format(time.RFC3339),
-		UpdatedAt:        opening.UpdatedAt.Time.UTC().Format(time.RFC3339),
+		Watchers:          make([]map[string]string, 0),
+		Tags:              make([]map[string]string, 0),
+		CreatedAt:         opening.CreatedAt.Time.UTC().Format(time.RFC3339),
+		UpdatedAt:         opening.UpdatedAt.Time.UTC().Format(time.RFC3339),
 	}
 
 	// Add optional fields
@@ -893,7 +893,7 @@ func UpdateOpening(s *server.RegionalServer) http.HandlerFunc {
 					teamIDs[i] = parseUUID(id)
 				}
 				if err := qtx.ReplaceOpeningHiringTeam(ctx, regionaldb.ReplaceOpeningHiringTeamParams{
-					OpeningID:   opening.OpeningID,
+					OpeningID:  opening.OpeningID,
 					OrgUserIds: teamIDs,
 				}); err != nil {
 					return err
@@ -906,7 +906,7 @@ func UpdateOpening(s *server.RegionalServer) http.HandlerFunc {
 					watcherIDs[i] = parseUUID(id)
 				}
 				if err := qtx.ReplaceOpeningWatchers(ctx, regionaldb.ReplaceOpeningWatchersParams{
-					OpeningID:   opening.OpeningID,
+					OpeningID:  opening.OpeningID,
 					OrgUserIds: watcherIDs,
 				}); err != nil {
 					return err
@@ -1092,7 +1092,7 @@ func DuplicateOpening(s *server.RegionalServer) http.HandlerFunc {
 			hiringTeam, _ := qtx.GetOpeningHiringTeam(ctx, sourceOpening.OpeningID)
 			if len(hiringTeam) > 0 {
 				if err := qtx.ReplaceOpeningHiringTeam(ctx, regionaldb.ReplaceOpeningHiringTeamParams{
-					OpeningID:   created.OpeningID,
+					OpeningID:  created.OpeningID,
 					OrgUserIds: hiringTeam,
 				}); err != nil {
 					return err
@@ -1102,7 +1102,7 @@ func DuplicateOpening(s *server.RegionalServer) http.HandlerFunc {
 			watchers, _ := qtx.GetOpeningWatchers(ctx, sourceOpening.OpeningID)
 			if len(watchers) > 0 {
 				if err := qtx.ReplaceOpeningWatchers(ctx, regionaldb.ReplaceOpeningWatchersParams{
-					OpeningID:   created.OpeningID,
+					OpeningID:  created.OpeningID,
 					OrgUserIds: watchers,
 				}); err != nil {
 					return err

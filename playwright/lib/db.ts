@@ -537,7 +537,10 @@ export async function createTestHubUserDirect(
 /**
  * Helper function to create a test hub session token
  */
-function createTestHubSessionToken(hubUserGlobalId: string, region: RegionCode): string {
+function createTestHubSessionToken(
+	hubUserGlobalId: string,
+	region: RegionCode
+): string {
 	// Format: {region}:{hubUserGlobalId}:{random}
 	const randomPart = randomUUID().substring(0, 8);
 	return `${region}:${hubUserGlobalId}:${randomPart}`;
@@ -1717,7 +1720,9 @@ export async function getHubUserProfilePictureKey(
  * @param email - Email address of the hub user
  * @returns UUID string of the hub user, or null if not found
  */
-export async function getHubUserGlobalId(email: string): Promise<string | null> {
+export async function getHubUserGlobalId(
+	email: string
+): Promise<string | null> {
 	const crypto = require("crypto");
 	const emailHash = crypto.createHash("sha256").update(email).digest();
 	const result = await pool.query(
@@ -1776,10 +1781,9 @@ export async function addPersonalDomainBlocklistEntry(
 export async function removePersonalDomainBlocklistEntry(
 	domain: string
 ): Promise<void> {
-	await pool.query(
-		`DELETE FROM personal_domain_blocklist WHERE domain = $1`,
-		[domain.toLowerCase()]
-	);
+	await pool.query(`DELETE FROM personal_domain_blocklist WHERE domain = $1`, [
+		domain.toLowerCase(),
+	]);
 }
 
 // ============================================================================
