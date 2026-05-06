@@ -33,6 +33,9 @@ type RegionalBgJobsConfig struct {
 	OrgDomainVerificationInterval                    time.Duration
 	AuditLogRetention                                time.Duration
 	AuditLogPurgeInterval                            time.Duration
+	ExpirePendingWorkEmailsInterval                  time.Duration
+	ManageActiveWorkEmailsInterval                   time.Duration
+	ExpireOpeningsInterval                           time.Duration
 }
 
 // GlobalConfigFromEnv creates a GlobalBgJobsConfig from environment variables
@@ -152,6 +155,21 @@ func RegionalConfigFromEnv() *RegionalBgJobsConfig {
 		24*time.Hour,
 	)
 
+	expirePendingWorkEmailsInterval := parseDurationOrDefault(
+		os.Getenv("EXPIRE_PENDING_WORK_EMAILS_INTERVAL"),
+		30*time.Minute,
+	)
+
+	manageActiveWorkEmailsInterval := parseDurationOrDefault(
+		os.Getenv("MANAGE_ACTIVE_WORK_EMAILS_INTERVAL"),
+		6*time.Hour,
+	)
+
+	expireOpeningsInterval := parseDurationOrDefault(
+		os.Getenv("EXPIRE_OPENINGS_INTERVAL"),
+		6*time.Hour,
+	)
+
 	return &RegionalBgJobsConfig{
 		ExpiredHubTFATokensCleanupInterval:               hubTFAInterval,
 		ExpiredHubSessionsCleanupInterval:                hubSessionsInterval,
@@ -164,6 +182,9 @@ func RegionalConfigFromEnv() *RegionalBgJobsConfig {
 		OrgDomainVerificationInterval:                    orgDomainVerificationInterval,
 		AuditLogRetention:                                auditLogRetention,
 		AuditLogPurgeInterval:                            auditLogPurgeInterval,
+		ExpirePendingWorkEmailsInterval:                  expirePendingWorkEmailsInterval,
+		ManageActiveWorkEmailsInterval:                   manageActiveWorkEmailsInterval,
+		ExpireOpeningsInterval:                           expireOpeningsInterval,
 	}
 }
 

@@ -97,12 +97,20 @@ type RegionalServer struct {
 	Regional     *regionaldb.Queries
 	RegionalPool *pgxpool.Pool
 
+	// All regional databases (for cross-region reads such as eligibility checks)
+	AllRegionalDBs map[globaldb.Region]*regionaldb.Queries
+
 	// Server identity
 	CurrentRegion globaldb.Region
 
 	// Internal endpoints for cross-region proxy
 	// Map of region -> base URL (e.g., "ind1" -> "http://regional-api-server-ind1:8080")
 	InternalEndpoints map[globaldb.Region]string
+}
+
+// GetRegionalDB returns the regional DB queries for a given region, or nil if unknown.
+func (s *RegionalServer) GetRegionalDB(region globaldb.Region) *regionaldb.Queries {
+	return s.AllRegionalDBs[region]
 }
 
 // Logger returns the logger from context with request ID, or falls back to base logger.

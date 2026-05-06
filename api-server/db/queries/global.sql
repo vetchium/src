@@ -1100,3 +1100,108 @@ WHERE si.provider_org_id = @provider_org_id
   AND (sqlc.narg('pagination_key')::uuid IS NULL OR si.subscription_id > sqlc.narg('pagination_key')::uuid)
 ORDER BY si.subscription_id ASC
 LIMIT @row_limit;
+
+-- ============================================================================
+-- Hub Profile Display Name Queries
+-- ============================================================================
+
+-- name: ListHubUserDisplayNames :many
+SELECT * FROM hub_user_display_names
+WHERE hub_user_global_id = @hub_user_global_id
+ORDER BY is_preferred DESC, language_code ASC;
+
+-- name: ReplaceHubUserDisplayNames :many
+WITH wipe AS (
+  DELETE FROM hub_user_display_names WHERE hub_user_global_id = @hub_user_global_id RETURNING 1
+)
+INSERT INTO hub_user_display_names (hub_user_global_id, language_code, display_name, is_preferred)
+SELECT @hub_user_global_id::uuid,
+       UNNEST(@language_codes::text[]),
+       UNNEST(@display_names::text[]),
+       UNNEST(@is_preferred::boolean[])
+RETURNING *;
+
+-- name: ClaimWorkEmailGlobal :one
+INSERT INTO hub_work_email_index (email_address_hash, hub_user_global_id, region, status)
+VALUES (sqlc.arg('email_address_hash'), sqlc.arg('hub_user_global_id'), sqlc.arg('region'), sqlc.arg('status'))
+ON CONFLICT (email_address_hash) DO NOTHING
+RETURNING *;
+
+-- name: PromoteWorkEmailGlobalToActive :one
+UPDATE hub_work_email_index
+SET status = 'active', updated_at = NOW()
+WHERE email_address_hash = sqlc.arg('email_address_hash') AND hub_user_global_id = sqlc.arg('hub_user_global_id')
+RETURNING *;
+
+-- name: ReleaseWorkEmailGlobal :exec
+DELETE FROM hub_work_email_index
+WHERE email_address_hash = sqlc.arg('email_address_hash') AND hub_user_global_id = sqlc.arg('hub_user_global_id');
+
+-- name: ListBlockedPersonalDomains :many
+SELECT * FROM personal_domain_blocklist
+WHERE (sqlc.narg('filter_prefix')::text IS NULL
+       OR domain LIKE sqlc.narg('filter_prefix')::text || '%')
+  AND (sqlc.narg('cursor_domain')::text IS NULL OR domain > sqlc.narg('cursor_domain')::text)
+ORDER BY domain ASC
+LIMIT sqlc.arg('limit_count');
+
+-- name: AddBlockedPersonalDomain :one
+INSERT INTO personal_domain_blocklist (domain, created_by_admin_user_id)
+VALUES (sqlc.arg('domain'), sqlc.arg('admin_user_id'))
+RETURNING *;
+
+-- name: RemoveBlockedPersonalDomain :exec
+DELETE FROM personal_domain_blocklist WHERE domain = sqlc.arg('domain');
+
+-- name: IsDomainBlocked :one
+SELECT EXISTS (SELECT 1 FROM personal_domain_blocklist WHERE domain = sqlc.arg('domain')) AS blocked;
+
+-- name: GetWorkEmailIndexEntry :one
+SELECT * FROM hub_work_email_index WHERE email_address_hash = sqlc.arg('email_address_hash');
+
+-- name: GetBlockedPersonalDomain :one
+SELECT * FROM personal_domain_blocklist WHERE domain = sqlc.arg('domain');
+
+-- ============================================================
+-- Hub Connection Pair Routes (global mirror)
+-- ============================================================
+
+-- name: UpsertConnectionPairRoute :exec
+INSERT INTO hub_connection_pair_routes (low_user_id, high_user_id, region)
+VALUES (LEAST(@a::uuid, @b::uuid), GREATEST(@a::uuid, @b::uuid), @region::text)
+ON CONFLICT (low_user_id, high_user_id) DO NOTHING;
+
+-- name: GetConnectionPairRoute :one
+SELECT * FROM hub_connection_pair_routes
+WHERE low_user_id  = LEAST(@a::uuid, @b::uuid)
+  AND high_user_id = GREATEST(@a::uuid, @b::uuid);
+
+-- name: DeleteConnectionPairRoute :exec
+DELETE FROM hub_connection_pair_routes
+WHERE low_user_id  = LEAST(@a::uuid, @b::uuid)
+  AND high_user_id = GREATEST(@a::uuid, @b::uuid);
+
+-- ============================================================
+-- Hub Block Routes (global mirror)
+-- ============================================================
+
+-- name: UpsertBlockRoute :exec
+INSERT INTO hub_block_routes (blocker_user_id, blocked_user_id, region)
+VALUES (@blocker::uuid, @blocked::uuid, @region::text)
+ON CONFLICT (blocker_user_id, blocked_user_id) DO NOTHING;
+
+-- name: GetBlockRoutes :many
+SELECT * FROM hub_block_routes
+WHERE (blocker_user_id = @a::uuid AND blocked_user_id = @b::uuid)
+   OR (blocker_user_id = @b::uuid AND blocked_user_id = @a::uuid);
+
+-- name: DeleteBlockRoute :exec
+DELETE FROM hub_block_routes
+WHERE blocker_user_id = @blocker::uuid AND blocked_user_id = @blocked::uuid;
+
+-- ============================================================
+-- Tags (for job openings)
+-- ============================================================
+
+-- name: GetTagsByIDs :many
+SELECT * FROM tags WHERE tag_id = ANY(@tag_ids::text[]);

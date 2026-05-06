@@ -25,9 +25,29 @@ import type {
 	Tag,
 } from "vetchium-specs/hub/tags";
 import type {
+	HubProfileOwnerView,
+	HubProfilePublicView,
+	UpdateMyProfileRequest,
+	GetProfileRequest,
+} from "vetchium-specs/hub/profile";
+import type {
 	FilterAuditLogsRequest,
 	FilterAuditLogsResponse,
 } from "vetchium-specs/audit-logs/audit-logs";
+import type {
+	AddWorkEmailRequest,
+	AddWorkEmailResponse,
+	VerifyWorkEmailRequest,
+	ResendWorkEmailCodeRequest,
+	ReverifyWorkEmailRequest,
+	RemoveWorkEmailRequest,
+	GetMyWorkEmailRequest,
+	ListMyWorkEmailsRequest,
+	ListMyWorkEmailsResponse,
+	ListPublicEmployerStintsRequest,
+	ListPublicEmployerStintsResponse,
+	WorkEmailStintOwnerView,
+} from "vetchium-specs/hub/work-emails";
 import type { APIResponse } from "./api-client";
 
 /**
@@ -623,6 +643,749 @@ export class HubAPIClient {
 			status: response.status(),
 			body: body as FilterAuditLogsResponse,
 			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	// ============================================================================
+	// Profile
+	// ============================================================================
+
+	/**
+	 * GET /hub/get-my-profile
+	 * Returns the authenticated user's own profile (owner view).
+	 */
+	async getMyProfile(
+		sessionToken: string
+	): Promise<APIResponse<HubProfileOwnerView>> {
+		const response = await this.request.get("/hub/get-my-profile", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as HubProfileOwnerView,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	/**
+	 * GET /hub/get-my-profile without Authorization header (for testing 401)
+	 */
+	async getMyProfileRaw(): Promise<APIResponse<HubProfileOwnerView>> {
+		const response = await this.request.get("/hub/get-my-profile");
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as HubProfileOwnerView,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	/**
+	 * POST /hub/update-my-profile
+	 * Updates the authenticated user's profile fields.
+	 */
+	async updateMyProfile(
+		sessionToken: string,
+		request: UpdateMyProfileRequest
+	): Promise<APIResponse<HubProfileOwnerView>> {
+		const response = await this.request.post("/hub/update-my-profile", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as HubProfileOwnerView,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	/**
+	 * POST /hub/update-my-profile with raw body for testing invalid payloads
+	 */
+	async updateMyProfileRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<HubProfileOwnerView>> {
+		const response = await this.request.post("/hub/update-my-profile", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: body,
+		});
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as HubProfileOwnerView,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	/**
+	 * POST /hub/upload-profile-picture
+	 * Uploads a profile picture as multipart/form-data.
+	 */
+	async uploadProfilePicture(
+		sessionToken: string,
+		fileBuffer: Buffer,
+		fileName: string,
+		mimeType: string
+	): Promise<APIResponse<HubProfileOwnerView>> {
+		const response = await this.request.post("/hub/upload-profile-picture", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			multipart: {
+				image: {
+					name: fileName,
+					mimeType: mimeType,
+					buffer: fileBuffer,
+				},
+			},
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as HubProfileOwnerView,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	/**
+	 * POST /hub/upload-profile-picture without Authorization header (for testing 401)
+	 */
+	async uploadProfilePictureRaw(
+		sessionToken: string | null,
+		fileBuffer: Buffer,
+		fileName: string,
+		mimeType: string
+	): Promise<APIResponse<HubProfileOwnerView>> {
+		const headers: Record<string, string> = {};
+		if (sessionToken) {
+			headers["Authorization"] = `Bearer ${sessionToken}`;
+		}
+		const response = await this.request.post("/hub/upload-profile-picture", {
+			headers,
+			multipart: {
+				image: {
+					name: fileName,
+					mimeType: mimeType,
+					buffer: fileBuffer,
+				},
+			},
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as HubProfileOwnerView,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	/**
+	 * POST /hub/remove-profile-picture
+	 * Removes the authenticated user's profile picture.
+	 */
+	async removeProfilePicture(
+		sessionToken: string
+	): Promise<APIResponse<HubProfileOwnerView>> {
+		const response = await this.request.post("/hub/remove-profile-picture", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: {},
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as HubProfileOwnerView,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	/**
+	 * POST /hub/remove-profile-picture without Authorization header (for testing 401)
+	 */
+	async removeProfilePictureRaw(): Promise<APIResponse<HubProfileOwnerView>> {
+		const response = await this.request.post("/hub/remove-profile-picture", {
+			data: {},
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as HubProfileOwnerView,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	/**
+	 * POST /hub/get-profile
+	 * Returns the public-view profile of a hub user by handle.
+	 */
+	async getProfile(
+		sessionToken: string,
+		request: GetProfileRequest
+	): Promise<APIResponse<HubProfilePublicView>> {
+		const response = await this.request.post("/hub/get-profile", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as HubProfilePublicView,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	/**
+	 * POST /hub/get-profile with raw body for testing invalid payloads
+	 */
+	async getProfileRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<HubProfilePublicView>> {
+		const response = await this.request.post("/hub/get-profile", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: body,
+		});
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as HubProfilePublicView,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	/**
+	 * GET /hub/profile-picture/{handle}
+	 * Fetches the profile picture bytes for a hub user.
+	 * Returns status + Content-Type + raw bytes.
+	 */
+	async getProfilePictureBytes(
+		sessionToken: string,
+		handle: string
+	): Promise<{ status: number; contentType: string | null; bytes: Buffer }> {
+		const response = await this.request.get(
+			`/hub/profile-picture/${encodeURIComponent(handle)}`,
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+			}
+		);
+		const bytes = await response.body();
+		return {
+			status: response.status(),
+			contentType: response.headers()["content-type"] ?? null,
+			bytes: Buffer.from(bytes),
+		};
+	}
+
+	// ============================================================================
+	// Work Emails
+	// ============================================================================
+
+	async addWorkEmail(
+		sessionToken: string,
+		request: AddWorkEmailRequest
+	): Promise<APIResponse<AddWorkEmailResponse>> {
+		const response = await this.request.post("/hub/add-work-email", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as AddWorkEmailResponse,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	async addWorkEmailRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<AddWorkEmailResponse>> {
+		const response = await this.request.post("/hub/add-work-email", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: body,
+		});
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as AddWorkEmailResponse,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	async verifyWorkEmail(
+		sessionToken: string,
+		request: VerifyWorkEmailRequest
+	): Promise<APIResponse<WorkEmailStintOwnerView>> {
+		const response = await this.request.post("/hub/verify-work-email", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as WorkEmailStintOwnerView,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	async verifyWorkEmailRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<WorkEmailStintOwnerView>> {
+		const response = await this.request.post("/hub/verify-work-email", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: body,
+		});
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as WorkEmailStintOwnerView,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	async resendWorkEmailCode(
+		sessionToken: string,
+		request: ResendWorkEmailCodeRequest
+	): Promise<APIResponse<WorkEmailStintOwnerView>> {
+		const response = await this.request.post("/hub/resend-work-email-code", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as WorkEmailStintOwnerView,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	async resendWorkEmailCodeRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<WorkEmailStintOwnerView>> {
+		const response = await this.request.post("/hub/resend-work-email-code", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: body,
+		});
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as WorkEmailStintOwnerView,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	async reverifyWorkEmail(
+		sessionToken: string,
+		request: ReverifyWorkEmailRequest
+	): Promise<APIResponse<WorkEmailStintOwnerView>> {
+		const response = await this.request.post("/hub/reverify-work-email", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as WorkEmailStintOwnerView,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	async reverifyWorkEmailRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<WorkEmailStintOwnerView>> {
+		const response = await this.request.post("/hub/reverify-work-email", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: body,
+		});
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as WorkEmailStintOwnerView,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	async removeWorkEmail(
+		sessionToken: string,
+		request: RemoveWorkEmailRequest
+	): Promise<APIResponse<WorkEmailStintOwnerView>> {
+		const response = await this.request.post("/hub/remove-work-email", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as WorkEmailStintOwnerView,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	async removeWorkEmailRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<WorkEmailStintOwnerView>> {
+		const response = await this.request.post("/hub/remove-work-email", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: body,
+		});
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as WorkEmailStintOwnerView,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	async listMyWorkEmails(
+		sessionToken: string,
+		request: ListMyWorkEmailsRequest
+	): Promise<APIResponse<ListMyWorkEmailsResponse>> {
+		const response = await this.request.post("/hub/list-my-work-emails", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as ListMyWorkEmailsResponse,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	async listMyWorkEmailsRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<ListMyWorkEmailsResponse>> {
+		const response = await this.request.post("/hub/list-my-work-emails", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: body,
+		});
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as ListMyWorkEmailsResponse,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	async getMyWorkEmail(
+		sessionToken: string,
+		request: GetMyWorkEmailRequest
+	): Promise<APIResponse<WorkEmailStintOwnerView>> {
+		const response = await this.request.post("/hub/get-my-work-email", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as WorkEmailStintOwnerView,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	async getMyWorkEmailRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<WorkEmailStintOwnerView>> {
+		const response = await this.request.post("/hub/get-my-work-email", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: body,
+		});
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as WorkEmailStintOwnerView,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	async listPublicEmployerStints(
+		sessionToken: string,
+		request: ListPublicEmployerStintsRequest
+	): Promise<APIResponse<ListPublicEmployerStintsResponse>> {
+		const response = await this.request.post(
+			"/hub/list-public-employer-stints",
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: request,
+			}
+		);
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as ListPublicEmployerStintsResponse,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	async listPublicEmployerStintsRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<ListPublicEmployerStintsResponse>> {
+		const response = await this.request.post(
+			"/hub/list-public-employer-stints",
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: body,
+			}
+		);
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as ListPublicEmployerStintsResponse,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	// Connection endpoints
+	async sendConnectionRequest(
+		sessionToken: string,
+		request: { handle: string }
+	): Promise<APIResponse<unknown>> {
+		const response = await this.request.post(
+			"/hub/connections/send-request",
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: request,
+			}
+		);
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body,
+		};
+	}
+
+	async getConnectionStatus(
+		sessionToken: string,
+		request: { handle: string }
+	): Promise<APIResponse<{ connection_state: string }>> {
+		const response = await this.request.post(
+			"/hub/connections/get-status",
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: request,
+			}
+		);
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body,
+		};
+	}
+
+	async acceptConnectionRequest(
+		sessionToken: string,
+		request: { handle: string }
+	): Promise<APIResponse<unknown>> {
+		const response = await this.request.post(
+			"/hub/connections/accept-request",
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: request,
+			}
+		);
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body,
+		};
+	}
+
+	async rejectConnectionRequest(
+		sessionToken: string,
+		request: { handle: string }
+	): Promise<APIResponse<unknown>> {
+		const response = await this.request.post(
+			"/hub/connections/reject-request",
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: request,
+			}
+		);
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body,
+		};
+	}
+
+	async withdrawConnectionRequest(
+		sessionToken: string,
+		request: { handle: string }
+	): Promise<APIResponse<unknown>> {
+		const response = await this.request.post(
+			"/hub/connections/withdraw-request",
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: request,
+			}
+		);
+		return {
+			status: response.status(),
+			body: null,
+		};
+	}
+
+	async disconnect(
+		sessionToken: string,
+		request: { handle: string }
+	): Promise<APIResponse<unknown>> {
+		const response = await this.request.post(
+			"/hub/connections/disconnect",
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: request,
+			}
+		);
+		return {
+			status: response.status(),
+			body: null,
+		};
+	}
+
+	async blockUser(
+		sessionToken: string,
+		request: { handle: string }
+	): Promise<APIResponse<unknown>> {
+		const response = await this.request.post(
+			"/hub/connections/block",
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: request,
+			}
+		);
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body,
+		};
+	}
+
+	async unblockUser(
+		sessionToken: string,
+		request: { handle: string }
+	): Promise<APIResponse<unknown>> {
+		const response = await this.request.post(
+			"/hub/connections/unblock",
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: request,
+			}
+		);
+		return {
+			status: response.status(),
+			body: null,
+		};
+	}
+
+	async listConnections(
+		sessionToken: string,
+		request?: { limit?: number; pagination_key?: string; filter_query?: string }
+	): Promise<APIResponse<{ connections: unknown[]; next_pagination_key?: string }>> {
+		const response = await this.request.post(
+			"/hub/connections/list",
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: request || {},
+			}
+		);
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body,
+		};
+	}
+
+	async listIncomingRequests(
+		sessionToken: string,
+		request?: { limit?: number; pagination_key?: string }
+	): Promise<APIResponse<{ incoming: unknown[]; next_pagination_key?: string }>> {
+		const response = await this.request.post(
+			"/hub/connections/list-incoming-requests",
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: request || {},
+			}
+		);
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body,
+		};
+	}
+
+	async listOutgoingRequests(
+		sessionToken: string,
+		request?: { limit?: number; pagination_key?: string }
+	): Promise<APIResponse<{ outgoing: unknown[]; next_pagination_key?: string }>> {
+		const response = await this.request.post(
+			"/hub/connections/list-outgoing-requests",
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: request || {},
+			}
+		);
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body,
+		};
+	}
+
+	async searchConnections(
+		sessionToken: string,
+		request: { query: string }
+	): Promise<APIResponse<{ results: unknown[] }>> {
+		const response = await this.request.post(
+			"/hub/connections/search",
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: request,
+			}
+		);
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body,
+		};
+	}
+
+	async getConnectionCounts(
+		sessionToken: string
+	): Promise<APIResponse<{ pending_incoming: number; pending_outgoing: number; connected: number; blocked: number }>> {
+		const response = await this.request.get(
+			"/hub/connections/counts",
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+			}
+		);
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body,
+		};
+	}
+
+	async listBlockedUsers(
+		sessionToken: string,
+		request?: { limit?: number; pagination_key?: string }
+	): Promise<APIResponse<{ blocked: unknown[]; next_pagination_key?: string }>> {
+		const response = await this.request.post(
+			"/hub/connections/list-blocked",
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: request || {},
+			}
+		);
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body,
 		};
 	}
 }

@@ -82,7 +82,7 @@ func main() {
 		environment = "PROD"
 	}
 	regionalConfig := bgjobs.RegionalConfigFromEnv()
-	regionalWorker := bgjobs.NewRegionalWorker(regionalQueries, globalQueries, regionalConfig, logger, region, environment)
+	regionalWorker := bgjobs.NewRegionalWorker(regionalQueries, globalQueries, regionalConn, regionalConfig, logger, region, environment)
 	go regionalWorker.Run(ctx)
 
 	logger.Info("regional-worker started, email and cleanup workers running", "region", region)

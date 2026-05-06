@@ -1,0 +1,22 @@
+{
+	"title": "Personal Domain Blocklist",
+	"backToDashboard": "Back to Dashboard",
+	"addDomain": "Add Domain",
+	"domain": "Domain",
+	"createdAt": "Created At",
+	"addModal": {
+		"title": "Add Blocked Domain",
+		"submit": "Add Domain"
+	},
+	"removeConfirm": "Remove this domain from the blocklist?",
+	"success": {
+		"added": "Domain added to blocklist.",
+		"removed": "Domain removed from blocklist."
+	},
+	"errors": {
+		"loadFailed": "Failed to load the blocklist.",
+		"addFailed": "Could not add this domain.",
+		"removeFailed": "Could not remove this domain.",
+		"exists": "This domain is already in the blocklist."
+	}
+}

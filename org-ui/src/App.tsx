@@ -42,6 +42,10 @@ import { EditListingPage } from "./pages/Marketplace/EditListingPage";
 import { MySubscriptionsPage } from "./pages/Marketplace/MySubscriptionsPage";
 import { SubscriptionDetailPage } from "./pages/Marketplace/SubscriptionDetailPage";
 import { MyClientsPage } from "./pages/Marketplace/MyClientsPage";
+import OpeningsListPage from "./pages/Openings/OpeningsListPage";
+import CreateOpeningPage from "./pages/Openings/CreateOpeningPage";
+import OpeningDetailPage from "./pages/Openings/OpeningDetailPage";
+import EditOpeningPage from "./pages/Openings/EditOpeningPage";
 import {
 	BrowserRouter,
 	Link,
@@ -438,6 +442,39 @@ function AppContent() {
 								element={
 									<ProtectedRoute>
 										<PlanPage />
+									</ProtectedRoute>
+								}
+							/>
+							{/* Job Openings — literal routes first, then pattern routes */}
+							<Route
+								path="/openings"
+								element={
+									<ProtectedRoute>
+										<OpeningsListPage />
+									</ProtectedRoute>
+								}
+							/>
+							<Route
+								path="/openings/new"
+								element={
+									<ProtectedRoute>
+										<CreateOpeningPage />
+									</ProtectedRoute>
+								}
+							/>
+							<Route
+								path="/openings/:openingNumber/edit"
+								element={
+									<ProtectedRoute>
+										<EditOpeningPage />
+									</ProtectedRoute>
+								}
+							/>
+							<Route
+								path="/openings/:openingNumber"
+								element={
+									<ProtectedRoute>
+										<OpeningDetailPage />
 									</ProtectedRoute>
 								}
 							/>

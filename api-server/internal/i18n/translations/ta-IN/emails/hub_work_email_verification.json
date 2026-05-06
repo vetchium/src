@@ -1,0 +1,11 @@
+{
+	"_description": "Hub User Work Email Verification Email",
+	"_note": "Sent when a hub user adds a new work email and needs to verify it with a code",
+
+	"subject": "உங்கள் பணி மின்னஞ்சலை சரிபார்க்கவும் - Vetchium",
+	"body_intro": "{{.Domain}} இல் உங்கள் பணி மின்னஞ்சலை சரிபார்க்க, Vetchium இல் கீழே உள்ள குறியீட்டை உள்ளிடவும்.",
+	"body_code_label": "உங்கள் சரிபார்ப்பு குறியீடு:",
+	"body_expiry": "இந்த குறியீடு 24 மணி நேரத்தில் காலாவதியாகிவிடும்.",
+	"body_ignore": "நீங்கள் இதை கோரவில்லை என்றால், தயவுசெய்து இந்த மின்னஞ்சலைப் புறக்கணிக்கவும்.",
+	"footer": "இது ஒரு தானியங்கி செய்தி. தயவுசெய்து பதிலளிக்க வேண்டாம்."
+}

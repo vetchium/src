@@ -926,3 +926,597 @@ SELECT EXISTS(
 SELECT
     EXISTS(SELECT 1 FROM marketplace_listings ml WHERE ml.listing_id = @param_listing_id AND ml.org_id = @param_org_id) AS is_owner,
     EXISTS(SELECT 1 FROM marketplace_subscriptions ms WHERE ms.listing_id = @param_listing_id AND ms.consumer_org_id = @param_org_id AND ms.status = 'active') AS is_subscribed;
+
+-- ============================================================================
+-- Hub Profile Queries
+-- ============================================================================
+
+-- name: GetMyHubProfile :one
+SELECT hub_user_global_id, handle, status, preferred_language,
+       resident_country_code, short_bio, long_bio, city,
+       profile_picture_storage_key, created_at, updated_at
+FROM hub_users
+WHERE hub_user_global_id = @hub_user_global_id;
+
+-- name: UpdateMyHubProfile :one
+UPDATE hub_users
+SET short_bio             = COALESCE(sqlc.narg('short_bio')::text, short_bio),
+    long_bio              = COALESCE(sqlc.narg('long_bio')::text, long_bio),
+    city                  = COALESCE(sqlc.narg('city')::text, city),
+    resident_country_code = COALESCE(sqlc.narg('country')::text, resident_country_code),
+    updated_at            = NOW()
+WHERE hub_user_global_id = @hub_user_global_id
+RETURNING *;
+
+-- name: SetHubProfilePictureKey :one
+UPDATE hub_users
+SET profile_picture_storage_key = @storage_key,
+    updated_at = NOW()
+WHERE hub_user_global_id = @hub_user_global_id
+RETURNING profile_picture_storage_key;
+
+-- name: ClearHubProfilePictureKey :one
+UPDATE hub_users
+SET profile_picture_storage_key = NULL,
+    updated_at = NOW()
+WHERE hub_user_global_id = @hub_user_global_id
+RETURNING NULL::text AS profile_picture_storage_key;
+
+-- name: GetHubProfilePictureKey :one
+SELECT profile_picture_storage_key
+FROM hub_users
+WHERE hub_user_global_id = @hub_user_global_id;
+
+-- name: EnqueueStorageCleanup :exec
+INSERT INTO pending_storage_cleanup (storage_key, reason)
+VALUES (@storage_key, @reason)
+ON CONFLICT (storage_key) DO NOTHING;
+
+-- name: GetPublicProfileByHandle :one
+SELECT u.handle, u.status, u.short_bio, u.long_bio, u.city,
+       u.resident_country_code, u.profile_picture_storage_key,
+       u.hub_user_global_id
+FROM hub_users u
+WHERE u.handle = @handle AND u.status = 'active';
+
+-- name: CreateWorkEmailStint :one
+INSERT INTO hub_employer_stints (
+  hub_user_id, email_address, email_address_hash, domain,
+  status, pending_code_hash, pending_code_expires_at, pending_code_attempts
+)
+VALUES (sqlc.arg('hub_user_id'), sqlc.arg('email_address'), sqlc.arg('email_address_hash'), sqlc.arg('domain'),
+        'pending_verification', sqlc.arg('pending_code_hash'), sqlc.arg('pending_code_expires_at'), 0)
+RETURNING *;
+
+-- name: CountActiveOrPendingStintsForUser :one
+SELECT COUNT(*)::int AS count FROM hub_employer_stints
+WHERE hub_user_id = sqlc.arg('hub_user_id')
+  AND status IN ('pending_verification','active');
+
+-- name: GetWorkEmailStintByID :one
+SELECT * FROM hub_employer_stints
+WHERE stint_id = sqlc.arg('stint_id') AND hub_user_id = sqlc.arg('hub_user_id');
+
+-- name: GetWorkEmailStintByIDNoUser :one
+SELECT * FROM hub_employer_stints
+WHERE stint_id = sqlc.arg('stint_id');
+
+-- name: ListMyWorkEmailStints :many
+SELECT * FROM hub_employer_stints
+WHERE hub_user_id = sqlc.arg('hub_user_id')
+  AND (sqlc.narg('filter_statuses')::work_email_stint_status[] IS NULL
+       OR status = ANY(sqlc.narg('filter_statuses')::work_email_stint_status[]))
+  AND (sqlc.narg('filter_domain')::text IS NULL
+       OR domain = sqlc.narg('filter_domain')::text)
+  AND (sqlc.narg('cursor_status_priority')::int IS NULL
+       OR (CASE status WHEN 'active' THEN 0 WHEN 'pending_verification' THEN 1 ELSE 2 END,
+           created_at, stint_id)
+          < (sqlc.narg('cursor_status_priority')::int, sqlc.narg('cursor_created_at')::timestamptz, sqlc.narg('cursor_stint_id')::uuid))
+ORDER BY (CASE status WHEN 'active' THEN 0 WHEN 'pending_verification' THEN 1 ELSE 2 END) ASC,
+         created_at DESC, stint_id DESC
+LIMIT sqlc.arg('limit_count');
+
+-- name: VerifyWorkEmailStint :one
+UPDATE hub_employer_stints
+SET status              = 'active',
+    first_verified_at   = NOW(),
+    last_verified_at    = NOW(),
+    pending_code_hash   = NULL,
+    pending_code_expires_at = NULL,
+    pending_code_attempts = 0,
+    pending_code_locked_until = NULL,
+    updated_at          = NOW()
+WHERE stint_id = sqlc.arg('stint_id') AND hub_user_id = sqlc.arg('hub_user_id') AND status = 'pending_verification'
+RETURNING *;
+
+-- name: SupersedePriorActiveStintAtDomain :one
+UPDATE hub_employer_stints
+SET status       = 'ended',
+    ended_at     = NOW(),
+    ended_reason = 'superseded',
+    updated_at   = NOW()
+WHERE hub_user_id = sqlc.arg('hub_user_id')
+  AND domain      = sqlc.arg('domain')
+  AND status      = 'active'
+  AND stint_id   <> sqlc.arg('superseding_stint_id')
+RETURNING *;
+
+-- name: ReverifyWorkEmailStint :one
+UPDATE hub_employer_stints
+SET last_verified_at = NOW(),
+    updated_at       = NOW()
+WHERE stint_id = sqlc.arg('stint_id') AND hub_user_id = sqlc.arg('hub_user_id') AND status = 'active'
+RETURNING *;
+
+-- name: EndWorkEmailStintByUser :one
+UPDATE hub_employer_stints
+SET status       = 'ended',
+    ended_at     = NOW(),
+    ended_reason = CASE WHEN status = 'pending_verification' THEN 'user_removed_pending'::work_email_stint_ended_reason
+                        ELSE 'user_removed'::work_email_stint_ended_reason END,
+    updated_at   = NOW()
+WHERE stint_id = sqlc.arg('stint_id') AND hub_user_id = sqlc.arg('hub_user_id') AND status IN ('pending_verification','active')
+RETURNING *;
+
+-- name: WorkerExpirePendingStints :many
+UPDATE hub_employer_stints
+SET status       = 'ended',
+    ended_at     = NOW(),
+    ended_reason = 'verification_expired',
+    updated_at   = NOW()
+WHERE status = 'pending_verification'
+  AND pending_code_expires_at <= NOW()
+RETURNING *;
+
+-- name: WorkerEndReverifyTimeoutStints :many
+UPDATE hub_employer_stints
+SET status       = 'ended',
+    ended_at     = NOW(),
+    ended_reason = 'reverify_timeout',
+    updated_at   = NOW()
+WHERE status = 'active'
+  AND last_verified_at + INTERVAL '395 days' <= NOW()
+RETURNING *;
+
+-- name: WorkerDueForReverifyChallenge :many
+SELECT s.* FROM hub_employer_stints s
+LEFT JOIN hub_work_email_reverify_challenges c ON c.stint_id = s.stint_id
+WHERE s.status = 'active'
+  AND s.last_verified_at + INTERVAL '365 days' <= NOW()
+  AND c.stint_id IS NULL
+LIMIT sqlc.arg('limit_count');
+
+-- name: UpsertReverifyChallenge :one
+INSERT INTO hub_work_email_reverify_challenges (stint_id, challenge_code_hash, expires_at)
+VALUES (sqlc.arg('stint_id'), sqlc.arg('challenge_code_hash'), sqlc.arg('expires_at'))
+ON CONFLICT (stint_id) DO UPDATE
+SET challenge_code_hash = EXCLUDED.challenge_code_hash,
+    issued_at           = NOW(),
+    expires_at          = EXCLUDED.expires_at,
+    attempts            = 0
+RETURNING *;
+
+-- name: GetReverifyChallenge :one
+SELECT * FROM hub_work_email_reverify_challenges WHERE stint_id = sqlc.arg('stint_id');
+
+-- name: DeleteReverifyChallenge :exec
+DELETE FROM hub_work_email_reverify_challenges WHERE stint_id = sqlc.arg('stint_id');
+
+-- name: IncrementPendingCodeAttempts :one
+UPDATE hub_employer_stints
+SET pending_code_attempts = pending_code_attempts + 1,
+    pending_code_locked_until = CASE
+      WHEN pending_code_attempts + 1 >= 3 THEN NOW() + INTERVAL '10 minutes'
+      ELSE pending_code_locked_until
+    END,
+    updated_at = NOW()
+WHERE stint_id = sqlc.arg('stint_id') AND hub_user_id = sqlc.arg('hub_user_id')
+RETURNING *;
+
+-- name: RotatePendingCode :one
+UPDATE hub_employer_stints
+SET pending_code_hash       = sqlc.arg('pending_code_hash'),
+    pending_code_expires_at = sqlc.arg('pending_code_expires_at'),
+    pending_code_attempts   = 0,
+    pending_code_locked_until = NULL,
+    pending_code_resends_today = pending_code_resends_today + 1,
+    pending_code_last_resent_at = NOW(),
+    updated_at              = NOW()
+WHERE stint_id = sqlc.arg('stint_id') AND hub_user_id = sqlc.arg('hub_user_id') AND status = 'pending_verification'
+RETURNING *;
+
+-- name: ListPublicEmployerStintsByHandle :many
+SELECT s.domain,
+       (s.status = 'active') AS is_current,
+       EXTRACT(YEAR FROM s.first_verified_at)::int AS start_year,
+       CASE WHEN s.status = 'ended' THEN EXTRACT(YEAR FROM s.ended_at)::int ELSE NULL END AS end_year,
+       s.first_verified_at, s.ended_at
+FROM hub_employer_stints s
+JOIN hub_users u ON u.hub_user_id = s.hub_user_id
+WHERE u.handle = sqlc.arg('handle')
+  AND s.status IN ('active','ended')
+ORDER BY (s.status = 'active') DESC,
+         COALESCE(s.first_verified_at, s.created_at) DESC;
+
+-- name: ResetResendsTodayForExpiredCounters :exec
+UPDATE hub_employer_stints
+SET pending_code_resends_today = 0,
+    updated_at = NOW()
+WHERE status = 'pending_verification'
+  AND pending_code_last_resent_at < NOW() - INTERVAL '24 hours'
+  AND pending_code_resends_today > 0;
+
+-- name: IncrementReverifyChallengeAttempts :one
+UPDATE hub_work_email_reverify_challenges
+SET attempts = attempts + 1
+WHERE stint_id = sqlc.arg('stint_id')
+RETURNING *;
+
+-- name: DeleteReverifyChallengeByStintUser :exec
+DELETE FROM hub_work_email_reverify_challenges
+WHERE stint_id = sqlc.arg('stint_id');
+
+-- ============================================================
+-- Hub Connections queries
+-- ============================================================
+
+-- name: GetConnectionPair :one
+SELECT * FROM hub_connections
+WHERE low_user_id = LEAST(@a::uuid, @b::uuid)
+  AND high_user_id = GREATEST(@a::uuid, @b::uuid);
+
+-- name: GetBlockOneWay :one
+SELECT * FROM hub_blocks
+WHERE blocker_user_id = @blocker::uuid AND blocked_user_id = @blocked::uuid;
+
+-- name: InsertPendingConnection :one
+INSERT INTO hub_connections (low_user_id, high_user_id, status, requester_user_id)
+VALUES (LEAST(@requester::uuid, @recipient::uuid), GREATEST(@requester::uuid, @recipient::uuid),
+        'pending', @requester::uuid)
+RETURNING *;
+
+-- name: DeletePriorConnectionRow :exec
+DELETE FROM hub_connections
+WHERE low_user_id  = LEAST(@a::uuid, @b::uuid)
+  AND high_user_id = GREATEST(@a::uuid, @b::uuid)
+  AND status IN ('rejected', 'disconnected');
+
+-- name: AcceptPendingConnection :one
+UPDATE hub_connections
+SET status       = 'connected',
+    connected_at = NOW(),
+    updated_at   = NOW()
+WHERE low_user_id  = LEAST(@a::uuid, @b::uuid)
+  AND high_user_id = GREATEST(@a::uuid, @b::uuid)
+  AND status = 'pending'
+  AND requester_user_id <> @actor::uuid
+RETURNING *;
+
+-- name: RejectPendingConnection :one
+UPDATE hub_connections
+SET status           = 'rejected',
+    rejecter_user_id = @actor::uuid,
+    updated_at       = NOW()
+WHERE low_user_id  = LEAST(@a::uuid, @b::uuid)
+  AND high_user_id = GREATEST(@a::uuid, @b::uuid)
+  AND status = 'pending'
+  AND requester_user_id <> @actor::uuid
+RETURNING *;
+
+-- name: WithdrawPendingConnection :execrows
+DELETE FROM hub_connections
+WHERE low_user_id  = LEAST(@a::uuid, @b::uuid)
+  AND high_user_id = GREATEST(@a::uuid, @b::uuid)
+  AND status = 'pending'
+  AND requester_user_id = @actor::uuid;
+
+-- name: DisconnectConnection :one
+UPDATE hub_connections
+SET status               = 'disconnected',
+    disconnector_user_id = @actor::uuid,
+    updated_at           = NOW()
+WHERE low_user_id  = LEAST(@a::uuid, @b::uuid)
+  AND high_user_id = GREATEST(@a::uuid, @b::uuid)
+  AND status = 'connected'
+RETURNING *;
+
+-- name: InsertBlock :one
+INSERT INTO hub_blocks (blocker_user_id, blocked_user_id)
+VALUES (@blocker::uuid, @blocked::uuid)
+ON CONFLICT (blocker_user_id, blocked_user_id) DO NOTHING
+RETURNING *;
+
+-- name: DeleteBlock :execrows
+DELETE FROM hub_blocks WHERE blocker_user_id = @blocker::uuid AND blocked_user_id = @blocked::uuid;
+
+-- name: SeverConnectionForBlock :exec
+UPDATE hub_connections SET
+  status               = 'disconnected',
+  disconnector_user_id = @blocker::uuid,
+  updated_at           = NOW()
+WHERE low_user_id  = LEAST(@a::uuid, @b::uuid)
+  AND high_user_id = GREATEST(@a::uuid, @b::uuid)
+  AND status = 'connected';
+
+-- name: DeletePendingForBlock :exec
+DELETE FROM hub_connections
+WHERE low_user_id  = LEAST(@a::uuid, @b::uuid)
+  AND high_user_id = GREATEST(@a::uuid, @b::uuid)
+  AND status = 'pending';
+
+-- name: ListMyConnections :many
+SELECT c.*,
+       CASE WHEN c.low_user_id = @me::uuid THEN c.high_user_id ELSE c.low_user_id END AS peer_user_id
+FROM hub_connections c
+WHERE (c.low_user_id = @me::uuid OR c.high_user_id = @me::uuid)
+  AND c.status = 'connected'
+  AND (sqlc.narg('filter_query')::text IS NULL OR EXISTS (
+    SELECT 1 FROM hub_users u
+    WHERE u.hub_user_global_id = (CASE WHEN c.low_user_id = @me::uuid THEN c.high_user_id ELSE c.low_user_id END)
+      AND u.handle ILIKE sqlc.narg('filter_query')::text || '%'
+  ))
+  AND (@cursor_connected_at::timestamptz IS NULL OR
+       (c.connected_at, CASE WHEN c.low_user_id = @me::uuid THEN c.high_user_id ELSE c.low_user_id END)
+         < (@cursor_connected_at::timestamptz, @cursor_peer_user_id::uuid))
+ORDER BY c.connected_at DESC, (CASE WHEN c.low_user_id = @me::uuid THEN c.high_user_id ELSE c.low_user_id END) DESC
+LIMIT @limit_count::int;
+
+-- name: ListIncomingPendingRequests :many
+SELECT c.*, c.requester_user_id AS peer_user_id
+FROM hub_connections c
+WHERE c.status = 'pending'
+  AND (c.low_user_id = @me::uuid OR c.high_user_id = @me::uuid)
+  AND c.requester_user_id <> @me::uuid
+  AND (@cursor_created_at::timestamptz IS NULL OR
+       (c.created_at, c.requester_user_id) < (@cursor_created_at::timestamptz, @cursor_peer_user_id::uuid))
+ORDER BY c.created_at DESC, c.requester_user_id DESC
+LIMIT @limit_count::int;
+
+-- name: ListOutgoingPendingRequests :many
+SELECT c.*,
+       (CASE WHEN c.low_user_id = @me::uuid THEN c.high_user_id ELSE c.low_user_id END) AS peer_user_id
+FROM hub_connections c
+WHERE c.status = 'pending'
+  AND c.requester_user_id = @me::uuid
+  AND (@cursor_created_at::timestamptz IS NULL OR
+       (c.created_at, CASE WHEN c.low_user_id = @me::uuid THEN c.high_user_id ELSE c.low_user_id END)
+         < (@cursor_created_at::timestamptz, @cursor_peer_user_id::uuid))
+ORDER BY c.created_at DESC, (CASE WHEN c.low_user_id = @me::uuid THEN c.high_user_id ELSE c.low_user_id END) DESC
+LIMIT @limit_count::int;
+
+-- name: ListBlocked :many
+SELECT b.*
+FROM hub_blocks b
+WHERE b.blocker_user_id = @me::uuid
+  AND (@cursor_blocked_at::timestamptz IS NULL OR
+       (b.blocked_at, b.blocked_user_id) < (@cursor_blocked_at::timestamptz, @cursor_blocked_user_id::uuid))
+ORDER BY b.blocked_at DESC, b.blocked_user_id DESC
+LIMIT @limit_count::int;
+
+-- name: SearchConnectedByPrefix :many
+SELECT c.*,
+       (CASE WHEN c.low_user_id = @me::uuid THEN c.high_user_id ELSE c.low_user_id END) AS peer_user_id
+FROM hub_connections c
+JOIN hub_users u ON u.hub_user_global_id = (CASE WHEN c.low_user_id = @me::uuid THEN c.high_user_id ELSE c.low_user_id END)
+WHERE (c.low_user_id = @me::uuid OR c.high_user_id = @me::uuid)
+  AND c.status = 'connected'
+  AND u.handle ILIKE @prefix::text || '%'
+ORDER BY u.handle ASC
+LIMIT 20;
+
+-- name: GetConnectionCounts :one
+SELECT
+  (SELECT COUNT(*) FROM hub_connections c
+     WHERE c.status = 'pending'
+       AND (c.low_user_id = @me::uuid OR c.high_user_id = @me::uuid)
+       AND c.requester_user_id <> @me::uuid)::int AS pending_incoming,
+  (SELECT COUNT(*) FROM hub_connections c
+     WHERE c.status = 'pending'
+       AND c.requester_user_id = @me::uuid)::int AS pending_outgoing,
+  (SELECT COUNT(*) FROM hub_connections c
+     WHERE c.status = 'connected'
+       AND (c.low_user_id = @me::uuid OR c.high_user_id = @me::uuid))::int AS connected,
+  (SELECT COUNT(*) FROM hub_blocks WHERE blocker_user_id = @me::uuid)::int AS blocked;
+
+-- name: GetUserEligibilityStints :many
+SELECT domain, first_verified_at, last_verified_at, ended_at, status
+FROM hub_employer_stints
+WHERE hub_user_id = @hub_user_id::uuid
+  AND status IN ('active', 'ended')
+  AND first_verified_at IS NOT NULL;
+
+-- Job openings queries
+-- name: AllocateOpeningNumber :one
+INSERT INTO org_opening_counters (org_id, next_opening_number)
+VALUES (@org_id, 2)
+ON CONFLICT (org_id) DO UPDATE
+SET next_opening_number = org_opening_counters.next_opening_number + 1
+RETURNING next_opening_number - 1 AS allocated_opening_number;
+
+-- name: CreateOpening :one
+INSERT INTO openings (
+  org_id, opening_number, title, description, is_internal,
+  employment_type, work_location_type,
+  min_yoe, max_yoe, min_education_level,
+  salary_min_amount, salary_max_amount, salary_currency,
+  number_of_positions,
+  hiring_manager_org_user_id, recruiter_org_user_id,
+  cost_center_id, internal_notes, status
+)
+VALUES (
+  @org_id, @opening_number, @title, @description, @is_internal,
+  @employment_type, @work_location_type,
+  sqlc.narg('min_yoe'), sqlc.narg('max_yoe'), sqlc.narg('min_education_level'),
+  sqlc.narg('salary_min_amount'), sqlc.narg('salary_max_amount'), sqlc.narg('salary_currency'),
+  @number_of_positions,
+  @hiring_manager_org_user_id, @recruiter_org_user_id,
+  sqlc.narg('cost_center_id'), sqlc.narg('internal_notes'),
+  'draft'
+)
+RETURNING *;
+
+-- name: GetOpeningByNumber :one
+SELECT * FROM openings
+WHERE org_id = @org_id AND opening_number = @opening_number;
+
+-- name: GetOpeningByID :one
+SELECT * FROM openings
+WHERE opening_id = @opening_id AND org_id = @org_id;
+
+-- name: ReplaceOpeningEditableFields :one
+UPDATE openings
+SET title                      = @title,
+    description                = @description,
+    employment_type            = @employment_type,
+    work_location_type         = @work_location_type,
+    min_yoe                    = sqlc.narg('min_yoe'),
+    max_yoe                    = sqlc.narg('max_yoe'),
+    min_education_level        = sqlc.narg('min_education_level'),
+    salary_min_amount          = sqlc.narg('salary_min_amount'),
+    salary_max_amount          = sqlc.narg('salary_max_amount'),
+    salary_currency            = sqlc.narg('salary_currency'),
+    number_of_positions        = @number_of_positions,
+    hiring_manager_org_user_id = @hiring_manager_org_user_id,
+    recruiter_org_user_id      = @recruiter_org_user_id,
+    cost_center_id             = sqlc.narg('cost_center_id'),
+    internal_notes             = sqlc.narg('internal_notes'),
+    updated_at                 = NOW()
+WHERE org_id = @org_id AND opening_number = @opening_number AND status = 'draft'
+RETURNING *;
+
+-- name: DiscardDraftOpening :exec
+DELETE FROM openings
+WHERE org_id = @org_id AND opening_number = @opening_number AND status = 'draft';
+
+-- name: TransitionOpeningSubmit :one
+UPDATE openings
+SET status                = @target_status,
+    first_published_at    = CASE WHEN @target_status = 'published' THEN NOW() ELSE first_published_at END,
+    rejection_note        = NULL,
+    updated_at            = NOW()
+WHERE org_id = @org_id AND opening_number = @opening_number AND status = 'draft'
+RETURNING *;
+
+-- name: TransitionOpeningApprove :one
+UPDATE openings
+SET status              = 'published',
+    first_published_at  = NOW(),
+    updated_at          = NOW()
+WHERE org_id = @org_id AND opening_number = @opening_number AND status = 'pending_review'
+RETURNING *;
+
+-- name: TransitionOpeningReject :one
+UPDATE openings
+SET status         = 'draft',
+    rejection_note = @rejection_note,
+    updated_at     = NOW()
+WHERE org_id = @org_id AND opening_number = @opening_number AND status = 'pending_review'
+RETURNING *;
+
+-- name: TransitionOpeningPause :one
+UPDATE openings SET status = 'paused', updated_at = NOW()
+WHERE org_id = @org_id AND opening_number = @opening_number AND status = 'published'
+RETURNING *;
+
+-- name: TransitionOpeningReopen :one
+UPDATE openings SET status = 'published', updated_at = NOW()
+WHERE org_id = @org_id AND opening_number = @opening_number AND status = 'paused'
+  AND first_published_at + INTERVAL '180 days' > NOW()
+RETURNING *;
+
+-- name: TransitionOpeningClose :one
+UPDATE openings SET status = 'closed', updated_at = NOW()
+WHERE org_id = @org_id AND opening_number = @opening_number AND status IN ('published','paused')
+RETURNING *;
+
+-- name: TransitionOpeningArchive :one
+UPDATE openings SET status = 'archived', updated_at = NOW()
+WHERE org_id = @org_id AND opening_number = @opening_number AND status IN ('closed','expired')
+RETURNING *;
+
+-- name: WorkerExpireOpenings :many
+UPDATE openings
+SET status     = 'expired',
+    expired_at = NOW(),
+    updated_at = NOW()
+WHERE status IN ('published','paused')
+  AND first_published_at + INTERVAL '180 days' <= NOW()
+RETURNING *;
+
+-- name: ListOpenings :many
+SELECT o.*
+FROM openings o
+WHERE o.org_id = @org_id
+  AND (sqlc.narg('filter_statuses')::opening_status[] IS NULL
+       OR o.status = ANY(sqlc.narg('filter_statuses')::opening_status[]))
+  AND (sqlc.narg('filter_is_internal')::boolean IS NULL OR o.is_internal = sqlc.narg('filter_is_internal')::boolean)
+  AND (sqlc.narg('filter_hm')::uuid    IS NULL OR o.hiring_manager_org_user_id = sqlc.narg('filter_hm')::uuid)
+  AND (sqlc.narg('filter_rec')::uuid   IS NULL OR o.recruiter_org_user_id      = sqlc.narg('filter_rec')::uuid)
+  AND (sqlc.narg('filter_title_prefix')::text IS NULL OR o.title ILIKE sqlc.narg('filter_title_prefix')::text || '%')
+  AND (sqlc.narg('filter_tags')::text[] IS NULL
+       OR EXISTS (SELECT 1 FROM opening_tags ot
+                  WHERE ot.opening_id = o.opening_id
+                    AND ot.tag_id = ANY(sqlc.narg('filter_tags')::text[])))
+  AND (@cursor_created_at::timestamptz IS NULL
+       OR (o.created_at, o.opening_number) < (@cursor_created_at, @cursor_opening_number))
+ORDER BY o.created_at DESC, o.opening_number DESC
+LIMIT @limit_count;
+
+-- name: GetOpeningAddresses :many
+SELECT a.* FROM org_addresses a
+JOIN opening_addresses oa ON oa.address_id = a.address_id
+WHERE oa.opening_id = @opening_id;
+
+-- name: GetOpeningHiringTeam :many
+SELECT org_user_id FROM opening_hiring_team_members WHERE opening_id = @opening_id;
+
+-- name: GetOpeningWatchers :many
+SELECT org_user_id FROM opening_watchers WHERE opening_id = @opening_id;
+
+-- name: GetOpeningTags :many
+SELECT tag_id FROM opening_tags WHERE opening_id = @opening_id;
+
+-- name: ReplaceOpeningAddresses :exec
+WITH del AS (DELETE FROM opening_addresses WHERE opening_id = @opening_id RETURNING 1)
+INSERT INTO opening_addresses (opening_id, address_id)
+SELECT @opening_id::uuid, UNNEST(@address_ids::uuid[]);
+
+-- name: ReplaceOpeningHiringTeam :exec
+WITH del AS (DELETE FROM opening_hiring_team_members WHERE opening_id = @opening_id RETURNING 1)
+INSERT INTO opening_hiring_team_members (opening_id, org_user_id)
+SELECT @opening_id::uuid, UNNEST(@org_user_ids::uuid[]);
+
+-- name: ReplaceOpeningWatchers :exec
+WITH del AS (DELETE FROM opening_watchers WHERE opening_id = @opening_id RETURNING 1)
+INSERT INTO opening_watchers (opening_id, org_user_id)
+SELECT @opening_id::uuid, UNNEST(@org_user_ids::uuid[]);
+
+-- name: ReplaceOpeningTags :exec
+WITH del AS (DELETE FROM opening_tags WHERE opening_id = @opening_id RETURNING 1)
+INSERT INTO opening_tags (opening_id, tag_id)
+SELECT @opening_id::uuid, UNNEST(@tag_ids::text[]);
+
+-- name: ValidateOrgAddressesActive :many
+SELECT address_id FROM org_addresses
+WHERE org_id = @org_id
+  AND status = 'active'
+  AND address_id = ANY(@address_ids::uuid[]);
+
+-- name: ValidateOrgUsersActive :many
+SELECT org_user_id FROM org_users
+WHERE org_id = @org_id
+  AND status = 'active'
+  AND org_user_id = ANY(@org_user_ids::uuid[]);
+
+-- name: ValidateCostCenterActive :one
+SELECT cost_center_id FROM cost_centers
+WHERE org_id = @org_id AND cost_center_id = @cost_center_id AND status = 'enabled';
+
+-- name: GetOrgUsersByIDs :many
+SELECT * FROM org_users WHERE org_user_id = ANY(@org_user_ids::uuid[]);
+
+-- name: GetOrgAddressesByIDs :many
+SELECT * FROM org_addresses WHERE address_id = ANY(@address_ids::uuid[]);
+
+-- name: GetCostCenterByID :one
+SELECT * FROM cost_centers WHERE cost_center_id = $1;

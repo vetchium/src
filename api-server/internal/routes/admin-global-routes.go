@@ -86,4 +86,9 @@ func RegisterAdminGlobalRoutes(mux *http.ServeMux, s *server.GlobalServer) {
 	mux.Handle("POST /admin/marketplace/list-subscriptions", adminAuth(adminRoleViewMarketplace(admin.AdminListMarketplaceSubscriptions(s))))
 	mux.Handle("POST /admin/marketplace/cancel-subscription", adminAuth(adminRoleManageMarketplace(admin.AdminCancelMarketplaceSubscription(s))))
 
+	// Personal domain blocklist routes
+	adminRoleManagePersonalDomainBlocklist := middleware.AdminRole(s.Global, adminspec.AdminRoleManagePersonalDomainBlocklist)
+	mux.Handle("POST /admin/list-blocked-personal-domains", adminAuth(adminRoleManagePersonalDomainBlocklist(admin.ListBlockedPersonalDomains(s))))
+	mux.Handle("POST /admin/add-blocked-personal-domain", adminAuth(adminRoleManagePersonalDomainBlocklist(admin.AddBlockedPersonalDomain(s))))
+	mux.Handle("POST /admin/remove-blocked-personal-domain", adminAuth(adminRoleManagePersonalDomainBlocklist(admin.RemoveBlockedPersonalDomain(s))))
 }

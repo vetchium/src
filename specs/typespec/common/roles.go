@@ -21,6 +21,7 @@ var ValidRoleNames = []RoleName{
 	"admin:manage_marketplace",
 	"admin:view_org_plans",
 	"admin:manage_org_plans",
+	"admin:manage_personal_domain_blocklist",
 
 	// Org portal roles
 	"org:superadmin",
@@ -41,6 +42,8 @@ var ValidRoleNames = []RoleName{
 	"org:manage_plan",
 	"org:view_addresses",
 	"org:manage_addresses",
+	"org:view_openings",
+	"org:manage_openings",
 
 	// Hub portal roles
 	"hub:read_posts",

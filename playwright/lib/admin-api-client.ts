@@ -62,6 +62,13 @@ import type {
 	AdminListSubscriptionsResponse,
 	AdminCancelSubscriptionRequest,
 } from "vetchium-specs/admin/marketplace";
+import type {
+	BlockedPersonalDomain,
+	AdminAddBlockedDomainRequest,
+	AdminRemoveBlockedDomainRequest,
+	AdminListBlockedDomainsRequest,
+	AdminListBlockedDomainsResponse,
+} from "vetchium-specs/admin/personal-domain-blocklist";
 import type { APIResponse } from "./api-client";
 
 /**
@@ -1549,6 +1556,114 @@ export class AdminAPIClient {
 	): Promise<APIResponse<void>> {
 		const response = await this.request.post(
 			"/admin/marketplace/cancel-subscription",
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: body,
+			}
+		);
+		return { status: response.status(), body: undefined };
+	}
+
+	// ============================================================================
+	// Personal Domain Blocklist
+	// ============================================================================
+
+	async listBlockedPersonalDomains(
+		sessionToken: string,
+		request: AdminListBlockedDomainsRequest
+	): Promise<APIResponse<AdminListBlockedDomainsResponse>> {
+		const response = await this.request.post(
+			"/admin/list-blocked-personal-domains",
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: request,
+			}
+		);
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as AdminListBlockedDomainsResponse,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	async listBlockedPersonalDomainsRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<AdminListBlockedDomainsResponse>> {
+		const response = await this.request.post(
+			"/admin/list-blocked-personal-domains",
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: body,
+			}
+		);
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as AdminListBlockedDomainsResponse,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	async addBlockedPersonalDomain(
+		sessionToken: string,
+		request: AdminAddBlockedDomainRequest
+	): Promise<APIResponse<BlockedPersonalDomain>> {
+		const response = await this.request.post(
+			"/admin/add-blocked-personal-domain",
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: request,
+			}
+		);
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as BlockedPersonalDomain,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	async addBlockedPersonalDomainRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<BlockedPersonalDomain>> {
+		const response = await this.request.post(
+			"/admin/add-blocked-personal-domain",
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: body,
+			}
+		);
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as BlockedPersonalDomain,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	async removeBlockedPersonalDomain(
+		sessionToken: string,
+		request: AdminRemoveBlockedDomainRequest
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post(
+			"/admin/remove-blocked-personal-domain",
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: request,
+			}
+		);
+		return { status: response.status(), body: undefined };
+	}
+
+	async removeBlockedPersonalDomainRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post(
+			"/admin/remove-blocked-personal-domain",
 			{
 				headers: { Authorization: `Bearer ${sessionToken}` },
 				data: body,

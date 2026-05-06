@@ -40,6 +40,8 @@ func RegisterOrgRoutes(mux *http.ServeMux, s *server.RegionalServer) {
 	orgRoleManageSubscriptions := middleware.OrgRole(s.Regional, orgspec.OrgRoleManageSubscriptions)
 	orgRoleViewAddresses := middleware.OrgRole(s.Regional, orgspec.OrgRoleViewAddresses, orgspec.OrgRoleManageAddresses)
 	orgRoleManageAddresses := middleware.OrgRole(s.Regional, orgspec.OrgRoleManageAddresses)
+	orgRoleViewOpenings := middleware.OrgRole(s.Regional, orgspec.OrgRoleViewOpenings, orgspec.OrgRoleManageOpenings)
+	orgRoleManageOpenings := middleware.OrgRole(s.Regional, orgspec.OrgRoleManageOpenings)
 
 	// Domain write routes (manage_domains required; superadmin bypasses via middleware)
 	mux.Handle("POST /org/claim-domain", orgAuth(orgRoleManageDomains(org.ClaimDomain(s))))
@@ -126,5 +128,20 @@ func RegisterOrgRoutes(mux *http.ServeMux, s *server.RegionalServer) {
 
 	// Marketplace clients (provider view)
 	mux.Handle("POST /org/marketplace/list-clients", orgAuth(orgRoleViewListings(org.ListMyClients(s))))
+
+	// Job opening routes
+	mux.Handle("POST /org/create-opening", orgAuth(orgRoleManageOpenings(org.CreateOpening(s))))
+	mux.Handle("POST /org/list-openings", orgAuth(orgRoleViewOpenings(org.ListOpenings(s))))
+	mux.Handle("POST /org/get-opening", orgAuth(orgRoleViewOpenings(org.GetOpening(s))))
+	mux.Handle("POST /org/update-opening", orgAuth(orgRoleManageOpenings(org.UpdateOpening(s))))
+	mux.Handle("POST /org/discard-opening", orgAuth(orgRoleManageOpenings(org.DiscardOpening(s))))
+	mux.Handle("POST /org/duplicate-opening", orgAuth(orgRoleManageOpenings(org.DuplicateOpening(s))))
+	mux.Handle("POST /org/submit-opening", orgAuth(orgRoleManageOpenings(org.SubmitOpening(s))))
+	mux.Handle("POST /org/approve-opening", orgAuth(orgRoleManageOpenings(org.ApproveOpening(s))))
+	mux.Handle("POST /org/reject-opening", orgAuth(orgRoleManageOpenings(org.RejectOpening(s))))
+	mux.Handle("POST /org/pause-opening", orgAuth(orgRoleManageOpenings(org.PauseOpening(s))))
+	mux.Handle("POST /org/reopen-opening", orgAuth(orgRoleManageOpenings(org.ReopenOpening(s))))
+	mux.Handle("POST /org/close-opening", orgAuth(orgRoleManageOpenings(org.CloseOpening(s))))
+	mux.Handle("POST /org/archive-opening", orgAuth(orgRoleManageOpenings(org.ArchiveOpening(s))))
 
 }

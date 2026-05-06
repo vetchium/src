@@ -92,6 +92,28 @@ func main() {
 		Bucket:          os.Getenv("S3_BUCKET"),
 	}
 
+	// Build all-regional-DB map for cross-region reads (e.g., eligibility stints)
+	allRegionalDBs := map[globaldb.Region]*regionaldb.Queries{
+		currentRegion: regionaldb.New(regionalConn),
+	}
+	allRegionalConnEnvs := map[globaldb.Region]string{
+		globaldb.RegionInd1: getEnvOrDefault("REGIONAL_DB_CONN_IND1", ""),
+		globaldb.RegionUsa1: getEnvOrDefault("REGIONAL_DB_CONN_USA1", ""),
+		globaldb.RegionDeu1: getEnvOrDefault("REGIONAL_DB_CONN_DEU1", ""),
+	}
+	for rgn, connStr := range allRegionalConnEnvs {
+		if rgn == currentRegion || connStr == "" {
+			continue
+		}
+		pool, err := pgxpool.New(ctx, connStr)
+		if err != nil {
+			logger.Warn("failed to connect to remote regional DB", "region", rgn, "error", err)
+			continue
+		}
+		defer pool.Close()
+		allRegionalDBs[rgn] = regionaldb.New(pool)
+	}
+
 	s := &server.RegionalServer{
 		BaseServer: server.BaseServer{
 			Global:        globaldb.New(globalConn),
@@ -104,6 +126,7 @@ func main() {
 		},
 		Regional:          regionaldb.New(regionalConn),
 		RegionalPool:      regionalConn,
+		AllRegionalDBs:    allRegionalDBs,
 		CurrentRegion:     currentRegion,
 		InternalEndpoints: internalEndpoints,
 	}

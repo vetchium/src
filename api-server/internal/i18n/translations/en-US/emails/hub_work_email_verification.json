@@ -1,0 +1,11 @@
+{
+	"_description": "Hub User Work Email Verification Email",
+	"_note": "Sent when a hub user adds a new work email and needs to verify it with a code",
+
+	"subject": "Verify Your Work Email - Vetchium",
+	"body_intro": "To verify your work email at {{.Domain}}, please enter the code below on Vetchium.",
+	"body_code_label": "Your verification code:",
+	"body_expiry": "This code will expire in 24 hours.",
+	"body_ignore": "If you did not request this, please ignore this email.",
+	"footer": "This is an automated message. Please do not reply."
+}

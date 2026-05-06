@@ -466,6 +466,84 @@ export async function createTestHubUser(
 }
 
 /**
+ * Creates a test hub user directly in the database, bypassing the signup flow.
+ * This is useful for tests that need a valid authenticated user immediately.
+ *
+ * @param email - Email address for the hub user
+ * @param password - Password for the hub user
+ * @param handle - Display name/handle for the hub user
+ * @param region - Region code (defaults to 'ind1')
+ * @param status - User status (defaults to 'active')
+ * @returns An object with the email, handle, and hub_user_global_id
+ */
+export async function createTestHubUserDirect(
+	email: string,
+	password: string,
+	handle: string,
+	region: RegionCode = "ind1",
+	status: HubUserStatus = "active"
+): Promise<{
+	email: string;
+	handle: string;
+	hubUserGlobalId: string;
+	sessionToken: string;
+}> {
+	const crypto = require("crypto");
+	const bcrypt = require("bcryptjs");
+
+	const emailHash = crypto.createHash("sha256").update(email).digest();
+	const passwordHash = await bcrypt.hash(password, 10);
+
+	// 1. Create hub user in global DB
+	const hubUserGlobalId = randomUUID();
+	await pool.query(
+		`INSERT INTO hub_users (hub_user_global_id, email_address_hash, hashing_algorithm, home_region, status)
+     VALUES ($1, $2, 'SHA-256', $3, $4)`,
+		[hubUserGlobalId, emailHash, region, status]
+	);
+
+	// 2. Create hub user in regional DB (mutable data)
+	const regionalPool = getRegionalPool(region);
+	try {
+		await regionalPool.query(
+			`INSERT INTO hub_users (hub_user_global_id, email_address, password_hash, preferred_display_name, status, preferred_language, resident_country_code)
+       VALUES ($1, $2, $3, $4, $5, 'en-US', 'US')`,
+			[hubUserGlobalId, email, passwordHash, handle, status]
+		);
+	} finally {
+		await regionalPool.end();
+	}
+
+	// 3. Create a session token for immediate authentication
+	const sessionToken = createTestHubSessionToken(hubUserGlobalId, region);
+
+	// 4. Create session in regional DB
+	const sessionId = randomUUID();
+	const sessionRegionalPool = getRegionalPool(region);
+	try {
+		const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+		await sessionRegionalPool.query(
+			`INSERT INTO hub_sessions (session_id, hub_user_global_id, expires_at)
+       VALUES ($1, $2, $3)`,
+			[sessionId, hubUserGlobalId, expiresAt.toISOString()]
+		);
+	} finally {
+		await sessionRegionalPool.end();
+	}
+
+	return { email, handle, hubUserGlobalId, sessionToken };
+}
+
+/**
+ * Helper function to create a test hub session token
+ */
+function createTestHubSessionToken(hubUserGlobalId: string, region: RegionCode): string {
+	// Format: {region}:{hubUserGlobalId}:{random}
+	const randomPart = randomUUID().substring(0, 8);
+	return `${region}:${hubUserGlobalId}:${randomPart}`;
+}
+
+/**
  * Deletes a test hub user by email.
  * Deletes from global DB only (CASCADE handles related records).
  * Regional DB cleanup is handled by the backend.
@@ -1576,4 +1654,356 @@ export async function deleteTestDomainCooldown(domain: string): Promise<void> {
 	await pool.query(`DELETE FROM domain_cooldowns WHERE domain = $1`, [
 		domain.toLowerCase(),
 	]);
+}
+
+// ============================================================================
+// Hub Profile Helpers
+// ============================================================================
+
+/**
+ * Sets the profile_picture_storage_key for a hub user directly in the regional DB.
+ * Used by tests that need to pre-seed a picture key without going through the API.
+ *
+ * @param hubUserGlobalId - UUID string of the hub user
+ * @param storageKey - S3 key to set (or null to clear)
+ * @param region - Home region of the hub user (default: 'ind1')
+ */
+export async function setHubUserProfilePictureKeyDirect(
+	hubUserGlobalId: string,
+	storageKey: string | null,
+	region: RegionCode = "ind1"
+): Promise<void> {
+	const regionalPool = getRegionalPool(region);
+	try {
+		await regionalPool.query(
+			`UPDATE hub_users SET profile_picture_storage_key = $1, updated_at = NOW()
+			 WHERE hub_user_global_id = $2`,
+			[storageKey, hubUserGlobalId]
+		);
+	} finally {
+		await regionalPool.end();
+	}
+}
+
+/**
+ * Gets the profile_picture_storage_key for a hub user from the regional DB.
+ * Used as an assertion helper in tests.
+ *
+ * @param hubUserGlobalId - UUID string of the hub user
+ * @param region - Home region of the hub user (default: 'ind1')
+ * @returns The storage key, or null if not set
+ */
+export async function getHubUserProfilePictureKey(
+	hubUserGlobalId: string,
+	region: RegionCode = "ind1"
+): Promise<string | null> {
+	const regionalPool = getRegionalPool(region);
+	try {
+		const result = await regionalPool.query(
+			`SELECT profile_picture_storage_key FROM hub_users WHERE hub_user_global_id = $1`,
+			[hubUserGlobalId]
+		);
+		if (result.rows.length === 0) return null;
+		return result.rows[0].profile_picture_storage_key ?? null;
+	} finally {
+		await regionalPool.end();
+	}
+}
+
+/**
+ * Gets the hub_user_global_id UUID from the global DB by email hash.
+ * Used when tests need to look up IDs for direct DB manipulation.
+ *
+ * @param email - Email address of the hub user
+ * @returns UUID string of the hub user, or null if not found
+ */
+export async function getHubUserGlobalId(email: string): Promise<string | null> {
+	const crypto = require("crypto");
+	const emailHash = crypto.createHash("sha256").update(email).digest();
+	const result = await pool.query(
+		`SELECT hub_user_global_id FROM hub_users WHERE email_address_hash = $1`,
+		[emailHash]
+	);
+	if (result.rows.length === 0) return null;
+	return result.rows[0].hub_user_global_id;
+}
+
+/**
+ * Counts rows in the pending_storage_cleanup table for a given storage key.
+ * Used to verify that orphaned S3 keys are properly enqueued for cleanup.
+ *
+ * @param storageKey - The S3 storage key to look for
+ * @param region - Region where the cleanup table lives (default: 'ind1')
+ * @returns Number of matching rows
+ */
+export async function countPendingStorageCleanup(
+	storageKey: string,
+	region: RegionCode = "ind1"
+): Promise<number> {
+	const regionalPool = getRegionalPool(region);
+	try {
+		const result = await regionalPool.query(
+			`SELECT COUNT(*) AS cnt FROM pending_storage_cleanup WHERE storage_key = $1`,
+			[storageKey]
+		);
+		return parseInt(result.rows[0].cnt, 10);
+	} finally {
+		await regionalPool.end();
+	}
+}
+
+// ============================================================================
+// Personal Domain Blocklist helpers
+// ============================================================================
+
+/**
+ * Adds a domain directly to the personal_domain_blocklist in the global DB.
+ * Bypasses the API; for test setup only.
+ */
+export async function addPersonalDomainBlocklistEntry(
+	domain: string
+): Promise<void> {
+	await pool.query(
+		`INSERT INTO personal_domain_blocklist (domain) VALUES ($1) ON CONFLICT (domain) DO NOTHING`,
+		[domain.toLowerCase()]
+	);
+}
+
+/**
+ * Removes a domain from the personal_domain_blocklist in the global DB.
+ * For cleanup after tests.
+ */
+export async function removePersonalDomainBlocklistEntry(
+	domain: string
+): Promise<void> {
+	await pool.query(
+		`DELETE FROM personal_domain_blocklist WHERE domain = $1`,
+		[domain.toLowerCase()]
+	);
+}
+
+// ============================================================================
+// Work Email Stint helpers
+// ============================================================================
+
+/**
+ * Creates a hub_employer_stints row directly in the regional DB.
+ * Bypasses the API and does NOT write to the global hub_work_email_index.
+ * Useful for testing list/get endpoints without going through the full add+verify flow.
+ *
+ * @param hubUserId - The regional hub_user_id (UUID)
+ * @param email - Work email address (will be lower-cased)
+ * @param status - Stint status; defaults to 'active'
+ * @param region - Regional DB to write to (default: 'ind1')
+ * @returns The created stint_id
+ */
+export async function createTestWorkEmailStintDirect(
+	hubUserId: string,
+	email: string,
+	status: "pending_verification" | "active" | "ended" = "active",
+	region: RegionCode = "ind1"
+): Promise<string> {
+	const crypto = require("crypto");
+	const lowerEmail = email.toLowerCase();
+	const emailHash = crypto
+		.createHash("sha256")
+		.update(lowerEmail)
+		.digest("hex");
+	const domain = lowerEmail.split("@")[1];
+	const regionalPool = getRegionalPool(region);
+	try {
+		const now = new Date();
+		const expires = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+		let result;
+		if (status === "active") {
+			result = await regionalPool.query(
+				`INSERT INTO hub_employer_stints
+				   (hub_user_id, email_address, email_address_hash, domain,
+				    status, first_verified_at, last_verified_at)
+				 VALUES ($1, $2, $3, $4, 'active', NOW(), NOW())
+				 RETURNING stint_id`,
+				[hubUserId, lowerEmail, emailHash, domain]
+			);
+		} else if (status === "pending_verification") {
+			// Generate a fake code hash (bcrypt of "000000")
+			const bcrypt = require("bcrypt");
+			const codeHash = await bcrypt.hash("000000", 10);
+			result = await regionalPool.query(
+				`INSERT INTO hub_employer_stints
+				   (hub_user_id, email_address, email_address_hash, domain,
+				    status, pending_code_hash, pending_code_expires_at)
+				 VALUES ($1, $2, $3, $4, 'pending_verification', $5, $6)
+				 RETURNING stint_id`,
+				[hubUserId, lowerEmail, emailHash, domain, codeHash, expires]
+			);
+		} else {
+			// ended
+			result = await regionalPool.query(
+				`INSERT INTO hub_employer_stints
+				   (hub_user_id, email_address, email_address_hash, domain,
+				    status, first_verified_at, last_verified_at, ended_at, ended_reason)
+				 VALUES ($1, $2, $3, $4, 'ended', NOW() - INTERVAL '10 days', NOW() - INTERVAL '5 days', NOW(), 'user_removed')
+				 RETURNING stint_id`,
+				[hubUserId, lowerEmail, emailHash, domain]
+			);
+		}
+		return result.rows[0].stint_id;
+	} finally {
+		await regionalPool.end();
+	}
+}
+
+/**
+ * Sets the last_verified_at on a hub_employer_stints row.
+ * Used to simulate clock state for worker tests.
+ */
+export async function setStintLastVerifiedAt(
+	stintId: string,
+	dateTime: Date,
+	region: RegionCode = "ind1"
+): Promise<void> {
+	const regionalPool = getRegionalPool(region);
+	try {
+		await regionalPool.query(
+			`UPDATE hub_employer_stints SET last_verified_at = $1, updated_at = NOW() WHERE stint_id = $2`,
+			[dateTime, stintId]
+		);
+	} finally {
+		await regionalPool.end();
+	}
+}
+
+/**
+ * Sets the pending_code_expires_at on a hub_employer_stints row.
+ * Used to simulate an expired code for testing.
+ */
+export async function setStintPendingCodeExpiresAt(
+	stintId: string,
+	dateTime: Date,
+	region: RegionCode = "ind1"
+): Promise<void> {
+	const regionalPool = getRegionalPool(region);
+	try {
+		await regionalPool.query(
+			`UPDATE hub_employer_stints SET pending_code_expires_at = $1, updated_at = NOW() WHERE stint_id = $2`,
+			[dateTime, stintId]
+		);
+	} finally {
+		await regionalPool.end();
+	}
+}
+
+/**
+ * Expires (backdates) the reverify challenge for a stint so the TTL is in the past.
+ */
+export async function expireWorkEmailReverifyChallenge(
+	stintId: string,
+	region: RegionCode = "ind1"
+): Promise<void> {
+	const regionalPool = getRegionalPool(region);
+	try {
+		await regionalPool.query(
+			`UPDATE hub_work_email_reverify_challenges
+			 SET expires_at = NOW() - INTERVAL '1 hour'
+			 WHERE stint_id = $1`,
+			[stintId]
+		);
+	} finally {
+		await regionalPool.end();
+	}
+}
+
+/**
+ * Hard-ends a stint with the given ended_reason without going through the API.
+ */
+export async function setStintEnded(
+	stintId: string,
+	endedReason:
+		| "user_removed"
+		| "user_removed_pending"
+		| "verification_expired"
+		| "reverify_timeout"
+		| "superseded",
+	region: RegionCode = "ind1"
+): Promise<void> {
+	const regionalPool = getRegionalPool(region);
+	try {
+		await regionalPool.query(
+			`UPDATE hub_employer_stints
+			 SET status = 'ended', ended_at = NOW(), ended_reason = $2, updated_at = NOW()
+			 WHERE stint_id = $1`,
+			[stintId, endedReason]
+		);
+	} finally {
+		await regionalPool.end();
+	}
+}
+
+/**
+ * Fetches the hub_user_id (regional) for a hub user by email address.
+ * Returns null if not found.
+ */
+export async function getHubUserRegionalId(
+	email: string,
+	region: RegionCode = "ind1"
+): Promise<string | null> {
+	const regionalPool = getRegionalPool(region);
+	try {
+		const result = await regionalPool.query(
+			`SELECT hub_user_id FROM hub_users WHERE email_address = $1`,
+			[email.toLowerCase()]
+		);
+		if (result.rows.length === 0) return null;
+		return result.rows[0].hub_user_id;
+	} finally {
+		await regionalPool.end();
+	}
+}
+
+/**
+ * Gets a stint row from the regional DB by stint_id.
+ */
+export async function getStintById(
+	stintId: string,
+	region: RegionCode = "ind1"
+): Promise<Record<string, unknown> | null> {
+	const regionalPool = getRegionalPool(region);
+	try {
+		const result = await regionalPool.query(
+			`SELECT * FROM hub_employer_stints WHERE stint_id = $1`,
+			[stintId]
+		);
+		if (result.rows.length === 0) return null;
+		return result.rows[0];
+	} finally {
+		await regionalPool.end();
+	}
+}
+
+/**
+ * Inserts a reverify challenge row directly into the regional DB for a given stint.
+ * The code hash is bcrypt of "123456".
+ */
+export async function insertReverifyChallengeDirect(
+	stintId: string,
+	region: RegionCode = "ind1"
+): Promise<void> {
+	const bcrypt = require("bcrypt");
+	const codeHash = await bcrypt.hash("123456", 10);
+	const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+	const regionalPool = getRegionalPool(region);
+	try {
+		await regionalPool.query(
+			`INSERT INTO hub_work_email_reverify_challenges (stint_id, challenge_code_hash, expires_at)
+			 VALUES ($1, $2, $3)
+			 ON CONFLICT (stint_id) DO UPDATE
+			   SET challenge_code_hash = EXCLUDED.challenge_code_hash,
+			       issued_at = NOW(),
+			       expires_at = EXCLUDED.expires_at,
+			       attempts = 0`,
+			[stintId, codeHash, expires]
+		);
+	} finally {
+		await regionalPool.end();
+	}
 }

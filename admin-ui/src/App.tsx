@@ -27,6 +27,7 @@ import { OrgPlansPage } from "./pages/OrgPlans/OrgPlansPage";
 import { CapabilitiesPage } from "./pages/Marketplace/CapabilitiesPage";
 import { AdminListingsPage } from "./pages/Marketplace/AdminListingsPage";
 import { AdminSubscriptionsPage } from "./pages/Marketplace/AdminSubscriptionsPage";
+import { PersonalDomainBlocklistPage } from "./pages/PersonalDomainBlocklistPage";
 import {
 	BrowserRouter,
 	Routes,
@@ -243,6 +244,14 @@ function AppContent() {
 								element={
 									<ProtectedRoute>
 										<AdminSubscriptionsPage />
+									</ProtectedRoute>
+								}
+							/>
+							<Route
+								path="/personal-domain-blocklist"
+								element={
+									<ProtectedRoute>
+										<PersonalDomainBlocklistPage />
 									</ProtectedRoute>
 								}
 							/>

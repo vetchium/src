@@ -27,6 +27,8 @@ import { ChangePasswordPage } from "./pages/ChangePasswordPage";
 import { ChangeEmailPage } from "./pages/ChangeEmailPage";
 import { VerifyEmailPage } from "./pages/VerifyEmailPage";
 import { MyActivityPage } from "./pages/MyActivityPage";
+import { MyProfilePage } from "./pages/Profile/MyProfilePage";
+import { PublicProfilePage } from "./pages/Profile/PublicProfilePage";
 
 const { Content } = Layout;
 
@@ -145,6 +147,22 @@ function AppContent() {
 								element={
 									<ProtectedRoute>
 										<MyActivityPage />
+									</ProtectedRoute>
+								}
+							/>
+							<Route
+								path="/settings/profile"
+								element={
+									<ProtectedRoute>
+										<MyProfilePage />
+									</ProtectedRoute>
+								}
+							/>
+							<Route
+								path="/u/:handle"
+								element={
+									<ProtectedRoute>
+										<PublicProfilePage />
 									</ProtectedRoute>
 								}
 							/>

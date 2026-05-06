@@ -1,0 +1,11 @@
+{
+	"_description": "Hub User Work Email Re-verification Challenge Email",
+	"_note": "Sent when a hub user needs to re-verify their work email after 365 days",
+
+	"subject": "Re-verify Your Work Email at Vetchium",
+	"body_intro": "Your work email at {{.Domain}} requires annual re-verification to stay active. Please enter the code below on Vetchium within 30 days.",
+	"body_code_label": "Your re-verification code:",
+	"body_expiry": "This code will expire in 24 hours. You have 30 days from today to complete re-verification before your work email status is ended.",
+	"body_ignore": "If you did not expect this email, it means you have a verified work email at this domain on Vetchium. You can manage your work emails by logging into your account.",
+	"footer": "This is an automated message. Please do not reply."
+}

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	orgdomains "vetchium-api-server.typespec/org-domains"
@@ -22,6 +23,7 @@ import (
 type RegionalWorker struct {
 	queries     *regionaldb.Queries
 	globalDB    *globaldb.Queries
+	pool        *pgxpool.Pool // For transaction support
 	config      *RegionalBgJobsConfig
 	log         *slog.Logger
 	regionName  string
@@ -32,6 +34,7 @@ type RegionalWorker struct {
 func NewRegionalWorker(
 	queries *regionaldb.Queries,
 	globalDB *globaldb.Queries,
+	pool *pgxpool.Pool,
 	config *RegionalBgJobsConfig,
 	log *slog.Logger,
 	regionName string,
@@ -40,6 +43,7 @@ func NewRegionalWorker(
 	return &RegionalWorker{
 		queries:     queries,
 		globalDB:    globalDB,
+		pool:        pool,
 		config:      config,
 		log:         log.With("component", "regional-bgjobs-worker", "region", regionName),
 		regionName:  regionName,
@@ -62,6 +66,7 @@ func (w *RegionalWorker) Run(ctx context.Context) {
 		"org_invitation_cleanup_interval", w.config.ExpiredOrgInvitationTokensCleanupInterval,
 		"audit_log_retention", w.config.AuditLogRetention,
 		"audit_log_purge_interval", w.config.AuditLogPurgeInterval,
+		"expire_openings_interval", w.config.ExpireOpeningsInterval,
 	)
 
 	// Launch each job in its own goroutine
@@ -104,6 +109,18 @@ func (w *RegionalWorker) Run(ctx context.Context) {
 	go w.runPeriodicJob(ctx, "audit-logs",
 		w.config.AuditLogPurgeInterval,
 		w.purgeExpiredAuditLogs)
+
+	go w.runPeriodicJob(ctx, "expire-pending-work-emails",
+		w.config.ExpirePendingWorkEmailsInterval,
+		w.expirePendingWorkEmails)
+
+	go w.runPeriodicJob(ctx, "manage-active-work-emails",
+		w.config.ManageActiveWorkEmailsInterval,
+		w.manageActiveWorkEmails)
+
+	go w.runPeriodicJob(ctx, "expire-openings",
+		w.config.ExpireOpeningsInterval,
+		w.expireOpenings)
 }
 
 // runPeriodicJob runs a job function in a loop with the given interval.

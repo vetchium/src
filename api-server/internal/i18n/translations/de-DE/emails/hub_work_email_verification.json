@@ -1,0 +1,11 @@
+{
+	"_description": "Hub User Work Email Verification Email",
+	"_note": "Sent when a hub user adds a new work email and needs to verify it with a code",
+
+	"subject": "Bestaetigen Sie Ihre Geschaeftliche E-Mail - Vetchium",
+	"body_intro": "Um Ihre geschaeftliche E-Mail bei {{.Domain}} zu bestaetigen, geben Sie bitte den untenstehenden Code auf Vetchium ein.",
+	"body_code_label": "Ihr Bestaetigungscode:",
+	"body_expiry": "Dieser Code laeuft in 24 Stunden ab.",
+	"body_ignore": "Falls Sie dies nicht angefordert haben, ignorieren Sie bitte diese E-Mail.",
+	"footer": "Dies ist eine automatische Nachricht. Bitte antworten Sie nicht."
+}

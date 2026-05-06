@@ -452,7 +452,71 @@ INSERT INTO marketplace_capability_translations VALUES
     ('staffing', 'de-DE', 'Personalvermittlung', ''),
     ('staffing', 'ta-IN', 'பணியாளர் சேர்க்கை', '');
 
+-- Hub work email index (global mirror for uniqueness enforcement across regions)
+CREATE TABLE hub_work_email_index (
+  email_address_hash  TEXT PRIMARY KEY,
+  hub_user_global_id  UUID NOT NULL,
+  region              TEXT NOT NULL,
+  status              TEXT NOT NULL,
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Personal domain blocklist
+CREATE TABLE personal_domain_blocklist (
+  domain                  TEXT PRIMARY KEY,
+  created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  created_by_admin_user_id UUID
+);
+
+CREATE INDEX idx_personal_domain_blocklist_prefix ON personal_domain_blocklist (domain text_pattern_ops);
+
+INSERT INTO personal_domain_blocklist (domain) VALUES
+  ('gmail.com'), ('googlemail.com'), ('hotmail.com'), ('hotmail.co.uk'),
+  ('outlook.com'), ('live.com'), ('msn.com'),
+  ('yahoo.com'), ('yahoo.co.uk'), ('ymail.com'), ('rocketmail.com'),
+  ('icloud.com'), ('me.com'), ('mac.com'),
+  ('proton.me'), ('protonmail.com'), ('pm.me'),
+  ('tutanota.com'), ('tutamail.com'), ('tuta.io'),
+  ('fastmail.com'), ('fastmail.fm'), ('hey.com'),
+  ('mail.com'), ('gmx.com'), ('gmx.de'), ('gmx.net'), ('web.de'), ('t-online.de'),
+  ('yandex.com'), ('yandex.ru'), ('mail.ru'), ('list.ru'), ('inbox.ru'), ('bk.ru'),
+  ('qq.com'), ('163.com'), ('126.com'), ('sina.com'), ('sohu.com'),
+  ('naver.com'), ('daum.net'), ('hanmail.net'), ('kakao.com'),
+  ('aol.com'), ('aim.com'),
+  ('zoho.com'), ('zohomail.com'), ('hushmail.com'), ('rediffmail.com')
+ON CONFLICT (domain) DO NOTHING;
+
+-- Add manage_personal_domain_blocklist role
+INSERT INTO roles (role_name, description) VALUES
+  ('admin:manage_personal_domain_blocklist', 'Can add/remove entries in the personal-email-domain blocklist used by Hub work-email validation')
+ON CONFLICT (role_name) DO NOTHING;
+
+-- Hub connection pair routes (global mirror to route pair writes to the right region)
+CREATE TABLE hub_connection_pair_routes (
+  low_user_id   UUID NOT NULL,
+  high_user_id  UUID NOT NULL,
+  region        TEXT NOT NULL,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (low_user_id, high_user_id),
+  CHECK (low_user_id < high_user_id)
+);
+
+-- Hub block routes (global mirror so blocked-party's region can see the block)
+CREATE TABLE hub_block_routes (
+  blocker_user_id UUID NOT NULL,
+  blocked_user_id UUID NOT NULL,
+  region          TEXT NOT NULL,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (blocker_user_id, blocked_user_id)
+);
+
 -- +goose Down
+DROP TABLE IF EXISTS hub_block_routes;
+DROP TABLE IF EXISTS hub_connection_pair_routes;
+DROP INDEX IF EXISTS idx_personal_domain_blocklist_prefix;
+DROP TABLE IF EXISTS personal_domain_blocklist;
+DROP TABLE IF EXISTS hub_work_email_index;
 DROP TABLE IF EXISTS marketplace_subscription_index;
 DROP TABLE IF EXISTS marketplace_listing_catalog;
 DROP TABLE IF EXISTS marketplace_capability_translations;

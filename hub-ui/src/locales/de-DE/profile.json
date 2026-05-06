@@ -1,0 +1,59 @@
+{
+	"myProfile": {
+		"title": "My Profile",
+		"backToSettings": "Back to Home",
+		"saveProfile": "Save profile",
+		"displayNames": {
+			"title": "Display names",
+			"languageCode": "Language",
+			"displayName": "Display name",
+			"isPreferred": "Preferred",
+			"addLanguage": "Add language",
+			"remove": "Remove",
+			"errors": {
+				"atLeastOne": "At least one display name is required.",
+				"exactlyOnePreferred": "Exactly one display name must be marked as preferred.",
+				"duplicateLanguage": "Each language can be used at most once."
+			}
+		},
+		"bio": {
+			"title": "Bio",
+			"shortBio": "Short bio",
+			"shortBioHelp": "One line shown under your name.",
+			"longBio": "About me",
+			"longBioHelp": "A longer description of yourself."
+		},
+		"location": {
+			"title": "Location",
+			"country": "Country",
+			"city": "City"
+		},
+		"picture": {
+			"title": "Profile picture",
+			"upload": "Upload new",
+			"remove": "Remove",
+			"removeConfirm": "Remove your profile picture?",
+			"errors": {
+				"tooLarge": "Image must be 5 MB or smaller.",
+				"wrongFormat": "Image must be JPEG, PNG, or WEBP.",
+				"wrongDimensions": "Image dimensions must be between 200 and 4096 pixels per side."
+			}
+		},
+		"success": {
+			"saved": "Profile saved.",
+			"pictureUploaded": "Profile picture updated.",
+			"pictureRemoved": "Profile picture removed."
+		},
+		"errors": {
+			"loadFailed": "Failed to load your profile.",
+			"saveFailed": "Failed to save your profile.",
+			"pictureFailed": "Failed to update your profile picture."
+		}
+	},
+	"publicProfile": {
+		"userNotFound": "User not found",
+		"verifiedEmployers": "Verified employers",
+		"noVerifiedEmployers": "No verified employers yet.",
+		"current": "current"
+	}
+}

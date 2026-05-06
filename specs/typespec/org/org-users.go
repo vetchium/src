@@ -413,6 +413,8 @@ const (
 	OrgRoleManagePlan          OrgRole = "org:manage_plan"
 	OrgRoleViewAddresses       OrgRole = "org:view_addresses"
 	OrgRoleManageAddresses     OrgRole = "org:manage_addresses"
+	OrgRoleViewOpenings        OrgRole = "org:view_openings"
+	OrgRoleManageOpenings      OrgRole = "org:manage_openings"
 )
 
 type OrgUser struct {

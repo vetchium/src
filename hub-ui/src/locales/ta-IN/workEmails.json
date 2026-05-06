@@ -1,0 +1,86 @@
+{
+	"title": "Work Emails",
+	"backToSettings": "Back to Settings",
+	"addWorkEmail": "Add Work Email",
+	"filter": {
+		"all": "All",
+		"active": "Active",
+		"pending": "Pending",
+		"ended": "Ended"
+	},
+	"table": {
+		"emailAddress": "Email Address",
+		"domain": "Domain",
+		"status": "Status",
+		"verifiedSince": "Verified Since",
+		"lastVerified": "Last Verified",
+		"reverifyDue": "Re-verify Due",
+		"actions": "Actions",
+		"enterCode": "Enter Code",
+		"resendCode": "Resend Code",
+		"reverify": "Re-verify",
+		"remove": "Remove"
+	},
+	"status": {
+		"pendingVerification": "Pending verification",
+		"active": "Active",
+		"ended": "Ended"
+	},
+	"addModal": {
+		"title": "Add a work email",
+		"emailLabel": "Work email address",
+		"submit": "Send Verification Code",
+		"personalDomainError": "This domain is on our personal-email blocklist. Please use the email at your employer.",
+		"alreadyHeldError": "This email is already in use by another HubUser."
+	},
+	"verifyPage": {
+		"title": "Enter the 6-digit code",
+		"subtitle": "We sent a code to {{email}}. The code expires in 24 hours.",
+		"submit": "Verify",
+		"resend": "Resend code",
+		"cancel": "Cancel and remove",
+		"wrongCodeError": "That code didn't match. Please try again."
+	},
+	"removeConfirm": "Remove this work email? You can always re-add it later, but doing so will require a fresh verification.",
+	"success": {
+		"added": "Verification code sent. Check your inbox.",
+		"verified": "Work email verified.",
+		"resent": "A fresh code has been sent.",
+		"reverified": "Re-verified successfully.",
+		"removed": "Work email removed."
+	},
+	"errors": {
+		"loadFailed": "Failed to load your work emails.",
+		"addFailed": "Could not add this work email.",
+		"verifyFailed": "Could not verify this work email.",
+		"resendFailed": "Could not resend the code.",
+		"removeFailed": "Could not remove this work email.",
+		"reverifyFailed": "Could not re-verify this work email."
+	},
+	"emptyState": "You haven't added any work emails yet. Add the email at your current employer to connect with verified colleagues.",
+	"detail": {
+		"title": "Work Email Detail",
+		"backToList": "Back to Work Emails",
+		"domain": "Domain",
+		"emailAddress": "Email Address",
+		"status": "Status",
+		"firstVerifiedAt": "First Verified At",
+		"lastVerifiedAt": "Last Verified At",
+		"endedAt": "Ended At",
+		"endedReason": "Ended Reason",
+		"codeAttemptsRemaining": "Code Attempts Remaining",
+		"reverifyChallengeIssuedAt": "Re-verify Challenge Issued At",
+		"reverifyChallengeExpiresAt": "Re-verify Challenge Expires At",
+		"reverifyModal": {
+			"title": "Enter Re-verify Code",
+			"submit": "Confirm Re-verify"
+		}
+	},
+	"endedReason": {
+		"user_removed": "Removed by user",
+		"user_removed_pending": "Removed while pending",
+		"verification_expired": "Verification expired",
+		"reverify_timeout": "Re-verify timeout",
+		"superseded": "Superseded by newer email"
+	}
+}

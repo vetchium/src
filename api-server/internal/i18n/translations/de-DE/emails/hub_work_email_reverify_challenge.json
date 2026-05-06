@@ -1,0 +1,11 @@
+{
+	"_description": "Hub User Work Email Re-verification Challenge Email",
+	"_note": "Sent when a hub user needs to re-verify their work email after 365 days",
+
+	"subject": "Bestaetigen Sie Ihre Geschaeftliche E-Mail erneut bei Vetchium",
+	"body_intro": "Ihre geschaeftliche E-Mail bei {{.Domain}} benoetigt eine jaehrliche Neubestaetigung, um aktiv zu bleiben. Bitte geben Sie den untenstehenden Code innerhalb von 30 Tagen auf Vetchium ein.",
+	"body_code_label": "Ihr Neubestaetigungs-Code:",
+	"body_expiry": "Dieser Code laeuft in 24 Stunden ab. Sie haben 30 Tage ab heute, um die Neubestaetigung abzuschliessen.",
+	"body_ignore": "Falls Sie diese E-Mail nicht erwartet haben, haben Sie eine verifizierte geschaeftliche E-Mail bei dieser Domain auf Vetchium.",
+	"footer": "Dies ist eine automatische Nachricht. Bitte antworten Sie nicht."
+}

@@ -26,6 +26,9 @@ import taINTags from "./locales/ta-IN/tags.json";
 import taINAuditLogs from "./locales/ta-IN/audit-logs.json";
 import taINOrgPlans from "./locales/ta-IN/org-plans.json";
 import taINMarketplace from "./locales/ta-IN/marketplace.json";
+import enUSPersonalDomainBlocklist from "./locales/en-US/personalDomainBlocklist.json";
+import deDEPersonalDomainBlocklist from "./locales/de-DE/personalDomainBlocklist.json";
+import taINPersonalDomainBlocklist from "./locales/ta-IN/personalDomainBlocklist.json";
 
 import {
 	SUPPORTED_LANGUAGES,
@@ -75,6 +78,7 @@ const resources = {
 		auditLogs: enUSAuditLogs,
 		orgPlans: enUSOrgPlans,
 		marketplace: enUSMarketplace,
+		personalDomainBlocklist: enUSPersonalDomainBlocklist,
 	},
 	"de-DE": {
 		common: deDECommon,
@@ -85,6 +89,7 @@ const resources = {
 		auditLogs: deDEAuditLogs,
 		orgPlans: deDEOrgPlans,
 		marketplace: deDEMarketplace,
+		personalDomainBlocklist: deDEPersonalDomainBlocklist,
 	},
 	"ta-IN": {
 		common: taINCommon,
@@ -95,6 +100,7 @@ const resources = {
 		auditLogs: taINAuditLogs,
 		orgPlans: taINOrgPlans,
 		marketplace: taINMarketplace,
+		personalDomainBlocklist: taINPersonalDomainBlocklist,
 	},
 };
 
@@ -112,6 +118,7 @@ i18n.use(initReactI18next).init({
 		"auditLogs",
 		"orgPlans",
 		"marketplace",
+		"personalDomainBlocklist",
 	],
 	interpolation: {
 		escapeValue: false, // React already escapes

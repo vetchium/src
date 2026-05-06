@@ -15,6 +15,10 @@ CREATE TYPE email_template_type AS ENUM (
     'hub_tfa',
     'hub_password_reset',
     'hub_email_verification',
+    'hub_work_email_verification',
+    'hub_work_email_reverify_challenge',
+    'hub_connection_request',
+    'hub_connection_accepted',
     'org_signup_verification',
     'org_signup_token',
     'org_tfa',
@@ -50,6 +54,14 @@ CREATE TYPE domain_verification_status AS ENUM ('PENDING', 'VERIFIED', 'FAILING'
 CREATE TYPE cost_center_status AS ENUM ('enabled', 'disabled');
 -- Company address status enum
 CREATE TYPE org_address_status AS ENUM ('active', 'disabled');
+-- Job opening status enum
+CREATE TYPE opening_status AS ENUM ('draft','pending_review','published','paused','expired','closed','archived');
+-- Employment type enum
+CREATE TYPE employment_type AS ENUM ('full_time','part_time','contract','internship');
+-- Work location type enum
+CREATE TYPE work_location_type AS ENUM ('remote','on_site','hybrid');
+-- Education level enum
+CREATE TYPE education_level AS ENUM ('not_required','bachelor','master','doctorate');
 -- Hub users table (regional - all mutable data)
 -- Uses hub_user_global_id as primary key (same ID as global DB for simplicity)
 CREATE TABLE hub_users (
@@ -60,6 +72,11 @@ CREATE TABLE hub_users (
     status hub_user_status NOT NULL DEFAULT 'active',
     preferred_language TEXT NOT NULL DEFAULT 'en-US',
     resident_country_code TEXT,
+    short_bio VARCHAR(160),
+    long_bio TEXT,
+    city VARCHAR(100),
+    profile_picture_storage_key TEXT,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 -- Emails table for transactional outbox pattern
@@ -258,11 +275,21 @@ INSERT INTO roles (role_name, description) VALUES
     ('org:manage_plan', 'Can upgrade own org plan subscription'),
     ('org:view_addresses', 'Can view company addresses (read-only)'),
     ('org:manage_addresses', 'Can create, update, enable and disable company addresses'),
+    ('org:view_openings', 'Can view job openings and details (read-only)'),
+    ('org:manage_openings', 'Can create, edit, submit, approve, reject, pause, reopen, close, archive, discard, and duplicate job openings'),
 
     -- Hub portal roles (assigned at signup, additional roles for paid features)
     ('hub:read_posts', 'Can read posts by other hub users'),
     ('hub:write_posts', 'Can create and edit posts (paid feature)'),
     ('hub:apply_jobs', 'Can apply to job postings');
+
+-- Pending storage cleanup table for asynchronous object deletion
+CREATE TABLE pending_storage_cleanup (
+    storage_key   TEXT        PRIMARY KEY,
+    bucket        TEXT        NOT NULL DEFAULT 'vetchium',
+    enqueued_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    reason        TEXT        NOT NULL
+);
 
 -- Audit logs table (unified audit log for org and hub portal write operations)
 CREATE TABLE audit_logs (
@@ -354,7 +381,193 @@ CREATE TABLE marketplace_subscriptions (
 );
 CREATE INDEX idx_marketplace_subscriptions_consumer ON marketplace_subscriptions(consumer_org_id, status, updated_at DESC);
 
+-- Job openings
+CREATE TABLE org_opening_counters (
+  org_id                UUID    PRIMARY KEY,
+  next_opening_number   INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE TABLE openings (
+  opening_id              UUID                PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id                  UUID                NOT NULL,
+  opening_number          INTEGER             NOT NULL,
+  title                   VARCHAR(200)        NOT NULL,
+  description             TEXT                NOT NULL,
+  is_internal             BOOLEAN             NOT NULL,
+  employment_type         employment_type     NOT NULL,
+  work_location_type      work_location_type  NOT NULL,
+  min_yoe                 INTEGER,
+  max_yoe                 INTEGER,
+  min_education_level     education_level,
+  salary_min_amount       NUMERIC(20, 4),
+  salary_max_amount       NUMERIC(20, 4),
+  salary_currency         CHAR(3),
+  number_of_positions     INTEGER             NOT NULL CHECK (number_of_positions >= 1),
+  filled_positions        INTEGER             NOT NULL DEFAULT 0,
+  hiring_manager_org_user_id UUID             NOT NULL,
+  recruiter_org_user_id      UUID             NOT NULL,
+  cost_center_id          UUID,
+  internal_notes          TEXT,
+  status                  opening_status      NOT NULL DEFAULT 'draft',
+  rejection_note          TEXT,
+  first_published_at      TIMESTAMPTZ,
+  expired_at              TIMESTAMPTZ,
+  created_at              TIMESTAMPTZ         NOT NULL DEFAULT NOW(),
+  updated_at              TIMESTAMPTZ         NOT NULL DEFAULT NOW(),
+  UNIQUE (org_id, opening_number),
+  CHECK (filled_positions <= number_of_positions),
+  CHECK ( (salary_min_amount IS NULL AND salary_max_amount IS NULL AND salary_currency IS NULL)
+       OR (salary_min_amount IS NOT NULL AND salary_max_amount IS NOT NULL AND salary_currency IS NOT NULL))
+);
+
+CREATE TABLE opening_addresses (
+  opening_id  UUID NOT NULL REFERENCES openings(opening_id) ON DELETE CASCADE,
+  address_id  UUID NOT NULL,
+  PRIMARY KEY (opening_id, address_id)
+);
+
+CREATE TABLE opening_hiring_team_members (
+  opening_id      UUID NOT NULL REFERENCES openings(opening_id) ON DELETE CASCADE,
+  org_user_id     UUID NOT NULL,
+  PRIMARY KEY (opening_id, org_user_id)
+);
+
+CREATE TABLE opening_watchers (
+  opening_id   UUID NOT NULL REFERENCES openings(opening_id) ON DELETE CASCADE,
+  org_user_id  UUID NOT NULL,
+  PRIMARY KEY (opening_id, org_user_id)
+);
+
+CREATE TABLE opening_tags (
+  opening_id  UUID    NOT NULL REFERENCES openings(opening_id) ON DELETE CASCADE,
+  tag_id      VARCHAR NOT NULL,
+  PRIMARY KEY (opening_id, tag_id)
+);
+
+CREATE INDEX idx_openings_org_status_created ON openings (org_id, status, created_at DESC, opening_number DESC);
+CREATE INDEX idx_openings_org_internal       ON openings (org_id, is_internal);
+CREATE INDEX idx_openings_expiry_sweep       ON openings (status, first_published_at) WHERE status IN ('published','paused');
+
+-- Work email stints
+CREATE TYPE work_email_stint_status AS ENUM ('pending_verification','active','ended');
+CREATE TYPE work_email_stint_ended_reason AS ENUM ('user_removed','user_removed_pending','verification_expired','reverify_timeout','superseded');
+
+CREATE TABLE hub_employer_stints (
+  stint_id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  hub_user_id                UUID NOT NULL,
+  email_address              TEXT NOT NULL,
+  email_address_hash         TEXT NOT NULL,
+  domain                     TEXT NOT NULL,
+  status                     work_email_stint_status NOT NULL DEFAULT 'pending_verification',
+  first_verified_at          TIMESTAMPTZ,
+  last_verified_at           TIMESTAMPTZ,
+  ended_at                   TIMESTAMPTZ,
+  ended_reason               work_email_stint_ended_reason,
+  pending_code_hash          TEXT,
+  pending_code_expires_at    TIMESTAMPTZ,
+  pending_code_attempts      INTEGER NOT NULL DEFAULT 0,
+  pending_code_locked_until  TIMESTAMPTZ,
+  pending_code_resends_today INTEGER NOT NULL DEFAULT 0,
+  pending_code_last_resent_at TIMESTAMPTZ,
+  created_at                 TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at                 TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX uq_hub_employer_stints_user_email_active
+  ON hub_employer_stints (hub_user_id, email_address)
+  WHERE status IN ('pending_verification','active');
+
+CREATE UNIQUE INDEX uq_hub_employer_stints_user_domain_active
+  ON hub_employer_stints (hub_user_id, domain)
+  WHERE status = 'active';
+
+CREATE UNIQUE INDEX uq_hub_employer_stints_email_active
+  ON hub_employer_stints (email_address_hash)
+  WHERE status IN ('pending_verification','active');
+
+CREATE INDEX idx_hub_employer_stints_user_status_created
+  ON hub_employer_stints (hub_user_id, status, created_at DESC, stint_id DESC);
+
+CREATE INDEX idx_hub_employer_stints_active_domain
+  ON hub_employer_stints (domain, status)
+  WHERE status = 'active';
+
+CREATE INDEX idx_hub_employer_stints_reverify_sweep
+  ON hub_employer_stints (last_verified_at)
+  WHERE status = 'active';
+
+CREATE INDEX idx_hub_employer_stints_pending_expiry
+  ON hub_employer_stints (pending_code_expires_at)
+  WHERE status = 'pending_verification';
+
+CREATE TABLE hub_work_email_reverify_challenges (
+  stint_id            UUID PRIMARY KEY REFERENCES hub_employer_stints(stint_id) ON DELETE CASCADE,
+  challenge_code_hash TEXT NOT NULL,
+  issued_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  expires_at          TIMESTAMPTZ NOT NULL,
+  attempts            INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX idx_hub_work_email_reverify_challenges_expires
+  ON hub_work_email_reverify_challenges (expires_at);
+
+-- Hub connections
+CREATE TYPE hub_connection_status AS ENUM (
+  'pending',
+  'connected',
+  'rejected',
+  'disconnected'
+);
+
+CREATE TABLE hub_connections (
+  connection_id        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  low_user_id          UUID NOT NULL,
+  high_user_id         UUID NOT NULL,
+  status               hub_connection_status NOT NULL,
+  requester_user_id    UUID,
+  rejecter_user_id     UUID,
+  disconnector_user_id UUID,
+  created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  connected_at         TIMESTAMPTZ,
+  CHECK (low_user_id < high_user_id)
+);
+
+CREATE UNIQUE INDEX uq_hub_connections_pair ON hub_connections (low_user_id, high_user_id);
+CREATE INDEX idx_hub_connections_low_status  ON hub_connections (low_user_id,  status, connected_at DESC);
+CREATE INDEX idx_hub_connections_high_status ON hub_connections (high_user_id, status, connected_at DESC);
+CREATE INDEX idx_hub_connections_requester   ON hub_connections (requester_user_id, status);
+
+CREATE TABLE hub_blocks (
+  blocker_user_id  UUID NOT NULL,
+  blocked_user_id  UUID NOT NULL,
+  blocked_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (blocker_user_id, blocked_user_id)
+);
+
+CREATE INDEX idx_hub_blocks_blocked ON hub_blocks (blocked_user_id);
+
 -- +goose Down
+DROP INDEX IF EXISTS idx_hub_blocks_blocked;
+DROP TABLE IF EXISTS hub_blocks;
+DROP INDEX IF EXISTS idx_hub_connections_requester;
+DROP INDEX IF EXISTS idx_hub_connections_high_status;
+DROP INDEX IF EXISTS idx_hub_connections_low_status;
+DROP INDEX IF EXISTS uq_hub_connections_pair;
+DROP TABLE IF EXISTS hub_connections;
+DROP TYPE IF EXISTS hub_connection_status;
+DROP INDEX IF EXISTS idx_hub_work_email_reverify_challenges_expires;
+DROP TABLE IF EXISTS hub_work_email_reverify_challenges;
+DROP INDEX IF EXISTS idx_hub_employer_stints_pending_expiry;
+DROP INDEX IF EXISTS idx_hub_employer_stints_reverify_sweep;
+DROP INDEX IF EXISTS idx_hub_employer_stints_active_domain;
+DROP INDEX IF EXISTS idx_hub_employer_stints_user_status_created;
+DROP INDEX IF EXISTS uq_hub_employer_stints_email_active;
+DROP INDEX IF EXISTS uq_hub_employer_stints_user_domain_active;
+DROP INDEX IF EXISTS uq_hub_employer_stints_user_email_active;
+DROP TABLE IF EXISTS hub_employer_stints;
+DROP TYPE IF EXISTS work_email_stint_ended_reason;
+DROP TYPE IF EXISTS work_email_stint_status;
 DROP INDEX IF EXISTS idx_marketplace_subscriptions_consumer;
 DROP TABLE IF EXISTS marketplace_subscriptions;
 DROP INDEX IF EXISTS idx_marketplace_listings_org;
@@ -365,6 +578,15 @@ DROP TYPE IF EXISTS marketplace_subscription_status;
 DROP TYPE IF EXISTS marketplace_listing_status;
 DROP INDEX IF EXISTS idx_audit_logs_event_type;
 DROP INDEX IF EXISTS idx_audit_logs_org_created_at_id;
+DROP INDEX IF EXISTS idx_openings_expiry_sweep;
+DROP INDEX IF EXISTS idx_openings_org_internal;
+DROP INDEX IF EXISTS idx_openings_org_status_created;
+DROP TABLE IF EXISTS opening_tags;
+DROP TABLE IF EXISTS opening_watchers;
+DROP TABLE IF EXISTS opening_hiring_team_members;
+DROP TABLE IF EXISTS opening_addresses;
+DROP TABLE IF EXISTS openings;
+DROP TABLE IF EXISTS org_opening_counters;
 DROP INDEX IF EXISTS idx_audit_logs_actor_user_id;
 DROP INDEX IF EXISTS idx_audit_logs_created_at_id;
 DROP TABLE IF EXISTS audit_logs;
@@ -405,7 +627,12 @@ DROP TABLE IF EXISTS hub_sessions;
 DROP TABLE IF EXISTS hub_tfa_tokens;
 DROP TABLE IF EXISTS email_delivery_attempts;
 DROP TABLE IF EXISTS emails;
+DROP TABLE IF EXISTS pending_storage_cleanup;
 DROP TABLE IF EXISTS hub_users;
+DROP TYPE IF EXISTS education_level;
+DROP TYPE IF EXISTS work_location_type;
+DROP TYPE IF EXISTS employment_type;
+DROP TYPE IF EXISTS opening_status;
 DROP TYPE IF EXISTS org_address_status;
 DROP TYPE IF EXISTS cost_center_status;
 DROP TYPE IF EXISTS domain_verification_status;
