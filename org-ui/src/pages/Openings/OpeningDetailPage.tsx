@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
 	Button,
 	Spin,
@@ -9,57 +9,88 @@ import {
 	Tag,
 	Divider,
 	Card,
+	Typography,
 } from "antd";
-import {
-	ArrowLeftOutlined,
-	EditOutlined,
-	CopyOutlined,
-	DeleteOutlined,
-} from "@ant-design/icons";
+import { ArrowLeftOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useParams, Link } from "react-router-dom";
-import type { Opening } from "vetchium-specs/org/openings";
-import { OrgAPIClient } from "../../lib/org-api-client";
+import type {
+	CreateOpeningResponse,
+	Opening,
+	OpeningNumberRequest,
+	RejectOpeningRequest,
+} from "vetchium-specs/org/openings";
+import { getApiBaseUrl } from "../../config";
+import { useAuth } from "../../hooks/useAuth";
 import { useMyInfo } from "../../hooks/useMyInfo";
 import { formatDateTime, formatDate } from "../../utils/dateFormat";
-import { Title, Paragraph, Text } from "antd/es/typography";
+
+const { Title, Paragraph, Text } = Typography;
 
 export default function OpeningDetailPage() {
 	const { t, i18n } = useTranslation("openings");
 	const navigate = useNavigate();
 	const { openingNumber } = useParams<{ openingNumber: string }>();
-	const { myInfo } = useMyInfo();
+	const { sessionToken } = useAuth();
+	const { data: myInfo } = useMyInfo(sessionToken);
 	const [opening, setOpening] = useState<Opening | null>(null);
 	const [loading, setLoading] = useState(false);
 
 	const hasManageRole = myInfo?.roles?.includes("org:manage_openings");
 
-	useEffect(() => {
-		if (openingNumber) {
-			fetchOpening();
-		}
-	}, [openingNumber, myInfo]);
+	const postOpeningAction = useCallback(
+		async <TResponse,>(
+			path: string,
+			body: OpeningNumberRequest | RejectOpeningRequest
+		): Promise<{ status: number; data?: TResponse }> => {
+			if (!sessionToken) return { status: 401 };
+			const baseUrl = await getApiBaseUrl();
+			const response = await fetch(`${baseUrl}${path}`, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${sessionToken}`,
+				},
+				body: JSON.stringify(body),
+			});
+			if (response.status === 204) {
+				return { status: response.status };
+			}
+			if (response.headers.get("content-type")?.includes("application/json")) {
+				const data = (await response.json()) as TResponse;
+				return { status: response.status, data };
+			}
+			return { status: response.status };
+		},
+		[sessionToken]
+	);
 
-	const fetchOpening = async () => {
+	const fetchOpening = useCallback(async () => {
+		if (!sessionToken) return;
 		setLoading(true);
 		try {
-			const api = new OrgAPIClient();
-			const response = await api.getOpening({
+			const response = await postOpeningAction<Opening>("/org/get-opening", {
 				opening_number: parseInt(openingNumber || "0"),
 			});
-			if (response.status === 200) {
-				setOpening(response.body);
+			if (response.status === 200 && response.data) {
+				setOpening(response.data);
 			} else {
 				message.error(t("errors.loadFailed"));
 				navigate("/openings");
 			}
-		} catch (error) {
+		} catch {
 			message.error(t("errors.loadFailed"));
 			navigate("/openings");
 		} finally {
 			setLoading(false);
 		}
-	};
+	}, [navigate, openingNumber, postOpeningAction, sessionToken, t]);
+
+	useEffect(() => {
+		if (openingNumber) {
+			void fetchOpening();
+		}
+	}, [fetchOpening, openingNumber, myInfo]);
 
 	const getExpiryDate = (firstPublishedAt: string | undefined) => {
 		if (!firstPublishedAt) return null;
@@ -70,30 +101,31 @@ export default function OpeningDetailPage() {
 
 	const handleSubmit = async () => {
 		try {
-			const api = new OrgAPIClient();
-			const response = await api.submitOpening({
+			const response = await postOpeningAction<Opening>("/org/submit-opening", {
 				opening_number: parseInt(openingNumber || "0"),
 			});
-			if (response.status === 200) {
+			if (response.status === 200 && response.data) {
 				message.success(t("success.submitted"));
-				setOpening(response.body);
+				setOpening(response.data);
 			}
-		} catch (error) {
+		} catch {
 			message.error(t("errors.transitionFailed"));
 		}
 	};
 
 	const handleApprove = async () => {
 		try {
-			const api = new OrgAPIClient();
-			const response = await api.approveOpening({
-				opening_number: parseInt(openingNumber || "0"),
-			});
-			if (response.status === 200) {
+			const response = await postOpeningAction<Opening>(
+				"/org/approve-opening",
+				{
+					opening_number: parseInt(openingNumber || "0"),
+				}
+			);
+			if (response.status === 200 && response.data) {
 				message.success(t("success.approved"));
-				setOpening(response.body);
+				setOpening(response.data);
 			}
-		} catch (error) {
+		} catch {
 			message.error(t("errors.transitionFailed"));
 		}
 	};
@@ -115,16 +147,18 @@ export default function OpeningDetailPage() {
 					document.getElementById("rejection-note") as HTMLTextAreaElement
 				).value;
 				try {
-					const api = new OrgAPIClient();
-					const response = await api.rejectOpening({
-						opening_number: parseInt(openingNumber || "0"),
-						rejection_note: note,
-					});
-					if (response.status === 200) {
+					const response = await postOpeningAction<Opening>(
+						"/org/reject-opening",
+						{
+							opening_number: parseInt(openingNumber || "0"),
+							rejection_note: note,
+						}
+					);
+					if (response.status === 200 && response.data) {
 						message.success(t("success.rejected"));
-						setOpening(response.body);
+						setOpening(response.data);
 					}
-				} catch (error) {
+				} catch {
 					message.error(t("errors.transitionFailed"));
 				}
 			},
@@ -133,75 +167,76 @@ export default function OpeningDetailPage() {
 
 	const handlePause = async () => {
 		try {
-			const api = new OrgAPIClient();
-			const response = await api.pauseOpening({
+			const response = await postOpeningAction<Opening>("/org/pause-opening", {
 				opening_number: parseInt(openingNumber || "0"),
 			});
-			if (response.status === 200) {
+			if (response.status === 200 && response.data) {
 				message.success(t("success.paused"));
-				setOpening(response.body);
+				setOpening(response.data);
 			}
-		} catch (error) {
+		} catch {
 			message.error(t("errors.transitionFailed"));
 		}
 	};
 
 	const handleReopen = async () => {
 		try {
-			const api = new OrgAPIClient();
-			const response = await api.reopenOpening({
+			const response = await postOpeningAction<Opening>("/org/reopen-opening", {
 				opening_number: parseInt(openingNumber || "0"),
 			});
-			if (response.status === 200) {
+			if (response.status === 200 && response.data) {
 				message.success(t("success.reopened"));
-				setOpening(response.body);
+				setOpening(response.data);
 			}
-		} catch (error) {
+		} catch {
 			message.error(t("errors.transitionFailed"));
 		}
 	};
 
 	const handleClose = async () => {
 		try {
-			const api = new OrgAPIClient();
-			const response = await api.closeOpening({
+			const response = await postOpeningAction<Opening>("/org/close-opening", {
 				opening_number: parseInt(openingNumber || "0"),
 			});
-			if (response.status === 200) {
+			if (response.status === 200 && response.data) {
 				message.success(t("success.closed"));
-				setOpening(response.body);
+				setOpening(response.data);
 			}
-		} catch (error) {
+		} catch {
 			message.error(t("errors.transitionFailed"));
 		}
 	};
 
 	const handleArchive = async () => {
 		try {
-			const api = new OrgAPIClient();
-			const response = await api.archiveOpening({
-				opening_number: parseInt(openingNumber || "0"),
-			});
-			if (response.status === 200) {
+			const response = await postOpeningAction<Opening>(
+				"/org/archive-opening",
+				{
+					opening_number: parseInt(openingNumber || "0"),
+				}
+			);
+			if (response.status === 200 && response.data) {
 				message.success(t("success.archived"));
-				setOpening(response.body);
+				setOpening(response.data);
 			}
-		} catch (error) {
+		} catch {
 			message.error(t("errors.transitionFailed"));
 		}
 	};
 
 	const handleDuplicate = async () => {
 		try {
-			const api = new OrgAPIClient();
-			const response = await api.duplicateOpening({
-				opening_number: parseInt(openingNumber || "0"),
-			});
-			if (response.status === 201) {
+			const response = await postOpeningAction<CreateOpeningResponse>(
+				"/org/duplicate-opening",
+				{
+					opening_number: parseInt(openingNumber || "0"),
+				}
+			);
+			if (response.status === 201 && response.data) {
 				message.success(t("success.duplicated"));
-				navigate(`/openings/${response.body.opening_number}/edit`);
+				navigate(`/openings/${response.data.opening_number}/edit`);
 			}
-		} catch (error) {
+		} catch {
 			message.error(t("errors.transitionFailed"));
 		}
 	};
@@ -286,7 +321,7 @@ export default function OpeningDetailPage() {
 					<Title level={2} style={{ margin: 0, marginBottom: 8 }}>
 						{opening.title}
 					</Title>
-					<Space split={<Divider type="vertical" />}>
+					<Space separator={<Divider orientation="vertical" />}>
 						<Text>#{opening.opening_number}</Text>
 						<Tag color={opening.is_internal ? "blue" : "green"}>
 							{opening.is_internal

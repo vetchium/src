@@ -1,38 +1,45 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
 	Table,
 	Button,
 	Popover,
 	Space,
-	Segmented,
-	Select,
 	Input,
 	Spin,
 	message,
 	Modal,
+	Typography,
 } from "antd";
-import {
-	ArrowLeftOutlined,
-	PlusOutlined,
-	DeleteOutlined,
-	CopyOutlined,
-} from "@ant-design/icons";
+import { ArrowLeftOutlined, PlusOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { useNavigate, Link } from "react-router-dom";
 import type {
+	CreateOpeningResponse,
 	OpeningSummary,
+	OpeningNumberRequest,
 	ListOpeningsRequest,
+	ListOpeningsResponse,
 	OpeningStatus,
+	RejectOpeningRequest,
 } from "vetchium-specs/org/openings";
-import { OrgAPIClient } from "../../lib/org-api-client";
+import { getApiBaseUrl } from "../../config";
+import { useAuth } from "../../hooks/useAuth";
 import { useMyInfo } from "../../hooks/useMyInfo";
 import { formatDateTime } from "../../utils/dateFormat";
-import { Title } from "antd/es/typography/Title";
+
+const { Title } = Typography;
+
+interface OpeningAction {
+	label: string;
+	onClick: () => void;
+	danger?: boolean;
+}
 
 export default function OpeningsListPage() {
 	const { t, i18n } = useTranslation("openings");
 	const navigate = useNavigate();
-	const { myInfo } = useMyInfo();
+	const { sessionToken } = useAuth();
+	const { data: myInfo } = useMyInfo(sessionToken);
 	const [openings, setOpenings] = useState<OpeningSummary[]>([]);
 	const [loading, setLoading] = useState(false);
 	const [pagination, setPagination] = useState<{
@@ -40,7 +47,7 @@ export default function OpeningsListPage() {
 	}>({});
 
 	// Filter states
-	const [statusFilter, setStatusFilter] = useState<OpeningStatus[]>([
+	const [statusFilter] = useState<OpeningStatus[]>([
 		"draft",
 		"pending_review",
 		"published",
@@ -48,80 +55,116 @@ export default function OpeningsListPage() {
 		"expired",
 		"closed",
 	]);
-	const [visibilityFilter, setVisibilityFilter] = useState<string>("all");
-	const [hiringManagerFilter, setHiringManagerFilter] = useState<string>("");
-	const [recruiterFilter, setRecruiterFilter] = useState<string>("");
-	const [tagsFilter, setTagsFilter] = useState<string[]>([]);
-	const [titlePrefixFilter, setTitlePrefixFilter] = useState<string>("");
+	const [visibilityFilter] = useState<string>("all");
+	const [hiringManagerFilter] = useState<string>("");
+	const [recruiterFilter] = useState<string>("");
+	const [tagsFilter] = useState<string[]>([]);
+	const [titlePrefixFilter] = useState<string>("");
 
 	const hasManageRole = myInfo?.roles?.includes("org:manage_openings");
 
-	const fetchOpenings = async (paginationKey?: string) => {
-		if (!myInfo) return;
-		setLoading(true);
-		try {
-			const api = new OrgAPIClient();
-			const req: ListOpeningsRequest = {
-				filter_status: statusFilter.length > 0 ? statusFilter : undefined,
-				filter_is_internal:
-					visibilityFilter === "internal"
-						? true
-						: visibilityFilter === "public"
-							? false
-							: undefined,
-				filter_hiring_manager_org_user_id: hiringManagerFilter || undefined,
-				filter_recruiter_org_user_id: recruiterFilter || undefined,
-				filter_tag_ids: tagsFilter.length > 0 ? tagsFilter : undefined,
-				filter_title_prefix: titlePrefixFilter || undefined,
-				pagination_key: paginationKey,
-				limit: 25,
-			};
-
-			const response = await api.listOpenings(req);
-			if (response.status === 200) {
-				setOpenings(response.body.openings);
-				setPagination({
-					next_pagination_key: response.body.next_pagination_key,
-				});
-			} else {
-				message.error(t("errors.loadFailed"));
+	const postOpeningAction = useCallback(
+		async <TResponse,>(
+			path: string,
+			body: OpeningNumberRequest | RejectOpeningRequest | ListOpeningsRequest
+		): Promise<{ status: number; data?: TResponse }> => {
+			if (!sessionToken) return { status: 401 };
+			const baseUrl = await getApiBaseUrl();
+			const response = await fetch(`${baseUrl}${path}`, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${sessionToken}`,
+				},
+				body: JSON.stringify(body),
+			});
+			if (response.status === 204) {
+				return { status: response.status };
 			}
-		} catch (error) {
-			message.error(t("errors.loadFailed"));
-		} finally {
-			setLoading(false);
-		}
-	};
+			if (response.headers.get("content-type")?.includes("application/json")) {
+				const data = (await response.json()) as TResponse;
+				return { status: response.status, data };
+			}
+			return { status: response.status };
+		},
+		[sessionToken]
+	);
+
+	const fetchOpenings = useCallback(
+		async (paginationKey?: string) => {
+			if (!myInfo) return;
+			setLoading(true);
+			try {
+				const req: ListOpeningsRequest = {
+					filter_status: statusFilter.length > 0 ? statusFilter : undefined,
+					filter_is_internal:
+						visibilityFilter === "internal"
+							? true
+							: visibilityFilter === "public"
+								? false
+								: undefined,
+					filter_hiring_manager_org_user_id: hiringManagerFilter || undefined,
+					filter_recruiter_org_user_id: recruiterFilter || undefined,
+					filter_tag_ids: tagsFilter.length > 0 ? tagsFilter : undefined,
+					filter_title_prefix: titlePrefixFilter || undefined,
+					pagination_key: paginationKey,
+					limit: 25,
+				};
+
+				const response = await postOpeningAction<ListOpeningsResponse>(
+					"/org/list-openings",
+					req
+				);
+				if (response.status === 200 && response.data) {
+					setOpenings(response.data.openings);
+					setPagination({
+						next_pagination_key: response.data.next_pagination_key,
+					});
+				} else {
+					message.error(t("errors.loadFailed"));
+				}
+			} catch {
+				message.error(t("errors.loadFailed"));
+			} finally {
+				setLoading(false);
+			}
+		},
+		[
+			hiringManagerFilter,
+			myInfo,
+			postOpeningAction,
+			recruiterFilter,
+			statusFilter,
+			t,
+			tagsFilter,
+			titlePrefixFilter,
+			visibilityFilter,
+		]
+	);
 
 	useEffect(() => {
-		fetchOpenings();
-	}, [
-		statusFilter,
-		visibilityFilter,
-		hiringManagerFilter,
-		recruiterFilter,
-		tagsFilter,
-		titlePrefixFilter,
-		myInfo,
-	]);
+		void fetchOpenings();
+	}, [fetchOpenings]);
 
 	const handleDiscard = (openingNumber: number) => {
 		Modal.confirm({
 			title: t("discardConfirm"),
 			okText: t("table.discard"),
 			cancelText: "Cancel",
-			danger: true,
+			okButtonProps: { danger: true },
 			onOk: async () => {
 				try {
-					const api = new OrgAPIClient();
-					const response = await api.discardOpening({
-						opening_number: openingNumber,
-					});
+					const response = await postOpeningAction<void>(
+						"/org/discard-opening",
+						{
+							opening_number: openingNumber,
+						}
+					);
 					if (response.status === 204) {
 						message.success(t("success.discarded"));
 						fetchOpenings();
 					}
-				} catch (error) {
+				} catch {
 					message.error(t("errors.transitionFailed"));
 				}
 			},
@@ -138,7 +181,7 @@ export default function OpeningsListPage() {
 		}
 
 		const status = record.status as string;
-		const actions = {
+		const actions: Record<string, OpeningAction[]> = {
 			draft: [
 				{
 					label: t("table.view"),
@@ -261,7 +304,7 @@ export default function OpeningsListPage() {
 		return (
 			<Popover
 				content={
-					<Space direction="vertical" style={{ width: 150 }}>
+					<Space orientation="vertical" style={{ width: 150 }}>
 						{actionList.map((action, idx) => (
 							<Button
 								key={idx}
@@ -292,30 +335,31 @@ export default function OpeningsListPage() {
 
 	const handleSubmit = async (openingNumber: number) => {
 		try {
-			const api = new OrgAPIClient();
-			const response = await api.submitOpening({
+			const response = await postOpeningAction<unknown>("/org/submit-opening", {
 				opening_number: openingNumber,
 			});
 			if (response.status === 200) {
 				message.success(t("success.submitted"));
 				fetchOpenings();
 			}
-		} catch (error) {
+		} catch {
 			message.error(t("errors.transitionFailed"));
 		}
 	};
 
 	const handleApprove = async (openingNumber: number) => {
 		try {
-			const api = new OrgAPIClient();
-			const response = await api.approveOpening({
-				opening_number: openingNumber,
-			});
+			const response = await postOpeningAction<unknown>(
+				"/org/approve-opening",
+				{
+					opening_number: openingNumber,
+				}
+			);
 			if (response.status === 200) {
 				message.success(t("success.approved"));
 				fetchOpenings();
 			}
-		} catch (error) {
+		} catch {
 			message.error(t("errors.transitionFailed"));
 		}
 	};
@@ -337,16 +381,18 @@ export default function OpeningsListPage() {
 					document.getElementById("rejection-note") as HTMLTextAreaElement
 				).value;
 				try {
-					const api = new OrgAPIClient();
-					const response = await api.rejectOpening({
-						opening_number: openingNumber,
-						rejection_note: note,
-					});
+					const response = await postOpeningAction<unknown>(
+						"/org/reject-opening",
+						{
+							opening_number: openingNumber,
+							rejection_note: note,
+						}
+					);
 					if (response.status === 200) {
 						message.success(t("success.rejected"));
 						fetchOpenings();
 					}
-				} catch (error) {
+				} catch {
 					message.error(t("errors.transitionFailed"));
 				}
 			},
@@ -355,75 +401,76 @@ export default function OpeningsListPage() {
 
 	const handlePause = async (openingNumber: number) => {
 		try {
-			const api = new OrgAPIClient();
-			const response = await api.pauseOpening({
+			const response = await postOpeningAction<unknown>("/org/pause-opening", {
 				opening_number: openingNumber,
 			});
 			if (response.status === 200) {
 				message.success(t("success.paused"));
 				fetchOpenings();
 			}
-		} catch (error) {
+		} catch {
 			message.error(t("errors.transitionFailed"));
 		}
 	};
 
 	const handleReopen = async (openingNumber: number) => {
 		try {
-			const api = new OrgAPIClient();
-			const response = await api.reopenOpening({
+			const response = await postOpeningAction<unknown>("/org/reopen-opening", {
 				opening_number: openingNumber,
 			});
 			if (response.status === 200) {
 				message.success(t("success.reopened"));
 				fetchOpenings();
 			}
-		} catch (error) {
+		} catch {
 			message.error(t("errors.transitionFailed"));
 		}
 	};
 
 	const handleClose = async (openingNumber: number) => {
 		try {
-			const api = new OrgAPIClient();
-			const response = await api.closeOpening({
+			const response = await postOpeningAction<unknown>("/org/close-opening", {
 				opening_number: openingNumber,
 			});
 			if (response.status === 200) {
 				message.success(t("success.closed"));
 				fetchOpenings();
 			}
-		} catch (error) {
+		} catch {
 			message.error(t("errors.transitionFailed"));
 		}
 	};
 
 	const handleArchive = async (openingNumber: number) => {
 		try {
-			const api = new OrgAPIClient();
-			const response = await api.archiveOpening({
-				opening_number: openingNumber,
-			});
+			const response = await postOpeningAction<unknown>(
+				"/org/archive-opening",
+				{
+					opening_number: openingNumber,
+				}
+			);
 			if (response.status === 200) {
 				message.success(t("success.archived"));
 				fetchOpenings();
 			}
-		} catch (error) {
+		} catch {
 			message.error(t("errors.transitionFailed"));
 		}
 	};
 
 	const handleDuplicate = async (openingNumber: number) => {
 		try {
-			const api = new OrgAPIClient();
-			const response = await api.duplicateOpening({
-				opening_number: openingNumber,
-			});
-			if (response.status === 201) {
+			const response = await postOpeningAction<CreateOpeningResponse>(
+				"/org/duplicate-opening",
+				{
+					opening_number: openingNumber,
+				}
+			);
+			if (response.status === 201 && response.data) {
 				message.success(t("success.duplicated"));
-				navigate(`/openings/${response.body.opening_number}/edit`);
+				navigate(`/openings/${response.data.opening_number}/edit`);
 			}
-		} catch (error) {
+		} catch {
 			message.error(t("errors.transitionFailed"));
 		}
 	};
@@ -493,7 +540,7 @@ export default function OpeningsListPage() {
 			dataIndex: "number_of_positions",
 			key: "number_of_positions",
 			width: 100,
-			render: (_, record: OpeningSummary) =>
+			render: (_: unknown, record: OpeningSummary) =>
 				`${record.filled_positions}/${record.number_of_positions}`,
 		},
 		{
@@ -508,7 +555,7 @@ export default function OpeningsListPage() {
 			key: "actions",
 			fixed: "right" as const,
 			width: 120,
-			render: (_, record: OpeningSummary) => renderActions(record),
+			render: (_: unknown, record: OpeningSummary) => renderActions(record),
 		},
 	];
 

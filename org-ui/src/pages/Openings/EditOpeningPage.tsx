@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
 	Form,
 	Button,
@@ -9,90 +9,127 @@ import {
 	Spin,
 	message,
 	InputNumber,
-	Alert,
+	Typography,
 } from "antd";
 import { ArrowLeftOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useParams, Link } from "react-router-dom";
+import type { ValidationError } from "vetchium-specs/common/common";
 import type {
 	Opening,
+	OrgAddress,
+	OrgTag,
+	OrgUserShort,
 	UpdateOpeningRequest,
 } from "vetchium-specs/org/openings";
-import { OrgAPIClient } from "../../lib/org-api-client";
-import { Title } from "antd/es/typography/Title";
+import { getApiBaseUrl } from "../../config";
+import { useAuth } from "../../hooks/useAuth";
+
+const { Title } = Typography;
+
+type OpeningFormValues = Omit<
+	UpdateOpeningRequest,
+	"opening_number" | "salary"
+> & {
+	salary_min?: number;
+	salary_max?: number;
+	salary_currency?: string;
+};
 
 export default function EditOpeningPage() {
 	const { t } = useTranslation("openings");
 	const navigate = useNavigate();
 	const { openingNumber } = useParams<{ openingNumber: string }>();
+	const { sessionToken } = useAuth();
 	const [form] = Form.useForm();
-	const [opening, setOpening] = useState<Opening | null>(null);
 	const [loading, setLoading] = useState(false);
 	const [submitting, setSubmitting] = useState(false);
-	const [formErrors, setFormErrors] = useState<
-		Array<{ field: string; message: string }>
-	>([]);
+	const [formErrors, setFormErrors] = useState<ValidationError[]>([]);
 
-	useEffect(() => {
-		if (openingNumber) {
-			fetchOpening();
-		}
-	}, [openingNumber]);
-
-	const fetchOpening = async () => {
+	const fetchOpening = useCallback(async () => {
+		if (!sessionToken) return;
 		setLoading(true);
 		try {
-			const api = new OrgAPIClient();
-			const response = await api.getOpening({
-				opening_number: parseInt(openingNumber || "0"),
+			const baseUrl = await getApiBaseUrl();
+			const resp = await fetch(`${baseUrl}/org/get-opening`, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${sessionToken}`,
+				},
+				body: JSON.stringify({
+					opening_number: parseInt(openingNumber || "0"),
+				}),
 			});
-			if (response.status === 200) {
-				setOpening(response.body);
-				if (response.body.status !== "draft") {
+			if (resp.status === 200) {
+				const opening: Opening = await resp.json();
+				if (opening.status !== "draft") {
 					message.error(t("errors.notEditable"));
 					setTimeout(() => navigate(`/openings/${openingNumber}`), 1500);
 					return;
 				}
 				form.setFieldsValue({
-					title: response.body.title,
-					description: response.body.description,
-					is_internal: response.body.is_internal,
-					employment_type: response.body.employment_type,
-					work_location_type: response.body.work_location_type,
-					address_ids: response.body.addresses.map((a) => a.address_id),
-					min_yoe: response.body.min_yoe,
-					max_yoe: response.body.max_yoe,
-					min_education_level: response.body.min_education_level,
-					salary_min: response.body.salary?.min_amount,
-					salary_max: response.body.salary?.max_amount,
-					salary_currency: response.body.salary?.currency,
-					number_of_positions: response.body.number_of_positions,
-					hiring_manager_org_user_id: response.body.hiring_manager.org_user_id,
-					recruiter_org_user_id: response.body.recruiter.org_user_id,
-					hiring_team_member_ids: response.body.hiring_team_members.map(
-						(m) => m.org_user_id
+					title: opening.title,
+					description: opening.description,
+					is_internal: opening.is_internal,
+					employment_type: opening.employment_type,
+					work_location_type: opening.work_location_type,
+					address_ids: opening.addresses.map(
+						(address: OrgAddress) => address.address_id
 					),
-					watcher_ids: response.body.watchers.map((w) => w.org_user_id),
-					cost_center_id: response.body.cost_center?.cost_center_id,
-					tag_ids: response.body.tags.map((tag) => tag.tag_id),
-					internal_notes: response.body.internal_notes,
+					min_yoe: opening.min_yoe,
+					max_yoe: opening.max_yoe,
+					min_education_level: opening.min_education_level,
+					salary_min: opening.salary?.min_amount,
+					salary_max: opening.salary?.max_amount,
+					salary_currency: opening.salary?.currency,
+					number_of_positions: opening.number_of_positions,
+					hiring_manager_org_user_id: opening.hiring_manager.org_user_id,
+					recruiter_org_user_id: opening.recruiter.org_user_id,
+					hiring_team_member_ids: opening.hiring_team_members.map(
+						(member: OrgUserShort) => member.org_user_id
+					),
+					watcher_ids: opening.watchers.map(
+						(watcher: OrgUserShort) => watcher.org_user_id
+					),
+					cost_center_id: opening.cost_center?.cost_center_id,
+					tag_ids: opening.tags.map((tag: OrgTag) => tag.tag_id),
+					internal_notes: opening.internal_notes,
 				});
 			} else {
 				message.error(t("errors.loadFailed"));
 				navigate("/openings");
 			}
-		} catch (error) {
+		} catch {
 			message.error(t("errors.loadFailed"));
 			navigate("/openings");
 		} finally {
 			setLoading(false);
 		}
-	};
+	}, [form, navigate, openingNumber, sessionToken, t]);
 
-	const onFinish = async (values: any) => {
+	useEffect(() => {
+		if (openingNumber) {
+			void fetchOpening();
+		}
+	}, [fetchOpening, openingNumber]);
+
+	const onFinish = async (values: OpeningFormValues) => {
+		if (!sessionToken) return;
 		setSubmitting(true);
 		setFormErrors([]);
 		try {
+			const salary =
+				values.salary_min !== undefined &&
+				values.salary_max !== undefined &&
+				values.salary_currency
+					? {
+							min_amount: values.salary_min,
+							max_amount: values.salary_max,
+							currency: values.salary_currency,
+						}
+					: undefined;
+
 			const req: UpdateOpeningRequest = {
 				opening_number: parseInt(openingNumber || "0"),
 				title: values.title,
@@ -103,13 +140,7 @@ export default function EditOpeningPage() {
 				min_yoe: values.min_yoe,
 				max_yoe: values.max_yoe,
 				min_education_level: values.min_education_level,
-				salary: values.salary_min
-					? {
-							min_amount: values.salary_min,
-							max_amount: values.salary_max,
-							currency: values.salary_currency,
-						}
-					: undefined,
+				salary,
 				number_of_positions: values.number_of_positions,
 				hiring_manager_org_user_id: values.hiring_manager_org_user_id,
 				recruiter_org_user_id: values.recruiter_org_user_id,
@@ -120,8 +151,15 @@ export default function EditOpeningPage() {
 				internal_notes: values.internal_notes,
 			};
 
-			const api = new OrgAPIClient();
-			const response = await api.updateOpening(req);
+			const baseUrl = await getApiBaseUrl();
+			const response = await fetch(`${baseUrl}/org/update-opening`, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${sessionToken}`,
+				},
+				body: JSON.stringify(req),
+			});
 
 			if (response.status === 200) {
 				message.success(t("success.updated"));
@@ -130,22 +168,17 @@ export default function EditOpeningPage() {
 				message.error(t("errors.notEditable"));
 				setTimeout(() => navigate(`/openings/${openingNumber}`), 1500);
 			} else if (response.status === 400) {
-				const errors = response.body as Array<{
-					field: string;
-					message: string;
-				}>;
+				const errors: ValidationError[] = await response.json();
 				setFormErrors(errors);
 				message.error(t("errors.saveFailed"));
+			} else {
+				message.error(t("errors.saveFailed"));
 			}
-		} catch (error) {
+		} catch {
 			message.error(t("errors.saveFailed"));
 		} finally {
 			setSubmitting(false);
 		}
-	};
-
-	const getFieldErrors = (fieldName: string) => {
-		return formErrors.find((e) => e.field === fieldName)?.message;
 	};
 
 	const hasErrors = formErrors.length > 0;

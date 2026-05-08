@@ -9,27 +9,51 @@ import {
 	Spin,
 	message,
 	InputNumber,
+	Typography,
 } from "antd";
 import { ArrowLeftOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { useNavigate, Link } from "react-router-dom";
-import type { CreateOpeningRequest } from "vetchium-specs/org/openings";
-import { OrgAPIClient } from "../../lib/org-api-client";
-import { Title } from "antd/es/typography/Title";
+import type { ValidationError } from "vetchium-specs/common/common";
+import type {
+	CreateOpeningRequest,
+	CreateOpeningResponse,
+} from "vetchium-specs/org/openings";
+import { getApiBaseUrl } from "../../config";
+import { useAuth } from "../../hooks/useAuth";
+
+const { Title } = Typography;
+
+type OpeningFormValues = Omit<CreateOpeningRequest, "salary"> & {
+	salary_min?: number;
+	salary_max?: number;
+	salary_currency?: string;
+};
 
 export default function CreateOpeningPage() {
 	const { t } = useTranslation("openings");
 	const navigate = useNavigate();
+	const { sessionToken } = useAuth();
 	const [form] = Form.useForm();
 	const [loading, setLoading] = useState(false);
-	const [formErrors, setFormErrors] = useState<
-		Array<{ field: string; message: string }>
-	>([]);
+	const [formErrors, setFormErrors] = useState<ValidationError[]>([]);
 
-	const onFinish = async (values: any) => {
+	const onFinish = async (values: OpeningFormValues) => {
+		if (!sessionToken) return;
 		setLoading(true);
 		setFormErrors([]);
 		try {
+			const salary =
+				values.salary_min !== undefined &&
+				values.salary_max !== undefined &&
+				values.salary_currency
+					? {
+							min_amount: values.salary_min,
+							max_amount: values.salary_max,
+							currency: values.salary_currency,
+						}
+					: undefined;
+
 			const req: CreateOpeningRequest = {
 				title: values.title,
 				description: values.description,
@@ -40,13 +64,7 @@ export default function CreateOpeningPage() {
 				min_yoe: values.min_yoe,
 				max_yoe: values.max_yoe,
 				min_education_level: values.min_education_level,
-				salary: values.salary_min
-					? {
-							min_amount: values.salary_min,
-							max_amount: values.salary_max,
-							currency: values.salary_currency,
-						}
-					: undefined,
+				salary,
 				number_of_positions: values.number_of_positions,
 				hiring_manager_org_user_id: values.hiring_manager_org_user_id,
 				recruiter_org_user_id: values.recruiter_org_user_id,
@@ -57,29 +75,32 @@ export default function CreateOpeningPage() {
 				internal_notes: values.internal_notes,
 			};
 
-			const api = new OrgAPIClient();
-			const response = await api.createOpening(req);
+			const baseUrl = await getApiBaseUrl();
+			const response = await fetch(`${baseUrl}/org/create-opening`, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${sessionToken}`,
+				},
+				body: JSON.stringify(req),
+			});
 
 			if (response.status === 201) {
+				const createdOpening: CreateOpeningResponse = await response.json();
 				message.success(t("success.created"));
-				navigate(`/openings/${response.body.opening_number}`);
+				navigate(`/openings/${createdOpening.opening_number}`);
 			} else if (response.status === 400) {
-				const errors = response.body as Array<{
-					field: string;
-					message: string;
-				}>;
+				const errors: ValidationError[] = await response.json();
 				setFormErrors(errors);
 				message.error(t("errors.saveFailed"));
+			} else {
+				message.error(t("errors.saveFailed"));
 			}
-		} catch (error) {
+		} catch {
 			message.error(t("errors.saveFailed"));
 		} finally {
 			setLoading(false);
 		}
-	};
-
-	const getFieldErrors = (fieldName: string) => {
-		return formErrors.find((e) => e.field === fieldName)?.message;
 	};
 
 	const hasErrors = formErrors.length > 0;
