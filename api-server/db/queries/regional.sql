@@ -1004,8 +1004,8 @@ WHERE stint_id = sqlc.arg('stint_id');
 -- name: ListMyWorkEmailStints :many
 SELECT * FROM hub_employer_stints
 WHERE hub_user_id = sqlc.arg('hub_user_id')
-  AND (sqlc.narg('filter_statuses')::work_email_stint_status[] IS NULL
-       OR status = ANY(sqlc.narg('filter_statuses')::work_email_stint_status[]))
+  AND (sqlc.narg('filter_statuses')::text[] IS NULL
+       OR status::text = ANY(sqlc.narg('filter_statuses')::text[]))
   AND (sqlc.narg('filter_domain')::text IS NULL
        OR domain = sqlc.narg('filter_domain')::text)
   AND (sqlc.narg('cursor_status_priority')::int IS NULL
@@ -1132,7 +1132,7 @@ SELECT s.domain,
        CASE WHEN s.status = 'ended' THEN EXTRACT(YEAR FROM s.ended_at)::int ELSE NULL END AS end_year,
        s.first_verified_at, s.ended_at
 FROM hub_employer_stints s
-JOIN hub_users u ON u.hub_user_id = s.hub_user_id
+JOIN hub_users u ON u.hub_user_global_id = s.hub_user_id
 WHERE u.handle = sqlc.arg('handle')
   AND s.status IN ('active','ended')
 ORDER BY (s.status = 'active') DESC,

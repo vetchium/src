@@ -177,6 +177,10 @@ func AddWorkEmail(s *server.RegionalServer) http.HandlerFunc {
 			Status:           "pending_verification",
 		})
 		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				w.WriteHeader(http.StatusConflict)
+				return
+			}
 			log.Error("failed to claim work email in global DB", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
@@ -854,9 +858,9 @@ func ListMyWorkEmails(s *server.RegionalServer) http.HandlerFunc {
 
 		// Filter statuses
 		if len(req.FilterStatus) > 0 {
-			statuses := make([]regionaldb.WorkEmailStintStatus, len(req.FilterStatus))
+			statuses := make([]string, len(req.FilterStatus))
 			for i, s := range req.FilterStatus {
-				statuses[i] = regionaldb.WorkEmailStintStatus(s)
+				statuses[i] = string(s)
 			}
 			params.FilterStatuses = statuses
 		}

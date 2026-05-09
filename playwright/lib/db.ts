@@ -1,6 +1,6 @@
 import { Pool } from "pg";
 import bcrypt from "bcrypt";
-import { randomUUID } from "crypto";
+import { randomBytes, randomUUID } from "crypto";
 
 // Database connection configuration
 const pool = new Pool({
@@ -489,61 +489,57 @@ export async function createTestHubUserDirect(
 	sessionToken: string;
 }> {
 	const crypto = require("crypto");
-	const bcrypt = require("bcryptjs");
 
 	const emailHash = crypto.createHash("sha256").update(email).digest();
 	const passwordHash = await bcrypt.hash(password, 10);
+	const actualHandle = `${handle}-${randomUUID().substring(0, 8)}`;
 
 	// 1. Create hub user in global DB
 	const hubUserGlobalId = randomUUID();
 	await pool.query(
-		`INSERT INTO hub_users (hub_user_global_id, email_address_hash, hashing_algorithm, home_region, status)
-     VALUES ($1, $2, 'SHA-256', $3, $4)`,
-		[hubUserGlobalId, emailHash, region, status]
+		`INSERT INTO hub_users (hub_user_global_id, handle, email_address_hash, hashing_algorithm, home_region)
+     VALUES ($1, $2, $3, 'SHA-256', $4)`,
+		[hubUserGlobalId, actualHandle, emailHash, region]
 	);
 
 	// 2. Create hub user in regional DB (mutable data)
 	const regionalPool = getRegionalPool(region);
 	try {
 		await regionalPool.query(
-			`INSERT INTO hub_users (hub_user_global_id, email_address, password_hash, preferred_display_name, status, preferred_language, resident_country_code)
+			`INSERT INTO hub_users (hub_user_global_id, email_address, handle, password_hash, status, preferred_language, resident_country_code)
        VALUES ($1, $2, $3, $4, $5, 'en-US', 'US')`,
-			[hubUserGlobalId, email, passwordHash, handle, status]
+			[hubUserGlobalId, email, actualHandle, passwordHash, status]
 		);
 	} finally {
 		await regionalPool.end();
 	}
 
 	// 3. Create a session token for immediate authentication
-	const sessionToken = createTestHubSessionToken(hubUserGlobalId, region);
+	const sessionToken = createTestHubSessionToken(region);
+	const rawSessionToken = sessionToken.substring(sessionToken.indexOf("-") + 1);
 
 	// 4. Create session in regional DB
-	const sessionId = randomUUID();
 	const sessionRegionalPool = getRegionalPool(region);
 	try {
 		const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 		await sessionRegionalPool.query(
-			`INSERT INTO hub_sessions (session_id, hub_user_global_id, expires_at)
+			`INSERT INTO hub_sessions (session_token, hub_user_global_id, expires_at)
        VALUES ($1, $2, $3)`,
-			[sessionId, hubUserGlobalId, expiresAt.toISOString()]
+			[rawSessionToken, hubUserGlobalId, expiresAt.toISOString()]
 		);
 	} finally {
 		await sessionRegionalPool.end();
 	}
 
-	return { email, handle, hubUserGlobalId, sessionToken };
+	return { email, handle: actualHandle, hubUserGlobalId, sessionToken };
 }
 
 /**
  * Helper function to create a test hub session token
  */
-function createTestHubSessionToken(
-	hubUserGlobalId: string,
-	region: RegionCode
-): string {
-	// Format: {region}:{hubUserGlobalId}:{random}
-	const randomPart = randomUUID().substring(0, 8);
-	return `${region}:${hubUserGlobalId}:${randomPart}`;
+function createTestHubSessionToken(region: RegionCode): string {
+	const rawToken = randomBytes(32).toString("hex");
+	return `${region.toUpperCase()}-${rawToken}`;
 }
 
 /**
@@ -1954,11 +1950,11 @@ export async function getHubUserRegionalId(
 	const regionalPool = getRegionalPool(region);
 	try {
 		const result = await regionalPool.query(
-			`SELECT hub_user_id FROM hub_users WHERE email_address = $1`,
+			`SELECT hub_user_global_id FROM hub_users WHERE email_address = $1`,
 			[email.toLowerCase()]
 		);
 		if (result.rows.length === 0) return null;
-		return result.rows[0].hub_user_id;
+		return result.rows[0].hub_user_global_id;
 	} finally {
 		await regionalPool.end();
 	}

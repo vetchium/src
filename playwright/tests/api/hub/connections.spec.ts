@@ -66,7 +66,7 @@ test.describe("POST /hub/connections", () => {
 				"ind1"
 			);
 			const response = await api.getConnectionStatus(user.sessionToken, {
-				handle: "nonexistent_user_12345",
+				handle: "nonexistent-user-12345",
 			});
 			expect(response.status).toBe(404);
 		} finally {
@@ -168,7 +168,7 @@ test.describe("POST /hub/connections", () => {
 				"ind1"
 			);
 			const response = await api.sendConnectionRequest(user.sessionToken, {
-				handle: "nonexistent_user_12345",
+				handle: "nonexistent-user-12345",
 			});
 			expect(response.status).toBe(404);
 		} finally {
@@ -224,7 +224,7 @@ test.describe("POST /hub/connections", () => {
 				"ind1"
 			);
 			const response = await api.blockUser(user.sessionToken, {
-				handle: "nonexistent_user_12345",
+				handle: "nonexistent-user-12345",
 			});
 			expect(response.status).toBe(404);
 		} finally {
@@ -254,7 +254,7 @@ test.describe("POST /hub/connections", () => {
 				"ind1"
 			);
 			const response = await api.getConnectionStatus(user.sessionToken, {
-				handle: "this_user_definitely_does_not_exist_xyz",
+				handle: "this-user-definitely-does-not-exist-xyz",
 			});
 			expect(response.status).toBe(404);
 		} finally {

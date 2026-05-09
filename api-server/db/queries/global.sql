@@ -1112,13 +1112,20 @@ ORDER BY is_preferred DESC, language_code ASC;
 
 -- name: ReplaceHubUserDisplayNames :many
 WITH wipe AS (
-  DELETE FROM hub_user_display_names WHERE hub_user_global_id = @hub_user_global_id RETURNING 1
+  DELETE FROM hub_user_display_names
+  WHERE hub_user_display_names.hub_user_global_id = @hub_user_global_id
+  RETURNING 1
+),
+incoming AS (
+  SELECT @hub_user_global_id::uuid AS hub_user_global_id,
+         UNNEST(@language_codes::text[]) AS language_code,
+         UNNEST(@display_names::text[]) AS display_name,
+         UNNEST(@is_preferred::boolean[]) AS is_preferred
 )
 INSERT INTO hub_user_display_names (hub_user_global_id, language_code, display_name, is_preferred)
-SELECT @hub_user_global_id::uuid,
-       UNNEST(@language_codes::text[]),
-       UNNEST(@display_names::text[]),
-       UNNEST(@is_preferred::boolean[])
+SELECT i.hub_user_global_id, i.language_code, i.display_name, i.is_preferred
+FROM incoming i
+CROSS JOIN (SELECT COUNT(*) FROM wipe) w
 RETURNING *;
 
 -- name: ClaimWorkEmailGlobal :one
