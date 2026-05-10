@@ -129,15 +129,8 @@ test.describe("Openings — Audit Logs", () => {
 		request,
 	}) => {
 		const setup = await setupTestOpening(request, "op-audit-submit");
-		const {
-			api,
-			token,
-			adminEmail,
-			recruiterEmail,
-			domain,
-			orgId,
-			addressId,
-		} = setup;
+		const { api, token, adminEmail, recruiterEmail, domain, orgId, addressId } =
+			setup;
 
 		try {
 			const { email: managerEmail, orgUserId: managerUserId } =
@@ -186,15 +179,8 @@ test.describe("Openings — Audit Logs", () => {
 
 	test("org.reject_opening audit log", async ({ request }) => {
 		const setup = await setupTestOpening(request, "op-audit-reject");
-		const {
-			api,
-			token,
-			adminEmail,
-			recruiterEmail,
-			domain,
-			orgId,
-			addressId,
-		} = setup;
+		const { api, token, adminEmail, recruiterEmail, domain, orgId, addressId } =
+			setup;
 
 		try {
 			const { email: managerEmail, orgUserId: managerUserId } =

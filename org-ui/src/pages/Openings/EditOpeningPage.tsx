@@ -310,7 +310,11 @@ export default function EditOpeningPage() {
 							name="title"
 							rules={[{ required: true, message: t("form.required") }]}
 						>
-							<Input name="title" maxLength={200} placeholder={t("form.title")} />
+							<Input
+								name="title"
+								maxLength={200}
+								placeholder={t("form.title")}
+							/>
 						</Form.Item>
 
 						<Form.Item

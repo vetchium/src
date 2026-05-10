@@ -8,7 +8,10 @@ import {
 } from "../../../lib/db";
 import { getTfaCodeFromEmail } from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
-import type { OrgLoginRequest, OrgTFARequest } from "vetchium-specs/org/org-users";
+import type {
+	OrgLoginRequest,
+	OrgTFARequest,
+} from "vetchium-specs/org/org-users";
 import type { CreateOpeningRequest } from "vetchium-specs/org/openings";
 import type { CreateAddressRequest } from "vetchium-specs/org/company-addresses";
 import { OrgAPIClient } from "../../../lib/org-api-client";
