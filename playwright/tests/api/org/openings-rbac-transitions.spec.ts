@@ -43,9 +43,8 @@ async function loginOrgUser(
 test.describe("Openings — RBAC", () => {
 	test("get-opening: no roles → 403", async ({ request }) => {
 		const api = new OrgAPIClient(request);
-		const { email: adminEmail, domain } = generateTestOrgEmail(
-			"op-rbac-get-no"
-		);
+		const { email: adminEmail, domain } =
+			generateTestOrgEmail("op-rbac-get-no");
 		const { orgId } = await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
 		const { email: noRoleEmail } = await createTestOrgUserDirect(
 			`norole@${domain}`,
@@ -90,9 +89,8 @@ test.describe("Openings — RBAC", () => {
 
 	test("get-opening: manage_openings → 200", async ({ request }) => {
 		const api = new OrgAPIClient(request);
-		const { email: adminEmail, domain } = generateTestOrgEmail(
-			"op-rbac-get-mgr"
-		);
+		const { email: adminEmail, domain } =
+			generateTestOrgEmail("op-rbac-get-mgr");
 		const { orgId } = await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
 		const { email: managerEmail, orgUserId: managerUserId } =
 			await createTestOrgUserDirect(`mgr@${domain}`, TEST_PASSWORD, "ind1", {
@@ -135,9 +133,8 @@ test.describe("Openings — RBAC", () => {
 
 	test("update-opening: no roles → 403", async ({ request }) => {
 		const api = new OrgAPIClient(request);
-		const { email: adminEmail, domain } = generateTestOrgEmail(
-			"op-rbac-upd-no"
-		);
+		const { email: adminEmail, domain } =
+			generateTestOrgEmail("op-rbac-upd-no");
 		const { orgId } = await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
 		const { email: noRoleEmail } = await createTestOrgUserDirect(
 			`norole@${domain}`,
@@ -188,9 +185,8 @@ test.describe("Openings — RBAC", () => {
 
 	test("submit-opening: no roles → 403", async ({ request }) => {
 		const api = new OrgAPIClient(request);
-		const { email: adminEmail, domain } = generateTestOrgEmail(
-			"op-rbac-sub-no"
-		);
+		const { email: adminEmail, domain } =
+			generateTestOrgEmail("op-rbac-sub-no");
 		const { orgId } = await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
 		const { email: noRoleEmail } = await createTestOrgUserDirect(
 			`norole@${domain}`,
@@ -233,9 +229,8 @@ test.describe("Openings — RBAC", () => {
 
 	test("approve-opening: no roles → 403", async ({ request }) => {
 		const api = new OrgAPIClient(request);
-		const { email: adminEmail, domain } = generateTestOrgEmail(
-			"op-rbac-app-no"
-		);
+		const { email: adminEmail, domain } =
+			generateTestOrgEmail("op-rbac-app-no");
 		const { orgId } = await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
 		const { email: managerEmail, orgUserId: managerUserId } =
 			await createTestOrgUserDirect(`mgr@${domain}`, TEST_PASSWORD, "ind1", {
@@ -290,9 +285,8 @@ test.describe("Openings — RBAC", () => {
 
 	test("pause-opening: no roles → 403", async ({ request }) => {
 		const api = new OrgAPIClient(request);
-		const { email: adminEmail, domain } = generateTestOrgEmail(
-			"op-rbac-pause-no"
-		);
+		const { email: adminEmail, domain } =
+			generateTestOrgEmail("op-rbac-pause-no");
 		const { orgId } = await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
 		const { email: noRoleEmail } = await createTestOrgUserDirect(
 			`norole@${domain}`,
@@ -339,9 +333,8 @@ test.describe("Openings — RBAC", () => {
 
 	test("close-opening: no roles → 403", async ({ request }) => {
 		const api = new OrgAPIClient(request);
-		const { email: adminEmail, domain } = generateTestOrgEmail(
-			"op-rbac-close-no"
-		);
+		const { email: adminEmail, domain } =
+			generateTestOrgEmail("op-rbac-close-no");
 		const { orgId } = await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
 		const { email: noRoleEmail } = await createTestOrgUserDirect(
 			`norole@${domain}`,
@@ -388,9 +381,8 @@ test.describe("Openings — RBAC", () => {
 
 	test("discard-opening: no roles → 403", async ({ request }) => {
 		const api = new OrgAPIClient(request);
-		const { email: adminEmail, domain } = generateTestOrgEmail(
-			"op-rbac-disc-no"
-		);
+		const { email: adminEmail, domain } =
+			generateTestOrgEmail("op-rbac-disc-no");
 		const { orgId } = await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
 		const { email: noRoleEmail } = await createTestOrgUserDirect(
 			`norole@${domain}`,
@@ -433,9 +425,8 @@ test.describe("Openings — RBAC", () => {
 
 	test("duplicate-opening: no roles → 403", async ({ request }) => {
 		const api = new OrgAPIClient(request);
-		const { email: adminEmail, domain } = generateTestOrgEmail(
-			"op-rbac-dup-no"
-		);
+		const { email: adminEmail, domain } =
+			generateTestOrgEmail("op-rbac-dup-no");
 		const { orgId } = await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
 		const { email: noRoleEmail } = await createTestOrgUserDirect(
 			`norole@${domain}`,

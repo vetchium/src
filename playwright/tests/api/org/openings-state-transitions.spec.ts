@@ -86,13 +86,7 @@ async function createMinimalOpening(request: any, prefix: string) {
 test.describe("Openings — Invalid State Transitions", () => {
 	test("discard non-draft (published) opening → 422", async ({ request }) => {
 		const setup = await createMinimalOpening(request, "op-discard-pub");
-		const {
-			api,
-			token,
-			openingNumber,
-			adminEmail,
-			recruiterEmail,
-		} = setup;
+		const { api, token, openingNumber, adminEmail, recruiterEmail } = setup;
 
 		try {
 			// Draft → published (superadmin)

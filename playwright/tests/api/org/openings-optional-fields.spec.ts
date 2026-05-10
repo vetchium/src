@@ -42,9 +42,7 @@ async function loginOrgUser(
 test.describe("Openings — Optional Fields", () => {
 	test("min_yoe and max_yoe are stored and returned", async ({ request }) => {
 		const api = new OrgAPIClient(request);
-		const { email: adminEmail, domain } = generateTestOrgEmail(
-			"op-opt-yoe"
-		);
+		const { email: adminEmail, domain } = generateTestOrgEmail("op-opt-yoe");
 		const { orgId } = await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
 		const { email: recruiterEmail } = await createTestOrgUserDirect(
 			`rec@${domain}`,
@@ -90,9 +88,7 @@ test.describe("Openings — Optional Fields", () => {
 
 	test("salary is stored and returned", async ({ request }) => {
 		const api = new OrgAPIClient(request);
-		const { email: adminEmail, domain } = generateTestOrgEmail(
-			"op-opt-sal"
-		);
+		const { email: adminEmail, domain } = generateTestOrgEmail("op-opt-sal");
 		const { orgId } = await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
 		const { email: recruiterEmail } = await createTestOrgUserDirect(
 			`rec@${domain}`,
@@ -142,9 +138,7 @@ test.describe("Openings — Optional Fields", () => {
 
 	test("tag_ids are stored and returned", async ({ request }) => {
 		const api = new OrgAPIClient(request);
-		const { email: adminEmail, domain } = generateTestOrgEmail(
-			"op-opt-tag"
-		);
+		const { email: adminEmail, domain } = generateTestOrgEmail("op-opt-tag");
 		const { orgId } = await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
 		const { email: recruiterEmail } = await createTestOrgUserDirect(
 			`rec@${domain}`,
@@ -197,9 +191,8 @@ test.describe("Openings — Optional Fields", () => {
 		request,
 	}) => {
 		const api = new OrgAPIClient(request);
-		const { email: adminEmail, domain } = generateTestOrgEmail(
-			"op-opt-inv-team"
-		);
+		const { email: adminEmail, domain } =
+			generateTestOrgEmail("op-opt-inv-team");
 		const { orgId } = await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
 		const { email: recruiterEmail } = await createTestOrgUserDirect(
 			`rec@${domain}`,

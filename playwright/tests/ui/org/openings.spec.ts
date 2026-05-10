@@ -21,9 +21,9 @@ async function loginOrgUser(
 		domain,
 		password: TEST_PASSWORD,
 	});
-	const tfaCode = await (await fetch(
-		`http://localhost:8080/api/messages?query=${email}`
-	)).json();
+	const tfaCode = await (
+		await fetch(`http://localhost:8080/api/messages?query=${email}`)
+	).json();
 	const tfaRes = await api.verifyTFA({
 		tfa_token: loginRes.body!.tfa_token,
 		tfa_code: tfaCode,
@@ -41,9 +41,7 @@ test.describe("Openings — UI", () => {
 			try {
 				await orgLogin(page, domain, email, TEST_PASSWORD);
 				await page.goto(`${ORG_UI_URL}/openings`);
-				await expect(
-					page.locator('h2:has-text("Job Openings")')
-				).toBeVisible();
+				await expect(page.locator('h2:has-text("Job Openings")')).toBeVisible();
 			} finally {
 				await deleteTestOrgByDomain(domain);
 			}
@@ -63,7 +61,9 @@ test.describe("Openings — UI", () => {
 			}
 		});
 
-		test("clicking Create Opening navigates to create page", async ({ page }) => {
+		test("clicking Create Opening navigates to create page", async ({
+			page,
+		}) => {
 			const { email, domain } = generateTestOrgEmail("ui-op-list-create");
 			await createTestOrgAdminDirect(email, TEST_PASSWORD);
 
@@ -100,9 +100,7 @@ test.describe("Openings — UI", () => {
 				await expect(
 					page.locator('label:has-text("Hiring Manager")')
 				).toBeVisible();
-				await expect(
-					page.locator('label:has-text("Recruiter")')
-				).toBeVisible();
+				await expect(page.locator('label:has-text("Recruiter")')).toBeVisible();
 			} finally {
 				await deleteTestOrgByDomain(domain);
 			}
@@ -116,9 +114,7 @@ test.describe("Openings — UI", () => {
 				await orgLogin(page, domain, email, TEST_PASSWORD);
 				await page.goto(`${ORG_UI_URL}/openings/new`);
 				await page.click('button[type="submit"]');
-				await expect(
-					page.locator('text=title is required')
-				).toBeVisible();
+				await expect(page.locator("text=title is required")).toBeVisible();
 			} finally {
 				await deleteTestOrgByDomain(domain);
 			}
@@ -146,13 +142,15 @@ test.describe("Openings — UI", () => {
 		let adminEmail = "";
 		let recruiterEmail = "";
 		let openingNumber = 0;
-		const { email: setupAdminEmail, domain: setupDomain } = generateTestOrgEmail(
-			"ui-op-detail"
-		);
+		const { email: setupAdminEmail, domain: setupDomain } =
+			generateTestOrgEmail("ui-op-detail");
 
 		test.beforeAll(async ({ request }) => {
 			const api = new OrgAPIClient(request);
-			const result = await createTestOrgAdminDirect(setupAdminEmail, TEST_PASSWORD);
+			const result = await createTestOrgAdminDirect(
+				setupAdminEmail,
+				TEST_PASSWORD
+			);
 			adminEmail = setupAdminEmail;
 			domain = setupDomain;
 			recruiterEmail = `rec@${domain}`;
@@ -199,9 +197,7 @@ test.describe("Openings — UI", () => {
 			await orgLogin(page, domain, adminEmail, TEST_PASSWORD);
 			await page.goto(`${ORG_UI_URL}/openings/${openingNumber}`);
 			await expect(page.locator('button:has-text("Edit")')).toBeVisible();
-			await expect(
-				page.locator('button:has-text("Submit")')
-			).toBeVisible();
+			await expect(page.locator('button:has-text("Submit")')).toBeVisible();
 			await expect(page.locator('button:has-text("Duplicate")')).toBeVisible();
 		});
 
@@ -259,7 +255,9 @@ test.describe("Openings — UI", () => {
 				await page.goto(
 					`${ORG_UI_URL}/openings/${createRes.body!.opening_number}/edit`
 				);
-				await expect(page.locator('[name="title"]')).toHaveValue("Original Title");
+				await expect(page.locator('[name="title"]')).toHaveValue(
+					"Original Title"
+				);
 				await expect(page.locator('[name="description"]')).toHaveValue(
 					"Original description"
 				);
@@ -268,7 +266,9 @@ test.describe("Openings — UI", () => {
 			}
 		});
 
-		test("back button returns to detail page without saving", async ({ page }) => {
+		test("back button returns to detail page without saving", async ({
+			page,
+		}) => {
 			const { email, domain } = generateTestOrgEmail("ui-op-edit-back");
 			const { orgId } = await createTestOrgAdminDirect(email, TEST_PASSWORD);
 			const recruiterEmail = `rec@${domain}`;

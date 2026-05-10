@@ -70,9 +70,8 @@ test.describe("Openings — Update Errors", () => {
 
 	test("update-opening with HM == recruiter → 400", async ({ request }) => {
 		const api = new OrgAPIClient(request);
-		const { email: adminEmail, domain } = generateTestOrgEmail(
-			"op-upd-err-same"
-		);
+		const { email: adminEmail, domain } =
+			generateTestOrgEmail("op-upd-err-same");
 		const { orgId } = await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
 		const { email: recruiterEmail } = await createTestOrgUserDirect(
 			`rec@${domain}`,
@@ -176,9 +175,8 @@ test.describe("Openings — Update Errors", () => {
 
 	test("update-opening with missing description → 400", async ({ request }) => {
 		const api = new OrgAPIClient(request);
-		const { email: adminEmail, domain } = generateTestOrgEmail(
-			"op-upd-err-no-desc"
-		);
+		const { email: adminEmail, domain } =
+			generateTestOrgEmail("op-upd-err-no-desc");
 		const { orgId } = await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
 		const { email: recruiterEmail } = await createTestOrgUserDirect(
 			`rec@${domain}`,
@@ -227,7 +225,9 @@ test.describe("Openings — Update Errors", () => {
 		}
 	});
 
-	test("update-opening with number_of_positions=0 → 400", async ({ request }) => {
+	test("update-opening with number_of_positions=0 → 400", async ({
+		request,
+	}) => {
 		const api = new OrgAPIClient(request);
 		const { email: adminEmail, domain } = generateTestOrgEmail(
 			"op-upd-err-zero-pos"
@@ -282,9 +282,8 @@ test.describe("Openings — Update Errors", () => {
 
 	test("update published opening → 422", async ({ request }) => {
 		const api = new OrgAPIClient(request);
-		const { email: adminEmail, domain } = generateTestOrgEmail(
-			"op-upd-err-pub"
-		);
+		const { email: adminEmail, domain } =
+			generateTestOrgEmail("op-upd-err-pub");
 		const { orgId } = await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
 		const { email: recruiterEmail } = await createTestOrgUserDirect(
 			`rec@${domain}`,

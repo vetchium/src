@@ -126,9 +126,7 @@ test.describe("Openings — List Filters", () => {
 		await deleteTestOrgUser(recruiterEmail);
 	});
 
-	test("filter_status=['published'] → only Opening A", async ({
-		request,
-	}) => {
+	test("filter_status=['published'] → only Opening A", async ({ request }) => {
 		const api = new OrgAPIClient(request);
 		const req: ListOpeningsRequest = { filter_status: ["published"] };
 		const res = await api.listOpenings(token, req);
@@ -142,9 +140,9 @@ test.describe("Openings — List Filters", () => {
 		expect(
 			res.body!.openings.some((o) => o.title === "Frontend Designer")
 		).toBe(false);
-		expect(
-			res.body!.openings.some((o) => o.title === "Backend Engineer")
-		).toBe(false);
+		expect(res.body!.openings.some((o) => o.title === "Backend Engineer")).toBe(
+			false
+		);
 	});
 
 	test("filter_status=['draft'] → Opening B and C", async ({ request }) => {
@@ -173,9 +171,7 @@ test.describe("Openings — List Filters", () => {
 			filter_is_internal: false,
 		});
 		expect(res.status).toBe(200);
-		expect(res.body!.openings.every((o) => o.is_internal === false)).toBe(
-			true
-		);
+		expect(res.body!.openings.every((o) => o.is_internal === false)).toBe(true);
 	});
 
 	test("filter_title_prefix='Frontend' → Opening A and B", async ({

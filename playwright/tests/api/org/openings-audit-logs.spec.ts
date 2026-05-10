@@ -116,7 +116,9 @@ test.describe("Openings — Audit Logs", () => {
 			});
 			expect(auditResp.status).toBe(200);
 			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
-			expect(auditResp.body.audit_logs[0].event_type).toBe("org.update_opening");
+			expect(auditResp.body.audit_logs[0].event_type).toBe(
+				"org.update_opening"
+			);
 		} finally {
 			await deleteTestOrgUser(setup.adminEmail);
 			await deleteTestOrgUser(setup.recruiterEmail);
@@ -168,7 +170,9 @@ test.describe("Openings — Audit Logs", () => {
 			});
 			expect(auditResp.status).toBe(200);
 			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
-			expect(auditResp.body.audit_logs[0].event_type).toBe("org.submit_opening");
+			expect(auditResp.body.audit_logs[0].event_type).toBe(
+				"org.submit_opening"
+			);
 
 			await deleteTestOrgUser(managerEmail);
 		} finally {
@@ -225,7 +229,9 @@ test.describe("Openings — Audit Logs", () => {
 			});
 			expect(auditResp.status).toBe(200);
 			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
-			expect(auditResp.body.audit_logs[0].event_type).toBe("org.reject_opening");
+			expect(auditResp.body.audit_logs[0].event_type).toBe(
+				"org.reject_opening"
+			);
 
 			await deleteTestOrgUser(managerEmail);
 		} finally {
@@ -274,7 +280,9 @@ test.describe("Openings — Audit Logs", () => {
 			});
 			expect(auditResp.status).toBe(200);
 			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
-			expect(auditResp.body.audit_logs[0].event_type).toBe("org.reopen_opening");
+			expect(auditResp.body.audit_logs[0].event_type).toBe(
+				"org.reopen_opening"
+			);
 		} finally {
 			await deleteTestOrgUser(adminEmail);
 			await deleteTestOrgUser(recruiterEmail);
@@ -321,7 +329,9 @@ test.describe("Openings — Audit Logs", () => {
 			});
 			expect(auditResp.status).toBe(200);
 			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
-			expect(auditResp.body.audit_logs[0].event_type).toBe("org.archive_opening");
+			expect(auditResp.body.audit_logs[0].event_type).toBe(
+				"org.archive_opening"
+			);
 		} finally {
 			await deleteTestOrgUser(adminEmail);
 			await deleteTestOrgUser(recruiterEmail);
@@ -342,7 +352,9 @@ test.describe("Openings — Audit Logs", () => {
 			});
 			expect(auditResp.status).toBe(200);
 			expect(auditResp.body.audit_logs.length).toBeGreaterThanOrEqual(1);
-			expect(auditResp.body.audit_logs[0].event_type).toBe("org.discard_opening");
+			expect(auditResp.body.audit_logs[0].event_type).toBe(
+				"org.discard_opening"
+			);
 		} finally {
 			await deleteTestOrgUser(adminEmail);
 			await deleteTestOrgUser(recruiterEmail);
