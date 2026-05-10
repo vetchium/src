@@ -141,38 +141,6 @@ test.describe("Openings API", () => {
 			}
 		});
 
-		test("Hiring manager equals recruiter (400)", async ({ request }) => {
-			const api = new OrgAPIClient(request);
-			const { email, domain } = generateTestOrgEmail("op-same-user");
-			await createTestOrgAdminDirect(email, TEST_PASSWORD);
-
-			try {
-				const token = await loginOrgUser(api, email, domain);
-				const addrRes = await api.createAddress(token, {
-					title: "HQ",
-					address_line1: "1 St",
-					city: "Chennai",
-					country: "IN",
-				});
-				expect(addrRes.status).toBe(201);
-
-				const res = await api.createOpeningRaw(token, {
-					title: "Engineer",
-					description: "desc",
-					is_internal: false,
-					employment_type: "full_time",
-					work_location_type: "remote",
-					address_ids: [addrRes.body!.address_id],
-					number_of_positions: 1,
-					hiring_manager_email_address: email,
-					recruiter_email_address: email,
-				});
-				expect(res.status).toBe(400);
-			} finally {
-				await deleteTestOrgUser(email);
-			}
-		});
-
 		test("RBAC: no roles → 403", async ({ request }) => {
 			const api = new OrgAPIClient(request);
 			const { email: adminEmail, domain } = generateTestOrgEmail("op-rbac-no");

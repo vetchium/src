@@ -325,7 +325,11 @@ export default function CreateOpeningPage() {
 								name="title"
 								rules={[{ required: true, message: t("form.titleRequired") }]}
 							>
-								<Input maxLength={200} placeholder={t("form.title")} />
+								<Input
+									name="title"
+									maxLength={200}
+									placeholder={t("form.title")}
+								/>
 							</Form.Item>
 
 							<Form.Item
@@ -334,6 +338,7 @@ export default function CreateOpeningPage() {
 								rules={[{ required: true, message: t("form.required") }]}
 							>
 								<Input.TextArea
+									name="description"
 									maxLength={10000}
 									rows={6}
 									placeholder={t("form.description")}

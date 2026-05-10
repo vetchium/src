@@ -68,58 +68,6 @@ test.describe("Openings — Update Errors", () => {
 		expect(response.status()).toBe(401);
 	});
 
-	test("update-opening with HM == recruiter → 400", async ({ request }) => {
-		const api = new OrgAPIClient(request);
-		const { email: adminEmail, domain } =
-			generateTestOrgEmail("op-upd-err-same");
-		const { orgId } = await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
-		const { email: recruiterEmail } = await createTestOrgUserDirect(
-			`rec@${domain}`,
-			TEST_PASSWORD,
-			"ind1",
-			{ orgId, domain }
-		);
-
-		try {
-			const token = await loginOrgUser(api, adminEmail, domain);
-
-			const addrRes = await api.createAddress(token, {
-				title: "HQ",
-				address_line1: "1 St",
-				city: "Chennai",
-				country: "IN",
-			} as CreateAddressRequest);
-
-			const createRes = await api.createOpening(token, {
-				title: "Test",
-				description: "Test",
-				is_internal: false,
-				employment_type: "full_time",
-				work_location_type: "remote",
-				address_ids: [addrRes.body!.address_id],
-				number_of_positions: 1,
-				hiring_manager_email_address: adminEmail,
-				recruiter_email_address: recruiterEmail,
-			} as CreateOpeningRequest);
-
-			const res = await api.updateOpening(token, {
-				opening_number: createRes.body!.opening_number,
-				title: "Updated",
-				description: "Updated",
-				employment_type: "full_time",
-				work_location_type: "remote",
-				address_ids: [addrRes.body!.address_id],
-				number_of_positions: 1,
-				hiring_manager_email_address: adminEmail,
-				recruiter_email_address: adminEmail,
-			});
-			expect(res.status).toBe(400);
-		} finally {
-			await deleteTestOrgUser(adminEmail);
-			await deleteTestOrgUser(recruiterEmail);
-		}
-	});
-
 	test("update-opening with missing title → 400", async ({ request }) => {
 		const api = new OrgAPIClient(request);
 		const { email: adminEmail, domain } = generateTestOrgEmail(

@@ -12,14 +12,8 @@ import {
 	Descriptions,
 	Alert,
 	Divider,
-	Dropdown,
 } from "antd";
-import type { MenuProps } from "antd";
-import {
-	ArrowLeftOutlined,
-	EditOutlined,
-	DownOutlined,
-} from "@ant-design/icons";
+import { ArrowLeftOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import type {
@@ -177,67 +171,112 @@ export default function OpeningDetailPage() {
 		}
 	};
 
-	const getActionMenuItems = (): MenuProps["items"] => {
-		if (!opening || !hasManageRole) return [];
+	const renderActions = () => {
+		if (!opening || !hasManageRole) return null;
 
-		const editItem = {
-			key: "edit",
-			label: t("table.edit"),
-			icon: <EditOutlined />,
-			onClick: () => navigate(`/openings/${opening.opening_number}/edit`),
-		};
-		const submitItem = {
-			key: "submit",
-			label: t("table.submit"),
-			onClick: () => handleTransition("/org/submit-opening", "submitted"),
-		};
-		const approveItem = {
-			key: "approve",
-			label: t("table.approve"),
-			onClick: () => handleTransition("/org/approve-opening", "approved"),
-		};
-		const rejectItem = {
-			key: "reject",
-			label: t("table.reject"),
-			onClick: handleRejectModal,
-		};
-		const pauseItem = {
-			key: "pause",
-			label: t("table.pause"),
-			onClick: () => handleTransition("/org/pause-opening", "paused"),
-		};
-		const reopenItem = {
-			key: "reopen",
-			label: t("table.reopen"),
-			onClick: () => handleTransition("/org/reopen-opening", "reopened"),
-		};
-		const closeItem = {
-			key: "close",
-			label: t("table.close"),
-			onClick: () => handleTransition("/org/close-opening", "closed"),
-		};
-		const archiveItem = {
-			key: "archive",
-			label: t("table.archive"),
-			onClick: () => handleTransition("/org/archive-opening", "archived"),
-		};
-		const duplicateItem = {
-			key: "duplicate",
-			label: t("table.duplicate"),
-			onClick: handleDuplicate,
+		const status = opening.status;
+		const byStatus: Record<string, React.ReactNode[]> = {
+			draft: [
+				<Button
+					key="edit"
+					onClick={() => navigate(`/openings/${opening.opening_number}/edit`)}
+				>
+					{t("table.edit")}
+				</Button>,
+				<Button
+					key="submit"
+					onClick={() => handleTransition("/org/submit-opening", "submitted")}
+				>
+					{t("table.submit")}
+				</Button>,
+				<Button key="duplicate" onClick={handleDuplicate}>
+					{t("table.duplicate")}
+				</Button>,
+			],
+			pending_review: [
+				<Button
+					key="approve"
+					onClick={() => handleTransition("/org/approve-opening", "approved")}
+				>
+					{t("table.approve")}
+				</Button>,
+				<Button key="reject" onClick={handleRejectModal}>
+					{t("table.reject")}
+				</Button>,
+				<Button key="duplicate" onClick={handleDuplicate}>
+					{t("table.duplicate")}
+				</Button>,
+			],
+			published: [
+				<Button
+					key="pause"
+					onClick={() => handleTransition("/org/pause-opening", "paused")}
+				>
+					{t("table.pause")}
+				</Button>,
+				<Button
+					key="close"
+					onClick={() => handleTransition("/org/close-opening", "closed")}
+				>
+					{t("table.close")}
+				</Button>,
+				<Button key="duplicate" onClick={handleDuplicate}>
+					{t("table.duplicate")}
+				</Button>,
+			],
+			paused: [
+				<Button
+					key="reopen"
+					onClick={() => handleTransition("/org/reopen-opening", "reopened")}
+				>
+					{t("table.reopen")}
+				</Button>,
+				<Button
+					key="close"
+					onClick={() => handleTransition("/org/close-opening", "closed")}
+				>
+					{t("table.close")}
+				</Button>,
+				<Button key="duplicate" onClick={handleDuplicate}>
+					{t("table.duplicate")}
+				</Button>,
+			],
+			expired: [
+				<Button
+					key="archive"
+					onClick={() => handleTransition("/org/archive-opening", "archived")}
+				>
+					{t("table.archive")}
+				</Button>,
+				<Button key="duplicate" onClick={handleDuplicate}>
+					{t("table.duplicate")}
+				</Button>,
+			],
+			closed: [
+				<Button
+					key="archive"
+					onClick={() => handleTransition("/org/archive-opening", "archived")}
+				>
+					{t("table.archive")}
+				</Button>,
+				<Button key="duplicate" onClick={handleDuplicate}>
+					{t("table.duplicate")}
+				</Button>,
+			],
+			archived: [
+				<Button key="duplicate" onClick={handleDuplicate}>
+					{t("table.duplicate")}
+				</Button>,
+			],
 		};
 
-		const byStatus: Record<string, MenuProps["items"]> = {
-			draft: [editItem, submitItem, duplicateItem],
-			pending_review: [approveItem, rejectItem, duplicateItem],
-			published: [pauseItem, closeItem, duplicateItem],
-			paused: [reopenItem, closeItem, duplicateItem],
-			expired: [archiveItem, duplicateItem],
-			closed: [archiveItem, duplicateItem],
-			archived: [duplicateItem],
-		};
-
-		return byStatus[opening.status as string] ?? [duplicateItem];
+		return (
+			byStatus[status] ?? [
+				<Button key="duplicate" onClick={handleDuplicate}>
+					{t("table.duplicate")}
+				</Button>,
+			]
+		);
 	};
 
 	if (loading || !opening) {
@@ -410,8 +449,6 @@ export default function OpeningDetailPage() {
 			: []),
 	];
 
-	const actionMenuItems = getActionMenuItems() ?? [];
-
 	return (
 		<div
 			style={{
@@ -451,16 +488,7 @@ export default function OpeningDetailPage() {
 						</Tag>
 					</Space>
 				</div>
-				{hasManageRole && actionMenuItems.length > 0 && (
-					<Dropdown menu={{ items: actionMenuItems }} trigger={["click"]}>
-						<Button type="primary">
-							<Space>
-								{t("table.actions")}
-								<DownOutlined />
-							</Space>
-						</Button>
-					</Dropdown>
-				)}
+				<Space>{renderActions()}</Space>
 			</div>
 
 			{/* Status banners */}

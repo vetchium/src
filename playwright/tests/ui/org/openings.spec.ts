@@ -88,20 +88,18 @@ test.describe("Openings — UI", () => {
 				await orgLogin(page, domain, email, TEST_PASSWORD);
 				await page.goto(`${ORG_UI_URL}/openings/new`);
 				await expect(page.locator("text=Create Opening")).toBeVisible();
+				// Step 0 is active on load: title and description fields are visible
 				await expect(page.locator('[name="title"]')).toBeVisible();
 				await expect(
 					page.locator('label:has-text("Description")')
 				).toBeVisible();
+				// Stepper shows all required sections
 				await expect(
-					page.locator('label:has-text("Employment Type")')
+					page.locator("text=Type, location & addresses")
 				).toBeVisible();
 				await expect(
-					page.locator('label:has-text("Work Location")')
+					page.locator("text=Hiring manager, recruiter & team")
 				).toBeVisible();
-				await expect(
-					page.locator('label:has-text("Hiring Manager")')
-				).toBeVisible();
-				await expect(page.locator('label:has-text("Recruiter")')).toBeVisible();
 			} finally {
 				await deleteTestOrgByDomain(domain);
 			}
@@ -114,7 +112,7 @@ test.describe("Openings — UI", () => {
 			try {
 				await orgLogin(page, domain, email, TEST_PASSWORD);
 				await page.goto(`${ORG_UI_URL}/openings/new`);
-				await page.click('button[type="submit"]');
+				await page.click('button:has-text("Next")');
 				await expect(page.locator("text=title is required")).toBeVisible();
 			} finally {
 				await deleteTestOrgByDomain(domain);
