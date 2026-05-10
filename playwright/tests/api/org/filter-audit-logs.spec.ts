@@ -24,6 +24,7 @@ async function loginOrg(
 	const tfaResp = await api.verifyTFA({
 		tfa_token: loginResp.body.tfa_token,
 		tfa_code: tfaCode,
+		remember_me: false,
 	});
 	expect(tfaResp.status).toBe(200);
 	return tfaResp.body.session_token;

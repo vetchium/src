@@ -34,7 +34,6 @@ test.describe("POST /admin/request-password-reset", () => {
 			const watcherTfaResp = await api.verifyTFA({
 				tfa_token: watcherLoginResp.body.tfa_token,
 				tfa_code: watcherTfaCode,
-				remember_me: false,
 			});
 			const watcherToken = watcherTfaResp.body.session_token;
 

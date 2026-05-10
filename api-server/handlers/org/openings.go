@@ -4,11 +4,13 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
+	pgx "github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"vetchium-api-server.gomodule/internal/audit"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
@@ -938,6 +940,18 @@ func UpdateOpening(s *server.RegionalServer) http.HandlerFunc {
 		})
 
 		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				existing, _ := s.Regional.GetOpeningByNumber(ctx, regionaldb.GetOpeningByNumberParams{
+					OrgID:         orgUser.OrgID,
+					OpeningNumber: req.OpeningNumber,
+				})
+				if !existing.OpeningID.Valid {
+					w.WriteHeader(http.StatusNotFound)
+				} else {
+					w.WriteHeader(http.StatusUnprocessableEntity)
+				}
+				return
+			}
 			log.Error("failed to update opening", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
@@ -969,7 +983,19 @@ func DiscardOpening(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		err := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
-			// First log audit before delete
+			// Check state first
+			existing, err := qtx.GetOpeningByNumber(ctx, regionaldb.GetOpeningByNumberParams{
+				OrgID:         orgUser.OrgID,
+				OpeningNumber: req.OpeningNumber,
+			})
+			if err != nil {
+				return server.ErrNotFound
+			}
+			if existing.Status != regionaldb.OpeningStatusDraft {
+				return server.ErrInvalidState
+			}
+
+			// Log audit
 			eventData, _ := json.Marshal(map[string]any{
 				"opening_number": req.OpeningNumber,
 			})
@@ -991,15 +1017,13 @@ func DiscardOpening(s *server.RegionalServer) http.HandlerFunc {
 		})
 
 		if err != nil {
-			// Check if it's a "not found" or "wrong state" error
-			opening, _ := s.Regional.GetOpeningByNumber(ctx, regionaldb.GetOpeningByNumberParams{
-				OrgID:         orgUser.OrgID,
-				OpeningNumber: req.OpeningNumber,
-			})
-			if opening.OpeningID.Valid == false {
+			if errors.Is(err, server.ErrNotFound) {
 				w.WriteHeader(http.StatusNotFound)
-			} else {
+			} else if errors.Is(err, server.ErrInvalidState) {
 				w.WriteHeader(http.StatusUnprocessableEntity)
+			} else {
+				log.Error("failed to discard opening", "error", err)
+				http.Error(w, "", http.StatusInternalServerError)
 			}
 			return
 		}
@@ -1219,16 +1243,20 @@ func SubmitOpening(s *server.RegionalServer) http.HandlerFunc {
 		})
 
 		if txErr != nil {
-			// Check if it's a "not found" or "wrong state" error
-			existing, _ := s.Regional.GetOpeningByNumber(ctx, regionaldb.GetOpeningByNumberParams{
-				OrgID:         orgUser.OrgID,
-				OpeningNumber: req.OpeningNumber,
-			})
-			if existing.OpeningID.Valid == false {
-				w.WriteHeader(http.StatusNotFound)
-			} else {
-				w.WriteHeader(http.StatusUnprocessableEntity)
+			if errors.Is(txErr, pgx.ErrNoRows) {
+				existing, _ := s.Regional.GetOpeningByNumber(ctx, regionaldb.GetOpeningByNumberParams{
+					OrgID:         orgUser.OrgID,
+					OpeningNumber: req.OpeningNumber,
+				})
+				if !existing.OpeningID.Valid {
+					w.WriteHeader(http.StatusNotFound)
+				} else {
+					w.WriteHeader(http.StatusUnprocessableEntity)
+				}
+				return
 			}
+			log.Error("failed to submit opening", "error", txErr)
+			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 

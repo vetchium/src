@@ -119,6 +119,7 @@ test.describe("POST /hub/login", () => {
 			const tfaResp = await api.verifyTFA({
 				tfa_token: successResp.body.tfa_token,
 				tfa_code: tfaCode,
+				remember_me: false,
 			});
 			expect(tfaResp.status).toBe(200);
 			const sessionToken = tfaResp.body.session_token;

@@ -103,8 +103,8 @@ export default function OpeningsListPage() {
 							: visibilityFilter === "public"
 								? false
 								: undefined,
-					filter_hiring_manager_org_user_id: hiringManagerFilter || undefined,
-					filter_recruiter_org_user_id: recruiterFilter || undefined,
+					filter_hiring_manager_email_address: hiringManagerFilter || undefined,
+					filter_recruiter_email_address: recruiterFilter || undefined,
 					filter_tag_ids: tagsFilter.length > 0 ? tagsFilter : undefined,
 					filter_title_prefix: titlePrefixFilter || undefined,
 					pagination_key: paginationKey,

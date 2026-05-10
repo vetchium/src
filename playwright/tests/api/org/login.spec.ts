@@ -64,7 +64,7 @@ test.describe("POST /org/login", () => {
 
 			expect(response.status).toBe(400);
 			expect(Array.isArray(response.errors)).toBe(true);
-			expect(response.errors[0].field).toBe("domain");
+			expect(response.errors![0].field).toBe("domain");
 		} finally {
 			await deleteTestOrgUser(email);
 		}

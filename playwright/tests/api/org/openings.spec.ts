@@ -53,12 +53,11 @@ test.describe("Openings API", () => {
 	test.describe("POST /org/create-opening", () => {
 		test("Success: superadmin creates opening (201)", async ({ request }) => {
 			const api = new OrgAPIClient(request);
-			const {
-				email: adminEmail,
-				domain,
-				orgId,
-			} = generateTestOrgEmail("op-create");
-			await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
+			const { email: adminEmail, domain } = generateTestOrgEmail("op-create");
+			const { orgId } = await createTestOrgAdminDirect(
+				adminEmail,
+				TEST_PASSWORD
+			);
 			const { email: recruiterEmail } = await createTestOrgUserDirect(
 				`recruiter@${domain}`,
 				TEST_PASSWORD,
@@ -176,12 +175,11 @@ test.describe("Openings API", () => {
 
 		test("RBAC: no roles → 403", async ({ request }) => {
 			const api = new OrgAPIClient(request);
-			const {
-				email: adminEmail,
-				domain,
-				orgId,
-			} = generateTestOrgEmail("op-rbac-no");
-			await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
+			const { email: adminEmail, domain } = generateTestOrgEmail("op-rbac-no");
+			const { orgId } = await createTestOrgAdminDirect(
+				adminEmail,
+				TEST_PASSWORD
+			);
 			const { email: noRoleEmail } = await createTestOrgUserDirect(
 				`norole@${domain}`,
 				TEST_PASSWORD,
@@ -211,12 +209,11 @@ test.describe("Openings API", () => {
 
 		test("RBAC: manage_openings role → 201", async ({ request }) => {
 			const api = new OrgAPIClient(request);
-			const {
-				email: adminEmail,
-				domain,
-				orgId,
-			} = generateTestOrgEmail("op-rbac-ok");
-			await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
+			const { email: adminEmail, domain } = generateTestOrgEmail("op-rbac-ok");
+			const { orgId } = await createTestOrgAdminDirect(
+				adminEmail,
+				TEST_PASSWORD
+			);
 			const { email: managerEmail, orgUserId: managerUserId } =
 				await createTestOrgUserDirect(
 					`manager@${domain}`,
@@ -232,7 +229,7 @@ test.describe("Openings API", () => {
 			);
 
 			try {
-				await assignRoleToOrgUser(managerUserId, "org:manage_openings", orgId);
+				await assignRoleToOrgUser(managerUserId, "org:manage_openings");
 
 				const adminToken = await loginOrgUser(api, adminEmail, domain);
 				const addrRes = await api.createAddress(adminToken, {
@@ -293,12 +290,12 @@ test.describe("Openings API", () => {
 
 		test("RBAC: no roles → 403", async ({ request }) => {
 			const api = new OrgAPIClient(request);
-			const {
-				email: adminEmail,
-				domain,
-				orgId,
-			} = generateTestOrgEmail("op-list-rbac-no");
-			await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
+			const { email: adminEmail, domain } =
+				generateTestOrgEmail("op-list-rbac-no");
+			const { orgId } = await createTestOrgAdminDirect(
+				adminEmail,
+				TEST_PASSWORD
+			);
 			const { email: noRoleEmail } = await createTestOrgUserDirect(
 				`norole@${domain}`,
 				TEST_PASSWORD,
@@ -318,12 +315,12 @@ test.describe("Openings API", () => {
 
 		test("RBAC: view_openings role → 200", async ({ request }) => {
 			const api = new OrgAPIClient(request);
-			const {
-				email: adminEmail,
-				domain,
-				orgId,
-			} = generateTestOrgEmail("op-list-rbac-ok");
-			await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
+			const { email: adminEmail, domain } =
+				generateTestOrgEmail("op-list-rbac-ok");
+			const { orgId } = await createTestOrgAdminDirect(
+				adminEmail,
+				TEST_PASSWORD
+			);
 			const { email: viewerEmail, orgUserId: viewerUserId } =
 				await createTestOrgUserDirect(
 					`viewer@${domain}`,
@@ -333,7 +330,7 @@ test.describe("Openings API", () => {
 				);
 
 			try {
-				await assignRoleToOrgUser(viewerUserId, "org:view_openings", orgId);
+				await assignRoleToOrgUser(viewerUserId, "org:view_openings");
 				const token = await loginOrgUser(api, viewerEmail, domain);
 				const res = await api.listOpenings(token, {});
 				expect(res.status).toBe(200);
@@ -491,12 +488,11 @@ test.describe("Openings API", () => {
 	test.describe("POST /org/discard-opening", () => {
 		test("Success: discard a draft opening (204)", async ({ request }) => {
 			const api = new OrgAPIClient(request);
-			const {
-				email: adminEmail,
-				domain,
-				orgId,
-			} = generateTestOrgEmail("op-discard");
-			await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
+			const { email: adminEmail, domain } = generateTestOrgEmail("op-discard");
+			const { orgId } = await createTestOrgAdminDirect(
+				adminEmail,
+				TEST_PASSWORD
+			);
 			const { email: recruiterEmail } = await createTestOrgUserDirect(
 				`rec@${domain}`,
 				TEST_PASSWORD,
@@ -565,12 +561,11 @@ test.describe("Openings API", () => {
 	test.describe("POST /org/duplicate-opening", () => {
 		test("Success: duplicate an opening (201)", async ({ request }) => {
 			const api = new OrgAPIClient(request);
-			const {
-				email: adminEmail,
-				domain,
-				orgId,
-			} = generateTestOrgEmail("op-dup");
-			await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
+			const { email: adminEmail, domain } = generateTestOrgEmail("op-dup");
+			const { orgId } = await createTestOrgAdminDirect(
+				adminEmail,
+				TEST_PASSWORD
+			);
 			const { email: recruiterEmail } = await createTestOrgUserDirect(
 				`recdup@${domain}`,
 				TEST_PASSWORD,
@@ -653,7 +648,7 @@ test.describe("Openings API", () => {
 				orgId,
 				domain,
 			});
-			await assignRoleToOrgUser(managerUserId, "org:manage_openings", orgId);
+			await assignRoleToOrgUser(managerUserId, "org:manage_openings");
 
 			adminToken = await loginOrgUser(api, adminEmail, domain);
 			managerToken = await loginOrgUser(api, managerEmail, domain);
@@ -724,12 +719,11 @@ test.describe("Openings API", () => {
 			request,
 		}) => {
 			const api = new OrgAPIClient(request);
-			const {
-				email: adminEmail,
-				domain,
-				orgId,
-			} = generateTestOrgEmail("op-reject");
-			await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
+			const { email: adminEmail, domain } = generateTestOrgEmail("op-reject");
+			const { orgId } = await createTestOrgAdminDirect(
+				adminEmail,
+				TEST_PASSWORD
+			);
 			const { email: managerEmail, orgUserId: managerUserId } =
 				await createTestOrgUserDirect(`mgr@${domain}`, TEST_PASSWORD, "ind1", {
 					orgId,
@@ -741,7 +735,7 @@ test.describe("Openings API", () => {
 				"ind1",
 				{ orgId, domain }
 			);
-			await assignRoleToOrgUser(managerUserId, "org:manage_openings", orgId);
+			await assignRoleToOrgUser(managerUserId, "org:manage_openings");
 
 			try {
 				const adminToken = await loginOrgUser(api, adminEmail, domain);

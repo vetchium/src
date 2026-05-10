@@ -1391,7 +1391,7 @@ WHERE org_id = @org_id AND opening_number = @opening_number AND status = 'draft'
 -- name: TransitionOpeningSubmit :one
 UPDATE openings
 SET status                = @target_status,
-    first_published_at    = CASE WHEN @target_status = 'published' THEN NOW() ELSE first_published_at END,
+    first_published_at    = CASE WHEN @target_status = 'published'::opening_status THEN NOW() ELSE first_published_at END,
     rejection_note        = NULL,
     updated_at            = NOW()
 WHERE org_id = @org_id AND opening_number = @opening_number AND status = 'draft'
@@ -1459,8 +1459,8 @@ WHERE o.org_id = @org_id
        OR EXISTS (SELECT 1 FROM opening_tags ot
                   WHERE ot.opening_id = o.opening_id
                     AND ot.tag_id = ANY(sqlc.narg('filter_tags')::text[])))
-  AND (@cursor_created_at::timestamptz IS NULL
-       OR (o.created_at, o.opening_number) < (@cursor_created_at, @cursor_opening_number::int4))
+  AND (sqlc.narg('cursor_created_at')::timestamptz IS NULL
+       OR (o.created_at, o.opening_number) < (sqlc.narg('cursor_created_at')::timestamptz, sqlc.narg('cursor_opening_number')::int4))
 ORDER BY o.created_at DESC, o.opening_number DESC
 LIMIT @limit_count;
 
@@ -1481,22 +1481,26 @@ SELECT tag_id FROM opening_tags WHERE opening_id = @opening_id;
 -- name: ReplaceOpeningAddresses :exec
 WITH del AS (DELETE FROM opening_addresses WHERE opening_id = @opening_id RETURNING 1)
 INSERT INTO opening_addresses (opening_id, address_id)
-SELECT @opening_id::uuid, UNNEST(@address_ids::uuid[]);
+SELECT @opening_id::uuid, UNNEST(@address_ids::uuid[])
+ON CONFLICT DO NOTHING;
 
 -- name: ReplaceOpeningHiringTeam :exec
 WITH del AS (DELETE FROM opening_hiring_team_members WHERE opening_id = @opening_id RETURNING 1)
 INSERT INTO opening_hiring_team_members (opening_id, org_user_id)
-SELECT @opening_id::uuid, UNNEST(@org_user_ids::uuid[]);
+SELECT @opening_id::uuid, UNNEST(@org_user_ids::uuid[])
+ON CONFLICT DO NOTHING;
 
 -- name: ReplaceOpeningWatchers :exec
 WITH del AS (DELETE FROM opening_watchers WHERE opening_id = @opening_id RETURNING 1)
 INSERT INTO opening_watchers (opening_id, org_user_id)
-SELECT @opening_id::uuid, UNNEST(@org_user_ids::uuid[]);
+SELECT @opening_id::uuid, UNNEST(@org_user_ids::uuid[])
+ON CONFLICT DO NOTHING;
 
 -- name: ReplaceOpeningTags :exec
 WITH del AS (DELETE FROM opening_tags WHERE opening_id = @opening_id RETURNING 1)
 INSERT INTO opening_tags (opening_id, tag_id)
-SELECT @opening_id::uuid, UNNEST(@tag_ids::text[]);
+SELECT @opening_id::uuid, UNNEST(@tag_ids::text[])
+ON CONFLICT DO NOTHING;
 
 -- name: ValidateOrgAddressesActive :many
 SELECT address_id FROM org_addresses

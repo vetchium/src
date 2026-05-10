@@ -74,7 +74,6 @@ test.describe("Hub Email Change API", () => {
 			const loginRequest: HubLoginRequest = {
 				email_address: oldEmail,
 				password: password,
-				remember_me: false,
 			};
 			const loginResp = await api.login(loginRequest);
 			expect(loginResp.status).toBe(200);
@@ -85,6 +84,7 @@ test.describe("Hub Email Change API", () => {
 			const tfaResp = await api.verifyTFA({
 				tfa_token: loginResp.body.tfa_token,
 				tfa_code: tfaCode,
+				remember_me: false,
 			});
 			expect(tfaResp.status).toBe(200);
 			const sessionToken = tfaResp.body.session_token;
@@ -140,7 +140,6 @@ test.describe("Hub Email Change API", () => {
 			const loginRequest: HubLoginRequest = {
 				email_address: email1,
 				password: password,
-				remember_me: false,
 			};
 			const loginResp = await api.login(loginRequest);
 			expect(loginResp.status).toBe(200);
@@ -151,6 +150,7 @@ test.describe("Hub Email Change API", () => {
 			const tfaResp = await api.verifyTFA({
 				tfa_token: loginResp.body.tfa_token,
 				tfa_code: tfaCode,
+				remember_me: false,
 			});
 			expect(tfaResp.status).toBe(200);
 			const sessionToken = tfaResp.body.session_token;
@@ -192,7 +192,6 @@ test.describe("Hub Email Change API", () => {
 			const loginRequest: HubLoginRequest = {
 				email_address: email,
 				password: password,
-				remember_me: false,
 			};
 			const loginResp = await api.login(loginRequest);
 			expect(loginResp.status).toBe(200);
@@ -203,6 +202,7 @@ test.describe("Hub Email Change API", () => {
 			const tfaResp = await api.verifyTFA({
 				tfa_token: loginResp.body.tfa_token,
 				tfa_code: tfaCode,
+				remember_me: false,
 			});
 			expect(tfaResp.status).toBe(200);
 			const sessionToken = tfaResp.body.session_token;
@@ -243,7 +243,6 @@ test.describe("Hub Email Change API", () => {
 			const loginRequest: HubLoginRequest = {
 				email_address: email,
 				password: password,
-				remember_me: false,
 			};
 			const loginResp = await api.login(loginRequest);
 			expect(loginResp.status).toBe(200);
@@ -254,6 +253,7 @@ test.describe("Hub Email Change API", () => {
 			const tfaResp = await api.verifyTFA({
 				tfa_token: loginResp.body.tfa_token,
 				tfa_code: tfaCode,
+				remember_me: false,
 			});
 			expect(tfaResp.status).toBe(200);
 			const sessionToken = tfaResp.body.session_token;
@@ -291,7 +291,6 @@ test.describe("Hub Email Change API", () => {
 			const loginRequest: HubLoginRequest = {
 				email_address: email,
 				password: password,
-				remember_me: false,
 			};
 			const loginResp = await api.login(loginRequest);
 			expect(loginResp.status).toBe(200);
@@ -302,6 +301,7 @@ test.describe("Hub Email Change API", () => {
 			const tfaResp = await api.verifyTFA({
 				tfa_token: loginResp.body.tfa_token,
 				tfa_code: tfaCode,
+				remember_me: false,
 			});
 			expect(tfaResp.status).toBe(200);
 			const sessionToken = tfaResp.body.session_token;
@@ -350,7 +350,6 @@ test.describe("Hub Email Change API", () => {
 			const loginRequest: HubLoginRequest = {
 				email_address: oldEmail,
 				password: password,
-				remember_me: false,
 			};
 			const loginResp = await api.login(loginRequest);
 			expect(loginResp.status).toBe(200);
@@ -361,6 +360,7 @@ test.describe("Hub Email Change API", () => {
 			const tfaResp = await api.verifyTFA({
 				tfa_token: loginResp.body.tfa_token,
 				tfa_code: tfaCode,
+				remember_me: false,
 			});
 			expect(tfaResp.status).toBe(200);
 			const sessionToken = tfaResp.body.session_token;
@@ -392,7 +392,6 @@ test.describe("Hub Email Change API", () => {
 			const oldLoginResp = await api.login({
 				email_address: oldEmail,
 				password: password,
-				remember_me: false,
 			});
 			expect(oldLoginResp.status).toBe(401);
 
@@ -400,7 +399,6 @@ test.describe("Hub Email Change API", () => {
 			const newLoginResp = await api.login({
 				email_address: newEmail,
 				password: password,
-				remember_me: false,
 			});
 			expect(newLoginResp.status).toBe(200);
 			const newTfaCode = await getTfaCodeFromEmail(newEmail);
@@ -450,7 +448,6 @@ test.describe("Hub Email Change API", () => {
 			const loginRequest: HubLoginRequest = {
 				email_address: oldEmail,
 				password: password,
-				remember_me: false,
 			};
 			const loginResp = await api.login(loginRequest);
 			expect(loginResp.status).toBe(200);
@@ -461,6 +458,7 @@ test.describe("Hub Email Change API", () => {
 			const tfaResp = await api.verifyTFA({
 				tfa_token: loginResp.body.tfa_token,
 				tfa_code: tfaCode,
+				remember_me: false,
 			});
 			expect(tfaResp.status).toBe(200);
 			const sessionToken = tfaResp.body.session_token;
@@ -553,7 +551,6 @@ test.describe("Hub Email Change API", () => {
 			const login1Request: HubLoginRequest = {
 				email_address: email1,
 				password: password,
-				remember_me: false,
 			};
 			const login1Resp = await api.login(login1Request);
 			expect(login1Resp.status).toBe(200);
@@ -564,6 +561,7 @@ test.describe("Hub Email Change API", () => {
 			const tfa1Resp = await api.verifyTFA({
 				tfa_token: login1Resp.body.tfa_token,
 				tfa_code: tfa1Code,
+				remember_me: false,
 			});
 			expect(tfa1Resp.status).toBe(200);
 			const session1Token = tfa1Resp.body.session_token;
@@ -581,7 +579,6 @@ test.describe("Hub Email Change API", () => {
 			const login2Request: HubLoginRequest = {
 				email_address: email2,
 				password: password,
-				remember_me: false,
 			};
 			const login2Resp = await api.login(login2Request);
 			expect(login2Resp.status).toBe(200);
@@ -592,6 +589,7 @@ test.describe("Hub Email Change API", () => {
 			const tfa2Resp = await api.verifyTFA({
 				tfa_token: login2Resp.body.tfa_token,
 				tfa_code: tfa2Code,
+				remember_me: false,
 			});
 			expect(tfa2Resp.status).toBe(200);
 			const session2Token = tfa2Resp.body.session_token;

@@ -82,6 +82,7 @@ test.describe("POST /hub/request-password-reset", () => {
 			const tfaResp = await api.verifyTFA({
 				tfa_token: loginResp.body.tfa_token,
 				tfa_code: tfaCode,
+				remember_me: false,
 			});
 			expect(tfaResp.status).toBe(200);
 			const sessionToken = tfaResp.body.session_token;

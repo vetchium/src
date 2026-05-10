@@ -54,7 +54,7 @@ test.describe("GET /org/myinfo", () => {
 			expect(response.body.org_name).toBe(domain);
 			expect(Array.isArray(response.body.roles)).toBe(true);
 		} finally {
-			await deleteTestOrgUser(email, domain);
+			await deleteTestOrgUser(email);
 		}
 	});
 
@@ -94,7 +94,7 @@ test.describe("GET /org/myinfo", () => {
 
 			expect(response.status).toBe(401);
 		} finally {
-			await deleteTestOrgUser(email, domain);
+			await deleteTestOrgUser(email);
 		}
 	});
 

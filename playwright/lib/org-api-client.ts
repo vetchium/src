@@ -2708,7 +2708,7 @@ export class OrgAPIClient {
 			headers: { Authorization: `Bearer ${sessionToken}` },
 			data: request,
 		});
-		return { status: response.status() };
+		return { status: response.status(), body: undefined as unknown as void };
 	}
 
 	async duplicateOpening(

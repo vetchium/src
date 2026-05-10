@@ -41,7 +41,6 @@ test.describe("POST /admin/invite-user", () => {
 			const tfaResponse = await api.verifyTFA({
 				tfa_token: loginResponse.body.tfa_token,
 				tfa_code: tfaCode,
-				remember_me: false,
 			});
 			expect(tfaResponse.status).toBe(200);
 			const sessionToken = tfaResponse.body.session_token;
@@ -112,7 +111,6 @@ test.describe("POST /admin/invite-user", () => {
 			const tfaResponse = await api.verifyTFA({
 				tfa_token: loginResponse.body.tfa_token,
 				tfa_code: tfaCode,
-				remember_me: false,
 			});
 			expect(tfaResponse.status).toBe(200);
 			const sessionToken = tfaResponse.body.session_token;
@@ -155,7 +153,6 @@ test.describe("POST /admin/invite-user", () => {
 			const tfaResponse = await api.verifyTFA({
 				tfa_token: loginResponse.body.tfa_token,
 				tfa_code: tfaCode,
-				remember_me: false,
 			});
 			expect(tfaResponse.status).toBe(200);
 			const sessionToken = tfaResponse.body.session_token;
@@ -189,7 +186,6 @@ test.describe("POST /admin/invite-user", () => {
 			const tfaResponse = await api.verifyTFA({
 				tfa_token: loginResponse.body.tfa_token,
 				tfa_code: tfaCode,
-				remember_me: false,
 			});
 			const sessionToken = tfaResponse.body.session_token;
 
@@ -220,7 +216,6 @@ test.describe("POST /admin/invite-user", () => {
 			const tfaResponse = await api.verifyTFA({
 				tfa_token: loginResponse.body.tfa_token,
 				tfa_code: tfaCode,
-				remember_me: false,
 			});
 			const sessionToken = tfaResponse.body.session_token;
 
@@ -285,7 +280,6 @@ test.describe("RBAC: POST /admin/invite-user", () => {
 			const tfaResponse = await api.verifyTFA({
 				tfa_token: loginResponse.body.tfa_token,
 				tfa_code: tfaCode,
-				remember_me: false,
 			});
 			expect(tfaResponse.status).toBe(200);
 			const sessionToken = tfaResponse.body.session_token;
