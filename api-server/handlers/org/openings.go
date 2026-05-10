@@ -215,8 +215,17 @@ func parseUUID(uuidStr string) pgtype.UUID {
 
 func floatToNumeric(f float64) pgtype.Numeric {
 	var n pgtype.Numeric
-	n.Scan(fmt.Sprintf("%f", f))
+	n.Scan(fmt.Sprintf("%g", f))
 	return n
+}
+
+func numericToFloat(n pgtype.Numeric) float64 {
+	if !n.Valid || n.Int == nil {
+		return 0
+	}
+	var f float64
+	fmt.Sscanf(fmt.Sprintf("%se%d", n.Int.String(), n.Exp), "%e", &f)
+	return f
 }
 
 func validateOpeningReferences(ctx context.Context, s *server.RegionalServer, orgID pgtype.UUID, req *org.CreateOpeningRequest) (map[string]pgtype.UUID, error) {
@@ -452,15 +461,9 @@ func dbOpeningToResponse(ctx context.Context, s *server.RegionalServer, opening 
 		resp.MinEducationLevel = &level
 	}
 	if opening.SalaryMinAmount.Valid && opening.SalaryMaxAmount.Valid && opening.SalaryCurrency.Valid {
-		minStr := opening.SalaryMinAmount.Int.String()
-		maxStr := opening.SalaryMaxAmount.Int.String()
-		// Convert to float64 for the response
-		var minF, maxF float64
-		fmt.Sscanf(minStr, "%f", &minF)
-		fmt.Sscanf(maxStr, "%f", &maxF)
 		resp.Salary = &org.Salary{
-			MinAmount: minF,
-			MaxAmount: maxF,
+			MinAmount: numericToFloat(opening.SalaryMinAmount),
+			MaxAmount: numericToFloat(opening.SalaryMaxAmount),
 			Currency:  opening.SalaryCurrency.String,
 		}
 	}
@@ -814,6 +817,20 @@ func UpdateOpening(s *server.RegionalServer) http.HandlerFunc {
 			log.Debug("validation failed", "errors", errs)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(errs)
+			return
+		}
+
+		// Check opening exists and is editable before validating references
+		existingCheck, existErr := s.Regional.GetOpeningByNumber(ctx, regionaldb.GetOpeningByNumberParams{
+			OrgID:         orgUser.OrgID,
+			OpeningNumber: req.OpeningNumber,
+		})
+		if existErr != nil || !existingCheck.OpeningID.Valid {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		if existingCheck.Status != regionaldb.OpeningStatusDraft {
+			w.WriteHeader(http.StatusUnprocessableEntity)
 			return
 		}
 

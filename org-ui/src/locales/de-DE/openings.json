@@ -79,6 +79,7 @@
 		"on_site": "Vor Ort",
 		"hybrid": "Hybrid",
 		"required": "Pflichtfeld",
+		"titleRequired": "title is required",
 		"sections": {
 			"basics": "Grunddaten",
 			"employment": "Beschäftigung",

@@ -79,6 +79,7 @@
 		"on_site": "நேரில்",
 		"hybrid": "கலப்பு",
 		"required": "தேவையானது",
+		"titleRequired": "title is required",
 		"sections": {
 			"basics": "அடிப்படை",
 			"employment": "வேலை வகை",

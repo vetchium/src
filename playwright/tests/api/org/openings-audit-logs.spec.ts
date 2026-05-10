@@ -129,7 +129,15 @@ test.describe("Openings — Audit Logs", () => {
 		request,
 	}) => {
 		const setup = await setupTestOpening(request, "op-audit-submit");
-		const { api, token, adminEmail, recruiterEmail, domain, orgId } = setup;
+		const {
+			api,
+			token,
+			adminEmail,
+			recruiterEmail,
+			domain,
+			orgId,
+			addressId,
+		} = setup;
 
 		try {
 			const { email: managerEmail, orgUserId: managerUserId } =
@@ -141,19 +149,13 @@ test.describe("Openings — Audit Logs", () => {
 
 			const managerToken = await loginOrgUser(api, managerEmail, domain);
 
-			const addrRes = await api.createAddress(managerToken, {
-				title: "HQ",
-				address_line1: "1 St",
-				city: "Chennai",
-				country: "IN",
-			} as CreateAddressRequest);
 			const createRes = await api.createOpening(managerToken, {
 				title: "Audit Test Opening",
 				description: "For audit log tests",
 				is_internal: false,
 				employment_type: "full_time",
 				work_location_type: "remote",
-				address_ids: [addrRes.body!.address_id],
+				address_ids: [addressId],
 				number_of_positions: 1,
 				hiring_manager_email_address: managerEmail,
 				recruiter_email_address: adminEmail,
@@ -164,7 +166,8 @@ test.describe("Openings — Audit Logs", () => {
 				opening_number: createRes.body!.opening_number,
 			});
 
-			const auditResp = await api.listAuditLogs(managerToken, {
+			// Use admin (superadmin) token to query audit logs since manager lacks org:view_audit_logs
+			const auditResp = await api.listAuditLogs(token, {
 				event_types: ["org.submit_opening"],
 				start_time: before,
 			});
@@ -183,7 +186,15 @@ test.describe("Openings — Audit Logs", () => {
 
 	test("org.reject_opening audit log", async ({ request }) => {
 		const setup = await setupTestOpening(request, "op-audit-reject");
-		const { api, token, adminEmail, recruiterEmail, domain, orgId } = setup;
+		const {
+			api,
+			token,
+			adminEmail,
+			recruiterEmail,
+			domain,
+			orgId,
+			addressId,
+		} = setup;
 
 		try {
 			const { email: managerEmail, orgUserId: managerUserId } =
@@ -195,19 +206,13 @@ test.describe("Openings — Audit Logs", () => {
 
 			const managerToken = await loginOrgUser(api, managerEmail, domain);
 
-			const addrRes = await api.createAddress(managerToken, {
-				title: "HQ",
-				address_line1: "1 St",
-				city: "Chennai",
-				country: "IN",
-			} as CreateAddressRequest);
 			const createRes = await api.createOpening(managerToken, {
 				title: "Audit Test Opening",
 				description: "For audit log tests",
 				is_internal: false,
 				employment_type: "full_time",
 				work_location_type: "remote",
-				address_ids: [addrRes.body!.address_id],
+				address_ids: [addressId],
 				number_of_positions: 1,
 				hiring_manager_email_address: managerEmail,
 				recruiter_email_address: adminEmail,

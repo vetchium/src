@@ -1,5 +1,5 @@
 import { Page, expect } from "@playwright/test";
-import { getTfaCodeFromEmail } from "./mailpit";
+import { getTfaCodeFromEmail, deleteEmailsFor } from "./mailpit";
 
 export const ORG_UI_URL = "http://localhost:3002";
 
@@ -12,6 +12,9 @@ export async function orgLogin(
 	email: string,
 	password: string
 ) {
+	// Clear previous TFA emails so stale codes don't interfere with this login
+	await deleteEmailsFor(email);
+
 	await page.goto(`${ORG_UI_URL}/login`);
 	await page.fill(
 		'input[placeholder="Company Domain (e.g., acme.com)"]',

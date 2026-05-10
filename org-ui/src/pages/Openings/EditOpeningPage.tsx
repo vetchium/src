@@ -287,7 +287,7 @@ export default function EditOpeningPage() {
 			}}
 		>
 			<div style={{ marginBottom: 16 }}>
-				<Link to="/openings">
+				<Link to={`/openings/${openingNumber}`}>
 					<Button icon={<ArrowLeftOutlined />}>{t("backToOpenings")}</Button>
 				</Link>
 			</div>
@@ -310,7 +310,7 @@ export default function EditOpeningPage() {
 							name="title"
 							rules={[{ required: true, message: t("form.required") }]}
 						>
-							<Input maxLength={200} placeholder={t("form.title")} />
+							<Input name="title" maxLength={200} placeholder={t("form.title")} />
 						</Form.Item>
 
 						<Form.Item
@@ -319,6 +319,7 @@ export default function EditOpeningPage() {
 							rules={[{ required: true, message: t("form.required") }]}
 						>
 							<Input.TextArea
+								name="description"
 								maxLength={10000}
 								rows={5}
 								placeholder={t("form.description")}

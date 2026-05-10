@@ -233,9 +233,9 @@ export default function CreateOpeningPage() {
 						<Form.Item
 							label={t("form.title")}
 							name="title"
-							rules={[{ required: true, message: t("form.required") }]}
+							rules={[{ required: true, message: t("form.titleRequired") }]}
 						>
-							<Input maxLength={200} placeholder={t("form.title")} />
+							<Input name="title" maxLength={200} placeholder={t("form.title")} />
 						</Form.Item>
 
 						<Form.Item

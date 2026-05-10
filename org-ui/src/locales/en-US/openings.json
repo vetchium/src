@@ -79,6 +79,7 @@
 		"on_site": "On-Site",
 		"hybrid": "Hybrid",
 		"required": "Required",
+		"titleRequired": "title is required",
 		"sections": {
 			"basics": "Basics",
 			"employment": "Employment",

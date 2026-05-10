@@ -61,7 +61,9 @@ export default function OpeningsListPage() {
 	const [tagsFilter] = useState<string[]>([]);
 	const [titlePrefixFilter] = useState<string>("");
 
-	const hasManageRole = myInfo?.roles?.includes("org:manage_openings");
+	const hasManageRole =
+		myInfo?.roles?.includes("org:manage_openings") ||
+		myInfo?.roles?.includes("org:superadmin");
 
 	const postOpeningAction = useCallback(
 		async <TResponse,>(

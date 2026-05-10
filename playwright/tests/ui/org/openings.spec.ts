@@ -6,7 +6,9 @@ import {
 	deleteTestOrgByDomain,
 	generateTestOrgEmail,
 } from "../../../lib/db";
+import { getTfaCodeFromEmail } from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
+import type { OrgLoginRequest, OrgTFARequest } from "vetchium-specs/org/org-users";
 import type { CreateOpeningRequest } from "vetchium-specs/org/openings";
 import type { CreateAddressRequest } from "vetchium-specs/org/company-addresses";
 import { OrgAPIClient } from "../../../lib/org-api-client";
@@ -16,19 +18,15 @@ async function loginOrgUser(
 	email: string,
 	domain: string
 ): Promise<string> {
-	const loginRes = await api.login({
-		email,
-		domain,
-		password: TEST_PASSWORD,
-	});
-	const tfaCode = await (
-		await fetch(`http://localhost:8080/api/messages?query=${email}`)
-	).json();
-	const tfaRes = await api.verifyTFA({
+	const loginReq: OrgLoginRequest = { email, domain, password: TEST_PASSWORD };
+	const loginRes = await api.login(loginReq);
+	const tfaCode = await getTfaCodeFromEmail(email);
+	const tfaReq: OrgTFARequest = {
 		tfa_token: loginRes.body!.tfa_token,
 		tfa_code: tfaCode,
 		remember_me: true,
-	});
+	};
+	const tfaRes = await api.verifyTFA(tfaReq);
 	return tfaRes.body!.session_token;
 }
 

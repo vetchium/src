@@ -36,7 +36,9 @@ export default function OpeningDetailPage() {
 	const [opening, setOpening] = useState<Opening | null>(null);
 	const [loading, setLoading] = useState(false);
 
-	const hasManageRole = myInfo?.roles?.includes("org:manage_openings");
+	const hasManageRole =
+		myInfo?.roles?.includes("org:manage_openings") ||
+		myInfo?.roles?.includes("org:superadmin");
 
 	const postOpeningAction = useCallback(
 		async <TResponse,>(
