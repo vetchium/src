@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Modal, Form, Input, Select, message } from "antd";
 import type { OrgInviteUserRequest } from "vetchium-specs/org/org-users";
+import { VALID_ROLE_NAMES } from "vetchium-specs/common/roles";
 import { getApiBaseUrl } from "../../config";
 import { useAuth } from "../../hooks/useAuth";
 import { SUPPORTED_LANGUAGES } from "../../i18n";
@@ -11,6 +12,8 @@ interface InviteUserModalProps {
 	onCancel: () => void;
 	onSuccess: () => void;
 }
+
+const ORG_ROLES = VALID_ROLE_NAMES.filter((r) => r.startsWith("org:"));
 
 export function InviteUserModal({
 	visible,
@@ -101,28 +104,10 @@ export function InviteUserModal({
 					<Select
 						mode="multiple"
 						placeholder={t("inviteModal.rolesPlaceholder")}
-						options={[
-							{
-								label: t("inviteModal.roleViewUsers"),
-								value: "org:view_users",
-							},
-							{
-								label: t("inviteModal.roleManageUsers"),
-								value: "org:manage_users",
-							},
-							{
-								label: t("inviteModal.roleViewDomains"),
-								value: "org:view_domains",
-							},
-							{
-								label: t("inviteModal.roleManageDomains"),
-								value: "org:manage_domains",
-							},
-							{
-								label: t("inviteModal.roleSuperadmin"),
-								value: "org:superadmin",
-							},
-						]}
+						options={ORG_ROLES.map((role) => ({
+							label: role,
+							value: role,
+						}))}
 					/>
 				</Form.Item>
 				<Form.Item
