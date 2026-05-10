@@ -305,7 +305,7 @@ export default function OpeningDetailPage() {
 		>
 			<div style={{ marginBottom: 16 }}>
 				<Link to="/openings">
-					<Button icon={<ArrowLeftOutlined />}>{t("backToDashboard")}</Button>
+					<Button icon={<ArrowLeftOutlined />}>{t("backToOpenings")}</Button>
 				</Link>
 			</div>
 
@@ -441,10 +441,16 @@ export default function OpeningDetailPage() {
 				)}
 
 				<Paragraph>
-					<strong>Hiring Manager:</strong> {opening.hiring_manager.full_name}
+					<strong>Hiring Manager:</strong>{" "}
+					{opening.hiring_manager.full_name
+						? `${opening.hiring_manager.full_name} (${opening.hiring_manager.email_address})`
+						: opening.hiring_manager.email_address}
 				</Paragraph>
 				<Paragraph>
-					<strong>Recruiter:</strong> {opening.recruiter.full_name}
+					<strong>Recruiter:</strong>{" "}
+					{opening.recruiter.full_name
+						? `${opening.recruiter.full_name} (${opening.recruiter.email_address})`
+						: opening.recruiter.email_address}
 				</Paragraph>
 
 				<Paragraph>

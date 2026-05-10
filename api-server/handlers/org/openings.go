@@ -49,8 +49,9 @@ func CreateOpening(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		// Validate references exist and belong to this org
-		if err := validateOpeningReferences(ctx, s, orgUser.OrgID, &req); err != nil {
+		// Validate references and resolve emails → UUIDs in a single DB round-trip
+		emailToUUID, err := validateOpeningReferences(ctx, s, orgUser.OrgID, &req)
+		if err != nil {
 			log.Debug("validation failed", "error", err)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode([]map[string]string{{
@@ -72,7 +73,7 @@ func CreateOpening(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		var opening regionaldb.Opening
-		err := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
+		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
 			// Allocate opening number
 			allocated, err := qtx.AllocateOpeningNumber(ctx, orgUser.OrgID)
 			if err != nil {
@@ -89,8 +90,8 @@ func CreateOpening(s *server.RegionalServer) http.HandlerFunc {
 				EmploymentType:         regionaldb.EmploymentType(req.EmploymentType),
 				WorkLocationType:       regionaldb.WorkLocationType(req.WorkLocationType),
 				NumberOfPositions:      req.NumberOfPositions,
-				HiringManagerOrgUserID: parseUUID(req.HiringManagerOrgUserID),
-				RecruiterOrgUserID:     parseUUID(req.RecruiterOrgUserID),
+				HiringManagerOrgUserID: emailToUUID[req.HiringManagerEmailAddress],
+				RecruiterOrgUserID:     emailToUUID[req.RecruiterEmailAddress],
 			}
 
 			if req.MinYOE != nil {
@@ -137,10 +138,10 @@ func CreateOpening(s *server.RegionalServer) http.HandlerFunc {
 				}
 			}
 
-			if len(req.HiringTeamMemberIDs) > 0 {
-				teamIDs := make([]pgtype.UUID, len(req.HiringTeamMemberIDs))
-				for i, id := range req.HiringTeamMemberIDs {
-					teamIDs[i] = parseUUID(id)
+			if len(req.HiringTeamMemberEmailAddresses) > 0 {
+				teamIDs := make([]pgtype.UUID, len(req.HiringTeamMemberEmailAddresses))
+				for i, email := range req.HiringTeamMemberEmailAddresses {
+					teamIDs[i] = emailToUUID[email]
 				}
 				if err := qtx.ReplaceOpeningHiringTeam(ctx, regionaldb.ReplaceOpeningHiringTeamParams{
 					OpeningID:  created.OpeningID,
@@ -150,10 +151,10 @@ func CreateOpening(s *server.RegionalServer) http.HandlerFunc {
 				}
 			}
 
-			if len(req.WatcherIDs) > 0 {
-				watcherIDs := make([]pgtype.UUID, len(req.WatcherIDs))
-				for i, id := range req.WatcherIDs {
-					watcherIDs[i] = parseUUID(id)
+			if len(req.WatcherEmailAddresses) > 0 {
+				watcherIDs := make([]pgtype.UUID, len(req.WatcherEmailAddresses))
+				for i, email := range req.WatcherEmailAddresses {
+					watcherIDs[i] = emailToUUID[email]
 				}
 				if err := qtx.ReplaceOpeningWatchers(ctx, regionaldb.ReplaceOpeningWatchersParams{
 					OpeningID:  created.OpeningID,
@@ -216,7 +217,7 @@ func floatToNumeric(f float64) pgtype.Numeric {
 	return n
 }
 
-func validateOpeningReferences(ctx context.Context, s *server.RegionalServer, orgID pgtype.UUID, req *org.CreateOpeningRequest) error {
+func validateOpeningReferences(ctx context.Context, s *server.RegionalServer, orgID pgtype.UUID, req *org.CreateOpeningRequest) (map[string]pgtype.UUID, error) {
 	// Validate addresses
 	addressIDs := make([]pgtype.UUID, len(req.AddressIDs))
 	for i, id := range req.AddressIDs {
@@ -227,30 +228,35 @@ func validateOpeningReferences(ctx context.Context, s *server.RegionalServer, or
 		AddressIds: addressIDs,
 	})
 	if err != nil || len(validAddrs) != len(req.AddressIDs) {
-		return fmt.Errorf("some address IDs are invalid or inactive")
+		return nil, fmt.Errorf("some address IDs are invalid or inactive")
 	}
 
-	// Validate org users (hiring manager, recruiter, hiring team, watchers)
-	userIDs := make(map[string]bool)
-	userIDs[req.HiringManagerOrgUserID] = true
-	userIDs[req.RecruiterOrgUserID] = true
-	for _, id := range req.HiringTeamMemberIDs {
-		userIDs[id] = true
+	// Collect all unique user emails (hiring manager, recruiter, hiring team, watchers)
+	emailSet := make(map[string]bool)
+	emailSet[req.HiringManagerEmailAddress] = true
+	emailSet[req.RecruiterEmailAddress] = true
+	for _, email := range req.HiringTeamMemberEmailAddresses {
+		emailSet[email] = true
 	}
-	for _, id := range req.WatcherIDs {
-		userIDs[id] = true
+	for _, email := range req.WatcherEmailAddresses {
+		emailSet[email] = true
 	}
 
-	userIDList := make([]pgtype.UUID, 0, len(userIDs))
-	for idStr := range userIDs {
-		userIDList = append(userIDList, parseUUID(idStr))
+	emails := make([]string, 0, len(emailSet))
+	for email := range emailSet {
+		emails = append(emails, email)
 	}
-	validUsers, err := s.Regional.ValidateOrgUsersActive(ctx, regionaldb.ValidateOrgUsersActiveParams{
-		OrgID:      orgID,
-		OrgUserIds: userIDList,
+	foundUsers, err := s.Regional.GetActiveOrgUsersByEmails(ctx, regionaldb.GetActiveOrgUsersByEmailsParams{
+		OrgID:  orgID,
+		Emails: emails,
 	})
-	if err != nil || len(validUsers) != len(userIDs) {
-		return fmt.Errorf("some org user IDs are invalid or inactive")
+	if err != nil || len(foundUsers) != len(emails) {
+		return nil, fmt.Errorf("some user email addresses are invalid or inactive")
+	}
+
+	emailToUUID := make(map[string]pgtype.UUID, len(foundUsers))
+	for _, u := range foundUsers {
+		emailToUUID[u.EmailAddress] = u.OrgUserID
 	}
 
 	// Validate cost center if provided
@@ -260,7 +266,7 @@ func validateOpeningReferences(ctx context.Context, s *server.RegionalServer, or
 			CostCenterID: parseUUID(*req.CostCenterID),
 		})
 		if err != nil {
-			return fmt.Errorf("cost center is invalid or inactive")
+			return nil, fmt.Errorf("cost center is invalid or inactive")
 		}
 	}
 
@@ -268,14 +274,14 @@ func validateOpeningReferences(ctx context.Context, s *server.RegionalServer, or
 	if len(req.TagIDs) > 0 {
 		tags, err := s.Global.GetTagsByIDs(ctx, req.TagIDs)
 		if err != nil || len(tags) != len(req.TagIDs) {
-			return fmt.Errorf("some tag IDs are invalid or inactive")
+			return nil, fmt.Errorf("some tag IDs are invalid or inactive")
 		}
 	}
 
-	return nil
+	return emailToUUID, nil
 }
 
-func validateUpdateOpeningReferences(ctx context.Context, s *server.RegionalServer, orgID pgtype.UUID, req *org.UpdateOpeningRequest) error {
+func validateUpdateOpeningReferences(ctx context.Context, s *server.RegionalServer, orgID pgtype.UUID, req *org.UpdateOpeningRequest) (map[string]pgtype.UUID, error) {
 	// Validate addresses
 	addressIDs := make([]pgtype.UUID, len(req.AddressIDs))
 	for i, id := range req.AddressIDs {
@@ -286,30 +292,35 @@ func validateUpdateOpeningReferences(ctx context.Context, s *server.RegionalServ
 		AddressIds: addressIDs,
 	})
 	if err != nil || len(validAddrs) != len(req.AddressIDs) {
-		return fmt.Errorf("some address IDs are invalid or inactive")
+		return nil, fmt.Errorf("some address IDs are invalid or inactive")
 	}
 
-	// Validate org users
-	userIDs := make(map[string]bool)
-	userIDs[req.HiringManagerOrgUserID] = true
-	userIDs[req.RecruiterOrgUserID] = true
-	for _, id := range req.HiringTeamMemberIDs {
-		userIDs[id] = true
+	// Collect all unique user emails
+	emailSet := make(map[string]bool)
+	emailSet[req.HiringManagerEmailAddress] = true
+	emailSet[req.RecruiterEmailAddress] = true
+	for _, email := range req.HiringTeamMemberEmailAddresses {
+		emailSet[email] = true
 	}
-	for _, id := range req.WatcherIDs {
-		userIDs[id] = true
+	for _, email := range req.WatcherEmailAddresses {
+		emailSet[email] = true
 	}
 
-	userIDList := make([]pgtype.UUID, 0, len(userIDs))
-	for idStr := range userIDs {
-		userIDList = append(userIDList, parseUUID(idStr))
+	emails := make([]string, 0, len(emailSet))
+	for email := range emailSet {
+		emails = append(emails, email)
 	}
-	validUsers, err := s.Regional.ValidateOrgUsersActive(ctx, regionaldb.ValidateOrgUsersActiveParams{
-		OrgID:      orgID,
-		OrgUserIds: userIDList,
+	foundUsers, err := s.Regional.GetActiveOrgUsersByEmails(ctx, regionaldb.GetActiveOrgUsersByEmailsParams{
+		OrgID:  orgID,
+		Emails: emails,
 	})
-	if err != nil || len(validUsers) != len(userIDs) {
-		return fmt.Errorf("some org user IDs are invalid or inactive")
+	if err != nil || len(foundUsers) != len(emails) {
+		return nil, fmt.Errorf("some user email addresses are invalid or inactive")
+	}
+
+	emailToUUID := make(map[string]pgtype.UUID, len(foundUsers))
+	for _, u := range foundUsers {
+		emailToUUID[u.EmailAddress] = u.OrgUserID
 	}
 
 	// Validate cost center if provided
@@ -319,7 +330,7 @@ func validateUpdateOpeningReferences(ctx context.Context, s *server.RegionalServ
 			CostCenterID: parseUUID(*req.CostCenterID),
 		})
 		if err != nil {
-			return fmt.Errorf("cost center is invalid or inactive")
+			return nil, fmt.Errorf("cost center is invalid or inactive")
 		}
 	}
 
@@ -327,60 +338,58 @@ func validateUpdateOpeningReferences(ctx context.Context, s *server.RegionalServ
 	if len(req.TagIDs) > 0 {
 		tags, err := s.Global.GetTagsByIDs(ctx, req.TagIDs)
 		if err != nil || len(tags) != len(req.TagIDs) {
-			return fmt.Errorf("some tag IDs are invalid or inactive")
+			return nil, fmt.Errorf("some tag IDs are invalid or inactive")
 		}
 	}
 
-	return nil
+	return emailToUUID, nil
 }
 
 func validateDistinctTeam(req *org.CreateOpeningRequest) error {
-	// Check that hiring manager, recruiter, and hiring team members are distinct
-	if req.HiringManagerOrgUserID == req.RecruiterOrgUserID {
+	if req.HiringManagerEmailAddress == req.RecruiterEmailAddress {
 		return fmt.Errorf("hiring manager and recruiter must be different users")
 	}
 
-	for _, teamMemberID := range req.HiringTeamMemberIDs {
-		if teamMemberID == req.HiringManagerOrgUserID {
+	for _, email := range req.HiringTeamMemberEmailAddresses {
+		if email == req.HiringManagerEmailAddress {
 			return fmt.Errorf("hiring team member cannot be the hiring manager")
 		}
-		if teamMemberID == req.RecruiterOrgUserID {
+		if email == req.RecruiterEmailAddress {
 			return fmt.Errorf("hiring team member cannot be the recruiter")
 		}
 	}
 
-	// Check for duplicates within hiring team
 	teamSet := make(map[string]bool)
-	for _, id := range req.HiringTeamMemberIDs {
-		if teamSet[id] {
+	for _, email := range req.HiringTeamMemberEmailAddresses {
+		if teamSet[email] {
 			return fmt.Errorf("hiring team members must be unique")
 		}
-		teamSet[id] = true
+		teamSet[email] = true
 	}
 
 	return nil
 }
 
 func validateDistinctUpdateTeam(req *org.UpdateOpeningRequest) error {
-	if req.HiringManagerOrgUserID == req.RecruiterOrgUserID {
+	if req.HiringManagerEmailAddress == req.RecruiterEmailAddress {
 		return fmt.Errorf("hiring manager and recruiter must be different users")
 	}
 
-	for _, teamMemberID := range req.HiringTeamMemberIDs {
-		if teamMemberID == req.HiringManagerOrgUserID {
+	for _, email := range req.HiringTeamMemberEmailAddresses {
+		if email == req.HiringManagerEmailAddress {
 			return fmt.Errorf("hiring team member cannot be the hiring manager")
 		}
-		if teamMemberID == req.RecruiterOrgUserID {
+		if email == req.RecruiterEmailAddress {
 			return fmt.Errorf("hiring team member cannot be the recruiter")
 		}
 	}
 
 	teamSet := make(map[string]bool)
-	for _, id := range req.HiringTeamMemberIDs {
-		if teamSet[id] {
+	for _, email := range req.HiringTeamMemberEmailAddresses {
+		if teamSet[email] {
 			return fmt.Errorf("hiring team members must be unique")
 		}
-		teamSet[id] = true
+		teamSet[email] = true
 	}
 
 	return nil
@@ -494,9 +503,8 @@ func dbOpeningToResponse(ctx context.Context, s *server.RegionalServer, opening 
 				fullName = u.FullName.String
 			}
 			usersByID[u.OrgUserID] = map[string]string{
-				"org_user_id": u.OrgUserID.String(),
-				"full_name":   fullName,
-				"email":       u.EmailAddress,
+				"email_address": u.EmailAddress,
+				"full_name":     fullName,
 			}
 		}
 	}
@@ -638,14 +646,14 @@ func ListOpenings(s *server.RegionalServer) http.HandlerFunc {
 
 		if createdAt.Valid {
 			params.CursorCreatedAt = createdAt
-			params.CursorOpeningNumber = pgtype.Timestamptz{Time: time.Unix(0, int64(openingNumber)), Valid: true}
+			params.CursorOpeningNumber = pgtype.Int4{Int32: openingNumber, Valid: true}
 		}
 
 		// Status filters
 		if len(req.FilterStatus) > 0 {
-			params.FilterStatuses = make([]regionaldb.OpeningStatus, len(req.FilterStatus))
+			params.FilterStatuses = make([]string, len(req.FilterStatus))
 			for i, status := range req.FilterStatus {
-				params.FilterStatuses[i] = regionaldb.OpeningStatus(status)
+				params.FilterStatuses[i] = string(status)
 			}
 		}
 
@@ -654,12 +662,12 @@ func ListOpenings(s *server.RegionalServer) http.HandlerFunc {
 			params.FilterIsInternal = pgtype.Bool{Bool: *req.FilterIsInternal, Valid: true}
 		}
 
-		// User filters
-		if req.FilterHiringManagerOrgUserID != nil {
-			params.FilterHm = parseUUID(*req.FilterHiringManagerOrgUserID)
+		// User filters (by email address)
+		if req.FilterHiringManagerEmailAddress != nil {
+			params.FilterHmEmail = pgtype.Text{String: *req.FilterHiringManagerEmailAddress, Valid: true}
 		}
-		if req.FilterRecruiterOrgUserID != nil {
-			params.FilterRec = parseUUID(*req.FilterRecruiterOrgUserID)
+		if req.FilterRecruiterEmailAddress != nil {
+			params.FilterRecEmail = pgtype.Text{String: *req.FilterRecruiterEmailAddress, Valid: true}
 		}
 
 		// Title prefix
@@ -706,9 +714,8 @@ func ListOpenings(s *server.RegionalServer) http.HandlerFunc {
 					fullName = u.FullName.String
 				}
 				usersByID[u.OrgUserID] = map[string]string{
-					"org_user_id": u.OrgUserID.String(),
-					"full_name":   fullName,
-					"email":       u.EmailAddress,
+					"email_address": u.EmailAddress,
+					"full_name":     fullName,
 				}
 			}
 		}
@@ -808,7 +815,8 @@ func UpdateOpening(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		if err := validateUpdateOpeningReferences(ctx, s, orgUser.OrgID, &req); err != nil {
+		emailToUUID, err := validateUpdateOpeningReferences(ctx, s, orgUser.OrgID, &req)
+		if err != nil {
 			log.Debug("validation failed", "error", err)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode([]map[string]string{{
@@ -829,7 +837,7 @@ func UpdateOpening(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		var opening regionaldb.Opening
-		err := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
+		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
 			// Update opening fields
 			params := regionaldb.ReplaceOpeningEditableFieldsParams{
 				OrgID:                  orgUser.OrgID,
@@ -839,8 +847,8 @@ func UpdateOpening(s *server.RegionalServer) http.HandlerFunc {
 				EmploymentType:         regionaldb.EmploymentType(req.EmploymentType),
 				WorkLocationType:       regionaldb.WorkLocationType(req.WorkLocationType),
 				NumberOfPositions:      req.NumberOfPositions,
-				HiringManagerOrgUserID: parseUUID(req.HiringManagerOrgUserID),
-				RecruiterOrgUserID:     parseUUID(req.RecruiterOrgUserID),
+				HiringManagerOrgUserID: emailToUUID[req.HiringManagerEmailAddress],
+				RecruiterOrgUserID:     emailToUUID[req.RecruiterEmailAddress],
 			}
 
 			if req.MinYOE != nil {
@@ -873,53 +881,45 @@ func UpdateOpening(s *server.RegionalServer) http.HandlerFunc {
 			}
 			opening = updated
 
-			// Replace junction tables
-			if len(req.AddressIDs) > 0 {
-				addressIDs := make([]pgtype.UUID, len(req.AddressIDs))
-				for i, id := range req.AddressIDs {
-					addressIDs[i] = parseUUID(id)
-				}
-				if err := qtx.ReplaceOpeningAddresses(ctx, regionaldb.ReplaceOpeningAddressesParams{
-					OpeningID:  opening.OpeningID,
-					AddressIds: addressIDs,
-				}); err != nil {
-					return err
-				}
+			// Replace junction tables (always replace to allow clearing to empty)
+			addressIDs := make([]pgtype.UUID, len(req.AddressIDs))
+			for i, id := range req.AddressIDs {
+				addressIDs[i] = parseUUID(id)
+			}
+			if err := qtx.ReplaceOpeningAddresses(ctx, regionaldb.ReplaceOpeningAddressesParams{
+				OpeningID:  opening.OpeningID,
+				AddressIds: addressIDs,
+			}); err != nil {
+				return err
 			}
 
-			if len(req.HiringTeamMemberIDs) > 0 {
-				teamIDs := make([]pgtype.UUID, len(req.HiringTeamMemberIDs))
-				for i, id := range req.HiringTeamMemberIDs {
-					teamIDs[i] = parseUUID(id)
-				}
-				if err := qtx.ReplaceOpeningHiringTeam(ctx, regionaldb.ReplaceOpeningHiringTeamParams{
-					OpeningID:  opening.OpeningID,
-					OrgUserIds: teamIDs,
-				}); err != nil {
-					return err
-				}
+			teamIDs := make([]pgtype.UUID, len(req.HiringTeamMemberEmailAddresses))
+			for i, email := range req.HiringTeamMemberEmailAddresses {
+				teamIDs[i] = emailToUUID[email]
+			}
+			if err := qtx.ReplaceOpeningHiringTeam(ctx, regionaldb.ReplaceOpeningHiringTeamParams{
+				OpeningID:  opening.OpeningID,
+				OrgUserIds: teamIDs,
+			}); err != nil {
+				return err
 			}
 
-			if len(req.WatcherIDs) > 0 {
-				watcherIDs := make([]pgtype.UUID, len(req.WatcherIDs))
-				for i, id := range req.WatcherIDs {
-					watcherIDs[i] = parseUUID(id)
-				}
-				if err := qtx.ReplaceOpeningWatchers(ctx, regionaldb.ReplaceOpeningWatchersParams{
-					OpeningID:  opening.OpeningID,
-					OrgUserIds: watcherIDs,
-				}); err != nil {
-					return err
-				}
+			watcherIDs := make([]pgtype.UUID, len(req.WatcherEmailAddresses))
+			for i, email := range req.WatcherEmailAddresses {
+				watcherIDs[i] = emailToUUID[email]
+			}
+			if err := qtx.ReplaceOpeningWatchers(ctx, regionaldb.ReplaceOpeningWatchersParams{
+				OpeningID:  opening.OpeningID,
+				OrgUserIds: watcherIDs,
+			}); err != nil {
+				return err
 			}
 
-			if len(req.TagIDs) > 0 {
-				if err := qtx.ReplaceOpeningTags(ctx, regionaldb.ReplaceOpeningTagsParams{
-					OpeningID: opening.OpeningID,
-					TagIds:    req.TagIDs,
-				}); err != nil {
-					return err
-				}
+			if err := qtx.ReplaceOpeningTags(ctx, regionaldb.ReplaceOpeningTagsParams{
+				OpeningID: opening.OpeningID,
+				TagIds:    req.TagIDs,
+			}); err != nil {
+				return err
 			}
 
 			// Audit log

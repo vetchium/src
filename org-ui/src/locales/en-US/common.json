@@ -44,6 +44,10 @@
 		"title": "Sub-Organizations",
 		"description": "Manage sub-organizations and their members"
 	},
+	"openings": {
+		"title": "Job Openings",
+		"description": "Create and manage job openings for your organization"
+	},
 	"subscription": {
 		"title": "Subscription",
 		"description": "View your plan and upgrade your subscription"

@@ -109,6 +109,16 @@ import type {
 	ListMyClientsRequest,
 	ListMyClientsResponse,
 } from "vetchium-specs/org/marketplace";
+import type {
+	CreateOpeningRequest,
+	CreateOpeningResponse,
+	ListOpeningsRequest,
+	ListOpeningsResponse,
+	Opening,
+	OpeningNumberRequest,
+	UpdateOpeningRequest,
+	RejectOpeningRequest,
+} from "vetchium-specs/org/openings";
 import type { APIResponse } from "./api-client";
 
 /**
@@ -2490,6 +2500,229 @@ export class OrgAPIClient {
 		return {
 			status: response.status(),
 			body: body as ListMyClientsResponse,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	// ============================================================================
+	// Job Openings
+	// ============================================================================
+
+	async createOpening(
+		sessionToken: string,
+		request: CreateOpeningRequest
+	): Promise<APIResponse<CreateOpeningResponse>> {
+		const response = await this.request.post("/org/create-opening", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as CreateOpeningResponse,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	async createOpeningRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<CreateOpeningResponse>> {
+		const response = await this.request.post("/org/create-opening", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: body,
+		});
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as CreateOpeningResponse,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	async listOpenings(
+		sessionToken: string,
+		request: ListOpeningsRequest
+	): Promise<APIResponse<ListOpeningsResponse>> {
+		const response = await this.request.post("/org/list-openings", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as ListOpeningsResponse,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	async getOpening(
+		sessionToken: string,
+		request: OpeningNumberRequest
+	): Promise<APIResponse<Opening>> {
+		const response = await this.request.post("/org/get-opening", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as Opening,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	async updateOpening(
+		sessionToken: string,
+		request: UpdateOpeningRequest
+	): Promise<APIResponse<Opening>> {
+		const response = await this.request.post("/org/update-opening", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as Opening,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	async submitOpening(
+		sessionToken: string,
+		request: OpeningNumberRequest
+	): Promise<APIResponse<Opening>> {
+		const response = await this.request.post("/org/submit-opening", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as Opening,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	async approveOpening(
+		sessionToken: string,
+		request: OpeningNumberRequest
+	): Promise<APIResponse<Opening>> {
+		const response = await this.request.post("/org/approve-opening", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as Opening,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	async rejectOpening(
+		sessionToken: string,
+		request: RejectOpeningRequest
+	): Promise<APIResponse<Opening>> {
+		const response = await this.request.post("/org/reject-opening", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as Opening,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	async pauseOpening(
+		sessionToken: string,
+		request: OpeningNumberRequest
+	): Promise<APIResponse<Opening>> {
+		const response = await this.request.post("/org/pause-opening", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as Opening,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	async reopenOpening(
+		sessionToken: string,
+		request: OpeningNumberRequest
+	): Promise<APIResponse<Opening>> {
+		const response = await this.request.post("/org/reopen-opening", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as Opening,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	async closeOpening(
+		sessionToken: string,
+		request: OpeningNumberRequest
+	): Promise<APIResponse<Opening>> {
+		const response = await this.request.post("/org/close-opening", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as Opening,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	async archiveOpening(
+		sessionToken: string,
+		request: OpeningNumberRequest
+	): Promise<APIResponse<Opening>> {
+		const response = await this.request.post("/org/archive-opening", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as Opening,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	async discardOpening(
+		sessionToken: string,
+		request: OpeningNumberRequest
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/org/discard-opening", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		return { status: response.status() };
+	}
+
+	async duplicateOpening(
+		sessionToken: string,
+		request: OpeningNumberRequest
+	): Promise<APIResponse<CreateOpeningResponse>> {
+		const response = await this.request.post("/org/duplicate-opening", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as CreateOpeningResponse,
 			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}

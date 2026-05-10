@@ -1,6 +1,8 @@
 {
 	"title": "Job Openings",
 	"backToDashboard": "Back to Dashboard",
+	"backToOpenings": "Back to Openings",
+	"editOpeningTitle": "Edit Opening #{{number}}",
 	"createOpening": "Create Opening",
 	"filter": {
 		"status": "Status",
@@ -75,7 +77,16 @@
 		"internship": "Internship",
 		"remote": "Remote",
 		"on_site": "On-Site",
-		"hybrid": "Hybrid"
+		"hybrid": "Hybrid",
+		"required": "Required",
+		"sections": {
+			"basics": "Basics",
+			"employment": "Employment",
+			"requirements": "Requirements",
+			"compensation": "Compensation",
+			"team": "Team",
+			"additional": "Additional"
+		}
 	},
 	"detail": {
 		"rejectionBanner": "Returned for changes by {{approver}}: {{note}}",

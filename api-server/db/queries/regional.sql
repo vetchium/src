@@ -1447,18 +1447,20 @@ RETURNING *;
 SELECT o.*
 FROM openings o
 WHERE o.org_id = @org_id
-  AND (sqlc.narg('filter_statuses')::opening_status[] IS NULL
-       OR o.status = ANY(sqlc.narg('filter_statuses')::opening_status[]))
+  AND (sqlc.narg('filter_statuses')::text[] IS NULL
+       OR o.status::text = ANY(sqlc.narg('filter_statuses')::text[]))
   AND (sqlc.narg('filter_is_internal')::boolean IS NULL OR o.is_internal = sqlc.narg('filter_is_internal')::boolean)
-  AND (sqlc.narg('filter_hm')::uuid    IS NULL OR o.hiring_manager_org_user_id = sqlc.narg('filter_hm')::uuid)
-  AND (sqlc.narg('filter_rec')::uuid   IS NULL OR o.recruiter_org_user_id      = sqlc.narg('filter_rec')::uuid)
+  AND (sqlc.narg('filter_hm_email')::text IS NULL OR o.hiring_manager_org_user_id = (
+      SELECT org_user_id FROM org_users WHERE org_id = o.org_id AND email_address = sqlc.narg('filter_hm_email')::text AND status = 'active'))
+  AND (sqlc.narg('filter_rec_email')::text IS NULL OR o.recruiter_org_user_id = (
+      SELECT org_user_id FROM org_users WHERE org_id = o.org_id AND email_address = sqlc.narg('filter_rec_email')::text AND status = 'active'))
   AND (sqlc.narg('filter_title_prefix')::text IS NULL OR o.title ILIKE sqlc.narg('filter_title_prefix')::text || '%')
   AND (sqlc.narg('filter_tags')::text[] IS NULL
        OR EXISTS (SELECT 1 FROM opening_tags ot
                   WHERE ot.opening_id = o.opening_id
                     AND ot.tag_id = ANY(sqlc.narg('filter_tags')::text[])))
   AND (@cursor_created_at::timestamptz IS NULL
-       OR (o.created_at, o.opening_number) < (@cursor_created_at, @cursor_opening_number))
+       OR (o.created_at, o.opening_number) < (@cursor_created_at, @cursor_opening_number::int4))
 ORDER BY o.created_at DESC, o.opening_number DESC
 LIMIT @limit_count;
 
@@ -1507,6 +1509,12 @@ SELECT org_user_id FROM org_users
 WHERE org_id = @org_id
   AND status = 'active'
   AND org_user_id = ANY(@org_user_ids::uuid[]);
+
+-- name: GetActiveOrgUsersByEmails :many
+SELECT org_user_id, email_address FROM org_users
+WHERE org_id = @org_id
+  AND status = 'active'
+  AND email_address = ANY(@emails::text[]);
 
 -- name: ValidateCostCenterActive :one
 SELECT cost_center_id FROM cost_centers

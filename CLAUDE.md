@@ -39,6 +39,8 @@ Vetchium is a multi-region job search and hiring platform. User types: Professio
 3. Implement matching `.ts` and `.go` type/validation files from the `.tsp`
 4. Implement backend + frontend — plan all file changes first
    - **CRITICAL**: All API request/response types MUST be imported from `specs/typespec/`; never define locally
+   - Before writing any fetch/API call in a `.tsx` file, read the relevant `.ts` file in `specs/typespec/` to confirm the exact type names and field names — do NOT guess or reconstruct them from memory
+   - Before writing handler code in a `.go` file, read the relevant `.go` file in `specs/typespec/` to confirm the exact type names and field names
 5. All DB SQL goes in `api-server/db/` `.sql` files via sqlc — no SQL in `.go` files
 6. Write Playwright tests under `playwright/` — import all types from `specs/typespec/`
 7. Format: `goimports -w` for Go; `prettier --write` for md/ts/tsx/js/json/yaml
@@ -286,13 +288,57 @@ next_pagination_key?: string;
 
 `.tsp` files are the source of truth. Keep `.ts` and `.go` files in sync manually (tsp compile only generates OpenAPI specs).
 
-**CRITICAL**: Import all API types from `specs/typespec/`. Never define API schemas locally.
+**CRITICAL**: Import all API types from `specs/typespec/`. Never define API schemas locally — in any file (`.tsx`, `.ts`, `.go`, or Playwright test files).
+
+### TypeScript / Frontend (`.tsx`, `.ts`, Playwright)
+
+Always import request and response types from the spec package before writing any fetch call or type annotation:
 
 ```typescript
-// ✅ CORRECT
-import type { HubLoginRequest } from "vetchium-specs/hub/hub-users";
-const req: HubLoginRequest = { email_address: email, password };
+// ✅ CORRECT — import before using
+import type { CreateOpeningRequest, Opening, ListOpeningsResponse } from "vetchium-specs/org/openings";
+const req: CreateOpeningRequest = { title, description, ... };
+const data = await response.json() as Opening;
 ```
+
+```typescript
+// ❌ WRONG — inline type definitions are forbidden
+const req = { title, description, ... };                          // untyped — no compile-time safety
+type Opening = { title: string; status: string; ... };            // local definition duplicates the spec
+const data = await response.json() as { title: string; ... };     // inline cast hides spec drift
+```
+
+Rules:
+
+- **Read `specs/typespec/{portal}/{resource}.ts` before writing any fetch call** — confirm exact field names and types; never reconstruct from memory or copy from another component
+- All `fetch()` request bodies must be typed with the spec's request type
+- All `response.json()` casts must use the spec's response type
+- All list responses must use the spec's list response type (e.g. `ListOpeningsResponse`) — not an ad-hoc `{ openings: Opening[] }`
+- Never use `any` for API payloads — always use the imported type
+
+### Go / Backend
+
+Always import request and response types from the spec package:
+
+```go
+// ✅ CORRECT
+import org "vetchium-api-server.typespec/org"
+
+var req org.CreateOpeningRequest
+if err := json.NewDecoder(r.Body).Decode(&req); err != nil { ... }
+if errs := req.Validate(); len(errs) > 0 { ... }
+```
+
+```go
+// ❌ WRONG — local struct duplicates the spec and drifts silently
+type createOpeningRequest struct { Title string `json:"title"`; ... }
+```
+
+Rules:
+
+- **Read `specs/typespec/{portal}/{resource}.go` before writing the handler** — confirm exact type and field names
+- Use the spec type directly for `json.Decode` and call `.Validate()` on it
+- Never copy-paste fields into a local struct
 
 TypeScript validators: `validate{TypeName}(request): ValidationError[]`. Field validators return `string | null`.
 

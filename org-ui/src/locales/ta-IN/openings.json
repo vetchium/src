@@ -1,7 +1,9 @@
 {
-	"title": "Job Openings",
-	"backToDashboard": "Back to Dashboard",
-	"createOpening": "Create Opening",
+	"title": "வேலை வாய்ப்புகள்",
+	"backToDashboard": "டாஷ்போர்டுக்கு திரும்பு",
+	"backToOpenings": "வேலை வாய்ப்புகளுக்கு திரும்பு",
+	"editOpeningTitle": "வேலை வாய்ப்பு திருத்து #{{number}}",
+	"createOpening": "வேலை வாய்ப்பு உருவாக்கு",
 	"filter": {
 		"status": "Status",
 		"visibility": "Visibility",
@@ -73,9 +75,18 @@
 		"part_time": "Part-time",
 		"contract": "Contract",
 		"internship": "Internship",
-		"remote": "Remote",
-		"on_site": "On-Site",
-		"hybrid": "Hybrid"
+		"remote": "தொலைவிலிருந்து",
+		"on_site": "நேரில்",
+		"hybrid": "கலப்பு",
+		"required": "தேவையானது",
+		"sections": {
+			"basics": "அடிப்படை",
+			"employment": "வேலை வகை",
+			"requirements": "தேவைகள்",
+			"compensation": "ஊதியம்",
+			"team": "குழு",
+			"additional": "கூடுதல்"
+		}
 	},
 	"detail": {
 		"rejectionBanner": "Returned for changes by {{approver}}: {{note}}",

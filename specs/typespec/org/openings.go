@@ -31,8 +31,8 @@ const (
 	errWorkLocationTypeRequired  = "work_location_type is required"
 	errAddressIDsRequired        = "address_ids is required"
 	errNumberOfPositionsRequired = "number_of_positions is required"
-	errHiringManagerRequired     = "hiring_manager_org_user_id is required"
-	errRecruiterRequired         = "recruiter_org_user_id is required"
+	errHiringManagerRequired     = "hiring_manager_email_address is required"
+	errRecruiterRequired         = "recruiter_email_address is required"
 	errManagerEqualsRecruiter    = "hiring_manager and recruiter must be different users"
 )
 
@@ -81,24 +81,24 @@ type Salary struct {
 }
 
 type CreateOpeningRequest struct {
-	Title                  string           `json:"title"`
-	Description            string           `json:"description"`
-	IsInternal             bool             `json:"is_internal"`
-	EmploymentType         EmploymentType   `json:"employment_type"`
-	WorkLocationType       WorkLocationType `json:"work_location_type"`
-	AddressIDs             []string         `json:"address_ids"`
-	MinYOE                 *int32           `json:"min_yoe,omitempty"`
-	MaxYOE                 *int32           `json:"max_yoe,omitempty"`
-	MinEducationLevel      *EducationLevel  `json:"min_education_level,omitempty"`
-	Salary                 *Salary          `json:"salary,omitempty"`
-	NumberOfPositions      int32            `json:"number_of_positions"`
-	HiringManagerOrgUserID string           `json:"hiring_manager_org_user_id"`
-	RecruiterOrgUserID     string           `json:"recruiter_org_user_id"`
-	HiringTeamMemberIDs    []string         `json:"hiring_team_member_ids,omitempty"`
-	WatcherIDs             []string         `json:"watcher_ids,omitempty"`
-	CostCenterID           *string          `json:"cost_center_id,omitempty"`
-	TagIDs                 []string         `json:"tag_ids,omitempty"`
-	InternalNotes          *string          `json:"internal_notes,omitempty"`
+	Title                          string           `json:"title"`
+	Description                    string           `json:"description"`
+	IsInternal                     bool             `json:"is_internal"`
+	EmploymentType                 EmploymentType   `json:"employment_type"`
+	WorkLocationType               WorkLocationType `json:"work_location_type"`
+	AddressIDs                     []string         `json:"address_ids"`
+	MinYOE                         *int32           `json:"min_yoe,omitempty"`
+	MaxYOE                         *int32           `json:"max_yoe,omitempty"`
+	MinEducationLevel              *EducationLevel  `json:"min_education_level,omitempty"`
+	Salary                         *Salary          `json:"salary,omitempty"`
+	NumberOfPositions              int32            `json:"number_of_positions"`
+	HiringManagerEmailAddress      string           `json:"hiring_manager_email_address"`
+	RecruiterEmailAddress          string           `json:"recruiter_email_address"`
+	HiringTeamMemberEmailAddresses []string         `json:"hiring_team_member_email_addresses,omitempty"`
+	WatcherEmailAddresses          []string         `json:"watcher_email_addresses,omitempty"`
+	CostCenterID                   *string          `json:"cost_center_id,omitempty"`
+	TagIDs                         []string         `json:"tag_ids,omitempty"`
+	InternalNotes                  *string          `json:"internal_notes,omitempty"`
 }
 
 type CreateOpeningResponse struct {
@@ -152,35 +152,35 @@ type Opening struct {
 }
 
 type UpdateOpeningRequest struct {
-	OpeningNumber          int32            `json:"opening_number"`
-	Title                  string           `json:"title"`
-	Description            string           `json:"description"`
-	EmploymentType         EmploymentType   `json:"employment_type"`
-	WorkLocationType       WorkLocationType `json:"work_location_type"`
-	AddressIDs             []string         `json:"address_ids"`
-	MinYOE                 *int32           `json:"min_yoe,omitempty"`
-	MaxYOE                 *int32           `json:"max_yoe,omitempty"`
-	MinEducationLevel      *EducationLevel  `json:"min_education_level,omitempty"`
-	Salary                 *Salary          `json:"salary,omitempty"`
-	NumberOfPositions      int32            `json:"number_of_positions"`
-	HiringManagerOrgUserID string           `json:"hiring_manager_org_user_id"`
-	RecruiterOrgUserID     string           `json:"recruiter_org_user_id"`
-	HiringTeamMemberIDs    []string         `json:"hiring_team_member_ids,omitempty"`
-	WatcherIDs             []string         `json:"watcher_ids,omitempty"`
-	CostCenterID           *string          `json:"cost_center_id,omitempty"`
-	TagIDs                 []string         `json:"tag_ids,omitempty"`
-	InternalNotes          *string          `json:"internal_notes,omitempty"`
+	OpeningNumber                  int32            `json:"opening_number"`
+	Title                          string           `json:"title"`
+	Description                    string           `json:"description"`
+	EmploymentType                 EmploymentType   `json:"employment_type"`
+	WorkLocationType               WorkLocationType `json:"work_location_type"`
+	AddressIDs                     []string         `json:"address_ids"`
+	MinYOE                         *int32           `json:"min_yoe,omitempty"`
+	MaxYOE                         *int32           `json:"max_yoe,omitempty"`
+	MinEducationLevel              *EducationLevel  `json:"min_education_level,omitempty"`
+	Salary                         *Salary          `json:"salary,omitempty"`
+	NumberOfPositions              int32            `json:"number_of_positions"`
+	HiringManagerEmailAddress      string           `json:"hiring_manager_email_address"`
+	RecruiterEmailAddress          string           `json:"recruiter_email_address"`
+	HiringTeamMemberEmailAddresses []string         `json:"hiring_team_member_email_addresses,omitempty"`
+	WatcherEmailAddresses          []string         `json:"watcher_email_addresses,omitempty"`
+	CostCenterID                   *string          `json:"cost_center_id,omitempty"`
+	TagIDs                         []string         `json:"tag_ids,omitempty"`
+	InternalNotes                  *string          `json:"internal_notes,omitempty"`
 }
 
 type ListOpeningsRequest struct {
-	FilterStatus                 []OpeningStatus `json:"filter_status,omitempty"`
-	FilterIsInternal             *bool           `json:"filter_is_internal,omitempty"`
-	FilterHiringManagerOrgUserID *string         `json:"filter_hiring_manager_org_user_id,omitempty"`
-	FilterRecruiterOrgUserID     *string         `json:"filter_recruiter_org_user_id,omitempty"`
-	FilterTagIDs                 []string        `json:"filter_tag_ids,omitempty"`
-	FilterTitlePrefix            *string         `json:"filter_title_prefix,omitempty"`
-	PaginationKey                *string         `json:"pagination_key,omitempty"`
-	Limit                        *int32          `json:"limit,omitempty"`
+	FilterStatus                    []OpeningStatus `json:"filter_status,omitempty"`
+	FilterIsInternal                *bool           `json:"filter_is_internal,omitempty"`
+	FilterHiringManagerEmailAddress *string         `json:"filter_hiring_manager_email_address,omitempty"`
+	FilterRecruiterEmailAddress     *string         `json:"filter_recruiter_email_address,omitempty"`
+	FilterTagIDs                    []string        `json:"filter_tag_ids,omitempty"`
+	FilterTitlePrefix               *string         `json:"filter_title_prefix,omitempty"`
+	PaginationKey                   *string         `json:"pagination_key,omitempty"`
+	Limit                           *int32          `json:"limit,omitempty"`
 }
 
 type ListOpeningsResponse struct {
@@ -221,14 +221,14 @@ func (r CreateOpeningRequest) Validate() []common.ValidationError {
 	if r.NumberOfPositions < 1 {
 		errs = append(errs, common.NewValidationError("number_of_positions", fmt.Errorf(errNumberOfPositionsRequired)))
 	}
-	if r.HiringManagerOrgUserID == "" {
-		errs = append(errs, common.NewValidationError("hiring_manager_org_user_id", fmt.Errorf(errHiringManagerRequired)))
+	if r.HiringManagerEmailAddress == "" {
+		errs = append(errs, common.NewValidationError("hiring_manager_email_address", fmt.Errorf(errHiringManagerRequired)))
 	}
-	if r.RecruiterOrgUserID == "" {
-		errs = append(errs, common.NewValidationError("recruiter_org_user_id", fmt.Errorf(errRecruiterRequired)))
+	if r.RecruiterEmailAddress == "" {
+		errs = append(errs, common.NewValidationError("recruiter_email_address", fmt.Errorf(errRecruiterRequired)))
 	}
-	if r.HiringManagerOrgUserID != "" && r.RecruiterOrgUserID != "" && r.HiringManagerOrgUserID == r.RecruiterOrgUserID {
-		errs = append(errs, common.NewValidationError("recruiter_org_user_id", fmt.Errorf(errManagerEqualsRecruiter)))
+	if r.HiringManagerEmailAddress != "" && r.RecruiterEmailAddress != "" && r.HiringManagerEmailAddress == r.RecruiterEmailAddress {
+		errs = append(errs, common.NewValidationError("recruiter_email_address", fmt.Errorf(errManagerEqualsRecruiter)))
 	}
 	return errs
 }
@@ -257,14 +257,14 @@ func (r UpdateOpeningRequest) Validate() []common.ValidationError {
 	if r.NumberOfPositions < 1 {
 		errs = append(errs, common.NewValidationError("number_of_positions", fmt.Errorf(errNumberOfPositionsRequired)))
 	}
-	if r.HiringManagerOrgUserID == "" {
-		errs = append(errs, common.NewValidationError("hiring_manager_org_user_id", fmt.Errorf(errHiringManagerRequired)))
+	if r.HiringManagerEmailAddress == "" {
+		errs = append(errs, common.NewValidationError("hiring_manager_email_address", fmt.Errorf(errHiringManagerRequired)))
 	}
-	if r.RecruiterOrgUserID == "" {
-		errs = append(errs, common.NewValidationError("recruiter_org_user_id", fmt.Errorf(errRecruiterRequired)))
+	if r.RecruiterEmailAddress == "" {
+		errs = append(errs, common.NewValidationError("recruiter_email_address", fmt.Errorf(errRecruiterRequired)))
 	}
-	if r.HiringManagerOrgUserID != "" && r.RecruiterOrgUserID != "" && r.HiringManagerOrgUserID == r.RecruiterOrgUserID {
-		errs = append(errs, common.NewValidationError("recruiter_org_user_id", fmt.Errorf(errManagerEqualsRecruiter)))
+	if r.HiringManagerEmailAddress != "" && r.RecruiterEmailAddress != "" && r.HiringManagerEmailAddress == r.RecruiterEmailAddress {
+		errs = append(errs, common.NewValidationError("recruiter_email_address", fmt.Errorf(errManagerEqualsRecruiter)))
 	}
 	return errs
 }

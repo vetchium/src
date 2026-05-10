@@ -1,7 +1,9 @@
 {
-	"title": "Job Openings",
-	"backToDashboard": "Back to Dashboard",
-	"createOpening": "Create Opening",
+	"title": "Stellenangebote",
+	"backToDashboard": "Zurück zum Dashboard",
+	"backToOpenings": "Zurück zu den Stellen",
+	"editOpeningTitle": "Stelle bearbeiten #{{number}}",
+	"createOpening": "Stelle erstellen",
 	"filter": {
 		"status": "Status",
 		"visibility": "Visibility",
@@ -74,8 +76,17 @@
 		"contract": "Contract",
 		"internship": "Internship",
 		"remote": "Remote",
-		"on_site": "On-Site",
-		"hybrid": "Hybrid"
+		"on_site": "Vor Ort",
+		"hybrid": "Hybrid",
+		"required": "Pflichtfeld",
+		"sections": {
+			"basics": "Grunddaten",
+			"employment": "Beschäftigung",
+			"requirements": "Anforderungen",
+			"compensation": "Vergütung",
+			"team": "Team",
+			"additional": "Weiteres"
+		}
 	},
 	"detail": {
 		"rejectionBanner": "Returned for changes by {{approver}}: {{note}}",

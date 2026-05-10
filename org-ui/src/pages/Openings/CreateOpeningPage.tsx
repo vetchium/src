@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
 	Form,
 	Button,
@@ -19,6 +19,10 @@ import type {
 	CreateOpeningRequest,
 	CreateOpeningResponse,
 } from "vetchium-specs/org/openings";
+import type { OrgAddress } from "vetchium-specs/org/company-addresses";
+import type { CostCenter } from "vetchium-specs/org/cost-centers";
+import type { Tag } from "vetchium-specs/org/tags";
+import type { OrgUser } from "vetchium-specs/org/org-users";
 import { getApiBaseUrl } from "../../config";
 import { useAuth } from "../../hooks/useAuth";
 
@@ -37,6 +41,78 @@ export default function CreateOpeningPage() {
 	const [form] = Form.useForm();
 	const [loading, setLoading] = useState(false);
 	const [formErrors, setFormErrors] = useState<ValidationError[]>([]);
+
+	const [addresses, setAddresses] = useState<OrgAddress[]>([]);
+	const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
+	const [tags, setTags] = useState<Tag[]>([]);
+	const [orgUsers, setOrgUsers] = useState<OrgUser[]>([]);
+	const [optionsLoading, setOptionsLoading] = useState(false);
+
+	const loadOptions = useCallback(async () => {
+		if (!sessionToken) return;
+		setOptionsLoading(true);
+		try {
+			const baseUrl = await getApiBaseUrl();
+			const headers = {
+				"Content-Type": "application/json",
+				Authorization: `Bearer ${sessionToken}`,
+			};
+
+			const [addrResp, ccResp, tagResp, usersResp] = await Promise.all([
+				fetch(`${baseUrl}/org/list-addresses`, {
+					method: "POST",
+					headers,
+					body: JSON.stringify({ limit: 100 }),
+				}),
+				fetch(`${baseUrl}/org/list-cost-centers`, {
+					method: "POST",
+					headers,
+					body: JSON.stringify({ limit: 100 }),
+				}),
+				fetch(`${baseUrl}/org/list-tags`, {
+					method: "POST",
+					headers,
+					body: JSON.stringify({ limit: 100 }),
+				}),
+				fetch(`${baseUrl}/org/list-users`, {
+					method: "POST",
+					headers,
+					body: JSON.stringify({ limit: 100, filter_status: "active" }),
+				}),
+			]);
+
+			if (addrResp.status === 200) {
+				const data = await addrResp.json();
+				setAddresses(
+					(data.addresses ?? []).filter(
+						(a: OrgAddress) => a.status === "active"
+					)
+				);
+			}
+			if (ccResp.status === 200) {
+				const data = await ccResp.json();
+				setCostCenters(
+					(data.items ?? []).filter((c: CostCenter) => c.status === "enabled")
+				);
+			}
+			if (tagResp.status === 200) {
+				const data = await tagResp.json();
+				setTags(data.tags ?? []);
+			}
+			if (usersResp.status === 200) {
+				const data = await usersResp.json();
+				setOrgUsers(data.items ?? []);
+			}
+		} catch {
+			// non-fatal — options may be empty
+		} finally {
+			setOptionsLoading(false);
+		}
+	}, [sessionToken]);
+
+	useEffect(() => {
+		void loadOptions();
+	}, [loadOptions]);
 
 	const onFinish = async (values: OpeningFormValues) => {
 		if (!sessionToken) return;
@@ -66,10 +142,11 @@ export default function CreateOpeningPage() {
 				min_education_level: values.min_education_level,
 				salary,
 				number_of_positions: values.number_of_positions,
-				hiring_manager_org_user_id: values.hiring_manager_org_user_id,
-				recruiter_org_user_id: values.recruiter_org_user_id,
-				hiring_team_member_ids: values.hiring_team_member_ids,
-				watcher_ids: values.watcher_ids,
+				hiring_manager_email_address: values.hiring_manager_email_address,
+				recruiter_email_address: values.recruiter_email_address,
+				hiring_team_member_email_addresses:
+					values.hiring_team_member_email_addresses,
+				watcher_email_addresses: values.watcher_email_addresses,
 				cost_center_id: values.cost_center_id,
 				tag_ids: values.tag_ids,
 				internal_notes: values.internal_notes,
@@ -105,6 +182,26 @@ export default function CreateOpeningPage() {
 
 	const hasErrors = formErrors.length > 0;
 
+	const userOptions = orgUsers.map((u) => ({
+		label: u.name ? `${u.name} (${u.email_address})` : u.email_address,
+		value: u.email_address,
+	}));
+
+	const addressOptions = addresses.map((a) => ({
+		label: `${a.title} — ${a.city}, ${a.country}`,
+		value: a.address_id,
+	}));
+
+	const costCenterOptions = costCenters.map((c) => ({
+		label: c.display_name,
+		value: c.cost_center_id,
+	}));
+
+	const tagOptions = tags.map((tag) => ({
+		label: tag.display_name || tag.tag_id,
+		value: tag.tag_id,
+	}));
+
 	return (
 		<div
 			style={{
@@ -116,15 +213,15 @@ export default function CreateOpeningPage() {
 		>
 			<div style={{ marginBottom: 16 }}>
 				<Link to="/openings">
-					<Button icon={<ArrowLeftOutlined />}>{t("backToDashboard")}</Button>
+					<Button icon={<ArrowLeftOutlined />}>{t("backToOpenings")}</Button>
 				</Link>
 			</div>
 
 			<Title level={2} style={{ marginBottom: 24 }}>
-				{t("title")}
+				{t("createOpening")}
 			</Title>
 
-			<Spin spinning={loading}>
+			<Spin spinning={loading || optionsLoading}>
 				<Form
 					form={form}
 					onFinish={onFinish}
@@ -132,16 +229,11 @@ export default function CreateOpeningPage() {
 					autoComplete="off"
 				>
 					{/* Basics */}
-					<Card title="Basics" style={{ marginBottom: 16 }}>
+					<Card title={t("form.sections.basics")} style={{ marginBottom: 16 }}>
 						<Form.Item
 							label={t("form.title")}
 							name="title"
-							rules={[
-								{
-									required: true,
-									message: "Required",
-								},
-							]}
+							rules={[{ required: true, message: t("form.required") }]}
 						>
 							<Input maxLength={200} placeholder={t("form.title")} />
 						</Form.Item>
@@ -149,12 +241,7 @@ export default function CreateOpeningPage() {
 						<Form.Item
 							label={t("form.description")}
 							name="description"
-							rules={[
-								{
-									required: true,
-									message: "Required",
-								},
-							]}
+							rules={[{ required: true, message: t("form.required") }]}
 						>
 							<Input.TextArea
 								maxLength={10000}
@@ -173,36 +260,22 @@ export default function CreateOpeningPage() {
 					</Card>
 
 					{/* Employment */}
-					<Card title="Employment" style={{ marginBottom: 16 }}>
+					<Card
+						title={t("form.sections.employment")}
+						style={{ marginBottom: 16 }}
+					>
 						<Form.Item
 							label={t("form.employmentType")}
 							name="employment_type"
-							rules={[
-								{
-									required: true,
-									message: "Required",
-								},
-							]}
+							rules={[{ required: true, message: t("form.required") }]}
 						>
 							<Select
 								placeholder={t("form.employmentType")}
 								options={[
-									{
-										label: "Full-time",
-										value: "full_time",
-									},
-									{
-										label: "Part-time",
-										value: "part_time",
-									},
-									{
-										label: "Contract",
-										value: "contract",
-									},
-									{
-										label: "Internship",
-										value: "internship",
-									},
+									{ label: t("form.full_time"), value: "full_time" },
+									{ label: t("form.part_time"), value: "part_time" },
+									{ label: t("form.contract"), value: "contract" },
+									{ label: t("form.internship"), value: "internship" },
 								]}
 							/>
 						</Form.Item>
@@ -210,28 +283,14 @@ export default function CreateOpeningPage() {
 						<Form.Item
 							label={t("form.workLocationType")}
 							name="work_location_type"
-							rules={[
-								{
-									required: true,
-									message: "Required",
-								},
-							]}
+							rules={[{ required: true, message: t("form.required") }]}
 						>
 							<Select
 								placeholder={t("form.workLocationType")}
 								options={[
-									{
-										label: "Remote",
-										value: "remote",
-									},
-									{
-										label: "On-Site",
-										value: "on_site",
-									},
-									{
-										label: "Hybrid",
-										value: "hybrid",
-									},
+									{ label: t("form.remote"), value: "remote" },
+									{ label: t("form.on_site"), value: "on_site" },
+									{ label: t("form.hybrid"), value: "hybrid" },
 								]}
 							/>
 						</Form.Item>
@@ -239,23 +298,21 @@ export default function CreateOpeningPage() {
 						<Form.Item
 							label={t("form.addresses")}
 							name="address_ids"
-							rules={[
-								{
-									required: true,
-									message: "Required",
-								},
-							]}
+							rules={[{ required: true, message: t("form.required") }]}
 						>
 							<Select
 								mode="multiple"
 								placeholder={t("form.addresses")}
-								options={[]}
+								options={addressOptions}
 							/>
 						</Form.Item>
 					</Card>
 
 					{/* Requirements */}
-					<Card title="Requirements" style={{ marginBottom: 16 }}>
+					<Card
+						title={t("form.sections.requirements")}
+						style={{ marginBottom: 16 }}
+					>
 						<Form.Item label={t("form.minYoe")} name="min_yoe">
 							<InputNumber min={0} max={100} placeholder={t("form.minYoe")} />
 						</Form.Item>
@@ -271,29 +328,20 @@ export default function CreateOpeningPage() {
 							<Select
 								placeholder={t("form.minEducationLevel")}
 								options={[
-									{
-										label: "Not Required",
-										value: "not_required",
-									},
-									{
-										label: "Bachelor",
-										value: "bachelor",
-									},
-									{
-										label: "Master",
-										value: "master",
-									},
-									{
-										label: "Doctorate",
-										value: "doctorate",
-									},
+									{ label: "Not Required", value: "not_required" },
+									{ label: "Bachelor", value: "bachelor" },
+									{ label: "Master", value: "master" },
+									{ label: "Doctorate", value: "doctorate" },
 								]}
 							/>
 						</Form.Item>
 					</Card>
 
 					{/* Compensation */}
-					<Card title="Compensation" style={{ marginBottom: 16 }}>
+					<Card
+						title={t("form.sections.compensation")}
+						style={{ marginBottom: 16 }}
+					>
 						<Form.Item label={t("form.salaryMin")} name="salary_min">
 							<InputNumber min={0} placeholder={t("form.salaryMin")} />
 						</Form.Item>
@@ -308,64 +356,75 @@ export default function CreateOpeningPage() {
 					</Card>
 
 					{/* Team */}
-					<Card title="Team" style={{ marginBottom: 16 }}>
+					<Card title={t("form.sections.team")} style={{ marginBottom: 16 }}>
 						<Form.Item
 							label={t("form.hiringManager")}
-							name="hiring_manager_org_user_id"
-							rules={[
-								{
-									required: true,
-									message: "Required",
-								},
-							]}
+							name="hiring_manager_email_address"
+							rules={[{ required: true, message: t("form.required") }]}
 						>
-							<Select placeholder={t("form.hiringManager")} options={[]} />
+							<Select
+								showSearch={{ optionFilterProp: "label" }}
+								placeholder={t("form.hiringManager")}
+								options={userOptions}
+							/>
 						</Form.Item>
 
 						<Form.Item
 							label={t("form.recruiter")}
-							name="recruiter_org_user_id"
-							rules={[
-								{
-									required: true,
-									message: "Required",
-								},
-							]}
+							name="recruiter_email_address"
+							rules={[{ required: true, message: t("form.required") }]}
 						>
-							<Select placeholder={t("form.recruiter")} options={[]} />
+							<Select
+								showSearch={{ optionFilterProp: "label" }}
+								placeholder={t("form.recruiter")}
+								options={userOptions}
+							/>
 						</Form.Item>
 
 						<Form.Item
 							label={t("form.hiringTeamMembers")}
-							name="hiring_team_member_ids"
+							name="hiring_team_member_email_addresses"
 						>
 							<Select
 								mode="multiple"
+								showSearch={{ optionFilterProp: "label" }}
 								placeholder={t("form.hiringTeamMembers")}
-								options={[]}
+								options={userOptions}
 							/>
 						</Form.Item>
 
-						<Form.Item label={t("form.watchers")} name="watcher_ids">
+						<Form.Item
+							label={t("form.watchers")}
+							name="watcher_email_addresses"
+						>
 							<Select
 								mode="multiple"
+								showSearch={{ optionFilterProp: "label" }}
 								placeholder={t("form.watchers")}
-								options={[]}
+								options={userOptions}
 							/>
 						</Form.Item>
 					</Card>
 
-					{/* Cost Center & Tags */}
-					<Card title="Additional" style={{ marginBottom: 16 }}>
+					{/* Additional */}
+					<Card
+						title={t("form.sections.additional")}
+						style={{ marginBottom: 16 }}
+					>
 						<Form.Item label={t("form.costCenter")} name="cost_center_id">
-							<Select placeholder={t("form.costCenter")} options={[]} />
+							<Select
+								placeholder={t("form.costCenter")}
+								options={costCenterOptions}
+								allowClear
+							/>
 						</Form.Item>
 
 						<Form.Item label={t("form.tags")} name="tag_ids">
 							<Select
 								mode="multiple"
+								showSearch={{ optionFilterProp: "label" }}
 								placeholder={t("form.tags")}
-								options={[]}
+								options={tagOptions}
 							/>
 						</Form.Item>
 
@@ -380,12 +439,7 @@ export default function CreateOpeningPage() {
 						<Form.Item
 							label={t("form.numberOfPositions")}
 							name="number_of_positions"
-							rules={[
-								{
-									required: true,
-									message: "Required",
-								},
-							]}
+							rules={[{ required: true, message: t("form.required") }]}
 						>
 							<InputNumber
 								min={1}

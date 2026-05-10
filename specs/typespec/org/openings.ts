@@ -74,10 +74,10 @@ export interface CreateOpeningRequest {
 	min_education_level?: EducationLevel;
 	salary?: Salary;
 	number_of_positions: number;
-	hiring_manager_org_user_id: string;
-	recruiter_org_user_id: string;
-	hiring_team_member_ids?: string[];
-	watcher_ids?: string[];
+	hiring_manager_email_address: string;
+	recruiter_email_address: string;
+	hiring_team_member_email_addresses?: string[];
+	watcher_email_addresses?: string[];
 	cost_center_id?: string;
 	tag_ids?: string[];
 	internal_notes?: string;
@@ -146,10 +146,10 @@ export interface UpdateOpeningRequest {
 	min_education_level?: EducationLevel;
 	salary?: Salary;
 	number_of_positions: number;
-	hiring_manager_org_user_id: string;
-	recruiter_org_user_id: string;
-	hiring_team_member_ids?: string[];
-	watcher_ids?: string[];
+	hiring_manager_email_address: string;
+	recruiter_email_address: string;
+	hiring_team_member_email_addresses?: string[];
+	watcher_email_addresses?: string[];
 	cost_center_id?: string;
 	tag_ids?: string[];
 	internal_notes?: string;
@@ -158,8 +158,8 @@ export interface UpdateOpeningRequest {
 export interface ListOpeningsRequest {
 	filter_status?: OpeningStatus[];
 	filter_is_internal?: boolean;
-	filter_hiring_manager_org_user_id?: string;
-	filter_recruiter_org_user_id?: string;
+	filter_hiring_manager_email_address?: string;
+	filter_recruiter_email_address?: string;
 	filter_tag_ids?: string[];
 	filter_title_prefix?: string;
 	pagination_key?: string;
@@ -225,26 +225,28 @@ export const ERR_NUMBER_OF_POSITIONS_REQUIRED =
 	"number_of_positions is required";
 export const ERR_NUMBER_OF_POSITIONS_INVALID = `number_of_positions must be between 1 and ${POSITIONS_MAX}`;
 export const ERR_HIRING_MANAGER_REQUIRED =
-	"hiring_manager_org_user_id is required";
+	"hiring_manager_email_address is required";
 export const ERR_HIRING_MANAGER_INVALID =
-	"hiring_manager_org_user_id must be a valid UUID";
-export const ERR_RECRUITER_REQUIRED = "recruiter_org_user_id is required";
+	"hiring_manager_email_address must be a valid email address";
+export const ERR_RECRUITER_REQUIRED = "recruiter_email_address is required";
 export const ERR_RECRUITER_INVALID =
-	"recruiter_org_user_id must be a valid UUID";
-export const ERR_HIRING_TEAM_TOO_LONG = `hiring_team_member_ids must have at most ${HIRING_TEAM_MAX} entries`;
+	"recruiter_email_address must be a valid email address";
+export const ERR_HIRING_TEAM_TOO_LONG = `hiring_team_member_email_addresses must have at most ${HIRING_TEAM_MAX} entries`;
 export const ERR_HIRING_TEAM_INVALID =
-	"each hiring_team_member_id must be a valid UUID";
+	"each hiring_team_member_email_addresses must be a valid email address";
 export const ERR_HIRING_TEAM_DUPLICATE =
-	"hiring_team_member_ids contains duplicate values";
+	"hiring_team_member_email_addresses contains duplicate values";
 export const ERR_HIRING_TEAM_OVERLAPS_MANAGER =
-	"hiring_team_member_ids cannot include the hiring_manager";
+	"hiring_team_member_email_addresses cannot include the hiring_manager";
 export const ERR_HIRING_TEAM_OVERLAPS_RECRUITER =
-	"hiring_team_member_ids cannot include the recruiter";
+	"hiring_team_member_email_addresses cannot include the recruiter";
 export const ERR_MANAGER_EQUALS_RECRUITER =
 	"hiring_manager and recruiter must be different users";
-export const ERR_WATCHERS_TOO_LONG = `watcher_ids must have at most ${WATCHERS_MAX} entries`;
-export const ERR_WATCHERS_INVALID = "each watcher_id must be a valid UUID";
-export const ERR_WATCHERS_DUPLICATE = "watcher_ids contains duplicate values";
+export const ERR_WATCHERS_TOO_LONG = `watcher_email_addresses must have at most ${WATCHERS_MAX} entries`;
+export const ERR_WATCHERS_INVALID =
+	"each watcher_email_addresses must be a valid email address";
+export const ERR_WATCHERS_DUPLICATE =
+	"watcher_email_addresses contains duplicate values";
 export const ERR_COST_CENTER_INVALID = "cost_center_id must be a valid UUID";
 export const ERR_TAG_IDS_TOO_LONG = `tag_ids must have at most ${TAG_IDS_MAX} entries`;
 export const ERR_TAG_ID_INVALID = "each tag_id must be a non-empty string";
@@ -408,99 +410,123 @@ export function validateCreateOpeningRequest(
 		);
 	}
 
-	if (!r.hiring_manager_org_user_id) {
+	if (!r.hiring_manager_email_address) {
 		errs.push(
 			newValidationError(
-				"hiring_manager_org_user_id",
+				"hiring_manager_email_address",
 				ERR_HIRING_MANAGER_REQUIRED
 			)
 		);
-	} else if (!isValidUUID(r.hiring_manager_org_user_id)) {
+	} else if (!r.hiring_manager_email_address.includes("@")) {
 		errs.push(
 			newValidationError(
-				"hiring_manager_org_user_id",
+				"hiring_manager_email_address",
 				ERR_HIRING_MANAGER_INVALID
 			)
 		);
 	}
 
-	if (!r.recruiter_org_user_id) {
+	if (!r.recruiter_email_address) {
 		errs.push(
-			newValidationError("recruiter_org_user_id", ERR_RECRUITER_REQUIRED)
+			newValidationError("recruiter_email_address", ERR_RECRUITER_REQUIRED)
 		);
-	} else if (!isValidUUID(r.recruiter_org_user_id)) {
+	} else if (!r.recruiter_email_address.includes("@")) {
 		errs.push(
-			newValidationError("recruiter_org_user_id", ERR_RECRUITER_INVALID)
+			newValidationError("recruiter_email_address", ERR_RECRUITER_INVALID)
 		);
 	}
 
 	if (
-		r.hiring_manager_org_user_id &&
-		r.recruiter_org_user_id &&
-		r.hiring_manager_org_user_id === r.recruiter_org_user_id
+		r.hiring_manager_email_address &&
+		r.recruiter_email_address &&
+		r.hiring_manager_email_address === r.recruiter_email_address
 	) {
 		errs.push(
-			newValidationError("recruiter_org_user_id", ERR_MANAGER_EQUALS_RECRUITER)
+			newValidationError(
+				"recruiter_email_address",
+				ERR_MANAGER_EQUALS_RECRUITER
+			)
 		);
 	}
 
-	if (r.hiring_team_member_ids) {
-		if (r.hiring_team_member_ids.length > HIRING_TEAM_MAX) {
+	if (r.hiring_team_member_email_addresses) {
+		if (r.hiring_team_member_email_addresses.length > HIRING_TEAM_MAX) {
 			errs.push(
-				newValidationError("hiring_team_member_ids", ERR_HIRING_TEAM_TOO_LONG)
+				newValidationError(
+					"hiring_team_member_email_addresses",
+					ERR_HIRING_TEAM_TOO_LONG
+				)
 			);
 		}
-		for (const id of r.hiring_team_member_ids) {
-			if (!isValidUUID(id)) {
+		for (const email of r.hiring_team_member_email_addresses) {
+			if (!email.includes("@")) {
 				errs.push(
-					newValidationError("hiring_team_member_ids", ERR_HIRING_TEAM_INVALID)
+					newValidationError(
+						"hiring_team_member_email_addresses",
+						ERR_HIRING_TEAM_INVALID
+					)
 				);
 				break;
 			}
 		}
 		if (
-			new Set(r.hiring_team_member_ids).size !== r.hiring_team_member_ids.length
-		) {
-			errs.push(
-				newValidationError("hiring_team_member_ids", ERR_HIRING_TEAM_DUPLICATE)
-			);
-		}
-		if (
-			r.hiring_manager_org_user_id &&
-			r.hiring_team_member_ids.includes(r.hiring_manager_org_user_id)
+			new Set(r.hiring_team_member_email_addresses).size !==
+			r.hiring_team_member_email_addresses.length
 		) {
 			errs.push(
 				newValidationError(
-					"hiring_team_member_ids",
+					"hiring_team_member_email_addresses",
+					ERR_HIRING_TEAM_DUPLICATE
+				)
+			);
+		}
+		if (
+			r.hiring_manager_email_address &&
+			r.hiring_team_member_email_addresses.includes(
+				r.hiring_manager_email_address
+			)
+		) {
+			errs.push(
+				newValidationError(
+					"hiring_team_member_email_addresses",
 					ERR_HIRING_TEAM_OVERLAPS_MANAGER
 				)
 			);
 		}
 		if (
-			r.recruiter_org_user_id &&
-			r.hiring_team_member_ids.includes(r.recruiter_org_user_id)
+			r.recruiter_email_address &&
+			r.hiring_team_member_email_addresses.includes(r.recruiter_email_address)
 		) {
 			errs.push(
 				newValidationError(
-					"hiring_team_member_ids",
+					"hiring_team_member_email_addresses",
 					ERR_HIRING_TEAM_OVERLAPS_RECRUITER
 				)
 			);
 		}
 	}
 
-	if (r.watcher_ids) {
-		if (r.watcher_ids.length > WATCHERS_MAX) {
-			errs.push(newValidationError("watcher_ids", ERR_WATCHERS_TOO_LONG));
+	if (r.watcher_email_addresses) {
+		if (r.watcher_email_addresses.length > WATCHERS_MAX) {
+			errs.push(
+				newValidationError("watcher_email_addresses", ERR_WATCHERS_TOO_LONG)
+			);
 		}
-		for (const id of r.watcher_ids) {
-			if (!isValidUUID(id)) {
-				errs.push(newValidationError("watcher_ids", ERR_WATCHERS_INVALID));
+		for (const email of r.watcher_email_addresses) {
+			if (!email.includes("@")) {
+				errs.push(
+					newValidationError("watcher_email_addresses", ERR_WATCHERS_INVALID)
+				);
 				break;
 			}
 		}
-		if (new Set(r.watcher_ids).size !== r.watcher_ids.length) {
-			errs.push(newValidationError("watcher_ids", ERR_WATCHERS_DUPLICATE));
+		if (
+			new Set(r.watcher_email_addresses).size !==
+			r.watcher_email_addresses.length
+		) {
+			errs.push(
+				newValidationError("watcher_email_addresses", ERR_WATCHERS_DUPLICATE)
+			);
 		}
 	}
 
@@ -649,99 +675,123 @@ export function validateUpdateOpeningRequest(
 		);
 	}
 
-	if (!r.hiring_manager_org_user_id) {
+	if (!r.hiring_manager_email_address) {
 		errs.push(
 			newValidationError(
-				"hiring_manager_org_user_id",
+				"hiring_manager_email_address",
 				ERR_HIRING_MANAGER_REQUIRED
 			)
 		);
-	} else if (!isValidUUID(r.hiring_manager_org_user_id)) {
+	} else if (!r.hiring_manager_email_address.includes("@")) {
 		errs.push(
 			newValidationError(
-				"hiring_manager_org_user_id",
+				"hiring_manager_email_address",
 				ERR_HIRING_MANAGER_INVALID
 			)
 		);
 	}
 
-	if (!r.recruiter_org_user_id) {
+	if (!r.recruiter_email_address) {
 		errs.push(
-			newValidationError("recruiter_org_user_id", ERR_RECRUITER_REQUIRED)
+			newValidationError("recruiter_email_address", ERR_RECRUITER_REQUIRED)
 		);
-	} else if (!isValidUUID(r.recruiter_org_user_id)) {
+	} else if (!r.recruiter_email_address.includes("@")) {
 		errs.push(
-			newValidationError("recruiter_org_user_id", ERR_RECRUITER_INVALID)
+			newValidationError("recruiter_email_address", ERR_RECRUITER_INVALID)
 		);
 	}
 
 	if (
-		r.hiring_manager_org_user_id &&
-		r.recruiter_org_user_id &&
-		r.hiring_manager_org_user_id === r.recruiter_org_user_id
+		r.hiring_manager_email_address &&
+		r.recruiter_email_address &&
+		r.hiring_manager_email_address === r.recruiter_email_address
 	) {
 		errs.push(
-			newValidationError("recruiter_org_user_id", ERR_MANAGER_EQUALS_RECRUITER)
+			newValidationError(
+				"recruiter_email_address",
+				ERR_MANAGER_EQUALS_RECRUITER
+			)
 		);
 	}
 
-	if (r.hiring_team_member_ids) {
-		if (r.hiring_team_member_ids.length > HIRING_TEAM_MAX) {
+	if (r.hiring_team_member_email_addresses) {
+		if (r.hiring_team_member_email_addresses.length > HIRING_TEAM_MAX) {
 			errs.push(
-				newValidationError("hiring_team_member_ids", ERR_HIRING_TEAM_TOO_LONG)
+				newValidationError(
+					"hiring_team_member_email_addresses",
+					ERR_HIRING_TEAM_TOO_LONG
+				)
 			);
 		}
-		for (const id of r.hiring_team_member_ids) {
-			if (!isValidUUID(id)) {
+		for (const email of r.hiring_team_member_email_addresses) {
+			if (!email.includes("@")) {
 				errs.push(
-					newValidationError("hiring_team_member_ids", ERR_HIRING_TEAM_INVALID)
+					newValidationError(
+						"hiring_team_member_email_addresses",
+						ERR_HIRING_TEAM_INVALID
+					)
 				);
 				break;
 			}
 		}
 		if (
-			new Set(r.hiring_team_member_ids).size !== r.hiring_team_member_ids.length
-		) {
-			errs.push(
-				newValidationError("hiring_team_member_ids", ERR_HIRING_TEAM_DUPLICATE)
-			);
-		}
-		if (
-			r.hiring_manager_org_user_id &&
-			r.hiring_team_member_ids.includes(r.hiring_manager_org_user_id)
+			new Set(r.hiring_team_member_email_addresses).size !==
+			r.hiring_team_member_email_addresses.length
 		) {
 			errs.push(
 				newValidationError(
-					"hiring_team_member_ids",
+					"hiring_team_member_email_addresses",
+					ERR_HIRING_TEAM_DUPLICATE
+				)
+			);
+		}
+		if (
+			r.hiring_manager_email_address &&
+			r.hiring_team_member_email_addresses.includes(
+				r.hiring_manager_email_address
+			)
+		) {
+			errs.push(
+				newValidationError(
+					"hiring_team_member_email_addresses",
 					ERR_HIRING_TEAM_OVERLAPS_MANAGER
 				)
 			);
 		}
 		if (
-			r.recruiter_org_user_id &&
-			r.hiring_team_member_ids.includes(r.recruiter_org_user_id)
+			r.recruiter_email_address &&
+			r.hiring_team_member_email_addresses.includes(r.recruiter_email_address)
 		) {
 			errs.push(
 				newValidationError(
-					"hiring_team_member_ids",
+					"hiring_team_member_email_addresses",
 					ERR_HIRING_TEAM_OVERLAPS_RECRUITER
 				)
 			);
 		}
 	}
 
-	if (r.watcher_ids) {
-		if (r.watcher_ids.length > WATCHERS_MAX) {
-			errs.push(newValidationError("watcher_ids", ERR_WATCHERS_TOO_LONG));
+	if (r.watcher_email_addresses) {
+		if (r.watcher_email_addresses.length > WATCHERS_MAX) {
+			errs.push(
+				newValidationError("watcher_email_addresses", ERR_WATCHERS_TOO_LONG)
+			);
 		}
-		for (const id of r.watcher_ids) {
-			if (!isValidUUID(id)) {
-				errs.push(newValidationError("watcher_ids", ERR_WATCHERS_INVALID));
+		for (const email of r.watcher_email_addresses) {
+			if (!email.includes("@")) {
+				errs.push(
+					newValidationError("watcher_email_addresses", ERR_WATCHERS_INVALID)
+				);
 				break;
 			}
 		}
-		if (new Set(r.watcher_ids).size !== r.watcher_ids.length) {
-			errs.push(newValidationError("watcher_ids", ERR_WATCHERS_DUPLICATE));
+		if (
+			new Set(r.watcher_email_addresses).size !==
+			r.watcher_email_addresses.length
+		) {
+			errs.push(
+				newValidationError("watcher_email_addresses", ERR_WATCHERS_DUPLICATE)
+			);
 		}
 	}
 
@@ -804,10 +854,8 @@ export { type CostCenter } from "./cost-centers";
 
 // OrgUserShort and OrgTag are not exported from their respective modules; defined inline.
 export interface OrgUserShort {
-	org_user_id: string;
 	email_address: string;
 	full_name?: string;
-	handle?: string;
 }
 
 export interface OrgTag {

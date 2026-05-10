@@ -57,12 +57,12 @@ model CreateOpeningRequest {
   max_yoe?:                    int32;
   min_education_level?:        EducationLevel;
   salary?:                     Salary;
-  number_of_positions:         int32;
-  hiring_manager_org_user_id:  string;
-  recruiter_org_user_id:       string;
-  hiring_team_member_ids?:     string[];     // 0..10
-  watcher_ids?:                string[];     // 0..25
-  cost_center_id?:             string;
+  number_of_positions:               int32;
+  hiring_manager_email_address:      string;
+  recruiter_email_address:           string;
+  hiring_team_member_email_addresses?: string[];   // 0..10
+  watcher_email_addresses?:            string[];   // 0..25
+  cost_center_id?:                   string;
   tag_ids?:                    string[];     // 0..20
   internal_notes?:             string;       // 0..2000
 }
@@ -130,11 +130,11 @@ model UpdateOpeningRequest {
   max_yoe?:                     int32;
   min_education_level?:         EducationLevel;
   salary?:                      Salary;
-  number_of_positions:          int32;
-  hiring_manager_org_user_id:   string;
-  recruiter_org_user_id:        string;
-  hiring_team_member_ids?:      string[];
-  watcher_ids?:                 string[];
+  number_of_positions:                 int32;
+  hiring_manager_email_address:        string;
+  recruiter_email_address:             string;
+  hiring_team_member_email_addresses?: string[];
+  watcher_email_addresses?:            string[];
   cost_center_id?:              string;
   tag_ids?:                     string[];
   internal_notes?:              string;
@@ -146,8 +146,8 @@ model RejectOpeningRequest { opening_number: int32; rejection_note: string; }
 model ListOpeningsRequest {
   filter_status?:                     OpeningStatus[];
   filter_is_internal?:                boolean;
-  filter_hiring_manager_org_user_id?: string;
-  filter_recruiter_org_user_id?:      string;
+  filter_hiring_manager_email_address?: string;
+  filter_recruiter_email_address?:      string;
   filter_tag_ids?:                    string[];
   filter_title_prefix?:               string;
   pagination_key?:                    string;

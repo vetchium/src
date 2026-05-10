@@ -12,6 +12,7 @@ import {
 	UnorderedListOutlined,
 	StarOutlined,
 	UsergroupAddOutlined,
+	SolutionOutlined,
 } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
@@ -81,6 +82,12 @@ export function DashboardPage() {
 		myInfo?.roles.includes("org:superadmin") ||
 		myInfo?.roles.includes("org:view_listings") ||
 		myInfo?.roles.includes("org:manage_listings") ||
+		false;
+
+	const hasOpeningsAccess =
+		myInfo?.roles.includes("org:superadmin") ||
+		myInfo?.roles.includes("org:view_openings") ||
+		myInfo?.roles.includes("org:manage_openings") ||
 		false;
 
 	return (
@@ -246,6 +253,42 @@ export function DashboardPage() {
 									</Title>
 									<Typography.Text type="secondary">
 										{t("costCenters.description")}
+									</Typography.Text>
+								</Card>
+							</Link>
+						</Col>
+					)}
+
+					{hasOpeningsAccess && (
+						<Col xs={24} sm={12} lg={8}>
+							<Link
+								to="/openings"
+								style={{
+									textDecoration: "none",
+									display: "block",
+									height: "100%",
+								}}
+							>
+								<Card
+									hoverable
+									style={{
+										height: "100%",
+										cursor: "pointer",
+										textAlign: "center",
+									}}
+								>
+									<SolutionOutlined
+										style={{
+											fontSize: 48,
+											color: "#2f54eb",
+											marginBottom: 16,
+										}}
+									/>
+									<Title level={4} style={{ marginBottom: 8 }}>
+										{t("openings.title")}
+									</Title>
+									<Typography.Text type="secondary">
+										{t("openings.description")}
 									</Typography.Text>
 								</Card>
 							</Link>
