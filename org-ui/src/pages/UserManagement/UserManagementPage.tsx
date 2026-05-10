@@ -216,7 +216,7 @@ export function UserManagementPage() {
 					{!roles || roles.length === 0 ? (
 						<span style={{ color: "#999" }}>{t("table.noRoles")}</span>
 					) : (
-						<Space size={[0, 4]} wrap>
+						<Space size={[4, 4]} wrap>
 							{roles.map((role) => (
 								<Tag key={role} color="blue">
 									{role}

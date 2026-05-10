@@ -2,15 +2,23 @@ import React, { useCallback, useEffect, useState } from "react";
 import {
 	Table,
 	Button,
-	Popover,
 	Space,
 	Input,
 	Spin,
 	message,
 	Modal,
 	Typography,
+	Tag,
+	Dropdown,
+	Empty,
+	Badge,
 } from "antd";
-import { ArrowLeftOutlined, PlusOutlined } from "@ant-design/icons";
+import type { MenuProps } from "antd";
+import {
+	ArrowLeftOutlined,
+	PlusOutlined,
+	DownOutlined,
+} from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { useNavigate, Link } from "react-router-dom";
 import type {
@@ -29,11 +37,28 @@ import { formatDateTime } from "../../utils/dateFormat";
 
 const { Title } = Typography;
 
-interface OpeningAction {
-	label: string;
-	onClick: () => void;
-	danger?: boolean;
-}
+const STATUS_TAG_COLORS: Record<string, string> = {
+	draft: "default",
+	pending_review: "orange",
+	published: "green",
+	paused: "geekblue",
+	expired: "red",
+	closed: "volcano",
+	archived: "default",
+};
+
+const STATUS_BADGE_STATUSES: Record<
+	string,
+	"default" | "processing" | "success" | "error" | "warning"
+> = {
+	draft: "default",
+	pending_review: "warning",
+	published: "success",
+	paused: "processing",
+	expired: "error",
+	closed: "error",
+	archived: "default",
+};
 
 export default function OpeningsListPage() {
 	const { t, i18n } = useTranslation("openings");
@@ -46,7 +71,6 @@ export default function OpeningsListPage() {
 		next_pagination_key?: string;
 	}>({});
 
-	// Filter states
 	const [statusFilter] = useState<OpeningStatus[]>([
 		"draft",
 		"pending_review",
@@ -80,9 +104,7 @@ export default function OpeningsListPage() {
 				},
 				body: JSON.stringify(body),
 			});
-			if (response.status === 204) {
-				return { status: response.status };
-			}
+			if (response.status === 204) return { status: response.status };
 			if (response.headers.get("content-type")?.includes("application/json")) {
 				const data = (await response.json()) as TResponse;
 				return { status: response.status, data };
@@ -118,7 +140,14 @@ export default function OpeningsListPage() {
 					req
 				);
 				if (response.status === 200 && response.data) {
-					setOpenings(response.data.openings);
+					if (paginationKey) {
+						setOpenings((prev) => [
+							...prev,
+							...(response.data?.openings ?? []),
+						]);
+					} else {
+						setOpenings(response.data.openings);
+					}
 					setPagination({
 						next_pagination_key: response.data.next_pagination_key,
 					});
@@ -158,13 +187,11 @@ export default function OpeningsListPage() {
 				try {
 					const response = await postOpeningAction<void>(
 						"/org/discard-opening",
-						{
-							opening_number: openingNumber,
-						}
+						{ opening_number: openingNumber }
 					);
 					if (response.status === 204) {
 						message.success(t("success.discarded"));
-						fetchOpenings();
+						void fetchOpenings();
 					}
 				} catch {
 					message.error(t("errors.transitionFailed"));
@@ -173,193 +200,18 @@ export default function OpeningsListPage() {
 		});
 	};
 
-	const renderActions = (record: OpeningSummary) => {
-		if (!hasManageRole) {
-			return (
-				<Button type="text" onClick={() => handleViewClick(record)}>
-					{t("table.view")}
-				</Button>
-			);
-		}
-
-		const status = record.status as string;
-		const actions: Record<string, OpeningAction[]> = {
-			draft: [
-				{
-					label: t("table.view"),
-					onClick: () => handleViewClick(record),
-				},
-				{
-					label: t("table.edit"),
-					onClick: () => navigate(`/openings/${record.opening_number}/edit`),
-				},
-				{
-					label: t("table.submit"),
-					onClick: () => handleSubmit(record.opening_number),
-				},
-				{
-					label: t("table.discard"),
-					onClick: () => handleDiscard(record.opening_number),
-					danger: true,
-				},
-				{
-					label: t("table.duplicate"),
-					onClick: () => handleDuplicate(record.opening_number),
-				},
-			],
-			pending_review: [
-				{
-					label: t("table.view"),
-					onClick: () => handleViewClick(record),
-				},
-				{
-					label: t("table.approve"),
-					onClick: () => handleApprove(record.opening_number),
-				},
-				{
-					label: t("table.reject"),
-					onClick: () => handleRejectModal(record.opening_number),
-				},
-				{
-					label: t("table.duplicate"),
-					onClick: () => handleDuplicate(record.opening_number),
-				},
-			],
-			published: [
-				{
-					label: t("table.view"),
-					onClick: () => handleViewClick(record),
-				},
-				{
-					label: t("table.pause"),
-					onClick: () => handlePause(record.opening_number),
-				},
-				{
-					label: t("table.close"),
-					onClick: () => handleClose(record.opening_number),
-				},
-				{
-					label: t("table.duplicate"),
-					onClick: () => handleDuplicate(record.opening_number),
-				},
-			],
-			paused: [
-				{
-					label: t("table.view"),
-					onClick: () => handleViewClick(record),
-				},
-				{
-					label: t("table.reopen"),
-					onClick: () => handleReopen(record.opening_number),
-				},
-				{
-					label: t("table.close"),
-					onClick: () => handleClose(record.opening_number),
-				},
-				{
-					label: t("table.duplicate"),
-					onClick: () => handleDuplicate(record.opening_number),
-				},
-			],
-			expired: [
-				{
-					label: t("table.view"),
-					onClick: () => handleViewClick(record),
-				},
-				{
-					label: t("table.archive"),
-					onClick: () => handleArchive(record.opening_number),
-				},
-				{
-					label: t("table.duplicate"),
-					onClick: () => handleDuplicate(record.opening_number),
-				},
-			],
-			closed: [
-				{
-					label: t("table.view"),
-					onClick: () => handleViewClick(record),
-				},
-				{
-					label: t("table.archive"),
-					onClick: () => handleArchive(record.opening_number),
-				},
-				{
-					label: t("table.duplicate"),
-					onClick: () => handleDuplicate(record.opening_number),
-				},
-			],
-			archived: [
-				{
-					label: t("table.view"),
-					onClick: () => handleViewClick(record),
-				},
-				{
-					label: t("table.duplicate"),
-					onClick: () => handleDuplicate(record.opening_number),
-				},
-			],
-		};
-
-		const actionList = actions[status as keyof typeof actions] || [];
-
-		return (
-			<Popover
-				content={
-					<Space orientation="vertical" style={{ width: 150 }}>
-						{actionList.map((action, idx) => (
-							<Button
-								key={idx}
-								type="text"
-								danger={action.danger}
-								onClick={action.onClick}
-								block
-								style={{
-									textAlign: "left",
-									padding: 0,
-								}}
-							>
-								{action.label}
-							</Button>
-						))}
-					</Space>
-				}
-				trigger="click"
-			>
-				<Button type="text">Actions</Button>
-			</Popover>
-		);
-	};
-
-	const handleViewClick = (record: OpeningSummary) => {
-		navigate(`/openings/${record.opening_number}`);
-	};
-
-	const handleSubmit = async (openingNumber: number) => {
+	const handleTransition = async (
+		path: string,
+		openingNumber: number,
+		successKey: string
+	) => {
 		try {
-			const response = await postOpeningAction<unknown>("/org/submit-opening", {
+			const response = await postOpeningAction<unknown>(path, {
 				opening_number: openingNumber,
 			});
-			if (response.status === 200) {
-				message.success(t("success.submitted"));
-				fetchOpenings();
-			}
-		} catch {
-			message.error(t("errors.transitionFailed"));
-		}
-	};
-
-	const handleApprove = async (openingNumber: number) => {
-		try {
-			const response = await postOpeningAction<unknown>(
-				"/org/approve-opening",
-				{
-					opening_number: openingNumber,
-				}
-			);
-			if (response.status === 200) {
-				message.success(t("success.approved"));
-				fetchOpenings();
+			if (response.status === 200 || response.status === 204) {
+				message.success(t(`success.${successKey}`));
+				void fetchOpenings();
 			}
 		} catch {
 			message.error(t("errors.transitionFailed"));
@@ -385,14 +237,11 @@ export default function OpeningsListPage() {
 				try {
 					const response = await postOpeningAction<unknown>(
 						"/org/reject-opening",
-						{
-							opening_number: openingNumber,
-							rejection_note: note,
-						}
+						{ opening_number: openingNumber, rejection_note: note }
 					);
 					if (response.status === 200) {
 						message.success(t("success.rejected"));
-						fetchOpenings();
+						void fetchOpenings();
 					}
 				} catch {
 					message.error(t("errors.transitionFailed"));
@@ -401,72 +250,11 @@ export default function OpeningsListPage() {
 		});
 	};
 
-	const handlePause = async (openingNumber: number) => {
-		try {
-			const response = await postOpeningAction<unknown>("/org/pause-opening", {
-				opening_number: openingNumber,
-			});
-			if (response.status === 200) {
-				message.success(t("success.paused"));
-				fetchOpenings();
-			}
-		} catch {
-			message.error(t("errors.transitionFailed"));
-		}
-	};
-
-	const handleReopen = async (openingNumber: number) => {
-		try {
-			const response = await postOpeningAction<unknown>("/org/reopen-opening", {
-				opening_number: openingNumber,
-			});
-			if (response.status === 200) {
-				message.success(t("success.reopened"));
-				fetchOpenings();
-			}
-		} catch {
-			message.error(t("errors.transitionFailed"));
-		}
-	};
-
-	const handleClose = async (openingNumber: number) => {
-		try {
-			const response = await postOpeningAction<unknown>("/org/close-opening", {
-				opening_number: openingNumber,
-			});
-			if (response.status === 200) {
-				message.success(t("success.closed"));
-				fetchOpenings();
-			}
-		} catch {
-			message.error(t("errors.transitionFailed"));
-		}
-	};
-
-	const handleArchive = async (openingNumber: number) => {
-		try {
-			const response = await postOpeningAction<unknown>(
-				"/org/archive-opening",
-				{
-					opening_number: openingNumber,
-				}
-			);
-			if (response.status === 200) {
-				message.success(t("success.archived"));
-				fetchOpenings();
-			}
-		} catch {
-			message.error(t("errors.transitionFailed"));
-		}
-	};
-
 	const handleDuplicate = async (openingNumber: number) => {
 		try {
 			const response = await postOpeningAction<CreateOpeningResponse>(
 				"/org/duplicate-opening",
-				{
-					opening_number: openingNumber,
-				}
+				{ opening_number: openingNumber }
 			);
 			if (response.status === 201 && response.data) {
 				message.success(t("success.duplicated"));
@@ -477,87 +265,213 @@ export default function OpeningsListPage() {
 		}
 	};
 
+	const getActionMenuItems = (record: OpeningSummary): MenuProps["items"] => {
+		const viewItem = {
+			key: "view",
+			label: t("table.view"),
+			onClick: () => navigate(`/openings/${record.opening_number}`),
+		};
+		const duplicateItem = {
+			key: "duplicate",
+			label: t("table.duplicate"),
+			onClick: () => handleDuplicate(record.opening_number),
+		};
+		const editItem = {
+			key: "edit",
+			label: t("table.edit"),
+			onClick: () => navigate(`/openings/${record.opening_number}/edit`),
+		};
+		const submitItem = {
+			key: "submit",
+			label: t("table.submit"),
+			onClick: () =>
+				handleTransition(
+					"/org/submit-opening",
+					record.opening_number,
+					"submitted"
+				),
+		};
+		const approveItem = {
+			key: "approve",
+			label: t("table.approve"),
+			onClick: () =>
+				handleTransition(
+					"/org/approve-opening",
+					record.opening_number,
+					"approved"
+				),
+		};
+		const rejectItem = {
+			key: "reject",
+			label: t("table.reject"),
+			onClick: () => handleRejectModal(record.opening_number),
+		};
+		const pauseItem = {
+			key: "pause",
+			label: t("table.pause"),
+			onClick: () =>
+				handleTransition("/org/pause-opening", record.opening_number, "paused"),
+		};
+		const reopenItem = {
+			key: "reopen",
+			label: t("table.reopen"),
+			onClick: () =>
+				handleTransition(
+					"/org/reopen-opening",
+					record.opening_number,
+					"reopened"
+				),
+		};
+		const closeItem = {
+			key: "close",
+			label: t("table.close"),
+			onClick: () =>
+				handleTransition("/org/close-opening", record.opening_number, "closed"),
+		};
+		const archiveItem = {
+			key: "archive",
+			label: t("table.archive"),
+			onClick: () =>
+				handleTransition(
+					"/org/archive-opening",
+					record.opening_number,
+					"archived"
+				),
+		};
+		const discardItem = {
+			key: "discard",
+			label: t("table.discard"),
+			danger: true,
+			onClick: () => handleDiscard(record.opening_number),
+		};
+
+		if (!hasManageRole) return [viewItem];
+
+		const actionsByStatus: Record<string, MenuProps["items"]> = {
+			draft: [
+				viewItem,
+				editItem,
+				submitItem,
+				duplicateItem,
+				{ type: "divider" },
+				discardItem,
+			],
+			pending_review: [viewItem, approveItem, rejectItem, duplicateItem],
+			published: [viewItem, pauseItem, closeItem, duplicateItem],
+			paused: [viewItem, reopenItem, closeItem, duplicateItem],
+			expired: [viewItem, archiveItem, duplicateItem],
+			closed: [viewItem, archiveItem, duplicateItem],
+			archived: [viewItem, duplicateItem],
+		};
+
+		return actionsByStatus[record.status as string] ?? [viewItem];
+	};
+
 	const columns = [
 		{
 			title: t("table.openingNumber"),
 			dataIndex: "opening_number",
 			key: "opening_number",
-			width: 80,
+			width: 60,
+			render: (num: number) => (
+				<span style={{ color: "#8c8c8c", fontFamily: "monospace" }}>
+					#{num}
+				</span>
+			),
 		},
 		{
 			title: t("table.title"),
 			dataIndex: "title",
 			key: "title",
-			width: 200,
-		},
-		{
-			title: t("table.visibility"),
-			dataIndex: "is_internal",
-			key: "is_internal",
-			width: 120,
-			render: (is_internal: boolean) =>
-				is_internal
-					? t("filter.visibilityInternal")
-					: t("filter.visibilityPublic"),
+			render: (title: string, record: OpeningSummary) => (
+				<Button
+					type="link"
+					style={{ padding: 0, textAlign: "left", height: "auto" }}
+					onClick={() => navigate(`/openings/${record.opening_number}`)}
+				>
+					{title}
+				</Button>
+			),
 		},
 		{
 			title: t("table.status"),
 			dataIndex: "status",
 			key: "status",
-			width: 120,
-			render: (status: OpeningStatus) =>
-				t(`status.${status.replace(/-/g, "_")}`),
+			width: 140,
+			render: (status: OpeningStatus) => (
+				<Badge
+					status={STATUS_BADGE_STATUSES[status] ?? "default"}
+					text={
+						<Tag color={STATUS_TAG_COLORS[status]}>{t(`status.${status}`)}</Tag>
+					}
+				/>
+			),
+		},
+		{
+			title: t("table.visibility"),
+			dataIndex: "is_internal",
+			key: "is_internal",
+			width: 90,
+			render: (is_internal: boolean) => (
+				<Tag color={is_internal ? "blue" : "cyan"}>
+					{is_internal
+						? t("filter.visibilityInternal")
+						: t("filter.visibilityPublic")}
+				</Tag>
+			),
+		},
+		{
+			title: t("table.employmentType"),
+			dataIndex: "employment_type",
+			key: "employment_type",
+			width: 110,
+			render: (type: string) => t(`form.${type}`),
+		},
+		{
+			title: t("table.positions"),
+			key: "positions",
+			width: 90,
+			render: (_: unknown, record: OpeningSummary) => (
+				<span>
+					<strong>{record.filled_positions}</strong>
+					<span style={{ color: "#8c8c8c" }}>
+						/{record.number_of_positions}
+					</span>
+				</span>
+			),
 		},
 		{
 			title: t("table.hiringManager"),
 			dataIndex: ["hiring_manager", "full_name"],
 			key: "hiring_manager",
 			width: 140,
-		},
-		{
-			title: t("table.recruiter"),
-			dataIndex: ["recruiter", "full_name"],
-			key: "recruiter",
-			width: 140,
-		},
-		{
-			title: t("table.employmentType"),
-			dataIndex: "employment_type",
-			key: "employment_type",
-			width: 120,
-			render: (type: string) => t(`form.${type}`),
-		},
-		{
-			title: t("table.workLocation"),
-			dataIndex: "work_location_type",
-			key: "work_location_type",
-			width: 120,
-			render: (type: string) =>
-				type === "on_site"
-					? "On-Site"
-					: type.charAt(0).toUpperCase() + type.slice(1),
-		},
-		{
-			title: t("table.positions"),
-			dataIndex: "number_of_positions",
-			key: "number_of_positions",
-			width: 100,
-			render: (_: unknown, record: OpeningSummary) =>
-				`${record.filled_positions}/${record.number_of_positions}`,
+			ellipsis: true,
 		},
 		{
 			title: t("table.createdAt"),
 			dataIndex: "created_at",
 			key: "created_at",
-			width: 140,
+			width: 130,
 			render: (date: string) => formatDateTime(date, i18n.language),
 		},
 		{
 			title: t("table.actions"),
 			key: "actions",
 			fixed: "right" as const,
-			width: 120,
-			render: (_: unknown, record: OpeningSummary) => renderActions(record),
+			width: 110,
+			render: (_: unknown, record: OpeningSummary) => (
+				<Dropdown
+					menu={{ items: getActionMenuItems(record) }}
+					trigger={["click"]}
+				>
+					<Button size="small">
+						<Space>
+							{t("table.actions")}
+							<DownOutlined />
+						</Space>
+					</Button>
+				</Dropdown>
+			),
 		},
 	];
 
@@ -604,21 +518,40 @@ export default function OpeningsListPage() {
 					dataSource={openings}
 					rowKey="opening_id"
 					pagination={false}
-					scroll={{ x: 1200 }}
+					scroll={{ x: 900 }}
+					locale={{
+						emptyText: (
+							<Empty
+								description={
+									<span>
+										{t("errors.loadFailed", {
+											defaultValue: "No openings yet.",
+										})}
+										{hasManageRole && (
+											<>
+												{" "}
+												<Button
+													type="link"
+													style={{ padding: 0 }}
+													onClick={() => navigate("/openings/new")}
+												>
+													{t("createOpening")}
+												</Button>
+											</>
+										)}
+									</span>
+								}
+							/>
+						),
+					}}
 				/>
-				{pagination.next_pagination_key && (
-					<Button
-						style={{ marginTop: 16 }}
-						onClick={() => fetchOpenings(pagination.next_pagination_key)}
-					>
-						Load More
-					</Button>
-				)}
-				{openings.length === 0 && !loading && (
-					<div style={{ textAlign: "center", padding: 40 }}>
-						No openings yet.
-						{hasManageRole &&
-							" Click 'Create Opening' to post your first role."}
+				{pagination.next_pagination_key && !loading && (
+					<div style={{ textAlign: "center", marginTop: 16 }}>
+						<Button
+							onClick={() => fetchOpenings(pagination.next_pagination_key)}
+						>
+							{t("table.loadMore")}
+						</Button>
 					</div>
 				)}
 			</Spin>

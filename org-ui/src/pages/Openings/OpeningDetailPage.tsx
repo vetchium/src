@@ -7,11 +7,19 @@ import {
 	Input,
 	Space,
 	Tag,
-	Divider,
 	Card,
 	Typography,
+	Descriptions,
+	Alert,
+	Divider,
+	Dropdown,
 } from "antd";
-import { ArrowLeftOutlined } from "@ant-design/icons";
+import type { MenuProps } from "antd";
+import {
+	ArrowLeftOutlined,
+	EditOutlined,
+	DownOutlined,
+} from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import type {
@@ -25,7 +33,21 @@ import { useAuth } from "../../hooks/useAuth";
 import { useMyInfo } from "../../hooks/useMyInfo";
 import { formatDateTime, formatDate } from "../../utils/dateFormat";
 
-const { Title, Paragraph, Text } = Typography;
+const { Title, Text } = Typography;
+
+const STATUS_TAG_COLORS: Record<string, string> = {
+	draft: "default",
+	pending_review: "orange",
+	published: "green",
+	paused: "geekblue",
+	expired: "red",
+	closed: "volcano",
+	archived: "default",
+};
+
+function userLabel(u: { full_name?: string; email_address: string }): string {
+	return u.full_name ? `${u.full_name} (${u.email_address})` : u.email_address;
+}
 
 export default function OpeningDetailPage() {
 	const { t, i18n } = useTranslation("openings");
@@ -55,9 +77,7 @@ export default function OpeningDetailPage() {
 				},
 				body: JSON.stringify(body),
 			});
-			if (response.status === 204) {
-				return { status: response.status };
-			}
+			if (response.status === 204) return { status: response.status };
 			if (response.headers.get("content-type")?.includes("application/json")) {
 				const data = (await response.json()) as TResponse;
 				return { status: response.status, data };
@@ -89,42 +109,18 @@ export default function OpeningDetailPage() {
 	}, [navigate, openingNumber, postOpeningAction, sessionToken, t]);
 
 	useEffect(() => {
-		if (openingNumber) {
-			void fetchOpening();
-		}
+		if (openingNumber) void fetchOpening();
 	}, [fetchOpening, openingNumber, myInfo]);
 
-	const getExpiryDate = (firstPublishedAt: string | undefined) => {
-		if (!firstPublishedAt) return null;
-		const date = new Date(firstPublishedAt);
-		date.setDate(date.getDate() + 180);
-		return date;
-	};
+	const openingNum = parseInt(openingNumber || "0");
 
-	const handleSubmit = async () => {
+	const handleTransition = async (path: string, successKey: string) => {
 		try {
-			const response = await postOpeningAction<Opening>("/org/submit-opening", {
-				opening_number: parseInt(openingNumber || "0"),
+			const response = await postOpeningAction<Opening>(path, {
+				opening_number: openingNum,
 			});
 			if (response.status === 200 && response.data) {
-				message.success(t("success.submitted"));
-				setOpening(response.data);
-			}
-		} catch {
-			message.error(t("errors.transitionFailed"));
-		}
-	};
-
-	const handleApprove = async () => {
-		try {
-			const response = await postOpeningAction<Opening>(
-				"/org/approve-opening",
-				{
-					opening_number: parseInt(openingNumber || "0"),
-				}
-			);
-			if (response.status === 200 && response.data) {
-				message.success(t("success.approved"));
+				message.success(t(`success.${successKey}`));
 				setOpening(response.data);
 			}
 		} catch {
@@ -137,7 +133,7 @@ export default function OpeningDetailPage() {
 			title: t("rejectModal.title"),
 			content: (
 				<Input.TextArea
-					id="rejection-note"
+					id="rejection-note-detail"
 					placeholder={t("rejectModal.noteLabel")}
 					maxLength={2000}
 				/>
@@ -146,15 +142,14 @@ export default function OpeningDetailPage() {
 			cancelText: "Cancel",
 			onOk: async () => {
 				const note = (
-					document.getElementById("rejection-note") as HTMLTextAreaElement
+					document.getElementById(
+						"rejection-note-detail"
+					) as HTMLTextAreaElement
 				).value;
 				try {
 					const response = await postOpeningAction<Opening>(
 						"/org/reject-opening",
-						{
-							opening_number: parseInt(openingNumber || "0"),
-							rejection_note: note,
-						}
+						{ opening_number: openingNum, rejection_note: note }
 					);
 					if (response.status === 200 && response.data) {
 						message.success(t("success.rejected"));
@@ -167,72 +162,11 @@ export default function OpeningDetailPage() {
 		});
 	};
 
-	const handlePause = async () => {
-		try {
-			const response = await postOpeningAction<Opening>("/org/pause-opening", {
-				opening_number: parseInt(openingNumber || "0"),
-			});
-			if (response.status === 200 && response.data) {
-				message.success(t("success.paused"));
-				setOpening(response.data);
-			}
-		} catch {
-			message.error(t("errors.transitionFailed"));
-		}
-	};
-
-	const handleReopen = async () => {
-		try {
-			const response = await postOpeningAction<Opening>("/org/reopen-opening", {
-				opening_number: parseInt(openingNumber || "0"),
-			});
-			if (response.status === 200 && response.data) {
-				message.success(t("success.reopened"));
-				setOpening(response.data);
-			}
-		} catch {
-			message.error(t("errors.transitionFailed"));
-		}
-	};
-
-	const handleClose = async () => {
-		try {
-			const response = await postOpeningAction<Opening>("/org/close-opening", {
-				opening_number: parseInt(openingNumber || "0"),
-			});
-			if (response.status === 200 && response.data) {
-				message.success(t("success.closed"));
-				setOpening(response.data);
-			}
-		} catch {
-			message.error(t("errors.transitionFailed"));
-		}
-	};
-
-	const handleArchive = async () => {
-		try {
-			const response = await postOpeningAction<Opening>(
-				"/org/archive-opening",
-				{
-					opening_number: parseInt(openingNumber || "0"),
-				}
-			);
-			if (response.status === 200 && response.data) {
-				message.success(t("success.archived"));
-				setOpening(response.data);
-			}
-		} catch {
-			message.error(t("errors.transitionFailed"));
-		}
-	};
-
 	const handleDuplicate = async () => {
 		try {
 			const response = await postOpeningAction<CreateOpeningResponse>(
 				"/org/duplicate-opening",
-				{
-					opening_number: parseInt(openingNumber || "0"),
-				}
+				{ opening_number: openingNum }
 			);
 			if (response.status === 201 && response.data) {
 				message.success(t("success.duplicated"));
@@ -243,58 +177,240 @@ export default function OpeningDetailPage() {
 		}
 	};
 
-	const renderActions = () => {
-		if (!opening || !hasManageRole) return null;
+	const getActionMenuItems = (): MenuProps["items"] => {
+		if (!opening || !hasManageRole) return [];
 
-		const status = opening.status;
-		const actions = {
-			draft: [
-				<Button
-					onClick={() => navigate(`/openings/${opening.opening_number}/edit`)}
-				>
-					{t("table.edit")}
-				</Button>,
-				<Button onClick={handleSubmit}>{t("table.submit")}</Button>,
-				<Button onClick={handleDuplicate}>{t("table.duplicate")}</Button>,
-			],
-			pending_review: [
-				<Button onClick={handleApprove}>{t("table.approve")}</Button>,
-				<Button onClick={handleRejectModal}>{t("table.reject")}</Button>,
-				<Button onClick={handleDuplicate}>{t("table.duplicate")}</Button>,
-			],
-			published: [
-				<Button onClick={handlePause}>{t("table.pause")}</Button>,
-				<Button onClick={handleClose}>{t("table.close")}</Button>,
-				<Button onClick={handleDuplicate}>{t("table.duplicate")}</Button>,
-			],
-			paused: [
-				<Button onClick={handleReopen}>{t("table.reopen")}</Button>,
-				<Button onClick={handleClose}>{t("table.close")}</Button>,
-				<Button onClick={handleDuplicate}>{t("table.duplicate")}</Button>,
-			],
-			expired: [
-				<Button onClick={handleArchive}>{t("table.archive")}</Button>,
-				<Button onClick={handleDuplicate}>{t("table.duplicate")}</Button>,
-			],
-			closed: [
-				<Button onClick={handleArchive}>{t("table.archive")}</Button>,
-				<Button onClick={handleDuplicate}>{t("table.duplicate")}</Button>,
-			],
-			archived: [
-				<Button onClick={handleDuplicate}>{t("table.duplicate")}</Button>,
-			],
+		const editItem = {
+			key: "edit",
+			label: t("table.edit"),
+			icon: <EditOutlined />,
+			onClick: () => navigate(`/openings/${opening.opening_number}/edit`),
+		};
+		const submitItem = {
+			key: "submit",
+			label: t("table.submit"),
+			onClick: () => handleTransition("/org/submit-opening", "submitted"),
+		};
+		const approveItem = {
+			key: "approve",
+			label: t("table.approve"),
+			onClick: () => handleTransition("/org/approve-opening", "approved"),
+		};
+		const rejectItem = {
+			key: "reject",
+			label: t("table.reject"),
+			onClick: handleRejectModal,
+		};
+		const pauseItem = {
+			key: "pause",
+			label: t("table.pause"),
+			onClick: () => handleTransition("/org/pause-opening", "paused"),
+		};
+		const reopenItem = {
+			key: "reopen",
+			label: t("table.reopen"),
+			onClick: () => handleTransition("/org/reopen-opening", "reopened"),
+		};
+		const closeItem = {
+			key: "close",
+			label: t("table.close"),
+			onClick: () => handleTransition("/org/close-opening", "closed"),
+		};
+		const archiveItem = {
+			key: "archive",
+			label: t("table.archive"),
+			onClick: () => handleTransition("/org/archive-opening", "archived"),
+		};
+		const duplicateItem = {
+			key: "duplicate",
+			label: t("table.duplicate"),
+			onClick: handleDuplicate,
 		};
 
-		return (actions[status as keyof typeof actions] || []).map(
-			(action, idx) => <span key={idx}>{action}</span>
-		);
+		const byStatus: Record<string, MenuProps["items"]> = {
+			draft: [editItem, submitItem, duplicateItem],
+			pending_review: [approveItem, rejectItem, duplicateItem],
+			published: [pauseItem, closeItem, duplicateItem],
+			paused: [reopenItem, closeItem, duplicateItem],
+			expired: [archiveItem, duplicateItem],
+			closed: [archiveItem, duplicateItem],
+			archived: [duplicateItem],
+		};
+
+		return byStatus[opening.status as string] ?? [duplicateItem];
 	};
 
 	if (loading || !opening) {
-		return <Spin spinning={true} style={{ display: "flex", minHeight: 400 }} />;
+		return (
+			<div
+				style={{
+					display: "flex",
+					justifyContent: "center",
+					alignItems: "center",
+					minHeight: 400,
+				}}
+			>
+				<Spin size="large" />
+			</div>
+		);
 	}
 
-	const expiryDate = getExpiryDate(opening.first_published_at);
+	const expiryDate = opening.first_published_at
+		? (() => {
+				const d = new Date(opening.first_published_at);
+				d.setDate(d.getDate() + 180);
+				return d;
+			})()
+		: null;
+
+	const jobDetailItems = [
+		{
+			key: "employment_type",
+			label: t("detail.employmentType"),
+			children: t(`form.${opening.employment_type}`),
+		},
+		{
+			key: "work_location_type",
+			label: t("detail.workLocationType"),
+			children: t(`form.${opening.work_location_type}`),
+		},
+		{
+			key: "positions",
+			label: t("detail.filled"),
+			children: (
+				<span>
+					<strong>{opening.filled_positions}</strong> /{" "}
+					{opening.number_of_positions}
+				</span>
+			),
+		},
+		...(opening.min_yoe !== undefined || opening.max_yoe !== undefined
+			? [
+					{
+						key: "experience",
+						label: t("detail.experience"),
+						children: [
+							opening.min_yoe !== undefined
+								? `${opening.min_yoe} ${t("detail.years")}`
+								: null,
+							opening.max_yoe !== undefined
+								? `${opening.max_yoe} ${t("detail.years")}`
+								: null,
+						]
+							.filter(Boolean)
+							.join(" – "),
+					},
+				]
+			: []),
+		...(opening.min_education_level
+			? [
+					{
+						key: "education",
+						label: t("detail.education"),
+						children: t(`form.${opening.min_education_level}`),
+					},
+				]
+			: []),
+		...(opening.addresses.length > 0
+			? [
+					{
+						key: "addresses",
+						label: t("form.addresses"),
+						children: opening.addresses
+							.map((a) => `${a.title} — ${a.city}, ${a.country}`)
+							.join("; "),
+						span: 2,
+					},
+				]
+			: []),
+	];
+
+	const compensationItems = opening.salary
+		? [
+				{
+					key: "salary",
+					label: t("detail.salary"),
+					children: `${opening.salary.currency} ${opening.salary.min_amount.toLocaleString()} – ${opening.salary.max_amount.toLocaleString()}`,
+					span: 2,
+				},
+			]
+		: null;
+
+	const teamItems = [
+		{
+			key: "hiring_manager",
+			label: t("detail.hiringManager"),
+			children: userLabel(opening.hiring_manager),
+		},
+		{
+			key: "recruiter",
+			label: t("detail.recruiter"),
+			children: userLabel(opening.recruiter),
+		},
+		...(opening.hiring_team_members.length > 0
+			? [
+					{
+						key: "team_members",
+						label: t("detail.teamMembers"),
+						children: (
+							<Space size={[4, 4]} wrap>
+								{opening.hiring_team_members.map((m) => (
+									<Tag key={m.email_address}>{userLabel(m)}</Tag>
+								))}
+							</Space>
+						),
+						span: 2,
+					},
+				]
+			: []),
+		...(opening.watchers.length > 0
+			? [
+					{
+						key: "watchers",
+						label: t("detail.watchers"),
+						children: (
+							<Space size={[4, 4]} wrap>
+								{opening.watchers.map((w) => (
+									<Tag key={w.email_address}>{userLabel(w)}</Tag>
+								))}
+							</Space>
+						),
+						span: 2,
+					},
+				]
+			: []),
+	];
+
+	const timestampItems = [
+		{
+			key: "created_at",
+			label: t("detail.createdAt"),
+			children: formatDateTime(opening.created_at, i18n.language),
+		},
+		{
+			key: "updated_at",
+			label: t("detail.updatedAt"),
+			children: formatDateTime(opening.updated_at, i18n.language),
+		},
+		...(opening.first_published_at
+			? [
+					{
+						key: "published_at",
+						label: t("detail.publishedAt"),
+						children: formatDateTime(opening.first_published_at, i18n.language),
+					},
+					{
+						key: "expires_on",
+						label: t("detail.expiresOn"),
+						children: expiryDate
+							? formatDate(expiryDate.toISOString(), i18n.language)
+							: t("detail.none"),
+					},
+				]
+			: []),
+	];
+
+	const actionMenuItems = getActionMenuItems() ?? [];
 
 	return (
 		<div
@@ -316,155 +432,159 @@ export default function OpeningDetailPage() {
 					display: "flex",
 					justifyContent: "space-between",
 					alignItems: "flex-start",
-					marginBottom: 24,
+					marginBottom: 20,
 				}}
 			>
 				<div>
 					<Title level={2} style={{ margin: 0, marginBottom: 8 }}>
 						{opening.title}
 					</Title>
-					<Space separator={<Divider orientation="vertical" />}>
-						<Text>#{opening.opening_number}</Text>
-						<Tag color={opening.is_internal ? "blue" : "green"}>
+					<Space size={8}>
+						<Text type="secondary">#{opening.opening_number}</Text>
+						<Tag color={STATUS_TAG_COLORS[opening.status]}>
+							{t(`status.${opening.status}`)}
+						</Tag>
+						<Tag color={opening.is_internal ? "blue" : "cyan"}>
 							{opening.is_internal
 								? t("filter.visibilityInternal")
 								: t("filter.visibilityPublic")}
 						</Tag>
-						<Tag>{t(`status.${opening.status}`)}</Tag>
 					</Space>
 				</div>
-				<Space>{renderActions()}</Space>
+				{hasManageRole && actionMenuItems.length > 0 && (
+					<Dropdown menu={{ items: actionMenuItems }} trigger={["click"]}>
+						<Button type="primary">
+							<Space>
+								{t("table.actions")}
+								<DownOutlined />
+							</Space>
+						</Button>
+					</Dropdown>
+				)}
 			</div>
 
+			{/* Status banners */}
 			{opening.status === "draft" && opening.rejection_note && (
-				<Card
-					style={{
-						marginBottom: 16,
-						borderColor: "#faad14",
-						backgroundColor: "#fffbe6",
-					}}
-				>
-					<Text>
-						{t("detail.rejectionBanner", {
-							approver: "Manager",
-							note: opening.rejection_note,
-						})}
-					</Text>
-				</Card>
+				<Alert
+					type="warning"
+					showIcon
+					title={t("detail.rejectionBanner", {
+						note: opening.rejection_note,
+					})}
+					style={{ marginBottom: 16 }}
+				/>
 			)}
-
 			{opening.status === "published" && expiryDate && (
-				<Card
-					style={{
-						marginBottom: 16,
-						borderColor: "#1890ff",
-						backgroundColor: "#e6f7ff",
-					}}
-				>
-					<Text>
-						{t("detail.publishedBanner", {
-							expiresOn: formatDate(expiryDate.toISOString(), i18n.language),
-						})}
-					</Text>
-				</Card>
+				<Alert
+					type="info"
+					showIcon
+					title={t("detail.publishedBanner", {
+						expiresOn: formatDate(expiryDate.toISOString(), i18n.language),
+					})}
+					style={{ marginBottom: 16 }}
+				/>
 			)}
-
 			{opening.status === "paused" && expiryDate && (
-				<Card
-					style={{
-						marginBottom: 16,
-						borderColor: "#faad14",
-						backgroundColor: "#fffbe6",
-					}}
-				>
-					<Text>
-						{t("detail.pausedBanner", {
-							expiresOn: formatDate(expiryDate.toISOString(), i18n.language),
-						})}
-					</Text>
-				</Card>
+				<Alert
+					type="warning"
+					showIcon
+					title={t("detail.pausedBanner", {
+						expiresOn: formatDate(expiryDate.toISOString(), i18n.language),
+					})}
+					style={{ marginBottom: 16 }}
+				/>
 			)}
-
 			{opening.status === "expired" && (
-				<Card
-					style={{
-						marginBottom: 16,
-						borderColor: "#ff4d4f",
-						backgroundColor: "#fff1f0",
-					}}
-				>
-					<Text>
-						{t("detail.expiredBanner", {
-							expiredOn: formatDate(
-								opening.first_published_at
-									? new Date(opening.first_published_at).toISOString()
-									: new Date().toISOString(),
-								i18n.language
-							),
-						})}
-					</Text>
+				<Alert
+					type="error"
+					showIcon
+					title={t("detail.expiredBanner", {
+						expiredOn: expiryDate
+							? formatDate(expiryDate.toISOString(), i18n.language)
+							: "",
+					})}
+					style={{ marginBottom: 16 }}
+				/>
+			)}
+
+			{/* Description */}
+			<Card style={{ marginBottom: 16 }}>
+				<Typography.Paragraph style={{ whiteSpace: "pre-wrap", margin: 0 }}>
+					{opening.description}
+				</Typography.Paragraph>
+			</Card>
+
+			{/* Job Details */}
+			<Card title={t("detail.jobDetails")} style={{ marginBottom: 16 }}>
+				<Descriptions bordered column={2} items={jobDetailItems} size="small" />
+			</Card>
+
+			{/* Compensation */}
+			{compensationItems && (
+				<Card title={t("detail.compensation")} style={{ marginBottom: 16 }}>
+					<Descriptions
+						bordered
+						column={2}
+						items={compensationItems}
+						size="small"
+					/>
 				</Card>
 			)}
 
-			<Card style={{ marginBottom: 16 }}>
-				<Paragraph>
-					<strong>Description:</strong>
-				</Paragraph>
-				<Paragraph>{opening.description}</Paragraph>
+			{/* Hiring Team */}
+			<Card title={t("detail.hiringTeam")} style={{ marginBottom: 16 }}>
+				<Descriptions bordered column={2} items={teamItems} size="small" />
+			</Card>
 
-				<Divider />
+			{/* Additional Info */}
+			{(opening.cost_center ||
+				opening.tags.length > 0 ||
+				opening.internal_notes) && (
+				<Card title={t("detail.additionalInfo")} style={{ marginBottom: 16 }}>
+					{opening.cost_center && (
+						<>
+							<Text type="secondary">{t("detail.costCenter")}: </Text>
+							<Text>{opening.cost_center.display_name}</Text>
+							{(opening.tags.length > 0 || opening.internal_notes) && (
+								<Divider style={{ margin: "12px 0" }} />
+							)}
+						</>
+					)}
+					{opening.tags.length > 0 && (
+						<>
+							<Text type="secondary">{t("detail.tags")}: </Text>
+							<Space size={[4, 4]} wrap style={{ marginTop: 4 }}>
+								{opening.tags.map((tag) => (
+									<Tag key={tag.tag_id} color="purple">
+										{tag.display_name || tag.tag_id}
+									</Tag>
+								))}
+							</Space>
+							{opening.internal_notes && (
+								<Divider style={{ margin: "12px 0" }} />
+							)}
+						</>
+					)}
+					{opening.internal_notes && (
+						<>
+							<Text type="secondary">{t("detail.internalNotes")}: </Text>
+							<Typography.Paragraph
+								style={{
+									whiteSpace: "pre-wrap",
+									marginTop: 4,
+									marginBottom: 0,
+								}}
+							>
+								{opening.internal_notes}
+							</Typography.Paragraph>
+						</>
+					)}
+				</Card>
+			)}
 
-				<Paragraph>
-					<strong>Employment Type:</strong> {opening.employment_type}
-				</Paragraph>
-				<Paragraph>
-					<strong>Work Location:</strong> {opening.work_location_type}
-				</Paragraph>
-				<Paragraph>
-					<strong>Positions:</strong> {opening.number_of_positions}
-				</Paragraph>
-
-				{opening.min_yoe !== undefined && (
-					<Paragraph>
-						<strong>Min Experience:</strong> {opening.min_yoe} years
-					</Paragraph>
-				)}
-				{opening.max_yoe !== undefined && (
-					<Paragraph>
-						<strong>Max Experience:</strong> {opening.max_yoe} years
-					</Paragraph>
-				)}
-
-				{opening.salary && (
-					<Paragraph>
-						<strong>Salary:</strong> {opening.salary.currency}{" "}
-						{opening.salary.min_amount} - {opening.salary.max_amount}
-					</Paragraph>
-				)}
-
-				<Paragraph>
-					<strong>Hiring Manager:</strong>{" "}
-					{opening.hiring_manager.full_name
-						? `${opening.hiring_manager.full_name} (${opening.hiring_manager.email_address})`
-						: opening.hiring_manager.email_address}
-				</Paragraph>
-				<Paragraph>
-					<strong>Recruiter:</strong>{" "}
-					{opening.recruiter.full_name
-						? `${opening.recruiter.full_name} (${opening.recruiter.email_address})`
-						: opening.recruiter.email_address}
-				</Paragraph>
-
-				<Paragraph>
-					<strong>Created:</strong>{" "}
-					{formatDateTime(opening.created_at, i18n.language)}
-				</Paragraph>
-				{opening.first_published_at && (
-					<Paragraph>
-						<strong>Published:</strong>{" "}
-						{formatDateTime(opening.first_published_at, i18n.language)}
-					</Paragraph>
-				)}
+			{/* Timestamps */}
+			<Card title={t("detail.timestamps")}>
+				<Descriptions bordered column={2} items={timestampItems} size="small" />
 			</Card>
 		</div>
 	);

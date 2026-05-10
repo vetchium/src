@@ -46,7 +46,8 @@
 		"close": "Close",
 		"archive": "Archive",
 		"discard": "Discard",
-		"duplicate": "Duplicate"
+		"duplicate": "Duplicate",
+		"loadMore": "Load More"
 	},
 	"form": {
 		"title": "Title",
@@ -78,19 +79,52 @@
 		"remote": "Remote",
 		"on_site": "On-Site",
 		"hybrid": "Hybrid",
+		"not_required": "No requirement",
+		"bachelor": "Bachelor's",
+		"master": "Master's",
+		"doctorate": "Doctorate",
 		"required": "Required",
-		"titleRequired": "title is required",
+		"titleRequired": "Title is required",
 		"sections": {
 			"basics": "Basics",
 			"employment": "Employment",
-			"requirements": "Requirements",
+			"requirements": "Requirements & Compensation",
 			"compensation": "Compensation",
 			"team": "Team",
 			"additional": "Additional"
 		}
 	},
+	"form_nav": {
+		"next": "Next",
+		"previous": "Previous"
+	},
 	"detail": {
-		"rejectionBanner": "Returned for changes by {{approver}}: {{note}}",
+		"jobDetails": "Job Details",
+		"compensation": "Compensation",
+		"hiringTeam": "Hiring Team",
+		"additionalInfo": "Additional Information",
+		"timestamps": "Timestamps",
+		"employmentType": "Employment Type",
+		"workLocationType": "Work Location",
+		"positions": "Positions",
+		"filled": "Filled / Total",
+		"experience": "Experience",
+		"education": "Min Education",
+		"salary": "Salary Range",
+		"hiringManager": "Hiring Manager",
+		"recruiter": "Recruiter",
+		"teamMembers": "Team Members",
+		"watchers": "Watchers",
+		"costCenter": "Cost Center",
+		"tags": "Tags",
+		"internalNotes": "Internal Notes",
+		"createdAt": "Created",
+		"updatedAt": "Updated",
+		"publishedAt": "Published",
+		"expiresOn": "Expires On",
+		"none": "—",
+		"years": "yrs",
+		"rejectionBanner": "Returned for changes: {{note}}",
 		"publishedBanner": "This opening will be automatically expired on {{expiresOn}}.",
 		"pausedBanner": "This opening is paused and hidden from the Hub. The 180-day expiry clock is still running and will fire on {{expiresOn}}.",
 		"expiredBanner": "This opening expired automatically on {{expiredOn}} and no longer accepts new applications."
@@ -123,6 +157,8 @@
 		"invalidOrgUsers": "One or more selected OrgUsers are not active",
 		"invalidCostCenter": "Selected cost center is not active",
 		"invalidTags": "One or more selected tags are not active",
-		"notEditable": "This opening is no longer editable. Close it and create a new one to make changes."
+		"notEditable": "This opening is no longer editable. Close it and create a new one to make changes.",
+		"noAddresses": "No active addresses found. An opening requires at least one active address.",
+		"noAddressesAction": "Add Address"
 	}
 }
