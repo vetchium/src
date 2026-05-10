@@ -14,7 +14,14 @@ import {
 	Space,
 	Card,
 } from "antd";
-import { ArrowLeftOutlined } from "@ant-design/icons";
+import {
+	ArrowLeftOutlined,
+	FileTextOutlined,
+	ScheduleOutlined,
+	DollarOutlined,
+	TeamOutlined,
+	ProfileOutlined,
+} from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { useNavigate, Link } from "react-router-dom";
 import type { ValidationError } from "vetchium-specs/common/common";
@@ -235,11 +242,31 @@ export default function CreateOpeningPage() {
 	}));
 
 	const stepItems = [
-		{ title: t("form.sections.basics") },
-		{ title: t("form.sections.employment") },
-		{ title: t("form.sections.requirements") },
-		{ title: t("form.sections.team") },
-		{ title: t("form.sections.additional") },
+		{
+			title: t("form.sections.basics"),
+			description: t("form.sections.basicsDesc"),
+			icon: <FileTextOutlined />,
+		},
+		{
+			title: t("form.sections.employment"),
+			description: t("form.sections.employmentDesc"),
+			icon: <ScheduleOutlined />,
+		},
+		{
+			title: t("form.sections.requirements"),
+			description: t("form.sections.requirementsDesc"),
+			icon: <DollarOutlined />,
+		},
+		{
+			title: t("form.sections.team"),
+			description: t("form.sections.teamDesc"),
+			icon: <TeamOutlined />,
+		},
+		{
+			title: t("form.sections.additional"),
+			description: t("form.sections.additionalDesc"),
+			icon: <ProfileOutlined />,
+		},
 	];
 
 	const noAddresses = !optionsLoading && addresses.length === 0;
@@ -281,7 +308,6 @@ export default function CreateOpeningPage() {
 				current={currentStep}
 				items={stepItems}
 				style={{ marginBottom: 32 }}
-				size="small"
 			/>
 
 			<Spin spinning={loading || optionsLoading}>
@@ -440,12 +466,7 @@ export default function CreateOpeningPage() {
 								label={t("form.hiringManager")}
 								name="hiring_manager_email_address"
 								rules={[{ required: true, message: t("form.required") }]}
-								extra={
-									t("form.hiringManager") +
-									" and " +
-									t("form.recruiter") +
-									" can be the same person"
-								}
+								extra={t("form.samePersonHint")}
 							>
 								<Select
 									showSearch={{ optionFilterProp: "label" }}

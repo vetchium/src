@@ -33,7 +33,6 @@ const (
 	errNumberOfPositionsRequired = "number_of_positions is required"
 	errHiringManagerRequired     = "hiring_manager_email_address is required"
 	errRecruiterRequired         = "recruiter_email_address is required"
-	errManagerEqualsRecruiter    = "hiring_manager and recruiter must be different users"
 )
 
 type OpeningStatus string
@@ -227,9 +226,6 @@ func (r CreateOpeningRequest) Validate() []common.ValidationError {
 	if r.RecruiterEmailAddress == "" {
 		errs = append(errs, common.NewValidationError("recruiter_email_address", fmt.Errorf(errRecruiterRequired)))
 	}
-	if r.HiringManagerEmailAddress != "" && r.RecruiterEmailAddress != "" && r.HiringManagerEmailAddress == r.RecruiterEmailAddress {
-		errs = append(errs, common.NewValidationError("recruiter_email_address", fmt.Errorf(errManagerEqualsRecruiter)))
-	}
 	return errs
 }
 
@@ -262,9 +258,6 @@ func (r UpdateOpeningRequest) Validate() []common.ValidationError {
 	}
 	if r.RecruiterEmailAddress == "" {
 		errs = append(errs, common.NewValidationError("recruiter_email_address", fmt.Errorf(errRecruiterRequired)))
-	}
-	if r.HiringManagerEmailAddress != "" && r.RecruiterEmailAddress != "" && r.HiringManagerEmailAddress == r.RecruiterEmailAddress {
-		errs = append(errs, common.NewValidationError("recruiter_email_address", fmt.Errorf(errManagerEqualsRecruiter)))
 	}
 	return errs
 }

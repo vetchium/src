@@ -240,8 +240,6 @@ export const ERR_HIRING_TEAM_OVERLAPS_MANAGER =
 	"hiring_team_member_email_addresses cannot include the hiring_manager";
 export const ERR_HIRING_TEAM_OVERLAPS_RECRUITER =
 	"hiring_team_member_email_addresses cannot include the recruiter";
-export const ERR_MANAGER_EQUALS_RECRUITER =
-	"hiring_manager and recruiter must be different users";
 export const ERR_WATCHERS_TOO_LONG = `watcher_email_addresses must have at most ${WATCHERS_MAX} entries`;
 export const ERR_WATCHERS_INVALID =
 	"each watcher_email_addresses must be a valid email address";
@@ -433,19 +431,6 @@ export function validateCreateOpeningRequest(
 	} else if (!r.recruiter_email_address.includes("@")) {
 		errs.push(
 			newValidationError("recruiter_email_address", ERR_RECRUITER_INVALID)
-		);
-	}
-
-	if (
-		r.hiring_manager_email_address &&
-		r.recruiter_email_address &&
-		r.hiring_manager_email_address === r.recruiter_email_address
-	) {
-		errs.push(
-			newValidationError(
-				"recruiter_email_address",
-				ERR_MANAGER_EQUALS_RECRUITER
-			)
 		);
 	}
 
@@ -698,19 +683,6 @@ export function validateUpdateOpeningRequest(
 	} else if (!r.recruiter_email_address.includes("@")) {
 		errs.push(
 			newValidationError("recruiter_email_address", ERR_RECRUITER_INVALID)
-		);
-	}
-
-	if (
-		r.hiring_manager_email_address &&
-		r.recruiter_email_address &&
-		r.hiring_manager_email_address === r.recruiter_email_address
-	) {
-		errs.push(
-			newValidationError(
-				"recruiter_email_address",
-				ERR_MANAGER_EQUALS_RECRUITER
-			)
 		);
 	}
 

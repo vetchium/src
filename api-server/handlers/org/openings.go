@@ -357,10 +357,6 @@ func validateUpdateOpeningReferences(ctx context.Context, s *server.RegionalServ
 }
 
 func validateDistinctTeam(req *org.CreateOpeningRequest) error {
-	if req.HiringManagerEmailAddress == req.RecruiterEmailAddress {
-		return fmt.Errorf("hiring manager and recruiter must be different users")
-	}
-
 	for _, email := range req.HiringTeamMemberEmailAddresses {
 		if email == req.HiringManagerEmailAddress {
 			return fmt.Errorf("hiring team member cannot be the hiring manager")
@@ -382,10 +378,6 @@ func validateDistinctTeam(req *org.CreateOpeningRequest) error {
 }
 
 func validateDistinctUpdateTeam(req *org.UpdateOpeningRequest) error {
-	if req.HiringManagerEmailAddress == req.RecruiterEmailAddress {
-		return fmt.Errorf("hiring manager and recruiter must be different users")
-	}
-
 	for _, email := range req.HiringTeamMemberEmailAddresses {
 		if email == req.HiringManagerEmailAddress {
 			return fmt.Errorf("hiring team member cannot be the hiring manager")

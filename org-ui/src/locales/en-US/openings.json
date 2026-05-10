@@ -85,13 +85,19 @@
 		"doctorate": "Doctorate",
 		"required": "Required",
 		"titleRequired": "Title is required",
+		"samePersonHint": "Hiring Manager and Recruiter can be the same person",
 		"sections": {
 			"basics": "Basics",
+			"basicsDesc": "Title & description",
 			"employment": "Employment",
+			"employmentDesc": "Type, location & addresses",
 			"requirements": "Requirements & Compensation",
-			"compensation": "Compensation",
+			"requirementsDesc": "Experience & salary",
 			"team": "Team",
-			"additional": "Additional"
+			"teamDesc": "Hiring manager, recruiter & team",
+			"additional": "Additional",
+			"additionalDesc": "Tags, cost center & notes",
+			"compensation": "Compensation"
 		}
 	},
 	"form_nav": {

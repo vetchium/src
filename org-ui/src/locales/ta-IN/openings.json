@@ -85,13 +85,19 @@
 		"doctorate": "முனைவர்",
 		"required": "தேவையானது",
 		"titleRequired": "தலைப்பு தேவை",
+		"samePersonHint": "நியமன மேலாளர் மற்றும் நியமன அதிகாரி ஒரே நபராக இருக்கலாம்",
 		"sections": {
 			"basics": "அடிப்படை",
+			"basicsDesc": "தலைப்பு & விவரிப்பு",
 			"employment": "வேலை வகை",
+			"employmentDesc": "வகை, இடம் & முகவரிகள்",
 			"requirements": "தேவைகள் & ஊதியம்",
-			"compensation": "ஊதியம்",
+			"requirementsDesc": "அனுபவம் & சம்பளம்",
 			"team": "குழு",
-			"additional": "கூடுதல்"
+			"teamDesc": "நியமன மேலாளர், அதிகாரி & குழு",
+			"additional": "கூடுதல்",
+			"additionalDesc": "குறிச்சொற்கள், செலவு மையம் & குறிப்புகள்",
+			"compensation": "ஊதியம்"
 		}
 	},
 	"form_nav": {

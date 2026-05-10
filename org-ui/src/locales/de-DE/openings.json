@@ -85,13 +85,19 @@
 		"doctorate": "Promotion",
 		"required": "Pflichtfeld",
 		"titleRequired": "Titel ist erforderlich",
+		"samePersonHint": "Einstellungsleiter und Personalvermittler können dieselbe Person sein",
 		"sections": {
 			"basics": "Grunddaten",
+			"basicsDesc": "Titel & Beschreibung",
 			"employment": "Beschäftigung",
+			"employmentDesc": "Art, Standort & Adressen",
 			"requirements": "Anforderungen & Vergütung",
-			"compensation": "Vergütung",
+			"requirementsDesc": "Erfahrung & Gehalt",
 			"team": "Team",
-			"additional": "Weiteres"
+			"teamDesc": "Einstellungsleiter, Personalvermittler & Team",
+			"additional": "Weiteres",
+			"additionalDesc": "Tags, Kostenstelle & Notizen",
+			"compensation": "Vergütung"
 		}
 	},
 	"form_nav": {
