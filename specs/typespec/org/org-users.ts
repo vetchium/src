@@ -574,4 +574,5 @@ export interface OrgMyInfoResponse {
 	roles: string[];
 	/** True when at least one of the org's domains is in FAILING state. Used for warning banners. */
 	has_failing_domains: boolean;
+	email_address: string;
 }

@@ -180,4 +180,5 @@ model OrgMyInfoResponse {
   org_name: string;
   org_domain: DomainName;
   roles: string[];
+  email_address: EmailAddress;
 }

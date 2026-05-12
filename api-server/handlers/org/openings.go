@@ -480,6 +480,9 @@ func dbOpeningToResponse(ctx context.Context, s *server.RegionalServer, opening 
 	userIDs := make(map[pgtype.UUID]bool)
 	userIDs[opening.HiringManagerOrgUserID] = true
 	userIDs[opening.RecruiterOrgUserID] = true
+	if opening.SubmittedByOrgUserID.Valid {
+		userIDs[opening.SubmittedByOrgUserID] = true
+	}
 	for _, ht := range hiringTeam {
 		userIDs[ht] = true
 	}
@@ -508,6 +511,11 @@ func dbOpeningToResponse(ctx context.Context, s *server.RegionalServer, opening 
 
 	resp.HiringManager = usersByID[opening.HiringManagerOrgUserID]
 	resp.Recruiter = usersByID[opening.RecruiterOrgUserID]
+	if opening.SubmittedByOrgUserID.Valid {
+		if user, ok := usersByID[opening.SubmittedByOrgUserID]; ok {
+			resp.SubmittedBy = user
+		}
+	}
 
 	// Add addresses
 	addressMap := make(map[pgtype.UUID]regionaldb.OrgAddress)
@@ -1223,9 +1231,10 @@ func SubmitOpening(s *server.RegionalServer) http.HandlerFunc {
 		var opening regionaldb.Opening
 		txErr := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
 			updated, err := qtx.TransitionOpeningSubmit(ctx, regionaldb.TransitionOpeningSubmitParams{
-				OrgID:         orgUser.OrgID,
-				OpeningNumber: req.OpeningNumber,
-				TargetStatus:  targetStatus,
+				OrgID:                orgUser.OrgID,
+				OpeningNumber:        req.OpeningNumber,
+				TargetStatus:         targetStatus,
+				SubmittedByOrgUserID: orgUser.OrgUserID,
 			})
 			if err != nil {
 				return err
@@ -1299,6 +1308,7 @@ func ApproveOpening(s *server.RegionalServer) http.HandlerFunc {
 			updated, err := qtx.TransitionOpeningApprove(ctx, regionaldb.TransitionOpeningApproveParams{
 				OrgID:         orgUser.OrgID,
 				OpeningNumber: req.OpeningNumber,
+				ActorUserID:   orgUser.OrgUserID,
 			})
 			if err != nil {
 				return err

@@ -56,6 +56,11 @@ export default function OpeningDetailPage() {
 		myInfo?.roles?.includes("org:manage_openings") ||
 		myInfo?.roles?.includes("org:superadmin");
 
+	const isSubmitter =
+		opening?.status === "pending_review" &&
+		!!opening.submitted_by &&
+		opening.submitted_by.email_address === myInfo?.email_address;
+
 	const postOpeningAction = useCallback(
 		async <TResponse,>(
 			path: string,
@@ -194,12 +199,18 @@ export default function OpeningDetailPage() {
 				</Button>,
 			],
 			pending_review: [
-				<Button
-					key="approve"
-					onClick={() => handleTransition("/org/approve-opening", "approved")}
-				>
-					{t("table.approve")}
-				</Button>,
+				...(!isSubmitter
+					? [
+							<Button
+								key="approve"
+								onClick={() =>
+									handleTransition("/org/approve-opening", "approved")
+								}
+							>
+								{t("table.approve")}
+							</Button>,
+						]
+					: []),
 				<Button key="reject" onClick={handleRejectModal}>
 					{t("table.reject")}
 				</Button>,
@@ -386,6 +397,15 @@ export default function OpeningDetailPage() {
 			label: t("detail.recruiter"),
 			children: userLabel(opening.recruiter),
 		},
+		...(opening.status === "pending_review" && opening.submitted_by
+			? [
+					{
+						key: "submitted_by",
+						label: t("detail.submittedBy"),
+						children: userLabel(opening.submitted_by),
+					},
+				]
+			: []),
 		...(opening.hiring_team_members.length > 0
 			? [
 					{

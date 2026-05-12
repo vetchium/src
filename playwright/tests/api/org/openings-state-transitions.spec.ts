@@ -548,4 +548,143 @@ test.describe("Openings — Invalid State Transitions", () => {
 			await deleteTestOrgUser(recruiterEmail);
 		}
 	});
+
+	test("self-approval: submitter cannot approve own pending_review opening → 422", async ({
+		request,
+	}) => {
+		const api = new OrgAPIClient(request);
+		const { email: adminEmail, domain } = generateTestOrgEmail("op-self-app");
+		const { orgId } = await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
+		const { email: managerEmail, orgUserId: managerUserId } =
+			await createTestOrgUserDirect(`mgr@${domain}`, TEST_PASSWORD, "ind1", {
+				orgId,
+				domain,
+			});
+		await assignRoleToOrgUser(managerUserId, "org:manage_openings", "ind1");
+		const { email: recruiterEmail } = await createTestOrgUserDirect(
+			`rec@${domain}`,
+			TEST_PASSWORD,
+			"ind1",
+			{ orgId, domain }
+		);
+
+		try {
+			const adminToken = await loginOrgUser(api, adminEmail, domain);
+			const managerToken = await loginOrgUser(api, managerEmail, domain);
+
+			const addrRes = await api.createAddress(adminToken, {
+				title: "HQ",
+				address_line1: "1 St",
+				city: "Chennai",
+				country: "IN",
+			} as CreateAddressRequest);
+			const createRes = await api.createOpening(managerToken, {
+				title: "Self-Approval Test Opening",
+				description: "Test",
+				is_internal: false,
+				employment_type: "full_time",
+				work_location_type: "remote",
+				address_ids: [addrRes.body!.address_id],
+				number_of_positions: 1,
+				hiring_manager_email_address: managerEmail,
+				recruiter_email_address: recruiterEmail,
+			} as CreateOpeningRequest);
+			const openingNumber = createRes.body!.opening_number;
+
+			// Manager submits → goes to pending_review (non-superadmin)
+			const submitRes = await api.submitOpening(managerToken, {
+				opening_number: openingNumber,
+			});
+			expect(submitRes.status).toBe(200);
+			expect(submitRes.body!.status).toBe("pending_review");
+			expect(submitRes.body!.submitted_by?.email_address).toBe(managerEmail);
+
+			// Same manager tries to approve their own submission → 422
+			const approveRes = await api.approveOpening(managerToken, {
+				opening_number: openingNumber,
+			});
+			expect(approveRes.status).toBe(422);
+
+			// Opening must still be in pending_review
+			const getRes = await api.getOpening(managerToken, {
+				opening_number: openingNumber,
+			});
+			expect(getRes.body!.status).toBe("pending_review");
+			expect(getRes.body!.submitted_by?.email_address).toBe(managerEmail);
+
+			await deleteTestOrgUser(managerEmail);
+			await deleteTestOrgUser(recruiterEmail);
+		} finally {
+			await deleteTestOrgUser(adminEmail);
+		}
+	});
+
+	test("submitted_by cleared after rejection, different user can resubmit", async ({
+		request,
+	}) => {
+		const api = new OrgAPIClient(request);
+		const { email: adminEmail, domain } =
+			generateTestOrgEmail("op-reject-clear");
+		const { orgId } = await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
+		const { email: managerEmail, orgUserId: managerUserId } =
+			await createTestOrgUserDirect(`mgr@${domain}`, TEST_PASSWORD, "ind1", {
+				orgId,
+				domain,
+			});
+		await assignRoleToOrgUser(managerUserId, "org:manage_openings", "ind1");
+		const { email: recruiterEmail } = await createTestOrgUserDirect(
+			`rec@${domain}`,
+			TEST_PASSWORD,
+			"ind1",
+			{ orgId, domain }
+		);
+
+		try {
+			const adminToken = await loginOrgUser(api, adminEmail, domain);
+			const managerToken = await loginOrgUser(api, managerEmail, domain);
+
+			const addrRes = await api.createAddress(adminToken, {
+				title: "HQ",
+				address_line1: "1 St",
+				city: "Chennai",
+				country: "IN",
+			} as CreateAddressRequest);
+			const createRes = await api.createOpening(managerToken, {
+				title: "Reject Clear Test Opening",
+				description: "Test",
+				is_internal: false,
+				employment_type: "full_time",
+				work_location_type: "remote",
+				address_ids: [addrRes.body!.address_id],
+				number_of_positions: 1,
+				hiring_manager_email_address: managerEmail,
+				recruiter_email_address: recruiterEmail,
+			} as CreateOpeningRequest);
+			const openingNumber = createRes.body!.opening_number;
+
+			// Manager submits → pending_review
+			await api.submitOpening(managerToken, { opening_number: openingNumber });
+
+			// Admin rejects → back to draft, submitted_by cleared
+			const rejectRes = await api.rejectOpening(adminToken, {
+				opening_number: openingNumber,
+				rejection_note: "Needs revision",
+			});
+			expect(rejectRes.status).toBe(200);
+			expect(rejectRes.body!.status).toBe("draft");
+			expect(rejectRes.body!.submitted_by).toBeUndefined();
+
+			// Manager resubmits → pending_review again with fresh submitted_by
+			const resubmitRes = await api.submitOpening(managerToken, {
+				opening_number: openingNumber,
+			});
+			expect(resubmitRes.status).toBe(200);
+			expect(resubmitRes.body!.submitted_by?.email_address).toBe(managerEmail);
+
+			await deleteTestOrgUser(managerEmail);
+			await deleteTestOrgUser(recruiterEmail);
+		} finally {
+			await deleteTestOrgUser(adminEmail);
+		}
+	});
 });

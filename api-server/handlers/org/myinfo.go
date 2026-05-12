@@ -53,6 +53,7 @@ func MyInfo(s *server.RegionalServer) http.HandlerFunc {
 			OrgDomain:         common.DomainName(orgInfo.PrimaryDomain),
 			Roles:             regionalInfo.Roles,
 			HasFailingDomains: regionalInfo.HasFailingDomains,
+			EmailAddress:      common.EmailAddress(orgUser.EmailAddress),
 		}
 
 		if err := json.NewEncoder(w).Encode(response); err != nil {

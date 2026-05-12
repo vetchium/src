@@ -139,6 +139,7 @@ type Opening struct {
 	FilledPositions   int32                  `json:"filled_positions"`
 	HiringManager     map[string]string      `json:"hiring_manager"`
 	Recruiter         map[string]string      `json:"recruiter"`
+	SubmittedBy       map[string]string      `json:"submitted_by,omitempty"`
 	HiringTeamMembers []map[string]string    `json:"hiring_team_members"`
 	Watchers          []map[string]string    `json:"watchers"`
 	CostCenter        map[string]interface{} `json:"cost_center,omitempty"`

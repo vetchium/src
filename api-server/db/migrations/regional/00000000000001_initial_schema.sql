@@ -406,6 +406,7 @@ CREATE TABLE openings (
   filled_positions        INTEGER             NOT NULL DEFAULT 0,
   hiring_manager_org_user_id UUID             NOT NULL,
   recruiter_org_user_id      UUID             NOT NULL,
+  submitted_by_org_user_id   UUID,
   cost_center_id          UUID,
   internal_notes          TEXT,
   status                  opening_status      NOT NULL DEFAULT 'draft',

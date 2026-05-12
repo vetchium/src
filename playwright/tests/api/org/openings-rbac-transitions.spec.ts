@@ -466,4 +466,78 @@ test.describe("Openings — RBAC", () => {
 			await deleteTestOrgUser(noRoleEmail);
 		}
 	});
+
+	test("approve-opening: non-superadmin with manage_openings approves different user's submission → 200", async ({
+		request,
+	}) => {
+		const api = new OrgAPIClient(request);
+		const { email: adminEmail, domain } =
+			generateTestOrgEmail("op-rbac-app-pos");
+		const { orgId } = await createTestOrgAdminDirect(adminEmail, TEST_PASSWORD);
+
+		// submitter: a non-superadmin with manage_openings
+		const { email: submitterEmail, orgUserId: submitterUserId } =
+			await createTestOrgUserDirect(`sub@${domain}`, TEST_PASSWORD, "ind1", {
+				orgId,
+				domain,
+			});
+		await assignRoleToOrgUser(submitterUserId, "org:manage_openings", "ind1");
+
+		// approver: a different non-superadmin with manage_openings
+		const { email: approverEmail, orgUserId: approverUserId } =
+			await createTestOrgUserDirect(`app@${domain}`, TEST_PASSWORD, "ind1", {
+				orgId,
+				domain,
+			});
+		await assignRoleToOrgUser(approverUserId, "org:manage_openings", "ind1");
+
+		const { email: recruiterEmail } = await createTestOrgUserDirect(
+			`rec@${domain}`,
+			TEST_PASSWORD,
+			"ind1",
+			{ orgId, domain }
+		);
+
+		try {
+			const adminToken = await loginOrgUser(api, adminEmail, domain);
+			const submitterToken = await loginOrgUser(api, submitterEmail, domain);
+			const approverToken = await loginOrgUser(api, approverEmail, domain);
+
+			const addrRes = await api.createAddress(adminToken, {
+				title: "HQ",
+				address_line1: "1 St",
+				city: "Chennai",
+				country: "IN",
+			} as CreateAddressRequest);
+			const createRes = await api.createOpening(submitterToken, {
+				title: "RBAC Approve Test",
+				description: "Test",
+				is_internal: false,
+				employment_type: "full_time",
+				work_location_type: "remote",
+				address_ids: [addrRes.body!.address_id],
+				number_of_positions: 1,
+				hiring_manager_email_address: submitterEmail,
+				recruiter_email_address: recruiterEmail,
+			} as CreateOpeningRequest);
+
+			// Submitter submits → pending_review
+			await api.submitOpening(submitterToken, {
+				opening_number: createRes.body!.opening_number,
+			});
+
+			// Different user with manage_openings approves → 200
+			const res = await api.approveOpening(approverToken, {
+				opening_number: createRes.body!.opening_number,
+			});
+			expect(res.status).toBe(200);
+			expect(res.body!.status).toBe("published");
+
+			await deleteTestOrgUser(submitterEmail);
+			await deleteTestOrgUser(approverEmail);
+			await deleteTestOrgUser(recruiterEmail);
+		} finally {
+			await deleteTestOrgUser(adminEmail);
+		}
+	});
 });

@@ -107,6 +107,7 @@ model Opening {
   filled_positions:           int32;
   hiring_manager:             OrgUserShort;
   recruiter:                  OrgUserShort;
+  submitted_by?:              OrgUserShort;
   hiring_team_members:        OrgUserShort[];
   watchers:                   OrgUserShort[];
   cost_center?:               CostCenter;

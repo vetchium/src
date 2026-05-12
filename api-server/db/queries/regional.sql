@@ -1390,10 +1390,11 @@ WHERE org_id = @org_id AND opening_number = @opening_number AND status = 'draft'
 
 -- name: TransitionOpeningSubmit :one
 UPDATE openings
-SET status                = @target_status,
-    first_published_at    = CASE WHEN @target_status = 'published'::opening_status THEN NOW() ELSE first_published_at END,
-    rejection_note        = NULL,
-    updated_at            = NOW()
+SET status                    = @target_status,
+    submitted_by_org_user_id  = @submitted_by_org_user_id,
+    first_published_at        = CASE WHEN @target_status = 'published'::opening_status THEN NOW() ELSE first_published_at END,
+    rejection_note            = NULL,
+    updated_at                = NOW()
 WHERE org_id = @org_id AND opening_number = @opening_number AND status = 'draft'
 RETURNING *;
 
@@ -1402,14 +1403,18 @@ UPDATE openings
 SET status              = 'published',
     first_published_at  = NOW(),
     updated_at          = NOW()
-WHERE org_id = @org_id AND opening_number = @opening_number AND status = 'pending_review'
+WHERE org_id = @org_id
+  AND opening_number    = @opening_number
+  AND status            = 'pending_review'
+  AND submitted_by_org_user_id != @actor_user_id
 RETURNING *;
 
 -- name: TransitionOpeningReject :one
 UPDATE openings
-SET status         = 'draft',
-    rejection_note = @rejection_note,
-    updated_at     = NOW()
+SET status                    = 'draft',
+    submitted_by_org_user_id  = NULL,
+    rejection_note            = @rejection_note,
+    updated_at                = NOW()
 WHERE org_id = @org_id AND opening_number = @opening_number AND status = 'pending_review'
 RETURNING *;
 
