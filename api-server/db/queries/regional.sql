@@ -380,6 +380,10 @@ WHERE u.org_id = @org_id
         OR u.full_name ILIKE '%' || sqlc.narg('filter_name') || '%'
     )
     AND (
+        sqlc.narg('filter_status')::text IS NULL
+        OR u.status::text = sqlc.narg('filter_status')
+    )
+    AND (
         @cursor_created_at::timestamp IS NULL
         OR (
             u.created_at < @cursor_created_at

@@ -517,24 +517,24 @@ export interface OrgUser {
 	roles: OrgRole[];
 }
 
-export interface FilterOrgUsersRequest {
+export interface ListOrgUsersRequest {
 	limit?: number;
-	cursor?: string;
+	pagination_key?: string;
 	filter_email?: string;
 	filter_name?: string;
 	filter_status?: string;
 }
 
-export function validateFilterOrgUsersRequest(
-	_request: FilterOrgUsersRequest
+export function validateListOrgUsersRequest(
+	_request: ListOrgUsersRequest
 ): ValidationError[] {
 	// Optional fields
 	return [];
 }
 
-export interface FilterOrgUsersResponse {
-	items: OrgUser[];
-	next_cursor: string;
+export interface ListOrgUsersResponse {
+	users: OrgUser[];
+	next_pagination_key: string;
 }
 
 // ===================================

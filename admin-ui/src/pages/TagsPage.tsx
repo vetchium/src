@@ -46,7 +46,7 @@ import { useLanguage } from "../hooks/useLanguage";
 const { Title, Text } = Typography;
 const { TextArea } = Input;
 
-export function ManageTagsPage() {
+export function TagsPage() {
 	const { t } = useTranslation("tags");
 	const { sessionToken } = useAuth();
 	const { message } = App.useApp();

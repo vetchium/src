@@ -27,8 +27,8 @@ import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { ChangePasswordPage } from "./pages/ChangePasswordPage";
 import { CompleteSetupPage } from "./pages/CompleteSetupPage";
-import { UserManagementPage } from "./pages/UserManagement/UserManagementPage";
-import { DomainManagementPage } from "./pages/DomainManagement/DomainManagementPage";
+import { UsersPage } from "./pages/Users/UsersPage";
+import { DomainsPage } from "./pages/Domains/DomainsPage";
 import { CostCentersPage } from "./pages/CostCenters/CostCentersPage";
 import { AddressesPage } from "./pages/Addresses/AddressesPage";
 import { SubOrgsPage } from "./pages/SubOrgs/SubOrgsPage";
@@ -375,7 +375,7 @@ function AppContent() {
 								path="/users"
 								element={
 									<UserManagementRoute>
-										<UserManagementPage />
+										<UsersPage />
 									</UserManagementRoute>
 								}
 							/>
@@ -383,7 +383,7 @@ function AppContent() {
 								path="/domains"
 								element={
 									<DomainManagementRoute>
-										<DomainManagementPage />
+										<DomainsPage />
 									</DomainManagementRoute>
 								}
 							/>

@@ -75,8 +75,8 @@ test.describe("Admin Filter Users API", () => {
 			limit: 10,
 		});
 		expect(response.status).toBe(200);
-		expect(response.body!.items.length).toBeGreaterThan(0);
-		expect(response.body!.items.length).toBeLessThanOrEqual(10);
+		expect(response.body!.users.length).toBeGreaterThan(0);
+		expect(response.body!.users.length).toBeLessThanOrEqual(10);
 	});
 
 	test("should filter users by partial email", async ({ request }) => {
@@ -88,8 +88,8 @@ test.describe("Admin Filter Users API", () => {
 		expect(response.status).toBe(200);
 		// Should capture the 3 created users + potentially others from concurrent tests but unlikely with unique prefix
 		// We check if at least our users are present or if count matches logic
-		const items = response.body!.items;
-		const matching = items.filter((u) =>
+		const users = response.body!.users;
+		const matching = users.filter((u) =>
 			u.email_address.includes("filter-target")
 		);
 		expect(matching.length).toBeGreaterThanOrEqual(3);
@@ -102,7 +102,7 @@ test.describe("Admin Filter Users API", () => {
 			limit: 10,
 		});
 		expect(response.status).toBe(200);
-		const matching = response.body!.items.filter((u) =>
+		const matching = response.body!.users.filter((u) =>
 			u.name.includes("Filter Target")
 		);
 		expect(matching.length).toBeGreaterThanOrEqual(3);
@@ -115,8 +115,8 @@ test.describe("Admin Filter Users API", () => {
 			filter_email: "filter-disabled", // Combine to narrow down
 		});
 		expect(response.status).toBe(200);
-		expect(response.body!.items.length).toBeGreaterThan(0);
-		for (const user of response.body!.items) {
+		expect(response.body!.users.length).toBeGreaterThan(0);
+		for (const user of response.body!.users) {
 			expect(user.status).toBe("disabled");
 		}
 	});
@@ -128,21 +128,21 @@ test.describe("Admin Filter Users API", () => {
 			limit: 2,
 		});
 		expect(res1.status).toBe(200);
-		expect(res1.body!.items.length).toBe(2);
-		const cursor = res1.body!.next_cursor;
-		expect(cursor).toBeTruthy();
+		expect(res1.body!.users.length).toBe(2);
+		const paginationKey = res1.body!.next_pagination_key;
+		expect(paginationKey).toBeTruthy();
 
 		// Second page
 		const res2 = await adminApiClient.listUsers(mainAdminToken, {
 			limit: 2,
-			cursor: cursor,
+			pagination_key: paginationKey,
 		});
 		expect(res2.status).toBe(200);
-		expect(res2.body!.items.length).toBeGreaterThan(0);
+		expect(res2.body!.users.length).toBeGreaterThan(0);
 
 		// Ensure no overlap (naive check: first item of page 2 != last item of page 1)
-		expect(res2.body!.items[0].email_address).not.toBe(
-			res1.body!.items[1].email_address
+		expect(res2.body!.users[0].email_address).not.toBe(
+			res1.body!.users[1].email_address
 		);
 	});
 
@@ -154,8 +154,8 @@ test.describe("Admin Filter Users API", () => {
 			filter_email: "non-existent-random-user-xyz",
 		});
 		expect(response.status).toBe(200);
-		expect(response.body!.items.length).toBe(0);
-		expect(response.body!.next_cursor).toBe("");
+		expect(response.body!.users.length).toBe(0);
+		expect(response.body!.next_pagination_key).toBe("");
 	});
 });
 

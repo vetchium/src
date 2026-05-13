@@ -30,7 +30,7 @@ func FilterUsers(s *server.GlobalServer) http.HandlerFunc {
 			return
 		}
 
-		var request admin.FilterAdminUsersRequest
+		var request admin.ListAdminUsersRequest
 		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 			s.Logger(ctx).Debug("failed to decode request", "error", err)
 			http.Error(w, "invalid JSON request body", http.StatusBadRequest)
@@ -55,8 +55,8 @@ func FilterUsers(s *server.GlobalServer) http.HandlerFunc {
 		var cursorCreatedAt pgtype.Timestamptz
 		var cursorID pgtype.UUID
 
-		if request.Cursor != nil && *request.Cursor != "" {
-			ca, id, err := decodeUserCursor(*request.Cursor)
+		if request.PaginationKey != nil && *request.PaginationKey != "" {
+			ca, id, err := decodeUserCursor(*request.PaginationKey)
 			if err != nil {
 				s.Logger(ctx).Debug("invalid cursor", "error", err)
 				http.Error(w, "invalid cursor format", http.StatusBadRequest)
@@ -143,9 +143,9 @@ func FilterUsers(s *server.GlobalServer) http.HandlerFunc {
 			}
 		}
 
-		response := admin.FilterAdminUsersResponse{
-			Items:      responseItems,
-			NextCursor: nextCursor,
+		response := admin.ListAdminUsersResponse{
+			Users:             responseItems,
+			NextPaginationKey: nextCursor,
 		}
 
 		if err := json.NewEncoder(w).Encode(response); err != nil {

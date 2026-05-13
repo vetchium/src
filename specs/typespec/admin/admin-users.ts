@@ -359,24 +359,24 @@ export interface AdminUser {
 	roles: RoleName[];
 }
 
-export interface FilterAdminUsersRequest {
+export interface ListAdminUsersRequest {
 	limit?: number;
-	cursor?: string;
+	pagination_key?: string;
 	filter_email?: string;
 	filter_name?: string;
 	filter_status?: string;
 }
 
-export function validateFilterAdminUsersRequest(
-	request: FilterAdminUsersRequest
+export function validateListAdminUsersRequest(
+	_request: ListAdminUsersRequest
 ): ValidationError[] {
 	const errs: ValidationError[] = [];
 	return errs;
 }
 
-export interface FilterAdminUsersResponse {
-	items: AdminUser[];
-	next_cursor: string;
+export interface ListAdminUsersResponse {
+	users: AdminUser[];
+	next_pagination_key: string;
 }
 
 // ============================================================================

@@ -37,7 +37,7 @@ interface OrgPortal {
   @route("/complete-setup") @post completeSetup(@body body: OrgCompleteSetupRequest): OrgCompleteSetupResponse | BadRequestResponse;
   @route("/disable-user") @post disableUser(@body body: OrgDisableUserRequest): NoContentResponse | BadRequestResponse;
   @route("/enable-user") @post enableUser(@body body: OrgEnableUserRequest): NoContentResponse | BadRequestResponse;
-  @route("/list-users") @post filterUsers(@body body: FilterOrgUsersRequest): FilterOrgUsersResponse | BadRequestResponse;
+  @route("/list-users") @post listUsers(@body body: ListOrgUsersRequest): ListOrgUsersResponse | BadRequestResponse;
   @route("/assign-role") @post assignRole(@body body: AssignRoleRequest): NoContentResponse | BadRequestResponse;
   @route("/remove-role") @post removeRole(@body body: RemoveRoleRequest): NoContentResponse | BadRequestResponse;
   @route("/change-password") @post changePassword(@body body: OrgChangePasswordRequest): NoContentResponse | BadRequestResponse;
@@ -149,15 +149,15 @@ model OrgChangePasswordRequest {
   new_password: Password;
 }
 
-model FilterOrgUsersRequest {
+model ListOrgUsersRequest {
   limit?: int32;
-  cursor?: string;
+  pagination_key?: string;
   filter_email?: string;
   filter_name?: string;
   filter_status?: string;
 }
 
-model OrgUserItem {
+model OrgUser {
   email_address: EmailAddress;
   name: string;
   status: string;
@@ -165,9 +165,9 @@ model OrgUserItem {
   roles: string[];
 }
 
-model FilterOrgUsersResponse {
-  items: OrgUserItem[];
-  next_cursor: string;
+model ListOrgUsersResponse {
+  users: OrgUser[];
+  next_pagination_key: string;
 }
 
 model OrgSetLanguageRequest {

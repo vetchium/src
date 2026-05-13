@@ -1162,9 +1162,9 @@ export class OrgAPIClient {
 	 */
 	async listUsers(
 		sessionToken: string,
-		request: import("vetchium-specs/org/org-users").FilterOrgUsersRequest
+		request: import("vetchium-specs/org/org-users").ListOrgUsersRequest
 	): Promise<
-		APIResponse<import("vetchium-specs/org/org-users").FilterOrgUsersResponse>
+		APIResponse<import("vetchium-specs/org/org-users").ListOrgUsersResponse>
 	> {
 		const response = await this.request.post("/org/list-users", {
 			headers: { Authorization: `Bearer ${sessionToken}` },
@@ -1174,7 +1174,7 @@ export class OrgAPIClient {
 		const body = await response.json().catch(() => ({}));
 		return {
 			status: response.status(),
-			body: body as import("vetchium-specs/org/org-users").FilterOrgUsersResponse,
+			body: body as import("vetchium-specs/org/org-users").ListOrgUsersResponse,
 			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}

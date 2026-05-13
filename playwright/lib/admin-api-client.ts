@@ -949,10 +949,10 @@ export class AdminAPIClient {
 	 */
 	async listUsers(
 		sessionToken: string,
-		request: import("vetchium-specs/admin/admin-users").FilterAdminUsersRequest
+		request: import("vetchium-specs/admin/admin-users").ListAdminUsersRequest
 	): Promise<
 		APIResponse<
-			import("vetchium-specs/admin/admin-users").FilterAdminUsersResponse
+			import("vetchium-specs/admin/admin-users").ListAdminUsersResponse
 		>
 	> {
 		const response = await this.request.post("/admin/list-users", {
@@ -963,7 +963,7 @@ export class AdminAPIClient {
 		const body = await response.json().catch(() => ({}));
 		return {
 			status: response.status(),
-			body: body as import("vetchium-specs/admin/admin-users").FilterAdminUsersResponse,
+			body: body as import("vetchium-specs/admin/admin-users").ListAdminUsersResponse,
 			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}

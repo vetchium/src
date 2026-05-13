@@ -425,22 +425,22 @@ type OrgUser struct {
 	Roles        []OrgRole           `json:"roles"`
 }
 
-type FilterOrgUsersRequest struct {
-	Limit        *int32  `json:"limit,omitempty"`
-	Cursor       *string `json:"cursor,omitempty"`
-	FilterEmail  *string `json:"filter_email,omitempty"`
-	FilterName   *string `json:"filter_name,omitempty"`
-	FilterStatus *string `json:"filter_status,omitempty"`
+type ListOrgUsersRequest struct {
+	Limit         *int32  `json:"limit,omitempty"`
+	PaginationKey *string `json:"pagination_key,omitempty"`
+	FilterEmail   *string `json:"filter_email,omitempty"`
+	FilterName    *string `json:"filter_name,omitempty"`
+	FilterStatus  *string `json:"filter_status,omitempty"`
 }
 
-func (r FilterOrgUsersRequest) Validate() []common.ValidationError {
+func (r ListOrgUsersRequest) Validate() []common.ValidationError {
 	// Optional fields
 	return nil
 }
 
-type FilterOrgUsersResponse struct {
-	Items      []OrgUser `json:"items"`
-	NextCursor string    `json:"next_cursor"`
+type ListOrgUsersResponse struct {
+	Users             []OrgUser `json:"users"`
+	NextPaginationKey string    `json:"next_pagination_key"`
 }
 
 // ===================================

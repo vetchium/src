@@ -20,8 +20,8 @@ import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { CompleteSetupPage } from "./pages/CompleteSetupPage";
 import { ChangePasswordPage } from "./pages/ChangePasswordPage";
-import { UserManagementPage } from "./pages/UserManagement/UserManagementPage";
-import { ManageTagsPage } from "./pages/ManageTagsPage";
+import { UsersPage } from "./pages/Users/UsersPage";
+import { TagsPage } from "./pages/TagsPage";
 import { AuditLogsPage } from "./pages/AuditLogsPage";
 import { OrgPlansPage } from "./pages/OrgPlans/OrgPlansPage";
 import { CapabilitiesPage } from "./pages/Marketplace/CapabilitiesPage";
@@ -184,7 +184,7 @@ function AppContent() {
 								path="/users"
 								element={
 									<ProtectedRoute>
-										<UserManagementPage />
+										<UsersPage />
 									</ProtectedRoute>
 								}
 							/>
@@ -200,7 +200,7 @@ function AppContent() {
 								path="/tags"
 								element={
 									<ProtectedRoute>
-										<ManageTagsPage />
+										<TagsPage />
 									</ProtectedRoute>
 								}
 							/>

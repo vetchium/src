@@ -35,7 +35,7 @@ import type {
 	ListSubOrgMembersRequest,
 } from "vetchium-specs/org/suborgs";
 import type {
-	FilterOrgUsersRequest,
+	ListOrgUsersRequest,
 	OrgUser,
 } from "vetchium-specs/org/org-users";
 import type { Region } from "vetchium-specs/global/global";
@@ -354,7 +354,7 @@ export function SubOrgsPage() {
 		setUserSearchLoading(true);
 		try {
 			const baseUrl = await getApiBaseUrl();
-			const req: FilterOrgUsersRequest = {
+			const req: ListOrgUsersRequest = {
 				filter_name: query,
 				limit: 10,
 			};
@@ -368,7 +368,7 @@ export function SubOrgsPage() {
 			});
 			if (resp.status === 200) {
 				const data = await resp.json();
-				setUserSearchResults(data.items ?? []);
+				setUserSearchResults(data.users ?? []);
 			}
 		} catch {
 			// ignore search errors silently

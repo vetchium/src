@@ -58,7 +58,7 @@ interface ClaimFormValues {
 	domain: string;
 }
 
-export function DomainManagementPage() {
+export function DomainsPage() {
 	const { t, i18n } = useTranslation("auth");
 	const { sessionToken } = useAuth();
 	const { data: myInfo, refetch: refetchMyInfo } = useMyInfo(sessionToken);

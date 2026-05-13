@@ -82,7 +82,7 @@ test.describe("Org Filter Users API", () => {
 			limit: 10,
 		});
 		expect(response.status).toBe(200);
-		expect(response.body!.items.length).toBeGreaterThanOrEqual(5); // Main + 3 targets + 1 disabled
+		expect(response.body!.users.length).toBeGreaterThanOrEqual(5); // Main + 3 targets + 1 disabled
 	});
 
 	test("should filter users by partial email", async ({ request }) => {
@@ -93,7 +93,7 @@ test.describe("Org Filter Users API", () => {
 		});
 		expect(response.status).toBe(200);
 		// Expect at least 3 users
-		const matching = response.body!.items.filter((u) =>
+		const matching = response.body!.users.filter((u) =>
 			u.email_address.includes("user")
 		);
 		expect(matching.length).toBeGreaterThanOrEqual(3);
@@ -105,7 +105,7 @@ test.describe("Org Filter Users API", () => {
 			filter_status: "disabled",
 		});
 		expect(response.status).toBe(200);
-		const matching = response.body!.items.filter(
+		const matching = response.body!.users.filter(
 			(u) => u.status === "disabled"
 		);
 		expect(matching.length).toBe(1);
@@ -117,17 +117,17 @@ test.describe("Org Filter Users API", () => {
 		const res1 = await orgApiClient.listUsers(mainOrgToken, {
 			limit: 2,
 		});
-		expect(res1.body!.items.length).toBe(2);
-		const cursor = res1.body!.next_cursor;
-		expect(cursor).toBeTruthy();
+		expect(res1.body!.users.length).toBe(2);
+		const paginationKey = res1.body!.next_pagination_key;
+		expect(paginationKey).toBeTruthy();
 
 		const res2 = await orgApiClient.listUsers(mainOrgToken, {
 			limit: 2,
-			cursor: cursor,
+			pagination_key: paginationKey,
 		});
-		expect(res2.body!.items.length).toBeGreaterThan(0);
-		expect(res2.body!.items[0].email_address).not.toBe(
-			res1.body!.items[1].email_address
+		expect(res2.body!.users.length).toBeGreaterThan(0);
+		expect(res2.body!.users[0].email_address).not.toBe(
+			res1.body!.users[1].email_address
 		);
 	});
 

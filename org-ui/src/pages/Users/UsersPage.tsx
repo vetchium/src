@@ -20,10 +20,10 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import type {
-	AdminUser,
-	FilterAdminUsersRequest,
-	FilterAdminUsersResponse,
-} from "vetchium-specs/admin/admin-users";
+	ListOrgUsersRequest,
+	ListOrgUsersResponse,
+	OrgUser,
+} from "vetchium-specs/org/org-users";
 import { getApiBaseUrl } from "../../config";
 import { useAuth } from "../../hooks/useAuth";
 import { useMyInfo } from "../../hooks/useMyInfo";
@@ -37,20 +37,20 @@ const { Title } = Typography;
 
 type UserStatus = "all" | "active" | "pending" | "disabled";
 
-export function UserManagementPage() {
+export function UsersPage() {
 	const { t, i18n } = useTranslation("userManagement");
 	const { sessionToken } = useAuth();
 	const { message } = App.useApp();
 	const { data: myInfo } = useMyInfo(sessionToken);
 
-	const [users, setUsers] = useState<AdminUser[]>([]);
+	const [users, setUsers] = useState<OrgUser[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [searchQuery, setSearchQuery] = useState("");
 	const [nextCursor, setNextCursor] = useState<string | null>(null);
 	const [hasMore, setHasMore] = useState(false);
 	const [statusFilter, setStatusFilter] = useState<UserStatus>("all");
 
-	const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
+	const [selectedUser, setSelectedUser] = useState<OrgUser | null>(null);
 	const [drawerVisible, setDrawerVisible] = useState(false);
 
 	const [disableModalVisible, setDisableModalVisible] = useState(false);
@@ -61,9 +61,10 @@ export function UserManagementPage() {
 
 	const [inviteModalVisible, setInviteModalVisible] = useState(false);
 
+	// Permission logic for Org portal: superadmin OR manage_users
 	const canManageUsers =
-		myInfo?.roles.includes("admin:superadmin") ||
-		myInfo?.roles.includes("admin:manage_users") ||
+		myInfo?.roles.includes("org:superadmin") ||
+		myInfo?.roles.includes("org:manage_users") ||
 		false;
 	const canInviteUsers = canManageUsers;
 
@@ -76,11 +77,11 @@ export function UserManagementPage() {
 			setLoading(true);
 			try {
 				const apiBaseUrl = await getApiBaseUrl();
-				const requestBody: FilterAdminUsersRequest = {
+				const requestBody: ListOrgUsersRequest = {
 					limit: 50,
 				};
 
-				if (cursor) requestBody.cursor = cursor;
+				if (cursor) requestBody.pagination_key = cursor;
 				if (query) {
 					requestBody.filter_email = query;
 					requestBody.filter_name = query;
@@ -89,7 +90,7 @@ export function UserManagementPage() {
 					requestBody.filter_status = status;
 				}
 
-				const response = await fetch(`${apiBaseUrl}/admin/list-users`, {
+				const response = await fetch(`${apiBaseUrl}/org/list-users`, {
 					method: "POST",
 					headers: {
 						"Content-Type": "application/json",
@@ -107,16 +108,16 @@ export function UserManagementPage() {
 					throw new Error(`HTTP error! status: ${response.status}`);
 				}
 
-				const data: FilterAdminUsersResponse = await response.json();
+				const data: ListOrgUsersResponse = await response.json();
 
 				if (cursor === null) {
-					setUsers(data.items);
+					setUsers(data.users);
 				} else {
-					setUsers((prev) => [...prev, ...data.items]);
+					setUsers((prev) => [...prev, ...data.users]);
 				}
 
-				setNextCursor(data.next_cursor);
-				setHasMore(!!data.next_cursor);
+				setNextCursor(data.next_pagination_key);
+				setHasMore(!!data.next_pagination_key);
 			} catch (err) {
 				console.error("Failed to fetch users:", err);
 				message.error(t("errors.fetchFailed"));
@@ -150,7 +151,7 @@ export function UserManagementPage() {
 		fetchUsers(null, "", status);
 	};
 
-	const handleViewDetails = (user: AdminUser) => {
+	const handleViewDetails = (user: OrgUser) => {
 		setSelectedUser(user);
 		setDrawerVisible(true);
 	};
@@ -215,7 +216,7 @@ export function UserManagementPage() {
 					{!roles || roles.length === 0 ? (
 						<span style={{ color: "#999" }}>{t("table.noRoles")}</span>
 					) : (
-						<Space size={[0, 4]} wrap>
+						<Space size={[4, 4]} wrap>
 							{roles.map((role) => (
 								<Tag key={role} color="blue">
 									{role}
@@ -235,7 +236,7 @@ export function UserManagementPage() {
 		{
 			title: t("table.actions"),
 			key: "actions",
-			render: (_: unknown, record: AdminUser) => (
+			render: (_: unknown, record: OrgUser) => (
 				<Space>
 					<Button
 						type="link"

@@ -278,11 +278,11 @@ model AdminUser {
     roles: AdminRole[];
 }
 
-model FilterAdminUsersRequest {
-    @doc("Number of items to return (default 50, max 100)")
+model ListAdminUsersRequest {
+    @doc("Number of users to return (default 50, max 100)")
     limit?: int32;
-    @doc("Cursor from previous page - base64 encoded value")
-    cursor?: string;
+    @doc("Pagination key from previous page - base64 encoded value")
+    pagination_key?: string;
     @doc("Filter by email address (partial match)")
     filter_email?: string;
     @doc("Filter by name (partial match)")
@@ -291,21 +291,21 @@ model FilterAdminUsersRequest {
     filter_status?: string;
 }
 
-model FilterAdminUsersResponse {
+model ListAdminUsersResponse {
     @doc("List of users")
-    items: AdminUser[];
-    @doc("Cursor for next page - base64 encoded value (empty if no more pages)")
-    next_cursor: string;
+    users: AdminUser[];
+    @doc("Pagination key for next page - base64 encoded value (empty if no more pages)")
+    next_pagination_key: string;
 }
 
 @route("/admin/list-users")
 interface AdminListUsers {
     @tag("AdminUsers")
     @post
-    @doc("List/Filter admin users with pagination")
-    filterUsers(@body request: FilterAdminUsersRequest): {
+    @doc("List admin users with pagination and optional filters")
+    listUsers(@body request: ListAdminUsersRequest): {
         @statusCode statusCode: 200;
-        @body response: FilterAdminUsersResponse;
+        @body response: ListAdminUsersResponse;
     } | {
         @doc("Invalid request parameters")
         @statusCode statusCode: 400;

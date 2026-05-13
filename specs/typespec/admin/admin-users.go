@@ -268,21 +268,21 @@ type AdminUser struct {
 	Roles        []AdminRole         `json:"roles"`
 }
 
-type FilterAdminUsersRequest struct {
-	Limit        *int32  `json:"limit,omitempty"`
-	Cursor       *string `json:"cursor,omitempty"`
-	FilterEmail  *string `json:"filter_email,omitempty"`
-	FilterName   *string `json:"filter_name,omitempty"`
-	FilterStatus *string `json:"filter_status,omitempty"`
+type ListAdminUsersRequest struct {
+	Limit         *int32  `json:"limit,omitempty"`
+	PaginationKey *string `json:"pagination_key,omitempty"`
+	FilterEmail   *string `json:"filter_email,omitempty"`
+	FilterName    *string `json:"filter_name,omitempty"`
+	FilterStatus  *string `json:"filter_status,omitempty"`
 }
 
-func (r FilterAdminUsersRequest) Validate() []common.ValidationError {
+func (r ListAdminUsersRequest) Validate() []common.ValidationError {
 	return nil
 }
 
-type FilterAdminUsersResponse struct {
-	Items      []AdminUser `json:"items"`
-	NextCursor string      `json:"next_cursor"`
+type ListAdminUsersResponse struct {
+	Users             []AdminUser `json:"users"`
+	NextPaginationKey string      `json:"next_pagination_key"`
 }
 
 // ============================================

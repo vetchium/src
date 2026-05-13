@@ -35,7 +35,7 @@ func FilterUsers(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		var request org.FilterOrgUsersRequest
+		var request org.ListOrgUsersRequest
 		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 			s.Logger(ctx).Debug("failed to decode request", "error", err)
 			http.Error(w, "invalid JSON request body", http.StatusBadRequest)
@@ -60,8 +60,8 @@ func FilterUsers(s *server.RegionalServer) http.HandlerFunc {
 		var cursorCreatedAt pgtype.Timestamp
 		var cursorID pgtype.UUID
 
-		if request.Cursor != nil && *request.Cursor != "" {
-			ca, id, err := decodeUserCursor(*request.Cursor)
+		if request.PaginationKey != nil && *request.PaginationKey != "" {
+			ca, id, err := decodeUserCursor(*request.PaginationKey)
 			if err != nil {
 				s.Logger(ctx).Debug("invalid cursor", "error", err)
 				http.Error(w, "invalid cursor format", http.StatusBadRequest)
@@ -85,11 +85,17 @@ func FilterUsers(s *server.RegionalServer) http.HandlerFunc {
 			filterName = pgtype.Text{String: *request.FilterName, Valid: true}
 		}
 
-		// Query Regional DB for items
+		var filterStatus pgtype.Text
+		if request.FilterStatus != nil {
+			filterStatus = pgtype.Text{String: *request.FilterStatus, Valid: true}
+		}
+
+		// Query Regional DB for users
 		regionalParams := regionaldb.FilterOrgUsersParams{
 			OrgID:           orgUser.OrgID,
 			FilterEmail:     filterEmail,
 			FilterName:      filterName,
+			FilterStatus:    filterStatus,
 			CursorCreatedAt: cursorCreatedAt,
 			CursorID:        cursorID,
 			LimitCount:      int32(limit + 1),
@@ -103,10 +109,9 @@ func FilterUsers(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		if len(users) == 0 {
-			// No users found in regional request means nothing to return
-			response := org.FilterOrgUsersResponse{
-				Items:      []org.OrgUser{},
-				NextCursor: "",
+			response := org.ListOrgUsersResponse{
+				Users:             []org.OrgUser{},
+				NextPaginationKey: "",
 			}
 			if err := json.NewEncoder(w).Encode(response); err != nil {
 				s.Logger(ctx).Error("failed to encode response", "error", err)
@@ -119,44 +124,33 @@ func FilterUsers(s *server.RegionalServer) http.HandlerFunc {
 			users = users[:limit]
 		}
 
-		// Construct response items, applying status filter if present
-		// Status is now available directly from the regional FilterOrgUsers result
-		var responseItems []org.OrgUser
-
+		responseUsers := make([]org.OrgUser, 0, len(users))
 		for i := range users {
 			user := users[i]
-			status := string(user.Status)
-
-			if request.FilterStatus != nil && *request.FilterStatus != "" && status != *request.FilterStatus {
-				// Skip this user as status doesn't match
-				continue
-			}
-
 			var roles []org.OrgRole
 			for _, r := range user.Roles {
 				roles = append(roles, org.OrgRole(r))
 			}
-
-			responseItems = append(responseItems, org.OrgUser{
+			responseUsers = append(responseUsers, org.OrgUser{
 				EmailAddress: common.EmailAddress(user.EmailAddress),
 				Name:         user.FullName.String,
-				Status:       status,
+				Status:       string(user.Status),
 				CreatedAt:    user.CreatedAt.Time.UTC().Format(time.RFC3339),
 				Roles:        roles,
 			})
 		}
 
-		var nextCursor string
+		var nextPaginationKey string
 		if hasMore && len(users) > 0 {
 			lastUser := users[len(users)-1]
 			if lastUser.CreatedAt.Valid {
-				nextCursor = encodeUserCursor(lastUser.CreatedAt.Time, lastUser.OrgUserID)
+				nextPaginationKey = encodeUserCursor(lastUser.CreatedAt.Time, lastUser.OrgUserID)
 			}
 		}
 
-		response := org.FilterOrgUsersResponse{
-			Items:      responseItems,
-			NextCursor: nextCursor,
+		response := org.ListOrgUsersResponse{
+			Users:             responseUsers,
+			NextPaginationKey: nextPaginationKey,
 		}
 
 		if err := json.NewEncoder(w).Encode(response); err != nil {
