@@ -107,7 +107,7 @@ export function DomainsPage() {
 
 			if (response.status === 200) {
 				const data: ListDomainStatusResponse = await response.json();
-				setDomains(data.items);
+				setDomains(data.domain_statuses);
 			} else if (response.status === 401) {
 				navigate("/login");
 			} else if (response.status === 403) {

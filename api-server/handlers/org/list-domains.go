@@ -130,7 +130,7 @@ func ListDomains(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		response := orgdomains.ListDomainStatusResponse{
-			Items:             items,
+			DomainStatuses:    items,
 			NextPaginationKey: nextKey,
 		}
 

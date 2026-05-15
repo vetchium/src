@@ -50,7 +50,7 @@ export interface ListApprovedDomainsRequest {
 	search?: string;
 	filter?: DomainFilter;
 	limit?: number;
-	cursor?: string;
+	pagination_key?: string;
 }
 
 export function validateListApprovedDomainsRequest(
@@ -163,7 +163,7 @@ export interface ApprovedDomain {
 
 export interface ApprovedDomainListResponse {
 	domains: ApprovedDomain[];
-	next_cursor: string;
+	next_pagination_key: string;
 	has_more: boolean;
 }
 

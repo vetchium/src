@@ -59,10 +59,10 @@ func (r AddApprovedDomainRequest) Validate() []common.ValidationError {
 }
 
 type ListApprovedDomainsRequest struct {
-	Search *string       `json:"search,omitempty"`
-	Filter *DomainFilter `json:"filter,omitempty"`
-	Limit  *int32        `json:"limit,omitempty"`
-	Cursor *string       `json:"cursor,omitempty"`
+	Search        *string       `json:"search,omitempty"`
+	Filter        *DomainFilter `json:"filter,omitempty"`
+	Limit         *int32        `json:"limit,omitempty"`
+	PaginationKey *string       `json:"pagination_key,omitempty"`
 }
 
 func (r ListApprovedDomainsRequest) Validate() []common.ValidationError {
@@ -157,9 +157,9 @@ type ApprovedDomain struct {
 }
 
 type ApprovedDomainListResponse struct {
-	Domains    []ApprovedDomain `json:"domains"`
-	NextCursor string           `json:"next_cursor"`
-	HasMore    bool             `json:"has_more"`
+	Domains           []ApprovedDomain `json:"domains"`
+	NextPaginationKey string           `json:"next_pagination_key"`
+	HasMore           bool             `json:"has_more"`
 }
 
 type ApprovedDomainDetailResponse struct {

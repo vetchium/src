@@ -168,13 +168,14 @@ export function validateGetTagRequest(
 	return errs;
 }
 
-export interface FilterTagsRequest {
+export interface AdminFilterTagsRequest {
 	query?: string;
 	pagination_key?: string;
+	limit?: number;
 }
 
-export function validateFilterTagsRequest(
-	_request: FilterTagsRequest
+export function validateAdminFilterTagsRequest(
+	_request: AdminFilterTagsRequest
 ): ValidationError[] {
 	return [];
 }
@@ -210,9 +211,9 @@ export interface AdminTag {
 	updated_at: string;
 }
 
-export interface FilterTagsResponse {
+export interface AdminFilterTagsResponse {
 	tags: AdminTag[];
-	pagination_key?: string;
+	next_pagination_key?: string;
 }
 
 // Re-export ValidationError for use in consumers

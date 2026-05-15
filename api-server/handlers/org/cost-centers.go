@@ -237,8 +237,8 @@ func ListCostCenters(s *server.RegionalServer) http.HandlerFunc {
 		var cursorCreatedAt pgtype.Timestamp
 		var cursorID pgtype.UUID
 
-		if req.Cursor != nil && *req.Cursor != "" {
-			ca, id, err := decodeCostCenterCursor(*req.Cursor)
+		if req.PaginationKey != nil && *req.PaginationKey != "" {
+			ca, id, err := decodeCostCenterCursor(*req.PaginationKey)
 			if err != nil {
 				s.Logger(ctx).Debug("invalid cursor", "error", err)
 				http.Error(w, "invalid cursor format", http.StatusBadRequest)
@@ -285,17 +285,18 @@ func ListCostCenters(s *server.RegionalServer) http.HandlerFunc {
 			items = append(items, dbCostCenterToResponse(cc))
 		}
 
-		var nextCursor string
+		var nextPaginationKey *string
 		if hasMore && len(costCenters) > 0 {
 			last := costCenters[len(costCenters)-1]
 			if last.CreatedAt.Valid {
-				nextCursor = encodeCostCenterCursor(last.CreatedAt.Time, last.CostCenterID)
+				key := encodeCostCenterCursor(last.CreatedAt.Time, last.CostCenterID)
+				nextPaginationKey = &key
 			}
 		}
 
 		response := org.ListCostCentersResponse{
-			Items:      items,
-			NextCursor: nextCursor,
+			CostCenters:       items,
+			NextPaginationKey: nextPaginationKey,
 		}
 
 		if err := json.NewEncoder(w).Encode(response); err != nil {

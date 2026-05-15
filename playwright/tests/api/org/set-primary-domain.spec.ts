@@ -64,11 +64,11 @@ test.describe("POST /org/set-primary-domain", () => {
 			// Confirm is_primary changed in list-domains.
 			const listRes = await api.listDomains(token, {});
 			expect(listRes.status).toBe(200);
-			const secondItem = listRes.body.items.find(
+			const secondItem = listRes.body.domain_statuses.find(
 				(i) => i.domain === secondDomain.toLowerCase()
 			);
 			expect(secondItem?.is_primary).toBe(true);
-			const firstItem = listRes.body.items.find(
+			const firstItem = listRes.body.domain_statuses.find(
 				(i) => i.domain === domain.toLowerCase()
 			);
 			expect(firstItem?.is_primary).toBe(false);

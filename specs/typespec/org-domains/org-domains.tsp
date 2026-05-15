@@ -60,7 +60,7 @@ model ListDomainStatusItem {
 }
 
 model ListDomainStatusResponse {
-  items: ListDomainStatusItem[];
+  domain_statuses: ListDomainStatusItem[];
   next_pagination_key?: string;
 }
 

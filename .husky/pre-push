@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # Git pre-push hook managed by husky
-# Checks prettier and goimports formatting before push
+# Checks prettier, goimports formatting, and TypeScript types before push
 
 remote="$1"
 url="$2"
@@ -92,6 +92,34 @@ do
             exit 1
         fi
         echo "✓ goimports check passed"
+    fi
+
+    # Check TypeScript types per package (only when TS/TSX files in that package changed)
+    ts_files=$(echo "$changed_files" | grep -E '\.(ts|tsx)$' || true)
+    if [ -n "$ts_files" ]; then
+        echo "Checking TypeScript types..."
+
+        run_tsc() {
+            pkg_dir="$1"
+            pkg_name="$2"
+            pkg_changed=$(echo "$ts_files" | grep "^$pkg_dir/" || true)
+            if [ -n "$pkg_changed" ]; then
+                echo "  → $pkg_name"
+                if ! (cd "$pkg_dir" && npx tsc --noEmit 2>&1); then
+                    echo "❌ TypeScript errors in $pkg_name"
+                    echo "Fix type errors before pushing."
+                    exit 1
+                fi
+            fi
+        }
+
+        run_tsc "specs/typespec" "specs/typespec"
+        run_tsc "playwright" "playwright"
+        run_tsc "admin-ui" "admin-ui"
+        run_tsc "org-ui" "org-ui"
+        run_tsc "hub-ui" "hub-ui"
+
+        echo "✓ TypeScript check passed"
     fi
 done
 

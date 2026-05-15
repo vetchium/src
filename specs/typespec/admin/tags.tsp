@@ -87,7 +87,7 @@ model AdminFilterTagsResponse {
   tags: AdminTag[];
 
   @doc("Keyset cursor for the next page; absent when no more results")
-  pagination_key?: string;
+  next_pagination_key?: string;
 }
 
 @doc("Request to delete a tag's icon. Requires admin:manage_tags role.")

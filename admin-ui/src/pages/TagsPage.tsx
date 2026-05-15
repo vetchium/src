@@ -30,7 +30,8 @@ import { Link } from "react-router-dom";
 import type {
 	AdminTag,
 	CreateTagRequest,
-	FilterTagsRequest,
+	AdminFilterTagsRequest,
+	AdminFilterTagsResponse,
 	TagTranslation,
 	UpdateTagRequest,
 	DeleteTagIconRequest,
@@ -90,9 +91,9 @@ export function TagsPage() {
 			setLoading(true);
 			try {
 				const apiBaseUrl = await getApiBaseUrl();
-				const reqBody: FilterTagsRequest = {
+				const reqBody: AdminFilterTagsRequest = {
 					query: query || undefined,
-					pagination_key: cursor || undefined,
+					pagination_key: cursor,
 				};
 				const resp = await fetch(`${apiBaseUrl}/admin/list-tags`, {
 					method: "POST",
@@ -103,14 +104,14 @@ export function TagsPage() {
 					body: JSON.stringify(reqBody),
 				});
 				if (resp.status === 200) {
-					const data = await resp.json();
+					const data: AdminFilterTagsResponse = await resp.json();
 					if (cursor) {
 						setTags((prev) => [...prev, ...data.tags]);
 					} else {
 						setTags(data.tags ?? []);
 					}
-					setHasMore(!!data.pagination_key);
-					setPaginationKey(data.pagination_key || undefined);
+					setHasMore(!!data.next_pagination_key);
+					setPaginationKey(data.next_pagination_key || undefined);
 				} else {
 					message.error(t("common:serverError"));
 				}

@@ -463,8 +463,8 @@ test.describe("Cost Centers API", () => {
 				const req: ListCostCentersRequest = {};
 				const res = await api.listCostCenters(token, req);
 				expect(res.status).toBe(200);
-				expect(res.body?.items).toEqual([]);
-				expect(res.body?.next_cursor).toBe("");
+				expect(res.body?.cost_centers).toEqual([]);
+				expect(res.body?.next_pagination_key).toBeUndefined();
 			} finally {
 				await deleteTestOrgUser(email);
 			}
@@ -493,7 +493,7 @@ test.describe("Cost Centers API", () => {
 
 				const res = await api.listCostCenters(token, {});
 				expect(res.status).toBe(200);
-				expect(res.body?.items).toHaveLength(3);
+				expect(res.body?.cost_centers).toHaveLength(3);
 			} finally {
 				await deleteTestOrgUser(email);
 			}
@@ -526,14 +526,14 @@ test.describe("Cost Centers API", () => {
 					filter_status: "enabled",
 				});
 				expect(enabledRes.status).toBe(200);
-				const enabledItems = enabledRes.body?.items ?? [];
+				const enabledItems = enabledRes.body?.cost_centers ?? [];
 				expect(enabledItems.every((cc) => cc.status === "enabled")).toBe(true);
 
 				const disabledRes = await api.listCostCenters(token, {
 					filter_status: "disabled",
 				});
 				expect(disabledRes.status).toBe(200);
-				const disabledItems = disabledRes.body?.items ?? [];
+				const disabledItems = disabledRes.body?.cost_centers ?? [];
 				expect(disabledItems.every((cc) => cc.status === "disabled")).toBe(
 					true
 				);
@@ -561,17 +561,17 @@ test.describe("Cost Centers API", () => {
 				// List first 3
 				const page1 = await api.listCostCenters(token, { limit: 3 });
 				expect(page1.status).toBe(200);
-				expect(page1.body?.items).toHaveLength(3);
-				expect(page1.body?.next_cursor).not.toBe("");
+				expect(page1.body?.cost_centers).toHaveLength(3);
+				expect(page1.body?.next_pagination_key).toBeDefined();
 
-				// List next 3 using cursor
+				// List next 3 using pagination_key
 				const page2 = await api.listCostCenters(token, {
 					limit: 3,
-					cursor: page1.body?.next_cursor,
+					pagination_key: page1.body?.next_pagination_key,
 				});
 				expect(page2.status).toBe(200);
-				expect(page2.body?.items).toHaveLength(2);
-				expect(page2.body?.next_cursor).toBe("");
+				expect(page2.body?.cost_centers).toHaveLength(2);
+				expect(page2.body?.next_pagination_key).toBeUndefined();
 			} finally {
 				await deleteTestOrgUser(email);
 			}

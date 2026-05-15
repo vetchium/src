@@ -48,7 +48,7 @@ export function CostCentersPage() {
 
 	const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
 	const [loading, setLoading] = useState(false);
-	const [nextCursor, setNextCursor] = useState<string>("");
+	const [nextPaginationKey, setNextPaginationKey] = useState<string>("");
 	const [filterStatus, setFilterStatus] = useState<FilterStatus>(undefined);
 
 	const [addModalOpen, setAddModalOpen] = useState(false);
@@ -71,7 +71,7 @@ export function CostCentersPage() {
 				const baseUrl = await getApiBaseUrl();
 				const req: ListCostCentersRequest = {
 					limit: 20,
-					...(cursor ? { cursor } : {}),
+					...(cursor ? { pagination_key: cursor } : {}),
 					...(status ? { filter_status: status } : {}),
 				};
 				const resp = await fetch(`${baseUrl}/org/list-cost-centers`, {
@@ -85,11 +85,11 @@ export function CostCentersPage() {
 				if (resp.status === 200) {
 					const data = await resp.json();
 					if (reset) {
-						setCostCenters(data.items ?? []);
+						setCostCenters(data.cost_centers ?? []);
 					} else {
-						setCostCenters((prev) => [...prev, ...(data.items ?? [])]);
+						setCostCenters((prev) => [...prev, ...(data.cost_centers ?? [])]);
 					}
-					setNextCursor(data.next_cursor ?? "");
+					setNextPaginationKey(data.next_pagination_key ?? "");
 				} else {
 					message.error(t("errors.loadFailed"));
 				}
@@ -114,12 +114,12 @@ export function CostCentersPage() {
 					? "disabled"
 					: undefined;
 		setFilterStatus(status);
-		setNextCursor("");
+		setNextPaginationKey("");
 	};
 
 	const handleLoadMore = () => {
-		if (nextCursor) {
-			loadCostCenters(nextCursor, filterStatus, false);
+		if (nextPaginationKey) {
+			loadCostCenters(nextPaginationKey, filterStatus, false);
 		}
 	};
 
@@ -379,7 +379,7 @@ export function CostCentersPage() {
 				/>
 			</Spin>
 
-			{nextCursor && (
+			{nextPaginationKey && (
 				<Button onClick={handleLoadMore} loading={loading} block>
 					{t("loadMore")}
 				</Button>

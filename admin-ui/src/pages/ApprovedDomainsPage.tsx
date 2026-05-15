@@ -55,7 +55,9 @@ export function ApprovedDomainsPage() {
 	const [domains, setDomains] = useState<ApprovedDomain[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [searchQuery, setSearchQuery] = useState("");
-	const [nextCursor, setNextCursor] = useState<string | null>(null);
+	const [nextPaginationKey, setNextPaginationKey] = useState<string | null>(
+		null
+	);
 	const [hasMore, setHasMore] = useState(false);
 	const [filter, setFilter] = useState<DomainFilter>("active");
 
@@ -96,7 +98,7 @@ export function ApprovedDomainsPage() {
 					filter: currentFilter,
 				};
 
-				if (cursor) requestBody.cursor = cursor;
+				if (cursor) requestBody.pagination_key = cursor;
 				if (query) requestBody.search = query;
 
 				const response = await fetch(
@@ -128,7 +130,7 @@ export function ApprovedDomainsPage() {
 					setDomains((prev) => [...prev, ...data.domains]);
 				}
 
-				setNextCursor(data.next_cursor);
+				setNextPaginationKey(data.next_pagination_key);
 				setHasMore(data.has_more);
 			} catch (err) {
 				console.error("Failed to fetch approved domains:", err);
@@ -146,13 +148,13 @@ export function ApprovedDomainsPage() {
 
 	const handleSearch = (value: string) => {
 		setSearchQuery(value);
-		setNextCursor(null);
+		setNextPaginationKey(null);
 		fetchDomains(null, value);
 	};
 
 	const handleLoadMore = () => {
-		if (nextCursor && hasMore && !loading) {
-			fetchDomains(nextCursor, searchQuery);
+		if (nextPaginationKey && hasMore && !loading) {
+			fetchDomains(nextPaginationKey, searchQuery);
 		}
 	};
 
@@ -226,7 +228,7 @@ export function ApprovedDomainsPage() {
 				setAddModalVisible(false);
 				form.resetFields();
 				setSearchQuery("");
-				setNextCursor(null);
+				setNextPaginationKey(null);
 				fetchDomains(null, "", filter);
 			}
 		} catch (err) {
@@ -312,7 +314,7 @@ export function ApprovedDomainsPage() {
 				setDomainToDisable(null);
 				disableForm.resetFields();
 				setSearchQuery("");
-				setNextCursor(null);
+				setNextPaginationKey(null);
 				fetchDomains(null, "", filter);
 			}
 		} catch (err) {
@@ -398,7 +400,7 @@ export function ApprovedDomainsPage() {
 				setDomainToEnable(null);
 				enableForm.resetFields();
 				setSearchQuery("");
-				setNextCursor(null);
+				setNextPaginationKey(null);
 				fetchDomains(null, "", filter);
 			}
 		} catch (err) {
@@ -568,7 +570,7 @@ export function ApprovedDomainsPage() {
 				onChange={(key) => {
 					setFilter(key as DomainFilter);
 					setSearchQuery("");
-					setNextCursor(null);
+					setNextPaginationKey(null);
 					fetchDomains(null, "", key as DomainFilter);
 				}}
 				items={[

@@ -159,7 +159,7 @@ type ListDomainStatusItem struct {
 }
 
 type ListDomainStatusResponse struct {
-	Items             []ListDomainStatusItem `json:"items"`
+	DomainStatuses    []ListDomainStatusItem `json:"domain_statuses"`
 	NextPaginationKey *string                `json:"next_pagination_key,omitempty"`
 }
 

@@ -70,7 +70,7 @@ test.describe("POST /org/delete-domain", () => {
 			// Domain should no longer appear in list-domains.
 			const listRes = await api.listDomains(token, {});
 			expect(listRes.status).toBe(200);
-			const found = listRes.body.items.find(
+			const found = listRes.body.domain_statuses.find(
 				(i) => i.domain === secondDomain.toLowerCase()
 			);
 			expect(found).toBeUndefined();

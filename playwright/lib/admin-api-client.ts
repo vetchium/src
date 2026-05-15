@@ -32,10 +32,10 @@ import type {
 	CreateTagRequest,
 	UpdateTagRequest,
 	GetTagRequest,
-	FilterTagsRequest,
+	AdminFilterTagsRequest,
 	DeleteTagIconRequest,
 	AdminTag,
-	FilterTagsResponse,
+	AdminFilterTagsResponse,
 } from "vetchium-specs/admin/tags";
 import type {
 	FilterAuditLogsRequest,
@@ -1075,8 +1075,8 @@ export class AdminAPIClient {
 	 */
 	async listTags(
 		sessionToken: string,
-		request: FilterTagsRequest
-	): Promise<APIResponse<FilterTagsResponse>> {
+		request: AdminFilterTagsRequest
+	): Promise<APIResponse<AdminFilterTagsResponse>> {
 		const response = await this.request.post("/admin/list-tags", {
 			headers: { Authorization: `Bearer ${sessionToken}` },
 			data: request,
@@ -1084,7 +1084,7 @@ export class AdminAPIClient {
 		const body = await response.json().catch(() => ({}));
 		return {
 			status: response.status(),
-			body: body as FilterTagsResponse,
+			body: body as AdminFilterTagsResponse,
 			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}

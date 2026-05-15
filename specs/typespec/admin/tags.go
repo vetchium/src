@@ -123,13 +123,14 @@ func (r GetTagRequest) Validate() []common.ValidationError {
 	return validateTagID(r.TagID)
 }
 
-// FilterTagsRequest is the request body for POST /admin/filter-tags.
-type FilterTagsAdminRequest struct {
-	Query         string `json:"query,omitempty"`
-	PaginationKey string `json:"pagination_key,omitempty"`
+// AdminFilterTagsRequest is the request body for POST /admin/list-tags.
+type AdminFilterTagsRequest struct {
+	Query         *string `json:"query,omitempty"`
+	PaginationKey *string `json:"pagination_key,omitempty"`
+	Limit         *int32  `json:"limit,omitempty"`
 }
 
-func (r FilterTagsAdminRequest) Validate() []common.ValidationError {
+func (r AdminFilterTagsRequest) Validate() []common.ValidationError {
 	return nil
 }
 
@@ -157,8 +158,8 @@ type AdminTag struct {
 	UpdatedAt    string           `json:"updated_at"`
 }
 
-// FilterTagsAdminResponse is the response for POST /admin/filter-tags.
-type FilterTagsAdminResponse struct {
-	Tags          []AdminTag `json:"tags"`
-	PaginationKey string     `json:"pagination_key,omitempty"`
+// AdminFilterTagsResponse is the response for POST /admin/list-tags.
+type AdminFilterTagsResponse struct {
+	Tags              []AdminTag `json:"tags"`
+	NextPaginationKey *string    `json:"next_pagination_key,omitempty"`
 }

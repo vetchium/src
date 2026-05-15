@@ -15,7 +15,7 @@ import type {
 	CreateTagRequest,
 	UpdateTagRequest,
 	GetTagRequest,
-	FilterTagsRequest,
+	AdminFilterTagsRequest,
 	DeleteTagIconRequest,
 } from "vetchium-specs/admin/tags";
 
@@ -515,7 +515,7 @@ test.describe("Admin Tags API", () => {
 
 		test("returns tags with no query (200)", async ({ request }) => {
 			const api = new AdminAPIClient(request);
-			const req: FilterTagsRequest = {};
+			const req: AdminFilterTagsRequest = {};
 			const response = await api.listTags(manageTagsToken, req);
 
 			expect(response.status).toBe(200);
@@ -533,7 +533,7 @@ test.describe("Admin Tags API", () => {
 			const api = new AdminAPIClient(request);
 			// Query by the unique base prefix to find our test tags
 			const base = filterTagIds[0].substring(0, 8);
-			const req: FilterTagsRequest = { query: base };
+			const req: AdminFilterTagsRequest = { query: base };
 			const response = await api.listTags(manageTagsToken, req);
 
 			expect(response.status).toBe(200);
@@ -548,14 +548,14 @@ test.describe("Admin Tags API", () => {
 			request,
 		}) => {
 			const api = new AdminAPIClient(request);
-			const req: FilterTagsRequest = {
+			const req: AdminFilterTagsRequest = {
 				query: "xyzzy-no-match-ever-12345",
 			};
 			const response = await api.listTags(manageTagsToken, req);
 
 			expect(response.status).toBe(200);
 			expect(response.body.tags).toHaveLength(0);
-			expect(response.body.pagination_key).toBeUndefined();
+			expect(response.body.next_pagination_key).toBeUndefined();
 		});
 
 		test("pagination works with pagination_key (200)", async ({ request }) => {
@@ -563,24 +563,24 @@ test.describe("Admin Tags API", () => {
 			const base = filterTagIds[0].substring(0, 8);
 
 			// First page
-			const firstReq: FilterTagsRequest = { query: base };
+			const firstReq: AdminFilterTagsRequest = { query: base };
 			const firstPage = await api.listTags(manageTagsToken, firstReq);
 			expect(firstPage.status).toBe(200);
 
-			// Should have pagination_key since we created 51 tags (> default limit 50)
-			expect(firstPage.body.pagination_key).toBeDefined();
+			// Should have next_pagination_key since we created 51 tags (> default limit 50)
+			expect(firstPage.body.next_pagination_key).toBeDefined();
 			expect(firstPage.body.tags.length).toBe(50);
 
-			// Second page using pagination_key
-			const secondReq: FilterTagsRequest = {
+			// Second page using next_pagination_key
+			const secondReq: AdminFilterTagsRequest = {
 				query: base,
-				pagination_key: firstPage.body.pagination_key,
+				pagination_key: firstPage.body.next_pagination_key,
 			};
 			const secondPage = await api.listTags(manageTagsToken, secondReq);
 			expect(secondPage.status).toBe(200);
 			expect(secondPage.body.tags.length).toBeGreaterThanOrEqual(1);
 			// Second page should not have more pagination
-			expect(secondPage.body.pagination_key).toBeUndefined();
+			expect(secondPage.body.next_pagination_key).toBeUndefined();
 
 			// Tags across pages should be distinct
 			const firstIds = firstPage.body.tags.map((t) => t.tag_id);
@@ -598,7 +598,7 @@ test.describe("Admin Tags API", () => {
 
 		test("user without role can filter tags (200)", async ({ request }) => {
 			const api = new AdminAPIClient(request);
-			const req: FilterTagsRequest = {};
+			const req: AdminFilterTagsRequest = {};
 			const response = await api.listTags(noRoleToken, req);
 			expect(response.status).toBe(200);
 		});

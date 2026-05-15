@@ -68,13 +68,15 @@ test.describe("POST /org/list-domains", () => {
 			const response = await api.listDomains(sessionToken, listRequest);
 
 			expect(response.status).toBe(200);
-			expect(response.body.items).toBeDefined();
-			expect(Array.isArray(response.body.items)).toBe(true);
+			expect(response.body.domain_statuses).toBeDefined();
+			expect(Array.isArray(response.body.domain_statuses)).toBe(true);
 			// Every new org always has its signup domain as a VERIFIED primary domain.
-			expect(response.body.items.length).toBe(1);
-			expect(response.body.items[0].domain).toBe(domain.toLowerCase());
-			expect(response.body.items[0].status).toBe("VERIFIED");
-			expect(response.body.items[0].is_primary).toBe(true);
+			expect(response.body.domain_statuses.length).toBe(1);
+			expect(response.body.domain_statuses[0].domain).toBe(
+				domain.toLowerCase()
+			);
+			expect(response.body.domain_statuses[0].status).toBe("VERIFIED");
+			expect(response.body.domain_statuses[0].is_primary).toBe(true);
 		} finally {
 			if (userEmail) await deleteTestOrgUser(userEmail);
 		}
@@ -105,16 +107,16 @@ test.describe("POST /org/list-domains", () => {
 			const response = await api.listDomains(sessionToken, listRequest);
 
 			expect(response.status).toBe(200);
-			expect(response.body.items).toBeDefined();
-			expect(response.body.items.length).toBe(2);
+			expect(response.body.domain_statuses).toBeDefined();
+			expect(response.body.domain_statuses.length).toBe(2);
 
-			const signupItem = response.body.items.find(
+			const signupItem = response.body.domain_statuses.find(
 				(i) => i.domain === signupDomain.toLowerCase()
 			);
 			expect(signupItem?.status).toBe("VERIFIED");
 			expect(signupItem?.is_primary).toBe(true);
 
-			const claimedItem = response.body.items.find(
+			const claimedItem = response.body.domain_statuses.find(
 				(i) => i.domain === claimedDomain.toLowerCase()
 			);
 			expect(claimedItem?.status).toBe("PENDING");
@@ -150,11 +152,11 @@ test.describe("POST /org/list-domains", () => {
 			const response = await api.listDomains(sessionToken, listRequest);
 
 			expect(response.status).toBe(200);
-			expect(response.body.items).toBeDefined();
-			expect(response.body.items.length).toBe(3);
+			expect(response.body.domain_statuses).toBeDefined();
+			expect(response.body.domain_statuses.length).toBe(3);
 
 			// All three domains should be in the list
-			const domains = response.body.items.map((item) => item.domain);
+			const domains = response.body.domain_statuses.map((item) => item.domain);
 			expect(domains).toContain(signupDomain.toLowerCase());
 			expect(domains).toContain(domain1.toLowerCase());
 			expect(domains).toContain(domain2.toLowerCase());

@@ -139,7 +139,7 @@ export function validateUpdateCostCenterRequest(
 
 // ListCostCentersRequest is the request body for POST /org/list-cost-centers.
 export interface ListCostCentersRequest {
-	cursor?: string;
+	pagination_key?: string;
 	filter_status?: CostCenterStatus;
 	limit?: number;
 }
@@ -164,6 +164,6 @@ export function validateListCostCentersRequest(
 
 // ListCostCentersResponse is the response for POST /org/list-cost-centers.
 export interface ListCostCentersResponse {
-	items: CostCenter[];
-	next_cursor: string;
+	cost_centers: CostCenter[];
+	next_pagination_key?: string;
 }

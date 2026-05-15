@@ -13,7 +13,8 @@
 		"test:ui:org": "playwright test tests/ui/org/ --project=chromium --workers=1",
 		"clean:emails": "bun clean-emails.ts",
 		"env:check": "bun check-health.ts",
-		"test:ui:report": "playwright show-report"
+		"test:ui:report": "playwright show-report",
+		"typecheck": "tsc --noEmit"
 	},
 	"keywords": [],
 	"author": "",

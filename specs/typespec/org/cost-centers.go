@@ -114,9 +114,9 @@ func (r UpdateCostCenterRequest) Validate() []common.ValidationError {
 
 // ListCostCentersRequest is the request body for POST /org/list-cost-centers.
 type ListCostCentersRequest struct {
-	Cursor       *string           `json:"cursor,omitempty"`
-	FilterStatus *CostCenterStatus `json:"filter_status,omitempty"`
-	Limit        *int32            `json:"limit,omitempty"`
+	PaginationKey *string           `json:"pagination_key,omitempty"`
+	FilterStatus  *CostCenterStatus `json:"filter_status,omitempty"`
+	Limit         *int32            `json:"limit,omitempty"`
 }
 
 func (r ListCostCentersRequest) Validate() []common.ValidationError {
@@ -131,6 +131,6 @@ func (r ListCostCentersRequest) Validate() []common.ValidationError {
 
 // ListCostCentersResponse is the response for POST /org/list-cost-centers.
 type ListCostCentersResponse struct {
-	Items      []CostCenter `json:"items"`
-	NextCursor string       `json:"next_cursor"`
+	CostCenters       []CostCenter `json:"cost_centers"`
+	NextPaginationKey *string      `json:"next_pagination_key,omitempty"`
 }

@@ -169,7 +169,7 @@ test.describe("POST /admin/list-approved-domains - Limit Validation", () => {
 			expect(response.status).toBe(200);
 			expect(response.body.domains.length).toBe(1);
 			expect(response.body.has_more).toBe(true);
-			expect(response.body.next_cursor).toBeTruthy();
+			expect(response.body.next_pagination_key).toBeTruthy();
 		} finally {
 			await deleteBulkTestDomains(domainNames);
 			await deleteTestAdminUser(email);
@@ -218,7 +218,7 @@ test.describe("POST /admin/list-approved-domains - Limit Validation", () => {
 // ============================================================================
 
 test.describe("POST /admin/list-approved-domains - Cursor Navigation", () => {
-	test("empty result set: has_more=false, next_cursor empty", async ({
+	test("empty result set: has_more=false, next_pagination_key empty", async ({
 		request,
 	}) => {
 		const api = new AdminAPIClient(request);
@@ -236,13 +236,13 @@ test.describe("POST /admin/list-approved-domains - Cursor Navigation", () => {
 			expect(response.status).toBe(200);
 			expect(response.body.domains.length).toBe(0);
 			expect(response.body.has_more).toBe(false);
-			expect(response.body.next_cursor).toBe("");
+			expect(response.body.next_pagination_key).toBe("");
 		} finally {
 			await deleteTestAdminUser(email);
 		}
 	});
 
-	test("single page (less than limit): has_more=false, next_cursor empty", async ({
+	test("single page (less than limit): has_more=false, next_pagination_key empty", async ({
 		request,
 	}) => {
 		const api = new AdminAPIClient(request);
@@ -272,7 +272,7 @@ test.describe("POST /admin/list-approved-domains - Cursor Navigation", () => {
 			expect(response.status).toBe(200);
 			expect(response.body.domains.length).toBe(3);
 			expect(response.body.has_more).toBe(false);
-			expect(response.body.next_cursor).toBe("");
+			expect(response.body.next_pagination_key).toBe("");
 		} finally {
 			await deleteBulkTestDomains(domainNames);
 			await deleteTestAdminUser(email);
@@ -311,14 +311,14 @@ test.describe("POST /admin/list-approved-domains - Cursor Navigation", () => {
 			expect(response.body.domains.length).toBe(10);
 			// has_more should be false (no more results)
 			expect(response.body.has_more).toBe(false);
-			expect(response.body.next_cursor).toBe("");
+			expect(response.body.next_pagination_key).toBe("");
 		} finally {
 			await deleteBulkTestDomains(domainNames);
 			await deleteTestAdminUser(email);
 		}
 	});
 
-	test("multiple pages - first page: has_more=true, next_cursor set", async ({
+	test("multiple pages - first page: has_more=true, next_pagination_key set", async ({
 		request,
 	}) => {
 		const api = new AdminAPIClient(request);
@@ -348,7 +348,7 @@ test.describe("POST /admin/list-approved-domains - Cursor Navigation", () => {
 			expect(response.status).toBe(200);
 			expect(response.body.domains.length).toBe(10);
 			expect(response.body.has_more).toBe(true);
-			expect(response.body.next_cursor).toBeTruthy();
+			expect(response.body.next_pagination_key).toBeTruthy();
 		} finally {
 			await deleteBulkTestDomains(domainNames);
 			await deleteTestAdminUser(email);
@@ -384,12 +384,12 @@ test.describe("POST /admin/list-approved-domains - Cursor Navigation", () => {
 			});
 
 			expect(page1.body.has_more).toBe(true);
-			expect(page1.body.next_cursor).toBeTruthy();
+			expect(page1.body.next_pagination_key).toBeTruthy();
 
 			// Get second page
 			const page2 = await api.listApprovedDomains(sessionToken, {
 				limit: 10,
-				cursor: page1.body.next_cursor,
+				pagination_key: page1.body.next_pagination_key,
 				search: uniquePrefix,
 			});
 
@@ -404,14 +404,16 @@ test.describe("POST /admin/list-approved-domains - Cursor Navigation", () => {
 			expect(overlap.length).toBe(0);
 
 			// Verify cursor changed
-			expect(page2.body.next_cursor).not.toBe(page1.body.next_cursor);
+			expect(page2.body.next_pagination_key).not.toBe(
+				page1.body.next_pagination_key
+			);
 		} finally {
 			await deleteBulkTestDomains(domainNames);
 			await deleteTestAdminUser(email);
 		}
 	});
 
-	test("multiple pages - last page: has_more=false, next_cursor empty", async ({
+	test("multiple pages - last page: has_more=false, next_pagination_key empty", async ({
 		request,
 	}) => {
 		const api = new AdminAPIClient(request);
@@ -442,21 +444,21 @@ test.describe("POST /admin/list-approved-domains - Cursor Navigation", () => {
 			// Get second page
 			const page2 = await api.listApprovedDomains(sessionToken, {
 				limit: 10,
-				cursor: page1.body.next_cursor,
+				pagination_key: page1.body.next_pagination_key,
 				search: uniquePrefix,
 			});
 
 			// Get third page (last page, should have 5 domains)
 			const page3 = await api.listApprovedDomains(sessionToken, {
 				limit: 10,
-				cursor: page2.body.next_cursor,
+				pagination_key: page2.body.next_pagination_key,
 				search: uniquePrefix,
 			});
 
 			expect(page3.status).toBe(200);
 			expect(page3.body.domains.length).toBe(5);
 			expect(page3.body.has_more).toBe(false);
-			expect(page3.body.next_cursor).toBe("");
+			expect(page3.body.next_pagination_key).toBe("");
 		} finally {
 			await deleteBulkTestDomains(domainNames);
 			await deleteTestAdminUser(email);
@@ -472,7 +474,7 @@ test.describe("POST /admin/list-approved-domains - Cursor Navigation", () => {
 
 		try {
 			const response = await api.listApprovedDomainsRaw(sessionToken, {
-				cursor: "invalid-base64-cursor!@#",
+				pagination_key: "invalid-base64-cursor!@#",
 			});
 
 			expect(response.status).toBe(400);
@@ -503,13 +505,13 @@ test.describe("POST /admin/list-approved-domains - Cursor Navigation", () => {
 			const beyondCursor = Buffer.from("zzzzz.example.com").toString("base64");
 
 			const response = await api.listApprovedDomains(sessionToken, {
-				cursor: beyondCursor,
+				pagination_key: beyondCursor,
 			});
 
 			expect(response.status).toBe(200);
 			expect(response.body.domains.length).toBe(0);
 			expect(response.body.has_more).toBe(false);
-			expect(response.body.next_cursor).toBe("");
+			expect(response.body.next_pagination_key).toBe("");
 		} finally {
 			await deleteBulkTestDomains(domainNames);
 			await deleteTestAdminUser(email);
@@ -539,14 +541,14 @@ test.describe("POST /admin/list-approved-domains - Cursor Navigation", () => {
 			domainNames.push(...created);
 
 			const allDomains: string[] = [];
-			let cursor = "";
+			let paginationKey = "";
 			let hasMore = true;
 
 			// Navigate through all pages
 			while (hasMore) {
 				const response = await api.listApprovedDomains(sessionToken, {
 					limit: 1,
-					cursor: cursor || undefined,
+					pagination_key: paginationKey || undefined,
 					search: uniquePrefix,
 				});
 
@@ -554,7 +556,7 @@ test.describe("POST /admin/list-approved-domains - Cursor Navigation", () => {
 				allDomains.push(...response.body.domains.map((d) => d.domain_name));
 
 				hasMore = response.body.has_more;
-				cursor = response.body.next_cursor;
+				paginationKey = response.body.next_pagination_key;
 			}
 
 			// Should have retrieved all 5 domains
@@ -609,7 +611,7 @@ test.describe("POST /admin/list-approved-domains - Pagination with Filters", () 
 			// Get second page
 			const page2 = await api.listApprovedDomains(sessionToken, {
 				limit: 10,
-				cursor: page1.body.next_cursor,
+				pagination_key: page1.body.next_pagination_key,
 				filter: "active",
 				search: uniquePrefix,
 			});
@@ -669,7 +671,7 @@ test.describe("POST /admin/list-approved-domains - Pagination with Filters", () 
 			// Get second page
 			const page2 = await api.listApprovedDomains(sessionToken, {
 				limit: 10,
-				cursor: page1.body.next_cursor,
+				pagination_key: page1.body.next_pagination_key,
 				filter: "inactive",
 				search: uniquePrefix,
 			});
@@ -728,7 +730,7 @@ test.describe("POST /admin/list-approved-domains - Pagination with Filters", () 
 			// Get second page
 			const page2 = await api.listApprovedDomains(sessionToken, {
 				limit: 10,
-				cursor: page1.body.next_cursor,
+				pagination_key: page1.body.next_pagination_key,
 				filter: "all",
 				search: uniquePrefix,
 			});
@@ -788,7 +790,7 @@ test.describe("POST /admin/list-approved-domains - Pagination with Search", () =
 			expect(response.status).toBe(200);
 			expect(response.body.domains.length).toBe(0);
 			expect(response.body.has_more).toBe(false);
-			expect(response.body.next_cursor).toBe("");
+			expect(response.body.next_pagination_key).toBe("");
 		} finally {
 			await deleteTestAdminUser(email);
 		}
@@ -821,7 +823,7 @@ test.describe("POST /admin/list-approved-domains - Pagination with Search", () =
 			expect(response.status).toBe(200);
 			expect(response.body.domains.length).toBe(5);
 			expect(response.body.has_more).toBe(false);
-			expect(response.body.next_cursor).toBe("");
+			expect(response.body.next_pagination_key).toBe("");
 		} finally {
 			await deleteBulkTestDomains(domainNames);
 			await deleteTestAdminUser(email);
@@ -859,13 +861,13 @@ test.describe("POST /admin/list-approved-domains - Pagination with Search", () =
 			expect(page1.status).toBe(200);
 			expect(page1.body.domains.length).toBe(10);
 			expect(page1.body.has_more).toBe(true);
-			expect(page1.body.next_cursor).toBeTruthy();
+			expect(page1.body.next_pagination_key).toBeTruthy();
 
 			// Get second page
 			const page2 = await api.listApprovedDomains(sessionToken, {
 				search: uniquePrefix,
 				limit: 10,
-				cursor: page1.body.next_cursor,
+				pagination_key: page1.body.next_pagination_key,
 			});
 
 			expect(page2.status).toBe(200);

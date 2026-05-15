@@ -155,19 +155,19 @@ func ListApprovedDomains(s *server.GlobalServer) http.HandlerFunc {
 		}
 
 		cursor := ""
-		if request.Cursor != nil {
-			cursor = *request.Cursor
+		if request.PaginationKey != nil {
+			cursor = *request.PaginationKey
 		}
 
 		var domainResponses []admin.ApprovedDomain
-		var nextCursor string
+		var nextPaginationKey string
 		var hasMore bool
 		var err error
 
 		if search != "" {
-			domainResponses, nextCursor, hasMore, err = listDomainsWithSearch(ctx, s, search, filter, limit, cursor)
+			domainResponses, nextPaginationKey, hasMore, err = listDomainsWithSearch(ctx, s, search, filter, limit, cursor)
 		} else {
-			domainResponses, nextCursor, hasMore, err = listDomainsWithoutSearch(ctx, s, filter, limit, cursor)
+			domainResponses, nextPaginationKey, hasMore, err = listDomainsWithoutSearch(ctx, s, filter, limit, cursor)
 		}
 
 		if err != nil {
@@ -182,9 +182,9 @@ func ListApprovedDomains(s *server.GlobalServer) http.HandlerFunc {
 		}
 
 		response := admin.ApprovedDomainListResponse{
-			Domains:    domainResponses,
-			NextCursor: nextCursor,
-			HasMore:    hasMore,
+			Domains:           domainResponses,
+			NextPaginationKey: nextPaginationKey,
+			HasMore:           hasMore,
 		}
 
 		if err := json.NewEncoder(w).Encode(response); err != nil {
@@ -329,10 +329,10 @@ func listDomainsWithoutSearch(ctx context.Context, s *server.GlobalServer, filte
 		rows = rows[:limit]
 	}
 
-	var nextCursor string
+	var nextPaginationKey string
 	if hasMore && len(rows) > 0 {
 		lastRow := rows[len(rows)-1]
-		nextCursor = encodeDomainCursor(lastRow.DomainName)
+		nextPaginationKey = encodeDomainCursor(lastRow.DomainName)
 	}
 
 	domainResponses := make([]admin.ApprovedDomain, len(rows))
@@ -346,7 +346,7 @@ func listDomainsWithoutSearch(ctx context.Context, s *server.GlobalServer, filte
 		}
 	}
 
-	return domainResponses, nextCursor, hasMore, nil
+	return domainResponses, nextPaginationKey, hasMore, nil
 }
 
 func listDomainsWithSearch(ctx context.Context, s *server.GlobalServer, search string, filter admin.DomainFilter, limit int, cursor string) ([]admin.ApprovedDomain, string, bool, error) {
@@ -507,10 +507,10 @@ func listDomainsWithSearch(ctx context.Context, s *server.GlobalServer, search s
 		rows = rows[:limit]
 	}
 
-	var nextCursor string
+	var nextPaginationKey string
 	if hasMore && len(rows) > 0 {
 		lastRow := rows[len(rows)-1]
-		nextCursor = encodeSearchCursor(lastRow.SimScore, lastRow.DomainName)
+		nextPaginationKey = encodeSearchCursor(lastRow.SimScore, lastRow.DomainName)
 	}
 
 	domainResponses := make([]admin.ApprovedDomain, len(rows))
@@ -524,7 +524,7 @@ func listDomainsWithSearch(ctx context.Context, s *server.GlobalServer, search s
 		}
 	}
 
-	return domainResponses, nextCursor, hasMore, nil
+	return domainResponses, nextPaginationKey, hasMore, nil
 }
 
 // GetApprovedDomain handles POST /admin/get-approved-domain

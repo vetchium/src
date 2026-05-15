@@ -25,7 +25,7 @@ func FilterTags(s *server.GlobalServer) http.HandlerFunc {
 			return
 		}
 
-		var req admin.FilterTagsAdminRequest
+		var req admin.AdminFilterTagsRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			s.Logger(ctx).Debug("failed to decode request", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -39,10 +39,25 @@ func FilterTags(s *server.GlobalServer) http.HandlerFunc {
 			return
 		}
 
+		limit := tagFilterDefaultLimit
+		if req.Limit != nil {
+			limit = int(*req.Limit)
+		}
+
+		query := ""
+		if req.Query != nil {
+			query = *req.Query
+		}
+
+		paginationKey := ""
+		if req.PaginationKey != nil {
+			paginationKey = *req.PaginationKey
+		}
+
 		rows, err := s.Global.FilterTagsAdmin(ctx, globaldb.FilterTagsAdminParams{
-			Query:         req.Query,
-			PaginationKey: req.PaginationKey,
-			LimitCount:    int32(tagFilterDefaultLimit + 1),
+			Query:         query,
+			PaginationKey: paginationKey,
+			LimitCount:    int32(limit + 1),
 		})
 		if err != nil {
 			s.Logger(ctx).Error("failed to filter tags", "error", err)
@@ -50,14 +65,15 @@ func FilterTags(s *server.GlobalServer) http.HandlerFunc {
 			return
 		}
 
-		hasMore := len(rows) > tagFilterDefaultLimit
+		hasMore := len(rows) > limit
 		if hasMore {
-			rows = rows[:tagFilterDefaultLimit]
+			rows = rows[:limit]
 		}
 
-		var nextPaginationKey string
+		var nextPaginationKey *string
 		if hasMore {
-			nextPaginationKey = rows[len(rows)-1].TagID
+			key := rows[len(rows)-1].TagID
+			nextPaginationKey = &key
 		}
 
 		tags := make([]admin.AdminTag, 0, len(rows))
@@ -71,9 +87,9 @@ func FilterTags(s *server.GlobalServer) http.HandlerFunc {
 			tags = append(tags, buildAdminTagResponse(row, translations))
 		}
 
-		json.NewEncoder(w).Encode(admin.FilterTagsAdminResponse{
-			Tags:          tags,
-			PaginationKey: nextPaginationKey,
+		json.NewEncoder(w).Encode(admin.AdminFilterTagsResponse{
+			Tags:              tags,
+			NextPaginationKey: nextPaginationKey,
 		})
 	}
 }

@@ -96,7 +96,7 @@ model ApprovedDomainListResponse {
     @doc("List of approved domains")
     domains: ApprovedDomain[];
     @doc("Cursor for next page - base64 encoded last domain_name (empty if no more pages)")
-    next_cursor: string;
+    next_pagination_key: string;
     @doc("Whether there are more pages available")
     has_more: boolean;
 }
