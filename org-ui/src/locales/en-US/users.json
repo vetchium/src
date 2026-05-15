@@ -1,6 +1,6 @@
 {
 	"backToDashboard": "Back to Dashboard",
-	"pageTitle": "User Management",
+	"pageTitle": "Users",
 	"inviteUser": "Invite User",
 	"searchPlaceholder": "Search by email or name...",
 	"status": {
@@ -25,7 +25,7 @@
 	"drawer": {
 		"title": "User Details",
 		"userInfo": "User Information",
-		"roleManagement": "Role Management",
+		"roles": "Roles",
 		"currentRoles": "Current Roles",
 		"addRole": "Add Role",
 		"selectRole": "Select a role to assign",

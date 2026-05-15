@@ -23,7 +23,7 @@ export function InviteUserModal({
 	const [form] = Form.useForm();
 	const [loading, setLoading] = useState(false);
 	const { sessionToken } = useAuth();
-	const { t } = useTranslation("userManagement");
+	const { t } = useTranslation("users");
 
 	const handleOk = async () => {
 		try {

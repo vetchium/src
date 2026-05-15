@@ -492,7 +492,7 @@ export function DomainsPage() {
 			</div>
 
 			<Title level={2} style={{ marginBottom: 24 }}>
-				{t("domainManagement.title")}
+				{t("domains.title")}
 			</Title>
 
 			{error && (

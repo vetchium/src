@@ -28,7 +28,7 @@ export function DashboardPage() {
 		myInfo?.roles.includes("admin:manage_domains") ||
 		false;
 
-	const canViewUsers =
+	const hasUsersAccess =
 		myInfo?.roles.includes("admin:superadmin") ||
 		myInfo?.roles.includes("admin:view_users") ||
 		myInfo?.roles.includes("admin:manage_users") ||
@@ -113,7 +113,7 @@ export function DashboardPage() {
 						</Col>
 					)}
 
-					{canViewUsers && (
+					{hasUsersAccess && (
 						<Col xs={24} sm={12} lg={8}>
 							<Link
 								to="/users"
@@ -135,10 +135,10 @@ export function DashboardPage() {
 										style={{ fontSize: 48, color: "#722ed1", marginBottom: 16 }}
 									/>
 									<Title level={4} style={{ marginBottom: 8 }}>
-										{t("userManagement:pageTitle")}
+										{t("users:pageTitle")}
 									</Title>
 									<Text type="secondary">
-										{t("userManagement:dashboardDescription")}
+										{t("users:dashboardDescription")}
 									</Text>
 								</Card>
 							</Link>

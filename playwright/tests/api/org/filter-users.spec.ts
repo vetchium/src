@@ -131,7 +131,7 @@ test.describe("Org Filter Users API", () => {
 		);
 	});
 
-	test("user without user management roles gets 403", async ({ request }) => {
+	test("user without required roles gets 403", async ({ request }) => {
 		const orgApiClient = new OrgAPIClient(request);
 		const { email: noRoleEmail, domain: noRoleDomain } =
 			generateTestOrgEmail("filter-org-norole");

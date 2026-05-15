@@ -130,7 +130,7 @@ function TFARoute({ children }: { children: React.ReactNode }) {
 	return <>{children}</>;
 }
 
-function UserManagementRoute({ children }: { children: React.ReactNode }) {
+function UsersRoute({ children }: { children: React.ReactNode }) {
 	const { authState, sessionToken } = useAuth();
 	const { data: myInfo, loading } = useMyInfo(sessionToken);
 	const location = useLocation();
@@ -159,7 +159,7 @@ function UserManagementRoute({ children }: { children: React.ReactNode }) {
 	return <>{children}</>;
 }
 
-function DomainManagementRoute({ children }: { children: React.ReactNode }) {
+function DomainsRoute({ children }: { children: React.ReactNode }) {
 	const { authState, sessionToken } = useAuth();
 	const { data: myInfo, loading } = useMyInfo(sessionToken);
 	const location = useLocation();
@@ -290,7 +290,7 @@ function FailingDomainsWarning() {
 			title={
 				<>
 					{t("domain.failingDomainsWarning")}{" "}
-					<Link to="/domains">{t("domainManagement.title")}</Link>
+					<Link to="/domains">{t("domains.title")}</Link>
 				</>
 			}
 		/>
@@ -374,17 +374,17 @@ function AppContent() {
 							<Route
 								path="/users"
 								element={
-									<UserManagementRoute>
+									<UsersRoute>
 										<UsersPage />
-									</UserManagementRoute>
+									</UsersRoute>
 								}
 							/>
 							<Route
 								path="/domains"
 								element={
-									<DomainManagementRoute>
+									<DomainsRoute>
 										<DomainsPage />
-									</DomainManagementRoute>
+									</DomainsRoute>
 								}
 							/>
 							<Route

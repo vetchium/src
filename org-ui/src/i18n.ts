@@ -4,7 +4,7 @@ import { initReactI18next } from "react-i18next";
 // Import translations
 import enUSCommon from "./locales/en-US/common.json";
 import enUSAuth from "./locales/en-US/auth.json";
-import enUSUserManagement from "./locales/en-US/user-management.json";
+import enUSUsers from "./locales/en-US/users.json";
 import enUSCostCenters from "./locales/en-US/cost-centers.json";
 import enUSSubOrgs from "./locales/en-US/suborgs.json";
 import enUSAuditLogs from "./locales/en-US/audit-logs.json";
@@ -14,7 +14,7 @@ import enUSAddresses from "./locales/en-US/addresses.json";
 import enUSOpenings from "./locales/en-US/openings.json";
 import deDECommon from "./locales/de-DE/common.json";
 import deDEAuth from "./locales/de-DE/auth.json";
-import deDEUserManagement from "./locales/de-DE/user-management.json";
+import deDEUsers from "./locales/de-DE/users.json";
 import deDECostCenters from "./locales/de-DE/cost-centers.json";
 import deDESubOrgs from "./locales/de-DE/suborgs.json";
 import deDEAuditLogs from "./locales/de-DE/audit-logs.json";
@@ -24,7 +24,7 @@ import deDEAddresses from "./locales/de-DE/addresses.json";
 import deDEOpenings from "./locales/de-DE/openings.json";
 import taINCommon from "./locales/ta-IN/common.json";
 import taINAuth from "./locales/ta-IN/auth.json";
-import taINUserManagement from "./locales/ta-IN/user-management.json";
+import taINUsers from "./locales/ta-IN/users.json";
 import taINCostCenters from "./locales/ta-IN/cost-centers.json";
 import taINSubOrgs from "./locales/ta-IN/suborgs.json";
 import taINAuditLogs from "./locales/ta-IN/audit-logs.json";
@@ -75,7 +75,7 @@ const resources = {
 	"en-US": {
 		common: enUSCommon,
 		auth: enUSAuth,
-		userManagement: enUSUserManagement,
+		users: enUSUsers,
 		"cost-centers": enUSCostCenters,
 		suborgs: enUSSubOrgs,
 		auditLogs: enUSAuditLogs,
@@ -87,7 +87,7 @@ const resources = {
 	"de-DE": {
 		common: deDECommon,
 		auth: deDEAuth,
-		userManagement: deDEUserManagement,
+		users: deDEUsers,
 		"cost-centers": deDECostCenters,
 		suborgs: deDESubOrgs,
 		auditLogs: deDEAuditLogs,
@@ -99,7 +99,7 @@ const resources = {
 	"ta-IN": {
 		common: taINCommon,
 		auth: taINAuth,
-		userManagement: taINUserManagement,
+		users: taINUsers,
 		"cost-centers": taINCostCenters,
 		suborgs: taINSubOrgs,
 		auditLogs: taINAuditLogs,
@@ -118,7 +118,7 @@ i18n.use(initReactI18next).init({
 	ns: [
 		"common",
 		"auth",
-		"userManagement",
+		"users",
 		"cost-centers",
 		"suborgs",
 		"auditLogs",

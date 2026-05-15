@@ -4,7 +4,7 @@ import { randomUUID } from "crypto";
 import { deleteTestAdminUser, createTestSuperadmin } from "../../../lib/db";
 import { TEST_PASSWORD } from "../../../lib/constants";
 
-test.describe("Admin UI - User Management", () => {
+test.describe("Admin UI - Users", () => {
 	let testUserEmail: string;
 	let testAdminEmail: string;
 
@@ -13,8 +13,8 @@ test.describe("Admin UI - User Management", () => {
 		await createTestSuperadmin(testAdminEmail, TEST_PASSWORD);
 		testUserEmail = `test-admin-${randomUUID().substring(0, 8)}@test.vetchium.com`;
 		await adminLogin(page, testAdminEmail, TEST_PASSWORD);
+		await page.click("text=Users");
 	});
-
 	test.afterEach(async () => {
 		if (testUserEmail) {
 			await deleteTestAdminUser(testUserEmail).catch(() => {});
@@ -25,11 +25,11 @@ test.describe("Admin UI - User Management", () => {
 	});
 
 	test("should invite a new admin user", async ({ page }) => {
-		// Navigate to User Management
-		await page.click("text=User Management");
+		// Navigate to Users
+		await page.click("text=Users");
 		await expect(page).toHaveURL(`${ADMIN_UI_URL}/users`);
 
-		// Click Invite User button on the User Management page
+		// Click Invite User button on the Users page
 		await page.locator('button:has-text("Invite User")').click();
 
 		// Wait for the modal to appear

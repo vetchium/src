@@ -1,9 +1,7 @@
 {
 	"backToDashboard": "Zurück zum Dashboard",
 	"pageTitle": "Benutzerverwaltung",
-	"dashboardDescription": "Admin-Benutzer und ihre Rollen verwalten",
 	"inviteUser": "Benutzer einladen",
-	"inviteUserDescription": "Einen neuen Administrator zur Plattform einladen",
 	"searchPlaceholder": "Nach E-Mail oder Name suchen...",
 	"status": {
 		"all": "Alle",
@@ -27,7 +25,7 @@
 	"drawer": {
 		"title": "Benutzerdetails",
 		"userInfo": "Benutzerinformationen",
-		"roleManagement": "Rollenverwaltung",
+		"roles": "Rollen",
 		"currentRoles": "Aktuelle Rollen",
 		"addRole": "Rolle hinzufügen",
 		"selectRole": "Wählen Sie eine Rolle zum Zuweisen",
@@ -77,15 +75,25 @@
 	},
 	"inviteModal": {
 		"title": "Benutzer einladen",
+		"fullName": "Vollständiger Name",
+		"fullNameRequired": "Bitte geben Sie den vollständigen Namen ein",
+		"fullNamePlaceholder": "Vollständigen Namen des Benutzers eingeben",
 		"email": "E-Mail-Adresse",
 		"emailRequired": "Bitte geben Sie die E-Mail-Adresse ein",
 		"emailInvalid": "Bitte geben Sie eine gültige E-Mail ein",
 		"emailPlaceholder": "benutzer@beispiel.de",
-		"inviteEmailLanguage": "Sprache der Einladungs-E-Mail",
-		"inviteEmailLanguageTooltip": "Sprache für die Einladungs-E-Mail. Standardmäßig wird Ihre Sprache verwendet, wenn nicht angegeben.",
-		"inviteEmailLanguagePlaceholder": "Sprache für Einladungs-E-Mail auswählen (optional)",
+		"preferredLanguage": "Bevorzugte Sprache",
+		"preferredLanguagePlaceholder": "Bevorzugte Sprache auswählen (optional)",
+		"rolesLabel": "Rollen",
+		"rolesRequired": "Bitte wählen Sie mindestens eine Rolle aus",
+		"rolesPlaceholder": "Zuzuweisende Rollen auswählen",
 		"confirm": "Benutzer einladen",
 		"cancel": "Abbrechen",
-		"userExists": "Benutzer mit dieser E-Mail existiert bereits"
+		"userExists": "Benutzer mit dieser E-Mail existiert bereits",
+		"inviteEmailLanguage": "Sprache der Einladungs-E-Mail",
+		"inviteEmailLanguageTooltip": "Sprache der Einladungs-E-Mail. Standardmäßig wird Ihre Sprache verwendet.",
+		"inviteEmailLanguagePlaceholder": "Sprache für die Einladungs-E-Mail auswählen (optional)",
+		"inviteFailed": "Beim Einladen des Benutzers ist ein Fehler aufgetreten.",
+		"inviteFailedGeneral": "Benutzer konnte nicht eingeladen werden"
 	}
 }

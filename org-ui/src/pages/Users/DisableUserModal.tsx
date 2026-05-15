@@ -20,7 +20,7 @@ export function DisableUserModal({
 	onCancel,
 	onSuccess,
 }: DisableUserModalProps) {
-	const { t } = useTranslation("userManagement");
+	const { t } = useTranslation("users");
 	const { sessionToken } = useAuth();
 	const { message } = App.useApp();
 

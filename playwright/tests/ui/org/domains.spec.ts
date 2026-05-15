@@ -8,7 +8,7 @@ import {
 } from "../../../lib/db";
 import { TEST_PASSWORD } from "../../../lib/constants";
 
-test.describe("Org UI - Domain Management", () => {
+test.describe("Org UI - Domains", () => {
 	let testEmail: string;
 	let testDomain: string;
 	let newDomain: string;
@@ -32,8 +32,8 @@ test.describe("Org UI - Domain Management", () => {
 	test("should claim a new domain and see DNS instructions", async ({
 		page,
 	}) => {
-		// Navigate to Domain Management
-		await page.click("text=Domain Management");
+		// Navigate to Domains
+		await page.click("text=Domains");
 		await expect(page).toHaveURL(`${ORG_UI_URL}/domains`);
 
 		// Fill claim form

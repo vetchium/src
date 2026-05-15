@@ -38,7 +38,7 @@ const { Title } = Typography;
 type UserStatus = "all" | "active" | "pending" | "disabled";
 
 export function UsersPage() {
-	const { t, i18n } = useTranslation("userManagement");
+	const { t, i18n } = useTranslation("users");
 	const { sessionToken } = useAuth();
 	const { message } = App.useApp();
 	const { data: myInfo } = useMyInfo(sessionToken);

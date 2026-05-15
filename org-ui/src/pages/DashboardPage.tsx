@@ -26,13 +26,13 @@ export function DashboardPage() {
 	const { logout, loading, sessionToken } = useAuth();
 	const { data: myInfo, loading: myInfoLoading } = useMyInfo(sessionToken);
 
-	const hasUserManagementAccess =
+	const hasUsersAccess =
 		myInfo?.roles.includes("org:superadmin") ||
 		myInfo?.roles.includes("org:view_users") ||
 		myInfo?.roles.includes("org:manage_users") ||
 		false;
 
-	const hasDomainManagementAccess =
+	const hasDomainsAccess =
 		myInfo?.roles.includes("org:superadmin") ||
 		myInfo?.roles.includes("org:view_domains") ||
 		myInfo?.roles.includes("org:manage_domains") ||
@@ -115,7 +115,7 @@ export function DashboardPage() {
 				</Row>
 			) : (
 				<Row gutter={[24, 24]}>
-					{hasUserManagementAccess && (
+					{hasUsersAccess && (
 						<Col xs={24} sm={12} lg={8}>
 							<Link
 								to="/users"
@@ -141,10 +141,10 @@ export function DashboardPage() {
 										}}
 									/>
 									<Title level={4} style={{ marginBottom: 8 }}>
-										{t("userManagement.title")}
+										{t("users.title")}
 									</Title>
 									<Typography.Text type="secondary">
-										{t("userManagement.description")}
+										{t("users.description")}
 									</Typography.Text>
 								</Card>
 							</Link>
@@ -187,7 +187,7 @@ export function DashboardPage() {
 						</Col>
 					)}
 
-					{hasDomainManagementAccess && (
+					{hasDomainsAccess && (
 						<Col xs={24} sm={12} lg={8}>
 							<Link
 								to="/domains"
@@ -213,10 +213,10 @@ export function DashboardPage() {
 										}}
 									/>
 									<Title level={4} style={{ marginBottom: 8 }}>
-										{t("domainManagement.title")}
+										{t("domains.title")}
 									</Title>
 									<Typography.Text type="secondary">
-										{t("domainManagement.description")}
+										{t("domains.description")}
 									</Typography.Text>
 								</Card>
 							</Link>

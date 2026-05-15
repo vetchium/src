@@ -5,7 +5,7 @@ import { initReactI18next } from "react-i18next";
 import enUSCommon from "./locales/en-US/common.json";
 import enUSAuth from "./locales/en-US/auth.json";
 import enUSApprovedDomains from "./locales/en-US/approved-domains.json";
-import enUSUserManagement from "./locales/en-US/user-management.json";
+import enUSUsers from "./locales/en-US/users.json";
 import enUSTags from "./locales/en-US/tags.json";
 import enUSAuditLogs from "./locales/en-US/audit-logs.json";
 import enUSOrgPlans from "./locales/en-US/org-plans.json";
@@ -13,7 +13,7 @@ import enUSMarketplace from "./locales/en-US/marketplace.json";
 import deDECommon from "./locales/de-DE/common.json";
 import deDEAuth from "./locales/de-DE/auth.json";
 import deDEApprovedDomains from "./locales/de-DE/approved-domains.json";
-import deDEUserManagement from "./locales/de-DE/user-management.json";
+import deDEUsers from "./locales/de-DE/users.json";
 import deDETags from "./locales/de-DE/tags.json";
 import deDEAuditLogs from "./locales/de-DE/audit-logs.json";
 import deDEOrgPlans from "./locales/de-DE/org-plans.json";
@@ -21,7 +21,7 @@ import deDEMarketplace from "./locales/de-DE/marketplace.json";
 import taINCommon from "./locales/ta-IN/common.json";
 import taINAuth from "./locales/ta-IN/auth.json";
 import taINApprovedDomains from "./locales/ta-IN/approved-domains.json";
-import taINUserManagement from "./locales/ta-IN/user-management.json";
+import taINUsers from "./locales/ta-IN/users.json";
 import taINTags from "./locales/ta-IN/tags.json";
 import taINAuditLogs from "./locales/ta-IN/audit-logs.json";
 import taINOrgPlans from "./locales/ta-IN/org-plans.json";
@@ -73,7 +73,7 @@ const resources = {
 		common: enUSCommon,
 		auth: enUSAuth,
 		approvedDomains: enUSApprovedDomains,
-		userManagement: enUSUserManagement,
+		users: enUSUsers,
 		tags: enUSTags,
 		auditLogs: enUSAuditLogs,
 		orgPlans: enUSOrgPlans,
@@ -84,7 +84,7 @@ const resources = {
 		common: deDECommon,
 		auth: deDEAuth,
 		approvedDomains: deDEApprovedDomains,
-		userManagement: deDEUserManagement,
+		users: deDEUsers,
 		tags: deDETags,
 		auditLogs: deDEAuditLogs,
 		orgPlans: deDEOrgPlans,
@@ -95,7 +95,7 @@ const resources = {
 		common: taINCommon,
 		auth: taINAuth,
 		approvedDomains: taINApprovedDomains,
-		userManagement: taINUserManagement,
+		users: taINUsers,
 		tags: taINTags,
 		auditLogs: taINAuditLogs,
 		orgPlans: taINOrgPlans,
@@ -113,7 +113,7 @@ i18n.use(initReactI18next).init({
 		"common",
 		"auth",
 		"approvedDomains",
-		"userManagement",
+		"users",
 		"tags",
 		"auditLogs",
 		"orgPlans",

@@ -18,7 +18,7 @@ export function InviteUserModal({
 	onCancel,
 	onSuccess,
 }: InviteUserModalProps) {
-	const { t } = useTranslation("userManagement");
+	const { t } = useTranslation("users");
 	const [form] = Form.useForm();
 	const [loading, setLoading] = useState(false);
 	const [formValid, setFormValid] = useState(false);

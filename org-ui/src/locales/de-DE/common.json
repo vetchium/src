@@ -28,12 +28,12 @@
 	"logout": {
 		"button": "Abmelden"
 	},
-	"userManagement": {
-		"title": "Benutzerverwaltung",
+	"users": {
+		"title": "Benutzer",
 		"description": "Benutzer und ihre Rollen verwalten"
 	},
-	"domainManagement": {
-		"title": "Domain-Verwaltung",
+	"domains": {
+		"title": "Domains",
 		"description": "Verifizieren und verwalten Sie die Domains Ihrer Organisation"
 	},
 	"costCenters": {

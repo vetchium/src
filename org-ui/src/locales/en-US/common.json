@@ -28,12 +28,12 @@
 	"logout": {
 		"button": "Logout"
 	},
-	"userManagement": {
-		"title": "User Management",
+	"users": {
+		"title": "Users",
 		"description": "Manage users and their roles"
 	},
-	"domainManagement": {
-		"title": "Domain Management",
+	"domains": {
+		"title": "Domains",
 		"description": "Verify and manage your organization's domains"
 	},
 	"costCenters": {

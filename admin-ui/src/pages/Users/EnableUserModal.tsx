@@ -20,7 +20,7 @@ export function EnableUserModal({
 	onCancel,
 	onSuccess,
 }: EnableUserModalProps) {
-	const { t } = useTranslation("userManagement");
+	const { t } = useTranslation("users");
 	const { sessionToken } = useAuth();
 	const { message } = App.useApp();
 

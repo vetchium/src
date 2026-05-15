@@ -38,7 +38,7 @@ export function UserDetailDrawer({
 	onClose,
 	onUserUpdated,
 }: UserDetailDrawerProps) {
-	const { t, i18n } = useTranslation("userManagement");
+	const { t, i18n } = useTranslation("users");
 	const { sessionToken } = useAuth();
 	const { message } = App.useApp();
 	const { data: myInfo } = useMyInfo(sessionToken);
@@ -242,7 +242,7 @@ export function UserDetailDrawer({
 
 				{canManageUsers && (
 					<div>
-						<Title level={5}>{t("drawer.roleManagement")}</Title>
+						<Title level={5}>{t("drawer.roles")}</Title>
 
 						<Space
 							orientation="vertical"
