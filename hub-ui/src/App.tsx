@@ -29,6 +29,7 @@ import { VerifyEmailPage } from "./pages/VerifyEmailPage";
 import { MyActivityPage } from "./pages/MyActivityPage";
 import { MyProfilePage } from "./pages/Profile/MyProfilePage";
 import { PublicProfilePage } from "./pages/Profile/PublicProfilePage";
+import { ConnectionsPage } from "./pages/Connections/ConnectionsPage";
 
 const { Content } = Layout;
 
@@ -163,6 +164,14 @@ function AppContent() {
 								element={
 									<ProtectedRoute>
 										<PublicProfilePage />
+									</ProtectedRoute>
+								}
+							/>
+							<Route
+								path="/connections"
+								element={
+									<ProtectedRoute>
+										<ConnectionsPage />
 									</ProtectedRoute>
 								}
 							/>

@@ -10,11 +10,14 @@ import {
 	Card,
 	Form,
 	Input,
+	Modal,
 	Popconfirm,
 	Radio,
 	Select,
 	Space,
 	Spin,
+	Table,
+	Tag,
 	Typography,
 	message,
 } from "antd";
@@ -24,10 +27,18 @@ import { Link } from "react-router-dom";
 import { getApiBaseUrl } from "../../config";
 import { useAuth } from "../../hooks/useAuth";
 import { COUNTRIES } from "../../lib/countries";
+import { formatDateTime } from "../../utils/dateFormat";
 import type {
 	HubProfileOwnerView,
 	UpdateMyProfileRequest,
 } from "vetchium-specs/hub/profile";
+import type {
+	AddWorkEmailRequest,
+	AddWorkEmailResponse,
+	ListMyWorkEmailsRequest,
+	WorkEmailStintOwnerView,
+	WorkEmailStintStatus,
+} from "vetchium-specs/hub/work-emails";
 
 const { Title, Text } = Typography;
 
@@ -38,7 +49,8 @@ interface DisplayNameRow {
 }
 
 export function MyProfilePage() {
-	const { t } = useTranslation("profile");
+	const { t, i18n } = useTranslation("profile");
+	const { t: tWE } = useTranslation("workEmails");
 	const { sessionToken } = useAuth();
 
 	const [profile, setProfile] = useState<HubProfileOwnerView | null>(null);
@@ -54,6 +66,212 @@ export function MyProfilePage() {
 	const [longBio, setLongBio] = useState("");
 	const [city, setCity] = useState("");
 	const [countryCode, setCountryCode] = useState<string>("");
+
+	// Work emails state
+	const [workEmails, setWorkEmails] = useState<WorkEmailStintOwnerView[]>([]);
+	const [workEmailsLoading, setWorkEmailsLoading] = useState(false);
+	const [addModalOpen, setAddModalOpen] = useState(false);
+	const [addEmail, setAddEmail] = useState("");
+	const [addLoading, setAddLoading] = useState(false);
+	const [pendingStint, setPendingStint] = useState<{
+		stintId: string;
+		email: string;
+	} | null>(null);
+	const [verifyCode, setVerifyCode] = useState("");
+	const [verifyLoading, setVerifyLoading] = useState(false);
+	const [reverifyStint, setReverifyStint] =
+		useState<WorkEmailStintOwnerView | null>(null);
+	const [reverifyCode, setReverifyCode] = useState("");
+	const [reverifyLoading, setReverifyLoading] = useState(false);
+
+	const loadWorkEmails = useCallback(async () => {
+		if (!sessionToken) return;
+		setWorkEmailsLoading(true);
+		try {
+			const apiBaseUrl = await getApiBaseUrl();
+			const req: ListMyWorkEmailsRequest = { limit: 50 };
+			const res = await fetch(`${apiBaseUrl}/hub/list-my-work-emails`, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${sessionToken}`,
+				},
+				body: JSON.stringify(req),
+			});
+			if (res.status === 200) {
+				const data = await res.json();
+				setWorkEmails(data.work_emails);
+			}
+		} catch {
+			// non-critical; ignore load failures silently
+		} finally {
+			setWorkEmailsLoading(false);
+		}
+	}, [sessionToken]);
+
+	const handleAddWorkEmail = async () => {
+		if (!sessionToken || !addEmail.trim()) return;
+		setAddLoading(true);
+		try {
+			const apiBaseUrl = await getApiBaseUrl();
+			const req: AddWorkEmailRequest = { email_address: addEmail.trim() };
+			const res = await fetch(`${apiBaseUrl}/hub/add-work-email`, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${sessionToken}`,
+				},
+				body: JSON.stringify(req),
+			});
+			if (res.status === 201) {
+				const data: AddWorkEmailResponse = await res.json();
+				message.success(tWE("success.added"));
+				setPendingStint({ stintId: data.stint_id, email: addEmail.trim() });
+				setAddEmail("");
+			} else if (res.status === 422) {
+				message.error(tWE("addModal.personalDomainError"));
+			} else if (res.status === 409) {
+				message.error(tWE("addModal.alreadyHeldError"));
+			} else {
+				message.error(tWE("errors.addFailed"));
+			}
+		} catch {
+			message.error(tWE("errors.addFailed"));
+		} finally {
+			setAddLoading(false);
+		}
+	};
+
+	const handleVerifyCode = async () => {
+		if (!sessionToken || !pendingStint || !verifyCode.trim()) return;
+		setVerifyLoading(true);
+		try {
+			const apiBaseUrl = await getApiBaseUrl();
+			const res = await fetch(`${apiBaseUrl}/hub/verify-work-email`, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${sessionToken}`,
+				},
+				body: JSON.stringify({
+					stint_id: pendingStint.stintId,
+					code: verifyCode.trim(),
+				}),
+			});
+			if (res.status === 200) {
+				message.success(tWE("success.verified"));
+				setPendingStint(null);
+				setVerifyCode("");
+				setAddModalOpen(false);
+				loadWorkEmails();
+			} else if (res.status === 403) {
+				message.error(tWE("verifyPage.wrongCodeError"));
+			} else {
+				message.error(tWE("errors.verifyFailed"));
+			}
+		} catch {
+			message.error(tWE("errors.verifyFailed"));
+		} finally {
+			setVerifyLoading(false);
+		}
+	};
+
+	const handleResendCode = async () => {
+		if (!sessionToken || !pendingStint) return;
+		try {
+			const apiBaseUrl = await getApiBaseUrl();
+			const res = await fetch(`${apiBaseUrl}/hub/resend-work-email-code`, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${sessionToken}`,
+				},
+				body: JSON.stringify({ stint_id: pendingStint.stintId }),
+			});
+			if (res.status === 200) {
+				message.success(tWE("success.resent"));
+			} else {
+				message.error(tWE("errors.resendFailed"));
+			}
+		} catch {
+			message.error(tWE("errors.resendFailed"));
+		}
+	};
+
+	const handleCancelAdd = async () => {
+		if (pendingStint && sessionToken) {
+			const apiBaseUrl = await getApiBaseUrl();
+			await fetch(`${apiBaseUrl}/hub/remove-work-email`, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${sessionToken}`,
+				},
+				body: JSON.stringify({ stint_id: pendingStint.stintId }),
+			}).catch(() => {});
+		}
+		setPendingStint(null);
+		setVerifyCode("");
+		setAddEmail("");
+		setAddModalOpen(false);
+		loadWorkEmails();
+	};
+
+	const handleRemoveWorkEmail = async (stintId: string) => {
+		if (!sessionToken) return;
+		try {
+			const apiBaseUrl = await getApiBaseUrl();
+			const res = await fetch(`${apiBaseUrl}/hub/remove-work-email`, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${sessionToken}`,
+				},
+				body: JSON.stringify({ stint_id: stintId }),
+			});
+			if (res.status === 204) {
+				message.success(tWE("success.removed"));
+				loadWorkEmails();
+			} else {
+				message.error(tWE("errors.removeFailed"));
+			}
+		} catch {
+			message.error(tWE("errors.removeFailed"));
+		}
+	};
+
+	const handleReverify = async () => {
+		if (!sessionToken || !reverifyStint || !reverifyCode.trim()) return;
+		setReverifyLoading(true);
+		try {
+			const apiBaseUrl = await getApiBaseUrl();
+			const res = await fetch(`${apiBaseUrl}/hub/reverify-work-email`, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${sessionToken}`,
+				},
+				body: JSON.stringify({
+					stint_id: reverifyStint.stint_id,
+					code: reverifyCode.trim(),
+				}),
+			});
+			if (res.status === 200) {
+				message.success(tWE("success.reverified"));
+				setReverifyStint(null);
+				setReverifyCode("");
+				loadWorkEmails();
+			} else if (res.status === 403) {
+				message.error(tWE("verifyPage.wrongCodeError"));
+			} else {
+				message.error(tWE("errors.reverifyFailed"));
+			}
+		} catch {
+			message.error(tWE("errors.reverifyFailed"));
+		} finally {
+			setReverifyLoading(false);
+		}
+	};
 
 	const loadProfile = useCallback(async () => {
 		if (!sessionToken) return;
@@ -93,6 +311,10 @@ export function MyProfilePage() {
 		};
 		run();
 	}, [loadProfile]);
+
+	useEffect(() => {
+		loadWorkEmails();
+	}, [loadWorkEmails]);
 
 	const handleSave = async () => {
 		// Validate display names
@@ -477,6 +699,202 @@ export function MyProfilePage() {
 					{t("myProfile.saveProfile")}
 				</Button>
 			</Spin>
+
+			{/* Work Emails */}
+			<Card
+				title={tWE("title")}
+				style={{ marginTop: 24 }}
+				extra={
+					<Button
+						type="primary"
+						icon={<PlusOutlined />}
+						onClick={() => setAddModalOpen(true)}
+					>
+						{tWE("addWorkEmail")}
+					</Button>
+				}
+			>
+				<Spin spinning={workEmailsLoading}>
+					<Table
+						dataSource={workEmails}
+						rowKey="stint_id"
+						pagination={false}
+						locale={{ emptyText: tWE("emptyState") }}
+						columns={[
+							{
+								title: tWE("table.emailAddress"),
+								dataIndex: "email_address",
+								key: "email_address",
+							},
+							{
+								title: tWE("table.domain"),
+								dataIndex: "domain",
+								key: "domain",
+							},
+							{
+								title: tWE("table.status"),
+								dataIndex: "status",
+								key: "status",
+								render: (s: WorkEmailStintStatus) => {
+									const colorMap: Record<WorkEmailStintStatus, string> = {
+										active: "green",
+										pending_verification: "orange",
+										ended: "default",
+									};
+									const labelMap: Record<WorkEmailStintStatus, string> = {
+										active: tWE("status.active"),
+										pending_verification: tWE("status.pendingVerification"),
+										ended: tWE("status.ended"),
+									};
+									return <Tag color={colorMap[s]}>{labelMap[s]}</Tag>;
+								},
+							},
+							{
+								title: tWE("table.verifiedSince"),
+								dataIndex: "first_verified_at",
+								key: "first_verified_at",
+								render: (v?: string) =>
+									v ? formatDateTime(v, i18n.language) : "—",
+							},
+							{
+								title: tWE("table.lastVerified"),
+								dataIndex: "last_verified_at",
+								key: "last_verified_at",
+								render: (v?: string) =>
+									v ? formatDateTime(v, i18n.language) : "—",
+							},
+							{
+								title: tWE("table.actions"),
+								key: "actions",
+								render: (_: unknown, r: WorkEmailStintOwnerView) => (
+									<Space>
+										{r.status === "pending_verification" && (
+											<Button
+												size="small"
+												onClick={() => {
+													setPendingStint({
+														stintId: r.stint_id,
+														email: r.email_address,
+													});
+													setAddModalOpen(true);
+												}}
+											>
+												{tWE("table.enterCode")}
+											</Button>
+										)}
+										{r.status === "active" &&
+											r.reverify_challenge_issued_at && (
+												<Button
+													size="small"
+													onClick={() => setReverifyStint(r)}
+												>
+													{tWE("table.reverify")}
+												</Button>
+											)}
+										<Popconfirm
+											title={tWE("removeConfirm")}
+											onConfirm={() => handleRemoveWorkEmail(r.stint_id)}
+											okText={tWE("table.remove")}
+											cancelText={t("myProfile.displayNames.remove")}
+										>
+											<Button size="small" danger>
+												{tWE("table.remove")}
+											</Button>
+										</Popconfirm>
+									</Space>
+								),
+							},
+						]}
+					/>
+				</Spin>
+			</Card>
+
+			{/* Add / Verify work email modal */}
+			<Modal
+				open={addModalOpen}
+				title={pendingStint ? tWE("verifyPage.title") : tWE("addModal.title")}
+				onCancel={handleCancelAdd}
+				footer={null}
+				destroyOnHide
+			>
+				{!pendingStint ? (
+					<div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+						<Input
+							type="email"
+							placeholder={tWE("addModal.emailLabel")}
+							value={addEmail}
+							onChange={(e) => setAddEmail(e.target.value)}
+							onPressEnter={handleAddWorkEmail}
+						/>
+						<Button
+							type="primary"
+							block
+							loading={addLoading}
+							onClick={handleAddWorkEmail}
+							disabled={!addEmail.trim()}
+						>
+							{tWE("addModal.submit")}
+						</Button>
+					</div>
+				) : (
+					<div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+						<p>{tWE("verifyPage.subtitle", { email: pendingStint.email })}</p>
+						<Input
+							placeholder="000000"
+							maxLength={6}
+							value={verifyCode}
+							onChange={(e) => setVerifyCode(e.target.value)}
+							onPressEnter={handleVerifyCode}
+						/>
+						<Button
+							type="primary"
+							block
+							loading={verifyLoading}
+							onClick={handleVerifyCode}
+							disabled={verifyCode.trim().length !== 6}
+						>
+							{tWE("verifyPage.submit")}
+						</Button>
+						<Button block onClick={handleResendCode}>
+							{tWE("verifyPage.resend")}
+						</Button>
+						<Button block danger onClick={handleCancelAdd}>
+							{tWE("verifyPage.cancel")}
+						</Button>
+					</div>
+				)}
+			</Modal>
+
+			{/* Re-verify work email modal */}
+			<Modal
+				open={!!reverifyStint}
+				title={tWE("detail.reverifyModal.title")}
+				onCancel={() => {
+					setReverifyStint(null);
+					setReverifyCode("");
+				}}
+				footer={null}
+				destroyOnHide
+			>
+				<div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+					<Input
+						placeholder="000000"
+						maxLength={6}
+						value={reverifyCode}
+						onChange={(e) => setReverifyCode(e.target.value)}
+						onPressEnter={handleReverify}
+					/>
+					<Button
+						type="primary"
+						block
+						loading={reverifyLoading}
+						onClick={handleReverify}
+						disabled={reverifyCode.trim().length !== 6}
+					>
+						{tWE("detail.reverifyModal.submit")}
+					</Button>
+				</div>
+			</Modal>
 		</div>
 	);
 }

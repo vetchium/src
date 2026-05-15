@@ -5,6 +5,8 @@ import {
 	LockOutlined,
 	MailOutlined,
 	LogoutOutlined,
+	UserOutlined,
+	TeamOutlined,
 } from "@ant-design/icons";
 import { useNavigate, Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -48,6 +50,50 @@ export function HomePage() {
 			<Row gutter={[24, 24]}>
 				<Col xs={24} sm={12} lg={8}>
 					<Link
+						to="/settings/profile"
+						style={{ textDecoration: "none", display: "block", height: "100%" }}
+					>
+						<Card
+							hoverable
+							style={{ height: "100%", cursor: "pointer", textAlign: "center" }}
+						>
+							<UserOutlined
+								style={{ fontSize: 48, color: "#1677ff", marginBottom: 16 }}
+							/>
+							<Title level={4} style={{ marginBottom: 8 }}>
+								{t("dashboard.myProfile.title")}
+							</Title>
+							<Text type="secondary">
+								{t("dashboard.myProfile.description")}
+							</Text>
+						</Card>
+					</Link>
+				</Col>
+
+				<Col xs={24} sm={12} lg={8}>
+					<Link
+						to="/connections"
+						style={{ textDecoration: "none", display: "block", height: "100%" }}
+					>
+						<Card
+							hoverable
+							style={{ height: "100%", cursor: "pointer", textAlign: "center" }}
+						>
+							<TeamOutlined
+								style={{ fontSize: 48, color: "#722ed1", marginBottom: 16 }}
+							/>
+							<Title level={4} style={{ marginBottom: 8 }}>
+								{t("dashboard.connections.title")}
+							</Title>
+							<Text type="secondary">
+								{t("dashboard.connections.description")}
+							</Text>
+						</Card>
+					</Link>
+				</Col>
+
+				<Col xs={24} sm={12} lg={8}>
+					<Link
 						to="/my-activity"
 						style={{ textDecoration: "none", display: "block", height: "100%" }}
 					>
@@ -78,7 +124,7 @@ export function HomePage() {
 							style={{ height: "100%", cursor: "pointer", textAlign: "center" }}
 						>
 							<LockOutlined
-								style={{ fontSize: 48, color: "#1677ff", marginBottom: 16 }}
+								style={{ fontSize: 48, color: "#fa8c16", marginBottom: 16 }}
 							/>
 							<Title level={4} style={{ marginBottom: 8 }}>
 								{t("dashboard.changePassword")}
@@ -97,7 +143,7 @@ export function HomePage() {
 							style={{ height: "100%", cursor: "pointer", textAlign: "center" }}
 						>
 							<MailOutlined
-								style={{ fontSize: 48, color: "#fa8c16", marginBottom: 16 }}
+								style={{ fontSize: 48, color: "#13c2c2", marginBottom: 16 }}
 							/>
 							<Title level={4} style={{ marginBottom: 8 }}>
 								{t("dashboard.changeEmail")}

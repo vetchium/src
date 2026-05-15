@@ -8,6 +8,10 @@ import { getApiBaseUrl } from "../../config";
 import { useAuth } from "../../hooks/useAuth";
 import { COUNTRIES } from "../../lib/countries";
 import type { HubProfilePublicView } from "vetchium-specs/hub/profile";
+import type {
+	ListPublicEmployerStintsRequest,
+	PublicEmployerStint,
+} from "vetchium-specs/hub/work-emails";
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -19,6 +23,9 @@ export function PublicProfilePage() {
 	const [profile, setProfile] = useState<HubProfilePublicView | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [notFound, setNotFound] = useState(false);
+	const [employerStints, setEmployerStints] = useState<PublicEmployerStint[]>(
+		[]
+	);
 
 	const getPreferredDisplayName = useCallback(
 		(displayNames: HubProfilePublicView["display_names"]): string => {
@@ -57,6 +64,23 @@ export function PublicProfilePage() {
 				if (response.status === 200) {
 					const data: HubProfilePublicView = await response.json();
 					setProfile(data);
+
+					const stintsReq: ListPublicEmployerStintsRequest = { handle };
+					const stintsRes = await fetch(
+						`${apiBaseUrl}/hub/list-public-employer-stints`,
+						{
+							method: "POST",
+							headers: {
+								"Content-Type": "application/json",
+								Authorization: `Bearer ${sessionToken}`,
+							},
+							body: JSON.stringify(stintsReq),
+						}
+					);
+					if (stintsRes.status === 200) {
+						const stintsData = await stintsRes.json();
+						setEmployerStints(stintsData.stints);
+					}
 				} else if (response.status === 404) {
 					setNotFound(true);
 				}
@@ -199,10 +223,29 @@ export function PublicProfilePage() {
 				</Card>
 			)}
 
-			{/* Verified employers card — TODO(hub-employer-ids) */}
-			{/* TODO(hub-employer-ids): Replace with actual employer stints when hub-employer-ids ships */}
 			<Card title={t("publicProfile.verifiedEmployers")}>
-				<Text type="secondary">{t("publicProfile.noVerifiedEmployers")}</Text>
+				{employerStints.length === 0 ? (
+					<Text type="secondary">{t("publicProfile.noVerifiedEmployers")}</Text>
+				) : (
+					<div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+						{employerStints.map((stint, idx) => (
+							<div
+								key={idx}
+								style={{ display: "flex", alignItems: "center", gap: 12 }}
+							>
+								<Text strong>{stint.domain}</Text>
+								{stint.is_current && (
+									<Tag color="green">{t("publicProfile.current")}</Tag>
+								)}
+								<Text type="secondary">
+									{stint.start_year}
+									{" – "}
+									{stint.end_year ?? t("publicProfile.current")}
+								</Text>
+							</div>
+						))}
+					</div>
+				)}
 			</Card>
 		</div>
 	);

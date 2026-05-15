@@ -26,6 +26,14 @@
 		"myActivity": {
 			"title": "Meine Aktivitäten",
 			"description": "Ihre Aktivitätshistorie anzeigen"
+		},
+		"myProfile": {
+			"title": "Mein Profil",
+			"description": "Profil, Biografie und Arbeits-E-Mails bearbeiten"
+		},
+		"connections": {
+			"title": "Verbindungen",
+			"description": "Berufliche Verbindungen verwalten"
 		}
 	},
 	"logout": {

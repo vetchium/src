@@ -181,4 +181,5 @@ model OrgMyInfoResponse {
   org_domain: DomainName;
   roles: string[];
   email_address: EmailAddress;
+  has_failing_domains: boolean;
 }

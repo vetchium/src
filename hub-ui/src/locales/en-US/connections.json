@@ -1,0 +1,103 @@
+{
+	"title": "Connections",
+	"backToDashboard": "Back to Home",
+	"tabs": {
+		"connections": "Connections ({{count}})",
+		"incoming": "Incoming ({{count}})",
+		"outgoing": "Sent ({{count}})",
+		"blocked": "Blocked ({{count}})"
+	},
+	"search": {
+		"placeholder": "Search connections..."
+	},
+	"loadMore": "Load more",
+	"empty": {
+		"connections": "You have no connections yet.",
+		"incoming": "No incoming requests.",
+		"outgoing": "No sent requests.",
+		"blocked": "No blocked users."
+	},
+	"columns": {
+		"user": "User",
+		"connectedAt": "Connected",
+		"requestedAt": "Requested",
+		"blockedAt": "Blocked",
+		"actions": "Actions"
+	},
+	"actions": {
+		"viewProfile": "View profile",
+		"accept": "Accept",
+		"reject": "Reject",
+		"withdraw": "Withdraw",
+		"unblock": "Unblock",
+		"disconnect": "Disconnect"
+	},
+	"withdrawConfirm": "Withdraw this connection request?",
+	"disconnectConfirm": {
+		"title": "Disconnect?",
+		"description": "You will no longer be connected. You can send a new request later.",
+		"ok": "Disconnect",
+		"cancel": "Cancel"
+	},
+	"success": {
+		"accepted": "Connection request accepted.",
+		"rejected": "Connection request rejected.",
+		"withdrawn": "Connection request withdrawn.",
+		"disconnected": "Disconnected.",
+		"unblocked": "User unblocked."
+	},
+	"errors": {
+		"loadFailed": "Failed to load connections.",
+		"actionFailed": "Action failed. Please try again.",
+		"countsFailed": "Failed to load connection counts."
+	},
+	"widget": {
+		"connect": "Connect",
+		"withdraw": "Withdraw request",
+		"accept": "Accept",
+		"reject": "Reject",
+		"connected": "Connected",
+		"disconnect": "Disconnect",
+		"block": "Block",
+		"unblock": "Unblock",
+		"blockedByThem": "Blocked",
+		"requestSent": "Request sent",
+		"requestWithdrawn": "Request withdrawn.",
+		"requestAccepted": "Connection accepted.",
+		"requestRejected": "Request rejected.",
+		"disconnected": "Disconnected.",
+		"userBlocked": "User blocked.",
+		"userUnblocked": "User unblocked.",
+		"invalidHandle": "Invalid handle.",
+		"handleNotFound": "User not found.",
+		"cannotConnectToSelf": "You cannot connect with yourself.",
+		"ineligible": "You need a verified shared employer to connect.",
+		"youBlockedThem": "You have blocked this user. Unblock to connect.",
+		"theyBlockedYou": "This user is not available.",
+		"requestAlreadyExists": "A connection request already exists.",
+		"requestFailed": "Failed to send request.",
+		"noPendingRequest": "No pending request found.",
+		"withdrawFailed": "Failed to withdraw request.",
+		"acceptFailed": "Failed to accept request.",
+		"rejectFailed": "Failed to reject request.",
+		"noConnection": "Connection not found.",
+		"disconnectFailed": "Failed to disconnect.",
+		"cannotBlockSelf": "You cannot block yourself.",
+		"alreadyBlocked": "This user is already blocked.",
+		"blockFailed": "Failed to block user.",
+		"notBlocked": "This user is not blocked.",
+		"unblockFailed": "Failed to unblock user.",
+		"disconnectConfirm": {
+			"title": "Disconnect?",
+			"description": "You will no longer be connected. You can send a new request later.",
+			"ok": "Disconnect",
+			"cancel": "Cancel"
+		},
+		"blockConfirm": {
+			"title": "Block this user?",
+			"description": "They won't be able to send you connection requests.",
+			"ok": "Block",
+			"cancel": "Cancel"
+		}
+	}
+}
