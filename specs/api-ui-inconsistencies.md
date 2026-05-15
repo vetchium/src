@@ -11,6 +11,7 @@ This file documents legacy violations of project conventions and architectural m
 **Status**: Fixed on 2026-05-15.
 
 **Resolved Violations**:
+
 - `user-management.json` renamed to `users.json`
 - `userManagement` namespace renamed to `users`
 - `UserManagementRoute` renamed to `UsersRoute`
@@ -24,4 +25,5 @@ This file documents legacy violations of project conventions and architectural m
 **Rule**: All new feature routes must follow `/{resource}` for lists, `/{resource}/new` for creation, etc.
 
 **Legacy Violations**:
+
 - None currently identified.
