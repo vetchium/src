@@ -34,10 +34,12 @@ do
     if [ -n "$prettier_files" ]; then
         echo "Checking prettier formatting..."
 
-        # Filter to existing files only
+        # Filter to existing files only (skipping symbolic links)
         files_to_check=""
         for file in $prettier_files; do
-            [ -f "$file" ] && files_to_check="$files_to_check $file"
+            if [ -f "$file" ] && [ ! -L "$file" ]; then
+                files_to_check="$files_to_check $file"
+            fi
         done
 
         if [ -n "$files_to_check" ]; then

@@ -5,8 +5,8 @@
 	"description": "Vetchium monorepo - manages git hooks and repo-wide tooling",
 	"scripts": {
 		"prepare": "husky",
-		"format:prettier": "git ls-files '*.ts' '*.tsx' '*.js' '*.jsx' '*.json' '*.yaml' '*.yml' '*.md' | xargs prettier --write",
-		"format:prettier:check": "git ls-files '*.ts' '*.tsx' '*.js' '*.jsx' '*.json' '*.yaml' '*.yml' '*.md' | xargs prettier --check",
+		"format:prettier": "git ls-files '*.ts' '*.tsx' '*.js' '*.jsx' '*.json' '*.yaml' '*.yml' '*.md' | while read f; do [ ! -L \"$f\" ] && echo \"$f\"; done | xargs prettier --write",
+		"format:prettier:check": "git ls-files '*.ts' '*.tsx' '*.js' '*.jsx' '*.json' '*.yaml' '*.yml' '*.md' | while read f; do [ ! -L \"$f\" ] && echo \"$f\"; done | xargs prettier --check",
 		"format:go": "git ls-files '*.go' | xargs goimports -w",
 		"format:go:check": "sh -c 'OUTPUT=$(git ls-files \"*.go\" | xargs goimports -l); if [ -n \"$OUTPUT\" ]; then echo \"$OUTPUT\"; exit 1; fi'",
 		"format": "bun run format:prettier && bun run format:go",
