@@ -1,21 +1,28 @@
 {
 	"title": "Connections",
 	"backToDashboard": "Back to Home",
+	"pendingRequests": {
+		"title": "Ausstehende Anfragen"
+	},
 	"tabs": {
-		"connections": "Connections ({{count}})",
-		"incoming": "Incoming ({{count}})",
-		"outgoing": "Sent ({{count}})",
-		"blocked": "Blocked ({{count}})"
+		"connections": "Verbindungen ({{count}})",
+		"myConnections": "Meine Verbindungen",
+		"outgoingShort": "Gesendete Anfragen",
+		"blockedShort": "Gesperrt",
+		"incoming": "Eingehend ({{count}})",
+		"outgoing": "Gesendet ({{count}})",
+		"blocked": "Gesperrt ({{count}})"
 	},
 	"search": {
-		"placeholder": "Search connections..."
+		"placeholder": "Verbindungen suchen..."
 	},
-	"loadMore": "Load more",
+	"loadMore": "Mehr laden",
 	"empty": {
-		"connections": "You have no connections yet.",
-		"incoming": "No incoming requests.",
-		"outgoing": "No sent requests.",
-		"blocked": "No blocked users."
+		"connections": "Sie haben noch keine Verbindungen.",
+		"searchConnections": "Keine Verbindungen entsprechen Ihrer Suche.",
+		"incoming": "Keine eingehenden Anfragen.",
+		"outgoing": "Keine gesendeten Anfragen.",
+		"blocked": "Keine gesperrten Benutzer."
 	},
 	"columns": {
 		"user": "User",

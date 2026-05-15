@@ -1,21 +1,28 @@
 {
 	"title": "Connections",
 	"backToDashboard": "Back to Home",
+	"pendingRequests": {
+		"title": "நிலுவையில் உள்ள கோரிக்கைகள்"
+	},
 	"tabs": {
-		"connections": "Connections ({{count}})",
-		"incoming": "Incoming ({{count}})",
-		"outgoing": "Sent ({{count}})",
-		"blocked": "Blocked ({{count}})"
+		"connections": "தொடர்புகள் ({{count}})",
+		"myConnections": "என் தொடர்புகள்",
+		"outgoingShort": "அனுப்பிய கோரிக்கைகள்",
+		"blockedShort": "தடுக்கப்பட்டவர்கள்",
+		"incoming": "வரும் கோரிக்கைகள் ({{count}})",
+		"outgoing": "அனுப்பியவை ({{count}})",
+		"blocked": "தடுக்கப்பட்டவர்கள் ({{count}})"
 	},
 	"search": {
-		"placeholder": "Search connections..."
+		"placeholder": "தொடர்புகளைத் தேடுங்கள்..."
 	},
-	"loadMore": "Load more",
+	"loadMore": "மேலும் ஏற்று",
 	"empty": {
-		"connections": "You have no connections yet.",
-		"incoming": "No incoming requests.",
-		"outgoing": "No sent requests.",
-		"blocked": "No blocked users."
+		"connections": "இன்னும் தொடர்புகள் இல்லை.",
+		"searchConnections": "உங்கள் தேடலுக்கு தொடர்புகள் இல்லை.",
+		"incoming": "வரும் கோரிக்கைகள் இல்லை.",
+		"outgoing": "அனுப்பிய கோரிக்கைகள் இல்லை.",
+		"blocked": "தடுக்கப்பட்ட பயனர்கள் இல்லை."
 	},
 	"columns": {
 		"user": "User",

@@ -1,34 +1,28 @@
 import { useEffect } from "react";
-import { Card, Col, Row, Typography, Button } from "antd";
+import { Avatar, Card, Col, Row, Typography } from "antd";
 import {
 	FileSearchOutlined,
-	LockOutlined,
-	MailOutlined,
-	LogoutOutlined,
-	UserOutlined,
 	TeamOutlined,
+	UserOutlined,
 } from "@ant-design/icons";
 import { useNavigate, Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../hooks/useAuth";
+import { useMyInfo } from "../hooks/useMyInfo";
 
 const { Title, Text } = Typography;
 
 export function HomePage() {
 	const navigate = useNavigate();
 	const { t } = useTranslation();
-	const { logout, isAuthenticated } = useAuth();
+	const { isAuthenticated, sessionToken } = useAuth();
+	const { data: myInfo } = useMyInfo(sessionToken);
 
 	useEffect(() => {
 		if (!isAuthenticated) {
 			navigate("/login");
 		}
 	}, [isAuthenticated, navigate]);
-
-	const handleLogout = async () => {
-		await logout();
-		navigate("/login");
-	};
 
 	if (!isAuthenticated) {
 		return null;
@@ -38,34 +32,62 @@ export function HomePage() {
 		<div
 			style={{
 				width: "100%",
-				maxWidth: 1200,
+				maxWidth: 900,
 				padding: "24px 16px",
 				alignSelf: "flex-start",
 			}}
 		>
-			<Title level={2} style={{ marginBottom: 24 }}>
-				{t("dashboard.title")}
-			</Title>
+			{/* Welcome banner */}
+			<div
+				style={{
+					display: "flex",
+					alignItems: "center",
+					gap: 16,
+					marginBottom: 32,
+					padding: "20px 24px",
+					background: "var(--ant-color-bg-container)",
+					border: "1px solid var(--ant-color-border)",
+					borderRadius: 8,
+				}}
+			>
+				<Avatar size={56} icon={<UserOutlined />} />
+				<div>
+					<Title level={3} style={{ margin: 0 }}>
+						{t("dashboard.greeting", {
+							handle: myInfo?.handle ?? "…",
+						})}
+					</Title>
+					{myInfo?.handle && (
+						<Text type="secondary" style={{ fontFamily: "monospace" }}>
+							@{myInfo.handle}
+						</Text>
+					)}
+				</div>
+			</div>
 
-			<Row gutter={[24, 24]}>
+			{/* Navigation tiles */}
+			<Row gutter={[20, 20]}>
 				<Col xs={24} sm={12} lg={8}>
 					<Link
 						to="/settings/profile"
 						style={{ textDecoration: "none", display: "block", height: "100%" }}
 					>
-						<Card
-							hoverable
-							style={{ height: "100%", cursor: "pointer", textAlign: "center" }}
-						>
-							<UserOutlined
-								style={{ fontSize: 48, color: "#1677ff", marginBottom: 16 }}
-							/>
-							<Title level={4} style={{ marginBottom: 8 }}>
-								{t("dashboard.myProfile.title")}
-							</Title>
-							<Text type="secondary">
-								{t("dashboard.myProfile.description")}
-							</Text>
+						<Card hoverable style={{ height: "100%", cursor: "pointer" }}>
+							<div
+								style={{ display: "flex", alignItems: "flex-start", gap: 16 }}
+							>
+								<UserOutlined
+									style={{ fontSize: 28, color: "#52c41a", marginTop: 2 }}
+								/>
+								<div>
+									<Title level={5} style={{ marginBottom: 4 }}>
+										{t("dashboard.myProfile.title")}
+									</Title>
+									<Text type="secondary" style={{ fontSize: 13 }}>
+										{t("dashboard.myProfile.description")}
+									</Text>
+								</div>
+							</div>
 						</Card>
 					</Link>
 				</Col>
@@ -75,19 +97,22 @@ export function HomePage() {
 						to="/connections"
 						style={{ textDecoration: "none", display: "block", height: "100%" }}
 					>
-						<Card
-							hoverable
-							style={{ height: "100%", cursor: "pointer", textAlign: "center" }}
-						>
-							<TeamOutlined
-								style={{ fontSize: 48, color: "#722ed1", marginBottom: 16 }}
-							/>
-							<Title level={4} style={{ marginBottom: 8 }}>
-								{t("dashboard.connections.title")}
-							</Title>
-							<Text type="secondary">
-								{t("dashboard.connections.description")}
-							</Text>
+						<Card hoverable style={{ height: "100%", cursor: "pointer" }}>
+							<div
+								style={{ display: "flex", alignItems: "flex-start", gap: 16 }}
+							>
+								<TeamOutlined
+									style={{ fontSize: 28, color: "#52c41a", marginTop: 2 }}
+								/>
+								<div>
+									<Title level={5} style={{ marginBottom: 4 }}>
+										{t("dashboard.connections.title")}
+									</Title>
+									<Text type="secondary" style={{ fontSize: 13 }}>
+										{t("dashboard.connections.description")}
+									</Text>
+								</div>
+							</div>
 						</Card>
 					</Link>
 				</Col>
@@ -97,73 +122,26 @@ export function HomePage() {
 						to="/my-activity"
 						style={{ textDecoration: "none", display: "block", height: "100%" }}
 					>
-						<Card
-							hoverable
-							style={{ height: "100%", cursor: "pointer", textAlign: "center" }}
-						>
-							<FileSearchOutlined
-								style={{ fontSize: 48, color: "#52c41a", marginBottom: 16 }}
-							/>
-							<Title level={4} style={{ marginBottom: 8 }}>
-								{t("dashboard.myActivity.title")}
-							</Title>
-							<Text type="secondary">
-								{t("dashboard.myActivity.description")}
-							</Text>
-						</Card>
-					</Link>
-				</Col>
-
-				<Col xs={24} sm={12} lg={8}>
-					<Link
-						to="/change-password"
-						style={{ textDecoration: "none", display: "block", height: "100%" }}
-					>
-						<Card
-							hoverable
-							style={{ height: "100%", cursor: "pointer", textAlign: "center" }}
-						>
-							<LockOutlined
-								style={{ fontSize: 48, color: "#fa8c16", marginBottom: 16 }}
-							/>
-							<Title level={4} style={{ marginBottom: 8 }}>
-								{t("dashboard.changePassword")}
-							</Title>
-						</Card>
-					</Link>
-				</Col>
-
-				<Col xs={24} sm={12} lg={8}>
-					<Link
-						to="/change-email"
-						style={{ textDecoration: "none", display: "block", height: "100%" }}
-					>
-						<Card
-							hoverable
-							style={{ height: "100%", cursor: "pointer", textAlign: "center" }}
-						>
-							<MailOutlined
-								style={{ fontSize: 48, color: "#13c2c2", marginBottom: 16 }}
-							/>
-							<Title level={4} style={{ marginBottom: 8 }}>
-								{t("dashboard.changeEmail")}
-							</Title>
+						<Card hoverable style={{ height: "100%", cursor: "pointer" }}>
+							<div
+								style={{ display: "flex", alignItems: "flex-start", gap: 16 }}
+							>
+								<FileSearchOutlined
+									style={{ fontSize: 28, color: "#52c41a", marginTop: 2 }}
+								/>
+								<div>
+									<Title level={5} style={{ marginBottom: 4 }}>
+										{t("dashboard.myActivity.title")}
+									</Title>
+									<Text type="secondary" style={{ fontSize: 13 }}>
+										{t("dashboard.myActivity.description")}
+									</Text>
+								</div>
+							</div>
 						</Card>
 					</Link>
 				</Col>
 			</Row>
-
-			<div style={{ marginTop: 32, textAlign: "center" }}>
-				<Button
-					type="primary"
-					danger
-					onClick={handleLogout}
-					size="large"
-					icon={<LogoutOutlined />}
-				>
-					{t("logout.button")}
-				</Button>
-			</div>
 		</div>
 	);
 }

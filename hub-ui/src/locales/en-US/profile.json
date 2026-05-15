@@ -2,7 +2,17 @@
 	"myProfile": {
 		"title": "My Profile",
 		"backToSettings": "Back to Home",
-		"saveProfile": "Save profile",
+		"edit": "Edit",
+		"saveSection": "Save",
+		"cancelEdit": "Cancel",
+		"identity": {
+			"title": "Profile",
+			"noShortBio": "Add a headline..."
+		},
+		"about": {
+			"title": "About",
+			"placeholder": "Add a summary about yourself..."
+		},
 		"displayNames": {
 			"title": "Display names",
 			"languageCode": "Language",
@@ -18,8 +28,8 @@
 		},
 		"bio": {
 			"title": "Bio",
-			"shortBio": "Short bio",
-			"shortBioHelp": "One line shown under your name.",
+			"shortBio": "Headline",
+			"shortBioHelp": "One line shown under your name on your profile.",
 			"longBio": "About me",
 			"longBioHelp": "A longer description of yourself."
 		},
@@ -30,7 +40,7 @@
 		},
 		"picture": {
 			"title": "Profile picture",
-			"upload": "Upload new",
+			"upload": "Upload photo",
 			"remove": "Remove",
 			"removeConfirm": "Remove your profile picture?",
 			"errors": {

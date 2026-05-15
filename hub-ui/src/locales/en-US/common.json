@@ -19,8 +19,14 @@
 		"light": "Light",
 		"dark": "Dark"
 	},
+	"header": {
+		"changePassword": "Change Password",
+		"changeEmail": "Change Email",
+		"logout": "Logout"
+	},
 	"dashboard": {
 		"title": "Vetchium Hub",
+		"greeting": "Welcome, @{{handle}}",
 		"changePassword": "Change Password",
 		"changeEmail": "Change Email",
 		"myActivity": {

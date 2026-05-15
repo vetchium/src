@@ -1,59 +1,69 @@
 {
 	"myProfile": {
-		"title": "My Profile",
-		"backToSettings": "Back to Home",
-		"saveProfile": "Save profile",
+		"title": "என் சுயவிவரம்",
+		"backToSettings": "முகப்புக்குச் செல்",
+		"edit": "திருத்து",
+		"saveSection": "சேமி",
+		"cancelEdit": "ரத்து",
+		"identity": {
+			"title": "சுயவிவரம்",
+			"noShortBio": "ஒரு தலைப்பு சேர்க்கவும்..."
+		},
+		"about": {
+			"title": "என்னைப் பற்றி",
+			"placeholder": "உங்களைப் பற்றி சுருக்கம் சேர்க்கவும்..."
+		},
 		"displayNames": {
-			"title": "Display names",
-			"languageCode": "Language",
-			"displayName": "Display name",
-			"isPreferred": "Preferred",
-			"addLanguage": "Add language",
-			"remove": "Remove",
+			"title": "காட்சிப் பெயர்கள்",
+			"languageCode": "மொழி",
+			"displayName": "காட்சிப் பெயர்",
+			"isPreferred": "விருப்பமானது",
+			"addLanguage": "மொழி சேர்க்கவும்",
+			"remove": "நீக்கு",
 			"errors": {
-				"atLeastOne": "At least one display name is required.",
-				"exactlyOnePreferred": "Exactly one display name must be marked as preferred.",
-				"duplicateLanguage": "Each language can be used at most once."
+				"atLeastOne": "குறைந்தது ஒரு காட்சிப் பெயர் தேவை.",
+				"exactlyOnePreferred": "சரியாக ஒரு காட்சிப் பெயர் விருப்பமானதாக குறிக்கப்பட வேண்டும்.",
+				"duplicateLanguage": "ஒவ்வொரு மொழியும் அதிகபட்சம் ஒரு முறை பயன்படுத்தப்படலாம்."
 			}
 		},
 		"bio": {
-			"title": "Bio",
-			"shortBio": "Short bio",
-			"shortBioHelp": "One line shown under your name.",
-			"longBio": "About me",
-			"longBioHelp": "A longer description of yourself."
+			"title": "சுயவிவரம்",
+			"shortBio": "தலைப்பு",
+			"shortBioHelp": "உங்கள் பெயரின் கீழ் காட்டப்படும் ஒரு வரி.",
+			"longBio": "என்னைப் பற்றி",
+			"longBioHelp": "உங்களைப் பற்றிய நீண்ட விளக்கம்."
 		},
 		"location": {
-			"title": "Location",
-			"country": "Country",
-			"city": "City"
+			"title": "இடம்",
+			"country": "நாடு",
+			"city": "நகரம்"
 		},
 		"picture": {
-			"title": "Profile picture",
-			"upload": "Upload new",
-			"remove": "Remove",
-			"removeConfirm": "Remove your profile picture?",
+			"title": "சுயவிவர படம்",
+			"upload": "புகைப்படம் பதிவேற்று",
+			"remove": "நீக்கு",
+			"removeConfirm": "உங்கள் சுயவிவர படத்தை நீக்கவா?",
 			"errors": {
-				"tooLarge": "Image must be 5 MB or smaller.",
-				"wrongFormat": "Image must be JPEG, PNG, or WEBP.",
-				"wrongDimensions": "Image dimensions must be between 200 and 4096 pixels per side."
+				"tooLarge": "படம் 5 MB அல்லது சிறியதாக இருக்க வேண்டும்.",
+				"wrongFormat": "படம் JPEG, PNG அல்லது WEBP ஆக இருக்க வேண்டும்.",
+				"wrongDimensions": "படத்தின் பரிமாணங்கள் 200 மற்றும் 4096 பிக்சல்களுக்கு இடையில் இருக்க வேண்டும்."
 			}
 		},
 		"success": {
-			"saved": "Profile saved.",
-			"pictureUploaded": "Profile picture updated.",
-			"pictureRemoved": "Profile picture removed."
+			"saved": "சுயவிவரம் சேமிக்கப்பட்டது.",
+			"pictureUploaded": "சுயவிவர படம் புதுப்பிக்கப்பட்டது.",
+			"pictureRemoved": "சுயவிவர படம் நீக்கப்பட்டது."
 		},
 		"errors": {
-			"loadFailed": "Failed to load your profile.",
-			"saveFailed": "Failed to save your profile.",
-			"pictureFailed": "Failed to update your profile picture."
+			"loadFailed": "சுயவிவரத்தை ஏற்றுவதில் தோல்வி.",
+			"saveFailed": "சுயவிவரத்தை சேமிப்பதில் தோல்வி.",
+			"pictureFailed": "சுயவிவர படத்தை புதுப்பிப்பதில் தோல்வி."
 		}
 	},
 	"publicProfile": {
-		"userNotFound": "User not found",
-		"verifiedEmployers": "Verified employers",
-		"noVerifiedEmployers": "No verified employers yet.",
-		"current": "current"
+		"userNotFound": "பயனர் கிடைக்கவில்லை",
+		"verifiedEmployers": "சரிபார்க்கப்பட்ட முதலாளிகள்",
+		"noVerifiedEmployers": "இன்னும் சரிபார்க்கப்பட்ட முதலாளிகள் இல்லை.",
+		"current": "தற்போது"
 	}
 }

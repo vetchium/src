@@ -1,8 +1,14 @@
 {
 	"title": "Connections",
 	"backToDashboard": "Back to Home",
+	"pendingRequests": {
+		"title": "Pending Requests"
+	},
 	"tabs": {
 		"connections": "Connections ({{count}})",
+		"myConnections": "My Connections",
+		"outgoingShort": "Sent Requests",
+		"blockedShort": "Blocked",
 		"incoming": "Incoming ({{count}})",
 		"outgoing": "Sent ({{count}})",
 		"blocked": "Blocked ({{count}})"
@@ -13,6 +19,7 @@
 	"loadMore": "Load more",
 	"empty": {
 		"connections": "You have no connections yet.",
+		"searchConnections": "No connections match your search.",
 		"incoming": "No incoming requests.",
 		"outgoing": "No sent requests.",
 		"blocked": "No blocked users."

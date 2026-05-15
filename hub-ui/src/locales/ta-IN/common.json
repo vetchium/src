@@ -19,8 +19,14 @@
 		"light": "ஒளி",
 		"dark": "இருள்"
 	},
+	"header": {
+		"changePassword": "கடவுச்சொல் மாற்று",
+		"changeEmail": "மின்னஞ்சல் மாற்று",
+		"logout": "வெளியேறு"
+	},
 	"dashboard": {
 		"title": "வெட்சியம் ஹப்",
+		"greeting": "வரவேற்கிறோம், @{{handle}}",
 		"changePassword": "கடவுச்சொல் மாற்று",
 		"changeEmail": "மின்னஞ்சல் மாற்று",
 		"myActivity": {

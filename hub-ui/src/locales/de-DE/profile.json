@@ -1,59 +1,69 @@
 {
 	"myProfile": {
-		"title": "My Profile",
-		"backToSettings": "Back to Home",
-		"saveProfile": "Save profile",
+		"title": "Mein Profil",
+		"backToSettings": "Zurück zur Startseite",
+		"edit": "Bearbeiten",
+		"saveSection": "Speichern",
+		"cancelEdit": "Abbrechen",
+		"identity": {
+			"title": "Profil",
+			"noShortBio": "Schlagzeile hinzufügen..."
+		},
+		"about": {
+			"title": "Über mich",
+			"placeholder": "Fügen Sie eine Zusammenfassung über sich hinzu..."
+		},
 		"displayNames": {
-			"title": "Display names",
-			"languageCode": "Language",
-			"displayName": "Display name",
-			"isPreferred": "Preferred",
-			"addLanguage": "Add language",
-			"remove": "Remove",
+			"title": "Anzeigenamen",
+			"languageCode": "Sprache",
+			"displayName": "Anzeigename",
+			"isPreferred": "Bevorzugt",
+			"addLanguage": "Sprache hinzufügen",
+			"remove": "Entfernen",
 			"errors": {
-				"atLeastOne": "At least one display name is required.",
-				"exactlyOnePreferred": "Exactly one display name must be marked as preferred.",
-				"duplicateLanguage": "Each language can be used at most once."
+				"atLeastOne": "Mindestens ein Anzeigename ist erforderlich.",
+				"exactlyOnePreferred": "Genau ein Anzeigename muss als bevorzugt markiert sein.",
+				"duplicateLanguage": "Jede Sprache kann höchstens einmal verwendet werden."
 			}
 		},
 		"bio": {
 			"title": "Bio",
-			"shortBio": "Short bio",
-			"shortBioHelp": "One line shown under your name.",
-			"longBio": "About me",
-			"longBioHelp": "A longer description of yourself."
+			"shortBio": "Schlagzeile",
+			"shortBioHelp": "Eine Zeile, die unter Ihrem Namen in Ihrem Profil angezeigt wird.",
+			"longBio": "Über mich",
+			"longBioHelp": "Eine längere Beschreibung von Ihnen."
 		},
 		"location": {
-			"title": "Location",
-			"country": "Country",
-			"city": "City"
+			"title": "Standort",
+			"country": "Land",
+			"city": "Stadt"
 		},
 		"picture": {
-			"title": "Profile picture",
-			"upload": "Upload new",
-			"remove": "Remove",
-			"removeConfirm": "Remove your profile picture?",
+			"title": "Profilbild",
+			"upload": "Foto hochladen",
+			"remove": "Entfernen",
+			"removeConfirm": "Ihr Profilbild entfernen?",
 			"errors": {
-				"tooLarge": "Image must be 5 MB or smaller.",
-				"wrongFormat": "Image must be JPEG, PNG, or WEBP.",
-				"wrongDimensions": "Image dimensions must be between 200 and 4096 pixels per side."
+				"tooLarge": "Das Bild muss 5 MB oder kleiner sein.",
+				"wrongFormat": "Das Bild muss JPEG, PNG oder WEBP sein.",
+				"wrongDimensions": "Die Bildabmessungen müssen zwischen 200 und 4096 Pixeln pro Seite liegen."
 			}
 		},
 		"success": {
-			"saved": "Profile saved.",
-			"pictureUploaded": "Profile picture updated.",
-			"pictureRemoved": "Profile picture removed."
+			"saved": "Profil gespeichert.",
+			"pictureUploaded": "Profilbild aktualisiert.",
+			"pictureRemoved": "Profilbild entfernt."
 		},
 		"errors": {
-			"loadFailed": "Failed to load your profile.",
-			"saveFailed": "Failed to save your profile.",
-			"pictureFailed": "Failed to update your profile picture."
+			"loadFailed": "Profil konnte nicht geladen werden.",
+			"saveFailed": "Profil konnte nicht gespeichert werden.",
+			"pictureFailed": "Profilbild konnte nicht aktualisiert werden."
 		}
 	},
 	"publicProfile": {
-		"userNotFound": "User not found",
-		"verifiedEmployers": "Verified employers",
-		"noVerifiedEmployers": "No verified employers yet.",
-		"current": "current"
+		"userNotFound": "Benutzer nicht gefunden",
+		"verifiedEmployers": "Verifizierte Arbeitgeber",
+		"noVerifiedEmployers": "Noch keine verifizierten Arbeitgeber.",
+		"current": "aktuell"
 	}
 }

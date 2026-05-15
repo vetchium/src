@@ -1,17 +1,16 @@
 import {
+	ArrowLeftOutlined,
 	TeamOutlined,
 	UserOutlined,
-	ArrowLeftOutlined,
 } from "@ant-design/icons";
 import {
 	Avatar,
+	Badge,
 	Button,
 	Input,
 	Popconfirm,
 	Spin,
-	Table,
 	Tabs,
-	Tag,
 	Typography,
 	message,
 } from "antd";
@@ -38,6 +37,87 @@ const { Search } = Input;
 
 const PAGE_SIZE = 20;
 
+function PersonRow({
+	handle,
+	displayName,
+	shortBio,
+	hasPicture,
+	secondaryText,
+	actions,
+	onClick,
+}: {
+	handle: string;
+	displayName: string;
+	shortBio?: string;
+	hasPicture?: boolean;
+	secondaryText?: string;
+	actions: React.ReactNode;
+	onClick?: () => void;
+}) {
+	return (
+		<div
+			style={{
+				display: "flex",
+				alignItems: "center",
+				gap: 16,
+				padding: "14px 0",
+				borderBottom: "1px solid #f0f0f0",
+			}}
+		>
+			<div style={{ flexShrink: 0 }}>
+				{hasPicture ? (
+					<img
+						src={`/hub/profile-picture/${handle}`}
+						alt={displayName}
+						style={{
+							width: 52,
+							height: 52,
+							borderRadius: "50%",
+							objectFit: "cover",
+						}}
+					/>
+				) : (
+					<Avatar size={52} icon={<UserOutlined />} />
+				)}
+			</div>
+			<div style={{ flex: 1, minWidth: 0 }}>
+				<a
+					onClick={onClick}
+					style={{
+						cursor: "pointer",
+						fontWeight: 600,
+						fontSize: 15,
+						display: "block",
+					}}
+				>
+					{displayName}
+				</a>
+				<Text
+					type="secondary"
+					style={{ fontFamily: "monospace", fontSize: 12, display: "block" }}
+				>
+					@{handle}
+				</Text>
+				{shortBio && (
+					<Text
+						type="secondary"
+						style={{ fontSize: 13, display: "block" }}
+						ellipsis
+					>
+						{shortBio}
+					</Text>
+				)}
+				{secondaryText && (
+					<Text type="secondary" style={{ fontSize: 11, display: "block" }}>
+						{secondaryText}
+					</Text>
+				)}
+			</div>
+			<div style={{ flexShrink: 0 }}>{actions}</div>
+		</div>
+	);
+}
+
 export function ConnectionsPage() {
 	const { t, i18n } = useTranslation("connections");
 	const { sessionToken } = useAuth();
@@ -56,7 +136,7 @@ export function ConnectionsPage() {
 	const [searchResults, setSearchResults] = useState<Connection[] | null>(null);
 	const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-	// Incoming tab
+	// Incoming (shown at top, loaded eagerly)
 	const [incoming, setIncoming] = useState<PendingRequest[]>([]);
 	const [incomingNextKey, setIncomingNextKey] = useState<string | undefined>();
 	const [incomingLoading, setIncomingLoading] = useState(false);
@@ -83,7 +163,7 @@ export function ConnectionsPage() {
 				setCounts(await res.json());
 			}
 		} catch {
-			// counts are decorative; don't block the page
+			// counts are decorative
 		}
 	}, [sessionToken]);
 
@@ -238,11 +318,10 @@ export function ConnectionsPage() {
 	useEffect(() => {
 		fetchCounts();
 		fetchConnections();
-	}, [fetchCounts, fetchConnections]);
+		fetchIncoming(); // load eagerly — shown at top of page
+	}, [fetchCounts, fetchConnections, fetchIncoming]);
 
-	// Lazy-load other tabs on first visit
 	useEffect(() => {
-		if (activeTab === "incoming" && incoming.length === 0) fetchIncoming();
 		if (activeTab === "outgoing" && outgoing.length === 0) fetchOutgoing();
 		if (activeTab === "blocked" && blocked.length === 0) fetchBlocked();
 	}, [activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -407,200 +486,13 @@ export function ConnectionsPage() {
 		}
 	};
 
-	const userCell = (
-		handle: string,
-		displayName: string,
-		shortBio?: string,
-		hasPicture?: boolean
-	) => (
-		<div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-			{hasPicture ? (
-				<img
-					src={`/hub/profile-picture/${handle}`}
-					alt={displayName}
-					style={{
-						width: 40,
-						height: 40,
-						borderRadius: "50%",
-						objectFit: "cover",
-					}}
-				/>
-			) : (
-				<Avatar size={40} icon={<UserOutlined />} />
-			)}
-			<div>
-				<div>
-					<a
-						onClick={() => navigate(`/u/${handle}`)}
-						style={{ cursor: "pointer" }}
-					>
-						{displayName}
-					</a>
-				</div>
-				<Text
-					type="secondary"
-					style={{ fontFamily: "monospace", fontSize: 12 }}
-				>
-					@{handle}
-				</Text>
-				{shortBio && (
-					<div>
-						<Text type="secondary" style={{ fontSize: 12 }}>
-							{shortBio}
-						</Text>
-					</div>
-				)}
-			</div>
-		</div>
-	);
-
 	const displayedConnections = searchResults ?? connections;
-
-	const connectionsColumns = [
-		{
-			title: t("columns.user"),
-			key: "user",
-			render: (_: unknown, r: Connection) =>
-				userCell(r.handle, r.display_name, r.short_bio, r.has_profile_picture),
-		},
-		{
-			title: t("columns.connectedAt"),
-			dataIndex: "connected_at",
-			key: "connected_at",
-			render: (v: string) => formatDateTime(v, i18n.language),
-		},
-		{
-			title: t("columns.actions"),
-			key: "actions",
-			render: (_: unknown, r: Connection) => (
-				<Popconfirm
-					title={t("disconnectConfirm.title")}
-					description={t("disconnectConfirm.description")}
-					onConfirm={() => handleDisconnect(r.handle)}
-					okText={t("disconnectConfirm.ok")}
-					cancelText={t("disconnectConfirm.cancel")}
-				>
-					<Button size="small" danger>
-						{t("actions.disconnect")}
-					</Button>
-				</Popconfirm>
-			),
-		},
-	];
-
-	const incomingColumns = [
-		{
-			title: t("columns.user"),
-			key: "user",
-			render: (_: unknown, r: PendingRequest) =>
-				userCell(r.handle, r.display_name, r.short_bio, r.has_profile_picture),
-		},
-		{
-			title: t("columns.requestedAt"),
-			dataIndex: "created_at",
-			key: "created_at",
-			render: (v: string) => formatDateTime(v, i18n.language),
-		},
-		{
-			title: t("columns.actions"),
-			key: "actions",
-			render: (_: unknown, r: PendingRequest) => (
-				<div style={{ display: "flex", gap: 8 }}>
-					<Button
-						type="primary"
-						size="small"
-						onClick={() => handleAccept(r.handle)}
-					>
-						{t("actions.accept")}
-					</Button>
-					<Button size="small" onClick={() => handleReject(r.handle)}>
-						{t("actions.reject")}
-					</Button>
-				</div>
-			),
-		},
-	];
-
-	const outgoingColumns = [
-		{
-			title: t("columns.user"),
-			key: "user",
-			render: (_: unknown, r: PendingRequest) =>
-				userCell(r.handle, r.display_name, r.short_bio, r.has_profile_picture),
-		},
-		{
-			title: t("columns.requestedAt"),
-			dataIndex: "created_at",
-			key: "created_at",
-			render: (v: string) => formatDateTime(v, i18n.language),
-		},
-		{
-			title: t("columns.actions"),
-			key: "actions",
-			render: (_: unknown, r: PendingRequest) => (
-				<Popconfirm
-					title={t("withdrawConfirm")}
-					onConfirm={() => handleWithdraw(r.handle)}
-					okText={t("actions.withdraw")}
-					cancelText={t("disconnectConfirm.cancel")}
-				>
-					<Button size="small">{t("actions.withdraw")}</Button>
-				</Popconfirm>
-			),
-		},
-	];
-
-	const blockedColumns = [
-		{
-			title: t("columns.user"),
-			key: "user",
-			render: (_: unknown, r: BlockedUser) => (
-				<div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-					<Avatar size={40} icon={<UserOutlined />} />
-					<div>
-						<div>{r.display_name}</div>
-						<Text
-							type="secondary"
-							style={{ fontFamily: "monospace", fontSize: 12 }}
-						>
-							@{r.handle}
-						</Text>
-					</div>
-				</div>
-			),
-		},
-		{
-			title: t("columns.blockedAt"),
-			dataIndex: "blocked_at",
-			key: "blocked_at",
-			render: (v: string) => formatDateTime(v, i18n.language),
-		},
-		{
-			title: t("columns.actions"),
-			key: "actions",
-			render: (_: unknown, r: BlockedUser) => (
-				<Button size="small" onClick={() => handleUnblock(r.handle)}>
-					{t("actions.unblock")}
-				</Button>
-			),
-		},
-	];
-
-	const tabLabel = (key: string, count: number | undefined) => {
-		const label = {
-			connections: t("tabs.connections", { count: count ?? "…" }),
-			incoming: t("tabs.incoming", { count: count ?? "…" }),
-			outgoing: t("tabs.outgoing", { count: count ?? "…" }),
-			blocked: t("tabs.blocked", { count: count ?? "…" }),
-		}[key];
-		return label ?? key;
-	};
 
 	return (
 		<div
 			style={{
 				width: "100%",
-				maxWidth: 1200,
+				maxWidth: 800,
 				padding: "24px 16px",
 				alignSelf: "flex-start",
 			}}
@@ -614,38 +506,120 @@ export function ConnectionsPage() {
 			<div
 				style={{
 					display: "flex",
-					justifyContent: "space-between",
 					alignItems: "center",
+					gap: 12,
 					marginBottom: 24,
 				}}
 			>
+				<TeamOutlined style={{ fontSize: 24 }} />
 				<Title level={2} style={{ margin: 0 }}>
-					<TeamOutlined style={{ marginRight: 12 }} />
 					{t("title")}
 				</Title>
 				{counts && (
-					<div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-						<Tag color="blue">{counts.connected} connected</Tag>
-						{counts.pending_incoming > 0 && (
-							<Tag color="orange">{counts.pending_incoming} incoming</Tag>
-						)}
-						{counts.pending_outgoing > 0 && (
-							<Tag>{counts.pending_outgoing} sent</Tag>
-						)}
-						{counts.blocked > 0 && (
-							<Tag color="red">{counts.blocked} blocked</Tag>
-						)}
-					</div>
+					<Text type="secondary" style={{ fontSize: 15 }}>
+						· {counts.connected}{" "}
+						{t("tabs.connections", { count: counts.connected })
+							.split("(")[0]
+							.trim()
+							.toLowerCase()}
+					</Text>
 				)}
 			</div>
 
+			{/* ── Pending incoming requests (always visible at top) ─────────────── */}
+			{(incoming.length > 0 || incomingLoading) && (
+				<div style={{ marginBottom: 24 }}>
+					<div
+						style={{
+							display: "flex",
+							alignItems: "center",
+							gap: 8,
+							marginBottom: 12,
+						}}
+					>
+						<Badge count={counts?.pending_incoming} offset={[4, -2]}>
+							<Text strong style={{ fontSize: 15 }}>
+								{t("pendingRequests.title")}
+							</Text>
+						</Badge>
+					</div>
+					<Spin spinning={incomingLoading}>
+						<div
+							style={{
+								border: "1px solid #f0f0f0",
+								borderRadius: 8,
+								padding: "0 16px",
+								background: "#fff",
+							}}
+						>
+							{incoming.map((r) => (
+								<PersonRow
+									key={r.handle}
+									handle={r.handle}
+									displayName={r.display_name}
+									shortBio={r.short_bio}
+									hasPicture={r.has_profile_picture}
+									secondaryText={
+										t("columns.requestedAt") +
+										": " +
+										formatDateTime(r.created_at, i18n.language)
+									}
+									onClick={() => navigate(`/u/${r.handle}`)}
+									actions={
+										<div style={{ display: "flex", gap: 8 }}>
+											<Button
+												type="primary"
+												size="small"
+												onClick={() => handleAccept(r.handle)}
+											>
+												{t("actions.accept")}
+											</Button>
+											<Button
+												size="small"
+												onClick={() => handleReject(r.handle)}
+											>
+												{t("actions.reject")}
+											</Button>
+										</div>
+									}
+								/>
+							))}
+						</div>
+						{incomingNextKey && (
+							<div style={{ textAlign: "center", marginTop: 12 }}>
+								<Button
+									size="small"
+									onClick={() => fetchIncoming(incomingNextKey)}
+									loading={incomingLoading}
+								>
+									{t("loadMore")}
+								</Button>
+							</div>
+						)}
+					</Spin>
+				</div>
+			)}
+
+			{/* ── Tabs: My Connections | Sent | Blocked ────────────────────────── */}
 			<Tabs
 				activeKey={activeTab}
 				onChange={setActiveTab}
 				items={[
 					{
 						key: "connections",
-						label: tabLabel("connections", counts?.connected),
+						label: (
+							<span>
+								{t("tabs.myConnections")}
+								{counts?.connected ? (
+									<Text
+										type="secondary"
+										style={{ marginLeft: 6, fontSize: 12 }}
+									>
+										({counts.connected})
+									</Text>
+								) : null}
+							</span>
+						),
 						children: (
 							<>
 								<Search
@@ -656,13 +630,51 @@ export function ConnectionsPage() {
 									style={{ maxWidth: 400, marginBottom: 16 }}
 								/>
 								<Spin spinning={connectionsLoading}>
-									<Table
-										dataSource={displayedConnections}
-										columns={connectionsColumns}
-										rowKey="handle"
-										pagination={false}
-										locale={{ emptyText: t("empty.connections") }}
-									/>
+									{displayedConnections.length === 0 && !connectionsLoading ? (
+										<Text
+											type="secondary"
+											style={{
+												display: "block",
+												textAlign: "center",
+												padding: "32px 0",
+											}}
+										>
+											{searchQuery
+												? t("empty.searchConnections")
+												: t("empty.connections")}
+										</Text>
+									) : (
+										<div>
+											{displayedConnections.map((c) => (
+												<PersonRow
+													key={c.handle}
+													handle={c.handle}
+													displayName={c.display_name}
+													shortBio={c.short_bio}
+													hasPicture={c.has_profile_picture}
+													secondaryText={
+														t("columns.connectedAt") +
+														": " +
+														formatDateTime(c.connected_at, i18n.language)
+													}
+													onClick={() => navigate(`/u/${c.handle}`)}
+													actions={
+														<Popconfirm
+															title={t("disconnectConfirm.title")}
+															description={t("disconnectConfirm.description")}
+															onConfirm={() => handleDisconnect(c.handle)}
+															okText={t("disconnectConfirm.ok")}
+															cancelText={t("disconnectConfirm.cancel")}
+														>
+															<Button size="small" danger>
+																{t("actions.disconnect")}
+															</Button>
+														</Popconfirm>
+													}
+												/>
+											))}
+										</div>
+									)}
 								</Spin>
 								{!searchResults && connectionsNextKey && (
 									<div style={{ textAlign: "center", marginTop: 16 }}>
@@ -678,42 +690,64 @@ export function ConnectionsPage() {
 						),
 					},
 					{
-						key: "incoming",
-						label: tabLabel("incoming", counts?.pending_incoming),
-						children: (
-							<Spin spinning={incomingLoading}>
-								<Table
-									dataSource={incoming}
-									columns={incomingColumns}
-									rowKey="handle"
-									pagination={false}
-									locale={{ emptyText: t("empty.incoming") }}
-								/>
-								{incomingNextKey && (
-									<div style={{ textAlign: "center", marginTop: 16 }}>
-										<Button
-											onClick={() => fetchIncoming(incomingNextKey)}
-											loading={incomingLoading}
-										>
-											{t("loadMore")}
-										</Button>
-									</div>
-								)}
-							</Spin>
-						),
-					},
-					{
 						key: "outgoing",
-						label: tabLabel("outgoing", counts?.pending_outgoing),
+						label: (
+							<span>
+								{t("tabs.outgoingShort")}
+								{(counts?.pending_outgoing ?? 0) > 0 && (
+									<Text
+										type="secondary"
+										style={{ marginLeft: 6, fontSize: 12 }}
+									>
+										({counts?.pending_outgoing})
+									</Text>
+								)}
+							</span>
+						),
 						children: (
 							<Spin spinning={outgoingLoading}>
-								<Table
-									dataSource={outgoing}
-									columns={outgoingColumns}
-									rowKey="handle"
-									pagination={false}
-									locale={{ emptyText: t("empty.outgoing") }}
-								/>
+								{outgoing.length === 0 && !outgoingLoading ? (
+									<Text
+										type="secondary"
+										style={{
+											display: "block",
+											textAlign: "center",
+											padding: "32px 0",
+										}}
+									>
+										{t("empty.outgoing")}
+									</Text>
+								) : (
+									<div>
+										{outgoing.map((r) => (
+											<PersonRow
+												key={r.handle}
+												handle={r.handle}
+												displayName={r.display_name}
+												shortBio={r.short_bio}
+												hasPicture={r.has_profile_picture}
+												secondaryText={
+													t("columns.requestedAt") +
+													": " +
+													formatDateTime(r.created_at, i18n.language)
+												}
+												onClick={() => navigate(`/u/${r.handle}`)}
+												actions={
+													<Popconfirm
+														title={t("withdrawConfirm")}
+														onConfirm={() => handleWithdraw(r.handle)}
+														okText={t("actions.withdraw")}
+														cancelText={t("disconnectConfirm.cancel")}
+													>
+														<Button size="small">
+															{t("actions.withdraw")}
+														</Button>
+													</Popconfirm>
+												}
+											/>
+										))}
+									</div>
+								)}
 								{outgoingNextKey && (
 									<div style={{ textAlign: "center", marginTop: 16 }}>
 										<Button
@@ -729,16 +763,44 @@ export function ConnectionsPage() {
 					},
 					{
 						key: "blocked",
-						label: tabLabel("blocked", counts?.blocked),
+						label: t("tabs.blockedShort"),
 						children: (
 							<Spin spinning={blockedLoading}>
-								<Table
-									dataSource={blocked}
-									columns={blockedColumns}
-									rowKey="handle"
-									pagination={false}
-									locale={{ emptyText: t("empty.blocked") }}
-								/>
+								{blocked.length === 0 && !blockedLoading ? (
+									<Text
+										type="secondary"
+										style={{
+											display: "block",
+											textAlign: "center",
+											padding: "32px 0",
+										}}
+									>
+										{t("empty.blocked")}
+									</Text>
+								) : (
+									<div>
+										{blocked.map((b) => (
+											<PersonRow
+												key={b.handle}
+												handle={b.handle}
+												displayName={b.display_name}
+												secondaryText={
+													t("columns.blockedAt") +
+													": " +
+													formatDateTime(b.blocked_at, i18n.language)
+												}
+												actions={
+													<Button
+														size="small"
+														onClick={() => handleUnblock(b.handle)}
+													>
+														{t("actions.unblock")}
+													</Button>
+												}
+											/>
+										))}
+									</div>
+								)}
 								{blockedNextKey && (
 									<div style={{ textAlign: "center", marginTop: 16 }}>
 										<Button

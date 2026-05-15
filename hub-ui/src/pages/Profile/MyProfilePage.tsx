@@ -1,11 +1,15 @@
 import {
 	ArrowLeftOutlined,
 	DeleteOutlined,
+	EditOutlined,
+	EnvironmentOutlined,
 	PlusOutlined,
 	UploadOutlined,
+	UserOutlined,
 } from "@ant-design/icons";
 import {
 	Alert,
+	Avatar,
 	Button,
 	Card,
 	Form,
@@ -21,7 +25,7 @@ import {
 	Typography,
 	message,
 } from "antd";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { getApiBaseUrl } from "../../config";
@@ -40,7 +44,7 @@ import type {
 	WorkEmailStintStatus,
 } from "vetchium-specs/hub/work-emails";
 
-const { Title, Text } = Typography;
+const { Title, Text, Paragraph } = Typography;
 
 interface DisplayNameRow {
 	language_code: string;
@@ -48,26 +52,55 @@ interface DisplayNameRow {
 	is_preferred: boolean;
 }
 
+interface IdentityDraft {
+	displayNames: DisplayNameRow[];
+	shortBio: string;
+	city: string;
+	countryCode: string;
+}
+
+const BASE_LANGUAGE_OPTIONS = [
+	{ value: "en-US", label: "English (en-US)" },
+	{ value: "de-DE", label: "Deutsch (de-DE)" },
+	{ value: "ta-IN", label: "தமிழ் (ta-IN)" },
+];
+
+function getPreferredName(
+	displayNames: DisplayNameRow[],
+	fallback: string
+): string {
+	if (!displayNames || displayNames.length === 0) return fallback;
+	const preferred = displayNames.find((dn) => dn.is_preferred);
+	return preferred?.display_name ?? displayNames[0]?.display_name ?? fallback;
+}
+
 export function MyProfilePage() {
 	const { t, i18n } = useTranslation("profile");
 	const { t: tWE } = useTranslation("workEmails");
 	const { sessionToken } = useAuth();
 
+	// Server state
 	const [profile, setProfile] = useState<HubProfileOwnerView | null>(null);
 	const [loading, setLoading] = useState(true);
-	const [saving, setSaving] = useState(false);
+	const [loadError, setLoadError] = useState<string | null>(null);
+
+	// Picture
 	const [uploadingPicture, setUploadingPicture] = useState(false);
 	const [removingPicture, setRemovingPicture] = useState(false);
-	const [loadError, setLoadError] = useState<string | null>(null);
-	const [saveError, setSaveError] = useState<string | null>(null);
 
-	const [displayNames, setDisplayNames] = useState<DisplayNameRow[]>([]);
-	const [shortBio, setShortBio] = useState("");
-	const [longBio, setLongBio] = useState("");
-	const [city, setCity] = useState("");
-	const [countryCode, setCountryCode] = useState<string>("");
+	// Identity section (picture + names + short bio + location)
+	const [identityDraft, setIdentityDraft] = useState<IdentityDraft | null>(
+		null
+	);
+	const [identitySaving, setIdentitySaving] = useState(false);
+	const [identityError, setIdentityError] = useState<string | null>(null);
 
-	// Work emails state
+	// About section (long bio)
+	const [aboutDraft, setAboutDraft] = useState<string | null>(null);
+	const [aboutSaving, setAboutSaving] = useState(false);
+	const [aboutError, setAboutError] = useState<string | null>(null);
+
+	// Work emails
 	const [workEmails, setWorkEmails] = useState<WorkEmailStintOwnerView[]>([]);
 	const [workEmailsLoading, setWorkEmailsLoading] = useState(false);
 	const [addModalOpen, setAddModalOpen] = useState(false);
@@ -83,6 +116,50 @@ export function MyProfilePage() {
 		useState<WorkEmailStintOwnerView | null>(null);
 	const [reverifyCode, setReverifyCode] = useState("");
 	const [reverifyLoading, setReverifyLoading] = useState(false);
+
+	// Language options for the identity draft (include any custom codes in the profile)
+	const languageOptions = useMemo(() => {
+		const options = [...BASE_LANGUAGE_OPTIONS];
+		if (identityDraft) {
+			for (const dn of identityDraft.displayNames) {
+				if (
+					dn.language_code &&
+					!options.find((o) => o.value === dn.language_code)
+				) {
+					options.push({ value: dn.language_code, label: dn.language_code });
+				}
+			}
+		}
+		return options;
+	}, [identityDraft]);
+
+	const loadProfile = useCallback(async () => {
+		if (!sessionToken) return;
+		try {
+			const apiBaseUrl = await getApiBaseUrl();
+			const response = await fetch(`${apiBaseUrl}/hub/get-my-profile`, {
+				method: "GET",
+				headers: { Authorization: `Bearer ${sessionToken}` },
+			});
+			if (response.status === 200) {
+				const data: HubProfileOwnerView = await response.json();
+				setProfile(data);
+				setLoadError(null);
+			} else {
+				setLoadError(t("myProfile.errors.loadFailed"));
+			}
+		} catch {
+			setLoadError(t("myProfile.errors.loadFailed"));
+		}
+	}, [sessionToken, t]);
+
+	useEffect(() => {
+		const run = async () => {
+			await loadProfile();
+			setLoading(false);
+		};
+		run();
+	}, [loadProfile]);
 
 	const loadWorkEmails = useCallback(async () => {
 		if (!sessionToken) return;
@@ -103,11 +180,247 @@ export function MyProfilePage() {
 				setWorkEmails(data.work_emails);
 			}
 		} catch {
-			// non-critical; ignore load failures silently
+			// non-critical
 		} finally {
 			setWorkEmailsLoading(false);
 		}
 	}, [sessionToken]);
+
+	useEffect(() => {
+		loadWorkEmails();
+	}, [loadWorkEmails]);
+
+	// ── Identity section ────────────────────────────────────────────────────────
+
+	const startEditIdentity = () => {
+		if (!profile) return;
+		setIdentityDraft({
+			displayNames: profile.display_names.map((dn) => ({ ...dn })),
+			shortBio: profile.short_bio ?? "",
+			city: profile.city ?? "",
+			countryCode: profile.resident_country_code ?? "",
+		});
+		setIdentityError(null);
+	};
+
+	const cancelIdentity = () => {
+		setIdentityDraft(null);
+		setIdentityError(null);
+	};
+
+	const saveIdentity = async () => {
+		if (!identityDraft || !sessionToken) return;
+
+		if (identityDraft.displayNames.length === 0) {
+			setIdentityError(t("myProfile.displayNames.errors.atLeastOne"));
+			return;
+		}
+		if (
+			identityDraft.displayNames.filter((dn) => dn.is_preferred).length !== 1
+		) {
+			setIdentityError(t("myProfile.displayNames.errors.exactlyOnePreferred"));
+			return;
+		}
+		const langCodes = identityDraft.displayNames.map((dn) => dn.language_code);
+		if (new Set(langCodes).size !== langCodes.length) {
+			setIdentityError(t("myProfile.displayNames.errors.duplicateLanguage"));
+			return;
+		}
+
+		setIdentitySaving(true);
+		setIdentityError(null);
+		try {
+			const apiBaseUrl = await getApiBaseUrl();
+			const req: UpdateMyProfileRequest = {
+				display_names: identityDraft.displayNames,
+				short_bio: identityDraft.shortBio || undefined,
+				city: identityDraft.city || undefined,
+				resident_country_code: identityDraft.countryCode || undefined,
+			};
+			const response = await fetch(`${apiBaseUrl}/hub/update-my-profile`, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${sessionToken}`,
+				},
+				body: JSON.stringify(req),
+			});
+			if (response.status === 200) {
+				const data: HubProfileOwnerView = await response.json();
+				setProfile(data);
+				setIdentityDraft(null);
+				message.success(t("myProfile.success.saved"));
+			} else {
+				setIdentityError(t("myProfile.errors.saveFailed"));
+			}
+		} catch {
+			setIdentityError(t("myProfile.errors.saveFailed"));
+		} finally {
+			setIdentitySaving(false);
+		}
+	};
+
+	const updateDraftDN = (
+		idx: number,
+		field: keyof DisplayNameRow,
+		value: string | boolean
+	) => {
+		setIdentityDraft((prev) => {
+			if (!prev) return prev;
+			return {
+				...prev,
+				displayNames: prev.displayNames.map((dn, i) =>
+					i === idx ? { ...dn, [field]: value } : dn
+				),
+			};
+		});
+	};
+
+	const setDraftPreferred = (idx: number) => {
+		setIdentityDraft((prev) => {
+			if (!prev) return prev;
+			return {
+				...prev,
+				displayNames: prev.displayNames.map((dn, i) => ({
+					...dn,
+					is_preferred: i === idx,
+				})),
+			};
+		});
+	};
+
+	const addDraftDN = () => {
+		setIdentityDraft((prev) => {
+			if (!prev) return prev;
+			return {
+				...prev,
+				displayNames: [
+					...prev.displayNames,
+					{ language_code: "", display_name: "", is_preferred: false },
+				],
+			};
+		});
+	};
+
+	const removeDraftDN = (idx: number) => {
+		setIdentityDraft((prev) => {
+			if (!prev) return prev;
+			const next = prev.displayNames.filter((_, i) => i !== idx);
+			if (prev.displayNames[idx].is_preferred && next.length > 0) {
+				next[0] = { ...next[0], is_preferred: true };
+			}
+			return { ...prev, displayNames: next };
+		});
+	};
+
+	// ── About section ───────────────────────────────────────────────────────────
+
+	const startEditAbout = () => {
+		setAboutDraft(profile?.long_bio ?? "");
+		setAboutError(null);
+	};
+
+	const cancelAbout = () => {
+		setAboutDraft(null);
+		setAboutError(null);
+	};
+
+	const saveAbout = async () => {
+		if (aboutDraft === null || !sessionToken) return;
+		setAboutSaving(true);
+		setAboutError(null);
+		try {
+			const apiBaseUrl = await getApiBaseUrl();
+			const req: UpdateMyProfileRequest = {
+				long_bio: aboutDraft || undefined,
+			};
+			const response = await fetch(`${apiBaseUrl}/hub/update-my-profile`, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${sessionToken}`,
+				},
+				body: JSON.stringify(req),
+			});
+			if (response.status === 200) {
+				const data: HubProfileOwnerView = await response.json();
+				setProfile(data);
+				setAboutDraft(null);
+				message.success(t("myProfile.success.saved"));
+			} else {
+				setAboutError(t("myProfile.errors.saveFailed"));
+			}
+		} catch {
+			setAboutError(t("myProfile.errors.saveFailed"));
+		} finally {
+			setAboutSaving(false);
+		}
+	};
+
+	// ── Picture handlers ────────────────────────────────────────────────────────
+
+	const handleUploadPicture = async (
+		e: React.ChangeEvent<HTMLInputElement>
+	) => {
+		const file = e.target.files?.[0];
+		if (!file) return;
+		const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+		if (!allowedTypes.includes(file.type)) {
+			message.error(t("myProfile.picture.errors.wrongFormat"));
+			return;
+		}
+		if (file.size > 5 * 1024 * 1024) {
+			message.error(t("myProfile.picture.errors.tooLarge"));
+			return;
+		}
+		setUploadingPicture(true);
+		try {
+			const apiBaseUrl = await getApiBaseUrl();
+			const formData = new FormData();
+			formData.append("image", file);
+			const response = await fetch(`${apiBaseUrl}/hub/upload-profile-picture`, {
+				method: "POST",
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				body: formData,
+			});
+			if (response.status === 200) {
+				const data: HubProfileOwnerView = await response.json();
+				setProfile(data);
+				message.success(t("myProfile.success.pictureUploaded"));
+			} else {
+				message.error(t("myProfile.errors.pictureFailed"));
+			}
+		} catch {
+			message.error(t("myProfile.errors.pictureFailed"));
+		} finally {
+			setUploadingPicture(false);
+			e.target.value = "";
+		}
+	};
+
+	const handleRemovePicture = async () => {
+		setRemovingPicture(true);
+		try {
+			const apiBaseUrl = await getApiBaseUrl();
+			const response = await fetch(`${apiBaseUrl}/hub/remove-profile-picture`, {
+				method: "POST",
+				headers: { Authorization: `Bearer ${sessionToken}` },
+			});
+			if (response.status === 200) {
+				const data: HubProfileOwnerView = await response.json();
+				setProfile(data);
+				message.success(t("myProfile.success.pictureRemoved"));
+			} else {
+				message.error(t("myProfile.errors.pictureFailed"));
+			}
+		} catch {
+			message.error(t("myProfile.errors.pictureFailed"));
+		} finally {
+			setRemovingPicture(false);
+		}
+	};
+
+	// ── Work email handlers ─────────────────────────────────────────────────────
 
 	const handleAddWorkEmail = async () => {
 		if (!sessionToken || !addEmail.trim()) return;
@@ -273,209 +586,12 @@ export function MyProfilePage() {
 		}
 	};
 
-	const loadProfile = useCallback(async () => {
-		if (!sessionToken) return;
-		try {
-			const apiBaseUrl = await getApiBaseUrl();
-			const response = await fetch(`${apiBaseUrl}/hub/get-my-profile`, {
-				method: "GET",
-				headers: { Authorization: `Bearer ${sessionToken}` },
-			});
-			if (response.status === 200) {
-				const data: HubProfileOwnerView = await response.json();
-				setProfile(data);
-				setDisplayNames(
-					data.display_names.map((dn) => ({
-						language_code: dn.language_code,
-						display_name: dn.display_name,
-						is_preferred: dn.is_preferred,
-					}))
-				);
-				setShortBio(data.short_bio ?? "");
-				setLongBio(data.long_bio ?? "");
-				setCity(data.city ?? "");
-				setCountryCode(data.resident_country_code ?? "");
-				setLoadError(null);
-			} else {
-				setLoadError(t("myProfile.errors.loadFailed"));
-			}
-		} catch {
-			setLoadError(t("myProfile.errors.loadFailed"));
-		}
-	}, [sessionToken, t]);
-
-	useEffect(() => {
-		const run = async () => {
-			await loadProfile();
-			setLoading(false);
-		};
-		run();
-	}, [loadProfile]);
-
-	useEffect(() => {
-		loadWorkEmails();
-	}, [loadWorkEmails]);
-
-	const handleSave = async () => {
-		// Validate display names
-		if (displayNames.length === 0) {
-			setSaveError(t("myProfile.displayNames.errors.atLeastOne"));
-			return;
-		}
-		const preferredCount = displayNames.filter((dn) => dn.is_preferred).length;
-		if (preferredCount !== 1) {
-			setSaveError(t("myProfile.displayNames.errors.exactlyOnePreferred"));
-			return;
-		}
-		const langCodes = displayNames.map((dn) => dn.language_code);
-		const uniqueLangCodes = new Set(langCodes);
-		if (uniqueLangCodes.size !== langCodes.length) {
-			setSaveError(t("myProfile.displayNames.errors.duplicateLanguage"));
-			return;
-		}
-
-		setSaving(true);
-		setSaveError(null);
-		try {
-			const apiBaseUrl = await getApiBaseUrl();
-			const req: UpdateMyProfileRequest = {
-				display_names: displayNames.map((dn) => ({
-					language_code: dn.language_code,
-					display_name: dn.display_name,
-					is_preferred: dn.is_preferred,
-				})),
-				short_bio: shortBio || undefined,
-				long_bio: longBio || undefined,
-				city: city || undefined,
-				resident_country_code: countryCode || undefined,
-			};
-			const response = await fetch(`${apiBaseUrl}/hub/update-my-profile`, {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					Authorization: `Bearer ${sessionToken}`,
-				},
-				body: JSON.stringify(req),
-			});
-			if (response.status === 200) {
-				const data: HubProfileOwnerView = await response.json();
-				setProfile(data);
-				message.success(t("myProfile.success.saved"));
-			} else {
-				setSaveError(t("myProfile.errors.saveFailed"));
-			}
-		} catch {
-			setSaveError(t("myProfile.errors.saveFailed"));
-		} finally {
-			setSaving(false);
-		}
-	};
-
-	const handleUploadPicture = async (
-		e: React.ChangeEvent<HTMLInputElement>
-	) => {
-		const file = e.target.files?.[0];
-		if (!file) return;
-
-		// Client-side validation
-		const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
-		if (!allowedTypes.includes(file.type)) {
-			message.error(t("myProfile.picture.errors.wrongFormat"));
-			return;
-		}
-		if (file.size > 5 * 1024 * 1024) {
-			message.error(t("myProfile.picture.errors.tooLarge"));
-			return;
-		}
-
-		setUploadingPicture(true);
-		try {
-			const apiBaseUrl = await getApiBaseUrl();
-			const formData = new FormData();
-			formData.append("image", file);
-			const response = await fetch(`${apiBaseUrl}/hub/upload-profile-picture`, {
-				method: "POST",
-				headers: { Authorization: `Bearer ${sessionToken}` },
-				body: formData,
-			});
-			if (response.status === 200) {
-				const data: HubProfileOwnerView = await response.json();
-				setProfile(data);
-				message.success(t("myProfile.success.pictureUploaded"));
-			} else {
-				message.error(t("myProfile.errors.pictureFailed"));
-			}
-		} catch {
-			message.error(t("myProfile.errors.pictureFailed"));
-		} finally {
-			setUploadingPicture(false);
-			// Reset the file input
-			e.target.value = "";
-		}
-	};
-
-	const handleRemovePicture = async () => {
-		setRemovingPicture(true);
-		try {
-			const apiBaseUrl = await getApiBaseUrl();
-			const response = await fetch(`${apiBaseUrl}/hub/remove-profile-picture`, {
-				method: "POST",
-				headers: { Authorization: `Bearer ${sessionToken}` },
-			});
-			if (response.status === 200) {
-				const data: HubProfileOwnerView = await response.json();
-				setProfile(data);
-				message.success(t("myProfile.success.pictureRemoved"));
-			} else {
-				message.error(t("myProfile.errors.pictureFailed"));
-			}
-		} catch {
-			message.error(t("myProfile.errors.pictureFailed"));
-		} finally {
-			setRemovingPicture(false);
-		}
-	};
-
-	const addDisplayNameRow = () => {
-		setDisplayNames((prev) => [
-			...prev,
-			{ language_code: "", display_name: "", is_preferred: prev.length === 0 },
-		]);
-	};
-
-	const removeDisplayNameRow = (idx: number) => {
-		setDisplayNames((prev) => {
-			const next = prev.filter((_, i) => i !== idx);
-			// If we removed the preferred one, set first as preferred
-			if (prev[idx].is_preferred && next.length > 0) {
-				next[0] = { ...next[0], is_preferred: true };
-			}
-			return next;
-		});
-	};
-
-	const setPreferred = (idx: number) => {
-		setDisplayNames((prev) =>
-			prev.map((dn, i) => ({ ...dn, is_preferred: i === idx }))
-		);
-	};
-
-	const updateDisplayName = (
-		idx: number,
-		field: keyof DisplayNameRow,
-		value: string | boolean
-	) => {
-		setDisplayNames((prev) =>
-			prev.map((dn, i) => (i === idx ? { ...dn, [field]: value } : dn))
-		);
-	};
-
 	if (loading) {
 		return (
 			<div
 				style={{
 					width: "100%",
-					maxWidth: 1200,
+					maxWidth: 800,
 					padding: "24px 16px",
 					alignSelf: "flex-start",
 				}}
@@ -485,11 +601,22 @@ export function MyProfilePage() {
 		);
 	}
 
+	const preferredName = getPreferredName(
+		profile?.display_names ?? [],
+		profile?.handle ?? ""
+	);
+	const countryName = profile?.resident_country_code
+		? (COUNTRIES.find((c) => c.code === profile.resident_country_code)?.name ??
+			profile.resident_country_code)
+		: null;
+
+	const isAnyEditing = identityDraft !== null || aboutDraft !== null;
+
 	return (
 		<div
 			style={{
 				width: "100%",
-				maxWidth: 1200,
+				maxWidth: 800,
 				padding: "24px 16px",
 				alignSelf: "flex-start",
 			}}
@@ -502,213 +629,364 @@ export function MyProfilePage() {
 				</Link>
 			</div>
 
-			<Title level={2} style={{ marginBottom: 24 }}>
-				{t("myProfile.title")}
-			</Title>
-
 			{loadError && (
 				<Alert type="error" title={loadError} style={{ marginBottom: 16 }} />
 			)}
-			{saveError && (
-				<Alert type="error" title={saveError} style={{ marginBottom: 16 }} />
-			)}
 
-			{/* Profile picture */}
-			<Card title={t("myProfile.picture.title")} style={{ marginBottom: 24 }}>
-				<Space align="center" style={{ flexWrap: "wrap" }}>
-					{profile?.has_profile_picture && (
-						<img
-							src={`/hub/profile-picture/${profile?.handle}`}
-							alt="Profile"
-							style={{
-								width: 96,
-								height: 96,
-								borderRadius: "50%",
-								objectFit: "cover",
-							}}
-						/>
-					)}
-					<Space>
-						<label>
-							<Button
-								icon={<UploadOutlined />}
-								loading={uploadingPicture}
-								onClick={() =>
-									document.getElementById("profile-picture-input")?.click()
-								}
-							>
-								{t("myProfile.picture.upload")}
-							</Button>
-							<input
-								id="profile-picture-input"
-								type="file"
-								accept="image/jpeg,image/png,image/webp"
-								style={{ display: "none" }}
-								onChange={handleUploadPicture}
-							/>
-						</label>
-						{profile?.has_profile_picture && (
-							<Popconfirm
-								title={t("myProfile.picture.removeConfirm")}
-								onConfirm={handleRemovePicture}
-								okText={t("myProfile.picture.remove")}
-								cancelText={t("myProfile.displayNames.remove")}
-							>
-								<Button
-									danger
-									icon={<DeleteOutlined />}
-									loading={removingPicture}
+			{/* ── Identity section ─────────────────────────────────────────────── */}
+			<Card style={{ marginBottom: 16 }}>
+				{identityDraft === null ? (
+					// Read mode
+					<div
+						style={{
+							display: "flex",
+							gap: 20,
+							alignItems: "flex-start",
+							flexWrap: "wrap",
+						}}
+					>
+						<div style={{ flexShrink: 0 }}>
+							{profile?.has_profile_picture ? (
+								<img
+									src={`/hub/profile-picture/${profile.handle}`}
+									alt="Profile"
+									style={{
+										width: 96,
+										height: 96,
+										borderRadius: "50%",
+										objectFit: "cover",
+									}}
+								/>
+							) : (
+								<Avatar size={96} icon={<UserOutlined />} />
+							)}
+						</div>
+						<div style={{ flex: 1, minWidth: 0 }}>
+							<Title level={3} style={{ margin: 0, marginBottom: 2 }}>
+								{preferredName}
+							</Title>
+							{profile?.short_bio ? (
+								<Text
+									style={{ fontSize: 15, display: "block", marginBottom: 4 }}
 								>
-									{t("myProfile.picture.remove")}
-								</Button>
-							</Popconfirm>
-						)}
-					</Space>
-				</Space>
-			</Card>
-
-			{/* Display names */}
-			<Card
-				title={t("myProfile.displayNames.title")}
-				style={{ marginBottom: 24 }}
-			>
-				{displayNames.map((dn, idx) => (
-					<Space
-						key={idx}
-						style={{ display: "flex", marginBottom: 8, flexWrap: "wrap" }}
-						align="baseline"
-					>
-						<Input
-							placeholder={t("myProfile.displayNames.languageCode")}
-							value={dn.language_code}
-							onChange={(e) =>
-								updateDisplayName(idx, "language_code", e.target.value)
-							}
-							style={{ width: 120 }}
-						/>
-						<Input
-							placeholder={t("myProfile.displayNames.displayName")}
-							value={dn.display_name}
-							onChange={(e) =>
-								updateDisplayName(idx, "display_name", e.target.value)
-							}
-							style={{ width: 200 }}
-						/>
-						<Radio checked={dn.is_preferred} onChange={() => setPreferred(idx)}>
-							{t("myProfile.displayNames.isPreferred")}
-						</Radio>
+									{profile.short_bio}
+								</Text>
+							) : (
+								<Text
+									type="secondary"
+									style={{
+										fontStyle: "italic",
+										display: "block",
+										marginBottom: 4,
+									}}
+								>
+									{t("myProfile.identity.noShortBio")}
+								</Text>
+							)}
+							<Text
+								type="secondary"
+								style={{ fontFamily: "monospace", fontSize: 13 }}
+							>
+								@{profile?.handle}
+							</Text>
+							{(profile?.city || countryName) && (
+								<div style={{ marginTop: 4 }}>
+									<EnvironmentOutlined
+										style={{ marginRight: 6, color: "#8c8c8c" }}
+									/>
+									<Text type="secondary">
+										{[profile?.city, countryName].filter(Boolean).join(", ")}
+									</Text>
+								</div>
+							)}
+						</div>
 						<Button
-							danger
-							size="small"
-							onClick={() => removeDisplayNameRow(idx)}
-							disabled={displayNames.length <= 1}
+							icon={<EditOutlined />}
+							onClick={startEditIdentity}
+							disabled={aboutDraft !== null}
 						>
-							{t("myProfile.displayNames.remove")}
+							{t("myProfile.edit")}
 						</Button>
-					</Space>
-				))}
-				<Button
-					icon={<PlusOutlined />}
-					onClick={addDisplayNameRow}
-					style={{ marginTop: 8 }}
-					disabled={displayNames.length >= 10}
-				>
-					{t("myProfile.displayNames.addLanguage")}
-				</Button>
+					</div>
+				) : (
+					// Edit mode
+					<div>
+						{/* Picture controls */}
+						<div
+							style={{
+								display: "flex",
+								gap: 16,
+								alignItems: "center",
+								marginBottom: 24,
+								paddingBottom: 20,
+								borderBottom: "1px solid #f0f0f0",
+							}}
+						>
+							{profile?.has_profile_picture ? (
+								<img
+									src={`/hub/profile-picture/${profile.handle}`}
+									alt="Profile"
+									style={{
+										width: 72,
+										height: 72,
+										borderRadius: "50%",
+										objectFit: "cover",
+										flexShrink: 0,
+									}}
+								/>
+							) : (
+								<Avatar
+									size={72}
+									icon={<UserOutlined />}
+									style={{ flexShrink: 0 }}
+								/>
+							)}
+							<Space wrap>
+								<label>
+									<Button
+										icon={<UploadOutlined />}
+										loading={uploadingPicture}
+										onClick={() =>
+											document.getElementById("profile-picture-input")?.click()
+										}
+									>
+										{t("myProfile.picture.upload")}
+									</Button>
+									<input
+										id="profile-picture-input"
+										type="file"
+										accept="image/jpeg,image/png,image/webp"
+										style={{ display: "none" }}
+										onChange={handleUploadPicture}
+									/>
+								</label>
+								{profile?.has_profile_picture && (
+									<Popconfirm
+										title={t("myProfile.picture.removeConfirm")}
+										onConfirm={handleRemovePicture}
+										okText={t("myProfile.picture.remove")}
+										cancelText={t("myProfile.cancelEdit")}
+									>
+										<Button
+											danger
+											icon={<DeleteOutlined />}
+											loading={removingPicture}
+										>
+											{t("myProfile.picture.remove")}
+										</Button>
+									</Popconfirm>
+								)}
+							</Space>
+						</div>
+
+						{/* Display names */}
+						<Form layout="vertical">
+							<Form.Item label={t("myProfile.displayNames.title")}>
+								{identityDraft.displayNames.map((dn, idx) => (
+									<div
+										key={idx}
+										style={{
+											display: "flex",
+											gap: 8,
+											marginBottom: 8,
+											flexWrap: "wrap",
+											alignItems: "baseline",
+										}}
+									>
+										<Select
+											value={dn.language_code || undefined}
+											onChange={(v) =>
+												updateDraftDN(idx, "language_code", v ?? "")
+											}
+											options={languageOptions}
+											placeholder={t("myProfile.displayNames.languageCode")}
+											style={{ width: 200 }}
+										/>
+										<Input
+											placeholder={t("myProfile.displayNames.displayName")}
+											value={dn.display_name}
+											onChange={(e) =>
+												updateDraftDN(idx, "display_name", e.target.value)
+											}
+											style={{ width: 220 }}
+										/>
+										<Radio
+											checked={dn.is_preferred}
+											onChange={() => setDraftPreferred(idx)}
+										>
+											{t("myProfile.displayNames.isPreferred")}
+										</Radio>
+										<Button
+											danger
+											size="small"
+											onClick={() => removeDraftDN(idx)}
+											disabled={identityDraft.displayNames.length <= 1}
+										>
+											{t("myProfile.displayNames.remove")}
+										</Button>
+									</div>
+								))}
+								<Button
+									icon={<PlusOutlined />}
+									onClick={addDraftDN}
+									disabled={identityDraft.displayNames.length >= 10}
+									style={{ marginTop: 4 }}
+								>
+									{t("myProfile.displayNames.addLanguage")}
+								</Button>
+							</Form.Item>
+
+							<Form.Item
+								label={t("myProfile.bio.shortBio")}
+								help={t("myProfile.bio.shortBioHelp")}
+							>
+								<Input
+									value={identityDraft.shortBio}
+									onChange={(e) =>
+										setIdentityDraft((prev) =>
+											prev ? { ...prev, shortBio: e.target.value } : prev
+										)
+									}
+									maxLength={160}
+									showCount
+									placeholder={t("myProfile.identity.noShortBio")}
+								/>
+							</Form.Item>
+
+							<Form.Item label={t("myProfile.location.country")}>
+								<Select
+									value={identityDraft.countryCode || undefined}
+									onChange={(v) =>
+										setIdentityDraft((prev) =>
+											prev ? { ...prev, countryCode: v ?? "" } : prev
+										)
+									}
+									allowClear
+									showSearch={{
+										filterOption: (input, option) =>
+											(option?.label ?? "")
+												.toLowerCase()
+												.includes(input.toLowerCase()),
+									}}
+									options={COUNTRIES.map((c) => ({
+										label: c.name,
+										value: c.code,
+									}))}
+									placeholder={t("myProfile.location.country")}
+									style={{ width: "100%", maxWidth: 400 }}
+								/>
+							</Form.Item>
+
+							<Form.Item label={t("myProfile.location.city")}>
+								<Input
+									value={identityDraft.city}
+									onChange={(e) =>
+										setIdentityDraft((prev) =>
+											prev ? { ...prev, city: e.target.value } : prev
+										)
+									}
+									maxLength={100}
+									style={{ maxWidth: 400 }}
+								/>
+							</Form.Item>
+						</Form>
+
+						{identityError && (
+							<Alert
+								type="error"
+								title={identityError}
+								style={{ marginBottom: 12 }}
+							/>
+						)}
+						<Space>
+							<Button
+								type="primary"
+								loading={identitySaving}
+								onClick={saveIdentity}
+							>
+								{t("myProfile.saveSection")}
+							</Button>
+							<Button onClick={cancelIdentity}>
+								{t("myProfile.cancelEdit")}
+							</Button>
+						</Space>
+					</div>
+				)}
 			</Card>
 
-			{/* Bio */}
-			<Card title={t("myProfile.bio.title")} style={{ marginBottom: 24 }}>
-				<Form layout="vertical">
-					<Form.Item
-						label={
-							<span>
-								{t("myProfile.bio.shortBio")}{" "}
-								<Text type="secondary">({shortBio.length}/160)</Text>
-							</span>
-						}
-						help={t("myProfile.bio.shortBioHelp")}
-					>
-						<Input
-							value={shortBio}
-							onChange={(e) => setShortBio(e.target.value)}
-							maxLength={160}
-							showCount
-						/>
-					</Form.Item>
-					<Form.Item
-						label={
-							<span>
-								{t("myProfile.bio.longBio")}{" "}
-								<Text type="secondary">({longBio.length}/4000)</Text>
-							</span>
-						}
-						help={t("myProfile.bio.longBioHelp")}
-					>
+			{/* ── About section ────────────────────────────────────────────────── */}
+			<Card
+				title={t("myProfile.about.title")}
+				style={{ marginBottom: 16 }}
+				extra={
+					aboutDraft === null && (
+						<Button
+							icon={<EditOutlined />}
+							size="small"
+							onClick={startEditAbout}
+							disabled={identityDraft !== null}
+						>
+							{t("myProfile.edit")}
+						</Button>
+					)
+				}
+			>
+				{aboutDraft === null ? (
+					profile?.long_bio ? (
+						<Paragraph style={{ whiteSpace: "pre-line", margin: 0 }}>
+							{profile.long_bio}
+						</Paragraph>
+					) : (
+						<Text
+							type="secondary"
+							style={{ fontStyle: "italic", cursor: "pointer" }}
+							onClick={startEditAbout}
+						>
+							{t("myProfile.about.placeholder")}
+						</Text>
+					)
+				) : (
+					<div>
 						<Input.TextArea
-							value={longBio}
-							onChange={(e) => setLongBio(e.target.value)}
+							value={aboutDraft}
+							onChange={(e) => setAboutDraft(e.target.value)}
 							maxLength={4000}
 							showCount
-							rows={6}
+							rows={8}
+							placeholder={t("myProfile.about.placeholder")}
+							style={{ marginBottom: 12 }}
 						/>
-					</Form.Item>
-				</Form>
+						{aboutError && (
+							<Alert
+								type="error"
+								title={aboutError}
+								style={{ marginBottom: 12 }}
+							/>
+						)}
+						<Space>
+							<Button
+								type="primary"
+								loading={aboutSaving}
+								onClick={saveAbout}
+								disabled={isAnyEditing && identityDraft !== null}
+							>
+								{t("myProfile.saveSection")}
+							</Button>
+							<Button onClick={cancelAbout}>{t("myProfile.cancelEdit")}</Button>
+						</Space>
+					</div>
+				)}
 			</Card>
 
-			{/* Location */}
-			<Card title={t("myProfile.location.title")} style={{ marginBottom: 24 }}>
-				<Form layout="vertical">
-					<Form.Item label={t("myProfile.location.country")}>
-						<Select
-							value={countryCode || undefined}
-							onChange={(val) => setCountryCode(val ?? "")}
-							allowClear
-							showSearch={{
-								filterOption: (input, option) =>
-									(option?.label ?? "")
-										.toLowerCase()
-										.includes(input.toLowerCase()),
-							}}
-							options={COUNTRIES.map((c) => ({
-								label: c.name,
-								value: c.code,
-							}))}
-							placeholder={t("myProfile.location.country")}
-							style={{ width: "100%", maxWidth: 400 }}
-						/>
-					</Form.Item>
-					<Form.Item label={t("myProfile.location.city")}>
-						<Input
-							value={city}
-							onChange={(e) => setCity(e.target.value)}
-							maxLength={100}
-							style={{ maxWidth: 400 }}
-						/>
-					</Form.Item>
-				</Form>
-			</Card>
-
-			<Spin spinning={saving}>
-				<Button
-					type="primary"
-					size="large"
-					onClick={handleSave}
-					loading={saving}
-				>
-					{t("myProfile.saveProfile")}
-				</Button>
-			</Spin>
-
-			{/* Work Emails */}
+			{/* ── Work Emails section ───────────────────────────────────────────── */}
 			<Card
 				title={tWE("title")}
-				style={{ marginTop: 24 }}
 				extra={
 					<Button
 						type="primary"
 						icon={<PlusOutlined />}
 						onClick={() => setAddModalOpen(true)}
+						size="small"
 					>
 						{tWE("addWorkEmail")}
 					</Button>
@@ -757,13 +1035,6 @@ export function MyProfilePage() {
 									v ? formatDateTime(v, i18n.language) : "—",
 							},
 							{
-								title: tWE("table.lastVerified"),
-								dataIndex: "last_verified_at",
-								key: "last_verified_at",
-								render: (v?: string) =>
-									v ? formatDateTime(v, i18n.language) : "—",
-							},
-							{
 								title: tWE("table.actions"),
 								key: "actions",
 								render: (_: unknown, r: WorkEmailStintOwnerView) => (
@@ -795,7 +1066,7 @@ export function MyProfilePage() {
 											title={tWE("removeConfirm")}
 											onConfirm={() => handleRemoveWorkEmail(r.stint_id)}
 											okText={tWE("table.remove")}
-											cancelText={t("myProfile.displayNames.remove")}
+											cancelText={t("myProfile.cancelEdit")}
 										>
 											<Button size="small" danger>
 												{tWE("table.remove")}

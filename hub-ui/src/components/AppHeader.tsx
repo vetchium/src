@@ -5,6 +5,7 @@ import {
 	Select,
 	Dropdown,
 	Avatar,
+	Typography,
 	type MenuProps,
 	theme,
 } from "antd";
@@ -15,6 +16,7 @@ import {
 	UserOutlined,
 	LogoutOutlined,
 	LockOutlined,
+	MailOutlined,
 } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
@@ -29,6 +31,7 @@ import { useAuth } from "../hooks/useAuth";
 import { getApiBaseUrl } from "../config";
 
 const { Header } = Layout;
+const { Text } = Typography;
 
 export function AppHeader() {
 	const { t, i18n } = useTranslation("common");
@@ -42,7 +45,6 @@ export function AppHeader() {
 		setStoredLanguage(value);
 		i18n.changeLanguage(value);
 
-		// Sync to server if authenticated
 		if (isAuthenticated && sessionToken) {
 			try {
 				const apiBaseUrl = await getApiBaseUrl();
@@ -52,9 +54,7 @@ export function AppHeader() {
 						"Content-Type": "application/json",
 						Authorization: `Bearer ${sessionToken}`,
 					},
-					body: JSON.stringify({
-						language: value,
-					}),
+					body: JSON.stringify({ language: value }),
 				});
 			} catch (err) {
 				console.warn("Failed to sync language to server:", err);
@@ -62,7 +62,6 @@ export function AppHeader() {
 		}
 	};
 
-	// Use server-provided languages if available, fallback to hardcoded list
 	const languageOptions =
 		languages.length > 0
 			? languages.map((lang) => ({
@@ -82,6 +81,12 @@ export function AppHeader() {
 			onClick: () => navigate("/change-password"),
 		},
 		{
+			key: "change-email",
+			icon: <MailOutlined />,
+			label: t("header.changeEmail", "Change Email"),
+			onClick: () => navigate("/change-email"),
+		},
+		{
 			type: "divider",
 		},
 		{
@@ -98,13 +103,28 @@ export function AppHeader() {
 		<Header
 			style={{
 				display: "flex",
-				justifyContent: "flex-end",
+				justifyContent: "space-between",
 				alignItems: "center",
 				background: token.colorPrimary,
 				padding: "0 24px",
 				transition: "background 0.2s",
 			}}
 		>
+			{/* Brand */}
+			<Text
+				strong
+				style={{
+					color: "#fff",
+					fontSize: 16,
+					letterSpacing: 0.3,
+					cursor: "pointer",
+				}}
+				onClick={() => navigate("/")}
+			>
+				{t("appName")}
+			</Text>
+
+			{/* Controls */}
 			<Space size="middle">
 				<Space>
 					<GlobalOutlined style={{ color: "#fff" }} />
