@@ -1,0 +1,109 @@
+<svg width="740" height="470" viewBox="0 0 740 470" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="arr-gray" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto">
+      <path d="M0,0 L0,7 L7,3.5 z" fill="#9e9e9e"/>
+    </marker>
+    <marker id="arr-blue" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto">
+      <path d="M0,0 L0,7 L7,3.5 z" fill="#1565c0"/>
+    </marker>
+    <marker id="arr-orange" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto">
+      <path d="M0,0 L0,7 L7,3.5 z" fill="#e65100"/>
+    </marker>
+  </defs>
+
+  <!-- background -->
+  <rect width="740" height="470" fill="#f8f9fa" rx="8" stroke="#e0e0e0" stroke-width="1"/>
+
+  <!-- Title -->
+  <text x="370" y="21" text-anchor="middle" font-family="sans-serif" font-size="12" font-weight="600" fill="#1a1a1a">Figure 1 — Regional Topology (Option A)</text>
+  <text x="370" y="36" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#555">Current deployment: ind1 / usa1 / deu1. Region count N is not fixed; see ADD_NEW_REGION.md.</text>
+
+  <!-- nginx -->
+  <rect x="210" y="45" width="290" height="40" rx="5" fill="#e8eaf6" stroke="#3949ab" stroke-width="1.5"/>
+  <text x="355" y="62" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="600" fill="#3949ab">nginx Load Balancer</text>
+  <text x="355" y="77" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#555">round-robin across all regional servers</text>
+
+  <!-- nginx → servers -->
+  <line x1="280" y1="85" x2="140" y2="135" stroke="#9e9e9e" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arr-gray)"/>
+  <line x1="355" y1="85" x2="355" y2="135" stroke="#9e9e9e" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arr-gray)"/>
+  <line x1="430" y1="85" x2="570" y2="135" stroke="#9e9e9e" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arr-gray)"/>
+  <line x1="440" y1="85" x2="690" y2="135" stroke="#9e9e9e" stroke-width="1" stroke-dasharray="4,3" stroke-opacity="0.4" marker-end="url(#arr-gray)"/>
+
+  <!-- API Servers -->
+  <!-- ind1 -->
+  <rect x="50" y="135" width="172" height="48" rx="5" fill="#fff8e1" stroke="#f9a825" stroke-width="1.5"/>
+  <text x="136" y="155" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="600" fill="#e65100">API Server</text>
+  <text x="136" y="172" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#555">ind1 — India</text>
+
+  <!-- usa1 -->
+  <rect x="269" y="135" width="172" height="48" rx="5" fill="#e8f5e9" stroke="#43a047" stroke-width="1.5"/>
+  <text x="355" y="155" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="600" fill="#2e7d32">API Server</text>
+  <text x="355" y="172" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#555">usa1 — United States</text>
+
+  <!-- deu1 -->
+  <rect x="488" y="135" width="172" height="48" rx="5" fill="#fce4ec" stroke="#e91e63" stroke-width="1.5"/>
+  <text x="574" y="155" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="600" fill="#880e4f">API Server</text>
+  <text x="574" y="172" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#555">deu1 — Germany</text>
+
+  <!-- region N (faded) -->
+  <rect x="680" y="140" width="48" height="38" rx="5" fill="#f5f5f5" stroke="#bdbdbd" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="704" y="162" text-anchor="middle" font-family="sans-serif" font-size="13" fill="#bdbdbd">···</text>
+
+  <!-- Regional DBs -->
+  <!-- ind1 DB -->
+  <rect x="50" y="250" width="172" height="50" rx="5" fill="#fff3e0" stroke="#fb8c00" stroke-width="1.5"/>
+  <text x="136" y="271" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="600" fill="#e65100">Regional DB</text>
+  <text x="136" y="287" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#555">ind1</text>
+
+  <!-- usa1 DB -->
+  <rect x="269" y="250" width="172" height="50" rx="5" fill="#f1f8e9" stroke="#7cb342" stroke-width="1.5"/>
+  <text x="355" y="271" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="600" fill="#33691e">Regional DB</text>
+  <text x="355" y="287" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#555">usa1</text>
+
+  <!-- deu1 DB -->
+  <rect x="488" y="250" width="172" height="50" rx="5" fill="#fce4ec" stroke="#f06292" stroke-width="1.5"/>
+  <text x="574" y="271" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="600" fill="#880e4f">Regional DB</text>
+  <text x="574" y="287" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#555">deu1</text>
+
+  <!-- region N DB (faded) -->
+  <rect x="680" y="252" width="48" height="46" rx="5" fill="#f5f5f5" stroke="#bdbdbd" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="704" y="279" text-anchor="middle" font-family="sans-serif" font-size="13" fill="#bdbdbd">···</text>
+
+  <!-- Server → own DB (solid, primary) -->
+  <line x1="136" y1="183" x2="136" y2="250" stroke="#fb8c00" stroke-width="2" marker-end="url(#arr-orange)"/>
+  <line x1="355" y1="183" x2="355" y2="250" stroke="#7cb342" stroke-width="2"/>
+  <line x1="574" y1="183" x2="574" y2="250" stroke="#f06292" stroke-width="2"/>
+
+  <!-- Cross-region connections (dashed, Option A) -->
+  <!-- ind1 server → usa1 DB -->
+  <path d="M 222 177 C 255 215, 258 238, 269 263" stroke="#bdbdbd" stroke-width="1" stroke-dasharray="3,3" fill="none"/>
+  <!-- ind1 server → deu1 DB -->
+  <path d="M 222 180 C 355 215, 455 232, 488 265" stroke="#bdbdbd" stroke-width="1" stroke-dasharray="3,3" fill="none"/>
+  <!-- usa1 server → ind1 DB -->
+  <path d="M 269 177 C 248 215, 235 238, 222 263" stroke="#bdbdbd" stroke-width="1" stroke-dasharray="3,3" fill="none"/>
+  <!-- usa1 server → deu1 DB -->
+  <path d="M 441 177 C 462 215, 468 238, 488 263" stroke="#bdbdbd" stroke-width="1" stroke-dasharray="3,3" fill="none"/>
+  <!-- deu1 server → ind1 DB -->
+  <path d="M 488 180 C 355 215, 255 232, 222 265" stroke="#bdbdbd" stroke-width="1" stroke-dasharray="3,3" fill="none"/>
+  <!-- deu1 server → usa1 DB -->
+  <path d="M 488 177 C 462 215, 448 238, 441 263" stroke="#bdbdbd" stroke-width="1" stroke-dasharray="3,3" fill="none"/>
+
+  <!-- Global DB -->
+  <rect x="255" y="375" width="220" height="50" rx="5" fill="#e3f2fd" stroke="#1565c0" stroke-width="1.5"/>
+  <text x="365" y="397" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="600" fill="#0d47a1">Global DB</text>
+  <text x="365" y="413" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#555">routing only — email hashes, handle → home region</text>
+
+  <!-- All servers → Global DB -->
+  <line x1="136" y1="300" x2="278" y2="375" stroke="#1565c0" stroke-width="1" marker-end="url(#arr-blue)"/>
+  <line x1="355" y1="300" x2="355" y2="375" stroke="#1565c0" stroke-width="1" marker-end="url(#arr-blue)"/>
+  <line x1="574" y1="300" x2="452" y2="375" stroke="#1565c0" stroke-width="1" marker-end="url(#arr-blue)"/>
+
+  <!-- Legend -->
+  <rect x="30" y="442" width="680" height="18" rx="3" fill="#fff" stroke="#e0e0e0" stroke-width="1"/>
+  <line x1="42" y1="451" x2="62" y2="451" stroke="#fb8c00" stroke-width="2"/>
+  <text x="67" y="455" font-family="sans-serif" font-size="9" fill="#333">home-region r/w (primary)</text>
+  <line x1="210" y1="451" x2="230" y2="451" stroke="#bdbdbd" stroke-width="1" stroke-dasharray="3,3"/>
+  <text x="235" y="455" font-family="sans-serif" font-size="9" fill="#333">cross-region r/w — Option A (all servers reach all regional DBs)</text>
+  <line x1="548" y1="451" x2="568" y2="451" stroke="#1565c0" stroke-width="1"/>
+  <text x="573" y="455" font-family="sans-serif" font-size="9" fill="#333">global DB (all servers)</text>
+</svg>
