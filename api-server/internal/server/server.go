@@ -2,8 +2,8 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
-	"net/http"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -11,7 +11,6 @@ import (
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
-	"vetchium-api-server.gomodule/internal/proxy"
 )
 
 // TokenConfig holds token validity durations used by handlers
@@ -50,12 +49,11 @@ type UIConfig struct {
 	OrgURL   string
 }
 
-// StorageConfig holds S3-compatible object storage connection parameters.
-// Each server instance (global or regional) connects to exactly one Garage
-// instance — the one co-located with that server's data region.
-// Cross-region file access follows the same pattern as databases: the request
-// is proxied to the appropriate regional API server, which then reads/writes
-// its own Garage instance.
+// StorageConfig holds S3-compatible object storage connection parameters for one
+// region. Each regional API server holds N StorageConfig values (one per region) in
+// RegionalServer.AllStorageConfigs, addressed by globaldb.Region. The correct
+// config for any blob operation is selected by the owning entity's home region —
+// mirroring the DB pool selection convention from ADR-001 §4.1.
 type StorageConfig struct {
 	Endpoint        string
 	AccessKeyID     string
@@ -69,25 +67,20 @@ type BaseServer struct {
 	Global     *globaldb.Queries
 	GlobalPool *pgxpool.Pool
 
-	Log           *slog.Logger
-	TokenConfig   *TokenConfig
-	UIConfig      *UIConfig
-	Environment   string
-	StorageConfig *StorageConfig
+	Log         *slog.Logger
+	TokenConfig *TokenConfig
+	UIConfig    *UIConfig
+	Environment string
 }
 
 type PublicServer interface {
 	GetGlobal() *globaldb.Queries
-	GetStorageConfig() *StorageConfig
+	GetGlobalStorageConfig() *StorageConfig
 	Logger(ctx context.Context) *slog.Logger
 }
 
 func (s *BaseServer) GetGlobal() *globaldb.Queries {
 	return s.Global
-}
-
-func (s *BaseServer) GetStorageConfig() *StorageConfig {
-	return s.StorageConfig
 }
 
 type RegionalServer struct {
@@ -100,17 +93,37 @@ type RegionalServer struct {
 	// All regional databases (for cross-region reads such as eligibility checks)
 	AllRegionalDBs map[globaldb.Region]*regionaldb.Queries
 
+	// All regional connection pools (for cross-region writes)
+	AllRegionalPools map[globaldb.Region]*pgxpool.Pool
+
+	// All regional S3 storage configs
+	AllStorageConfigs map[globaldb.Region]*StorageConfig
+
+	// Global S3 storage config (for admin-managed assets like tag icons)
+	GlobalStorageConfig *StorageConfig
+
 	// Server identity
 	CurrentRegion globaldb.Region
-
-	// Internal endpoints for cross-region proxy
-	// Map of region -> base URL (e.g., "ind1" -> "http://regional-api-server-ind1:8080")
-	InternalEndpoints map[globaldb.Region]string
 }
 
 // GetRegionalDB returns the regional DB queries for a given region, or nil if unknown.
 func (s *RegionalServer) GetRegionalDB(region globaldb.Region) *regionaldb.Queries {
 	return s.AllRegionalDBs[region]
+}
+
+// GetRegionalPool returns the regional DB pool for a given region, or nil if unknown.
+func (s *RegionalServer) GetRegionalPool(region globaldb.Region) *pgxpool.Pool {
+	return s.AllRegionalPools[region]
+}
+
+// GetStorageConfig returns the S3 storage config for a given region, or nil if unknown.
+func (s *RegionalServer) GetStorageConfig(region globaldb.Region) *StorageConfig {
+	return s.AllStorageConfigs[region]
+}
+
+// GetGlobalStorageConfig returns the S3 storage config for global assets (admin-managed, e.g. tag icons).
+func (s *RegionalServer) GetGlobalStorageConfig() *StorageConfig {
+	return s.GlobalStorageConfig
 }
 
 // Logger returns the logger from context with request ID, or falls back to base logger.
@@ -126,13 +139,17 @@ func (s *BaseServer) WithGlobalTx(ctx context.Context, fn func(*globaldb.Queries
 	})
 }
 
-// ProxyToRegion proxies the request to the specified region's internal endpoint.
-func (s *RegionalServer) ProxyToRegion(w http.ResponseWriter, r *http.Request, targetRegion globaldb.Region, bodyBytes []byte) {
-	endpoint, ok := s.InternalEndpoints[targetRegion]
-	if !ok {
-		s.Logger(r.Context()).Error("no internal endpoint for region", "region", targetRegion)
-		http.Error(w, "", http.StatusInternalServerError)
-		return
+// WithRegionalTxFor executes fn within a transaction on the given region's DB.
+// Use this when the home region of the entity being written differs from
+// s.CurrentRegion. For writes against s.CurrentRegion, prefer the shorter
+// WithRegionalTx (which is equivalent to WithRegionalTxFor(ctx, s.CurrentRegion, fn)).
+func (s *RegionalServer) WithRegionalTxFor(ctx context.Context, region globaldb.Region, fn func(*regionaldb.Queries) error) error {
+	pool := s.AllRegionalPools[region]
+	if pool == nil {
+		return fmt.Errorf("no pool for region %q", region)
 	}
-	proxy.ToRegion(w, r, endpoint, bodyBytes)
+	return pgx.BeginFunc(ctx, pool, func(tx pgx.Tx) error {
+		qtx := regionaldb.New(tx)
+		return fn(qtx)
+	})
 }

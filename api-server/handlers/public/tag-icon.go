@@ -68,7 +68,7 @@ func GetTagIcon(s server.PublicServer) http.HandlerFunc {
 		}
 
 		// Proxy from S3
-		data, err := downloadFromS3(ctx, s.GetStorageConfig(), s3Key)
+		data, err := downloadFromS3(ctx, s.GetGlobalStorageConfig(), s3Key)
 		if err != nil {
 			s.Logger(ctx).Error("failed to download icon from S3", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)

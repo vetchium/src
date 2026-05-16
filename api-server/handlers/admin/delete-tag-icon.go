@@ -70,7 +70,7 @@ func DeleteTagIcon(s *server.GlobalServer) http.HandlerFunc {
 
 		// Delete from S3
 		s3Key := fmt.Sprintf("tags/%s/%s", req.TagID, string(req.IconSize))
-		if err := deleteFromS3(ctx, s.StorageConfig, s3Key); err != nil {
+		if err := deleteFromS3(ctx, s.GetGlobalStorageConfig(), s3Key); err != nil {
 			s.Logger(ctx).Error("failed to delete icon from S3", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return

@@ -9,7 +9,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"vetchium-api-server.gomodule/internal/audit"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
-	"vetchium-api-server.gomodule/internal/proxy"
 	"vetchium-api-server.gomodule/internal/server"
 	"vetchium-api-server.gomodule/internal/tokens"
 	"vetchium-api-server.typespec/hub"
@@ -18,12 +17,6 @@ import (
 func CompletePasswordReset(s *server.RegionalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-
-		bodyBytes, err := proxy.BufferBody(r)
-		if err != nil {
-			http.Error(w, "", http.StatusBadRequest)
-			return
-		}
 
 		var req hub.HubCompletePasswordResetRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -52,14 +45,16 @@ func CompletePasswordReset(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		// Proxy to correct region if needed
-		if region != s.CurrentRegion {
-			s.ProxyToRegion(w, r, region, bodyBytes)
+		// Select the home region's DB queries. No proxy.
+		homeDB := s.GetRegionalDB(region)
+		if homeDB == nil {
+			s.Logger(ctx).Error("no regional pool for home region", "region", region)
+			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
 		// Validate reset token
-		tokenRecord, err := s.Regional.GetHubPasswordResetToken(ctx, rawToken)
+		tokenRecord, err := homeDB.GetHubPasswordResetToken(ctx, rawToken)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				s.Logger(ctx).Debug("invalid or expired reset token")
@@ -73,7 +68,7 @@ func CompletePasswordReset(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		// Get regional user to check status
-		regionalUser, err := s.Regional.GetHubUserByGlobalID(ctx, tokenRecord.HubUserGlobalID)
+		regionalUser, err := homeDB.GetHubUserByGlobalID(ctx, tokenRecord.HubUserGlobalID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				s.Logger(ctx).Debug("user not found")
@@ -102,7 +97,7 @@ func CompletePasswordReset(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		// Update password, delete token, and invalidate sessions atomically
-		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
+		err = s.WithRegionalTxFor(ctx, region, func(qtx *regionaldb.Queries) error {
 			txErr := qtx.UpdateHubUserPassword(ctx, regionaldb.UpdateHubUserPasswordParams{
 				HubUserGlobalID: tokenRecord.HubUserGlobalID,
 				PasswordHash:    passwordHash,

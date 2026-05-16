@@ -17,7 +17,6 @@ import (
 	"vetchium-api-server.gomodule/internal/audit"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
-	"vetchium-api-server.gomodule/internal/proxy"
 	"vetchium-api-server.gomodule/internal/server"
 	"vetchium-api-server.gomodule/internal/tokens"
 	"vetchium-api-server.typespec/hub"
@@ -26,12 +25,6 @@ import (
 func CompleteSignup(s *server.RegionalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-
-		bodyBytes, err := proxy.BufferBody(r)
-		if err != nil {
-			http.Error(w, "", http.StatusBadRequest)
-			return
-		}
 
 		ctx := r.Context()
 
@@ -131,9 +124,12 @@ func CompleteSignup(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		// Proxy to correct region if needed
-		if globaldb.Region(req.HomeRegion) != s.CurrentRegion {
-			s.ProxyToRegion(w, r, globaldb.Region(req.HomeRegion), bodyBytes)
+		// Select the home region's DB queries. No proxy.
+		homeRegion := globaldb.Region(req.HomeRegion)
+		homeDB := s.GetRegionalDB(homeRegion)
+		if homeDB == nil {
+			s.Logger(ctx).Error("no regional pool for home region", "region", homeRegion)
+			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
@@ -220,7 +216,7 @@ func CompleteSignup(s *server.RegionalServer) http.HandlerFunc {
 		sessionToken := tokens.AddRegionPrefix(globaldb.Region(req.HomeRegion), rawSessionToken)
 
 		// Execute all regional operations in a single transaction
-		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
+		err = s.WithRegionalTxFor(ctx, homeRegion, func(qtx *regionaldb.Queries) error {
 			_, txErr := qtx.CreateHubUser(ctx, regionaldb.CreateHubUserParams{
 				HubUserGlobalID:     hubUserGlobalID,
 				EmailAddress:        email,

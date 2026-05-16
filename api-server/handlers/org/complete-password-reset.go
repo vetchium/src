@@ -9,7 +9,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"vetchium-api-server.gomodule/internal/audit"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
-	"vetchium-api-server.gomodule/internal/proxy"
 	"vetchium-api-server.gomodule/internal/server"
 	"vetchium-api-server.gomodule/internal/tokens"
 	"vetchium-api-server.typespec/org"
@@ -18,12 +17,6 @@ import (
 func CompletePasswordReset(s *server.RegionalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-
-		bodyBytes, err := proxy.BufferBody(r)
-		if err != nil {
-			http.Error(w, "", http.StatusBadRequest)
-			return
-		}
 
 		ctx := r.Context()
 
@@ -52,14 +45,16 @@ func CompletePasswordReset(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		// Proxy to correct region if needed
-		if region != s.CurrentRegion {
-			s.ProxyToRegion(w, r, region, bodyBytes)
+		// Select the home region's DB queries. No proxy.
+		homeDB := s.GetRegionalDB(region)
+		if homeDB == nil {
+			s.Logger(ctx).Error("no regional pool for home region", "region", region)
+			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
 		// Look up reset token (includes expiry check)
-		resetTokenRecord, err := s.Regional.GetOrgPasswordResetToken(ctx, string(req.ResetToken))
+		resetTokenRecord, err := homeDB.GetOrgPasswordResetToken(ctx, string(req.ResetToken))
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				s.Logger(ctx).Debug("reset token not found or expired")
@@ -80,7 +75,7 @@ func CompletePasswordReset(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		// Look up org user to get org_id for audit log
-		orgUser, err := s.Regional.GetOrgUserByID(ctx, resetTokenRecord.OrgUserGlobalID)
+		orgUser, err := homeDB.GetOrgUserByID(ctx, resetTokenRecord.OrgUserGlobalID)
 		if err != nil {
 			s.Logger(ctx).Error("failed to get org user for audit log", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
@@ -88,7 +83,7 @@ func CompletePasswordReset(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		// Update password, delete token, invalidate sessions, and write audit log atomically
-		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
+		err = s.WithRegionalTxFor(ctx, region, func(qtx *regionaldb.Queries) error {
 			txErr := qtx.UpdateOrgUserPassword(ctx, regionaldb.UpdateOrgUserPasswordParams{
 				OrgUserID:    resetTokenRecord.OrgUserGlobalID,
 				PasswordHash: passwordHash,

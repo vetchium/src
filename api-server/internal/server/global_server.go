@@ -20,8 +20,8 @@ type GlobalServer struct {
 	RegionalPools map[globaldb.Region]*pgxpool.Pool
 	RegionalDBs   map[globaldb.Region]*regionaldb.Queries
 
-	// Internal endpoints for cross-region proxying (fallback)
-	InternalEndpoints map[globaldb.Region]string
+	// S3 storage config for admin-managed assets
+	StorageConfig *StorageConfig
 }
 
 // GetRegionalDB returns the regional DB queries for a given region, or nil if unknown.
@@ -44,6 +44,11 @@ func (s *GlobalServer) WithRegionalTx(ctx context.Context, region globaldb.Regio
 		qtx := regionaldb.New(tx)
 		return fn(qtx)
 	})
+}
+
+// GetGlobalStorageConfig returns the global S3 storage config (for admin-managed assets).
+func (s *GlobalServer) GetGlobalStorageConfig() *StorageConfig {
+	return s.StorageConfig
 }
 
 // AllRegions returns all regions that have a regional DB configured.

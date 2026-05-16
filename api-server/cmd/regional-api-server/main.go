@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -77,24 +78,40 @@ func main() {
 		OrgURL:   getEnvOrDefault("ORG_UI_URL", "http://localhost:3002"),
 	}
 
-	// Build internal endpoints map for cross-region proxy
-	internalEndpoints := map[globaldb.Region]string{
-		globaldb.RegionInd1: getEnvOrDefault("INTERNAL_ENDPOINT_IND1", "http://regional-api-server-ind1:8080"),
-		globaldb.RegionUsa1: getEnvOrDefault("INTERNAL_ENDPOINT_USA1", "http://regional-api-server-usa1:8080"),
-		globaldb.RegionDeu1: getEnvOrDefault("INTERNAL_ENDPOINT_DEU1", "http://regional-api-server-deu1:8080"),
+	// Build per-region storage configs
+	allStorageConfigs := map[globaldb.Region]*server.StorageConfig{}
+	for _, rgn := range []globaldb.Region{globaldb.RegionInd1, globaldb.RegionUsa1, globaldb.RegionDeu1} {
+		suffix := strings.ToUpper(string(rgn)) // "IND1", "USA1", "DEU1"
+		endpoint := os.Getenv("S3_ENDPOINT_" + suffix)
+		bucket := os.Getenv("S3_BUCKET_" + suffix)
+		if endpoint == "" || bucket == "" {
+			logger.Warn("missing S3 config for region", "region", rgn)
+			continue
+		}
+		allStorageConfigs[rgn] = &server.StorageConfig{
+			Endpoint:        endpoint,
+			AccessKeyID:     os.Getenv("S3_ACCESS_KEY_ID_" + suffix),
+			SecretAccessKey: os.Getenv("S3_SECRET_ACCESS_KEY_" + suffix),
+			Region:          os.Getenv("S3_REGION_" + suffix),
+			Bucket:          bucket,
+		}
 	}
 
-	storageConfig := &server.StorageConfig{
-		Endpoint:        os.Getenv("S3_ENDPOINT"),
-		AccessKeyID:     os.Getenv("S3_ACCESS_KEY_ID"),
-		SecretAccessKey: os.Getenv("S3_SECRET_ACCESS_KEY"),
-		Region:          getEnvOrDefault("S3_REGION", "us-east-1"),
-		Bucket:          os.Getenv("S3_BUCKET"),
+	// Build global storage config (for admin-managed assets)
+	globalStorageConfig := &server.StorageConfig{
+		Endpoint:        os.Getenv("GLOBAL_S3_ENDPOINT"),
+		AccessKeyID:     os.Getenv("GLOBAL_S3_ACCESS_KEY_ID"),
+		SecretAccessKey: os.Getenv("GLOBAL_S3_SECRET_ACCESS_KEY"),
+		Region:          os.Getenv("GLOBAL_S3_REGION"),
+		Bucket:          os.Getenv("GLOBAL_S3_BUCKET"),
 	}
 
-	// Build all-regional-DB map for cross-region reads (e.g., eligibility stints)
+	// Build all-regional-DB and pool maps for cross-region reads and writes
 	allRegionalDBs := map[globaldb.Region]*regionaldb.Queries{
 		currentRegion: regionaldb.New(regionalConn),
+	}
+	allRegionalPools := map[globaldb.Region]*pgxpool.Pool{
+		currentRegion: regionalConn,
 	}
 	allRegionalConnEnvs := map[globaldb.Region]string{
 		globaldb.RegionInd1: getEnvOrDefault("REGIONAL_DB_CONN_IND1", ""),
@@ -112,23 +129,25 @@ func main() {
 		}
 		defer pool.Close()
 		allRegionalDBs[rgn] = regionaldb.New(pool)
+		allRegionalPools[rgn] = pool
 	}
 
 	s := &server.RegionalServer{
 		BaseServer: server.BaseServer{
-			Global:        globaldb.New(globalConn),
-			GlobalPool:    globalConn,
-			Log:           logger,
-			TokenConfig:   tokenConfig,
-			UIConfig:      uiConfig,
-			Environment:   environment,
-			StorageConfig: storageConfig,
+			Global:      globaldb.New(globalConn),
+			GlobalPool:  globalConn,
+			Log:         logger,
+			TokenConfig: tokenConfig,
+			UIConfig:    uiConfig,
+			Environment: environment,
 		},
-		Regional:          regionaldb.New(regionalConn),
-		RegionalPool:      regionalConn,
-		AllRegionalDBs:    allRegionalDBs,
-		CurrentRegion:     currentRegion,
-		InternalEndpoints: internalEndpoints,
+		Regional:            regionaldb.New(regionalConn),
+		RegionalPool:        regionalConn,
+		AllRegionalDBs:      allRegionalDBs,
+		AllRegionalPools:    allRegionalPools,
+		AllStorageConfigs:   allStorageConfigs,
+		GlobalStorageConfig: globalStorageConfig,
+		CurrentRegion:       currentRegion,
 	}
 
 	// Setup graceful shutdown context

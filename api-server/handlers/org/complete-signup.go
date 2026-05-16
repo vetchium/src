@@ -16,7 +16,6 @@ import (
 	"vetchium-api-server.gomodule/internal/audit"
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
-	"vetchium-api-server.gomodule/internal/proxy"
 	"vetchium-api-server.gomodule/internal/server"
 	"vetchium-api-server.gomodule/internal/tokens"
 	orgtypes "vetchium-api-server.typespec/org"
@@ -25,12 +24,6 @@ import (
 func CompleteSignup(s *server.RegionalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-
-		bodyBytes, err := proxy.BufferBody(r)
-		if err != nil {
-			http.Error(w, "", http.StatusBadRequest)
-			return
-		}
 
 		ctx := r.Context()
 
@@ -101,9 +94,11 @@ func CompleteSignup(s *server.RegionalServer) http.HandlerFunc {
 
 		s.Logger(ctx).Info("DNS verification successful", "domain", domain)
 
-		// Proxy to correct region if needed
-		if region != s.CurrentRegion {
-			s.ProxyToRegion(w, r, region, bodyBytes)
+		// Select the home region's DB queries. No proxy.
+		homeDB := s.GetRegionalDB(region)
+		if homeDB == nil {
+			s.Logger(ctx).Error("no regional pool for home region", "region", region)
+			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
@@ -218,7 +213,7 @@ func CompleteSignup(s *server.RegionalServer) http.HandlerFunc {
 		// Execute all regional operations in a single transaction.
 		// The org is always newly created above, so this is definitionally
 		// the first user — assign the superadmin role unconditionally.
-		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
+		err = s.WithRegionalTxFor(ctx, region, func(qtx *regionaldb.Queries) error {
 			// 1. Create regional user with full details
 			_, txErr := qtx.CreateOrgUser(ctx, regionaldb.CreateOrgUserParams{
 				OrgUserID:         globalUser.OrgUserID,

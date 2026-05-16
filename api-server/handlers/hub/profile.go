@@ -26,7 +26,6 @@ import (
 	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
-	"vetchium-api-server.gomodule/internal/proxy"
 	"vetchium-api-server.gomodule/internal/server"
 	common "vetchium-api-server.typespec/common"
 	hubtypes "vetchium-api-server.typespec/hub"
@@ -465,6 +464,15 @@ func UploadProfilePicture(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
+		// Get the home region from context (set by auth middleware)
+		homeRegion := globaldb.Region(middleware.HubRegionFromContext(ctx))
+		storageCfg := s.GetStorageConfig(homeRegion)
+		if storageCfg == nil {
+			log.Error("no S3 config for home region", "region", homeRegion)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
 		// Parse multipart form with 10MB max memory
 		if err := r.ParseMultipartForm(10 << 20); err != nil {
 			log.Debug("failed to parse multipart form", "error", err)
@@ -534,7 +542,7 @@ func UploadProfilePicture(s *server.RegionalServer) http.HandlerFunc {
 		newKey := fmt.Sprintf("hub-profile-pictures/%s/%s.%s", idStr, hex.EncodeToString(randBytes), ext)
 
 		// Upload to S3
-		if err := uploadProfileImageToS3(ctx, s.StorageConfig, newKey, contentType, fileBytes); err != nil {
+		if err := uploadProfileImageToS3(ctx, storageCfg, newKey, contentType, fileBytes); err != nil {
 			log.Error("failed to upload profile picture to S3", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
@@ -591,7 +599,7 @@ func UploadProfilePicture(s *server.RegionalServer) http.HandlerFunc {
 
 		if regionalErr != nil {
 			// Best-effort delete the uploaded S3 object
-			if delErr := deleteProfileImageFromS3(ctx, s.StorageConfig, newKey); delErr != nil {
+			if delErr := deleteProfileImageFromS3(ctx, storageCfg, newKey); delErr != nil {
 				log.Error("failed to delete orphaned S3 object after tx failure", "key", newKey, "error", delErr)
 			}
 			log.Error("failed to update profile picture key in DB", "error", regionalErr)
@@ -718,14 +726,6 @@ func GetProfile(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		// Buffer body so we can proxy it if needed
-		bodyBytes, err := proxy.BufferBody(r)
-		if err != nil {
-			log.Error("failed to buffer request body", "error", err)
-			http.Error(w, "", http.StatusBadRequest)
-			return
-		}
-
 		var req hubtypes.GetProfileRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			log.Debug("failed to decode request", "error", err)
@@ -752,14 +752,17 @@ func GetProfile(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		// Proxy to the correct region if the target user's home region differs from ours
-		if globalHubUser.HomeRegion != s.CurrentRegion {
-			s.ProxyToRegion(w, r, globalHubUser.HomeRegion, bodyBytes)
+		// Select the target user's home region's DB queries. No proxy.
+		homeRegion := globalHubUser.HomeRegion
+		homeDB := s.GetRegionalDB(homeRegion)
+		if homeDB == nil {
+			log.Error("no regional pool for home region", "region", homeRegion)
+			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		// One regional read for the local region
-		publicProfile, err := s.Regional.GetPublicProfileByHandle(ctx, string(req.Handle))
+		// One regional read for the target user's home region
+		publicProfile, err := homeDB.GetPublicProfileByHandle(ctx, string(req.Handle))
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				w.WriteHeader(http.StatusNotFound)
@@ -843,15 +846,23 @@ func GetProfilePicture(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		// Proxy to the correct region if the target user's home region differs from ours
-		// GET request — no body to proxy
-		if globalHubUser.HomeRegion != s.CurrentRegion {
-			s.ProxyToRegion(w, r, globalHubUser.HomeRegion, nil)
+		// Select the target user's home region DB and S3 config. No proxy.
+		targetRegion := globalHubUser.HomeRegion
+		targetDB := s.GetRegionalDB(targetRegion)
+		if targetDB == nil {
+			log.Error("no regional pool for target region", "region", targetRegion)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+		targetStorageCfg := s.GetStorageConfig(targetRegion)
+		if targetStorageCfg == nil {
+			log.Error("no S3 config for target region", "region", targetRegion)
+			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
 		// One regional read: get storage key for active user
-		publicProfile, err := s.Regional.GetPublicProfileByHandle(ctx, handle)
+		publicProfile, err := targetDB.GetPublicProfileByHandle(ctx, handle)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				w.WriteHeader(http.StatusNotFound)
@@ -868,7 +879,7 @@ func GetProfilePicture(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		s3Key := publicProfile.ProfilePictureStorageKey.String
-		body, err := downloadFromProfileS3(ctx, s.StorageConfig, s3Key)
+		body, err := downloadFromProfileS3(ctx, targetStorageCfg, s3Key)
 		if err != nil {
 			log.Error("failed to download profile picture from S3", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)

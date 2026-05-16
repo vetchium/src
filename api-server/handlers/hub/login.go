@@ -19,7 +19,6 @@ import (
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/email/templates"
 	"vetchium-api-server.gomodule/internal/i18n"
-	"vetchium-api-server.gomodule/internal/proxy"
 	"vetchium-api-server.gomodule/internal/server"
 	"vetchium-api-server.gomodule/internal/tokens"
 	"vetchium-api-server.typespec/hub"
@@ -28,12 +27,6 @@ import (
 func Login(s *server.RegionalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-
-		bodyBytes, err := proxy.BufferBody(r)
-		if err != nil {
-			http.Error(w, "", http.StatusBadRequest)
-			return
-		}
 
 		var loginRequest hub.HubLoginRequest
 		if err := json.NewDecoder(r.Body).Decode(&loginRequest); err != nil {
@@ -71,14 +64,17 @@ func Login(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		// Proxy to correct region if needed
-		if globalUser.HomeRegion != s.CurrentRegion {
-			s.ProxyToRegion(w, r, globalUser.HomeRegion, bodyBytes)
+		// Select the home region's DB queries. No proxy.
+		homeRegion := globalUser.HomeRegion
+		homeDB := s.GetRegionalDB(homeRegion)
+		if homeDB == nil {
+			s.Logger(ctx).Error("no regional pool for home region", "region", homeRegion)
+			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
 		// Query regional database for password hash
-		regionalUser, err := s.Regional.GetHubUserByEmail(ctx, string(loginRequest.EmailAddress))
+		regionalUser, err := homeDB.GetHubUserByEmail(ctx, string(loginRequest.EmailAddress))
 		if errors.Is(err, pgx.ErrNoRows) {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
@@ -100,7 +96,7 @@ func Login(s *server.RegionalServer) http.HandlerFunc {
 		if err := bcrypt.CompareHashAndPassword(regionalUser.PasswordHash, []byte(loginRequest.Password)); err != nil {
 			s.Logger(ctx).Debug("invalid credentials - password mismatch")
 			w.WriteHeader(http.StatusUnauthorized)
-			if auditErr := s.Regional.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
+			if auditErr := homeDB.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
 				EventType:   "hub.login_failed",
 				ActorUserID: regionalUser.HubUserGlobalID,
 				IpAddress:   audit.ExtractClientIP(r),
@@ -131,11 +127,11 @@ func Login(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		// Create TFA token and enqueue email atomically in regional DB
+		// Create TFA token and enqueue email atomically in home region's DB
 		tfaTokenExpiry := s.TokenConfig.HubTFATokenExpiry
 		expiresAt := pgtype.Timestamptz{Time: time.Now().Add(tfaTokenExpiry), Valid: true}
 		lang := i18n.Match(regionalUser.PreferredLanguage)
-		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
+		err = s.WithRegionalTxFor(ctx, homeRegion, func(qtx *regionaldb.Queries) error {
 			txErr := qtx.CreateHubTFAToken(ctx, regionaldb.CreateHubTFATokenParams{
 				TfaToken:        rawTFAToken,
 				HubUserGlobalID: regionalUser.HubUserGlobalID,

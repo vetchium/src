@@ -21,7 +21,7 @@ func RegisterOrgRoutes(mux *http.ServeMux, s *server.RegionalServer) {
 	mux.HandleFunc("POST /org/complete-password-reset", org.CompletePasswordReset(s))
 
 	// Create middleware instances
-	orgAuth := middleware.OrgAuth(s.Regional, s.CurrentRegion, s.InternalEndpoints)
+	orgAuth := middleware.OrgAuth(s.AllRegionalDBs)
 	orgRoleViewUsers := middleware.OrgRole(s.Regional, orgspec.OrgRoleViewUsers, orgspec.OrgRoleManageUsers)
 	orgRoleManageUsers := middleware.OrgRole(s.Regional, orgspec.OrgRoleManageUsers)
 	orgRoleViewDomains := middleware.OrgRole(s.Regional, orgspec.OrgRoleViewDomains, orgspec.OrgRoleManageDomains)

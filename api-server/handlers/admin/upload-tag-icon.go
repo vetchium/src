@@ -98,7 +98,7 @@ func UploadTagIcon(s *server.GlobalServer) http.HandlerFunc {
 
 		// Upload to S3
 		s3Key := fmt.Sprintf("tags/%s/%s", tagID, iconSize)
-		if err := uploadToS3(ctx, s.StorageConfig, s3Key, contentType, fileBytes); err != nil {
+		if err := uploadToS3(ctx, s.GetGlobalStorageConfig(), s3Key, contentType, fileBytes); err != nil {
 			s.Logger(ctx).Error("failed to upload icon to S3", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return

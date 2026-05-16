@@ -63,12 +63,13 @@ func main() {
 		AdminURL: getEnvOrDefault("ADMIN_UI_URL", "http://localhost:3001"),
 	}
 
-	storageConfig := &server.StorageConfig{
-		Endpoint:        os.Getenv("S3_ENDPOINT"),
-		AccessKeyID:     os.Getenv("S3_ACCESS_KEY_ID"),
-		SecretAccessKey: os.Getenv("S3_SECRET_ACCESS_KEY"),
-		Region:          getEnvOrDefault("S3_REGION", "us-east-1"),
-		Bucket:          os.Getenv("S3_BUCKET"),
+	// Load global S3 storage config (for admin-managed assets like tag icons)
+	globalStorageConfig := &server.StorageConfig{
+		Endpoint:        os.Getenv("GLOBAL_S3_ENDPOINT"),
+		AccessKeyID:     os.Getenv("GLOBAL_S3_ACCESS_KEY_ID"),
+		SecretAccessKey: os.Getenv("GLOBAL_S3_SECRET_ACCESS_KEY"),
+		Region:          os.Getenv("GLOBAL_S3_REGION"),
+		Bucket:          os.Getenv("GLOBAL_S3_BUCKET"),
 	}
 
 	// Connect to all regional databases (needed for admin marketplace operations)
@@ -95,25 +96,18 @@ func main() {
 		logger.Info("connected to regional database", "region", region)
 	}
 
-	internalEndpoints := map[globaldb.Region]string{
-		globaldb.RegionInd1: getEnvOrDefault("INTERNAL_ENDPOINT_IND1", "http://regional-api-server-ind1:8080"),
-		globaldb.RegionUsa1: getEnvOrDefault("INTERNAL_ENDPOINT_USA1", "http://regional-api-server-usa1:8080"),
-		globaldb.RegionDeu1: getEnvOrDefault("INTERNAL_ENDPOINT_DEU1", "http://regional-api-server-deu1:8080"),
-	}
-
 	s := &server.GlobalServer{
 		BaseServer: server.BaseServer{
-			Global:        globalQueries,
-			GlobalPool:    globalConn,
-			Log:           logger,
-			TokenConfig:   tokenConfig,
-			UIConfig:      uiConfig,
-			Environment:   environment,
-			StorageConfig: storageConfig,
+			Global:      globalQueries,
+			GlobalPool:  globalConn,
+			Log:         logger,
+			TokenConfig: tokenConfig,
+			UIConfig:    uiConfig,
+			Environment: environment,
 		},
-		RegionalPools:     regionalConns,
-		RegionalDBs:       regionalDBs,
-		InternalEndpoints: internalEndpoints,
+		RegionalPools: regionalConns,
+		RegionalDBs:   regionalDBs,
+		StorageConfig: globalStorageConfig,
 	}
 
 	// Setup graceful shutdown context

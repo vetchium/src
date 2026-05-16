@@ -17,7 +17,6 @@ import (
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/email/templates"
 	"vetchium-api-server.gomodule/internal/i18n"
-	"vetchium-api-server.gomodule/internal/proxy"
 	"vetchium-api-server.gomodule/internal/server"
 	"vetchium-api-server.gomodule/internal/tokens"
 	"vetchium-api-server.typespec/hub"
@@ -26,13 +25,6 @@ import (
 func RequestPasswordReset(s *server.RegionalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-
-		bodyBytes, err := proxy.BufferBody(r)
-		if err != nil {
-			s.Logger(r.Context()).Error("failed to buffer request body", "error", err)
-			http.Error(w, "", http.StatusBadRequest)
-			return
-		}
 
 		var req hub.HubRequestPasswordResetRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -71,14 +63,17 @@ func RequestPasswordReset(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		// Proxy to correct region if needed
-		if globalUser.HomeRegion != s.CurrentRegion {
-			s.ProxyToRegion(w, r, globalUser.HomeRegion, bodyBytes)
+		// Select the home region's DB queries. No proxy.
+		homeRegion := globalUser.HomeRegion
+		homeDB := s.GetRegionalDB(homeRegion)
+		if homeDB == nil {
+			s.Logger(ctx).Error("no regional pool for home region", "region", homeRegion)
+			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
 		// Get regional user for email address and status check
-		regionalUser, err := s.Regional.GetHubUserByEmail(ctx, string(req.EmailAddress))
+		regionalUser, err := homeDB.GetHubUserByEmail(ctx, string(req.EmailAddress))
 		if errors.Is(err, pgx.ErrNoRows) {
 			// Should not happen since global user exists, but handle gracefully
 			s.Logger(ctx).Error("regional user not found but global user exists", "hub_user_global_id", globalUser.HubUserGlobalID)
@@ -115,7 +110,7 @@ func RequestPasswordReset(s *server.RegionalServer) http.HandlerFunc {
 		resetTokenExpiry := s.TokenConfig.PasswordResetTokenExpiry
 		expiresAt := pgtype.Timestamptz{Time: time.Now().Add(resetTokenExpiry), Valid: true}
 		lang := i18n.Match(regionalUser.PreferredLanguage)
-		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
+		err = s.WithRegionalTxFor(ctx, homeRegion, func(qtx *regionaldb.Queries) error {
 			txErr := qtx.CreateHubPasswordResetToken(ctx, regionaldb.CreateHubPasswordResetTokenParams{
 				ResetToken:      rawResetToken,
 				HubUserGlobalID: regionalUser.HubUserGlobalID,

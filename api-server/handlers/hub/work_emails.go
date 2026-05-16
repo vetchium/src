@@ -23,7 +23,6 @@ import (
 	"vetchium-api-server.gomodule/internal/email/templates"
 	"vetchium-api-server.gomodule/internal/i18n"
 	"vetchium-api-server.gomodule/internal/middleware"
-	"vetchium-api-server.gomodule/internal/proxy"
 	"vetchium-api-server.gomodule/internal/server"
 	hubtypes "vetchium-api-server.typespec/hub"
 )
@@ -978,12 +977,6 @@ func ListPublicEmployerStints(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		bodyBytes, err := proxy.BufferBody(r)
-		if err != nil {
-			http.Error(w, "", http.StatusBadRequest)
-			return
-		}
-
 		var req hubtypes.ListPublicEmployerStintsRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -1010,13 +1003,16 @@ func ListPublicEmployerStints(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		// Proxy to correct region if needed
-		if globalHubUser.HomeRegion != s.CurrentRegion {
-			s.ProxyToRegion(w, r, globalHubUser.HomeRegion, bodyBytes)
+		// Select the home region's DB queries. No proxy.
+		homeRegion := globalHubUser.HomeRegion
+		homeDB := s.GetRegionalDB(homeRegion)
+		if homeDB == nil {
+			log.Error("no regional pool for home region", "region", homeRegion)
+			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		rows, err := s.Regional.ListPublicEmployerStintsByHandle(ctx, req.Handle)
+		rows, err := homeDB.ListPublicEmployerStintsByHandle(ctx, req.Handle)
 		if err != nil {
 			log.Error("failed to list public employer stints", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)

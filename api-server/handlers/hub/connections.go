@@ -17,7 +17,6 @@ import (
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/email/templates"
 	"vetchium-api-server.gomodule/internal/middleware"
-	"vetchium-api-server.gomodule/internal/proxy"
 	"vetchium-api-server.gomodule/internal/server"
 	hubtypes "vetchium-api-server.typespec/hub"
 )
@@ -172,12 +171,6 @@ func SendConnectionRequest(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		bodyBytes, err := proxy.BufferBody(r)
-		if err != nil {
-			http.Error(w, "", http.StatusBadRequest)
-			return
-		}
-
 		var req hubtypes.HandleRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -250,8 +243,8 @@ func SendConnectionRequest(s *server.RegionalServer) http.HandlerFunc {
 		} else {
 			targetRegDB := s.GetRegionalDB(targetGlobal.HomeRegion)
 			if targetRegDB == nil {
-				// Fall back to proxy if we can't access target's region directly
-				s.ProxyToRegion(w, r, targetGlobal.HomeRegion, bodyBytes)
+				log.Error("no regional pool for home region", "region", targetGlobal.HomeRegion)
+				http.Error(w, "", http.StatusInternalServerError)
 				return
 			}
 			targetStints, err = targetRegDB.GetUserEligibilityStints(ctx, targetGlobal.HubUserGlobalID)
@@ -431,12 +424,6 @@ func AcceptConnectionRequest(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		bodyBytes, err := proxy.BufferBody(r)
-		if err != nil {
-			http.Error(w, "", http.StatusBadRequest)
-			return
-		}
-
 		var req hubtypes.HandleRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -475,9 +462,12 @@ func AcceptConnectionRequest(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		// Proxy to pair's region if different
-		if pairRoute.Region != string(s.CurrentRegion) {
-			s.ProxyToRegion(w, r, globaldb.Region(pairRoute.Region), bodyBytes)
+		// Select the pair's region's DB queries. No proxy.
+		pairRegion := globaldb.Region(pairRoute.Region)
+		pairDB := s.GetRegionalDB(pairRegion)
+		if pairDB == nil {
+			log.Error("no regional pool for pair region", "region", pairRegion)
+			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
@@ -566,12 +556,6 @@ func RejectConnectionRequest(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		bodyBytes, err := proxy.BufferBody(r)
-		if err != nil {
-			http.Error(w, "", http.StatusBadRequest)
-			return
-		}
-
 		var req hubtypes.HandleRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -609,8 +593,12 @@ func RejectConnectionRequest(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		if pairRoute.Region != string(s.CurrentRegion) {
-			s.ProxyToRegion(w, r, globaldb.Region(pairRoute.Region), bodyBytes)
+		// Select the pair's region's DB queries. No proxy.
+		pairRegion := globaldb.Region(pairRoute.Region)
+		pairDB := s.GetRegionalDB(pairRegion)
+		if pairDB == nil {
+			log.Error("no regional pool for pair region", "region", pairRegion)
+			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
@@ -663,12 +651,6 @@ func WithdrawConnectionRequest(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		bodyBytes, err := proxy.BufferBody(r)
-		if err != nil {
-			http.Error(w, "", http.StatusBadRequest)
-			return
-		}
-
 		var req hubtypes.HandleRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -706,8 +688,12 @@ func WithdrawConnectionRequest(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		if pairRoute.Region != string(s.CurrentRegion) {
-			s.ProxyToRegion(w, r, globaldb.Region(pairRoute.Region), bodyBytes)
+		// Select the pair's region's DB queries. No proxy.
+		pairRegion := globaldb.Region(pairRoute.Region)
+		pairDB := s.GetRegionalDB(pairRegion)
+		if pairDB == nil {
+			log.Error("no regional pool for pair region", "region", pairRegion)
+			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
@@ -778,12 +764,6 @@ func DisconnectConnection(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		bodyBytes, err := proxy.BufferBody(r)
-		if err != nil {
-			http.Error(w, "", http.StatusBadRequest)
-			return
-		}
-
 		var req hubtypes.HandleRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -820,8 +800,12 @@ func DisconnectConnection(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		if pairRoute.Region != string(s.CurrentRegion) {
-			s.ProxyToRegion(w, r, globaldb.Region(pairRoute.Region), bodyBytes)
+		// Select the pair's region's DB queries. No proxy.
+		pairRegion := globaldb.Region(pairRoute.Region)
+		pairDB := s.GetRegionalDB(pairRegion)
+		if pairDB == nil {
+			log.Error("no regional pool for pair region", "region", pairRegion)
+			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 

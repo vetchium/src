@@ -10,7 +10,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"vetchium-api-server.gomodule/internal/audit"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
-	"vetchium-api-server.gomodule/internal/proxy"
 	"vetchium-api-server.gomodule/internal/server"
 	"vetchium-api-server.gomodule/internal/tokens"
 	"vetchium-api-server.typespec/org"
@@ -19,12 +18,6 @@ import (
 func CompleteSetup(s *server.RegionalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-
-		bodyBytes, err := proxy.BufferBody(r)
-		if err != nil {
-			http.Error(w, "", http.StatusBadRequest)
-			return
-		}
 
 		ctx := r.Context()
 
@@ -62,14 +55,16 @@ func CompleteSetup(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		// Proxy to correct region if needed
-		if region != s.CurrentRegion {
-			s.ProxyToRegion(w, r, region, bodyBytes)
+		// Select the home region's DB queries. No proxy.
+		homeDB := s.GetRegionalDB(region)
+		if homeDB == nil {
+			s.Logger(ctx).Error("no regional pool for home region", "region", region)
+			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
 		// Get invitation token from regional DB (checks expiry automatically)
-		invitationTokenData, err := s.Regional.GetOrgInvitationToken(ctx, rawToken)
+		invitationTokenData, err := homeDB.GetOrgInvitationToken(ctx, rawToken)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				s.Logger(ctx).Debug("invalid or expired invitation token")
@@ -82,7 +77,7 @@ func CompleteSetup(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		// Get org user from regional DB to check status
-		regionalUser, err := s.Regional.GetOrgUserByID(ctx, invitationTokenData.OrgUserID)
+		regionalUser, err := homeDB.GetOrgUserByID(ctx, invitationTokenData.OrgUserID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				s.Logger(ctx).Debug("org user not found in regional DB")
@@ -116,7 +111,7 @@ func CompleteSetup(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		// Update org user, delete invitation token, and write audit log atomically
-		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
+		err = s.WithRegionalTxFor(ctx, region, func(qtx *regionaldb.Queries) error {
 			if txErr := qtx.UpdateOrgUserSetup(ctx, regionaldb.UpdateOrgUserSetupParams{
 				OrgUserID:          invitationTokenData.OrgUserID,
 				PasswordHash:       passwordHash,

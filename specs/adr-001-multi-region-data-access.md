@@ -23,13 +23,13 @@ cross-region read-write database access from all regional API servers**.
 
 ### 1.1 Infrastructure
 
-| Component                      | Cardinality                          | Role                                                                                                    |
-| ------------------------------ | ------------------------------------ | ------------------------------------------------------------------------------------------------------- |
-| Global PostgreSQL DB           | 1                                    | Identity routing: email hashes, handle → home-region mapping. No PII.                                   |
-| Regional PostgreSQL DB         | N (currently `ind1`, `usa1`, `deu1`) | All PII, credentials, mutable entity state. Each regional DB is authoritative for entities homed there. |
-| Regional API Server            | N                                    | HTTP request handlers. One per region.                                                                  |
-| nginx Load Balancer            | 1                                    | Distributes HTTP traffic across all regional API servers (round-robin).                                 |
-| Object Storage (S3-compatible) | 1                                    | Profile pictures and file uploads.                                                                      |
+| Component                      | Cardinality                          | Role                                                                                                                                   |
+| ------------------------------ | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Global PostgreSQL DB           | 1                                    | Identity routing: email hashes, handle → home-region mapping. No PII.                                                                  |
+| Regional PostgreSQL DB         | N (currently `ind1`, `usa1`, `deu1`) | All PII, credentials, mutable entity state. Each regional DB is authoritative for entities homed there.                                |
+| Regional API Server            | N                                    | HTTP request handlers. One per region.                                                                                                 |
+| nginx Load Balancer            | 1                                    | Distributes HTTP traffic across all regional API servers (round-robin).                                                                |
+| Object Storage (S3-compatible) | N (one per region)                   | Profile pictures and file uploads. Each region has its own bucket reached via its own S3 endpoint, mirroring the regional DB topology. |
 
 New regions are added by following [ADD_NEW_REGION.md](../ADD_NEW_REGION.md). Every new region
 adds one regional DB and one regional API server; the architecture described here applies
@@ -55,6 +55,16 @@ and read from its home regional database.
 Session tokens carry a region prefix (`ind1_`, `usa1_`, `deu1_`, …). The auth middleware on each
 regional API server uses this prefix to identify the user's home region and validate that the
 request is executing against the correct data.
+
+### 1.4 Regional Object Storage
+
+Object storage is regional in the same sense as the database: each region has its own
+S3-compatible endpoint and bucket (`vetchium-ind1`, `vetchium-usa1`, `vetchium-deu1`,
+…). Binary blobs follow the entity's home region — a hub user's profile picture is
+written to and read from their home region's bucket, addressed by a region-prefixed S3
+key (`profiles/{hub_user_global_id}/{filename}`). API servers hold one S3 client per
+region, selected at call time based on the owning entity's home region, exactly as for
+the database pools described in §4.1.
 
 ---
 
@@ -312,6 +322,11 @@ connection count becomes a constraint.
 **Cross-region connectivity monitoring.** A network partition between region X's server and region
 Y's DB makes region X unable to serve region Y–owned entities. Monitoring must cover all
 server-to-DB pairs as distinct health signals, not only local DB connectivity.
+
+**Per-region S3 client multiplexing.** Each regional API server instantiates N S3
+clients (one per region) using N endpoint/credential triples. Misrouting a write to the
+wrong bucket is a code-convention risk identical to misrouting a DB write, and is
+mitigated the same way (explicit pool/client selection per call, PR review).
 
 ---
 

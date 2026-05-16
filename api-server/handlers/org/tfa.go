@@ -12,7 +12,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"vetchium-api-server.gomodule/internal/audit"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
-	"vetchium-api-server.gomodule/internal/proxy"
 	"vetchium-api-server.gomodule/internal/server"
 	"vetchium-api-server.gomodule/internal/tokens"
 	"vetchium-api-server.typespec/common"
@@ -22,12 +21,6 @@ import (
 func TFA(s *server.RegionalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-
-		bodyBytes, err := proxy.BufferBody(r)
-		if err != nil {
-			http.Error(w, "", http.StatusBadRequest)
-			return
-		}
 
 		var tfaRequest orgtypes.OrgTFARequest
 		if err := json.NewDecoder(r.Body).Decode(&tfaRequest); err != nil {
@@ -66,14 +59,16 @@ func TFA(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		// Proxy to correct region if needed
-		if region != s.CurrentRegion {
-			s.ProxyToRegion(w, r, region, bodyBytes)
+		// Look up the home region's DB queries. No proxy.
+		homeDB := s.GetRegionalDB(region)
+		if homeDB == nil {
+			s.Logger(ctx).Error("no regional pool for home region", "region", region)
+			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
 		// Query the regional database using raw token
-		tfaTokenRecord, err := s.Regional.GetOrgTFAToken(ctx, rawTFAToken)
+		tfaTokenRecord, err := homeDB.GetOrgTFAToken(ctx, rawTFAToken)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				s.Logger(ctx).Debug("invalid or expired TFA token")
@@ -96,7 +91,7 @@ func TFA(s *server.RegionalServer) http.HandlerFunc {
 		// Token expires naturally, and reusing it just creates another session.
 
 		// Get org user from regional database to get preferred language
-		regionalUser, err := s.Regional.GetOrgUserByID(ctx, tfaTokenRecord.OrgUserID)
+		regionalUser, err := homeDB.GetOrgUserByID(ctx, tfaTokenRecord.OrgUserID)
 		if err != nil {
 			s.Logger(ctx).Error("failed to fetch regional org user", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
@@ -133,7 +128,7 @@ func TFA(s *server.RegionalServer) http.HandlerFunc {
 
 		// Store session in regional database (raw token without prefix)
 		expiresAt := pgtype.Timestamptz{Time: time.Now().Add(sessionExpiry), Valid: true}
-		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
+		err = s.WithRegionalTxFor(ctx, region, func(qtx *regionaldb.Queries) error {
 			if txErr := qtx.CreateOrgSession(ctx, regionaldb.CreateOrgSessionParams{
 				SessionToken: rawSessionToken,
 				OrgUserID:    tfaTokenRecord.OrgUserID,

@@ -12,7 +12,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"vetchium-api-server.gomodule/internal/audit"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
-	"vetchium-api-server.gomodule/internal/proxy"
 	"vetchium-api-server.gomodule/internal/server"
 	"vetchium-api-server.gomodule/internal/tokens"
 	"vetchium-api-server.typespec/common"
@@ -22,12 +21,6 @@ import (
 func TFA(s *server.RegionalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-
-		bodyBytes, err := proxy.BufferBody(r)
-		if err != nil {
-			http.Error(w, "", http.StatusBadRequest)
-			return
-		}
 
 		var tfaRequest hub.HubTFARequest
 		if err := json.NewDecoder(r.Body).Decode(&tfaRequest); err != nil {
@@ -66,14 +59,16 @@ func TFA(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		// Proxy to correct region if needed
-		if region != s.CurrentRegion {
-			s.ProxyToRegion(w, r, region, bodyBytes)
+		// Look up the home region's DB queries. No proxy.
+		homeDB := s.GetRegionalDB(region)
+		if homeDB == nil {
+			s.Logger(ctx).Error("no regional pool for home region", "region", region)
+			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
 		// Query the specific regional database using raw token
-		tfaTokenRecord, err := s.Regional.GetHubTFAToken(ctx, rawTFAToken)
+		tfaTokenRecord, err := homeDB.GetHubTFAToken(ctx, rawTFAToken)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				s.Logger(ctx).Debug("invalid or expired TFA token")
@@ -103,8 +98,8 @@ func TFA(s *server.RegionalServer) http.HandlerFunc {
 		// protection. Reusing a valid token just creates another session for the
 		// same authenticated user - not a security issue.
 
-		// Get hub user from regional database to get preferred language
-		regionalUser, err := s.Regional.GetHubUserByGlobalID(ctx, tfaTokenRecord.HubUserGlobalID)
+		// Get hub user from home region's database to get preferred language
+		regionalUser, err := homeDB.GetHubUserByGlobalID(ctx, tfaTokenRecord.HubUserGlobalID)
 		if err != nil {
 			s.Logger(ctx).Error("failed to fetch regional hub user", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
@@ -133,7 +128,7 @@ func TFA(s *server.RegionalServer) http.HandlerFunc {
 
 		// Store session and write audit log atomically
 		expiresAt := pgtype.Timestamptz{Time: time.Now().Add(sessionExpiry), Valid: true}
-		err = s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
+		err = s.WithRegionalTxFor(ctx, region, func(qtx *regionaldb.Queries) error {
 			if txErr := qtx.CreateHubSession(ctx, regionaldb.CreateHubSessionParams{
 				SessionToken:    rawSessionToken,
 				HubUserGlobalID: tfaTokenRecord.HubUserGlobalID,

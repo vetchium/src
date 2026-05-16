@@ -64,7 +64,7 @@
 				"retries": 5
 			}
 		},
-		"localstack": {
+		"localstack-ind1": {
 			"image": "localstack/localstack",
 			"environment": {
 				"SERVICES": "s3",
@@ -81,16 +81,84 @@
 				"retries": 15
 			}
 		},
-		"s3-init": {
+		"localstack-usa1": {
+			"image": "localstack/localstack",
+			"environment": {
+				"SERVICES": "s3",
+				"DEBUG": "0"
+			},
+			"ports": ["4567:4566"],
+			"healthcheck": {
+				"test": [
+					"CMD-SHELL",
+					"curl -f http://localhost:4566/_localstack/health"
+				],
+				"interval": "5s",
+				"timeout": "5s",
+				"retries": 15
+			}
+		},
+		"localstack-deu1": {
+			"image": "localstack/localstack",
+			"environment": {
+				"SERVICES": "s3",
+				"DEBUG": "0"
+			},
+			"ports": ["4568:4566"],
+			"healthcheck": {
+				"test": [
+					"CMD-SHELL",
+					"curl -f http://localhost:4566/_localstack/health"
+				],
+				"interval": "5s",
+				"timeout": "5s",
+				"retries": 15
+			}
+		},
+		"s3-init-ind1": {
 			"image": "amazon/aws-cli",
 			"depends_on": {
-				"localstack": {
+				"localstack-ind1": {
 					"condition": "service_healthy"
 				}
 			},
 			"entrypoint": ["sh", "-c"],
 			"command": [
-				"i=0; until aws --endpoint-url=http://localstack:4566 s3 ls s3://vetchium 2>/dev/null || aws --endpoint-url=http://localstack:4566 s3 mb s3://vetchium 2>/dev/null; do i=$$((i+1)); [ $$i -ge 30 ] && exit 1; sleep 2; done"
+				"i=0; until aws --endpoint-url=http://localstack-ind1:4566 s3 ls s3://vetchium-ind1 2>/dev/null || aws --endpoint-url=http://localstack-ind1:4566 s3 mb s3://vetchium-ind1 2>/dev/null; do i=$$((i+1)); [ $$i -ge 30 ] && exit 1; sleep 2; done && until aws --endpoint-url=http://localstack-ind1:4566 s3 ls s3://vetchium-global 2>/dev/null || aws --endpoint-url=http://localstack-ind1:4566 s3 mb s3://vetchium-global 2>/dev/null; do i=$$((i+1)); [ $$i -ge 30 ] && exit 1; sleep 2; done"
+			],
+			"environment": {
+				"AWS_ACCESS_KEY_ID": "vetchium-dev-key",
+				"AWS_SECRET_ACCESS_KEY": "vetchium-dev-secret",
+				"AWS_DEFAULT_REGION": "us-east-1"
+			}
+		},
+		"s3-init-usa1": {
+			"image": "amazon/aws-cli",
+			"depends_on": {
+				"localstack-usa1": {
+					"condition": "service_healthy"
+				}
+			},
+			"entrypoint": ["sh", "-c"],
+			"command": [
+				"i=0; until aws --endpoint-url=http://localstack-usa1:4566 s3 ls s3://vetchium-usa1 2>/dev/null || aws --endpoint-url=http://localstack-usa1:4566 s3 mb s3://vetchium-usa1 2>/dev/null; do i=$$((i+1)); [ $$i -ge 30 ] && exit 1; sleep 2; done"
+			],
+			"environment": {
+				"AWS_ACCESS_KEY_ID": "vetchium-dev-key",
+				"AWS_SECRET_ACCESS_KEY": "vetchium-dev-secret",
+				"AWS_DEFAULT_REGION": "us-east-1"
+			}
+		},
+		"s3-init-deu1": {
+			"image": "amazon/aws-cli",
+			"depends_on": {
+				"localstack-deu1": {
+					"condition": "service_healthy"
+				}
+			},
+			"entrypoint": ["sh", "-c"],
+			"command": [
+				"i=0; until aws --endpoint-url=http://localstack-deu1:4566 s3 ls s3://vetchium-deu1 2>/dev/null || aws --endpoint-url=http://localstack-deu1:4566 s3 mb s3://vetchium-deu1 2>/dev/null; do i=$$((i+1)); [ $$i -ge 30 ] && exit 1; sleep 2; done"
 			],
 			"environment": {
 				"AWS_ACCESS_KEY_ID": "vetchium-dev-key",
@@ -254,7 +322,7 @@
 				"mailpit": {
 					"condition": "service_started"
 				},
-				"s3-init": {
+				"s3-init-ind1": {
 					"condition": "service_completed_successfully"
 				}
 			},
@@ -264,9 +332,6 @@
 				"IND1_DB_CONN": "postgres://vetchium:vetchium_dev@regional-db-ind1:5432/vetchium_ind1?sslmode=disable",
 				"USA1_DB_CONN": "postgres://vetchium:vetchium_dev@regional-db-usa1:5432/vetchium_usa1?sslmode=disable",
 				"DEU1_DB_CONN": "postgres://vetchium:vetchium_dev@regional-db-deu1:5432/vetchium_deu1?sslmode=disable",
-				"INTERNAL_ENDPOINT_IND1": "http://regional-api-server-ind1:8080",
-				"INTERNAL_ENDPOINT_USA1": "http://regional-api-server-usa1:8080",
-				"INTERNAL_ENDPOINT_DEU1": "http://regional-api-server-deu1:8080",
 				"ADMIN_TFA_TOKEN_CLEANUP_INTERVAL": "1m",
 				"ADMIN_SESSION_CLEANUP_INTERVAL": "1m",
 				"HUB_SIGNUP_TOKEN_CLEANUP_INTERVAL": "1m",
@@ -283,11 +348,11 @@
 				"ADMIN_PASSWORD_RESET_TOKEN_CLEANUP_INTERVAL": "1h",
 				"ADMIN_UI_URL": "http://localhost:3001",
 				"CORS_ALLOWED_ORIGINS": "*",
-				"S3_ENDPOINT": "http://localstack:4566",
-				"S3_ACCESS_KEY_ID": "vetchium-dev-key",
-				"S3_SECRET_ACCESS_KEY": "vetchium-dev-secret",
-				"S3_REGION": "us-east-1",
-				"S3_BUCKET": "vetchium"
+				"GLOBAL_S3_ENDPOINT": "http://localstack-ind1:4566",
+				"GLOBAL_S3_BUCKET": "vetchium-global",
+				"GLOBAL_S3_REGION": "us-east-1",
+				"GLOBAL_S3_ACCESS_KEY_ID": "vetchium-dev-key",
+				"GLOBAL_S3_SECRET_ACCESS_KEY": "vetchium-dev-secret"
 			},
 			"healthcheck": {
 				"test": ["CMD-SHELL", "nc -z localhost 8081 || exit 1"],
@@ -314,7 +379,13 @@
 				"migrate-deu1": {
 					"condition": "service_completed_successfully"
 				},
-				"s3-init": {
+				"s3-init-ind1": {
+					"condition": "service_completed_successfully"
+				},
+				"s3-init-usa1": {
+					"condition": "service_completed_successfully"
+				},
+				"s3-init-deu1": {
 					"condition": "service_completed_successfully"
 				}
 			},
@@ -324,18 +395,33 @@
 				"LOG_LEVEL": "DEBUG",
 				"GLOBAL_DB_CONN": "postgres://vetchium:vetchium_dev@global-db:5432/vetchium_global?sslmode=disable",
 				"REGIONAL_DB_CONN": "postgres://vetchium:vetchium_dev@regional-db-ind1:5432/vetchium_ind1?sslmode=disable",
-				"INTERNAL_ENDPOINT_IND1": "http://regional-api-server-ind1:8080",
-				"INTERNAL_ENDPOINT_USA1": "http://regional-api-server-usa1:8080",
-				"INTERNAL_ENDPOINT_DEU1": "http://regional-api-server-deu1:8080",
+				"REGIONAL_DB_CONN_IND1": "postgres://vetchium:vetchium_dev@regional-db-ind1:5432/vetchium_ind1?sslmode=disable",
+				"REGIONAL_DB_CONN_USA1": "postgres://vetchium:vetchium_dev@regional-db-usa1:5432/vetchium_usa1?sslmode=disable",
+				"REGIONAL_DB_CONN_DEU1": "postgres://vetchium:vetchium_dev@regional-db-deu1:5432/vetchium_deu1?sslmode=disable",
+				"S3_ENDPOINT_IND1": "http://localstack-ind1:4566",
+				"S3_ENDPOINT_USA1": "http://localstack-usa1:4566",
+				"S3_ENDPOINT_DEU1": "http://localstack-deu1:4566",
+				"S3_BUCKET_IND1": "vetchium-ind1",
+				"S3_BUCKET_USA1": "vetchium-usa1",
+				"S3_BUCKET_DEU1": "vetchium-deu1",
+				"S3_REGION_IND1": "us-east-1",
+				"S3_REGION_USA1": "us-east-1",
+				"S3_REGION_DEU1": "us-east-1",
+				"S3_ACCESS_KEY_ID_IND1": "vetchium-dev-key",
+				"S3_ACCESS_KEY_ID_USA1": "vetchium-dev-key",
+				"S3_ACCESS_KEY_ID_DEU1": "vetchium-dev-key",
+				"S3_SECRET_ACCESS_KEY_IND1": "vetchium-dev-secret",
+				"S3_SECRET_ACCESS_KEY_USA1": "vetchium-dev-secret",
+				"S3_SECRET_ACCESS_KEY_DEU1": "vetchium-dev-secret",
+				"GLOBAL_S3_ENDPOINT": "http://localstack-ind1:4566",
+				"GLOBAL_S3_BUCKET": "vetchium-global",
+				"GLOBAL_S3_REGION": "us-east-1",
+				"GLOBAL_S3_ACCESS_KEY_ID": "vetchium-dev-key",
+				"GLOBAL_S3_SECRET_ACCESS_KEY": "vetchium-dev-secret",
 				"ORG_TFA_TOKEN_EXPIRY": "10m",
 				"ORG_SESSION_TOKEN_EXPIRY": "24h",
 				"ORG_SIGNUP_TOKEN_EXPIRY": "24h",
-				"ORG_REMEMBER_ME_EXPIRY": "8760h",
-				"S3_ENDPOINT": "http://localstack:4566",
-				"S3_ACCESS_KEY_ID": "vetchium-dev-key",
-				"S3_SECRET_ACCESS_KEY": "vetchium-dev-secret",
-				"S3_REGION": "us-east-1",
-				"S3_BUCKET": "vetchium"
+				"ORG_REMEMBER_ME_EXPIRY": "8760h"
 			},
 			"healthcheck": {
 				"test": ["CMD-SHELL", "nc -z localhost 8080 || exit 1"],
@@ -362,7 +448,13 @@
 				"migrate-deu1": {
 					"condition": "service_completed_successfully"
 				},
-				"s3-init": {
+				"s3-init-ind1": {
+					"condition": "service_completed_successfully"
+				},
+				"s3-init-usa1": {
+					"condition": "service_completed_successfully"
+				},
+				"s3-init-deu1": {
 					"condition": "service_completed_successfully"
 				}
 			},
@@ -372,18 +464,33 @@
 				"LOG_LEVEL": "DEBUG",
 				"GLOBAL_DB_CONN": "postgres://vetchium:vetchium_dev@global-db:5432/vetchium_global?sslmode=disable",
 				"REGIONAL_DB_CONN": "postgres://vetchium:vetchium_dev@regional-db-usa1:5432/vetchium_usa1?sslmode=disable",
-				"INTERNAL_ENDPOINT_IND1": "http://regional-api-server-ind1:8080",
-				"INTERNAL_ENDPOINT_USA1": "http://regional-api-server-usa1:8080",
-				"INTERNAL_ENDPOINT_DEU1": "http://regional-api-server-deu1:8080",
+				"REGIONAL_DB_CONN_IND1": "postgres://vetchium:vetchium_dev@regional-db-ind1:5432/vetchium_ind1?sslmode=disable",
+				"REGIONAL_DB_CONN_USA1": "postgres://vetchium:vetchium_dev@regional-db-usa1:5432/vetchium_usa1?sslmode=disable",
+				"REGIONAL_DB_CONN_DEU1": "postgres://vetchium:vetchium_dev@regional-db-deu1:5432/vetchium_deu1?sslmode=disable",
+				"S3_ENDPOINT_IND1": "http://localstack-ind1:4566",
+				"S3_ENDPOINT_USA1": "http://localstack-usa1:4566",
+				"S3_ENDPOINT_DEU1": "http://localstack-deu1:4566",
+				"S3_BUCKET_IND1": "vetchium-ind1",
+				"S3_BUCKET_USA1": "vetchium-usa1",
+				"S3_BUCKET_DEU1": "vetchium-deu1",
+				"S3_REGION_IND1": "us-east-1",
+				"S3_REGION_USA1": "us-east-1",
+				"S3_REGION_DEU1": "us-east-1",
+				"S3_ACCESS_KEY_ID_IND1": "vetchium-dev-key",
+				"S3_ACCESS_KEY_ID_USA1": "vetchium-dev-key",
+				"S3_ACCESS_KEY_ID_DEU1": "vetchium-dev-key",
+				"S3_SECRET_ACCESS_KEY_IND1": "vetchium-dev-secret",
+				"S3_SECRET_ACCESS_KEY_USA1": "vetchium-dev-secret",
+				"S3_SECRET_ACCESS_KEY_DEU1": "vetchium-dev-secret",
+				"GLOBAL_S3_ENDPOINT": "http://localstack-ind1:4566",
+				"GLOBAL_S3_BUCKET": "vetchium-global",
+				"GLOBAL_S3_REGION": "us-east-1",
+				"GLOBAL_S3_ACCESS_KEY_ID": "vetchium-dev-key",
+				"GLOBAL_S3_SECRET_ACCESS_KEY": "vetchium-dev-secret",
 				"ORG_TFA_TOKEN_EXPIRY": "10m",
 				"ORG_SESSION_TOKEN_EXPIRY": "24h",
 				"ORG_SIGNUP_TOKEN_EXPIRY": "24h",
-				"ORG_REMEMBER_ME_EXPIRY": "8760h",
-				"S3_ENDPOINT": "http://localstack:4566",
-				"S3_ACCESS_KEY_ID": "vetchium-dev-key",
-				"S3_SECRET_ACCESS_KEY": "vetchium-dev-secret",
-				"S3_REGION": "us-east-1",
-				"S3_BUCKET": "vetchium"
+				"ORG_REMEMBER_ME_EXPIRY": "8760h"
 			},
 			"healthcheck": {
 				"test": ["CMD-SHELL", "nc -z localhost 8080 || exit 1"],
@@ -410,7 +517,13 @@
 				"migrate-deu1": {
 					"condition": "service_completed_successfully"
 				},
-				"s3-init": {
+				"s3-init-ind1": {
+					"condition": "service_completed_successfully"
+				},
+				"s3-init-usa1": {
+					"condition": "service_completed_successfully"
+				},
+				"s3-init-deu1": {
 					"condition": "service_completed_successfully"
 				}
 			},
@@ -420,18 +533,33 @@
 				"LOG_LEVEL": "DEBUG",
 				"GLOBAL_DB_CONN": "postgres://vetchium:vetchium_dev@global-db:5432/vetchium_global?sslmode=disable",
 				"REGIONAL_DB_CONN": "postgres://vetchium:vetchium_dev@regional-db-deu1:5432/vetchium_deu1?sslmode=disable",
-				"INTERNAL_ENDPOINT_IND1": "http://regional-api-server-ind1:8080",
-				"INTERNAL_ENDPOINT_USA1": "http://regional-api-server-usa1:8080",
-				"INTERNAL_ENDPOINT_DEU1": "http://regional-api-server-deu1:8080",
+				"REGIONAL_DB_CONN_IND1": "postgres://vetchium:vetchium_dev@regional-db-ind1:5432/vetchium_ind1?sslmode=disable",
+				"REGIONAL_DB_CONN_USA1": "postgres://vetchium:vetchium_dev@regional-db-usa1:5432/vetchium_usa1?sslmode=disable",
+				"REGIONAL_DB_CONN_DEU1": "postgres://vetchium:vetchium_dev@regional-db-deu1:5432/vetchium_deu1?sslmode=disable",
+				"S3_ENDPOINT_IND1": "http://localstack-ind1:4566",
+				"S3_ENDPOINT_USA1": "http://localstack-usa1:4566",
+				"S3_ENDPOINT_DEU1": "http://localstack-deu1:4566",
+				"S3_BUCKET_IND1": "vetchium-ind1",
+				"S3_BUCKET_USA1": "vetchium-usa1",
+				"S3_BUCKET_DEU1": "vetchium-deu1",
+				"S3_REGION_IND1": "us-east-1",
+				"S3_REGION_USA1": "us-east-1",
+				"S3_REGION_DEU1": "us-east-1",
+				"S3_ACCESS_KEY_ID_IND1": "vetchium-dev-key",
+				"S3_ACCESS_KEY_ID_USA1": "vetchium-dev-key",
+				"S3_ACCESS_KEY_ID_DEU1": "vetchium-dev-key",
+				"S3_SECRET_ACCESS_KEY_IND1": "vetchium-dev-secret",
+				"S3_SECRET_ACCESS_KEY_USA1": "vetchium-dev-secret",
+				"S3_SECRET_ACCESS_KEY_DEU1": "vetchium-dev-secret",
+				"GLOBAL_S3_ENDPOINT": "http://localstack-ind1:4566",
+				"GLOBAL_S3_BUCKET": "vetchium-global",
+				"GLOBAL_S3_REGION": "us-east-1",
+				"GLOBAL_S3_ACCESS_KEY_ID": "vetchium-dev-key",
+				"GLOBAL_S3_SECRET_ACCESS_KEY": "vetchium-dev-secret",
 				"ORG_TFA_TOKEN_EXPIRY": "10m",
 				"ORG_SESSION_TOKEN_EXPIRY": "24h",
 				"ORG_SIGNUP_TOKEN_EXPIRY": "24h",
-				"ORG_REMEMBER_ME_EXPIRY": "8760h",
-				"S3_ENDPOINT": "http://localstack:4566",
-				"S3_ACCESS_KEY_ID": "vetchium-dev-key",
-				"S3_SECRET_ACCESS_KEY": "vetchium-dev-secret",
-				"S3_REGION": "us-east-1",
-				"S3_BUCKET": "vetchium"
+				"ORG_REMEMBER_ME_EXPIRY": "8760h"
 			},
 			"healthcheck": {
 				"test": ["CMD-SHELL", "nc -z localhost 8080 || exit 1"],
