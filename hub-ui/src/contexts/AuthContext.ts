@@ -4,6 +4,7 @@ export type AuthState = "login" | "tfa" | "authenticated";
 
 export interface AuthContextType {
 	authState: AuthState;
+	initializing: boolean;
 	loading: boolean;
 	error: string | null;
 	sessionToken: string | null;

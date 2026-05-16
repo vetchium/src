@@ -44,6 +44,7 @@ interface AuthProviderProps {
 export function AuthProvider({ children }: AuthProviderProps) {
 	const { t, i18n } = useTranslation("auth");
 	const [authState, setAuthState] = useState<AuthState>("login");
+	const [initializing, setInitializing] = useState(true);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [tfaToken, setTfaToken] = useState<string | null>(null);
@@ -58,6 +59,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 			setSessionTokenState(existingSession);
 			setAuthState("authenticated");
 		}
+		setInitializing(false);
 	}, []);
 
 	const formatValidationErrors = (
@@ -281,6 +283,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 		<AuthContext.Provider
 			value={{
 				authState,
+				initializing,
 				loading,
 				error,
 				sessionToken,

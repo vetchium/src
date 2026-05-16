@@ -34,8 +34,10 @@ import { ConnectionsPage } from "./pages/Connections/ConnectionsPage";
 const { Content } = Layout;
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-	const { authState } = useAuth();
+	const { authState, initializing } = useAuth();
 	const location = useLocation();
+
+	if (initializing) return null;
 
 	if (authState === "login") {
 		return <Navigate to="/login" state={{ from: location }} replace />;
@@ -49,7 +51,9 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 function AuthRoute({ children }: { children: React.ReactNode }) {
-	const { authState } = useAuth();
+	const { authState, initializing } = useAuth();
+
+	if (initializing) return null;
 
 	if (authState === "authenticated") {
 		return <Navigate to="/" replace />;
@@ -63,7 +67,9 @@ function AuthRoute({ children }: { children: React.ReactNode }) {
 }
 
 function TFARoute({ children }: { children: React.ReactNode }) {
-	const { authState } = useAuth();
+	const { authState, initializing } = useAuth();
+
+	if (initializing) return null;
 
 	if (authState === "login") {
 		return <Navigate to="/login" replace />;

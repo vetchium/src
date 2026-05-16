@@ -3,24 +3,38 @@ const API_URL = process.env.API_URL || "http://localhost:8080";
 const server = Bun.serve({
 	port: 80,
 	async fetch(request) {
-		const url = new URL(request.url);
+		try {
+			const url = new URL(request.url);
 
-		// Serve runtime config
-		if (url.pathname === "/config.json") {
-			return new Response(JSON.stringify({ apiBaseUrl: API_URL }), {
-				headers: { "Content-Type": "application/json" },
+			// Serve runtime config
+			if (url.pathname === "/config.json") {
+				return new Response(JSON.stringify({ apiBaseUrl: API_URL }), {
+					headers: { "Content-Type": "application/json" },
+				});
+			}
+
+			const filePath = `./dist${url.pathname}`;
+			try {
+				const file = Bun.file(filePath);
+				if ((await file.exists()) && url.pathname !== "/") {
+					return new Response(file);
+				}
+			} catch {
+				// file doesn't exist or path error — fall through to SPA fallback
+			}
+
+			// SPA fallback - serve index.html for all routes
+			return new Response(Bun.file("./dist/index.html"), {
+				headers: { "Content-Type": "text/html; charset=utf-8" },
 			});
+		} catch (err) {
+			console.error("Request error:", err);
+			return new Response("Internal Server Error", { status: 500 });
 		}
-
-		const filePath = `./dist${url.pathname}`;
-		const file = Bun.file(filePath);
-
-		if ((await file.exists()) && url.pathname !== "/") {
-			return new Response(file);
-		}
-
-		// SPA fallback - serve index.html for all routes
-		return new Response(Bun.file("./dist/index.html"));
+	},
+	error(err) {
+		console.error("Server error:", err);
+		return new Response("Internal Server Error", { status: 500 });
 	},
 });
 
