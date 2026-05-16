@@ -23,13 +23,13 @@ cross-region read-write database access from all regional API servers**.
 
 ### 1.1 Infrastructure
 
-| Component | Cardinality | Role |
-|---|---|---|
-| Global PostgreSQL DB | 1 | Identity routing: email hashes, handle → home-region mapping. No PII. |
-| Regional PostgreSQL DB | N (currently `ind1`, `usa1`, `deu1`) | All PII, credentials, mutable entity state. Each regional DB is authoritative for entities homed there. |
-| Regional API Server | N | HTTP request handlers. One per region. |
-| nginx Load Balancer | 1 | Distributes HTTP traffic across all regional API servers (round-robin). |
-| Object Storage (S3-compatible) | 1 | Profile pictures and file uploads. |
+| Component                      | Cardinality                          | Role                                                                                                    |
+| ------------------------------ | ------------------------------------ | ------------------------------------------------------------------------------------------------------- |
+| Global PostgreSQL DB           | 1                                    | Identity routing: email hashes, handle → home-region mapping. No PII.                                   |
+| Regional PostgreSQL DB         | N (currently `ind1`, `usa1`, `deu1`) | All PII, credentials, mutable entity state. Each regional DB is authoritative for entities homed there. |
+| Regional API Server            | N                                    | HTTP request handlers. One per region.                                                                  |
+| nginx Load Balancer            | 1                                    | Distributes HTTP traffic across all regional API servers (round-robin).                                 |
+| Object Storage (S3-compatible) | 1                                    | Profile pictures and file uploads.                                                                      |
 
 New regions are added by following [ADD_NEW_REGION.md](../ADD_NEW_REGION.md). Every new region
 adds one regional DB and one regional API server; the architecture described here applies
@@ -39,13 +39,13 @@ identically to each.
 
 ### 1.2 Entity Ownership
 
-Every entity has a *home region* set at creation and never changed:
+Every entity has a _home region_ set at creation and never changed:
 
-| Entity | Home region determined by |
-|---|---|
-| Hub user (professional) | Geolocation or preference at signup |
-| Organisation | Geolocation or preference at signup |
-| Job opening | Inherits from the creating organisation |
+| Entity                  | Home region determined by               |
+| ----------------------- | --------------------------------------- |
+| Hub user (professional) | Geolocation or preference at signup     |
+| Organisation            | Geolocation or preference at signup     |
+| Job opening             | Inherits from the creating organisation |
 
 All mutable state for an entity — profile, credentials, settings, role assignments — is written to
 and read from its home regional database.
@@ -74,12 +74,12 @@ This creates a placement dilemma with no lossless option:
 
 ![Figure 2 — Cross-Region Write: The Placement Dilemma](./figures/fig2-placement.svg)
 
-| Placement | User writes? | Org reads? | Implication |
-|---|---|---|---|
-| User's regional DB | ✓ direct | ✗ cross-region read | Org always reads cross-region for every applicant list query |
-| Opening's regional DB | ✗ cross-region write | ✓ direct | User's server writes cross-region once at submission |
-| Both DBs | ✓ | ✓ | Dual-write; distributed consistency problem; compensating transactions required |
-| Global DB | requires schema change | requires schema change | Global DB becomes PII store; data residency violation; see §4.2 |
+| Placement             | User writes?           | Org reads?             | Implication                                                                     |
+| --------------------- | ---------------------- | ---------------------- | ------------------------------------------------------------------------------- |
+| User's regional DB    | ✓ direct               | ✗ cross-region read    | Org always reads cross-region for every applicant list query                    |
+| Opening's regional DB | ✗ cross-region write   | ✓ direct               | User's server writes cross-region once at submission                            |
+| Both DBs              | ✓                      | ✓                      | Dual-write; distributed consistency problem; compensating transactions required |
+| Global DB             | requires schema change | requires schema change | Global DB becomes PII store; data residency violation; see §4.2                 |
 
 **There is no placement that avoids cross-region data access entirely.** The problem reduces to:
 which direction of cross-region access is acceptable (read, write, or both), and what mechanism
@@ -103,18 +103,18 @@ interactions, or (b) replicate all entity data to all regions — neither of whi
 The following constraints were established prior to evaluating options. Options that violate any
 constraint are rejected regardless of other merits.
 
-| # | Constraint | Rationale |
-|---|---|---|
-| C1 | No PII in the global DB | The global DB is a thin routing table. Expanding its scope creates a write bottleneck and violates data residency requirements (e.g., GDPR). |
-| C2 | No managed distributed databases | Spanner, CockroachDB, PlanetScale introduce vendor lock-in or operational complexity disproportionate to pre-launch scale. |
-| C3 | Synchronous write confirmation for user-facing mutations | Submitting an application, accepting a connection, sending a message must return a durable success or explicit failure before the HTTP response returns. Eventual consistency is not acceptable on these paths. |
-| C4 | No inter-service credential management | Service tokens (JWT or otherwise) for server-to-server auth introduce a new credential class with distribution, rotation, and revocation complexity not warranted at current scale. |
+| #   | Constraint                                               | Rationale                                                                                                                                                                                                       |
+| --- | -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| C1  | No PII in the global DB                                  | The global DB is a thin routing table. Expanding its scope creates a write bottleneck and violates data residency requirements (e.g., GDPR).                                                                    |
+| C2  | No managed distributed databases                         | Spanner, CockroachDB, PlanetScale introduce vendor lock-in or operational complexity disproportionate to pre-launch scale.                                                                                      |
+| C3  | Synchronous write confirmation for user-facing mutations | Submitting an application, accepting a connection, sending a message must return a durable success or explicit failure before the HTTP response returns. Eventual consistency is not acceptable on these paths. |
+| C4  | No inter-service credential management                   | Service tokens (JWT or otherwise) for server-to-server auth introduce a new credential class with distribution, rotation, and revocation complexity not warranted at current scale.                             |
 
 ---
 
 ## 4. Options Evaluated
 
-### 4.1 Option A — Full Cross-Region Read-Write *(Chosen)*
+### 4.1 Option A — Full Cross-Region Read-Write _(Chosen)_
 
 Every regional API server holds read-write PostgreSQL connection pools to all N regional
 databases. Application-layer logic determines which pool to use for each operation:
@@ -127,7 +127,7 @@ The pool selection is explicit in every sqlc query call. There is no implicit or
 
 ---
 
-### 4.2 Option B — Global DB as Interaction Layer *(Rejected)*
+### 4.2 Option B — Global DB as Interaction Layer _(Rejected)_
 
 Move cross-entity interaction tables (applications, connections, messages) to the global DB.
 Regional DBs store only entity-local state. No cross-region writes to regional DBs.
@@ -139,7 +139,7 @@ regional redundancy. Moving high-volume interaction writes to it makes it the pl
 write bottleneck. Interaction volume is O(users × activity), growing faster than identity routing
 volume which is O(users).
 
-**R-B2: Data residency violation.** The global DB's defined invariant is *no PII*. Job
+**R-B2: Data residency violation.** The global DB's defined invariant is _no PII_. Job
 applications contain resume text, cover letters, and salary expectations. Storing them globally
 violates data residency and privacy regulatory requirements: a German user's application data
 cannot legally reside in a US-hosted global DB (GDPR Art. 44–46).
@@ -152,7 +152,7 @@ problem reappears one level up with a harder-to-change schema.
 
 ---
 
-### 4.3 Option C — Distributed SQL *(Rejected)*
+### 4.3 Option C — Distributed SQL _(Rejected)_
 
 Adopt CockroachDB, YugabyteDB, or Google Spanner. The database layer handles regional placement,
 replication, and cross-region writes transparently. The application uses a single connection
@@ -174,7 +174,7 @@ unmanageable at scale. The migration path is documented in §9.
 
 ---
 
-### 4.4 Option D — Asynchronous Event-Driven Writes *(Rejected)*
+### 4.4 Option D — Asynchronous Event-Driven Writes _(Rejected)_
 
 Cross-region writes are enqueued as events (Kafka, SQS, or PostgreSQL LISTEN/NOTIFY). The target
 region's worker consumes the event and writes to its DB. Reads use local replicas updated via CDC.
@@ -194,7 +194,7 @@ own availability, partitioning, and schema evolution requirements.
 
 ---
 
-### 4.5 Option E — Inter-Regional HTTP Proxy with Service Tokens *(Rejected)*
+### 4.5 Option E — Inter-Regional HTTP Proxy with Service Tokens _(Rejected)_
 
 The receiving regional API server forwards mutation requests to the target region's API server,
 authenticated with a service token that bypasses user auth. The target server writes to its own
@@ -228,6 +228,7 @@ approach, to justify its rejection empirically rather than theoretically.
 ![Figure 3 — Option E: The Infinite Proxy Loop](./figures/fig3-proxy-loop.svg)
 
 **Preconditions:**
+
 - nginx round-robins across all N regional API servers (no session affinity).
 - Session token prefix encodes home region (e.g., `ind1_abc123`).
 - Auth middleware rule: if a request arrives on a non-home server, proxy it to the home server.
@@ -267,13 +268,13 @@ logic and documented in the placement policy below.
 Every PR introducing a new cross-region write must cite the applicable rule from this table or
 propose an amendment with rationale.
 
-| Interaction | Write target | Rationale |
-|---|---|---|
-| Job application | Opening's regional DB | The organisation reviews applicants; their server reads locally. The user writes once; the org reads many times. Optimise for read frequency. |
+| Interaction                    | Write target                         | Rationale                                                                                                                                                       |
+| ------------------------------ | ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Job application                | Opening's regional DB                | The organisation reviews applicants; their server reads locally. The user writes once; the org reads many times. Optimise for read frequency.                   |
 | Hub user ↔ Hub user connection | Both users' regional DBs (symmetric) | The connection is undirected. Each user's server must confirm connection status locally. A single-copy model would always force one party to read cross-region. |
-| Direct message | Recipient's regional DB | The recipient reads messages; the sender receives a synchronous write confirmation and no further reads from this record. |
-| Endorsement | Endorsed user's regional DB | Endorsements are displayed on the endorsed user's profile, which their home server renders. |
-| Job bookmark / saved job | User's regional DB | Only the bookmarking user reads this record. |
+| Direct message                 | Recipient's regional DB              | The recipient reads messages; the sender receives a synchronous write confirmation and no further reads from this record.                                       |
+| Endorsement                    | Endorsed user's regional DB          | Endorsements are displayed on the endorsed user's profile, which their home server renders.                                                                     |
+| Job bookmark / saved job       | User's regional DB                   | Only the bookmarking user reads this record.                                                                                                                    |
 
 ---
 
@@ -316,12 +317,12 @@ server-to-DB pairs as distinct health signals, not only local DB connectivity.
 
 ## 9. Risk Register
 
-| Risk | Likelihood | Impact | Mitigation |
-|---|---|---|---|
-| Handler writes to wrong region's DB | Low | High | sqlc forces explicit pool selection per query call; PR review checklist requires cross-region write audit against §7 |
-| Cross-region DB network partition | Medium | Medium | 503 returned for affected cross-region operations; no data corruption; the partition is stateless and resolves on reconnect |
-| DB connection pool exhaustion | Low at current scale | High | pgBouncer in front of regional DBs; connection count monitored per server-to-DB pair |
-| §7 placement conventions erode over time | Medium | Medium | This document is the policy reference; a future lint rule can enforce that cross-region pool usage requires a comment citing the applicable §7 rule |
+| Risk                                     | Likelihood           | Impact | Mitigation                                                                                                                                          |
+| ---------------------------------------- | -------------------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Handler writes to wrong region's DB      | Low                  | High   | sqlc forces explicit pool selection per query call; PR review checklist requires cross-region write audit against §7                                |
+| Cross-region DB network partition        | Medium               | Medium | 503 returned for affected cross-region operations; no data corruption; the partition is stateless and resolves on reconnect                         |
+| DB connection pool exhaustion            | Low at current scale | High   | pgBouncer in front of regional DBs; connection count monitored per server-to-DB pair                                                                |
+| §7 placement conventions erode over time | Medium               | Medium | This document is the policy reference; a future lint rule can enforce that cross-region pool usage requires a comment citing the applicable §7 rule |
 
 ---
 
@@ -342,7 +343,7 @@ A's operational overhead exceeds the cost of the migration.
 
 ---
 
-*This document is the authoritative record for Vetchium's multi-region data access architecture.
+_This document is the authoritative record for Vetchium's multi-region data access architecture.
 Changes to the design require a pull request updating this document with revised rationale. The
 placement policy in §7 is the operational contract; any new cross-region write that does not fit
-an existing rule must amend §7 before the implementing PR is merged.*
+an existing rule must amend §7 before the implementing PR is merged._

@@ -162,6 +162,6 @@ See [ADD_NEW_REGION.md](./ADD_NEW_REGION.md) for the region architecture runbook
 
 ## Architecture Decision Records
 
-| ADR | Title | Status |
-|-----|-------|--------|
+| ADR                                                    | Title                                       | Status   |
+| ------------------------------------------------------ | ------------------------------------------- | -------- |
 | [ADR-001](./specs/adr-001-multi-region-data-access.md) | Multi-Region Distributed Write Architecture | Accepted |
