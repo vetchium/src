@@ -28,7 +28,7 @@ import { ChangeEmailPage } from "./pages/ChangeEmailPage";
 import { VerifyEmailPage } from "./pages/VerifyEmailPage";
 import { MyActivityPage } from "./pages/MyActivityPage";
 import { MyProfilePage } from "./pages/Profile/MyProfilePage";
-import { PublicProfilePage } from "./pages/Profile/PublicProfilePage";
+import { ProfilePage } from "./pages/Profile/ProfilePage";
 import { ConnectionsPage } from "./pages/Connections/ConnectionsPage";
 
 const { Content } = Layout;
@@ -163,7 +163,7 @@ function AppContent() {
 								path="/u/:handle"
 								element={
 									<ProtectedRoute>
-										<PublicProfilePage />
+										<ProfilePage />
 									</ProtectedRoute>
 								}
 							/>

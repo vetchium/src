@@ -62,8 +62,21 @@
 	},
 	"publicProfile": {
 		"userNotFound": "User not found",
+		"userNotFoundDesc": "The user @{{handle}} does not exist.",
+		"editProfile": "Edit Profile",
+		"about": "About",
+		"addAbout": "Add an About section →",
+		"verifiedWorkHistory": "Verified Work History",
+		"verifiedViaWorkEmail": "Verified via work email",
 		"verifiedEmployers": "Verified employers",
 		"noVerifiedEmployers": "No verified employers yet.",
-		"current": "current"
+		"current": "Current",
+		"present": "present",
+		"connectionNotAvailable": "Connection not available",
+		"requestPending": "Connection request pending",
+		"requestReceived": "{{displayName}} sent you a connection request",
+		"connectedBadge": "Connected",
+		"youCannotInteract": "You cannot interact with this user",
+		"moreActions": "More"
 	}
 }

@@ -62,8 +62,21 @@
 	},
 	"publicProfile": {
 		"userNotFound": "Benutzer nicht gefunden",
+		"userNotFoundDesc": "Der Benutzer @{{handle}} existiert nicht.",
+		"editProfile": "Profil bearbeiten",
+		"about": "Über mich",
+		"addAbout": "Einen Über-mich-Bereich hinzufügen →",
+		"verifiedWorkHistory": "Verifizierte Arbeitserfahrung",
+		"verifiedViaWorkEmail": "Verifiziert über Arbeits-E-Mail",
 		"verifiedEmployers": "Verifizierte Arbeitgeber",
 		"noVerifiedEmployers": "Noch keine verifizierten Arbeitgeber.",
-		"current": "aktuell"
+		"current": "aktuell",
+		"present": "aktuell",
+		"connectionNotAvailable": "Verbindung nicht verfügbar",
+		"requestPending": "Verbindungsanfrage ausstehend",
+		"requestReceived": "{{displayName}} hat Ihnen eine Verbindungsanfrage gesendet",
+		"connectedBadge": "Verbunden",
+		"youCannotInteract": "Sie können mit diesem Benutzer nicht interagieren",
+		"moreActions": "Weitere"
 	}
 }

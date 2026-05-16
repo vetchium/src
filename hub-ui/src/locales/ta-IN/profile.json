@@ -62,8 +62,21 @@
 	},
 	"publicProfile": {
 		"userNotFound": "பயனர் கிடைக்கவில்லை",
+		"userNotFoundDesc": "@{{handle}} பயனர் இல்லை.",
+		"editProfile": "சுயவிவரத்தை தொகுக்க",
+		"about": "என்னைப் பற்றி",
+		"addAbout": "பற்றிய பகுதி சேர்க்கவும் →",
+		"verifiedWorkHistory": "சரிபார்க்கப்பட்ட வேலை வரலாறு",
+		"verifiedViaWorkEmail": "வேலை மின்னஞ்சலின் மூலம் சரிபார்க்கப்பட்டது",
 		"verifiedEmployers": "சரிபார்க்கப்பட்ட முதலாளிகள்",
 		"noVerifiedEmployers": "இன்னும் சரிபார்க்கப்பட்ட முதலாளிகள் இல்லை.",
-		"current": "தற்போது"
+		"current": "தற்போது",
+		"present": "இப்போது",
+		"connectionNotAvailable": "இணைப்பு கிடைக்கவில்லை",
+		"requestPending": "இணைப்பு கோரிக்கை நிலுவையில் உள்ளது",
+		"requestReceived": "{{displayName}} உங்களுக்கு இணைப்பு கோரிக்கை அனுப்பினார்",
+		"connectedBadge": "இணைக்கப்பட்டுள்ளது",
+		"youCannotInteract": "இந்த பயனருடன் நீங்கள் தொடர்பு கொள்ள முடியாது",
+		"moreActions": "மேலும்"
 	}
 }
