@@ -268,7 +268,7 @@ func ListCostCenters(s *server.RegionalServer) http.HandlerFunc {
 			LimitCount:      int32(limit + 1),
 		}
 
-		costCenters, err := s.Regional.ListCostCenters(ctx, params)
+		costCenters, err := s.RegionalForCtx(ctx).ListCostCenters(ctx, params)
 		if err != nil {
 			s.Logger(ctx).Error("failed to list cost centers", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)

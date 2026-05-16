@@ -53,7 +53,7 @@ func VerifyDomain(s *server.RegionalServer) http.HandlerFunc {
 		domain := strings.ToLower(string(req.Domain))
 
 		// Get domain record from regional DB, ensuring it belongs to this org
-		domainRecord, err := s.Regional.GetOrgDomainByOrgAndDomain(ctx, regionaldb.GetOrgDomainByOrgAndDomainParams{
+		domainRecord, err := s.RegionalForCtx(ctx).GetOrgDomainByOrgAndDomain(ctx, regionaldb.GetOrgDomainByOrgAndDomainParams{
 			Domain: domain,
 			OrgID:  orgUser.OrgID,
 		})
@@ -89,7 +89,7 @@ func VerifyDomain(s *server.RegionalServer) http.HandlerFunc {
 			newToken := hex.EncodeToString(tokenBytes)
 			newExpiresAt := time.Now().AddDate(0, 0, orgdomains.TokenExpiryDays)
 
-			err = s.Regional.UpdateOrgDomainTokenAndVerificationRequested(ctx, regionaldb.UpdateOrgDomainTokenAndVerificationRequestedParams{
+			err = s.RegionalForCtx(ctx).UpdateOrgDomainTokenAndVerificationRequested(ctx, regionaldb.UpdateOrgDomainTokenAndVerificationRequestedParams{
 				Domain:            domain,
 				VerificationToken: newToken,
 				TokenExpiresAt:    pgtype.Timestamptz{Time: newExpiresAt, Valid: true},
@@ -100,7 +100,7 @@ func VerifyDomain(s *server.RegionalServer) http.HandlerFunc {
 				return
 			}
 			// Reload domain record with fresh token
-			domainRecord, err = s.Regional.GetOrgDomainByOrgAndDomain(ctx, regionaldb.GetOrgDomainByOrgAndDomainParams{
+			domainRecord, err = s.RegionalForCtx(ctx).GetOrgDomainByOrgAndDomain(ctx, regionaldb.GetOrgDomainByOrgAndDomainParams{
 				Domain: domain,
 				OrgID:  orgUser.OrgID,
 			})
@@ -111,7 +111,7 @@ func VerifyDomain(s *server.RegionalServer) http.HandlerFunc {
 			}
 		} else {
 			// Mark that a verification has been requested (rate limit tracking)
-			if err := s.Regional.UpdateOrgDomainVerificationRequested(ctx, domain); err != nil {
+			if err := s.RegionalForCtx(ctx).UpdateOrgDomainVerificationRequested(ctx, domain); err != nil {
 				s.Logger(ctx).Error("failed to update verification requested timestamp", "error", err)
 				http.Error(w, "", http.StatusInternalServerError)
 				return
@@ -124,7 +124,7 @@ func VerifyDomain(s *server.RegionalServer) http.HandlerFunc {
 		if err != nil {
 			s.Logger(ctx).Debug("DNS lookup failed", "domain", domain, "error", err)
 			// DNS lookup failed - increment failure count
-			err = handleVerificationFailure(ctx, s.Regional, domain, domainRecord)
+			err = handleVerificationFailure(ctx, s.RegionalForCtx(ctx), domain, domainRecord)
 			if err != nil {
 				s.Logger(ctx).Error("failed to handle verification failure", "error", err)
 			}
@@ -151,7 +151,7 @@ func VerifyDomain(s *server.RegionalServer) http.HandlerFunc {
 		if !tokenFound {
 			s.Logger(ctx).Debug("verification token not found in DNS", "domain", domain)
 			// Token not found - increment failure count
-			err = handleVerificationFailure(ctx, s.Regional, domain, domainRecord)
+			err = handleVerificationFailure(ctx, s.RegionalForCtx(ctx), domain, domainRecord)
 			if err != nil {
 				s.Logger(ctx).Error("failed to handle verification failure", "error", err)
 			}
@@ -169,7 +169,7 @@ func VerifyDomain(s *server.RegionalServer) http.HandlerFunc {
 		// A FAILING domain recovering to VERIFIED was already counted in the quota when
 		// it was first verified, so re-checking would incorrectly block recovery.
 		if domainRecord.Status == regionaldb.DomainVerificationStatusPENDING {
-			quotaPayload, quotaErr := orgtiers.EnforceQuota(ctx, orgtiers.QuotaDomainsVerified, orgUser.OrgID, s.Global, s.Regional)
+			quotaPayload, quotaErr := orgtiers.EnforceQuota(ctx, orgtiers.QuotaDomainsVerified, orgUser.OrgID, s.Global, s.RegionalForCtx(ctx))
 			if quotaErr != nil {
 				if errors.Is(quotaErr, orgtiers.ErrQuotaExceeded) {
 					orgtiers.WriteQuotaError(w, quotaPayload)

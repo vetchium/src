@@ -75,7 +75,7 @@ func MyAuditLogs(s *server.RegionalServer) http.HandlerFunc {
 			}
 		}
 
-		rows, err := s.Regional.FilterMyAuditLogsWithEmail(ctx, params)
+		rows, err := s.RegionalForCtx(ctx).FilterMyAuditLogsWithEmail(ctx, params)
 		if err != nil {
 			s.Logger(ctx).Error("failed to filter audit logs", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)

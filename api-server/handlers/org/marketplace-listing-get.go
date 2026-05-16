@@ -41,7 +41,7 @@ func GetMarketplaceListing(s *server.RegionalServer) http.HandlerFunc {
 		// Try the regional DB first. If found and the listing belongs to this org,
 		// serve it as the owner's full view. Subscriptions may be in any region's DB,
 		// so count them from the global index instead of the local regional table.
-		listing, err := s.Regional.GetMarketplaceListingByDomainAndNumber(ctx, regionaldb.GetMarketplaceListingByDomainAndNumberParams{
+		listing, err := s.RegionalForCtx(ctx).GetMarketplaceListingByDomainAndNumber(ctx, regionaldb.GetMarketplaceListingByDomainAndNumberParams{
 			OrgDomain:     req.OrgDomain,
 			ListingNumber: req.ListingNumber,
 		})
@@ -101,7 +101,7 @@ func GetMarketplaceListing(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		isSubscribed, err := s.Regional.HasActiveSubscriptionForListing(ctx, regionaldb.HasActiveSubscriptionForListingParams{
+		isSubscribed, err := s.RegionalForCtx(ctx).HasActiveSubscriptionForListing(ctx, regionaldb.HasActiveSubscriptionForListingParams{
 			ConsumerOrgID: orgUser.OrgID,
 			ListingID:     catalog.ListingID,
 		})

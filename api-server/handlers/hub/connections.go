@@ -224,7 +224,7 @@ func SendConnectionRequest(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		// Step 5: Eligibility check (cross-region stints)
-		callerRegDB := s.Regional
+		callerRegDB := s.RegionalForCtx(ctx)
 		callerStints, err := callerRegDB.GetUserEligibilityStints(ctx, hubUser.HubUserGlobalID)
 		if err != nil {
 			log.Error("failed to get caller stints", "error", err)
@@ -261,7 +261,7 @@ func SendConnectionRequest(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		// Step 6: State precondition check
-		pair, err := s.Regional.GetConnectionPair(ctx, regionaldb.GetConnectionPairParams{
+		pair, err := s.RegionalForCtx(ctx).GetConnectionPair(ctx, regionaldb.GetConnectionPairParams{
 			A: hubUser.HubUserGlobalID,
 			B: targetGlobal.HubUserGlobalID,
 		})
@@ -471,11 +471,12 @@ func AcceptConnectionRequest(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		// Get peer's email for notification
+		// Get peer's email for notification (best-effort from peer's home region DB)
 		var peerEmail string
-		peerUser, err := s.Regional.GetHubUserByGlobalID(ctx, peerGlobal.HubUserGlobalID)
-		if err == nil {
-			peerEmail = peerUser.EmailAddress
+		if peerHomeDB := s.GetRegionalDB(peerGlobal.HomeRegion); peerHomeDB != nil {
+			if peerUser, peerErr := peerHomeDB.GetHubUserByGlobalID(ctx, peerGlobal.HubUserGlobalID); peerErr == nil {
+				peerEmail = peerUser.EmailAddress
+			}
 		}
 
 		// Get caller's display name for email
@@ -1095,7 +1096,7 @@ func ListConnections(s *server.RegionalServer) http.HandlerFunc {
 			}
 		}
 
-		rows, err := s.Regional.ListMyConnections(ctx, params)
+		rows, err := s.RegionalForCtx(ctx).ListMyConnections(ctx, params)
 		if err != nil {
 			log.Error("failed to list connections", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
@@ -1194,7 +1195,7 @@ func ListIncomingRequests(s *server.RegionalServer) http.HandlerFunc {
 			}
 		}
 
-		rows, err := s.Regional.ListIncomingPendingRequests(ctx, params)
+		rows, err := s.RegionalForCtx(ctx).ListIncomingPendingRequests(ctx, params)
 		if err != nil {
 			log.Error("failed to list incoming requests", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
@@ -1282,7 +1283,7 @@ func ListOutgoingRequests(s *server.RegionalServer) http.HandlerFunc {
 			}
 		}
 
-		rows, err := s.Regional.ListOutgoingPendingRequests(ctx, params)
+		rows, err := s.RegionalForCtx(ctx).ListOutgoingPendingRequests(ctx, params)
 		if err != nil {
 			log.Error("failed to list outgoing requests", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
@@ -1380,7 +1381,7 @@ func ListBlocked(s *server.RegionalServer) http.HandlerFunc {
 			}
 		}
 
-		rows, err := s.Regional.ListBlocked(ctx, params)
+		rows, err := s.RegionalForCtx(ctx).ListBlocked(ctx, params)
 		if err != nil {
 			log.Error("failed to list blocked", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
@@ -1527,7 +1528,7 @@ func GetConnectionStatus(s *server.RegionalServer) http.HandlerFunc {
 
 		if !pairFound {
 			// No pair — check eligibility
-			callerStints, err := s.Regional.GetUserEligibilityStints(ctx, hubUser.HubUserGlobalID)
+			callerStints, err := s.RegionalForCtx(ctx).GetUserEligibilityStints(ctx, hubUser.HubUserGlobalID)
 			if err != nil {
 				log.Error("failed to get caller stints for status", "error", err)
 				http.Error(w, "", http.StatusInternalServerError)
@@ -1610,7 +1611,7 @@ func SearchConnections(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		rows, err := s.Regional.SearchConnectedByPrefix(ctx, regionaldb.SearchConnectedByPrefixParams{
+		rows, err := s.RegionalForCtx(ctx).SearchConnectedByPrefix(ctx, regionaldb.SearchConnectedByPrefixParams{
 			Me:     hubUser.HubUserGlobalID,
 			Prefix: req.Query,
 		})
@@ -1670,7 +1671,7 @@ func GetConnectionCounts(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		counts, err := s.Regional.GetConnectionCounts(ctx, hubUser.HubUserGlobalID)
+		counts, err := s.RegionalForCtx(ctx).GetConnectionCounts(ctx, hubUser.HubUserGlobalID)
 		if err != nil {
 			log.Error("failed to get connection counts", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
@@ -1730,7 +1731,7 @@ func bulkResolvePeers(
 	// Fetch hub_users from regional DB
 	hubUsers := make(map[[16]byte]regionaldb.HubUser)
 	for _, id := range peerIDs {
-		user, err := s.Regional.GetHubUserByGlobalID(ctx, id)
+		user, err := s.RegionalForCtx(ctx).GetHubUserByGlobalID(ctx, id)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				continue

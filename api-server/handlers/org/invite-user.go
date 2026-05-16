@@ -79,7 +79,7 @@ func InviteUser(s *server.RegionalServer) http.HandlerFunc {
 		// Resolve role IDs before creating any records
 		var roleIDs []pgtype.UUID
 		for _, roleName := range req.Roles {
-			role, err := s.Regional.GetRoleByName(ctx, string(roleName))
+			role, err := s.RegionalForCtx(ctx).GetRoleByName(ctx, string(roleName))
 			if err != nil {
 				if errors.Is(err, pgx.ErrNoRows) {
 					s.Logger(ctx).Debug("role not found", "role_name", roleName)
@@ -97,7 +97,7 @@ func InviteUser(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		// Pre-fetch inviter and org info (needed for email template)
-		inviter, err := s.Regional.GetOrgUserByID(ctx, orgUser.OrgUserID)
+		inviter, err := s.RegionalForCtx(ctx).GetOrgUserByID(ctx, orgUser.OrgUserID)
 		if err != nil {
 			s.Logger(ctx).Error("failed to get inviter info", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
@@ -112,7 +112,7 @@ func InviteUser(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		// Enforce org_users quota before creating the new user
-		quotaPayload, err := orgtiers.EnforceQuota(ctx, orgtiers.QuotaOrgUsers, orgUser.OrgID, s.Global, s.Regional)
+		quotaPayload, err := orgtiers.EnforceQuota(ctx, orgtiers.QuotaOrgUsers, orgUser.OrgID, s.Global, s.RegionalForCtx(ctx))
 		if err != nil {
 			if errors.Is(err, orgtiers.ErrQuotaExceeded) {
 				orgtiers.WriteQuotaError(w, quotaPayload)
@@ -123,12 +123,15 @@ func InviteUser(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
+		// Invited users always join the same home region as the org.
+		orgHomeRegion := globaldb.Region(middleware.OrgRegionFromContext(ctx))
+
 		// Create org user in global DB (routing fields only)
 		globalUser, err := s.Global.CreateOrgUser(ctx, globaldb.CreateOrgUserParams{
 			EmailAddressHash: emailHash[:],
 			HashingAlgorithm: globaldb.EmailAddressHashingAlgorithmSHA256,
 			OrgID:            orgUser.OrgID,
-			HomeRegion:       s.CurrentRegion,
+			HomeRegion:       orgHomeRegion,
 		})
 		if err != nil {
 			s.Logger(ctx).Error("failed to create org user in global DB", "error", err)
@@ -147,7 +150,7 @@ func InviteUser(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 		rawToken := hex.EncodeToString(tokenBytes)
-		invitationToken := tokens.AddRegionPrefix(s.CurrentRegion, rawToken)
+		invitationToken := tokens.AddRegionPrefix(orgHomeRegion, rawToken)
 
 		// Build email content before tx
 		invitationExpiry := s.TokenConfig.OrgInvitationTokenExpiry

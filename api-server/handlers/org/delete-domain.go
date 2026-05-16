@@ -45,7 +45,7 @@ func DeleteDomain(s *server.RegionalServer) http.HandlerFunc {
 		domain := strings.ToLower(string(req.Domain))
 
 		// Verify the domain belongs to this org in regional DB.
-		_, err := s.Regional.GetOrgDomainByOrgAndDomain(ctx, regionaldb.GetOrgDomainByOrgAndDomainParams{
+		_, err := s.RegionalForCtx(ctx).GetOrgDomainByOrgAndDomain(ctx, regionaldb.GetOrgDomainByOrgAndDomainParams{
 			Domain: domain,
 			OrgID:  orgUser.OrgID,
 		})
@@ -90,7 +90,7 @@ func DeleteDomain(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		// Block deletion of a domain that has active marketplace listings.
-		inUse, err := s.Regional.HasOrgDomainInUseByMarketplaceListing(ctx, domain)
+		inUse, err := s.RegionalForCtx(ctx).HasOrgDomainInUseByMarketplaceListing(ctx, domain)
 		if err != nil {
 			s.Logger(ctx).Error("failed to check domain marketplace usage", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
@@ -118,10 +118,10 @@ func DeleteDomain(s *server.RegionalServer) http.HandlerFunc {
 			ClaimableAfter: pgtype.Timestamptz{Time: claimableAfter, Valid: true},
 		}); err != nil {
 			s.Logger(ctx).Error("failed to insert domain cooldown", "error", err)
-			// Compensating: restore global domain record.
+			// Compensating: restore global domain record with its original region.
 			if restoreErr := s.Global.CreateGlobalOrgDomain(ctx, globaldb.CreateGlobalOrgDomainParams{
 				Domain:    domain,
-				Region:    s.CurrentRegion,
+				Region:    globalDomain.Region,
 				OrgID:     orgUser.OrgID,
 				IsPrimary: globalDomain.IsPrimary,
 			}); restoreErr != nil {
@@ -149,7 +149,7 @@ func DeleteDomain(s *server.RegionalServer) http.HandlerFunc {
 			// Compensating: restore global record and remove cooldown.
 			if restoreErr := s.Global.CreateGlobalOrgDomain(ctx, globaldb.CreateGlobalOrgDomainParams{
 				Domain:    domain,
-				Region:    s.CurrentRegion,
+				Region:    globalDomain.Region,
 				OrgID:     orgUser.OrgID,
 				IsPrimary: globalDomain.IsPrimary,
 			}); restoreErr != nil {

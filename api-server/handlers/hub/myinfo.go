@@ -22,7 +22,7 @@ func MyInfo(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		roleRecords, err := s.Regional.GetHubUserRoles(ctx, hubUser.HubUserGlobalID)
+		roleRecords, err := s.RegionalForCtx(ctx).GetHubUserRoles(ctx, hubUser.HubUserGlobalID)
 		if err != nil {
 			s.Logger(ctx).Error("failed to fetch hub user roles", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)

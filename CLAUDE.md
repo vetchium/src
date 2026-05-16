@@ -68,17 +68,29 @@ docker compose -f docker-compose-ci.json down -v
 
 ## Object Storage (LocalStack / S3-compatible)
 
-One LocalStack instance for all regions in dev/CI. Env vars (set in docker-compose):
+Three separate LocalStack instances in dev/CI — one per region. Each regional API server holds N S3 clients (one per region) in `AllStorageConfigs`, selected by the owning entity's home region (ADR-001 §1.4). Global assets (tag icons) use a separate global S3 config.
 
-| Variable               | Value (dev)              |
-| ---------------------- | ------------------------ |
-| `S3_ENDPOINT`          | `http://localstack:4566` |
-| `S3_ACCESS_KEY_ID`     | `vetchium-dev-key`       |
-| `S3_SECRET_ACCESS_KEY` | `vetchium-dev-secret`    |
-| `S3_REGION`            | `us-east-1`              |
-| `S3_BUCKET`            | `vetchium`               |
+Per-region env vars on regional API servers:
 
-When adding a storage feature: use AWS SDK v2 with `UsePathStyle: true` (required by LocalStack). Access via `s.StorageConfig`. Host S3 endpoint for debugging: `http://localhost:4566`.
+| Variable pattern                | Example value (ind1)          |
+| ------------------------------- | ----------------------------- |
+| `S3_ENDPOINT_{REGION}`          | `http://localstack-ind1:4566` |
+| `S3_BUCKET_{REGION}`            | `vetchium-ind1`               |
+| `S3_REGION_{REGION}`            | `us-east-1`                   |
+| `S3_ACCESS_KEY_ID_{REGION}`     | `vetchium-dev-key`            |
+| `S3_SECRET_ACCESS_KEY_{REGION}` | `vetchium-dev-secret`         |
+
+Global S3 env vars (regional servers + global-service):
+
+| Variable                      | Value (dev)                   |
+| ----------------------------- | ----------------------------- |
+| `GLOBAL_S3_ENDPOINT`          | `http://localstack-ind1:4566` |
+| `GLOBAL_S3_BUCKET`            | `vetchium-global`             |
+| `GLOBAL_S3_REGION`            | `us-east-1`                   |
+| `GLOBAL_S3_ACCESS_KEY_ID`     | `vetchium-dev-key`            |
+| `GLOBAL_S3_SECRET_ACCESS_KEY` | `vetchium-dev-secret`         |
+
+When adding a storage feature: use AWS SDK v2 with `UsePathStyle: true` (required by LocalStack). Use `s.GetStorageConfig(region)` for per-entity blobs and `s.GetGlobalStorageConfig()` for global assets. Host S3 debug endpoints: `http://localhost:4566` (ind1), `http://localhost:4567` (usa1), `http://localhost:4568` (deu1).
 
 ## Database Architecture
 

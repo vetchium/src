@@ -35,7 +35,7 @@ func GetMyOrgPlan(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		resp, err := buildOrgPlan(ctx, sub, org.OrgName, s.Global, s.Regional)
+		resp, err := buildOrgPlan(ctx, sub, org.OrgName, s.Global, s.RegionalForCtx(ctx))
 		if err != nil {
 			s.Logger(ctx).Error("failed to build org plan response", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)

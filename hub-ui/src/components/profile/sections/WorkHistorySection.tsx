@@ -1,4 +1,6 @@
-import { Card, Tag, Text, Tooltip } from "antd";
+import { Card, Tag, Tooltip, Typography } from "antd";
+
+const { Text } = Typography;
 import { SafetyCertificateOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import type { PublicEmployerStint } from "vetchium-specs/hub/work-emails";

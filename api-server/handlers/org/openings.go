@@ -234,7 +234,7 @@ func validateOpeningReferences(ctx context.Context, s *server.RegionalServer, or
 	for i, id := range req.AddressIDs {
 		addressIDs[i] = parseUUID(id)
 	}
-	validAddrs, err := s.Regional.ValidateOrgAddressesActive(ctx, regionaldb.ValidateOrgAddressesActiveParams{
+	validAddrs, err := s.RegionalForCtx(ctx).ValidateOrgAddressesActive(ctx, regionaldb.ValidateOrgAddressesActiveParams{
 		OrgID:      orgID,
 		AddressIds: addressIDs,
 	})
@@ -257,7 +257,7 @@ func validateOpeningReferences(ctx context.Context, s *server.RegionalServer, or
 	for email := range emailSet {
 		emails = append(emails, email)
 	}
-	foundUsers, err := s.Regional.GetActiveOrgUsersByEmails(ctx, regionaldb.GetActiveOrgUsersByEmailsParams{
+	foundUsers, err := s.RegionalForCtx(ctx).GetActiveOrgUsersByEmails(ctx, regionaldb.GetActiveOrgUsersByEmailsParams{
 		OrgID:  orgID,
 		Emails: emails,
 	})
@@ -272,7 +272,7 @@ func validateOpeningReferences(ctx context.Context, s *server.RegionalServer, or
 
 	// Validate cost center if provided
 	if req.CostCenterID != nil {
-		_, err := s.Regional.ValidateCostCenterActive(ctx, regionaldb.ValidateCostCenterActiveParams{
+		_, err := s.RegionalForCtx(ctx).ValidateCostCenterActive(ctx, regionaldb.ValidateCostCenterActiveParams{
 			OrgID:        orgID,
 			CostCenterID: parseUUID(*req.CostCenterID),
 		})
@@ -298,7 +298,7 @@ func validateUpdateOpeningReferences(ctx context.Context, s *server.RegionalServ
 	for i, id := range req.AddressIDs {
 		addressIDs[i] = parseUUID(id)
 	}
-	validAddrs, err := s.Regional.ValidateOrgAddressesActive(ctx, regionaldb.ValidateOrgAddressesActiveParams{
+	validAddrs, err := s.RegionalForCtx(ctx).ValidateOrgAddressesActive(ctx, regionaldb.ValidateOrgAddressesActiveParams{
 		OrgID:      orgID,
 		AddressIds: addressIDs,
 	})
@@ -321,7 +321,7 @@ func validateUpdateOpeningReferences(ctx context.Context, s *server.RegionalServ
 	for email := range emailSet {
 		emails = append(emails, email)
 	}
-	foundUsers, err := s.Regional.GetActiveOrgUsersByEmails(ctx, regionaldb.GetActiveOrgUsersByEmailsParams{
+	foundUsers, err := s.RegionalForCtx(ctx).GetActiveOrgUsersByEmails(ctx, regionaldb.GetActiveOrgUsersByEmailsParams{
 		OrgID:  orgID,
 		Emails: emails,
 	})
@@ -336,7 +336,7 @@ func validateUpdateOpeningReferences(ctx context.Context, s *server.RegionalServ
 
 	// Validate cost center if provided
 	if req.CostCenterID != nil {
-		_, err := s.Regional.ValidateCostCenterActive(ctx, regionaldb.ValidateCostCenterActiveParams{
+		_, err := s.RegionalForCtx(ctx).ValidateCostCenterActive(ctx, regionaldb.ValidateCostCenterActiveParams{
 			OrgID:        orgID,
 			CostCenterID: parseUUID(*req.CostCenterID),
 		})
@@ -471,10 +471,10 @@ func dbOpeningToResponse(ctx context.Context, s *server.RegionalServer, opening 
 	}
 
 	// Fetch and populate denormalized data
-	addresses, _ := s.Regional.GetOpeningAddresses(ctx, opening.OpeningID)
-	hiringTeam, _ := s.Regional.GetOpeningHiringTeam(ctx, opening.OpeningID)
-	watchers, _ := s.Regional.GetOpeningWatchers(ctx, opening.OpeningID)
-	tags, _ := s.Regional.GetOpeningTags(ctx, opening.OpeningID)
+	addresses, _ := s.RegionalForCtx(ctx).GetOpeningAddresses(ctx, opening.OpeningID)
+	hiringTeam, _ := s.RegionalForCtx(ctx).GetOpeningHiringTeam(ctx, opening.OpeningID)
+	watchers, _ := s.RegionalForCtx(ctx).GetOpeningWatchers(ctx, opening.OpeningID)
+	tags, _ := s.RegionalForCtx(ctx).GetOpeningTags(ctx, opening.OpeningID)
 
 	// Bulk-fetch users
 	userIDs := make(map[pgtype.UUID]bool)
@@ -496,7 +496,7 @@ func dbOpeningToResponse(ctx context.Context, s *server.RegionalServer, opening 
 		for uid := range userIDs {
 			uuidList = append(uuidList, uid)
 		}
-		users, _ := s.Regional.GetOrgUsersByIDs(ctx, uuidList)
+		users, _ := s.RegionalForCtx(ctx).GetOrgUsersByIDs(ctx, uuidList)
 		for _, u := range users {
 			var fullName string
 			if u.FullName.Valid {
@@ -524,7 +524,7 @@ func dbOpeningToResponse(ctx context.Context, s *server.RegionalServer, opening 
 		for i, addr := range addresses {
 			addressIDs[i] = addr.AddressID
 		}
-		fetchedAddrs, _ := s.Regional.GetOrgAddressesByIDs(ctx, addressIDs)
+		fetchedAddrs, _ := s.RegionalForCtx(ctx).GetOrgAddressesByIDs(ctx, addressIDs)
 		for _, a := range fetchedAddrs {
 			addressMap[a.AddressID] = a
 		}
@@ -584,7 +584,7 @@ func dbOpeningToResponse(ctx context.Context, s *server.RegionalServer, opening 
 
 	// Add cost center
 	if opening.CostCenterID.Valid {
-		cc, _ := s.Regional.GetCostCenterByID(ctx, opening.CostCenterID)
+		cc, _ := s.RegionalForCtx(ctx).GetCostCenterByID(ctx, opening.CostCenterID)
 		if cc.CostCenterID.Valid {
 			resp.CostCenter = map[string]interface{}{
 				"cost_center_id": cc.CostCenterID.String(),
@@ -686,7 +686,7 @@ func ListOpenings(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		// Run list query
-		rows, err := s.Regional.ListOpenings(ctx, params)
+		rows, err := s.RegionalForCtx(ctx).ListOpenings(ctx, params)
 		if err != nil {
 			log.Error("failed to list openings", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
@@ -712,7 +712,7 @@ func ListOpenings(s *server.RegionalServer) http.HandlerFunc {
 			for uid := range userIDs {
 				uuidList = append(uuidList, uid)
 			}
-			users, _ := s.Regional.GetOrgUsersByIDs(ctx, uuidList)
+			users, _ := s.RegionalForCtx(ctx).GetOrgUsersByIDs(ctx, uuidList)
 			for _, u := range users {
 				var fullName string
 				if u.FullName.Valid {
@@ -778,7 +778,7 @@ func GetOpening(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		opening, err := s.Regional.GetOpeningByNumber(ctx, regionaldb.GetOpeningByNumberParams{
+		opening, err := s.RegionalForCtx(ctx).GetOpeningByNumber(ctx, regionaldb.GetOpeningByNumberParams{
 			OrgID:         orgUser.OrgID,
 			OpeningNumber: req.OpeningNumber,
 		})
@@ -821,7 +821,7 @@ func UpdateOpening(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		// Check opening exists and is editable before validating references
-		existingCheck, existErr := s.Regional.GetOpeningByNumber(ctx, regionaldb.GetOpeningByNumberParams{
+		existingCheck, existErr := s.RegionalForCtx(ctx).GetOpeningByNumber(ctx, regionaldb.GetOpeningByNumberParams{
 			OrgID:         orgUser.OrgID,
 			OpeningNumber: req.OpeningNumber,
 		})
@@ -958,7 +958,7 @@ func UpdateOpening(s *server.RegionalServer) http.HandlerFunc {
 
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				existing, _ := s.Regional.GetOpeningByNumber(ctx, regionaldb.GetOpeningByNumberParams{
+				existing, _ := s.RegionalForCtx(ctx).GetOpeningByNumber(ctx, regionaldb.GetOpeningByNumberParams{
 					OrgID:         orgUser.OrgID,
 					OpeningNumber: req.OpeningNumber,
 				})
@@ -1069,7 +1069,7 @@ func DuplicateOpening(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		sourceOpening, err := s.Regional.GetOpeningByNumber(ctx, regionaldb.GetOpeningByNumberParams{
+		sourceOpening, err := s.RegionalForCtx(ctx).GetOpeningByNumber(ctx, regionaldb.GetOpeningByNumberParams{
 			OrgID:         orgUser.OrgID,
 			OpeningNumber: req.OpeningNumber,
 		})
@@ -1212,9 +1212,9 @@ func SubmitOpening(s *server.RegionalServer) http.HandlerFunc {
 
 		// Check if user is superadmin
 		isSuperadmin := false
-		superadminRole, err := s.Regional.GetRoleByName(ctx, "org:superadmin")
+		superadminRole, err := s.RegionalForCtx(ctx).GetRoleByName(ctx, "org:superadmin")
 		if err == nil {
-			hasRole, err := s.Regional.HasOrgUserRole(ctx, regionaldb.HasOrgUserRoleParams{
+			hasRole, err := s.RegionalForCtx(ctx).HasOrgUserRole(ctx, regionaldb.HasOrgUserRoleParams{
 				OrgUserID: orgUser.OrgUserID,
 				RoleID:    superadminRole.RoleID,
 			})
@@ -1262,7 +1262,7 @@ func SubmitOpening(s *server.RegionalServer) http.HandlerFunc {
 
 		if txErr != nil {
 			if errors.Is(txErr, pgx.ErrNoRows) {
-				existing, _ := s.Regional.GetOpeningByNumber(ctx, regionaldb.GetOpeningByNumberParams{
+				existing, _ := s.RegionalForCtx(ctx).GetOpeningByNumber(ctx, regionaldb.GetOpeningByNumberParams{
 					OrgID:         orgUser.OrgID,
 					OpeningNumber: req.OpeningNumber,
 				})
@@ -1329,7 +1329,7 @@ func ApproveOpening(s *server.RegionalServer) http.HandlerFunc {
 		})
 
 		if err != nil {
-			existing, _ := s.Regional.GetOpeningByNumber(ctx, regionaldb.GetOpeningByNumberParams{
+			existing, _ := s.RegionalForCtx(ctx).GetOpeningByNumber(ctx, regionaldb.GetOpeningByNumberParams{
 				OrgID:         orgUser.OrgID,
 				OpeningNumber: req.OpeningNumber,
 			})
@@ -1400,7 +1400,7 @@ func RejectOpening(s *server.RegionalServer) http.HandlerFunc {
 		})
 
 		if err != nil {
-			existing, _ := s.Regional.GetOpeningByNumber(ctx, regionaldb.GetOpeningByNumberParams{
+			existing, _ := s.RegionalForCtx(ctx).GetOpeningByNumber(ctx, regionaldb.GetOpeningByNumberParams{
 				OrgID:         orgUser.OrgID,
 				OpeningNumber: req.OpeningNumber,
 			})
@@ -1462,7 +1462,7 @@ func PauseOpening(s *server.RegionalServer) http.HandlerFunc {
 		})
 
 		if err != nil {
-			existing, _ := s.Regional.GetOpeningByNumber(ctx, regionaldb.GetOpeningByNumberParams{
+			existing, _ := s.RegionalForCtx(ctx).GetOpeningByNumber(ctx, regionaldb.GetOpeningByNumberParams{
 				OrgID:         orgUser.OrgID,
 				OpeningNumber: req.OpeningNumber,
 			})
@@ -1524,7 +1524,7 @@ func ReopenOpening(s *server.RegionalServer) http.HandlerFunc {
 		})
 
 		if err != nil {
-			existing, _ := s.Regional.GetOpeningByNumber(ctx, regionaldb.GetOpeningByNumberParams{
+			existing, _ := s.RegionalForCtx(ctx).GetOpeningByNumber(ctx, regionaldb.GetOpeningByNumberParams{
 				OrgID:         orgUser.OrgID,
 				OpeningNumber: req.OpeningNumber,
 			})
@@ -1586,7 +1586,7 @@ func CloseOpening(s *server.RegionalServer) http.HandlerFunc {
 		})
 
 		if err != nil {
-			existing, _ := s.Regional.GetOpeningByNumber(ctx, regionaldb.GetOpeningByNumberParams{
+			existing, _ := s.RegionalForCtx(ctx).GetOpeningByNumber(ctx, regionaldb.GetOpeningByNumberParams{
 				OrgID:         orgUser.OrgID,
 				OpeningNumber: req.OpeningNumber,
 			})
@@ -1648,7 +1648,7 @@ func ArchiveOpening(s *server.RegionalServer) http.HandlerFunc {
 		})
 
 		if err != nil {
-			existing, _ := s.Regional.GetOpeningByNumber(ctx, regionaldb.GetOpeningByNumberParams{
+			existing, _ := s.RegionalForCtx(ctx).GetOpeningByNumber(ctx, regionaldb.GetOpeningByNumberParams{
 				OrgID:         orgUser.OrgID,
 				OpeningNumber: req.OpeningNumber,
 			})

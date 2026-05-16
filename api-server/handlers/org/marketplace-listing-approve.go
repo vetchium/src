@@ -42,7 +42,7 @@ func ApproveListing(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		existing, err := s.Regional.GetMarketplaceListingByDomainAndNumber(ctx, regionaldb.GetMarketplaceListingByDomainAndNumberParams{
+		existing, err := s.RegionalForCtx(ctx).GetMarketplaceListingByDomainAndNumber(ctx, regionaldb.GetMarketplaceListingByDomainAndNumberParams{
 			OrgDomain:     req.OrgDomain,
 			ListingNumber: req.ListingNumber,
 		})

@@ -73,7 +73,7 @@ func DiscoverListings(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		// Fetch current org's active subscriptions to mark is_subscribed
-		activeSubs, err := s.Regional.ListMarketplaceSubscriptionsByConsumer(ctx, regionaldb.ListMarketplaceSubscriptionsByConsumerParams{
+		activeSubs, err := s.RegionalForCtx(ctx).ListMarketplaceSubscriptionsByConsumer(ctx, regionaldb.ListMarketplaceSubscriptionsByConsumerParams{
 			ConsumerOrgID: orgUser.OrgID,
 			FilterStatus: regionaldb.NullMarketplaceSubscriptionStatus{
 				MarketplaceSubscriptionStatus: regionaldb.MarketplaceSubscriptionStatusActive,

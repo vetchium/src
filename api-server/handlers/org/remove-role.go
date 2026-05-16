@@ -63,7 +63,7 @@ func RemoveRole(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		// Get target org user from regional DB (verify exists and same org)
-		targetUser, err := s.Regional.GetOrgUserByID(ctx, globalTargetUser.OrgUserID)
+		targetUser, err := s.RegionalForCtx(ctx).GetOrgUserByID(ctx, globalTargetUser.OrgUserID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				s.Logger(ctx).Debug("target org user not found in regional DB", "email_address", req.EmailAddress)
@@ -86,7 +86,7 @@ func RemoveRole(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		// Get role by name from regional DB (verify exists)
-		role, err := s.Regional.GetRoleByName(ctx, string(req.RoleName))
+		role, err := s.RegionalForCtx(ctx).GetRoleByName(ctx, string(req.RoleName))
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				s.Logger(ctx).Debug("role not found", "role_name", req.RoleName)

@@ -103,10 +103,10 @@ test.describe("Hub UI - Signup Flow", () => {
 		await expect(page.locator(".ant-descriptions")).toBeVisible();
 		await page.click('button:has-text("Create Account")');
 
-		// 4. Verify completion — dashboard title is "Vetchium Hub"
+		// 4. Verify completion — dashboard shows the welcome greeting
 		await expect(page).toHaveURL(`${HUB_UI_URL}/`, { timeout: 10000 });
-		await expect(
-			page.locator("h2").filter({ hasText: "Vetchium Hub" })
-		).toBeVisible({ timeout: 5000 });
+		await expect(page.locator("h3").filter({ hasText: /Welcome/ })).toBeVisible(
+			{ timeout: 5000 }
+		);
 	});
 });

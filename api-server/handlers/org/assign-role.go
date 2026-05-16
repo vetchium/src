@@ -57,7 +57,7 @@ func AssignRole(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		// Get target org user by email within the same org
-		targetUser, err := s.Regional.GetOrgUserByEmailAndOrg(ctx, regionaldb.GetOrgUserByEmailAndOrgParams{
+		targetUser, err := s.RegionalForCtx(ctx).GetOrgUserByEmailAndOrg(ctx, regionaldb.GetOrgUserByEmailAndOrgParams{
 			EmailAddress: req.EmailAddress,
 			OrgID:        orgUser.OrgID,
 		})
@@ -73,7 +73,7 @@ func AssignRole(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		// Get role by name from regional DB (verify exists)
-		role, err := s.Regional.GetRoleByName(ctx, string(req.RoleName))
+		role, err := s.RegionalForCtx(ctx).GetRoleByName(ctx, string(req.RoleName))
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				s.Logger(ctx).Debug("role not found", "role_name", req.RoleName)
@@ -86,7 +86,7 @@ func AssignRole(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		// Check if user already has this role
-		hasRole, err := s.Regional.HasOrgUserRole(ctx, regionaldb.HasOrgUserRoleParams{
+		hasRole, err := s.RegionalForCtx(ctx).HasOrgUserRole(ctx, regionaldb.HasOrgUserRoleParams{
 			OrgUserID: targetUser.OrgUserID,
 			RoleID:    role.RoleID,
 		})

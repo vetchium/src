@@ -73,7 +73,7 @@ func CreateSubOrg(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		// Enforce suborgs quota before creating
-		quotaPayload, quotaErr := orgtiers.EnforceQuota(ctx, orgtiers.QuotaSubOrgs, orgUser.OrgID, s.Global, s.Regional)
+		quotaPayload, quotaErr := orgtiers.EnforceQuota(ctx, orgtiers.QuotaSubOrgs, orgUser.OrgID, s.Global, s.RegionalForCtx(ctx))
 		if quotaErr != nil {
 			if errors.Is(quotaErr, orgtiers.ErrQuotaExceeded) {
 				orgtiers.WriteQuotaError(w, quotaPayload)
@@ -193,7 +193,7 @@ func ListSubOrgs(s *server.RegionalServer) http.HandlerFunc {
 			filterStatus = pgtype.Text{String: *req.FilterStatus, Valid: true}
 		}
 
-		rows, err := s.Regional.ListSubOrgs(ctx, regionaldb.ListSubOrgsParams{
+		rows, err := s.RegionalForCtx(ctx).ListSubOrgs(ctx, regionaldb.ListSubOrgsParams{
 			OrgID:           orgUser.OrgID,
 			FilterStatus:    filterStatus,
 			CursorCreatedAt: cursorCreatedAt,
@@ -697,7 +697,7 @@ func ListSubOrgMembers(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		// Verify the SubOrg belongs to this org.
-		if _, err := s.Regional.GetSubOrgByOrgAndName(ctx, regionaldb.GetSubOrgByOrgAndNameParams{
+		if _, err := s.RegionalForCtx(ctx).GetSubOrgByOrgAndName(ctx, regionaldb.GetSubOrgByOrgAndNameParams{
 			OrgID: orgUser.OrgID,
 			Name:  req.Name,
 		}); err != nil {
@@ -730,7 +730,7 @@ func ListSubOrgMembers(s *server.RegionalServer) http.HandlerFunc {
 			}
 		}
 
-		rows, err := s.Regional.ListSubOrgMembersByName(ctx, regionaldb.ListSubOrgMembersByNameParams{
+		rows, err := s.RegionalForCtx(ctx).ListSubOrgMembersByName(ctx, regionaldb.ListSubOrgMembersByNameParams{
 			OrgID:            orgUser.OrgID,
 			SuborgName:       req.Name,
 			CursorAssignedAt: cursorAssignedAt,

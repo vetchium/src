@@ -99,10 +99,13 @@ func ClaimDomain(s *server.RegionalServer) http.HandlerFunc {
 		// Calculate token expiry
 		tokenExpiresAt := time.Now().AddDate(0, 0, orgdomains.TokenExpiryDays)
 
-		// SAGA pattern: Create in global DB first (for uniqueness)
+		// SAGA pattern: Create in global DB first (for uniqueness).
+		// The org's home region (not s.CurrentRegion) is used so the global record
+		// matches where the domain's regional data (verification token, etc.) is stored.
+		orgHomeRegion := globaldb.Region(middleware.OrgRegionFromContext(ctx))
 		err = s.Global.CreateGlobalOrgDomain(ctx, globaldb.CreateGlobalOrgDomainParams{
 			Domain: domain,
-			Region: s.CurrentRegion,
+			Region: orgHomeRegion,
 			OrgID:  orgUser.OrgID,
 		})
 		if err != nil {

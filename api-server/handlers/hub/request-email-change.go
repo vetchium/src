@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"vetchium-api-server.gomodule/internal/audit"
+	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/email/templates"
 	"vetchium-api-server.gomodule/internal/middleware"
@@ -78,7 +79,10 @@ func RequestEmailChange(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		// Generate verification token (region-prefixed)
+		// Generate verification token (region-prefixed with user's home region,
+		// not s.CurrentRegion, so complete-email-change can find it regardless of
+		// which regional server handles that request).
+		homeRegion := globaldb.Region(middleware.HubRegionFromContext(ctx))
 		tokenBytes := make([]byte, 32)
 		if _, err := rand.Read(tokenBytes); err != nil {
 			s.Logger(ctx).Error("failed to generate random token", "error", err)
@@ -86,7 +90,7 @@ func RequestEmailChange(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 		rawToken := hex.EncodeToString(tokenBytes)
-		verificationToken := tokens.AddRegionPrefix(s.CurrentRegion, rawToken)
+		verificationToken := tokens.AddRegionPrefix(homeRegion, rawToken)
 
 		// Create verification token and enqueue email atomically in regional DB
 		var expiresAt pgtype.Timestamptz

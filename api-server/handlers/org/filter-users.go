@@ -101,7 +101,7 @@ func FilterUsers(s *server.RegionalServer) http.HandlerFunc {
 			LimitCount:      int32(limit + 1),
 		}
 
-		users, err := s.Regional.FilterOrgUsers(ctx, regionalParams)
+		users, err := s.RegionalForCtx(ctx).FilterOrgUsers(ctx, regionalParams)
 		if err != nil {
 			s.Logger(ctx).Error("failed to filter org users from regional db", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)

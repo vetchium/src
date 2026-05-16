@@ -45,7 +45,7 @@ func CancelSubscription(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		existing, err := s.Regional.GetMarketplaceSubscriptionByID(ctx, subID)
+		existing, err := s.RegionalForCtx(ctx).GetMarketplaceSubscriptionByID(ctx, subID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				w.WriteHeader(http.StatusNotFound)

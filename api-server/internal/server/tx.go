@@ -6,7 +6,9 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5"
+	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
+	"vetchium-api-server.gomodule/internal/middleware"
 )
 
 // Custom error types for distinguishing failure modes
@@ -22,9 +24,21 @@ var (
 )
 
 // WithRegionalTx executes a function within a regional database transaction.
-// Always uses s.RegionalPool since each server has only one regional DB.
+// Uses the authenticated user's home region pool from context when available,
+// so writes always land in the user's home region regardless of which server
+// is handling the request (ADR-001 §4.1).
 func (s *RegionalServer) WithRegionalTx(ctx context.Context, fn func(*regionaldb.Queries) error) error {
-	return pgx.BeginFunc(ctx, s.RegionalPool, func(tx pgx.Tx) error {
+	pool := s.RegionalPool
+	if region := middleware.OrgRegionFromContext(ctx); region != "" {
+		if p := s.AllRegionalPools[globaldb.Region(region)]; p != nil {
+			pool = p
+		}
+	} else if region := middleware.HubRegionFromContext(ctx); region != "" {
+		if p := s.AllRegionalPools[globaldb.Region(region)]; p != nil {
+			pool = p
+		}
+	}
+	return pgx.BeginFunc(ctx, pool, func(tx pgx.Tx) error {
 		qtx := regionaldb.New(tx)
 		return fn(qtx)
 	})

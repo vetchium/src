@@ -152,7 +152,7 @@ func DisableUser(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		// Invalidate all sessions for the target user (best-effort, outside tx)
-		if err := s.Regional.DeleteAllOrgSessionsForUser(ctx, targetUserID); err != nil {
+		if err := s.RegionalForCtx(ctx).DeleteAllOrgSessionsForUser(ctx, targetUserID); err != nil {
 			s.Logger(ctx).Error("failed to delete user sessions", "error", err)
 			// User is disabled but sessions still active - this is acceptable
 		}

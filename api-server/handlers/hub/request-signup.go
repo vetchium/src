@@ -107,7 +107,7 @@ func RequestSignup(s *server.RegionalServer) http.HandlerFunc {
 		lang := i18n.Match("en-US") // Default language for signup
 		signupLink := fmt.Sprintf("%s/signup/verify?token=%s", s.UIConfig.HubURL, signupToken)
 		expiryHours := int(s.TokenConfig.HubSignupTokenExpiry.Hours())
-		err = sendSignupEmail(ctx, s.Regional, string(req.EmailAddress), signupLink, lang, expiryHours)
+		err = sendSignupEmail(ctx, s.RegionalForCtx(ctx), string(req.EmailAddress), signupLink, lang, expiryHours)
 		if err != nil {
 			s.Logger(ctx).Error("failed to enqueue signup email", "error", err)
 			// Compensating transaction: delete the signup token we just created

@@ -65,7 +65,7 @@ func EnableUser(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		// Get target user from regional DB (has status)
-		targetUser, err := s.Regional.GetOrgUserByID(ctx, globalTargetUser.OrgUserID)
+		targetUser, err := s.RegionalForCtx(ctx).GetOrgUserByID(ctx, globalTargetUser.OrgUserID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				s.Logger(ctx).Debug("target user not found in regional DB")

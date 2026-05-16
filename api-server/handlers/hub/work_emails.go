@@ -172,7 +172,7 @@ func AddWorkEmail(s *server.RegionalServer) http.HandlerFunc {
 		globalEntry, err := s.Global.ClaimWorkEmailGlobal(ctx, globaldb.ClaimWorkEmailGlobalParams{
 			EmailAddressHash: emailHash,
 			HubUserGlobalID:  hubUser.HubUserGlobalID,
-			Region:           string(s.CurrentRegion),
+			Region:           middleware.HubRegionFromContext(ctx),
 			Status:           "pending_verification",
 		})
 		if err != nil {
@@ -326,7 +326,7 @@ func VerifyWorkEmail(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		// Single regional read to check state
-		stint, err := s.Regional.GetWorkEmailStintByID(ctx, regionaldb.GetWorkEmailStintByIDParams{
+		stint, err := s.RegionalForCtx(ctx).GetWorkEmailStintByID(ctx, regionaldb.GetWorkEmailStintByIDParams{
 			StintID:   stintUUID,
 			HubUserID: hubUser.HubUserGlobalID,
 		})
@@ -496,7 +496,7 @@ func ResendWorkEmailCode(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		// Get current state
-		stint, err := s.Regional.GetWorkEmailStintByID(ctx, regionaldb.GetWorkEmailStintByIDParams{
+		stint, err := s.RegionalForCtx(ctx).GetWorkEmailStintByID(ctx, regionaldb.GetWorkEmailStintByIDParams{
 			StintID:   stintUUID,
 			HubUserID: hubUser.HubUserGlobalID,
 		})
@@ -621,7 +621,7 @@ func ReverifyWorkEmail(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		stint, err := s.Regional.GetWorkEmailStintByID(ctx, regionaldb.GetWorkEmailStintByIDParams{
+		stint, err := s.RegionalForCtx(ctx).GetWorkEmailStintByID(ctx, regionaldb.GetWorkEmailStintByIDParams{
 			StintID:   stintUUID,
 			HubUserID: hubUser.HubUserGlobalID,
 		})
@@ -641,7 +641,7 @@ func ReverifyWorkEmail(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		// Check for challenge
-		challenge, err := s.Regional.GetReverifyChallenge(ctx, stintUUID)
+		challenge, err := s.RegionalForCtx(ctx).GetReverifyChallenge(ctx, stintUUID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				w.WriteHeader(http.StatusUnprocessableEntity)
@@ -743,7 +743,7 @@ func RemoveWorkEmail(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		// Check ownership
-		stint, err := s.Regional.GetWorkEmailStintByID(ctx, regionaldb.GetWorkEmailStintByIDParams{
+		stint, err := s.RegionalForCtx(ctx).GetWorkEmailStintByID(ctx, regionaldb.GetWorkEmailStintByIDParams{
 			StintID:   stintUUID,
 			HubUserID: hubUser.HubUserGlobalID,
 		})
@@ -878,7 +878,7 @@ func ListMyWorkEmails(s *server.RegionalServer) http.HandlerFunc {
 			}
 		}
 
-		rows, err := s.Regional.ListMyWorkEmailStints(ctx, params)
+		rows, err := s.RegionalForCtx(ctx).ListMyWorkEmailStints(ctx, params)
 		if err != nil {
 			log.Error("failed to list work email stints", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
@@ -935,7 +935,7 @@ func GetMyWorkEmail(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		stint, err := s.Regional.GetWorkEmailStintByID(ctx, regionaldb.GetWorkEmailStintByIDParams{
+		stint, err := s.RegionalForCtx(ctx).GetWorkEmailStintByID(ctx, regionaldb.GetWorkEmailStintByIDParams{
 			StintID:   stintUUID,
 			HubUserID: hubUser.HubUserGlobalID,
 		})
@@ -952,7 +952,7 @@ func GetMyWorkEmail(s *server.RegionalServer) http.HandlerFunc {
 		// Fetch reverify challenge if active
 		var challenge *regionaldb.HubWorkEmailReverifyChallenge
 		if stint.Status == regionaldb.WorkEmailStintStatusActive {
-			ch, err := s.Regional.GetReverifyChallenge(ctx, stintUUID)
+			ch, err := s.RegionalForCtx(ctx).GetReverifyChallenge(ctx, stintUUID)
 			if err == nil {
 				challenge = &ch
 			} else if !errors.Is(err, pgx.ErrNoRows) {

@@ -234,7 +234,7 @@ func GetMyProfile(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		// One regional read
-		profile, err := s.Regional.GetMyHubProfile(ctx, hubUser.HubUserGlobalID)
+		profile, err := s.RegionalForCtx(ctx).GetMyHubProfile(ctx, hubUser.HubUserGlobalID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				w.WriteHeader(http.StatusNotFound)
@@ -608,7 +608,7 @@ func UploadProfilePicture(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		// Fetch full profile for response
-		profileRow, err := s.Regional.GetMyHubProfile(ctx, hubUser.HubUserGlobalID)
+		profileRow, err := s.RegionalForCtx(ctx).GetMyHubProfile(ctx, hubUser.HubUserGlobalID)
 		if err != nil {
 			log.Error("failed to fetch profile after picture upload", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
@@ -695,7 +695,7 @@ func RemoveProfilePicture(s *server.RegionalServer) http.HandlerFunc {
 		_ = hadPicture
 
 		// Fetch fresh profile for response
-		profileRow, err := s.Regional.GetMyHubProfile(ctx, hubUser.HubUserGlobalID)
+		profileRow, err := s.RegionalForCtx(ctx).GetMyHubProfile(ctx, hubUser.HubUserGlobalID)
 		if err != nil {
 			log.Error("failed to fetch profile after picture removal", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)

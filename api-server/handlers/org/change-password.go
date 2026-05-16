@@ -46,7 +46,7 @@ func ChangePassword(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		// Get user from regional DB (to get password hash)
-		regionalUser, err := s.Regional.GetOrgUserByID(ctx, orgUser.OrgUserID)
+		regionalUser, err := s.RegionalForCtx(ctx).GetOrgUserByID(ctx, orgUser.OrgUserID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				s.Logger(ctx).Error("user not found in regional DB", "org_user_id", orgUser.OrgUserID)

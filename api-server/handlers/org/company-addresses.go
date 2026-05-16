@@ -438,7 +438,7 @@ func GetAddress(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		addr, err := s.Regional.GetOrgAddress(ctx, regionaldb.GetOrgAddressParams{
+		addr, err := s.RegionalForCtx(ctx).GetOrgAddress(ctx, regionaldb.GetOrgAddressParams{
 			AddressID: addrID,
 			OrgID:     orgUser.OrgID,
 		})
@@ -526,7 +526,7 @@ func ListAddresses(s *server.RegionalServer) http.HandlerFunc {
 			LimitCount:      int32(limit + 1),
 		}
 
-		addresses, err := s.Regional.ListOrgAddresses(ctx, params)
+		addresses, err := s.RegionalForCtx(ctx).ListOrgAddresses(ctx, params)
 		if err != nil {
 			s.Logger(ctx).Error("failed to list addresses", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)

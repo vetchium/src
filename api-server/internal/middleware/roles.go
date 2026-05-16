@@ -9,6 +9,26 @@ import (
 	orgspec "vetchium-api-server.typespec/org"
 )
 
+// homeOrgDB returns the regional DB queries for the org user's home region.
+// Falls back to nil if no org region is in context.
+func homeOrgDB(r *http.Request, allRegionalDBs map[globaldb.Region]*regionaldb.Queries) *regionaldb.Queries {
+	region := OrgRegionFromContext(r.Context())
+	if region == "" {
+		return nil
+	}
+	return allRegionalDBs[globaldb.Region(region)]
+}
+
+// homeHubDB returns the regional DB queries for the hub user's home region.
+// Falls back to nil if no hub region is in context.
+func homeHubDB(r *http.Request, allRegionalDBs map[globaldb.Region]*regionaldb.Queries) *regionaldb.Queries {
+	region := HubRegionFromContext(r.Context())
+	if region == "" {
+		return nil
+	}
+	return allRegionalDBs[globaldb.Region(region)]
+}
+
 // AdminRole checks if the authenticated admin user has ANY of the required roles.
 // Superadmin (admin:superadmin) is always prepended and bypasses any specific role requirement.
 // If no roles are specified, only authentication is required (any authenticated admin can access).
@@ -70,7 +90,8 @@ func AdminRole(globalDB *globaldb.Queries, requiredRoles ...adminspec.AdminRole)
 // If no roles are specified, only authentication is required (any authenticated org user can access).
 // Returns 403 if user lacks all required roles.
 // Must be chained after OrgAuth middleware.
-func OrgRole(regionalDB *regionaldb.Queries, requiredRoles ...orgspec.OrgRole) func(http.Handler) http.Handler {
+// allRegionalDBs must be the server's full map so the check always targets the user's home region.
+func OrgRole(allRegionalDBs map[globaldb.Region]*regionaldb.Queries, requiredRoles ...orgspec.OrgRole) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
@@ -86,6 +107,13 @@ func OrgRole(regionalDB *regionaldb.Queries, requiredRoles ...orgspec.OrgRole) f
 			// If no roles specified, allow access (auth-only)
 			if len(requiredRoles) == 0 {
 				next.ServeHTTP(w, r)
+				return
+			}
+
+			// Use the user's home region DB for role checks (ADR-001 §4.1).
+			regionalDB := homeOrgDB(r, allRegionalDBs)
+			if regionalDB == nil {
+				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
 
@@ -122,7 +150,8 @@ func OrgRole(regionalDB *regionaldb.Queries, requiredRoles ...orgspec.OrgRole) f
 // If no roles are specified, only authentication is required (any authenticated hub user can access).
 // Returns 403 if user lacks all required roles.
 // Must be chained after HubAuth middleware.
-func HubRole(regionalDB *regionaldb.Queries, requiredRoles ...string) func(http.Handler) http.Handler {
+// allRegionalDBs must be the server's full map so the check always targets the user's home region.
+func HubRole(allRegionalDBs map[globaldb.Region]*regionaldb.Queries, requiredRoles ...string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
@@ -138,6 +167,13 @@ func HubRole(regionalDB *regionaldb.Queries, requiredRoles ...string) func(http.
 			// If no roles specified, allow access (auth-only)
 			if len(requiredRoles) == 0 {
 				next.ServeHTTP(w, r)
+				return
+			}
+
+			// Use the user's home region DB for role checks (ADR-001 §4.1).
+			regionalDB := homeHubDB(r, allRegionalDBs)
+			if regionalDB == nil {
+				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
 

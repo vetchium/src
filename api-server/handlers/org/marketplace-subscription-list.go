@@ -56,7 +56,7 @@ func ListMySubscriptions(s *server.RegionalServer) http.HandlerFunc {
 			}
 		}
 
-		rows, err := s.Regional.ListMarketplaceSubscriptionsByConsumer(ctx, regionaldb.ListMarketplaceSubscriptionsByConsumerParams{
+		rows, err := s.RegionalForCtx(ctx).ListMarketplaceSubscriptionsByConsumer(ctx, regionaldb.ListMarketplaceSubscriptionsByConsumerParams{
 			ConsumerOrgID: orgUser.OrgID,
 			FilterStatus:  filterStatus,
 			PaginationKey: paginationKey,

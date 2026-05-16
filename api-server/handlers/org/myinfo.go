@@ -32,7 +32,7 @@ func MyInfo(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		// One regional round-trip: roles + failing-domain warning.
-		regionalInfo, err := s.Regional.GetOrgUserRolesWithDomainWarning(ctx, regionaldb.GetOrgUserRolesWithDomainWarningParams{
+		regionalInfo, err := s.RegionalForCtx(ctx).GetOrgUserRolesWithDomainWarning(ctx, regionaldb.GetOrgUserRolesWithDomainWarningParams{
 			OrgUserID: orgUser.OrgUserID,
 			OrgID:     orgUser.OrgID,
 		})

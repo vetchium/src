@@ -125,7 +125,7 @@ func UpgradeOrgPlan(s *server.RegionalServer) http.HandlerFunc {
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
-		resp, err := buildOrgPlan(ctx, sub, org.OrgName, s.Global, s.Regional)
+		resp, err := buildOrgPlan(ctx, sub, org.OrgName, s.Global, s.RegionalForCtx(ctx))
 		if err != nil {
 			s.Logger(ctx).Error("failed to build plan response", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)

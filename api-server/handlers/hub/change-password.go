@@ -53,7 +53,7 @@ func ChangePassword(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		// Get regional user to verify current password
-		regionalUser, err := s.Regional.GetHubUserByGlobalID(ctx, hubUser.HubUserGlobalID)
+		regionalUser, err := s.RegionalForCtx(ctx).GetHubUserByGlobalID(ctx, hubUser.HubUserGlobalID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				s.Logger(ctx).Debug("regional user not found")

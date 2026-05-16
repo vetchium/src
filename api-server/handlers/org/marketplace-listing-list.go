@@ -57,7 +57,7 @@ func ListMyListings(s *server.RegionalServer) http.HandlerFunc {
 			}
 		}
 
-		rows, err := s.Regional.ListMarketplaceListingsByOrg(ctx, regionaldb.ListMarketplaceListingsByOrgParams{
+		rows, err := s.RegionalForCtx(ctx).ListMarketplaceListingsByOrg(ctx, regionaldb.ListMarketplaceListingsByOrgParams{
 			OrgID:         orgUser.OrgID,
 			FilterStatus:  filterStatus,
 			PaginationKey: paginationKey,

@@ -126,6 +126,23 @@ func (s *RegionalServer) GetGlobalStorageConfig() *StorageConfig {
 	return s.GlobalStorageConfig
 }
 
+// RegionalForCtx returns the regional DB queries for the authenticated user's home region.
+// It checks org region first, then hub region, then falls back to s.Regional.
+// This is the correct DB to use for any data owned by the authenticated user.
+func (s *RegionalServer) RegionalForCtx(ctx context.Context) *regionaldb.Queries {
+	if region := middleware.OrgRegionFromContext(ctx); region != "" {
+		if db := s.AllRegionalDBs[globaldb.Region(region)]; db != nil {
+			return db
+		}
+	}
+	if region := middleware.HubRegionFromContext(ctx); region != "" {
+		if db := s.AllRegionalDBs[globaldb.Region(region)]; db != nil {
+			return db
+		}
+	}
+	return s.Regional
+}
+
 // Logger returns the logger from context with request ID, or falls back to base logger.
 func (s *BaseServer) Logger(ctx context.Context) *slog.Logger {
 	return middleware.LoggerFromContext(ctx, s.Log)

@@ -48,7 +48,7 @@ func PublishMarketplaceListing(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		existing, err := s.Regional.GetMarketplaceListingByDomainAndNumber(ctx, regionaldb.GetMarketplaceListingByDomainAndNumberParams{
+		existing, err := s.RegionalForCtx(ctx).GetMarketplaceListingByDomainAndNumber(ctx, regionaldb.GetMarketplaceListingByDomainAndNumberParams{
 			OrgDomain:     orgRecord.OrgName,
 			ListingNumber: req.ListingNumber,
 		})
@@ -75,7 +75,7 @@ func PublishMarketplaceListing(s *server.RegionalServer) http.HandlerFunc {
 
 		// Enforce marketplace listing quota (counts active + pending_review)
 		quotaPayload, err := orgtiers.EnforceQuota(
-			ctx, orgtiers.QuotaMarketplaceListings, orgUser.OrgID, s.Global, s.Regional,
+			ctx, orgtiers.QuotaMarketplaceListings, orgUser.OrgID, s.Global, s.RegionalForCtx(ctx),
 		)
 		if err != nil {
 			if errors.Is(err, orgtiers.ErrQuotaExceeded) {
@@ -89,9 +89,9 @@ func PublishMarketplaceListing(s *server.RegionalServer) http.HandlerFunc {
 
 		// Check if caller is superadmin (can publish directly to active)
 		isSuperAdmin := false
-		superadminRole, err := s.Regional.GetRoleByName(ctx, "org:superadmin")
+		superadminRole, err := s.RegionalForCtx(ctx).GetRoleByName(ctx, "org:superadmin")
 		if err == nil {
-			hasSA, err := s.Regional.HasOrgUserRole(ctx, regionaldb.HasOrgUserRoleParams{
+			hasSA, err := s.RegionalForCtx(ctx).HasOrgUserRole(ctx, regionaldb.HasOrgUserRoleParams{
 				OrgUserID: orgUser.OrgUserID,
 				RoleID:    superadminRole.RoleID,
 			})

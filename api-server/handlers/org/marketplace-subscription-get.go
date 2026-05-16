@@ -52,7 +52,7 @@ func GetSubscription(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		sub, err := s.Regional.GetMarketplaceSubscription(ctx, regionaldb.GetMarketplaceSubscriptionParams{
+		sub, err := s.RegionalForCtx(ctx).GetMarketplaceSubscription(ctx, regionaldb.GetMarketplaceSubscriptionParams{
 			ConsumerOrgID: orgUser.OrgID,
 			ListingID:     catalog.ListingID,
 		})

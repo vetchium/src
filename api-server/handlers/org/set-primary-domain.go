@@ -43,7 +43,7 @@ func SetPrimaryDomain(s *server.RegionalServer) http.HandlerFunc {
 		domain := strings.ToLower(string(req.Domain))
 
 		// Verify the domain is VERIFIED in regional DB and belongs to this org.
-		domainRecord, err := s.Regional.GetOrgDomainByOrgAndDomain(ctx, regionaldb.GetOrgDomainByOrgAndDomainParams{
+		domainRecord, err := s.RegionalForCtx(ctx).GetOrgDomainByOrgAndDomain(ctx, regionaldb.GetOrgDomainByOrgAndDomainParams{
 			Domain: domain,
 			OrgID:  orgUser.OrgID,
 		})

@@ -40,7 +40,7 @@ func ListDomains(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		// One regional round-trip: all domains for this org.
-		domains, err := s.Regional.GetOrgDomainsByOrg(ctx, orgUser.OrgID)
+		domains, err := s.RegionalForCtx(ctx).GetOrgDomainsByOrg(ctx, orgUser.OrgID)
 		if err != nil {
 			s.Logger(ctx).Error("failed to get org domains", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)

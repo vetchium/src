@@ -118,7 +118,7 @@ func Subscribe(s *server.RegionalServer) http.HandlerFunc {
 				SubscriptionID: sub.SubscriptionID,
 				ListingID:      sub.ListingID,
 				ConsumerOrgID:  sub.ConsumerOrgID,
-				ConsumerRegion: string(s.CurrentRegion),
+				ConsumerRegion: middleware.OrgRegionFromContext(ctx),
 				ProviderOrgID:  catalog.OrgID,
 				ProviderRegion: string(providerOrg.Region),
 				Status:         string(sub.Status),
