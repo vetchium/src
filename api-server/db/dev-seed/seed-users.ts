@@ -84,19 +84,22 @@ async function waitForEmailText(
 
 function extractHubSignupToken(text: string): string {
 	const m = text.match(/token=([a-f0-9]{64})/);
-	if (!m) throw new Error(`No hub signup token in email: ${text.slice(0, 300)}`);
+	if (!m)
+		throw new Error(`No hub signup token in email: ${text.slice(0, 300)}`);
 	return m[1];
 }
 
 function extractOrgSignupToken(text: string): string {
 	const m = text.match(/\b([a-f0-9]{64})\b/);
-	if (!m) throw new Error(`No org signup token in email: ${text.slice(0, 300)}`);
+	if (!m)
+		throw new Error(`No org signup token in email: ${text.slice(0, 300)}`);
 	return m[1];
 }
 
 function extractTfaCode(text: string): string {
 	const m = text.match(/\b(\d{6})\b/);
-	if (!m) throw new Error(`No 6-digit TFA code in email: ${text.slice(0, 300)}`);
+	if (!m)
+		throw new Error(`No 6-digit TFA code in email: ${text.slice(0, 300)}`);
 	return m[1];
 }
 
@@ -262,19 +265,69 @@ async function createOrg(admin: OrgAdmin): Promise<void> {
 
 const HUB_USERS: HubUser[] = [
 	// Gryffindor
-	{ email: "harry@hub.example", displayName: "Harry Potter", homeRegion: "ind1", countryCode: "GB" },
-	{ email: "hermione@hub.example", displayName: "Hermione Granger", homeRegion: "usa1", countryCode: "GB" },
-	{ email: "ron@hub.example", displayName: "Ron Weasley", homeRegion: "deu1", countryCode: "GB" },
-	{ email: "neville@hub.example", displayName: "Neville Longbottom", homeRegion: "ind1", countryCode: "GB" },
+	{
+		email: "harry@hub.example",
+		displayName: "Harry Potter",
+		homeRegion: "ind1",
+		countryCode: "GB",
+	},
+	{
+		email: "hermione@hub.example",
+		displayName: "Hermione Granger",
+		homeRegion: "usa1",
+		countryCode: "GB",
+	},
+	{
+		email: "ron@hub.example",
+		displayName: "Ron Weasley",
+		homeRegion: "deu1",
+		countryCode: "GB",
+	},
+	{
+		email: "neville@hub.example",
+		displayName: "Neville Longbottom",
+		homeRegion: "ind1",
+		countryCode: "GB",
+	},
 	// Slytherin
-	{ email: "draco@hub.example", displayName: "Draco Malfoy", homeRegion: "usa1", countryCode: "GB" },
-	{ email: "pansy@hub.example", displayName: "Pansy Parkinson", homeRegion: "deu1", countryCode: "GB" },
+	{
+		email: "draco@hub.example",
+		displayName: "Draco Malfoy",
+		homeRegion: "usa1",
+		countryCode: "GB",
+	},
+	{
+		email: "pansy@hub.example",
+		displayName: "Pansy Parkinson",
+		homeRegion: "deu1",
+		countryCode: "GB",
+	},
 	// Ravenclaw
-	{ email: "luna@hub.example", displayName: "Luna Lovegood", homeRegion: "deu1", countryCode: "GB" },
-	{ email: "cho@hub.example", displayName: "Cho Chang", homeRegion: "ind1", countryCode: "GB" },
+	{
+		email: "luna@hub.example",
+		displayName: "Luna Lovegood",
+		homeRegion: "deu1",
+		countryCode: "GB",
+	},
+	{
+		email: "cho@hub.example",
+		displayName: "Cho Chang",
+		homeRegion: "ind1",
+		countryCode: "GB",
+	},
 	// Hufflepuff
-	{ email: "cedric@hub.example", displayName: "Cedric Diggory", homeRegion: "usa1", countryCode: "GB" },
-	{ email: "hannah@hub.example", displayName: "Hannah Abbott", homeRegion: "ind1", countryCode: "GB" },
+	{
+		email: "cedric@hub.example",
+		displayName: "Cedric Diggory",
+		homeRegion: "usa1",
+		countryCode: "GB",
+	},
+	{
+		email: "hannah@hub.example",
+		displayName: "Hannah Abbott",
+		homeRegion: "ind1",
+		countryCode: "GB",
+	},
 ];
 
 // One superadmin per house org, using admin@<housename>.example
