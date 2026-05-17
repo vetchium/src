@@ -78,7 +78,11 @@ export function HomePage() {
 								style={{ display: "flex", alignItems: "flex-start", gap: 16 }}
 							>
 								<UserOutlined
-									style={{ fontSize: 28, color: token.colorPrimary, marginTop: 2 }}
+									style={{
+										fontSize: 28,
+										color: token.colorPrimary,
+										marginTop: 2,
+									}}
 								/>
 								<div>
 									<Title level={5} style={{ marginBottom: 4 }}>
@@ -103,7 +107,11 @@ export function HomePage() {
 								style={{ display: "flex", alignItems: "flex-start", gap: 16 }}
 							>
 								<TeamOutlined
-									style={{ fontSize: 28, color: token.colorPrimary, marginTop: 2 }}
+									style={{
+										fontSize: 28,
+										color: token.colorPrimary,
+										marginTop: 2,
+									}}
 								/>
 								<div>
 									<Title level={5} style={{ marginBottom: 4 }}>
@@ -128,7 +136,11 @@ export function HomePage() {
 								style={{ display: "flex", alignItems: "flex-start", gap: 16 }}
 							>
 								<FileSearchOutlined
-									style={{ fontSize: 28, color: token.colorPrimary, marginTop: 2 }}
+									style={{
+										fontSize: 28,
+										color: token.colorPrimary,
+										marginTop: 2,
+									}}
 								/>
 								<div>
 									<Title level={5} style={{ marginBottom: 4 }}>
