@@ -512,32 +512,32 @@ CREATE TABLE hub_work_email_reverify_challenges (
 CREATE INDEX idx_hub_work_email_reverify_challenges_expires
   ON hub_work_email_reverify_challenges (expires_at);
 
--- Hub connections
-CREATE TYPE hub_connection_status AS ENUM (
-  'pending',
-  'connected',
-  'rejected',
-  'disconnected'
+-- Hub connections (bidirectional per-user edges; each user's records live in their own home region)
+CREATE TYPE hub_user_connection_status AS ENUM (
+  'outgoing_pending',   -- I sent a request, awaiting their acceptance
+  'incoming_pending',   -- They sent me a request, I have not responded
+  'connected',          -- We are connected
+  'i_rejected',         -- I rejected their request to me
+  'they_rejected',      -- They rejected my request to them
+  'i_disconnected',     -- I disconnected from them
+  'they_disconnected'   -- They disconnected from me
 );
 
-CREATE TABLE hub_connections (
-  connection_id        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  low_user_id          UUID NOT NULL,
-  high_user_id         UUID NOT NULL,
-  status               hub_connection_status NOT NULL,
-  requester_user_id    UUID,
-  rejecter_user_id     UUID,
-  disconnector_user_id UUID,
-  created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  connected_at         TIMESTAMPTZ,
-  CHECK (low_user_id < high_user_id)
+CREATE TABLE hub_user_connections (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  me           UUID NOT NULL,
+  peer         UUID NOT NULL,
+  peer_handle  TEXT NOT NULL,
+  status       hub_user_connection_status NOT NULL,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  connected_at TIMESTAMPTZ,
+  UNIQUE (me, peer)
 );
 
-CREATE UNIQUE INDEX uq_hub_connections_pair ON hub_connections (low_user_id, high_user_id);
-CREATE INDEX idx_hub_connections_low_status  ON hub_connections (low_user_id,  status, connected_at DESC);
-CREATE INDEX idx_hub_connections_high_status ON hub_connections (high_user_id, status, connected_at DESC);
-CREATE INDEX idx_hub_connections_requester   ON hub_connections (requester_user_id, status);
+CREATE INDEX idx_hub_user_connections_me_status ON hub_user_connections (me, status, created_at DESC);
+CREATE INDEX idx_hub_user_connections_me_connected ON hub_user_connections (me, connected_at DESC) WHERE status = 'connected';
+CREATE INDEX idx_hub_user_connections_peer_handle ON hub_user_connections (me, peer_handle) WHERE status = 'connected';
 
 CREATE TABLE hub_blocks (
   blocker_user_id  UUID NOT NULL,
@@ -551,12 +551,11 @@ CREATE INDEX idx_hub_blocks_blocked ON hub_blocks (blocked_user_id);
 -- +goose Down
 DROP INDEX IF EXISTS idx_hub_blocks_blocked;
 DROP TABLE IF EXISTS hub_blocks;
-DROP INDEX IF EXISTS idx_hub_connections_requester;
-DROP INDEX IF EXISTS idx_hub_connections_high_status;
-DROP INDEX IF EXISTS idx_hub_connections_low_status;
-DROP INDEX IF EXISTS uq_hub_connections_pair;
-DROP TABLE IF EXISTS hub_connections;
-DROP TYPE IF EXISTS hub_connection_status;
+DROP INDEX IF EXISTS idx_hub_user_connections_peer_handle;
+DROP INDEX IF EXISTS idx_hub_user_connections_me_connected;
+DROP INDEX IF EXISTS idx_hub_user_connections_me_status;
+DROP TABLE IF EXISTS hub_user_connections;
+DROP TYPE IF EXISTS hub_user_connection_status;
 DROP INDEX IF EXISTS idx_hub_work_email_reverify_challenges_expires;
 DROP TABLE IF EXISTS hub_work_email_reverify_challenges;
 DROP INDEX IF EXISTS idx_hub_employer_stints_pending_expiry;

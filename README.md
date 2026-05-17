@@ -120,34 +120,34 @@ admin users and marketplace capabilities.
 **Hub Users** — log in at http://localhost:3000 (primary email `@hub.example`; house-domain
 emails are their work emails added separately via the profile):
 
-| Email                               | Character          | House      | Region |
-| ----------------------------------- | ------------------ | ---------- | ------ |
-| `harry.potter@hub.example`          | Harry Potter       | Gryffindor | ind1   |
-| `hermione.granger@hub.example`      | Hermione Granger   | Gryffindor | usa1   |
-| `ron.weasley@hub.example`           | Ron Weasley        | Gryffindor | deu1   |
-| `neville.longbottom@hub.example`    | Neville Longbottom | Gryffindor | ind1   |
-| `draco.malfoy@hub.example`          | Draco Malfoy       | Slytherin  | usa1   |
-| `pansy.parkinson@hub.example`       | Pansy Parkinson    | Slytherin  | deu1   |
-| `luna.lovegood@hub.example`         | Luna Lovegood      | Ravenclaw  | deu1   |
-| `cho.chang@hub.example`             | Cho Chang          | Ravenclaw  | ind1   |
-| `cedric.diggory@hub.example`        | Cedric Diggory     | Hufflepuff | usa1   |
-| `hannah.abbott@hub.example`         | Hannah Abbott      | Hufflepuff | ind1   |
+| Email                            | Character          | House      | Region |
+| -------------------------------- | ------------------ | ---------- | ------ |
+| `harry.potter@hub.example`       | Harry Potter       | Gryffindor | ind1   |
+| `hermione.granger@hub.example`   | Hermione Granger   | Gryffindor | usa1   |
+| `ron.weasley@hub.example`        | Ron Weasley        | Gryffindor | deu1   |
+| `neville.longbottom@hub.example` | Neville Longbottom | Gryffindor | ind1   |
+| `draco.malfoy@hub.example`       | Draco Malfoy       | Slytherin  | usa1   |
+| `pansy.parkinson@hub.example`    | Pansy Parkinson    | Slytherin  | deu1   |
+| `luna.lovegood@hub.example`      | Luna Lovegood      | Ravenclaw  | deu1   |
+| `cho.chang@hub.example`          | Cho Chang          | Ravenclaw  | ind1   |
+| `cedric.diggory@hub.example`     | Cedric Diggory     | Hufflepuff | usa1   |
+| `hannah.abbott@hub.example`      | Hannah Abbott      | Hufflepuff | ind1   |
 
 **Org Superadmins** — log in at http://localhost:3002 (one per house company):
 
-| Email                                 | Company domain          | Region |
-| ------------------------------------- | ----------------------- | ------ |
-| `harry.potter@gryffindor.example`     | `gryffindor.example`    | ind1   |
-| `draco.malfoy@slytherin.example`      | `slytherin.example`     | usa1   |
-| `luna.lovegood@ravenclaw.example`     | `ravenclaw.example`     | deu1   |
-| `cedric.diggory@hufflepuff.example`   | `hufflepuff.example`    | ind1   |
+| Email                               | Company domain       | Region |
+| ----------------------------------- | -------------------- | ------ |
+| `harry.potter@gryffindor.example`   | `gryffindor.example` | ind1   |
+| `draco.malfoy@slytherin.example`    | `slytherin.example`  | usa1   |
+| `luna.lovegood@ravenclaw.example`   | `ravenclaw.example`  | deu1   |
+| `cedric.diggory@hufflepuff.example` | `hufflepuff.example` | ind1   |
 
 **Admin Users** — log in at http://localhost:3001:
 
-| Email                 | Roles                                      |
-| --------------------- | ------------------------------------------ |
-| `admin1@vetchium.com` | `admin:superadmin`                         |
-| `admin2@vetchium.com` | `admin:manage_users`                       |
+| Email                 | Roles                |
+| --------------------- | -------------------- |
+| `admin1@vetchium.com` | `admin:superadmin`   |
+| `admin2@vetchium.com` | `admin:manage_users` |
 
 ## Project Structure
 

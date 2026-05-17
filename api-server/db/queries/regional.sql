@@ -8,6 +8,10 @@ WHERE email_address = $1;
 SELECT *
 FROM hub_users
 WHERE hub_user_global_id = $1;
+-- name: GetHubUserProfilesByGlobalIDs :many
+SELECT hub_user_global_id, handle, short_bio, profile_picture_storage_key
+FROM hub_users
+WHERE hub_user_global_id = ANY(@ids::uuid[]);
 -- name: CreateHubUser :one
 INSERT INTO hub_users (hub_user_global_id, email_address, handle, password_hash, status, preferred_language, resident_country_code)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -1161,131 +1165,67 @@ DELETE FROM hub_work_email_reverify_challenges
 WHERE stint_id = sqlc.arg('stint_id');
 
 -- ============================================================
--- Hub Connections queries
+-- Hub Connections queries (bidirectional per-user edges)
 -- ============================================================
 
--- name: GetConnectionPair :one
-SELECT * FROM hub_connections
-WHERE low_user_id = LEAST(@a::uuid, @b::uuid)
-  AND high_user_id = GREATEST(@a::uuid, @b::uuid);
+-- name: GetUserConnectionEdge :one
+SELECT * FROM hub_user_connections WHERE me = @me::uuid AND peer = @peer::uuid;
 
--- name: GetBlockOneWay :one
-SELECT * FROM hub_blocks
-WHERE blocker_user_id = @blocker::uuid AND blocked_user_id = @blocked::uuid;
+-- name: UpsertPendingEdge :exec
+INSERT INTO hub_user_connections (me, peer, peer_handle, status)
+VALUES (@me::uuid, @peer::uuid, @peer_handle::text, @status::hub_user_connection_status)
+ON CONFLICT (me, peer) DO UPDATE
+  SET status = EXCLUDED.status, connected_at = NULL, updated_at = NOW();
 
--- name: InsertPendingConnection :one
-INSERT INTO hub_connections (low_user_id, high_user_id, status, requester_user_id)
-VALUES (LEAST(@requester::uuid, @recipient::uuid), GREATEST(@requester::uuid, @recipient::uuid),
-        'pending', @requester::uuid)
-RETURNING *;
+-- name: SetConnectionConnected :execrows
+UPDATE hub_user_connections
+SET status = 'connected', connected_at = @connected_at::timestamptz, updated_at = NOW()
+WHERE me = @me::uuid AND peer = @peer::uuid
+  AND status IN ('outgoing_pending', 'incoming_pending');
 
--- name: DeletePriorConnectionRow :exec
-DELETE FROM hub_connections
-WHERE low_user_id  = LEAST(@a::uuid, @b::uuid)
-  AND high_user_id = GREATEST(@a::uuid, @b::uuid)
-  AND status IN ('rejected', 'disconnected');
+-- name: UpdateEdgeStatus :execrows
+UPDATE hub_user_connections
+SET status = @new_status::hub_user_connection_status, updated_at = NOW()
+WHERE me = @me::uuid AND peer = @peer::uuid
+  AND status = @expected_status::hub_user_connection_status;
 
--- name: AcceptPendingConnection :one
-UPDATE hub_connections
-SET status       = 'connected',
-    connected_at = NOW(),
-    updated_at   = NOW()
-WHERE low_user_id  = LEAST(@a::uuid, @b::uuid)
-  AND high_user_id = GREATEST(@a::uuid, @b::uuid)
-  AND status = 'pending'
-  AND requester_user_id <> @actor::uuid
-RETURNING *;
+-- name: RevertEdgeToPending :exec
+UPDATE hub_user_connections
+SET status = @pending_status::hub_user_connection_status, connected_at = NULL, updated_at = NOW()
+WHERE me = @me::uuid AND peer = @peer::uuid;
 
--- name: RejectPendingConnection :one
-UPDATE hub_connections
-SET status           = 'rejected',
-    rejecter_user_id = @actor::uuid,
-    updated_at       = NOW()
-WHERE low_user_id  = LEAST(@a::uuid, @b::uuid)
-  AND high_user_id = GREATEST(@a::uuid, @b::uuid)
-  AND status = 'pending'
-  AND requester_user_id <> @actor::uuid
-RETURNING *;
+-- name: DeleteUserConnectionEdge :execrows
+DELETE FROM hub_user_connections WHERE me = @me::uuid AND peer = @peer::uuid;
 
--- name: WithdrawPendingConnection :execrows
-DELETE FROM hub_connections
-WHERE low_user_id  = LEAST(@a::uuid, @b::uuid)
-  AND high_user_id = GREATEST(@a::uuid, @b::uuid)
-  AND status = 'pending'
-  AND requester_user_id = @actor::uuid;
-
--- name: DisconnectConnection :one
-UPDATE hub_connections
-SET status               = 'disconnected',
-    disconnector_user_id = @actor::uuid,
-    updated_at           = NOW()
-WHERE low_user_id  = LEAST(@a::uuid, @b::uuid)
-  AND high_user_id = GREATEST(@a::uuid, @b::uuid)
-  AND status = 'connected'
-RETURNING *;
-
--- name: InsertBlock :one
-INSERT INTO hub_blocks (blocker_user_id, blocked_user_id)
-VALUES (@blocker::uuid, @blocked::uuid)
-ON CONFLICT (blocker_user_id, blocked_user_id) DO NOTHING
-RETURNING *;
-
--- name: DeleteBlock :execrows
-DELETE FROM hub_blocks WHERE blocker_user_id = @blocker::uuid AND blocked_user_id = @blocked::uuid;
-
--- name: SeverConnectionForBlock :exec
-UPDATE hub_connections SET
-  status               = 'disconnected',
-  disconnector_user_id = @blocker::uuid,
-  updated_at           = NOW()
-WHERE low_user_id  = LEAST(@a::uuid, @b::uuid)
-  AND high_user_id = GREATEST(@a::uuid, @b::uuid)
-  AND status = 'connected';
-
--- name: DeletePendingForBlock :exec
-DELETE FROM hub_connections
-WHERE low_user_id  = LEAST(@a::uuid, @b::uuid)
-  AND high_user_id = GREATEST(@a::uuid, @b::uuid)
-  AND status = 'pending';
+-- name: DeleteUserConnectionEdgeForBlock :exec
+DELETE FROM hub_user_connections WHERE me = @me::uuid AND peer = @peer::uuid;
 
 -- name: ListMyConnections :many
-SELECT c.*,
-       CASE WHEN c.low_user_id = @me::uuid THEN c.high_user_id ELSE c.low_user_id END AS peer_user_id
-FROM hub_connections c
-WHERE (c.low_user_id = @me::uuid OR c.high_user_id = @me::uuid)
-  AND c.status = 'connected'
-  AND (sqlc.narg('filter_query')::text IS NULL OR EXISTS (
-    SELECT 1 FROM hub_users u
-    WHERE u.hub_user_global_id = (CASE WHEN c.low_user_id = @me::uuid THEN c.high_user_id ELSE c.low_user_id END)
-      AND u.handle ILIKE sqlc.narg('filter_query')::text || '%'
-  ))
+SELECT * FROM hub_user_connections
+WHERE me = @me::uuid
+  AND status = 'connected'
+  AND (sqlc.narg('filter_query')::text IS NULL OR peer_handle ILIKE sqlc.narg('filter_query')::text || '%')
   AND (@cursor_connected_at::timestamptz IS NULL OR
-       (c.connected_at, CASE WHEN c.low_user_id = @me::uuid THEN c.high_user_id ELSE c.low_user_id END)
-         < (@cursor_connected_at::timestamptz, @cursor_peer_user_id::uuid))
-ORDER BY c.connected_at DESC, (CASE WHEN c.low_user_id = @me::uuid THEN c.high_user_id ELSE c.low_user_id END) DESC
+       (connected_at, peer) < (@cursor_connected_at::timestamptz, @cursor_peer::uuid))
+ORDER BY connected_at DESC, peer DESC
 LIMIT @limit_count::int;
 
 -- name: ListIncomingPendingRequests :many
-SELECT c.*, c.requester_user_id AS peer_user_id
-FROM hub_connections c
-WHERE c.status = 'pending'
-  AND (c.low_user_id = @me::uuid OR c.high_user_id = @me::uuid)
-  AND c.requester_user_id <> @me::uuid
+SELECT * FROM hub_user_connections
+WHERE me = @me::uuid
+  AND status = 'incoming_pending'
   AND (@cursor_created_at::timestamptz IS NULL OR
-       (c.created_at, c.requester_user_id) < (@cursor_created_at::timestamptz, @cursor_peer_user_id::uuid))
-ORDER BY c.created_at DESC, c.requester_user_id DESC
+       (created_at, peer) < (@cursor_created_at::timestamptz, @cursor_peer::uuid))
+ORDER BY created_at DESC, peer DESC
 LIMIT @limit_count::int;
 
 -- name: ListOutgoingPendingRequests :many
-SELECT c.*,
-       (CASE WHEN c.low_user_id = @me::uuid THEN c.high_user_id ELSE c.low_user_id END) AS peer_user_id
-FROM hub_connections c
-WHERE c.status = 'pending'
-  AND c.requester_user_id = @me::uuid
+SELECT * FROM hub_user_connections
+WHERE me = @me::uuid
+  AND status = 'outgoing_pending'
   AND (@cursor_created_at::timestamptz IS NULL OR
-       (c.created_at, CASE WHEN c.low_user_id = @me::uuid THEN c.high_user_id ELSE c.low_user_id END)
-         < (@cursor_created_at::timestamptz, @cursor_peer_user_id::uuid))
-ORDER BY c.created_at DESC, (CASE WHEN c.low_user_id = @me::uuid THEN c.high_user_id ELSE c.low_user_id END) DESC
+       (created_at, peer) < (@cursor_created_at::timestamptz, @cursor_peer::uuid))
+ORDER BY created_at DESC, peer DESC
 LIMIT @limit_count::int;
 
 -- name: ListBlocked :many
@@ -1298,29 +1238,33 @@ ORDER BY b.blocked_at DESC, b.blocked_user_id DESC
 LIMIT @limit_count::int;
 
 -- name: SearchConnectedByPrefix :many
-SELECT c.*,
-       (CASE WHEN c.low_user_id = @me::uuid THEN c.high_user_id ELSE c.low_user_id END) AS peer_user_id
-FROM hub_connections c
-JOIN hub_users u ON u.hub_user_global_id = (CASE WHEN c.low_user_id = @me::uuid THEN c.high_user_id ELSE c.low_user_id END)
-WHERE (c.low_user_id = @me::uuid OR c.high_user_id = @me::uuid)
-  AND c.status = 'connected'
-  AND u.handle ILIKE @prefix::text || '%'
-ORDER BY u.handle ASC
+SELECT * FROM hub_user_connections
+WHERE me = @me::uuid
+  AND status = 'connected'
+  AND peer_handle ILIKE @prefix::text || '%'
+ORDER BY peer_handle ASC
 LIMIT 20;
 
 -- name: GetConnectionCounts :one
 SELECT
-  (SELECT COUNT(*) FROM hub_connections c
-     WHERE c.status = 'pending'
-       AND (c.low_user_id = @me::uuid OR c.high_user_id = @me::uuid)
-       AND c.requester_user_id <> @me::uuid)::int AS pending_incoming,
-  (SELECT COUNT(*) FROM hub_connections c
-     WHERE c.status = 'pending'
-       AND c.requester_user_id = @me::uuid)::int AS pending_outgoing,
-  (SELECT COUNT(*) FROM hub_connections c
-     WHERE c.status = 'connected'
-       AND (c.low_user_id = @me::uuid OR c.high_user_id = @me::uuid))::int AS connected,
-  (SELECT COUNT(*) FROM hub_blocks WHERE blocker_user_id = @me::uuid)::int AS blocked;
+  COUNT(*) FILTER (WHERE status = 'incoming_pending')::int AS pending_incoming,
+  COUNT(*) FILTER (WHERE status = 'outgoing_pending')::int AS pending_outgoing,
+  COUNT(*) FILTER (WHERE status = 'connected')::int AS connected,
+  (SELECT COUNT(*) FROM hub_blocks WHERE blocker_user_id = @me::uuid)::int AS blocked
+FROM hub_user_connections WHERE me = @me::uuid;
+
+-- name: GetBlockOneWay :one
+SELECT * FROM hub_blocks
+WHERE blocker_user_id = @blocker::uuid AND blocked_user_id = @blocked::uuid;
+
+-- name: InsertBlock :one
+INSERT INTO hub_blocks (blocker_user_id, blocked_user_id)
+VALUES (@blocker::uuid, @blocked::uuid)
+ON CONFLICT (blocker_user_id, blocked_user_id) DO NOTHING
+RETURNING *;
+
+-- name: DeleteBlock :execrows
+DELETE FROM hub_blocks WHERE blocker_user_id = @blocker::uuid AND blocked_user_id = @blocked::uuid;
 
 -- name: GetUserEligibilityStints :many
 SELECT domain, first_verified_at, last_verified_at, ended_at, status

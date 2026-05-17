@@ -12,6 +12,15 @@ WHERE hub_user_global_id = $1;
 SELECT *
 FROM hub_users
 WHERE email_address_hash = $1;
+-- name: GetHubUsersByGlobalIDs :many
+SELECT *
+FROM hub_users
+WHERE hub_user_global_id = ANY(@ids::uuid[]);
+-- name: GetHubUserPreferredDisplayNamesByIDs :many
+SELECT *
+FROM hub_user_display_names
+WHERE hub_user_global_id = ANY(@ids::uuid[])
+  AND is_preferred = TRUE;
 -- Admin user queries
 -- name: GetAdminUserByEmail :one
 SELECT *
@@ -1168,25 +1177,6 @@ SELECT * FROM hub_work_email_index WHERE email_address_hash = sqlc.arg('email_ad
 
 -- name: GetBlockedPersonalDomain :one
 SELECT * FROM personal_domain_blocklist WHERE domain = sqlc.arg('domain');
-
--- ============================================================
--- Hub Connection Pair Routes (global mirror)
--- ============================================================
-
--- name: UpsertConnectionPairRoute :exec
-INSERT INTO hub_connection_pair_routes (low_user_id, high_user_id, region)
-VALUES (LEAST(@a::uuid, @b::uuid), GREATEST(@a::uuid, @b::uuid), @region::text)
-ON CONFLICT (low_user_id, high_user_id) DO NOTHING;
-
--- name: GetConnectionPairRoute :one
-SELECT * FROM hub_connection_pair_routes
-WHERE low_user_id  = LEAST(@a::uuid, @b::uuid)
-  AND high_user_id = GREATEST(@a::uuid, @b::uuid);
-
--- name: DeleteConnectionPairRoute :exec
-DELETE FROM hub_connection_pair_routes
-WHERE low_user_id  = LEAST(@a::uuid, @b::uuid)
-  AND high_user_id = GREATEST(@a::uuid, @b::uuid);
 
 -- ============================================================
 -- Hub Block Routes (global mirror)

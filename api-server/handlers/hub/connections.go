@@ -37,10 +37,6 @@ const (
 // hashUserID computes SHA-256 of the UUID bytes for audit event_data.
 func hashUserID(id pgtype.UUID) string {
 	h := sha256.Sum256(id.Bytes[:])
-	out := make([]byte, 32)
-	for i, b := range h {
-		out[i] = b
-	}
 	return fmt.Sprintf("%x", h)
 }
 
@@ -50,12 +46,10 @@ func uuidEqual(a, b pgtype.UUID) bool {
 }
 
 // stintOverlaps checks if any of A's stints overlaps with any of B's stints on a shared domain.
-// Each stint has (domain, first_verified_at, last_verified_at, ended_at, status).
 func stintOverlaps(
 	aStints []regionaldb.GetUserEligibilityStintsRow,
 	bStints []regionaldb.GetUserEligibilityStintsRow,
 ) bool {
-	// Build a map from domain → stints for B
 	bByDomain := make(map[string][]regionaldb.GetUserEligibilityStintsRow)
 	for _, s := range bStints {
 		bByDomain[s.Domain] = append(bByDomain[s.Domain], s)
@@ -66,7 +60,6 @@ func stintOverlaps(
 		if !ok {
 			continue
 		}
-		// aEnd: if active, use current time (still ongoing); if ended, use ended_at or last_verified_at
 		aStart := a.FirstVerifiedAt.Time
 		var aEnd time.Time
 		if a.Status == regionaldb.WorkEmailStintStatusActive {
@@ -91,7 +84,6 @@ func stintOverlaps(
 			} else {
 				bEnd = bStart
 			}
-			// Overlap: a.start <= b.end AND b.start <= a.end
 			if !aStart.After(bEnd) && !bStart.After(aEnd) {
 				return true
 			}
@@ -100,7 +92,7 @@ func stintOverlaps(
 	return false
 }
 
-// getPreferredDisplayName picks the best display name for a peer.
+// getPreferredDisplayName picks the preferred display name from a list.
 func getPreferredDisplayName(displayNames []globaldb.HubUserDisplayName) string {
 	for _, dn := range displayNames {
 		if dn.IsPreferred {
@@ -111,12 +103,6 @@ func getPreferredDisplayName(displayNames []globaldb.HubUserDisplayName) string 
 		return displayNames[0].DisplayName
 	}
 	return ""
-}
-
-// resolveHandleToGlobalUser looks up a hub user by handle in the global DB.
-// Returns the user and nil error on success, pgx.ErrNoRows if not found.
-func resolveHandleToGlobalUser(s *server.RegionalServer, r *http.Request, handle string) (globaldb.HubUser, error) {
-	return s.Global.GetHubUserByHandle(r.Context(), handle)
 }
 
 // connectionCursor is used for keyset pagination.
@@ -135,7 +121,6 @@ func decodeConnectionCursor(key string) (connectionCursor, error) {
 	if err != nil {
 		return connectionCursor{}, err
 	}
-	// format: "RFC3339Nano|hex16bytes"
 	s := string(b)
 	idx := len(s) - 33 // 32 hex chars + 1 pipe
 	if idx < 0 || s[idx] != '|' {
@@ -147,10 +132,8 @@ func decodeConnectionCursor(key string) (connectionCursor, error) {
 	}
 	var id [16]byte
 	hexStr := s[idx+1:]
-	for i := 0; i < 16; i++ {
-		var b byte
-		fmt.Sscanf(hexStr[i*2:i*2+2], "%02x", &b)
-		id[i] = b
+	for i := range 16 {
+		fmt.Sscanf(hexStr[i*2:i*2+2], "%02x", &id[i])
 	}
 	return connectionCursor{Timestamp: ts, PeerUserID: id}, nil
 }
@@ -182,7 +165,6 @@ func SendConnectionRequest(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		// Step 2: Resolve target via global DB
 		targetGlobal, err := s.Global.GetHubUserByHandle(ctx, string(req.Handle))
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
@@ -194,13 +176,12 @@ func SendConnectionRequest(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		// Step 3: Self-check
 		if uuidEqual(hubUser.HubUserGlobalID, targetGlobal.HubUserGlobalID) {
 			w.WriteHeader(httpStatusSelf)
 			return
 		}
 
-		// Step 4: Block check via global routing table (single global query)
+		// Block check via global routing table (single query covers both directions)
 		blockRoutes, err := s.Global.GetBlockRoutes(ctx, globaldb.GetBlockRoutesParams{
 			A: hubUser.HubUserGlobalID,
 			B: targetGlobal.HubUserGlobalID,
@@ -212,101 +193,67 @@ func SendConnectionRequest(s *server.RegionalServer) http.HandlerFunc {
 		}
 		for _, br := range blockRoutes {
 			if uuidEqual(br.BlockerUserID, hubUser.HubUserGlobalID) {
-				// Caller blocked target
 				w.WriteHeader(httpStatusCallerBlocked)
 				return
 			}
 			if uuidEqual(br.BlockerUserID, targetGlobal.HubUserGlobalID) {
-				// Target blocked caller
 				w.WriteHeader(httpStatusTargetBlocked)
 				return
 			}
 		}
 
-		// Step 5: Eligibility check (cross-region stints)
-		callerRegDB := s.RegionalForCtx(ctx)
-		callerStints, err := callerRegDB.GetUserEligibilityStints(ctx, hubUser.HubUserGlobalID)
+		// Eligibility check (cross-region stints)
+		callerStints, err := s.RegionalForCtx(ctx).GetUserEligibilityStints(ctx, hubUser.HubUserGlobalID)
 		if err != nil {
 			log.Error("failed to get caller stints", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
-
 		var targetStints []regionaldb.GetUserEligibilityStintsRow
-		if targetGlobal.HomeRegion == s.CurrentRegion {
-			targetStints, err = s.Regional.GetUserEligibilityStints(ctx, targetGlobal.HubUserGlobalID)
-			if err != nil {
-				log.Error("failed to get target stints (same region)", "error", err)
-				http.Error(w, "", http.StatusInternalServerError)
-				return
-			}
-		} else {
-			targetRegDB := s.GetRegionalDB(targetGlobal.HomeRegion)
-			if targetRegDB == nil {
-				log.Error("no regional pool for home region", "region", targetGlobal.HomeRegion)
-				http.Error(w, "", http.StatusInternalServerError)
-				return
-			}
-			targetStints, err = targetRegDB.GetUserEligibilityStints(ctx, targetGlobal.HubUserGlobalID)
-			if err != nil {
-				log.Error("failed to get target stints (remote region)", "error", err)
-				http.Error(w, "", http.StatusInternalServerError)
-				return
-			}
+		targetRegDB := s.GetRegionalDB(targetGlobal.HomeRegion)
+		if targetRegDB == nil {
+			log.Error("no regional pool for target home region", "region", targetGlobal.HomeRegion)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
 		}
-
+		targetStints, err = targetRegDB.GetUserEligibilityStints(ctx, targetGlobal.HubUserGlobalID)
+		if err != nil {
+			log.Error("failed to get target stints", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
 		if !stintOverlaps(callerStints, targetStints) {
 			w.WriteHeader(httpStatusIneligible)
 			return
 		}
 
-		// Step 6: State precondition check
-		pair, err := s.RegionalForCtx(ctx).GetConnectionPair(ctx, regionaldb.GetConnectionPairParams{
-			A: hubUser.HubUserGlobalID,
-			B: targetGlobal.HubUserGlobalID,
+		// State precondition check on caller's own edge (always in own home region)
+		ownEdge, err := s.RegionalForCtx(ctx).GetUserConnectionEdge(ctx, regionaldb.GetUserConnectionEdgeParams{
+			Me:   hubUser.HubUserGlobalID,
+			Peer: targetGlobal.HubUserGlobalID,
 		})
-		var pairExists bool
-		var pairToDelete bool
 		if err == nil {
-			pairExists = true
-			switch pair.Status {
-			case regionaldb.HubConnectionStatusPending, regionaldb.HubConnectionStatusConnected:
+			switch ownEdge.Status {
+			case regionaldb.HubUserConnectionStatusOutgoingPending,
+				regionaldb.HubUserConnectionStatusIncomingPending,
+				regionaldb.HubUserConnectionStatusConnected:
 				w.WriteHeader(httpStatusStateConflict)
 				return
-			case regionaldb.HubConnectionStatusRejected:
-				if uuidEqual(pair.RequesterUserID, hubUser.HubUserGlobalID) {
-					// Caller was previously rejected by target — cannot re-request
-					w.WriteHeader(httpStatusRequesterBarred)
-					return
-				}
-				// Caller previously rejected target → caller may now send fresh request
-				pairToDelete = true
-			case regionaldb.HubConnectionStatusDisconnected:
-				if uuidEqual(pair.DisconnectorUserID, targetGlobal.HubUserGlobalID) {
-					// Target disconnected from caller — cannot re-request
-					w.WriteHeader(httpStatusDisconnectedBarred)
-					return
-				}
-				// Caller disconnected → may re-request; delete old row
-				pairToDelete = true
+			case regionaldb.HubUserConnectionStatusTheyRejected:
+				w.WriteHeader(httpStatusRequesterBarred)
+				return
+			case regionaldb.HubUserConnectionStatusTheyDisconnected:
+				w.WriteHeader(httpStatusDisconnectedBarred)
+				return
+				// i_rejected and i_disconnected: caller may re-request
 			}
 		} else if !errors.Is(err, pgx.ErrNoRows) {
-			log.Error("failed to get connection pair", "error", err)
+			log.Error("failed to get own connection edge", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		// Step 7: Write
-		peerIDHash := hashUserID(targetGlobal.HubUserGlobalID)
-		auditData, _ := json.Marshal(map[string]any{"peer_user_id_hash": peerIDHash})
-
-		// Get target's display name for email
-		targetDisplayNames, err := s.Global.ListHubUserDisplayNames(ctx, targetGlobal.HubUserGlobalID)
-		if err != nil {
-			log.Error("failed to get target display names", "error", err)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
+		// Fetch names/email for notification
 		callerDisplayNames, err := s.Global.ListHubUserDisplayNames(ctx, hubUser.HubUserGlobalID)
 		if err != nil {
 			log.Error("failed to get caller display names", "error", err)
@@ -318,56 +265,25 @@ func SendConnectionRequest(s *server.RegionalServer) http.HandlerFunc {
 			callerName = string(hubUser.Handle)
 		}
 
-		// Get target's email from regional DB (need to find target in regional)
 		var targetEmail string
-		if targetGlobal.HomeRegion == s.CurrentRegion {
-			targetUser, err := s.Regional.GetHubUserByGlobalID(ctx, targetGlobal.HubUserGlobalID)
-			if err == nil {
-				targetEmail = targetUser.EmailAddress
-			}
-		} else {
-			targetRegDB := s.GetRegionalDB(targetGlobal.HomeRegion)
-			if targetRegDB != nil {
-				targetUser, err := targetRegDB.GetHubUserByGlobalID(ctx, targetGlobal.HubUserGlobalID)
-				if err == nil {
-					targetEmail = targetUser.EmailAddress
-				}
-			}
+		if targetUser, err := targetRegDB.GetHubUserByGlobalID(ctx, targetGlobal.HubUserGlobalID); err == nil {
+			targetEmail = targetUser.EmailAddress
 		}
 
-		// Cross-DB write: global first (upsert pair route), then regional
-		err = s.WithGlobalTx(ctx, func(qtx *globaldb.Queries) error {
-			return qtx.UpsertConnectionPairRoute(ctx, globaldb.UpsertConnectionPairRouteParams{
-				A:      hubUser.HubUserGlobalID,
-				B:      targetGlobal.HubUserGlobalID,
-				Region: string(s.CurrentRegion),
-			})
-		})
-		if err != nil {
-			log.Error("failed to upsert global connection pair route", "error", err)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
+		peerIDHash := hashUserID(targetGlobal.HubUserGlobalID)
+		auditData, _ := json.Marshal(map[string]any{"peer_user_id_hash": peerIDHash})
 
-		_ = pairExists
-		regionalErr := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
-			if pairToDelete {
-				if err := qtx.DeletePriorConnectionRow(ctx, regionaldb.DeletePriorConnectionRowParams{
-					A: hubUser.HubUserGlobalID,
-					B: targetGlobal.HubUserGlobalID,
-				}); err != nil {
-					return err
-				}
-			}
-
-			if _, err := qtx.InsertPendingConnection(ctx, regionaldb.InsertPendingConnectionParams{
-				Requester: hubUser.HubUserGlobalID,
-				Recipient: targetGlobal.HubUserGlobalID,
+		// Write caller's own outgoing edge (own region, with audit log)
+		ownErr := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
+			if err := qtx.UpsertPendingEdge(ctx, regionaldb.UpsertPendingEdgeParams{
+				Me:         hubUser.HubUserGlobalID,
+				Peer:       targetGlobal.HubUserGlobalID,
+				PeerHandle: string(targetGlobal.Handle),
+				Status:     regionaldb.HubUserConnectionStatusOutgoingPending,
 			}); err != nil {
 				return err
 			}
 
-			// Enqueue notification email to target if we have their email
 			if targetEmail != "" {
 				emailData := templates.HubConnectionRequestData{RequesterName: callerName}
 				if _, err := qtx.EnqueueEmail(ctx, regionaldb.EnqueueEmailParams{
@@ -388,24 +304,38 @@ func SendConnectionRequest(s *server.RegionalServer) http.HandlerFunc {
 				EventData:   auditData,
 			})
 		})
-		if regionalErr != nil {
-			// Compensate global route
-			compErr := s.WithGlobalTx(ctx, func(qtx *globaldb.Queries) error {
-				return qtx.DeleteConnectionPairRoute(ctx, globaldb.DeleteConnectionPairRouteParams{
-					A: hubUser.HubUserGlobalID,
-					B: targetGlobal.HubUserGlobalID,
-				})
-			})
-			if compErr != nil {
-				log.Error("CONSISTENCY_ALERT: failed to compensate global connection pair route",
-					"error", compErr, "original_error", regionalErr)
-			}
-			log.Error("failed regional tx for send-connection-request", "error", regionalErr)
+		if ownErr != nil {
+			log.Error("failed to write own connection edge", "error", ownErr)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		_ = targetDisplayNames
+		// Write target's incoming edge (foreign region, best-effort with compensation)
+		peerErr := targetRegDB.UpsertPendingEdge(ctx, regionaldb.UpsertPendingEdgeParams{
+			Me:         targetGlobal.HubUserGlobalID,
+			Peer:       hubUser.HubUserGlobalID,
+			PeerHandle: string(hubUser.Handle),
+			Status:     regionaldb.HubUserConnectionStatusIncomingPending,
+		})
+		if peerErr != nil {
+			// Compensate: remove own edge
+			compErr := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
+				_, err := qtx.DeleteUserConnectionEdge(ctx, regionaldb.DeleteUserConnectionEdgeParams{
+					Me:   hubUser.HubUserGlobalID,
+					Peer: targetGlobal.HubUserGlobalID,
+				})
+				return err
+			})
+			if compErr != nil {
+				log.Error("CONSISTENCY_ALERT: failed to compensate own edge after peer write failure",
+					"error", compErr, "original_error", peerErr)
+			} else {
+				log.Error("failed to write peer incoming edge, compensated own edge", "error", peerErr)
+			}
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
 		w.WriteHeader(http.StatusCreated)
 		json.NewEncoder(w).Encode(map[string]any{})
 	}
@@ -435,7 +365,6 @@ func AcceptConnectionRequest(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		// Resolve peer handle → global ID
 		peerGlobal, err := s.Global.GetHubUserByHandle(ctx, string(req.Handle))
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
@@ -447,63 +376,82 @@ func AcceptConnectionRequest(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		// Find where the pair is stored
-		pairRoute, err := s.Global.GetConnectionPairRoute(ctx, globaldb.GetConnectionPairRouteParams{
-			A: hubUser.HubUserGlobalID,
-			B: peerGlobal.HubUserGlobalID,
+		peerDB := s.GetRegionalDB(peerGlobal.HomeRegion)
+		if peerDB == nil {
+			log.Error("no regional pool for peer home region", "region", peerGlobal.HomeRegion)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
+		// Verify accepter's own edge is incoming_pending before touching peer's region
+		ownEdge, err := s.RegionalForCtx(ctx).GetUserConnectionEdge(ctx, regionaldb.GetUserConnectionEdgeParams{
+			Me:   hubUser.HubUserGlobalID,
+			Peer: peerGlobal.HubUserGlobalID,
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
-			log.Error("failed to get pair route", "error", err)
+			log.Error("failed to get own edge", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
-
-		// Select the pair's region's DB queries. No proxy.
-		pairRegion := globaldb.Region(pairRoute.Region)
-		pairDB := s.GetRegionalDB(pairRegion)
-		if pairDB == nil {
-			log.Error("no regional pool for pair region", "region", pairRegion)
-			http.Error(w, "", http.StatusInternalServerError)
+		if ownEdge.Status != regionaldb.HubUserConnectionStatusIncomingPending {
+			w.WriteHeader(http.StatusNotFound)
 			return
 		}
 
-		// Get peer's email for notification (best-effort from peer's home region DB)
+		connectedAt := pgtype.Timestamptz{Time: time.Now().UTC(), Valid: true}
+		peerIDHash := hashUserID(peerGlobal.HubUserGlobalID)
+
+		// Get peer's email for notification
 		var peerEmail string
-		if peerHomeDB := s.GetRegionalDB(peerGlobal.HomeRegion); peerHomeDB != nil {
-			if peerUser, peerErr := peerHomeDB.GetHubUserByGlobalID(ctx, peerGlobal.HubUserGlobalID); peerErr == nil {
-				peerEmail = peerUser.EmailAddress
-			}
+		if peerUser, peerErr := peerDB.GetHubUserByGlobalID(ctx, peerGlobal.HubUserGlobalID); peerErr == nil {
+			peerEmail = peerUser.EmailAddress
 		}
 
-		// Get caller's display name for email
 		callerDisplayNames, _ := s.Global.ListHubUserDisplayNames(ctx, hubUser.HubUserGlobalID)
 		callerName := getPreferredDisplayName(callerDisplayNames)
 		if callerName == "" {
 			callerName = string(hubUser.Handle)
 		}
 
-		peerIDHash := hashUserID(peerGlobal.HubUserGlobalID)
+		// Write peer's outgoing edge first (foreign region, no audit)
+		peerRows, err := peerDB.SetConnectionConnected(ctx, regionaldb.SetConnectionConnectedParams{
+			ConnectedAt: connectedAt,
+			Me:          peerGlobal.HubUserGlobalID,
+			Peer:        hubUser.HubUserGlobalID,
+		})
+		if err != nil {
+			log.Error("failed to update peer edge to connected", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+		if peerRows == 0 {
+			// Peer's edge was not in pending state; treat as not found
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
 
-		var connectedAt time.Time
-		txErr := s.WithRegionalTxFor(ctx, pairRegion, func(qtx *regionaldb.Queries) error {
-			conn, err := qtx.AcceptPendingConnection(ctx, regionaldb.AcceptPendingConnectionParams{
-				A:     hubUser.HubUserGlobalID,
-				B:     peerGlobal.HubUserGlobalID,
-				Actor: hubUser.HubUserGlobalID,
+		// Write own incoming edge (own region, with audit)
+		auditData, _ := json.Marshal(map[string]any{
+			"peer_user_id_hash": peerIDHash,
+			"connected_at":      connectedAt.Time.UTC().Format(time.RFC3339),
+		})
+		txErr := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
+			ownRows, err := qtx.SetConnectionConnected(ctx, regionaldb.SetConnectionConnectedParams{
+				ConnectedAt: connectedAt,
+				Me:          hubUser.HubUserGlobalID,
+				Peer:        peerGlobal.HubUserGlobalID,
 			})
 			if err != nil {
-				if errors.Is(err, pgx.ErrNoRows) {
-					return errNotFound
-				}
 				return err
 			}
-			connectedAt = conn.ConnectedAt.Time
+			if ownRows == 0 {
+				return errNotFound
+			}
 
-			// Enqueue email to original requester (peer in this context)
 			if peerEmail != "" {
 				emailData := templates.HubConnectionAcceptedData{AccepterName: callerName}
 				if _, err := qtx.EnqueueEmail(ctx, regionaldb.EnqueueEmailParams{
@@ -517,10 +465,6 @@ func AcceptConnectionRequest(s *server.RegionalServer) http.HandlerFunc {
 				}
 			}
 
-			auditData, _ := json.Marshal(map[string]any{
-				"peer_user_id_hash": peerIDHash,
-				"connected_at":      connectedAt.UTC().Format(time.RFC3339),
-			})
 			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
 				EventType:   "hub.accept_connection_request",
 				ActorUserID: hubUser.HubUserGlobalID,
@@ -529,11 +473,21 @@ func AcceptConnectionRequest(s *server.RegionalServer) http.HandlerFunc {
 			})
 		})
 		if txErr != nil {
+			// Compensate: revert peer's edge back to outgoing_pending
+			compErr := peerDB.RevertEdgeToPending(ctx, regionaldb.RevertEdgeToPendingParams{
+				PendingStatus: regionaldb.HubUserConnectionStatusOutgoingPending,
+				Me:            peerGlobal.HubUserGlobalID,
+				Peer:          hubUser.HubUserGlobalID,
+			})
+			if compErr != nil {
+				log.Error("CONSISTENCY_ALERT: failed to compensate peer edge after own write failure",
+					"error", compErr, "original_error", txErr)
+			}
 			if errors.Is(txErr, errNotFound) {
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
-			log.Error("failed to accept connection request", "error", txErr)
+			log.Error("failed to update own edge to connected", "error", txErr)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -579,44 +533,65 @@ func RejectConnectionRequest(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		// Find pair's region
-		pairRoute, err := s.Global.GetConnectionPairRoute(ctx, globaldb.GetConnectionPairRouteParams{
-			A: hubUser.HubUserGlobalID,
-			B: peerGlobal.HubUserGlobalID,
+		peerDB := s.GetRegionalDB(peerGlobal.HomeRegion)
+		if peerDB == nil {
+			log.Error("no regional pool for peer home region", "region", peerGlobal.HomeRegion)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
+		// Verify own edge is incoming_pending
+		ownEdge, err := s.RegionalForCtx(ctx).GetUserConnectionEdge(ctx, regionaldb.GetUserConnectionEdgeParams{
+			Me:   hubUser.HubUserGlobalID,
+			Peer: peerGlobal.HubUserGlobalID,
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
-			log.Error("failed to get pair route", "error", err)
+			log.Error("failed to get own edge", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
-
-		// Select the pair's region's DB queries. No proxy.
-		pairRegion := globaldb.Region(pairRoute.Region)
-		pairDB := s.GetRegionalDB(pairRegion)
-		if pairDB == nil {
-			log.Error("no regional pool for pair region", "region", pairRegion)
-			http.Error(w, "", http.StatusInternalServerError)
+		if ownEdge.Status != regionaldb.HubUserConnectionStatusIncomingPending {
+			w.WriteHeader(http.StatusNotFound)
 			return
 		}
 
 		peerIDHash := hashUserID(peerGlobal.HubUserGlobalID)
 		auditData, _ := json.Marshal(map[string]any{"peer_user_id_hash": peerIDHash})
 
-		txErr := s.WithRegionalTxFor(ctx, pairRegion, func(qtx *regionaldb.Queries) error {
-			_, err := qtx.RejectPendingConnection(ctx, regionaldb.RejectPendingConnectionParams{
-				A:     hubUser.HubUserGlobalID,
-				B:     peerGlobal.HubUserGlobalID,
-				Actor: hubUser.HubUserGlobalID,
+		// Update peer's outgoing edge to they_rejected (foreign region, no audit)
+		peerRows, err := peerDB.UpdateEdgeStatus(ctx, regionaldb.UpdateEdgeStatusParams{
+			NewStatus:      regionaldb.HubUserConnectionStatusTheyRejected,
+			Me:             peerGlobal.HubUserGlobalID,
+			Peer:           hubUser.HubUserGlobalID,
+			ExpectedStatus: regionaldb.HubUserConnectionStatusOutgoingPending,
+		})
+		if err != nil {
+			log.Error("failed to update peer edge to they_rejected", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+		if peerRows == 0 {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+
+		// Update own edge to i_rejected (own region, with audit)
+		txErr := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
+			ownRows, err := qtx.UpdateEdgeStatus(ctx, regionaldb.UpdateEdgeStatusParams{
+				NewStatus:      regionaldb.HubUserConnectionStatusIRejected,
+				Me:             hubUser.HubUserGlobalID,
+				Peer:           peerGlobal.HubUserGlobalID,
+				ExpectedStatus: regionaldb.HubUserConnectionStatusIncomingPending,
 			})
 			if err != nil {
-				if errors.Is(err, pgx.ErrNoRows) {
-					return errNotFound
-				}
 				return err
+			}
+			if ownRows == 0 {
+				return errNotFound
 			}
 			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
 				EventType:   "hub.reject_connection_request",
@@ -626,11 +601,21 @@ func RejectConnectionRequest(s *server.RegionalServer) http.HandlerFunc {
 			})
 		})
 		if txErr != nil {
+			// Compensate: revert peer's edge to outgoing_pending
+			compErr := peerDB.RevertEdgeToPending(ctx, regionaldb.RevertEdgeToPendingParams{
+				PendingStatus: regionaldb.HubUserConnectionStatusOutgoingPending,
+				Me:            peerGlobal.HubUserGlobalID,
+				Peer:          hubUser.HubUserGlobalID,
+			})
+			if compErr != nil {
+				log.Error("CONSISTENCY_ALERT: failed to compensate peer edge after reject failure",
+					"error", compErr, "original_error", txErr)
+			}
 			if errors.Is(txErr, errNotFound) {
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
-			log.Error("failed to reject connection request", "error", txErr)
+			log.Error("failed to update own edge to i_rejected", "error", txErr)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -674,77 +659,70 @@ func WithdrawConnectionRequest(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		// Find pair's region
-		pairRoute, err := s.Global.GetConnectionPairRoute(ctx, globaldb.GetConnectionPairRouteParams{
-			A: hubUser.HubUserGlobalID,
-			B: peerGlobal.HubUserGlobalID,
+		peerDB := s.GetRegionalDB(peerGlobal.HomeRegion)
+		if peerDB == nil {
+			log.Error("no regional pool for peer home region", "region", peerGlobal.HomeRegion)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
+		// Verify own edge is outgoing_pending before making any changes
+		ownEdge, err := s.RegionalForCtx(ctx).GetUserConnectionEdge(ctx, regionaldb.GetUserConnectionEdgeParams{
+			Me:   hubUser.HubUserGlobalID,
+			Peer: peerGlobal.HubUserGlobalID,
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
-			log.Error("failed to get pair route", "error", err)
+			log.Error("failed to get own edge", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
-
-		// Select the pair's region's DB queries. No proxy.
-		pairRegion := globaldb.Region(pairRoute.Region)
-		pairDB := s.GetRegionalDB(pairRegion)
-		if pairDB == nil {
-			log.Error("no regional pool for pair region", "region", pairRegion)
-			http.Error(w, "", http.StatusInternalServerError)
+		if ownEdge.Status != regionaldb.HubUserConnectionStatusOutgoingPending {
+			w.WriteHeader(http.StatusNotFound)
 			return
 		}
 
 		peerIDHash := hashUserID(peerGlobal.HubUserGlobalID)
 		auditData, _ := json.Marshal(map[string]any{"peer_user_id_hash": peerIDHash})
 
-		var rowsDeleted int64
-		txErr := s.WithRegionalTxFor(ctx, pairRegion, func(qtx *regionaldb.Queries) error {
-			rows, err := qtx.WithdrawPendingConnection(ctx, regionaldb.WithdrawPendingConnectionParams{
-				A:     hubUser.HubUserGlobalID,
-				B:     peerGlobal.HubUserGlobalID,
-				Actor: hubUser.HubUserGlobalID,
+		// Delete own outgoing edge (own region, with audit)
+		txErr := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
+			rows, err := qtx.DeleteUserConnectionEdge(ctx, regionaldb.DeleteUserConnectionEdgeParams{
+				Me:   hubUser.HubUserGlobalID,
+				Peer: peerGlobal.HubUserGlobalID,
 			})
 			if err != nil {
 				return err
 			}
-			rowsDeleted = rows
 			if rows == 0 {
-				return nil // will check after tx
+				return errNotFound
 			}
-
-			if err := qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
+			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
 				EventType:   "hub.withdraw_connection_request",
 				ActorUserID: hubUser.HubUserGlobalID,
 				IpAddress:   audit.ExtractClientIP(r),
 				EventData:   auditData,
-			}); err != nil {
-				return err
-			}
-			return nil
+			})
 		})
 		if txErr != nil {
-			log.Error("failed to withdraw connection request", "error", txErr)
+			if errors.Is(txErr, errNotFound) {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			log.Error("failed to delete own edge", "error", txErr)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		if rowsDeleted == 0 {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-
-		// Delete global pair route since row is gone
-		if err := s.WithGlobalTx(ctx, func(qtx *globaldb.Queries) error {
-			return qtx.DeleteConnectionPairRoute(ctx, globaldb.DeleteConnectionPairRouteParams{
-				A: hubUser.HubUserGlobalID,
-				B: peerGlobal.HubUserGlobalID,
-			})
+		// Delete peer's incoming edge (foreign region, best-effort)
+		if err := peerDB.DeleteUserConnectionEdgeForBlock(ctx, regionaldb.DeleteUserConnectionEdgeForBlockParams{
+			Me:   peerGlobal.HubUserGlobalID,
+			Peer: hubUser.HubUserGlobalID,
 		}); err != nil {
-			log.Error("CONSISTENCY_ALERT: failed to delete global connection pair route after withdraw",
+			log.Error("CONSISTENCY_ALERT: failed to delete peer's incoming edge after withdraw",
 				"error", err)
 		}
 
@@ -787,25 +765,9 @@ func DisconnectConnection(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		pairRoute, err := s.Global.GetConnectionPairRoute(ctx, globaldb.GetConnectionPairRouteParams{
-			A: hubUser.HubUserGlobalID,
-			B: peerGlobal.HubUserGlobalID,
-		})
-		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				w.WriteHeader(http.StatusNotFound)
-				return
-			}
-			log.Error("failed to get pair route", "error", err)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-
-		// Select the pair's region's DB queries. No proxy.
-		pairRegion := globaldb.Region(pairRoute.Region)
-		pairDB := s.GetRegionalDB(pairRegion)
-		if pairDB == nil {
-			log.Error("no regional pool for pair region", "region", pairRegion)
+		peerDB := s.GetRegionalDB(peerGlobal.HomeRegion)
+		if peerDB == nil {
+			log.Error("no regional pool for peer home region", "region", peerGlobal.HomeRegion)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -813,17 +775,19 @@ func DisconnectConnection(s *server.RegionalServer) http.HandlerFunc {
 		peerIDHash := hashUserID(peerGlobal.HubUserGlobalID)
 		auditData, _ := json.Marshal(map[string]any{"peer_user_id_hash": peerIDHash})
 
-		txErr := s.WithRegionalTxFor(ctx, pairRegion, func(qtx *regionaldb.Queries) error {
-			_, err := qtx.DisconnectConnection(ctx, regionaldb.DisconnectConnectionParams{
-				A:     hubUser.HubUserGlobalID,
-				B:     peerGlobal.HubUserGlobalID,
-				Actor: hubUser.HubUserGlobalID,
+		// Update own edge to i_disconnected (own region, with audit)
+		txErr := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
+			rows, err := qtx.UpdateEdgeStatus(ctx, regionaldb.UpdateEdgeStatusParams{
+				NewStatus:      regionaldb.HubUserConnectionStatusIDisconnected,
+				Me:             hubUser.HubUserGlobalID,
+				Peer:           peerGlobal.HubUserGlobalID,
+				ExpectedStatus: regionaldb.HubUserConnectionStatusConnected,
 			})
 			if err != nil {
-				if errors.Is(err, pgx.ErrNoRows) {
-					return errNotFound
-				}
 				return err
+			}
+			if rows == 0 {
+				return errNotFound
 			}
 			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
 				EventType:   "hub.disconnect_connection",
@@ -840,6 +804,18 @@ func DisconnectConnection(s *server.RegionalServer) http.HandlerFunc {
 			log.Error("failed to disconnect connection", "error", txErr)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
+		}
+
+		// Update peer's edge to they_disconnected (foreign region, best-effort)
+		_, err = peerDB.UpdateEdgeStatus(ctx, regionaldb.UpdateEdgeStatusParams{
+			NewStatus:      regionaldb.HubUserConnectionStatusTheyDisconnected,
+			Me:             peerGlobal.HubUserGlobalID,
+			Peer:           hubUser.HubUserGlobalID,
+			ExpectedStatus: regionaldb.HubUserConnectionStatusConnected,
+		})
+		if err != nil {
+			log.Error("CONSISTENCY_ALERT: failed to update peer edge to they_disconnected",
+				"error", err)
 		}
 
 		w.WriteHeader(http.StatusNoContent)
@@ -889,12 +865,12 @@ func BlockHubUser(s *server.RegionalServer) http.HandlerFunc {
 		peerIDHash := hashUserID(targetGlobal.HubUserGlobalID)
 		auditData, _ := json.Marshal(map[string]any{"peer_user_id_hash": peerIDHash})
 
-		// Write block to global first, then regional
+		// Write global block route first
 		err = s.WithGlobalTx(ctx, func(qtx *globaldb.Queries) error {
 			return qtx.UpsertBlockRoute(ctx, globaldb.UpsertBlockRouteParams{
 				Blocker: hubUser.HubUserGlobalID,
 				Blocked: targetGlobal.HubUserGlobalID,
-				Region:  string(s.CurrentRegion),
+				Region:  middleware.HubRegionFromContext(ctx),
 			})
 		})
 		if err != nil {
@@ -903,6 +879,7 @@ func BlockHubUser(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
+		// Write own region: insert block, remove own connection edge, audit log
 		var alreadyBlocked bool
 		txErr := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
 			block, err := qtx.InsertBlock(ctx, regionaldb.InsertBlockParams{
@@ -913,24 +890,13 @@ func BlockHubUser(s *server.RegionalServer) http.HandlerFunc {
 				return err
 			}
 			if !block.BlockerUserID.Valid {
-				// ON CONFLICT DO NOTHING returned no rows → already blocked
 				alreadyBlocked = true
 				return nil
 			}
 
-			// Sever any existing connection
-			if err := qtx.SeverConnectionForBlock(ctx, regionaldb.SeverConnectionForBlockParams{
-				A:       hubUser.HubUserGlobalID,
-				B:       targetGlobal.HubUserGlobalID,
-				Blocker: hubUser.HubUserGlobalID,
-			}); err != nil {
-				return err
-			}
-
-			// Delete any pending request
-			if err := qtx.DeletePendingForBlock(ctx, regionaldb.DeletePendingForBlockParams{
-				A: hubUser.HubUserGlobalID,
-				B: targetGlobal.HubUserGlobalID,
+			if err := qtx.DeleteUserConnectionEdgeForBlock(ctx, regionaldb.DeleteUserConnectionEdgeForBlockParams{
+				Me:   hubUser.HubUserGlobalID,
+				Peer: targetGlobal.HubUserGlobalID,
 			}); err != nil {
 				return err
 			}
@@ -960,10 +926,19 @@ func BlockHubUser(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		if alreadyBlocked {
-			// Clean up global route we just inserted (it was a conflict-no-op but we upserted)
-			// Actually UpsertBlockRoute is ON CONFLICT DO NOTHING so global is fine
 			w.WriteHeader(httpStatusAlreadyBlocked)
 			return
+		}
+
+		// Best-effort: remove target's connection edge from their region
+		if targetDB := s.GetRegionalDB(targetGlobal.HomeRegion); targetDB != nil {
+			if err := targetDB.DeleteUserConnectionEdgeForBlock(ctx, regionaldb.DeleteUserConnectionEdgeForBlockParams{
+				Me:   targetGlobal.HubUserGlobalID,
+				Peer: hubUser.HubUserGlobalID,
+			}); err != nil {
+				log.Error("CONSISTENCY_ALERT: failed to remove target's connection edge after block",
+					"error", err)
+			}
 		}
 
 		w.WriteHeader(http.StatusCreated)
@@ -998,7 +973,7 @@ func UnblockHubUser(s *server.RegionalServer) http.HandlerFunc {
 		targetGlobal, err := s.Global.GetHubUserByHandle(ctx, string(req.Handle))
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				w.WriteHeader(httpStatusNotBlocked) // spec says 459 not 404 for unblock
+				w.WriteHeader(httpStatusNotBlocked)
 				return
 			}
 			log.Error("failed to resolve handle", "error", err)
@@ -1040,7 +1015,6 @@ func UnblockHubUser(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		// Delete global block route
 		if err := s.WithGlobalTx(ctx, func(qtx *globaldb.Queries) error {
 			return qtx.DeleteBlockRoute(ctx, globaldb.DeleteBlockRouteParams{
 				Blocker: hubUser.HubUserGlobalID,
@@ -1075,10 +1049,7 @@ func ListConnections(s *server.RegionalServer) http.HandlerFunc {
 
 		limit := int32(defaultConnectionListLimit)
 		if req.Limit != nil && *req.Limit > 0 {
-			limit = *req.Limit
-			if limit > maxConnectionListLimit {
-				limit = maxConnectionListLimit
-			}
+			limit = min(*req.Limit, maxConnectionListLimit)
 		}
 
 		params := regionaldb.ListMyConnectionsParams{
@@ -1089,10 +1060,9 @@ func ListConnections(s *server.RegionalServer) http.HandlerFunc {
 			params.FilterQuery = pgtype.Text{String: *req.FilterQuery, Valid: true}
 		}
 		if req.PaginationKey != nil && *req.PaginationKey != "" {
-			cursor, err := decodeConnectionCursor(*req.PaginationKey)
-			if err == nil {
+			if cursor, err := decodeConnectionCursor(*req.PaginationKey); err == nil {
 				params.CursorConnectedAt = pgtype.Timestamptz{Time: cursor.Timestamp, Valid: true}
-				params.CursorPeerUserID = pgtype.UUID{Bytes: cursor.PeerUserID, Valid: true}
+				params.CursorPeer = pgtype.UUID{Bytes: cursor.PeerUserID, Valid: true}
 			}
 		}
 
@@ -1107,30 +1077,19 @@ func ListConnections(s *server.RegionalServer) http.HandlerFunc {
 		if int32(len(rows)) > limit {
 			rows = rows[:limit]
 			last := rows[len(rows)-1]
-			var lastPeerID pgtype.UUID
-			if peerID, ok := uuidFromInterface(last.PeerUserID); ok {
-				lastPeerID = peerID
-			}
-			k := encodeConnectionCursor(last.ConnectedAt.Time, lastPeerID)
+			k := encodeConnectionCursor(last.ConnectedAt.Time, last.Peer)
 			nextKey = &k
 		}
 
-		// Bulk resolve peer profile data
-		peerIDs := make([]pgtype.UUID, 0, len(rows))
-		for _, row := range rows {
-			if peerID, ok := uuidFromInterface(row.PeerUserID); ok {
-				peerIDs = append(peerIDs, peerID)
-			}
+		peerIDs := make([]pgtype.UUID, len(rows))
+		for i, row := range rows {
+			peerIDs[i] = row.Peer
 		}
 		peerProfiles := bulkResolvePeers(ctx, s, log, peerIDs)
 
 		connections := make([]hubtypes.Connection, 0, len(rows))
 		for _, row := range rows {
-			peerIDFace, ok := uuidFromInterface(row.PeerUserID)
-			if !ok {
-				continue
-			}
-			prof, ok := peerProfiles[peerIDFace.Bytes]
+			prof, ok := peerProfiles[row.Peer.Bytes]
 			if !ok {
 				continue
 			}
@@ -1177,10 +1136,7 @@ func ListIncomingRequests(s *server.RegionalServer) http.HandlerFunc {
 
 		limit := int32(defaultConnectionListLimit)
 		if req.Limit != nil && *req.Limit > 0 {
-			limit = *req.Limit
-			if limit > maxConnectionListLimit {
-				limit = maxConnectionListLimit
-			}
+			limit = min(*req.Limit, maxConnectionListLimit)
 		}
 
 		params := regionaldb.ListIncomingPendingRequestsParams{
@@ -1188,10 +1144,9 @@ func ListIncomingRequests(s *server.RegionalServer) http.HandlerFunc {
 			LimitCount: limit + 1,
 		}
 		if req.PaginationKey != nil && *req.PaginationKey != "" {
-			cursor, err := decodeConnectionCursor(*req.PaginationKey)
-			if err == nil {
+			if cursor, err := decodeConnectionCursor(*req.PaginationKey); err == nil {
 				params.CursorCreatedAt = pgtype.Timestamptz{Time: cursor.Timestamp, Valid: true}
-				params.CursorPeerUserID = pgtype.UUID{Bytes: cursor.PeerUserID, Valid: true}
+				params.CursorPeer = pgtype.UUID{Bytes: cursor.PeerUserID, Valid: true}
 			}
 		}
 
@@ -1206,19 +1161,19 @@ func ListIncomingRequests(s *server.RegionalServer) http.HandlerFunc {
 		if int32(len(rows)) > limit {
 			rows = rows[:limit]
 			last := rows[len(rows)-1]
-			k := encodeConnectionCursor(last.CreatedAt.Time, last.PeerUserID)
+			k := encodeConnectionCursor(last.CreatedAt.Time, last.Peer)
 			nextKey = &k
 		}
 
-		peerIDs := make([]pgtype.UUID, 0, len(rows))
-		for _, row := range rows {
-			peerIDs = append(peerIDs, row.PeerUserID)
+		peerIDs := make([]pgtype.UUID, len(rows))
+		for i, row := range rows {
+			peerIDs[i] = row.Peer
 		}
 		peerProfiles := bulkResolvePeers(ctx, s, log, peerIDs)
 
 		incoming := make([]hubtypes.PendingRequest, 0, len(rows))
 		for _, row := range rows {
-			prof, ok := peerProfiles[row.PeerUserID.Bytes]
+			prof, ok := peerProfiles[row.Peer.Bytes]
 			if !ok {
 				continue
 			}
@@ -1265,10 +1220,7 @@ func ListOutgoingRequests(s *server.RegionalServer) http.HandlerFunc {
 
 		limit := int32(defaultConnectionListLimit)
 		if req.Limit != nil && *req.Limit > 0 {
-			limit = *req.Limit
-			if limit > maxConnectionListLimit {
-				limit = maxConnectionListLimit
-			}
+			limit = min(*req.Limit, maxConnectionListLimit)
 		}
 
 		params := regionaldb.ListOutgoingPendingRequestsParams{
@@ -1276,10 +1228,9 @@ func ListOutgoingRequests(s *server.RegionalServer) http.HandlerFunc {
 			LimitCount: limit + 1,
 		}
 		if req.PaginationKey != nil && *req.PaginationKey != "" {
-			cursor, err := decodeConnectionCursor(*req.PaginationKey)
-			if err == nil {
+			if cursor, err := decodeConnectionCursor(*req.PaginationKey); err == nil {
 				params.CursorCreatedAt = pgtype.Timestamptz{Time: cursor.Timestamp, Valid: true}
-				params.CursorPeerUserID = pgtype.UUID{Bytes: cursor.PeerUserID, Valid: true}
+				params.CursorPeer = pgtype.UUID{Bytes: cursor.PeerUserID, Valid: true}
 			}
 		}
 
@@ -1294,29 +1245,19 @@ func ListOutgoingRequests(s *server.RegionalServer) http.HandlerFunc {
 		if int32(len(rows)) > limit {
 			rows = rows[:limit]
 			last := rows[len(rows)-1]
-			var lastPeerID pgtype.UUID
-			if peerID, ok := uuidFromInterface(last.PeerUserID); ok {
-				lastPeerID = peerID
-			}
-			k := encodeConnectionCursor(last.CreatedAt.Time, lastPeerID)
+			k := encodeConnectionCursor(last.CreatedAt.Time, last.Peer)
 			nextKey = &k
 		}
 
-		peerIDs := make([]pgtype.UUID, 0, len(rows))
-		for _, row := range rows {
-			if peerID, ok := uuidFromInterface(row.PeerUserID); ok {
-				peerIDs = append(peerIDs, peerID)
-			}
+		peerIDs := make([]pgtype.UUID, len(rows))
+		for i, row := range rows {
+			peerIDs[i] = row.Peer
 		}
 		peerProfiles := bulkResolvePeers(ctx, s, log, peerIDs)
 
 		outgoing := make([]hubtypes.PendingRequest, 0, len(rows))
 		for _, row := range rows {
-			peerIDFace, ok := uuidFromInterface(row.PeerUserID)
-			if !ok {
-				continue
-			}
-			prof, ok := peerProfiles[peerIDFace.Bytes]
+			prof, ok := peerProfiles[row.Peer.Bytes]
 			if !ok {
 				continue
 			}
@@ -1363,10 +1304,7 @@ func ListBlocked(s *server.RegionalServer) http.HandlerFunc {
 
 		limit := int32(defaultConnectionListLimit)
 		if req.Limit != nil && *req.Limit > 0 {
-			limit = *req.Limit
-			if limit > maxConnectionListLimit {
-				limit = maxConnectionListLimit
-			}
+			limit = min(*req.Limit, maxConnectionListLimit)
 		}
 
 		params := regionaldb.ListBlockedParams{
@@ -1374,8 +1312,7 @@ func ListBlocked(s *server.RegionalServer) http.HandlerFunc {
 			LimitCount: limit + 1,
 		}
 		if req.PaginationKey != nil && *req.PaginationKey != "" {
-			cursor, err := decodeConnectionCursor(*req.PaginationKey)
-			if err == nil {
+			if cursor, err := decodeConnectionCursor(*req.PaginationKey); err == nil {
 				params.CursorBlockedAt = pgtype.Timestamptz{Time: cursor.Timestamp, Valid: true}
 				params.CursorBlockedUserID = pgtype.UUID{Bytes: cursor.PeerUserID, Valid: true}
 			}
@@ -1396,9 +1333,9 @@ func ListBlocked(s *server.RegionalServer) http.HandlerFunc {
 			nextKey = &k
 		}
 
-		peerIDs := make([]pgtype.UUID, 0, len(rows))
-		for _, row := range rows {
-			peerIDs = append(peerIDs, row.BlockedUserID)
+		peerIDs := make([]pgtype.UUID, len(rows))
+		for i, row := range rows {
+			peerIDs[i] = row.BlockedUserID
 		}
 		peerProfiles := bulkResolvePeers(ctx, s, log, peerIDs)
 
@@ -1457,7 +1394,6 @@ func GetConnectionStatus(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		// Self
 		if uuidEqual(hubUser.HubUserGlobalID, targetGlobal.HubUserGlobalID) {
 			json.NewEncoder(w).Encode(hubtypes.GetStatusResponse{
 				ConnectionState: hubtypes.ConnectionStateNotConnected,
@@ -1465,7 +1401,7 @@ func GetConnectionStatus(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		// Step 2: Block check via global
+		// Block check via global
 		blockRoutes, err := s.Global.GetBlockRoutes(ctx, globaldb.GetBlockRoutesParams{
 			A: hubUser.HubUserGlobalID,
 			B: targetGlobal.HubUserGlobalID,
@@ -1490,66 +1426,35 @@ func GetConnectionStatus(s *server.RegionalServer) http.HandlerFunc {
 			}
 		}
 
-		// Step 3: Connection pair check
-		// First check if the pair route exists (to find the right region)
-		pairRoute, err := s.Global.GetConnectionPairRoute(ctx, globaldb.GetConnectionPairRouteParams{
-			A: hubUser.HubUserGlobalID,
-			B: targetGlobal.HubUserGlobalID,
+		// Look up own edge (always in own home region)
+		edge, err := s.RegionalForCtx(ctx).GetUserConnectionEdge(ctx, regionaldb.GetUserConnectionEdgeParams{
+			Me:   hubUser.HubUserGlobalID,
+			Peer: targetGlobal.HubUserGlobalID,
 		})
-
-		var pairRegDB *regionaldb.Queries
-		if err == nil {
-			if pairRoute.Region == string(s.CurrentRegion) {
-				pairRegDB = s.Regional
-			} else {
-				pairRegDB = s.GetRegionalDB(globaldb.Region(pairRoute.Region))
-			}
-		} else if !errors.Is(err, pgx.ErrNoRows) {
-			log.Error("failed to get pair route for status check", "error", err)
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			log.Error("failed to get own connection edge", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		var pair regionaldb.HubConnection
-		var pairFound bool
-		if pairRegDB != nil {
-			pair, err = pairRegDB.GetConnectionPair(ctx, regionaldb.GetConnectionPairParams{
-				A: hubUser.HubUserGlobalID,
-				B: targetGlobal.HubUserGlobalID,
-			})
-			if err == nil {
-				pairFound = true
-			} else if !errors.Is(err, pgx.ErrNoRows) {
-				log.Error("failed to get connection pair for status", "error", err)
-				http.Error(w, "", http.StatusInternalServerError)
-				return
-			}
-		}
-
-		if !pairFound {
-			// No pair — check eligibility
+		if errors.Is(err, pgx.ErrNoRows) {
+			// No edge — check eligibility to determine if connection is possible
 			callerStints, err := s.RegionalForCtx(ctx).GetUserEligibilityStints(ctx, hubUser.HubUserGlobalID)
 			if err != nil {
 				log.Error("failed to get caller stints for status", "error", err)
 				http.Error(w, "", http.StatusInternalServerError)
 				return
 			}
-
+			targetRegDB := s.GetRegionalDB(targetGlobal.HomeRegion)
 			var targetStints []regionaldb.GetUserEligibilityStintsRow
-			if targetGlobal.HomeRegion == s.CurrentRegion {
-				targetStints, err = s.Regional.GetUserEligibilityStints(ctx, targetGlobal.HubUserGlobalID)
-			} else {
-				targetRegDB := s.GetRegionalDB(targetGlobal.HomeRegion)
-				if targetRegDB != nil {
-					targetStints, err = targetRegDB.GetUserEligibilityStints(ctx, targetGlobal.HubUserGlobalID)
+			if targetRegDB != nil {
+				targetStints, err = targetRegDB.GetUserEligibilityStints(ctx, targetGlobal.HubUserGlobalID)
+				if err != nil {
+					log.Error("failed to get target stints for status", "error", err)
+					http.Error(w, "", http.StatusInternalServerError)
+					return
 				}
 			}
-			if err != nil {
-				log.Error("failed to get target stints for status", "error", err)
-				http.Error(w, "", http.StatusInternalServerError)
-				return
-			}
-
 			state := hubtypes.ConnectionStateIneligible
 			if stintOverlaps(callerStints, targetStints) {
 				state = hubtypes.ConnectionStateNotConnected
@@ -1558,29 +1463,23 @@ func GetConnectionStatus(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		// Determine state from pair
+		// Map edge status to connection state
 		var state hubtypes.ConnectionState
-		switch pair.Status {
-		case regionaldb.HubConnectionStatusPending:
-			if uuidEqual(pair.RequesterUserID, hubUser.HubUserGlobalID) {
-				state = hubtypes.ConnectionStateRequestSent
-			} else {
-				state = hubtypes.ConnectionStateRequestReceived
-			}
-		case regionaldb.HubConnectionStatusConnected:
+		switch edge.Status {
+		case regionaldb.HubUserConnectionStatusOutgoingPending:
+			state = hubtypes.ConnectionStateRequestSent
+		case regionaldb.HubUserConnectionStatusIncomingPending:
+			state = hubtypes.ConnectionStateRequestReceived
+		case regionaldb.HubUserConnectionStatusConnected:
 			state = hubtypes.ConnectionStateConnected
-		case regionaldb.HubConnectionStatusRejected:
-			if uuidEqual(pair.RejecterUserID, hubUser.HubUserGlobalID) {
-				state = hubtypes.ConnectionStateIRejectedTheirRequest
-			} else {
-				state = hubtypes.ConnectionStateTheyRejectedMyRequest
-			}
-		case regionaldb.HubConnectionStatusDisconnected:
-			if uuidEqual(pair.DisconnectorUserID, hubUser.HubUserGlobalID) {
-				state = hubtypes.ConnectionStateIDisconnected
-			} else {
-				state = hubtypes.ConnectionStateTheyDisconnected
-			}
+		case regionaldb.HubUserConnectionStatusTheyRejected:
+			state = hubtypes.ConnectionStateTheyRejectedMyRequest
+		case regionaldb.HubUserConnectionStatusIRejected:
+			state = hubtypes.ConnectionStateIRejectedTheirRequest
+		case regionaldb.HubUserConnectionStatusIDisconnected:
+			state = hubtypes.ConnectionStateIDisconnected
+		case regionaldb.HubUserConnectionStatusTheyDisconnected:
+			state = hubtypes.ConnectionStateTheyDisconnected
 		}
 
 		json.NewEncoder(w).Encode(hubtypes.GetStatusResponse{ConnectionState: state})
@@ -1621,21 +1520,15 @@ func SearchConnections(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		peerIDs := make([]pgtype.UUID, 0, len(rows))
-		for _, row := range rows {
-			if peerID, ok := uuidFromInterface(row.PeerUserID); ok {
-				peerIDs = append(peerIDs, peerID)
-			}
+		peerIDs := make([]pgtype.UUID, len(rows))
+		for i, row := range rows {
+			peerIDs[i] = row.Peer
 		}
 		peerProfiles := bulkResolvePeers(ctx, s, log, peerIDs)
 
 		results := make([]hubtypes.Connection, 0, len(rows))
 		for _, row := range rows {
-			peerIDFace, ok := uuidFromInterface(row.PeerUserID)
-			if !ok {
-				continue
-			}
-			prof, ok := peerProfiles[peerIDFace.Bytes]
+			prof, ok := peerProfiles[row.Peer.Bytes]
 			if !ok {
 				continue
 			}
@@ -1696,96 +1589,94 @@ type peerProfile struct {
 	ProfilePictureURL string
 }
 
-// uuidFromInterface extracts a pgtype.UUID from an interface{} value.
-func uuidFromInterface(v interface{}) (pgtype.UUID, bool) {
-	if v == nil {
-		return pgtype.UUID{}, false
-	}
-	switch val := v.(type) {
-	case pgtype.UUID:
-		return val, val.Valid
-	case [16]byte:
-		return pgtype.UUID{Bytes: val, Valid: true}, true
-	case []byte:
-		if len(val) == 16 {
-			var arr [16]byte
-			copy(arr[:], val)
-			return pgtype.UUID{Bytes: arr, Valid: true}, true
-		}
-	}
-	return pgtype.UUID{}, false
-}
-
-// bulkResolvePeers fetches hub_users rows and display names for a set of peer IDs.
+// bulkResolvePeers fetches display data for a set of peer IDs across all home regions.
 // Returns a map from [16]byte UUID → peerProfile.
+// Peers may live in different regional DBs; this function routes each lookup correctly.
 func bulkResolvePeers(
 	ctx context.Context,
 	s *server.RegionalServer,
-	log interface{ Error(string, ...interface{}) },
+	log interface{ Error(string, ...any) },
 	peerIDs []pgtype.UUID,
 ) map[[16]byte]peerProfile {
 	if len(peerIDs) == 0 {
 		return map[[16]byte]peerProfile{}
 	}
 
-	// Fetch hub_users from regional DB
-	hubUsers := make(map[[16]byte]regionaldb.HubUser)
-	for _, id := range peerIDs {
-		user, err := s.RegionalForCtx(ctx).GetHubUserByGlobalID(ctx, id)
-		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				continue
-			}
-			// Log but don't fail the entire bulk operation
-			log.Error("failed to get hub user", "error", err)
-			continue
-		}
-		hubUsers[id.Bytes] = user
+	// One global call: get handle + home_region for all peers.
+	globalUsers, err := s.Global.GetHubUsersByGlobalIDs(ctx, peerIDs)
+	if err != nil {
+		log.Error("failed to bulk fetch global hub users", "error", err)
+		return map[[16]byte]peerProfile{}
 	}
 
-	// Fetch display names from global DB
-	displayNameMap := make(map[[16]byte]globaldb.HubUserDisplayName)
-	for _, id := range peerIDs {
-		names, err := s.Global.ListHubUserDisplayNames(ctx, id)
-		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				continue
-			}
-			log.Error("failed to get display names", "error", err)
+	// One global call: get preferred display names for all peers.
+	displayNames, err := s.Global.GetHubUserPreferredDisplayNamesByIDs(ctx, peerIDs)
+	if err != nil {
+		log.Error("failed to bulk fetch display names", "error", err)
+	}
+	dnMap := make(map[[16]byte]string)
+	for _, dn := range displayNames {
+		dnMap[dn.HubUserGlobalID.Bytes] = dn.DisplayName
+	}
+
+	// Group peers by home region so we issue one regional call per region.
+	regionGroups := make(map[globaldb.Region][]pgtype.UUID)
+	for _, gu := range globalUsers {
+		regionGroups[gu.HomeRegion] = append(regionGroups[gu.HomeRegion], gu.HubUserGlobalID)
+	}
+
+	// Fetch bio + profile picture from each peer's actual home regional DB.
+	type bioAndPic struct {
+		shortBio string
+		picKey   pgtype.Text
+		handle   string
+	}
+	regionalData := make(map[[16]byte]bioAndPic)
+	for region, ids := range regionGroups {
+		regionDB := s.GetRegionalDB(region)
+		if regionDB == nil {
+			log.Error("no regional DB for peer home region", "region", string(region))
 			continue
 		}
-		if len(names) > 0 {
-			// Take the first (preferred) display name
-			displayNameMap[id.Bytes] = names[0]
+		profiles, err := regionDB.GetHubUserProfilesByGlobalIDs(ctx, ids)
+		if err != nil {
+			log.Error("failed to fetch regional peer profiles", "error", err, "region", string(region))
+			continue
+		}
+		for _, p := range profiles {
+			regionalData[p.HubUserGlobalID.Bytes] = bioAndPic{
+				shortBio: p.ShortBio.String,
+				picKey:   p.ProfilePictureStorageKey,
+				handle:   p.Handle,
+			}
 		}
 	}
 
-	// Build result map
 	result := make(map[[16]byte]peerProfile)
-	for _, id := range peerIDs {
-		user, ok := hubUsers[id.Bytes]
+	for _, gu := range globalUsers {
+		displayName := gu.Handle
+		if dn, ok := dnMap[gu.HubUserGlobalID.Bytes]; ok {
+			displayName = dn
+		}
+		rd, ok := regionalData[gu.HubUserGlobalID.Bytes]
 		if !ok {
+			result[gu.HubUserGlobalID.Bytes] = peerProfile{
+				Handle:      gu.Handle,
+				DisplayName: displayName,
+			}
 			continue
 		}
-
-		displayName := user.Handle
-		if dn, ok := displayNameMap[id.Bytes]; ok {
-			displayName = dn.DisplayName
-		}
-
 		pictureURL := ""
-		if user.ProfilePictureStorageKey.Valid && user.ProfilePictureStorageKey.String != "" {
-			pictureURL = fmt.Sprintf("/hub/profile-picture/%s", user.Handle)
+		if rd.picKey.Valid && rd.picKey.String != "" {
+			pictureURL = fmt.Sprintf("/hub/profile-picture/%s", rd.handle)
 		}
-
-		result[id.Bytes] = peerProfile{
-			Handle:            user.Handle,
+		result[gu.HubUserGlobalID.Bytes] = peerProfile{
+			Handle:            gu.Handle,
 			DisplayName:       displayName,
-			ShortBio:          user.ShortBio.String,
-			HasProfilePicture: user.ProfilePictureStorageKey.Valid && user.ProfilePictureStorageKey.String != "",
+			ShortBio:          rd.shortBio,
+			HasProfilePicture: rd.picKey.Valid && rd.picKey.String != "",
 			ProfilePictureURL: pictureURL,
 		}
 	}
-
 	return result
 }

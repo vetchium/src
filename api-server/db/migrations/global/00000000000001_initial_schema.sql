@@ -492,16 +492,6 @@ INSERT INTO roles (role_name, description) VALUES
   ('admin:manage_personal_domain_blocklist', 'Can add/remove entries in the personal-email-domain blocklist used by Hub work-email validation')
 ON CONFLICT (role_name) DO NOTHING;
 
--- Hub connection pair routes (global mirror to route pair writes to the right region)
-CREATE TABLE hub_connection_pair_routes (
-  low_user_id   UUID NOT NULL,
-  high_user_id  UUID NOT NULL,
-  region        TEXT NOT NULL,
-  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY (low_user_id, high_user_id),
-  CHECK (low_user_id < high_user_id)
-);
-
 -- Hub block routes (global mirror so blocked-party's region can see the block)
 CREATE TABLE hub_block_routes (
   blocker_user_id UUID NOT NULL,
@@ -513,7 +503,6 @@ CREATE TABLE hub_block_routes (
 
 -- +goose Down
 DROP TABLE IF EXISTS hub_block_routes;
-DROP TABLE IF EXISTS hub_connection_pair_routes;
 DROP INDEX IF EXISTS idx_personal_domain_blocklist_prefix;
 DROP TABLE IF EXISTS personal_domain_blocklist;
 DROP TABLE IF EXISTS hub_work_email_index;

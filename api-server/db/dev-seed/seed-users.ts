@@ -78,9 +78,7 @@ async function waitForEmail(
 function extractHubSignupToken(text: string): string {
 	const m = text.match(/token=([a-f0-9]{64})/);
 	if (!m)
-		throw new Error(
-			`No hub signup token in email: ${text.slice(0, 300)}`
-		);
+		throw new Error(`No hub signup token in email: ${text.slice(0, 300)}`);
 	return m[1];
 }
 
@@ -356,9 +354,7 @@ async function main(): Promise<void> {
 			break;
 		} catch (err) {
 			if (attempt === 10) throw err;
-			console.log(
-				`  login attempt ${attempt} failed, retrying in 5s...`
-			);
+			console.log(`  login attempt ${attempt} failed, retrying in 5s...`);
 			await sleep(5000);
 		}
 	}
