@@ -91,14 +91,7 @@ function AppContent() {
 				algorithm:
 					theme === "dark" ? antTheme.darkAlgorithm : antTheme.defaultAlgorithm,
 				token: {
-					// Dark theme improvements
-					...(theme === "dark" && {
-						colorPrimary: "#52c41a",
-					}),
-					// Light theme refinements
-					...(theme === "light" && {
-						colorPrimary: "#52c41a",
-					}),
+					colorPrimary: "#1677ff",
 				},
 			}}
 		>

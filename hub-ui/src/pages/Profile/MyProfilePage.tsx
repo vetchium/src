@@ -12,6 +12,8 @@ import {
 	Avatar,
 	Button,
 	Card,
+	Divider,
+	Flex,
 	Form,
 	Input,
 	Modal,
@@ -22,6 +24,7 @@ import {
 	Spin,
 	Table,
 	Tag,
+	Tooltip,
 	Typography,
 	message,
 } from "antd";
@@ -79,28 +82,23 @@ export function MyProfilePage() {
 	const { t: tWE } = useTranslation("workEmails");
 	const { sessionToken } = useAuth();
 
-	// Server state
 	const [profile, setProfile] = useState<HubProfileOwnerView | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [loadError, setLoadError] = useState<string | null>(null);
 
-	// Picture
 	const [uploadingPicture, setUploadingPicture] = useState(false);
 	const [removingPicture, setRemovingPicture] = useState(false);
 
-	// Identity section (picture + names + short bio + location)
 	const [identityDraft, setIdentityDraft] = useState<IdentityDraft | null>(
 		null
 	);
 	const [identitySaving, setIdentitySaving] = useState(false);
 	const [identityError, setIdentityError] = useState<string | null>(null);
 
-	// About section (long bio)
 	const [aboutDraft, setAboutDraft] = useState<string | null>(null);
 	const [aboutSaving, setAboutSaving] = useState(false);
 	const [aboutError, setAboutError] = useState<string | null>(null);
 
-	// Work emails
 	const [workEmails, setWorkEmails] = useState<WorkEmailStintOwnerView[]>([]);
 	const [workEmailsLoading, setWorkEmailsLoading] = useState(false);
 	const [addModalOpen, setAddModalOpen] = useState(false);
@@ -117,7 +115,6 @@ export function MyProfilePage() {
 	const [reverifyCode, setReverifyCode] = useState("");
 	const [reverifyLoading, setReverifyLoading] = useState(false);
 
-	// Language options for the identity draft (include any custom codes in the profile)
 	const languageOptions = useMemo(() => {
 		const options = [...BASE_LANGUAGE_OPTIONS];
 		if (identityDraft) {
@@ -194,8 +191,17 @@ export function MyProfilePage() {
 
 	const startEditIdentity = () => {
 		if (!profile) return;
+		let displayNames = profile.display_names.map((dn) => ({ ...dn }));
+		// Auto-fix: ensure exactly one entry is marked preferred
+		const preferredCount = displayNames.filter((dn) => dn.is_preferred).length;
+		if (preferredCount === 0 && displayNames.length > 0) {
+			displayNames = displayNames.map((dn, i) => ({
+				...dn,
+				is_preferred: i === 0,
+			}));
+		}
 		setIdentityDraft({
-			displayNames: profile.display_names.map((dn) => ({ ...dn })),
+			displayNames,
 			shortBio: profile.short_bio ?? "",
 			city: profile.city ?? "",
 			countryCode: profile.resident_country_code ?? "",
@@ -292,11 +298,12 @@ export function MyProfilePage() {
 	const addDraftDN = () => {
 		setIdentityDraft((prev) => {
 			if (!prev) return prev;
+			const isFirst = prev.displayNames.length === 0;
 			return {
 				...prev,
 				displayNames: [
 					...prev.displayNames,
-					{ language_code: "", display_name: "", is_preferred: false },
+					{ language_code: "", display_name: "", is_preferred: isFirst },
 				],
 			};
 		});
@@ -456,7 +463,7 @@ export function MyProfilePage() {
 	};
 
 	const handleVerifyCode = async () => {
-		if (!sessionToken || !pendingStint || !verifyCode.trim()) return;
+		if (!sessionToken || !pendingStint || verifyCode.length !== 6) return;
 		setVerifyLoading(true);
 		try {
 			const apiBaseUrl = await getApiBaseUrl();
@@ -468,7 +475,7 @@ export function MyProfilePage() {
 				},
 				body: JSON.stringify({
 					stint_id: pendingStint.stintId,
-					code: verifyCode.trim(),
+					code: verifyCode,
 				}),
 			});
 			if (res.status === 200) {
@@ -558,7 +565,7 @@ export function MyProfilePage() {
 	};
 
 	const handleReverify = async () => {
-		if (!sessionToken || !reverifyStint || !reverifyCode.trim()) return;
+		if (!sessionToken || !reverifyStint || reverifyCode.length !== 6) return;
 		setReverifyLoading(true);
 		try {
 			const apiBaseUrl = await getApiBaseUrl();
@@ -570,7 +577,7 @@ export function MyProfilePage() {
 				},
 				body: JSON.stringify({
 					stint_id: reverifyStint.stint_id,
-					code: reverifyCode.trim(),
+					code: reverifyCode,
 				}),
 			});
 			if (res.status === 200) {
@@ -613,8 +620,9 @@ export function MyProfilePage() {
 		? (COUNTRIES.find((c) => c.code === profile.resident_country_code)?.name ??
 			profile.resident_country_code)
 		: null;
-
-	const isAnyEditing = identityDraft !== null || aboutDraft !== null;
+	const otherDisplayNames = (profile?.display_names ?? []).filter(
+		(dn) => !dn.is_preferred
+	);
 
 	return (
 		<div
@@ -638,17 +646,24 @@ export function MyProfilePage() {
 			)}
 
 			{/* ── Identity section ─────────────────────────────────────────────── */}
-			<Card style={{ marginBottom: 16 }}>
+			<Card
+				title={t("myProfile.identity.title")}
+				extra={
+					identityDraft === null && (
+						<Button
+							icon={<EditOutlined />}
+							onClick={startEditIdentity}
+							disabled={aboutDraft !== null}
+						>
+							{t("myProfile.edit")}
+						</Button>
+					)
+				}
+				style={{ marginBottom: 16 }}
+			>
 				{identityDraft === null ? (
 					// Read mode
-					<div
-						style={{
-							display: "flex",
-							gap: 20,
-							alignItems: "flex-start",
-							flexWrap: "wrap",
-						}}
-					>
+					<Flex gap={20} align="flex-start" wrap="wrap">
 						<div style={{ flexShrink: 0 }}>
 							{profile?.has_profile_picture ? (
 								<img
@@ -687,45 +702,36 @@ export function MyProfilePage() {
 									{t("myProfile.identity.noShortBio")}
 								</Text>
 							)}
-							<Text
-								type="secondary"
-								style={{ fontFamily: "monospace", fontSize: 13 }}
-							>
+							<Text type="secondary" code style={{ fontSize: 13 }}>
 								@{profile?.handle}
 							</Text>
 							{(profile?.city || countryName) && (
-								<div style={{ marginTop: 4 }}>
-									<EnvironmentOutlined
-										style={{ marginRight: 6, color: "#8c8c8c" }}
-									/>
+								<Flex gap="small" align="center" style={{ marginTop: 4 }}>
+									<EnvironmentOutlined style={{ color: "#8c8c8c" }} />
 									<Text type="secondary">
 										{[profile?.city, countryName].filter(Boolean).join(", ")}
 									</Text>
-								</div>
+								</Flex>
+							)}
+							{otherDisplayNames.length > 0 && (
+								<Space size="small" wrap style={{ marginTop: 8 }}>
+									{otherDisplayNames.map((dn) => (
+										<Tag key={dn.language_code}>
+											{dn.display_name}{" "}
+											<Text type="secondary" style={{ fontSize: 11 }}>
+												({dn.language_code})
+											</Text>
+										</Tag>
+									))}
+								</Space>
 							)}
 						</div>
-						<Button
-							icon={<EditOutlined />}
-							onClick={startEditIdentity}
-							disabled={aboutDraft !== null}
-						>
-							{t("myProfile.edit")}
-						</Button>
-					</div>
+					</Flex>
 				) : (
 					// Edit mode
-					<div>
+					<Spin spinning={identitySaving}>
 						{/* Picture controls */}
-						<div
-							style={{
-								display: "flex",
-								gap: 16,
-								alignItems: "center",
-								marginBottom: 24,
-								paddingBottom: 20,
-								borderBottom: "1px solid #f0f0f0",
-							}}
-						>
+						<Flex gap={16} align="center" style={{ marginBottom: 16 }}>
 							{profile?.has_profile_picture ? (
 								<img
 									src={`/hub/profile-picture/${profile.handle}`}
@@ -746,24 +752,22 @@ export function MyProfilePage() {
 								/>
 							)}
 							<Space wrap>
-								<label>
-									<Button
-										icon={<UploadOutlined />}
-										loading={uploadingPicture}
-										onClick={() =>
-											document.getElementById("profile-picture-input")?.click()
-										}
-									>
-										{t("myProfile.picture.upload")}
-									</Button>
-									<input
-										id="profile-picture-input"
-										type="file"
-										accept="image/jpeg,image/png,image/webp"
-										style={{ display: "none" }}
-										onChange={handleUploadPicture}
-									/>
-								</label>
+								<Button
+									icon={<UploadOutlined />}
+									loading={uploadingPicture}
+									onClick={() =>
+										document.getElementById("profile-picture-input")?.click()
+									}
+								>
+									{t("myProfile.picture.upload")}
+								</Button>
+								<input
+									id="profile-picture-input"
+									type="file"
+									accept="image/jpeg,image/png,image/webp"
+									style={{ display: "none" }}
+									onChange={handleUploadPicture}
+								/>
 								{profile?.has_profile_picture && (
 									<Popconfirm
 										title={t("myProfile.picture.removeConfirm")}
@@ -781,60 +785,71 @@ export function MyProfilePage() {
 									</Popconfirm>
 								)}
 							</Space>
-						</div>
+						</Flex>
 
-						{/* Display names */}
+						<Divider />
+
 						<Form layout="vertical">
-							<Form.Item label={t("myProfile.displayNames.title")}>
-								{identityDraft.displayNames.map((dn, idx) => (
-									<div
-										key={idx}
-										style={{
-											display: "flex",
-											gap: 8,
-											marginBottom: 8,
-											flexWrap: "wrap",
-											alignItems: "baseline",
-										}}
-									>
-										<Select
-											value={dn.language_code || undefined}
-											onChange={(v) =>
-												updateDraftDN(idx, "language_code", v ?? "")
-											}
-											options={languageOptions}
-											placeholder={t("myProfile.displayNames.languageCode")}
-											style={{ width: 200 }}
-										/>
-										<Input
-											placeholder={t("myProfile.displayNames.displayName")}
-											value={dn.display_name}
-											onChange={(e) =>
-												updateDraftDN(idx, "display_name", e.target.value)
-											}
-											style={{ width: 220 }}
-										/>
-										<Radio
-											checked={dn.is_preferred}
-											onChange={() => setDraftPreferred(idx)}
-										>
-											{t("myProfile.displayNames.isPreferred")}
-										</Radio>
-										<Button
-											danger
-											size="small"
-											onClick={() => removeDraftDN(idx)}
-											disabled={identityDraft.displayNames.length <= 1}
-										>
-											{t("myProfile.displayNames.remove")}
-										</Button>
-									</div>
-								))}
+							<Form.Item
+								label={t("myProfile.displayNames.title")}
+								extra={
+									identityDraft.displayNames.length > 1
+										? t("myProfile.displayNames.isPreferred")
+										: undefined
+								}
+							>
+								<Radio.Group
+									value={identityDraft.displayNames.findIndex(
+										(dn) => dn.is_preferred
+									)}
+									onChange={(e) => setDraftPreferred(e.target.value as number)}
+									style={{ width: "100%" }}
+								>
+									<Space orientation="vertical" style={{ width: "100%" }}>
+										{identityDraft.displayNames.map((dn, idx) => (
+											<Flex key={idx} gap="small" align="center" wrap="wrap">
+												{identityDraft.displayNames.length > 1 && (
+													<Tooltip
+														title={t("myProfile.displayNames.isPreferred")}
+													>
+														<Radio value={idx} />
+													</Tooltip>
+												)}
+												<Select
+													value={dn.language_code || undefined}
+													onChange={(v) =>
+														updateDraftDN(idx, "language_code", v ?? "")
+													}
+													options={languageOptions}
+													placeholder={t("myProfile.displayNames.languageCode")}
+													style={{ width: 200 }}
+												/>
+												<Input
+													placeholder={t("myProfile.displayNames.displayName")}
+													value={dn.display_name}
+													onChange={(e) =>
+														updateDraftDN(idx, "display_name", e.target.value)
+													}
+													style={{ flex: 1, minWidth: 160 }}
+												/>
+												<Button
+													danger
+													size="small"
+													icon={<DeleteOutlined />}
+													onClick={() => removeDraftDN(idx)}
+													disabled={identityDraft.displayNames.length <= 1}
+												/>
+											</Flex>
+										))}
+									</Space>
+								</Radio.Group>
 								<Button
+									type="dashed"
 									icon={<PlusOutlined />}
 									onClick={addDraftDN}
 									disabled={identityDraft.displayNames.length >= 10}
-									style={{ marginTop: 4 }}
+									block
+									style={{ marginTop: 8 }}
 								>
 									{t("myProfile.displayNames.addLanguage")}
 								</Button>
@@ -842,7 +857,7 @@ export function MyProfilePage() {
 
 							<Form.Item
 								label={t("myProfile.bio.shortBio")}
-								help={t("myProfile.bio.shortBioHelp")}
+								extra={t("myProfile.bio.shortBioHelp")}
 							>
 								<Input
 									value={identityDraft.shortBio}
@@ -877,7 +892,7 @@ export function MyProfilePage() {
 										value: c.code,
 									}))}
 									placeholder={t("myProfile.location.country")}
-									style={{ width: "100%", maxWidth: 400 }}
+									style={{ maxWidth: 400, width: "100%" }}
 								/>
 							</Form.Item>
 
@@ -914,7 +929,7 @@ export function MyProfilePage() {
 								{t("myProfile.cancelEdit")}
 							</Button>
 						</Space>
-					</div>
+					</Spin>
 				)}
 			</Card>
 
@@ -926,7 +941,6 @@ export function MyProfilePage() {
 					aboutDraft === null && (
 						<Button
 							icon={<EditOutlined />}
-							size="small"
 							onClick={startEditAbout}
 							disabled={identityDraft !== null}
 						>
@@ -950,7 +964,7 @@ export function MyProfilePage() {
 						</Text>
 					)
 				) : (
-					<div>
+					<Spin spinning={aboutSaving}>
 						<Input.TextArea
 							value={aboutDraft}
 							onChange={(e) => setAboutDraft(e.target.value)}
@@ -972,13 +986,13 @@ export function MyProfilePage() {
 								type="primary"
 								loading={aboutSaving}
 								onClick={saveAbout}
-								disabled={isAnyEditing && identityDraft !== null}
+								disabled={identityDraft !== null}
 							>
 								{t("myProfile.saveSection")}
 							</Button>
 							<Button onClick={cancelAbout}>{t("myProfile.cancelEdit")}</Button>
 						</Space>
-					</div>
+					</Spin>
 				)}
 			</Card>
 
@@ -1019,7 +1033,7 @@ export function MyProfilePage() {
 								key: "status",
 								render: (s: WorkEmailStintStatus) => {
 									const colorMap: Record<WorkEmailStintStatus, string> = {
-										active: "green",
+										active: "blue",
 										pending_verification: "orange",
 										ended: "default",
 									};
@@ -1084,66 +1098,72 @@ export function MyProfilePage() {
 				</Spin>
 			</Card>
 
-			{/* Add / Verify work email modal */}
+			{/* Step 1: Add work email */}
 			<Modal
-				open={addModalOpen}
-				title={pendingStint ? tWE("verifyPage.title") : tWE("addModal.title")}
-				onCancel={handleCloseModal}
-				footer={null}
+				open={addModalOpen && !pendingStint}
+				title={tWE("addModal.title")}
+				onCancel={() => {
+					setAddEmail("");
+					setAddModalOpen(false);
+				}}
+				onOk={handleAddWorkEmail}
+				okText={tWE("addModal.submit")}
+				cancelText={t("myProfile.cancelEdit")}
+				okButtonProps={{ disabled: !addEmail.trim(), loading: addLoading }}
 				destroyOnHide
 			>
-				{!pendingStint ? (
-					<div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+				<Form layout="vertical" style={{ marginTop: 16 }}>
+					<Form.Item label={tWE("addModal.emailLabel")}>
 						<Input
 							type="email"
-							placeholder={tWE("addModal.emailLabel")}
 							value={addEmail}
 							onChange={(e) => setAddEmail(e.target.value)}
 							onPressEnter={handleAddWorkEmail}
+							autoFocus
 						/>
-						<Button
-							type="primary"
-							block
-							loading={addLoading}
-							onClick={handleAddWorkEmail}
-							disabled={!addEmail.trim()}
-						>
-							{tWE("addModal.submit")}
-						</Button>
-					</div>
-				) : (
-					<div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-						<p>{tWE("verifyPage.subtitle", { email: pendingStint.email })}</p>
-						<Input
-							placeholder="000000"
-							maxLength={6}
-							value={verifyCode}
-							onChange={(e) => setVerifyCode(e.target.value)}
-							onPressEnter={handleVerifyCode}
-						/>
-						<Button
-							type="primary"
-							block
-							loading={verifyLoading}
-							onClick={handleVerifyCode}
-							disabled={verifyCode.trim().length !== 6}
-						>
-							{tWE("verifyPage.submit")}
-						</Button>
-						<Button block onClick={handleResendCode}>
-							{tWE("verifyPage.resend")}
-						</Button>
-						<p style={{ margin: "4px 0 0", fontSize: 12, color: "#8c8c8c" }}>
-							{tWE("verifyPage.dismissHint")}
-						</p>
-						<Button block danger onClick={handleCancelAdd}>
-							{tWE("verifyPage.cancel")}
-						</Button>
-					</div>
-				)}
+					</Form.Item>
+				</Form>
 			</Modal>
 
-			{/* Re-verify work email modal */}
+			{/* Step 2: Verify work email code */}
+			<Modal
+				open={addModalOpen && !!pendingStint}
+				title={tWE("verifyPage.title")}
+				onCancel={handleCloseModal}
+				footer={[
+					<Button key="remove" danger onClick={handleCancelAdd}>
+						{tWE("verifyPage.cancel")}
+					</Button>,
+					<Button key="resend" onClick={handleResendCode}>
+						{tWE("verifyPage.resend")}
+					</Button>,
+					<Button
+						key="verify"
+						type="primary"
+						loading={verifyLoading}
+						onClick={handleVerifyCode}
+						disabled={verifyCode.length !== 6}
+					>
+						{tWE("verifyPage.submit")}
+					</Button>,
+				]}
+				destroyOnHide
+			>
+				<Space orientation="vertical" style={{ width: "100%", marginTop: 16 }}>
+					<Alert
+						type="info"
+						title={tWE("verifyPage.subtitle", {
+							email: pendingStint?.email,
+						})}
+					/>
+					<Flex justify="center" style={{ padding: "8px 0" }}>
+						<Input.OTP length={6} value={verifyCode} onChange={setVerifyCode} />
+					</Flex>
+					<Alert type="warning" title={tWE("verifyPage.dismissHint")} />
+				</Space>
+			</Modal>
+
+			{/* Re-verify work email */}
 			<Modal
 				open={!!reverifyStint}
 				title={tWE("detail.reverifyModal.title")}
@@ -1151,27 +1171,22 @@ export function MyProfilePage() {
 					setReverifyStint(null);
 					setReverifyCode("");
 				}}
-				footer={null}
+				onOk={handleReverify}
+				okText={tWE("detail.reverifyModal.submit")}
+				cancelText={t("myProfile.cancelEdit")}
+				okButtonProps={{
+					disabled: reverifyCode.length !== 6,
+					loading: reverifyLoading,
+				}}
 				destroyOnHide
 			>
-				<div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-					<Input
-						placeholder="000000"
-						maxLength={6}
+				<Flex justify="center" style={{ padding: "16px 0" }}>
+					<Input.OTP
+						length={6}
 						value={reverifyCode}
-						onChange={(e) => setReverifyCode(e.target.value)}
-						onPressEnter={handleReverify}
+						onChange={setReverifyCode}
 					/>
-					<Button
-						type="primary"
-						block
-						loading={reverifyLoading}
-						onClick={handleReverify}
-						disabled={reverifyCode.trim().length !== 6}
-					>
-						{tWE("detail.reverifyModal.submit")}
-					</Button>
-				</div>
+				</Flex>
 			</Modal>
 		</div>
 	);

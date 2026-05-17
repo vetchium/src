@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Avatar, Card, Col, Row, Typography } from "antd";
+import { Avatar, Card, Col, Row, Typography, theme } from "antd";
 import {
 	FileSearchOutlined,
 	TeamOutlined,
@@ -17,6 +17,7 @@ export function HomePage() {
 	const { t } = useTranslation();
 	const { isAuthenticated, sessionToken } = useAuth();
 	const { data: myInfo } = useMyInfo(sessionToken);
+	const { token } = theme.useToken();
 
 	useEffect(() => {
 		if (!isAuthenticated) {
@@ -77,7 +78,7 @@ export function HomePage() {
 								style={{ display: "flex", alignItems: "flex-start", gap: 16 }}
 							>
 								<UserOutlined
-									style={{ fontSize: 28, color: "#52c41a", marginTop: 2 }}
+									style={{ fontSize: 28, color: token.colorPrimary, marginTop: 2 }}
 								/>
 								<div>
 									<Title level={5} style={{ marginBottom: 4 }}>
@@ -102,7 +103,7 @@ export function HomePage() {
 								style={{ display: "flex", alignItems: "flex-start", gap: 16 }}
 							>
 								<TeamOutlined
-									style={{ fontSize: 28, color: "#52c41a", marginTop: 2 }}
+									style={{ fontSize: 28, color: token.colorPrimary, marginTop: 2 }}
 								/>
 								<div>
 									<Title level={5} style={{ marginBottom: 4 }}>
@@ -127,7 +128,7 @@ export function HomePage() {
 								style={{ display: "flex", alignItems: "flex-start", gap: 16 }}
 							>
 								<FileSearchOutlined
-									style={{ fontSize: 28, color: "#52c41a", marginTop: 2 }}
+									style={{ fontSize: 28, color: token.colorPrimary, marginTop: 2 }}
 								/>
 								<div>
 									<Title level={5} style={{ marginBottom: 4 }}>
