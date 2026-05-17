@@ -161,7 +161,8 @@ src/
 │   │   └── dev-seed/    # Seed data for development
 │   └── handlers/        # HTTP handlers (admin/, hub/, org/)
 ├── specs/               # Feature specs and TypeSpec API contracts
-│   └── typespec/        # Source of truth for all API types
+│   ├── typespec/        # Source of truth for all API types
+│   └── financial-calculator.html # Interactive SaaS financial projection tool
 ├── hub-ui/              # Professional portal (React + Bun)
 ├── org-ui/              # Org portal (React + Bun)
 ├── admin-ui/            # Admin portal (React + Bun)

@@ -1,0 +1,575 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Vetchium SaaS Financial Projection</title>
+		<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+		<style>
+			:root {
+				--bg-color: #242424;
+				--text-color: #fbf0df;
+				--accent-color: #f3d5a3;
+				--input-bg: #1a1a1a;
+				--card-bg: #2d2d2d;
+				--success-color: #42b883;
+				--primary-color: #646cff;
+			}
+			body {
+				font-family:
+					Inter,
+					system-ui,
+					-apple-system,
+					sans-serif;
+				background-color: var(--bg-color);
+				color: var(--text-color);
+				margin: 0;
+				padding: 20px;
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+			}
+			.container {
+				max-width: 1200px;
+				width: 100%;
+			}
+			.header {
+				text-align: center;
+				margin-bottom: 40px;
+			}
+			.grid {
+				display: grid;
+				grid-template-columns: 1fr 2fr;
+				gap: 20px;
+			}
+			@media (max-width: 900px) {
+				.grid {
+					grid-template-columns: 1fr;
+				}
+			}
+			.controls {
+				background-color: var(--card-bg);
+				padding: 20px;
+				border-radius: 12px;
+				border: 1px solid var(--accent-color);
+				height: fit-content;
+			}
+			.dashboard {
+				display: flex;
+				flex-direction: column;
+				gap: 20px;
+			}
+			.card {
+				background-color: var(--card-bg);
+				padding: 20px;
+				border-radius: 12px;
+				border: 1px solid var(--accent-color);
+			}
+			.input-group {
+				margin-bottom: 15px;
+			}
+			label {
+				display: block;
+				margin-bottom: 5px;
+				font-weight: bold;
+				font-size: 0.85em;
+				text-transform: uppercase;
+				letter-spacing: 0.05em;
+				opacity: 0.9;
+			}
+			input[type="range"] {
+				width: 100%;
+				accent-color: var(--accent-color);
+				background: var(--input-bg);
+				height: 6px;
+				border-radius: 3px;
+				appearance: none;
+			}
+			input[type="number"] {
+				background: var(--input-bg);
+				border: 1px solid var(--accent-color);
+				color: var(--text-color);
+				padding: 8px;
+				border-radius: 6px;
+				width: 100%;
+				box-sizing: border-box;
+				font-family: monospace;
+			}
+			.value-display {
+				float: right;
+				font-family: monospace;
+				color: var(--accent-color);
+				font-weight: bold;
+			}
+			.metrics {
+				display: grid;
+				grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+				gap: 15px;
+				margin-bottom: 20px;
+			}
+			.metric-card {
+				background: var(--input-bg);
+				padding: 20px;
+				border-radius: 12px;
+				text-align: center;
+				border: 1px solid rgba(243, 213, 163, 0.2);
+				transition: transform 0.2s;
+			}
+			.metric-card:hover {
+				transform: translateY(-2px);
+				border-color: var(--accent-color);
+			}
+			.metric-value {
+				font-size: 1.8em;
+				font-weight: bold;
+				color: var(--accent-color);
+				margin: 5px 0;
+			}
+			.metric-label {
+				font-size: 0.75em;
+				text-transform: uppercase;
+				letter-spacing: 0.1em;
+				opacity: 0.6;
+			}
+			.chart-container {
+				position: relative;
+				height: 300px;
+				width: 100%;
+			}
+			hr {
+				border: 0;
+				border-top: 1px solid var(--accent-color);
+				opacity: 0.2;
+				margin: 25px 0;
+			}
+			.section-title {
+				font-size: 1.1em;
+				margin-bottom: 15px;
+				color: var(--accent-color);
+				display: flex;
+				align-items: center;
+				gap: 10px;
+			}
+			.section-title::after {
+				content: "";
+				flex: 1;
+				height: 1px;
+				background: var(--accent-color);
+				opacity: 0.2;
+			}
+		</style>
+	</head>
+	<body>
+		<div class="container">
+			<div class="header">
+				<h1>Vetchium Financial Calculator</h1>
+				<p style="opacity: 0.7">SaaS Business Model Projection Tool</p>
+			</div>
+
+			<div class="grid">
+				<div class="controls">
+					<div class="section-title">Hub Users (Professionals)</div>
+
+					<div class="input-group">
+						<label
+							>Total Hub Users
+							<span class="value-display" id="hubUsersVal">10,000</span></label
+						>
+						<input
+							type="range"
+							id="hubUsers"
+							min="0"
+							max="1000000"
+							step="1000"
+							value="50000"
+						/>
+					</div>
+
+					<div class="input-group">
+						<label
+							>Paid Conversion (%)
+							<span class="value-display" id="hubPaidPctVal">2%</span></label
+						>
+						<input
+							type="range"
+							id="hubPaidPct"
+							min="0"
+							max="20"
+							step="0.1"
+							value="2.5"
+						/>
+					</div>
+
+					<div class="input-group">
+						<label>Hub Pro Price ($/mo)</label>
+						<input type="number" id="hubPrice" value="9.99" />
+					</div>
+
+					<div class="section-title">Organizations (Employers)</div>
+
+					<div class="input-group">
+						<label
+							>Total Organizations
+							<span class="value-display" id="totalOrgsVal">500</span></label
+						>
+						<input
+							type="range"
+							id="totalOrgs"
+							min="0"
+							max="50000"
+							step="100"
+							value="2000"
+						/>
+					</div>
+
+					<div class="input-group">
+						<label
+							>Silver Plan (%)
+							<span class="value-display" id="orgSilverPctVal">15%</span></label
+						>
+						<input
+							type="range"
+							id="orgSilverPct"
+							min="0"
+							max="100"
+							step="1"
+							value="15"
+						/>
+					</div>
+
+					<div class="input-group">
+						<label
+							>Gold Plan (%)
+							<span class="value-display" id="orgGoldPctVal">5%</span></label
+						>
+						<input
+							type="range"
+							id="orgGoldPct"
+							min="0"
+							max="100"
+							step="1"
+							value="5"
+						/>
+					</div>
+
+					<div class="input-group">
+						<label
+							>Enterprise Plan (%)
+							<span class="value-display" id="orgEntPctVal">1%</span></label
+						>
+						<input
+							type="range"
+							id="orgEntPct"
+							min="0"
+							max="100"
+							step="1"
+							value="1"
+						/>
+					</div>
+
+					<div class="input-group">
+						<label>Silver Price ($/mo)</label>
+						<input type="number" id="silverPrice" value="99" />
+					</div>
+
+					<div class="input-group">
+						<label>Gold Price ($/mo)</label>
+						<input type="number" id="goldPrice" value="299" />
+					</div>
+
+					<div class="input-group">
+						<label>Enterprise Price ($/mo)</label>
+						<input type="number" id="entPrice" value="1200" />
+					</div>
+
+					<div class="section-title">Operations & Growth</div>
+
+					<div class="input-group">
+						<label>Monthly Fixed Costs ($)</label>
+						<input type="number" id="fixedCosts" value="15000" />
+					</div>
+
+					<div class="input-group">
+						<label
+							>Monthly Growth Rate (%)
+							<span class="value-display" id="growthRateVal">10%</span></label
+						>
+						<input
+							type="range"
+							id="growthRate"
+							min="0"
+							max="50"
+							step="1"
+							value="10"
+						/>
+					</div>
+				</div>
+
+				<div class="dashboard">
+					<div class="metrics">
+						<div class="metric-card">
+							<div class="metric-label">Monthly Revenue (MRR)</div>
+							<div class="metric-value" id="mrr">$0</div>
+						</div>
+						<div class="metric-card">
+							<div class="metric-label">Monthly Net Profit</div>
+							<div class="metric-value" id="mProfit">$0</div>
+						</div>
+						<div class="metric-card">
+							<div class="metric-label">Annual Run Rate (ARR)</div>
+							<div class="metric-value" id="arr">$0</div>
+						</div>
+						<div class="metric-card">
+							<div class="metric-label">Total Paid Customers</div>
+							<div class="metric-value" id="paidCount">0</div>
+						</div>
+					</div>
+
+					<div class="card">
+						<div class="chart-container">
+							<canvas id="revenueChart"></canvas>
+						</div>
+					</div>
+
+					<div class="card">
+						<div class="chart-container">
+							<canvas id="growthChart"></canvas>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<script>
+			const inputs = [
+				"hubUsers",
+				"hubPaidPct",
+				"hubPrice",
+				"totalOrgs",
+				"orgSilverPct",
+				"orgGoldPct",
+				"orgEntPct",
+				"silverPrice",
+				"goldPrice",
+				"entPrice",
+				"fixedCosts",
+				"growthRate",
+			];
+
+			let revenueChart, growthChart;
+
+			function formatCurrency(num) {
+				return new Intl.NumberFormat("en-US", {
+					style: "currency",
+					currency: "USD",
+					maximumFractionDigits: 0,
+				}).format(num);
+			}
+
+			function formatNumber(num) {
+				return new Intl.NumberFormat("en-US").format(Math.round(num));
+			}
+
+			function calculateMetrics(currentData) {
+				const hubPaidUsers =
+					currentData.hubUsers * (currentData.hubPaidPct / 100);
+				const hubRevenue = hubPaidUsers * currentData.hubPrice;
+
+				const silverOrgs =
+					currentData.totalOrgs * (currentData.orgSilverPct / 100);
+				const goldOrgs = currentData.totalOrgs * (currentData.orgGoldPct / 100);
+				const entOrgs = currentData.totalOrgs * (currentData.orgEntPct / 100);
+
+				const orgRevenue =
+					silverOrgs * currentData.silverPrice +
+					goldOrgs * currentData.goldPrice +
+					entOrgs * currentData.entPrice;
+
+				const totalMRR = hubRevenue + orgRevenue;
+				const variableCosts =
+					currentData.hubUsers * 0.05 + currentData.totalOrgs * 2; // Assumed hosting/support overhead
+				const totalCosts = currentData.fixedCosts + variableCosts;
+				const netProfit = totalMRR - totalCosts;
+
+				return {
+					hubRevenue,
+					orgRevenue,
+					totalMRR,
+					netProfit,
+					paidCount: hubPaidUsers + silverOrgs + goldOrgs + entOrgs,
+					hubPaidUsers,
+					paidOrgs: silverOrgs + goldOrgs + entOrgs,
+				};
+			}
+
+			function update() {
+				const data = {};
+				inputs.forEach((id) => {
+					data[id] = parseFloat(document.getElementById(id).value);
+					const display = document.getElementById(id + "Val");
+					if (display) {
+						if (id.endsWith("Pct") || id === "growthRate")
+							display.textContent = data[id] + "%";
+						else display.textContent = formatNumber(data[id]);
+					}
+				});
+
+				const metrics = calculateMetrics(data);
+
+				// Update Metrics Display
+				document.getElementById("mrr").textContent = formatCurrency(
+					metrics.totalMRR
+				);
+				document.getElementById("mProfit").textContent = formatCurrency(
+					metrics.netProfit
+				);
+				document.getElementById("arr").textContent = formatCurrency(
+					metrics.totalMRR * 12
+				);
+				document.getElementById("paidCount").textContent = formatNumber(
+					metrics.paidCount
+				);
+
+				// Adjust profit color
+				document.getElementById("mProfit").style.color =
+					metrics.netProfit >= 0 ? "var(--success-color)" : "#ff6b6b";
+
+				updateCharts(metrics, data);
+			}
+
+			function updateCharts(metrics, data) {
+				// Revenue Breakdown
+				if (!revenueChart) {
+					const ctx = document.getElementById("revenueChart").getContext("2d");
+					revenueChart = new Chart(ctx, {
+						type: "doughnut",
+						data: {
+							labels: [
+								"Hub (Pro)",
+								"Org (Silver)",
+								"Org (Gold)",
+								"Org (Enterprise)",
+							],
+							datasets: [
+								{
+									data: [
+										metrics.hubRevenue,
+										data.totalOrgs *
+											(data.orgSilverPct / 100) *
+											data.silverPrice,
+										data.totalOrgs * (data.orgGoldPct / 100) * data.goldPrice,
+										data.totalOrgs * (data.orgEntPct / 100) * data.entPrice,
+									],
+									backgroundColor: ["#f3d5a3", "#646cff", "#42b883", "#ff6b6b"],
+									borderColor: "#242424",
+									borderWidth: 2,
+								},
+							],
+						},
+						options: {
+							maintainAspectRatio: false,
+							plugins: {
+								legend: {
+									position: "right",
+									labels: { color: "#fbf0df", font: { size: 10 } },
+								},
+								title: {
+									display: true,
+									text: "Monthly Revenue Breakdown",
+									color: "#fbf0df",
+								},
+							},
+						},
+					});
+				} else {
+					revenueChart.data.datasets[0].data = [
+						metrics.hubRevenue,
+						data.totalOrgs * (data.orgSilverPct / 100) * data.silverPrice,
+						data.totalOrgs * (data.orgGoldPct / 100) * data.goldPrice,
+						data.totalOrgs * (data.orgEntPct / 100) * data.entPrice,
+					];
+					revenueChart.update();
+				}
+
+				// 12-Month Projection
+				const months = Array.from({ length: 12 }, (_, i) => `Month ${i + 1}`);
+				const revProj = [];
+				const profitProj = [];
+
+				let currentData = { ...data };
+				for (let i = 0; i < 12; i++) {
+					const m = calculateMetrics(currentData);
+					revProj.push(m.totalMRR);
+					profitProj.push(m.netProfit);
+
+					// Growth
+					const factor = 1 + data.growthRate / 100;
+					currentData.hubUsers *= factor;
+					currentData.totalOrgs *= factor;
+				}
+
+				if (!growthChart) {
+					const ctx = document.getElementById("growthChart").getContext("2d");
+					growthChart = new Chart(ctx, {
+						type: "line",
+						data: {
+							labels: months,
+							datasets: [
+								{
+									label: "Revenue",
+									data: revProj,
+									borderColor: "#f3d5a3",
+									backgroundColor: "rgba(243, 213, 163, 0.1)",
+									fill: true,
+									tension: 0.3,
+								},
+								{
+									label: "Net Profit",
+									data: profitProj,
+									borderColor: "#42b883",
+									borderDash: [5, 5],
+									tension: 0.3,
+								},
+							],
+						},
+						options: {
+							maintainAspectRatio: false,
+							scales: {
+								y: {
+									ticks: {
+										color: "#fbf0df",
+										callback: (value) => "$" + value / 1000 + "k",
+									},
+									grid: { color: "rgba(251, 240, 223, 0.1)" },
+								},
+								x: {
+									ticks: { color: "#fbf0df" },
+									grid: { display: false },
+								},
+							},
+							plugins: {
+								legend: { labels: { color: "#fbf0df" } },
+								title: {
+									display: true,
+									text: "12-Month Growth Projection",
+									color: "#fbf0df",
+								},
+							},
+						},
+					});
+				} else {
+					growthChart.data.datasets[0].data = revProj;
+					growthChart.data.datasets[1].data = profitProj;
+					growthChart.update();
+				}
+			}
+
+			inputs.forEach((id) => {
+				document.getElementById(id).addEventListener("input", update);
+			});
+
+			// Initial update
+			update();
+		</script>
+	</body>
+</html>
