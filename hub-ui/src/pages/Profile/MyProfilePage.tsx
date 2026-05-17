@@ -511,6 +511,14 @@ export function MyProfilePage() {
 		}
 	};
 
+	const handleCloseModal = () => {
+		setPendingStint(null);
+		setVerifyCode("");
+		setAddEmail("");
+		setAddModalOpen(false);
+		loadWorkEmails();
+	};
+
 	const handleCancelAdd = async () => {
 		if (pendingStint && sessionToken) {
 			const apiBaseUrl = await getApiBaseUrl();
@@ -523,11 +531,7 @@ export function MyProfilePage() {
 				body: JSON.stringify({ stint_id: pendingStint.stintId }),
 			}).catch(() => {});
 		}
-		setPendingStint(null);
-		setVerifyCode("");
-		setAddEmail("");
-		setAddModalOpen(false);
-		loadWorkEmails();
+		handleCloseModal();
 	};
 
 	const handleRemoveWorkEmail = async (stintId: string) => {
@@ -1084,7 +1088,7 @@ export function MyProfilePage() {
 			<Modal
 				open={addModalOpen}
 				title={pendingStint ? tWE("verifyPage.title") : tWE("addModal.title")}
-				onCancel={handleCancelAdd}
+				onCancel={handleCloseModal}
 				footer={null}
 				destroyOnHide
 			>
@@ -1129,6 +1133,9 @@ export function MyProfilePage() {
 						<Button block onClick={handleResendCode}>
 							{tWE("verifyPage.resend")}
 						</Button>
+						<p style={{ margin: "4px 0 0", fontSize: 12, color: "#8c8c8c" }}>
+							{tWE("verifyPage.dismissHint")}
+						</p>
 						<Button block danger onClick={handleCancelAdd}>
 							{tWE("verifyPage.cancel")}
 						</Button>

@@ -124,7 +124,7 @@ export function ConnectionsPage() {
 	const navigate = useNavigate();
 
 	const [counts, setCounts] = useState<ConnectionCounts | null>(null);
-	const [activeTab, setActiveTab] = useState("connections");
+	const [activeTab, setActiveTab] = useState("incoming");
 
 	// Connections tab
 	const [connections, setConnections] = useState<Connection[]>([]);
@@ -136,7 +136,7 @@ export function ConnectionsPage() {
 	const [searchResults, setSearchResults] = useState<Connection[] | null>(null);
 	const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-	// Incoming (shown at top, loaded eagerly)
+	// Incoming tab
 	const [incoming, setIncoming] = useState<PendingRequest[]>([]);
 	const [incomingNextKey, setIncomingNextKey] = useState<string | undefined>();
 	const [incomingLoading, setIncomingLoading] = useState(false);
@@ -318,7 +318,7 @@ export function ConnectionsPage() {
 	useEffect(() => {
 		fetchCounts();
 		fetchConnections();
-		fetchIncoming(); // load eagerly — shown at top of page
+		fetchIncoming();
 	}, [fetchCounts, fetchConnections, fetchIncoming]);
 
 	useEffect(() => {
@@ -526,85 +526,84 @@ export function ConnectionsPage() {
 				)}
 			</div>
 
-			{/* ── Pending incoming requests (always visible at top) ─────────────── */}
-			{(incoming.length > 0 || incomingLoading) && (
-				<div style={{ marginBottom: 24 }}>
-					<div
-						style={{
-							display: "flex",
-							alignItems: "center",
-							gap: 8,
-							marginBottom: 12,
-						}}
-					>
-						<Badge count={counts?.pending_incoming} offset={[4, -2]}>
-							<Text strong style={{ fontSize: 15 }}>
-								{t("pendingRequests.title")}
-							</Text>
-						</Badge>
-					</div>
-					<Spin spinning={incomingLoading}>
-						<div
-							style={{
-								border: "1px solid #f0f0f0",
-								borderRadius: 8,
-								padding: "0 16px",
-								background: "#fff",
-							}}
-						>
-							{incoming.map((r) => (
-								<PersonRow
-									key={r.handle}
-									handle={r.handle}
-									displayName={r.display_name}
-									shortBio={r.short_bio}
-									hasPicture={r.has_profile_picture}
-									secondaryText={
-										t("columns.requestedAt") +
-										": " +
-										formatDateTime(r.created_at, i18n.language)
-									}
-									onClick={() => navigate(`/u/${r.handle}`)}
-									actions={
-										<div style={{ display: "flex", gap: 8 }}>
-											<Button
-												type="primary"
-												size="small"
-												onClick={() => handleAccept(r.handle)}
-											>
-												{t("actions.accept")}
-											</Button>
-											<Button
-												size="small"
-												onClick={() => handleReject(r.handle)}
-											>
-												{t("actions.reject")}
-											</Button>
-										</div>
-									}
-								/>
-							))}
-						</div>
-						{incomingNextKey && (
-							<div style={{ textAlign: "center", marginTop: 12 }}>
-								<Button
-									size="small"
-									onClick={() => fetchIncoming(incomingNextKey)}
-									loading={incomingLoading}
-								>
-									{t("loadMore")}
-								</Button>
-							</div>
-						)}
-					</Spin>
-				</div>
-			)}
-
-			{/* ── Tabs: My Connections | Sent | Blocked ────────────────────────── */}
+			{/* ── Tabs: Incoming | My Connections | Sent | Blocked ────────────── */}
 			<Tabs
 				activeKey={activeTab}
 				onChange={setActiveTab}
 				items={[
+					{
+						key: "incoming",
+						label: (
+							<Badge
+								count={counts?.pending_incoming ?? 0}
+								size="small"
+								offset={[6, -2]}
+							>
+								<span style={{ paddingRight: 4 }}>{t("tabs.incoming")}</span>
+							</Badge>
+						),
+						children: (
+							<Spin spinning={incomingLoading}>
+								{incoming.length === 0 && !incomingLoading ? (
+									<Text
+										type="secondary"
+										style={{
+											display: "block",
+											textAlign: "center",
+											padding: "32px 0",
+										}}
+									>
+										{t("empty.incoming")}
+									</Text>
+								) : (
+									<div>
+										{incoming.map((r) => (
+											<PersonRow
+												key={r.handle}
+												handle={r.handle}
+												displayName={r.display_name}
+												shortBio={r.short_bio}
+												hasPicture={r.has_profile_picture}
+												secondaryText={
+													t("columns.requestedAt") +
+													": " +
+													formatDateTime(r.created_at, i18n.language)
+												}
+												onClick={() => navigate(`/u/${r.handle}`)}
+												actions={
+													<div style={{ display: "flex", gap: 8 }}>
+														<Button
+															type="primary"
+															size="small"
+															onClick={() => handleAccept(r.handle)}
+														>
+															{t("actions.accept")}
+														</Button>
+														<Button
+															size="small"
+															onClick={() => handleReject(r.handle)}
+														>
+															{t("actions.reject")}
+														</Button>
+													</div>
+												}
+											/>
+										))}
+									</div>
+								)}
+								{incomingNextKey && (
+									<div style={{ textAlign: "center", marginTop: 16 }}>
+										<Button
+											onClick={() => fetchIncoming(incomingNextKey)}
+											loading={incomingLoading}
+										>
+											{t("loadMore")}
+										</Button>
+									</div>
+								)}
+							</Spin>
+						),
+					},
 					{
 						key: "connections",
 						label: (

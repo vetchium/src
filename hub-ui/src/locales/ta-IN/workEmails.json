@@ -38,7 +38,8 @@
 		"subtitle": "We sent a code to {{email}}. The code expires in 24 hours.",
 		"submit": "Verify",
 		"resend": "Resend code",
-		"cancel": "Cancel and remove",
+		"dismissHint": "You can close this window and enter the code later — look for the \"Enter Code\" button next to the email below.",
+		"cancel": "Cancel and remove this email",
 		"wrongCodeError": "That code didn't match. Please try again."
 	},
 	"removeConfirm": "Remove this work email? You can always re-add it later, but doing so will require a fresh verification.",

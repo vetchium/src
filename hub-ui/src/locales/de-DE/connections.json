@@ -9,7 +9,7 @@
 		"myConnections": "Meine Verbindungen",
 		"outgoingShort": "Gesendete Anfragen",
 		"blockedShort": "Gesperrt",
-		"incoming": "Eingehend ({{count}})",
+		"incoming": "Eingehend",
 		"outgoing": "Gesendet ({{count}})",
 		"blocked": "Gesperrt ({{count}})"
 	},

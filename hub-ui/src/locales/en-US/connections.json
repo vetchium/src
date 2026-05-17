@@ -9,7 +9,7 @@
 		"myConnections": "My Connections",
 		"outgoingShort": "Sent Requests",
 		"blockedShort": "Blocked",
-		"incoming": "Incoming ({{count}})",
+		"incoming": "Incoming",
 		"outgoing": "Sent ({{count}})",
 		"blocked": "Blocked ({{count}})"
 	},

@@ -9,7 +9,7 @@
 		"myConnections": "என் தொடர்புகள்",
 		"outgoingShort": "அனுப்பிய கோரிக்கைகள்",
 		"blockedShort": "தடுக்கப்பட்டவர்கள்",
-		"incoming": "வரும் கோரிக்கைகள் ({{count}})",
+		"incoming": "வரும் கோரிக்கைகள்",
 		"outgoing": "அனுப்பியவை ({{count}})",
 		"blocked": "தடுக்கப்பட்டவர்கள் ({{count}})"
 	},

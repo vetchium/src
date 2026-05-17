@@ -489,7 +489,7 @@ func AcceptConnectionRequest(s *server.RegionalServer) http.HandlerFunc {
 		peerIDHash := hashUserID(peerGlobal.HubUserGlobalID)
 
 		var connectedAt time.Time
-		txErr := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
+		txErr := s.WithRegionalTxFor(ctx, pairRegion, func(qtx *regionaldb.Queries) error {
 			conn, err := qtx.AcceptPendingConnection(ctx, regionaldb.AcceptPendingConnectionParams{
 				A:     hubUser.HubUserGlobalID,
 				B:     peerGlobal.HubUserGlobalID,
@@ -606,7 +606,7 @@ func RejectConnectionRequest(s *server.RegionalServer) http.HandlerFunc {
 		peerIDHash := hashUserID(peerGlobal.HubUserGlobalID)
 		auditData, _ := json.Marshal(map[string]any{"peer_user_id_hash": peerIDHash})
 
-		txErr := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
+		txErr := s.WithRegionalTxFor(ctx, pairRegion, func(qtx *regionaldb.Queries) error {
 			_, err := qtx.RejectPendingConnection(ctx, regionaldb.RejectPendingConnectionParams{
 				A:     hubUser.HubUserGlobalID,
 				B:     peerGlobal.HubUserGlobalID,
@@ -635,7 +635,7 @@ func RejectConnectionRequest(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		json.NewEncoder(w).Encode(map[string]any{})
+		w.WriteHeader(http.StatusNoContent)
 	}
 }
 
@@ -702,7 +702,7 @@ func WithdrawConnectionRequest(s *server.RegionalServer) http.HandlerFunc {
 		auditData, _ := json.Marshal(map[string]any{"peer_user_id_hash": peerIDHash})
 
 		var rowsDeleted int64
-		txErr := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
+		txErr := s.WithRegionalTxFor(ctx, pairRegion, func(qtx *regionaldb.Queries) error {
 			rows, err := qtx.WithdrawPendingConnection(ctx, regionaldb.WithdrawPendingConnectionParams{
 				A:     hubUser.HubUserGlobalID,
 				B:     peerGlobal.HubUserGlobalID,
@@ -813,7 +813,7 @@ func DisconnectConnection(s *server.RegionalServer) http.HandlerFunc {
 		peerIDHash := hashUserID(peerGlobal.HubUserGlobalID)
 		auditData, _ := json.Marshal(map[string]any{"peer_user_id_hash": peerIDHash})
 
-		txErr := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
+		txErr := s.WithRegionalTxFor(ctx, pairRegion, func(qtx *regionaldb.Queries) error {
 			_, err := qtx.DisconnectConnection(ctx, regionaldb.DisconnectConnectionParams{
 				A:     hubUser.HubUserGlobalID,
 				B:     peerGlobal.HubUserGlobalID,
@@ -842,7 +842,7 @@ func DisconnectConnection(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		json.NewEncoder(w).Encode(map[string]any{})
+		w.WriteHeader(http.StatusNoContent)
 	}
 }
 
