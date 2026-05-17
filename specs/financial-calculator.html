@@ -333,6 +333,12 @@
 
 					<div class="card">
 						<div class="chart-container">
+							<canvas id="cashFlowChart"></canvas>
+						</div>
+					</div>
+
+					<div class="card">
+						<div class="chart-container">
 							<canvas id="growthChart"></canvas>
 						</div>
 					</div>
@@ -356,7 +362,7 @@
 				"growthRate",
 			];
 
-			let revenueChart, growthChart;
+			let revenueChart, growthChart, cashFlowChart;
 
 			function formatCurrency(num) {
 				return new Intl.NumberFormat("en-US", {
@@ -387,7 +393,7 @@
 
 				const totalMRR = hubRevenue + orgRevenue;
 				const variableCosts =
-					currentData.hubUsers * 0.05 + currentData.totalOrgs * 2; // Assumed hosting/support overhead
+					currentData.hubUsers * 0.05 + currentData.totalOrgs * 2;
 				const totalCosts = currentData.fixedCosts + variableCosts;
 				const netProfit = totalMRR - totalCosts;
 
@@ -395,6 +401,7 @@
 					hubRevenue,
 					orgRevenue,
 					totalMRR,
+					totalCosts,
 					netProfit,
 					paidCount: hubPaidUsers + silverOrgs + goldOrgs + entOrgs,
 					hubPaidUsers,
@@ -494,12 +501,14 @@
 				// 12-Month Projection
 				const months = Array.from({ length: 12 }, (_, i) => `Month ${i + 1}`);
 				const revProj = [];
+				const costProj = [];
 				const profitProj = [];
 
 				let currentData = { ...data };
 				for (let i = 0; i < 12; i++) {
 					const m = calculateMetrics(currentData);
 					revProj.push(m.totalMRR);
+					costProj.push(m.totalCosts);
 					profitProj.push(m.netProfit);
 
 					// Growth
@@ -508,9 +517,10 @@
 					currentData.totalOrgs *= factor;
 				}
 
-				if (!growthChart) {
-					const ctx = document.getElementById("growthChart").getContext("2d");
-					growthChart = new Chart(ctx, {
+				// Cash Flow / Breakeven Chart
+				if (!cashFlowChart) {
+					const ctx = document.getElementById("cashFlowChart").getContext("2d");
+					cashFlowChart = new Chart(ctx, {
 						type: "line",
 						data: {
 							labels: months,
@@ -521,14 +531,14 @@
 									borderColor: "#f3d5a3",
 									backgroundColor: "rgba(243, 213, 163, 0.1)",
 									fill: true,
-									tension: 0.3,
+									tension: 0.1,
 								},
 								{
-									label: "Net Profit",
-									data: profitProj,
-									borderColor: "#42b883",
+									label: "Total Costs",
+									data: costProj,
+									borderColor: "#ff6b6b",
 									borderDash: [5, 5],
-									tension: 0.3,
+									tension: 0.1,
 								},
 							],
 						},
@@ -551,15 +561,74 @@
 								legend: { labels: { color: "#fbf0df" } },
 								title: {
 									display: true,
-									text: "12-Month Growth Projection",
+									text: "Breakeven Analysis (Revenue vs Costs)",
+									color: "#fbf0df",
+								},
+								tooltip: {
+									callbacks: {
+										afterBody: (context) => {
+											const i = context[0].dataIndex;
+											const diff = revProj[i] - costProj[i];
+											return `Net: ${formatCurrency(diff)} (${diff >= 0 ? "Profit" : "Loss"})`;
+										},
+									},
+								},
+							},
+						},
+					});
+				} else {
+					cashFlowChart.data.datasets[0].data = revProj;
+					cashFlowChart.data.datasets[1].data = costProj;
+					cashFlowChart.update();
+				}
+
+				// Profit / Loss Bar Chart
+				if (!growthChart) {
+					const ctx = document.getElementById("growthChart").getContext("2d");
+					growthChart = new Chart(ctx, {
+						type: "bar",
+						data: {
+							labels: months,
+							datasets: [
+								{
+									label: "Monthly Net Profit/Loss",
+									data: profitProj,
+									backgroundColor: profitProj.map((v) =>
+										v >= 0 ? "#42b883" : "#ff6b6b"
+									),
+								},
+							],
+						},
+						options: {
+							maintainAspectRatio: false,
+							scales: {
+								y: {
+									ticks: {
+										color: "#fbf0df",
+										callback: (value) => "$" + value / 1000 + "k",
+									},
+									grid: { color: "rgba(251, 240, 223, 0.1)" },
+								},
+								x: {
+									ticks: { color: "#fbf0df" },
+									grid: { display: false },
+								},
+							},
+							plugins: {
+								legend: { display: false },
+								title: {
+									display: true,
+									text: "Monthly Profit/Loss Projection",
 									color: "#fbf0df",
 								},
 							},
 						},
 					});
 				} else {
-					growthChart.data.datasets[0].data = revProj;
-					growthChart.data.datasets[1].data = profitProj;
+					growthChart.data.datasets[0].data = profitProj;
+					growthChart.data.datasets[0].backgroundColor = profitProj.map((v) =>
+						v >= 0 ? "#42b883" : "#ff6b6b"
+					);
 					growthChart.update();
 				}
 			}
