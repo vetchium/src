@@ -167,11 +167,7 @@ export function ProfileActionsPanel({
 	}
 
 	if (connectionState === "ineligible") {
-		return (
-			<div style={{ color: "#999" }}>
-				{tProfile("publicProfile.connectionNotAvailable")}
-			</div>
-		);
+		return null;
 	}
 
 	if (connectionState === "request_sent") {
