@@ -310,6 +310,43 @@
 				"/seed/regional.sql"
 			]
 		},
+		"seed-users": {
+			"image": "oven/bun:1",
+			"volumes": [
+				{
+					"source": "./api-server/db/dev-seed",
+					"target": "/seed",
+					"type": "bind"
+				}
+			],
+			"command": ["bun", "run", "/seed/seed-users.ts"],
+			"depends_on": {
+				"seed-global": {
+					"condition": "service_completed_successfully"
+				},
+				"regional-worker-ind1": {
+					"condition": "service_started"
+				},
+				"regional-worker-usa1": {
+					"condition": "service_started"
+				},
+				"regional-worker-deu1": {
+					"condition": "service_started"
+				},
+				"regional-api-server-ind1": {
+					"condition": "service_healthy"
+				},
+				"regional-api-server-usa1": {
+					"condition": "service_healthy"
+				},
+				"regional-api-server-deu1": {
+					"condition": "service_healthy"
+				},
+				"mailpit": {
+					"condition": "service_started"
+				}
+			}
+		},
 		"global-service": {
 			"build": {
 				"context": ".",

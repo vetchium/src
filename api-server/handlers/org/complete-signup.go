@@ -63,8 +63,8 @@ func CompleteSignup(s *server.RegionalServer) http.HandlerFunc {
 		// Perform DNS TXT lookup to verify domain ownership
 		var tokenFound bool
 
-		if s.Environment == "DEV" && (domain == "example.com" || strings.HasSuffix(domain, ".example.com")) {
-			s.Logger(ctx).Info("skipping DNS verification for example.com in DEV environment", "domain", domain)
+		if s.Environment == "DEV" && (domain == "example.com" || strings.HasSuffix(domain, ".example.com") || strings.HasSuffix(domain, ".example")) {
+			s.Logger(ctx).Info("skipping DNS verification for reserved domain in DEV environment", "domain", domain)
 			tokenFound = true
 		} else {
 			dnsRecordName := dnsRecordPrefix + domain
