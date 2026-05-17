@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 // Dev seed script: creates Harry Potter characters as hub users and org (house) users.
 // Runs as a docker-compose service after all API servers and regional workers are healthy.
+// Hub users and org accounts are created in parallel for speed.
 
 const API = "http://api-lb:80";
 const MAILPIT = "http://mailpit:8025/api/v1";
@@ -32,74 +33,75 @@ async function post(
 }
 
 // ============================================================================
-// Mailpit helpers
+// Mailpit helpers (mirrors playwright/lib/mailpit.ts pattern)
 // ============================================================================
 
-async function clearEmails(email: string): Promise<void> {
-	const q = encodeURIComponent(`to:${email}`);
+async function mailpitSearch(toEmail: string): Promise<{ ID: string }[]> {
+	const q = encodeURIComponent(`to:${toEmail}`);
 	const res = await fetch(`${MAILPIT}/search?query=${q}`);
-	if (!res.ok) return;
+	if (!res.ok) return [];
 	const data = (await res.json()) as { messages?: { ID: string }[] };
-	if (data.messages?.length) {
+	return data.messages ?? [];
+}
+
+async function mailpitGetText(id: string): Promise<string> {
+	const res = await fetch(`${MAILPIT}/message/${id}`);
+	if (!res.ok) throw new Error(`Failed to fetch mailpit message ${id}`);
+	const data = (await res.json()) as { Text: string };
+	return data.Text;
+}
+
+async function clearEmails(email: string): Promise<void> {
+	const msgs = await mailpitSearch(email);
+	if (msgs.length) {
 		await fetch(`${MAILPIT}/messages`, {
 			method: "DELETE",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ IDs: data.messages.map((m) => m.ID) }),
+			body: JSON.stringify({ IDs: msgs.map((m) => m.ID) }),
 		});
 	}
 }
 
-async function waitForEmail(
+// Sleep first, then poll mailpit until an email matching the predicate arrives.
+async function waitForEmailText(
 	toEmail: string,
 	predicate: (text: string) => boolean = () => true,
-	retries = 20,
-	delayMs = 2000
+	initialSleepMs = 2000,
+	retries = 15,
+	retryDelayMs = 2000
 ): Promise<string> {
+	await sleep(initialSleepMs);
 	for (let i = 0; i < retries; i++) {
-		const q = encodeURIComponent(`to:${toEmail}`);
-		const res = await fetch(`${MAILPIT}/search?query=${q}`);
-		if (res.ok) {
-			const data = (await res.json()) as {
-				messages?: { ID: string }[];
-			};
-			for (const msg of data.messages ?? []) {
-				const full = await fetch(`${MAILPIT}/message/${msg.ID}`);
-				if (full.ok) {
-					const content = (await full.json()) as { Text: string };
-					if (predicate(content.Text)) return content.Text;
-				}
-			}
+		const msgs = await mailpitSearch(toEmail);
+		for (const msg of msgs) {
+			const text = await mailpitGetText(msg.ID);
+			if (predicate(text)) return text;
 		}
-		await sleep(delayMs);
+		if (i < retries - 1) await sleep(retryDelayMs);
 	}
 	throw new Error(`No matching email for ${toEmail} after ${retries} retries`);
 }
 
 function extractHubSignupToken(text: string): string {
 	const m = text.match(/token=([a-f0-9]{64})/);
-	if (!m)
-		throw new Error(`No hub signup token in email: ${text.slice(0, 300)}`);
+	if (!m) throw new Error(`No hub signup token in email: ${text.slice(0, 300)}`);
 	return m[1];
 }
 
 function extractOrgSignupToken(text: string): string {
 	const m = text.match(/\b([a-f0-9]{64})\b/);
-	if (!m)
-		throw new Error(
-			`No 64-char org signup token in email: ${text.slice(0, 300)}`
-		);
+	if (!m) throw new Error(`No org signup token in email: ${text.slice(0, 300)}`);
 	return m[1];
 }
 
 function extractTfaCode(text: string): string {
 	const m = text.match(/\b(\d{6})\b/);
-	if (!m)
-		throw new Error(`No 6-digit TFA code in email: ${text.slice(0, 300)}`);
+	if (!m) throw new Error(`No 6-digit TFA code in email: ${text.slice(0, 300)}`);
 	return m[1];
 }
 
 // ============================================================================
-// Admin login (with TFA)
+// Admin login (sequential — needed before any other operation)
 // ============================================================================
 
 async function adminLogin(): Promise<string> {
@@ -117,21 +119,16 @@ async function adminLogin(): Promise<string> {
 	}
 	const { tfa_token } = (await loginRes.json()) as { tfa_token: string };
 
-	const emailText = await waitForEmail("admin1@vetchium.com");
+	const emailText = await waitForEmailText("admin1@vetchium.com");
 	const tfaCode = extractTfaCode(emailText);
 
-	const tfaRes = await post("/admin/tfa", {
-		tfa_token,
-		tfa_code: tfaCode,
-	});
+	const tfaRes = await post("/admin/tfa", { tfa_token, tfa_code: tfaCode });
 	if (tfaRes.status !== 200) {
 		throw new Error(
 			`Admin TFA failed: ${tfaRes.status} — ${await tfaRes.text()}`
 		);
 	}
-	const { session_token } = (await tfaRes.json()) as {
-		session_token: string;
-	};
+	const { session_token } = (await tfaRes.json()) as { session_token: string };
 	console.log("  Admin login OK");
 	return session_token;
 }
@@ -144,7 +141,7 @@ async function createApprovedDomain(
 	domain: string,
 	adminToken: string
 ): Promise<void> {
-	console.log(`  ${domain} ...`);
+	console.log(`  Whitelisting ${domain} ...`);
 	const res = await post(
 		"/admin/create-approved-domain",
 		{ domain_name: domain, reason: "Harry Potter dev seed" },
@@ -159,11 +156,11 @@ async function createApprovedDomain(
 			`create-approved-domain failed for ${domain}: ${res.status} — ${await res.text()}`
 		);
 	}
-	console.log(`    created`);
+	console.log(`    done`);
 }
 
 // ============================================================================
-// Hub users
+// Hub users (run in parallel)
 // ============================================================================
 
 interface HubUser {
@@ -174,14 +171,13 @@ interface HubUser {
 }
 
 async function createHubUser(user: HubUser): Promise<void> {
-	console.log(`  ${user.email} ...`);
 	await clearEmails(user.email);
 
 	const signupRes = await post("/hub/request-signup", {
 		email_address: user.email,
 	});
 	if (signupRes.status === 409) {
-		console.log(`    already registered, skipping`);
+		console.log(`  hub: ${user.email} — already registered, skipping`);
 		return;
 	}
 	if (signupRes.status !== 200) {
@@ -190,7 +186,8 @@ async function createHubUser(user: HubUser): Promise<void> {
 		);
 	}
 
-	const emailText = await waitForEmail(user.email);
+	// Sleep then query mailpit for the signup verification email.
+	const emailText = await waitForEmailText(user.email);
 	const signupToken = extractHubSignupToken(emailText);
 
 	const completeRes = await post("/hub/complete-signup", {
@@ -206,11 +203,11 @@ async function createHubUser(user: HubUser): Promise<void> {
 			`complete-signup failed for ${user.email}: ${completeRes.status} — ${await completeRes.text()}`
 		);
 	}
-	console.log(`    created`);
+	console.log(`  hub: ${user.email} — created`);
 }
 
 // ============================================================================
-// Org users (house companies, one superadmin each)
+// Org users / house companies (run in parallel)
 // ============================================================================
 
 interface OrgAdmin {
@@ -219,7 +216,6 @@ interface OrgAdmin {
 }
 
 async function createOrg(admin: OrgAdmin): Promise<void> {
-	console.log(`  ${admin.email} ...`);
 	await clearEmails(admin.email);
 
 	const initRes = await post("/org/init-signup", {
@@ -227,7 +223,7 @@ async function createOrg(admin: OrgAdmin): Promise<void> {
 		home_region: admin.homeRegion,
 	});
 	if (initRes.status === 409) {
-		console.log(`    org already exists, skipping`);
+		console.log(`  org: ${admin.email} — already exists, skipping`);
 		return;
 	}
 	if (initRes.status !== 200) {
@@ -236,11 +232,12 @@ async function createOrg(admin: OrgAdmin): Promise<void> {
 		);
 	}
 
-	// Two emails are sent: DNS instructions and the private token email.
-	// The token email contains "DO NOT FORWARD" in the body.
-	const emailText = await waitForEmail(
+	// Org signup sends two emails (DNS instructions + private token).
+	// Sleep a bit longer, then find the private token email.
+	const emailText = await waitForEmailText(
 		admin.email,
-		(text) => text.includes("DO NOT FORWARD") || text.includes("Private Link")
+		(text) => text.includes("DO NOT FORWARD") || text.includes("Private Link"),
+		3000
 	);
 	const signupToken = extractOrgSignupToken(emailText);
 
@@ -256,7 +253,7 @@ async function createOrg(admin: OrgAdmin): Promise<void> {
 			`org complete-signup failed for ${admin.email}: ${completeRes.status} — ${await completeRes.text()}`
 		);
 	}
-	console.log(`    created`);
+	console.log(`  org: ${admin.email} — created`);
 }
 
 // ============================================================================
@@ -264,79 +261,28 @@ async function createOrg(admin: OrgAdmin): Promise<void> {
 // ============================================================================
 
 const HUB_USERS: HubUser[] = [
-	// Gryffindor characters — house-domain emails are their work emails
-	{
-		email: "harry.potter@hub.example",
-		displayName: "Harry Potter",
-		homeRegion: "ind1",
-		countryCode: "GB",
-	},
-	{
-		email: "hermione.granger@hub.example",
-		displayName: "Hermione Granger",
-		homeRegion: "usa1",
-		countryCode: "GB",
-	},
-	{
-		email: "ron.weasley@hub.example",
-		displayName: "Ron Weasley",
-		homeRegion: "deu1",
-		countryCode: "GB",
-	},
-	{
-		email: "neville.longbottom@hub.example",
-		displayName: "Neville Longbottom",
-		homeRegion: "ind1",
-		countryCode: "GB",
-	},
-	// Slytherin characters
-	{
-		email: "draco.malfoy@hub.example",
-		displayName: "Draco Malfoy",
-		homeRegion: "usa1",
-		countryCode: "GB",
-	},
-	{
-		email: "pansy.parkinson@hub.example",
-		displayName: "Pansy Parkinson",
-		homeRegion: "deu1",
-		countryCode: "GB",
-	},
-	// Ravenclaw characters
-	{
-		email: "luna.lovegood@hub.example",
-		displayName: "Luna Lovegood",
-		homeRegion: "deu1",
-		countryCode: "GB",
-	},
-	{
-		email: "cho.chang@hub.example",
-		displayName: "Cho Chang",
-		homeRegion: "ind1",
-		countryCode: "GB",
-	},
-	// Hufflepuff characters
-	{
-		email: "cedric.diggory@hub.example",
-		displayName: "Cedric Diggory",
-		homeRegion: "usa1",
-		countryCode: "GB",
-	},
-	{
-		email: "hannah.abbott@hub.example",
-		displayName: "Hannah Abbott",
-		homeRegion: "ind1",
-		countryCode: "GB",
-	},
+	// Gryffindor
+	{ email: "harry@hub.example", displayName: "Harry Potter", homeRegion: "ind1", countryCode: "GB" },
+	{ email: "hermione@hub.example", displayName: "Hermione Granger", homeRegion: "usa1", countryCode: "GB" },
+	{ email: "ron@hub.example", displayName: "Ron Weasley", homeRegion: "deu1", countryCode: "GB" },
+	{ email: "neville@hub.example", displayName: "Neville Longbottom", homeRegion: "ind1", countryCode: "GB" },
+	// Slytherin
+	{ email: "draco@hub.example", displayName: "Draco Malfoy", homeRegion: "usa1", countryCode: "GB" },
+	{ email: "pansy@hub.example", displayName: "Pansy Parkinson", homeRegion: "deu1", countryCode: "GB" },
+	// Ravenclaw
+	{ email: "luna@hub.example", displayName: "Luna Lovegood", homeRegion: "deu1", countryCode: "GB" },
+	{ email: "cho@hub.example", displayName: "Cho Chang", homeRegion: "ind1", countryCode: "GB" },
+	// Hufflepuff
+	{ email: "cedric@hub.example", displayName: "Cedric Diggory", homeRegion: "usa1", countryCode: "GB" },
+	{ email: "hannah@hub.example", displayName: "Hannah Abbott", homeRegion: "ind1", countryCode: "GB" },
 ];
 
-// Each house has one org superadmin (the same email can also be a hub user —
-// hub and org are separate portals with independent accounts).
+// One superadmin per house org, using admin@<housename>.example
 const ORG_ADMINS: OrgAdmin[] = [
-	{ email: "harry.potter@gryffindor.example", homeRegion: "ind1" },
-	{ email: "draco.malfoy@slytherin.example", homeRegion: "usa1" },
-	{ email: "luna.lovegood@ravenclaw.example", homeRegion: "deu1" },
-	{ email: "cedric.diggory@hufflepuff.example", homeRegion: "ind1" },
+	{ email: "admin@gryffindor.example", homeRegion: "ind1" },
+	{ email: "admin@slytherin.example", homeRegion: "usa1" },
+	{ email: "admin@ravenclaw.example", homeRegion: "deu1" },
+	{ email: "admin@hufflepuff.example", homeRegion: "ind1" },
 ];
 
 // ============================================================================
@@ -346,31 +292,20 @@ const ORG_ADMINS: OrgAdmin[] = [
 async function main(): Promise<void> {
 	console.log("=== Vetchium Harry Potter Dev Seed ===\n");
 
-	// Retry admin login — API server may need a moment to finish starting up.
-	let adminToken = "";
-	for (let attempt = 1; attempt <= 10; attempt++) {
-		try {
-			adminToken = await adminLogin();
-			break;
-		} catch (err) {
-			if (attempt === 10) throw err;
-			console.log(`  login attempt ${attempt} failed, retrying in 5s...`);
-			await sleep(5000);
-		}
-	}
+	const adminToken = await adminLogin();
 
-	console.log("\nCreating approved email domain for hub signups...");
+	// Whitelist hub.example so hub users can sign up with @hub.example addresses.
+	console.log("\nWhitelisting approved email domain...");
 	await createApprovedDomain("hub.example", adminToken);
 
-	console.log("\nCreating hub users (Hub portal)...");
-	for (const user of HUB_USERS) {
-		await createHubUser(user);
-	}
+	// Create all hub users in parallel — each has a unique email so mailpit queries
+	// are isolated and there are no race conditions.
+	console.log("\nCreating hub users in parallel...");
+	await Promise.all(HUB_USERS.map(createHubUser));
 
-	console.log("\nCreating house orgs (Org portal)...");
-	for (const admin of ORG_ADMINS) {
-		await createOrg(admin);
-	}
+	// Create all house org accounts in parallel.
+	console.log("\nCreating house orgs in parallel...");
+	await Promise.all(ORG_ADMINS.map(createOrg));
 
 	console.log("\n=== Seed complete! ===");
 	console.log(

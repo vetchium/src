@@ -321,6 +321,9 @@
 			],
 			"command": ["bun", "run", "/seed/seed-users.ts"],
 			"depends_on": {
+				"api-lb": {
+					"condition": "service_healthy"
+				},
 				"seed-global": {
 					"condition": "service_completed_successfully"
 				},
@@ -332,15 +335,6 @@
 				},
 				"regional-worker-deu1": {
 					"condition": "service_started"
-				},
-				"regional-api-server-ind1": {
-					"condition": "service_healthy"
-				},
-				"regional-api-server-usa1": {
-					"condition": "service_healthy"
-				},
-				"regional-api-server-deu1": {
-					"condition": "service_healthy"
 				},
 				"mailpit": {
 					"condition": "service_started"
@@ -692,6 +686,12 @@
 				"regional-api-server-ind1": { "condition": "service_healthy" },
 				"regional-api-server-usa1": { "condition": "service_healthy" },
 				"regional-api-server-deu1": { "condition": "service_healthy" }
+			},
+			"healthcheck": {
+				"test": ["CMD-SHELL", "nc -z localhost 80 || exit 1"],
+				"interval": "5s",
+				"timeout": "5s",
+				"retries": 10
 			}
 		},
 		"hub-ui": {
