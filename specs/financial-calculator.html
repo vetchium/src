@@ -64,6 +64,7 @@
 				padding: 20px;
 				border-radius: 12px;
 				border: 1px solid var(--accent-color);
+				position: relative;
 			}
 			.input-group {
 				margin-bottom: 15px;
@@ -85,7 +86,8 @@
 				border-radius: 3px;
 				appearance: none;
 			}
-			input[type="number"] {
+			input[type="number"],
+			select {
 				background: var(--input-bg);
 				border: 1px solid var(--accent-color);
 				color: var(--text-color);
@@ -157,6 +159,36 @@
 				background: var(--accent-color);
 				opacity: 0.2;
 			}
+			.toggle-group {
+				display: flex;
+				gap: 5px;
+				background: var(--input-bg);
+				padding: 4px;
+				border-radius: 8px;
+				border: 1px solid var(--accent-color);
+				width: fit-content;
+			}
+			.toggle-btn {
+				background: none;
+				border: none;
+				color: var(--text-color);
+				padding: 4px 12px;
+				border-radius: 6px;
+				cursor: pointer;
+				font-size: 0.8em;
+				font-weight: bold;
+				transition: 0.2s;
+			}
+			.toggle-btn.active {
+				background: var(--accent-color);
+				color: var(--input-bg);
+			}
+			.card-header {
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+				margin-bottom: 15px;
+			}
 		</style>
 	</head>
 	<body>
@@ -168,18 +200,33 @@
 
 			<div class="grid">
 				<div class="controls">
+					<div class="section-title">Global Settings</div>
+
+					<div class="input-group">
+						<label>Currency</label>
+						<select id="currency">
+							<option value="USD">USD ($)</option>
+							<option value="INR">INR (₹)</option>
+						</select>
+					</div>
+
+					<div id="conversionGroup" class="input-group" style="display: none;">
+						<label>USD to INR Rate</label>
+						<input type="number" id="conversionRate" value="83.5" />
+					</div>
+
 					<div class="section-title">Hub Users (Professionals)</div>
 
 					<div class="input-group">
 						<label
 							>Total Hub Users
-							<span class="value-display" id="hubUsersVal">10,000</span></label
+							<span class="value-display" id="hubUsersVal">50,000</span></label
 						>
 						<input
 							type="range"
 							id="hubUsers"
 							min="0"
-							max="1000000"
+							max="10000000"
 							step="1000"
 							value="50000"
 						/>
@@ -188,7 +235,7 @@
 					<div class="input-group">
 						<label
 							>Paid Conversion (%)
-							<span class="value-display" id="hubPaidPctVal">2%</span></label
+							<span class="value-display" id="hubPaidPctVal">2.5%</span></label
 						>
 						<input
 							type="range"
@@ -210,7 +257,7 @@
 					<div class="input-group">
 						<label
 							>Total Organizations
-							<span class="value-display" id="totalOrgsVal">500</span></label
+							<span class="value-display" id="totalOrgsVal">2,000</span></label
 						>
 						<input
 							type="range"
@@ -291,7 +338,7 @@
 
 					<div class="input-group">
 						<label
-							>Monthly Growth Rate (%)
+							>Monthly Customer Growth Rate (%)
 							<span class="value-display" id="growthRateVal">10%</span></label
 						>
 						<input
@@ -332,7 +379,14 @@
 					</div>
 
 					<div class="card">
-						<div class="chart-container">
+						<div class="card-header">
+							<div style="font-size: 1.1em; font-weight: bold; color: var(--accent-color)">Projections</div>
+							<div class="toggle-group">
+								<button id="toggleMonthly" class="toggle-btn active">Monthly</button>
+								<button id="toggleAnnual" class="toggle-btn">Annual</button>
+							</div>
+						</div>
+						<div class="chart-container" style="height: 280px">
 							<canvas id="cashFlowChart"></canvas>
 						</div>
 					</div>
@@ -360,16 +414,25 @@
 				"entPrice",
 				"fixedCosts",
 				"growthRate",
+				"currency",
+				"conversionRate"
 			];
 
 			let revenueChart, growthChart, cashFlowChart;
+			let currentScale = 'monthly';
 
 			function formatCurrency(num) {
-				return new Intl.NumberFormat("en-US", {
+				const currency = document.getElementById('currency').value;
+				const rate = parseFloat(document.getElementById('conversionRate').value) || 1;
+				const displayNum = currency === 'INR' ? num * rate : num;
+				const locale = currency === 'INR' ? 'en-IN' : 'en-US';
+				const symbol = currency === 'INR' ? 'INR' : 'USD';
+
+				return new Intl.NumberFormat(locale, {
 					style: "currency",
-					currency: "USD",
+					currency: symbol,
 					maximumFractionDigits: 0,
-				}).format(num);
+				}).format(displayNum);
 			}
 
 			function formatNumber(num) {
@@ -393,7 +456,7 @@
 
 				const totalMRR = hubRevenue + orgRevenue;
 				const variableCosts =
-					currentData.hubUsers * 0.05 + currentData.totalOrgs * 2;
+					currentData.hubUsers * 0.02 + currentData.totalOrgs * 2;
 				const totalCosts = currentData.fixedCosts + variableCosts;
 				const netProfit = totalMRR - totalCosts;
 
@@ -410,9 +473,14 @@
 			}
 
 			function update() {
+				const currency = document.getElementById('currency').value;
+				document.getElementById('conversionGroup').style.display = currency === 'INR' ? 'block' : 'none';
+
 				const data = {};
 				inputs.forEach((id) => {
-					data[id] = parseFloat(document.getElementById(id).value);
+					const el = document.getElementById(id);
+					data[id] = el.type === 'select-one' ? el.value : parseFloat(el.value);
+					
 					const display = document.getElementById(id + "Val");
 					if (display) {
 						if (id.endsWith("Pct") || id === "growthRate")
@@ -445,6 +513,9 @@
 			}
 
 			function updateCharts(metrics, data) {
+				const currency = data.currency;
+				const rate = currency === 'INR' ? data.conversionRate : 1;
+
 				// Revenue Breakdown
 				if (!revenueChart) {
 					const ctx = document.getElementById("revenueChart").getContext("2d");
@@ -460,12 +531,10 @@
 							datasets: [
 								{
 									data: [
-										metrics.hubRevenue,
-										data.totalOrgs *
-											(data.orgSilverPct / 100) *
-											data.silverPrice,
-										data.totalOrgs * (data.orgGoldPct / 100) * data.goldPrice,
-										data.totalOrgs * (data.orgEntPct / 100) * data.entPrice,
+										metrics.hubRevenue * rate,
+										data.totalOrgs * (data.orgSilverPct / 100) * data.silverPrice * rate,
+										data.totalOrgs * (data.orgGoldPct / 100) * data.goldPrice * rate,
+										data.totalOrgs * (data.orgEntPct / 100) * data.entPrice * rate,
 									],
 									backgroundColor: ["#f3d5a3", "#646cff", "#42b883", "#ff6b6b"],
 									borderColor: "#242424",
@@ -482,7 +551,7 @@
 								},
 								title: {
 									display: true,
-									text: "Monthly Revenue Breakdown",
+									text: `Revenue Breakdown (${currency})`,
 									color: "#fbf0df",
 								},
 							},
@@ -490,31 +559,56 @@
 					});
 				} else {
 					revenueChart.data.datasets[0].data = [
-						metrics.hubRevenue,
-						data.totalOrgs * (data.orgSilverPct / 100) * data.silverPrice,
-						data.totalOrgs * (data.orgGoldPct / 100) * data.goldPrice,
-						data.totalOrgs * (data.orgEntPct / 100) * data.entPrice,
+						metrics.hubRevenue * rate,
+						data.totalOrgs * (data.orgSilverPct / 100) * data.silverPrice * rate,
+						data.totalOrgs * (data.orgGoldPct / 100) * data.goldPrice * rate,
+						data.totalOrgs * (data.orgEntPct / 100) * data.entPrice * rate,
 					];
+					revenueChart.options.plugins.title.text = `Revenue Breakdown (${currency})`;
 					revenueChart.update();
 				}
 
-				// 12-Month Projection
-				const months = Array.from({ length: 12 }, (_, i) => `Month ${i + 1}`);
-				const revProj = [];
-				const costProj = [];
-				const profitProj = [];
-
+				// Projection Data
+				let labels = [];
+				let revProj = [];
+				let costProj = [];
+				let profitProj = [];
+				
 				let currentData = { ...data };
-				for (let i = 0; i < 12; i++) {
-					const m = calculateMetrics(currentData);
-					revProj.push(m.totalMRR);
-					costProj.push(m.totalCosts);
-					profitProj.push(m.netProfit);
+				
+				if (currentScale === 'monthly') {
+					labels = Array.from({ length: 12 }, (_, i) => `Month ${i + 1}`);
+					for (let i = 0; i < 12; i++) {
+						const m = calculateMetrics(currentData);
+						revProj.push(m.totalMRR * rate);
+						costProj.push(m.totalCosts * rate);
+						profitProj.push(m.netProfit * rate);
 
-					// Growth
-					const factor = 1 + data.growthRate / 100;
-					currentData.hubUsers *= factor;
-					currentData.totalOrgs *= factor;
+						const factor = 1 + data.growthRate / 100;
+						currentData.hubUsers *= factor;
+						currentData.totalOrgs *= factor;
+					}
+				} else {
+					labels = Array.from({ length: 5 }, (_, i) => `Year ${i + 1}`);
+					for (let y = 0; y < 5; y++) {
+						let yearRev = 0;
+						let yearCost = 0;
+						let yearProfit = 0;
+						
+						for (let m = 0; m < 12; m++) {
+							const metrics = calculateMetrics(currentData);
+							yearRev += metrics.totalMRR * rate;
+							yearCost += metrics.totalCosts * rate;
+							yearProfit += metrics.netProfit * rate;
+							
+							const factor = 1 + data.growthRate / 100;
+							currentData.hubUsers *= factor;
+							currentData.totalOrgs *= factor;
+						}
+						revProj.push(yearRev);
+						costProj.push(yearCost);
+						profitProj.push(yearProfit);
+					}
 				}
 
 				// Cash Flow / Breakeven Chart
@@ -523,7 +617,7 @@
 					cashFlowChart = new Chart(ctx, {
 						type: "line",
 						data: {
-							labels: months,
+							labels: labels,
 							datasets: [
 								{
 									label: "Revenue",
@@ -548,7 +642,7 @@
 								y: {
 									ticks: {
 										color: "#fbf0df",
-										callback: (value) => "$" + value / 1000 + "k",
+										callback: (value) => (currency === 'INR' ? '₹' : '$') + formatNumber(value / 1000) + "k",
 									},
 									grid: { color: "rgba(251, 240, 223, 0.1)" },
 								},
@@ -561,7 +655,7 @@
 								legend: { labels: { color: "#fbf0df" } },
 								title: {
 									display: true,
-									text: "Breakeven Analysis (Revenue vs Costs)",
+									text: `Breakeven Analysis (${currentScale.toUpperCase()})`,
 									color: "#fbf0df",
 								},
 								tooltip: {
@@ -569,7 +663,7 @@
 										afterBody: (context) => {
 											const i = context[0].dataIndex;
 											const diff = revProj[i] - costProj[i];
-											return `Net: ${formatCurrency(diff)} (${diff >= 0 ? "Profit" : "Loss"})`;
+											return `Net: ${formatCurrency(diff / rate)} (${diff >= 0 ? "Profit" : "Loss"})`;
 										},
 									},
 								},
@@ -577,25 +671,40 @@
 						},
 					});
 				} else {
+					cashFlowChart.data.labels = labels;
 					cashFlowChart.data.datasets[0].data = revProj;
 					cashFlowChart.data.datasets[1].data = costProj;
+					cashFlowChart.options.plugins.title.text = `Breakeven Analysis (${currentScale.toUpperCase()})`;
+					cashFlowChart.options.scales.y.ticks.callback = (value) => (currency === 'INR' ? '₹' : '$') + formatNumber(value / 1000) + "k";
 					cashFlowChart.update();
 				}
 
-				// Profit / Loss Bar Chart
+				// Profit / Loss Line Chart
 				if (!growthChart) {
 					const ctx = document.getElementById("growthChart").getContext("2d");
 					growthChart = new Chart(ctx, {
-						type: "bar",
+						type: "line",
 						data: {
-							labels: months,
+							labels: labels,
 							datasets: [
 								{
-									label: "Monthly Net Profit/Loss",
+									label: "Net Profit/Loss",
 									data: profitProj,
-									backgroundColor: profitProj.map((v) =>
+									borderColor: "#42b883",
+									pointBackgroundColor: profitProj.map((v) =>
 										v >= 0 ? "#42b883" : "#ff6b6b"
 									),
+									pointBorderColor: "#242424",
+									pointRadius: 4,
+									fill: {
+										target: "origin",
+										above: "rgba(66, 184, 131, 0.1)",
+										below: "rgba(255, 107, 107, 0.1)",
+									},
+									segment: {
+										borderColor: (ctx) => (ctx.p1.parsed.y >= 0 ? "#42b883" : "#ff6b6b"),
+									},
+									tension: 0.3,
 								},
 							],
 						},
@@ -605,7 +714,7 @@
 								y: {
 									ticks: {
 										color: "#fbf0df",
-										callback: (value) => "$" + value / 1000 + "k",
+										callback: (value) => (currency === 'INR' ? '₹' : '$') + formatNumber(value / 1000) + "k",
 									},
 									grid: { color: "rgba(251, 240, 223, 0.1)" },
 								},
@@ -618,20 +727,37 @@
 								legend: { display: false },
 								title: {
 									display: true,
-									text: "Monthly Profit/Loss Projection",
+									text: `Profit/Loss Projection (${currentScale.toUpperCase()})`,
 									color: "#fbf0df",
 								},
 							},
 						},
 					});
 				} else {
+					growthChart.data.labels = labels;
 					growthChart.data.datasets[0].data = profitProj;
-					growthChart.data.datasets[0].backgroundColor = profitProj.map((v) =>
+					growthChart.data.datasets[0].pointBackgroundColor = profitProj.map((v) =>
 						v >= 0 ? "#42b883" : "#ff6b6b"
 					);
+					growthChart.options.plugins.title.text = `Profit/Loss Projection (${currentScale.toUpperCase()})`;
+					growthChart.options.scales.y.ticks.callback = (value) => (currency === 'INR' ? '₹' : '$') + formatNumber(value / 1000) + "k";
 					growthChart.update();
 				}
 			}
+
+			// Toggles
+			document.getElementById('toggleMonthly').addEventListener('click', () => {
+				currentScale = 'monthly';
+				document.getElementById('toggleMonthly').classList.add('active');
+				document.getElementById('toggleAnnual').classList.remove('active');
+				update();
+			});
+			document.getElementById('toggleAnnual').addEventListener('click', () => {
+				currentScale = 'annual';
+				document.getElementById('toggleAnnual').classList.add('active');
+				document.getElementById('toggleMonthly').classList.remove('active');
+				update();
+			});
 
 			inputs.forEach((id) => {
 				document.getElementById(id).addEventListener("input", update);
@@ -642,3 +768,4 @@
 		</script>
 	</body>
 </html>
+>
