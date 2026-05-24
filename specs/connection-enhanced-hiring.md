@@ -183,6 +183,7 @@ This feature requires being able to efficiently query: for a given opening's org
 #### Why this matters for candidates
 
 Knowing you have colleagues at a company changes how you approach the application:
+
 - You might reach out informally before applying (possible via direct messages, if that feature exists).
 - You might ask a specific colleague to write an endorsement (rather than cold-guessing who would help).
 - You might feel more confident applying because the company is not a complete unknown — your colleagues can give you a real picture of the culture.
@@ -208,12 +209,14 @@ This is the reverse flow: P1 discovers an opportunity and thinks of P2.
 P1 works at Company D (active verified stint). P1 sees an open role at Company D in their org portal. P1 thinks of P2, their former colleague from Company A, who would be a great fit.
 
 P1 can nominate P2 for the role. This creates a "colleague nomination":
+
 - P1 selects the opening.
 - P1 searches for P2 in their connection list (because connections are colleagues, P1 is not nominating a stranger).
 - P1 writes a brief statement: "I worked with P2 at Company A for [N] years. I think they'd be great for this role because..."
 - The nomination is submitted.
 
 What happens next:
+
 - P2 receives a notification: "Your former colleague P1 thinks you'd be a great fit for [Role] at Company D. Would you like to apply?"
 - P2 can accept (which creates a draft application), decline, or ignore.
 - If P2 applies, the application is tagged as "Referred by P1" and P1's statement is attached as an endorsement.
@@ -224,6 +227,7 @@ What happens next:
 Most company referral programs work like this: HR posts a form, employees fill it out with a name and email, HR tracks nothing, the referred candidate is indistinguishable from a cold applicant in the ATS. The referring employee gets a bonus if the hire goes through — which creates an incentive to refer anyone, not just great candidates.
 
 A Vetchium colleague referral is different:
+
 - The referral is made by a verified former colleague (the relationship is on-record, not claimed).
 - The statement is attached to the application and visible throughout the review process.
 - The referrer is accountable in a real sense — their professional reputation is indexed in the system, and their colleagues can see that they made the referral.
@@ -278,6 +282,7 @@ Additionally, for any endorsement on the application, the system should show the
 References currently happen ad-hoc and late. This feature allows the hiring company to request structured references through the platform.
 
 When a hiring manager wants to do a formal reference check on P2:
+
 1. They send P2 a reference request through the platform: "We'd like to speak with 2 people who have managed or closely worked with you."
 2. P2 can nominate connections from their verified colleague list. (These are the people they actually worked with — not hand-picked cheerleaders.)
 3. The nominated reference (for example, P3) receives a notification and can accept or decline.
@@ -300,7 +305,7 @@ One important constraint: the hiring company cannot directly contact P2's connec
 
 ### Workflow A: "I applied and want to add colleague context"
 
-*Cast: P2 is a software engineer applying to Company D. P1 is P2's colleague from Company A (overlapping tenure 2019–2023, four years). P3 is P2's colleague from a second past employer, Company B (overlapping tenure 2021–2022). P4 is another colleague from Company A (overlapping tenure 2018–2019, shorter stint).*
+_Cast: P2 is a software engineer applying to Company D. P1 is P2's colleague from Company A (overlapping tenure 2019–2023, four years). P3 is P2's colleague from a second past employer, Company B (overlapping tenure 2021–2022). P4 is another colleague from Company A (overlapping tenure 2018–2019, shorter stint)._
 
 P2 applies to a Staff Engineer role at Company D. After submitting the application, P2 sees the option: "Request endorsements from colleagues." P2 selects three connections: P1 (worked together at Company A, 2019–2023), P3 (worked together at Company B, 2021–2022), and P4 (worked together at Company A, 2018–2019).
 
@@ -312,13 +317,13 @@ When the recruiter at Company D opens P2's application, they see: verified work 
 
 ### Workflow B: "I found a job through my network"
 
-*Cast: P2 is a professional browsing job openings. P1 is P2's former colleague from Company A who now works at Company D.*
+_Cast: P2 is a professional browsing job openings. P1 is P2's former colleague from Company A who now works at Company D._
 
 P2 opens the Hub dashboard. There is a section: "Opportunities through your network." One item reads: "Company D has 2 open roles — 1 of your colleagues works there." P2 clicks through. The colleague is P1, who P2 worked with at Company A. One of the openings matches P2's profile. P2 applies and is in a stronger position: they can ask P1 to write an endorsement or refer them internally before the application is reviewed.
 
 ### Workflow C: "I know someone perfect for this role"
 
-*Cast: P1 is an engineering manager at Company D, currently on the hiring team for a platform engineer role. P2 is P1's former colleague from Company A (overlapping tenure 2020–2023).*
+_Cast: P1 is an engineering manager at Company D, currently on the hiring team for a platform engineer role. P2 is P1's former colleague from Company A (overlapping tenure 2020–2023)._
 
 P1 sees the open role in the org portal. There is a button: "Refer a colleague." P1 thinks of P2, who they worked with at Company A for three years and believe would be excellent for this role.
 
@@ -328,7 +333,7 @@ P2 receives a notification: "P1 (Company A, 2020–2023) thinks you'd be a great
 
 ### Workflow D: "I'm job-hunting quietly"
 
-*Cast: P2 is currently employed at Company A and is quietly job-hunting. P1 is P2's former colleague from Company A who is now a current employee at Company D.*
+_Cast: P2 is currently employed at Company A and is quietly job-hunting. P1 is P2's former colleague from Company A who is now a current employee at Company D._
 
 P2's privacy settings are at the default: no notifications sent to connections at companies P2 applies to.
 
@@ -340,14 +345,14 @@ P2 applies to Company D. P1 is a current Company D employee and a connection of 
 
 This section captures the explicit decisions that need to be made per feature.
 
-| Scenario | Default | Candidate can change |
-|---|---|---|
-| Notify connections at target company when you apply | Off | Yes, globally or per-application |
-| Show how many connections you have at a company while browsing openings | On (count only) | Not controllable — this is derived from public profile data |
-| Show which specific connections you have at a company | Off (count is shown; names require a click) | N/A |
-| Allow connections to see your active applications | Off | Yes, globally |
-| Make endorsements visible to the hiring team | On (they're attached to the application) | Yes, candidate can delete an endorsement before it's reviewed |
-| Allow hiring company to initiate reference requests | On (standard practice) | Candidate chooses who to nominate; nominated persons can decline |
+| Scenario                                                                | Default                                     | Candidate can change                                             |
+| ----------------------------------------------------------------------- | ------------------------------------------- | ---------------------------------------------------------------- |
+| Notify connections at target company when you apply                     | Off                                         | Yes, globally or per-application                                 |
+| Show how many connections you have at a company while browsing openings | On (count only)                             | Not controllable — this is derived from public profile data      |
+| Show which specific connections you have at a company                   | Off (count is shown; names require a click) | N/A                                                              |
+| Allow connections to see your active applications                       | Off                                         | Yes, globally                                                    |
+| Make endorsements visible to the hiring team                            | On (they're attached to the application)    | Yes, candidate can delete an endorsement before it's reviewed    |
+| Allow hiring company to initiate reference requests                     | On (standard practice)                      | Candidate chooses who to nominate; nominated persons can decline |
 
 ### What the employer cannot do
 
@@ -410,6 +415,7 @@ The current stint model shows domain and years but not the team or proximity of 
 ## Summary of new user stories by persona
 
 ### Hub user as candidate (P2)
+
 - I want to see, when browsing openings, how many of my verified colleagues work at each company.
 - I want to request specific colleagues to write endorsements for a specific job application.
 - I want to control whether my connections at the company I'm applying to know I'm applying.
@@ -418,18 +424,21 @@ The current stint model shows domain and years but not the team or proximity of 
 - I want to nominate verified colleagues as references in a structured way, without having to manage the process by email.
 
 ### Hub user as colleague (P1)
+
 - I want to be notified when a former colleague asks me to endorse them for a specific role.
 - I want to write a targeted endorsement that tells the hiring team what we actually worked on together.
 - I want to be able to nominate a former colleague for a role at my current company, directly from the org portal.
 - I want to optionally receive a notification when a former colleague applies to my company (if the candidate opts in).
 
 ### Org user as recruiter or hiring manager
+
 - I want to see, in each application, whether any colleague endorsements are attached, with the relationship context.
 - I want to see whether a current employee referred this candidate or whether the candidate was referred by someone who worked with them directly.
 - I want to send a structured reference request to a candidate late in the process and receive responses in-platform.
 - I want to see the candidate's verified work history as part of the application, without navigating to their public profile.
 
 ### Org user as current employee (referrer)
+
 - I want to nominate former colleagues for open roles at my company.
 - I want to write a referral statement that is visible throughout the hiring process.
 - I want to know whether my referred colleague chose to apply.

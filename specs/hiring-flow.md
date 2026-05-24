@@ -144,6 +144,7 @@ Feedback can be overwritten by the same interviewer. Each submission replaces th
 ### Notifications on Scheduling
 
 When an interview is scheduled:
+
 - The candidate is notified with the interview type, times, description, and interviewer names.
 - All interviewers are notified.
 - The opening's watchers are notified.
