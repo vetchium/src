@@ -1,0 +1,146 @@
+claude --resume 32659ee3-1a87-4bbb-8752-8e6c08deb3c7
+
+You are implementing Tranche T1 of the Vetchium hiring spec. Work autonomously
+  for as long as it takes. Do not stop to ask the user trivial questions — only
+  stop on genuine ambiguity that the spec doesn't resolve.
+
+  PRIMARY SOURCES (read these before doing anything; do not work from memory):
+
+  1. /Users/psankar/vetchium/src/CLAUDE.md — project conventions. Non-negotiable.
+  2. /Users/psankar/vetchium/src/specs/hiring.md — the spec you are implementing.
+     Sections "Stage 2: Implementation Plan", "Full TypeSpec Specifications",
+     "Notification Mechanism", "Algorithm Resolutions", "Implementation Tranches"
+     are your blueprint. Stage 2 is APPROVED — do not redesign.
+  3. /Users/psankar/vetchium/src/api-server/handlers/org/openings.go — reference
+     pattern for a regional Go handler with multi-step validation + tx + audit log.
+  4. /Users/psankar/vetchium/src/api-server/handlers/admin/upload-tag-icon.go —
+     reference pattern for multipart/form-data handlers (apply-for-opening uses this).
+  5. /Users/psankar/vetchium/src/specs/typespec/org/openings.{tsp,ts,go} — reference
+     shape for TypeSpec + matching TS validator + matching Go validator.
+  6. /Users/psankar/vetchium/src/playwright/tests/api/org/openings/ — reference shape
+     for Playwright tests with RBAC + audit-log assertions.
+
+  SCOPE — TRANCHE T1 ONLY. Do not touch T2/T3/T4 features. The exact endpoint
+  list, table list, role list, file list, and test list for T1 are in the
+  "Tranche T1 — Foundation" subsection of specs/hiring.md. Stick to that list.
+  Some Stage-1 models (HubApplication.endorsements, OrgApplication.endorsements,
+  MyEndorsementRequestSent) are populated by T3 — in T1, return empty arrays
+  for those fields. Do NOT skip the fields; return [].
+
+  ORDER OF WORK (strict — do not reorder):
+
+    Step 1. TypeSpec
+      - Write the .tsp files listed under T1 in the spec.
+      - Hand-write matching .ts and .go files (tsp compile only emits OpenAPI).
+      - Run: cd specs/typespec && bun install && tsp compile .
+      - Run: cd hub-ui && bun install && bun run lint (just to surface ts errors early)
+      - COMMIT: "T1: typespec for applications + candidacies + hiring settings"
+
+    Step 2. Database schema
+      - Edit api-server/db/migrations/{global,regional}/00000000000001_initial_schema.sql
+        DIRECTLY. Do NOT create new migration files. Tables, enum additions, and
+        role INSERT additions are spelled out verbatim in the spec.
+      - For email_template_type, append values via ALTER TYPE ADD VALUE at the
+        end of the existing CREATE TYPE block. Only add the T1-scoped values
+        (see Tranche T1 list): hub_application_shortlisted, hub_application_rejected,
+        org_new_application, org_application_withdrawn.
+      - Add the five org:* roles to the existing INSERT INTO roles block in the
+        regional schema, exactly where the spec says.
+      - COMMIT: "T1: schema + enum + roles for hiring foundation"
+
+    Step 3. sqlc queries
+      - Create the .sql files listed in the spec's "SQL Queries" subsection that
+        belong to T1 (applications.sql, candidacies.sql, hiring_settings.sql,
+        discovery.sql for hub list-openings extension).
+      - Run: cd api-server && sqlc generate
+      - Run: cd api-server && go build ./...  (must compile even before handlers exist)
+      - COMMIT: "T1: sqlc queries"
+
+    Step 4. Backend handlers
+      - Create the handler files listed under T1.
+      - Wire routes in cmd/regional-api-server (find the existing mux registrations
+        via `grep -rn "POST /org/create-opening" cmd/`).
+      - Email templates go in api-server/handlers/{hub,org}/email_templates.go as
+        const strings with fmt.Sprintf placeholders. Exact subjects/bodies are in
+        the "Email body conventions" section of the spec — copy them verbatim.
+      - Use s.WithRegionalTxFor(ctx, openingRegion, fn) for cross-region writes.
+        The "Cross-region write pattern" subsection lists every endpoint and its
+        target region. Do not deviate.
+      - Audit logging: insert audit_logs row INSIDE the same WithRegionalTx as the
+        primary write. Email enqueue: also inside the same tx (bulk-insert when
+        ≥2 recipients).
+      - Run: cd api-server && go build ./... && goimports -w .
+      - COMMIT: "T1: backend handlers"
+
+    Step 5. Frontend pages
+      - Create the .tsx files listed under T1 for hub-ui and org-ui.
+      - All API types imported from vetchium-specs/... — never inline.
+      - Multipart POSTs use FormData + native fetch (do not invent a wrapper).
+      - Follow the page layout standard in CLAUDE.md (maxWidth 1200, back button
+        first, Title level=2, no outer Card).
+      - i18n: add en-US, de-DE, ta-IN keys per the spec's "i18n" section.
+      - Run: cd hub-ui && bun run lint && bun run build
+      - Run: cd org-ui && bun run lint && bun run build
+      - COMMIT: "T1: hub-ui pages" then "T1: org-ui pages" (separate commits)
+
+    Step 6. Playwright tests
+      - Create the spec files listed under T1.
+      - For RBAC tests: use assignRoleToOrgUser / createTestOrgUserDirect from
+        playwright/lib/db.ts. Every protected endpoint needs positive + negative
+        RBAC tests in its OWN spec file (CLAUDE.md mandate).
+      - For audit log tests: assert presence after success AND absence after 4xx.
+      - For region isolation + privacy-current-employer cross-cutting tests:
+        create the two spec files listed in T1.
+      - Use generateTestDomainName / generateTestEmail for every test — never
+        hard-code domains/emails (parallel runs will collide).
+      - Run docker stack: cd src && docker compose -f docker-compose-ci.json up
+        --build -d
+      - Wait for healthchecks (the api-server image has one).
+      - Run: cd playwright && npm install && npm test
+      - If a test fails, fix the underlying code or test (never weaken the
+        assertion to make it pass). Loop until all green.
+      - COMMIT: "T1: playwright tests"
+
+    Step 7. Final verification (the "Per-tranche definition of done" checklist
+    in the spec — run every check, fix until all pass, then COMMIT a final
+    "T1: definition of done — green").
+
+  WHEN YOU MUST STOP AND ASK THE USER:
+
+  - A spec section contradicts itself (cite both quotes).
+  - The spec references a file/table/role/endpoint that does not exist and isn't
+    defined elsewhere in the spec.
+  - A test failure has a root cause that requires a design decision the spec
+    doesn't make (e.g. status code choice between two reasonable options).
+  - A required infrastructure piece is missing (e.g. the email worker doesn't
+    exist — though I verified it does).
+
+  If you can answer your own question by reading more of the spec or the existing
+  codebase, do that instead of stopping. The spec is 3,294 lines and very explicit
+  — almost every "what about X" is already answered.
+
+  WHEN YOU MUST NOT STOP:
+
+  - Build errors. Read the error, fix it, rebuild.
+  - Test failures with obvious root cause. Fix and re-run.
+  - A handler is hard to write. Re-read the reference (openings.go) and try again.
+  - Lint warnings. Fix them.
+
+  OPERATING RULES:
+
+  - Read-only bash commands (grep, ls, cat-equivalents via Read, git status, git
+    log, npm test, go build) — execute freely, do not ask for permission.
+  - Do NOT run: git push, git reset --hard, git branch -D, rm -rf, or anything
+    that touches state outside the working directory.
+  - Do NOT skip git hooks (no --no-verify).
+  - Commit after every numbered step. Commit messages start with "T1: ".
+  - After each commit, run `git status` to confirm clean tree before moving on.
+  - Do NOT create planning documents, design docs, or summary markdown files.
+    Work from specs/hiring.md only.
+  - Do NOT add features or fields that the spec does not explicitly require.
+  - Use TaskCreate to track the 7 steps above. Mark each one in_progress when
+    starting and completed when its commit lands.
+  - When all 7 commits exist and `npm test` is fully green, output a single
+    line: "T1 COMPLETE — ready for T2." Then stop.
+
+  START NOW. Read CLAUDE.md and specs/hiring.md first. Then begin Step 1.
