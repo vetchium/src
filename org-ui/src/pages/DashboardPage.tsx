@@ -13,6 +13,7 @@ import {
 	StarOutlined,
 	UsergroupAddOutlined,
 	SolutionOutlined,
+	ContactsOutlined,
 } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
@@ -89,6 +90,9 @@ export function DashboardPage() {
 		myInfo?.roles.includes("org:view_openings") ||
 		myInfo?.roles.includes("org:manage_openings") ||
 		false;
+
+	// Candidacies use the same access gate as openings (no dedicated role).
+	const hasCandidaciesAccess = hasOpeningsAccess;
 
 	return (
 		<div
@@ -289,6 +293,42 @@ export function DashboardPage() {
 									</Title>
 									<Typography.Text type="secondary">
 										{t("openings.description")}
+									</Typography.Text>
+								</Card>
+							</Link>
+						</Col>
+					)}
+
+					{hasCandidaciesAccess && (
+						<Col xs={24} sm={12} lg={8}>
+							<Link
+								to="/candidacies"
+								style={{
+									textDecoration: "none",
+									display: "block",
+									height: "100%",
+								}}
+							>
+								<Card
+									hoverable
+									style={{
+										height: "100%",
+										cursor: "pointer",
+										textAlign: "center",
+									}}
+								>
+									<ContactsOutlined
+										style={{
+											fontSize: 48,
+											color: "#1d39c4",
+											marginBottom: 16,
+										}}
+									/>
+									<Title level={4} style={{ marginBottom: 8 }}>
+										{t("candidacies.title")}
+									</Title>
+									<Typography.Text type="secondary">
+										{t("candidacies.description")}
 									</Typography.Text>
 								</Card>
 							</Link>

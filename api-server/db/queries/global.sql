@@ -403,6 +403,19 @@ SELECT display_name
 FROM hub_user_display_names
 WHERE hub_user_global_id = $1
   AND is_preferred = TRUE;
+
+-- name: GetOpeningRegionAndApplicantDisplayName :one
+-- Resolves the region that owns an org's hiring data (via its claimed domain)
+-- and the applying hub user's preferred display name in a single global
+-- round-trip, so the apply handler reads global exactly once.
+SELECT
+    god.region,
+    COALESCE(dn.display_name, '')::text AS preferred_display_name
+FROM global_org_domains god
+LEFT JOIN hub_user_display_names dn
+    ON dn.hub_user_global_id = @hub_user_global_id AND dn.is_preferred = TRUE
+WHERE god.domain = @domain;
+
 -- name: DeleteHubUser :exec
 DELETE FROM hub_users
 WHERE hub_user_global_id = $1;
@@ -1202,3 +1215,158 @@ WHERE blocker_user_id = @blocker::uuid AND blocked_user_id = @blocked::uuid;
 
 -- name: GetTagsByIDs :many
 SELECT * FROM tags WHERE tag_id = ANY(@tag_ids::text[]);
+
+-- ============================================================
+-- Endorsement Requests Index (T3)
+-- ============================================================
+
+-- name: InsertEndorsementRequestIndex :exec
+INSERT INTO endorsement_requests_index (
+    request_id, endorser_hub_user_global_id, region, application_id, state, requested_at
+) VALUES ($1, $2, $3, $4, $5, $6);
+
+-- name: GetEndorsementRequestIndexEntry :one
+SELECT * FROM endorsement_requests_index WHERE request_id = $1;
+
+-- name: ListEndorsementRequestsIndexByEndorser :many
+SELECT * FROM endorsement_requests_index
+WHERE endorser_hub_user_global_id = $1
+ORDER BY requested_at DESC, request_id DESC
+LIMIT $2;
+
+-- name: ListEndorsementRequestsIndexByEndorserAfter :many
+SELECT * FROM endorsement_requests_index
+WHERE endorser_hub_user_global_id = $1
+  AND (requested_at, request_id) < (@cursor_requested_at::timestamptz, @cursor_request_id::uuid)
+ORDER BY requested_at DESC, request_id DESC
+LIMIT $2;
+
+-- name: UpdateEndorsementRequestIndexState :exec
+UPDATE endorsement_requests_index SET state = $2 WHERE request_id = $1;
+
+-- ============================================================
+-- Referral Nominations Index (T3)
+-- ============================================================
+
+-- name: InsertReferralNominationIndex :exec
+INSERT INTO referral_nominations_index (
+    nomination_id, candidate_hub_user_global_id, referrer_hub_user_global_id,
+    region, opening_id, state, created_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7);
+
+-- name: GetReferralNominationIndexEntry :one
+SELECT * FROM referral_nominations_index WHERE nomination_id = $1;
+
+-- name: ListReferralNominationsIndexByCandidate :many
+SELECT * FROM referral_nominations_index
+WHERE candidate_hub_user_global_id = $1
+ORDER BY created_at DESC, nomination_id DESC
+LIMIT $2;
+
+-- name: ListReferralNominationsIndexByCandidateAfter :many
+SELECT * FROM referral_nominations_index
+WHERE candidate_hub_user_global_id = $1
+  AND (created_at, nomination_id) < (@cursor_created_at::timestamptz, @cursor_nomination_id::uuid)
+ORDER BY created_at DESC, nomination_id DESC
+LIMIT $2;
+
+-- name: ListReferralNominationsIndexByReferrer :many
+SELECT * FROM referral_nominations_index
+WHERE referrer_hub_user_global_id = $1
+ORDER BY created_at DESC, nomination_id DESC
+LIMIT $2;
+
+-- name: ListReferralNominationsIndexByReferrerAfter :many
+SELECT * FROM referral_nominations_index
+WHERE referrer_hub_user_global_id = $1
+  AND (created_at, nomination_id) < (@cursor_created_at::timestamptz, @cursor_nomination_id::uuid)
+ORDER BY created_at DESC, nomination_id DESC
+LIMIT $2;
+
+-- name: UpdateReferralNominationIndexState :exec
+UPDATE referral_nominations_index SET state = $2 WHERE nomination_id = $1;
+
+-- ============================================================
+-- Applications Index (used by T3 handlers to resolve region)
+-- ============================================================
+
+-- name: InsertApplicationIndex :exec
+INSERT INTO applications_index (
+    application_id, hub_user_global_id, region, org_id, org_domain, opening_number, applied_at, state
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
+
+-- name: GetApplicationIndexEntry :one
+SELECT * FROM applications_index WHERE application_id = $1;
+
+-- name: GetDistinctRegionsByHubUser :many
+-- The distinct set of regions in which a hub user has hiring data. All of a
+-- candidate's candidacies, interviews, endorsements and references live in one
+-- of these regions, so this bounds the search space for by-id lookups and list
+-- fan-outs that have no dedicated global index.
+SELECT DISTINCT region FROM applications_index WHERE hub_user_global_id = $1;
+
+-- name: GetApplicationIndexEntriesByUser :many
+SELECT * FROM applications_index
+WHERE hub_user_global_id = $1
+ORDER BY applied_at DESC, application_id DESC
+LIMIT $2;
+
+-- name: GetApplicationIndexEntriesByUserAfter :many
+SELECT * FROM applications_index
+WHERE hub_user_global_id = $1
+  AND (applied_at, application_id) < (@cursor_applied_at::timestamptz, @cursor_application_id::uuid)
+ORDER BY applied_at DESC, application_id DESC
+LIMIT $2;
+
+-- name: UpdateApplicationIndexState :exec
+UPDATE applications_index SET state = $2 WHERE application_id = $1;
+
+-- ============================================================
+-- Reference Nominations Index (used by T4 handlers to resolve region)
+-- ============================================================
+
+-- name: InsertReferenceNominationIndex :exec
+INSERT INTO reference_nominations_index (
+    nomination_id, nominee_hub_user_global_id, region, candidacy_id, state, created_at
+) VALUES ($1, $2, $3, $4, $5, $6);
+
+-- name: GetReferenceNominationIndexEntry :one
+SELECT * FROM reference_nominations_index WHERE nomination_id = $1;
+
+-- name: GetDistinctRegionsByReferenceNominee :many
+-- The distinct regions in which a hub user has been nominated as a reference.
+-- These live in the candidates' opening regions, unrelated to the nominee's own
+-- applications, so they cannot be derived from applications_index.
+SELECT DISTINCT region FROM reference_nominations_index
+WHERE nominee_hub_user_global_id = $1;
+
+-- name: ListReferenceNominationsByNominee :many
+SELECT * FROM reference_nominations_index
+WHERE nominee_hub_user_global_id = $1
+ORDER BY created_at DESC, nomination_id DESC
+LIMIT $2;
+
+-- name: ListReferenceNominationsByNomineeAfter :many
+SELECT * FROM reference_nominations_index
+WHERE nominee_hub_user_global_id = $1
+  AND (created_at, nomination_id) < (@cursor_created_at::timestamptz, @cursor_nomination_id::uuid)
+ORDER BY created_at DESC, nomination_id DESC
+LIMIT $2;
+
+-- name: UpdateReferenceNominationIndexState :exec
+UPDATE reference_nominations_index SET state = $2 WHERE nomination_id = $1;
+
+-- ============================================================
+-- Bulk org lookups (used by hub-side handlers for org_name + primary domain)
+-- ============================================================
+
+-- name: GetOrgsByIDs :many
+SELECT o.org_id, o.org_name, o.region, COALESCE(gd.domain, '') AS primary_domain
+FROM orgs o
+LEFT JOIN global_org_domains gd ON gd.org_id = o.org_id AND gd.is_primary = true
+WHERE o.org_id = ANY(@org_ids::uuid[]);
+
+-- name: GetOrgByDomainWithName :one
+SELECT o.org_id, o.org_name, o.region
+FROM orgs o
+JOIN global_org_domains gd ON gd.org_id = o.org_id AND gd.domain = $1;

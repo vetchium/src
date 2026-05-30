@@ -501,7 +501,69 @@ CREATE TABLE hub_block_routes (
   PRIMARY KEY (blocker_user_id, blocked_user_id)
 );
 
+-- Applications index for cross-region lookup (hub user's "my applications" list)
+CREATE TABLE applications_index (
+    application_id         UUID PRIMARY KEY,
+    hub_user_global_id     UUID NOT NULL,
+    region                 TEXT NOT NULL,
+    org_id                 UUID NOT NULL,
+    org_domain             TEXT NOT NULL,
+    opening_number         INT  NOT NULL,
+    applied_at             TIMESTAMPTZ NOT NULL,
+    state                  TEXT NOT NULL,
+    UNIQUE (hub_user_global_id, applied_at, application_id)
+);
+
+CREATE INDEX applications_index_by_user ON applications_index (hub_user_global_id, applied_at DESC, application_id DESC);
+
+-- Endorsement requests index — endorser may live in a different region from the application
+CREATE TABLE endorsement_requests_index (
+    request_id                   UUID PRIMARY KEY,
+    endorser_hub_user_global_id  UUID NOT NULL,
+    region                       TEXT NOT NULL,
+    application_id               UUID NOT NULL,
+    state                        TEXT NOT NULL,
+    requested_at                 TIMESTAMPTZ NOT NULL
+);
+CREATE INDEX endorsement_requests_by_endorser
+    ON endorsement_requests_index (endorser_hub_user_global_id, requested_at DESC, request_id DESC);
+
+-- Referral nominations index
+CREATE TABLE referral_nominations_index (
+    nomination_id                UUID PRIMARY KEY,
+    candidate_hub_user_global_id UUID NOT NULL,
+    referrer_hub_user_global_id  UUID NOT NULL,
+    region                       TEXT NOT NULL,
+    opening_id                   UUID NOT NULL,
+    state                        TEXT NOT NULL,
+    created_at                   TIMESTAMPTZ NOT NULL
+);
+CREATE INDEX referral_nominations_by_candidate
+    ON referral_nominations_index (candidate_hub_user_global_id, created_at DESC, nomination_id DESC);
+CREATE INDEX referral_nominations_by_referrer
+    ON referral_nominations_index (referrer_hub_user_global_id, created_at DESC, nomination_id DESC);
+
+CREATE TABLE reference_nominations_index (
+    nomination_id      UUID PRIMARY KEY,
+    nominee_hub_user_global_id UUID NOT NULL,
+    region             TEXT NOT NULL,
+    candidacy_id       UUID NOT NULL,
+    state              TEXT NOT NULL,
+    created_at         TIMESTAMPTZ NOT NULL
+);
+CREATE INDEX reference_nominations_by_nominee
+    ON reference_nominations_index (nominee_hub_user_global_id, created_at DESC, nomination_id DESC);
+
 -- +goose Down
+DROP INDEX IF EXISTS reference_nominations_by_nominee;
+DROP TABLE IF EXISTS reference_nominations_index;
+DROP INDEX IF EXISTS referral_nominations_by_referrer;
+DROP INDEX IF EXISTS referral_nominations_by_candidate;
+DROP TABLE IF EXISTS referral_nominations_index;
+DROP INDEX IF EXISTS endorsement_requests_by_endorser;
+DROP TABLE IF EXISTS endorsement_requests_index;
+DROP INDEX IF EXISTS applications_index_by_user;
+DROP TABLE IF EXISTS applications_index;
 DROP TABLE IF EXISTS hub_block_routes;
 DROP INDEX IF EXISTS idx_personal_domain_blocklist_prefix;
 DROP TABLE IF EXISTS personal_domain_blocklist;

@@ -119,6 +119,46 @@ import type {
 	UpdateOpeningRequest,
 	RejectOpeningRequest,
 } from "vetchium-specs/org/openings";
+import type {
+	ListApplicationsRequest,
+	ListApplicationsResponse,
+	ApplicationIdRequest,
+	OrgApplication,
+	ShortlistApplicationRequest,
+	RejectApplicationRequest,
+	LabelApplicationRequest,
+} from "vetchium-specs/org/applications";
+import type {
+	ListCandidaciesRequest,
+	ListCandidaciesResponse,
+	CandidacyIdRequest,
+	OrgCandidacy,
+	OrgAddCandidacyCommentRequest,
+} from "vetchium-specs/org/candidacies";
+import type {
+	ScheduleInterviewRequest,
+	ScheduleInterviewResponse,
+	UpdateInterviewRequest,
+	InterviewIdRequest,
+	AddInterviewerRequest,
+	RemoveInterviewerRequest,
+	SetInterviewerRSVPRequest,
+	SubmitInterviewFeedbackRequest,
+	ListInterviewsRequest,
+	ListInterviewsResponse,
+	OrgInterview,
+} from "vetchium-specs/org/interviews";
+import type {
+	OrgHiringSettings,
+	UpdateOrgHiringSettingsRequest,
+} from "vetchium-specs/org/hiring-settings";
+import type {
+	RequestReferencesRequest,
+	RequestReferencesResponse,
+	RequestIdRequest,
+	ListReferenceNominationsResponse,
+	ListReferenceResponsesResponse,
+} from "vetchium-specs/org/references";
 import type { APIResponse } from "./api-client";
 
 /**
@@ -2724,6 +2764,354 @@ export class OrgAPIClient {
 			status: response.status(),
 			body: body as CreateOpeningResponse,
 			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	async listApplications(
+		sessionToken: string,
+		request: ListApplicationsRequest
+	): Promise<APIResponse<ListApplicationsResponse>> {
+		const response = await this.request.post("/org/list-applications", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as ListApplicationsResponse,
+		};
+	}
+
+	async getApplication(
+		sessionToken: string,
+		request: ApplicationIdRequest
+	): Promise<APIResponse<OrgApplication>> {
+		const response = await this.request.post("/org/get-application", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return { status: response.status(), body: body as OrgApplication };
+	}
+
+	async shortlistApplication(
+		sessionToken: string,
+		request: ShortlistApplicationRequest
+	): Promise<APIResponse<OrgCandidacy>> {
+		const response = await this.request.post("/org/shortlist-application", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return { status: response.status(), body: body as OrgCandidacy };
+	}
+
+	async rejectApplication(
+		sessionToken: string,
+		request: RejectApplicationRequest
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/org/reject-application", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		return { status: response.status(), body: undefined as unknown as void };
+	}
+
+	async labelApplication(
+		sessionToken: string,
+		request: LabelApplicationRequest
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/org/label-application", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		return { status: response.status(), body: undefined as unknown as void };
+	}
+
+	async listCandidacies(
+		sessionToken: string,
+		request: ListCandidaciesRequest
+	): Promise<APIResponse<ListCandidaciesResponse>> {
+		const response = await this.request.post("/org/list-candidacies", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as ListCandidaciesResponse,
+		};
+	}
+
+	async getCandidacy(
+		sessionToken: string,
+		request: CandidacyIdRequest
+	): Promise<APIResponse<OrgCandidacy>> {
+		const response = await this.request.post("/org/get-candidacy", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return { status: response.status(), body: body as OrgCandidacy };
+	}
+
+	async addCandidacyComment(
+		sessionToken: string,
+		request: OrgAddCandidacyCommentRequest
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/org/add-candidacy-comment", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		return { status: response.status(), body: undefined as unknown as void };
+	}
+
+	async scheduleInterview(
+		sessionToken: string,
+		request: ScheduleInterviewRequest
+	): Promise<APIResponse<ScheduleInterviewResponse>> {
+		const response = await this.request.post("/org/schedule-interview", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as ScheduleInterviewResponse,
+		};
+	}
+
+	async updateInterview(
+		sessionToken: string,
+		request: UpdateInterviewRequest
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/org/update-interview", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		return { status: response.status(), body: undefined as unknown as void };
+	}
+
+	async cancelInterview(
+		sessionToken: string,
+		request: InterviewIdRequest
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/org/cancel-interview", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		return { status: response.status(), body: undefined as unknown as void };
+	}
+
+	async addInterviewer(
+		sessionToken: string,
+		request: AddInterviewerRequest
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/org/add-interviewer", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		return { status: response.status(), body: undefined as unknown as void };
+	}
+
+	async removeInterviewer(
+		sessionToken: string,
+		request: RemoveInterviewerRequest
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/org/remove-interviewer", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		return { status: response.status(), body: undefined as unknown as void };
+	}
+
+	async listInterviews(
+		sessionToken: string,
+		request: ListInterviewsRequest
+	): Promise<APIResponse<ListInterviewsResponse>> {
+		const response = await this.request.post("/org/list-interviews", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as ListInterviewsResponse,
+		};
+	}
+
+	async getInterview(
+		sessionToken: string,
+		request: InterviewIdRequest
+	): Promise<APIResponse<OrgInterview>> {
+		const response = await this.request.post("/org/get-interview", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return { status: response.status(), body: body as OrgInterview };
+	}
+
+	async rsvpInterview(
+		sessionToken: string,
+		request: SetInterviewerRSVPRequest
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/org/rsvp-interview", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		return { status: response.status(), body: undefined as unknown as void };
+	}
+
+	async submitInterviewFeedback(
+		sessionToken: string,
+		request: SubmitInterviewFeedbackRequest
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/org/submit-interview-feedback", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		return { status: response.status(), body: undefined as unknown as void };
+	}
+
+	async getHiringSettings(
+		sessionToken: string
+	): Promise<APIResponse<OrgHiringSettings>> {
+		const response = await this.request.post("/org/get-hiring-settings", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: {},
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as OrgHiringSettings,
+		};
+	}
+
+	async updateHiringSettings(
+		sessionToken: string,
+		request: UpdateOrgHiringSettingsRequest
+	): Promise<APIResponse<OrgHiringSettings>> {
+		const response = await this.request.post("/org/update-hiring-settings", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as OrgHiringSettings,
+		};
+	}
+
+	async requestReferences(
+		sessionToken: string,
+		request: RequestReferencesRequest
+	): Promise<APIResponse<RequestReferencesResponse>> {
+		const response = await this.request.post("/org/request-references", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as RequestReferencesResponse,
+		};
+	}
+
+	async listReferenceNominations(
+		sessionToken: string,
+		request: RequestIdRequest
+	): Promise<APIResponse<ListReferenceNominationsResponse>> {
+		const response = await this.request.post(
+			"/org/list-reference-nominations",
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: request,
+			}
+		);
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as ListReferenceNominationsResponse,
+		};
+	}
+
+	async listReferenceResponses(
+		sessionToken: string,
+		request: RequestIdRequest
+	): Promise<APIResponse<ListReferenceResponsesResponse>> {
+		const response = await this.request.post("/org/list-reference-responses", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as ListReferenceResponsesResponse,
+		};
+	}
+
+	async addWatcher(
+		sessionToken: string,
+		request: { opening_id: string; watcher_email_address: string }
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/org/add-watcher", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		return { status: response.status(), body: undefined as unknown as void };
+	}
+
+	async removeWatcher(
+		sessionToken: string,
+		request: { opening_id: string; org_user_id: string }
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/org/remove-watcher", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		return { status: response.status(), body: undefined as unknown as void };
+	}
+
+	async extendOffer(
+		sessionToken: string,
+		candidacyId: string,
+		offerLetterBuffer: Buffer,
+		opts?: {
+			salary_currency?: string;
+			salary_amount?: string;
+			start_date?: string;
+			notes?: string;
+		}
+	): Promise<APIResponse<{ candidacy_id: string; extended_at: string }>> {
+		const multipartBody: {
+			[key: string]:
+				| string
+				| number
+				| boolean
+				| { name: string; mimeType: string; buffer: Buffer };
+		} = {
+			candidacy_id: candidacyId,
+			offer_letter: {
+				name: "offer_letter.pdf",
+				mimeType: "application/pdf",
+				buffer: offerLetterBuffer,
+			},
+		};
+		if (opts?.salary_currency)
+			multipartBody.salary_currency = opts.salary_currency;
+		if (opts?.salary_amount) multipartBody.salary_amount = opts.salary_amount;
+		if (opts?.start_date) multipartBody.start_date = opts.start_date;
+		if (opts?.notes) multipartBody.notes = opts.notes;
+
+		const response = await this.request.post("/org/extend-offer", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			multipart: multipartBody,
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as { candidacy_id: string; extended_at: string },
 		};
 	}
 }

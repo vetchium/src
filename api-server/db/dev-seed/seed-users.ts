@@ -96,6 +96,15 @@ function extractOrgSignupToken(text: string): string {
 	return m[1];
 }
 
+// Org invitation tokens carry a region prefix (e.g. IND1-<64 hex>) in the
+// /complete-setup?token=... link, unlike the bare signup token above.
+function extractOrgInvitationToken(text: string): string {
+	const m = text.match(/token=([A-Z0-9]+-[a-f0-9]{64})/);
+	if (!m)
+		throw new Error(`No org invitation token in email: ${text.slice(0, 300)}`);
+	return m[1];
+}
+
 function extractTfaCode(text: string): string {
 	const m = text.match(/\b(\d{6})\b/);
 	if (!m)
@@ -259,6 +268,141 @@ async function createOrg(admin: OrgAdmin): Promise<void> {
 	console.log(`  org: ${admin.email} — created`);
 }
 
+// Log in as an existing org user and return a session token.
+// Mirrors adminLogin: login -> mailpit TFA code -> tfa.
+async function orgLogin(email: string, domain: string): Promise<string> {
+	await clearEmails(email);
+
+	const loginRes = await post("/org/login", {
+		email,
+		domain,
+		password: PASSWORD,
+	});
+	if (loginRes.status !== 200) {
+		throw new Error(
+			`org login failed for ${email}: ${loginRes.status} — ${await loginRes.text()}`
+		);
+	}
+	const { tfa_token } = (await loginRes.json()) as { tfa_token: string };
+
+	const emailText = await waitForEmailText(email);
+	const tfaCode = extractTfaCode(emailText);
+
+	const tfaRes = await post("/org/tfa", {
+		tfa_token,
+		tfa_code: tfaCode,
+		remember_me: false,
+	});
+	if (tfaRes.status !== 200) {
+		throw new Error(
+			`org TFA failed for ${email}: ${tfaRes.status} — ${await tfaRes.text()}`
+		);
+	}
+	const { session_token } = (await tfaRes.json()) as { session_token: string };
+	return session_token;
+}
+
+interface OrgInvitee {
+	email: string;
+	fullName: string;
+	roles: string[];
+}
+
+// Invite an org user and complete their setup so they end up active with a
+// password. Idempotent: a 409 (already a member) is treated as success.
+async function inviteOrgUser(
+	adminToken: string,
+	invitee: OrgInvitee
+): Promise<void> {
+	await clearEmails(invitee.email);
+
+	const inviteRes = await post(
+		"/org/invite-user",
+		{ email_address: invitee.email, roles: invitee.roles },
+		adminToken
+	);
+	if (inviteRes.status === 409) {
+		console.log(`    invite: ${invitee.email} — already a member, skipping`);
+		return;
+	}
+	if (inviteRes.status !== 201) {
+		throw new Error(
+			`invite-user failed for ${invitee.email}: ${inviteRes.status} — ${await inviteRes.text()}`
+		);
+	}
+
+	const emailText = await waitForEmailText(invitee.email);
+	const invitationToken = extractOrgInvitationToken(emailText);
+
+	const setupRes = await post("/org/complete-setup", {
+		invitation_token: invitationToken,
+		password: PASSWORD,
+		full_name: invitee.fullName,
+		preferred_language: LANG,
+	});
+	if (setupRes.status !== 200) {
+		throw new Error(
+			`complete-setup failed for ${invitee.email}: ${setupRes.status} — ${await setupRes.text()}`
+		);
+	}
+	console.log(
+		`    invite: ${invitee.email} — created [${invitee.roles.join(", ")}]`
+	);
+}
+
+interface OrgAddressSeed {
+	title: string;
+	address_line1: string;
+	address_line2?: string;
+	city: string;
+	state?: string;
+	postal_code?: string;
+	country: string;
+	map_urls?: string[];
+}
+
+// Create an org address. Idempotent: skips if an address with the same title
+// already exists (addresses have no natural unique key).
+async function createOrgAddress(
+	adminToken: string,
+	address: OrgAddressSeed
+): Promise<void> {
+	const listRes = await post("/org/list-addresses", {}, adminToken);
+	if (listRes.status === 200) {
+		const { addresses } = (await listRes.json()) as {
+			addresses: { title: string }[];
+		};
+		if (addresses.some((a) => a.title === address.title)) {
+			console.log(`    address: "${address.title}" — already exists, skipping`);
+			return;
+		}
+	}
+
+	const res = await post("/org/create-address", address, adminToken);
+	if (res.status !== 201) {
+		throw new Error(
+			`create-address failed for "${address.title}": ${res.status} — ${await res.text()}`
+		);
+	}
+	console.log(`    address: "${address.title}" — created`);
+}
+
+// Seed the Gryffindor org with an extra admin, an office address and members.
+async function seedGryffindor(): Promise<void> {
+	const domain = "gryffindor.example";
+	console.log(`\nSeeding ${domain} (admin, address, members)...`);
+
+	const adminToken = await orgLogin("admin@gryffindor.example", domain);
+
+	await createOrgAddress(adminToken, GRYFFINDOR_ADDRESS);
+
+	// Sequential: the free tier caps org_users at 5 (1 existing + 4 here), so
+	// keep ordering deterministic and avoid any quota race between parallel invites.
+	for (const invitee of GRYFFINDOR_INVITEES) {
+		await inviteOrgUser(adminToken, invitee);
+	}
+}
+
 // ============================================================================
 // Seed data
 // ============================================================================
@@ -338,6 +482,46 @@ const ORG_ADMINS: OrgAdmin[] = [
 	{ email: "admin@hufflepuff.example", homeRegion: "ind1" },
 ];
 
+// Gryffindor office address.
+const GRYFFINDOR_ADDRESS: OrgAddressSeed = {
+	title: "Gryffindor Tower",
+	address_line1: "Hogwarts Castle, Gryffindor Tower",
+	address_line2: "Seventh Floor",
+	city: "Hogsmeade",
+	state: "Scottish Highlands",
+	postal_code: "HG1 1GR",
+	country: "United Kingdom",
+};
+
+// Extra Gryffindor members: the three students (Harry manages
+// openings/applications, Hermione & Ron are read-only).
+const GRYFFINDOR_INVITEES: OrgInvitee[] = [
+	{
+		email: "harry@gryffindor.example",
+		fullName: "Harry Potter",
+		// manage_openings/applications to do the work, plus the view_* roles the
+		// create-opening form needs: it lists users (mandatory hiring manager +
+		// recruiter), addresses (mandatory), and cost centers to populate pickers.
+		roles: [
+			"org:manage_openings",
+			"org:manage_applications",
+			"org:view_users",
+			"org:view_addresses",
+			"org:view_costcenters",
+		],
+	},
+	{
+		email: "hermione@gryffindor.example",
+		fullName: "Hermione Granger",
+		roles: ["org:view_openings", "org:view_applications"],
+	},
+	{
+		email: "ron@gryffindor.example",
+		fullName: "Ron Weasley",
+		roles: ["org:view_openings", "org:view_applications"],
+	},
+];
+
 // ============================================================================
 // Main
 // ============================================================================
@@ -360,6 +544,10 @@ async function main(): Promise<void> {
 	console.log("\nCreating house orgs in parallel...");
 	await Promise.all(ORG_ADMINS.map(createOrg));
 
+	// Seed Gryffindor with an extra admin, an office address and members.
+	// Runs after the house orgs exist since it logs in as the Gryffindor admin.
+	await seedGryffindor();
+
 	console.log("\n=== Seed complete! ===");
 	console.log(
 		"\nHub users — log in at http://localhost:3000 (password: Password123$):"
@@ -374,6 +562,13 @@ async function main(): Promise<void> {
 		const domain = u.email.split("@")[1];
 		console.log(`  ${u.email}  →  ${domain}  (home: ${u.homeRegion})`);
 	}
+	console.log(
+		"\nGryffindor (gryffindor.example) extra members — log in at http://localhost:3002 (password: Password123$):"
+	);
+	for (const u of GRYFFINDOR_INVITEES) {
+		console.log(`  ${u.email}  [${u.roles.join(", ")}]`);
+	}
+	console.log(`  office address: "${GRYFFINDOR_ADDRESS.title}"`);
 }
 
 main().catch((err) => {

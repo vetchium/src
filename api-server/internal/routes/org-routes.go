@@ -42,6 +42,12 @@ func RegisterOrgRoutes(mux *http.ServeMux, s *server.RegionalServer) {
 	orgRoleManageAddresses := middleware.OrgRole(s.AllRegionalDBs, orgspec.OrgRoleManageAddresses)
 	orgRoleViewOpenings := middleware.OrgRole(s.AllRegionalDBs, orgspec.OrgRoleViewOpenings, orgspec.OrgRoleManageOpenings)
 	orgRoleManageOpenings := middleware.OrgRole(s.AllRegionalDBs, orgspec.OrgRoleManageOpenings)
+	orgRoleViewApplications := middleware.OrgRole(s.AllRegionalDBs, orgspec.OrgRoleViewApplications, orgspec.OrgRoleManageApplications)
+	orgRoleManageApplications := middleware.OrgRole(s.AllRegionalDBs, orgspec.OrgRoleManageApplications)
+	orgRoleViewCandidacies := middleware.OrgRole(s.AllRegionalDBs, orgspec.OrgRoleViewApplications, orgspec.OrgRoleViewCandidacies, orgspec.OrgRoleManageCandidacies)
+	orgRoleManageCandidacies := middleware.OrgRole(s.AllRegionalDBs, orgspec.OrgRoleManageCandidacies)
+	orgRoleViewHiringSettings := middleware.OrgRole(s.AllRegionalDBs, orgspec.OrgRoleViewHiringSettings, orgspec.OrgRoleManageHiringSettings)
+	orgRoleManageHiringSettings := middleware.OrgRole(s.AllRegionalDBs, orgspec.OrgRoleManageHiringSettings)
 
 	// Domain write routes (manage_domains required; superadmin bypasses via middleware)
 	mux.Handle("POST /org/claim-domain", orgAuth(orgRoleManageDomains(org.ClaimDomain(s))))
@@ -129,6 +135,10 @@ func RegisterOrgRoutes(mux *http.ServeMux, s *server.RegionalServer) {
 	// Marketplace clients (provider view)
 	mux.Handle("POST /org/marketplace/list-clients", orgAuth(orgRoleViewListings(org.ListMyClients(s))))
 
+	// Watcher routes (manage_openings required)
+	mux.Handle("POST /org/add-watcher", orgAuth(orgRoleManageOpenings(org.AddWatcher(s))))
+	mux.Handle("POST /org/remove-watcher", orgAuth(orgRoleManageOpenings(org.RemoveWatcher(s))))
+
 	// Job opening routes
 	mux.Handle("POST /org/create-opening", orgAuth(orgRoleManageOpenings(org.CreateOpening(s))))
 	mux.Handle("POST /org/list-openings", orgAuth(orgRoleViewOpenings(org.ListOpenings(s))))
@@ -143,5 +153,40 @@ func RegisterOrgRoutes(mux *http.ServeMux, s *server.RegionalServer) {
 	mux.Handle("POST /org/reopen-opening", orgAuth(orgRoleManageOpenings(org.ReopenOpening(s))))
 	mux.Handle("POST /org/close-opening", orgAuth(orgRoleManageOpenings(org.CloseOpening(s))))
 	mux.Handle("POST /org/archive-opening", orgAuth(orgRoleManageOpenings(org.ArchiveOpening(s))))
+
+	// Hiring settings routes
+	mux.Handle("POST /org/get-hiring-settings", orgAuth(orgRoleViewHiringSettings(org.GetHiringSettings(s))))
+	mux.Handle("POST /org/update-hiring-settings", orgAuth(orgRoleManageHiringSettings(org.UpdateHiringSettings(s))))
+
+	// Application management routes
+	mux.Handle("POST /org/list-applications", orgAuth(orgRoleViewApplications(org.ListApplications(s))))
+	mux.Handle("POST /org/get-application", orgAuth(orgRoleViewApplications(org.GetApplication(s))))
+	mux.Handle("POST /org/shortlist-application", orgAuth(orgRoleManageApplications(org.ShortlistApplication(s))))
+	mux.Handle("POST /org/reject-application", orgAuth(orgRoleManageApplications(org.RejectApplication(s))))
+	mux.Handle("POST /org/label-application", orgAuth(orgRoleManageApplications(org.LabelApplication(s))))
+
+	// Candidacy management routes
+	mux.Handle("POST /org/list-candidacies", orgAuth(orgRoleViewCandidacies(org.ListCandidacies(s))))
+	mux.Handle("POST /org/get-candidacy", orgAuth(orgRoleViewCandidacies(org.GetCandidacy(s))))
+	mux.Handle("POST /org/add-candidacy-comment", orgAuth(orgRoleManageCandidacies(org.AddCandidacyComment(s))))
+
+	// Interview management routes (T2 Tranche)
+	mux.Handle("POST /org/schedule-interview", orgAuth(orgRoleManageCandidacies(org.ScheduleInterview(s))))
+	mux.Handle("POST /org/list-interviews", orgAuth(orgRoleViewCandidacies(org.ListInterviews(s))))
+	mux.Handle("POST /org/get-interview", orgAuth(orgRoleViewCandidacies(org.GetInterview(s))))
+	mux.Handle("POST /org/update-interview", orgAuth(orgRoleManageCandidacies(org.UpdateInterview(s))))
+	mux.Handle("POST /org/cancel-interview", orgAuth(orgRoleManageCandidacies(org.CancelInterview(s))))
+	mux.Handle("POST /org/add-interviewer", orgAuth(orgRoleManageCandidacies(org.AddInterviewer(s))))
+	mux.Handle("POST /org/remove-interviewer", orgAuth(orgRoleManageCandidacies(org.RemoveInterviewer(s))))
+	mux.Handle("POST /org/submit-interview-feedback", orgAuth(org.SubmitInterviewFeedback(s)))
+	mux.Handle("POST /org/rsvp-interview", orgAuth(org.RSVPInterview(s)))
+
+	// Offer management routes (T2 Tranche)
+	mux.Handle("POST /org/extend-offer", orgAuth(orgRoleManageCandidacies(org.ExtendOffer(s))))
+
+	// Reference management routes (T4 Tranche)
+	mux.Handle("POST /org/request-references", orgAuth(orgRoleManageCandidacies(org.RequestReferences(s))))
+	mux.Handle("POST /org/list-reference-nominations", orgAuth(orgRoleViewCandidacies(org.ListReferenceNominations(s))))
+	mux.Handle("POST /org/list-reference-responses", orgAuth(orgRoleViewCandidacies(org.ListReferenceResponses(s))))
 
 }

@@ -1194,6 +1194,10 @@ export function generateTestOrgEmail(
 	return { email, domain };
 }
 
+export function generateOrgUserEmail(prefix: string, domain: string): string {
+	return `${prefix}-${randomUUID().substring(0, 8)}@${domain}`;
+}
+
 /**
  * Creates a test org user directly in the database (bypassing the API).
  * This is necessary because the org signup flow requires DNS verification
@@ -2006,4 +2010,151 @@ export async function insertReverifyChallengeDirect(
 	} finally {
 		await regionalPool.end();
 	}
+}
+
+/**
+ * Creates a bidirectional 'connected' entry in hub_user_connections for two hub users.
+ * Both users must exist in the same regional DB (default: ind1).
+ */
+export async function createTestHubConnectionDirect(
+	globalIdA: string,
+	handleA: string,
+	globalIdB: string,
+	handleB: string,
+	region: RegionCode = "ind1"
+): Promise<void> {
+	const regionalPool = getRegionalPool(region);
+	const now = new Date();
+	try {
+		await regionalPool.query(
+			`INSERT INTO hub_user_connections (me, peer, peer_handle, status, connected_at)
+			 VALUES ($1, $2, $3, 'connected', $5),
+			        ($2, $1, $4, 'connected', $5)
+			 ON CONFLICT (me, peer) DO NOTHING`,
+			[globalIdA, globalIdB, handleB, handleA, now]
+		);
+	} finally {
+		await regionalPool.end();
+	}
+}
+
+/**
+ * Creates a published opening directly in the regional DB for testing.
+ * Returns the opening_id and opening_number.
+ */
+export async function createTestOpeningDirect(
+	orgId: string,
+	orgUserId: string,
+	title: string = "Test Opening",
+	region: RegionCode = "ind1"
+): Promise<{ openingId: string; openingNumber: number }> {
+	const regionalPool = getRegionalPool(region);
+	try {
+		// Get next opening_number for this org
+		const counterResult = await regionalPool.query(
+			`SELECT COALESCE(MAX(opening_number), 0) + 1 AS next_num FROM openings WHERE org_id = $1`,
+			[orgId]
+		);
+		const openingNumber = counterResult.rows[0].next_num as number;
+
+		const result = await regionalPool.query(
+			`INSERT INTO openings
+			   (org_id, opening_number, title, description, is_internal, employment_type,
+			    work_location_type, number_of_positions, hiring_manager_org_user_id,
+			    recruiter_org_user_id, status, first_published_at)
+			 VALUES ($1, $2, $3, 'Test description for automated testing', FALSE, 'full_time',
+			         'remote', 1, $4, $4, 'published', NOW())
+			 RETURNING opening_id`,
+			[orgId, openingNumber, title, orgUserId]
+		);
+		return {
+			openingId: result.rows[0].opening_id as string,
+			openingNumber: openingNumber as number,
+		};
+	} finally {
+		await regionalPool.end();
+	}
+}
+
+/**
+ * Creates an application row directly in both regional and global DBs.
+ * Returns the application_id.
+ */
+export async function createTestApplicationDirect(
+	orgId: string,
+	orgDomain: string,
+	openingId: string,
+	openingNumber: number,
+	hubUserGlobalId: string,
+	handle: string,
+	displayName: string,
+	region: RegionCode = "ind1"
+): Promise<string> {
+	const applicationId = randomUUID();
+	const regionalPool = getRegionalPool(region);
+	try {
+		await regionalPool.query(
+			`INSERT INTO applications
+			   (application_id, org_id, opening_id, opening_number,
+			    applicant_hub_user_global_id, applicant_handle_snapshot,
+			    applicant_display_name_snapshot, cover_letter, resume_s3_key)
+			 VALUES ($1, $2, $3, $4, $5, $6, $7,
+			   'Test cover letter for automated testing — it is long enough to pass validation checks and includes all required content.',
+			   'test-resume.pdf')`,
+			[
+				applicationId,
+				orgId,
+				openingId,
+				openingNumber,
+				hubUserGlobalId,
+				handle,
+				displayName,
+			]
+		);
+	} finally {
+		await regionalPool.end();
+	}
+
+	// Create global index entry
+	await pool.query(
+		`INSERT INTO applications_index
+		   (application_id, hub_user_global_id, region, org_id, org_domain, opening_number, applied_at, state)
+		 VALUES ($1, $2, $3, $4, $5, $6, NOW(), 'applied')`,
+		[applicationId, hubUserGlobalId, region, orgId, orgDomain, openingNumber]
+	);
+
+	return applicationId;
+}
+
+/**
+ * Creates an endorsement_request row directly in the regional DB + global index.
+ * Returns the request_id.
+ */
+export async function createTestEndorsementRequestDirect(
+	applicationId: string,
+	endorserHubUserGlobalId: string,
+	region: RegionCode = "ind1",
+	note?: string
+): Promise<string> {
+	const requestId = randomUUID();
+	const regionalPool = getRegionalPool(region);
+	try {
+		await regionalPool.query(
+			`INSERT INTO endorsement_requests (request_id, application_id, endorser_hub_user_global_id, note)
+			 VALUES ($1, $2, $3, $4)`,
+			[requestId, applicationId, endorserHubUserGlobalId, note ?? null]
+		);
+	} finally {
+		await regionalPool.end();
+	}
+
+	// Create global index entry
+	await pool.query(
+		`INSERT INTO endorsement_requests_index
+		   (request_id, endorser_hub_user_global_id, region, application_id, state, requested_at)
+		 VALUES ($1, $2, $3, $4, 'pending', NOW())`,
+		[requestId, endorserHubUserGlobalId, region, applicationId]
+	);
+
+	return requestId;
 }

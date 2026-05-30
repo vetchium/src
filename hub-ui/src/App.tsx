@@ -30,6 +30,18 @@ import { MyActivityPage } from "./pages/MyActivityPage";
 import { MyProfilePage } from "./pages/Profile/MyProfilePage";
 import { ProfilePage } from "./pages/Profile/ProfilePage";
 import { ConnectionsPage } from "./pages/Connections/ConnectionsPage";
+import { EndorsementInboxPage } from "./pages/endorsements/InboxPage";
+import { WriteEndorsementPage } from "./pages/endorsements/WritePage";
+import { ReferralInboxPage } from "./pages/referrals/ReferralInboxPage";
+import { NominatePage } from "./pages/referrals/NominatePage";
+import { MyApplicationDetailPage } from "./pages/applications/MyApplicationDetailPage";
+import { MyApplicationsPage } from "./pages/Hiring/MyApplicationsPage";
+import { OpeningsListPage } from "./pages/Openings/OpeningsListPage";
+import { OpeningDetailPage } from "./pages/Openings/OpeningDetailPage";
+import { ApplyForOpeningPage } from "./pages/Openings/ApplyForOpeningPage";
+import { MyCandidaciesPage } from "./pages/Candidacies/MyCandidaciesPage";
+import { MyCandidacyDetailPage } from "./pages/Candidacies/MyCandidacyDetailPage";
+import { ApplyPreferencesPage } from "./pages/Settings/ApplyPreferencesPage";
 
 const { Content } = Layout;
 
@@ -196,6 +208,102 @@ function AppContent() {
 									<AuthRoute>
 										<SignupVerifyPage />
 									</AuthRoute>
+								}
+							/>
+							<Route
+								path="/endorsement-requests"
+								element={
+									<ProtectedRoute>
+										<EndorsementInboxPage />
+									</ProtectedRoute>
+								}
+							/>
+							<Route
+								path="/endorsement-requests/:requestId/write"
+								element={
+									<ProtectedRoute>
+										<WriteEndorsementPage />
+									</ProtectedRoute>
+								}
+							/>
+							<Route
+								path="/referrals"
+								element={
+									<ProtectedRoute>
+										<ReferralInboxPage />
+									</ProtectedRoute>
+								}
+							/>
+							<Route
+								path="/my-employer/:orgDomain/openings/:openingNumber/refer"
+								element={
+									<ProtectedRoute>
+										<NominatePage />
+									</ProtectedRoute>
+								}
+							/>
+							<Route
+								path="/my-applications"
+								element={
+									<ProtectedRoute>
+										<MyApplicationsPage />
+									</ProtectedRoute>
+								}
+							/>
+							<Route
+								path="/my-applications/:applicationId"
+								element={
+									<ProtectedRoute>
+										<MyApplicationDetailPage />
+									</ProtectedRoute>
+								}
+							/>
+							<Route
+								path="/openings"
+								element={
+									<ProtectedRoute>
+										<OpeningsListPage />
+									</ProtectedRoute>
+								}
+							/>
+							<Route
+								path="/org/:orgDomain/openings/:openingNumber"
+								element={
+									<ProtectedRoute>
+										<OpeningDetailPage />
+									</ProtectedRoute>
+								}
+							/>
+							<Route
+								path="/org/:orgDomain/openings/:openingNumber/apply"
+								element={
+									<ProtectedRoute>
+										<ApplyForOpeningPage />
+									</ProtectedRoute>
+								}
+							/>
+							<Route
+								path="/my-candidacies"
+								element={
+									<ProtectedRoute>
+										<MyCandidaciesPage />
+									</ProtectedRoute>
+								}
+							/>
+							<Route
+								path="/my-candidacies/:candidacyId"
+								element={
+									<ProtectedRoute>
+										<MyCandidacyDetailPage />
+									</ProtectedRoute>
+								}
+							/>
+							<Route
+								path="/settings/apply-preferences"
+								element={
+									<ProtectedRoute>
+										<ApplyPreferencesPage />
+									</ProtectedRoute>
 								}
 							/>
 							<Route path="*" element={<NotFoundPage />} />

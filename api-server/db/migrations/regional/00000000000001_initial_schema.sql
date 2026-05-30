@@ -24,7 +24,27 @@ CREATE TYPE email_template_type AS ENUM (
     'org_tfa',
     'org_invitation',
     'org_password_reset',
-    'org_suborg_disabled'
+    'org_suborg_disabled',
+    'hub_application_shortlisted',
+    'hub_application_rejected',
+    'org_new_application',
+    'org_application_withdrawn',
+    'hub_interview_scheduled',
+    'hub_interview_updated',
+    'hub_interview_cancelled',
+    'hub_offer_extended',
+    'org_interview_scheduled_for_interviewer',
+    'org_interview_updated_for_interviewer',
+    'org_interview_cancelled_for_interviewer',
+    'org_interviewer_removed',
+    'org_offer_extended_for_watcher',
+    'hub_endorsement_request',
+    'hub_endorsement_written',
+    'hub_referral_received',
+    'hub_reference_request_received',
+    'hub_reference_nomination_received',
+    'hub_reference_nomination_accepted',
+    'hub_colleague_applied_alert'
 );
 -- Authentication type enum (extensible for future SSO, hardware tokens, etc.)
 CREATE TYPE authentication_type AS ENUM (
@@ -277,6 +297,12 @@ INSERT INTO roles (role_name, description) VALUES
     ('org:manage_addresses', 'Can create, update, enable and disable company addresses'),
     ('org:view_openings', 'Can view job openings and details (read-only)'),
     ('org:manage_openings', 'Can create, edit, submit, approve, reject, pause, reopen, close, archive, discard, and duplicate job openings'),
+    ('org:view_applications', 'Can list and view applications and candidacies (read-only)'),
+    ('org:manage_applications', 'Can shortlist, reject, and label applications'),
+    ('org:view_candidacies', 'Can list and view candidacies, interviews, and references (read-only)'),
+    ('org:manage_candidacies', 'Can schedule/cancel interviews, comment on candidacies, extend offers, request references'),
+    ('org:view_hiring_settings', 'Can view org-level hiring configuration (cool-off, defaults) read-only'),
+    ('org:manage_hiring_settings', 'Can update org-level hiring configuration'),
 
     -- Hub portal roles (assigned at signup, additional roles for paid features)
     ('hub:read_posts', 'Can read posts by other hub users'),
@@ -548,6 +574,215 @@ CREATE TABLE hub_blocks (
 
 CREATE INDEX idx_hub_blocks_blocked ON hub_blocks (blocked_user_id);
 
+-- Hiring settings per organization
+CREATE TABLE org_hiring_settings (
+    org_id          UUID PRIMARY KEY,
+    cool_off_days   INT NOT NULL DEFAULT 90 CHECK (cool_off_days >= 0 AND cool_off_days <= 365),
+    allow_unsolicited_endorsements_default BOOLEAN NOT NULL DEFAULT FALSE,
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_by      UUID
+);
+
+-- Job applications table
+CREATE TABLE applications (
+    application_id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    org_id                 UUID NOT NULL,
+    opening_id             UUID NOT NULL,
+    opening_number         INT  NOT NULL,
+    applicant_hub_user_global_id UUID NOT NULL,
+    applicant_handle_snapshot    TEXT NOT NULL,
+    applicant_display_name_snapshot TEXT NOT NULL,
+    cover_letter           TEXT NOT NULL,
+    resume_s3_key          TEXT NOT NULL,
+    ai_score               NUMERIC(5,4),
+    state                  TEXT NOT NULL DEFAULT 'applied'
+                            CHECK (state IN ('applied','shortlisted','rejected','withdrawn','expired')),
+    label                  TEXT CHECK (label IN ('green','yellow','red')),
+    notify_colleagues_at_target BOOLEAN NOT NULL DEFAULT FALSE,
+    rejection_reason       TEXT,
+    applied_at             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    state_changed_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (org_id, applicant_hub_user_global_id, opening_id)
+);
+
+CREATE UNIQUE INDEX applications_one_live_per_org
+    ON applications (org_id, applicant_hub_user_global_id)
+    WHERE state IN ('applied','shortlisted');
+
+CREATE INDEX idx_applications_by_opening ON applications (opening_id, state, applied_at DESC);
+CREATE INDEX idx_applications_by_applicant ON applications (applicant_hub_user_global_id, applied_at DESC);
+
+-- Candidacies table (created when application is shortlisted)
+CREATE TABLE candidacies (
+    candidacy_id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    application_id         UUID NOT NULL UNIQUE,
+    org_id                 UUID NOT NULL,
+    opening_id             UUID NOT NULL,
+    applicant_hub_user_global_id UUID NOT NULL,
+    state                  TEXT NOT NULL DEFAULT 'interviewing'
+                            CHECK (state IN ('interviewing','offered','offer_accepted','offer_declined','candidate_unsuitable','candidate_not_responding','employer_defunct')),
+    created_at             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    state_changed_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_candidacies_by_opening ON candidacies (opening_id, state);
+CREATE INDEX idx_candidacies_by_applicant ON candidacies (applicant_hub_user_global_id, created_at DESC);
+
+-- Candidacy comments (visible to both candidate and org team)
+CREATE TABLE candidacy_comments (
+    comment_id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    candidacy_id         UUID NOT NULL,
+    author_org_user_id   UUID,
+    author_hub_user_global_id UUID,
+    is_system            BOOLEAN NOT NULL DEFAULT FALSE,
+    body                 TEXT NOT NULL CHECK (length(body) BETWEEN 1 AND 4000),
+    created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CHECK ((author_org_user_id IS NOT NULL) <> (author_hub_user_global_id IS NOT NULL) OR is_system)
+);
+
+CREATE INDEX candidacy_comments_by_candidacy ON candidacy_comments (candidacy_id, created_at);
+
+-- Interviews table
+CREATE TABLE interviews (
+    interview_id   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    candidacy_id   UUID NOT NULL,
+    interview_type TEXT NOT NULL CHECK (interview_type IN ('in_person','video','take_home','other')),
+    starts_at      TIMESTAMPTZ NOT NULL,
+    ends_at        TIMESTAMPTZ NOT NULL CHECK (ends_at > starts_at),
+    description    TEXT,
+    state          TEXT NOT NULL DEFAULT 'scheduled'
+                    CHECK (state IN ('scheduled','completed','cancelled')),
+    candidate_rsvp TEXT CHECK (candidate_rsvp IN ('yes','no')),
+    created_by     UUID NOT NULL,
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    state_changed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX interviews_by_candidacy ON interviews (candidacy_id, starts_at);
+
+-- Interview interviewers table
+CREATE TABLE interview_interviewers (
+    interview_id      UUID NOT NULL,
+    org_user_id       UUID NOT NULL,
+    rsvp              TEXT CHECK (rsvp IN ('yes','no')),
+    added_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (interview_id, org_user_id)
+);
+
+-- Interview feedback table
+CREATE TABLE interview_feedback (
+    interview_id       UUID NOT NULL,
+    interviewer_org_user_id UUID NOT NULL,
+    decision           TEXT NOT NULL CHECK (decision IN ('strong_yes','yes','neutral','no','strong_no')),
+    positives          TEXT NOT NULL CHECK (length(positives) BETWEEN 1 AND 4000),
+    negatives          TEXT NOT NULL CHECK (length(negatives) BETWEEN 1 AND 4000),
+    overall_assessment TEXT NOT NULL CHECK (length(overall_assessment) BETWEEN 1 AND 4000),
+    candidate_feedback TEXT CHECK (candidate_feedback IS NULL OR length(candidate_feedback) <= 2000),
+    submitted_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (interview_id, interviewer_org_user_id)
+);
+
+-- Offers table
+CREATE TABLE offers (
+    candidacy_id       UUID PRIMARY KEY,
+    offer_letter_s3_key TEXT NOT NULL,
+    salary_currency    TEXT,
+    salary_amount      NUMERIC,
+    start_date         DATE,
+    notes              TEXT,
+    extended_by_org_user_id UUID NOT NULL,
+    extended_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Hub user application preferences
+CREATE TABLE hub_apply_preferences (
+    hub_user_global_id           UUID PRIMARY KEY,
+    notify_connections_on_apply  BOOLEAN NOT NULL DEFAULT FALSE,
+    allow_unsolicited_endorsements BOOLEAN NOT NULL DEFAULT FALSE
+);
+
+-- Endorsement requests (candidate asks a connection to endorse them)
+CREATE TABLE endorsement_requests (
+    request_id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    application_id               UUID NOT NULL,
+    endorser_hub_user_global_id  UUID NOT NULL,
+    note                         TEXT CHECK (note IS NULL OR length(note) <= 500),
+    state                        TEXT NOT NULL DEFAULT 'pending'
+                                   CHECK (state IN ('pending','written','declined','expired')),
+    requested_at                 TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    resolved_at                  TIMESTAMPTZ,
+    UNIQUE (application_id, endorser_hub_user_global_id)
+);
+
+-- Written endorsements
+CREATE TABLE endorsements (
+    endorsement_id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    application_id               UUID NOT NULL,
+    endorser_hub_user_global_id  UUID NOT NULL,
+    request_id                   UUID UNIQUE,
+    is_referral                  BOOLEAN NOT NULL DEFAULT FALSE,
+    referral_id                  UUID,
+    shared_domain                TEXT NOT NULL,
+    overlap_start_year           INT  NOT NULL,
+    overlap_end_year             INT  NOT NULL,
+    text                         TEXT NOT NULL CHECK (length(text) BETWEEN 100 AND 2000),
+    hidden_by_candidate          BOOLEAN NOT NULL DEFAULT FALSE,
+    written_at                   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    edited_at                    TIMESTAMPTZ,
+    UNIQUE (application_id, endorser_hub_user_global_id)
+);
+
+-- Referral nominations (current employee refers a former colleague for an opening)
+CREATE TABLE referral_nominations (
+    nomination_id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    referrer_hub_user_global_id  UUID NOT NULL,
+    candidate_hub_user_global_id UUID NOT NULL,
+    opening_id                   UUID NOT NULL,
+    org_id                       UUID NOT NULL,
+    statement_text               TEXT NOT NULL CHECK (length(statement_text) BETWEEN 100 AND 2000),
+    shared_domain                TEXT NOT NULL,
+    overlap_start_year           INT  NOT NULL,
+    overlap_end_year             INT  NOT NULL,
+    state                        TEXT NOT NULL DEFAULT 'pending'
+                                   CHECK (state IN ('pending','accepted_applied','declined','expired')),
+    created_at                   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    resolved_at                  TIMESTAMPTZ,
+    expires_at                   TIMESTAMPTZ NOT NULL DEFAULT NOW() + INTERVAL '30 days',
+    UNIQUE (referrer_hub_user_global_id, candidate_hub_user_global_id, opening_id)
+);
+
+CREATE TABLE reference_requests (
+    request_id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    candidacy_id         UUID NOT NULL,
+    requested_by_org_user_id UUID NOT NULL,
+    max_references       INT  NOT NULL CHECK (max_references BETWEEN 1 AND 5),
+    response_deadline    DATE NOT NULL,
+    questions            JSONB NOT NULL,
+    created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE reference_nominations (
+    nomination_id        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    request_id           UUID NOT NULL,
+    nominee_hub_user_global_id UUID NOT NULL,
+    shared_domain        TEXT NOT NULL,
+    overlap_start_year   INT  NOT NULL,
+    overlap_end_year     INT  NOT NULL,
+    state                TEXT NOT NULL DEFAULT 'nominated'
+                           CHECK (state IN ('nominated','accepted','declined','submitted','expired')),
+    nominated_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    submitted_at         TIMESTAMPTZ,
+    expires_at           TIMESTAMPTZ NOT NULL,
+    UNIQUE (request_id, nominee_hub_user_global_id)
+);
+
+CREATE TABLE reference_responses (
+    response_id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    nomination_id        UUID NOT NULL,
+    question_id          TEXT NOT NULL,
+    response_text        TEXT NOT NULL,
+    UNIQUE (nomination_id, question_id)
+);
+
 -- +goose Down
 DROP INDEX IF EXISTS idx_hub_blocks_blocked;
 DROP TABLE IF EXISTS hub_blocks;
@@ -628,6 +863,28 @@ DROP TABLE IF EXISTS hub_tfa_tokens;
 DROP TABLE IF EXISTS email_delivery_attempts;
 DROP TABLE IF EXISTS emails;
 DROP TABLE IF EXISTS pending_storage_cleanup;
+DROP TABLE IF EXISTS reference_responses;
+DROP TABLE IF EXISTS reference_nominations;
+DROP TABLE IF EXISTS reference_requests;
+DROP TABLE IF EXISTS offers;
+DROP TABLE IF EXISTS interview_feedback;
+DROP TABLE IF EXISTS interview_interviewers;
+DROP INDEX IF EXISTS interviews_by_candidacy;
+DROP TABLE IF EXISTS interviews;
+DROP INDEX IF EXISTS candidacy_comments_by_candidacy;
+DROP TABLE IF EXISTS candidacy_comments;
+DROP INDEX IF EXISTS idx_candidacies_by_applicant;
+DROP INDEX IF EXISTS idx_candidacies_by_opening;
+DROP TABLE IF EXISTS candidacies;
+DROP INDEX IF EXISTS idx_applications_by_applicant;
+DROP INDEX IF EXISTS idx_applications_by_opening;
+DROP INDEX IF EXISTS applications_one_live_per_org;
+DROP TABLE IF EXISTS referral_nominations;
+DROP TABLE IF EXISTS endorsements;
+DROP TABLE IF EXISTS endorsement_requests;
+DROP TABLE IF EXISTS applications;
+DROP TABLE IF EXISTS org_hiring_settings;
+DROP TABLE IF EXISTS hub_apply_preferences;
 DROP TABLE IF EXISTS hub_users;
 DROP TYPE IF EXISTS education_level;
 DROP TYPE IF EXISTS work_location_type;

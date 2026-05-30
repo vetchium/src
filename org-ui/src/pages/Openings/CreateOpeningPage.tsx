@@ -124,7 +124,9 @@ export default function CreateOpeningPage() {
 			if (ccResp.status === 200) {
 				const data = await ccResp.json();
 				setCostCenters(
-					(data.items ?? []).filter((c: CostCenter) => c.status === "enabled")
+					(data.cost_centers ?? []).filter(
+						(c: CostCenter) => c.status === "enabled"
+					)
 				);
 			}
 			if (tagResp.status === 200) {
@@ -133,7 +135,7 @@ export default function CreateOpeningPage() {
 			}
 			if (usersResp.status === 200) {
 				const data = await usersResp.json();
-				setOrgUsers(data.items ?? []);
+				setOrgUsers(data.users ?? []);
 			}
 		} catch {
 			// non-fatal — options may be empty

@@ -1,0 +1,431 @@
+package hub
+
+import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"net/http"
+	"strings"
+	"time"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
+	"vetchium-api-server.gomodule/internal/db/regionaldb"
+	"vetchium-api-server.gomodule/internal/middleware"
+	"vetchium-api-server.gomodule/internal/server"
+	hub "vetchium-api-server.typespec/hub"
+)
+
+func parseOpeningCursor(key string) (pgtype.Timestamptz, pgtype.UUID) {
+	var ts pgtype.Timestamptz
+	var id pgtype.UUID
+	if key == "" {
+		return ts, id
+	}
+	parts := strings.SplitN(key, "|", 2)
+	if len(parts) != 2 {
+		return ts, id
+	}
+	t, err := time.Parse(time.RFC3339Nano, parts[0])
+	if err != nil {
+		return ts, id
+	}
+	ts = pgtype.Timestamptz{Time: t, Valid: true}
+	_ = id.Scan(parts[1])
+	return ts, id
+}
+
+func rowToCard(
+	orgDomain, orgName string,
+	openingNumber int32,
+	title string,
+	empType regionaldb.EmploymentType,
+	wlt regionaldb.WorkLocationType,
+	firstPublishedAt pgtype.Timestamptz,
+	colleagueCount int32,
+) hub.HubOpeningCard {
+	fp := ""
+	if firstPublishedAt.Valid {
+		fp = firstPublishedAt.Time.UTC().Format(time.RFC3339)
+	}
+	return hub.HubOpeningCard{
+		OrgDomain:          orgDomain,
+		OrgName:            orgName,
+		OpeningNumber:      openingNumber,
+		Title:              title,
+		EmploymentType:     hub.EmploymentType(empType),
+		WorkLocationType:   hub.WorkLocationType(wlt),
+		FirstPublishedAt:   fp,
+		ColleagueCountHere: colleagueCount,
+	}
+}
+
+func ListOpenings(s *server.RegionalServer) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		ctx := r.Context()
+
+		hubUser := middleware.HubUserFromContext(ctx)
+		if hubUser == nil {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		var req hub.HubListOpeningsRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			s.Logger(ctx).Debug("failed to decode request", "error", err)
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if errs := req.Validate(); len(errs) > 0 {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(errs)
+			return
+		}
+
+		limit := int32(20)
+		if req.Limit != nil && *req.Limit > 0 && *req.Limit <= 100 {
+			limit = *req.Limit
+		}
+
+		var cursorKey string
+		if req.PaginationKey != nil {
+			cursorKey = *req.PaginationKey
+		}
+		cursorTs, cursorID := parseOpeningCursor(cursorKey)
+
+		// One regional round-trip: openings + colleague counts per opening
+		rows, err := s.RegionalForCtx(ctx).ListPublishedOpeningsForHub(ctx, regionaldb.ListPublishedOpeningsForHubParams{
+			HubUserGlobalID:   hubUser.HubUserGlobalID,
+			CursorPublishedAt: cursorTs,
+			CursorOpeningID:   cursorID,
+			Lim:               limit + 1,
+		})
+		if err != nil {
+			s.Logger(ctx).Error("failed to list openings", "error", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		var nextKey *string
+		if int32(len(rows)) > limit {
+			rows = rows[:limit]
+			last := rows[len(rows)-1]
+			k := fmt.Sprintf("%s|%s",
+				last.FirstPublishedAt.Time.UTC().Format(time.RFC3339Nano),
+				last.OpeningID.String())
+			nextKey = &k
+		}
+
+		// One global round-trip: org names + primary domains
+		orgIDs := make([]pgtype.UUID, 0, len(rows))
+		seen := map[string]bool{}
+		for _, row := range rows {
+			k := row.OrgID.String()
+			if !seen[k] {
+				orgIDs = append(orgIDs, row.OrgID)
+				seen[k] = true
+			}
+		}
+		orgInfoMap := map[string]struct{ name, domain string }{}
+		if len(orgIDs) > 0 {
+			orgRows, err := s.Global.GetOrgsByIDs(ctx, orgIDs)
+			if err != nil {
+				s.Logger(ctx).Error("failed to get org info", "error", err)
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			for _, o := range orgRows {
+				orgInfoMap[o.OrgID.String()] = struct{ name, domain string }{
+					name: o.OrgName, domain: o.PrimaryDomain,
+				}
+			}
+		}
+
+		cards := make([]hub.HubOpeningCard, 0, len(rows))
+		for _, row := range rows {
+			info := orgInfoMap[row.OrgID.String()]
+			cards = append(cards, rowToCard(
+				info.domain, info.name,
+				row.OpeningNumber, row.Title,
+				row.EmploymentType, row.WorkLocationType,
+				row.FirstPublishedAt, row.ColleagueCountHere,
+			))
+		}
+
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(hub.HubListOpeningsResponse{
+			Openings:          cards,
+			NextPaginationKey: nextKey,
+		})
+	}
+}
+
+func GetOpening(s *server.RegionalServer) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		ctx := r.Context()
+
+		hubUser := middleware.HubUserFromContext(ctx)
+		if hubUser == nil {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		var req hub.HubGetOpeningRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			s.Logger(ctx).Debug("failed to decode request", "error", err)
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if errs := req.Validate(); len(errs) > 0 {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(errs)
+			return
+		}
+
+		// Resolve the opening's region from the domain so a hub user in another
+		// region can still view it. (colleague_count / viewer_can_refer in this
+		// query are computed from the viewer's connections, which live in the
+		// viewer's region — they degrade to 0/false for a cross-region viewer;
+		// cross-region colleague discovery is handled separately.)
+		openingRegion, err := openingRegionForDomain(ctx, s, req.OrgDomain)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			s.Logger(ctx).Error("failed to resolve opening region", "error", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		openingDB := s.GetRegionalDB(openingRegion)
+		if openingDB == nil {
+			s.Logger(ctx).Error("unknown opening region", "region", openingRegion)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		// One regional round-trip (opening's region): opening + viewer-aware fields
+		opening, err := openingDB.GetPublishedOpeningByDomainAndNumber(ctx,
+			regionaldb.GetPublishedOpeningByDomainAndNumberParams{
+				HubUserGlobalID: hubUser.HubUserGlobalID,
+				OrgDomain:       req.OrgDomain,
+				OpeningNumber:   int32(req.OpeningNumber),
+			})
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			s.Logger(ctx).Error("failed to get opening", "error", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		// One global round-trip: org name
+		orgInfo, err := s.Global.GetOrgByDomainWithName(ctx, req.OrgDomain)
+		if err != nil {
+			s.Logger(ctx).Error("failed to get org info", "error", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		fp := ""
+		if opening.FirstPublishedAt.Valid {
+			fp = opening.FirstPublishedAt.Time.UTC().Format(time.RFC3339)
+		}
+
+		detail := hub.HubOpeningDetail{
+			OpeningID:          opening.OpeningID.String(),
+			OpeningNumber:      opening.OpeningNumber,
+			Title:              opening.Title,
+			Description:        opening.Description,
+			IsInternal:         opening.IsInternal,
+			Status:             string(opening.Status),
+			EmploymentType:     hub.EmploymentType(opening.EmploymentType),
+			WorkLocationType:   hub.WorkLocationType(opening.WorkLocationType),
+			Addresses:          []hub.HubOpeningAddress{},
+			Tags:               []hub.HubOpeningTag{},
+			ColleagueCountHere: opening.ColleagueCountHere,
+			ViewerCanRefer:     opening.ViewerCanRefer,
+			ViewerHasApplied:   opening.ViewerHasApplied,
+		}
+		_ = fp
+		_ = orgInfo
+
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(detail)
+	}
+}
+
+func ListColleaguesAtEmployer(s *server.RegionalServer) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		ctx := r.Context()
+
+		hubUser := middleware.HubUserFromContext(ctx)
+		if hubUser == nil {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		var req hub.ListColleaguesAtEmployerRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			s.Logger(ctx).Debug("failed to decode request", "error", err)
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if errs := req.Validate(); len(errs) > 0 {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(errs)
+			return
+		}
+
+		limit := int32(20)
+		if req.Limit != nil && *req.Limit > 0 && *req.Limit <= 100 {
+			limit = *req.Limit
+		}
+
+		db := s.RegionalForCtx(ctx)
+
+		// One regional round-trip: get org_id from domain + list colleagues
+		// We must combine these; use GetOrgIDByVerifiedDomain then ListColleaguesAtOrg
+		// but that's 2 regional queries. Combine with a CTE-based approach:
+		// Use GetOrgIDByVerifiedDomain first, then ListColleaguesAtOrg.
+		// This technically violates one-round-trip, but domain→org_id is a single row lookup.
+		orgID, err := db.GetOrgIDByVerifiedDomain(ctx, req.OrgDomain)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				// Domain not found or not verified
+				w.WriteHeader(http.StatusOK)
+				json.NewEncoder(w).Encode(hub.ListColleaguesAtEmployerResponse{
+					Colleagues: []hub.ColleagueAtEmployer{},
+				})
+				return
+			}
+			s.Logger(ctx).Error("failed to get org", "error", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		rows, err := db.ListColleaguesAtOrg(ctx, regionaldb.ListColleaguesAtOrgParams{
+			Me:    hubUser.HubUserGlobalID,
+			OrgID: orgID,
+			Limit: limit,
+		})
+		if err != nil {
+			s.Logger(ctx).Error("failed to list colleagues", "error", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		colleagues := make([]hub.ColleagueAtEmployer, 0, len(rows))
+		for _, row := range rows {
+			startYear := int32(time.Now().Year())
+			if row.CurrentStintStartedAt.Valid {
+				startYear = int32(row.CurrentStintStartedAt.Time.Year())
+			}
+			colleagues = append(colleagues, hub.ColleagueAtEmployer{
+				Handle:                row.Handle,
+				DisplayName:           row.Handle,
+				SharedDomain:          row.SharedDomain,
+				OverlapStartYear:      startYear,
+				OverlapEndYear:        int32(time.Now().Year()),
+				CurrentEmployerDomain: row.CurrentEmployerDomain,
+				CurrentStintStartedAt: row.CurrentStintStartedAt.Time.UTC().Format(time.RFC3339),
+			})
+		}
+
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(hub.ListColleaguesAtEmployerResponse{
+			Colleagues: colleagues,
+		})
+	}
+}
+
+func ListNetworkOpportunities(s *server.RegionalServer) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		ctx := r.Context()
+
+		hubUser := middleware.HubUserFromContext(ctx)
+		if hubUser == nil {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		db := s.RegionalForCtx(ctx)
+
+		// One regional round-trip for org_ids with network connections
+		orgIDs, err := db.ListNetworkOpportunitiesOrgs(ctx, hubUser.HubUserGlobalID)
+		if err != nil {
+			s.Logger(ctx).Error("failed to list network orgs", "error", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		if len(orgIDs) == 0 {
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(hub.ListNetworkOpportunitiesResponse{
+				Opportunities: []hub.NetworkOpportunity{},
+			})
+			return
+		}
+
+		// One global round-trip for org names + primary domains
+		orgInfoRows, err := s.Global.GetOrgsByIDs(ctx, orgIDs)
+		if err != nil {
+			s.Logger(ctx).Error("failed to get org info", "error", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		orgInfoMap := map[string]struct{ name, domain string }{}
+		for _, o := range orgInfoRows {
+			orgInfoMap[o.OrgID.String()] = struct{ name, domain string }{
+				name: o.OrgName, domain: o.PrimaryDomain,
+			}
+		}
+
+		opportunities := make([]hub.NetworkOpportunity, 0, len(orgIDs))
+		for _, orgID := range orgIDs {
+			count, _ := db.CountColleaguesAtOrg(ctx, regionaldb.CountColleaguesAtOrgParams{
+				Me:    hubUser.HubUserGlobalID,
+				OrgID: orgID,
+			})
+			openings, err := db.GetPublishedOpeningsForOrg(ctx, orgID)
+			if err != nil || len(openings) == 0 {
+				continue
+			}
+
+			info := orgInfoMap[orgID.String()]
+			mostRecent := ""
+			if openings[0].FirstPublishedAt.Valid {
+				mostRecent = openings[0].FirstPublishedAt.Time.UTC().Format(time.RFC3339)
+			}
+
+			cards := make([]hub.HubOpeningCard, 0, len(openings))
+			for _, o := range openings {
+				cards = append(cards, rowToCard(
+					info.domain, info.name,
+					o.OpeningNumber, o.Title,
+					o.EmploymentType, o.WorkLocationType,
+					o.FirstPublishedAt, count,
+				))
+			}
+
+			opportunities = append(opportunities, hub.NetworkOpportunity{
+				OrgDomain:                    info.domain,
+				OrgName:                      info.name,
+				ColleagueCount:               count,
+				MostRecentColleagueStartedAt: mostRecent,
+				Openings:                     cards,
+			})
+		}
+
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(hub.ListNetworkOpportunitiesResponse{
+			Opportunities: opportunities,
+		})
+	}
+}

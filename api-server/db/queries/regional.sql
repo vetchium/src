@@ -1485,3 +1485,488 @@ SELECT * FROM org_addresses WHERE address_id = ANY(@address_ids::uuid[]);
 
 -- name: GetCostCenterByID :one
 SELECT * FROM cost_centers WHERE cost_center_id = $1;
+
+-- Hiring-related queries
+
+-- name: GetApplicationByID :one
+SELECT * FROM applications WHERE application_id = $1;
+
+-- name: CreateApplication :one
+INSERT INTO applications (
+    org_id, opening_id, opening_number, applicant_hub_user_global_id,
+    applicant_handle_snapshot, applicant_display_name_snapshot,
+    cover_letter, resume_s3_key, state, notify_colleagues_at_target
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+RETURNING *;
+
+-- name: ListApplicationsForOpening :many
+SELECT * FROM applications
+WHERE opening_id = @opening_id
+  AND (
+    @cursor_applied_at::timestamptz IS NULL
+    OR applied_at < @cursor_applied_at::timestamptz
+    OR (applied_at = @cursor_applied_at::timestamptz AND application_id < @cursor_application_id::uuid)
+  )
+ORDER BY applied_at DESC, application_id DESC
+LIMIT @lim;
+
+-- name: WithdrawApplication :exec
+UPDATE applications SET state = 'withdrawn', state_changed_at = NOW() WHERE application_id = $1;
+
+-- name: ShortlistApplication :exec
+UPDATE applications SET state = 'shortlisted', state_changed_at = NOW() WHERE application_id = $1;
+
+-- name: RejectApplication :exec
+UPDATE applications SET state = 'rejected', state_changed_at = NOW(), rejection_reason = $2 WHERE application_id = $1;
+
+-- name: LabelApplication :exec
+UPDATE applications SET label = $2 WHERE application_id = $1;
+
+-- name: CreateCandidacy :one
+INSERT INTO candidacies (application_id, org_id, opening_id, applicant_hub_user_global_id, state)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING *;
+
+-- name: GetCandidacy :one
+SELECT * FROM candidacies WHERE candidacy_id = $1;
+
+-- name: UpdateCandidacy :one
+UPDATE candidacies
+SET state = COALESCE($2, state),
+    state_changed_at = NOW()
+WHERE candidacy_id = $1
+RETURNING *;
+
+-- name: ListCandidaciesForOrg :many
+SELECT
+    c.candidacy_id,
+    c.application_id,
+    c.org_id,
+    c.opening_id,
+    c.applicant_hub_user_global_id,
+    c.state,
+    c.created_at,
+    c.state_changed_at,
+    a.applicant_handle_snapshot,
+    a.applicant_display_name_snapshot,
+    (SELECT COUNT(*) FROM interviews iv WHERE iv.candidacy_id = c.candidacy_id AND iv.state = 'scheduled')::int4 AS scheduled_interview_count
+FROM candidacies c
+JOIN applications a ON a.application_id = c.application_id
+WHERE c.org_id = @org_id
+  AND (
+    @cursor_created_at::timestamptz IS NULL
+    OR c.created_at < @cursor_created_at::timestamptz
+    OR (c.created_at = @cursor_created_at::timestamptz AND c.candidacy_id < @cursor_candidacy_id::uuid)
+  )
+ORDER BY c.created_at DESC, c.candidacy_id DESC
+LIMIT @lim;
+
+-- name: GetCandidacyDetailForOrg :one
+SELECT
+    c.candidacy_id,
+    c.application_id,
+    c.org_id,
+    c.opening_id,
+    c.applicant_hub_user_global_id,
+    c.state,
+    c.created_at,
+    c.state_changed_at,
+    a.applicant_handle_snapshot,
+    a.applicant_display_name_snapshot,
+    o.title AS opening_title
+FROM candidacies c
+JOIN applications a ON a.application_id = c.application_id
+JOIN openings o ON o.opening_id = c.opening_id
+WHERE c.candidacy_id = $1;
+
+-- name: ListInterviewSummariesForCandidacy :many
+SELECT
+    i.interview_id,
+    i.interview_type,
+    i.starts_at,
+    i.ends_at,
+    i.state,
+    i.candidate_rsvp,
+    (SELECT COUNT(*) FROM interview_interviewers ii WHERE ii.interview_id = i.interview_id)::int4 AS interviewer_count,
+    (SELECT COUNT(*) FROM interview_feedback ifb WHERE ifb.interview_id = i.interview_id)::int4 AS feedback_submitted_count
+FROM interviews i
+WHERE i.candidacy_id = $1
+ORDER BY i.starts_at DESC;
+
+-- name: AddCandidacyComment :one
+INSERT INTO candidacy_comments (candidacy_id, body, author_org_user_id, author_hub_user_global_id)
+VALUES ($1, $2, $3, $4)
+RETURNING *;
+
+-- name: GetCandidacyCommentThread :many
+SELECT * FROM candidacy_comments WHERE candidacy_id = $1 ORDER BY created_at ASC;
+
+-- name: AddSystemComment :one
+INSERT INTO candidacy_comments (candidacy_id, body, is_system)
+VALUES ($1, $2, true)
+RETURNING *;
+
+-- name: CountConnectionsAtDomain :one
+SELECT COUNT(*) as count FROM hub_user_connections WHERE me = $1 AND status = 'connected';
+
+-- name: ListConnectionsAtDomain :many
+SELECT * FROM hub_user_connections WHERE me = $1 AND status = 'connected' ORDER BY connected_at DESC;
+
+-- name: ListNetworkOpportunities :many
+SELECT DISTINCT org_id FROM openings WHERE status = 'published' LIMIT 20;
+
+-- name: GetOrgHiringSettings :one
+SELECT * FROM org_hiring_settings WHERE org_id = $1;
+
+-- name: UpsertOrgHiringSettings :one
+INSERT INTO org_hiring_settings (org_id, cool_off_days, allow_unsolicited_endorsements_default, updated_by)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (org_id) DO UPDATE SET
+    cool_off_days = $2,
+    allow_unsolicited_endorsements_default = $3,
+    updated_by = $4,
+    updated_at = NOW()
+RETURNING *;
+
+-- name: UpsertHubApplyPreferences :exec
+INSERT INTO hub_apply_preferences (hub_user_global_id, notify_connections_on_apply, allow_unsolicited_endorsements)
+VALUES ($1, $2, $3)
+ON CONFLICT (hub_user_global_id) DO UPDATE SET
+    notify_connections_on_apply = $2,
+    allow_unsolicited_endorsements = $3;
+
+-- name: GetHubApplyPreferences :one
+SELECT * FROM hub_apply_preferences WHERE hub_user_global_id = $1;
+
+-- ============================================================
+-- Endorsement Requests (T3)
+-- ============================================================
+
+-- name: CreateEndorsementRequest :one
+INSERT INTO endorsement_requests (application_id, endorser_hub_user_global_id, note)
+VALUES ($1, $2, $3)
+RETURNING *;
+
+-- name: GetEndorsementRequestByID :one
+SELECT * FROM endorsement_requests WHERE request_id = $1;
+
+-- name: ListEndorsementRequestsForApplication :many
+SELECT * FROM endorsement_requests WHERE application_id = $1 ORDER BY requested_at ASC;
+
+-- name: ResolveEndorsementRequestWritten :one
+UPDATE endorsement_requests
+SET state = 'written', resolved_at = NOW()
+WHERE request_id = $1
+RETURNING *;
+
+-- name: ResolveEndorsementRequestDeclined :one
+UPDATE endorsement_requests
+SET state = 'declined', resolved_at = NOW()
+WHERE request_id = $1
+RETURNING *;
+
+-- ============================================================
+-- Endorsements (T3)
+-- ============================================================
+
+-- name: CreateEndorsement :one
+INSERT INTO endorsements (
+    application_id, endorser_hub_user_global_id, request_id,
+    is_referral, referral_id,
+    shared_domain, overlap_start_year, overlap_end_year, text
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING *;
+
+-- name: GetEndorsementByID :one
+SELECT * FROM endorsements WHERE endorsement_id = $1;
+
+-- name: UpdateEndorsement :one
+UPDATE endorsements SET text = $2, edited_at = NOW()
+WHERE endorsement_id = $1
+RETURNING *;
+
+-- name: HideEndorsement :one
+UPDATE endorsements SET hidden_by_candidate = TRUE
+WHERE endorsement_id = $1
+RETURNING *;
+
+-- name: ShowEndorsement :one
+UPDATE endorsements SET hidden_by_candidate = FALSE
+WHERE endorsement_id = $1
+RETURNING *;
+
+-- name: HideEndorsementIfOwner :one
+UPDATE endorsements SET hidden_by_candidate = TRUE
+WHERE endorsement_id = $1
+  AND application_id IN (
+    SELECT application_id FROM applications WHERE applicant_hub_user_global_id = $2
+  )
+RETURNING *;
+
+-- name: ShowEndorsementIfOwner :one
+UPDATE endorsements SET hidden_by_candidate = FALSE
+WHERE endorsement_id = $1
+  AND application_id IN (
+    SELECT application_id FROM applications WHERE applicant_hub_user_global_id = $2
+  )
+RETURNING *;
+
+-- name: ListEndorsementsForApplicationOrgView :many
+SELECT * FROM endorsements
+WHERE application_id = $1 AND hidden_by_candidate = FALSE
+ORDER BY written_at ASC;
+
+-- name: ListEndorsementsForApplicationHubView :many
+SELECT * FROM endorsements
+WHERE application_id = $1
+ORDER BY written_at ASC;
+
+-- ============================================================
+-- Referral Nominations (T3)
+-- ============================================================
+
+-- name: CreateReferral :one
+INSERT INTO referral_nominations (
+    referrer_hub_user_global_id, candidate_hub_user_global_id,
+    opening_id, org_id, statement_text,
+    shared_domain, overlap_start_year, overlap_end_year
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING *;
+
+-- name: GetReferralByID :one
+SELECT * FROM referral_nominations WHERE nomination_id = $1;
+
+-- name: ResolveReferralAcceptedApplied :one
+UPDATE referral_nominations
+SET state = 'accepted_applied', resolved_at = NOW()
+WHERE nomination_id = $1
+RETURNING *;
+
+-- name: ResolveReferralDeclined :one
+UPDATE referral_nominations
+SET state = 'declined', resolved_at = NOW()
+WHERE nomination_id = $1
+RETURNING *;
+
+-- name: ListReferralsByIDs :many
+SELECT * FROM referral_nominations
+WHERE nomination_id = ANY(@nomination_ids::uuid[])
+ORDER BY created_at DESC;
+
+-- name: CheckReferrerHasActiveStintAtDomain :one
+SELECT EXISTS(
+    SELECT 1 FROM hub_employer_stints
+    WHERE hub_user_id = $1
+      AND domain = $2
+      AND status = 'active'
+) AS has_active_stint;
+
+-- name: GetConnectedPeersByHandles :many
+SELECT peer, peer_handle FROM hub_user_connections
+WHERE me = $1 AND peer_handle = ANY(@handles::text[]) AND status = 'connected';
+
+-- name: GetApplicationsByIDs :many
+SELECT * FROM applications WHERE application_id = ANY(@application_ids::uuid[]);
+
+-- ============================================================
+-- Hub Candidacy Queries (T1/T2 hub-side)
+-- ============================================================
+
+-- name: ListCandidaciesForHubUser :many
+SELECT
+    c.candidacy_id,
+    c.application_id,
+    c.org_id,
+    c.opening_id,
+    c.applicant_hub_user_global_id,
+    c.state,
+    c.created_at,
+    c.state_changed_at,
+    o.opening_number,
+    o.title AS opening_title,
+    (SELECT COUNT(*) FROM interviews iv WHERE iv.candidacy_id = c.candidacy_id AND iv.state = 'scheduled')::int4 AS scheduled_interview_count
+FROM candidacies c
+JOIN openings o ON o.opening_id = c.opening_id
+WHERE c.applicant_hub_user_global_id = @hub_user_global_id
+  AND (
+    @cursor_created_at::timestamptz IS NULL
+    OR c.created_at < @cursor_created_at::timestamptz
+    OR (c.created_at = @cursor_created_at::timestamptz AND c.candidacy_id < @cursor_candidacy_id::uuid)
+  )
+ORDER BY c.created_at DESC, c.candidacy_id DESC
+LIMIT @lim;
+
+-- name: GetCandidacyForHubUser :one
+SELECT
+    c.candidacy_id,
+    c.application_id,
+    c.org_id,
+    c.opening_id,
+    c.applicant_hub_user_global_id,
+    c.state,
+    c.created_at,
+    c.state_changed_at,
+    o.opening_number,
+    o.title AS opening_title
+FROM candidacies c
+JOIN openings o ON o.opening_id = c.opening_id
+WHERE c.candidacy_id = $1 AND c.applicant_hub_user_global_id = $2;
+
+-- name: GetApplicationByApplicant :one
+SELECT * FROM applications WHERE application_id = $1 AND applicant_hub_user_global_id = $2;
+
+-- name: CheckHubUserHasApplied :one
+SELECT EXISTS(
+    SELECT 1 FROM applications
+    WHERE opening_id = $1 AND applicant_hub_user_global_id = $2
+) AS has_applied;
+
+-- name: GetLatestCandidacyApplicationAtOrg :one
+-- Most recent prior application by this applicant at this org that reached
+-- candidacy (state='shortlisted'). The cool-off window is measured from this
+-- application's applied_at (see hiring.md acceptance criteria).
+SELECT applied_at FROM applications
+WHERE org_id = $1
+  AND applicant_hub_user_global_id = $2
+  AND state = 'shortlisted'
+ORDER BY applied_at DESC
+LIMIT 1;
+
+-- name: GetHubUserEmailsByGlobalIDs :many
+-- Bulk lookup of hub user emails for notification fan-out (avoids N+1).
+SELECT hub_user_global_id, email_address, handle
+FROM hub_users
+WHERE hub_user_global_id = ANY(@hub_user_global_ids::uuid[]);
+
+-- ============================================================
+-- Hub Discovery Queries (T1/T4 hub-side browse)
+-- ============================================================
+
+-- name: ListPublishedOpeningsForHub :many
+SELECT
+    o.opening_id,
+    o.org_id,
+    o.opening_number,
+    o.title,
+    o.employment_type,
+    o.work_location_type,
+    o.min_yoe,
+    o.first_published_at,
+    COALESCE((
+        SELECT COUNT(DISTINCT huc.peer)::int4
+        FROM hub_user_connections huc
+        JOIN hub_employer_stints hes ON hes.hub_user_id = huc.peer AND hes.status = 'active'
+        JOIN org_domains od2 ON od2.domain = hes.domain AND od2.status = 'VERIFIED' AND od2.org_id = o.org_id
+        WHERE huc.me = @hub_user_global_id AND huc.status = 'connected'
+    ), 0)::int4 AS colleague_count_here
+FROM openings o
+WHERE o.status = 'published'
+  AND o.is_internal = false
+  AND (@cursor_published_at::timestamptz IS NULL
+       OR o.first_published_at < @cursor_published_at::timestamptz
+       OR (o.first_published_at = @cursor_published_at::timestamptz AND o.opening_id < @cursor_opening_id::uuid))
+ORDER BY o.first_published_at DESC, o.opening_id DESC
+LIMIT @lim;
+
+-- name: GetOrgIDByVerifiedDomain :one
+SELECT org_id FROM org_domains WHERE domain = $1 AND status = 'VERIFIED' LIMIT 1;
+
+-- name: GetPublishedOpeningByDomainAndNumber :one
+SELECT
+    o.*,
+    COALESCE((
+        SELECT COUNT(DISTINCT huc.peer)::int4
+        FROM hub_user_connections huc
+        JOIN hub_employer_stints hes ON hes.hub_user_id = huc.peer AND hes.status = 'active'
+        JOIN org_domains od2 ON od2.domain = hes.domain AND od2.status = 'VERIFIED' AND od2.org_id = o.org_id
+        WHERE huc.me = @hub_user_global_id AND huc.status = 'connected'
+    ), 0)::int4 AS colleague_count_here,
+    EXISTS(
+        SELECT 1 FROM hub_employer_stints hes2
+        JOIN org_domains od3 ON od3.domain = hes2.domain AND od3.status = 'VERIFIED' AND od3.org_id = o.org_id
+        WHERE hes2.hub_user_id = @hub_user_global_id AND hes2.status = 'active'
+    ) AS viewer_can_refer,
+    EXISTS(
+        SELECT 1 FROM applications a
+        WHERE a.opening_id = o.opening_id AND a.applicant_hub_user_global_id = @hub_user_global_id
+    ) AS viewer_has_applied
+FROM openings o
+JOIN org_domains od ON od.org_id = o.org_id AND od.domain = @org_domain AND od.status = 'VERIFIED'
+WHERE o.opening_number = @opening_number AND o.status = 'published';
+
+-- name: CountColleaguesAtOrg :one
+SELECT COUNT(DISTINCT huc.peer)::int4 AS count
+FROM hub_user_connections huc
+JOIN hub_employer_stints hes ON hes.hub_user_id = huc.peer AND hes.status = 'active'
+JOIN org_domains od ON od.domain = hes.domain AND od.status = 'VERIFIED'
+WHERE huc.me = $1 AND huc.status = 'connected' AND od.org_id = $2;
+
+-- name: ListColleaguesAtOrg :many
+SELECT DISTINCT
+    huc.peer AS hub_user_global_id,
+    huc.peer_handle AS handle,
+    hes.domain AS current_employer_domain,
+    hes.created_at AS current_stint_started_at,
+    -- Use the colleague's current org domain as shared_domain placeholder;
+    -- real shared domain requires GetSharedWorkDomain per pair (done in handler)
+    hes.domain AS shared_domain
+FROM hub_user_connections huc
+JOIN hub_employer_stints hes ON hes.hub_user_id = huc.peer AND hes.status = 'active'
+JOIN org_domains od ON od.domain = hes.domain AND od.status = 'VERIFIED'
+WHERE huc.me = $1 AND huc.status = 'connected' AND od.org_id = $2
+ORDER BY hes.created_at DESC
+LIMIT $3;
+
+-- name: ListNetworkOpportunitiesOrgs :many
+-- Returns distinct org_ids where the viewer has at least one connected colleague with an active stint
+SELECT DISTINCT od.org_id
+FROM hub_user_connections huc
+JOIN hub_employer_stints hes ON hes.hub_user_id = huc.peer AND hes.status = 'active'
+JOIN org_domains od ON od.domain = hes.domain AND od.status = 'VERIFIED'
+WHERE huc.me = $1 AND huc.status = 'connected'
+LIMIT 20;
+
+-- name: GetPublishedOpeningsForOrg :many
+SELECT o.opening_id, o.org_id, o.opening_number, o.title, o.employment_type, o.work_location_type, o.first_published_at
+FROM openings o
+WHERE o.org_id = $1 AND o.status = 'published' AND o.is_internal = false
+ORDER BY o.first_published_at DESC
+LIMIT 3;
+
+-- ============================================================
+-- Opening Watcher Queries (org:manage_openings)
+-- ============================================================
+
+-- name: AddOpeningWatcher :exec
+INSERT INTO opening_watchers (opening_id, org_user_id)
+VALUES ($1, $2)
+ON CONFLICT (opening_id, org_user_id) DO NOTHING;
+
+-- name: RemoveOpeningWatcher :exec
+DELETE FROM opening_watchers WHERE opening_id = $1 AND org_user_id = $2;
+
+-- name: CountOpeningWatchers :one
+SELECT COUNT(*)::int4 AS count FROM opening_watchers WHERE opening_id = $1;
+
+-- name: GetSharedWorkDomain :one
+-- Finds the first shared domain between two hub users (for endorsement/referral context)
+SELECT
+    a.domain AS shared_domain,
+    GREATEST(
+        DATE_PART('year', COALESCE(a.first_verified_at, a.created_at))::bigint,
+        DATE_PART('year', COALESCE(b.first_verified_at, b.created_at))::bigint
+    )::int4 AS overlap_start_year,
+    LEAST(
+        COALESCE(DATE_PART('year', a.ended_at)::bigint, DATE_PART('year', NOW())::bigint),
+        COALESCE(DATE_PART('year', b.ended_at)::bigint, DATE_PART('year', NOW())::bigint)
+    )::int4 AS overlap_end_year
+FROM hub_employer_stints a
+JOIN hub_employer_stints b ON b.domain = a.domain AND b.hub_user_id = $2
+WHERE a.hub_user_id = $1
+  AND a.status IN ('active', 'ended')
+  AND b.status IN ('active', 'ended')
+ORDER BY GREATEST(
+    DATE_PART('year', COALESCE(a.first_verified_at, a.created_at))::bigint,
+    DATE_PART('year', COALESCE(b.first_verified_at, b.created_at))::bigint
+) DESC
+LIMIT 1;

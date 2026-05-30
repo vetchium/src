@@ -48,6 +48,68 @@ import type {
 	ListPublicEmployerStintsResponse,
 	WorkEmailStintOwnerView,
 } from "vetchium-specs/hub/work-emails";
+import type {
+	ApplyForOpeningRequest,
+	ApplyForOpeningResponse,
+	GetMyApplicationRequest,
+	HubApplication,
+	ListMyApplicationsRequest,
+	ListMyApplicationsResponse,
+	WithdrawApplicationRequest,
+} from "vetchium-specs/hub/applications";
+import type {
+	ListMyCandidaciesRequest,
+	ListMyCandidaciesResponse,
+	GetMyCandidacyRequest,
+	HubCandidacy,
+	AddCandidacyCommentRequest,
+	RSVPInterviewRequest,
+} from "vetchium-specs/hub/candidacies";
+import type {
+	HubApplyPreferences,
+	SetNotifyConnectionsOnApplyRequest,
+	SetAllowUnsolicitedEndorsementsRequest,
+} from "vetchium-specs/hub/apply-preferences";
+import type {
+	HubListOpeningsRequest,
+	HubListOpeningsResponse,
+	HubGetOpeningRequest,
+	HubOpeningDetail,
+	ListColleaguesAtEmployerRequest,
+	ListColleaguesAtEmployerResponse,
+	ListNetworkOpportunitiesResponse,
+} from "vetchium-specs/hub/hiring-discovery";
+import type {
+	RequestEndorsementsRequest,
+	ListEndorsementRequestsIncomingRequest,
+	ListEndorsementRequestsIncomingResponse,
+	ListEndorsementRequestsOutgoingRequest,
+	ListEndorsementRequestsOutgoingResponse,
+	WriteEndorsementRequest,
+	WriteEndorsementResponse,
+	UpdateEndorsementRequest,
+	DeclineEndorsementRequestRequest,
+	HideEndorsementOnApplicationRequest,
+	ShowEndorsementOnApplicationRequest,
+} from "vetchium-specs/hub/endorsements";
+import type {
+	NominateColleagueRequest,
+	NominateColleagueResponse,
+	ListReferralsRequest,
+	ListReferralsReceivedResponse,
+	ListReferralsMadeResponse,
+	AcceptReferralRequest,
+	AcceptReferralResponse,
+	DeclineReferralRequest,
+} from "vetchium-specs/hub/referrals";
+import type {
+	ListReferenceRequestsIncomingRequest,
+	ListReferenceRequestsIncomingResponse,
+	NominateReferencesRequest,
+	AcceptReferenceNominationRequest,
+	DeclineReferenceNominationRequest,
+	SubmitReferenceResponseRequest,
+} from "vetchium-specs/hub/references";
 import type { APIResponse } from "./api-client";
 
 /**
@@ -1372,6 +1434,536 @@ export class HubAPIClient {
 		return {
 			status: response.status(),
 			body,
+		};
+	}
+
+	async applyForOpening(
+		sessionToken: string,
+		request: ApplyForOpeningRequest
+	): Promise<APIResponse<ApplyForOpeningResponse>> {
+		const response = await this.request.post("/hub/apply-for-opening", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as ApplyForOpeningResponse,
+		};
+	}
+
+	async applyForOpeningRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<ApplyForOpeningResponse>> {
+		const response = await this.request.post("/hub/apply-for-opening", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: body,
+		});
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as ApplyForOpeningResponse,
+		};
+	}
+
+	/** Sends apply-for-opening as multipart/form-data (what the server actually expects). */
+	async applyForOpeningMultipart(
+		sessionToken: string,
+		opts: {
+			org_domain: string;
+			opening_number: number;
+			cover_letter: string;
+			resume: Buffer;
+			notify_colleagues_at_target?: boolean;
+			endorser_handles?: string[];
+			endorsement_request_note?: string;
+		}
+	): Promise<APIResponse<ApplyForOpeningResponse>> {
+		// A FormData is used (rather than a plain object) so that repeated
+		// `endorser_handles` fields can be appended — the server reads them via
+		// r.MultipartForm.Value["endorser_handles"].
+		const form = new FormData();
+		form.append("org_domain", opts.org_domain);
+		form.append("opening_number", String(opts.opening_number));
+		form.append("cover_letter", opts.cover_letter);
+		form.append(
+			"resume",
+			new Blob([new Uint8Array(opts.resume)], { type: "application/pdf" }),
+			"resume.pdf"
+		);
+		if (opts.notify_colleagues_at_target !== undefined) {
+			form.append(
+				"notify_colleagues_at_target",
+				opts.notify_colleagues_at_target ? "true" : "false"
+			);
+		}
+		for (const handle of opts.endorser_handles ?? []) {
+			form.append("endorser_handles", handle);
+		}
+		if (opts.endorsement_request_note !== undefined) {
+			form.append("endorsement_request_note", opts.endorsement_request_note);
+		}
+		const response = await this.request.post("/hub/apply-for-opening", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			multipart: form,
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as ApplyForOpeningResponse,
+		};
+	}
+
+	async getMyApplication(
+		sessionToken: string,
+		request: GetMyApplicationRequest
+	): Promise<APIResponse<HubApplication>> {
+		const response = await this.request.post("/hub/get-my-application", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as HubApplication,
+		};
+	}
+
+	async withdrawApplication(
+		sessionToken: string,
+		request: WithdrawApplicationRequest
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/hub/withdraw-application", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		return { status: response.status(), body: undefined as unknown as void };
+	}
+
+	async listMyApplications(
+		sessionToken: string,
+		request: ListMyApplicationsRequest
+	): Promise<APIResponse<ListMyApplicationsResponse>> {
+		const response = await this.request.post("/hub/list-my-applications", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as ListMyApplicationsResponse,
+		};
+	}
+
+	async listMyCandidacies(
+		sessionToken: string,
+		request: ListMyCandidaciesRequest
+	): Promise<APIResponse<ListMyCandidaciesResponse>> {
+		const response = await this.request.post("/hub/list-my-candidacies", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as ListMyCandidaciesResponse,
+		};
+	}
+
+	async addCandidacyComment(
+		sessionToken: string,
+		request: AddCandidacyCommentRequest
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/hub/add-candidacy-comment", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		return { status: response.status(), body: undefined as unknown as void };
+	}
+
+	async requestEndorsements(
+		sessionToken: string,
+		request: RequestEndorsementsRequest
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/hub/request-endorsements", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		return { status: response.status(), body: undefined as unknown as void };
+	}
+
+	async listEndorsementRequestsIncoming(
+		sessionToken: string,
+		request: ListEndorsementRequestsIncomingRequest
+	): Promise<APIResponse<ListEndorsementRequestsIncomingResponse>> {
+		const response = await this.request.post(
+			"/hub/list-endorsement-requests-incoming",
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: request,
+			}
+		);
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as ListEndorsementRequestsIncomingResponse,
+		};
+	}
+
+	async listEndorsementRequestsOutgoing(
+		sessionToken: string,
+		request: ListEndorsementRequestsOutgoingRequest
+	): Promise<APIResponse<ListEndorsementRequestsOutgoingResponse>> {
+		const response = await this.request.post(
+			"/hub/list-endorsement-requests-outgoing",
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: request,
+			}
+		);
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as ListEndorsementRequestsOutgoingResponse,
+		};
+	}
+
+	async writeEndorsement(
+		sessionToken: string,
+		request: WriteEndorsementRequest
+	): Promise<APIResponse<WriteEndorsementResponse>> {
+		const response = await this.request.post("/hub/write-endorsement", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as WriteEndorsementResponse,
+		};
+	}
+
+	async updateEndorsement(
+		sessionToken: string,
+		request: UpdateEndorsementRequest
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/hub/update-endorsement", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		return { status: response.status(), body: undefined as unknown as void };
+	}
+
+	async declineEndorsementRequest(
+		sessionToken: string,
+		request: DeclineEndorsementRequestRequest
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post(
+			"/hub/decline-endorsement-request",
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: request,
+			}
+		);
+		return { status: response.status(), body: undefined as unknown as void };
+	}
+
+	async hideEndorsementOnApplication(
+		sessionToken: string,
+		request: HideEndorsementOnApplicationRequest
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post(
+			"/hub/hide-endorsement-on-application",
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: request,
+			}
+		);
+		return { status: response.status(), body: undefined as unknown as void };
+	}
+
+	async showEndorsementOnApplication(
+		sessionToken: string,
+		request: ShowEndorsementOnApplicationRequest
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post(
+			"/hub/show-endorsement-on-application",
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: request,
+			}
+		);
+		return { status: response.status(), body: undefined as unknown as void };
+	}
+
+	async nominateColleagueForRole(
+		sessionToken: string,
+		request: NominateColleagueRequest
+	): Promise<APIResponse<NominateColleagueResponse>> {
+		const response = await this.request.post(
+			"/hub/nominate-colleague-for-role",
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: request,
+			}
+		);
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as NominateColleagueResponse,
+		};
+	}
+
+	async listReferralsReceived(
+		sessionToken: string,
+		request: ListReferralsRequest
+	): Promise<APIResponse<ListReferralsReceivedResponse>> {
+		const response = await this.request.post("/hub/list-referrals-received", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as ListReferralsReceivedResponse,
+		};
+	}
+
+	async listReferralsMade(
+		sessionToken: string,
+		request: ListReferralsRequest
+	): Promise<APIResponse<ListReferralsMadeResponse>> {
+		const response = await this.request.post("/hub/list-referrals-made", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as ListReferralsMadeResponse,
+		};
+	}
+
+	async acceptReferral(
+		sessionToken: string,
+		request: AcceptReferralRequest
+	): Promise<APIResponse<AcceptReferralResponse>> {
+		const response = await this.request.post("/hub/accept-referral", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as AcceptReferralResponse,
+		};
+	}
+
+	async declineReferral(
+		sessionToken: string,
+		request: DeclineReferralRequest
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/hub/decline-referral", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		return { status: response.status(), body: undefined as unknown as void };
+	}
+
+	async listReferenceRequestsIncoming(
+		sessionToken: string,
+		request: ListReferenceRequestsIncomingRequest
+	): Promise<APIResponse<ListReferenceRequestsIncomingResponse>> {
+		const response = await this.request.post(
+			"/hub/list-reference-requests-incoming",
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: request,
+			}
+		);
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as ListReferenceRequestsIncomingResponse,
+		};
+	}
+
+	async nominateReferences(
+		sessionToken: string,
+		request: NominateReferencesRequest
+	): Promise<APIResponse<{ nomination_ids: string[] }>> {
+		const response = await this.request.post("/hub/nominate-references", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as { nomination_ids: string[] },
+		};
+	}
+
+	async acceptReferenceNomination(
+		sessionToken: string,
+		request: AcceptReferenceNominationRequest
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post(
+			"/hub/accept-reference-nomination",
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: request,
+			}
+		);
+		return { status: response.status(), body: undefined as unknown as void };
+	}
+
+	async declineReferenceNomination(
+		sessionToken: string,
+		request: DeclineReferenceNominationRequest
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post(
+			"/hub/decline-reference-nomination",
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: request,
+			}
+		);
+		return { status: response.status(), body: undefined as unknown as void };
+	}
+
+	async submitReferenceResponse(
+		sessionToken: string,
+		request: SubmitReferenceResponseRequest
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/hub/submit-reference-response", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		return { status: response.status(), body: undefined as unknown as void };
+	}
+
+	async getMyCandidacy(
+		sessionToken: string,
+		request: GetMyCandidacyRequest
+	): Promise<APIResponse<HubCandidacy>> {
+		const response = await this.request.post("/hub/get-my-candidacy", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return { status: response.status(), body: body as HubCandidacy };
+	}
+
+	async rsvpInterview(
+		sessionToken: string,
+		request: RSVPInterviewRequest
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/hub/rsvp-interview", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		return { status: response.status(), body: undefined as unknown as void };
+	}
+
+	async getApplyPreferences(
+		sessionToken: string
+	): Promise<APIResponse<HubApplyPreferences>> {
+		const response = await this.request.post("/hub/get-apply-preferences", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: {},
+		});
+		const body = await response.json().catch(() => ({}));
+		return { status: response.status(), body: body as HubApplyPreferences };
+	}
+
+	async setNotifyConnectionsOnApply(
+		sessionToken: string,
+		request: SetNotifyConnectionsOnApplyRequest
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post(
+			"/hub/set-notify-connections-on-apply",
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: request,
+			}
+		);
+		return { status: response.status(), body: undefined as unknown as void };
+	}
+
+	async setAllowUnsolicitedEndorsements(
+		sessionToken: string,
+		request: SetAllowUnsolicitedEndorsementsRequest
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post(
+			"/hub/set-allow-unsolicited-endorsements",
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: request,
+			}
+		);
+		return { status: response.status(), body: undefined as unknown as void };
+	}
+
+	async listOpenings(
+		sessionToken: string,
+		request: HubListOpeningsRequest
+	): Promise<APIResponse<HubListOpeningsResponse>> {
+		const response = await this.request.post("/hub/list-openings", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as HubListOpeningsResponse,
+		};
+	}
+
+	async getOpening(
+		sessionToken: string,
+		request: HubGetOpeningRequest
+	): Promise<APIResponse<HubOpeningDetail>> {
+		const response = await this.request.post("/hub/get-opening", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return { status: response.status(), body: body as HubOpeningDetail };
+	}
+
+	async listColleaguesAtEmployer(
+		sessionToken: string,
+		request: ListColleaguesAtEmployerRequest
+	): Promise<APIResponse<ListColleaguesAtEmployerResponse>> {
+		const response = await this.request.post(
+			"/hub/list-colleagues-at-employer",
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: request,
+			}
+		);
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as ListColleaguesAtEmployerResponse,
+		};
+	}
+
+	async listNetworkOpportunities(
+		sessionToken: string
+	): Promise<APIResponse<ListNetworkOpportunitiesResponse>> {
+		const response = await this.request.post(
+			"/hub/list-network-opportunities",
+			{
+				headers: { Authorization: `Bearer ${sessionToken}` },
+				data: {},
+			}
+		);
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as ListNetworkOpportunitiesResponse,
 		};
 	}
 }

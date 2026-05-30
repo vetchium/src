@@ -9,6 +9,12 @@ import enUSAuditLogs from "./locales/en-US/audit-logs.json";
 import enUSProfile from "./locales/en-US/profile.json";
 import enUSWorkEmails from "./locales/en-US/workEmails.json";
 import enUSConnections from "./locales/en-US/connections.json";
+import enUSEndorsements from "./locales/en-US/endorsements.json";
+import enUSReferrals from "./locales/en-US/referrals.json";
+import enUSApplications from "./locales/en-US/applications.json";
+import enUSOpenings from "./locales/en-US/openings.json";
+import enUSCandidacies from "./locales/en-US/candidacies.json";
+import enUSPreferences from "./locales/en-US/preferences.json";
 import deDECommon from "./locales/de-DE/common.json";
 import deDEAuth from "./locales/de-DE/auth.json";
 import deDESignup from "./locales/de-DE/signup.json";
@@ -16,6 +22,12 @@ import deDEAuditLogs from "./locales/de-DE/audit-logs.json";
 import deDEProfile from "./locales/de-DE/profile.json";
 import deDEWorkEmails from "./locales/de-DE/workEmails.json";
 import deDEConnections from "./locales/de-DE/connections.json";
+import deDEEndorsements from "./locales/de-DE/endorsements.json";
+import deDEReferrals from "./locales/de-DE/referrals.json";
+import deDEApplications from "./locales/de-DE/applications.json";
+import deDEOpenings from "./locales/de-DE/openings.json";
+import deDECandidacies from "./locales/de-DE/candidacies.json";
+import deDEPreferences from "./locales/de-DE/preferences.json";
 import taINCommon from "./locales/ta-IN/common.json";
 import taINAuth from "./locales/ta-IN/auth.json";
 import taINSignup from "./locales/ta-IN/signup.json";
@@ -23,6 +35,12 @@ import taINAuditLogs from "./locales/ta-IN/audit-logs.json";
 import taINProfile from "./locales/ta-IN/profile.json";
 import taINWorkEmails from "./locales/ta-IN/workEmails.json";
 import taINConnections from "./locales/ta-IN/connections.json";
+import taINEndorsements from "./locales/ta-IN/endorsements.json";
+import taINReferrals from "./locales/ta-IN/referrals.json";
+import taINApplications from "./locales/ta-IN/applications.json";
+import taINOpenings from "./locales/ta-IN/openings.json";
+import taINCandidacies from "./locales/ta-IN/candidacies.json";
+import taINPreferences from "./locales/ta-IN/preferences.json";
 
 import {
 	SUPPORTED_LANGUAGES,
@@ -71,6 +89,12 @@ const resources = {
 		profile: enUSProfile,
 		workEmails: enUSWorkEmails,
 		connections: enUSConnections,
+		endorsements: enUSEndorsements,
+		referrals: enUSReferrals,
+		applications: enUSApplications,
+		openings: enUSOpenings,
+		candidacies: enUSCandidacies,
+		preferences: enUSPreferences,
 	},
 	"de-DE": {
 		common: deDECommon,
@@ -80,6 +104,12 @@ const resources = {
 		profile: deDEProfile,
 		workEmails: deDEWorkEmails,
 		connections: deDEConnections,
+		endorsements: deDEEndorsements,
+		referrals: deDEReferrals,
+		applications: deDEApplications,
+		openings: deDEOpenings,
+		candidacies: deDECandidacies,
+		preferences: deDEPreferences,
 	},
 	"ta-IN": {
 		common: taINCommon,
@@ -89,6 +119,12 @@ const resources = {
 		profile: taINProfile,
 		workEmails: taINWorkEmails,
 		connections: taINConnections,
+		endorsements: taINEndorsements,
+		referrals: taINReferrals,
+		applications: taINApplications,
+		openings: taINOpenings,
+		candidacies: taINCandidacies,
+		preferences: taINPreferences,
 	},
 };
 
@@ -105,6 +141,12 @@ i18n.use(initReactI18next).init({
 		"profile",
 		"workEmails",
 		"connections",
+		"endorsements",
+		"referrals",
+		"applications",
+		"openings",
+		"candidacies",
+		"preferences",
 	],
 	interpolation: {
 		escapeValue: false, // React already escapes

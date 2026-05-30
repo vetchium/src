@@ -39,6 +39,12 @@ export const VALID_ROLE_NAMES = [
 	"org:manage_addresses",
 	"org:view_openings",
 	"org:manage_openings",
+	"org:view_applications",
+	"org:manage_applications",
+	"org:view_candidacies",
+	"org:manage_candidacies",
+	"org:view_hiring_settings",
+	"org:manage_hiring_settings",
 
 	// Hub portal roles
 	"hub:read_posts",

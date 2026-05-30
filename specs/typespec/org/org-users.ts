@@ -508,6 +508,12 @@ export const OrgRoleViewAddresses = "org:view_addresses";
 export const OrgRoleManageAddresses = "org:manage_addresses";
 export const OrgRoleViewOpenings = "org:view_openings";
 export const OrgRoleManageOpenings = "org:manage_openings";
+export const OrgRoleViewApplications = "org:view_applications";
+export const OrgRoleManageApplications = "org:manage_applications";
+export const OrgRoleViewCandidacies = "org:view_candidacies";
+export const OrgRoleManageCandidacies = "org:manage_candidacies";
+export const OrgRoleViewHiringSettings = "org:view_hiring_settings";
+export const OrgRoleManageHiringSettings = "org:manage_hiring_settings";
 
 export interface OrgUser {
 	email_address: EmailAddress;

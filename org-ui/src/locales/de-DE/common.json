@@ -48,6 +48,10 @@
 		"title": "Stellenangebote",
 		"description": "Stellenangebote für Ihre Organisation erstellen und verwalten"
 	},
+	"candidacies": {
+		"title": "Kandidaturen",
+		"description": "Kandidaten durch Interviews und Angebote verfolgen"
+	},
 	"subscription": {
 		"title": "Abonnement",
 		"description": "Plan anzeigen und Abonnement upgraden"

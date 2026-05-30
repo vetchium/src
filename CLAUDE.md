@@ -31,6 +31,7 @@ Vetchium is a multi-region job search and hiring platform. User types: Professio
 - Common Ant Design v6 deprecations:
   - Alert: `closable={{ onClose/afterClose/closeIcon: ... }}` (not separate props); `title` not `message`
   - Select: `showSearch={{ filterOption: ... }}` (not separate `filterOption`)
+  - Tabs: use `<Tabs items={[{ key, label, children }]} />` — never `<Tabs.TabPane label=...>` (removed in v6)
 
 ### Development Process
 
@@ -195,6 +196,25 @@ The only exception is `login_failed` events (no wrapping transaction exists sinc
 - `event_type` follows the `portal.action_name` convention (e.g. `admin.invite_user`, `org.add_cost_center`)
 - Never store raw email addresses in `event_data`; use SHA-256 hash only
 - Extract the client IP from `X-Forwarded-For` (first entry), falling back to `r.RemoteAddr`
+
+### Nil Slices in JSON Responses
+
+**CRITICAL**: In Go, a nil slice marshals to JSON `null`, not `[]`. This violates the TypeSpec contract whenever a field is declared as a non-optional array (e.g. `tags: OrgTag[]`). Always initialize slice fields to an empty slice when building a response struct:
+
+```go
+// ✅ CORRECT — client receives []
+result := MyResponse{
+    Tags:      []MyTag{},        // not nil
+    Addresses: []MyAddress{},    // not nil
+}
+
+// ❌ WRONG — client receives null for both fields
+result := MyResponse{}           // Tags and Addresses stay nil
+```
+
+This is a Go-specific gotcha: `var s []T` is nil, but `s := []T{}` or `s := make([]T, 0)` is not. The compiler accepts both; only the JSON output differs.
+
+The same applies to the `Colleagues`, `Openings`, and any other slice in a paginated list response: if the DB returns zero rows, assign `[]T{}`, not nil.
 
 ### Logging Conventions
 
@@ -439,6 +459,13 @@ Rules:
 | Detail         | `/{resource}/:resourceId`      | `/openings/:openingId`                  |
 | Edit           | `/{resource}/:resourceId/edit` | `/openings/:openingId/edit`             |
 | Settings-scope | `/settings/{resource}`         | `/settings/plan`, `/settings/addresses` |
+
+**Exception — hub-ui org-scoped content**: pages that belong to a specific org use `/org/:orgDomain/` as the namespace so future pages (posts, about) slot in naturally:
+
+| Page              | Route pattern                                   | Example                           |
+| ----------------- | ----------------------------------------------- | --------------------------------- |
+| Opening detail    | `/org/:orgDomain/openings/:openingNumber`       | `/org/acme.com/openings/42`       |
+| Apply for opening | `/org/:orgDomain/openings/:openingNumber/apply` | `/org/acme.com/openings/42/apply` |
 
 Rules:
 

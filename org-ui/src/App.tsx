@@ -46,6 +46,14 @@ import OpeningsListPage from "./pages/Openings/OpeningsListPage";
 import CreateOpeningPage from "./pages/Openings/CreateOpeningPage";
 import OpeningDetailPage from "./pages/Openings/OpeningDetailPage";
 import EditOpeningPage from "./pages/Openings/EditOpeningPage";
+import { ApplicationsListPage } from "./pages/applications/ApplicationsListPage";
+import { ApplicationDetailPage } from "./pages/applications/ApplicationDetailPage";
+import { CandidaciesListPage } from "./pages/candidacies/CandidaciesListPage";
+import CandidacyDetailPage from "./pages/candidacies/CandidacyDetailPage";
+import { HiringSettingsPage } from "./pages/HiringSettings/HiringSettingsPage";
+import { ScheduleInterviewPage } from "./pages/Interviews/ScheduleInterviewPage";
+import { SubmitFeedbackPage } from "./pages/Interviews/SubmitFeedbackPage";
+import { ExtendOfferPage } from "./pages/candidacies/ExtendOfferPage";
 import {
 	BrowserRouter,
 	Link,
@@ -475,6 +483,71 @@ function AppContent() {
 								element={
 									<ProtectedRoute>
 										<OpeningDetailPage />
+									</ProtectedRoute>
+								}
+							/>
+							{/* Hiring — applications, candidacies, interviews, settings */}
+							<Route
+								path="/openings/:openingId/applications"
+								element={
+									<ProtectedRoute>
+										<ApplicationsListPage />
+									</ProtectedRoute>
+								}
+							/>
+							<Route
+								path="/openings/:openingId/applications/:applicationId"
+								element={
+									<ProtectedRoute>
+										<ApplicationDetailPage />
+									</ProtectedRoute>
+								}
+							/>
+							<Route
+								path="/candidacies"
+								element={
+									<ProtectedRoute>
+										<CandidaciesListPage />
+									</ProtectedRoute>
+								}
+							/>
+							<Route
+								path="/candidacies/:candidacyId"
+								element={
+									<ProtectedRoute>
+										<CandidacyDetailPage />
+									</ProtectedRoute>
+								}
+							/>
+							<Route
+								path="/settings/hiring"
+								element={
+									<ProtectedRoute>
+										<HiringSettingsPage />
+									</ProtectedRoute>
+								}
+							/>
+							<Route
+								path="/candidacies/:candidacyId/schedule-interview"
+								element={
+									<ProtectedRoute>
+										<ScheduleInterviewPage />
+									</ProtectedRoute>
+								}
+							/>
+							<Route
+								path="/candidacies/:candidacyId/interviews/:interviewId/feedback"
+								element={
+									<ProtectedRoute>
+										<SubmitFeedbackPage />
+									</ProtectedRoute>
+								}
+							/>
+							<Route
+								path="/candidacies/:candidacyId/extend-offer"
+								element={
+									<ProtectedRoute>
+										<ExtendOfferPage />
 									</ProtectedRoute>
 								}
 							/>

@@ -1,6 +1,6 @@
 # Hiring: Applications, Candidacies, Interviews, Offers, and Connection-Enhanced Features
 
-> Canonical hiring spec for Vetchium. Supersedes the brainstorm notes in `hiring-flow.md` and `connection-enhanced-hiring.md` (which remain as historical context).
+> Canonical hiring spec for Vetchium. Supersedes the earlier brainstorm notes (`hiring-flow.md`, `connection-enhanced-hiring.md`) and the one-shot implementation prompt (`prompt.txt`), all now removed; this document is the single source of truth.
 
 ---
 

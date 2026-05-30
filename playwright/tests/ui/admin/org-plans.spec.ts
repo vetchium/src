@@ -27,6 +27,7 @@ test.describe("Admin UI — Org Plans", () => {
 		try {
 			await adminLogin(page, adminEmail, TEST_PASSWORD);
 			await page.goto(`${ADMIN_UI_URL}/org-plans`);
+			await page.waitForLoadState("networkidle");
 
 			await expect(page.locator("text=Org Vetchium Plans")).toBeVisible({
 				timeout: 10000,
@@ -102,6 +103,7 @@ test.describe("Admin UI — Org Plans", () => {
 
 			await adminLogin(page, adminEmail, TEST_PASSWORD);
 			await page.goto(`${ADMIN_UI_URL}/org-plans`);
+			await page.waitForLoadState("networkidle");
 
 			await expect(page.locator("text=Org Vetchium Plans")).toBeVisible({
 				timeout: 10000,

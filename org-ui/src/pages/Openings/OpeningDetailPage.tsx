@@ -508,7 +508,21 @@ export default function OpeningDetailPage() {
 						</Tag>
 					</Space>
 				</div>
-				<Space>{renderActions()}</Space>
+				<Space>
+					{["published", "paused", "closed", "expired", "archived"].includes(
+						opening.status
+					) && (
+						<Button
+							type="primary"
+							onClick={() =>
+								navigate(`/openings/${opening.opening_id}/applications`)
+							}
+						>
+							{t("detail.viewApplications")}
+						</Button>
+					)}
+					{renderActions()}
+				</Space>
 			</div>
 
 			{/* Status banners */}

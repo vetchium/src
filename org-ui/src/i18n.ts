@@ -12,6 +12,10 @@ import enUSPlan from "./locales/en-US/plan.json";
 import enUSMarketplace from "./locales/en-US/marketplace.json";
 import enUSAddresses from "./locales/en-US/addresses.json";
 import enUSOpenings from "./locales/en-US/openings.json";
+import enUSApplications from "./locales/en-US/applications.json";
+import enUSCandidacies from "./locales/en-US/candidacies.json";
+import enUSHiringSettings from "./locales/en-US/hiringSettings.json";
+import enUSInterviews from "./locales/en-US/interviews.json";
 import deDECommon from "./locales/de-DE/common.json";
 import deDEAuth from "./locales/de-DE/auth.json";
 import deDEUsers from "./locales/de-DE/users.json";
@@ -22,6 +26,10 @@ import deDEPlan from "./locales/de-DE/plan.json";
 import deDEMarketplace from "./locales/de-DE/marketplace.json";
 import deDEAddresses from "./locales/de-DE/addresses.json";
 import deDEOpenings from "./locales/de-DE/openings.json";
+import deDEApplications from "./locales/de-DE/applications.json";
+import deDECandidacies from "./locales/de-DE/candidacies.json";
+import deDEHiringSettings from "./locales/de-DE/hiringSettings.json";
+import deDEInterviews from "./locales/de-DE/interviews.json";
 import taINCommon from "./locales/ta-IN/common.json";
 import taINAuth from "./locales/ta-IN/auth.json";
 import taINUsers from "./locales/ta-IN/users.json";
@@ -32,6 +40,10 @@ import taINPlan from "./locales/ta-IN/plan.json";
 import taINMarketplace from "./locales/ta-IN/marketplace.json";
 import taINAddresses from "./locales/ta-IN/addresses.json";
 import taINOpenings from "./locales/ta-IN/openings.json";
+import taINApplications from "./locales/ta-IN/applications.json";
+import taINCandidacies from "./locales/ta-IN/candidacies.json";
+import taINHiringSettings from "./locales/ta-IN/hiringSettings.json";
+import taINInterviews from "./locales/ta-IN/interviews.json";
 
 import {
 	SUPPORTED_LANGUAGES,
@@ -83,6 +95,10 @@ const resources = {
 		marketplace: enUSMarketplace,
 		addresses: enUSAddresses,
 		openings: enUSOpenings,
+		applications: enUSApplications,
+		candidacies: enUSCandidacies,
+		hiringSettings: enUSHiringSettings,
+		interviews: enUSInterviews,
 	},
 	"de-DE": {
 		common: deDECommon,
@@ -95,6 +111,10 @@ const resources = {
 		marketplace: deDEMarketplace,
 		addresses: deDEAddresses,
 		openings: deDEOpenings,
+		applications: deDEApplications,
+		candidacies: deDECandidacies,
+		hiringSettings: deDEHiringSettings,
+		interviews: deDEInterviews,
 	},
 	"ta-IN": {
 		common: taINCommon,
@@ -107,6 +127,10 @@ const resources = {
 		marketplace: taINMarketplace,
 		addresses: taINAddresses,
 		openings: taINOpenings,
+		applications: taINApplications,
+		candidacies: taINCandidacies,
+		hiringSettings: taINHiringSettings,
+		interviews: taINInterviews,
 	},
 };
 
@@ -126,6 +150,10 @@ i18n.use(initReactI18next).init({
 		"marketplace",
 		"addresses",
 		"openings",
+		"applications",
+		"candidacies",
+		"hiringSettings",
+		"interviews",
 	],
 	interpolation: {
 		escapeValue: false, // React already escapes

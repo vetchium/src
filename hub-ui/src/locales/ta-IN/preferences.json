@@ -1,0 +1,10 @@
+{
+	"title": "Apply Preferences",
+	"backToDashboard": "Back to dashboard",
+	"notifyConnections": "Notify my connections when I apply",
+	"notifyConnectionsHelp": "When enabled, colleagues at the target company will be notified when you apply.",
+	"allowUnsolicited": "Allow unsolicited endorsements",
+	"allowUnsolicitedHelp": "When enabled, connections can endorse you without you requesting it.",
+	"save": "Save preferences",
+	"saved": "Preferences saved"
+}

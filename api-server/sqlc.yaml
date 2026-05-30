@@ -21,6 +21,9 @@ sql:
     queries:
       - "db/queries/regional.sql"
       - "db/queries/emails.sql"
+      - "db/regional/queries/interviews.sql"
+      - "db/regional/queries/offers.sql"
+      - "db/regional/queries/reference_requests.sql"
     schema: "db/migrations/regional"
     gen:
       go:

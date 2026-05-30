@@ -105,6 +105,7 @@
 		"previous": "Previous"
 	},
 	"detail": {
+		"viewApplications": "View Applications",
 		"jobDetails": "Job Details",
 		"compensation": "Compensation",
 		"hiringTeam": "Hiring Team",

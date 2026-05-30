@@ -95,7 +95,7 @@ export function isCommonDomain(email: EmailAddress): boolean {
 	if (parts.length !== 2) {
 		return false;
 	}
-	const domain = parts[1].toLowerCase();
+	const domain = parts[1]!.toLowerCase();
 	return COMMON_EMAIL_DOMAINS.includes(domain);
 }
 
