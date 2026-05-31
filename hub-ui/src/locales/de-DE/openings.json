@@ -1,8 +1,12 @@
 {
 	"title": "Browse Jobs",
 	"backToDashboard": "Back to dashboard",
+	"backToOpenings": "Zurück zu Stellen",
 	"searchPlaceholder": "Search role or company",
+	"role": "Stelle",
+	"company": "Unternehmen",
 	"applyNow": "Apply Now",
+	"applicationRejected": "Bewerbung abgelehnt",
 	"colleagues": "{{count}} colleague here",
 	"colleagues_plural": "{{count}} colleagues here",
 	"viewColleagues": "View colleagues",

@@ -86,6 +86,7 @@ type HubOpeningDetail struct {
 	Addresses         []HubOpeningAddress `json:"addresses"`
 	MinYOE            *int32              `json:"min_yoe,omitempty"`
 	MaxYOE            *int32              `json:"max_yoe,omitempty"`
+	MinEducationLevel *string             `json:"min_education_level,omitempty"`
 	Salary            *HubOpeningSalary   `json:"salary,omitempty"`
 	NumberOfPositions int32               `json:"number_of_positions"`
 	FilledPositions   int32               `json:"filled_positions"`

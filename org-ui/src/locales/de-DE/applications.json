@@ -1,6 +1,7 @@
 {
 	"title": "Bewerbungen",
 	"backToDashboard": "Zurück zum Dashboard",
+	"backToApplications": "Zurück zu Bewerbungen",
 	"candidate": "Kandidat",
 	"state": "Status",
 	"applied": "Beworben",
@@ -37,5 +38,6 @@
 	"rejectSuccess": "Bewerbung abgelehnt",
 	"labelUpdated": "Label aktualisiert",
 	"actionFailed": "Aktion fehlgeschlagen",
-	"notFound": "Bewerbung nicht gefunden"
+	"notFound": "Bewerbung nicht gefunden",
+	"viewProfile": "Profil ansehen"
 }

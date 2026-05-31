@@ -4,11 +4,9 @@ import {
 	Card,
 	Col,
 	Descriptions,
-	Modal,
 	Row,
 	Space,
 	Spin,
-	Table,
 	Tag,
 	Typography,
 } from "antd";
@@ -17,7 +15,6 @@ import {
 	BankOutlined,
 	CheckCircleFilled,
 	EnvironmentOutlined,
-	TeamOutlined,
 	UserOutlined,
 } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
@@ -25,9 +22,6 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import type {
 	HubGetOpeningRequest,
 	HubOpeningDetail,
-	ListColleaguesAtEmployerRequest,
-	ListColleaguesAtEmployerResponse,
-	ColleagueAtEmployer,
 } from "vetchium-specs/hub/hiring-discovery";
 import type {
 	EmploymentType,
@@ -66,9 +60,6 @@ export const OpeningDetailPage: React.FC = () => {
 	}>();
 	const [opening, setOpening] = useState<HubOpeningDetail | null>(null);
 	const [loading, setLoading] = useState(false);
-	const [colleaguesModalVisible, setColleaguesModalVisible] = useState(false);
-	const [colleagues, setColleagues] = useState<ColleagueAtEmployer[]>([]);
-	const [loadingColleagues, setLoadingColleagues] = useState(false);
 
 	const fetchOpening = useCallback(async () => {
 		if (!sessionToken || !orgDomain || !openingNumber) return;
@@ -100,54 +91,6 @@ export const OpeningDetailPage: React.FC = () => {
 		fetchOpening();
 	}, [fetchOpening]);
 
-	const handleViewColleagues = async () => {
-		if (!sessionToken || !orgDomain) return;
-		setColleaguesModalVisible(true);
-		setLoadingColleagues(true);
-		try {
-			const apiBaseUrl = await getApiBaseUrl();
-			const req: ListColleaguesAtEmployerRequest = { org_domain: orgDomain };
-			const res = await fetch(`${apiBaseUrl}/hub/list-colleagues-at-employer`, {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					Authorization: `Bearer ${sessionToken}`,
-				},
-				body: JSON.stringify(req),
-			});
-			if (res.status === 200) {
-				const data: ListColleaguesAtEmployerResponse = await res.json();
-				setColleagues(data.colleagues);
-			}
-		} finally {
-			setLoadingColleagues(false);
-		}
-	};
-
-	const colleagueColumns = [
-		{
-			title: t("handle"),
-			dataIndex: "handle",
-			key: "handle",
-			render: (v: string) => `@${v}`,
-		},
-		{
-			title: t("sharedDomain"),
-			dataIndex: "shared_domain",
-			key: "shared_domain",
-		},
-		{
-			title: t("currentSince"),
-			dataIndex: "current_stint_started_at",
-			key: "current_stint_started_at",
-			render: (v: string) => new Date(v).getFullYear(),
-		},
-	];
-
-	const positionsOpen = opening
-		? opening.number_of_positions - opening.filled_positions
-		: 0;
-
 	return (
 		<div
 			style={{
@@ -159,7 +102,7 @@ export const OpeningDetailPage: React.FC = () => {
 		>
 			<div style={{ marginBottom: 16 }}>
 				<Link to="/openings">
-					<Button icon={<ArrowLeftOutlined />}>{t("backToDashboard")}</Button>
+					<Button icon={<ArrowLeftOutlined />}>{t("backToOpenings")}</Button>
 				</Link>
 			</div>
 
@@ -272,13 +215,6 @@ export const OpeningDetailPage: React.FC = () => {
 												{titleCase(opening.employment_type)}
 											</Tag>
 										</Descriptions.Item>
-										<Descriptions.Item label={t("workLocation")}>
-											<Tag
-												color={workLocationColor[opening.work_location_type]}
-											>
-												{titleCase(opening.work_location_type)}
-											</Tag>
-										</Descriptions.Item>
 										{opening.salary && (
 											<Descriptions.Item label={t("salary")}>
 												{opening.salary.currency}{" "}
@@ -296,12 +232,6 @@ export const OpeningDetailPage: React.FC = () => {
 												{formatDate(opening.first_published_at, i18n.language)}
 											</Descriptions.Item>
 										)}
-										<Descriptions.Item label={t("positions")}>
-											{t("positionsOpen", {
-												open: positionsOpen,
-												total: opening.number_of_positions,
-											})}
-										</Descriptions.Item>
 									</Descriptions>
 								</Card>
 
@@ -318,70 +248,38 @@ export const OpeningDetailPage: React.FC = () => {
 									</Card>
 								)}
 
-								{/* Locations */}
-								{(opening.addresses?.length ?? 0) > 0 && (
-									<Card
-										title={
-											<Space>
-												<EnvironmentOutlined />
-												{t("locations")}
-											</Space>
-										}
-										style={{ marginBottom: 16 }}
+								{/* Location: work location type + office addresses */}
+								<Card
+									title={
+										<Space>
+											<EnvironmentOutlined />
+											{t("locations")}
+										</Space>
+									}
+									style={{ marginBottom: 16 }}
+								>
+									<Tag
+										color={workLocationColor[opening.work_location_type]}
+										style={{
+											marginBottom:
+												(opening.addresses?.length ?? 0) > 0 ? 10 : 0,
+										}}
 									>
-										{opening.addresses.map((addr) => (
-											<div key={addr.address_id} style={{ marginBottom: 6 }}>
-												<Text strong>{addr.city}</Text>
-												{addr.state && <Text>, {addr.state}</Text>}
-												<Text type="secondary"> · {addr.country}</Text>
-											</div>
-										))}
-									</Card>
-								)}
-
-								{/* Colleagues */}
-								{opening.colleague_count_here > 0 && (
-									<Card
-										title={
-											<Space>
-												<TeamOutlined />
-												{t("colleagues", {
-													count: opening.colleague_count_here,
-												})}
-											</Space>
-										}
-									>
-										<Button
-											type="link"
-											style={{ padding: 0 }}
-											onClick={handleViewColleagues}
-										>
-											{t("viewColleagues")}
-										</Button>
-									</Card>
-								)}
+										{titleCase(opening.work_location_type)}
+									</Tag>
+									{opening.addresses?.map((addr) => (
+										<div key={addr.address_id} style={{ marginTop: 4 }}>
+											<Text strong>{addr.city}</Text>
+											{addr.state && <Text>, {addr.state}</Text>}
+											<Text type="secondary"> · {addr.country}</Text>
+										</div>
+									))}
+								</Card>
 							</Col>
 						</Row>
 					</>
 				)}
 			</Spin>
-
-			<Modal
-				title={t("viewColleaguesTitle", { domain: orgDomain })}
-				open={colleaguesModalVisible}
-				onCancel={() => setColleaguesModalVisible(false)}
-				footer={null}
-				width={600}
-			>
-				<Spin spinning={loadingColleagues}>
-					<Table
-						dataSource={colleagues}
-						columns={colleagueColumns}
-						rowKey="handle"
-						pagination={false}
-					/>
-				</Spin>
-			</Modal>
 		</div>
 	);
 };

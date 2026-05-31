@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"vetchium-api-server.gomodule/internal/audit"
+	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
@@ -308,6 +309,14 @@ func ShortlistApplication(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
+		// Update global index so hub list-my-applications shows "shortlisted"
+		if err := s.Global.UpdateApplicationIndexState(ctx, globaldb.UpdateApplicationIndexStateParams{
+			ApplicationID: appID,
+			State:         "shortlisted",
+		}); err != nil {
+			s.Logger(ctx).Error("CONSISTENCY_ALERT: failed to update application index after shortlist", "error", err, "application_id", req.ApplicationID)
+		}
+
 		result := org.OrgCandidacy{
 			CandidacyID:          candidacy.CandidacyID.String(),
 			ApplicationID:        candidacy.ApplicationID.String(),
@@ -411,6 +420,14 @@ func RejectApplication(s *server.RegionalServer) http.HandlerFunc {
 			s.Logger(ctx).Error("failed to reject application", "error", err)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
+		}
+
+		// Update global index state so the hub list-my-applications shows "rejected"
+		if err := s.Global.UpdateApplicationIndexState(ctx, globaldb.UpdateApplicationIndexStateParams{
+			ApplicationID: appID,
+			State:         "rejected",
+		}); err != nil {
+			s.Logger(ctx).Error("CONSISTENCY_ALERT: failed to update application index after rejection", "error", err, "application_id", req.ApplicationID)
 		}
 
 		w.WriteHeader(http.StatusOK)

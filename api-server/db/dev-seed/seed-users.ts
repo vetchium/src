@@ -403,6 +403,103 @@ async function seedGryffindor(): Promise<void> {
 	}
 }
 
+// Return the address_id for the named address, or throw if not found.
+async function getAddressId(token: string, title: string): Promise<string> {
+	const res = await post("/org/list-addresses", {}, token);
+	if (res.status !== 200)
+		throw new Error(`list-addresses failed: ${res.status}`);
+	const { addresses } = (await res.json()) as {
+		addresses: { address_id: string; title: string }[];
+	};
+	const found = addresses.find((a) => a.title === title);
+	if (!found) throw new Error(`Address "${title}" not found`);
+	return found.address_id;
+}
+
+interface OrgOpeningSeed {
+	title: string;
+	description: string;
+	employment_type: string;
+	work_location_type: string;
+	number_of_positions: number;
+	hiring_manager_email_address: string;
+	recruiter_email_address: string;
+	min_yoe?: number;
+	max_yoe?: number;
+	min_education_level?: string;
+	salary?: { min_amount: number; max_amount: number; currency: string };
+	internal_notes?: string;
+}
+
+// Create an opening and immediately submit it so it lands in "published"
+// (superadmin submit bypasses review). Idempotent: skips if a matching title
+// already exists in any status.
+async function createAndSubmitOpening(
+	token: string,
+	opening: OrgOpeningSeed,
+	addressId: string
+): Promise<void> {
+	// Check for an existing opening with the same title.
+	const listRes = await post(
+		"/org/list-openings",
+		{ filter_title_prefix: opening.title, limit: 10 },
+		token
+	);
+	if (listRes.status === 200) {
+		const { openings } = (await listRes.json()) as {
+			openings: { title: string }[];
+		};
+		if (openings.some((o) => o.title === opening.title)) {
+			console.log(`    opening: "${opening.title}" — already exists, skipping`);
+			return;
+		}
+	}
+
+	const createRes = await post(
+		"/org/create-opening",
+		{
+			...opening,
+			is_internal: false,
+			address_ids: [addressId],
+		},
+		token
+	);
+	if (createRes.status !== 201) {
+		throw new Error(
+			`create-opening failed for "${opening.title}": ${createRes.status} — ${await createRes.text()}`
+		);
+	}
+	const { opening_number } = (await createRes.json()) as {
+		opening_id: string;
+		opening_number: number;
+	};
+
+	const submitRes = await post(
+		"/org/submit-opening",
+		{ opening_number },
+		token
+	);
+	if (submitRes.status !== 200) {
+		throw new Error(
+			`submit-opening failed for "${opening.title}" (#${opening_number}): ${submitRes.status} — ${await submitRes.text()}`
+		);
+	}
+	console.log(`    opening: "${opening.title}" — created and published`);
+}
+
+async function seedGryffindorOpenings(): Promise<void> {
+	const domain = "gryffindor.example";
+	console.log(`\nSeeding openings for ${domain}...`);
+
+	// Superadmin token — submit goes directly to published (no review step).
+	const adminToken = await orgLogin("admin@gryffindor.example", domain);
+	const addressId = await getAddressId(adminToken, GRYFFINDOR_ADDRESS.title);
+
+	for (const opening of GRYFFINDOR_OPENINGS) {
+		await createAndSubmitOpening(adminToken, opening, addressId);
+	}
+}
+
 // ============================================================================
 // Seed data
 // ============================================================================
@@ -522,6 +619,92 @@ const GRYFFINDOR_INVITEES: OrgInvitee[] = [
 	},
 ];
 
+// Six Gryffindor openings modelled on real FAANG/Big-Tech profiles.
+// Each exercises a different combination of optional fields so the UI has
+// varied sample data to render across employment types, locations, salaries,
+// and YOE / education requirements.
+const GRYFFINDOR_OPENINGS: OrgOpeningSeed[] = [
+	{
+		title: "Senior Software Engineer – Distributed Systems",
+		description:
+			"Design and scale the infrastructure that powers Gryffindor's core platform. You will own the reliability and performance of distributed data pipelines processing millions of events per second, collaborate closely with product teams on API design, and mentor engineers across the org. Strong knowledge of consensus protocols, distributed caching, and observability tooling required.",
+		employment_type: "full_time",
+		work_location_type: "hybrid",
+		number_of_positions: 2,
+		hiring_manager_email_address: "harry@gryffindor.example",
+		recruiter_email_address: "hermione@gryffindor.example",
+		min_yoe: 5,
+		max_yoe: 12,
+		min_education_level: "bachelor",
+		salary: { min_amount: 185000, max_amount: 260000, currency: "USD" },
+	},
+	{
+		title: "Staff Machine Learning Engineer – Ranking & Personalisation",
+		description:
+			"Lead the development of next-generation ranking models that personalise content for 300 M+ users. You will drive the full ML lifecycle from ideation to production, set technical direction for a team of 8 engineers, and partner with research scientists on novel retrieval architectures. Deep expertise in large-scale recommender systems and a track record of shipping impactful models required.",
+		employment_type: "full_time",
+		work_location_type: "on_site",
+		number_of_positions: 1,
+		hiring_manager_email_address: "harry@gryffindor.example",
+		recruiter_email_address: "hermione@gryffindor.example",
+		min_yoe: 8,
+		min_education_level: "master",
+		salary: { min_amount: 240000, max_amount: 340000, currency: "USD" },
+		internal_notes:
+			"Levelling at L7/E7 equivalent. Prioritise candidates with FAANG ranking-system experience.",
+	},
+	{
+		title: "Product Manager – Developer Platform",
+		description:
+			"Define and execute the roadmap for our developer-facing APIs and SDKs. Work with engineering, design, and external partners to identify platform gaps, write crisp product specs, and drive cross-functional launches. You will be the voice of the developer community internally and represent the platform externally at conferences and partner summits.",
+		employment_type: "full_time",
+		work_location_type: "remote",
+		number_of_positions: 1,
+		hiring_manager_email_address: "harry@gryffindor.example",
+		recruiter_email_address: "hermione@gryffindor.example",
+		min_yoe: 4,
+		max_yoe: 10,
+		salary: { min_amount: 160000, max_amount: 220000, currency: "USD" },
+	},
+	{
+		title: "Site Reliability Engineer – Global Infrastructure",
+		description:
+			"Ensure 99.999 % availability across Gryffindor's multi-region infrastructure. Responsibilities include on-call rotation, incident command, capacity planning, and driving the SLO/SLA programme across 20+ services. You will embed with product-engineering squads to bake reliability into the SDLC from day one.",
+		employment_type: "full_time",
+		work_location_type: "hybrid",
+		number_of_positions: 3,
+		hiring_manager_email_address: "harry@gryffindor.example",
+		recruiter_email_address: "hermione@gryffindor.example",
+		min_yoe: 3,
+		max_yoe: 8,
+		min_education_level: "bachelor",
+		salary: { min_amount: 155000, max_amount: 215000, currency: "USD" },
+	},
+	{
+		title: "Security Engineer – Application Security",
+		description:
+			"Partner with product and infrastructure teams to identify and remediate vulnerabilities across Gryffindor's web and mobile surfaces. Own the bug-bounty programme, conduct threat modelling sessions, develop secure-coding guidelines, and respond to critical security incidents. Experience with SAST/DAST tooling and a strong understanding of OWASP Top-10 are required.",
+		employment_type: "contract",
+		work_location_type: "remote",
+		number_of_positions: 2,
+		hiring_manager_email_address: "harry@gryffindor.example",
+		recruiter_email_address: "hermione@gryffindor.example",
+		min_yoe: 4,
+		salary: { min_amount: 130000, max_amount: 175000, currency: "USD" },
+	},
+	{
+		title: "Software Engineering Intern – Summer 2026",
+		description:
+			"12-week paid internship on one of our product or infrastructure teams. You will work on a scoped project with real impact, receive mentorship from a senior engineer, and participate in intern-specific talks and social events. Ideal for penultimate-year students looking to return full-time after graduation.",
+		employment_type: "internship",
+		work_location_type: "on_site",
+		number_of_positions: 5,
+		hiring_manager_email_address: "harry@gryffindor.example",
+		recruiter_email_address: "hermione@gryffindor.example",
+		salary: { min_amount: 8500, max_amount: 9500, currency: "USD" },
+	},
+];
+
 // ============================================================================
 // Main
 // ============================================================================
@@ -547,6 +730,10 @@ async function main(): Promise<void> {
 	// Seed Gryffindor with an extra admin, an office address and members.
 	// Runs after the house orgs exist since it logs in as the Gryffindor admin.
 	await seedGryffindor();
+
+	// Seed published openings for Gryffindor. Runs after seedGryffindor so the
+	// address and hired org users (hiring manager / recruiter) already exist.
+	await seedGryffindorOpenings();
 
 	console.log("\n=== Seed complete! ===");
 	console.log(

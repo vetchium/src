@@ -1,6 +1,7 @@
 {
 	"title": "Applications",
 	"backToDashboard": "Back to dashboard",
+	"backToApplications": "Back to applications",
 	"candidate": "Candidate",
 	"state": "State",
 	"applied": "Applied",
@@ -37,5 +38,6 @@
 	"rejectSuccess": "Application rejected",
 	"labelUpdated": "Label updated",
 	"actionFailed": "Action failed",
-	"notFound": "Application not found"
+	"notFound": "Application not found",
+	"viewProfile": "View profile"
 }

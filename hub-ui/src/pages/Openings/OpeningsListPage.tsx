@@ -78,19 +78,12 @@ export const OpeningsListPage: React.FC = () => {
 				</Link>
 			),
 		},
-		{ title: t("company"), dataIndex: "org_domain", key: "org_domain" },
+		{ title: t("company"), dataIndex: "org_name", key: "org_name" },
 		{
 			title: t("employmentType"),
 			dataIndex: "employment_type",
 			key: "employment_type",
-			render: (v: string) => <Tag>{v.replace("_", " ")}</Tag>,
-		},
-		{
-			title: t("colleague"),
-			dataIndex: "colleague_count_here",
-			key: "colleague_count_here",
-			render: (count: number) =>
-				count > 0 ? <Tag color="blue">{t("colleagues", { count })}</Tag> : null,
+			render: (v: string) => <Tag>{v.replace(/_/g, " ")}</Tag>,
 		},
 		{
 			title: t("posted"),

@@ -1815,6 +1815,12 @@ WHERE c.candidacy_id = $1 AND c.applicant_hub_user_global_id = $2;
 -- name: GetApplicationByApplicant :one
 SELECT * FROM applications WHERE application_id = $1 AND applicant_hub_user_global_id = $2;
 
+-- name: GetApplicationByApplicantWithOpening :one
+SELECT a.*, op.title AS opening_title
+FROM applications a
+JOIN openings op ON op.opening_id = a.opening_id
+WHERE a.application_id = $1 AND a.applicant_hub_user_global_id = $2;
+
 -- name: CheckHubUserHasApplied :one
 SELECT EXISTS(
     SELECT 1 FROM applications
@@ -1862,6 +1868,12 @@ SELECT
 FROM openings o
 WHERE o.status = 'published'
   AND o.is_internal = false
+  AND NOT EXISTS (
+      SELECT 1 FROM applications a
+      WHERE a.opening_id = o.opening_id
+        AND a.applicant_hub_user_global_id = @hub_user_global_id
+        AND a.state = 'rejected'
+  )
   AND (@cursor_published_at::timestamptz IS NULL
        OR o.first_published_at < @cursor_published_at::timestamptz
        OR (o.first_published_at = @cursor_published_at::timestamptz AND o.opening_id < @cursor_opening_id::uuid))
@@ -1889,6 +1901,7 @@ SELECT
     EXISTS(
         SELECT 1 FROM applications a
         WHERE a.opening_id = o.opening_id AND a.applicant_hub_user_global_id = @hub_user_global_id
+          AND a.state != 'rejected'
     ) AS viewer_has_applied
 FROM openings o
 JOIN org_domains od ON od.org_id = o.org_id AND od.domain = @org_domain AND od.status = 'VERIFIED'

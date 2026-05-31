@@ -40,6 +40,14 @@
 		"connections": {
 			"title": "Verbindungen",
 			"description": "Berufliche Verbindungen verwalten"
+		},
+		"browseJobs": {
+			"title": "Stellen durchsuchen",
+			"description": "Offene Stellen passend zu Ihrem Profil entdecken"
+		},
+		"myApplications": {
+			"title": "Meine Bewerbungen",
+			"description": "Status Ihrer Bewerbungen verfolgen"
 		}
 	},
 	"logout": {

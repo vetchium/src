@@ -10,11 +10,21 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
 	hub "vetchium-api-server.typespec/hub"
 )
+
+func numericToFloat(n pgtype.Numeric) float64 {
+	if !n.Valid || n.Int == nil {
+		return 0
+	}
+	var f float64
+	fmt.Sscanf(fmt.Sprintf("%se%d", n.Int.String(), n.Exp), "%e", &f)
+	return f
+}
 
 func parseOpeningCursor(key string) (pgtype.Timestamptz, pgtype.UUID) {
 	var ts pgtype.Timestamptz
@@ -231,11 +241,6 @@ func GetOpening(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		fp := ""
-		if opening.FirstPublishedAt.Valid {
-			fp = opening.FirstPublishedAt.Time.UTC().Format(time.RFC3339)
-		}
-
 		detail := hub.HubOpeningDetail{
 			OpeningID:          opening.OpeningID.String(),
 			OpeningNumber:      opening.OpeningNumber,
@@ -247,12 +252,73 @@ func GetOpening(s *server.RegionalServer) http.HandlerFunc {
 			WorkLocationType:   hub.WorkLocationType(opening.WorkLocationType),
 			Addresses:          []hub.HubOpeningAddress{},
 			Tags:               []hub.HubOpeningTag{},
+			NumberOfPositions:  opening.NumberOfPositions,
+			FilledPositions:    opening.FilledPositions,
 			ColleagueCountHere: opening.ColleagueCountHere,
 			ViewerCanRefer:     opening.ViewerCanRefer,
 			ViewerHasApplied:   opening.ViewerHasApplied,
 		}
-		_ = fp
 		_ = orgInfo
+
+		if opening.FirstPublishedAt.Valid {
+			fp := opening.FirstPublishedAt.Time.UTC().Format(time.RFC3339)
+			detail.FirstPublishedAt = &fp
+		}
+		if opening.MinYoe.Valid {
+			v := opening.MinYoe.Int32
+			detail.MinYOE = &v
+		}
+		if opening.MaxYoe.Valid {
+			v := opening.MaxYoe.Int32
+			detail.MaxYOE = &v
+		}
+		if opening.MinEducationLevel.Valid {
+			v := string(opening.MinEducationLevel.EducationLevel)
+			detail.MinEducationLevel = &v
+		}
+		if opening.SalaryMinAmount.Valid && opening.SalaryMaxAmount.Valid && opening.SalaryCurrency.Valid {
+			minF := numericToFloat(opening.SalaryMinAmount)
+			maxF := numericToFloat(opening.SalaryMaxAmount)
+			detail.Salary = &hub.HubOpeningSalary{
+				MinAmount: int32(minF),
+				MaxAmount: int32(maxF),
+				Currency:  opening.SalaryCurrency.String,
+			}
+		}
+
+		// Fetch addresses (opening's region DB)
+		if dbAddrs, err := openingDB.GetOpeningAddresses(ctx, opening.OpeningID); err == nil {
+			for _, a := range dbAddrs {
+				addr := hub.HubOpeningAddress{
+					AddressID: a.AddressID.String(),
+					City:      a.City,
+					Country:   a.Country,
+				}
+				if a.State.Valid {
+					addr.State = &a.State.String
+				}
+				detail.Addresses = append(detail.Addresses, addr)
+			}
+		}
+
+		// Fetch tags with locale-specific display names (global DB)
+		if tagIDs, err := openingDB.GetOpeningTags(ctx, opening.OpeningID); err == nil && len(tagIDs) > 0 {
+			locale := hubUser.PreferredLanguage
+			if locale == "" {
+				locale = "en-US"
+			}
+			if tagRows, err := s.Global.GetTagsByIDsForLocale(ctx, globaldb.GetTagsByIDsForLocaleParams{
+				Locale: locale,
+				TagIds: tagIDs,
+			}); err == nil {
+				for _, t := range tagRows {
+					detail.Tags = append(detail.Tags, hub.HubOpeningTag{
+						TagID:       t.TagID,
+						DisplayName: t.DisplayName,
+					})
+				}
+			}
+		}
 
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(detail)

@@ -370,8 +370,9 @@ test.describe("Hiring Applications", () => {
 	test("reject-application transitions state to rejected and writes audit log with application_id", async ({
 		request,
 	}) => {
-		const { applicationId } = await freshApp();
+		const { hubToken, applicationId } = await freshApp();
 		const orgClient = new OrgAPIClient(request);
+		const hubClient = new HubAPIClient(request);
 
 		const rejectRes = await orgClient.rejectApplication(orgAToken, {
 			application_id: applicationId,
@@ -379,10 +380,20 @@ test.describe("Hiring Applications", () => {
 		});
 		expect(rejectRes.status).toBe(200);
 
+		// Regional DB (org detail view) shows rejected
 		const getRes = await orgClient.getApplication(orgAToken, {
 			application_id: applicationId,
 		});
 		expect(getRes.body!.state).toBe("rejected");
+
+		// Global index (hub list view) must also reflect rejected — not "applied"
+		const listRes = await hubClient.listMyApplications(hubToken, {});
+		expect(listRes.status).toBe(200);
+		const listed = listRes.body!.applications.find(
+			(a: { application_id: string }) => a.application_id === applicationId
+		);
+		expect(listed).toBeDefined();
+		expect(listed!.state).toBe("rejected");
 
 		const auditRes = await orgClient.listAuditLogs(orgAToken, {
 			event_types: ["org.reject_application"],
@@ -414,8 +425,9 @@ test.describe("Hiring Applications", () => {
 	test("shortlist-application creates candidacy — returns candidacy with correct IDs and state", async ({
 		request,
 	}) => {
-		const { applicationId } = await freshApp();
+		const { hubToken, applicationId } = await freshApp();
 		const orgClient = new OrgAPIClient(request);
+		const hubClient = new HubAPIClient(request);
 
 		const res = await orgClient.shortlistApplication(orgAToken, {
 			application_id: applicationId,
@@ -430,13 +442,22 @@ test.describe("Hiring Applications", () => {
 		expect(Array.isArray(res.body!.comments)).toBe(true);
 		expect(res.body!.offer).toBeUndefined();
 
-		// Application is now shortlisted
+		// Regional DB (org detail view) shows shortlisted
 		const appRes = await orgClient.getApplication(orgAToken, {
 			application_id: applicationId,
 		});
 		expect(appRes.body!.state).toBe("shortlisted");
 
-		// Candidacy appears in list
+		// Global index (hub list view) must also reflect shortlisted — not "applied"
+		const hubListRes = await hubClient.listMyApplications(hubToken, {});
+		expect(hubListRes.status).toBe(200);
+		const listed = hubListRes.body!.applications.find(
+			(a: { application_id: string }) => a.application_id === applicationId
+		);
+		expect(listed).toBeDefined();
+		expect(listed!.state).toBe("shortlisted");
+
+		// Candidacy appears in org candidacy list
 		const listRes = await orgClient.listCandidacies(orgAToken, {});
 		const found = listRes.body!.candidacies.find(
 			(c: { candidacy_id: string }) => c.candidacy_id === res.body!.candidacy_id

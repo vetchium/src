@@ -1,8 +1,12 @@
 {
 	"title": "Browse Jobs",
 	"backToDashboard": "Back to dashboard",
+	"backToOpenings": "வேலைவாய்ப்புகளுக்கு திரும்பு",
 	"searchPlaceholder": "Search role or company",
+	"role": "பணி",
+	"company": "நிறுவனம்",
 	"applyNow": "Apply Now",
+	"applicationRejected": "விண்ணப்பம் நிராகரிக்கப்பட்டது",
 	"colleagues": "{{count}} colleague here",
 	"colleagues_plural": "{{count}} colleagues here",
 	"viewColleagues": "View colleagues",

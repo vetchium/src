@@ -1,0 +1,7 @@
+{
+	"notFound": "Profil nicht gefunden",
+	"notFoundDesc": "Der Benutzer @{{handle}} konnte nicht gefunden werden.",
+	"workHistory": "Berufserfahrung",
+	"present": "heute",
+	"backToDashboard": "Zurück zum Dashboard"
+}

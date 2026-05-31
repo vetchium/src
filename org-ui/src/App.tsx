@@ -54,6 +54,7 @@ import { HiringSettingsPage } from "./pages/HiringSettings/HiringSettingsPage";
 import { ScheduleInterviewPage } from "./pages/Interviews/ScheduleInterviewPage";
 import { SubmitFeedbackPage } from "./pages/Interviews/SubmitFeedbackPage";
 import { ExtendOfferPage } from "./pages/candidacies/ExtendOfferPage";
+import { HubUserProfilePage } from "./pages/Profile/HubUserProfilePage";
 import {
 	BrowserRouter,
 	Link,
@@ -614,6 +615,14 @@ function AppContent() {
 								element={
 									<ProtectedRoute>
 										<SubscriptionDetailPage />
+									</ProtectedRoute>
+								}
+							/>
+							<Route
+								path="/u/:handle"
+								element={
+									<ProtectedRoute>
+										<HubUserProfilePage />
 									</ProtectedRoute>
 								}
 							/>

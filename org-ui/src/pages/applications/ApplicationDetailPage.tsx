@@ -171,7 +171,9 @@ export const ApplicationDetailPage: React.FC = () => {
 		>
 			<div style={{ marginBottom: 16 }}>
 				<Link to={openingId ? `/openings/${openingId}/applications` : "/"}>
-					<Button icon={<ArrowLeftOutlined />}>{t("backToDashboard")}</Button>
+					<Button icon={<ArrowLeftOutlined />}>
+						{t("backToApplications")}
+					</Button>
 				</Link>
 			</div>
 
@@ -180,8 +182,19 @@ export const ApplicationDetailPage: React.FC = () => {
 					<>
 						<div style={{ marginBottom: 16 }}>
 							<Title level={2} style={{ margin: 0, marginBottom: 8 }}>
-								{application.candidate_display_name || ""} (@
-								{application.candidate_handle})
+								<Link
+									to={`/u/${application.candidate_handle}`}
+									style={{ color: "inherit" }}
+								>
+									{application.candidate_display_name ||
+										application.candidate_handle}
+								</Link>{" "}
+								<Link
+									to={`/u/${application.candidate_handle}`}
+									style={{ fontSize: 16, fontWeight: "normal" }}
+								>
+									(@{application.candidate_handle})
+								</Link>
 							</Title>
 							<Space size={8} wrap>
 								<Tag color={STATE_COLORS[application.state] ?? "default"}>
@@ -270,6 +283,12 @@ export const ApplicationDetailPage: React.FC = () => {
 							</Col>
 
 							<Col xs={24} md={8}>
+								<Card style={{ marginBottom: 16 }}>
+									<Link to={`/u/${application.candidate_handle}`}>
+										<Button block>{t("viewProfile")}</Button>
+									</Link>
+								</Card>
+
 								<Card title={t("applicationMeta")} style={{ marginBottom: 16 }}>
 									<Descriptions column={1} size="small">
 										<Descriptions.Item label={t("appliedDate")}>

@@ -1216,6 +1216,15 @@ WHERE blocker_user_id = @blocker::uuid AND blocked_user_id = @blocked::uuid;
 -- name: GetTagsByIDs :many
 SELECT * FROM tags WHERE tag_id = ANY(@tag_ids::text[]);
 
+-- name: GetTagsByIDsForLocale :many
+SELECT DISTINCT ON (t.tag_id) t.tag_id,
+  COALESCE(tl.display_name, te.display_name, '') AS display_name
+FROM tags t
+  LEFT JOIN tag_translations tl ON tl.tag_id = t.tag_id AND tl.locale = @locale
+  LEFT JOIN tag_translations te ON te.tag_id = t.tag_id AND te.locale = 'en-US'
+WHERE t.tag_id = ANY(@tag_ids::text[])
+ORDER BY t.tag_id;
+
 -- ============================================================
 -- Endorsement Requests Index (T3)
 -- ============================================================
@@ -1297,6 +1306,16 @@ INSERT INTO applications_index (
 
 -- name: GetApplicationIndexEntry :one
 SELECT * FROM applications_index WHERE application_id = $1;
+
+-- name: GetApplicationIndexEntryWithOrg :one
+SELECT ai.application_id, ai.hub_user_global_id, ai.region, ai.org_id,
+       ai.org_domain, ai.opening_number, ai.applied_at, ai.state,
+       COALESCE(o.org_name, '') AS org_name,
+       COALESCE(gd.domain, ai.org_domain) AS primary_domain
+FROM applications_index ai
+LEFT JOIN orgs o ON o.org_id = ai.org_id
+LEFT JOIN global_org_domains gd ON gd.org_id = ai.org_id AND gd.is_primary = true
+WHERE ai.application_id = $1;
 
 -- name: GetDistinctRegionsByHubUser :many
 -- The distinct set of regions in which a hub user has hiring data. All of a

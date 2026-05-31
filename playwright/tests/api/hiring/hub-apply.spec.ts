@@ -456,11 +456,20 @@ test.describe("Hub Apply for Opening", () => {
 		});
 		expect(withdrawRes.status).toBe(200);
 
-		// State is now withdrawn
+		// Regional DB (hub detail view) shows withdrawn
 		const getRes = await hubClient.getMyApplication(token, {
 			application_id: applicationId,
 		});
 		expect(getRes.body!.state).toBe("withdrawn");
+
+		// Global index (hub list view) must also reflect withdrawn — not "applied"
+		const listRes = await hubClient.listMyApplications(token, {});
+		expect(listRes.status).toBe(200);
+		const listed = listRes.body!.applications.find(
+			(a: { application_id: string }) => a.application_id === applicationId
+		);
+		expect(listed).toBeDefined();
+		expect(listed!.state).toBe("withdrawn");
 
 		// Audit log written
 		const auditRes = await hubClient.listAuditLogs(token, {

@@ -2,6 +2,8 @@ import { useEffect } from "react";
 import { Avatar, Card, Col, Row, Typography, theme } from "antd";
 import {
 	FileSearchOutlined,
+	FileTextOutlined,
+	SearchOutlined,
 	TeamOutlined,
 	UserOutlined,
 } from "@ant-design/icons";
@@ -148,6 +150,64 @@ export function HomePage() {
 									</Title>
 									<Text type="secondary" style={{ fontSize: 13 }}>
 										{t("dashboard.myActivity.description")}
+									</Text>
+								</div>
+							</div>
+						</Card>
+					</Link>
+				</Col>
+
+				<Col xs={24} sm={12} lg={8}>
+					<Link
+						to="/openings"
+						style={{ textDecoration: "none", display: "block", height: "100%" }}
+					>
+						<Card hoverable style={{ height: "100%", cursor: "pointer" }}>
+							<div
+								style={{ display: "flex", alignItems: "flex-start", gap: 16 }}
+							>
+								<SearchOutlined
+									style={{
+										fontSize: 28,
+										color: token.colorPrimary,
+										marginTop: 2,
+									}}
+								/>
+								<div>
+									<Title level={5} style={{ marginBottom: 4 }}>
+										{t("dashboard.browseJobs.title")}
+									</Title>
+									<Text type="secondary" style={{ fontSize: 13 }}>
+										{t("dashboard.browseJobs.description")}
+									</Text>
+								</div>
+							</div>
+						</Card>
+					</Link>
+				</Col>
+
+				<Col xs={24} sm={12} lg={8}>
+					<Link
+						to="/my-applications"
+						style={{ textDecoration: "none", display: "block", height: "100%" }}
+					>
+						<Card hoverable style={{ height: "100%", cursor: "pointer" }}>
+							<div
+								style={{ display: "flex", alignItems: "flex-start", gap: 16 }}
+							>
+								<FileTextOutlined
+									style={{
+										fontSize: 28,
+										color: token.colorPrimary,
+										marginTop: 2,
+									}}
+								/>
+								<div>
+									<Title level={5} style={{ marginBottom: 4 }}>
+										{t("dashboard.myApplications.title")}
+									</Title>
+									<Text type="secondary" style={{ fontSize: 13 }}>
+										{t("dashboard.myApplications.description")}
 									</Text>
 								</div>
 							</div>

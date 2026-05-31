@@ -152,8 +152,8 @@ func GetMyApplication(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		// Resolve the application's region (one global hop), then read it there.
-		region, err := regionForApplication(ctx, s, appID)
+		// One global round-trip: resolve region + org name + primary domain
+		indexEntry, err := s.Global.GetApplicationIndexEntryWithOrg(ctx, appID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				w.WriteHeader(http.StatusNotFound)
@@ -163,16 +163,16 @@ func GetMyApplication(s *server.RegionalServer) http.HandlerFunc {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-		regionalDB := s.GetRegionalDB(region)
+		regionalDB := s.GetRegionalDB(globaldb.Region(indexEntry.Region))
 		if regionalDB == nil {
-			s.Logger(ctx).Error("unknown application region", "region", region)
+			s.Logger(ctx).Error("unknown application region", "region", indexEntry.Region)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
-		// One regional round-trip: get application verifying ownership
-		app, err := regionalDB.GetApplicationByApplicant(ctx,
-			regionaldb.GetApplicationByApplicantParams{
+		// One regional round-trip: get application + opening title verifying ownership
+		app, err := regionalDB.GetApplicationByApplicantWithOpening(ctx,
+			regionaldb.GetApplicationByApplicantWithOpeningParams{
 				ApplicationID:            appID,
 				ApplicantHubUserGlobalID: hubUser.HubUserGlobalID,
 			})
@@ -194,10 +194,10 @@ func GetMyApplication(s *server.RegionalServer) http.HandlerFunc {
 
 		result := hub.HubApplication{
 			ApplicationID:            app.ApplicationID.String(),
-			OrgDomain:                "",
-			OrgName:                  "",
+			OrgDomain:                indexEntry.PrimaryDomain,
+			OrgName:                  indexEntry.OrgName,
 			OpeningNumber:            app.OpeningNumber,
-			OpeningTitle:             "",
+			OpeningTitle:             app.OpeningTitle,
 			State:                    hub.ApplicationState(app.State),
 			Label:                    label,
 			AppliedAt:                app.AppliedAt.Time.UTC().Format(time.RFC3339),

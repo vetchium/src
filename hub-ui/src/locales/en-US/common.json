@@ -40,6 +40,14 @@
 		"connections": {
 			"title": "Connections",
 			"description": "Manage your professional connections"
+		},
+		"browseJobs": {
+			"title": "Browse Jobs",
+			"description": "Explore open positions matching your profile"
+		},
+		"myApplications": {
+			"title": "My Applications",
+			"description": "Track the status of your job applications"
 		}
 	},
 	"logout": {

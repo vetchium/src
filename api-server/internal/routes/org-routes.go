@@ -165,6 +165,9 @@ func RegisterOrgRoutes(mux *http.ServeMux, s *server.RegionalServer) {
 	mux.Handle("POST /org/reject-application", orgAuth(orgRoleManageApplications(org.RejectApplication(s))))
 	mux.Handle("POST /org/label-application", orgAuth(orgRoleManageApplications(org.LabelApplication(s))))
 
+	// Hub user profile viewing (org users can view applicant public profiles)
+	mux.Handle("POST /org/get-hub-user-profile", orgAuth(org.GetHubUserProfile(s)))
+
 	// Candidacy management routes
 	mux.Handle("POST /org/list-candidacies", orgAuth(orgRoleViewCandidacies(org.ListCandidacies(s))))
 	mux.Handle("POST /org/get-candidacy", orgAuth(orgRoleViewCandidacies(org.GetCandidacy(s))))

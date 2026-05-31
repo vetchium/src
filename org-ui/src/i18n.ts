@@ -16,6 +16,7 @@ import enUSApplications from "./locales/en-US/applications.json";
 import enUSCandidacies from "./locales/en-US/candidacies.json";
 import enUSHiringSettings from "./locales/en-US/hiringSettings.json";
 import enUSInterviews from "./locales/en-US/interviews.json";
+import enUSHubProfile from "./locales/en-US/hubProfile.json";
 import deDECommon from "./locales/de-DE/common.json";
 import deDEAuth from "./locales/de-DE/auth.json";
 import deDEUsers from "./locales/de-DE/users.json";
@@ -30,6 +31,7 @@ import deDEApplications from "./locales/de-DE/applications.json";
 import deDECandidacies from "./locales/de-DE/candidacies.json";
 import deDEHiringSettings from "./locales/de-DE/hiringSettings.json";
 import deDEInterviews from "./locales/de-DE/interviews.json";
+import deDEHubProfile from "./locales/de-DE/hubProfile.json";
 import taINCommon from "./locales/ta-IN/common.json";
 import taINAuth from "./locales/ta-IN/auth.json";
 import taINUsers from "./locales/ta-IN/users.json";
@@ -44,6 +46,7 @@ import taINApplications from "./locales/ta-IN/applications.json";
 import taINCandidacies from "./locales/ta-IN/candidacies.json";
 import taINHiringSettings from "./locales/ta-IN/hiringSettings.json";
 import taINInterviews from "./locales/ta-IN/interviews.json";
+import taINHubProfile from "./locales/ta-IN/hubProfile.json";
 
 import {
 	SUPPORTED_LANGUAGES,
@@ -99,6 +102,7 @@ const resources = {
 		candidacies: enUSCandidacies,
 		hiringSettings: enUSHiringSettings,
 		interviews: enUSInterviews,
+		hubProfile: enUSHubProfile,
 	},
 	"de-DE": {
 		common: deDECommon,
@@ -115,6 +119,7 @@ const resources = {
 		candidacies: deDECandidacies,
 		hiringSettings: deDEHiringSettings,
 		interviews: deDEInterviews,
+		hubProfile: deDEHubProfile,
 	},
 	"ta-IN": {
 		common: taINCommon,
@@ -131,6 +136,7 @@ const resources = {
 		candidacies: taINCandidacies,
 		hiringSettings: taINHiringSettings,
 		interviews: taINInterviews,
+		hubProfile: taINHubProfile,
 	},
 };
 
@@ -154,6 +160,7 @@ i18n.use(initReactI18next).init({
 		"candidacies",
 		"hiringSettings",
 		"interviews",
+		"hubProfile",
 	],
 	interpolation: {
 		escapeValue: false, // React already escapes
