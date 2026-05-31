@@ -117,3 +117,9 @@ WHERE ii.interview_id = $1 AND ii.org_user_id = $2;
 SELECT * FROM interviews
 WHERE starts_at >= $1 AND starts_at <= $2
 ORDER BY starts_at ASC;
+
+-- name: ListInterviewerEmailsForInterview :many
+SELECT ou.email_address, ou.full_name
+FROM interview_interviewers ii
+JOIN org_users ou ON ou.org_user_id = ii.org_user_id
+WHERE ii.interview_id = $1;

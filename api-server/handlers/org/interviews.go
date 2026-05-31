@@ -3,7 +3,6 @@ package org
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"time"
 
@@ -142,18 +141,16 @@ func ScheduleInterview(s *server.RegionalServer) http.HandlerFunc {
 				return txErr
 			}
 
-			// Notify candidate of scheduled interview
+			// Notify candidate and interviewers of the scheduled interview.
+			details := interviewEmailDetails{
+				InterviewType: string(req.InterviewType),
+				StartsAt:      req.StartsAt,
+				EndsAt:        req.EndsAt,
+			}
 			cand, _ := qtx.GetCandidacy(ctx, interview.CandidacyID)
 			hubUser, _ := qtx.GetHubUserByGlobalID(ctx, cand.ApplicantHubUserGlobalID)
-			if hubUser.EmailAddress != "" {
-				_, _ = qtx.EnqueueEmail(ctx, regionaldb.EnqueueEmailParams{
-					EmailType:     regionaldb.EmailTemplateTypeHubInterviewScheduled,
-					EmailTo:       hubUser.EmailAddress,
-					EmailSubject:  "Interview scheduled",
-					EmailTextBody: fmt.Sprintf("An interview has been scheduled: %s %s - %s", string(req.InterviewType), req.StartsAt, req.EndsAt),
-					EmailHtmlBody: fmt.Sprintf("<p>An interview has been scheduled.</p><p>Type: %s<br/>Start: %s<br/>End: %s</p>", req.InterviewType, req.StartsAt, req.EndsAt),
-				})
-			}
+			enqueueInterviewEmail(ctx, qtx, regionaldb.EmailTemplateTypeHubInterviewScheduled, hubUser.EmailAddress, details)
+			enqueueInterviewerEmails(ctx, qtx, regionaldb.EmailTemplateTypeOrgInterviewScheduledForInterviewer, req.InterviewerEmailAddresses, details)
 			return nil
 		}); err != nil {
 			log.Error("failed to schedule interview", "error", err)
@@ -264,13 +261,32 @@ func UpdateInterview(s *server.RegionalServer) http.HandlerFunc {
 			}); txErr != nil {
 				return txErr
 			}
-			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
+			if txErr := qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
 				EventType:   "org.update_interview",
 				ActorUserID: orgUser.OrgUserID,
 				OrgID:       orgUser.OrgID,
 				IpAddress:   audit.ExtractClientIP(r),
 				EventData:   eventData,
-			})
+			}); txErr != nil {
+				return txErr
+			}
+
+			// Notify candidate and interviewers of the new schedule.
+			details := interviewEmailDetails{
+				InterviewType: existing.InterviewType,
+				StartsAt:      startsAt.Time.UTC().Format(time.RFC3339),
+				EndsAt:        endsAt.Time.UTC().Format(time.RFC3339),
+			}
+			cand, _ := qtx.GetCandidacy(ctx, existing.CandidacyID)
+			hubUser, _ := qtx.GetHubUserByGlobalID(ctx, cand.ApplicantHubUserGlobalID)
+			enqueueInterviewEmail(ctx, qtx, regionaldb.EmailTemplateTypeHubInterviewUpdated, hubUser.EmailAddress, details)
+			recipients, _ := qtx.ListInterviewerEmailsForInterview(ctx, interviewID)
+			emails := make([]string, 0, len(recipients))
+			for _, rcp := range recipients {
+				emails = append(emails, rcp.EmailAddress)
+			}
+			enqueueInterviewerEmails(ctx, qtx, regionaldb.EmailTemplateTypeOrgInterviewUpdatedForInterviewer, emails, details)
+			return nil
 		}); err != nil {
 			s.Logger(ctx).Error("failed to update interview", "error", err)
 			w.WriteHeader(http.StatusInternalServerError)
@@ -343,13 +359,32 @@ func CancelInterview(s *server.RegionalServer) http.HandlerFunc {
 				}
 				return txErr
 			}
-			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
+			if txErr := qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
 				EventType:   "org.cancel_interview",
 				ActorUserID: orgUser.OrgUserID,
 				OrgID:       orgUser.OrgID,
 				IpAddress:   audit.ExtractClientIP(r),
 				EventData:   eventData,
-			})
+			}); txErr != nil {
+				return txErr
+			}
+
+			// Notify candidate and interviewers of the cancellation.
+			details := interviewEmailDetails{
+				InterviewType: existing.InterviewType,
+				StartsAt:      existing.StartsAt.Time.UTC().Format(time.RFC3339),
+				EndsAt:        existing.EndsAt.Time.UTC().Format(time.RFC3339),
+			}
+			cand, _ := qtx.GetCandidacy(ctx, existing.CandidacyID)
+			hubUser, _ := qtx.GetHubUserByGlobalID(ctx, cand.ApplicantHubUserGlobalID)
+			enqueueInterviewEmail(ctx, qtx, regionaldb.EmailTemplateTypeHubInterviewCancelled, hubUser.EmailAddress, details)
+			recipients, _ := qtx.ListInterviewerEmailsForInterview(ctx, interviewID)
+			emails := make([]string, 0, len(recipients))
+			for _, rcp := range recipients {
+				emails = append(emails, rcp.EmailAddress)
+			}
+			enqueueInterviewerEmails(ctx, qtx, regionaldb.EmailTemplateTypeOrgInterviewCancelledForInterviewer, emails, details)
+			return nil
 		}); err != nil {
 			if errors.Is(err, server.ErrInvalidState) {
 				w.WriteHeader(http.StatusUnprocessableEntity)
@@ -457,13 +492,23 @@ func AddInterviewer(s *server.RegionalServer) http.HandlerFunc {
 			}); txErr != nil {
 				return txErr
 			}
-			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
+			if txErr := qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
 				EventType:   "org.add_interviewer",
 				ActorUserID: orgUser.OrgUserID,
 				OrgID:       orgUser.OrgID,
 				IpAddress:   audit.ExtractClientIP(r),
 				EventData:   eventData,
+			}); txErr != nil {
+				return txErr
+			}
+
+			// Notify the newly added interviewer that they are on the panel.
+			enqueueInterviewEmail(ctx, qtx, regionaldb.EmailTemplateTypeOrgInterviewScheduledForInterviewer, newUser.EmailAddress, interviewEmailDetails{
+				InterviewType: existing.InterviewType,
+				StartsAt:      existing.StartsAt.Time.UTC().Format(time.RFC3339),
+				EndsAt:        existing.EndsAt.Time.UTC().Format(time.RFC3339),
 			})
+			return nil
 		}); err != nil {
 			s.Logger(ctx).Error("failed to add interviewer", "error", err)
 			w.WriteHeader(http.StatusInternalServerError)
@@ -536,6 +581,13 @@ func RemoveInterviewer(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
+		// Resolve the removed user's email (best-effort) so we can notify them
+		// after the removal commits.
+		var removedEmail string
+		if removedUser, ruErr := db.GetOrgUserByID(ctx, removeUserID); ruErr == nil {
+			removedEmail = removedUser.EmailAddress
+		}
+
 		eventData, _ := json.Marshal(map[string]interface{}{
 			"interview_id": req.InterviewID,
 			"org_user_id":  req.OrgUserID,
@@ -547,13 +599,23 @@ func RemoveInterviewer(s *server.RegionalServer) http.HandlerFunc {
 			}); txErr != nil {
 				return txErr
 			}
-			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
+			if txErr := qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
 				EventType:   "org.remove_interviewer",
 				ActorUserID: orgUser.OrgUserID,
 				OrgID:       orgUser.OrgID,
 				IpAddress:   audit.ExtractClientIP(r),
 				EventData:   eventData,
+			}); txErr != nil {
+				return txErr
+			}
+
+			// Notify the removed interviewer that they are off the panel.
+			enqueueInterviewEmail(ctx, qtx, regionaldb.EmailTemplateTypeOrgInterviewerRemoved, removedEmail, interviewEmailDetails{
+				InterviewType: existing.InterviewType,
+				StartsAt:      existing.StartsAt.Time.UTC().Format(time.RFC3339),
+				EndsAt:        existing.EndsAt.Time.UTC().Format(time.RFC3339),
 			})
+			return nil
 		}); err != nil {
 			s.Logger(ctx).Error("failed to remove interviewer", "error", err)
 			w.WriteHeader(http.StatusInternalServerError)
