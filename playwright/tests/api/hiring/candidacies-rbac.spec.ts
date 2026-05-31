@@ -225,7 +225,7 @@ test.describe("Candidacies RBAC", () => {
 			(c: { body: string }) => c.body === uniqueBody
 		);
 		expect(comment).toBeDefined();
-		expect(comment!.author_kind).toBe("org");
+		expect(comment!.author_kind).toBe("org_user");
 
 		const auditRes = await api.listAuditLogs(adminToken, {
 			event_types: ["org.add_candidacy_comment"],

@@ -105,6 +105,21 @@ test.describe("Openings — UI", () => {
 			}
 		});
 
+		test("number of positions defaults to 1", async ({ page }) => {
+			const { email, domain } = generateTestOrgEmail("ui-op-create-default");
+			await createTestOrgAdminDirect(email, TEST_PASSWORD);
+
+			try {
+				await orgLogin(page, domain, email, TEST_PASSWORD);
+				await page.goto(`${ORG_UI_URL}/openings/new`);
+				// number_of_positions is in step 2, but should be in the DOM
+				const input = page.locator("input#number_of_positions");
+				await expect(input).toHaveValue("1");
+			} finally {
+				await deleteTestOrgByDomain(domain);
+			}
+		});
+
 		test("submit with empty title shows validation error", async ({ page }) => {
 			const { email, domain } = generateTestOrgEmail("ui-op-create-empty");
 			await createTestOrgAdminDirect(email, TEST_PASSWORD);

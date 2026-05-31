@@ -443,6 +443,7 @@ export default function CreateOpeningPage() {
 								label={t("form.numberOfPositions")}
 								name="number_of_positions"
 								rules={[{ required: true, message: t("form.required") }]}
+								initialValue={1}
 							>
 								<InputNumber min={1} max={100} style={{ width: "100%" }} />
 							</Form.Item>
