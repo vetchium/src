@@ -183,6 +183,7 @@ func RegisterOrgRoutes(mux *http.ServeMux, s *server.RegionalServer) {
 	mux.Handle("POST /org/remove-interviewer", orgAuth(orgRoleManageCandidacies(org.RemoveInterviewer(s))))
 	mux.Handle("POST /org/submit-interview-feedback", orgAuth(org.SubmitInterviewFeedback(s)))
 	mux.Handle("POST /org/rsvp-interview", orgAuth(org.RSVPInterview(s)))
+	mux.Handle("POST /org/list-my-interviews", orgAuth(org.ListMyInterviews(s)))
 
 	// Offer management routes (T2 Tranche)
 	mux.Handle("POST /org/extend-offer", orgAuth(orgRoleManageCandidacies(org.ExtendOffer(s))))

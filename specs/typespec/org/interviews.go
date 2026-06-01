@@ -99,6 +99,30 @@ type ListInterviewsResponse struct {
 	NextPaginationKey *string               `json:"next_pagination_key,omitempty"`
 }
 
+type OrgMyInterview struct {
+	InterviewID       string         `json:"interview_id"`
+	CandidacyID       string         `json:"candidacy_id"`
+	OpeningTitle      string         `json:"opening_title"`
+	CandidateName     string         `json:"candidate_name"`
+	InterviewType     InterviewType  `json:"interview_type"`
+	StartsAt          string         `json:"starts_at"`
+	EndsAt            string         `json:"ends_at"`
+	State             InterviewState `json:"state"`
+	MyRSVP            *InterviewRSVP `json:"my_rsvp,omitempty"`
+	FeedbackSubmitted bool           `json:"feedback_submitted"`
+}
+
+type ListMyInterviewsRequest struct {
+	FilterState   []InterviewState `json:"filter_state,omitempty"`
+	PaginationKey *string          `json:"pagination_key,omitempty"`
+	Limit         *int32           `json:"limit,omitempty"`
+}
+
+type ListMyInterviewsResponse struct {
+	Interviews        []OrgMyInterview `json:"interviews"`
+	NextPaginationKey *string          `json:"next_pagination_key,omitempty"`
+}
+
 // Validation functions
 func (r *ScheduleInterviewRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
@@ -290,6 +314,19 @@ func (r *SubmitInterviewFeedbackRequest) Validate() []common.ValidationError {
 }
 
 func (r *ListInterviewsRequest) Validate() []common.ValidationError {
+	var errs []common.ValidationError
+
+	if r.Limit != nil && (*r.Limit < 1 || *r.Limit > 100) {
+		errs = append(errs, common.ValidationError{
+			Field:   "limit",
+			Message: "must be between 1 and 100",
+		})
+	}
+
+	return errs
+}
+
+func (r *ListMyInterviewsRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
 
 	if r.Limit != nil && (*r.Limit < 1 || *r.Limit > 100) {

@@ -3,7 +3,9 @@ package org
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -14,6 +16,27 @@ import (
 	"vetchium-api-server.gomodule/internal/server"
 	org "vetchium-api-server.typespec/org"
 )
+
+// parseInterviewCursorAsc decodes a "<rfc3339nano>|<interview_id>" keyset cursor
+// used by the ascending (soonest-first) my-interviews listings.
+func parseInterviewCursorAsc(key string) (pgtype.Timestamptz, pgtype.UUID) {
+	var ts pgtype.Timestamptz
+	var id pgtype.UUID
+	if key == "" {
+		return ts, id
+	}
+	parts := strings.SplitN(key, "|", 2)
+	if len(parts) != 2 {
+		return ts, id
+	}
+	t, err := time.Parse(time.RFC3339Nano, parts[0])
+	if err != nil {
+		return ts, id
+	}
+	ts = pgtype.Timestamptz{Time: t, Valid: true}
+	_ = id.Scan(parts[1])
+	return ts, id
+}
 
 func ScheduleInterview(s *server.RegionalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -984,5 +1007,104 @@ func RSVPInterview(s *server.RegionalServer) http.HandlerFunc {
 
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(struct{}{})
+	}
+}
+
+// ListMyInterviews returns the flat, soonest-first list of interviews the
+// calling org user is personally assigned to as an interviewer — the
+// interviewer-facing "My Interviews" view. Unlike list-interviews (which is
+// scoped to a single candidacy and gated on view_candidacies), this is scoped
+// to the authenticated user across the whole org and needs no extra role: being
+// listed on the panel is the authorization.
+func ListMyInterviews(s *server.RegionalServer) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		ctx := r.Context()
+
+		orgUser := middleware.OrgUserFromContext(ctx)
+		if orgUser == nil {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		var req org.ListMyInterviewsRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			s.Logger(ctx).Debug("failed to decode request", "error", err)
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if errs := req.Validate(); len(errs) > 0 {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(errs)
+			return
+		}
+
+		limit := int32(20)
+		if req.Limit != nil {
+			limit = *req.Limit
+		}
+
+		var cursorKey string
+		if req.PaginationKey != nil {
+			cursorKey = *req.PaginationKey
+		}
+		cursorTs, cursorID := parseInterviewCursorAsc(cursorKey)
+
+		var filterStates []string
+		for _, st := range req.FilterState {
+			filterStates = append(filterStates, string(st))
+		}
+
+		db := s.RegionalForCtx(ctx)
+		rows, err := db.ListMyInterviewsForOrgUser(ctx, regionaldb.ListMyInterviewsForOrgUserParams{
+			OrgUserID:         orgUser.OrgUserID,
+			OrgID:             orgUser.OrgID,
+			FilterStates:      filterStates,
+			CursorStartsAt:    cursorTs,
+			CursorInterviewID: cursorID,
+			Lim:               limit + 1,
+		})
+		if err != nil {
+			s.Logger(ctx).Error("failed to list my interviews", "error", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		var nextKey *string
+		if int32(len(rows)) > limit {
+			rows = rows[:limit]
+			last := rows[len(rows)-1]
+			k := fmt.Sprintf("%s|%s",
+				last.StartsAt.Time.UTC().Format(time.RFC3339Nano),
+				last.InterviewID.String())
+			nextKey = &k
+		}
+
+		interviews := make([]org.OrgMyInterview, 0, len(rows))
+		for _, row := range rows {
+			var myRSVP *org.InterviewRSVP
+			if row.MyRsvp.Valid {
+				v := org.InterviewRSVP(row.MyRsvp.String)
+				myRSVP = &v
+			}
+			interviews = append(interviews, org.OrgMyInterview{
+				InterviewID:       row.InterviewID.String(),
+				CandidacyID:       row.CandidacyID.String(),
+				OpeningTitle:      row.OpeningTitle,
+				CandidateName:     row.CandidateName,
+				InterviewType:     org.InterviewType(row.InterviewType),
+				StartsAt:          row.StartsAt.Time.UTC().Format(time.RFC3339),
+				EndsAt:            row.EndsAt.Time.UTC().Format(time.RFC3339),
+				State:             org.InterviewState(row.State),
+				MyRSVP:            myRSVP,
+				FeedbackSubmitted: row.FeedbackSubmitted,
+			})
+		}
+
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(org.ListMyInterviewsResponse{
+			Interviews:        interviews,
+			NextPaginationKey: nextKey,
+		})
 	}
 }

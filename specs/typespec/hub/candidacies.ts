@@ -97,6 +97,28 @@ export interface RSVPInterviewRequest {
 	rsvp: InterviewRSVP;
 }
 
+export interface HubMyInterview {
+	interview_id: string;
+	candidacy_id: string;
+	opening_title: string;
+	interview_type: InterviewType;
+	starts_at: string;
+	ends_at: string;
+	state: InterviewState;
+	candidate_rsvp?: InterviewRSVP;
+}
+
+export interface ListMyInterviewsRequest {
+	filter_state?: InterviewState[];
+	pagination_key?: string;
+	limit?: number;
+}
+
+export interface ListMyInterviewsResponse {
+	interviews: HubMyInterview[];
+	next_pagination_key?: string;
+}
+
 export function validateListMyCandidaciesRequest(
 	req: unknown
 ): ValidationError[] {
@@ -180,6 +202,28 @@ export function validateRSVPInterviewRequest(req: unknown): ValidationError[] {
 
 	if (r.rsvp !== "yes" && r.rsvp !== "no") {
 		errors.push({ field: "rsvp", message: 'Must be "yes" or "no"' });
+	}
+
+	return errors;
+}
+
+export function validateListMyInterviewsRequest(
+	req: unknown
+): ValidationError[] {
+	const errors: ValidationError[] = [];
+	if (!req || typeof req !== "object") {
+		return [{ field: "$root", message: "Request body is required" }];
+	}
+	const r = req as Record<string, unknown>;
+
+	if (r.limit !== undefined) {
+		if (typeof r.limit !== "number" || r.limit < 1 || r.limit > 100) {
+			errors.push({ field: "limit", message: "Must be between 1 and 100" });
+		}
+	}
+
+	if (r.pagination_key !== undefined && typeof r.pagination_key !== "string") {
+		errors.push({ field: "pagination_key", message: "Must be a string" });
 	}
 
 	return errors;

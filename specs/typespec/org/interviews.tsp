@@ -88,6 +88,28 @@ model ListInterviewsRequest {
 }
 model ListInterviewsResponse { interviews: OrgInterviewSummary[]; next_pagination_key?: string; }
 
+// A single interview the calling org user is personally assigned to, enriched
+// with the candidacy/opening/candidate context needed for a flat list view.
+model OrgMyInterview {
+  interview_id:   string;
+  candidacy_id:   string;
+  opening_title:  string;
+  candidate_name: string;
+  interview_type: InterviewType;
+  starts_at:      utcDateTime;
+  ends_at:        utcDateTime;
+  state:          InterviewState;
+  my_rsvp?:       InterviewRSVP;
+  feedback_submitted: boolean;
+}
+
+model ListMyInterviewsRequest {
+  filter_state?:   InterviewState[];
+  pagination_key?: string;
+  limit?:          int32;
+}
+model ListMyInterviewsResponse { interviews: OrgMyInterview[]; next_pagination_key?: string; }
+
 @route("/org/schedule-interview") @post scheduleInterview(...ScheduleInterviewRequest):
   CreatedResponse<ScheduleInterviewResponse> | BadRequestResponse | NotFoundResponse | UnprocessableEntityResponse;
 @route("/org/update-interview")   @post updateInterview(...UpdateInterviewRequest):
@@ -106,3 +128,5 @@ model ListInterviewsResponse { interviews: OrgInterviewSummary[]; next_paginatio
   OkResponse<ListInterviewsResponse> | BadRequestResponse;
 @route("/org/get-interview")      @post orgGetInterview(...InterviewIdRequest):
   OkResponse<OrgInterview> | NotFoundResponse;
+@route("/org/list-my-interviews") @post orgListMyInterviews(...ListMyInterviewsRequest):
+  OkResponse<ListMyInterviewsResponse> | BadRequestResponse;

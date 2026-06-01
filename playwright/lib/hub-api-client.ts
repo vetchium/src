@@ -64,6 +64,8 @@ import type {
 	HubCandidacy,
 	AddCandidacyCommentRequest,
 	RSVPInterviewRequest,
+	ListMyInterviewsRequest,
+	ListMyInterviewsResponse,
 } from "vetchium-specs/hub/candidacies";
 import type {
 	HubApplyPreferences,
@@ -1568,6 +1570,21 @@ export class HubAPIClient {
 		return {
 			status: response.status(),
 			body: body as ListMyCandidaciesResponse,
+		};
+	}
+
+	async listMyInterviews(
+		sessionToken: string,
+		request: ListMyInterviewsRequest
+	): Promise<APIResponse<ListMyInterviewsResponse>> {
+		const response = await this.request.post("/hub/list-my-interviews", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as ListMyInterviewsResponse,
 		};
 	}
 

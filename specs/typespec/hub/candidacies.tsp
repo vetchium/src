@@ -117,6 +117,29 @@ model RSVPInterviewRequest {
   rsvp:         InterviewRSVP;
 }
 
+// A single interview the candidate is involved in, flattened across all of
+// their candidacies for a standalone "My Interviews" list.
+model HubMyInterview {
+  interview_id:    string;
+  candidacy_id:    string;
+  opening_title:   string;
+  interview_type:  InterviewType;
+  starts_at:       utcDateTime;
+  ends_at:         utcDateTime;
+  state:           InterviewState;
+  candidate_rsvp?: InterviewRSVP;
+}
+
+model ListMyInterviewsRequest {
+  filter_state?:   InterviewState[];
+  pagination_key?: string;
+  limit?:          int32;
+}
+model ListMyInterviewsResponse {
+  interviews:           HubMyInterview[];
+  next_pagination_key?: string;
+}
+
 @route("/hub/list-my-candidacies")
 @post
 op listMyCandidacies(...ListMyCandidaciesRequest):
@@ -139,3 +162,8 @@ op addCandidacyComment(...AddCandidacyCommentRequest):
 @post
 op rsvpInterview(...RSVPInterviewRequest):
   OkResponse<{}> | NotFoundResponse | UnprocessableEntityResponse;
+
+@route("/hub/list-my-interviews")
+@post
+op listMyInterviews(...ListMyInterviewsRequest):
+  OkResponse<ListMyInterviewsResponse>;

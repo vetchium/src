@@ -77,6 +77,7 @@ func RegisterHubRoutes(mux *http.ServeMux, s *server.RegionalServer) {
 	mux.Handle("POST /hub/list-my-candidacies", hubAuth(hub.ListMyCandidacies(s)))
 	mux.Handle("POST /hub/get-my-candidacy", hubAuth(hub.GetMyCandidacy(s)))
 	mux.Handle("POST /hub/rsvp-interview", hubAuth(hub.RSVPInterview(s)))
+	mux.Handle("POST /hub/list-my-interviews", hubAuth(hub.ListMyInterviews(s)))
 	mux.Handle("POST /hub/add-candidacy-comment", hubAuth(hub.AddCandidacyComment(s)))
 	mux.Handle("POST /hub/get-apply-preferences", hubAuth(hub.GetApplyPreferences(s)))
 	mux.Handle("POST /hub/set-notify-connections-on-apply", hubAuth(hub.SetNotifyConnectionsOnApply(s)))

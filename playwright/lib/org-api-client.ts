@@ -147,6 +147,8 @@ import type {
 	ListInterviewsRequest,
 	ListInterviewsResponse,
 	OrgInterview,
+	ListMyInterviewsRequest,
+	ListMyInterviewsResponse,
 } from "vetchium-specs/org/interviews";
 import type {
 	OrgHiringSettings,
@@ -2950,6 +2952,21 @@ export class OrgAPIClient {
 		});
 		const body = await response.json().catch(() => ({}));
 		return { status: response.status(), body: body as OrgInterview };
+	}
+
+	async listMyInterviews(
+		sessionToken: string,
+		request: ListMyInterviewsRequest
+	): Promise<APIResponse<ListMyInterviewsResponse>> {
+		const response = await this.request.post("/org/list-my-interviews", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as ListMyInterviewsResponse,
+		};
 	}
 
 	async rsvpInterview(

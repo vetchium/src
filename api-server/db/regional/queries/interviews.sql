@@ -123,3 +123,62 @@ SELECT ou.email_address, ou.full_name
 FROM interview_interviewers ii
 JOIN org_users ou ON ou.org_user_id = ii.org_user_id
 WHERE ii.interview_id = $1;
+
+-- name: ListMyInterviewsForOrgUser :many
+-- Interviews the given org user is personally assigned to, within their org,
+-- enriched with opening/candidate context and the caller's own RSVP/feedback.
+-- Keyset paginated ascending by (starts_at, interview_id) so soonest is first.
+SELECT
+    i.interview_id,
+    i.candidacy_id,
+    i.interview_type,
+    i.starts_at,
+    i.ends_at,
+    i.state,
+    o.title AS opening_title,
+    a.applicant_display_name_snapshot AS candidate_name,
+    ii.rsvp AS my_rsvp,
+    EXISTS(
+        SELECT 1 FROM interview_feedback f
+        WHERE f.interview_id = i.interview_id
+          AND f.interviewer_org_user_id = sqlc.arg('org_user_id')
+    ) AS feedback_submitted
+FROM interview_interviewers ii
+JOIN interviews i ON i.interview_id = ii.interview_id
+JOIN candidacies c ON c.candidacy_id = i.candidacy_id
+JOIN openings o ON o.opening_id = c.opening_id
+JOIN applications a ON a.application_id = c.application_id
+WHERE ii.org_user_id = sqlc.arg('org_user_id')
+  AND c.org_id = sqlc.arg('org_id')
+  AND (sqlc.narg('filter_states')::text[] IS NULL OR i.state = ANY(sqlc.narg('filter_states')::text[]))
+  AND (
+    sqlc.narg('cursor_starts_at')::timestamptz IS NULL
+    OR (i.starts_at, i.interview_id) > (sqlc.narg('cursor_starts_at')::timestamptz, sqlc.narg('cursor_interview_id')::uuid)
+  )
+ORDER BY i.starts_at ASC, i.interview_id ASC
+LIMIT sqlc.arg('lim');
+
+-- name: ListMyInterviewsForHubUser :many
+-- All interviews belonging to the given candidate (across their candidacies in
+-- this region), enriched with opening context. Keyset paginated ascending by
+-- (starts_at, interview_id).
+SELECT
+    i.interview_id,
+    i.candidacy_id,
+    i.interview_type,
+    i.starts_at,
+    i.ends_at,
+    i.state,
+    i.candidate_rsvp,
+    o.title AS opening_title
+FROM interviews i
+JOIN candidacies c ON c.candidacy_id = i.candidacy_id
+JOIN openings o ON o.opening_id = c.opening_id
+WHERE c.applicant_hub_user_global_id = sqlc.arg('hub_user_global_id')
+  AND (sqlc.narg('filter_states')::text[] IS NULL OR i.state = ANY(sqlc.narg('filter_states')::text[]))
+  AND (
+    sqlc.narg('cursor_starts_at')::timestamptz IS NULL
+    OR (i.starts_at, i.interview_id) > (sqlc.narg('cursor_starts_at')::timestamptz, sqlc.narg('cursor_interview_id')::uuid)
+  )
+ORDER BY i.starts_at ASC, i.interview_id ASC
+LIMIT sqlc.arg('lim');

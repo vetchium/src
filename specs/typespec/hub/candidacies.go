@@ -195,3 +195,36 @@ func (r *RSVPInterviewRequest) Validate() []common.ValidationError {
 
 	return errs
 }
+
+type HubMyInterview struct {
+	InterviewID   string         `json:"interview_id"`
+	CandidacyID   string         `json:"candidacy_id"`
+	OpeningTitle  string         `json:"opening_title"`
+	InterviewType InterviewType  `json:"interview_type"`
+	StartsAt      string         `json:"starts_at"`
+	EndsAt        string         `json:"ends_at"`
+	State         InterviewState `json:"state"`
+	CandidateRSVP *InterviewRSVP `json:"candidate_rsvp,omitempty"`
+}
+
+type ListMyInterviewsRequest struct {
+	FilterState   []InterviewState `json:"filter_state,omitempty"`
+	PaginationKey *string          `json:"pagination_key,omitempty"`
+	Limit         *int32           `json:"limit,omitempty"`
+}
+
+type ListMyInterviewsResponse struct {
+	Interviews        []HubMyInterview `json:"interviews"`
+	NextPaginationKey *string          `json:"next_pagination_key,omitempty"`
+}
+
+func (r *ListMyInterviewsRequest) Validate() []common.ValidationError {
+	var errs []common.ValidationError
+	if r.Limit != nil && (*r.Limit < 1 || *r.Limit > 100) {
+		errs = append(errs, common.ValidationError{
+			Field:   "limit",
+			Message: "must be between 1 and 100",
+		})
+	}
+	return errs
+}
