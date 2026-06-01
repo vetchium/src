@@ -53,6 +53,7 @@ import CandidacyDetailPage from "./pages/candidacies/CandidacyDetailPage";
 import { HiringSettingsPage } from "./pages/HiringSettings/HiringSettingsPage";
 import { ScheduleInterviewPage } from "./pages/Interviews/ScheduleInterviewPage";
 import { SubmitFeedbackPage } from "./pages/Interviews/SubmitFeedbackPage";
+import { MyInterviewsPage } from "./pages/Interviews/MyInterviewsPage";
 import { ExtendOfferPage } from "./pages/candidacies/ExtendOfferPage";
 import { HubUserProfilePage } from "./pages/Profile/HubUserProfilePage";
 import {
@@ -525,6 +526,14 @@ function AppContent() {
 								element={
 									<ProtectedRoute>
 										<HiringSettingsPage />
+									</ProtectedRoute>
+								}
+							/>
+							<Route
+								path="/my-interviews"
+								element={
+									<ProtectedRoute>
+										<MyInterviewsPage />
 									</ProtectedRoute>
 								}
 							/>

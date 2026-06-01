@@ -83,5 +83,9 @@
 	},
 	"table": {
 		"empty": "Keine Daten"
+	},
+	"myInterviews": {
+		"title": "Meine Interviews",
+		"description": "Interviews, bei denen du im Panel bist"
 	}
 }

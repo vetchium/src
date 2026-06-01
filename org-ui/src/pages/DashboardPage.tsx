@@ -6,6 +6,7 @@ import {
 	BankOutlined,
 	EnvironmentOutlined,
 	ApartmentOutlined,
+	CalendarOutlined,
 	FileSearchOutlined,
 	CrownOutlined,
 	ShopOutlined,
@@ -93,6 +94,10 @@ export function DashboardPage() {
 
 	// Candidacies use the same access gate as openings (no dedicated role).
 	const hasCandidaciesAccess = hasOpeningsAccess;
+
+	// My Interviews is available to any authenticated org user — being placed
+	// on an interview panel, not a role, is what surfaces interviews here.
+	const hasMyInterviewsAccess = !!myInfo;
 
 	return (
 		<div
@@ -329,6 +334,42 @@ export function DashboardPage() {
 									</Title>
 									<Typography.Text type="secondary">
 										{t("candidacies.description")}
+									</Typography.Text>
+								</Card>
+							</Link>
+						</Col>
+					)}
+
+					{hasMyInterviewsAccess && (
+						<Col xs={24} sm={12} lg={8}>
+							<Link
+								to="/my-interviews"
+								style={{
+									textDecoration: "none",
+									display: "block",
+									height: "100%",
+								}}
+							>
+								<Card
+									hoverable
+									style={{
+										height: "100%",
+										cursor: "pointer",
+										textAlign: "center",
+									}}
+								>
+									<CalendarOutlined
+										style={{
+											fontSize: 48,
+											color: "#9254de",
+											marginBottom: 16,
+										}}
+									/>
+									<Title level={4} style={{ marginBottom: 8 }}>
+										{t("myInterviews.title")}
+									</Title>
+									<Typography.Text type="secondary">
+										{t("myInterviews.description")}
 									</Typography.Text>
 								</Card>
 							</Link>
