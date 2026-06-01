@@ -1,0 +1,51 @@
+#!/bin/sh
+
+# Git pre-commit hook managed by husky.
+# Auto-formats staged files (prettier + goimports) and re-stages them, so it is
+# impossible to commit unformatted code. The pre-push hook still *checks*
+# formatting as a backstop; this hook *fixes* it up front.
+#
+# Hand-rolled (no lint-staged dependency) to match the pre-push hook's style.
+# Note: for a partially-staged file this re-stages the whole file. That is the
+# same trade-off the pre-push check implies and is fine for this repo.
+
+# Only the files staged for this commit (added/copied/modified).
+staged=$(git diff --cached --name-only --diff-filter=ACM)
+[ -z "$staged" ] && exit 0
+
+# --- prettier (JS/TS/JSON/YAML/MD) ------------------------------------------
+prettier_files=""
+for file in $(echo "$staged" | grep -E '\.(ts|tsx|js|jsx|json|ya?ml|md)$' || true); do
+    # Skip deleted files and symlinks.
+    if [ -f "$file" ] && [ ! -L "$file" ]; then
+        prettier_files="$prettier_files $file"
+    fi
+done
+
+if [ -n "$prettier_files" ]; then
+    if command -v bunx >/dev/null 2>&1; then
+        bunx prettier --write $prettier_files || exit 1
+    elif command -v npx >/dev/null 2>&1; then
+        npx prettier --write $prettier_files || exit 1
+    else
+        echo "❌ prettier not found (need bunx or npx)"; exit 1
+    fi
+    git add $prettier_files
+fi
+
+# --- goimports (Go) ----------------------------------------------------------
+go_files=""
+for file in $(echo "$staged" | grep -E '\.go$' || true); do
+    [ -f "$file" ] && go_files="$go_files $file"
+done
+
+if [ -n "$go_files" ]; then
+    if ! command -v goimports >/dev/null 2>&1; then
+        echo "❌ goimports not found! Install: go install golang.org/x/tools/cmd/goimports@latest"
+        exit 1
+    fi
+    goimports -w $go_files || exit 1
+    git add $go_files
+fi
+
+exit 0

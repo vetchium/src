@@ -44,7 +44,11 @@ Vetchium is a multi-region job search and hiring platform. User types: Professio
    - Before writing handler code in a `.go` file, read the relevant `.go` file in `specs/typespec/` to confirm the exact type names and field names
 5. All DB SQL goes in `api-server/db/` `.sql` files via sqlc — no SQL in `.go` files
 6. Write Playwright tests under `playwright/` — import all types from `specs/typespec/`
-7. Format: `goimports -w` for Go; `prettier --write` for md/ts/tsx/js/json/yaml
+7. **Format before every commit (non-negotiable)** — run `bun run format` from `src/`
+   (this runs `goimports -w` for Go and `prettier --write` for md/ts/tsx/js/json/yaml across
+   the repo). A husky **pre-commit** hook auto-formats staged files and a **pre-push** hook
+   _rejects_ unformatted code, so skipping this will block the push. Never bypass with
+   `--no-verify`. After generating or editing any file, format it before staging.
 8. New config values → environment variables; update docker-compose files accordingly
 
 ## Build Commands
