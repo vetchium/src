@@ -12,7 +12,6 @@
 	"actions": "Actions",
 	"noCandidacies": "No candidacies yet",
 	"loadFailed": "Failed to load candidacy",
-
 	"interviewing": "Interviewing",
 	"offered": "Offered",
 	"offer_accepted": "Offer accepted",
@@ -20,9 +19,7 @@
 	"candidate_unsuitable": "Candidate unsuitable",
 	"candidate_not_responding": "Candidate not responding",
 	"employer_defunct": "Employer defunct",
-
 	"overview": "Overview",
-
 	"interviews": "Interviews",
 	"noInterviews": "No interviews scheduled yet",
 	"scheduleInterview": "Schedule interview",
@@ -43,7 +40,6 @@
 	"interviewStateScheduled": "Scheduled",
 	"interviewStateCompleted": "Completed",
 	"interviewStateCancelled": "Cancelled",
-
 	"offer": "Offer",
 	"noOffer": "No offer extended yet",
 	"extendOffer": "Extend offer",
@@ -52,7 +48,6 @@
 	"notes": "Notes",
 	"extendedAt": "Extended",
 	"downloadOfferLetter": "Download offer letter",
-
 	"comments": "Comments",
 	"commentPlaceholder": "Add an internal comment…",
 	"submitComment": "Post comment",
@@ -62,5 +57,11 @@
 	"commentFailed": "Failed to post comment",
 	"authorOrg": "Hiring team",
 	"authorHub": "Candidate",
-	"authorSystem": "System"
+	"authorSystem": "System",
+	"interviewerRsvpSummary": "Interviewer RSVPs",
+	"noInterviewers": "No interviewers assigned",
+	"interviewer": "Interviewer",
+	"rsvp": "RSVP",
+	"feedbackDone": "Submitted",
+	"feedbackPending": "Pending"
 }

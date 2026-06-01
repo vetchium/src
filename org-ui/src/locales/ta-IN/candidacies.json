@@ -12,7 +12,6 @@
 	"actions": "செயல்கள்",
 	"noCandidacies": "இன்னும் வேட்புமனுக்கள் இல்லை",
 	"loadFailed": "வேட்புமனுவை ஏற்ற முடியவில்லை",
-
 	"interviewing": "நேர்காணல் நடைபெறுகிறது",
 	"offered": "சலுகை வழங்கப்பட்டது",
 	"offer_accepted": "சலுகை ஏற்கப்பட்டது",
@@ -20,9 +19,7 @@
 	"candidate_unsuitable": "வேட்பாளர் பொருத்தமற்றவர்",
 	"candidate_not_responding": "வேட்பாளர் பதிலளிக்கவில்லை",
 	"employer_defunct": "முதலாளி செயலிழந்தது",
-
 	"overview": "மேற்பார்வை",
-
 	"interviews": "நேர்காணல்கள்",
 	"noInterviews": "இன்னும் நேர்காணல்கள் திட்டமிடப்படவில்லை",
 	"scheduleInterview": "நேர்காணலைத் திட்டமிடு",
@@ -43,7 +40,6 @@
 	"interviewStateScheduled": "திட்டமிடப்பட்டது",
 	"interviewStateCompleted": "முடிக்கப்பட்டது",
 	"interviewStateCancelled": "ரத்து செய்யப்பட்டது",
-
 	"offer": "சலுகை",
 	"noOffer": "இன்னும் சலுகை வழங்கப்படவில்லை",
 	"extendOffer": "சலுகை வழங்கு",
@@ -52,7 +48,6 @@
 	"notes": "குறிப்புகள்",
 	"extendedAt": "வழங்கப்பட்டது",
 	"downloadOfferLetter": "சலுகைக் கடிதத்தைப் பதிவிறக்கு",
-
 	"comments": "கருத்துகள்",
 	"commentPlaceholder": "உள் கருத்தைச் சேர்க்கவும்…",
 	"submitComment": "கருத்தைப் பதிவிடு",
@@ -62,5 +57,11 @@
 	"commentFailed": "கருத்தைப் பதிவிட முடியவில்லை",
 	"authorOrg": "பணியமர்த்தல் குழு",
 	"authorHub": "வேட்பாளர்",
-	"authorSystem": "சிஸ்டம்"
+	"authorSystem": "சிஸ்டம்",
+	"interviewerRsvpSummary": "நேர்காணல் செய்வோர் பதில்கள்",
+	"noInterviewers": "நேர்காணல் செய்வோர் யாரும் இல்லை",
+	"interviewer": "நேர்காணல் செய்பவர்",
+	"rsvp": "பதில்",
+	"feedbackDone": "சமர்ப்பிக்கப்பட்டது",
+	"feedbackPending": "நிலுவையில்"
 }

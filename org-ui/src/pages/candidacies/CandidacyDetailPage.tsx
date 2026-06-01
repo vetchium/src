@@ -33,6 +33,10 @@ import type {
 	InterviewState,
 	InterviewType,
 } from "vetchium-specs/hub/candidacies";
+import type {
+	InterviewIdRequest,
+	OrgInterview,
+} from "vetchium-specs/org/interviews";
 import { getApiBaseUrl } from "../../config";
 import { useAuth } from "../../hooks/useAuth";
 import { useMyInfo } from "../../hooks/useMyInfo";
@@ -71,6 +75,11 @@ const CandidacyDetailPage: React.FC = () => {
 	const [loading, setLoading] = useState(false);
 	const [commentText, setCommentText] = useState("");
 	const [postingComment, setPostingComment] = useState(false);
+	// Per-interview detail (interviewer RSVPs + feedback status), lazily fetched
+	// when a row is expanded, keyed by interview_id.
+	const [interviewDetails, setInterviewDetails] = useState<
+		Record<string, OrgInterview | "loading">
+	>({});
 
 	const canManage =
 		myInfo?.roles?.includes("org:manage_openings") ||
@@ -137,6 +146,109 @@ const CandidacyDetailPage: React.FC = () => {
 		} finally {
 			setPostingComment(false);
 		}
+	};
+
+	const fetchInterviewDetail = useCallback(
+		async (interviewId: string) => {
+			if (!sessionToken) return;
+			setInterviewDetails((prev) => ({ ...prev, [interviewId]: "loading" }));
+			try {
+				const apiBaseUrl = await getApiBaseUrl();
+				const req: InterviewIdRequest = { interview_id: interviewId };
+				const res = await fetch(`${apiBaseUrl}/org/get-interview`, {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${sessionToken}`,
+					},
+					body: JSON.stringify(req),
+				});
+				if (res.status === 200) {
+					const data = (await res.json()) as OrgInterview;
+					setInterviewDetails((prev) => ({ ...prev, [interviewId]: data }));
+				} else {
+					setInterviewDetails((prev) => {
+						const next = { ...prev };
+						delete next[interviewId];
+						return next;
+					});
+				}
+			} catch {
+				setInterviewDetails((prev) => {
+					const next = { ...prev };
+					delete next[interviewId];
+					return next;
+				});
+			}
+		},
+		[sessionToken]
+	);
+
+	const rsvpLabel = (rsvp?: "yes" | "no"): string =>
+		rsvp === "yes"
+			? t("rsvpYes")
+			: rsvp === "no"
+				? t("rsvpNo")
+				: t("rsvpPending");
+
+	const rsvpColor = (rsvp?: "yes" | "no"): string =>
+		rsvp === "yes" ? "green" : rsvp === "no" ? "red" : "default";
+
+	const renderInterviewerPanel = (interviewId: string) => {
+		const detail = interviewDetails[interviewId];
+		if (detail === undefined || detail === "loading") {
+			return (
+				<div style={{ padding: 16, textAlign: "center" }}>
+					<Spin size="small" />
+				</div>
+			);
+		}
+		if (detail.interviewers.length === 0) {
+			return (
+				<div style={{ padding: 16 }}>
+					<Text type="secondary">{t("noInterviewers")}</Text>
+				</div>
+			);
+		}
+		return (
+			<div style={{ padding: "8px 16px" }}>
+				<Text strong>{t("interviewerRsvpSummary")}</Text>
+				<Table
+					style={{ marginTop: 8 }}
+					dataSource={detail.interviewers}
+					rowKey="org_user_id"
+					pagination={false}
+					size="small"
+					columns={[
+						{
+							title: t("interviewer"),
+							key: "interviewer",
+							render: (_: unknown, r) =>
+								r.display_name || r.org_user_email_address,
+						},
+						{
+							title: t("rsvp"),
+							dataIndex: "rsvp",
+							key: "rsvp",
+							render: (rsvp?: "yes" | "no") => (
+								<Tag color={rsvpColor(rsvp)}>{rsvpLabel(rsvp)}</Tag>
+							),
+						},
+						{
+							title: t("feedback"),
+							dataIndex: "feedback_submitted",
+							key: "feedback_submitted",
+							render: (done: boolean) =>
+								done ? (
+									<Tag color="green">{t("feedbackDone")}</Tag>
+								) : (
+									<Tag>{t("feedbackPending")}</Tag>
+								),
+						},
+					]}
+				/>
+			</div>
+		);
 	};
 
 	const interviewTypeLabel = (type: InterviewType) =>
@@ -322,6 +434,18 @@ const CandidacyDetailPage: React.FC = () => {
 						rowKey="interview_id"
 						pagination={false}
 						size="small"
+						expandable={{
+							expandedRowRender: (record: OrgInterviewSummary) =>
+								renderInterviewerPanel(record.interview_id),
+							onExpand: (expanded: boolean, record: OrgInterviewSummary) => {
+								if (
+									expanded &&
+									interviewDetails[record.interview_id] === undefined
+								) {
+									fetchInterviewDetail(record.interview_id);
+								}
+							},
+						}}
 					/>
 				)}
 			</Card>

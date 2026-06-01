@@ -12,11 +12,13 @@ SELECT i.*,
            json_build_object(
                'interview_id', ii.interview_id,
                'org_user_id', ii.org_user_id,
+               'email_address', ou.email_address,
+               'full_name', ou.full_name,
                'rsvp', ii.rsvp,
                'added_at', ii.added_at,
                'feedback_submitted', (SELECT COUNT(*) > 0 FROM interview_feedback WHERE interview_id = ii.interview_id AND interviewer_org_user_id = ii.org_user_id)
            )
-       ) FROM interview_interviewers ii WHERE ii.interview_id = i.interview_id) as interviewers,
+       ) FROM interview_interviewers ii JOIN org_users ou ON ou.org_user_id = ii.org_user_id WHERE ii.interview_id = i.interview_id) as interviewers,
        (SELECT json_agg(
            json_build_object(
                'org_user_id', ifb.interviewer_org_user_id,

@@ -216,6 +216,34 @@ test.describe("My Interviews (flat lists)", () => {
 		);
 	});
 
+	test("org: get-interview populates the interviewer panel (name, email, rsvp)", async ({
+		request,
+	}) => {
+		// Regression guard: get-interview used to return empty interviewers/feedback
+		// arrays. It must now include the panel so the RSVP summary UI can render.
+		const api = new OrgAPIClient(request);
+		const interviewId = scheduledInterviewIds[0];
+
+		// Interviewer RSVPs yes so we can assert it round-trips.
+		const rsvpRes = await api.rsvpInterview(interviewerToken, {
+			interview_id: interviewId,
+			rsvp: "yes",
+		});
+		expect(rsvpRes.status).toBe(200);
+
+		const getRes = await api.getInterview(adminToken, {
+			interview_id: interviewId,
+		});
+		expect(getRes.status).toBe(200);
+		expect(Array.isArray(getRes.body.interviewers)).toBe(true);
+		expect(getRes.body.interviewers.length).toBe(1);
+		const entry = getRes.body.interviewers[0];
+		expect(entry.org_user_email_address).toBe(interviewerEmail);
+		expect(entry.rsvp).toBe("yes");
+		expect(entry.feedback_submitted).toBe(false);
+		expect(Array.isArray(getRes.body.feedback)).toBe(true);
+	});
+
 	test("org: limit=0 → 400", async ({ request }) => {
 		const api = new OrgAPIClient(request);
 		const res = await api.listMyInterviews(interviewerToken, { limit: 0 });

@@ -12,7 +12,6 @@
 	"actions": "Aktionen",
 	"noCandidacies": "Noch keine Kandidaturen",
 	"loadFailed": "Kandidatur konnte nicht geladen werden",
-
 	"interviewing": "Im Gespräch",
 	"offered": "Angebot unterbreitet",
 	"offer_accepted": "Angebot angenommen",
@@ -20,9 +19,7 @@
 	"candidate_unsuitable": "Kandidat ungeeignet",
 	"candidate_not_responding": "Kandidat antwortet nicht",
 	"employer_defunct": "Arbeitgeber aufgelöst",
-
 	"overview": "Übersicht",
-
 	"interviews": "Interviews",
 	"noInterviews": "Noch keine Interviews geplant",
 	"scheduleInterview": "Interview planen",
@@ -43,7 +40,6 @@
 	"interviewStateScheduled": "Geplant",
 	"interviewStateCompleted": "Abgeschlossen",
 	"interviewStateCancelled": "Abgesagt",
-
 	"offer": "Angebot",
 	"noOffer": "Noch kein Angebot unterbreitet",
 	"extendOffer": "Angebot unterbreiten",
@@ -52,7 +48,6 @@
 	"notes": "Notizen",
 	"extendedAt": "Unterbreitet",
 	"downloadOfferLetter": "Angebotsschreiben herunterladen",
-
 	"comments": "Kommentare",
 	"commentPlaceholder": "Internen Kommentar hinzufügen…",
 	"submitComment": "Kommentar posten",
@@ -62,5 +57,11 @@
 	"commentFailed": "Kommentar konnte nicht gepostet werden",
 	"authorOrg": "Einstellungsteam",
 	"authorHub": "Kandidat",
-	"authorSystem": "System"
+	"authorSystem": "System",
+	"interviewerRsvpSummary": "Zusagen der Interviewer",
+	"noInterviewers": "Keine Interviewer zugewiesen",
+	"interviewer": "Interviewer",
+	"rsvp": "Zusage",
+	"feedbackDone": "Abgegeben",
+	"feedbackPending": "Ausstehend"
 }

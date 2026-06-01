@@ -911,13 +911,85 @@ func GetInterview(s *server.RegionalServer) http.HandlerFunc {
 			Description:   description,
 			State:         org.InterviewState(row.State),
 			CandidateRSVP: candidateRSVP,
-			Interviewers:  []org.InterviewerEntry{},
-			Feedback:      []org.InterviewFeedback{},
+			Interviewers:  decodeInterviewers(row.Interviewers),
+			Feedback:      decodeInterviewFeedback(row.Feedback),
 		}
 
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(result)
 	}
+}
+
+// decodeInterviewers parses the json_agg blob produced by
+// GetInterviewWithInterviewers into the spec's InterviewerEntry slice. The blob
+// is NULL (→ empty slice) when an interview has no interviewers.
+func decodeInterviewers(raw []byte) []org.InterviewerEntry {
+	out := []org.InterviewerEntry{}
+	if len(raw) == 0 {
+		return out
+	}
+	var rows []struct {
+		OrgUserID         string  `json:"org_user_id"`
+		EmailAddress      string  `json:"email_address"`
+		FullName          *string `json:"full_name"`
+		RSVP              *string `json:"rsvp"`
+		FeedbackSubmitted bool    `json:"feedback_submitted"`
+	}
+	if err := json.Unmarshal(raw, &rows); err != nil {
+		return out
+	}
+	for _, r := range rows {
+		var rsvp *org.InterviewRSVP
+		if r.RSVP != nil && *r.RSVP != "" {
+			v := org.InterviewRSVP(*r.RSVP)
+			rsvp = &v
+		}
+		displayName := ""
+		if r.FullName != nil {
+			displayName = *r.FullName
+		}
+		out = append(out, org.InterviewerEntry{
+			OrgUserID:           r.OrgUserID,
+			OrgUserEmailAddress: r.EmailAddress,
+			DisplayName:         displayName,
+			RSVP:                rsvp,
+			FeedbackSubmitted:   r.FeedbackSubmitted,
+		})
+	}
+	return out
+}
+
+// decodeInterviewFeedback parses the feedback json_agg blob into the spec's
+// InterviewFeedback slice. NULL (no feedback yet) → empty slice.
+func decodeInterviewFeedback(raw []byte) []org.InterviewFeedback {
+	out := []org.InterviewFeedback{}
+	if len(raw) == 0 {
+		return out
+	}
+	var rows []struct {
+		OrgUserID         string  `json:"org_user_id"`
+		Decision          string  `json:"decision"`
+		Positives         string  `json:"positives"`
+		Negatives         string  `json:"negatives"`
+		OverallAssessment string  `json:"overall_assessment"`
+		CandidateFeedback *string `json:"candidate_feedback"`
+		SubmittedAt       string  `json:"submitted_at"`
+	}
+	if err := json.Unmarshal(raw, &rows); err != nil {
+		return out
+	}
+	for _, r := range rows {
+		out = append(out, org.InterviewFeedback{
+			OrgUserID:         r.OrgUserID,
+			Decision:          org.FeedbackDecision(r.Decision),
+			Positives:         r.Positives,
+			Negatives:         r.Negatives,
+			OverallAssessment: r.OverallAssessment,
+			CandidateFeedback: r.CandidateFeedback,
+			SubmittedAt:       r.SubmittedAt,
+		})
+	}
+	return out
 }
 
 func RSVPInterview(s *server.RegionalServer) http.HandlerFunc {
