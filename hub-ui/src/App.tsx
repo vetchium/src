@@ -41,6 +41,7 @@ import { OpeningDetailPage } from "./pages/Openings/OpeningDetailPage";
 import { ApplyForOpeningPage } from "./pages/Openings/ApplyForOpeningPage";
 import { MyCandidaciesPage } from "./pages/Candidacies/MyCandidaciesPage";
 import { MyCandidacyDetailPage } from "./pages/Candidacies/MyCandidacyDetailPage";
+import { MyInterviewsPage } from "./pages/Candidacies/MyInterviewsPage";
 import { ApplyPreferencesPage } from "./pages/Settings/ApplyPreferencesPage";
 
 const { Content } = Layout;
@@ -295,6 +296,14 @@ function AppContent() {
 								element={
 									<ProtectedRoute>
 										<MyCandidacyDetailPage />
+									</ProtectedRoute>
+								}
+							/>
+							<Route
+								path="/my-interviews"
+								element={
+									<ProtectedRoute>
+										<MyInterviewsPage />
 									</ProtectedRoute>
 								}
 							/>

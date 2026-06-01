@@ -32,5 +32,14 @@
 	"salary": "Salary",
 	"startDate": "Start date",
 	"noOffer": "No offer yet",
-	"you": "You"
+	"you": "You",
+	"myInterviewsTitle": "My Interviews",
+	"myInterviewsEmpty": "You have no interviews yet",
+	"interviewType": "Type",
+	"when": "When",
+	"loadMore": "Load more",
+	"type_in_person": "In person",
+	"type_video": "Video",
+	"type_take_home": "Take home",
+	"type_other": "Other"
 }

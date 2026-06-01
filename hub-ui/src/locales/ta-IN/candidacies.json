@@ -32,5 +32,14 @@
 	"salary": "Salary",
 	"startDate": "Start date",
 	"noOffer": "No offer yet",
-	"you": "You"
+	"you": "You",
+	"myInterviewsTitle": "என் நேர்காணல்கள்",
+	"myInterviewsEmpty": "உங்களுக்கு இன்னும் நேர்காணல்கள் இல்லை",
+	"interviewType": "வகை",
+	"when": "எப்போது",
+	"loadMore": "மேலும் ஏற்று",
+	"type_in_person": "நேரில்",
+	"type_video": "வீடியோ",
+	"type_take_home": "வீட்டுப்பணி",
+	"type_other": "மற்றவை"
 }

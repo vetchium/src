@@ -48,6 +48,14 @@
 		"myApplications": {
 			"title": "My Applications",
 			"description": "Track the status of your job applications"
+		},
+		"myCandidacies": {
+			"title": "My Candidacies",
+			"description": "Track interviews and offers where you've been shortlisted"
+		},
+		"myInterviews": {
+			"title": "My Interviews",
+			"description": "See all your upcoming and past interviews"
 		}
 	},
 	"logout": {

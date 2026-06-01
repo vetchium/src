@@ -1,9 +1,11 @@
 import { useEffect } from "react";
 import { Avatar, Card, Col, Row, Typography, theme } from "antd";
 import {
+	CalendarOutlined,
 	FileSearchOutlined,
 	FileTextOutlined,
 	SearchOutlined,
+	SolutionOutlined,
 	TeamOutlined,
 	UserOutlined,
 } from "@ant-design/icons";
@@ -208,6 +210,64 @@ export function HomePage() {
 									</Title>
 									<Text type="secondary" style={{ fontSize: 13 }}>
 										{t("dashboard.myApplications.description")}
+									</Text>
+								</div>
+							</div>
+						</Card>
+					</Link>
+				</Col>
+
+				<Col xs={24} sm={12} lg={8}>
+					<Link
+						to="/my-candidacies"
+						style={{ textDecoration: "none", display: "block", height: "100%" }}
+					>
+						<Card hoverable style={{ height: "100%", cursor: "pointer" }}>
+							<div
+								style={{ display: "flex", alignItems: "flex-start", gap: 16 }}
+							>
+								<SolutionOutlined
+									style={{
+										fontSize: 28,
+										color: token.colorPrimary,
+										marginTop: 2,
+									}}
+								/>
+								<div>
+									<Title level={5} style={{ marginBottom: 4 }}>
+										{t("dashboard.myCandidacies.title")}
+									</Title>
+									<Text type="secondary" style={{ fontSize: 13 }}>
+										{t("dashboard.myCandidacies.description")}
+									</Text>
+								</div>
+							</div>
+						</Card>
+					</Link>
+				</Col>
+
+				<Col xs={24} sm={12} lg={8}>
+					<Link
+						to="/my-interviews"
+						style={{ textDecoration: "none", display: "block", height: "100%" }}
+					>
+						<Card hoverable style={{ height: "100%", cursor: "pointer" }}>
+							<div
+								style={{ display: "flex", alignItems: "flex-start", gap: 16 }}
+							>
+								<CalendarOutlined
+									style={{
+										fontSize: 28,
+										color: token.colorPrimary,
+										marginTop: 2,
+									}}
+								/>
+								<div>
+									<Title level={5} style={{ marginBottom: 4 }}>
+										{t("dashboard.myInterviews.title")}
+									</Title>
+									<Text type="secondary" style={{ fontSize: 13 }}>
+										{t("dashboard.myInterviews.description")}
 									</Text>
 								</div>
 							</div>

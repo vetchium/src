@@ -48,6 +48,14 @@
 		"myApplications": {
 			"title": "Meine Bewerbungen",
 			"description": "Status Ihrer Bewerbungen verfolgen"
+		},
+		"myCandidacies": {
+			"title": "Meine Kandidaturen",
+			"description": "Verfolge Interviews und Angebote, für die du ausgewählt wurdest"
+		},
+		"myInterviews": {
+			"title": "Meine Interviews",
+			"description": "Alle bevorstehenden und vergangenen Interviews ansehen"
 		}
 	},
 	"logout": {
