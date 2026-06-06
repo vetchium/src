@@ -4,7 +4,6 @@ import {
 	DatePicker,
 	Form,
 	Input,
-	InputNumber,
 	Spin,
 	Typography,
 	Upload,
@@ -31,15 +30,13 @@ export const ExtendOfferPage: React.FC = () => {
 	const [submitting, setSubmitting] = useState(false);
 
 	const handleSubmit = async (values: {
-		salary_currency?: string;
-		salary_amount?: number;
 		start_date?: ReturnType<typeof dayjs>;
 		notes?: string;
 	}) => {
 		if (!sessionToken || !candidacyId) return;
 		const offerFile = fileList[0]?.originFileObj;
 		if (!offerFile) {
-			message.error("Offer letter PDF is required");
+			message.error(t("offerFileRequired"));
 			return;
 		}
 
@@ -49,10 +46,6 @@ export const ExtendOfferPage: React.FC = () => {
 			const formData = new FormData();
 			formData.append("candidacy_id", candidacyId);
 			formData.append("offer_letter", offerFile);
-			if (values.salary_currency)
-				formData.append("salary_currency", values.salary_currency);
-			if (values.salary_amount !== undefined)
-				formData.append("salary_amount", String(values.salary_amount));
 			if (values.start_date)
 				formData.append("start_date", values.start_date.format("YYYY-MM-DD"));
 			if (values.notes) formData.append("notes", values.notes);
@@ -64,14 +57,14 @@ export const ExtendOfferPage: React.FC = () => {
 			});
 
 			if (res.status === 201) {
-				message.success("Offer extended");
+				message.success(t("offerExtended"));
 				navigate(`/candidacies/${candidacyId}`);
 			} else if (res.status === 422) {
-				message.error("Candidacy is not in interviewing state");
+				message.error(t("notInterviewing"));
 			} else if (res.status === 400) {
-				message.error("Invalid offer letter file (must be PDF)");
+				message.error(t("offerFileInvalid"));
 			} else {
-				message.error("Failed to extend offer");
+				message.error(t("offerFailed"));
 			}
 		} finally {
 			setSubmitting(false);
@@ -99,31 +92,27 @@ export const ExtendOfferPage: React.FC = () => {
 
 			<Spin spinning={submitting}>
 				<Form form={form} layout="vertical" onFinish={handleSubmit}>
-					<Form.Item label="Offer letter (PDF only, ≤5 MB)" required>
+					<Form.Item
+						label={t("offerFileLabel")}
+						required
+						extra={t("offerFileHelp")}
+					>
 						<Upload
 							beforeUpload={() => false}
 							fileList={fileList}
 							onChange={({ fileList: fl }) => setFileList(fl.slice(-1))}
-							accept=".pdf"
+							accept=".pdf,.md,.markdown"
 							maxCount={1}
 						>
-							<Button icon={<UploadOutlined />}>Select PDF</Button>
+							<Button icon={<UploadOutlined />}>{t("offerFileSelect")}</Button>
 						</Upload>
 					</Form.Item>
 
-					<Form.Item name="salary_currency" label="Currency (e.g. USD)">
-						<Input maxLength={3} style={{ width: 100 }} />
-					</Form.Item>
-
-					<Form.Item name="salary_amount" label="Amount">
-						<InputNumber style={{ width: 200 }} min={0} />
-					</Form.Item>
-
-					<Form.Item name="start_date" label="Start date">
+					<Form.Item name="start_date" label={t("startDate")}>
 						<DatePicker style={{ width: "100%" }} />
 					</Form.Item>
 
-					<Form.Item name="notes" label="Notes (max 4000 chars)">
+					<Form.Item name="notes" label={t("notesLabel")}>
 						<TextArea rows={4} maxLength={4000} showCount />
 					</Form.Item>
 

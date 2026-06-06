@@ -697,9 +697,10 @@ CREATE TABLE interview_feedback (
 -- Offers table
 CREATE TABLE offers (
     candidacy_id       UUID PRIMARY KEY,
+    -- The offer letter document is the source of truth for all terms (salary,
+    -- equity, etc.); the platform deliberately does not store structured
+    -- compensation fields.
     offer_letter_s3_key TEXT NOT NULL,
-    salary_currency    TEXT,
-    salary_amount      NUMERIC,
     start_date         DATE,
     notes              TEXT,
     extended_by_org_user_id UUID NOT NULL,

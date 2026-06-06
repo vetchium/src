@@ -79,13 +79,11 @@ type OrgInterviewSummary struct {
 }
 
 type OrgOfferView struct {
-	ExtendedByOrgUserID    string   `json:"extended_by_org_user_id"`
-	ExtendedAt             string   `json:"extended_at"`
-	SalaryCurrency         *string  `json:"salary_currency,omitempty"`
-	SalaryAmount           *float64 `json:"salary_amount,omitempty"`
-	StartDate              *string  `json:"start_date,omitempty"`
-	Notes                  *string  `json:"notes,omitempty"`
-	OfferLetterDownloadURL string   `json:"offer_letter_download_url"`
+	ExtendedByOrgUserID    string  `json:"extended_by_org_user_id"`
+	ExtendedAt             string  `json:"extended_at"`
+	StartDate              *string `json:"start_date,omitempty"`
+	Notes                  *string `json:"notes,omitempty"`
+	OfferLetterDownloadURL string  `json:"offer_letter_download_url"`
 }
 
 type OrgCandidacy struct {

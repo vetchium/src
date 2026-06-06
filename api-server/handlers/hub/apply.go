@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/credentials"
@@ -46,7 +47,7 @@ func uploadResumeToS3(ctx context.Context, cfg *server.StorageConfig, key, conte
 	return err
 }
 
-func detectResumeContentType(data []byte) (string, error) {
+func detectResumeContentType(data []byte, filename string) (string, error) {
 	trimmed := bytes.TrimSpace(data)
 	if bytes.HasPrefix(trimmed, []byte("%PDF")) {
 		return "application/pdf", nil
@@ -54,7 +55,14 @@ func detectResumeContentType(data []byte) (string, error) {
 	if len(data) >= 4 && data[0] == 0x50 && data[1] == 0x4B && data[2] == 0x03 && data[3] == 0x04 {
 		return "application/vnd.openxmlformats-officedocument.wordprocessingml.document", nil
 	}
-	return "", fmt.Errorf("resume must be a PDF or DOCX file")
+	// Markdown has no magic bytes; accept it by extension when the content is
+	// valid UTF-8 text.
+	lower := strings.ToLower(filename)
+	if (strings.HasSuffix(lower, ".md") || strings.HasSuffix(lower, ".markdown")) &&
+		utf8.Valid(data) {
+		return "text/markdown; charset=utf-8", nil
+	}
+	return "", fmt.Errorf("resume must be a PDF, DOCX, or Markdown (.md) file")
 }
 
 func ApplyForOpening(s *server.RegionalServer) http.HandlerFunc {
@@ -117,7 +125,7 @@ func ApplyForOpening(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		resumeFile, _, err := r.FormFile("resume")
+		resumeFile, resumeHeader, err := r.FormFile("resume")
 		if err != nil {
 			http.Error(w, "resume file is required", http.StatusBadRequest)
 			return
@@ -135,7 +143,7 @@ func ApplyForOpening(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		contentType, err := detectResumeContentType(resumeData)
+		contentType, err := detectResumeContentType(resumeData, resumeHeader.Filename)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return

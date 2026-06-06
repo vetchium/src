@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/credentials"
@@ -32,16 +34,32 @@ func newOfferS3Client(cfg *server.StorageConfig) *awss3.Client {
 	})
 }
 
-func uploadOfferToS3(ctx context.Context, cfg *server.StorageConfig, key string, data []byte) error {
+func uploadOfferToS3(ctx context.Context, cfg *server.StorageConfig, key, contentType string, data []byte) error {
 	client := newOfferS3Client(cfg)
 	_, err := client.PutObject(ctx, &awss3.PutObjectInput{
 		Bucket:        aws.String(cfg.Bucket),
 		Key:           aws.String(key),
 		Body:          bytes.NewReader(data),
-		ContentType:   aws.String("application/pdf"),
+		ContentType:   aws.String(contentType),
 		ContentLength: aws.Int64(int64(len(data))),
 	})
 	return err
+}
+
+// detectOfferDocType validates the uploaded offer letter and returns its content
+// type and file extension. PDFs are detected by magic bytes; Markdown is detected
+// by a .md/.markdown filename plus valid UTF-8 content (Markdown has no magic
+// bytes). Anything else is rejected.
+func detectOfferDocType(data []byte, filename string) (contentType, ext string, err error) {
+	if bytes.HasPrefix(bytes.TrimSpace(data), []byte("%PDF")) {
+		return "application/pdf", "pdf", nil
+	}
+	lower := strings.ToLower(filename)
+	if (strings.HasSuffix(lower, ".md") || strings.HasSuffix(lower, ".markdown")) &&
+		utf8.Valid(data) {
+		return "text/markdown; charset=utf-8", "md", nil
+	}
+	return "", "", fmt.Errorf("offer letter must be a PDF or Markdown (.md) file")
 }
 
 func ExtendOffer(s *server.RegionalServer) http.HandlerFunc {
@@ -75,7 +93,7 @@ func ExtendOffer(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		// Read offer letter file (max 5 MB)
-		file, _, err := r.FormFile("offer_letter")
+		file, fileHeader, err := r.FormFile("offer_letter")
 		if err != nil {
 			http.Error(w, "offer_letter is required", http.StatusBadRequest)
 			return
@@ -92,20 +110,13 @@ func ExtendOffer(s *server.RegionalServer) http.HandlerFunc {
 			http.Error(w, "offer letter must be ≤5 MB", http.StatusBadRequest)
 			return
 		}
-		if !bytes.HasPrefix(fileBytes, []byte("%PDF")) {
-			http.Error(w, "offer letter must be a PDF file", http.StatusBadRequest)
+		offerContentType, offerExt, err := detectOfferDocType(fileBytes, fileHeader.Filename)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		// Optional fields
-		var salaryCurrency pgtype.Text
-		if v := r.FormValue("salary_currency"); v != "" {
-			salaryCurrency.Scan(v)
-		}
-		var salaryAmount pgtype.Numeric
-		if v := r.FormValue("salary_amount"); v != "" {
-			salaryAmount.Scan(v)
-		}
 		var startDate pgtype.Date
 		if v := r.FormValue("start_date"); v != "" {
 			startDate.Scan(v)
@@ -142,8 +153,8 @@ func ExtendOffer(s *server.RegionalServer) http.HandlerFunc {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-		s3Key := fmt.Sprintf("offers/%s/offer_letter.pdf", candidacyIDStr)
-		if err := uploadOfferToS3(ctx, storageCfg, s3Key, fileBytes); err != nil {
+		s3Key := fmt.Sprintf("offers/%s/offer_letter.%s", candidacyIDStr, offerExt)
+		if err := uploadOfferToS3(ctx, storageCfg, s3Key, offerContentType, fileBytes); err != nil {
 			log.Error("failed to upload offer letter to S3", "error", err)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
@@ -156,8 +167,6 @@ func ExtendOffer(s *server.RegionalServer) http.HandlerFunc {
 			offer, txErr := qtx.CreateOffer(ctx, regionaldb.CreateOfferParams{
 				CandidacyID:         candidacyID,
 				OfferLetterS3Key:    s3Key,
-				SalaryCurrency:      salaryCurrency,
-				SalaryAmount:        salaryAmount,
 				StartDate:           startDate,
 				Notes:               notes,
 				ExtendedByOrgUserID: orgUser.OrgUserID,

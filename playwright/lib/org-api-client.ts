@@ -3130,10 +3130,10 @@ export class OrgAPIClient {
 		candidacyId: string,
 		offerLetterBuffer: Buffer,
 		opts?: {
-			salary_currency?: string;
-			salary_amount?: string;
 			start_date?: string;
 			notes?: string;
+			fileName?: string;
+			mimeType?: string;
 		}
 	): Promise<APIResponse<{ candidacy_id: string; extended_at: string }>> {
 		const multipartBody: {
@@ -3145,14 +3145,11 @@ export class OrgAPIClient {
 		} = {
 			candidacy_id: candidacyId,
 			offer_letter: {
-				name: "offer_letter.pdf",
-				mimeType: "application/pdf",
+				name: opts?.fileName ?? "offer_letter.pdf",
+				mimeType: opts?.mimeType ?? "application/pdf",
 				buffer: offerLetterBuffer,
 			},
 		};
-		if (opts?.salary_currency)
-			multipartBody.salary_currency = opts.salary_currency;
-		if (opts?.salary_amount) multipartBody.salary_amount = opts.salary_amount;
 		if (opts?.start_date) multipartBody.start_date = opts.start_date;
 		if (opts?.notes) multipartBody.notes = opts.notes;
 

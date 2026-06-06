@@ -1,7 +1,5 @@
 export interface ExtendOfferRequest {
 	candidacy_id: string;
-	salary_currency?: string;
-	salary_amount?: number;
 	start_date?: string;
 	notes?: string;
 }
@@ -23,26 +21,6 @@ export function validateExtendOfferRequest(req: unknown): ValidationError[] {
 			field: "candidacy_id",
 			message: "Must be a non-empty string",
 		});
-	}
-
-	if (r.salary_currency !== undefined) {
-		if (typeof r.salary_currency !== "string") {
-			errors.push({ field: "salary_currency", message: "Must be a string" });
-		} else if (r.salary_currency.length > 3) {
-			errors.push({
-				field: "salary_currency",
-				message: "Must be at most 3 characters",
-			});
-		}
-	}
-
-	if (r.salary_amount !== undefined) {
-		if (typeof r.salary_amount !== "number" || r.salary_amount < 0) {
-			errors.push({
-				field: "salary_amount",
-				message: "Must be a non-negative number",
-			});
-		}
 	}
 
 	if (r.start_date !== undefined) {

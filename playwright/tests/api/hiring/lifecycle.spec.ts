@@ -262,14 +262,13 @@ test.describe("Full Hiring Lifecycle", () => {
 		expect(schedRes.status).toBe(201);
 		const secondInterviewId = schedRes.body.interview_id;
 
-		// Extend the offer
+		// Extend the offer. Compensation lives in the offer letter document; the
+		// API no longer accepts salary fields.
 		const offerRes = await api.extendOffer(
 			adminToken,
 			candidacyId,
 			MINIMAL_PDF,
 			{
-				salary_currency: "USD",
-				salary_amount: "150000",
 				start_date: "2027-01-15",
 				notes: "Welcome to the team! We are excited to have you on board.",
 			}
@@ -507,13 +506,52 @@ test.describe("Extend Offer — Validation and RBAC", () => {
 		expect([403, 404]).toContain(res.status);
 	});
 
+	test("extend-offer: accepts a Markdown (.md) offer letter → 201", async ({
+		request,
+	}) => {
+		const orgApi = new OrgAPIClient(request);
+		// Fresh candidacy so this offer does not collide with the shared one.
+		const hEmail = generateTestEmail("offer-md-hub");
+		const h = await createTestHubUserDirect(hEmail, TEST_PASSWORD, "offermd");
+		const op = await createTestOpeningDirect(
+			orgId,
+			adminUserId,
+			"Offer MD Opening"
+		);
+		const appId = await createTestApplicationDirect(
+			orgId,
+			orgDomain,
+			op.openingId,
+			op.openingNumber,
+			h.hubUserGlobalId,
+			h.handle,
+			"Offer MD Candidate"
+		);
+		const sr = await orgApi.shortlistApplication(adminToken, {
+			application_id: appId,
+		});
+		expect(sr.status).toBe(200);
+		const freshCandidacy = sr.body.candidacy_id;
+		try {
+			const md = Buffer.from(
+				"# Offer of Employment\n\nWe are pleased to offer you the role.\n\n- Compensation details are in this document.\n"
+			);
+			const res = await orgApi.extendOffer(adminToken, freshCandidacy, md, {
+				fileName: "offer.md",
+				mimeType: "text/markdown",
+				start_date: "2027-05-01",
+			});
+			expect(res.status).toBe(201);
+		} finally {
+			await deleteTestHubUser(hEmail).catch(() => {});
+		}
+	});
+
 	test("extend-offer: manager with org:manage_candidacies → 201", async ({
 		request,
 	}) => {
 		const api = new OrgAPIClient(request);
 		const res = await api.extendOffer(managerToken, candidacyId, MINIMAL_PDF, {
-			salary_currency: "INR",
-			salary_amount: "4000000",
 			start_date: "2027-03-01",
 		});
 		expect(res.status).toBe(201);

@@ -48,8 +48,6 @@ model OrgInterviewSummary {
 model OrgOfferView {
   extended_by_org_user_id: string;
   extended_at:             utcDateTime;
-  salary_currency?:        string;
-  salary_amount?:          decimal;
   start_date?:             plainDate;
   notes?:                  string;
   offer_letter_download_url: string;

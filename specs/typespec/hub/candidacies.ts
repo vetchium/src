@@ -52,8 +52,6 @@ export interface CandidacyComment {
 
 export interface HubOfferView {
 	extended_at: string;
-	salary_currency?: string;
-	salary_amount?: number;
 	start_date?: string;
 	notes?: string;
 }

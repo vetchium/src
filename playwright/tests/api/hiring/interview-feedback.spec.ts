@@ -629,4 +629,60 @@ test.describe("Interview Feedback — draft / submit / complete", () => {
 		});
 		expect(res.status()).toBe(401);
 	});
+
+	// ─── superadmin bypass: a superadmin may act on ANY interview ─────────────────
+	// (adminToken is org:superadmin and is NOT on the [iv1] panel below.)
+
+	test("superadmin: can submit feedback for an interview they are not on → 200", async ({
+		request,
+	}) => {
+		const api = new OrgAPIClient(request);
+		const interviewId = await scheduleFresh(api, [iv1Email]);
+		const res = await api.submitInterviewFeedback(adminToken, {
+			interview_id: interviewId,
+			...VALID,
+		});
+		expect(res.status).toBe(200);
+		// The submitted feedback is visible to the hiring team.
+		const team = await api.getInterview(managerToken, {
+			interview_id: interviewId,
+		});
+		expect(team.body!.feedback.length).toBe(1);
+		expect(team.body!.feedback[0].decision).toBe("yes");
+	});
+
+	test("superadmin: can save and read back a private draft for an interview they are not on", async ({
+		request,
+	}) => {
+		const api = new OrgAPIClient(request);
+		const interviewId = await scheduleFresh(api, [iv1Email]);
+		expect(
+			(
+				await api.saveInterviewFeedback(adminToken, {
+					interview_id: interviewId,
+					...VALID,
+				})
+			).status
+		).toBe(200);
+		const mine = await api.getMyInterviewFeedback(adminToken, {
+			interview_id: interviewId,
+		});
+		expect(mine.status).toBe(200);
+		expect(mine.body!.state).toBe("draft");
+	});
+
+	test("superadmin: can end an interview they are not on → 200", async ({
+		request,
+	}) => {
+		const api = new OrgAPIClient(request);
+		const interviewId = await scheduleFresh(api, [iv1Email]);
+		const res = await api.completeInterview(adminToken, {
+			interview_id: interviewId,
+		});
+		expect(res.status).toBe(200);
+		const team = await api.getInterview(managerToken, {
+			interview_id: interviewId,
+		});
+		expect(team.body!.state).toBe("completed");
+	});
 });

@@ -235,19 +235,19 @@ export const MyCandidacyDetailPage: React.FC = () => {
 							)}
 						</Card>
 
-						{/* Offer panel */}
+						{/* Offer panel. All terms live in the offer letter document; the
+						    platform stores no structured compensation fields. */}
 						{candidacy.offer && (
 							<Card title={t("offer")} style={{ marginBottom: 16 }}>
-								{candidacy.offer.salary_currency &&
-									candidacy.offer.salary_amount && (
-										<div>
-											{t("salary")}: {candidacy.offer.salary_currency}{" "}
-											{candidacy.offer.salary_amount}
-										</div>
-									)}
+								<div>{t("offerLetterNote")}</div>
 								{candidacy.offer.start_date && (
 									<div>
 										{t("startDate")}: {candidacy.offer.start_date}
+									</div>
+								)}
+								{candidacy.offer.notes && (
+									<div style={{ whiteSpace: "pre-wrap", marginTop: 4 }}>
+										{candidacy.offer.notes}
 									</div>
 								)}
 							</Card>

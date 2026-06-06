@@ -49,8 +49,6 @@ export interface OrgInterviewSummary {
 export interface OrgOfferView {
 	extended_by_org_user_id: string;
 	extended_at: string;
-	salary_currency?: string;
-	salary_amount?: number;
 	start_date?: string;
 	notes?: string;
 	offer_letter_download_url: string;

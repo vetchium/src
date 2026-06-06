@@ -311,12 +311,10 @@ test.describe("Interviews RBAC and Lifecycle", () => {
 		expect(entry).toBeDefined();
 	});
 
-	test("submit-interview-feedback: non-interviewer → 403 (superadmin cannot bypass)", async ({
+	test("submit-interview-feedback: non-panel non-superadmin → 403; superadmin not on panel → 200", async ({
 		request,
 	}) => {
-		// Schedule a fresh interview on the existing candidacy.
-		// interviewerEmail is the only listed interviewer; adminToken is superadmin
-		// but is NOT listed → submitting feedback must still return 403.
+		// Fresh interview whose only listed interviewer is interviewerEmail.
 		const api = new OrgAPIClient(request);
 		const scheduleRes = await api.scheduleInterview(adminToken, {
 			candidacy_id: candidacyId,
@@ -325,18 +323,29 @@ test.describe("Interviews RBAC and Lifecycle", () => {
 			ends_at: FUTURE_END,
 			interviewer_email_addresses: [interviewerEmail],
 		});
-		if (scheduleRes.status !== 201) return;
+		expect(scheduleRes.status).toBe(201);
 		const freshInterviewId = scheduleRes.body.interview_id;
 
-		// Admin is org:superadmin but NOT listed as an interviewer → must get 403
-		const res = await api.submitInterviewFeedback(adminToken, {
+		// A user with no roles who is not on the panel must be rejected.
+		const denied = await api.submitInterviewFeedback(noRoleToken, {
 			interview_id: freshInterviewId,
 			decision: "yes",
 			positives: "Looks great.",
 			negatives: "None.",
 			overall_assessment: "Hire.",
 		});
-		expect(res.status).toBe(403);
+		expect(denied.status).toBe(403);
+
+		// A superadmin may submit feedback for any interview, even one they are not
+		// on the panel of (org policy: superadmins can do anything).
+		const allowed = await api.submitInterviewFeedback(adminToken, {
+			interview_id: freshInterviewId,
+			decision: "yes",
+			positives: "Looks great.",
+			negatives: "None.",
+			overall_assessment: "Hire.",
+		});
+		expect(allowed.status).toBe(200);
 	});
 
 	// ─── update-interview / cancel-interview RBAC ─────────────────────────────────

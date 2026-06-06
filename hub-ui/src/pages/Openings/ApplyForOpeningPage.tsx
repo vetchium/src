@@ -167,7 +167,7 @@ export const ApplyForOpeningPage: React.FC = () => {
 							beforeUpload={() => false}
 							fileList={fileList}
 							onChange={({ fileList: fl }) => setFileList(fl.slice(-1))}
-							accept=".pdf,.docx"
+							accept=".pdf,.docx,.md,.markdown"
 							maxCount={1}
 						>
 							<Button icon={<UploadOutlined />}>{t("resume")}</Button>

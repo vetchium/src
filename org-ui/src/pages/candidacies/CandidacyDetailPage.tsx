@@ -36,6 +36,7 @@ import type {
 import type {
 	InterviewIdRequest,
 	OrgInterview,
+	FeedbackDecision,
 } from "vetchium-specs/org/interviews";
 import { getApiBaseUrl } from "../../config";
 import { useAuth } from "../../hooks/useAuth";
@@ -60,6 +61,17 @@ const INTERVIEW_STATE_COLORS: Record<InterviewState, string> = {
 	completed: "green",
 	cancelled: "default",
 };
+
+// Strong positive→negative colour scale, mirroring the feedback editor, so the
+// hiring team can read a decision at a glance on the candidacy page.
+const DECISION_META: Record<FeedbackDecision, { color: string; key: string }> =
+	{
+		strong_yes: { color: "#237804", key: "decisionStrongYes" },
+		yes: { color: "#52c41a", key: "decisionYes" },
+		neutral: { color: "#8c8c8c", key: "decisionNeutral" },
+		no: { color: "#ff4d4f", key: "decisionNo" },
+		strong_no: { color: "#a8071a", key: "decisionStrongNo" },
+	};
 
 function capitalize(value: string): string {
 	return value.charAt(0).toUpperCase() + value.slice(1);
@@ -203,13 +215,6 @@ const CandidacyDetailPage: React.FC = () => {
 				</div>
 			);
 		}
-		if (detail.interviewers.length === 0) {
-			return (
-				<div style={{ padding: 16 }}>
-					<Text type="secondary">{t("noInterviewers")}</Text>
-				</div>
-			);
-		}
 		return (
 			<div style={{ padding: "8px 16px" }}>
 				{(detail.interview_location || detail.description) && (
@@ -226,41 +231,104 @@ const CandidacyDetailPage: React.FC = () => {
 						)}
 					</div>
 				)}
+
 				<Text strong>{t("interviewerRsvpSummary")}</Text>
-				<Table
-					style={{ marginTop: 8 }}
-					dataSource={detail.interviewers}
-					rowKey="org_user_id"
-					pagination={false}
-					size="small"
-					columns={[
-						{
-							title: t("interviewer"),
-							key: "interviewer",
-							render: (_: unknown, r) =>
-								r.display_name || r.org_user_email_address,
-						},
-						{
-							title: t("rsvp"),
-							dataIndex: "rsvp",
-							key: "rsvp",
-							render: (rsvp?: "yes" | "no") => (
-								<Tag color={rsvpColor(rsvp)}>{rsvpLabel(rsvp)}</Tag>
-							),
-						},
-						{
-							title: t("feedback"),
-							dataIndex: "feedback_submitted",
-							key: "feedback_submitted",
-							render: (done: boolean) =>
-								done ? (
-									<Tag color="green">{t("feedbackDone")}</Tag>
-								) : (
-									<Tag>{t("feedbackPending")}</Tag>
+				{detail.interviewers.length === 0 ? (
+					<div style={{ marginTop: 8 }}>
+						<Text type="secondary">{t("noInterviewers")}</Text>
+					</div>
+				) : (
+					<Table
+						style={{ marginTop: 8 }}
+						dataSource={detail.interviewers}
+						rowKey="org_user_id"
+						pagination={false}
+						size="small"
+						columns={[
+							{
+								title: t("interviewer"),
+								key: "interviewer",
+								render: (_: unknown, r) =>
+									r.display_name || r.org_user_email_address,
+							},
+							{
+								title: t("rsvp"),
+								dataIndex: "rsvp",
+								key: "rsvp",
+								render: (rsvp?: "yes" | "no") => (
+									<Tag color={rsvpColor(rsvp)}>{rsvpLabel(rsvp)}</Tag>
 								),
-						},
-					]}
-				/>
+							},
+							{
+								title: t("feedback"),
+								dataIndex: "feedback_submitted",
+								key: "feedback_submitted",
+								render: (done: boolean) =>
+									done ? (
+										<Tag color="green">{t("feedbackDone")}</Tag>
+									) : (
+										<Tag>{t("feedbackPending")}</Tag>
+									),
+							},
+						]}
+					/>
+				)}
+
+				{/* Submitted feedback content, visible to the hiring team (#2). */}
+				<div style={{ marginTop: 16 }}>
+					<Text strong>{t("submittedFeedback")}</Text>
+					{detail.feedback.length === 0 ? (
+						<div style={{ marginTop: 8 }}>
+							<Text type="secondary">{t("noFeedbackYet")}</Text>
+						</div>
+					) : (
+						detail.feedback.map((f, i) => {
+							const meta = DECISION_META[f.decision];
+							return (
+								<Card
+									key={i}
+									size="small"
+									style={{ marginTop: 8 }}
+									title={
+										<Space>
+											<Tag color={meta.color} style={{ color: "#fff" }}>
+												{t(meta.key as "decisionYes")}
+											</Tag>
+											<Text type="secondary" style={{ fontSize: 12 }}>
+												{formatDateTime(f.updated_at, i18n.language)}
+											</Text>
+										</Space>
+									}
+								>
+									{f.positives && (
+										<Paragraph
+											style={{ whiteSpace: "pre-wrap", marginBottom: 6 }}
+										>
+											<Text strong>{t("positives")}: </Text>
+											{f.positives}
+										</Paragraph>
+									)}
+									{f.negatives && (
+										<Paragraph
+											style={{ whiteSpace: "pre-wrap", marginBottom: 6 }}
+										>
+											<Text strong>{t("negatives")}: </Text>
+											{f.negatives}
+										</Paragraph>
+									)}
+									{f.overall_assessment && (
+										<Paragraph
+											style={{ whiteSpace: "pre-wrap", marginBottom: 0 }}
+										>
+											<Text strong>{t("overallAssessment")}: </Text>
+											{f.overall_assessment}
+										</Paragraph>
+									)}
+								</Card>
+							);
+						})
+					)}
+				</div>
 			</div>
 		);
 	};
@@ -491,18 +559,6 @@ const CandidacyDetailPage: React.FC = () => {
 							column={2}
 							size="small"
 							items={[
-								...(candidacy.offer.salary_amount !== undefined
-									? [
-											{
-												key: "salary",
-												label: t("salary"),
-												children:
-													`${candidacy.offer.salary_currency ?? ""} ${candidacy.offer.salary_amount.toLocaleString(
-														i18n.language
-													)}`.trim(),
-											},
-										]
-									: []),
 								...(candidacy.offer.start_date
 									? [
 											{

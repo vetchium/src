@@ -78,11 +78,9 @@ type CandidacyComment struct {
 }
 
 type HubOfferView struct {
-	ExtendedAt     string   `json:"extended_at"`
-	SalaryCurrency *string  `json:"salary_currency,omitempty"`
-	SalaryAmount   *float64 `json:"salary_amount,omitempty"`
-	StartDate      *string  `json:"start_date,omitempty"`
-	Notes          *string  `json:"notes,omitempty"`
+	ExtendedAt string  `json:"extended_at"`
+	StartDate  *string `json:"start_date,omitempty"`
+	Notes      *string `json:"notes,omitempty"`
 }
 
 type HubCandidacy struct {

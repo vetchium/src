@@ -1,6 +1,7 @@
 package org
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -36,6 +37,31 @@ func parseInterviewCursorAsc(key string) (pgtype.Timestamptz, pgtype.UUID) {
 	ts = pgtype.Timestamptz{Time: t, Valid: true}
 	_ = id.Scan(parts[1])
 	return ts, id
+}
+
+// requireInterviewerOrSuperadmin authorizes a caller to act on an interview's
+// feedback/completion. A superadmin may act on ANY interview (org policy:
+// superadmins can do anything, including adding feedback for interviews they were
+// not on); otherwise the caller must be a listed panel member. It writes the
+// denial response (403, or 500 on lookup failure) and returns false when the
+// caller may not proceed.
+func requireInterviewerOrSuperadmin(ctx context.Context, w http.ResponseWriter, s *server.RegionalServer, db *regionaldb.Queries, interviewID, orgUserID pgtype.UUID) bool {
+	if isSuper, err := db.IsOrgUserSuperAdmin(ctx, orgUserID); err == nil && isSuper {
+		return true
+	}
+	if _, err := db.GetInterviewerEntry(ctx, regionaldb.GetInterviewerEntryParams{
+		InterviewID: interviewID,
+		OrgUserID:   orgUserID,
+	}); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			w.WriteHeader(http.StatusForbidden)
+			return false
+		}
+		s.Logger(ctx).Error("failed to get interviewer entry", "error", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return false
+	}
+	return true
 }
 
 func ScheduleInterview(s *server.RegionalServer) http.HandlerFunc {
@@ -775,18 +801,9 @@ func SubmitInterviewFeedback(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		// Verify caller is listed as an interviewer — NO role bypass, even superadmin
-		_, err = db.GetInterviewerEntry(ctx, regionaldb.GetInterviewerEntryParams{
-			InterviewID: interviewID,
-			OrgUserID:   orgUser.OrgUserID,
-		})
-		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				w.WriteHeader(http.StatusForbidden)
-				return
-			}
-			s.Logger(ctx).Error("failed to get interviewer entry", "error", err)
-			w.WriteHeader(http.StatusInternalServerError)
+		// Superadmins may submit feedback on any interview; otherwise the caller
+		// must be a listed panel member.
+		if !requireInterviewerOrSuperadmin(ctx, w, s, db, interviewID, orgUser.OrgUserID) {
 			return
 		}
 
@@ -878,17 +895,8 @@ func SaveInterviewFeedback(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		// Caller must be on the panel — no role bypass.
-		if _, err = db.GetInterviewerEntry(ctx, regionaldb.GetInterviewerEntryParams{
-			InterviewID: interviewID,
-			OrgUserID:   orgUser.OrgUserID,
-		}); err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				w.WriteHeader(http.StatusForbidden)
-				return
-			}
-			s.Logger(ctx).Error("failed to get interviewer entry", "error", err)
-			w.WriteHeader(http.StatusInternalServerError)
+		// Superadmins may act on any interview; otherwise the caller must be on the panel.
+		if !requireInterviewerOrSuperadmin(ctx, w, s, db, interviewID, orgUser.OrgUserID) {
 			return
 		}
 
@@ -978,17 +986,8 @@ func CompleteInterview(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		// Caller must be on the panel — no role bypass.
-		if _, err = db.GetInterviewerEntry(ctx, regionaldb.GetInterviewerEntryParams{
-			InterviewID: interviewID,
-			OrgUserID:   orgUser.OrgUserID,
-		}); err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				w.WriteHeader(http.StatusForbidden)
-				return
-			}
-			s.Logger(ctx).Error("failed to get interviewer entry", "error", err)
-			w.WriteHeader(http.StatusInternalServerError)
+		// Superadmins may act on any interview; otherwise the caller must be on the panel.
+		if !requireInterviewerOrSuperadmin(ctx, w, s, db, interviewID, orgUser.OrgUserID) {
 			return
 		}
 
@@ -1047,17 +1046,10 @@ func GetMyInterviewFeedback(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		db := s.RegionalForCtx(ctx)
-		// Caller must be on the panel — no role bypass.
-		if _, err := db.GetInterviewerEntry(ctx, regionaldb.GetInterviewerEntryParams{
-			InterviewID: interviewID,
-			OrgUserID:   orgUser.OrgUserID,
-		}); err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				w.WriteHeader(http.StatusForbidden)
-				return
-			}
-			s.Logger(ctx).Error("failed to get interviewer entry", "error", err)
-			w.WriteHeader(http.StatusInternalServerError)
+		// Superadmins may view any interviewer's-eye feedback editor; otherwise the
+		// caller must be on the panel. (For a superadmin not on the panel this
+		// returns their own feedback, or 404 if they have none yet.)
+		if !requireInterviewerOrSuperadmin(ctx, w, s, db, interviewID, orgUser.OrgUserID) {
 			return
 		}
 

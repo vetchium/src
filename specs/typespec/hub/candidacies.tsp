@@ -87,8 +87,6 @@ model CandidacyComment {
 
 model HubOfferView {
   extended_at:       utcDateTime;
-  salary_currency?:  string;
-  salary_amount?:    decimal;
   start_date?:       plainDate;
   notes?:            string;
 }

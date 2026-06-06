@@ -355,10 +355,27 @@ export const SubmitFeedbackPage: React.FC = () => {
 										{formatDateTime(f.updated_at, i18n.language)}
 									</Text>
 								</Space>
+								{f.positives && (
+									<Paragraph
+										style={{ margin: "6px 0 0", whiteSpace: "pre-wrap" }}
+									>
+										<Text strong>{t("positives")}: </Text>
+										{f.positives}
+									</Paragraph>
+								)}
+								{f.negatives && (
+									<Paragraph
+										style={{ margin: "6px 0 0", whiteSpace: "pre-wrap" }}
+									>
+										<Text strong>{t("negatives")}: </Text>
+										{f.negatives}
+									</Paragraph>
+								)}
 								{f.overall_assessment && (
 									<Paragraph
-										style={{ margin: "4px 0 0", whiteSpace: "pre-wrap" }}
+										style={{ margin: "6px 0 0", whiteSpace: "pre-wrap" }}
 									>
+										<Text strong>{t("overallAssessment")}: </Text>
 										{f.overall_assessment}
 									</Paragraph>
 								)}

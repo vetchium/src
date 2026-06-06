@@ -221,16 +221,6 @@ func GetCandidacy(s *server.RegionalServer) http.HandlerFunc {
 				ExtendedAt:             offer.ExtendedAt.Time.UTC().Format(time.RFC3339Nano),
 				OfferLetterDownloadURL: "",
 			}
-			if offer.SalaryCurrency.Valid {
-				v := offer.SalaryCurrency.String
-				offerView.SalaryCurrency = &v
-			}
-			if offer.SalaryAmount.Valid {
-				if f, fErr := offer.SalaryAmount.Float64Value(); fErr == nil && f.Valid {
-					v := f.Float64
-					offerView.SalaryAmount = &v
-				}
-			}
 			if offer.StartDate.Valid {
 				v := offer.StartDate.Time.UTC().Format("2006-01-02")
 				offerView.StartDate = &v
