@@ -1,5 +1,14 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Button, Empty, Spin, Table, Tag, Typography } from "antd";
+import {
+	Button,
+	Empty,
+	Space,
+	Spin,
+	Table,
+	Tag,
+	Typography,
+	message,
+} from "antd";
 import { ArrowLeftOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router-dom";
@@ -7,6 +16,7 @@ import type {
 	OrgMyInterview,
 	ListMyInterviewsRequest,
 	ListMyInterviewsResponse,
+	SetInterviewerRSVPRequest,
 } from "vetchium-specs/org/interviews";
 import type { InterviewState } from "vetchium-specs/hub/candidacies";
 import { getApiBaseUrl } from "../../config";
@@ -28,6 +38,7 @@ export const MyInterviewsPage: React.FC = () => {
 	const [interviews, setInterviews] = useState<OrgMyInterview[]>([]);
 	const [loading, setLoading] = useState(false);
 	const [nextKey, setNextKey] = useState<string | undefined>();
+	const [rsvpLoading, setRsvpLoading] = useState<string | null>(null);
 
 	const fetchInterviews = useCallback(
 		async (paginationKey?: string) => {
@@ -71,6 +82,33 @@ export const MyInterviewsPage: React.FC = () => {
 		return t("rsvpNone");
 	};
 
+	const handleRSVP = async (interviewId: string, rsvp: "yes" | "no") => {
+		if (!sessionToken) return;
+		setRsvpLoading(interviewId);
+		try {
+			const apiBaseUrl = await getApiBaseUrl();
+			const req: SetInterviewerRSVPRequest = {
+				interview_id: interviewId,
+				rsvp,
+			};
+			const res = await fetch(`${apiBaseUrl}/org/rsvp-interview`, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${sessionToken}`,
+				},
+				body: JSON.stringify(req),
+			});
+			if (res.status === 200) {
+				fetchInterviews();
+			} else {
+				message.error(t("rsvpFailed"));
+			}
+		} finally {
+			setRsvpLoading(null);
+		}
+	};
+
 	const columns = [
 		{
 			title: t("candidate"),
@@ -109,9 +147,32 @@ export const MyInterviewsPage: React.FC = () => {
 		},
 		{
 			title: t("myRsvp"),
-			dataIndex: "my_rsvp",
 			key: "my_rsvp",
-			render: (rsvp?: "yes" | "no") => rsvpLabel(rsvp),
+			render: (_: unknown, record: OrgMyInterview) => {
+				if (record.state !== "scheduled") {
+					return rsvpLabel(record.my_rsvp);
+				}
+				return (
+					<Space size={4} onClick={(e) => e.stopPropagation()}>
+						<Button
+							size="small"
+							type={record.my_rsvp === "yes" ? "primary" : "default"}
+							loading={rsvpLoading === record.interview_id}
+							onClick={() => handleRSVP(record.interview_id, "yes")}
+						>
+							{t("rsvpAccept")}
+						</Button>
+						<Button
+							size="small"
+							danger={record.my_rsvp === "no"}
+							loading={rsvpLoading === record.interview_id}
+							onClick={() => handleRSVP(record.interview_id, "no")}
+						>
+							{t("rsvpDecline")}
+						</Button>
+					</Space>
+				);
+			},
 		},
 		{
 			title: t("feedback"),

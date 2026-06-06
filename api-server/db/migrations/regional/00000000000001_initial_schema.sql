@@ -107,6 +107,9 @@ CREATE TABLE emails (
     email_subject TEXT NOT NULL,
     email_text_body TEXT NOT NULL,
     email_html_body TEXT NOT NULL,
+    -- Optional iCalendar (.ics) payload attached to the outgoing email so
+    -- recipients can add the event (e.g. an interview) to their calendar.
+    email_ical TEXT,
     email_status email_status NOT NULL DEFAULT 'pending',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     sent_at TIMESTAMPTZ
@@ -650,6 +653,8 @@ CREATE TABLE interviews (
     starts_at      TIMESTAMPTZ NOT NULL,
     ends_at        TIMESTAMPTZ NOT NULL CHECK (ends_at > starts_at),
     description    TEXT,
+    -- Free-text physical address or video-meeting link, surfaced in invites/emails.
+    location       TEXT CHECK (location IS NULL OR length(location) <= 2000),
     state          TEXT NOT NULL DEFAULT 'scheduled'
                     CHECK (state IN ('scheduled','completed','cancelled')),
     candidate_rsvp TEXT CHECK (candidate_rsvp IN ('yes','no')),
@@ -673,11 +678,19 @@ CREATE TABLE interview_feedback (
     interview_id       UUID NOT NULL,
     interviewer_org_user_id UUID NOT NULL,
     decision           TEXT NOT NULL CHECK (decision IN ('strong_yes','yes','neutral','no','strong_no')),
-    positives          TEXT NOT NULL CHECK (length(positives) BETWEEN 1 AND 4000),
-    negatives          TEXT NOT NULL CHECK (length(negatives) BETWEEN 1 AND 4000),
-    overall_assessment TEXT NOT NULL CHECK (length(overall_assessment) BETWEEN 1 AND 4000),
+    -- Upper bound only at the DB layer so 'draft' feedback may be partially
+    -- filled; the strict 1..4000 minimum is enforced by the submit handler.
+    positives          TEXT NOT NULL CHECK (length(positives) <= 4000),
+    negatives          TEXT NOT NULL CHECK (length(negatives) <= 4000),
+    overall_assessment TEXT NOT NULL CHECK (length(overall_assessment) <= 4000),
     candidate_feedback TEXT CHECK (candidate_feedback IS NULL OR length(candidate_feedback) <= 2000),
-    submitted_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    -- Feedback lifecycle, decoupled from interview completion: an interviewer can
+    -- save a private 'draft' and later 'submit' it. submitted_at is set only on
+    -- the first submit; updated_at tracks every save/edit.
+    state              TEXT NOT NULL DEFAULT 'submitted'
+                        CHECK (state IN ('draft','submitted')),
+    submitted_at       TIMESTAMPTZ,
+    updated_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (interview_id, interviewer_org_user_id)
 );
 

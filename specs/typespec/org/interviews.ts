@@ -18,6 +18,8 @@ export interface ScheduleInterviewRequest {
 	starts_at: string;
 	ends_at: string;
 	description?: string;
+	/** Free-text physical address or video-meeting link (0..2000). */
+	interview_location?: string;
 	interviewer_email_addresses: string[];
 }
 
@@ -30,6 +32,7 @@ export interface UpdateInterviewRequest {
 	starts_at?: string;
 	ends_at?: string;
 	description?: string;
+	interview_location?: string;
 }
 
 export interface InterviewIdRequest {
@@ -76,6 +79,22 @@ export interface InterviewFeedback {
 	overall_assessment: string;
 	candidate_feedback?: string;
 	submitted_at: string;
+	updated_at: string;
+}
+
+export type FeedbackState = "draft" | "submitted";
+
+/** The calling interviewer's own feedback (draft or submitted) for an interview. */
+export interface MyInterviewFeedback {
+	interview_id: string;
+	state: FeedbackState;
+	decision: FeedbackDecision;
+	positives: string;
+	negatives: string;
+	overall_assessment: string;
+	candidate_feedback?: string;
+	submitted_at?: string;
+	updated_at: string;
 }
 
 export interface OrgInterview {
@@ -85,6 +104,7 @@ export interface OrgInterview {
 	starts_at: string;
 	ends_at: string;
 	description?: string;
+	interview_location?: string;
 	state: InterviewState;
 	candidate_rsvp?: InterviewRSVP;
 	interviewers: InterviewerEntry[];
@@ -176,6 +196,17 @@ export function validateScheduleInterviewRequest(
 		}
 	}
 
+	if (r.interview_location !== undefined) {
+		if (typeof r.interview_location !== "string") {
+			errors.push({ field: "interview_location", message: "Must be a string" });
+		} else if (r.interview_location.length > 2000) {
+			errors.push({
+				field: "interview_location",
+				message: "Must be at most 2000 characters",
+			});
+		}
+	}
+
 	if (!Array.isArray(r.interviewer_email_addresses)) {
 		errors.push({
 			field: "interviewer_email_addresses",
@@ -235,6 +266,17 @@ export function validateUpdateInterviewRequest(
 		} else if (r.description.length > 2000) {
 			errors.push({
 				field: "description",
+				message: "Must be at most 2000 characters",
+			});
+		}
+	}
+
+	if (r.interview_location !== undefined) {
+		if (typeof r.interview_location !== "string") {
+			errors.push({ field: "interview_location", message: "Must be a string" });
+		} else if (r.interview_location.length > 2000) {
+			errors.push({
+				field: "interview_location",
 				message: "Must be at most 2000 characters",
 			});
 		}

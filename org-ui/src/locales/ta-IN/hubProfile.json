@@ -3,5 +3,7 @@
 	"notFoundDesc": "@{{handle}} பயனர் கண்டுபிடிக்க முடியவில்லை.",
 	"workHistory": "பணி வரலாறு",
 	"present": "தற்போது",
+	"about": "பற்றி",
+	"back": "பின்செல்",
 	"backToDashboard": "டாஷ்போர்டுக்கு திரும்பு"
 }

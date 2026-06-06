@@ -1,7 +1,7 @@
 {
 	"title": "Applications",
-	"backToDashboard": "Back to dashboard",
-	"backToApplications": "Back to applications",
+	"backToDashboard": "Back to Dashboard",
+	"backToApplications": "Back to Applications",
 	"candidate": "Candidate",
 	"state": "State",
 	"applied": "Applied",
@@ -27,6 +27,8 @@
 	"labelGreen": "Green",
 	"labelYellow": "Yellow",
 	"labelRed": "Red",
+	"filterByState": "Filter by state",
+	"filterByLabel": "Filter by label",
 	"verifiedWorkHistory": "Verified work history",
 	"applicationMeta": "Application details",
 	"shortBio": "About",

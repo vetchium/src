@@ -27,6 +27,8 @@
 	"labelGreen": "பச்சை",
 	"labelYellow": "மஞ்சள்",
 	"labelRed": "சிவப்பு",
+	"filterByState": "நிலை வாரியாக வடிகட்டு",
+	"filterByLabel": "லேபிள் வாரியாக வடிகட்டு",
 	"verifiedWorkHistory": "சரிபார்க்கப்பட்ட பணி வரலாறு",
 	"applicationMeta": "விண்ணப்ப விவரங்கள்",
 	"shortBio": "பற்றி",

@@ -66,6 +66,7 @@ model HubInterview {
   starts_at:       utcDateTime;
   ends_at:         utcDateTime;
   description?:    string;
+  interview_location?: string;
   state:           InterviewState;
   candidate_rsvp?: InterviewRSVP;
   interviewer_rsvp_summary: {

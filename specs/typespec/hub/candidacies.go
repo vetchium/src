@@ -58,6 +58,7 @@ type HubInterview struct {
 	StartsAt               string         `json:"starts_at"`
 	EndsAt                 string         `json:"ends_at"`
 	Description            *string        `json:"description,omitempty"`
+	InterviewLocation      *string        `json:"interview_location,omitempty"`
 	State                  InterviewState `json:"state"`
 	CandidateRSVP          *InterviewRSVP `json:"candidate_rsvp,omitempty"`
 	InterviewerRSVPSummary struct {

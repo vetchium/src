@@ -27,6 +27,8 @@
 	"labelGreen": "Grün",
 	"labelYellow": "Gelb",
 	"labelRed": "Rot",
+	"filterByState": "Nach Status filtern",
+	"filterByLabel": "Nach Label filtern",
 	"verifiedWorkHistory": "Verifizierte Arbeitsgeschichte",
 	"applicationMeta": "Bewerbungsdetails",
 	"shortBio": "Über",

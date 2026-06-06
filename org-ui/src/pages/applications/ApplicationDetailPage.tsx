@@ -6,7 +6,6 @@ import {
 	Descriptions,
 	Empty,
 	Row,
-	Select,
 	Space,
 	Spin,
 	Tag,
@@ -48,6 +47,13 @@ const LABEL_OPTIONS: { value: "" | ApplicationColorLabel; key: string }[] = [
 	{ value: "yellow", key: "labelYellow" },
 	{ value: "red", key: "labelRed" },
 ];
+
+// Actual swatch colors so the label control conveys the colour, not just text.
+const LABEL_SWATCH: Record<ApplicationColorLabel, string> = {
+	green: "#52c41a",
+	yellow: "#faad14",
+	red: "#f5222d",
+};
 
 export const ApplicationDetailPage: React.FC = () => {
 	const { t, i18n } = useTranslation("applications");
@@ -184,6 +190,8 @@ export const ApplicationDetailPage: React.FC = () => {
 							<Title level={2} style={{ margin: 0, marginBottom: 8 }}>
 								<Link
 									to={`/u/${application.candidate_handle}`}
+									target="_blank"
+									rel="noreferrer"
 									style={{ color: "inherit" }}
 								>
 									{application.candidate_display_name ||
@@ -191,6 +199,8 @@ export const ApplicationDetailPage: React.FC = () => {
 								</Link>{" "}
 								<Link
 									to={`/u/${application.candidate_handle}`}
+									target="_blank"
+									rel="noreferrer"
 									style={{ fontSize: 16, fontWeight: "normal" }}
 								>
 									(@{application.candidate_handle})
@@ -284,7 +294,11 @@ export const ApplicationDetailPage: React.FC = () => {
 
 							<Col xs={24} md={8}>
 								<Card style={{ marginBottom: 16 }}>
-									<Link to={`/u/${application.candidate_handle}`}>
+									<Link
+										to={`/u/${application.candidate_handle}`}
+										target="_blank"
+										rel="noreferrer"
+									>
 										<Button block>{t("viewProfile")}</Button>
 									</Link>
 								</Card>
@@ -302,17 +316,41 @@ export const ApplicationDetailPage: React.FC = () => {
 									</Descriptions>
 
 									<div style={{ marginTop: 12 }}>
-										<Text type="secondary">{t("label")}</Text>
-										<Select<"" | ApplicationColorLabel>
-											value={application.label ?? ""}
-											style={{ width: "100%", marginTop: 4 }}
-											disabled={actioning || !canAct}
-											onChange={handleLabel}
-											options={LABEL_OPTIONS.map((o) => ({
-												value: o.value,
-												label: t(o.key as "labelNone"),
-											}))}
-										/>
+										<Text
+											type="secondary"
+											style={{ display: "block", marginBottom: 8 }}
+										>
+											{t("label")}
+										</Text>
+										<div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+											{LABEL_OPTIONS.map((o) => {
+												const active = (application.label ?? "") === o.value;
+												return (
+													<Button
+														key={o.key}
+														size="small"
+														type={active ? "primary" : "default"}
+														disabled={actioning || !canAct}
+														onClick={() => handleLabel(o.value)}
+													>
+														{o.value && (
+															<span
+																style={{
+																	display: "inline-block",
+																	width: 10,
+																	height: 10,
+																	borderRadius: "50%",
+																	background: LABEL_SWATCH[o.value],
+																	marginRight: 6,
+																	verticalAlign: "middle",
+																}}
+															/>
+														)}
+														{t(o.key as "labelNone")}
+													</Button>
+												);
+											})}
+										</div>
 									</div>
 
 									{application.resume_download_url && (

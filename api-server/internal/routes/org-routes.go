@@ -182,6 +182,9 @@ func RegisterOrgRoutes(mux *http.ServeMux, s *server.RegionalServer) {
 	mux.Handle("POST /org/add-interviewer", orgAuth(orgRoleManageCandidacies(org.AddInterviewer(s))))
 	mux.Handle("POST /org/remove-interviewer", orgAuth(orgRoleManageCandidacies(org.RemoveInterviewer(s))))
 	mux.Handle("POST /org/submit-interview-feedback", orgAuth(org.SubmitInterviewFeedback(s)))
+	mux.Handle("POST /org/save-interview-feedback", orgAuth(org.SaveInterviewFeedback(s)))
+	mux.Handle("POST /org/get-my-interview-feedback", orgAuth(org.GetMyInterviewFeedback(s)))
+	mux.Handle("POST /org/complete-interview", orgAuth(org.CompleteInterview(s)))
 	mux.Handle("POST /org/rsvp-interview", orgAuth(org.RSVPInterview(s)))
 	mux.Handle("POST /org/list-my-interviews", orgAuth(org.ListMyInterviews(s)))
 

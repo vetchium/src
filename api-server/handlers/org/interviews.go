@@ -124,6 +124,13 @@ func ScheduleInterview(s *server.RegionalServer) http.HandlerFunc {
 			interviewerIDs = append(interviewerIDs, u.OrgUserID)
 		}
 
+		var locText pgtype.Text
+		locationStr := ""
+		if req.InterviewLocation != nil {
+			locText.Scan(*req.InterviewLocation)
+			locationStr = *req.InterviewLocation
+		}
+
 		eventData, _ := json.Marshal(map[string]interface{}{"candidacy_id": req.CandidacyID})
 		var interview regionaldb.Interview
 		if err := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
@@ -139,6 +146,7 @@ func ScheduleInterview(s *server.RegionalServer) http.HandlerFunc {
 				StartsAt:      pgtype.Timestamptz{Time: startsAt, Valid: true},
 				EndsAt:        pgtype.Timestamptz{Time: endsAt, Valid: true},
 				Description:   descText,
+				Location:      locText,
 				CreatedBy:     orgUser.OrgUserID,
 			})
 			if txErr != nil {
@@ -164,16 +172,30 @@ func ScheduleInterview(s *server.RegionalServer) http.HandlerFunc {
 				return txErr
 			}
 
-			// Notify candidate and interviewers of the scheduled interview.
+			// Notify candidate and interviewers of the scheduled interview, with a
+			// calendar invite attached.
 			details := interviewEmailDetails{
 				InterviewType: string(req.InterviewType),
 				StartsAt:      req.StartsAt,
 				EndsAt:        req.EndsAt,
+				Location:      locationStr,
+				CandidacyID:   req.CandidacyID,
+			}
+			ev := &interviewICS{
+				UID:      interview.InterviewID.String(),
+				Summary:  "Interview (" + string(req.InterviewType) + ")",
+				Desc:     details.Location,
+				Location: locationStr,
+				Start:    startsAt,
+				End:      endsAt,
+				Method:   "REQUEST",
+				Status:   "CONFIRMED",
+				Sequence: 0,
 			}
 			cand, _ := qtx.GetCandidacy(ctx, interview.CandidacyID)
 			hubUser, _ := qtx.GetHubUserByGlobalID(ctx, cand.ApplicantHubUserGlobalID)
-			enqueueInterviewEmail(ctx, qtx, regionaldb.EmailTemplateTypeHubInterviewScheduled, hubUser.EmailAddress, details)
-			enqueueInterviewerEmails(ctx, qtx, regionaldb.EmailTemplateTypeOrgInterviewScheduledForInterviewer, req.InterviewerEmailAddresses, details)
+			enqueueInterviewEmail(ctx, qtx, regionaldb.EmailTemplateTypeHubInterviewScheduled, hubUser.EmailAddress, details, ev)
+			enqueueInterviewerEmails(ctx, qtx, regionaldb.EmailTemplateTypeOrgInterviewScheduledForInterviewer, req.InterviewerEmailAddresses, details, ev)
 			return nil
 		}); err != nil {
 			log.Error("failed to schedule interview", "error", err)
@@ -274,6 +296,11 @@ func UpdateInterview(s *server.RegionalServer) http.HandlerFunc {
 			descText.Scan(*req.Description)
 		}
 
+		locText := existing.Location
+		if req.InterviewLocation != nil {
+			locText.Scan(*req.InterviewLocation)
+		}
+
 		eventData, _ := json.Marshal(map[string]interface{}{"interview_id": req.InterviewID})
 		if err := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
 			if _, txErr := qtx.UpdateInterview(ctx, regionaldb.UpdateInterviewParams{
@@ -281,6 +308,7 @@ func UpdateInterview(s *server.RegionalServer) http.HandlerFunc {
 				StartsAt:    startsAt,
 				EndsAt:      endsAt,
 				Description: descText,
+				Location:    locText,
 			}); txErr != nil {
 				return txErr
 			}
@@ -294,21 +322,35 @@ func UpdateInterview(s *server.RegionalServer) http.HandlerFunc {
 				return txErr
 			}
 
-			// Notify candidate and interviewers of the new schedule.
+			// Notify candidate and interviewers of the new schedule, with an
+			// updated calendar invite.
 			details := interviewEmailDetails{
 				InterviewType: existing.InterviewType,
 				StartsAt:      startsAt.Time.UTC().Format(time.RFC3339),
 				EndsAt:        endsAt.Time.UTC().Format(time.RFC3339),
+				Location:      locText.String,
+				CandidacyID:   existing.CandidacyID.String(),
+			}
+			ev := &interviewICS{
+				UID:      interviewID.String(),
+				Summary:  "Interview (" + existing.InterviewType + ")",
+				Desc:     locText.String,
+				Location: locText.String,
+				Start:    startsAt.Time,
+				End:      endsAt.Time,
+				Method:   "REQUEST",
+				Status:   "CONFIRMED",
+				Sequence: 1,
 			}
 			cand, _ := qtx.GetCandidacy(ctx, existing.CandidacyID)
 			hubUser, _ := qtx.GetHubUserByGlobalID(ctx, cand.ApplicantHubUserGlobalID)
-			enqueueInterviewEmail(ctx, qtx, regionaldb.EmailTemplateTypeHubInterviewUpdated, hubUser.EmailAddress, details)
+			enqueueInterviewEmail(ctx, qtx, regionaldb.EmailTemplateTypeHubInterviewUpdated, hubUser.EmailAddress, details, ev)
 			recipients, _ := qtx.ListInterviewerEmailsForInterview(ctx, interviewID)
 			emails := make([]string, 0, len(recipients))
 			for _, rcp := range recipients {
 				emails = append(emails, rcp.EmailAddress)
 			}
-			enqueueInterviewerEmails(ctx, qtx, regionaldb.EmailTemplateTypeOrgInterviewUpdatedForInterviewer, emails, details)
+			enqueueInterviewerEmails(ctx, qtx, regionaldb.EmailTemplateTypeOrgInterviewUpdatedForInterviewer, emails, details, ev)
 			return nil
 		}); err != nil {
 			s.Logger(ctx).Error("failed to update interview", "error", err)
@@ -392,21 +434,35 @@ func CancelInterview(s *server.RegionalServer) http.HandlerFunc {
 				return txErr
 			}
 
-			// Notify candidate and interviewers of the cancellation.
+			// Notify candidate and interviewers of the cancellation, with a
+			// calendar CANCEL so the event is removed from their calendars.
 			details := interviewEmailDetails{
 				InterviewType: existing.InterviewType,
 				StartsAt:      existing.StartsAt.Time.UTC().Format(time.RFC3339),
 				EndsAt:        existing.EndsAt.Time.UTC().Format(time.RFC3339),
+				Location:      existing.Location.String,
+				CandidacyID:   existing.CandidacyID.String(),
+			}
+			ev := &interviewICS{
+				UID:      interviewID.String(),
+				Summary:  "Interview (" + existing.InterviewType + ")",
+				Desc:     existing.Location.String,
+				Location: existing.Location.String,
+				Start:    existing.StartsAt.Time,
+				End:      existing.EndsAt.Time,
+				Method:   "CANCEL",
+				Status:   "CANCELLED",
+				Sequence: 2,
 			}
 			cand, _ := qtx.GetCandidacy(ctx, existing.CandidacyID)
 			hubUser, _ := qtx.GetHubUserByGlobalID(ctx, cand.ApplicantHubUserGlobalID)
-			enqueueInterviewEmail(ctx, qtx, regionaldb.EmailTemplateTypeHubInterviewCancelled, hubUser.EmailAddress, details)
+			enqueueInterviewEmail(ctx, qtx, regionaldb.EmailTemplateTypeHubInterviewCancelled, hubUser.EmailAddress, details, ev)
 			recipients, _ := qtx.ListInterviewerEmailsForInterview(ctx, interviewID)
 			emails := make([]string, 0, len(recipients))
 			for _, rcp := range recipients {
 				emails = append(emails, rcp.EmailAddress)
 			}
-			enqueueInterviewerEmails(ctx, qtx, regionaldb.EmailTemplateTypeOrgInterviewCancelledForInterviewer, emails, details)
+			enqueueInterviewerEmails(ctx, qtx, regionaldb.EmailTemplateTypeOrgInterviewCancelledForInterviewer, emails, details, ev)
 			return nil
 		}); err != nil {
 			if errors.Is(err, server.ErrInvalidState) {
@@ -525,11 +581,24 @@ func AddInterviewer(s *server.RegionalServer) http.HandlerFunc {
 				return txErr
 			}
 
-			// Notify the newly added interviewer that they are on the panel.
+			// Notify the newly added interviewer that they are on the panel,
+			// attaching a calendar invite.
 			enqueueInterviewEmail(ctx, qtx, regionaldb.EmailTemplateTypeOrgInterviewScheduledForInterviewer, newUser.EmailAddress, interviewEmailDetails{
 				InterviewType: existing.InterviewType,
 				StartsAt:      existing.StartsAt.Time.UTC().Format(time.RFC3339),
 				EndsAt:        existing.EndsAt.Time.UTC().Format(time.RFC3339),
+				Location:      existing.Location.String,
+				CandidacyID:   existing.CandidacyID.String(),
+			}, &interviewICS{
+				UID:      interviewID.String(),
+				Summary:  "Interview (" + existing.InterviewType + ")",
+				Desc:     existing.Location.String,
+				Location: existing.Location.String,
+				Start:    existing.StartsAt.Time,
+				End:      existing.EndsAt.Time,
+				Method:   "REQUEST",
+				Status:   "CONFIRMED",
+				Sequence: 1,
 			})
 			return nil
 		}); err != nil {
@@ -632,11 +701,22 @@ func RemoveInterviewer(s *server.RegionalServer) http.HandlerFunc {
 				return txErr
 			}
 
-			// Notify the removed interviewer that they are off the panel.
+			// Notify the removed interviewer that they are off the panel, with a
+			// calendar CANCEL to drop the event from their calendar.
 			enqueueInterviewEmail(ctx, qtx, regionaldb.EmailTemplateTypeOrgInterviewerRemoved, removedEmail, interviewEmailDetails{
 				InterviewType: existing.InterviewType,
 				StartsAt:      existing.StartsAt.Time.UTC().Format(time.RFC3339),
 				EndsAt:        existing.EndsAt.Time.UTC().Format(time.RFC3339),
+				Location:      existing.Location.String,
+			}, &interviewICS{
+				UID:      interviewID.String(),
+				Summary:  "Interview (" + existing.InterviewType + ")",
+				Location: existing.Location.String,
+				Start:    existing.StartsAt.Time,
+				End:      existing.EndsAt.Time,
+				Method:   "CANCEL",
+				Status:   "CANCELLED",
+				Sequence: 2,
 			})
 			return nil
 		}); err != nil {
@@ -717,6 +797,9 @@ func SubmitInterviewFeedback(s *server.RegionalServer) http.HandlerFunc {
 
 		eventData, _ := json.Marshal(map[string]interface{}{"interview_id": req.InterviewID})
 		if err := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
+			// Feedback submission is decoupled from interview completion: submitting
+			// feedback no longer auto-completes the interview (use complete-interview
+			// for that). Re-submitting edits the existing feedback in place.
 			if _, txErr := qtx.SubmitInterviewFeedback(ctx, regionaldb.SubmitInterviewFeedbackParams{
 				InterviewID:          interviewID,
 				InterviewerOrgUserID: orgUser.OrgUserID,
@@ -726,10 +809,6 @@ func SubmitInterviewFeedback(s *server.RegionalServer) http.HandlerFunc {
 				OverallAssessment:    req.OverallAssessment,
 				CandidateFeedback:    candidateFeedback,
 			}); txErr != nil {
-				return txErr
-			}
-
-			if _, txErr := qtx.CompleteInterview(ctx, interviewID); txErr != nil {
 				return txErr
 			}
 
@@ -748,6 +827,273 @@ func SubmitInterviewFeedback(s *server.RegionalServer) http.HandlerFunc {
 
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(struct{}{})
+	}
+}
+
+// SaveInterviewFeedback persists a private DRAFT of the caller's feedback. It
+// never completes the interview and uses lenient validation (drafts may be
+// partially filled). Drafts are visible only to their author.
+func SaveInterviewFeedback(s *server.RegionalServer) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		ctx := r.Context()
+
+		orgUser := middleware.OrgUserFromContext(ctx)
+		if orgUser == nil {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		var req org.SubmitInterviewFeedbackRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			s.Logger(ctx).Debug("failed to decode request", "error", err)
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if errs := req.ValidateDraft(); len(errs) > 0 {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(errs)
+			return
+		}
+
+		var interviewID pgtype.UUID
+		if err := interviewID.Scan(req.InterviewID); err != nil {
+			http.Error(w, "invalid interview_id", http.StatusBadRequest)
+			return
+		}
+
+		db := s.RegionalForCtx(ctx)
+		existing, err := db.GetInterview(ctx, interviewID)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			s.Logger(ctx).Error("failed to get interview", "error", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		if existing.State == "cancelled" {
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			return
+		}
+
+		// Caller must be on the panel — no role bypass.
+		if _, err = db.GetInterviewerEntry(ctx, regionaldb.GetInterviewerEntryParams{
+			InterviewID: interviewID,
+			OrgUserID:   orgUser.OrgUserID,
+		}); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
+			s.Logger(ctx).Error("failed to get interviewer entry", "error", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		var candidateFeedback pgtype.Text
+		if req.CandidateFeedback != nil {
+			candidateFeedback.Scan(*req.CandidateFeedback)
+		}
+
+		eventData, _ := json.Marshal(map[string]interface{}{"interview_id": req.InterviewID})
+		if err := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
+			if _, txErr := qtx.SaveInterviewFeedbackDraft(ctx, regionaldb.SaveInterviewFeedbackDraftParams{
+				InterviewID:          interviewID,
+				InterviewerOrgUserID: orgUser.OrgUserID,
+				Decision:             string(req.Decision),
+				Positives:            req.Positives,
+				Negatives:            req.Negatives,
+				OverallAssessment:    req.OverallAssessment,
+				CandidateFeedback:    candidateFeedback,
+			}); txErr != nil {
+				return txErr
+			}
+			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
+				EventType:   "org.save_interview_feedback_draft",
+				ActorUserID: orgUser.OrgUserID,
+				OrgID:       orgUser.OrgID,
+				IpAddress:   audit.ExtractClientIP(r),
+				EventData:   eventData,
+			})
+		}); err != nil {
+			s.Logger(ctx).Error("failed to save feedback draft", "error", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(struct{}{})
+	}
+}
+
+// CompleteInterview marks an interview as completed. This is decoupled from
+// feedback submission: an interviewer can end the interview while feedback stays
+// open, or submit feedback without ending the interview. Caller must be on the
+// panel.
+func CompleteInterview(s *server.RegionalServer) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		ctx := r.Context()
+
+		orgUser := middleware.OrgUserFromContext(ctx)
+		if orgUser == nil {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		var req org.InterviewIDRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			s.Logger(ctx).Debug("failed to decode request", "error", err)
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if errs := req.Validate(); len(errs) > 0 {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(errs)
+			return
+		}
+
+		var interviewID pgtype.UUID
+		if err := interviewID.Scan(req.InterviewID); err != nil {
+			http.Error(w, "invalid interview_id", http.StatusBadRequest)
+			return
+		}
+
+		db := s.RegionalForCtx(ctx)
+		existing, err := db.GetInterview(ctx, interviewID)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			s.Logger(ctx).Error("failed to get interview", "error", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		if existing.State != "scheduled" {
+			// Already completed or cancelled.
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			return
+		}
+
+		// Caller must be on the panel — no role bypass.
+		if _, err = db.GetInterviewerEntry(ctx, regionaldb.GetInterviewerEntryParams{
+			InterviewID: interviewID,
+			OrgUserID:   orgUser.OrgUserID,
+		}); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
+			s.Logger(ctx).Error("failed to get interviewer entry", "error", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		eventData, _ := json.Marshal(map[string]interface{}{"interview_id": req.InterviewID})
+		if err := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
+			if _, txErr := qtx.CompleteInterview(ctx, interviewID); txErr != nil {
+				return txErr
+			}
+			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
+				EventType:   "org.complete_interview",
+				ActorUserID: orgUser.OrgUserID,
+				OrgID:       orgUser.OrgID,
+				IpAddress:   audit.ExtractClientIP(r),
+				EventData:   eventData,
+			})
+		}); err != nil {
+			s.Logger(ctx).Error("failed to complete interview", "error", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(struct{}{})
+	}
+}
+
+// GetMyInterviewFeedback returns the calling interviewer's own feedback (draft
+// or submitted) so the editor can pre-fill it. 404 when none exists yet.
+func GetMyInterviewFeedback(s *server.RegionalServer) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		ctx := r.Context()
+
+		orgUser := middleware.OrgUserFromContext(ctx)
+		if orgUser == nil {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		var req org.InterviewIDRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			s.Logger(ctx).Debug("failed to decode request", "error", err)
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if errs := req.Validate(); len(errs) > 0 {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(errs)
+			return
+		}
+
+		var interviewID pgtype.UUID
+		if err := interviewID.Scan(req.InterviewID); err != nil {
+			http.Error(w, "invalid interview_id", http.StatusBadRequest)
+			return
+		}
+
+		db := s.RegionalForCtx(ctx)
+		// Caller must be on the panel — no role bypass.
+		if _, err := db.GetInterviewerEntry(ctx, regionaldb.GetInterviewerEntryParams{
+			InterviewID: interviewID,
+			OrgUserID:   orgUser.OrgUserID,
+		}); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
+			s.Logger(ctx).Error("failed to get interviewer entry", "error", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		fb, err := db.GetMyInterviewFeedback(ctx, regionaldb.GetMyInterviewFeedbackParams{
+			InterviewID:          interviewID,
+			InterviewerOrgUserID: orgUser.OrgUserID,
+		})
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			s.Logger(ctx).Error("failed to get my feedback", "error", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		result := org.MyInterviewFeedback{
+			InterviewID:       interviewID.String(),
+			State:             org.FeedbackState(fb.State),
+			Decision:          org.FeedbackDecision(fb.Decision),
+			Positives:         fb.Positives,
+			Negatives:         fb.Negatives,
+			OverallAssessment: fb.OverallAssessment,
+			UpdatedAt:         fb.UpdatedAt.Time.UTC().Format(time.RFC3339),
+		}
+		if fb.CandidateFeedback.Valid {
+			result.CandidateFeedback = &fb.CandidateFeedback.String
+		}
+		if fb.SubmittedAt.Valid {
+			s := fb.SubmittedAt.Time.UTC().Format(time.RFC3339)
+			result.SubmittedAt = &s
+		}
+
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(result)
 	}
 }
 
@@ -901,18 +1247,23 @@ func GetInterview(s *server.RegionalServer) http.HandlerFunc {
 		if row.Description.Valid {
 			description = &row.Description.String
 		}
+		var location *string
+		if row.Location.Valid {
+			location = &row.Location.String
+		}
 
 		result := org.OrgInterview{
-			InterviewID:   row.InterviewID.String(),
-			CandidacyID:   row.CandidacyID.String(),
-			InterviewType: org.InterviewType(row.InterviewType),
-			StartsAt:      row.StartsAt.Time.UTC().Format(time.RFC3339),
-			EndsAt:        row.EndsAt.Time.UTC().Format(time.RFC3339),
-			Description:   description,
-			State:         org.InterviewState(row.State),
-			CandidateRSVP: candidateRSVP,
-			Interviewers:  decodeInterviewers(row.Interviewers),
-			Feedback:      decodeInterviewFeedback(row.Feedback),
+			InterviewID:       row.InterviewID.String(),
+			CandidacyID:       row.CandidacyID.String(),
+			InterviewType:     org.InterviewType(row.InterviewType),
+			StartsAt:          row.StartsAt.Time.UTC().Format(time.RFC3339),
+			EndsAt:            row.EndsAt.Time.UTC().Format(time.RFC3339),
+			Description:       description,
+			InterviewLocation: location,
+			State:             org.InterviewState(row.State),
+			CandidateRSVP:     candidateRSVP,
+			Interviewers:      decodeInterviewers(row.Interviewers),
+			Feedback:          decodeInterviewFeedback(row.Feedback),
 		}
 
 		w.WriteHeader(http.StatusOK)
@@ -974,6 +1325,7 @@ func decodeInterviewFeedback(raw []byte) []org.InterviewFeedback {
 		OverallAssessment string  `json:"overall_assessment"`
 		CandidateFeedback *string `json:"candidate_feedback"`
 		SubmittedAt       string  `json:"submitted_at"`
+		UpdatedAt         string  `json:"updated_at"`
 	}
 	if err := json.Unmarshal(raw, &rows); err != nil {
 		return out
@@ -987,6 +1339,7 @@ func decodeInterviewFeedback(raw []byte) []org.InterviewFeedback {
 			OverallAssessment: r.OverallAssessment,
 			CandidateFeedback: r.CandidateFeedback,
 			SubmittedAt:       r.SubmittedAt,
+			UpdatedAt:         r.UpdatedAt,
 		})
 	}
 	return out

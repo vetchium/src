@@ -12,6 +12,7 @@ type ScheduleInterviewRequest struct {
 	StartsAt                  string        `json:"starts_at"`
 	EndsAt                    string        `json:"ends_at"`
 	Description               *string       `json:"description,omitempty"`
+	InterviewLocation         *string       `json:"interview_location,omitempty"`
 	InterviewerEmailAddresses []string      `json:"interviewer_email_addresses"`
 }
 
@@ -20,10 +21,11 @@ type ScheduleInterviewResponse struct {
 }
 
 type UpdateInterviewRequest struct {
-	InterviewID string  `json:"interview_id"`
-	StartsAt    *string `json:"starts_at,omitempty"`
-	EndsAt      *string `json:"ends_at,omitempty"`
-	Description *string `json:"description,omitempty"`
+	InterviewID       string  `json:"interview_id"`
+	StartsAt          *string `json:"starts_at,omitempty"`
+	EndsAt            *string `json:"ends_at,omitempty"`
+	Description       *string `json:"description,omitempty"`
+	InterviewLocation *string `json:"interview_location,omitempty"`
 }
 
 type InterviewIDRequest struct {
@@ -70,19 +72,42 @@ type InterviewFeedback struct {
 	OverallAssessment string           `json:"overall_assessment"`
 	CandidateFeedback *string          `json:"candidate_feedback,omitempty"`
 	SubmittedAt       string           `json:"submitted_at"`
+	UpdatedAt         string           `json:"updated_at"`
+}
+
+type FeedbackState string
+
+const (
+	FeedbackStateDraft     FeedbackState = "draft"
+	FeedbackStateSubmitted FeedbackState = "submitted"
+)
+
+// MyInterviewFeedback is the calling interviewer's own feedback (draft or
+// submitted) for an interview, used to pre-fill the feedback editor.
+type MyInterviewFeedback struct {
+	InterviewID       string           `json:"interview_id"`
+	State             FeedbackState    `json:"state"`
+	Decision          FeedbackDecision `json:"decision"`
+	Positives         string           `json:"positives"`
+	Negatives         string           `json:"negatives"`
+	OverallAssessment string           `json:"overall_assessment"`
+	CandidateFeedback *string          `json:"candidate_feedback,omitempty"`
+	SubmittedAt       *string          `json:"submitted_at,omitempty"`
+	UpdatedAt         string           `json:"updated_at"`
 }
 
 type OrgInterview struct {
-	InterviewID   string              `json:"interview_id"`
-	CandidacyID   string              `json:"candidacy_id"`
-	InterviewType InterviewType       `json:"interview_type"`
-	StartsAt      string              `json:"starts_at"`
-	EndsAt        string              `json:"ends_at"`
-	Description   *string             `json:"description,omitempty"`
-	State         InterviewState      `json:"state"`
-	CandidateRSVP *InterviewRSVP      `json:"candidate_rsvp,omitempty"`
-	Interviewers  []InterviewerEntry  `json:"interviewers"`
-	Feedback      []InterviewFeedback `json:"feedback"`
+	InterviewID       string              `json:"interview_id"`
+	CandidacyID       string              `json:"candidacy_id"`
+	InterviewType     InterviewType       `json:"interview_type"`
+	StartsAt          string              `json:"starts_at"`
+	EndsAt            string              `json:"ends_at"`
+	Description       *string             `json:"description,omitempty"`
+	InterviewLocation *string             `json:"interview_location,omitempty"`
+	State             InterviewState      `json:"state"`
+	CandidateRSVP     *InterviewRSVP      `json:"candidate_rsvp,omitempty"`
+	Interviewers      []InterviewerEntry  `json:"interviewers"`
+	Feedback          []InterviewFeedback `json:"feedback"`
 }
 
 type ListInterviewsRequest struct {
@@ -162,6 +187,13 @@ func (r *ScheduleInterviewRequest) Validate() []common.ValidationError {
 		})
 	}
 
+	if r.InterviewLocation != nil && len(*r.InterviewLocation) > 2000 {
+		errs = append(errs, common.ValidationError{
+			Field:   "interview_location",
+			Message: "must be at most 2000 characters",
+		})
+	}
+
 	if len(r.InterviewerEmailAddresses) < 1 || len(r.InterviewerEmailAddresses) > 5 {
 		errs = append(errs, common.ValidationError{
 			Field:   "interviewer_email_addresses",
@@ -185,6 +217,13 @@ func (r *UpdateInterviewRequest) Validate() []common.ValidationError {
 	if r.Description != nil && len(*r.Description) > 2000 {
 		errs = append(errs, common.ValidationError{
 			Field:   "description",
+			Message: "must be at most 2000 characters",
+		})
+	}
+
+	if r.InterviewLocation != nil && len(*r.InterviewLocation) > 2000 {
+		errs = append(errs, common.ValidationError{
+			Field:   "interview_location",
 			Message: "must be at most 2000 characters",
 		})
 	}
@@ -310,6 +349,36 @@ func (r *SubmitInterviewFeedbackRequest) Validate() []common.ValidationError {
 		})
 	}
 
+	return errs
+}
+
+// ValidateDraft is the lenient validation used by save-interview-feedback: a
+// draft may have empty positives/negatives/overall_assessment (work in
+// progress); only the interview_id, decision and upper bounds are enforced.
+func (r *SubmitInterviewFeedbackRequest) ValidateDraft() []common.ValidationError {
+	var errs []common.ValidationError
+
+	if r.InterviewID == "" {
+		errs = append(errs, common.ValidationError{Field: "interview_id", Message: "is required"})
+	}
+	if r.Decision != "strong_yes" && r.Decision != "yes" && r.Decision != "neutral" && r.Decision != "no" && r.Decision != "strong_no" {
+		errs = append(errs, common.ValidationError{
+			Field:   "decision",
+			Message: "must be one of: strong_yes, yes, neutral, no, strong_no",
+		})
+	}
+	if len(r.Positives) > 4000 {
+		errs = append(errs, common.ValidationError{Field: "positives", Message: "must be at most 4000 characters"})
+	}
+	if len(r.Negatives) > 4000 {
+		errs = append(errs, common.ValidationError{Field: "negatives", Message: "must be at most 4000 characters"})
+	}
+	if len(r.OverallAssessment) > 4000 {
+		errs = append(errs, common.ValidationError{Field: "overall_assessment", Message: "must be at most 4000 characters"})
+	}
+	if r.CandidateFeedback != nil && len(*r.CandidateFeedback) > 2000 {
+		errs = append(errs, common.ValidationError{Field: "candidate_feedback", Message: "must be at most 2000 characters"})
+	}
 	return errs
 }
 

@@ -92,8 +92,14 @@ export function DashboardPage() {
 		myInfo?.roles.includes("org:manage_openings") ||
 		false;
 
-	// Candidacies use the same access gate as openings (no dedicated role).
-	const hasCandidaciesAccess = hasOpeningsAccess;
+	// Candidacies/applications have dedicated roles; mirror the backend gate on
+	// /org/list-candidacies (view_applications OR view/manage_candidacies).
+	const hasCandidaciesAccess =
+		myInfo?.roles.includes("org:superadmin") ||
+		myInfo?.roles.includes("org:view_applications") ||
+		myInfo?.roles.includes("org:view_candidacies") ||
+		myInfo?.roles.includes("org:manage_candidacies") ||
+		false;
 
 	// My Interviews is available to any authenticated org user — being placed
 	// on an interview panel, not a role, is what surfaces interviews here.

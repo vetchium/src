@@ -1,6 +1,6 @@
 -- name: ScheduleInterview :one
-INSERT INTO interviews (candidacy_id, interview_type, starts_at, ends_at, description, created_by)
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO interviews (candidacy_id, interview_type, starts_at, ends_at, description, location, created_by)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING *;
 
 -- name: GetInterview :one
@@ -16,9 +16,11 @@ SELECT i.*,
                'full_name', ou.full_name,
                'rsvp', ii.rsvp,
                'added_at', ii.added_at,
-               'feedback_submitted', (SELECT COUNT(*) > 0 FROM interview_feedback WHERE interview_id = ii.interview_id AND interviewer_org_user_id = ii.org_user_id)
+               'feedback_submitted', (SELECT COUNT(*) > 0 FROM interview_feedback WHERE interview_id = ii.interview_id AND interviewer_org_user_id = ii.org_user_id AND state = 'submitted')
            )
        ) FROM interview_interviewers ii JOIN org_users ou ON ou.org_user_id = ii.org_user_id WHERE ii.interview_id = i.interview_id) as interviewers,
+       -- Only SUBMITTED feedback is exposed to the hiring team; drafts stay private
+       -- to their author (fetched separately via GetMyInterviewFeedback).
        (SELECT json_agg(
            json_build_object(
                'org_user_id', ifb.interviewer_org_user_id,
@@ -27,9 +29,10 @@ SELECT i.*,
                'negatives', ifb.negatives,
                'overall_assessment', ifb.overall_assessment,
                'candidate_feedback', ifb.candidate_feedback,
-               'submitted_at', ifb.submitted_at
+               'submitted_at', ifb.submitted_at,
+               'updated_at', ifb.updated_at
            )
-       ) FROM interview_feedback ifb WHERE ifb.interview_id = i.interview_id) as feedback
+       ) FROM interview_feedback ifb WHERE ifb.interview_id = i.interview_id AND ifb.state = 'submitted') as feedback
 FROM interviews i
 WHERE i.interview_id = $1;
 
@@ -38,6 +41,7 @@ UPDATE interviews
 SET starts_at = COALESCE($2, starts_at),
     ends_at = COALESCE($3, ends_at),
     description = COALESCE($4, description),
+    location = COALESCE($5, location),
     state_changed_at = NOW()
 WHERE interview_id = $1
 RETURNING *;
@@ -75,8 +79,10 @@ WHERE interview_id = $1 AND org_user_id = $2
 RETURNING *;
 
 -- name: SubmitInterviewFeedback :one
-INSERT INTO interview_feedback (interview_id, interviewer_org_user_id, decision, positives, negatives, overall_assessment, candidate_feedback)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+-- Submit (or re-submit/edit) feedback. submitted_at is fixed on first submit;
+-- updated_at advances on every edit so changes are auditable.
+INSERT INTO interview_feedback (interview_id, interviewer_org_user_id, decision, positives, negatives, overall_assessment, candidate_feedback, state, submitted_at, updated_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, 'submitted', NOW(), NOW())
 ON CONFLICT (interview_id, interviewer_org_user_id)
 DO UPDATE SET
     decision = EXCLUDED.decision,
@@ -84,8 +90,32 @@ DO UPDATE SET
     negatives = EXCLUDED.negatives,
     overall_assessment = EXCLUDED.overall_assessment,
     candidate_feedback = EXCLUDED.candidate_feedback,
-    submitted_at = NOW()
+    state = 'submitted',
+    submitted_at = COALESCE(interview_feedback.submitted_at, NOW()),
+    updated_at = NOW()
 RETURNING *;
+
+-- name: SaveInterviewFeedbackDraft :one
+-- Save a private draft. Never un-submits already-submitted feedback (a re-save
+-- after submission just edits the submitted copy).
+INSERT INTO interview_feedback (interview_id, interviewer_org_user_id, decision, positives, negatives, overall_assessment, candidate_feedback, state, submitted_at, updated_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, 'draft', NULL, NOW())
+ON CONFLICT (interview_id, interviewer_org_user_id)
+DO UPDATE SET
+    decision = EXCLUDED.decision,
+    positives = EXCLUDED.positives,
+    negatives = EXCLUDED.negatives,
+    overall_assessment = EXCLUDED.overall_assessment,
+    candidate_feedback = EXCLUDED.candidate_feedback,
+    state = CASE WHEN interview_feedback.state = 'submitted' THEN 'submitted' ELSE 'draft' END,
+    updated_at = NOW()
+RETURNING *;
+
+-- name: GetMyInterviewFeedback :one
+-- The calling interviewer's own feedback row (draft or submitted), used to
+-- pre-fill the feedback editor.
+SELECT * FROM interview_feedback
+WHERE interview_id = $1 AND interviewer_org_user_id = $2;
 
 -- name: CancelAllScheduledForCandidacy :exec
 UPDATE interviews
@@ -107,11 +137,11 @@ LIMIT $2 OFFSET $3;
 SELECT COUNT(*) as count FROM interview_interviewers WHERE interview_id = $1;
 
 -- name: CountFeedbackForInterview :one
-SELECT COUNT(*) as count FROM interview_feedback WHERE interview_id = $1;
+SELECT COUNT(*) as count FROM interview_feedback WHERE interview_id = $1 AND state = 'submitted';
 
 -- name: GetInterviewerEntry :one
 SELECT ii.org_user_id, ii.rsvp, ii.added_at,
-       CASE WHEN EXISTS(SELECT 1 FROM interview_feedback WHERE interview_id = ii.interview_id AND interviewer_org_user_id = ii.org_user_id) THEN true ELSE false END as feedback_submitted
+       CASE WHEN EXISTS(SELECT 1 FROM interview_feedback WHERE interview_id = ii.interview_id AND interviewer_org_user_id = ii.org_user_id AND state = 'submitted') THEN true ELSE false END as feedback_submitted
 FROM interview_interviewers ii
 WHERE ii.interview_id = $1 AND ii.org_user_id = $2;
 
@@ -144,6 +174,7 @@ SELECT
         SELECT 1 FROM interview_feedback f
         WHERE f.interview_id = i.interview_id
           AND f.interviewer_org_user_id = sqlc.arg('org_user_id')
+          AND f.state = 'submitted'
     ) AS feedback_submitted
 FROM interview_interviewers ii
 JOIN interviews i ON i.interview_id = ii.interview_id

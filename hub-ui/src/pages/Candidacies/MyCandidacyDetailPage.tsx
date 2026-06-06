@@ -155,6 +155,13 @@ export const MyCandidacyDetailPage: React.FC = () => {
 									{t(candidacy.state as "interviewing")}
 								</Tag>
 							</div>
+							<div style={{ marginTop: 8 }}>
+								<Link
+									to={`/org/${candidacy.org_domain}/openings/${candidacy.opening_number}`}
+								>
+									{t("viewOpening")}
+								</Link>
+							</div>
 						</div>
 
 						{/* Interviews */}
@@ -188,6 +195,13 @@ export const MyCandidacyDetailPage: React.FC = () => {
 												{iv.description && (
 													<div>
 														<Text type="secondary">{iv.description}</Text>
+													</div>
+												)}
+												{iv.interview_location && (
+													<div>
+														<Text type="secondary">
+															📍 {iv.interview_location}
+														</Text>
 													</div>
 												)}
 											</div>
@@ -241,6 +255,12 @@ export const MyCandidacyDetailPage: React.FC = () => {
 
 						{/* Comments */}
 						<Card title={t("comments")} style={{ marginBottom: 16 }}>
+							<Text
+								type="secondary"
+								style={{ display: "block", marginBottom: 12 }}
+							>
+								{t("commentsShared")}
+							</Text>
 							<Timeline
 								items={candidacy.comments.map((c: CandidacyComment) => ({
 									children: (
@@ -249,8 +269,8 @@ export const MyCandidacyDetailPage: React.FC = () => {
 												{c.author_kind === "hub_user"
 													? t("you")
 													: c.author_kind === "org_user"
-														? "Hiring team"
-														: "System"}
+														? t("authorOrg")
+														: t("authorSystem")}
 											</Text>
 											<div>{c.body}</div>
 											<Text type="secondary" style={{ fontSize: 12 }}>

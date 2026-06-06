@@ -93,11 +93,22 @@ func ListApplications(s *server.RegionalServer) http.HandlerFunc {
 		}
 		cursorTs, cursorID := parseCursor(cursorKey)
 
+		filterStates := make([]string, 0, len(req.FilterState))
+		for _, st := range req.FilterState {
+			filterStates = append(filterStates, string(st))
+		}
+		filterLabels := make([]string, 0, len(req.FilterLabel))
+		for _, l := range req.FilterLabel {
+			filterLabels = append(filterLabels, string(l))
+		}
+
 		apps, err := db.ListApplicationsForOpening(ctx, regionaldb.ListApplicationsForOpeningParams{
 			OpeningID:           openingID,
 			Lim:                 limit + 1,
 			CursorAppliedAt:     cursorTs,
 			CursorApplicationID: cursorID,
+			FilterStates:        filterStates,
+			FilterLabels:        filterLabels,
 		})
 		if err != nil {
 			s.Logger(ctx).Error("failed to list applications", "error", err)

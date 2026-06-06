@@ -3,5 +3,7 @@
 	"notFoundDesc": "The user @{{handle}} could not be found.",
 	"workHistory": "Work history",
 	"present": "present",
-	"backToDashboard": "Back to dashboard"
+	"about": "About",
+	"back": "Back",
+	"backToDashboard": "Back to Dashboard"
 }

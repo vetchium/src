@@ -1,9 +1,24 @@
-import React, { useState } from "react";
-import { Button, Form, Input, Spin, Typography, Upload, message } from "antd";
+import React, { useEffect, useState } from "react";
+import {
+	Button,
+	Checkbox,
+	Divider,
+	Form,
+	Input,
+	Select,
+	Spin,
+	Typography,
+	Upload,
+	message,
+} from "antd";
 import { ArrowLeftOutlined, UploadOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import type { UploadFile } from "antd";
+import type {
+	ListConnectionsRequest,
+	ListConnectionsResponse,
+} from "vetchium-specs/hub/connections";
 import { getApiBaseUrl } from "../../config";
 import { useAuth } from "../../hooks/useAuth";
 
@@ -22,6 +37,42 @@ export const ApplyForOpeningPage: React.FC = () => {
 	const [fileList, setFileList] = useState<UploadFile[]>([]);
 	const [submitting, setSubmitting] = useState(false);
 	const [form] = Form.useForm();
+	// #6 — seek endorsements while applying.
+	const [endorserOptions, setEndorserOptions] = useState<
+		{ value: string; label: string }[]
+	>([]);
+	const [selectedEndorsers, setSelectedEndorsers] = useState<string[]>([]);
+	const [notifyColleagues, setNotifyColleagues] = useState(false);
+
+	useEffect(() => {
+		const loadConnections = async () => {
+			if (!sessionToken) return;
+			try {
+				const apiBaseUrl = await getApiBaseUrl();
+				const req: ListConnectionsRequest = { limit: 100 };
+				const res = await fetch(`${apiBaseUrl}/hub/connections/list`, {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${sessionToken}`,
+					},
+					body: JSON.stringify(req),
+				});
+				if (res.status === 200) {
+					const data = (await res.json()) as ListConnectionsResponse;
+					setEndorserOptions(
+						data.connections.map((c) => ({
+							value: c.handle,
+							label: `${c.display_name} (@${c.handle})`,
+						}))
+					);
+				}
+			} catch {
+				// best-effort
+			}
+		};
+		loadConnections();
+	}, [sessionToken]);
 
 	const handleSubmit = async () => {
 		if (!sessionToken || !orgDomain || !openingNumber) return;
@@ -42,6 +93,11 @@ export const ApplyForOpeningPage: React.FC = () => {
 			formData.append("opening_number", openingNumber);
 			formData.append("cover_letter", coverLetter);
 			formData.append("resume", fileList[0].originFileObj);
+			selectedEndorsers.forEach((h) => formData.append("endorser_handles", h));
+			formData.append(
+				"notify_colleagues_at_target",
+				notifyColleagues ? "true" : "false"
+			);
 
 			const res = await fetch(`${apiBaseUrl}/hub/apply-for-opening`, {
 				method: "POST",
@@ -116,6 +172,40 @@ export const ApplyForOpeningPage: React.FC = () => {
 						>
 							<Button icon={<UploadOutlined />}>{t("resume")}</Button>
 						</Upload>
+					</Form.Item>
+
+					<Divider>{t("seekEndorsementsTitle")}</Divider>
+
+					<Form.Item
+						label={t("nominateEndorsers")}
+						help={
+							endorserOptions.length === 0
+								? t("noConnectionsToEndorse")
+								: t("nominateEndorsersHelp")
+						}
+					>
+						<Select
+							mode="multiple"
+							value={selectedEndorsers}
+							onChange={setSelectedEndorsers}
+							options={endorserOptions}
+							showSearch={{ optionFilterProp: "label" }}
+							maxCount={10}
+							disabled={endorserOptions.length === 0}
+							placeholder={t("nominateEndorsersPlaceholder")}
+						/>
+					</Form.Item>
+
+					<Form.Item>
+						<Checkbox
+							checked={notifyColleagues}
+							onChange={(e) => setNotifyColleagues(e.target.checked)}
+						>
+							{t("notifyColleagues")}
+						</Checkbox>
+						<div style={{ color: "#888", fontSize: 12, marginLeft: 24 }}>
+							{t("notifyColleaguesHelp")}
+						</div>
 					</Form.Item>
 
 					<Form.Item>

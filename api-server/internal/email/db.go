@@ -16,6 +16,9 @@ type EmailRow struct {
 	EmailSubject  string
 	EmailTextBody string
 	EmailHtmlBody string
+	// EmailICal, when non-empty, is an iCalendar payload attached to the message
+	// as invite.ics so the recipient can add the event to their calendar.
+	EmailICal     string
 	AttemptCount  int64
 	LastAttemptAt pgtype.Timestamp
 }
@@ -53,6 +56,7 @@ func (r *RegionalEmailDB) GetEmailsToSend(ctx context.Context, limit int32) ([]E
 			EmailSubject:  row.EmailSubject,
 			EmailTextBody: row.EmailTextBody,
 			EmailHtmlBody: row.EmailHtmlBody,
+			EmailICal:     row.EmailIcal.String,
 			AttemptCount:  int64(row.AttemptCount),
 			LastAttemptAt: row.LastAttemptAt,
 		}

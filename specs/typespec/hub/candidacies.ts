@@ -31,6 +31,7 @@ export interface HubInterview {
 	starts_at: string;
 	ends_at: string;
 	description?: string;
+	interview_location?: string;
 	state: InterviewState;
 	candidate_rsvp?: InterviewRSVP;
 	interviewer_rsvp_summary: {

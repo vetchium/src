@@ -20,6 +20,7 @@ model ScheduleInterviewRequest {
   starts_at:               utcDateTime;
   ends_at:                 utcDateTime;
   description?:            string;       // 0..2000
+  interview_location?:     string;       // 0..2000, address or video link
   interviewer_email_addresses: string[]; // 1..5, must be active org users at the org
 }
 model ScheduleInterviewResponse { interview_id: string; }
@@ -29,6 +30,7 @@ model UpdateInterviewRequest {
   starts_at?:    utcDateTime;
   ends_at?:      utcDateTime;
   description?:  string;
+  interview_location?: string;
 }
 
 model InterviewIdRequest { interview_id: string; }
@@ -62,11 +64,12 @@ model OrgInterview {
   starts_at:      utcDateTime;
   ends_at:        utcDateTime;
   description?:   string;
+  interview_location?: string;
   state:          InterviewState;
   candidate_rsvp?: InterviewRSVP;
   interviewers:   InterviewerEntry[];
   // Feedback section: visible only to org users (never candidate).
-  // For each interviewer who has submitted, full feedback is included.
+  // Only SUBMITTED feedback is included; drafts stay private to their author.
   feedback: {
     org_user_id:        string;
     decision:           FeedbackDecision;
@@ -75,7 +78,28 @@ model OrgInterview {
     overall_assessment: string;
     candidate_feedback?: string;
     submitted_at:       utcDateTime;
+    updated_at:         utcDateTime;
   }[];
+}
+
+// Feedback lifecycle, decoupled from interview completion.
+union FeedbackState {
+  Draft:     "draft",
+  Submitted: "submitted",
+}
+
+// The calling interviewer's own feedback (draft or submitted) for an interview,
+// used to pre-fill the feedback editor.
+model MyInterviewFeedback {
+  interview_id:       string;
+  state:              FeedbackState;
+  decision:           FeedbackDecision;
+  positives:          string;
+  negatives:          string;
+  overall_assessment: string;
+  candidate_feedback?: string;
+  submitted_at?:      utcDateTime;
+  updated_at:         utcDateTime;
 }
 
 model ListInterviewsRequest {
@@ -124,6 +148,12 @@ model ListMyInterviewsResponse { interviews: OrgMyInterview[]; next_pagination_k
   OkResponse<{}> | { @statusCode statusCode: 403 } | NotFoundResponse | UnprocessableEntityResponse;
 @route("/org/submit-interview-feedback") @post submitInterviewFeedback(...SubmitInterviewFeedbackRequest):
   OkResponse<{}> | BadRequestResponse | { @statusCode statusCode: 403 } | NotFoundResponse | UnprocessableEntityResponse;
+@route("/org/save-interview-feedback") @post saveInterviewFeedback(...SubmitInterviewFeedbackRequest):
+  OkResponse<{}> | BadRequestResponse | { @statusCode statusCode: 403 } | NotFoundResponse | UnprocessableEntityResponse;
+@route("/org/get-my-interview-feedback") @post getMyInterviewFeedback(...InterviewIdRequest):
+  OkResponse<MyInterviewFeedback> | { @statusCode statusCode: 403 } | NotFoundResponse;
+@route("/org/complete-interview") @post completeInterview(...InterviewIdRequest):
+  OkResponse<{}> | { @statusCode statusCode: 403 } | NotFoundResponse | UnprocessableEntityResponse;
 @route("/org/list-interviews")    @post orgListInterviews(...ListInterviewsRequest):
   OkResponse<ListInterviewsResponse> | BadRequestResponse;
 @route("/org/get-interview")      @post orgGetInterview(...InterviewIdRequest):

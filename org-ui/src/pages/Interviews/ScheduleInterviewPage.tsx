@@ -1,9 +1,10 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
 	Button,
 	DatePicker,
 	Form,
 	Input,
+	Modal,
 	Select,
 	Spin,
 	Typography,
@@ -13,6 +14,10 @@ import { ArrowLeftOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import type { ScheduleInterviewRequest } from "vetchium-specs/org/interviews";
+import type {
+	ListOrgUsersRequest,
+	ListOrgUsersResponse,
+} from "vetchium-specs/org/org-users";
 import { getApiBaseUrl } from "../../config";
 import { useAuth } from "../../hooks/useAuth";
 import dayjs from "dayjs";
@@ -27,24 +32,54 @@ export const ScheduleInterviewPage: React.FC = () => {
 	const { candidacyId } = useParams<{ candidacyId: string }>();
 	const [form] = Form.useForm();
 	const [submitting, setSubmitting] = useState(false);
+	// Suggestions for the interviewer recipient input. Loaded best-effort: a user
+	// who can schedule interviews may not have the view_users role, in which case
+	// the request 403s and the field still works as a free-entry chip input.
+	const [userOptions, setUserOptions] = useState<
+		{ value: string; label: string }[]
+	>([]);
 
-	const handleSubmit = async (values: {
+	useEffect(() => {
+		const loadUsers = async () => {
+			if (!sessionToken) return;
+			try {
+				const apiBaseUrl = await getApiBaseUrl();
+				const req: ListOrgUsersRequest = { limit: 100 };
+				const res = await fetch(`${apiBaseUrl}/org/list-users`, {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${sessionToken}`,
+					},
+					body: JSON.stringify(req),
+				});
+				if (res.status === 200) {
+					const data = (await res.json()) as ListOrgUsersResponse;
+					setUserOptions(
+						data.users.map((u) => ({
+							value: u.email_address,
+							label: u.name
+								? `${u.name} <${u.email_address}>`
+								: u.email_address,
+						}))
+					);
+				}
+			} catch {
+				// best-effort only
+			}
+		};
+		loadUsers();
+	}, [sessionToken]);
+
+	const doSubmit = async (values: {
 		interview_type: string;
 		starts_at: ReturnType<typeof dayjs>;
 		ends_at: ReturnType<typeof dayjs>;
 		description?: string;
-		interviewer_emails: string;
+		interview_location?: string;
+		interviewer_emails: string[];
 	}) => {
 		if (!sessionToken || !candidacyId) return;
-		const emailList = values.interviewer_emails
-			.split(/[\n,]/)
-			.map((e) => e.trim())
-			.filter(Boolean);
-		if (emailList.length < 1 || emailList.length > 5) {
-			message.error("Must specify 1–5 interviewer email addresses");
-			return;
-		}
-
 		setSubmitting(true);
 		try {
 			const apiBaseUrl = await getApiBaseUrl();
@@ -55,7 +90,10 @@ export const ScheduleInterviewPage: React.FC = () => {
 				starts_at: values.starts_at.toISOString(),
 				ends_at: values.ends_at.toISOString(),
 				...(values.description ? { description: values.description } : {}),
-				interviewer_email_addresses: emailList,
+				...(values.interview_location
+					? { interview_location: values.interview_location }
+					: {}),
+				interviewer_email_addresses: values.interviewer_emails,
 			};
 			const res = await fetch(`${apiBaseUrl}/org/schedule-interview`, {
 				method: "POST",
@@ -66,20 +104,71 @@ export const ScheduleInterviewPage: React.FC = () => {
 				body: JSON.stringify(req),
 			});
 			if (res.status === 201) {
-				message.success("Interview scheduled");
+				message.success(t("scheduleSuccess"));
 				navigate(`/candidacies/${candidacyId}`);
 			} else if (res.status === 400) {
-				const errs = await res.json();
-				if (Array.isArray(errs)) {
-					errs.forEach((e: { message: string }) => message.error(e.message));
+				// The body may be a JSON array of validation errors OR a plain-text
+				// message (e.g. "interviewer not found: x@y.com"). Surface both so a
+				// bad interviewer email is never swallowed silently (#13).
+				const textBody = await res.text();
+				let shown = false;
+				try {
+					const parsed = JSON.parse(textBody);
+					if (Array.isArray(parsed)) {
+						parsed.forEach((e: { message: string }) =>
+							message.error(e.message)
+						);
+						shown = true;
+					}
+				} catch {
+					// not JSON
 				}
+				if (!shown) message.error(textBody || t("scheduleFailed"));
 			} else if (res.status === 422) {
-				message.error("Candidacy is not in interviewing state");
+				message.error(t("notInterviewing"));
+			} else if (res.status === 404) {
+				message.error(t("candidacyNotFound"));
 			} else {
-				message.error("Failed to schedule interview");
+				message.error(t("scheduleFailed"));
 			}
 		} finally {
 			setSubmitting(false);
+		}
+	};
+
+	const handleSubmit = async (values: {
+		interview_type: string;
+		starts_at: ReturnType<typeof dayjs>;
+		ends_at: ReturnType<typeof dayjs>;
+		description?: string;
+		interview_location?: string;
+		interviewer_emails: string[];
+	}) => {
+		const emails = values.interviewer_emails ?? [];
+		if (emails.length < 1 || emails.length > 5) {
+			message.error(t("interviewersCount"));
+			return;
+		}
+		// Future-only by default, with an explicit confirmation escape hatch for
+		// scheduling in the past (#11).
+		if (values.starts_at && values.starts_at.isBefore(dayjs())) {
+			Modal.confirm({
+				title: t("pastTitle"),
+				content: t("pastContent"),
+				okText: t("pastConfirm"),
+				cancelText: t("cancel"),
+				onOk: () => doSubmit(values),
+			});
+			return;
+		}
+		doSubmit(values);
+	};
+
+	// When the start time changes, default the end time to one hour later. The
+	// user can still override the end time afterwards (#11).
+	const handleStartChange = (value: ReturnType<typeof dayjs> | null) => {
+		if (value) {
+			form.setFieldValue("ends_at", value.add(1, "hour"));
 		}
 	};
 
@@ -124,15 +213,28 @@ export const ScheduleInterviewPage: React.FC = () => {
 						label={t("startsAt")}
 						rules={[{ required: true }]}
 					>
-						<DatePicker showTime style={{ width: "100%" }} />
+						<DatePicker
+							showTime
+							style={{ width: "100%" }}
+							onChange={handleStartChange}
+						/>
 					</Form.Item>
 
 					<Form.Item
 						name="ends_at"
 						label={t("endsAt")}
 						rules={[{ required: true }]}
+						extra={t("endsAtHelp")}
 					>
 						<DatePicker showTime style={{ width: "100%" }} />
+					</Form.Item>
+
+					<Form.Item
+						name="interview_location"
+						label={t("location")}
+						extra={t("locationHelp")}
+					>
+						<Input maxLength={2000} placeholder={t("locationPlaceholder")} />
 					</Form.Item>
 
 					<Form.Item name="description" label={t("description")}>
@@ -143,9 +245,16 @@ export const ScheduleInterviewPage: React.FC = () => {
 						name="interviewer_emails"
 						label={t("interviewers")}
 						rules={[{ required: true }]}
-						extra="One email address per line or comma-separated (1–5)"
+						extra={t("interviewersHelp")}
 					>
-						<TextArea rows={4} placeholder="interviewer@company.com" />
+						<Select
+							mode="tags"
+							tokenSeparators={[",", " ", "\n", ";"]}
+							options={userOptions}
+							placeholder={t("interviewersPlaceholder")}
+							maxCount={5}
+							showSearch={{ optionFilterProp: "label" }}
+						/>
 					</Form.Item>
 
 					<Form.Item>

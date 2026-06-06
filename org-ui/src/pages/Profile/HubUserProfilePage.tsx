@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { Avatar, Button, Card, Empty, Spin, Tag, Typography } from "antd";
 import { ArrowLeftOutlined, UserOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
-import { Link, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import type {
 	OrgGetHubUserProfileRequest,
 	OrgHubUserProfileResponse,
@@ -30,7 +30,16 @@ function getPreferredDisplayName(
 export const HubUserProfilePage: React.FC = () => {
 	const { t, i18n } = useTranslation("hubProfile");
 	const { sessionToken } = useAuth();
+	const navigate = useNavigate();
 	const { handle } = useParams<{ handle: string }>();
+
+	// History-aware back: return to wherever the user came from (e.g. the
+	// applications list) instead of always jumping to the dashboard. Falls back
+	// to the dashboard when the profile was opened directly (no in-app history).
+	const goBack = () => {
+		if (window.history.length > 1) navigate(-1);
+		else navigate("/");
+	};
 	const [data, setData] = useState<OrgHubUserProfileResponse | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [notFound, setNotFound] = useState(false);
@@ -94,9 +103,9 @@ export const HubUserProfilePage: React.FC = () => {
 				}}
 			>
 				<div style={{ marginBottom: 16 }}>
-					<Link to="/">
-						<Button icon={<ArrowLeftOutlined />}>{t("backToDashboard")}</Button>
-					</Link>
+					<Button icon={<ArrowLeftOutlined />} onClick={goBack}>
+						{t("back")}
+					</Button>
 				</div>
 				<Empty description={t("notFoundDesc", { handle })} />
 			</div>
@@ -120,9 +129,9 @@ export const HubUserProfilePage: React.FC = () => {
 			}}
 		>
 			<div style={{ marginBottom: 16 }}>
-				<Link to="/">
-					<Button icon={<ArrowLeftOutlined />}>{t("backToDashboard")}</Button>
-				</Link>
+				<Button icon={<ArrowLeftOutlined />} onClick={goBack}>
+					{t("back")}
+				</Button>
 			</div>
 
 			{/* Profile hero */}
@@ -149,6 +158,15 @@ export const HubUserProfilePage: React.FC = () => {
 					</div>
 				</div>
 			</Card>
+
+			{/* About */}
+			{profile.long_bio && (
+				<Card title={t("about")} style={{ marginBottom: 16 }}>
+					<Paragraph style={{ whiteSpace: "pre-wrap", margin: 0 }}>
+						{profile.long_bio}
+					</Paragraph>
+				</Card>
+			)}
 
 			{/* Work history */}
 			{stints.length > 0 && (

@@ -26,6 +26,7 @@ import {
 	type SupportedLanguage,
 } from "../i18n";
 import { useAuth } from "../hooks/useAuth";
+import { useMyInfo } from "../hooks/useMyInfo";
 import { getApiBaseUrl } from "../config";
 
 const { Header } = Layout;
@@ -34,6 +35,7 @@ export function AppHeader() {
 	const { t, i18n } = useTranslation("common");
 	const { theme: themeMode, toggleTheme } = useTheme();
 	const { authState, sessionToken, logout } = useAuth();
+	const { data: myInfo } = useMyInfo(sessionToken);
 	const { languages, loading: languagesLoading } = useLanguage();
 
 	const navigate = useNavigate();
@@ -75,6 +77,26 @@ export function AppHeader() {
 				}));
 
 	const userMenuItems: MenuProps["items"] = [
+		...(myInfo
+			? [
+					{
+						key: "user-info",
+						disabled: true,
+						label: (
+							<div style={{ padding: "4px 0", lineHeight: 1.4 }}>
+								<div style={{ fontWeight: 600 }}>{myInfo.full_name}</div>
+								<div style={{ fontSize: 12, opacity: 0.65 }}>
+									{myInfo.email_address}
+								</div>
+								<div style={{ fontSize: 12, opacity: 0.65 }}>
+									{myInfo.org_name}
+								</div>
+							</div>
+						),
+					},
+					{ type: "divider" as const },
+				]
+			: []),
 		{
 			key: "change-password",
 			icon: <LockOutlined />,

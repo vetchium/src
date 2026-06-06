@@ -1507,6 +1507,14 @@ WHERE opening_id = @opening_id
     OR applied_at < @cursor_applied_at::timestamptz
     OR (applied_at = @cursor_applied_at::timestamptz AND application_id < @cursor_application_id::uuid)
   )
+  AND (
+    cardinality(@filter_states::text[]) = 0
+    OR state = ANY(@filter_states::text[])
+  )
+  AND (
+    cardinality(@filter_labels::text[]) = 0
+    OR label = ANY(@filter_labels::text[])
+  )
 ORDER BY applied_at DESC, application_id DESC
 LIMIT @lim;
 
@@ -1588,7 +1596,7 @@ SELECT
     i.state,
     i.candidate_rsvp,
     (SELECT COUNT(*) FROM interview_interviewers ii WHERE ii.interview_id = i.interview_id)::int4 AS interviewer_count,
-    (SELECT COUNT(*) FROM interview_feedback ifb WHERE ifb.interview_id = i.interview_id)::int4 AS feedback_submitted_count
+    (SELECT COUNT(*) FROM interview_feedback ifb WHERE ifb.interview_id = i.interview_id AND ifb.state = 'submitted')::int4 AS feedback_submitted_count
 FROM interviews i
 WHERE i.candidacy_id = $1
 ORDER BY i.starts_at DESC;
@@ -1816,9 +1824,10 @@ WHERE c.candidacy_id = $1 AND c.applicant_hub_user_global_id = $2;
 SELECT * FROM applications WHERE application_id = $1 AND applicant_hub_user_global_id = $2;
 
 -- name: GetApplicationByApplicantWithOpening :one
-SELECT a.*, op.title AS opening_title
+SELECT a.*, op.title AS opening_title, c.candidacy_id AS candidacy_id
 FROM applications a
 JOIN openings op ON op.opening_id = a.opening_id
+LEFT JOIN candidacies c ON c.application_id = a.application_id
 WHERE a.application_id = $1 AND a.applicant_hub_user_global_id = $2;
 
 -- name: CheckHubUserHasApplied :one
@@ -1873,6 +1882,15 @@ WHERE o.status = 'published'
       WHERE a.opening_id = o.opening_id
         AND a.applicant_hub_user_global_id = @hub_user_global_id
         AND a.state = 'rejected'
+  )
+  -- Hide every opening from a company where the candidate already has a LIVE
+  -- application: they can only hold one open application per company, so the
+  -- rest are not actionable while browsing (#7).
+  AND NOT EXISTS (
+      SELECT 1 FROM applications la
+      WHERE la.org_id = o.org_id
+        AND la.applicant_hub_user_global_id = @hub_user_global_id
+        AND la.state IN ('applied','shortlisted')
   )
   AND (@cursor_published_at::timestamptz IS NULL
        OR o.first_published_at < @cursor_published_at::timestamptz

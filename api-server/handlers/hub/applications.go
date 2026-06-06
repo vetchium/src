@@ -192,6 +192,11 @@ func GetMyApplication(s *server.RegionalServer) http.HandlerFunc {
 			label = &l
 		}
 
+		var candidacyID string
+		if app.CandidacyID.Valid {
+			candidacyID = app.CandidacyID.String()
+		}
+
 		result := hub.HubApplication{
 			ApplicationID:            app.ApplicationID.String(),
 			OrgDomain:                indexEntry.PrimaryDomain,
@@ -207,6 +212,9 @@ func GetMyApplication(s *server.RegionalServer) http.HandlerFunc {
 			Endorsements:             []hub.MyEndorsementOnApplication{},
 			EndorsementRequests:      []hub.MyEndorsementRequestSent{},
 			NotifyColleaguesAtTarget: app.NotifyColleaguesAtTarget,
+		}
+		if candidacyID != "" {
+			result.CandidacyID = &candidacyID
 		}
 
 		w.WriteHeader(http.StatusOK)

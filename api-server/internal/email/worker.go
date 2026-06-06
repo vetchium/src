@@ -188,6 +188,15 @@ func (w *Worker) processEmail(ctx context.Context, email EmailRow) {
 		TextBody: email.EmailTextBody,
 		HTMLBody: email.EmailHtmlBody,
 	}
+	// Attach the calendar invite when present so recipients can add it to their
+	// calendar (RFC 5545). method=REQUEST/CANCEL is encoded inside the payload.
+	if email.EmailICal != "" {
+		msg.Attachments = append(msg.Attachments, Attachment{
+			Filename:    "invite.ics",
+			ContentType: "text/calendar; charset=utf-8; method=REQUEST",
+			Data:        []byte(email.EmailICal),
+		})
+	}
 
 	err := w.sender.Send(msg)
 

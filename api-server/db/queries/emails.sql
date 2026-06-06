@@ -1,9 +1,11 @@
 -- Email Operations --
 
 -- name: EnqueueEmail :one
--- Inserts a new email into the queue and returns the generated email_id
-INSERT INTO emails (email_type, email_to, email_subject, email_text_body, email_html_body)
-VALUES ($1, $2, $3, $4, $5)
+-- Inserts a new email into the queue and returns the generated email_id.
+-- email_ical is optional (NULL for most emails); when present it is attached as
+-- an .ics calendar invite by the email worker.
+INSERT INTO emails (email_type, email_to, email_subject, email_text_body, email_html_body, email_ical)
+VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING email_id;
 
 -- name: GetEmailsToSend :many
@@ -18,6 +20,7 @@ SELECT
     e.email_subject,
     e.email_text_body,
     e.email_html_body,
+    e.email_ical,
     e.created_at,
     (SELECT COUNT(*)::int FROM email_delivery_attempts a WHERE a.email_id = e.email_id) AS attempt_count,
     (SELECT MAX(attempted_at)::timestamp FROM email_delivery_attempts a WHERE a.email_id = e.email_id) AS last_attempt_at

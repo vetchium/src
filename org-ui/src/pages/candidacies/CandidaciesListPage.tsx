@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Button, Empty, Spin, Table, Tag, Typography } from "antd";
+import { Alert, Button, Empty, Spin, Table, Tag, Typography } from "antd";
 import { ArrowLeftOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router-dom";
@@ -29,6 +29,7 @@ export const CandidaciesListPage: React.FC = () => {
 	const [candidacies, setCandidacies] = useState<OrgCandidacySummary[]>([]);
 	const [loading, setLoading] = useState(false);
 	const [nextKey, setNextKey] = useState<string | undefined>();
+	const [forbidden, setForbidden] = useState(false);
 
 	const fetchCandidacies = useCallback(
 		async (paginationKey?: string) => {
@@ -54,6 +55,8 @@ export const CandidaciesListPage: React.FC = () => {
 						paginationKey ? [...prev, ...data.candidacies] : data.candidacies
 					);
 					setNextKey(data.next_pagination_key);
+				} else if (res.status === 403) {
+					setForbidden(true);
 				}
 			} finally {
 				setLoading(false);
@@ -120,8 +123,18 @@ export const CandidaciesListPage: React.FC = () => {
 				{t("title")}
 			</Title>
 
+			{forbidden && (
+				<Alert
+					type="warning"
+					showIcon
+					style={{ marginBottom: 16 }}
+					title={t("noAccessTitle")}
+					description={t("noAccessDescription")}
+				/>
+			)}
+
 			<Spin spinning={loading}>
-				{candidacies.length === 0 && !loading ? (
+				{forbidden ? null : candidacies.length === 0 && !loading ? (
 					<Empty description={t("noCandidacies")} />
 				) : (
 					<Table

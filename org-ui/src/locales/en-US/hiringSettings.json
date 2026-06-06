@@ -1,6 +1,6 @@
 {
 	"title": "Hiring Settings",
-	"backToDashboard": "Back to dashboard",
+	"backToDashboard": "Back to Dashboard",
 	"coolOffDays": "Cool-off period (days)",
 	"coolOffHelp": "Number of days a candidate must wait before re-applying after reaching a candidacy at this org. Set to 0 to disable.",
 	"save": "Save",

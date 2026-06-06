@@ -82,7 +82,7 @@ const CandidacyDetailPage: React.FC = () => {
 	>({});
 
 	const canManage =
-		myInfo?.roles?.includes("org:manage_openings") ||
+		myInfo?.roles?.includes("org:manage_candidacies") ||
 		myInfo?.roles?.includes("org:superadmin") ||
 		false;
 
@@ -212,6 +212,20 @@ const CandidacyDetailPage: React.FC = () => {
 		}
 		return (
 			<div style={{ padding: "8px 16px" }}>
+				{(detail.interview_location || detail.description) && (
+					<div style={{ marginBottom: 12 }}>
+						{detail.description && (
+							<div>
+								<Text type="secondary">{detail.description}</Text>
+							</div>
+						)}
+						{detail.interview_location && (
+							<div>
+								<Text type="secondary">📍 {detail.interview_location}</Text>
+							</div>
+						)}
+					</div>
+				)}
 				<Text strong>{t("interviewerRsvpSummary")}</Text>
 				<Table
 					style={{ marginTop: 8 }}
@@ -393,8 +407,8 @@ const CandidacyDetailPage: React.FC = () => {
 						</Tag>
 					</Space>
 				</div>
-				<Link to={`/openings/${candidacy.opening_id}/applications`}>
-					<Button>{t("view")}</Button>
+				<Link to={`/openings/${candidacy.opening_id}`}>
+					<Button>{t("viewOpening")}</Button>
 				</Link>
 			</div>
 
@@ -544,6 +558,9 @@ const CandidacyDetailPage: React.FC = () => {
 
 			{/* Comments */}
 			<Card title={t("comments")}>
+				<Text type="secondary" style={{ display: "block", marginBottom: 12 }}>
+					{t("commentsShared")}
+				</Text>
 				{candidacy.comments.length === 0 ? (
 					<Empty
 						image={Empty.PRESENTED_IMAGE_SIMPLE}

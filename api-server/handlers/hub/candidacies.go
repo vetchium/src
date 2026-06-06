@@ -248,14 +248,19 @@ func GetMyCandidacy(s *server.RegionalServer) http.HandlerFunc {
 			if iv.Description.Valid {
 				desc = &iv.Description.String
 			}
+			var loc *string
+			if iv.Location.Valid {
+				loc = &iv.Location.String
+			}
 			interviewList = append(interviewList, hub.HubInterview{
-				InterviewID:   iv.InterviewID.String(),
-				InterviewType: hub.InterviewType(iv.InterviewType),
-				StartsAt:      iv.StartsAt.Time.UTC().Format(time.RFC3339),
-				EndsAt:        iv.EndsAt.Time.UTC().Format(time.RFC3339),
-				Description:   desc,
-				State:         hub.InterviewState(iv.State),
-				CandidateRSVP: candidateRSVP,
+				InterviewID:       iv.InterviewID.String(),
+				InterviewType:     hub.InterviewType(iv.InterviewType),
+				StartsAt:          iv.StartsAt.Time.UTC().Format(time.RFC3339),
+				EndsAt:            iv.EndsAt.Time.UTC().Format(time.RFC3339),
+				Description:       desc,
+				InterviewLocation: loc,
+				State:             hub.InterviewState(iv.State),
+				CandidateRSVP:     candidateRSVP,
 				InterviewerRSVPSummary: struct {
 					Total   int32 `json:"total"`
 					Yes     int32 `json:"yes"`

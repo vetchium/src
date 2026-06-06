@@ -8,6 +8,7 @@ import type {
 	ListApplicationsRequest,
 	ListApplicationsResponse,
 } from "vetchium-specs/org/applications";
+import type { ApplicationColorLabel } from "vetchium-specs/hub/applications";
 import { getApiBaseUrl } from "../../config";
 import { useAuth } from "../../hooks/useAuth";
 import { formatDateTime } from "../../utils/dateFormat";
@@ -37,6 +38,7 @@ export const ApplicationsListPage: React.FC = () => {
 	const [loading, setLoading] = useState(false);
 	const [nextKey, setNextKey] = useState<string | undefined>();
 	const [stateFilter, setStateFilter] = useState<string[]>([]);
+	const [labelFilter, setLabelFilter] = useState<ApplicationColorLabel[]>([]);
 
 	const fetchApplications = useCallback(
 		async (paginationKey?: string) => {
@@ -54,6 +56,7 @@ export const ApplicationsListPage: React.FC = () => {
 									stateFilter as ListApplicationsRequest["filter_state"],
 							}
 						: {}),
+					...(labelFilter.length > 0 ? { filter_label: labelFilter } : {}),
 				};
 				const res = await fetch(`${apiBaseUrl}/org/list-applications`, {
 					method: "POST",
@@ -74,7 +77,7 @@ export const ApplicationsListPage: React.FC = () => {
 				setLoading(false);
 			}
 		},
-		[sessionToken, openingId, stateFilter]
+		[sessionToken, openingId, stateFilter, labelFilter]
 	);
 
 	useEffect(() => {
@@ -157,11 +160,18 @@ export const ApplicationsListPage: React.FC = () => {
 				{t("title")}
 			</Title>
 
-			<div style={{ marginBottom: 16 }}>
+			<div
+				style={{
+					marginBottom: 16,
+					display: "flex",
+					gap: 12,
+					flexWrap: "wrap",
+				}}
+			>
 				<Select
 					mode="multiple"
-					placeholder="Filter by state"
-					style={{ width: 300 }}
+					placeholder={t("filterByState")}
+					style={{ minWidth: 280 }}
 					value={stateFilter}
 					onChange={(v) => setStateFilter(v)}
 					options={[
@@ -169,6 +179,20 @@ export const ApplicationsListPage: React.FC = () => {
 						{ value: "shortlisted", label: t("shortlisted") },
 						{ value: "rejected", label: t("rejected") },
 						{ value: "withdrawn", label: t("withdrawn") },
+						{ value: "expired", label: t("expired") },
+					]}
+					allowClear
+				/>
+				<Select<ApplicationColorLabel[]>
+					mode="multiple"
+					placeholder={t("filterByLabel")}
+					style={{ minWidth: 240 }}
+					value={labelFilter}
+					onChange={(v) => setLabelFilter(v)}
+					options={[
+						{ value: "green", label: t("labelGreen") },
+						{ value: "yellow", label: t("labelYellow") },
+						{ value: "red", label: t("labelRed") },
 					]}
 					allowClear
 				/>
