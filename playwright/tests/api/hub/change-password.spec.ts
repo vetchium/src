@@ -9,7 +9,14 @@ import {
 	generateTestDomainName,
 	createTestApprovedDomain,
 	permanentlyDeleteTestApprovedDomain,
+	extractSignupTokenFromEmail,
 } from "../../../lib/db";
+import {
+	waitForEmail,
+	getEmailContent,
+	getTfaCodeFromEmail,
+	deleteEmailsFor,
+} from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
 import type {
 	RequestSignupRequest,
@@ -29,15 +36,9 @@ async function createHubUserViaSignupAndLogin(
 	const requestSignup: RequestSignupRequest = { email_address: email };
 	await api.requestSignup(requestSignup);
 
-	const emailSummary = await import("../../../lib/mailpit").then((m) =>
-		m.waitForEmail(email)
-	);
-	const emailMessage = await import("../../../lib/mailpit").then((m) =>
-		m.getEmailContent(emailSummary.ID)
-	);
-	const signupToken = await import("../../../lib/db").then((m) =>
-		m.extractSignupTokenFromEmail(emailMessage)
-	);
+	const emailSummary = await waitForEmail(email);
+	const emailMessage = await getEmailContent(emailSummary.ID);
+	const signupToken = extractSignupTokenFromEmail(emailMessage);
 
 	const completeSignup: CompleteSignupRequest = {
 		signup_token: signupToken!,
@@ -56,7 +57,6 @@ async function createHubUserViaSignupAndLogin(
 	};
 	const loginResp = await api.login(loginReq);
 
-	const { getTfaCodeFromEmail } = await import("../../../lib/mailpit");
 	const tfaCode = await getTfaCodeFromEmail(email);
 
 	const tfaResp = await api.verifyTFA({
@@ -184,43 +184,59 @@ test.describe("POST /hub/change-password", () => {
 		await createTestApprovedDomain(domain, adminEmail);
 
 		try {
-			// Create hub user and get first session
-			const session1 = await createHubUserViaSignupAndLogin(
+			// Create hub user and get the "other" session (the one that should be
+			// invalidated by the password change).
+			const otherSession = await createHubUserViaSignupAndLogin(
 				api,
 				email,
 				oldPassword
 			);
 
-			// Create second session
+			// Create the "current" session LAST so it is the freshest token. The
+			// short HUB_SESSION_TOKEN_EXPIRY (30s in CI) plus mailpit polling means
+			// whichever session is created first risks expiring before the
+			// password change runs; the current session must outlive both steps.
+			//
+			// Clear the mailbox first: getTfaCodeFromEmail grabs any 6-digit code in
+			// the mailbox, so the still-present TFA email from the first login would
+			// be returned (stale) before the new one arrives, making this second
+			// verifyTFA fail and leaving currentSession undefined → 401.
+			await deleteEmailsFor(email);
 			const loginReq: HubLoginRequest = {
 				email_address: email,
 				password: oldPassword,
 			};
 			const loginResp = await api.login(loginReq);
-			const { getTfaCodeFromEmail } = await import("../../../lib/mailpit");
 			const tfaCode = await getTfaCodeFromEmail(email);
 			const tfaResp = await api.verifyTFA({
 				tfa_token: loginResp.body.tfa_token,
 				tfa_code: tfaCode,
 				remember_me: false,
 			});
-			const session2 = tfaResp.body.session_token;
+			const currentSession = tfaResp.body.session_token;
 
-			// Change password using session1
+			// Change password using the current session
 			const changeRequest: HubChangePasswordRequest = {
 				current_password: oldPassword,
 				new_password: newPassword,
 			};
-			const changeResp = await api.changePassword(session1, changeRequest);
+			const changeResp = await api.changePassword(
+				currentSession,
+				changeRequest
+			);
 			expect(changeResp.status).toBe(200);
 
-			// Verify session1 still works (current session)
-			const setLang1 = await api.setLanguage(session1, { language: "de-DE" });
-			expect(setLang1.status).toBe(200);
+			// Verify the current session still works
+			const setLangCurrent = await api.setLanguage(currentSession, {
+				language: "de-DE",
+			});
+			expect(setLangCurrent.status).toBe(200);
 
-			// Verify session2 is invalidated
-			const setLang2 = await api.setLanguage(session2, { language: "de-DE" });
-			expect(setLang2.status).toBe(401);
+			// Verify the other session is invalidated
+			const setLangOther = await api.setLanguage(otherSession, {
+				language: "de-DE",
+			});
+			expect(setLangOther.status).toBe(401);
 		} finally {
 			await deleteTestHubUser(email);
 			await permanentlyDeleteTestApprovedDomain(domain);
