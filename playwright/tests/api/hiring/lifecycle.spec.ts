@@ -198,9 +198,9 @@ test.describe("Full Hiring Lifecycle", () => {
 		expect(found!.candidate_rsvp).toBeUndefined(); // candidate RSVP is hub-side
 	});
 
-	// ─── Step 4: Submit Feedback → Interview completed ──────────────────────────
+	// ─── Step 4: Submit Feedback, then End Interview ────────────────────────────
 
-	test("Step 4 — Interviewer submits feedback, interview transitions to completed", async ({
+	test("Step 4 — Interviewer submits feedback (interview stays scheduled), then ends it", async ({
 		request,
 	}) => {
 		const api = new OrgAPIClient(request);
@@ -217,7 +217,21 @@ test.describe("Full Hiring Lifecycle", () => {
 		});
 		expect(res.status).toBe(200);
 
-		// Interview is now completed
+		// Submitting feedback is decoupled from completion: the interview is still
+		// scheduled until it is explicitly ended.
+		const afterSubmit = await api.getInterview(adminToken, {
+			interview_id: interviewId,
+		});
+		expect(afterSubmit.status).toBe(200);
+		expect(afterSubmit.body.state).toBe("scheduled");
+		expect(afterSubmit.body.feedback.length).toBe(1);
+
+		// The interviewer ends the interview explicitly.
+		const completeRes = await api.completeInterview(interviewerToken, {
+			interview_id: interviewId,
+		});
+		expect(completeRes.status).toBe(200);
+
 		const ivRes = await api.getInterview(adminToken, {
 			interview_id: interviewId,
 		});

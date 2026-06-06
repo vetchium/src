@@ -149,6 +149,7 @@ import type {
 	OrgInterview,
 	ListMyInterviewsRequest,
 	ListMyInterviewsResponse,
+	MyInterviewFeedback,
 } from "vetchium-specs/org/interviews";
 import type {
 	OrgHiringSettings,
@@ -2985,6 +2986,40 @@ export class OrgAPIClient {
 		request: SubmitInterviewFeedbackRequest
 	): Promise<APIResponse<void>> {
 		const response = await this.request.post("/org/submit-interview-feedback", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		return { status: response.status(), body: undefined as unknown as void };
+	}
+
+	async saveInterviewFeedback(
+		sessionToken: string,
+		request: SubmitInterviewFeedbackRequest
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/org/save-interview-feedback", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		return { status: response.status(), body: undefined as unknown as void };
+	}
+
+	async getMyInterviewFeedback(
+		sessionToken: string,
+		request: InterviewIdRequest
+	): Promise<APIResponse<MyInterviewFeedback>> {
+		const response = await this.request.post("/org/get-my-interview-feedback", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return { status: response.status(), body: body as MyInterviewFeedback };
+	}
+
+	async completeInterview(
+		sessionToken: string,
+		request: InterviewIdRequest
+	): Promise<APIResponse<void>> {
+		const response = await this.request.post("/org/complete-interview", {
 			headers: { Authorization: `Bearer ${sessionToken}` },
 			data: request,
 		});

@@ -16,6 +16,7 @@ import {
 	generateTestOrgEmail,
 	deleteTestGlobalOrgDomain,
 	createTestOpeningDirect,
+	createTestApplicationDirect,
 } from "../../../lib/db";
 import { TEST_PASSWORD } from "../../../lib/constants";
 
@@ -102,6 +103,69 @@ test.describe("Hub Opening Discovery", () => {
 	test("list-openings: 401 when not authenticated", async ({ request }) => {
 		const res = await request.post("/hub/list-openings", { data: {} });
 		expect(res.status()).toBe(401);
+	});
+
+	test("list-openings: hides a company's openings once the candidate has a live application there (#7a)", async ({
+		request,
+	}) => {
+		const hubClient = new HubAPIClient(request);
+
+		// Whether any opening from the given org domain appears in the discovery
+		// feed (paging through, since the feed spans all orgs).
+		async function orgVisible(token: string, domain: string): Promise<boolean> {
+			let cursor: string | undefined;
+			for (let i = 0; i < 8; i++) {
+				const res = await hubClient.listOpenings(token, {
+					limit: 100,
+					...(cursor ? { pagination_key: cursor } : {}),
+				});
+				expect(res.status).toBe(200);
+				if (res.body!.openings.some((o) => o.org_domain === domain)) {
+					return true;
+				}
+				cursor = res.body!.next_pagination_key;
+				if (!cursor || res.body!.openings.length === 0) break;
+			}
+			return false;
+		}
+
+		// A fresh org with a discoverable opening, and a fresh candidate.
+		const { email: oEmail, domain: oDomain } =
+			generateTestOrgEmail("hub-hide-org");
+		const org = await createTestOrgAdminDirect(oEmail, TEST_PASSWORD);
+		const op = await createTestOpeningDirect(
+			org.orgId,
+			org.orgUserId,
+			"Hide Test Opening"
+		);
+		const cEmail = generateTestEmail("hub-hide-cand");
+		const cand = await createTestHubUserDirect(
+			cEmail,
+			TEST_PASSWORD,
+			"hidecand"
+		);
+
+		try {
+			// Before applying, the company's opening is discoverable.
+			expect(await orgVisible(cand.sessionToken, oDomain)).toBe(true);
+
+			// Create a live (applied) application at that company.
+			await createTestApplicationDirect(
+				org.orgId,
+				oDomain,
+				op.openingId,
+				op.openingNumber,
+				cand.hubUserGlobalId,
+				cand.handle,
+				"Hide Candidate"
+			);
+
+			// Now every opening from that company is hidden from the feed.
+			expect(await orgVisible(cand.sessionToken, oDomain)).toBe(false);
+		} finally {
+			await deleteTestHubUser(cEmail).catch(() => {});
+			await deleteTestGlobalOrgDomain(oDomain).catch(() => {});
+		}
 	});
 
 	// ─── get-opening ─────────────────────────────────────────────────────────────

@@ -67,9 +67,11 @@ test.describe("Hub Candidacies", () => {
 	let orgUserId: string;
 	let openingId: string;
 	let openingNumber: number;
+	let applicationId: string;
 	let candidacyId: string;
 	let interviewId: string;
 	let interviewerUserId: string;
+	const INTERVIEW_LOCATION = "https://meet.example.com/hub-cand-room";
 
 	test.beforeAll(async ({ request }) => {
 		const hubResult = await createTestHubUserDirect(
@@ -105,6 +107,7 @@ test.describe("Hub Candidacies", () => {
 			hubHandle,
 			"Hub Cand Candidate"
 		);
+		applicationId = appId;
 		const shortlistRes = await orgApi.shortlistApplication(orgToken, {
 			application_id: appId,
 		});
@@ -127,6 +130,7 @@ test.describe("Hub Candidacies", () => {
 			interview_type: "video",
 			starts_at: FUTURE_START,
 			ends_at: FUTURE_END,
+			interview_location: INTERVIEW_LOCATION,
 			interviewer_email_addresses: [interviewerEmail],
 		});
 		expect(schedRes.status).toBe(201);
@@ -185,6 +189,8 @@ test.describe("Hub Candidacies", () => {
 		expect(interview.interview_id).toBe(interviewId);
 		expect(interview.interview_type).toBe("video");
 		expect(interview.state).toBe("scheduled");
+		// The candidate sees the interview location set by the hiring team (#1).
+		expect(interview.interview_location).toBe(INTERVIEW_LOCATION);
 		expect(Array.isArray(res.body!.comments)).toBe(true);
 		expect(res.body!.offer).toBeUndefined();
 	});
@@ -212,6 +218,21 @@ test.describe("Hub Candidacies", () => {
 			data: { candidacy_id: candidacyId },
 		});
 		expect(res.status()).toBe(401);
+	});
+
+	// ─── get-my-application surfaces the candidacy once shortlisted (#8) ───────────
+
+	test("get-my-application: returns candidacy_id for a shortlisted application", async ({
+		request,
+	}) => {
+		const hubClient = new HubAPIClient(request);
+		const res = await hubClient.getMyApplication(hubToken, {
+			application_id: applicationId,
+		});
+		expect(res.status).toBe(200);
+		// Shortlisting created this candidacy; the hub application links to it.
+		expect(res.body!.state).toBe("shortlisted");
+		expect(res.body!.candidacy_id).toBe(candidacyId);
 	});
 
 	// ─── rsvp-interview (hub candidate) ──────────────────────────────────────────

@@ -154,6 +154,7 @@ test.describe("Interview Lifecycle", () => {
 			starts_at: START1,
 			ends_at: END1,
 			description: "Technical screening round.",
+			interview_location: "https://meet.example.com/abc-defg-hij",
 			interviewer_email_addresses: [ivEmail1],
 		});
 		expect(schedRes.status).toBe(201);
@@ -169,6 +170,20 @@ test.describe("Interview Lifecycle", () => {
 		expect(getRes.body!.interview_type).toBe("video");
 		expect(getRes.body!.state).toBe("scheduled");
 		expect(getRes.body!.description).toBe("Technical screening round.");
+		expect(getRes.body!.interview_location).toBe(
+			"https://meet.example.com/abc-defg-hij"
+		);
+
+		// update-interview can change the location, which round-trips through get.
+		const updRes = await api.updateInterview(adminToken, {
+			interview_id: interviewId,
+			interview_location: "Room 4, 12 Main Street",
+		});
+		expect(updRes.status).toBe(200);
+		const getRes2 = await api.getInterview(adminToken, {
+			interview_id: interviewId,
+		});
+		expect(getRes2.body!.interview_location).toBe("Room 4, 12 Main Street");
 
 		// Audit log
 		const auditRes = await api.listAuditLogs(adminToken, {

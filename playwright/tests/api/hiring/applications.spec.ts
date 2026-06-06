@@ -250,6 +250,115 @@ test.describe("Hiring Applications", () => {
 		);
 	});
 
+	// ─── Org: list-applications filters (filter_state + filter_label) ─────────────
+
+	test("list-applications honours filter_state and filter_label", async ({
+		request,
+	}) => {
+		const orgClient = new OrgAPIClient(request);
+		// A dedicated opening so only the applications created here are listed,
+		// keeping the filter assertions exact.
+		const op = await createTestOpeningDirect(
+			orgAId,
+			orgAUserId,
+			"Filter Test Opening"
+		);
+		async function appOn(): Promise<string> {
+			const email = generateTestEmail("app-filt-hub");
+			const hub = await createTestHubUserDirect(
+				email,
+				TEST_PASSWORD,
+				"filthub"
+			);
+			hubEmailsToCleanup.push(email);
+			return createTestApplicationDirect(
+				orgAId,
+				orgADomain,
+				op.openingId,
+				op.openingNumber,
+				hub.hubUserGlobalId,
+				hub.handle,
+				`Filt ${hub.handle}`
+			);
+		}
+
+		const green = await appOn();
+		const red = await appOn();
+		const plain = await appOn();
+		const shortlisted = await appOn();
+
+		expect(
+			(
+				await orgClient.labelApplication(orgAToken, {
+					application_id: green,
+					label: "green",
+				})
+			).status
+		).toBe(200);
+		expect(
+			(
+				await orgClient.labelApplication(orgAToken, {
+					application_id: red,
+					label: "red",
+				})
+			).status
+		).toBe(200);
+		expect(
+			(
+				await orgClient.shortlistApplication(orgAToken, {
+					application_id: shortlisted,
+				})
+			).status
+		).toBe(200);
+
+		const ids = (r: {
+			body?: { applications: { application_id: string }[] };
+		}) => (r.body?.applications ?? []).map((a) => a.application_id).sort();
+
+		// filter_state: applied → the three still-applied apps, not the shortlisted one
+		const applied = await orgClient.listApplications(orgAToken, {
+			opening_id: op.openingId,
+			filter_state: ["applied"],
+		});
+		expect(applied.status).toBe(200);
+		expect(ids(applied)).toEqual([green, red, plain].sort());
+
+		// filter_state: shortlisted → only the shortlisted one
+		const sl = await orgClient.listApplications(orgAToken, {
+			opening_id: op.openingId,
+			filter_state: ["shortlisted"],
+		});
+		expect(ids(sl)).toEqual([shortlisted]);
+
+		// filter_label: green → only the green app
+		const greenOnly = await orgClient.listApplications(orgAToken, {
+			opening_id: op.openingId,
+			filter_label: ["green"],
+		});
+		expect(ids(greenOnly)).toEqual([green]);
+
+		// filter_label: green + red → both labelled apps, not the unlabelled/shortlisted
+		const gr = await orgClient.listApplications(orgAToken, {
+			opening_id: op.openingId,
+			filter_label: ["green", "red"],
+		});
+		expect(ids(gr)).toEqual([green, red].sort());
+
+		// combined filters: applied AND red → only the red app
+		const combined = await orgClient.listApplications(orgAToken, {
+			opening_id: op.openingId,
+			filter_state: ["applied"],
+			filter_label: ["red"],
+		});
+		expect(ids(combined)).toEqual([red]);
+
+		// no filters → all four apps on this opening
+		const all = await orgClient.listApplications(orgAToken, {
+			opening_id: op.openingId,
+		});
+		expect(ids(all)).toEqual([green, red, plain, shortlisted].sort());
+	});
+
 	// ─── Org: get-application ─────────────────────────────────────────────────────
 
 	test("Org get-application returns all required fields with correct values", async ({

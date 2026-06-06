@@ -281,7 +281,7 @@ test.describe("Interviews RBAC and Lifecycle", () => {
 
 	// ─── submit-interview-feedback: interviewer-only, superadmin NOT exempt ────────
 
-	test("submit-interview-feedback: listed interviewer → 200 and transitions to completed", async ({
+	test("submit-interview-feedback: listed interviewer → 200; interview stays scheduled (decoupled from completion)", async ({
 		request,
 	}) => {
 		const api = new OrgAPIClient(request);
@@ -294,12 +294,12 @@ test.describe("Interviews RBAC and Lifecycle", () => {
 		});
 		expect(res.status).toBe(200);
 
-		// Interview should now be completed
+		// Submitting feedback no longer auto-completes the interview.
 		const getRes = await api.getInterview(managerToken, {
 			interview_id: interviewId,
 		});
 		expect(getRes.status).toBe(200);
-		expect(getRes.body.state).toBe("completed");
+		expect(getRes.body.state).toBe("scheduled");
 
 		const auditRes = await api.listAuditLogs(adminToken, {
 			event_types: ["org.submit_interview_feedback"],
