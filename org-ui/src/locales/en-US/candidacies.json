@@ -69,6 +69,7 @@
 	"decisionNo": "No",
 	"decisionStrongNo": "Strong No",
 	"downloadOfferLetter": "Download offer letter",
+	"offerDownloadFailed": "Failed to download the offer letter",
 	"comments": "Discussion",
 	"commentsShared": "Messages here are shared between your hiring team and the candidate.",
 	"commentPlaceholder": "Write a message — the candidate can see this…",

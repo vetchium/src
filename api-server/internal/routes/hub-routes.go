@@ -40,6 +40,7 @@ func RegisterHubRoutes(mux *http.ServeMux, s *server.RegionalServer) {
 	mux.Handle("POST /hub/remove-profile-picture", hubAuth(hub.RemoveProfilePicture(s)))
 	mux.Handle("POST /hub/get-profile", hubAuth(hub.GetProfile(s)))
 	mux.Handle("GET /hub/profile-picture/{handle}", hubAuth(hub.GetProfilePicture(s)))
+	mux.Handle("GET /hub/offer-letter/{candidacyId}", hubAuth(hub.GetOfferLetter(s)))
 
 	// Work email routes (auth-only, no role restriction)
 	mux.Handle("POST /hub/add-work-email", hubAuth(hub.AddWorkEmail(s)))

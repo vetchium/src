@@ -35,6 +35,8 @@
 	"salary": "Salary",
 	"startDate": "Start date",
 	"noOffer": "No offer yet",
+	"downloadOfferLetter": "சலுகைக் கடிதத்தைப் பதிவிறக்கு",
+	"offerDownloadFailed": "சலுகைக் கடிதத்தைப் பதிவிறக்க முடியவில்லை",
 	"you": "You",
 	"authorOrg": "பணியமர்த்தல் குழு",
 	"authorSystem": "சிஸ்டம்",

@@ -54,6 +54,7 @@ export interface HubOfferView {
 	extended_at: string;
 	start_date?: string;
 	notes?: string;
+	offer_letter_download_url: string;
 }
 
 export interface HubCandidacy {

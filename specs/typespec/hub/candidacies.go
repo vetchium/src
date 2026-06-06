@@ -78,9 +78,10 @@ type CandidacyComment struct {
 }
 
 type HubOfferView struct {
-	ExtendedAt string  `json:"extended_at"`
-	StartDate  *string `json:"start_date,omitempty"`
-	Notes      *string `json:"notes,omitempty"`
+	ExtendedAt             string  `json:"extended_at"`
+	StartDate              *string `json:"start_date,omitempty"`
+	Notes                  *string `json:"notes,omitempty"`
+	OfferLetterDownloadURL string  `json:"offer_letter_download_url"`
 }
 
 type HubCandidacy struct {

@@ -35,6 +35,8 @@
 	"salary": "Salary",
 	"startDate": "Start date",
 	"noOffer": "No offer yet",
+	"downloadOfferLetter": "Angebotsschreiben herunterladen",
+	"offerDownloadFailed": "Angebotsschreiben konnte nicht heruntergeladen werden",
 	"you": "You",
 	"authorOrg": "Einstellungsteam",
 	"authorSystem": "System",

@@ -270,6 +270,29 @@ func GetMyCandidacy(s *server.RegionalServer) http.HandlerFunc {
 			})
 		}
 
+		// Offer (if extended). All terms live in the offer letter document, which
+		// the candidate can download via the returned authenticated URL.
+		var offerView *hub.HubOfferView
+		if offer, oErr := db.GetOfferByCandidacyID(ctx, candidacyID); oErr == nil {
+			offerView = &hub.HubOfferView{
+				ExtendedAt: offer.ExtendedAt.Time.UTC().Format(time.RFC3339),
+				OfferLetterDownloadURL: fmt.Sprintf(
+					"/hub/offer-letter/%s", candidacyID.String()),
+			}
+			if offer.StartDate.Valid {
+				v := offer.StartDate.Time.UTC().Format("2006-01-02")
+				offerView.StartDate = &v
+			}
+			if offer.Notes.Valid {
+				v := offer.Notes.String
+				offerView.Notes = &v
+			}
+		} else if !errors.Is(oErr, pgx.ErrNoRows) {
+			s.Logger(ctx).Error("failed to get offer", "error", oErr)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
 		result := hub.HubCandidacy{
 			CandidacyID:    row.CandidacyID.String(),
 			ApplicationID:  row.ApplicationID.String(),
@@ -282,6 +305,7 @@ func GetMyCandidacy(s *server.RegionalServer) http.HandlerFunc {
 			StateChangedAt: row.StateChangedAt.Time.UTC().Format(time.RFC3339),
 			Interviews:     interviewList,
 			Comments:       commentList,
+			Offer:          offerView,
 		}
 
 		w.WriteHeader(http.StatusOK)

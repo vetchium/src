@@ -69,6 +69,7 @@
 	"decisionNo": "Nein",
 	"decisionStrongNo": "Klares Nein",
 	"downloadOfferLetter": "Angebotsschreiben herunterladen",
+	"offerDownloadFailed": "Angebotsschreiben konnte nicht heruntergeladen werden",
 	"comments": "Unterhaltung",
 	"commentsShared": "Nachrichten hier werden zwischen Ihrem Einstellungsteam und dem Kandidaten geteilt.",
 	"commentPlaceholder": "Nachricht schreiben — der Kandidat kann dies sehen…",

@@ -89,6 +89,8 @@ model HubOfferView {
   extended_at:       utcDateTime;
   start_date?:       plainDate;
   notes?:            string;
+  // Authenticated API path that streams the offer letter document.
+  offer_letter_download_url: string;
 }
 
 model ListMyCandidaciesRequest {

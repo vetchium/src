@@ -10,7 +10,7 @@ import {
 	Typography,
 	message,
 } from "antd";
-import { ArrowLeftOutlined } from "@ant-design/icons";
+import { ArrowLeftOutlined, DownloadOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { Link, useParams } from "react-router-dom";
 import type {
@@ -91,6 +91,28 @@ export const MyCandidacyDetailPage: React.FC = () => {
 			}
 		} finally {
 			setRsvpLoading(null);
+		}
+	};
+
+	// The offer letter is served by an authenticated endpoint; fetch it with the
+	// bearer token and open the blob (a plain href cannot send the header).
+	const downloadOfferLetter = async (path: string) => {
+		if (!sessionToken) return;
+		try {
+			const apiBaseUrl = await getApiBaseUrl();
+			const res = await fetch(`${apiBaseUrl}${path}`, {
+				headers: { Authorization: `Bearer ${sessionToken}` },
+			});
+			if (!res.ok) {
+				message.error(t("offerDownloadFailed"));
+				return;
+			}
+			const blob = await res.blob();
+			const objectUrl = URL.createObjectURL(blob);
+			window.open(objectUrl, "_blank", "noopener,noreferrer");
+			setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+		} catch {
+			message.error(t("offerDownloadFailed"));
 		}
 	};
 
@@ -249,6 +271,20 @@ export const MyCandidacyDetailPage: React.FC = () => {
 									<div style={{ whiteSpace: "pre-wrap", marginTop: 4 }}>
 										{candidacy.offer.notes}
 									</div>
+								)}
+								{candidacy.offer.offer_letter_download_url && (
+									<Button
+										type="primary"
+										icon={<DownloadOutlined />}
+										style={{ marginTop: 12 }}
+										onClick={() =>
+											downloadOfferLetter(
+												candidacy.offer!.offer_letter_download_url
+											)
+										}
+									>
+										{t("downloadOfferLetter")}
+									</Button>
 								)}
 							</Card>
 						)}

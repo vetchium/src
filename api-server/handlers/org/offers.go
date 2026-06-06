@@ -18,6 +18,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"vetchium-api-server.gomodule/internal/audit"
+	"vetchium-api-server.gomodule/internal/db/globaldb"
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
@@ -44,6 +45,100 @@ func uploadOfferToS3(ctx context.Context, cfg *server.StorageConfig, key, conten
 		ContentLength: aws.Int64(int64(len(data))),
 	})
 	return err
+}
+
+func downloadOfferFromS3(ctx context.Context, cfg *server.StorageConfig, key string) (io.ReadCloser, error) {
+	client := newOfferS3Client(cfg)
+	out, err := client.GetObject(ctx, &awss3.GetObjectInput{
+		Bucket: aws.String(cfg.Bucket),
+		Key:    aws.String(key),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return out.Body, nil
+}
+
+// offerContentTypeForKey infers the response content type from the stored key's
+// extension (.pdf or .md).
+func offerContentTypeForKey(key string) string {
+	if strings.HasSuffix(strings.ToLower(key), ".md") {
+		return "text/markdown; charset=utf-8"
+	}
+	return "application/pdf"
+}
+
+// GetOfferLetter streams the offer letter document for a candidacy to an
+// authorized org user (the candidacy must belong to the caller's org). Served
+// through the API rather than a presigned URL so it works regardless of the
+// internal vs host S3 endpoint split.
+func GetOfferLetter(s *server.RegionalServer) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		log := s.Logger(ctx)
+
+		orgUser := middleware.OrgUserFromContext(ctx)
+		if orgUser == nil {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		var candidacyID pgtype.UUID
+		if err := candidacyID.Scan(r.PathValue("candidacyId")); err != nil {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+
+		db := s.RegionalForCtx(ctx)
+		candidacy, err := db.GetCandidacy(ctx, candidacyID)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			log.Error("failed to get candidacy", "error", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		if candidacy.OrgID != orgUser.OrgID {
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
+
+		offer, err := db.GetOfferByCandidacyID(ctx, candidacyID)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			log.Error("failed to get offer", "error", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		// The offer letter lives in the org's home region (where the candidacy
+		// lives), not necessarily the region of the server handling this request.
+		orgRegion := globaldb.Region(middleware.OrgRegionFromContext(ctx))
+		cfg := s.GetStorageConfig(orgRegion)
+		if cfg == nil {
+			log.Error("no S3 config for org region", "region", orgRegion)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		body, err := downloadOfferFromS3(ctx, cfg, offer.OfferLetterS3Key)
+		if err != nil {
+			log.Error("failed to download offer letter", "error", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		defer body.Close()
+
+		w.Header().Set("Content-Type", offerContentTypeForKey(offer.OfferLetterS3Key))
+		w.Header().Set("Cache-Control", "private, max-age=300")
+		if _, err := io.Copy(w, body); err != nil {
+			log.Error("failed to stream offer letter", "error", err)
+		}
+	}
 }
 
 // detectOfferDocType validates the uploaded offer letter and returns its content
@@ -146,10 +241,13 @@ func ExtendOffer(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		// Upload offer letter to S3 before the transaction
-		storageCfg := s.GetStorageConfig(s.CurrentRegion)
+		// Upload to the org's home region S3 (where the candidacy lives), not the
+		// region of whichever load-balanced server is handling this request — so
+		// the download (org or hub) finds it regardless of routing.
+		orgRegion := globaldb.Region(middleware.OrgRegionFromContext(ctx))
+		storageCfg := s.GetStorageConfig(orgRegion)
 		if storageCfg == nil {
-			log.Error("no S3 config for current region", "region", s.CurrentRegion)
+			log.Error("no S3 config for org region", "region", orgRegion)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}

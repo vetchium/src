@@ -160,6 +160,29 @@ const CandidacyDetailPage: React.FC = () => {
 		}
 	};
 
+	// The offer letter is served by an authenticated API endpoint, so fetch it
+	// with the bearer token and open the resulting blob (a plain href cannot send
+	// the Authorization header).
+	const downloadOfferLetter = async (path: string) => {
+		if (!sessionToken) return;
+		try {
+			const apiBaseUrl = await getApiBaseUrl();
+			const res = await fetch(`${apiBaseUrl}${path}`, {
+				headers: { Authorization: `Bearer ${sessionToken}` },
+			});
+			if (!res.ok) {
+				message.error(t("offerDownloadFailed"));
+				return;
+			}
+			const blob = await res.blob();
+			const objectUrl = URL.createObjectURL(blob);
+			window.open(objectUrl, "_blank", "noopener,noreferrer");
+			setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+		} catch {
+			message.error(t("offerDownloadFailed"));
+		}
+	};
+
 	const fetchInterviewDetail = useCallback(
 		async (interviewId: string) => {
 			if (!sessionToken) return;
@@ -596,9 +619,11 @@ const CandidacyDetailPage: React.FC = () => {
 								type="link"
 								icon={<DownloadOutlined />}
 								style={{ paddingLeft: 0, marginTop: 12 }}
-								href={candidacy.offer.offer_letter_download_url}
-								target="_blank"
-								rel="noreferrer"
+								onClick={() =>
+									downloadOfferLetter(
+										candidacy.offer!.offer_letter_download_url
+									)
+								}
 							>
 								{t("downloadOfferLetter")}
 							</Button>

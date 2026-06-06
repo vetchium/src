@@ -171,6 +171,7 @@ func RegisterOrgRoutes(mux *http.ServeMux, s *server.RegionalServer) {
 	// Candidacy management routes
 	mux.Handle("POST /org/list-candidacies", orgAuth(orgRoleViewCandidacies(org.ListCandidacies(s))))
 	mux.Handle("POST /org/get-candidacy", orgAuth(orgRoleViewCandidacies(org.GetCandidacy(s))))
+	mux.Handle("GET /org/offer-letter/{candidacyId}", orgAuth(orgRoleViewCandidacies(org.GetOfferLetter(s))))
 	mux.Handle("POST /org/add-candidacy-comment", orgAuth(orgRoleManageCandidacies(org.AddCandidacyComment(s))))
 
 	// Interview management routes (T2 Tranche)

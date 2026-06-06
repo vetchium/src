@@ -219,7 +219,7 @@ func GetCandidacy(s *server.RegionalServer) http.HandlerFunc {
 			offerView = &org.OrgOfferView{
 				ExtendedByOrgUserID:    offer.ExtendedByOrgUserID.String(),
 				ExtendedAt:             offer.ExtendedAt.Time.UTC().Format(time.RFC3339Nano),
-				OfferLetterDownloadURL: "",
+				OfferLetterDownloadURL: fmt.Sprintf("/org/offer-letter/%s", candidacyID.String()),
 			}
 			if offer.StartDate.Valid {
 				v := offer.StartDate.Time.UTC().Format("2006-01-02")
