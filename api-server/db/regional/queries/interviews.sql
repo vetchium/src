@@ -8,6 +8,9 @@ SELECT * FROM interviews WHERE interview_id = $1;
 
 -- name: GetInterviewWithInterviewers :one
 SELECT i.*,
+       a.applicant_handle_snapshot AS candidate_handle,
+       a.applicant_display_name_snapshot AS candidate_display_name,
+       o.title AS opening_title,
        (SELECT json_agg(
            json_build_object(
                'interview_id', ii.interview_id,
@@ -34,6 +37,9 @@ SELECT i.*,
            )
        ) FROM interview_feedback ifb WHERE ifb.interview_id = i.interview_id AND ifb.state = 'submitted') as feedback
 FROM interviews i
+JOIN candidacies c ON c.candidacy_id = i.candidacy_id
+JOIN applications a ON a.application_id = c.application_id
+JOIN openings o ON o.opening_id = c.opening_id
 WHERE i.interview_id = $1;
 
 -- name: UpdateInterview :one

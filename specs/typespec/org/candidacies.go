@@ -93,6 +93,9 @@ type OrgCandidacy struct {
 	OpeningTitle         string                `json:"opening_title"`
 	CandidateHandle      string                `json:"candidate_handle"`
 	CandidateDisplayName string                `json:"candidate_display_name"`
+	CandidateShortBio    *string               `json:"candidate_short_bio,omitempty"`
+	CoverLetter          string                `json:"cover_letter"`
+	ResumeDownloadURL    string                `json:"resume_download_url"`
 	State                CandidacyState        `json:"state"`
 	CreatedAt            string                `json:"created_at"`
 	StateChangedAt       string                `json:"state_changed_at"`

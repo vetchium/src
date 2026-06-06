@@ -60,6 +60,12 @@ model InterviewerEntry {
 model OrgInterview {
   interview_id:   string;
   candidacy_id:   string;
+  // Candidate + role context so an interviewer sees who they're meeting without
+  // navigating away. resume_download_url streams the resume to panel members.
+  candidate_handle:       string;
+  candidate_display_name: string;
+  opening_title:          string;
+  resume_download_url:    string;
   interview_type: InterviewType;
   starts_at:      utcDateTime;
   ends_at:        utcDateTime;

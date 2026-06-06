@@ -231,6 +231,13 @@ func GetCandidacy(s *server.RegionalServer) http.HandlerFunc {
 			}
 		}
 
+		// Pull the cover letter from the originating application so HR sees it on
+		// the candidacy page without navigating back to Applications.
+		coverLetter := ""
+		if app, aErr := db.GetApplicationByID(ctx, candidacy.ApplicationID); aErr == nil {
+			coverLetter = app.CoverLetter
+		}
+
 		result := org.OrgCandidacy{
 			CandidacyID:          candidacy.CandidacyID.String(),
 			ApplicationID:        candidacy.ApplicationID.String(),
@@ -238,6 +245,8 @@ func GetCandidacy(s *server.RegionalServer) http.HandlerFunc {
 			OpeningTitle:         candidacy.OpeningTitle,
 			CandidateHandle:      candidacy.ApplicantHandleSnapshot,
 			CandidateDisplayName: candidacy.ApplicantDisplayNameSnapshot,
+			CoverLetter:          coverLetter,
+			ResumeDownloadURL:    fmt.Sprintf("/org/candidacy-resume/%s", candidacyID.String()),
 			State:                org.CandidacyState(candidacy.State),
 			CreatedAt:            candidacy.CreatedAt.Time.UTC().Format(time.RFC3339Nano),
 			StateChangedAt:       candidacy.StateChangedAt.Time.UTC().Format(time.RFC3339Nano),

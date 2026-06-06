@@ -61,6 +61,9 @@ export interface OrgCandidacy {
 	opening_title: string;
 	candidate_handle: Handle;
 	candidate_display_name: string;
+	candidate_short_bio?: string;
+	cover_letter: string;
+	resume_download_url: string;
 	state: CandidacyState;
 	created_at: string;
 	state_changed_at: string;

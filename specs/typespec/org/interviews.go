@@ -97,17 +97,21 @@ type MyInterviewFeedback struct {
 }
 
 type OrgInterview struct {
-	InterviewID       string              `json:"interview_id"`
-	CandidacyID       string              `json:"candidacy_id"`
-	InterviewType     InterviewType       `json:"interview_type"`
-	StartsAt          string              `json:"starts_at"`
-	EndsAt            string              `json:"ends_at"`
-	Description       *string             `json:"description,omitempty"`
-	InterviewLocation *string             `json:"interview_location,omitempty"`
-	State             InterviewState      `json:"state"`
-	CandidateRSVP     *InterviewRSVP      `json:"candidate_rsvp,omitempty"`
-	Interviewers      []InterviewerEntry  `json:"interviewers"`
-	Feedback          []InterviewFeedback `json:"feedback"`
+	InterviewID          string              `json:"interview_id"`
+	CandidacyID          string              `json:"candidacy_id"`
+	CandidateHandle      string              `json:"candidate_handle"`
+	CandidateDisplayName string              `json:"candidate_display_name"`
+	OpeningTitle         string              `json:"opening_title"`
+	ResumeDownloadURL    string              `json:"resume_download_url"`
+	InterviewType        InterviewType       `json:"interview_type"`
+	StartsAt             string              `json:"starts_at"`
+	EndsAt               string              `json:"ends_at"`
+	Description          *string             `json:"description,omitempty"`
+	InterviewLocation    *string             `json:"interview_location,omitempty"`
+	State                InterviewState      `json:"state"`
+	CandidateRSVP        *InterviewRSVP      `json:"candidate_rsvp,omitempty"`
+	Interviewers         []InterviewerEntry  `json:"interviewers"`
+	Feedback             []InterviewFeedback `json:"feedback"`
 }
 
 type ListInterviewsRequest struct {

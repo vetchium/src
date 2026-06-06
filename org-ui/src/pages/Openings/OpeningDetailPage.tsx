@@ -26,6 +26,7 @@ import { getApiBaseUrl } from "../../config";
 import { useAuth } from "../../hooks/useAuth";
 import { useMyInfo } from "../../hooks/useMyInfo";
 import { formatDateTime, formatDate } from "../../utils/dateFormat";
+import { OpeningPipeline } from "../../components/OpeningPipeline";
 
 const { Title, Text } = Typography;
 
@@ -642,6 +643,16 @@ export default function OpeningDetailPage() {
 						</>
 					)}
 				</Card>
+			)}
+
+			{/* Candidate pipeline — candidates shortlisted into candidacies */}
+			{["published", "paused", "closed", "expired", "archived"].includes(
+				opening.status
+			) && (
+				<OpeningPipeline
+					sessionToken={sessionToken}
+					openingId={opening.opening_id}
+				/>
 			)}
 
 			{/* Timestamps */}

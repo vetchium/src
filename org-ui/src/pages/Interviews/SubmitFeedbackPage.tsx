@@ -25,6 +25,7 @@ import type { InterviewState } from "vetchium-specs/hub/candidacies";
 import { getApiBaseUrl } from "../../config";
 import { useAuth } from "../../hooks/useAuth";
 import { formatDateTime } from "../../utils/dateFormat";
+import { CandidatePanel } from "../../components/CandidatePanel";
 
 const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
@@ -236,6 +237,16 @@ export const SubmitFeedbackPage: React.FC = () => {
 					</Space>
 				)}
 			</div>
+
+			{/* Who you're interviewing: profile, work history and resume preview. */}
+			{interview && (
+				<CandidatePanel
+					sessionToken={sessionToken}
+					handle={interview.candidate_handle}
+					displayName={interview.candidate_display_name}
+					resumeUrl={interview.resume_download_url}
+				/>
+			)}
 
 			{mine?.state === "submitted" && (
 				<Alert

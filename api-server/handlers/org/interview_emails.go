@@ -13,11 +13,36 @@ import (
 // interviewEmailDetails carries the human-facing interview information rendered
 // into notification emails sent to candidates and interviewers.
 type interviewEmailDetails struct {
-	InterviewType string
-	StartsAt      string // display string (RFC3339)
-	EndsAt        string // display string (RFC3339)
-	Location      string // optional address / video link
-	CandidacyID   string // used to build a deep link in the email body
+	CandidateName string    // candidate's display name (shown to interviewers)
+	OpeningTitle  string    // the role being interviewed for
+	InterviewType string    // in_person | video | take_home | other
+	Start         time.Time // interview start (rendered in UTC)
+	End           time.Time // interview end
+	Location      string    // optional address / video link
+	CandidacyID   string    // used to build the deep link
+	OrgURL        string    // org-ui base URL (interviewer links)
+	HubURL        string    // hub-ui base URL (candidate links)
+}
+
+// icsSummary builds the calendar event title from the interview context.
+func icsSummary(d interviewEmailDetails) string {
+	if d.OpeningTitle != "" {
+		return "Interview: " + d.OpeningTitle
+	}
+	return "Interview"
+}
+
+func interviewTypeLabel(t string) string {
+	switch t {
+	case "in_person":
+		return "In person"
+	case "video":
+		return "Video"
+	case "take_home":
+		return "Take-home"
+	default:
+		return "Other"
+	}
 }
 
 // interviewICS holds the fields needed to render an RFC 5545 VEVENT so the
@@ -78,58 +103,108 @@ func buildInterviewICS(ev interviewICS, attendee string) string {
 // given interview notification template. Keeping all interview email copy in one
 // place avoids drift between the schedule/update/cancel/add/remove code paths.
 func interviewEmailContent(emailType regionaldb.EmailTemplateType, d interviewEmailDetails) (subject, text, html string) {
-	// Build the optional location and deep-link lines shared by all templates.
-	loc := ""
-	locHTML := ""
-	if d.Location != "" {
-		loc = fmt.Sprintf("\nLocation / link: %s", d.Location)
-		locHTML = fmt.Sprintf("<br/>Location / link: %s", d.Location)
-	}
-	link := ""
-	linkHTML := ""
-	if d.CandidacyID != "" {
-		// Org-side templates link to the org candidacy view; hub templates to the
-		// candidate's own candidacy view.
-		path := "/candidacies/" + d.CandidacyID
-		if strings.HasPrefix(string(emailType), "hub_") {
-			path = "/my-candidacies/" + d.CandidacyID
-		}
-		link = fmt.Sprintf("\nDetails: %s", path)
-		linkHTML = fmt.Sprintf(`<br/>Details: <a href="%s">%s</a>`, path, path)
+	isHub := strings.HasPrefix(string(emailType), "hub_")
+	role := d.OpeningTitle
+	if role == "" {
+		role = "the role"
 	}
 
-	body := func(lead string) (string, string) {
-		t := fmt.Sprintf("%s\nType: %s\nStart: %s\nEnd: %s%s%s\n\nA calendar invite (.ics) is attached.",
-			lead, d.InterviewType, d.StartsAt, d.EndsAt, loc, link)
-		h := fmt.Sprintf("<p>%s</p><p>Type: %s<br/>Start: %s<br/>End: %s%s%s</p><p>A calendar invite (.ics) is attached.</p>",
-			lead, d.InterviewType, d.StartsAt, d.EndsAt, locHTML, linkHTML)
-		return t, h
+	// Human-readable time window in UTC. The attached .ics carries the precise,
+	// timezone-aware event for the recipient's calendar.
+	when := ""
+	if !d.Start.IsZero() {
+		when = d.Start.UTC().Format("Mon, 2 Jan 2006, 15:04") +
+			"–" + d.End.UTC().Format("15:04") + " UTC"
+	}
+
+	// Deep link to the candidacy: candidate → hub portal, interviewer → org portal.
+	url := ""
+	if d.CandidacyID != "" {
+		if isHub {
+			url = strings.TrimRight(d.HubURL, "/") + "/my-candidacies/" + d.CandidacyID
+		} else {
+			url = strings.TrimRight(d.OrgURL, "/") + "/candidacies/" + d.CandidacyID
+		}
+	}
+
+	// body assembles the shared detail block. linkLabel/lead differ per template.
+	body := func(lead, linkLabel string) (string, string) {
+		var tb strings.Builder
+		var hb strings.Builder
+		tb.WriteString(lead + "\n\n")
+		hb.WriteString("<p>" + html2(lead) + "</p><table cellpadding=\"4\">")
+
+		row := func(k, v string) {
+			if v == "" {
+				return
+			}
+			tb.WriteString(k + ": " + v + "\n")
+			hb.WriteString("<tr><td><strong>" + html2(k) + "</strong></td><td>" + html2(v) + "</td></tr>")
+		}
+		row("Role", role)
+		if !isHub {
+			row("Candidate", d.CandidateName)
+		}
+		row("Type", interviewTypeLabel(d.InterviewType))
+		row("When", when)
+		row("Location / link", d.Location)
+		hb.WriteString("</table>")
+
+		if url != "" {
+			tb.WriteString("\n" + linkLabel + ": " + url + "\n")
+			hb.WriteString(fmt.Sprintf(`<p><a href="%s">%s</a></p>`, url, html2(linkLabel)))
+		}
+		tb.WriteString("\nA calendar invite (.ics) is attached so you can add it to your calendar.")
+		hb.WriteString("<p>A calendar invite (.ics) is attached so you can add it to your calendar.</p>")
+		return tb.String(), hb.String()
 	}
 
 	switch emailType {
 	case regionaldb.EmailTemplateTypeHubInterviewScheduled:
-		subject = "Interview scheduled"
-		text, html = body("An interview has been scheduled.")
+		subject = fmt.Sprintf("Interview scheduled for %s", role)
+		text, html = body(
+			fmt.Sprintf("Your interview for %s has been scheduled.", role),
+			"View your candidacy")
 	case regionaldb.EmailTemplateTypeHubInterviewUpdated:
-		subject = "Interview rescheduled"
-		text, html = body("Your interview has been rescheduled.")
+		subject = fmt.Sprintf("Interview rescheduled for %s", role)
+		text, html = body(
+			fmt.Sprintf("Your interview for %s has been rescheduled. The updated time is below.", role),
+			"View your candidacy")
 	case regionaldb.EmailTemplateTypeHubInterviewCancelled:
-		subject = "Interview cancelled"
-		text, html = body("Your interview has been cancelled.")
+		subject = fmt.Sprintf("Interview cancelled for %s", role)
+		text, html = body(
+			fmt.Sprintf("Your interview for %s has been cancelled.", role),
+			"View your candidacy")
 	case regionaldb.EmailTemplateTypeOrgInterviewScheduledForInterviewer:
-		subject = "You have been added to an interview panel"
-		text, html = body("You have been added to an interview panel.")
+		subject = fmt.Sprintf("You're interviewing %s (%s)", d.CandidateName, role)
+		text, html = body(
+			fmt.Sprintf("You've been added to the interview panel for %s.", d.CandidateName),
+			"Open the candidacy")
 	case regionaldb.EmailTemplateTypeOrgInterviewUpdatedForInterviewer:
-		subject = "Interview rescheduled"
-		text, html = body("An interview on your panel has been rescheduled.")
+		subject = fmt.Sprintf("Interview rescheduled: %s (%s)", d.CandidateName, role)
+		text, html = body(
+			fmt.Sprintf("An interview on your panel for %s has been rescheduled. The updated time is below.", d.CandidateName),
+			"Open the candidacy")
 	case regionaldb.EmailTemplateTypeOrgInterviewCancelledForInterviewer:
-		subject = "Interview cancelled"
-		text, html = body("An interview on your panel has been cancelled.")
+		subject = fmt.Sprintf("Interview cancelled: %s (%s)", d.CandidateName, role)
+		text, html = body(
+			fmt.Sprintf("An interview on your panel for %s has been cancelled.", d.CandidateName),
+			"Open the candidacy")
 	case regionaldb.EmailTemplateTypeOrgInterviewerRemoved:
-		subject = "You have been removed from an interview panel"
-		text, html = body("You have been removed from an interview panel.")
+		subject = fmt.Sprintf("Removed from interview panel: %s (%s)", d.CandidateName, role)
+		text, html = body(
+			fmt.Sprintf("You've been removed from the interview panel for %s.", d.CandidateName),
+			"Open the candidacy")
 	}
 	return subject, text, html
+}
+
+// html2 minimally escapes a string for safe inclusion in the HTML email body.
+func html2(s string) string {
+	s = strings.ReplaceAll(s, "&", "&amp;")
+	s = strings.ReplaceAll(s, "<", "&lt;")
+	s = strings.ReplaceAll(s, ">", "&gt;")
+	return s
 }
 
 // enqueueInterviewEmail enqueues a single interview notification email inside the

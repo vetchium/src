@@ -100,6 +100,10 @@ export interface MyInterviewFeedback {
 export interface OrgInterview {
 	interview_id: string;
 	candidacy_id: string;
+	candidate_handle: string;
+	candidate_display_name: string;
+	opening_title: string;
+	resume_download_url: string;
 	interview_type: InterviewType;
 	starts_at: string;
 	ends_at: string;

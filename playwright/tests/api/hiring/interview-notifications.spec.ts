@@ -160,11 +160,7 @@ test.describe("Interview Notification Emails", () => {
 		expect(candEmail).toBeDefined();
 
 		// Interviewer gets the "added to panel" email.
-		const ivMail = await waitForEmail(
-			ivEmail1,
-			{},
-			/added to an interview panel/i
-		);
+		const ivMail = await waitForEmail(ivEmail1, {}, /You're interviewing/i);
 		expect(ivMail).toBeDefined();
 	});
 
@@ -192,11 +188,7 @@ test.describe("Interview Notification Emails", () => {
 		});
 		expect(addRes.status).toBe(200);
 
-		const ivMail = await waitForEmail(
-			ivEmail2,
-			{},
-			/added to an interview panel/i
-		);
+		const ivMail = await waitForEmail(ivEmail2, {}, /You're interviewing/i);
 		expect(ivMail).toBeDefined();
 	});
 
@@ -268,7 +260,7 @@ test.describe("Interview Notification Emails", () => {
 		const ivMail = await waitForEmail(
 			ivEmail2,
 			{},
-			/removed from an interview panel/i
+			/Removed from interview panel/i
 		);
 		expect(ivMail).toBeDefined();
 	});

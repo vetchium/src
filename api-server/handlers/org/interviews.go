@@ -39,6 +39,48 @@ func parseInterviewCursorAsc(key string) (pgtype.Timestamptz, pgtype.UUID) {
 	return ts, id
 }
 
+// interviewEmailContext loads the candidate + opening context needed to render
+// meaningful interview notification emails, and returns the details plus the
+// candidate's email address. Best-effort: missing lookups degrade gracefully.
+func interviewEmailContext(
+	ctx context.Context,
+	qtx *regionaldb.Queries,
+	s *server.RegionalServer,
+	orgID, candidacyID pgtype.UUID,
+	interviewType, location string,
+	start, end time.Time,
+) (interviewEmailDetails, string) {
+	cand, _ := qtx.GetCandidacy(ctx, candidacyID)
+	hubUser, _ := qtx.GetHubUserByGlobalID(ctx, cand.ApplicantHubUserGlobalID)
+	candidateName := ""
+	if app, err := qtx.GetApplicationByID(ctx, cand.ApplicationID); err == nil {
+		candidateName = app.ApplicantDisplayNameSnapshot
+	}
+	openingTitle := ""
+	if op, err := qtx.GetOpeningByID(ctx, regionaldb.GetOpeningByIDParams{
+		OpeningID: cand.OpeningID,
+		OrgID:     orgID,
+	}); err == nil {
+		openingTitle = op.Title
+	}
+	orgURL, hubURL := "", ""
+	if s.UIConfig != nil {
+		orgURL = s.UIConfig.OrgURL
+		hubURL = s.UIConfig.HubURL
+	}
+	return interviewEmailDetails{
+		CandidateName: candidateName,
+		OpeningTitle:  openingTitle,
+		InterviewType: interviewType,
+		Start:         start,
+		End:           end,
+		Location:      location,
+		CandidacyID:   candidacyID.String(),
+		OrgURL:        orgURL,
+		HubURL:        hubURL,
+	}, hubUser.EmailAddress
+}
+
 // requireInterviewerOrSuperadmin authorizes a caller to act on an interview's
 // feedback/completion. A superadmin may act on ANY interview (org policy:
 // superadmins can do anything, including adding feedback for interviews they were
@@ -200,17 +242,11 @@ func ScheduleInterview(s *server.RegionalServer) http.HandlerFunc {
 
 			// Notify candidate and interviewers of the scheduled interview, with a
 			// calendar invite attached.
-			details := interviewEmailDetails{
-				InterviewType: string(req.InterviewType),
-				StartsAt:      req.StartsAt,
-				EndsAt:        req.EndsAt,
-				Location:      locationStr,
-				CandidacyID:   req.CandidacyID,
-			}
+			details, candidateEmail := interviewEmailContext(ctx, qtx, s, orgUser.OrgID, interview.CandidacyID, string(req.InterviewType), locationStr, startsAt, endsAt)
 			ev := &interviewICS{
 				UID:      interview.InterviewID.String(),
-				Summary:  "Interview (" + string(req.InterviewType) + ")",
-				Desc:     details.Location,
+				Summary:  icsSummary(details),
+				Desc:     locationStr,
 				Location: locationStr,
 				Start:    startsAt,
 				End:      endsAt,
@@ -218,9 +254,7 @@ func ScheduleInterview(s *server.RegionalServer) http.HandlerFunc {
 				Status:   "CONFIRMED",
 				Sequence: 0,
 			}
-			cand, _ := qtx.GetCandidacy(ctx, interview.CandidacyID)
-			hubUser, _ := qtx.GetHubUserByGlobalID(ctx, cand.ApplicantHubUserGlobalID)
-			enqueueInterviewEmail(ctx, qtx, regionaldb.EmailTemplateTypeHubInterviewScheduled, hubUser.EmailAddress, details, ev)
+			enqueueInterviewEmail(ctx, qtx, regionaldb.EmailTemplateTypeHubInterviewScheduled, candidateEmail, details, ev)
 			enqueueInterviewerEmails(ctx, qtx, regionaldb.EmailTemplateTypeOrgInterviewScheduledForInterviewer, req.InterviewerEmailAddresses, details, ev)
 			return nil
 		}); err != nil {
@@ -350,16 +384,10 @@ func UpdateInterview(s *server.RegionalServer) http.HandlerFunc {
 
 			// Notify candidate and interviewers of the new schedule, with an
 			// updated calendar invite.
-			details := interviewEmailDetails{
-				InterviewType: existing.InterviewType,
-				StartsAt:      startsAt.Time.UTC().Format(time.RFC3339),
-				EndsAt:        endsAt.Time.UTC().Format(time.RFC3339),
-				Location:      locText.String,
-				CandidacyID:   existing.CandidacyID.String(),
-			}
+			details, candidateEmail := interviewEmailContext(ctx, qtx, s, orgUser.OrgID, existing.CandidacyID, existing.InterviewType, locText.String, startsAt.Time, endsAt.Time)
 			ev := &interviewICS{
 				UID:      interviewID.String(),
-				Summary:  "Interview (" + existing.InterviewType + ")",
+				Summary:  icsSummary(details),
 				Desc:     locText.String,
 				Location: locText.String,
 				Start:    startsAt.Time,
@@ -368,9 +396,7 @@ func UpdateInterview(s *server.RegionalServer) http.HandlerFunc {
 				Status:   "CONFIRMED",
 				Sequence: 1,
 			}
-			cand, _ := qtx.GetCandidacy(ctx, existing.CandidacyID)
-			hubUser, _ := qtx.GetHubUserByGlobalID(ctx, cand.ApplicantHubUserGlobalID)
-			enqueueInterviewEmail(ctx, qtx, regionaldb.EmailTemplateTypeHubInterviewUpdated, hubUser.EmailAddress, details, ev)
+			enqueueInterviewEmail(ctx, qtx, regionaldb.EmailTemplateTypeHubInterviewUpdated, candidateEmail, details, ev)
 			recipients, _ := qtx.ListInterviewerEmailsForInterview(ctx, interviewID)
 			emails := make([]string, 0, len(recipients))
 			for _, rcp := range recipients {
@@ -462,16 +488,10 @@ func CancelInterview(s *server.RegionalServer) http.HandlerFunc {
 
 			// Notify candidate and interviewers of the cancellation, with a
 			// calendar CANCEL so the event is removed from their calendars.
-			details := interviewEmailDetails{
-				InterviewType: existing.InterviewType,
-				StartsAt:      existing.StartsAt.Time.UTC().Format(time.RFC3339),
-				EndsAt:        existing.EndsAt.Time.UTC().Format(time.RFC3339),
-				Location:      existing.Location.String,
-				CandidacyID:   existing.CandidacyID.String(),
-			}
+			details, candidateEmail := interviewEmailContext(ctx, qtx, s, orgUser.OrgID, existing.CandidacyID, existing.InterviewType, existing.Location.String, existing.StartsAt.Time, existing.EndsAt.Time)
 			ev := &interviewICS{
 				UID:      interviewID.String(),
-				Summary:  "Interview (" + existing.InterviewType + ")",
+				Summary:  icsSummary(details),
 				Desc:     existing.Location.String,
 				Location: existing.Location.String,
 				Start:    existing.StartsAt.Time,
@@ -480,9 +500,7 @@ func CancelInterview(s *server.RegionalServer) http.HandlerFunc {
 				Status:   "CANCELLED",
 				Sequence: 2,
 			}
-			cand, _ := qtx.GetCandidacy(ctx, existing.CandidacyID)
-			hubUser, _ := qtx.GetHubUserByGlobalID(ctx, cand.ApplicantHubUserGlobalID)
-			enqueueInterviewEmail(ctx, qtx, regionaldb.EmailTemplateTypeHubInterviewCancelled, hubUser.EmailAddress, details, ev)
+			enqueueInterviewEmail(ctx, qtx, regionaldb.EmailTemplateTypeHubInterviewCancelled, candidateEmail, details, ev)
 			recipients, _ := qtx.ListInterviewerEmailsForInterview(ctx, interviewID)
 			emails := make([]string, 0, len(recipients))
 			for _, rcp := range recipients {
@@ -609,15 +627,10 @@ func AddInterviewer(s *server.RegionalServer) http.HandlerFunc {
 
 			// Notify the newly added interviewer that they are on the panel,
 			// attaching a calendar invite.
-			enqueueInterviewEmail(ctx, qtx, regionaldb.EmailTemplateTypeOrgInterviewScheduledForInterviewer, newUser.EmailAddress, interviewEmailDetails{
-				InterviewType: existing.InterviewType,
-				StartsAt:      existing.StartsAt.Time.UTC().Format(time.RFC3339),
-				EndsAt:        existing.EndsAt.Time.UTC().Format(time.RFC3339),
-				Location:      existing.Location.String,
-				CandidacyID:   existing.CandidacyID.String(),
-			}, &interviewICS{
+			addDetails, _ := interviewEmailContext(ctx, qtx, s, orgUser.OrgID, existing.CandidacyID, existing.InterviewType, existing.Location.String, existing.StartsAt.Time, existing.EndsAt.Time)
+			enqueueInterviewEmail(ctx, qtx, regionaldb.EmailTemplateTypeOrgInterviewScheduledForInterviewer, newUser.EmailAddress, addDetails, &interviewICS{
 				UID:      interviewID.String(),
-				Summary:  "Interview (" + existing.InterviewType + ")",
+				Summary:  icsSummary(addDetails),
 				Desc:     existing.Location.String,
 				Location: existing.Location.String,
 				Start:    existing.StartsAt.Time,
@@ -729,14 +742,10 @@ func RemoveInterviewer(s *server.RegionalServer) http.HandlerFunc {
 
 			// Notify the removed interviewer that they are off the panel, with a
 			// calendar CANCEL to drop the event from their calendar.
-			enqueueInterviewEmail(ctx, qtx, regionaldb.EmailTemplateTypeOrgInterviewerRemoved, removedEmail, interviewEmailDetails{
-				InterviewType: existing.InterviewType,
-				StartsAt:      existing.StartsAt.Time.UTC().Format(time.RFC3339),
-				EndsAt:        existing.EndsAt.Time.UTC().Format(time.RFC3339),
-				Location:      existing.Location.String,
-			}, &interviewICS{
+			rmDetails, _ := interviewEmailContext(ctx, qtx, s, orgUser.OrgID, existing.CandidacyID, existing.InterviewType, existing.Location.String, existing.StartsAt.Time, existing.EndsAt.Time)
+			enqueueInterviewEmail(ctx, qtx, regionaldb.EmailTemplateTypeOrgInterviewerRemoved, removedEmail, rmDetails, &interviewICS{
 				UID:      interviewID.String(),
-				Summary:  "Interview (" + existing.InterviewType + ")",
+				Summary:  icsSummary(rmDetails),
 				Location: existing.Location.String,
 				Start:    existing.StartsAt.Time,
 				End:      existing.EndsAt.Time,
@@ -1245,17 +1254,21 @@ func GetInterview(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		result := org.OrgInterview{
-			InterviewID:       row.InterviewID.String(),
-			CandidacyID:       row.CandidacyID.String(),
-			InterviewType:     org.InterviewType(row.InterviewType),
-			StartsAt:          row.StartsAt.Time.UTC().Format(time.RFC3339),
-			EndsAt:            row.EndsAt.Time.UTC().Format(time.RFC3339),
-			Description:       description,
-			InterviewLocation: location,
-			State:             org.InterviewState(row.State),
-			CandidateRSVP:     candidateRSVP,
-			Interviewers:      decodeInterviewers(row.Interviewers),
-			Feedback:          decodeInterviewFeedback(row.Feedback),
+			InterviewID:          row.InterviewID.String(),
+			CandidacyID:          row.CandidacyID.String(),
+			CandidateHandle:      row.CandidateHandle,
+			CandidateDisplayName: row.CandidateDisplayName,
+			OpeningTitle:         row.OpeningTitle,
+			ResumeDownloadURL:    fmt.Sprintf("/org/interview-resume/%s", row.InterviewID.String()),
+			InterviewType:        org.InterviewType(row.InterviewType),
+			StartsAt:             row.StartsAt.Time.UTC().Format(time.RFC3339),
+			EndsAt:               row.EndsAt.Time.UTC().Format(time.RFC3339),
+			Description:          description,
+			InterviewLocation:    location,
+			State:                org.InterviewState(row.State),
+			CandidateRSVP:        candidateRSVP,
+			Interviewers:         decodeInterviewers(row.Interviewers),
+			Feedback:             decodeInterviewFeedback(row.Feedback),
 		}
 
 		w.WriteHeader(http.StatusOK)

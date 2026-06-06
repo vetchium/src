@@ -42,6 +42,7 @@ import { getApiBaseUrl } from "../../config";
 import { useAuth } from "../../hooks/useAuth";
 import { useMyInfo } from "../../hooks/useMyInfo";
 import { formatDate, formatDateTime } from "../../utils/dateFormat";
+import { CandidatePanel } from "../../components/CandidatePanel";
 
 const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
@@ -502,6 +503,15 @@ const CandidacyDetailPage: React.FC = () => {
 					<Button>{t("viewOpening")}</Button>
 				</Link>
 			</div>
+
+			{/* Candidate profile, cover letter and resume preview */}
+			<CandidatePanel
+				sessionToken={sessionToken}
+				handle={candidacy.candidate_handle}
+				displayName={candidacy.candidate_display_name}
+				coverLetter={candidacy.cover_letter}
+				resumeUrl={candidacy.resume_download_url}
+			/>
 
 			{/* Overview */}
 			<Card title={t("overview")} style={{ marginBottom: 16 }}>
