@@ -1,22 +1,25 @@
-This file contains some of the potential things to do:
+# Ideas — Potential Future Work
 
-- i18n support
-- Openings
-- Applications
-- Candidacies
-- Interviews
-- Hub Users
-- Connections
-- Domain verification audit log: Add a `domain_verification_events` table to track every
-  verification request and result per domain (employer_id, domain, event_type, message,
-  created_at). This enables audit trails for compliance and debugging. TODO markers exist in:
-  - api-server/db/queries/regional.sql
-  - specs/typespec/employer-domains/employer-domains.ts
+A scratch list of enhancements that are not yet scheduled. Each entry is meant to
+be self-contained enough to pick up later.
 
-- Audit log UX improvements:
-  - **Email-based actor filtering**: The filter-audit-logs API currently accepts `actor_user_id` as a UUID, but admins don't have UUIDs memorized. A future improvement would accept an email address, SHA-256-hash it server-side, resolve it to a user ID, and filter by that. Requires new API work.
-  - **Target user email hash in event_data**: For events that affect a specific user (enable, disable, assign role, remove role), store `target_email_hash` in `event_data` at write time, mirroring the existing `invite_user` pattern. This gives forensic investigators a matchable identifier even after a user is deleted (audit logs have no FK constraints intentionally). Requires amending spec 11 handlers.
-  - **Note**: Tags use user-defined slug IDs and cost centers use user-defined string IDs, so those are already human-readable in audit logs. The UUID readability problem applies only to `actor_user_id` and `target_user_id`.
+## Domain verification history
 
-From [8-user-management/README.md](./8-user-management/README.md)
-After the subsequent features like Posts, Openings are done, the HubUsers should be able to visit an UI URL on the HubUsers Portal to see the Openings, Posts corresponding to the Tag. For now, we will just build the underlying infra.
+Domains move through PENDING → VERIFIED → FAILING (see the
+`domain_verification_status` enum in the regional schema) and re-verification runs
+automatically, but only the one-time claim/verify _actions_ are recorded today —
+the `org.claim_domain` and `org.verify_domain` entries in the regular audit log.
+There is no record of each individual verification attempt and its result.
+
+Add a regional `domain_verification_events` table keyed by org + domain
+(`org_id`, `domain`, `event_type`, `message`, `created_at`) and write a row on
+every verification attempt, including automated re-checks and each
+PENDING/VERIFIED/FAILING transition, so the full history is available for
+compliance and debugging. Surface it on the org domains detail view.
+
+## Tag-scoped discovery page
+
+Once Posts ship (the Openings browse already exists), give Hub users a single page
+— e.g. `/tags/:tagId` — that aggregates the Openings and Posts carrying a given
+tag. The tag infrastructure (tag definitions, icons, and per-resource tagging) is
+already in place; this is the consumer-facing view layered on top of it.
