@@ -17,7 +17,7 @@ COPY admin-ui/ .
 # Build the app
 RUN bun run build
 
-# Runtime stage - serve with bun
+# Runtime stage - serve with bun (dev/default; fastest local flow, no nginx)
 FROM oven/bun:1-alpine
 
 WORKDIR /app

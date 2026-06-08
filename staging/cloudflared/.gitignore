@@ -1,0 +1,5 @@
+# Generated tunnel config (contains the per-machine credentials-file path) and
+# any credentials that might land here. The .example is the checked-in template.
+config.yml
+*.json
+cert.pem

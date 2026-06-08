@@ -1,0 +1,6 @@
+# Secrets / generated / local-only
+.env
+build.log
+cloudflared/config.yml
+cloudflared/*.json
+cloudflared/cert.pem

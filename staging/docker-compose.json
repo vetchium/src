@@ -1,0 +1,546 @@
+{
+	"x-comment": "Production-like staging stack — 4-VM topology on one host. All app images are PULLED from ghcr.io/vetchium/*:${STAGING_TAG} (no build:). No dev-seed and no mailpit: one superadmin is bootstrapped from STAGING_ADMIN_*, and a private 'mailserver' service (Exim) delivers email outbound (direct-to-MX, or via the SMTP_SMARTHOST_* upstream in staging/.env). All secrets (DB_PASSWORD, S3 keys, admin + smarthost creds) come from staging/.env. UIs are static nginx builds (gzip). The single dev api-lb is split into four per-VM nginx front doors. A Cloudflare tunnel (cloudflared/config.yml) maps *-staging.vetchium.com to host ports 8091-8097. Run via up.sh/down.sh (which load staging/.env). See staging/README.md.",
+	"services": {
+		"global-db": {
+			"image": "postgres:17-alpine",
+			"environment": {
+				"POSTGRES_DB": "vetchium_global",
+				"POSTGRES_USER": "vetchium",
+				"POSTGRES_PASSWORD": "${DB_PASSWORD}"
+			},
+			"volumes": ["global-db-data:/var/lib/postgresql/data"],
+			"healthcheck": {
+				"test": ["CMD-SHELL", "pg_isready -U vetchium -d vetchium_global"],
+				"interval": "5s",
+				"timeout": "5s",
+				"retries": 10
+			}
+		},
+		"regional-db-ind1": {
+			"image": "postgres:17-alpine",
+			"environment": {
+				"POSTGRES_DB": "vetchium_ind1",
+				"POSTGRES_USER": "vetchium",
+				"POSTGRES_PASSWORD": "${DB_PASSWORD}"
+			},
+			"volumes": ["regional-db-ind1-data:/var/lib/postgresql/data"],
+			"healthcheck": {
+				"test": ["CMD-SHELL", "pg_isready -U vetchium -d vetchium_ind1"],
+				"interval": "5s",
+				"timeout": "5s",
+				"retries": 10
+			}
+		},
+		"regional-db-usa1": {
+			"image": "postgres:17-alpine",
+			"environment": {
+				"POSTGRES_DB": "vetchium_usa1",
+				"POSTGRES_USER": "vetchium",
+				"POSTGRES_PASSWORD": "${DB_PASSWORD}"
+			},
+			"volumes": ["regional-db-usa1-data:/var/lib/postgresql/data"],
+			"healthcheck": {
+				"test": ["CMD-SHELL", "pg_isready -U vetchium -d vetchium_usa1"],
+				"interval": "5s",
+				"timeout": "5s",
+				"retries": 10
+			}
+		},
+		"regional-db-deu1": {
+			"image": "postgres:17-alpine",
+			"environment": {
+				"POSTGRES_DB": "vetchium_deu1",
+				"POSTGRES_USER": "vetchium",
+				"POSTGRES_PASSWORD": "${DB_PASSWORD}"
+			},
+			"volumes": ["regional-db-deu1-data:/var/lib/postgresql/data"],
+			"healthcheck": {
+				"test": ["CMD-SHELL", "pg_isready -U vetchium -d vetchium_deu1"],
+				"interval": "5s",
+				"timeout": "5s",
+				"retries": 10
+			}
+		},
+		"mailserver": {
+			"image": "bytemark/smtp",
+			"restart": "unless-stopped",
+			"environment": {
+				"RELAY_NETWORKS": ":0.0.0.0/0",
+				"RELAY_HOST": "${SMTP_SMARTHOST_ADDRESS:-}",
+				"RELAY_PORT": "${SMTP_SMARTHOST_PORT:-587}",
+				"RELAY_USERNAME": "${SMTP_SMARTHOST_USER:-}",
+				"RELAY_PASSWORD": "${SMTP_SMARTHOST_PASSWORD:-}"
+			}
+		},
+		"localstack-ind1": {
+			"image": "localstack/localstack",
+			"environment": { "SERVICES": "s3", "DEBUG": "0" },
+			"healthcheck": {
+				"test": [
+					"CMD-SHELL",
+					"curl -f http://localhost:4566/_localstack/health"
+				],
+				"interval": "5s",
+				"timeout": "5s",
+				"retries": 15
+			}
+		},
+		"localstack-usa1": {
+			"image": "localstack/localstack",
+			"environment": { "SERVICES": "s3", "DEBUG": "0" },
+			"healthcheck": {
+				"test": [
+					"CMD-SHELL",
+					"curl -f http://localhost:4566/_localstack/health"
+				],
+				"interval": "5s",
+				"timeout": "5s",
+				"retries": 15
+			}
+		},
+		"localstack-deu1": {
+			"image": "localstack/localstack",
+			"environment": { "SERVICES": "s3", "DEBUG": "0" },
+			"healthcheck": {
+				"test": [
+					"CMD-SHELL",
+					"curl -f http://localhost:4566/_localstack/health"
+				],
+				"interval": "5s",
+				"timeout": "5s",
+				"retries": 15
+			}
+		},
+		"s3-init-ind1": {
+			"image": "amazon/aws-cli",
+			"depends_on": { "localstack-ind1": { "condition": "service_healthy" } },
+			"entrypoint": ["sh", "-c"],
+			"command": [
+				"i=0; until aws --endpoint-url=http://localstack-ind1:4566 s3 ls s3://vetchium-ind1 2>/dev/null || aws --endpoint-url=http://localstack-ind1:4566 s3 mb s3://vetchium-ind1 2>/dev/null; do i=$$((i+1)); [ $$i -ge 30 ] && exit 1; sleep 2; done && until aws --endpoint-url=http://localstack-ind1:4566 s3 ls s3://vetchium-global 2>/dev/null || aws --endpoint-url=http://localstack-ind1:4566 s3 mb s3://vetchium-global 2>/dev/null; do i=$$((i+1)); [ $$i -ge 30 ] && exit 1; sleep 2; done"
+			],
+			"environment": {
+				"AWS_ACCESS_KEY_ID": "${S3_ACCESS_KEY_ID}",
+				"AWS_SECRET_ACCESS_KEY": "${S3_SECRET_ACCESS_KEY}",
+				"AWS_DEFAULT_REGION": "us-east-1"
+			}
+		},
+		"s3-init-usa1": {
+			"image": "amazon/aws-cli",
+			"depends_on": { "localstack-usa1": { "condition": "service_healthy" } },
+			"entrypoint": ["sh", "-c"],
+			"command": [
+				"i=0; until aws --endpoint-url=http://localstack-usa1:4566 s3 ls s3://vetchium-usa1 2>/dev/null || aws --endpoint-url=http://localstack-usa1:4566 s3 mb s3://vetchium-usa1 2>/dev/null; do i=$$((i+1)); [ $$i -ge 30 ] && exit 1; sleep 2; done"
+			],
+			"environment": {
+				"AWS_ACCESS_KEY_ID": "${S3_ACCESS_KEY_ID}",
+				"AWS_SECRET_ACCESS_KEY": "${S3_SECRET_ACCESS_KEY}",
+				"AWS_DEFAULT_REGION": "us-east-1"
+			}
+		},
+		"s3-init-deu1": {
+			"image": "amazon/aws-cli",
+			"depends_on": { "localstack-deu1": { "condition": "service_healthy" } },
+			"entrypoint": ["sh", "-c"],
+			"command": [
+				"i=0; until aws --endpoint-url=http://localstack-deu1:4566 s3 ls s3://vetchium-deu1 2>/dev/null || aws --endpoint-url=http://localstack-deu1:4566 s3 mb s3://vetchium-deu1 2>/dev/null; do i=$$((i+1)); [ $$i -ge 30 ] && exit 1; sleep 2; done"
+			],
+			"environment": {
+				"AWS_ACCESS_KEY_ID": "${S3_ACCESS_KEY_ID}",
+				"AWS_SECRET_ACCESS_KEY": "${S3_SECRET_ACCESS_KEY}",
+				"AWS_DEFAULT_REGION": "us-east-1"
+			}
+		},
+		"migrate-global": {
+			"image": "ghcr.io/vetchium/migrate:${STAGING_TAG:-staging}",
+			"depends_on": { "global-db": { "condition": "service_healthy" } },
+			"command": [
+				"-dir",
+				"/migrations/global",
+				"postgres",
+				"postgres://vetchium:${DB_PASSWORD}@global-db:5432/vetchium_global?sslmode=disable",
+				"up"
+			]
+		},
+		"migrate-ind1": {
+			"image": "ghcr.io/vetchium/migrate:${STAGING_TAG:-staging}",
+			"depends_on": { "regional-db-ind1": { "condition": "service_healthy" } },
+			"command": [
+				"-dir",
+				"/migrations/regional",
+				"postgres",
+				"postgres://vetchium:${DB_PASSWORD}@regional-db-ind1:5432/vetchium_ind1?sslmode=disable",
+				"up"
+			]
+		},
+		"migrate-usa1": {
+			"image": "ghcr.io/vetchium/migrate:${STAGING_TAG:-staging}",
+			"depends_on": { "regional-db-usa1": { "condition": "service_healthy" } },
+			"command": [
+				"-dir",
+				"/migrations/regional",
+				"postgres",
+				"postgres://vetchium:${DB_PASSWORD}@regional-db-usa1:5432/vetchium_usa1?sslmode=disable",
+				"up"
+			]
+		},
+		"migrate-deu1": {
+			"image": "ghcr.io/vetchium/migrate:${STAGING_TAG:-staging}",
+			"depends_on": { "regional-db-deu1": { "condition": "service_healthy" } },
+			"command": [
+				"-dir",
+				"/migrations/regional",
+				"postgres",
+				"postgres://vetchium:${DB_PASSWORD}@regional-db-deu1:5432/vetchium_deu1?sslmode=disable",
+				"up"
+			]
+		},
+		"bootstrap-admin": {
+			"image": "postgres:17-alpine",
+			"depends_on": {
+				"global-db": { "condition": "service_healthy" },
+				"migrate-global": { "condition": "service_completed_successfully" }
+			},
+			"environment": {
+				"STAGING_ADMIN_EMAIL": "${STAGING_ADMIN_EMAIL:?set STAGING_ADMIN_EMAIL in staging/.env}",
+				"STAGING_ADMIN_PASSWORD": "${STAGING_ADMIN_PASSWORD:?set STAGING_ADMIN_PASSWORD in staging/.env}"
+			},
+			"volumes": [
+				{ "type": "bind", "source": "./bootstrap", "target": "/bootstrap" }
+			],
+			"entrypoint": ["sh", "-c"],
+			"command": [
+				"psql 'postgres://vetchium:${DB_PASSWORD}@global-db:5432/vetchium_global?sslmode=disable' -v ON_ERROR_STOP=1 -v admin_email=\"$$STAGING_ADMIN_EMAIL\" -v admin_password=\"$$STAGING_ADMIN_PASSWORD\" -f /bootstrap/admin.sql"
+			]
+		},
+		"global-service": {
+			"image": "ghcr.io/vetchium/global-service:${STAGING_TAG:-staging}",
+			"depends_on": {
+				"bootstrap-admin": { "condition": "service_completed_successfully" },
+				"mailserver": { "condition": "service_started" },
+				"s3-init-ind1": { "condition": "service_completed_successfully" }
+			},
+			"environment": {
+				"LOG_LEVEL": "INFO",
+				"GLOBAL_DB_CONN": "postgres://vetchium:${DB_PASSWORD}@global-db:5432/vetchium_global?sslmode=disable",
+				"IND1_DB_CONN": "postgres://vetchium:${DB_PASSWORD}@regional-db-ind1:5432/vetchium_ind1?sslmode=disable",
+				"USA1_DB_CONN": "postgres://vetchium:${DB_PASSWORD}@regional-db-usa1:5432/vetchium_usa1?sslmode=disable",
+				"DEU1_DB_CONN": "postgres://vetchium:${DB_PASSWORD}@regional-db-deu1:5432/vetchium_deu1?sslmode=disable",
+				"ADMIN_TFA_TOKEN_CLEANUP_INTERVAL": "1m",
+				"ADMIN_SESSION_CLEANUP_INTERVAL": "1m",
+				"HUB_SIGNUP_TOKEN_CLEANUP_INTERVAL": "1m",
+				"ORG_SIGNUP_TOKEN_CLEANUP_INTERVAL": "1m",
+				"SMTP_HOST": "mailserver",
+				"SMTP_PORT": "25",
+				"SMTP_FROM_ADDRESS": "${SMTP_FROM_ADDRESS:-noreply@vetchium.com}",
+				"SMTP_FROM_NAME": "${SMTP_FROM_NAME:-Vetchium}",
+				"EMAIL_WORKER_POLL_INTERVAL": "10s",
+				"ADMIN_TFA_TOKEN_EXPIRY": "10m",
+				"ADMIN_SESSION_TOKEN_EXPIRY": "24h",
+				"ADMIN_INVITATION_TOKEN_EXPIRY": "168h",
+				"ADMIN_PASSWORD_RESET_TOKEN_EXPIRY": "1h",
+				"ADMIN_PASSWORD_RESET_TOKEN_CLEANUP_INTERVAL": "1h",
+				"ADMIN_UI_URL": "https://admin-staging.vetchium.com",
+				"CORS_ALLOWED_ORIGINS": "https://admin-staging.vetchium.com",
+				"GLOBAL_S3_ENDPOINT": "http://localstack-ind1:4566",
+				"GLOBAL_S3_BUCKET": "vetchium-global",
+				"GLOBAL_S3_REGION": "us-east-1",
+				"GLOBAL_S3_ACCESS_KEY_ID": "${S3_ACCESS_KEY_ID}",
+				"GLOBAL_S3_SECRET_ACCESS_KEY": "${S3_SECRET_ACCESS_KEY}"
+			},
+			"healthcheck": {
+				"test": ["CMD-SHELL", "nc -z localhost 8081 || exit 1"],
+				"interval": "10s",
+				"timeout": "5s",
+				"retries": 5
+			}
+		},
+		"regional-api-server-ind1": {
+			"image": "ghcr.io/vetchium/regional-api-server:${STAGING_TAG:-staging}",
+			"depends_on": {
+				"migrate-global": { "condition": "service_completed_successfully" },
+				"migrate-ind1": { "condition": "service_completed_successfully" },
+				"migrate-usa1": { "condition": "service_completed_successfully" },
+				"migrate-deu1": { "condition": "service_completed_successfully" },
+				"s3-init-ind1": { "condition": "service_completed_successfully" },
+				"s3-init-usa1": { "condition": "service_completed_successfully" },
+				"s3-init-deu1": { "condition": "service_completed_successfully" }
+			},
+			"environment": {
+				"REGION": "ind1",
+				"ENV": "STAGING",
+				"LOG_LEVEL": "INFO",
+				"GLOBAL_DB_CONN": "postgres://vetchium:${DB_PASSWORD}@global-db:5432/vetchium_global?sslmode=disable",
+				"REGIONAL_DB_CONN": "postgres://vetchium:${DB_PASSWORD}@regional-db-ind1:5432/vetchium_ind1?sslmode=disable",
+				"REGIONAL_DB_CONN_IND1": "postgres://vetchium:${DB_PASSWORD}@regional-db-ind1:5432/vetchium_ind1?sslmode=disable",
+				"REGIONAL_DB_CONN_USA1": "postgres://vetchium:${DB_PASSWORD}@regional-db-usa1:5432/vetchium_usa1?sslmode=disable",
+				"REGIONAL_DB_CONN_DEU1": "postgres://vetchium:${DB_PASSWORD}@regional-db-deu1:5432/vetchium_deu1?sslmode=disable",
+				"S3_ENDPOINT_IND1": "http://localstack-ind1:4566",
+				"S3_ENDPOINT_USA1": "http://localstack-usa1:4566",
+				"S3_ENDPOINT_DEU1": "http://localstack-deu1:4566",
+				"S3_BUCKET_IND1": "vetchium-ind1",
+				"S3_BUCKET_USA1": "vetchium-usa1",
+				"S3_BUCKET_DEU1": "vetchium-deu1",
+				"S3_REGION_IND1": "us-east-1",
+				"S3_REGION_USA1": "us-east-1",
+				"S3_REGION_DEU1": "us-east-1",
+				"S3_ACCESS_KEY_ID_IND1": "${S3_ACCESS_KEY_ID}",
+				"S3_ACCESS_KEY_ID_USA1": "${S3_ACCESS_KEY_ID}",
+				"S3_ACCESS_KEY_ID_DEU1": "${S3_ACCESS_KEY_ID}",
+				"S3_SECRET_ACCESS_KEY_IND1": "${S3_SECRET_ACCESS_KEY}",
+				"S3_SECRET_ACCESS_KEY_USA1": "${S3_SECRET_ACCESS_KEY}",
+				"S3_SECRET_ACCESS_KEY_DEU1": "${S3_SECRET_ACCESS_KEY}",
+				"GLOBAL_S3_ENDPOINT": "http://localstack-ind1:4566",
+				"GLOBAL_S3_BUCKET": "vetchium-global",
+				"GLOBAL_S3_REGION": "us-east-1",
+				"GLOBAL_S3_ACCESS_KEY_ID": "${S3_ACCESS_KEY_ID}",
+				"GLOBAL_S3_SECRET_ACCESS_KEY": "${S3_SECRET_ACCESS_KEY}",
+				"ORG_TFA_TOKEN_EXPIRY": "10m",
+				"ORG_SESSION_TOKEN_EXPIRY": "24h",
+				"ORG_SIGNUP_TOKEN_EXPIRY": "24h",
+				"ORG_REMEMBER_ME_EXPIRY": "8760h"
+			},
+			"healthcheck": {
+				"test": ["CMD-SHELL", "nc -z localhost 8080 || exit 1"],
+				"interval": "10s",
+				"timeout": "5s",
+				"retries": 5
+			}
+		},
+		"regional-api-server-usa1": {
+			"image": "ghcr.io/vetchium/regional-api-server:${STAGING_TAG:-staging}",
+			"depends_on": {
+				"migrate-global": { "condition": "service_completed_successfully" },
+				"migrate-ind1": { "condition": "service_completed_successfully" },
+				"migrate-usa1": { "condition": "service_completed_successfully" },
+				"migrate-deu1": { "condition": "service_completed_successfully" },
+				"s3-init-ind1": { "condition": "service_completed_successfully" },
+				"s3-init-usa1": { "condition": "service_completed_successfully" },
+				"s3-init-deu1": { "condition": "service_completed_successfully" }
+			},
+			"environment": {
+				"REGION": "usa1",
+				"ENV": "STAGING",
+				"LOG_LEVEL": "INFO",
+				"GLOBAL_DB_CONN": "postgres://vetchium:${DB_PASSWORD}@global-db:5432/vetchium_global?sslmode=disable",
+				"REGIONAL_DB_CONN": "postgres://vetchium:${DB_PASSWORD}@regional-db-usa1:5432/vetchium_usa1?sslmode=disable",
+				"REGIONAL_DB_CONN_IND1": "postgres://vetchium:${DB_PASSWORD}@regional-db-ind1:5432/vetchium_ind1?sslmode=disable",
+				"REGIONAL_DB_CONN_USA1": "postgres://vetchium:${DB_PASSWORD}@regional-db-usa1:5432/vetchium_usa1?sslmode=disable",
+				"REGIONAL_DB_CONN_DEU1": "postgres://vetchium:${DB_PASSWORD}@regional-db-deu1:5432/vetchium_deu1?sslmode=disable",
+				"S3_ENDPOINT_IND1": "http://localstack-ind1:4566",
+				"S3_ENDPOINT_USA1": "http://localstack-usa1:4566",
+				"S3_ENDPOINT_DEU1": "http://localstack-deu1:4566",
+				"S3_BUCKET_IND1": "vetchium-ind1",
+				"S3_BUCKET_USA1": "vetchium-usa1",
+				"S3_BUCKET_DEU1": "vetchium-deu1",
+				"S3_REGION_IND1": "us-east-1",
+				"S3_REGION_USA1": "us-east-1",
+				"S3_REGION_DEU1": "us-east-1",
+				"S3_ACCESS_KEY_ID_IND1": "${S3_ACCESS_KEY_ID}",
+				"S3_ACCESS_KEY_ID_USA1": "${S3_ACCESS_KEY_ID}",
+				"S3_ACCESS_KEY_ID_DEU1": "${S3_ACCESS_KEY_ID}",
+				"S3_SECRET_ACCESS_KEY_IND1": "${S3_SECRET_ACCESS_KEY}",
+				"S3_SECRET_ACCESS_KEY_USA1": "${S3_SECRET_ACCESS_KEY}",
+				"S3_SECRET_ACCESS_KEY_DEU1": "${S3_SECRET_ACCESS_KEY}",
+				"GLOBAL_S3_ENDPOINT": "http://localstack-ind1:4566",
+				"GLOBAL_S3_BUCKET": "vetchium-global",
+				"GLOBAL_S3_REGION": "us-east-1",
+				"GLOBAL_S3_ACCESS_KEY_ID": "${S3_ACCESS_KEY_ID}",
+				"GLOBAL_S3_SECRET_ACCESS_KEY": "${S3_SECRET_ACCESS_KEY}",
+				"ORG_TFA_TOKEN_EXPIRY": "10m",
+				"ORG_SESSION_TOKEN_EXPIRY": "24h",
+				"ORG_SIGNUP_TOKEN_EXPIRY": "24h",
+				"ORG_REMEMBER_ME_EXPIRY": "8760h"
+			},
+			"healthcheck": {
+				"test": ["CMD-SHELL", "nc -z localhost 8080 || exit 1"],
+				"interval": "10s",
+				"timeout": "5s",
+				"retries": 5
+			}
+		},
+		"regional-api-server-deu1": {
+			"image": "ghcr.io/vetchium/regional-api-server:${STAGING_TAG:-staging}",
+			"depends_on": {
+				"migrate-global": { "condition": "service_completed_successfully" },
+				"migrate-ind1": { "condition": "service_completed_successfully" },
+				"migrate-usa1": { "condition": "service_completed_successfully" },
+				"migrate-deu1": { "condition": "service_completed_successfully" },
+				"s3-init-ind1": { "condition": "service_completed_successfully" },
+				"s3-init-usa1": { "condition": "service_completed_successfully" },
+				"s3-init-deu1": { "condition": "service_completed_successfully" }
+			},
+			"environment": {
+				"REGION": "deu1",
+				"ENV": "STAGING",
+				"LOG_LEVEL": "INFO",
+				"GLOBAL_DB_CONN": "postgres://vetchium:${DB_PASSWORD}@global-db:5432/vetchium_global?sslmode=disable",
+				"REGIONAL_DB_CONN": "postgres://vetchium:${DB_PASSWORD}@regional-db-deu1:5432/vetchium_deu1?sslmode=disable",
+				"REGIONAL_DB_CONN_IND1": "postgres://vetchium:${DB_PASSWORD}@regional-db-ind1:5432/vetchium_ind1?sslmode=disable",
+				"REGIONAL_DB_CONN_USA1": "postgres://vetchium:${DB_PASSWORD}@regional-db-usa1:5432/vetchium_usa1?sslmode=disable",
+				"REGIONAL_DB_CONN_DEU1": "postgres://vetchium:${DB_PASSWORD}@regional-db-deu1:5432/vetchium_deu1?sslmode=disable",
+				"S3_ENDPOINT_IND1": "http://localstack-ind1:4566",
+				"S3_ENDPOINT_USA1": "http://localstack-usa1:4566",
+				"S3_ENDPOINT_DEU1": "http://localstack-deu1:4566",
+				"S3_BUCKET_IND1": "vetchium-ind1",
+				"S3_BUCKET_USA1": "vetchium-usa1",
+				"S3_BUCKET_DEU1": "vetchium-deu1",
+				"S3_REGION_IND1": "us-east-1",
+				"S3_REGION_USA1": "us-east-1",
+				"S3_REGION_DEU1": "us-east-1",
+				"S3_ACCESS_KEY_ID_IND1": "${S3_ACCESS_KEY_ID}",
+				"S3_ACCESS_KEY_ID_USA1": "${S3_ACCESS_KEY_ID}",
+				"S3_ACCESS_KEY_ID_DEU1": "${S3_ACCESS_KEY_ID}",
+				"S3_SECRET_ACCESS_KEY_IND1": "${S3_SECRET_ACCESS_KEY}",
+				"S3_SECRET_ACCESS_KEY_USA1": "${S3_SECRET_ACCESS_KEY}",
+				"S3_SECRET_ACCESS_KEY_DEU1": "${S3_SECRET_ACCESS_KEY}",
+				"GLOBAL_S3_ENDPOINT": "http://localstack-ind1:4566",
+				"GLOBAL_S3_BUCKET": "vetchium-global",
+				"GLOBAL_S3_REGION": "us-east-1",
+				"GLOBAL_S3_ACCESS_KEY_ID": "${S3_ACCESS_KEY_ID}",
+				"GLOBAL_S3_SECRET_ACCESS_KEY": "${S3_SECRET_ACCESS_KEY}",
+				"ORG_TFA_TOKEN_EXPIRY": "10m",
+				"ORG_SESSION_TOKEN_EXPIRY": "24h",
+				"ORG_SIGNUP_TOKEN_EXPIRY": "24h",
+				"ORG_REMEMBER_ME_EXPIRY": "8760h"
+			},
+			"healthcheck": {
+				"test": ["CMD-SHELL", "nc -z localhost 8080 || exit 1"],
+				"interval": "10s",
+				"timeout": "5s",
+				"retries": 5
+			}
+		},
+		"regional-worker-ind1": {
+			"image": "ghcr.io/vetchium/regional-worker:${STAGING_TAG:-staging}",
+			"depends_on": {
+				"migrate-ind1": { "condition": "service_completed_successfully" }
+			},
+			"environment": {
+				"REGION": "ind1",
+				"LOG_LEVEL": "INFO",
+				"REGIONAL_DB_CONN": "postgres://vetchium:${DB_PASSWORD}@regional-db-ind1:5432/vetchium_ind1?sslmode=disable",
+				"SMTP_HOST": "mailserver",
+				"SMTP_PORT": "25",
+				"SMTP_FROM_ADDRESS": "${SMTP_FROM_ADDRESS:-noreply@vetchium.com}",
+				"SMTP_FROM_NAME": "${SMTP_FROM_NAME:-Vetchium}",
+				"EMAIL_WORKER_POLL_INTERVAL": "10s",
+				"ORG_TFA_TOKEN_CLEANUP_INTERVAL": "1h",
+				"ORG_SESSION_CLEANUP_INTERVAL": "1h"
+			}
+		},
+		"regional-worker-usa1": {
+			"image": "ghcr.io/vetchium/regional-worker:${STAGING_TAG:-staging}",
+			"depends_on": {
+				"migrate-usa1": { "condition": "service_completed_successfully" }
+			},
+			"environment": {
+				"REGION": "usa1",
+				"LOG_LEVEL": "INFO",
+				"REGIONAL_DB_CONN": "postgres://vetchium:${DB_PASSWORD}@regional-db-usa1:5432/vetchium_usa1?sslmode=disable",
+				"SMTP_HOST": "mailserver",
+				"SMTP_PORT": "25",
+				"SMTP_FROM_ADDRESS": "${SMTP_FROM_ADDRESS:-noreply@vetchium.com}",
+				"SMTP_FROM_NAME": "${SMTP_FROM_NAME:-Vetchium}",
+				"EMAIL_WORKER_POLL_INTERVAL": "10s",
+				"ORG_TFA_TOKEN_CLEANUP_INTERVAL": "1h",
+				"ORG_SESSION_CLEANUP_INTERVAL": "1h"
+			}
+		},
+		"regional-worker-deu1": {
+			"image": "ghcr.io/vetchium/regional-worker:${STAGING_TAG:-staging}",
+			"depends_on": {
+				"migrate-deu1": { "condition": "service_completed_successfully" }
+			},
+			"environment": {
+				"REGION": "deu1",
+				"LOG_LEVEL": "INFO",
+				"REGIONAL_DB_CONN": "postgres://vetchium:${DB_PASSWORD}@regional-db-deu1:5432/vetchium_deu1?sslmode=disable",
+				"SMTP_HOST": "mailserver",
+				"SMTP_PORT": "25",
+				"SMTP_FROM_ADDRESS": "${SMTP_FROM_ADDRESS:-noreply@vetchium.com}",
+				"SMTP_FROM_NAME": "${SMTP_FROM_NAME:-Vetchium}",
+				"EMAIL_WORKER_POLL_INTERVAL": "10s",
+				"ORG_TFA_TOKEN_CLEANUP_INTERVAL": "1h",
+				"ORG_SESSION_CLEANUP_INTERVAL": "1h"
+			}
+		},
+		"vm-global": {
+			"image": "nginx:alpine",
+			"volumes": ["./nginx/global-vm.conf:/etc/nginx/nginx.conf:ro"],
+			"ports": ["8091:80"],
+			"depends_on": { "global-service": { "condition": "service_healthy" } },
+			"healthcheck": {
+				"test": ["CMD-SHELL", "wget -qO- http://127.0.0.1/health || exit 1"],
+				"interval": "5s",
+				"timeout": "5s",
+				"retries": 10
+			}
+		},
+		"vm-ind1": {
+			"image": "nginx:alpine",
+			"volumes": ["./nginx/ind1-vm.conf:/etc/nginx/nginx.conf:ro"],
+			"ports": ["8092:80"],
+			"depends_on": {
+				"regional-api-server-ind1": { "condition": "service_healthy" }
+			},
+			"healthcheck": {
+				"test": ["CMD-SHELL", "wget -qO- http://127.0.0.1/health || exit 1"],
+				"interval": "5s",
+				"timeout": "5s",
+				"retries": 10
+			}
+		},
+		"vm-usa1": {
+			"image": "nginx:alpine",
+			"volumes": ["./nginx/usa1-vm.conf:/etc/nginx/nginx.conf:ro"],
+			"ports": ["8093:80"],
+			"depends_on": {
+				"regional-api-server-usa1": { "condition": "service_healthy" }
+			},
+			"healthcheck": {
+				"test": ["CMD-SHELL", "wget -qO- http://127.0.0.1/health || exit 1"],
+				"interval": "5s",
+				"timeout": "5s",
+				"retries": 10
+			}
+		},
+		"vm-deu1": {
+			"image": "nginx:alpine",
+			"volumes": ["./nginx/deu1-vm.conf:/etc/nginx/nginx.conf:ro"],
+			"ports": ["8094:80"],
+			"depends_on": {
+				"regional-api-server-deu1": { "condition": "service_healthy" }
+			},
+			"healthcheck": {
+				"test": ["CMD-SHELL", "wget -qO- http://127.0.0.1/health || exit 1"],
+				"interval": "5s",
+				"timeout": "5s",
+				"retries": 10
+			}
+		},
+		"hub-ui": {
+			"image": "ghcr.io/vetchium/hub-ui:${STAGING_TAG:-staging}",
+			"ports": ["8095:80"],
+			"environment": { "API_URL": "https://api-staging.vetchium.com" },
+			"depends_on": ["vm-ind1"]
+		},
+		"org-ui": {
+			"image": "ghcr.io/vetchium/org-ui:${STAGING_TAG:-staging}",
+			"ports": ["8096:80"],
+			"environment": { "API_URL": "https://api-staging.vetchium.com" },
+			"depends_on": ["vm-ind1"]
+		},
+		"admin-ui": {
+			"image": "ghcr.io/vetchium/admin-ui:${STAGING_TAG:-staging}",
+			"ports": ["8097:80"],
+			"environment": { "API_URL": "https://global-staging.vetchium.com" },
+			"depends_on": ["vm-global"]
+		}
+	},
+	"volumes": {
+		"global-db-data": {},
+		"regional-db-ind1-data": {},
+		"regional-db-usa1-data": {},
+		"regional-db-deu1-data": {}
+	}
+}
