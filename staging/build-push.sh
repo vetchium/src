@@ -31,6 +31,9 @@ build() {
   docker push "$REGISTRY/$name:$TAG"
 }
 
+# Garage bootstrap (alpine + static garage CLI).
+build garage-init        staging/garage/Dockerfile              staging/garage
+
 # Backend (Go). Order chosen so shared golang:1.25-alpine builder layers cache.
 build migrate            api-server/Dockerfile.migrate          api-server
 build regional-api-server api-server/Dockerfile.regional        .

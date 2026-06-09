@@ -8,7 +8,7 @@
 				"POSTGRES_USER": "vetchium",
 				"POSTGRES_PASSWORD": "${DB_PASSWORD}"
 			},
-			"volumes": ["global-db-data:/var/lib/postgresql/data"],
+			"volumes": ["./data/global-db:/var/lib/postgresql/data"],
 			"healthcheck": {
 				"test": ["CMD-SHELL", "pg_isready -U vetchium -d vetchium_global"],
 				"interval": "5s",
@@ -23,7 +23,7 @@
 				"POSTGRES_USER": "vetchium",
 				"POSTGRES_PASSWORD": "${DB_PASSWORD}"
 			},
-			"volumes": ["regional-db-ind1-data:/var/lib/postgresql/data"],
+			"volumes": ["./data/regional-ind1:/var/lib/postgresql/data"],
 			"healthcheck": {
 				"test": ["CMD-SHELL", "pg_isready -U vetchium -d vetchium_ind1"],
 				"interval": "5s",
@@ -38,7 +38,7 @@
 				"POSTGRES_USER": "vetchium",
 				"POSTGRES_PASSWORD": "${DB_PASSWORD}"
 			},
-			"volumes": ["regional-db-usa1-data:/var/lib/postgresql/data"],
+			"volumes": ["./data/regional-usa1:/var/lib/postgresql/data"],
 			"healthcheck": {
 				"test": ["CMD-SHELL", "pg_isready -U vetchium -d vetchium_usa1"],
 				"interval": "5s",
@@ -53,7 +53,7 @@
 				"POSTGRES_USER": "vetchium",
 				"POSTGRES_PASSWORD": "${DB_PASSWORD}"
 			},
-			"volumes": ["regional-db-deu1-data:/var/lib/postgresql/data"],
+			"volumes": ["./data/regional-deu1:/var/lib/postgresql/data"],
 			"healthcheck": {
 				"test": ["CMD-SHELL", "pg_isready -U vetchium -d vetchium_deu1"],
 				"interval": "5s",
@@ -72,82 +72,85 @@
 				"RELAY_PASSWORD": "${SMTP_SMARTHOST_PASSWORD:-}"
 			}
 		},
-		"localstack-ind1": {
-			"image": "localstack/localstack",
-			"environment": { "SERVICES": "s3", "DEBUG": "0" },
-			"healthcheck": {
-				"test": [
-					"CMD-SHELL",
-					"curl -f http://localhost:4566/_localstack/health"
-				],
-				"interval": "5s",
-				"timeout": "5s",
-				"retries": 15
-			}
+		"garage-ind1": {
+			"image": "dxflrs/garage:v1.0.1",
+			"restart": "unless-stopped",
+			"environment": {
+				"GARAGE_RPC_SECRET": "${GARAGE_RPC_SECRET:?set GARAGE_RPC_SECRET in staging/.env}"
+			},
+			"volumes": [
+				"./garage/garage.toml:/etc/garage.toml:ro",
+				"./data/garage-ind1/meta:/var/lib/garage/meta",
+				"./data/garage-ind1/data:/var/lib/garage/data"
+			]
 		},
-		"localstack-usa1": {
-			"image": "localstack/localstack",
-			"environment": { "SERVICES": "s3", "DEBUG": "0" },
-			"healthcheck": {
-				"test": [
-					"CMD-SHELL",
-					"curl -f http://localhost:4566/_localstack/health"
-				],
-				"interval": "5s",
-				"timeout": "5s",
-				"retries": 15
-			}
+		"garage-usa1": {
+			"image": "dxflrs/garage:v1.0.1",
+			"restart": "unless-stopped",
+			"environment": {
+				"GARAGE_RPC_SECRET": "${GARAGE_RPC_SECRET:?set GARAGE_RPC_SECRET in staging/.env}"
+			},
+			"volumes": [
+				"./garage/garage.toml:/etc/garage.toml:ro",
+				"./data/garage-usa1/meta:/var/lib/garage/meta",
+				"./data/garage-usa1/data:/var/lib/garage/data"
+			]
 		},
-		"localstack-deu1": {
-			"image": "localstack/localstack",
-			"environment": { "SERVICES": "s3", "DEBUG": "0" },
-			"healthcheck": {
-				"test": [
-					"CMD-SHELL",
-					"curl -f http://localhost:4566/_localstack/health"
-				],
-				"interval": "5s",
-				"timeout": "5s",
-				"retries": 15
-			}
+		"garage-deu1": {
+			"image": "dxflrs/garage:v1.0.1",
+			"restart": "unless-stopped",
+			"environment": {
+				"GARAGE_RPC_SECRET": "${GARAGE_RPC_SECRET:?set GARAGE_RPC_SECRET in staging/.env}"
+			},
+			"volumes": [
+				"./garage/garage.toml:/etc/garage.toml:ro",
+				"./data/garage-deu1/meta:/var/lib/garage/meta",
+				"./data/garage-deu1/data:/var/lib/garage/data"
+			]
 		},
-		"s3-init-ind1": {
-			"image": "amazon/aws-cli",
-			"depends_on": { "localstack-ind1": { "condition": "service_healthy" } },
-			"entrypoint": ["sh", "-c"],
-			"command": [
-				"i=0; until aws --endpoint-url=http://localstack-ind1:4566 s3 ls s3://vetchium-ind1 2>/dev/null || aws --endpoint-url=http://localstack-ind1:4566 s3 mb s3://vetchium-ind1 2>/dev/null; do i=$$((i+1)); [ $$i -ge 30 ] && exit 1; sleep 2; done && until aws --endpoint-url=http://localstack-ind1:4566 s3 ls s3://vetchium-global 2>/dev/null || aws --endpoint-url=http://localstack-ind1:4566 s3 mb s3://vetchium-global 2>/dev/null; do i=$$((i+1)); [ $$i -ge 30 ] && exit 1; sleep 2; done"
+		"garage-init-ind1": {
+			"image": "ghcr.io/vetchium/garage-init:${STAGING_TAG:-staging}",
+			"network_mode": "service:garage-ind1",
+			"depends_on": { "garage-ind1": { "condition": "service_started" } },
+			"volumes": [
+				"./garage/garage.toml:/etc/garage.toml:ro",
+				"./data/garage-ind1/meta:/var/lib/garage/meta"
 			],
 			"environment": {
-				"AWS_ACCESS_KEY_ID": "${S3_ACCESS_KEY_ID}",
-				"AWS_SECRET_ACCESS_KEY": "${S3_SECRET_ACCESS_KEY}",
-				"AWS_DEFAULT_REGION": "us-east-1"
+				"GARAGE_RPC_SECRET": "${GARAGE_RPC_SECRET:?set GARAGE_RPC_SECRET in staging/.env}",
+				"S3_ACCESS_KEY_ID": "${S3_ACCESS_KEY_ID}",
+				"S3_SECRET_ACCESS_KEY": "${S3_SECRET_ACCESS_KEY}",
+				"BUCKETS": "vetchium-ind1 vetchium-global"
 			}
 		},
-		"s3-init-usa1": {
-			"image": "amazon/aws-cli",
-			"depends_on": { "localstack-usa1": { "condition": "service_healthy" } },
-			"entrypoint": ["sh", "-c"],
-			"command": [
-				"i=0; until aws --endpoint-url=http://localstack-usa1:4566 s3 ls s3://vetchium-usa1 2>/dev/null || aws --endpoint-url=http://localstack-usa1:4566 s3 mb s3://vetchium-usa1 2>/dev/null; do i=$$((i+1)); [ $$i -ge 30 ] && exit 1; sleep 2; done"
+		"garage-init-usa1": {
+			"image": "ghcr.io/vetchium/garage-init:${STAGING_TAG:-staging}",
+			"network_mode": "service:garage-usa1",
+			"depends_on": { "garage-usa1": { "condition": "service_started" } },
+			"volumes": [
+				"./garage/garage.toml:/etc/garage.toml:ro",
+				"./data/garage-usa1/meta:/var/lib/garage/meta"
 			],
 			"environment": {
-				"AWS_ACCESS_KEY_ID": "${S3_ACCESS_KEY_ID}",
-				"AWS_SECRET_ACCESS_KEY": "${S3_SECRET_ACCESS_KEY}",
-				"AWS_DEFAULT_REGION": "us-east-1"
+				"GARAGE_RPC_SECRET": "${GARAGE_RPC_SECRET:?set GARAGE_RPC_SECRET in staging/.env}",
+				"S3_ACCESS_KEY_ID": "${S3_ACCESS_KEY_ID}",
+				"S3_SECRET_ACCESS_KEY": "${S3_SECRET_ACCESS_KEY}",
+				"BUCKETS": "vetchium-usa1"
 			}
 		},
-		"s3-init-deu1": {
-			"image": "amazon/aws-cli",
-			"depends_on": { "localstack-deu1": { "condition": "service_healthy" } },
-			"entrypoint": ["sh", "-c"],
-			"command": [
-				"i=0; until aws --endpoint-url=http://localstack-deu1:4566 s3 ls s3://vetchium-deu1 2>/dev/null || aws --endpoint-url=http://localstack-deu1:4566 s3 mb s3://vetchium-deu1 2>/dev/null; do i=$$((i+1)); [ $$i -ge 30 ] && exit 1; sleep 2; done"
+		"garage-init-deu1": {
+			"image": "ghcr.io/vetchium/garage-init:${STAGING_TAG:-staging}",
+			"network_mode": "service:garage-deu1",
+			"depends_on": { "garage-deu1": { "condition": "service_started" } },
+			"volumes": [
+				"./garage/garage.toml:/etc/garage.toml:ro",
+				"./data/garage-deu1/meta:/var/lib/garage/meta"
 			],
 			"environment": {
-				"AWS_ACCESS_KEY_ID": "${S3_ACCESS_KEY_ID}",
-				"AWS_SECRET_ACCESS_KEY": "${S3_SECRET_ACCESS_KEY}",
-				"AWS_DEFAULT_REGION": "us-east-1"
+				"GARAGE_RPC_SECRET": "${GARAGE_RPC_SECRET:?set GARAGE_RPC_SECRET in staging/.env}",
+				"S3_ACCESS_KEY_ID": "${S3_ACCESS_KEY_ID}",
+				"S3_SECRET_ACCESS_KEY": "${S3_SECRET_ACCESS_KEY}",
+				"BUCKETS": "vetchium-deu1"
 			}
 		},
 		"migrate-global": {
@@ -217,9 +220,10 @@
 			"depends_on": {
 				"bootstrap-admin": { "condition": "service_completed_successfully" },
 				"mailserver": { "condition": "service_started" },
-				"s3-init-ind1": { "condition": "service_completed_successfully" }
+				"garage-init-ind1": { "condition": "service_completed_successfully" }
 			},
 			"environment": {
+				"ENV": "STAGING",
 				"LOG_LEVEL": "INFO",
 				"GLOBAL_DB_CONN": "postgres://vetchium:${DB_PASSWORD}@global-db:5432/vetchium_global?sslmode=disable",
 				"IND1_DB_CONN": "postgres://vetchium:${DB_PASSWORD}@regional-db-ind1:5432/vetchium_ind1?sslmode=disable",
@@ -241,7 +245,7 @@
 				"ADMIN_PASSWORD_RESET_TOKEN_CLEANUP_INTERVAL": "1h",
 				"ADMIN_UI_URL": "https://admin-staging.vetchium.com",
 				"CORS_ALLOWED_ORIGINS": "https://admin-staging.vetchium.com",
-				"GLOBAL_S3_ENDPOINT": "http://localstack-ind1:4566",
+				"GLOBAL_S3_ENDPOINT": "http://garage-ind1:3900",
 				"GLOBAL_S3_BUCKET": "vetchium-global",
 				"GLOBAL_S3_REGION": "us-east-1",
 				"GLOBAL_S3_ACCESS_KEY_ID": "${S3_ACCESS_KEY_ID}",
@@ -261,9 +265,9 @@
 				"migrate-ind1": { "condition": "service_completed_successfully" },
 				"migrate-usa1": { "condition": "service_completed_successfully" },
 				"migrate-deu1": { "condition": "service_completed_successfully" },
-				"s3-init-ind1": { "condition": "service_completed_successfully" },
-				"s3-init-usa1": { "condition": "service_completed_successfully" },
-				"s3-init-deu1": { "condition": "service_completed_successfully" }
+				"garage-init-ind1": { "condition": "service_completed_successfully" },
+				"garage-init-usa1": { "condition": "service_completed_successfully" },
+				"garage-init-deu1": { "condition": "service_completed_successfully" }
 			},
 			"environment": {
 				"REGION": "ind1",
@@ -274,9 +278,9 @@
 				"REGIONAL_DB_CONN_IND1": "postgres://vetchium:${DB_PASSWORD}@regional-db-ind1:5432/vetchium_ind1?sslmode=disable",
 				"REGIONAL_DB_CONN_USA1": "postgres://vetchium:${DB_PASSWORD}@regional-db-usa1:5432/vetchium_usa1?sslmode=disable",
 				"REGIONAL_DB_CONN_DEU1": "postgres://vetchium:${DB_PASSWORD}@regional-db-deu1:5432/vetchium_deu1?sslmode=disable",
-				"S3_ENDPOINT_IND1": "http://localstack-ind1:4566",
-				"S3_ENDPOINT_USA1": "http://localstack-usa1:4566",
-				"S3_ENDPOINT_DEU1": "http://localstack-deu1:4566",
+				"S3_ENDPOINT_IND1": "http://garage-ind1:3900",
+				"S3_ENDPOINT_USA1": "http://garage-usa1:3900",
+				"S3_ENDPOINT_DEU1": "http://garage-deu1:3900",
 				"S3_BUCKET_IND1": "vetchium-ind1",
 				"S3_BUCKET_USA1": "vetchium-usa1",
 				"S3_BUCKET_DEU1": "vetchium-deu1",
@@ -289,7 +293,7 @@
 				"S3_SECRET_ACCESS_KEY_IND1": "${S3_SECRET_ACCESS_KEY}",
 				"S3_SECRET_ACCESS_KEY_USA1": "${S3_SECRET_ACCESS_KEY}",
 				"S3_SECRET_ACCESS_KEY_DEU1": "${S3_SECRET_ACCESS_KEY}",
-				"GLOBAL_S3_ENDPOINT": "http://localstack-ind1:4566",
+				"GLOBAL_S3_ENDPOINT": "http://garage-ind1:3900",
 				"GLOBAL_S3_BUCKET": "vetchium-global",
 				"GLOBAL_S3_REGION": "us-east-1",
 				"GLOBAL_S3_ACCESS_KEY_ID": "${S3_ACCESS_KEY_ID}",
@@ -313,9 +317,9 @@
 				"migrate-ind1": { "condition": "service_completed_successfully" },
 				"migrate-usa1": { "condition": "service_completed_successfully" },
 				"migrate-deu1": { "condition": "service_completed_successfully" },
-				"s3-init-ind1": { "condition": "service_completed_successfully" },
-				"s3-init-usa1": { "condition": "service_completed_successfully" },
-				"s3-init-deu1": { "condition": "service_completed_successfully" }
+				"garage-init-ind1": { "condition": "service_completed_successfully" },
+				"garage-init-usa1": { "condition": "service_completed_successfully" },
+				"garage-init-deu1": { "condition": "service_completed_successfully" }
 			},
 			"environment": {
 				"REGION": "usa1",
@@ -326,9 +330,9 @@
 				"REGIONAL_DB_CONN_IND1": "postgres://vetchium:${DB_PASSWORD}@regional-db-ind1:5432/vetchium_ind1?sslmode=disable",
 				"REGIONAL_DB_CONN_USA1": "postgres://vetchium:${DB_PASSWORD}@regional-db-usa1:5432/vetchium_usa1?sslmode=disable",
 				"REGIONAL_DB_CONN_DEU1": "postgres://vetchium:${DB_PASSWORD}@regional-db-deu1:5432/vetchium_deu1?sslmode=disable",
-				"S3_ENDPOINT_IND1": "http://localstack-ind1:4566",
-				"S3_ENDPOINT_USA1": "http://localstack-usa1:4566",
-				"S3_ENDPOINT_DEU1": "http://localstack-deu1:4566",
+				"S3_ENDPOINT_IND1": "http://garage-ind1:3900",
+				"S3_ENDPOINT_USA1": "http://garage-usa1:3900",
+				"S3_ENDPOINT_DEU1": "http://garage-deu1:3900",
 				"S3_BUCKET_IND1": "vetchium-ind1",
 				"S3_BUCKET_USA1": "vetchium-usa1",
 				"S3_BUCKET_DEU1": "vetchium-deu1",
@@ -341,7 +345,7 @@
 				"S3_SECRET_ACCESS_KEY_IND1": "${S3_SECRET_ACCESS_KEY}",
 				"S3_SECRET_ACCESS_KEY_USA1": "${S3_SECRET_ACCESS_KEY}",
 				"S3_SECRET_ACCESS_KEY_DEU1": "${S3_SECRET_ACCESS_KEY}",
-				"GLOBAL_S3_ENDPOINT": "http://localstack-ind1:4566",
+				"GLOBAL_S3_ENDPOINT": "http://garage-ind1:3900",
 				"GLOBAL_S3_BUCKET": "vetchium-global",
 				"GLOBAL_S3_REGION": "us-east-1",
 				"GLOBAL_S3_ACCESS_KEY_ID": "${S3_ACCESS_KEY_ID}",
@@ -365,9 +369,9 @@
 				"migrate-ind1": { "condition": "service_completed_successfully" },
 				"migrate-usa1": { "condition": "service_completed_successfully" },
 				"migrate-deu1": { "condition": "service_completed_successfully" },
-				"s3-init-ind1": { "condition": "service_completed_successfully" },
-				"s3-init-usa1": { "condition": "service_completed_successfully" },
-				"s3-init-deu1": { "condition": "service_completed_successfully" }
+				"garage-init-ind1": { "condition": "service_completed_successfully" },
+				"garage-init-usa1": { "condition": "service_completed_successfully" },
+				"garage-init-deu1": { "condition": "service_completed_successfully" }
 			},
 			"environment": {
 				"REGION": "deu1",
@@ -378,9 +382,9 @@
 				"REGIONAL_DB_CONN_IND1": "postgres://vetchium:${DB_PASSWORD}@regional-db-ind1:5432/vetchium_ind1?sslmode=disable",
 				"REGIONAL_DB_CONN_USA1": "postgres://vetchium:${DB_PASSWORD}@regional-db-usa1:5432/vetchium_usa1?sslmode=disable",
 				"REGIONAL_DB_CONN_DEU1": "postgres://vetchium:${DB_PASSWORD}@regional-db-deu1:5432/vetchium_deu1?sslmode=disable",
-				"S3_ENDPOINT_IND1": "http://localstack-ind1:4566",
-				"S3_ENDPOINT_USA1": "http://localstack-usa1:4566",
-				"S3_ENDPOINT_DEU1": "http://localstack-deu1:4566",
+				"S3_ENDPOINT_IND1": "http://garage-ind1:3900",
+				"S3_ENDPOINT_USA1": "http://garage-usa1:3900",
+				"S3_ENDPOINT_DEU1": "http://garage-deu1:3900",
 				"S3_BUCKET_IND1": "vetchium-ind1",
 				"S3_BUCKET_USA1": "vetchium-usa1",
 				"S3_BUCKET_DEU1": "vetchium-deu1",
@@ -393,7 +397,7 @@
 				"S3_SECRET_ACCESS_KEY_IND1": "${S3_SECRET_ACCESS_KEY}",
 				"S3_SECRET_ACCESS_KEY_USA1": "${S3_SECRET_ACCESS_KEY}",
 				"S3_SECRET_ACCESS_KEY_DEU1": "${S3_SECRET_ACCESS_KEY}",
-				"GLOBAL_S3_ENDPOINT": "http://localstack-ind1:4566",
+				"GLOBAL_S3_ENDPOINT": "http://garage-ind1:3900",
 				"GLOBAL_S3_BUCKET": "vetchium-global",
 				"GLOBAL_S3_REGION": "us-east-1",
 				"GLOBAL_S3_ACCESS_KEY_ID": "${S3_ACCESS_KEY_ID}",
@@ -536,11 +540,5 @@
 			"environment": { "API_URL": "https://global-staging.vetchium.com" },
 			"depends_on": ["vm-global"]
 		}
-	},
-	"volumes": {
-		"global-db-data": {},
-		"regional-db-ind1-data": {},
-		"regional-db-usa1-data": {},
-		"regional-db-deu1-data": {}
 	}
 }
