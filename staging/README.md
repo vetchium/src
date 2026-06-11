@@ -2,17 +2,18 @@
 
 Run the whole platform on one machine, reachable over TLS on real subdomains via a
 laptop tunnel. Unlike the dev stack, it's production-like: images are pulled from
-GHCR, one real admin is bootstrapped (no dev-seed), email is delivered by an
-in-stack SMTP server (no mailpit), and the UIs are static gzipped builds. Everything lives in this
-`staging/` directory.
+GHCR, one real admin is bootstrapped (no dev-seed), and the UIs are static gzipped
+builds. Email is captured by an in-stack Mailpit (web UI on host port 8025) rather
+than delivered outbound — direct SMTP to Gmail through the Cloudflare tunnel is not
+reliable from this host. Everything lives in this `staging/` directory.
 
 ## 1. Configure
 
 ```bash
 cp staging/.env.example staging/.env
-# fill the secrets: STAGING_ADMIN_*, DB_PASSWORD, S3_*. Email is delivered by an
-# internal SMTP server, so nothing is required for it to work — set SMTP_SMARTHOST_*
-# only to relay through an upstream (direct-to-MX from a laptop is often rejected).
+# fill the secrets: STAGING_ADMIN_*, DB_PASSWORD, S3_*, GARAGE_RPC_SECRET. Email is
+# captured by an in-stack Mailpit (web UI on host port 8025); nothing is delivered
+# outbound, so no mail config is needed.
 ```
 
 ## 2. Build & publish the images (manual — there is no CI)
@@ -42,8 +43,8 @@ staging/cloudflared/run.sh    # start the tunnel (foreground; Ctrl-C to stop)
 ```
 
 Open `https://hub-staging.vetchium.com` (also `org-staging`, `admin-staging`). Log
-in as `STAGING_ADMIN_EMAIL`; the TFA code is emailed via the in-stack mail server. New hub/org
-users sign up normally.
+in as `STAGING_ADMIN_EMAIL`; the TFA code is captured by Mailpit — read it at the
+Mailpit web UI on host port 8025. New hub/org users sign up normally.
 
 ## Stop / reset
 

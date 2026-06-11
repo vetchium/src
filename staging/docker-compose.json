@@ -1,5 +1,5 @@
 {
-	"x-comment": "Production-like staging stack — 4-VM topology on one host. All app images are PULLED from ghcr.io/vetchium/*:${STAGING_TAG} (no build:). No dev-seed and no mailpit: one superadmin is bootstrapped from STAGING_ADMIN_*, and a private 'mailserver' service (Exim) delivers email outbound (direct-to-MX, or via the SMTP_SMARTHOST_* upstream in staging/.env). All secrets (DB_PASSWORD, S3 keys, admin + smarthost creds) come from staging/.env. UIs are static nginx builds (gzip). The single dev api-lb is split into four per-VM nginx front doors. A Cloudflare tunnel (cloudflared/config.yml) maps *-staging.vetchium.com to host ports 8091-8097. Run via up.sh/down.sh (which load staging/.env). See staging/README.md.",
+	"x-comment": "Production-like staging stack — 4-VM topology on one host. All app images are PULLED from ghcr.io/vetchium/*:${STAGING_TAG} (no build:). No dev-seed: one superadmin is bootstrapped from STAGING_ADMIN_*. Email is captured by a 'mailpit' service (SMTP on 1025, web UI on host port 8025) instead of being delivered outbound — direct SMTP to Gmail through the Cloudflare tunnel is not reliable from this host. Object storage is a single-node Garage instance per region (garage-ind1/usa1/deu1). All secrets (DB_PASSWORD, S3 keys, GARAGE_RPC_SECRET, admin creds) come from staging/.env. UIs are static nginx builds (gzip). The single dev api-lb is split into four per-VM nginx front doors. A Cloudflare tunnel (cloudflared/config.yml) maps *-staging.vetchium.com to host ports 8091-8097. Run via up.sh/down.sh (which load staging/.env). See staging/README.md.",
 	"services": {
 		"global-db": {
 			"image": "postgres:17-alpine",
@@ -61,15 +61,13 @@
 				"retries": 10
 			}
 		},
-		"mailserver": {
-			"image": "bytemark/smtp",
+		"mailpit": {
+			"image": "axllent/mailpit:latest",
 			"restart": "unless-stopped",
+			"ports": ["8025:8025", "1025:1025"],
 			"environment": {
-				"RELAY_NETWORKS": ":0.0.0.0/0",
-				"RELAY_HOST": "${SMTP_SMARTHOST_ADDRESS:-}",
-				"RELAY_PORT": "${SMTP_SMARTHOST_PORT:-587}",
-				"RELAY_USERNAME": "${SMTP_SMARTHOST_USER:-}",
-				"RELAY_PASSWORD": "${SMTP_SMARTHOST_PASSWORD:-}"
+				"MP_SMTP_AUTH_ACCEPT_ANY": "true",
+				"MP_SMTP_AUTH_ALLOW_INSECURE": "true"
 			}
 		},
 		"garage-ind1": {
@@ -219,7 +217,7 @@
 			"image": "ghcr.io/vetchium/global-service:${STAGING_TAG:-staging}",
 			"depends_on": {
 				"bootstrap-admin": { "condition": "service_completed_successfully" },
-				"mailserver": { "condition": "service_started" },
+				"mailpit": { "condition": "service_started" },
 				"garage-init-ind1": { "condition": "service_completed_successfully" }
 			},
 			"environment": {
@@ -233,8 +231,8 @@
 				"ADMIN_SESSION_CLEANUP_INTERVAL": "1m",
 				"HUB_SIGNUP_TOKEN_CLEANUP_INTERVAL": "1m",
 				"ORG_SIGNUP_TOKEN_CLEANUP_INTERVAL": "1m",
-				"SMTP_HOST": "mailserver",
-				"SMTP_PORT": "25",
+				"SMTP_HOST": "mailpit",
+				"SMTP_PORT": "1025",
 				"SMTP_FROM_ADDRESS": "${SMTP_FROM_ADDRESS:-noreply@vetchium.com}",
 				"SMTP_FROM_NAME": "${SMTP_FROM_NAME:-Vetchium}",
 				"EMAIL_WORKER_POLL_INTERVAL": "10s",
@@ -423,8 +421,8 @@
 				"REGION": "ind1",
 				"LOG_LEVEL": "INFO",
 				"REGIONAL_DB_CONN": "postgres://vetchium:${DB_PASSWORD}@regional-db-ind1:5432/vetchium_ind1?sslmode=disable",
-				"SMTP_HOST": "mailserver",
-				"SMTP_PORT": "25",
+				"SMTP_HOST": "mailpit",
+				"SMTP_PORT": "1025",
 				"SMTP_FROM_ADDRESS": "${SMTP_FROM_ADDRESS:-noreply@vetchium.com}",
 				"SMTP_FROM_NAME": "${SMTP_FROM_NAME:-Vetchium}",
 				"EMAIL_WORKER_POLL_INTERVAL": "10s",
@@ -441,8 +439,8 @@
 				"REGION": "usa1",
 				"LOG_LEVEL": "INFO",
 				"REGIONAL_DB_CONN": "postgres://vetchium:${DB_PASSWORD}@regional-db-usa1:5432/vetchium_usa1?sslmode=disable",
-				"SMTP_HOST": "mailserver",
-				"SMTP_PORT": "25",
+				"SMTP_HOST": "mailpit",
+				"SMTP_PORT": "1025",
 				"SMTP_FROM_ADDRESS": "${SMTP_FROM_ADDRESS:-noreply@vetchium.com}",
 				"SMTP_FROM_NAME": "${SMTP_FROM_NAME:-Vetchium}",
 				"EMAIL_WORKER_POLL_INTERVAL": "10s",
@@ -459,8 +457,8 @@
 				"REGION": "deu1",
 				"LOG_LEVEL": "INFO",
 				"REGIONAL_DB_CONN": "postgres://vetchium:${DB_PASSWORD}@regional-db-deu1:5432/vetchium_deu1?sslmode=disable",
-				"SMTP_HOST": "mailserver",
-				"SMTP_PORT": "25",
+				"SMTP_HOST": "mailpit",
+				"SMTP_PORT": "1025",
 				"SMTP_FROM_ADDRESS": "${SMTP_FROM_ADDRESS:-noreply@vetchium.com}",
 				"SMTP_FROM_NAME": "${SMTP_FROM_NAME:-Vetchium}",
 				"EMAIL_WORKER_POLL_INTERVAL": "10s",

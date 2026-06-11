@@ -26,6 +26,7 @@ cat <<'EOF'
 Staging stack is starting. Host ports (fronted by the Cloudflare tunnel):
   8091 vm-global   8092 vm-ind1   8093 vm-usa1   8094 vm-deu1
   8095 hub-ui      8096 org-ui    8097 admin-ui
+  8025 mailpit web UI (captured email; not tunneled)
 
 Next: start the tunnel ->  cloudflared/run.sh   (one-time setup: cloudflared/setup-tunnel.sh)
 Then open https://hub-staging.vetchium.com / org-staging / admin-staging .vetchium.com
