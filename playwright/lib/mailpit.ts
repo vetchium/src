@@ -25,10 +25,17 @@ export interface WaitForEmailConfig {
 	backoffMultiplier: number;
 }
 
+// Poll mailpit tightly and across the whole window rather than with a widening
+// backoff. A login's TFA token can expire in as little as 15s (CI compose sets
+// ORG_TFA_TOKEN_EXPIRY=15s), and under heavy parallel load the per-region email
+// worker can take several seconds to deliver. With a 1s→2x backoff the checks
+// land at t=0,1,3,7,15s, so a code that arrives at ~t=8-14s isn't read until the
+// token has already expired → verify-TFA 401. These values keep checking at ≤1s
+// granularity out to ~17s so the code is read (and used) well within the window.
 const DEFAULT_WAIT_CONFIG: WaitForEmailConfig = {
-	maxRetries: 5,
-	initialDelayMs: 1000,
-	maxDelayMs: 15000,
+	maxRetries: 20,
+	initialDelayMs: 250,
+	maxDelayMs: 1000,
 	backoffMultiplier: 2,
 };
 
