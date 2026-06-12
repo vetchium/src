@@ -252,6 +252,9 @@
 			},
 			"command": [
 				"postgres://vetchium:vetchium_dev@global-db:5432/vetchium_global?sslmode=disable",
+				"-v",
+				"ON_ERROR_STOP=1",
+				"--single-transaction",
 				"-f",
 				"/seed/global.sql"
 			]
@@ -268,6 +271,9 @@
 			},
 			"command": [
 				"postgres://vetchium:vetchium_dev@regional-db-ind1:5432/vetchium_ind1?sslmode=disable",
+				"-v",
+				"ON_ERROR_STOP=1",
+				"--single-transaction",
 				"-f",
 				"/seed/regional.sql"
 			]
@@ -284,6 +290,9 @@
 			},
 			"command": [
 				"postgres://vetchium:vetchium_dev@regional-db-usa1:5432/vetchium_usa1?sslmode=disable",
+				"-v",
+				"ON_ERROR_STOP=1",
+				"--single-transaction",
 				"-f",
 				"/seed/regional.sql"
 			]
@@ -300,6 +309,9 @@
 			},
 			"command": [
 				"postgres://vetchium:vetchium_dev@regional-db-deu1:5432/vetchium_deu1?sslmode=disable",
+				"-v",
+				"ON_ERROR_STOP=1",
+				"--single-transaction",
 				"-f",
 				"/seed/regional.sql"
 			]

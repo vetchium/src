@@ -22,11 +22,21 @@ WHERE
     (ia.email_address = 'admin2@vetchium.com' AND r.role_name = 'admin:manage_users')
 ON CONFLICT DO NOTHING;
 
--- Marketplace capabilities
-INSERT INTO marketplace_capabilities (capability_slug, display_name, description, provider_enabled, consumer_enabled, enrollment_approval, offer_review, subscription_approval, contract_required, payment_required, status)
+-- Marketplace capabilities (capability_id + status; human-readable text lives in
+-- marketplace_capability_translations). 'staffing' is already seeded by the migration;
+-- ON CONFLICT keeps this idempotent.
+INSERT INTO marketplace_capabilities (capability_id, status)
 VALUES
-    ('staffing', 'Staffing Services', 'Hire professional staff for your organization through our network of providers.', true, true, 'manual', 'manual', 'provider', false, false, 'active'),
-    ('talent-sourcing', 'Talent Sourcing', 'Find the best talent for your open positions using advanced sourcing tools and services.', true, true, 'manual', 'manual', 'direct', false, false, 'active'),
-    ('background-checks', 'Background Checks', 'Verify the credentials and history of your candidates with reliable background check providers.', true, true, 'manual', 'manual', 'direct', false, false, 'active')
-ON CONFLICT (capability_slug) DO UPDATE
+    ('staffing', 'active'),
+    ('talent-sourcing', 'active'),
+    ('background-checks', 'active')
+ON CONFLICT (capability_id) DO UPDATE
 SET status = 'active', updated_at = NOW();
+
+INSERT INTO marketplace_capability_translations (capability_id, locale, display_name, description)
+VALUES
+    ('staffing', 'en-US', 'Staffing Services', 'Hire professional staff for your organization through our network of providers.'),
+    ('talent-sourcing', 'en-US', 'Talent Sourcing', 'Find the best talent for your open positions using advanced sourcing tools and services.'),
+    ('background-checks', 'en-US', 'Background Checks', 'Verify the credentials and history of your candidates with reliable background check providers.')
+ON CONFLICT (capability_id, locale) DO UPDATE
+SET display_name = EXCLUDED.display_name, description = EXCLUDED.description;
