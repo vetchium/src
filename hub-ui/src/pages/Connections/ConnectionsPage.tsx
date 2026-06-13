@@ -1,10 +1,5 @@
+import { ArrowLeftOutlined, TeamOutlined } from "@ant-design/icons";
 import {
-	ArrowLeftOutlined,
-	TeamOutlined,
-	UserOutlined,
-} from "@ant-design/icons";
-import {
-	Avatar,
 	Badge,
 	Button,
 	Input,
@@ -28,6 +23,7 @@ import type {
 	PendingRequest,
 	SearchConnectionsRequest,
 } from "vetchium-specs/hub/connections";
+import { ProfileAvatar } from "../../components/profile/ProfileAvatar";
 import { getApiBaseUrl } from "../../config";
 import { useAuth } from "../../hooks/useAuth";
 import { formatDateTime } from "../../utils/dateFormat";
@@ -65,20 +61,12 @@ function PersonRow({
 			}}
 		>
 			<div style={{ flexShrink: 0 }}>
-				{hasPicture ? (
-					<img
-						src={`/hub/profile-picture/${handle}`}
-						alt={displayName}
-						style={{
-							width: 52,
-							height: 52,
-							borderRadius: "50%",
-							objectFit: "cover",
-						}}
-					/>
-				) : (
-					<Avatar size={52} icon={<UserOutlined />} />
-				)}
+				<ProfileAvatar
+					handle={handle}
+					hasPicture={!!hasPicture}
+					size={52}
+					alt={displayName}
+				/>
 			</div>
 			<div style={{ flex: 1, minWidth: 0 }}>
 				<a

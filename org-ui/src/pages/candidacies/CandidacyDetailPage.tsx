@@ -19,6 +19,7 @@ import {
 	CalendarOutlined,
 	DollarOutlined,
 	DownloadOutlined,
+	EyeOutlined,
 } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import type {
@@ -161,24 +162,51 @@ const CandidacyDetailPage: React.FC = () => {
 		}
 	};
 
-	// The offer letter is served by an authenticated API endpoint, so fetch it
-	// with the bearer token and open the resulting blob (a plain href cannot send
-	// the Authorization header).
-	const downloadOfferLetter = async (path: string) => {
-		if (!sessionToken) return;
+	// The offer letter is served by an authenticated API endpoint; fetch it with
+	// the bearer token and return an object URL (a plain href cannot send the
+	// Authorization header).
+	const fetchOfferLetterBlob = async (
+		path: string
+	): Promise<{ url: string; ext: string } | null> => {
+		if (!sessionToken) return null;
+		const apiBaseUrl = await getApiBaseUrl();
+		const res = await fetch(`${apiBaseUrl}${path}`, {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+		});
+		if (!res.ok) return null;
+		const blob = await res.blob();
+		const ext = blob.type.includes("markdown") ? "md" : "pdf";
+		return { url: URL.createObjectURL(blob), ext };
+	};
+
+	const previewOfferLetter = async (path: string) => {
 		try {
-			const apiBaseUrl = await getApiBaseUrl();
-			const res = await fetch(`${apiBaseUrl}${path}`, {
-				headers: { Authorization: `Bearer ${sessionToken}` },
-			});
-			if (!res.ok) {
+			const result = await fetchOfferLetterBlob(path);
+			if (!result) {
 				message.error(t("offerDownloadFailed"));
 				return;
 			}
-			const blob = await res.blob();
-			const objectUrl = URL.createObjectURL(blob);
-			window.open(objectUrl, "_blank", "noopener,noreferrer");
-			setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+			window.open(result.url, "_blank", "noopener,noreferrer");
+			setTimeout(() => URL.revokeObjectURL(result.url), 60000);
+		} catch {
+			message.error(t("offerDownloadFailed"));
+		}
+	};
+
+	const downloadOfferLetter = async (path: string) => {
+		try {
+			const result = await fetchOfferLetterBlob(path);
+			if (!result) {
+				message.error(t("offerDownloadFailed"));
+				return;
+			}
+			const link = document.createElement("a");
+			link.href = result.url;
+			link.download = `offer-letter.${result.ext}`;
+			document.body.appendChild(link);
+			link.click();
+			link.remove();
+			setTimeout(() => URL.revokeObjectURL(result.url), 60000);
 		} catch {
 			message.error(t("offerDownloadFailed"));
 		}
@@ -625,18 +653,31 @@ const CandidacyDetailPage: React.FC = () => {
 							]}
 						/>
 						{candidacy.offer.offer_letter_download_url && (
-							<Button
-								type="link"
-								icon={<DownloadOutlined />}
-								style={{ paddingLeft: 0, marginTop: 12 }}
-								onClick={() =>
-									downloadOfferLetter(
-										candidacy.offer!.offer_letter_download_url
-									)
-								}
-							>
-								{t("downloadOfferLetter")}
-							</Button>
+							<Space style={{ marginTop: 12 }} wrap>
+								<Button
+									type="link"
+									icon={<EyeOutlined />}
+									style={{ paddingLeft: 0 }}
+									onClick={() =>
+										previewOfferLetter(
+											candidacy.offer!.offer_letter_download_url
+										)
+									}
+								>
+									{t("previewOfferLetter")}
+								</Button>
+								<Button
+									type="link"
+									icon={<DownloadOutlined />}
+									onClick={() =>
+										downloadOfferLetter(
+											candidacy.offer!.offer_letter_download_url
+										)
+									}
+								>
+									{t("downloadOfferLetter")}
+								</Button>
+							</Space>
 						)}
 					</>
 				) : (

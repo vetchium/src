@@ -1,9 +1,9 @@
-import { UserOutlined } from "@ant-design/icons";
-import { Avatar, Button, Spin, theme, Typography } from "antd";
+import { Button, Spin, theme, Typography } from "antd";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useParams } from "react-router-dom";
 import { ProfileActionsPanel } from "../../components/profile/ProfileActionsPanel";
+import { ProfileAvatar } from "../../components/profile/ProfileAvatar";
 import { AboutSection } from "../../components/profile/sections/AboutSection";
 import { WorkHistorySection } from "../../components/profile/sections/WorkHistorySection";
 import { getApiBaseUrl } from "../../config";
@@ -212,20 +212,13 @@ export function ProfilePage() {
 			>
 				{/* Avatar */}
 				<div style={{ flexShrink: 0 }}>
-					{profile.profile_picture_url ? (
-						<img
-							src={profile.profile_picture_url}
-							alt={displayName}
-							style={{
-								width: 96,
-								height: 96,
-								borderRadius: "50%",
-								objectFit: "cover",
-							}}
-						/>
-					) : (
-						<Avatar size={96} icon={<UserOutlined />} />
-					)}
+					<ProfileAvatar
+						handle={profile.handle}
+						hasPicture={!!profile.profile_picture_url}
+						size={96}
+						alt={displayName}
+						preview
+					/>
 				</div>
 
 				{/* Identity and Actions */}

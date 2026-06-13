@@ -5,11 +5,9 @@ import {
 	EnvironmentOutlined,
 	PlusOutlined,
 	UploadOutlined,
-	UserOutlined,
 } from "@ant-design/icons";
 import {
 	Alert,
-	Avatar,
 	Button,
 	Card,
 	Divider,
@@ -31,6 +29,7 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
+import { ProfileAvatar } from "../../components/profile/ProfileAvatar";
 import { getApiBaseUrl } from "../../config";
 import { useAuth } from "../../hooks/useAuth";
 import { COUNTRIES } from "../../lib/countries";
@@ -665,20 +664,13 @@ export function MyProfilePage() {
 					// Read mode
 					<Flex gap={20} align="flex-start" wrap="wrap">
 						<div style={{ flexShrink: 0 }}>
-							{profile?.has_profile_picture ? (
-								<img
-									src={`/hub/profile-picture/${profile.handle}`}
-									alt="Profile"
-									style={{
-										width: 96,
-										height: 96,
-										borderRadius: "50%",
-										objectFit: "cover",
-									}}
-								/>
-							) : (
-								<Avatar size={96} icon={<UserOutlined />} />
-							)}
+							<ProfileAvatar
+								handle={profile?.handle ?? ""}
+								hasPicture={profile?.has_profile_picture ?? false}
+								size={96}
+								alt="Profile"
+								preview
+							/>
 						</div>
 						<div style={{ flex: 1, minWidth: 0 }}>
 							<Title level={3} style={{ margin: 0, marginBottom: 2 }}>
@@ -732,25 +724,14 @@ export function MyProfilePage() {
 					<Spin spinning={identitySaving}>
 						{/* Picture controls */}
 						<Flex gap={16} align="center" style={{ marginBottom: 16 }}>
-							{profile?.has_profile_picture ? (
-								<img
-									src={`/hub/profile-picture/${profile.handle}`}
-									alt="Profile"
-									style={{
-										width: 72,
-										height: 72,
-										borderRadius: "50%",
-										objectFit: "cover",
-										flexShrink: 0,
-									}}
-								/>
-							) : (
-								<Avatar
+							<div style={{ flexShrink: 0 }}>
+								<ProfileAvatar
+									handle={profile?.handle ?? ""}
+									hasPicture={profile?.has_profile_picture ?? false}
 									size={72}
-									icon={<UserOutlined />}
-									style={{ flexShrink: 0 }}
+									alt="Profile"
 								/>
-							)}
+							</div>
 							<Space wrap>
 								<Button
 									icon={<UploadOutlined />}
