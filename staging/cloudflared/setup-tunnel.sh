@@ -16,8 +16,8 @@ TUNNEL="vetchium-staging"
 # NOT *.staging.vetchium.com). Two-level wildcard TLS would need paid ACM.
 DOMAIN="vetchium.com"
 SUFFIX="staging"
-HOSTS=(global in us de api hub org admin)
-PORTS=(8091 8092 8093 8094 8092 8095 8096 8097)
+HOSTS=(global in us de api hub org admin mail)
+PORTS=(8091 8092 8093 8094 8092 8095 8096 8097 8025)
 
 CFG_DIR="$(cd "$(dirname "$0")" && pwd)"
 

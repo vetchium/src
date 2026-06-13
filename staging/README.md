@@ -1,11 +1,23 @@
-# Staging
+# Staging Deployment (Cloudflare Tunnel)
 
-Run the whole platform on one machine, reachable over TLS on real subdomains via a
-laptop tunnel. Unlike the dev stack, it's production-like: images are pulled from
-GHCR, one real admin is bootstrapped (no dev-seed), and the UIs are static gzipped
-builds. Email is captured by an in-stack Mailpit (web UI on host port 8025) rather
-than delivered outbound — direct SMTP to Gmail through the Cloudflare tunnel is not
-reliable from this host. Everything lives in this `staging/` directory.
+Run the **whole platform on one machine**, reachable over real TLS subdomains via a
+laptop [Cloudflare tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/).
+Unlike the dev stack, it's production-like: images are pulled from GHCR (built
+manually — there is no CI), one real admin is bootstrapped (no dev-seed), and the
+UIs are static gzipped nginx builds. Email is captured by an in-stack Mailpit (web
+UI on host port 8025) rather than delivered outbound — direct SMTP to Gmail through
+the Cloudflare tunnel is not reliable from this host. Everything lives in this
+`staging/` directory, with its own `docker-compose.json`.
+
+Each region is fronted by its own nginx "VM" container (`vm-global`, `vm-ind1`,
+`vm-usa1`, `vm-deu1`) published on a host port. The host-installed `cloudflared`
+daemon maps each public hostname to one of those ports, so the request path is:
+
+```
+browser → Cloudflare edge (TLS) → cloudflared (host) → nginx VM → app
+```
+
+which is identical to production minus the (disposable) Cloudflare edge.
 
 ## 1. Configure
 
@@ -43,22 +55,37 @@ staging/cloudflared/run.sh    # start the tunnel (foreground; Ctrl-C to stop)
 ```
 
 Open `https://hub-staging.vetchium.com` (also `org-staging`, `admin-staging`). Log
-in as `STAGING_ADMIN_EMAIL`; the TFA code is captured by Mailpit — read it at the
-Mailpit web UI on host port 8025. New hub/org users sign up normally.
+in as `STAGING_ADMIN_EMAIL`; the TFA code is captured by Mailpit — read it at
+`https://mail-staging.vetchium.com` (or locally on host port 8025). New hub/org
+users sign up normally and pick up their signup/TFA codes from the same Mailpit.
 
 ## Stop / reset
 
 ```bash
 staging/down.sh               # stop, keep DB data
-staging/down.sh --wipe        # stop and wipe the DBs
-```
-
-## Hostnames → local ports (for whichever edge you use)
-
-```
-hub-staging    8095      api-staging     8092 (-> ind1)
-org-staging    8096      global-staging  8091
-admin-staging  8097      in/us/de-staging  8092 / 8093 / 8094
+staging/down.sh --wipe        # stop and wipe the DB volumes
 ```
 
 To update: re-run `staging/build-push.sh`, then `staging/up.sh`.
+
+## Public hostname → host-port map
+
+Single-level `<name>-staging.vetchium.com` subdomains are used so they fall under
+Cloudflare's free Universal SSL (which covers `vetchium.com` + `*.vetchium.com`, but
+not `*.staging.vetchium.com`).
+
+| Hostname                      | Host port | Target                                  |
+| ----------------------------- | --------- | --------------------------------------- |
+| `hub-staging.vetchium.com`    | 8095      | hub-ui                                  |
+| `org-staging.vetchium.com`    | 8096      | org-ui                                  |
+| `admin-staging.vetchium.com`  | 8097      | admin-ui                                |
+| `api-staging.vetchium.com`    | 8092      | "nearest regional VM" stand-in (→ ind1) |
+| `global-staging.vetchium.com` | 8091      | vm-global (admin + global API)          |
+| `in-staging.vetchium.com`     | 8092      | vm-ind1                                 |
+| `us-staging.vetchium.com`     | 8093      | vm-usa1                                 |
+| `de-staging.vetchium.com`     | 8094      | vm-deu1                                 |
+| `mail-staging.vetchium.com`   | 8025      | mailpit web UI (captured email)         |
+
+Mailpit's web UI is tunneled at `https://mail-staging.vetchium.com` (also on host
+port 8025) so testers can read TFA / signup codes — outbound email is captured, not
+delivered.

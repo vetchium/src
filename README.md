@@ -8,8 +8,10 @@ A FOSS platform that is globally distributed and for Professional Networking, Jo
 - **3 Regional Databases**: Store PII and mutable user data (IND1, USA1, DEU1)
 - **3 Regional API Servers**: Handle HTTP requests, one per region
 - **3 Regional Workers**: Run background cleanup jobs per region
-- **1 Global Service**: Runs background cleanup jobs for the global database
+- **1 Global Service**: Serves the global + admin API and runs global background cleanup jobs
+- **Object Storage**: One single-node [Garage](https://garagehq.deuxfleurs.fr/) (S3-compatible) instance per region, plus a global bucket on the IND1 node (tag icons and other global assets)
 - **Load Balancer**: nginx distributing traffic across regional API servers
+- **Mailpit**: In-stack SMTP sink — outbound email is captured, not delivered (web UI on port 8025)
 - **Hub UI**: React application for professionals
 - **Org UI**: React application for employers (organizations)
 - **Admin UI**: React application for platform administration
@@ -109,6 +111,18 @@ The CI stack uses short token durations to enable expiry scenario tests:
 | `docker-compose-backend.json` | Backend only for local frontend development            |
 | `docker-compose-ci.json`      | CI/testing with short token durations for expiry tests |
 
+The `staging/` directory has its own `docker-compose.json` for the production-like
+staging stack — see [Staging Deployment](#staging-deployment) below.
+
+## Staging Deployment
+
+The `staging/` directory runs the **whole platform on one machine**, reachable over
+real TLS subdomains through a Cloudflare tunnel (or any edge you point at it).
+
+See [`staging/README.md`](./staging/README.md) for the full setup, run, and
+hostname→port reference, and [`specs/production-deployment.md`](./specs/production-deployment.md)
+for FOSS edge alternatives (self-hosted frp/rathole, direct IPv6).
+
 ## Test / Seed Users
 
 All seed users have password: `Password123$`
@@ -117,30 +131,37 @@ Hub users and org superadmins are created via APIs by the `seed-users` docker-co
 service (which calls the API and reads tokens from Mailpit). The SQL seed only covers
 admin users and marketplace capabilities.
 
-**Hub Users** — log in at http://localhost:3000 (primary email `@hub.example`; house-domain
-emails are their work emails added separately via the profile):
+**Hub Users** — log in at http://localhost:3000:
 
-| Email                            | Character          | House      | Region |
-| -------------------------------- | ------------------ | ---------- | ------ |
-| `harry.potter@hub.example`       | Harry Potter       | Gryffindor | ind1   |
-| `hermione.granger@hub.example`   | Hermione Granger   | Gryffindor | usa1   |
-| `ron.weasley@hub.example`        | Ron Weasley        | Gryffindor | deu1   |
-| `neville.longbottom@hub.example` | Neville Longbottom | Gryffindor | ind1   |
-| `draco.malfoy@hub.example`       | Draco Malfoy       | Slytherin  | usa1   |
-| `pansy.parkinson@hub.example`    | Pansy Parkinson    | Slytherin  | deu1   |
-| `luna.lovegood@hub.example`      | Luna Lovegood      | Ravenclaw  | deu1   |
-| `cho.chang@hub.example`          | Cho Chang          | Ravenclaw  | ind1   |
-| `cedric.diggory@hub.example`     | Cedric Diggory     | Hufflepuff | usa1   |
-| `hannah.abbott@hub.example`      | Hannah Abbott      | Hufflepuff | ind1   |
+| Email                  | Character          | House      | Region |
+| ---------------------- | ------------------ | ---------- | ------ |
+| `harry@hub.example`    | Harry Potter       | Gryffindor | ind1   |
+| `hermione@hub.example` | Hermione Granger   | Gryffindor | usa1   |
+| `ron@hub.example`      | Ron Weasley        | Gryffindor | deu1   |
+| `neville@hub.example`  | Neville Longbottom | Gryffindor | ind1   |
+| `draco@hub.example`    | Draco Malfoy       | Slytherin  | usa1   |
+| `pansy@hub.example`    | Pansy Parkinson    | Slytherin  | deu1   |
+| `luna@hub.example`     | Luna Lovegood      | Ravenclaw  | deu1   |
+| `cho@hub.example`      | Cho Chang          | Ravenclaw  | ind1   |
+| `cedric@hub.example`   | Cedric Diggory     | Hufflepuff | usa1   |
+| `hannah@hub.example`   | Hannah Abbott      | Hufflepuff | ind1   |
 
 **Org Superadmins** — log in at http://localhost:3002 (one per house company):
 
-| Email                               | Company domain       | Region |
-| ----------------------------------- | -------------------- | ------ |
-| `harry.potter@gryffindor.example`   | `gryffindor.example` | ind1   |
-| `draco.malfoy@slytherin.example`    | `slytherin.example`  | usa1   |
-| `luna.lovegood@ravenclaw.example`   | `ravenclaw.example`  | deu1   |
-| `cedric.diggory@hufflepuff.example` | `hufflepuff.example` | ind1   |
+| Email                      | Company domain       | Region |
+| -------------------------- | -------------------- | ------ |
+| `admin@gryffindor.example` | `gryffindor.example` | ind1   |
+| `admin@slytherin.example`  | `slytherin.example`  | usa1   |
+| `admin@ravenclaw.example`  | `ravenclaw.example`  | deu1   |
+| `admin@hufflepuff.example` | `hufflepuff.example` | ind1   |
+
+**Gryffindor org members** (`gryffindor.example`, log in at http://localhost:3002) — invited by the seed in addition to the superadmin:
+
+| Email                         | Character        | Roles                                                                        |
+| ----------------------------- | ---------------- | ---------------------------------------------------------------------------- |
+| `harry@gryffindor.example`    | Harry Potter     | `manage_openings`, `manage_applications`, `view_users/addresses/costcenters` |
+| `hermione@gryffindor.example` | Hermione Granger | `view_openings`, `view_applications`                                         |
+| `ron@gryffindor.example`      | Ron Weasley      | `view_openings`, `view_applications`                                         |
 
 **Admin Users** — log in at http://localhost:3001:
 

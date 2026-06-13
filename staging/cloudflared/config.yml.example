@@ -38,5 +38,9 @@ ingress:
   - hostname: admin-staging.vetchium.com # admin-ui (API -> global.staging)
     service: http://localhost:8097
 
+  # ── Mail (captured email — read TFA / signup codes when testing) ──
+  - hostname: mail-staging.vetchium.com # mailpit web UI
+    service: http://localhost:8025
+
   # ── Catch-all ──
   - service: http_status:404
