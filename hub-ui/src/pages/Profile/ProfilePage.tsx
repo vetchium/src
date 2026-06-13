@@ -1,5 +1,5 @@
 import { UserOutlined } from "@ant-design/icons";
-import { Avatar, Button, Spin, Typography } from "antd";
+import { Avatar, Button, Spin, theme, Typography } from "antd";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useParams } from "react-router-dom";
@@ -21,6 +21,7 @@ const { Title, Text } = Typography;
 
 export function ProfilePage() {
 	const { t, i18n } = useTranslation("profile");
+	const { token } = theme.useToken();
 	const { handle } = useParams<{ handle: string }>();
 	const { sessionToken } = useAuth();
 	const { data: myInfo } = useMyInfo(sessionToken);
@@ -197,15 +198,16 @@ export function ProfilePage() {
 		>
 			{/* Profile Hero */}
 			<div
+				data-testid="profile-hero"
 				style={{
 					display: "flex",
 					gap: 24,
 					alignItems: "flex-start",
 					marginBottom: 32,
-					backgroundColor: "#fff",
+					backgroundColor: token.colorBgContainer,
 					padding: 24,
-					borderRadius: "8px",
-					border: "1px solid #f0f0f0",
+					borderRadius: token.borderRadiusLG,
+					border: `1px solid ${token.colorBorderSecondary}`,
 				}}
 			>
 				{/* Avatar */}

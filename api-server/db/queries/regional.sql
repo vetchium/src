@@ -996,6 +996,18 @@ VALUES (sqlc.arg('hub_user_id'), sqlc.arg('email_address'), sqlc.arg('email_addr
         'pending_verification', sqlc.arg('pending_code_hash'), sqlc.arg('pending_code_expires_at'), 0)
 RETURNING *;
 
+-- name: CreateVerifiedWorkEmailStint :one
+-- Creates an already-verified (active) stint. Used at signup, where the user
+-- proved ownership of the email via the signup verification link, so no code
+-- challenge is needed.
+INSERT INTO hub_employer_stints (
+  hub_user_id, email_address, email_address_hash, domain,
+  status, first_verified_at, last_verified_at
+)
+VALUES (sqlc.arg('hub_user_id'), sqlc.arg('email_address'), sqlc.arg('email_address_hash'), sqlc.arg('domain'),
+        'active', NOW(), NOW())
+RETURNING *;
+
 -- name: CountActiveOrPendingStintsForUser :one
 SELECT COUNT(*)::int AS count FROM hub_employer_stints
 WHERE hub_user_id = sqlc.arg('hub_user_id')

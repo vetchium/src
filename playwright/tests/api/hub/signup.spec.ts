@@ -249,6 +249,58 @@ test.describe("POST /hub/complete-signup", () => {
 		}
 	});
 
+	test("signup email becomes an active verified work email", async ({
+		request,
+	}) => {
+		const api = new HubAPIClient(request);
+		const adminEmail = generateTestEmail("admin");
+		const domain = generateTestDomainName();
+		const email = `test-${randomUUID().substring(0, 8)}@${domain}`;
+		const password = TEST_PASSWORD;
+
+		await createTestAdminUser(adminEmail, TEST_PASSWORD);
+		await createTestApprovedDomain(domain, adminEmail);
+
+		try {
+			const requestSignup: RequestSignupRequest = { email_address: email };
+			await api.requestSignup(requestSignup);
+
+			const emailSummary = await waitForEmail(email);
+			const emailMessage = await getEmailContent(emailSummary.ID);
+			const signupToken = extractSignupTokenFromEmail(emailMessage);
+			expect(signupToken).toBeDefined();
+
+			const completeSignup: CompleteSignupRequest = {
+				signup_token: signupToken!,
+				password,
+				preferred_display_name: "Test User",
+				home_region: "ind1",
+				preferred_language: "en-US",
+				resident_country_code: "US",
+			};
+			const response = await api.completeSignup(completeSignup);
+			expect(response.status).toBe(201);
+			const sessionToken = response.body.session_token;
+
+			// The verified signup email must appear as an already-active work email
+			const workEmailsResp = await api.listMyWorkEmails(sessionToken, {
+				limit: 50,
+			});
+			expect(workEmailsResp.status).toBe(200);
+			const stint = workEmailsResp.body.work_emails.find(
+				(s) => s.email_address === email.toLowerCase()
+			);
+			expect(stint).toBeDefined();
+			expect(stint!.status).toBe("active");
+			expect(stint!.domain).toBe(domain.toLowerCase());
+			expect(stint!.first_verified_at).toBeDefined();
+		} finally {
+			await deleteTestHubUser(email);
+			await permanentlyDeleteTestApprovedDomain(domain);
+			await deleteTestAdminUser(adminEmail);
+		}
+	});
+
 	test("complete signup with multiple display names", async ({ request }) => {
 		const api = new HubAPIClient(request);
 		const adminEmail = generateTestEmail("admin");

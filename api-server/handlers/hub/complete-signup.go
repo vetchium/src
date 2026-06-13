@@ -1,7 +1,9 @@
 package hub
 
 import (
+	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -92,6 +94,18 @@ func CompleteSignup(s *server.RegionalServer) http.HandlerFunc {
 		email := tokenRecord.EmailAddress
 		emailHash := tokenRecord.EmailAddressHash
 
+		// The signup email was verified via the signup link, so it doubles as the
+		// user's first verified work email. Derive the lowercased email, its domain
+		// and the work-email hash (hex string, distinct from the identity emailHash
+		// which is raw bytes) used by the work-email tables.
+		workEmail := strings.ToLower(email)
+		workEmailDomain := ""
+		if at := strings.LastIndex(workEmail, "@"); at != -1 {
+			workEmailDomain = workEmail[at+1:]
+		}
+		workEmailHashBytes := sha256.Sum256([]byte(workEmail))
+		workEmailHash := hex.EncodeToString(workEmailHashBytes[:])
+
 		// Check if email already registered (duplicate signup during token lifetime)
 		_, err = s.Global.GetHubUserByEmailHash(ctx, emailHash)
 		if err == nil {
@@ -146,6 +160,10 @@ func CompleteSignup(s *server.RegionalServer) http.HandlerFunc {
 
 		// Execute all global operations in a single transaction
 		var globalUser globaldb.HubUser
+		// Whether the signup email was claimed as a work email in the global index.
+		// If another user already holds it as a work email, we skip the auto-stint
+		// rather than fail the signup.
+		workEmailClaimed := false
 		err = s.WithGlobalTx(ctx, func(qtx *globaldb.Queries) error {
 			var txErr error
 			globalUser, txErr = qtx.CreateHubUser(ctx, globaldb.CreateHubUserParams{
@@ -182,6 +200,23 @@ func CompleteSignup(s *server.RegionalServer) http.HandlerFunc {
 				}
 			}
 
+			// Claim the signup email as a verified work email in the global index.
+			// ON CONFLICT DO NOTHING → pgx.ErrNoRows means another user already holds
+			// it; in that case skip the auto-stint instead of failing signup.
+			if workEmailDomain != "" {
+				_, claimErr := qtx.ClaimWorkEmailGlobal(ctx, globaldb.ClaimWorkEmailGlobalParams{
+					EmailAddressHash: workEmailHash,
+					HubUserGlobalID:  globalUser.HubUserGlobalID,
+					Region:           req.HomeRegion,
+					Status:           "active",
+				})
+				if claimErr == nil {
+					workEmailClaimed = true
+				} else if !errors.Is(claimErr, pgx.ErrNoRows) {
+					return claimErr
+				}
+			}
+
 			// Mark signup token as consumed within the same transaction
 			_ = qtx.MarkHubSignupTokenConsumed(ctx, string(req.SignupToken))
 
@@ -207,6 +242,7 @@ func CompleteSignup(s *server.RegionalServer) http.HandlerFunc {
 					"error", delErr,
 				)
 			}
+			releaseSignupWorkEmail(ctx, s, workEmailClaimed, workEmailHash, hubUserGlobalID)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -243,6 +279,21 @@ func CompleteSignup(s *server.RegionalServer) http.HandlerFunc {
 				return txErr
 			}
 
+			// The signup email was verified via the signup link, so record it as an
+			// already-active (verified) work email stint. Mirrors the global claim
+			// above; only created when that claim succeeded.
+			if workEmailClaimed {
+				_, txErr = qtx.CreateVerifiedWorkEmailStint(ctx, regionaldb.CreateVerifiedWorkEmailStintParams{
+					HubUserID:        hubUserGlobalID,
+					EmailAddress:     workEmail,
+					EmailAddressHash: workEmailHash,
+					Domain:           workEmailDomain,
+				})
+				if txErr != nil {
+					return txErr
+				}
+			}
+
 			sessionExpiresAt := pgtype.Timestamptz{Time: time.Now().Add(s.TokenConfig.HubSessionTokenExpiry), Valid: true}
 			txErr = qtx.CreateHubSession(ctx, regionaldb.CreateHubSessionParams{
 				SessionToken:    rawSessionToken,
@@ -270,6 +321,7 @@ func CompleteSignup(s *server.RegionalServer) http.HandlerFunc {
 					"error", delErr,
 				)
 			}
+			releaseSignupWorkEmail(ctx, s, workEmailClaimed, workEmailHash, hubUserGlobalID)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -282,6 +334,26 @@ func CompleteSignup(s *server.RegionalServer) http.HandlerFunc {
 			Handle:       hub.Handle(handle),
 		}
 		json.NewEncoder(w).Encode(response)
+	}
+}
+
+// releaseSignupWorkEmail compensates the global work-email index claim made
+// during signup when a later step fails. No-op if nothing was claimed. A
+// failure here is logged as a CONSISTENCY_ALERT but does not change the
+// already-failing response.
+func releaseSignupWorkEmail(ctx context.Context, s *server.RegionalServer, claimed bool, workEmailHash string, hubUserGlobalID pgtype.UUID) {
+	if !claimed {
+		return
+	}
+	if relErr := s.Global.ReleaseWorkEmailGlobal(ctx, globaldb.ReleaseWorkEmailGlobalParams{
+		EmailAddressHash: workEmailHash,
+		HubUserGlobalID:  hubUserGlobalID,
+	}); relErr != nil {
+		s.Logger(ctx).Error("CONSISTENCY_ALERT: failed to release signup work email after signup failure",
+			"email_address_hash", workEmailHash,
+			"hub_user_global_id", hubUserGlobalID,
+			"error", relErr,
+		)
 	}
 }
 
