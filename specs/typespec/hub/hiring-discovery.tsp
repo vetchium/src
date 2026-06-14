@@ -40,7 +40,14 @@ model HubGetOpeningRequest {
   opening_number: int32;
 }
 
+model HubRecruitingAgency {
+  agency_org_domain: string;
+  agency_org_name:   string;
+}
+
 model HubOpeningDetail extends Opening {
+  application_mode:        string;
+  recruiting_agencies:     HubRecruitingAgency[];
   colleague_count_here:    int32;
   viewer_can_refer:        boolean;
   viewer_has_applied:      boolean;

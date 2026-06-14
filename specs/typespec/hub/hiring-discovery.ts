@@ -39,7 +39,14 @@ export interface HubGetOpeningRequest {
 	opening_number: number;
 }
 
+export interface HubRecruitingAgency {
+	agency_org_domain: string;
+	agency_org_name: string;
+}
+
 export interface HubOpeningDetail extends Opening {
+	application_mode: string;
+	recruiting_agencies: HubRecruitingAgency[];
 	colleague_count_here: number;
 	viewer_can_refer: boolean;
 	viewer_has_applied: boolean;

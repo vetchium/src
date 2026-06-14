@@ -254,11 +254,34 @@ func GetOpening(s *server.RegionalServer) http.HandlerFunc {
 			Tags:               []hub.HubOpeningTag{},
 			NumberOfPositions:  opening.NumberOfPositions,
 			FilledPositions:    opening.FilledPositions,
+			ApplicationMode:    opening.ApplicationMode,
+			RecruitingAgencies: []hub.HubRecruitingAgency{},
 			ColleagueCountHere: opening.ColleagueCountHere,
 			ViewerCanRefer:     opening.ViewerCanRefer,
 			ViewerHasApplied:   opening.ViewerHasApplied,
 		}
 		_ = orgInfo
+
+		// Official recruiting agencies for this opening (opening's region +
+		// one bulk global name lookup).
+		if agencyRows, aErr := openingDB.GetOpeningRecruitingAgencies(ctx, opening.OpeningID); aErr == nil && len(agencyRows) > 0 {
+			agencyIDs := make([]pgtype.UUID, 0, len(agencyRows))
+			for _, ar := range agencyRows {
+				agencyIDs = append(agencyIDs, ar.AgencyOrgID)
+			}
+			nameByID := map[pgtype.UUID]string{}
+			if orgs, oErr := s.Global.GetOrgsByIDs(ctx, agencyIDs); oErr == nil {
+				for _, o := range orgs {
+					nameByID[o.OrgID] = o.OrgName
+				}
+			}
+			for _, ar := range agencyRows {
+				detail.RecruitingAgencies = append(detail.RecruitingAgencies, hub.HubRecruitingAgency{
+					AgencyOrgDomain: ar.AgencyOrgDomain,
+					AgencyOrgName:   nameByID[ar.AgencyOrgID],
+				})
+			}
+		}
 
 		if opening.FirstPublishedAt.Valid {
 			fp := opening.FirstPublishedAt.Time.UTC().Format(time.RFC3339)

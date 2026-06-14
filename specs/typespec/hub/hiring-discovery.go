@@ -93,10 +93,19 @@ type HubOpeningDetail struct {
 	Tags              []HubOpeningTag     `json:"tags"`
 	FirstPublishedAt  *string             `json:"first_published_at,omitempty"`
 
+	// Agency recruiting
+	ApplicationMode    string                `json:"application_mode"`
+	RecruitingAgencies []HubRecruitingAgency `json:"recruiting_agencies"`
+
 	// Viewer-aware fields
 	ColleagueCountHere int32 `json:"colleague_count_here"`
 	ViewerCanRefer     bool  `json:"viewer_can_refer"`
 	ViewerHasApplied   bool  `json:"viewer_has_applied"`
+}
+
+type HubRecruitingAgency struct {
+	AgencyOrgDomain string `json:"agency_org_domain"`
+	AgencyOrgName   string `json:"agency_org_name"`
 }
 
 type ListColleaguesAtEmployerRequest struct {
