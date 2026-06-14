@@ -18,6 +18,9 @@ import (
 	orgspec "vetchium-api-server.typespec/org"
 )
 
+// errBadRecruiterFilter signals an unparseable filter_recruiter value.
+var errBadRecruiterFilter = errors.New("invalid filter_recruiter")
+
 // parseAgencyCursor decodes a "<rfc3339nano>|<uuid>" keyset cursor.
 func parseAgencyCursor(key string) (pgtype.Timestamptz, pgtype.UUID) {
 	var ts pgtype.Timestamptz
@@ -310,8 +313,10 @@ func ListOpeningAgencies(s *server.RegionalServer) http.HandlerFunc {
 	}
 }
 
-// ListAssignedOpenings lists openings the caller's agency is assigned to
-// (agency side, served entirely from the global assignment index).
+// ListAssignedOpenings lists openings the caller's agency is assigned to, enriched
+// with effective recruiters and per-state referral counts. Recruiters see only the
+// openings they are an effective recruiter for; leads (superadmin or
+// org:manage_agency_recruiters) see all and may filter by recruiter / client.
 func ListAssignedOpenings(s *server.RegionalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -335,23 +340,99 @@ func ListAssignedOpenings(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
+		db := s.RegionalForCtx(ctx)
+		isLead := isAgencyLead(ctx, db, orgUser.OrgUserID)
 		limit := agencyLimit(req.Limit)
-		var rows []globaldb.OpeningAgencyAssignmentIndex
-		var err error
-		if req.PaginationKey != nil && *req.PaginationKey != "" {
-			cursorTs, cursorID := parseAgencyCursor(*req.PaginationKey)
-			rows, err = s.Global.ListAssignedOpeningsByAgencyAfter(ctx, globaldb.ListAssignedOpeningsByAgencyAfterParams{
-				AgencyOrgID:     orgUser.OrgID,
-				CursorCreatedAt: cursorTs,
-				CursorOpeningID: cursorID,
-				Limit:           limit + 1,
-			})
-		} else {
-			rows, err = s.Global.ListAssignedOpeningsByAgency(ctx, globaldb.ListAssignedOpeningsByAgencyParams{
-				AgencyOrgID: orgUser.OrgID,
-				Limit:       limit + 1,
-			})
+
+		params := globaldb.ListAssignedOpeningsByAgencyFilteredParams{
+			AgencyOrgID:              orgUser.OrgID,
+			RowLimit:                 limit + 1,
+			ExplicitAnyOpeningIds:    []pgtype.UUID{},
+			DefaultDomainsAll:        []string{},
+			ScopedExplicitOpeningIds: []pgtype.UUID{},
+			ScopedDefaultDomains:     []string{},
 		}
+		if req.FilterClientDomain != nil && *req.FilterClientDomain != "" {
+			params.FilterClientDomain = pgtype.Text{String: *req.FilterClientDomain, Valid: true}
+		}
+		if req.PaginationKey != nil && *req.PaginationKey != "" {
+			params.CursorCreatedAt, params.CursorOpeningID = parseAgencyCursor(*req.PaginationKey)
+		}
+
+		filterRecruiter := ""
+		if req.FilterRecruiter != nil {
+			filterRecruiter = *req.FilterRecruiter
+		}
+
+		// Resolve scoping. Non-leads are always scoped to themselves regardless of
+		// any recruiter filter they pass.
+		scopeErr := func() error {
+			scopeToUser := func(userID pgtype.UUID) error {
+				exIDs, err := db.ListExplicitOpeningIDsForRecruiter(ctx, regionaldb.ListExplicitOpeningIDsForRecruiterParams{
+					AgencyOrgID:     orgUser.OrgID,
+					AgencyOrgUserID: userID,
+				})
+				if err != nil {
+					return err
+				}
+				dDomains, err := db.ListDefaultDomainsForRecruiter(ctx, regionaldb.ListDefaultDomainsForRecruiterParams{
+					AgencyOrgID:     orgUser.OrgID,
+					AgencyOrgUserID: userID,
+				})
+				if err != nil {
+					return err
+				}
+				anyIDs, err := db.ListExplicitOpeningIDsForAgency(ctx, orgUser.OrgID)
+				if err != nil {
+					return err
+				}
+				params.ScopedExplicitOpeningIds = uuidSlice(exIDs)
+				params.ScopedDefaultDomains = strSlice(dDomains)
+				params.ExplicitAnyOpeningIds = uuidSlice(anyIDs)
+				return nil
+			}
+
+			if !isLead {
+				return scopeToUser(orgUser.OrgUserID)
+			}
+			switch filterRecruiter {
+			case "":
+				params.ScopeAll = true
+				return nil
+			case "unassigned":
+				params.OnlyUnassigned = true
+				anyIDs, err := db.ListExplicitOpeningIDsForAgency(ctx, orgUser.OrgID)
+				if err != nil {
+					return err
+				}
+				allDomains, err := db.ListAllDefaultDomainsForAgency(ctx, orgUser.OrgID)
+				if err != nil {
+					return err
+				}
+				params.ExplicitAnyOpeningIds = uuidSlice(anyIDs)
+				params.DefaultDomainsAll = strSlice(allDomains)
+				return nil
+			case "me":
+				return scopeToUser(orgUser.OrgUserID)
+			default:
+				var uid pgtype.UUID
+				if err := uid.Scan(filterRecruiter); err != nil {
+					return errBadRecruiterFilter
+				}
+				return scopeToUser(uid)
+			}
+		}()
+		if scopeErr != nil {
+			if errors.Is(scopeErr, errBadRecruiterFilter) {
+				http.Error(w, "invalid filter_recruiter", http.StatusBadRequest)
+				return
+			}
+			log.Error("failed to resolve recruiter scope", "error", scopeErr)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		rows, err := s.Global.ListAssignedOpeningsByAgencyFiltered(ctx, params)
 		if err != nil {
 			log.Error("failed to list assigned openings", "error", err)
 			w.WriteHeader(http.StatusInternalServerError)
@@ -366,14 +447,35 @@ func ListAssignedOpenings(s *server.RegionalServer) http.HandlerFunc {
 			nextKey = &k
 		}
 
+		openingIDs := make([]pgtype.UUID, 0, len(rows))
+		for _, row := range rows {
+			openingIDs = append(openingIDs, row.OpeningID)
+		}
+		explicitByOpening, defaultsByDomain, err := loadRecruiterMaps(ctx, db, orgUser.OrgID, openingIDs)
+		if err != nil {
+			log.Error("failed to load recruiter maps", "error", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
 		openings := make([]orgspec.AssignedOpening, 0, len(rows))
 		for _, row := range rows {
+			recruiters, areDefault := effectiveRecruiters(row.OpeningID, row.ConsumerOrgDomain, explicitByOpening, defaultsByDomain)
 			openings = append(openings, orgspec.AssignedOpening{
-				OpeningID:         row.OpeningID.String(),
-				ConsumerOrgDomain: row.ConsumerOrgDomain,
-				OpeningNumber:     row.OpeningNumber,
-				Title:             row.TitleSnapshot,
-				AssignedAt:        row.CreatedAt.Time.Format(time.RFC3339),
+				OpeningID:            row.OpeningID.String(),
+				ConsumerOrgDomain:    row.ConsumerOrgDomain,
+				OpeningNumber:        row.OpeningNumber,
+				Title:                row.TitleSnapshot,
+				AssignedAt:           row.CreatedAt.Time.Format(time.RFC3339),
+				Recruiters:           recruiters,
+				RecruitersAreDefault: areDefault,
+				ReferralCounts: orgspec.ReferralStateCounts{
+					Pending:         int32(row.CntPending),
+					AcceptedApplied: int32(row.CntAcceptedApplied),
+					Declined:        int32(row.CntDeclined),
+					Expired:         int32(row.CntExpired),
+					NotSelected:     int32(row.CntNotSelected),
+				},
 			})
 		}
 
@@ -381,6 +483,96 @@ func ListAssignedOpenings(s *server.RegionalServer) http.HandlerFunc {
 		json.NewEncoder(w).Encode(orgspec.ListAssignedOpeningsResponse{
 			Openings:          openings,
 			NextPaginationKey: nextKey,
+		})
+	}
+}
+
+// GetAssignedOpening returns one assigned opening (detail page) with effective
+// recruiters and counts. 404 if not assigned to the agency, 403 if the caller is
+// neither a lead nor an effective recruiter for it.
+func GetAssignedOpening(s *server.RegionalServer) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		ctx := r.Context()
+		log := s.Logger(ctx)
+
+		orgUser := middleware.OrgUserFromContext(ctx)
+		if orgUser == nil {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		var req orgspec.GetAssignedOpeningRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if errs := req.Validate(); len(errs) > 0 {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(errs)
+			return
+		}
+
+		var openingID pgtype.UUID
+		if err := openingID.Scan(req.OpeningID); err != nil {
+			http.Error(w, "invalid opening_id", http.StatusBadRequest)
+			return
+		}
+
+		row, err := s.Global.GetAssignedOpeningForAgency(ctx, globaldb.GetAssignedOpeningForAgencyParams{
+			AgencyOrgID: orgUser.OrgID,
+			OpeningID:   openingID,
+		})
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			log.Error("failed to get assigned opening", "error", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		db := s.RegionalForCtx(ctx)
+		if !isAgencyLead(ctx, db, orgUser.OrgUserID) {
+			ok, eErr := isEffectiveRecruiter(ctx, db, orgUser.OrgID, orgUser.OrgUserID, openingID, row.ConsumerOrgDomain)
+			if eErr != nil {
+				log.Error("failed effective recruiter check", "error", eErr)
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			if !ok {
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
+		}
+
+		explicitByOpening, defaultsByDomain, err := loadRecruiterMaps(ctx, db, orgUser.OrgID, []pgtype.UUID{openingID})
+		if err != nil {
+			log.Error("failed to load recruiter maps", "error", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		recruiters, areDefault := effectiveRecruiters(openingID, row.ConsumerOrgDomain, explicitByOpening, defaultsByDomain)
+
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(orgspec.GetAssignedOpeningResponse{
+			Opening: orgspec.AssignedOpening{
+				OpeningID:            row.OpeningID.String(),
+				ConsumerOrgDomain:    row.ConsumerOrgDomain,
+				OpeningNumber:        row.OpeningNumber,
+				Title:                row.TitleSnapshot,
+				AssignedAt:           row.CreatedAt.Time.Format(time.RFC3339),
+				Recruiters:           recruiters,
+				RecruitersAreDefault: areDefault,
+				ReferralCounts: orgspec.ReferralStateCounts{
+					Pending:         int32(row.CntPending),
+					AcceptedApplied: int32(row.CntAcceptedApplied),
+					Declined:        int32(row.CntDeclined),
+					Expired:         int32(row.CntExpired),
+					NotSelected:     int32(row.CntNotSelected),
+				},
+			},
 		})
 	}
 }
@@ -429,6 +621,22 @@ func ReferCandidate(s *server.RegionalServer) http.HandlerFunc {
 			log.Error("failed to validate assignment", "error", err)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
+		}
+
+		// Recruiter scoping: non-leads may only refer into openings they are an
+		// effective recruiter for.
+		agencyDB := s.RegionalForCtx(ctx)
+		if !isAgencyLead(ctx, agencyDB, orgUser.OrgUserID) {
+			ok, eErr := isEffectiveRecruiter(ctx, agencyDB, orgUser.OrgID, orgUser.OrgUserID, openingID, actx.ConsumerOrgDomain)
+			if eErr != nil {
+				log.Error("failed effective recruiter check", "error", eErr)
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			if !ok {
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
 		}
 
 		// Resolve candidate handle -> global id.
@@ -484,6 +692,7 @@ func ReferCandidate(s *server.RegionalServer) http.HandlerFunc {
 				AgencyOrgID:              orgUser.OrgID,
 				AgencyOrgDomain:          actx.AgencyOrgDomain,
 				ReferredByOrgUserID:      orgUser.OrgUserID,
+				ReferredByNameSnapshot:   orgUser.FullName.String,
 				CandidateHubUserGlobalID: candidate.HubUserGlobalID,
 				CandidateHandleSnapshot:  req.CandidateHandle,
 				StatementText:            statement,
@@ -552,23 +761,69 @@ func ListAgencyReferrals(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
+		db := s.RegionalForCtx(ctx)
+		isLead := isAgencyLead(ctx, db, orgUser.OrgUserID)
 		limit := agencyLimit(req.Limit)
-		var indexEntries []globaldb.AgencyReferralsIndex
-		var err error
-		if req.PaginationKey != nil && *req.PaginationKey != "" {
-			cursorTs, cursorID := parseAgencyCursor(*req.PaginationKey)
-			indexEntries, err = s.Global.ListReferralIndexByAgencyAfter(ctx, globaldb.ListReferralIndexByAgencyAfterParams{
-				AgencyOrgID:      orgUser.OrgID,
-				CursorCreatedAt:  cursorTs,
-				CursorReferralID: cursorID,
-				Limit:            limit + 1,
-			})
-		} else {
-			indexEntries, err = s.Global.ListReferralIndexByAgency(ctx, globaldb.ListReferralIndexByAgencyParams{
-				AgencyOrgID: orgUser.OrgID,
-				Limit:       limit + 1,
-			})
+
+		scoped := globaldb.ListReferralIndexByAgencyScopedParams{
+			AgencyOrgID:      orgUser.OrgID,
+			RowLimit:         limit + 1,
+			ScopedOpeningIds: []pgtype.UUID{},
 		}
+		if req.PaginationKey != nil && *req.PaginationKey != "" {
+			scoped.CursorCreatedAt, scoped.CursorReferralID = parseAgencyCursor(*req.PaginationKey)
+		}
+
+		if req.FilterOpeningID != nil && *req.FilterOpeningID != "" {
+			var openingID pgtype.UUID
+			if err := openingID.Scan(*req.FilterOpeningID); err != nil {
+				http.Error(w, "invalid filter_opening_id", http.StatusBadRequest)
+				return
+			}
+			row, err := s.Global.GetAssignedOpeningForAgency(ctx, globaldb.GetAssignedOpeningForAgencyParams{
+				AgencyOrgID: orgUser.OrgID,
+				OpeningID:   openingID,
+			})
+			if err != nil {
+				if errors.Is(err, pgx.ErrNoRows) {
+					w.WriteHeader(http.StatusNotFound)
+					return
+				}
+				log.Error("failed to get assigned opening", "error", err)
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			if !isLead {
+				ok, eErr := isEffectiveRecruiter(ctx, db, orgUser.OrgID, orgUser.OrgUserID, openingID, row.ConsumerOrgDomain)
+				if eErr != nil {
+					log.Error("failed effective recruiter check", "error", eErr)
+					w.WriteHeader(http.StatusInternalServerError)
+					return
+				}
+				if !ok {
+					w.WriteHeader(http.StatusForbidden)
+					return
+				}
+			}
+			scoped.FilterOpeningID = openingID
+			scoped.ScopeAll = true // authorized for this specific opening
+		} else if isLead {
+			scoped.ScopeAll = true
+		} else {
+			// Non-lead, unfiltered: restrict to openings explicitly owned by the caller.
+			exIDs, err := db.ListExplicitOpeningIDsForRecruiter(ctx, regionaldb.ListExplicitOpeningIDsForRecruiterParams{
+				AgencyOrgID:     orgUser.OrgID,
+				AgencyOrgUserID: orgUser.OrgUserID,
+			})
+			if err != nil {
+				log.Error("failed to scope referrals", "error", err)
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			scoped.ScopedOpeningIds = uuidSlice(exIDs)
+		}
+
+		indexEntries, err := s.Global.ListReferralIndexByAgencyScoped(ctx, scoped)
 		if err != nil {
 			log.Error("failed to list agency referral index", "error", err)
 			w.WriteHeader(http.StatusInternalServerError)
@@ -634,10 +889,14 @@ func ListAgencyReferrals(s *server.RegionalServer) http.HandlerFunc {
 				ReferralID:        row.ReferralID.String(),
 				CandidateHandle:   row.CandidateHandleSnapshot,
 				ConsumerOrgDomain: domainByID[row.OrgID],
+				OpeningID:         row.OpeningID.String(),
 				OpeningNumber:     row.OpeningNumberReal,
 				OpeningTitle:      row.OpeningTitle,
+				StatementText:     textPtr(row.StatementText),
 				State:             orgspec.AgencyReferralState(row.State),
+				ReferredByName:    row.ReferredByNameSnapshot,
 				CreatedAt:         row.CreatedAt.Time.Format(time.RFC3339),
+				ExpiresAt:         row.ExpiresAt.Time.Format(time.RFC3339),
 			})
 		}
 

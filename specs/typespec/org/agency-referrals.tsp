@@ -18,6 +18,20 @@ union AgencyReferralState {
   NotSelected:     "not_selected",
 }
 
+model AgencyRecruiterRef {
+  org_user_id: string;
+  name:        string;
+  email:       string;
+}
+
+model ReferralStateCounts {
+  pending:          int32;
+  accepted_applied: int32;
+  declined:         int32;
+  expired:          int32;
+  not_selected:     int32;
+}
+
 // ---- Consumer: assign / list / remove agencies on an opening ----
 
 model AssignOpeningAgencyRequest {
@@ -43,20 +57,31 @@ model ListOpeningAgenciesResponse { agencies: OpeningAgency[]; }
 
 // ---- Agency: openings I'm assigned to ----
 
-model ListAssignedOpeningsRequest { pagination_key?: string; limit?: int32; }
+model ListAssignedOpeningsRequest {
+  filter_client_domain?: string;
+  filter_recruiter?:     string;
+  pagination_key?:       string;
+  limit?:                int32;
+}
 
 model AssignedOpening {
-  opening_id:          string;
-  consumer_org_domain: string;
-  opening_number:      int32;
-  title:               string;
-  assigned_at:         utcDateTime;
+  opening_id:             string;
+  consumer_org_domain:    string;
+  opening_number:         int32;
+  title:                  string;
+  assigned_at:            utcDateTime;
+  recruiters:             AgencyRecruiterRef[];
+  recruiters_are_default: boolean;
+  referral_counts:        ReferralStateCounts;
 }
 
 model ListAssignedOpeningsResponse {
   openings: AssignedOpening[];
   next_pagination_key?: string;
 }
+
+model GetAssignedOpeningRequest { opening_id: string; }
+model GetAssignedOpeningResponse { opening: AssignedOpening; }
 
 // ---- Agency: refer a candidate ----
 
@@ -70,21 +95,61 @@ model ReferCandidateResponse { referral_id: string; }
 
 // ---- Agency: referrals my agency has made ----
 
-model ListAgencyReferralsRequest { pagination_key?: string; limit?: int32; }
+model ListAgencyReferralsRequest {
+  filter_opening_id?: string;
+  pagination_key?:    string;
+  limit?:             int32;
+}
 
 model AgencyReferral {
   referral_id:         string;
   candidate_handle:    Handle;
   consumer_org_domain: string;
+  opening_id:          string;
   opening_number:      int32;
   opening_title:       string;
+  statement_text?:     string;
   state:               AgencyReferralState;
+  referred_by_name:    string;
   created_at:          utcDateTime;
+  expires_at:          utcDateTime;
 }
 
 model ListAgencyReferralsResponse {
   referrals: AgencyReferral[];
   next_pagination_key?: string;
+}
+
+// ---- Agency: internal recruiter assignment + client defaults ----
+
+model AssignOpeningRecruitersRequest {
+  opening_id:          string;
+  consumer_org_domain: string;
+  agency_org_user_ids: string[];
+}
+
+model RemoveOpeningRecruiterRequest {
+  opening_id:         string;
+  agency_org_user_id: string;
+}
+
+model ListAgencyRecruitersResponse { recruiters: AgencyRecruiterRef[]; }
+
+model ClientDefaultRecruiter {
+  consumer_org_domain: string;
+  recruiters:          AgencyRecruiterRef[];
+}
+
+model ListClientDefaultRecruitersResponse { defaults: ClientDefaultRecruiter[]; }
+
+model SetClientDefaultRecruitersRequest {
+  consumer_org_domain: string;
+  agency_org_user_ids: string[];
+}
+
+model RemoveClientDefaultRecruiterRequest {
+  consumer_org_domain: string;
+  agency_org_user_id:  string;
 }
 
 @route("/org/assign-opening-agency")
@@ -115,3 +180,32 @@ model ListAgencyReferralsResponse {
 @route("/org/list-agency-referrals")
 @post op listAgencyReferrals(...ListAgencyReferralsRequest):
   OkResponse<ListAgencyReferralsResponse> | BadRequestResponse;
+
+@route("/org/get-assigned-opening")
+@post op getAssignedOpening(...GetAssignedOpeningRequest):
+  OkResponse<GetAssignedOpeningResponse> | BadRequestResponse
+  | { @statusCode statusCode: 403 } | NotFoundResponse;
+
+@route("/org/list-agency-recruiters")
+@post op listAgencyRecruiters():
+  OkResponse<ListAgencyRecruitersResponse>;
+
+@route("/org/assign-opening-recruiters")
+@post op assignOpeningRecruiters(...AssignOpeningRecruitersRequest):
+  OkResponse<{}> | BadRequestResponse | NotFoundResponse;
+
+@route("/org/remove-opening-recruiter")
+@post op removeOpeningRecruiter(...RemoveOpeningRecruiterRequest):
+  OkResponse<{}> | BadRequestResponse | NotFoundResponse;
+
+@route("/org/list-client-default-recruiters")
+@post op listClientDefaultRecruiters():
+  OkResponse<ListClientDefaultRecruitersResponse>;
+
+@route("/org/set-client-default-recruiters")
+@post op setClientDefaultRecruiters(...SetClientDefaultRecruitersRequest):
+  OkResponse<{}> | BadRequestResponse;
+
+@route("/org/remove-client-default-recruiter")
+@post op removeClientDefaultRecruiter(...RemoveClientDefaultRecruiterRequest):
+  OkResponse<{}> | BadRequestResponse | NotFoundResponse;

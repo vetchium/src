@@ -157,9 +157,10 @@ func (r GetListingRequest) Validate() []common.ValidationError {
 }
 
 type ListMyListingsRequest struct {
-	FilterStatus  *MarketplaceListingStatus `json:"filter_status,omitempty"`
-	PaginationKey *string                   `json:"pagination_key,omitempty"`
-	Limit         *int32                    `json:"limit,omitempty"`
+	FilterStatus       *MarketplaceListingStatus `json:"filter_status,omitempty"`
+	FilterCapabilityID *string                   `json:"filter_capability_id,omitempty"`
+	PaginationKey      *string                   `json:"pagination_key,omitempty"`
+	Limit              *int32                    `json:"limit,omitempty"`
 }
 
 func (r ListMyListingsRequest) Validate() []common.ValidationError {

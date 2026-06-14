@@ -9,6 +9,22 @@ export type AgencyReferralState =
 	| "expired"
 	| "not_selected";
 
+// A reference to an agency org-user (recruiter) used in selects + recruiter lists.
+export interface AgencyRecruiterRef {
+	org_user_id: string;
+	name: string;
+	email: string;
+}
+
+// Per-state referral counts for an opening (workspace summary pills).
+export interface ReferralStateCounts {
+	pending: number;
+	accepted_applied: number;
+	declined: number;
+	expired: number;
+	not_selected: number;
+}
+
 // ---- Consumer side: assign / list / remove agencies on an opening ----
 
 export interface AssignOpeningAgencyRequest {
@@ -39,6 +55,9 @@ export interface ListOpeningAgenciesResponse {
 // ---- Agency side: openings I'm assigned to ----
 
 export interface ListAssignedOpeningsRequest {
+	filter_client_domain?: string;
+	// "me" | "unassigned" | an agency org_user_id
+	filter_recruiter?: string;
 	pagination_key?: string;
 	limit?: number;
 }
@@ -49,11 +68,26 @@ export interface AssignedOpening {
 	opening_number: number;
 	title: string;
 	assigned_at: string;
+	// Effective recruiters: explicit assignees if any, else the client-domain defaults.
+	recruiters: AgencyRecruiterRef[];
+	// True when `recruiters` is inherited from the client-domain default (no explicit owner).
+	recruiters_are_default: boolean;
+	referral_counts: ReferralStateCounts;
 }
 
 export interface ListAssignedOpeningsResponse {
 	openings: AssignedOpening[];
 	next_pagination_key?: string;
+}
+
+// ---- Agency side: single assigned opening (detail page) ----
+
+export interface GetAssignedOpeningRequest {
+	opening_id: string;
+}
+
+export interface GetAssignedOpeningResponse {
+	opening: AssignedOpening;
 }
 
 // ---- Agency side: refer a candidate ----
@@ -71,6 +105,7 @@ export interface ReferCandidateResponse {
 // ---- Agency side: referrals my agency has made ----
 
 export interface ListAgencyReferralsRequest {
+	filter_opening_id?: string;
 	pagination_key?: string;
 	limit?: number;
 }
@@ -79,15 +114,55 @@ export interface AgencyReferral {
 	referral_id: string;
 	candidate_handle: Handle;
 	consumer_org_domain: string;
+	opening_id: string;
 	opening_number: number;
 	opening_title: string;
+	statement_text?: string;
 	state: AgencyReferralState;
+	referred_by_name: string;
 	created_at: string;
+	expires_at: string;
 }
 
 export interface ListAgencyReferralsResponse {
 	referrals: AgencyReferral[];
 	next_pagination_key?: string;
+}
+
+// ---- Agency side: internal recruiter assignment + client defaults ----
+
+export interface AssignOpeningRecruitersRequest {
+	opening_id: string;
+	consumer_org_domain: string;
+	agency_org_user_ids: string[];
+}
+
+export interface RemoveOpeningRecruiterRequest {
+	opening_id: string;
+	agency_org_user_id: string;
+}
+
+export interface ListAgencyRecruitersResponse {
+	recruiters: AgencyRecruiterRef[];
+}
+
+export interface ClientDefaultRecruiter {
+	consumer_org_domain: string;
+	recruiters: AgencyRecruiterRef[];
+}
+
+export interface ListClientDefaultRecruitersResponse {
+	defaults: ClientDefaultRecruiter[];
+}
+
+export interface SetClientDefaultRecruitersRequest {
+	consumer_org_domain: string;
+	agency_org_user_ids: string[];
+}
+
+export interface RemoveClientDefaultRecruiterRequest {
+	consumer_org_domain: string;
+	agency_org_user_id: string;
 }
 
 export interface ValidationError {
@@ -197,4 +272,94 @@ export function validateReferCandidateRequest(req: unknown): ValidationError[] {
 		}
 	}
 	return errors;
+}
+
+function nonEmptyString(
+	r: Record<string, unknown>,
+	field: string
+): ValidationError[] {
+	if (typeof r[field] !== "string" || (r[field] as string).trim() === "") {
+		return [{ field, message: "Must be a non-empty string" }];
+	}
+	return [];
+}
+
+function validateOrgUserIds(r: Record<string, unknown>): ValidationError[] {
+	const errors: ValidationError[] = [];
+	if (!Array.isArray(r.agency_org_user_ids)) {
+		errors.push({
+			field: "agency_org_user_ids",
+			message: "Must be an array of org_user_id strings",
+		});
+		return errors;
+	}
+	if (r.agency_org_user_ids.length === 0) {
+		errors.push({
+			field: "agency_org_user_ids",
+			message: "At least one recruiter is required",
+		});
+	}
+	for (const id of r.agency_org_user_ids) {
+		if (typeof id !== "string" || id.trim() === "") {
+			errors.push({
+				field: "agency_org_user_ids",
+				message: "Each id must be a non-empty string",
+			});
+			break;
+		}
+	}
+	return errors;
+}
+
+export function validateGetAssignedOpeningRequest(
+	req: unknown
+): ValidationError[] {
+	const r = reqObj(req);
+	if (!r) return [{ field: "$root", message: "Request body is required" }];
+	return nonEmptyString(r, "opening_id");
+}
+
+export function validateAssignOpeningRecruitersRequest(
+	req: unknown
+): ValidationError[] {
+	const r = reqObj(req);
+	if (!r) return [{ field: "$root", message: "Request body is required" }];
+	return [
+		...nonEmptyString(r, "opening_id"),
+		...nonEmptyString(r, "consumer_org_domain"),
+		...validateOrgUserIds(r),
+	];
+}
+
+export function validateRemoveOpeningRecruiterRequest(
+	req: unknown
+): ValidationError[] {
+	const r = reqObj(req);
+	if (!r) return [{ field: "$root", message: "Request body is required" }];
+	return [
+		...nonEmptyString(r, "opening_id"),
+		...nonEmptyString(r, "agency_org_user_id"),
+	];
+}
+
+export function validateSetClientDefaultRecruitersRequest(
+	req: unknown
+): ValidationError[] {
+	const r = reqObj(req);
+	if (!r) return [{ field: "$root", message: "Request body is required" }];
+	return [
+		...nonEmptyString(r, "consumer_org_domain"),
+		...validateOrgUserIds(r),
+	];
+}
+
+export function validateRemoveClientDefaultRecruiterRequest(
+	req: unknown
+): ValidationError[] {
+	const r = reqObj(req);
+	if (!r) return [{ field: "$root", message: "Request body is required" }];
+	return [
+		...nonEmptyString(r, "consumer_org_domain"),
+		...nonEmptyString(r, "agency_org_user_id"),
+	];
 }

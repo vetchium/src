@@ -1351,6 +1351,84 @@ WHERE a.opening_id = @opening_id AND a.agency_org_id = @agency_org_id
   AND s.status = 'active' AND c.capability_ids @> ARRAY['staffing']
 LIMIT 1;
 
+-- name: ListAssignedOpeningsByAgencyFiltered :many
+-- Workspace list: assigned openings + per-state referral counts, with optional
+-- client-domain filter and recruiter scoping. Scoping modes are mutually
+-- exclusive: scope_all (lead, no recruiter filter); only_unassigned (no effective
+-- recruiter); otherwise scope to a user's effective openings (explicit OR a
+-- default-domain opening that has no explicit assignment).
+SELECT i.opening_id, i.agency_org_id, i.agency_org_domain, i.region,
+       i.consumer_org_id, i.consumer_org_domain, i.opening_number,
+       i.title_snapshot, i.created_at,
+       COALESCE(c.pending, 0)          AS cnt_pending,
+       COALESCE(c.accepted_applied, 0) AS cnt_accepted_applied,
+       COALESCE(c.declined, 0)         AS cnt_declined,
+       COALESCE(c.expired, 0)          AS cnt_expired,
+       COALESCE(c.not_selected, 0)     AS cnt_not_selected
+FROM opening_agency_assignment_index i
+LEFT JOIN (
+    SELECT opening_id,
+        COUNT(*) FILTER (WHERE state = 'pending')          AS pending,
+        COUNT(*) FILTER (WHERE state = 'accepted_applied') AS accepted_applied,
+        COUNT(*) FILTER (WHERE state = 'declined')         AS declined,
+        COUNT(*) FILTER (WHERE state = 'expired')          AS expired,
+        COUNT(*) FILTER (WHERE state = 'not_selected')     AS not_selected
+    FROM agency_referrals_index
+    WHERE agency_referrals_index.agency_org_id = @agency_org_id
+    GROUP BY opening_id
+) c ON c.opening_id = i.opening_id
+WHERE i.agency_org_id = @agency_org_id
+  AND (sqlc.narg('filter_client_domain')::text IS NULL
+       OR i.consumer_org_domain = sqlc.narg('filter_client_domain')::text)
+  AND (
+        @scope_all::bool
+        OR (@only_unassigned::bool
+            AND NOT (i.opening_id = ANY(@explicit_any_opening_ids::uuid[]))
+            AND NOT (i.consumer_org_domain = ANY(@default_domains_all::text[])))
+        OR (NOT @scope_all::bool AND NOT @only_unassigned::bool
+            AND (i.opening_id = ANY(@scoped_explicit_opening_ids::uuid[])
+                 OR (i.consumer_org_domain = ANY(@scoped_default_domains::text[])
+                     AND NOT (i.opening_id = ANY(@explicit_any_opening_ids::uuid[])))))
+      )
+  AND (sqlc.narg('cursor_created_at')::timestamptz IS NULL
+       OR (i.created_at, i.opening_id) < (sqlc.narg('cursor_created_at')::timestamptz, sqlc.narg('cursor_opening_id')::uuid))
+ORDER BY i.created_at DESC, i.opening_id DESC
+LIMIT @row_limit;
+
+-- name: GetAssignedOpeningForAgency :one
+SELECT i.opening_id, i.agency_org_id, i.agency_org_domain, i.region,
+       i.consumer_org_id, i.consumer_org_domain, i.opening_number,
+       i.title_snapshot, i.created_at,
+       COALESCE(c.pending, 0)          AS cnt_pending,
+       COALESCE(c.accepted_applied, 0) AS cnt_accepted_applied,
+       COALESCE(c.declined, 0)         AS cnt_declined,
+       COALESCE(c.expired, 0)          AS cnt_expired,
+       COALESCE(c.not_selected, 0)     AS cnt_not_selected
+FROM opening_agency_assignment_index i
+LEFT JOIN (
+    SELECT opening_id,
+        COUNT(*) FILTER (WHERE state = 'pending')          AS pending,
+        COUNT(*) FILTER (WHERE state = 'accepted_applied') AS accepted_applied,
+        COUNT(*) FILTER (WHERE state = 'declined')         AS declined,
+        COUNT(*) FILTER (WHERE state = 'expired')          AS expired,
+        COUNT(*) FILTER (WHERE state = 'not_selected')     AS not_selected
+    FROM agency_referrals_index
+    WHERE agency_referrals_index.agency_org_id = @agency_org_id
+    GROUP BY opening_id
+) c ON c.opening_id = i.opening_id
+WHERE i.agency_org_id = @agency_org_id AND i.opening_id = @opening_id;
+
+-- name: ListReferralIndexByAgencyScoped :many
+SELECT * FROM agency_referrals_index
+WHERE agency_org_id = @agency_org_id
+  AND (sqlc.narg('filter_opening_id')::uuid IS NULL
+       OR opening_id = sqlc.narg('filter_opening_id')::uuid)
+  AND (@scope_all::bool OR opening_id = ANY(@scoped_opening_ids::uuid[]))
+  AND (sqlc.narg('cursor_created_at')::timestamptz IS NULL
+       OR (created_at, referral_id) < (sqlc.narg('cursor_created_at')::timestamptz, sqlc.narg('cursor_referral_id')::uuid))
+ORDER BY created_at DESC, referral_id DESC
+LIMIT @row_limit;
+
 -- ============================================================
 -- Applications Index (used by T3 handlers to resolve region)
 -- ============================================================

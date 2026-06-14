@@ -49,6 +49,7 @@ export const VALID_ROLE_NAMES = [
 	"org:manage_opening_agencies",
 	"org:refer_candidates",
 	"org:view_agency_referrals",
+	"org:manage_agency_recruiters",
 
 	// Hub portal roles
 	"hub:read_posts",

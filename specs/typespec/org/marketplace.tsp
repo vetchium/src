@@ -59,6 +59,7 @@ model GetListingRequest {
 
 model ListMyListingsRequest {
   filter_status?: string;
+  filter_capability_id?: string;
   pagination_key?: string;
   limit?: int32;
 }

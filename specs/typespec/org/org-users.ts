@@ -518,6 +518,7 @@ export const OrgRoleViewOpeningAgencies = "org:view_opening_agencies";
 export const OrgRoleManageOpeningAgencies = "org:manage_opening_agencies";
 export const OrgRoleReferCandidates = "org:refer_candidates";
 export const OrgRoleViewAgencyReferrals = "org:view_agency_referrals";
+export const OrgRoleManageAgencyRecruiters = "org:manage_agency_recruiters";
 
 export interface OrgUser {
 	email_address: EmailAddress;

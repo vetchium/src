@@ -310,6 +310,7 @@ INSERT INTO roles (role_name, description) VALUES
     ('org:manage_opening_agencies', 'Can assign and remove staffing agencies on an opening (consumer side)'),
     ('org:refer_candidates', 'Can refer candidates into openings the agency is assigned to (agency side)'),
     ('org:view_agency_referrals', 'Can list assigned openings and the agency''s referrals (agency side)'),
+    ('org:manage_agency_recruiters', 'Can assign agency recruiters to openings and set client default recruiters (agency side)'),
 
     -- Hub portal roles (assigned at signup, additional roles for paid features)
     ('hub:read_posts', 'Can read posts by other hub users'),
@@ -775,6 +776,7 @@ CREATE TABLE agency_referrals (
     agency_org_id                UUID NOT NULL,
     agency_org_domain            TEXT NOT NULL,
     referred_by_org_user_id      UUID NOT NULL,        -- agency user who referred
+    referred_by_name_snapshot    TEXT NOT NULL DEFAULT '', -- agency user's name at refer time (avoids cross-region lookup)
     candidate_hub_user_global_id UUID NOT NULL,
     candidate_handle_snapshot    TEXT NOT NULL,
     statement_text               TEXT CHECK (statement_text IS NULL OR length(statement_text) <= 2000),
@@ -791,6 +793,34 @@ CREATE UNIQUE INDEX agency_referrals_one_pending
     WHERE state = 'pending';
 CREATE INDEX idx_agency_referrals_opening_candidate
     ON agency_referrals (opening_id, candidate_hub_user_global_id);
+
+-- Internal agency assignment: which agency org-users own an opening. Lives in the
+-- agency's own region (the opening itself is in the consumer's region). Multiple
+-- recruiters may co-own one opening. consumer_org_domain is snapshotted from the
+-- global assignment index so the agency can filter/resolve defaults by client
+-- without a cross-region hop.
+CREATE TABLE agency_opening_recruiters (
+    agency_org_id           UUID NOT NULL,
+    opening_id              UUID NOT NULL,
+    consumer_org_domain     TEXT NOT NULL,
+    agency_org_user_id      UUID NOT NULL,
+    assigned_by_org_user_id UUID NOT NULL,
+    created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (agency_org_id, opening_id, agency_org_user_id)
+);
+CREATE INDEX idx_agency_opening_recruiters_user
+    ON agency_opening_recruiters (agency_org_id, agency_org_user_id);
+
+-- Per-client default recruiters: when an opening from this client has no explicit
+-- recruiter, these users are its effective (overridable) recruiters.
+CREATE TABLE agency_client_default_recruiters (
+    agency_org_id          UUID NOT NULL,
+    consumer_org_domain    TEXT NOT NULL,
+    agency_org_user_id     UUID NOT NULL,
+    updated_by_org_user_id UUID NOT NULL,
+    updated_at             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (agency_org_id, consumer_org_domain, agency_org_user_id)
+);
 
 CREATE TABLE reference_requests (
     request_id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),

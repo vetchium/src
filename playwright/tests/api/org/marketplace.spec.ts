@@ -378,6 +378,68 @@ test.describe("Multi-capability listing", () => {
 });
 
 // ============================================================================
+// list-listings filter_capability_id — backs the dashboard's pagination-proof
+// "is this org a registered staffing provider?" check (filter_status=active +
+// filter_capability_id=staffing + limit=1).
+// ============================================================================
+test.describe("list-listings filter_capability_id", () => {
+	test("narrows by capability id and composes with filter_status", async ({
+		request,
+	}) => {
+		const api = new OrgAPIClient(request);
+		const { email, domain } = generateTestOrgEmail("mp-capfilter");
+		const { orgId } = await createTestOrgAdminDirect(email, TEST_PASSWORD);
+		try {
+			const token = await loginOrg(api, email, domain);
+
+			await createTestMarketplaceListingDirect(
+				orgId,
+				domain,
+				[TEST_CAP_ID],
+				"active",
+				"Active Cap1 Listing"
+			);
+			await createTestMarketplaceListingDirect(
+				orgId,
+				domain,
+				[TEST_CAP2_ID],
+				"draft",
+				"Draft Cap2 Listing"
+			);
+
+			// active + cap1 -> exactly the one active cap1 listing (even with limit:1)
+			const r1 = await api.listMyListings(token, {
+				filter_status: "active" as MarketplaceListingStatus,
+				filter_capability_id: TEST_CAP_ID,
+				limit: 1,
+			});
+			expect(r1.status).toBe(200);
+			expect(r1.body!.listings.length).toBe(1);
+			expect(r1.body!.listings[0].capabilities).toContain(TEST_CAP_ID);
+
+			// active + cap2 -> none (the cap2 listing is a draft, not active)
+			const r2 = await api.listMyListings(token, {
+				filter_status: "active" as MarketplaceListingStatus,
+				filter_capability_id: TEST_CAP2_ID,
+				limit: 1,
+			});
+			expect(r2.status).toBe(200);
+			expect(r2.body!.listings.length).toBe(0);
+
+			// a capability the org has on no listing -> none
+			const r3 = await api.listMyListings(token, {
+				filter_capability_id: "nonexistent-cap-xyz",
+				limit: 10,
+			});
+			expect(r3.status).toBe(200);
+			expect(r3.body!.listings.length).toBe(0);
+		} finally {
+			await deleteTestOrgUser(email);
+		}
+	});
+});
+
+// ============================================================================
 // Quota exceeded: silver tier allows 5 listings; 6th publish -> 403
 // ============================================================================
 test.describe("Quota: marketplace_listings cap enforced on publish", () => {

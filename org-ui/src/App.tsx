@@ -46,8 +46,9 @@ import OpeningsListPage from "./pages/Openings/OpeningsListPage";
 import CreateOpeningPage from "./pages/Openings/CreateOpeningPage";
 import OpeningDetailPage from "./pages/Openings/OpeningDetailPage";
 import EditOpeningPage from "./pages/Openings/EditOpeningPage";
-import AgencyReferralsPage from "./pages/referrals/AgencyReferralsPage";
-import ReferCandidatePage from "./pages/referrals/ReferCandidatePage";
+import AgencyWorkspacePage from "./pages/referrals/AgencyWorkspacePage";
+import AgencyOpeningDetailPage from "./pages/referrals/OpeningDetailPage";
+import ClientDefaultsPage from "./pages/referrals/ClientDefaultsPage";
 import { ApplicationsListPage } from "./pages/applications/ApplicationsListPage";
 import { ApplicationDetailPage } from "./pages/applications/ApplicationDetailPage";
 import { CandidaciesListPage } from "./pages/candidacies/CandidaciesListPage";
@@ -462,15 +463,23 @@ function AppContent() {
 								path="/referrals"
 								element={
 									<ProtectedRoute>
-										<AgencyReferralsPage />
+										<AgencyWorkspacePage />
 									</ProtectedRoute>
 								}
 							/>
 							<Route
-								path="/referrals/new"
+								path="/referrals/defaults"
 								element={
 									<ProtectedRoute>
-										<ReferCandidatePage />
+										<ClientDefaultsPage />
+									</ProtectedRoute>
+								}
+							/>
+							<Route
+								path="/referrals/openings/:openingId"
+								element={
+									<ProtectedRoute>
+										<AgencyOpeningDetailPage />
 									</ProtectedRoute>
 								}
 							/>

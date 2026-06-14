@@ -49,6 +49,11 @@ func ListMyListings(s *server.RegionalServer) http.HandlerFunc {
 			}
 		}
 
+		var filterCapabilityID pgtype.Text
+		if req.FilterCapabilityID != nil && *req.FilterCapabilityID != "" {
+			filterCapabilityID = pgtype.Text{String: *req.FilterCapabilityID, Valid: true}
+		}
+
 		var paginationKey pgtype.UUID
 		if req.PaginationKey != nil {
 			if err := paginationKey.Scan(*req.PaginationKey); err != nil {
@@ -58,10 +63,11 @@ func ListMyListings(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		rows, err := s.RegionalForCtx(ctx).ListMarketplaceListingsByOrg(ctx, regionaldb.ListMarketplaceListingsByOrgParams{
-			OrgID:         orgUser.OrgID,
-			FilterStatus:  filterStatus,
-			PaginationKey: paginationKey,
-			RowLimit:      limit + 1,
+			OrgID:              orgUser.OrgID,
+			FilterStatus:       filterStatus,
+			FilterCapabilityID: filterCapabilityID,
+			PaginationKey:      paginationKey,
+			RowLimit:           limit + 1,
 		})
 		if err != nil {
 			s.Logger(ctx).Error("failed to list listings", "error", err)

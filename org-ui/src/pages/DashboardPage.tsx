@@ -15,13 +15,23 @@ import {
 	UsergroupAddOutlined,
 	SolutionOutlined,
 	ContactsOutlined,
+	ShareAltOutlined,
 } from "@ant-design/icons";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
+import type {
+	ListMyListingsRequest,
+	ListMyListingsResponse,
+} from "vetchium-specs/org/marketplace";
 import { useAuth } from "../hooks/useAuth";
 import { useMyInfo } from "../hooks/useMyInfo";
+import { getApiBaseUrl } from "../config";
 
 const { Title } = Typography;
+
+// capability_id of the staffing capability (a data value, not a TypeSpec enum)
+const STAFFING_CAPABILITY_ID = "staffing";
 
 export function DashboardPage() {
 	const { t } = useTranslation();
@@ -104,6 +114,57 @@ export function DashboardPage() {
 	// My Interviews is available to any authenticated org user — being placed
 	// on an interview panel, not a role, is what surfaces interviews here.
 	const hasMyInterviewsAccess = !!myInfo;
+
+	// Agency referrals (agency side): gated on BOTH the agency-side role AND the
+	// org actually being a registered staffing provider — i.e. it has an active
+	// marketplace listing carrying the staffing capability. Without an active
+	// staffing listing no consumer can subscribe/assign it, so there is nothing
+	// to refer into and the tile stays hidden.
+	const hasAgencyReferralRole =
+		myInfo?.roles.includes("org:superadmin") ||
+		myInfo?.roles.includes("org:view_agency_referrals") ||
+		myInfo?.roles.includes("org:refer_candidates") ||
+		false;
+
+	const [isStaffingProvider, setIsStaffingProvider] = useState(false);
+
+	useEffect(() => {
+		if (!sessionToken || !hasAgencyReferralRole) return;
+		let cancelled = false;
+		(async () => {
+			try {
+				const baseUrl = await getApiBaseUrl();
+				// Ask the server for a single active listing carrying the staffing
+				// capability. limit:1 + the capability filter make this a definitive,
+				// pagination-proof answer regardless of how many listings the org has.
+				const req: ListMyListingsRequest = {
+					filter_status: "active",
+					filter_capability_id: STAFFING_CAPABILITY_ID,
+					limit: 1,
+				};
+				const res = await fetch(`${baseUrl}/org/marketplace/list-listings`, {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${sessionToken}`,
+					},
+					body: JSON.stringify(req),
+				});
+				if (res.status === 200) {
+					const data: ListMyListingsResponse = await res.json();
+					if (!cancelled)
+						setIsStaffingProvider((data.listings ?? []).length > 0);
+				}
+			} catch {
+				// network error — leave the tile hidden rather than risk a dead link
+			}
+		})();
+		return () => {
+			cancelled = true;
+		};
+	}, [sessionToken, hasAgencyReferralRole]);
+
+	const hasAgencyReferralsAccess = hasAgencyReferralRole && isStaffingProvider;
 
 	return (
 		<div
@@ -631,6 +692,42 @@ export function DashboardPage() {
 									</Title>
 									<Typography.Text type="secondary">
 										{t("marketplace:dashboard.clientsDescription")}
+									</Typography.Text>
+								</Card>
+							</Link>
+						</Col>
+					)}
+
+					{hasAgencyReferralsAccess && (
+						<Col xs={24} sm={12} lg={8}>
+							<Link
+								to="/referrals"
+								style={{
+									textDecoration: "none",
+									display: "block",
+									height: "100%",
+								}}
+							>
+								<Card
+									hoverable
+									style={{
+										height: "100%",
+										cursor: "pointer",
+										textAlign: "center",
+									}}
+								>
+									<ShareAltOutlined
+										style={{
+											fontSize: 48,
+											color: "#722ed1",
+											marginBottom: 16,
+										}}
+									/>
+									<Title level={4} style={{ marginBottom: 8 }}>
+										{t("agencyReferrals:dashboardTitle")}
+									</Title>
+									<Typography.Text type="secondary">
+										{t("agencyReferrals:dashboardDescription")}
 									</Typography.Text>
 								</Card>
 							</Link>

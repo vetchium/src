@@ -58,6 +58,7 @@ export interface GetListingRequest {
 
 export interface ListMyListingsRequest {
 	filter_status?: MarketplaceListingStatus;
+	filter_capability_id?: string;
 	pagination_key?: string;
 	limit?: number;
 }

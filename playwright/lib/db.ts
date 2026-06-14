@@ -1497,6 +1497,28 @@ export async function removeRoleFromAdminUser(
  * @param roleName - Name of the role to assign (e.g., 'post_jobs', 'manage_jobs')
  * @param region - Region where the org user resides (default: 'ind1')
  */
+/**
+ * Counts regional audit_logs rows for a given actor + event_type. Used by tests
+ * to assert that a write handler recorded its audit entry (and that failures do
+ * not).
+ */
+export async function countOrgAuditLogs(
+	actorUserId: string,
+	eventType: string,
+	region: RegionCode = "ind1"
+): Promise<number> {
+	const regionalPool = getRegionalPool(region);
+	try {
+		const res = await regionalPool.query(
+			`SELECT COUNT(*)::int AS n FROM audit_logs WHERE actor_user_id = $1 AND event_type = $2`,
+			[actorUserId, eventType]
+		);
+		return res.rows[0].n as number;
+	} finally {
+		await regionalPool.end();
+	}
+}
+
 export async function assignRoleToOrgUser(
 	orgUserId: string,
 	roleName: string,

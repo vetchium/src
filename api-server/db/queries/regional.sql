@@ -822,6 +822,12 @@ FROM marketplace_listings ml
 LEFT JOIN marketplace_listing_capabilities mlc ON ml.listing_id = mlc.listing_id AND mlc.removed_at IS NULL
 WHERE ml.org_id = @org_id
   AND (sqlc.narg('filter_status')::marketplace_listing_status IS NULL OR ml.status = sqlc.narg('filter_status')::marketplace_listing_status)
+  AND (sqlc.narg('filter_capability_id')::text IS NULL OR EXISTS (
+        SELECT 1 FROM marketplace_listing_capabilities mlc2
+        WHERE mlc2.listing_id = ml.listing_id
+          AND mlc2.removed_at IS NULL
+          AND mlc2.capability_id = sqlc.narg('filter_capability_id')::text
+      ))
   AND (sqlc.narg('pagination_key')::uuid IS NULL OR ml.listing_id > sqlc.narg('pagination_key')::uuid)
 GROUP BY ml.listing_id
 ORDER BY ml.listing_id ASC
@@ -1758,9 +1764,10 @@ ORDER BY written_at ASC;
 -- name: CreateAgencyReferral :one
 INSERT INTO agency_referrals (
     opening_id, org_id, agency_org_id, agency_org_domain,
-    referred_by_org_user_id, candidate_hub_user_global_id,
+    referred_by_org_user_id, referred_by_name_snapshot,
+    candidate_hub_user_global_id,
     candidate_handle_snapshot, statement_text
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 RETURNING *;
 
 -- name: GetAgencyReferralByID :one
@@ -1827,6 +1834,71 @@ SELECT agency_org_id, agency_org_domain
 FROM opening_agency_assignments
 WHERE opening_id = $1
 ORDER BY created_at DESC;
+
+-- ===== Agency-side internal recruiter assignment (agency's own region) =====
+
+-- name: ListActiveOrgUsersByOrg :many
+SELECT org_user_id, COALESCE(full_name, '') AS full_name, email_address
+FROM org_users
+WHERE org_id = $1 AND status = 'active'
+ORDER BY full_name NULLS LAST, email_address;
+
+-- name: AddOpeningRecruiter :exec
+INSERT INTO agency_opening_recruiters (
+    agency_org_id, opening_id, consumer_org_domain, agency_org_user_id, assigned_by_org_user_id
+) VALUES ($1, $2, $3, $4, $5)
+ON CONFLICT (agency_org_id, opening_id, agency_org_user_id) DO NOTHING;
+
+-- name: RemoveOpeningRecruiter :execrows
+DELETE FROM agency_opening_recruiters
+WHERE agency_org_id = $1 AND opening_id = $2 AND agency_org_user_id = $3;
+
+-- name: ListOpeningRecruitersByOpeningIDs :many
+SELECT r.opening_id, r.agency_org_user_id,
+       COALESCE(u.full_name, '') AS full_name, COALESCE(u.email_address, '') AS email_address
+FROM agency_opening_recruiters r
+LEFT JOIN org_users u ON u.org_user_id = r.agency_org_user_id
+WHERE r.agency_org_id = $1 AND r.opening_id = ANY(@opening_ids::uuid[]);
+
+-- name: ListExplicitOpeningIDsForAgency :many
+SELECT DISTINCT opening_id FROM agency_opening_recruiters WHERE agency_org_id = $1;
+
+-- name: ListExplicitOpeningIDsForRecruiter :many
+SELECT opening_id FROM agency_opening_recruiters
+WHERE agency_org_id = $1 AND agency_org_user_id = $2;
+
+-- ===== Agency-side per-client default recruiters (agency's own region) =====
+
+-- name: ListClientDefaultRecruitersByAgency :many
+SELECT d.consumer_org_domain, d.agency_org_user_id,
+       COALESCE(u.full_name, '') AS full_name, COALESCE(u.email_address, '') AS email_address
+FROM agency_client_default_recruiters d
+LEFT JOIN org_users u ON u.org_user_id = d.agency_org_user_id
+WHERE d.agency_org_id = $1
+ORDER BY d.consumer_org_domain;
+
+-- name: ListDefaultDomainsForRecruiter :many
+SELECT consumer_org_domain FROM agency_client_default_recruiters
+WHERE agency_org_id = $1 AND agency_org_user_id = $2;
+
+-- name: ListAllDefaultDomainsForAgency :many
+SELECT DISTINCT consumer_org_domain FROM agency_client_default_recruiters
+WHERE agency_org_id = $1;
+
+-- name: DeleteClientDefaultRecruitersForDomain :exec
+DELETE FROM agency_client_default_recruiters
+WHERE agency_org_id = $1 AND consumer_org_domain = $2;
+
+-- name: AddClientDefaultRecruiter :exec
+INSERT INTO agency_client_default_recruiters (
+    agency_org_id, consumer_org_domain, agency_org_user_id, updated_by_org_user_id
+) VALUES ($1, $2, $3, $4)
+ON CONFLICT (agency_org_id, consumer_org_domain, agency_org_user_id)
+DO UPDATE SET updated_by_org_user_id = EXCLUDED.updated_by_org_user_id, updated_at = NOW();
+
+-- name: RemoveClientDefaultRecruiter :execrows
+DELETE FROM agency_client_default_recruiters
+WHERE agency_org_id = $1 AND consumer_org_domain = $2 AND agency_org_user_id = $3;
 
 -- name: GetConnectedPeersByHandles :many
 SELECT peer, peer_handle FROM hub_user_connections
