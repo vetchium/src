@@ -1507,8 +1507,9 @@ SELECT * FROM applications WHERE application_id = $1;
 INSERT INTO applications (
     org_id, opening_id, opening_number, applicant_hub_user_global_id,
     applicant_handle_snapshot, applicant_display_name_snapshot,
-    cover_letter, resume_s3_key, state, notify_colleagues_at_target
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+    cover_letter, resume_s3_key, state, notify_colleagues_at_target,
+    referring_agency_org_id, referring_agency_domain, direct_affirmed_no_agency
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 RETURNING *;
 
 -- name: ListApplicationsForOpening :many

@@ -86,6 +86,14 @@ func ApplyForOpening(s *server.RegionalServer) http.HandlerFunc {
 		openingNumberStr := r.FormValue("opening_number")
 		coverLetter := r.FormValue("cover_letter")
 		notifyColleagues := r.FormValue("notify_colleagues_at_target") == "true"
+		// Agency attribution: "direct" (or empty) = direct application; otherwise
+		// the chosen agency's domain. direct_no_agency_affirmation is required when
+		// applying directly to an `open` opening that has pending referrals.
+		applyVia := r.FormValue("apply_via")
+		if applyVia == "" {
+			applyVia = "direct"
+		}
+		directNoAgencyAffirmation := r.FormValue("direct_no_agency_affirmation") == "true"
 
 		// Optional repeated endorser handles + a shared note. Dedupe so a
 		// repeated handle does not collide on the (application, endorser)
@@ -198,6 +206,53 @@ func ApplyForOpening(s *server.RegionalServer) http.HandlerFunc {
 			s.Logger(ctx).Error("failed to get opening", "error", err)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
+		}
+
+		// Agency attribution resolution (opening's region). Multiple agencies may
+		// have referred this candidate to this opening; the candidate selects one
+		// (or applies directly) here.
+		pendingReferrals, err := openingDB.ListPendingReferralsForCandidateOpening(ctx,
+			regionaldb.ListPendingReferralsForCandidateOpeningParams{
+				OpeningID:                opening.OpeningID,
+				CandidateHubUserGlobalID: hubUser.HubUserGlobalID,
+			})
+		if err != nil {
+			s.Logger(ctx).Error("failed to list pending referrals", "error", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		var chosenReferral *regionaldb.AgencyReferral
+		var referringAgencyOrgID pgtype.UUID
+		var referringAgencyDomain pgtype.Text
+		if applyVia == "direct" {
+			// agency_only openings reject direct applications.
+			if opening.ApplicationMode == "agency_only" {
+				w.WriteHeader(http.StatusUnprocessableEntity)
+				json.NewEncoder(w).Encode(map[string]string{"error": "agency_only_opening"})
+				return
+			}
+			// Going direct while referrals are pending requires an explicit, logged
+			// affirmation that no agency referred the candidate.
+			if len(pendingReferrals) > 0 && !directNoAgencyAffirmation {
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(map[string]string{"error": "agency_affirmation_required"})
+				return
+			}
+		} else {
+			// Applying via an agency: it must have a pending referral for this opening.
+			for i := range pendingReferrals {
+				if pendingReferrals[i].AgencyOrgDomain == applyVia {
+					chosenReferral = &pendingReferrals[i]
+					break
+				}
+			}
+			if chosenReferral == nil {
+				w.WriteHeader(http.StatusUnprocessableEntity)
+				json.NewEncoder(w).Encode(map[string]string{"error": "no_referral_from_agency"})
+				return
+			}
+			referringAgencyOrgID = chosenReferral.AgencyOrgID
+			referringAgencyDomain = pgtype.Text{String: chosenReferral.AgencyOrgDomain, Valid: true}
 		}
 
 		// Cool-off enforcement (opening's region): if the org has a cool-off
@@ -318,12 +373,37 @@ func ApplyForOpening(s *server.RegionalServer) http.HandlerFunc {
 				ResumeS3Key:                  s3Key,
 				State:                        "applied",
 				NotifyColleaguesAtTarget:     notifyColleagues,
+				ReferringAgencyOrgID:         referringAgencyOrgID,
+				ReferringAgencyDomain:        referringAgencyDomain,
+				DirectAffirmedNoAgency:       applyVia == "direct" && directNoAgencyAffirmation,
 			})
 			if txErr != nil {
 				return txErr
 			}
 			applicationID = app.ApplicationID
 			appliedAt = app.AppliedAt
+
+			// Resolve agency referrals: the chosen agency wins; the others (and
+			// any pending referral on a direct application) become not_selected.
+			if chosenReferral != nil {
+				if _, rErr := qtx.ResolveAgencyReferralAcceptedApplied(ctx, chosenReferral.ReferralID); rErr != nil {
+					return rErr
+				}
+				if rErr := qtx.MarkOtherReferralsNotSelected(ctx, regionaldb.MarkOtherReferralsNotSelectedParams{
+					OpeningID:                opening.OpeningID,
+					CandidateHubUserGlobalID: hubUser.HubUserGlobalID,
+					ReferralID:               chosenReferral.ReferralID,
+				}); rErr != nil {
+					return rErr
+				}
+			} else if len(pendingReferrals) > 0 {
+				if rErr := qtx.MarkAllPendingReferralsNotSelected(ctx, regionaldb.MarkAllPendingReferralsNotSelectedParams{
+					OpeningID:                opening.OpeningID,
+					CandidateHubUserGlobalID: hubUser.HubUserGlobalID,
+				}); rErr != nil {
+					return rErr
+				}
+			}
 
 			// Create one endorsement request per nominated endorser.
 			for _, h := range endorserHandles {
@@ -379,6 +459,24 @@ func ApplyForOpening(s *server.RegionalServer) http.HandlerFunc {
 		}); err != nil {
 			s.Logger(ctx).Error("CONSISTENCY_ALERT: failed to insert applications_index",
 				"application_id", applicationID.String(), "error", err)
+		}
+
+		// Cross-DB: mirror the resolved agency-referral states into the global
+		// index (best-effort, compensating). The chosen agency becomes
+		// accepted_applied; every other pending referral becomes not_selected.
+		for i := range pendingReferrals {
+			ref := &pendingReferrals[i]
+			state := "not_selected"
+			if chosenReferral != nil && ref.ReferralID == chosenReferral.ReferralID {
+				state = "accepted_applied"
+			}
+			if idxErr := s.Global.UpdateAgencyReferralIndexState(ctx, globaldb.UpdateAgencyReferralIndexStateParams{
+				ReferralID: ref.ReferralID,
+				State:      state,
+			}); idxErr != nil {
+				s.Logger(ctx).Error("CONSISTENCY_ALERT: failed to update referral index state",
+					"referral_id", ref.ReferralID.String(), "error", idxErr)
+			}
 		}
 
 		// Cross-DB: insert endorsement_requests_index rows (best-effort, mirrors
