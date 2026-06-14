@@ -199,8 +199,16 @@ test.describe("POST /hub/my-audit-logs", () => {
 					page1.body.audit_logs.length > 0 &&
 					page2.body.audit_logs.length > 0
 				) {
-					expect(page2.body.audit_logs[0].created_at).not.toBe(
-						page1.body.audit_logs[0].created_at
+					// Page 2 must be a DIFFERENT entry than page 1. created_at is
+					// serialized at second precision, so two events in the same
+					// second collide as strings even though they are distinct rows
+					// (the keyset paginates on (created_at, id)). Compare a stable
+					// composite (event_type + created_at) so the assertion reflects
+					// "different entry", not "different second".
+					const a = page1.body.audit_logs[0];
+					const b = page2.body.audit_logs[0];
+					expect(`${b.event_type}|${b.created_at}`).not.toBe(
+						`${a.event_type}|${a.created_at}`
 					);
 				}
 			}
