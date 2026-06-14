@@ -50,6 +50,10 @@ var ValidRoleNames = []RoleName{
 	"org:manage_candidacies",
 	"org:view_hiring_settings",
 	"org:manage_hiring_settings",
+	"org:view_opening_agencies",
+	"org:manage_opening_agencies",
+	"org:refer_candidates",
+	"org:view_agency_referrals",
 
 	// Hub portal roles
 	"hub:read_posts",

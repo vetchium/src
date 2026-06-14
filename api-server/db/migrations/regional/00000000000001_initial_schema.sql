@@ -306,6 +306,10 @@ INSERT INTO roles (role_name, description) VALUES
     ('org:manage_candidacies', 'Can schedule/cancel interviews, comment on candidacies, extend offers, request references'),
     ('org:view_hiring_settings', 'Can view org-level hiring configuration (cool-off, defaults) read-only'),
     ('org:manage_hiring_settings', 'Can update org-level hiring configuration'),
+    ('org:view_opening_agencies', 'Can view staffing agencies assigned to an opening (consumer side, read-only)'),
+    ('org:manage_opening_agencies', 'Can assign and remove staffing agencies on an opening (consumer side)'),
+    ('org:refer_candidates', 'Can refer candidates into openings the agency is assigned to (agency side)'),
+    ('org:view_agency_referrals', 'Can list assigned openings and the agency''s referrals (agency side)'),
 
     -- Hub portal roles (assigned at signup, additional roles for paid features)
     ('hub:read_posts', 'Can read posts by other hub users'),
@@ -439,6 +443,8 @@ CREATE TABLE openings (
   cost_center_id          UUID,
   internal_notes          TEXT,
   status                  opening_status      NOT NULL DEFAULT 'draft',
+  application_mode        TEXT                NOT NULL DEFAULT 'open'
+                            CHECK (application_mode IN ('open','agency_only')),
   rejection_note          TEXT,
   first_published_at      TIMESTAMPTZ,
   expired_at              TIMESTAMPTZ,
@@ -603,6 +609,10 @@ CREATE TABLE applications (
     label                  TEXT CHECK (label IN ('green','yellow','red')),
     notify_colleagues_at_target BOOLEAN NOT NULL DEFAULT FALSE,
     rejection_reason       TEXT,
+    -- Agency attribution (NULL agency = direct application).
+    referring_agency_org_id   UUID,
+    referring_agency_domain   TEXT,
+    direct_affirmed_no_agency BOOLEAN NOT NULL DEFAULT FALSE,
     applied_at             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     state_changed_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (org_id, applicant_hub_user_global_id, opening_id)
@@ -733,8 +743,6 @@ CREATE TABLE endorsements (
     application_id               UUID NOT NULL,
     endorser_hub_user_global_id  UUID NOT NULL,
     request_id                   UUID UNIQUE,
-    is_referral                  BOOLEAN NOT NULL DEFAULT FALSE,
-    referral_id                  UUID,
     shared_domain                TEXT NOT NULL,
     overlap_start_year           INT  NOT NULL,
     overlap_end_year             INT  NOT NULL,
@@ -745,24 +753,44 @@ CREATE TABLE endorsements (
     UNIQUE (application_id, endorser_hub_user_global_id)
 );
 
--- Referral nominations (current employee refers a former colleague for an opening)
-CREATE TABLE referral_nominations (
-    nomination_id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    referrer_hub_user_global_id  UUID NOT NULL,
-    candidate_hub_user_global_id UUID NOT NULL,
+-- Opening <-> staffing-agency assignments (consumer opening's region).
+-- A consumer org assigns one of its actively-subscribed staffing providers as an
+-- official recruiting agency on one of its published openings.
+CREATE TABLE opening_agency_assignments (
+    opening_id              UUID NOT NULL REFERENCES openings(opening_id) ON DELETE CASCADE,
+    org_id                  UUID NOT NULL,            -- consumer org (opening owner)
+    agency_org_id           UUID NOT NULL,            -- staffing provider org
+    agency_org_domain       TEXT NOT NULL,
+    assigned_by_org_user_id UUID NOT NULL,
+    created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (opening_id, agency_org_id)
+);
+
+-- Agency referrals (an assigned agency refers a Hub user into an opening).
+-- Replaces the old colleague-nomination referral_nominations table.
+CREATE TABLE agency_referrals (
+    referral_id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     opening_id                   UUID NOT NULL,
-    org_id                       UUID NOT NULL,
-    statement_text               TEXT NOT NULL CHECK (length(statement_text) BETWEEN 100 AND 2000),
-    shared_domain                TEXT NOT NULL,
-    overlap_start_year           INT  NOT NULL,
-    overlap_end_year             INT  NOT NULL,
+    org_id                       UUID NOT NULL,        -- consumer org
+    agency_org_id                UUID NOT NULL,
+    agency_org_domain            TEXT NOT NULL,
+    referred_by_org_user_id      UUID NOT NULL,        -- agency user who referred
+    candidate_hub_user_global_id UUID NOT NULL,
+    candidate_handle_snapshot    TEXT NOT NULL,
+    statement_text               TEXT CHECK (statement_text IS NULL OR length(statement_text) <= 2000),
     state                        TEXT NOT NULL DEFAULT 'pending'
-                                   CHECK (state IN ('pending','accepted_applied','declined','expired')),
+                                   CHECK (state IN ('pending','accepted_applied','declined','expired','not_selected')),
     created_at                   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     resolved_at                  TIMESTAMPTZ,
-    expires_at                   TIMESTAMPTZ NOT NULL DEFAULT NOW() + INTERVAL '30 days',
-    UNIQUE (referrer_hub_user_global_id, candidate_hub_user_global_id, opening_id)
+    expires_at                   TIMESTAMPTZ NOT NULL DEFAULT NOW() + INTERVAL '30 days'
 );
+-- At most one PENDING referral per (opening, candidate, agency); re-referral is
+-- allowed once a prior one is declined/expired/not_selected.
+CREATE UNIQUE INDEX agency_referrals_one_pending
+    ON agency_referrals (opening_id, candidate_hub_user_global_id, agency_org_id)
+    WHERE state = 'pending';
+CREATE INDEX idx_agency_referrals_opening_candidate
+    ON agency_referrals (opening_id, candidate_hub_user_global_id);
 
 CREATE TABLE reference_requests (
     request_id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -893,7 +921,8 @@ DROP TABLE IF EXISTS candidacies;
 DROP INDEX IF EXISTS idx_applications_by_applicant;
 DROP INDEX IF EXISTS idx_applications_by_opening;
 DROP INDEX IF EXISTS applications_one_live_per_org;
-DROP TABLE IF EXISTS referral_nominations;
+DROP TABLE IF EXISTS agency_referrals;
+DROP TABLE IF EXISTS opening_agency_assignments;
 DROP TABLE IF EXISTS endorsements;
 DROP TABLE IF EXISTS endorsement_requests;
 DROP TABLE IF EXISTS applications;

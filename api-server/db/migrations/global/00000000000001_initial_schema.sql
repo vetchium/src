@@ -528,20 +528,36 @@ CREATE TABLE endorsement_requests_index (
 CREATE INDEX endorsement_requests_by_endorser
     ON endorsement_requests_index (endorser_hub_user_global_id, requested_at DESC, request_id DESC);
 
--- Referral nominations index
-CREATE TABLE referral_nominations_index (
-    nomination_id                UUID PRIMARY KEY,
+-- Agency referral index (candidate inbox + agency "referrals made" list, cross-region).
+-- region = the opening's region, where the authoritative agency_referrals row lives.
+CREATE TABLE agency_referrals_index (
+    referral_id                  UUID PRIMARY KEY,
     candidate_hub_user_global_id UUID NOT NULL,
-    referrer_hub_user_global_id  UUID NOT NULL,
+    agency_org_id                UUID NOT NULL,
     region                       TEXT NOT NULL,
     opening_id                   UUID NOT NULL,
     state                        TEXT NOT NULL,
     created_at                   TIMESTAMPTZ NOT NULL
 );
-CREATE INDEX referral_nominations_by_candidate
-    ON referral_nominations_index (candidate_hub_user_global_id, created_at DESC, nomination_id DESC);
-CREATE INDEX referral_nominations_by_referrer
-    ON referral_nominations_index (referrer_hub_user_global_id, created_at DESC, nomination_id DESC);
+CREATE INDEX agency_referrals_by_candidate
+    ON agency_referrals_index (candidate_hub_user_global_id, created_at DESC, referral_id DESC);
+CREATE INDEX agency_referrals_by_agency
+    ON agency_referrals_index (agency_org_id, created_at DESC, referral_id DESC);
+
+-- Opening<->agency assignment index (agency lists "openings my agency is assigned to").
+CREATE TABLE opening_agency_assignment_index (
+    opening_id          UUID NOT NULL,
+    agency_org_id       UUID NOT NULL,
+    region              TEXT NOT NULL,                -- opening's region
+    consumer_org_id     UUID NOT NULL,
+    consumer_org_domain TEXT NOT NULL,
+    opening_number      INT  NOT NULL,
+    title_snapshot      TEXT NOT NULL,
+    created_at          TIMESTAMPTZ NOT NULL,
+    PRIMARY KEY (opening_id, agency_org_id)
+);
+CREATE INDEX opening_agency_assignment_by_agency
+    ON opening_agency_assignment_index (agency_org_id, created_at DESC, opening_id DESC);
 
 CREATE TABLE reference_nominations_index (
     nomination_id      UUID PRIMARY KEY,
@@ -557,9 +573,11 @@ CREATE INDEX reference_nominations_by_nominee
 -- +goose Down
 DROP INDEX IF EXISTS reference_nominations_by_nominee;
 DROP TABLE IF EXISTS reference_nominations_index;
-DROP INDEX IF EXISTS referral_nominations_by_referrer;
-DROP INDEX IF EXISTS referral_nominations_by_candidate;
-DROP TABLE IF EXISTS referral_nominations_index;
+DROP INDEX IF EXISTS opening_agency_assignment_by_agency;
+DROP TABLE IF EXISTS opening_agency_assignment_index;
+DROP INDEX IF EXISTS agency_referrals_by_agency;
+DROP INDEX IF EXISTS agency_referrals_by_candidate;
+DROP TABLE IF EXISTS agency_referrals_index;
 DROP INDEX IF EXISTS endorsement_requests_by_endorser;
 DROP TABLE IF EXISTS endorsement_requests_index;
 DROP INDEX IF EXISTS applications_index_by_user;
