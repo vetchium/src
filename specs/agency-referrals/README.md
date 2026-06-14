@@ -386,150 +386,462 @@ Authors: @
 
 ### API Contract
 
-TypeSpec definitions in `specs/typespec/{portal}/{feature}.tsp` with matching `.ts` and `.go` files. These are the source of truth — all request/response types must be defined here and imported everywhere else.
+New TypeSpec files: `specs/typespec/org/agency-referrals.tsp` (+ `.ts`/`.go`) and a rewritten
+`specs/typespec/hub/referrals.tsp` (+ `.ts`/`.go`). Existing files extended:
+`specs/typespec/org/applications.tsp`, `specs/typespec/org/openings.tsp` (or wherever
+create/update-opening lives), and the hub opening-detail + apply types. All JSON fields
+snake_case; all list endpoints keyset-paginated.
 
 ```typespec
-// specs/typespec/org/feature.tsp
+// specs/typespec/org/agency-referrals.tsp  (consumer + agency sides)
 
-model CreateFooRequest {
-  name: string;
-  description?: string;
+enum ApplicationMode { open, agency_only }
+enum AgencyReferralState { pending, accepted_applied, declined, expired, not_selected }
+
+// ---- Consumer: assign / list / remove agencies on an opening ----
+model AssignOpeningAgencyRequest { opening_id: string; agency_org_domain: string; }
+model RemoveOpeningAgencyRequest { opening_id: string; agency_org_domain: string; }
+model ListOpeningAgenciesRequest { opening_id: string; }
+model OpeningAgency {
+  agency_org_domain: string;
+  agency_org_name: string;
+  assigned_at: utcDateTime;
+  referrals_made: int32;
+}
+model ListOpeningAgenciesResponse { agencies: OpeningAgency[]; }
+
+// ---- Agency: list openings I'm assigned to (populates refer dropdown) ----
+model ListAssignedOpeningsRequest { pagination_key?: string; limit?: int32; }
+model AssignedOpening {
+  opening_id: string;
+  consumer_org_domain: string;
+  opening_number: int32;
+  title: string;            // snapshot kept in the global assignment index
+  assigned_at: utcDateTime;
+}
+model ListAssignedOpeningsResponse {
+  openings: AssignedOpening[];
+  next_pagination_key?: string;
 }
 
-model FooResponse {
-  id: string;
-  name: string;
+// ---- Agency: refer a candidate ----
+model ReferCandidateRequest {
+  opening_id: string;       // from ListAssignedOpenings
+  candidate_handle: Handle;
+  statement_text?: string;  // max 2000
+}
+model ReferCandidateResponse { referral_id: string; }
+
+// ---- Agency: referrals my agency has made ----
+model ListAgencyReferralsRequest { pagination_key?: string; limit?: int32; }
+model AgencyReferral {
+  referral_id: string;
+  candidate_handle: Handle;
+  consumer_org_domain: string;
+  opening_number: int32;
+  opening_title: string;
+  state: AgencyReferralState;
   created_at: utcDateTime;
 }
+model ListAgencyReferralsResponse {
+  referrals: AgencyReferral[];
+  next_pagination_key?: string;
+}
 
-@route("/org/create-foo")
-op createFoo(...CreateFooRequest): CreatedResponse<FooResponse> | BadRequestResponse;
-
-@route("/org/list-foos")
-op listFoo(...ListFooRequest): OkResponse<FooListResponse> | BadRequestResponse;
+@route("/org/assign-opening-agency") @post
+op assignOpeningAgency(...AssignOpeningAgencyRequest):
+  OkResponse<{}> | BadRequestResponse | NotFoundResponse | UnprocessableEntityResponse;
+@route("/org/remove-opening-agency") @post
+op removeOpeningAgency(...RemoveOpeningAgencyRequest): OkResponse<{}> | NotFoundResponse;
+@route("/org/list-opening-agencies") @post
+op listOpeningAgencies(...ListOpeningAgenciesRequest):
+  OkResponse<ListOpeningAgenciesResponse> | BadRequestResponse;
+@route("/org/list-assigned-openings") @post
+op listAssignedOpenings(...ListAssignedOpeningsRequest):
+  OkResponse<ListAssignedOpeningsResponse> | BadRequestResponse;
+@route("/org/refer-candidate") @post
+op referCandidate(...ReferCandidateRequest):
+  CreatedResponse<ReferCandidateResponse> | BadRequestResponse | NotFoundResponse
+  | ForbiddenResponse | ConflictResponse | UnprocessableEntityResponse;
+@route("/org/list-agency-referrals") @post
+op listAgencyReferrals(...ListAgencyReferralsRequest):
+  OkResponse<ListAgencyReferralsResponse> | BadRequestResponse;
 ```
+
+```typespec
+// specs/typespec/hub/referrals.tsp  (REWRITE — source is now an agency)
+
+model ListReferralsReceivedRequest { pagination_key?: string; limit?: int32; }
+model ReferralReceived {
+  referral_id: string;
+  agency_org_domain: string;
+  agency_org_name: string;
+  consumer_org_domain: string;
+  opening_number: int32;
+  opening_title: string;
+  statement_text?: string;
+  state: AgencyReferralState;
+  created_at: utcDateTime;
+  expires_at: utcDateTime;
+}
+model ListReferralsReceivedResponse {
+  referrals: ReferralReceived[];   // grouped by opening in the UI
+  next_pagination_key?: string;
+}
+model DeclineReferralRequest { referral_id: string; }
+
+@route("/hub/list-referrals-received") @post
+op listReferralsReceived(...ListReferralsReceivedRequest):
+  OkResponse<ListReferralsReceivedResponse> | BadRequestResponse;
+@route("/hub/decline-referral") @post
+op declineReferral(...DeclineReferralRequest):
+  OkResponse<{}> | NotFoundResponse | UnprocessableEntityResponse;
+```
+
+Extensions to existing types:
+
+- `org/applications.tsp`: `ListApplicationsRequest` — drop `filter_has_referral`, add
+  `filter_agency?: string` (an agency domain, or the literal `"direct"`).
+  `OrgApplicationSummary` — drop `has_referral`, add `referring_agency_domain?: string`
+  (absent ⇒ direct). `OrgApplication` (detail) — add `referring_agency_domain?: string`.
+- create-opening / update-opening request + `Opening` model: add `application_mode:
+ApplicationMode` (default `open`).
+- Hub opening-detail response (the endpoint backing `/org/:orgDomain/openings/:openingNumber`):
+  add `application_mode: ApplicationMode` and `recruiting_agencies: { agency_org_domain:
+string; agency_org_name: string; }[]`. (Replaces the Stage-1 `GET /hub/opening-agencies`
+  idea — folding into the existing detail read avoids a params-in-GET convention violation and
+  a second round-trip.)
+- `apply-for-opening` is `multipart/form-data`; add form fields `apply_via` (`"direct"` or an
+  agency domain) and `direct_no_agency_affirmation` (`"true"`/`"false"`). No JSON model change.
 
 ### Database Schema
 
-Changes to `api-server/db/migrations/{global,regional}/00000000000001_initial_schema.sql`. No new migration files — edit the initial schema directly.
+Edit `api-server/db/migrations/{global,regional}/00000000000001_initial_schema.sql` directly.
 
 #### Tables / Columns
 
 ```sql
--- Regional DB
-CREATE TABLE foos (
-    id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    org_id     UUID NOT NULL,
-    name       TEXT NOT NULL,
-    status     TEXT NOT NULL DEFAULT 'active',
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+-- ===== Regional DB (opening's region) =====
+
+-- openings: add application mode
+ALTER TABLE openings ADD COLUMN application_mode TEXT NOT NULL DEFAULT 'open'
+  CHECK (application_mode IN ('open','agency_only'));   -- (edit the CREATE TABLE in place)
+
+-- applications: attribution (replaces the dead endorsements.is_referral linkage)
+ALTER TABLE applications
+  ADD COLUMN referring_agency_org_id     UUID,          -- NULL = direct
+  ADD COLUMN referring_agency_domain     TEXT,
+  ADD COLUMN direct_affirmed_no_agency   BOOLEAN NOT NULL DEFAULT FALSE; -- (edit CREATE in place)
+
+-- DROP the vestigial, never-populated columns on endorsements
+--   endorsements.is_referral, endorsements.referral_id
+
+-- Opening ↔ agency assignment (consumer opening's region)
+CREATE TABLE opening_agency_assignments (
+    opening_id              UUID NOT NULL REFERENCES openings(opening_id) ON DELETE CASCADE,
+    org_id                  UUID NOT NULL,            -- consumer org (opening owner)
+    agency_org_id           UUID NOT NULL,            -- staffing provider org
+    agency_org_domain       TEXT NOT NULL,
+    assigned_by_org_user_id UUID NOT NULL,
+    created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (opening_id, agency_org_id)
 );
+
+-- Agency referrals (REPLACES referral_nominations)
+CREATE TABLE agency_referrals (
+    referral_id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    opening_id                   UUID NOT NULL,
+    org_id                       UUID NOT NULL,        -- consumer org
+    agency_org_id                UUID NOT NULL,
+    agency_org_domain            TEXT NOT NULL,
+    referred_by_org_user_id      UUID NOT NULL,        -- agency user
+    candidate_hub_user_global_id UUID NOT NULL,
+    candidate_handle_snapshot    TEXT NOT NULL,
+    statement_text               TEXT CHECK (statement_text IS NULL OR length(statement_text) <= 2000),
+    state                        TEXT NOT NULL DEFAULT 'pending'
+        CHECK (state IN ('pending','accepted_applied','declined','expired','not_selected')),
+    created_at                   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    resolved_at                  TIMESTAMPTZ,
+    expires_at                   TIMESTAMPTZ NOT NULL DEFAULT NOW() + INTERVAL '30 days'
+);
+-- one PENDING referral per (opening, candidate, agency); re-refer allowed after decline/expire
+CREATE UNIQUE INDEX agency_referrals_one_pending
+    ON agency_referrals (opening_id, candidate_hub_user_global_id, agency_org_id)
+    WHERE state = 'pending';
+CREATE INDEX idx_agency_referrals_opening_candidate
+    ON agency_referrals (opening_id, candidate_hub_user_global_id);
+
+-- DROP TABLE referral_nominations;  (+ its goose-down line)
+
+-- ===== Global DB =====
+
+-- Agency referral index (candidate inbox + agency "made" list, cross-region)
+CREATE TABLE agency_referrals_index (
+    referral_id                  UUID PRIMARY KEY,
+    candidate_hub_user_global_id UUID NOT NULL,
+    agency_org_id                UUID NOT NULL,
+    region                       TEXT NOT NULL,        -- opening's region
+    opening_id                   UUID NOT NULL,
+    state                        TEXT NOT NULL,
+    created_at                   TIMESTAMPTZ NOT NULL
+);
+CREATE INDEX agency_referrals_by_candidate
+    ON agency_referrals_index (candidate_hub_user_global_id, created_at DESC, referral_id DESC);
+CREATE INDEX agency_referrals_by_agency
+    ON agency_referrals_index (agency_org_id, created_at DESC, referral_id DESC);
+
+-- Opening↔agency assignment index (agency lists "openings my agency is assigned to")
+CREATE TABLE opening_agency_assignment_index (
+    opening_id          UUID NOT NULL,
+    agency_org_id       UUID NOT NULL,
+    region              TEXT NOT NULL,                -- opening's region
+    consumer_org_id     UUID NOT NULL,
+    consumer_org_domain TEXT NOT NULL,
+    opening_number      INT  NOT NULL,
+    title_snapshot      TEXT NOT NULL,
+    created_at          TIMESTAMPTZ NOT NULL,
+    PRIMARY KEY (opening_id, agency_org_id)
+);
+CREATE INDEX opening_agency_assignment_by_agency
+    ON opening_agency_assignment_index (agency_org_id, created_at DESC, opening_id DESC);
+
+-- DROP TABLE referral_nominations_index;  (+ indexes + goose-down lines)
 ```
 
 #### SQL Queries
 
-New query files in `api-server/db/{global,regional}/queries/`. Annotate with sqlc directives.
+New/edited query files in `api-server/db/{global,regional}/queries/`. Remove the old referral
+queries (`CreateReferral`, `GetReferralByID`, `ListReferralsByIDs`, `ResolveReferralDeclined`,
+`CheckReferrerHasActiveStintAtDomain`, `GetSharedWorkDomain`, and the old global-index queries).
 
 ```sql
--- name: CreateFoo :one
-INSERT INTO foos (org_id, name) VALUES ($1, $2) RETURNING *;
+-- name: ValidateStaffingSubscription :one  (GLOBAL — assign-time, one round-trip)
+-- consumer has an active subscription to a listing carrying 'staffing' from this provider
+SELECT s.provider_region
+FROM marketplace_subscription_index s
+JOIN marketplace_listing_catalog c ON c.listing_id = s.listing_id
+WHERE s.consumer_org_id = @consumer_org_id
+  AND s.provider_org_id = @provider_org_id
+  AND s.status = 'active'
+  AND c.capability_ids @> ARRAY['staffing']
+LIMIT 1;
 
--- name: ListFoos :many
-SELECT * FROM foos
-WHERE org_id = $1
-  AND ($2::uuid IS NULL OR id < $2)
-ORDER BY id DESC
-LIMIT $3;
+-- name: GetAssignmentForReferral :one  (GLOBAL — refer-time, one round-trip)
+-- agency is assigned to this opening AND the staffing subscription is still active
+SELECT a.region, a.consumer_org_id, a.consumer_org_domain, a.opening_number
+FROM opening_agency_assignment_index a
+JOIN marketplace_subscription_index s
+  ON s.consumer_org_id = a.consumer_org_id AND s.provider_org_id = a.agency_org_id
+JOIN marketplace_listing_catalog c ON c.listing_id = s.listing_id
+WHERE a.opening_id = @opening_id AND a.agency_org_id = @agency_org_id
+  AND s.status = 'active' AND c.capability_ids @> ARRAY['staffing']
+LIMIT 1;
+
+-- name: ListReferralIndexByCandidate :many  (GLOBAL, keyset)  [+ ...ByAgency variant]
+SELECT * FROM agency_referrals_index
+WHERE candidate_hub_user_global_id = @candidate_id
+  AND (@cursor_created_at::timestamptz IS NULL
+       OR (created_at, referral_id) < (@cursor_created_at, @cursor_referral_id))
+ORDER BY created_at DESC, referral_id DESC
+LIMIT @lim;
+
+-- name: ListAssignedOpeningsIndex :many  (GLOBAL, keyset by agency)
+SELECT * FROM opening_agency_assignment_index
+WHERE agency_org_id = @agency_org_id
+  AND (@cursor_created_at::timestamptz IS NULL
+       OR (created_at, opening_id) < (@cursor_created_at, @cursor_opening_id))
+ORDER BY created_at DESC, opening_id DESC
+LIMIT @lim;
+
+-- Regional: CreateOpeningAgencyAssignment / DeleteOpeningAgencyAssignment /
+--   ListOpeningAgencies (+ per-agency referral counts) / CreateAgencyReferral /
+--   ListPendingReferralsForCandidateOpening / AcceptReferralForApply (UPDATE … state
+--   accepted_applied) / MarkOtherReferralsNotSelected / DeclineReferralIfPending /
+--   ListAgencyReferralsByIDs / GetOpeningRecruitingAgencies (for hub detail) /
+--   ListApplications (+ filter_agency).
+-- Global: InsertAssignmentIndex / DeleteAssignmentIndex / InsertReferralIndex /
+--   UpdateReferralIndexState / GetReferralIndexEntry.
 ```
 
 ### Backend
 
 #### Endpoints
 
-| Method | Path              | Handler file          | Auth middleware | Role required    |
-| ------ | ----------------- | --------------------- | --------------- | ---------------- |
-| POST   | `/org/create-foo` | `handlers/org/foo.go` | `OrgAuth`       | `org:manage_foo` |
-| POST   | `/org/list-foos`  | `handlers/org/foo.go` | `OrgAuth`       | `org:view_foo`   |
+| Method | Path                           | Handler file                       | Auth middleware | Role required                 |
+| ------ | ------------------------------ | ---------------------------------- | --------------- | ----------------------------- |
+| POST   | `/org/assign-opening-agency`   | `handlers/org/agency_referrals.go` | `OrgAuth`       | `org:manage_opening_agencies` |
+| POST   | `/org/remove-opening-agency`   | `handlers/org/agency_referrals.go` | `OrgAuth`       | `org:manage_opening_agencies` |
+| POST   | `/org/list-opening-agencies`   | `handlers/org/agency_referrals.go` | `OrgAuth`       | `org:view_opening_agencies`   |
+| POST   | `/org/list-assigned-openings`  | `handlers/org/agency_referrals.go` | `OrgAuth`       | `org:view_agency_referrals`   |
+| POST   | `/org/refer-candidate`         | `handlers/org/agency_referrals.go` | `OrgAuth`       | `org:refer_candidates`        |
+| POST   | `/org/list-agency-referrals`   | `handlers/org/agency_referrals.go` | `OrgAuth`       | `org:view_agency_referrals`   |
+| POST   | `/hub/list-referrals-received` | `handlers/hub/referrals.go`        | `HubAuth`       | (none)                        |
+| POST   | `/hub/decline-referral`        | `handlers/hub/referrals.go`        | `HubAuth`       | (none)                        |
+| POST   | `/hub/apply-for-opening`       | `handlers/hub/apply.go` (extend)   | `HubAuth`       | `hub:apply_jobs`              |
+| POST   | `/org/list-applications`       | `handlers/org/applications.go`     | `OrgAuth`       | `org:view_applications`       |
+| POST   | `/org/create-opening`/`update` | `handlers/org/openings.go`         | `OrgAuth`       | `org:manage_openings`         |
 
 #### Handler Notes
 
-- Decode → validate → tx → respond
-- All writes use `s.WithRegionalTx` / `s.WithGlobalTx`
-- Audit log write MUST be inside the same transaction as the primary write
+- **assign-opening-agency**: opening must be `published` and owned by caller's org; agency ≠
+  own org. One global read `ValidateStaffingSubscription` → provider region. Write regional
+  `opening_agency_assignments` + audit, then global `InsertAssignmentIndex` (global-first
+  order: global index insert then regional? — follow existing pattern: regional write in the
+  opening's region via `WithRegionalTxFor`, then compensating global index insert with
+  `CONSISTENCY_ALERT` on failure, mirroring apply.go's `InsertApplicationIndex`).
+- **refer-candidate**: agency = caller's org. One global read `GetAssignmentForReferral`
+  (validates assignment + active staffing subscription, returns opening region) → 403 if no
+  row. Resolve candidate handle → hub_user_global_id (global). Regional tx in opening's region:
+  insert `agency_referrals` (unique-pending violation → 409) + audit; then global
+  `InsertReferralIndex`.
+- **apply-for-opening (extend)**: after resolving opening (already returns region; add
+  `application_mode` to that query). If `agency_only` and `apply_via=direct` → 422. If
+  `apply_via=<agency>`: require a matching pending referral (else 422); in the existing apply
+  tx set `referring_agency_org_id/domain`, mark that referral `accepted_applied`, mark other
+  pending referrals for (opening,candidate) `not_selected`. If `apply_via=direct` on an `open`
+  opening with pending referrals: require `direct_no_agency_affirmation=true` (else 400), set
+  `direct_affirmed_no_agency`, mark pending referrals `not_selected`. Update global referral
+  index states (compensating). Post-commit, best-effort: notify each referring agency
+  (`EnqueueEmail` in the agency's region, like `notifyColleaguesOfApplication`).
+- **list-referrals-received / list-agency-referrals**: keyset over the global index, then one
+  bulk regional fetch per region (`ListAgencyReferralsByIDs` / details) — no N+1.
+- **list-applications (extend)**: add `filter_agency` → `referring_agency_domain = $x`, or
+  `referring_agency_org_id IS NULL` when `"direct"`.
+- **decline-referral**: resolve region via global index, regional tx flips `pending`→`declined`
+  (else 422) + audit, then update global index state.
 
 #### Audit Log Events
 
-| event_type       | DB table                | actor_user_id | target_user_id | event_data keys  |
-| ---------------- | ----------------------- | ------------- | -------------- | ---------------- |
-| `org.create_foo` | `audit_logs` (regional) | org user      | —              | `foo_id`, `name` |
+| event_type                  | DB table (region)        | actor_user_id     | event_data keys                                    |
+| --------------------------- | ------------------------ | ----------------- | -------------------------------------------------- |
+| `org.assign_opening_agency` | `audit_logs` (opening's) | consumer org user | `opening_id`, `agency_org_id`                      |
+| `org.remove_opening_agency` | `audit_logs` (opening's) | consumer org user | `opening_id`, `agency_org_id`                      |
+| `org.refer_candidate`       | `audit_logs` (opening's) | agency org user   | `referral_id`, `opening_id`, `cand_hash`           |
+| `hub.decline_referral`      | `audit_logs` (opening's) | hub user          | `referral_id`                                      |
+| `hub.apply_for_opening`     | `audit_logs` (opening's) | hub user          | extend with `apply_via`, `referring_agency_org_id` |
+
+(`cand_hash` = SHA-256 of candidate email; never raw email.)
 
 ### Frontend
 
 #### New Routes
 
-| Portal | Route path | Page component              |
-| ------ | ---------- | --------------------------- |
-| org-ui | `/foo`     | `src/pages/FooListPage.tsx` |
+| Portal | Route path       | Page component                                                           |
+| ------ | ---------------- | ------------------------------------------------------------------------ |
+| org-ui | `/referrals`     | `src/pages/referrals/AgencyReferralsPage.tsx` (referrals my agency made) |
+| org-ui | `/referrals/new` | `src/pages/referrals/ReferCandidatePage.tsx`                             |
+| hub-ui | `/referrals`     | `src/pages/referrals/ReferralInboxPage.tsx` (repurposed)                 |
+
+Edited pages (no new route): org-ui opening detail (Agencies section + Assign modal +
+applications source filter + "Represented by" badge), org-ui create/edit opening form
+(`application_mode` radio), hub-ui apply page (agency selection + affirmation), hub-ui opening
+detail (recruiting-agencies badge). Delete `hub-ui/src/pages/referrals/NominatePage.tsx`.
 
 #### Implementation Notes
 
-- Standard page layout: maxWidth 1200, back button first, Title level=2, no outer Card
-- Wrap network calls with `<Spin spinning={loading}>` to prevent double-submission
-- Disable submit while form has validation errors
+- Standard page layout (maxWidth 1200, back button, Title level=2, no outer Card).
+- All request/response types imported from `vetchium-specs/*` — read the `.ts` before each
+  fetch. Use the `ApplicationMode` / `AgencyReferralState` enum types, never string literals.
+- `<Spin spinning>` on network calls; disable submit on validation errors.
+- Agency dropdowns on org pages come from `list-assigned-openings`; assign-modal agency list
+  from the existing active staffing `list-subscriptions`.
 
 ### RBAC
 
-#### New roles (if any)
+#### New roles
 
-All three locations must be kept in sync:
+Keep in sync: `specs/typespec/common/roles.ts`, `specs/typespec/common/roles.go`,
+`api-server/db/migrations/regional/00000000000001_initial_schema.sql` (INSERT into `roles`).
 
-- `specs/typespec/common/roles.ts`
-- `specs/typespec/common/roles.go`
-- `api-server/db/migrations/.../00000000000001_initial_schema.sql` (INSERT into `roles`)
-
-| Role name        | Portal | Description               |
-| ---------------- | ------ | ------------------------- |
-| `org:view_foo`   | org    | Read-only access to foos  |
-| `org:manage_foo` | org    | Create, edit, delete foos |
+| Role name                     | Portal | Description                                           |
+| ----------------------------- | ------ | ----------------------------------------------------- |
+| `org:view_opening_agencies`   | org    | View agencies assigned to an opening (consumer side)  |
+| `org:manage_opening_agencies` | org    | Assign/remove agencies on an opening (consumer side)  |
+| `org:refer_candidates`        | org    | Refer candidates into assigned openings (agency side) |
+| `org:view_agency_referrals`   | org    | List assigned openings + the agency's referrals       |
 
 #### Existing roles reused
 
-List any existing roles this feature checks against.
+`org:manage_openings` (application_mode on create/update), `org:view_applications`
+(filter_agency), `hub:apply_jobs` (apply), `org:superadmin` (bypass).
 
 ### i18n
 
-Minimum: provide `en-US` values. Add matching keys to `de-DE` and `ta-IN`.
+en-US keys (matching de-DE + ta-IN required). Namespaces: org `agencyReferrals`, hub `referrals`
+(rewrite).
 
 ```json
 {
-	"fooList": {
-		"title": "Foos",
-		"addFoo": "Add Foo",
-		"backToDashboard": "Back to Dashboard",
-		"name": "Name",
-		"status": "Status",
-		"createdAt": "Created At",
-		"createSuccess": "Foo created successfully",
-		"deleteSuccess": "Foo deleted successfully"
+	"agencyReferrals": {
+		"openingAgenciesTitle": "Recruiting Agencies",
+		"assignAgency": "Assign Agency",
+		"agencyColumn": "Agency",
+		"assignedAt": "Assigned At",
+		"referralsMade": "Referrals Made",
+		"remove": "Remove",
+		"selectAgency": "Agency (your active staffing subscriptions)",
+		"referTitle": "Refer a Candidate",
+		"opening": "Opening",
+		"candidateHandle": "Candidate handle",
+		"statement": "Statement",
+		"refer": "Refer",
+		"applicationMode": "Who can apply?",
+		"modeOpen": "Anyone (direct applications + agency referrals)",
+		"modeAgencyOnly": "Agencies only (direct applications blocked)",
+		"noAgencyWarning": "No agency assigned — nobody can apply yet.",
+		"representedBy": "Represented by {{agency}}",
+		"sourceDirect": "Direct",
+		"filterSource": "Source",
+		"assignSuccess": "Agency assigned",
+		"referSuccess": "Candidate referred"
+	},
+	"referrals": {
+		"inboxTitle": "Referrals",
+		"companyOpening": "Company / Opening",
+		"referredBy": "Referred by",
+		"statement": "Statement",
+		"state": "State",
+		"applyChooseAgency": "Apply (choose agency)",
+		"decline": "Decline",
+		"applyVia": "How are you applying?",
+		"viaAgency": "Via {{agency}}",
+		"directly": "Directly (no agency)",
+		"noAgencyAffirm": "I confirm no agency referred me to this role.",
+		"agencyOnlyNotice": "Direct applications are not accepted for this role — apply via one of the agencies above.",
+		"declineSuccess": "Referral declined"
 	}
 }
 ```
 
 ### Test Matrix
 
-Tests in `playwright/tests/api/{portal}/foo.spec.ts`. All types imported from `specs/typespec/`.
+API tests under `playwright/tests/api/hiring/` (rewrite `referrals.spec.ts`; new
+`agency-referrals.spec.ts`; extend `applications.spec.ts`, `hub-apply.spec.ts`). Replace referral
+methods in `playwright/lib/hub-api-client.ts`; add agency methods to `org-api-client.ts`. All
+types from `specs/typespec/`. Helpers: `createTestMarketplaceListingDirect`,
+subscription/assignment DB helpers (new), `createTestOrgUserDirect` with shared org.
 
-| Scenario                     | Request                              | Expected status                 |
-| ---------------------------- | ------------------------------------ | ------------------------------- |
-| Success — create             | valid body                           | 201 + resource in response      |
-| Success — list               | valid pagination                     | 200 + items array               |
-| Missing required field       | `name` omitted                       | 400                             |
-| Invalid field value          | `name: ""`                           | 400                             |
-| Unauthenticated              | no / invalid token                   | 401                             |
-| Wrong role (RBAC negative)   | authenticated, no roles              | 403                             |
-| Correct role (RBAC positive) | non-superadmin with `org:manage_foo` | 201                             |
-| Not found                    | unknown ID                           | 404                             |
-| Invalid state                | e.g. already deleted                 | 422                             |
-| Audit log written            | after success case                   | entry with correct `event_type` |
-| No audit log on failure      | after 4xx                            | count unchanged                 |
+| Scenario                                                               | Expected                                                                   |
+| ---------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| Assign agency with active staffing subscription                        | 200 + assignment + audit                                                   |
+| Assign agency with no/cancelled subscription                           | 422                                                                        |
+| Assign agency to own org / non-published opening                       | 422                                                                        |
+| Assign — no role (RBAC neg) / with `org:manage_opening_agencies` (pos) | 403 / 200                                                                  |
+| Refer candidate into assigned opening                                  | 201 + referral + index + audit                                             |
+| Refer into opening agency is NOT assigned to                           | 403                                                                        |
+| Second agency refers same candidate+opening                            | 201 (allowed)                                                              |
+| Same agency duplicate pending referral                                 | 409                                                                        |
+| Re-refer same candidate after decline/expire                           | 201                                                                        |
+| Refer unknown handle / non-published opening                           | 404 / 422                                                                  |
+| Refer — no role (RBAC neg) / with `org:refer_candidates` (pos)         | 403 / 201                                                                  |
+| Candidate lists received referrals (keyset)                            | 200 + grouped, real fields                                                 |
+| Apply via referring agency                                             | 201; attribution set; referral → accepted_applied; siblings → not_selected |
+| Apply via agency that didn't refer                                     | 422                                                                        |
+| Apply direct on `open` with pending referrals, affirmation missing     | 400                                                                        |
+| Apply direct on `open` with affirmation                                | 201; referrals → not_selected; agencies notified                           |
+| Apply direct on `agency_only` opening                                  | 422                                                                        |
+| list-applications `filter_agency=<domain>` and `=direct`               | 200 + filtered; badge field set                                            |
+| Decline pending referral / decline non-pending                         | 200 + audit / 422                                                          |
+| Unauthenticated on each write                                          | 401                                                                        |
+| No audit log entry created on any 4xx                                  | count unchanged                                                            |
+| Hub opening detail exposes `application_mode` + `recruiting_agencies`  | 200 + populated                                                            |
