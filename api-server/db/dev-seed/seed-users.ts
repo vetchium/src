@@ -501,6 +501,131 @@ async function seedGryffindorOpenings(): Promise<void> {
 }
 
 // ============================================================================
+// Agency (staffing marketplace provider)
+// ============================================================================
+
+// Self-upgrade the calling org to the silver plan so it can publish marketplace
+// listings (the free tier caps marketplace_listings at 0). Idempotent: a 422 means
+// the org is already on silver-or-higher, which is fine.
+async function upgradeToSilver(token: string): Promise<void> {
+	const res = await post("/org/upgrade-plan", { plan_id: "silver" }, token);
+	if (res.status === 422) {
+		console.log("    plan: already on silver or higher, skipping");
+		return;
+	}
+	if (res.status !== 200) {
+		throw new Error(`upgrade-plan failed: ${res.status} — ${await res.text()}`);
+	}
+	console.log("    plan: upgraded to silver");
+}
+
+// Create a marketplace listing and publish it. As a superadmin, publish lands the
+// listing directly in "active" (no review step). Returns the listing_number.
+// Idempotent: if a listing with the same headline already exists it is reused (and
+// published if it is still a draft).
+async function createAndPublishListing(
+	token: string,
+	listing: AgencyListingSeed
+): Promise<number> {
+	const listRes = await post("/org/marketplace/list-listings", {}, token);
+	if (listRes.status === 200) {
+		const { listings } = (await listRes.json()) as {
+			listings: {
+				headline: string;
+				listing_number: number;
+				status: string;
+			}[];
+		};
+		const existing = listings.find((l) => l.headline === listing.headline);
+		if (existing) {
+			if (existing.status === "draft") {
+				await post(
+					"/org/marketplace/publish-listing",
+					{ listing_number: existing.listing_number },
+					token
+				);
+			}
+			console.log(
+				`    listing: "${listing.headline}" — already exists (#${existing.listing_number}), skipping`
+			);
+			return existing.listing_number;
+		}
+	}
+
+	const createRes = await post(
+		"/org/marketplace/create-listing",
+		{
+			headline: listing.headline,
+			description: listing.description,
+			capabilities: listing.capabilities,
+		},
+		token
+	);
+	if (createRes.status !== 201) {
+		throw new Error(
+			`create-listing failed: ${createRes.status} — ${await createRes.text()}`
+		);
+	}
+	const { listing_number } = (await createRes.json()) as {
+		listing_number: number;
+	};
+
+	const publishRes = await post(
+		"/org/marketplace/publish-listing",
+		{ listing_number },
+		token
+	);
+	if (publishRes.status !== 200) {
+		throw new Error(
+			`publish-listing failed (#${listing_number}): ${publishRes.status} — ${await publishRes.text()}`
+		);
+	}
+	console.log(
+		`    listing: "${listing.headline}" — created and published (#${listing_number})`
+	);
+	return listing_number;
+}
+
+// Seed the staffing agency: create the org, upgrade it so it can publish, then list
+// its staffing + BGV capabilities on the marketplace. Returns the listing_number so
+// consumer orgs can subscribe to it.
+async function seedAgency(): Promise<number> {
+	console.log(`\nSeeding agency ${AGENCY.domain} (org, plan, listing)...`);
+	await createOrg({ email: AGENCY.email, homeRegion: AGENCY.homeRegion });
+
+	const token = await orgLogin(AGENCY.email, AGENCY.domain);
+	await upgradeToSilver(token);
+	return createAndPublishListing(token, AGENCY.listing);
+}
+
+// Subscribe a consumer org (Gryffindor) to the agency's staffing listing so the
+// agency-referrals flow is exercisable out of the box: a consumer org can only assign
+// an agency to an opening if it holds an active subscription to a 'staffing' listing.
+// create-subscription upserts, so this is idempotent.
+async function subscribeToAgency(listingNumber: number): Promise<void> {
+	const domain = "gryffindor.example";
+	console.log(
+		`\nSubscribing ${domain} to ${AGENCY.domain}'s staffing listing...`
+	);
+	const token = await orgLogin("admin@gryffindor.example", domain);
+	const res = await post(
+		"/org/marketplace/create-subscription",
+		{
+			provider_org_domain: AGENCY.domain,
+			provider_listing_number: listingNumber,
+			request_note: "Engaging Floo Network Staffing for wizarding hires.",
+		},
+		token
+	);
+	if (res.status !== 201) {
+		throw new Error(
+			`create-subscription failed: ${res.status} — ${await res.text()}`
+		);
+	}
+	console.log("    subscription: active");
+}
+
+// ============================================================================
 // Seed data
 // ============================================================================
 
@@ -578,6 +703,37 @@ const ORG_ADMINS: OrgAdmin[] = [
 	{ email: "admin@ravenclaw.example", homeRegion: "deu1" },
 	{ email: "admin@hufflepuff.example", homeRegion: "ind1" },
 ];
+
+interface AgencyListingSeed {
+	headline: string;
+	description: string;
+	capabilities: string[];
+}
+
+interface AgencySeed {
+	email: string;
+	domain: string;
+	homeRegion: "ind1" | "usa1" | "deu1";
+	listing: AgencyListingSeed;
+}
+
+// Floo Network Staffing — a wizarding-world recruitment agency that supplies
+// pre-screened applicants (the 'staffing' capability) and runs background checks
+// (the 'background-verification' / BGV capability). It lives in its own org so the
+// marketplace + agency-referrals flows have a real provider to exercise: it publishes
+// a marketplace listing and Gryffindor subscribes to it (see seedAgency /
+// subscribeToAgency).
+const AGENCY: AgencySeed = {
+	email: "admin@floonetwork.example",
+	domain: "floonetwork.example",
+	homeRegion: "ind1",
+	listing: {
+		headline: "Floo Network Staffing — pre-screened wizarding talent on tap",
+		description:
+			"Full-service recruitment for the magical workforce. We source, screen and refer vetted candidates straight into your open roles, and run thorough background verification (employment history, O.W.L./N.E.W.T. credentials and prior-employer references) so you hire with confidence. Trusted by Hogwarts houses and Ministry departments alike.",
+		capabilities: ["staffing", "background-verification"],
+	},
+};
 
 // Gryffindor office address.
 const GRYFFINDOR_ADDRESS: OrgAddressSeed = {
@@ -735,6 +891,12 @@ async function main(): Promise<void> {
 	// address and hired org users (hiring manager / recruiter) already exist.
 	await seedGryffindorOpenings();
 
+	// Seed the staffing agency (Floo Network Staffing) and subscribe Gryffindor to
+	// its listing so the marketplace + agency-referrals flows have real data. Runs
+	// after the house orgs exist since Gryffindor must already be present to subscribe.
+	const agencyListingNumber = await seedAgency();
+	await subscribeToAgency(agencyListingNumber);
+
 	console.log("\n=== Seed complete! ===");
 	console.log(
 		"\nHub users — log in at http://localhost:3000 (password: Password123$):"
@@ -756,6 +918,16 @@ async function main(): Promise<void> {
 		console.log(`  ${u.email}  [${u.roles.join(", ")}]`);
 	}
 	console.log(`  office address: "${GRYFFINDOR_ADDRESS.title}"`);
+	console.log(
+		"\nStaffing agency — log in at http://localhost:3002 (password: Password123$):"
+	);
+	console.log(
+		`  ${AGENCY.email}  →  ${AGENCY.domain}  (home: ${AGENCY.homeRegion})`
+	);
+	console.log(`  marketplace listing: "${AGENCY.listing.headline}"`);
+	console.log(
+		`  capabilities: ${AGENCY.listing.capabilities.join(", ")}; subscribed consumer: gryffindor.example`
+	);
 }
 
 main().catch((err) => {

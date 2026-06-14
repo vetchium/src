@@ -22,21 +22,8 @@ WHERE
     (ia.email_address = 'admin2@vetchium.com' AND r.role_name = 'admin:manage_users')
 ON CONFLICT DO NOTHING;
 
--- Marketplace capabilities (capability_id + status; human-readable text lives in
--- marketplace_capability_translations). 'staffing' is already seeded by the migration;
--- ON CONFLICT keeps this idempotent.
-INSERT INTO marketplace_capabilities (capability_id, status)
-VALUES
-    ('staffing', 'active'),
-    ('talent-sourcing', 'active'),
-    ('background-checks', 'active')
-ON CONFLICT (capability_id) DO UPDATE
-SET status = 'active', updated_at = NOW();
-
-INSERT INTO marketplace_capability_translations (capability_id, locale, display_name, description)
-VALUES
-    ('staffing', 'en-US', 'Staffing Services', 'Hire professional staff for your organization through our network of providers.'),
-    ('talent-sourcing', 'en-US', 'Talent Sourcing', 'Find the best talent for your open positions using advanced sourcing tools and services.'),
-    ('background-checks', 'en-US', 'Background Checks', 'Verify the credentials and history of your candidates with reliable background check providers.')
-ON CONFLICT (capability_id, locale) DO UPDATE
-SET display_name = EXCLUDED.display_name, description = EXCLUDED.description;
+-- Marketplace capabilities are platform-level data, not dev fixtures: the canonical
+-- list ('staffing', 'background-verification') with all three locale translations is
+-- seeded once in the migration (global initial_schema.sql). Nothing to add here — the
+-- dev agency (Floo Network Staffing) is created via API in seed-users.ts and lists
+-- against those capabilities.

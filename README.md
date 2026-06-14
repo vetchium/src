@@ -127,9 +127,10 @@ for FOSS edge alternatives (self-hosted frp/rathole, direct IPv6).
 
 All seed users have password: `Password123$`
 
-Hub users and org superadmins are created via APIs by the `seed-users` docker-compose
-service (which calls the API and reads tokens from Mailpit). The SQL seed only covers
-admin users and marketplace capabilities.
+Hub users, org superadmins and the staffing agency are created via APIs by the
+`seed-users` docker-compose service (which calls the API and reads tokens from Mailpit).
+The SQL seed only covers admin users; the marketplace capabilities
+(`staffing`, `background-verification`) ship in the global migration.
 
 **Hub Users** — log in at http://localhost:3000:
 
@@ -162,6 +163,28 @@ admin users and marketplace capabilities.
 | `harry@gryffindor.example`    | Harry Potter     | `manage_openings`, `manage_applications`, `view_users/addresses/costcenters` |
 | `hermione@gryffindor.example` | Hermione Granger | `view_openings`, `view_applications`                                         |
 | `ron@gryffindor.example`      | Ron Weasley      | `view_openings`, `view_applications`                                         |
+
+**Staffing Agency** — log in at http://localhost:3002:
+
+Floo Network Staffing is a recruitment agency that supplies applicants. The seed
+creates the org, self-upgrades it to the **silver** plan (the free plan can't publish
+listings), publishes a marketplace listing carrying the `staffing` and
+`background-verification` capabilities, and subscribes `gryffindor.example` to it — so
+the marketplace and agency-referrals flows have real data out of the box.
+
+| Email                       | Company domain        | Region | Marketplace listing                |
+| --------------------------- | --------------------- | ------ | ---------------------------------- |
+| `admin@floonetwork.example` | `floonetwork.example` | ind1   | Staffing + Background Verification |
+
+**Marketplace capabilities** — the canonical, deliberately-small set (seeded in the
+global migration; the English `capability_id` is the stable tag, with `display_name` /
+`description` translated into en-US, de-DE and ta-IN so consuming orgs can decide what a
+provider offers):
+
+| `capability_id`           | Meaning                                                                                    |
+| ------------------------- | ------------------------------------------------------------------------------------------ |
+| `staffing`                | Provider sources, screens and refers candidates into an org's openings (agency referrals). |
+| `background-verification` | Pre-hire background checks (BGV): employment history, education and credentials.           |
 
 **Admin Users** — log in at http://localhost:3001:
 

@@ -445,12 +445,27 @@ CREATE TABLE marketplace_subscription_index (
     UNIQUE (consumer_org_id, listing_id)
 );
 
--- Seed a sample capability so discovery isn't empty
-INSERT INTO marketplace_capabilities (capability_id, status) VALUES ('staffing', 'active');
+-- Seed the canonical marketplace capabilities. The capability_id (the "tag") is
+-- always English/lowercase-kebab and stable across regions; the human-readable
+-- display_name + description are translated so consuming orgs can decide whether a
+-- provider offers what they need. Keep this list small and precise — one capability
+-- per distinct service, no synonyms.
+--
+--   staffing                -> the agency supplies/refers applicants into openings.
+--                              This exact id is relied on by the agency-referrals
+--                              flow (a consumer org can only assign an agency that
+--                              holds an active subscription to a 'staffing' listing).
+--   background-verification -> pre/post-offer background checks (BGV).
+INSERT INTO marketplace_capabilities (capability_id, status) VALUES
+    ('staffing', 'active'),
+    ('background-verification', 'active');
 INSERT INTO marketplace_capability_translations VALUES
-    ('staffing', 'en-US', 'Staffing', 'Recruitment and staffing services'),
-    ('staffing', 'de-DE', 'Personalvermittlung', ''),
-    ('staffing', 'ta-IN', 'பணியாளர் சேர்க்கை', '');
+    ('staffing', 'en-US', 'Staffing', 'Source, screen and refer candidates into an organisation''s job openings.'),
+    ('staffing', 'de-DE', 'Personalvermittlung', 'Kandidaten für offene Stellen eines Unternehmens finden, prüfen und vermitteln.'),
+    ('staffing', 'ta-IN', 'பணியாளர் வழங்கல்', 'ஒரு நிறுவனத்தின் வேலை வாய்ப்புகளுக்கு விண்ணப்பதாரர்களைக் கண்டறிந்து, பரிசோதித்து, பரிந்துரைத்தல்.'),
+    ('background-verification', 'en-US', 'Background Verification (BGV)', 'Verify a candidate''s employment history, education and credentials before hiring.'),
+    ('background-verification', 'de-DE', 'Hintergrundüberprüfung (BGV)', 'Überprüfung des beruflichen Werdegangs, der Ausbildung und der Qualifikationen eines Kandidaten vor der Einstellung.'),
+    ('background-verification', 'ta-IN', 'பின்னணி சரிபார்ப்பு (BGV)', 'பணியமர்த்துவதற்கு முன் விண்ணப்பதாரரின் பணி வரலாறு, கல்வி மற்றும் தகுதிகளைச் சரிபார்த்தல்.');
 
 -- Hub work email index (global mirror for uniqueness enforcement across regions)
 CREATE TABLE hub_work_email_index (
