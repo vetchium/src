@@ -1692,9 +1692,8 @@ RETURNING *;
 -- name: CreateEndorsement :one
 INSERT INTO endorsements (
     application_id, endorser_hub_user_global_id, request_id,
-    is_referral, referral_id,
     shared_domain, overlap_start_year, overlap_end_year, text
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+) VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING *;
 
 -- name: GetEndorsementByID :one
@@ -1745,41 +1744,82 @@ ORDER BY written_at ASC;
 -- Referral Nominations (T3)
 -- ============================================================
 
--- name: CreateReferral :one
-INSERT INTO referral_nominations (
-    referrer_hub_user_global_id, candidate_hub_user_global_id,
-    opening_id, org_id, statement_text,
-    shared_domain, overlap_start_year, overlap_end_year
+-- ============================================================
+-- Agency referrals (regional, in the opening's region)
+-- ============================================================
+
+-- name: CreateAgencyReferral :one
+INSERT INTO agency_referrals (
+    opening_id, org_id, agency_org_id, agency_org_domain,
+    referred_by_org_user_id, candidate_hub_user_global_id,
+    candidate_handle_snapshot, statement_text
 ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 RETURNING *;
 
--- name: GetReferralByID :one
-SELECT * FROM referral_nominations WHERE nomination_id = $1;
+-- name: GetAgencyReferralByID :one
+SELECT * FROM agency_referrals WHERE referral_id = $1;
 
--- name: ResolveReferralAcceptedApplied :one
-UPDATE referral_nominations
+-- name: ListAgencyReferralsByIDs :many
+SELECT r.*, o.title AS opening_title, o.opening_number AS opening_number_real
+FROM agency_referrals r
+JOIN openings o ON o.opening_id = r.opening_id
+WHERE r.referral_id = ANY(@referral_ids::uuid[]);
+
+-- name: ListPendingReferralsForCandidateOpening :many
+SELECT * FROM agency_referrals
+WHERE opening_id = $1 AND candidate_hub_user_global_id = $2 AND state = 'pending';
+
+-- name: ResolveAgencyReferralAcceptedApplied :one
+UPDATE agency_referrals
 SET state = 'accepted_applied', resolved_at = NOW()
-WHERE nomination_id = $1
+WHERE referral_id = $1 AND state = 'pending'
 RETURNING *;
 
--- name: ResolveReferralDeclined :one
-UPDATE referral_nominations
+-- name: MarkOtherReferralsNotSelected :exec
+UPDATE agency_referrals
+SET state = 'not_selected', resolved_at = NOW()
+WHERE opening_id = $1 AND candidate_hub_user_global_id = $2
+  AND state = 'pending' AND referral_id <> $3;
+
+-- name: MarkAllPendingReferralsNotSelected :exec
+UPDATE agency_referrals
+SET state = 'not_selected', resolved_at = NOW()
+WHERE opening_id = $1 AND candidate_hub_user_global_id = $2 AND state = 'pending';
+
+-- name: DeclineAgencyReferralIfPending :one
+UPDATE agency_referrals
 SET state = 'declined', resolved_at = NOW()
-WHERE nomination_id = $1
+WHERE referral_id = $1 AND state = 'pending'
 RETURNING *;
 
--- name: ListReferralsByIDs :many
-SELECT * FROM referral_nominations
-WHERE nomination_id = ANY(@nomination_ids::uuid[])
-ORDER BY created_at DESC;
+-- name: CreateOpeningAgencyAssignment :one
+INSERT INTO opening_agency_assignments (
+    opening_id, org_id, agency_org_id, agency_org_domain, assigned_by_org_user_id
+) VALUES ($1, $2, $3, $4, $5)
+RETURNING *;
 
--- name: CheckReferrerHasActiveStintAtDomain :one
-SELECT EXISTS(
-    SELECT 1 FROM hub_employer_stints
-    WHERE hub_user_id = $1
-      AND domain = $2
-      AND status = 'active'
-) AS has_active_stint;
+-- name: DeleteOpeningAgencyAssignment :one
+DELETE FROM opening_agency_assignments
+WHERE opening_id = $1 AND org_id = $2 AND agency_org_id = $3
+RETURNING *;
+
+-- name: GetOpeningAgencyAssignment :one
+SELECT * FROM opening_agency_assignments
+WHERE opening_id = $1 AND agency_org_id = $2;
+
+-- name: ListOpeningAgencies :many
+SELECT a.agency_org_id, a.agency_org_domain, a.created_at,
+    (SELECT COUNT(*) FROM agency_referrals r
+       WHERE r.opening_id = a.opening_id AND r.agency_org_id = a.agency_org_id) AS referrals_made
+FROM opening_agency_assignments a
+WHERE a.opening_id = $1 AND a.org_id = $2
+ORDER BY a.created_at DESC;
+
+-- name: GetOpeningRecruitingAgencies :many
+SELECT agency_org_id, agency_org_domain
+FROM opening_agency_assignments
+WHERE opening_id = $1
+ORDER BY created_at DESC;
 
 -- name: GetConnectedPeersByHandles :many
 SELECT peer, peer_handle FROM hub_user_connections

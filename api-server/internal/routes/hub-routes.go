@@ -96,11 +96,8 @@ func RegisterHubRoutes(mux *http.ServeMux, s *server.RegionalServer) {
 	mux.Handle("POST /hub/hide-endorsement-on-application", hubAuth(hub.HideEndorsementOnApplication(s)))
 	mux.Handle("POST /hub/show-endorsement-on-application", hubAuth(hub.ShowEndorsementOnApplication(s)))
 
-	// Referral routes (T3)
-	mux.Handle("POST /hub/nominate-colleague-for-role", hubAuth(hub.NominateColleagueForRole(s)))
+	// Agency referral routes (candidate inbox side)
 	mux.Handle("POST /hub/list-referrals-received", hubAuth(hub.ListReferralsReceived(s)))
-	mux.Handle("POST /hub/list-referrals-made", hubAuth(hub.ListReferralsMade(s)))
-	mux.Handle("POST /hub/accept-referral", hubAuth(hub.AcceptReferral(s)))
 	mux.Handle("POST /hub/decline-referral", hubAuth(hub.DeclineReferral(s)))
 
 	// Reference routes (T4)

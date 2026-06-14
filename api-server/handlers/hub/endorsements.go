@@ -506,8 +506,6 @@ func WriteEndorsement(s *server.RegionalServer) http.HandlerFunc {
 				ApplicationID:           appIDUUID,
 				EndorserHubUserGlobalID: hubUser.HubUserGlobalID,
 				RequestID:               requestIDUUID,
-				IsReferral:              false,
-				ReferralID:              pgtype.UUID{},
 				SharedDomain:            sharedCtx.SharedDomain,
 				OverlapStartYear:        sharedCtx.OverlapStartYear,
 				OverlapEndYear:          sharedCtx.OverlapEndYear,

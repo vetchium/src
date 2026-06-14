@@ -1257,43 +1257,90 @@ UPDATE endorsement_requests_index SET state = $2 WHERE request_id = $1;
 -- Referral Nominations Index (T3)
 -- ============================================================
 
--- name: InsertReferralNominationIndex :exec
-INSERT INTO referral_nominations_index (
-    nomination_id, candidate_hub_user_global_id, referrer_hub_user_global_id,
+-- name: InsertAgencyReferralIndex :exec
+INSERT INTO agency_referrals_index (
+    referral_id, candidate_hub_user_global_id, agency_org_id,
     region, opening_id, state, created_at
 ) VALUES ($1, $2, $3, $4, $5, $6, $7);
 
--- name: GetReferralNominationIndexEntry :one
-SELECT * FROM referral_nominations_index WHERE nomination_id = $1;
+-- name: GetAgencyReferralIndexEntry :one
+SELECT * FROM agency_referrals_index WHERE referral_id = $1;
 
--- name: ListReferralNominationsIndexByCandidate :many
-SELECT * FROM referral_nominations_index
+-- name: UpdateAgencyReferralIndexState :exec
+UPDATE agency_referrals_index SET state = $2 WHERE referral_id = $1;
+
+-- name: ListReferralIndexByCandidate :many
+SELECT * FROM agency_referrals_index
 WHERE candidate_hub_user_global_id = $1
-ORDER BY created_at DESC, nomination_id DESC
+ORDER BY created_at DESC, referral_id DESC
 LIMIT $2;
 
--- name: ListReferralNominationsIndexByCandidateAfter :many
-SELECT * FROM referral_nominations_index
+-- name: ListReferralIndexByCandidateAfter :many
+SELECT * FROM agency_referrals_index
 WHERE candidate_hub_user_global_id = $1
-  AND (created_at, nomination_id) < (@cursor_created_at::timestamptz, @cursor_nomination_id::uuid)
-ORDER BY created_at DESC, nomination_id DESC
+  AND (created_at, referral_id) < (@cursor_created_at::timestamptz, @cursor_referral_id::uuid)
+ORDER BY created_at DESC, referral_id DESC
 LIMIT $2;
 
--- name: ListReferralNominationsIndexByReferrer :many
-SELECT * FROM referral_nominations_index
-WHERE referrer_hub_user_global_id = $1
-ORDER BY created_at DESC, nomination_id DESC
+-- name: ListReferralIndexByAgency :many
+SELECT * FROM agency_referrals_index
+WHERE agency_org_id = $1
+ORDER BY created_at DESC, referral_id DESC
 LIMIT $2;
 
--- name: ListReferralNominationsIndexByReferrerAfter :many
-SELECT * FROM referral_nominations_index
-WHERE referrer_hub_user_global_id = $1
-  AND (created_at, nomination_id) < (@cursor_created_at::timestamptz, @cursor_nomination_id::uuid)
-ORDER BY created_at DESC, nomination_id DESC
+-- name: ListReferralIndexByAgencyAfter :many
+SELECT * FROM agency_referrals_index
+WHERE agency_org_id = $1
+  AND (created_at, referral_id) < (@cursor_created_at::timestamptz, @cursor_referral_id::uuid)
+ORDER BY created_at DESC, referral_id DESC
 LIMIT $2;
 
--- name: UpdateReferralNominationIndexState :exec
-UPDATE referral_nominations_index SET state = $2 WHERE nomination_id = $1;
+-- name: InsertOpeningAgencyAssignmentIndex :exec
+INSERT INTO opening_agency_assignment_index (
+    opening_id, agency_org_id, region, consumer_org_id, consumer_org_domain,
+    opening_number, title_snapshot, created_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
+
+-- name: DeleteOpeningAgencyAssignmentIndex :exec
+DELETE FROM opening_agency_assignment_index
+WHERE opening_id = $1 AND agency_org_id = $2;
+
+-- name: GetOpeningAgencyAssignmentIndexEntry :one
+SELECT * FROM opening_agency_assignment_index
+WHERE opening_id = $1 AND agency_org_id = $2;
+
+-- name: ListAssignedOpeningsByAgency :many
+SELECT * FROM opening_agency_assignment_index
+WHERE agency_org_id = $1
+ORDER BY created_at DESC, opening_id DESC
+LIMIT $2;
+
+-- name: ListAssignedOpeningsByAgencyAfter :many
+SELECT * FROM opening_agency_assignment_index
+WHERE agency_org_id = $1
+  AND (created_at, opening_id) < (@cursor_created_at::timestamptz, @cursor_opening_id::uuid)
+ORDER BY created_at DESC, opening_id DESC
+LIMIT $2;
+
+-- name: ValidateStaffingSubscription :one
+SELECT s.provider_region
+FROM marketplace_subscription_index s
+JOIN marketplace_listing_catalog c ON c.listing_id = s.listing_id
+WHERE s.consumer_org_id = @consumer_org_id
+  AND s.provider_org_id = @provider_org_id
+  AND s.status = 'active'
+  AND c.capability_ids @> ARRAY['staffing']
+LIMIT 1;
+
+-- name: ValidateAgencyAssignmentActive :one
+SELECT a.region, a.consumer_org_id, a.consumer_org_domain, a.opening_number
+FROM opening_agency_assignment_index a
+JOIN marketplace_subscription_index s
+  ON s.consumer_org_id = a.consumer_org_id AND s.provider_org_id = a.agency_org_id
+JOIN marketplace_listing_catalog c ON c.listing_id = s.listing_id
+WHERE a.opening_id = @opening_id AND a.agency_org_id = @agency_org_id
+  AND s.status = 'active' AND c.capability_ids @> ARRAY['staffing']
+LIMIT 1;
 
 -- ============================================================
 -- Applications Index (used by T3 handlers to resolve region)
