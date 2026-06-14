@@ -1297,9 +1297,9 @@ LIMIT $2;
 
 -- name: InsertOpeningAgencyAssignmentIndex :exec
 INSERT INTO opening_agency_assignment_index (
-    opening_id, agency_org_id, region, consumer_org_id, consumer_org_domain,
-    opening_number, title_snapshot, created_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
+    opening_id, agency_org_id, agency_org_domain, region, consumer_org_id,
+    consumer_org_domain, opening_number, title_snapshot, created_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
 
 -- name: DeleteOpeningAgencyAssignmentIndex :exec
 DELETE FROM opening_agency_assignment_index
@@ -1322,18 +1322,27 @@ WHERE agency_org_id = $1
 ORDER BY created_at DESC, opening_id DESC
 LIMIT $2;
 
--- name: ValidateStaffingSubscription :one
-SELECT s.provider_region
-FROM marketplace_subscription_index s
-JOIN marketplace_listing_catalog c ON c.listing_id = s.listing_id
-WHERE s.consumer_org_id = @consumer_org_id
-  AND s.provider_org_id = @provider_org_id
-  AND s.status = 'active'
-  AND c.capability_ids @> ARRAY['staffing']
-LIMIT 1;
+-- name: ResolveAgencyAssignmentContext :one
+-- One global read for assign-opening-agency: resolves the agency org from its
+-- domain, the consumer's primary domain, and whether an active staffing
+-- subscription links them.
+SELECT
+    ag.org_id AS agency_org_id,
+    ag.org_name AS agency_org_name,
+    ag.region AS agency_region,
+    COALESCE(cd.domain, '') AS consumer_domain,
+    EXISTS(
+        SELECT 1 FROM marketplace_subscription_index s
+        JOIN marketplace_listing_catalog c ON c.listing_id = s.listing_id
+        WHERE s.consumer_org_id = @consumer_org_id AND s.provider_org_id = ag.org_id
+          AND s.status = 'active' AND c.capability_ids @> ARRAY['staffing']
+    ) AS has_active_staffing_sub
+FROM orgs ag
+JOIN global_org_domains agd ON agd.org_id = ag.org_id AND agd.domain = @agency_domain
+LEFT JOIN global_org_domains cd ON cd.org_id = @consumer_org_id AND cd.is_primary = true;
 
 -- name: ValidateAgencyAssignmentActive :one
-SELECT a.region, a.consumer_org_id, a.consumer_org_domain, a.opening_number
+SELECT a.region, a.consumer_org_id, a.consumer_org_domain, a.opening_number, a.agency_org_domain
 FROM opening_agency_assignment_index a
 JOIN marketplace_subscription_index s
   ON s.consumer_org_id = a.consumer_org_id AND s.provider_org_id = a.agency_org_id

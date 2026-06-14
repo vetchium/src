@@ -548,6 +548,7 @@ CREATE INDEX agency_referrals_by_agency
 CREATE TABLE opening_agency_assignment_index (
     opening_id          UUID NOT NULL,
     agency_org_id       UUID NOT NULL,
+    agency_org_domain   TEXT NOT NULL,
     region              TEXT NOT NULL,                -- opening's region
     consumer_org_id     UUID NOT NULL,
     consumer_org_domain TEXT NOT NULL,

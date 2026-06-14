@@ -44,6 +44,10 @@ func RegisterOrgRoutes(mux *http.ServeMux, s *server.RegionalServer) {
 	orgRoleManageOpenings := middleware.OrgRole(s.AllRegionalDBs, orgspec.OrgRoleManageOpenings)
 	orgRoleViewApplications := middleware.OrgRole(s.AllRegionalDBs, orgspec.OrgRoleViewApplications, orgspec.OrgRoleManageApplications)
 	orgRoleManageApplications := middleware.OrgRole(s.AllRegionalDBs, orgspec.OrgRoleManageApplications)
+	orgRoleViewOpeningAgencies := middleware.OrgRole(s.AllRegionalDBs, orgspec.OrgRoleViewOpeningAgencies, orgspec.OrgRoleManageOpeningAgencies)
+	orgRoleManageOpeningAgencies := middleware.OrgRole(s.AllRegionalDBs, orgspec.OrgRoleManageOpeningAgencies)
+	orgRoleReferCandidates := middleware.OrgRole(s.AllRegionalDBs, orgspec.OrgRoleReferCandidates)
+	orgRoleViewAgencyReferrals := middleware.OrgRole(s.AllRegionalDBs, orgspec.OrgRoleViewAgencyReferrals)
 	orgRoleViewCandidacies := middleware.OrgRole(s.AllRegionalDBs, orgspec.OrgRoleViewApplications, orgspec.OrgRoleViewCandidacies, orgspec.OrgRoleManageCandidacies)
 	orgRoleManageCandidacies := middleware.OrgRole(s.AllRegionalDBs, orgspec.OrgRoleManageCandidacies)
 	orgRoleViewHiringSettings := middleware.OrgRole(s.AllRegionalDBs, orgspec.OrgRoleViewHiringSettings, orgspec.OrgRoleManageHiringSettings)
@@ -153,6 +157,14 @@ func RegisterOrgRoutes(mux *http.ServeMux, s *server.RegionalServer) {
 	mux.Handle("POST /org/reopen-opening", orgAuth(orgRoleManageOpenings(org.ReopenOpening(s))))
 	mux.Handle("POST /org/close-opening", orgAuth(orgRoleManageOpenings(org.CloseOpening(s))))
 	mux.Handle("POST /org/archive-opening", orgAuth(orgRoleManageOpenings(org.ArchiveOpening(s))))
+
+	// Agency referral routes (consumer assigns agencies; agency refers)
+	mux.Handle("POST /org/assign-opening-agency", orgAuth(orgRoleManageOpeningAgencies(org.AssignOpeningAgency(s))))
+	mux.Handle("POST /org/remove-opening-agency", orgAuth(orgRoleManageOpeningAgencies(org.RemoveOpeningAgency(s))))
+	mux.Handle("POST /org/list-opening-agencies", orgAuth(orgRoleViewOpeningAgencies(org.ListOpeningAgencies(s))))
+	mux.Handle("POST /org/list-assigned-openings", orgAuth(orgRoleViewAgencyReferrals(org.ListAssignedOpenings(s))))
+	mux.Handle("POST /org/refer-candidate", orgAuth(orgRoleReferCandidates(org.ReferCandidate(s))))
+	mux.Handle("POST /org/list-agency-referrals", orgAuth(orgRoleViewAgencyReferrals(org.ListAgencyReferrals(s))))
 
 	// Hiring settings routes
 	mux.Handle("POST /org/get-hiring-settings", orgAuth(orgRoleViewHiringSettings(org.GetHiringSettings(s))))

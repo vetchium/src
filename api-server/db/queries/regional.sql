@@ -1800,7 +1800,7 @@ RETURNING *;
 
 -- name: DeleteOpeningAgencyAssignment :one
 DELETE FROM opening_agency_assignments
-WHERE opening_id = $1 AND org_id = $2 AND agency_org_id = $3
+WHERE opening_id = $1 AND org_id = $2 AND agency_org_domain = $3
 RETURNING *;
 
 -- name: GetOpeningAgencyAssignment :one
