@@ -129,7 +129,7 @@ func FilterUsers(s *server.GlobalServer) http.HandlerFunc {
 			statusStr := string(user.Status) // Convert enum to string
 
 			// Map roles
-			var roles []admin.AdminRole
+			roles := make([]admin.AdminRole, 0, len(user.Roles))
 			for _, roleName := range user.Roles {
 				roles = append(roles, admin.AdminRole(roleName))
 			}

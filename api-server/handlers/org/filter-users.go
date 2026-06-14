@@ -127,7 +127,7 @@ func FilterUsers(s *server.RegionalServer) http.HandlerFunc {
 		responseUsers := make([]org.OrgUser, 0, len(users))
 		for i := range users {
 			user := users[i]
-			var roles []org.OrgRole
+			roles := make([]org.OrgRole, 0, len(user.Roles))
 			for _, r := range user.Roles {
 				roles = append(roles, org.OrgRole(r))
 			}

@@ -256,6 +256,23 @@ All JSON fields use **snake_case**: `tfa_token`, `domain_name`, `created_at`. Go
 - No DELETE routes — use `POST /org/delete-{resource}` for permanent removal
 - Pass session tokens in `Authorization: Bearer <token>` header, not body
 
+**Exception — binary file/blob downloads use `GET` with a path parameter.** Endpoints that
+stream a raw file body (PDF, resume, image) rather than a JSON payload are exempt from the
+"POST + params in body" and "GET only for parameterless reads" rules. They must be `GET` so
+the URL works with direct browser navigation, `<a download>`, `<img src>`, and PDF/iframe
+preview — none of which can send a POST JSON body. The resource id goes in the path:
+
+```
+GET /org/offer-letter/{candidacyId}      → streams application/pdf
+GET /org/candidacy-resume/{candidacyId}  → streams application/octet-stream
+GET /org/interview-resume/{interviewId}  → streams application/octet-stream
+GET /hub/offer-letter/{candidacyId}      → streams application/pdf
+```
+
+These handlers set `Content-Type`/`Content-Disposition` and `io.Copy` the S3 object body to
+`w` — they never `json.Encode`. This exception applies ONLY to raw-blob responses; any
+endpoint returning JSON (even a single field) stays `POST` with params in the body.
+
 ### API Path Structure
 
 One universal pattern:

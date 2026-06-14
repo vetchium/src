@@ -3,7 +3,9 @@ package hub
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -219,15 +221,36 @@ func ListReferralsReceived(s *server.RegionalServer) http.HandlerFunc {
 			limit = 100
 		}
 
-		// List from global index
-		indexEntries, err := s.Global.ListReferralNominationsIndexByCandidate(ctx, globaldb.ListReferralNominationsIndexByCandidateParams{
-			CandidateHubUserGlobalID: hubUser.HubUserGlobalID,
-			Limit:                    limit,
-		})
+		// List from global index (keyset paginated). Fetch limit+1 to detect
+		// whether a further page exists.
+		var indexEntries []globaldb.ReferralNominationsIndex
+		var err error
+		if req.PaginationKey != nil && *req.PaginationKey != "" {
+			cursorTs, cursorID := parseAppCursor(*req.PaginationKey)
+			indexEntries, err = s.Global.ListReferralNominationsIndexByCandidateAfter(ctx, globaldb.ListReferralNominationsIndexByCandidateAfterParams{
+				CandidateHubUserGlobalID: hubUser.HubUserGlobalID,
+				CursorCreatedAt:          cursorTs,
+				CursorNominationID:       cursorID,
+				Limit:                    limit + 1,
+			})
+		} else {
+			indexEntries, err = s.Global.ListReferralNominationsIndexByCandidate(ctx, globaldb.ListReferralNominationsIndexByCandidateParams{
+				CandidateHubUserGlobalID: hubUser.HubUserGlobalID,
+				Limit:                    limit + 1,
+			})
+		}
 		if err != nil {
 			log.Error("failed to list referral nominations index", "error", err)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
+		}
+
+		var nextKey *string
+		if int32(len(indexEntries)) > limit {
+			indexEntries = indexEntries[:limit]
+			last := indexEntries[len(indexEntries)-1]
+			k := fmt.Sprintf("%s|%s", last.CreatedAt.Time.UTC().Format(time.RFC3339Nano), last.NominationID.String())
+			nextKey = &k
 		}
 
 		// Fetch full referral details from regional DBs grouped by region
@@ -278,7 +301,8 @@ func ListReferralsReceived(s *server.RegionalServer) http.HandlerFunc {
 
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(hub.ListReferralsReceivedResponse{
-			Referrals: referrals,
+			Referrals:         referrals,
+			NextPaginationKey: nextKey,
 		})
 	}
 }
@@ -316,14 +340,36 @@ func ListReferralsMade(s *server.RegionalServer) http.HandlerFunc {
 			limit = 100
 		}
 
-		indexEntries, err := s.Global.ListReferralNominationsIndexByReferrer(ctx, globaldb.ListReferralNominationsIndexByReferrerParams{
-			ReferrerHubUserGlobalID: hubUser.HubUserGlobalID,
-			Limit:                   limit,
-		})
+		// List from global index (keyset paginated). Fetch limit+1 to detect
+		// whether a further page exists.
+		var indexEntries []globaldb.ReferralNominationsIndex
+		var err error
+		if req.PaginationKey != nil && *req.PaginationKey != "" {
+			cursorTs, cursorID := parseAppCursor(*req.PaginationKey)
+			indexEntries, err = s.Global.ListReferralNominationsIndexByReferrerAfter(ctx, globaldb.ListReferralNominationsIndexByReferrerAfterParams{
+				ReferrerHubUserGlobalID: hubUser.HubUserGlobalID,
+				CursorCreatedAt:         cursorTs,
+				CursorNominationID:      cursorID,
+				Limit:                   limit + 1,
+			})
+		} else {
+			indexEntries, err = s.Global.ListReferralNominationsIndexByReferrer(ctx, globaldb.ListReferralNominationsIndexByReferrerParams{
+				ReferrerHubUserGlobalID: hubUser.HubUserGlobalID,
+				Limit:                   limit + 1,
+			})
+		}
 		if err != nil {
 			log.Error("failed to list referral nominations index by referrer", "error", err)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
+		}
+
+		var nextKey *string
+		if int32(len(indexEntries)) > limit {
+			indexEntries = indexEntries[:limit]
+			last := indexEntries[len(indexEntries)-1]
+			k := fmt.Sprintf("%s|%s", last.CreatedAt.Time.UTC().Format(time.RFC3339Nano), last.NominationID.String())
+			nextKey = &k
 		}
 
 		regionToIDs := map[globaldb.Region][]pgtype.UUID{}
@@ -370,7 +416,8 @@ func ListReferralsMade(s *server.RegionalServer) http.HandlerFunc {
 
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(hub.ListReferralsMadeResponse{
-			Referrals: referrals,
+			Referrals:         referrals,
+			NextPaginationKey: nextKey,
 		})
 	}
 }

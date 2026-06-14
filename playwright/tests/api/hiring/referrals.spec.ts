@@ -304,4 +304,113 @@ test.describe("T3 Referrals", () => {
 		expect(accept.body!.opening_number).toBe(opening2.openingNumber);
 		expect(accept.body!.prefill_statement_for_endorsement).toBe(statement);
 	});
+
+	// ─── keyset pagination ───────────────────────────────────────────────────
+	// Regression: list-referrals-received / list-referrals-made previously
+	// ignored pagination_key and never returned next_pagination_key.
+
+	const paginationNominationIds: string[] = [];
+
+	test("create several nominations for pagination coverage", async ({
+		request,
+	}) => {
+		const api = new HubAPIClient(request);
+		// Three fresh openings → three new pending nominations to the candidate.
+		for (let i = 0; i < 3; i++) {
+			const opening = await createTestOpeningDirect(
+				orgId,
+				orgUserId,
+				`Pagination Role ${i}`
+			);
+			const res = await api.nominateColleagueForRole(referrerToken, {
+				candidate_handle: candidateHandle,
+				org_domain: orgDomain,
+				opening_number: opening.openingNumber,
+				statement_text: "P".repeat(100),
+			});
+			expect(res.status).toBe(201);
+			paginationNominationIds.push(res.body!.nomination_id);
+		}
+	});
+
+	test("list-referrals-made paginates with limit + next_pagination_key", async ({
+		request,
+	}) => {
+		const api = new HubAPIClient(request);
+
+		const page1 = await api.listReferralsMade(referrerToken, { limit: 2 });
+		expect(page1.status).toBe(200);
+		expect(page1.body!.referrals.length).toBe(2);
+		expect(page1.body!.next_pagination_key).toBeTruthy();
+
+		// Walk every page; collect ids and assert no duplicates across pages.
+		const seen = new Set<string>();
+		page1.body!.referrals.forEach((r) => seen.add(r.nomination_id));
+
+		let key = page1.body!.next_pagination_key;
+		let guard = 0;
+		while (key && guard < 20) {
+			guard++;
+			const next = await api.listReferralsMade(referrerToken, {
+				limit: 2,
+				pagination_key: key,
+			});
+			expect(next.status).toBe(200);
+			next.body!.referrals.forEach((r) => {
+				expect(seen.has(r.nomination_id)).toBe(false);
+				seen.add(r.nomination_id);
+			});
+			key = next.body!.next_pagination_key;
+		}
+
+		// Every nomination created in this run must surface across the pages.
+		for (const id of paginationNominationIds) {
+			expect(seen.has(id)).toBe(true);
+		}
+	});
+
+	test("list-referrals-received paginates with limit + next_pagination_key", async ({
+		request,
+	}) => {
+		const api = new HubAPIClient(request);
+
+		const page1 = await api.listReferralsReceived(candidateToken, { limit: 2 });
+		expect(page1.status).toBe(200);
+		expect(page1.body!.referrals.length).toBe(2);
+		expect(page1.body!.next_pagination_key).toBeTruthy();
+
+		const seen = new Set<string>();
+		page1.body!.referrals.forEach((r) => seen.add(r.nomination_id));
+
+		let key = page1.body!.next_pagination_key;
+		let guard = 0;
+		while (key && guard < 20) {
+			guard++;
+			const next = await api.listReferralsReceived(candidateToken, {
+				limit: 2,
+				pagination_key: key,
+			});
+			expect(next.status).toBe(200);
+			next.body!.referrals.forEach((r) => {
+				expect(seen.has(r.nomination_id)).toBe(false);
+				seen.add(r.nomination_id);
+			});
+			key = next.body!.next_pagination_key;
+		}
+
+		// The pending nominations created above are received by the candidate.
+		for (const id of paginationNominationIds) {
+			expect(seen.has(id)).toBe(true);
+		}
+	});
+
+	test("list-referrals-made last page omits next_pagination_key", async ({
+		request,
+	}) => {
+		const api = new HubAPIClient(request);
+		// A page large enough to hold every nomination must not advertise more.
+		const res = await api.listReferralsMade(referrerToken, { limit: 100 });
+		expect(res.status).toBe(200);
+		expect(res.body!.next_pagination_key).toBeFalsy();
+	});
 });
