@@ -46,7 +46,6 @@ model HubRecruitingAgency {
 }
 
 model HubOpeningDetail extends Opening {
-  application_mode:        string;
   recruiting_agencies:     HubRecruitingAgency[];
   colleague_count_here:    int32;
   viewer_can_refer:        boolean;

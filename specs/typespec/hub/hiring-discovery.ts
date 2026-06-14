@@ -45,7 +45,6 @@ export interface HubRecruitingAgency {
 }
 
 export interface HubOpeningDetail extends Opening {
-	application_mode: string;
 	recruiting_agencies: HubRecruitingAgency[];
 	colleague_count_here: number;
 	viewer_can_refer: boolean;

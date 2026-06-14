@@ -911,6 +911,36 @@ export async function createTestMarketplaceListingDirect(
 }
 
 /**
+ * Creates an active marketplace subscription index row (global) linking a
+ * consumer org to a provider's listing. This is what assign-opening-agency and
+ * refer-candidate validate against (joined with marketplace_listing_catalog).
+ */
+export async function createTestMarketplaceSubscriptionDirect(
+	consumerOrgId: string,
+	consumerRegion: RegionCode,
+	providerOrgId: string,
+	providerRegion: RegionCode,
+	listingId: string
+): Promise<{ subscriptionId: string }> {
+	const subscriptionId = randomUUID();
+	await pool.query(
+		`INSERT INTO marketplace_subscription_index
+		   (subscription_id, listing_id, consumer_org_id, consumer_region,
+		    provider_org_id, provider_region, status, updated_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, 'active', NOW())`,
+		[
+			subscriptionId,
+			listingId,
+			consumerOrgId,
+			consumerRegion,
+			providerOrgId,
+			providerRegion,
+		]
+	);
+	return { subscriptionId };
+}
+
+/**
  * Deletes a test global org domain.
  *
  * @param domain - Domain name to delete

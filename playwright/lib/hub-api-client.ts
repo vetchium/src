@@ -95,13 +95,8 @@ import type {
 	ShowEndorsementOnApplicationRequest,
 } from "vetchium-specs/hub/endorsements";
 import type {
-	NominateColleagueRequest,
-	NominateColleagueResponse,
-	ListReferralsRequest,
+	ListReferralsReceivedRequest,
 	ListReferralsReceivedResponse,
-	ListReferralsMadeResponse,
-	AcceptReferralRequest,
-	AcceptReferralResponse,
 	DeclineReferralRequest,
 } from "vetchium-specs/hub/referrals";
 import type {
@@ -1714,27 +1709,9 @@ export class HubAPIClient {
 		return { status: response.status(), body: undefined as unknown as void };
 	}
 
-	async nominateColleagueForRole(
-		sessionToken: string,
-		request: NominateColleagueRequest
-	): Promise<APIResponse<NominateColleagueResponse>> {
-		const response = await this.request.post(
-			"/hub/nominate-colleague-for-role",
-			{
-				headers: { Authorization: `Bearer ${sessionToken}` },
-				data: request,
-			}
-		);
-		const body = await response.json().catch(() => ({}));
-		return {
-			status: response.status(),
-			body: body as NominateColleagueResponse,
-		};
-	}
-
 	async listReferralsReceived(
 		sessionToken: string,
-		request: ListReferralsRequest
+		request: ListReferralsReceivedRequest
 	): Promise<APIResponse<ListReferralsReceivedResponse>> {
 		const response = await this.request.post("/hub/list-referrals-received", {
 			headers: { Authorization: `Bearer ${sessionToken}` },
@@ -1744,36 +1721,6 @@ export class HubAPIClient {
 		return {
 			status: response.status(),
 			body: body as ListReferralsReceivedResponse,
-		};
-	}
-
-	async listReferralsMade(
-		sessionToken: string,
-		request: ListReferralsRequest
-	): Promise<APIResponse<ListReferralsMadeResponse>> {
-		const response = await this.request.post("/hub/list-referrals-made", {
-			headers: { Authorization: `Bearer ${sessionToken}` },
-			data: request,
-		});
-		const body = await response.json().catch(() => ({}));
-		return {
-			status: response.status(),
-			body: body as ListReferralsMadeResponse,
-		};
-	}
-
-	async acceptReferral(
-		sessionToken: string,
-		request: AcceptReferralRequest
-	): Promise<APIResponse<AcceptReferralResponse>> {
-		const response = await this.request.post("/hub/accept-referral", {
-			headers: { Authorization: `Bearer ${sessionToken}` },
-			data: request,
-		});
-		const body = await response.json().catch(() => ({}));
-		return {
-			status: response.status(),
-			body: body as AcceptReferralResponse,
 		};
 	}
 

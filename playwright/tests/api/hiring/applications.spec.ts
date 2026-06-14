@@ -217,7 +217,7 @@ test.describe("Hiring Applications", () => {
 		expect(found!.state).toBe("applied");
 		expect(found!.candidate_handle).toBe(hubHandle);
 		expect(found!.endorsement_count).toBe(0);
-		expect(found!.has_referral).toBe(false);
+		expect(found!.referring_agency_domain).toBeUndefined();
 		expect(typeof found!.applied_at).toBe("string");
 	});
 
