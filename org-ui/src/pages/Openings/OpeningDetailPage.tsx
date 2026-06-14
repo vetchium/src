@@ -27,6 +27,7 @@ import { useAuth } from "../../hooks/useAuth";
 import { useMyInfo } from "../../hooks/useMyInfo";
 import { formatDateTime, formatDate } from "../../utils/dateFormat";
 import { OpeningPipeline } from "../../components/OpeningPipeline";
+import OpeningAgenciesSection from "./OpeningAgenciesSection";
 
 const { Title, Text } = Typography;
 
@@ -643,6 +644,11 @@ export default function OpeningDetailPage() {
 						</>
 					)}
 				</Card>
+			)}
+
+			{/* Official recruiting agencies (assign/remove) — published openings */}
+			{opening.status === "published" && (
+				<OpeningAgenciesSection openingId={opening.opening_id} />
 			)}
 
 			{/* Candidate pipeline — candidates shortlisted into candidacies */}
