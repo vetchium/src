@@ -11,7 +11,7 @@ export interface ListApplicationsRequest {
 	filter_state?: ApplicationState[];
 	filter_label?: ApplicationColorLabel[];
 	filter_has_endorsements?: boolean;
-	filter_has_referral?: boolean;
+	filter_agency?: string;
 	pagination_key?: string;
 	limit?: number;
 }
@@ -22,7 +22,7 @@ export interface OrgApplicationSummary {
 	candidate_display_name: string;
 	yoe_total: number;
 	endorsement_count: number;
-	has_referral: boolean;
+	referring_agency_domain?: string;
 	ai_score?: number;
 	state: ApplicationState;
 	label?: ApplicationColorLabel;
@@ -70,6 +70,7 @@ export interface OrgApplication {
 	state_changed_at: string;
 	endorsements: OrgVisibleEndorsement[];
 	notify_colleagues_used: boolean;
+	referring_agency_domain?: string;
 }
 
 export interface ShortlistApplicationRequest {

@@ -13,7 +13,7 @@ model ListApplicationsRequest {
   filter_state?:             ApplicationState[];
   filter_label?:             ApplicationColorLabel[];
   filter_has_endorsements?:  boolean;
-  filter_has_referral?:      boolean;
+  filter_agency?:            string;
   pagination_key?:           string;
   limit?:                    int32;
 }
@@ -24,7 +24,7 @@ model OrgApplicationSummary {
   candidate_display_name: string;
   yoe_total:          int32;
   endorsement_count:  int32;
-  has_referral:       boolean;
+  referring_agency_domain?: string;
   ai_score?:          decimal;
   state:              ApplicationState;
   label?:             ApplicationColorLabel;
@@ -72,6 +72,7 @@ model OrgApplication {
   state_changed_at:           utcDateTime;
   endorsements:               OrgVisibleEndorsement[];
   notify_colleagues_used:     boolean;
+  referring_agency_domain?:   string;
 }
 
 model ShortlistApplicationRequest {

@@ -94,6 +94,10 @@ func CreateOpening(s *server.RegionalServer) http.HandlerFunc {
 				NumberOfPositions:      req.NumberOfPositions,
 				HiringManagerOrgUserID: emailToUUID[req.HiringManagerEmailAddress],
 				RecruiterOrgUserID:     emailToUUID[req.RecruiterEmailAddress],
+				ApplicationMode:        "open",
+			}
+			if req.ApplicationMode != nil {
+				params.ApplicationMode = string(*req.ApplicationMode)
 			}
 
 			if req.MinYOE != nil {
@@ -433,6 +437,7 @@ func dbOpeningToResponse(ctx context.Context, s *server.RegionalServer, opening 
 		WorkLocationType:  org.WorkLocationType(opening.WorkLocationType),
 		NumberOfPositions: opening.NumberOfPositions,
 		FilledPositions:   opening.FilledPositions,
+		ApplicationMode:   org.ApplicationMode(opening.ApplicationMode),
 		Addresses:         make([]org.OrgAddress, 0),
 		HiringTeamMembers: make([]map[string]string, 0),
 		Watchers:          make([]map[string]string, 0),
@@ -868,6 +873,10 @@ func UpdateOpening(s *server.RegionalServer) http.HandlerFunc {
 				NumberOfPositions:      req.NumberOfPositions,
 				HiringManagerOrgUserID: emailToUUID[req.HiringManagerEmailAddress],
 				RecruiterOrgUserID:     emailToUUID[req.RecruiterEmailAddress],
+				ApplicationMode:        "open",
+			}
+			if req.ApplicationMode != nil {
+				params.ApplicationMode = string(*req.ApplicationMode)
 			}
 
 			if req.MinYOE != nil {
@@ -1107,6 +1116,7 @@ func DuplicateOpening(s *server.RegionalServer) http.HandlerFunc {
 				SalaryCurrency:         sourceOpening.SalaryCurrency,
 				CostCenterID:           sourceOpening.CostCenterID,
 				InternalNotes:          sourceOpening.InternalNotes,
+				ApplicationMode:        sourceOpening.ApplicationMode,
 			}
 
 			created, err := qtx.CreateOpening(ctx, params)

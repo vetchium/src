@@ -12,22 +12,22 @@ type ListApplicationsRequest struct {
 	FilterState           []ApplicationState      `json:"filter_state,omitempty"`
 	FilterLabel           []ApplicationColorLabel `json:"filter_label,omitempty"`
 	FilterHasEndorsements *bool                   `json:"filter_has_endorsements,omitempty"`
-	FilterHasReferral     *bool                   `json:"filter_has_referral,omitempty"`
+	FilterAgency          *string                 `json:"filter_agency,omitempty"`
 	PaginationKey         *string                 `json:"pagination_key,omitempty"`
 	Limit                 *int32                  `json:"limit,omitempty"`
 }
 
 type OrgApplicationSummary struct {
-	ApplicationID        string                 `json:"application_id"`
-	CandidateHandle      string                 `json:"candidate_handle"`
-	CandidateDisplayName string                 `json:"candidate_display_name"`
-	YOETotal             int32                  `json:"yoe_total"`
-	EndorsementCount     int32                  `json:"endorsement_count"`
-	HasReferral          bool                   `json:"has_referral"`
-	AIScore              *float64               `json:"ai_score,omitempty"`
-	State                ApplicationState       `json:"state"`
-	Label                *ApplicationColorLabel `json:"label,omitempty"`
-	AppliedAt            string                 `json:"applied_at"`
+	ApplicationID         string                 `json:"application_id"`
+	CandidateHandle       string                 `json:"candidate_handle"`
+	CandidateDisplayName  string                 `json:"candidate_display_name"`
+	YOETotal              int32                  `json:"yoe_total"`
+	EndorsementCount      int32                  `json:"endorsement_count"`
+	ReferringAgencyDomain *string                `json:"referring_agency_domain,omitempty"`
+	AIScore               *float64               `json:"ai_score,omitempty"`
+	State                 ApplicationState       `json:"state"`
+	Label                 *ApplicationColorLabel `json:"label,omitempty"`
+	AppliedAt             string                 `json:"applied_at"`
 }
 
 type ListApplicationsResponse struct {
@@ -71,6 +71,7 @@ type OrgApplication struct {
 	StateChangedAt          string                  `json:"state_changed_at"`
 	Endorsements            []OrgVisibleEndorsement `json:"endorsements"`
 	NotifyColleaguesUsed    bool                    `json:"notify_colleagues_used"`
+	ReferringAgencyDomain   *string                 `json:"referring_agency_domain,omitempty"`
 }
 
 type ShortlistApplicationRequest struct {

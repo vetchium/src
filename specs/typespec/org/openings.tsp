@@ -6,6 +6,7 @@ import "./company-addresses.tsp";
 import "./org-users.tsp";
 import "./cost-centers.tsp";
 import "./tags.tsp";
+import "./agency-referrals.tsp";
 
 using TypeSpec.Http;
 namespace Vetchium;
@@ -65,6 +66,7 @@ model CreateOpeningRequest {
   cost_center_id?:                   string;
   tag_ids?:                    string[];     // 0..20
   internal_notes?:             string;       // 0..2000
+  application_mode?:           ApplicationMode;
 }
 
 model CreateOpeningResponse {
@@ -114,6 +116,7 @@ model Opening {
   tags:                       OrgTag[];
   internal_notes?:            string;
   rejection_note?:            string;
+  application_mode:           ApplicationMode;
   created_at:                 utcDateTime;
   updated_at:                 utcDateTime;
   first_published_at?:        utcDateTime;
@@ -139,6 +142,7 @@ model UpdateOpeningRequest {
   cost_center_id?:              string;
   tag_ids?:                     string[];
   internal_notes?:              string;
+  application_mode?:            ApplicationMode;
 }
 
 model OpeningNumberRequest { opening_number: int32; }

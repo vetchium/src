@@ -1,6 +1,7 @@
 import { type ValidationError, newValidationError } from "../common/common";
 import type { OrgAddress } from "./company-addresses";
 import type { CostCenter } from "./cost-centers";
+import type { ApplicationMode } from "./agency-referrals";
 
 const TITLE_MAX = 200;
 const DESCRIPTION_MAX = 10000;
@@ -81,6 +82,7 @@ export interface CreateOpeningRequest {
 	cost_center_id?: string;
 	tag_ids?: string[];
 	internal_notes?: string;
+	application_mode?: ApplicationMode;
 }
 
 export interface CreateOpeningResponse {
@@ -130,6 +132,7 @@ export interface Opening {
 	tags: OrgTag[];
 	internal_notes?: string;
 	rejection_note?: string;
+	application_mode: ApplicationMode;
 	created_at: string;
 	updated_at: string;
 	first_published_at?: string;
@@ -154,6 +157,7 @@ export interface UpdateOpeningRequest {
 	cost_center_id?: string;
 	tag_ids?: string[];
 	internal_notes?: string;
+	application_mode?: ApplicationMode;
 }
 
 export interface ListOpeningsRequest {

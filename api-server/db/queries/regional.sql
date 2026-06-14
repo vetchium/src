@@ -1301,7 +1301,7 @@ INSERT INTO openings (
   salary_min_amount, salary_max_amount, salary_currency,
   number_of_positions,
   hiring_manager_org_user_id, recruiter_org_user_id,
-  cost_center_id, internal_notes, status
+  cost_center_id, internal_notes, status, application_mode
 )
 VALUES (
   @org_id, @opening_number, @title, @description, @is_internal,
@@ -1311,7 +1311,7 @@ VALUES (
   @number_of_positions,
   @hiring_manager_org_user_id, @recruiter_org_user_id,
   sqlc.narg('cost_center_id'), sqlc.narg('internal_notes'),
-  'draft'
+  'draft', @application_mode
 )
 RETURNING *;
 
@@ -1340,6 +1340,7 @@ SET title                      = @title,
     recruiter_org_user_id      = @recruiter_org_user_id,
     cost_center_id             = sqlc.narg('cost_center_id'),
     internal_notes             = sqlc.narg('internal_notes'),
+    application_mode           = @application_mode,
     updated_at                 = NOW()
 WHERE org_id = @org_id AND opening_number = @opening_number AND status = 'draft'
 RETURNING *;
@@ -1527,6 +1528,11 @@ WHERE opening_id = @opening_id
   AND (
     cardinality(@filter_labels::text[]) = 0
     OR label = ANY(@filter_labels::text[])
+  )
+  AND (
+    @filter_agency::text = ''
+    OR (@filter_agency::text = 'direct' AND referring_agency_org_id IS NULL)
+    OR referring_agency_domain = @filter_agency::text
   )
 ORDER BY applied_at DESC, application_id DESC
 LIMIT @lim;

@@ -102,6 +102,10 @@ func ListApplications(s *server.RegionalServer) http.HandlerFunc {
 			filterLabels = append(filterLabels, string(l))
 		}
 
+		filterAgency := ""
+		if req.FilterAgency != nil {
+			filterAgency = *req.FilterAgency
+		}
 		apps, err := db.ListApplicationsForOpening(ctx, regionaldb.ListApplicationsForOpeningParams{
 			OpeningID:           openingID,
 			Lim:                 limit + 1,
@@ -109,6 +113,7 @@ func ListApplications(s *server.RegionalServer) http.HandlerFunc {
 			CursorApplicationID: cursorID,
 			FilterStates:        filterStates,
 			FilterLabels:        filterLabels,
+			FilterAgency:        filterAgency,
 		})
 		if err != nil {
 			s.Logger(ctx).Error("failed to list applications", "error", err)
@@ -131,16 +136,20 @@ func ListApplications(s *server.RegionalServer) http.HandlerFunc {
 				l := org.ApplicationColorLabel(a.Label.String)
 				label = &l
 			}
+			var refAgency *string
+			if a.ReferringAgencyDomain.Valid {
+				refAgency = &a.ReferringAgencyDomain.String
+			}
 			summaries = append(summaries, org.OrgApplicationSummary{
-				ApplicationID:        a.ApplicationID.String(),
-				CandidateHandle:      a.ApplicantHandleSnapshot,
-				CandidateDisplayName: a.ApplicantDisplayNameSnapshot,
-				YOETotal:             0,
-				EndorsementCount:     0,
-				HasReferral:          false,
-				State:                org.ApplicationState(a.State),
-				Label:                label,
-				AppliedAt:            a.AppliedAt.Time.UTC().Format(time.RFC3339Nano),
+				ApplicationID:         a.ApplicationID.String(),
+				CandidateHandle:       a.ApplicantHandleSnapshot,
+				CandidateDisplayName:  a.ApplicantDisplayNameSnapshot,
+				YOETotal:              0,
+				EndorsementCount:      0,
+				ReferringAgencyDomain: refAgency,
+				State:                 org.ApplicationState(a.State),
+				Label:                 label,
+				AppliedAt:             a.AppliedAt.Time.UTC().Format(time.RFC3339Nano),
 			})
 		}
 
@@ -218,6 +227,9 @@ func GetApplication(s *server.RegionalServer) http.HandlerFunc {
 			StateChangedAt:          app.StateChangedAt.Time.UTC().Format(time.RFC3339Nano),
 			Endorsements:            []org.OrgVisibleEndorsement{},
 			NotifyColleaguesUsed:    app.NotifyColleaguesAtTarget,
+		}
+		if app.ReferringAgencyDomain.Valid {
+			result.ReferringAgencyDomain = &app.ReferringAgencyDomain.String
 		}
 
 		w.WriteHeader(http.StatusOK)

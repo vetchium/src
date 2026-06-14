@@ -98,6 +98,7 @@ type CreateOpeningRequest struct {
 	CostCenterID                   *string          `json:"cost_center_id,omitempty"`
 	TagIDs                         []string         `json:"tag_ids,omitempty"`
 	InternalNotes                  *string          `json:"internal_notes,omitempty"`
+	ApplicationMode                *ApplicationMode `json:"application_mode,omitempty"`
 }
 
 type CreateOpeningResponse struct {
@@ -146,6 +147,7 @@ type Opening struct {
 	Tags              []map[string]string    `json:"tags"`
 	InternalNotes     *string                `json:"internal_notes,omitempty"`
 	RejectionNote     *string                `json:"rejection_note,omitempty"`
+	ApplicationMode   ApplicationMode        `json:"application_mode"`
 	CreatedAt         string                 `json:"created_at"`
 	UpdatedAt         string                 `json:"updated_at"`
 	FirstPublishedAt  *string                `json:"first_published_at,omitempty"`
@@ -170,6 +172,7 @@ type UpdateOpeningRequest struct {
 	CostCenterID                   *string          `json:"cost_center_id,omitempty"`
 	TagIDs                         []string         `json:"tag_ids,omitempty"`
 	InternalNotes                  *string          `json:"internal_notes,omitempty"`
+	ApplicationMode                *ApplicationMode `json:"application_mode,omitempty"`
 }
 
 type ListOpeningsRequest struct {
