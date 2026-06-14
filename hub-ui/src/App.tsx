@@ -33,7 +33,6 @@ import { ConnectionsPage } from "./pages/Connections/ConnectionsPage";
 import { EndorsementInboxPage } from "./pages/endorsements/InboxPage";
 import { WriteEndorsementPage } from "./pages/endorsements/WritePage";
 import { ReferralInboxPage } from "./pages/referrals/ReferralInboxPage";
-import { NominatePage } from "./pages/referrals/NominatePage";
 import { MyApplicationDetailPage } from "./pages/applications/MyApplicationDetailPage";
 import { MyApplicationsPage } from "./pages/Hiring/MyApplicationsPage";
 import { OpeningsListPage } from "./pages/Openings/OpeningsListPage";
@@ -232,14 +231,6 @@ function AppContent() {
 								element={
 									<ProtectedRoute>
 										<ReferralInboxPage />
-									</ProtectedRoute>
-								}
-							/>
-							<Route
-								path="/my-employer/:orgDomain/openings/:openingNumber/refer"
-								element={
-									<ProtectedRoute>
-										<NominatePage />
 									</ProtectedRoute>
 								}
 							/>

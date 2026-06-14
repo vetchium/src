@@ -13,7 +13,12 @@ import {
 } from "antd";
 import { ArrowLeftOutlined, UploadOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import {
+	Link,
+	useNavigate,
+	useParams,
+	useSearchParams,
+} from "react-router-dom";
 import type { UploadFile } from "antd";
 import type {
 	ListConnectionsRequest,
@@ -33,6 +38,7 @@ export const ApplyForOpeningPage: React.FC = () => {
 		orgDomain: string;
 		openingNumber: string;
 	}>();
+	const [searchParams] = useSearchParams();
 	const [coverLetter, setCoverLetter] = useState("");
 	const [fileList, setFileList] = useState<UploadFile[]>([]);
 	const [submitting, setSubmitting] = useState(false);
@@ -98,6 +104,15 @@ export const ApplyForOpeningPage: React.FC = () => {
 				"notify_colleagues_at_target",
 				notifyColleagues ? "true" : "false"
 			);
+			// Agency attribution: ?via=<agency_domain> carried from the referral
+			// inbox marks this application as represented by that agency; otherwise
+			// the application is direct.
+			const via = searchParams.get("via");
+			formData.append("apply_via", via && via !== "" ? via : "direct");
+			if (!via) {
+				// Going direct: affirm no agency referred (no-op when none did).
+				formData.append("direct_no_agency_affirmation", "true");
+			}
 
 			const res = await fetch(`${apiBaseUrl}/hub/apply-for-opening`, {
 				method: "POST",
