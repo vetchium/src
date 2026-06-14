@@ -12,6 +12,7 @@ import enUSPlan from "./locales/en-US/plan.json";
 import enUSMarketplace from "./locales/en-US/marketplace.json";
 import enUSAddresses from "./locales/en-US/addresses.json";
 import enUSOpenings from "./locales/en-US/openings.json";
+import enUSAgencyReferrals from "./locales/en-US/agencyReferrals.json";
 import enUSApplications from "./locales/en-US/applications.json";
 import enUSCandidacies from "./locales/en-US/candidacies.json";
 import enUSHiringSettings from "./locales/en-US/hiringSettings.json";
@@ -27,6 +28,7 @@ import deDEPlan from "./locales/de-DE/plan.json";
 import deDEMarketplace from "./locales/de-DE/marketplace.json";
 import deDEAddresses from "./locales/de-DE/addresses.json";
 import deDEOpenings from "./locales/de-DE/openings.json";
+import deDEAgencyReferrals from "./locales/de-DE/agencyReferrals.json";
 import deDEApplications from "./locales/de-DE/applications.json";
 import deDECandidacies from "./locales/de-DE/candidacies.json";
 import deDEHiringSettings from "./locales/de-DE/hiringSettings.json";
@@ -42,6 +44,7 @@ import taINPlan from "./locales/ta-IN/plan.json";
 import taINMarketplace from "./locales/ta-IN/marketplace.json";
 import taINAddresses from "./locales/ta-IN/addresses.json";
 import taINOpenings from "./locales/ta-IN/openings.json";
+import taINAgencyReferrals from "./locales/ta-IN/agencyReferrals.json";
 import taINApplications from "./locales/ta-IN/applications.json";
 import taINCandidacies from "./locales/ta-IN/candidacies.json";
 import taINHiringSettings from "./locales/ta-IN/hiringSettings.json";
@@ -98,6 +101,7 @@ const resources = {
 		marketplace: enUSMarketplace,
 		addresses: enUSAddresses,
 		openings: enUSOpenings,
+		agencyReferrals: enUSAgencyReferrals,
 		applications: enUSApplications,
 		candidacies: enUSCandidacies,
 		hiringSettings: enUSHiringSettings,
@@ -115,6 +119,7 @@ const resources = {
 		marketplace: deDEMarketplace,
 		addresses: deDEAddresses,
 		openings: deDEOpenings,
+		agencyReferrals: deDEAgencyReferrals,
 		applications: deDEApplications,
 		candidacies: deDECandidacies,
 		hiringSettings: deDEHiringSettings,
@@ -132,6 +137,7 @@ const resources = {
 		marketplace: taINMarketplace,
 		addresses: taINAddresses,
 		openings: taINOpenings,
+		agencyReferrals: taINAgencyReferrals,
 		applications: taINApplications,
 		candidacies: taINCandidacies,
 		hiringSettings: taINHiringSettings,
@@ -156,6 +162,7 @@ i18n.use(initReactI18next).init({
 		"marketplace",
 		"addresses",
 		"openings",
+		"agencyReferrals",
 		"applications",
 		"candidacies",
 		"hiringSettings",

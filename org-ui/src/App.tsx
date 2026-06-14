@@ -46,6 +46,8 @@ import OpeningsListPage from "./pages/Openings/OpeningsListPage";
 import CreateOpeningPage from "./pages/Openings/CreateOpeningPage";
 import OpeningDetailPage from "./pages/Openings/OpeningDetailPage";
 import EditOpeningPage from "./pages/Openings/EditOpeningPage";
+import AgencyReferralsPage from "./pages/referrals/AgencyReferralsPage";
+import ReferCandidatePage from "./pages/referrals/ReferCandidatePage";
 import { ApplicationsListPage } from "./pages/applications/ApplicationsListPage";
 import { ApplicationDetailPage } from "./pages/applications/ApplicationDetailPage";
 import { CandidaciesListPage } from "./pages/candidacies/CandidaciesListPage";
@@ -452,6 +454,23 @@ function AppContent() {
 								element={
 									<ProtectedRoute>
 										<PlanPage />
+									</ProtectedRoute>
+								}
+							/>
+							{/* Agency referrals (agency side) */}
+							<Route
+								path="/referrals"
+								element={
+									<ProtectedRoute>
+										<AgencyReferralsPage />
+									</ProtectedRoute>
+								}
+							/>
+							<Route
+								path="/referrals/new"
+								element={
+									<ProtectedRoute>
+										<ReferCandidatePage />
 									</ProtectedRoute>
 								}
 							/>
