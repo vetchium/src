@@ -52,6 +52,17 @@ export interface ListOpeningAgenciesResponse {
 	agencies: OpeningAgency[];
 }
 
+// Consumer's active staffing-subscription providers, eligible to be assigned as
+// recruiting agencies on an opening (used to populate the assign-agency picker).
+export interface AssignableAgency {
+	agency_org_domain: string;
+	agency_org_name: string;
+}
+
+export interface ListAssignableAgenciesResponse {
+	agencies: AssignableAgency[];
+}
+
 // ---- Agency side: openings I'm assigned to ----
 
 export interface ListAssignedOpeningsRequest {

@@ -56,6 +56,10 @@
 		"myInterviews": {
 			"title": "Meine Interviews",
 			"description": "Alle bevorstehenden und vergangenen Interviews ansehen"
+		},
+		"referrals": {
+			"title": "Empfehlungen",
+			"description": "Stellen, für die Agenturen Sie empfohlen haben"
 		}
 	},
 	"logout": {

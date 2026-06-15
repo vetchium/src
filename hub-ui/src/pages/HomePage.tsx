@@ -7,6 +7,7 @@ import {
 	SearchOutlined,
 	SolutionOutlined,
 	TeamOutlined,
+	UsergroupAddOutlined,
 	UserOutlined,
 } from "@ant-design/icons";
 import { useNavigate, Link } from "react-router-dom";
@@ -239,6 +240,35 @@ export function HomePage() {
 									</Title>
 									<Text type="secondary" style={{ fontSize: 13 }}>
 										{t("dashboard.myCandidacies.description")}
+									</Text>
+								</div>
+							</div>
+						</Card>
+					</Link>
+				</Col>
+
+				<Col xs={24} sm={12} lg={8}>
+					<Link
+						to="/referrals"
+						style={{ textDecoration: "none", display: "block", height: "100%" }}
+					>
+						<Card hoverable style={{ height: "100%", cursor: "pointer" }}>
+							<div
+								style={{ display: "flex", alignItems: "flex-start", gap: 16 }}
+							>
+								<UsergroupAddOutlined
+									style={{
+										fontSize: 28,
+										color: token.colorPrimary,
+										marginTop: 2,
+									}}
+								/>
+								<div>
+									<Title level={5} style={{ marginBottom: 4 }}>
+										{t("dashboard.referrals.title")}
+									</Title>
+									<Text type="secondary" style={{ fontSize: 13 }}>
+										{t("dashboard.referrals.description")}
 									</Text>
 								</div>
 							</div>

@@ -313,6 +313,41 @@ func ListOpeningAgencies(s *server.RegionalServer) http.HandlerFunc {
 	}
 }
 
+// ListAssignableAgencies returns the staffing providers the caller's org has an
+// active subscription with — the candidates for assigning as a recruiting agency
+// on an opening (used to populate the assign-agency picker).
+func ListAssignableAgencies(s *server.RegionalServer) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		ctx := r.Context()
+		log := s.Logger(ctx)
+
+		orgUser := middleware.OrgUserFromContext(ctx)
+		if orgUser == nil {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		rows, err := s.Global.ListAssignableAgencies(ctx, orgUser.OrgID)
+		if err != nil {
+			log.Error("failed to list assignable agencies", "error", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		agencies := make([]orgspec.AssignableAgency, 0, len(rows))
+		for _, row := range rows {
+			agencies = append(agencies, orgspec.AssignableAgency{
+				AgencyOrgDomain: row.AgencyOrgDomain,
+				AgencyOrgName:   row.OrgName,
+			})
+		}
+
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(orgspec.ListAssignableAgenciesResponse{Agencies: agencies})
+	}
+}
+
 // ListAssignedOpenings lists openings the caller's agency is assigned to, enriched
 // with effective recruiters and per-state referral counts. Recruiters see only the
 // openings they are an effective recruiter for; leads (superadmin or

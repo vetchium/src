@@ -56,6 +56,10 @@
 		"myInterviews": {
 			"title": "My Interviews",
 			"description": "See all your upcoming and past interviews"
+		},
+		"referrals": {
+			"title": "Referrals",
+			"description": "Openings agencies have referred you into"
 		}
 	},
 	"logout": {

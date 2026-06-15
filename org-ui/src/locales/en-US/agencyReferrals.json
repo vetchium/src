@@ -30,6 +30,7 @@
 	"referralsMade": "Referrals Made",
 	"remove": "Remove",
 	"selectAgency": "Agency (your active staffing subscriptions)",
+	"noAssignableAgencies": "No staffing subscriptions yet. Subscribe to a staffing provider in the marketplace first.",
 	"applicationMode": "Who can apply?",
 	"modeOpen": "Anyone (direct applications + agency referrals)",
 	"modeAgencyOnly": "Agencies only (direct applications blocked)",

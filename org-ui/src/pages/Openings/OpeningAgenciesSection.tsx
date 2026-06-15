@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Button, Card, Input, Modal, Table, App as AntApp } from "antd";
+import { AutoComplete, Button, Card, Modal, Table, App as AntApp } from "antd";
 import { useTranslation } from "react-i18next";
 import { PlusOutlined } from "@ant-design/icons";
 import type {
@@ -7,6 +7,8 @@ import type {
 	ListOpeningAgenciesResponse,
 	AssignOpeningAgencyRequest,
 	RemoveOpeningAgencyRequest,
+	AssignableAgency,
+	ListAssignableAgenciesResponse,
 } from "vetchium-specs/org/agency-referrals";
 import { getApiBaseUrl } from "../../config";
 import { useAuth } from "../../hooks/useAuth";
@@ -29,6 +31,24 @@ const OpeningAgenciesSection: React.FC<Props> = ({ openingId }) => {
 	const [modalOpen, setModalOpen] = useState(false);
 	const [domain, setDomain] = useState("");
 	const [saving, setSaving] = useState(false);
+	const [assignable, setAssignable] = useState<AssignableAgency[]>([]);
+
+	const fetchAssignable = useCallback(async () => {
+		if (!sessionToken) return;
+		const baseUrl = await getApiBaseUrl();
+		const res = await fetch(`${baseUrl}/org/list-assignable-agencies`, {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				Authorization: `Bearer ${sessionToken}`,
+			},
+			body: JSON.stringify({}),
+		});
+		if (res.status === 200) {
+			const data: ListAssignableAgenciesResponse = await res.json();
+			setAssignable(data.agencies ?? []);
+		}
+	}, [sessionToken]);
 
 	const fetchAgencies = useCallback(async () => {
 		if (!sessionToken) return;
@@ -153,7 +173,10 @@ const OpeningAgenciesSection: React.FC<Props> = ({ openingId }) => {
 					type="primary"
 					size="small"
 					icon={<PlusOutlined />}
-					onClick={() => setModalOpen(true)}
+					onClick={() => {
+						setModalOpen(true);
+						fetchAssignable();
+					}}
 				>
 					{t("assignAgency")}
 				</Button>
@@ -175,10 +198,34 @@ const OpeningAgenciesSection: React.FC<Props> = ({ openingId }) => {
 				onCancel={() => setModalOpen(false)}
 			>
 				<p>{t("selectAgency")}</p>
-				<Input
+				<AutoComplete
+					style={{ width: "100%" }}
 					placeholder="agency.example.com"
 					value={domain}
-					onChange={(e) => setDomain(e.target.value)}
+					onChange={(value) => setDomain(value)}
+					showSearch={{
+						filterOption: (input, option) =>
+							(option?.value ?? "")
+								.toLowerCase()
+								.includes(input.toLowerCase()) ||
+							(option?.label ?? "")
+								.toString()
+								.toLowerCase()
+								.includes(input.toLowerCase()),
+					}}
+					options={assignable
+						.filter(
+							(a) =>
+								!agencies.some(
+									(assigned) =>
+										assigned.agency_org_domain === a.agency_org_domain
+								)
+						)
+						.map((a) => ({
+							value: a.agency_org_domain,
+							label: `${a.agency_org_name} (${a.agency_org_domain})`,
+						}))}
+					notFoundContent={t("noAssignableAgencies")}
 				/>
 			</Modal>
 		</Card>

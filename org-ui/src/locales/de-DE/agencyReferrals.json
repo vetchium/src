@@ -30,6 +30,7 @@
 	"referralsMade": "Empfehlungen",
 	"remove": "Entfernen",
 	"selectAgency": "Agentur (Ihre aktiven Staffing-Abonnements)",
+	"noAssignableAgencies": "Noch keine Staffing-Abonnements. Abonnieren Sie zuerst einen Staffing-Anbieter im Marktplatz.",
 	"applicationMode": "Wer kann sich bewerben?",
 	"modeOpen": "Alle (Direktbewerbungen + Agentur-Empfehlungen)",
 	"modeAgencyOnly": "Nur Agenturen (Direktbewerbungen gesperrt)",

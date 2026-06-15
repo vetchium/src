@@ -163,6 +163,7 @@ func RegisterOrgRoutes(mux *http.ServeMux, s *server.RegionalServer) {
 	mux.Handle("POST /org/assign-opening-agency", orgAuth(orgRoleManageOpeningAgencies(org.AssignOpeningAgency(s))))
 	mux.Handle("POST /org/remove-opening-agency", orgAuth(orgRoleManageOpeningAgencies(org.RemoveOpeningAgency(s))))
 	mux.Handle("POST /org/list-opening-agencies", orgAuth(orgRoleViewOpeningAgencies(org.ListOpeningAgencies(s))))
+	mux.Handle("POST /org/list-assignable-agencies", orgAuth(orgRoleManageOpeningAgencies(org.ListAssignableAgencies(s))))
 	mux.Handle("POST /org/list-assigned-openings", orgAuth(orgRoleViewAgencyReferrals(org.ListAssignedOpenings(s))))
 	mux.Handle("POST /org/get-assigned-opening", orgAuth(orgRoleViewAgencyReferrals(org.GetAssignedOpening(s))))
 	mux.Handle("POST /org/refer-candidate", orgAuth(orgRoleReferCandidates(org.ReferCandidate(s))))

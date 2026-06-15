@@ -22,6 +22,7 @@ import type {
 import type {
 	ListAssignedOpeningsResponse,
 	ListAgencyReferralsResponse,
+	ListAssignableAgenciesResponse,
 } from "vetchium-specs/org/agency-referrals";
 import type { ListReferralsReceivedResponse } from "vetchium-specs/hub/referrals";
 import type { ListApplicationsResponse } from "vetchium-specs/org/applications";
@@ -142,6 +143,28 @@ test.describe("Agency Referrals", () => {
 			data: { opening_id: openingId, agency_org_domain: agencyDomain },
 		});
 		expect(res.status()).toBe(401);
+	});
+
+	test("401 without auth on list-assignable-agencies", async ({ request }) => {
+		const res = await request.post("/org/list-assignable-agencies", {
+			data: {},
+		});
+		expect(res.status()).toBe(401);
+	});
+
+	test("consumer sees its staffing provider in list-assignable-agencies (200)", async ({
+		request,
+	}) => {
+		const res = await request.post("/org/list-assignable-agencies", {
+			headers: { Authorization: `Bearer ${consumerToken}` },
+			data: {},
+		});
+		expect(res.status()).toBe(200);
+		const body: ListAssignableAgenciesResponse = await res.json();
+		const match = body.agencies.find(
+			(a) => a.agency_org_domain === agencyDomain
+		);
+		expect(match).toBeDefined();
 	});
 
 	test("consumer assigns the agency to its published opening (200)", async ({
@@ -280,6 +303,13 @@ test.describe("Agency Referrals", () => {
 				data: { opening_id: openingId, agency_org_domain: agencyDomain },
 			});
 			expect(res.status()).toBe(403);
+
+			// Same role guards the assign-agency picker source.
+			const pickerRes = await request.post("/org/list-assignable-agencies", {
+				headers: { Authorization: `Bearer ${token}` },
+				data: {},
+			});
+			expect(pickerRes.status()).toBe(403);
 		} finally {
 			await request.dispose();
 		}

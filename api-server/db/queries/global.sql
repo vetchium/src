@@ -1341,6 +1341,22 @@ FROM orgs ag
 JOIN global_org_domains agd ON agd.org_id = ag.org_id AND agd.domain = @agency_domain
 LEFT JOIN global_org_domains cd ON cd.org_id = @consumer_org_id AND cd.is_primary = true;
 
+-- name: ListAssignableAgencies :many
+-- Staffing providers the consumer has an active subscription with, eligible to be
+-- assigned as recruiting agencies on an opening. Returns each provider's primary
+-- domain + name, deduplicated across multiple staffing listings.
+SELECT DISTINCT o.org_id, o.org_name, pd.domain AS agency_org_domain
+FROM marketplace_subscription_index s
+JOIN marketplace_listing_catalog c ON c.listing_id = s.listing_id
+JOIN orgs o ON o.org_id = s.provider_org_id
+JOIN global_org_domains pd ON pd.org_id = o.org_id AND pd.is_primary = true
+WHERE s.consumer_org_id = @consumer_org_id
+  AND s.provider_org_id <> @consumer_org_id
+  AND s.status = 'active'
+  AND c.capability_ids @> ARRAY['staffing']
+ORDER BY o.org_name
+LIMIT 100;
+
 -- name: ValidateAgencyAssignmentActive :one
 SELECT a.region, a.consumer_org_id, a.consumer_org_domain, a.opening_number, a.agency_org_domain
 FROM opening_agency_assignment_index a

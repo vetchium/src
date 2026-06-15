@@ -66,6 +66,17 @@ type ListOpeningAgenciesResponse struct {
 	Agencies []OpeningAgency `json:"agencies"`
 }
 
+// AssignableAgency is a staffing provider the consumer has an active subscription
+// with, eligible to be assigned as a recruiting agency on an opening.
+type AssignableAgency struct {
+	AgencyOrgDomain string `json:"agency_org_domain"`
+	AgencyOrgName   string `json:"agency_org_name"`
+}
+
+type ListAssignableAgenciesResponse struct {
+	Agencies []AssignableAgency `json:"agencies"`
+}
+
 // ---- Agency side: openings I'm assigned to ----
 
 type ListAssignedOpeningsRequest struct {

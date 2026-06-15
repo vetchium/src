@@ -55,6 +55,15 @@ model OpeningAgency {
 
 model ListOpeningAgenciesResponse { agencies: OpeningAgency[]; }
 
+// Consumer's active staffing-subscription providers, eligible to be assigned as
+// recruiting agencies on an opening (used to populate the assign-agency picker).
+model AssignableAgency {
+  agency_org_domain: string;
+  agency_org_name:   string;
+}
+
+model ListAssignableAgenciesResponse { agencies: AssignableAgency[]; }
+
 // ---- Agency: openings I'm assigned to ----
 
 model ListAssignedOpeningsRequest {
@@ -163,6 +172,10 @@ model RemoveClientDefaultRecruiterRequest {
 @route("/org/list-opening-agencies")
 @post op listOpeningAgencies(...ListOpeningAgenciesRequest):
   OkResponse<ListOpeningAgenciesResponse> | BadRequestResponse;
+
+@route("/org/list-assignable-agencies")
+@post op listAssignableAgencies():
+  OkResponse<ListAssignableAgenciesResponse>;
 
 @route("/org/list-assigned-openings")
 @post op listAssignedOpenings(...ListAssignedOpeningsRequest):
