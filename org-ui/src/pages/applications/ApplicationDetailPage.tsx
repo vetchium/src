@@ -12,7 +12,11 @@ import {
 	Typography,
 	message,
 } from "antd";
-import { ArrowLeftOutlined, DownloadOutlined } from "@ant-design/icons";
+import {
+	ApartmentOutlined,
+	ArrowLeftOutlined,
+	DownloadOutlined,
+} from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { Link, useParams } from "react-router-dom";
 import type {
@@ -210,6 +214,13 @@ export const ApplicationDetailPage: React.FC = () => {
 								<Tag color={STATE_COLORS[application.state] ?? "default"}>
 									{t(application.state)}
 								</Tag>
+								{application.referring_agency_domain && (
+									<Tag color="geekblue" icon={<ApartmentOutlined />}>
+										{t("viaAgency", {
+											agency: application.referring_agency_domain,
+										})}
+									</Tag>
+								)}
 								{application.candidate_employer_stints.map(
 									(stint: PublicEmployerStint, i) => (
 										<Tag key={i}>

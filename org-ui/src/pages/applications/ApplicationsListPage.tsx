@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Button, Empty, Select, Spin, Table, Tag, Typography } from "antd";
-import { ArrowLeftOutlined } from "@ant-design/icons";
+import { ApartmentOutlined, ArrowLeftOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import type {
@@ -9,6 +9,10 @@ import type {
 	ListApplicationsResponse,
 } from "vetchium-specs/org/applications";
 import type { ApplicationColorLabel } from "vetchium-specs/hub/applications";
+import type {
+	OpeningAgency,
+	ListOpeningAgenciesResponse,
+} from "vetchium-specs/org/agency-referrals";
 import { getApiBaseUrl } from "../../config";
 import { useAuth } from "../../hooks/useAuth";
 import { formatDateTime } from "../../utils/dateFormat";
@@ -39,6 +43,8 @@ export const ApplicationsListPage: React.FC = () => {
 	const [nextKey, setNextKey] = useState<string | undefined>();
 	const [stateFilter, setStateFilter] = useState<string[]>([]);
 	const [labelFilter, setLabelFilter] = useState<ApplicationColorLabel[]>([]);
+	const [agencyFilter, setAgencyFilter] = useState<string | undefined>();
+	const [agencies, setAgencies] = useState<OpeningAgency[]>([]);
 
 	const fetchApplications = useCallback(
 		async (paginationKey?: string) => {
@@ -57,6 +63,7 @@ export const ApplicationsListPage: React.FC = () => {
 							}
 						: {}),
 					...(labelFilter.length > 0 ? { filter_label: labelFilter } : {}),
+					...(agencyFilter ? { filter_agency: agencyFilter } : {}),
 				};
 				const res = await fetch(`${apiBaseUrl}/org/list-applications`, {
 					method: "POST",
@@ -77,12 +84,32 @@ export const ApplicationsListPage: React.FC = () => {
 				setLoading(false);
 			}
 		},
-		[sessionToken, openingId, stateFilter, labelFilter]
+		[sessionToken, openingId, stateFilter, labelFilter, agencyFilter]
 	);
 
 	useEffect(() => {
 		fetchApplications();
 	}, [fetchApplications]);
+
+	useEffect(() => {
+		const fetchAgencies = async () => {
+			if (!sessionToken || !openingId) return;
+			const apiBaseUrl = await getApiBaseUrl();
+			const res = await fetch(`${apiBaseUrl}/org/list-opening-agencies`, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${sessionToken}`,
+				},
+				body: JSON.stringify({ opening_id: openingId }),
+			});
+			if (res.status === 200) {
+				const data: ListOpeningAgenciesResponse = await res.json();
+				setAgencies(data.agencies ?? []);
+			}
+		};
+		fetchAgencies();
+	}, [sessionToken, openingId]);
 
 	const columns = [
 		{
@@ -120,6 +147,18 @@ export const ApplicationsListPage: React.FC = () => {
 					</Tag>
 				) : (
 					<span style={{ color: "#999" }}>{t("labelNone")}</span>
+				),
+		},
+		{
+			title: t("source"),
+			key: "source",
+			render: (_: unknown, record: OrgApplicationSummary) =>
+				record.referring_agency_domain ? (
+					<Tag color="geekblue" icon={<ApartmentOutlined />}>
+						{record.referring_agency_domain}
+					</Tag>
+				) : (
+					<span style={{ color: "#999" }}>{t("sourceDirect")}</span>
 				),
 		},
 		{
@@ -196,6 +235,19 @@ export const ApplicationsListPage: React.FC = () => {
 					]}
 					allowClear
 				/>
+				{agencies.length > 0 && (
+					<Select
+						placeholder={t("filterByAgency")}
+						style={{ minWidth: 240 }}
+						value={agencyFilter}
+						onChange={(v) => setAgencyFilter(v)}
+						options={agencies.map((a) => ({
+							value: a.agency_org_domain,
+							label: `${a.agency_org_name} (${a.agency_org_domain})`,
+						}))}
+						allowClear
+					/>
+				)}
 			</div>
 
 			<Spin spinning={loading}>
