@@ -432,7 +432,7 @@ export function DashboardPage() {
 	const renderTile = (tile: TileDef) => {
 		const isPinned = pinned.includes(tile.key);
 		return (
-			<Col key={tile.key} xs={24} sm={12} lg={8}>
+			<Col key={tile.key} xs={24} sm={12} md={8} lg={6}>
 				<div style={{ position: "relative", height: "100%" }}>
 					<Tooltip title={isPinned ? t("dashboard.unpin") : t("dashboard.pin")}>
 						<Button
@@ -464,21 +464,20 @@ export function DashboardPage() {
 					>
 						<Card
 							hoverable
+							styles={{ body: { padding: 16 } }}
 							style={{
 								height: "100%",
 								cursor: "pointer",
 								textAlign: "center",
 							}}
 						>
-							<div
-								style={{ fontSize: 48, color: tile.color, marginBottom: 16 }}
-							>
+							<div style={{ fontSize: 32, color: tile.color, marginBottom: 8 }}>
 								{tile.icon}
 							</div>
-							<Title level={4} style={{ marginBottom: 8 }}>
+							<Title level={5} style={{ marginBottom: 4 }}>
 								{tile.title}
 							</Title>
-							<Typography.Text type="secondary">
+							<Typography.Text type="secondary" style={{ fontSize: 13 }}>
 								{tile.description}
 							</Typography.Text>
 						</Card>
@@ -494,11 +493,14 @@ export function DashboardPage() {
 		);
 		if (sectionTiles.length === 0) return null;
 		return (
-			<div key={sectionId}>
-				<Divider titlePlacement="start" style={{ marginTop: 8 }}>
+			<div key={sectionId} style={{ marginBottom: 48 }}>
+				<Divider
+					titlePlacement="start"
+					style={{ marginTop: 0, marginBottom: 24 }}
+				>
 					{t(`dashboard.sections.${sectionId}`)}
 				</Divider>
-				<Row gutter={[24, 24]}>{sectionTiles.map(renderTile)}</Row>
+				<Row gutter={[16, 16]}>{sectionTiles.map(renderTile)}</Row>
 			</div>
 		);
 	};
@@ -529,11 +531,14 @@ export function DashboardPage() {
 			) : (
 				<>
 					{pinnedTiles.length > 0 && (
-						<div>
-							<Divider titlePlacement="start" style={{ marginTop: 8 }}>
+						<div style={{ marginBottom: 48 }}>
+							<Divider
+								titlePlacement="start"
+								style={{ marginTop: 0, marginBottom: 24 }}
+							>
 								{t("dashboard.sections.pinned")}
 							</Divider>
-							<Row gutter={[24, 24]}>{pinnedTiles.map(renderTile)}</Row>
+							<Row gutter={[16, 16]}>{pinnedTiles.map(renderTile)}</Row>
 						</div>
 					)}
 					{SECTION_ORDER.map(renderSection)}

@@ -190,8 +190,8 @@ export const ApplicationsListPage: React.FC = () => {
 			}}
 		>
 			<div style={{ marginBottom: 16 }}>
-				<Link to={`/openings/${openingId}`}>
-					<Button icon={<ArrowLeftOutlined />}>{t("backToDashboard")}</Button>
+				<Link to="/openings">
+					<Button icon={<ArrowLeftOutlined />}>{t("backToOpenings")}</Button>
 				</Link>
 			</div>
 
