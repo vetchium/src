@@ -1,8 +1,8 @@
 # Issues — exploratory UI test run (2026-06-20)
 
-Issues found during a scripted manual-tester-style sweep of the **Hub** and **Org**
-portals against `docker-compose-full.json` + the `seed-users` Harry-Potter dataset.
-The harness that produced these (and that can reproduce the run) lives in
+Outstanding issues found during a scripted manual-tester-style sweep of the **Hub** and
+**Org** portals against `docker-compose-full.json` + the `seed-users` Harry-Potter
+dataset. The harness that produced these (and that can reproduce the run) lives in
 [`playwright/exploratory/`](../playwright/exploratory/README.md).
 
 Each issue lists where it was seen, the suspected root cause with file references, and
@@ -12,99 +12,13 @@ a suggested fix. Severities: **High** (security / data-integrity), **Medium**
 Legend for status codes seen in the console: a red `Failed to load resource … 4xx/5xx`
 in the browser console maps to an API call the page fired that the server rejected.
 
----
-
-## Fix status (2026-06-20)
-
-| ID                     | Status       | Note                                                                                                    |
-| ---------------------- | ------------ | ------------------------------------------------------------------------------------------------------- |
-| H1                     | ✅ by design | silver+gold self-upgrade is intentional; code honors `self_upgradeable`. No change.                     |
-| M1                     | ✅ fixed     | `ApplicationDetailPage` `canAct` now AND-ed with `manage_applications`/superadmin.                      |
-| M2                     | ⏸️ deferred  | offer accept/decline — awaiting product decision.                                                       |
-| M3                     | ✅ fixed     | `OpeningDetailPage` only renders `OpeningAgenciesSection` for `view_opening_agencies`.                  |
-| M4                     | ✅ by design | "no draft → 404" is a tested contract; cosmetic console-only. Left as-is.                               |
-| L1                     | ✅ fixed     | `fillRows()` normalises `Descriptions` spans on opening detail.                                         |
-| L2                     | ✅ fixed     | Audit Logs table keyed by row index (`AuditLogEntry` has no id).                                        |
-| L3                     | ✅ fixed     | Timeline `children→content`, Steps `description→content` (antd v6).                                     |
-| L4                     | ⏳ follow-up | static `message`/`Modal`→`App.useApp()` is pervasive (dozens of files); tracked.                        |
-| U-C4                   | ✅ partial   | de/ta dashboard title de-employer-ised; broader de/ta sweep + "OrgUsers" en fixed.                      |
-| U-C7                   | ✅ fixed     | `name (domain)` dedup at all 4 render sites.                                                            |
-| U-C1, U-C2, U-C8, U-C9 | ⏳ follow-up | need small backend/contract changes (expose title / display_name / capture name / filter self-listing). |
-| U-C3, U-C6             | ⏳ follow-up | offer-state label alignment; free-plan description text (seed).                                         |
-
----
-
-## H1 — Org self-upgrade to **Gold** · RESOLVED: by design
-
-**Resolution (2026-06-20):** Not a bug. The `plans` table marks both `silver` and
-`gold` as `self_upgradeable = TRUE` (free & enterprise are `FALSE`), and both the
-handler (`api-server/handlers/org/org-plan-upgrade.go:57` gates on
-`targetPlan.SelfUpgradeable`) and the UI (`org-ui/src/pages/Plan/PlanPage.tsx:231`
-gates on `plan.self_upgradeable`) correctly honor that flag. Self-upgrade up to Gold is
-intentional; only Enterprise requires a Vetchium admin via `/admin/org/set-tier`. The
-older "free→silver only" note (and the referenced `specs/16-org-tiers/` /
-`project_org_tiers_model.md`, which are not in the repo) is stale. No code change.
-
-<details><summary>Original report</summary>
-
-**Where:** Org portal → `/settings/plan` → "Upgrade to Gold".
-
-**Observed:** As `admin@gryffindor.example` (a normal org superadmin, not a Vetchium
-admin) the page shows **Upgrade to Silver** _and_ **Upgrade to Gold** buttons. Clicking
-_Upgrade to Gold_ → confirm dialog → backend succeeds: toast **"Successfully upgraded to
-Gold"** and the plan becomes Gold (usage caps jump to Users 100, unlimited domains, etc.).
-
-**Why it's wrong:** Per the tier model (`specs/16-org-tiers/`, `MEMORY.md`), only
-**free → silver** is self-serviceable (`self_upgradeable = true` on the silver tier).
-Gold / Enterprise are meant to be set by a Vetchium admin via `POST /admin/org/set-tier`
-(with a required `reason`). Here an org grants itself Gold quotas for free.
-
-**Two defects, fix both:**
-
-1. **Backend (authoritative):** `POST /org/upgrade-plan` accepts `plan_id: "gold"`.
-   It must reject any target tier whose `self_upgradeable` flag is not set (return 403
-   or 422). Look at the org upgrade-plan handler in `api-server/handlers/org/` (the one
-   backing `/org/upgrade-plan`) and gate on the tier's `self_upgradeable` column rather
-   than allowing any tier id.
-2. **Frontend:** `org-ui/src/pages/Plan/` (the `/settings/plan` page) renders an
-   "Upgrade to {tier}" button for every tier above the current one. It should only render
-   the action for tiers where `self_upgradeable` is true (i.e. Silver from Free); other
-   tiers should read "Contact us"/admin-managed, like Enterprise already does.
-
-**Repro:** phase `16`/manual — log in as `admin@gryffindor.example`, open
-`/settings/plan`, click _Upgrade to Gold_ → _Upgrade_.
-
-</details>
-
----
-
-## M1 — Write actions shown to read-only users on the application detail · Medium (RBAC defence-in-depth)
-
-**Where:** Org portal → opening → Applications → an application →
-`org-ui/src/pages/applications/ApplicationDetailPage.tsx`.
-
-**Observed:** `ron@gryffindor.example`, who has only `org:view_openings` +
-`org:view_applications` (read-only), sees the **Shortlist**, **Reject** and **Label**
-(Green/Yellow/Red) buttons on any application in the `applied` state.
-
-**Root cause:** the action gate ignores the user's role entirely:
-
-```ts
-// ApplicationDetailPage.tsx (~line 171)
-const canAct = application?.state === "applied";
-```
-
-`canAct` is derived purely from the application state. The shortlist/reject card
-(`{canAct && (…)}`, ~line 381) and the label buttons (`disabled={actioning || !canAct}`,
-~line 344) therefore appear for view-only users.
-
-**Why it matters:** CLAUDE.md → RBAC checklist item 4: "Hide write actions for read-only
-roles within feature pages (UI is defence-in-depth; backend MUST enforce independently →
-403)." The backend _does_ enforce `org:manage_applications` on
-`shortlist/reject/label-application` (so the action would 403), but the UI must not offer
-it. Fix: AND `canAct` with a role check from `useMyInfo()` —
-`roles.includes("org:superadmin") || roles.includes("org:manage_applications")` — the same
-pattern already used in `UserDetailDrawer.tsx` (`canManageUsers`).
+> **Already resolved (removed from this doc; see commit `9c41cab`):** M1 (read-only
+> users no longer see application write buttons), M3 (opening-agencies 403 gated),
+> L1 (Descriptions span), L2 (Audit Logs row key), L3 (deprecated Timeline/Steps APIs),
+> U-C7 (`name (domain)` dedup), and part of U-C4 (de/ta dashboard title + the en
+> "OrgUsers" jargon). **By-design (no change):** H1 (silver+gold self-upgrade is
+> intentional; code honors `self_upgradeable`) and M4 ("no draft → 404" is a tested
+> contract; the console line is cosmetic).
 
 ---
 
@@ -134,79 +48,6 @@ endpoint + TypeSpec types + hub UI buttons, with the org candidacy moving to a t
 
 ---
 
-## M3 — `POST /org/list-opening-agencies` → 403 on every opening-detail view · Medium (RBAC/UI mismatch)
-
-**Where:** Org portal → opening detail (`/openings/:n`) → the "Assign Agency" section
-(`org-ui/src/pages/Openings/OpeningAgenciesSection.tsx`).
-
-**Observed:** Opening any opening as `harry@gryffindor.example` (has `org:manage_openings`
-but **not** `org:view_opening_agencies`) fires `POST /org/list-opening-agencies` which
-returns **403**, logging a red console error on every visit (24 occurrences across the
-run). The section/buttons still render to a user who can't use them.
-
-**Root cause:** the route requires `org:view_opening_agencies`
-(`api-server/internal/routes/org-routes.go:165`), but `OpeningAgenciesSection` is rendered
-on the opening detail for anyone with opening access and calls `list-opening-agencies`
-unconditionally on mount.
-
-**Fix:** gate the section on the viewer's roles
-(`view_opening_agencies` / `manage_opening_agencies` / `superadmin`) before rendering /
-fetching — or, if recruiters who manage openings are expected to assign agencies, include
-`view_opening_agencies` in that role bundle. At minimum, don't fire the call (and don't
-surface a console 403) for users without the role.
-
----
-
-## M4 — `POST /org/get-my-interview-feedback` → 404 console line · WON'T FIX (by design)
-
-**Resolution (2026-06-20):** Not fixed — the 404 is an **intentional, tested contract**.
-`playwright/tests/api/hiring/interview-feedback.spec.ts:496` ("panel member with no
-feedback yet → 404") deliberately asserts it, the handler is documented as returning 404
-when no draft exists (`api-server/handlers/org/interviews.go:1070`), and the page already
-handles it correctly (it just leaves the form blank). The browser logging an _expected_
-404 is cosmetic console noise, not a user-facing bug.
-
-If console-cleanliness is later wanted, the path is to change the no-draft case from
-`404` to `204 No Content` (the browser does not log 204) and update that test + the
-api-client — a deliberate contract change, deferred for now.
-
-<details><summary>Original report</summary>
-
-**Where:** Org portal → candidacy → "View interview" →
-`/candidacies/:id/interviews/:interviewId/feedback`
-(`org-ui/src/pages/Interviews/SubmitFeedbackPage.tsx`). Opening the feedback editor
-before any draft has been saved fires `POST /org/get-my-interview-feedback` → **404**
-(no draft yet) → console error.
-
-</details>
-
----
-
-## L1 — AntD `Descriptions` "span" warning on opening detail · Low
-
-`Warning: [antd: Descriptions] Sum of column 'span' in a line not match 'column' of
-Descriptions` on `/openings/:n`. A `<Descriptions.Item span=…>` set doesn't add up to the
-container's `column`. Audit the `Descriptions` block on the org opening-detail page
-(`org-ui/src/pages/Openings/…`) and fix the spans.
-
-## L2 — Missing React `key` on the Audit Logs table · Low
-
-`Warning: Each child in a list should have a unique "key" prop. … Check the render method
-of 'tbody'.` on `/audit-logs`. The audit-logs table (`org-ui/src/pages/AuditLogsPage.tsx`)
-needs a stable `rowKey` (e.g. the audit-log id) on its `<Table>` / row mapping.
-
-## L3 — Deprecated AntD v6 APIs in use (violates the no-deprecated-APIs rule) · Low
-
-CLAUDE.md forbids deprecated library APIs. Observed deprecation warnings:
-
-- `[antd: Timeline] 'items.children' is deprecated. Please use 'items.content' instead.`
-  — org `CandidacyDetailPage` and hub `MyCandidacyDetailPage` comment timelines.
-- `[antd: Steps] 'items.description' is deprecated. Please use 'items.content' …` — the
-  create-opening wizard (`org-ui/src/pages/Openings/…/new`).
-
-Migrate these `Timeline`/`Steps` `items` props to the v6 replacements; `bun run lint`
-should flag them.
-
 ## L4 — Static `message` / `Modal` used without App context · Low
 
 Pervasive `Warning: [antd: message] Static function can not consume context like dynamic
@@ -214,7 +55,7 @@ theme.` (also for `Modal.confirm`). Components call `message.*` / `Modal.confirm
 from `antd` instead of `App.useApp()`'s instances, so toasts/confirms don't pick up the
 dynamic (dark) theme. Switch call sites to `const { message, modal } = App.useApp();`
 (several already do — e.g. `UserDetailDrawer.tsx`). Affected: apply page, plan page,
-schedule-interview, extend-offer, feedback, complete-setup, invite, etc.
+schedule-interview, extend-offer, feedback, complete-setup, invite, etc. (dozens of files).
 
 ---
 
@@ -222,27 +63,24 @@ schedule-interview, extend-offer, feedback, complete-setup, invite, etc.
 
 - **U-C1 — Hub "My Applications" shows the opening _number_, not the title.** The _Role_
   column on `hub-ui/src/pages/applications/…` renders `#1`; "My Candidacies" correctly
-  shows the job title. Show the title (the API row should carry `opening_title`).
+  shows the job title. Show the title (the API row should carry `opening_title`). Needs a
+  small backend/contract change to expose the title on the applications list row.
 - **U-C2 — Hub dashboard greets by handle, not display name.** `HomePage` shows
   "Welcome, @harry-111a2b39" instead of "Harry Potter"; the profile page shows the display
-  name correctly. Use `preferred_display_name` in the greeting.
+  name correctly. The hub `myinfo` response (`HubMyInfoResponse`) carries no display-name
+  field — add `display_name` to the contract + handler and greet by it.
 - **U-C3 — Offer-state wording differs across portals:** org says **"Offered"**, hub says
   **"Offer Extended"** for the same candidacy state. Pick one label.
-- **U-C4 — de-DE / ta-IN still say "Employer Dashboard".** The dashboard title renders
-  _"Arbeitgeber-Dashboard"_ / _"முதலாளி டாஷ்போர்டு"_ while en-US was renamed to **"Org
-  Dashboard"** — the employer→org rename never reached the `de-DE` / `ta-IN` locale files
-  (`org-ui/src/locales/`). Also "Internal opening (only visible to **OrgUsers**)" leaks the
-  internal term in a user-facing label.
+- **U-C4 (remaining) — broader de-DE / ta-IN "Employer → Org" terminology sweep.** The
+  dashboard title is fixed, but the rest of the non-English strings still say "Employer"
+  (e.g. `common.json` `appName` "Vetchium Arbeitgeber" / "வெட்சியம் முதலாளி", and several
+  `auth.json` titles). Needs a native-speaker terminology pass across `org-ui/src/locales/`.
 - **U-C5 — Consumer org sees agency-only page text.** A consumer org (gryffindor) can open
   `/referrals` and sees the agency-side empty state **"No openings assigned to your agency
   yet"**. Either hide `/referrals` for orgs that are not acting as an agency, or word the
   empty state neutrally.
 - **U-C6 — Free plan "Description: -" is empty** on `/settings/plan` (no description text
-  for the free tier).
-- **U-C7 — Agency name renders as "floonetwork.example (floonetwork.example)"** (domain
-  printed twice) in the hub referral inbox, because the org's display name was never set
-  and falls back to the domain. Either capture an org display name at signup or don't
-  render `name (domain)` when `name === domain`.
+  for the free tier — add a translated description for `free` in the plan seed data).
 - **U-C8 — Founding admin has a blank Name** in the org Users table — `org/init-signup`
   never captures a `full_name` for the first superadmin.
 - **U-C9 — Agency sees its own listing in "Discover Marketplace Listings".** Self-listings
