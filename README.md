@@ -93,6 +93,41 @@ CI=1 npm run test:ui     # UI tests (Chromium, 1 worker)
 
 `CI=1` limits parallel workers (4 for API tests) for stability across the multi-service setup. UI tests are restricted to 1 worker to prevent Mailpit collisions.
 
+### Exploratory UI test run (manual-style sweep)
+
+Separate from `npm test`, there is a scripted **exploratory** sweep that drives the
+real Hub and Org portals through headless Chromium — one isolated browser profile per
+persona — co-ordinating an org, a staffing agency and several hub users through the full
+hiring + marketplace + agency-referral journeys. Every step screenshots the screen and
+records console errors / page errors / 4xx-5xx responses, so it surfaces **bugs,
+usability problems, UI failures, RBAC mismatches and validation gaps** that the
+assertion-based suite isn't looking for. It is **not** part of CI and asserts almost
+nothing — a human reviews the screenshots and the captured-issue summary afterwards.
+
+Unlike `npm test` (which runs on `docker-compose-ci.json` and seeds its own throwaway
+data), this run uses **`docker-compose-full.json`** with its shared `seed-users`
+Harry-Potter dataset (the same accounts listed under [Test / Seed Users](#test--seed-users)).
+The scripts live under `playwright/exploratory/` as plain `.js` files outside `tests/`,
+so `playwright test` / `npm test` never collects them — the two are fully independent.
+
+```bash
+# 1. Full stack + seed data (from src/)
+docker compose -f docker-compose-full.json up --build -d
+docker compose -f docker-compose-full.json logs -f seed-users   # wait for it to exit 0
+
+# 2. Playwright + browser (from playwright/, once)
+cd playwright && npm install && npx playwright install chromium
+
+# 3. Run the sweep, then review screenshots + the captured-issue summary
+./exploratory/run-all.sh
+node exploratory/aggregate.js
+open exploratory/output/shots/      # screenshots, in order
+```
+
+See [`playwright/exploratory/README.md`](./playwright/exploratory/README.md) for the
+phase-by-phase breakdown, env vars (`HEADED=1`, `EXPLORE_OUT`, …) and notes. Findings
+from the latest run are written up in [`specs/issues.md`](./specs/issues.md).
+
 The CI stack uses short token durations to enable expiry scenario tests:
 
 | Token type       | CI duration |
@@ -212,7 +247,8 @@ src/
 ├── admin-ui/            # Admin portal (React + Bun)
 └── playwright/          # API and UI tests
     ├── lib/             # Shared helpers (db.ts, api-client.ts, mailpit.ts)
-    └── tests/api/       # API test specs (admin/, hub/, org/)
+    ├── tests/api/       # API test specs (admin/, hub/, org/)
+    └── exploratory/     # Manual-style UI sweep (separate from `npm test`) — see its README
 ```
 
 ## Development Workflow
