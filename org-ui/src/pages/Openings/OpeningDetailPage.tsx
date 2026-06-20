@@ -13,6 +13,7 @@ import {
 	Alert,
 	Divider,
 } from "antd";
+import type { DescriptionsProps } from "antd";
 import { ArrowLeftOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useParams, Link } from "react-router-dom";
@@ -45,6 +46,40 @@ function userLabel(u: { full_name?: string; email_address: string }): string {
 	return u.full_name ? `${u.full_name} (${u.email_address})` : u.email_address;
 }
 
+// AntD <Descriptions column={N}/> warns when a line's item spans don't sum to N.
+// With optional + full-width (span:N) items the lines can end up partial. This
+// normalises spans so every line fills exactly N: a full-width item that would
+// start mid-line first extends the previous item to close the line, and the last
+// item is extended to fill any remainder. Layout is unchanged; the warning goes away.
+type DescItem = NonNullable<DescriptionsProps["items"]>[number];
+const itemSpan = (i?: DescItem): number =>
+	typeof i?.span === "number" ? i.span : 1;
+
+function fillRows(items: DescItem[], column: number): DescItem[] {
+	const out: DescItem[] = [];
+	let col = 0;
+	for (const item of items) {
+		const want = Math.min(itemSpan(item), column);
+		if (want === column && col % column !== 0) {
+			const prev = out[out.length - 1];
+			if (prev) {
+				out[out.length - 1] = {
+					...prev,
+					span: itemSpan(prev) + (column - (col % column)),
+				};
+			}
+			col = 0;
+		}
+		out.push({ ...item, span: want });
+		col = (col + want) % column;
+	}
+	if (col !== 0 && out.length > 0) {
+		const last = out[out.length - 1];
+		out[out.length - 1] = { ...last, span: itemSpan(last) + (column - col) };
+	}
+	return out;
+}
+
 export default function OpeningDetailPage() {
 	const { t, i18n } = useTranslation("openings");
 	const navigate = useNavigate();
@@ -56,6 +91,14 @@ export default function OpeningDetailPage() {
 
 	const hasManageRole =
 		myInfo?.roles?.includes("org:manage_openings") ||
+		myInfo?.roles?.includes("org:superadmin");
+
+	// The opening-agencies section calls /org/list-opening-agencies which requires
+	// org:view_opening_agencies; only render it for users who hold that role (or
+	// can manage it / superadmin) so others don't trigger a 403 on every visit.
+	const canViewOpeningAgencies =
+		myInfo?.roles?.includes("org:view_opening_agencies") ||
+		myInfo?.roles?.includes("org:manage_opening_agencies") ||
 		myInfo?.roles?.includes("org:superadmin");
 
 	const isSubmitter =
@@ -580,7 +623,12 @@ export default function OpeningDetailPage() {
 
 			{/* Job Details */}
 			<Card title={t("detail.jobDetails")} style={{ marginBottom: 16 }}>
-				<Descriptions bordered column={2} items={jobDetailItems} size="small" />
+				<Descriptions
+					bordered
+					column={2}
+					items={fillRows(jobDetailItems, 2)}
+					size="small"
+				/>
 			</Card>
 
 			{/* Compensation */}
@@ -589,7 +637,7 @@ export default function OpeningDetailPage() {
 					<Descriptions
 						bordered
 						column={2}
-						items={compensationItems}
+						items={fillRows(compensationItems, 2)}
 						size="small"
 					/>
 				</Card>
@@ -597,7 +645,12 @@ export default function OpeningDetailPage() {
 
 			{/* Hiring Team */}
 			<Card title={t("detail.hiringTeam")} style={{ marginBottom: 16 }}>
-				<Descriptions bordered column={2} items={teamItems} size="small" />
+				<Descriptions
+					bordered
+					column={2}
+					items={fillRows(teamItems, 2)}
+					size="small"
+				/>
 			</Card>
 
 			{/* Additional Info */}
@@ -646,8 +699,9 @@ export default function OpeningDetailPage() {
 				</Card>
 			)}
 
-			{/* Official recruiting agencies (assign/remove) — published openings */}
-			{opening.status === "published" && (
+			{/* Official recruiting agencies (assign/remove) — published openings,
+			    only for users who can view/manage opening agencies. */}
+			{opening.status === "published" && canViewOpeningAgencies && (
 				<OpeningAgenciesSection openingId={opening.opening_id} />
 			)}
 
@@ -663,7 +717,12 @@ export default function OpeningDetailPage() {
 
 			{/* Timestamps */}
 			<Card title={t("detail.timestamps")}>
-				<Descriptions bordered column={2} items={timestampItems} size="small" />
+				<Descriptions
+					bordered
+					column={2}
+					items={fillRows(timestampItems, 2)}
+					size="small"
+				/>
 			</Card>
 		</div>
 	);

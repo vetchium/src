@@ -136,7 +136,9 @@ const OpeningAgenciesSection: React.FC<Props> = ({ openingId }) => {
 			title: t("agencyColumn"),
 			key: "agency",
 			render: (_: unknown, r: OpeningAgency) =>
-				`${r.agency_org_name} (${r.agency_org_domain})`,
+				r.agency_org_name === r.agency_org_domain
+					? r.agency_org_name
+					: `${r.agency_org_name} (${r.agency_org_domain})`,
 		},
 		{
 			title: t("assignedAt"),
@@ -223,7 +225,10 @@ const OpeningAgenciesSection: React.FC<Props> = ({ openingId }) => {
 						)
 						.map((a) => ({
 							value: a.agency_org_domain,
-							label: `${a.agency_org_name} (${a.agency_org_domain})`,
+							label:
+								a.agency_org_name === a.agency_org_domain
+									? a.agency_org_name
+									: `${a.agency_org_name} (${a.agency_org_domain})`,
 						}))}
 					notFoundContent={t("noAssignableAgencies")}
 				/>

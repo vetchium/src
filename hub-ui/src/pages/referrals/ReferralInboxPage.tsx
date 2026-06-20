@@ -88,7 +88,9 @@ export const ReferralInboxPage: React.FC = () => {
 			title: t("referredBy"),
 			key: "referred_by",
 			render: (_: unknown, record: ReferralReceived) =>
-				`${record.agency_org_name} (${record.agency_org_domain})`,
+				record.agency_org_name === record.agency_org_domain
+					? record.agency_org_name
+					: `${record.agency_org_name} (${record.agency_org_domain})`,
 		},
 		{
 			title: t("statement"),

@@ -246,27 +246,27 @@ export default function CreateOpeningPage() {
 	const stepItems = [
 		{
 			title: t("form.sections.basics"),
-			description: t("form.sections.basicsDesc"),
+			content: t("form.sections.basicsDesc"),
 			icon: <FileTextOutlined />,
 		},
 		{
 			title: t("form.sections.employment"),
-			description: t("form.sections.employmentDesc"),
+			content: t("form.sections.employmentDesc"),
 			icon: <ScheduleOutlined />,
 		},
 		{
 			title: t("form.sections.requirements"),
-			description: t("form.sections.requirementsDesc"),
+			content: t("form.sections.requirementsDesc"),
 			icon: <DollarOutlined />,
 		},
 		{
 			title: t("form.sections.team"),
-			description: t("form.sections.teamDesc"),
+			content: t("form.sections.teamDesc"),
 			icon: <TeamOutlined />,
 		},
 		{
 			title: t("form.sections.additional"),
-			description: t("form.sections.additionalDesc"),
+			content: t("form.sections.additionalDesc"),
 			icon: <ProfileOutlined />,
 		},
 	];

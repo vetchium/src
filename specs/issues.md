@@ -14,7 +14,38 @@ in the browser console maps to an API call the page fired that the server reject
 
 ---
 
-## H1 — Org can self-upgrade to **Gold** (privilege / billing escalation) · High
+## Fix status (2026-06-20)
+
+| ID                     | Status       | Note                                                                                                    |
+| ---------------------- | ------------ | ------------------------------------------------------------------------------------------------------- |
+| H1                     | ✅ by design | silver+gold self-upgrade is intentional; code honors `self_upgradeable`. No change.                     |
+| M1                     | ✅ fixed     | `ApplicationDetailPage` `canAct` now AND-ed with `manage_applications`/superadmin.                      |
+| M2                     | ⏸️ deferred  | offer accept/decline — awaiting product decision.                                                       |
+| M3                     | ✅ fixed     | `OpeningDetailPage` only renders `OpeningAgenciesSection` for `view_opening_agencies`.                  |
+| M4                     | ✅ by design | "no draft → 404" is a tested contract; cosmetic console-only. Left as-is.                               |
+| L1                     | ✅ fixed     | `fillRows()` normalises `Descriptions` spans on opening detail.                                         |
+| L2                     | ✅ fixed     | Audit Logs table keyed by row index (`AuditLogEntry` has no id).                                        |
+| L3                     | ✅ fixed     | Timeline `children→content`, Steps `description→content` (antd v6).                                     |
+| L4                     | ⏳ follow-up | static `message`/`Modal`→`App.useApp()` is pervasive (dozens of files); tracked.                        |
+| U-C4                   | ✅ partial   | de/ta dashboard title de-employer-ised; broader de/ta sweep + "OrgUsers" en fixed.                      |
+| U-C7                   | ✅ fixed     | `name (domain)` dedup at all 4 render sites.                                                            |
+| U-C1, U-C2, U-C8, U-C9 | ⏳ follow-up | need small backend/contract changes (expose title / display_name / capture name / filter self-listing). |
+| U-C3, U-C6             | ⏳ follow-up | offer-state label alignment; free-plan description text (seed).                                         |
+
+---
+
+## H1 — Org self-upgrade to **Gold** · RESOLVED: by design
+
+**Resolution (2026-06-20):** Not a bug. The `plans` table marks both `silver` and
+`gold` as `self_upgradeable = TRUE` (free & enterprise are `FALSE`), and both the
+handler (`api-server/handlers/org/org-plan-upgrade.go:57` gates on
+`targetPlan.SelfUpgradeable`) and the UI (`org-ui/src/pages/Plan/PlanPage.tsx:231`
+gates on `plan.self_upgradeable`) correctly honor that flag. Self-upgrade up to Gold is
+intentional; only Enterprise requires a Vetchium admin via `/admin/org/set-tier`. The
+older "free→silver only" note (and the referenced `specs/16-org-tiers/` /
+`project_org_tiers_model.md`, which are not in the repo) is stale. No code change.
+
+<details><summary>Original report</summary>
 
 **Where:** Org portal → `/settings/plan` → "Upgrade to Gold".
 
@@ -42,6 +73,8 @@ Gold / Enterprise are meant to be set by a Vetchium admin via `POST /admin/org/s
 
 **Repro:** phase `16`/manual — log in as `admin@gryffindor.example`, open
 `/settings/plan`, click _Upgrade to Gold_ → _Upgrade_.
+
+</details>
 
 ---
 
@@ -75,7 +108,10 @@ pattern already used in `UserDetailDrawer.tsx` (`canManageUsers`).
 
 ---
 
-## M2 — Offer flow is a dead-end for the candidate (no accept / decline) · Medium
+## M2 — Offer flow is a dead-end for the candidate (no accept / decline) · Medium · DEFERRED
+
+> **Status (2026-06-20): deferred** — left as-is for now pending a product decision on
+> whether to build in-platform accept/decline or treat acceptance as out-of-band.
 
 **Where:** Hub portal → My Candidacies → candidacy detail
 (`hub-ui/src/pages/Candidacies/MyCandidacyDetailPage.tsx`, offer panel ~line 294).
@@ -121,19 +157,28 @@ surface a console 403) for users without the role.
 
 ---
 
-## M4 — `POST /org/get-my-interview-feedback` → 404 console error on first feedback-page load · Medium
+## M4 — `POST /org/get-my-interview-feedback` → 404 console line · WON'T FIX (by design)
+
+**Resolution (2026-06-20):** Not fixed — the 404 is an **intentional, tested contract**.
+`playwright/tests/api/hiring/interview-feedback.spec.ts:496` ("panel member with no
+feedback yet → 404") deliberately asserts it, the handler is documented as returning 404
+when no draft exists (`api-server/handlers/org/interviews.go:1070`), and the page already
+handles it correctly (it just leaves the form blank). The browser logging an _expected_
+404 is cosmetic console noise, not a user-facing bug.
+
+If console-cleanliness is later wanted, the path is to change the no-draft case from
+`404` to `204 No Content` (the browser does not log 204) and update that test + the
+api-client — a deliberate contract change, deferred for now.
+
+<details><summary>Original report</summary>
 
 **Where:** Org portal → candidacy → "View interview" →
 `/candidacies/:id/interviews/:interviewId/feedback`
-(`org-ui/src/pages/Interviews/SubmitFeedbackPage.tsx`).
+(`org-ui/src/pages/Interviews/SubmitFeedbackPage.tsx`). Opening the feedback editor
+before any draft has been saved fires `POST /org/get-my-interview-feedback` → **404**
+(no draft yet) → console error.
 
-**Observed:** Opening the feedback editor before any draft has been saved fires
-`POST /org/get-my-interview-feedback` which returns **404** (no draft yet) and logs a
-console error.
-
-**Fix:** treat "no draft yet" as an empty form rather than an error — either have the
-handler return `200` with an empty/absent feedback body, or have the page swallow the 404
-and initialise blank fields. Don't surface it as a console error.
+</details>
 
 ---
 

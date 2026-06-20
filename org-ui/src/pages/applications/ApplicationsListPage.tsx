@@ -243,7 +243,10 @@ export const ApplicationsListPage: React.FC = () => {
 						onChange={(v) => setAgencyFilter(v)}
 						options={agencies.map((a) => ({
 							value: a.agency_org_domain,
-							label: `${a.agency_org_name} (${a.agency_org_domain})`,
+							label:
+								a.agency_org_name === a.agency_org_domain
+									? a.agency_org_name
+									: `${a.agency_org_name} (${a.agency_org_domain})`,
 						}))}
 						allowClear
 					/>

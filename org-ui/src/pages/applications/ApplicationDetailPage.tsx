@@ -33,6 +33,7 @@ import type {
 import type { PublicEmployerStint } from "vetchium-specs/hub/work-emails";
 import { getApiBaseUrl } from "../../config";
 import { useAuth } from "../../hooks/useAuth";
+import { useMyInfo } from "../../hooks/useMyInfo";
 import { formatDateTime } from "../../utils/dateFormat";
 
 const { Title, Text, Paragraph } = Typography;
@@ -62,6 +63,7 @@ const LABEL_SWATCH: Record<ApplicationColorLabel, string> = {
 export const ApplicationDetailPage: React.FC = () => {
 	const { t, i18n } = useTranslation("applications");
 	const { sessionToken } = useAuth();
+	const { data: myInfo } = useMyInfo(sessionToken);
 	const { applicationId, openingId } = useParams<{
 		applicationId: string;
 		openingId: string;
@@ -168,7 +170,13 @@ export const ApplicationDetailPage: React.FC = () => {
 		}
 	};
 
-	const canAct = application?.state === "applied";
+	// Defence-in-depth: only offer shortlist/reject/label to users who can actually
+	// perform them (the backend independently enforces org:manage_applications → 403).
+	const canManageApplications =
+		myInfo?.roles.includes("org:superadmin") ||
+		myInfo?.roles.includes("org:manage_applications") ||
+		false;
+	const canAct = application?.state === "applied" && canManageApplications;
 
 	return (
 		<div

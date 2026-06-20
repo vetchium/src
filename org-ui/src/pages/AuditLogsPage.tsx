@@ -229,7 +229,9 @@ export function AuditLogsPage() {
 				<Table
 					dataSource={auditLogs}
 					columns={columns}
-					rowKey="id"
+					// AuditLogEntry has no id field; key by position (append-only,
+					// never reordered) to avoid duplicate/undefined React keys.
+					rowKey={(_, index) => String(index)}
 					pagination={false}
 					scroll={{ x: "max-content" }}
 					locale={{ emptyText: t("empty") }}

@@ -342,7 +342,7 @@ export const MyCandidacyDetailPage: React.FC = () => {
 							</Text>
 							<Timeline
 								items={candidacy.comments.map((c: CandidacyComment) => ({
-									children: (
+									content: (
 										<div>
 											<Text strong>
 												{c.author_kind === "hub_user"

@@ -52,7 +52,7 @@
 	"form": {
 		"title": "Title",
 		"description": "Description",
-		"isInternal": "Internal opening (only visible to OrgUsers)",
+		"isInternal": "Internal opening (only visible to your organization's members)",
 		"employmentType": "Employment Type",
 		"workLocationType": "Work Location Type",
 		"addresses": "Addresses",
@@ -162,7 +162,7 @@
 		"saveFailed": "Failed to save opening",
 		"transitionFailed": "Could not change opening status",
 		"invalidAddresses": "One or more selected addresses are not active",
-		"invalidOrgUsers": "One or more selected OrgUsers are not active",
+		"invalidOrgUsers": "One or more selected users are not active",
 		"invalidCostCenter": "Selected cost center is not active",
 		"invalidTags": "One or more selected tags are not active",
 		"notEditable": "This opening is no longer editable. Close it and create a new one to make changes.",

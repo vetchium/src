@@ -701,7 +701,7 @@ const CandidacyDetailPage: React.FC = () => {
 				) : (
 					<Timeline
 						items={candidacy.comments.map((c: CandidacyComment) => ({
-							children: (
+							content: (
 								<div>
 									<Text strong>
 										{c.author_kind === "org_user"
