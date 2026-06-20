@@ -167,6 +167,8 @@
 
 	"clients": {
 		"title": "என் வாடிக்கையாளர்கள்",
+		"filterByCapability": "திறன் வாரியாக வடிகட்டு",
+		"searchPlaceholder": "நிறுவனப் பெயர் அல்லது டொமைன் மூலம் தேடு...",
 		"consumerDomain": "வாடிக்கையாளர் நிறுவனம்",
 		"listingNumber": "விளம்பரம்",
 		"status": "நிலை",

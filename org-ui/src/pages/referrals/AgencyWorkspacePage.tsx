@@ -200,7 +200,7 @@ const AgencyWorkspacePage: React.FC = () => {
 			key: "client",
 		},
 		{
-			title: t("referralsColumn"),
+			title: t("opening"),
 			key: "opening",
 			render: (_: unknown, o: AssignedOpening) => (
 				<Link to={`/referrals/openings/${o.opening_id}`}>
@@ -259,7 +259,7 @@ const AgencyWorkspacePage: React.FC = () => {
 			render: (v: string) => formatDate(v, i18n.language),
 		},
 		{
-			title: t("agencyColumn"),
+			title: t("actions"),
 			key: "actions",
 			render: (_: unknown, o: AssignedOpening) => (
 				<Link to={`/referrals/openings/${o.opening_id}`}>
@@ -317,6 +317,15 @@ const AgencyWorkspacePage: React.FC = () => {
 							type="error"
 							showIcon
 							title={t("loadError")}
+							style={{ marginBottom: 16 }}
+						/>
+					)}
+
+					{!isLead && (
+						<Alert
+							type="info"
+							showIcon
+							title={t("myAssignmentsHint")}
 							style={{ marginBottom: 16 }}
 						/>
 					)}

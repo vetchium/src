@@ -92,7 +92,7 @@ const ReferCandidateModal: React.FC<Props> = ({
 					label={t("candidateHandle")}
 					rules={[{ required: true }]}
 				>
-					<Input placeholder="@handle" />
+					<Input prefix="@" placeholder={t("candidateHandlePlaceholder")} />
 				</Form.Item>
 				<Form.Item name="statement_text" label={t("statement")}>
 					<Input.TextArea maxLength={2000} rows={4} />

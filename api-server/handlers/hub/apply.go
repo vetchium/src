@@ -479,6 +479,15 @@ func ApplyForOpening(s *server.RegionalServer) http.HandlerFunc {
 			}
 		}
 
+		// Best-effort: notify the referring agency that its referred candidate has
+		// applied through it. The agency user lives in the agency's own region,
+		// which may differ from the opening's region, so this is enqueued outside
+		// the primary transaction.
+		if chosenReferral != nil {
+			notifyReferringAgency(ctx, s, chosenReferral, opening.Title, opening.OpeningNumber,
+				opening.OpeningID.String(), orgDomain, hubUser.Handle)
+		}
+
 		// Cross-DB: insert endorsement_requests_index rows (best-effort, mirrors
 		// the /hub/request-endorsements compensating pattern).
 		for _, cr := range createdRequests {

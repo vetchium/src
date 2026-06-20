@@ -36,6 +36,7 @@ type RegionalBgJobsConfig struct {
 	ExpirePendingWorkEmailsInterval                  time.Duration
 	ManageActiveWorkEmailsInterval                   time.Duration
 	ExpireOpeningsInterval                           time.Duration
+	ExpireAgencyReferralsInterval                    time.Duration
 }
 
 // GlobalConfigFromEnv creates a GlobalBgJobsConfig from environment variables
@@ -170,6 +171,11 @@ func RegionalConfigFromEnv() *RegionalBgJobsConfig {
 		6*time.Hour,
 	)
 
+	expireAgencyReferralsInterval := parseDurationOrDefault(
+		os.Getenv("EXPIRE_AGENCY_REFERRALS_INTERVAL"),
+		6*time.Hour,
+	)
+
 	return &RegionalBgJobsConfig{
 		ExpiredHubTFATokensCleanupInterval:               hubTFAInterval,
 		ExpiredHubSessionsCleanupInterval:                hubSessionsInterval,
@@ -185,6 +191,7 @@ func RegionalConfigFromEnv() *RegionalBgJobsConfig {
 		ExpirePendingWorkEmailsInterval:                  expirePendingWorkEmailsInterval,
 		ManageActiveWorkEmailsInterval:                   manageActiveWorkEmailsInterval,
 		ExpireOpeningsInterval:                           expireOpeningsInterval,
+		ExpireAgencyReferralsInterval:                    expireAgencyReferralsInterval,
 	}
 }
 

@@ -1119,6 +1119,14 @@ JOIN orgs o ON si.consumer_org_id = o.org_id
 LEFT JOIN marketplace_listing_catalog mlc ON si.listing_id = mlc.listing_id
 WHERE si.provider_org_id = @provider_org_id
   AND (sqlc.narg('filter_listing_number')::int4 IS NULL OR mlc.listing_number = sqlc.narg('filter_listing_number')::int4)
+  AND (sqlc.narg('filter_capability_id')::text IS NULL OR sqlc.narg('filter_capability_id')::text = ANY(mlc.capability_ids))
+  AND (sqlc.narg('filter_consumer')::text IS NULL
+       OR o.org_name ILIKE '%' || sqlc.narg('filter_consumer')::text || '%'
+       OR EXISTS (
+           SELECT 1 FROM global_org_domains gd
+           WHERE gd.org_id = si.consumer_org_id
+             AND gd.domain ILIKE '%' || sqlc.narg('filter_consumer')::text || '%'
+       ))
   AND (sqlc.narg('pagination_key')::uuid IS NULL OR si.subscription_id > sqlc.narg('pagination_key')::uuid)
 ORDER BY si.subscription_id ASC
 LIMIT @row_limit;

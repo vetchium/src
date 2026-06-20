@@ -1,4 +1,13 @@
-import { Card, Col, Row, Skeleton, Typography, Button } from "antd";
+import {
+	Card,
+	Col,
+	Divider,
+	Row,
+	Skeleton,
+	Tooltip,
+	Typography,
+	Button,
+} from "antd";
 import {
 	LogoutOutlined,
 	TeamOutlined,
@@ -16,8 +25,11 @@ import {
 	SolutionOutlined,
 	ContactsOutlined,
 	ShareAltOutlined,
+	PushpinOutlined,
+	PushpinFilled,
 } from "@ant-design/icons";
-import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import type {
@@ -33,10 +45,65 @@ const { Title } = Typography;
 // capability_id of the staffing capability (a data value, not a TypeSpec enum)
 const STAFFING_CAPABILITY_ID = "staffing";
 
+// localStorage key holding the user's pinned tile keys (client-side only, per
+// the product requirement that pinning is a local preference).
+const PINNED_STORAGE_KEY = "org_dashboard_pinned";
+
+// Section identifiers used to group the dashboard tiles. "pinned" is a virtual
+// section assembled at render time from the user's localStorage preference.
+type SectionId = "hiring" | "marketplace" | "organization" | "administration";
+
+const SECTION_ORDER: SectionId[] = [
+	"hiring",
+	"marketplace",
+	"organization",
+	"administration",
+];
+
+interface TileDef {
+	key: string;
+	to: string;
+	icon: ReactNode;
+	color: string;
+	title: string;
+	description: string;
+	section: SectionId;
+	show: boolean;
+}
+
+function loadPinned(): string[] {
+	try {
+		const raw = localStorage.getItem(PINNED_STORAGE_KEY);
+		if (!raw) return [];
+		const parsed = JSON.parse(raw);
+		return Array.isArray(parsed)
+			? parsed.filter((k) => typeof k === "string")
+			: [];
+	} catch {
+		return [];
+	}
+}
+
 export function DashboardPage() {
 	const { t } = useTranslation();
 	const { logout, loading, sessionToken } = useAuth();
 	const { data: myInfo, loading: myInfoLoading } = useMyInfo(sessionToken);
+
+	const [pinned, setPinned] = useState<string[]>(loadPinned);
+
+	const togglePin = useCallback((key: string) => {
+		setPinned((prev) => {
+			const next = prev.includes(key)
+				? prev.filter((k) => k !== key)
+				: [...prev, key];
+			try {
+				localStorage.setItem(PINNED_STORAGE_KEY, JSON.stringify(next));
+			} catch {
+				// storage unavailable (private mode) — pinning stays in-memory only
+			}
+			return next;
+		});
+	}, []);
 
 	const hasUsersAccess =
 		myInfo?.roles.includes("org:superadmin") ||
@@ -166,6 +233,276 @@ export function DashboardPage() {
 
 	const hasAgencyReferralsAccess = hasAgencyReferralRole && isStaffingProvider;
 
+	// Tile catalogue — single source of truth, grouped by section. Order within a
+	// section is the array order. `show` gates a tile on the caller's roles.
+	const tiles: TileDef[] = useMemo(
+		() => [
+			// Hiring
+			{
+				key: "openings",
+				to: "/openings",
+				icon: <SolutionOutlined />,
+				color: "#2f54eb",
+				title: t("openings.title"),
+				description: t("openings.description"),
+				section: "hiring",
+				show: hasOpeningsAccess,
+			},
+			{
+				key: "candidacies",
+				to: "/candidacies",
+				icon: <ContactsOutlined />,
+				color: "#1d39c4",
+				title: t("candidacies.title"),
+				description: t("candidacies.description"),
+				section: "hiring",
+				show: hasCandidaciesAccess,
+			},
+			{
+				key: "my-interviews",
+				to: "/my-interviews",
+				icon: <CalendarOutlined />,
+				color: "#9254de",
+				title: t("myInterviews.title"),
+				description: t("myInterviews.description"),
+				section: "hiring",
+				show: hasMyInterviewsAccess,
+			},
+			{
+				key: "agency-referrals",
+				to: "/referrals",
+				icon: <ShareAltOutlined />,
+				color: "#722ed1",
+				title: t("agencyReferrals:dashboardTitle"),
+				description: t("agencyReferrals:dashboardDescription"),
+				section: "hiring",
+				show: hasAgencyReferralsAccess,
+			},
+			// Marketplace
+			{
+				key: "marketplace",
+				to: "/marketplace",
+				icon: <ShopOutlined />,
+				color: "#096dd9",
+				title: t("marketplace:dashboard.discoverTitle"),
+				description: t("marketplace:dashboard.discoverDescription"),
+				section: "marketplace",
+				show: hasMarketplaceAccess,
+			},
+			{
+				key: "listings",
+				to: "/marketplace/listings",
+				icon: <UnorderedListOutlined />,
+				color: "#08979c",
+				title: t("marketplace:dashboard.listingsTitle"),
+				description: t("marketplace:dashboard.listingsDescription"),
+				section: "marketplace",
+				show: hasListingsAccess,
+			},
+			{
+				key: "subscriptions",
+				to: "/marketplace/subscriptions",
+				icon: <StarOutlined />,
+				color: "#d48806",
+				title: t("marketplace:dashboard.subscriptionsTitle"),
+				description: t("marketplace:dashboard.subscriptionsDescription"),
+				section: "marketplace",
+				show: hasSubscriptionsAccess,
+			},
+			{
+				key: "clients",
+				to: "/marketplace/clients",
+				icon: <UsergroupAddOutlined />,
+				color: "#389e0d",
+				title: t("marketplace:dashboard.clientsTitle"),
+				description: t("marketplace:dashboard.clientsDescription"),
+				section: "marketplace",
+				show: hasClientsAccess,
+			},
+			// Organization
+			{
+				key: "users",
+				to: "/users",
+				icon: <TeamOutlined />,
+				color: "#722ed1",
+				title: t("users.title"),
+				description: t("users.description"),
+				section: "organization",
+				show: hasUsersAccess,
+			},
+			{
+				key: "suborgs",
+				to: "/suborgs",
+				icon: <ApartmentOutlined />,
+				color: "#fa8c16",
+				title: t("subOrgs.title"),
+				description: t("subOrgs.description"),
+				section: "organization",
+				show: hasSubOrgsAccess,
+			},
+			{
+				key: "domains",
+				to: "/domains",
+				icon: <GlobalOutlined />,
+				color: "#1890ff",
+				title: t("domains.title"),
+				description: t("domains.description"),
+				section: "organization",
+				show: hasDomainsAccess,
+			},
+			{
+				key: "cost-centers",
+				to: "/cost-centers",
+				icon: <BankOutlined />,
+				color: "#52c41a",
+				title: t("costCenters.title"),
+				description: t("costCenters.description"),
+				section: "organization",
+				show: hasCostCentersAccess,
+			},
+			{
+				key: "addresses",
+				to: "/settings/addresses",
+				icon: <EnvironmentOutlined />,
+				color: "#ff4d4f",
+				title: t("addresses:title"),
+				description: t(
+					"addresses:description",
+					"Manage company physical addresses"
+				),
+				section: "organization",
+				show: hasAddressesAccess,
+			},
+			// Administration
+			{
+				key: "plan",
+				to: "/settings/plan",
+				icon: <CrownOutlined />,
+				color: "#eb2f96",
+				title: t("subscription.title"),
+				description: t("subscription.description"),
+				section: "administration",
+				show: hasPlanAccess,
+			},
+			{
+				key: "audit-logs",
+				to: "/audit-logs",
+				icon: <FileSearchOutlined />,
+				color: "#13c2c2",
+				title: t("dashboard.auditLogs.title"),
+				description: t("dashboard.auditLogs.description"),
+				section: "administration",
+				show: hasAuditLogsAccess,
+			},
+		],
+		[
+			t,
+			hasOpeningsAccess,
+			hasCandidaciesAccess,
+			hasMyInterviewsAccess,
+			hasAgencyReferralsAccess,
+			hasMarketplaceAccess,
+			hasListingsAccess,
+			hasSubscriptionsAccess,
+			hasClientsAccess,
+			hasUsersAccess,
+			hasSubOrgsAccess,
+			hasDomainsAccess,
+			hasCostCentersAccess,
+			hasAddressesAccess,
+			hasPlanAccess,
+			hasAuditLogsAccess,
+		]
+	);
+
+	const visibleTiles = useMemo(
+		() => tiles.filter((tile) => tile.show),
+		[tiles]
+	);
+
+	// Only keep pins that still resolve to a visible tile (roles may have changed).
+	const pinnedTiles = useMemo(
+		() =>
+			pinned
+				.map((key) => visibleTiles.find((tile) => tile.key === key))
+				.filter((tile): tile is TileDef => tile !== undefined),
+		[pinned, visibleTiles]
+	);
+
+	const renderTile = (tile: TileDef) => {
+		const isPinned = pinned.includes(tile.key);
+		return (
+			<Col key={tile.key} xs={24} sm={12} lg={8}>
+				<div style={{ position: "relative", height: "100%" }}>
+					<Tooltip title={isPinned ? t("dashboard.unpin") : t("dashboard.pin")}>
+						<Button
+							type="text"
+							size="small"
+							aria-label={isPinned ? t("dashboard.unpin") : t("dashboard.pin")}
+							icon={
+								isPinned ? (
+									<PushpinFilled style={{ color: "#faad14" }} />
+								) : (
+									<PushpinOutlined />
+								)
+							}
+							onClick={(e) => {
+								e.preventDefault();
+								e.stopPropagation();
+								togglePin(tile.key);
+							}}
+							style={{ position: "absolute", top: 8, right: 8, zIndex: 1 }}
+						/>
+					</Tooltip>
+					<Link
+						to={tile.to}
+						style={{
+							textDecoration: "none",
+							display: "block",
+							height: "100%",
+						}}
+					>
+						<Card
+							hoverable
+							style={{
+								height: "100%",
+								cursor: "pointer",
+								textAlign: "center",
+							}}
+						>
+							<div
+								style={{ fontSize: 48, color: tile.color, marginBottom: 16 }}
+							>
+								{tile.icon}
+							</div>
+							<Title level={4} style={{ marginBottom: 8 }}>
+								{tile.title}
+							</Title>
+							<Typography.Text type="secondary">
+								{tile.description}
+							</Typography.Text>
+						</Card>
+					</Link>
+				</div>
+			</Col>
+		);
+	};
+
+	const renderSection = (sectionId: SectionId) => {
+		const sectionTiles = visibleTiles.filter(
+			(tile) => tile.section === sectionId && !pinned.includes(tile.key)
+		);
+		if (sectionTiles.length === 0) return null;
+		return (
+			<div key={sectionId}>
+				<Divider titlePlacement="start" style={{ marginTop: 8 }}>
+					{t(`dashboard.sections.${sectionId}`)}
+				</Divider>
+				<Row gutter={[24, 24]}>{sectionTiles.map(renderTile)}</Row>
+			</div>
+		);
+	};
+
 	return (
 		<div
 			style={{
@@ -190,550 +527,17 @@ export function DashboardPage() {
 					))}
 				</Row>
 			) : (
-				<Row gutter={[24, 24]}>
-					{hasUsersAccess && (
-						<Col xs={24} sm={12} lg={8}>
-							<Link
-								to="/users"
-								style={{
-									textDecoration: "none",
-									display: "block",
-									height: "100%",
-								}}
-							>
-								<Card
-									hoverable
-									style={{
-										height: "100%",
-										cursor: "pointer",
-										textAlign: "center",
-									}}
-								>
-									<TeamOutlined
-										style={{
-											fontSize: 48,
-											color: "#722ed1",
-											marginBottom: 16,
-										}}
-									/>
-									<Title level={4} style={{ marginBottom: 8 }}>
-										{t("users.title")}
-									</Title>
-									<Typography.Text type="secondary">
-										{t("users.description")}
-									</Typography.Text>
-								</Card>
-							</Link>
-						</Col>
+				<>
+					{pinnedTiles.length > 0 && (
+						<div>
+							<Divider titlePlacement="start" style={{ marginTop: 8 }}>
+								{t("dashboard.sections.pinned")}
+							</Divider>
+							<Row gutter={[24, 24]}>{pinnedTiles.map(renderTile)}</Row>
+						</div>
 					)}
-
-					{hasSubOrgsAccess && (
-						<Col xs={24} sm={12} lg={8}>
-							<Link
-								to="/suborgs"
-								style={{
-									textDecoration: "none",
-									display: "block",
-									height: "100%",
-								}}
-							>
-								<Card
-									hoverable
-									style={{
-										height: "100%",
-										cursor: "pointer",
-										textAlign: "center",
-									}}
-								>
-									<ApartmentOutlined
-										style={{
-											fontSize: 48,
-											color: "#fa8c16",
-											marginBottom: 16,
-										}}
-									/>
-									<Title level={4} style={{ marginBottom: 8 }}>
-										{t("subOrgs.title")}
-									</Title>
-									<Typography.Text type="secondary">
-										{t("subOrgs.description")}
-									</Typography.Text>
-								</Card>
-							</Link>
-						</Col>
-					)}
-
-					{hasDomainsAccess && (
-						<Col xs={24} sm={12} lg={8}>
-							<Link
-								to="/domains"
-								style={{
-									textDecoration: "none",
-									display: "block",
-									height: "100%",
-								}}
-							>
-								<Card
-									hoverable
-									style={{
-										height: "100%",
-										cursor: "pointer",
-										textAlign: "center",
-									}}
-								>
-									<GlobalOutlined
-										style={{
-											fontSize: 48,
-											color: "#1890ff",
-											marginBottom: 16,
-										}}
-									/>
-									<Title level={4} style={{ marginBottom: 8 }}>
-										{t("domains.title")}
-									</Title>
-									<Typography.Text type="secondary">
-										{t("domains.description")}
-									</Typography.Text>
-								</Card>
-							</Link>
-						</Col>
-					)}
-
-					{hasCostCentersAccess && (
-						<Col xs={24} sm={12} lg={8}>
-							<Link
-								to="/cost-centers"
-								style={{
-									textDecoration: "none",
-									display: "block",
-									height: "100%",
-								}}
-							>
-								<Card
-									hoverable
-									style={{
-										height: "100%",
-										cursor: "pointer",
-										textAlign: "center",
-									}}
-								>
-									<BankOutlined
-										style={{
-											fontSize: 48,
-											color: "#52c41a",
-											marginBottom: 16,
-										}}
-									/>
-									<Title level={4} style={{ marginBottom: 8 }}>
-										{t("costCenters.title")}
-									</Title>
-									<Typography.Text type="secondary">
-										{t("costCenters.description")}
-									</Typography.Text>
-								</Card>
-							</Link>
-						</Col>
-					)}
-
-					{hasOpeningsAccess && (
-						<Col xs={24} sm={12} lg={8}>
-							<Link
-								to="/openings"
-								style={{
-									textDecoration: "none",
-									display: "block",
-									height: "100%",
-								}}
-							>
-								<Card
-									hoverable
-									style={{
-										height: "100%",
-										cursor: "pointer",
-										textAlign: "center",
-									}}
-								>
-									<SolutionOutlined
-										style={{
-											fontSize: 48,
-											color: "#2f54eb",
-											marginBottom: 16,
-										}}
-									/>
-									<Title level={4} style={{ marginBottom: 8 }}>
-										{t("openings.title")}
-									</Title>
-									<Typography.Text type="secondary">
-										{t("openings.description")}
-									</Typography.Text>
-								</Card>
-							</Link>
-						</Col>
-					)}
-
-					{hasCandidaciesAccess && (
-						<Col xs={24} sm={12} lg={8}>
-							<Link
-								to="/candidacies"
-								style={{
-									textDecoration: "none",
-									display: "block",
-									height: "100%",
-								}}
-							>
-								<Card
-									hoverable
-									style={{
-										height: "100%",
-										cursor: "pointer",
-										textAlign: "center",
-									}}
-								>
-									<ContactsOutlined
-										style={{
-											fontSize: 48,
-											color: "#1d39c4",
-											marginBottom: 16,
-										}}
-									/>
-									<Title level={4} style={{ marginBottom: 8 }}>
-										{t("candidacies.title")}
-									</Title>
-									<Typography.Text type="secondary">
-										{t("candidacies.description")}
-									</Typography.Text>
-								</Card>
-							</Link>
-						</Col>
-					)}
-
-					{hasMyInterviewsAccess && (
-						<Col xs={24} sm={12} lg={8}>
-							<Link
-								to="/my-interviews"
-								style={{
-									textDecoration: "none",
-									display: "block",
-									height: "100%",
-								}}
-							>
-								<Card
-									hoverable
-									style={{
-										height: "100%",
-										cursor: "pointer",
-										textAlign: "center",
-									}}
-								>
-									<CalendarOutlined
-										style={{
-											fontSize: 48,
-											color: "#9254de",
-											marginBottom: 16,
-										}}
-									/>
-									<Title level={4} style={{ marginBottom: 8 }}>
-										{t("myInterviews.title")}
-									</Title>
-									<Typography.Text type="secondary">
-										{t("myInterviews.description")}
-									</Typography.Text>
-								</Card>
-							</Link>
-						</Col>
-					)}
-
-					{hasAddressesAccess && (
-						<Col xs={24} sm={12} lg={8}>
-							<Link
-								to="/settings/addresses"
-								style={{
-									textDecoration: "none",
-									display: "block",
-									height: "100%",
-								}}
-							>
-								<Card
-									hoverable
-									style={{
-										height: "100%",
-										cursor: "pointer",
-										textAlign: "center",
-									}}
-								>
-									<EnvironmentOutlined
-										style={{
-											fontSize: 48,
-											color: "#ff4d4f",
-											marginBottom: 16,
-										}}
-									/>
-									<Title level={4} style={{ marginBottom: 8 }}>
-										{t("addresses:title")}
-									</Title>
-									<Typography.Text type="secondary">
-										{t(
-											"addresses:description",
-											"Manage company physical addresses"
-										)}
-									</Typography.Text>
-								</Card>
-							</Link>
-						</Col>
-					)}
-
-					{hasAuditLogsAccess && (
-						<Col xs={24} sm={12} lg={8}>
-							<Link
-								to="/audit-logs"
-								style={{
-									textDecoration: "none",
-									display: "block",
-									height: "100%",
-								}}
-							>
-								<Card
-									hoverable
-									style={{
-										height: "100%",
-										cursor: "pointer",
-										textAlign: "center",
-									}}
-								>
-									<FileSearchOutlined
-										style={{
-											fontSize: 48,
-											color: "#13c2c2",
-											marginBottom: 16,
-										}}
-									/>
-									<Title level={4} style={{ marginBottom: 8 }}>
-										{t("dashboard.auditLogs.title")}
-									</Title>
-									<Typography.Text type="secondary">
-										{t("dashboard.auditLogs.description")}
-									</Typography.Text>
-								</Card>
-							</Link>
-						</Col>
-					)}
-
-					{hasPlanAccess && (
-						<Col xs={24} sm={12} lg={8}>
-							<Link
-								to="/settings/plan"
-								style={{
-									textDecoration: "none",
-									display: "block",
-									height: "100%",
-								}}
-							>
-								<Card
-									hoverable
-									style={{
-										height: "100%",
-										cursor: "pointer",
-										textAlign: "center",
-									}}
-								>
-									<CrownOutlined
-										style={{
-											fontSize: 48,
-											color: "#eb2f96",
-											marginBottom: 16,
-										}}
-									/>
-									<Title level={4} style={{ marginBottom: 8 }}>
-										{t("subscription.title")}
-									</Title>
-									<Typography.Text type="secondary">
-										{t("subscription.description")}
-									</Typography.Text>
-								</Card>
-							</Link>
-						</Col>
-					)}
-
-					{hasMarketplaceAccess && (
-						<Col xs={24} sm={12} lg={8}>
-							<Link
-								to="/marketplace"
-								style={{
-									textDecoration: "none",
-									display: "block",
-									height: "100%",
-								}}
-							>
-								<Card
-									hoverable
-									style={{
-										height: "100%",
-										cursor: "pointer",
-										textAlign: "center",
-									}}
-								>
-									<ShopOutlined
-										style={{
-											fontSize: 48,
-											color: "#096dd9",
-											marginBottom: 16,
-										}}
-									/>
-									<Title level={4} style={{ marginBottom: 8 }}>
-										{t("marketplace:dashboard.discoverTitle")}
-									</Title>
-									<Typography.Text type="secondary">
-										{t("marketplace:dashboard.discoverDescription")}
-									</Typography.Text>
-								</Card>
-							</Link>
-						</Col>
-					)}
-
-					{hasListingsAccess && (
-						<Col xs={24} sm={12} lg={8}>
-							<Link
-								to="/marketplace/listings"
-								style={{
-									textDecoration: "none",
-									display: "block",
-									height: "100%",
-								}}
-							>
-								<Card
-									hoverable
-									style={{
-										height: "100%",
-										cursor: "pointer",
-										textAlign: "center",
-									}}
-								>
-									<UnorderedListOutlined
-										style={{
-											fontSize: 48,
-											color: "#08979c",
-											marginBottom: 16,
-										}}
-									/>
-									<Title level={4} style={{ marginBottom: 8 }}>
-										{t("marketplace:dashboard.listingsTitle")}
-									</Title>
-									<Typography.Text type="secondary">
-										{t("marketplace:dashboard.listingsDescription")}
-									</Typography.Text>
-								</Card>
-							</Link>
-						</Col>
-					)}
-
-					{hasSubscriptionsAccess && (
-						<Col xs={24} sm={12} lg={8}>
-							<Link
-								to="/marketplace/subscriptions"
-								style={{
-									textDecoration: "none",
-									display: "block",
-									height: "100%",
-								}}
-							>
-								<Card
-									hoverable
-									style={{
-										height: "100%",
-										cursor: "pointer",
-										textAlign: "center",
-									}}
-								>
-									<StarOutlined
-										style={{
-											fontSize: 48,
-											color: "#d48806",
-											marginBottom: 16,
-										}}
-									/>
-									<Title level={4} style={{ marginBottom: 8 }}>
-										{t("marketplace:dashboard.subscriptionsTitle")}
-									</Title>
-									<Typography.Text type="secondary">
-										{t("marketplace:dashboard.subscriptionsDescription")}
-									</Typography.Text>
-								</Card>
-							</Link>
-						</Col>
-					)}
-
-					{hasClientsAccess && (
-						<Col xs={24} sm={12} lg={8}>
-							<Link
-								to="/marketplace/clients"
-								style={{
-									textDecoration: "none",
-									display: "block",
-									height: "100%",
-								}}
-							>
-								<Card
-									hoverable
-									style={{
-										height: "100%",
-										cursor: "pointer",
-										textAlign: "center",
-									}}
-								>
-									<UsergroupAddOutlined
-										style={{
-											fontSize: 48,
-											color: "#389e0d",
-											marginBottom: 16,
-										}}
-									/>
-									<Title level={4} style={{ marginBottom: 8 }}>
-										{t("marketplace:dashboard.clientsTitle")}
-									</Title>
-									<Typography.Text type="secondary">
-										{t("marketplace:dashboard.clientsDescription")}
-									</Typography.Text>
-								</Card>
-							</Link>
-						</Col>
-					)}
-
-					{hasAgencyReferralsAccess && (
-						<Col xs={24} sm={12} lg={8}>
-							<Link
-								to="/referrals"
-								style={{
-									textDecoration: "none",
-									display: "block",
-									height: "100%",
-								}}
-							>
-								<Card
-									hoverable
-									style={{
-										height: "100%",
-										cursor: "pointer",
-										textAlign: "center",
-									}}
-								>
-									<ShareAltOutlined
-										style={{
-											fontSize: 48,
-											color: "#722ed1",
-											marginBottom: 16,
-										}}
-									/>
-									<Title level={4} style={{ marginBottom: 8 }}>
-										{t("agencyReferrals:dashboardTitle")}
-									</Title>
-									<Typography.Text type="secondary">
-										{t("agencyReferrals:dashboardDescription")}
-									</Typography.Text>
-								</Card>
-							</Link>
-						</Col>
-					)}
-				</Row>
+					{SECTION_ORDER.map(renderSection)}
+				</>
 			)}
 
 			<div style={{ marginTop: 32, textAlign: "center" }}>

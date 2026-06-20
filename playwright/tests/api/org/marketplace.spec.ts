@@ -11,8 +11,10 @@ import {
 	createTestMarketplaceCapability,
 	deleteTestMarketplaceCapability,
 	createTestMarketplaceListingDirect,
+	createTestMarketplaceSubscriptionDirect,
 	createTestSuperadmin,
 	deleteTestAdminUser,
+	deleteTestGlobalOrgDomain,
 	generateTestEmail,
 } from "../../../lib/db";
 import { getTfaCodeFromEmail } from "../../../lib/mailpit";
@@ -2969,5 +2971,182 @@ test.describe("POST /org/marketplace/clients/list", () => {
 		} finally {
 			await deleteTestOrgUser(email);
 		}
+	});
+});
+
+// ============================================================================
+// list-clients filters: filter_capability_id + filter_consumer
+// (company name / domain). Uses Direct helpers so no plan/quota setup needed.
+// ============================================================================
+
+test.describe("POST /org/marketplace/clients/list — filters", () => {
+	test.describe.configure({ mode: "serial" });
+
+	let provEmail: string;
+	let provDomain: string;
+	let provToken: string;
+	let conADomain: string;
+	let conBDomain: string;
+
+	test.beforeAll(async ({ playwright }) => {
+		const request = await playwright.request.newContext({
+			baseURL: "http://localhost:8080",
+		});
+		const client = new OrgAPIClient(request);
+
+		const prov = await createTestOrgAdminDirect(
+			generateTestOrgEmail("mp-cf-prov").email,
+			TEST_PASSWORD
+		);
+		provEmail = prov.email;
+		provDomain = prov.domain;
+		provToken = await loginOrg(client, prov.email, prov.domain);
+
+		// Two consumers, each subscribed to a provider listing with a distinct
+		// capability so capability + consumer filters can be told apart.
+		const conA = await createTestOrgAdminDirect(
+			generateTestOrgEmail("mp-cf-cona").email,
+			TEST_PASSWORD
+		);
+		const conB = await createTestOrgAdminDirect(
+			generateTestOrgEmail("mp-cf-conb").email,
+			TEST_PASSWORD
+		);
+		conADomain = conA.domain;
+		conBDomain = conB.domain;
+
+		const listingA = await createTestMarketplaceListingDirect(
+			prov.orgId,
+			prov.domain,
+			[TEST_CAP_ID],
+			"active"
+		);
+		const listingB = await createTestMarketplaceListingDirect(
+			prov.orgId,
+			prov.domain,
+			[TEST_CAP2_ID],
+			"active"
+		);
+		await createTestMarketplaceSubscriptionDirect(
+			conA.orgId,
+			"ind1",
+			prov.orgId,
+			"ind1",
+			listingA.listingId
+		);
+		await createTestMarketplaceSubscriptionDirect(
+			conB.orgId,
+			"ind1",
+			prov.orgId,
+			"ind1",
+			listingB.listingId
+		);
+
+		await request.dispose();
+	});
+
+	test.afterAll(async () => {
+		await deleteTestOrgUser(provEmail).catch(() => {});
+		await deleteTestGlobalOrgDomain(provDomain).catch(() => {});
+		await deleteTestGlobalOrgDomain(conADomain).catch(() => {});
+		await deleteTestGlobalOrgDomain(conBDomain).catch(() => {});
+	});
+
+	test("no filters -> both clients returned", async ({ request }) => {
+		const client = new OrgAPIClient(request);
+		const res = await client.listMyClients(provToken, {
+			limit: 50,
+		} as ListMyClientsRequest);
+		expect(res.status).toBe(200);
+		const domains = res.body!.clients.map((c) => c.consumer_org_domain);
+		expect(domains).toContain(conADomain);
+		expect(domains).toContain(conBDomain);
+	});
+
+	test("filter_capability_id matches only the matching client", async ({
+		request,
+	}) => {
+		const client = new OrgAPIClient(request);
+		const res = await client.listMyClients(provToken, {
+			filter_capability_id: TEST_CAP_ID,
+			limit: 50,
+		} as ListMyClientsRequest);
+		expect(res.status).toBe(200);
+		const domains = res.body!.clients.map((c) => c.consumer_org_domain);
+		expect(domains).toContain(conADomain);
+		expect(domains).not.toContain(conBDomain);
+	});
+
+	test("filter_capability_id (other capability) matches the other client", async ({
+		request,
+	}) => {
+		const client = new OrgAPIClient(request);
+		const res = await client.listMyClients(provToken, {
+			filter_capability_id: TEST_CAP2_ID,
+			limit: 50,
+		} as ListMyClientsRequest);
+		expect(res.status).toBe(200);
+		const domains = res.body!.clients.map((c) => c.consumer_org_domain);
+		expect(domains).toContain(conBDomain);
+		expect(domains).not.toContain(conADomain);
+	});
+
+	test("filter_capability_id (nonexistent) returns no clients", async ({
+		request,
+	}) => {
+		const client = new OrgAPIClient(request);
+		const res = await client.listMyClients(provToken, {
+			filter_capability_id: "nonexistent-cap-zzz",
+			limit: 50,
+		} as ListMyClientsRequest);
+		expect(res.status).toBe(200);
+		const domains = res.body!.clients.map((c) => c.consumer_org_domain);
+		expect(domains).not.toContain(conADomain);
+		expect(domains).not.toContain(conBDomain);
+	});
+
+	test("filter_consumer matches by company name / domain", async ({
+		request,
+	}) => {
+		const client = new OrgAPIClient(request);
+		const res = await client.listMyClients(provToken, {
+			filter_consumer: conADomain,
+			limit: 50,
+		} as ListMyClientsRequest);
+		expect(res.status).toBe(200);
+		const domains = res.body!.clients.map((c) => c.consumer_org_domain);
+		expect(domains).toContain(conADomain);
+		expect(domains).not.toContain(conBDomain);
+	});
+
+	test("filter_consumer (no match) returns no clients", async ({ request }) => {
+		const client = new OrgAPIClient(request);
+		const res = await client.listMyClients(provToken, {
+			filter_consumer: "zzz-no-such-consumer-xyz",
+			limit: 50,
+		} as ListMyClientsRequest);
+		expect(res.status).toBe(200);
+		expect(res.body!.clients.length).toBe(0);
+	});
+
+	test("filter_capability_id + filter_consumer combined (conflicting) returns none", async ({
+		request,
+	}) => {
+		const client = new OrgAPIClient(request);
+		// conA has TEST_CAP_ID; filter by conA's domain but TEST_CAP2_ID -> empty.
+		const res = await client.listMyClients(provToken, {
+			filter_capability_id: TEST_CAP2_ID,
+			filter_consumer: conADomain,
+			limit: 50,
+		} as ListMyClientsRequest);
+		expect(res.status).toBe(200);
+		expect(res.body!.clients.length).toBe(0);
+	});
+
+	test("401 without auth", async ({ request }) => {
+		const res = await request.post("/org/marketplace/list-clients", {
+			data: { limit: 50 },
+		});
+		expect(res.status()).toBe(401);
 	});
 });

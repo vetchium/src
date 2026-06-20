@@ -110,7 +110,7 @@ test.describe("Org UI — Agency Workspace", () => {
 
 			// Refer the candidate through the modal.
 			await page.locator("button:has-text('Refer Candidate')").click();
-			await page.fill('input[placeholder="@handle"]', candidate.handle);
+			await page.fill('input[placeholder="handle"]', candidate.handle);
 			await page.locator(".ant-modal button:has-text('Refer')").click();
 
 			// The referral appears in the opening's referrals table.

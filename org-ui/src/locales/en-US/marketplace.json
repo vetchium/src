@@ -167,6 +167,8 @@
 
 	"clients": {
 		"title": "My Clients",
+		"filterByCapability": "Filter by capability",
+		"searchPlaceholder": "Search by company name or domain...",
 		"consumerDomain": "Client Organization",
 		"listingNumber": "Listing",
 		"status": "Status",

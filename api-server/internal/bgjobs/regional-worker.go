@@ -121,6 +121,10 @@ func (w *RegionalWorker) Run(ctx context.Context) {
 	go w.runPeriodicJob(ctx, "expire-openings",
 		w.config.ExpireOpeningsInterval,
 		w.expireOpenings)
+
+	go w.runPeriodicJob(ctx, "expire-agency-referrals",
+		w.config.ExpireAgencyReferralsInterval,
+		w.expireAgencyReferrals)
 }
 
 // runPeriodicJob runs a job function in a loop with the given interval.

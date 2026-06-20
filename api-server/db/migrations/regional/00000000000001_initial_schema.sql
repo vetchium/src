@@ -44,7 +44,11 @@ CREATE TYPE email_template_type AS ENUM (
     'hub_reference_request_received',
     'hub_reference_nomination_received',
     'hub_reference_nomination_accepted',
-    'hub_colleague_applied_alert'
+    'hub_colleague_applied_alert',
+    'org_agency_opening_assigned',
+    'org_recruiter_assigned',
+    'org_referral_candidate_applied',
+    'org_client_uncovered'
 );
 -- Authentication type enum (extensible for future SSO, hardware tokens, etc.)
 CREATE TYPE authentication_type AS ENUM (

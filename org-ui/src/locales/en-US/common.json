@@ -20,6 +20,15 @@
 	},
 	"dashboard": {
 		"title": "Org Dashboard",
+		"pin": "Pin to top",
+		"unpin": "Unpin",
+		"sections": {
+			"pinned": "Pinned",
+			"hiring": "Hiring",
+			"marketplace": "Marketplace",
+			"organization": "Organization",
+			"administration": "Administration"
+		},
 		"auditLogs": {
 			"title": "Audit Logs",
 			"description": "View and filter audit log events"

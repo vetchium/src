@@ -56,9 +56,21 @@ func ListMyClients(s *server.RegionalServer) http.HandlerFunc {
 			filterListingNumber = pgtype.Int4{Int32: *req.ListingNumber, Valid: true}
 		}
 
+		var filterCapabilityID pgtype.Text
+		if req.FilterCapabilityID != nil && *req.FilterCapabilityID != "" {
+			filterCapabilityID = pgtype.Text{String: *req.FilterCapabilityID, Valid: true}
+		}
+
+		var filterConsumer pgtype.Text
+		if req.FilterConsumer != nil && *req.FilterConsumer != "" {
+			filterConsumer = pgtype.Text{String: *req.FilterConsumer, Valid: true}
+		}
+
 		rows, err := s.Global.ListSubscriptionsForProvider(ctx, globaldb.ListSubscriptionsForProviderParams{
 			ProviderOrgID:       orgUser.OrgID,
 			FilterListingNumber: filterListingNumber,
+			FilterCapabilityID:  filterCapabilityID,
+			FilterConsumer:      filterConsumer,
 			PaginationKey:       paginationKey,
 			RowLimit:            limit + 1,
 		})

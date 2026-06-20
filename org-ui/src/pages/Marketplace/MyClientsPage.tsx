@@ -1,9 +1,22 @@
-import { ArrowLeftOutlined } from "@ant-design/icons";
-import { Button, Spin, Table, Tag, Typography } from "antd";
+import { ArrowLeftOutlined, SearchOutlined } from "@ant-design/icons";
+import {
+	Button,
+	Col,
+	Input,
+	Row,
+	Select,
+	Spin,
+	Table,
+	Tag,
+	Typography,
+} from "antd";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router-dom";
 import type {
+	ListMyClientsRequest,
+	ListMyClientsResponse,
+	MarketplaceCapability,
 	MarketplaceClient,
 	MarketplaceSubscriptionStatus,
 } from "vetchium-specs/org/marketplace";
@@ -25,8 +38,32 @@ export function MyClientsPage() {
 	const navigate = useNavigate();
 
 	const [clients, setClients] = useState<MarketplaceClient[]>([]);
+	const [capabilities, setCapabilities] = useState<MarketplaceCapability[]>([]);
 	const [loading, setLoading] = useState(false);
 	const [nextKey, setNextKey] = useState<string | undefined>();
+	const [capabilityFilter, setCapabilityFilter] = useState<string>("");
+	const [consumerFilter, setConsumerFilter] = useState<string>("");
+
+	const loadCapabilities = useCallback(async () => {
+		if (!sessionToken) return;
+		try {
+			const baseUrl = await getApiBaseUrl();
+			const resp = await fetch(`${baseUrl}/org/marketplace/list-capabilities`, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${sessionToken}`,
+				},
+				body: JSON.stringify({}),
+			});
+			if (resp.status === 200) {
+				const data = await resp.json();
+				setCapabilities(data.capabilities || []);
+			}
+		} catch {
+			// non-fatal: capability filter simply won't have options
+		}
+	}, [sessionToken]);
 
 	const loadClients = useCallback(
 		async (paginationKey?: string) => {
@@ -34,19 +71,24 @@ export function MyClientsPage() {
 			setLoading(true);
 			try {
 				const baseUrl = await getApiBaseUrl();
+				const req: ListMyClientsRequest = {
+					...(capabilityFilter
+						? { filter_capability_id: capabilityFilter }
+						: {}),
+					...(consumerFilter ? { filter_consumer: consumerFilter } : {}),
+					...(paginationKey ? { pagination_key: paginationKey } : {}),
+					limit: 20,
+				};
 				const resp = await fetch(`${baseUrl}/org/marketplace/list-clients`, {
 					method: "POST",
 					headers: {
 						"Content-Type": "application/json",
 						Authorization: `Bearer ${sessionToken}`,
 					},
-					body: JSON.stringify({
-						...(paginationKey ? { pagination_key: paginationKey } : {}),
-						limit: 20,
-					}),
+					body: JSON.stringify(req),
 				});
 				if (resp.status === 200) {
-					const data = await resp.json();
+					const data: ListMyClientsResponse = await resp.json();
 					if (paginationKey) {
 						setClients((prev) => [...prev, ...(data.clients || [])]);
 					} else {
@@ -58,8 +100,12 @@ export function MyClientsPage() {
 				setLoading(false);
 			}
 		},
-		[sessionToken]
+		[sessionToken, capabilityFilter, consumerFilter]
 	);
+
+	useEffect(() => {
+		loadCapabilities();
+	}, [loadCapabilities]);
 
 	useEffect(() => {
 		loadClients();
@@ -120,6 +166,31 @@ export function MyClientsPage() {
 			<Title level={2} style={{ marginBottom: 24 }}>
 				{t("clients.title")}
 			</Title>
+
+			<Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+				<Col xs={24} sm={12}>
+					<Select
+						allowClear
+						placeholder={t("clients.filterByCapability")}
+						style={{ width: "100%" }}
+						value={capabilityFilter || undefined}
+						onChange={(val) => setCapabilityFilter(val || "")}
+						options={capabilities.map((c) => ({
+							value: c.capability_id,
+							label: c.display_name,
+						}))}
+					/>
+				</Col>
+				<Col xs={24} sm={12}>
+					<Input
+						prefix={<SearchOutlined />}
+						placeholder={t("clients.searchPlaceholder")}
+						allowClear
+						value={consumerFilter}
+						onChange={(e) => setConsumerFilter(e.target.value)}
+					/>
+				</Col>
+			</Row>
 
 			<Spin spinning={loading}>
 				<Table

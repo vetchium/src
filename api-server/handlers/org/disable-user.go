@@ -157,6 +157,12 @@ func DisableUser(s *server.RegionalServer) http.HandlerFunc {
 			// User is disabled but sessions still active - this is acceptable
 		}
 
+		// Coverage alert: if the disabled user was the default recruiter for any
+		// marketplace client and that client now has no active recruiter, email
+		// the agency leads so they can reassign. All data is in this org's own
+		// region; the work is best-effort so it never blocks the disable.
+		alertUncoveredClients(ctx, s, orgUser.OrgID, targetUserID)
+
 		s.Logger(ctx).Info("org user disabled successfully",
 			"target_user_id", targetUserID,
 			"disabled_by", orgUser.OrgUserID)

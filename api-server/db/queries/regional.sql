@@ -158,6 +158,17 @@ JOIN org_user_roles our ON our.org_user_id = u.org_user_id
 WHERE u.org_id = $1
   AND our.role_id = $2
   AND u.status = 'active';
+
+-- name: ListActiveOrgUserEmailsWithRole :many
+-- Active org users in an org holding a given role, with contact details, for
+-- notification fan-out (e.g. alerting agency leads). DISTINCT guards against a
+-- user appearing twice if the join ever widens.
+SELECT DISTINCT u.org_user_id, COALESCE(u.full_name, '') AS full_name, u.email_address
+FROM org_users u
+JOIN org_user_roles our ON our.org_user_id = u.org_user_id
+WHERE u.org_id = $1
+  AND our.role_id = $2
+  AND u.status = 'active';
 -- name: LockActiveOrgUsersWithRole :many
 SELECT org_users.org_user_id
 FROM org_users
@@ -1806,6 +1817,14 @@ SET state = 'declined', resolved_at = NOW()
 WHERE referral_id = $1 AND state = 'pending'
 RETURNING *;
 
+-- name: WorkerExpireAgencyReferrals :many
+-- Sweeps pending referrals whose invitation window has elapsed (the candidate
+-- neither applied nor declined) into the 'expired' state.
+UPDATE agency_referrals
+SET state = 'expired', resolved_at = NOW()
+WHERE state = 'pending' AND expires_at <= NOW()
+RETURNING *;
+
 -- name: CreateOpeningAgencyAssignment :one
 INSERT INTO opening_agency_assignments (
     opening_id, org_id, agency_org_id, agency_org_domain, assigned_by_org_user_id
@@ -1880,6 +1899,16 @@ ORDER BY d.consumer_org_domain;
 -- name: ListDefaultDomainsForRecruiter :many
 SELECT consumer_org_domain FROM agency_client_default_recruiters
 WHERE agency_org_id = $1 AND agency_org_user_id = $2;
+
+-- name: CountActiveDefaultRecruitersForDomain :one
+-- Counts the default recruiters for a client domain whose org-user account is
+-- still active. Used to detect when disabling a user leaves a client uncovered.
+SELECT COUNT(*)
+FROM agency_client_default_recruiters d
+JOIN org_users u ON u.org_user_id = d.agency_org_user_id
+WHERE d.agency_org_id = $1
+  AND d.consumer_org_domain = $2
+  AND u.status = 'active';
 
 -- name: ListAllDefaultDomainsForAgency :many
 SELECT DISTINCT consumer_org_domain FROM agency_client_default_recruiters

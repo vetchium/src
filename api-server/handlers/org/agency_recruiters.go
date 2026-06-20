@@ -224,10 +224,11 @@ func AssignOpeningRecruiters(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		// The opening must actually be assigned to this agency.
-		if _, err := s.Global.GetAssignedOpeningForAgency(ctx, globaldb.GetAssignedOpeningForAgencyParams{
+		assigned, err := s.Global.GetAssignedOpeningForAgency(ctx, globaldb.GetAssignedOpeningForAgencyParams{
 			AgencyOrgID: orgUser.OrgID,
 			OpeningID:   openingID,
-		}); err != nil {
+		})
+		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				w.WriteHeader(http.StatusNotFound)
 				return
@@ -263,12 +264,34 @@ func AssignOpeningRecruiters(s *server.RegionalServer) http.HandlerFunc {
 				"opening_id":          req.OpeningID,
 				"agency_org_user_ids": req.AgencyOrgUserIDs,
 			})
-			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
+			if txErr := qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
 				EventType:   "org.assign_opening_recruiters",
 				ActorUserID: orgUser.OrgUserID,
 				IpAddress:   audit.ExtractClientIP(r),
 				EventData:   eventData,
-			})
+			}); txErr != nil {
+				return txErr
+			}
+
+			// Notify each newly-assigned recruiter (same region as the agency, so
+			// this rides the transaction). Best-effort: a failed email row would
+			// otherwise roll back the assignment, so enqueue errors are swallowed.
+			subject, text, html := recruiterAssignedEmail(
+				s.UIConfig.OrgURL, assigned.ConsumerOrgDomain, assigned.TitleSnapshot,
+				assigned.OpeningNumber, req.OpeningID)
+			for _, rcpt := range recipientsByID(ctx, qtx, userIDs) {
+				if rcpt.Email == "" {
+					continue
+				}
+				_, _ = qtx.EnqueueEmail(ctx, regionaldb.EnqueueEmailParams{
+					EmailType:     regionaldb.EmailTemplateTypeOrgRecruiterAssigned,
+					EmailTo:       rcpt.Email,
+					EmailSubject:  subject,
+					EmailTextBody: text,
+					EmailHtmlBody: html,
+				})
+			}
+			return nil
 		}); err != nil {
 			log.Error("failed to assign recruiters", "error", err)
 			w.WriteHeader(http.StatusInternalServerError)

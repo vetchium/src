@@ -17,6 +17,23 @@ every verification attempt, including automated re-checks and each
 PENDING/VERIFIED/FAILING transition, so the full history is available for
 compliance and debugging. Surface it on the org domains detail view.
 
+## Referral-expiry background-job test coverage
+
+The regional worker now sweeps pending agency referrals past their `expires_at`
+into the `expired` state (`expire_agency_referrals.go` +
+`WorkerExpireAgencyReferrals`), writing an `org.expire_referral` audit entry and
+mirroring the state into the global referral index. This path has no automated
+test yet because the job is ticker-driven (no manual-trigger endpoint), so a
+deterministic Playwright test cannot easily force a sweep.
+
+To cover it later: add a `lib/db.ts` helper that backdates a referral's
+`expires_at` (e.g. `setAgencyReferralExpiry(referralId, region, pastTimestamp)`),
+then either (a) run the worker with a short `EXPIRE_AGENCY_REFERRALS_INTERVAL` in
+the CI compose and poll until the state flips, or (b) expose a guarded
+worker-trigger hook for tests. Assert: regional row → `expired`, global index →
+`expired`, an `org.expire_referral` audit row exists (actor NULL), the candidate
+inbox and agency workspace both reflect `expired`.
+
 ## Tag-scoped discovery page
 
 Once Posts ship (the Openings browse already exists), give Hub users a single page

@@ -20,6 +20,15 @@
 	},
 	"dashboard": {
 		"title": "Arbeitgeber-Dashboard",
+		"pin": "Nach oben anheften",
+		"unpin": "Lösen",
+		"sections": {
+			"pinned": "Angeheftet",
+			"hiring": "Personalbeschaffung",
+			"marketplace": "Marktplatz",
+			"organization": "Organisation",
+			"administration": "Verwaltung"
+		},
 		"auditLogs": {
 			"title": "Audit-Protokolle",
 			"description": "Audit-Protokollereignisse anzeigen und filtern"

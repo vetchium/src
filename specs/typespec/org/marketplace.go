@@ -369,9 +369,11 @@ type MarketplaceClient struct {
 }
 
 type ListMyClientsRequest struct {
-	ListingNumber *int32  `json:"listing_number,omitempty"`
-	PaginationKey *string `json:"pagination_key,omitempty"`
-	Limit         *int32  `json:"limit,omitempty"`
+	ListingNumber      *int32  `json:"listing_number,omitempty"`
+	FilterCapabilityID *string `json:"filter_capability_id,omitempty"`
+	FilterConsumer     *string `json:"filter_consumer,omitempty"`
+	PaginationKey      *string `json:"pagination_key,omitempty"`
+	Limit              *int32  `json:"limit,omitempty"`
 }
 
 func (r ListMyClientsRequest) Validate() []common.ValidationError {

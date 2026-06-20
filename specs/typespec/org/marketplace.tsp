@@ -170,6 +170,12 @@ model MarketplaceClient {
 
 model ListMyClientsRequest {
   listing_number?: int32;
+  // filter_capability_id restricts to clients subscribed to a listing carrying
+  // this capability.
+  filter_capability_id?: string;
+  // filter_consumer is a free-text match against the client's company name or
+  // primary domain (case-insensitive substring).
+  filter_consumer?: string;
   pagination_key?: string;
   limit?: int32;
 }

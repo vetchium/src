@@ -163,6 +163,23 @@ func AssignOpeningAgency(s *server.RegionalServer) http.HandlerFunc {
 			log.Error("CONSISTENCY_ALERT: failed to insert assignment index", "error", idxErr)
 		}
 
+		// Best-effort: notify the agency that it has a new opening to staff. The
+		// recipients (default recruiters for this client, else the agency's leads)
+		// live in the agency's own region, so this is enqueued outside the
+		// consumer-side transaction.
+		if agencyRegion, ok := resolveAgencyRegion(ctx, s, actx.AgencyOrgID); ok {
+			if agencyDB := s.GetRegionalDB(agencyRegion); agencyDB != nil {
+				recipients := clientDefaultRecipients(ctx, agencyDB, actx.AgencyOrgID, actx.ConsumerDomain)
+				if len(recipients) == 0 {
+					recipients = agencyLeadRecipients(ctx, agencyDB, actx.AgencyOrgID)
+				}
+				subject, text, html := agencyOpeningAssignedEmail(
+					s.UIConfig.OrgURL, actx.ConsumerDomain, opening.Title, opening.OpeningNumber)
+				enqueueAgencyEmails(ctx, s, agencyRegion,
+					regionaldb.EmailTemplateTypeOrgAgencyOpeningAssigned, recipients, subject, text, html)
+			}
+		}
+
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(struct{}{})
 	}

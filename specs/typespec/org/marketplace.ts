@@ -165,6 +165,10 @@ export interface MarketplaceClient {
 
 export interface ListMyClientsRequest {
 	listing_number?: number;
+	// Restricts to clients subscribed to a listing carrying this capability.
+	filter_capability_id?: string;
+	// Free-text match against the client's company name or primary domain.
+	filter_consumer?: string;
 	pagination_key?: string;
 	limit?: number;
 }
