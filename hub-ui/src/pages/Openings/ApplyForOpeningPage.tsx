@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import {
 	Button,
-	Checkbox,
 	Divider,
 	Form,
 	Input,
@@ -48,7 +47,6 @@ export const ApplyForOpeningPage: React.FC = () => {
 		{ value: string; label: string }[]
 	>([]);
 	const [selectedEndorsers, setSelectedEndorsers] = useState<string[]>([]);
-	const [notifyColleagues, setNotifyColleagues] = useState(false);
 
 	useEffect(() => {
 		const loadConnections = async () => {
@@ -100,10 +98,6 @@ export const ApplyForOpeningPage: React.FC = () => {
 			formData.append("cover_letter", coverLetter);
 			formData.append("resume", fileList[0].originFileObj);
 			selectedEndorsers.forEach((h) => formData.append("endorser_handles", h));
-			formData.append(
-				"notify_colleagues_at_target",
-				notifyColleagues ? "true" : "false"
-			);
 			// Agency attribution: ?via=<agency_domain> carried from the referral
 			// inbox marks this application as represented by that agency; otherwise
 			// the application is direct.
@@ -209,18 +203,6 @@ export const ApplyForOpeningPage: React.FC = () => {
 							disabled={endorserOptions.length === 0}
 							placeholder={t("nominateEndorsersPlaceholder")}
 						/>
-					</Form.Item>
-
-					<Form.Item>
-						<Checkbox
-							checked={notifyColleagues}
-							onChange={(e) => setNotifyColleagues(e.target.checked)}
-						>
-							{t("notifyColleagues")}
-						</Checkbox>
-						<div style={{ color: "#888", fontSize: 12, marginLeft: 24 }}>
-							{t("notifyColleaguesHelp")}
-						</div>
 					</Form.Item>
 
 					<Form.Item>

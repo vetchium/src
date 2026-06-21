@@ -1525,9 +1525,9 @@ SELECT * FROM applications WHERE application_id = $1;
 INSERT INTO applications (
     org_id, opening_id, opening_number, applicant_hub_user_global_id,
     applicant_handle_snapshot, applicant_display_name_snapshot,
-    cover_letter, resume_s3_key, state, notify_colleagues_at_target,
+    cover_letter, resume_s3_key, state,
     referring_agency_org_id, referring_agency_domain, direct_affirmed_no_agency
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 RETURNING *;
 
 -- name: ListApplicationsForOpening :many
@@ -2006,12 +2006,6 @@ WHERE org_id = $1
   AND state = 'shortlisted'
 ORDER BY applied_at DESC
 LIMIT 1;
-
--- name: GetHubUserEmailsByGlobalIDs :many
--- Bulk lookup of hub user emails for notification fan-out (avoids N+1).
-SELECT hub_user_global_id, email_address, handle
-FROM hub_users
-WHERE hub_user_global_id = ANY(@hub_user_global_ids::uuid[]);
 
 -- ============================================================
 -- Hub Discovery Queries (T1/T4 hub-side browse)

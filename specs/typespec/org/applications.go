@@ -70,7 +70,6 @@ type OrgApplication struct {
 	AppliedAt               string                  `json:"applied_at"`
 	StateChangedAt          string                  `json:"state_changed_at"`
 	Endorsements            []OrgVisibleEndorsement `json:"endorsements"`
-	NotifyColleaguesUsed    bool                    `json:"notify_colleagues_used"`
 	ReferringAgencyDomain   *string                 `json:"referring_agency_domain,omitempty"`
 }
 

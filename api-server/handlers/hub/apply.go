@@ -85,7 +85,6 @@ func ApplyForOpening(s *server.RegionalServer) http.HandlerFunc {
 		orgDomain := r.FormValue("org_domain")
 		openingNumberStr := r.FormValue("opening_number")
 		coverLetter := r.FormValue("cover_letter")
-		notifyColleagues := r.FormValue("notify_colleagues_at_target") == "true"
 		// Agency attribution: "direct" (or empty) = direct application; otherwise
 		// the chosen agency's domain. direct_no_agency_affirmation is required when
 		// applying directly to an `open` opening that has pending referrals.
@@ -341,9 +340,8 @@ func ApplyForOpening(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		eventData, _ := json.Marshal(map[string]any{
-			"org_domain":                  orgDomain,
-			"opening_number":              openingNumber,
-			"notify_colleagues_at_target": notifyColleagues,
+			"org_domain":     orgDomain,
+			"opening_number": openingNumber,
 		})
 
 		var noteText pgtype.Text
@@ -372,7 +370,6 @@ func ApplyForOpening(s *server.RegionalServer) http.HandlerFunc {
 				CoverLetter:                  coverLetter,
 				ResumeS3Key:                  s3Key,
 				State:                        "applied",
-				NotifyColleaguesAtTarget:     notifyColleagues,
 				ReferringAgencyOrgID:         referringAgencyOrgID,
 				ReferringAgencyDomain:        referringAgencyDomain,
 				DirectAffirmedNoAgency:       applyVia == "direct" && directNoAgencyAffirmation,
@@ -504,74 +501,9 @@ func ApplyForOpening(s *server.RegionalServer) http.HandlerFunc {
 			}
 		}
 
-		// Opt-in colleague fan-out (best-effort, post-commit). Connections and
-		// their co-located stints live in the CANDIDATE's home region, so this
-		// runs there — not in the opening's region. Notifications are best-effort
-		// and never affect the application result.
-		if notifyColleagues {
-			notifyColleaguesOfApplication(ctx, s, homeDB,
-				hubUser.HubUserGlobalID, hubUser.Handle, opening.OrgID, opening.Title, orgDomain)
-		}
-
 		w.WriteHeader(http.StatusCreated)
 		json.NewEncoder(w).Encode(map[string]string{
 			"application_id": applicationID.String(),
 		})
-	}
-}
-
-// notifyColleaguesOfApplication enqueues hub_colleague_applied_alert emails to
-// the candidate's connected colleagues who have an active stint at the target
-// org. It runs against the candidate's HOME region — where their connection
-// edges and the co-located stint rows live — using one bulk email lookup (no
-// N+1). It is best-effort: any failure is logged and never affects the apply.
-func notifyColleaguesOfApplication(
-	ctx context.Context,
-	s *server.RegionalServer,
-	homeDB *regionaldb.Queries,
-	candidateID pgtype.UUID,
-	candidateHandle string,
-	orgID pgtype.UUID,
-	openingTitle string,
-	orgDomain string,
-) {
-	log := s.Logger(ctx)
-	colleagues, err := homeDB.ListColleaguesAtOrg(ctx, regionaldb.ListColleaguesAtOrgParams{
-		Me:    candidateID,
-		OrgID: orgID,
-		Limit: 200,
-	})
-	if err != nil {
-		log.Error("colleague fan-out: failed to list colleagues", "error", err)
-		return
-	}
-	if len(colleagues) == 0 {
-		return
-	}
-	ids := make([]pgtype.UUID, 0, len(colleagues))
-	for _, c := range colleagues {
-		ids = append(ids, c.HubUserGlobalID)
-	}
-	recipients, err := homeDB.GetHubUserEmailsByGlobalIDs(ctx, ids)
-	if err != nil {
-		log.Error("colleague fan-out: failed to load emails", "error", err)
-		return
-	}
-	subject := fmt.Sprintf("%s applied to a role at %s", candidateHandle, orgDomain)
-	body := fmt.Sprintf("Your connection %s just applied to \"%s\" at %s.",
-		candidateHandle, openingTitle, orgDomain)
-	for _, rcpt := range recipients {
-		if rcpt.EmailAddress == "" {
-			continue
-		}
-		if _, mailErr := homeDB.EnqueueEmail(ctx, regionaldb.EnqueueEmailParams{
-			EmailType:     regionaldb.EmailTemplateTypeHubColleagueAppliedAlert,
-			EmailTo:       rcpt.EmailAddress,
-			EmailSubject:  subject,
-			EmailTextBody: body,
-			EmailHtmlBody: body,
-		}); mailErr != nil {
-			log.Error("colleague fan-out: failed to enqueue email", "error", mailErr)
-		}
 	}
 }

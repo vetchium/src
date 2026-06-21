@@ -15,7 +15,6 @@ export interface ApplyForOpeningRequest {
 	resume_upload_id: string;
 	endorser_handles?: Handle[];
 	endorsement_request_note?: string;
-	notify_colleagues_at_target?: boolean;
 }
 
 export interface ApplyForOpeningResponse {
@@ -54,7 +53,6 @@ export interface HubApplication {
 	resume_download_url: string;
 	endorsements: MyEndorsementOnApplication[];
 	endorsement_requests: MyEndorsementRequestSent[];
-	notify_colleagues_at_target: boolean;
 	candidacy_id?: string;
 }
 

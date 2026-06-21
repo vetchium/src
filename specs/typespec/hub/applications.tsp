@@ -28,7 +28,6 @@ model ApplyForOpeningRequest {
   resume:                        HttpPart<File>;
   endorser_handles?:             HttpPart<string>[];
   endorsement_request_note?:     HttpPart<string>;
-  notify_colleagues_at_target?:  HttpPart<string>;
 }
 
 model ApplyForOpeningResponse {
@@ -73,7 +72,6 @@ model HubApplication {
   resume_download_url:       string;
   endorsements:              MyEndorsementOnApplication[];
   endorsement_requests:      MyEndorsementRequestSent[];
-  notify_colleagues_at_target: boolean;
   candidacy_id?:             string;
 }
 

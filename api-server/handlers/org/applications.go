@@ -226,7 +226,6 @@ func GetApplication(s *server.RegionalServer) http.HandlerFunc {
 			AppliedAt:               app.AppliedAt.Time.UTC().Format(time.RFC3339Nano),
 			StateChangedAt:          app.StateChangedAt.Time.UTC().Format(time.RFC3339Nano),
 			Endorsements:            []org.OrgVisibleEndorsement{},
-			NotifyColleaguesUsed:    app.NotifyColleaguesAtTarget,
 		}
 		if app.ReferringAgencyDomain.Valid {
 			result.ReferringAgencyDomain = &app.ReferringAgencyDomain.String

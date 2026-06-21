@@ -71,7 +71,6 @@ model OrgApplication {
   applied_at:                 utcDateTime;
   state_changed_at:           utcDateTime;
   endorsements:               OrgVisibleEndorsement[];
-  notify_colleagues_used:     boolean;
   referring_agency_domain?:   string;
 }
 

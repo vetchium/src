@@ -391,7 +391,6 @@ test.describe("Hub Apply for Opening", () => {
 		expect(getRes.body!.state).toBe("applied");
 		expect(getRes.body!.cover_letter).toBe(MIN_COVER);
 		expect(Array.isArray(getRes.body!.endorsements)).toBe(true);
-		expect(getRes.body!.notify_colleagues_at_target).toBe(false);
 		expect(typeof getRes.body!.applied_at).toBe("string");
 	});
 

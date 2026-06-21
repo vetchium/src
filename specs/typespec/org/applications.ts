@@ -69,7 +69,6 @@ export interface OrgApplication {
 	applied_at: string;
 	state_changed_at: string;
 	endorsements: OrgVisibleEndorsement[];
-	notify_colleagues_used: boolean;
 	referring_agency_domain?: string;
 }
 

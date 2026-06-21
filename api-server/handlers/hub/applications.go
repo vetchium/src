@@ -198,20 +198,19 @@ func GetMyApplication(s *server.RegionalServer) http.HandlerFunc {
 		}
 
 		result := hub.HubApplication{
-			ApplicationID:            app.ApplicationID.String(),
-			OrgDomain:                indexEntry.PrimaryDomain,
-			OrgName:                  indexEntry.OrgName,
-			OpeningNumber:            app.OpeningNumber,
-			OpeningTitle:             app.OpeningTitle,
-			State:                    hub.ApplicationState(app.State),
-			Label:                    label,
-			AppliedAt:                app.AppliedAt.Time.UTC().Format(time.RFC3339),
-			StateChangedAt:           app.StateChangedAt.Time.UTC().Format(time.RFC3339),
-			CoverLetter:              app.CoverLetter,
-			ResumeDownloadURL:        "",
-			Endorsements:             []hub.MyEndorsementOnApplication{},
-			EndorsementRequests:      []hub.MyEndorsementRequestSent{},
-			NotifyColleaguesAtTarget: app.NotifyColleaguesAtTarget,
+			ApplicationID:       app.ApplicationID.String(),
+			OrgDomain:           indexEntry.PrimaryDomain,
+			OrgName:             indexEntry.OrgName,
+			OpeningNumber:       app.OpeningNumber,
+			OpeningTitle:        app.OpeningTitle,
+			State:               hub.ApplicationState(app.State),
+			Label:               label,
+			AppliedAt:           app.AppliedAt.Time.UTC().Format(time.RFC3339),
+			StateChangedAt:      app.StateChangedAt.Time.UTC().Format(time.RFC3339),
+			CoverLetter:         app.CoverLetter,
+			ResumeDownloadURL:   "",
+			Endorsements:        []hub.MyEndorsementOnApplication{},
+			EndorsementRequests: []hub.MyEndorsementRequestSent{},
 		}
 		if candidacyID != "" {
 			result.CandidacyID = &candidacyID

@@ -44,7 +44,6 @@ CREATE TYPE email_template_type AS ENUM (
     'hub_reference_request_received',
     'hub_reference_nomination_received',
     'hub_reference_nomination_accepted',
-    'hub_colleague_applied_alert',
     'org_agency_opening_assigned',
     'org_recruiter_assigned',
     'org_referral_candidate_applied',
@@ -612,7 +611,6 @@ CREATE TABLE applications (
     state                  TEXT NOT NULL DEFAULT 'applied'
                             CHECK (state IN ('applied','shortlisted','rejected','withdrawn','expired')),
     label                  TEXT CHECK (label IN ('green','yellow','red')),
-    notify_colleagues_at_target BOOLEAN NOT NULL DEFAULT FALSE,
     rejection_reason       TEXT,
     -- Agency attribution (NULL agency = direct application).
     referring_agency_org_id   UUID,

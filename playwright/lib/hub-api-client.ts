@@ -1472,7 +1472,6 @@ export class HubAPIClient {
 			opening_number: number;
 			cover_letter: string;
 			resume: Buffer;
-			notify_colleagues_at_target?: boolean;
 			endorser_handles?: string[];
 			endorsement_request_note?: string;
 		}
@@ -1489,12 +1488,6 @@ export class HubAPIClient {
 			new Blob([new Uint8Array(opts.resume)], { type: "application/pdf" }),
 			"resume.pdf"
 		);
-		if (opts.notify_colleagues_at_target !== undefined) {
-			form.append(
-				"notify_colleagues_at_target",
-				opts.notify_colleagues_at_target ? "true" : "false"
-			);
-		}
 		for (const handle of opts.endorser_handles ?? []) {
 			form.append("endorser_handles", handle);
 		}

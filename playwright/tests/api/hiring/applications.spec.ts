@@ -378,7 +378,6 @@ test.describe("Hiring Applications", () => {
 		expect(res.body!.cover_letter.length).toBeGreaterThan(0);
 		expect(Array.isArray(res.body!.endorsements)).toBe(true);
 		expect(res.body!.endorsements).toHaveLength(0);
-		expect(res.body!.notify_colleagues_used).toBe(false);
 		expect(typeof res.body!.applied_at).toBe("string");
 		expect(typeof res.body!.state_changed_at).toBe("string");
 	});

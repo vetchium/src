@@ -33,8 +33,6 @@
 	"nominateEndorsersHelp": "Pick connections who can vouch for your work. They'll be asked to write an endorsement for this application.",
 	"nominateEndorsersPlaceholder": "Select connections…",
 	"noConnectionsToEndorse": "You have no connections yet to nominate.",
-	"notifyColleagues": "Notify my connections who work at this company",
-	"notifyColleaguesHelp": "Lets colleagues you're connected with at this company know you've applied, so they can endorse you.",
 	"coverLetter": "Cover letter",
 	"coverLetterPlaceholder": "Tell us why you are a great fit for this role (100-5000 characters)",
 	"resume": "Resume (PDF or DOCX, max 5 MB)",

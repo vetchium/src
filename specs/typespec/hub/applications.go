@@ -40,13 +40,12 @@ const (
 )
 
 type ApplyForOpeningRequest struct {
-	OrgDomain                string   `json:"org_domain"`
-	OpeningNumber            int32    `json:"opening_number"`
-	CoverLetter              string   `json:"cover_letter"`
-	ResumeUploadID           string   `json:"resume_upload_id"`
-	EndorserHandles          []string `json:"endorser_handles,omitempty"`
-	EndorsementRequestNote   *string  `json:"endorsement_request_note,omitempty"`
-	NotifyColleaguesAtTarget *bool    `json:"notify_colleagues_at_target,omitempty"`
+	OrgDomain              string   `json:"org_domain"`
+	OpeningNumber          int32    `json:"opening_number"`
+	CoverLetter            string   `json:"cover_letter"`
+	ResumeUploadID         string   `json:"resume_upload_id"`
+	EndorserHandles        []string `json:"endorser_handles,omitempty"`
+	EndorsementRequestNote *string  `json:"endorsement_request_note,omitempty"`
 }
 
 type ApplyForOpeningResponse struct {
@@ -77,22 +76,21 @@ type HubApplicationSummary struct {
 }
 
 type HubApplication struct {
-	ApplicationID            string                       `json:"application_id"`
-	OrgDomain                string                       `json:"org_domain"`
-	OrgName                  string                       `json:"org_name"`
-	OpeningNumber            int32                        `json:"opening_number"`
-	OpeningTitle             string                       `json:"opening_title"`
-	State                    ApplicationState             `json:"state"`
-	Label                    *ApplicationColorLabel       `json:"label,omitempty"`
-	AIScore                  *float64                     `json:"ai_score,omitempty"`
-	AppliedAt                string                       `json:"applied_at"`
-	StateChangedAt           string                       `json:"state_changed_at"`
-	CoverLetter              string                       `json:"cover_letter"`
-	ResumeDownloadURL        string                       `json:"resume_download_url"`
-	Endorsements             []MyEndorsementOnApplication `json:"endorsements"`
-	EndorsementRequests      []MyEndorsementRequestSent   `json:"endorsement_requests"`
-	NotifyColleaguesAtTarget bool                         `json:"notify_colleagues_at_target"`
-	CandidacyID              *string                      `json:"candidacy_id,omitempty"`
+	ApplicationID       string                       `json:"application_id"`
+	OrgDomain           string                       `json:"org_domain"`
+	OrgName             string                       `json:"org_name"`
+	OpeningNumber       int32                        `json:"opening_number"`
+	OpeningTitle        string                       `json:"opening_title"`
+	State               ApplicationState             `json:"state"`
+	Label               *ApplicationColorLabel       `json:"label,omitempty"`
+	AIScore             *float64                     `json:"ai_score,omitempty"`
+	AppliedAt           string                       `json:"applied_at"`
+	StateChangedAt      string                       `json:"state_changed_at"`
+	CoverLetter         string                       `json:"cover_letter"`
+	ResumeDownloadURL   string                       `json:"resume_download_url"`
+	Endorsements        []MyEndorsementOnApplication `json:"endorsements"`
+	EndorsementRequests []MyEndorsementRequestSent   `json:"endorsement_requests"`
+	CandidacyID         *string                      `json:"candidacy_id,omitempty"`
 }
 
 type MyEndorsementOnApplication struct {
