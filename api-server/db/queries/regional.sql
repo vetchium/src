@@ -1862,33 +1862,109 @@ FROM org_users
 WHERE org_id = $1 AND status = 'active'
 ORDER BY full_name NULLS LAST, email_address;
 
--- name: AddOpeningRecruiter :exec
+-- name: GetActiveOrgUserByID :one
+-- Resolves an active org-user that belongs to the given org. Used to validate a
+-- reassign / set-default target (422 when the user is missing, disabled, or in a
+-- different org).
+SELECT org_user_id, COALESCE(full_name, '') AS full_name, email_address
+FROM org_users
+WHERE org_user_id = $1 AND org_id = $2 AND status = 'active';
+
+-- name: GetFirstActiveSuperadmin :one
+-- The agency's first active superadmin, used as the fallback assignee when no
+-- client default is configured. Deterministic: oldest account, then id.
+SELECT ou.org_user_id, COALESCE(ou.full_name, '') AS full_name, ou.email_address
+FROM org_users ou
+JOIN org_user_roles our ON our.org_user_id = ou.org_user_id
+JOIN roles r ON r.role_id = our.role_id
+WHERE ou.org_id = $1 AND ou.status = 'active' AND r.role_name = 'org:superadmin'
+ORDER BY ou.created_at ASC, ou.org_user_id ASC
+LIMIT 1;
+
+-- ===== Agency-side single opening assignee (agency's own region) =====
+
+-- name: UpsertOpeningAssignee :exec
+-- Writes the single assignee for an opening at assign time. agency_org_user_id may
+-- be NULL when the agency had no eligible assignee.
 INSERT INTO agency_opening_recruiters (
     agency_org_id, opening_id, consumer_org_domain, agency_org_user_id, assigned_by_org_user_id
 ) VALUES ($1, $2, $3, $4, $5)
-ON CONFLICT (agency_org_id, opening_id, agency_org_user_id) DO NOTHING;
+ON CONFLICT (agency_org_id, opening_id)
+DO UPDATE SET agency_org_user_id = EXCLUDED.agency_org_user_id,
+              assigned_by_org_user_id = EXCLUDED.assigned_by_org_user_id,
+              consumer_org_domain = EXCLUDED.consumer_org_domain;
 
--- name: RemoveOpeningRecruiter :execrows
+-- name: SetOpeningAssignee :execrows
+-- Reassigns an opening's single owner. Returns 0 rows when the opening is not
+-- assigned to this agency (404).
+UPDATE agency_opening_recruiters
+SET agency_org_user_id = $3, assigned_by_org_user_id = $4
+WHERE agency_org_id = $1 AND opening_id = $2;
+
+-- name: DeleteOpeningAssignee :exec
+-- Removes the assignee row when the consumer un-assigns the agency from an opening.
 DELETE FROM agency_opening_recruiters
-WHERE agency_org_id = $1 AND opening_id = $2 AND agency_org_user_id = $3;
+WHERE agency_org_id = $1 AND opening_id = $2;
 
--- name: ListOpeningRecruitersByOpeningIDs :many
+-- name: GetOpeningAssignee :one
+SELECT r.agency_org_user_id,
+       COALESCE(u.full_name, '') AS full_name,
+       COALESCE(u.email_address, '') AS email_address,
+       (r.agency_org_user_id IS NOT NULL AND u.status = 'active') AS assignee_active
+FROM agency_opening_recruiters r
+LEFT JOIN org_users u ON u.org_user_id = r.agency_org_user_id
+WHERE r.agency_org_id = $1 AND r.opening_id = $2;
+
+-- name: ListOpeningAssigneesByOpeningIDs :many
 SELECT r.opening_id, r.agency_org_user_id,
-       COALESCE(u.full_name, '') AS full_name, COALESCE(u.email_address, '') AS email_address
+       COALESCE(u.full_name, '') AS full_name,
+       COALESCE(u.email_address, '') AS email_address,
+       (r.agency_org_user_id IS NOT NULL AND u.status = 'active') AS assignee_active
 FROM agency_opening_recruiters r
 LEFT JOIN org_users u ON u.org_user_id = r.agency_org_user_id
 WHERE r.agency_org_id = $1 AND r.opening_id = ANY(@opening_ids::uuid[]);
 
--- name: ListExplicitOpeningIDsForAgency :many
-SELECT DISTINCT opening_id FROM agency_opening_recruiters WHERE agency_org_id = $1;
+-- name: ListAssignedOpeningsForAgencyScoped :many
+-- Workspace page (regional source of truth for the agency's assigned openings).
+-- Scoping is mutually exclusive: scope_all (lead, no filter); scope_user (a
+-- specific assignee / "me"); scope_needs ("needs reassignment": no assignee or an
+-- inactive one). Keyset by (created_at, opening_id) = assign time.
+SELECT r.opening_id, r.consumer_org_domain, r.created_at,
+       r.agency_org_user_id,
+       COALESCE(u.full_name, '') AS full_name,
+       COALESCE(u.email_address, '') AS email_address,
+       (r.agency_org_user_id IS NOT NULL AND u.status = 'active') AS assignee_active
+FROM agency_opening_recruiters r
+LEFT JOIN org_users u ON u.org_user_id = r.agency_org_user_id
+WHERE r.agency_org_id = @agency_org_id
+  AND (sqlc.narg('filter_client_domain')::text IS NULL
+       OR r.consumer_org_domain = sqlc.narg('filter_client_domain')::text)
+  AND (
+        @scope_all::bool
+        OR (@scope_user::bool AND r.agency_org_user_id = @scope_user_id::uuid)
+        OR (@scope_needs::bool
+            AND (r.agency_org_user_id IS NULL OR u.org_user_id IS NULL OR u.status <> 'active'))
+      )
+  AND (sqlc.narg('cursor_created_at')::timestamptz IS NULL
+       OR (r.created_at, r.opening_id) < (sqlc.narg('cursor_created_at')::timestamptz, sqlc.narg('cursor_opening_id')::uuid))
+ORDER BY r.created_at DESC, r.opening_id DESC
+LIMIT @row_limit;
 
--- name: ListExplicitOpeningIDsForRecruiter :many
+-- name: ListOpeningIDsForAssignee :many
 SELECT opening_id FROM agency_opening_recruiters
 WHERE agency_org_id = $1 AND agency_org_user_id = $2;
 
--- ===== Agency-side per-client default recruiters (agency's own region) =====
+-- name: CountNeedsReassignmentForAgency :one
+-- Openings assigned to the agency whose assignee is missing or no longer active.
+SELECT COUNT(*)
+FROM agency_opening_recruiters r
+LEFT JOIN org_users u ON u.org_user_id = r.agency_org_user_id
+WHERE r.agency_org_id = $1
+  AND (r.agency_org_user_id IS NULL OR u.org_user_id IS NULL OR u.status <> 'active');
 
--- name: ListClientDefaultRecruitersByAgency :many
+-- ===== Agency-side per-client default assignee (agency's own region) =====
+
+-- name: ListClientDefaultAssigneesByAgency :many
 SELECT d.consumer_org_domain, d.agency_org_user_id,
        COALESCE(u.full_name, '') AS full_name, COALESCE(u.email_address, '') AS email_address
 FROM agency_client_default_recruiters d
@@ -1896,38 +1972,25 @@ LEFT JOIN org_users u ON u.org_user_id = d.agency_org_user_id
 WHERE d.agency_org_id = $1
 ORDER BY d.consumer_org_domain;
 
--- name: ListDefaultDomainsForRecruiter :many
-SELECT consumer_org_domain FROM agency_client_default_recruiters
-WHERE agency_org_id = $1 AND agency_org_user_id = $2;
-
--- name: CountActiveDefaultRecruitersForDomain :one
--- Counts the default recruiters for a client domain whose org-user account is
--- still active. Used to detect when disabling a user leaves a client uncovered.
-SELECT COUNT(*)
+-- name: GetActiveClientDefaultAssignee :one
+-- The active default assignee for a client domain, used to resolve the assignee at
+-- assign time. Returns no rows when there is no default or it is inactive.
+SELECT d.agency_org_user_id
 FROM agency_client_default_recruiters d
 JOIN org_users u ON u.org_user_id = d.agency_org_user_id
-WHERE d.agency_org_id = $1
-  AND d.consumer_org_domain = $2
-  AND u.status = 'active';
+WHERE d.agency_org_id = $1 AND d.consumer_org_domain = $2 AND u.status = 'active';
 
--- name: ListAllDefaultDomainsForAgency :many
-SELECT DISTINCT consumer_org_domain FROM agency_client_default_recruiters
-WHERE agency_org_id = $1;
-
--- name: DeleteClientDefaultRecruitersForDomain :exec
-DELETE FROM agency_client_default_recruiters
-WHERE agency_org_id = $1 AND consumer_org_domain = $2;
-
--- name: AddClientDefaultRecruiter :exec
+-- name: UpsertClientDefaultAssignee :exec
 INSERT INTO agency_client_default_recruiters (
     agency_org_id, consumer_org_domain, agency_org_user_id, updated_by_org_user_id
 ) VALUES ($1, $2, $3, $4)
-ON CONFLICT (agency_org_id, consumer_org_domain, agency_org_user_id)
-DO UPDATE SET updated_by_org_user_id = EXCLUDED.updated_by_org_user_id, updated_at = NOW();
+ON CONFLICT (agency_org_id, consumer_org_domain)
+DO UPDATE SET agency_org_user_id = EXCLUDED.agency_org_user_id,
+              updated_by_org_user_id = EXCLUDED.updated_by_org_user_id, updated_at = NOW();
 
--- name: RemoveClientDefaultRecruiter :execrows
+-- name: ClearClientDefaultAssignee :execrows
 DELETE FROM agency_client_default_recruiters
-WHERE agency_org_id = $1 AND consumer_org_domain = $2 AND agency_org_user_id = $3;
+WHERE agency_org_id = $1 AND consumer_org_domain = $2;
 
 -- name: GetConnectedPeersByHandles :many
 SELECT peer, peer_handle FROM hub_user_connections

@@ -16,7 +16,7 @@ import (
 	orgspec "vetchium-api-server.typespec/org"
 )
 
-// isAgencyLead reports whether the org user bypasses recruiter scoping — either
+// isAgencyLead reports whether the org user bypasses assignee scoping — either
 // org:superadmin or org:manage_agency_recruiters.
 func isAgencyLead(ctx context.Context, db *regionaldb.Queries, orgUserID pgtype.UUID) bool {
 	for _, name := range []string{"org:superadmin", "org:manage_agency_recruiters"} {
@@ -35,59 +35,46 @@ func isAgencyLead(ctx context.Context, db *regionaldb.Queries, orgUserID pgtype.
 	return false
 }
 
-// isEffectiveRecruiter reports whether userID is an effective recruiter of the
-// opening: an explicit assignee if any exist, otherwise a default for the
-// opening's client domain. consumerDomain is the opening's client domain.
-func isEffectiveRecruiter(
+// isOpeningAssignee reports whether userID is the single assignee of the opening.
+func isOpeningAssignee(
 	ctx context.Context,
 	db *regionaldb.Queries,
 	agencyOrgID, userID, openingID pgtype.UUID,
-	consumerDomain string,
 ) (bool, error) {
-	explicit, err := db.ListOpeningRecruitersByOpeningIDs(ctx, regionaldb.ListOpeningRecruitersByOpeningIDsParams{
+	row, err := db.GetOpeningAssignee(ctx, regionaldb.GetOpeningAssigneeParams{
 		AgencyOrgID: agencyOrgID,
-		OpeningIds:  []pgtype.UUID{openingID},
+		OpeningID:   openingID,
 	})
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return false, nil
+		}
 		return false, err
 	}
-	if len(explicit) > 0 {
-		for _, e := range explicit {
-			if e.AgencyOrgUserID == userID {
-				return true, nil
-			}
-		}
-		return false, nil
-	}
-	// No explicit assignment: fall back to the client-domain default.
-	domains, err := db.ListDefaultDomainsForRecruiter(ctx, regionaldb.ListDefaultDomainsForRecruiterParams{
-		AgencyOrgID:     agencyOrgID,
-		AgencyOrgUserID: userID,
-	})
-	if err != nil {
-		return false, err
-	}
-	for _, d := range domains {
-		if d == consumerDomain {
-			return true, nil
-		}
-	}
-	return false, nil
+	return row.AgencyOrgUserID.Valid && row.AgencyOrgUserID == userID, nil
 }
 
-// uuidSlice / strSlice return non-nil slices so they marshal to a real empty SQL
-// array (`'{}'`) rather than NULL — important for the `NOT (x = ANY(...))` scoping
-// predicate, where NULL would wrongly exclude rows.
+// assigneeRef builds the response assignee ref + needs_reassignment flag from a
+// (nullable) assignee id, name, email and active flag.
+func assigneeRef(
+	userID pgtype.UUID, name, email string, active pgtype.Bool,
+) (*orgspec.AgencyRecruiterRef, bool) {
+	if !userID.Valid {
+		return nil, true // no assignee at all → needs reassignment
+	}
+	ref := &orgspec.AgencyRecruiterRef{
+		OrgUserID: userID.String(),
+		Name:      name,
+		Email:     email,
+	}
+	return ref, !active.Bool
+}
+
+// uuidSlice returns a non-nil slice so it marshals to a real empty SQL array
+// (`'{}'`) rather than NULL — important for `= ANY(...)` predicates.
 func uuidSlice(s []pgtype.UUID) []pgtype.UUID {
 	if s == nil {
 		return []pgtype.UUID{}
-	}
-	return s
-}
-
-func strSlice(s []string) []string {
-	if s == nil {
-		return []string{}
 	}
 	return s
 }
@@ -100,65 +87,8 @@ func textPtr(t pgtype.Text) *string {
 	return &v
 }
 
-// loadRecruiterMaps loads, for a set of openings, the explicit recruiter
-// assignments (by opening) and the agency's client-domain defaults (by domain).
-func loadRecruiterMaps(
-	ctx context.Context,
-	db *regionaldb.Queries,
-	agencyOrgID pgtype.UUID,
-	openingIDs []pgtype.UUID,
-) (map[pgtype.UUID][]orgspec.AgencyRecruiterRef, map[string][]orgspec.AgencyRecruiterRef, error) {
-	explicitByOpening := map[pgtype.UUID][]orgspec.AgencyRecruiterRef{}
-	if len(openingIDs) > 0 {
-		exRows, err := db.ListOpeningRecruitersByOpeningIDs(ctx, regionaldb.ListOpeningRecruitersByOpeningIDsParams{
-			AgencyOrgID: agencyOrgID,
-			OpeningIds:  openingIDs,
-		})
-		if err != nil {
-			return nil, nil, err
-		}
-		for _, row := range exRows {
-			explicitByOpening[row.OpeningID] = append(explicitByOpening[row.OpeningID], orgspec.AgencyRecruiterRef{
-				OrgUserID: row.AgencyOrgUserID.String(),
-				Name:      row.FullName,
-				Email:     row.EmailAddress,
-			})
-		}
-	}
-
-	defaultsByDomain := map[string][]orgspec.AgencyRecruiterRef{}
-	dfRows, err := db.ListClientDefaultRecruitersByAgency(ctx, agencyOrgID)
-	if err != nil {
-		return nil, nil, err
-	}
-	for _, row := range dfRows {
-		defaultsByDomain[row.ConsumerOrgDomain] = append(defaultsByDomain[row.ConsumerOrgDomain], orgspec.AgencyRecruiterRef{
-			OrgUserID: row.AgencyOrgUserID.String(),
-			Name:      row.FullName,
-			Email:     row.EmailAddress,
-		})
-	}
-	return explicitByOpening, defaultsByDomain, nil
-}
-
-// effectiveRecruiters returns the effective recruiters of an opening and whether
-// they came from the client-domain default (explicit assignees win over defaults).
-func effectiveRecruiters(
-	openingID pgtype.UUID,
-	consumerDomain string,
-	explicitByOpening map[pgtype.UUID][]orgspec.AgencyRecruiterRef,
-	defaultsByDomain map[string][]orgspec.AgencyRecruiterRef,
-) ([]orgspec.AgencyRecruiterRef, bool) {
-	if ex := explicitByOpening[openingID]; len(ex) > 0 {
-		return ex, false
-	}
-	if df := defaultsByDomain[consumerDomain]; len(df) > 0 {
-		return df, true
-	}
-	return []orgspec.AgencyRecruiterRef{}, false
-}
-
-// ListAgencyRecruiters returns the agency's active org-users for recruiter selects.
+// ListAgencyRecruiters returns the agency's active org-users for assignee selects.
+// Disabled/invited users are never returned.
 func ListAgencyRecruiters(s *server.RegionalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -192,9 +122,10 @@ func ListAgencyRecruiters(s *server.RegionalServer) http.HandlerFunc {
 	}
 }
 
-// AssignOpeningRecruiters assigns one or more agency org-users to an opening
-// (additive). Lead-only.
-func AssignOpeningRecruiters(s *server.RegionalServer) http.HandlerFunc {
+// ReassignOpening changes an opening's single assignee to another active agency
+// user. Lead-only. 404 if the opening is not assigned to this agency; 422 if the
+// target user is not an active member of this agency.
+func ReassignOpening(s *server.RegionalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()
@@ -206,117 +137,7 @@ func AssignOpeningRecruiters(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		var req orgspec.AssignOpeningRecruitersRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		if errs := req.Validate(); len(errs) > 0 {
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(errs)
-			return
-		}
-
-		var openingID pgtype.UUID
-		if err := openingID.Scan(req.OpeningID); err != nil {
-			http.Error(w, "invalid opening_id", http.StatusBadRequest)
-			return
-		}
-
-		// The opening must actually be assigned to this agency.
-		assigned, err := s.Global.GetAssignedOpeningForAgency(ctx, globaldb.GetAssignedOpeningForAgencyParams{
-			AgencyOrgID: orgUser.OrgID,
-			OpeningID:   openingID,
-		})
-		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				w.WriteHeader(http.StatusNotFound)
-				return
-			}
-			log.Error("failed to verify assignment", "error", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-
-		userIDs := make([]pgtype.UUID, 0, len(req.AgencyOrgUserIDs))
-		for _, id := range req.AgencyOrgUserIDs {
-			var uid pgtype.UUID
-			if err := uid.Scan(id); err != nil {
-				http.Error(w, "invalid agency_org_user_id", http.StatusBadRequest)
-				return
-			}
-			userIDs = append(userIDs, uid)
-		}
-
-		if err := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
-			for _, uid := range userIDs {
-				if txErr := qtx.AddOpeningRecruiter(ctx, regionaldb.AddOpeningRecruiterParams{
-					AgencyOrgID:         orgUser.OrgID,
-					OpeningID:           openingID,
-					ConsumerOrgDomain:   req.ConsumerOrgDomain,
-					AgencyOrgUserID:     uid,
-					AssignedByOrgUserID: orgUser.OrgUserID,
-				}); txErr != nil {
-					return txErr
-				}
-			}
-			eventData, _ := json.Marshal(map[string]any{
-				"opening_id":          req.OpeningID,
-				"agency_org_user_ids": req.AgencyOrgUserIDs,
-			})
-			if txErr := qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
-				EventType:   "org.assign_opening_recruiters",
-				ActorUserID: orgUser.OrgUserID,
-				IpAddress:   audit.ExtractClientIP(r),
-				EventData:   eventData,
-			}); txErr != nil {
-				return txErr
-			}
-
-			// Notify each newly-assigned recruiter (same region as the agency, so
-			// this rides the transaction). Best-effort: a failed email row would
-			// otherwise roll back the assignment, so enqueue errors are swallowed.
-			subject, text, html := recruiterAssignedEmail(
-				s.UIConfig.OrgURL, assigned.ConsumerOrgDomain, assigned.TitleSnapshot,
-				assigned.OpeningNumber, req.OpeningID)
-			for _, rcpt := range recipientsByID(ctx, qtx, userIDs) {
-				if rcpt.Email == "" {
-					continue
-				}
-				_, _ = qtx.EnqueueEmail(ctx, regionaldb.EnqueueEmailParams{
-					EmailType:     regionaldb.EmailTemplateTypeOrgRecruiterAssigned,
-					EmailTo:       rcpt.Email,
-					EmailSubject:  subject,
-					EmailTextBody: text,
-					EmailHtmlBody: html,
-				})
-			}
-			return nil
-		}); err != nil {
-			log.Error("failed to assign recruiters", "error", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(struct{}{})
-	}
-}
-
-// RemoveOpeningRecruiter removes one agency org-user from an opening. Lead-only.
-func RemoveOpeningRecruiter(s *server.RegionalServer) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		ctx := r.Context()
-		log := s.Logger(ctx)
-
-		orgUser := middleware.OrgUserFromContext(ctx)
-		if orgUser == nil {
-			w.WriteHeader(http.StatusUnauthorized)
-			return
-		}
-
-		var req orgspec.RemoveOpeningRecruiterRequest
+		var req orgspec.ReassignOpeningRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -337,12 +158,29 @@ func RemoveOpeningRecruiter(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
+		db := s.RegionalForCtx(ctx)
+		// Target must be an active member of this agency.
+		target, err := db.GetActiveOrgUserByID(ctx, regionaldb.GetActiveOrgUserByIDParams{
+			OrgUserID: userID,
+			OrgID:     orgUser.OrgID,
+		})
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				w.WriteHeader(http.StatusUnprocessableEntity)
+				return
+			}
+			log.Error("failed to resolve reassign target", "error", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
 		var affected int64
 		if err := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
-			n, txErr := qtx.RemoveOpeningRecruiter(ctx, regionaldb.RemoveOpeningRecruiterParams{
-				AgencyOrgID:     orgUser.OrgID,
-				OpeningID:       openingID,
-				AgencyOrgUserID: userID,
+			n, txErr := qtx.SetOpeningAssignee(ctx, regionaldb.SetOpeningAssigneeParams{
+				AgencyOrgID:         orgUser.OrgID,
+				OpeningID:           openingID,
+				AgencyOrgUserID:     userID,
+				AssignedByOrgUserID: orgUser.OrgUserID,
 			})
 			if txErr != nil {
 				return txErr
@@ -356,13 +194,13 @@ func RemoveOpeningRecruiter(s *server.RegionalServer) http.HandlerFunc {
 				"agency_org_user_id": req.AgencyOrgUserID,
 			})
 			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
-				EventType:   "org.remove_opening_recruiter",
+				EventType:   "org.reassign_opening",
 				ActorUserID: orgUser.OrgUserID,
 				IpAddress:   audit.ExtractClientIP(r),
 				EventData:   eventData,
 			})
 		}); err != nil {
-			log.Error("failed to remove recruiter", "error", err)
+			log.Error("failed to reassign opening", "error", err)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -371,13 +209,32 @@ func RemoveOpeningRecruiter(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
+		// Best-effort: notify the new assignee. Opening metadata lives in the
+		// global index (one read); a failure here does not undo the reassignment.
+		if meta, mErr := s.Global.GetAssignedOpeningForAgency(ctx, globaldb.GetAssignedOpeningForAgencyParams{
+			AgencyOrgID: orgUser.OrgID,
+			OpeningID:   openingID,
+		}); mErr == nil && target.EmailAddress != "" {
+			subject, text, html := recruiterAssignedEmail(
+				s.UIConfig.OrgURL, meta.ConsumerOrgDomain, meta.TitleSnapshot,
+				meta.OpeningNumber, req.OpeningID)
+			_, _ = db.EnqueueEmail(ctx, regionaldb.EnqueueEmailParams{
+				EmailType:     regionaldb.EmailTemplateTypeOrgRecruiterAssigned,
+				EmailTo:       target.EmailAddress,
+				EmailSubject:  subject,
+				EmailTextBody: text,
+				EmailHtmlBody: html,
+			})
+		}
+
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(struct{}{})
 	}
 }
 
-// ListClientDefaultRecruiters lists the agency's per-client default recruiters.
-func ListClientDefaultRecruiters(s *server.RegionalServer) http.HandlerFunc {
+// ListClientDefaultAssignees lists the agency's single default assignee per client
+// domain.
+func ListClientDefaultAssignees(s *server.RegionalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()
@@ -389,43 +246,33 @@ func ListClientDefaultRecruiters(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		rows, err := s.RegionalForCtx(ctx).ListClientDefaultRecruitersByAgency(ctx, orgUser.OrgID)
+		rows, err := s.RegionalForCtx(ctx).ListClientDefaultAssigneesByAgency(ctx, orgUser.OrgID)
 		if err != nil {
-			log.Error("failed to list client defaults", "error", err)
+			log.Error("failed to list client default assignees", "error", err)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
-		// Group recruiters by client domain, preserving order of first appearance.
-		order := make([]string, 0)
-		byDomain := map[string][]orgspec.AgencyRecruiterRef{}
+		defaults := make([]orgspec.ClientDefaultAssignee, 0, len(rows))
 		for _, row := range rows {
-			if _, seen := byDomain[row.ConsumerOrgDomain]; !seen {
-				order = append(order, row.ConsumerOrgDomain)
-			}
-			byDomain[row.ConsumerOrgDomain] = append(byDomain[row.ConsumerOrgDomain], orgspec.AgencyRecruiterRef{
-				OrgUserID: row.AgencyOrgUserID.String(),
-				Name:      row.FullName,
-				Email:     row.EmailAddress,
-			})
-		}
-
-		defaults := make([]orgspec.ClientDefaultRecruiter, 0, len(order))
-		for _, d := range order {
-			defaults = append(defaults, orgspec.ClientDefaultRecruiter{
-				ConsumerOrgDomain: d,
-				Recruiters:        byDomain[d],
+			defaults = append(defaults, orgspec.ClientDefaultAssignee{
+				ConsumerOrgDomain: row.ConsumerOrgDomain,
+				Assignee: orgspec.AgencyRecruiterRef{
+					OrgUserID: row.AgencyOrgUserID.String(),
+					Name:      row.FullName,
+					Email:     row.EmailAddress,
+				},
 			})
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(orgspec.ListClientDefaultRecruitersResponse{Defaults: defaults})
+		json.NewEncoder(w).Encode(orgspec.ListClientDefaultAssigneesResponse{Defaults: defaults})
 	}
 }
 
-// SetClientDefaultRecruiters replaces the default recruiters for a client domain.
-// Lead-only.
-func SetClientDefaultRecruiters(s *server.RegionalServer) http.HandlerFunc {
+// SetClientDefaultAssignee sets (or replaces) the single default assignee for a
+// client domain. Lead-only. 422 if the target user is not an active agency member.
+func SetClientDefaultAssignee(s *server.RegionalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx := r.Context()
@@ -437,80 +284,7 @@ func SetClientDefaultRecruiters(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		var req orgspec.SetClientDefaultRecruitersRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		if errs := req.Validate(); len(errs) > 0 {
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(errs)
-			return
-		}
-
-		userIDs := make([]pgtype.UUID, 0, len(req.AgencyOrgUserIDs))
-		for _, id := range req.AgencyOrgUserIDs {
-			var uid pgtype.UUID
-			if err := uid.Scan(id); err != nil {
-				http.Error(w, "invalid agency_org_user_id", http.StatusBadRequest)
-				return
-			}
-			userIDs = append(userIDs, uid)
-		}
-
-		if err := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
-			if txErr := qtx.DeleteClientDefaultRecruitersForDomain(ctx, regionaldb.DeleteClientDefaultRecruitersForDomainParams{
-				AgencyOrgID:       orgUser.OrgID,
-				ConsumerOrgDomain: req.ConsumerOrgDomain,
-			}); txErr != nil {
-				return txErr
-			}
-			for _, uid := range userIDs {
-				if txErr := qtx.AddClientDefaultRecruiter(ctx, regionaldb.AddClientDefaultRecruiterParams{
-					AgencyOrgID:        orgUser.OrgID,
-					ConsumerOrgDomain:  req.ConsumerOrgDomain,
-					AgencyOrgUserID:    uid,
-					UpdatedByOrgUserID: orgUser.OrgUserID,
-				}); txErr != nil {
-					return txErr
-				}
-			}
-			eventData, _ := json.Marshal(map[string]any{
-				"consumer_org_domain": req.ConsumerOrgDomain,
-				"agency_org_user_ids": req.AgencyOrgUserIDs,
-			})
-			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
-				EventType:   "org.set_client_default_recruiters",
-				ActorUserID: orgUser.OrgUserID,
-				IpAddress:   audit.ExtractClientIP(r),
-				EventData:   eventData,
-			})
-		}); err != nil {
-			log.Error("failed to set client defaults", "error", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(struct{}{})
-	}
-}
-
-// RemoveClientDefaultRecruiter removes one recruiter from a client domain default.
-// Lead-only.
-func RemoveClientDefaultRecruiter(s *server.RegionalServer) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		ctx := r.Context()
-		log := s.Logger(ctx)
-
-		orgUser := middleware.OrgUserFromContext(ctx)
-		if orgUser == nil {
-			w.WriteHeader(http.StatusUnauthorized)
-			return
-		}
-
-		var req orgspec.RemoveClientDefaultRecruiterRequest
+		var req orgspec.SetClientDefaultAssigneeRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -527,12 +301,80 @@ func RemoveClientDefaultRecruiter(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
+		db := s.RegionalForCtx(ctx)
+		if _, err := db.GetActiveOrgUserByID(ctx, regionaldb.GetActiveOrgUserByIDParams{
+			OrgUserID: userID,
+			OrgID:     orgUser.OrgID,
+		}); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				w.WriteHeader(http.StatusUnprocessableEntity)
+				return
+			}
+			log.Error("failed to resolve default assignee target", "error", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		if err := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
+			if txErr := qtx.UpsertClientDefaultAssignee(ctx, regionaldb.UpsertClientDefaultAssigneeParams{
+				AgencyOrgID:        orgUser.OrgID,
+				ConsumerOrgDomain:  req.ConsumerOrgDomain,
+				AgencyOrgUserID:    userID,
+				UpdatedByOrgUserID: orgUser.OrgUserID,
+			}); txErr != nil {
+				return txErr
+			}
+			eventData, _ := json.Marshal(map[string]any{
+				"consumer_org_domain": req.ConsumerOrgDomain,
+				"agency_org_user_id":  req.AgencyOrgUserID,
+			})
+			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
+				EventType:   "org.set_client_default_assignee",
+				ActorUserID: orgUser.OrgUserID,
+				IpAddress:   audit.ExtractClientIP(r),
+				EventData:   eventData,
+			})
+		}); err != nil {
+			log.Error("failed to set client default assignee", "error", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(struct{}{})
+	}
+}
+
+// ClearClientDefaultAssignee removes the default assignee for a client domain.
+// Lead-only. 404 if no default was configured.
+func ClearClientDefaultAssignee(s *server.RegionalServer) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		ctx := r.Context()
+		log := s.Logger(ctx)
+
+		orgUser := middleware.OrgUserFromContext(ctx)
+		if orgUser == nil {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		var req orgspec.ClearClientDefaultAssigneeRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if errs := req.Validate(); len(errs) > 0 {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(errs)
+			return
+		}
+
 		var affected int64
 		if err := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
-			n, txErr := qtx.RemoveClientDefaultRecruiter(ctx, regionaldb.RemoveClientDefaultRecruiterParams{
+			n, txErr := qtx.ClearClientDefaultAssignee(ctx, regionaldb.ClearClientDefaultAssigneeParams{
 				AgencyOrgID:       orgUser.OrgID,
 				ConsumerOrgDomain: req.ConsumerOrgDomain,
-				AgencyOrgUserID:   userID,
 			})
 			if txErr != nil {
 				return txErr
@@ -543,16 +385,15 @@ func RemoveClientDefaultRecruiter(s *server.RegionalServer) http.HandlerFunc {
 			}
 			eventData, _ := json.Marshal(map[string]any{
 				"consumer_org_domain": req.ConsumerOrgDomain,
-				"agency_org_user_id":  req.AgencyOrgUserID,
 			})
 			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
-				EventType:   "org.remove_client_default_recruiter",
+				EventType:   "org.clear_client_default_assignee",
 				ActorUserID: orgUser.OrgUserID,
 				IpAddress:   audit.ExtractClientIP(r),
 				EventData:   eventData,
 			})
 		}); err != nil {
-			log.Error("failed to remove client default", "error", err)
+			log.Error("failed to clear client default assignee", "error", err)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -563,5 +404,33 @@ func RemoveClientDefaultRecruiter(s *server.RegionalServer) http.HandlerFunc {
 
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(struct{}{})
+	}
+}
+
+// GetAgencyReferralSummary returns how many of the agency's openings need
+// (re)assignment — used by the dashboard warning banner.
+func GetAgencyReferralSummary(s *server.RegionalServer) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		ctx := r.Context()
+		log := s.Logger(ctx)
+
+		orgUser := middleware.OrgUserFromContext(ctx)
+		if orgUser == nil {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		count, err := s.RegionalForCtx(ctx).CountNeedsReassignmentForAgency(ctx, orgUser.OrgID)
+		if err != nil {
+			log.Error("failed to count needs-reassignment openings", "error", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(orgspec.AgencyReferralSummaryResponse{
+			NeedsReassignmentCount: int32(count),
+		})
 	}
 }

@@ -3,11 +3,10 @@ import {
 	Alert,
 	Button,
 	Card,
+	Empty,
 	Form,
 	Select,
-	Space,
 	Table,
-	Tag,
 	Typography,
 	App as AntApp,
 } from "antd";
@@ -16,26 +15,27 @@ import { Link } from "react-router-dom";
 import { ArrowLeftOutlined } from "@ant-design/icons";
 import type {
 	AgencyRecruiterRef,
-	ClientDefaultRecruiter,
+	ClearClientDefaultAssigneeRequest,
+	ClientDefaultAssignee,
 	ListAgencyRecruitersResponse,
-	ListAssignedOpeningsResponse,
-	ListClientDefaultRecruitersResponse,
-	RemoveClientDefaultRecruiterRequest,
-	SetClientDefaultRecruitersRequest,
+	ListClientDefaultAssigneesResponse,
+	ListStaffingClientsResponse,
+	SetClientDefaultAssigneeRequest,
+	StaffingClient,
 } from "vetchium-specs/org/agency-referrals";
 import { getApiBaseUrl } from "../../config";
 import { useAuth } from "../../hooks/useAuth";
 
-const { Title } = Typography;
+const { Title, Paragraph } = Typography;
 
 const ClientDefaultsPage: React.FC = () => {
 	const { t } = useTranslation("agencyReferrals");
 	const { sessionToken } = useAuth();
 	const { message } = AntApp.useApp();
 
-	const [defaults, setDefaults] = useState<ClientDefaultRecruiter[]>([]);
+	const [defaults, setDefaults] = useState<ClientDefaultAssignee[]>([]);
 	const [recruiters, setRecruiters] = useState<AgencyRecruiterRef[]>([]);
-	const [clientDomains, setClientDomains] = useState<string[]>([]);
+	const [clients, setClients] = useState<StaffingClient[]>([]);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<"forbidden" | "generic" | null>(null);
 	const [form] = Form.useForm();
@@ -60,7 +60,7 @@ const ClientDefaultsPage: React.FC = () => {
 		setLoading(true);
 		setError(null);
 		try {
-			const dRes = await post("/org/list-client-default-recruiters", {});
+			const dRes = await post("/org/list-client-default-assignees", {});
 			if (dRes.status === 403) {
 				setError("forbidden");
 				return;
@@ -69,7 +69,7 @@ const ClientDefaultsPage: React.FC = () => {
 				setError("generic");
 				return;
 			}
-			const dData: ListClientDefaultRecruitersResponse = await dRes.json();
+			const dData: ListClientDefaultAssigneesResponse = await dRes.json();
 			setDefaults(dData.defaults ?? []);
 
 			const rRes = await post("/org/list-agency-recruiters", {});
@@ -78,12 +78,12 @@ const ClientDefaultsPage: React.FC = () => {
 				setRecruiters(rData.recruiters ?? []);
 			}
 
-			const oRes = await post("/org/list-assigned-openings", { limit: 100 });
-			if (oRes.status === 200) {
-				const oData: ListAssignedOpeningsResponse = await oRes.json();
-				const set = new Set<string>();
-				(oData.openings ?? []).forEach((o) => set.add(o.consumer_org_domain));
-				setClientDomains(Array.from(set).sort());
+			// Clients are every org with an active staffing subscription with this
+			// agency — available as soon as they subscribe, no opening required.
+			const cRes = await post("/org/list-staffing-clients", {});
+			if (cRes.status === 200) {
+				const cData: ListStaffingClientsResponse = await cRes.json();
+				setClients(cData.clients ?? []);
 			}
 		} catch {
 			setError("generic");
@@ -98,17 +98,19 @@ const ClientDefaultsPage: React.FC = () => {
 
 	const onSave = async (values: {
 		consumer_org_domain: string;
-		agency_org_user_ids: string[];
+		agency_org_user_id: string;
 	}) => {
-		const req: SetClientDefaultRecruitersRequest = {
+		const req: SetClientDefaultAssigneeRequest = {
 			consumer_org_domain: values.consumer_org_domain,
-			agency_org_user_ids: values.agency_org_user_ids,
+			agency_org_user_id: values.agency_org_user_id,
 		};
-		const res = await post("/org/set-client-default-recruiters", req);
+		const res = await post("/org/set-client-default-assignee", req);
 		if (res.status === 200) {
 			message.success(t("defaultSaved"));
 			form.resetFields();
 			fetchAll();
+		} else if (res.status === 422) {
+			message.error(t("inactiveAssigneeError"));
 		} else if (res.status === 403) {
 			message.error(t("accessDenied"));
 		} else {
@@ -116,14 +118,13 @@ const ClientDefaultsPage: React.FC = () => {
 		}
 	};
 
-	const onRemove = async (domain: string, userId: string) => {
-		const req: RemoveClientDefaultRecruiterRequest = {
+	const onClear = async (domain: string) => {
+		const req: ClearClientDefaultAssigneeRequest = {
 			consumer_org_domain: domain,
-			agency_org_user_id: userId,
 		};
-		const res = await post("/org/remove-client-default-recruiter", req);
+		const res = await post("/org/clear-client-default-assignee", req);
 		if (res.status === 200) {
-			message.success(t("defaultRemoved"));
+			message.success(t("defaultCleared"));
 			fetchAll();
 		} else {
 			message.error(t("loadError"));
@@ -135,30 +136,46 @@ const ClientDefaultsPage: React.FC = () => {
 		label: r.name || r.email,
 	}));
 
+	// Show every staffing client, with its display name when it differs from the
+	// domain, so the picker is meaningful before any opening is assigned.
+	const clientLabel = (c: StaffingClient) =>
+		c.consumer_org_name && c.consumer_org_name !== c.consumer_org_domain
+			? `${c.consumer_org_name} (${c.consumer_org_domain})`
+			: c.consumer_org_domain;
+
+	const clientOptions = clients.map((c) => ({
+		value: c.consumer_org_domain,
+		label: clientLabel(c),
+	}));
+
+	const nameByDomain = new Map(
+		clients.map((c) => [c.consumer_org_domain, clientLabel(c)])
+	);
+
 	const columns = [
 		{
-			title: t("client"),
-			dataIndex: "consumer_org_domain",
+			title: t("clientLabel"),
 			key: "client",
+			render: (_: unknown, d: ClientDefaultAssignee) =>
+				nameByDomain.get(d.consumer_org_domain) ?? d.consumer_org_domain,
 		},
 		{
-			title: t("defaultRecruiters"),
-			key: "recruiters",
-			render: (_: unknown, d: ClientDefaultRecruiter) => (
-				<Space size={[0, 4]} wrap>
-					{d.recruiters.map((r) => (
-						<Tag
-							key={r.org_user_id}
-							closable
-							onClose={(e) => {
-								e.preventDefault();
-								onRemove(d.consumer_org_domain, r.org_user_id);
-							}}
-						>
-							{r.name || r.email}
-						</Tag>
-					))}
-				</Space>
+			title: t("defaultAssignee"),
+			key: "assignee",
+			render: (_: unknown, d: ClientDefaultAssignee) =>
+				d.assignee.name || d.assignee.email,
+		},
+		{
+			title: t("actions"),
+			key: "actions",
+			render: (_: unknown, d: ClientDefaultAssignee) => (
+				<Button
+					danger
+					size="small"
+					onClick={() => onClear(d.consumer_org_domain)}
+				>
+					{t("clearDefault")}
+				</Button>
 			),
 		},
 	];
@@ -177,9 +194,12 @@ const ClientDefaultsPage: React.FC = () => {
 					<Button icon={<ArrowLeftOutlined />}>{t("backToWorkspace")}</Button>
 				</Link>
 			</div>
-			<Title level={2} style={{ marginBottom: 24 }}>
+			<Title level={2} style={{ marginBottom: 8 }}>
 				{t("defaultsTitle")}
 			</Title>
+			<Paragraph type="secondary" style={{ maxWidth: 720, marginBottom: 24 }}>
+				{t("defaultsIntro")}
+			</Paragraph>
 
 			{error === "forbidden" ? (
 				<Alert type="error" showIcon title={t("accessDenied")} />
@@ -194,36 +214,44 @@ const ClientDefaultsPage: React.FC = () => {
 						/>
 					)}
 
-					<Card title={t("addDefault")} style={{ marginBottom: 24 }}>
-						<Form form={form} layout="inline" onFinish={onSave}>
-							<Form.Item
-								name="consumer_org_domain"
-								label={t("selectClientDomain")}
-								rules={[{ required: true }]}
-							>
-								<Select
-									style={{ minWidth: 220 }}
-									options={clientDomains.map((d) => ({ value: d, label: d }))}
-								/>
-							</Form.Item>
-							<Form.Item
-								name="agency_org_user_ids"
-								label={t("selectRecruiters")}
-								rules={[{ required: true }]}
-							>
-								<Select
-									mode="multiple"
-									style={{ minWidth: 260 }}
-									options={recruiterOptions}
-								/>
-							</Form.Item>
-							<Form.Item>
-								<Button type="primary" htmlType="submit">
-									{t("save")}
-								</Button>
-							</Form.Item>
-						</Form>
-					</Card>
+					{clients.length === 0 && !loading ? (
+						<Empty description={t("noStaffingClients")} />
+					) : (
+						<Card title={t("setDefault")} style={{ marginBottom: 24 }}>
+							<Form form={form} layout="inline" onFinish={onSave}>
+								<Form.Item
+									name="consumer_org_domain"
+									label={t("clientLabel")}
+									rules={[{ required: true }]}
+								>
+									<Select
+										style={{ minWidth: 260 }}
+										placeholder={t("clientPlaceholder")}
+										showSearch={{ optionFilterProp: "label" }}
+										options={clientOptions}
+										notFoundContent={t("noStaffingClients")}
+									/>
+								</Form.Item>
+								<Form.Item
+									name="agency_org_user_id"
+									label={t("defaultAssignee")}
+									rules={[{ required: true }]}
+								>
+									<Select
+										style={{ minWidth: 300 }}
+										placeholder={t("selectAssignee")}
+										showSearch={{ optionFilterProp: "label" }}
+										options={recruiterOptions}
+									/>
+								</Form.Item>
+								<Form.Item>
+									<Button type="primary" htmlType="submit">
+										{t("save")}
+									</Button>
+								</Form.Item>
+							</Form>
+						</Card>
+					)}
 
 					<Table
 						columns={columns}

@@ -194,15 +194,16 @@ test.describe("Agency referral email notifications", () => {
 		expect(msg.Subject).toContain(con2Domain);
 	});
 
-	test("agency assigned to an opening (with default recruiter) emails that recruiter", async ({
+	test("agency assigned to an opening (with default assignee) emails that assignee", async ({
 		request,
 	}) => {
-		// Agency lead sets the default recruiter for con1's domain.
-		const setRes = await request.post("/org/set-client-default-recruiters", {
+		// Agency lead sets the default assignee for con1's domain; the next opening
+		// assigned from that client is auto-assigned to them.
+		const setRes = await request.post("/org/set-client-default-assignee", {
 			headers: { Authorization: `Bearer ${agencyToken}` },
 			data: {
 				consumer_org_domain: con1Domain,
-				agency_org_user_ids: [recruiterOrgUserId],
+				agency_org_user_id: recruiterOrgUserId,
 			},
 		});
 		expect(setRes.status()).toBe(200);
@@ -214,20 +215,23 @@ test.describe("Agency referral email notifications", () => {
 		});
 		expect(res.status()).toBe(200);
 
-		const msg = await waitForEmail(recruiterEmail, {}, /New opening assigned/i);
-		expect(msg.Subject).toContain(con1Domain);
+		const msg = await waitForEmail(
+			recruiterEmail,
+			{},
+			/assigned as recruiter/i
+		);
+		expect(msg.Subject).toMatch(/assigned as recruiter/i);
 	});
 
-	test("recruiter assigned to an opening receives a notification", async ({
+	test("reassigning an opening notifies the new assignee", async ({
 		request,
 	}) => {
 		await deleteEmailsFor(recruiterEmail);
-		const res = await request.post("/org/assign-opening-recruiters", {
+		const res = await request.post("/org/reassign-opening", {
 			headers: { Authorization: `Bearer ${agencyToken}` },
 			data: {
 				opening_id: opening1Id,
-				consumer_org_domain: con1Domain,
-				agency_org_user_ids: [recruiterOrgUserId],
+				agency_org_user_id: recruiterOrgUserId,
 			},
 		});
 		expect(res.status()).toBe(200);
@@ -237,7 +241,7 @@ test.describe("Agency referral email notifications", () => {
 			{},
 			/assigned as recruiter/i
 		);
-		expect(msg.Subject).toContain("Role One");
+		expect(msg.Subject).toMatch(/assigned as recruiter/i);
 	});
 
 	test("referred candidate applying notifies the referring recruiter", async ({
@@ -448,26 +452,33 @@ test.describe("Referral not_selected transitions", () => {
 });
 
 // ============================================================================
-// Item 3 — uncovered-client email alert on recruiter disable
+// Item 3 — needs-reassignment email alert when an opening's assignee is disabled
 // ============================================================================
 
-test.describe("Uncovered-client alert on recruiter disable", () => {
+test.describe("Needs-reassignment alert on assignee disable", () => {
 	test.describe.configure({ mode: "serial" });
 
+	const { email: consumerEmail, domain: consumerDomain } =
+		generateTestOrgEmail("agnr-consumer");
 	const { email: agencyEmail, domain: agencyDomain } =
-		generateTestOrgEmail("aguc-agency");
+		generateTestOrgEmail("agnr-agency");
 	const recAEmail = `rec-a@${agencyDomain}`;
 	const recBEmail = `rec-b@${agencyDomain}`;
-	// A client domain the agency staffs for (string key for the default recruiters).
-	const clientDomain = generateTestOrgEmail("aguc-client").domain;
 
+	let consumerToken: string;
 	let agencyToken: string;
 	let recAOrgUserId: string;
-	let recBOrgUserId: string;
+	let openingId: string;
 
 	test.beforeAll(async ({ playwright }) => {
 		const request = await playwright.request.newContext({ baseURL: BASE });
 		const api = new OrgAPIClient(request);
+
+		const consumer = await createTestOrgAdminDirect(
+			consumerEmail,
+			TEST_PASSWORD
+		);
+		consumerToken = await loginOrg(api, consumerEmail, consumerDomain);
 
 		const agency = await createTestOrgAdminDirect(agencyEmail, TEST_PASSWORD);
 		agencyToken = await loginOrg(api, agencyEmail, agencyDomain);
@@ -482,26 +493,44 @@ test.describe("Uncovered-client alert on recruiter disable", () => {
 			}
 		);
 		recAOrgUserId = recA.orgUserId;
-		const recB = await createTestOrgUserDirect(
-			recBEmail,
-			TEST_PASSWORD,
-			"ind1",
-			{
-				orgId: agency.orgId,
-				domain: agencyDomain,
-			}
-		);
-		recBOrgUserId = recB.orgUserId;
-
-		// Both are default recruiters for the client domain.
-		const setRes = await request.post("/org/set-client-default-recruiters", {
-			headers: { Authorization: `Bearer ${agencyToken}` },
-			data: {
-				consumer_org_domain: clientDomain,
-				agency_org_user_ids: [recAOrgUserId, recBOrgUserId],
-			},
+		// recB exists but is never an assignee, so disabling it must not alert.
+		await createTestOrgUserDirect(recBEmail, TEST_PASSWORD, "ind1", {
+			orgId: agency.orgId,
+			domain: agencyDomain,
 		});
-		expect(setRes.status()).toBe(200);
+
+		const listing = await createTestMarketplaceListingDirect(
+			agency.orgId,
+			agencyDomain,
+			["staffing"],
+			"active"
+		);
+		await createTestMarketplaceSubscriptionDirect(
+			consumer.orgId,
+			"ind1",
+			agency.orgId,
+			"ind1",
+			listing.listingId
+		);
+
+		const opening = await createTestOpeningDirect(
+			consumer.orgId,
+			consumer.orgUserId,
+			"Coverage Role"
+		);
+		openingId = opening.openingId;
+
+		// Assign the agency, then make recA the opening's single assignee.
+		const aRes = await request.post("/org/assign-opening-agency", {
+			headers: { Authorization: `Bearer ${consumerToken}` },
+			data: { opening_id: openingId, agency_org_domain: agencyDomain },
+		});
+		expect(aRes.status()).toBe(200);
+		const rRes = await request.post("/org/reassign-opening", {
+			headers: { Authorization: `Bearer ${agencyToken}` },
+			data: { opening_id: openingId, agency_org_user_id: recAOrgUserId },
+		});
+		expect(rRes.status()).toBe(200);
 
 		await request.dispose();
 	});
@@ -509,11 +538,27 @@ test.describe("Uncovered-client alert on recruiter disable", () => {
 	test.afterAll(async () => {
 		await deleteTestOrgUser(recAEmail).catch(() => {});
 		await deleteTestOrgUser(recBEmail).catch(() => {});
+		await deleteTestOrgUser(consumerEmail).catch(() => {});
 		await deleteTestOrgUser(agencyEmail).catch(() => {});
+		await deleteTestGlobalOrgDomain(consumerDomain).catch(() => {});
 		await deleteTestGlobalOrgDomain(agencyDomain).catch(() => {});
 	});
 
-	test("disabling one of two default recruiters does NOT alert (still covered)", async ({
+	test("disabling a non-assignee user does NOT alert", async ({ request }) => {
+		await deleteEmailsFor(agencyEmail);
+		const res = await request.post("/org/disable-user", {
+			headers: { Authorization: `Bearer ${agencyToken}` },
+			data: { email_address: recBEmail },
+		});
+		expect(res.status()).toBe(200);
+
+		await new Promise((r) => setTimeout(r, 3000));
+		const msgs = await searchEmails(agencyEmail);
+		const alerts = msgs.filter((m) => /new assignee/i.test(m.Subject));
+		expect(alerts.length).toBe(0);
+	});
+
+	test("disabling an opening's assignee alerts the agency leads", async ({
 		request,
 	}) => {
 		await deleteEmailsFor(agencyEmail);
@@ -523,26 +568,7 @@ test.describe("Uncovered-client alert on recruiter disable", () => {
 		});
 		expect(res.status()).toBe(200);
 
-		// Give the best-effort alert path time to run, then assert none arrived.
-		await new Promise((r) => setTimeout(r, 3000));
-		const msgs = await searchEmails(agencyEmail);
-		const uncovered = msgs.filter((m) =>
-			/no active recruiter/i.test(m.Subject)
-		);
-		expect(uncovered.length).toBe(0);
-	});
-
-	test("disabling the last default recruiter alerts the agency leads", async ({
-		request,
-	}) => {
-		await deleteEmailsFor(agencyEmail);
-		const res = await request.post("/org/disable-user", {
-			headers: { Authorization: `Bearer ${agencyToken}` },
-			data: { email_address: recBEmail },
-		});
-		expect(res.status()).toBe(200);
-
-		const msg = await waitForEmail(agencyEmail, {}, /no active recruiter/i);
-		expect(msg.Subject).toContain(clientDomain);
+		const msg = await waitForEmail(agencyEmail, {}, /new assignee/i);
+		expect(msg.Subject).toMatch(/new assignee/i);
 	});
 });

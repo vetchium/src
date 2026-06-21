@@ -10,23 +10,22 @@ import {
 	App as AntApp,
 } from "antd";
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { ArrowLeftOutlined, SettingOutlined } from "@ant-design/icons";
 import type {
 	AgencyRecruiterRef,
 	AssignedOpening,
-	AssignOpeningRecruitersRequest,
 	ListAgencyRecruitersResponse,
 	ListAssignedOpeningsResponse,
+	ReassignOpeningRequest,
 	ReferralStateCounts,
-	RemoveOpeningRecruiterRequest,
 } from "vetchium-specs/org/agency-referrals";
 import { getApiBaseUrl } from "../../config";
 import { useAuth } from "../../hooks/useAuth";
 import { useMyInfo } from "../../hooks/useMyInfo";
 import { formatDate } from "../../utils/dateFormat";
 
-const { Title } = Typography;
+const { Title, Text } = Typography;
 
 const countColor: Record<keyof ReferralStateCounts, string> = {
 	pending: "orange",
@@ -51,8 +50,13 @@ const AgencyWorkspacePage: React.FC = () => {
 	const [recruiters, setRecruiters] = useState<AgencyRecruiterRef[]>([]);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<"forbidden" | "generic" | null>(null);
+	const [searchParams] = useSearchParams();
 	const [clientFilter, setClientFilter] = useState<string>("");
-	const [recruiterFilter, setRecruiterFilter] = useState<string>("");
+	const [assigneeFilter, setAssigneeFilter] = useState<string>(
+		searchParams.get("filter") === "needs_reassignment"
+			? "needs_reassignment"
+			: ""
+	);
 
 	const fetchOpenings = useCallback(async () => {
 		if (!sessionToken) return;
@@ -62,7 +66,7 @@ const AgencyWorkspacePage: React.FC = () => {
 			const baseUrl = await getApiBaseUrl();
 			const body: Record<string, unknown> = { limit: 100 };
 			if (clientFilter) body.filter_client_domain = clientFilter;
-			if (recruiterFilter) body.filter_recruiter = recruiterFilter;
+			if (assigneeFilter) body.filter_assignee = assigneeFilter;
 			const res = await fetch(`${baseUrl}/org/list-assigned-openings`, {
 				method: "POST",
 				headers: {
@@ -84,7 +88,7 @@ const AgencyWorkspacePage: React.FC = () => {
 		} finally {
 			setLoading(false);
 		}
-	}, [sessionToken, clientFilter, recruiterFilter]);
+	}, [sessionToken, clientFilter, assigneeFilter]);
 
 	const fetchRecruiters = useCallback(async () => {
 		if (!sessionToken || !isLead) return;
@@ -103,7 +107,7 @@ const AgencyWorkspacePage: React.FC = () => {
 				setRecruiters(data.recruiters ?? []);
 			}
 		} catch {
-			// non-fatal: inline editing simply won't have options
+			// non-fatal: inline reassignment simply won't have options
 		}
 	}, [sessionToken, isLead]);
 
@@ -122,47 +126,33 @@ const AgencyWorkspacePage: React.FC = () => {
 		return Array.from(set).sort();
 	}, [openings]);
 
-	const updateRecruiters = useCallback(
-		async (opening: AssignedOpening, nextIds: string[]) => {
+	const reassign = useCallback(
+		async (opening: AssignedOpening, userId: string) => {
 			if (!sessionToken) return;
-			const prevIds = opening.recruiters_are_default
-				? []
-				: opening.recruiters.map((r) => r.org_user_id);
-			const added = nextIds.filter((id) => !prevIds.includes(id));
-			const removed = prevIds.filter((id) => !nextIds.includes(id));
 			try {
 				const baseUrl = await getApiBaseUrl();
-				if (added.length > 0) {
-					const req: AssignOpeningRecruitersRequest = {
-						opening_id: opening.opening_id,
-						consumer_org_domain: opening.consumer_org_domain,
-						agency_org_user_ids: added,
-					};
-					await fetch(`${baseUrl}/org/assign-opening-recruiters`, {
-						method: "POST",
-						headers: {
-							"Content-Type": "application/json",
-							Authorization: `Bearer ${sessionToken}`,
-						},
-						body: JSON.stringify(req),
-					});
+				const req: ReassignOpeningRequest = {
+					opening_id: opening.opening_id,
+					agency_org_user_id: userId,
+				};
+				const res = await fetch(`${baseUrl}/org/reassign-opening`, {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${sessionToken}`,
+					},
+					body: JSON.stringify(req),
+				});
+				if (res.status === 200) {
+					message.success(t("reassignSuccess"));
+					fetchOpenings();
+				} else if (res.status === 422) {
+					message.error(t("inactiveAssigneeError"));
+				} else if (res.status === 404) {
+					message.error(t("notAssignedError"));
+				} else {
+					message.error(t("loadError"));
 				}
-				for (const id of removed) {
-					const req: RemoveOpeningRecruiterRequest = {
-						opening_id: opening.opening_id,
-						agency_org_user_id: id,
-					};
-					await fetch(`${baseUrl}/org/remove-opening-recruiter`, {
-						method: "POST",
-						headers: {
-							"Content-Type": "application/json",
-							Authorization: `Bearer ${sessionToken}`,
-						},
-						body: JSON.stringify(req),
-					});
-				}
-				message.success(t("recruitersUpdated"));
-				fetchOpenings();
 			} catch {
 				message.error(t("loadError"));
 			}
@@ -193,6 +183,39 @@ const AgencyWorkspacePage: React.FC = () => {
 		label: r.name || r.email,
 	}));
 
+	const renderAssignee = (o: AssignedOpening) => {
+		if (isLead) {
+			return (
+				<Space align="center">
+					<Select
+						style={{ minWidth: 200 }}
+						placeholder={t("selectAssignee")}
+						options={recruiterOptions}
+						showSearch={{ optionFilterProp: "label" }}
+						value={o.assignee?.org_user_id}
+						status={o.needs_reassignment ? "warning" : undefined}
+						onChange={(id: string) => reassign(o, id)}
+					/>
+					{o.needs_reassignment &&
+						(o.assignee ? (
+							<Tag color="red">{t("inactiveTag")}</Tag>
+						) : (
+							<Tag color="red">{t("unassignedLabel")}</Tag>
+						))}
+				</Space>
+			);
+		}
+		if (!o.assignee) {
+			return <Tag color="red">{t("unassignedLabel")}</Tag>;
+		}
+		return (
+			<Space size={4}>
+				<Text>{o.assignee.name || o.assignee.email}</Text>
+				{o.needs_reassignment && <Tag color="red">{t("inactiveTag")}</Tag>}
+			</Space>
+		);
+	};
+
 	const columns = [
 		{
 			title: t("client"),
@@ -209,42 +232,9 @@ const AgencyWorkspacePage: React.FC = () => {
 			),
 		},
 		{
-			title: t("recruitersTitle"),
-			key: "recruiters",
-			render: (_: unknown, o: AssignedOpening) => {
-				if (isLead) {
-					return (
-						<Space align="center">
-							<Select
-								mode="multiple"
-								style={{ minWidth: 220 }}
-								placeholder={t("assignRecruiters")}
-								options={recruiterOptions}
-								value={
-									o.recruiters_are_default
-										? []
-										: o.recruiters.map((r) => r.org_user_id)
-								}
-								onChange={(ids: string[]) => updateRecruiters(o, ids)}
-							/>
-							{o.recruiters_are_default && o.recruiters.length > 0 && (
-								<Tag color="blue">{t("defaultBadge")}</Tag>
-							)}
-						</Space>
-					);
-				}
-				if (o.recruiters.length === 0) return "—";
-				return (
-					<Space size={[0, 4]} wrap>
-						{o.recruiters.map((r) => (
-							<Tag key={r.org_user_id}>{r.name || r.email}</Tag>
-						))}
-						{o.recruiters_are_default && (
-							<Tag color="blue">{t("defaultBadge")}</Tag>
-						)}
-					</Space>
-				);
-			},
+			title: t("assignee"),
+			key: "assignee",
+			render: (_: unknown, o: AssignedOpening) => renderAssignee(o),
 		},
 		{
 			title: t("referrals"),
@@ -305,9 +295,7 @@ const AgencyWorkspacePage: React.FC = () => {
 						</Title>
 						{isLead && (
 							<Link to="/referrals/defaults">
-								<Button icon={<SettingOutlined />}>
-									{t("clientDefaults")}
-								</Button>
+								<Button icon={<SettingOutlined />}>{t("defaultsNav")}</Button>
 							</Link>
 						)}
 					</div>
@@ -335,6 +323,7 @@ const AgencyWorkspacePage: React.FC = () => {
 							style={{ minWidth: 200 }}
 							value={clientFilter}
 							onChange={setClientFilter}
+							showSearch={{ optionFilterProp: "label" }}
 							options={[
 								{ value: "", label: t("allClients") },
 								...clientDomains.map((d) => ({ value: d, label: d })),
@@ -343,12 +332,16 @@ const AgencyWorkspacePage: React.FC = () => {
 						{isLead && (
 							<Select
 								style={{ minWidth: 200 }}
-								value={recruiterFilter}
-								onChange={setRecruiterFilter}
+								value={assigneeFilter}
+								onChange={setAssigneeFilter}
+								showSearch={{ optionFilterProp: "label" }}
 								options={[
-									{ value: "", label: t("allRecruiters") },
+									{ value: "", label: t("allAssignees") },
 									{ value: "me", label: t("me") },
-									{ value: "unassigned", label: t("unassigned") },
+									{
+										value: "needs_reassignment",
+										label: t("needsReassignmentFilter"),
+									},
 									...recruiterOptions,
 								]}
 							/>

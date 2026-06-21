@@ -77,24 +77,41 @@ type ListAssignableAgenciesResponse struct {
 	Agencies []AssignableAgency `json:"agencies"`
 }
 
+// StaffingClient is a consumer org that has an active staffing subscription with
+// the caller's agency, available for client-default configuration even before any
+// opening is assigned.
+type StaffingClient struct {
+	ConsumerOrgDomain string `json:"consumer_org_domain"`
+	ConsumerOrgName   string `json:"consumer_org_name"`
+}
+
+type ListStaffingClientsResponse struct {
+	Clients []StaffingClient `json:"clients"`
+}
+
 // ---- Agency side: openings I'm assigned to ----
 
 type ListAssignedOpeningsRequest struct {
 	FilterClientDomain *string `json:"filter_client_domain,omitempty"`
-	FilterRecruiter    *string `json:"filter_recruiter,omitempty"`
-	PaginationKey      *string `json:"pagination_key,omitempty"`
-	Limit              *int32  `json:"limit,omitempty"`
+	// "" (all) | "me" | "needs_reassignment" | an agency org_user_id
+	FilterAssignee *string `json:"filter_assignee,omitempty"`
+	PaginationKey  *string `json:"pagination_key,omitempty"`
+	Limit          *int32  `json:"limit,omitempty"`
 }
 
 type AssignedOpening struct {
-	OpeningID            string               `json:"opening_id"`
-	ConsumerOrgDomain    string               `json:"consumer_org_domain"`
-	OpeningNumber        int32                `json:"opening_number"`
-	Title                string               `json:"title"`
-	AssignedAt           string               `json:"assigned_at"`
-	Recruiters           []AgencyRecruiterRef `json:"recruiters"`
-	RecruitersAreDefault bool                 `json:"recruiters_are_default"`
-	ReferralCounts       ReferralStateCounts  `json:"referral_counts"`
+	OpeningID         string `json:"opening_id"`
+	ConsumerOrgDomain string `json:"consumer_org_domain"`
+	OpeningNumber     int32  `json:"opening_number"`
+	Title             string `json:"title"`
+	AssignedAt        string `json:"assigned_at"`
+	// Assignee is the single agency recruiter who owns this opening, or nil when
+	// the opening has no assignee yet.
+	Assignee *AgencyRecruiterRef `json:"assignee,omitempty"`
+	// NeedsReassignment is true when the opening has no assignee, or its assignee
+	// is no longer an active agency user.
+	NeedsReassignment bool                `json:"needs_reassignment"`
+	ReferralCounts    ReferralStateCounts `json:"referral_counts"`
 }
 
 type ListAssignedOpeningsResponse struct {
@@ -149,40 +166,43 @@ type ListAgencyReferralsResponse struct {
 	NextPaginationKey *string          `json:"next_pagination_key,omitempty"`
 }
 
-// ---- Agency side: internal recruiter assignment + client defaults ----
-
-type AssignOpeningRecruitersRequest struct {
-	OpeningID         string   `json:"opening_id"`
-	ConsumerOrgDomain string   `json:"consumer_org_domain"`
-	AgencyOrgUserIDs  []string `json:"agency_org_user_ids"`
-}
-
-type RemoveOpeningRecruiterRequest struct {
-	OpeningID       string `json:"opening_id"`
-	AgencyOrgUserID string `json:"agency_org_user_id"`
-}
+// ---- Agency side: single-assignee management + per-client default assignee ----
 
 type ListAgencyRecruitersResponse struct {
 	Recruiters []AgencyRecruiterRef `json:"recruiters"`
 }
 
-type ClientDefaultRecruiter struct {
-	ConsumerOrgDomain string               `json:"consumer_org_domain"`
-	Recruiters        []AgencyRecruiterRef `json:"recruiters"`
+// ReassignOpeningRequest reassigns an opening's single owner to another active
+// agency user.
+type ReassignOpeningRequest struct {
+	OpeningID       string `json:"opening_id"`
+	AgencyOrgUserID string `json:"agency_org_user_id"`
 }
 
-type ListClientDefaultRecruitersResponse struct {
-	Defaults []ClientDefaultRecruiter `json:"defaults"`
+// ClientDefaultAssignee is the single default assignee configured for one client
+// domain.
+type ClientDefaultAssignee struct {
+	ConsumerOrgDomain string             `json:"consumer_org_domain"`
+	Assignee          AgencyRecruiterRef `json:"assignee"`
 }
 
-type SetClientDefaultRecruitersRequest struct {
-	ConsumerOrgDomain string   `json:"consumer_org_domain"`
-	AgencyOrgUserIDs  []string `json:"agency_org_user_ids"`
+type ListClientDefaultAssigneesResponse struct {
+	Defaults []ClientDefaultAssignee `json:"defaults"`
 }
 
-type RemoveClientDefaultRecruiterRequest struct {
+type SetClientDefaultAssigneeRequest struct {
 	ConsumerOrgDomain string `json:"consumer_org_domain"`
 	AgencyOrgUserID   string `json:"agency_org_user_id"`
+}
+
+type ClearClientDefaultAssigneeRequest struct {
+	ConsumerOrgDomain string `json:"consumer_org_domain"`
+}
+
+// AgencyReferralSummaryResponse is the dashboard summary of how many of the
+// agency's openings need (re)assignment.
+type AgencyReferralSummaryResponse struct {
+	NeedsReassignmentCount int32 `json:"needs_reassignment_count"`
 }
 
 func (r AssignOpeningAgencyRequest) Validate() []common.ValidationError {
@@ -253,34 +273,7 @@ func (r GetAssignedOpeningRequest) Validate() []common.ValidationError {
 	return errs
 }
 
-func validateOrgUserIDs(ids []string) []common.ValidationError {
-	var errs []common.ValidationError
-	if len(ids) == 0 {
-		errs = append(errs, common.ValidationError{Field: "agency_org_user_ids", Message: "At least one recruiter is required"})
-		return errs
-	}
-	for _, id := range ids {
-		if id == "" {
-			errs = append(errs, common.ValidationError{Field: "agency_org_user_ids", Message: "Each id must be a non-empty string"})
-			break
-		}
-	}
-	return errs
-}
-
-func (r AssignOpeningRecruitersRequest) Validate() []common.ValidationError {
-	var errs []common.ValidationError
-	if r.OpeningID == "" {
-		errs = append(errs, common.ValidationError{Field: "opening_id", Message: "Must be a non-empty string"})
-	}
-	if r.ConsumerOrgDomain == "" {
-		errs = append(errs, common.ValidationError{Field: "consumer_org_domain", Message: "Must be a non-empty string"})
-	}
-	errs = append(errs, validateOrgUserIDs(r.AgencyOrgUserIDs)...)
-	return errs
-}
-
-func (r RemoveOpeningRecruiterRequest) Validate() []common.ValidationError {
+func (r ReassignOpeningRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
 	if r.OpeningID == "" {
 		errs = append(errs, common.ValidationError{Field: "opening_id", Message: "Must be a non-empty string"})
@@ -291,22 +284,21 @@ func (r RemoveOpeningRecruiterRequest) Validate() []common.ValidationError {
 	return errs
 }
 
-func (r SetClientDefaultRecruitersRequest) Validate() []common.ValidationError {
-	var errs []common.ValidationError
-	if r.ConsumerOrgDomain == "" {
-		errs = append(errs, common.ValidationError{Field: "consumer_org_domain", Message: "Must be a non-empty string"})
-	}
-	errs = append(errs, validateOrgUserIDs(r.AgencyOrgUserIDs)...)
-	return errs
-}
-
-func (r RemoveClientDefaultRecruiterRequest) Validate() []common.ValidationError {
+func (r SetClientDefaultAssigneeRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
 	if r.ConsumerOrgDomain == "" {
 		errs = append(errs, common.ValidationError{Field: "consumer_org_domain", Message: "Must be a non-empty string"})
 	}
 	if r.AgencyOrgUserID == "" {
 		errs = append(errs, common.ValidationError{Field: "agency_org_user_id", Message: "Must be a non-empty string"})
+	}
+	return errs
+}
+
+func (r ClearClientDefaultAssigneeRequest) Validate() []common.ValidationError {
+	var errs []common.ValidationError
+	if r.ConsumerOrgDomain == "" {
+		errs = append(errs, common.ValidationError{Field: "consumer_org_domain", Message: "Must be a non-empty string"})
 	}
 	return errs
 }

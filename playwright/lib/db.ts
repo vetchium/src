@@ -1519,6 +1519,34 @@ export async function countOrgAuditLogs(
 	}
 }
 
+/**
+ * Returns the event_data of the most recent org audit log entry for an actor +
+ * event_type, or null when none exists. Used to assert audit payload contents.
+ */
+export async function getLatestOrgAuditEventData(
+	actorUserId: string,
+	eventType: string,
+	region: RegionCode = "ind1"
+): Promise<Record<string, unknown> | null> {
+	const regionalPool = getRegionalPool(region);
+	try {
+		const res = await regionalPool.query(
+			`SELECT event_data FROM audit_logs
+       WHERE actor_user_id = $1 AND event_type = $2
+       ORDER BY created_at DESC LIMIT 1`,
+			[actorUserId, eventType]
+		);
+		if (res.rows.length === 0) return null;
+		const raw = res.rows[0].event_data;
+		return (typeof raw === "string" ? JSON.parse(raw) : raw) as Record<
+			string,
+			unknown
+		>;
+	} finally {
+		await regionalPool.end();
+	}
+}
+
 export async function assignRoleToOrgUser(
 	orgUserId: string,
 	roleName: string,

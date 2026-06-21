@@ -1,4 +1,5 @@
 import {
+	Alert,
 	Card,
 	Col,
 	Divider,
@@ -36,6 +37,7 @@ import type {
 	ListMyListingsRequest,
 	ListMyListingsResponse,
 } from "vetchium-specs/org/marketplace";
+import type { AgencyReferralSummaryResponse } from "vetchium-specs/org/agency-referrals";
 import { useAuth } from "../hooks/useAuth";
 import { useMyInfo } from "../hooks/useMyInfo";
 import { getApiBaseUrl } from "../config";
@@ -232,6 +234,35 @@ export function DashboardPage() {
 	}, [sessionToken, hasAgencyReferralRole]);
 
 	const hasAgencyReferralsAccess = hasAgencyReferralRole && isStaffingProvider;
+
+	// Coverage warning: how many of the agency's openings have no active assignee.
+	const [needsReassignment, setNeedsReassignment] = useState(0);
+	useEffect(() => {
+		if (!sessionToken || !hasAgencyReferralsAccess) return;
+		let cancelled = false;
+		(async () => {
+			try {
+				const baseUrl = await getApiBaseUrl();
+				const res = await fetch(`${baseUrl}/org/get-agency-referral-summary`, {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${sessionToken}`,
+					},
+					body: JSON.stringify({}),
+				});
+				if (res.status === 200) {
+					const data: AgencyReferralSummaryResponse = await res.json();
+					if (!cancelled) setNeedsReassignment(data.needs_reassignment_count);
+				}
+			} catch {
+				// non-fatal — just don't show the banner
+			}
+		})();
+		return () => {
+			cancelled = true;
+		};
+	}, [sessionToken, hasAgencyReferralsAccess]);
 
 	// Tile catalogue — single source of truth, grouped by section. Order within a
 	// section is the array order. `show` gates a tile on the caller's roles.
@@ -517,6 +548,24 @@ export function DashboardPage() {
 			<Title level={2} style={{ marginBottom: 24 }}>
 				{t("dashboard.title")}
 			</Title>
+
+			{needsReassignment > 0 && (
+				<Alert
+					type="warning"
+					showIcon
+					style={{ marginBottom: 24 }}
+					title={t("agencyReferrals:needsReassignmentBanner", {
+						count: needsReassignment,
+					})}
+					action={
+						<Link to="/referrals?filter=needs_reassignment">
+							<Button size="small">
+								{t("agencyReferrals:reviewOpenings")}
+							</Button>
+						</Link>
+					}
+				/>
+			)}
 
 			{myInfoLoading ? (
 				<Row gutter={[24, 24]}>

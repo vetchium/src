@@ -63,12 +63,26 @@ export interface ListAssignableAgenciesResponse {
 	agencies: AssignableAgency[];
 }
 
+// ---- Agency side: clients I have an active staffing subscription with ----
+
+// A consumer org that has an active staffing subscription with the caller's
+// agency. Available for client-default configuration even before any opening is
+// assigned.
+export interface StaffingClient {
+	consumer_org_domain: string;
+	consumer_org_name: string;
+}
+
+export interface ListStaffingClientsResponse {
+	clients: StaffingClient[];
+}
+
 // ---- Agency side: openings I'm assigned to ----
 
 export interface ListAssignedOpeningsRequest {
 	filter_client_domain?: string;
-	// "me" | "unassigned" | an agency org_user_id
-	filter_recruiter?: string;
+	// "" (all) | "me" | "needs_reassignment" | an agency org_user_id
+	filter_assignee?: string;
 	pagination_key?: string;
 	limit?: number;
 }
@@ -79,10 +93,12 @@ export interface AssignedOpening {
 	opening_number: number;
 	title: string;
 	assigned_at: string;
-	// Effective recruiters: explicit assignees if any, else the client-domain defaults.
-	recruiters: AgencyRecruiterRef[];
-	// True when `recruiters` is inherited from the client-domain default (no explicit owner).
-	recruiters_are_default: boolean;
+	// The single agency recruiter who owns this opening, or undefined when the
+	// opening has no assignee yet.
+	assignee?: AgencyRecruiterRef;
+	// True when the opening has no assignee, or its assignee is no longer an
+	// active agency user — i.e. a lead must (re)assign it.
+	needs_reassignment: boolean;
 	referral_counts: ReferralStateCounts;
 }
 
@@ -140,40 +156,40 @@ export interface ListAgencyReferralsResponse {
 	next_pagination_key?: string;
 }
 
-// ---- Agency side: internal recruiter assignment + client defaults ----
-
-export interface AssignOpeningRecruitersRequest {
-	opening_id: string;
-	consumer_org_domain: string;
-	agency_org_user_ids: string[];
-}
-
-export interface RemoveOpeningRecruiterRequest {
-	opening_id: string;
-	agency_org_user_id: string;
-}
+// ---- Agency side: single-assignee management + per-client default assignee ----
 
 export interface ListAgencyRecruitersResponse {
 	recruiters: AgencyRecruiterRef[];
 }
 
-export interface ClientDefaultRecruiter {
+// Reassign an opening's single owner to another active agency user.
+export interface ReassignOpeningRequest {
+	opening_id: string;
+	agency_org_user_id: string;
+}
+
+// The single default assignee configured for one client domain.
+export interface ClientDefaultAssignee {
 	consumer_org_domain: string;
-	recruiters: AgencyRecruiterRef[];
+	assignee: AgencyRecruiterRef;
 }
 
-export interface ListClientDefaultRecruitersResponse {
-	defaults: ClientDefaultRecruiter[];
+export interface ListClientDefaultAssigneesResponse {
+	defaults: ClientDefaultAssignee[];
 }
 
-export interface SetClientDefaultRecruitersRequest {
-	consumer_org_domain: string;
-	agency_org_user_ids: string[];
-}
-
-export interface RemoveClientDefaultRecruiterRequest {
+export interface SetClientDefaultAssigneeRequest {
 	consumer_org_domain: string;
 	agency_org_user_id: string;
+}
+
+export interface ClearClientDefaultAssigneeRequest {
+	consumer_org_domain: string;
+}
+
+// Dashboard summary: how many of the agency's openings need (re)assignment.
+export interface AgencyReferralSummaryResponse {
+	needs_reassignment_count: number;
 }
 
 export interface ValidationError {
@@ -295,33 +311,6 @@ function nonEmptyString(
 	return [];
 }
 
-function validateOrgUserIds(r: Record<string, unknown>): ValidationError[] {
-	const errors: ValidationError[] = [];
-	if (!Array.isArray(r.agency_org_user_ids)) {
-		errors.push({
-			field: "agency_org_user_ids",
-			message: "Must be an array of org_user_id strings",
-		});
-		return errors;
-	}
-	if (r.agency_org_user_ids.length === 0) {
-		errors.push({
-			field: "agency_org_user_ids",
-			message: "At least one recruiter is required",
-		});
-	}
-	for (const id of r.agency_org_user_ids) {
-		if (typeof id !== "string" || id.trim() === "") {
-			errors.push({
-				field: "agency_org_user_ids",
-				message: "Each id must be a non-empty string",
-			});
-			break;
-		}
-	}
-	return errors;
-}
-
 export function validateGetAssignedOpeningRequest(
 	req: unknown
 ): ValidationError[] {
@@ -330,19 +319,7 @@ export function validateGetAssignedOpeningRequest(
 	return nonEmptyString(r, "opening_id");
 }
 
-export function validateAssignOpeningRecruitersRequest(
-	req: unknown
-): ValidationError[] {
-	const r = reqObj(req);
-	if (!r) return [{ field: "$root", message: "Request body is required" }];
-	return [
-		...nonEmptyString(r, "opening_id"),
-		...nonEmptyString(r, "consumer_org_domain"),
-		...validateOrgUserIds(r),
-	];
-}
-
-export function validateRemoveOpeningRecruiterRequest(
+export function validateReassignOpeningRequest(
 	req: unknown
 ): ValidationError[] {
 	const r = reqObj(req);
@@ -353,18 +330,7 @@ export function validateRemoveOpeningRecruiterRequest(
 	];
 }
 
-export function validateSetClientDefaultRecruitersRequest(
-	req: unknown
-): ValidationError[] {
-	const r = reqObj(req);
-	if (!r) return [{ field: "$root", message: "Request body is required" }];
-	return [
-		...nonEmptyString(r, "consumer_org_domain"),
-		...validateOrgUserIds(r),
-	];
-}
-
-export function validateRemoveClientDefaultRecruiterRequest(
+export function validateSetClientDefaultAssigneeRequest(
 	req: unknown
 ): ValidationError[] {
 	const r = reqObj(req);
@@ -373,4 +339,12 @@ export function validateRemoveClientDefaultRecruiterRequest(
 		...nonEmptyString(r, "consumer_org_domain"),
 		...nonEmptyString(r, "agency_org_user_id"),
 	];
+}
+
+export function validateClearClientDefaultAssigneeRequest(
+	req: unknown
+): ValidationError[] {
+	const r = reqObj(req);
+	if (!r) return [{ field: "$root", message: "Request body is required" }];
+	return nonEmptyString(r, "consumer_org_domain");
 }

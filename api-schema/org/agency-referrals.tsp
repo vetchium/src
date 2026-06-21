@@ -64,24 +64,42 @@ model AssignableAgency {
 
 model ListAssignableAgenciesResponse { agencies: AssignableAgency[]; }
 
+// ---- Agency: clients I have an active staffing subscription with ----
+
+// A consumer org that has an active staffing subscription with the caller's
+// agency. Available for client-default configuration even before any opening is
+// assigned.
+model StaffingClient {
+  consumer_org_domain: string;
+  consumer_org_name:   string;
+}
+
+model ListStaffingClientsResponse { clients: StaffingClient[]; }
+
 // ---- Agency: openings I'm assigned to ----
 
 model ListAssignedOpeningsRequest {
   filter_client_domain?: string;
-  filter_recruiter?:     string;
+  // "" (all) | "me" | "needs_reassignment" | an agency org_user_id
+  filter_assignee?:      string;
   pagination_key?:       string;
   limit?:                int32;
 }
 
 model AssignedOpening {
-  opening_id:             string;
-  consumer_org_domain:    string;
-  opening_number:         int32;
-  title:                  string;
-  assigned_at:            utcDateTime;
-  recruiters:             AgencyRecruiterRef[];
-  recruiters_are_default: boolean;
-  referral_counts:        ReferralStateCounts;
+  opening_id:          string;
+  consumer_org_domain: string;
+  opening_number:      int32;
+  title:               string;
+  assigned_at:         utcDateTime;
+  // The single agency recruiter who owns this opening. Absent when the opening
+  // has no assignee yet (degenerate case: the agency had no eligible assignee at
+  // assign time).
+  assignee?:           AgencyRecruiterRef;
+  // True when the opening has no assignee, or its assignee is no longer an active
+  // agency user — i.e. a lead must (re)assign it.
+  needs_reassignment:  boolean;
+  referral_counts:     ReferralStateCounts;
 }
 
 model ListAssignedOpeningsResponse {
@@ -129,36 +147,36 @@ model ListAgencyReferralsResponse {
   next_pagination_key?: string;
 }
 
-// ---- Agency: internal recruiter assignment + client defaults ----
+// ---- Agency: single-assignee management + per-client default assignee ----
 
-model AssignOpeningRecruitersRequest {
-  opening_id:          string;
-  consumer_org_domain: string;
-  agency_org_user_ids: string[];
-}
+model ListAgencyRecruitersResponse { recruiters: AgencyRecruiterRef[]; }
 
-model RemoveOpeningRecruiterRequest {
+// Reassign an opening's single owner to another active agency user.
+model ReassignOpeningRequest {
   opening_id:         string;
   agency_org_user_id: string;
 }
 
-model ListAgencyRecruitersResponse { recruiters: AgencyRecruiterRef[]; }
-
-model ClientDefaultRecruiter {
+// The single default assignee an agency has configured for one client domain.
+model ClientDefaultAssignee {
   consumer_org_domain: string;
-  recruiters:          AgencyRecruiterRef[];
+  assignee:            AgencyRecruiterRef;
 }
 
-model ListClientDefaultRecruitersResponse { defaults: ClientDefaultRecruiter[]; }
+model ListClientDefaultAssigneesResponse { defaults: ClientDefaultAssignee[]; }
 
-model SetClientDefaultRecruitersRequest {
-  consumer_org_domain: string;
-  agency_org_user_ids: string[];
-}
-
-model RemoveClientDefaultRecruiterRequest {
+model SetClientDefaultAssigneeRequest {
   consumer_org_domain: string;
   agency_org_user_id:  string;
+}
+
+model ClearClientDefaultAssigneeRequest {
+  consumer_org_domain: string;
+}
+
+// Dashboard summary: how many of the agency's openings need (re)assignment.
+model AgencyReferralSummaryResponse {
+  needs_reassignment_count: int32;
 }
 
 @route("/org/assign-opening-agency")
@@ -176,6 +194,10 @@ model RemoveClientDefaultRecruiterRequest {
 @route("/org/list-assignable-agencies")
 @post op listAssignableAgencies():
   OkResponse<ListAssignableAgenciesResponse>;
+
+@route("/org/list-staffing-clients")
+@post op listStaffingClients():
+  OkResponse<ListStaffingClientsResponse>;
 
 @route("/org/list-assigned-openings")
 @post op listAssignedOpenings(...ListAssignedOpeningsRequest):
@@ -203,22 +225,22 @@ model RemoveClientDefaultRecruiterRequest {
 @post op listAgencyRecruiters():
   OkResponse<ListAgencyRecruitersResponse>;
 
-@route("/org/assign-opening-recruiters")
-@post op assignOpeningRecruiters(...AssignOpeningRecruitersRequest):
+@route("/org/reassign-opening")
+@post op reassignOpening(...ReassignOpeningRequest):
+  OkResponse<{}> | BadRequestResponse | NotFoundResponse | UnprocessableEntityResponse;
+
+@route("/org/list-client-default-assignees")
+@post op listClientDefaultAssignees():
+  OkResponse<ListClientDefaultAssigneesResponse>;
+
+@route("/org/set-client-default-assignee")
+@post op setClientDefaultAssignee(...SetClientDefaultAssigneeRequest):
+  OkResponse<{}> | BadRequestResponse | UnprocessableEntityResponse;
+
+@route("/org/clear-client-default-assignee")
+@post op clearClientDefaultAssignee(...ClearClientDefaultAssigneeRequest):
   OkResponse<{}> | BadRequestResponse | NotFoundResponse;
 
-@route("/org/remove-opening-recruiter")
-@post op removeOpeningRecruiter(...RemoveOpeningRecruiterRequest):
-  OkResponse<{}> | BadRequestResponse | NotFoundResponse;
-
-@route("/org/list-client-default-recruiters")
-@post op listClientDefaultRecruiters():
-  OkResponse<ListClientDefaultRecruitersResponse>;
-
-@route("/org/set-client-default-recruiters")
-@post op setClientDefaultRecruiters(...SetClientDefaultRecruitersRequest):
-  OkResponse<{}> | BadRequestResponse;
-
-@route("/org/remove-client-default-recruiter")
-@post op removeClientDefaultRecruiter(...RemoveClientDefaultRecruiterRequest):
-  OkResponse<{}> | BadRequestResponse | NotFoundResponse;
+@route("/org/get-agency-referral-summary")
+@post op getAgencyReferralSummary():
+  OkResponse<AgencyReferralSummaryResponse>;

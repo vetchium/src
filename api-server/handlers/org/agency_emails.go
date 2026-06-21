@@ -21,32 +21,6 @@ type agencyEmailRecipient struct {
 // for staffing notifications and coverage alerts.
 var agencyLeadRoleNames = []string{"org:superadmin", "org:manage_agency_recruiters"}
 
-// resolveAgencyRegion returns the home region of an agency org via the global
-// routing table. Returns ("", false) when it cannot be resolved.
-func resolveAgencyRegion(ctx context.Context, s *server.RegionalServer, agencyOrgID pgtype.UUID) (globaldb.Region, bool) {
-	orgs, err := s.Global.GetOrgsByIDs(ctx, []pgtype.UUID{agencyOrgID})
-	if err != nil || len(orgs) == 0 {
-		return "", false
-	}
-	return globaldb.Region(orgs[0].Region), true
-}
-
-// clientDefaultRecipients returns the agency's default recruiters for a specific
-// client domain, resolved against the agency's regional DB.
-func clientDefaultRecipients(ctx context.Context, db *regionaldb.Queries, agencyOrgID pgtype.UUID, consumerDomain string) []agencyEmailRecipient {
-	rows, err := db.ListClientDefaultRecruitersByAgency(ctx, agencyOrgID)
-	if err != nil {
-		return nil
-	}
-	var out []agencyEmailRecipient
-	for _, row := range rows {
-		if row.ConsumerOrgDomain == consumerDomain {
-			out = append(out, agencyEmailRecipient{Name: row.FullName, Email: row.EmailAddress})
-		}
-	}
-	return out
-}
-
 // agencyLeadRecipients returns the active agency leads (superadmins and agency
 // recruiter managers) for an org, resolved against that org's regional DB.
 func agencyLeadRecipients(ctx context.Context, db *regionaldb.Queries, orgID pgtype.UUID) []agencyEmailRecipient {
@@ -122,45 +96,33 @@ func enqueueAgencyEmails(
 	}
 }
 
-// alertUncoveredClients checks whether disabling an org user left any marketplace
-// client without an active default recruiter, and if so emails the agency leads.
-// All data lives in the agency's own (this handler's) region; it is best-effort
-// so it never blocks the disable.
-func alertUncoveredClients(ctx context.Context, s *server.RegionalServer, agencyOrgID, disabledUserID pgtype.UUID) {
+// alertNeedsReassignment emails the agency leads when a just-disabled org user is
+// still the assignee on one or more openings, so a lead can reassign them. All
+// data lives in the agency's own (this handler's) region; it is best-effort so it
+// never blocks the disable.
+func alertNeedsReassignment(ctx context.Context, s *server.RegionalServer, agencyOrgID, disabledUserID pgtype.UUID) {
 	db := s.RegionalForCtx(ctx)
-	domains, err := db.ListDefaultDomainsForRecruiter(ctx, regionaldb.ListDefaultDomainsForRecruiterParams{
+	openings, err := db.ListOpeningIDsForAssignee(ctx, regionaldb.ListOpeningIDsForAssigneeParams{
 		AgencyOrgID:     agencyOrgID,
 		AgencyOrgUserID: disabledUserID,
 	})
-	if err != nil || len(domains) == 0 {
+	if err != nil || len(openings) == 0 {
 		return
 	}
 
-	var leads []agencyEmailRecipient
-	for _, domain := range domains {
-		cnt, cErr := db.CountActiveDefaultRecruitersForDomain(ctx, regionaldb.CountActiveDefaultRecruitersForDomainParams{
-			AgencyOrgID:       agencyOrgID,
-			ConsumerOrgDomain: domain,
+	leads := dedupeRecipients(agencyLeadRecipients(ctx, db, agencyOrgID))
+	subject, text, html := openingsNeedReassignmentEmail(s.UIConfig.OrgURL, len(openings))
+	for _, rcpt := range leads {
+		if rcpt.Email == "" {
+			continue
+		}
+		_, _ = db.EnqueueEmail(ctx, regionaldb.EnqueueEmailParams{
+			EmailType:     regionaldb.EmailTemplateTypeOrgClientUncovered,
+			EmailTo:       rcpt.Email,
+			EmailSubject:  subject,
+			EmailTextBody: text,
+			EmailHtmlBody: html,
 		})
-		if cErr != nil || cnt > 0 {
-			continue // still covered by another active default recruiter
-		}
-		if leads == nil {
-			leads = dedupeRecipients(agencyLeadRecipients(ctx, db, agencyOrgID))
-		}
-		subject, text, html := clientUncoveredEmail(s.UIConfig.OrgURL, domain)
-		for _, rcpt := range leads {
-			if rcpt.Email == "" {
-				continue
-			}
-			_, _ = db.EnqueueEmail(ctx, regionaldb.EnqueueEmailParams{
-				EmailType:     regionaldb.EmailTemplateTypeOrgClientUncovered,
-				EmailTo:       rcpt.Email,
-				EmailSubject:  subject,
-				EmailTextBody: text,
-				EmailHtmlBody: html,
-			})
-		}
 	}
 }
 
@@ -244,16 +206,16 @@ func referralCandidateAppliedEmail(orgURL, candidateHandle, consumerDomain, open
 	return subject, text, html
 }
 
-// clientUncoveredEmail alerts agency leads that a client has no active recruiter
-// after an org user was disabled.
-func clientUncoveredEmail(orgURL, consumerDomain string) (subject, text, html string) {
+// openingsNeedReassignmentEmail alerts agency leads that openings were left with a
+// disabled assignee and must be reassigned.
+func openingsNeedReassignmentEmail(orgURL string, count int) (subject, text, html string) {
 	link := referralsLink(orgURL)
-	subject = fmt.Sprintf("Client %s has no active recruiter", consumerDomain)
+	subject = "Openings need a new assignee"
 	text = fmt.Sprintf(
-		"The client %s no longer has any active recruiter assigned (the assigned recruiter's account was disabled). Referrals for this client cannot be actioned until a recruiter is assigned.\n\nAssign a recruiter here: %s",
-		consumerDomain, link)
+		"%d opening(s) were assigned to a recruiter whose account was just disabled and now need to be reassigned. Referrals for them cannot be actioned until a new assignee is set.\n\nReassign them here: %s",
+		count, link)
 	html = fmt.Sprintf(
-		"<p>The client <strong>%s</strong> no longer has any active recruiter assigned (the assigned recruiter's account was disabled). Referrals for this client cannot be actioned until a recruiter is assigned.</p><p><a href=\"%s\">Assign a recruiter</a></p>",
-		html2(consumerDomain), link)
+		"<p><strong>%d</strong> opening(s) were assigned to a recruiter whose account was just disabled and now need to be reassigned. Referrals for them cannot be actioned until a new assignee is set.</p><p><a href=\"%s\">Reassign them</a></p>",
+		count, link)
 	return subject, text, html
 }

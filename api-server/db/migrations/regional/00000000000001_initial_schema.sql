@@ -796,32 +796,36 @@ CREATE UNIQUE INDEX agency_referrals_one_pending
 CREATE INDEX idx_agency_referrals_opening_candidate
     ON agency_referrals (opening_id, candidate_hub_user_global_id);
 
--- Internal agency assignment: which agency org-users own an opening. Lives in the
--- agency's own region (the opening itself is in the consumer's region). Multiple
--- recruiters may co-own one opening. consumer_org_domain is snapshotted from the
--- global assignment index so the agency can filter/resolve defaults by client
--- without a cross-region hop.
+-- Internal agency assignment: the SINGLE agency org-user who owns an opening.
+-- Lives in the agency's own region (the opening itself is in the consumer's
+-- region). Exactly one row per assigned opening, written at assign time (deleted
+-- when the consumer removes the agency). agency_org_user_id is NULL only in the
+-- degenerate case where the agency had no eligible assignee at assign time; such
+-- openings surface in the "needs reassignment" warning. consumer_org_domain is
+-- snapshotted from the global assignment index so the agency can filter/resolve
+-- defaults by client without a cross-region hop.
 CREATE TABLE agency_opening_recruiters (
     agency_org_id           UUID NOT NULL,
     opening_id              UUID NOT NULL,
     consumer_org_domain     TEXT NOT NULL,
-    agency_org_user_id      UUID NOT NULL,
+    agency_org_user_id      UUID,
     assigned_by_org_user_id UUID NOT NULL,
     created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    PRIMARY KEY (agency_org_id, opening_id, agency_org_user_id)
+    PRIMARY KEY (agency_org_id, opening_id)
 );
 CREATE INDEX idx_agency_opening_recruiters_user
     ON agency_opening_recruiters (agency_org_id, agency_org_user_id);
 
--- Per-client default recruiters: when an opening from this client has no explicit
--- recruiter, these users are its effective (overridable) recruiters.
+-- Per-client default assignee: the SINGLE agency org-user auto-assigned to future
+-- openings from this client (if set). Changing it never touches already-assigned
+-- openings (assignments are immutable snapshots).
 CREATE TABLE agency_client_default_recruiters (
     agency_org_id          UUID NOT NULL,
     consumer_org_domain    TEXT NOT NULL,
     agency_org_user_id     UUID NOT NULL,
     updated_by_org_user_id UUID NOT NULL,
     updated_at             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    PRIMARY KEY (agency_org_id, consumer_org_domain, agency_org_user_id)
+    PRIMARY KEY (agency_org_id, consumer_org_domain)
 );
 
 CREATE TABLE reference_requests (

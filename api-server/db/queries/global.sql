@@ -1365,6 +1365,23 @@ WHERE s.consumer_org_id = @consumer_org_id
 ORDER BY o.org_name
 LIMIT 100;
 
+-- name: ListStaffingClients :many
+-- Consumer orgs that have an active staffing subscription with the caller's
+-- agency (provider). Mirror of ListAssignableAgencies with provider/consumer
+-- flipped. Returns each client's primary domain + name, deduplicated across
+-- multiple staffing listings.
+SELECT DISTINCT o.org_id, o.org_name, pd.domain AS consumer_org_domain
+FROM marketplace_subscription_index s
+JOIN marketplace_listing_catalog c ON c.listing_id = s.listing_id
+JOIN orgs o ON o.org_id = s.consumer_org_id
+JOIN global_org_domains pd ON pd.org_id = o.org_id AND pd.is_primary = true
+WHERE s.provider_org_id = @agency_org_id
+  AND s.consumer_org_id <> @agency_org_id
+  AND s.status = 'active'
+  AND c.capability_ids @> ARRAY['staffing']
+ORDER BY o.org_name
+LIMIT 100;
+
 -- name: ValidateAgencyAssignmentActive :one
 SELECT a.region, a.consumer_org_id, a.consumer_org_domain, a.opening_number, a.agency_org_domain
 FROM opening_agency_assignment_index a
@@ -1375,14 +1392,11 @@ WHERE a.opening_id = @opening_id AND a.agency_org_id = @agency_org_id
   AND s.status = 'active' AND c.capability_ids @> ARRAY['staffing']
 LIMIT 1;
 
--- name: ListAssignedOpeningsByAgencyFiltered :many
--- Workspace list: assigned openings + per-state referral counts, with optional
--- client-domain filter and recruiter scoping. Scoping modes are mutually
--- exclusive: scope_all (lead, no recruiter filter); only_unassigned (no effective
--- recruiter); otherwise scope to a user's effective openings (explicit OR a
--- default-domain opening that has no explicit assignment).
-SELECT i.opening_id, i.agency_org_id, i.agency_org_domain, i.region,
-       i.consumer_org_id, i.consumer_org_domain, i.opening_number,
+-- name: ListAssignedOpeningEnrichmentByIDs :many
+-- Enriches a page of assigned openings (the agency-region table drives pagination
+-- and assignee scoping) with opening metadata + per-state referral counts. One
+-- global read keyed by the page's opening_ids.
+SELECT i.opening_id, i.consumer_org_domain, i.opening_number,
        i.title_snapshot, i.created_at,
        COALESCE(c.pending, 0)          AS cnt_pending,
        COALESCE(c.accepted_applied, 0) AS cnt_accepted_applied,
@@ -1402,22 +1416,7 @@ LEFT JOIN (
     GROUP BY opening_id
 ) c ON c.opening_id = i.opening_id
 WHERE i.agency_org_id = @agency_org_id
-  AND (sqlc.narg('filter_client_domain')::text IS NULL
-       OR i.consumer_org_domain = sqlc.narg('filter_client_domain')::text)
-  AND (
-        @scope_all::bool
-        OR (@only_unassigned::bool
-            AND NOT (i.opening_id = ANY(@explicit_any_opening_ids::uuid[]))
-            AND NOT (i.consumer_org_domain = ANY(@default_domains_all::text[])))
-        OR (NOT @scope_all::bool AND NOT @only_unassigned::bool
-            AND (i.opening_id = ANY(@scoped_explicit_opening_ids::uuid[])
-                 OR (i.consumer_org_domain = ANY(@scoped_default_domains::text[])
-                     AND NOT (i.opening_id = ANY(@explicit_any_opening_ids::uuid[])))))
-      )
-  AND (sqlc.narg('cursor_created_at')::timestamptz IS NULL
-       OR (i.created_at, i.opening_id) < (sqlc.narg('cursor_created_at')::timestamptz, sqlc.narg('cursor_opening_id')::uuid))
-ORDER BY i.created_at DESC, i.opening_id DESC
-LIMIT @row_limit;
+  AND i.opening_id = ANY(@opening_ids::uuid[]);
 
 -- name: GetAssignedOpeningForAgency :one
 SELECT i.opening_id, i.agency_org_id, i.agency_org_domain, i.region,

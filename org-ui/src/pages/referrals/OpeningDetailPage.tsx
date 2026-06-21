@@ -18,11 +18,10 @@ import type {
 	AgencyReferral,
 	AgencyReferralState,
 	AssignedOpening,
-	AssignOpeningRecruitersRequest,
 	GetAssignedOpeningResponse,
 	ListAgencyRecruitersResponse,
 	ListAgencyReferralsResponse,
-	RemoveOpeningRecruiterRequest,
+	ReassignOpeningRequest,
 } from "vetchium-specs/org/agency-referrals";
 import { getApiBaseUrl } from "../../config";
 import { useAuth } from "../../hooks/useAuth";
@@ -138,47 +137,33 @@ const OpeningDetailPage: React.FC = () => {
 		fetchRecruiters();
 	}, [fetchRecruiters]);
 
-	const updateRecruiters = useCallback(
-		async (nextIds: string[]) => {
+	const reassign = useCallback(
+		async (userId: string) => {
 			if (!sessionToken || !opening) return;
-			const prevIds = opening.recruiters_are_default
-				? []
-				: opening.recruiters.map((r) => r.org_user_id);
-			const added = nextIds.filter((id) => !prevIds.includes(id));
-			const removed = prevIds.filter((id) => !nextIds.includes(id));
 			try {
 				const baseUrl = await getApiBaseUrl();
-				if (added.length > 0) {
-					const req: AssignOpeningRecruitersRequest = {
-						opening_id: opening.opening_id,
-						consumer_org_domain: opening.consumer_org_domain,
-						agency_org_user_ids: added,
-					};
-					await fetch(`${baseUrl}/org/assign-opening-recruiters`, {
-						method: "POST",
-						headers: {
-							"Content-Type": "application/json",
-							Authorization: `Bearer ${sessionToken}`,
-						},
-						body: JSON.stringify(req),
-					});
+				const req: ReassignOpeningRequest = {
+					opening_id: opening.opening_id,
+					agency_org_user_id: userId,
+				};
+				const res = await fetch(`${baseUrl}/org/reassign-opening`, {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${sessionToken}`,
+					},
+					body: JSON.stringify(req),
+				});
+				if (res.status === 200) {
+					message.success(t("reassignSuccess"));
+					fetchAll();
+				} else if (res.status === 422) {
+					message.error(t("inactiveAssigneeError"));
+				} else if (res.status === 404) {
+					message.error(t("notAssignedError"));
+				} else {
+					message.error(t("loadError"));
 				}
-				for (const id of removed) {
-					const req: RemoveOpeningRecruiterRequest = {
-						opening_id: opening.opening_id,
-						agency_org_user_id: id,
-					};
-					await fetch(`${baseUrl}/org/remove-opening-recruiter`, {
-						method: "POST",
-						headers: {
-							"Content-Type": "application/json",
-							Authorization: `Bearer ${sessionToken}`,
-						},
-						body: JSON.stringify(req),
-					});
-				}
-				message.success(t("recruitersUpdated"));
-				fetchAll();
 			} catch {
 				message.error(t("loadError"));
 			}
@@ -273,40 +258,37 @@ const OpeningDetailPage: React.FC = () => {
 					</Text>
 
 					<Card
-						title={t("recruitersTitle")}
+						title={t("assignee")}
 						style={{ marginTop: 24, marginBottom: 24 }}
 					>
 						{isLead ? (
-							<Select
-								mode="multiple"
-								style={{ minWidth: 280, width: "100%", maxWidth: 480 }}
-								placeholder={t("assignRecruiters")}
-								options={recruiterOptions}
-								value={
-									opening.recruiters_are_default
-										? []
-										: opening.recruiters.map((r) => r.org_user_id)
-								}
-								onChange={updateRecruiters}
-							/>
-						) : opening.recruiters.length > 0 ? (
-							<Space size={[0, 4]} wrap>
-								{opening.recruiters.map((r) => (
-									<Tag key={r.org_user_id}>{r.name || r.email}</Tag>
-								))}
+							<Space align="center" wrap>
+								<Select
+									style={{ minWidth: 280, maxWidth: 480 }}
+									placeholder={t("selectAssignee")}
+									options={recruiterOptions}
+									showSearch={{ optionFilterProp: "label" }}
+									value={opening.assignee?.org_user_id}
+									status={opening.needs_reassignment ? "warning" : undefined}
+									onChange={reassign}
+								/>
+								{opening.needs_reassignment &&
+									(opening.assignee ? (
+										<Tag color="red">{t("inactiveTag")}</Tag>
+									) : (
+										<Tag color="red">{t("unassignedLabel")}</Tag>
+									))}
+							</Space>
+						) : opening.assignee ? (
+							<Space size={4}>
+								<Text>{opening.assignee.name || opening.assignee.email}</Text>
+								{opening.needs_reassignment && (
+									<Tag color="red">{t("inactiveTag")}</Tag>
+								)}
 							</Space>
 						) : (
-							<Text type="secondary">{t("noRecruiters")}</Text>
+							<Tag color="red">{t("unassignedLabel")}</Tag>
 						)}
-						{opening.recruiters_are_default &&
-							opening.recruiters.length > 0 && (
-								<div style={{ marginTop: 8 }}>
-									<Tag color="blue">{t("defaultBadge")}</Tag>
-									{opening.recruiters.map((r) => (
-										<Tag key={r.org_user_id}>{r.name || r.email}</Tag>
-									))}
-								</div>
-							)}
 					</Card>
 
 					<div
