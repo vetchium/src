@@ -7,7 +7,6 @@ const PATHS = [
 	["/marketplace/subscriptions", "agency_subscriptions"],
 	["/marketplace", "agency_discover"],
 	["/referrals", "agency_referrals"],
-	["/referrals/defaults", "agency_referrals_defaults"],
 	["/candidacies", "agency_candidacies"],
 	["/my-interviews", "agency_my_interviews"],
 	["/users", "agency_users"],

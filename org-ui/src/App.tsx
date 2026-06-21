@@ -42,13 +42,13 @@ import { EditListingPage } from "./pages/Marketplace/EditListingPage";
 import { MySubscriptionsPage } from "./pages/Marketplace/MySubscriptionsPage";
 import { SubscriptionDetailPage } from "./pages/Marketplace/SubscriptionDetailPage";
 import { MyClientsPage } from "./pages/Marketplace/MyClientsPage";
+import { ClientDetailPage } from "./pages/Marketplace/ClientDetailPage";
 import OpeningsListPage from "./pages/Openings/OpeningsListPage";
 import CreateOpeningPage from "./pages/Openings/CreateOpeningPage";
 import OpeningDetailPage from "./pages/Openings/OpeningDetailPage";
 import EditOpeningPage from "./pages/Openings/EditOpeningPage";
 import AgencyWorkspacePage from "./pages/referrals/AgencyWorkspacePage";
 import AgencyOpeningDetailPage from "./pages/referrals/OpeningDetailPage";
-import ClientDefaultsPage from "./pages/referrals/ClientDefaultsPage";
 import { ApplicationsListPage } from "./pages/applications/ApplicationsListPage";
 import { ApplicationDetailPage } from "./pages/applications/ApplicationDetailPage";
 import { CandidaciesListPage } from "./pages/candidacies/CandidaciesListPage";
@@ -468,14 +468,6 @@ function AppContent() {
 								}
 							/>
 							<Route
-								path="/referrals/defaults"
-								element={
-									<ProtectedRoute>
-										<ClientDefaultsPage />
-									</ProtectedRoute>
-								}
-							/>
-							<Route
 								path="/referrals/openings/:openingId"
 								element={
 									<ProtectedRoute>
@@ -631,6 +623,14 @@ function AppContent() {
 								}
 							/>
 							{/* Pattern routes after literal routes */}
+							<Route
+								path="/marketplace/clients/:clientDomain"
+								element={
+									<ProtectedRoute>
+										<ClientDetailPage />
+									</ProtectedRoute>
+								}
+							/>
 							<Route
 								path="/marketplace/listings/:orgDomain/:listingNumber/edit"
 								element={

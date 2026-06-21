@@ -140,9 +140,14 @@ export function MyClientsPage() {
 		{
 			title: t("clients.actions"),
 			key: "actions",
-			render: (_: unknown, _record: MarketplaceClient) => (
-				<Button size="small" onClick={() => navigate(`/marketplace/listings`)}>
-					{t("clients.viewListing")}
+			render: (_: unknown, record: MarketplaceClient) => (
+				<Button
+					size="small"
+					onClick={() =>
+						navigate(`/marketplace/clients/${record.consumer_org_domain}`)
+					}
+				>
+					{t("clients.manage")}
 				</Button>
 			),
 		},

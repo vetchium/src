@@ -11,7 +11,7 @@ import {
 } from "antd";
 import { useTranslation } from "react-i18next";
 import { Link, useSearchParams } from "react-router-dom";
-import { ArrowLeftOutlined, SettingOutlined } from "@ant-design/icons";
+import { ArrowLeftOutlined } from "@ant-design/icons";
 import type {
 	AgencyRecruiterRef,
 	AssignedOpening,
@@ -282,23 +282,9 @@ const AgencyWorkspacePage: React.FC = () => {
 				</>
 			) : (
 				<>
-					<div
-						style={{
-							display: "flex",
-							justifyContent: "space-between",
-							alignItems: "center",
-							marginBottom: 24,
-						}}
-					>
-						<Title level={2} style={{ margin: 0 }}>
-							{t("workspaceTitle")}
-						</Title>
-						{isLead && (
-							<Link to="/referrals/defaults">
-								<Button icon={<SettingOutlined />}>{t("defaultsNav")}</Button>
-							</Link>
-						)}
-					</div>
+					<Title level={2} style={{ marginBottom: 24 }}>
+						{t("workspaceTitle")}
+					</Title>
 
 					{error === "generic" && (
 						<Alert

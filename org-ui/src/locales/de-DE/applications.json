@@ -46,5 +46,6 @@
 	"labelUpdated": "Label aktualisiert",
 	"actionFailed": "Aktion fehlgeschlagen",
 	"notFound": "Bewerbung nicht gefunden",
-	"viewProfile": "Profil ansehen"
+	"viewProfile": "Profil ansehen",
+	"openResumeNewTab": "In neuem Tab öffnen"
 }

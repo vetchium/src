@@ -18,7 +18,6 @@ const PATHS = [
 	["/marketplace/subscriptions", "mp_subscriptions"],
 	["/marketplace/clients", "mp_clients"],
 	["/referrals", "referrals"],
-	["/referrals/defaults", "referrals_defaults"],
 	["/change-password", "change_password"],
 	["/this-route-does-not-exist", "notfound_404"],
 ];

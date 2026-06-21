@@ -16,6 +16,8 @@ import {
 	ApartmentOutlined,
 	ArrowLeftOutlined,
 	DownloadOutlined,
+	ExpandOutlined,
+	ExportOutlined,
 } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { Link, useParams } from "react-router-dom";
@@ -72,6 +74,9 @@ export const ApplicationDetailPage: React.FC = () => {
 	const [loading, setLoading] = useState(false);
 	const [actioning, setActioning] = useState(false);
 	const [resumeLoading, setResumeLoading] = useState(false);
+	// Object URL for the fetched resume blob, used both for the inline thumbnail
+	// preview and for opening the full document in a new tab.
+	const [resumeUrl, setResumeUrl] = useState<string | null>(null);
 
 	const post = useCallback(
 		async (path: string, body: unknown): Promise<number> => {
@@ -116,31 +121,45 @@ export const ApplicationDetailPage: React.FC = () => {
 	}, [fetchApplication]);
 
 	// The resume route is auth-gated, so a plain href can't fetch it. Pull it
-	// with the bearer token, wrap it in an object URL and open it in a new tab.
-	const openResume = useCallback(async () => {
-		if (!sessionToken || !application?.resume_download_url) return;
-		setResumeLoading(true);
-		try {
-			const apiBaseUrl = await getApiBaseUrl();
-			const res = await fetch(
-				`${apiBaseUrl}${application.resume_download_url}`,
-				{
-					headers: { Authorization: `Bearer ${sessionToken}` },
-				}
-			);
-			if (res.ok) {
-				const blob = await res.blob();
-				const objectUrl = URL.createObjectURL(blob);
-				window.open(objectUrl, "_blank", "noopener,noreferrer");
-				// Revoke after the tab has had time to load the blob.
-				setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
-			} else {
-				message.error(t("actionFailed"));
-			}
-		} finally {
-			setResumeLoading(false);
+	// with the bearer token once and wrap it in an object URL we can reuse for
+	// both the inline thumbnail preview and opening it full-size in a new tab.
+	const resumeDownloadUrl = application?.resume_download_url;
+	useEffect(() => {
+		if (!sessionToken || !resumeDownloadUrl) {
+			setResumeUrl(null);
+			return;
 		}
-	}, [sessionToken, application?.resume_download_url, t]);
+		let objectUrl: string | null = null;
+		let cancelled = false;
+		setResumeLoading(true);
+		(async () => {
+			try {
+				const apiBaseUrl = await getApiBaseUrl();
+				const res = await fetch(`${apiBaseUrl}${resumeDownloadUrl}`, {
+					headers: { Authorization: `Bearer ${sessionToken}` },
+				});
+				if (cancelled) return;
+				if (res.ok) {
+					const blob = await res.blob();
+					if (cancelled) return;
+					objectUrl = URL.createObjectURL(blob);
+					setResumeUrl(objectUrl);
+				} else {
+					message.error(t("actionFailed"));
+				}
+			} finally {
+				if (!cancelled) setResumeLoading(false);
+			}
+		})();
+		return () => {
+			cancelled = true;
+			if (objectUrl) URL.revokeObjectURL(objectUrl);
+		};
+	}, [sessionToken, resumeDownloadUrl, t]);
+
+	const openResume = useCallback(() => {
+		if (resumeUrl) window.open(resumeUrl, "_blank", "noopener,noreferrer");
+	}, [resumeUrl]);
 
 	const handleShortlist = async () => {
 		if (!applicationId) return;
@@ -228,22 +247,22 @@ export const ApplicationDetailPage: React.FC = () => {
 					<>
 						<div style={{ marginBottom: 16 }}>
 							<Title level={2} style={{ margin: 0, marginBottom: 8 }}>
-								<Link
-									to={`/u/${application.candidate_handle}`}
-									target="_blank"
-									rel="noreferrer"
-									style={{ color: "inherit" }}
-								>
-									{application.candidate_display_name ||
-										application.candidate_handle}
-								</Link>{" "}
-								<Link
-									to={`/u/${application.candidate_handle}`}
-									target="_blank"
-									rel="noreferrer"
+								{application.candidate_display_name ||
+									application.candidate_handle}{" "}
+								<Text
+									type="secondary"
 									style={{ fontSize: 16, fontWeight: "normal" }}
 								>
 									(@{application.candidate_handle})
+								</Text>{" "}
+								<Link
+									to={`/u/${application.candidate_handle}`}
+									target="_blank"
+									rel="noreferrer"
+									title={t("viewProfile")}
+									aria-label={t("viewProfile")}
+								>
+									<ExportOutlined style={{ fontSize: 18 }} />
 								</Link>
 							</Title>
 							<Space size={8} wrap>
@@ -285,6 +304,83 @@ export const ApplicationDetailPage: React.FC = () => {
 										{application.cover_letter}
 									</Paragraph>
 								</Card>
+
+								{application.resume_download_url && (
+									<Card title={t("resume")} style={{ marginBottom: 16 }}>
+										<Spin spinning={resumeLoading}>
+											{resumeUrl ? (
+												<div
+													role="button"
+													tabIndex={0}
+													onClick={openResume}
+													onKeyDown={(e) => {
+														if (e.key === "Enter" || e.key === " ") {
+															e.preventDefault();
+															openResume();
+														}
+													}}
+													title={t("openResumeNewTab")}
+													style={{
+														position: "relative",
+														width: 200,
+														height: 260,
+														border: "1px solid #f0f0f0",
+														borderRadius: 4,
+														overflow: "hidden",
+														cursor: "pointer",
+													}}
+												>
+													<iframe
+														src={`${resumeUrl}#toolbar=0&navpanes=0&view=FitH`}
+														title={t("resume")}
+														style={{
+															width: 400,
+															height: 520,
+															border: "none",
+															transform: "scale(0.5)",
+															transformOrigin: "top left",
+															pointerEvents: "none",
+														}}
+													/>
+													{/* Overlay captures the click (the iframe ignores
+													    pointer events) and surfaces the open hint. */}
+													<div
+														style={{
+															position: "absolute",
+															inset: 0,
+															display: "flex",
+															alignItems: "flex-end",
+															justifyContent: "center",
+															background:
+																"linear-gradient(to bottom, rgba(0,0,0,0) 55%, rgba(0,0,0,0.5) 100%)",
+														}}
+													>
+														<span
+															style={{
+																color: "#fff",
+																padding: "6px 8px",
+																fontSize: 12,
+															}}
+														>
+															<ExpandOutlined /> {t("openResumeNewTab")}
+														</span>
+													</div>
+												</div>
+											) : (
+												<div style={{ minHeight: 60 }} />
+											)}
+										</Spin>
+										<div style={{ marginTop: 12 }}>
+											<Button
+												icon={<DownloadOutlined />}
+												disabled={!resumeUrl}
+												onClick={openResume}
+											>
+												{t("openResumeNewTab")}
+											</Button>
+										</div>
+									</Card>
+								)}
 
 								<Card title={t("endorsements")}>
 									{application.endorsements.length === 0 ? (
@@ -340,16 +436,6 @@ export const ApplicationDetailPage: React.FC = () => {
 							</Col>
 
 							<Col xs={24} md={8}>
-								<Card style={{ marginBottom: 16 }}>
-									<Link
-										to={`/u/${application.candidate_handle}`}
-										target="_blank"
-										rel="noreferrer"
-									>
-										<Button block>{t("viewProfile")}</Button>
-									</Link>
-								</Card>
-
 								<Card title={t("applicationMeta")} style={{ marginBottom: 16 }}>
 									<Descriptions column={1} size="small">
 										<Descriptions.Item label={t("appliedDate")}>
@@ -399,18 +485,6 @@ export const ApplicationDetailPage: React.FC = () => {
 											})}
 										</div>
 									</div>
-
-									{application.resume_download_url && (
-										<Button
-											block
-											icon={<DownloadOutlined />}
-											style={{ marginTop: 16 }}
-											loading={resumeLoading}
-											onClick={openResume}
-										>
-											{t("resume")}
-										</Button>
-									)}
 								</Card>
 
 								{canAct && (

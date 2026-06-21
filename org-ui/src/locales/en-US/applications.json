@@ -46,5 +46,6 @@
 	"labelUpdated": "Label updated",
 	"actionFailed": "Action failed",
 	"notFound": "Application not found",
-	"viewProfile": "View profile"
+	"viewProfile": "View profile",
+	"openResumeNewTab": "Open in new tab"
 }
