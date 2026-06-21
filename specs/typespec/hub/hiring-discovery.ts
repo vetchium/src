@@ -25,6 +25,7 @@ export interface HubListOpeningsRequest {
 	filter_min_yoe?: number;
 	filter_tag_ids?: string[];
 	filter_only_with_colleagues?: boolean;
+	filter_region?: string;
 	pagination_key?: string;
 	limit?: number;
 }

@@ -11,6 +11,8 @@
 	"colleagues_plural": "{{count}} colleagues here",
 	"viewColleagues": "View colleagues",
 	"noOpenings": "No openings found",
+	"region": "பகுதி",
+	"noOpeningsInRegion": "இந்தப் பகுதியில் வேலைவாய்ப்புகள் இல்லை. மேலே வேறு பகுதியைத் தேர்ந்தெடுக்கவும்.",
 	"employmentType": "Type",
 	"workLocation": "Location",
 	"posted": "Posted",

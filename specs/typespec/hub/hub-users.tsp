@@ -374,6 +374,8 @@ model HubMyInfoResponse {
     email_address: EmailAddress;
     @doc("User's preferred language (BCP 47 tag)")
     preferred_language: LanguageCode;
+    @doc("User's home data-residency region code")
+    home_region: string;
     @doc("Array of role names assigned to this user")
     roles: string[];
 }

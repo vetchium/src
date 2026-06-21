@@ -26,6 +26,7 @@ model HubListOpeningsRequest {
   filter_min_yoe?:            int32;
   filter_tag_ids?:            string[];
   filter_only_with_colleagues?: boolean;
+  filter_region?:             string;
   pagination_key?:            string;
   limit?:                     int32;
 }

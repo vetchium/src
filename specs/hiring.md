@@ -145,9 +145,21 @@ Notation: each screen is reachable in the portal indicated; routes follow the ex
 
 Portal: hub-ui | Route: `/openings`
 
+Openings live in the **hiring org's region**, not the viewer's. Browse is
+therefore a **single-region** view: a `filter_region` selector (populated from
+`/global/get-regions`) chooses which region's openings to show, defaulting to
+the viewer's home region (from `/hub/myinfo`). The handler queries exactly that
+one regional DB — a user browses/applies one region at a time, so there is no
+cross-region merge. `colleague_count_here` is accurate for the home region and
+degrades to 0 for other regions (same as `get-opening`). An unknown
+`filter_region` returns 400.
+
 ```html
 <header>
 	<input type="search" placeholder="Search role / company" />
+	<select id="filter_region">
+		… (region_name options; default = viewer home region)
+	</select>
 	<select id="employment_type">
 		…
 	</select>

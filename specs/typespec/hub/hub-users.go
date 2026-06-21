@@ -327,5 +327,6 @@ type HubMyInfoResponse struct {
 	Handle            Handle              `json:"handle"`
 	EmailAddress      common.EmailAddress `json:"email_address"`
 	PreferredLanguage common.LanguageCode `json:"preferred_language"`
+	HomeRegion        string              `json:"home_region"`
 	Roles             []string            `json:"roles"`
 }

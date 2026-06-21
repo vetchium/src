@@ -38,6 +38,7 @@ func MyInfo(s *server.RegionalServer) http.HandlerFunc {
 			Handle:            hubtypes.Handle(hubUser.Handle),
 			EmailAddress:      common.EmailAddress(hubUser.EmailAddress),
 			PreferredLanguage: common.LanguageCode(hubUser.PreferredLanguage),
+			HomeRegion:        middleware.HubRegionFromContext(ctx),
 			Roles:             roles,
 		}
 

@@ -38,8 +38,12 @@ type HubListOpeningsRequest struct {
 	FilterMinYOE             *int32             `json:"filter_min_yoe,omitempty"`
 	FilterTagIDs             []string           `json:"filter_tag_ids,omitempty"`
 	FilterOnlyWithColleagues *bool              `json:"filter_only_with_colleagues,omitempty"`
-	PaginationKey            *string            `json:"pagination_key,omitempty"`
-	Limit                    *int32             `json:"limit,omitempty"`
+	// FilterRegion scopes the browse to a single data-residency region (where
+	// the hiring org lives). Absent → the caller's home region. Openings live
+	// in the org's region, so browsing is single-region by design.
+	FilterRegion  *string `json:"filter_region,omitempty"`
+	PaginationKey *string `json:"pagination_key,omitempty"`
+	Limit         *int32  `json:"limit,omitempty"`
 }
 
 type HubListOpeningsResponse struct {

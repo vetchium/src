@@ -1,5 +1,14 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Button, Empty, Input, Spin, Table, Tag, Typography } from "antd";
+import {
+	Button,
+	Empty,
+	Input,
+	Select,
+	Spin,
+	Table,
+	Tag,
+	Typography,
+} from "antd";
 import { ArrowLeftOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router-dom";
@@ -8,8 +17,11 @@ import type {
 	HubListOpeningsResponse,
 	HubOpeningCard,
 } from "vetchium-specs/hub/hiring-discovery";
+import type { Region } from "vetchium-specs/global/global";
 import { getApiBaseUrl } from "../../config";
+import { getRegions } from "../../lib/api-client";
 import { useAuth } from "../../hooks/useAuth";
+import { useMyInfo } from "../../hooks/useMyInfo";
 import { formatDateTime } from "../../utils/dateFormat";
 
 const { Title } = Typography;
@@ -18,6 +30,7 @@ const { Search } = Input;
 export const OpeningsListPage: React.FC = () => {
 	const { t, i18n } = useTranslation("openings");
 	const { sessionToken } = useAuth();
+	const { data: myInfo } = useMyInfo(sessionToken);
 	const navigate = useNavigate();
 	const [openings, setOpenings] = useState<HubOpeningCard[]>([]);
 	const [loading, setLoading] = useState(false);
@@ -25,15 +38,32 @@ export const OpeningsListPage: React.FC = () => {
 		string | undefined
 	>();
 	const [query, setQuery] = useState("");
+	const [regions, setRegions] = useState<Region[]>([]);
+	// Openings live in the hiring org's region, so the user browses one region
+	// at a time. Default to the viewer's home region once myInfo loads.
+	const [region, setRegion] = useState<string | undefined>();
+
+	useEffect(() => {
+		getRegions().then((res) => {
+			if (res.status === 200 && res.data) setRegions(res.data);
+		});
+	}, []);
+
+	useEffect(() => {
+		if (myInfo?.home_region) {
+			setRegion((prev) => prev ?? myInfo.home_region);
+		}
+	}, [myInfo]);
 
 	const fetchOpenings = useCallback(
 		async (paginationKey?: string) => {
-			if (!sessionToken) return;
+			if (!sessionToken || !region) return;
 			setLoading(true);
 			try {
 				const apiBaseUrl = await getApiBaseUrl();
 				const req: HubListOpeningsRequest = {
 					limit: 20,
+					filter_region: region,
 					...(paginationKey ? { pagination_key: paginationKey } : {}),
 					...(query ? { filter_query: query } : {}),
 				};
@@ -58,7 +88,7 @@ export const OpeningsListPage: React.FC = () => {
 				setLoading(false);
 			}
 		},
-		[sessionToken, query]
+		[sessionToken, query, region]
 	);
 
 	useEffect(() => {
@@ -112,18 +142,41 @@ export const OpeningsListPage: React.FC = () => {
 				{t("title")}
 			</Title>
 
-			<Search
-				placeholder={t("searchPlaceholder")}
-				allowClear
-				onSearch={(val) => {
-					setQuery(val);
+			<div
+				style={{
+					display: "flex",
+					flexWrap: "wrap",
+					gap: 16,
+					alignItems: "center",
+					marginBottom: 16,
 				}}
-				style={{ maxWidth: 400, marginBottom: 16 }}
-			/>
+			>
+				<Search
+					placeholder={t("searchPlaceholder")}
+					allowClear
+					onSearch={(val) => {
+						setQuery(val);
+					}}
+					style={{ maxWidth: 400 }}
+				/>
+				<Select
+					value={region}
+					onChange={(val) => {
+						setNextPaginationKey(undefined);
+						setRegion(val);
+					}}
+					style={{ minWidth: 200 }}
+					placeholder={t("region")}
+					options={regions.map((r) => ({
+						label: r.region_name,
+						value: r.region_code,
+					}))}
+				/>
+			</div>
 
 			<Spin spinning={loading}>
 				{openings.length === 0 && !loading ? (
-					<Empty description={t("noOpenings")} />
+					<Empty description={t("noOpeningsInRegion")} />
 				) : (
 					<Table
 						dataSource={openings}

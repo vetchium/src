@@ -417,5 +417,6 @@ export interface HubMyInfoResponse {
 	handle: Handle;
 	email_address: EmailAddress;
 	preferred_language: LanguageCode;
+	home_region: string;
 	roles: string[];
 }

@@ -14,6 +14,7 @@ import (
 	"vetchium-api-server.gomodule/internal/db/regionaldb"
 	"vetchium-api-server.gomodule/internal/middleware"
 	"vetchium-api-server.gomodule/internal/server"
+	"vetchium-api-server.typespec/common"
 	hub "vetchium-api-server.typespec/hub"
 )
 
@@ -104,8 +105,32 @@ func ListOpenings(s *server.RegionalServer) http.HandlerFunc {
 		}
 		cursorTs, cursorID := parseOpeningCursor(cursorKey)
 
-		// One regional round-trip: openings + colleague counts per opening
-		rows, err := s.RegionalForCtx(ctx).ListPublishedOpeningsForHub(ctx, regionaldb.ListPublishedOpeningsForHubParams{
+		// Openings live in the hiring org's region, not the viewer's home
+		// region. Browse is therefore a single-region view: the caller picks a
+		// region via filter_region (where the hiring org lives) and we query
+		// that region's DB; absent a filter we default to the viewer's home
+		// region. A user browses one region at a time — they don't apply across
+		// regions simultaneously — so a single-region query keeps clean keyset
+		// pagination without a cross-region merge.
+		//
+		// colleague_count_here is computed from the viewer's connections, which
+		// live in their home region; it is accurate for the home region and
+		// degrades to 0 for other regions (consistent with GetOpening).
+		db := s.RegionalForCtx(ctx)
+		if req.FilterRegion != nil && *req.FilterRegion != "" {
+			regionDB := s.GetRegionalDB(globaldb.Region(*req.FilterRegion))
+			if regionDB == nil {
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode([]common.ValidationError{{
+					Field:   "filter_region",
+					Message: "unknown region",
+				}})
+				return
+			}
+			db = regionDB
+		}
+
+		rows, err := db.ListPublishedOpeningsForHub(ctx, regionaldb.ListPublishedOpeningsForHubParams{
 			HubUserGlobalID:   hubUser.HubUserGlobalID,
 			CursorPublishedAt: cursorTs,
 			CursorOpeningID:   cursorID,

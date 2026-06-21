@@ -11,6 +11,8 @@
 	"colleagues_plural": "{{count}} colleagues here",
 	"viewColleagues": "View colleagues",
 	"noOpenings": "No openings found",
+	"region": "Region",
+	"noOpeningsInRegion": "No openings in this region. Try selecting a different region above.",
 	"employmentType": "Type",
 	"workLocation": "Location",
 	"posted": "Posted",

@@ -168,6 +168,81 @@ test.describe("Hub Opening Discovery", () => {
 		}
 	});
 
+	test("list-openings: filter_region surfaces openings from an org in a region other than the viewer's home", async ({
+		request,
+	}) => {
+		const hubClient = new HubAPIClient(request);
+
+		// Page through the feed for a specific region and report whether the org
+		// appears.
+		async function orgVisibleInRegion(
+			token: string,
+			domain: string,
+			filterRegion?: string
+		): Promise<boolean> {
+			let cursor: string | undefined;
+			for (let i = 0; i < 8; i++) {
+				const res = await hubClient.listOpenings(token, {
+					limit: 100,
+					...(filterRegion ? { filter_region: filterRegion } : {}),
+					...(cursor ? { pagination_key: cursor } : {}),
+				});
+				expect(res.status).toBe(200);
+				if (res.body!.openings.some((o) => o.org_domain === domain)) {
+					return true;
+				}
+				cursor = res.body!.next_pagination_key;
+				if (!cursor || res.body!.openings.length === 0) break;
+			}
+			return false;
+		}
+
+		// Org (with a published opening) lives in ind1; the candidate's home
+		// region is usa1. Browse is single-region: by default the candidate
+		// queries their home region (usa1) and does NOT see the ind1 opening,
+		// but selecting filter_region=ind1 surfaces it. This is the regression
+		// for the single-region list-openings bug (org openings live in the
+		// org's region, which a home-region-only query never reached).
+		const { email: oEmail, domain: oDomain } =
+			generateTestOrgEmail("hub-xregion-org");
+		const org = await createTestOrgAdminDirect(oEmail, TEST_PASSWORD, "ind1");
+		await createTestOpeningDirect(
+			org.orgId,
+			org.orgUserId,
+			"Cross-Region Opening",
+			"ind1"
+		);
+		const cEmail = generateTestEmail("hub-xregion-cand");
+		const cand = await createTestHubUserDirect(
+			cEmail,
+			TEST_PASSWORD,
+			"xregioncand",
+			"usa1"
+		);
+
+		try {
+			// Default (home region = usa1): the ind1 opening is not visible.
+			expect(await orgVisibleInRegion(cand.sessionToken, oDomain)).toBe(false);
+			// Explicitly browsing ind1 surfaces it.
+			expect(await orgVisibleInRegion(cand.sessionToken, oDomain, "ind1")).toBe(
+				true
+			);
+		} finally {
+			await deleteTestHubUser(cEmail).catch(() => {});
+			await deleteTestGlobalOrgDomain(oDomain).catch(() => {});
+		}
+	});
+
+	test("list-openings: unknown filter_region returns 400", async ({
+		request,
+	}) => {
+		const hubClient = new HubAPIClient(request);
+		const res = await hubClient.listOpenings(hubToken, {
+			filter_region: "nonexistent-region",
+		});
+		expect(res.status).toBe(400);
+	});
+
 	// ─── get-opening ─────────────────────────────────────────────────────────────
 
 	test("get-opening: returns correct fields including viewer-aware computed fields", async ({

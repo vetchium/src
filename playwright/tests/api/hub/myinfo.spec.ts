@@ -102,6 +102,7 @@ test.describe("GET /hub/myinfo", () => {
 			expect(response.body.handle).toBeDefined();
 			expect(response.body.email_address).toBe(email);
 			expect(response.body.preferred_language).toBeDefined();
+			expect(response.body.home_region).toBe("ind1");
 			expect(Array.isArray(response.body.roles)).toBe(true);
 			// hub:read_posts is assigned to every hub user at signup
 			expect(response.body.roles).toContain("hub:read_posts");
