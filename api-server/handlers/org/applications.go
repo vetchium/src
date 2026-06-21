@@ -220,7 +220,7 @@ func GetApplication(s *server.RegionalServer) http.HandlerFunc {
 			CandidateDisplayName:    app.ApplicantDisplayNameSnapshot,
 			CandidateEmployerStints: []interface{}{},
 			CoverLetter:             app.CoverLetter,
-			ResumeDownloadURL:       "",
+			ResumeDownloadURL:       fmt.Sprintf("/org/application-resume/%s", app.ApplicationID.String()),
 			State:                   org.ApplicationState(app.State),
 			Label:                   label,
 			AppliedAt:               app.AppliedAt.Time.UTC().Format(time.RFC3339Nano),

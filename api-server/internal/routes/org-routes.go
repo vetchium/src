@@ -182,6 +182,7 @@ func RegisterOrgRoutes(mux *http.ServeMux, s *server.RegionalServer) {
 	// Application management routes
 	mux.Handle("POST /org/list-applications", orgAuth(orgRoleViewApplications(org.ListApplications(s))))
 	mux.Handle("POST /org/get-application", orgAuth(orgRoleViewApplications(org.GetApplication(s))))
+	mux.Handle("GET /org/application-resume/{applicationId}", orgAuth(orgRoleViewApplications(org.ApplicationResume(s))))
 	mux.Handle("POST /org/shortlist-application", orgAuth(orgRoleManageApplications(org.ShortlistApplication(s))))
 	mux.Handle("POST /org/reject-application", orgAuth(orgRoleManageApplications(org.RejectApplication(s))))
 	mux.Handle("POST /org/label-application", orgAuth(orgRoleManageApplications(org.LabelApplication(s))))

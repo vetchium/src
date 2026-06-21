@@ -71,6 +71,7 @@ export const ApplicationDetailPage: React.FC = () => {
 	const [application, setApplication] = useState<OrgApplication | null>(null);
 	const [loading, setLoading] = useState(false);
 	const [actioning, setActioning] = useState(false);
+	const [resumeLoading, setResumeLoading] = useState(false);
 
 	const post = useCallback(
 		async (path: string, body: unknown): Promise<number> => {
@@ -113,6 +114,33 @@ export const ApplicationDetailPage: React.FC = () => {
 	useEffect(() => {
 		fetchApplication();
 	}, [fetchApplication]);
+
+	// The resume route is auth-gated, so a plain href can't fetch it. Pull it
+	// with the bearer token, wrap it in an object URL and open it in a new tab.
+	const openResume = useCallback(async () => {
+		if (!sessionToken || !application?.resume_download_url) return;
+		setResumeLoading(true);
+		try {
+			const apiBaseUrl = await getApiBaseUrl();
+			const res = await fetch(
+				`${apiBaseUrl}${application.resume_download_url}`,
+				{
+					headers: { Authorization: `Bearer ${sessionToken}` },
+				}
+			);
+			if (res.ok) {
+				const blob = await res.blob();
+				const objectUrl = URL.createObjectURL(blob);
+				window.open(objectUrl, "_blank", "noopener,noreferrer");
+				// Revoke after the tab has had time to load the blob.
+				setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+			} else {
+				message.error(t("actionFailed"));
+			}
+		} finally {
+			setResumeLoading(false);
+		}
+	}, [sessionToken, application?.resume_download_url, t]);
 
 	const handleShortlist = async () => {
 		if (!applicationId) return;
@@ -377,9 +405,8 @@ export const ApplicationDetailPage: React.FC = () => {
 											block
 											icon={<DownloadOutlined />}
 											style={{ marginTop: 16 }}
-											href={application.resume_download_url}
-											target="_blank"
-											rel="noreferrer"
+											loading={resumeLoading}
+											onClick={openResume}
 										>
 											{t("resume")}
 										</Button>

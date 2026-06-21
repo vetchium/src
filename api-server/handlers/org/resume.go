@@ -102,6 +102,39 @@ func CandidacyResume(s *server.RegionalServer) http.HandlerFunc {
 	}
 }
 
+// ApplicationResume streams the applicant's resume for an application. Route-gated
+// on view-applications (HR); superadmin bypasses via the middleware.
+func ApplicationResume(s *server.RegionalServer) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		orgUser := middleware.OrgUserFromContext(ctx)
+		if orgUser == nil {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		var applicationID pgtype.UUID
+		if err := applicationID.Scan(r.PathValue("applicationId")); err != nil {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		app, err := s.RegionalForCtx(ctx).GetApplicationByID(ctx, applicationID)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			s.Logger(ctx).Error("failed to get application", "error", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		if app.OrgID != orgUser.OrgID {
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
+		streamResume(ctx, w, s, app.ResumeS3Key)
+	}
+}
+
 // InterviewResume streams the candidate's resume for an interview, so a panel
 // member can review it. Caller must be on the panel or a superadmin.
 func InterviewResume(s *server.RegionalServer) http.HandlerFunc {
