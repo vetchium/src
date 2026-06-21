@@ -121,6 +121,7 @@ export default function OpeningsListPage() {
 		<Card
 			key={record.opening_id}
 			hoverable
+			onClick={() => navigate(`/openings/${record.opening_number}`)}
 			styles={{ body: { padding: 16 } }}
 			style={{ marginBottom: 12 }}
 		>
@@ -135,17 +136,12 @@ export default function OpeningsListPage() {
 				}}
 			>
 				<div style={{ flex: 1, minWidth: 0 }}>
-					<Link
-						to={`/openings/${record.opening_number}`}
-						target="_blank"
-						rel="noopener noreferrer"
-						style={{ fontSize: 16, fontWeight: 600 }}
-					>
+					<span style={{ fontSize: 16, fontWeight: 600 }}>
 						<span style={{ color: "#8c8c8c", fontFamily: "monospace" }}>
 							#{record.opening_number}
 						</span>{" "}
 						{record.title}
-					</Link>
+					</span>
 				</div>
 				<div style={{ flexShrink: 0, display: "flex", gap: 8 }}>
 					<Badge

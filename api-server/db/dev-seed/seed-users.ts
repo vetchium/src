@@ -595,6 +595,14 @@ async function seedAgency(): Promise<number> {
 
 	const token = await orgLogin(AGENCY.email, AGENCY.domain);
 	await upgradeToSilver(token);
+
+	// Invite the agency's recruiters and account managers. Sequential to keep ordering
+	// deterministic and avoid any quota race between parallel invites (silver caps
+	// org_users at 25, so the whole roster fits with room to spare).
+	for (const invitee of AGENCY_INVITEES) {
+		await inviteOrgUser(token, invitee);
+	}
+
 	return createAndPublishListing(token, AGENCY.listing);
 }
 
@@ -735,6 +743,36 @@ const AGENCY: AgencySeed = {
 	},
 };
 
+// Floo Network Staffing employees. The agency originally shipped with only its
+// superadmin (admin@floonetwork.example); these few staff give it a small but realistic
+// team so the agency-referrals + marketplace flows have more than one actor. Kept
+// deliberately small (one of each meaningful role combination). They are invited after
+// the agency is upgraded to silver (org_users cap rises from 5 to 25).
+const AGENCY_INVITEES: OrgInvitee[] = [
+	// A recruiter who sources and refers candidates into subscribed orgs' openings.
+	{
+		email: "tonks@floonetwork.example",
+		fullName: "Nymphadora Tonks",
+		roles: ["org:refer_candidates", "org:view_agency_referrals"],
+	},
+	// A senior recruiter who also manages the agency's marketplace listings.
+	{
+		email: "kingsley@floonetwork.example",
+		fullName: "Kingsley Shacklebolt",
+		roles: [
+			"org:refer_candidates",
+			"org:view_agency_referrals",
+			"org:manage_listings",
+		],
+	},
+	// An account manager who owns the subscription relationships with consumer orgs.
+	{
+		email: "amelia@floonetwork.example",
+		fullName: "Amelia Bones",
+		roles: ["org:view_agency_referrals", "org:manage_subscriptions"],
+	},
+];
+
 // Gryffindor office address.
 const GRYFFINDOR_ADDRESS: OrgAddressSeed = {
 	title: "Gryffindor Tower",
@@ -771,6 +809,14 @@ const GRYFFINDOR_INVITEES: OrgInvitee[] = [
 	{
 		email: "ron@gryffindor.example",
 		fullName: "Ron Weasley",
+		roles: ["org:view_openings", "org:view_applications"],
+	},
+	// Default non-admin user for gryffindor.example: a plain read-only member with
+	// no management privileges, handy for exercising the non-superadmin / non-manager
+	// experience out of the box (e.g. UI tiles and write actions hidden for read-only roles).
+	{
+		email: "ginny@gryffindor.example",
+		fullName: "Ginny Weasley",
 		roles: ["org:view_openings", "org:view_applications"],
 	},
 ];
@@ -928,6 +974,12 @@ async function main(): Promise<void> {
 	console.log(
 		`  capabilities: ${AGENCY.listing.capabilities.join(", ")}; subscribed consumer: gryffindor.example`
 	);
+	console.log(
+		"\nStaffing agency (floonetwork.example) staff — log in at http://localhost:3002 (password: Password123$):"
+	);
+	for (const u of AGENCY_INVITEES) {
+		console.log(`  ${u.email}  [${u.roles.join(", ")}]`);
+	}
 }
 
 main().catch((err) => {

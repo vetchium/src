@@ -198,6 +198,7 @@ The SQL seed only covers admin users; the marketplace capabilities
 | `harry@gryffindor.example`    | Harry Potter     | `manage_openings`, `manage_applications`, `view_users/addresses/costcenters` |
 | `hermione@gryffindor.example` | Hermione Granger | `view_openings`, `view_applications`                                         |
 | `ron@gryffindor.example`      | Ron Weasley      | `view_openings`, `view_applications`                                         |
+| `ginny@gryffindor.example`    | Ginny Weasley    | `view_openings`, `view_applications` (default non-admin member)              |
 
 **Staffing Agency** — log in at http://localhost:3002:
 
@@ -210,6 +211,16 @@ the marketplace and agency-referrals flows have real data out of the box.
 | Email                       | Company domain        | Region | Marketplace listing                |
 | --------------------------- | --------------------- | ------ | ---------------------------------- |
 | `admin@floonetwork.example` | `floonetwork.example` | ind1   | Staffing + Background Verification |
+
+In addition to the superadmin above, the seed invites a small agency team (log in at
+http://localhost:3002) so the agency-referrals and marketplace flows have more than one
+actor:
+
+| Email                          | Character            | Roles                                                          |
+| ------------------------------ | -------------------- | -------------------------------------------------------------- |
+| `tonks@floonetwork.example`    | Nymphadora Tonks     | `refer_candidates`, `view_agency_referrals` (recruiter)        |
+| `kingsley@floonetwork.example` | Kingsley Shacklebolt | `refer_candidates`, `view_agency_referrals`, `manage_listings` |
+| `amelia@floonetwork.example`   | Amelia Bones         | `view_agency_referrals`, `manage_subscriptions` (account mgr)  |
 
 **Marketplace capabilities** — the canonical, deliberately-small set (seeded in the
 global migration; the English `capability_id` is the stable tag, with `display_name` /
