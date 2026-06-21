@@ -24,8 +24,8 @@
 		"baseUrl": ".",
 		"paths": {
 			"@/*": ["./src/*"],
-			"vetchium-specs": ["../specs/typespec"],
-			"vetchium-specs/*": ["../specs/typespec/*"]
+			"vetchium-specs": ["../api-schema"],
+			"vetchium-specs/*": ["../api-schema/*"]
 		},
 
 		// Some stricter flags (disabled by default)

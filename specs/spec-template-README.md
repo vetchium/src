@@ -66,10 +66,10 @@ Authors: @
 
 ### API Contract
 
-TypeSpec definitions in `specs/typespec/{portal}/{feature}.tsp` with matching `.ts` and `.go` files. These are the source of truth — all request/response types must be defined here and imported everywhere else.
+TypeSpec definitions in `api-schema/{portal}/{feature}.tsp` with matching `.ts` and `.go` files. These are the source of truth — all request/response types must be defined here and imported everywhere else.
 
 ```typespec
-// specs/typespec/org/feature.tsp
+// api-schema/org/feature.tsp
 
 model CreateFooRequest {
   name: string;
@@ -164,8 +164,8 @@ LIMIT $3;
 
 All three locations must be kept in sync:
 
-- `specs/typespec/common/roles.ts`
-- `specs/typespec/common/roles.go`
+- `api-schema/common/roles.ts`
+- `api-schema/common/roles.go`
 - `api-server/db/migrations/.../00000000000001_initial_schema.sql` (INSERT into `roles`)
 
 | Role name        | Portal | Description               |
@@ -198,7 +198,7 @@ Minimum: provide `en-US` values. Add matching keys to `de-DE` and `ta-IN`.
 
 ### Test Matrix
 
-Tests in `playwright/tests/api/{portal}/foo.spec.ts`. All types imported from `specs/typespec/`.
+Tests in `playwright/tests/api/{portal}/foo.spec.ts`. All types imported from `api-schema/`.
 
 | Scenario                     | Request                              | Expected status                 |
 | ---------------------------- | ------------------------------------ | ------------------------------- |

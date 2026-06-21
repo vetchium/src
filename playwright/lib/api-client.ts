@@ -1,4 +1,4 @@
-import type { ValidationError } from "../../specs/typespec/common/common";
+import type { ValidationError } from "vetchium-specs/common/common";
 
 /**
  * Generic API response wrapper for test assertions.

@@ -45,7 +45,7 @@ staging/cloudflared/setup-tunnel.sh   # one-time: browser login + DNS routes
 
 Any edge that maps the hostnames below to the local ports works — for FOSS
 alternatives (self-hosted frp/rathole, direct IPv6) see
-[`../specs/production-deployment.md`](../specs/production-deployment.md).
+[`../docs/runbooks/production-deployment.md`](../docs/runbooks/production-deployment.md).
 
 ## 4. Run
 

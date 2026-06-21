@@ -9,7 +9,7 @@ FROM oven/bun:1-alpine AS builder
 
 WORKDIR /app
 
-COPY specs/typespec /specs/typespec
+COPY api-schema /api-schema
 COPY admin-ui/package.json admin-ui/bun.lock ./
 RUN bun install --frozen-lockfile
 COPY admin-ui/ .

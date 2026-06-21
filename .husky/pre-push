@@ -115,7 +115,7 @@ do
             fi
         }
 
-        run_tsc "specs/typespec" "specs/typespec"
+        run_tsc "api-schema" "api-schema"
         run_tsc "playwright" "playwright"
         run_tsc "admin-ui" "admin-ui"
         run_tsc "org-ui" "org-ui"

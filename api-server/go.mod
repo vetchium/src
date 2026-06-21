@@ -2,7 +2,7 @@ module vetchium-api-server.gomodule
 
 go 1.25.2
 
-replace vetchium-api-server.typespec => ../specs/typespec
+replace vetchium-api-server.typespec => ../api-schema
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.41.2

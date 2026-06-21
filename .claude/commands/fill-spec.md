@@ -14,7 +14,7 @@ Read the spec file. Verify Stage 1 `Status` is `APPROVED`. If it is not, stop an
 
 Using `specs/spec-template-README.md` as the structural guide, fill in the implementation plan:
 
-1. **API Contract** — write TypeSpec models and ops for every endpoint listed in Stage 1's API Surface. File path: `specs/typespec/{portal}/{feature}.tsp`
+1. **API Contract** — write TypeSpec models and ops for every endpoint listed in Stage 1's API Surface. File path: `api-schema/{portal}/{feature}.tsp`
 2. **Database Schema** — table and column definitions in SQL for the correct DB (global or regional). Edit `api-server/db/migrations/{global,regional}/00000000000001_initial_schema.sql` directly — no new migration files
 3. **SQL Queries** — sqlc-annotated queries covering every DB operation the handlers will need
 4. **Backend** — endpoint table (method, path, handler file, auth middleware, role), handler notes, audit log event table

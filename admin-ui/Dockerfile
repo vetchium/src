@@ -4,7 +4,7 @@ FROM oven/bun:1-alpine AS builder
 WORKDIR /app
 
 # Copy specs first (needed for vetchium-specs dependency)
-COPY specs/typespec /specs/typespec
+COPY api-schema /api-schema
 
 # Copy package files first for caching
 COPY admin-ui/package.json admin-ui/bun.lock ./

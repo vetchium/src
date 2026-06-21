@@ -2,7 +2,7 @@
 
 How Vetchium is intended to run in production, and the FOSS options for fronting a
 laptop staging environment (`staging/`). To actually run staging, see
-[`../staging/README.md`](../staging/README.md).
+[`staging/README.md`](../../staging/README.md).
 
 Guiding principle: **the edge is disposable; everything below it is
 production-faithful.** Staging swaps only the edge for a developer-friendly tunnel;
@@ -27,7 +27,7 @@ Routing: a user's region is encoded in their **session-token prefix**; any
 regional VM can serve any user by connecting to the correct regional DB (ADR-001).
 Geo steering exists for **latency + data residency**, not correctness. Future
 regions slot in as additional regional VMs — see
-[`../ADD_NEW_REGION.md`](../ADD_NEW_REGION.md).
+[`add-new-region.md`](./add-new-region.md).
 
 ---
 

@@ -6,6 +6,23 @@ Guidance for Claude Code when working with the Vetchium codebase.
 
 Vetchium is a multi-region job search and hiring platform. User types: Professionals/HubUsers, Employers/OrgUsers, Agencies/AgencyUsers. Regional data isolation with global coordination.
 
+## Repository Layout: contract vs specs vs docs
+
+Three distinct homes — do not mix them:
+
+- **`api-schema/`** — the API **contract** (TypeSpec `.tsp` source + the hand-maintained `.ts`/`.go`
+  type packages). This is **code**: it compiles (`tsp compile`) and is imported by the Go server
+  (module `vetchium-api-server.typespec`) and all UIs (package `vetchium-specs`). Always import API
+  types from here; never define them locally.
+- **`specs/`** — spec-driven-development **feature specs** for work not yet built (the `/new-spec`
+  → `/fill-spec` two-stage flow + template). Implemented specs are distilled into `docs/design/`
+  then removed.
+- **`docs/`** — durable engineering **knowledge** to consult before writing code:
+  [glossary](./docs/glossary.md), [ADRs](./docs/adr/) (e.g.
+  [ADR-001 multi-region data access](./docs/adr/adr-001-multi-region-data-access.md)),
+  [design references](./docs/design/) (hiring lifecycle, agency referrals),
+  [runbooks](./docs/runbooks/), and trackers (api-ui-inconsistencies, known-issues).
+
 ## Tech Stack
 
 - **Backend**: Go, sqlc for type-safe SQL
@@ -36,14 +53,14 @@ Vetchium is a multi-region job search and hiring platform. User types: Professio
 ### Development Process
 
 1. Write spec under `specs/` using the template at `specs/spec-template-README.md`
-2. Add/update `.tsp` files under `specs/typespec/` — confirm API endpoints with Human before proceeding
+2. Add/update `.tsp` files under `api-schema/` — confirm API endpoints with Human before proceeding
 3. Implement matching `.ts` and `.go` type/validation files from the `.tsp`
 4. Implement backend + frontend — plan all file changes first
-   - **CRITICAL**: All API request/response types MUST be imported from `specs/typespec/`; never define locally
-   - Before writing any fetch/API call in a `.tsx` file, read the relevant `.ts` file in `specs/typespec/` to confirm the exact type names and field names — do NOT guess or reconstruct them from memory
-   - Before writing handler code in a `.go` file, read the relevant `.go` file in `specs/typespec/` to confirm the exact type names and field names
+   - **CRITICAL**: All API request/response types MUST be imported from `api-schema/`; never define locally
+   - Before writing any fetch/API call in a `.tsx` file, read the relevant `.ts` file in `api-schema/` to confirm the exact type names and field names — do NOT guess or reconstruct them from memory
+   - Before writing handler code in a `.go` file, read the relevant `.go` file in `api-schema/` to confirm the exact type names and field names
 5. All DB SQL goes in `api-server/db/` `.sql` files via sqlc — no SQL in `.go` files
-6. Write Playwright tests under `playwright/` — import all types from `specs/typespec/`
+6. Write Playwright tests under `playwright/` — import all types from `api-schema/`
 7. **Format before every commit (non-negotiable)** — run `bun run format` from `src/`
    (this runs `goimports -w` for Go and `prettier --write` for md/ts/tsx/js/json/yaml across
    the repo). A husky **pre-commit** hook auto-formats staged files and a **pre-push** hook
@@ -55,7 +72,7 @@ Vetchium is a multi-region job search and hiring platform. User types: Professio
 
 ```bash
 # TypeSpec
-cd specs/typespec && bun install && tsp compile .
+cd api-schema && bun install && tsp compile .
 
 # Frontend (hub-ui, admin-ui, etc.)
 bun install && bun run dev|build|lint
@@ -102,7 +119,7 @@ When adding a storage feature: use AWS SDK v2 with `UsePathStyle: true` (require
 - **Global DB**: Cross-region lookups, user identity, email hashes (thin routing table)
 - **Regional DBs** (ind1:5433, usa1:5434, deu1:5435): All PII, credentials, mutable data
 
-See [ADD_NEW_REGION.md](./ADD_NEW_REGION.md) for the region registry architecture and runbook for adding a new region.
+See [docs/runbooks/add-new-region.md](./docs/runbooks/add-new-region.md) for the region registry architecture and runbook for adding a new region.
 
 **Migrations**: Edit existing `api-server/db/migrations/{global,regional}/00000000000001_initial_schema.sql` directly (no new migration files until production). No new indexes for performance; use `UNIQUE` in CREATE statements instead.
 
@@ -341,7 +358,7 @@ next_pagination_key?: string;
 
 `.tsp` files are the source of truth. Keep `.ts` and `.go` files in sync manually (tsp compile only generates OpenAPI specs).
 
-**CRITICAL**: Import all API types from `specs/typespec/`. Never define API schemas locally — in any file (`.tsx`, `.ts`, `.go`, or Playwright test files).
+**CRITICAL**: Import all API types from `api-schema/`. Never define API schemas locally — in any file (`.tsx`, `.ts`, `.go`, or Playwright test files).
 
 ### TypeScript / Frontend (`.tsx`, `.ts`, Playwright)
 
@@ -363,7 +380,7 @@ const data = await response.json() as { title: string; ... };     // inline cast
 
 Rules:
 
-- **Read `specs/typespec/{portal}/{resource}.ts` before writing any fetch call** — confirm exact field names and types; never reconstruct from memory or copy from another component
+- **Read `api-schema/{portal}/{resource}.ts` before writing any fetch call** — confirm exact field names and types; never reconstruct from memory or copy from another component
 - All `fetch()` request bodies must be typed with the spec's request type
 - All `response.json()` casts must use the spec's response type
 - All list responses must use the spec's list response type (e.g. `ListOpeningsResponse`) — not an ad-hoc `{ openings: Opening[] }`
@@ -389,7 +406,7 @@ type createOpeningRequest struct { Title string `json:"title"`; ... }
 
 Rules:
 
-- **Read `specs/typespec/{portal}/{resource}.go` before writing the handler** — confirm exact type and field names
+- **Read `api-schema/{portal}/{resource}.go` before writing the handler** — confirm exact type and field names
 - Use the spec type directly for `json.Decode` and call `.Validate()` on it
 - Never copy-paste fields into a local struct
 
@@ -491,7 +508,7 @@ Rules:
 Rules:
 
 - Always plural kebab-case for the resource segment: `/cost-centers` not `/cost-center` or `/costCenters`
-- Never use `-management` suffix or `manage-` prefix for list pages — those are legacy violations documented in `specs/api-ui-inconsistencies.md`
+- Never use `-management` suffix or `manage-` prefix for list pages — those are legacy violations documented in `docs/api-ui-inconsistencies.md`
 - Settings-scoped config (plan, addresses) lives under `/settings/`; core admin features (users, domains) live at top level
 
 ### i18n
@@ -535,7 +552,7 @@ Every new feature MUST complete this checklist.
 
 ### Role Naming: `portal:action`
 
-Current roles — see `specs/typespec/common/roles.ts` and `MEMORY.md` for the full list. Key roles:
+Current roles — see `api-schema/common/roles.ts` and `MEMORY.md` for the full list. Key roles:
 
 - `admin:superadmin` / `org:superadmin` — bypass all role checks
 - `hub:read_posts` (auto-assigned at signup), `hub:write_posts`, `hub:apply_jobs`
@@ -559,7 +576,7 @@ Always add a test scenario for this shortcut path alongside the normal submit te
 
 ### Checklist: Adding a New Feature
 
-1. **Define roles** (if new): add to initial_schema.sql + `specs/typespec/common/roles.ts` AND `specs/typespec/common/roles.go` (both must be kept in sync)
+1. **Define roles** (if new): add to initial_schema.sql + `api-schema/common/roles.ts` AND `api-schema/common/roles.go` (both must be kept in sync)
 2. **Protect backend route**:
    ```go
    // same pattern for all portals

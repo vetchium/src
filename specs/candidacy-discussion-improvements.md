@@ -16,7 +16,7 @@ write to:
 Messages are stored in the regional `candidacy_comments` table and exposed through
 `POST /hub/add-candidacy-comment`, `POST /org/add-candidacy-comment`, and the
 `get-candidacy` / `get-my-candidacy` reads (`CandidacyComment` in
-`specs/typespec/{org,hub}/candidacies.tsp`).
+`api-schema/{org,hub}/candidacies.tsp`).
 
 Today the thread is a flat list rendered with an Ant Design `Timeline`: every
 message is loaded and shown at once, in creation order, with no notion of read

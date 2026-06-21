@@ -38,13 +38,13 @@ and the org side stays at "Offered".
 **Root cause:** there is **no accept/decline-offer endpoint anywhere**. Hub routes expose
 only `GET /hub/offer-letter/{candidacyId}` (`api-server/internal/routes/hub-routes.go`);
 there is no `accept-offer` / `decline-offer` in hub or org routes or in
-`specs/typespec/`.
+`api-schema/`.
 
 **Decide + fix:** either (a) this is intentional and acceptance is out-of-band — then say
 so in the UI (e.g. "Respond to this offer outside the platform") so it doesn't read as a
 missing button; or (b) add the missing capability: a `hub:respond-offer` (accept/decline)
 endpoint + TypeSpec types + hub UI buttons, with the org candidacy moving to a terminal
-`hired` / `offer_declined` state. See `specs/hiring.md` for the candidacy state machine.
+`hired` / `offer_declined` state. See [`design/hiring-lifecycle.md`](./design/hiring-lifecycle.md) for the candidacy state machine.
 
 ---
 

@@ -31,7 +31,7 @@ cross-region read-write database access from all regional API servers**.
 | nginx Load Balancer            | 1                                    | Distributes HTTP traffic across all regional API servers (round-robin).                                                                |
 | Object Storage (S3-compatible) | N (one per region)                   | Profile pictures and file uploads. Each region has its own bucket reached via its own S3 endpoint, mirroring the regional DB topology. |
 
-New regions are added by following [ADD_NEW_REGION.md](../ADD_NEW_REGION.md). Every new region
+New regions are added by following [add-new-region.md](../runbooks/add-new-region.md). Every new region
 adds one regional DB and one regional API server; the architecture described here applies
 identically to each.
 

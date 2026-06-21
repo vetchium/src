@@ -126,7 +126,7 @@ open exploratory/output/shots/      # screenshots, in order
 
 See [`playwright/exploratory/README.md`](./playwright/exploratory/README.md) for the
 phase-by-phase breakdown, env vars (`HEADED=1`, `EXPLORE_OUT`, …) and notes. Findings
-from the latest run are written up in [`specs/issues.md`](./specs/issues.md).
+from the latest run are written up in [`docs/known-issues.md`](./docs/known-issues.md).
 
 The CI stack uses short token durations to enable expiry scenario tests:
 
@@ -155,7 +155,7 @@ The `staging/` directory runs the **whole platform on one machine**, reachable o
 real TLS subdomains through a Cloudflare tunnel (or any edge you point at it).
 
 See [`staging/README.md`](./staging/README.md) for the full setup, run, and
-hostname→port reference, and [`specs/production-deployment.md`](./specs/production-deployment.md)
+hostname→port reference, and [`docs/runbooks/production-deployment.md`](./docs/runbooks/production-deployment.md)
 for FOSS edge alternatives (self-hosted frp/rathole, direct IPv6).
 
 ## Test / Seed Users
@@ -239,9 +239,12 @@ src/
 │   │   ├── queries/     # sqlc SQL queries
 │   │   └── dev-seed/    # Seed data for development
 │   └── handlers/        # HTTP handlers (admin/, hub/, org/)
-├── specs/               # Feature specs and TypeSpec API contracts
-│   ├── typespec/        # Source of truth for all API types
-│   └── financial-calculator.html # Interactive SaaS financial projection tool
+├── api-schema/          # API contract: TypeSpec source of truth + .ts/.go type packages
+├── specs/               # Spec-driven-development feature specs (not-yet-built work)
+├── docs/                # Durable knowledge: ADRs, design refs, runbooks, glossary
+│   ├── adr/             # Architecture Decision Records (+ figures)
+│   ├── design/          # Distilled design references (hiring lifecycle, agency referrals)
+│   └── runbooks/        # add-new-region, production-deployment
 ├── hub-ui/              # Professional portal (React + Bun)
 ├── org-ui/              # Org portal (React + Bun)
 ├── admin-ui/            # Admin portal (React + Bun)
@@ -254,17 +257,17 @@ src/
 ## Development Workflow
 
 1. **Write the spec** — run `/new-spec` in Claude Code; review and approve Stage 1, then run `/fill-spec` for the implementation plan
-2. Add/update `.tsp` files under `specs/typespec/` and confirm API endpoints before proceeding
+2. Add/update `.tsp` files under `api-schema/` and confirm API endpoints before proceeding
 3. Implement backend handler in `api-server/handlers/`; add SQL queries and run `sqlc generate`
 4. Implement UI changes in the relevant `*-ui/` directory
 5. Write Playwright tests in `playwright/tests/api/`
 
 See [CLAUDE.md](./CLAUDE.md) for detailed conventions, patterns, and architecture decisions.
 
-See [ADD_NEW_REGION.md](./ADD_NEW_REGION.md) for the region architecture runbook.
+See [docs/runbooks/add-new-region.md](./docs/runbooks/add-new-region.md) for the region architecture runbook.
 
 ## Architecture Decision Records
 
-| ADR                                                    | Title                                       | Status   |
-| ------------------------------------------------------ | ------------------------------------------- | -------- |
-| [ADR-001](./specs/adr-001-multi-region-data-access.md) | Multi-Region Distributed Write Architecture | Accepted |
+| ADR                                                       | Title                                       | Status   |
+| --------------------------------------------------------- | ------------------------------------------- | -------- |
+| [ADR-001](./docs/adr/adr-001-multi-region-data-access.md) | Multi-Region Distributed Write Architecture | Accepted |
