@@ -354,7 +354,7 @@ Round-trip budgets:
   writes to opening's regional assignment table and the global assignment index.
 - `apply-for-opening` (extended): stays on the existing single-region application write path;
   attribution is set in the same regional tx; agency notifications are best-effort post-commit
-  (cross-region `EnqueueEmail` in each agency's region), mirroring `notifyColleaguesOfApplication`.
+  (cross-region `EnqueueEmail` in each agency's region).
 
 ### API Surface
 
@@ -702,7 +702,7 @@ LIMIT @lim;
   opening with pending referrals: require `direct_no_agency_affirmation=true` (else 400), set
   `direct_affirmed_no_agency`, mark pending referrals `not_selected`. Update global referral
   index states (compensating). Post-commit, best-effort: notify each referring agency
-  (`EnqueueEmail` in the agency's region, like `notifyColleaguesOfApplication`).
+  (`EnqueueEmail` in the agency's region).
 - **list-referrals-received / list-agency-referrals**: keyset over the global index, then one
   bulk regional fetch per region (`ListAgencyReferralsByIDs` / details) — no N+1.
 - **list-applications (extend)**: add `filter_agency` → `referring_agency_domain = $x`, or

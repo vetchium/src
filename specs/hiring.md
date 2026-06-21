@@ -48,7 +48,7 @@ Grouped by persona. Every item below is an acceptance test for Stage 1 sign-off.
 - [ ] Can browse `published` openings without authentication for public fields; full apply requires login + `hub:apply_jobs` role.
 - [ ] Sees a "N of your colleagues work here" count on opening detail when ≥1 connection has an `active` work-email stint at **any** verified domain owned by the opening's org (an org can own multiple domains via the existing claim-domain flow; all of them count).
 - [ ] Can click through to a list of those colleagues' handles (deliberate action, not passive display). The list shows, for each colleague, the shared domain + overlap years (so the candidate can recognise the relationship), plus the colleague's current employer domain at this org.
-- [ ] Can apply to an opening in `published` state via a **multipart/form-data** POST to `/hub/apply-for-opening` carrying: `cover_letter` (text field, 100–5000 chars), `resume` (file part, PDF or DOCX, ≤5 MB; magic-byte check enforced server-side), `org_domain` (text), `opening_number` (text/int), optional repeated `endorser_handles[]` (≤10), optional `endorsement_request_note`, optional `notify_colleagues_at_target` (`"true"`/`"false"`). The handler streams the file to the **opening's** region S3 bucket inside the same transaction that creates the application row. No presigned URLs — the codebase does not use that pattern (verified against `admin/upload-tag-icon.go`).
+- [ ] Can apply to an opening in `published` state via a **multipart/form-data** POST to `/hub/apply-for-opening` carrying: `cover_letter` (text field, 100–5000 chars), `resume` (file part, PDF or DOCX, ≤5 MB; magic-byte check enforced server-side), `org_domain` (text), `opening_number` (text/int), optional repeated `endorser_handles[]` (≤10), optional `endorsement_request_note`. The handler streams the file to the **opening's** region S3 bucket inside the same transaction that creates the application row. No presigned URLs — the codebase does not use that pattern (verified against `admin/upload-tag-icon.go`).
 - [ ] Cannot apply if any other application of theirs at the same org is in `applied`, `shortlisted`, or candidacy state `interviewing` / `offered` (409 with `live_application_exists`).
 - [ ] Cannot apply twice to the exact same opening regardless of prior outcome (409 with `already_applied`).
 - [ ] Cannot apply during the org's cool-off window if a prior application **reached candidacy** at that org. The cool-off window is measured from the prior application's `applied_at` (not from shortlist time, per `hiring-flow.md`). 422 with `cool_off_active` and the earliest re-apply date in the body. Cool-off is per-org, default 90 days; `0` disables.
@@ -64,7 +64,6 @@ Grouped by persona. Every item below is an acceptance test for Stage 1 sign-off.
 - [ ] Can request endorsements at apply-time or any time while the application is in `applied`. Per (application, endorser) pair only one request may exist.
 - [ ] Can remove any endorsement from own application at any time (even after shortlist) — does not delete the endorsement; sets `hidden_by_candidate=true` so it is no longer surfaced to the employer.
 - [ ] Can re-show a previously hidden endorsement while application is still in `applied`.
-- [ ] Per-application preference `notify_colleagues_at_target` overrides the global setting; default OFF.
 - [ ] Sees "Opportunities through your network" tile on hub dashboard: for each company where ≥1 connection currently works, surfaces up to 3 `published` openings ranked by recency.
 - [ ] Can opt in/out globally via `/hub/set-notify-connections-on-apply`. Setting only affects future applications.
 - [ ] Receives a referral notification listing the referrer's handle, domain + overlap years, the opening title, and the referrer's statement. Can: accept-and-prefill-apply, decline, or ignore (auto-expires after 30 days).
@@ -242,11 +241,6 @@ Portal: hub-ui | Route: `/openings/:orgDomain/:openingNumber/apply`
 		render="{handle} — {shared_domain} {start}–{end} ({years}y)"
 	/>
 	<textarea name="endorsement_request_note" maxlength="500"></textarea>
-
-	<label>
-		<input type="checkbox" name="notify_colleagues_at_target" value="true" />
-		Let my connections currently at this company know I applied (default off)
-	</label>
 
 	<button type="submit">Submit application</button>
 </form>
@@ -597,65 +591,65 @@ Portal: org-ui | Route: `/candidacies/:candidacyId/request-references`
 
 ### API Surface
 
-| Endpoint                                       | Portal | Caller      | Intent                                                                                                                      |
-| ---------------------------------------------- | ------ | ----------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `POST /hub/list-openings`                      | hub    | hub user    | Browse openings; embeds colleague-count per opening                                                                         |
-| `POST /hub/get-opening`                        | hub    | hub user    | Opening detail incl. colleague count and per-domain stints overlap                                                          |
-| `POST /hub/list-colleagues-at-employer`        | hub    | hub user    | Reveal colleague handles for a given org domain (explicit click)                                                            |
-| `POST /hub/list-network-opportunities`         | hub    | hub user    | Passive discovery feed                                                                                                      |
-| `POST /hub/apply-for-opening`                  | hub    | hub user    | Submit an application (**multipart/form-data**: cover_letter, resume file, endorser_handles[], notify_colleagues_at_target) |
-| `POST /hub/withdraw-application`               | hub    | hub user    | Withdraw while `applied`                                                                                                    |
-| `POST /hub/list-my-applications`               | hub    | hub user    | List own applications across regions                                                                                        |
-| `POST /hub/get-my-application`                 | hub    | hub user    | Detail (includes endorsements)                                                                                              |
-| `POST /hub/request-endorsements`               | hub    | hub user    | Send endorsement requests for an application                                                                                |
-| `POST /hub/list-endorsement-requests-incoming` | hub    | hub user    | Endorsement requests I received                                                                                             |
-| `POST /hub/list-endorsement-requests-outgoing` | hub    | hub user    | Endorsement requests I sent                                                                                                 |
-| `POST /hub/write-endorsement`                  | hub    | hub user    | Write/respond to a request OR write unsolicited (if candidate opted in)                                                     |
-| `POST /hub/update-endorsement`                 | hub    | hub user    | Edit own endorsement while application is `applied`                                                                         |
-| `POST /hub/decline-endorsement-request`        | hub    | hub user    | Decline silently                                                                                                            |
-| `POST /hub/hide-endorsement-on-application`    | hub    | hub user    | Candidate hides one of their own endorsements                                                                               |
-| `POST /hub/show-endorsement-on-application`    | hub    | hub user    | Re-show a hidden endorsement (only while `applied`)                                                                         |
-| `POST /hub/nominate-colleague-for-role`        | hub    | hub user    | Current-employee referral                                                                                                   |
-| `POST /hub/list-referrals-received`            | hub    | hub user    | Candidate's referral inbox                                                                                                  |
-| `POST /hub/list-referrals-made`                | hub    | hub user    | Referrer's history                                                                                                          |
-| `POST /hub/accept-referral`                    | hub    | hub user    | Accept (does not submit; navigates to apply form with statement prefilled)                                                  |
-| `POST /hub/decline-referral`                   | hub    | hub user    | Decline silently                                                                                                            |
-| `POST /hub/list-my-candidacies`                | hub    | hub user    | Active candidacies                                                                                                          |
-| `POST /hub/get-my-candidacy`                   | hub    | hub user    | Candidacy detail                                                                                                            |
-| `POST /hub/add-candidacy-comment`              | hub    | hub user    | Comment on candidacy                                                                                                        |
-| `POST /hub/rsvp-interview`                     | hub    | hub user    | Candidate RSVP                                                                                                              |
-| `POST /hub/list-reference-requests-incoming`   | hub    | hub user    | Both 'asking me to nominate' and 'I was nominated' lists (paginated, typed)                                                 |
-| `POST /hub/nominate-references`                | hub    | hub user    | Candidate nominates                                                                                                         |
-| `POST /hub/accept-reference-nomination`        | hub    | hub user    | Nominee accepts                                                                                                             |
-| `POST /hub/decline-reference-nomination`       | hub    | hub user    | Nominee declines silently                                                                                                   |
-| `POST /hub/submit-reference-response`          | hub    | hub user    | Submit structured answers                                                                                                   |
-| `POST /hub/set-notify-connections-on-apply`    | hub    | hub user    | Global preference toggle                                                                                                    |
-| `POST /hub/set-allow-unsolicited-endorsements` | hub    | hub user    | Global preference toggle                                                                                                    |
-| `POST /org/list-applications`                  | org    | org user    | For a given opening                                                                                                         |
-| `POST /org/get-application`                    | org    | org user    | Detail incl. endorsements, work history                                                                                     |
-| `POST /org/shortlist-application`              | org    | org user    | Applied → shortlisted; creates candidacy                                                                                    |
-| `POST /org/reject-application`                 | org    | org user    | Applied → rejected                                                                                                          |
-| `POST /org/label-application`                  | org    | org user    | Set/clear Green/Yellow/Red while `applied`                                                                                  |
-| `POST /org/list-candidacies`                   | org    | org user    | Across openings of own org                                                                                                  |
-| `POST /org/get-candidacy`                      | org    | org user    | Full detail                                                                                                                 |
-| `POST /org/add-candidacy-comment`              | org    | org user    | Comment thread                                                                                                              |
-| `POST /org/schedule-interview`                 | org    | org user    | Create interview                                                                                                            |
-| `POST /org/update-interview`                   | org    | org user    | Reschedule / edit description before completion                                                                             |
-| `POST /org/cancel-interview`                   | org    | org user    | Cancel while scheduled                                                                                                      |
-| `POST /org/add-interviewer`                    | org    | org user    | Add up to 5 total                                                                                                           |
-| `POST /org/remove-interviewer`                 | org    | org user    | Remove                                                                                                                      |
-| `POST /org/list-interviews`                    | org    | org user    | For a candidacy or by date range                                                                                            |
-| `POST /org/get-interview`                      | org    | org user    | Detail incl. feedback (only after submitted)                                                                                |
-| `POST /org/rsvp-interview`                     | org    | org user    | Interviewer RSVP                                                                                                            |
-| `POST /org/submit-interview-feedback`          | org    | interviewer | Submit assessment; transitions interview to `completed`                                                                     |
-| `POST /org/extend-offer`                       | org    | org user    | Candidacy → `offered`; cancels scheduled interviews                                                                         |
-| `POST /org/request-references`                 | org    | org user    | Open a reference request on a candidacy                                                                                     |
-| `POST /org/list-reference-nominations`         | org    | org user    | See who candidate nominated and their state                                                                                 |
-| `POST /org/list-reference-responses`           | org    | org user    | Read submitted responses                                                                                                    |
-| `POST /org/get-hiring-settings`                | org    | org user    | Read cool-off period                                                                                                        |
-| `POST /org/update-hiring-settings`             | org    | org user    | Write cool-off period                                                                                                       |
-| `POST /org/add-watcher`                        | org    | org user    | Up to 25 per opening                                                                                                        |
-| `POST /org/remove-watcher`                     | org    | org user    | Remove a watcher                                                                                                            |
+| Endpoint                                       | Portal | Caller      | Intent                                                                                         |
+| ---------------------------------------------- | ------ | ----------- | ---------------------------------------------------------------------------------------------- |
+| `POST /hub/list-openings`                      | hub    | hub user    | Browse openings; embeds colleague-count per opening                                            |
+| `POST /hub/get-opening`                        | hub    | hub user    | Opening detail incl. colleague count and per-domain stints overlap                             |
+| `POST /hub/list-colleagues-at-employer`        | hub    | hub user    | Reveal colleague handles for a given org domain (explicit click)                               |
+| `POST /hub/list-network-opportunities`         | hub    | hub user    | Passive discovery feed                                                                         |
+| `POST /hub/apply-for-opening`                  | hub    | hub user    | Submit an application (**multipart/form-data**: cover_letter, resume file, endorser_handles[]) |
+| `POST /hub/withdraw-application`               | hub    | hub user    | Withdraw while `applied`                                                                       |
+| `POST /hub/list-my-applications`               | hub    | hub user    | List own applications across regions                                                           |
+| `POST /hub/get-my-application`                 | hub    | hub user    | Detail (includes endorsements)                                                                 |
+| `POST /hub/request-endorsements`               | hub    | hub user    | Send endorsement requests for an application                                                   |
+| `POST /hub/list-endorsement-requests-incoming` | hub    | hub user    | Endorsement requests I received                                                                |
+| `POST /hub/list-endorsement-requests-outgoing` | hub    | hub user    | Endorsement requests I sent                                                                    |
+| `POST /hub/write-endorsement`                  | hub    | hub user    | Write/respond to a request OR write unsolicited (if candidate opted in)                        |
+| `POST /hub/update-endorsement`                 | hub    | hub user    | Edit own endorsement while application is `applied`                                            |
+| `POST /hub/decline-endorsement-request`        | hub    | hub user    | Decline silently                                                                               |
+| `POST /hub/hide-endorsement-on-application`    | hub    | hub user    | Candidate hides one of their own endorsements                                                  |
+| `POST /hub/show-endorsement-on-application`    | hub    | hub user    | Re-show a hidden endorsement (only while `applied`)                                            |
+| `POST /hub/nominate-colleague-for-role`        | hub    | hub user    | Current-employee referral                                                                      |
+| `POST /hub/list-referrals-received`            | hub    | hub user    | Candidate's referral inbox                                                                     |
+| `POST /hub/list-referrals-made`                | hub    | hub user    | Referrer's history                                                                             |
+| `POST /hub/accept-referral`                    | hub    | hub user    | Accept (does not submit; navigates to apply form with statement prefilled)                     |
+| `POST /hub/decline-referral`                   | hub    | hub user    | Decline silently                                                                               |
+| `POST /hub/list-my-candidacies`                | hub    | hub user    | Active candidacies                                                                             |
+| `POST /hub/get-my-candidacy`                   | hub    | hub user    | Candidacy detail                                                                               |
+| `POST /hub/add-candidacy-comment`              | hub    | hub user    | Comment on candidacy                                                                           |
+| `POST /hub/rsvp-interview`                     | hub    | hub user    | Candidate RSVP                                                                                 |
+| `POST /hub/list-reference-requests-incoming`   | hub    | hub user    | Both 'asking me to nominate' and 'I was nominated' lists (paginated, typed)                    |
+| `POST /hub/nominate-references`                | hub    | hub user    | Candidate nominates                                                                            |
+| `POST /hub/accept-reference-nomination`        | hub    | hub user    | Nominee accepts                                                                                |
+| `POST /hub/decline-reference-nomination`       | hub    | hub user    | Nominee declines silently                                                                      |
+| `POST /hub/submit-reference-response`          | hub    | hub user    | Submit structured answers                                                                      |
+| `POST /hub/set-notify-connections-on-apply`    | hub    | hub user    | Global preference toggle                                                                       |
+| `POST /hub/set-allow-unsolicited-endorsements` | hub    | hub user    | Global preference toggle                                                                       |
+| `POST /org/list-applications`                  | org    | org user    | For a given opening                                                                            |
+| `POST /org/get-application`                    | org    | org user    | Detail incl. endorsements, work history                                                        |
+| `POST /org/shortlist-application`              | org    | org user    | Applied → shortlisted; creates candidacy                                                       |
+| `POST /org/reject-application`                 | org    | org user    | Applied → rejected                                                                             |
+| `POST /org/label-application`                  | org    | org user    | Set/clear Green/Yellow/Red while `applied`                                                     |
+| `POST /org/list-candidacies`                   | org    | org user    | Across openings of own org                                                                     |
+| `POST /org/get-candidacy`                      | org    | org user    | Full detail                                                                                    |
+| `POST /org/add-candidacy-comment`              | org    | org user    | Comment thread                                                                                 |
+| `POST /org/schedule-interview`                 | org    | org user    | Create interview                                                                               |
+| `POST /org/update-interview`                   | org    | org user    | Reschedule / edit description before completion                                                |
+| `POST /org/cancel-interview`                   | org    | org user    | Cancel while scheduled                                                                         |
+| `POST /org/add-interviewer`                    | org    | org user    | Add up to 5 total                                                                              |
+| `POST /org/remove-interviewer`                 | org    | org user    | Remove                                                                                         |
+| `POST /org/list-interviews`                    | org    | org user    | For a candidacy or by date range                                                               |
+| `POST /org/get-interview`                      | org    | org user    | Detail incl. feedback (only after submitted)                                                   |
+| `POST /org/rsvp-interview`                     | org    | org user    | Interviewer RSVP                                                                               |
+| `POST /org/submit-interview-feedback`          | org    | interviewer | Submit assessment; transitions interview to `completed`                                        |
+| `POST /org/extend-offer`                       | org    | org user    | Candidacy → `offered`; cancels scheduled interviews                                            |
+| `POST /org/request-references`                 | org    | org user    | Open a reference request on a candidacy                                                        |
+| `POST /org/list-reference-nominations`         | org    | org user    | See who candidate nominated and their state                                                    |
+| `POST /org/list-reference-responses`           | org    | org user    | Read submitted responses                                                                       |
+| `POST /org/get-hiring-settings`                | org    | org user    | Read cool-off period                                                                           |
+| `POST /org/update-hiring-settings`             | org    | org user    | Write cool-off period                                                                          |
+| `POST /org/add-watcher`                        | org    | org user    | Up to 25 per opening                                                                           |
+| `POST /org/remove-watcher`                     | org    | org user    | Remove a watcher                                                                               |
 
 ---
 
@@ -694,7 +688,6 @@ model ApplyForOpeningRequest {
   resume_upload_id:               string;     // pre-signed upload completed
   endorser_handles?:              Handle[];   // 0..10; each must be a connected hub user
   endorsement_request_note?:      string;     // 0..500
-  notify_colleagues_at_target?:   boolean;    // per-application override
 }
 
 model ApplyForOpeningResponse {
@@ -715,7 +708,6 @@ model HubApplication {
   resume_download_url:   string;             // signed, short TTL
   endorsements:          MyEndorsementOnApplication[];
   endorsement_requests:  MyEndorsementRequestSent[];
-  notify_colleagues_at_target: boolean;
 }
 
 model MyEndorsementOnApplication {
@@ -784,7 +776,6 @@ model OrgApplication {
   label?:                ApplicationColorLabel;
   applied_at:            utcDateTime;
   endorsements:          OrgVisibleEndorsement[];     // hidden-by-candidate are excluded
-  notify_colleagues_used: boolean;                    // did candidate opt-in
 }
 
 model OrgVisibleEndorsement {
@@ -906,7 +897,6 @@ CREATE TABLE applications (
     state                  TEXT NOT NULL DEFAULT 'applied'
                             CHECK (state IN ('applied','shortlisted','rejected','withdrawn','expired')),
     label                  TEXT CHECK (label IN ('green','yellow','red')),
-    notify_colleagues_at_target BOOLEAN NOT NULL DEFAULT FALSE,
     rejection_reason       TEXT,
     applied_at             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     state_changed_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -1198,13 +1188,10 @@ The handler computes the next-allowed-apply timestamp as `last_prior_applied_at 
   Upload resume bytes to opening's region S3 (s.GetStorageConfig(openingRegion))
     -> on failure: 500, no DB rows written
   Tx (regional, opening's region):
-    INSERT applications (state='applied', notify_colleagues_at_target=<val>, resume_s3_key=<key>)
+    INSERT applications (state='applied', resume_s3_key=<key>)
     INSERT endorsement_requests (1 row per endorser_handle, state='pending')
     INSERT emails rows (one per endorser, type='hub_endorsement_request')
     INSERT emails rows (one per opening watcher, type='org_new_application')
-    if notify_colleagues_at_target=true:
-      query regional hub_connections × work_email_stints for active stints at org's domains
-      bulk INSERT emails rows (one per such colleague, type='hub_colleague_applied_alert')
     INSERT audit_logs (event_type='hub.apply_for_opening')
   Tx (global, after regional commit):
     INSERT applications_index (region, hub_user_global_id, applied_at, state='applied')
@@ -1274,7 +1261,6 @@ For `/hub/list-my-applications` and `/hub/list-my-candidacies`: global query aga
 - **Endorser deactivates between request and write**: `HubAuth` middleware blocks them from logging in at all, so this is not reachable via a live session. A still-cached session is invalidated by the existing token-versioning middleware (no change here).
 - **Compensating-transaction failure** (regional commit succeeded, global index write failed): log `CONSISTENCY_ALERT` per the standard pattern in `CLAUDE.md`, then attempt the global write again via a background reconciliation worker. The application is still queryable by the org (it lives regionally); only the hub-user "my applications" list misses it briefly.
 - **Connection severed during apply** (between endorser-list validation and the insert): the application still succeeds, but the endorsement request is created against the now-severed connection. The endorser, on opening the request, will see "you are no longer connected to this candidate"; they cannot write. Operationally fine; the candidate's `request-endorsements` retry is blocked by the unique constraint.
-- **Cross-region notification fanout for `notify_colleagues_at_target`**: for each `connected` colleague at the target org, look up that colleague's home region from the global users table and enqueue the notification on their region's notification queue (one query per region with `IN (?)`). No cross-region writes — notifications use existing regional pipelines.
 - **Concurrent extend-offer**: candidacy state read+write happens inside the regional tx; second caller gets 422.
 - **Watcher cap race**: enforce via `COUNT(*) < 25` inside the tx that inserts the watcher (held lock on the opening row via `SELECT FOR UPDATE`).
 
@@ -1488,7 +1474,6 @@ Below is the exhaustive list. Every row is one or more tests. Group by handler.
 | -------------------------------------------------------------------------------------- | ----------------------------------------------------- |
 | Happy path: valid body, opening `published`, no endorsers                              | 201 + `application_id`                                |
 | Happy path with endorsers (all connected)                                              | 201 + endorsement_requests created                    |
-| Happy path with `notify_colleagues_at_target=true` and ≥1 connection at target         | 201 + notification fanout asserted                    |
 | Cover letter below 100 chars                                                           | 400 validation                                        |
 | Cover letter above 5000 chars                                                          | 400 validation                                        |
 | Resume upload id does not belong to caller                                             | 400 invalid resume                                    |
@@ -1823,7 +1808,6 @@ union ApplicationColorLabel {
 //   resume            : file, ≤5MB, PDF or DOCX
 //   endorser_handles  : 0..10 items, each must be a Connected connection
 //   endorsement_request_note : 0..500 chars
-//   notify_colleagues_at_target : "true" | "false" (default "false")
 @multipartBody
 model ApplyForOpeningRequest {
   org_domain:                  HttpPart<string>;
@@ -1832,7 +1816,6 @@ model ApplyForOpeningRequest {
   resume:                      HttpPart<File>;
   endorser_handles:            HttpPart<string>[];   // each value is a Handle
   endorsement_request_note?:   HttpPart<string>;
-  notify_colleagues_at_target?: HttpPart<string>;    // "true" or "false"
 }
 
 model ApplyForOpeningResponse {
@@ -1876,7 +1859,6 @@ model HubApplication {
   resume_download_url:   string;            // signed, TTL 5 minutes
   endorsements:          MyEndorsementOnApplication[];
   endorsement_requests:  MyEndorsementRequestSent[];
-  notify_colleagues_at_target: boolean;
   candidacy_id?:         string;            // set iff state=shortlisted and candidacy exists
 }
 
@@ -2557,7 +2539,6 @@ model OrgApplication {
   applied_at:            utcDateTime;
   state_changed_at:      utcDateTime;
   endorsements:          OrgVisibleEndorsement[];   // hidden-by-candidate excluded
-  notify_colleagues_used: boolean;
 }
 
 model ShortlistApplicationRequest { application_id: string; }
@@ -2900,28 +2881,27 @@ Vetchium does not have a separate "in-app notification" subsystem. All notificat
 
 The `email_template_type` enum (regional DB, in `specs/typespec/.../initial_schema.sql`) gains these values. Add via `ALTER TYPE email_template_type ADD VALUE` at the bottom of the existing enum block in the initial schema file. Names follow `{portal}_{event}` convention:
 
-| New value                                 | Triggered by                                            | Sent to                                |
-| ----------------------------------------- | ------------------------------------------------------- | -------------------------------------- |
-| `hub_endorsement_request`                 | `/hub/apply-for-opening` or `/hub/request-endorsements` | each endorser (hub email address)      |
-| `hub_endorsement_written`                 | `/hub/write-endorsement` (request resolved)             | the candidate                          |
-| `hub_referral_received`                   | `/hub/nominate-colleague-for-role`                      | the candidate                          |
-| `hub_reference_request_received`          | `/org/request-references`                               | the candidate                          |
-| `hub_reference_nomination_received`       | `/hub/nominate-references`                              | each nominee                           |
-| `hub_reference_nomination_accepted`       | `/hub/accept-reference-nomination`                      | the candidate                          |
-| `hub_application_shortlisted`             | `/org/shortlist-application`                            | the candidate                          |
-| `hub_application_rejected`                | `/org/reject-application`                               | the candidate                          |
-| `hub_interview_scheduled`                 | `/org/schedule-interview`                               | the candidate                          |
-| `hub_interview_updated`                   | `/org/update-interview`                                 | the candidate                          |
-| `hub_interview_cancelled`                 | `/org/cancel-interview` or auto-cancel on offer extend  | the candidate                          |
-| `hub_offer_extended`                      | `/org/extend-offer`                                     | the candidate                          |
-| `hub_colleague_applied_alert`             | `/hub/apply-for-opening` (with opt-in)                  | each connected colleague at target org |
-| `org_new_application`                     | `/hub/apply-for-opening`                                | each opening watcher                   |
-| `org_application_withdrawn`               | `/hub/withdraw-application`                             | each opening watcher                   |
-| `org_interview_scheduled_for_interviewer` | `/org/schedule-interview` / `add-interviewer`           | each interviewer                       |
-| `org_interview_updated_for_interviewer`   | `/org/update-interview`                                 | each interviewer                       |
-| `org_interview_cancelled_for_interviewer` | `/org/cancel-interview`                                 | each interviewer                       |
-| `org_interviewer_removed`                 | `/org/remove-interviewer`                               | the removed interviewer                |
-| `org_offer_extended_for_watcher`          | `/org/extend-offer`                                     | each opening watcher                   |
+| New value                                 | Triggered by                                            | Sent to                           |
+| ----------------------------------------- | ------------------------------------------------------- | --------------------------------- |
+| `hub_endorsement_request`                 | `/hub/apply-for-opening` or `/hub/request-endorsements` | each endorser (hub email address) |
+| `hub_endorsement_written`                 | `/hub/write-endorsement` (request resolved)             | the candidate                     |
+| `hub_referral_received`                   | `/hub/nominate-colleague-for-role`                      | the candidate                     |
+| `hub_reference_request_received`          | `/org/request-references`                               | the candidate                     |
+| `hub_reference_nomination_received`       | `/hub/nominate-references`                              | each nominee                      |
+| `hub_reference_nomination_accepted`       | `/hub/accept-reference-nomination`                      | the candidate                     |
+| `hub_application_shortlisted`             | `/org/shortlist-application`                            | the candidate                     |
+| `hub_application_rejected`                | `/org/reject-application`                               | the candidate                     |
+| `hub_interview_scheduled`                 | `/org/schedule-interview`                               | the candidate                     |
+| `hub_interview_updated`                   | `/org/update-interview`                                 | the candidate                     |
+| `hub_interview_cancelled`                 | `/org/cancel-interview` or auto-cancel on offer extend  | the candidate                     |
+| `hub_offer_extended`                      | `/org/extend-offer`                                     | the candidate                     |
+| `org_new_application`                     | `/hub/apply-for-opening`                                | each opening watcher              |
+| `org_application_withdrawn`               | `/hub/withdraw-application`                             | each opening watcher              |
+| `org_interview_scheduled_for_interviewer` | `/org/schedule-interview` / `add-interviewer`           | each interviewer                  |
+| `org_interview_updated_for_interviewer`   | `/org/update-interview`                                 | each interviewer                  |
+| `org_interview_cancelled_for_interviewer` | `/org/cancel-interview`                                 | each interviewer                  |
+| `org_interviewer_removed`                 | `/org/remove-interviewer`                               | the removed interviewer           |
+| `org_offer_extended_for_watcher`          | `/org/extend-offer`                                     | each opening watcher              |
 
 ### Email body conventions
 
@@ -2970,18 +2950,6 @@ if err := qtx.InsertEmail(ctx, regionaldb.InsertEmailParams{
 ```
 
 If multiple recipients (e.g., watchers, multiple interviewers), use a bulk insert helper `InsertEmailsBulk` (new sqlc query, single `INSERT ... VALUES (...), (...), ...`). Do **not** loop with individual inserts inside a transaction.
-
-### Cross-region notification routing
-
-For `hub_colleague_applied_alert`: the candidate's connection list lives in the candidate's home region (where their `hub_connections` rows are). The opening lives in the opening's region. The notification email is sent from the opening's region because that's where the application row is and where the enqueueing transaction runs. Email destination is the colleague's email address (already in regional `hub_users` of opening's region only if the colleague's home region IS the opening's region).
-
-This means: to fan out notifications to colleagues whose home region != opening's region, the apply handler needs to perform a **read** against each region's `hub_users` table to fetch email addresses. To stay within "one round-trip per logical DB" the implementation uses:
-
-1. Global lookup: `SELECT hub_user_global_id, home_region FROM applications_index_connections` — actually simpler: use the existing global `hub_users` routing table to map `hub_user_global_id` → `home_region` + `email_hash` (cannot get plaintext email from global). Then group connections by `home_region`.
-2. For each region (max 3) one regional query: `SELECT hub_user_global_id, full_name, email_address FROM hub_users WHERE hub_user_global_id = ANY($1)`.
-3. Enqueue email rows in the **opening's region** `emails` table (the email queue belongs to the region the action originated in — the worker in that region delivers them).
-
-This is acceptable because the apply handler already touches global DB (for opening lookup + applications_index write); the cross-region reads are bounded and infrequent (only when `notify_colleagues_at_target=true`).
 
 ---
 
@@ -3231,23 +3199,20 @@ playwright/tests/api/cross-cutting/privacy-current-employer.spec.ts
 - `POST /org/request-references`
 - `POST /org/list-reference-nominations`
 - `POST /org/list-reference-responses`
-- (Plus the `notify_colleagues_at_target` opt-in fanout in the existing T1 apply handler — turns from no-op to active.)
 
 **TypeSpec files created:** `hub/references.tsp`, `org/references.tsp`. Extends `hub/hiring-discovery.tsp` (colleague-list endpoint already declared but its handler is implemented here).
 
-**Tables created (regional):** `reference_requests`, `reference_nominations`, `reference_responses`. Tables (global): `reference_nominations_index`. Enum additions: `hub_reference_request_received`, `hub_reference_nomination_received`, `hub_reference_nomination_accepted`, `hub_colleague_applied_alert`.
+**Tables created (regional):** `reference_requests`, `reference_nominations`, `reference_responses`. Tables (global): `reference_nominations_index`. Enum additions: `hub_reference_request_received`, `hub_reference_nomination_received`, `hub_reference_nomination_accepted`.
 
 **Roles added:** none.
 
 **Handler files created:** `api-server/handlers/hub/references.go`, `api-server/handlers/hub/discovery.go`, `api-server/handlers/org/references.go`.
 
-**Backward-edit:** the apply-for-opening handler in T1 was stubbed to ignore `notify_colleagues_at_target=true`; in T4 it becomes a real fanout (insert N rows in `emails` of type `hub_colleague_applied_alert`).
-
 **Frontend pages (hub-ui):** `ColleaguesAtEmployerPage.tsx` (modal), `ReferenceInboxPage.tsx`, `RespondReferencePage.tsx`, dashboard tile `NetworkOpportunitiesCard.tsx`.
 
 **Frontend pages (org-ui):** `RequestReferencesPage.tsx`, extends `CandidacyDetailPage.tsx` with references section.
 
-**Tests:** full reference end-to-end (org → candidate nominates → nominees respond → org reads), discovery tests, and the cross-cutting `notify_colleagues_at_target` fan-out test.
+**Tests:** full reference end-to-end (org → candidate nominates → nominees respond → org reads) and discovery tests.
 
 ### Dependency graph between tranches
 
