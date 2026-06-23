@@ -59,7 +59,9 @@
 		},
 		"referrals": {
 			"title": "Empfehlungen",
-			"description": "Stellen, für die Agenturen Sie empfohlen haben"
+			"description": "Stellen, für die Agenturen Sie empfohlen haben",
+			"pendingBadge_one": "{{count}} Empfehlung erfordert Ihre Aktion",
+			"pendingBadge_other": "{{count}} Empfehlungen erfordern Ihre Aktion"
 		}
 	},
 	"logout": {

@@ -43,6 +43,11 @@ type DeclineReferralRequest struct {
 	ReferralID string `json:"referral_id"`
 }
 
+// PendingReferralsCountResponse is the response for GET /hub/pending-referrals-count.
+type PendingReferralsCountResponse struct {
+	Count int32 `json:"count"`
+}
+
 func (r ListReferralsReceivedRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
 	if r.Limit != nil && (*r.Limit < 1 || *r.Limit > 100) {

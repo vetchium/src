@@ -98,6 +98,7 @@ import type {
 	ListReferralsReceivedRequest,
 	ListReferralsReceivedResponse,
 	DeclineReferralRequest,
+	PendingReferralsCountResponse,
 } from "vetchium-specs/hub/referrals";
 import type {
 	ListReferenceRequestsIncomingRequest,
@@ -1726,6 +1727,19 @@ export class HubAPIClient {
 			data: request,
 		});
 		return { status: response.status(), body: undefined as unknown as void };
+	}
+
+	async pendingReferralsCount(
+		sessionToken: string
+	): Promise<APIResponse<PendingReferralsCountResponse>> {
+		const response = await this.request.get("/hub/pending-referrals-count", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as PendingReferralsCountResponse,
+		};
 	}
 
 	async listReferenceRequestsIncoming(

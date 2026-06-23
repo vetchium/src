@@ -162,6 +162,34 @@ func ListReferralsReceived(s *server.RegionalServer) http.HandlerFunc {
 	}
 }
 
+// PendingReferralsCount returns the number of agency referrals awaiting the
+// candidate's action (state = 'pending'). Surfaced as an actionable badge on the
+// hub dashboard's referrals tile. Single global DB round-trip (the index state is
+// the source of truth for inbox actionability).
+func PendingReferralsCount(s *server.RegionalServer) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		ctx := r.Context()
+		log := s.Logger(ctx)
+
+		hubUser := middleware.HubUserFromContext(ctx)
+		if hubUser == nil {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		count, err := s.Global.CountPendingReferralsForCandidate(ctx, hubUser.HubUserGlobalID)
+		if err != nil {
+			log.Error("failed to count pending referrals", "error", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(hub.PendingReferralsCountResponse{Count: int32(count)})
+	}
+}
+
 // DeclineReferral silently declines a pending agency referral.
 func DeclineReferral(s *server.RegionalServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

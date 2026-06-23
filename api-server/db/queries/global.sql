@@ -1277,6 +1277,13 @@ SELECT * FROM agency_referrals_index WHERE referral_id = $1;
 -- name: UpdateAgencyReferralIndexState :exec
 UPDATE agency_referrals_index SET state = $2 WHERE referral_id = $1;
 
+-- name: CountPendingReferralsForCandidate :one
+-- Number of agency referrals awaiting the candidate's action (apply or decline).
+-- Expired/declined/resolved referrals have their index state mirrored away from
+-- 'pending' (see expireAgencyReferrals worker + resolve/decline handlers).
+SELECT COUNT(*) FROM agency_referrals_index
+WHERE candidate_hub_user_global_id = $1 AND state = 'pending';
+
 -- name: ListReferralIndexByCandidate :many
 SELECT * FROM agency_referrals_index
 WHERE candidate_hub_user_global_id = $1

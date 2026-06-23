@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Avatar, Card, Col, Row, Typography, theme } from "antd";
+import { Avatar, Badge, Card, Col, Row, Typography, theme } from "antd";
 import {
 	CalendarOutlined,
 	FileSearchOutlined,
@@ -14,6 +14,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../hooks/useAuth";
 import { useMyInfo } from "../hooks/useMyInfo";
+import { usePendingReferralsCount } from "../hooks/usePendingReferralsCount";
 
 const { Title, Text } = Typography;
 
@@ -22,6 +23,7 @@ export function HomePage() {
 	const { t } = useTranslation();
 	const { isAuthenticated, sessionToken } = useAuth();
 	const { data: myInfo } = useMyInfo(sessionToken);
+	const pendingReferralsCount = usePendingReferralsCount(sessionToken);
 	const { token } = theme.useToken();
 
 	useEffect(() => {
@@ -252,27 +254,40 @@ export function HomePage() {
 						to="/referrals"
 						style={{ textDecoration: "none", display: "block", height: "100%" }}
 					>
-						<Card hoverable style={{ height: "100%", cursor: "pointer" }}>
-							<div
-								style={{ display: "flex", alignItems: "flex-start", gap: 16 }}
+						<Badge
+							count={pendingReferralsCount}
+							offset={[-8, 8]}
+							style={{ zIndex: 1 }}
+							rootClassName="dashboard-tile-badge"
+							title={t("dashboard.referrals.pendingBadge", {
+								count: pendingReferralsCount,
+							})}
+						>
+							<Card
+								hoverable
+								style={{ height: "100%", width: "100%", cursor: "pointer" }}
 							>
-								<UsergroupAddOutlined
-									style={{
-										fontSize: 28,
-										color: token.colorPrimary,
-										marginTop: 2,
-									}}
-								/>
-								<div>
-									<Title level={5} style={{ marginBottom: 4 }}>
-										{t("dashboard.referrals.title")}
-									</Title>
-									<Text type="secondary" style={{ fontSize: 13 }}>
-										{t("dashboard.referrals.description")}
-									</Text>
+								<div
+									style={{ display: "flex", alignItems: "flex-start", gap: 16 }}
+								>
+									<UsergroupAddOutlined
+										style={{
+											fontSize: 28,
+											color: token.colorPrimary,
+											marginTop: 2,
+										}}
+									/>
+									<div>
+										<Title level={5} style={{ marginBottom: 4 }}>
+											{t("dashboard.referrals.title")}
+										</Title>
+										<Text type="secondary" style={{ fontSize: 13 }}>
+											{t("dashboard.referrals.description")}
+										</Text>
+									</div>
 								</div>
-							</div>
-						</Card>
+							</Card>
+						</Badge>
 					</Link>
 				</Col>
 

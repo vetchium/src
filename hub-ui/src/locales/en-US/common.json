@@ -59,7 +59,9 @@
 		},
 		"referrals": {
 			"title": "Referrals",
-			"description": "Openings agencies have referred you into"
+			"description": "Openings agencies have referred you into",
+			"pendingBadge_one": "{{count}} referral awaiting your action",
+			"pendingBadge_other": "{{count}} referrals awaiting your action"
 		}
 	},
 	"logout": {

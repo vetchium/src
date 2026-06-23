@@ -33,6 +33,10 @@ model ListReferralsReceivedResponse {
 
 model DeclineReferralRequest { referral_id: string; }
 
+// Count of pending agency referrals awaiting the candidate's action (apply or
+// decline). Used to surface an actionable badge on the hub dashboard tile.
+model PendingReferralsCountResponse { count: int32; }
+
 @route("/hub/list-referrals-received")
 @post op listReferralsReceived(...ListReferralsReceivedRequest):
   OkResponse<ListReferralsReceivedResponse> | BadRequestResponse;
@@ -40,3 +44,6 @@ model DeclineReferralRequest { referral_id: string; }
 @route("/hub/decline-referral")
 @post op declineReferral(...DeclineReferralRequest):
   OkResponse<{}> | NotFoundResponse | UnprocessableEntityResponse;
+
+@route("/hub/pending-referrals-count")
+@get op pendingReferralsCount(): OkResponse<PendingReferralsCountResponse>;

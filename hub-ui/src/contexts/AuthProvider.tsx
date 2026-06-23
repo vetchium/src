@@ -8,6 +8,8 @@ import {
 } from "vetchium-specs/hub/hub-users";
 import { getApiBaseUrl } from "../config";
 import { setStoredLanguage, type SupportedLanguage } from "../i18n";
+import { clearMyInfoCache, primeMyInfoCache } from "../hooks/useMyInfo";
+import { HUB_UNAUTHORIZED_EVENT } from "../lib/sessionEvents";
 import { AuthContext, type AuthState } from "./AuthContext";
 
 const SESSION_COOKIE_NAME = "vetchium_hub_session";
@@ -53,13 +55,79 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
 	const isAuthenticated = authState === "authenticated";
 
+	// On startup, validate any persisted session against the server before
+	// trusting it. A leftover cookie whose session no longer exists (e.g. the
+	// server was restarted) must NOT leave the app in a half-authenticated state —
+	// we tear it down and return to the login screen.
 	useEffect(() => {
 		const existingSession = getSessionToken();
-		if (existingSession) {
-			setSessionTokenState(existingSession);
-			setAuthState("authenticated");
+		if (!existingSession) {
+			setInitializing(false);
+			return;
 		}
-		setInitializing(false);
+
+		let cancelled = false;
+		const validateSession = async () => {
+			try {
+				const apiBaseUrl = await getApiBaseUrl();
+				const response = await fetch(`${apiBaseUrl}/hub/myinfo`, {
+					method: "GET",
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${existingSession}`,
+					},
+				});
+				if (cancelled) return;
+				if (response.status === 401) {
+					// Stale/invalid session: clear it and show the login screen.
+					clearSessionToken();
+					clearMyInfoCache();
+					setSessionTokenState(null);
+					setAuthState("login");
+				} else {
+					// Seed the myinfo cache so the dashboard doesn't refetch it.
+					if (response.ok) {
+						try {
+							primeMyInfoCache(existingSession, await response.json());
+						} catch {
+							// Non-JSON body — let consumers fetch myinfo themselves.
+						}
+					}
+					setSessionTokenState(existingSession);
+					setAuthState("authenticated");
+				}
+			} catch {
+				// Network error (server unreachable): keep the token optimistically;
+				// per-request 401 handling will tear it down once the server responds.
+				if (!cancelled) {
+					setSessionTokenState(existingSession);
+					setAuthState("authenticated");
+				}
+			} finally {
+				if (!cancelled) setInitializing(false);
+			}
+		};
+
+		validateSession();
+		return () => {
+			cancelled = true;
+		};
+	}, []);
+
+	// An authenticated request returned 401 mid-session (e.g. server restarted):
+	// tear down the client session so the user lands back on the login screen.
+	useEffect(() => {
+		const handleUnauthorized = () => {
+			clearSessionToken();
+			clearMyInfoCache();
+			setSessionTokenState(null);
+			setTfaToken(null);
+			setAuthState("login");
+		};
+		window.addEventListener(HUB_UNAUTHORIZED_EVENT, handleUnauthorized);
+		return () => {
+			window.removeEventListener(HUB_UNAUTHORIZED_EVENT, handleUnauthorized);
+		};
 	}, []);
 
 	const formatValidationErrors = (
@@ -225,6 +293,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 		const currentSessionToken = getSessionToken();
 		if (!currentSessionToken) {
 			clearSessionToken();
+			clearMyInfoCache();
 			setSessionTokenState(null);
 			setAuthState("login");
 			setLoading(false);
@@ -243,6 +312,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 			});
 
 			clearSessionToken();
+			clearMyInfoCache();
 			setSessionTokenState(null);
 			setAuthState("login");
 
@@ -252,6 +322,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 		} catch (err) {
 			console.warn("Logout request error:", err);
 			clearSessionToken();
+			clearMyInfoCache();
 			setSessionTokenState(null);
 			setAuthState("login");
 		} finally {

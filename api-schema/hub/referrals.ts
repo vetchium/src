@@ -32,6 +32,10 @@ export interface DeclineReferralRequest {
 	referral_id: string;
 }
 
+export interface PendingReferralsCountResponse {
+	count: number;
+}
+
 export interface ValidationError {
 	field: string;
 	message: string;

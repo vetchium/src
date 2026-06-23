@@ -98,6 +98,7 @@ func RegisterHubRoutes(mux *http.ServeMux, s *server.RegionalServer) {
 
 	// Agency referral routes (candidate inbox side)
 	mux.Handle("POST /hub/list-referrals-received", hubAuth(hub.ListReferralsReceived(s)))
+	mux.Handle("GET /hub/pending-referrals-count", hubAuth(hub.PendingReferralsCount(s)))
 	mux.Handle("POST /hub/decline-referral", hubAuth(hub.DeclineReferral(s)))
 
 	// Reference routes (T4)
