@@ -77,6 +77,9 @@ export const ApplicationDetailPage: React.FC = () => {
 	// Object URL for the fetched resume blob, used both for the inline thumbnail
 	// preview and for opening the full document in a new tab.
 	const [resumeUrl, setResumeUrl] = useState<string | null>(null);
+	// MIME type of the fetched resume — only PDF and text/markdown render inside
+	// an iframe; binary formats (e.g. .docx) make the browser download instead.
+	const [resumeType, setResumeType] = useState<string>("");
 
 	const post = useCallback(
 		async (path: string, body: unknown): Promise<number> => {
@@ -127,6 +130,7 @@ export const ApplicationDetailPage: React.FC = () => {
 	useEffect(() => {
 		if (!sessionToken || !resumeDownloadUrl) {
 			setResumeUrl(null);
+			setResumeType("");
 			return;
 		}
 		let objectUrl: string | null = null;
@@ -144,6 +148,7 @@ export const ApplicationDetailPage: React.FC = () => {
 					if (cancelled) return;
 					objectUrl = URL.createObjectURL(blob);
 					setResumeUrl(objectUrl);
+					setResumeType(blob.type);
 				} else {
 					message.error(t("actionFailed"));
 				}
@@ -160,6 +165,13 @@ export const ApplicationDetailPage: React.FC = () => {
 	const openResume = useCallback(() => {
 		if (resumeUrl) window.open(resumeUrl, "_blank", "noopener,noreferrer");
 	}, [resumeUrl]);
+
+	// Only PDFs and plain-text/markdown render inside the iframe thumbnail; binary
+	// formats such as .docx cannot be previewed and would trigger a download.
+	const canPreviewResume =
+		resumeType.includes("pdf") ||
+		resumeType.includes("text") ||
+		resumeType.includes("markdown");
 
 	const handleShortlist = async () => {
 		if (!applicationId) return;
@@ -308,7 +320,9 @@ export const ApplicationDetailPage: React.FC = () => {
 								{application.resume_download_url && (
 									<Card title={t("resume")} style={{ marginBottom: 16 }}>
 										<Spin spinning={resumeLoading}>
-											{resumeUrl ? (
+											{resumeUrl && canPreviewResume ? (
+												// Previewable (PDF / text): clickable thumbnail whose
+												// overlay hint is the single "Open in new tab" affordance.
 												<div
 													role="button"
 													tabIndex={0}
@@ -366,19 +380,24 @@ export const ApplicationDetailPage: React.FC = () => {
 														</span>
 													</div>
 												</div>
+											) : resumeUrl ? (
+												// Non-previewable (e.g. .docx): no inline thumbnail, just
+												// a placeholder and a single "Open in new tab" button.
+												<div>
+													<Text type="secondary">{t("resumeNoPreview")}</Text>
+													<div style={{ marginTop: 12 }}>
+														<Button
+															icon={<DownloadOutlined />}
+															onClick={openResume}
+														>
+															{t("openResumeNewTab")}
+														</Button>
+													</div>
+												</div>
 											) : (
 												<div style={{ minHeight: 60 }} />
 											)}
 										</Spin>
-										<div style={{ marginTop: 12 }}>
-											<Button
-												icon={<DownloadOutlined />}
-												disabled={!resumeUrl}
-												onClick={openResume}
-											>
-												{t("openResumeNewTab")}
-											</Button>
-										</div>
 									</Card>
 								)}
 

@@ -47,5 +47,6 @@
 	"actionFailed": "Aktion fehlgeschlagen",
 	"notFound": "Bewerbung nicht gefunden",
 	"viewProfile": "Profil ansehen",
-	"openResumeNewTab": "In neuem Tab öffnen"
+	"openResumeNewTab": "In neuem Tab öffnen",
+	"resumeNoPreview": "Für diesen Dateityp ist keine Vorschau verfügbar — in neuem Tab öffnen."
 }

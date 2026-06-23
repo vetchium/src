@@ -47,5 +47,6 @@
 	"actionFailed": "Action failed",
 	"notFound": "Application not found",
 	"viewProfile": "View profile",
-	"openResumeNewTab": "Open in new tab"
+	"openResumeNewTab": "Open in new tab",
+	"resumeNoPreview": "Preview not available for this file type — open it in a new tab."
 }
