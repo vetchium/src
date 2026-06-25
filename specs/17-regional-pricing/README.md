@@ -53,8 +53,12 @@ no database; the backend changes are entirely the hub plan system.
 ## 5. Current State (verified in code, 2026-06-25)
 
 - Region selection at signup works: `org.OrgInitSignupRequest` / `hub.CompleteSignupRequest`
-  carry `home_region`, validated against `available_regions`; data routed with no proxy. Hub
-  signup UI already renders a region `<Select>` from `POST /global/get-regions`.
+  carry `home_region`; data routed with no proxy. **Validation differs by portal**: hub
+  `complete-signup.go` validates against the `available_regions` table (`GetRegionByCode` +
+  `IsActive`); org `init-signup.go` validates against a **hardcoded `switch` (ind1/usa1/deu1)**,
+  not the table — both yield 400 on a bad region, but org never consults `is_active`. This spec
+  does not change signup validation; noted so the premise is accurate. Hub signup UI already
+  renders a region `<Select>` from `POST /global/get-regions`.
 - `available_regions` (global): `region_code`, `region_name`, `is_active`. ind1/usa1/deu1 active,
   sgp1 inactive. No currency — and none needed (frontend config).
 - Org plans (Free/Silver/Gold/Enterprise) exist with caps + `self_upgradeable`. No money — correct.
@@ -224,45 +228,78 @@ All types in `api-schema/hub/plans.tsp` + hand-synced `.ts`/`.go`, imported ever
 
 ```typespec
 // api-schema/hub/plans.tsp
+union HubPlanId { "free", "pro" }            // enum, not bare string (CLAUDE.md enum rule)
 model HubPlan {
-  plan_id: string;
+  plan_id: HubPlanId;
   display_order: int32;
   can_upload_profile_picture: boolean;
   can_post_messages: boolean;
   self_upgradeable: boolean;
 }
 model ListHubPlansResponse { plans: HubPlan[]; }   // never null → []
-model SwitchHubPlanRequest { plan_id: string; }
-model HubPlanResponse { plan_id: string; can_upload_profile_picture: boolean; can_post_messages: boolean; }
+model SwitchHubPlanRequest { plan_id: HubPlanId; }
+model HubPlanResponse { plan_id: HubPlanId; can_upload_profile_picture: boolean; can_post_messages: boolean; }
 
 @route("/hub/list-plans") @post op listHubPlans(): OkResponse<ListHubPlansResponse> | UnauthorizedResponse;
 @route("/hub/switch-plan") @post op switchHubPlan(...SwitchHubPlanRequest):
   OkResponse<HubPlanResponse> | BadRequestResponse | UnauthorizedResponse | NotFoundResponse | UnprocessableResponse;
 ```
 
+- `HubPlanId` is a `union` → kept in sync in `.ts`/`.go`; backend casts DB rows with
+  `hub.HubPlanId(row.PlanID)` and compares against typed constants, never string literals.
+- **`list-plans` is a fixed ≤-handful catalog**, returned un-paginated (mirrors org
+  `ListPlansResponse`); this is an explicit, documented exception to the keyset-pagination rule
+  (the catalog is bounded by the number of plans, not user data).
 - **Extend `GET /hub/myinfo`** response with `plan_id` + capability booleans (one extra regional
   read folded into the existing myinfo query — no new global round-trip).
 
 ### 9.4 Backend handlers
 
-| Method | Path                          | Handler                         | Auth    | Notes                                            |
-| ------ | ----------------------------- | ------------------------------- | ------- | ------------------------------------------------ |
-| POST   | `/hub/list-plans`             | `handlers/hub/plans-list.go`    | HubAuth | Reads `hub_plans` (active), returns `[]HubPlan`  |
-| POST   | `/hub/switch-plan`            | `handlers/hub/plans-switch.go`  | HubAuth | Validate target (exists/active/self_upgradeable) |
-| GET    | `/hub/myinfo`                 | `handlers/hub/myinfo.go` (edit) | HubAuth | Add `plan_id` + caps                             |
-| POST   | `/hub/upload-profile-picture` | existing (edit)                 | HubAuth | **Pro gate**: load caps; `!can_upload…` → 403    |
+| Method | Path                                  | Handler                         | Auth    | Notes                                             |
+| ------ | ------------------------------------- | ------------------------------- | ------- | ------------------------------------------------- |
+| POST   | `/hub/list-plans`                     | `handlers/hub/plans-list.go`    | HubAuth | Reads `hub_plans` (active), returns `[]HubPlan`   |
+| POST   | `/hub/switch-plan`                    | `handlers/hub/plans-switch.go`  | HubAuth | Validate target (exists/active/self_upgradeable)  |
+| GET    | `/hub/myinfo`                         | `handlers/hub/myinfo.go` (edit) | HubAuth | Add `plan_id` + caps                              |
+| POST   | `/hub/upload-profile-picture`         | existing (edit)                 | HubAuth | **Pro gate**: load caps; `!can_upload…` → 403     |
+| GET    | `/hub/profile-picture/{handle}`       | existing (edit)                 | HubAuth | **Suppress** picture if target user is on Free    |
+| GET    | `/hub/get-profile` / `get-my-profile` | existing (edit)                 | HubAuth | Null/omit picture field if target user is on Free |
+| POST   | `/hub/remove-profile-picture`         | existing (no change)            | HubAuth | Allowed on **any** plan (delete a leftover image) |
 
 - **switch-plan**: decode → validate → `WithRegionalTx`: `GetHubPlan(target)` (404 if missing /
-  422 if not `self_upgradeable` or retired) → `SwitchHubUserPlan` → `InsertHubPlanHistory` →
+  422 if not `self_upgradeable` or retired) → if target == current plan, **no-op: return 200 with
+  no history/audit write** (idempotent) → else `SwitchHubUserPlan` → `InsertHubPlanHistory` →
   `InsertAuditLog` (`hub.switch_plan`, `event_data` = `{from, to}`) → respond 200. Audit write is
   **inside** the same tx.
 - **upload-profile-picture**: after auth, `GetHubUserPlanWithCaps(userID)`; if
   `!can_upload_profile_picture` → 403 (authenticated but forbidden by plan) and store nothing.
+  The cap check is its own regional read before the S3 upload; folding it into the subsequent
+  conditional write is not possible (upload happens in between), so this handler makes two
+  regional round-trips — an accepted, documented exception to one-round-trip (a read-then-write
+  separated by an external S3 call, not two avoidable queries).
 - **complete-signup**: regional `CreateHubUser` already runs in a tx; `plan_id` defaults to
   `'free'` via the column default (no code change required, but assert it in tests).
 
+#### Profile-picture downgrade rule (resolves the read-side semantics)
+
+The profile-picture capability is enforced on **both** write and read, and a downgrade is
+**non-destructive and reversible**:
+
+- **On pro→free, the stored `profile_picture_storage_key` is RETAINED** — no S3 delete, no data
+  loss. The switch handler does not touch the picture.
+- **While `plan_id='free'`, every read path suppresses the picture**: `GET /hub/profile-picture/{handle}`
+  returns 404 (as if none set); `get-profile`/`get-my-profile`/any recruiter- or peer-facing
+  profile view return the picture field as null/absent. Reads resolve the **owner's** plan (by
+  `{handle}`/target user), not the viewer's.
+- **Re-upgrading free→pro automatically restores visibility** (the retained key becomes visible
+  again) — nothing to re-upload.
+- **`remove-profile-picture` is allowed on any plan**, so a now-Free user can permanently delete a
+  leftover image if they choose (this is the only path that deletes the S3 object).
+
+This makes the "Pro-only profile picture" perk genuinely plan-bound (not merely upload-gated)
+while never destroying user data on a downgrade.
+
 **Audit events** (regional `audit_logs`): `hub.switch_plan` (actor = hub user, data
-`{from_plan_id, to_plan_id}`; no emails).
+`{from_plan_id, to_plan_id}`; no emails). The no-op same-plan switch writes **no** audit entry.
 
 ### 9.5 Frontend
 
@@ -292,28 +329,37 @@ Playwright API tests (`playwright/tests/api/hub/plans.spec.ts`, `upload-profile-
 
 - component tests for pricing display. Types imported from `api-schema/`.
 
-| #   | Scenario                                                                  | Expected            |
-| --- | ------------------------------------------------------------------------- | ------------------- |
-| 1   | Signup `home_region=X` (any server) → rows in X, token X-prefixed         | success; data in X  |
-| 1b  | Signup missing/invalid/inactive `home_region`                             | 400                 |
-| 2   | New hub user → `plan_id='free'`; `myinfo` shows free + caps               | 200, free           |
-| 3   | Free user `upload-profile-picture`                                        | 403, nothing stored |
-| 4   | Pro user `upload-profile-picture`                                         | 201/200, stored     |
-| 5   | Free user applies to many openings / many connections                     | all succeed         |
-| 6   | `switch-plan` free→pro (self_upgradeable)                                 | 200, caps updated   |
-| 7   | `switch-plan` pro→free                                                    | 200                 |
-| 8   | `switch-plan` unknown plan / retired / non-self_upgradeable               | 404 / 422 / 422     |
-| 9   | `switch-plan` unauthenticated                                             | 401                 |
-| 10  | Audit `hub.switch_plan` written on success; none on 4xx                   | asserted            |
-| 11  | Pricing component: region X → X's currency & amounts; Free/Contact labels | rendered            |
-| 12  | Annual nudge shows "save N%" from config                                  | rendered            |
-| 13  | Add a region: backend `available_regions` row + frontend config entry     | appears, no logic Δ |
+| #   | Scenario                                                                  | Expected              |
+| --- | ------------------------------------------------------------------------- | --------------------- |
+| 1   | Signup `home_region=X` (any server) → rows in X, token X-prefixed         | success; data in X    |
+| 1b  | Signup missing/invalid/inactive `home_region`                             | 400                   |
+| 2   | New hub user → `plan_id='free'`; `myinfo` shows free + caps               | 200, free             |
+| 3   | Free user `upload-profile-picture`                                        | 403, nothing stored   |
+| 4   | Pro user `upload-profile-picture`                                         | 200, stored           |
+| 5   | Free user applies to many openings / many connections                     | all succeed           |
+| 6   | `switch-plan` free→pro (self_upgradeable)                                 | 200, caps updated     |
+| 7   | `switch-plan` pro→free                                                    | 200                   |
+| 7b  | Pro user with a picture → pro→free → picture suppressed on all read paths | 404 / null field      |
+| 7c  | Same user free→pro again → picture visible again (key was retained)       | restored              |
+| 7d  | Free user with leftover picture → `remove-profile-picture`                | 204, S3 object gone   |
+| 7e  | No-op switch (current plan == target, e.g. free→free)                     | 200, no history/audit |
+| 8   | `switch-plan` unknown plan / retired / non-self_upgradeable               | 404 / 422 / 422       |
+| 9   | `switch-plan` unauthenticated                                             | 401                   |
+| 10  | Audit `hub.switch_plan` written on real switch; none on 4xx or no-op      | asserted              |
+| 11  | Pricing component: region X → X's currency & amounts; Free/Contact labels | rendered              |
+| 12  | Annual nudge shows "save N%" + "+ applicable taxes" note                  | rendered              |
+| 13  | Add a region: backend `available_regions` row + frontend config entry     | appears, no logic Δ   |
+
+> Test #8 needs a DB helper to seed a **retired** and a **non-self_upgradeable** hub plan (the
+> seeded `free`/`pro` are both active + self_upgradeable, so they can't exercise the 422 paths).
 
 ## 11. Rollout
 
 1. Regional migration: `hub_plans` (+seed), `hub_users.plan_id`, `hub_user_plan_history`.
 2. sqlc generate; API types (`hub/plans.tsp` + `.ts`/`.go`); `tsp compile`.
-3. Backend: list/switch handlers, myinfo edit, profile-picture gate; register routes.
+3. Backend: list/switch handlers (incl. no-op short-circuit), myinfo edit, profile-picture
+   **write gate + read suppression** (upload/get-picture/get-profile resolve owner's plan),
+   register routes.
 4. Frontend: currency map + per-portal price config + `formatCurrency`; signup tables; hub
    `/settings/plan`; i18n.
 5. Tests (table §10). `bun run format` + `lint` before commit.
