@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import type { OrgMyInfoResponse } from "vetchium-specs/org/org-users";
 import { getApiBaseUrl } from "../config";
+import { dispatchOrgUnauthorized } from "../lib/sessionEvents";
 
 interface MyInfoState {
 	data: OrgMyInfoResponse | null;
@@ -41,6 +42,14 @@ export function useMyInfo(sessionToken: string | null) {
 					},
 				});
 
+				if (response.status === 401) {
+					// Stale session (e.g. server restarted): tear it down globally.
+					clearMyInfoCache();
+					dispatchOrgUnauthorized();
+					setState({ data: null, loading: false, error: null });
+					return;
+				}
+
 				if (!response.ok) {
 					throw new Error(`HTTP error! status: ${response.status}`);
 				}
@@ -72,4 +81,10 @@ export function useMyInfo(sessionToken: string | null) {
 
 export function clearMyInfoCache() {
 	cachedMyInfo = null;
+}
+
+// Seed the cache from a myinfo response already fetched elsewhere (e.g. the
+// startup session validation) so consumers don't refetch the same data.
+export function primeMyInfoCache(data: OrgMyInfoResponse) {
+	cachedMyInfo = data;
 }

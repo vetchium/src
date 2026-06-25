@@ -101,8 +101,10 @@ function AlreadyLoggedIn() {
 }
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-	const { authState } = useAuth();
+	const { authState, initializing } = useAuth();
 	const location = useLocation();
+
+	if (initializing) return null;
 
 	if (authState === "login") {
 		return <Navigate to="/login" state={{ from: location }} replace />;
@@ -116,7 +118,9 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 function AuthRoute({ children }: { children: React.ReactNode }) {
-	const { authState } = useAuth();
+	const { authState, initializing } = useAuth();
+
+	if (initializing) return null;
 
 	if (authState === "authenticated") {
 		return <AlreadyLoggedIn />;
@@ -130,7 +134,9 @@ function AuthRoute({ children }: { children: React.ReactNode }) {
 }
 
 function TFARoute({ children }: { children: React.ReactNode }) {
-	const { authState } = useAuth();
+	const { authState, initializing } = useAuth();
+
+	if (initializing) return null;
 
 	if (authState === "login") {
 		return <Navigate to="/login" replace />;
@@ -144,9 +150,11 @@ function TFARoute({ children }: { children: React.ReactNode }) {
 }
 
 function UsersRoute({ children }: { children: React.ReactNode }) {
-	const { authState, sessionToken } = useAuth();
+	const { authState, sessionToken, initializing } = useAuth();
 	const { data: myInfo, loading } = useMyInfo(sessionToken);
 	const location = useLocation();
+
+	if (initializing) return null;
 
 	if (authState === "login") {
 		return <Navigate to="/login" state={{ from: location }} replace />;
@@ -173,9 +181,11 @@ function UsersRoute({ children }: { children: React.ReactNode }) {
 }
 
 function DomainsRoute({ children }: { children: React.ReactNode }) {
-	const { authState, sessionToken } = useAuth();
+	const { authState, sessionToken, initializing } = useAuth();
 	const { data: myInfo, loading } = useMyInfo(sessionToken);
 	const location = useLocation();
+
+	if (initializing) return null;
 
 	if (authState === "login") {
 		return <Navigate to="/login" state={{ from: location }} replace />;
@@ -202,9 +212,11 @@ function DomainsRoute({ children }: { children: React.ReactNode }) {
 }
 
 function CostCentersRoute({ children }: { children: React.ReactNode }) {
-	const { authState, sessionToken } = useAuth();
+	const { authState, sessionToken, initializing } = useAuth();
 	const { data: myInfo, loading } = useMyInfo(sessionToken);
 	const location = useLocation();
+
+	if (initializing) return null;
 
 	if (authState === "login") {
 		return <Navigate to="/login" state={{ from: location }} replace />;
@@ -231,9 +243,11 @@ function CostCentersRoute({ children }: { children: React.ReactNode }) {
 }
 
 function AddressesRoute({ children }: { children: React.ReactNode }) {
-	const { authState, sessionToken } = useAuth();
+	const { authState, sessionToken, initializing } = useAuth();
 	const { data: myInfo, loading } = useMyInfo(sessionToken);
 	const location = useLocation();
+
+	if (initializing) return null;
 
 	if (authState === "login") {
 		return <Navigate to="/login" state={{ from: location }} replace />;
@@ -260,9 +274,11 @@ function AddressesRoute({ children }: { children: React.ReactNode }) {
 }
 
 function AuditLogsRoute({ children }: { children: React.ReactNode }) {
-	const { authState, sessionToken } = useAuth();
+	const { authState, sessionToken, initializing } = useAuth();
 	const { data: myInfo, loading } = useMyInfo(sessionToken);
 	const location = useLocation();
+
+	if (initializing) return null;
 
 	if (authState === "login") {
 		return <Navigate to="/login" state={{ from: location }} replace />;

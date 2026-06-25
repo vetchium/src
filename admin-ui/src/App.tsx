@@ -61,7 +61,11 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 function AuthRoute({ children }: { children: React.ReactNode }) {
-	const { authState } = useAuth();
+	const { authState, isInitializing } = useAuth();
+
+	if (isInitializing) {
+		return null;
+	}
 
 	if (authState === "authenticated") {
 		return <Navigate to="/" replace />;
@@ -75,7 +79,11 @@ function AuthRoute({ children }: { children: React.ReactNode }) {
 }
 
 function TFARoute({ children }: { children: React.ReactNode }) {
-	const { authState } = useAuth();
+	const { authState, isInitializing } = useAuth();
+
+	if (isInitializing) {
+		return null;
+	}
 
 	if (authState === "login") {
 		return <Navigate to="/login" replace />;
@@ -89,9 +97,13 @@ function TFARoute({ children }: { children: React.ReactNode }) {
 }
 
 function AuditLogsRoute({ children }: { children: React.ReactNode }) {
-	const { authState, sessionToken } = useAuth();
+	const { authState, sessionToken, isInitializing } = useAuth();
 	const { data: myInfo, loading } = useMyInfo(sessionToken);
 	const location = useLocation();
+
+	if (isInitializing) {
+		return null;
+	}
 
 	if (authState === "login") {
 		return <Navigate to="/login" state={{ from: location }} replace />;

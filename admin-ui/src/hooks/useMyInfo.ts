@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import type { AdminMyInfoResponse } from "vetchium-specs/admin/admin-users";
 import { getApiBaseUrl } from "../config";
+import { dispatchAdminUnauthorized } from "../lib/sessionEvents";
 
 interface MyInfoState {
 	data: AdminMyInfoResponse | null;
@@ -40,6 +41,14 @@ export function useMyInfo(sessionToken: string | null) {
 					},
 				});
 
+				if (response.status === 401) {
+					// Stale session (e.g. server restarted): tear it down globally.
+					clearMyInfoCache();
+					dispatchAdminUnauthorized();
+					setState({ data: null, loading: false, error: null });
+					return;
+				}
+
 				if (!response.ok) {
 					throw new Error(`HTTP error! status: ${response.status}`);
 				}
@@ -65,4 +74,10 @@ export function useMyInfo(sessionToken: string | null) {
 
 export function clearMyInfoCache() {
 	cachedMyInfo = null;
+}
+
+// Seed the cache from a myinfo response already fetched elsewhere (e.g. the
+// startup session validation) so consumers don't refetch the same data.
+export function primeMyInfoCache(data: AdminMyInfoResponse) {
+	cachedMyInfo = data;
 }
