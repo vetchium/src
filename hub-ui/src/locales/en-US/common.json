@@ -37,6 +37,10 @@
 			"title": "My Profile",
 			"description": "Edit your profile, bio, and work emails"
 		},
+		"plan": {
+			"title": "Plan",
+			"description": "View pricing and switch between Free and Pro"
+		},
 		"connections": {
 			"title": "Connections",
 			"description": "Manage your professional connections"

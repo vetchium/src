@@ -47,5 +47,35 @@
 	},
 	"success": {
 		"upgraded": "Successfully upgraded to {{plan}}"
+	},
+	"pricing": {
+		"intro": "உங்கள் பகுதிக்கான விலை. அனைத்து திட்டங்களும் தாராளமான இலவசத் திட்டத்துடன் தொடங்குகின்றன.",
+		"free": "இலவசம்",
+		"contactUs": "எங்களை தொடர்பு கொள்ளவும்",
+		"perMonth": "/ மாதம்",
+		"perYear": "/ ஆண்டு",
+		"billingMonthly": "மாதந்தோறும்",
+		"billingAnnual": "ஆண்டுதோறும்",
+		"saveBadge": "{{percent}}% சேமியுங்கள்",
+		"plusTaxes": "+ பொருந்தும் வரிகள்",
+		"recommended": "பிரபலம்",
+		"plan_free": "இலவசம்",
+		"plan_silver": "சில்வர்",
+		"plan_gold": "கோல்டு",
+		"plan_enterprise": "எண்டர்பிரைஸ்",
+		"featureOrgUsers": "{{count}} நிறுவன பயனர்கள்",
+		"featureOrgUsersUnlimited": "வரம்பற்ற நிறுவன பயனர்கள்",
+		"featureDomains": "{{count}} சரிபார்க்கப்பட்ட டொமைன்கள்",
+		"featureDomainsUnlimited": "வரம்பற்ற சரிபார்க்கப்பட்ட டொமைன்கள்",
+		"featureSuborgs": "{{count}} துணை நிறுவனங்கள்",
+		"featureSuborgsUnlimited": "வரம்பற்ற துணை நிறுவனங்கள்",
+		"featureListings": "{{count}} சந்தை பட்டியல்கள்",
+		"featureListingsUnlimited": "வரம்பற்ற சந்தை பட்டியல்கள்",
+		"featureAudit": "{{count}} நாள் தணிக்கை வைத்திருத்தல்",
+		"featureAuditUnlimited": "வரம்பற்ற தணிக்கை வைத்திருத்தல்",
+		"featureMcp": "MCP அணுகல் (விரைவில்)",
+		"comingSoon": "விரைவில்",
+		"comingSoonMcp": "MCP அணுகல் (நிரலாக்க API ஒருங்கிணைப்பு)",
+		"comingSoonMore": "SSO/SAML, பிரத்யேக ஆதரவு, தனிப்பயன் தரவு குடியிருப்பு மற்றும் பல"
 	}
 }

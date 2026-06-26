@@ -10,6 +10,7 @@ import {
 
 // Import TFA types from common for hub TFA functionality
 import type { TFACode, LanguageCode } from "../common/common";
+import type { HubPlanId } from "./plans";
 import { validateTFACode, validateLanguageCode } from "../common/common";
 
 // Type aliases for signup
@@ -419,4 +420,7 @@ export interface HubMyInfoResponse {
 	preferred_language: LanguageCode;
 	home_region: string;
 	roles: string[];
+	plan_id: HubPlanId;
+	can_upload_profile_picture: boolean;
+	can_post_messages: boolean;
 }

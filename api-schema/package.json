@@ -5,6 +5,7 @@
 	"private": true,
 	"exports": {
 		"./hub/hub-users": "./hub/hub-users.ts",
+		"./hub/plans": "./hub/plans.ts",
 		"./hub/tags": "./hub/tags.ts",
 		"./admin/admin-users": "./admin/admin-users.ts",
 		"./admin/approved-domains": "./admin/approved-domains.ts",
@@ -16,6 +17,7 @@
 		"./org-domains/org-domains": "./org-domains/org-domains.ts",
 		"./global/global": "./global/global.ts",
 		"./common/common": "./common/common.ts",
+		"./common/currency": "./common/currency.ts",
 		"./common/roles": "./common/roles.ts",
 		"./org/marketplace": "./org/marketplace.ts",
 		"./admin/marketplace": "./admin/marketplace.ts",

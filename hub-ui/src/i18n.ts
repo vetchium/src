@@ -15,6 +15,7 @@ import enUSApplications from "./locales/en-US/applications.json";
 import enUSOpenings from "./locales/en-US/openings.json";
 import enUSCandidacies from "./locales/en-US/candidacies.json";
 import enUSPreferences from "./locales/en-US/preferences.json";
+import enUSPlan from "./locales/en-US/plan.json";
 import deDECommon from "./locales/de-DE/common.json";
 import deDEAuth from "./locales/de-DE/auth.json";
 import deDESignup from "./locales/de-DE/signup.json";
@@ -28,6 +29,7 @@ import deDEApplications from "./locales/de-DE/applications.json";
 import deDEOpenings from "./locales/de-DE/openings.json";
 import deDECandidacies from "./locales/de-DE/candidacies.json";
 import deDEPreferences from "./locales/de-DE/preferences.json";
+import deDEPlan from "./locales/de-DE/plan.json";
 import taINCommon from "./locales/ta-IN/common.json";
 import taINAuth from "./locales/ta-IN/auth.json";
 import taINSignup from "./locales/ta-IN/signup.json";
@@ -41,6 +43,7 @@ import taINApplications from "./locales/ta-IN/applications.json";
 import taINOpenings from "./locales/ta-IN/openings.json";
 import taINCandidacies from "./locales/ta-IN/candidacies.json";
 import taINPreferences from "./locales/ta-IN/preferences.json";
+import taINPlan from "./locales/ta-IN/plan.json";
 
 import {
 	SUPPORTED_LANGUAGES,
@@ -95,6 +98,7 @@ const resources = {
 		openings: enUSOpenings,
 		candidacies: enUSCandidacies,
 		preferences: enUSPreferences,
+		plan: enUSPlan,
 	},
 	"de-DE": {
 		common: deDECommon,
@@ -110,6 +114,7 @@ const resources = {
 		openings: deDEOpenings,
 		candidacies: deDECandidacies,
 		preferences: deDEPreferences,
+		plan: deDEPlan,
 	},
 	"ta-IN": {
 		common: taINCommon,
@@ -125,6 +130,7 @@ const resources = {
 		openings: taINOpenings,
 		candidacies: taINCandidacies,
 		preferences: taINPreferences,
+		plan: taINPlan,
 	},
 };
 
@@ -147,6 +153,7 @@ i18n.use(initReactI18next).init({
 		"openings",
 		"candidacies",
 		"preferences",
+		"plan",
 	],
 	interpolation: {
 		escapeValue: false, // React already escapes

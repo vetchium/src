@@ -25,6 +25,11 @@ import type {
 	Tag,
 } from "vetchium-specs/hub/tags";
 import type {
+	ListHubPlansResponse,
+	SwitchHubPlanRequest,
+	HubPlanResponse,
+} from "vetchium-specs/hub/plans";
+import type {
 	HubProfileOwnerView,
 	HubProfilePublicView,
 	UpdateMyProfileRequest,
@@ -338,6 +343,92 @@ export class HubAPIClient {
 		return {
 			status: response.status(),
 			body: body as HubMyInfoResponse,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	/**
+	 * POST /hub/list-plans
+	 */
+	async listPlans(
+		sessionToken: string
+	): Promise<APIResponse<ListHubPlansResponse>> {
+		const response = await this.request.post("/hub/list-plans", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: {},
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as ListHubPlansResponse,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	/**
+	 * POST /hub/list-plans without Authorization header (for testing 401)
+	 */
+	async listPlansWithoutAuth(): Promise<APIResponse<ListHubPlansResponse>> {
+		const response = await this.request.post("/hub/list-plans", { data: {} });
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as ListHubPlansResponse,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	/**
+	 * POST /hub/switch-plan
+	 */
+	async switchPlan(
+		sessionToken: string,
+		request: SwitchHubPlanRequest
+	): Promise<APIResponse<HubPlanResponse>> {
+		const response = await this.request.post("/hub/switch-plan", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as HubPlanResponse,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	/**
+	 * POST /hub/switch-plan with an arbitrary payload (for invalid-input testing)
+	 */
+	async switchPlanRaw(
+		sessionToken: string,
+		body: unknown
+	): Promise<APIResponse<HubPlanResponse>> {
+		const response = await this.request.post("/hub/switch-plan", {
+			headers: { Authorization: `Bearer ${sessionToken}` },
+			data: body,
+		});
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as HubPlanResponse,
+			errors: Array.isArray(responseBody) ? responseBody : responseBody.errors,
+		};
+	}
+
+	/**
+	 * POST /hub/switch-plan without Authorization header (for testing 401)
+	 */
+	async switchPlanWithoutAuth(
+		request: SwitchHubPlanRequest
+	): Promise<APIResponse<HubPlanResponse>> {
+		const response = await this.request.post("/hub/switch-plan", {
+			data: request,
+		});
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as HubPlanResponse,
 			errors: Array.isArray(body) ? body : body.errors,
 		};
 	}

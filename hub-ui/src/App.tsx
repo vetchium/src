@@ -42,6 +42,7 @@ import { MyCandidaciesPage } from "./pages/Candidacies/MyCandidaciesPage";
 import { MyCandidacyDetailPage } from "./pages/Candidacies/MyCandidacyDetailPage";
 import { MyInterviewsPage } from "./pages/Candidacies/MyInterviewsPage";
 import { ApplyPreferencesPage } from "./pages/Settings/ApplyPreferencesPage";
+import { PlanPage } from "./pages/Settings/PlanPage";
 
 const { Content } = Layout;
 
@@ -303,6 +304,14 @@ function AppContent() {
 								element={
 									<ProtectedRoute>
 										<ApplyPreferencesPage />
+									</ProtectedRoute>
+								}
+							/>
+							<Route
+								path="/settings/plan"
+								element={
+									<ProtectedRoute>
+										<PlanPage />
 									</ProtectedRoute>
 								}
 							/>

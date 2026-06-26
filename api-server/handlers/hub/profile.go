@@ -142,8 +142,9 @@ func contentTypeFromKey(key string) string {
 // buildOwnerView assembles HubProfileOwnerView from DB rows.
 func buildOwnerView(profile regionaldb.GetMyHubProfileRow, displayNames []globaldb.HubUserDisplayName) hubtypes.HubProfileOwnerView {
 	result := hubtypes.HubProfileOwnerView{
-		Handle:            hubtypes.Handle(profile.Handle),
-		HasProfilePicture: profile.ProfilePictureStorageKey.Valid,
+		Handle: hubtypes.Handle(profile.Handle),
+		// Spec 17: suppress a retained picture while the owner's plan cannot upload one.
+		HasProfilePicture: profile.ProfilePictureStorageKey.Valid && profile.CanUploadProfilePicture,
 		PreferredLanguage: common.LanguageCode(profile.PreferredLanguage),
 	}
 
@@ -180,10 +181,11 @@ func buildOwnerView(profile regionaldb.GetMyHubProfileRow, displayNames []global
 }
 
 // buildOwnerViewFromHubUser assembles HubProfileOwnerView from a full HubUser row + display names.
-func buildOwnerViewFromHubUser(hubUser regionaldb.HubUser, displayNames []globaldb.HubUserDisplayName) hubtypes.HubProfileOwnerView {
+func buildOwnerViewFromHubUser(hubUser regionaldb.UpdateMyHubProfileRow, displayNames []globaldb.HubUserDisplayName) hubtypes.HubProfileOwnerView {
 	result := hubtypes.HubProfileOwnerView{
-		Handle:            hubtypes.Handle(hubUser.Handle),
-		HasProfilePicture: hubUser.ProfilePictureStorageKey.Valid,
+		Handle: hubtypes.Handle(hubUser.Handle),
+		// Spec 17: suppress a retained picture while the owner's plan cannot upload one.
+		HasProfilePicture: hubUser.ProfilePictureStorageKey.Valid && hubUser.CanUploadProfilePicture,
 		PreferredLanguage: common.LanguageCode(hubUser.PreferredLanguage),
 	}
 
@@ -364,7 +366,7 @@ func UpdateMyProfile(s *server.RegionalServer) http.HandlerFunc {
 			"fields_updated": fieldsUpdated,
 		})
 
-		var updatedUser regionaldb.HubUser
+		var updatedUser regionaldb.UpdateMyHubProfileRow
 		regionalErr := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
 			var txErr error
 			updatedUser, txErr = qtx.UpdateMyHubProfile(ctx, regionaldb.UpdateMyHubProfileParams{
@@ -461,6 +463,22 @@ func UploadProfilePicture(s *server.RegionalServer) http.HandlerFunc {
 		if hubUser == nil {
 			log.Debug("hub user not found in context")
 			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		// Spec 17 Pro gate: only plans with can_upload_profile_picture may upload.
+		// This is a regional read before the S3 upload; the upload happens between
+		// this read and the subsequent conditional write, so this handler makes two
+		// regional round-trips — an accepted, documented exception to one-round-trip.
+		caps, err := s.RegionalForCtx(ctx).GetHubUserPlanWithCaps(ctx, hubUser.HubUserGlobalID)
+		if err != nil {
+			log.Error("failed to load hub user plan caps", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+		if !caps.CanUploadProfilePicture {
+			log.Debug("plan does not permit profile picture upload", "plan_id", caps.PlanID)
+			w.WriteHeader(http.StatusForbidden)
 			return
 		}
 
@@ -799,7 +817,8 @@ func GetProfile(s *server.RegionalServer) http.HandlerFunc {
 			cc := hubtypes.CountryCode(publicProfile.ResidentCountryCode.String)
 			result.ResidentCountryCode = &cc
 		}
-		if publicProfile.ProfilePictureStorageKey.Valid {
+		// Spec 17: suppress the picture while the OWNER's plan cannot upload one.
+		if publicProfile.ProfilePictureStorageKey.Valid && publicProfile.CanUploadProfilePicture {
 			picURL := fmt.Sprintf("/hub/profile-picture/%s", string(req.Handle))
 			result.ProfilePictureURL = &picURL
 		}
@@ -873,7 +892,8 @@ func GetProfilePicture(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		if !publicProfile.ProfilePictureStorageKey.Valid || publicProfile.ProfilePictureStorageKey.String == "" {
+		// Spec 17: suppress (404) while the OWNER's plan cannot upload a picture.
+		if !publicProfile.ProfilePictureStorageKey.Valid || publicProfile.ProfilePictureStorageKey.String == "" || !publicProfile.CanUploadProfilePicture {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}

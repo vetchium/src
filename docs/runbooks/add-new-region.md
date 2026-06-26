@@ -93,11 +93,18 @@ The example below adds `fra1` (France - Paris). Substitute accordingly.
     fra1: 5436,  // next available port
     ```
 
-11. Build and deploy the updated binaries (global API server, new regional API server and worker).
+11. Add the region's **currency** to the shared map in `api-schema/common/currency.ts`
+    (`REGION_CURRENCY`), then add a **price entry** for that region in each portal's
+    display-only pricing config — `hub-ui/src/config/pricing.ts` (Hub Pro) and
+    `org-ui/src/config/pricing.ts` (Silver/Gold/Enterprise). Prices are frontend config
+    only — there is no DB/API/admin pricing layer (Spec 17). Until a region is added to
+    these files, signup/plan pages simply show no price for it; no logic changes.
+
+12. Build and deploy the updated binaries (global API server, new regional API server and worker).
 
 ### Phase 4 — Activation
 
-12. Once smoke-tested, flip the go-live switch:
+13. Once smoke-tested, flip the go-live switch:
     ```sql
     UPDATE available_regions SET is_active = TRUE WHERE region_code = 'fra1';
     ```
@@ -105,9 +112,9 @@ The example below adds `fra1` (France - Paris). Substitute accordingly.
 
 ### Phase 5 — Verification
 
-13. Call `POST /global/get-regions` — confirm `fra1` appears.
-14. Run the full Playwright test suite — confirm no regressions.
-15. Attempt a signup and a SubOrg creation targeting `fra1` — confirm both succeed.
+14. Call `POST /global/get-regions` — confirm `fra1` appears.
+15. Run the full Playwright test suite — confirm no regressions.
+16. Attempt a signup and a SubOrg creation targeting `fra1` — confirm both succeed.
 
 ### Rollback
 

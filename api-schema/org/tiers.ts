@@ -59,8 +59,9 @@ export interface AdminSetOrgPlanRequest {
 	reason: string;
 }
 
-const VALID_PLAN_IDS = ["free", "silver", "gold", "enterprise"] as const;
-type PlanId = (typeof VALID_PLAN_IDS)[number];
+export const VALID_PLAN_IDS = ["free", "silver", "gold", "enterprise"] as const;
+export type OrgPlanId = (typeof VALID_PLAN_IDS)[number];
+type PlanId = OrgPlanId;
 
 export function validateUpgradeOrgPlanRequest(
 	req: UpgradeOrgPlanRequest

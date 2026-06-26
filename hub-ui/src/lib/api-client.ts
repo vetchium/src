@@ -16,6 +16,11 @@ import type {
 	GetRegionsResponse,
 	GetSupportedLanguagesResponse,
 } from "vetchium-specs/global/global";
+import type {
+	ListHubPlansResponse,
+	SwitchHubPlanRequest,
+	HubPlanResponse,
+} from "vetchium-specs/hub/plans";
 
 export interface APIResponse<T> {
 	status: number;
@@ -209,4 +214,57 @@ export async function logout(sessionToken: string): Promise<APIResponse<void>> {
 	});
 
 	return { status: response.status };
+}
+
+/**
+ * List the active hub plan catalog (Spec 17)
+ */
+export async function listPlans(
+	sessionToken: string
+): Promise<APIResponse<ListHubPlansResponse>> {
+	const apiBaseUrl = await getApiBaseUrl();
+	const response = await fetch(`${apiBaseUrl}/hub/list-plans`, {
+		method: "POST",
+		headers: {
+			"Content-Type": "application/json",
+			Authorization: `Bearer ${sessionToken}`,
+		},
+		body: JSON.stringify({}),
+	});
+
+	const status = response.status;
+	if (status === 200) {
+		const data: ListHubPlansResponse = await response.json();
+		return { status, data };
+	}
+	return { status };
+}
+
+/**
+ * Switch the authenticated hub user's own plan (Spec 17, display-only)
+ */
+export async function switchPlan(
+	sessionToken: string,
+	request: SwitchHubPlanRequest
+): Promise<APIResponse<HubPlanResponse>> {
+	const apiBaseUrl = await getApiBaseUrl();
+	const response = await fetch(`${apiBaseUrl}/hub/switch-plan`, {
+		method: "POST",
+		headers: {
+			"Content-Type": "application/json",
+			Authorization: `Bearer ${sessionToken}`,
+		},
+		body: JSON.stringify(request),
+	});
+
+	const status = response.status;
+	if (status === 200) {
+		const data: HubPlanResponse = await response.json();
+		return { status, data };
+	}
+	if (status === 400) {
+		const errors = await response.json();
+		return { status, errors };
+	}
+	return { status };
 }
