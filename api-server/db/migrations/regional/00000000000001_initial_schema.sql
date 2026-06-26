@@ -85,6 +85,21 @@ CREATE TYPE employment_type AS ENUM ('full_time','part_time','contract','interns
 CREATE TYPE work_location_type AS ENUM ('remote','on_site','hybrid');
 -- Education level enum
 CREATE TYPE education_level AS ENUM ('not_required','bachelor','master','doctorate');
+-- Hub plans: capability definitions (Spec 17). Seeded, identical per region.
+-- Pricing is NOT stored here — prices are frontend display-only config.
+CREATE TABLE hub_plans (
+    plan_id                     TEXT        PRIMARY KEY,
+    display_order               INT         NOT NULL UNIQUE,
+    can_upload_profile_picture  BOOLEAN     NOT NULL DEFAULT FALSE,
+    can_post_messages           BOOLEAN     NOT NULL DEFAULT FALSE,
+    self_upgradeable            BOOLEAN     NOT NULL DEFAULT TRUE,
+    status                      TEXT        NOT NULL CHECK (status IN ('active','retired')) DEFAULT 'active',
+    created_at                  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at                  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+INSERT INTO hub_plans (plan_id, display_order, can_upload_profile_picture, can_post_messages, self_upgradeable) VALUES
+    ('free', 1, FALSE, FALSE, TRUE),
+    ('pro',  2, TRUE,  TRUE,  TRUE);
 -- Hub users table (regional - all mutable data)
 -- Uses hub_user_global_id as primary key (same ID as global DB for simplicity)
 CREATE TABLE hub_users (
@@ -99,8 +114,18 @@ CREATE TABLE hub_users (
     long_bio TEXT,
     city VARCHAR(100),
     profile_picture_storage_key TEXT,
+    plan_id TEXT NOT NULL DEFAULT 'free' REFERENCES hub_plans(plan_id),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     created_at TIMESTAMPTZ DEFAULT NOW()
+);
+-- Hub plan switch history (audit trail of plan changes, Spec 17)
+CREATE TABLE hub_user_plan_history (
+    history_id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    hub_user_global_id  UUID        NOT NULL,
+    from_plan_id        TEXT,
+    to_plan_id          TEXT        NOT NULL,
+    changed_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    reason              TEXT        NOT NULL DEFAULT ''
 );
 -- Emails table for transactional outbox pattern
 CREATE TABLE emails (
@@ -964,7 +989,9 @@ DROP TABLE IF EXISTS endorsement_requests;
 DROP TABLE IF EXISTS applications;
 DROP TABLE IF EXISTS org_hiring_settings;
 DROP TABLE IF EXISTS hub_apply_preferences;
+DROP TABLE IF EXISTS hub_user_plan_history;
 DROP TABLE IF EXISTS hub_users;
+DROP TABLE IF EXISTS hub_plans;
 DROP TYPE IF EXISTS education_level;
 DROP TYPE IF EXISTS work_location_type;
 DROP TYPE IF EXISTS employment_type;

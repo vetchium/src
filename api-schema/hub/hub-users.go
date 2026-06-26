@@ -329,4 +329,8 @@ type HubMyInfoResponse struct {
 	PreferredLanguage common.LanguageCode `json:"preferred_language"`
 	HomeRegion        string              `json:"home_region"`
 	Roles             []string            `json:"roles"`
+
+	PlanID                  HubPlanId `json:"plan_id"`
+	CanUploadProfilePicture bool      `json:"can_upload_profile_picture"`
+	CanPostMessages         bool      `json:"can_post_messages"`
 }

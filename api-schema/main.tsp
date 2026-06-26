@@ -3,6 +3,7 @@ import "@typespec/http";
 import "./global/global.tsp";
 import "./common/roles.tsp";
 import "./hub/hub-users.tsp";
+import "./hub/plans.tsp";
 import "./hub/tags.tsp";
 import "./hub/work-emails.tsp";
 import "./admin/admin-users.tsp";

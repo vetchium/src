@@ -957,21 +957,32 @@ SELECT
 -- ============================================================================
 
 -- name: GetMyHubProfile :one
-SELECT hub_user_global_id, handle, status, preferred_language,
-       resident_country_code, short_bio, long_bio, city,
-       profile_picture_storage_key, created_at, updated_at
-FROM hub_users
-WHERE hub_user_global_id = @hub_user_global_id;
+-- Joins hub_plans so the owner view can suppress the picture while on a plan
+-- that cannot upload one (Spec 17 profile-picture downgrade rule).
+SELECT u.hub_user_global_id, u.handle, u.status, u.preferred_language,
+       u.resident_country_code, u.short_bio, u.long_bio, u.city,
+       u.profile_picture_storage_key, u.created_at, u.updated_at,
+       p.can_upload_profile_picture
+FROM hub_users u
+JOIN hub_plans p ON p.plan_id = u.plan_id
+WHERE u.hub_user_global_id = @hub_user_global_id;
 
 -- name: UpdateMyHubProfile :one
-UPDATE hub_users
-SET short_bio             = COALESCE(sqlc.narg('short_bio')::text, short_bio),
-    long_bio              = COALESCE(sqlc.narg('long_bio')::text, long_bio),
-    city                  = COALESCE(sqlc.narg('city')::text, city),
-    resident_country_code = COALESCE(sqlc.narg('country')::text, resident_country_code),
-    updated_at            = NOW()
-WHERE hub_user_global_id = @hub_user_global_id
-RETURNING *;
+-- Returns the joined can_upload_profile_picture so the owner view can suppress
+-- a retained picture while on a plan that cannot upload one (Spec 17).
+WITH updated AS (
+    UPDATE hub_users
+    SET short_bio             = COALESCE(sqlc.narg('short_bio')::text, short_bio),
+        long_bio              = COALESCE(sqlc.narg('long_bio')::text, long_bio),
+        city                  = COALESCE(sqlc.narg('city')::text, city),
+        resident_country_code = COALESCE(sqlc.narg('country')::text, resident_country_code),
+        updated_at            = NOW()
+    WHERE hub_user_global_id = @hub_user_global_id
+    RETURNING *
+)
+SELECT updated.*, p.can_upload_profile_picture
+FROM updated
+JOIN hub_plans p ON p.plan_id = updated.plan_id;
 
 -- name: SetHubProfilePictureKey :one
 UPDATE hub_users
@@ -998,10 +1009,13 @@ VALUES (@storage_key, @reason)
 ON CONFLICT (storage_key) DO NOTHING;
 
 -- name: GetPublicProfileByHandle :one
+-- Joins hub_plans so peer/recruiter views suppress the picture while the OWNER
+-- is on a plan that cannot upload one (Spec 17 profile-picture downgrade rule).
 SELECT u.handle, u.status, u.short_bio, u.long_bio, u.city,
        u.resident_country_code, u.profile_picture_storage_key,
-       u.hub_user_global_id
+       u.hub_user_global_id, p.can_upload_profile_picture
 FROM hub_users u
+JOIN hub_plans p ON p.plan_id = u.plan_id
 WHERE u.handle = @handle AND u.status = 'active';
 
 -- name: CreateWorkEmailStint :one

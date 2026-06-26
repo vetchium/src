@@ -39,6 +39,7 @@ import type { Region, SupportedLanguage } from "vetchium-specs/global/global";
 import * as api from "../lib/api-client";
 import { COUNTRIES } from "../lib/countries";
 import { useAuth } from "../hooks/useAuth";
+import { HubPlanPricing } from "../components/HubPlanPricing";
 
 const { Text } = Typography;
 
@@ -452,6 +453,15 @@ export function SignupCompleteForm({ signupToken }: SignupCompleteFormProps) {
 							}))}
 						/>
 					</Form.Item>
+
+					{homeRegion && (
+						<div style={{ marginTop: 24 }}>
+							<Text type="secondary">{t("signup:pricingIntro")}</Text>
+							<div style={{ marginTop: 12 }}>
+								<HubPlanPricing regionCode={homeRegion} />
+							</div>
+						</div>
+					)}
 				</>
 			),
 		},

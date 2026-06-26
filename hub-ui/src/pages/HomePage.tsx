@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Avatar, Badge, Card, Col, Row, Typography, theme } from "antd";
 import {
 	CalendarOutlined,
+	CrownOutlined,
 	FileSearchOutlined,
 	FileTextOutlined,
 	SearchOutlined,
@@ -97,6 +98,35 @@ export function HomePage() {
 									</Title>
 									<Text type="secondary" style={{ fontSize: 13 }}>
 										{t("dashboard.myProfile.description")}
+									</Text>
+								</div>
+							</div>
+						</Card>
+					</Link>
+				</Col>
+
+				<Col xs={24} sm={12} lg={8}>
+					<Link
+						to="/settings/plan"
+						style={{ textDecoration: "none", display: "block", height: "100%" }}
+					>
+						<Card hoverable style={{ height: "100%", cursor: "pointer" }}>
+							<div
+								style={{ display: "flex", alignItems: "flex-start", gap: 16 }}
+							>
+								<CrownOutlined
+									style={{
+										fontSize: 28,
+										color: token.colorPrimary,
+										marginTop: 2,
+									}}
+								/>
+								<div>
+									<Title level={5} style={{ marginBottom: 4 }}>
+										{t("dashboard.plan.title")}
+									</Title>
+									<Text type="secondary" style={{ fontSize: 13 }}>
+										{t("dashboard.plan.description")}
 									</Text>
 								</div>
 							</div>

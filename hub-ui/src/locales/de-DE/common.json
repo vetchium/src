@@ -37,6 +37,10 @@
 			"title": "Mein Profil",
 			"description": "Profil, Biografie und Arbeits-E-Mails bearbeiten"
 		},
+		"plan": {
+			"title": "Tarif",
+			"description": "Preise ansehen und zwischen Kostenlos und Pro wechseln"
+		},
 		"connections": {
 			"title": "Verbindungen",
 			"description": "Berufliche Verbindungen verwalten"

@@ -47,5 +47,35 @@
 	},
 	"success": {
 		"upgraded": "Successfully upgraded to {{plan}}"
+	},
+	"pricing": {
+		"intro": "Pricing for your region. All plans start with a generous Free tier.",
+		"free": "Free",
+		"contactUs": "Contact us",
+		"perMonth": "/ mo",
+		"perYear": "/ yr",
+		"billingMonthly": "Monthly",
+		"billingAnnual": "Annual",
+		"saveBadge": "Save {{percent}}%",
+		"plusTaxes": "+ applicable taxes",
+		"recommended": "Popular",
+		"plan_free": "Free",
+		"plan_silver": "Silver",
+		"plan_gold": "Gold",
+		"plan_enterprise": "Enterprise",
+		"featureOrgUsers": "{{count}} org users",
+		"featureOrgUsersUnlimited": "Unlimited org users",
+		"featureDomains": "{{count}} verified domains",
+		"featureDomainsUnlimited": "Unlimited verified domains",
+		"featureSuborgs": "{{count}} sub-orgs",
+		"featureSuborgsUnlimited": "Unlimited sub-orgs",
+		"featureListings": "{{count}} marketplace listings",
+		"featureListingsUnlimited": "Unlimited marketplace listings",
+		"featureAudit": "{{count}}-day audit retention",
+		"featureAuditUnlimited": "Unlimited audit retention",
+		"featureMcp": "MCP access (coming soon)",
+		"comingSoon": "Coming soon",
+		"comingSoonMcp": "MCP access (programmatic API integration)",
+		"comingSoonMore": "SSO/SAML, dedicated support, custom data residency, and more"
 	}
 }

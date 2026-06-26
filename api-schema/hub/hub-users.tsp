@@ -378,6 +378,12 @@ model HubMyInfoResponse {
     home_region: string;
     @doc("Array of role names assigned to this user")
     roles: string[];
+    @doc("The user's current plan id (Spec 17)")
+    plan_id: HubPlanId;
+    @doc("Whether the current plan can upload a profile picture")
+    can_upload_profile_picture: boolean;
+    @doc("Whether the current plan can post messages")
+    can_post_messages: boolean;
 }
 
 @route("/hub/myinfo")

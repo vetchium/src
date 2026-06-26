@@ -47,5 +47,35 @@
 	},
 	"success": {
 		"upgraded": "Successfully upgraded to {{plan}}"
+	},
+	"pricing": {
+		"intro": "Preise für Ihre Region. Alle Tarife starten mit einem großzügigen kostenlosen Tarif.",
+		"free": "Kostenlos",
+		"contactUs": "Kontaktieren Sie uns",
+		"perMonth": "/ Mon.",
+		"perYear": "/ Jahr",
+		"billingMonthly": "Monatlich",
+		"billingAnnual": "Jährlich",
+		"saveBadge": "{{percent}} % sparen",
+		"plusTaxes": "+ zzgl. anfallender Steuern",
+		"recommended": "Beliebt",
+		"plan_free": "Kostenlos",
+		"plan_silver": "Silber",
+		"plan_gold": "Gold",
+		"plan_enterprise": "Enterprise",
+		"featureOrgUsers": "{{count}} Org-Benutzer",
+		"featureOrgUsersUnlimited": "Unbegrenzte Org-Benutzer",
+		"featureDomains": "{{count}} verifizierte Domains",
+		"featureDomainsUnlimited": "Unbegrenzte verifizierte Domains",
+		"featureSuborgs": "{{count}} Sub-Orgs",
+		"featureSuborgsUnlimited": "Unbegrenzte Sub-Orgs",
+		"featureListings": "{{count}} Marktplatz-Angebote",
+		"featureListingsUnlimited": "Unbegrenzte Marktplatz-Angebote",
+		"featureAudit": "{{count}} Tage Audit-Aufbewahrung",
+		"featureAuditUnlimited": "Unbegrenzte Audit-Aufbewahrung",
+		"featureMcp": "MCP-Zugang (demnächst)",
+		"comingSoon": "Demnächst",
+		"comingSoonMcp": "MCP-Zugang (programmatische API-Integration)",
+		"comingSoonMore": "SSO/SAML, dedizierter Support, individuelle Datenresidenz und mehr"
 	}
 }

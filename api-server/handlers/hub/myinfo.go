@@ -22,24 +22,26 @@ func MyInfo(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		roleRecords, err := s.RegionalForCtx(ctx).GetHubUserRoles(ctx, hubUser.HubUserGlobalID)
+		// One regional round-trip: plan capabilities + aggregated role names.
+		info, err := s.RegionalForCtx(ctx).GetHubUserPlanAndRoles(ctx, hubUser.HubUserGlobalID)
 		if err != nil {
-			s.Logger(ctx).Error("failed to fetch hub user roles", "error", err)
+			s.Logger(ctx).Error("failed to fetch hub user plan and roles", "error", err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		roles := make([]string, len(roleRecords))
-		for i, role := range roleRecords {
-			roles[i] = role.RoleName
-		}
+		roles := make([]string, 0, len(info.Roles))
+		roles = append(roles, info.Roles...)
 
 		response := hubtypes.HubMyInfoResponse{
-			Handle:            hubtypes.Handle(hubUser.Handle),
-			EmailAddress:      common.EmailAddress(hubUser.EmailAddress),
-			PreferredLanguage: common.LanguageCode(hubUser.PreferredLanguage),
-			HomeRegion:        middleware.HubRegionFromContext(ctx),
-			Roles:             roles,
+			Handle:                  hubtypes.Handle(hubUser.Handle),
+			EmailAddress:            common.EmailAddress(hubUser.EmailAddress),
+			PreferredLanguage:       common.LanguageCode(hubUser.PreferredLanguage),
+			HomeRegion:              middleware.HubRegionFromContext(ctx),
+			Roles:                   roles,
+			PlanID:                  hubtypes.HubPlanId(info.PlanID),
+			CanUploadProfilePicture: info.CanUploadProfilePicture,
+			CanPostMessages:         info.CanPostMessages,
 		}
 
 		if err := json.NewEncoder(w).Encode(response); err != nil {

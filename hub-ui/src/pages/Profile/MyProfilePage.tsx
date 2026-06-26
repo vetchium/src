@@ -32,6 +32,7 @@ import { Link } from "react-router-dom";
 import { ProfileAvatar } from "../../components/profile/ProfileAvatar";
 import { getApiBaseUrl } from "../../config";
 import { useAuth } from "../../hooks/useAuth";
+import { useMyInfo } from "../../hooks/useMyInfo";
 import { COUNTRIES } from "../../lib/countries";
 import { formatDateTime } from "../../utils/dateFormat";
 import type {
@@ -79,7 +80,10 @@ function getPreferredName(
 export function MyProfilePage() {
 	const { t, i18n } = useTranslation("profile");
 	const { t: tWE } = useTranslation("workEmails");
+	const { t: tPlan } = useTranslation("plan");
 	const { sessionToken } = useAuth();
+	const { data: myInfo } = useMyInfo(sessionToken);
+	const canUploadPicture = myInfo?.can_upload_profile_picture ?? false;
 
 	const [profile, setProfile] = useState<HubProfileOwnerView | null>(null);
 	const [loading, setLoading] = useState(true);
@@ -733,15 +737,21 @@ export function MyProfilePage() {
 								/>
 							</div>
 							<Space wrap>
+								{/* Spec 17: profile picture is a Pro capability. UI gate is
+								    defence-in-depth — the backend still enforces it (403). */}
 								<Button
 									icon={<UploadOutlined />}
 									loading={uploadingPicture}
+									disabled={!canUploadPicture}
 									onClick={() =>
 										document.getElementById("profile-picture-input")?.click()
 									}
 								>
 									{t("myProfile.picture.upload")}
 								</Button>
+								{!canUploadPicture && (
+									<Link to="/settings/plan">{tPlan("upgradeForPicture")}</Link>
+								)}
 								<input
 									id="profile-picture-input"
 									type="file"

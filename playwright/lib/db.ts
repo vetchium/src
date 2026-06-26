@@ -1794,6 +1794,117 @@ export async function getHubUserProfilePictureKey(
 }
 
 /**
+ * Sets a hub user's plan_id directly in the regional DB (Spec 17).
+ * Used to set up read-suppression and downgrade scenarios in tests.
+ */
+export async function setHubUserPlanDirect(
+	hubUserGlobalId: string,
+	planId: string,
+	region: RegionCode = "ind1"
+): Promise<void> {
+	const regionalPool = getRegionalPool(region);
+	try {
+		await regionalPool.query(
+			`UPDATE hub_users SET plan_id = $1, updated_at = NOW()
+			 WHERE hub_user_global_id = $2`,
+			[planId, hubUserGlobalId]
+		);
+	} finally {
+		await regionalPool.end();
+	}
+}
+
+/**
+ * Reads a hub user's plan_id directly from the regional DB (Spec 17).
+ * Used as an assertion helper in tests.
+ */
+export async function getHubUserPlanDirect(
+	hubUserGlobalId: string,
+	region: RegionCode = "ind1"
+): Promise<string | null> {
+	const regionalPool = getRegionalPool(region);
+	try {
+		const result = await regionalPool.query(
+			`SELECT plan_id FROM hub_users WHERE hub_user_global_id = $1`,
+			[hubUserGlobalId]
+		);
+		if (result.rows.length === 0) return null;
+		return result.rows[0].plan_id ?? null;
+	} finally {
+		await regionalPool.end();
+	}
+}
+
+/**
+ * Seeds an extra hub_plans row directly (Spec 17, test #8). The seeded `free`
+ * and `pro` plans are both active + self_upgradeable, so a retired and a
+ * non-self_upgradeable plan must be inserted to exercise the 422 paths.
+ * Use a unique planId per test to avoid collisions in parallel runs.
+ */
+export async function seedHubPlanDirect(
+	planId: string,
+	opts: {
+		selfUpgradeable?: boolean;
+		status?: "active" | "retired";
+		canUploadProfilePicture?: boolean;
+		canPostMessages?: boolean;
+	} = {},
+	region: RegionCode = "ind1"
+): Promise<void> {
+	const {
+		selfUpgradeable = true,
+		status = "active",
+		canUploadProfilePicture = false,
+		canPostMessages = false,
+	} = opts;
+	const regionalPool = getRegionalPool(region);
+	try {
+		// display_order must be UNIQUE; derive a high, unlikely-to-collide value.
+		const displayOrder = 1000 + Math.floor(Math.random() * 1_000_000);
+		await regionalPool.query(
+			`INSERT INTO hub_plans
+			   (plan_id, display_order, can_upload_profile_picture, can_post_messages, self_upgradeable, status)
+			 VALUES ($1, $2, $3, $4, $5, $6)
+			 ON CONFLICT (plan_id) DO UPDATE
+			   SET self_upgradeable = EXCLUDED.self_upgradeable,
+			       status = EXCLUDED.status`,
+			[
+				planId,
+				displayOrder,
+				canUploadProfilePicture,
+				canPostMessages,
+				selfUpgradeable,
+				status,
+			]
+		);
+	} finally {
+		await regionalPool.end();
+	}
+}
+
+/**
+ * Deletes a seeded hub_plans row (Spec 17 test cleanup). Also clears any plan
+ * history rows that reference it so the FK-free history table stays tidy.
+ */
+export async function deleteHubPlanDirect(
+	planId: string,
+	region: RegionCode = "ind1"
+): Promise<void> {
+	const regionalPool = getRegionalPool(region);
+	try {
+		await regionalPool.query(
+			`DELETE FROM hub_user_plan_history WHERE to_plan_id = $1 OR from_plan_id = $1`,
+			[planId]
+		);
+		await regionalPool.query(`DELETE FROM hub_plans WHERE plan_id = $1`, [
+			planId,
+		]);
+	} finally {
+		await regionalPool.end();
+	}
+}
+
+/**
  * Gets the hub_user_global_id UUID from the global DB by email hash.
  * Used when tests need to look up IDs for direct DB manipulation.
  *

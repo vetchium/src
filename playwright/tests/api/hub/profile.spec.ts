@@ -361,6 +361,8 @@ test.describe("POST /hub/upload-profile-picture", () => {
 			TEST_PASSWORD,
 			"Picture Test"
 		);
+		// Spec 17: profile-picture upload is a Pro capability.
+		await api.switchPlan(sessionToken, { plan_id: "pro" });
 	});
 
 	test.afterAll(async () => {
@@ -525,6 +527,8 @@ test.describe("POST /hub/remove-profile-picture", () => {
 			TEST_PASSWORD,
 			"Remove Pic Test"
 		);
+		// Spec 17: profile-picture upload is a Pro capability.
+		await api.switchPlan(sessionToken, { plan_id: "pro" });
 	});
 
 	test.afterAll(async () => {
@@ -611,6 +615,8 @@ test.describe("POST /hub/get-profile", () => {
 			TEST_PASSWORD,
 			"Target User"
 		);
+		// Spec 17: a picture is only visible while the OWNER is on Pro.
+		await api.switchPlan(targetToken, { plan_id: "pro" });
 
 		// Get target's handle
 		const profileResp = await api.getMyProfile(targetToken);
@@ -738,6 +744,8 @@ test.describe("GET /hub/profile-picture/{handle}", () => {
 			TEST_PASSWORD,
 			"PP Target"
 		);
+		// Spec 17: a picture is only visible while the OWNER is on Pro.
+		await api.switchPlan(targetToken, { plan_id: "pro" });
 
 		const profileResp = await api.getMyProfile(targetToken);
 		expect(profileResp.status).toBe(200);
