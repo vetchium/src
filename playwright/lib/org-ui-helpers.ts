@@ -43,7 +43,13 @@ export async function orgLogin(
  * Navigates to the addresses page.
  */
 export async function gotoAddresses(page: Page) {
-	await page.goto(`${ORG_UI_URL}/settings/addresses`);
+	// Navigate within the SPA (from the dashboard) rather than a hard page.goto:
+	// a hard load to a deep protected route cold-starts the auth bootstrap
+	// (ProtectedRoute renders null while `initializing`), which races and can
+	// leave the page unmounted. The dashboard tile is the path a user takes and
+	// is what the sibling CRUD test already uses reliably.
+	await page.locator("text=Company Addresses").click();
+	await expect(page).toHaveURL(`${ORG_UI_URL}/settings/addresses`);
 	await expect(page.locator('h2:has-text("Company Addresses")')).toBeVisible();
 }
 
