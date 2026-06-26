@@ -2,29 +2,21 @@ package hub
 
 import (
 	"errors"
-	"slices"
 
 	"vetchium-api-server.typespec/common"
 )
 
 // HubPlanId is the hub plan identifier enum (Spec 17). Never a bare string.
+//
+// Note: switch-plan deliberately does NOT reject unknown ids at validation time
+// — it lets the DB lookup decide (404 if the plan does not exist, 422 if it
+// exists but is retired / not self-upgradeable), per Spec 17 §9.4.
 type HubPlanId string
 
 const (
 	HubPlanIdFree HubPlanId = "free"
 	HubPlanIdPro  HubPlanId = "pro"
 )
-
-var validHubPlanIDs = []HubPlanId{HubPlanIdFree, HubPlanIdPro}
-
-// IsValidHubPlanID reports whether id is one of the currently shipped hub plan
-// identifiers. Note: the switch-plan handler deliberately does NOT reject
-// unknown ids at validation time — it lets the DB lookup decide (404 if the
-// plan does not exist, 422 if it exists but is retired / not self-upgradeable),
-// per Spec 17 §9.4. This helper is exported for callers that need a strict check.
-func IsValidHubPlanID(id HubPlanId) bool {
-	return slices.Contains(validHubPlanIDs, id)
-}
 
 var errPlanIDRequired = errors.New("plan_id is required")
 

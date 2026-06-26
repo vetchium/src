@@ -6,13 +6,20 @@ FROM hub_plans
 WHERE status = 'active'
 ORDER BY display_order ASC;
 
--- name: GetHubPlan :one
-SELECT plan_id, display_order, can_upload_profile_picture, can_post_messages, self_upgradeable, status
-FROM hub_plans
-WHERE plan_id = @plan_id;
+-- One round-trip for switch-plan: the target plan's columns plus the caller's
+-- CURRENT plan_id. Zero rows ⇒ the target plan does not exist (→ 404); the
+-- authenticated user always exists. Avoids a second read for the no-op check.
+-- name: GetHubPlanForSwitch :one
+SELECT p.plan_id, p.display_order, p.can_upload_profile_picture,
+       p.can_post_messages, p.self_upgradeable, p.status,
+       u.plan_id AS current_plan_id
+FROM hub_plans p
+CROSS JOIN hub_users u
+WHERE p.plan_id = @target_plan_id
+  AND u.hub_user_global_id = @hub_user_global_id;
 
 -- Single-row plan capabilities for the authenticated user (used by the
--- profile-picture upload gate and the switch handler's current-plan read).
+-- profile-picture upload gate).
 -- name: GetHubUserPlanWithCaps :one
 SELECT u.plan_id, p.can_upload_profile_picture, p.can_post_messages
 FROM hub_users u

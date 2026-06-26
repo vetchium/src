@@ -44,10 +44,14 @@ func SwitchPlan(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		var target regionaldb.GetHubPlanRow
+		var target regionaldb.GetHubPlanForSwitchRow
 		err := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
-			// Validate the target plan: must exist, be active and self-upgradeable.
-			t, txErr := qtx.GetHubPlan(ctx, string(req.PlanID))
+			// One read: target plan columns + the caller's current plan_id.
+			// No rows ⇒ the target plan does not exist (→ 404).
+			t, txErr := qtx.GetHubPlanForSwitch(ctx, regionaldb.GetHubPlanForSwitchParams{
+				TargetPlanID:    string(req.PlanID),
+				HubUserGlobalID: hubUser.HubUserGlobalID,
+			})
 			if txErr != nil {
 				if errors.Is(txErr, pgx.ErrNoRows) {
 					return server.ErrNotFound
@@ -59,12 +63,8 @@ func SwitchPlan(s *server.RegionalServer) http.HandlerFunc {
 				return server.ErrInvalidState
 			}
 
-			// Read current plan; a no-op switch short-circuits with no writes.
-			current, txErr := qtx.GetHubUserPlanWithCaps(ctx, hubUser.HubUserGlobalID)
-			if txErr != nil {
-				return txErr
-			}
-			if current.PlanID == string(req.PlanID) {
+			// A no-op switch (already on the target plan) short-circuits with no writes.
+			if t.CurrentPlanID == string(req.PlanID) {
 				return nil // idempotent no-op
 			}
 
@@ -77,7 +77,7 @@ func SwitchPlan(s *server.RegionalServer) http.HandlerFunc {
 
 			if txErr = qtx.InsertHubPlanHistory(ctx, regionaldb.InsertHubPlanHistoryParams{
 				HubUserGlobalID: hubUser.HubUserGlobalID,
-				FromPlanID:      pgtype.Text{String: current.PlanID, Valid: true},
+				FromPlanID:      pgtype.Text{String: t.CurrentPlanID, Valid: true},
 				ToPlanID:        string(req.PlanID),
 				Reason:          "self-switch",
 			}); txErr != nil {
@@ -85,7 +85,7 @@ func SwitchPlan(s *server.RegionalServer) http.HandlerFunc {
 			}
 
 			auditData, _ := json.Marshal(map[string]any{
-				"from_plan_id": current.PlanID,
+				"from_plan_id": t.CurrentPlanID,
 				"to_plan_id":   string(req.PlanID),
 			})
 			return qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{

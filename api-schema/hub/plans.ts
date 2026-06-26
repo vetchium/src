@@ -3,11 +3,6 @@ import { newValidationError, type ValidationError } from "../common/common";
 // Hub plan identifiers (Spec 17). Enum union — never a bare string.
 export type HubPlanId = "free" | "pro";
 
-export const VALID_HUB_PLAN_IDS: readonly HubPlanId[] = [
-	"free",
-	"pro",
-] as const;
-
 export interface HubPlan {
 	plan_id: HubPlanId;
 	display_order: number;
