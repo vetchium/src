@@ -22,6 +22,13 @@ export function SignupPage() {
 					</Button>
 				</Link>
 			</div>
+			<div style={{ textAlign: "center", marginTop: 4 }}>
+				<Link to="/pricing">
+					<Button type="link" style={{ padding: 0 }}>
+						{t("signup.pricingLink")}
+					</Button>
+				</Link>
+			</div>
 		</Card>
 	);
 }

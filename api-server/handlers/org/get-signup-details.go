@@ -43,9 +43,11 @@ func GetSignupDetails(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		// Return only the domain, not the DNS verification token
+		// Return the domain + home region (for display-only regional pricing on
+		// the setup page), not the DNS verification token.
 		response := org.OrgGetSignupDetailsResponse{
-			Domain: common.DomainName(tokenRecord.Domain),
+			Domain:     common.DomainName(tokenRecord.Domain),
+			HomeRegion: string(tokenRecord.HomeRegion),
 		}
 
 		s.Logger(ctx).Info("signup details retrieved", "domain", tokenRecord.Domain)

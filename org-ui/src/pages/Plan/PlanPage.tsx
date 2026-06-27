@@ -1,12 +1,10 @@
-import { ArrowLeftOutlined, CrownOutlined } from "@ant-design/icons";
+import { ArrowLeftOutlined } from "@ant-design/icons";
 import {
 	App,
 	Button,
 	Card,
-	Col,
 	Descriptions,
 	Modal,
-	Row,
 	Spin,
 	Table,
 	Typography,
@@ -16,6 +14,7 @@ import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import type {
 	OrgPlan,
+	OrgPlanId,
 	Plan,
 	ListPlansResponse,
 	UpgradeOrgPlanRequest,
@@ -23,6 +22,7 @@ import type {
 import { getApiBaseUrl } from "../../config";
 import { useAuth } from "../../hooks/useAuth";
 import { formatDate } from "../../utils/dateFormat";
+import { OrgPlanPricing } from "../../components/OrgPlanPricing";
 
 const { Title, Text } = Typography;
 
@@ -78,43 +78,48 @@ export function PlanPage() {
 		fetchData();
 	}, [fetchData]);
 
-	const handleUpgrade = async (plan: Plan) => {
-		Modal.confirm({
-			title: t("upgradeModal.title", { plan: plan.display_name }),
-			content: t("upgradeModal.content", { plan: plan.display_name }),
-			okText: t("upgradeModal.confirm"),
-			cancelText: t("upgradeModal.cancel"),
-			onOk: async () => {
-				setUpgrading(true);
-				try {
-					const baseUrl = await getApiBaseUrl();
-					const req: UpgradeOrgPlanRequest = {
-						plan_id: plan.plan_id,
-					};
-					const resp = await fetch(`${baseUrl}/org/upgrade-plan`, {
-						method: "POST",
-						headers: {
-							"Content-Type": "application/json",
-							Authorization: `Bearer ${sessionToken}`,
-						},
-						body: JSON.stringify(req),
-					});
-					if (resp.status === 200) {
-						message.success(t("success.upgraded", { plan: plan.display_name }));
-						await fetchData();
-					} else if (resp.status === 422) {
-						message.error(t("errors.upgradeNotAllowed"));
-					} else {
+	const handleUpgrade = useCallback(
+		(planId: OrgPlanId) => {
+			const plan = plans.find((p) => p.plan_id === planId);
+			if (!plan) return;
+			Modal.confirm({
+				title: t("upgradeModal.title", { plan: plan.display_name }),
+				content: t("upgradeModal.content", { plan: plan.display_name }),
+				okText: t("upgradeModal.confirm"),
+				cancelText: t("upgradeModal.cancel"),
+				onOk: async () => {
+					setUpgrading(true);
+					try {
+						const baseUrl = await getApiBaseUrl();
+						const req: UpgradeOrgPlanRequest = { plan_id: plan.plan_id };
+						const resp = await fetch(`${baseUrl}/org/upgrade-plan`, {
+							method: "POST",
+							headers: {
+								"Content-Type": "application/json",
+								Authorization: `Bearer ${sessionToken}`,
+							},
+							body: JSON.stringify(req),
+						});
+						if (resp.status === 200) {
+							message.success(
+								t("success.upgraded", { plan: plan.display_name })
+							);
+							await fetchData();
+						} else if (resp.status === 422) {
+							message.error(t("errors.upgradeNotAllowed"));
+						} else {
+							message.error(t("errors.upgradeFailed"));
+						}
+					} catch {
 						message.error(t("errors.upgradeFailed"));
+					} finally {
+						setUpgrading(false);
 					}
-				} catch {
-					message.error(t("errors.upgradeFailed"));
-				} finally {
-					setUpgrading(false);
-				}
-			},
-		});
-	};
+				},
+			});
+		},
+		[plans, sessionToken, message, t, fetchData]
+	);
 
 	const usageColumns = [
 		{
@@ -173,8 +178,6 @@ export function PlanPage() {
 		);
 	}
 
-	const currentDisplayOrder = subscription?.current_plan.display_order ?? 0;
-
 	return (
 		<div
 			style={{
@@ -218,87 +221,18 @@ export function PlanPage() {
 							size="small"
 						/>
 					</Card>
+
+					<Card title={t("plans.title")}>
+						<OrgPlanPricing
+							regionCode={subscription.home_region}
+							currentPlanId={subscription.current_plan.plan_id as OrgPlanId}
+							plans={plans}
+							onUpgrade={handleUpgrade}
+							upgrading={upgrading}
+						/>
+					</Card>
 				</>
 			)}
-
-			<Card title={t("plans.title")}>
-				<Spin spinning={upgrading}>
-					<Row gutter={[16, 16]}>
-						{plans.map((plan) => {
-							const isCurrent =
-								plan.plan_id === subscription?.current_plan.plan_id;
-							const canUpgrade =
-								plan.self_upgradeable &&
-								plan.display_order > currentDisplayOrder;
-
-							return (
-								<Col key={plan.plan_id} xs={24} sm={12} lg={6}>
-									<Card
-										style={{
-											height: "100%",
-											borderColor: isCurrent ? "#1890ff" : undefined,
-										}}
-									>
-										<div style={{ textAlign: "center", marginBottom: 16 }}>
-											<CrownOutlined
-												style={{
-													fontSize: 32,
-													color: isCurrent ? "#1890ff" : "#999",
-												}}
-											/>
-											<Title level={4} style={{ marginBottom: 4 }}>
-												{plan.display_name}
-											</Title>
-											{isCurrent && (
-												<Text type="secondary">{t("plans.currentBadge")}</Text>
-											)}
-										</div>
-										<div style={{ marginBottom: 12 }}>
-											<div>
-												{t("plans.orgUsers")}:{" "}
-												{plan.org_users_cap != null
-													? plan.org_users_cap
-													: t("plans.unlimited")}
-											</div>
-											<div>
-												{t("plans.domains")}:{" "}
-												{plan.domains_verified_cap != null
-													? plan.domains_verified_cap
-													: t("plans.unlimited")}
-											</div>
-											<div>
-												{t("plans.suborgs")}:{" "}
-												{plan.suborgs_cap != null
-													? plan.suborgs_cap
-													: t("plans.unlimited")}
-											</div>
-											<div>
-												{t("plans.listings")}:{" "}
-												{plan.marketplace_listings_cap != null
-													? plan.marketplace_listings_cap
-													: t("plans.unlimited")}
-											</div>
-										</div>
-										{plan.plan_id === "enterprise" ? (
-											<Text type="secondary">
-												{t("plans.enterpriseContact")}
-											</Text>
-										) : canUpgrade ? (
-											<Button
-												type="primary"
-												block
-												onClick={() => handleUpgrade(plan)}
-											>
-												{t("plans.upgradeButton", { plan: plan.display_name })}
-											</Button>
-										) : null}
-									</Card>
-								</Col>
-							);
-						})}
-					</Row>
-				</Spin>
-			</Card>
 		</div>
 	);
 }

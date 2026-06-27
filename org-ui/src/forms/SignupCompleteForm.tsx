@@ -27,15 +27,18 @@ import {
 import type {
 	OrgCompleteSignupRequest,
 	OrgGetSignupDetailsRequest,
+	OrgGetSignupDetailsResponse,
 } from "vetchium-specs/org/org-users";
+import type { OrgPlanId } from "vetchium-specs/org/tiers";
 import type {
 	LanguageCode,
 	SupportedLanguage,
 } from "vetchium-specs/common/common";
+import { OrgPlanPricing } from "../components/OrgPlanPricing";
 // @ts-expect-error - dohjs has no types
 import { DNSoverHTTPS } from "dohjs";
 
-const { Paragraph } = Typography;
+const { Paragraph, Text, Title } = Typography;
 
 interface SignupCompleteFormValues {
 	password: string;
@@ -60,6 +63,9 @@ export function SignupCompleteForm() {
 	const [error, setError] = useState<string | null>(null);
 	const [searchParams] = useSearchParams();
 	const [domain, setDomain] = useState<string | null>(null);
+	const [region, setRegion] = useState<string | null>(null);
+	// Plan chosen at signup (granted immediately; Free is the default).
+	const [selectedPlan, setSelectedPlan] = useState<OrgPlanId>("free");
 	const [dnsStatus, setDnsStatus] = useState<
 		"idle" | "checking" | "found" | "not-found"
 	>("idle");
@@ -88,8 +94,9 @@ export function SignupCompleteForm() {
 				});
 
 				if (response.status === 200) {
-					const data = await response.json();
+					const data = (await response.json()) as OrgGetSignupDetailsResponse;
 					setDomain(data.domain);
+					setRegion(data.home_region);
 				} else if (response.status === 404) {
 					setError(t("signupComplete.tokenExpired"));
 				} else {
@@ -168,6 +175,7 @@ export function SignupCompleteForm() {
 				preferred_language: values.preferred_language,
 				has_added_dns_record: values.has_added_dns_record,
 				agrees_to_eula: values.agrees_to_eula,
+				plan_id: selectedPlan,
 			};
 
 			const response = await fetch(`${apiBaseUrl}/org/complete-signup`, {
@@ -299,6 +307,26 @@ export function SignupCompleteForm() {
 							style={{ marginBottom: 16 }}
 						/>
 
+						<Divider />
+					</>
+				)}
+
+				{region && (
+					<>
+						<Title level={5} style={{ marginBottom: 4 }}>
+							{t("signupComplete.planTitle")}
+						</Title>
+						<Text
+							type="secondary"
+							style={{ display: "block", marginBottom: 12 }}
+						>
+							{t("signupComplete.planSubtitle")}
+						</Text>
+						<OrgPlanPricing
+							regionCode={region}
+							selectedPlanId={selectedPlan}
+							onSelect={setSelectedPlan}
+						/>
 						<Divider />
 					</>
 				)}

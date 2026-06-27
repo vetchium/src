@@ -1,6 +1,14 @@
 import { test, expect } from "@playwright/test";
+import { randomUUID } from "crypto";
 import { OrgAPIClient } from "../../../lib/org-api-client";
-import { generateTestOrgEmail } from "../../../lib/db";
+import {
+	generateTestOrgEmail,
+	generateTestDomainName,
+	getTestGlobalOrgDomain,
+	getOrgPlanDirect,
+	countOrgPlanHistory,
+	deleteTestOrgByDomain,
+} from "../../../lib/db";
 import { getOrgSignupTokenFromEmail } from "../../../lib/mailpit";
 import { TEST_PASSWORD } from "../../../lib/constants";
 import type {
@@ -216,5 +224,94 @@ test.describe("POST /org/complete-signup", () => {
 		} finally {
 			// No cleanup needed - user not fully registered
 		}
+	});
+});
+
+test.describe("POST /org/complete-signup — plan selection (Spec 17)", () => {
+	// `.example.com` domains skip DNS verification in DEV, so a full signup can
+	// run end-to-end. Each test uses a fresh unique domain for parallel safety.
+	async function signupOrgWithPlan(
+		api: OrgAPIClient,
+		domain: string,
+		planId?: "free" | "silver" | "gold"
+	): Promise<string> {
+		const email = `first-${randomUUID().substring(0, 8)}@${domain}`;
+
+		const initRequest: OrgInitSignupRequest = { email, home_region: "ind1" };
+		const initResponse = await api.initSignup(initRequest);
+		expect(initResponse.status).toBe(200);
+
+		const signupToken = await getOrgSignupTokenFromEmail(email);
+		expect(signupToken).toMatch(/^[a-f0-9]{64}$/);
+
+		const completeRequest: OrgCompleteSignupRequest = {
+			signup_token: signupToken,
+			password: TEST_PASSWORD,
+			preferred_language: "en-US",
+			has_added_dns_record: true,
+			agrees_to_eula: true,
+			...(planId ? { plan_id: planId } : {}),
+		};
+		const completeResponse = await api.completeSignup(completeRequest);
+		expect(completeResponse.status).toBe(201);
+
+		const god = await getTestGlobalOrgDomain(domain);
+		expect(god).not.toBeNull();
+		return god!.org_id;
+	}
+
+	test("plan_id=silver grants Silver and writes history", async ({
+		request,
+	}) => {
+		const api = new OrgAPIClient(request);
+		const domain = generateTestDomainName("plan-slv");
+		await deleteTestOrgByDomain(domain);
+		try {
+			const orgId = await signupOrgWithPlan(api, domain, "silver");
+			expect(await getOrgPlanDirect(orgId)).toBe("silver");
+			expect(await countOrgPlanHistory(orgId, "silver", "signup")).toBe(1);
+		} finally {
+			await deleteTestOrgByDomain(domain);
+		}
+	});
+
+	test("omitting plan_id defaults to Free", async ({ request }) => {
+		const api = new OrgAPIClient(request);
+		const domain = generateTestDomainName("plan-free");
+		await deleteTestOrgByDomain(domain);
+		try {
+			const orgId = await signupOrgWithPlan(api, domain);
+			expect(await getOrgPlanDirect(orgId)).toBe("free");
+			expect(await countOrgPlanHistory(orgId, "free", "signup")).toBe(1);
+		} finally {
+			await deleteTestOrgByDomain(domain);
+		}
+	});
+
+	test("plan_id=enterprise (admin-only) returns 400", async ({ request }) => {
+		const api = new OrgAPIClient(request);
+		// Validation runs before the token lookup, so a dummy token still 400s.
+		const response = await api.completeSignupRaw({
+			signup_token: "0".repeat(64),
+			password: TEST_PASSWORD,
+			preferred_language: "en-US",
+			has_added_dns_record: true,
+			agrees_to_eula: true,
+			plan_id: "enterprise",
+		});
+		expect(response.status).toBe(400);
+	});
+
+	test("unknown plan_id returns 400", async ({ request }) => {
+		const api = new OrgAPIClient(request);
+		const response = await api.completeSignupRaw({
+			signup_token: "0".repeat(64),
+			password: TEST_PASSWORD,
+			preferred_language: "en-US",
+			has_added_dns_record: true,
+			agrees_to_eula: true,
+			plan_id: "platinum",
+		});
+		expect(response.status).toBe(400);
 	});
 });

@@ -20,6 +20,7 @@ import { HomePage } from "./pages/HomePage";
 import { LoginPage } from "./pages/LoginPage";
 import { SignupPage } from "./pages/SignupPage";
 import { SignupVerifyPage } from "./pages/SignupVerifyPage";
+import { PricingPage } from "./pages/Pricing/PricingPage";
 import { TFAPage } from "./pages/TFAPage";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
@@ -211,6 +212,7 @@ function AppContent() {
 									</AuthRoute>
 								}
 							/>
+							<Route path="/pricing" element={<PricingPage />} />
 							<Route
 								path="/endorsement-requests"
 								element={

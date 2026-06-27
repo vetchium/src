@@ -99,6 +99,7 @@ type CompleteSignupRequest struct {
 	HomeRegion           string             `json:"home_region"`
 	PreferredLanguage    string             `json:"preferred_language"`
 	ResidentCountryCode  CountryCode        `json:"resident_country_code"`
+	PlanID               HubPlanId          `json:"plan_id,omitempty"`
 }
 
 func (r CompleteSignupRequest) Validate() []common.ValidationError {
@@ -142,6 +143,11 @@ func (r CompleteSignupRequest) Validate() []common.ValidationError {
 
 	if err := ValidateCountryCode(r.ResidentCountryCode); err != nil {
 		errs = append(errs, common.NewValidationError("resident_country_code", err))
+	}
+
+	// plan_id is optional; when present it must be a known hub plan.
+	if r.PlanID != "" && r.PlanID != HubPlanIdFree && r.PlanID != HubPlanIdPro {
+		errs = append(errs, common.NewValidationError("plan_id", errors.New("unknown plan")))
 	}
 
 	return errs

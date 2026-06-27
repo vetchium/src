@@ -69,6 +69,8 @@ model CompleteSignupRequest {
     preferred_language: string;
     @doc("User's country of residence (ISO 3166-1 alpha-2)")
     resident_country_code: CountryCode;
+    @doc("Plan chosen at signup (defaults to free when omitted)")
+    plan_id?: HubPlanId;
 }
 
 model CompleteSignupResponse {

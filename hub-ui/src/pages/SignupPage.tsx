@@ -21,6 +21,9 @@ export function SignupPage() {
 					<Link to="/login">{t("loginLink")}</Link>
 				</Text>
 			</div>
+			<div style={{ textAlign: "center", marginTop: 4 }}>
+				<Link to="/pricing">{t("pricingLink")}</Link>
+			</div>
 		</Card>
 	);
 }

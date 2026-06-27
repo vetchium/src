@@ -1,14 +1,5 @@
 import React, { useState } from "react";
-import {
-	Card,
-	Button,
-	Segmented,
-	Tag,
-	Typography,
-	Space,
-	Row,
-	Col,
-} from "antd";
+import { Card, Button, Segmented, Tag, Typography, Space } from "antd";
 import { CheckOutlined, CloseOutlined, HeartFilled } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import type { HubPlanId } from "vetchium-specs/hub/plans";
@@ -45,6 +36,10 @@ interface HubPlanPricingProps {
 	currentPlanId?: HubPlanId;
 	onSwitch?: (planId: HubPlanId) => void;
 	switching?: boolean;
+	// When provided (signup), renders Select/Selected buttons that pick a plan
+	// to grant at signup (controlled by selectedPlanId).
+	selectedPlanId?: HubPlanId;
+	onSelect?: (planId: HubPlanId) => void;
 }
 
 export const HubPlanPricing: React.FC<HubPlanPricingProps> = ({
@@ -52,6 +47,8 @@ export const HubPlanPricing: React.FC<HubPlanPricingProps> = ({
 	currentPlanId,
 	onSwitch,
 	switching,
+	selectedPlanId,
+	onSelect,
 }) => {
 	const { t, i18n } = useTranslation("plan");
 	const [billing, setBilling] = useState<"monthly" | "annual">("annual");
@@ -71,10 +68,19 @@ export const HubPlanPricing: React.FC<HubPlanPricingProps> = ({
 				/>
 			</div>
 
-			<Row gutter={[16, 16]} justify="center">
+			<div
+				style={{
+					display: "flex",
+					flexWrap: "wrap",
+					gap: 16,
+					justifyContent: "center",
+					alignItems: "stretch",
+				}}
+			>
 				{PLAN_ORDER.map((planId) => {
 					const price = pricing?.[planId];
 					const isCurrent = currentPlanId === planId;
+					const isSelected = selectedPlanId === planId;
 
 					let priceNode: React.ReactNode = null;
 					if (!price || price === "free") {
@@ -121,74 +127,89 @@ export const HubPlanPricing: React.FC<HubPlanPricingProps> = ({
 					}
 
 					return (
-						<Col key={planId} xs={24} sm={12} md={10} lg={8}>
-							<Card
-								title={
-									<Space>
-										{t(`plan_${planId}`)}
-										{isCurrent && <Tag color="blue">{t("current")}</Tag>}
-										{planId === "pro" && (
-											<Tag color="gold">{t("recommended")}</Tag>
-										)}
-									</Space>
-								}
-								style={{ height: "100%" }}
-							>
-								<div style={{ minHeight: 96 }}>{priceNode}</div>
-
-								<Paragraph type="secondary" style={{ marginTop: 12 }}>
-									{t(`desc_${planId}`)}
-								</Paragraph>
-
-								{planId === "pro" && (
-									<Paragraph style={{ marginTop: 8 }}>
-										<HeartFilled style={{ color: "#eb2f96", marginRight: 6 }} />
-										{t("supportNote")}
-									</Paragraph>
-								)}
-
-								<Space
-									orientation="vertical"
-									size={4}
-									style={{ width: "100%" }}
-								>
-									{PLAN_FEATURES[planId].map((f) => (
-										<div key={f.key}>
-											{f.included ? (
-												<CheckOutlined
-													style={{ color: "#52c41a", marginRight: 8 }}
-												/>
-											) : (
-												<CloseOutlined
-													style={{ color: "#bfbfbf", marginRight: 8 }}
-												/>
-											)}
-											<Text type={f.included ? undefined : "secondary"}>
-												{t(f.key)}
-											</Text>
-										</div>
-									))}
+						<Card
+							key={planId}
+							title={
+								<Space>
+									{t(`plan_${planId}`)}
+									{isCurrent && <Tag color="blue">{t("current")}</Tag>}
+									{isSelected && onSelect && (
+										<Tag color="blue">{t("selected")}</Tag>
+									)}
+									{planId === "pro" && (
+										<Tag color="gold">{t("recommended")}</Tag>
+									)}
 								</Space>
+							}
+							style={{
+								flex: "1 1 260px",
+								minWidth: 260,
+								maxWidth: 360,
+								borderColor:
+									(isSelected && onSelect) || isCurrent ? "#1890ff" : undefined,
+							}}
+						>
+							<div style={{ minHeight: 96 }}>{priceNode}</div>
 
-								{onSwitch && (
-									<Button
-										type={planId === "pro" ? "primary" : "default"}
-										block
-										style={{ marginTop: 16 }}
-										disabled={isCurrent || switching}
-										loading={switching}
-										onClick={() => onSwitch(planId)}
-									>
-										{isCurrent
-											? t("current")
-											: t("switchTo", { plan: t(`plan_${planId}`) })}
-									</Button>
-								)}
-							</Card>
-						</Col>
+							<Paragraph type="secondary" style={{ marginTop: 12 }}>
+								{t(`desc_${planId}`)}
+							</Paragraph>
+
+							{planId === "pro" && (
+								<Paragraph style={{ marginTop: 8 }}>
+									<HeartFilled style={{ color: "#eb2f96", marginRight: 6 }} />
+									{t("supportNote")}
+								</Paragraph>
+							)}
+
+							<Space orientation="vertical" size={4} style={{ width: "100%" }}>
+								{PLAN_FEATURES[planId].map((f) => (
+									<div key={f.key}>
+										{f.included ? (
+											<CheckOutlined
+												style={{ color: "#52c41a", marginRight: 8 }}
+											/>
+										) : (
+											<CloseOutlined
+												style={{ color: "#bfbfbf", marginRight: 8 }}
+											/>
+										)}
+										<Text type={f.included ? undefined : "secondary"}>
+											{t(f.key)}
+										</Text>
+									</div>
+								))}
+							</Space>
+
+							{onSwitch && (
+								<Button
+									type={planId === "pro" ? "primary" : "default"}
+									block
+									style={{ marginTop: 16 }}
+									disabled={isCurrent || switching}
+									loading={switching}
+									onClick={() => onSwitch(planId)}
+								>
+									{isCurrent
+										? t("current")
+										: t("switchTo", { plan: t(`plan_${planId}`) })}
+								</Button>
+							)}
+
+							{onSelect && (
+								<Button
+									type={isSelected ? "primary" : "default"}
+									block
+									style={{ marginTop: 16 }}
+									onClick={() => onSelect(planId)}
+								>
+									{isSelected ? t("selected") : t("select")}
+								</Button>
+							)}
+						</Card>
 					);
 				})}
-			</Row>
+			</div>
 		</div>
 	);
 };

@@ -36,6 +36,7 @@ import type {
 	DisplayNameEntry,
 } from "vetchium-specs/hub/hub-users";
 import type { Region, SupportedLanguage } from "vetchium-specs/global/global";
+import type { HubPlanId } from "vetchium-specs/hub/plans";
 import * as api from "../lib/api-client";
 import { COUNTRIES } from "../lib/countries";
 import { useAuth } from "../hooks/useAuth";
@@ -75,6 +76,8 @@ export function SignupCompleteForm({ signupToken }: SignupCompleteFormProps) {
 	const [stepStatus, setStepStatus] = useState<
 		Record<number, "wait" | "process" | "finish" | "error">
 	>({});
+	// Plan chosen at signup (granted immediately; Free is the default).
+	const [selectedPlan, setSelectedPlan] = useState<HubPlanId>("free");
 
 	// Watch form values for summary step
 	const preferredLanguage = Form.useWatch("preferred_language", form);
@@ -146,8 +149,9 @@ export function SignupCompleteForm({ signupToken }: SignupCompleteFormProps) {
 		["preferred_language"], // Step 0: Language
 		["display_names"], // Step 1: Display names
 		["home_region", "resident_country_code"], // Step 2: Region and country
-		["password", "confirm_password"], // Step 3: Password
-		// Step 4: Summary (no fields to validate)
+		[], // Step 3: Plan (selection has a default, nothing to validate)
+		["password", "confirm_password"], // Step 4: Password
+		// Step 5: Summary (no fields to validate)
 	];
 
 	const nextStep = () => {
@@ -216,6 +220,7 @@ export function SignupCompleteForm({ signupToken }: SignupCompleteFormProps) {
 				home_region: values.home_region,
 				preferred_language: values.preferred_language,
 				resident_country_code: values.resident_country_code,
+				plan_id: selectedPlan,
 			};
 
 			const response = await api.completeSignup(request);
@@ -453,16 +458,28 @@ export function SignupCompleteForm({ signupToken }: SignupCompleteFormProps) {
 							}))}
 						/>
 					</Form.Item>
-
-					{homeRegion && (
-						<div style={{ marginTop: 24 }}>
-							<Text type="secondary">{t("signup:pricingIntro")}</Text>
-							<div style={{ marginTop: 12 }}>
-								<HubPlanPricing regionCode={homeRegion} />
-							</div>
-						</div>
-					)}
 				</>
+			),
+		},
+		{
+			title: t("signup:planStepTitle"),
+			description: t("signup:planStepDescription"),
+			content: (
+				<div style={{ marginTop: 16 }}>
+					{homeRegion ? (
+						<HubPlanPricing
+							regionCode={homeRegion}
+							selectedPlanId={selectedPlan}
+							onSelect={setSelectedPlan}
+						/>
+					) : (
+						<Alert
+							type="info"
+							description={t("signup:planSelectRegionFirst")}
+							showIcon
+						/>
+					)}
+				</div>
 			),
 		},
 		{
@@ -594,6 +611,9 @@ export function SignupCompleteForm({ signupToken }: SignupCompleteFormProps) {
 					</Descriptions.Item>
 					<Descriptions.Item label={t("signup:countryLabel")}>
 						{selectedCountry ? selectedCountry.name : "-"}
+					</Descriptions.Item>
+					<Descriptions.Item label={t("signup:planLabel")}>
+						{t(`signup:plan_${selectedPlan}`)}
 					</Descriptions.Item>
 					<Descriptions.Item label={t("signup:passwordLabel")}>
 						{password ? "••••••••" : "-"}

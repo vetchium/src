@@ -65,6 +65,7 @@ model OrgGetSignupDetailsRequest {
 
 model OrgGetSignupDetailsResponse {
   domain: DomainName;
+  home_region: string;
 }
 
 model OrgCompleteSignupRequest {
@@ -73,6 +74,9 @@ model OrgCompleteSignupRequest {
   preferred_language: LanguageCode;
   has_added_dns_record: boolean;
   agrees_to_eula: boolean;
+
+  @doc("Plan chosen at signup (free|silver|gold; defaults to free when omitted)")
+  plan_id?: string;
 }
 
 model OrgCompleteSignupResponse {

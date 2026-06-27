@@ -29,7 +29,7 @@ export function SignupVerifyPage() {
 	}
 
 	return (
-		<Card style={{ width: 600 }}>
+		<Card style={{ width: 600, maxWidth: "95vw" }}>
 			<Title level={3} style={{ textAlign: "center", marginBottom: 24 }}>
 				{t("completeTitle")}
 			</Title>

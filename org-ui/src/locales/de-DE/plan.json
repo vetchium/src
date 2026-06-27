@@ -49,7 +49,15 @@
 		"upgraded": "Successfully upgraded to {{plan}}"
 	},
 	"pricing": {
-		"intro": "Preise für Ihre Region. Alle Tarife starten mit einem großzügigen kostenlosen Tarif.",
+		"pageTitle": "Tarife & Preise",
+		"pageSubtitle": "Wählen Sie eine Region, um lokale Preise zu sehen. Jeder Tarif beginnt mit einem großzügigen kostenlosen Tarif.",
+		"regionLabel": "Region",
+		"backToLogin": "Zurück zur Anmeldung",
+		"currentBadge": "Aktuell",
+		"currentPlanButton": "Aktueller Tarif",
+		"upgradeButton": "Auf {{plan}} upgraden",
+		"selectButton": "Auswählen",
+		"selectedBadge": "Ausgewählt",
 		"free": "Kostenlos",
 		"contactUs": "Kontaktieren Sie uns",
 		"perMonth": "/ Mon.",

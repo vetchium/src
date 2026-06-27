@@ -1686,6 +1686,59 @@ export async function setOrgPlan(orgId: string, planId: string): Promise<void> {
 }
 
 /**
+ * Reads an org's current plan id directly from the global DB (Spec 17).
+ * Used as an assertion helper for the plan-at-signup tests.
+ */
+export async function getOrgPlanDirect(orgId: string): Promise<string | null> {
+	const result = await pool.query(
+		`SELECT current_plan_id FROM org_plans WHERE org_id = $1`,
+		[orgId]
+	);
+	if (result.rows.length === 0) return null;
+	return result.rows[0].current_plan_id ?? null;
+}
+
+/**
+ * Counts org_plan_history rows matching a target plan + reason (global DB).
+ * Used to assert the signup grant wrote a history row.
+ */
+export async function countOrgPlanHistory(
+	orgId: string,
+	toPlanId: string,
+	reason: string
+): Promise<number> {
+	const result = await pool.query(
+		`SELECT COUNT(*) AS cnt FROM org_plan_history
+		 WHERE org_id = $1 AND to_plan_id = $2 AND reason = $3`,
+		[orgId, toPlanId, reason]
+	);
+	return parseInt(result.rows[0].cnt, 10);
+}
+
+/**
+ * Counts hub_user_plan_history rows matching a target plan + reason (regional DB).
+ * Used to assert the signup grant wrote a history row.
+ */
+export async function countHubPlanHistory(
+	hubUserGlobalId: string,
+	toPlanId: string,
+	reason: string,
+	region: RegionCode = "ind1"
+): Promise<number> {
+	const regionalPool = getRegionalPool(region);
+	try {
+		const result = await regionalPool.query(
+			`SELECT COUNT(*) AS cnt FROM hub_user_plan_history
+			 WHERE hub_user_global_id = $1 AND to_plan_id = $2 AND reason = $3`,
+			[hubUserGlobalId, toPlanId, reason]
+		);
+		return parseInt(result.rows[0].cnt, 10);
+	} finally {
+		await regionalPool.end();
+	}
+}
+
+/**
  * Sets a domain's status to VERIFIED in the regional DB.
  * Used in test setup when we need a VERIFIED domain without DNS.
  */

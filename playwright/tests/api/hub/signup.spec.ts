@@ -11,6 +11,9 @@ import {
 	generateTestEmail,
 	generateTestDomainName,
 	extractSignupTokenFromEmail,
+	getHubUserGlobalId,
+	getHubUserPlanDirect,
+	countHubPlanHistory,
 } from "../../../lib/db";
 import {
 	getTfaCodeFromEmail,
@@ -719,5 +722,125 @@ test.describe("POST /hub/logout", () => {
 		const response = await api.logoutWithoutAuth({});
 
 		expect(response.status).toBe(401);
+	});
+});
+
+test.describe("POST /hub/complete-signup — plan selection (Spec 17)", () => {
+	// Runs request-signup + complete-signup for a fresh approved-domain user,
+	// optionally choosing a plan. Returns the created user's identifiers so the
+	// caller can assert the granted plan and clean up.
+	async function signupWithPlan(
+		api: HubAPIClient,
+		planId?: "free" | "pro"
+	): Promise<{
+		email: string;
+		domain: string;
+		adminEmail: string;
+		sessionToken: string;
+	}> {
+		const adminEmail = generateTestEmail("admin");
+		const domain = generateTestDomainName();
+		const email = `test-${randomUUID().substring(0, 8)}@${domain}`;
+
+		await createTestAdminUser(adminEmail, TEST_PASSWORD);
+		await createTestApprovedDomain(domain, adminEmail);
+
+		const requestSignup: RequestSignupRequest = { email_address: email };
+		await api.requestSignup(requestSignup);
+
+		const emailSummary = await waitForEmail(email);
+		const emailMessage = await getEmailContent(emailSummary.ID);
+		const signupToken = extractSignupTokenFromEmail(emailMessage);
+		expect(signupToken).toBeDefined();
+
+		const completeSignup: CompleteSignupRequest = {
+			signup_token: signupToken!,
+			password: TEST_PASSWORD,
+			preferred_display_name: "Test User",
+			home_region: "ind1",
+			preferred_language: "en-US",
+			resident_country_code: "US",
+			...(planId ? { plan_id: planId } : {}),
+		};
+		const response = await api.completeSignup(completeSignup);
+		expect(response.status).toBe(201);
+
+		return {
+			email,
+			domain,
+			adminEmail,
+			sessionToken: response.body.session_token,
+		};
+	}
+
+	test("plan_id=pro grants Pro, unlocks picture, and writes history", async ({
+		request,
+	}) => {
+		const api = new HubAPIClient(request);
+		let email = "";
+		let domain = "";
+		let adminEmail = "";
+		try {
+			const res = await signupWithPlan(api, "pro");
+			({ email, domain, adminEmail } = res);
+
+			const globalId = await getHubUserGlobalId(email);
+			expect(globalId).not.toBeNull();
+			expect(await getHubUserPlanDirect(globalId!)).toBe("pro");
+
+			// Capabilities reflect Pro in myinfo.
+			const myInfo = await api.getMyInfo(res.sessionToken);
+			expect(myInfo.status).toBe(200);
+			expect(myInfo.body.plan_id).toBe("pro");
+			expect(myInfo.body.can_upload_profile_picture).toBe(true);
+
+			// The grant wrote a plan-history row (from free → pro, reason signup).
+			expect(await countHubPlanHistory(globalId!, "pro", "signup")).toBe(1);
+		} finally {
+			if (email) await deleteTestHubUser(email);
+			if (domain) await permanentlyDeleteTestApprovedDomain(domain);
+			if (adminEmail) await deleteTestAdminUser(adminEmail);
+		}
+	});
+
+	test("omitting plan_id defaults to Free", async ({ request }) => {
+		const api = new HubAPIClient(request);
+		let email = "";
+		let domain = "";
+		let adminEmail = "";
+		try {
+			const res = await signupWithPlan(api);
+			({ email, domain, adminEmail } = res);
+
+			const globalId = await getHubUserGlobalId(email);
+			expect(globalId).not.toBeNull();
+			expect(await getHubUserPlanDirect(globalId!)).toBe("free");
+
+			const myInfo = await api.getMyInfo(res.sessionToken);
+			expect(myInfo.body.plan_id).toBe("free");
+			expect(myInfo.body.can_upload_profile_picture).toBe(false);
+
+			// Free is the default (column default), so no history row is written.
+			expect(await countHubPlanHistory(globalId!, "pro", "signup")).toBe(0);
+		} finally {
+			if (email) await deleteTestHubUser(email);
+			if (domain) await permanentlyDeleteTestApprovedDomain(domain);
+			if (adminEmail) await deleteTestAdminUser(adminEmail);
+		}
+	});
+
+	test("unknown plan_id returns 400", async ({ request }) => {
+		const api = new HubAPIClient(request);
+		// Validation runs before the token lookup, so a dummy token still 400s.
+		const response = await api.completeSignupRaw({
+			signup_token: "0".repeat(64),
+			password: TEST_PASSWORD,
+			preferred_display_name: "Test User",
+			home_region: "ind1",
+			preferred_language: "en-US",
+			resident_country_code: "US",
+			plan_id: "platinum",
+		});
+		expect(response.status).toBe(400);
 	});
 });

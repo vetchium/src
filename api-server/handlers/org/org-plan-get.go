@@ -42,6 +42,10 @@ func GetMyOrgPlan(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
+		// Home region drives display-only regional pricing on the plan page
+		// (frontend config; no DB). Available from the auth context — no extra hit.
+		resp.HomeRegion = middleware.OrgRegionFromContext(ctx)
+
 		json.NewEncoder(w).Encode(resp)
 	}
 }

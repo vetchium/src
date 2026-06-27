@@ -2,6 +2,7 @@ package org
 
 import (
 	"errors"
+	"slices"
 	"strings"
 
 	"vetchium-api-server.typespec/common"
@@ -67,7 +68,8 @@ func (r OrgGetSignupDetailsRequest) Validate() []common.ValidationError {
 }
 
 type OrgGetSignupDetailsResponse struct {
-	Domain common.DomainName `json:"domain"`
+	Domain     common.DomainName `json:"domain"`
+	HomeRegion string            `json:"home_region"`
 }
 
 // OrgCompleteSignupRequest completes org signup after DNS verification.
@@ -80,12 +82,18 @@ type OrgCompleteSignupRequest struct {
 	PreferredLanguage common.LanguageCode `json:"preferred_language"`
 	HasAddedDNSRecord bool                `json:"has_added_dns_record"`
 	AgreesToEULA      bool                `json:"agrees_to_eula"`
+	PlanID            string              `json:"plan_id,omitempty"`
 }
 
 var (
 	errDNSRecordNotConfirmed = errors.New("You must confirm that you have added the DNS record")
 	errEULANotAccepted       = errors.New("You must agree to the End User License Agreement")
+	errUnknownPlan           = errors.New("unknown plan")
 )
+
+// signupSelectablePlanIDs are the plans a user can grant themselves at signup
+// (enterprise is admin-assigned, never self-served).
+var signupSelectablePlanIDs = []string{"free", "silver", "gold"}
 
 func (r OrgCompleteSignupRequest) Validate() []common.ValidationError {
 	var errs []common.ValidationError
@@ -110,6 +118,10 @@ func (r OrgCompleteSignupRequest) Validate() []common.ValidationError {
 
 	if !r.AgreesToEULA {
 		errs = append(errs, common.NewValidationError("agrees_to_eula", errEULANotAccepted))
+	}
+
+	if r.PlanID != "" && !slices.Contains(signupSelectablePlanIDs, r.PlanID) {
+		errs = append(errs, common.NewValidationError("plan_id", errUnknownPlan))
 	}
 
 	return errs

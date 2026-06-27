@@ -36,6 +36,9 @@ test.describe("POST /org/get-signup-details", () => {
 
 			expect(response.status).toBe(200);
 			expect(response.body.domain).toBe(domain.toLowerCase());
+			// home_region (Spec 17) drives display-only regional pricing on the
+			// setup page and must match the region chosen at init-signup.
+			expect(response.body.home_region).toBe("ind1");
 		} finally {
 			// No cleanup needed - user not fully registered
 		}

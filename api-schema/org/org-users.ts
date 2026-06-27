@@ -21,6 +21,10 @@ import {
 	validateAssignRoleRequest,
 	validateRemoveRoleRequest,
 } from "../common/roles";
+import type { OrgPlanId } from "./tiers";
+
+// Plans a user can grant themselves at signup (enterprise is admin-assigned).
+const SIGNUP_SELECTABLE_PLAN_IDS: OrgPlanId[] = ["free", "silver", "gold"];
 
 // Re-export RBAC types for org portal
 export type { RoleName, AssignRoleRequest, RemoveRoleRequest };
@@ -87,6 +91,7 @@ export function validateOrgGetSignupDetailsRequest(
 
 export interface OrgGetSignupDetailsResponse {
 	domain: DomainName;
+	home_region: string;
 }
 
 export interface OrgCompleteSignupRequest {
@@ -95,6 +100,8 @@ export interface OrgCompleteSignupRequest {
 	preferred_language: LanguageCode;
 	has_added_dns_record: boolean;
 	agrees_to_eula: boolean;
+	/** Plan chosen at signup (free|silver|gold); defaults to free when omitted. */
+	plan_id?: OrgPlanId;
 }
 
 export function validateOrgCompleteSignupRequest(
@@ -140,6 +147,14 @@ export function validateOrgCompleteSignupRequest(
 				"You must agree to the End User License Agreement"
 			)
 		);
+	}
+
+	// plan_id is optional; when present it must be a self-serve plan.
+	if (
+		request.plan_id &&
+		!SIGNUP_SELECTABLE_PLAN_IDS.includes(request.plan_id)
+	) {
+		errs.push(newValidationError("plan_id", "unknown plan"));
 	}
 
 	return errs;

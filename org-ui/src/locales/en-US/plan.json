@@ -49,7 +49,15 @@
 		"upgraded": "Successfully upgraded to {{plan}}"
 	},
 	"pricing": {
-		"intro": "Pricing for your region. All plans start with a generous Free tier.",
+		"pageTitle": "Plans & Pricing",
+		"pageSubtitle": "Pick a region to see local pricing. Every plan starts with a generous Free tier.",
+		"regionLabel": "Region",
+		"backToLogin": "Back to login",
+		"currentBadge": "Current",
+		"currentPlanButton": "Current plan",
+		"upgradeButton": "Upgrade to {{plan}}",
+		"selectButton": "Select",
+		"selectedBadge": "Selected",
 		"free": "Free",
 		"contactUs": "Contact us",
 		"perMonth": "/ mo",

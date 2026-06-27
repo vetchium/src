@@ -8,7 +8,7 @@ export function SignupCompletePage() {
 	const { t } = useTranslation("auth");
 
 	return (
-		<Card style={{ width: 400, maxWidth: "90vw" }}>
+		<Card style={{ width: 860, maxWidth: "95vw" }}>
 			<Title level={2} style={{ textAlign: "center", marginBottom: 8 }}>
 				{t("signupComplete.title")}
 			</Title>

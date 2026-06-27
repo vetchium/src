@@ -123,6 +123,8 @@ export interface CompleteSignupRequest {
 	home_region: string;
 	preferred_language: string;
 	resident_country_code: CountryCode;
+	/** Plan chosen at signup; defaults to free when omitted. */
+	plan_id?: HubPlanId;
 }
 
 export interface CompleteSignupResponse {

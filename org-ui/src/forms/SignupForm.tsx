@@ -1,16 +1,6 @@
-import {
-	Form,
-	Input,
-	Button,
-	Alert,
-	Spin,
-	Select,
-	Space,
-	Typography,
-} from "antd";
+import { Form, Input, Button, Alert, Spin, Select, Space } from "antd";
 import { UserOutlined, GlobalOutlined } from "@ant-design/icons";
 
-const { Text } = Typography;
 import { useTranslation } from "react-i18next";
 import { useState, useEffect } from "react";
 import { getApiBaseUrl } from "../config";
@@ -22,7 +12,6 @@ import {
 } from "vetchium-specs/common/common";
 import type { OrgInitSignupRequest } from "vetchium-specs/org/org-users";
 import type { Region } from "vetchium-specs/global/global";
-import { OrgPlanPricing } from "../components/OrgPlanPricing";
 
 // Form values type (before transformation to API request)
 interface SignupFormValues {
@@ -33,9 +22,7 @@ interface SignupFormValues {
 
 export function SignupForm() {
 	const { t } = useTranslation("auth");
-	const { t: tPlan } = useTranslation("plan");
 	const [form] = Form.useForm<SignupFormValues>();
-	const homeRegion = Form.useWatch("home_region", form);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [success, setSuccess] = useState(false);
@@ -255,15 +242,6 @@ export function SignupForm() {
 						}))}
 					/>
 				</Form.Item>
-
-				{homeRegion && (
-					<div style={{ marginBottom: 16 }}>
-						<Text type="secondary">{tPlan("pricing.intro")}</Text>
-						<div style={{ marginTop: 12 }}>
-							<OrgPlanPricing regionCode={homeRegion} />
-						</div>
-					</div>
-				)}
 
 				<Form.Item shouldUpdate>
 					{() => (

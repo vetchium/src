@@ -23,6 +23,7 @@ export interface PlanUsage {
 export interface OrgPlan {
 	org_id: string;
 	org_domain: string;
+	home_region: string;
 	current_plan: Plan;
 	usage: PlanUsage;
 	updated_at: string;

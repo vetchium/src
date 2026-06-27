@@ -279,6 +279,27 @@ func CompleteSignup(s *server.RegionalServer) http.HandlerFunc {
 				return txErr
 			}
 
+			// Grant the plan chosen at signup. New rows default to 'free' via the
+			// column default, so only act when a non-free plan was selected.
+			// (Validation already restricted plan_id to a known hub plan.)
+			if req.PlanID != "" && req.PlanID != hub.HubPlanIdFree {
+				if _, txErr = qtx.SwitchHubUserPlan(ctx, regionaldb.SwitchHubUserPlanParams{
+					PlanID:          string(req.PlanID),
+					HubUserGlobalID: hubUserGlobalID,
+				}); txErr != nil {
+					return txErr
+				}
+				txErr = qtx.InsertHubPlanHistory(ctx, regionaldb.InsertHubPlanHistoryParams{
+					HubUserGlobalID: hubUserGlobalID,
+					FromPlanID:      pgtype.Text{String: string(hub.HubPlanIdFree), Valid: true},
+					ToPlanID:        string(req.PlanID),
+					Reason:          "signup",
+				})
+				if txErr != nil {
+					return txErr
+				}
+			}
+
 			// The signup email was verified via the signup link, so record it as an
 			// already-active (verified) work email stint. Mirrors the global claim
 			// above; only created when that claim succeeded.

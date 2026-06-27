@@ -39,6 +39,7 @@ type PlanUsage struct {
 type OrgPlan struct {
 	OrgID       string    `json:"org_id"`
 	OrgDomain   string    `json:"org_domain"`
+	HomeRegion  string    `json:"home_region"`
 	CurrentPlan Plan      `json:"current_plan"`
 	Usage       PlanUsage `json:"usage"`
 	UpdatedAt   string    `json:"updated_at"`

@@ -155,10 +155,16 @@ func CompleteSignup(s *server.RegionalServer) http.HandlerFunc {
 				return txErr
 			}
 
-			// 4. Assign free plan on signup
+			// 4. Assign the plan chosen at signup (defaults to free when omitted).
+			// Validation already restricted plan_id to a self-serve plan
+			// (free|silver|gold); enterprise is never self-served.
+			planID := req.PlanID
+			if planID == "" {
+				planID = "free"
+			}
 			txErr = qtx.UpsertOrgPlan(ctx, globaldb.UpsertOrgPlanParams{
 				OrgID:              newOrg.OrgID,
-				CurrentPlanID:      "free",
+				CurrentPlanID:      planID,
 				UpdatedByAdminID:   pgtype.UUID{Valid: false},
 				UpdatedByOrgUserID: pgtype.UUID{Valid: false},
 				Note:               "",
@@ -170,7 +176,7 @@ func CompleteSignup(s *server.RegionalServer) http.HandlerFunc {
 			txErr = qtx.InsertOrgPlanHistory(ctx, globaldb.InsertOrgPlanHistoryParams{
 				OrgID:              newOrg.OrgID,
 				FromPlanID:         pgtype.Text{Valid: false},
-				ToPlanID:           "free",
+				ToPlanID:           planID,
 				ChangedByAdminID:   pgtype.UUID{Valid: false},
 				ChangedByOrgUserID: pgtype.UUID{Valid: false},
 				Reason:             "signup",

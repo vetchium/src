@@ -22,6 +22,7 @@ import { TFAPage } from "./pages/TFAPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { SignupPage } from "./pages/SignupPage";
 import { SignupCompletePage } from "./pages/SignupCompletePage";
+import { PricingPage } from "./pages/Pricing/PricingPage";
 import { EULAPage } from "./pages/EULAPage";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
@@ -400,6 +401,7 @@ function AppContent() {
 								}
 							/>
 							<Route path="/eula" element={<EULAPage />} />
+							<Route path="/pricing" element={<PricingPage />} />
 							<Route
 								path="/users"
 								element={
