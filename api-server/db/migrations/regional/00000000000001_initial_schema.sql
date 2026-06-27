@@ -636,7 +636,6 @@ CREATE TABLE applications (
     state                  TEXT NOT NULL DEFAULT 'applied'
                             CHECK (state IN ('applied','shortlisted','rejected','withdrawn','expired')),
     label                  TEXT CHECK (label IN ('green','yellow','red')),
-    rejection_reason       TEXT,
     -- Agency attribution (NULL agency = direct application).
     referring_agency_org_id   UUID,
     referring_agency_domain   TEXT,

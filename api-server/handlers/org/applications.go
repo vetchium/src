@@ -386,6 +386,13 @@ func RejectApplication(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
+		orgInfo, err := s.Global.GetOrgByID(ctx, orgUser.OrgID)
+		if err != nil {
+			s.Logger(ctx).Error("failed to get org info for rejection email", "error", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
 		eventData, _ := json.Marshal(map[string]interface{}{"application_id": req.ApplicationID})
 		if err := s.WithRegionalTx(ctx, func(qtx *regionaldb.Queries) error {
 			app, txErr := qtx.GetApplicationByID(ctx, appID)
@@ -399,14 +406,15 @@ func RejectApplication(s *server.RegionalServer) http.HandlerFunc {
 				return server.ErrInvalidState
 			}
 
-			var rejectionReasonText pgtype.Text
-			if req.RejectionReason != nil {
-				rejectionReasonText.Scan(*req.RejectionReason)
+			opening, txErr := qtx.GetOpeningByID(ctx, regionaldb.GetOpeningByIDParams{
+				OpeningID: app.OpeningID,
+				OrgID:     app.OrgID,
+			})
+			if txErr != nil {
+				return txErr
 			}
-			if txErr := qtx.RejectApplication(ctx, regionaldb.RejectApplicationParams{
-				ApplicationID:   appID,
-				RejectionReason: rejectionReasonText,
-			}); txErr != nil {
+
+			if txErr := qtx.RejectApplication(ctx, appID); txErr != nil {
 				return txErr
 			}
 			if txErr := qtx.InsertAuditLog(ctx, regionaldb.InsertAuditLogParams{
@@ -421,12 +429,24 @@ func RejectApplication(s *server.RegionalServer) http.HandlerFunc {
 			// Notify candidate
 			hubUser, _ := qtx.GetHubUserByGlobalID(ctx, app.ApplicantHubUserGlobalID)
 			if hubUser.EmailAddress != "" {
+				subject := fmt.Sprintf(
+					"Your application for %s at %s was not selected",
+					opening.Title, orgInfo.OrgName,
+				)
+				textBody := fmt.Sprintf(
+					"Thank you for your interest in the %s position at %s.\n\nAfter careful consideration, we regret to inform you that we will not be moving forward with your application at this time.",
+					opening.Title, orgInfo.OrgName,
+				)
+				htmlBody := fmt.Sprintf(
+					"<p>Thank you for your interest in the <strong>%s</strong> position at <strong>%s</strong>.</p><p>After careful consideration, we regret to inform you that we will not be moving forward with your application at this time.</p>",
+					opening.Title, orgInfo.OrgName,
+				)
 				_, _ = qtx.EnqueueEmail(ctx, regionaldb.EnqueueEmailParams{
 					EmailType:     regionaldb.EmailTemplateTypeHubApplicationRejected,
 					EmailTo:       hubUser.EmailAddress,
-					EmailSubject:  "Application update",
-					EmailTextBody: "Thank you for applying. Unfortunately your application was not selected to move forward.",
-					EmailHtmlBody: "<p>Thank you for applying. Unfortunately your application was not selected to move forward.</p>",
+					EmailSubject:  subject,
+					EmailTextBody: textBody,
+					EmailHtmlBody: htmlBody,
 				})
 			}
 			return nil

@@ -79,8 +79,7 @@ model ShortlistApplicationRequest {
 }
 
 model RejectApplicationRequest {
-  application_id:    string;
-  rejection_reason?: string;
+  application_id: string;
 }
 
 model LabelApplicationRequest {

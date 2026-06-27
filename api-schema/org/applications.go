@@ -78,8 +78,7 @@ type ShortlistApplicationRequest struct {
 }
 
 type RejectApplicationRequest struct {
-	ApplicationID   string  `json:"application_id"`
-	RejectionReason *string `json:"rejection_reason,omitempty"`
+	ApplicationID string `json:"application_id"`
 }
 
 type LabelApplicationRequest struct {
@@ -141,13 +140,6 @@ func (r *RejectApplicationRequest) Validate() []common.ValidationError {
 		errs = append(errs, common.ValidationError{
 			Field:   "application_id",
 			Message: "is required",
-		})
-	}
-
-	if r.RejectionReason != nil && len(*r.RejectionReason) > 2000 {
-		errs = append(errs, common.ValidationError{
-			Field:   "rejection_reason",
-			Message: "must be at most 2000 characters",
 		})
 	}
 

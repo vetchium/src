@@ -1566,7 +1566,7 @@ UPDATE applications SET state = 'withdrawn', state_changed_at = NOW() WHERE appl
 UPDATE applications SET state = 'shortlisted', state_changed_at = NOW() WHERE application_id = $1;
 
 -- name: RejectApplication :exec
-UPDATE applications SET state = 'rejected', state_changed_at = NOW(), rejection_reason = $2 WHERE application_id = $1;
+UPDATE applications SET state = 'rejected', state_changed_at = NOW() WHERE application_id = $1;
 
 -- name: LabelApplication :exec
 UPDATE applications SET label = $2 WHERE application_id = $1;

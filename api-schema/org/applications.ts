@@ -78,7 +78,6 @@ export interface ShortlistApplicationRequest {
 
 export interface RejectApplicationRequest {
 	application_id: string;
-	rejection_reason?: string;
 }
 
 export interface LabelApplicationRequest {
@@ -158,17 +157,6 @@ export function validateRejectApplicationRequest(
 			field: "application_id",
 			message: "Must be a non-empty string",
 		});
-	}
-
-	if (r.rejection_reason !== undefined) {
-		if (typeof r.rejection_reason !== "string") {
-			errors.push({ field: "rejection_reason", message: "Must be a string" });
-		} else if (r.rejection_reason.length > 2000) {
-			errors.push({
-				field: "rejection_reason",
-				message: "Must be at most 2000 characters",
-			});
-		}
 	}
 
 	return errors;
