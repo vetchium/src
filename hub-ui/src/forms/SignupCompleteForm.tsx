@@ -1,9 +1,11 @@
 import { useState, useEffect } from "react";
 import {
+	Col,
 	Form,
 	Input,
 	Button,
 	Alert,
+	Row,
 	Select,
 	Space,
 	Spin,
@@ -12,8 +14,11 @@ import {
 	Descriptions,
 	Card,
 	Tooltip,
+	theme,
 } from "antd";
 import {
+	EyeInvisibleOutlined,
+	EyeOutlined,
 	LockOutlined,
 	MinusCircleOutlined,
 	PlusOutlined,
@@ -63,6 +68,7 @@ interface SignupCompleteFormValues {
 
 export function SignupCompleteForm({ signupToken }: SignupCompleteFormProps) {
 	const { t, i18n } = useTranslation(["signup", "common"]);
+	const { token } = theme.useToken();
 	const navigate = useNavigate();
 	const { setAuthData } = useAuth();
 	const [form] = Form.useForm<SignupCompleteFormValues>();
@@ -77,6 +83,7 @@ export function SignupCompleteForm({ signupToken }: SignupCompleteFormProps) {
 	>({});
 	// Plan chosen at signup (granted immediately; Free is the default).
 	const [selectedPlan, setSelectedPlan] = useState<HubPlanId>("free");
+	const [showPassword, setShowPassword] = useState(false);
 	// Home region locked at Stage 1 (request-signup); read from the token.
 	const [homeRegion, setHomeRegion] = useState<string>("");
 
@@ -275,7 +282,7 @@ export function SignupCompleteForm({ signupToken }: SignupCompleteFormProps) {
 						size="large"
 						onChange={handleLanguageChange}
 						options={languages.map((lang) => ({
-							label: `${lang.native_name} (${lang.language_name})`,
+							label: lang.native_name,
 							value: lang.language_code,
 						}))}
 					/>
@@ -354,7 +361,7 @@ export function SignupCompleteForm({ signupToken }: SignupCompleteFormProps) {
 												size="large"
 												disabled={index === 0}
 												options={languages.map((lang) => ({
-													label: `${lang.native_name} (${lang.language_name})`,
+													label: lang.native_name,
 													value: lang.language_code,
 												}))}
 											/>
@@ -566,9 +573,7 @@ export function SignupCompleteForm({ signupToken }: SignupCompleteFormProps) {
 			<Card style={{ marginTop: 16 }}>
 				<Descriptions column={1} bordered>
 					<Descriptions.Item label={t("signup:preferredLanguageLabel")}>
-						{selectedLanguage
-							? `${selectedLanguage.native_name} (${selectedLanguage.language_name})`
-							: "-"}
+						{selectedLanguage ? selectedLanguage.native_name : "-"}
 					</Descriptions.Item>
 					<Descriptions.Item label={t("signup:displayNameLabel")}>
 						{displayNames && displayNames.length > 0 ? (
@@ -612,7 +617,23 @@ export function SignupCompleteForm({ signupToken }: SignupCompleteFormProps) {
 						{t(`signup:plan_${selectedPlan}`)}
 					</Descriptions.Item>
 					<Descriptions.Item label={t("signup:passwordLabel")}>
-						{password ? "••••••••" : "-"}
+						{password ? (
+							<Space>
+								<span style={{ fontFamily: "monospace" }}>
+									{showPassword ? password : "••••••••"}
+								</span>
+								<Button
+									type="text"
+									size="small"
+									icon={
+										showPassword ? <EyeInvisibleOutlined /> : <EyeOutlined />
+									}
+									onClick={() => setShowPassword((v) => !v)}
+								/>
+							</Space>
+						) : (
+							"-"
+						)}
 					</Descriptions.Item>
 				</Descriptions>
 			</Card>
@@ -626,7 +647,7 @@ export function SignupCompleteForm({ signupToken }: SignupCompleteFormProps) {
 					description={error}
 					type="error"
 					showIcon
-					style={{ marginBottom: 16 }}
+					style={{ marginBottom: token.margin }}
 					closable={{ onClose: () => setError(null) }}
 				/>
 			)}
@@ -641,46 +662,55 @@ export function SignupCompleteForm({ signupToken }: SignupCompleteFormProps) {
 					display_names: [{ language_code: "", display_name: "" }],
 				}}
 			>
-				<Steps
-					current={currentStep}
-					size="small"
-					items={steps.map((step, index) => ({
-						title: step.title,
-						status:
-							stepStatus[index] || (index === currentStep ? "process" : "wait"),
-					}))}
-					style={{ marginBottom: 24 }}
-				/>
+				<Row gutter={[token.paddingLG, token.paddingLG]}>
+					<Col xs={24} md={7}>
+						<Steps
+							current={currentStep}
+							orientation="vertical"
+							size="small"
+							items={steps.map((step, index) => ({
+								title: step.title,
+								status:
+									stepStatus[index] ||
+									(index === currentStep ? "process" : "wait"),
+							}))}
+						/>
+					</Col>
 
-				{/* Keep all steps mounted but hidden to preserve form values */}
-				{steps.map((step, index) => (
-					<div
-						key={index}
-						style={{
-							display: index === currentStep ? "block" : "none",
-						}}
-					>
-						{index === steps.length - 1 ? renderSummaryContent() : step.content}
-					</div>
-				))}
+					<Col xs={24} md={17}>
+						{/* Keep all steps mounted but hidden to preserve form values */}
+						{steps.map((step, index) => (
+							<div
+								key={index}
+								style={{
+									display: index === currentStep ? "block" : "none",
+								}}
+							>
+								{index === steps.length - 1
+									? renderSummaryContent()
+									: step.content}
+							</div>
+						))}
 
-				<div style={{ marginTop: 24, display: "flex", gap: 8 }}>
-					{currentStep > 0 && (
-						<Button onClick={prevStep} disabled={loading}>
-							{t("signup:previous")}
-						</Button>
-					)}
-					{currentStep < steps.length - 1 && (
-						<Button type="primary" onClick={nextStep}>
-							{t("signup:next")}
-						</Button>
-					)}
-					{currentStep === steps.length - 1 && (
-						<Button type="primary" htmlType="submit" disabled={loading}>
-							{t("signup:completeButton")}
-						</Button>
-					)}
-				</div>
+						<Space style={{ marginTop: token.marginLG }}>
+							{currentStep > 0 && (
+								<Button onClick={prevStep} disabled={loading}>
+									{t("signup:previous")}
+								</Button>
+							)}
+							{currentStep < steps.length - 1 && (
+								<Button type="primary" onClick={nextStep}>
+									{t("signup:next")}
+								</Button>
+							)}
+							{currentStep === steps.length - 1 && (
+								<Button type="primary" htmlType="submit" disabled={loading}>
+									{t("signup:completeButton")}
+								</Button>
+							)}
+						</Space>
+					</Col>
+				</Row>
 			</Form>
 		</Spin>
 	);
