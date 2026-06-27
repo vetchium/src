@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Form, Input, Button, Alert, Spin } from "antd";
+import { useState, useEffect } from "react";
+import { Form, Input, Button, Alert, Select, Spin } from "antd";
 import { UserOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import {
@@ -8,6 +8,7 @@ import {
 	EMAIL_MAX_LENGTH,
 } from "vetchium-specs/common/common";
 import { isCommonDomain } from "vetchium-specs/hub/hub-users";
+import type { Region } from "vetchium-specs/global/global";
 import * as api from "../lib/api-client";
 
 interface SignupRequestFormProps {
@@ -20,7 +21,25 @@ export function SignupRequestForm({ onSuccess }: SignupRequestFormProps) {
 	const [error, setError] = useState<string | null>(null);
 	const [success, setSuccess] = useState(false);
 	const [showCommonDomainWarning, setShowCommonDomainWarning] = useState(false);
+	const [regions, setRegions] = useState<Region[]>([]);
+	const [loadingRegions, setLoadingRegions] = useState(true);
 	const [form] = Form.useForm();
+
+	useEffect(() => {
+		async function loadRegions() {
+			try {
+				const resp = await api.getRegions();
+				if (resp.status === 200 && resp.data) {
+					setRegions(resp.data);
+				}
+			} catch {
+				// Non-fatal: region list will just be empty
+			} finally {
+				setLoadingRegions(false);
+			}
+		}
+		loadRegions();
+	}, []);
 
 	const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		const email = e.target.value;
@@ -28,12 +47,15 @@ export function SignupRequestForm({ onSuccess }: SignupRequestFormProps) {
 		setError(null);
 	};
 
-	const onFinish = async (values: { email: string }) => {
+	const onFinish = async (values: { email: string; home_region: string }) => {
 		setLoading(true);
 		setError(null);
 
 		try {
-			const response = await api.requestSignup(values.email);
+			const response = await api.requestSignup(
+				values.email,
+				values.home_region
+			);
 
 			if (response.status === 200) {
 				setSuccess(true);
@@ -67,7 +89,7 @@ export function SignupRequestForm({ onSuccess }: SignupRequestFormProps) {
 	}
 
 	return (
-		<Spin spinning={loading}>
+		<Spin spinning={loading || loadingRegions}>
 			<Form
 				form={form}
 				name="signup-request"
@@ -122,6 +144,21 @@ export function SignupRequestForm({ onSuccess }: SignupRequestFormProps) {
 						placeholder={t("signup:emailPlaceholder")}
 						size="large"
 						onChange={handleEmailChange}
+					/>
+				</Form.Item>
+
+				<Form.Item
+					name="home_region"
+					label={t("signup:regionLabel")}
+					rules={[{ required: true, message: t("common:required") }]}
+				>
+					<Select
+						placeholder={t("signup:regionPlaceholder")}
+						size="large"
+						options={regions.map((region) => ({
+							label: region.region_name,
+							value: region.region_code,
+						}))}
 					/>
 				</Form.Item>
 

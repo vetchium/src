@@ -109,6 +109,7 @@ export interface DisplayNameEntry {
 
 export interface RequestSignupRequest {
 	email_address: EmailAddress;
+	home_region: string;
 }
 
 export interface RequestSignupResponse {
@@ -120,7 +121,6 @@ export interface CompleteSignupRequest {
 	password: Password;
 	preferred_display_name: DisplayName;
 	other_display_names?: DisplayNameEntry[];
-	home_region: string;
 	preferred_language: string;
 	resident_country_code: CountryCode;
 	/** Plan chosen at signup; defaults to free when omitted. */
@@ -168,6 +168,10 @@ export function validateRequestSignupRequest(
 		errs.push(newValidationError("email_address", emailErr));
 	}
 
+	if (!request.home_region) {
+		errs.push(newValidationError("home_region", ERR_REQUIRED));
+	}
+
 	return errs;
 }
 
@@ -211,10 +215,6 @@ export function validateCompleteSignupRequest(
 				);
 			}
 		});
-	}
-
-	if (!request.home_region) {
-		errs.push(newValidationError("home_region", ERR_REQUIRED));
 	}
 
 	if (!request.preferred_language) {
@@ -410,6 +410,27 @@ export function validateHubCompleteEmailChangeRequest(
 
 	if (!request.verification_token) {
 		errs.push(newValidationError("verification_token", ERR_REQUIRED));
+	}
+
+	return errs;
+}
+
+// GetHubSignupDetails types
+export interface GetHubSignupDetailsRequest {
+	signup_token: HubSignupToken;
+}
+
+export interface GetHubSignupDetailsResponse {
+	home_region: string;
+}
+
+export function validateGetHubSignupDetailsRequest(
+	request: GetHubSignupDetailsRequest
+): ValidationError[] {
+	const errs: ValidationError[] = [];
+
+	if (!request.signup_token) {
+		errs.push(newValidationError("signup_token", ERR_REQUIRED));
 	}
 
 	return errs;

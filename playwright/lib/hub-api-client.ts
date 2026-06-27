@@ -17,6 +17,8 @@ import type {
 	HubRequestEmailChangeRequest,
 	HubRequestEmailChangeResponse,
 	HubCompleteEmailChangeRequest,
+	GetHubSignupDetailsRequest,
+	GetHubSignupDetailsResponse,
 } from "vetchium-specs/hub/hub-users";
 import type {
 	GetTagRequest,
@@ -155,6 +157,43 @@ export class HubAPIClient {
 		return {
 			status: response.status(),
 			body: responseBody as RequestSignupResponse,
+			errors: Array.isArray(responseBody) ? responseBody : undefined,
+		};
+	}
+
+	/**
+	 * POST /hub/get-signup-details
+	 * Returns the home_region locked on a pending hub signup token.
+	 */
+	async getSignupDetails(
+		request: GetHubSignupDetailsRequest
+	): Promise<APIResponse<GetHubSignupDetailsResponse>> {
+		const response = await this.request.post("/hub/get-signup-details", {
+			data: request,
+		});
+
+		const body = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: body as GetHubSignupDetailsResponse,
+			errors: Array.isArray(body) ? body : body.errors,
+		};
+	}
+
+	/**
+	 * POST /hub/get-signup-details with raw body for testing invalid payloads
+	 */
+	async getSignupDetailsRaw(
+		body: unknown
+	): Promise<APIResponse<GetHubSignupDetailsResponse>> {
+		const response = await this.request.post("/hub/get-signup-details", {
+			data: body,
+		});
+
+		const responseBody = await response.json().catch(() => ({}));
+		return {
+			status: response.status(),
+			body: responseBody as GetHubSignupDetailsResponse,
 			errors: Array.isArray(responseBody) ? responseBody : undefined,
 		};
 	}

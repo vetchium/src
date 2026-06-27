@@ -27,6 +27,7 @@ import type {
 	HubLoginRequest,
 	HubTFARequest,
 	RequestSignupRequest,
+	GetHubSignupDetailsRequest,
 } from "vetchium-specs/hub/hub-users";
 import type { CheckDomainRequest } from "vetchium-specs/global/global";
 
@@ -90,7 +91,10 @@ test.describe("POST /hub/request-signup", () => {
 		await createTestApprovedDomain(domain, adminEmail);
 
 		try {
-			const signupRequest: RequestSignupRequest = { email_address: email };
+			const signupRequest: RequestSignupRequest = {
+				email_address: email,
+				home_region: "ind1",
+			};
 			const response = await api.requestSignup(signupRequest);
 
 			expect(response.status).toBe(200);
@@ -116,7 +120,10 @@ test.describe("POST /hub/request-signup", () => {
 		const api = new HubAPIClient(request);
 		const email = `user-${Date.now()}@unapproved-domain.com`;
 
-		const signupRequest: RequestSignupRequest = { email_address: email };
+		const signupRequest: RequestSignupRequest = {
+			email_address: email,
+			home_region: "ind1",
+		};
 		const response = await api.requestSignup(signupRequest);
 
 		expect(response.status).toBe(403);
@@ -136,6 +143,7 @@ test.describe("POST /hub/request-signup", () => {
 			// Create user through signup API
 			const initialSignupRequest: RequestSignupRequest = {
 				email_address: email,
+				home_region: "ind1",
 			};
 			await api.requestSignup(initialSignupRequest);
 			const emailSummary = await waitForEmail(email);
@@ -145,14 +153,16 @@ test.describe("POST /hub/request-signup", () => {
 				signup_token: signupToken!,
 				password,
 				preferred_display_name: "Existing User",
-				home_region: "ind1",
 				preferred_language: "en-US",
 				resident_country_code: "US",
 			};
 			await api.completeSignup(completeRequest);
 
 			// Now try to signup again with same email
-			const retrySignupRequest: RequestSignupRequest = { email_address: email };
+			const retrySignupRequest: RequestSignupRequest = {
+				email_address: email,
+				home_region: "ind1",
+			};
 			const response = await api.requestSignup(retrySignupRequest);
 			expect(response.status).toBe(409);
 		} finally {
@@ -179,6 +189,103 @@ test.describe("POST /hub/request-signup", () => {
 
 		expect(response.status).toBe(400);
 	});
+
+	test("returns 400 for missing home_region", async ({ request }) => {
+		const api = new HubAPIClient(request);
+		const adminEmail = generateTestEmail("admin");
+		const domain = generateTestDomainName();
+		const email = `test-${randomUUID().substring(0, 8)}@${domain}`;
+
+		await createTestAdminUser(adminEmail, TEST_PASSWORD);
+		await createTestApprovedDomain(domain, adminEmail);
+
+		try {
+			const response = await api.requestSignupRaw({
+				email_address: email,
+				// home_region intentionally omitted
+			});
+			expect(response.status).toBe(400);
+		} finally {
+			await permanentlyDeleteTestApprovedDomain(domain);
+			await deleteTestAdminUser(adminEmail);
+		}
+	});
+
+	test("returns 400 for invalid home_region", async ({ request }) => {
+		const api = new HubAPIClient(request);
+		const adminEmail = generateTestEmail("admin");
+		const domain = generateTestDomainName();
+		const email = `test-${randomUUID().substring(0, 8)}@${domain}`;
+
+		await createTestAdminUser(adminEmail, TEST_PASSWORD);
+		await createTestApprovedDomain(domain, adminEmail);
+
+		try {
+			const response = await api.requestSignupRaw({
+				email_address: email,
+				home_region: "invalid-region-xyz",
+			});
+			expect(response.status).toBe(400);
+		} finally {
+			await permanentlyDeleteTestApprovedDomain(domain);
+			await deleteTestAdminUser(adminEmail);
+		}
+	});
+});
+
+test.describe("POST /hub/get-signup-details", () => {
+	test("returns home_region for a valid pending token", async ({ request }) => {
+		const api = new HubAPIClient(request);
+		const adminEmail = generateTestEmail("admin");
+		const domain = generateTestDomainName();
+		const email = `test-${randomUUID().substring(0, 8)}@${domain}`;
+
+		await createTestAdminUser(adminEmail, TEST_PASSWORD);
+		await createTestApprovedDomain(domain, adminEmail);
+
+		try {
+			const signupRequest: RequestSignupRequest = {
+				email_address: email,
+				home_region: "ind1",
+			};
+			const signupResp = await api.requestSignup(signupRequest);
+			expect(signupResp.status).toBe(200);
+
+			const emailSummary = await waitForEmail(email);
+			const emailMessage = await getEmailContent(emailSummary.ID);
+			const token = extractSignupTokenFromEmail(emailMessage);
+			expect(token).toBeDefined();
+
+			const detailsReq: GetHubSignupDetailsRequest = {
+				signup_token: token!,
+			};
+			const detailsResp = await api.getSignupDetails(detailsReq);
+			expect(detailsResp.status).toBe(200);
+			expect(detailsResp.body.home_region).toBe("ind1");
+		} finally {
+			await permanentlyDeleteTestApprovedDomain(domain);
+			await deleteTestAdminUser(adminEmail);
+		}
+	});
+
+	test("returns 404 for a bogus token", async ({ request }) => {
+		const api = new HubAPIClient(request);
+
+		const detailsReq: GetHubSignupDetailsRequest = {
+			signup_token: "0".repeat(64),
+		};
+		const response = await api.getSignupDetails(detailsReq);
+
+		expect(response.status).toBe(404);
+	});
+
+	test("returns 400 for missing signup_token", async ({ request }) => {
+		const api = new HubAPIClient(request);
+
+		const response = await api.getSignupDetailsRaw({});
+
+		expect(response.status).toBe(400);
+	});
 });
 
 test.describe("POST /hub/complete-signup", () => {
@@ -196,7 +303,10 @@ test.describe("POST /hub/complete-signup", () => {
 
 		try {
 			// Request signup
-			const requestSignup: RequestSignupRequest = { email_address: email };
+			const requestSignup: RequestSignupRequest = {
+				email_address: email,
+				home_region: "ind1",
+			};
 			await api.requestSignup(requestSignup);
 
 			// Get token from email
@@ -211,7 +321,6 @@ test.describe("POST /hub/complete-signup", () => {
 				signup_token: signupToken!,
 				password,
 				preferred_display_name: "Test User",
-				home_region: "ind1",
 				preferred_language: "en-US",
 				resident_country_code: "US",
 			};
@@ -265,7 +374,10 @@ test.describe("POST /hub/complete-signup", () => {
 		await createTestApprovedDomain(domain, adminEmail);
 
 		try {
-			const requestSignup: RequestSignupRequest = { email_address: email };
+			const requestSignup: RequestSignupRequest = {
+				email_address: email,
+				home_region: "ind1",
+			};
 			await api.requestSignup(requestSignup);
 
 			const emailSummary = await waitForEmail(email);
@@ -277,7 +389,6 @@ test.describe("POST /hub/complete-signup", () => {
 				signup_token: signupToken!,
 				password,
 				preferred_display_name: "Test User",
-				home_region: "ind1",
 				preferred_language: "en-US",
 				resident_country_code: "US",
 			};
@@ -315,7 +426,10 @@ test.describe("POST /hub/complete-signup", () => {
 		await createTestApprovedDomain(domain, adminEmail);
 
 		try {
-			const requestSignup: RequestSignupRequest = { email_address: email };
+			const requestSignup: RequestSignupRequest = {
+				email_address: email,
+				home_region: "ind1",
+			};
 			await api.requestSignup(requestSignup);
 			const emailSummary = await waitForEmail(email);
 			const emailMessage = await getEmailContent(emailSummary.ID);
@@ -337,7 +451,6 @@ test.describe("POST /hub/complete-signup", () => {
 						is_preferred: false,
 					},
 				],
-				home_region: "ind1",
 				preferred_language: "en-US",
 				resident_country_code: "US",
 			};
@@ -359,7 +472,6 @@ test.describe("POST /hub/complete-signup", () => {
 			signup_token: "0".repeat(64), // Invalid token
 			password: "Password123$",
 			preferred_display_name: "Test User",
-			home_region: "ind1",
 			preferred_language: "en-US",
 			resident_country_code: "US",
 		};
@@ -380,7 +492,10 @@ test.describe("POST /hub/complete-signup", () => {
 
 		try {
 			// Create user through first signup
-			const firstRequestSignup: RequestSignupRequest = { email_address: email };
+			const firstRequestSignup: RequestSignupRequest = {
+				email_address: email,
+				home_region: "ind1",
+			};
 			await api.requestSignup(firstRequestSignup);
 			const firstEmailSummary = await waitForEmail(email);
 			const firstEmailMessage = await getEmailContent(firstEmailSummary.ID);
@@ -389,7 +504,6 @@ test.describe("POST /hub/complete-signup", () => {
 				signup_token: firstSignupToken!,
 				password,
 				preferred_display_name: "First User",
-				home_region: "ind1",
 				preferred_language: "en-US",
 				resident_country_code: "US",
 			};
@@ -398,6 +512,7 @@ test.describe("POST /hub/complete-signup", () => {
 			// Request signup again with same email
 			const secondRequestSignup: RequestSignupRequest = {
 				email_address: email,
+				home_region: "ind1",
 			};
 			await api.requestSignup(secondRequestSignup);
 			const secondEmailSummary = await waitForEmail(email);
@@ -409,7 +524,6 @@ test.describe("POST /hub/complete-signup", () => {
 				signup_token: secondSignupToken!,
 				password,
 				preferred_display_name: "Test User",
-				home_region: "ind1",
 				preferred_language: "en-US",
 				resident_country_code: "US",
 			};
@@ -441,7 +555,6 @@ test.describe("POST /hub/complete-signup", () => {
 			signup_token: "a".repeat(64),
 			password: "weak", // Too short
 			preferred_display_name: "Test User",
-			home_region: "ind1",
 			preferred_language: "en-US",
 			resident_country_code: "US",
 		});
@@ -456,7 +569,6 @@ test.describe("POST /hub/complete-signup", () => {
 			signup_token: "a".repeat(64),
 			password: "Password123$",
 			preferred_display_name: "Test User",
-			home_region: "ind1",
 			preferred_language: "en-US",
 			resident_country_code: "USA", // Should be 2 chars
 		});
@@ -471,7 +583,6 @@ test.describe("POST /hub/complete-signup", () => {
 			signup_token: "a".repeat(64),
 			password: "Password123$",
 			preferred_display_name: "", // Empty
-			home_region: "ind1",
 			preferred_language: "en-US",
 			resident_country_code: "US",
 		});
@@ -486,7 +597,6 @@ test.describe("POST /hub/complete-signup", () => {
 			signup_token: "a".repeat(64),
 			password: "Password123$",
 			preferred_display_name: "a".repeat(101), // Max 100
-			home_region: "ind1",
 			preferred_language: "en-US",
 			resident_country_code: "US",
 		});
@@ -510,7 +620,10 @@ test.describe("POST /hub/login", () => {
 
 		try {
 			// Create user through signup
-			const requestSignup: RequestSignupRequest = { email_address: email };
+			const requestSignup: RequestSignupRequest = {
+				email_address: email,
+				home_region: "ind1",
+			};
 			await api.requestSignup(requestSignup);
 			const emailSummary = await waitForEmail(email);
 			const emailMessage = await getEmailContent(emailSummary.ID);
@@ -519,7 +632,6 @@ test.describe("POST /hub/login", () => {
 				signup_token: signupToken!,
 				password,
 				preferred_display_name: "Test User",
-				home_region: "ind1",
 				preferred_language: "en-US",
 				resident_country_code: "US",
 			};
@@ -576,7 +688,10 @@ test.describe("POST /hub/login", () => {
 
 		try {
 			// Create user through signup
-			const requestSignup: RequestSignupRequest = { email_address: email };
+			const requestSignup: RequestSignupRequest = {
+				email_address: email,
+				home_region: "ind1",
+			};
 			await api.requestSignup(requestSignup);
 			const emailSummary = await waitForEmail(email);
 			const emailMessage = await getEmailContent(emailSummary.ID);
@@ -585,7 +700,6 @@ test.describe("POST /hub/login", () => {
 				signup_token: signupToken!,
 				password,
 				preferred_display_name: "Test User",
-				home_region: "ind1",
 				preferred_language: "en-US",
 				resident_country_code: "US",
 			};
@@ -659,7 +773,10 @@ test.describe("POST /hub/logout", () => {
 
 		try {
 			// Create user through signup
-			const requestSignup: RequestSignupRequest = { email_address: email };
+			const requestSignup: RequestSignupRequest = {
+				email_address: email,
+				home_region: "ind1",
+			};
 			await api.requestSignup(requestSignup);
 			const emailSummary = await waitForEmail(email);
 			const emailMessage = await getEmailContent(emailSummary.ID);
@@ -668,7 +785,6 @@ test.describe("POST /hub/logout", () => {
 				signup_token: signupToken!,
 				password,
 				preferred_display_name: "Logout Test User",
-				home_region: "ind1",
 				preferred_language: "en-US",
 				resident_country_code: "US",
 			};
@@ -745,7 +861,10 @@ test.describe("POST /hub/complete-signup — plan selection (Spec 17)", () => {
 		await createTestAdminUser(adminEmail, TEST_PASSWORD);
 		await createTestApprovedDomain(domain, adminEmail);
 
-		const requestSignup: RequestSignupRequest = { email_address: email };
+		const requestSignup: RequestSignupRequest = {
+			email_address: email,
+			home_region: "ind1",
+		};
 		await api.requestSignup(requestSignup);
 
 		const emailSummary = await waitForEmail(email);
@@ -757,7 +876,6 @@ test.describe("POST /hub/complete-signup — plan selection (Spec 17)", () => {
 			signup_token: signupToken!,
 			password: TEST_PASSWORD,
 			preferred_display_name: "Test User",
-			home_region: "ind1",
 			preferred_language: "en-US",
 			resident_country_code: "US",
 			...(planId ? { plan_id: planId } : {}),
@@ -836,7 +954,6 @@ test.describe("POST /hub/complete-signup — plan selection (Spec 17)", () => {
 			signup_token: "0".repeat(64),
 			password: TEST_PASSWORD,
 			preferred_display_name: "Test User",
-			home_region: "ind1",
 			preferred_language: "en-US",
 			resident_country_code: "US",
 			plan_id: "platinum",

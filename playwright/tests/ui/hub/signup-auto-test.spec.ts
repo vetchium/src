@@ -33,7 +33,7 @@ test.describe("Signup Complete Form Auto Test", () => {
 			const signupResponse = await request.post(
 				"http://localhost:8080/hub/request-signup",
 				{
-					data: { email_address: userEmail },
+					data: { email_address: userEmail, home_region: "ind1" },
 				}
 			);
 			expect(signupResponse.status()).toBe(200);
@@ -87,19 +87,7 @@ test.describe("Signup Complete Form Auto Test", () => {
 			await page.click('button:has-text("Next")');
 			await page.waitForTimeout(500);
 
-			// Step 3: Select Region and Country
-			// Select Region using Ant Design select
-			await page.locator('[id="signup-complete_home_region"]').click();
-			await page.waitForTimeout(300);
-			// Click the first visible option in the active dropdown
-			await page
-				.locator(
-					".ant-select-dropdown:not(.ant-select-dropdown-hidden) .ant-select-item-option"
-				)
-				.first()
-				.click();
-			await page.waitForTimeout(300);
-
+			// Step 3: Select Country (region was locked at request-signup)
 			// Select Country
 			await page
 				.locator('[id="signup-complete_resident_country_code"]')

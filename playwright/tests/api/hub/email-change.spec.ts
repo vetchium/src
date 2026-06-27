@@ -31,7 +31,10 @@ async function createHubUserViaSignup(
 	email: string,
 	password: string
 ): Promise<void> {
-	const requestSignup: RequestSignupRequest = { email_address: email };
+	const requestSignup: RequestSignupRequest = {
+		email_address: email,
+		home_region: "ind1",
+	};
 	await api.requestSignup(requestSignup);
 
 	const emailSummary = await import("../../../lib/mailpit").then((m) =>
@@ -48,7 +51,6 @@ async function createHubUserViaSignup(
 		signup_token: signupToken!,
 		password,
 		preferred_display_name: "Test User",
-		home_region: "ind1",
 		preferred_language: "en-US",
 		resident_country_code: "US",
 	};

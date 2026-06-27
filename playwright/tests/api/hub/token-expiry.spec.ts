@@ -62,7 +62,10 @@ async function createHubUserViaSignup(
 	preferredLanguage: string = "en-US"
 ): Promise<void> {
 	// Request signup
-	const requestSignup: RequestSignupRequest = { email_address: email };
+	const requestSignup: RequestSignupRequest = {
+		email_address: email,
+		home_region: "ind1",
+	};
 	await api.requestSignup(requestSignup);
 
 	// Get token from email
@@ -75,7 +78,6 @@ async function createHubUserViaSignup(
 		signup_token: signupToken!,
 		password,
 		preferred_display_name: "Test User",
-		home_region: "ind1",
 		preferred_language: preferredLanguage,
 		resident_country_code: "US",
 	};
@@ -286,7 +288,10 @@ test.describe("Hub Token Expiry Tests", () => {
 
 		try {
 			// Request signup
-			const requestSignup: RequestSignupRequest = { email_address: email };
+			const requestSignup: RequestSignupRequest = {
+				email_address: email,
+				home_region: "ind1",
+			};
 			const signupResponse = await api.requestSignup(requestSignup);
 			expect(signupResponse.status).toBe(200);
 
@@ -304,7 +309,6 @@ test.describe("Hub Token Expiry Tests", () => {
 				signup_token: signupToken!,
 				password,
 				preferred_display_name: "Test User",
-				home_region: "ind1",
 				preferred_language: "en-US",
 				resident_country_code: "US",
 			};

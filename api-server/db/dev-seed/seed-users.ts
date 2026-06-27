@@ -187,6 +187,7 @@ async function createHubUser(user: HubUser): Promise<void> {
 
 	const signupRes = await post("/hub/request-signup", {
 		email_address: user.email,
+		home_region: user.homeRegion,
 	});
 	if (signupRes.status === 409) {
 		console.log(`  hub: ${user.email} — already registered, skipping`);
@@ -206,7 +207,6 @@ async function createHubUser(user: HubUser): Promise<void> {
 		signup_token: signupToken,
 		password: PASSWORD,
 		preferred_display_name: user.displayName,
-		home_region: user.homeRegion,
 		preferred_language: LANG,
 		resident_country_code: user.countryCode,
 	});

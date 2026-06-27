@@ -6,6 +6,8 @@ import type {
 	CompleteSignupResponse,
 	HubLoginRequest,
 	HubLoginResponse,
+	GetHubSignupDetailsRequest,
+	GetHubSignupDetailsResponse,
 } from "vetchium-specs/hub/hub-users";
 import type { ValidationError } from "vetchium-specs/common/common";
 import type {
@@ -107,10 +109,14 @@ export async function checkDomain(
  * Request signup verification email
  */
 export async function requestSignup(
-	email: string
+	email: string,
+	homeRegion: string
 ): Promise<APIResponse<RequestSignupResponse>> {
 	const apiBaseUrl = await getApiBaseUrl();
-	const requestBody: RequestSignupRequest = { email_address: email };
+	const requestBody: RequestSignupRequest = {
+		email_address: email,
+		home_region: homeRegion,
+	};
 
 	const response = await fetch(`${apiBaseUrl}/hub/request-signup`, {
 		method: "POST",
@@ -123,6 +129,37 @@ export async function requestSignup(
 	const status = response.status;
 	if (status === 200) {
 		const data = await response.json();
+		return { status, data };
+	}
+
+	if (status === 400) {
+		const errors = await response.json();
+		return { status, errors };
+	}
+
+	return { status };
+}
+
+/**
+ * Get signup details (home_region) for a pending hub signup token
+ */
+export async function getSignupDetails(
+	token: string
+): Promise<APIResponse<GetHubSignupDetailsResponse>> {
+	const apiBaseUrl = await getApiBaseUrl();
+	const requestBody: GetHubSignupDetailsRequest = { signup_token: token };
+
+	const response = await fetch(`${apiBaseUrl}/hub/get-signup-details`, {
+		method: "POST",
+		headers: {
+			"Content-Type": "application/json",
+		},
+		body: JSON.stringify(requestBody),
+	});
+
+	const status = response.status;
+	if (status === 200) {
+		const data: GetHubSignupDetailsResponse = await response.json();
 		return { status, data };
 	}
 

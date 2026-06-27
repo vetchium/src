@@ -47,6 +47,8 @@ model DisplayNameEntry {
 model RequestSignupRequest {
     @doc("Email address to sign up with")
     email_address: EmailAddress;
+    @doc("User's home region (e.g., ind1, usa1, deu1)")
+    home_region: string;
 }
 
 model RequestSignupResponse {
@@ -63,8 +65,6 @@ model CompleteSignupRequest {
     preferred_display_name: DisplayName;
     @doc("Additional display names in other languages (optional)")
     other_display_names?: DisplayNameEntry[];
-    @doc("User's home region (e.g., IND1, USA1, DEU1)")
-    home_region: string;
     @doc("User's preferred language (BCP 47 tag)")
     preferred_language: string;
     @doc("User's country of residence (ISO 3166-1 alpha-2)")
@@ -179,6 +179,32 @@ interface HubSetLanguage {
         @doc("Invalid or expired session token")
         @statusCode
         statusCode: 401;
+    };
+}
+
+model GetHubSignupDetailsRequest {
+    @doc("Signup token received via email")
+    signup_token: HubSignupToken;
+}
+
+model GetHubSignupDetailsResponse {
+    @doc("Home region locked at request-signup (for display and regional pricing)")
+    home_region: string;
+}
+
+@route("/hub/get-signup-details")
+interface HubGetSignupDetails {
+    @tag("HubUsers")
+    @post
+    @doc("Return the home region locked on a pending hub signup token.")
+    getSignupDetails(@body request: GetHubSignupDetailsRequest): {
+        @statusCode statusCode: 200;
+        @body response: GetHubSignupDetailsResponse;
+    } | {
+        @statusCode statusCode: 400;
+    } | {
+        @doc("No pending signup for this token")
+        @statusCode statusCode: 404;
     };
 }
 

@@ -46,6 +46,7 @@ test.describe("Hub UI - Signup Flow", () => {
 			'input[placeholder="Enter your professional email"]',
 			userEmail
 		);
+		await antdSelect(page, '[id="signup-request_home_region"]', "India");
 		await page.click('button:has-text("Request Verification Email")');
 
 		// Verify success message
@@ -78,8 +79,7 @@ test.describe("Hub UI - Signup Flow", () => {
 		);
 		await page.click('button:has-text("Next")');
 
-		// Step 3: Select Region and Country
-		await antdSelect(page, '[id="signup-complete_home_region"]', "India");
+		// Step 3: Select Country (region is locked from Stage 1)
 		await antdSelect(
 			page,
 			'[id="signup-complete_resident_country_code"]',

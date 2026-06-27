@@ -75,6 +75,7 @@ type DisplayNameEntry struct {
 
 type RequestSignupRequest struct {
 	EmailAddress common.EmailAddress `json:"email_address"`
+	HomeRegion   string              `json:"home_region"`
 }
 
 func (r RequestSignupRequest) Validate() []common.ValidationError {
@@ -82,6 +83,10 @@ func (r RequestSignupRequest) Validate() []common.ValidationError {
 
 	if err := r.EmailAddress.Validate(); err != nil {
 		errs = append(errs, common.NewValidationError("email_address", err))
+	}
+
+	if r.HomeRegion == "" {
+		errs = append(errs, common.NewValidationError("home_region", common.ErrRequired))
 	}
 
 	return errs
@@ -96,7 +101,6 @@ type CompleteSignupRequest struct {
 	Password             common.Password    `json:"password"`
 	PreferredDisplayName DisplayName        `json:"preferred_display_name"`
 	OtherDisplayNames    []DisplayNameEntry `json:"other_display_names,omitempty"`
-	HomeRegion           string             `json:"home_region"`
 	PreferredLanguage    string             `json:"preferred_language"`
 	ResidentCountryCode  CountryCode        `json:"resident_country_code"`
 	PlanID               HubPlanId          `json:"plan_id,omitempty"`
@@ -131,10 +135,6 @@ func (r CompleteSignupRequest) Validate() []common.ValidationError {
 				err,
 			))
 		}
-	}
-
-	if r.HomeRegion == "" {
-		errs = append(errs, common.NewValidationError("home_region", common.ErrRequired))
 	}
 
 	if r.PreferredLanguage == "" {
@@ -326,6 +326,26 @@ func (r HubCompleteEmailChangeRequest) Validate() []common.ValidationError {
 	}
 
 	return errs
+}
+
+// GetHubSignupDetailsRequest is the request for POST /hub/get-signup-details
+type GetHubSignupDetailsRequest struct {
+	SignupToken HubSignupToken `json:"signup_token"`
+}
+
+func (r GetHubSignupDetailsRequest) Validate() []common.ValidationError {
+	var errs []common.ValidationError
+
+	if r.SignupToken == "" {
+		errs = append(errs, common.NewValidationError("signup_token", common.ErrRequired))
+	}
+
+	return errs
+}
+
+// GetHubSignupDetailsResponse is the response for POST /hub/get-signup-details
+type GetHubSignupDetailsResponse struct {
+	HomeRegion string `json:"home_region"`
 }
 
 // HubMyInfoResponse is the response for GET /hub/myinfo

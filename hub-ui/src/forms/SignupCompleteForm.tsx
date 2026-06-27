@@ -57,7 +57,6 @@ interface SignupCompleteFormValues {
 		language_code: string;
 		display_name: string;
 	}>;
-	home_region: string;
 	preferred_language: string;
 	resident_country_code: string;
 }
@@ -78,21 +77,23 @@ export function SignupCompleteForm({ signupToken }: SignupCompleteFormProps) {
 	>({});
 	// Plan chosen at signup (granted immediately; Free is the default).
 	const [selectedPlan, setSelectedPlan] = useState<HubPlanId>("free");
+	// Home region locked at Stage 1 (request-signup); read from the token.
+	const [homeRegion, setHomeRegion] = useState<string>("");
 
 	// Watch form values for summary step
 	const preferredLanguage = Form.useWatch("preferred_language", form);
 	const displayNames = Form.useWatch("display_names", form);
-	const homeRegion = Form.useWatch("home_region", form);
 	const residentCountryCode = Form.useWatch("resident_country_code", form);
 	const password = Form.useWatch("password", form);
 
 	useEffect(() => {
-		// Load regions and languages
+		// Load regions, languages, and the home region locked on this signup token.
 		async function loadData() {
 			try {
-				const [regionsResp, languagesResp] = await Promise.all([
+				const [regionsResp, languagesResp, detailsResp] = await Promise.all([
 					api.getRegions(),
 					api.getSupportedLanguages(),
+					api.getSignupDetails(signupToken),
 				]);
 
 				if (regionsResp.status === 200 && regionsResp.data) {
@@ -102,6 +103,14 @@ export function SignupCompleteForm({ signupToken }: SignupCompleteFormProps) {
 				if (languagesResp.status === 200 && languagesResp.data) {
 					setLanguages(languagesResp.data);
 				}
+
+				if (detailsResp.status === 200 && detailsResp.data) {
+					setHomeRegion(detailsResp.data.home_region);
+				} else if (detailsResp.status === 404) {
+					setError(t("signup:invalidToken"));
+				} else {
+					setError(t("common:serverError"));
+				}
 			} catch {
 				setError(t("common:serverError"));
 			} finally {
@@ -110,7 +119,7 @@ export function SignupCompleteForm({ signupToken }: SignupCompleteFormProps) {
 		}
 
 		loadData();
-	}, [t]);
+	}, [signupToken, t]);
 
 	const handleLanguageChange = (languageCode: string) => {
 		// Update i18n locale
@@ -148,7 +157,7 @@ export function SignupCompleteForm({ signupToken }: SignupCompleteFormProps) {
 	const stepFields: string[][] = [
 		["preferred_language"], // Step 0: Language
 		["display_names"], // Step 1: Display names
-		["home_region", "resident_country_code"], // Step 2: Region and country
+		["resident_country_code"], // Step 2: Country of residence
 		[], // Step 3: Plan (selection has a default, nothing to validate)
 		["password", "confirm_password"], // Step 4: Password
 		// Step 5: Summary (no fields to validate)
@@ -217,7 +226,6 @@ export function SignupCompleteForm({ signupToken }: SignupCompleteFormProps) {
 				password: values.password,
 				preferred_display_name: preferredDisplayName,
 				other_display_names: otherNames,
-				home_region: values.home_region,
 				preferred_language: values.preferred_language,
 				resident_country_code: values.resident_country_code,
 				plan_id: selectedPlan,
@@ -389,34 +397,22 @@ export function SignupCompleteForm({ signupToken }: SignupCompleteFormProps) {
 			),
 		},
 		{
-			title: t("signup:regionStepTitle"),
-			description: t("signup:regionStepDescription"),
+			title: t("signup:countryStepTitle"),
+			description: t("signup:countryStepDescription"),
 			content: (
 				<>
-					<Form.Item
-						name="home_region"
-						label={
-							<span>
-								{t("signup:regionLabel")}{" "}
-								<Tooltip title={t("signup:regionHelp")}>
-									<InfoCircleOutlined
-										style={{ color: "#1890ff", cursor: "help" }}
-									/>
-								</Tooltip>
-							</span>
-						}
-						rules={[{ required: true, message: t("common:required") }]}
-						style={{ marginTop: 16 }}
-					>
-						<Select
-							placeholder={t("signup:regionPlaceholder")}
-							size="large"
-							options={regions.map((region) => ({
-								label: region.region_name,
-								value: region.region_code,
-							}))}
+					{homeRegion && (
+						<Alert
+							type="info"
+							description={t("signup:regionLockedInfo", {
+								regionName:
+									regions.find((r) => r.region_code === homeRegion)
+										?.region_name ?? homeRegion,
+							})}
+							showIcon
+							style={{ marginBottom: 16, marginTop: 16 }}
 						/>
-					</Form.Item>
+					)}
 
 					<Form.Item
 						name="resident_country_code"

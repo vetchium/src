@@ -41,6 +41,42 @@ func RequestSignup(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
+		// Validate home region. Verify enum membership in Go BEFORE any DB call;
+		// casting an unknown value to the Postgres `region` enum errors with 22P02
+		// (a *pgconn.PgError, not pgx.ErrNoRows) and would otherwise fall through
+		// to a 500. Mirrors org's init-signup.go.
+		homeRegion := globaldb.Region(strings.ToLower(req.HomeRegion))
+		switch homeRegion {
+		case globaldb.RegionInd1, globaldb.RegionUsa1, globaldb.RegionDeu1:
+			// Valid region
+		default:
+			s.Logger(ctx).Debug("invalid home region", "region", req.HomeRegion)
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode([]map[string]string{{"field": "home_region", "message": "invalid region"}})
+			return
+		}
+
+		// home region is now a known-valid enum, so the cast won't error.
+		region, err := s.Global.GetRegionByCode(ctx, homeRegion)
+		if err != nil {
+			s.Logger(ctx).Error("failed to query region", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+		if !region.IsActive {
+			s.Logger(ctx).Debug("region not active", "region", req.HomeRegion)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		// Select the home region's DB for the email queue.
+		homeDB := s.GetRegionalDB(homeRegion)
+		if homeDB == nil {
+			s.Logger(ctx).Error("no regional pool for home region", "region", homeRegion)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
 		// Extract domain from email
 		parts := strings.Split(string(req.EmailAddress), "@")
 		if len(parts) != 2 {
@@ -51,7 +87,7 @@ func RequestSignup(s *server.RegionalServer) http.HandlerFunc {
 		domain := strings.ToLower(parts[1])
 
 		// Check if domain is approved
-		_, err := s.Global.GetActiveDomainByName(ctx, domain)
+		_, err = s.Global.GetActiveDomainByName(ctx, domain)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				s.Logger(ctx).Debug("domain not approved", "domain", domain)
@@ -88,7 +124,7 @@ func RequestSignup(s *server.RegionalServer) http.HandlerFunc {
 		}
 		signupToken := hex.EncodeToString(tokenBytes)
 
-		// Store token in global DB
+		// Store token in global DB (includes home_region so Stage 2 can read it from the token).
 		expiresAt := pgtype.Timestamptz{Time: time.Now().Add(s.TokenConfig.HubSignupTokenExpiry), Valid: true}
 		err = s.Global.CreateHubSignupToken(ctx, globaldb.CreateHubSignupTokenParams{
 			SignupToken:      signupToken,
@@ -96,6 +132,7 @@ func RequestSignup(s *server.RegionalServer) http.HandlerFunc {
 			EmailAddressHash: emailHash[:],
 			HashingAlgorithm: globaldb.EmailAddressHashingAlgorithmSHA256,
 			ExpiresAt:        expiresAt,
+			HomeRegion:       homeRegion,
 		})
 		if err != nil {
 			s.Logger(ctx).Error("failed to store signup token", "error", err)
@@ -103,11 +140,11 @@ func RequestSignup(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		// Send verification email
+		// Send verification email via the chosen region's DB queue (mirrors org).
 		lang := i18n.Match("en-US") // Default language for signup
 		signupLink := fmt.Sprintf("%s/signup/verify?token=%s", s.UIConfig.HubURL, signupToken)
 		expiryHours := int(s.TokenConfig.HubSignupTokenExpiry.Hours())
-		err = sendSignupEmail(ctx, s.RegionalForCtx(ctx), string(req.EmailAddress), signupLink, lang, expiryHours)
+		err = sendSignupEmail(ctx, homeDB, string(req.EmailAddress), signupLink, lang, expiryHours)
 		if err != nil {
 			s.Logger(ctx).Error("failed to enqueue signup email", "error", err)
 			// Compensating transaction: delete the signup token we just created

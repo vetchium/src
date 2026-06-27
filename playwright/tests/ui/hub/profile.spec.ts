@@ -24,7 +24,10 @@ async function signupHubUser(
 	api: HubAPIClient,
 	email: string
 ): Promise<{ sessionToken: string; handle: string }> {
-	const reqSignup: RequestSignupRequest = { email_address: email };
+	const reqSignup: RequestSignupRequest = {
+		email_address: email,
+		home_region: "ind1",
+	};
 	await api.requestSignup(reqSignup);
 
 	const emailSummary = await waitForEmail(email);
@@ -36,7 +39,6 @@ async function signupHubUser(
 		signup_token: signupToken!,
 		password: TEST_PASSWORD,
 		preferred_display_name: "About Tester",
-		home_region: "ind1",
 		preferred_language: "en-US",
 		resident_country_code: "US",
 	};

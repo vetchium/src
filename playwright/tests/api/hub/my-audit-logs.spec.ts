@@ -31,7 +31,10 @@ async function createHubUserViaSignup(
 	email: string,
 	password: string
 ): Promise<void> {
-	await api.requestSignup({ email_address: email });
+	await api.requestSignup({
+		email_address: email,
+		home_region: "ind1",
+	});
 	const emailSummary = await waitForEmail(email);
 	const emailMessage = await getEmailContent(emailSummary.ID);
 	const signupToken = extractSignupTokenFromEmail(emailMessage);
@@ -39,7 +42,6 @@ async function createHubUserViaSignup(
 		signup_token: signupToken!,
 		password,
 		preferred_display_name: "Test User",
-		home_region: "ind1",
 		preferred_language: "en-US",
 		resident_country_code: "US",
 	};

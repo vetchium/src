@@ -348,9 +348,10 @@ INSERT INTO hub_signup_tokens (
     email_address,
     email_address_hash,
     hashing_algorithm,
-    expires_at
+    expires_at,
+    home_region
   )
-VALUES ($1, $2, $3, $4, $5);
+VALUES ($1, $2, $3, $4, $5, $6);
 -- name: GetHubSignupToken :one
 SELECT *
 FROM hub_signup_tokens

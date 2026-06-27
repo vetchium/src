@@ -94,6 +94,28 @@ func CompleteSignup(s *server.RegionalServer) http.HandlerFunc {
 		email := tokenRecord.EmailAddress
 		emailHash := tokenRecord.EmailAddressHash
 
+		// Derive home region from the token (set at Stage 1 / request-signup).
+		homeRegion := tokenRecord.HomeRegion
+		homeRegionStr := string(homeRegion)
+
+		// Defensive check: region could be deactivated between Stage 1 and Stage 2.
+		regionRec, err := s.Global.GetRegionByCode(ctx, homeRegion)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				s.Logger(ctx).Debug("token home region no longer exists", "region", homeRegion)
+				w.WriteHeader(http.StatusUnprocessableEntity)
+				return
+			}
+			s.Logger(ctx).Error("failed to query region", "error", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+		if !regionRec.IsActive {
+			s.Logger(ctx).Debug("token home region no longer active", "region", homeRegion)
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			return
+		}
+
 		// The signup email was verified via the signup link, so it doubles as the
 		// user's first verified work email. Derive the lowercased email, its domain
 		// and the work-email hash (hex string, distinct from the identity emailHash
@@ -119,27 +141,7 @@ func CompleteSignup(s *server.RegionalServer) http.HandlerFunc {
 			return
 		}
 
-		// Validate home region
-		region, err := s.Global.GetRegionByCode(ctx, globaldb.Region(req.HomeRegion))
-		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				s.Logger(ctx).Debug("invalid home region", "region", req.HomeRegion)
-				w.WriteHeader(http.StatusBadRequest)
-				return
-			}
-			s.Logger(ctx).Error("failed to query region", "error", err)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-
-		if !region.IsActive {
-			s.Logger(ctx).Debug("region not active", "region", req.HomeRegion)
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-
 		// Select the home region's DB queries. No proxy.
-		homeRegion := globaldb.Region(req.HomeRegion)
 		homeDB := s.GetRegionalDB(homeRegion)
 		if homeDB == nil {
 			s.Logger(ctx).Error("no regional pool for home region", "region", homeRegion)
@@ -170,7 +172,7 @@ func CompleteSignup(s *server.RegionalServer) http.HandlerFunc {
 				Handle:           handle,
 				EmailAddressHash: emailHash,
 				HashingAlgorithm: globaldb.EmailAddressHashingAlgorithmSHA256,
-				HomeRegion:       globaldb.Region(req.HomeRegion),
+				HomeRegion:       homeRegion,
 			})
 			if txErr != nil {
 				return txErr
@@ -207,7 +209,7 @@ func CompleteSignup(s *server.RegionalServer) http.HandlerFunc {
 				_, claimErr := qtx.ClaimWorkEmailGlobal(ctx, globaldb.ClaimWorkEmailGlobalParams{
 					EmailAddressHash: workEmailHash,
 					HubUserGlobalID:  globalUser.HubUserGlobalID,
-					Region:           req.HomeRegion,
+					Region:           homeRegionStr,
 					Status:           "active",
 				})
 				if claimErr == nil {
@@ -249,7 +251,7 @@ func CompleteSignup(s *server.RegionalServer) http.HandlerFunc {
 		rawSessionToken := hex.EncodeToString(sessionTokenBytes)
 
 		// Add region prefix to session token
-		sessionToken := tokens.AddRegionPrefix(globaldb.Region(req.HomeRegion), rawSessionToken)
+		sessionToken := tokens.AddRegionPrefix(homeRegion, rawSessionToken)
 
 		// Execute all regional operations in a single transaction
 		err = s.WithRegionalTxFor(ctx, homeRegion, func(qtx *regionaldb.Queries) error {

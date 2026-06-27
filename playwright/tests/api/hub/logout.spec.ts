@@ -46,7 +46,10 @@ async function createHubUserAndGetSession(
 	await createTestApprovedDomain(domain, adminEmail);
 
 	// Signup flow
-	const requestSignup: RequestSignupRequest = { email_address: email };
+	const requestSignup: RequestSignupRequest = {
+		email_address: email,
+		home_region: "ind1",
+	};
 	await api.requestSignup(requestSignup);
 
 	const emailSummary = await waitForEmail(email);
@@ -57,7 +60,6 @@ async function createHubUserAndGetSession(
 		signup_token: signupToken!,
 		password,
 		preferred_display_name: "Test User",
-		home_region: "ind1",
 		preferred_language: "en-US",
 		resident_country_code: "US",
 	};
