@@ -107,7 +107,11 @@ test.describe("Signup Complete Form Auto Test", () => {
 			await page.click('button:has-text("Next")');
 			await page.waitForTimeout(500);
 
-			// Step 4: Password
+			// Step 4: Plan (free is default — just proceed)
+			await page.click('button:has-text("Next")');
+			await page.waitForTimeout(500);
+
+			// Step 5: Password
 			const passwordInput = page.locator(
 				'input[placeholder="Choose a strong password"]'
 			);

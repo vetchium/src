@@ -88,7 +88,10 @@ test.describe("Hub UI - Signup Flow", () => {
 		);
 		await page.click('button:has-text("Next")');
 
-		// Step 4: Password
+		// Step 4: Plan (free is the default — just proceed)
+		await page.click('button:has-text("Next")');
+
+		// Step 5: Password
 		await page.fill(
 			'input[placeholder="Choose a strong password"]',
 			TEST_PASSWORD

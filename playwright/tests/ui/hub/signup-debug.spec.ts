@@ -32,7 +32,7 @@ test.describe("Signup Complete Form Debug", () => {
 			const signupResponse = await request.post(
 				"http://localhost:8080/hub/request-signup",
 				{
-					data: { email_address: userEmail },
+					data: { email_address: userEmail, home_region: "ind1" },
 				}
 			);
 			expect(signupResponse.status()).toBe(200);
