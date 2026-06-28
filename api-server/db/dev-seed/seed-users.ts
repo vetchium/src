@@ -180,6 +180,7 @@ interface HubUser {
 	displayName: string;
 	homeRegion: "ind1" | "usa1" | "deu1";
 	countryCode: string;
+	hubPlan?: "free" | "pro"; // defaults to free
 }
 
 async function createHubUser(user: HubUser): Promise<void> {
@@ -216,6 +217,17 @@ async function createHubUser(user: HubUser): Promise<void> {
 		);
 	}
 	console.log(`  hub: ${user.email} — created`);
+
+	if (user.hubPlan === "pro") {
+		const token = await hubLogin(user.email);
+		const switchRes = await post("/hub/switch-plan", { plan_id: "pro" }, token);
+		if (switchRes.status !== 200) {
+			throw new Error(
+				`switch-plan failed for ${user.email}: ${switchRes.status} — ${await switchRes.text()}`
+			);
+		}
+		console.log(`  hub: ${user.email} — plan → pro`);
+	}
 }
 
 // ============================================================================
@@ -296,6 +308,37 @@ async function orgLogin(email: string, domain: string): Promise<string> {
 	if (tfaRes.status !== 200) {
 		throw new Error(
 			`org TFA failed for ${email}: ${tfaRes.status} — ${await tfaRes.text()}`
+		);
+	}
+	const { session_token } = (await tfaRes.json()) as { session_token: string };
+	return session_token;
+}
+
+async function hubLogin(email: string): Promise<string> {
+	await clearEmails(email);
+
+	const loginRes = await post("/hub/login", {
+		email_address: email,
+		password: PASSWORD,
+	});
+	if (loginRes.status !== 200) {
+		throw new Error(
+			`hub login failed for ${email}: ${loginRes.status} — ${await loginRes.text()}`
+		);
+	}
+	const { tfa_token } = (await loginRes.json()) as { tfa_token: string };
+
+	const emailText = await waitForEmailText(email);
+	const tfaCode = extractTfaCode(emailText);
+
+	const tfaRes = await post("/hub/tfa", {
+		tfa_token,
+		tfa_code: tfaCode,
+		remember_me: false,
+	});
+	if (tfaRes.status !== 200) {
+		throw new Error(
+			`hub TFA failed for ${email}: ${tfaRes.status} — ${await tfaRes.text()}`
 		);
 	}
 	const { session_token } = (await tfaRes.json()) as { session_token: string };
@@ -501,6 +544,88 @@ async function seedGryffindorOpenings(): Promise<void> {
 }
 
 // ============================================================================
+// Org plan management
+// ============================================================================
+
+// Look up the org_id for a domain via the admin list-org-plans endpoint.
+async function getOrgIdByDomain(
+	domain: string,
+	adminToken: string
+): Promise<string> {
+	const res = await post(
+		"/admin/list-org-plans",
+		{ filter_domain: domain, limit: 1 },
+		adminToken
+	);
+	if (res.status !== 200)
+		throw new Error(
+			`list-org-plans failed for ${domain}: ${res.status} — ${await res.text()}`
+		);
+	const { org_plans } = (await res.json()) as {
+		org_plans: { org_id: string; org_domain: string }[];
+	};
+	const found = org_plans.find((p) => p.org_domain === domain);
+	if (!found)
+		throw new Error(`Org not found in plan list for domain ${domain}`);
+	return found.org_id;
+}
+
+// Set an org's plan via the admin endpoint (supports any tier).
+async function adminSetOrgPlan(
+	domain: string,
+	planId: string,
+	adminToken: string
+): Promise<void> {
+	console.log(`  plan: setting ${domain} → ${planId} (via admin)...`);
+	const orgId = await getOrgIdByDomain(domain, adminToken);
+	const res = await post(
+		"/admin/set-org-plan",
+		{ org_id: orgId, plan_id: planId, reason: "Harry Potter dev seed" },
+		adminToken
+	);
+	if (res.status !== 200) {
+		throw new Error(
+			`set-org-plan failed for ${domain}: ${res.status} — ${await res.text()}`
+		);
+	}
+	console.log(`    done`);
+}
+
+// Self-upgrade an org from free to silver (the only self-service upgrade path).
+async function orgSelfUpgradePlan(
+	email: string,
+	domain: string,
+	planId: string
+): Promise<void> {
+	console.log(`  plan: self-upgrading ${domain} → ${planId}...`);
+	const token = await orgLogin(email, domain);
+	const res = await post("/org/upgrade-plan", { plan_id: planId }, token);
+	if (res.status === 422) {
+		console.log(`    already on ${planId} or higher, skipping`);
+		return;
+	}
+	if (res.status !== 200) {
+		throw new Error(
+			`upgrade-plan failed for ${domain}: ${res.status} — ${await res.text()}`
+		);
+	}
+	console.log(`    done`);
+}
+
+// Set one house org per plan tier so seed data covers all plan levels:
+// hufflepuff=free (default), ravenclaw=silver, gryffindor=gold, slytherin=enterprise.
+async function setupOrgPlans(adminToken: string): Promise<void> {
+	console.log("\nSetting up org plans...");
+	await orgSelfUpgradePlan(
+		"admin@ravenclaw.example",
+		"ravenclaw.example",
+		"silver"
+	);
+	await adminSetOrgPlan("gryffindor.example", "gold", adminToken);
+	await adminSetOrgPlan("slytherin.example", "enterprise", adminToken);
+}
+
+// ============================================================================
 // Agency (staffing marketplace provider)
 // ============================================================================
 
@@ -644,24 +769,28 @@ const HUB_USERS: HubUser[] = [
 		displayName: "Harry Potter",
 		homeRegion: "ind1",
 		countryCode: "GB",
+		// free (default)
 	},
 	{
 		email: "hermione@hub.example",
 		displayName: "Hermione Granger",
 		homeRegion: "usa1",
 		countryCode: "GB",
+		hubPlan: "pro",
 	},
 	{
 		email: "ron@hub.example",
 		displayName: "Ron Weasley",
 		homeRegion: "deu1",
 		countryCode: "GB",
+		// free (default)
 	},
 	{
 		email: "neville@hub.example",
 		displayName: "Neville Longbottom",
 		homeRegion: "ind1",
 		countryCode: "GB",
+		hubPlan: "pro",
 	},
 	// Slytherin
 	{
@@ -669,12 +798,14 @@ const HUB_USERS: HubUser[] = [
 		displayName: "Draco Malfoy",
 		homeRegion: "usa1",
 		countryCode: "GB",
+		hubPlan: "pro",
 	},
 	{
 		email: "pansy@hub.example",
 		displayName: "Pansy Parkinson",
 		homeRegion: "deu1",
 		countryCode: "GB",
+		// free (default)
 	},
 	// Ravenclaw
 	{
@@ -682,12 +813,14 @@ const HUB_USERS: HubUser[] = [
 		displayName: "Luna Lovegood",
 		homeRegion: "deu1",
 		countryCode: "GB",
+		// free (default)
 	},
 	{
 		email: "cho@hub.example",
 		displayName: "Cho Chang",
 		homeRegion: "ind1",
 		countryCode: "GB",
+		hubPlan: "pro",
 	},
 	// Hufflepuff
 	{
@@ -695,12 +828,14 @@ const HUB_USERS: HubUser[] = [
 		displayName: "Cedric Diggory",
 		homeRegion: "usa1",
 		countryCode: "GB",
+		hubPlan: "pro",
 	},
 	{
 		email: "hannah@hub.example",
 		displayName: "Hannah Abbott",
 		homeRegion: "ind1",
 		countryCode: "GB",
+		// free (default)
 	},
 ];
 
@@ -929,6 +1064,9 @@ async function main(): Promise<void> {
 	console.log("\nCreating house orgs in parallel...");
 	await Promise.all(ORG_ADMINS.map(createOrg));
 
+	// Set org tiers: ravenclaw→silver, gryffindor→gold, slytherin→enterprise.
+	await setupOrgPlans(adminToken);
+
 	// Seed Gryffindor with an extra admin, an office address and members.
 	// Runs after the house orgs exist since it logs in as the Gryffindor admin.
 	await seedGryffindor();
@@ -948,14 +1086,24 @@ async function main(): Promise<void> {
 		"\nHub users — log in at http://localhost:3000 (password: Password123$):"
 	);
 	for (const u of HUB_USERS) {
-		console.log(`  ${u.email}  (home: ${u.homeRegion})`);
+		console.log(
+			`  ${u.email}  (home: ${u.homeRegion}, plan: ${u.hubPlan ?? "free"})`
+		);
 	}
 	console.log(
 		"\nOrg superadmins — log in at http://localhost:3002 (password: Password123$):"
 	);
+	const ORG_PLAN_SUMMARY: Record<string, string> = {
+		"gryffindor.example": "gold",
+		"slytherin.example": "enterprise",
+		"ravenclaw.example": "silver",
+		"hufflepuff.example": "free",
+	};
 	for (const u of ORG_ADMINS) {
 		const domain = u.email.split("@")[1];
-		console.log(`  ${u.email}  →  ${domain}  (home: ${u.homeRegion})`);
+		console.log(
+			`  ${u.email}  →  ${domain}  (home: ${u.homeRegion}, plan: ${ORG_PLAN_SUMMARY[domain] ?? "free"})`
+		);
 	}
 	console.log(
 		"\nGryffindor (gryffindor.example) extra members — log in at http://localhost:3002 (password: Password123$):"

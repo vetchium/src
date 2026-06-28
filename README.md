@@ -169,27 +169,27 @@ The SQL seed only covers admin users; the marketplace capabilities
 
 **Hub Users** — log in at http://localhost:3000:
 
-| Email                  | Character          | House      | Region |
-| ---------------------- | ------------------ | ---------- | ------ |
-| `harry@hub.example`    | Harry Potter       | Gryffindor | ind1   |
-| `hermione@hub.example` | Hermione Granger   | Gryffindor | usa1   |
-| `ron@hub.example`      | Ron Weasley        | Gryffindor | deu1   |
-| `neville@hub.example`  | Neville Longbottom | Gryffindor | ind1   |
-| `draco@hub.example`    | Draco Malfoy       | Slytherin  | usa1   |
-| `pansy@hub.example`    | Pansy Parkinson    | Slytherin  | deu1   |
-| `luna@hub.example`     | Luna Lovegood      | Ravenclaw  | deu1   |
-| `cho@hub.example`      | Cho Chang          | Ravenclaw  | ind1   |
-| `cedric@hub.example`   | Cedric Diggory     | Hufflepuff | usa1   |
-| `hannah@hub.example`   | Hannah Abbott      | Hufflepuff | ind1   |
+| Email                  | Character          | House      | Region | Plan |
+| ---------------------- | ------------------ | ---------- | ------ | ---- |
+| `harry@hub.example`    | Harry Potter       | Gryffindor | ind1   | Free |
+| `hermione@hub.example` | Hermione Granger   | Gryffindor | usa1   | Pro  |
+| `ron@hub.example`      | Ron Weasley        | Gryffindor | deu1   | Free |
+| `neville@hub.example`  | Neville Longbottom | Gryffindor | ind1   | Pro  |
+| `draco@hub.example`    | Draco Malfoy       | Slytherin  | usa1   | Pro  |
+| `pansy@hub.example`    | Pansy Parkinson    | Slytherin  | deu1   | Free |
+| `luna@hub.example`     | Luna Lovegood      | Ravenclaw  | deu1   | Free |
+| `cho@hub.example`      | Cho Chang          | Ravenclaw  | ind1   | Pro  |
+| `cedric@hub.example`   | Cedric Diggory     | Hufflepuff | usa1   | Pro  |
+| `hannah@hub.example`   | Hannah Abbott      | Hufflepuff | ind1   | Free |
 
 **Org Superadmins** — log in at http://localhost:3002 (one per house company):
 
-| Email                      | Company domain       | Region |
-| -------------------------- | -------------------- | ------ |
-| `admin@gryffindor.example` | `gryffindor.example` | ind1   |
-| `admin@slytherin.example`  | `slytherin.example`  | usa1   |
-| `admin@ravenclaw.example`  | `ravenclaw.example`  | deu1   |
-| `admin@hufflepuff.example` | `hufflepuff.example` | ind1   |
+| Email                      | Company domain       | Region | Plan       |
+| -------------------------- | -------------------- | ------ | ---------- |
+| `admin@gryffindor.example` | `gryffindor.example` | ind1   | Gold       |
+| `admin@slytherin.example`  | `slytherin.example`  | usa1   | Enterprise |
+| `admin@ravenclaw.example`  | `ravenclaw.example`  | deu1   | Silver     |
+| `admin@hufflepuff.example` | `hufflepuff.example` | ind1   | Free       |
 
 **Gryffindor org members** (`gryffindor.example`, log in at http://localhost:3002) — invited by the seed in addition to the superadmin:
 
