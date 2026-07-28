@@ -1,0 +1,409 @@
+version: '3.8'
+services:
+  traefik-sgp:
+    image: traefik:v3.0
+    command:
+    - --api.insecure=true
+    - --providers.docker=true
+    - --providers.docker.exposedbydefault=false
+    - --entrypoints.web.address=:80
+    - --providers.docker.network=sgp_ingress
+    ports:
+    - 8001:80
+    networks:
+    - sgp_ingress
+    volumes:
+    - /var/run/docker.sock:/var/run/docker.sock:ro
+  db-sgp:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: tenant_db
+      POSTGRES_USER: pguser
+      POSTGRES_PASSWORD: pgpassword
+    networks:
+    - sgp_backend
+    volumes:
+    - ./migrations/sgp:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -U pguser -d tenant_db
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  migrate-common-sgp:
+    build:
+      context: .
+      dockerfile: Dockerfile.migrate
+    environment:
+      DATABASE_URL: postgres://pguser:pgpassword@db-sgp:5432/tenant_db?sslmode=disable
+    networks:
+    - sgp_backend
+    depends_on:
+      db-sgp:
+        condition: service_healthy
+  api-sgp:
+    build:
+      context: backend
+    environment:
+      ENV: dev
+      TENANT_ID: sgp
+      DATABASE_URL: postgres://pguser:pgpassword@db-sgp:5432/tenant_db?sslmode=disable
+      PORTAL_PORT: '8080'
+      MESH_PORT: '8081'
+    networks:
+    - sgp_ingress
+    - sgp_backend
+    - mesh
+    depends_on:
+      migrate-common-sgp:
+        condition: service_completed_successfully
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.api-sgp.rule=(Host(`orgs-ui.sgp.localhost`) || Host(`hub-ui.sgp.localhost`)
+      || Host(`admin-ui.sgp.localhost`)) && PathPrefix(`/api`)
+    - traefik.http.routers.api-sgp.entrypoints=web
+    - traefik.http.services.api-sgp.loadbalancer.server.port=8080
+    - traefik.docker.network=sgp_ingress
+  orgs-ui-sgp:
+    build:
+      context: orgs-ui
+    networks:
+    - sgp_ingress
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.orgs-ui-sgp.rule=Host(`orgs-ui.sgp.localhost`)
+    - traefik.http.routers.orgs-ui-sgp.entrypoints=web
+    - traefik.http.services.orgs-ui-sgp.loadbalancer.server.port=80
+    - traefik.docker.network=sgp_ingress
+  hub-ui-sgp:
+    build:
+      context: hub-ui
+    networks:
+    - sgp_ingress
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.hub-ui-sgp.rule=Host(`hub-ui.sgp.localhost`)
+    - traefik.http.routers.hub-ui-sgp.entrypoints=web
+    - traefik.http.services.hub-ui-sgp.loadbalancer.server.port=80
+    - traefik.docker.network=sgp_ingress
+  admin-ui-sgp:
+    build:
+      context: admin-ui
+    networks:
+    - sgp_ingress
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.admin-ui-sgp.rule=Host(`admin-ui.sgp.localhost`)
+    - traefik.http.routers.admin-ui-sgp.entrypoints=web
+    - traefik.http.services.admin-ui-sgp.loadbalancer.server.port=80
+    - traefik.docker.network=sgp_ingress
+  traefik-usa1:
+    image: traefik:v3.0
+    command:
+    - --api.insecure=true
+    - --providers.docker=true
+    - --providers.docker.exposedbydefault=false
+    - --entrypoints.web.address=:80
+    - --providers.docker.network=usa1_ingress
+    ports:
+    - 8002:80
+    networks:
+    - usa1_ingress
+    volumes:
+    - /var/run/docker.sock:/var/run/docker.sock:ro
+  db-usa1:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: tenant_db
+      POSTGRES_USER: pguser
+      POSTGRES_PASSWORD: pgpassword
+    networks:
+    - usa1_backend
+    volumes:
+    - ./migrations/usa1:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -U pguser -d tenant_db
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  migrate-common-usa1:
+    build:
+      context: .
+      dockerfile: Dockerfile.migrate
+    environment:
+      DATABASE_URL: postgres://pguser:pgpassword@db-usa1:5432/tenant_db?sslmode=disable
+    networks:
+    - usa1_backend
+    depends_on:
+      db-usa1:
+        condition: service_healthy
+  api-usa1:
+    build:
+      context: backend
+    environment:
+      ENV: dev
+      TENANT_ID: usa1
+      DATABASE_URL: postgres://pguser:pgpassword@db-usa1:5432/tenant_db?sslmode=disable
+      PORTAL_PORT: '8080'
+      MESH_PORT: '8081'
+    networks:
+    - usa1_ingress
+    - usa1_backend
+    - mesh
+    depends_on:
+      migrate-common-usa1:
+        condition: service_completed_successfully
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.api-usa1.rule=(Host(`orgs-ui.usa1.localhost`) || Host(`hub-ui.usa1.localhost`)
+      || Host(`admin-ui.usa1.localhost`)) && PathPrefix(`/api`)
+    - traefik.http.routers.api-usa1.entrypoints=web
+    - traefik.http.services.api-usa1.loadbalancer.server.port=8080
+    - traefik.docker.network=usa1_ingress
+  orgs-ui-usa1:
+    build:
+      context: orgs-ui
+    networks:
+    - usa1_ingress
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.orgs-ui-usa1.rule=Host(`orgs-ui.usa1.localhost`)
+    - traefik.http.routers.orgs-ui-usa1.entrypoints=web
+    - traefik.http.services.orgs-ui-usa1.loadbalancer.server.port=80
+    - traefik.docker.network=usa1_ingress
+  hub-ui-usa1:
+    build:
+      context: hub-ui
+    networks:
+    - usa1_ingress
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.hub-ui-usa1.rule=Host(`hub-ui.usa1.localhost`)
+    - traefik.http.routers.hub-ui-usa1.entrypoints=web
+    - traefik.http.services.hub-ui-usa1.loadbalancer.server.port=80
+    - traefik.docker.network=usa1_ingress
+  admin-ui-usa1:
+    build:
+      context: admin-ui
+    networks:
+    - usa1_ingress
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.admin-ui-usa1.rule=Host(`admin-ui.usa1.localhost`)
+    - traefik.http.routers.admin-ui-usa1.entrypoints=web
+    - traefik.http.services.admin-ui-usa1.loadbalancer.server.port=80
+    - traefik.docker.network=usa1_ingress
+  traefik-deu:
+    image: traefik:v3.0
+    command:
+    - --api.insecure=true
+    - --providers.docker=true
+    - --providers.docker.exposedbydefault=false
+    - --entrypoints.web.address=:80
+    - --providers.docker.network=deu_ingress
+    ports:
+    - 8003:80
+    networks:
+    - deu_ingress
+    volumes:
+    - /var/run/docker.sock:/var/run/docker.sock:ro
+  db-deu:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: tenant_db
+      POSTGRES_USER: pguser
+      POSTGRES_PASSWORD: pgpassword
+    networks:
+    - deu_backend
+    volumes:
+    - ./migrations/deu:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -U pguser -d tenant_db
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  migrate-common-deu:
+    build:
+      context: .
+      dockerfile: Dockerfile.migrate
+    environment:
+      DATABASE_URL: postgres://pguser:pgpassword@db-deu:5432/tenant_db?sslmode=disable
+    networks:
+    - deu_backend
+    depends_on:
+      db-deu:
+        condition: service_healthy
+  api-deu:
+    build:
+      context: backend
+    environment:
+      ENV: dev
+      TENANT_ID: deu
+      DATABASE_URL: postgres://pguser:pgpassword@db-deu:5432/tenant_db?sslmode=disable
+      PORTAL_PORT: '8080'
+      MESH_PORT: '8081'
+    networks:
+    - deu_ingress
+    - deu_backend
+    - mesh
+    depends_on:
+      migrate-common-deu:
+        condition: service_completed_successfully
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.api-deu.rule=(Host(`orgs-ui.deu.localhost`) || Host(`hub-ui.deu.localhost`)
+      || Host(`admin-ui.deu.localhost`)) && PathPrefix(`/api`)
+    - traefik.http.routers.api-deu.entrypoints=web
+    - traefik.http.services.api-deu.loadbalancer.server.port=8080
+    - traefik.docker.network=deu_ingress
+  orgs-ui-deu:
+    build:
+      context: orgs-ui
+    networks:
+    - deu_ingress
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.orgs-ui-deu.rule=Host(`orgs-ui.deu.localhost`)
+    - traefik.http.routers.orgs-ui-deu.entrypoints=web
+    - traefik.http.services.orgs-ui-deu.loadbalancer.server.port=80
+    - traefik.docker.network=deu_ingress
+  hub-ui-deu:
+    build:
+      context: hub-ui
+    networks:
+    - deu_ingress
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.hub-ui-deu.rule=Host(`hub-ui.deu.localhost`)
+    - traefik.http.routers.hub-ui-deu.entrypoints=web
+    - traefik.http.services.hub-ui-deu.loadbalancer.server.port=80
+    - traefik.docker.network=deu_ingress
+  admin-ui-deu:
+    build:
+      context: admin-ui
+    networks:
+    - deu_ingress
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.admin-ui-deu.rule=Host(`admin-ui.deu.localhost`)
+    - traefik.http.routers.admin-ui-deu.entrypoints=web
+    - traefik.http.services.admin-ui-deu.loadbalancer.server.port=80
+    - traefik.docker.network=deu_ingress
+  traefik-ind1:
+    image: traefik:v3.0
+    command:
+    - --api.insecure=true
+    - --providers.docker=true
+    - --providers.docker.exposedbydefault=false
+    - --entrypoints.web.address=:80
+    - --providers.docker.network=ind1_ingress
+    ports:
+    - 8004:80
+    networks:
+    - ind1_ingress
+    volumes:
+    - /var/run/docker.sock:/var/run/docker.sock:ro
+  db-ind1:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: tenant_db
+      POSTGRES_USER: pguser
+      POSTGRES_PASSWORD: pgpassword
+    networks:
+    - ind1_backend
+    volumes:
+    - ./migrations/ind1:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -U pguser -d tenant_db
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  migrate-common-ind1:
+    build:
+      context: .
+      dockerfile: Dockerfile.migrate
+    environment:
+      DATABASE_URL: postgres://pguser:pgpassword@db-ind1:5432/tenant_db?sslmode=disable
+    networks:
+    - ind1_backend
+    depends_on:
+      db-ind1:
+        condition: service_healthy
+  api-ind1:
+    build:
+      context: backend
+    environment:
+      ENV: dev
+      TENANT_ID: ind1
+      DATABASE_URL: postgres://pguser:pgpassword@db-ind1:5432/tenant_db?sslmode=disable
+      PORTAL_PORT: '8080'
+      MESH_PORT: '8081'
+    networks:
+    - ind1_ingress
+    - ind1_backend
+    - mesh
+    depends_on:
+      migrate-common-ind1:
+        condition: service_completed_successfully
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.api-ind1.rule=(Host(`orgs-ui.ind1.localhost`) || Host(`hub-ui.ind1.localhost`)
+      || Host(`admin-ui.ind1.localhost`)) && PathPrefix(`/api`)
+    - traefik.http.routers.api-ind1.entrypoints=web
+    - traefik.http.services.api-ind1.loadbalancer.server.port=8080
+    - traefik.docker.network=ind1_ingress
+  orgs-ui-ind1:
+    build:
+      context: orgs-ui
+    networks:
+    - ind1_ingress
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.orgs-ui-ind1.rule=Host(`orgs-ui.ind1.localhost`)
+    - traefik.http.routers.orgs-ui-ind1.entrypoints=web
+    - traefik.http.services.orgs-ui-ind1.loadbalancer.server.port=80
+    - traefik.docker.network=ind1_ingress
+  hub-ui-ind1:
+    build:
+      context: hub-ui
+    networks:
+    - ind1_ingress
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.hub-ui-ind1.rule=Host(`hub-ui.ind1.localhost`)
+    - traefik.http.routers.hub-ui-ind1.entrypoints=web
+    - traefik.http.services.hub-ui-ind1.loadbalancer.server.port=80
+    - traefik.docker.network=ind1_ingress
+  admin-ui-ind1:
+    build:
+      context: admin-ui
+    networks:
+    - ind1_ingress
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.admin-ui-ind1.rule=Host(`admin-ui.ind1.localhost`)
+    - traefik.http.routers.admin-ui-ind1.entrypoints=web
+    - traefik.http.services.admin-ui-ind1.loadbalancer.server.port=80
+    - traefik.docker.network=ind1_ingress
+networks:
+  mesh:
+    internal: true
+  sgp_ingress: {}
+  sgp_backend:
+    internal: true
+  usa1_ingress: {}
+  usa1_backend:
+    internal: true
+  deu_ingress: {}
+  deu_backend:
+    internal: true
+  ind1_ingress: {}
+  ind1_backend:
+    internal: true
