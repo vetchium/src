@@ -4,15 +4,33 @@
 # Update the Host() rules to your real domains before the first deploy.
 http:
   routers:
+    orgs-api:
+      rule: Host(`orgs.sgp.vetchium.com`) && (Path(`/api`) || PathPrefix(`/api/`))
+      service: orgs-api
+      entryPoints: [web]
+      priority: 100
+
     orgs-ui:
       rule: Host(`orgs.sgp.vetchium.com`)
       service: orgs-ui
       entryPoints: [web]
 
+    hub-api:
+      rule: Host(`hub.sgp.vetchium.com`) && (Path(`/api`) || PathPrefix(`/api/`))
+      service: hub-api
+      entryPoints: [web]
+      priority: 100
+
     hub-ui:
       rule: Host(`hub.sgp.vetchium.com`)
       service: hub-ui
       entryPoints: [web]
+
+    admin-api:
+      rule: Host(`admin.sgp.vetchium.com`) && (Path(`/api`) || PathPrefix(`/api/`))
+      service: admin-api
+      entryPoints: [web]
+      priority: 100
 
     admin-ui:
       rule: Host(`admin.sgp.vetchium.com`)
@@ -20,8 +38,20 @@ http:
       entryPoints: [web]
 
   services:
-    # /api is handled by portal nginx and proxied over the private portal
-    # network. mesh-api is never on ingress; MCP remains unrouted by default.
+    orgs-api:
+      loadBalancer:
+        servers: [{url: http://orgs-api:8080}]
+        healthCheck: {path: /api/readyz, interval: 10s, timeout: 3s}
+
+    hub-api:
+      loadBalancer:
+        servers: [{url: http://hub-api:8080}]
+        healthCheck: {path: /api/readyz, interval: 10s, timeout: 3s}
+
+    admin-api:
+      loadBalancer:
+        servers: [{url: http://admin-api:8080}]
+        healthCheck: {path: /api/readyz, interval: 10s, timeout: 3s}
 
     orgs-ui:
       loadBalancer:

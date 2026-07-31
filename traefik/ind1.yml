@@ -1,15 +1,33 @@
 # Routing inside the "ind1" tenant. Loaded by traefik-ind1 via the file provider.
 http:
   routers:
+    orgs-api:
+      rule: Host(`orgs-ui.ind1.localhost`) && (Path(`/api`) || PathPrefix(`/api/`))
+      service: orgs-api
+      entryPoints: [web]
+      priority: 100
+
     orgs-ui:
       rule: Host(`orgs-ui.ind1.localhost`)
       service: orgs-ui
       entryPoints: [web]
 
+    hub-api:
+      rule: Host(`hub-ui.ind1.localhost`) && (Path(`/api`) || PathPrefix(`/api/`))
+      service: hub-api
+      entryPoints: [web]
+      priority: 100
+
     hub-ui:
       rule: Host(`hub-ui.ind1.localhost`)
       service: hub-ui
       entryPoints: [web]
+
+    admin-api:
+      rule: Host(`admin-ui.ind1.localhost`) && (Path(`/api`) || PathPrefix(`/api/`))
+      service: admin-api
+      entryPoints: [web]
+      priority: 100
 
     admin-ui:
       rule: Host(`admin-ui.ind1.localhost`)
@@ -17,9 +35,23 @@ http:
       entryPoints: [web]
 
   services:
-    # /api is deliberately not routed here. Each portal nginx proxies it to
-    # portal-api over the tenant's private portal network. mesh-api is never
-    # attached to ingress; MCP also remains unrouted until public auth exists.
+    orgs-api:
+      loadBalancer:
+        servers:
+          - url: http://orgs-api-ind1:8080
+        healthCheck: {path: /api/readyz, interval: 10s, timeout: 3s}
+
+    hub-api:
+      loadBalancer:
+        servers:
+          - url: http://hub-api-ind1:8080
+        healthCheck: {path: /api/readyz, interval: 10s, timeout: 3s}
+
+    admin-api:
+      loadBalancer:
+        servers:
+          - url: http://admin-api-ind1:8080
+        healthCheck: {path: /api/readyz, interval: 10s, timeout: 3s}
 
     orgs-ui:
       loadBalancer:

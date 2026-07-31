@@ -12,7 +12,9 @@ COPY . .
 
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
-    CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/portal-api ./cmd/portal-api && \
+    CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/admin-api ./cmd/admin-api && \
+    CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/hub-api ./cmd/hub-api && \
+    CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/orgs-api ./cmd/orgs-api && \
     CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/mesh-api ./cmd/mesh-api && \
     CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/mcp-server ./cmd/mcp-server && \
     CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/worker ./cmd/worker
@@ -27,8 +29,14 @@ HEALTHCHECK --interval=10s --timeout=5s --start-period=15s --retries=5 \
 
 ENTRYPOINT ["/service"]
 
-FROM runtime AS portal-api
-COPY --from=build /out/portal-api /service
+FROM runtime AS admin-api
+COPY --from=build /out/admin-api /service
+
+FROM runtime AS hub-api
+COPY --from=build /out/hub-api /service
+
+FROM runtime AS orgs-api
+COPY --from=build /out/orgs-api /service
 
 FROM runtime AS mesh-api
 COPY --from=build /out/mesh-api /service

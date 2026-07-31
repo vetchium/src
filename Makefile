@@ -8,7 +8,7 @@ PLATFORMS ?= linux/amd64,linux/arm64
 comma := ,
 LOCAL_PLATFORM := $(word 1,$(subst $(comma), ,$(PLATFORMS)))
 BUILDER   := vetchium
-BACKEND_IMAGES := portal-api mesh-api mcp-server worker
+BACKEND_IMAGES := admin-api hub-api orgs-api mesh-api mcp-server worker
 OTHER_IMAGES   := migrate:migrations orgs-ui:orgs-ui hub-ui:hub-ui admin-ui:admin-ui
 
 .PHONY: dev docker publish clean

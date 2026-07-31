@@ -21,7 +21,7 @@ import (
 const address = ":8080"
 
 func main() {
-	log := slog.New(slog.NewJSONHandler(os.Stdout, nil)).With("component", "portal-api")
+	log := slog.New(slog.NewJSONHandler(os.Stdout, nil)).With("component", "orgs-api")
 	slog.SetDefault(log)
 
 	var err error
@@ -55,10 +55,8 @@ func run(log *slog.Logger) error {
 
 	s := &server.Server{TenantID: cfg.TenantID, DB: pool, Log: log}
 	mux := http.NewServeMux()
-	routes.RegisterAdminRoutes(mux, s)
-	routes.RegisterHubRoutes(mux, s)
-	routes.RegisterOrgRoutes(mux, s)
-	routes.RegisterPortalHealthRoute(mux, s)
+	routes.RegisterOrgsRoutes(mux, s)
+	routes.RegisterAPIHealthRoute(mux, s)
 
 	httpServer := &http.Server{
 		Addr:              address,

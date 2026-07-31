@@ -1,12 +1,13 @@
 # Production stack for the "sgp" tenant on one Swarm node.
 #
-# portal-api, mesh-api, mcp-server, and worker are distinct deployment units.
+# admin-api, hub-api, orgs-api, mesh-api, mcp-server, and worker are distinct
+# deployment units.
 # Run deploy/Makefile rather than docker stack deploy directly so migrations
 # gate every application rollout.
 
 x-scaled-service: &scaled-service
   deploy: &scaled-deploy
-    replicas: 2
+    replicas: 1
     update_config:
       order: start-first
       failure_action: rollback
@@ -58,9 +59,9 @@ services:
         published: ${HTTP_PORT:-80}
         protocol: tcp
         mode: host
-    # mcp_access permits a future authenticated MCP route without putting the
-    # MCP server on the portal ingress network.
-    networks: [ingress, mcp_access]
+    # Traefik is the only public ingress. Each browser API has a dedicated
+    # private access network; the API services do not join general ingress.
+    networks: [ingress, admin_api_access, hub_api_access, orgs_api_access, mcp_access]
     configs:
       - source: traefik
         target: /etc/traefik/dynamic.yml
@@ -107,10 +108,20 @@ services:
         limits: {memory: 1G}
         reservations: {memory: 256M}
 
-  portal-api:
+  admin-api:
     <<: *backend
-    image: ${REGISTRY:-ghcr.io/vetchium}/portal-api:${TAG:?set TAG}
-    networks: [portal, backend]
+    image: ${REGISTRY:-ghcr.io/vetchium}/admin-api:${TAG:?set TAG}
+    networks: [admin_api_access, backend]
+
+  hub-api:
+    <<: *backend
+    image: ${REGISTRY:-ghcr.io/vetchium}/hub-api:${TAG:?set TAG}
+    networks: [hub_api_access, backend]
+
+  orgs-api:
+    <<: *backend
+    image: ${REGISTRY:-ghcr.io/vetchium}/orgs-api:${TAG:?set TAG}
+    networks: [orgs_api_access, backend]
 
   mesh-api:
     <<: *backend
@@ -140,7 +151,7 @@ services:
     <<: *scaled-service
     image: ${REGISTRY:-ghcr.io/vetchium}/orgs-ui:${TAG:?set TAG}
     read_only: true
-    networks: [ingress, portal]
+    networks: [ingress]
     healthcheck: &ui-health
       test: [CMD, wget, --spider, -q, http://127.0.0.1:8080/healthz]
       interval: 10s
@@ -152,24 +163,33 @@ services:
     <<: *scaled-service
     image: ${REGISTRY:-ghcr.io/vetchium}/hub-ui:${TAG:?set TAG}
     read_only: true
-    networks: [ingress, portal]
+    networks: [ingress]
     healthcheck: *ui-health
 
   admin-ui:
     <<: *scaled-service
     image: ${REGISTRY:-ghcr.io/vetchium}/admin-ui:${TAG:?set TAG}
     read_only: true
-    networks: [ingress, portal]
+    networks: [ingress]
     healthcheck: *ui-health
 
 networks:
-  # Public HTTP reaches only Traefik and the static portal containers.
+  # Traefik is the only service with a published port. It reaches the static
+  # portal containers over this network.
   ingress:
     driver: overlay
 
-  # Portal nginx is the only ingress-facing component on this internal network;
-  # it proxies /api to portal-api using the service name.
-  portal:
+  # Only Traefik and the matching browser API join each private access network;
+  # browser APIs remain off general ingress.
+  admin_api_access:
+    driver: overlay
+    internal: true
+
+  hub_api_access:
+    driver: overlay
+    internal: true
+
+  orgs_api_access:
     driver: overlay
     internal: true
 

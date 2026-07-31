@@ -7,6 +7,6 @@ import (
 	"backend/internal/server"
 )
 
-func RegisterPortalHealthRoute(mux *http.ServeMux, s *server.Server) {
+func RegisterAPIHealthRoute(mux *http.ServeMux, s *server.Server) {
 	mux.HandleFunc("GET /api/readyz", health.Ready(s))
 }

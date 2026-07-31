@@ -105,7 +105,7 @@ services:
   # Singapore ---------------------------------------------------------------
   traefik-sgp:
     <<: *traefik
-    networks: [sgp_ingress, sgp_mcp_access]
+    networks: [sgp_ingress, sgp_admin_api_access, sgp_hub_api_access, sgp_orgs_api_access, sgp_mcp_access]
     volumes: [./traefik/sgp.yml:/etc/traefik/dynamic.yml:ro]
 
   db-sgp:
@@ -131,13 +131,25 @@ services:
     networks: [sgp_backend]
     depends_on: {migrate-sgp: {condition: service_completed_successfully}}
 
-  portal-api-sgp:
+  admin-api-sgp:
     <<: *backend
-    build: {context: backend, target: portal-api}
+    build: {context: backend, target: admin-api}
     environment: *backend-sgp-env
-    networks:
-      sgp_portal: {aliases: [portal-api]}
-      sgp_backend: {}
+    networks: [sgp_admin_api_access, sgp_backend]
+    depends_on: {seed-sgp: {condition: service_completed_successfully}}
+
+  hub-api-sgp:
+    <<: *backend
+    build: {context: backend, target: hub-api}
+    environment: *backend-sgp-env
+    networks: [sgp_hub_api_access, sgp_backend]
+    depends_on: {seed-sgp: {condition: service_completed_successfully}}
+
+  orgs-api-sgp:
+    <<: *backend
+    build: {context: backend, target: orgs-api}
+    environment: *backend-sgp-env
+    networks: [sgp_orgs_api_access, sgp_backend]
     depends_on: {seed-sgp: {condition: service_completed_successfully}}
 
   mesh-api-sgp:
@@ -166,23 +178,20 @@ services:
   orgs-ui-sgp:
     <<: *ui
     build: {context: orgs-ui}
-    networks: [sgp_ingress, sgp_portal]
-    depends_on: {portal-api-sgp: {condition: service_healthy}}
+    networks: [sgp_ingress]
   hub-ui-sgp:
     <<: *ui
     build: {context: hub-ui}
-    networks: [sgp_ingress, sgp_portal]
-    depends_on: {portal-api-sgp: {condition: service_healthy}}
+    networks: [sgp_ingress]
   admin-ui-sgp:
     <<: *ui
     build: {context: admin-ui}
-    networks: [sgp_ingress, sgp_portal]
-    depends_on: {portal-api-sgp: {condition: service_healthy}}
+    networks: [sgp_ingress]
 
   # United States -----------------------------------------------------------
   traefik-usa1:
     <<: *traefik
-    networks: [usa1_ingress, usa1_mcp_access]
+    networks: [usa1_ingress, usa1_admin_api_access, usa1_hub_api_access, usa1_orgs_api_access, usa1_mcp_access]
     volumes: [./traefik/usa1.yml:/etc/traefik/dynamic.yml:ro]
   db-usa1:
     <<: *db
@@ -204,13 +213,23 @@ services:
     volumes: [./migrations/usa1:/seed:ro]
     networks: [usa1_backend]
     depends_on: {migrate-usa1: {condition: service_completed_successfully}}
-  portal-api-usa1:
+  admin-api-usa1:
     <<: *backend
-    build: {context: backend, target: portal-api}
+    build: {context: backend, target: admin-api}
     environment: *backend-usa1-env
-    networks:
-      usa1_portal: {aliases: [portal-api]}
-      usa1_backend: {}
+    networks: [usa1_admin_api_access, usa1_backend]
+    depends_on: {seed-usa1: {condition: service_completed_successfully}}
+  hub-api-usa1:
+    <<: *backend
+    build: {context: backend, target: hub-api}
+    environment: *backend-usa1-env
+    networks: [usa1_hub_api_access, usa1_backend]
+    depends_on: {seed-usa1: {condition: service_completed_successfully}}
+  orgs-api-usa1:
+    <<: *backend
+    build: {context: backend, target: orgs-api}
+    environment: *backend-usa1-env
+    networks: [usa1_orgs_api_access, usa1_backend]
     depends_on: {seed-usa1: {condition: service_completed_successfully}}
   mesh-api-usa1:
     <<: *backend
@@ -235,23 +254,20 @@ services:
   orgs-ui-usa1:
     <<: *ui
     build: {context: orgs-ui}
-    networks: [usa1_ingress, usa1_portal]
-    depends_on: {portal-api-usa1: {condition: service_healthy}}
+    networks: [usa1_ingress]
   hub-ui-usa1:
     <<: *ui
     build: {context: hub-ui}
-    networks: [usa1_ingress, usa1_portal]
-    depends_on: {portal-api-usa1: {condition: service_healthy}}
+    networks: [usa1_ingress]
   admin-ui-usa1:
     <<: *ui
     build: {context: admin-ui}
-    networks: [usa1_ingress, usa1_portal]
-    depends_on: {portal-api-usa1: {condition: service_healthy}}
+    networks: [usa1_ingress]
 
   # Germany -----------------------------------------------------------------
   traefik-deu:
     <<: *traefik
-    networks: [deu_ingress, deu_mcp_access]
+    networks: [deu_ingress, deu_admin_api_access, deu_hub_api_access, deu_orgs_api_access, deu_mcp_access]
     volumes: [./traefik/deu.yml:/etc/traefik/dynamic.yml:ro]
   db-deu:
     <<: *db
@@ -273,13 +289,23 @@ services:
     volumes: [./migrations/deu:/seed:ro]
     networks: [deu_backend]
     depends_on: {migrate-deu: {condition: service_completed_successfully}}
-  portal-api-deu:
+  admin-api-deu:
     <<: *backend
-    build: {context: backend, target: portal-api}
+    build: {context: backend, target: admin-api}
     environment: *backend-deu-env
-    networks:
-      deu_portal: {aliases: [portal-api]}
-      deu_backend: {}
+    networks: [deu_admin_api_access, deu_backend]
+    depends_on: {seed-deu: {condition: service_completed_successfully}}
+  hub-api-deu:
+    <<: *backend
+    build: {context: backend, target: hub-api}
+    environment: *backend-deu-env
+    networks: [deu_hub_api_access, deu_backend]
+    depends_on: {seed-deu: {condition: service_completed_successfully}}
+  orgs-api-deu:
+    <<: *backend
+    build: {context: backend, target: orgs-api}
+    environment: *backend-deu-env
+    networks: [deu_orgs_api_access, deu_backend]
     depends_on: {seed-deu: {condition: service_completed_successfully}}
   mesh-api-deu:
     <<: *backend
@@ -304,23 +330,20 @@ services:
   orgs-ui-deu:
     <<: *ui
     build: {context: orgs-ui}
-    networks: [deu_ingress, deu_portal]
-    depends_on: {portal-api-deu: {condition: service_healthy}}
+    networks: [deu_ingress]
   hub-ui-deu:
     <<: *ui
     build: {context: hub-ui}
-    networks: [deu_ingress, deu_portal]
-    depends_on: {portal-api-deu: {condition: service_healthy}}
+    networks: [deu_ingress]
   admin-ui-deu:
     <<: *ui
     build: {context: admin-ui}
-    networks: [deu_ingress, deu_portal]
-    depends_on: {portal-api-deu: {condition: service_healthy}}
+    networks: [deu_ingress]
 
   # India -------------------------------------------------------------------
   traefik-ind1:
     <<: *traefik
-    networks: [ind1_ingress, ind1_mcp_access]
+    networks: [ind1_ingress, ind1_admin_api_access, ind1_hub_api_access, ind1_orgs_api_access, ind1_mcp_access]
     volumes: [./traefik/ind1.yml:/etc/traefik/dynamic.yml:ro]
   db-ind1:
     <<: *db
@@ -342,13 +365,23 @@ services:
     volumes: [./migrations/ind1:/seed:ro]
     networks: [ind1_backend]
     depends_on: {migrate-ind1: {condition: service_completed_successfully}}
-  portal-api-ind1:
+  admin-api-ind1:
     <<: *backend
-    build: {context: backend, target: portal-api}
+    build: {context: backend, target: admin-api}
     environment: *backend-ind1-env
-    networks:
-      ind1_portal: {aliases: [portal-api]}
-      ind1_backend: {}
+    networks: [ind1_admin_api_access, ind1_backend]
+    depends_on: {seed-ind1: {condition: service_completed_successfully}}
+  hub-api-ind1:
+    <<: *backend
+    build: {context: backend, target: hub-api}
+    environment: *backend-ind1-env
+    networks: [ind1_hub_api_access, ind1_backend]
+    depends_on: {seed-ind1: {condition: service_completed_successfully}}
+  orgs-api-ind1:
+    <<: *backend
+    build: {context: backend, target: orgs-api}
+    environment: *backend-ind1-env
+    networks: [ind1_orgs_api_access, ind1_backend]
     depends_on: {seed-ind1: {condition: service_completed_successfully}}
   mesh-api-ind1:
     <<: *backend
@@ -373,18 +406,15 @@ services:
   orgs-ui-ind1:
     <<: *ui
     build: {context: orgs-ui}
-    networks: [ind1_ingress, ind1_portal]
-    depends_on: {portal-api-ind1: {condition: service_healthy}}
+    networks: [ind1_ingress]
   hub-ui-ind1:
     <<: *ui
     build: {context: hub-ui}
-    networks: [ind1_ingress, ind1_portal]
-    depends_on: {portal-api-ind1: {condition: service_healthy}}
+    networks: [ind1_ingress]
   admin-ui-ind1:
     <<: *ui
     build: {context: admin-ui}
-    networks: [ind1_ingress, ind1_portal]
-    depends_on: {portal-api-ind1: {condition: service_healthy}}
+    networks: [ind1_ingress]
 
   edge:
     <<: *traefik
@@ -402,19 +432,27 @@ networks:
   # gateway should be the sole additional member; mesh-api ports stay unpublished.
   mesh: {internal: true}
   sgp_ingress: {}
-  sgp_portal: {internal: true}
+  sgp_admin_api_access: {internal: true}
+  sgp_hub_api_access: {internal: true}
+  sgp_orgs_api_access: {internal: true}
   sgp_mcp_access: {internal: true}
   sgp_backend: {internal: true}
   usa1_ingress: {}
-  usa1_portal: {internal: true}
+  usa1_admin_api_access: {internal: true}
+  usa1_hub_api_access: {internal: true}
+  usa1_orgs_api_access: {internal: true}
   usa1_mcp_access: {internal: true}
   usa1_backend: {internal: true}
   deu_ingress: {}
-  deu_portal: {internal: true}
+  deu_admin_api_access: {internal: true}
+  deu_hub_api_access: {internal: true}
+  deu_orgs_api_access: {internal: true}
   deu_mcp_access: {internal: true}
   deu_backend: {internal: true}
   ind1_ingress: {}
-  ind1_portal: {internal: true}
+  ind1_admin_api_access: {internal: true}
+  ind1_hub_api_access: {internal: true}
+  ind1_orgs_api_access: {internal: true}
   ind1_mcp_access: {internal: true}
   ind1_backend: {internal: true}
 

@@ -1,19 +1,20 @@
 # Multi-tenant backend architecture
 
 Vetchium runs one isolated stack per tenant (`sgp`, `usa1`, `deu`, `ind1`): a
-tenant database, four backend runtime roles, and three browser portals.
+tenant database, six backend runtime roles, and three browser portals.
 
-The backend is one Go module with four command directories and four independent
+The backend is one Go module with six command directories and six independent
 container images:
 
-- `portal-api` — stateless browser API. It is not on ingress; portal nginx
-  proxies same-origin `/api` requests to it over a private tenant network.
+- `admin-api`, `hub-api`, and `orgs-api` — stateless, portal-specific browser
+  APIs. Traefik routes each portal hostname's `/api` requests to its matching
+  API over a dedicated private network.
 - `mesh-api` — stateless tenant-to-tenant API. It is attached only to the
   private mesh and tenant backend networks and never publishes a host port.
 - `mcp-server` — stateless MCP `2026-07-28` over Streamable HTTP. It has a
   dedicated access network so an authenticated public route can be added
   without placing it on general portal ingress.
-- `worker` — periodic background work. Production runs one replica.
+- `worker` — periodic background work. Each tenant runs one replica.
 
 The commands share database, configuration, and domain packages under
 `backend/internal/`, but build as separate executables under `backend/cmd/`.
@@ -31,7 +32,7 @@ http://hub-ui.sgp.localhost/
 http://admin-ui.sgp.localhost/api/admin/ping
 http://hub-ui.sgp.localhost/api/hub/ping
 http://orgs-ui.sgp.localhost/api/org/ping
-http://hub-ui.sgp.localhost/api/orgs
+http://orgs-ui.sgp.localhost/api/orgs
 http://admin-ui.deu.localhost/
 ```
 
@@ -58,8 +59,8 @@ Internet/browser
      edge
        |
  tenant Traefik
-       |
- portal nginx -- /api/* --> portal-api --> PostgreSQL
+       |-- portal hostname, /api/* --> matching portal API --> PostgreSQL
+       `-- portal hostname, other paths --> portal nginx (static files)
 
 future WireGuard gateway --> private mesh --> mesh-api --> PostgreSQL
 
@@ -71,13 +72,14 @@ worker --> PostgreSQL
 The network rules are intentional:
 
 - `*_ingress`: edge, tenant Traefik, and portal containers only.
-- `*_portal`: portal containers and `portal-api` only; internal.
+- `*_admin_api_access`, `*_hub_api_access`, and `*_orgs_api_access`: tenant
+  Traefik and exactly one browser API; internal.
 - `mesh`: `mesh-api` containers only; internal.
 - `*_mcp_access`: tenant Traefik and `mcp-server` only; internal.
-- `*_backend`: PostgreSQL and the four backend roles; internal.
+- `*_backend`: PostgreSQL and the six backend roles; internal.
 
-The portal containers, rather than Traefik, own `/api` proxying. Consequently
-there is no direct edge route to `portal-api`.
+Traefik is the only publicly exposed ingress. Portal nginx serves static files
+only, and none of the browser APIs joins the general ingress network.
 
 ## MCP exposure
 
@@ -118,9 +120,9 @@ Local Compose mounts `dev/postgres_password` into the backend containers. Set
 make publish TAG=v1.2.3
 ```
 
-This publishes `portal-api`, `mesh-api`, `mcp-server`, `worker`, `migrate`, and
-the three portal images with the same immutable release tag. Production
-deployment instructions live in [`deploy/`](deploy/README.md).
+This publishes `admin-api`, `hub-api`, `orgs-api`, `mesh-api`, `mcp-server`,
+`worker`, `migrate`, and the three portal images with the same immutable release
+tag. Production deployment instructions live in [`deploy/`](deploy/README.md).
 
 ## Known operational work
 

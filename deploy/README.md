@@ -1,8 +1,9 @@
 # Production deployment
 
 The production files deploy one tenant per single-node Docker Swarm. Each
-tenant stack contains PostgreSQL, Traefik, three portals, and four backend
-services: `portal-api`, `mesh-api`, `mcp-server`, and `worker`.
+tenant stack contains PostgreSQL, Traefik, three portals, and six backend
+services: `admin-api`, `hub-api`, `orgs-api`, `mesh-api`, `mcp-server`, and
+`worker`.
 
 Images are pulled from the configured registry. Nothing is built from this
 directory.
@@ -29,16 +30,17 @@ PostgreSQL becomes ready, and migrations are then applied.
 
 ## Runtime boundaries
 
-- Portal traffic: `Traefik -> portal nginx -> portal-api`. Traefik has no
-  direct `/api` route.
+- Traefik is the only publicly exposed ingress. For each portal hostname it
+  sends `/api` to the matching `admin-api`, `hub-api`, or `orgs-api` over a
+  dedicated private access network; all other paths go to the static portal.
 - `mesh-api`: private `mesh` plus `backend`; no published port and no ingress.
 - `mcp-server`: private `mcp_access` plus `backend`; Traefik can reach the
   network, but no MCP router is configured by default.
-- `worker`: `backend` only, one replica, a scheduler leader lock, and per-task
-  PostgreSQL advisory locks.
+- `worker`: `backend` only, one replica per tenant, a scheduler leader lock,
+  and per-task PostgreSQL advisory locks.
 
-The three stateless servers have two replicas. Database pool sizes are kept
-small per role so their aggregate stays within PostgreSQL's connection budget.
+Database pool sizes are kept small per role so their aggregate stays within
+PostgreSQL's connection budget.
 
 ## MCP publication
 
@@ -71,11 +73,13 @@ runs the published migration image, and removes the file.
 
 ```bash
 docker stack services sgp
-docker service logs -f sgp_portal-api
+docker service logs -f sgp_admin-api
+docker service logs -f sgp_hub-api
+docker service logs -f sgp_orgs-api
 docker service logs -f sgp_mesh-api
 docker service logs -f sgp_mcp-server
 docker service logs -f sgp_worker
-docker service ps sgp_portal-api
+docker service ps sgp_admin-api
 ```
 
 Application services roll start-first. The worker and PostgreSQL roll
