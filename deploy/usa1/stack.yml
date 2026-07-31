@@ -1,6 +1,6 @@
 # Production stack for the "usa1" tenant on one Swarm node.
 #
-# admin-api, hub-api, orgs-api, mesh-api, mcp-server, and worker are distinct
+# admin-api, hub-api, orgs-api, mesh-api, mcp-server, and workers are distinct
 # deployment units.
 # Run deploy/Makefile rather than docker stack deploy directly so migrations
 # gate every application rollout.
@@ -135,9 +135,9 @@ services:
     image: ${REGISTRY:-ghcr.io/vetchium}/mcp-server:${TAG:?set TAG}
     networks: [mcp_access, backend]
 
-  worker:
+  workers:
     <<: *backend
-    image: ${REGISTRY:-ghcr.io/vetchium}/worker:${TAG:?set TAG}
+    image: ${REGISTRY:-ghcr.io/vetchium}/workers:${TAG:?set TAG}
     networks: [backend]
     deploy:
       <<: *scaled-deploy

@@ -168,9 +168,9 @@ services:
       sgp_backend: {}
     depends_on: {seed-sgp: {condition: service_completed_successfully}}
 
-  worker-sgp:
+  workers-sgp:
     <<: *backend
-    build: {context: backend, target: worker}
+    build: {context: backend, target: workers}
     environment: *backend-sgp-env
     networks: [sgp_backend]
     depends_on: {seed-sgp: {condition: service_completed_successfully}}
@@ -245,9 +245,9 @@ services:
       usa1_mcp_access: {aliases: [mcp-server]}
       usa1_backend: {}
     depends_on: {seed-usa1: {condition: service_completed_successfully}}
-  worker-usa1:
+  workers-usa1:
     <<: *backend
-    build: {context: backend, target: worker}
+    build: {context: backend, target: workers}
     environment: *backend-usa1-env
     networks: [usa1_backend]
     depends_on: {seed-usa1: {condition: service_completed_successfully}}
@@ -321,9 +321,9 @@ services:
       deu_mcp_access: {aliases: [mcp-server]}
       deu_backend: {}
     depends_on: {seed-deu: {condition: service_completed_successfully}}
-  worker-deu:
+  workers-deu:
     <<: *backend
-    build: {context: backend, target: worker}
+    build: {context: backend, target: workers}
     environment: *backend-deu-env
     networks: [deu_backend]
     depends_on: {seed-deu: {condition: service_completed_successfully}}
@@ -397,9 +397,9 @@ services:
       ind1_mcp_access: {aliases: [mcp-server]}
       ind1_backend: {}
     depends_on: {seed-ind1: {condition: service_completed_successfully}}
-  worker-ind1:
+  workers-ind1:
     <<: *backend
-    build: {context: backend, target: worker}
+    build: {context: backend, target: workers}
     environment: *backend-ind1-env
     networks: [ind1_backend]
     depends_on: {seed-ind1: {condition: service_completed_successfully}}

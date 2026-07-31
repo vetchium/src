@@ -14,7 +14,7 @@ func RunHeartbeat(ctx context.Context, pool *pgxpool.Pool, log *slog.Logger) {
 	ticker := time.NewTicker(heartbeatInterval)
 	defer ticker.Stop()
 
-	log.Info("heartbeat worker started", "interval", heartbeatInterval)
+	log.Info("heartbeat workers started", "interval", heartbeatInterval)
 	for {
 		select {
 		case <-ctx.Done():

@@ -14,7 +14,7 @@ container images:
 - `mcp-server` — stateless MCP `2026-07-28` over Streamable HTTP. It has a
   dedicated access network so an authenticated public route can be added
   without placing it on general portal ingress.
-- `worker` — periodic background work. Each tenant runs one replica.
+- `workers` — periodic background work. Each tenant runs one replica.
 
 The commands share database, configuration, and domain packages under
 `backend/internal/`, but build as separate executables under `backend/cmd/`.
@@ -66,7 +66,7 @@ future WireGuard gateway --> private mesh --> mesh-api --> PostgreSQL
 
 optional authenticated MCP route --> mcp-server --> PostgreSQL
 
-worker --> PostgreSQL
+workers --> PostgreSQL
 ```
 
 The network rules are intentional:
@@ -121,7 +121,7 @@ make publish TAG=v1.2.3
 ```
 
 This publishes `admin-api`, `hub-api`, `orgs-api`, `mesh-api`, `mcp-server`,
-`worker`, `migrate`, and the three portal images with the same immutable release
+`workers`, `migrate`, and the three portal images with the same immutable release
 tag. Production deployment instructions live in [`deploy/`](deploy/README.md).
 
 ## Known operational work

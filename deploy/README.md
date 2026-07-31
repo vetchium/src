@@ -3,7 +3,7 @@
 The production files deploy one tenant per single-node Docker Swarm. Each
 tenant stack contains PostgreSQL, Traefik, three portals, and six backend
 services: `admin-api`, `hub-api`, `orgs-api`, `mesh-api`, `mcp-server`, and
-`worker`.
+`workers`.
 
 Images are pulled from the configured registry. Nothing is built from this
 directory.
@@ -36,7 +36,7 @@ PostgreSQL becomes ready, and migrations are then applied.
 - `mesh-api`: private `mesh` plus `backend`; no published port and no ingress.
 - `mcp-server`: private `mcp_access` plus `backend`; Traefik can reach the
   network, but no MCP router is configured by default.
-- `worker`: `backend` only, one replica per tenant, a scheduler leader lock,
+- `workers`: `backend` only, one replica per tenant, a scheduler leader lock,
   and per-task PostgreSQL advisory locks.
 
 Database pool sizes are kept small per role so their aggregate stays within
@@ -78,10 +78,10 @@ docker service logs -f sgp_hub-api
 docker service logs -f sgp_orgs-api
 docker service logs -f sgp_mesh-api
 docker service logs -f sgp_mcp-server
-docker service logs -f sgp_worker
+docker service logs -f sgp_workers
 docker service ps sgp_admin-api
 ```
 
-Application services roll start-first. The worker and PostgreSQL roll
+Application services roll start-first. The workers and PostgreSQL roll
 stop-first. PostgreSQL remains a single instance on node-local storage, so add
 tested off-host backups before production use.

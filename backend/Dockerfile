@@ -17,7 +17,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/orgs-api ./cmd/orgs-api && \
     CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/mesh-api ./cmd/mesh-api && \
     CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/mcp-server ./cmd/mcp-server && \
-    CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/worker ./cmd/worker
+    CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/workers ./cmd/workers
 
 FROM gcr.io/distroless/static-debian12:nonroot AS runtime
 
@@ -44,5 +44,5 @@ COPY --from=build /out/mesh-api /service
 FROM runtime AS mcp-server
 COPY --from=build /out/mcp-server /service
 
-FROM runtime AS worker
-COPY --from=build /out/worker /service
+FROM runtime AS workers
+COPY --from=build /out/workers /service

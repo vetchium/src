@@ -17,7 +17,7 @@ group "default" {
     "orgs-api",
     "mesh-api",
     "mcp-server",
-    "worker",
+    "workers",
     "migrate",
     "orgs-ui",
     "hub-ui",
@@ -64,11 +64,11 @@ target "mcp-server" {
   tags    = ["${REGISTRY}/mcp-server:${TAG}"]
 }
 
-target "worker" {
+target "workers" {
   inherits = ["_common"]
   context = "backend"
-  target  = "worker"
-  tags    = ["${REGISTRY}/worker:${TAG}"]
+  target  = "workers"
+  tags    = ["${REGISTRY}/workers:${TAG}"]
 }
 
 target "migrate" {
