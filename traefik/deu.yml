@@ -1,0 +1,41 @@
+# Routing inside the "deu" tenant. Loaded by traefik-deu via the file provider.
+http:
+  routers:
+    orgs-ui:
+      rule: Host(`orgs-ui.deu.localhost`)
+      service: orgs-ui
+      entryPoints: [web]
+
+    hub-ui:
+      rule: Host(`hub-ui.deu.localhost`)
+      service: hub-ui
+      entryPoints: [web]
+
+    admin-ui:
+      rule: Host(`admin-ui.deu.localhost`)
+      service: admin-ui
+      entryPoints: [web]
+
+  services:
+    # /api is deliberately not routed here. Each portal nginx proxies it to
+    # portal-api over the tenant's private portal network. mesh-api is never
+    # attached to ingress; MCP also remains unrouted until public auth exists.
+
+    orgs-ui:
+      loadBalancer:
+        # The portals run nginx-unprivileged, which listens on 8080, not 80.
+        servers:
+          - url: http://orgs-ui-deu:8080
+        healthCheck: {path: /healthz, interval: 10s, timeout: 3s}
+
+    hub-ui:
+      loadBalancer:
+        servers:
+          - url: http://hub-ui-deu:8080
+        healthCheck: {path: /healthz, interval: 10s, timeout: 3s}
+
+    admin-ui:
+      loadBalancer:
+        servers:
+          - url: http://admin-ui-deu:8080
+        healthCheck: {path: /healthz, interval: 10s, timeout: 3s}

@@ -1,0 +1,205 @@
+# Production stack for the "usa1" tenant on one Swarm node.
+#
+# portal-api, mesh-api, mcp-server, and worker are distinct deployment units.
+# Run deploy/Makefile rather than docker stack deploy directly so migrations
+# gate every application rollout.
+
+x-scaled-service: &scaled-service
+  deploy: &scaled-deploy
+    replicas: 2
+    update_config:
+      order: start-first
+      failure_action: rollback
+      parallelism: 1
+      delay: 10s
+      monitor: 30s
+    rollback_config:
+      order: start-first
+      parallelism: 1
+    restart_policy:
+      condition: any
+      delay: 5s
+    resources:
+      limits: {memory: 256M}
+      reservations: {memory: 64M}
+
+x-backend: &backend
+  <<: *scaled-service
+  read_only: true
+  deploy:
+    <<: *scaled-deploy
+    replicas: 1
+  environment: &backend-env
+    TENANT_ID: usa1
+    PGHOST: db
+    PGPORT: "5432"
+    PGUSER: ${POSTGRES_USER:-pguser}
+    PGPASSWORD_FILE: /run/secrets/postgres_password
+  secrets: [postgres_password]
+  healthcheck:
+    test: [CMD, /service, readycheck]
+    interval: 10s
+    timeout: 5s
+    retries: 3
+    start_period: 20s
+
+services:
+  traefik:
+    image: traefik:v3.4.1
+    command:
+      - --providers.file.filename=/etc/traefik/dynamic.yml
+      - --providers.file.watch=true
+      - --entrypoints.web.address=:80
+      - --ping=true
+      - --log.level=INFO
+      - --accesslog=true
+    ports:
+      - target: 80
+        published: ${HTTP_PORT:-80}
+        protocol: tcp
+        mode: host
+    # mcp_access permits a future authenticated MCP route without putting the
+    # MCP server on the portal ingress network.
+    networks: [ingress, mcp_access]
+    configs:
+      - source: traefik
+        target: /etc/traefik/dynamic.yml
+    healthcheck:
+      test: [CMD, traefik, healthcheck, --ping]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    deploy:
+      <<: *scaled-deploy
+      replicas: 1
+      update_config:
+        order: stop-first
+        failure_action: rollback
+        parallelism: 1
+
+  db:
+    image: postgres:17.6-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-tenant_db}
+      POSTGRES_USER: ${POSTGRES_USER:-pguser}
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+    secrets: [postgres_password]
+    networks: [backend]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -h 127.0.0.1 -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      replicas: 1
+      update_config:
+        order: stop-first
+        failure_action: pause
+        parallelism: 1
+      restart_policy:
+        condition: any
+        delay: 10s
+      resources:
+        limits: {memory: 1G}
+        reservations: {memory: 256M}
+
+  portal-api:
+    <<: *backend
+    image: ${REGISTRY:-ghcr.io/vetchium}/portal-api:${TAG:?set TAG}
+    networks: [portal, backend]
+
+  mesh-api:
+    <<: *backend
+    image: ${REGISTRY:-ghcr.io/vetchium}/mesh-api:${TAG:?set TAG}
+    # Never publish this port or attach this service to ingress. A future
+    # WireGuard gateway is the only component that should join mesh externally.
+    networks: [mesh, backend]
+
+  mcp-server:
+    <<: *backend
+    image: ${REGISTRY:-ghcr.io/vetchium}/mcp-server:${TAG:?set TAG}
+    networks: [mcp_access, backend]
+
+  worker:
+    <<: *backend
+    image: ${REGISTRY:-ghcr.io/vetchium}/worker:${TAG:?set TAG}
+    networks: [backend]
+    deploy:
+      <<: *scaled-deploy
+      replicas: 1
+      update_config:
+        order: stop-first
+        failure_action: rollback
+        parallelism: 1
+
+  orgs-ui:
+    <<: *scaled-service
+    image: ${REGISTRY:-ghcr.io/vetchium}/orgs-ui:${TAG:?set TAG}
+    read_only: true
+    networks: [ingress, portal]
+    healthcheck: &ui-health
+      test: [CMD, wget, --spider, -q, http://127.0.0.1:8080/healthz]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  hub-ui:
+    <<: *scaled-service
+    image: ${REGISTRY:-ghcr.io/vetchium}/hub-ui:${TAG:?set TAG}
+    read_only: true
+    networks: [ingress, portal]
+    healthcheck: *ui-health
+
+  admin-ui:
+    <<: *scaled-service
+    image: ${REGISTRY:-ghcr.io/vetchium}/admin-ui:${TAG:?set TAG}
+    read_only: true
+    networks: [ingress, portal]
+    healthcheck: *ui-health
+
+networks:
+  # Public HTTP reaches only Traefik and the static portal containers.
+  ingress:
+    driver: overlay
+
+  # Portal nginx is the only ingress-facing component on this internal network;
+  # it proxies /api to portal-api using the service name.
+  portal:
+    driver: overlay
+    internal: true
+
+  # Private tenant-to-tenant plane. Future WireGuard support should add a
+  # hardened gateway to this attachable network, never publish mesh-api itself.
+  mesh:
+    driver: overlay
+    internal: true
+    attachable: true
+
+  # Traefik and MCP share a distinct network so MCP can be exposed later by an
+  # explicit authenticated route without joining general portal ingress.
+  mcp_access:
+    driver: overlay
+    internal: true
+
+  backend:
+    driver: overlay
+    internal: true
+    attachable: true
+
+volumes:
+  pgdata: {}
+
+configs:
+  traefik:
+    file: ./traefik.yml
+    name: usa1-traefik-${TRAEFIK_HASH:?run via make}
+
+secrets:
+  postgres_password:
+    external: true
+    name: usa1_postgres_password

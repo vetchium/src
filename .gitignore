@@ -1,0 +1,5 @@
+# Local overrides and secrets.
+.env
+.env.*
+!.env.example
+docker-compose.override.yml

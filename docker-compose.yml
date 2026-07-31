@@ -1,0 +1,429 @@
+# Four isolated tenant stacks behind one development edge router. Backend
+# runtime roles are separate containers so their networks match their trust
+# boundaries rather than one process bridging ingress, mesh, and PostgreSQL.
+name: vetchium
+
+x-hardening: &hardening
+  security_opt: [no-new-privileges:true]
+
+x-postgres-env: &postgres-env
+  POSTGRES_DB: ${POSTGRES_DB:-tenant_db}
+  POSTGRES_USER: ${POSTGRES_USER:-pguser}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pgpassword}
+  POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+
+x-db: &db
+  <<: *hardening
+  image: postgres:17.6-alpine
+  restart: unless-stopped
+  environment: *postgres-env
+  healthcheck:
+    test: [CMD-SHELL, "pg_isready -h 127.0.0.1 -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+    interval: 5s
+    timeout: 3s
+    retries: 20
+    start_period: 10s
+
+x-traefik: &traefik
+  <<: *hardening
+  image: traefik:v3.4.1
+  restart: unless-stopped
+  command:
+    - --providers.file.filename=/etc/traefik/dynamic.yml
+    - --providers.file.watch=true
+    - --entrypoints.web.address=:80
+    - --ping=true
+    - --log.level=INFO
+    - --accesslog=true
+  healthcheck:
+    test: [CMD, traefik, healthcheck, --ping]
+    interval: 10s
+    timeout: 3s
+    retries: 3
+    start_period: 5s
+
+x-migrate: &migrate
+  <<: *hardening
+  build: {context: migrations}
+  restart: "no"
+  read_only: true
+
+x-seed: &seed
+  <<: *hardening
+  image: postgres:17.6-alpine
+  restart: "no"
+  read_only: true
+  command: [psql, --no-password, -v, ON_ERROR_STOP=1, "-1", -f, /seed/01_seed.sql]
+
+x-backend: &backend
+  <<: *hardening
+  restart: unless-stopped
+  read_only: true
+  configs:
+    - source: postgres_password
+      target: /run/secrets/postgres_password
+  healthcheck:
+    test: [CMD, /service, readycheck]
+    interval: 10s
+    timeout: 5s
+    retries: 5
+    start_period: 15s
+
+x-backend-sgp-env: &backend-sgp-env
+  TENANT_ID: sgp
+  PGHOST: db-sgp
+  PGPORT: "5432"
+  PGUSER: ${POSTGRES_USER:-pguser}
+  PGPASSWORD_FILE: /run/secrets/postgres_password
+
+x-backend-usa1-env: &backend-usa1-env
+  TENANT_ID: usa1
+  PGHOST: db-usa1
+  PGPORT: "5432"
+  PGUSER: ${POSTGRES_USER:-pguser}
+  PGPASSWORD_FILE: /run/secrets/postgres_password
+
+x-backend-deu-env: &backend-deu-env
+  TENANT_ID: deu
+  PGHOST: db-deu
+  PGPORT: "5432"
+  PGUSER: ${POSTGRES_USER:-pguser}
+  PGPASSWORD_FILE: /run/secrets/postgres_password
+
+x-backend-ind1-env: &backend-ind1-env
+  TENANT_ID: ind1
+  PGHOST: db-ind1
+  PGPORT: "5432"
+  PGUSER: ${POSTGRES_USER:-pguser}
+  PGPASSWORD_FILE: /run/secrets/postgres_password
+
+x-ui: &ui
+  <<: *hardening
+  restart: unless-stopped
+
+services:
+  # Singapore ---------------------------------------------------------------
+  traefik-sgp:
+    <<: *traefik
+    networks: [sgp_ingress, sgp_mcp_access]
+    volumes: [./traefik/sgp.yml:/etc/traefik/dynamic.yml:ro]
+
+  db-sgp:
+    <<: *db
+    networks: [sgp_backend]
+    volumes: [pgdata-sgp:/var/lib/postgresql/data]
+
+  migrate-sgp:
+    <<: *migrate
+    environment:
+      GOOSE_DBSTRING: postgres://${POSTGRES_USER:-pguser}:${POSTGRES_PASSWORD:-pgpassword}@db-sgp:5432/${POSTGRES_DB:-tenant_db}?sslmode=disable
+    networks: [sgp_backend]
+    depends_on: {db-sgp: {condition: service_healthy}}
+
+  seed-sgp:
+    <<: *seed
+    environment:
+      PGHOST: db-sgp
+      PGUSER: ${POSTGRES_USER:-pguser}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-pgpassword}
+      PGDATABASE: ${POSTGRES_DB:-tenant_db}
+    volumes: [./migrations/sgp:/seed:ro]
+    networks: [sgp_backend]
+    depends_on: {migrate-sgp: {condition: service_completed_successfully}}
+
+  portal-api-sgp:
+    <<: *backend
+    build: {context: backend, target: portal-api}
+    environment: *backend-sgp-env
+    networks:
+      sgp_portal: {aliases: [portal-api]}
+      sgp_backend: {}
+    depends_on: {seed-sgp: {condition: service_completed_successfully}}
+
+  mesh-api-sgp:
+    <<: *backend
+    build: {context: backend, target: mesh-api}
+    environment: *backend-sgp-env
+    networks: [mesh, sgp_backend]
+    depends_on: {seed-sgp: {condition: service_completed_successfully}}
+
+  mcp-server-sgp:
+    <<: *backend
+    build: {context: backend, target: mcp-server}
+    environment: *backend-sgp-env
+    networks:
+      sgp_mcp_access: {aliases: [mcp-server]}
+      sgp_backend: {}
+    depends_on: {seed-sgp: {condition: service_completed_successfully}}
+
+  worker-sgp:
+    <<: *backend
+    build: {context: backend, target: worker}
+    environment: *backend-sgp-env
+    networks: [sgp_backend]
+    depends_on: {seed-sgp: {condition: service_completed_successfully}}
+
+  orgs-ui-sgp:
+    <<: *ui
+    build: {context: orgs-ui}
+    networks: [sgp_ingress, sgp_portal]
+    depends_on: {portal-api-sgp: {condition: service_healthy}}
+  hub-ui-sgp:
+    <<: *ui
+    build: {context: hub-ui}
+    networks: [sgp_ingress, sgp_portal]
+    depends_on: {portal-api-sgp: {condition: service_healthy}}
+  admin-ui-sgp:
+    <<: *ui
+    build: {context: admin-ui}
+    networks: [sgp_ingress, sgp_portal]
+    depends_on: {portal-api-sgp: {condition: service_healthy}}
+
+  # United States -----------------------------------------------------------
+  traefik-usa1:
+    <<: *traefik
+    networks: [usa1_ingress, usa1_mcp_access]
+    volumes: [./traefik/usa1.yml:/etc/traefik/dynamic.yml:ro]
+  db-usa1:
+    <<: *db
+    networks: [usa1_backend]
+    volumes: [pgdata-usa1:/var/lib/postgresql/data]
+  migrate-usa1:
+    <<: *migrate
+    environment:
+      GOOSE_DBSTRING: postgres://${POSTGRES_USER:-pguser}:${POSTGRES_PASSWORD:-pgpassword}@db-usa1:5432/${POSTGRES_DB:-tenant_db}?sslmode=disable
+    networks: [usa1_backend]
+    depends_on: {db-usa1: {condition: service_healthy}}
+  seed-usa1:
+    <<: *seed
+    environment:
+      PGHOST: db-usa1
+      PGUSER: ${POSTGRES_USER:-pguser}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-pgpassword}
+      PGDATABASE: ${POSTGRES_DB:-tenant_db}
+    volumes: [./migrations/usa1:/seed:ro]
+    networks: [usa1_backend]
+    depends_on: {migrate-usa1: {condition: service_completed_successfully}}
+  portal-api-usa1:
+    <<: *backend
+    build: {context: backend, target: portal-api}
+    environment: *backend-usa1-env
+    networks:
+      usa1_portal: {aliases: [portal-api]}
+      usa1_backend: {}
+    depends_on: {seed-usa1: {condition: service_completed_successfully}}
+  mesh-api-usa1:
+    <<: *backend
+    build: {context: backend, target: mesh-api}
+    environment: *backend-usa1-env
+    networks: [mesh, usa1_backend]
+    depends_on: {seed-usa1: {condition: service_completed_successfully}}
+  mcp-server-usa1:
+    <<: *backend
+    build: {context: backend, target: mcp-server}
+    environment: *backend-usa1-env
+    networks:
+      usa1_mcp_access: {aliases: [mcp-server]}
+      usa1_backend: {}
+    depends_on: {seed-usa1: {condition: service_completed_successfully}}
+  worker-usa1:
+    <<: *backend
+    build: {context: backend, target: worker}
+    environment: *backend-usa1-env
+    networks: [usa1_backend]
+    depends_on: {seed-usa1: {condition: service_completed_successfully}}
+  orgs-ui-usa1:
+    <<: *ui
+    build: {context: orgs-ui}
+    networks: [usa1_ingress, usa1_portal]
+    depends_on: {portal-api-usa1: {condition: service_healthy}}
+  hub-ui-usa1:
+    <<: *ui
+    build: {context: hub-ui}
+    networks: [usa1_ingress, usa1_portal]
+    depends_on: {portal-api-usa1: {condition: service_healthy}}
+  admin-ui-usa1:
+    <<: *ui
+    build: {context: admin-ui}
+    networks: [usa1_ingress, usa1_portal]
+    depends_on: {portal-api-usa1: {condition: service_healthy}}
+
+  # Germany -----------------------------------------------------------------
+  traefik-deu:
+    <<: *traefik
+    networks: [deu_ingress, deu_mcp_access]
+    volumes: [./traefik/deu.yml:/etc/traefik/dynamic.yml:ro]
+  db-deu:
+    <<: *db
+    networks: [deu_backend]
+    volumes: [pgdata-deu:/var/lib/postgresql/data]
+  migrate-deu:
+    <<: *migrate
+    environment:
+      GOOSE_DBSTRING: postgres://${POSTGRES_USER:-pguser}:${POSTGRES_PASSWORD:-pgpassword}@db-deu:5432/${POSTGRES_DB:-tenant_db}?sslmode=disable
+    networks: [deu_backend]
+    depends_on: {db-deu: {condition: service_healthy}}
+  seed-deu:
+    <<: *seed
+    environment:
+      PGHOST: db-deu
+      PGUSER: ${POSTGRES_USER:-pguser}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-pgpassword}
+      PGDATABASE: ${POSTGRES_DB:-tenant_db}
+    volumes: [./migrations/deu:/seed:ro]
+    networks: [deu_backend]
+    depends_on: {migrate-deu: {condition: service_completed_successfully}}
+  portal-api-deu:
+    <<: *backend
+    build: {context: backend, target: portal-api}
+    environment: *backend-deu-env
+    networks:
+      deu_portal: {aliases: [portal-api]}
+      deu_backend: {}
+    depends_on: {seed-deu: {condition: service_completed_successfully}}
+  mesh-api-deu:
+    <<: *backend
+    build: {context: backend, target: mesh-api}
+    environment: *backend-deu-env
+    networks: [mesh, deu_backend]
+    depends_on: {seed-deu: {condition: service_completed_successfully}}
+  mcp-server-deu:
+    <<: *backend
+    build: {context: backend, target: mcp-server}
+    environment: *backend-deu-env
+    networks:
+      deu_mcp_access: {aliases: [mcp-server]}
+      deu_backend: {}
+    depends_on: {seed-deu: {condition: service_completed_successfully}}
+  worker-deu:
+    <<: *backend
+    build: {context: backend, target: worker}
+    environment: *backend-deu-env
+    networks: [deu_backend]
+    depends_on: {seed-deu: {condition: service_completed_successfully}}
+  orgs-ui-deu:
+    <<: *ui
+    build: {context: orgs-ui}
+    networks: [deu_ingress, deu_portal]
+    depends_on: {portal-api-deu: {condition: service_healthy}}
+  hub-ui-deu:
+    <<: *ui
+    build: {context: hub-ui}
+    networks: [deu_ingress, deu_portal]
+    depends_on: {portal-api-deu: {condition: service_healthy}}
+  admin-ui-deu:
+    <<: *ui
+    build: {context: admin-ui}
+    networks: [deu_ingress, deu_portal]
+    depends_on: {portal-api-deu: {condition: service_healthy}}
+
+  # India -------------------------------------------------------------------
+  traefik-ind1:
+    <<: *traefik
+    networks: [ind1_ingress, ind1_mcp_access]
+    volumes: [./traefik/ind1.yml:/etc/traefik/dynamic.yml:ro]
+  db-ind1:
+    <<: *db
+    networks: [ind1_backend]
+    volumes: [pgdata-ind1:/var/lib/postgresql/data]
+  migrate-ind1:
+    <<: *migrate
+    environment:
+      GOOSE_DBSTRING: postgres://${POSTGRES_USER:-pguser}:${POSTGRES_PASSWORD:-pgpassword}@db-ind1:5432/${POSTGRES_DB:-tenant_db}?sslmode=disable
+    networks: [ind1_backend]
+    depends_on: {db-ind1: {condition: service_healthy}}
+  seed-ind1:
+    <<: *seed
+    environment:
+      PGHOST: db-ind1
+      PGUSER: ${POSTGRES_USER:-pguser}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-pgpassword}
+      PGDATABASE: ${POSTGRES_DB:-tenant_db}
+    volumes: [./migrations/ind1:/seed:ro]
+    networks: [ind1_backend]
+    depends_on: {migrate-ind1: {condition: service_completed_successfully}}
+  portal-api-ind1:
+    <<: *backend
+    build: {context: backend, target: portal-api}
+    environment: *backend-ind1-env
+    networks:
+      ind1_portal: {aliases: [portal-api]}
+      ind1_backend: {}
+    depends_on: {seed-ind1: {condition: service_completed_successfully}}
+  mesh-api-ind1:
+    <<: *backend
+    build: {context: backend, target: mesh-api}
+    environment: *backend-ind1-env
+    networks: [mesh, ind1_backend]
+    depends_on: {seed-ind1: {condition: service_completed_successfully}}
+  mcp-server-ind1:
+    <<: *backend
+    build: {context: backend, target: mcp-server}
+    environment: *backend-ind1-env
+    networks:
+      ind1_mcp_access: {aliases: [mcp-server]}
+      ind1_backend: {}
+    depends_on: {seed-ind1: {condition: service_completed_successfully}}
+  worker-ind1:
+    <<: *backend
+    build: {context: backend, target: worker}
+    environment: *backend-ind1-env
+    networks: [ind1_backend]
+    depends_on: {seed-ind1: {condition: service_completed_successfully}}
+  orgs-ui-ind1:
+    <<: *ui
+    build: {context: orgs-ui}
+    networks: [ind1_ingress, ind1_portal]
+    depends_on: {portal-api-ind1: {condition: service_healthy}}
+  hub-ui-ind1:
+    <<: *ui
+    build: {context: hub-ui}
+    networks: [ind1_ingress, ind1_portal]
+    depends_on: {portal-api-ind1: {condition: service_healthy}}
+  admin-ui-ind1:
+    <<: *ui
+    build: {context: admin-ui}
+    networks: [ind1_ingress, ind1_portal]
+    depends_on: {portal-api-ind1: {condition: service_healthy}}
+
+  edge:
+    <<: *traefik
+    ports: ["${EDGE_BIND:-127.0.0.1}:${EDGE_PORT:-80}:80"]
+    networks: [sgp_ingress, usa1_ingress, deu_ingress, ind1_ingress]
+    volumes: [./traefik/edge.yml:/etc/traefik/dynamic.yml:ro]
+    depends_on:
+      traefik-sgp: {condition: service_healthy}
+      traefik-usa1: {condition: service_healthy}
+      traefik-deu: {condition: service_healthy}
+      traefik-ind1: {condition: service_healthy}
+
+networks:
+  # Only mesh-api containers join this internal network. A future WireGuard
+  # gateway should be the sole additional member; mesh-api ports stay unpublished.
+  mesh: {internal: true}
+  sgp_ingress: {}
+  sgp_portal: {internal: true}
+  sgp_mcp_access: {internal: true}
+  sgp_backend: {internal: true}
+  usa1_ingress: {}
+  usa1_portal: {internal: true}
+  usa1_mcp_access: {internal: true}
+  usa1_backend: {internal: true}
+  deu_ingress: {}
+  deu_portal: {internal: true}
+  deu_mcp_access: {internal: true}
+  deu_backend: {internal: true}
+  ind1_ingress: {}
+  ind1_portal: {internal: true}
+  ind1_mcp_access: {internal: true}
+  ind1_backend: {internal: true}
+
+volumes:
+  pgdata-sgp: {}
+  pgdata-usa1: {}
+  pgdata-deu: {}
+  pgdata-ind1: {}
+
+configs:
+  postgres_password:
+    file: ${DEV_POSTGRES_PASSWORD_FILE:-./dev/postgres_password}

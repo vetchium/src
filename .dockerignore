@@ -1,0 +1,10 @@
+# No build uses the repo root as its context (each service has its own), but
+# keep this so an accidental root-context build stays small.
+.git
+.gitignore
+scratch
+*.md
+LICENSE
+init.prompt
+docker-compose*.yml
+traefik

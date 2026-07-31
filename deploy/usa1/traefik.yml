@@ -1,0 +1,42 @@
+# Routing for the "usa1" tenant. Hostnames come from this file, so a tenant can
+# have whatever domains it needs without touching the others.
+#
+# Update the Host() rules to your real domains before the first deploy.
+http:
+  routers:
+    orgs-ui:
+      rule: Host(`orgs.usa1.vetchium.com`)
+      service: orgs-ui
+      entryPoints: [web]
+
+    hub-ui:
+      rule: Host(`hub.usa1.vetchium.com`)
+      service: hub-ui
+      entryPoints: [web]
+
+    admin-ui:
+      rule: Host(`admin.usa1.vetchium.com`)
+      service: admin-ui
+      entryPoints: [web]
+
+  services:
+    # /api is handled by portal nginx and proxied over the private portal
+    # network. mesh-api is never on ingress; MCP remains unrouted by default.
+
+    orgs-ui:
+      loadBalancer:
+        servers:
+          - url: http://orgs-ui:8080
+        healthCheck: {path: /healthz, interval: 10s, timeout: 3s}
+
+    hub-ui:
+      loadBalancer:
+        servers:
+          - url: http://hub-ui:8080
+        healthCheck: {path: /healthz, interval: 10s, timeout: 3s}
+
+    admin-ui:
+      loadBalancer:
+        servers:
+          - url: http://admin-ui:8080
+        healthCheck: {path: /healthz, interval: 10s, timeout: 3s}
