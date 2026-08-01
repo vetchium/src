@@ -14,9 +14,14 @@ x-postgres-env: &postgres-env
 
 x-db: &db
   <<: *hardening
-  image: postgres:17.6-alpine
+  image: postgres:17.6-alpine@sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94
+  entrypoint: [/bin/sh, /usr/local/bin/vetchium-entrypoint.sh]
+  command: [postgres]
   restart: unless-stopped
-  environment: *postgres-env
+  environment:
+    <<: *postgres-env
+    APP_POSTGRES_PASSWORD_FILE: /run/secrets/app_postgres_password
+  secrets: [app_postgres_password]
   healthcheck:
     test: [CMD-SHELL, "pg_isready -h 127.0.0.1 -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
     interval: 5s
@@ -44,24 +49,16 @@ x-traefik: &traefik
 
 x-migrate: &migrate
   <<: *hardening
-  build: {context: migrations}
+  build: {context: db/migrations}
   restart: "no"
   read_only: true
-
-x-database-post-install: &database-post-install
-  <<: *hardening
-  image: postgres:17.6-alpine
-  restart: "no"
-  read_only: true
-  command: [psql, --no-password, -v, ON_ERROR_STOP=1, -f, /database/post-install.sql]
-  volumes: [./database/post-install.sql:/database/post-install.sql:ro]
 
 x-seed: &seed
   <<: *hardening
-  image: postgres:17.6-alpine
+  image: postgres:17.6-alpine@sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94
   restart: "no"
   read_only: true
-  command: [psql, --no-password, -v, ON_ERROR_STOP=1, "-1", -f, /seed/01_seed.sql]
+  command: [psql, --no-password, -v, ON_ERROR_STOP=1, "-1", -f, /seed.sql]
 
 x-backend: &backend
   <<: *hardening
@@ -127,18 +124,10 @@ services:
   db-sgp:
     <<: *db
     networks: [sgp_backend]
-    volumes: [pgdata-sgp:/var/lib/postgresql/data]
-
-  database-post-install-sgp:
-    <<: *database-post-install
-    environment:
-      PGHOST: db-sgp
-      PGUSER: ${POSTGRES_USER:-pguser}
-      PGPASSWORD: ${POSTGRES_PASSWORD:-pgpassword}
-      PGDATABASE: ${POSTGRES_DB:-tenant_db}
-      APP_POSTGRES_PASSWORD: ${APP_POSTGRES_PASSWORD:-app_pgpassword}
-    networks: [sgp_backend]
-    depends_on: {migrate-sgp: {condition: service_completed_successfully}}
+    volumes:
+      - pgdata-sgp:/var/lib/postgresql/data
+      - ./db/bootstrap/entrypoint.sh:/usr/local/bin/vetchium-entrypoint.sh:ro
+      - ./db/bootstrap/init.sql:/docker-entrypoint-initdb.d/10-vetchium.sql:ro
 
   migrate-sgp:
     <<: *migrate
@@ -154,9 +143,9 @@ services:
       PGUSER: ${POSTGRES_USER:-pguser}
       PGPASSWORD: ${POSTGRES_PASSWORD:-pgpassword}
       PGDATABASE: ${POSTGRES_DB:-tenant_db}
-    volumes: [./database/dev-seeds/sgp:/seed:ro]
+    volumes: [./db/dev-seed/sgp.sql:/seed.sql:ro]
     networks: [sgp_backend]
-    depends_on: {database-post-install-sgp: {condition: service_completed_successfully}}
+    depends_on: {migrate-sgp: {condition: service_completed_successfully}}
 
   admin-api-sgp:
     <<: *backend
@@ -223,17 +212,10 @@ services:
   db-usa1:
     <<: *db
     networks: [usa1_backend]
-    volumes: [pgdata-usa1:/var/lib/postgresql/data]
-  database-post-install-usa1:
-    <<: *database-post-install
-    environment:
-      PGHOST: db-usa1
-      PGUSER: ${POSTGRES_USER:-pguser}
-      PGPASSWORD: ${POSTGRES_PASSWORD:-pgpassword}
-      PGDATABASE: ${POSTGRES_DB:-tenant_db}
-      APP_POSTGRES_PASSWORD: ${APP_POSTGRES_PASSWORD:-app_pgpassword}
-    networks: [usa1_backend]
-    depends_on: {migrate-usa1: {condition: service_completed_successfully}}
+    volumes:
+      - pgdata-usa1:/var/lib/postgresql/data
+      - ./db/bootstrap/entrypoint.sh:/usr/local/bin/vetchium-entrypoint.sh:ro
+      - ./db/bootstrap/init.sql:/docker-entrypoint-initdb.d/10-vetchium.sql:ro
   migrate-usa1:
     <<: *migrate
     environment:
@@ -247,9 +229,9 @@ services:
       PGUSER: ${POSTGRES_USER:-pguser}
       PGPASSWORD: ${POSTGRES_PASSWORD:-pgpassword}
       PGDATABASE: ${POSTGRES_DB:-tenant_db}
-    volumes: [./database/dev-seeds/usa1:/seed:ro]
+    volumes: [./db/dev-seed/usa1.sql:/seed.sql:ro]
     networks: [usa1_backend]
-    depends_on: {database-post-install-usa1: {condition: service_completed_successfully}}
+    depends_on: {migrate-usa1: {condition: service_completed_successfully}}
   admin-api-usa1:
     <<: *backend
     build: {context: backend, target: admin-api}
@@ -309,17 +291,10 @@ services:
   db-deu:
     <<: *db
     networks: [deu_backend]
-    volumes: [pgdata-deu:/var/lib/postgresql/data]
-  database-post-install-deu:
-    <<: *database-post-install
-    environment:
-      PGHOST: db-deu
-      PGUSER: ${POSTGRES_USER:-pguser}
-      PGPASSWORD: ${POSTGRES_PASSWORD:-pgpassword}
-      PGDATABASE: ${POSTGRES_DB:-tenant_db}
-      APP_POSTGRES_PASSWORD: ${APP_POSTGRES_PASSWORD:-app_pgpassword}
-    networks: [deu_backend]
-    depends_on: {migrate-deu: {condition: service_completed_successfully}}
+    volumes:
+      - pgdata-deu:/var/lib/postgresql/data
+      - ./db/bootstrap/entrypoint.sh:/usr/local/bin/vetchium-entrypoint.sh:ro
+      - ./db/bootstrap/init.sql:/docker-entrypoint-initdb.d/10-vetchium.sql:ro
   migrate-deu:
     <<: *migrate
     environment:
@@ -333,9 +308,9 @@ services:
       PGUSER: ${POSTGRES_USER:-pguser}
       PGPASSWORD: ${POSTGRES_PASSWORD:-pgpassword}
       PGDATABASE: ${POSTGRES_DB:-tenant_db}
-    volumes: [./database/dev-seeds/deu:/seed:ro]
+    volumes: [./db/dev-seed/deu.sql:/seed.sql:ro]
     networks: [deu_backend]
-    depends_on: {database-post-install-deu: {condition: service_completed_successfully}}
+    depends_on: {migrate-deu: {condition: service_completed_successfully}}
   admin-api-deu:
     <<: *backend
     build: {context: backend, target: admin-api}
@@ -395,17 +370,10 @@ services:
   db-ind1:
     <<: *db
     networks: [ind1_backend]
-    volumes: [pgdata-ind1:/var/lib/postgresql/data]
-  database-post-install-ind1:
-    <<: *database-post-install
-    environment:
-      PGHOST: db-ind1
-      PGUSER: ${POSTGRES_USER:-pguser}
-      PGPASSWORD: ${POSTGRES_PASSWORD:-pgpassword}
-      PGDATABASE: ${POSTGRES_DB:-tenant_db}
-      APP_POSTGRES_PASSWORD: ${APP_POSTGRES_PASSWORD:-app_pgpassword}
-    networks: [ind1_backend]
-    depends_on: {migrate-ind1: {condition: service_completed_successfully}}
+    volumes:
+      - pgdata-ind1:/var/lib/postgresql/data
+      - ./db/bootstrap/entrypoint.sh:/usr/local/bin/vetchium-entrypoint.sh:ro
+      - ./db/bootstrap/init.sql:/docker-entrypoint-initdb.d/10-vetchium.sql:ro
   migrate-ind1:
     <<: *migrate
     environment:
@@ -419,9 +387,9 @@ services:
       PGUSER: ${POSTGRES_USER:-pguser}
       PGPASSWORD: ${POSTGRES_PASSWORD:-pgpassword}
       PGDATABASE: ${POSTGRES_DB:-tenant_db}
-    volumes: [./database/dev-seeds/ind1:/seed:ro]
+    volumes: [./db/dev-seed/ind1.sql:/seed.sql:ro]
     networks: [ind1_backend]
-    depends_on: {database-post-install-ind1: {condition: service_completed_successfully}}
+    depends_on: {migrate-ind1: {condition: service_completed_successfully}}
   admin-api-ind1:
     <<: *backend
     build: {context: backend, target: admin-api}

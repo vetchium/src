@@ -68,7 +68,7 @@ deploy:
 		done; \
 		printf '%s' "$$encoded"; \
 	}; \
-	update_database() { \
+	migrate() { \
 		cid=$$(db_task); \
 		test -n "$$cid" || { echo "no running database task"; exit 1; }; \
 		pw=$$(docker exec "$$cid" cat /run/secrets/postgres_password); \
@@ -85,17 +85,9 @@ deploy:
 			echo "migration failed; the stack was not touched and is still serving"; \
 			exit 1; \
 		fi; \
-		if docker exec "$$cid" test -r /run/secrets/app_postgres_password; then \
-			app_pw=$$(docker exec "$$cid" cat /run/secrets/app_postgres_password); \
-		else \
-			app_pw=$$(printf 'vetchium_app:%s' "$$pw" | sha256sum | cut -d ' ' -f1); \
-		fi; \
-		docker exec -i -e APP_POSTGRES_PASSWORD="$$app_pw" "$$cid" \
-			psql --no-password -U "$(POSTGRES_USER)" -d "$(POSTGRES_DB)" \
-			-v ON_ERROR_STOP=1 -f - < ../database/post-install.sql; \
 	}; \
 	if docker stack ls --format '{{.Name}}' | grep -qx $(REGION); then \
-		update_database; deploy_stack; \
+		migrate; deploy_stack; \
 	else \
 		deploy_stack; \
 		for i in $$(seq 1 90); do \
@@ -103,6 +95,6 @@ deploy:
 			if [ -n "$$cid" ] && docker exec "$$cid" pg_isready -U $(POSTGRES_USER) -d $(POSTGRES_DB) >/dev/null 2>&1; then break; fi; \
 			sleep 2; \
 		done; \
-		update_database; \
+		migrate; \
 	fi
 	@echo "$(REGION) is running $(TAG)"

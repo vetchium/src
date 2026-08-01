@@ -1,13 +1,13 @@
 # syntax=docker/dockerfile:1
 
-# The migration runner: the upstream goose CLI plus the common migrations.
+# The migration runner: the upstream goose CLI plus the versioned migrations.
 #
 # This is deliberately a *different image* from the API server so the runtime
 # image does not carry migration tooling. Database privileges are separated by
 # connection role: this runner uses the PostgreSQL administrator while API and
 # worker processes connect as the DML-only `vetchium_app` role.
 #
-# The build context is ./migrations, so the API sources are not part of it.
+# The build context is ./db/migrations, so the API sources are not part of it.
 
 FROM golang:1.25.7-alpine@sha256:f6751d823c26342f9506c03797d2527668d095b0a15f1862cddb4d927a7a4ced AS build
 
@@ -30,12 +30,12 @@ FROM gcr.io/distroless/static-debian12:nonroot@sha256:f5b485ea962d9bd1186b2f6b3a
 USER nonroot:nonroot
 
 COPY --from=build /go/bin/goose /goose
-COPY common /migrations/common
+COPY *.sql /migrations/
 
 # GOOSE_DRIVER and GOOSE_MIGRATION_DIR are fixed properties of this image;
 # only GOOSE_DBSTRING varies per tenant and is supplied by the caller.
 ENV GOOSE_DRIVER=postgres \
-    GOOSE_MIGRATION_DIR=/migrations/common
+    GOOSE_MIGRATION_DIR=/migrations
 
 ENTRYPOINT ["/goose"]
 # Overridable, so the same image serves `status`, `version` and `down` without

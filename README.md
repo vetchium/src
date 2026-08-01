@@ -113,13 +113,25 @@ security and defaults to `disable`. The database name is supplied by
 `PGDATABASE`; the password is read only from the referenced file.
 
 Local Compose uses `POSTGRES_PASSWORD` for the administrator connection used by
-PostgreSQL, migrations, post-install setup, and seeds. Runtime services connect
-as the DML-only `vetchium_app` role with a separate mounted value from
-`APP_POSTGRES_PASSWORD`. The role and its privileges are managed after
-migrations by [`database/post-install.sql`](database/post-install.sql), outside
-the versioned application schema. `make dev` materializes the application
-password as a git-ignored, permission-restricted file so it can be mounted into
-the read-only service containers as a Compose secret.
+PostgreSQL, migrations, and development fixtures. Runtime services connect as
+the DML-only `vetchium_app` role with a separate value from
+`APP_POSTGRES_PASSWORD`. `make dev` materializes the application password as a
+git-ignored, permission-restricted file so PostgreSQL and the read-only service
+containers can consume it as a Compose secret.
+
+The pinned official PostgreSQL image receives an `/docker-entrypoint-initdb.d`
+hook from `db/bootstrap/`. On an empty data volume, PostgreSQL creates
+`POSTGRES_DB`, then the hook creates the `vetchium_app` role, the `vetchium`
+application schema, and default privileges. The hook never runs again for that
+volume. After PostgreSQL is healthy, Goose applies the versioned files in
+`db/migrations/`, the tenant-specific files in `db/dev-seed/` create portal
+fixtures, and then the runtime services start.
+
+Changing database initialization does not retrofit an existing volume. During
+development, use `make clean && make` when intentionally testing a new init
+layout; `make clean` deletes all local tenant database volumes.
+Changing `APP_POSTGRES_PASSWORD` likewise requires a new development volume or
+an explicit coordinated role-password rotation.
 
 ## Publishing
 
@@ -128,8 +140,9 @@ make publish TAG=v1.2.3
 ```
 
 This publishes `admin-api`, `hub-api`, `orgs-api`, `mesh-api`, `mcp-server`,
-`workers`, `migrate`, and the three portal images with the same immutable release
-tag. Production deployment instructions live in [`deploy/`](deploy/README.md).
+`workers`, `migrate`, and the three portal images with the same immutable
+release tag. Production deployment instructions live in
+[`deploy/`](deploy/README.md).
 
 ## Known operational work
 

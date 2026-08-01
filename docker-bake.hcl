@@ -80,7 +80,7 @@ target "workers" {
 
 target "migrate" {
   inherits = ["_common"]
-  context = "migrations"
+  context = "db/migrations"
   tags    = ["${REGISTRY}/migrate:${TAG}"]
 }
 

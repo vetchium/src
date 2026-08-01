@@ -1,4 +1,0 @@
-# Only common/ belongs in the image. The per-tenant seed fixtures live with the
-# deployment config, in deploy/chart/files/seeds/.
-Dockerfile
-.dockerignore

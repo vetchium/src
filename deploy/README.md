@@ -26,11 +26,11 @@ secrets on first use. Tags must be immutable; `latest` and `dev` are rejected.
 `ghcr.io/vetchium`, `HTTP_PORT` defaults to `80`, and `PGSSLMODE` defaults to
 `disable` until PostgreSQL TLS is configured.
 
-For an existing stack, migrations and database post-install setup run before
-`docker stack deploy`. A failure leaves the running stack untouched. On the
-first deployment, the database must be started first, so the stack starts,
-PostgreSQL becomes ready, migrations are applied, and post-install access setup
-is reconciled.
+For an existing stack, migrations run before `docker stack deploy`. A failed
+migration leaves the running stack untouched. On the first deployment, the
+database must be started first. Its image initializes the empty data volume,
+including the runtime role and access policy, before PostgreSQL becomes ready;
+migrations are then applied.
 
 ## Runtime boundaries
 
@@ -65,9 +65,17 @@ membership but is not sufficient request authorization by itself.
 PostgreSQL administrator and application credentials are separate Swarm
 secrets. Migrations connect as `POSTGRES_USER`; runtime services use
 `PGPASSWORD_FILE` with the DML-only `vetchium_app` role, so neither password
-appears in service environment variables. After migrations, `make deploy` runs
-`database/post-install.sql` as the database owner to reconcile the login and
-runtime privileges. Role and access policy are not part of migration history.
+appears in service environment variables.
+
+The pinned official PostgreSQL image receives initialization files as Swarm
+configs. Its `/docker-entrypoint-initdb.d` hook reads the application secret and
+creates the runtime role, the `vetchium` schema, and default privileges exactly
+once, while the tenant data volume is empty. PostgreSQL skips that hook on every
+later start. Initialization changes therefore require an explicit operational
+plan for an existing database; they are not reapplied during deployment.
+Application-password rotation must likewise update the PostgreSQL role and the
+Swarm secret as one coordinated operation; changing only the secret is not a
+rotation procedure.
 
 The migration container is a one-shot plain container because Swarm has no Job
 primitive. The Makefile reads the secret from the database task into a

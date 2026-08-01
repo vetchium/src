@@ -24,7 +24,13 @@ dev: dev-secrets
 
 dev-secrets:
 	@install -d -m 700 "$(DEV_SECRETS_DIR)"
-	@umask 077; printf '%s' "$$APP_POSTGRES_PASSWORD" > "$(APP_PASSWORD_FILE)"
+	@if [ -f "$(APP_PASSWORD_FILE)" ]; then \
+		current=$$(cat "$(APP_PASSWORD_FILE)"); \
+		test "$$current" = "$$APP_POSTGRES_PASSWORD" || \
+			{ echo "APP_POSTGRES_PASSWORD differs from the initialized development secret; run make clean before changing it"; exit 1; }; \
+	else \
+		umask 077; printf '%s' "$$APP_POSTGRES_PASSWORD" > "$(APP_PASSWORD_FILE)"; \
+	fi
 
 # Build validation for CI; keep results only in BuildKit's cache.
 docker:
@@ -42,3 +48,5 @@ publish:
 
 clean:
 	docker compose down --remove-orphans --volumes
+	rm -f "$(APP_PASSWORD_FILE)"
+	-rmdir "$(DEV_SECRETS_DIR)"
