@@ -1,0 +1,119 @@
+package main
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"log/slog"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"backend/internal/config"
+	"backend/internal/db"
+	"backend/internal/middleware"
+	"backend/internal/routes"
+	"backend/internal/server"
+)
+
+const (
+	address          = ":8080"
+	readinessAddress = ":8081"
+)
+
+func main() {
+	log := slog.New(slog.NewJSONHandler(os.Stdout, nil)).With("component", "hub-api")
+	slog.SetDefault(log)
+
+	var err error
+	if len(os.Args) > 1 && os.Args[1] == "readycheck" {
+		err = readycheck()
+	} else {
+		err = run(log)
+	}
+	if err != nil {
+		log.Error("process exited with error", "error", err)
+		os.Exit(1)
+	}
+}
+
+func run(log *slog.Logger) error {
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+	log = log.With("tenant", cfg.TenantID)
+	slog.SetDefault(log)
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	pool, err := db.Connect(ctx, cfg.DatabaseURL, log)
+	if err != nil {
+		return err
+	}
+	defer pool.Close()
+
+	s := &server.Server{TenantID: cfg.TenantID, DB: pool, Log: log}
+	mux := http.NewServeMux()
+	routes.RegisterHubRoutes(mux, s)
+	readinessMux := http.NewServeMux()
+	routes.RegisterAPIHealthRoute(readinessMux, s)
+
+	httpServer := &http.Server{
+		Addr:              address,
+		Handler:           middleware.RequestLogger(log)(mux),
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+	readinessServer := &http.Server{
+		Addr:              readinessAddress,
+		Handler:           readinessMux,
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+	errC := make(chan error, 2)
+	serve := func(name string, server *http.Server) {
+		log.Info("server started", "server", name, "address", server.Addr)
+		err := server.ListenAndServe()
+		if errors.Is(err, http.ErrServerClosed) {
+			err = nil
+		}
+		errC <- err
+	}
+	go serve("application", httpServer)
+	go serve("readiness", readinessServer)
+
+	select {
+	case err := <-errC:
+		return err
+	case <-ctx.Done():
+	}
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	return errors.Join(
+		httpServer.Shutdown(shutdownCtx),
+		readinessServer.Shutdown(shutdownCtx),
+	)
+}
+
+func readycheck() error {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	url := "http://127.0.0.1" + readinessAddress + "/readyz"
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return err
+	}
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		return fmt.Errorf("%s returned %s", url, response.Status)
+	}
+	return nil
+}

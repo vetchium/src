@@ -1,0 +1,68 @@
+{
+  "http": {
+    "routers": {
+      "sgp": {
+        "rule": "HostRegexp(`^[a-z-]+\\.sgp\\.[a-z0-9.-]+$`)",
+        "service": "sgp",
+        "entryPoints": ["web"]
+      },
+      "usa1": {
+        "rule": "HostRegexp(`^[a-z-]+\\.usa1\\.[a-z0-9.-]+$`)",
+        "service": "usa1",
+        "entryPoints": ["web"]
+      },
+      "deu": {
+        "rule": "HostRegexp(`^[a-z-]+\\.deu\\.[a-z0-9.-]+$`)",
+        "service": "deu",
+        "entryPoints": ["web"]
+      },
+      "ind1": {
+        "rule": "HostRegexp(`^[a-z-]+\\.ind1\\.[a-z0-9.-]+$`)",
+        "service": "ind1",
+        "entryPoints": ["web"]
+      }
+    },
+    "services": {
+      "sgp": {
+        "loadBalancer": {
+          "servers": [
+            {
+              "url": "http://traefik-sgp:80"
+            }
+          ],
+          "passHostHeader": true
+        }
+      },
+      "usa1": {
+        "loadBalancer": {
+          "servers": [
+            {
+              "url": "http://traefik-usa1:80"
+            }
+          ],
+          "passHostHeader": true
+        }
+      },
+      "deu": {
+        "loadBalancer": {
+          "servers": [
+            {
+              "url": "http://traefik-deu:80"
+            }
+          ],
+          "passHostHeader": true
+        }
+      },
+      "ind1": {
+        "loadBalancer": {
+          "servers": [
+            {
+              "url": "http://traefik-ind1:80"
+            }
+          ],
+          "passHostHeader": true
+        }
+      }
+    }
+  }
+}
