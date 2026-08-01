@@ -8,7 +8,13 @@ import (
 	"strings"
 )
 
-const sessionTokenBytes = 32
+const (
+	sessionTokenBytes = 32
+
+	AdminBearerRealm                = "vetchium-admin"
+	ProblemTypeAuthenticationNeeded = "urn:vetchium:problem:authentication-required"
+	ProblemTypeInvalidSession       = "urn:vetchium:problem:invalid-session"
+)
 
 func NewSessionToken() (string, []byte, error) {
 	random := make([]byte, sessionTokenBytes)

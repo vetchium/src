@@ -1,10 +1,10 @@
 package admin
 
 import (
-	"encoding/json"
 	"net/http"
 	"time"
 
+	"backend/internal/httpx"
 	"backend/internal/server"
 )
 
@@ -14,12 +14,11 @@ func Ping(s *server.Server) http.HandlerFunc {
 		var databaseTime time.Time
 		if err := s.DB.QueryRow(r.Context(), `SELECT gen_random_uuid()::text, clock_timestamp()`).Scan(&nonce, &databaseTime); err != nil {
 			s.Log.ErrorContext(r.Context(), "admin ping failed", "error", err)
-			http.Error(w, "", http.StatusInternalServerError)
+			httpx.WriteProblem(w, http.StatusInternalServerError, "The request could not be completed.")
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(struct {
+		_ = httpx.WriteJSON(w, http.StatusOK, struct {
 			Portal       string    `json:"portal"`
 			Tenant       string    `json:"tenant"`
 			Nonce        string    `json:"nonce"`

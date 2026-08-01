@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 
 	"backend/internal/config"
 	"backend/internal/db"
+	"backend/internal/db/sqlc"
 	"backend/internal/workers"
 )
 
@@ -48,7 +50,14 @@ func run() error {
 	}
 	defer pool.Close()
 
+	var workerGroup sync.WaitGroup
+	workerGroup.Add(1)
+	go func() {
+		defer workerGroup.Done()
+		workers.RunExpireAdminSessions(ctx, sqlc.New(pool), log, workers.AdminSessionExpiryInterval)
+	}()
 	workers.RunHeartbeat(ctx, pool, log)
+	workerGroup.Wait()
 	return nil
 }
 

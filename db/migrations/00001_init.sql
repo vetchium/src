@@ -73,6 +73,9 @@ CREATE TABLE vetchium.admin_sessions (
     CONSTRAINT admin_sessions_expiry_after_creation CHECK (expires_at > created_at)
 );
 
+-- The expiry worker deletes by this range predicate every hour.
+CREATE INDEX admin_sessions_expires_at_idx ON vetchium.admin_sessions (expires_at);
+
 -- +goose Down
 DROP TABLE IF EXISTS vetchium.admin_sessions;
 DROP TABLE IF EXISTS vetchium.admin_users;

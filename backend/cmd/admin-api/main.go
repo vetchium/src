@@ -71,12 +71,12 @@ func run(log *slog.Logger) error {
 
 	httpServer := &http.Server{
 		Addr:              address,
-		Handler:           middleware.RequestLogger(log)(mux),
+		Handler:           middleware.RequestLogger(log)(middleware.ProblemRouteErrors(mux)),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 	readinessServer := &http.Server{
 		Addr:              readinessAddress,
-		Handler:           readinessMux,
+		Handler:           middleware.RequestLogger(log)(middleware.ProblemRouteErrors(readinessMux)),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 	errC := make(chan error, 2)

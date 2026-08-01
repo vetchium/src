@@ -12,8 +12,9 @@ BUILDER   := vetchium
 APP_POSTGRES_PASSWORD ?= app_pgpassword
 DEV_SECRETS_DIR       := .dev-secrets
 APP_PASSWORD_FILE     := $(DEV_SECRETS_DIR)/app_postgres_password
+SQLC                   := go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.29.0
 
-.PHONY: dev dev-secrets sqlc docker publish clean
+.PHONY: dev dev-secrets sqlc sqlc-verify docker publish clean
 
 dev: dev-secrets
 	docker compose -f docker-compose.json up --build -d --wait
@@ -33,7 +34,14 @@ dev-secrets:
 	fi
 
 sqlc:
-	cd backend && sqlc generate
+	cd backend && $(SQLC) generate
+
+sqlc-verify: sqlc
+	@test -z "$$(git status --porcelain -- backend/internal/db/sqlc)" || { \
+		git status --short -- backend/internal/db/sqlc; \
+		echo "generated sqlc code is stale; run 'make sqlc' and commit it"; \
+		exit 1; \
+	}
 
 # Build validation for CI; keep results only in BuildKit's cache.
 docker:
