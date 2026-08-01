@@ -9,9 +9,8 @@ endif
 -include .env
 export
 
-REGISTRY      ?= ghcr.io/vetchium
-POSTGRES_USER ?= pguser
-POSTGRES_DB   ?= tenant_db
+REGISTRY  ?= ghcr.io/vetchium
+HTTP_PORT ?= 80
 
 .PHONY: deploy
 
@@ -19,6 +18,8 @@ deploy:
 	@test -n "$(REGION)" || { echo "REGION is required, e.g. REGION=sgp"; exit 1; }
 	@test -d "$(REGION)" || { echo "no such region: $(REGION)"; exit 1; }
 	@test -n "$(TAG)" || { echo "TAG is required, e.g. TAG=v1.2.3"; exit 1; }
+	@test -n "$(POSTGRES_USER)" || { echo "POSTGRES_USER is required"; exit 1; }
+	@test -n "$(POSTGRES_DB)" || { echo "POSTGRES_DB is required"; exit 1; }
 	@case "$(TAG)" in dev|latest) echo "refusing floating tag $(TAG)"; exit 1;; esac
 
 	@docker info --format '{{.Swarm.LocalNodeState}}' | grep -qx active || docker swarm init >/dev/null

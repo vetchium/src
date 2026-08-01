@@ -8,8 +8,6 @@ import (
 	"strings"
 )
 
-const databaseName = "tenant_db"
-
 type Config struct {
 	TenantID    string
 	DatabaseURL string
@@ -33,6 +31,10 @@ func Load() (Config, error) {
 	if user == "" {
 		return Config{}, fmt.Errorf("missing PGUSER")
 	}
+	database := os.Getenv("PGDATABASE")
+	if database == "" {
+		return Config{}, fmt.Errorf("missing PGDATABASE")
+	}
 	passwordFile := os.Getenv("PGPASSWORD_FILE")
 	if passwordFile == "" {
 		return Config{}, fmt.Errorf("missing PGPASSWORD_FILE")
@@ -47,7 +49,7 @@ func Load() (Config, error) {
 		Scheme:   "postgres",
 		User:     url.UserPassword(user, password),
 		Host:     net.JoinHostPort(host, port),
-		Path:     "/" + databaseName,
+		Path:     "/" + database,
 		RawQuery: "sslmode=disable",
 	}
 

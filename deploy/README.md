@@ -22,6 +22,8 @@ make deploy REGION=sgp TAG=v1.2.3
 
 The Makefile initializes Swarm when necessary and creates the tenant database
 secret on first use. Tags must be immutable; `latest` and `dev` are rejected.
+`POSTGRES_USER` and `POSTGRES_DB` are required. `REGISTRY` defaults to
+`ghcr.io/vetchium`, and `HTTP_PORT` defaults to `80`.
 
 For an existing stack, migrations run before `docker stack deploy`. A failed
 migration leaves the running stack untouched. On the first deployment, the

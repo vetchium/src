@@ -17,6 +17,7 @@ func TestLoad(t *testing.T) {
 	t.Setenv("PGHOST", "db")
 	t.Setenv("PGPORT", "5433")
 	t.Setenv("PGUSER", "pguser")
+	t.Setenv("PGDATABASE", "custom_db")
 	t.Setenv("PGPASSWORD_FILE", passwordFile)
 
 	cfg, err := Load()
@@ -26,7 +27,7 @@ func TestLoad(t *testing.T) {
 	if cfg.TenantID != "sgp" {
 		t.Fatalf("TenantID = %q, want sgp", cfg.TenantID)
 	}
-	for _, want := range []string{"pguser:p%40ss%2Fword", "db:5433", "/tenant_db", "sslmode=disable"} {
+	for _, want := range []string{"pguser:p%40ss%2Fword", "db:5433", "/custom_db", "sslmode=disable"} {
 		if !strings.Contains(cfg.DatabaseURL, want) {
 			t.Errorf("DatabaseURL = %q, missing %q", cfg.DatabaseURL, want)
 		}
@@ -47,6 +48,7 @@ func TestLoadRequiresEverySetting(t *testing.T) {
 		"PGHOST":          "db",
 		"PGPORT":          "5432",
 		"PGUSER":          "pguser",
+		"PGDATABASE":      "tenant_db",
 		"PGPASSWORD_FILE": passwordFile,
 	}
 	for missing := range settings {
@@ -68,6 +70,7 @@ func TestLoadReportsUnreadablePasswordFile(t *testing.T) {
 	t.Setenv("PGHOST", "db")
 	t.Setenv("PGPORT", "5432")
 	t.Setenv("PGUSER", "pguser")
+	t.Setenv("PGDATABASE", "tenant_db")
 	t.Setenv("PGPASSWORD_FILE", filepath.Join(t.TempDir(), "missing"))
 
 	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "read PGPASSWORD_FILE") {

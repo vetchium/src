@@ -74,6 +74,7 @@ x-backend-sgp-env: &backend-sgp-env
   PGHOST: db-sgp
   PGPORT: "5432"
   PGUSER: ${POSTGRES_USER:-pguser}
+  PGDATABASE: ${POSTGRES_DB:-tenant_db}
   PGPASSWORD_FILE: /run/secrets/postgres_password
 
 x-backend-usa1-env: &backend-usa1-env
@@ -81,6 +82,7 @@ x-backend-usa1-env: &backend-usa1-env
   PGHOST: db-usa1
   PGPORT: "5432"
   PGUSER: ${POSTGRES_USER:-pguser}
+  PGDATABASE: ${POSTGRES_DB:-tenant_db}
   PGPASSWORD_FILE: /run/secrets/postgres_password
 
 x-backend-deu-env: &backend-deu-env
@@ -88,6 +90,7 @@ x-backend-deu-env: &backend-deu-env
   PGHOST: db-deu
   PGPORT: "5432"
   PGUSER: ${POSTGRES_USER:-pguser}
+  PGDATABASE: ${POSTGRES_DB:-tenant_db}
   PGPASSWORD_FILE: /run/secrets/postgres_password
 
 x-backend-ind1-env: &backend-ind1-env
@@ -95,6 +98,7 @@ x-backend-ind1-env: &backend-ind1-env
   PGHOST: db-ind1
   PGPORT: "5432"
   PGUSER: ${POSTGRES_USER:-pguser}
+  PGDATABASE: ${POSTGRES_DB:-tenant_db}
   PGPASSWORD_FILE: /run/secrets/postgres_password
 
 x-ui: &ui
@@ -464,4 +468,4 @@ volumes:
 
 configs:
   postgres_password:
-    file: ${DEV_POSTGRES_PASSWORD_FILE:-./dev/postgres_password}
+    content: ${POSTGRES_PASSWORD:-pgpassword}

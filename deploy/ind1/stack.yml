@@ -34,7 +34,8 @@ x-backend: &backend
     TENANT_ID: ind1
     PGHOST: db
     PGPORT: "5432"
-    PGUSER: ${POSTGRES_USER:-pguser}
+    PGUSER: ${POSTGRES_USER:?set POSTGRES_USER}
+    PGDATABASE: ${POSTGRES_DB:?set POSTGRES_DB}
     PGPASSWORD_FILE: /run/secrets/postgres_password
   secrets: [postgres_password]
   healthcheck:
@@ -82,8 +83,8 @@ services:
   db:
     image: postgres:17.6-alpine
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-tenant_db}
-      POSTGRES_USER: ${POSTGRES_USER:-pguser}
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER}
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
       POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
     secrets: [postgres_password]

@@ -107,12 +107,12 @@ handling real synchronization requests.
 
 ## Configuration
 
-Every backend role requires `TENANT_ID`, `PGHOST`, `PGPORT`, `PGUSER`, and
-`PGPASSWORD_FILE`. The application always connects to the `tenant_db` database;
-the password is read only from the referenced file.
+Every backend role requires `TENANT_ID`, `PGHOST`, `PGPORT`, `PGUSER`,
+`PGDATABASE`, and `PGPASSWORD_FILE`. The database name is supplied by
+`PGDATABASE`; the password is read only from the referenced file.
 
-Local Compose mounts `dev/postgres_password` into the backend containers. Set
-`DEV_POSTGRES_PASSWORD_FILE` when using a different local PostgreSQL password.
+Local Compose creates the mounted password config from `POSTGRES_PASSWORD`, so
+PostgreSQL, migrations, seeds, and backend services all use the same value.
 
 ## Publishing
 
