@@ -517,7 +517,7 @@
     },
     "edge": {
       "command": [
-        "--providers.file.filename=/etc/traefik/dynamic.yml",
+        "--providers.file.filename=/etc/traefik/dynamic.json",
         "--providers.file.watch=true",
         "--entrypoints.web.address=:80",
         "--ping=true",
@@ -565,8 +565,8 @@
             "create_host_path": true
           },
           "read_only": true,
-          "source": "./traefik/edge.yml",
-          "target": "/etc/traefik/dynamic.yml",
+          "source": "./traefik/edge.json",
+          "target": "/etc/traefik/dynamic.json",
           "type": "bind"
         }
       ]
@@ -1561,7 +1561,7 @@
     },
     "traefik-deu": {
       "command": [
-        "--providers.file.filename=/etc/traefik/dynamic.yml",
+        "--providers.file.filename=/etc/traefik/dynamic.json",
         "--providers.file.watch=true",
         "--entrypoints.web.address=:80",
         "--ping=true",
@@ -1591,15 +1591,15 @@
             "create_host_path": true
           },
           "read_only": true,
-          "source": "./traefik/deu.yml",
-          "target": "/etc/traefik/dynamic.yml",
+          "source": "./traefik/deu.json",
+          "target": "/etc/traefik/dynamic.json",
           "type": "bind"
         }
       ]
     },
     "traefik-ind1": {
       "command": [
-        "--providers.file.filename=/etc/traefik/dynamic.yml",
+        "--providers.file.filename=/etc/traefik/dynamic.json",
         "--providers.file.watch=true",
         "--entrypoints.web.address=:80",
         "--ping=true",
@@ -1629,15 +1629,15 @@
             "create_host_path": true
           },
           "read_only": true,
-          "source": "./traefik/ind1.yml",
-          "target": "/etc/traefik/dynamic.yml",
+          "source": "./traefik/ind1.json",
+          "target": "/etc/traefik/dynamic.json",
           "type": "bind"
         }
       ]
     },
     "traefik-sgp": {
       "command": [
-        "--providers.file.filename=/etc/traefik/dynamic.yml",
+        "--providers.file.filename=/etc/traefik/dynamic.json",
         "--providers.file.watch=true",
         "--entrypoints.web.address=:80",
         "--ping=true",
@@ -1667,15 +1667,15 @@
             "create_host_path": true
           },
           "read_only": true,
-          "source": "./traefik/sgp.yml",
-          "target": "/etc/traefik/dynamic.yml",
+          "source": "./traefik/sgp.json",
+          "target": "/etc/traefik/dynamic.json",
           "type": "bind"
         }
       ]
     },
     "traefik-usa1": {
       "command": [
-        "--providers.file.filename=/etc/traefik/dynamic.yml",
+        "--providers.file.filename=/etc/traefik/dynamic.json",
         "--providers.file.watch=true",
         "--entrypoints.web.address=:80",
         "--ping=true",
@@ -1705,8 +1705,8 @@
             "create_host_path": true
           },
           "read_only": true,
-          "source": "./traefik/usa1.yml",
-          "target": "/etc/traefik/dynamic.yml",
+          "source": "./traefik/usa1.json",
+          "target": "/etc/traefik/dynamic.json",
           "type": "bind"
         }
       ]

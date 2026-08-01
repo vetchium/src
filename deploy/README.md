@@ -15,7 +15,7 @@ On the Linux server:
 ```bash
 cp .env.example .env
 vi .env
-vi sgp/traefik.yml             # replace example hostnames if needed
+vi sgp/traefik.json            # replace example hostnames if needed
 
 make deploy REGION=sgp TAG=v1.2.3
 ```
@@ -48,7 +48,7 @@ migrations are then applied.
 
 Do not make MCP public merely by attaching it to `ingress`. Once OAuth/TLS and
 request policy are implemented, add a dedicated hostname router to the tenant's
-`traefik.yml` whose service URL is `http://mcp-server:8080`. The existing
+`traefik.json` whose service URL is `http://mcp-server:8080`. The existing
 `mcp_access` network already provides the private path from Traefik.
 
 ## Future WireGuard mesh

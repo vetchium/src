@@ -1,0 +1,128 @@
+{
+  "http": {
+    "routers": {
+      "orgs-api": {
+        "rule": "Host(`orgs.ind1.vetchium.com`) && (Path(`/api`) || PathPrefix(`/api/`))",
+        "service": "orgs-api",
+        "entryPoints": ["web"],
+        "priority": 100
+      },
+      "orgs-ui": {
+        "rule": "Host(`orgs.ind1.vetchium.com`)",
+        "service": "orgs-ui",
+        "entryPoints": ["web"]
+      },
+      "hub-api": {
+        "rule": "Host(`hub.ind1.vetchium.com`) && (Path(`/api`) || PathPrefix(`/api/`))",
+        "service": "hub-api",
+        "entryPoints": ["web"],
+        "priority": 100
+      },
+      "hub-ui": {
+        "rule": "Host(`hub.ind1.vetchium.com`)",
+        "service": "hub-ui",
+        "entryPoints": ["web"]
+      },
+      "admin-api": {
+        "rule": "Host(`admin.ind1.vetchium.com`) && (Path(`/api`) || PathPrefix(`/api/`))",
+        "service": "admin-api",
+        "entryPoints": ["web"],
+        "priority": 100
+      },
+      "admin-ui": {
+        "rule": "Host(`admin.ind1.vetchium.com`)",
+        "service": "admin-ui",
+        "entryPoints": ["web"]
+      }
+    },
+    "services": {
+      "orgs-api": {
+        "loadBalancer": {
+          "servers": [
+            {
+              "url": "http://orgs-api:8080"
+            }
+          ],
+          "healthCheck": {
+            "path": "/readyz",
+            "port": 8081,
+            "interval": "10s",
+            "timeout": "3s"
+          }
+        }
+      },
+      "hub-api": {
+        "loadBalancer": {
+          "servers": [
+            {
+              "url": "http://hub-api:8080"
+            }
+          ],
+          "healthCheck": {
+            "path": "/readyz",
+            "port": 8081,
+            "interval": "10s",
+            "timeout": "3s"
+          }
+        }
+      },
+      "admin-api": {
+        "loadBalancer": {
+          "servers": [
+            {
+              "url": "http://admin-api:8080"
+            }
+          ],
+          "healthCheck": {
+            "path": "/readyz",
+            "port": 8081,
+            "interval": "10s",
+            "timeout": "3s"
+          }
+        }
+      },
+      "orgs-ui": {
+        "loadBalancer": {
+          "servers": [
+            {
+              "url": "http://orgs-ui:8080"
+            }
+          ],
+          "healthCheck": {
+            "path": "/healthz",
+            "interval": "10s",
+            "timeout": "3s"
+          }
+        }
+      },
+      "hub-ui": {
+        "loadBalancer": {
+          "servers": [
+            {
+              "url": "http://hub-ui:8080"
+            }
+          ],
+          "healthCheck": {
+            "path": "/healthz",
+            "interval": "10s",
+            "timeout": "3s"
+          }
+        }
+      },
+      "admin-ui": {
+        "loadBalancer": {
+          "servers": [
+            {
+              "url": "http://admin-ui:8080"
+            }
+          ],
+          "healthCheck": {
+            "path": "/healthz",
+            "interval": "10s",
+            "timeout": "3s"
+          }
+        }
+      }
+    }
+  }
+}

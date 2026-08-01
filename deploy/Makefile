@@ -48,11 +48,11 @@ deploy:
 	fi
 
 	@set -e; \
-	hash=$$(sha256sum $(REGION)/traefik.yml | cut -c1-12); \
+	hash=$$(sha256sum $(REGION)/traefik.json | cut -c1-12); \
 	deploy_stack() { \
 		TRAEFIK_HASH=$$hash REGISTRY=$(REGISTRY) TAG=$(TAG) PGSSLMODE=$(PGSSLMODE) \
 		POSTGRES_USER=$(POSTGRES_USER) POSTGRES_DB=$(POSTGRES_DB) \
-		docker stack deploy --compose-file $(REGION)/stack.yml --with-registry-auth \
+		docker stack deploy --compose-file $(REGION)/stack.json --with-registry-auth \
 			--prune --detach=false $(REGION); \
 	}; \
 	db_task() { docker ps -q --filter "label=com.docker.swarm.service.name=$(REGION)_db" | head -1; }; \
