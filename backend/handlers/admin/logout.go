@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"backend/internal/auth"
+	"backend/internal/db/sqlc"
 	"backend/internal/httpx"
 	"backend/internal/middleware"
 	"backend/internal/server"
@@ -17,7 +18,10 @@ func Logout(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		deleted, err := s.AdminDB.DeleteAdminSession(r.Context(), identity.SessionTokenHash)
+		deleted, err := s.AdminDB.DeleteAdminSession(r.Context(), sqlc.DeleteAdminSessionParams{
+			AdminSessionID: identity.SessionID,
+			AdminUserID:    identity.UserID,
+		})
 		if err != nil {
 			adminLogger(s).ErrorContext(r.Context(), "delete admin session", "error", err)
 			httpx.WriteProblem(w, http.StatusInternalServerError, "The request could not be completed.")

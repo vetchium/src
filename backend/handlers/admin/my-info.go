@@ -1,13 +1,16 @@
 package admin
 
 import (
+	"errors"
 	"net/http"
 	"time"
 
 	"backend/internal/auth"
+	"backend/internal/db/sqlc"
 	"backend/internal/httpx"
 	"backend/internal/middleware"
 	"backend/internal/server"
+	"github.com/jackc/pgx/v5"
 )
 
 type myInfoResponse struct {
@@ -29,12 +32,25 @@ func MyInfo(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		admin := identity.Admin
+		admin, err := s.AdminDB.GetAdminMyInfo(r.Context(), sqlc.GetAdminMyInfoParams{
+			AdminSessionID: identity.SessionID,
+			AdminUserID:    identity.UserID,
+		})
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				httpx.WriteBearerProblem(w, auth.AdminBearerRealm, auth.ProblemTypeInvalidSession, "Invalid session", "The bearer token is invalid or expired.")
+				return
+			}
+			adminLogger(s).ErrorContext(r.Context(), "get admin my-info", "error", err)
+			httpx.WriteProblem(w, http.StatusInternalServerError, "The request could not be completed.")
+			return
+		}
+
 		response := myInfoResponse{
-			AdminUserID:      identity.UserID,
-			EmailAddress:     identity.EmailAddress,
-			DisplayName:      identity.DisplayName,
-			AdminUserState:   string(identity.AdminUserState),
+			AdminUserID:      admin.AdminUserID.String(),
+			EmailAddress:     admin.EmailAddress,
+			DisplayName:      admin.DisplayName,
+			AdminUserState:   string(admin.AdminUserState),
 			CreatedAt:        admin.CreatedAt.Time,
 			SessionExpiresAt: admin.ExpiresAt.Time,
 			TenantID:         s.TenantID,

@@ -7,21 +7,17 @@ import (
 	"net/http"
 
 	"backend/internal/auth"
-	"backend/internal/db/sqlc"
 	"backend/internal/httpx"
 	"backend/internal/server"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type adminIdentityContextKey struct{}
 
 type AdminIdentity struct {
-	UserID           string
-	EmailAddress     string
-	DisplayName      string
-	AdminUserState   sqlc.VetchiumAdminUserState
-	Admin            sqlc.GetAuthenticatedAdminRow
-	SessionTokenHash []byte
+	UserID    pgtype.UUID
+	SessionID pgtype.UUID
 }
 
 func AdminAuth(s *server.Server) func(http.Handler) http.Handler {
@@ -38,7 +34,7 @@ func AdminAuth(s *server.Server) func(http.Handler) http.Handler {
 				return
 			}
 
-			admin, err := s.AdminDB.GetAuthenticatedAdmin(r.Context(), auth.HashSessionToken(token))
+			session, err := s.AdminDB.AuthenticateAdminSession(r.Context(), auth.HashSessionToken(token))
 			if err != nil {
 				if errors.Is(err, pgx.ErrNoRows) {
 					writeUnauthorized(w, auth.ProblemTypeInvalidSession, "Invalid session", "The bearer token is invalid or expired.")
@@ -50,12 +46,8 @@ func AdminAuth(s *server.Server) func(http.Handler) http.Handler {
 			}
 
 			identity := AdminIdentity{
-				UserID:           admin.AdminUserID.String(),
-				EmailAddress:     admin.EmailAddress,
-				DisplayName:      admin.DisplayName,
-				AdminUserState:   admin.AdminUserState,
-				Admin:            admin,
-				SessionTokenHash: append([]byte(nil), admin.SessionTokenHash...),
+				UserID:    session.AdminUserID,
+				SessionID: session.AdminSessionID,
 			}
 			ctx := context.WithValue(r.Context(), adminIdentityContextKey{}, identity)
 			w.Header().Set("Cache-Control", "no-store")

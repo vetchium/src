@@ -11,6 +11,29 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const authenticateAdminSession = `-- name: AuthenticateAdminSession :one
+SELECT
+    u.admin_user_id,
+    s.admin_session_id
+FROM vetchium.admin_sessions AS s
+JOIN vetchium.admin_users AS u USING (admin_user_id)
+WHERE s.session_token_hash = $1
+  AND s.expires_at > now()
+  AND u.admin_user_state = 'active'
+`
+
+type AuthenticateAdminSessionRow struct {
+	AdminUserID    pgtype.UUID `json:"admin_user_id"`
+	AdminSessionID pgtype.UUID `json:"admin_session_id"`
+}
+
+func (q *Queries) AuthenticateAdminSession(ctx context.Context, sessionTokenHash []byte) (AuthenticateAdminSessionRow, error) {
+	row := q.db.QueryRow(ctx, authenticateAdminSession, sessionTokenHash)
+	var i AuthenticateAdminSessionRow
+	err := row.Scan(&i.AdminUserID, &i.AdminSessionID)
+	return i, err
+}
+
 const createAdminSession = `-- name: CreateAdminSession :one
 WITH updated_admin_user AS (
     UPDATE vetchium.admin_users AS u
@@ -51,11 +74,17 @@ func (q *Queries) CreateAdminSession(ctx context.Context, arg CreateAdminSession
 
 const deleteAdminSession = `-- name: DeleteAdminSession :execrows
 DELETE FROM vetchium.admin_sessions
-WHERE session_token_hash = $1
+WHERE admin_session_id = $1
+  AND admin_user_id = $2
 `
 
-func (q *Queries) DeleteAdminSession(ctx context.Context, sessionTokenHash []byte) (int64, error) {
-	result, err := q.db.Exec(ctx, deleteAdminSession, sessionTokenHash)
+type DeleteAdminSessionParams struct {
+	AdminSessionID pgtype.UUID `json:"admin_session_id"`
+	AdminUserID    pgtype.UUID `json:"admin_user_id"`
+}
+
+func (q *Queries) DeleteAdminSession(ctx context.Context, arg DeleteAdminSessionParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteAdminSession, arg.AdminSessionID, arg.AdminUserID)
 	if err != nil {
 		return 0, err
 	}
@@ -73,6 +102,53 @@ func (q *Queries) DeleteExpiredAdminSessions(ctx context.Context) (int64, error)
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const getAdminMyInfo = `-- name: GetAdminMyInfo :one
+SELECT
+    u.admin_user_id,
+    u.email_address,
+    u.display_name,
+    u.admin_user_state,
+    u.last_login_at,
+    u.created_at,
+    s.expires_at
+FROM vetchium.admin_sessions AS s
+JOIN vetchium.admin_users AS u USING (admin_user_id)
+WHERE s.admin_session_id = $1
+  AND u.admin_user_id = $2
+  AND s.expires_at > now()
+  AND u.admin_user_state = 'active'
+`
+
+type GetAdminMyInfoParams struct {
+	AdminSessionID pgtype.UUID `json:"admin_session_id"`
+	AdminUserID    pgtype.UUID `json:"admin_user_id"`
+}
+
+type GetAdminMyInfoRow struct {
+	AdminUserID    pgtype.UUID            `json:"admin_user_id"`
+	EmailAddress   string                 `json:"email_address"`
+	DisplayName    string                 `json:"display_name"`
+	AdminUserState VetchiumAdminUserState `json:"admin_user_state"`
+	LastLoginAt    pgtype.Timestamptz     `json:"last_login_at"`
+	CreatedAt      pgtype.Timestamptz     `json:"created_at"`
+	ExpiresAt      pgtype.Timestamptz     `json:"expires_at"`
+}
+
+func (q *Queries) GetAdminMyInfo(ctx context.Context, arg GetAdminMyInfoParams) (GetAdminMyInfoRow, error) {
+	row := q.db.QueryRow(ctx, getAdminMyInfo, arg.AdminSessionID, arg.AdminUserID)
+	var i GetAdminMyInfoRow
+	err := row.Scan(
+		&i.AdminUserID,
+		&i.EmailAddress,
+		&i.DisplayName,
+		&i.AdminUserState,
+		&i.LastLoginAt,
+		&i.CreatedAt,
+		&i.ExpiresAt,
+	)
+	return i, err
 }
 
 const getAdminUserForLogin = `-- name: GetAdminUserForLogin :one
@@ -103,53 +179,6 @@ func (q *Queries) GetAdminUserForLogin(ctx context.Context, emailAddress string)
 		&i.DisplayName,
 		&i.PasswordHash,
 		&i.AdminUserState,
-	)
-	return i, err
-}
-
-const getAuthenticatedAdmin = `-- name: GetAuthenticatedAdmin :one
-SELECT
-    u.admin_user_id,
-    u.email_address,
-    u.display_name,
-    u.admin_user_state,
-    u.last_login_at,
-    u.created_at,
-    s.admin_session_id,
-    s.session_token_hash,
-    s.expires_at
-FROM vetchium.admin_sessions AS s
-JOIN vetchium.admin_users AS u USING (admin_user_id)
-WHERE s.session_token_hash = $1
-  AND s.expires_at > now()
-  AND u.admin_user_state = 'active'
-`
-
-type GetAuthenticatedAdminRow struct {
-	AdminUserID      pgtype.UUID            `json:"admin_user_id"`
-	EmailAddress     string                 `json:"email_address"`
-	DisplayName      string                 `json:"display_name"`
-	AdminUserState   VetchiumAdminUserState `json:"admin_user_state"`
-	LastLoginAt      pgtype.Timestamptz     `json:"last_login_at"`
-	CreatedAt        pgtype.Timestamptz     `json:"created_at"`
-	AdminSessionID   pgtype.UUID            `json:"admin_session_id"`
-	SessionTokenHash []byte                 `json:"session_token_hash"`
-	ExpiresAt        pgtype.Timestamptz     `json:"expires_at"`
-}
-
-func (q *Queries) GetAuthenticatedAdmin(ctx context.Context, sessionTokenHash []byte) (GetAuthenticatedAdminRow, error) {
-	row := q.db.QueryRow(ctx, getAuthenticatedAdmin, sessionTokenHash)
-	var i GetAuthenticatedAdminRow
-	err := row.Scan(
-		&i.AdminUserID,
-		&i.EmailAddress,
-		&i.DisplayName,
-		&i.AdminUserState,
-		&i.LastLoginAt,
-		&i.CreatedAt,
-		&i.AdminSessionID,
-		&i.SessionTokenHash,
-		&i.ExpiresAt,
 	)
 	return i, err
 }

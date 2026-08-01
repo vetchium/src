@@ -9,11 +9,12 @@ import (
 )
 
 type Querier interface {
+	AuthenticateAdminSession(ctx context.Context, sessionTokenHash []byte) (AuthenticateAdminSessionRow, error)
 	CreateAdminSession(ctx context.Context, arg CreateAdminSessionParams) (CreateAdminSessionRow, error)
-	DeleteAdminSession(ctx context.Context, sessionTokenHash []byte) (int64, error)
+	DeleteAdminSession(ctx context.Context, arg DeleteAdminSessionParams) (int64, error)
 	DeleteExpiredAdminSessions(ctx context.Context) (int64, error)
+	GetAdminMyInfo(ctx context.Context, arg GetAdminMyInfoParams) (GetAdminMyInfoRow, error)
 	GetAdminUserForLogin(ctx context.Context, emailAddress string) (GetAdminUserForLoginRow, error)
-	GetAuthenticatedAdmin(ctx context.Context, sessionTokenHash []byte) (GetAuthenticatedAdminRow, error)
 }
 
 var _ Querier = (*Queries)(nil)

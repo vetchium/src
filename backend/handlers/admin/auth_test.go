@@ -24,9 +24,10 @@ import (
 
 type adminDBStub struct {
 	createAdminSession         func(context.Context, sqlc.CreateAdminSessionParams) (sqlc.CreateAdminSessionRow, error)
-	deleteAdminSession         func(context.Context, []byte) (int64, error)
+	deleteAdminSession         func(context.Context, sqlc.DeleteAdminSessionParams) (int64, error)
 	getAdminUserForLogin       func(context.Context, string) (sqlc.GetAdminUserForLoginRow, error)
-	getAuthenticatedAdmin      func(context.Context, []byte) (sqlc.GetAuthenticatedAdminRow, error)
+	authenticateAdminSession   func(context.Context, []byte) (sqlc.AuthenticateAdminSessionRow, error)
+	getAdminMyInfo             func(context.Context, sqlc.GetAdminMyInfoParams) (sqlc.GetAdminMyInfoRow, error)
 	deleteExpiredAdminSessions func(context.Context) (int64, error)
 }
 
@@ -34,8 +35,8 @@ func (s *adminDBStub) CreateAdminSession(ctx context.Context, arg sqlc.CreateAdm
 	return s.createAdminSession(ctx, arg)
 }
 
-func (s *adminDBStub) DeleteAdminSession(ctx context.Context, tokenHash []byte) (int64, error) {
-	return s.deleteAdminSession(ctx, tokenHash)
+func (s *adminDBStub) DeleteAdminSession(ctx context.Context, arg sqlc.DeleteAdminSessionParams) (int64, error) {
+	return s.deleteAdminSession(ctx, arg)
 }
 
 func (s *adminDBStub) DeleteExpiredAdminSessions(ctx context.Context) (int64, error) {
@@ -49,8 +50,12 @@ func (s *adminDBStub) GetAdminUserForLogin(ctx context.Context, email string) (s
 	return s.getAdminUserForLogin(ctx, email)
 }
 
-func (s *adminDBStub) GetAuthenticatedAdmin(ctx context.Context, tokenHash []byte) (sqlc.GetAuthenticatedAdminRow, error) {
-	return s.getAuthenticatedAdmin(ctx, tokenHash)
+func (s *adminDBStub) AuthenticateAdminSession(ctx context.Context, tokenHash []byte) (sqlc.AuthenticateAdminSessionRow, error) {
+	return s.authenticateAdminSession(ctx, tokenHash)
+}
+
+func (s *adminDBStub) GetAdminMyInfo(ctx context.Context, arg sqlc.GetAdminMyInfoParams) (sqlc.GetAdminMyInfoRow, error) {
+	return s.getAdminMyInfo(ctx, arg)
 }
 
 func TestLoginCreatesHashedSession(t *testing.T) {
@@ -147,30 +152,39 @@ func TestAuthenticatedMyInfoAndLogout(t *testing.T) {
 	token := "presented-session-token"
 	tokenHash := auth.HashSessionToken(token)
 	adminUserID := pgtype.UUID{Bytes: [16]byte{15: 7}, Valid: true}
+	adminSessionID := pgtype.UUID{Bytes: [16]byte{15: 8}, Valid: true}
 	createdAt := time.Date(2026, time.August, 1, 10, 0, 0, 0, time.UTC)
 	lastLoginAt := createdAt.Add(time.Hour)
 	sessionExpiresAt := createdAt.Add(24 * time.Hour)
 	deleted := false
 
 	db := &adminDBStub{}
-	db.getAuthenticatedAdmin = func(_ context.Context, gotHash []byte) (sqlc.GetAuthenticatedAdminRow, error) {
+	db.authenticateAdminSession = func(_ context.Context, gotHash []byte) (sqlc.AuthenticateAdminSessionRow, error) {
 		if !bytes.Equal(gotHash, tokenHash) {
 			t.Fatalf("auth hash = %x, want %x", gotHash, tokenHash)
 		}
-		return sqlc.GetAuthenticatedAdminRow{
-			AdminUserID:      adminUserID,
-			EmailAddress:     "admin@example.com",
-			DisplayName:      "Test Admin",
-			AdminUserState:   sqlc.VetchiumAdminUserStateActive,
-			LastLoginAt:      pgtype.Timestamptz{Time: lastLoginAt, Valid: true},
-			CreatedAt:        pgtype.Timestamptz{Time: createdAt, Valid: true},
-			ExpiresAt:        pgtype.Timestamptz{Time: sessionExpiresAt, Valid: true},
-			SessionTokenHash: append([]byte(nil), tokenHash...),
+		return sqlc.AuthenticateAdminSessionRow{
+			AdminUserID:    adminUserID,
+			AdminSessionID: adminSessionID,
 		}, nil
 	}
-	db.deleteAdminSession = func(_ context.Context, gotHash []byte) (int64, error) {
-		if !bytes.Equal(gotHash, tokenHash) {
-			t.Fatalf("deleted hash = %x, want %x", gotHash, tokenHash)
+	db.getAdminMyInfo = func(_ context.Context, arg sqlc.GetAdminMyInfoParams) (sqlc.GetAdminMyInfoRow, error) {
+		if arg.AdminUserID != adminUserID || arg.AdminSessionID != adminSessionID {
+			t.Fatalf("my-info identity = %+v, want user %v session %v", arg, adminUserID, adminSessionID)
+		}
+		return sqlc.GetAdminMyInfoRow{
+			AdminUserID:    adminUserID,
+			EmailAddress:   "admin@example.com",
+			DisplayName:    "Test Admin",
+			AdminUserState: sqlc.VetchiumAdminUserStateActive,
+			LastLoginAt:    pgtype.Timestamptz{Time: lastLoginAt, Valid: true},
+			CreatedAt:      pgtype.Timestamptz{Time: createdAt, Valid: true},
+			ExpiresAt:      pgtype.Timestamptz{Time: sessionExpiresAt, Valid: true},
+		}, nil
+	}
+	db.deleteAdminSession = func(_ context.Context, arg sqlc.DeleteAdminSessionParams) (int64, error) {
+		if arg.AdminUserID != adminUserID || arg.AdminSessionID != adminSessionID {
+			t.Fatalf("deleted identity = %+v, want user %v session %v", arg, adminUserID, adminSessionID)
 		}
 		deleted = true
 		return 1, nil
@@ -214,9 +228,9 @@ func TestAuthenticatedMyInfoAndLogout(t *testing.T) {
 
 func TestAdminAuthRequiresBearerToken(t *testing.T) {
 	db := &adminDBStub{
-		getAuthenticatedAdmin: func(context.Context, []byte) (sqlc.GetAuthenticatedAdminRow, error) {
-			t.Fatal("GetAuthenticatedAdmin called without bearer token")
-			return sqlc.GetAuthenticatedAdminRow{}, nil
+		authenticateAdminSession: func(context.Context, []byte) (sqlc.AuthenticateAdminSessionRow, error) {
+			t.Fatal("AuthenticateAdminSession called without bearer token")
+			return sqlc.AuthenticateAdminSessionRow{}, nil
 		},
 	}
 	handler := middleware.AdminAuth(testServer(db))(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
@@ -235,8 +249,8 @@ func TestAdminAuthRequiresBearerToken(t *testing.T) {
 
 func TestAdminAuthRejectsInvalidBearerToken(t *testing.T) {
 	db := &adminDBStub{
-		getAuthenticatedAdmin: func(context.Context, []byte) (sqlc.GetAuthenticatedAdminRow, error) {
-			return sqlc.GetAuthenticatedAdminRow{}, pgx.ErrNoRows
+		authenticateAdminSession: func(context.Context, []byte) (sqlc.AuthenticateAdminSessionRow, error) {
+			return sqlc.AuthenticateAdminSessionRow{}, pgx.ErrNoRows
 		},
 	}
 	handler := middleware.AdminAuth(testServer(db))(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
@@ -246,6 +260,34 @@ func TestAdminAuthRejectsInvalidBearerToken(t *testing.T) {
 	request.Header.Set("Authorization", "Bearer invalid-token")
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
+	assertProblem(t, response, http.StatusUnauthorized, auth.ProblemTypeInvalidSession, "Invalid session", "The bearer token is invalid or expired.")
+}
+
+func TestMyInfoRejectsSessionInvalidatedAfterAuthentication(t *testing.T) {
+	adminUserID := pgtype.UUID{Bytes: [16]byte{15: 7}, Valid: true}
+	adminSessionID := pgtype.UUID{Bytes: [16]byte{15: 8}, Valid: true}
+	db := &adminDBStub{
+		authenticateAdminSession: func(context.Context, []byte) (sqlc.AuthenticateAdminSessionRow, error) {
+			return sqlc.AuthenticateAdminSessionRow{
+				AdminUserID:    adminUserID,
+				AdminSessionID: adminSessionID,
+			}, nil
+		},
+		getAdminMyInfo: func(_ context.Context, arg sqlc.GetAdminMyInfoParams) (sqlc.GetAdminMyInfoRow, error) {
+			if arg.AdminUserID != adminUserID || arg.AdminSessionID != adminSessionID {
+				t.Fatalf("my-info identity = %+v, want user %v session %v", arg, adminUserID, adminSessionID)
+			}
+			return sqlc.GetAdminMyInfoRow{}, pgx.ErrNoRows
+		},
+	}
+
+	s := testServer(db)
+	handler := middleware.AdminAuth(s)(MyInfo(s))
+	request := httptest.NewRequest(http.MethodGet, "/api/admin/my-info", nil)
+	request.Header.Set("Authorization", "Bearer valid-then-invalidated")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
 	assertProblem(t, response, http.StatusUnauthorized, auth.ProblemTypeInvalidSession, "Invalid session", "The bearer token is invalid or expired.")
 }
 

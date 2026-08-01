@@ -26,7 +26,17 @@ SELECT $1, u.admin_user_id, $3
 FROM updated_admin_user AS u
 RETURNING admin_session_id, created_at, expires_at;
 
--- name: GetAuthenticatedAdmin :one
+-- name: AuthenticateAdminSession :one
+SELECT
+    u.admin_user_id,
+    s.admin_session_id
+FROM vetchium.admin_sessions AS s
+JOIN vetchium.admin_users AS u USING (admin_user_id)
+WHERE s.session_token_hash = $1
+  AND s.expires_at > now()
+  AND u.admin_user_state = 'active';
+
+-- name: GetAdminMyInfo :one
 SELECT
     u.admin_user_id,
     u.email_address,
@@ -34,18 +44,18 @@ SELECT
     u.admin_user_state,
     u.last_login_at,
     u.created_at,
-    s.admin_session_id,
-    s.session_token_hash,
     s.expires_at
 FROM vetchium.admin_sessions AS s
 JOIN vetchium.admin_users AS u USING (admin_user_id)
-WHERE s.session_token_hash = $1
+WHERE s.admin_session_id = $1
+  AND u.admin_user_id = $2
   AND s.expires_at > now()
   AND u.admin_user_state = 'active';
 
 -- name: DeleteAdminSession :execrows
 DELETE FROM vetchium.admin_sessions
-WHERE session_token_hash = $1;
+WHERE admin_session_id = $1
+  AND admin_user_id = $2;
 
 -- name: DeleteExpiredAdminSessions :execrows
 DELETE FROM vetchium.admin_sessions
