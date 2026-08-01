@@ -77,7 +77,8 @@
   "services": {
     "admin-api-deu": {
       "build": {
-        "context": "backend",
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
         "target": "admin-api"
       },
       "depends_on": {
@@ -119,7 +120,8 @@
     },
     "admin-api-ind1": {
       "build": {
-        "context": "backend",
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
         "target": "admin-api"
       },
       "depends_on": {
@@ -161,7 +163,8 @@
     },
     "admin-api-sgp": {
       "build": {
-        "context": "backend",
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
         "target": "admin-api"
       },
       "depends_on": {
@@ -203,7 +206,8 @@
     },
     "admin-api-usa1": {
       "build": {
-        "context": "backend",
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
         "target": "admin-api"
       },
       "depends_on": {
@@ -577,7 +581,8 @@
     },
     "hub-api-deu": {
       "build": {
-        "context": "backend",
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
         "target": "hub-api"
       },
       "depends_on": {
@@ -618,7 +623,8 @@
     },
     "hub-api-ind1": {
       "build": {
-        "context": "backend",
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
         "target": "hub-api"
       },
       "depends_on": {
@@ -659,7 +665,8 @@
     },
     "hub-api-sgp": {
       "build": {
-        "context": "backend",
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
         "target": "hub-api"
       },
       "depends_on": {
@@ -700,7 +707,8 @@
     },
     "hub-api-usa1": {
       "build": {
-        "context": "backend",
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
         "target": "hub-api"
       },
       "depends_on": {
@@ -781,7 +789,8 @@
     },
     "mcp-server-deu": {
       "build": {
-        "context": "backend",
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
         "target": "mcp-server"
       },
       "depends_on": {
@@ -824,7 +833,8 @@
     },
     "mcp-server-ind1": {
       "build": {
-        "context": "backend",
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
         "target": "mcp-server"
       },
       "depends_on": {
@@ -867,7 +877,8 @@
     },
     "mcp-server-sgp": {
       "build": {
-        "context": "backend",
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
         "target": "mcp-server"
       },
       "depends_on": {
@@ -910,7 +921,8 @@
     },
     "mcp-server-usa1": {
       "build": {
-        "context": "backend",
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
         "target": "mcp-server"
       },
       "depends_on": {
@@ -953,7 +965,8 @@
     },
     "mesh-api-deu": {
       "build": {
-        "context": "backend",
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
         "target": "mesh-api"
       },
       "depends_on": {
@@ -994,7 +1007,8 @@
     },
     "mesh-api-ind1": {
       "build": {
-        "context": "backend",
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
         "target": "mesh-api"
       },
       "depends_on": {
@@ -1035,7 +1049,8 @@
     },
     "mesh-api-sgp": {
       "build": {
-        "context": "backend",
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
         "target": "mesh-api"
       },
       "depends_on": {
@@ -1076,7 +1091,8 @@
     },
     "mesh-api-usa1": {
       "build": {
-        "context": "backend",
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
         "target": "mesh-api"
       },
       "depends_on": {
@@ -1197,7 +1213,8 @@
     },
     "orgs-api-deu": {
       "build": {
-        "context": "backend",
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
         "target": "orgs-api"
       },
       "depends_on": {
@@ -1238,7 +1255,8 @@
     },
     "orgs-api-ind1": {
       "build": {
-        "context": "backend",
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
         "target": "orgs-api"
       },
       "depends_on": {
@@ -1279,7 +1297,8 @@
     },
     "orgs-api-sgp": {
       "build": {
-        "context": "backend",
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
         "target": "orgs-api"
       },
       "depends_on": {
@@ -1320,7 +1339,8 @@
     },
     "orgs-api-usa1": {
       "build": {
-        "context": "backend",
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
         "target": "orgs-api"
       },
       "depends_on": {
@@ -1717,7 +1737,8 @@
     },
     "workers-deu": {
       "build": {
-        "context": "backend",
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
         "target": "workers"
       },
       "depends_on": {
@@ -1757,7 +1778,8 @@
     },
     "workers-ind1": {
       "build": {
-        "context": "backend",
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
         "target": "workers"
       },
       "depends_on": {
@@ -1797,7 +1819,8 @@
     },
     "workers-sgp": {
       "build": {
-        "context": "backend",
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
         "target": "workers"
       },
       "depends_on": {
@@ -1837,7 +1860,8 @@
     },
     "workers-usa1": {
       "build": {
-        "context": "backend",
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
         "target": "workers"
       },
       "depends_on": {

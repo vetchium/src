@@ -43,7 +43,7 @@ sqlc-verify: sqlc
 		exit 1; \
 	}
 
-# Build validation for CI; keep results only in BuildKit's cache.
+# Build validation; keep results only in BuildKit's cache.
 docker:
 	@docker buildx inspect $(BUILDER) >/dev/null 2>&1 || \
 		docker buildx create --name $(BUILDER) --driver docker-container --bootstrap >/dev/null

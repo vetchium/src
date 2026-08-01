@@ -1,0 +1,6 @@
+**
+!backend/
+!backend/**
+!db/
+!db/migrations/
+!db/migrations/**

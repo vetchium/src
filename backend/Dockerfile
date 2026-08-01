@@ -4,13 +4,22 @@ FROM golang:1.25.7-alpine@sha256:f6751d823c26342f9506c03797d2527668d095b0a15f186
 
 ARG VERSION=dev
 
-WORKDIR /src
+WORKDIR /src/backend
 
-COPY go.mod go.sum ./
+COPY backend/go.mod backend/go.sum ./
 RUN --mount=type=cache,target=/go/pkg/mod \
     go mod download
 
-COPY . .
+COPY backend/ .
+COPY db/migrations /src/db/migrations
+
+# Generated database access is always rebuilt from the SQL sources in this
+# image. Removing the committed output first prevents files for deleted queries
+# from surviving into a production build.
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    rm -rf internal/db/sqlc && \
+    go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.29.0 generate
 
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \

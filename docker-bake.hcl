@@ -31,6 +31,8 @@ target "_common" {
 
 target "_backend" {
   inherits = ["_common"]
+  context = "."
+  dockerfile = "backend/Dockerfile"
   args = {
     VERSION = TAG
   }
@@ -38,42 +40,36 @@ target "_backend" {
 
 target "admin-api" {
   inherits = ["_backend"]
-  context = "backend"
   target  = "admin-api"
   tags    = ["${REGISTRY}/admin-api:${TAG}"]
 }
 
 target "hub-api" {
   inherits = ["_backend"]
-  context = "backend"
   target  = "hub-api"
   tags    = ["${REGISTRY}/hub-api:${TAG}"]
 }
 
 target "orgs-api" {
   inherits = ["_backend"]
-  context = "backend"
   target  = "orgs-api"
   tags    = ["${REGISTRY}/orgs-api:${TAG}"]
 }
 
 target "mesh-api" {
   inherits = ["_backend"]
-  context = "backend"
   target  = "mesh-api"
   tags    = ["${REGISTRY}/mesh-api:${TAG}"]
 }
 
 target "mcp-server" {
   inherits = ["_backend"]
-  context = "backend"
   target  = "mcp-server"
   tags    = ["${REGISTRY}/mcp-server:${TAG}"]
 }
 
 target "workers" {
   inherits = ["_backend"]
-  context = "backend"
   target  = "workers"
   tags    = ["${REGISTRY}/workers:${TAG}"]
 }

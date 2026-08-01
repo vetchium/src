@@ -42,7 +42,9 @@ make sqlc-verify
 ```
 
 The Makefile pins the sqlc version used for generation. `sqlc-verify` fails if
-regeneration changes committed generated files.
+regeneration changes committed generated files. Backend Docker builds do not
+trust that committed copy: they delete it and regenerate from the queries and
+migrations before compiling every backend binary.
 
 ## Development admin credentials
 
