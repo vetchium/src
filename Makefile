@@ -32,4 +32,3 @@ publish:
 
 clean:
 	docker compose down --remove-orphans --volumes
-	rm -rf .pgdata

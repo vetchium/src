@@ -37,6 +37,29 @@ func TestLoad(t *testing.T) {
 	}
 }
 
+func TestLoadUsesConfiguredSSLMode(t *testing.T) {
+	passwordFile := filepath.Join(t.TempDir(), "password")
+	if err := os.WriteFile(passwordFile, []byte("secret"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Setenv("TENANT_ID", "sgp")
+	t.Setenv("PGHOST", "db")
+	t.Setenv("PGPORT", "5432")
+	t.Setenv("PGUSER", "pguser")
+	t.Setenv("PGDATABASE", "tenant_db")
+	t.Setenv("PGPASSWORD_FILE", passwordFile)
+	t.Setenv("PGSSLMODE", "verify-full")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(cfg.DatabaseURL, "sslmode=verify-full") {
+		t.Fatalf("DatabaseURL = %q, want configured sslmode", cfg.DatabaseURL)
+	}
+}
+
 func TestLoadRequiresEverySetting(t *testing.T) {
 	passwordFile := filepath.Join(t.TempDir(), "password")
 	if err := os.WriteFile(passwordFile, []byte("secret"), 0o600); err != nil {

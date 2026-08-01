@@ -44,14 +44,20 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("read PGPASSWORD_FILE: %w", err)
 	}
 	password := strings.TrimRight(string(value), "\r\n")
+	sslMode := os.Getenv("PGSSLMODE")
+	if sslMode == "" {
+		sslMode = "disable"
+	}
 
 	u := &url.URL{
-		Scheme:   "postgres",
-		User:     url.UserPassword(user, password),
-		Host:     net.JoinHostPort(host, port),
-		Path:     "/" + database,
-		RawQuery: "sslmode=disable",
+		Scheme: "postgres",
+		User:   url.UserPassword(user, password),
+		Host:   net.JoinHostPort(host, port),
+		Path:   "/" + database,
 	}
+	query := u.Query()
+	query.Set("sslmode", sslMode)
+	u.RawQuery = query.Encode()
 
 	return Config{TenantID: tenantID, DatabaseURL: u.String()}, nil
 }

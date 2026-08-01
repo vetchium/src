@@ -41,17 +41,17 @@ http:
     orgs-api:
       loadBalancer:
         servers: [{url: http://orgs-api:8080}]
-        healthCheck: {path: /api/readyz, interval: 10s, timeout: 3s}
+        healthCheck: {path: /readyz, port: 8081, interval: 10s, timeout: 3s}
 
     hub-api:
       loadBalancer:
         servers: [{url: http://hub-api:8080}]
-        healthCheck: {path: /api/readyz, interval: 10s, timeout: 3s}
+        healthCheck: {path: /readyz, port: 8081, interval: 10s, timeout: 3s}
 
     admin-api:
       loadBalancer:
         servers: [{url: http://admin-api:8080}]
-        healthCheck: {path: /api/readyz, interval: 10s, timeout: 3s}
+        healthCheck: {path: /readyz, port: 8081, interval: 10s, timeout: 3s}
 
     orgs-ui:
       loadBalancer:

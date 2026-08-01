@@ -8,5 +8,5 @@ import (
 )
 
 func RegisterAPIHealthRoute(mux *http.ServeMux, s *server.Server) {
-	mux.HandleFunc("GET /api/readyz", health.Ready(s))
+	mux.HandleFunc("GET /readyz", health.Ready(s))
 }

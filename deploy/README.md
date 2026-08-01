@@ -21,9 +21,10 @@ make deploy REGION=sgp TAG=v1.2.3
 ```
 
 The Makefile initializes Swarm when necessary and creates the tenant database
-secret on first use. Tags must be immutable; `latest` and `dev` are rejected.
+secrets on first use. Tags must be immutable; `latest` and `dev` are rejected.
 `POSTGRES_USER` and `POSTGRES_DB` are required. `REGISTRY` defaults to
-`ghcr.io/vetchium`, and `HTTP_PORT` defaults to `80`.
+`ghcr.io/vetchium`, `HTTP_PORT` defaults to `80`, and `PGSSLMODE` defaults to
+`disable` until PostgreSQL TLS is configured.
 
 For an existing stack, migrations run before `docker stack deploy`. A failed
 migration leaves the running stack untouched. On the first deployment, the
@@ -38,11 +39,9 @@ PostgreSQL becomes ready, and migrations are then applied.
 - `mesh-api`: private `mesh` plus `backend`; no published port and no ingress.
 - `mcp-server`: private `mcp_access` plus `backend`; Traefik can reach the
   network, but no MCP router is configured by default.
-- `workers`: `backend` only, one replica per tenant, a scheduler leader lock,
-  and per-task PostgreSQL advisory locks.
-
-Database pool sizes are kept small per role so their aggregate stays within
-PostgreSQL's connection budget.
+- `workers`: `backend` only and exactly one replica per tenant. The current
+  heartbeat loop has no distributed coordination, so do not scale this service
+  beyond one replica until task-level locking is implemented.
 
 ## MCP publication
 
@@ -62,9 +61,11 @@ membership but is not sufficient request authorization by itself.
 
 ## Secrets and migrations
 
-The PostgreSQL password is a Swarm secret mounted at
-`/run/secrets/postgres_password`. Backend services use `PGPASSWORD_FILE`, so the
-secret does not appear in service environment variables.
+PostgreSQL administrator and application credentials are separate Swarm
+secrets. Migrations connect as `POSTGRES_USER`; runtime services use
+`PGPASSWORD_FILE` with the DML-only `vetchium_app` role, so neither password
+appears in service environment variables. `make deploy` provisions the role
+before applying migrations.
 
 The migration container is a one-shot plain container because Swarm has no Job
 primitive. The Makefile reads the secret from the database task into a

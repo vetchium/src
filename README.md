@@ -108,11 +108,14 @@ handling real synchronization requests.
 ## Configuration
 
 Every backend role requires `TENANT_ID`, `PGHOST`, `PGPORT`, `PGUSER`,
-`PGDATABASE`, and `PGPASSWORD_FILE`. The database name is supplied by
+`PGDATABASE`, and `PGPASSWORD_FILE`. `PGSSLMODE` controls PostgreSQL transport
+security and defaults to `disable`. The database name is supplied by
 `PGDATABASE`; the password is read only from the referenced file.
 
-Local Compose creates the mounted password config from `POSTGRES_PASSWORD`, so
-PostgreSQL, migrations, seeds, and backend services all use the same value.
+Local Compose uses `POSTGRES_PASSWORD` for the administrator connection used by
+PostgreSQL, migrations, and seeds. Runtime services connect as the DML-only
+`vetchium_app` role with a separate mounted value from
+`APP_POSTGRES_PASSWORD`.
 
 ## Publishing
 

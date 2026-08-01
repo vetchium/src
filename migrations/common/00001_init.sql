@@ -30,6 +30,27 @@ CREATE TABLE hub_users (
 -- org" and the FK check on org deletion would be sequential scans without this.
 CREATE INDEX hub_users_org_id_idx ON hub_users (org_id);
 
+-- Runtime services connect as a role that may use existing schema objects but
+-- cannot create or own them. Migrations continue to run as the PostgreSQL
+-- administrator.
+REVOKE CREATE ON SCHEMA public FROM PUBLIC;
+REVOKE CREATE ON SCHEMA public FROM vetchium_app;
+GRANT USAGE ON SCHEMA public TO vetchium_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE orgs, hub_users TO vetchium_app;
+GRANT USAGE, SELECT ON SEQUENCE orgs_id_seq, hub_users_id_seq TO vetchium_app;
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO vetchium_app;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+    GRANT USAGE, SELECT ON SEQUENCES TO vetchium_app;
+
 -- +goose Down
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+    REVOKE SELECT, INSERT, UPDATE, DELETE ON TABLES FROM vetchium_app;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+    REVOKE USAGE, SELECT ON SEQUENCES FROM vetchium_app;
+REVOKE ALL PRIVILEGES ON TABLE orgs, hub_users FROM vetchium_app;
+REVOKE ALL PRIVILEGES ON SEQUENCE orgs_id_seq, hub_users_id_seq FROM vetchium_app;
+REVOKE USAGE ON SCHEMA public FROM vetchium_app;
 DROP TABLE IF EXISTS hub_users;
 DROP TABLE IF EXISTS orgs;

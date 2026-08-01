@@ -48,6 +48,14 @@ x-migrate: &migrate
   restart: "no"
   read_only: true
 
+x-provision-app-role: &provision-app-role
+  <<: *hardening
+  image: postgres:17.6-alpine
+  restart: "no"
+  read_only: true
+  command: [psql, --no-password, -v, ON_ERROR_STOP=1, -f, /provision/provision-app-role.sql]
+  volumes: [./migrations/provision-app-role.sql:/provision/provision-app-role.sql:ro]
+
 x-seed: &seed
   <<: *hardening
   image: postgres:17.6-alpine
@@ -60,8 +68,8 @@ x-backend: &backend
   restart: unless-stopped
   read_only: true
   configs:
-    - source: postgres_password
-      target: /run/secrets/postgres_password
+    - source: app_postgres_password
+      target: /run/secrets/app_postgres_password
   healthcheck:
     test: [CMD, /service, readycheck]
     interval: 10s
@@ -73,33 +81,37 @@ x-backend-sgp-env: &backend-sgp-env
   TENANT_ID: sgp
   PGHOST: db-sgp
   PGPORT: "5432"
-  PGUSER: ${POSTGRES_USER:-pguser}
+  PGUSER: vetchium_app
   PGDATABASE: ${POSTGRES_DB:-tenant_db}
-  PGPASSWORD_FILE: /run/secrets/postgres_password
+  PGPASSWORD_FILE: /run/secrets/app_postgres_password
+  PGSSLMODE: ${PGSSLMODE:-disable}
 
 x-backend-usa1-env: &backend-usa1-env
   TENANT_ID: usa1
   PGHOST: db-usa1
   PGPORT: "5432"
-  PGUSER: ${POSTGRES_USER:-pguser}
+  PGUSER: vetchium_app
   PGDATABASE: ${POSTGRES_DB:-tenant_db}
-  PGPASSWORD_FILE: /run/secrets/postgres_password
+  PGPASSWORD_FILE: /run/secrets/app_postgres_password
+  PGSSLMODE: ${PGSSLMODE:-disable}
 
 x-backend-deu-env: &backend-deu-env
   TENANT_ID: deu
   PGHOST: db-deu
   PGPORT: "5432"
-  PGUSER: ${POSTGRES_USER:-pguser}
+  PGUSER: vetchium_app
   PGDATABASE: ${POSTGRES_DB:-tenant_db}
-  PGPASSWORD_FILE: /run/secrets/postgres_password
+  PGPASSWORD_FILE: /run/secrets/app_postgres_password
+  PGSSLMODE: ${PGSSLMODE:-disable}
 
 x-backend-ind1-env: &backend-ind1-env
   TENANT_ID: ind1
   PGHOST: db-ind1
   PGPORT: "5432"
-  PGUSER: ${POSTGRES_USER:-pguser}
+  PGUSER: vetchium_app
   PGDATABASE: ${POSTGRES_DB:-tenant_db}
-  PGPASSWORD_FILE: /run/secrets/postgres_password
+  PGPASSWORD_FILE: /run/secrets/app_postgres_password
+  PGSSLMODE: ${PGSSLMODE:-disable}
 
 x-ui: &ui
   <<: *hardening
@@ -117,12 +129,23 @@ services:
     networks: [sgp_backend]
     volumes: [pgdata-sgp:/var/lib/postgresql/data]
 
+  provision-app-role-sgp:
+    <<: *provision-app-role
+    environment:
+      PGHOST: db-sgp
+      PGUSER: ${POSTGRES_USER:-pguser}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-pgpassword}
+      PGDATABASE: ${POSTGRES_DB:-tenant_db}
+      APP_POSTGRES_PASSWORD: ${APP_POSTGRES_PASSWORD:-app_pgpassword}
+    networks: [sgp_backend]
+    depends_on: {db-sgp: {condition: service_healthy}}
+
   migrate-sgp:
     <<: *migrate
     environment:
-      GOOSE_DBSTRING: postgres://${POSTGRES_USER:-pguser}:${POSTGRES_PASSWORD:-pgpassword}@db-sgp:5432/${POSTGRES_DB:-tenant_db}?sslmode=disable
+      GOOSE_DBSTRING: postgres://${POSTGRES_USER:-pguser}:${POSTGRES_PASSWORD:-pgpassword}@db-sgp:5432/${POSTGRES_DB:-tenant_db}?sslmode=${PGSSLMODE:-disable}
     networks: [sgp_backend]
-    depends_on: {db-sgp: {condition: service_healthy}}
+    depends_on: {provision-app-role-sgp: {condition: service_completed_successfully}}
 
   seed-sgp:
     <<: *seed
@@ -201,12 +224,22 @@ services:
     <<: *db
     networks: [usa1_backend]
     volumes: [pgdata-usa1:/var/lib/postgresql/data]
+  provision-app-role-usa1:
+    <<: *provision-app-role
+    environment:
+      PGHOST: db-usa1
+      PGUSER: ${POSTGRES_USER:-pguser}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-pgpassword}
+      PGDATABASE: ${POSTGRES_DB:-tenant_db}
+      APP_POSTGRES_PASSWORD: ${APP_POSTGRES_PASSWORD:-app_pgpassword}
+    networks: [usa1_backend]
+    depends_on: {db-usa1: {condition: service_healthy}}
   migrate-usa1:
     <<: *migrate
     environment:
-      GOOSE_DBSTRING: postgres://${POSTGRES_USER:-pguser}:${POSTGRES_PASSWORD:-pgpassword}@db-usa1:5432/${POSTGRES_DB:-tenant_db}?sslmode=disable
+      GOOSE_DBSTRING: postgres://${POSTGRES_USER:-pguser}:${POSTGRES_PASSWORD:-pgpassword}@db-usa1:5432/${POSTGRES_DB:-tenant_db}?sslmode=${PGSSLMODE:-disable}
     networks: [usa1_backend]
-    depends_on: {db-usa1: {condition: service_healthy}}
+    depends_on: {provision-app-role-usa1: {condition: service_completed_successfully}}
   seed-usa1:
     <<: *seed
     environment:
@@ -277,12 +310,22 @@ services:
     <<: *db
     networks: [deu_backend]
     volumes: [pgdata-deu:/var/lib/postgresql/data]
+  provision-app-role-deu:
+    <<: *provision-app-role
+    environment:
+      PGHOST: db-deu
+      PGUSER: ${POSTGRES_USER:-pguser}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-pgpassword}
+      PGDATABASE: ${POSTGRES_DB:-tenant_db}
+      APP_POSTGRES_PASSWORD: ${APP_POSTGRES_PASSWORD:-app_pgpassword}
+    networks: [deu_backend]
+    depends_on: {db-deu: {condition: service_healthy}}
   migrate-deu:
     <<: *migrate
     environment:
-      GOOSE_DBSTRING: postgres://${POSTGRES_USER:-pguser}:${POSTGRES_PASSWORD:-pgpassword}@db-deu:5432/${POSTGRES_DB:-tenant_db}?sslmode=disable
+      GOOSE_DBSTRING: postgres://${POSTGRES_USER:-pguser}:${POSTGRES_PASSWORD:-pgpassword}@db-deu:5432/${POSTGRES_DB:-tenant_db}?sslmode=${PGSSLMODE:-disable}
     networks: [deu_backend]
-    depends_on: {db-deu: {condition: service_healthy}}
+    depends_on: {provision-app-role-deu: {condition: service_completed_successfully}}
   seed-deu:
     <<: *seed
     environment:
@@ -353,12 +396,22 @@ services:
     <<: *db
     networks: [ind1_backend]
     volumes: [pgdata-ind1:/var/lib/postgresql/data]
+  provision-app-role-ind1:
+    <<: *provision-app-role
+    environment:
+      PGHOST: db-ind1
+      PGUSER: ${POSTGRES_USER:-pguser}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-pgpassword}
+      PGDATABASE: ${POSTGRES_DB:-tenant_db}
+      APP_POSTGRES_PASSWORD: ${APP_POSTGRES_PASSWORD:-app_pgpassword}
+    networks: [ind1_backend]
+    depends_on: {db-ind1: {condition: service_healthy}}
   migrate-ind1:
     <<: *migrate
     environment:
-      GOOSE_DBSTRING: postgres://${POSTGRES_USER:-pguser}:${POSTGRES_PASSWORD:-pgpassword}@db-ind1:5432/${POSTGRES_DB:-tenant_db}?sslmode=disable
+      GOOSE_DBSTRING: postgres://${POSTGRES_USER:-pguser}:${POSTGRES_PASSWORD:-pgpassword}@db-ind1:5432/${POSTGRES_DB:-tenant_db}?sslmode=${PGSSLMODE:-disable}
     networks: [ind1_backend]
-    depends_on: {db-ind1: {condition: service_healthy}}
+    depends_on: {provision-app-role-ind1: {condition: service_completed_successfully}}
   seed-ind1:
     <<: *seed
     environment:
@@ -469,3 +522,5 @@ volumes:
 configs:
   postgres_password:
     content: ${POSTGRES_PASSWORD:-pgpassword}
+  app_postgres_password:
+    content: ${APP_POSTGRES_PASSWORD:-app_pgpassword}

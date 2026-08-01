@@ -34,10 +34,11 @@ x-backend: &backend
     TENANT_ID: ind1
     PGHOST: db
     PGPORT: "5432"
-    PGUSER: ${POSTGRES_USER:?set POSTGRES_USER}
+    PGUSER: vetchium_app
     PGDATABASE: ${POSTGRES_DB:?set POSTGRES_DB}
-    PGPASSWORD_FILE: /run/secrets/postgres_password
-  secrets: [postgres_password]
+    PGPASSWORD_FILE: /run/secrets/app_postgres_password
+    PGSSLMODE: ${PGSSLMODE:-disable}
+  secrets: [app_postgres_password]
   healthcheck:
     test: [CMD, /service, readycheck]
     interval: 10s
@@ -87,7 +88,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER}
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
       POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
-    secrets: [postgres_password]
+    secrets: [postgres_password, app_postgres_password]
     networks: [backend]
     volumes: [pgdata:/var/lib/postgresql/data]
     healthcheck:
@@ -224,3 +225,6 @@ secrets:
   postgres_password:
     external: true
     name: ind1_postgres_password
+  app_postgres_password:
+    external: true
+    name: ind1_app_postgres_password

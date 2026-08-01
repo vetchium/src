@@ -11,6 +11,7 @@ export
 
 REGISTRY  ?= ghcr.io/vetchium
 HTTP_PORT ?= 80
+PGSSLMODE ?= disable
 
 .PHONY: deploy
 
@@ -26,14 +27,30 @@ deploy:
 	@docker info --format '{{.Swarm.ControlAvailable}}' | grep -qx true || \
 		{ echo "this host is a swarm worker, not a manager"; exit 1; }
 
-	@docker secret inspect $(REGION)_postgres_password >/dev/null 2>&1 || \
-		openssl rand -base64 32 | tr -d '\n' | \
-		docker secret create $(REGION)_postgres_password - >/dev/null
+	@set -e; \
+	admin_secret=$(REGION)_postgres_password; \
+	app_secret=$(REGION)_app_postgres_password; \
+	if ! docker secret inspect "$$admin_secret" >/dev/null 2>&1; then \
+		if docker secret inspect "$$app_secret" >/dev/null 2>&1; then \
+			echo "$$app_secret exists without $$admin_secret; refusing inconsistent credentials"; \
+			exit 1; \
+		fi; \
+		pw=$$(openssl rand -base64 32 | tr -d '\n'); \
+		printf '%s' "$$pw" | docker secret create "$$admin_secret" - >/dev/null; \
+		app_pw=$$(printf 'vetchium_app:%s' "$$pw" | sha256sum | cut -d ' ' -f1); \
+		printf '%s' "$$app_pw" | docker secret create "$$app_secret" - >/dev/null; \
+	elif ! docker secret inspect "$$app_secret" >/dev/null 2>&1; then \
+		cid=$$(docker ps -q --filter "label=com.docker.swarm.service.name=$(REGION)_db" | head -1); \
+		test -n "$$cid" || { echo "cannot derive $$app_secret: no running database task"; exit 1; }; \
+		pw=$$(docker exec "$$cid" cat /run/secrets/postgres_password); \
+		app_pw=$$(printf 'vetchium_app:%s' "$$pw" | sha256sum | cut -d ' ' -f1); \
+		printf '%s' "$$app_pw" | docker secret create "$$app_secret" - >/dev/null; \
+	fi
 
 	@set -e; \
 	hash=$$(sha256sum $(REGION)/traefik.yml | cut -c1-12); \
 	deploy_stack() { \
-		TRAEFIK_HASH=$$hash REGISTRY=$(REGISTRY) TAG=$(TAG) \
+		TRAEFIK_HASH=$$hash REGISTRY=$(REGISTRY) TAG=$(TAG) PGSSLMODE=$(PGSSLMODE) \
 		POSTGRES_USER=$(POSTGRES_USER) POSTGRES_DB=$(POSTGRES_DB) \
 		docker stack deploy --compose-file $(REGION)/stack.yml --with-registry-auth \
 			--prune --detach=false $(REGION); \
@@ -43,9 +60,17 @@ deploy:
 		cid=$$(db_task); \
 		test -n "$$cid" || { echo "no running database task"; exit 1; }; \
 		pw=$$(docker exec "$$cid" cat /run/secrets/postgres_password); \
+		if docker exec "$$cid" test -r /run/secrets/app_postgres_password; then \
+			app_pw=$$(docker exec "$$cid" cat /run/secrets/app_postgres_password); \
+		else \
+			app_pw=$$(printf 'vetchium_app:%s' "$$pw" | sha256sum | cut -d ' ' -f1); \
+		fi; \
+		docker exec -i -e APP_POSTGRES_PASSWORD="$$app_pw" "$$cid" \
+			psql --no-password -U "$(POSTGRES_USER)" -d "$(POSTGRES_DB)" \
+			-v ON_ERROR_STOP=1 -f - < ../migrations/provision-app-role.sql; \
 		f=$$(mktemp); chmod 600 "$$f"; \
-		printf 'GOOSE_DBSTRING=postgres://%s:%s@db:5432/%s?sslmode=disable\n' \
-			"$(POSTGRES_USER)" "$$pw" "$(POSTGRES_DB)" > "$$f"; \
+		printf 'GOOSE_DBSTRING=postgres://%s:%s@db:5432/%s?sslmode=%s\n' \
+			"$(POSTGRES_USER)" "$$pw" "$(POSTGRES_DB)" "$(PGSSLMODE)" > "$$f"; \
 		if docker run --rm --network $(REGION)_backend --env-file "$$f" \
 				$(REGISTRY)/migrate:$(TAG) up; then rm -f "$$f"; else \
 			rm -f "$$f"; \

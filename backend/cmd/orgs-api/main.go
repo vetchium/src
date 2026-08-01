@@ -18,7 +18,10 @@ import (
 	"backend/internal/server"
 )
 
-const address = ":8080"
+const (
+	address          = ":8080"
+	readinessAddress = ":8081"
+)
 
 func main() {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, nil)).With("component", "orgs-api")
@@ -26,7 +29,7 @@ func main() {
 
 	var err error
 	if len(os.Args) > 1 && os.Args[1] == "readycheck" {
-		err = readycheck("/api/readyz")
+		err = readycheck()
 	} else {
 		err = run(log)
 	}
@@ -56,22 +59,30 @@ func run(log *slog.Logger) error {
 	s := &server.Server{TenantID: cfg.TenantID, DB: pool, Log: log}
 	mux := http.NewServeMux()
 	routes.RegisterOrgsRoutes(mux, s)
-	routes.RegisterAPIHealthRoute(mux, s)
+	readinessMux := http.NewServeMux()
+	routes.RegisterAPIHealthRoute(readinessMux, s)
 
 	httpServer := &http.Server{
 		Addr:              address,
 		Handler:           middleware.RequestLogger(log)(mux),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
-	errC := make(chan error, 1)
-	go func() {
-		log.Info("server started", "address", address)
-		err := httpServer.ListenAndServe()
+	readinessServer := &http.Server{
+		Addr:              readinessAddress,
+		Handler:           readinessMux,
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+	errC := make(chan error, 2)
+	serve := func(name string, server *http.Server) {
+		log.Info("server started", "server", name, "address", server.Addr)
+		err := server.ListenAndServe()
 		if errors.Is(err, http.ErrServerClosed) {
 			err = nil
 		}
 		errC <- err
-	}()
+	}
+	go serve("application", httpServer)
+	go serve("readiness", readinessServer)
 
 	select {
 	case err := <-errC:
@@ -81,14 +92,17 @@ func run(log *slog.Logger) error {
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	return httpServer.Shutdown(shutdownCtx)
+	return errors.Join(
+		httpServer.Shutdown(shutdownCtx),
+		readinessServer.Shutdown(shutdownCtx),
+	)
 }
 
-func readycheck(path string) error {
+func readycheck() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	url := "http://127.0.0.1" + address + path
+	url := "http://127.0.0.1" + readinessAddress + "/readyz"
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return err
