@@ -9,5 +9,4 @@ import (
 
 func RegisterOrgsRoutes(mux *http.ServeMux, s *server.Server) {
 	mux.HandleFunc("GET /api/org/ping", org.Ping(s))
-	mux.HandleFunc("GET /api/orgs", org.List(s))
 }

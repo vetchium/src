@@ -8,6 +8,7 @@ import (
 
 	"backend/handlers/health"
 	"backend/internal/server"
+	"backend/internal/version"
 	"backend/tools"
 )
 
@@ -17,7 +18,7 @@ func RegisterMCPRoutes(mux *http.ServeMux, s *server.Server) {
 		&mcp.Implementation{
 			Name:    "vetchium-" + s.TenantID,
 			Title:   fmt.Sprintf("Vetchium (%s)", s.TenantID),
-			Version: "1.0.0",
+			Version: version.Value,
 		},
 		&mcp.ServerOptions{
 			Instructions: fmt.Sprintf("Read-only access to the %q tenant.", s.TenantID),

@@ -35,7 +35,7 @@ deploy:
 			echo "$$app_secret exists without $$admin_secret; refusing inconsistent credentials"; \
 			exit 1; \
 		fi; \
-		pw=$$(openssl rand -base64 32 | tr -d '\n'); \
+		pw=$$(openssl rand -hex 32); \
 		printf '%s' "$$pw" | docker secret create "$$admin_secret" - >/dev/null; \
 		app_pw=$$(printf 'vetchium_app:%s' "$$pw" | sha256sum | cut -d ' ' -f1); \
 		printf '%s' "$$app_pw" | docker secret create "$$app_secret" - >/dev/null; \
@@ -56,6 +56,18 @@ deploy:
 			--prune --detach=false $(REGION); \
 	}; \
 	db_task() { docker ps -q --filter "label=com.docker.swarm.service.name=$(REGION)_db" | head -1; }; \
+	uri_encode() { \
+		local value=$$1 encoded= char hex i; \
+		LC_ALL=C; \
+		for ((i=0; i<$${#value}; i++)); do \
+			char=$${value:i:1}; \
+			case "$$char" in \
+				[a-zA-Z0-9.~_-]) encoded="$$encoded$$char" ;; \
+				*) printf -v hex '%02X' "'$$char"; encoded="$$encoded%$$hex" ;; \
+			esac; \
+		done; \
+		printf '%s' "$$encoded"; \
+	}; \
 	migrate() { \
 		cid=$$(db_task); \
 		test -n "$$cid" || { echo "no running database task"; exit 1; }; \
@@ -68,9 +80,13 @@ deploy:
 		docker exec -i -e APP_POSTGRES_PASSWORD="$$app_pw" "$$cid" \
 			psql --no-password -U "$(POSTGRES_USER)" -d "$(POSTGRES_DB)" \
 			-v ON_ERROR_STOP=1 -f - < ../migrations/provision-app-role.sql; \
+		uri_user=$$(uri_encode "$(POSTGRES_USER)"); \
+		uri_pw=$$(uri_encode "$$pw"); \
+		uri_db=$$(uri_encode "$(POSTGRES_DB)"); \
+		uri_sslmode=$$(uri_encode "$(PGSSLMODE)"); \
 		f=$$(mktemp); chmod 600 "$$f"; \
 		printf 'GOOSE_DBSTRING=postgres://%s:%s@db:5432/%s?sslmode=%s\n' \
-			"$(POSTGRES_USER)" "$$pw" "$(POSTGRES_DB)" "$(PGSSLMODE)" > "$$f"; \
+			"$$uri_user" "$$uri_pw" "$$uri_db" "$$uri_sslmode" > "$$f"; \
 		if docker run --rm --network $(REGION)_backend --env-file "$$f" \
 				$(REGISTRY)/migrate:$(TAG) up; then rm -f "$$f"; else \
 			rm -f "$$f"; \

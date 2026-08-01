@@ -2,6 +2,8 @@
 
 FROM golang:1.25.7-alpine@sha256:f6751d823c26342f9506c03797d2527668d095b0a15f1862cddb4d927a7a4ced AS build
 
+ARG VERSION=dev
+
 WORKDIR /src
 
 COPY go.mod go.sum ./
@@ -12,12 +14,12 @@ COPY . .
 
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
-    CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/admin-api ./cmd/admin-api && \
-    CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/hub-api ./cmd/hub-api && \
-    CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/orgs-api ./cmd/orgs-api && \
-    CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/mesh-api ./cmd/mesh-api && \
-    CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/mcp-server ./cmd/mcp-server && \
-    CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/workers ./cmd/workers
+    CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X backend/internal/version.Value=${VERSION}" -o /out/admin-api ./cmd/admin-api && \
+    CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X backend/internal/version.Value=${VERSION}" -o /out/hub-api ./cmd/hub-api && \
+    CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X backend/internal/version.Value=${VERSION}" -o /out/orgs-api ./cmd/orgs-api && \
+    CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X backend/internal/version.Value=${VERSION}" -o /out/mesh-api ./cmd/mesh-api && \
+    CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X backend/internal/version.Value=${VERSION}" -o /out/mcp-server ./cmd/mcp-server && \
+    CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X backend/internal/version.Value=${VERSION}" -o /out/workers ./cmd/workers
 
 FROM gcr.io/distroless/static-debian12:nonroot@sha256:f5b485ea962d9bd1186b2f6b3a061191539b905b82ec395de78cbfae51f20e35 AS runtime
 
