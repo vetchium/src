@@ -9,8 +9,8 @@ import (
 )
 
 func RegisterAdminRoutes(mux *http.ServeMux, s *server.Server) {
-	mux.HandleFunc("GET /api/admin/ping", admin.Ping(s))
 	mux.HandleFunc("POST /api/admin/login", admin.Login(s))
+
 	adminAuth := middleware.AdminAuth(s)
 	mux.Handle("POST /api/admin/logout", adminAuth(admin.Logout(s)))
 	mux.Handle("GET /api/admin/my-info", adminAuth(admin.MyInfo(s)))
