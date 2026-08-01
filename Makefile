@@ -2,19 +2,29 @@ SHELL := bash
 .SHELLFLAGS := -eu -o pipefail -c
 .DEFAULT_GOAL := dev
 
+-include .env
+export
+
 REGISTRY  ?= ghcr.io/vetchium
 TAG       ?= dev
 PLATFORMS ?= linux/amd64,linux/arm64
 BUILDER   := vetchium
+APP_POSTGRES_PASSWORD ?= app_pgpassword
+DEV_SECRETS_DIR       := .dev-secrets
+APP_PASSWORD_FILE     := $(DEV_SECRETS_DIR)/app_postgres_password
 
-.PHONY: dev docker publish clean
+.PHONY: dev dev-secrets docker publish clean
 
-dev:
+dev: dev-secrets
 	docker compose up --build -d --wait
 	@echo
 	@for t in sgp usa1 deu ind1; do \
 		for p in orgs hub admin; do echo "  http://$$p-ui.$$t.localhost/"; done; \
 	done
+
+dev-secrets:
+	@install -d -m 700 "$(DEV_SECRETS_DIR)"
+	@umask 077; printf '%s' "$$APP_POSTGRES_PASSWORD" > "$(APP_PASSWORD_FILE)"
 
 # Build validation for CI; keep results only in BuildKit's cache.
 docker:

@@ -113,9 +113,13 @@ security and defaults to `disable`. The database name is supplied by
 `PGDATABASE`; the password is read only from the referenced file.
 
 Local Compose uses `POSTGRES_PASSWORD` for the administrator connection used by
-PostgreSQL, migrations, and seeds. Runtime services connect as the DML-only
-`vetchium_app` role with a separate mounted value from
-`APP_POSTGRES_PASSWORD`.
+PostgreSQL, migrations, post-install setup, and seeds. Runtime services connect
+as the DML-only `vetchium_app` role with a separate mounted value from
+`APP_POSTGRES_PASSWORD`. The role and its privileges are managed after
+migrations by [`database/post-install.sql`](database/post-install.sql), outside
+the versioned application schema. `make dev` materializes the application
+password as a git-ignored, permission-restricted file so it can be mounted into
+the read-only service containers as a Compose secret.
 
 ## Publishing
 
