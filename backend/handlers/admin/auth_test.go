@@ -12,11 +12,11 @@ import (
 	"testing"
 	"time"
 
+	"backend/internal/adminapi"
 	"backend/internal/auth"
 	"backend/internal/db/sqlc"
 	"backend/internal/httpx"
 	"backend/internal/middleware"
-	"backend/internal/server"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"golang.org/x/crypto/bcrypt"
@@ -393,10 +393,10 @@ func assertProblem(t *testing.T, response *httptest.ResponseRecorder, status int
 	}
 }
 
-func testServer(db sqlc.Querier) *server.Server {
-	return &server.Server{
+func testServer(db sqlc.Querier) *adminapi.Server {
+	return &adminapi.Server{
 		TenantID:        "test",
-		AdminDB:         db,
+		Queries:         db,
 		AdminSessionTTL: 24 * time.Hour,
 		Log:             slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}

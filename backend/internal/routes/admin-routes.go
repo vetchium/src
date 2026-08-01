@@ -4,11 +4,13 @@ import (
 	"net/http"
 
 	"backend/handlers/admin"
+	"backend/handlers/health"
+	"backend/internal/adminapi"
 	"backend/internal/middleware"
-	"backend/internal/server"
 )
 
-func RegisterAdminRoutes(mux *http.ServeMux, s *server.Server) {
+func RegisterAdminRoutes(mux *http.ServeMux, s *adminapi.Server) {
+	mux.HandleFunc("GET /readyz", health.Ready(s.DB, s.Log))
 	mux.HandleFunc("POST /api/admin/login", admin.Login(s))
 
 	adminAuth := middleware.AdminAuth(s)

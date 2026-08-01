@@ -13,9 +13,9 @@ import (
 
 	"backend/internal/config"
 	"backend/internal/db"
+	"backend/internal/meshapi"
 	"backend/internal/middleware"
 	"backend/internal/routes"
-	"backend/internal/server"
 )
 
 const address = ":8080"
@@ -53,7 +53,7 @@ func run(log *slog.Logger) error {
 	}
 	defer pool.Close()
 
-	s := &server.Server{TenantID: cfg.TenantID, DB: pool, Log: log}
+	s := &meshapi.Server{TenantID: cfg.TenantID, DB: pool, Log: log}
 	mux := http.NewServeMux()
 	routes.RegisterMeshRoutes(mux, s)
 

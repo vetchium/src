@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
+	"backend/internal/adminapi"
 	"backend/internal/auth"
 	"backend/internal/db/sqlc"
 	"backend/internal/httpx"
-	"backend/internal/server"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"golang.org/x/crypto/bcrypt"
@@ -50,7 +50,7 @@ var decoyPasswordHash = func() []byte {
 	return hash
 }()
 
-func Login(s *server.Server) http.HandlerFunc {
+func Login(s *adminapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		log := adminLogger(s)
 		request, ok := decodeLoginRequest(w, r)
@@ -58,7 +58,7 @@ func Login(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		adminUser, err := s.AdminDB.GetAdminUserForLogin(r.Context(), request.EmailAddress)
+		adminUser, err := s.Queries.GetAdminUserForLogin(r.Context(), request.EmailAddress)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				_ = bcrypt.CompareHashAndPassword(decoyPasswordHash, []byte(request.Password))
@@ -83,7 +83,7 @@ func Login(s *server.Server) http.HandlerFunc {
 			return
 		}
 		expiresAt := time.Now().UTC().Add(s.AdminSessionTTL)
-		session, err := s.AdminDB.CreateAdminSession(r.Context(), sqlc.CreateAdminSessionParams{
+		session, err := s.Queries.CreateAdminSession(r.Context(), sqlc.CreateAdminSessionParams{
 			SessionTokenHash: tokenHash,
 			AdminUserID:      adminUser.AdminUserID,
 			ExpiresAt:        pgtype.Timestamptz{Time: expiresAt, Valid: true},
@@ -133,7 +133,7 @@ func writeInvalidCredentials(w http.ResponseWriter) {
 	httpx.WriteBearerProblem(w, auth.AdminBearerRealm, problemTypeInvalidCredentials, "Invalid credentials", "The email address or password is incorrect.")
 }
 
-func adminLogger(s *server.Server) *slog.Logger {
+func adminLogger(s *adminapi.Server) *slog.Logger {
 	if s.Log != nil {
 		return s.Log
 	}

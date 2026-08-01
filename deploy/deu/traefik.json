@@ -45,7 +45,6 @@
           ],
           "healthCheck": {
             "path": "/readyz",
-            "port": 8081,
             "interval": "10s",
             "timeout": "3s"
           }
@@ -60,7 +59,6 @@
           ],
           "healthCheck": {
             "path": "/readyz",
-            "port": 8081,
             "interval": "10s",
             "timeout": "3s"
           }
@@ -75,7 +73,6 @@
           ],
           "healthCheck": {
             "path": "/readyz",
-            "port": 8081,
             "interval": "10s",
             "timeout": "3s"
           }

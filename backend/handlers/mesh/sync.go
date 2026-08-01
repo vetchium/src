@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"backend/internal/server"
+	"backend/internal/meshapi"
 )
 
-func Sync(s *server.Server) http.HandlerFunc {
+func Sync(s *meshapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, _ *http.Request) {
 		// TODO: authenticate the calling tenant.
 		w.Header().Set("Content-Type", "application/json")

@@ -5,10 +5,10 @@ import (
 	"time"
 
 	"backend/internal/httpx"
-	"backend/internal/server"
+	"backend/internal/orgsapi"
 )
 
-func Ping(s *server.Server) http.HandlerFunc {
+func Ping(s *orgsapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var nonce string
 		var databaseTime time.Time

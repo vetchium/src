@@ -4,11 +4,11 @@ import (
 	"net/http"
 	"time"
 
+	"backend/internal/adminapi"
 	"backend/internal/httpx"
-	"backend/internal/server"
 )
 
-func Ping(s *server.Server) http.HandlerFunc {
+func Ping(s *adminapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var nonce string
 		var databaseTime time.Time

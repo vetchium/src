@@ -11,18 +11,15 @@ import (
 	"syscall"
 	"time"
 
+	"backend/internal/adminapi"
 	"backend/internal/config"
 	"backend/internal/db"
 	dbsqlc "backend/internal/db/sqlc"
 	"backend/internal/middleware"
 	"backend/internal/routes"
-	"backend/internal/server"
 )
 
-const (
-	address          = ":8080"
-	readinessAddress = ":8081"
-)
+const address = ":8080"
 
 func main() {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, nil)).With("component", "admin-api")
@@ -57,39 +54,30 @@ func run(log *slog.Logger) error {
 	}
 	defer pool.Close()
 
-	s := &server.Server{
+	s := &adminapi.Server{
 		TenantID:        cfg.TenantID,
 		DB:              pool,
-		AdminDB:         dbsqlc.New(pool),
+		Queries:         dbsqlc.New(pool),
 		AdminSessionTTL: cfg.AdminSessionTTL,
 		Log:             log,
 	}
 	mux := http.NewServeMux()
 	routes.RegisterAdminRoutes(mux, s)
-	readinessMux := http.NewServeMux()
-	routes.RegisterAPIHealthRoute(readinessMux, s)
 
 	httpServer := &http.Server{
 		Addr:              address,
 		Handler:           middleware.RequestLogger(log)(middleware.ProblemRouteErrors(mux)),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
-	readinessServer := &http.Server{
-		Addr:              readinessAddress,
-		Handler:           middleware.RequestLogger(log)(middleware.ProblemRouteErrors(readinessMux)),
-		ReadHeaderTimeout: 5 * time.Second,
-	}
-	errC := make(chan error, 2)
-	serve := func(name string, server *http.Server) {
-		log.Info("server started", "server", name, "address", server.Addr)
-		err := server.ListenAndServe()
+	errC := make(chan error, 1)
+	go func() {
+		log.Info("server started", "address", httpServer.Addr)
+		err := httpServer.ListenAndServe()
 		if errors.Is(err, http.ErrServerClosed) {
 			err = nil
 		}
 		errC <- err
-	}
-	go serve("application", httpServer)
-	go serve("readiness", readinessServer)
+	}()
 
 	select {
 	case err := <-errC:
@@ -99,17 +87,14 @@ func run(log *slog.Logger) error {
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	return errors.Join(
-		httpServer.Shutdown(shutdownCtx),
-		readinessServer.Shutdown(shutdownCtx),
-	)
+	return httpServer.Shutdown(shutdownCtx)
 }
 
 func readycheck() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	url := "http://127.0.0.1" + readinessAddress + "/readyz"
+	url := "http://127.0.0.1" + address + "/readyz"
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return err

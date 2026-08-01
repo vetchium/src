@@ -5,11 +5,11 @@ import (
 	"net/http"
 	"time"
 
+	"backend/internal/adminapi"
 	"backend/internal/auth"
 	"backend/internal/db/sqlc"
 	"backend/internal/httpx"
 	"backend/internal/middleware"
-	"backend/internal/server"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -24,7 +24,7 @@ type myInfoResponse struct {
 	TenantID         string     `json:"tenant_id"`
 }
 
-func MyInfo(s *server.Server) http.HandlerFunc {
+func MyInfo(s *adminapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		identity, ok := middleware.AdminIdentityFromContext(r.Context())
 		if !ok {
@@ -32,7 +32,7 @@ func MyInfo(s *server.Server) http.HandlerFunc {
 			return
 		}
 
-		admin, err := s.AdminDB.GetAdminMyInfo(r.Context(), sqlc.GetAdminMyInfoParams{
+		admin, err := s.Queries.GetAdminMyInfo(r.Context(), sqlc.GetAdminMyInfoParams{
 			AdminSessionID: identity.SessionID,
 			AdminUserID:    identity.UserID,
 		})

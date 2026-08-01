@@ -1,16 +1,17 @@
 package health
 
 import (
+	"log/slog"
 	"net/http"
 
 	"backend/internal/httpx"
-	"backend/internal/server"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func Ready(s *server.Server) http.HandlerFunc {
+func Ready(db *pgxpool.Pool, log *slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if err := s.DB.Ping(r.Context()); err != nil {
-			s.Log.ErrorContext(r.Context(), "readiness check failed", "error", err)
+		if err := db.Ping(r.Context()); err != nil {
+			log.ErrorContext(r.Context(), "readiness check failed", "error", err)
 			httpx.WriteProblem(w, http.StatusServiceUnavailable, "The database is unreachable.")
 			return
 		}

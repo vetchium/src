@@ -7,12 +7,12 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"backend/handlers/health"
-	"backend/internal/server"
+	"backend/internal/mcpserver"
 	"backend/internal/version"
 	"backend/tools"
 )
 
-func RegisterMCPRoutes(mux *http.ServeMux, s *server.Server) {
+func RegisterMCPRoutes(mux *http.ServeMux, s *mcpserver.Server) {
 	log := s.Log.With("subsystem", "mcp")
 	mcpServer := mcp.NewServer(
 		&mcp.Implementation{
@@ -25,12 +25,12 @@ func RegisterMCPRoutes(mux *http.ServeMux, s *server.Server) {
 			Logger:       log,
 		},
 	)
-	tools.Register(mcpServer, s)
+	tools.Register(mcpServer)
 
 	transport := mcp.NewStreamableHTTPHandler(
 		func(*http.Request) *mcp.Server { return mcpServer },
 		&mcp.StreamableHTTPOptions{Stateless: true, Logger: log},
 	)
 	mux.Handle("/mcp", transport)
-	mux.HandleFunc("GET /readyz", health.Ready(s))
+	mux.HandleFunc("GET /readyz", health.Ready(s.DB, s.Log))
 }

@@ -33,7 +33,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 FROM gcr.io/distroless/static-debian12:nonroot@sha256:f5b485ea962d9bd1186b2f6b3a061191539b905b82ec395de78cbfae51f20e35 AS runtime
 
 USER nonroot:nonroot
-EXPOSE 8080 8081
+EXPOSE 8080
 
 HEALTHCHECK --interval=10s --timeout=5s --start-period=15s --retries=5 \
     CMD ["/service", "readycheck"]

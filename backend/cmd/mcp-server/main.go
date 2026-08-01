@@ -13,9 +13,9 @@ import (
 
 	"backend/internal/config"
 	"backend/internal/db"
+	"backend/internal/mcpserver"
 	"backend/internal/middleware"
 	"backend/internal/routes"
-	"backend/internal/server"
 )
 
 const address = ":8080"
@@ -53,7 +53,7 @@ func run(log *slog.Logger) error {
 	}
 	defer pool.Close()
 
-	s := &server.Server{TenantID: cfg.TenantID, DB: pool, Log: log}
+	s := &mcpserver.Server{TenantID: cfg.TenantID, DB: pool, Log: log}
 	mux := http.NewServeMux()
 	routes.RegisterMCPRoutes(mux, s)
 

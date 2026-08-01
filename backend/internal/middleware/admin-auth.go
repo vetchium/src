@@ -6,9 +6,9 @@ import (
 	"log/slog"
 	"net/http"
 
+	"backend/internal/adminapi"
 	"backend/internal/auth"
 	"backend/internal/httpx"
-	"backend/internal/server"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -20,7 +20,7 @@ type AdminIdentity struct {
 	SessionID pgtype.UUID
 }
 
-func AdminAuth(s *server.Server) func(http.Handler) http.Handler {
+func AdminAuth(s *adminapi.Server) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			log := s.Log
@@ -34,7 +34,7 @@ func AdminAuth(s *server.Server) func(http.Handler) http.Handler {
 				return
 			}
 
-			session, err := s.AdminDB.AuthenticateAdminSession(r.Context(), auth.HashSessionToken(token))
+			session, err := s.Queries.AuthenticateAdminSession(r.Context(), auth.HashSessionToken(token))
 			if err != nil {
 				if errors.Is(err, pgx.ErrNoRows) {
 					writeUnauthorized(w, auth.ProblemTypeInvalidSession, "Invalid session", "The bearer token is invalid or expired.")
