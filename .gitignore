@@ -1,5 +1,1 @@
-# Local overrides and secrets.
-.env
-.env.*
-!.env.example
 .dev-secrets/

@@ -16,7 +16,7 @@ APP_PASSWORD_FILE     := $(DEV_SECRETS_DIR)/app_postgres_password
 .PHONY: dev dev-secrets docker publish clean
 
 dev: dev-secrets
-	docker compose up --build -d --wait
+	docker compose -f docker-compose.json up --build -d --wait
 	@echo
 	@for t in sgp usa1 deu ind1; do \
 		for p in orgs hub admin; do echo "  http://$$p-ui.$$t.localhost/"; done; \
@@ -47,6 +47,6 @@ publish:
 		docker buildx bake --builder $(BUILDER) -f docker-bake.hcl --push
 
 clean:
-	docker compose down --remove-orphans --volumes
+	docker compose -f docker-compose.json down --remove-orphans --volumes
 	rm -f "$(APP_PASSWORD_FILE)"
 	-rmdir "$(DEV_SECRETS_DIR)"
