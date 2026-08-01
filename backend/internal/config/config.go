@@ -6,12 +6,16 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
 )
 
 type Config struct {
-	TenantID    string
-	DatabaseURL string
+	TenantID        string
+	DatabaseURL     string
+	AdminSessionTTL time.Duration
 }
+
+const defaultAdminSessionTTL = 24 * time.Hour
 
 func Load() (Config, error) {
 	tenantID := os.Getenv("TENANT_ID")
@@ -58,6 +62,20 @@ func Load() (Config, error) {
 	query := u.Query()
 	query.Set("sslmode", sslMode)
 	u.RawQuery = query.Encode()
+	adminSessionTTL := defaultAdminSessionTTL
+	if value := os.Getenv("ADMIN_SESSION_TTL"); value != "" {
+		adminSessionTTL, err = time.ParseDuration(value)
+		if err != nil {
+			return Config{}, fmt.Errorf("parse ADMIN_SESSION_TTL: %w", err)
+		}
+		if adminSessionTTL <= 0 {
+			return Config{}, fmt.Errorf("ADMIN_SESSION_TTL must be positive")
+		}
+	}
 
-	return Config{TenantID: tenantID, DatabaseURL: u.String()}, nil
+	return Config{
+		TenantID:        tenantID,
+		DatabaseURL:     u.String(),
+		AdminSessionTTL: adminSessionTTL,
+	}, nil
 }

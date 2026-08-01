@@ -13,6 +13,7 @@ import (
 
 	"backend/internal/config"
 	"backend/internal/db"
+	dbsqlc "backend/internal/db/sqlc"
 	"backend/internal/middleware"
 	"backend/internal/routes"
 	"backend/internal/server"
@@ -56,7 +57,13 @@ func run(log *slog.Logger) error {
 	}
 	defer pool.Close()
 
-	s := &server.Server{TenantID: cfg.TenantID, DB: pool, Log: log}
+	s := &server.Server{
+		TenantID:        cfg.TenantID,
+		DB:              pool,
+		AdminDB:         dbsqlc.New(pool),
+		AdminSessionTTL: cfg.AdminSessionTTL,
+		Log:             log,
+	}
 	mux := http.NewServeMux()
 	routes.RegisterAdminRoutes(mux, s)
 	readinessMux := http.NewServeMux()

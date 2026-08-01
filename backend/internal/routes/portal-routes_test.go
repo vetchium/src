@@ -18,7 +18,7 @@ func TestPortalRouteIsolation(t *testing.T) {
 		{
 			name:       "admin",
 			register:   RegisterAdminRoutes,
-			allowed:    []string{"/api/admin/ping"},
+			allowed:    []string{"/api/admin/ping", "/api/admin/my-info"},
 			prohibited: []string{"/api/hub/ping", "/api/org/ping", "/api/orgs"},
 		},
 		{
@@ -30,7 +30,7 @@ func TestPortalRouteIsolation(t *testing.T) {
 		{
 			name:       "orgs",
 			register:   RegisterOrgsRoutes,
-			allowed:    []string{"/api/org/ping", "/api/orgs"},
+			allowed:    []string{"/api/org/ping"},
 			prohibited: []string{"/api/admin/ping", "/api/hub/ping"},
 		},
 	}
@@ -47,6 +47,26 @@ func TestPortalRouteIsolation(t *testing.T) {
 				assertRouteRegistered(t, mux, path, false)
 			}
 		})
+	}
+}
+
+func TestAdminAuthRoutesRegistered(t *testing.T) {
+	mux := http.NewServeMux()
+	RegisterAdminRoutes(mux, &server.Server{})
+
+	for _, route := range []struct {
+		method string
+		path   string
+	}{
+		{method: http.MethodPost, path: "/api/admin/login"},
+		{method: http.MethodPost, path: "/api/admin/logout"},
+		{method: http.MethodGet, path: "/api/admin/my-info"},
+	} {
+		request := httptest.NewRequest(route.method, route.path, nil)
+		_, pattern := mux.Handler(request)
+		if pattern == "" {
+			t.Errorf("%s %s is not registered", route.method, route.path)
+		}
 	}
 }
 

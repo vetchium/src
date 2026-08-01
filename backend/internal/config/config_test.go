@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestLoad(t *testing.T) {
@@ -34,6 +35,55 @@ func TestLoad(t *testing.T) {
 	}
 	if strings.Contains(cfg.DatabaseURL, "%0A") {
 		t.Fatalf("DatabaseURL contains password-file newline: %q", cfg.DatabaseURL)
+	}
+	if cfg.AdminSessionTTL != 24*time.Hour {
+		t.Fatalf("AdminSessionTTL = %s, want 24h", cfg.AdminSessionTTL)
+	}
+}
+
+func TestLoadUsesConfiguredAdminSessionTTL(t *testing.T) {
+	passwordFile := filepath.Join(t.TempDir(), "password")
+	if err := os.WriteFile(passwordFile, []byte("secret"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Setenv("TENANT_ID", "sgp")
+	t.Setenv("PGHOST", "db")
+	t.Setenv("PGPORT", "5432")
+	t.Setenv("PGUSER", "pguser")
+	t.Setenv("PGDATABASE", "tenant_db")
+	t.Setenv("PGPASSWORD_FILE", passwordFile)
+	t.Setenv("ADMIN_SESSION_TTL", "8h30m")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.AdminSessionTTL != 8*time.Hour+30*time.Minute {
+		t.Fatalf("AdminSessionTTL = %s, want 8h30m", cfg.AdminSessionTTL)
+	}
+}
+
+func TestLoadRejectsInvalidAdminSessionTTL(t *testing.T) {
+	passwordFile := filepath.Join(t.TempDir(), "password")
+	if err := os.WriteFile(passwordFile, []byte("secret"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Setenv("TENANT_ID", "sgp")
+	t.Setenv("PGHOST", "db")
+	t.Setenv("PGPORT", "5432")
+	t.Setenv("PGUSER", "pguser")
+	t.Setenv("PGDATABASE", "tenant_db")
+	t.Setenv("PGPASSWORD_FILE", passwordFile)
+
+	for _, value := range []string{"forever", "0s", "-1h"} {
+		t.Run(value, func(t *testing.T) {
+			t.Setenv("ADMIN_SESSION_TTL", value)
+			if _, err := Load(); err == nil || !strings.Contains(err.Error(), "ADMIN_SESSION_TTL") {
+				t.Fatalf("Load() error = %v, want ADMIN_SESSION_TTL error", err)
+			}
+		})
 	}
 }
 

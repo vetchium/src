@@ -6,6 +6,7 @@ require (
 	github.com/go-chi/httplog/v3 v3.4.0
 	github.com/jackc/pgx/v5 v5.10.0
 	github.com/modelcontextprotocol/go-sdk v1.7.0
+	golang.org/x/crypto v0.54.0
 )
 
 require (

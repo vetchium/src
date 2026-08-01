@@ -87,6 +87,7 @@
         }
       },
       "environment": {
+        "ADMIN_SESSION_TTL": "${ADMIN_SESSION_TTL:-24h}",
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
         "PGHOST": "db-deu",
         "PGPASSWORD_FILE": "/run/secrets/app_postgres_password",
@@ -128,6 +129,7 @@
         }
       },
       "environment": {
+        "ADMIN_SESSION_TTL": "${ADMIN_SESSION_TTL:-24h}",
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
         "PGHOST": "db-ind1",
         "PGPASSWORD_FILE": "/run/secrets/app_postgres_password",
@@ -169,6 +171,7 @@
         }
       },
       "environment": {
+        "ADMIN_SESSION_TTL": "${ADMIN_SESSION_TTL:-24h}",
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
         "PGHOST": "db-sgp",
         "PGPASSWORD_FILE": "/run/secrets/app_postgres_password",
@@ -210,6 +213,7 @@
         }
       },
       "environment": {
+        "ADMIN_SESSION_TTL": "${ADMIN_SESSION_TTL:-24h}",
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
         "PGHOST": "db-usa1",
         "PGPASSWORD_FILE": "/run/secrets/app_postgres_password",

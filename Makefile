@@ -13,7 +13,7 @@ APP_POSTGRES_PASSWORD ?= app_pgpassword
 DEV_SECRETS_DIR       := .dev-secrets
 APP_PASSWORD_FILE     := $(DEV_SECRETS_DIR)/app_postgres_password
 
-.PHONY: dev dev-secrets docker publish clean
+.PHONY: dev dev-secrets sqlc docker publish clean
 
 dev: dev-secrets
 	docker compose -f docker-compose.json up --build -d --wait
@@ -31,6 +31,9 @@ dev-secrets:
 	else \
 		umask 077; printf '%s' "$$APP_POSTGRES_PASSWORD" > "$(APP_PASSWORD_FILE)"; \
 	fi
+
+sqlc:
+	cd backend && sqlc generate
 
 # Build validation for CI; keep results only in BuildKit's cache.
 docker:
