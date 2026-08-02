@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"backend/internal/httpx"
+	"github.com/vetchium/src/typespec/problem"
 )
 
 func TestProblemRouteErrors(t *testing.T) {
@@ -38,12 +38,12 @@ func TestProblemRouteErrors(t *testing.T) {
 			if test.status == http.StatusMethodNotAllowed && recorder.Header().Get("Allow") == "" {
 				t.Fatal("405 response is missing Allow header")
 			}
-			var problem httpx.Problem
-			if err := json.NewDecoder(recorder.Body).Decode(&problem); err != nil {
+			var details problem.Details
+			if err := json.NewDecoder(recorder.Body).Decode(&details); err != nil {
 				t.Fatal(err)
 			}
-			if problem.Status != test.status || problem.Title != http.StatusText(test.status) {
-				t.Fatalf("problem = %+v", problem)
+			if details.Status != test.status || details.Title != http.StatusText(test.status) {
+				t.Fatalf("problem = %+v", details)
 			}
 		})
 	}

@@ -8,20 +8,12 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+
+	"github.com/vetchium/src/typespec/problem"
 )
 
 // MaxRequestBody bounds the small JSON documents accepted by portal APIs.
 const MaxRequestBody = 64 << 10
-
-// Problem is the JSON representation defined by RFC 9457. Type, title, and
-// status are always emitted so clients do not need to supply RFC defaults.
-type Problem struct {
-	Type     string `json:"type"`
-	Title    string `json:"title"`
-	Status   int    `json:"status"`
-	Detail   string `json:"detail,omitempty"`
-	Instance string `json:"instance,omitempty"`
-}
 
 // DecodeJSON decodes exactly one JSON value and rejects unknown fields.
 func DecodeJSON(w http.ResponseWriter, r *http.Request, target any) error {
@@ -47,30 +39,17 @@ func WriteJSON(w http.ResponseWriter, status int, body any) error {
 	return json.NewEncoder(w).Encode(body)
 }
 
-// WriteProblem writes an RFC 9457 problem detail using the generic
-// "about:blank" problem type. The title therefore matches the HTTP status
-// phrase, while detail describes this occurrence without exposing internals.
-func WriteProblem(w http.ResponseWriter, status int, detail string) {
-	WriteProblemType(w, status, "about:blank", http.StatusText(status), detail)
-}
-
-// WriteProblemType writes a problem with application-specific semantics. The
-// type URI and title must remain stable across occurrences of that problem.
-func WriteProblemType(w http.ResponseWriter, status int, typeURI, title, detail string) {
+// WriteProblem writes an RFC 9457 problem-details response.
+func WriteProblem(w http.ResponseWriter, details problem.Details) {
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(Problem{
-		Type:   typeURI,
-		Title:  title,
-		Status: status,
-		Detail: detail,
-	})
+	w.WriteHeader(details.Status)
+	_ = json.NewEncoder(w).Encode(details)
 }
 
 // WriteBearerProblem writes a 401 problem and the challenge required by HTTP
 // authentication semantics.
-func WriteBearerProblem(w http.ResponseWriter, realm, typeURI, title, detail string) {
+func WriteBearerProblem(w http.ResponseWriter, realm string, details problem.Details) {
 	w.Header().Set("WWW-Authenticate", `Bearer realm="`+realm+`"`)
-	WriteProblemType(w, http.StatusUnauthorized, typeURI, title, detail)
+	WriteProblem(w, details)
 }

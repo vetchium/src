@@ -6,11 +6,13 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/vetchium/src/typespec/problem"
 )
 
 func TestWriteProblem(t *testing.T) {
 	recorder := httptest.NewRecorder()
-	WriteProblem(recorder, http.StatusUnauthorized, "authentication required")
+	WriteProblem(recorder, problem.New(http.StatusUnauthorized, "authentication required"))
 
 	if recorder.Code != http.StatusUnauthorized {
 		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusUnauthorized)
@@ -21,13 +23,13 @@ func TestWriteProblem(t *testing.T) {
 	if got := recorder.Header().Get("X-Content-Type-Options"); got != "nosniff" {
 		t.Fatalf("X-Content-Type-Options = %q, want nosniff", got)
 	}
-	var problem Problem
-	if err := json.NewDecoder(recorder.Body).Decode(&problem); err != nil {
+	var details problem.Details
+	if err := json.NewDecoder(recorder.Body).Decode(&details); err != nil {
 		t.Fatal(err)
 	}
-	if problem.Type != "about:blank" || problem.Title != "Unauthorized" ||
-		problem.Status != http.StatusUnauthorized || problem.Detail != "authentication required" {
-		t.Fatalf("problem = %+v", problem)
+	if details.Type != "about:blank" || details.Title != "Unauthorized" ||
+		details.Status != http.StatusUnauthorized || details.Detail != "authentication required" {
+		t.Fatalf("problem = %+v", details)
 	}
 }
 
@@ -46,7 +48,7 @@ func TestWriteJSONUsesSafeContentType(t *testing.T) {
 
 func TestWriteBearerProblemIncludesChallenge(t *testing.T) {
 	recorder := httptest.NewRecorder()
-	WriteBearerProblem(recorder, "test-realm", "urn:test:authentication-required", "Authentication required", "authentication required")
+	WriteBearerProblem(recorder, "test-realm", problem.NewAuthenticationRequired("authentication required"))
 
 	if got := recorder.Header().Get("WWW-Authenticate"); got != `Bearer realm="test-realm"` {
 		t.Fatalf("WWW-Authenticate = %q", got)
@@ -54,12 +56,12 @@ func TestWriteBearerProblemIncludesChallenge(t *testing.T) {
 	if recorder.Code != http.StatusUnauthorized {
 		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusUnauthorized)
 	}
-	var problem Problem
-	if err := json.NewDecoder(recorder.Body).Decode(&problem); err != nil {
+	var details problem.Details
+	if err := json.NewDecoder(recorder.Body).Decode(&details); err != nil {
 		t.Fatal(err)
 	}
-	if problem.Type != "urn:test:authentication-required" || problem.Title != "Authentication required" {
-		t.Fatalf("problem = %+v", problem)
+	if details.Type != problem.TypeAuthenticationRequired || details.Title != "Authentication required" {
+		t.Fatalf("problem = %+v", details)
 	}
 }
 

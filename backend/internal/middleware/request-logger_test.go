@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"backend/internal/httpx"
+	"github.com/vetchium/src/typespec/problem"
 )
 
 func TestRequestLoggerRecoversWithProblemDetails(t *testing.T) {
@@ -27,12 +27,12 @@ func TestRequestLoggerRecoversWithProblemDetails(t *testing.T) {
 	if got := recorder.Header().Get("Content-Type"); got != "application/problem+json" {
 		t.Fatalf("Content-Type = %q", got)
 	}
-	var problem httpx.Problem
-	if err := json.NewDecoder(recorder.Body).Decode(&problem); err != nil {
+	var details problem.Details
+	if err := json.NewDecoder(recorder.Body).Decode(&details); err != nil {
 		t.Fatal(err)
 	}
-	if problem.Status != http.StatusInternalServerError {
-		t.Fatalf("problem = %+v", problem)
+	if details.Status != http.StatusInternalServerError {
+		t.Fatalf("problem = %+v", details)
 	}
 	logOutput := logs.String()
 	for _, want := range []string{`"level":"ERROR"`, `"http.response.status_code":500`, `"stack":`} {

@@ -8,6 +8,7 @@ import (
 	"backend/internal/httpx"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/httplog/v3"
+	"github.com/vetchium/src/typespec/problem"
 )
 
 func RequestLogger(log *slog.Logger) func(http.Handler) http.Handler {
@@ -28,7 +29,7 @@ func recoverProblems(log *slog.Logger, next http.Handler) http.Handler {
 				log.ErrorContext(r.Context(), "panic recovered", "panic", recovered, "stack", string(debug.Stack()))
 				if wrapped.Status() == 0 {
 					wrapped.Header().Set("Cache-Control", "no-store")
-					httpx.WriteProblem(wrapped, http.StatusInternalServerError, "The request could not be completed.")
+					httpx.WriteProblem(wrapped, problem.NewInternalServerError())
 				}
 			}
 		}()

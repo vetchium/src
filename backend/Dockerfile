@@ -4,12 +4,15 @@ FROM golang:1.25.7-alpine@sha256:f6751d823c26342f9506c03797d2527668d095b0a15f186
 
 ARG VERSION=dev
 
-WORKDIR /src/backend
+WORKDIR /src
 
-COPY backend/go.mod backend/go.sum ./
+COPY typespec/go.mod typespec/go.mod
+COPY backend/go.mod backend/go.sum backend/
+WORKDIR /src/backend
 RUN --mount=type=cache,target=/go/pkg/mod \
     go mod download
 
+COPY typespec/ /src/typespec/
 COPY backend/ .
 COPY db/migrations /src/db/migrations
 

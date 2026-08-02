@@ -19,6 +19,8 @@ import (
 	"backend/internal/middleware"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	adminspec "github.com/vetchium/src/typespec/admin"
+	"github.com/vetchium/src/typespec/problem"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -101,7 +103,7 @@ func TestLoginCreatesHashedSession(t *testing.T) {
 	if response.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200; body = %s", response.Code, response.Body.String())
 	}
-	var payload loginResponse
+	var payload adminspec.LoginResponse
 	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
 		t.Fatal(err)
 	}
@@ -111,7 +113,7 @@ func TestLoginCreatesHashedSession(t *testing.T) {
 	if got := response.Header().Get("Cache-Control"); got != "no-store" {
 		t.Fatalf("Cache-Control = %q, want no-store", got)
 	}
-	if !bytes.Equal(storedHash, auth.HashSessionToken(payload.SessionToken)) {
+	if !bytes.Equal(storedHash, auth.HashSessionToken(string(payload.SessionToken))) {
 		t.Fatal("stored session hash does not match returned token")
 	}
 	if bytes.Equal(storedHash, []byte(payload.SessionToken)) {
@@ -145,7 +147,7 @@ func TestLoginRejectsDisabledAdmin(t *testing.T) {
 	if response.Code != http.StatusUnauthorized {
 		t.Fatalf("status = %d, want 401", response.Code)
 	}
-	assertProblem(t, response, http.StatusUnauthorized, problemTypeInvalidCredentials, "Invalid credentials", "The email address or password is incorrect.")
+	assertProblem(t, response, http.StatusUnauthorized, problem.TypeInvalidCredentials, "Invalid credentials", "The email address or password is incorrect.")
 }
 
 func TestAuthenticatedMyInfoAndLogout(t *testing.T) {
@@ -199,7 +201,7 @@ func TestAuthenticatedMyInfoAndLogout(t *testing.T) {
 	if response.Code != http.StatusOK {
 		t.Fatalf("my-info status = %d, want 200; body = %s", response.Code, response.Body.String())
 	}
-	var info myInfoResponse
+	var info adminspec.MyInfoResponse
 	if err := json.NewDecoder(response.Body).Decode(&info); err != nil {
 		t.Fatal(err)
 	}
@@ -244,7 +246,7 @@ func TestAdminAuthRequiresBearerToken(t *testing.T) {
 	if response.Header().Get("WWW-Authenticate") == "" {
 		t.Fatal("WWW-Authenticate header is empty")
 	}
-	assertProblem(t, response, http.StatusUnauthorized, auth.ProblemTypeAuthenticationNeeded, "Authentication required", "A valid bearer token is required.")
+	assertProblem(t, response, http.StatusUnauthorized, problem.TypeAuthenticationRequired, "Authentication required", "A valid bearer token is required.")
 }
 
 func TestAdminAuthRejectsInvalidBearerToken(t *testing.T) {
@@ -260,7 +262,7 @@ func TestAdminAuthRejectsInvalidBearerToken(t *testing.T) {
 	request.Header.Set("Authorization", "Bearer invalid-token")
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
-	assertProblem(t, response, http.StatusUnauthorized, auth.ProblemTypeInvalidSession, "Invalid session", "The bearer token is invalid or expired.")
+	assertProblem(t, response, http.StatusUnauthorized, problem.TypeInvalidSession, "Invalid session", "The bearer token is invalid or expired.")
 }
 
 func TestMyInfoRejectsSessionInvalidatedAfterAuthentication(t *testing.T) {
@@ -288,7 +290,7 @@ func TestMyInfoRejectsSessionInvalidatedAfterAuthentication(t *testing.T) {
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
 
-	assertProblem(t, response, http.StatusUnauthorized, auth.ProblemTypeInvalidSession, "Invalid session", "The bearer token is invalid or expired.")
+	assertProblem(t, response, http.StatusUnauthorized, problem.TypeInvalidSession, "Invalid session", "The bearer token is invalid or expired.")
 }
 
 func TestLoginErrorsUseProblemDetails(t *testing.T) {
@@ -296,7 +298,7 @@ func TestLoginErrorsUseProblemDetails(t *testing.T) {
 		response := httptest.NewRecorder()
 		Login(testServer(&adminDBStub{})).ServeHTTP(response,
 			httptest.NewRequest(http.MethodPost, "/api/admin/login", strings.NewReader(`{"email_address":`)))
-		assertProblem(t, response, http.StatusBadRequest, problemTypeMalformedRequest, "Malformed request body", "The request body must contain one valid JSON object with no unknown fields.")
+		assertProblem(t, response, http.StatusBadRequest, problem.TypeMalformedRequestBody, "Malformed request body", "The request body must contain one valid JSON object with no unknown fields.")
 	})
 
 	t.Run("oversized request", func(t *testing.T) {
@@ -305,7 +307,7 @@ func TestLoginErrorsUseProblemDetails(t *testing.T) {
 		response := httptest.NewRecorder()
 		Login(testServer(&adminDBStub{})).ServeHTTP(response,
 			httptest.NewRequest(http.MethodPost, "/api/admin/login", strings.NewReader(body)))
-		assertProblem(t, response, http.StatusRequestEntityTooLarge, problemTypeRequestTooLarge, "Request body too large", "The request body exceeds the maximum size.")
+		assertProblem(t, response, http.StatusRequestEntityTooLarge, problem.TypeRequestBodyTooLarge, "Request body too large", "The request body exceeds the maximum size.")
 	})
 
 	t.Run("oversized trailing content", func(t *testing.T) {
@@ -314,7 +316,7 @@ func TestLoginErrorsUseProblemDetails(t *testing.T) {
 		response := httptest.NewRecorder()
 		Login(testServer(&adminDBStub{})).ServeHTTP(response,
 			httptest.NewRequest(http.MethodPost, "/api/admin/login", strings.NewReader(body)))
-		assertProblem(t, response, http.StatusRequestEntityTooLarge, problemTypeRequestTooLarge, "Request body too large", "The request body exceeds the maximum size.")
+		assertProblem(t, response, http.StatusRequestEntityTooLarge, problem.TypeRequestBodyTooLarge, "Request body too large", "The request body exceeds the maximum size.")
 	})
 
 	t.Run("invalid login input", func(t *testing.T) {
@@ -324,7 +326,7 @@ func TestLoginErrorsUseProblemDetails(t *testing.T) {
 				"email_address":"not-an-email",
 				"password":"password"
 			}`)))
-		assertProblem(t, response, http.StatusBadRequest, problemTypeInvalidLoginInput, "Invalid login input", "email_address must be valid and password must not be empty.")
+		assertProblem(t, response, http.StatusBadRequest, problem.TypeInvalidLoginInput, "Invalid login input", "email_address must be valid and password must not be empty.")
 	})
 
 	t.Run("unknown account and wrong password responses match", func(t *testing.T) {
@@ -341,7 +343,7 @@ func TestLoginErrorsUseProblemDetails(t *testing.T) {
 		Login(testServer(unknownAccountDB)).ServeHTTP(unknownAccountResponse, unknownAccountRequest)
 		unknownAccountBody := unknownAccountResponse.Body.String()
 		unknownAccountChallenge := unknownAccountResponse.Header().Get("WWW-Authenticate")
-		assertProblem(t, unknownAccountResponse, http.StatusUnauthorized, problemTypeInvalidCredentials, "Invalid credentials", "The email address or password is incorrect.")
+		assertProblem(t, unknownAccountResponse, http.StatusUnauthorized, problem.TypeInvalidCredentials, "Invalid credentials", "The email address or password is incorrect.")
 
 		passwordHash, err := bcrypt.GenerateFromPassword([]byte("correct-password"), bcrypt.MinCost)
 		if err != nil {
@@ -367,7 +369,7 @@ func TestLoginErrorsUseProblemDetails(t *testing.T) {
 		if wrongPasswordResponse.Header().Get("WWW-Authenticate") != unknownAccountChallenge {
 			t.Fatal("wrong-password and unknown-account challenges differ")
 		}
-		assertProblem(t, wrongPasswordResponse, http.StatusUnauthorized, problemTypeInvalidCredentials, "Invalid credentials", "The email address or password is incorrect.")
+		assertProblem(t, wrongPasswordResponse, http.StatusUnauthorized, problem.TypeInvalidCredentials, "Invalid credentials", "The email address or password is incorrect.")
 	})
 }
 
@@ -384,12 +386,12 @@ func assertProblem(t *testing.T, response *httptest.ResponseRecorder, status int
 			t.Fatalf("WWW-Authenticate = %q", got)
 		}
 	}
-	var problem httpx.Problem
-	if err := json.NewDecoder(response.Body).Decode(&problem); err != nil {
+	var details problem.Details
+	if err := json.NewDecoder(response.Body).Decode(&details); err != nil {
 		t.Fatal(err)
 	}
-	if problem.Type != typeURI || problem.Title != title || problem.Status != status || problem.Detail != detail {
-		t.Fatalf("problem = %+v", problem)
+	if details.Type != typeURI || details.Title != title || details.Status != status || details.Detail != detail {
+		t.Fatalf("problem = %+v", details)
 	}
 }
 

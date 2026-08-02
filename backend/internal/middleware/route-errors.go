@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"backend/internal/httpx"
+	"github.com/vetchium/src/typespec/problem"
 )
 
 // ProblemRouteErrors replaces ServeMux's plain-text errors with RFC 9457
@@ -37,7 +38,7 @@ func ProblemRouteErrors(mux *http.ServeMux) http.Handler {
 		case http.StatusMethodNotAllowed:
 			detail = "The requested method is not supported for this resource."
 		}
-		httpx.WriteProblem(w, probe.status, detail)
+		httpx.WriteProblem(w, problem.New(probe.status, detail))
 	})
 }
 

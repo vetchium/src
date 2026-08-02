@@ -3,7 +3,6 @@ package admin
 import (
 	"errors"
 	"net/http"
-	"time"
 
 	"backend/internal/adminapi"
 	"backend/internal/auth"
@@ -11,24 +10,16 @@ import (
 	"backend/internal/httpx"
 	"backend/internal/middleware"
 	"github.com/jackc/pgx/v5"
+	adminspec "github.com/vetchium/src/typespec/admin"
+	"github.com/vetchium/src/typespec/common"
+	"github.com/vetchium/src/typespec/problem"
 )
-
-type myInfoResponse struct {
-	AdminUserID      string     `json:"admin_user_id"`
-	EmailAddress     string     `json:"email_address"`
-	DisplayName      string     `json:"display_name"`
-	AdminUserState   string     `json:"admin_user_state"`
-	LastLoginAt      *time.Time `json:"last_login_at,omitempty"`
-	CreatedAt        time.Time  `json:"created_at"`
-	SessionExpiresAt time.Time  `json:"session_expires_at"`
-	TenantID         string     `json:"tenant_id"`
-}
 
 func MyInfo(s *adminapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		identity, ok := middleware.AdminIdentityFromContext(r.Context())
 		if !ok {
-			httpx.WriteBearerProblem(w, auth.AdminBearerRealm, auth.ProblemTypeAuthenticationNeeded, "Authentication required", "Authentication is required.")
+			httpx.WriteBearerProblem(w, auth.AdminBearerRealm, problem.NewAuthenticationRequired("Authentication is required."))
 			return
 		}
 
@@ -38,19 +29,19 @@ func MyInfo(s *adminapi.Server) http.HandlerFunc {
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				httpx.WriteBearerProblem(w, auth.AdminBearerRealm, auth.ProblemTypeInvalidSession, "Invalid session", "The bearer token is invalid or expired.")
+				httpx.WriteBearerProblem(w, auth.AdminBearerRealm, problem.NewInvalidSession("The bearer token is invalid or expired."))
 				return
 			}
 			adminLogger(s).ErrorContext(r.Context(), "get admin my-info", "error", err)
-			httpx.WriteProblem(w, http.StatusInternalServerError, "The request could not be completed.")
+			httpx.WriteProblem(w, problem.NewInternalServerError())
 			return
 		}
 
-		response := myInfoResponse{
+		response := adminspec.MyInfoResponse{
 			AdminUserID:      admin.AdminUserID.String(),
-			EmailAddress:     admin.EmailAddress,
+			EmailAddress:     common.EmailAddress(admin.EmailAddress),
 			DisplayName:      admin.DisplayName,
-			AdminUserState:   string(admin.AdminUserState),
+			AdminUserState:   adminspec.AdminUserState(admin.AdminUserState),
 			CreatedAt:        admin.CreatedAt.Time,
 			SessionExpiresAt: admin.ExpiresAt.Time,
 			TenantID:         s.TenantID,

@@ -15,24 +15,10 @@ import (
 	"backend/internal/httpx"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	adminspec "github.com/vetchium/src/typespec/admin"
+	"github.com/vetchium/src/typespec/common"
+	"github.com/vetchium/src/typespec/problem"
 	"golang.org/x/crypto/bcrypt"
-)
-
-type loginRequest struct {
-	EmailAddress string `json:"email_address"`
-	Password     string `json:"password"`
-}
-
-type loginResponse struct {
-	SessionToken string    `json:"session_token"`
-	ExpiresAt    time.Time `json:"expires_at"`
-}
-
-const (
-	problemTypeMalformedRequest   = "urn:vetchium:problem:malformed-request-body"
-	problemTypeRequestTooLarge    = "urn:vetchium:problem:request-body-too-large"
-	problemTypeInvalidLoginInput  = "urn:vetchium:problem:invalid-login-input"
-	problemTypeInvalidCredentials = "urn:vetchium:problem:invalid-credentials"
 )
 
 // decoyPasswordHash makes an unknown email address perform the same bcrypt
@@ -58,7 +44,7 @@ func Login(s *adminapi.Server) http.HandlerFunc {
 			return
 		}
 
-		adminUser, err := s.Queries.GetAdminUserForLogin(r.Context(), request.EmailAddress)
+		adminUser, err := s.Queries.GetAdminUserForLogin(r.Context(), string(request.EmailAddress))
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				_ = bcrypt.CompareHashAndPassword(decoyPasswordHash, []byte(request.Password))
@@ -66,7 +52,7 @@ func Login(s *adminapi.Server) http.HandlerFunc {
 				return
 			}
 			log.ErrorContext(r.Context(), "get admin user for login", "error", err)
-			httpx.WriteProblem(w, http.StatusInternalServerError, "The request could not be completed.")
+			httpx.WriteProblem(w, problem.NewInternalServerError())
 			return
 		}
 
@@ -79,7 +65,7 @@ func Login(s *adminapi.Server) http.HandlerFunc {
 		token, tokenHash, err := auth.NewSessionToken()
 		if err != nil {
 			log.ErrorContext(r.Context(), "generate admin session token", "error", err)
-			httpx.WriteProblem(w, http.StatusInternalServerError, "The request could not be completed.")
+			httpx.WriteProblem(w, problem.NewInternalServerError())
 			return
 		}
 		expiresAt := time.Now().UTC().Add(s.AdminSessionTTL)
@@ -94,7 +80,7 @@ func Login(s *adminapi.Server) http.HandlerFunc {
 				return
 			}
 			log.ErrorContext(r.Context(), "create admin session", "error", err)
-			httpx.WriteProblem(w, http.StatusInternalServerError, "The request could not be completed.")
+			httpx.WriteProblem(w, problem.NewInternalServerError())
 			return
 		}
 		if session.ExpiresAt.Valid {
@@ -102,35 +88,36 @@ func Login(s *adminapi.Server) http.HandlerFunc {
 		}
 
 		w.Header().Set("Cache-Control", "no-store")
-		if err := httpx.WriteJSON(w, http.StatusOK, loginResponse{SessionToken: token, ExpiresAt: expiresAt}); err != nil {
+		if err := httpx.WriteJSON(w, http.StatusOK, adminspec.LoginResponse{SessionToken: adminspec.SessionToken(token), ExpiresAt: expiresAt}); err != nil {
 			log.ErrorContext(r.Context(), "encode admin login response", "error", err)
 		}
 	}
 }
 
-func decodeLoginRequest(w http.ResponseWriter, r *http.Request) (loginRequest, bool) {
-	var request loginRequest
+func decodeLoginRequest(w http.ResponseWriter, r *http.Request) (adminspec.LoginRequest, bool) {
+	var request adminspec.LoginRequest
 	if err := httpx.DecodeJSON(w, r, &request); err != nil {
 		var maxBytesError *http.MaxBytesError
 		if errors.As(err, &maxBytesError) {
-			httpx.WriteProblemType(w, http.StatusRequestEntityTooLarge, problemTypeRequestTooLarge, "Request body too large", "The request body exceeds the maximum size.")
-			return loginRequest{}, false
+			httpx.WriteProblem(w, problem.NewRequestBodyTooLarge())
+			return adminspec.LoginRequest{}, false
 		}
-		httpx.WriteProblemType(w, http.StatusBadRequest, problemTypeMalformedRequest, "Malformed request body", "The request body must contain one valid JSON object with no unknown fields.")
-		return loginRequest{}, false
+		httpx.WriteProblem(w, problem.NewMalformedRequestBody())
+		return adminspec.LoginRequest{}, false
 	}
 
-	request.EmailAddress = strings.ToLower(strings.TrimSpace(request.EmailAddress))
-	parsedEmail, err := mail.ParseAddress(request.EmailAddress)
-	if err != nil || parsedEmail.Address != request.EmailAddress || request.Password == "" {
-		httpx.WriteProblemType(w, http.StatusBadRequest, problemTypeInvalidLoginInput, "Invalid login input", "email_address must be valid and password must not be empty.")
-		return loginRequest{}, false
+	normalizedEmail := strings.ToLower(strings.TrimSpace(string(request.EmailAddress)))
+	request.EmailAddress = common.EmailAddress(normalizedEmail)
+	parsedEmail, err := mail.ParseAddress(normalizedEmail)
+	if err != nil || parsedEmail.Address != normalizedEmail || request.Password == "" {
+		httpx.WriteProblem(w, problem.NewInvalidLoginInput())
+		return adminspec.LoginRequest{}, false
 	}
 	return request, true
 }
 
 func writeInvalidCredentials(w http.ResponseWriter) {
-	httpx.WriteBearerProblem(w, auth.AdminBearerRealm, problemTypeInvalidCredentials, "Invalid credentials", "The email address or password is incorrect.")
+	httpx.WriteBearerProblem(w, auth.AdminBearerRealm, problem.NewInvalidCredentials())
 }
 
 func adminLogger(s *adminapi.Server) *slog.Logger {

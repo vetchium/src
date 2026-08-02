@@ -11,9 +11,7 @@ import (
 const (
 	sessionTokenBytes = 32
 
-	AdminBearerRealm                = "vetchium-admin"
-	ProblemTypeAuthenticationNeeded = "urn:vetchium:problem:authentication-required"
-	ProblemTypeInvalidSession       = "urn:vetchium:problem:invalid-session"
+	AdminBearerRealm = "vetchium-admin"
 )
 
 func NewSessionToken() (string, []byte, error) {

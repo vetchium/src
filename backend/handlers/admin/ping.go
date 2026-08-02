@@ -6,6 +6,7 @@ import (
 
 	"backend/internal/adminapi"
 	"backend/internal/httpx"
+	"github.com/vetchium/src/typespec/problem"
 )
 
 func Ping(s *adminapi.Server) http.HandlerFunc {
@@ -14,7 +15,7 @@ func Ping(s *adminapi.Server) http.HandlerFunc {
 		var databaseTime time.Time
 		if err := s.DB.QueryRow(r.Context(), `SELECT gen_random_uuid()::text, clock_timestamp()`).Scan(&nonce, &databaseTime); err != nil {
 			s.Log.ErrorContext(r.Context(), "admin ping failed", "error", err)
-			httpx.WriteProblem(w, http.StatusInternalServerError, "The request could not be completed.")
+			httpx.WriteProblem(w, problem.NewInternalServerError())
 			return
 		}
 
