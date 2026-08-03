@@ -6,16 +6,15 @@ import (
 	"backend/internal/adminapi"
 	"backend/internal/auth"
 	"backend/internal/db/sqlc"
-	"backend/internal/httpx"
 	"backend/internal/middleware"
-	"github.com/vetchium/src/typespec/problem"
+	problemspec "github.com/vetchium/src/typespec/problem"
 )
 
 func Logout(s *adminapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		identity, ok := middleware.AdminIdentityFromContext(r.Context())
 		if !ok {
-			httpx.WriteBearerProblem(w, auth.AdminBearerRealm, problem.NewAuthenticationRequired("Authentication is required."))
+			auth.Unauthorized(w, auth.AdminBearerRealm)
 			return
 		}
 
@@ -25,11 +24,13 @@ func Logout(s *adminapi.Server) http.HandlerFunc {
 		})
 		if err != nil {
 			s.ErrorContext(r.Context(), "delete admin session", "error", err)
-			httpx.WriteProblem(w, problem.NewInternalServerError())
+			w.Header().Set("Content-Type", problemspec.MediaType)
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte(problemspec.InternalServerErrorBody))
 			return
 		}
 		if deleted == 0 {
-			httpx.WriteBearerProblem(w, auth.AdminBearerRealm, problem.NewInvalidSession("The session is no longer valid."))
+			auth.Unauthorized(w, auth.AdminBearerRealm)
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)

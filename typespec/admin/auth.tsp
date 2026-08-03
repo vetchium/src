@@ -2,7 +2,7 @@ import "@typespec/http";
 
 import "../common/common.tsp";
 import "../problem/details.tsp";
-import "../problem/admin-auth.tsp";
+import "../problem/request.tsp";
 import "./user/user.tsp";
 
 using TypeSpec.Http;
@@ -14,9 +14,40 @@ scalar SessionToken extends string;
 
 /** Credentials submitted to create an admin session. */
 model LoginRequest {
+  /** Lowercased after surrounding whitespace is removed. */
   email_address: EmailAddress;
+
+  /** Must be non-empty. Login does not apply password-creation length rules. */
   password: Password;
 }
+
+/**
+ * The supplied email address or password did not authenticate an account.
+ * This response intentionally has no body and does not reveal which
+ * credential failed.
+ */
+alias InvalidCredentialsResponse = {
+  @statusCode status_code: 401;
+  @header("WWW-Authenticate") www_authenticate: "Bearer realm=\"login\"";
+};
+
+/**
+ * The account authenticated successfully but is disabled. This response has
+ * no body.
+ */
+alias DisabledUserResponse = {
+  @statusCode status_code: 403;
+};
+
+/**
+ * The request lacks a valid admin bearer session. Missing, malformed,
+ * expired, revoked, and otherwise invalid bearer credentials use the same
+ * bodyless response.
+ */
+alias AdminAuthenticationRequiredResponse = {
+  @statusCode status_code: 401;
+  @header("WWW-Authenticate") www_authenticate: "Bearer realm=\"vetchium-admin\"";
+};
 
 /** A newly created admin session. */
 model LoginResponse {
@@ -36,26 +67,6 @@ model MyInfoResponse {
   tenant_id: string;
 }
 
-alias InternalServerErrorResponse = {
-  @statusCode status_code: 500;
-  @header("Content-Type") content_type: "application/problem+json";
-  @body body: Vetchium.Problem.InternalServerError;
-};
-
-alias AuthenticationRequiredResponse = {
-  @statusCode status_code: 401;
-  @header("Content-Type") content_type: "application/problem+json";
-  @header("WWW-Authenticate") www_authenticate: string;
-  @body body: Vetchium.Problem.AuthenticationRequired;
-};
-
-alias InvalidSessionResponse = {
-  @statusCode status_code: 401;
-  @header("Content-Type") content_type: "application/problem+json";
-  @header("WWW-Authenticate") www_authenticate: string;
-  @body body: Vetchium.Problem.InvalidSession;
-};
-
 @route("/api/admin")
 @tag("Admin authentication")
 interface Authentication {
@@ -68,25 +79,11 @@ interface Authentication {
         @header("Cache-Control") cache_control: "no-store";
         @body body: LoginResponse;
       }
-    | {
-        @statusCode status_code: 400;
-        @header("Content-Type") content_type: "application/problem+json";
-        @body body:
-          | Vetchium.Problem.MalformedRequestBody
-          | Vetchium.Problem.InvalidLoginInput;
-      }
-    | {
-        @statusCode status_code: 401;
-        @header("Content-Type") content_type: "application/problem+json";
-        @header("WWW-Authenticate") www_authenticate: string;
-        @body body: Vetchium.Problem.InvalidCredentials;
-      }
-    | {
-        @statusCode status_code: 413;
-        @header("Content-Type") content_type: "application/problem+json";
-        @body body: Vetchium.Problem.RequestBodyTooLarge;
-      }
-    | InternalServerErrorResponse;
+    | Vetchium.Problem.BadRequestResponse
+    | InvalidCredentialsResponse
+    | DisabledUserResponse
+    | Vetchium.Problem.RequestBodyTooLargeResponse
+    | Vetchium.Problem.InternalServerErrorResponse;
 
   /** Invalidate the authenticated admin session. */
   @route("/logout")
@@ -96,9 +93,8 @@ interface Authentication {
         @statusCode status_code: 204;
         @header("Cache-Control") cache_control: "no-store";
       }
-    | AuthenticationRequiredResponse
-    | InvalidSessionResponse
-    | InternalServerErrorResponse;
+    | AdminAuthenticationRequiredResponse
+    | Vetchium.Problem.InternalServerErrorResponse;
 
   /** Return the authenticated admin and current-session metadata. */
   @route("/my-info")
@@ -109,7 +105,6 @@ interface Authentication {
         @header("Cache-Control") cache_control: "no-store";
         @body body: MyInfoResponse;
       }
-    | AuthenticationRequiredResponse
-    | InvalidSessionResponse
-    | InternalServerErrorResponse;
+    | AdminAuthenticationRequiredResponse
+    | Vetchium.Problem.InternalServerErrorResponse;
 }

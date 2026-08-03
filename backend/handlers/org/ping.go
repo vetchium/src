@@ -1,12 +1,12 @@
 package org
 
 import (
+	"encoding/json"
 	"net/http"
 	"time"
 
-	"backend/internal/httpx"
 	"backend/internal/orgsapi"
-	"github.com/vetchium/src/typespec/problem"
+	problemspec "github.com/vetchium/src/typespec/problem"
 )
 
 func Ping(s *orgsapi.Server) http.HandlerFunc {
@@ -15,11 +15,16 @@ func Ping(s *orgsapi.Server) http.HandlerFunc {
 		var databaseTime time.Time
 		if err := s.DB.QueryRow(r.Context(), `SELECT gen_random_uuid()::text, clock_timestamp()`).Scan(&nonce, &databaseTime); err != nil {
 			s.ErrorContext(r.Context(), "org ping failed", "error", err)
-			httpx.WriteProblem(w, problem.NewInternalServerError())
+			w.Header().Set("Content-Type", problemspec.MediaType)
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte(problemspec.InternalServerErrorBody))
 			return
 		}
 
-		_ = httpx.WriteJSON(w, http.StatusOK, struct {
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(struct {
 			Portal       string    `json:"portal"`
 			Tenant       string    `json:"tenant"`
 			Nonce        string    `json:"nonce"`

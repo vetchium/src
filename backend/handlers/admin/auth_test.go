@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -16,7 +17,6 @@ import (
 	"backend/internal/apiserver"
 	"backend/internal/auth"
 	"backend/internal/db/sqlc"
-	"backend/internal/httpx"
 	"backend/internal/middleware"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -115,6 +115,7 @@ func TestLoginCreatesHashedSession(t *testing.T) {
 	if got := response.Header().Get("Cache-Control"); got != "no-store" {
 		t.Fatalf("Cache-Control = %q, want no-store", got)
 	}
+	assertJSONHeaders(t, response)
 	if !bytes.Equal(storedHash, auth.HashSessionToken(string(payload.SessionToken))) {
 		t.Fatal("stored session hash does not match returned token")
 	}
@@ -146,10 +147,30 @@ func TestLoginRejectsDisabledAdmin(t *testing.T) {
 	}`))
 	response := httptest.NewRecorder()
 	Login(testServer(db)).ServeHTTP(response, request)
-	if response.Code != http.StatusUnauthorized {
-		t.Fatalf("status = %d, want 401", response.Code)
+	assertEmptyResponse(t, response, http.StatusForbidden, "")
+}
+
+func TestLoginDoesNotRevealDisabledAccountForWrongPassword(t *testing.T) {
+	passwordHash, err := bcrypt.GenerateFromPassword([]byte("correct-password"), bcrypt.MinCost)
+	if err != nil {
+		t.Fatal(err)
 	}
-	assertProblem(t, response, http.StatusUnauthorized, problem.TypeInvalidCredentials, "Invalid credentials", "The email address or password is incorrect.")
+	db := &adminDBStub{
+		getAdminUserForLogin: func(context.Context, string) (sqlc.GetAdminUserForLoginRow, error) {
+			return sqlc.GetAdminUserForLoginRow{
+				PasswordHash:   string(passwordHash),
+				AdminUserState: sqlc.VetchiumAdminUserStateDisabled,
+			}, nil
+		},
+	}
+	request := httptest.NewRequest(http.MethodPost, "/api/admin/login", strings.NewReader(`{
+		"email_address":"admin@example.com",
+		"password":"wrong-password"
+	}`))
+	response := httptest.NewRecorder()
+	Login(testServer(db)).ServeHTTP(response, request)
+
+	assertEmptyResponse(t, response, http.StatusUnauthorized, `Bearer realm="login"`)
 }
 
 func TestAuthenticatedMyInfoAndLogout(t *testing.T) {
@@ -216,6 +237,7 @@ func TestAuthenticatedMyInfoAndLogout(t *testing.T) {
 	if got := response.Header().Get("Cache-Control"); got != "no-store" {
 		t.Fatalf("my-info Cache-Control = %q, want no-store", got)
 	}
+	assertJSONHeaders(t, response)
 
 	logout := middleware.AdminAuth(s)(Logout(s))
 	request = httptest.NewRequest(http.MethodPost, "/api/admin/logout", nil)
@@ -245,10 +267,7 @@ func TestAdminAuthRequiresBearerToken(t *testing.T) {
 	if response.Code != http.StatusUnauthorized {
 		t.Fatalf("status = %d, want 401", response.Code)
 	}
-	if response.Header().Get("WWW-Authenticate") == "" {
-		t.Fatal("WWW-Authenticate header is empty")
-	}
-	assertProblem(t, response, http.StatusUnauthorized, problem.TypeAuthenticationRequired, "Authentication required", "A valid bearer token is required.")
+	assertEmptyResponse(t, response, http.StatusUnauthorized, `Bearer realm="vetchium-admin"`)
 }
 
 func TestAdminAuthRejectsInvalidBearerToken(t *testing.T) {
@@ -264,7 +283,7 @@ func TestAdminAuthRejectsInvalidBearerToken(t *testing.T) {
 	request.Header.Set("Authorization", "Bearer invalid-token")
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
-	assertProblem(t, response, http.StatusUnauthorized, problem.TypeInvalidSession, "Invalid session", "The bearer token is invalid or expired.")
+	assertEmptyResponse(t, response, http.StatusUnauthorized, `Bearer realm="vetchium-admin"`)
 }
 
 func TestMyInfoRejectsSessionInvalidatedAfterAuthentication(t *testing.T) {
@@ -292,20 +311,27 @@ func TestMyInfoRejectsSessionInvalidatedAfterAuthentication(t *testing.T) {
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
 
-	assertProblem(t, response, http.StatusUnauthorized, problem.TypeInvalidSession, "Invalid session", "The bearer token is invalid or expired.")
+	assertEmptyResponse(t, response, http.StatusUnauthorized, `Bearer realm="vetchium-admin"`)
 }
 
-func TestLoginErrorsUseProblemDetails(t *testing.T) {
-	t.Run("malformed request", func(t *testing.T) {
+func TestLoginErrorResponses(t *testing.T) {
+	t.Run("invalid JSON", func(t *testing.T) {
 		response := httptest.NewRecorder()
 		Login(testServer(&adminDBStub{})).ServeHTTP(response,
 			httptest.NewRequest(http.MethodPost, "/api/admin/login", strings.NewReader(`{"email_address":`)))
-		assertProblem(t, response, http.StatusBadRequest, problem.TypeMalformedRequestBody, "Malformed request body", "The request body must contain one valid JSON object with no unknown fields.")
+		assertProblem(t, response, http.StatusBadRequest, problem.TypeInvalidJSON, "Invalid JSON", "The request body must contain exactly one valid JSON document.")
+	})
+
+	t.Run("multiple JSON documents", func(t *testing.T) {
+		response := httptest.NewRecorder()
+		Login(testServer(&adminDBStub{})).ServeHTTP(response,
+			httptest.NewRequest(http.MethodPost, "/api/admin/login", strings.NewReader(`{} {}`)))
+		assertProblem(t, response, http.StatusBadRequest, problem.TypeInvalidJSON, "Invalid JSON", "The request body must contain exactly one valid JSON document.")
 	})
 
 	t.Run("oversized request", func(t *testing.T) {
 		body := `{"email_address":"admin@example.com","password":"` +
-			strings.Repeat("x", httpx.MaxRequestBody) + `"}`
+			strings.Repeat("x", maxLoginRequestBody) + `"}`
 		response := httptest.NewRecorder()
 		Login(testServer(&adminDBStub{})).ServeHTTP(response,
 			httptest.NewRequest(http.MethodPost, "/api/admin/login", strings.NewReader(body)))
@@ -314,21 +340,40 @@ func TestLoginErrorsUseProblemDetails(t *testing.T) {
 
 	t.Run("oversized trailing content", func(t *testing.T) {
 		body := `{"email_address":"admin@example.com","password":"password"} "` +
-			strings.Repeat("x", httpx.MaxRequestBody) + `"`
+			strings.Repeat("x", maxLoginRequestBody) + `"`
 		response := httptest.NewRecorder()
 		Login(testServer(&adminDBStub{})).ServeHTTP(response,
 			httptest.NewRequest(http.MethodPost, "/api/admin/login", strings.NewReader(body)))
 		assertProblem(t, response, http.StatusRequestEntityTooLarge, problem.TypeRequestBodyTooLarge, "Request body too large", "The request body exceeds the maximum size.")
 	})
 
-	t.Run("invalid login input", func(t *testing.T) {
+	t.Run("invalid request fields", func(t *testing.T) {
 		response := httptest.NewRecorder()
 		Login(testServer(&adminDBStub{})).ServeHTTP(response,
 			httptest.NewRequest(http.MethodPost, "/api/admin/login", strings.NewReader(`{
 				"email_address":"not-an-email",
-				"password":"password"
+				"password":"",
+				"z_unknown": true,
+				"a_unknown": true
 			}`)))
-		assertProblem(t, response, http.StatusBadRequest, problem.TypeInvalidLoginInput, "Invalid login input", "email_address must be valid and password must not be empty.")
+		assertInvalidRequest(t, response, []string{"email_address", "password", "a_unknown", "z_unknown"})
+	})
+
+	t.Run("wrong field types", func(t *testing.T) {
+		response := httptest.NewRecorder()
+		Login(testServer(&adminDBStub{})).ServeHTTP(response,
+			httptest.NewRequest(http.MethodPost, "/api/admin/login", strings.NewReader(`{
+				"email_address": false,
+				"password": []
+			}`)))
+		assertInvalidRequest(t, response, []string{"email_address", "password"})
+	})
+
+	t.Run("invalid top-level shape", func(t *testing.T) {
+		response := httptest.NewRecorder()
+		Login(testServer(&adminDBStub{})).ServeHTTP(response,
+			httptest.NewRequest(http.MethodPost, "/api/admin/login", strings.NewReader(`[]`)))
+		assertInvalidRequest(t, response, nil)
 	})
 
 	t.Run("unknown account and wrong password responses match", func(t *testing.T) {
@@ -343,9 +388,7 @@ func TestLoginErrorsUseProblemDetails(t *testing.T) {
 		}`))
 		unknownAccountResponse := httptest.NewRecorder()
 		Login(testServer(unknownAccountDB)).ServeHTTP(unknownAccountResponse, unknownAccountRequest)
-		unknownAccountBody := unknownAccountResponse.Body.String()
-		unknownAccountChallenge := unknownAccountResponse.Header().Get("WWW-Authenticate")
-		assertProblem(t, unknownAccountResponse, http.StatusUnauthorized, problem.TypeInvalidCredentials, "Invalid credentials", "The email address or password is incorrect.")
+		assertEmptyResponse(t, unknownAccountResponse, http.StatusUnauthorized, `Bearer realm="login"`)
 
 		passwordHash, err := bcrypt.GenerateFromPassword([]byte("correct-password"), bcrypt.MinCost)
 		if err != nil {
@@ -365,14 +408,24 @@ func TestLoginErrorsUseProblemDetails(t *testing.T) {
 		}`))
 		wrongPasswordResponse := httptest.NewRecorder()
 		Login(testServer(wrongPasswordDB)).ServeHTTP(wrongPasswordResponse, wrongPasswordRequest)
-		if wrongPasswordResponse.Body.String() != unknownAccountBody {
-			t.Fatalf("wrong-password body %q differs from unknown-account body %q", wrongPasswordResponse.Body.String(), unknownAccountBody)
-		}
-		if wrongPasswordResponse.Header().Get("WWW-Authenticate") != unknownAccountChallenge {
-			t.Fatal("wrong-password and unknown-account challenges differ")
-		}
-		assertProblem(t, wrongPasswordResponse, http.StatusUnauthorized, problem.TypeInvalidCredentials, "Invalid credentials", "The email address or password is incorrect.")
+		assertEmptyResponse(t, wrongPasswordResponse, http.StatusUnauthorized, `Bearer realm="login"`)
 	})
+}
+
+func assertEmptyResponse(t *testing.T, response *httptest.ResponseRecorder, status int, challenge string) {
+	t.Helper()
+	if response.Code != status {
+		t.Fatalf("status = %d, want %d; body = %s", response.Code, status, response.Body.String())
+	}
+	if got := response.Header().Get("WWW-Authenticate"); got != challenge {
+		t.Fatalf("WWW-Authenticate = %q, want %q", got, challenge)
+	}
+	if response.Body.Len() != 0 {
+		t.Fatalf("body = %q, want empty", response.Body.String())
+	}
+	if got := response.Header().Get("Content-Type"); got != "" {
+		t.Fatalf("Content-Type = %q, want empty", got)
+	}
 }
 
 func assertProblem(t *testing.T, response *httptest.ResponseRecorder, status int, typeURI, title, detail string) {
@@ -383,17 +436,44 @@ func assertProblem(t *testing.T, response *httptest.ResponseRecorder, status int
 	if got := response.Header().Get("Content-Type"); got != "application/problem+json" {
 		t.Fatalf("Content-Type = %q, want application/problem+json", got)
 	}
-	if status == http.StatusUnauthorized {
-		if got := response.Header().Get("WWW-Authenticate"); got != `Bearer realm="vetchium-admin"` {
-			t.Fatalf("WWW-Authenticate = %q", got)
-		}
-	}
 	var details problem.Details
 	if err := json.NewDecoder(response.Body).Decode(&details); err != nil {
 		t.Fatal(err)
 	}
 	if details.Type != typeURI || details.Title != title || details.Status != status || details.Detail != detail {
 		t.Fatalf("problem = %+v", details)
+	}
+}
+
+func assertInvalidRequest(t *testing.T, response *httptest.ResponseRecorder, invalidFields []string) {
+	t.Helper()
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d; body = %s", response.Code, http.StatusBadRequest, response.Body.String())
+	}
+	if got := response.Header().Get("Content-Type"); got != "application/problem+json" {
+		t.Fatalf("Content-Type = %q, want application/problem+json", got)
+	}
+
+	var details problem.InvalidRequestDetails
+	if err := json.NewDecoder(response.Body).Decode(&details); err != nil {
+		t.Fatal(err)
+	}
+	if details.Type != problem.TypeInvalidRequest || details.Title != "Invalid request" ||
+		details.Status != http.StatusBadRequest || details.Detail != "One or more fields failed validation." {
+		t.Fatalf("problem = %+v", details)
+	}
+	if !slices.Equal(details.InvalidFields, invalidFields) {
+		t.Fatalf("invalid_fields = %v, want %v", details.InvalidFields, invalidFields)
+	}
+}
+
+func assertJSONHeaders(t *testing.T, response *httptest.ResponseRecorder) {
+	t.Helper()
+	if got := response.Header().Get("Content-Type"); got != "application/json" {
+		t.Fatalf("Content-Type = %q, want application/json", got)
+	}
+	if got := response.Header().Get("X-Content-Type-Options"); got != "nosniff" {
+		t.Fatalf("X-Content-Type-Options = %q, want nosniff", got)
 	}
 }
 

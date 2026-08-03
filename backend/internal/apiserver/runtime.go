@@ -1,13 +1,15 @@
 package apiserver
 
 import (
+	"encoding/json"
 	"log/slog"
 	"net/http"
 
-	"backend/internal/httpx"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/vetchium/src/typespec/problem"
+	problemspec "github.com/vetchium/src/typespec/problem"
 )
+
+const databaseUnavailableBody = `{"type":"about:blank","title":"Service Unavailable","status":503,"detail":"The database is unreachable."}`
 
 // Runtime contains dependencies and behavior shared by every API server.
 type Runtime struct {
@@ -22,8 +24,13 @@ func New(db *pgxpool.Pool, logger *slog.Logger) *Runtime {
 func (s *Runtime) Ready(w http.ResponseWriter, r *http.Request) {
 	if err := s.DB.Ping(r.Context()); err != nil {
 		s.ErrorContext(r.Context(), "readiness check failed", "error", err)
-		httpx.WriteProblem(w, problem.New(http.StatusServiceUnavailable, "The database is unreachable."))
+		w.Header().Set("Content-Type", problemspec.MediaType)
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, _ = w.Write([]byte(databaseUnavailableBody))
 		return
 	}
-	_ = httpx.WriteJSON(w, http.StatusOK, map[string]string{"status": "ready"})
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "ready"})
 }

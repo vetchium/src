@@ -1,26 +1,26 @@
 package admin
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 
 	"backend/internal/adminapi"
 	"backend/internal/auth"
 	"backend/internal/db/sqlc"
-	"backend/internal/httpx"
 	"backend/internal/middleware"
 	"github.com/jackc/pgx/v5"
 	adminspec "github.com/vetchium/src/typespec/admin"
 	adminuser "github.com/vetchium/src/typespec/admin/user"
 	"github.com/vetchium/src/typespec/common"
-	"github.com/vetchium/src/typespec/problem"
+	problemspec "github.com/vetchium/src/typespec/problem"
 )
 
 func MyInfo(s *adminapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		identity, ok := middleware.AdminIdentityFromContext(r.Context())
 		if !ok {
-			httpx.WriteBearerProblem(w, auth.AdminBearerRealm, problem.NewAuthenticationRequired("Authentication is required."))
+			auth.Unauthorized(w, auth.AdminBearerRealm)
 			return
 		}
 
@@ -30,11 +30,13 @@ func MyInfo(s *adminapi.Server) http.HandlerFunc {
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				httpx.WriteBearerProblem(w, auth.AdminBearerRealm, problem.NewInvalidSession("The bearer token is invalid or expired."))
+				auth.Unauthorized(w, auth.AdminBearerRealm)
 				return
 			}
 			s.ErrorContext(r.Context(), "get admin my-info", "error", err)
-			httpx.WriteProblem(w, problem.NewInternalServerError())
+			w.Header().Set("Content-Type", problemspec.MediaType)
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte(problemspec.InternalServerErrorBody))
 			return
 		}
 
@@ -52,7 +54,10 @@ func MyInfo(s *adminapi.Server) http.HandlerFunc {
 			response.LastLoginAt = &lastLoginAt
 		}
 
-		if err := httpx.WriteJSON(w, http.StatusOK, response); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.WriteHeader(http.StatusOK)
+		if err := json.NewEncoder(w).Encode(response); err != nil {
 			s.ErrorContext(r.Context(), "encode admin my-info response", "error", err)
 		}
 	}

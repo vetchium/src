@@ -2,9 +2,11 @@
 // problem-type catalog.
 package problem
 
-import "net/http"
-
-const TypeAboutBlank = "about:blank"
+const (
+	MediaType               = "application/problem+json"
+	TypeAboutBlank          = "about:blank"
+	InternalServerErrorBody = `{"type":"about:blank","title":"Internal Server Error","status":500,"detail":"The request could not be completed."}`
+)
 
 // Details is the RFC 9457 problem-details representation used by Vetchium
 // APIs. Type, Title, and Status are always emitted so clients do not need to
@@ -18,21 +20,3 @@ type Details struct {
 }
 
 type InternalServerError = Details
-
-// New creates an about:blank problem for a standard HTTP status.
-func New(status int, detail string) Details {
-	return newDetails(TypeAboutBlank, http.StatusText(status), status, detail)
-}
-
-func NewInternalServerError() InternalServerError {
-	return New(http.StatusInternalServerError, "The request could not be completed.")
-}
-
-func newDetails(typeURI, title string, status int, detail string) Details {
-	return Details{
-		Type:   typeURI,
-		Title:  title,
-		Status: status,
-		Detail: detail,
-	}
-}

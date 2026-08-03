@@ -12,6 +12,7 @@ const (
 	sessionTokenBytes = 32
 
 	AdminBearerRealm = "vetchium-admin"
+	LoginBearerRealm = "login"
 )
 
 func NewSessionToken() (string, []byte, error) {

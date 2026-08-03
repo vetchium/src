@@ -9,7 +9,9 @@ does not define wire types.
 - `common/` contains genuinely shared scalar and value types.
 - `problem/` contains the RFC 9457 representation and the API-wide catalog of
   stable problem types. Files may be grouped by API surface while remaining in
-  the single `problem` Go package.
+  the single `problem` Go package. Its Go files contain wire types and stable
+  contract constants only. Handlers write these representations directly with
+  `net/http`; there is no separate response-helper abstraction.
 - `admin/`, and future portal directories, contain endpoint-specific paths,
   request bodies, success bodies, and complete HTTP response envelopes.
 - Portal-owned domain types live in focused subpackages such as `admin/user/`.
@@ -23,10 +25,13 @@ The Go module is consumed by the backend through the local replacement in
 under `github.com/vetchium/src/typespec`; do not duplicate API body structs in
 handlers.
 
-Problem call sites use the package name as context, for example:
+Backend problem call sites use the contract constants and standard library,
+for example:
 
 ```go
-httpx.WriteProblem(w, problem.NewInvalidCredentials())
+w.Header().Set("Content-Type", problem.MediaType)
+w.WriteHeader(http.StatusBadRequest)
+_, _ = w.Write([]byte(problem.InvalidJSONBody))
 ```
 
 To validate the contract and emit OpenAPI 3.1 locally:

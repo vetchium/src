@@ -7,10 +7,9 @@ import (
 
 	"backend/internal/adminapi"
 	"backend/internal/auth"
-	"backend/internal/httpx"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/vetchium/src/typespec/problem"
+	problemspec "github.com/vetchium/src/typespec/problem"
 )
 
 type adminIdentityContextKey struct{}
@@ -25,18 +24,20 @@ func AdminAuth(s *adminapi.Server) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			token, ok := auth.BearerToken(r.Header.Get("Authorization"))
 			if !ok {
-				writeUnauthorized(w, problem.NewAuthenticationRequired("A valid bearer token is required."))
+				auth.Unauthorized(w, auth.AdminBearerRealm)
 				return
 			}
 
 			session, err := s.Queries.AuthenticateAdminSession(r.Context(), auth.HashSessionToken(token))
 			if err != nil {
 				if errors.Is(err, pgx.ErrNoRows) {
-					writeUnauthorized(w, problem.NewInvalidSession("The bearer token is invalid or expired."))
+					auth.Unauthorized(w, auth.AdminBearerRealm)
 					return
 				}
 				s.ErrorContext(r.Context(), "authenticate admin session", "error", err)
-				httpx.WriteProblem(w, problem.NewInternalServerError())
+				w.Header().Set("Content-Type", problemspec.MediaType)
+				w.WriteHeader(http.StatusInternalServerError)
+				_, _ = w.Write([]byte(problemspec.InternalServerErrorBody))
 				return
 			}
 
@@ -49,10 +50,6 @@ func AdminAuth(s *adminapi.Server) func(http.Handler) http.Handler {
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
-}
-
-func writeUnauthorized(w http.ResponseWriter, details problem.Details) {
-	httpx.WriteBearerProblem(w, auth.AdminBearerRealm, details)
 }
 
 func AdminIdentityFromContext(ctx context.Context) (AdminIdentity, bool) {
