@@ -11,6 +11,7 @@ import (
 	"backend/internal/middleware"
 	"github.com/jackc/pgx/v5"
 	adminspec "github.com/vetchium/src/typespec/admin"
+	adminuser "github.com/vetchium/src/typespec/admin/user"
 	"github.com/vetchium/src/typespec/common"
 	"github.com/vetchium/src/typespec/problem"
 )
@@ -32,7 +33,7 @@ func MyInfo(s *adminapi.Server) http.HandlerFunc {
 				httpx.WriteBearerProblem(w, auth.AdminBearerRealm, problem.NewInvalidSession("The bearer token is invalid or expired."))
 				return
 			}
-			adminLogger(s).ErrorContext(r.Context(), "get admin my-info", "error", err)
+			s.ErrorContext(r.Context(), "get admin my-info", "error", err)
 			httpx.WriteProblem(w, problem.NewInternalServerError())
 			return
 		}
@@ -41,7 +42,7 @@ func MyInfo(s *adminapi.Server) http.HandlerFunc {
 			AdminUserID:      admin.AdminUserID.String(),
 			EmailAddress:     common.EmailAddress(admin.EmailAddress),
 			DisplayName:      admin.DisplayName,
-			AdminUserState:   adminspec.AdminUserState(admin.AdminUserState),
+			AdminUserState:   adminuser.State(admin.AdminUserState),
 			CreatedAt:        admin.CreatedAt.Time,
 			SessionExpiresAt: admin.ExpiresAt.Time,
 			TenantID:         s.TenantID,
@@ -52,7 +53,7 @@ func MyInfo(s *adminapi.Server) http.HandlerFunc {
 		}
 
 		if err := httpx.WriteJSON(w, http.StatusOK, response); err != nil {
-			adminLogger(s).ErrorContext(r.Context(), "encode admin my-info response", "error", err)
+			s.ErrorContext(r.Context(), "encode admin my-info response", "error", err)
 		}
 	}
 }

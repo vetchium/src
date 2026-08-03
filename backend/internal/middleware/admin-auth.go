@@ -3,7 +3,6 @@ package middleware
 import (
 	"context"
 	"errors"
-	"log/slog"
 	"net/http"
 
 	"backend/internal/adminapi"
@@ -24,11 +23,6 @@ type AdminIdentity struct {
 func AdminAuth(s *adminapi.Server) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			log := s.Log
-			if log == nil {
-				log = slog.Default()
-			}
-
 			token, ok := auth.BearerToken(r.Header.Get("Authorization"))
 			if !ok {
 				writeUnauthorized(w, problem.NewAuthenticationRequired("A valid bearer token is required."))
@@ -41,7 +35,7 @@ func AdminAuth(s *adminapi.Server) func(http.Handler) http.Handler {
 					writeUnauthorized(w, problem.NewInvalidSession("The bearer token is invalid or expired."))
 					return
 				}
-				log.ErrorContext(r.Context(), "authenticate admin session", "error", err)
+				s.ErrorContext(r.Context(), "authenticate admin session", "error", err)
 				httpx.WriteProblem(w, problem.NewInternalServerError())
 				return
 			}

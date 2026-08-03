@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"backend/internal/adminapi"
+	"backend/internal/apiserver"
 	"backend/internal/auth"
 	"backend/internal/db/sqlc"
 	"backend/internal/httpx"
@@ -20,6 +21,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	adminspec "github.com/vetchium/src/typespec/admin"
+	adminuser "github.com/vetchium/src/typespec/admin/user"
 	"github.com/vetchium/src/typespec/problem"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -205,7 +207,7 @@ func TestAuthenticatedMyInfoAndLogout(t *testing.T) {
 	if err := json.NewDecoder(response.Body).Decode(&info); err != nil {
 		t.Fatal(err)
 	}
-	if info.AdminUserID != adminUserID.String() || info.EmailAddress != "admin@example.com" || info.AdminUserState != "active" {
+	if info.AdminUserID != adminUserID.String() || info.EmailAddress != "admin@example.com" || info.AdminUserState != adminuser.Active {
 		t.Fatalf("my-info = %+v", info)
 	}
 	if info.TenantID != "test" || !info.SessionExpiresAt.Equal(sessionExpiresAt) {
@@ -397,9 +399,9 @@ func assertProblem(t *testing.T, response *httptest.ResponseRecorder, status int
 
 func testServer(db sqlc.Querier) *adminapi.Server {
 	return &adminapi.Server{
+		Runtime:         apiserver.New(nil, slog.New(slog.NewTextHandler(io.Discard, nil))),
 		TenantID:        "test",
 		Queries:         db,
 		AdminSessionTTL: 24 * time.Hour,
-		Log:             slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
 }

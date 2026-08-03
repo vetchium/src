@@ -1,17 +1,15 @@
 package adminapi
 
 import (
-	"log/slog"
 	"time"
 
+	"backend/internal/apiserver"
 	"backend/internal/db/sqlc"
-
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type Server struct {
-	DB      *pgxpool.Pool
-	Log     *slog.Logger
+	*apiserver.Runtime
+
 	Queries sqlc.Querier
 
 	// Things below come from Config

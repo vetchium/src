@@ -1,14 +1,9 @@
 package hubapi
 
-import (
-	"log/slog"
-
-	"github.com/jackc/pgx/v5/pgxpool"
-)
+import "backend/internal/apiserver"
 
 type Server struct {
-	DB  *pgxpool.Pool
-	Log *slog.Logger
+	*apiserver.Runtime
 
 	// Things below come from Config
 	TenantID string

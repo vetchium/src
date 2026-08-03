@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"backend/internal/adminapi"
+	"backend/internal/apiserver"
 	"backend/internal/config"
 	"backend/internal/db"
 	dbsqlc "backend/internal/db/sqlc"
@@ -55,11 +56,10 @@ func run(log *slog.Logger) error {
 	defer pool.Close()
 
 	s := &adminapi.Server{
+		Runtime:         apiserver.New(pool, log),
 		TenantID:        cfg.TenantID,
-		DB:              pool,
 		Queries:         dbsqlc.New(pool),
 		AdminSessionTTL: cfg.AdminSessionTTL,
-		Log:             log,
 	}
 	mux := http.NewServeMux()
 	routes.RegisterAdminRoutes(mux, s)

@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"backend/internal/apiserver"
 	"backend/internal/config"
 	"backend/internal/db"
 	"backend/internal/middleware"
@@ -53,7 +54,7 @@ func run(log *slog.Logger) error {
 	}
 	defer pool.Close()
 
-	s := &orgsapi.Server{TenantID: cfg.TenantID, DB: pool, Log: log}
+	s := &orgsapi.Server{Runtime: apiserver.New(pool, log), TenantID: cfg.TenantID}
 	mux := http.NewServeMux()
 	routes.RegisterOrgsRoutes(mux, s)
 

@@ -6,14 +6,13 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"backend/handlers/health"
 	"backend/internal/mcpserver"
 	"backend/internal/version"
 	"backend/tools"
 )
 
 func RegisterMCPRoutes(mux *http.ServeMux, s *mcpserver.Server) {
-	log := s.Log.With("subsystem", "mcp")
+	log := s.With("subsystem", "mcp")
 	mcpServer := mcp.NewServer(
 		&mcp.Implementation{
 			Name:    "vetchium-" + s.TenantID,
@@ -32,5 +31,5 @@ func RegisterMCPRoutes(mux *http.ServeMux, s *mcpserver.Server) {
 		&mcp.StreamableHTTPOptions{Stateless: true, Logger: log},
 	)
 	mux.Handle("/mcp", transport)
-	mux.HandleFunc("GET /readyz", health.Ready(s.DB, s.Log))
+	mux.HandleFunc("GET /readyz", s.Ready)
 }

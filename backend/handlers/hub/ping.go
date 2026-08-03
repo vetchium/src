@@ -14,7 +14,7 @@ func Ping(s *hubapi.Server) http.HandlerFunc {
 		var nonce string
 		var databaseTime time.Time
 		if err := s.DB.QueryRow(r.Context(), `SELECT gen_random_uuid()::text, clock_timestamp()`).Scan(&nonce, &databaseTime); err != nil {
-			s.Log.ErrorContext(r.Context(), "hub ping failed", "error", err)
+			s.ErrorContext(r.Context(), "hub ping failed", "error", err)
 			httpx.WriteProblem(w, problem.NewInternalServerError())
 			return
 		}

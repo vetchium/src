@@ -3,7 +3,6 @@ package admin
 import (
 	"crypto/rand"
 	"errors"
-	"log/slog"
 	"net/http"
 	"net/mail"
 	"strings"
@@ -38,7 +37,6 @@ var decoyPasswordHash = func() []byte {
 
 func Login(s *adminapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		log := adminLogger(s)
 		request, ok := decodeLoginRequest(w, r)
 		if !ok {
 			return
@@ -51,7 +49,7 @@ func Login(s *adminapi.Server) http.HandlerFunc {
 				writeInvalidCredentials(w)
 				return
 			}
-			log.ErrorContext(r.Context(), "get admin user for login", "error", err)
+			s.ErrorContext(r.Context(), "get admin user for login", "error", err)
 			httpx.WriteProblem(w, problem.NewInternalServerError())
 			return
 		}
@@ -64,7 +62,7 @@ func Login(s *adminapi.Server) http.HandlerFunc {
 
 		token, tokenHash, err := auth.NewSessionToken()
 		if err != nil {
-			log.ErrorContext(r.Context(), "generate admin session token", "error", err)
+			s.ErrorContext(r.Context(), "generate admin session token", "error", err)
 			httpx.WriteProblem(w, problem.NewInternalServerError())
 			return
 		}
@@ -79,7 +77,7 @@ func Login(s *adminapi.Server) http.HandlerFunc {
 				writeInvalidCredentials(w)
 				return
 			}
-			log.ErrorContext(r.Context(), "create admin session", "error", err)
+			s.ErrorContext(r.Context(), "create admin session", "error", err)
 			httpx.WriteProblem(w, problem.NewInternalServerError())
 			return
 		}
@@ -89,7 +87,7 @@ func Login(s *adminapi.Server) http.HandlerFunc {
 
 		w.Header().Set("Cache-Control", "no-store")
 		if err := httpx.WriteJSON(w, http.StatusOK, adminspec.LoginResponse{SessionToken: adminspec.SessionToken(token), ExpiresAt: expiresAt}); err != nil {
-			log.ErrorContext(r.Context(), "encode admin login response", "error", err)
+			s.ErrorContext(r.Context(), "encode admin login response", "error", err)
 		}
 	}
 }
@@ -118,11 +116,4 @@ func decodeLoginRequest(w http.ResponseWriter, r *http.Request) (adminspec.Login
 
 func writeInvalidCredentials(w http.ResponseWriter) {
 	httpx.WriteBearerProblem(w, auth.AdminBearerRealm, problem.NewInvalidCredentials())
-}
-
-func adminLogger(s *adminapi.Server) *slog.Logger {
-	if s.Log != nil {
-		return s.Log
-	}
-	return slog.Default()
 }

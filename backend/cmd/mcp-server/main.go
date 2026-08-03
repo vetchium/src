@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"backend/internal/apiserver"
 	"backend/internal/config"
 	"backend/internal/db"
 	"backend/internal/mcpserver"
@@ -53,7 +54,7 @@ func run(log *slog.Logger) error {
 	}
 	defer pool.Close()
 
-	s := &mcpserver.Server{TenantID: cfg.TenantID, DB: pool, Log: log}
+	s := &mcpserver.Server{Runtime: apiserver.New(pool, log), TenantID: cfg.TenantID}
 	mux := http.NewServeMux()
 	routes.RegisterMCPRoutes(mux, s)
 

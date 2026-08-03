@@ -10,8 +10,11 @@ does not define wire types.
 - `problem/` contains the RFC 9457 representation and the API-wide catalog of
   stable problem types. Files may be grouped by API surface while remaining in
   the single `problem` Go package.
-- `admin/`, and future surface directories, contain endpoint-specific paths,
+- `admin/`, and future portal directories, contain endpoint-specific paths,
   request bodies, success bodies, and complete HTTP response envelopes.
+- Portal-owned domain types live in focused subpackages such as `admin/user/`.
+  The package supplies the context, so types and constants stay short—for
+  example, `user.State`, `user.Active`, and `user.Disabled`.
 - `main.tsp` is the TypeSpec compiler entry point and therefore has no matching
   Go file.
 

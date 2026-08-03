@@ -3,6 +3,7 @@ import "@typespec/http";
 import "../common/common.tsp";
 import "../problem/details.tsp";
 import "../problem/admin-auth.tsp";
+import "./user/user.tsp";
 
 using TypeSpec.Http;
 
@@ -10,12 +11,6 @@ namespace Vetchium.Admin;
 
 /** An opaque bearer token for an authenticated admin session. */
 scalar SessionToken extends string;
-
-/** The externally visible state of an admin user. */
-union AdminUserState {
-  active: "active",
-  disabled: "disabled",
-}
 
 /** Credentials submitted to create an admin session. */
 model LoginRequest {
@@ -34,7 +29,7 @@ model MyInfoResponse {
   admin_user_id: string;
   email_address: EmailAddress;
   display_name: string;
-  admin_user_state: AdminUserState;
+  admin_user_state: Vetchium.Admin.User.State;
   last_login_at?: utcDateTime;
   created_at: utcDateTime;
   session_expires_at: utcDateTime;
