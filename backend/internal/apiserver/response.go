@@ -36,3 +36,19 @@ func (s *Runtime) MalformedJSON(w http.ResponseWriter) {
 		s.Error("encode malformed JSON response", "error", err)
 	}
 }
+
+func (s *Runtime) InvalidRequest(w http.ResponseWriter, invalidFields []string) {
+	w.Header().Set("Content-Type", problemspec.MediaType)
+	w.WriteHeader(http.StatusBadRequest)
+	if err := json.NewEncoder(w).Encode(problemspec.InvalidRequestDetails{
+		Details: problemspec.Details{
+			Type:   problemspec.TypeInvalidRequest,
+			Title:  problemspec.InvalidRequestTitle,
+			Status: http.StatusBadRequest,
+			Detail: problemspec.InvalidRequestDetail,
+		},
+		InvalidFields: invalidFields,
+	}); err != nil {
+		s.Error("encode invalid request response", "error", err)
+	}
+}

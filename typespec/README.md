@@ -10,8 +10,8 @@ does not define wire types.
 - `problem/` contains the RFC 9457 representation and the API-wide catalog of
   stable problem types. Files may be grouped by API surface while remaining in
   the single `problem` Go package. Its Go files contain wire types and stable
-  contract constants only. Handlers write these representations directly with
-  `net/http`; there is no separate response-helper abstraction.
+  contract constants only. The backend's shared server runtime owns HTTP
+  response encoding for these values.
 - `admin/`, and future portal directories, contain endpoint-specific paths,
   request bodies, success bodies, and complete HTTP response envelopes.
 - Portal-owned domain types live in focused subpackages such as `admin/user/`.
@@ -23,7 +23,9 @@ does not define wire types.
 The Go module is consumed by the backend through the local replacement in
 `backend/go.mod`. Add new server code by importing the appropriate package
 under `github.com/vetchium/src/typespec`; do not duplicate API body structs in
-handlers.
+handlers. Request normalization and validation also belong beside the request
+type in this module so each language implementation can mirror the `.tsp`
+contract without reimplementing rules in endpoint handlers.
 
 Backend handlers encode typed Problem values through the shared server runtime,
 for example:

@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"net/mail"
-	"strings"
 	"time"
 
 	"backend/internal/adminapi"
@@ -15,7 +13,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	adminspec "github.com/vetchium/src/typespec/admin"
-	problemspec "github.com/vetchium/src/typespec/problem"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -43,29 +40,12 @@ func Login(s *adminapi.Server) http.HandlerFunc {
 			return
 		}
 
-		invalidFields := make([]string, 0, 2)
-		emailAddress := strings.ToLower(strings.TrimSpace(string(request.EmailAddress)))
-		parsedEmail, err := mail.ParseAddress(emailAddress)
-		if err != nil || parsedEmail.Address != emailAddress {
-			invalidFields = append(invalidFields, "email_address")
-		}
-		if request.Password == "" {
-			invalidFields = append(invalidFields, "password")
-		}
-		if len(invalidFields) != 0 {
-			w.Header().Set("Content-Type", problemspec.MediaType)
-			w.WriteHeader(http.StatusBadRequest)
-			_ = json.NewEncoder(w).Encode(problemspec.InvalidRequestDetails{
-				Details: problemspec.Details{
-					Type:   problemspec.TypeInvalidRequest,
-					Title:  problemspec.InvalidRequestTitle,
-					Status: http.StatusBadRequest,
-					Detail: problemspec.InvalidRequestDetail,
-				},
-				InvalidFields: invalidFields,
-			})
+		if invalidFields := request.Validate(); len(invalidFields) != 0 {
+			s.InvalidRequest(w, invalidFields)
 			return
 		}
+		request = request.Normalize()
+		emailAddress := string(request.EmailAddress)
 
 		adminUser, err := s.Queries.GetAdminUserForLogin(r.Context(), emailAddress)
 		if err != nil {
