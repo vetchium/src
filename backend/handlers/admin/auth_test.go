@@ -267,7 +267,7 @@ func TestAdminAuthRequiresBearerToken(t *testing.T) {
 	if response.Code != http.StatusUnauthorized {
 		t.Fatalf("status = %d, want 401", response.Code)
 	}
-	assertEmptyResponse(t, response, http.StatusUnauthorized, `Bearer realm="vetchium-admin"`)
+	assertEmptyResponse(t, response, http.StatusUnauthorized, `Bearer realm="login"`)
 }
 
 func TestAdminAuthRejectsInvalidBearerToken(t *testing.T) {
@@ -283,7 +283,7 @@ func TestAdminAuthRejectsInvalidBearerToken(t *testing.T) {
 	request.Header.Set("Authorization", "Bearer invalid-token")
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
-	assertEmptyResponse(t, response, http.StatusUnauthorized, `Bearer realm="vetchium-admin"`)
+	assertEmptyResponse(t, response, http.StatusUnauthorized, `Bearer realm="login"`)
 }
 
 func TestMyInfoRejectsSessionInvalidatedAfterAuthentication(t *testing.T) {
@@ -311,7 +311,7 @@ func TestMyInfoRejectsSessionInvalidatedAfterAuthentication(t *testing.T) {
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
 
-	assertEmptyResponse(t, response, http.StatusUnauthorized, `Bearer realm="vetchium-admin"`)
+	assertEmptyResponse(t, response, http.StatusUnauthorized, `Bearer realm="login"`)
 }
 
 func TestLoginErrorResponses(t *testing.T) {
@@ -319,44 +319,17 @@ func TestLoginErrorResponses(t *testing.T) {
 		response := httptest.NewRecorder()
 		Login(testServer(&adminDBStub{})).ServeHTTP(response,
 			httptest.NewRequest(http.MethodPost, "/api/admin/login", strings.NewReader(`{"email_address":`)))
-		assertProblem(t, response, http.StatusBadRequest, problem.TypeInvalidJSON, "Invalid JSON", "The request body must contain exactly one valid JSON document.")
+		assertProblem(t, response, http.StatusBadRequest, problem.TypeInvalidJSON, "Invalid JSON", "The request body must contain valid JSON matching the request schema.")
 	})
 
-	t.Run("multiple JSON documents", func(t *testing.T) {
-		response := httptest.NewRecorder()
-		Login(testServer(&adminDBStub{})).ServeHTTP(response,
-			httptest.NewRequest(http.MethodPost, "/api/admin/login", strings.NewReader(`{} {}`)))
-		assertProblem(t, response, http.StatusBadRequest, problem.TypeInvalidJSON, "Invalid JSON", "The request body must contain exactly one valid JSON document.")
-	})
-
-	t.Run("oversized request", func(t *testing.T) {
-		body := `{"email_address":"admin@example.com","password":"` +
-			strings.Repeat("x", maxLoginRequestBody) + `"}`
-		response := httptest.NewRecorder()
-		Login(testServer(&adminDBStub{})).ServeHTTP(response,
-			httptest.NewRequest(http.MethodPost, "/api/admin/login", strings.NewReader(body)))
-		assertProblem(t, response, http.StatusRequestEntityTooLarge, problem.TypeRequestBodyTooLarge, "Request body too large", "The request body exceeds the maximum size.")
-	})
-
-	t.Run("oversized trailing content", func(t *testing.T) {
-		body := `{"email_address":"admin@example.com","password":"password"} "` +
-			strings.Repeat("x", maxLoginRequestBody) + `"`
-		response := httptest.NewRecorder()
-		Login(testServer(&adminDBStub{})).ServeHTTP(response,
-			httptest.NewRequest(http.MethodPost, "/api/admin/login", strings.NewReader(body)))
-		assertProblem(t, response, http.StatusRequestEntityTooLarge, problem.TypeRequestBodyTooLarge, "Request body too large", "The request body exceeds the maximum size.")
-	})
-
-	t.Run("invalid request fields", func(t *testing.T) {
+	t.Run("invalid credentials fields", func(t *testing.T) {
 		response := httptest.NewRecorder()
 		Login(testServer(&adminDBStub{})).ServeHTTP(response,
 			httptest.NewRequest(http.MethodPost, "/api/admin/login", strings.NewReader(`{
 				"email_address":"not-an-email",
-				"password":"",
-				"z_unknown": true,
-				"a_unknown": true
+				"password":""
 			}`)))
-		assertInvalidRequest(t, response, []string{"email_address", "password", "a_unknown", "z_unknown"})
+		assertInvalidRequest(t, response, []string{"email_address", "password"})
 	})
 
 	t.Run("wrong field types", func(t *testing.T) {
@@ -366,14 +339,14 @@ func TestLoginErrorResponses(t *testing.T) {
 				"email_address": false,
 				"password": []
 			}`)))
-		assertInvalidRequest(t, response, []string{"email_address", "password"})
+		assertProblem(t, response, http.StatusBadRequest, problem.TypeInvalidJSON, "Invalid JSON", "The request body must contain valid JSON matching the request schema.")
 	})
 
 	t.Run("invalid top-level shape", func(t *testing.T) {
 		response := httptest.NewRecorder()
 		Login(testServer(&adminDBStub{})).ServeHTTP(response,
 			httptest.NewRequest(http.MethodPost, "/api/admin/login", strings.NewReader(`[]`)))
-		assertInvalidRequest(t, response, nil)
+		assertProblem(t, response, http.StatusBadRequest, problem.TypeInvalidJSON, "Invalid JSON", "The request body must contain valid JSON matching the request schema.")
 	})
 
 	t.Run("unknown account and wrong password responses match", func(t *testing.T) {

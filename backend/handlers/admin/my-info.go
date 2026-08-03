@@ -13,14 +13,13 @@ import (
 	adminspec "github.com/vetchium/src/typespec/admin"
 	adminuser "github.com/vetchium/src/typespec/admin/user"
 	"github.com/vetchium/src/typespec/common"
-	problemspec "github.com/vetchium/src/typespec/problem"
 )
 
 func MyInfo(s *adminapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		identity, ok := middleware.AdminIdentityFromContext(r.Context())
 		if !ok {
-			auth.Unauthorized(w, auth.AdminBearerRealm)
+			auth.Unauthorized(w)
 			return
 		}
 
@@ -30,13 +29,11 @@ func MyInfo(s *adminapi.Server) http.HandlerFunc {
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				auth.Unauthorized(w, auth.AdminBearerRealm)
+				auth.Unauthorized(w)
 				return
 			}
 			s.ErrorContext(r.Context(), "get admin my-info", "error", err)
-			w.Header().Set("Content-Type", problemspec.MediaType)
-			w.WriteHeader(http.StatusInternalServerError)
-			_, _ = w.Write([]byte(problemspec.InternalServerErrorBody))
+			s.InternalError(w)
 			return
 		}
 

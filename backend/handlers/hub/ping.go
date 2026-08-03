@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"backend/internal/hubapi"
-	problemspec "github.com/vetchium/src/typespec/problem"
 )
 
 func Ping(s *hubapi.Server) http.HandlerFunc {
@@ -15,9 +14,7 @@ func Ping(s *hubapi.Server) http.HandlerFunc {
 		var databaseTime time.Time
 		if err := s.DB.QueryRow(r.Context(), `SELECT gen_random_uuid()::text, clock_timestamp()`).Scan(&nonce, &databaseTime); err != nil {
 			s.ErrorContext(r.Context(), "hub ping failed", "error", err)
-			w.Header().Set("Content-Type", problemspec.MediaType)
-			w.WriteHeader(http.StatusInternalServerError)
-			_, _ = w.Write([]byte(problemspec.InternalServerErrorBody))
+			s.InternalError(w)
 			return
 		}
 

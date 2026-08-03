@@ -25,13 +25,11 @@ The Go module is consumed by the backend through the local replacement in
 under `github.com/vetchium/src/typespec`; do not duplicate API body structs in
 handlers.
 
-Backend problem call sites use the contract constants and standard library,
+Backend handlers encode typed Problem values through the shared server runtime,
 for example:
 
 ```go
-w.Header().Set("Content-Type", problem.MediaType)
-w.WriteHeader(http.StatusBadRequest)
-_, _ = w.Write([]byte(problem.InvalidJSONBody))
+s.MalformedJSON(w)
 ```
 
 To validate the contract and emit OpenAPI 3.1 locally:

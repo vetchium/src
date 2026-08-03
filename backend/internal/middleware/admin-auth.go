@@ -9,7 +9,6 @@ import (
 	"backend/internal/auth"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	problemspec "github.com/vetchium/src/typespec/problem"
 )
 
 type adminIdentityContextKey struct{}
@@ -24,20 +23,18 @@ func AdminAuth(s *adminapi.Server) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			token, ok := auth.BearerToken(r.Header.Get("Authorization"))
 			if !ok {
-				auth.Unauthorized(w, auth.AdminBearerRealm)
+				auth.Unauthorized(w)
 				return
 			}
 
 			session, err := s.Queries.AuthenticateAdminSession(r.Context(), auth.HashSessionToken(token))
 			if err != nil {
 				if errors.Is(err, pgx.ErrNoRows) {
-					auth.Unauthorized(w, auth.AdminBearerRealm)
+					auth.Unauthorized(w)
 					return
 				}
 				s.ErrorContext(r.Context(), "authenticate admin session", "error", err)
-				w.Header().Set("Content-Type", problemspec.MediaType)
-				w.WriteHeader(http.StatusInternalServerError)
-				_, _ = w.Write([]byte(problemspec.InternalServerErrorBody))
+				s.InternalError(w)
 				return
 			}
 

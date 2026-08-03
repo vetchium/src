@@ -8,7 +8,7 @@ import (
 
 func TestUnauthorized(t *testing.T) {
 	recorder := httptest.NewRecorder()
-	Unauthorized(recorder, LoginBearerRealm)
+	Unauthorized(recorder)
 
 	if recorder.Code != http.StatusUnauthorized {
 		t.Fatalf("status = %d, want 401", recorder.Code)

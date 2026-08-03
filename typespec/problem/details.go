@@ -3,9 +3,8 @@
 package problem
 
 const (
-	MediaType               = "application/problem+json"
-	TypeAboutBlank          = "about:blank"
-	InternalServerErrorBody = `{"type":"about:blank","title":"Internal Server Error","status":500,"detail":"The request could not be completed."}`
+	MediaType      = "application/problem+json"
+	TypeAboutBlank = "about:blank"
 )
 
 // Details is the RFC 9457 problem-details representation used by Vetchium

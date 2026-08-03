@@ -7,14 +7,13 @@ import (
 	"backend/internal/auth"
 	"backend/internal/db/sqlc"
 	"backend/internal/middleware"
-	problemspec "github.com/vetchium/src/typespec/problem"
 )
 
 func Logout(s *adminapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		identity, ok := middleware.AdminIdentityFromContext(r.Context())
 		if !ok {
-			auth.Unauthorized(w, auth.AdminBearerRealm)
+			auth.Unauthorized(w)
 			return
 		}
 
@@ -24,13 +23,11 @@ func Logout(s *adminapi.Server) http.HandlerFunc {
 		})
 		if err != nil {
 			s.ErrorContext(r.Context(), "delete admin session", "error", err)
-			w.Header().Set("Content-Type", problemspec.MediaType)
-			w.WriteHeader(http.StatusInternalServerError)
-			_, _ = w.Write([]byte(problemspec.InternalServerErrorBody))
+			s.InternalError(w)
 			return
 		}
 		if deleted == 0 {
-			auth.Unauthorized(w, auth.AdminBearerRealm)
+			auth.Unauthorized(w)
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)

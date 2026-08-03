@@ -9,13 +9,14 @@ import (
 	"strings"
 	"testing"
 
+	"backend/internal/apiserver"
 	"github.com/vetchium/src/typespec/problem"
 )
 
 func TestRequestLoggerRecoversWithProblemDetails(t *testing.T) {
 	var logs bytes.Buffer
 	log := slog.New(slog.NewJSONHandler(&logs, nil))
-	handler := RequestLogger(log)(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+	handler := RequestLogger(apiserver.New(nil, log))(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
 		panic("boom")
 	}))
 	recorder := httptest.NewRecorder()

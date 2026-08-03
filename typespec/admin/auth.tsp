@@ -46,7 +46,7 @@ alias DisabledUserResponse = {
  */
 alias AdminAuthenticationRequiredResponse = {
   @statusCode status_code: 401;
-  @header("WWW-Authenticate") www_authenticate: "Bearer realm=\"vetchium-admin\"";
+  @header("WWW-Authenticate") www_authenticate: "Bearer realm=\"login\"";
 };
 
 /** A newly created admin session. */
@@ -82,7 +82,6 @@ interface Authentication {
     | Vetchium.Problem.BadRequestResponse
     | InvalidCredentialsResponse
     | DisabledUserResponse
-    | Vetchium.Problem.RequestBodyTooLargeResponse
     | Vetchium.Problem.InternalServerErrorResponse;
 
   /** Invalidate the authenticated admin session. */

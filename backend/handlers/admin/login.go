@@ -4,10 +4,9 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"errors"
-	"io"
 	"net/http"
-	"slices"
-	"sort"
+	"net/mail"
+	"strings"
 	"time"
 
 	"backend/internal/adminapi"
@@ -35,32 +34,54 @@ var decoyPasswordHash = func() []byte {
 	return hash
 }()
 
-const maxLoginRequestBody = 64 << 10
-
 func Login(s *adminapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		request, ok := decodeLoginRequest(w, r)
-		if !ok {
+		var request adminspec.LoginRequest
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+			s.DebugContext(r.Context(), "decode admin login request", "error", err)
+			s.MalformedJSON(w)
 			return
 		}
 
-		adminUser, err := s.Queries.GetAdminUserForLogin(r.Context(), string(request.EmailAddress))
+		invalidFields := make([]string, 0, 2)
+		emailAddress := strings.ToLower(strings.TrimSpace(string(request.EmailAddress)))
+		parsedEmail, err := mail.ParseAddress(emailAddress)
+		if err != nil || parsedEmail.Address != emailAddress {
+			invalidFields = append(invalidFields, "email_address")
+		}
+		if request.Password == "" {
+			invalidFields = append(invalidFields, "password")
+		}
+		if len(invalidFields) != 0 {
+			w.Header().Set("Content-Type", problemspec.MediaType)
+			w.WriteHeader(http.StatusBadRequest)
+			_ = json.NewEncoder(w).Encode(problemspec.InvalidRequestDetails{
+				Details: problemspec.Details{
+					Type:   problemspec.TypeInvalidRequest,
+					Title:  problemspec.InvalidRequestTitle,
+					Status: http.StatusBadRequest,
+					Detail: problemspec.InvalidRequestDetail,
+				},
+				InvalidFields: invalidFields,
+			})
+			return
+		}
+
+		adminUser, err := s.Queries.GetAdminUserForLogin(r.Context(), emailAddress)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				_ = bcrypt.CompareHashAndPassword(decoyPasswordHash, []byte(request.Password))
-				writeInvalidCredentials(w)
+				auth.Unauthorized(w)
 				return
 			}
 			s.ErrorContext(r.Context(), "get admin user for login", "error", err)
-			w.Header().Set("Content-Type", problemspec.MediaType)
-			w.WriteHeader(http.StatusInternalServerError)
-			_, _ = w.Write([]byte(problemspec.InternalServerErrorBody))
+			s.InternalError(w)
 			return
 		}
 
 		passwordMatches := bcrypt.CompareHashAndPassword([]byte(adminUser.PasswordHash), []byte(request.Password)) == nil
 		if !passwordMatches {
-			writeInvalidCredentials(w)
+			auth.Unauthorized(w)
 			return
 		}
 		if adminUser.AdminUserState != sqlc.VetchiumAdminUserStateActive {
@@ -71,9 +92,7 @@ func Login(s *adminapi.Server) http.HandlerFunc {
 		token, tokenHash, err := auth.NewSessionToken()
 		if err != nil {
 			s.ErrorContext(r.Context(), "generate admin session token", "error", err)
-			w.Header().Set("Content-Type", problemspec.MediaType)
-			w.WriteHeader(http.StatusInternalServerError)
-			_, _ = w.Write([]byte(problemspec.InternalServerErrorBody))
+			s.InternalError(w)
 			return
 		}
 		expiresAt := time.Now().UTC().Add(s.AdminSessionTTL)
@@ -90,9 +109,7 @@ func Login(s *adminapi.Server) http.HandlerFunc {
 				return
 			}
 			s.ErrorContext(r.Context(), "create admin session", "error", err)
-			w.Header().Set("Content-Type", problemspec.MediaType)
-			w.WriteHeader(http.StatusInternalServerError)
-			_, _ = w.Write([]byte(problemspec.InternalServerErrorBody))
+			s.InternalError(w)
 			return
 		}
 		if session.ExpiresAt.Valid {
@@ -107,76 +124,4 @@ func Login(s *adminapi.Server) http.HandlerFunc {
 			s.ErrorContext(r.Context(), "encode admin login response", "error", err)
 		}
 	}
-}
-
-func decodeLoginRequest(w http.ResponseWriter, r *http.Request) (adminspec.LoginRequest, bool) {
-	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxLoginRequestBody))
-	if err != nil {
-		var maxBytesError *http.MaxBytesError
-		if errors.As(err, &maxBytesError) {
-			w.Header().Set("Content-Type", problemspec.MediaType)
-			w.WriteHeader(http.StatusRequestEntityTooLarge)
-			_, _ = w.Write([]byte(problemspec.RequestBodyTooLargeBody))
-			return adminspec.LoginRequest{}, false
-		}
-		w.Header().Set("Content-Type", problemspec.MediaType)
-		w.WriteHeader(http.StatusBadRequest)
-		_, _ = w.Write([]byte(problemspec.InvalidJSONBody))
-		return adminspec.LoginRequest{}, false
-	}
-	if !json.Valid(body) {
-		w.Header().Set("Content-Type", problemspec.MediaType)
-		w.WriteHeader(http.StatusBadRequest)
-		_, _ = w.Write([]byte(problemspec.InvalidJSONBody))
-		return adminspec.LoginRequest{}, false
-	}
-
-	var members map[string]json.RawMessage
-	validShape := json.Unmarshal(body, &members) == nil && members != nil
-	var request adminspec.LoginRequest
-	invalidFields := make([]string, 0, 2)
-	if validShape {
-		if value, exists := members["email_address"]; !exists || json.Unmarshal(value, &request.EmailAddress) != nil {
-			invalidFields = append(invalidFields, "email_address")
-		}
-		if value, exists := members["password"]; !exists || json.Unmarshal(value, &request.Password) != nil {
-			invalidFields = append(invalidFields, "password")
-		}
-
-		request = request.Normalized()
-		for _, field := range request.InvalidFields() {
-			if !slices.Contains(invalidFields, field) {
-				invalidFields = append(invalidFields, field)
-			}
-		}
-
-		unknownFields := make([]string, 0)
-		for field := range members {
-			if field != "email_address" && field != "password" {
-				unknownFields = append(unknownFields, field)
-			}
-		}
-		sort.Strings(unknownFields)
-		invalidFields = append(invalidFields, unknownFields...)
-	}
-
-	if !validShape || len(invalidFields) != 0 {
-		w.Header().Set("Content-Type", problemspec.MediaType)
-		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(problemspec.InvalidRequestDetails{
-			Details: problemspec.Details{
-				Type:   problemspec.TypeInvalidRequest,
-				Title:  problemspec.InvalidRequestTitle,
-				Status: http.StatusBadRequest,
-				Detail: problemspec.InvalidRequestDetail,
-			},
-			InvalidFields: invalidFields,
-		})
-		return adminspec.LoginRequest{}, false
-	}
-	return request, true
-}
-
-func writeInvalidCredentials(w http.ResponseWriter) {
-	auth.Unauthorized(w, auth.LoginBearerRealm)
 }
