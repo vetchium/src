@@ -9,9 +9,6 @@ using TypeSpec.Http;
 
 namespace Vetchium.Admin;
 
-/** An opaque bearer token for an authenticated admin session. */
-scalar SessionToken extends string;
-
 /** Credentials submitted to create an admin session. */
 model LoginRequest {
   /** Lowercased after surrounding whitespace is removed. */
@@ -51,7 +48,8 @@ alias AdminAuthenticationRequiredResponse = {
 
 /** A newly created admin session. */
 model LoginResponse {
-  session_token: SessionToken;
+  /** An opaque bearer token for the authenticated admin session. */
+  session_token: string;
   expires_at: utcDateTime;
 }
 

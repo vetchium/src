@@ -3,6 +3,7 @@ package admin
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"io"
 	"log/slog"
@@ -15,7 +16,6 @@ import (
 
 	"backend/internal/adminapi"
 	"backend/internal/apiserver"
-	"backend/internal/auth"
 	"backend/internal/db/sqlc"
 	"backend/internal/middleware"
 	"github.com/jackc/pgx/v5"
@@ -116,7 +116,8 @@ func TestLoginCreatesHashedSession(t *testing.T) {
 		t.Fatalf("Cache-Control = %q, want no-store", got)
 	}
 	assertJSONHeaders(t, response)
-	if !bytes.Equal(storedHash, auth.HashSessionToken(string(payload.SessionToken))) {
+	issuedHash := sha256.Sum256([]byte(payload.SessionToken))
+	if !bytes.Equal(storedHash, issuedHash[:]) {
 		t.Fatal("stored session hash does not match returned token")
 	}
 	if bytes.Equal(storedHash, []byte(payload.SessionToken)) {
@@ -175,7 +176,7 @@ func TestLoginDoesNotRevealDisabledAccountForWrongPassword(t *testing.T) {
 
 func TestAuthenticatedMyInfoAndLogout(t *testing.T) {
 	token := "presented-session-token"
-	tokenHash := auth.HashSessionToken(token)
+	tokenHash := sha256.Sum256([]byte(token))
 	adminUserID := pgtype.UUID{Bytes: [16]byte{15: 7}, Valid: true}
 	adminSessionID := pgtype.UUID{Bytes: [16]byte{15: 8}, Valid: true}
 	createdAt := time.Date(2026, time.August, 1, 10, 0, 0, 0, time.UTC)
@@ -185,7 +186,7 @@ func TestAuthenticatedMyInfoAndLogout(t *testing.T) {
 
 	db := &adminDBStub{}
 	db.authenticateAdminSession = func(_ context.Context, gotHash []byte) (sqlc.AuthenticateAdminSessionRow, error) {
-		if !bytes.Equal(gotHash, tokenHash) {
+		if !bytes.Equal(gotHash, tokenHash[:]) {
 			t.Fatalf("auth hash = %x, want %x", gotHash, tokenHash)
 		}
 		return sqlc.AuthenticateAdminSessionRow{
@@ -253,21 +254,52 @@ func TestAuthenticatedMyInfoAndLogout(t *testing.T) {
 }
 
 func TestAdminAuthRequiresBearerToken(t *testing.T) {
-	db := &adminDBStub{
-		authenticateAdminSession: func(context.Context, []byte) (sqlc.AuthenticateAdminSessionRow, error) {
-			t.Fatal("AuthenticateAdminSession called without bearer token")
-			return sqlc.AuthenticateAdminSessionRow{}, nil
-		},
+	for _, authorization := range []string{"", "token", "Basic token", "Bearer", "Bearer one two"} {
+		t.Run(authorization, func(t *testing.T) {
+			db := &adminDBStub{
+				authenticateAdminSession: func(context.Context, []byte) (sqlc.AuthenticateAdminSessionRow, error) {
+					t.Fatal("AuthenticateAdminSession called without bearer token")
+					return sqlc.AuthenticateAdminSessionRow{}, nil
+				},
+			}
+			handler := middleware.AdminAuth(testServer(db))(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+				t.Fatal("protected handler called")
+			}))
+			request := httptest.NewRequest(http.MethodGet, "/", nil)
+			if authorization != "" {
+				request.Header.Set("Authorization", authorization)
+			}
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+			assertEmptyResponse(t, response, http.StatusUnauthorized, `Bearer realm="login"`)
+		})
 	}
-	handler := middleware.AdminAuth(testServer(db))(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
-		t.Fatal("protected handler called")
-	}))
-	response := httptest.NewRecorder()
-	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/", nil))
-	if response.Code != http.StatusUnauthorized {
-		t.Fatalf("status = %d, want 401", response.Code)
+}
+
+func TestAdminAuthAcceptsBearerHeaderVariants(t *testing.T) {
+	for _, authorization := range []string{"bearer presented-token", "  Bearer   presented-token  "} {
+		t.Run(authorization, func(t *testing.T) {
+			wantHash := sha256.Sum256([]byte("presented-token"))
+			db := &adminDBStub{
+				authenticateAdminSession: func(_ context.Context, gotHash []byte) (sqlc.AuthenticateAdminSessionRow, error) {
+					if !bytes.Equal(gotHash, wantHash[:]) {
+						t.Fatalf("auth hash = %x, want %x", gotHash, wantHash)
+					}
+					return sqlc.AuthenticateAdminSessionRow{}, nil
+				},
+			}
+			authenticated := false
+			handler := middleware.AdminAuth(testServer(db))(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+				authenticated = true
+			}))
+			request := httptest.NewRequest(http.MethodGet, "/", nil)
+			request.Header.Set("Authorization", authorization)
+			handler.ServeHTTP(httptest.NewRecorder(), request)
+			if !authenticated {
+				t.Fatal("protected handler was not called")
+			}
+		})
 	}
-	assertEmptyResponse(t, response, http.StatusUnauthorized, `Bearer realm="login"`)
 }
 
 func TestAdminAuthRejectsInvalidBearerToken(t *testing.T) {

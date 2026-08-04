@@ -2,13 +2,14 @@ package admin
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"time"
 
 	"backend/internal/adminapi"
-	"backend/internal/auth"
 	"backend/internal/db/sqlc"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -51,7 +52,7 @@ func Login(s *adminapi.Server) http.HandlerFunc {
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				_ = bcrypt.CompareHashAndPassword(decoyPasswordHash, []byte(request.Password))
-				auth.Unauthorized(w)
+				s.Unauthorized(w)
 				return
 			}
 			s.ErrorContext(r.Context(), "get admin user for login", "error", err)
@@ -61,7 +62,7 @@ func Login(s *adminapi.Server) http.HandlerFunc {
 
 		passwordMatches := bcrypt.CompareHashAndPassword([]byte(adminUser.PasswordHash), []byte(request.Password)) == nil
 		if !passwordMatches {
-			auth.Unauthorized(w)
+			s.Unauthorized(w)
 			return
 		}
 		if adminUser.AdminUserState != sqlc.VetchiumAdminUserStateActive {
@@ -69,15 +70,20 @@ func Login(s *adminapi.Server) http.HandlerFunc {
 			return
 		}
 
-		token, tokenHash, err := auth.NewSessionToken()
-		if err != nil {
+		secret := make([]byte, 32)
+		if _, err := rand.Read(secret); err != nil {
 			s.ErrorContext(r.Context(), "generate admin session token", "error", err)
 			s.InternalError(w)
 			return
 		}
+		// Only the hash of the token is stored, so a database disclosure does
+		// not hand out usable sessions.
+		token := base64.RawURLEncoding.EncodeToString(secret)
+		tokenHash := sha256.Sum256([]byte(token))
+
 		expiresAt := time.Now().UTC().Add(s.AdminSessionTTL)
 		session, err := s.Queries.CreateAdminSession(r.Context(), sqlc.CreateAdminSessionParams{
-			SessionTokenHash: tokenHash,
+			SessionTokenHash: tokenHash[:],
 			AdminUserID:      adminUser.AdminUserID,
 			ExpiresAt:        pgtype.Timestamptz{Time: expiresAt, Valid: true},
 		})
@@ -100,7 +106,7 @@ func Login(s *adminapi.Server) http.HandlerFunc {
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.WriteHeader(http.StatusOK)
-		if err := json.NewEncoder(w).Encode(adminspec.LoginResponse{SessionToken: adminspec.SessionToken(token), ExpiresAt: expiresAt}); err != nil {
+		if err := json.NewEncoder(w).Encode(adminspec.LoginResponse{SessionToken: token, ExpiresAt: expiresAt}); err != nil {
 			s.ErrorContext(r.Context(), "encode admin login response", "error", err)
 		}
 	}

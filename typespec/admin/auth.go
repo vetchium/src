@@ -11,8 +11,6 @@ import (
 	"github.com/vetchium/src/typespec/common"
 )
 
-type SessionToken string
-
 type LoginRequest struct {
 	EmailAddress common.EmailAddress `json:"email_address"`
 	Password     common.Password     `json:"password"`
@@ -45,8 +43,8 @@ func (r LoginRequest) Validate() []string {
 }
 
 type LoginResponse struct {
-	SessionToken SessionToken `json:"session_token"`
-	ExpiresAt    time.Time    `json:"expires_at"`
+	SessionToken string    `json:"session_token"`
+	ExpiresAt    time.Time `json:"expires_at"`
 }
 
 type MyInfoResponse struct {

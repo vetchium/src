@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	"backend/internal/adminapi"
-	"backend/internal/auth"
 	"backend/internal/db/sqlc"
 	"backend/internal/middleware"
 )
@@ -13,7 +12,7 @@ func Logout(s *adminapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		identity, ok := middleware.AdminIdentityFromContext(r.Context())
 		if !ok {
-			auth.Unauthorized(w)
+			s.Unauthorized(w)
 			return
 		}
 
@@ -27,7 +26,7 @@ func Logout(s *adminapi.Server) http.HandlerFunc {
 			return
 		}
 		if deleted == 0 {
-			auth.Unauthorized(w)
+			s.Unauthorized(w)
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)

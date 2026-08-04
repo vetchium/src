@@ -6,7 +6,6 @@ import (
 	"net/http"
 
 	"backend/internal/adminapi"
-	"backend/internal/auth"
 	"backend/internal/db/sqlc"
 	"backend/internal/middleware"
 	"github.com/jackc/pgx/v5"
@@ -19,7 +18,7 @@ func MyInfo(s *adminapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		identity, ok := middleware.AdminIdentityFromContext(r.Context())
 		if !ok {
-			auth.Unauthorized(w)
+			s.Unauthorized(w)
 			return
 		}
 
@@ -29,7 +28,7 @@ func MyInfo(s *adminapi.Server) http.HandlerFunc {
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				auth.Unauthorized(w)
+				s.Unauthorized(w)
 				return
 			}
 			s.ErrorContext(r.Context(), "get admin my-info", "error", err)

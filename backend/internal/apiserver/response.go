@@ -21,6 +21,13 @@ var malformedJSON = problemspec.InvalidJSONDetails{
 	Detail: "The request body must contain valid JSON matching the request schema.",
 }
 
+// Unauthorized writes a bodyless 401 response with the Bearer challenge
+// required by RFC 9110 for a 401 response.
+func (s *Runtime) Unauthorized(w http.ResponseWriter) {
+	w.Header().Set("WWW-Authenticate", `Bearer realm="login"`)
+	w.WriteHeader(http.StatusUnauthorized)
+}
+
 func (s *Runtime) InternalError(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", problemspec.MediaType)
 	w.WriteHeader(http.StatusInternalServerError)

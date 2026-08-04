@@ -2,11 +2,12 @@ package middleware
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"net/http"
+	"strings"
 
 	"backend/internal/adminapi"
-	"backend/internal/auth"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -21,16 +22,17 @@ type AdminIdentity struct {
 func AdminAuth(s *adminapi.Server) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			token, ok := auth.BearerToken(r.Header.Get("Authorization"))
-			if !ok {
-				auth.Unauthorized(w)
+			credentials := strings.Fields(r.Header.Get("Authorization"))
+			if len(credentials) != 2 || !strings.EqualFold(credentials[0], "Bearer") {
+				s.Unauthorized(w)
 				return
 			}
+			tokenHash := sha256.Sum256([]byte(credentials[1]))
 
-			session, err := s.Queries.AuthenticateAdminSession(r.Context(), auth.HashSessionToken(token))
+			session, err := s.Queries.AuthenticateAdminSession(r.Context(), tokenHash[:])
 			if err != nil {
 				if errors.Is(err, pgx.ErrNoRows) {
-					auth.Unauthorized(w)
+					s.Unauthorized(w)
 					return
 				}
 				s.ErrorContext(r.Context(), "authenticate admin session", "error", err)
