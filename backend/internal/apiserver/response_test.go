@@ -63,7 +63,7 @@ func TestInternalErrorLogsEncodingFailure(t *testing.T) {
 func TestMalformedJSON(t *testing.T) {
 	runtime := New(nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	recorder := httptest.NewRecorder()
-	runtime.MalformedJSON(recorder)
+	runtime.InvalidJSON(recorder)
 
 	if recorder.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400", recorder.Code)
@@ -75,15 +75,15 @@ func TestMalformedJSON(t *testing.T) {
 	if err := json.NewDecoder(recorder.Body).Decode(&details); err != nil {
 		t.Fatal(err)
 	}
-	if details != malformedJSON {
-		t.Fatalf("problem = %+v, want %+v", details, malformedJSON)
+	if details != invalidJSON {
+		t.Fatalf("problem = %+v, want %+v", details, invalidJSON)
 	}
 }
 
 func TestMalformedJSONLogsEncodingFailure(t *testing.T) {
 	var logs bytes.Buffer
 	runtime := New(nil, slog.New(slog.NewTextHandler(&logs, nil)))
-	runtime.MalformedJSON(errorResponseWriter{header: make(http.Header)})
+	runtime.InvalidJSON(errorResponseWriter{header: make(http.Header)})
 	if !bytes.Contains(logs.Bytes(), []byte("encode malformed JSON response")) {
 		t.Fatalf("log = %q", logs.String())
 	}

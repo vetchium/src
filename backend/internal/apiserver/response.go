@@ -11,14 +11,14 @@ var internalErr = problemspec.InternalServerError{
 	Type:   problemspec.TypeAboutBlank,
 	Title:  "Internal Server Error",
 	Status: http.StatusInternalServerError,
-	Detail: "The request could not be completed.",
+	Detail: "The request could not be completed",
 }
 
-var malformedJSON = problemspec.InvalidJSONDetails{
+var invalidJSON = problemspec.InvalidJSONDetails{
 	Type:   problemspec.TypeInvalidJSON,
 	Title:  "Invalid JSON",
 	Status: http.StatusBadRequest,
-	Detail: "The request body must contain valid JSON matching the request schema.",
+	Detail: "Request body must contain valid JSON matching the request schema",
 }
 
 // Unauthorized writes a bodyless 401 response with the Bearer challenge
@@ -36,10 +36,10 @@ func (s *Runtime) InternalError(w http.ResponseWriter) {
 	}
 }
 
-func (s *Runtime) MalformedJSON(w http.ResponseWriter) {
+func (s *Runtime) InvalidJSON(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", problemspec.MediaType)
 	w.WriteHeader(http.StatusBadRequest)
-	if err := json.NewEncoder(w).Encode(malformedJSON); err != nil {
+	if err := json.NewEncoder(w).Encode(invalidJSON); err != nil {
 		s.Error("encode malformed JSON response", "error", err)
 	}
 }

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"backend/internal/adminapi"
+
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -23,7 +24,8 @@ func AdminAuth(s *adminapi.Server) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			credentials := strings.Fields(r.Header.Get("Authorization"))
-			if len(credentials) != 2 || !strings.EqualFold(credentials[0], "Bearer") {
+			if len(credentials) != 2 ||
+				!strings.EqualFold(credentials[0], "Bearer") {
 				s.Unauthorized(w)
 				return
 			}
@@ -35,7 +37,7 @@ func AdminAuth(s *adminapi.Server) func(http.Handler) http.Handler {
 					s.Unauthorized(w)
 					return
 				}
-				s.ErrorContext(r.Context(), "authenticate admin session", "error", err)
+				s.ErrorContext(r.Context(), "authenticate admin", "error", err)
 				s.InternalError(w)
 				return
 			}
