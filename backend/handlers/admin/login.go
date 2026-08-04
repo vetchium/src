@@ -55,10 +55,12 @@ func Login(s *adminapi.Server) http.HandlerFunc {
 		passwordMatches := bcrypt.CompareHashAndPassword([]byte(adminUser.PasswordHash),
 			[]byte(request.Password)) == nil
 		if !passwordMatches {
+			s.DebugContext(r.Context(), "invalid password")
 			s.Unauthorized(w)
 			return
 		}
 		if adminUser.AdminUserState != sqlc.VetchiumAdminUserStateActive {
+			s.DebugContext(r.Context(), "disabled user")
 			w.WriteHeader(http.StatusForbidden)
 			return
 		}
@@ -100,11 +102,11 @@ func Login(s *adminapi.Server) http.HandlerFunc {
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
-		w.WriteHeader(http.StatusOK)
 		if err := json.NewEncoder(w).Encode(adminspec.LoginResponse{
 			SessionToken: token, ExpiresAt: expiresAt,
 		}); err != nil {
 			s.ErrorContext(r.Context(), "encode admin login response", "error", err)
+			s.InternalError(w)
 		}
 	}
 }
