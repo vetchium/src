@@ -13,8 +13,10 @@ APP_POSTGRES_PASSWORD ?= app_pgpassword
 DEV_SECRETS_DIR       := .dev-secrets
 APP_PASSWORD_FILE     := $(DEV_SECRETS_DIR)/app_postgres_password
 SQLC                   := go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.29.0
+GO_MODULES             := backend typespec
+GOTESTFLAGS            ?=
 
-.PHONY: dev dev-secrets sqlc sqlc-verify docker publish clean
+.PHONY: dev dev-secrets sqlc sqlc-verify test docker publish clean
 
 dev: dev-secrets
 	docker compose -f docker-compose.json up --build -d --wait
@@ -42,6 +44,14 @@ sqlc-verify: sqlc
 		echo "generated sqlc code is stale; run 'make sqlc' and commit it"; \
 		exit 1; \
 	}
+
+# Unit tests for every Go module; no database or running stack needed.
+# Pass extra flags with e.g. make test GOTESTFLAGS='-race -count=1'.
+test:
+	@for m in $(GO_MODULES); do \
+		echo "==> $$m"; \
+		(cd "$$m" && go test $(GOTESTFLAGS) ./...); \
+	done
 
 # Build validation; keep results only in BuildKit's cache.
 docker:
