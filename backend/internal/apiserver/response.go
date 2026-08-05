@@ -7,20 +7,6 @@ import (
 	problemspec "github.com/vetchium/src/typespec/problem"
 )
 
-var internalErr = problemspec.InternalServerError{
-	Type:   problemspec.TypeAboutBlank,
-	Title:  "Internal Server Error",
-	Status: http.StatusInternalServerError,
-	Detail: "The request could not be completed",
-}
-
-var invalidJSON = problemspec.InvalidJSONDetails{
-	Type:   problemspec.TypeInvalidJSON,
-	Title:  "Invalid JSON",
-	Status: http.StatusBadRequest,
-	Detail: "Request body must contain valid JSON matching the request schema",
-}
-
 // Unauthorized writes a bodyless 401 response with the Bearer challenge
 // required by RFC 9110 for a 401 response.
 func (s *Runtime) Unauthorized(w http.ResponseWriter) {
@@ -31,7 +17,7 @@ func (s *Runtime) Unauthorized(w http.ResponseWriter) {
 func (s *Runtime) InternalError(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", problemspec.MediaType)
 	w.WriteHeader(http.StatusInternalServerError)
-	if err := json.NewEncoder(w).Encode(internalErr); err != nil {
+	if err := json.NewEncoder(w).Encode(problemspec.InternalServerError); err != nil {
 		s.Error("encode internal error response", "error", err)
 	}
 }
@@ -39,23 +25,17 @@ func (s *Runtime) InternalError(w http.ResponseWriter) {
 func (s *Runtime) InvalidJSON(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", problemspec.MediaType)
 	w.WriteHeader(http.StatusBadRequest)
-	if err := json.NewEncoder(w).Encode(invalidJSON); err != nil {
-		s.Error("encode malformed JSON response", "error", err)
+	if err := json.NewEncoder(w).Encode(problemspec.InvalidJSONError); err != nil {
+		s.Error("encode invalid JSON response", "error", err)
 	}
 }
 
-func (s *Runtime) InvalidRequest(w http.ResponseWriter, invalidFields []string) {
+func (s *Runtime) ValidationFailed(w http.ResponseWriter, fields []string) {
 	w.Header().Set("Content-Type", problemspec.MediaType)
 	w.WriteHeader(http.StatusBadRequest)
-	if err := json.NewEncoder(w).Encode(problemspec.InvalidRequestDetails{
-		Details: problemspec.Details{
-			Type:   problemspec.TypeInvalidRequest,
-			Title:  problemspec.InvalidRequestTitle,
-			Status: http.StatusBadRequest,
-			Detail: problemspec.InvalidRequestDetail,
-		},
-		InvalidFields: invalidFields,
-	}); err != nil {
-		s.Error("encode invalid request response", "error", err)
+	details := problemspec.ValidationFailedError
+	details.Fields = fields
+	if err := json.NewEncoder(w).Encode(details); err != nil {
+		s.Error("encode validation failed response", "error", err)
 	}
 }

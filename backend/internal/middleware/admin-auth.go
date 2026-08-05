@@ -31,7 +31,8 @@ func AdminAuth(s *adminapi.Server) func(http.Handler) http.Handler {
 			}
 			tokenHash := sha256.Sum256([]byte(credentials[1]))
 
-			session, err := s.Queries.AuthenticateAdminSession(r.Context(), tokenHash[:])
+			session, err := s.Queries.AuthenticateAdminSession(
+				r.Context(), tokenHash[:])
 			if err != nil {
 				if errors.Is(err, pgx.ErrNoRows) {
 					s.Unauthorized(w)
@@ -46,7 +47,8 @@ func AdminAuth(s *adminapi.Server) func(http.Handler) http.Handler {
 				UserID:    session.AdminUserID,
 				SessionID: session.AdminSessionID,
 			}
-			ctx := context.WithValue(r.Context(), adminIdentityContextKey{}, identity)
+			ctx := context.WithValue(r.Context(),
+				adminIdentityContextKey{}, identity)
 			w.Header().Set("Cache-Control", "no-store")
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})

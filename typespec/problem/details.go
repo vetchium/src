@@ -2,20 +2,35 @@
 // problem-type catalog.
 package problem
 
-const (
-	MediaType      = "application/problem+json"
-	TypeAboutBlank = "about:blank"
-)
+const MediaType = "application/problem+json"
 
-// Details is the RFC 9457 problem-details representation used by Vetchium
-// APIs. Type, Title, and Status are always emitted so clients do not need to
-// supply RFC defaults.
 type Details struct {
-	Type     string `json:"type"`
-	Title    string `json:"title"`
-	Status   int    `json:"status"`
-	Detail   string `json:"detail,omitempty"`
-	Instance string `json:"instance,omitempty"`
+	Type     string   `json:"type"`
+	Title    string   `json:"title"`
+	Status   int      `json:"status"`
+	Detail   string   `json:"detail,omitempty"`
+	Instance string   `json:"instance,omitempty"`
+	Fields   []string `json:"fields,omitempty"`
 }
 
-type InternalServerError = Details
+var InternalServerError = Details{
+	Type:   "vetchium-problem-details/internal-server-error",
+	Title:  "Internal Server Error",
+	Status: 500,
+	Detail: "Server has encountered an error",
+}
+
+var InvalidJSONError = Details{
+	Type:   "vetchium-problem-details/invalid-json",
+	Title:  "Invalid JSON",
+	Status: 400,
+	Detail: "Request body is not in expected JSON schema",
+}
+
+var ValidationFailedError = Details{
+	Type:   "vetchium-problem-details/validation-failed",
+	Title:  "Validation failed",
+	Status: 400,
+	Detail: "List of json field names in the request which failed validation",
+	Fields: []string{},
+}

@@ -351,7 +351,7 @@ func TestLoginErrorResponses(t *testing.T) {
 		response := httptest.NewRecorder()
 		Login(testServer(&adminDBStub{})).ServeHTTP(response,
 			httptest.NewRequest(http.MethodPost, "/api/admin/login", strings.NewReader(`{"email_address":`)))
-		assertProblem(t, response, http.StatusBadRequest, problem.TypeInvalidJSON, "Invalid JSON", "The request body must contain valid JSON matching the request schema.")
+		assertProblem(t, response, problem.InvalidJSONError)
 	})
 
 	t.Run("invalid credentials fields", func(t *testing.T) {
@@ -361,7 +361,7 @@ func TestLoginErrorResponses(t *testing.T) {
 				"email_address":"not-an-email",
 				"password":""
 			}`)))
-		assertInvalidRequest(t, response, []string{"email_address", "password"})
+		assertValidationFailed(t, response, []string{"email_address", "password"})
 	})
 
 	t.Run("wrong field types", func(t *testing.T) {
@@ -371,14 +371,14 @@ func TestLoginErrorResponses(t *testing.T) {
 				"email_address": false,
 				"password": []
 			}`)))
-		assertProblem(t, response, http.StatusBadRequest, problem.TypeInvalidJSON, "Invalid JSON", "The request body must contain valid JSON matching the request schema.")
+		assertProblem(t, response, problem.InvalidJSONError)
 	})
 
 	t.Run("invalid top-level shape", func(t *testing.T) {
 		response := httptest.NewRecorder()
 		Login(testServer(&adminDBStub{})).ServeHTTP(response,
 			httptest.NewRequest(http.MethodPost, "/api/admin/login", strings.NewReader(`[]`)))
-		assertProblem(t, response, http.StatusBadRequest, problem.TypeInvalidJSON, "Invalid JSON", "The request body must contain valid JSON matching the request schema.")
+		assertProblem(t, response, problem.InvalidJSONError)
 	})
 
 	t.Run("unknown account and wrong password responses match", func(t *testing.T) {
@@ -433,10 +433,10 @@ func assertEmptyResponse(t *testing.T, response *httptest.ResponseRecorder, stat
 	}
 }
 
-func assertProblem(t *testing.T, response *httptest.ResponseRecorder, status int, typeURI, title, detail string) {
+func assertProblem(t *testing.T, response *httptest.ResponseRecorder, want problem.Details) {
 	t.Helper()
-	if response.Code != status {
-		t.Fatalf("status = %d, want %d; body = %s", response.Code, status, response.Body.String())
+	if response.Code != want.Status {
+		t.Fatalf("status = %d, want %d; body = %s", response.Code, want.Status, response.Body.String())
 	}
 	if got := response.Header().Get("Content-Type"); got != "application/problem+json" {
 		t.Fatalf("Content-Type = %q, want application/problem+json", got)
@@ -445,12 +445,14 @@ func assertProblem(t *testing.T, response *httptest.ResponseRecorder, status int
 	if err := json.NewDecoder(response.Body).Decode(&details); err != nil {
 		t.Fatal(err)
 	}
-	if details.Type != typeURI || details.Title != title || details.Status != status || details.Detail != detail {
-		t.Fatalf("problem = %+v", details)
+	if details.Type != want.Type || details.Title != want.Title ||
+		details.Status != want.Status || details.Detail != want.Detail ||
+		details.Instance != want.Instance || !slices.Equal(details.Fields, want.Fields) {
+		t.Fatalf("problem = %+v, want %+v", details, want)
 	}
 }
 
-func assertInvalidRequest(t *testing.T, response *httptest.ResponseRecorder, invalidFields []string) {
+func assertValidationFailed(t *testing.T, response *httptest.ResponseRecorder, fields []string) {
 	t.Helper()
 	if response.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want %d; body = %s", response.Code, http.StatusBadRequest, response.Body.String())
@@ -459,16 +461,16 @@ func assertInvalidRequest(t *testing.T, response *httptest.ResponseRecorder, inv
 		t.Fatalf("Content-Type = %q, want application/problem+json", got)
 	}
 
-	var details problem.InvalidRequestDetails
+	var details problem.Details
 	if err := json.NewDecoder(response.Body).Decode(&details); err != nil {
 		t.Fatal(err)
 	}
-	if details.Type != problem.TypeInvalidRequest || details.Title != "Invalid request" ||
-		details.Status != http.StatusBadRequest || details.Detail != "One or more fields failed validation." {
-		t.Fatalf("problem = %+v", details)
-	}
-	if !slices.Equal(details.InvalidFields, invalidFields) {
-		t.Fatalf("invalid_fields = %v, want %v", details.InvalidFields, invalidFields)
+	want := problem.ValidationFailedError
+	want.Fields = fields
+	if details.Type != want.Type || details.Title != want.Title ||
+		details.Status != want.Status || details.Detail != want.Detail ||
+		details.Instance != want.Instance || !slices.Equal(details.Fields, want.Fields) {
+		t.Fatalf("problem = %+v, want %+v", details, want)
 	}
 }
 

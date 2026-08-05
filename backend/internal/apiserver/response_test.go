@@ -46,8 +46,9 @@ func TestInternalError(t *testing.T) {
 	if err := json.NewDecoder(recorder.Body).Decode(&details); err != nil {
 		t.Fatal(err)
 	}
-	if details != internalErr {
-		t.Fatalf("problem = %+v, want %+v", details, internalErr)
+	assertDetailsEqual(t, details, problemspec.InternalServerError)
+	if len(details.Fields) != 0 {
+		t.Fatalf("fields = %v, want none", details.Fields)
 	}
 }
 
@@ -60,7 +61,7 @@ func TestInternalErrorLogsEncodingFailure(t *testing.T) {
 	}
 }
 
-func TestMalformedJSON(t *testing.T) {
+func TestInvalidJSON(t *testing.T) {
 	runtime := New(nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	recorder := httptest.NewRecorder()
 	runtime.InvalidJSON(recorder)
@@ -75,24 +76,22 @@ func TestMalformedJSON(t *testing.T) {
 	if err := json.NewDecoder(recorder.Body).Decode(&details); err != nil {
 		t.Fatal(err)
 	}
-	if details != invalidJSON {
-		t.Fatalf("problem = %+v, want %+v", details, invalidJSON)
-	}
+	assertDetailsEqual(t, details, problemspec.InvalidJSONError)
 }
 
-func TestMalformedJSONLogsEncodingFailure(t *testing.T) {
+func TestInvalidJSONLogsEncodingFailure(t *testing.T) {
 	var logs bytes.Buffer
 	runtime := New(nil, slog.New(slog.NewTextHandler(&logs, nil)))
 	runtime.InvalidJSON(errorResponseWriter{header: make(http.Header)})
-	if !bytes.Contains(logs.Bytes(), []byte("encode malformed JSON response")) {
+	if !bytes.Contains(logs.Bytes(), []byte("encode invalid JSON response")) {
 		t.Fatalf("log = %q", logs.String())
 	}
 }
 
-func TestInvalidRequest(t *testing.T) {
+func TestValidationFailed(t *testing.T) {
 	runtime := New(nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	recorder := httptest.NewRecorder()
-	runtime.InvalidRequest(recorder, []string{"email_address", "password"})
+	runtime.ValidationFailed(recorder, []string{"email_address", "password"})
 
 	if recorder.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400", recorder.Code)
@@ -100,27 +99,35 @@ func TestInvalidRequest(t *testing.T) {
 	if got := recorder.Header().Get("Content-Type"); got != problemspec.MediaType {
 		t.Fatalf("Content-Type = %q, want %q", got, problemspec.MediaType)
 	}
-	var details problemspec.InvalidRequestDetails
+	var details problemspec.Details
 	if err := json.NewDecoder(recorder.Body).Decode(&details); err != nil {
 		t.Fatal(err)
 	}
-	if details.Type != problemspec.TypeInvalidRequest ||
-		details.Title != problemspec.InvalidRequestTitle ||
-		details.Status != http.StatusBadRequest ||
-		details.Detail != problemspec.InvalidRequestDetail ||
-		len(details.InvalidFields) != 2 ||
-		details.InvalidFields[0] != "email_address" ||
-		details.InvalidFields[1] != "password" {
-		t.Fatalf("problem = %+v", details)
+	expected := problemspec.ValidationFailedError
+	expected.Fields = []string{"email_address", "password"}
+	assertDetailsEqual(t, details, expected)
+	if len(details.Fields) != 2 ||
+		details.Fields[0] != "email_address" ||
+		details.Fields[1] != "password" {
+		t.Fatalf("fields = %v", details.Fields)
 	}
 }
 
-func TestInvalidRequestLogsEncodingFailure(t *testing.T) {
+func TestValidationFailedLogsEncodingFailure(t *testing.T) {
 	var logs bytes.Buffer
 	runtime := New(nil, slog.New(slog.NewTextHandler(&logs, nil)))
-	runtime.InvalidRequest(errorResponseWriter{header: make(http.Header)}, []string{"email_address"})
-	if !bytes.Contains(logs.Bytes(), []byte("encode invalid request response")) {
+	runtime.ValidationFailed(errorResponseWriter{header: make(http.Header)}, []string{"email_address"})
+	if !bytes.Contains(logs.Bytes(), []byte("encode validation failed response")) {
 		t.Fatalf("log = %q", logs.String())
+	}
+}
+
+func assertDetailsEqual(t *testing.T, got, want problemspec.Details) {
+	t.Helper()
+	if got.Type != want.Type || got.Title != want.Title ||
+		got.Status != want.Status || got.Detail != want.Detail ||
+		got.Instance != want.Instance {
+		t.Fatalf("problem = %+v, want %+v", got, want)
 	}
 }
 

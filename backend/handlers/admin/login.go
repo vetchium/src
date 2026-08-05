@@ -12,7 +12,9 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	adminspec "github.com/vetchium/src/typespec/admin"
+
+	"github.com/vetchium/src/typespec/admin"
+
 	"golang.org/x/crypto/bcrypt"
 
 	"backend/internal/adminapi"
@@ -21,21 +23,21 @@ import (
 
 func Login(s *adminapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var request adminspec.LoginRequest
+		var request admin.LoginRequest
 		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-			s.DebugContext(r.Context(), "decode admin login request",
-				"error", err)
+			s.DebugContext(r.Context(), "decode http request", "error", err)
 			s.InvalidJSON(w)
 			return
 		}
 
+		request = request.Normalize()
+
 		if invalidFields := request.Validate(); len(invalidFields) != 0 {
-			s.DebugContext(r.Context(), "invalid request",
-				"invalid fields", invalidFields)
-			s.InvalidRequest(w, invalidFields)
+			s.DebugContext(r.Context(), "invalid req", "fields", invalidFields)
+			s.ValidationFailed(w, invalidFields)
 			return
 		}
-		request = request.Normalize()
+
 		emailAddress := string(request.EmailAddress)
 
 		// Sleep for random time to prevent timing attacks
@@ -49,21 +51,20 @@ func Login(s *adminapi.Server) http.HandlerFunc {
 				s.Unauthorized(w)
 				return
 			}
-			s.ErrorContext(r.Context(), "get admin user for login",
-				"error", err)
+			s.ErrorContext(r.Context(), "get admin user", "error", err)
 			s.InternalError(w)
 			return
 		}
 
-		passwordMatches := bcrypt.CompareHashAndPassword(
+		if bcrypt.CompareHashAndPassword(
 			[]byte(adminUser.PasswordHash),
 			[]byte(request.Password),
-		) == nil
-		if !passwordMatches {
+		) != nil {
 			s.DebugContext(r.Context(), "invalid password")
 			s.Unauthorized(w)
 			return
 		}
+
 		if adminUser.AdminUserState != sqlc.VetchiumAdminUserStateActive {
 			s.DebugContext(r.Context(), "disabled user")
 			w.WriteHeader(http.StatusForbidden)
@@ -72,8 +73,7 @@ func Login(s *adminapi.Server) http.HandlerFunc {
 
 		secret := make([]byte, 32)
 		if _, err := rand.Read(secret); err != nil {
-			s.ErrorContext(r.Context(), "generate admin session token",
-				"error", err)
+			s.ErrorContext(r.Context(), "generate session token", "error", err)
 			s.InternalError(w)
 			return
 		}
@@ -96,7 +96,7 @@ func Login(s *adminapi.Server) http.HandlerFunc {
 			if errors.Is(err, pgx.ErrNoRows) {
 				// The account was active when its credentials were checked but
 				// became unavailable before the session was created.
-				s.DebugContext(r.Context(), "user disabled")
+				s.DebugContext(r.Context(), "user disabled", "user", adminUser)
 				w.WriteHeader(http.StatusForbidden)
 				return
 			}
@@ -111,11 +111,10 @@ func Login(s *adminapi.Server) http.HandlerFunc {
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
-		if err := json.NewEncoder(w).Encode(adminspec.LoginResponse{
+		if err := json.NewEncoder(w).Encode(admin.LoginResponse{
 			SessionToken: token, ExpiresAt: expiresAt,
 		}); err != nil {
-			s.ErrorContext(r.Context(), "encode admin login response",
-				"error", err)
+			s.ErrorContext(r.Context(), "json encode", "error", err)
 			s.InternalError(w)
 		}
 	}

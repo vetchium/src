@@ -2,7 +2,6 @@ import "@typespec/http";
 
 import "../common/common.tsp";
 import "../problem/details.tsp";
-import "../problem/request.tsp";
 import "./user/user.tsp";
 
 using TypeSpec.Http;
@@ -77,7 +76,8 @@ interface Authentication {
         @header("Cache-Control") cache_control: "no-store";
         @body body: LoginResponse;
       }
-    | Vetchium.Problem.BadRequestResponse
+    | Vetchium.Problem.InvalidJSONErrorResponse
+    | Vetchium.Problem.ValidationFailedErrorResponse
     | InvalidCredentialsResponse
     | DisabledUserResponse
     | Vetchium.Problem.InternalServerErrorResponse;
