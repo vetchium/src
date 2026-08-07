@@ -4,9 +4,9 @@ import (
 	"net/http"
 
 	"backend/handlers/hub"
-	"backend/internal/server"
+	"backend/internal/hubapi"
 )
 
-func RegisterHubRoutes(mux *http.ServeMux, s *server.Server) {
+func RegisterHubRoutes(mux *http.ServeMux, s *hubapi.Server) {
 	mux.HandleFunc("GET /api/hub/ping", hub.Ping(s))
 }

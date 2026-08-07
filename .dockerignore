@@ -1,0 +1,14 @@
+**
+!backend/
+!backend/**
+!typespec/
+!typespec/go.mod
+!typespec/admin/
+!typespec/admin/*.go
+!typespec/common/
+!typespec/common/*.go
+!typespec/problem/
+!typespec/problem/*.go
+!db/
+!db/migrations/
+!db/migrations/**

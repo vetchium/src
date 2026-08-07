@@ -1,0 +1,41 @@
+package apiserver
+
+import (
+	"encoding/json"
+	"net/http"
+
+	problemspec "github.com/vetchium/src/typespec/problem"
+)
+
+// Unauthorized writes a bodyless 401 response with the Bearer challenge
+// required by RFC 9110 for a 401 response.
+func (s *Runtime) Unauthorized(w http.ResponseWriter) {
+	w.Header().Set("WWW-Authenticate", `Bearer realm="login"`)
+	w.WriteHeader(http.StatusUnauthorized)
+}
+
+func (s *Runtime) InternalError(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", problemspec.MediaType)
+	w.WriteHeader(http.StatusInternalServerError)
+	if err := json.NewEncoder(w).Encode(problemspec.InternalServerError); err != nil {
+		s.Error("encode internal error response", "error", err)
+	}
+}
+
+func (s *Runtime) InvalidJSON(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", problemspec.MediaType)
+	w.WriteHeader(http.StatusBadRequest)
+	if err := json.NewEncoder(w).Encode(problemspec.InvalidJSONError); err != nil {
+		s.Error("encode invalid JSON response", "error", err)
+	}
+}
+
+func (s *Runtime) ValidationFailed(w http.ResponseWriter, fields []string) {
+	w.Header().Set("Content-Type", problemspec.MediaType)
+	w.WriteHeader(http.StatusBadRequest)
+	details := problemspec.ValidationFailedError
+	details.Fields = fields
+	if err := json.NewEncoder(w).Encode(details); err != nil {
+		s.Error("encode validation failed response", "error", err)
+	}
+}

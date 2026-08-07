@@ -77,7 +77,8 @@
   "services": {
     "admin-api-deu": {
       "build": {
-        "context": "backend",
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
         "target": "admin-api"
       },
       "depends_on": {
@@ -87,6 +88,7 @@
         }
       },
       "environment": {
+        "ADMIN_SESSION_TTL": "${ADMIN_SESSION_TTL:-24h}",
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
         "PGHOST": "db-deu",
         "PGPASSWORD_FILE": "/run/secrets/app_postgres_password",
@@ -94,13 +96,6 @@
         "PGSSLMODE": "${PGSSLMODE:-disable}",
         "PGUSER": "vetchium_app",
         "TENANT_ID": "deu"
-      },
-      "healthcheck": {
-        "interval": "10s",
-        "retries": 5,
-        "start_period": "15s",
-        "test": ["CMD", "/service", "readycheck"],
-        "timeout": "5s"
       },
       "networks": {
         "deu_admin_api_access": null,
@@ -118,7 +113,8 @@
     },
     "admin-api-ind1": {
       "build": {
-        "context": "backend",
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
         "target": "admin-api"
       },
       "depends_on": {
@@ -128,6 +124,7 @@
         }
       },
       "environment": {
+        "ADMIN_SESSION_TTL": "${ADMIN_SESSION_TTL:-24h}",
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
         "PGHOST": "db-ind1",
         "PGPASSWORD_FILE": "/run/secrets/app_postgres_password",
@@ -135,13 +132,6 @@
         "PGSSLMODE": "${PGSSLMODE:-disable}",
         "PGUSER": "vetchium_app",
         "TENANT_ID": "ind1"
-      },
-      "healthcheck": {
-        "interval": "10s",
-        "retries": 5,
-        "start_period": "15s",
-        "test": ["CMD", "/service", "readycheck"],
-        "timeout": "5s"
       },
       "networks": {
         "ind1_admin_api_access": null,
@@ -159,7 +149,8 @@
     },
     "admin-api-sgp": {
       "build": {
-        "context": "backend",
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
         "target": "admin-api"
       },
       "depends_on": {
@@ -169,6 +160,7 @@
         }
       },
       "environment": {
+        "ADMIN_SESSION_TTL": "${ADMIN_SESSION_TTL:-24h}",
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
         "PGHOST": "db-sgp",
         "PGPASSWORD_FILE": "/run/secrets/app_postgres_password",
@@ -176,13 +168,6 @@
         "PGSSLMODE": "${PGSSLMODE:-disable}",
         "PGUSER": "vetchium_app",
         "TENANT_ID": "sgp"
-      },
-      "healthcheck": {
-        "interval": "10s",
-        "retries": 5,
-        "start_period": "15s",
-        "test": ["CMD", "/service", "readycheck"],
-        "timeout": "5s"
       },
       "networks": {
         "sgp_admin_api_access": null,
@@ -200,7 +185,8 @@
     },
     "admin-api-usa1": {
       "build": {
-        "context": "backend",
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
         "target": "admin-api"
       },
       "depends_on": {
@@ -210,6 +196,7 @@
         }
       },
       "environment": {
+        "ADMIN_SESSION_TTL": "${ADMIN_SESSION_TTL:-24h}",
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
         "PGHOST": "db-usa1",
         "PGPASSWORD_FILE": "/run/secrets/app_postgres_password",
@@ -217,13 +204,6 @@
         "PGSSLMODE": "${PGSSLMODE:-disable}",
         "PGUSER": "vetchium_app",
         "TENANT_ID": "usa1"
-      },
-      "healthcheck": {
-        "interval": "10s",
-        "retries": 5,
-        "start_period": "15s",
-        "test": ["CMD", "/service", "readycheck"],
-        "timeout": "5s"
       },
       "networks": {
         "usa1_admin_api_access": null,
@@ -573,7 +553,8 @@
     },
     "hub-api-deu": {
       "build": {
-        "context": "backend",
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
         "target": "hub-api"
       },
       "depends_on": {
@@ -591,13 +572,6 @@
         "PGUSER": "vetchium_app",
         "TENANT_ID": "deu"
       },
-      "healthcheck": {
-        "interval": "10s",
-        "retries": 5,
-        "start_period": "15s",
-        "test": ["CMD", "/service", "readycheck"],
-        "timeout": "5s"
-      },
       "networks": {
         "deu_backend": null,
         "deu_hub_api_access": null
@@ -614,7 +588,8 @@
     },
     "hub-api-ind1": {
       "build": {
-        "context": "backend",
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
         "target": "hub-api"
       },
       "depends_on": {
@@ -632,13 +607,6 @@
         "PGUSER": "vetchium_app",
         "TENANT_ID": "ind1"
       },
-      "healthcheck": {
-        "interval": "10s",
-        "retries": 5,
-        "start_period": "15s",
-        "test": ["CMD", "/service", "readycheck"],
-        "timeout": "5s"
-      },
       "networks": {
         "ind1_backend": null,
         "ind1_hub_api_access": null
@@ -655,7 +623,8 @@
     },
     "hub-api-sgp": {
       "build": {
-        "context": "backend",
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
         "target": "hub-api"
       },
       "depends_on": {
@@ -673,13 +642,6 @@
         "PGUSER": "vetchium_app",
         "TENANT_ID": "sgp"
       },
-      "healthcheck": {
-        "interval": "10s",
-        "retries": 5,
-        "start_period": "15s",
-        "test": ["CMD", "/service", "readycheck"],
-        "timeout": "5s"
-      },
       "networks": {
         "sgp_backend": null,
         "sgp_hub_api_access": null
@@ -696,7 +658,8 @@
     },
     "hub-api-usa1": {
       "build": {
-        "context": "backend",
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
         "target": "hub-api"
       },
       "depends_on": {
@@ -713,13 +676,6 @@
         "PGSSLMODE": "${PGSSLMODE:-disable}",
         "PGUSER": "vetchium_app",
         "TENANT_ID": "usa1"
-      },
-      "healthcheck": {
-        "interval": "10s",
-        "retries": 5,
-        "start_period": "15s",
-        "test": ["CMD", "/service", "readycheck"],
-        "timeout": "5s"
       },
       "networks": {
         "usa1_backend": null,
@@ -777,7 +733,8 @@
     },
     "mcp-server-deu": {
       "build": {
-        "context": "backend",
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
         "target": "mcp-server"
       },
       "depends_on": {
@@ -794,13 +751,6 @@
         "PGSSLMODE": "${PGSSLMODE:-disable}",
         "PGUSER": "vetchium_app",
         "TENANT_ID": "deu"
-      },
-      "healthcheck": {
-        "interval": "10s",
-        "retries": 5,
-        "start_period": "15s",
-        "test": ["CMD", "/service", "readycheck"],
-        "timeout": "5s"
       },
       "networks": {
         "deu_backend": {},
@@ -820,7 +770,8 @@
     },
     "mcp-server-ind1": {
       "build": {
-        "context": "backend",
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
         "target": "mcp-server"
       },
       "depends_on": {
@@ -837,13 +788,6 @@
         "PGSSLMODE": "${PGSSLMODE:-disable}",
         "PGUSER": "vetchium_app",
         "TENANT_ID": "ind1"
-      },
-      "healthcheck": {
-        "interval": "10s",
-        "retries": 5,
-        "start_period": "15s",
-        "test": ["CMD", "/service", "readycheck"],
-        "timeout": "5s"
       },
       "networks": {
         "ind1_backend": {},
@@ -863,7 +807,8 @@
     },
     "mcp-server-sgp": {
       "build": {
-        "context": "backend",
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
         "target": "mcp-server"
       },
       "depends_on": {
@@ -880,13 +825,6 @@
         "PGSSLMODE": "${PGSSLMODE:-disable}",
         "PGUSER": "vetchium_app",
         "TENANT_ID": "sgp"
-      },
-      "healthcheck": {
-        "interval": "10s",
-        "retries": 5,
-        "start_period": "15s",
-        "test": ["CMD", "/service", "readycheck"],
-        "timeout": "5s"
       },
       "networks": {
         "sgp_backend": {},
@@ -906,7 +844,8 @@
     },
     "mcp-server-usa1": {
       "build": {
-        "context": "backend",
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
         "target": "mcp-server"
       },
       "depends_on": {
@@ -923,13 +862,6 @@
         "PGSSLMODE": "${PGSSLMODE:-disable}",
         "PGUSER": "vetchium_app",
         "TENANT_ID": "usa1"
-      },
-      "healthcheck": {
-        "interval": "10s",
-        "retries": 5,
-        "start_period": "15s",
-        "test": ["CMD", "/service", "readycheck"],
-        "timeout": "5s"
       },
       "networks": {
         "usa1_backend": {},
@@ -949,7 +881,8 @@
     },
     "mesh-api-deu": {
       "build": {
-        "context": "backend",
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
         "target": "mesh-api"
       },
       "depends_on": {
@@ -967,13 +900,6 @@
         "PGUSER": "vetchium_app",
         "TENANT_ID": "deu"
       },
-      "healthcheck": {
-        "interval": "10s",
-        "retries": 5,
-        "start_period": "15s",
-        "test": ["CMD", "/service", "readycheck"],
-        "timeout": "5s"
-      },
       "networks": {
         "deu_backend": null,
         "mesh": null
@@ -990,7 +916,8 @@
     },
     "mesh-api-ind1": {
       "build": {
-        "context": "backend",
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
         "target": "mesh-api"
       },
       "depends_on": {
@@ -1008,13 +935,6 @@
         "PGUSER": "vetchium_app",
         "TENANT_ID": "ind1"
       },
-      "healthcheck": {
-        "interval": "10s",
-        "retries": 5,
-        "start_period": "15s",
-        "test": ["CMD", "/service", "readycheck"],
-        "timeout": "5s"
-      },
       "networks": {
         "ind1_backend": null,
         "mesh": null
@@ -1031,7 +951,8 @@
     },
     "mesh-api-sgp": {
       "build": {
-        "context": "backend",
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
         "target": "mesh-api"
       },
       "depends_on": {
@@ -1049,13 +970,6 @@
         "PGUSER": "vetchium_app",
         "TENANT_ID": "sgp"
       },
-      "healthcheck": {
-        "interval": "10s",
-        "retries": 5,
-        "start_period": "15s",
-        "test": ["CMD", "/service", "readycheck"],
-        "timeout": "5s"
-      },
       "networks": {
         "mesh": null,
         "sgp_backend": null
@@ -1072,7 +986,8 @@
     },
     "mesh-api-usa1": {
       "build": {
-        "context": "backend",
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
         "target": "mesh-api"
       },
       "depends_on": {
@@ -1089,13 +1004,6 @@
         "PGSSLMODE": "${PGSSLMODE:-disable}",
         "PGUSER": "vetchium_app",
         "TENANT_ID": "usa1"
-      },
-      "healthcheck": {
-        "interval": "10s",
-        "retries": 5,
-        "start_period": "15s",
-        "test": ["CMD", "/service", "readycheck"],
-        "timeout": "5s"
       },
       "networks": {
         "mesh": null,
@@ -1193,7 +1101,8 @@
     },
     "orgs-api-deu": {
       "build": {
-        "context": "backend",
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
         "target": "orgs-api"
       },
       "depends_on": {
@@ -1211,13 +1120,6 @@
         "PGUSER": "vetchium_app",
         "TENANT_ID": "deu"
       },
-      "healthcheck": {
-        "interval": "10s",
-        "retries": 5,
-        "start_period": "15s",
-        "test": ["CMD", "/service", "readycheck"],
-        "timeout": "5s"
-      },
       "networks": {
         "deu_backend": null,
         "deu_orgs_api_access": null
@@ -1234,7 +1136,8 @@
     },
     "orgs-api-ind1": {
       "build": {
-        "context": "backend",
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
         "target": "orgs-api"
       },
       "depends_on": {
@@ -1252,13 +1155,6 @@
         "PGUSER": "vetchium_app",
         "TENANT_ID": "ind1"
       },
-      "healthcheck": {
-        "interval": "10s",
-        "retries": 5,
-        "start_period": "15s",
-        "test": ["CMD", "/service", "readycheck"],
-        "timeout": "5s"
-      },
       "networks": {
         "ind1_backend": null,
         "ind1_orgs_api_access": null
@@ -1275,7 +1171,8 @@
     },
     "orgs-api-sgp": {
       "build": {
-        "context": "backend",
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
         "target": "orgs-api"
       },
       "depends_on": {
@@ -1293,13 +1190,6 @@
         "PGUSER": "vetchium_app",
         "TENANT_ID": "sgp"
       },
-      "healthcheck": {
-        "interval": "10s",
-        "retries": 5,
-        "start_period": "15s",
-        "test": ["CMD", "/service", "readycheck"],
-        "timeout": "5s"
-      },
       "networks": {
         "sgp_backend": null,
         "sgp_orgs_api_access": null
@@ -1316,7 +1206,8 @@
     },
     "orgs-api-usa1": {
       "build": {
-        "context": "backend",
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
         "target": "orgs-api"
       },
       "depends_on": {
@@ -1333,13 +1224,6 @@
         "PGSSLMODE": "${PGSSLMODE:-disable}",
         "PGUSER": "vetchium_app",
         "TENANT_ID": "usa1"
-      },
-      "healthcheck": {
-        "interval": "10s",
-        "retries": 5,
-        "start_period": "15s",
-        "test": ["CMD", "/service", "readycheck"],
-        "timeout": "5s"
       },
       "networks": {
         "usa1_backend": null,
@@ -1713,7 +1597,8 @@
     },
     "workers-deu": {
       "build": {
-        "context": "backend",
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
         "target": "workers"
       },
       "depends_on": {
@@ -1731,13 +1616,6 @@
         "PGUSER": "vetchium_app",
         "TENANT_ID": "deu"
       },
-      "healthcheck": {
-        "interval": "10s",
-        "retries": 5,
-        "start_period": "15s",
-        "test": ["CMD", "/service", "readycheck"],
-        "timeout": "5s"
-      },
       "networks": {
         "deu_backend": null
       },
@@ -1753,7 +1631,8 @@
     },
     "workers-ind1": {
       "build": {
-        "context": "backend",
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
         "target": "workers"
       },
       "depends_on": {
@@ -1771,13 +1650,6 @@
         "PGUSER": "vetchium_app",
         "TENANT_ID": "ind1"
       },
-      "healthcheck": {
-        "interval": "10s",
-        "retries": 5,
-        "start_period": "15s",
-        "test": ["CMD", "/service", "readycheck"],
-        "timeout": "5s"
-      },
       "networks": {
         "ind1_backend": null
       },
@@ -1793,7 +1665,8 @@
     },
     "workers-sgp": {
       "build": {
-        "context": "backend",
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
         "target": "workers"
       },
       "depends_on": {
@@ -1811,13 +1684,6 @@
         "PGUSER": "vetchium_app",
         "TENANT_ID": "sgp"
       },
-      "healthcheck": {
-        "interval": "10s",
-        "retries": 5,
-        "start_period": "15s",
-        "test": ["CMD", "/service", "readycheck"],
-        "timeout": "5s"
-      },
       "networks": {
         "sgp_backend": null
       },
@@ -1833,7 +1699,8 @@
     },
     "workers-usa1": {
       "build": {
-        "context": "backend",
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
         "target": "workers"
       },
       "depends_on": {
@@ -1850,13 +1717,6 @@
         "PGSSLMODE": "${PGSSLMODE:-disable}",
         "PGUSER": "vetchium_app",
         "TENANT_ID": "usa1"
-      },
-      "healthcheck": {
-        "interval": "10s",
-        "retries": 5,
-        "start_period": "15s",
-        "test": ["CMD", "/service", "readycheck"],
-        "timeout": "5s"
       },
       "networks": {
         "usa1_backend": null

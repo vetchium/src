@@ -29,3 +29,29 @@ an explicit upgrade procedure appropriate to that change.
 The same rule applies to `APP_POSTGRES_PASSWORD`: changing its secret file does
 not alter an existing role password. Credential rotation must update the role
 and the mounted runtime secret as one explicit operation.
+
+## Generated database access
+
+The SQL in `backend/internal/db/queries` is compiled against `db/migrations`
+into `backend/internal/db/sqlc`. Generated Go code is committed so builds and
+editor tooling do not require sqlc. After changing a migration or query, run:
+
+```bash
+make sqlc
+make sqlc-verify
+```
+
+The Makefile pins the sqlc version used for generation. `sqlc-verify` fails if
+regeneration changes committed generated files. Backend Docker builds do not
+trust that committed copy: they delete it and regenerate from the queries and
+migrations before compiling every backend binary.
+
+## Development admin credentials
+
+Each `dev-seed/<tenant>.sql` file creates one local administrator:
+
+- email: `admin@<tenant>.example`
+- password: `dev_admin_password`
+
+These credentials are fixtures loaded only by the development seed containers.
+Production environments must provision their first administrator explicitly.

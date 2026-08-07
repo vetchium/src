@@ -42,13 +42,7 @@
             {
               "url": "http://orgs-api-usa1:8080"
             }
-          ],
-          "healthCheck": {
-            "path": "/readyz",
-            "port": 8081,
-            "interval": "10s",
-            "timeout": "3s"
-          }
+          ]
         }
       },
       "hub-api": {
@@ -57,13 +51,7 @@
             {
               "url": "http://hub-api-usa1:8080"
             }
-          ],
-          "healthCheck": {
-            "path": "/readyz",
-            "port": 8081,
-            "interval": "10s",
-            "timeout": "3s"
-          }
+          ]
         }
       },
       "admin-api": {
@@ -72,13 +60,7 @@
             {
               "url": "http://admin-api-usa1:8080"
             }
-          ],
-          "healthCheck": {
-            "path": "/readyz",
-            "port": 8081,
-            "interval": "10s",
-            "timeout": "3s"
-          }
+          ]
         }
       },
       "orgs-ui": {

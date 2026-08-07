@@ -13,3 +13,8 @@ FROM (VALUES
 ) AS v (username, org_name)
 JOIN vetchium.orgs o ON o.name = v.org_name
 ON CONFLICT (username) DO NOTHING;
+
+-- Local-only administrator; credentials are documented in db/README.md.
+INSERT INTO vetchium.admin_users (email_address, display_name, password_hash, admin_user_state) VALUES
+    ('admin@ind1.example', 'ind1 Administrator', '$2a$10$r43DzlK2Kl9W9kvE6DfAkegUKSJd0g7ZiuOFi3Ozzcem5V83lLsUC', 'active')
+ON CONFLICT (email_address) DO NOTHING;

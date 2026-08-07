@@ -12,8 +12,11 @@ BUILDER   := vetchium
 APP_POSTGRES_PASSWORD ?= app_pgpassword
 DEV_SECRETS_DIR       := .dev-secrets
 APP_PASSWORD_FILE     := $(DEV_SECRETS_DIR)/app_postgres_password
+SQLC                   := go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.29.0
+GO_MODULES             := backend typespec
+GOTESTFLAGS            ?=
 
-.PHONY: dev dev-secrets docker publish clean
+.PHONY: dev dev-secrets sqlc sqlc-verify test docker publish clean
 
 dev: dev-secrets
 	docker compose -f docker-compose.json up --build -d --wait
@@ -32,7 +35,25 @@ dev-secrets:
 		umask 077; printf '%s' "$$APP_POSTGRES_PASSWORD" > "$(APP_PASSWORD_FILE)"; \
 	fi
 
-# Build validation for CI; keep results only in BuildKit's cache.
+sqlc:
+	cd backend && $(SQLC) generate
+
+sqlc-verify: sqlc
+	@test -z "$$(git status --porcelain -- backend/internal/db/sqlc)" || { \
+		git status --short -- backend/internal/db/sqlc; \
+		echo "generated sqlc code is stale; run 'make sqlc' and commit it"; \
+		exit 1; \
+	}
+
+# Unit tests for every Go module; no database or running stack needed.
+# Pass extra flags with e.g. make test GOTESTFLAGS='-race -count=1'.
+test:
+	@for m in $(GO_MODULES); do \
+		echo "==> $$m"; \
+		(cd "$$m" && go test $(GOTESTFLAGS) ./...); \
+	done
+
+# Build validation; keep results only in BuildKit's cache.
 docker:
 	@docker buildx inspect $(BUILDER) >/dev/null 2>&1 || \
 		docker buildx create --name $(BUILDER) --driver docker-container --bootstrap >/dev/null

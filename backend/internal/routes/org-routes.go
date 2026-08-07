@@ -4,9 +4,9 @@ import (
 	"net/http"
 
 	"backend/handlers/org"
-	"backend/internal/server"
+	"backend/internal/orgsapi"
 )
 
-func RegisterOrgsRoutes(mux *http.ServeMux, s *server.Server) {
+func RegisterOrgsRoutes(mux *http.ServeMux, s *orgsapi.Server) {
 	mux.HandleFunc("GET /api/org/ping", org.Ping(s))
 }

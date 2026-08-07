@@ -6,11 +6,23 @@ ARG VERSION=dev
 
 WORKDIR /src
 
-COPY go.mod go.sum ./
+COPY typespec/go.mod typespec/go.mod
+COPY backend/go.mod backend/go.sum backend/
+WORKDIR /src/backend
 RUN --mount=type=cache,target=/go/pkg/mod \
     go mod download
 
-COPY . .
+COPY typespec/ /src/typespec/
+COPY backend/ .
+COPY db/migrations /src/db/migrations
+
+# Generated database access is always rebuilt from the SQL sources in this
+# image. Removing the committed output first prevents files for deleted queries
+# from surviving into a production build.
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    rm -rf internal/db/sqlc && \
+    go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.29.0 generate
 
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
@@ -24,10 +36,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 FROM gcr.io/distroless/static-debian12:nonroot@sha256:f5b485ea962d9bd1186b2f6b3a061191539b905b82ec395de78cbfae51f20e35 AS runtime
 
 USER nonroot:nonroot
-EXPOSE 8080 8081
-
-HEALTHCHECK --interval=10s --timeout=5s --start-period=15s --retries=5 \
-    CMD ["/service", "readycheck"]
+EXPOSE 8080
 
 ENTRYPOINT ["/service"]
 

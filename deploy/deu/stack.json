@@ -64,14 +64,7 @@
       "PGPASSWORD_FILE": "/run/secrets/app_postgres_password",
       "PGSSLMODE": "${PGSSLMODE:-disable}"
     },
-    "secrets": ["app_postgres_password"],
-    "healthcheck": {
-      "test": ["CMD", "/service", "readycheck"],
-      "interval": "10s",
-      "timeout": "5s",
-      "retries": 3,
-      "start_period": "20s"
-    }
+    "secrets": ["app_postgres_password"]
   },
   "services": {
     "traefik": {
@@ -232,13 +225,6 @@
         "PGSSLMODE": "${PGSSLMODE:-disable}"
       },
       "secrets": ["app_postgres_password"],
-      "healthcheck": {
-        "test": ["CMD", "/service", "readycheck"],
-        "interval": "10s",
-        "timeout": "5s",
-        "retries": 3,
-        "start_period": "20s"
-      },
       "image": "${REGISTRY:-ghcr.io/vetchium}/admin-api:${TAG:?set TAG}",
       "networks": ["admin_api_access", "backend"]
     },
@@ -280,13 +266,6 @@
         "PGSSLMODE": "${PGSSLMODE:-disable}"
       },
       "secrets": ["app_postgres_password"],
-      "healthcheck": {
-        "test": ["CMD", "/service", "readycheck"],
-        "interval": "10s",
-        "timeout": "5s",
-        "retries": 3,
-        "start_period": "20s"
-      },
       "image": "${REGISTRY:-ghcr.io/vetchium}/hub-api:${TAG:?set TAG}",
       "networks": ["hub_api_access", "backend"]
     },
@@ -328,13 +307,6 @@
         "PGSSLMODE": "${PGSSLMODE:-disable}"
       },
       "secrets": ["app_postgres_password"],
-      "healthcheck": {
-        "test": ["CMD", "/service", "readycheck"],
-        "interval": "10s",
-        "timeout": "5s",
-        "retries": 3,
-        "start_period": "20s"
-      },
       "image": "${REGISTRY:-ghcr.io/vetchium}/orgs-api:${TAG:?set TAG}",
       "networks": ["orgs_api_access", "backend"]
     },
@@ -376,13 +348,6 @@
         "PGSSLMODE": "${PGSSLMODE:-disable}"
       },
       "secrets": ["app_postgres_password"],
-      "healthcheck": {
-        "test": ["CMD", "/service", "readycheck"],
-        "interval": "10s",
-        "timeout": "5s",
-        "retries": 3,
-        "start_period": "20s"
-      },
       "image": "${REGISTRY:-ghcr.io/vetchium}/mesh-api:${TAG:?set TAG}",
       "networks": ["mesh", "backend"]
     },
@@ -424,13 +389,6 @@
         "PGSSLMODE": "${PGSSLMODE:-disable}"
       },
       "secrets": ["app_postgres_password"],
-      "healthcheck": {
-        "test": ["CMD", "/service", "readycheck"],
-        "interval": "10s",
-        "timeout": "5s",
-        "retries": 3,
-        "start_period": "20s"
-      },
       "image": "${REGISTRY:-ghcr.io/vetchium}/mcp-server:${TAG:?set TAG}",
       "networks": ["mcp_access", "backend"]
     },
@@ -470,13 +428,6 @@
         "PGSSLMODE": "${PGSSLMODE:-disable}"
       },
       "secrets": ["app_postgres_password"],
-      "healthcheck": {
-        "test": ["CMD", "/service", "readycheck"],
-        "interval": "10s",
-        "timeout": "5s",
-        "retries": 3,
-        "start_period": "20s"
-      },
       "image": "${REGISTRY:-ghcr.io/vetchium}/workers:${TAG:?set TAG}",
       "networks": ["backend"]
     },

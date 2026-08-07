@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -11,29 +10,21 @@ import (
 	"syscall"
 	"time"
 
+	"backend/internal/apiserver"
 	"backend/internal/config"
 	"backend/internal/db"
 	"backend/internal/middleware"
+	"backend/internal/orgsapi"
 	"backend/internal/routes"
-	"backend/internal/server"
 )
 
-const (
-	address          = ":8080"
-	readinessAddress = ":8081"
-)
+const address = ":8080"
 
 func main() {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, nil)).With("component", "orgs-api")
 	slog.SetDefault(log)
 
-	var err error
-	if len(os.Args) > 1 && os.Args[1] == "readycheck" {
-		err = readycheck()
-	} else {
-		err = run(log)
-	}
-	if err != nil {
+	if err := run(log); err != nil {
 		log.Error("process exited with error", "error", err)
 		os.Exit(1)
 	}
@@ -56,33 +47,24 @@ func run(log *slog.Logger) error {
 	}
 	defer pool.Close()
 
-	s := &server.Server{TenantID: cfg.TenantID, DB: pool, Log: log}
+	s := &orgsapi.Server{Runtime: apiserver.New(pool, log), TenantID: cfg.TenantID}
 	mux := http.NewServeMux()
 	routes.RegisterOrgsRoutes(mux, s)
-	readinessMux := http.NewServeMux()
-	routes.RegisterAPIHealthRoute(readinessMux, s)
 
 	httpServer := &http.Server{
 		Addr:              address,
-		Handler:           middleware.RequestLogger(log)(mux),
+		Handler:           middleware.RequestLogger(s.Runtime)(mux),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
-	readinessServer := &http.Server{
-		Addr:              readinessAddress,
-		Handler:           readinessMux,
-		ReadHeaderTimeout: 5 * time.Second,
-	}
-	errC := make(chan error, 2)
-	serve := func(name string, server *http.Server) {
-		log.Info("server started", "server", name, "address", server.Addr)
-		err := server.ListenAndServe()
+	errC := make(chan error, 1)
+	go func() {
+		log.Info("server started", "address", httpServer.Addr)
+		err := httpServer.ListenAndServe()
 		if errors.Is(err, http.ErrServerClosed) {
 			err = nil
 		}
 		errC <- err
-	}
-	go serve("application", httpServer)
-	go serve("readiness", readinessServer)
+	}()
 
 	select {
 	case err := <-errC:
@@ -92,28 +74,5 @@ func run(log *slog.Logger) error {
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	return errors.Join(
-		httpServer.Shutdown(shutdownCtx),
-		readinessServer.Shutdown(shutdownCtx),
-	)
-}
-
-func readycheck() error {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-
-	url := "http://127.0.0.1" + readinessAddress + "/readyz"
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return err
-	}
-	response, err := http.DefaultClient.Do(request)
-	if err != nil {
-		return err
-	}
-	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK {
-		return fmt.Errorf("%s returned %s", url, response.Status)
-	}
-	return nil
+	return httpServer.Shutdown(shutdownCtx)
 }
