@@ -31,5 +31,4 @@ func RegisterMCPRoutes(mux *http.ServeMux, s *mcpserver.Server) {
 		&mcp.StreamableHTTPOptions{Stateless: true, Logger: log},
 	)
 	mux.Handle("/mcp", transport)
-	mux.HandleFunc("GET /readyz", s.Ready)
 }

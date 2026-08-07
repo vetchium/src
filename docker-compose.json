@@ -97,13 +97,6 @@
         "PGUSER": "vetchium_app",
         "TENANT_ID": "deu"
       },
-      "healthcheck": {
-        "interval": "10s",
-        "retries": 5,
-        "start_period": "15s",
-        "test": ["CMD", "/service", "readycheck"],
-        "timeout": "5s"
-      },
       "networks": {
         "deu_admin_api_access": null,
         "deu_backend": null
@@ -139,13 +132,6 @@
         "PGSSLMODE": "${PGSSLMODE:-disable}",
         "PGUSER": "vetchium_app",
         "TENANT_ID": "ind1"
-      },
-      "healthcheck": {
-        "interval": "10s",
-        "retries": 5,
-        "start_period": "15s",
-        "test": ["CMD", "/service", "readycheck"],
-        "timeout": "5s"
       },
       "networks": {
         "ind1_admin_api_access": null,
@@ -183,13 +169,6 @@
         "PGUSER": "vetchium_app",
         "TENANT_ID": "sgp"
       },
-      "healthcheck": {
-        "interval": "10s",
-        "retries": 5,
-        "start_period": "15s",
-        "test": ["CMD", "/service", "readycheck"],
-        "timeout": "5s"
-      },
       "networks": {
         "sgp_admin_api_access": null,
         "sgp_backend": null
@@ -225,13 +204,6 @@
         "PGSSLMODE": "${PGSSLMODE:-disable}",
         "PGUSER": "vetchium_app",
         "TENANT_ID": "usa1"
-      },
-      "healthcheck": {
-        "interval": "10s",
-        "retries": 5,
-        "start_period": "15s",
-        "test": ["CMD", "/service", "readycheck"],
-        "timeout": "5s"
       },
       "networks": {
         "usa1_admin_api_access": null,
@@ -600,13 +572,6 @@
         "PGUSER": "vetchium_app",
         "TENANT_ID": "deu"
       },
-      "healthcheck": {
-        "interval": "10s",
-        "retries": 5,
-        "start_period": "15s",
-        "test": ["CMD", "/service", "readycheck"],
-        "timeout": "5s"
-      },
       "networks": {
         "deu_backend": null,
         "deu_hub_api_access": null
@@ -641,13 +606,6 @@
         "PGSSLMODE": "${PGSSLMODE:-disable}",
         "PGUSER": "vetchium_app",
         "TENANT_ID": "ind1"
-      },
-      "healthcheck": {
-        "interval": "10s",
-        "retries": 5,
-        "start_period": "15s",
-        "test": ["CMD", "/service", "readycheck"],
-        "timeout": "5s"
       },
       "networks": {
         "ind1_backend": null,
@@ -684,13 +642,6 @@
         "PGUSER": "vetchium_app",
         "TENANT_ID": "sgp"
       },
-      "healthcheck": {
-        "interval": "10s",
-        "retries": 5,
-        "start_period": "15s",
-        "test": ["CMD", "/service", "readycheck"],
-        "timeout": "5s"
-      },
       "networks": {
         "sgp_backend": null,
         "sgp_hub_api_access": null
@@ -725,13 +676,6 @@
         "PGSSLMODE": "${PGSSLMODE:-disable}",
         "PGUSER": "vetchium_app",
         "TENANT_ID": "usa1"
-      },
-      "healthcheck": {
-        "interval": "10s",
-        "retries": 5,
-        "start_period": "15s",
-        "test": ["CMD", "/service", "readycheck"],
-        "timeout": "5s"
       },
       "networks": {
         "usa1_backend": null,
@@ -808,13 +752,6 @@
         "PGUSER": "vetchium_app",
         "TENANT_ID": "deu"
       },
-      "healthcheck": {
-        "interval": "10s",
-        "retries": 5,
-        "start_period": "15s",
-        "test": ["CMD", "/service", "readycheck"],
-        "timeout": "5s"
-      },
       "networks": {
         "deu_backend": {},
         "deu_mcp_access": {
@@ -851,13 +788,6 @@
         "PGSSLMODE": "${PGSSLMODE:-disable}",
         "PGUSER": "vetchium_app",
         "TENANT_ID": "ind1"
-      },
-      "healthcheck": {
-        "interval": "10s",
-        "retries": 5,
-        "start_period": "15s",
-        "test": ["CMD", "/service", "readycheck"],
-        "timeout": "5s"
       },
       "networks": {
         "ind1_backend": {},
@@ -896,13 +826,6 @@
         "PGUSER": "vetchium_app",
         "TENANT_ID": "sgp"
       },
-      "healthcheck": {
-        "interval": "10s",
-        "retries": 5,
-        "start_period": "15s",
-        "test": ["CMD", "/service", "readycheck"],
-        "timeout": "5s"
-      },
       "networks": {
         "sgp_backend": {},
         "sgp_mcp_access": {
@@ -939,13 +862,6 @@
         "PGSSLMODE": "${PGSSLMODE:-disable}",
         "PGUSER": "vetchium_app",
         "TENANT_ID": "usa1"
-      },
-      "healthcheck": {
-        "interval": "10s",
-        "retries": 5,
-        "start_period": "15s",
-        "test": ["CMD", "/service", "readycheck"],
-        "timeout": "5s"
       },
       "networks": {
         "usa1_backend": {},
@@ -984,13 +900,6 @@
         "PGUSER": "vetchium_app",
         "TENANT_ID": "deu"
       },
-      "healthcheck": {
-        "interval": "10s",
-        "retries": 5,
-        "start_period": "15s",
-        "test": ["CMD", "/service", "readycheck"],
-        "timeout": "5s"
-      },
       "networks": {
         "deu_backend": null,
         "mesh": null
@@ -1025,13 +934,6 @@
         "PGSSLMODE": "${PGSSLMODE:-disable}",
         "PGUSER": "vetchium_app",
         "TENANT_ID": "ind1"
-      },
-      "healthcheck": {
-        "interval": "10s",
-        "retries": 5,
-        "start_period": "15s",
-        "test": ["CMD", "/service", "readycheck"],
-        "timeout": "5s"
       },
       "networks": {
         "ind1_backend": null,
@@ -1068,13 +970,6 @@
         "PGUSER": "vetchium_app",
         "TENANT_ID": "sgp"
       },
-      "healthcheck": {
-        "interval": "10s",
-        "retries": 5,
-        "start_period": "15s",
-        "test": ["CMD", "/service", "readycheck"],
-        "timeout": "5s"
-      },
       "networks": {
         "mesh": null,
         "sgp_backend": null
@@ -1109,13 +1004,6 @@
         "PGSSLMODE": "${PGSSLMODE:-disable}",
         "PGUSER": "vetchium_app",
         "TENANT_ID": "usa1"
-      },
-      "healthcheck": {
-        "interval": "10s",
-        "retries": 5,
-        "start_period": "15s",
-        "test": ["CMD", "/service", "readycheck"],
-        "timeout": "5s"
       },
       "networks": {
         "mesh": null,
@@ -1232,13 +1120,6 @@
         "PGUSER": "vetchium_app",
         "TENANT_ID": "deu"
       },
-      "healthcheck": {
-        "interval": "10s",
-        "retries": 5,
-        "start_period": "15s",
-        "test": ["CMD", "/service", "readycheck"],
-        "timeout": "5s"
-      },
       "networks": {
         "deu_backend": null,
         "deu_orgs_api_access": null
@@ -1273,13 +1154,6 @@
         "PGSSLMODE": "${PGSSLMODE:-disable}",
         "PGUSER": "vetchium_app",
         "TENANT_ID": "ind1"
-      },
-      "healthcheck": {
-        "interval": "10s",
-        "retries": 5,
-        "start_period": "15s",
-        "test": ["CMD", "/service", "readycheck"],
-        "timeout": "5s"
       },
       "networks": {
         "ind1_backend": null,
@@ -1316,13 +1190,6 @@
         "PGUSER": "vetchium_app",
         "TENANT_ID": "sgp"
       },
-      "healthcheck": {
-        "interval": "10s",
-        "retries": 5,
-        "start_period": "15s",
-        "test": ["CMD", "/service", "readycheck"],
-        "timeout": "5s"
-      },
       "networks": {
         "sgp_backend": null,
         "sgp_orgs_api_access": null
@@ -1357,13 +1224,6 @@
         "PGSSLMODE": "${PGSSLMODE:-disable}",
         "PGUSER": "vetchium_app",
         "TENANT_ID": "usa1"
-      },
-      "healthcheck": {
-        "interval": "10s",
-        "retries": 5,
-        "start_period": "15s",
-        "test": ["CMD", "/service", "readycheck"],
-        "timeout": "5s"
       },
       "networks": {
         "usa1_backend": null,
@@ -1756,13 +1616,6 @@
         "PGUSER": "vetchium_app",
         "TENANT_ID": "deu"
       },
-      "healthcheck": {
-        "interval": "10s",
-        "retries": 5,
-        "start_period": "15s",
-        "test": ["CMD", "/service", "readycheck"],
-        "timeout": "5s"
-      },
       "networks": {
         "deu_backend": null
       },
@@ -1796,13 +1649,6 @@
         "PGSSLMODE": "${PGSSLMODE:-disable}",
         "PGUSER": "vetchium_app",
         "TENANT_ID": "ind1"
-      },
-      "healthcheck": {
-        "interval": "10s",
-        "retries": 5,
-        "start_period": "15s",
-        "test": ["CMD", "/service", "readycheck"],
-        "timeout": "5s"
       },
       "networks": {
         "ind1_backend": null
@@ -1838,13 +1684,6 @@
         "PGUSER": "vetchium_app",
         "TENANT_ID": "sgp"
       },
-      "healthcheck": {
-        "interval": "10s",
-        "retries": 5,
-        "start_period": "15s",
-        "test": ["CMD", "/service", "readycheck"],
-        "timeout": "5s"
-      },
       "networks": {
         "sgp_backend": null
       },
@@ -1878,13 +1717,6 @@
         "PGSSLMODE": "${PGSSLMODE:-disable}",
         "PGUSER": "vetchium_app",
         "TENANT_ID": "usa1"
-      },
-      "healthcheck": {
-        "interval": "10s",
-        "retries": 5,
-        "start_period": "15s",
-        "test": ["CMD", "/service", "readycheck"],
-        "timeout": "5s"
       },
       "networks": {
         "usa1_backend": null
