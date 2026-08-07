@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"backend/internal/apiserver"
-	"backend/internal/config"
 	"backend/internal/db"
 	"backend/internal/middleware"
 	"backend/internal/orgsapi"
@@ -31,7 +30,7 @@ func main() {
 }
 
 func run(log *slog.Logger) error {
-	cfg, err := config.Load()
+	cfg, err := orgsapi.LoadConfig()
 	if err != nil {
 		return err
 	}

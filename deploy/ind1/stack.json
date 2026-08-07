@@ -216,6 +216,7 @@
       },
       "read_only": true,
       "environment": {
+        "ADMIN_SESSION_TTL": "24h",
         "TENANT_ID": "ind1",
         "PGHOST": "db",
         "PGPORT": "5432",
@@ -419,6 +420,7 @@
       },
       "read_only": true,
       "environment": {
+        "DELETE_EXPIRED_ADMIN_SESSIONS_INTERVAL": "1h",
         "TENANT_ID": "ind1",
         "PGHOST": "db",
         "PGPORT": "5432",

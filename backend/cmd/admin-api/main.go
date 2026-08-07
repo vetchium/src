@@ -12,7 +12,6 @@ import (
 
 	"backend/internal/adminapi"
 	"backend/internal/apiserver"
-	"backend/internal/config"
 	"backend/internal/db"
 	dbsqlc "backend/internal/db/sqlc"
 	"backend/internal/middleware"
@@ -32,7 +31,7 @@ func main() {
 }
 
 func run(log *slog.Logger) error {
-	cfg, err := config.Load()
+	cfg, err := adminapi.LoadConfig()
 	if err != nil {
 		return err
 	}

@@ -25,6 +25,8 @@ secrets on first use. Tags must be immutable; `latest` and `dev` are rejected.
 `POSTGRES_USER` and `POSTGRES_DB` are required. `REGISTRY` defaults to
 `ghcr.io/vetchium`, `HTTP_PORT` defaults to `80`, and `PGSSLMODE` defaults to
 `disable` until PostgreSQL TLS is configured.
+The Compose files supply application settings such as admin-session lifetime
+and worker cleanup intervals directly to their respective services.
 
 For an existing stack, migrations run before `docker stack deploy`. A failed
 migration leaves the running stack untouched. On the first deployment, the
@@ -40,9 +42,8 @@ migrations are then applied.
 - `mesh-api`: private `mesh` plus `backend`; no published port and no ingress.
 - `mcp-server`: private `mcp_access` plus `backend`; Traefik can reach the
   network, but no MCP router is configured by default.
-- `workers`: `backend` only and exactly one replica per tenant. The current
-  heartbeat loop has no distributed coordination, so do not scale this service
-  beyond one replica until task-level locking is implemented.
+- `workers`: `backend` only and exactly one replica per tenant. Do not scale this
+  service beyond one replica until task-level locking is implemented.
 
 ## MCP publication
 
