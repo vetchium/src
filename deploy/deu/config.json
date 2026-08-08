@@ -1,0 +1,22 @@
+{
+  "tenantId": "deu",
+  "env": "production",
+  "database": {
+    "host": "db",
+    "port": 5432,
+    "user": "vetchium_app",
+    "name": "tenant_db",
+    "passwordFile": "/run/secrets/app_postgres_password",
+    "sslMode": "disable"
+  },
+  "workers": {
+    "retryBackoffLimit": "5m",
+    "pruneAdminSessionsTimer": "5m"
+  },
+  "admin-api-server": {
+    "adminSessionTTL": "24h"
+  },
+  "hub-api-server": {},
+  "orgs-api-server": {},
+  "mcp-server": {}
+}
