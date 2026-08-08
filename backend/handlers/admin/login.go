@@ -25,8 +25,7 @@ func Login(s *adminapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request admin.LoginRequest
 		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-			s.DebugContext(r.Context(), "decode http request", "error", err)
-			s.InvalidJSON(w)
+			s.InvalidJSON(r.Context(), w, err)
 			return
 		}
 
@@ -34,7 +33,7 @@ func Login(s *adminapi.Server) http.HandlerFunc {
 
 		if invalidFields := request.Validate(); len(invalidFields) != 0 {
 			s.DebugContext(r.Context(), "invalid req", "fields", invalidFields)
-			s.ValidationFailed(w, invalidFields)
+			s.ValidationFailed(r.Context(), w, invalidFields)
 			return
 		}
 
@@ -47,20 +46,23 @@ func Login(s *adminapi.Server) http.HandlerFunc {
 			r.Context(), emailAddress)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				s.DebugContext(r.Context(), "user not found")
+				s.WarnContext(r.Context(), "admin login failed", "event", "authentication_failed", "reason", "user_not_found", "error", err)
 				s.Unauthorized(w)
 				return
 			}
-			s.ErrorContext(r.Context(), "get admin user", "error", err)
-			s.InternalError(w)
+			s.InternalError(r.Context(), w, "get admin user", err)
 			return
 		}
 
-		if bcrypt.CompareHashAndPassword(
+		if err := bcrypt.CompareHashAndPassword(
 			[]byte(adminUser.PasswordHash),
 			[]byte(request.Password),
-		) != nil {
-			s.DebugContext(r.Context(), "invalid password")
+		); err != nil {
+			if !errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
+				s.InternalError(r.Context(), w, "compare admin password", err)
+				return
+			}
+			s.WarnContext(r.Context(), "admin login failed", "event", "authentication_failed", "reason", "invalid_password", "error", err)
 			s.Unauthorized(w)
 			return
 		}
@@ -73,8 +75,7 @@ func Login(s *adminapi.Server) http.HandlerFunc {
 
 		secret := make([]byte, 32)
 		if _, err := rand.Read(secret); err != nil {
-			s.ErrorContext(r.Context(), "generate session token", "error", err)
-			s.InternalError(w)
+			s.InternalError(r.Context(), w, "generate session token", err)
 			return
 		}
 		// Only the hash of the token is stored, so a database disclosure does
@@ -96,12 +97,11 @@ func Login(s *adminapi.Server) http.HandlerFunc {
 			if errors.Is(err, pgx.ErrNoRows) {
 				// The account was active when its credentials were checked but
 				// became unavailable before the session was created.
-				s.DebugContext(r.Context(), "user disabled", "user", adminUser)
+				s.WarnContext(r.Context(), "admin session creation rejected", "event", "authentication_failed", "reason", "user_unavailable", "error", err)
 				w.WriteHeader(http.StatusForbidden)
 				return
 			}
-			s.ErrorContext(r.Context(), "create admin session", "error", err)
-			s.InternalError(w)
+			s.InternalError(r.Context(), w, "create admin session", err)
 			return
 		}
 		if session.ExpiresAt.Valid {
@@ -114,8 +114,7 @@ func Login(s *adminapi.Server) http.HandlerFunc {
 		if err := json.NewEncoder(w).Encode(admin.LoginResponse{
 			SessionToken: token, ExpiresAt: expiresAt,
 		}); err != nil {
-			s.ErrorContext(r.Context(), "json encode", "error", err)
-			s.InternalError(w)
+			s.InternalError(r.Context(), w, "encode admin login response", err)
 		}
 	}
 }

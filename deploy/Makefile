@@ -48,9 +48,11 @@ deploy:
 	fi
 
 	@set -e; \
-	hash=$$(sha256sum $(REGION)/traefik.json | cut -c1-12); \
+	traefik_hash=$$(sha256sum $(REGION)/traefik.json | cut -c1-12); \
+	app_config_hash=$$(sha256sum $(REGION)/config.json | cut -c1-12); \
 	deploy_stack() { \
-		TRAEFIK_HASH=$$hash REGISTRY=$(REGISTRY) TAG=$(TAG) PGSSLMODE=$(PGSSLMODE) \
+		TRAEFIK_HASH=$$traefik_hash APP_CONFIG_HASH=$$app_config_hash \
+		REGISTRY=$(REGISTRY) TAG=$(TAG) PGSSLMODE=$(PGSSLMODE) \
 		POSTGRES_USER=$(POSTGRES_USER) POSTGRES_DB=$(POSTGRES_DB) \
 		docker stack deploy --compose-file $(REGION)/stack.json --with-registry-auth \
 			--prune --detach=false $(REGION); \

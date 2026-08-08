@@ -9,12 +9,16 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"backend/internal/appconfig"
 )
 
 func TestNewUsesConfiguredJobInterval(t *testing.T) {
 	const interval = 15 * time.Minute
-	worker := New(nil, slog.New(slog.NewTextHandler(io.Discard, nil)), Config{
-		DeleteExpiredAdminSessionsInterval: interval,
+	const retryBackoffLimit = 30 * time.Second
+	worker := New(nil, slog.New(slog.NewTextHandler(io.Discard, nil)), appconfig.Workers{
+		RetryBackoffLimit:       retryBackoffLimit,
+		PruneAdminSessionsTimer: interval,
 	})
 
 	if len(worker.jobs) != 1 {
@@ -22,6 +26,9 @@ func TestNewUsesConfiguredJobInterval(t *testing.T) {
 	}
 	if got := worker.jobs[0].interval; got != interval {
 		t.Fatalf("job interval = %s, want %s", got, interval)
+	}
+	if worker.retryBackoffLimit != retryBackoffLimit {
+		t.Fatalf("retry backoff limit = %s, want %s", worker.retryBackoffLimit, retryBackoffLimit)
 	}
 }
 
@@ -171,6 +178,31 @@ func TestRunPeriodicJobLogsErrorAndContinues(t *testing.T) {
 	if !bytes.Contains(logs.Bytes(), []byte("transient database error")) {
 		t.Fatalf("log = %q, want the job error", logs.String())
 	}
+	if !bytes.Contains(logs.Bytes(), []byte("event=worker_job_error")) {
+		t.Fatalf("log = %q, want worker_job_error event", logs.String())
+	}
+}
+
+func TestRunPeriodicJobLogsCancellationError(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	var logs bytes.Buffer
+	worker := newTestWorker(slog.New(slog.NewTextHandler(&logs, nil)))
+	job := periodicJob{
+		name:     "cancelled",
+		interval: time.Hour,
+		run: func(context.Context) error {
+			cancel()
+			return context.Canceled
+		},
+	}
+
+	worker.runPeriodicJob(ctx, job)
+
+	for _, want := range []string{"event=worker_job_stopped", "error=\"context canceled\""} {
+		if !bytes.Contains(logs.Bytes(), []byte(want)) {
+			t.Errorf("log = %q, want %q", logs.String(), want)
+		}
+	}
 }
 
 func TestRunPeriodicJobRejectsInvalidInterval(t *testing.T) {
@@ -196,6 +228,22 @@ func TestRunPeriodicJobRejectsInvalidInterval(t *testing.T) {
 	}
 }
 
+func TestNextBackoffStartsAtOneSecondAndCapsAtLimit(t *testing.T) {
+	const limit = 2500 * time.Millisecond
+	backoff := nextBackoff(0, limit)
+	if backoff != time.Second {
+		t.Fatalf("initial backoff = %s, want 1s", backoff)
+	}
+	backoff = nextBackoff(backoff, limit)
+	if backoff != 2*time.Second {
+		t.Fatalf("second backoff = %s, want 2s", backoff)
+	}
+	backoff = nextBackoff(backoff, limit)
+	if backoff != limit {
+		t.Fatalf("capped backoff = %s, want %s", backoff, limit)
+	}
+}
+
 func newTestWorker(log *slog.Logger) *Worker {
-	return &Worker{log: log}
+	return &Worker{log: log, retryBackoffLimit: time.Millisecond}
 }

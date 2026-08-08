@@ -27,6 +27,10 @@ container images:
 
 The backend commands share database, configuration, and domain packages under
 `backend/internal/`, but build as separate executables under `backend/cmd/`.
+Every backend process reads the same per-tenant JSON file from
+`/etc/vetchium/config.json`; Docker Compose mounts the development files under
+`config/`, and production mounts each region's `deploy/<region>/config.json`.
+The database password remains a separate secret file referenced by that JSON.
 
 ## Request paths and networks
 

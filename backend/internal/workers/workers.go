@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"time"
 
+	"backend/internal/appconfig"
 	"backend/internal/db/sqlc"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -19,21 +20,23 @@ type periodicJob struct {
 
 // Worker owns the dependencies and periodic jobs for the worker process.
 type Worker struct {
-	queries sqlc.Querier
-	log     *slog.Logger
-	jobs    []periodicJob
+	queries           sqlc.Querier
+	log               *slog.Logger
+	retryBackoffLimit time.Duration
+	jobs              []periodicJob
 }
 
-func New(db *pgxpool.Pool, log *slog.Logger, config Config) *Worker {
+func New(db *pgxpool.Pool, log *slog.Logger, config appconfig.Workers) *Worker {
 	w := &Worker{
-		queries: sqlc.New(db),
-		log:     log.With("component", "workers"),
+		queries:           sqlc.New(db),
+		log:               log,
+		retryBackoffLimit: config.RetryBackoffLimit,
 	}
 	w.jobs = []periodicJob{
 		{
-			name:     "delete-expired-admin-sessions",
-			interval: config.DeleteExpiredAdminSessionsInterval,
-			run:      w.deleteExpiredAdminSessions,
+			name:     "prune-admin-sessions",
+			interval: config.PruneAdminSessionsTimer,
+			run:      w.pruneAdminSessions,
 		},
 	}
 	return w
@@ -50,22 +53,57 @@ func (w *Worker) Run(ctx context.Context) {
 func (w *Worker) runPeriodicJob(ctx context.Context, job periodicJob) {
 	log := w.log.With("job", job.name)
 	if job.interval <= 0 {
-		log.Error("invalid interval", "interval", job.interval)
+		log.Error("invalid interval", "event", "worker_configuration_error", "interval", job.interval)
+		return
+	}
+	if w.retryBackoffLimit <= 0 {
+		log.Error("invalid retry backoff limit", "event", "worker_configuration_error", "retryBackoffLimit", w.retryBackoffLimit)
 		return
 	}
 
+	var backoff time.Duration
 	for {
-		if ctx.Err() != nil {
+		if contextErr := ctx.Err(); contextErr != nil {
+			log.Info("job stopped before run", "event", "worker_job_stopped", "error", contextErr)
 			return
 		}
-		if err := job.run(ctx); err != nil && ctx.Err() == nil {
-			log.Error("job failed", "error", err)
+		err := job.run(ctx)
+		if err != nil {
+			if contextErr := ctx.Err(); contextErr != nil {
+				log.Info("job stopped after cancellation", "event", "worker_job_stopped", "error", err, "contextError", contextErr)
+				return
+			}
+			log.Error("job failed", "event", "worker_job_error", "error", err)
+			backoff = nextBackoff(backoff, w.retryBackoffLimit)
+		} else {
+			backoff = 0
 		}
 
-		select {
-		case <-ctx.Done():
-			return
-		case <-time.After(job.interval):
+		delay := job.interval
+		if backoff > 0 {
+			delay = backoff
 		}
+		if !wait(ctx, delay) {
+			log.Info("job stopped while waiting", "event", "worker_job_stopped", "error", ctx.Err())
+			return
+		}
+	}
+}
+
+func nextBackoff(current, limit time.Duration) time.Duration {
+	if current == 0 {
+		return min(time.Second, limit)
+	}
+	return min(2*current, limit)
+}
+
+func wait(ctx context.Context, delay time.Duration) bool {
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return false
+	case <-timer.C:
+		return true
 	}
 }

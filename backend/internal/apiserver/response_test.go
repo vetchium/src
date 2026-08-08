@@ -2,7 +2,9 @@ package apiserver
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -32,9 +34,10 @@ func TestUnauthorized(t *testing.T) {
 }
 
 func TestInternalError(t *testing.T) {
-	runtime := New(nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	var logs bytes.Buffer
+	runtime := New(nil, slog.New(slog.NewJSONHandler(&logs, nil)))
 	recorder := httptest.NewRecorder()
-	runtime.InternalError(recorder)
+	runtime.InternalError(context.Background(), recorder, "load test resource", errors.New("database unavailable"))
 
 	if recorder.Code != http.StatusInternalServerError {
 		t.Fatalf("status = %d, want 500", recorder.Code)
@@ -50,21 +53,27 @@ func TestInternalError(t *testing.T) {
 	if len(details.Fields) != 0 {
 		t.Fatalf("fields = %v, want none", details.Fields)
 	}
+	for _, want := range []string{`"level":"ERROR"`, `"event":"request_error"`, `"operation":"load test resource"`, `"error":"database unavailable"`} {
+		if !bytes.Contains(logs.Bytes(), []byte(want)) {
+			t.Errorf("log = %q, want %q", logs.String(), want)
+		}
+	}
 }
 
 func TestInternalErrorLogsEncodingFailure(t *testing.T) {
 	var logs bytes.Buffer
 	runtime := New(nil, slog.New(slog.NewTextHandler(&logs, nil)))
-	runtime.InternalError(errorResponseWriter{header: make(http.Header)})
+	runtime.InternalError(context.Background(), errorResponseWriter{header: make(http.Header)}, "test operation", errors.New("original error"))
 	if !bytes.Contains(logs.Bytes(), []byte("encode internal error response")) {
 		t.Fatalf("log = %q", logs.String())
 	}
 }
 
 func TestInvalidJSON(t *testing.T) {
-	runtime := New(nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	var logs bytes.Buffer
+	runtime := New(nil, slog.New(slog.NewJSONHandler(&logs, nil)))
 	recorder := httptest.NewRecorder()
-	runtime.InvalidJSON(recorder)
+	runtime.InvalidJSON(context.Background(), recorder, errors.New("unexpected EOF"))
 
 	if recorder.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400", recorder.Code)
@@ -77,12 +86,17 @@ func TestInvalidJSON(t *testing.T) {
 		t.Fatal(err)
 	}
 	assertDetailsEqual(t, details, problemspec.InvalidJSONError)
+	for _, want := range []string{`"level":"WARN"`, `"event":"invalid_json"`, `"error":"unexpected EOF"`} {
+		if !bytes.Contains(logs.Bytes(), []byte(want)) {
+			t.Errorf("log = %q, want %q", logs.String(), want)
+		}
+	}
 }
 
 func TestInvalidJSONLogsEncodingFailure(t *testing.T) {
 	var logs bytes.Buffer
 	runtime := New(nil, slog.New(slog.NewTextHandler(&logs, nil)))
-	runtime.InvalidJSON(errorResponseWriter{header: make(http.Header)})
+	runtime.InvalidJSON(context.Background(), errorResponseWriter{header: make(http.Header)}, errors.New("unexpected EOF"))
 	if !bytes.Contains(logs.Bytes(), []byte("encode invalid JSON response")) {
 		t.Fatalf("log = %q", logs.String())
 	}
@@ -91,7 +105,7 @@ func TestInvalidJSONLogsEncodingFailure(t *testing.T) {
 func TestValidationFailed(t *testing.T) {
 	runtime := New(nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	recorder := httptest.NewRecorder()
-	runtime.ValidationFailed(recorder, []string{"email_address", "password"})
+	runtime.ValidationFailed(context.Background(), recorder, []string{"email_address", "password"})
 
 	if recorder.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400", recorder.Code)
@@ -116,7 +130,7 @@ func TestValidationFailed(t *testing.T) {
 func TestValidationFailedLogsEncodingFailure(t *testing.T) {
 	var logs bytes.Buffer
 	runtime := New(nil, slog.New(slog.NewTextHandler(&logs, nil)))
-	runtime.ValidationFailed(errorResponseWriter{header: make(http.Header)}, []string{"email_address"})
+	runtime.ValidationFailed(context.Background(), errorResponseWriter{header: make(http.Header)}, []string{"email_address"})
 	if !bytes.Contains(logs.Bytes(), []byte("encode validation failed response")) {
 		t.Fatalf("log = %q", logs.String())
 	}

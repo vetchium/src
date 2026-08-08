@@ -24,9 +24,12 @@ The Makefile initializes Swarm when necessary and creates the tenant database
 secrets on first use. Tags must be immutable; `latest` and `dev` are rejected.
 `POSTGRES_USER` and `POSTGRES_DB` are required. `REGISTRY` defaults to
 `ghcr.io/vetchium`, `HTTP_PORT` defaults to `80`, and `PGSSLMODE` defaults to
-`disable` until PostgreSQL TLS is configured.
-The Compose files supply application settings such as admin-session lifetime
-and worker cleanup intervals directly to their respective services.
+`disable` until PostgreSQL TLS is configured. Each region's `config.json`
+contains the shared non-secret configuration for every backend program and is
+mounted read-only at `/etc/vetchium/config.json`. `POSTGRES_DB` and `PGSSLMODE`
+remain deployment-time overrides so existing installations can select their
+database and TLS policy without rewriting the file. The content hash in the
+Swarm config name causes the backend services to roll when the file changes.
 
 For an existing stack, migrations run before `docker stack deploy`. A failed
 migration leaves the running stack untouched. On the first deployment, the
@@ -44,6 +47,10 @@ migrations are then applied.
   network, but no MCP router is configured by default.
 - `workers`: `backend` only and exactly one replica per tenant. Do not scale this
   service beyond one replica until task-level locking is implemented.
+
+The shared JSON configuration has the same file-mount shape as a future
+Kubernetes ConfigMap. The PostgreSQL password remains a separate secret mount;
+only its file path appears in the JSON.
 
 ## MCP publication
 
@@ -64,9 +71,9 @@ membership but is not sufficient request authorization by itself.
 ## Secrets and migrations
 
 PostgreSQL administrator and application credentials are separate Swarm
-secrets. Migrations connect as `POSTGRES_USER`; runtime services use
-`PGPASSWORD_FILE` with the DML-only `vetchium_app` role, so neither password
-appears in service environment variables.
+secrets. Migrations connect as `POSTGRES_USER`; runtime services read the
+application-password file configured for the DML-only `vetchium_app` role, so
+neither password appears in the JSON or service environment variables.
 
 The pinned official PostgreSQL image receives initialization files as Swarm
 configs. Its `/docker-entrypoint-initdb.d` hook reads the application secret and
@@ -84,6 +91,14 @@ permission-restricted temporary env file, joins the tenant backend network,
 runs the published migration image, and removes the file.
 
 ## Operations
+
+Backend processes write structured JSON logs to standard output with source,
+component, tenant, event, and error fields where applicable. Internal request
+failures use `event=request_error`, worker failures use
+`event=worker_job_error`, and fatal startup/runtime failures use
+`event=process_exit`. Expected client and authentication failures are logged at
+warning level so SIEM rules can retain them without treating ordinary 4xx
+traffic as PagerDuty-worthy application failures.
 
 ```bash
 docker stack services sgp

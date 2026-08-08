@@ -28,11 +28,11 @@ func MyInfo(s *adminapi.Server) http.HandlerFunc {
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
+				s.WarnContext(r.Context(), "admin session not found", "event", "authentication_failed", "reason", "session_not_found", "error", err)
 				s.Unauthorized(w)
 				return
 			}
-			s.ErrorContext(r.Context(), "get admin my-info", "error", err)
-			s.InternalError(w)
+			s.InternalError(r.Context(), w, "get admin my-info", err)
 			return
 		}
 
@@ -54,7 +54,7 @@ func MyInfo(s *adminapi.Server) http.HandlerFunc {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.WriteHeader(http.StatusOK)
 		if err := json.NewEncoder(w).Encode(response); err != nil {
-			s.ErrorContext(r.Context(), "encode admin my-info response", "error", err)
+			s.ErrorContext(r.Context(), "encode admin my-info response", "event", "response_encode_error", "error", err)
 		}
 	}
 }

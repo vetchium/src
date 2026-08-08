@@ -55,13 +55,9 @@
       }
     },
     "read_only": true,
+    "configs": [{"source": "app_config", "target": "/etc/vetchium/config.json"}],
     "environment": {
-      "TENANT_ID": "sgp",
-      "PGHOST": "db",
-      "PGPORT": "5432",
-      "PGUSER": "vetchium_app",
       "PGDATABASE": "${POSTGRES_DB:?set POSTGRES_DB}",
-      "PGPASSWORD_FILE": "/run/secrets/app_postgres_password",
       "PGSSLMODE": "${PGSSLMODE:-disable}"
     },
     "secrets": ["app_postgres_password"]
@@ -215,14 +211,9 @@
         }
       },
       "read_only": true,
+      "configs": [{"source": "app_config", "target": "/etc/vetchium/config.json"}],
       "environment": {
-        "ADMIN_SESSION_TTL": "24h",
-        "TENANT_ID": "sgp",
-        "PGHOST": "db",
-        "PGPORT": "5432",
-        "PGUSER": "vetchium_app",
         "PGDATABASE": "${POSTGRES_DB:?set POSTGRES_DB}",
-        "PGPASSWORD_FILE": "/run/secrets/app_postgres_password",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
       },
       "secrets": ["app_postgres_password"],
@@ -257,13 +248,9 @@
         }
       },
       "read_only": true,
+      "configs": [{"source": "app_config", "target": "/etc/vetchium/config.json"}],
       "environment": {
-        "TENANT_ID": "sgp",
-        "PGHOST": "db",
-        "PGPORT": "5432",
-        "PGUSER": "vetchium_app",
         "PGDATABASE": "${POSTGRES_DB:?set POSTGRES_DB}",
-        "PGPASSWORD_FILE": "/run/secrets/app_postgres_password",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
       },
       "secrets": ["app_postgres_password"],
@@ -298,13 +285,9 @@
         }
       },
       "read_only": true,
+      "configs": [{"source": "app_config", "target": "/etc/vetchium/config.json"}],
       "environment": {
-        "TENANT_ID": "sgp",
-        "PGHOST": "db",
-        "PGPORT": "5432",
-        "PGUSER": "vetchium_app",
         "PGDATABASE": "${POSTGRES_DB:?set POSTGRES_DB}",
-        "PGPASSWORD_FILE": "/run/secrets/app_postgres_password",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
       },
       "secrets": ["app_postgres_password"],
@@ -339,13 +322,9 @@
         }
       },
       "read_only": true,
+      "configs": [{"source": "app_config", "target": "/etc/vetchium/config.json"}],
       "environment": {
-        "TENANT_ID": "sgp",
-        "PGHOST": "db",
-        "PGPORT": "5432",
-        "PGUSER": "vetchium_app",
         "PGDATABASE": "${POSTGRES_DB:?set POSTGRES_DB}",
-        "PGPASSWORD_FILE": "/run/secrets/app_postgres_password",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
       },
       "secrets": ["app_postgres_password"],
@@ -380,13 +359,9 @@
         }
       },
       "read_only": true,
+      "configs": [{"source": "app_config", "target": "/etc/vetchium/config.json"}],
       "environment": {
-        "TENANT_ID": "sgp",
-        "PGHOST": "db",
-        "PGPORT": "5432",
-        "PGUSER": "vetchium_app",
         "PGDATABASE": "${POSTGRES_DB:?set POSTGRES_DB}",
-        "PGPASSWORD_FILE": "/run/secrets/app_postgres_password",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
       },
       "secrets": ["app_postgres_password"],
@@ -419,14 +394,14 @@
         }
       },
       "read_only": true,
+      "configs": [
+        {
+          "source": "app_config",
+          "target": "/etc/vetchium/config.json"
+        }
+      ],
       "environment": {
-        "DELETE_EXPIRED_ADMIN_SESSIONS_INTERVAL": "1h",
-        "TENANT_ID": "sgp",
-        "PGHOST": "db",
-        "PGPORT": "5432",
-        "PGUSER": "vetchium_app",
         "PGDATABASE": "${POSTGRES_DB:?set POSTGRES_DB}",
-        "PGPASSWORD_FILE": "/run/secrets/app_postgres_password",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
       },
       "secrets": ["app_postgres_password"],
@@ -606,6 +581,10 @@
     },
     "database_init_sql": {
       "file": "../../db/bootstrap/init.sql"
+    },
+    "app_config": {
+      "file": "./config.json",
+      "name": "sgp-app-${APP_CONFIG_HASH:?run via make}"
     },
     "traefik": {
       "file": "./traefik.json",

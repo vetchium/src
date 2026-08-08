@@ -5,6 +5,6 @@ import "backend/internal/apiserver"
 type Server struct {
 	*apiserver.Runtime
 
-	// Things below come from Config
+	// Values below come from the shared application config.
 	TenantID string
 }

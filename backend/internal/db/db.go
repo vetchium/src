@@ -34,7 +34,7 @@ func Connect(ctx context.Context, databaseURL string, log *slog.Logger) (*pgxpoo
 		// Keep the pool open: pgx establishes connections lazily and replaces
 		// unhealthy connections, so later operations can recover without a
 		// process restart when PostgreSQL becomes available again.
-		log.Warn("database unavailable; operations will retry through the connection pool", "error", err)
+		log.Warn("database unavailable; operations will retry through the connection pool", "event", "database_unavailable", "error", err)
 		return pool, nil
 	}
 	log.Info("database connected")

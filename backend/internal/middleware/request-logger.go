@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"fmt"
 	"net/http"
 	"runtime/debug"
 
@@ -24,10 +25,18 @@ func recoverProblems(runtime *apiserver.Runtime, next http.Handler) http.Handler
 				if recovered == http.ErrAbortHandler {
 					panic(recovered)
 				}
-				runtime.ErrorContext(r.Context(), "panic recovered", "panic", recovered, "stack", string(debug.Stack()))
 				if wrapped.Status() == 0 {
 					wrapped.Header().Set("Cache-Control", "no-store")
-					runtime.InternalError(wrapped)
+					runtime.InternalError(
+						r.Context(),
+						wrapped,
+						"serve HTTP request",
+						fmt.Errorf("panic: %v", recovered),
+						"panic", recovered,
+						"stack", string(debug.Stack()),
+					)
+				} else {
+					runtime.ErrorContext(r.Context(), "panic after response started", "event", "request_error", "operation", "serve HTTP request", "error", fmt.Errorf("panic: %v", recovered), "panic", recovered, "stack", string(debug.Stack()))
 				}
 			}
 		}()

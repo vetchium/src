@@ -21,8 +21,7 @@ func Logout(s *adminapi.Server) http.HandlerFunc {
 			AdminUserID:    identity.UserID,
 		})
 		if err != nil {
-			s.ErrorContext(r.Context(), "delete admin session", "error", err)
-			s.InternalError(w)
+			s.InternalError(r.Context(), w, "delete admin session", err)
 			return
 		}
 		if deleted == 0 {

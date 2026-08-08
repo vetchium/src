@@ -35,11 +35,11 @@ func AdminAuth(s *adminapi.Server) func(http.Handler) http.Handler {
 				r.Context(), tokenHash[:])
 			if err != nil {
 				if errors.Is(err, pgx.ErrNoRows) {
+					s.WarnContext(r.Context(), "admin authentication failed", "event", "authentication_failed", "reason", "session_not_found", "error", err)
 					s.Unauthorized(w)
 					return
 				}
-				s.ErrorContext(r.Context(), "authenticate admin", "error", err)
-				s.InternalError(w)
+				s.InternalError(r.Context(), w, "authenticate admin", err)
 				return
 			}
 

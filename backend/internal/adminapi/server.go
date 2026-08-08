@@ -12,7 +12,7 @@ type Server struct {
 
 	Queries sqlc.Querier
 
-	// Things below come from Config
+	// Values below come from the shared application config.
 	TenantID        string
 	AdminSessionTTL time.Duration
 }
