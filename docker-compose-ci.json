@@ -1,0 +1,1695 @@
+{
+  "name": "vetchium",
+  "configs": {
+    "app_config_deu": {
+      "file": "./config/ci/deu.json"
+    },
+    "app_config_ind1": {
+      "file": "./config/ci/ind1.json"
+    },
+    "app_config_sgp": {
+      "file": "./config/ci/sgp.json"
+    },
+    "app_config_usa1": {
+      "file": "./config/ci/usa1.json"
+    }
+  },
+  "networks": {
+    "deu_admin_api_access": {
+      "internal": true
+    },
+    "deu_backend": {
+      "internal": true
+    },
+    "deu_hub_api_access": {
+      "internal": true
+    },
+    "deu_ingress": {},
+    "deu_mcp_access": {
+      "internal": true
+    },
+    "deu_orgs_api_access": {
+      "internal": true
+    },
+    "ind1_admin_api_access": {
+      "internal": true
+    },
+    "ind1_backend": {
+      "internal": true
+    },
+    "ind1_hub_api_access": {
+      "internal": true
+    },
+    "ind1_ingress": {},
+    "ind1_mcp_access": {
+      "internal": true
+    },
+    "ind1_orgs_api_access": {
+      "internal": true
+    },
+    "mesh": {
+      "internal": true
+    },
+    "sgp_admin_api_access": {
+      "internal": true
+    },
+    "sgp_backend": {
+      "internal": true
+    },
+    "sgp_hub_api_access": {
+      "internal": true
+    },
+    "sgp_ingress": {},
+    "sgp_mcp_access": {
+      "internal": true
+    },
+    "sgp_orgs_api_access": {
+      "internal": true
+    },
+    "usa1_admin_api_access": {
+      "internal": true
+    },
+    "usa1_backend": {
+      "internal": true
+    },
+    "usa1_hub_api_access": {
+      "internal": true
+    },
+    "usa1_ingress": {},
+    "usa1_mcp_access": {
+      "internal": true
+    },
+    "usa1_orgs_api_access": {
+      "internal": true
+    }
+  },
+  "secrets": {
+    "app_postgres_password": {
+      "file": "./.dev-secrets/app_postgres_password"
+    }
+  },
+  "services": {
+    "admin-api-deu": {
+      "build": {
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
+        "target": "admin-api"
+      },
+      "depends_on": {
+        "seed-deu": {
+          "condition": "service_completed_successfully",
+          "required": true
+        }
+      },
+      "configs": [
+        {
+          "source": "app_config_deu",
+          "target": "/etc/vetchium/config.json"
+        }
+      ],
+      "environment": {
+        "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
+        "PGSSLMODE": "${PGSSLMODE:-disable}"
+      },
+      "networks": {
+        "deu_admin_api_access": null,
+        "deu_backend": null
+      },
+      "read_only": true,
+      "restart": "unless-stopped",
+      "secrets": [
+        {
+          "source": "app_postgres_password",
+          "target": "/run/secrets/app_postgres_password"
+        }
+      ],
+      "security_opt": ["no-new-privileges:true"]
+    },
+    "admin-api-ind1": {
+      "build": {
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
+        "target": "admin-api"
+      },
+      "depends_on": {
+        "seed-ind1": {
+          "condition": "service_completed_successfully",
+          "required": true
+        }
+      },
+      "configs": [
+        {
+          "source": "app_config_ind1",
+          "target": "/etc/vetchium/config.json"
+        }
+      ],
+      "environment": {
+        "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
+        "PGSSLMODE": "${PGSSLMODE:-disable}"
+      },
+      "networks": {
+        "ind1_admin_api_access": null,
+        "ind1_backend": null
+      },
+      "read_only": true,
+      "restart": "unless-stopped",
+      "secrets": [
+        {
+          "source": "app_postgres_password",
+          "target": "/run/secrets/app_postgres_password"
+        }
+      ],
+      "security_opt": ["no-new-privileges:true"]
+    },
+    "admin-api-sgp": {
+      "build": {
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
+        "target": "admin-api"
+      },
+      "depends_on": {
+        "seed-sgp": {
+          "condition": "service_completed_successfully",
+          "required": true
+        }
+      },
+      "configs": [
+        {
+          "source": "app_config_sgp",
+          "target": "/etc/vetchium/config.json"
+        }
+      ],
+      "environment": {
+        "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
+        "PGSSLMODE": "${PGSSLMODE:-disable}"
+      },
+      "networks": {
+        "sgp_admin_api_access": null,
+        "sgp_backend": null
+      },
+      "read_only": true,
+      "restart": "unless-stopped",
+      "secrets": [
+        {
+          "source": "app_postgres_password",
+          "target": "/run/secrets/app_postgres_password"
+        }
+      ],
+      "security_opt": ["no-new-privileges:true"]
+    },
+    "admin-api-usa1": {
+      "build": {
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
+        "target": "admin-api"
+      },
+      "depends_on": {
+        "seed-usa1": {
+          "condition": "service_completed_successfully",
+          "required": true
+        }
+      },
+      "configs": [
+        {
+          "source": "app_config_usa1",
+          "target": "/etc/vetchium/config.json"
+        }
+      ],
+      "environment": {
+        "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
+        "PGSSLMODE": "${PGSSLMODE:-disable}"
+      },
+      "networks": {
+        "usa1_admin_api_access": null,
+        "usa1_backend": null
+      },
+      "read_only": true,
+      "restart": "unless-stopped",
+      "secrets": [
+        {
+          "source": "app_postgres_password",
+          "target": "/run/secrets/app_postgres_password"
+        }
+      ],
+      "security_opt": ["no-new-privileges:true"]
+    },
+    "admin-ui-deu": {
+      "build": {
+        "context": "admin-ui"
+      },
+      "networks": {
+        "deu_ingress": null
+      },
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"]
+    },
+    "admin-ui-ind1": {
+      "build": {
+        "context": "admin-ui"
+      },
+      "networks": {
+        "ind1_ingress": null
+      },
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"]
+    },
+    "admin-ui-sgp": {
+      "build": {
+        "context": "admin-ui"
+      },
+      "networks": {
+        "sgp_ingress": null
+      },
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"]
+    },
+    "admin-ui-usa1": {
+      "build": {
+        "context": "admin-ui"
+      },
+      "networks": {
+        "usa1_ingress": null
+      },
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"]
+    },
+    "db-deu": {
+      "command": ["postgres"],
+      "entrypoint": ["/bin/sh", "/usr/local/bin/vetchium-entrypoint.sh"],
+      "environment": {
+        "APP_POSTGRES_PASSWORD_FILE": "/run/secrets/app_postgres_password",
+        "POSTGRES_DB": "${POSTGRES_DB:-tenant_db}",
+        "POSTGRES_INITDB_ARGS": "--auth-host=scram-sha-256",
+        "POSTGRES_PASSWORD": "${POSTGRES_PASSWORD:-pgpassword}",
+        "POSTGRES_USER": "${POSTGRES_USER:-pguser}"
+      },
+      "healthcheck": {
+        "interval": "5s",
+        "retries": 20,
+        "start_period": "10s",
+        "test": [
+          "CMD-SHELL",
+          "pg_isready -h 127.0.0.1 -U $${POSTGRES_USER} -d $${POSTGRES_DB}"
+        ],
+        "timeout": "3s"
+      },
+      "image": "postgres:17.6-alpine@sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94",
+      "networks": {
+        "deu_backend": null
+      },
+      "restart": "unless-stopped",
+      "secrets": [
+        {
+          "source": "app_postgres_password",
+          "target": "/run/secrets/app_postgres_password"
+        }
+      ],
+      "security_opt": ["no-new-privileges:true"],
+      "volumes": [
+        {
+          "source": "pgdata-deu",
+          "target": "/var/lib/postgresql/data",
+          "type": "volume",
+          "volume": {}
+        },
+        {
+          "bind": {
+            "create_host_path": true
+          },
+          "read_only": true,
+          "source": "./db/bootstrap/entrypoint.sh",
+          "target": "/usr/local/bin/vetchium-entrypoint.sh",
+          "type": "bind"
+        },
+        {
+          "bind": {
+            "create_host_path": true
+          },
+          "read_only": true,
+          "source": "./db/bootstrap/init.sql",
+          "target": "/docker-entrypoint-initdb.d/10-vetchium.sql",
+          "type": "bind"
+        }
+      ]
+    },
+    "db-ind1": {
+      "command": ["postgres"],
+      "entrypoint": ["/bin/sh", "/usr/local/bin/vetchium-entrypoint.sh"],
+      "environment": {
+        "APP_POSTGRES_PASSWORD_FILE": "/run/secrets/app_postgres_password",
+        "POSTGRES_DB": "${POSTGRES_DB:-tenant_db}",
+        "POSTGRES_INITDB_ARGS": "--auth-host=scram-sha-256",
+        "POSTGRES_PASSWORD": "${POSTGRES_PASSWORD:-pgpassword}",
+        "POSTGRES_USER": "${POSTGRES_USER:-pguser}"
+      },
+      "healthcheck": {
+        "interval": "5s",
+        "retries": 20,
+        "start_period": "10s",
+        "test": [
+          "CMD-SHELL",
+          "pg_isready -h 127.0.0.1 -U $${POSTGRES_USER} -d $${POSTGRES_DB}"
+        ],
+        "timeout": "3s"
+      },
+      "image": "postgres:17.6-alpine@sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94",
+      "networks": {
+        "ind1_backend": null
+      },
+      "restart": "unless-stopped",
+      "secrets": [
+        {
+          "source": "app_postgres_password",
+          "target": "/run/secrets/app_postgres_password"
+        }
+      ],
+      "security_opt": ["no-new-privileges:true"],
+      "volumes": [
+        {
+          "source": "pgdata-ind1",
+          "target": "/var/lib/postgresql/data",
+          "type": "volume",
+          "volume": {}
+        },
+        {
+          "bind": {
+            "create_host_path": true
+          },
+          "read_only": true,
+          "source": "./db/bootstrap/entrypoint.sh",
+          "target": "/usr/local/bin/vetchium-entrypoint.sh",
+          "type": "bind"
+        },
+        {
+          "bind": {
+            "create_host_path": true
+          },
+          "read_only": true,
+          "source": "./db/bootstrap/init.sql",
+          "target": "/docker-entrypoint-initdb.d/10-vetchium.sql",
+          "type": "bind"
+        }
+      ]
+    },
+    "db-sgp": {
+      "command": ["postgres"],
+      "entrypoint": ["/bin/sh", "/usr/local/bin/vetchium-entrypoint.sh"],
+      "environment": {
+        "APP_POSTGRES_PASSWORD_FILE": "/run/secrets/app_postgres_password",
+        "POSTGRES_DB": "${POSTGRES_DB:-tenant_db}",
+        "POSTGRES_INITDB_ARGS": "--auth-host=scram-sha-256",
+        "POSTGRES_PASSWORD": "${POSTGRES_PASSWORD:-pgpassword}",
+        "POSTGRES_USER": "${POSTGRES_USER:-pguser}"
+      },
+      "healthcheck": {
+        "interval": "5s",
+        "retries": 20,
+        "start_period": "10s",
+        "test": [
+          "CMD-SHELL",
+          "pg_isready -h 127.0.0.1 -U $${POSTGRES_USER} -d $${POSTGRES_DB}"
+        ],
+        "timeout": "3s"
+      },
+      "image": "postgres:17.6-alpine@sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94",
+      "networks": {
+        "sgp_backend": null
+      },
+      "restart": "unless-stopped",
+      "secrets": [
+        {
+          "source": "app_postgres_password",
+          "target": "/run/secrets/app_postgres_password"
+        }
+      ],
+      "security_opt": ["no-new-privileges:true"],
+      "volumes": [
+        {
+          "source": "pgdata-sgp",
+          "target": "/var/lib/postgresql/data",
+          "type": "volume",
+          "volume": {}
+        },
+        {
+          "bind": {
+            "create_host_path": true
+          },
+          "read_only": true,
+          "source": "./db/bootstrap/entrypoint.sh",
+          "target": "/usr/local/bin/vetchium-entrypoint.sh",
+          "type": "bind"
+        },
+        {
+          "bind": {
+            "create_host_path": true
+          },
+          "read_only": true,
+          "source": "./db/bootstrap/init.sql",
+          "target": "/docker-entrypoint-initdb.d/10-vetchium.sql",
+          "type": "bind"
+        }
+      ]
+    },
+    "db-usa1": {
+      "command": ["postgres"],
+      "entrypoint": ["/bin/sh", "/usr/local/bin/vetchium-entrypoint.sh"],
+      "environment": {
+        "APP_POSTGRES_PASSWORD_FILE": "/run/secrets/app_postgres_password",
+        "POSTGRES_DB": "${POSTGRES_DB:-tenant_db}",
+        "POSTGRES_INITDB_ARGS": "--auth-host=scram-sha-256",
+        "POSTGRES_PASSWORD": "${POSTGRES_PASSWORD:-pgpassword}",
+        "POSTGRES_USER": "${POSTGRES_USER:-pguser}"
+      },
+      "healthcheck": {
+        "interval": "5s",
+        "retries": 20,
+        "start_period": "10s",
+        "test": [
+          "CMD-SHELL",
+          "pg_isready -h 127.0.0.1 -U $${POSTGRES_USER} -d $${POSTGRES_DB}"
+        ],
+        "timeout": "3s"
+      },
+      "image": "postgres:17.6-alpine@sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94",
+      "networks": {
+        "usa1_backend": null
+      },
+      "restart": "unless-stopped",
+      "secrets": [
+        {
+          "source": "app_postgres_password",
+          "target": "/run/secrets/app_postgres_password"
+        }
+      ],
+      "security_opt": ["no-new-privileges:true"],
+      "volumes": [
+        {
+          "source": "pgdata-usa1",
+          "target": "/var/lib/postgresql/data",
+          "type": "volume",
+          "volume": {}
+        },
+        {
+          "bind": {
+            "create_host_path": true
+          },
+          "read_only": true,
+          "source": "./db/bootstrap/entrypoint.sh",
+          "target": "/usr/local/bin/vetchium-entrypoint.sh",
+          "type": "bind"
+        },
+        {
+          "bind": {
+            "create_host_path": true
+          },
+          "read_only": true,
+          "source": "./db/bootstrap/init.sql",
+          "target": "/docker-entrypoint-initdb.d/10-vetchium.sql",
+          "type": "bind"
+        }
+      ]
+    },
+    "edge": {
+      "command": [
+        "--providers.file.filename=/etc/traefik/dynamic.json",
+        "--providers.file.watch=true",
+        "--entrypoints.web.address=:80",
+        "--ping=true",
+        "--log.level=INFO",
+        "--accesslog=true"
+      ],
+      "depends_on": {
+        "traefik-deu": {
+          "condition": "service_healthy",
+          "required": true
+        },
+        "traefik-ind1": {
+          "condition": "service_healthy",
+          "required": true
+        },
+        "traefik-sgp": {
+          "condition": "service_healthy",
+          "required": true
+        },
+        "traefik-usa1": {
+          "condition": "service_healthy",
+          "required": true
+        }
+      },
+      "healthcheck": {
+        "interval": "10s",
+        "retries": 3,
+        "start_period": "5s",
+        "test": ["CMD", "traefik", "healthcheck", "--ping"],
+        "timeout": "3s"
+      },
+      "image": "traefik:v3.4.1",
+      "networks": {
+        "deu_ingress": null,
+        "ind1_ingress": null,
+        "sgp_ingress": null,
+        "usa1_ingress": null
+      },
+      "ports": ["${EDGE_BIND:-127.0.0.1}:${EDGE_PORT:-80}:80"],
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"],
+      "volumes": [
+        {
+          "bind": {
+            "create_host_path": true
+          },
+          "read_only": true,
+          "source": "./traefik/edge.json",
+          "target": "/etc/traefik/dynamic.json",
+          "type": "bind"
+        }
+      ]
+    },
+    "hub-api-deu": {
+      "build": {
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
+        "target": "hub-api"
+      },
+      "depends_on": {
+        "seed-deu": {
+          "condition": "service_completed_successfully",
+          "required": true
+        }
+      },
+      "configs": [{"source": "app_config_deu", "target": "/etc/vetchium/config.json"}],
+      "environment": {
+        "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
+        "PGSSLMODE": "${PGSSLMODE:-disable}"
+      },
+      "networks": {
+        "deu_backend": null,
+        "deu_hub_api_access": null
+      },
+      "read_only": true,
+      "restart": "unless-stopped",
+      "secrets": [
+        {
+          "source": "app_postgres_password",
+          "target": "/run/secrets/app_postgres_password"
+        }
+      ],
+      "security_opt": ["no-new-privileges:true"]
+    },
+    "hub-api-ind1": {
+      "build": {
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
+        "target": "hub-api"
+      },
+      "depends_on": {
+        "seed-ind1": {
+          "condition": "service_completed_successfully",
+          "required": true
+        }
+      },
+      "configs": [{"source": "app_config_ind1", "target": "/etc/vetchium/config.json"}],
+      "environment": {
+        "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
+        "PGSSLMODE": "${PGSSLMODE:-disable}"
+      },
+      "networks": {
+        "ind1_backend": null,
+        "ind1_hub_api_access": null
+      },
+      "read_only": true,
+      "restart": "unless-stopped",
+      "secrets": [
+        {
+          "source": "app_postgres_password",
+          "target": "/run/secrets/app_postgres_password"
+        }
+      ],
+      "security_opt": ["no-new-privileges:true"]
+    },
+    "hub-api-sgp": {
+      "build": {
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
+        "target": "hub-api"
+      },
+      "depends_on": {
+        "seed-sgp": {
+          "condition": "service_completed_successfully",
+          "required": true
+        }
+      },
+      "configs": [{"source": "app_config_sgp", "target": "/etc/vetchium/config.json"}],
+      "environment": {
+        "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
+        "PGSSLMODE": "${PGSSLMODE:-disable}"
+      },
+      "networks": {
+        "sgp_backend": null,
+        "sgp_hub_api_access": null
+      },
+      "read_only": true,
+      "restart": "unless-stopped",
+      "secrets": [
+        {
+          "source": "app_postgres_password",
+          "target": "/run/secrets/app_postgres_password"
+        }
+      ],
+      "security_opt": ["no-new-privileges:true"]
+    },
+    "hub-api-usa1": {
+      "build": {
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
+        "target": "hub-api"
+      },
+      "depends_on": {
+        "seed-usa1": {
+          "condition": "service_completed_successfully",
+          "required": true
+        }
+      },
+      "configs": [{"source": "app_config_usa1", "target": "/etc/vetchium/config.json"}],
+      "environment": {
+        "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
+        "PGSSLMODE": "${PGSSLMODE:-disable}"
+      },
+      "networks": {
+        "usa1_backend": null,
+        "usa1_hub_api_access": null
+      },
+      "read_only": true,
+      "restart": "unless-stopped",
+      "secrets": [
+        {
+          "source": "app_postgres_password",
+          "target": "/run/secrets/app_postgres_password"
+        }
+      ],
+      "security_opt": ["no-new-privileges:true"]
+    },
+    "hub-ui-deu": {
+      "build": {
+        "context": "hub-ui"
+      },
+      "networks": {
+        "deu_ingress": null
+      },
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"]
+    },
+    "hub-ui-ind1": {
+      "build": {
+        "context": "hub-ui"
+      },
+      "networks": {
+        "ind1_ingress": null
+      },
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"]
+    },
+    "hub-ui-sgp": {
+      "build": {
+        "context": "hub-ui"
+      },
+      "networks": {
+        "sgp_ingress": null
+      },
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"]
+    },
+    "hub-ui-usa1": {
+      "build": {
+        "context": "hub-ui"
+      },
+      "networks": {
+        "usa1_ingress": null
+      },
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"]
+    },
+    "mcp-server-deu": {
+      "build": {
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
+        "target": "mcp-server"
+      },
+      "depends_on": {
+        "seed-deu": {
+          "condition": "service_completed_successfully",
+          "required": true
+        }
+      },
+      "configs": [{"source": "app_config_deu", "target": "/etc/vetchium/config.json"}],
+      "environment": {
+        "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
+        "PGSSLMODE": "${PGSSLMODE:-disable}"
+      },
+      "networks": {
+        "deu_backend": {},
+        "deu_mcp_access": {
+          "aliases": ["mcp-server"]
+        }
+      },
+      "read_only": true,
+      "restart": "unless-stopped",
+      "secrets": [
+        {
+          "source": "app_postgres_password",
+          "target": "/run/secrets/app_postgres_password"
+        }
+      ],
+      "security_opt": ["no-new-privileges:true"]
+    },
+    "mcp-server-ind1": {
+      "build": {
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
+        "target": "mcp-server"
+      },
+      "depends_on": {
+        "seed-ind1": {
+          "condition": "service_completed_successfully",
+          "required": true
+        }
+      },
+      "configs": [{"source": "app_config_ind1", "target": "/etc/vetchium/config.json"}],
+      "environment": {
+        "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
+        "PGSSLMODE": "${PGSSLMODE:-disable}"
+      },
+      "networks": {
+        "ind1_backend": {},
+        "ind1_mcp_access": {
+          "aliases": ["mcp-server"]
+        }
+      },
+      "read_only": true,
+      "restart": "unless-stopped",
+      "secrets": [
+        {
+          "source": "app_postgres_password",
+          "target": "/run/secrets/app_postgres_password"
+        }
+      ],
+      "security_opt": ["no-new-privileges:true"]
+    },
+    "mcp-server-sgp": {
+      "build": {
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
+        "target": "mcp-server"
+      },
+      "depends_on": {
+        "seed-sgp": {
+          "condition": "service_completed_successfully",
+          "required": true
+        }
+      },
+      "configs": [{"source": "app_config_sgp", "target": "/etc/vetchium/config.json"}],
+      "environment": {
+        "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
+        "PGSSLMODE": "${PGSSLMODE:-disable}"
+      },
+      "networks": {
+        "sgp_backend": {},
+        "sgp_mcp_access": {
+          "aliases": ["mcp-server"]
+        }
+      },
+      "read_only": true,
+      "restart": "unless-stopped",
+      "secrets": [
+        {
+          "source": "app_postgres_password",
+          "target": "/run/secrets/app_postgres_password"
+        }
+      ],
+      "security_opt": ["no-new-privileges:true"]
+    },
+    "mcp-server-usa1": {
+      "build": {
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
+        "target": "mcp-server"
+      },
+      "depends_on": {
+        "seed-usa1": {
+          "condition": "service_completed_successfully",
+          "required": true
+        }
+      },
+      "configs": [{"source": "app_config_usa1", "target": "/etc/vetchium/config.json"}],
+      "environment": {
+        "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
+        "PGSSLMODE": "${PGSSLMODE:-disable}"
+      },
+      "networks": {
+        "usa1_backend": {},
+        "usa1_mcp_access": {
+          "aliases": ["mcp-server"]
+        }
+      },
+      "read_only": true,
+      "restart": "unless-stopped",
+      "secrets": [
+        {
+          "source": "app_postgres_password",
+          "target": "/run/secrets/app_postgres_password"
+        }
+      ],
+      "security_opt": ["no-new-privileges:true"]
+    },
+    "mesh-api-deu": {
+      "build": {
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
+        "target": "mesh-api"
+      },
+      "depends_on": {
+        "seed-deu": {
+          "condition": "service_completed_successfully",
+          "required": true
+        }
+      },
+      "configs": [{"source": "app_config_deu", "target": "/etc/vetchium/config.json"}],
+      "environment": {
+        "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
+        "PGSSLMODE": "${PGSSLMODE:-disable}"
+      },
+      "networks": {
+        "deu_backend": null,
+        "mesh": null
+      },
+      "read_only": true,
+      "restart": "unless-stopped",
+      "secrets": [
+        {
+          "source": "app_postgres_password",
+          "target": "/run/secrets/app_postgres_password"
+        }
+      ],
+      "security_opt": ["no-new-privileges:true"]
+    },
+    "mesh-api-ind1": {
+      "build": {
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
+        "target": "mesh-api"
+      },
+      "depends_on": {
+        "seed-ind1": {
+          "condition": "service_completed_successfully",
+          "required": true
+        }
+      },
+      "configs": [{"source": "app_config_ind1", "target": "/etc/vetchium/config.json"}],
+      "environment": {
+        "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
+        "PGSSLMODE": "${PGSSLMODE:-disable}"
+      },
+      "networks": {
+        "ind1_backend": null,
+        "mesh": null
+      },
+      "read_only": true,
+      "restart": "unless-stopped",
+      "secrets": [
+        {
+          "source": "app_postgres_password",
+          "target": "/run/secrets/app_postgres_password"
+        }
+      ],
+      "security_opt": ["no-new-privileges:true"]
+    },
+    "mesh-api-sgp": {
+      "build": {
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
+        "target": "mesh-api"
+      },
+      "depends_on": {
+        "seed-sgp": {
+          "condition": "service_completed_successfully",
+          "required": true
+        }
+      },
+      "configs": [{"source": "app_config_sgp", "target": "/etc/vetchium/config.json"}],
+      "environment": {
+        "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
+        "PGSSLMODE": "${PGSSLMODE:-disable}"
+      },
+      "networks": {
+        "mesh": null,
+        "sgp_backend": null
+      },
+      "read_only": true,
+      "restart": "unless-stopped",
+      "secrets": [
+        {
+          "source": "app_postgres_password",
+          "target": "/run/secrets/app_postgres_password"
+        }
+      ],
+      "security_opt": ["no-new-privileges:true"]
+    },
+    "mesh-api-usa1": {
+      "build": {
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
+        "target": "mesh-api"
+      },
+      "depends_on": {
+        "seed-usa1": {
+          "condition": "service_completed_successfully",
+          "required": true
+        }
+      },
+      "configs": [{"source": "app_config_usa1", "target": "/etc/vetchium/config.json"}],
+      "environment": {
+        "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
+        "PGSSLMODE": "${PGSSLMODE:-disable}"
+      },
+      "networks": {
+        "mesh": null,
+        "usa1_backend": null
+      },
+      "read_only": true,
+      "restart": "unless-stopped",
+      "secrets": [
+        {
+          "source": "app_postgres_password",
+          "target": "/run/secrets/app_postgres_password"
+        }
+      ],
+      "security_opt": ["no-new-privileges:true"]
+    },
+    "migrate-deu": {
+      "build": {
+        "context": "db/migrations"
+      },
+      "depends_on": {
+        "db-deu": {
+          "condition": "service_healthy",
+          "required": true
+        }
+      },
+      "environment": {
+        "GOOSE_DBSTRING": "postgres://${POSTGRES_USER:-pguser}:${POSTGRES_PASSWORD:-pgpassword}@db-deu:5432/${POSTGRES_DB:-tenant_db}?sslmode=${PGSSLMODE:-disable}"
+      },
+      "networks": {
+        "deu_backend": null
+      },
+      "read_only": true,
+      "restart": "no",
+      "security_opt": ["no-new-privileges:true"]
+    },
+    "migrate-ind1": {
+      "build": {
+        "context": "db/migrations"
+      },
+      "depends_on": {
+        "db-ind1": {
+          "condition": "service_healthy",
+          "required": true
+        }
+      },
+      "environment": {
+        "GOOSE_DBSTRING": "postgres://${POSTGRES_USER:-pguser}:${POSTGRES_PASSWORD:-pgpassword}@db-ind1:5432/${POSTGRES_DB:-tenant_db}?sslmode=${PGSSLMODE:-disable}"
+      },
+      "networks": {
+        "ind1_backend": null
+      },
+      "read_only": true,
+      "restart": "no",
+      "security_opt": ["no-new-privileges:true"]
+    },
+    "migrate-sgp": {
+      "build": {
+        "context": "db/migrations"
+      },
+      "depends_on": {
+        "db-sgp": {
+          "condition": "service_healthy",
+          "required": true
+        }
+      },
+      "environment": {
+        "GOOSE_DBSTRING": "postgres://${POSTGRES_USER:-pguser}:${POSTGRES_PASSWORD:-pgpassword}@db-sgp:5432/${POSTGRES_DB:-tenant_db}?sslmode=${PGSSLMODE:-disable}"
+      },
+      "networks": {
+        "sgp_backend": null
+      },
+      "read_only": true,
+      "restart": "no",
+      "security_opt": ["no-new-privileges:true"]
+    },
+    "migrate-usa1": {
+      "build": {
+        "context": "db/migrations"
+      },
+      "depends_on": {
+        "db-usa1": {
+          "condition": "service_healthy",
+          "required": true
+        }
+      },
+      "environment": {
+        "GOOSE_DBSTRING": "postgres://${POSTGRES_USER:-pguser}:${POSTGRES_PASSWORD:-pgpassword}@db-usa1:5432/${POSTGRES_DB:-tenant_db}?sslmode=${PGSSLMODE:-disable}"
+      },
+      "networks": {
+        "usa1_backend": null
+      },
+      "read_only": true,
+      "restart": "no",
+      "security_opt": ["no-new-privileges:true"]
+    },
+    "orgs-api-deu": {
+      "build": {
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
+        "target": "orgs-api"
+      },
+      "depends_on": {
+        "seed-deu": {
+          "condition": "service_completed_successfully",
+          "required": true
+        }
+      },
+      "configs": [{"source": "app_config_deu", "target": "/etc/vetchium/config.json"}],
+      "environment": {
+        "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
+        "PGSSLMODE": "${PGSSLMODE:-disable}"
+      },
+      "networks": {
+        "deu_backend": null,
+        "deu_orgs_api_access": null
+      },
+      "read_only": true,
+      "restart": "unless-stopped",
+      "secrets": [
+        {
+          "source": "app_postgres_password",
+          "target": "/run/secrets/app_postgres_password"
+        }
+      ],
+      "security_opt": ["no-new-privileges:true"]
+    },
+    "orgs-api-ind1": {
+      "build": {
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
+        "target": "orgs-api"
+      },
+      "depends_on": {
+        "seed-ind1": {
+          "condition": "service_completed_successfully",
+          "required": true
+        }
+      },
+      "configs": [{"source": "app_config_ind1", "target": "/etc/vetchium/config.json"}],
+      "environment": {
+        "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
+        "PGSSLMODE": "${PGSSLMODE:-disable}"
+      },
+      "networks": {
+        "ind1_backend": null,
+        "ind1_orgs_api_access": null
+      },
+      "read_only": true,
+      "restart": "unless-stopped",
+      "secrets": [
+        {
+          "source": "app_postgres_password",
+          "target": "/run/secrets/app_postgres_password"
+        }
+      ],
+      "security_opt": ["no-new-privileges:true"]
+    },
+    "orgs-api-sgp": {
+      "build": {
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
+        "target": "orgs-api"
+      },
+      "depends_on": {
+        "seed-sgp": {
+          "condition": "service_completed_successfully",
+          "required": true
+        }
+      },
+      "configs": [{"source": "app_config_sgp", "target": "/etc/vetchium/config.json"}],
+      "environment": {
+        "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
+        "PGSSLMODE": "${PGSSLMODE:-disable}"
+      },
+      "networks": {
+        "sgp_backend": null,
+        "sgp_orgs_api_access": null
+      },
+      "read_only": true,
+      "restart": "unless-stopped",
+      "secrets": [
+        {
+          "source": "app_postgres_password",
+          "target": "/run/secrets/app_postgres_password"
+        }
+      ],
+      "security_opt": ["no-new-privileges:true"]
+    },
+    "orgs-api-usa1": {
+      "build": {
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
+        "target": "orgs-api"
+      },
+      "depends_on": {
+        "seed-usa1": {
+          "condition": "service_completed_successfully",
+          "required": true
+        }
+      },
+      "configs": [{"source": "app_config_usa1", "target": "/etc/vetchium/config.json"}],
+      "environment": {
+        "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
+        "PGSSLMODE": "${PGSSLMODE:-disable}"
+      },
+      "networks": {
+        "usa1_backend": null,
+        "usa1_orgs_api_access": null
+      },
+      "read_only": true,
+      "restart": "unless-stopped",
+      "secrets": [
+        {
+          "source": "app_postgres_password",
+          "target": "/run/secrets/app_postgres_password"
+        }
+      ],
+      "security_opt": ["no-new-privileges:true"]
+    },
+    "orgs-ui-deu": {
+      "build": {
+        "context": "orgs-ui"
+      },
+      "networks": {
+        "deu_ingress": null
+      },
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"]
+    },
+    "orgs-ui-ind1": {
+      "build": {
+        "context": "orgs-ui"
+      },
+      "networks": {
+        "ind1_ingress": null
+      },
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"]
+    },
+    "orgs-ui-sgp": {
+      "build": {
+        "context": "orgs-ui"
+      },
+      "networks": {
+        "sgp_ingress": null
+      },
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"]
+    },
+    "orgs-ui-usa1": {
+      "build": {
+        "context": "orgs-ui"
+      },
+      "networks": {
+        "usa1_ingress": null
+      },
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"]
+    },
+    "seed-deu": {
+      "command": [
+        "psql",
+        "--no-password",
+        "-v",
+        "ON_ERROR_STOP=1",
+        "-1",
+        "-f",
+        "/seed.sql"
+      ],
+      "depends_on": {
+        "migrate-deu": {
+          "condition": "service_completed_successfully",
+          "required": true
+        }
+      },
+      "environment": {
+        "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
+        "PGHOST": "db-deu",
+        "PGPASSWORD": "${POSTGRES_PASSWORD:-pgpassword}",
+        "PGUSER": "${POSTGRES_USER:-pguser}"
+      },
+      "image": "postgres:17.6-alpine@sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94",
+      "networks": {
+        "deu_backend": null
+      },
+      "read_only": true,
+      "restart": "no",
+      "security_opt": ["no-new-privileges:true"],
+      "volumes": [
+        {
+          "bind": {
+            "create_host_path": true
+          },
+          "read_only": true,
+          "source": "./db/dev-seed/deu.sql",
+          "target": "/seed.sql",
+          "type": "bind"
+        }
+      ]
+    },
+    "seed-ind1": {
+      "command": [
+        "psql",
+        "--no-password",
+        "-v",
+        "ON_ERROR_STOP=1",
+        "-1",
+        "-f",
+        "/seed.sql"
+      ],
+      "depends_on": {
+        "migrate-ind1": {
+          "condition": "service_completed_successfully",
+          "required": true
+        }
+      },
+      "environment": {
+        "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
+        "PGHOST": "db-ind1",
+        "PGPASSWORD": "${POSTGRES_PASSWORD:-pgpassword}",
+        "PGUSER": "${POSTGRES_USER:-pguser}"
+      },
+      "image": "postgres:17.6-alpine@sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94",
+      "networks": {
+        "ind1_backend": null
+      },
+      "read_only": true,
+      "restart": "no",
+      "security_opt": ["no-new-privileges:true"],
+      "volumes": [
+        {
+          "bind": {
+            "create_host_path": true
+          },
+          "read_only": true,
+          "source": "./db/dev-seed/ind1.sql",
+          "target": "/seed.sql",
+          "type": "bind"
+        }
+      ]
+    },
+    "seed-sgp": {
+      "command": [
+        "psql",
+        "--no-password",
+        "-v",
+        "ON_ERROR_STOP=1",
+        "-1",
+        "-f",
+        "/seed.sql"
+      ],
+      "depends_on": {
+        "migrate-sgp": {
+          "condition": "service_completed_successfully",
+          "required": true
+        }
+      },
+      "environment": {
+        "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
+        "PGHOST": "db-sgp",
+        "PGPASSWORD": "${POSTGRES_PASSWORD:-pgpassword}",
+        "PGUSER": "${POSTGRES_USER:-pguser}"
+      },
+      "image": "postgres:17.6-alpine@sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94",
+      "networks": {
+        "sgp_backend": null
+      },
+      "read_only": true,
+      "restart": "no",
+      "security_opt": ["no-new-privileges:true"],
+      "volumes": [
+        {
+          "bind": {
+            "create_host_path": true
+          },
+          "read_only": true,
+          "source": "./db/dev-seed/sgp.sql",
+          "target": "/seed.sql",
+          "type": "bind"
+        }
+      ]
+    },
+    "seed-usa1": {
+      "command": [
+        "psql",
+        "--no-password",
+        "-v",
+        "ON_ERROR_STOP=1",
+        "-1",
+        "-f",
+        "/seed.sql"
+      ],
+      "depends_on": {
+        "migrate-usa1": {
+          "condition": "service_completed_successfully",
+          "required": true
+        }
+      },
+      "environment": {
+        "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
+        "PGHOST": "db-usa1",
+        "PGPASSWORD": "${POSTGRES_PASSWORD:-pgpassword}",
+        "PGUSER": "${POSTGRES_USER:-pguser}"
+      },
+      "image": "postgres:17.6-alpine@sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94",
+      "networks": {
+        "usa1_backend": null
+      },
+      "read_only": true,
+      "restart": "no",
+      "security_opt": ["no-new-privileges:true"],
+      "volumes": [
+        {
+          "bind": {
+            "create_host_path": true
+          },
+          "read_only": true,
+          "source": "./db/dev-seed/usa1.sql",
+          "target": "/seed.sql",
+          "type": "bind"
+        }
+      ]
+    },
+    "traefik-deu": {
+      "command": [
+        "--providers.file.filename=/etc/traefik/dynamic.json",
+        "--providers.file.watch=true",
+        "--entrypoints.web.address=:80",
+        "--ping=true",
+        "--log.level=INFO",
+        "--accesslog=true"
+      ],
+      "healthcheck": {
+        "interval": "10s",
+        "retries": 3,
+        "start_period": "5s",
+        "test": ["CMD", "traefik", "healthcheck", "--ping"],
+        "timeout": "3s"
+      },
+      "image": "traefik:v3.4.1",
+      "networks": {
+        "deu_admin_api_access": null,
+        "deu_hub_api_access": null,
+        "deu_ingress": null,
+        "deu_mcp_access": null,
+        "deu_orgs_api_access": null
+      },
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"],
+      "volumes": [
+        {
+          "bind": {
+            "create_host_path": true
+          },
+          "read_only": true,
+          "source": "./traefik/deu.json",
+          "target": "/etc/traefik/dynamic.json",
+          "type": "bind"
+        }
+      ]
+    },
+    "traefik-ind1": {
+      "command": [
+        "--providers.file.filename=/etc/traefik/dynamic.json",
+        "--providers.file.watch=true",
+        "--entrypoints.web.address=:80",
+        "--ping=true",
+        "--log.level=INFO",
+        "--accesslog=true"
+      ],
+      "healthcheck": {
+        "interval": "10s",
+        "retries": 3,
+        "start_period": "5s",
+        "test": ["CMD", "traefik", "healthcheck", "--ping"],
+        "timeout": "3s"
+      },
+      "image": "traefik:v3.4.1",
+      "networks": {
+        "ind1_admin_api_access": null,
+        "ind1_hub_api_access": null,
+        "ind1_ingress": null,
+        "ind1_mcp_access": null,
+        "ind1_orgs_api_access": null
+      },
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"],
+      "volumes": [
+        {
+          "bind": {
+            "create_host_path": true
+          },
+          "read_only": true,
+          "source": "./traefik/ind1.json",
+          "target": "/etc/traefik/dynamic.json",
+          "type": "bind"
+        }
+      ]
+    },
+    "traefik-sgp": {
+      "command": [
+        "--providers.file.filename=/etc/traefik/dynamic.json",
+        "--providers.file.watch=true",
+        "--entrypoints.web.address=:80",
+        "--ping=true",
+        "--log.level=INFO",
+        "--accesslog=true"
+      ],
+      "healthcheck": {
+        "interval": "10s",
+        "retries": 3,
+        "start_period": "5s",
+        "test": ["CMD", "traefik", "healthcheck", "--ping"],
+        "timeout": "3s"
+      },
+      "image": "traefik:v3.4.1",
+      "networks": {
+        "sgp_admin_api_access": null,
+        "sgp_hub_api_access": null,
+        "sgp_ingress": null,
+        "sgp_mcp_access": null,
+        "sgp_orgs_api_access": null
+      },
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"],
+      "volumes": [
+        {
+          "bind": {
+            "create_host_path": true
+          },
+          "read_only": true,
+          "source": "./traefik/sgp.json",
+          "target": "/etc/traefik/dynamic.json",
+          "type": "bind"
+        }
+      ]
+    },
+    "traefik-usa1": {
+      "command": [
+        "--providers.file.filename=/etc/traefik/dynamic.json",
+        "--providers.file.watch=true",
+        "--entrypoints.web.address=:80",
+        "--ping=true",
+        "--log.level=INFO",
+        "--accesslog=true"
+      ],
+      "healthcheck": {
+        "interval": "10s",
+        "retries": 3,
+        "start_period": "5s",
+        "test": ["CMD", "traefik", "healthcheck", "--ping"],
+        "timeout": "3s"
+      },
+      "image": "traefik:v3.4.1",
+      "networks": {
+        "usa1_admin_api_access": null,
+        "usa1_hub_api_access": null,
+        "usa1_ingress": null,
+        "usa1_mcp_access": null,
+        "usa1_orgs_api_access": null
+      },
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"],
+      "volumes": [
+        {
+          "bind": {
+            "create_host_path": true
+          },
+          "read_only": true,
+          "source": "./traefik/usa1.json",
+          "target": "/etc/traefik/dynamic.json",
+          "type": "bind"
+        }
+      ]
+    },
+    "workers-deu": {
+      "build": {
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
+        "target": "workers"
+      },
+      "depends_on": {
+        "seed-deu": {
+          "condition": "service_completed_successfully",
+          "required": true
+        }
+      },
+      "configs": [
+        {
+          "source": "app_config_deu",
+          "target": "/etc/vetchium/config.json"
+        }
+      ],
+      "environment": {
+        "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
+        "PGSSLMODE": "${PGSSLMODE:-disable}"
+      },
+      "networks": {
+        "deu_backend": null
+      },
+      "read_only": true,
+      "restart": "unless-stopped",
+      "secrets": [
+        {
+          "source": "app_postgres_password",
+          "target": "/run/secrets/app_postgres_password"
+        }
+      ],
+      "security_opt": ["no-new-privileges:true"]
+    },
+    "workers-ind1": {
+      "build": {
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
+        "target": "workers"
+      },
+      "depends_on": {
+        "seed-ind1": {
+          "condition": "service_completed_successfully",
+          "required": true
+        }
+      },
+      "configs": [
+        {
+          "source": "app_config_ind1",
+          "target": "/etc/vetchium/config.json"
+        }
+      ],
+      "environment": {
+        "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
+        "PGSSLMODE": "${PGSSLMODE:-disable}"
+      },
+      "networks": {
+        "ind1_backend": null
+      },
+      "read_only": true,
+      "restart": "unless-stopped",
+      "secrets": [
+        {
+          "source": "app_postgres_password",
+          "target": "/run/secrets/app_postgres_password"
+        }
+      ],
+      "security_opt": ["no-new-privileges:true"]
+    },
+    "workers-sgp": {
+      "build": {
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
+        "target": "workers"
+      },
+      "depends_on": {
+        "seed-sgp": {
+          "condition": "service_completed_successfully",
+          "required": true
+        }
+      },
+      "configs": [
+        {
+          "source": "app_config_sgp",
+          "target": "/etc/vetchium/config.json"
+        }
+      ],
+      "environment": {
+        "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
+        "PGSSLMODE": "${PGSSLMODE:-disable}"
+      },
+      "networks": {
+        "sgp_backend": null
+      },
+      "read_only": true,
+      "restart": "unless-stopped",
+      "secrets": [
+        {
+          "source": "app_postgres_password",
+          "target": "/run/secrets/app_postgres_password"
+        }
+      ],
+      "security_opt": ["no-new-privileges:true"]
+    },
+    "workers-usa1": {
+      "build": {
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
+        "target": "workers"
+      },
+      "depends_on": {
+        "seed-usa1": {
+          "condition": "service_completed_successfully",
+          "required": true
+        }
+      },
+      "configs": [
+        {
+          "source": "app_config_usa1",
+          "target": "/etc/vetchium/config.json"
+        }
+      ],
+      "environment": {
+        "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
+        "PGSSLMODE": "${PGSSLMODE:-disable}"
+      },
+      "networks": {
+        "usa1_backend": null
+      },
+      "read_only": true,
+      "restart": "unless-stopped",
+      "secrets": [
+        {
+          "source": "app_postgres_password",
+          "target": "/run/secrets/app_postgres_password"
+        }
+      ],
+      "security_opt": ["no-new-privileges:true"]
+    }
+  },
+  "volumes": {
+    "pgdata-deu": {},
+    "pgdata-ind1": {},
+    "pgdata-sgp": {},
+    "pgdata-usa1": {}
+  }
+}

@@ -36,4 +36,7 @@ not apply to generated Go output such as `backend/internal/db/sqlc/*.go`.
 - Make tests independent and safe to run in parallel. Integration tests must
   generate unique identifiers and clean up every record they create.
 - Run `go test ./...` from every Go module affected by the change.
-- Run `make test` from the repository root when a change spans modules.
+- Run `make test-go` from the repository root for all Go modules.
+- Run `make test` for the complete repository suite; it automatically prepares
+  the standalone CI stack from `docker-compose-ci.json` and the Playwright
+  Chromium browser.

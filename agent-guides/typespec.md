@@ -7,9 +7,9 @@ contract consumed by backend and future UI implementations.
 
 - `.tsp` files define API paths, parameters, request bodies, response bodies,
   status codes, optionality, nullability, enums, and problem responses.
-- Every contract `.tsp` file has a corresponding hand-maintained Go file. Keep
-  both representations aligned in the same change. `main.tsp` is the compiler
-  entry point and is the only exception.
+- Every contract `.tsp` file has corresponding hand-maintained `.go` and `.ts`
+  files. Keep all three representations aligned in the same change. `main.tsp`
+  is the compiler entry point and is the only exception.
 - Do not put handler, database, logging, or transport implementation behavior
   in this module. Its Go files contain wire types, stable contract constants,
   normalization, and validation only.
@@ -18,14 +18,18 @@ contract consumed by backend and future UI implementations.
 - Add normalization and validation beside the request type so implementations
   do not duplicate contract rules. Validation must report JSON field names, not
   Go field names.
+- TypeScript consumers import contract types through the `vetchium-specs`
+  package. Keep its explicit `exports` map current when adding a contract file.
+- TypeScript wire types represent `utcDateTime` as RFC 3339 strings because
+  that is the JSON representation. They must not expose `Date` on the wire.
 - All `.tsp` files should be formatted with `tsp format` command
   after the changes are written.
 
 ## Contract changes
 
 - Before changing an endpoint, inspect both its `.tsp` definition and matching
-  Go type. Do not infer names, casing, optionality, or response status from a
-  handler or UI implementation.
+  Go and TypeScript types. Do not infer names, casing, optionality, or response
+  status from a handler or UI implementation.
 - Reuse existing common and domain types rather than redefining structurally
   similar values in endpoint packages.
 - Required arrays must remain arrays on the wire. The corresponding Go type
@@ -53,4 +57,21 @@ npm ci
 npx tsp compile .
 ```
 
+For TypeScript contract changes, run:
+
+```sh
+cd typespec
+npm ci
+npm run check:contract-files
+npm run format:check
+npm run typecheck
+npm run test:ts
+```
+
+Format changed `.ts` files with `npm run format`. Format changed `.tsp` files
+with `npx tsp format <files>`.
+
 Do not commit `tsp-output/`.
+
+Run `make typespec-test` from the repository root for the complete contract
+suite, or `make test` to include Go and Playwright as well.

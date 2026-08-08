@@ -99,6 +99,29 @@ func TestLoadFileRejectsUnknownEnvironment(t *testing.T) {
 	}
 }
 
+func TestLoadFileAcceptsCIEnvironment(t *testing.T) {
+	passwordFile := filepath.Join(t.TempDir(), "password")
+	path := writeConfig(t, passwordFile, "")
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	contents = []byte(strings.Replace(
+		string(contents), "\"env\": \"dev\"", "\"env\": \"ci\"", 1,
+	))
+	if err := os.WriteFile(path, contents, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := LoadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Env != EnvironmentCI {
+		t.Fatalf("environment = %q, want %q", cfg.Env, EnvironmentCI)
+	}
+}
+
 func TestLoadFileRequiresPositiveDurations(t *testing.T) {
 	passwordFile := filepath.Join(t.TempDir(), "password")
 	path := filepath.Join(t.TempDir(), "config.json")
@@ -141,6 +164,10 @@ func TestCheckedInConfigs(t *testing.T) {
 			path string
 			env  Environment
 		}{
+			{
+				filepath.Join(root, "config", "ci", region+".json"),
+				EnvironmentCI,
+			},
 			{
 				filepath.Join(root, "config", region+".json"),
 				EnvironmentDev,

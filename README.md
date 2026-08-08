@@ -62,15 +62,16 @@ origin policy. Do not attach `mcp-server` directly to `*_ingress`.
 
 ## Development
 
+Bring up the development environment:
+
 ```bash
-make dev
+make [dev]
 ```
 
-After changing database migrations or the SQL under `backend/internal/db/queries`,
-regenerate the type-safe Go database package with:
+Bring up the test environment and run all the tests:
 
 ```bash
-make sqlc
+make test
 ```
 
 ## Publishing

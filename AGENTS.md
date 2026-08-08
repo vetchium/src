@@ -12,6 +12,10 @@ Before changing files, read every guide that applies:
   [`database.md`](agent-guides/database.md)
 - TypeSpec contracts and matching wire types:
   [`typespec.md`](agent-guides/typespec.md)
+- Hand-maintained TypeScript:
+  [`typescript.md`](agent-guides/typescript.md)
+- Playwright API and UI tests:
+  [`playwright.md`](agent-guides/playwright.md)
 
 Guides compose. For example, a backend handler that uses PostgreSQL requires
 `go.md`, `backend.md`, and `database.md`. A hand-maintained Go wire type under
@@ -22,6 +26,7 @@ Scoped routers make these requirements visible near the code:
 - [`backend/AGENTS.md`](backend/AGENTS.md)
 - [`backend/internal/db/AGENTS.md`](backend/internal/db/AGENTS.md)
 - [`typespec/AGENTS.md`](typespec/AGENTS.md)
+- [`playwright/AGENTS.md`](playwright/AGENTS.md)
 
 The nearest scoped `AGENTS.md` takes precedence when instructions conflict.
 More specific guides take precedence over general guides.

@@ -30,6 +30,7 @@ type Config struct {
 type Environment string
 
 const (
+	EnvironmentCI         Environment = "ci"
 	EnvironmentDev        Environment = "dev"
 	EnvironmentProduction Environment = "production"
 	EnvironmentStaging    Environment = "staging"
@@ -130,9 +131,10 @@ func LoadFile(path string) (Config, error) {
 	}
 	environment := Environment(raw.Env)
 	switch environment {
-	case EnvironmentDev, EnvironmentProduction, EnvironmentStaging:
+	case EnvironmentCI, EnvironmentDev, EnvironmentProduction,
+		EnvironmentStaging:
 	default:
-		err := fmt.Errorf("env must be one of dev, production, staging")
+		err := fmt.Errorf("env must be one of ci, dev, production, staging")
 		return Config{}, configError(path, err)
 	}
 	if err := required("database.host", raw.Database.Host); err != nil {
