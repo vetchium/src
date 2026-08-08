@@ -23,7 +23,9 @@ type AdminIdentity struct {
 func AdminAuth(s *adminapi.Server) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			credentials := strings.Fields(r.Header.Get("Authorization"))
+			ctx := r.Context()
+			authorization := r.Header.Get("Authorization")
+			credentials := strings.Fields(authorization)
 			if len(credentials) != 2 ||
 				!strings.EqualFold(credentials[0], "Bearer") {
 				s.Unauthorized(w)
@@ -32,14 +34,19 @@ func AdminAuth(s *adminapi.Server) func(http.Handler) http.Handler {
 			tokenHash := sha256.Sum256([]byte(credentials[1]))
 
 			session, err := s.Queries.AuthenticateAdminSession(
-				r.Context(), tokenHash[:])
+				ctx, tokenHash[:])
 			if err != nil {
 				if errors.Is(err, pgx.ErrNoRows) {
-					s.WarnContext(r.Context(), "admin authentication failed", "event", "authentication_failed", "reason", "session_not_found", "error", err)
+					s.WarnContext(
+						ctx, "admin authentication failed",
+						"event", "authentication_failed",
+						"reason", "session_not_found",
+						"error", err,
+					)
 					s.Unauthorized(w)
 					return
 				}
-				s.InternalError(r.Context(), w, "authenticate admin", err)
+				s.InternalError(ctx, w, "authenticate admin", err)
 				return
 			}
 
@@ -47,7 +54,7 @@ func AdminAuth(s *adminapi.Server) func(http.Handler) http.Handler {
 				UserID:    session.AdminUserID,
 				SessionID: session.AdminSessionID,
 			}
-			ctx := context.WithValue(r.Context(),
+			ctx = context.WithValue(ctx,
 				adminIdentityContextKey{}, identity)
 			w.Header().Set("Cache-Control", "no-store")
 			next.ServeHTTP(w, r.WithContext(ctx))
@@ -55,7 +62,9 @@ func AdminAuth(s *adminapi.Server) func(http.Handler) http.Handler {
 	}
 }
 
-func AdminIdentityFromContext(ctx context.Context) (AdminIdentity, bool) {
+func AdminIdentityFromContext(
+	ctx context.Context,
+) (AdminIdentity, bool) {
 	identity, ok := ctx.Value(adminIdentityContextKey{}).(AdminIdentity)
 	return identity, ok
 }

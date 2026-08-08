@@ -12,7 +12,11 @@ func Ping(s *orgsapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var nonce string
 		var databaseTime time.Time
-		if err := s.DB.QueryRow(r.Context(), `SELECT gen_random_uuid()::text, clock_timestamp()`).Scan(&nonce, &databaseTime); err != nil {
+		row := s.DB.QueryRow(
+			r.Context(),
+			`SELECT gen_random_uuid()::text, clock_timestamp()`,
+		)
+		if err := row.Scan(&nonce, &databaseTime); err != nil {
 			s.InternalError(r.Context(), w, "query org ping", err)
 			return
 		}
@@ -31,7 +35,11 @@ func Ping(s *orgsapi.Server) http.HandlerFunc {
 			Nonce:        nonce,
 			DatabaseTime: databaseTime,
 		}); err != nil {
-			s.ErrorContext(r.Context(), "encode org ping response", "event", "response_encode_error", "error", err)
+			s.ErrorContext(
+				r.Context(), "encode org ping response",
+				"event", "response_encode_error",
+				"error", err,
+			)
 		}
 	}
 }

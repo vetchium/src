@@ -22,8 +22,9 @@ func TestUnauthorized(t *testing.T) {
 	if recorder.Code != http.StatusUnauthorized {
 		t.Fatalf("status = %d, want 401", recorder.Code)
 	}
-	if got := recorder.Header().Get("WWW-Authenticate"); got != `Bearer realm="login"` {
-		t.Fatalf("WWW-Authenticate = %q", got)
+	challenge := recorder.Header().Get("WWW-Authenticate")
+	if challenge != `Bearer realm="login"` {
+		t.Fatalf("WWW-Authenticate = %q", challenge)
 	}
 	if recorder.Body.Len() != 0 {
 		t.Fatalf("body = %q, want empty", recorder.Body.String())
@@ -37,7 +38,10 @@ func TestInternalError(t *testing.T) {
 	var logs bytes.Buffer
 	runtime := New(nil, slog.New(slog.NewJSONHandler(&logs, nil)))
 	recorder := httptest.NewRecorder()
-	runtime.InternalError(context.Background(), recorder, "load test resource", errors.New("database unavailable"))
+	runtime.InternalError(
+		context.Background(), recorder, "load test resource",
+		errors.New("database unavailable"),
+	)
 
 	if recorder.Code != http.StatusInternalServerError {
 		t.Fatalf("status = %d, want 500", recorder.Code)
@@ -53,7 +57,13 @@ func TestInternalError(t *testing.T) {
 	if len(details.Fields) != 0 {
 		t.Fatalf("fields = %v, want none", details.Fields)
 	}
-	for _, want := range []string{`"level":"ERROR"`, `"event":"request_error"`, `"operation":"load test resource"`, `"error":"database unavailable"`} {
+	wantedLogs := []string{
+		`"level":"ERROR"`,
+		`"event":"request_error"`,
+		`"operation":"load test resource"`,
+		`"error":"database unavailable"`,
+	}
+	for _, want := range wantedLogs {
 		if !bytes.Contains(logs.Bytes(), []byte(want)) {
 			t.Errorf("log = %q, want %q", logs.String(), want)
 		}
@@ -63,7 +73,11 @@ func TestInternalError(t *testing.T) {
 func TestInternalErrorLogsEncodingFailure(t *testing.T) {
 	var logs bytes.Buffer
 	runtime := New(nil, slog.New(slog.NewTextHandler(&logs, nil)))
-	runtime.InternalError(context.Background(), errorResponseWriter{header: make(http.Header)}, "test operation", errors.New("original error"))
+	writer := errorResponseWriter{header: make(http.Header)}
+	runtime.InternalError(
+		context.Background(), writer, "test operation",
+		errors.New("original error"),
+	)
 	if !bytes.Contains(logs.Bytes(), []byte("encode internal error response")) {
 		t.Fatalf("log = %q", logs.String())
 	}
@@ -73,7 +87,9 @@ func TestInvalidJSON(t *testing.T) {
 	var logs bytes.Buffer
 	runtime := New(nil, slog.New(slog.NewJSONHandler(&logs, nil)))
 	recorder := httptest.NewRecorder()
-	runtime.InvalidJSON(context.Background(), recorder, errors.New("unexpected EOF"))
+	runtime.InvalidJSON(
+		context.Background(), recorder, errors.New("unexpected EOF"),
+	)
 
 	if recorder.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400", recorder.Code)
@@ -86,7 +102,12 @@ func TestInvalidJSON(t *testing.T) {
 		t.Fatal(err)
 	}
 	assertDetailsEqual(t, details, problemspec.InvalidJSONError)
-	for _, want := range []string{`"level":"WARN"`, `"event":"invalid_json"`, `"error":"unexpected EOF"`} {
+	wantedLogs := []string{
+		`"level":"WARN"`,
+		`"event":"invalid_json"`,
+		`"error":"unexpected EOF"`,
+	}
+	for _, want := range wantedLogs {
 		if !bytes.Contains(logs.Bytes(), []byte(want)) {
 			t.Errorf("log = %q, want %q", logs.String(), want)
 		}
@@ -96,7 +117,10 @@ func TestInvalidJSON(t *testing.T) {
 func TestInvalidJSONLogsEncodingFailure(t *testing.T) {
 	var logs bytes.Buffer
 	runtime := New(nil, slog.New(slog.NewTextHandler(&logs, nil)))
-	runtime.InvalidJSON(context.Background(), errorResponseWriter{header: make(http.Header)}, errors.New("unexpected EOF"))
+	writer := errorResponseWriter{header: make(http.Header)}
+	runtime.InvalidJSON(
+		context.Background(), writer, errors.New("unexpected EOF"),
+	)
 	if !bytes.Contains(logs.Bytes(), []byte("encode invalid JSON response")) {
 		t.Fatalf("log = %q", logs.String())
 	}
@@ -105,7 +129,10 @@ func TestInvalidJSONLogsEncodingFailure(t *testing.T) {
 func TestValidationFailed(t *testing.T) {
 	runtime := New(nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	recorder := httptest.NewRecorder()
-	runtime.ValidationFailed(context.Background(), recorder, []string{"email_address", "password"})
+	runtime.ValidationFailed(
+		context.Background(), recorder,
+		[]string{"email_address", "password"},
+	)
 
 	if recorder.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400", recorder.Code)
@@ -130,7 +157,10 @@ func TestValidationFailed(t *testing.T) {
 func TestValidationFailedLogsEncodingFailure(t *testing.T) {
 	var logs bytes.Buffer
 	runtime := New(nil, slog.New(slog.NewTextHandler(&logs, nil)))
-	runtime.ValidationFailed(context.Background(), errorResponseWriter{header: make(http.Header)}, []string{"email_address"})
+	writer := errorResponseWriter{header: make(http.Header)}
+	runtime.ValidationFailed(
+		context.Background(), writer, []string{"email_address"},
+	)
 	if !bytes.Contains(logs.Bytes(), []byte("encode validation failed response")) {
 		t.Fatalf("log = %q", logs.String())
 	}

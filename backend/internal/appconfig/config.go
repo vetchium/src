@@ -94,9 +94,9 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 
-	// These two deployment-time overrides preserve the existing ability to use
-	// a database name and TLS mode supplied by Compose. A Kubernetes ConfigMap
-	// can set both values directly in the JSON and omit the overrides.
+	// These overrides preserve the ability to use a database name and TLS mode
+	// supplied by Compose. A Kubernetes ConfigMap can set both values directly
+	// in the JSON and omit the overrides.
 	if value := os.Getenv("PGDATABASE"); value != "" {
 		config.Database.Name = value
 	}
@@ -109,20 +109,26 @@ func Load() (Config, error) {
 func LoadFile(path string) (Config, error) {
 	contents, err := os.ReadFile(path)
 	if err != nil {
-		return Config{}, fmt.Errorf("read application config %q: %w", path, err)
+		return Config{}, fmt.Errorf(
+			"read application config %q: %w", path, err,
+		)
 	}
 
 	var raw fileConfig
 	decoder := json.NewDecoder(bytes.NewReader(contents))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&raw); err != nil {
-		return Config{}, fmt.Errorf("decode application config %q: %w", path, err)
+		return Config{}, fmt.Errorf(
+			"decode application config %q: %w", path, err,
+		)
 	}
 	if err := decoder.Decode(&struct{}{}); err != io.EOF {
 		if err == nil {
 			err = fmt.Errorf("multiple JSON values")
 		}
-		return Config{}, fmt.Errorf("decode application config %q: %w", path, err)
+		return Config{}, fmt.Errorf(
+			"decode application config %q: %w", path, err,
+		)
 	}
 
 	if err := required("tenantId", raw.TenantID); err != nil {
@@ -132,13 +138,15 @@ func LoadFile(path string) (Config, error) {
 	switch environment {
 	case EnvironmentDev, EnvironmentProduction, EnvironmentStaging:
 	default:
-		return Config{}, configError(path, fmt.Errorf("env must be one of dev, production, staging"))
+		err := fmt.Errorf("env must be one of dev, production, staging")
+		return Config{}, configError(path, err)
 	}
 	if err := required("database.host", raw.Database.Host); err != nil {
 		return Config{}, configError(path, err)
 	}
 	if raw.Database.Port < 1 || raw.Database.Port > 65535 {
-		return Config{}, configError(path, fmt.Errorf("database.port must be between 1 and 65535"))
+		err := fmt.Errorf("database.port must be between 1 and 65535")
+		return Config{}, configError(path, err)
 	}
 	for name, value := range map[string]string{
 		"database.user":         raw.Database.User,
@@ -152,27 +160,40 @@ func LoadFile(path string) (Config, error) {
 	}
 
 	if raw.AdminAPIServer == nil {
-		return Config{}, configError(path, fmt.Errorf("missing admin-api-server"))
+		err := fmt.Errorf("missing admin-api-server")
+		return Config{}, configError(path, err)
 	}
 	if raw.HubAPIServer == nil {
-		return Config{}, configError(path, fmt.Errorf("missing hub-api-server"))
+		err := fmt.Errorf("missing hub-api-server")
+		return Config{}, configError(path, err)
 	}
 	if raw.OrgsAPIServer == nil {
-		return Config{}, configError(path, fmt.Errorf("missing orgs-api-server"))
+		err := fmt.Errorf("missing orgs-api-server")
+		return Config{}, configError(path, err)
 	}
 	if raw.MCPServer == nil {
-		return Config{}, configError(path, fmt.Errorf("missing mcp-server"))
+		err := fmt.Errorf("missing mcp-server")
+		return Config{}, configError(path, err)
 	}
 
-	adminSessionTTL, err := positiveDuration("admin-api-server.adminSessionTTL", raw.AdminAPIServer.AdminSessionTTL)
+	adminSessionTTL, err := positiveDuration(
+		"admin-api-server.adminSessionTTL",
+		raw.AdminAPIServer.AdminSessionTTL,
+	)
 	if err != nil {
 		return Config{}, configError(path, err)
 	}
-	retryBackoffLimit, err := positiveDuration("workers.retryBackoffLimit", raw.Workers.RetryBackoffLimit)
+	retryBackoffLimit, err := positiveDuration(
+		"workers.retryBackoffLimit",
+		raw.Workers.RetryBackoffLimit,
+	)
 	if err != nil {
 		return Config{}, configError(path, err)
 	}
-	pruneTimer, err := positiveDuration("workers.pruneAdminSessionsTimer", raw.Workers.PruneAdminSessionsTimer)
+	pruneTimer, err := positiveDuration(
+		"workers.pruneAdminSessionsTimer",
+		raw.Workers.PruneAdminSessionsTimer,
+	)
 	if err != nil {
 		return Config{}, configError(path, err)
 	}
@@ -188,7 +209,9 @@ func LoadFile(path string) (Config, error) {
 			PasswordFile: raw.Database.PasswordFile,
 			SSLMode:      raw.Database.SSLMode,
 		},
-		AdminAPIServer: AdminAPIServer{AdminSessionTTL: adminSessionTTL},
+		AdminAPIServer: AdminAPIServer{
+			AdminSessionTTL: adminSessionTTL,
+		},
 		Workers: Workers{
 			RetryBackoffLimit:       retryBackoffLimit,
 			PruneAdminSessionsTimer: pruneTimer,
@@ -202,7 +225,11 @@ func LoadFile(path string) (Config, error) {
 func (d Database) URL() (string, error) {
 	value, err := os.ReadFile(d.PasswordFile)
 	if err != nil {
-		return "", fmt.Errorf("read database password file %q: %w", d.PasswordFile, err)
+		return "", fmt.Errorf(
+			"read database password file %q: %w",
+			d.PasswordFile,
+			err,
+		)
 	}
 	password := strings.TrimRight(string(value), "\r\n")
 

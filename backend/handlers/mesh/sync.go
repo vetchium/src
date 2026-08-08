@@ -16,7 +16,11 @@ func Sync(s *meshapi.Server) http.HandlerFunc {
 			"status": "accepted",
 			"tenant": s.TenantID,
 		}); err != nil {
-			s.ErrorContext(r.Context(), "encode mesh sync response", "event", "response_encode_error", "error", err)
+			s.ErrorContext(
+				r.Context(), "encode mesh sync response",
+				"event", "response_encode_error",
+				"error", err,
+			)
 		}
 	}
 }

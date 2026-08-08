@@ -16,7 +16,8 @@ import (
 func TestNewUsesConfiguredJobInterval(t *testing.T) {
 	const interval = 15 * time.Minute
 	const retryBackoffLimit = 30 * time.Second
-	worker := New(nil, slog.New(slog.NewTextHandler(io.Discard, nil)), appconfig.Workers{
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	worker := New(nil, log, appconfig.Workers{
 		RetryBackoffLimit:       retryBackoffLimit,
 		PruneAdminSessionsTimer: interval,
 	})
@@ -28,7 +29,10 @@ func TestNewUsesConfiguredJobInterval(t *testing.T) {
 		t.Fatalf("job interval = %s, want %s", got, interval)
 	}
 	if worker.retryBackoffLimit != retryBackoffLimit {
-		t.Fatalf("retry backoff limit = %s, want %s", worker.retryBackoffLimit, retryBackoffLimit)
+		t.Fatalf(
+			"retry backoff limit = %s, want %s",
+			worker.retryBackoffLimit, retryBackoffLimit,
+		)
 	}
 }
 
@@ -149,7 +153,10 @@ func TestRunPeriodicJobWaitsAfterLongRun(t *testing.T) {
 	worker.runPeriodicJob(ctx, job)
 
 	if waitAfterFirstRun < interval {
-		t.Fatalf("wait after long run = %s, want at least %s", waitAfterFirstRun, interval)
+		t.Fatalf(
+			"wait after long run = %s, want at least %s",
+			waitAfterFirstRun, interval,
+		)
 	}
 }
 
@@ -198,7 +205,11 @@ func TestRunPeriodicJobLogsCancellationError(t *testing.T) {
 
 	worker.runPeriodicJob(ctx, job)
 
-	for _, want := range []string{"event=worker_job_stopped", "error=\"context canceled\""} {
+	wantedLogs := []string{
+		"event=worker_job_stopped",
+		"error=\"context canceled\"",
+	}
+	for _, want := range wantedLogs {
 		if !bytes.Contains(logs.Bytes(), []byte(want)) {
 			t.Errorf("log = %q, want %q", logs.String(), want)
 		}

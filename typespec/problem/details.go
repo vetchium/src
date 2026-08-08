@@ -31,6 +31,7 @@ var ValidationFailedError = Details{
 	Type:   "vetchium-problem-details/validation-failed",
 	Title:  "Validation failed",
 	Status: 400,
-	Detail: "List of json field names in the request which failed validation",
+	Detail: "List of json field names in the request which failed " +
+		"validation",
 	Fields: []string{},
 }

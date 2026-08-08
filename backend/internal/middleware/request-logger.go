@@ -11,14 +11,19 @@ import (
 )
 
 func RequestLogger(runtime *apiserver.Runtime) func(http.Handler) http.Handler {
-	logged := httplog.RequestLogger(runtime.Logger, &httplog.Options{RecoverPanics: false})
+	options := &httplog.Options{RecoverPanics: false}
+	logged := httplog.RequestLogger(runtime.Logger, options)
 	return func(next http.Handler) http.Handler {
 		return logged(recoverProblems(runtime, next))
 	}
 }
 
-func recoverProblems(runtime *apiserver.Runtime, next http.Handler) http.Handler {
+func recoverProblems(
+	runtime *apiserver.Runtime,
+	next http.Handler,
+) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 		wrapped := chimiddleware.NewWrapResponseWriter(w, r.ProtoMajor)
 		defer func() {
 			if recovered := recover(); recovered != nil {
@@ -26,17 +31,28 @@ func recoverProblems(runtime *apiserver.Runtime, next http.Handler) http.Handler
 					panic(recovered)
 				}
 				if wrapped.Status() == 0 {
-					wrapped.Header().Set("Cache-Control", "no-store")
+					header := wrapped.Header()
+					header.Set("Cache-Control", "no-store")
+					panicErr := fmt.Errorf("panic: %v", recovered)
 					runtime.InternalError(
-						r.Context(),
+						ctx,
 						wrapped,
 						"serve HTTP request",
-						fmt.Errorf("panic: %v", recovered),
+						panicErr,
 						"panic", recovered,
 						"stack", string(debug.Stack()),
 					)
 				} else {
-					runtime.ErrorContext(r.Context(), "panic after response started", "event", "request_error", "operation", "serve HTTP request", "error", fmt.Errorf("panic: %v", recovered), "panic", recovered, "stack", string(debug.Stack()))
+					panicErr := fmt.Errorf("panic: %v", recovered)
+					stack := string(debug.Stack())
+					runtime.ErrorContext(
+						ctx, "panic after response started",
+						"event", "request_error",
+						"operation", "serve HTTP request",
+						"error", panicErr,
+						"panic", recovered,
+						"stack", stack,
+					)
 				}
 			}
 		}()

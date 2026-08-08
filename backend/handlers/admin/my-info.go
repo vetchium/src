@@ -22,23 +22,35 @@ func MyInfo(s *adminapi.Server) http.HandlerFunc {
 			return
 		}
 
-		admin, err := s.Queries.GetAdminMyInfo(r.Context(), sqlc.GetAdminMyInfoParams{
-			AdminSessionID: identity.SessionID,
-			AdminUserID:    identity.UserID,
-		})
+		admin, err := s.Queries.GetAdminMyInfo(
+			r.Context(),
+			sqlc.GetAdminMyInfoParams{
+				AdminSessionID: identity.SessionID,
+				AdminUserID:    identity.UserID,
+			},
+		)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				s.WarnContext(r.Context(), "admin session not found", "event", "authentication_failed", "reason", "session_not_found", "error", err)
+				s.WarnContext(
+					r.Context(), "admin session not found",
+					"event", "authentication_failed",
+					"reason", "session_not_found",
+					"error", err,
+				)
 				s.Unauthorized(w)
 				return
 			}
-			s.InternalError(r.Context(), w, "get admin my-info", err)
+			s.InternalError(
+				r.Context(), w, "get admin my-info", err,
+			)
 			return
 		}
 
 		response := adminspec.MyInfoResponse{
-			AdminUserID:      admin.AdminUserID.String(),
-			EmailAddress:     common.EmailAddress(admin.EmailAddress),
+			AdminUserID: admin.AdminUserID.String(),
+			EmailAddress: common.EmailAddress(
+				admin.EmailAddress,
+			),
 			DisplayName:      admin.DisplayName,
 			AdminUserState:   adminuser.State(admin.AdminUserState),
 			CreatedAt:        admin.CreatedAt.Time,
@@ -54,7 +66,11 @@ func MyInfo(s *adminapi.Server) http.HandlerFunc {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.WriteHeader(http.StatusOK)
 		if err := json.NewEncoder(w).Encode(response); err != nil {
-			s.ErrorContext(r.Context(), "encode admin my-info response", "event", "response_encode_error", "error", err)
+			s.ErrorContext(
+				r.Context(), "encode admin my-info response",
+				"event", "response_encode_error",
+				"error", err,
+			)
 		}
 	}
 }

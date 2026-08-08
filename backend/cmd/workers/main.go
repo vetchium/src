@@ -13,11 +13,17 @@ import (
 )
 
 func main() {
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{AddSource: true})).With("component", "workers")
+	handlerOptions := &slog.HandlerOptions{AddSource: true}
+	handler := slog.NewJSONHandler(os.Stdout, handlerOptions)
+	log := slog.New(handler).With("component", "workers")
 	slog.SetDefault(log)
 
 	if err := run(log); err != nil {
-		log.Error("process exited with error", "event", "process_exit", "error", err)
+		log.Error(
+			"process exited with error",
+			"event", "process_exit",
+			"error", err,
+		)
 		os.Exit(1)
 	}
 }
@@ -35,7 +41,9 @@ func run(log *slog.Logger) error {
 	log = log.With("tenant", cfg.TenantID)
 	slog.SetDefault(log)
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	ctx, stop := signal.NotifyContext(
+		context.Background(), os.Interrupt, syscall.SIGTERM,
+	)
 	defer stop()
 
 	pool, err := db.Connect(ctx, databaseURL, log)

@@ -13,10 +13,16 @@ func TestLoginRequestNormalize(t *testing.T) {
 
 	normalized := request.Normalize()
 	if normalized.EmailAddress != "admin@example.com" {
-		t.Fatalf("normalized email_address = %q, want admin@example.com", normalized.EmailAddress)
+		t.Fatalf(
+			"normalized email_address = %q, want admin@example.com",
+			normalized.EmailAddress,
+		)
 	}
 	if request.EmailAddress != " ADMIN@example.com " {
-		t.Fatalf("Normalize modified original email_address: %q", request.EmailAddress)
+		t.Fatalf(
+			"Normalize modified original email_address: %q",
+			request.EmailAddress,
+		)
 	}
 }
 
@@ -64,7 +70,8 @@ func TestLoginRequestValidate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.request.Validate(); !slices.Equal(got, tt.invalidFields) {
+			got := tt.request.Validate()
+			if !slices.Equal(got, tt.invalidFields) {
 				t.Fatalf("Validate() = %v, want %v", got, tt.invalidFields)
 			}
 		})

@@ -13,6 +13,9 @@ import (
 
 func RegisterMCPRoutes(mux *http.ServeMux, s *mcpserver.Server) {
 	log := s.With("subsystem", "mcp")
+	instructions := fmt.Sprintf(
+		"Read-only access to the %q tenant.", s.TenantID,
+	)
 	mcpServer := mcp.NewServer(
 		&mcp.Implementation{
 			Name:    "vetchium-" + s.TenantID,
@@ -20,7 +23,7 @@ func RegisterMCPRoutes(mux *http.ServeMux, s *mcpserver.Server) {
 			Version: version.Value,
 		},
 		&mcp.ServerOptions{
-			Instructions: fmt.Sprintf("Read-only access to the %q tenant.", s.TenantID),
+			Instructions: instructions,
 			Logger:       log,
 		},
 	)

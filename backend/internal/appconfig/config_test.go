@@ -11,7 +11,9 @@ import (
 
 func TestLoadFile(t *testing.T) {
 	passwordFile := filepath.Join(t.TempDir(), "password")
-	if err := os.WriteFile(passwordFile, []byte("p@ss/word\n"), 0o600); err != nil {
+	if err := os.WriteFile(
+		passwordFile, []byte("p@ss/word\n"), 0o600,
+	); err != nil {
 		t.Fatal(err)
 	}
 
@@ -19,30 +21,46 @@ func TestLoadFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.TenantID != "sgp" || cfg.Env != EnvironmentDev || cfg.AdminAPIServer.AdminSessionTTL != 24*time.Hour {
-		t.Fatalf("config = %+v, want tenant sgp and admin-session TTL 24h", cfg)
+	if cfg.TenantID != "sgp" ||
+		cfg.Env != EnvironmentDev ||
+		cfg.AdminAPIServer.AdminSessionTTL != 24*time.Hour {
+		t.Fatalf(
+			"config = %+v, want tenant sgp and admin-session TTL 24h", cfg,
+		)
 	}
-	if cfg.Workers.RetryBackoffLimit != 5*time.Minute || cfg.Workers.PruneAdminSessionsTimer != time.Hour {
-		t.Fatalf("workers config = %+v, want retry limit 5m and prune interval 1h", cfg.Workers)
+	if cfg.Workers.RetryBackoffLimit != 5*time.Minute ||
+		cfg.Workers.PruneAdminSessionsTimer != time.Hour {
+		t.Fatalf(
+			"workers config = %+v, want retry limit 5m and prune interval 1h",
+			cfg.Workers,
+		)
 	}
 
 	databaseURL, err := cfg.Database.URL()
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"pguser:p%40ss%2Fword", "db:5433", "/tenant_db", "sslmode=verify-full"} {
+	wantedURLParts := []string{
+		"pguser:p%40ss%2Fword", "db:5433",
+		"/tenant_db", "sslmode=verify-full",
+	}
+	for _, want := range wantedURLParts {
 		if !strings.Contains(databaseURL, want) {
 			t.Errorf("database URL = %q, missing %q", databaseURL, want)
 		}
 	}
 	if strings.Contains(databaseURL, "%0A") {
-		t.Fatalf("database URL contains password-file newline: %q", databaseURL)
+		t.Fatalf(
+			"database URL contains password-file newline: %q", databaseURL,
+		)
 	}
 }
 
 func TestLoadUsesConfiguredPathAndDatabaseOverrides(t *testing.T) {
 	passwordFile := filepath.Join(t.TempDir(), "password")
-	if err := os.WriteFile(passwordFile, []byte("secret"), 0o600); err != nil {
+	if err := os.WriteFile(
+		passwordFile, []byte("secret"), 0o600,
+	); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("APP_CONFIG_FILE", writeConfig(t, passwordFile, ""))
@@ -53,8 +71,12 @@ func TestLoadUsesConfiguredPathAndDatabaseOverrides(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Database.Name != "overridden_db" || cfg.Database.SSLMode != "require" {
-		t.Fatalf("database config = %+v, want deployment overrides", cfg.Database)
+	if cfg.Database.Name != "overridden_db" ||
+		cfg.Database.SSLMode != "require" {
+		t.Fatalf(
+			"database config = %+v, want deployment overrides",
+			cfg.Database,
+		)
 	}
 }
 
@@ -62,7 +84,8 @@ func TestLoadFileRejectsUnknownFields(t *testing.T) {
 	passwordFile := filepath.Join(t.TempDir(), "password")
 	path := writeConfig(t, passwordFile, `,"pruneInterval":"1h"`)
 
-	if _, err := LoadFile(path); err == nil || !strings.Contains(err.Error(), "unknown field") {
+	_, err := LoadFile(path)
+	if err == nil || !strings.Contains(err.Error(), "unknown field") {
 		t.Fatalf("LoadFile() error = %v, want unknown field error", err)
 	}
 }
@@ -74,12 +97,16 @@ func TestLoadFileRejectsUnknownEnvironment(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	contents = []byte(strings.Replace(string(contents), `"env": "dev"`, `"env": "preview"`, 1))
+	contents = []byte(strings.Replace(
+		string(contents), `"env": "dev"`, `"env": "preview"`, 1,
+	))
 	if err := os.WriteFile(path, contents, 0o600); err != nil {
 		t.Fatal(err)
 	}
 
-	if _, err := LoadFile(path); err == nil || !strings.Contains(err.Error(), "env must be one of") {
+	_, err = LoadFile(path)
+	if err == nil ||
+		!strings.Contains(err.Error(), "env must be one of") {
 		t.Fatalf("LoadFile() error = %v, want environment error", err)
 	}
 }
@@ -111,8 +138,13 @@ func TestLoadFileRequiresPositiveDurations(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := LoadFile(path); err == nil || !strings.Contains(err.Error(), "workers.retryBackoffLimit must be positive") {
-		t.Fatalf("LoadFile() error = %v, want positive retry backoff error", err)
+	_, err := LoadFile(path)
+	if err == nil || !strings.Contains(
+		err.Error(), "workers.retryBackoffLimit must be positive",
+	) {
+		t.Fatalf(
+			"LoadFile() error = %v, want positive retry backoff error", err,
+		)
 	}
 }
 
@@ -123,8 +155,14 @@ func TestCheckedInConfigs(t *testing.T) {
 			path string
 			env  Environment
 		}{
-			{filepath.Join(root, "config", region+".json"), EnvironmentDev},
-			{filepath.Join(root, "deploy", region, "config.json"), EnvironmentProduction},
+			{
+				filepath.Join(root, "config", region+".json"),
+				EnvironmentDev,
+			},
+			{
+				filepath.Join(root, "deploy", region, "config.json"),
+				EnvironmentProduction,
+			},
 		} {
 			t.Run(test.path, func(t *testing.T) {
 				cfg, err := LoadFile(test.path)
@@ -132,7 +170,11 @@ func TestCheckedInConfigs(t *testing.T) {
 					t.Fatal(err)
 				}
 				if cfg.TenantID != region || cfg.Env != test.env {
-					t.Fatalf("config identifies tenant %q in %q, want tenant %q in %q", cfg.TenantID, cfg.Env, region, test.env)
+					t.Fatalf(
+						"config identifies tenant %q in %q, "+
+							"want tenant %q in %q",
+						cfg.TenantID, cfg.Env, region, test.env,
+					)
 				}
 			})
 		}

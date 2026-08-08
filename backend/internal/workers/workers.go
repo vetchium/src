@@ -53,27 +53,48 @@ func (w *Worker) Run(ctx context.Context) {
 func (w *Worker) runPeriodicJob(ctx context.Context, job periodicJob) {
 	log := w.log.With("job", job.name)
 	if job.interval <= 0 {
-		log.Error("invalid interval", "event", "worker_configuration_error", "interval", job.interval)
+		log.Error(
+			"invalid interval",
+			"event", "worker_configuration_error",
+			"interval", job.interval,
+		)
 		return
 	}
 	if w.retryBackoffLimit <= 0 {
-		log.Error("invalid retry backoff limit", "event", "worker_configuration_error", "retryBackoffLimit", w.retryBackoffLimit)
+		log.Error(
+			"invalid retry backoff limit",
+			"event", "worker_configuration_error",
+			"retryBackoffLimit", w.retryBackoffLimit,
+		)
 		return
 	}
 
 	var backoff time.Duration
 	for {
 		if contextErr := ctx.Err(); contextErr != nil {
-			log.Info("job stopped before run", "event", "worker_job_stopped", "error", contextErr)
+			log.Info(
+				"job stopped before run",
+				"event", "worker_job_stopped",
+				"error", contextErr,
+			)
 			return
 		}
 		err := job.run(ctx)
 		if err != nil {
 			if contextErr := ctx.Err(); contextErr != nil {
-				log.Info("job stopped after cancellation", "event", "worker_job_stopped", "error", err, "contextError", contextErr)
+				log.Info(
+					"job stopped after cancellation",
+					"event", "worker_job_stopped",
+					"error", err,
+					"contextError", contextErr,
+				)
 				return
 			}
-			log.Error("job failed", "event", "worker_job_error", "error", err)
+			log.Error(
+				"job failed",
+				"event", "worker_job_error",
+				"error", err,
+			)
 			backoff = nextBackoff(backoff, w.retryBackoffLimit)
 		} else {
 			backoff = 0
@@ -84,7 +105,11 @@ func (w *Worker) runPeriodicJob(ctx context.Context, job periodicJob) {
 			delay = backoff
 		}
 		if !wait(ctx, delay) {
-			log.Info("job stopped while waiting", "event", "worker_job_stopped", "error", ctx.Err())
+			log.Info(
+				"job stopped while waiting",
+				"event", "worker_job_stopped",
+				"error", ctx.Err(),
+			)
 			return
 		}
 	}

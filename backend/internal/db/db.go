@@ -11,7 +11,11 @@ import (
 
 const databaseConnectTimeout = 10 * time.Second
 
-func Connect(ctx context.Context, databaseURL string, log *slog.Logger) (*pgxpool.Pool, error) {
+func Connect(
+	ctx context.Context,
+	databaseURL string,
+	log *slog.Logger,
+) (*pgxpool.Pool, error) {
 	poolConfig, err := pgxpool.ParseConfig(databaseURL)
 	if err != nil {
 		return nil, fmt.Errorf("parse database configuration: %w", err)
@@ -31,10 +35,16 @@ func Connect(ctx context.Context, databaseURL string, log *slog.Logger) (*pgxpoo
 	connectCtx, cancel := context.WithTimeout(ctx, databaseConnectTimeout)
 	defer cancel()
 	if err := pool.Ping(connectCtx); err != nil {
-		// Keep the pool open: pgx establishes connections lazily and replaces
-		// unhealthy connections, so later operations can recover without a
-		// process restart when PostgreSQL becomes available again.
-		log.Warn("database unavailable; operations will retry through the connection pool", "event", "database_unavailable", "error", err)
+		// Keep the pool open: pgx connects lazily and replaces unhealthy
+		// connections. Later operations can therefore recover without a
+		// restart when PostgreSQL becomes available again.
+		message := "database unavailable; operations will retry " +
+			"through the connection pool"
+		log.Warn(
+			message,
+			"event", "database_unavailable",
+			"error", err,
+		)
 		return pool, nil
 	}
 	log.Info("database connected")

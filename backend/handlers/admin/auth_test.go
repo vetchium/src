@@ -27,43 +27,87 @@ import (
 )
 
 type adminDBStub struct {
-	createAdminSession         func(context.Context, sqlc.CreateAdminSessionParams) (sqlc.CreateAdminSessionRow, error)
-	deleteAdminSession         func(context.Context, sqlc.DeleteAdminSessionParams) (int64, error)
-	getAdminUserForLogin       func(context.Context, string) (sqlc.GetAdminUserForLoginRow, error)
-	authenticateAdminSession   func(context.Context, []byte) (sqlc.AuthenticateAdminSessionRow, error)
-	getAdminMyInfo             func(context.Context, sqlc.GetAdminMyInfoParams) (sqlc.GetAdminMyInfoRow, error)
+	createAdminSession         createAdminSessionFunc
+	deleteAdminSession         deleteAdminSessionFunc
+	getAdminUserForLogin       getAdminUserForLoginFunc
+	authenticateAdminSession   authenticateAdminSessionFunc
+	getAdminMyInfo             getAdminMyInfoFunc
 	deleteExpiredAdminSessions func(context.Context) (int64, error)
 }
 
-func (s *adminDBStub) CreateAdminSession(ctx context.Context, arg sqlc.CreateAdminSessionParams) (sqlc.CreateAdminSessionRow, error) {
+type createAdminSessionFunc func(
+	context.Context,
+	sqlc.CreateAdminSessionParams,
+) (sqlc.CreateAdminSessionRow, error)
+
+type deleteAdminSessionFunc func(
+	context.Context,
+	sqlc.DeleteAdminSessionParams,
+) (int64, error)
+
+type getAdminUserForLoginFunc func(
+	context.Context,
+	string,
+) (sqlc.GetAdminUserForLoginRow, error)
+
+type authenticateAdminSessionFunc func(
+	context.Context,
+	[]byte,
+) (sqlc.AuthenticateAdminSessionRow, error)
+
+type getAdminMyInfoFunc func(
+	context.Context,
+	sqlc.GetAdminMyInfoParams,
+) (sqlc.GetAdminMyInfoRow, error)
+
+func (s *adminDBStub) CreateAdminSession(
+	ctx context.Context,
+	arg sqlc.CreateAdminSessionParams,
+) (sqlc.CreateAdminSessionRow, error) {
 	return s.createAdminSession(ctx, arg)
 }
 
-func (s *adminDBStub) DeleteAdminSession(ctx context.Context, arg sqlc.DeleteAdminSessionParams) (int64, error) {
+func (s *adminDBStub) DeleteAdminSession(
+	ctx context.Context,
+	arg sqlc.DeleteAdminSessionParams,
+) (int64, error) {
 	return s.deleteAdminSession(ctx, arg)
 }
 
-func (s *adminDBStub) DeleteExpiredAdminSessions(ctx context.Context) (int64, error) {
+func (s *adminDBStub) DeleteExpiredAdminSessions(
+	ctx context.Context,
+) (int64, error) {
 	if s.deleteExpiredAdminSessions == nil {
 		return 0, nil
 	}
 	return s.deleteExpiredAdminSessions(ctx)
 }
 
-func (s *adminDBStub) GetAdminUserForLogin(ctx context.Context, email string) (sqlc.GetAdminUserForLoginRow, error) {
+func (s *adminDBStub) GetAdminUserForLogin(
+	ctx context.Context,
+	email string,
+) (sqlc.GetAdminUserForLoginRow, error) {
 	return s.getAdminUserForLogin(ctx, email)
 }
 
-func (s *adminDBStub) AuthenticateAdminSession(ctx context.Context, tokenHash []byte) (sqlc.AuthenticateAdminSessionRow, error) {
+func (s *adminDBStub) AuthenticateAdminSession(
+	ctx context.Context,
+	tokenHash []byte,
+) (sqlc.AuthenticateAdminSessionRow, error) {
 	return s.authenticateAdminSession(ctx, tokenHash)
 }
 
-func (s *adminDBStub) GetAdminMyInfo(ctx context.Context, arg sqlc.GetAdminMyInfoParams) (sqlc.GetAdminMyInfoRow, error) {
+func (s *adminDBStub) GetAdminMyInfo(
+	ctx context.Context,
+	arg sqlc.GetAdminMyInfoParams,
+) (sqlc.GetAdminMyInfoRow, error) {
 	return s.getAdminMyInfo(ctx, arg)
 }
 
 func TestLoginCreatesHashedSession(t *testing.T) {
-	passwordHash, err := bcrypt.GenerateFromPassword([]byte("correct horse battery staple"), bcrypt.MinCost)
+	passwordHash, err := bcrypt.GenerateFromPassword(
+		[]byte("correct horse battery staple"), bcrypt.MinCost,
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -71,9 +115,14 @@ func TestLoginCreatesHashedSession(t *testing.T) {
 	var storedHash []byte
 
 	db := &adminDBStub{}
-	db.getAdminUserForLogin = func(_ context.Context, email string) (sqlc.GetAdminUserForLoginRow, error) {
+	db.getAdminUserForLogin = func(
+		_ context.Context,
+		email string,
+	) (sqlc.GetAdminUserForLoginRow, error) {
 		if email != "admin@example.com" {
-			t.Fatalf("normalized email = %q, want admin@example.com", email)
+			t.Fatalf(
+				"normalized email = %q, want admin@example.com", email,
+			)
 		}
 		return sqlc.GetAdminUserForLoginRow{
 			AdminUserID:    adminUserID,
@@ -83,27 +132,43 @@ func TestLoginCreatesHashedSession(t *testing.T) {
 			AdminUserState: sqlc.VetchiumAdminUserStateActive,
 		}, nil
 	}
-	db.createAdminSession = func(_ context.Context, arg sqlc.CreateAdminSessionParams) (sqlc.CreateAdminSessionRow, error) {
+	db.createAdminSession = func(
+		_ context.Context,
+		arg sqlc.CreateAdminSessionParams,
+	) (sqlc.CreateAdminSessionRow, error) {
 		storedHash = append([]byte(nil), arg.SessionTokenHash...)
 		if arg.AdminUserID != adminUserID {
-			t.Fatalf("AdminUserID = %v, want %v", arg.AdminUserID, adminUserID)
+			t.Fatalf(
+				"AdminUserID = %v, want %v", arg.AdminUserID, adminUserID,
+			)
 		}
-		if !arg.ExpiresAt.Valid || time.Until(arg.ExpiresAt.Time) < 23*time.Hour+59*time.Minute {
-			t.Fatalf("ExpiresAt = %v, want approximately 24 hours", arg.ExpiresAt)
+		minimumTTL := 23*time.Hour + 59*time.Minute
+		if !arg.ExpiresAt.Valid ||
+			time.Until(arg.ExpiresAt.Time) < minimumTTL {
+			t.Fatalf(
+				"ExpiresAt = %v, want approximately 24 hours",
+				arg.ExpiresAt,
+			)
 		}
 		return sqlc.CreateAdminSessionRow{ExpiresAt: arg.ExpiresAt}, nil
 	}
 
 	s := testServer(db)
-	request := httptest.NewRequest(http.MethodPost, "/api/admin/login", strings.NewReader(`{
+	requestBody := strings.NewReader(`{
 		"email_address":" ADMIN@example.com ",
 		"password":"correct horse battery staple"
-	}`))
+	}`)
+	request := httptest.NewRequest(
+		http.MethodPost, "/api/admin/login", requestBody,
+	)
 	response := httptest.NewRecorder()
 	Login(s).ServeHTTP(response, request)
 
 	if response.Code != http.StatusOK {
-		t.Fatalf("status = %d, want 200; body = %s", response.Code, response.Body.String())
+		t.Fatalf(
+			"status = %d, want 200; body = %s",
+			response.Code, response.Body.String(),
+		)
 	}
 	var payload adminspec.LoginResponse
 	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
@@ -126,52 +191,71 @@ func TestLoginCreatesHashedSession(t *testing.T) {
 }
 
 func TestLoginRejectsDisabledAdmin(t *testing.T) {
-	passwordHash, err := bcrypt.GenerateFromPassword([]byte("password"), bcrypt.MinCost)
+	passwordHash, err := bcrypt.GenerateFromPassword(
+		[]byte("password"), bcrypt.MinCost,
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
 	db := &adminDBStub{
-		getAdminUserForLogin: func(context.Context, string) (sqlc.GetAdminUserForLoginRow, error) {
+		getAdminUserForLogin: func(
+			context.Context,
+			string,
+		) (sqlc.GetAdminUserForLoginRow, error) {
 			return sqlc.GetAdminUserForLoginRow{
 				PasswordHash:   string(passwordHash),
 				AdminUserState: sqlc.VetchiumAdminUserStateDisabled,
 			}, nil
 		},
-		createAdminSession: func(context.Context, sqlc.CreateAdminSessionParams) (sqlc.CreateAdminSessionRow, error) {
+		createAdminSession: func(
+			context.Context,
+			sqlc.CreateAdminSessionParams,
+		) (sqlc.CreateAdminSessionRow, error) {
 			t.Fatal("CreateAdminSession called for disabled user")
 			return sqlc.CreateAdminSessionRow{}, nil
 		},
 	}
-	request := httptest.NewRequest(http.MethodPost, "/api/admin/login", strings.NewReader(`{
+	requestBody := strings.NewReader(`{
 		"email_address":"admin@example.com",
 		"password":"password"
-	}`))
+	}`)
+	request := httptest.NewRequest(
+		http.MethodPost, "/api/admin/login", requestBody,
+	)
 	response := httptest.NewRecorder()
 	Login(testServer(db)).ServeHTTP(response, request)
 	assertEmptyResponse(t, response, http.StatusForbidden, "")
 }
 
 func TestLoginDoesNotRevealDisabledAccountForWrongPassword(t *testing.T) {
-	passwordHash, err := bcrypt.GenerateFromPassword([]byte("correct-password"), bcrypt.MinCost)
+	passwordHash, err := bcrypt.GenerateFromPassword(
+		[]byte("correct-password"), bcrypt.MinCost,
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
 	db := &adminDBStub{
-		getAdminUserForLogin: func(context.Context, string) (sqlc.GetAdminUserForLoginRow, error) {
+		getAdminUserForLogin: func(
+			context.Context,
+			string,
+		) (sqlc.GetAdminUserForLoginRow, error) {
 			return sqlc.GetAdminUserForLoginRow{
 				PasswordHash:   string(passwordHash),
 				AdminUserState: sqlc.VetchiumAdminUserStateDisabled,
 			}, nil
 		},
 	}
-	request := httptest.NewRequest(http.MethodPost, "/api/admin/login", strings.NewReader(`{
+	requestBody := strings.NewReader(`{
 		"email_address":"admin@example.com",
 		"password":"wrong-password"
-	}`))
+	}`)
+	request := httptest.NewRequest(
+		http.MethodPost, "/api/admin/login", requestBody,
+	)
 	response := httptest.NewRecorder()
 	Login(testServer(db)).ServeHTTP(response, request)
 
-	assertEmptyResponse(t, response, http.StatusUnauthorized, `Bearer realm="login"`)
+	assertUnauthorized(t, response)
 }
 
 func TestAuthenticatedMyInfoAndLogout(t *testing.T) {
@@ -185,7 +269,10 @@ func TestAuthenticatedMyInfoAndLogout(t *testing.T) {
 	deleted := false
 
 	db := &adminDBStub{}
-	db.authenticateAdminSession = func(_ context.Context, gotHash []byte) (sqlc.AuthenticateAdminSessionRow, error) {
+	db.authenticateAdminSession = func(
+		_ context.Context,
+		gotHash []byte,
+	) (sqlc.AuthenticateAdminSessionRow, error) {
 		if !bytes.Equal(gotHash, tokenHash[:]) {
 			t.Fatalf("auth hash = %x, want %x", gotHash, tokenHash)
 		}
@@ -194,23 +281,41 @@ func TestAuthenticatedMyInfoAndLogout(t *testing.T) {
 			AdminSessionID: adminSessionID,
 		}, nil
 	}
-	db.getAdminMyInfo = func(_ context.Context, arg sqlc.GetAdminMyInfoParams) (sqlc.GetAdminMyInfoRow, error) {
+	db.getAdminMyInfo = func(
+		_ context.Context,
+		arg sqlc.GetAdminMyInfoParams,
+	) (sqlc.GetAdminMyInfoRow, error) {
 		if arg.AdminUserID != adminUserID || arg.AdminSessionID != adminSessionID {
-			t.Fatalf("my-info identity = %+v, want user %v session %v", arg, adminUserID, adminSessionID)
+			t.Fatalf(
+				"my-info identity = %+v, want user %v session %v",
+				arg, adminUserID, adminSessionID,
+			)
 		}
 		return sqlc.GetAdminMyInfoRow{
 			AdminUserID:    adminUserID,
 			EmailAddress:   "admin@example.com",
 			DisplayName:    "Test Admin",
 			AdminUserState: sqlc.VetchiumAdminUserStateActive,
-			LastLoginAt:    pgtype.Timestamptz{Time: lastLoginAt, Valid: true},
-			CreatedAt:      pgtype.Timestamptz{Time: createdAt, Valid: true},
-			ExpiresAt:      pgtype.Timestamptz{Time: sessionExpiresAt, Valid: true},
+			LastLoginAt: pgtype.Timestamptz{
+				Time: lastLoginAt, Valid: true,
+			},
+			CreatedAt: pgtype.Timestamptz{
+				Time: createdAt, Valid: true,
+			},
+			ExpiresAt: pgtype.Timestamptz{
+				Time: sessionExpiresAt, Valid: true,
+			},
 		}, nil
 	}
-	db.deleteAdminSession = func(_ context.Context, arg sqlc.DeleteAdminSessionParams) (int64, error) {
+	db.deleteAdminSession = func(
+		_ context.Context,
+		arg sqlc.DeleteAdminSessionParams,
+	) (int64, error) {
 		if arg.AdminUserID != adminUserID || arg.AdminSessionID != adminSessionID {
-			t.Fatalf("deleted identity = %+v, want user %v session %v", arg, adminUserID, adminSessionID)
+			t.Fatalf(
+				"deleted identity = %+v, want user %v session %v",
+				arg, adminUserID, adminSessionID,
+			)
 		}
 		deleted = true
 		return 1, nil
@@ -218,21 +323,29 @@ func TestAuthenticatedMyInfoAndLogout(t *testing.T) {
 	s := testServer(db)
 
 	myInfo := middleware.AdminAuth(s)(MyInfo(s))
-	request := httptest.NewRequest(http.MethodGet, "/api/admin/my-info", nil)
+	request := httptest.NewRequest(
+		http.MethodGet, "/api/admin/my-info", nil,
+	)
 	request.Header.Set("Authorization", "Bearer "+token)
 	response := httptest.NewRecorder()
 	myInfo.ServeHTTP(response, request)
 	if response.Code != http.StatusOK {
-		t.Fatalf("my-info status = %d, want 200; body = %s", response.Code, response.Body.String())
+		t.Fatalf(
+			"my-info status = %d, want 200; body = %s",
+			response.Code, response.Body.String(),
+		)
 	}
 	var info adminspec.MyInfoResponse
 	if err := json.NewDecoder(response.Body).Decode(&info); err != nil {
 		t.Fatal(err)
 	}
-	if info.AdminUserID != adminUserID.String() || info.EmailAddress != "admin@example.com" || info.AdminUserState != adminuser.Active {
+	if info.AdminUserID != adminUserID.String() ||
+		info.EmailAddress != "admin@example.com" ||
+		info.AdminUserState != adminuser.Active {
 		t.Fatalf("my-info = %+v", info)
 	}
-	if info.TenantID != "test" || !info.SessionExpiresAt.Equal(sessionExpiresAt) {
+	if info.TenantID != "test" ||
+		!info.SessionExpiresAt.Equal(sessionExpiresAt) {
 		t.Fatalf("my-info metadata = %+v", info)
 	}
 	if got := response.Header().Get("Cache-Control"); got != "no-store" {
@@ -254,44 +367,67 @@ func TestAuthenticatedMyInfoAndLogout(t *testing.T) {
 }
 
 func TestAdminAuthRequiresBearerToken(t *testing.T) {
-	for _, authorization := range []string{"", "token", "Basic token", "Bearer", "Bearer one two"} {
+	authorizations := []string{
+		"", "token", "Basic token", "Bearer", "Bearer one two",
+	}
+	for _, authorization := range authorizations {
 		t.Run(authorization, func(t *testing.T) {
 			db := &adminDBStub{
-				authenticateAdminSession: func(context.Context, []byte) (sqlc.AuthenticateAdminSessionRow, error) {
-					t.Fatal("AuthenticateAdminSession called without bearer token")
+				authenticateAdminSession: func(
+					context.Context,
+					[]byte,
+				) (sqlc.AuthenticateAdminSessionRow, error) {
+					t.Fatal(
+						"AuthenticateAdminSession called without bearer token",
+					)
 					return sqlc.AuthenticateAdminSessionRow{}, nil
 				},
 			}
-			handler := middleware.AdminAuth(testServer(db))(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+			protected := http.HandlerFunc(func(
+				http.ResponseWriter, *http.Request,
+			) {
 				t.Fatal("protected handler called")
-			}))
+			})
+			handler := middleware.AdminAuth(testServer(db))(protected)
 			request := httptest.NewRequest(http.MethodGet, "/", nil)
 			if authorization != "" {
 				request.Header.Set("Authorization", authorization)
 			}
 			response := httptest.NewRecorder()
 			handler.ServeHTTP(response, request)
-			assertEmptyResponse(t, response, http.StatusUnauthorized, `Bearer realm="login"`)
+			assertUnauthorized(t, response)
 		})
 	}
 }
 
 func TestAdminAuthAcceptsBearerHeaderVariants(t *testing.T) {
-	for _, authorization := range []string{"bearer presented-token", "  Bearer   presented-token  "} {
+	authorizations := []string{
+		"bearer presented-token",
+		"  Bearer   presented-token  ",
+	}
+	for _, authorization := range authorizations {
 		t.Run(authorization, func(t *testing.T) {
 			wantHash := sha256.Sum256([]byte("presented-token"))
 			db := &adminDBStub{
-				authenticateAdminSession: func(_ context.Context, gotHash []byte) (sqlc.AuthenticateAdminSessionRow, error) {
+				authenticateAdminSession: func(
+					_ context.Context,
+					gotHash []byte,
+				) (sqlc.AuthenticateAdminSessionRow, error) {
 					if !bytes.Equal(gotHash, wantHash[:]) {
-						t.Fatalf("auth hash = %x, want %x", gotHash, wantHash)
+						t.Fatalf(
+							"auth hash = %x, want %x", gotHash, wantHash,
+						)
 					}
 					return sqlc.AuthenticateAdminSessionRow{}, nil
 				},
 			}
 			authenticated := false
-			handler := middleware.AdminAuth(testServer(db))(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+			protected := http.HandlerFunc(func(
+				http.ResponseWriter, *http.Request,
+			) {
 				authenticated = true
-			}))
+			})
+			handler := middleware.AdminAuth(testServer(db))(protected)
 			request := httptest.NewRequest(http.MethodGet, "/", nil)
 			request.Header.Set("Authorization", authorization)
 			handler.ServeHTTP(httptest.NewRecorder(), request)
@@ -304,33 +440,48 @@ func TestAdminAuthAcceptsBearerHeaderVariants(t *testing.T) {
 
 func TestAdminAuthRejectsInvalidBearerToken(t *testing.T) {
 	db := &adminDBStub{
-		authenticateAdminSession: func(context.Context, []byte) (sqlc.AuthenticateAdminSessionRow, error) {
+		authenticateAdminSession: func(
+			context.Context,
+			[]byte,
+		) (sqlc.AuthenticateAdminSessionRow, error) {
 			return sqlc.AuthenticateAdminSessionRow{}, pgx.ErrNoRows
 		},
 	}
-	handler := middleware.AdminAuth(testServer(db))(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+	protected := http.HandlerFunc(func(
+		http.ResponseWriter, *http.Request,
+	) {
 		t.Fatal("protected handler called")
-	}))
+	})
+	handler := middleware.AdminAuth(testServer(db))(protected)
 	request := httptest.NewRequest(http.MethodGet, "/", nil)
 	request.Header.Set("Authorization", "Bearer invalid-token")
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
-	assertEmptyResponse(t, response, http.StatusUnauthorized, `Bearer realm="login"`)
+	assertUnauthorized(t, response)
 }
 
 func TestMyInfoRejectsSessionInvalidatedAfterAuthentication(t *testing.T) {
 	adminUserID := pgtype.UUID{Bytes: [16]byte{15: 7}, Valid: true}
 	adminSessionID := pgtype.UUID{Bytes: [16]byte{15: 8}, Valid: true}
 	db := &adminDBStub{
-		authenticateAdminSession: func(context.Context, []byte) (sqlc.AuthenticateAdminSessionRow, error) {
+		authenticateAdminSession: func(
+			context.Context,
+			[]byte,
+		) (sqlc.AuthenticateAdminSessionRow, error) {
 			return sqlc.AuthenticateAdminSessionRow{
 				AdminUserID:    adminUserID,
 				AdminSessionID: adminSessionID,
 			}, nil
 		},
-		getAdminMyInfo: func(_ context.Context, arg sqlc.GetAdminMyInfoParams) (sqlc.GetAdminMyInfoRow, error) {
+		getAdminMyInfo: func(
+			_ context.Context,
+			arg sqlc.GetAdminMyInfoParams,
+		) (sqlc.GetAdminMyInfoRow, error) {
 			if arg.AdminUserID != adminUserID || arg.AdminSessionID != adminSessionID {
-				t.Fatalf("my-info identity = %+v, want user %v session %v", arg, adminUserID, adminSessionID)
+				t.Fatalf(
+					"my-info identity = %+v, want user %v session %v",
+					arg, adminUserID, adminSessionID,
+				)
 			}
 			return sqlc.GetAdminMyInfoRow{}, pgx.ErrNoRows
 		},
@@ -338,89 +489,142 @@ func TestMyInfoRejectsSessionInvalidatedAfterAuthentication(t *testing.T) {
 
 	s := testServer(db)
 	handler := middleware.AdminAuth(s)(MyInfo(s))
-	request := httptest.NewRequest(http.MethodGet, "/api/admin/my-info", nil)
+	request := httptest.NewRequest(
+		http.MethodGet, "/api/admin/my-info", nil,
+	)
 	request.Header.Set("Authorization", "Bearer valid-then-invalidated")
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
 
-	assertEmptyResponse(t, response, http.StatusUnauthorized, `Bearer realm="login"`)
+	assertUnauthorized(t, response)
 }
 
 func TestLoginErrorResponses(t *testing.T) {
 	t.Run("invalid JSON", func(t *testing.T) {
 		response := httptest.NewRecorder()
-		Login(testServer(&adminDBStub{})).ServeHTTP(response,
-			httptest.NewRequest(http.MethodPost, "/api/admin/login", strings.NewReader(`{"email_address":`)))
+		requestBody := strings.NewReader(`{"email_address":`)
+		request := httptest.NewRequest(
+			http.MethodPost, "/api/admin/login", requestBody,
+		)
+		Login(testServer(&adminDBStub{})).ServeHTTP(response, request)
 		assertProblem(t, response, problem.InvalidJSONError)
 	})
 
 	t.Run("invalid credentials fields", func(t *testing.T) {
 		response := httptest.NewRecorder()
-		Login(testServer(&adminDBStub{})).ServeHTTP(response,
-			httptest.NewRequest(http.MethodPost, "/api/admin/login", strings.NewReader(`{
+		requestBody := strings.NewReader(`{
 				"email_address":"not-an-email",
 				"password":""
-			}`)))
-		assertValidationFailed(t, response, []string{"email_address", "password"})
+			}`)
+		request := httptest.NewRequest(
+			http.MethodPost, "/api/admin/login", requestBody,
+		)
+		Login(testServer(&adminDBStub{})).ServeHTTP(response, request)
+		assertValidationFailed(
+			t, response, []string{"email_address", "password"},
+		)
 	})
 
 	t.Run("wrong field types", func(t *testing.T) {
 		response := httptest.NewRecorder()
-		Login(testServer(&adminDBStub{})).ServeHTTP(response,
-			httptest.NewRequest(http.MethodPost, "/api/admin/login", strings.NewReader(`{
+		requestBody := strings.NewReader(`{
 				"email_address": false,
 				"password": []
-			}`)))
+			}`)
+		request := httptest.NewRequest(
+			http.MethodPost, "/api/admin/login", requestBody,
+		)
+		Login(testServer(&adminDBStub{})).ServeHTTP(response, request)
 		assertProblem(t, response, problem.InvalidJSONError)
 	})
 
 	t.Run("invalid top-level shape", func(t *testing.T) {
 		response := httptest.NewRecorder()
-		Login(testServer(&adminDBStub{})).ServeHTTP(response,
-			httptest.NewRequest(http.MethodPost, "/api/admin/login", strings.NewReader(`[]`)))
+		requestBody := strings.NewReader(`[]`)
+		request := httptest.NewRequest(
+			http.MethodPost, "/api/admin/login", requestBody,
+		)
+		Login(testServer(&adminDBStub{})).ServeHTTP(response, request)
 		assertProblem(t, response, problem.InvalidJSONError)
 	})
 
-	t.Run("unknown account and wrong password responses match", func(t *testing.T) {
+	matchingResponses := "unknown account and wrong password responses match"
+	t.Run(matchingResponses, func(t *testing.T) {
 		unknownAccountDB := &adminDBStub{
-			getAdminUserForLogin: func(context.Context, string) (sqlc.GetAdminUserForLoginRow, error) {
+			getAdminUserForLogin: func(
+				context.Context,
+				string,
+			) (sqlc.GetAdminUserForLoginRow, error) {
 				return sqlc.GetAdminUserForLoginRow{}, pgx.ErrNoRows
 			},
 		}
-		unknownAccountRequest := httptest.NewRequest(http.MethodPost, "/api/admin/login", strings.NewReader(`{
+		unknownAccountBody := strings.NewReader(`{
 			"email_address":"missing@example.com",
 			"password":"wrong"
-		}`))
+		}`)
+		unknownAccountRequest := httptest.NewRequest(
+			http.MethodPost, "/api/admin/login", unknownAccountBody,
+		)
 		unknownAccountResponse := httptest.NewRecorder()
-		Login(testServer(unknownAccountDB)).ServeHTTP(unknownAccountResponse, unknownAccountRequest)
-		assertEmptyResponse(t, unknownAccountResponse, http.StatusUnauthorized, `Bearer realm="login"`)
+		Login(testServer(unknownAccountDB)).ServeHTTP(
+			unknownAccountResponse, unknownAccountRequest,
+		)
+		assertUnauthorized(t, unknownAccountResponse)
 
-		passwordHash, err := bcrypt.GenerateFromPassword([]byte("correct-password"), bcrypt.MinCost)
+		passwordHash, err := bcrypt.GenerateFromPassword(
+			[]byte("correct-password"), bcrypt.MinCost,
+		)
 		if err != nil {
 			t.Fatal(err)
 		}
 		wrongPasswordDB := &adminDBStub{
-			getAdminUserForLogin: func(context.Context, string) (sqlc.GetAdminUserForLoginRow, error) {
+			getAdminUserForLogin: func(
+				context.Context,
+				string,
+			) (sqlc.GetAdminUserForLoginRow, error) {
 				return sqlc.GetAdminUserForLoginRow{
 					PasswordHash:   string(passwordHash),
 					AdminUserState: sqlc.VetchiumAdminUserStateActive,
 				}, nil
 			},
 		}
-		wrongPasswordRequest := httptest.NewRequest(http.MethodPost, "/api/admin/login", strings.NewReader(`{
+		wrongPasswordBody := strings.NewReader(`{
 			"email_address":"admin@example.com",
 			"password":"wrong"
-		}`))
+		}`)
+		wrongPasswordRequest := httptest.NewRequest(
+			http.MethodPost, "/api/admin/login", wrongPasswordBody,
+		)
 		wrongPasswordResponse := httptest.NewRecorder()
-		Login(testServer(wrongPasswordDB)).ServeHTTP(wrongPasswordResponse, wrongPasswordRequest)
-		assertEmptyResponse(t, wrongPasswordResponse, http.StatusUnauthorized, `Bearer realm="login"`)
+		Login(testServer(wrongPasswordDB)).ServeHTTP(
+			wrongPasswordResponse, wrongPasswordRequest,
+		)
+		assertUnauthorized(t, wrongPasswordResponse)
 	})
 }
 
-func assertEmptyResponse(t *testing.T, response *httptest.ResponseRecorder, status int, challenge string) {
+func assertUnauthorized(
+	t *testing.T,
+	response *httptest.ResponseRecorder,
+) {
+	t.Helper()
+	assertEmptyResponse(
+		t, response, http.StatusUnauthorized, `Bearer realm="login"`,
+	)
+}
+
+func assertEmptyResponse(
+	t *testing.T,
+	response *httptest.ResponseRecorder,
+	status int,
+	challenge string,
+) {
 	t.Helper()
 	if response.Code != status {
-		t.Fatalf("status = %d, want %d; body = %s", response.Code, status, response.Body.String())
+		t.Fatalf(
+			"status = %d, want %d; body = %s",
+			response.Code, status, response.Body.String(),
+		)
 	}
 	if got := response.Header().Get("WWW-Authenticate"); got != challenge {
 		t.Fatalf("WWW-Authenticate = %q, want %q", got, challenge)
@@ -433,13 +637,24 @@ func assertEmptyResponse(t *testing.T, response *httptest.ResponseRecorder, stat
 	}
 }
 
-func assertProblem(t *testing.T, response *httptest.ResponseRecorder, want problem.Details) {
+func assertProblem(
+	t *testing.T,
+	response *httptest.ResponseRecorder,
+	want problem.Details,
+) {
 	t.Helper()
 	if response.Code != want.Status {
-		t.Fatalf("status = %d, want %d; body = %s", response.Code, want.Status, response.Body.String())
+		t.Fatalf(
+			"status = %d, want %d; body = %s",
+			response.Code, want.Status, response.Body.String(),
+		)
 	}
-	if got := response.Header().Get("Content-Type"); got != "application/problem+json" {
-		t.Fatalf("Content-Type = %q, want application/problem+json", got)
+	gotContentType := response.Header().Get("Content-Type")
+	if gotContentType != "application/problem+json" {
+		t.Fatalf(
+			"Content-Type = %q, want application/problem+json",
+			gotContentType,
+		)
 	}
 	var details problem.Details
 	if err := json.NewDecoder(response.Body).Decode(&details); err != nil {
@@ -447,18 +662,31 @@ func assertProblem(t *testing.T, response *httptest.ResponseRecorder, want probl
 	}
 	if details.Type != want.Type || details.Title != want.Title ||
 		details.Status != want.Status || details.Detail != want.Detail ||
-		details.Instance != want.Instance || !slices.Equal(details.Fields, want.Fields) {
+		details.Instance != want.Instance ||
+		!slices.Equal(details.Fields, want.Fields) {
 		t.Fatalf("problem = %+v, want %+v", details, want)
 	}
 }
 
-func assertValidationFailed(t *testing.T, response *httptest.ResponseRecorder, fields []string) {
+func assertValidationFailed(
+	t *testing.T,
+	response *httptest.ResponseRecorder,
+	fields []string,
+) {
 	t.Helper()
 	if response.Code != http.StatusBadRequest {
-		t.Fatalf("status = %d, want %d; body = %s", response.Code, http.StatusBadRequest, response.Body.String())
+		t.Fatalf(
+			"status = %d, want %d; body = %s",
+			response.Code, http.StatusBadRequest,
+			response.Body.String(),
+		)
 	}
-	if got := response.Header().Get("Content-Type"); got != "application/problem+json" {
-		t.Fatalf("Content-Type = %q, want application/problem+json", got)
+	gotContentType := response.Header().Get("Content-Type")
+	if gotContentType != "application/problem+json" {
+		t.Fatalf(
+			"Content-Type = %q, want application/problem+json",
+			gotContentType,
+		)
 	}
 
 	var details problem.Details
@@ -469,7 +697,8 @@ func assertValidationFailed(t *testing.T, response *httptest.ResponseRecorder, f
 	want.Fields = fields
 	if details.Type != want.Type || details.Title != want.Title ||
 		details.Status != want.Status || details.Detail != want.Detail ||
-		details.Instance != want.Instance || !slices.Equal(details.Fields, want.Fields) {
+		details.Instance != want.Instance ||
+		!slices.Equal(details.Fields, want.Fields) {
 		t.Fatalf("problem = %+v, want %+v", details, want)
 	}
 }
@@ -485,8 +714,9 @@ func assertJSONHeaders(t *testing.T, response *httptest.ResponseRecorder) {
 }
 
 func testServer(db sqlc.Querier) *adminapi.Server {
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	return &adminapi.Server{
-		Runtime:         apiserver.New(nil, slog.New(slog.NewTextHandler(io.Discard, nil))),
+		Runtime:         apiserver.New(nil, log),
 		TenantID:        "test",
 		Queries:         db,
 		AdminSessionTTL: 24 * time.Hour,

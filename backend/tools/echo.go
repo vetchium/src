@@ -18,7 +18,11 @@ func registerEcho(server *mcp.Server) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "echo",
 		Description: "Echo a message back, for connectivity checks.",
-	}, func(_ context.Context, _ *mcp.CallToolRequest, input echoInput) (*mcp.CallToolResult, echoOutput, error) {
+	}, func(
+		_ context.Context,
+		_ *mcp.CallToolRequest,
+		input echoInput,
+	) (*mcp.CallToolResult, echoOutput, error) {
 		return nil, echoOutput{Message: input.Message}, nil
 	})
 }

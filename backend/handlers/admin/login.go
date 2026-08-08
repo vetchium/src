@@ -23,17 +23,22 @@ import (
 
 func Login(s *adminapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 		var request admin.LoginRequest
 		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-			s.InvalidJSON(r.Context(), w, err)
+			s.InvalidJSON(ctx, w, err)
 			return
 		}
 
 		request = request.Normalize()
 
-		if invalidFields := request.Validate(); len(invalidFields) != 0 {
-			s.DebugContext(r.Context(), "invalid req", "fields", invalidFields)
-			s.ValidationFailed(r.Context(), w, invalidFields)
+		invalidFields := request.Validate()
+		if len(invalidFields) != 0 {
+			s.DebugContext(
+				ctx, "invalid req",
+				"fields", invalidFields,
+			)
+			s.ValidationFailed(ctx, w, invalidFields)
 			return
 		}
 
@@ -43,14 +48,19 @@ func Login(s *adminapi.Server) http.HandlerFunc {
 		time.Sleep(time.Duration(mrand.IntN(5)) * time.Second)
 
 		adminUser, err := s.Queries.GetAdminUserForLogin(
-			r.Context(), emailAddress)
+			ctx, emailAddress)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				s.WarnContext(r.Context(), "admin login failed", "event", "authentication_failed", "reason", "user_not_found", "error", err)
+				s.WarnContext(
+					ctx, "admin login failed",
+					"event", "authentication_failed",
+					"reason", "user_not_found",
+					"error", err,
+				)
 				s.Unauthorized(w)
 				return
 			}
-			s.InternalError(r.Context(), w, "get admin user", err)
+			s.InternalError(ctx, w, "get admin user", err)
 			return
 		}
 
@@ -58,33 +68,43 @@ func Login(s *adminapi.Server) http.HandlerFunc {
 			[]byte(adminUser.PasswordHash),
 			[]byte(request.Password),
 		); err != nil {
-			if !errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
-				s.InternalError(r.Context(), w, "compare admin password", err)
+			if !errors.Is(
+				err, bcrypt.ErrMismatchedHashAndPassword,
+			) {
+				s.InternalError(
+					ctx, w, "compare admin password", err,
+				)
 				return
 			}
-			s.WarnContext(r.Context(), "admin login failed", "event", "authentication_failed", "reason", "invalid_password", "error", err)
+			s.WarnContext(
+				ctx, "admin login failed",
+				"event", "authentication_failed",
+				"reason", "invalid_password",
+				"error", err,
+			)
 			s.Unauthorized(w)
 			return
 		}
 
-		if adminUser.AdminUserState != sqlc.VetchiumAdminUserStateActive {
-			s.DebugContext(r.Context(), "disabled user")
+		if adminUser.AdminUserState !=
+			sqlc.VetchiumAdminUserStateActive {
+			s.DebugContext(ctx, "disabled user")
 			w.WriteHeader(http.StatusForbidden)
 			return
 		}
 
 		secret := make([]byte, 32)
 		if _, err := rand.Read(secret); err != nil {
-			s.InternalError(r.Context(), w, "generate session token", err)
+			s.InternalError(ctx, w, "generate session token", err)
 			return
 		}
-		// Only the hash of the token is stored, so a database disclosure does
+		// Only the token hash is stored. A database disclosure therefore does
 		// not hand out usable sessions.
 		token := base64.RawURLEncoding.EncodeToString(secret)
 		tokenHash := sha256.Sum256([]byte(token))
 
 		expiresAt := time.Now().UTC().Add(s.AdminSessionTTL)
-		session, err := s.Queries.CreateAdminSession(r.Context(),
+		session, err := s.Queries.CreateAdminSession(ctx,
 			sqlc.CreateAdminSessionParams{
 				SessionTokenHash: tokenHash[:],
 				AdminUserID:      adminUser.AdminUserID,
@@ -95,13 +115,21 @@ func Login(s *adminapi.Server) http.HandlerFunc {
 			})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				// The account was active when its credentials were checked but
-				// became unavailable before the session was created.
-				s.WarnContext(r.Context(), "admin session creation rejected", "event", "authentication_failed", "reason", "user_unavailable", "error", err)
+				// The account was active when checked, but it became
+				// unavailable before the session was created.
+				s.WarnContext(
+					ctx,
+					"admin session creation rejected",
+					"event", "authentication_failed",
+					"reason", "user_unavailable",
+					"error", err,
+				)
 				w.WriteHeader(http.StatusForbidden)
 				return
 			}
-			s.InternalError(r.Context(), w, "create admin session", err)
+			s.InternalError(
+				ctx, w, "create admin session", err,
+			)
 			return
 		}
 		if session.ExpiresAt.Valid {
@@ -114,7 +142,9 @@ func Login(s *adminapi.Server) http.HandlerFunc {
 		if err := json.NewEncoder(w).Encode(admin.LoginResponse{
 			SessionToken: token, ExpiresAt: expiresAt,
 		}); err != nil {
-			s.InternalError(r.Context(), w, "encode admin login response", err)
+			s.InternalError(
+				ctx, w, "encode admin login response", err,
+			)
 		}
 	}
 }

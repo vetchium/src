@@ -16,17 +16,25 @@ import (
 func TestRequestLoggerRecoversWithProblemDetails(t *testing.T) {
 	var logs bytes.Buffer
 	log := slog.New(slog.NewJSONHandler(&logs, nil))
-	handler := RequestLogger(apiserver.New(nil, log))(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+	panickingHandler := http.HandlerFunc(func(
+		http.ResponseWriter, *http.Request,
+	) {
 		panic("boom")
-	}))
+	})
+	handler := RequestLogger(apiserver.New(nil, log))(panickingHandler)
 	recorder := httptest.NewRecorder()
-	handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/panic", nil))
+	request := httptest.NewRequest(http.MethodGet, "/panic", nil)
+	handler.ServeHTTP(recorder, request)
 
 	if recorder.Code != http.StatusInternalServerError {
-		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusInternalServerError)
+		t.Fatalf(
+			"status = %d, want %d",
+			recorder.Code, http.StatusInternalServerError,
+		)
 	}
-	if got := recorder.Header().Get("Content-Type"); got != "application/problem+json" {
-		t.Fatalf("Content-Type = %q", got)
+	contentType := recorder.Header().Get("Content-Type")
+	if contentType != "application/problem+json" {
+		t.Fatalf("Content-Type = %q", contentType)
 	}
 	var details problem.Details
 	if err := json.NewDecoder(recorder.Body).Decode(&details); err != nil {
@@ -36,7 +44,12 @@ func TestRequestLoggerRecoversWithProblemDetails(t *testing.T) {
 		t.Fatalf("problem = %+v", details)
 	}
 	logOutput := logs.String()
-	for _, want := range []string{`"level":"ERROR"`, `"http.response.status_code":500`, `"stack":`} {
+	wantedLogs := []string{
+		`"level":"ERROR"`,
+		`"http.response.status_code":500`,
+		`"stack":`,
+	}
+	for _, want := range wantedLogs {
 		if !strings.Contains(logOutput, want) {
 			t.Errorf("logs missing %q: %s", want, logOutput)
 		}

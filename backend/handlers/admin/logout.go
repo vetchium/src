@@ -16,12 +16,17 @@ func Logout(s *adminapi.Server) http.HandlerFunc {
 			return
 		}
 
-		deleted, err := s.Queries.DeleteAdminSession(r.Context(), sqlc.DeleteAdminSessionParams{
-			AdminSessionID: identity.SessionID,
-			AdminUserID:    identity.UserID,
-		})
+		deleted, err := s.Queries.DeleteAdminSession(
+			r.Context(),
+			sqlc.DeleteAdminSessionParams{
+				AdminSessionID: identity.SessionID,
+				AdminUserID:    identity.UserID,
+			},
+		)
 		if err != nil {
-			s.InternalError(r.Context(), w, "delete admin session", err)
+			s.InternalError(
+				r.Context(), w, "delete admin session", err,
+			)
 			return
 		}
 		if deleted == 0 {
