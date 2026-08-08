@@ -1,24 +1,40 @@
-# Vetchium Agent Guidance
+# Vetchium Agent Guidance Router
 
-This file provides repository-wide routing for agent instructions. Read the
-nearest scoped `AGENTS.md` before changing files in that part of the tree.
+`AGENTS.md` files define scope and route agents to shared guidance. The
+substantive conventions live once under `agent-guides/`.
 
-## Scoped guidance
+Before changing files, read every guide that applies:
 
-- [`backend/AGENTS.md`](backend/AGENTS.md) applies to the Go API server and
-  worker code under `backend/`.
-- [`backend/internal/db/AGENTS.md`](backend/internal/db/AGENTS.md) adds narrower
-  rules for PostgreSQL access, hand-maintained queries, and generated sqlc code.
+- Maintained Go code: [`go.md`](agent-guides/go.md)
+- Backend API servers and workers:
+  [`backend.md`](agent-guides/backend.md)
+- Database access, queries, sqlc, or transactions:
+  [`database.md`](agent-guides/database.md)
+- TypeSpec contracts and matching wire types:
+  [`typespec.md`](agent-guides/typespec.md)
 
-The narrower file takes precedence when instructions overlap.
+Guides compose. For example, a backend handler that uses PostgreSQL requires
+`go.md`, `backend.md`, and `database.md`. A hand-maintained Go wire type under
+`typespec/` requires `go.md` and `typespec.md`.
+
+Scoped routers make these requirements visible near the code:
+
+- [`backend/AGENTS.md`](backend/AGENTS.md)
+- [`backend/internal/db/AGENTS.md`](backend/internal/db/AGENTS.md)
+- [`typespec/AGENTS.md`](typespec/AGENTS.md)
+
+The nearest scoped `AGENTS.md` takes precedence when instructions conflict.
+More specific guides take precedence over general guides.
 
 ## Repository-wide expectations
 
 - Keep changes focused and preserve unrelated work already present in the
   worktree.
-- Use the commands documented in the applicable child file to format,
-  regenerate, and test changes.
+- Use the commands documented in every applicable guide to format, regenerate,
+  and test changes.
 - Do not hand-edit generated artifacts when a source file and generator are
   available.
-- Add UI-specific guidance only when work begins in `admin-ui/`, `hub-ui/`, or
-  `orgs-ui/`; those directories are intentionally not covered yet.
+- Add shared language or tool conventions to one guide rather than copying them
+  into multiple scoped routers.
+- Add UI guides and scoped routers when work begins in `admin-ui/`, `hub-ui/`,
+  or `orgs-ui/`. UI guidance is intentionally not defined yet.

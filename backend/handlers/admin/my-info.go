@@ -42,17 +42,13 @@ func MyInfo(s *adminapi.Server) http.HandlerFunc {
 				s.Unauthorized(w)
 				return
 			}
-			s.InternalError(
-				r.Context(), w, "get admin my-info", err,
-			)
+			s.InternalError(r.Context(), w, "get admin my-info", err)
 			return
 		}
 
 		response := adminspec.MyInfoResponse{
-			AdminUserID: admin.AdminUserID.String(),
-			EmailAddress: common.EmailAddress(
-				admin.EmailAddress,
-			),
+			AdminUserID:      admin.AdminUserID.String(),
+			EmailAddress:     common.EmailAddress(admin.EmailAddress),
 			DisplayName:      admin.DisplayName,
 			AdminUserState:   adminuser.State(admin.AdminUserState),
 			CreatedAt:        admin.CreatedAt.Time,

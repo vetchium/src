@@ -39,40 +39,33 @@ type adminDBStub struct {
 }
 
 type createAdminSessionFunc func(
-	context.Context,
-	sqlc.CreateAdminSessionParams,
+	context.Context, sqlc.CreateAdminSessionParams,
 ) (sqlc.CreateAdminSessionRow, error)
 
 type deleteAdminSessionFunc func(
-	context.Context,
-	sqlc.DeleteAdminSessionParams,
+	context.Context, sqlc.DeleteAdminSessionParams,
 ) (int64, error)
 
 type getAdminUserForLoginFunc func(
-	context.Context,
-	string,
+	context.Context, string,
 ) (sqlc.GetAdminUserForLoginRow, error)
 
 type authenticateAdminSessionFunc func(
-	context.Context,
-	[]byte,
+	context.Context, []byte,
 ) (sqlc.AuthenticateAdminSessionRow, error)
 
 type getAdminMyInfoFunc func(
-	context.Context,
-	sqlc.GetAdminMyInfoParams,
+	context.Context, sqlc.GetAdminMyInfoParams,
 ) (sqlc.GetAdminMyInfoRow, error)
 
 func (s *adminDBStub) CreateAdminSession(
-	ctx context.Context,
-	arg sqlc.CreateAdminSessionParams,
+	ctx context.Context, arg sqlc.CreateAdminSessionParams,
 ) (sqlc.CreateAdminSessionRow, error) {
 	return s.createAdminSession(ctx, arg)
 }
 
 func (s *adminDBStub) DeleteAdminSession(
-	ctx context.Context,
-	arg sqlc.DeleteAdminSessionParams,
+	ctx context.Context, arg sqlc.DeleteAdminSessionParams,
 ) (int64, error) {
 	return s.deleteAdminSession(ctx, arg)
 }
@@ -87,22 +80,19 @@ func (s *adminDBStub) DeleteExpiredAdminSessions(
 }
 
 func (s *adminDBStub) GetAdminUserForLogin(
-	ctx context.Context,
-	email string,
+	ctx context.Context, email string,
 ) (sqlc.GetAdminUserForLoginRow, error) {
 	return s.getAdminUserForLogin(ctx, email)
 }
 
 func (s *adminDBStub) AuthenticateAdminSession(
-	ctx context.Context,
-	tokenHash []byte,
+	ctx context.Context, tokenHash []byte,
 ) (sqlc.AuthenticateAdminSessionRow, error) {
 	return s.authenticateAdminSession(ctx, tokenHash)
 }
 
 func (s *adminDBStub) GetAdminMyInfo(
-	ctx context.Context,
-	arg sqlc.GetAdminMyInfoParams,
+	ctx context.Context, arg sqlc.GetAdminMyInfoParams,
 ) (sqlc.GetAdminMyInfoRow, error) {
 	return s.getAdminMyInfo(ctx, arg)
 }
@@ -119,13 +109,10 @@ func TestLoginCreatesHashedSession(t *testing.T) {
 
 	db := &adminDBStub{}
 	db.getAdminUserForLogin = func(
-		_ context.Context,
-		email string,
+		_ context.Context, email string,
 	) (sqlc.GetAdminUserForLoginRow, error) {
 		if email != "admin@example.com" {
-			t.Fatalf(
-				"normalized email = %q, want admin@example.com", email,
-			)
+			t.Fatalf("normalized email = %q, want admin@example.com", email)
 		}
 		return sqlc.GetAdminUserForLoginRow{
 			AdminUserID:    adminUserID,
@@ -136,22 +123,15 @@ func TestLoginCreatesHashedSession(t *testing.T) {
 		}, nil
 	}
 	db.createAdminSession = func(
-		_ context.Context,
-		arg sqlc.CreateAdminSessionParams,
+		_ context.Context, arg sqlc.CreateAdminSessionParams,
 	) (sqlc.CreateAdminSessionRow, error) {
 		storedHash = append([]byte(nil), arg.SessionTokenHash...)
 		if arg.AdminUserID != adminUserID {
-			t.Fatalf(
-				"AdminUserID = %v, want %v", arg.AdminUserID, adminUserID,
-			)
+			t.Fatalf("AdminUserID = %v, want %v", arg.AdminUserID, adminUserID)
 		}
 		minimumTTL := 23*time.Hour + 59*time.Minute
-		if !arg.ExpiresAt.Valid ||
-			time.Until(arg.ExpiresAt.Time) < minimumTTL {
-			t.Fatalf(
-				"ExpiresAt = %v, want approximately 24 hours",
-				arg.ExpiresAt,
-			)
+		if !arg.ExpiresAt.Valid || time.Until(arg.ExpiresAt.Time) < minimumTTL {
+			t.Fatalf("ExpiresAt = %v, want approximately 24 hours", arg.ExpiresAt)
 		}
 		return sqlc.CreateAdminSessionRow{ExpiresAt: arg.ExpiresAt}, nil
 	}
@@ -202,8 +182,7 @@ func TestLoginRejectsDisabledAdmin(t *testing.T) {
 	}
 	db := &adminDBStub{
 		getAdminUserForLogin: func(
-			context.Context,
-			string,
+			context.Context, string,
 		) (sqlc.GetAdminUserForLoginRow, error) {
 			return sqlc.GetAdminUserForLoginRow{
 				PasswordHash:   string(passwordHash),
@@ -211,8 +190,7 @@ func TestLoginRejectsDisabledAdmin(t *testing.T) {
 			}, nil
 		},
 		createAdminSession: func(
-			context.Context,
-			sqlc.CreateAdminSessionParams,
+			context.Context, sqlc.CreateAdminSessionParams,
 		) (sqlc.CreateAdminSessionRow, error) {
 			t.Fatal("CreateAdminSession called for disabled user")
 			return sqlc.CreateAdminSessionRow{}, nil
@@ -239,8 +217,7 @@ func TestLoginDoesNotRevealDisabledAccountForWrongPassword(t *testing.T) {
 	}
 	db := &adminDBStub{
 		getAdminUserForLogin: func(
-			context.Context,
-			string,
+			context.Context, string,
 		) (sqlc.GetAdminUserForLoginRow, error) {
 			return sqlc.GetAdminUserForLoginRow{
 				PasswordHash:   string(passwordHash),
@@ -273,8 +250,7 @@ func TestAuthenticatedMyInfoAndLogout(t *testing.T) {
 
 	db := &adminDBStub{}
 	db.authenticateAdminSession = func(
-		_ context.Context,
-		gotHash []byte,
+		_ context.Context, gotHash []byte,
 	) (sqlc.AuthenticateAdminSessionRow, error) {
 		if !bytes.Equal(gotHash, tokenHash[:]) {
 			t.Fatalf("auth hash = %x, want %x", gotHash, tokenHash)
@@ -285,8 +261,7 @@ func TestAuthenticatedMyInfoAndLogout(t *testing.T) {
 		}, nil
 	}
 	db.getAdminMyInfo = func(
-		_ context.Context,
-		arg sqlc.GetAdminMyInfoParams,
+		_ context.Context, arg sqlc.GetAdminMyInfoParams,
 	) (sqlc.GetAdminMyInfoRow, error) {
 		if arg.AdminUserID != adminUserID || arg.AdminSessionID != adminSessionID {
 			t.Fatalf(
@@ -311,8 +286,7 @@ func TestAuthenticatedMyInfoAndLogout(t *testing.T) {
 		}, nil
 	}
 	db.deleteAdminSession = func(
-		_ context.Context,
-		arg sqlc.DeleteAdminSessionParams,
+		_ context.Context, arg sqlc.DeleteAdminSessionParams,
 	) (int64, error) {
 		if arg.AdminUserID != adminUserID || arg.AdminSessionID != adminSessionID {
 			t.Fatalf(
@@ -326,9 +300,7 @@ func TestAuthenticatedMyInfoAndLogout(t *testing.T) {
 	s := testServer(db)
 
 	myInfo := middleware.AdminAuth(s)(MyInfo(s))
-	request := httptest.NewRequest(
-		http.MethodGet, "/api/admin/my-info", nil,
-	)
+	request := httptest.NewRequest(http.MethodGet, "/api/admin/my-info", nil)
 	request.Header.Set("Authorization", "Bearer "+token)
 	response := httptest.NewRecorder()
 	myInfo.ServeHTTP(response, request)
@@ -347,8 +319,7 @@ func TestAuthenticatedMyInfoAndLogout(t *testing.T) {
 		info.AdminUserState != adminuser.Active {
 		t.Fatalf("my-info = %+v", info)
 	}
-	if info.TenantID != "test" ||
-		!info.SessionExpiresAt.Equal(sessionExpiresAt) {
+	if info.TenantID != "test" || !info.SessionExpiresAt.Equal(sessionExpiresAt) {
 		t.Fatalf("my-info metadata = %+v", info)
 	}
 	if got := response.Header().Get("Cache-Control"); got != "no-store" {
@@ -377,18 +348,13 @@ func TestAdminAuthRequiresBearerToken(t *testing.T) {
 		t.Run(authorization, func(t *testing.T) {
 			db := &adminDBStub{
 				authenticateAdminSession: func(
-					context.Context,
-					[]byte,
+					context.Context, []byte,
 				) (sqlc.AuthenticateAdminSessionRow, error) {
-					t.Fatal(
-						"AuthenticateAdminSession called without bearer token",
-					)
+					t.Fatal("AuthenticateAdminSession called without bearer token")
 					return sqlc.AuthenticateAdminSessionRow{}, nil
 				},
 			}
-			protected := http.HandlerFunc(func(
-				http.ResponseWriter, *http.Request,
-			) {
+			protected := http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
 				t.Fatal("protected handler called")
 			})
 			handler := middleware.AdminAuth(testServer(db))(protected)
@@ -413,21 +379,16 @@ func TestAdminAuthAcceptsBearerHeaderVariants(t *testing.T) {
 			wantHash := sha256.Sum256([]byte("presented-token"))
 			db := &adminDBStub{
 				authenticateAdminSession: func(
-					_ context.Context,
-					gotHash []byte,
+					_ context.Context, gotHash []byte,
 				) (sqlc.AuthenticateAdminSessionRow, error) {
 					if !bytes.Equal(gotHash, wantHash[:]) {
-						t.Fatalf(
-							"auth hash = %x, want %x", gotHash, wantHash,
-						)
+						t.Fatalf("auth hash = %x, want %x", gotHash, wantHash)
 					}
 					return sqlc.AuthenticateAdminSessionRow{}, nil
 				},
 			}
 			authenticated := false
-			protected := http.HandlerFunc(func(
-				http.ResponseWriter, *http.Request,
-			) {
+			protected := http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
 				authenticated = true
 			})
 			handler := middleware.AdminAuth(testServer(db))(protected)
@@ -444,15 +405,12 @@ func TestAdminAuthAcceptsBearerHeaderVariants(t *testing.T) {
 func TestAdminAuthRejectsInvalidBearerToken(t *testing.T) {
 	db := &adminDBStub{
 		authenticateAdminSession: func(
-			context.Context,
-			[]byte,
+			context.Context, []byte,
 		) (sqlc.AuthenticateAdminSessionRow, error) {
 			return sqlc.AuthenticateAdminSessionRow{}, pgx.ErrNoRows
 		},
 	}
-	protected := http.HandlerFunc(func(
-		http.ResponseWriter, *http.Request,
-	) {
+	protected := http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
 		t.Fatal("protected handler called")
 	})
 	handler := middleware.AdminAuth(testServer(db))(protected)
@@ -468,8 +426,7 @@ func TestMyInfoRejectsSessionInvalidatedAfterAuthentication(t *testing.T) {
 	adminSessionID := pgtype.UUID{Bytes: [16]byte{15: 8}, Valid: true}
 	db := &adminDBStub{
 		authenticateAdminSession: func(
-			context.Context,
-			[]byte,
+			context.Context, []byte,
 		) (sqlc.AuthenticateAdminSessionRow, error) {
 			return sqlc.AuthenticateAdminSessionRow{
 				AdminUserID:    adminUserID,
@@ -477,8 +434,7 @@ func TestMyInfoRejectsSessionInvalidatedAfterAuthentication(t *testing.T) {
 			}, nil
 		},
 		getAdminMyInfo: func(
-			_ context.Context,
-			arg sqlc.GetAdminMyInfoParams,
+			_ context.Context, arg sqlc.GetAdminMyInfoParams,
 		) (sqlc.GetAdminMyInfoRow, error) {
 			if arg.AdminUserID != adminUserID || arg.AdminSessionID != adminSessionID {
 				t.Fatalf(
@@ -492,9 +448,7 @@ func TestMyInfoRejectsSessionInvalidatedAfterAuthentication(t *testing.T) {
 
 	s := testServer(db)
 	handler := middleware.AdminAuth(s)(MyInfo(s))
-	request := httptest.NewRequest(
-		http.MethodGet, "/api/admin/my-info", nil,
-	)
+	request := httptest.NewRequest(http.MethodGet, "/api/admin/my-info", nil)
 	request.Header.Set("Authorization", "Bearer valid-then-invalidated")
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
@@ -523,9 +477,7 @@ func TestLoginErrorResponses(t *testing.T) {
 			http.MethodPost, "/api/admin/login", requestBody,
 		)
 		Login(testServer(&adminDBStub{})).ServeHTTP(response, request)
-		assertValidationFailed(
-			t, response, []string{"email_address", "password"},
-		)
+		assertValidationFailed(t, response, []string{"email_address", "password"})
 	})
 
 	t.Run("wrong field types", func(t *testing.T) {
@@ -555,8 +507,7 @@ func TestLoginErrorResponses(t *testing.T) {
 	t.Run(matchingResponses, func(t *testing.T) {
 		unknownAccountDB := &adminDBStub{
 			getAdminUserForLogin: func(
-				context.Context,
-				string,
+				context.Context, string,
 			) (sqlc.GetAdminUserForLoginRow, error) {
 				return sqlc.GetAdminUserForLoginRow{}, pgx.ErrNoRows
 			},
@@ -582,8 +533,7 @@ func TestLoginErrorResponses(t *testing.T) {
 		}
 		wrongPasswordDB := &adminDBStub{
 			getAdminUserForLogin: func(
-				context.Context,
-				string,
+				context.Context, string,
 			) (sqlc.GetAdminUserForLoginRow, error) {
 				return sqlc.GetAdminUserForLoginRow{
 					PasswordHash:   string(passwordHash),
@@ -606,10 +556,7 @@ func TestLoginErrorResponses(t *testing.T) {
 	})
 }
 
-func assertUnauthorized(
-	t *testing.T,
-	response *httptest.ResponseRecorder,
-) {
+func assertUnauthorized(t *testing.T, response *httptest.ResponseRecorder) {
 	t.Helper()
 	assertEmptyResponse(
 		t, response, http.StatusUnauthorized, `Bearer realm="login"`,
@@ -617,10 +564,8 @@ func assertUnauthorized(
 }
 
 func assertEmptyResponse(
-	t *testing.T,
-	response *httptest.ResponseRecorder,
-	status int,
-	challenge string,
+	t *testing.T, response *httptest.ResponseRecorder,
+	status int, challenge string,
 ) {
 	t.Helper()
 	if response.Code != status {
@@ -641,9 +586,7 @@ func assertEmptyResponse(
 }
 
 func assertProblem(
-	t *testing.T,
-	response *httptest.ResponseRecorder,
-	want problem.Details,
+	t *testing.T, response *httptest.ResponseRecorder, want problem.Details,
 ) {
 	t.Helper()
 	if response.Code != want.Status {
@@ -672,9 +615,7 @@ func assertProblem(
 }
 
 func assertValidationFailed(
-	t *testing.T,
-	response *httptest.ResponseRecorder,
-	fields []string,
+	t *testing.T, response *httptest.ResponseRecorder, fields []string,
 ) {
 	t.Helper()
 	if response.Code != http.StatusBadRequest {

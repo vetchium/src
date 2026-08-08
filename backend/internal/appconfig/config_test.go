@@ -21,12 +21,9 @@ func TestLoadFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.TenantID != "sgp" ||
-		cfg.Env != EnvironmentDev ||
+	if cfg.TenantID != "sgp" || cfg.Env != EnvironmentDev ||
 		cfg.AdminAPIServer.AdminSessionTTL != 24*time.Hour {
-		t.Fatalf(
-			"config = %+v, want tenant sgp and admin-session TTL 24h", cfg,
-		)
+		t.Fatalf("config = %+v, want tenant sgp and admin-session TTL 24h", cfg)
 	}
 	if cfg.Workers.RetryBackoffLimit != 5*time.Minute ||
 		cfg.Workers.PruneAdminSessionsTimer != time.Hour {
@@ -50,17 +47,13 @@ func TestLoadFile(t *testing.T) {
 		}
 	}
 	if strings.Contains(databaseURL, "%0A") {
-		t.Fatalf(
-			"database URL contains password-file newline: %q", databaseURL,
-		)
+		t.Fatalf("database URL contains password-file newline: %q", databaseURL)
 	}
 }
 
 func TestLoadUsesConfiguredPathAndDatabaseOverrides(t *testing.T) {
 	passwordFile := filepath.Join(t.TempDir(), "password")
-	if err := os.WriteFile(
-		passwordFile, []byte("secret"), 0o600,
-	); err != nil {
+	if err := os.WriteFile(passwordFile, []byte("secret"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("APP_CONFIG_FILE", writeConfig(t, passwordFile, ""))
@@ -71,12 +64,8 @@ func TestLoadUsesConfiguredPathAndDatabaseOverrides(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Database.Name != "overridden_db" ||
-		cfg.Database.SSLMode != "require" {
-		t.Fatalf(
-			"database config = %+v, want deployment overrides",
-			cfg.Database,
-		)
+	if cfg.Database.Name != "overridden_db" || cfg.Database.SSLMode != "require" {
+		t.Fatalf("database config = %+v, want deployment overrides", cfg.Database)
 	}
 }
 
@@ -105,8 +94,7 @@ func TestLoadFileRejectsUnknownEnvironment(t *testing.T) {
 	}
 
 	_, err = LoadFile(path)
-	if err == nil ||
-		!strings.Contains(err.Error(), "env must be one of") {
+	if err == nil || !strings.Contains(err.Error(), "env must be one of") {
 		t.Fatalf("LoadFile() error = %v, want environment error", err)
 	}
 }
@@ -142,9 +130,7 @@ func TestLoadFileRequiresPositiveDurations(t *testing.T) {
 	if err == nil || !strings.Contains(
 		err.Error(), "workers.retryBackoffLimit must be positive",
 	) {
-		t.Fatalf(
-			"LoadFile() error = %v, want positive retry backoff error", err,
-		)
+		t.Fatalf("LoadFile() error = %v, want positive retry backoff error", err)
 	}
 }
 
@@ -171,8 +157,7 @@ func TestCheckedInConfigs(t *testing.T) {
 				}
 				if cfg.TenantID != region || cfg.Env != test.env {
 					t.Fatalf(
-						"config identifies tenant %q in %q, "+
-							"want tenant %q in %q",
+						"config identifies tenant %q in %q, want tenant %q in %q",
 						cfg.TenantID, cfg.Env, region, test.env,
 					)
 				}

@@ -20,9 +20,7 @@ func main() {
 
 	if err := run(log); err != nil {
 		log.Error(
-			"process exited with error",
-			"event", "process_exit",
-			"error", err,
+			"process exited with error", "event", "process_exit", "error", err,
 		)
 		os.Exit(1)
 	}

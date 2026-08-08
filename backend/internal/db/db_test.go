@@ -22,9 +22,7 @@ func TestConnectKeepsPoolWhenDatabaseIsUnavailable(t *testing.T) {
 	defer pool.Close()
 
 	if !bytes.Contains(logs.Bytes(), []byte("database unavailable")) {
-		t.Fatalf(
-			"log = %q, want database unavailable warning", logs.String(),
-		)
+		t.Fatalf("log = %q, want database unavailable warning", logs.String())
 	}
 }
 
@@ -48,9 +46,7 @@ func TestConnectSetsBoundedConnectionTimeout(t *testing.T) {
 		)
 	}
 	if got := pool.Config().PingTimeout; got != databaseConnectTimeout {
-		t.Fatalf(
-			"PingTimeout = %s, want %s", got, databaseConnectTimeout,
-		)
+		t.Fatalf("PingTimeout = %s, want %s", got, databaseConnectTimeout)
 	}
 }
 

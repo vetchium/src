@@ -1,0 +1,39 @@
+# Go Guide
+
+This guide applies to every hand-maintained Go file in the repository. It does
+not apply to generated Go output such as `backend/internal/db/sqlc/*.go`.
+
+## Formatting and imports
+
+- Run `gofmt` on every changed Go file.
+- Group imports by domain. Put standard-library imports first, then
+  non-standard modules grouped by module owner or domain in lexical order, and
+  imports belonging to the current module last.
+- Separate import groups with one blank line and sort imports lexically within
+  each group. Do not combine `github.com/jackc/...`,
+  `github.com/vetchium/...`, `golang.org/...`, or `backend/...` in one group.
+  `backend/handlers/admin/login.go` is the repository example.
+- Keep hand-maintained source lines at or below 80 characters where practical.
+- When wrapping related lines, keep their widths reasonably balanced. Avoid a
+  nearly full first line followed by a very short continuation.
+- Do not split expressions or argument lists when the complete form fits
+  comfortably within 80 columns.
+- In structured log calls, keep every key and its value on the same physical
+  line. Prefer one key/value pair per continuation line when a call wraps.
+
+## Implementation practices
+
+- Propagate request contexts through database, logging, and downstream calls.
+- Preserve error identity with `%w` when adding context to returned errors.
+- Avoid deprecated library APIs. Check the version pinned by the owning module
+  and its documentation instead of copying examples for another version.
+- Keep required slices non-nil when their JSON representation must be `[]`.
+  Preserve `nil` only when the contract makes the value optional or nullable.
+
+## Tests and verification
+
+- Keep regression tests close to the package that owns the behavior.
+- Make tests independent and safe to run in parallel. Integration tests must
+  generate unique identifiers and clean up every record they create.
+- Run `go test ./...` from every Go module affected by the change.
+- Run `make test` from the repository root when a change spans modules.

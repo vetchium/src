@@ -16,11 +16,8 @@ func (s *Runtime) Unauthorized(w http.ResponseWriter) {
 }
 
 func (s *Runtime) InternalError(
-	ctx context.Context,
-	w http.ResponseWriter,
-	operation string,
-	err error,
-	attrs ...any,
+	ctx context.Context, w http.ResponseWriter,
+	operation string, err error, attrs ...any,
 ) {
 	logAttrs := []any{
 		"event", "request_error",
@@ -44,9 +41,7 @@ func (s *Runtime) InternalError(
 }
 
 func (s *Runtime) InvalidJSON(
-	ctx context.Context,
-	w http.ResponseWriter,
-	err error,
+	ctx context.Context, w http.ResponseWriter, err error,
 ) {
 	s.WarnContext(
 		ctx, "invalid JSON request",
@@ -55,9 +50,7 @@ func (s *Runtime) InvalidJSON(
 	)
 	w.Header().Set("Content-Type", problemspec.MediaType)
 	w.WriteHeader(http.StatusBadRequest)
-	if err := json.NewEncoder(w).Encode(
-		problemspec.InvalidJSONError,
-	); err != nil {
+	if err := json.NewEncoder(w).Encode(problemspec.InvalidJSONError); err != nil {
 		s.ErrorContext(
 			ctx, "encode invalid JSON response",
 			"event", "response_encode_error",
@@ -67,9 +60,7 @@ func (s *Runtime) InvalidJSON(
 }
 
 func (s *Runtime) ValidationFailed(
-	ctx context.Context,
-	w http.ResponseWriter,
-	fields []string,
+	ctx context.Context, w http.ResponseWriter, fields []string,
 ) {
 	w.Header().Set("Content-Type", problemspec.MediaType)
 	w.WriteHeader(http.StatusBadRequest)

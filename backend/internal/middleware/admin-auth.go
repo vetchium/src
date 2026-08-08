@@ -26,15 +26,13 @@ func AdminAuth(s *adminapi.Server) func(http.Handler) http.Handler {
 			ctx := r.Context()
 			authorization := r.Header.Get("Authorization")
 			credentials := strings.Fields(authorization)
-			if len(credentials) != 2 ||
-				!strings.EqualFold(credentials[0], "Bearer") {
+			if len(credentials) != 2 || !strings.EqualFold(credentials[0], "Bearer") {
 				s.Unauthorized(w)
 				return
 			}
 			tokenHash := sha256.Sum256([]byte(credentials[1]))
 
-			session, err := s.Queries.AuthenticateAdminSession(
-				ctx, tokenHash[:])
+			session, err := s.Queries.AuthenticateAdminSession(ctx, tokenHash[:])
 			if err != nil {
 				if errors.Is(err, pgx.ErrNoRows) {
 					s.WarnContext(
@@ -54,17 +52,14 @@ func AdminAuth(s *adminapi.Server) func(http.Handler) http.Handler {
 				UserID:    session.AdminUserID,
 				SessionID: session.AdminSessionID,
 			}
-			ctx = context.WithValue(ctx,
-				adminIdentityContextKey{}, identity)
+			ctx = context.WithValue(ctx, adminIdentityContextKey{}, identity)
 			w.Header().Set("Cache-Control", "no-store")
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
 }
 
-func AdminIdentityFromContext(
-	ctx context.Context,
-) (AdminIdentity, bool) {
+func AdminIdentityFromContext(ctx context.Context) (AdminIdentity, bool) {
 	identity, ok := ctx.Value(adminIdentityContextKey{}).(AdminIdentity)
 	return identity, ok
 }

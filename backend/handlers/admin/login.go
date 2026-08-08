@@ -34,10 +34,7 @@ func Login(s *adminapi.Server) http.HandlerFunc {
 
 		invalidFields := request.Validate()
 		if len(invalidFields) != 0 {
-			s.DebugContext(
-				ctx, "invalid req",
-				"fields", invalidFields,
-			)
+			s.DebugContext(ctx, "invalid req", "fields", invalidFields)
 			s.ValidationFailed(ctx, w, invalidFields)
 			return
 		}
@@ -47,8 +44,7 @@ func Login(s *adminapi.Server) http.HandlerFunc {
 		// Sleep for random time to prevent timing attacks
 		time.Sleep(time.Duration(mrand.IntN(5)) * time.Second)
 
-		adminUser, err := s.Queries.GetAdminUserForLogin(
-			ctx, emailAddress)
+		adminUser, err := s.Queries.GetAdminUserForLogin(ctx, emailAddress)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				s.WarnContext(
@@ -65,15 +61,10 @@ func Login(s *adminapi.Server) http.HandlerFunc {
 		}
 
 		if err := bcrypt.CompareHashAndPassword(
-			[]byte(adminUser.PasswordHash),
-			[]byte(request.Password),
+			[]byte(adminUser.PasswordHash), []byte(request.Password),
 		); err != nil {
-			if !errors.Is(
-				err, bcrypt.ErrMismatchedHashAndPassword,
-			) {
-				s.InternalError(
-					ctx, w, "compare admin password", err,
-				)
+			if !errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
+				s.InternalError(ctx, w, "compare admin password", err)
 				return
 			}
 			s.WarnContext(
@@ -86,8 +77,7 @@ func Login(s *adminapi.Server) http.HandlerFunc {
 			return
 		}
 
-		if adminUser.AdminUserState !=
-			sqlc.VetchiumAdminUserStateActive {
+		if adminUser.AdminUserState != sqlc.VetchiumAdminUserStateActive {
 			s.DebugContext(ctx, "disabled user")
 			w.WriteHeader(http.StatusForbidden)
 			return
@@ -104,22 +94,22 @@ func Login(s *adminapi.Server) http.HandlerFunc {
 		tokenHash := sha256.Sum256([]byte(token))
 
 		expiresAt := time.Now().UTC().Add(s.AdminSessionTTL)
-		session, err := s.Queries.CreateAdminSession(ctx,
-			sqlc.CreateAdminSessionParams{
+		session, err := s.Queries.CreateAdminSession(
+			ctx, sqlc.CreateAdminSessionParams{
 				SessionTokenHash: tokenHash[:],
 				AdminUserID:      adminUser.AdminUserID,
 				ExpiresAt: pgtype.Timestamptz{
 					Time:  expiresAt,
 					Valid: true,
 				},
-			})
+			},
+		)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				// The account was active when checked, but it became
 				// unavailable before the session was created.
 				s.WarnContext(
-					ctx,
-					"admin session creation rejected",
+					ctx, "admin session creation rejected",
 					"event", "authentication_failed",
 					"reason", "user_unavailable",
 					"error", err,
@@ -127,9 +117,7 @@ func Login(s *adminapi.Server) http.HandlerFunc {
 				w.WriteHeader(http.StatusForbidden)
 				return
 			}
-			s.InternalError(
-				ctx, w, "create admin session", err,
-			)
+			s.InternalError(ctx, w, "create admin session", err)
 			return
 		}
 		if session.ExpiresAt.Valid {
@@ -142,9 +130,7 @@ func Login(s *adminapi.Server) http.HandlerFunc {
 		if err := json.NewEncoder(w).Encode(admin.LoginResponse{
 			SessionToken: token, ExpiresAt: expiresAt,
 		}); err != nil {
-			s.InternalError(
-				ctx, w, "encode admin login response", err,
-			)
+			s.InternalError(ctx, w, "encode admin login response", err)
 		}
 	}
 }

@@ -109,26 +109,20 @@ func Load() (Config, error) {
 func LoadFile(path string) (Config, error) {
 	contents, err := os.ReadFile(path)
 	if err != nil {
-		return Config{}, fmt.Errorf(
-			"read application config %q: %w", path, err,
-		)
+		return Config{}, fmt.Errorf("read application config %q: %w", path, err)
 	}
 
 	var raw fileConfig
 	decoder := json.NewDecoder(bytes.NewReader(contents))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&raw); err != nil {
-		return Config{}, fmt.Errorf(
-			"decode application config %q: %w", path, err,
-		)
+		return Config{}, fmt.Errorf("decode application config %q: %w", path, err)
 	}
 	if err := decoder.Decode(&struct{}{}); err != io.EOF {
 		if err == nil {
 			err = fmt.Errorf("multiple JSON values")
 		}
-		return Config{}, fmt.Errorf(
-			"decode application config %q: %w", path, err,
-		)
+		return Config{}, fmt.Errorf("decode application config %q: %w", path, err)
 	}
 
 	if err := required("tenantId", raw.TenantID); err != nil {
@@ -227,8 +221,7 @@ func (d Database) URL() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf(
 			"read database password file %q: %w",
-			d.PasswordFile,
-			err,
+			d.PasswordFile, err,
 		)
 	}
 	password := strings.TrimRight(string(value), "\r\n")

@@ -19,8 +19,9 @@ type LoginRequest struct {
 // Normalize returns the request with the transformations documented by the
 // TypeSpec contract applied. The original request is not modified.
 func (r LoginRequest) Normalize() LoginRequest {
-	r.EmailAddress = common.EmailAddress(strings.ToLower(
-		strings.TrimSpace(string(r.EmailAddress))))
+	r.EmailAddress = common.EmailAddress(
+		strings.ToLower(strings.TrimSpace(string(r.EmailAddress))),
+	)
 	return r
 }
 

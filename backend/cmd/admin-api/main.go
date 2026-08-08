@@ -29,9 +29,7 @@ func main() {
 
 	if err := run(log); err != nil {
 		log.Error(
-			"process exited with error",
-			"event", "process_exit",
-			"error", err,
+			"process exited with error", "event", "process_exit", "error", err,
 		)
 		os.Exit(1)
 	}
@@ -79,11 +77,7 @@ func run(log *slog.Logger) error {
 		log.Info("server started", "address", httpServer.Addr)
 		err := httpServer.ListenAndServe()
 		if errors.Is(err, http.ErrServerClosed) {
-			log.Info(
-				"HTTP server closed",
-				"event", "server_closed",
-				"error", err,
-			)
+			log.Info("HTTP server closed", "event", "server_closed", "error", err)
 			err = nil
 		}
 		errC <- err
@@ -93,11 +87,7 @@ func run(log *slog.Logger) error {
 	case err := <-errC:
 		return err
 	case <-ctx.Done():
-		log.Info(
-			"shutdown requested",
-			"event", "shutdown",
-			"error", ctx.Err(),
-		)
+		log.Info("shutdown requested", "event", "shutdown", "error", ctx.Err())
 	}
 
 	shutdownCtx, cancel := context.WithTimeout(

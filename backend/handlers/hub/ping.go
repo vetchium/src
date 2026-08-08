@@ -12,10 +12,8 @@ func Ping(s *hubapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var nonce string
 		var databaseTime time.Time
-		row := s.DB.QueryRow(
-			r.Context(),
-			`SELECT gen_random_uuid()::text, clock_timestamp()`,
-		)
+		query := `SELECT gen_random_uuid()::text, clock_timestamp()`
+		row := s.DB.QueryRow(r.Context(), query)
 		if err := row.Scan(&nonce, &databaseTime); err != nil {
 			s.InternalError(r.Context(), w, "query hub ping", err)
 			return

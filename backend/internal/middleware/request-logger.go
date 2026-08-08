@@ -20,8 +20,7 @@ func RequestLogger(runtime *apiserver.Runtime) func(http.Handler) http.Handler {
 }
 
 func recoverProblems(
-	runtime *apiserver.Runtime,
-	next http.Handler,
+	runtime *apiserver.Runtime, next http.Handler,
 ) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()

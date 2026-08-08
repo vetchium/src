@@ -12,9 +12,7 @@ import (
 const databaseConnectTimeout = 10 * time.Second
 
 func Connect(
-	ctx context.Context,
-	databaseURL string,
-	log *slog.Logger,
+	ctx context.Context, databaseURL string, log *slog.Logger,
 ) (*pgxpool.Pool, error) {
 	poolConfig, err := pgxpool.ParseConfig(databaseURL)
 	if err != nil {
@@ -40,11 +38,7 @@ func Connect(
 		// restart when PostgreSQL becomes available again.
 		message := "database unavailable; operations will retry " +
 			"through the connection pool"
-		log.Warn(
-			message,
-			"event", "database_unavailable",
-			"error", err,
-		)
+		log.Warn(message, "event", "database_unavailable", "error", err)
 		return pool, nil
 	}
 	log.Info("database connected")

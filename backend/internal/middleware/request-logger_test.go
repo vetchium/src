@@ -17,9 +17,7 @@ import (
 func TestRequestLoggerRecoversWithProblemDetails(t *testing.T) {
 	var logs bytes.Buffer
 	log := slog.New(slog.NewJSONHandler(&logs, nil))
-	panickingHandler := http.HandlerFunc(func(
-		http.ResponseWriter, *http.Request,
-	) {
+	panickingHandler := http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
 		panic("boom")
 	})
 	handler := RequestLogger(apiserver.New(nil, log))(panickingHandler)

@@ -27,9 +27,7 @@ func TestPruneAdminSessionsLogsDeletedCount(t *testing.T) {
 	var logs bytes.Buffer
 	worker := newTestWorker(slog.New(slog.NewTextHandler(&logs, nil)))
 	worker.queries = stubQuerier{
-		deleteExpiredAdminSessions: func(
-			context.Context,
-		) (int64, error) {
+		deleteExpiredAdminSessions: func(context.Context) (int64, error) {
 			return 2, nil
 		},
 	}
@@ -46,9 +44,7 @@ func TestPruneAdminSessionsStaysQuietWhenNothingExpired(t *testing.T) {
 	var logs bytes.Buffer
 	worker := newTestWorker(slog.New(slog.NewTextHandler(&logs, nil)))
 	worker.queries = stubQuerier{
-		deleteExpiredAdminSessions: func(
-			context.Context,
-		) (int64, error) {
+		deleteExpiredAdminSessions: func(context.Context) (int64, error) {
 			return 0, nil
 		},
 	}
@@ -65,9 +61,7 @@ func TestPruneAdminSessionsWrapsQueryError(t *testing.T) {
 	wantErr := errors.New("transient database error")
 	worker := newTestWorker(slog.Default())
 	worker.queries = stubQuerier{
-		deleteExpiredAdminSessions: func(
-			context.Context,
-		) (int64, error) {
+		deleteExpiredAdminSessions: func(context.Context) (int64, error) {
 			return 0, wantErr
 		},
 	}

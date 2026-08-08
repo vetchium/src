@@ -90,11 +90,7 @@ func (w *Worker) runPeriodicJob(ctx context.Context, job periodicJob) {
 				)
 				return
 			}
-			log.Error(
-				"job failed",
-				"event", "worker_job_error",
-				"error", err,
-			)
+			log.Error("job failed", "event", "worker_job_error", "error", err)
 			backoff = nextBackoff(backoff, w.retryBackoffLimit)
 		} else {
 			backoff = 0
