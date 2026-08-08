@@ -7,10 +7,10 @@ import (
 	"net/http"
 	"strings"
 
-	"backend/internal/adminapi"
-
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+
+	"backend/internal/adminapi"
 )
 
 type adminIdentityContextKey struct{}

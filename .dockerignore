@@ -12,3 +12,7 @@
 !db/
 !db/migrations/
 !db/migrations/**
+
+# Backend images regenerate this package from SQL sources. Never copy the
+# committed editor-friendly output into the build context.
+backend/internal/db/sqlc/

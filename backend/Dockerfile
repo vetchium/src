@@ -17,8 +17,9 @@ COPY backend/ .
 COPY db/migrations /src/db/migrations
 
 # Generated database access is always rebuilt from the SQL sources in this
-# image. Removing the committed output first prevents files for deleted queries
-# from surviving into a production build.
+# image. The committed output is excluded by .dockerignore; removing the
+# directory here as well prevents stale files from surviving if the build
+# context changes later.
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     rm -rf internal/db/sqlc && \

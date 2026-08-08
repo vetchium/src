@@ -5,9 +5,10 @@ import (
 	"net/http"
 	"runtime/debug"
 
-	"backend/internal/apiserver"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/httplog/v3"
+
+	"backend/internal/apiserver"
 )
 
 func RequestLogger(runtime *apiserver.Runtime) func(http.Handler) http.Handler {

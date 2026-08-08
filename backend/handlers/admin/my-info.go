@@ -5,13 +5,15 @@ import (
 	"errors"
 	"net/http"
 
-	"backend/internal/adminapi"
-	"backend/internal/db/sqlc"
-	"backend/internal/middleware"
 	"github.com/jackc/pgx/v5"
+
 	adminspec "github.com/vetchium/src/typespec/admin"
 	adminuser "github.com/vetchium/src/typespec/admin/user"
 	"github.com/vetchium/src/typespec/common"
+
+	"backend/internal/adminapi"
+	"backend/internal/db/sqlc"
+	"backend/internal/middleware"
 )
 
 func MyInfo(s *adminapi.Server) http.HandlerFunc {

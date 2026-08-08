@@ -9,8 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	"backend/internal/apiserver"
 	"github.com/vetchium/src/typespec/problem"
+
+	"backend/internal/apiserver"
 )
 
 func TestRequestLoggerRecoversWithProblemDetails(t *testing.T) {
