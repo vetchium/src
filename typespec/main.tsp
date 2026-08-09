@@ -2,7 +2,7 @@ import "@typespec/http";
 import "@typespec/openapi3";
 
 import "./common/common.tsp";
-import "./admin/auth.tsp";
+import "./admin/admin.tsp";
 
 using TypeSpec.Http;
 

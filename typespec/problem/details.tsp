@@ -14,42 +14,49 @@ model Details {
   fields?: string[];
 }
 
-const InternalServerError: Details = #{
+/** An RFC 9457 response with a stable problem body. */
+alias Response<Status extends int32, Body extends Details> = {
+  @statusCode status_code: Status;
+  @header("Content-Type") content_type: "application/problem+json";
+  @body body: Body;
+};
+
+/** A 401 RFC 9457 response carrying its required authentication challenge. */
+alias AuthenticationResponse<Challenge extends string, Body extends Details> = {
+  @statusCode status_code: 401;
+  @header("WWW-Authenticate") www_authenticate: Challenge;
+  @header("Content-Type") content_type: "application/problem+json";
+  @body body: Body;
+};
+
+const InternalServerError = #{
   type: "vetchium-problem-details/internal-server-error",
   title: "Internal Server Error",
   status: 500,
   detail: "Server has encountered an error",
 };
 
-alias InternalServerErrorResponse = {
-  @statusCode status_code: 500;
-  @header("Content-Type") content_type: "application/problem+json";
-  @body body: typeof InternalServerError;
-};
+alias InternalServerErrorResponse = Response<500, typeof InternalServerError>;
 
-const InvalidJSONError: Details = #{
+const InvalidJSONError = #{
   type: "vetchium-problem-details/invalid-json",
   title: "Invalid JSON",
   status: 400,
   detail: "Request body is not in expected JSON schema",
 };
 
-alias InvalidJSONErrorResponse = {
-  @statusCode status_code: 400;
-  @header("Content-Type") content_type: "application/problem+json";
-  @body body: typeof InvalidJSONError;
-};
+alias InvalidJSONErrorResponse = Response<400, typeof InvalidJSONError>;
 
-const ValidationFailedError: Details = #{
-  type: "vetchium-problem-details/validation-failed",
-  title: "Validation failed",
-  status: 400,
-  detail: "List of json field names in the request which failed validation",
-  fields: #[],
-};
+model ValidationFailedDetails {
+  type: "vetchium-problem-details/validation-failed";
+  title: "Validation failed";
+  status: 400;
+  detail: "List of json field names in the request which failed validation";
 
-alias ValidationFailedErrorResponse = {
-  @statusCode status_code: 400;
-  @header("Content-Type") content_type: "application/problem+json";
-  @body body: typeof ValidationFailedError;
-};
+  @minItems(1)
+  fields: string[];
+
+  instance?: string;
+}
+
+alias ValidationFailedErrorResponse = Response<400, ValidationFailedDetails>;

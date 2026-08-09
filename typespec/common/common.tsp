@@ -1,8 +1,9 @@
 namespace Vetchium;
 
 /**
- * An email address accepted by Vetchium APIs. Login requests lowercase this
- * value after removing surrounding whitespace before validating it.
+ * A canonical email address accepted by Vetchium APIs. Clients send a trimmed
+ * value; servers defensively remove surrounding whitespace and lowercase it
+ * before validation and storage.
  */
 @format("email")
 scalar EmailAddress extends string;
