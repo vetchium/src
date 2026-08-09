@@ -4,12 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 )
-
-const maxJSONBodyBytes = 1 << 20
 
 func DecodeJSON(r *http.Request, destination any) error {
 	mediaType := strings.TrimSpace(strings.Split(
@@ -18,18 +15,9 @@ func DecodeJSON(r *http.Request, destination any) error {
 	if mediaType != "application/json" {
 		return fmt.Errorf("Content-Type must be application/json")
 	}
-	decoder := json.NewDecoder(io.LimitReader(r.Body, maxJSONBodyBytes+1))
+	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(destination); err != nil {
-		return err
-	}
-	if err := decoder.Decode(&struct{}{}); err != io.EOF {
-		if err == nil {
-			return fmt.Errorf("multiple JSON values")
-		}
-		return err
-	}
-	return nil
+	return decoder.Decode(destination)
 }
 
 func (s *Runtime) JSON(

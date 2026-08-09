@@ -14,11 +14,29 @@ Use it together with `go.md`. Also read `database.md` for any database access.
   database access lives in `internal/db/sqlc/`.
 - `typespec/` is a separate contract module. Backend code consumes its exported
   API types through the replacement in `backend/go.mod`.
+- Keep controls in the layer that owns them. Generic public-ingress concerns
+  such as source rate limits, request-body size limits, and proxy trust belong
+  in Traefik or deployment configuration by default. Do not duplicate them in
+  API processes unless the task or an established contract explicitly requires
+  application-level enforcement.
+- Do not add speculative infrastructure, security mechanisms, configuration,
+  problem types, or contract responses. Implement the requested behavior and
+  the existing TypeSpec contract. Raise additional hardening as a recommendation
+  instead of silently expanding implementation scope.
+- Do not use process-local maps for public API rate limiting. They are neither
+  shared across replicas nor durable across restarts. If application-specific
+  abuse protection is explicitly required, establish its owner and distributed
+  state design before implementation.
 
 ## API handlers
 
 - Import request, response, problem, and domain types from the `typespec`
   module. Do not define replacement wire structs in handlers.
+- Decode every JSON request body in admin, hub, and org portal handlers with
+  `apiserver.DecodeJSON`; do not construct an endpoint-local `json.Decoder`.
+  The helper enforces the shared `application/json` Content-Type requirement
+  and rejects unknown fields. Request-body size limits are ingress concerns and
+  must not be added to this helper.
 - Keep handler flow explicit: decode, normalize, validate, call dependencies,
   check state, and encode the typed response. Validate before database calls or
   other side effects.
