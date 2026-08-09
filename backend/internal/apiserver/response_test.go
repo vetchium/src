@@ -14,28 +14,6 @@ import (
 	problemspec "github.com/vetchium/src/typespec/problem"
 )
 
-func TestUnauthorized(t *testing.T) {
-	runtime := New(nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
-	recorder := httptest.NewRecorder()
-	runtime.Unauthorized(recorder)
-
-	if recorder.Code != http.StatusUnauthorized {
-		t.Fatalf("status = %d, want 401", recorder.Code)
-	}
-	challenge := recorder.Header().Get("WWW-Authenticate")
-	if challenge != `Bearer realm="admin"` {
-		t.Fatalf("WWW-Authenticate = %q", challenge)
-	}
-	var details problemspec.Details
-	if err := json.NewDecoder(recorder.Body).Decode(&details); err != nil {
-		t.Fatal(err)
-	}
-	if details.Type !=
-		"vetchium-problem-details/admin-authentication-required" {
-		t.Fatalf("problem = %+v", details)
-	}
-}
-
 func TestInternalError(t *testing.T) {
 	var logs bytes.Buffer
 	runtime := New(nil, slog.New(slog.NewJSONHandler(&logs, nil)))

@@ -26,7 +26,7 @@ func MyInfo(s *adminapi.Server) http.HandlerFunc {
 			s.Problem(
 				r.Context(), w,
 				adminproblem.AdminAuthenticationRequiredError,
-				`Bearer realm="admin"`,
+				adminapi.BearerChallenge,
 			)
 			return
 		}
@@ -41,7 +41,7 @@ func MyInfo(s *adminapi.Server) http.HandlerFunc {
 				s.Problem(
 					r.Context(), w,
 					adminproblem.AdminAuthenticationRequiredError,
-					`Bearer realm="admin"`,
+					adminapi.BearerChallenge,
 				)
 				return
 			}

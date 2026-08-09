@@ -161,6 +161,7 @@ func TestLoginFailuresUseStableProblems(t *testing.T) {
 		lookup      func(context.Context, string) (sqlc.GetAdminUserForLoginRow, error)
 		status      int
 		problemType string
+		challenge   string
 	}{
 		{
 			name: "malformed JSON", body: `{`,
@@ -180,6 +181,7 @@ func TestLoginFailuresUseStableProblems(t *testing.T) {
 			},
 			status:      http.StatusUnauthorized,
 			problemType: "vetchium-problem-details/invalid-credentials",
+			challenge:   adminapi.LoginChallenge,
 		},
 	}
 	for _, tt := range tests {
@@ -198,6 +200,13 @@ func TestLoginFailuresUseStableProblems(t *testing.T) {
 			}
 			if details.Type != tt.problemType {
 				t.Fatalf("problem = %+v", details)
+			}
+			challenge := response.Header().Get("WWW-Authenticate")
+			if challenge != tt.challenge {
+				t.Fatalf(
+					"WWW-Authenticate = %q, want %q",
+					challenge, tt.challenge,
+				)
 			}
 		})
 	}

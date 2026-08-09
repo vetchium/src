@@ -8,21 +8,6 @@ import (
 	problemspec "github.com/vetchium/src/typespec/problem"
 )
 
-// Unauthorized writes a bodyless 401 response with the Bearer challenge
-// required by RFC 9110 for a 401 response.
-func (s *Runtime) Unauthorized(w http.ResponseWriter) {
-	s.Problem(
-		context.Background(), w,
-		problemspec.Details{
-			Type:   "vetchium-problem-details/admin-authentication-required",
-			Title:  "Admin authentication required",
-			Status: http.StatusUnauthorized,
-			Detail: "A valid admin bearer session is required",
-		},
-		`Bearer realm="admin"`,
-	)
-}
-
 func (s *Runtime) Problem(
 	ctx context.Context, w http.ResponseWriter, details problemspec.Details,
 	wwwAuthenticate ...string,

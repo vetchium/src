@@ -40,7 +40,7 @@ test.describe("Admin authentication", () => {
         "vetchium-problem-details/invalid-credentials",
       );
       expect(response.headers()["www-authenticate"]).toBe(
-        'VetchiumAdminLogin realm="admin"',
+        'VetchiumLogin realm="admin"',
       );
     }
   });

@@ -108,7 +108,7 @@ func CompletePasswordReset(s *adminapi.Server) http.HandlerFunc {
 				if errors.Is(err, pgx.ErrNoRows) {
 					return idempotentResult[struct{}]{}, &apiProblem{
 						details:         adminproblem.InvalidPasswordResetTokenError,
-						wwwAuthenticate: `VetchiumAdminPasswordReset realm="admin"`,
+						wwwAuthenticate: adminapi.PasswordResetChallenge,
 					}, nil
 				}
 				if err != nil {
@@ -131,7 +131,7 @@ func CompletePasswordReset(s *adminapi.Server) http.HandlerFunc {
 				if !completed {
 					return idempotentResult[struct{}]{}, &apiProblem{
 						details:         adminproblem.InvalidPasswordResetTokenError,
-						wwwAuthenticate: `VetchiumAdminPasswordReset realm="admin"`,
+						wwwAuthenticate: adminapi.PasswordResetChallenge,
 					}, nil
 				}
 				return idempotentResult[struct{}]{
@@ -171,7 +171,7 @@ func ChangePassword(s *adminapi.Server) http.HandlerFunc {
 			s.Problem(
 				r.Context(), w,
 				adminproblem.AdminAuthenticationRequiredError,
-				`Bearer realm="admin"`,
+				adminapi.BearerChallenge,
 			)
 			return
 		}

@@ -43,7 +43,7 @@ func Login(s *adminapi.Server) http.HandlerFunc {
 				adminapi.CompareUnknownPassword(string(request.Password))
 				s.Problem(
 					ctx, w, adminproblem.InvalidCredentialsError,
-					`VetchiumAdminLogin realm="admin"`,
+					adminapi.LoginChallenge,
 				)
 				return
 			}
@@ -59,7 +59,7 @@ func Login(s *adminapi.Server) http.HandlerFunc {
 			}
 			s.Problem(
 				ctx, w, adminproblem.InvalidCredentialsError,
-				`VetchiumAdminLogin realm="admin"`,
+				adminapi.LoginChallenge,
 			)
 			return
 		}
@@ -99,7 +99,7 @@ func loginWithoutTOTP(
 		if errors.Is(err, pgx.ErrNoRows) {
 			s.Problem(
 				r.Context(), w, adminproblem.InvalidCredentialsError,
-				`VetchiumAdminLogin realm="admin"`,
+				adminapi.LoginChallenge,
 			)
 			return
 		}
@@ -149,7 +149,7 @@ func loginWithTOTP(
 		if errors.Is(err, pgx.ErrNoRows) {
 			s.Problem(
 				r.Context(), w, adminproblem.InvalidCredentialsError,
-				`VetchiumAdminLogin realm="admin"`,
+				adminapi.LoginChallenge,
 			)
 			return
 		}

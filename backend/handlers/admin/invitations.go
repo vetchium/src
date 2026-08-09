@@ -173,7 +173,7 @@ func CompleteSetup(s *adminapi.Server) http.HandlerFunc {
 					return idempotentResult[users.CompleteSetupResponse]{},
 						&apiProblem{
 							details:         adminproblem.InvalidInvitationTokenError,
-							wwwAuthenticate: `VetchiumAdminInvitation realm="admin"`,
+							wwwAuthenticate: adminapi.InvitationChallenge,
 						}, nil
 				case "user_exists":
 					return idempotentResult[users.CompleteSetupResponse]{},

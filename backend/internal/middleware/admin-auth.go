@@ -35,7 +35,7 @@ func AdminAuth(s *adminapi.Server) func(http.Handler) http.Handler {
 			if len(credentials) != 2 || !strings.EqualFold(credentials[0], "Bearer") {
 				s.Problem(
 					ctx, w, adminproblem.AdminAuthenticationRequiredError,
-					`Bearer realm="admin"`,
+					adminapi.BearerChallenge,
 				)
 				return
 			}
@@ -53,7 +53,7 @@ func AdminAuth(s *adminapi.Server) func(http.Handler) http.Handler {
 					s.Problem(
 						ctx, w,
 						adminproblem.AdminAuthenticationRequiredError,
-						`Bearer realm="admin"`,
+						adminapi.BearerChallenge,
 					)
 					return
 				}
@@ -85,7 +85,7 @@ func RequireAdminPermission(
 				s.Problem(
 					r.Context(), w,
 					adminproblem.AdminAuthenticationRequiredError,
-					`Bearer realm="admin"`,
+					adminapi.BearerChallenge,
 				)
 				return
 			}
@@ -110,7 +110,7 @@ func RequireSuperadmin(s *adminapi.Server) func(http.Handler) http.Handler {
 				s.Problem(
 					r.Context(), w,
 					adminproblem.AdminAuthenticationRequiredError,
-					`Bearer realm="admin"`,
+					adminapi.BearerChallenge,
 				)
 				return
 			}
@@ -135,7 +135,7 @@ func RequireRecentAdminAuthentication(
 				s.Problem(
 					r.Context(), w,
 					adminproblem.AdminAuthenticationRequiredError,
-					`Bearer realm="admin"`,
+					adminapi.BearerChallenge,
 				)
 				return
 			}
@@ -145,7 +145,7 @@ func RequireRecentAdminAuthentication(
 				s.Problem(
 					r.Context(), w,
 					adminproblem.RecentAuthenticationRequiredError,
-					`Bearer realm="admin"`,
+					adminapi.BearerChallenge,
 				)
 				return
 			}

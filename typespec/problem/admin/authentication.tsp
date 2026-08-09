@@ -10,7 +10,7 @@ const InvalidCredentialsError = #{
 };
 
 alias InvalidCredentialsErrorResponse = AuthenticationResponse<
-  "VetchiumAdminLogin realm=\"admin\"",
+  "VetchiumLogin realm=\"admin\"",
   typeof InvalidCredentialsError
 >;
 
@@ -69,7 +69,7 @@ const InvalidLoginChallengeError = #{
 };
 
 alias InvalidLoginChallengeErrorResponse = AuthenticationResponse<
-  "VetchiumAdminLoginChallenge realm=\"admin\"",
+  "VetchiumLoginChallenge realm=\"admin\"",
   typeof InvalidLoginChallengeError
 >;
 
@@ -93,7 +93,7 @@ const InvalidInvitationTokenError = #{
 };
 
 alias InvalidInvitationTokenErrorResponse = AuthenticationResponse<
-  "VetchiumAdminInvitation realm=\"admin\"",
+  "VetchiumInvitation realm=\"admin\"",
   typeof InvalidInvitationTokenError
 >;
 
@@ -105,6 +105,6 @@ const InvalidPasswordResetTokenError = #{
 };
 
 alias InvalidPasswordResetTokenErrorResponse = AuthenticationResponse<
-  "VetchiumAdminPasswordReset realm=\"admin\"",
+  "VetchiumPasswordReset realm=\"admin\"",
   typeof InvalidPasswordResetTokenError
 >;

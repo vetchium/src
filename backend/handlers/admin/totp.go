@@ -76,7 +76,7 @@ func VerifyTFA(s *adminapi.Server) http.HandlerFunc {
 					return idempotentResult[admincommon.AuthenticatedSessionResponse]{},
 						&apiProblem{
 							details:         adminproblem.InvalidLoginChallengeError,
-							wwwAuthenticate: `VetchiumAdminLoginChallenge realm="admin"`,
+							wwwAuthenticate: adminapi.LoginTokenChallenge,
 						}, nil
 				}
 				if err != nil {
@@ -336,7 +336,7 @@ func VerifyRecoveryCode(s *adminapi.Server) http.HandlerFunc {
 					return idempotentResult[adminauth.VerifyRecoveryCodeResponse]{},
 						&apiProblem{
 							details:         adminproblem.InvalidLoginChallengeError,
-							wwwAuthenticate: `VetchiumAdminLoginChallenge realm="admin"`,
+							wwwAuthenticate: adminapi.LoginTokenChallenge,
 						}, nil
 				}
 				if err != nil {
