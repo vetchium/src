@@ -4,9 +4,12 @@ package users
 import (
 	"time"
 
-	admincommon "github.com/vetchium/src/typespec/admin/common"
+	adminspec "github.com/vetchium/src/typespec/admin"
 	"github.com/vetchium/src/typespec/common"
 )
+
+type AdminInvitationID string
+type AdminInvitationToken common.OpaqueToken
 
 type InviteUserRequest struct {
 	EmailAddress common.EmailAddress `json:"email_address"`
@@ -25,17 +28,17 @@ func (r InviteUserRequest) Validate() []string {
 }
 
 type InviteUserResponse struct {
-	AdminInvitationID admincommon.AdminInvitationID `json:"admin_invitation_id"`
-	ExpiresAt         time.Time                     `json:"expires_at"`
+	AdminInvitationID AdminInvitationID `json:"admin_invitation_id"`
+	ExpiresAt         time.Time         `json:"expires_at"`
 }
 
 type CompleteSetupRequest struct {
-	InvitationToken            admincommon.AdminInvitationToken `json:"invitation_token"`
-	Password                   common.NewPassword               `json:"password"`
-	DisplayNames               []common.LocalizedDisplayName    `json:"display_names"`
-	PrimaryDisplayNameLanguage common.RegionalLanguageCode      `json:"primary_display_name_language"`
-	PreferredLanguage          *admincommon.LanguageCode        `json:"preferred_language,omitempty"`
-	PreferredTimezone          *common.TimeZoneID               `json:"preferred_timezone,omitempty"`
+	InvitationToken            AdminInvitationToken          `json:"invitation_token"`
+	Password                   common.NewPassword            `json:"password"`
+	DisplayNames               []common.LocalizedDisplayName `json:"display_names"`
+	PrimaryDisplayNameLanguage common.RegionalLanguageCode   `json:"primary_display_name_language"`
+	PreferredLanguage          *common.LanguageCode          `json:"preferred_language,omitempty"`
+	PreferredTimezone          *common.TimeZoneID            `json:"preferred_timezone,omitempty"`
 }
 
 func (r CompleteSetupRequest) Normalize() CompleteSetupRequest {
@@ -63,7 +66,7 @@ func (r CompleteSetupRequest) Validate() []string {
 		fields = append(fields, "primary_display_name_language")
 	}
 	if r.PreferredLanguage != nil &&
-		!admincommon.IsLanguageCode(*r.PreferredLanguage) {
+		!common.IsLanguageCode(*r.PreferredLanguage) {
 		fields = append(fields, "preferred_language")
 	}
 	if r.PreferredTimezone != nil &&
@@ -74,7 +77,11 @@ func (r CompleteSetupRequest) Validate() []string {
 }
 
 type CompleteSetupResponse struct {
-	AdminUserID admincommon.AdminUserID `json:"admin_user_id"`
+	AdminUserID adminspec.AdminUserID `json:"admin_user_id"`
+}
+
+func IsAdminInvitationID(value AdminInvitationID) bool {
+	return adminspec.IsAdminUserID(adminspec.AdminUserID(value))
 }
 
 func normalizeDisplayNames(

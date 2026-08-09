@@ -3,8 +3,8 @@ package users
 import (
 	"time"
 
+	adminspec "github.com/vetchium/src/typespec/admin"
 	"github.com/vetchium/src/typespec/admin/authorization"
-	admincommon "github.com/vetchium/src/typespec/admin/common"
 	"github.com/vetchium/src/typespec/admin/user"
 	"github.com/vetchium/src/typespec/common"
 )
@@ -62,7 +62,7 @@ func isAdminUserFilterText(value AdminUserFilterText) bool {
 }
 
 type AdminUserSummary struct {
-	AdminUserID                admincommon.AdminUserID       `json:"admin_user_id"`
+	AdminUserID                adminspec.AdminUserID         `json:"admin_user_id"`
 	EmailAddress               common.EmailAddress           `json:"email_address"`
 	DisplayNames               []common.LocalizedDisplayName `json:"display_names"`
 	PrimaryDisplayNameLanguage common.RegionalLanguageCode   `json:"primary_display_name_language"`
@@ -79,22 +79,22 @@ type ListUsersResponse struct {
 }
 
 type DisableUserRequest struct {
-	AdminUserID admincommon.AdminUserID `json:"admin_user_id"`
+	AdminUserID adminspec.AdminUserID `json:"admin_user_id"`
 }
 
 func (r DisableUserRequest) Validate() []string {
-	if !admincommon.IsAdminUserID(r.AdminUserID) {
+	if !adminspec.IsAdminUserID(r.AdminUserID) {
 		return []string{"admin_user_id"}
 	}
 	return []string{}
 }
 
 type EnableUserRequest struct {
-	AdminUserID admincommon.AdminUserID `json:"admin_user_id"`
+	AdminUserID adminspec.AdminUserID `json:"admin_user_id"`
 }
 
 func (r EnableUserRequest) Validate() []string {
-	if !admincommon.IsAdminUserID(r.AdminUserID) {
+	if !adminspec.IsAdminUserID(r.AdminUserID) {
 		return []string{"admin_user_id"}
 	}
 	return []string{}

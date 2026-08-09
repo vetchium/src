@@ -1,14 +1,14 @@
 import type { TOTPRecoveryCodeCount } from "../../common/authentication.ts";
 import type { EmailAddress } from "../../common/common.ts";
 import type {
+  LanguageCode,
   LocalizedDisplayName,
   RegionalLanguageCode,
   TimeZoneID,
 } from "../../common/localization.ts";
-import { isTimeZoneID } from "../../common/localization.ts";
+import { isLanguageCode, isTimeZoneID } from "../../common/localization.ts";
 import type { AdminAuthorization } from "../authorization/types.ts";
-import type { AdminUserID, LanguageCode } from "../common/types.ts";
-import { isLanguageCode } from "../common/types.ts";
+import type { AdminUserID } from "../types.ts";
 import type { State } from "../user/user.ts";
 import { normalizeDisplayNames, validateDisplayNames } from "./validation.ts";
 

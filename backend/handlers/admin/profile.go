@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 
-	admincommon "github.com/vetchium/src/typespec/admin/common"
 	"github.com/vetchium/src/typespec/admin/users"
 	"github.com/vetchium/src/typespec/common"
 
@@ -27,9 +26,9 @@ func SetPreferredLanguage(s *adminapi.Server) http.HandlerFunc {
 			s.InvalidJSON(r.Context(), w, err)
 			return
 		}
-		var value *admincommon.LanguageCode
+		var value *common.LanguageCode
 		if string(wire.PreferredLanguage) != "null" {
-			var language admincommon.LanguageCode
+			var language common.LanguageCode
 			if err := json.Unmarshal(wire.PreferredLanguage, &language); err != nil {
 				s.InvalidJSON(r.Context(), w, err)
 				return

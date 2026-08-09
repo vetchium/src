@@ -22,6 +22,8 @@ func TestScalarValidationBoundaries(t *testing.T) {
 		{"recovery", IsTOTPRecoveryCode("ABCD-1234"), true},
 		{"recovery invalid", IsTOTPRecoveryCode("bad/code"), false},
 		{"password unicode", IsNewPassword(NewPassword("🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂")), true},
+		{"supported language", IsLanguageCode("en-US"), true},
+		{"unsupported language", IsLanguageCode("fr-FR"), false},
 		{"language", IsRegionalLanguageCode("bn-IN"), true},
 		{"language casing", IsRegionalLanguageCode("en-us"), false},
 		{"unknown language", IsRegionalLanguageCode("zz-ZZ"), false},

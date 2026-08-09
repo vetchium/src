@@ -2,12 +2,11 @@ import type { TOTPCode } from "../../common/authentication.ts";
 import { isOpaqueToken, isTOTPCode } from "../../common/authentication.ts";
 import type { EmailAddress, Password } from "../../common/common.ts";
 import { isEmailAddress, normalizeEmailAddress } from "../../common/common.ts";
-import type { TimeZoneID } from "../../common/localization.ts";
+import type { LanguageCode, TimeZoneID } from "../../common/localization.ts";
 import type {
   AdminLoginChallengeToken,
   AuthenticatedSessionResponse,
-  LanguageCode,
-} from "../common/types.ts";
+} from "./types.ts";
 
 export interface LoginRequest {
   email_address: EmailAddress;

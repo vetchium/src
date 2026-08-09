@@ -8,7 +8,7 @@ import {
   AuthenticationStateAuthenticated,
   type LoginResponse,
 } from "vetchium-specs/admin/auth/login";
-import type { AuthenticatedSessionResponse } from "vetchium-specs/admin/common/types";
+import type { AuthenticatedSessionResponse } from "vetchium-specs/admin/auth/types";
 import { isIdempotencyKey } from "vetchium-specs/common/idempotency";
 
 export const ADMIN_PATH = "/api/admin";

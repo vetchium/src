@@ -11,7 +11,7 @@ import "../../problem/admin/users.tsp";
 import "../../problem/common.tsp";
 import "../../problem/details.tsp";
 import "../authorization/types.tsp";
-import "../common/types.tsp";
+import "../types.tsp";
 import "../user/user.tsp";
 
 using TypeSpec.Http;

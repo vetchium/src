@@ -3,8 +3,8 @@ import type {
   AdminPermission,
 } from "../authorization/types.ts";
 import { isAdminPermission } from "../authorization/types.ts";
-import type { AdminUserID } from "../common/types.ts";
-import { isAdminUserID } from "../common/types.ts";
+import type { AdminUserID } from "../types.ts";
+import { isAdminUserID } from "../types.ts";
 import type { State } from "../user/user.ts";
 import type { EmailAddress } from "../../common/common.ts";
 import type {

@@ -8,11 +8,13 @@ import "../../common/security-effects.tsp";
 import "../../problem/admin/authentication.tsp";
 import "../../problem/common.tsp";
 import "../../problem/details.tsp";
-import "../common/types.tsp";
 
 using TypeSpec.Http;
 
 namespace Vetchium.Admin;
+
+/** An opaque credential delivered in an admin password-reset email. */
+scalar AdminPasswordResetToken extends Vetchium.Authentication.OpaqueToken;
 
 /** A non-enumerating request to queue an admin password-reset email. */
 model RequestPasswordResetRequest {

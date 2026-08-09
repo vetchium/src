@@ -1,21 +1,23 @@
-import type { NewPassword } from "../../common/authentication.ts";
+import type { NewPassword, OpaqueToken } from "../../common/authentication.ts";
 import { isNewPassword, isOpaqueToken } from "../../common/authentication.ts";
 import type { EmailAddress } from "../../common/common.ts";
 import { isEmailAddress, normalizeEmailAddress } from "../../common/common.ts";
 import type {
+  LanguageCode,
   LocalizedDisplayName,
   RegionalLanguageCode,
   TimeZoneID,
 } from "../../common/localization.ts";
-import { isTimeZoneID } from "../../common/localization.ts";
-import type {
-  AdminInvitationID,
-  AdminInvitationToken,
-  AdminUserID,
-  LanguageCode,
-} from "../common/types.ts";
-import { isLanguageCode } from "../common/types.ts";
+import { isLanguageCode, isTimeZoneID } from "../../common/localization.ts";
+import { isAdminUserID, type AdminUserID } from "../types.ts";
 import { normalizeDisplayNames, validateDisplayNames } from "./validation.ts";
+
+export type AdminInvitationID = string;
+export type AdminInvitationToken = OpaqueToken;
+
+export function isAdminInvitationID(value: AdminInvitationID): boolean {
+  return isAdminUserID(value);
+}
 
 export interface InviteUserRequest {
   email_address: EmailAddress;

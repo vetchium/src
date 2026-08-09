@@ -9,8 +9,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 
+	adminspec "github.com/vetchium/src/typespec/admin"
 	"github.com/vetchium/src/typespec/admin/authorization"
-	admincommon "github.com/vetchium/src/typespec/admin/common"
 	"github.com/vetchium/src/typespec/admin/user"
 	"github.com/vetchium/src/typespec/admin/users"
 	"github.com/vetchium/src/typespec/common"
@@ -276,7 +276,7 @@ func adminUserSummary(
 		permissions[index] = authorization.AdminPermissionID(permission)
 	}
 	result := users.AdminUserSummary{
-		AdminUserID: admincommon.AdminUserID(
+		AdminUserID: adminspec.AdminUserID(
 			adminapi.FormatUUID(row.AdminUserID),
 		),
 		EmailAddress:               common.EmailAddress(row.EmailAddress),

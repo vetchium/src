@@ -7,6 +7,14 @@ import (
 	"time"
 )
 
+type LanguageCode string
+
+const (
+	EnglishUnitedStates LanguageCode = "en-US"
+	GermanGermany       LanguageCode = "de-DE"
+	TamilIndia          LanguageCode = "ta-IN"
+)
+
 type RegionalLanguageCode string
 type TimeZoneID string
 type DisplayName string
@@ -17,6 +25,12 @@ type LocalizedDisplayName struct {
 }
 
 var regionalLanguageCodePattern = regexp.MustCompile(`^[a-z]{2}-[A-Z]{2}$`)
+
+func IsLanguageCode(value LanguageCode) bool {
+	return value == EnglishUnitedStates ||
+		value == GermanGermany ||
+		value == TamilIndia
+}
 
 func IsRegionalLanguageCode(value RegionalLanguageCode) bool {
 	text := string(value)

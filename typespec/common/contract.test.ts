@@ -12,6 +12,7 @@ import { isEmailAddress } from "./common.ts";
 import { isIdempotencyKey } from "./idempotency.ts";
 import {
   isDisplayName,
+  isLanguageCode,
   isRegionalLanguageCode,
   isTimeZoneID,
   normalizeDisplayName,
@@ -50,6 +51,10 @@ test("idempotency key validator enforces URL-safe ASCII and length", () => {
 });
 
 test("localization validators require canonical registered identifiers", () => {
+  assert.equal(isLanguageCode("en-US"), true);
+  assert.equal(isLanguageCode("de-DE"), true);
+  assert.equal(isLanguageCode("ta-IN"), true);
+  assert.equal(isLanguageCode("fr-FR" as "en-US"), false);
   assert.equal(isRegionalLanguageCode("en-US"), true);
   assert.equal(isRegionalLanguageCode("bn-IN"), true);
   assert.equal(isRegionalLanguageCode("en-us"), false);

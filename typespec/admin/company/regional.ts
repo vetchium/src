@@ -1,5 +1,9 @@
-import { isLanguageCode, type LanguageCode } from "../common/types.ts";
-import { isTimeZoneID, type TimeZoneID } from "../../common/localization.ts";
+import {
+  isLanguageCode,
+  isTimeZoneID,
+  type LanguageCode,
+  type TimeZoneID,
+} from "../../common/localization.ts";
 
 export interface CompanyRegionalDefaultsResponse {
   default_language: LanguageCode;

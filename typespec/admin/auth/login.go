@@ -4,7 +4,6 @@ package auth
 import (
 	"time"
 
-	admincommon "github.com/vetchium/src/typespec/admin/common"
 	"github.com/vetchium/src/typespec/common"
 )
 
@@ -39,20 +38,20 @@ const (
 
 type LoginAuthenticatedResponse struct {
 	AuthenticationState AuthenticationState `json:"authentication_state"`
-	admincommon.AuthenticatedSessionResponse
+	AuthenticatedSessionResponse
 }
 
 type LoginTOTPRequiredResponse struct {
-	AuthenticationState     AuthenticationState                  `json:"authentication_state"`
-	LoginChallengeToken     admincommon.AdminLoginChallengeToken `json:"login_challenge_token"`
-	LoginChallengeExpiresAt time.Time                            `json:"login_challenge_expires_at"`
-	EffectiveLanguage       admincommon.LanguageCode             `json:"effective_language"`
-	EffectiveTimezone       common.TimeZoneID                    `json:"effective_timezone"`
+	AuthenticationState     AuthenticationState      `json:"authentication_state"`
+	LoginChallengeToken     AdminLoginChallengeToken `json:"login_challenge_token"`
+	LoginChallengeExpiresAt time.Time                `json:"login_challenge_expires_at"`
+	EffectiveLanguage       common.LanguageCode      `json:"effective_language"`
+	EffectiveTimezone       common.TimeZoneID        `json:"effective_timezone"`
 }
 
 type VerifyTFARequest struct {
-	LoginChallengeToken admincommon.AdminLoginChallengeToken `json:"login_challenge_token"`
-	TOTPCode            common.TOTPCode                      `json:"totp_code"`
+	LoginChallengeToken AdminLoginChallengeToken `json:"login_challenge_token"`
+	TOTPCode            common.TOTPCode          `json:"totp_code"`
 }
 
 func (r VerifyTFARequest) Validate() []string {

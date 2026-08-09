@@ -14,8 +14,9 @@ The TypeSpec and TypeScript toolchain requires Node.js 22.13 or newer.
   the single `problem` Go package. Its Go files contain wire types and stable
   contract constants only. The backend's shared server runtime owns HTTP
   response encoding for these values.
-- `admin/`, and future portal directories, contain endpoint-specific paths,
-  request bodies, success bodies, and complete HTTP response envelopes.
+- `admin/`, and future portal directories, contain portal-owned shared types,
+  endpoint-specific paths, request bodies, success bodies, and complete HTTP
+  response envelopes.
 - Portal-owned domain types live in focused subpackages such as `admin/user/`.
   The package supplies the context, so types and constants stay short—for
   example, `user.State`, `user.Active`, and `user.Disabled`.
@@ -29,7 +30,7 @@ handlers. TypeScript consumers depend on this directory as the local
 `vetchium-specs` package and import its explicit subpath exports, for example:
 
 ```ts
-import type { LoginRequest } from "vetchium-specs/admin/auth";
+import type { LoginRequest } from "vetchium-specs/admin/auth/login";
 ```
 
 Request normalization and validation also belong beside the request type in

@@ -1,4 +1,4 @@
-import { isAdminUserID, type AdminUserID } from "../common/types.ts";
+import { isAdminUserID, type AdminUserID } from "../types.ts";
 import { isAdminPermission, type AdminPermission } from "./types.ts";
 
 export interface GrantPermissionRequest {

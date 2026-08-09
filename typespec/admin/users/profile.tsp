@@ -7,7 +7,7 @@ import "../../common/localization.tsp";
 import "../../problem/admin/authentication.tsp";
 import "../../problem/details.tsp";
 import "../authorization/types.tsp";
-import "../common/types.tsp";
+import "../types.tsp";
 import "../user/user.tsp";
 
 using TypeSpec.Http;

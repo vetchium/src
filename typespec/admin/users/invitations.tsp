@@ -11,11 +11,18 @@ import "../../problem/admin/authorization.tsp";
 import "../../problem/admin/users.tsp";
 import "../../problem/common.tsp";
 import "../../problem/details.tsp";
-import "../common/types.tsp";
+import "../types.tsp";
 
 using TypeSpec.Http;
 
 namespace Vetchium.Admin;
+
+/** An immutable admin-invitation identifier. */
+@format("uuid")
+scalar AdminInvitationID extends string;
+
+/** An opaque credential delivered in an admin invitation email. */
+scalar AdminInvitationToken extends Vetchium.Authentication.OpaqueToken;
 
 /** Invite a regular admin with no initial permissions. */
 model InviteUserRequest {

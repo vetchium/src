@@ -7,8 +7,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	adminspec "github.com/vetchium/src/typespec/admin"
 	"github.com/vetchium/src/typespec/admin/authorization"
-	admincommon "github.com/vetchium/src/typespec/admin/common"
 	"github.com/vetchium/src/typespec/admin/user"
 	"github.com/vetchium/src/typespec/admin/users"
 	"github.com/vetchium/src/typespec/common"
@@ -68,7 +68,7 @@ func MyInfo(s *adminapi.Server) http.HandlerFunc {
 			permissions[index] = authorization.AdminPermissionID(permission)
 		}
 		response := users.MyInfoResponse{
-			AdminUserID: admincommon.AdminUserID(
+			AdminUserID: adminspec.AdminUserID(
 				adminapi.FormatUUID(row.AdminUserID),
 			),
 			EmailAddress:               common.EmailAddress(row.EmailAddress),
@@ -83,7 +83,7 @@ func MyInfo(s *adminapi.Server) http.HandlerFunc {
 			RecoveryCodesRemaining: common.TOTPRecoveryCodeCount(
 				row.RecoveryCodesRemaining,
 			),
-			EffectiveLanguage: admincommon.LanguageCode(
+			EffectiveLanguage: common.LanguageCode(
 				row.EffectiveLanguage,
 			),
 			EffectiveTimezone: common.TimeZoneID(row.EffectiveTimezone),
@@ -92,7 +92,7 @@ func MyInfo(s *adminapi.Server) http.HandlerFunc {
 			TenantID:          s.TenantID,
 		}
 		if row.PreferredLanguage.Valid {
-			value := admincommon.LanguageCode(row.PreferredLanguage.String)
+			value := common.LanguageCode(row.PreferredLanguage.String)
 			response.PreferredLanguage = &value
 		}
 		if row.PreferredTimezone.Valid {

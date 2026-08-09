@@ -10,7 +10,6 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	adminauth "github.com/vetchium/src/typespec/admin/auth"
-	admincommon "github.com/vetchium/src/typespec/admin/common"
 	"github.com/vetchium/src/typespec/common"
 	adminproblem "github.com/vetchium/src/typespec/problem/admin"
 
@@ -64,7 +63,7 @@ func VerifyTFA(s *adminapi.Server) http.HandlerFunc {
 			s, w, r, "admin-login-tfa", binding, key, request,
 			replayExpiresAt,
 			func(q *sqlc.Queries) (
-				idempotentResult[admincommon.AuthenticatedSessionResponse],
+				idempotentResult[adminauth.AuthenticatedSessionResponse],
 				*apiProblem, error,
 			) {
 				challenge, err := getLockedAdminLoginChallenge(
@@ -73,31 +72,31 @@ func VerifyTFA(s *adminapi.Server) http.HandlerFunc {
 					),
 				)
 				if errors.Is(err, pgx.ErrNoRows) {
-					return idempotentResult[admincommon.AuthenticatedSessionResponse]{},
+					return idempotentResult[adminauth.AuthenticatedSessionResponse]{},
 						&apiProblem{
 							details:         adminproblem.InvalidLoginChallengeError,
 							wwwAuthenticate: adminapi.LoginTokenChallenge,
 						}, nil
 				}
 				if err != nil {
-					return idempotentResult[admincommon.AuthenticatedSessionResponse]{}, nil, err
+					return idempotentResult[adminauth.AuthenticatedSessionResponse]{}, nil, err
 				}
 				secret, err := adminapi.Decrypt(
 					s.CredentialSubkey("totp"), challenge.TotpSecretCiphertext,
 				)
 				if err != nil {
-					return idempotentResult[admincommon.AuthenticatedSessionResponse]{}, nil, err
+					return idempotentResult[adminauth.AuthenticatedSessionResponse]{}, nil, err
 				}
 				timestep, valid := adminapi.VerifyTOTP(
 					string(secret), string(request.TOTPCode), now,
 				)
 				if !valid {
-					return idempotentResult[admincommon.AuthenticatedSessionResponse]{},
+					return idempotentResult[adminauth.AuthenticatedSessionResponse]{},
 						&apiProblem{details: adminproblem.IncorrectTOTPCodeError}, nil
 				}
 				token, tokenHash, err := adminapi.NewToken()
 				if err != nil {
-					return idempotentResult[admincommon.AuthenticatedSessionResponse]{}, nil, err
+					return idempotentResult[adminauth.AuthenticatedSessionResponse]{}, nil, err
 				}
 				expiresAt := now.Add(s.AdminSessionTTL)
 				session, err := q.CompleteAdminTOTPLogin(
@@ -110,21 +109,21 @@ func VerifyTFA(s *adminapi.Server) http.HandlerFunc {
 					},
 				)
 				if errors.Is(err, pgx.ErrNoRows) {
-					return idempotentResult[admincommon.AuthenticatedSessionResponse]{},
+					return idempotentResult[adminauth.AuthenticatedSessionResponse]{},
 						&apiProblem{details: adminproblem.IncorrectTOTPCodeError}, nil
 				}
 				if err != nil {
-					return idempotentResult[admincommon.AuthenticatedSessionResponse]{}, nil, err
+					return idempotentResult[adminauth.AuthenticatedSessionResponse]{}, nil, err
 				}
 				if session.ExpiresAt.Valid {
 					expiresAt = session.ExpiresAt.Time
 				}
-				return idempotentResult[admincommon.AuthenticatedSessionResponse]{
+				return idempotentResult[adminauth.AuthenticatedSessionResponse]{
 					status: http.StatusOK,
-					body: admincommon.AuthenticatedSessionResponse{
-						SessionToken:      admincommon.AdminSessionToken(token),
+					body: adminauth.AuthenticatedSessionResponse{
+						SessionToken:      adminauth.AdminSessionToken(token),
 						SessionExpiresAt:  expiresAt,
-						EffectiveLanguage: admincommon.LanguageCode(challenge.EffectiveLanguage),
+						EffectiveLanguage: common.LanguageCode(challenge.EffectiveLanguage),
 						EffectiveTimezone: common.TimeZoneID(challenge.EffectiveTimezone),
 					},
 				}, nil, nil
@@ -369,10 +368,10 @@ func VerifyRecoveryCode(s *adminapi.Server) http.HandlerFunc {
 				return idempotentResult[adminauth.VerifyRecoveryCodeResponse]{
 					status: http.StatusOK,
 					body: adminauth.VerifyRecoveryCodeResponse{
-						AuthenticatedSessionResponse: admincommon.AuthenticatedSessionResponse{
-							SessionToken:      admincommon.AdminSessionToken(token),
+						AuthenticatedSessionResponse: adminauth.AuthenticatedSessionResponse{
+							SessionToken:      adminauth.AdminSessionToken(token),
 							SessionExpiresAt:  expiresAt,
-							EffectiveLanguage: admincommon.LanguageCode(challenge.EffectiveLanguage),
+							EffectiveLanguage: common.LanguageCode(challenge.EffectiveLanguage),
 							EffectiveTimezone: common.TimeZoneID(challenge.EffectiveTimezone),
 						},
 						RemainingRecoveryCodes: common.TOTPRecoveryCodeCount(session.RemainingCodes),

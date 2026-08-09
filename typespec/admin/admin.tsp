@@ -1,3 +1,4 @@
+import "./types.tsp";
 import "./auth/login.tsp";
 import "./auth/password.tsp";
 import "./auth/totp.tsp";

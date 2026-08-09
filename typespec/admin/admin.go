@@ -1,2 +1,2 @@
-// Package admin is the compatibility entry point for Admin API contracts.
+// Package admin contains types shared across Admin API concerns.
 package admin

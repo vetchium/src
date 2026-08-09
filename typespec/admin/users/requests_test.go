@@ -4,12 +4,11 @@ import (
 	"slices"
 	"testing"
 
-	admincommon "github.com/vetchium/src/typespec/admin/common"
 	"github.com/vetchium/src/typespec/common"
 )
 
 func TestCompleteSetupNormalizeAndValidate(t *testing.T) {
-	language := admincommon.TamilIndia
+	language := common.TamilIndia
 	timezone := common.TimeZoneID("Asia/Kolkata")
 	request := CompleteSetupRequest{
 		InvitationToken: "tttttttttttttttttttttttttttttttt",
@@ -36,7 +35,7 @@ func TestCompleteSetupNormalizeAndValidate(t *testing.T) {
 		{LanguageCode: "en-US", DisplayName: "Duplicate"},
 	}
 	normalized.PrimaryDisplayNameLanguage = "ta-IN"
-	invalidLanguage := admincommon.LanguageCode("fr-FR")
+	invalidLanguage := common.LanguageCode("fr-FR")
 	invalidTimezone := common.TimeZoneID("US/Eastern")
 	normalized.PreferredLanguage = &invalidLanguage
 	normalized.PreferredTimezone = &invalidTimezone

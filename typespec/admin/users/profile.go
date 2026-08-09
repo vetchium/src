@@ -3,19 +3,19 @@ package users
 import (
 	"time"
 
+	adminspec "github.com/vetchium/src/typespec/admin"
 	"github.com/vetchium/src/typespec/admin/authorization"
-	admincommon "github.com/vetchium/src/typespec/admin/common"
 	"github.com/vetchium/src/typespec/admin/user"
 	"github.com/vetchium/src/typespec/common"
 )
 
 type SetPreferredLanguageRequest struct {
-	PreferredLanguage *admincommon.LanguageCode `json:"preferred_language"`
+	PreferredLanguage *common.LanguageCode `json:"preferred_language"`
 }
 
 func (r SetPreferredLanguageRequest) Validate() []string {
 	if r.PreferredLanguage != nil &&
-		!admincommon.IsLanguageCode(*r.PreferredLanguage) {
+		!common.IsLanguageCode(*r.PreferredLanguage) {
 		return []string{"preferred_language"}
 	}
 	return []string{}
@@ -60,7 +60,7 @@ func (r SetDisplayNamesRequest) Validate() []string {
 }
 
 type MyInfoResponse struct {
-	AdminUserID                admincommon.AdminUserID       `json:"admin_user_id"`
+	AdminUserID                adminspec.AdminUserID         `json:"admin_user_id"`
 	EmailAddress               common.EmailAddress           `json:"email_address"`
 	DisplayNames               []common.LocalizedDisplayName `json:"display_names"`
 	PrimaryDisplayNameLanguage common.RegionalLanguageCode   `json:"primary_display_name_language"`
@@ -68,9 +68,9 @@ type MyInfoResponse struct {
 	authorization.AdminAuthorization
 	TOTPEnabled            bool                         `json:"totp_enabled"`
 	RecoveryCodesRemaining common.TOTPRecoveryCodeCount `json:"recovery_codes_remaining"`
-	PreferredLanguage      *admincommon.LanguageCode    `json:"preferred_language,omitempty"`
+	PreferredLanguage      *common.LanguageCode         `json:"preferred_language,omitempty"`
 	PreferredTimezone      *common.TimeZoneID           `json:"preferred_timezone,omitempty"`
-	EffectiveLanguage      admincommon.LanguageCode     `json:"effective_language"`
+	EffectiveLanguage      common.LanguageCode          `json:"effective_language"`
 	EffectiveTimezone      common.TimeZoneID            `json:"effective_timezone"`
 	CreatedAt              time.Time                    `json:"created_at"`
 	SessionExpiresAt       time.Time                    `json:"session_expires_at"`

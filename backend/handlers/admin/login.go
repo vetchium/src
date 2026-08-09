@@ -9,7 +9,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	adminauth "github.com/vetchium/src/typespec/admin/auth"
-	admincommon "github.com/vetchium/src/typespec/admin/common"
 	"github.com/vetchium/src/typespec/common"
 	adminproblem "github.com/vetchium/src/typespec/problem/admin"
 
@@ -111,10 +110,10 @@ func loginWithoutTOTP(
 	}
 	s.JSON(r.Context(), w, http.StatusOK, adminauth.LoginAuthenticatedResponse{
 		AuthenticationState: adminauth.AuthenticationStateAuthenticated,
-		AuthenticatedSessionResponse: admincommon.AuthenticatedSessionResponse{
-			SessionToken:      admincommon.AdminSessionToken(token),
+		AuthenticatedSessionResponse: adminauth.AuthenticatedSessionResponse{
+			SessionToken:      adminauth.AdminSessionToken(token),
 			SessionExpiresAt:  expiresAt,
-			EffectiveLanguage: admincommon.LanguageCode(adminUser.EffectiveLanguage),
+			EffectiveLanguage: common.LanguageCode(adminUser.EffectiveLanguage),
 			EffectiveTimezone: common.TimeZoneID(adminUser.EffectiveTimezone),
 		},
 	})
@@ -161,9 +160,9 @@ func loginWithTOTP(
 	}
 	s.JSON(r.Context(), w, http.StatusOK, adminauth.LoginTOTPRequiredResponse{
 		AuthenticationState:     adminauth.AuthenticationStateTOTPRequired,
-		LoginChallengeToken:     admincommon.AdminLoginChallengeToken(token),
+		LoginChallengeToken:     adminauth.AdminLoginChallengeToken(token),
 		LoginChallengeExpiresAt: expiresAt,
-		EffectiveLanguage:       admincommon.LanguageCode(adminUser.EffectiveLanguage),
+		EffectiveLanguage:       common.LanguageCode(adminUser.EffectiveLanguage),
 		EffectiveTimezone:       common.TimeZoneID(adminUser.EffectiveTimezone),
 	})
 }

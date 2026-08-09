@@ -1,8 +1,9 @@
-import type { NewPassword } from "../../common/authentication.ts";
+import type { NewPassword, OpaqueToken } from "../../common/authentication.ts";
 import { isNewPassword, isOpaqueToken } from "../../common/authentication.ts";
 import type { EmailAddress } from "../../common/common.ts";
 import { isEmailAddress, normalizeEmailAddress } from "../../common/common.ts";
-import type { AdminPasswordResetToken } from "../common/types.ts";
+
+export type AdminPasswordResetToken = OpaqueToken;
 
 export interface RequestPasswordResetRequest {
   email_address: EmailAddress;

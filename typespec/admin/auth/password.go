@@ -1,9 +1,8 @@
 package auth
 
-import (
-	admincommon "github.com/vetchium/src/typespec/admin/common"
-	"github.com/vetchium/src/typespec/common"
-)
+import "github.com/vetchium/src/typespec/common"
+
+type AdminPasswordResetToken common.OpaqueToken
 
 type RequestPasswordResetRequest struct {
 	EmailAddress common.EmailAddress `json:"email_address"`
@@ -22,8 +21,8 @@ func (r RequestPasswordResetRequest) Validate() []string {
 }
 
 type CompletePasswordResetRequest struct {
-	ResetToken  admincommon.AdminPasswordResetToken `json:"reset_token"`
-	NewPassword common.NewPassword                  `json:"new_password"`
+	ResetToken  AdminPasswordResetToken `json:"reset_token"`
+	NewPassword common.NewPassword      `json:"new_password"`
 }
 
 func (r CompletePasswordResetRequest) Validate() []string {

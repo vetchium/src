@@ -3,7 +3,6 @@ package auth
 import (
 	"time"
 
-	admincommon "github.com/vetchium/src/typespec/admin/common"
 	"github.com/vetchium/src/typespec/common"
 )
 
@@ -36,8 +35,8 @@ type ConfirmTOTPEnrollmentResponse struct {
 }
 
 type VerifyRecoveryCodeRequest struct {
-	LoginChallengeToken admincommon.AdminLoginChallengeToken `json:"login_challenge_token"`
-	RecoveryCode        common.TOTPRecoveryCode              `json:"recovery_code"`
+	LoginChallengeToken AdminLoginChallengeToken `json:"login_challenge_token"`
+	RecoveryCode        common.TOTPRecoveryCode  `json:"recovery_code"`
 }
 
 func (r VerifyRecoveryCodeRequest) Validate() []string {
@@ -52,7 +51,7 @@ func (r VerifyRecoveryCodeRequest) Validate() []string {
 }
 
 type VerifyRecoveryCodeResponse struct {
-	admincommon.AuthenticatedSessionResponse
+	AuthenticatedSessionResponse
 	RemainingRecoveryCodes common.TOTPRecoveryCodeCount `json:"remaining_recovery_codes"`
 }
 

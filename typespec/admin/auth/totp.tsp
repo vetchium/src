@@ -8,7 +8,7 @@ import "../../problem/admin/authentication.tsp";
 import "../../problem/admin/totp.tsp";
 import "../../problem/common.tsp";
 import "../../problem/details.tsp";
-import "../common/types.tsp";
+import "./types.tsp";
 
 using TypeSpec.Http;
 

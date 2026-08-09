@@ -4,6 +4,12 @@ import {
   canonicalRegionSubtags,
 } from "./canonical-locales.generated.ts";
 
+export type LanguageCode = "en-US" | "de-DE" | "ta-IN";
+
+export const EnglishUnitedStates: LanguageCode = "en-US";
+export const GermanGermany: LanguageCode = "de-DE";
+export const TamilIndia: LanguageCode = "ta-IN";
+
 export type RegionalLanguageCode = string;
 export type TimeZoneID = string;
 export type DisplayName = string;
@@ -11,6 +17,10 @@ export type DisplayName = string;
 export interface LocalizedDisplayName {
   language_code: RegionalLanguageCode;
   display_name: DisplayName;
+}
+
+export function isLanguageCode(value: LanguageCode): boolean {
+  return value === "en-US" || value === "de-DE" || value === "ta-IN";
 }
 
 export function isRegionalLanguageCode(value: RegionalLanguageCode): boolean {

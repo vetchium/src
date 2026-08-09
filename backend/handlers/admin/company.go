@@ -3,7 +3,6 @@ package admin
 import (
 	"net/http"
 
-	admincommon "github.com/vetchium/src/typespec/admin/common"
 	"github.com/vetchium/src/typespec/admin/company"
 	"github.com/vetchium/src/typespec/common"
 
@@ -24,7 +23,7 @@ func CompanyRegionalDefaults(s *adminapi.Server) http.HandlerFunc {
 		w.Header().Set("Cache-Control", "public, max-age=300")
 		s.JSON(r.Context(), w, http.StatusOK,
 			company.CompanyRegionalDefaultsResponse{
-				DefaultLanguage: admincommon.LanguageCode(row.DefaultLanguage),
+				DefaultLanguage: common.LanguageCode(row.DefaultLanguage),
 				DefaultTimezone: common.TimeZoneID(row.DefaultTimezone),
 			},
 		)

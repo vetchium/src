@@ -10,7 +10,7 @@ import {
   AuthenticationStateTOTPRequired,
   type LoginTOTPRequiredResponse,
 } from "vetchium-specs/admin/auth/login";
-import type { AuthenticatedSessionResponse } from "vetchium-specs/admin/common/types";
+import type { AuthenticatedSessionResponse } from "vetchium-specs/admin/auth/types";
 import {
   expectProblem,
   idempotencyKey,

@@ -14,7 +14,7 @@ import {
 import type {
   AdminLoginChallengeToken,
   AuthenticatedSessionResponse,
-} from "../common/types.ts";
+} from "./types.ts";
 
 export interface StartTOTPEnrollmentResponse {
   totp_enrollment_token: TOTPEnrollmentToken;

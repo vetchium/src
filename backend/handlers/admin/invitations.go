@@ -8,7 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 
-	admincommon "github.com/vetchium/src/typespec/admin/common"
+	adminspec "github.com/vetchium/src/typespec/admin"
 	"github.com/vetchium/src/typespec/admin/users"
 	adminproblem "github.com/vetchium/src/typespec/problem/admin"
 
@@ -91,7 +91,7 @@ func InviteUser(s *adminapi.Server) http.HandlerFunc {
 				return idempotentResult[users.InviteUserResponse]{
 					status: http.StatusCreated,
 					body: users.InviteUserResponse{
-						AdminInvitationID: admincommon.AdminInvitationID(
+						AdminInvitationID: users.AdminInvitationID(
 							adminapi.FormatUUID(row.AdminInvitationID),
 						),
 						ExpiresAt: expiresAt,
@@ -182,7 +182,7 @@ func CompleteSetup(s *adminapi.Server) http.HandlerFunc {
 				return idempotentResult[users.CompleteSetupResponse]{
 					status: http.StatusCreated,
 					body: users.CompleteSetupResponse{
-						AdminUserID: admincommon.AdminUserID(
+						AdminUserID: adminspec.AdminUserID(
 							adminapi.FormatUUID(row.AdminUserID),
 						),
 					},

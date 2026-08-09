@@ -5,7 +5,7 @@ import {
   normalizeLoginRequest,
   validateLoginRequest,
   type LoginRequest,
-} from "./auth.ts";
+} from "./auth/login.ts";
 
 test("normalizeLoginRequest returns a normalized copy", () => {
   const request: LoginRequest = {

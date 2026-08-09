@@ -1,5 +1,12 @@
 namespace Vetchium;
 
+/** Languages supported throughout Vetchium portals. */
+enum LanguageCode {
+  EnglishUnitedStates: "en-US",
+  GermanGermany: "de-DE",
+  TamilIndia: "ta-IN",
+}
+
 /**
  * A registered language-region combination in canonical casing. Runtime
  * validation confirms that both subtags exist in the IANA registry.

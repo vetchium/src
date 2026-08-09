@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { expect, test as base } from "@playwright/test";
-import type { AdminUserID } from "vetchium-specs/admin/common/types";
+import type { AdminUserID } from "vetchium-specs/admin/types";
 import type {
   CompleteSetupResponse,
   InviteUserResponse,
