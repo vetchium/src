@@ -23,15 +23,21 @@ model LoginRequest {
   password: Password;
 }
 
+/** Closed vocabulary for the outcome of successful password authentication. */
+enum AuthenticationState {
+  Authenticated: "authenticated",
+  TOTPRequired: "totp_required",
+}
+
 /** A completed password-only login for an admin without TOTP. */
 model LoginAuthenticatedResponse {
-  authentication_state: "authenticated";
+  authentication_state: AuthenticationState.Authenticated;
   ...AuthenticatedSessionResponse;
 }
 
 /** A password-authenticated login that still requires TOTP or recovery. */
 model LoginTOTPRequiredResponse {
-  authentication_state: "totp_required";
+  authentication_state: AuthenticationState.TOTPRequired;
   login_challenge_token: AdminLoginChallengeToken;
   login_challenge_expires_at: utcDateTime;
   effective_language: LanguageCode;

@@ -5,7 +5,11 @@ import type {
   StartTOTPEnrollmentResponse,
   VerifyRecoveryCodeResponse,
 } from "vetchium-specs/admin/auth/totp";
-import type { LoginTOTPRequiredResponse } from "vetchium-specs/admin/auth/login";
+import {
+  AuthenticationStateAuthenticated,
+  AuthenticationStateTOTPRequired,
+  type LoginTOTPRequiredResponse,
+} from "vetchium-specs/admin/auth/login";
 import type { AuthenticatedSessionResponse } from "vetchium-specs/admin/common/types";
 import {
   expectProblem,
@@ -203,7 +207,7 @@ test.describe("Admin TOTP", () => {
       admin.emailAddress,
       admin.password,
     )) as LoginTOTPRequiredResponse;
-    expect(login.authentication_state).toBe("totp_required");
+    expect(login.authentication_state).toBe(AuthenticationStateTOTPRequired);
     const nextStepCode = currentTOTP(
       start.manual_entry_key,
       Date.now() + 30_000,
@@ -500,7 +504,9 @@ test.describe("Admin TOTP", () => {
       admin.emailAddress,
       admin.password,
     );
-    expect(passwordOnly.authentication_state).toBe("authenticated");
+    expect(passwordOnly.authentication_state).toBe(
+      AuthenticationStateAuthenticated,
+    );
   });
 
   test("TOTP endpoints validate credential shapes before consuming state", async ({

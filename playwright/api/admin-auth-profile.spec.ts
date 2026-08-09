@@ -1,4 +1,7 @@
-import type { LoginAuthenticatedResponse } from "vetchium-specs/admin/auth/login";
+import {
+  AuthenticationStateAuthenticated,
+  type LoginAuthenticatedResponse,
+} from "vetchium-specs/admin/auth/login";
 import type { CompanyRegionalDefaultsResponse } from "vetchium-specs/admin/company/regional";
 import type { MyInfoResponse } from "vetchium-specs/admin/users/profile";
 import { expectProblem, responseJSON } from "../lib/admin-api.ts";
@@ -17,7 +20,7 @@ test.describe("Admin authentication", () => {
     expect(response.status()).toBe(200);
     expect(response.headers()["cache-control"]).toBe("no-store");
     const body = await responseJSON<LoginAuthenticatedResponse>(response);
-    expect(body.authentication_state).toBe("authenticated");
+    expect(body.authentication_state).toBe(AuthenticationStateAuthenticated);
     expect(body.session_token).toMatch(/^[A-Za-z0-9_-]{43}$/);
     expect(Date.parse(body.session_expires_at)).toBeGreaterThan(Date.now());
     await adminAPI.post("/logout", undefined, { token: body.session_token });

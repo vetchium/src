@@ -4,7 +4,10 @@ import {
   type APIResponse,
 } from "@playwright/test";
 import { randomBytes } from "node:crypto";
-import type { LoginResponse } from "vetchium-specs/admin/auth/login";
+import {
+  AuthenticationStateAuthenticated,
+  type LoginResponse,
+} from "vetchium-specs/admin/auth/login";
 import type { AuthenticatedSessionResponse } from "vetchium-specs/admin/common/types";
 import { isIdempotencyKey } from "vetchium-specs/common/idempotency";
 
@@ -93,7 +96,7 @@ export class AdminAPI {
     password: string,
   ): Promise<AuthenticatedSessionResponse> {
     const result = await this.login(emailAddress, password);
-    if (result.authentication_state !== "authenticated") {
+    if (result.authentication_state !== AuthenticationStateAuthenticated) {
       throw new Error(`expected password-only login for ${emailAddress}`);
     }
     return result;

@@ -33,13 +33,20 @@ export function validateLoginRequest(request: LoginRequest): string[] {
   return fields;
 }
 
+export const AuthenticationStateAuthenticated = "authenticated" as const;
+export const AuthenticationStateTOTPRequired = "totp_required" as const;
+
+export type AuthenticationState =
+  | typeof AuthenticationStateAuthenticated
+  | typeof AuthenticationStateTOTPRequired;
+
 export interface LoginAuthenticatedResponse
   extends AuthenticatedSessionResponse {
-  authentication_state: "authenticated";
+  authentication_state: typeof AuthenticationStateAuthenticated;
 }
 
 export interface LoginTOTPRequiredResponse {
-  authentication_state: "totp_required";
+  authentication_state: typeof AuthenticationStateTOTPRequired;
   login_challenge_token: AdminLoginChallengeToken;
   login_challenge_expires_at: string;
   effective_language: LanguageCode;

@@ -10,6 +10,14 @@ contract consumed by backend and future UI implementations.
 - Every contract `.tsp` file has corresponding hand-maintained `.go` and `.ts`
   files. Keep all three representations aligned in the same change. `main.tsp`
   is the compiler entry point and is the only exception.
+- Represent every closed string vocabulary consistently in all three contract
+  languages. This includes TypeSpec enums, unions of string literals, and
+  discriminator values. TypeSpec must declare the closed vocabulary and keep
+  each discriminated variant narrowed to its exact member. Go must use a named
+  string type with a typed constant for every member; closed fields must not be
+  widened to `string`. TypeScript must use literal unions or literal properties
+  and export constants for values that consumers construct or compare. Keep
+  open or forward-compatible string scalars distinct from closed vocabularies.
 - Do not put handler, database, logging, or transport implementation behavior
   in this module. Its Go files contain wire types, stable contract constants,
   normalization, and validation only.

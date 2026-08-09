@@ -23,6 +23,12 @@ not apply to generated Go output such as `backend/internal/db/sqlc/*.go`.
 
 ## Implementation practices
 
+- Represent closed string vocabularies, including wire enums and discriminator
+  values, with a named string type and a typed constant for every allowed
+  value. Use those constants when constructing or comparing values instead of
+  repeating string literals. Do not widen a closed vocabulary field to
+  `string`; validate values received from untrusted inputs because a named Go
+  type alone does not enforce membership at runtime.
 - Propagate request contexts through database, logging, and downstream calls.
 - Preserve error identity with `%w` when adding context to returned errors.
 - Avoid deprecated library APIs. Check the version pinned by the owning module

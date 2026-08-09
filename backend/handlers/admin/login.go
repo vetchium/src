@@ -110,7 +110,7 @@ func loginWithoutTOTP(
 		expiresAt = session.ExpiresAt.Time
 	}
 	s.JSON(r.Context(), w, http.StatusOK, adminauth.LoginAuthenticatedResponse{
-		AuthenticationState: "authenticated",
+		AuthenticationState: adminauth.AuthenticationStateAuthenticated,
 		AuthenticatedSessionResponse: admincommon.AuthenticatedSessionResponse{
 			SessionToken:      admincommon.AdminSessionToken(token),
 			SessionExpiresAt:  expiresAt,
@@ -160,7 +160,7 @@ func loginWithTOTP(
 		expiresAt = challenge.ExpiresAt.Time
 	}
 	s.JSON(r.Context(), w, http.StatusOK, adminauth.LoginTOTPRequiredResponse{
-		AuthenticationState:     "totp_required",
+		AuthenticationState:     adminauth.AuthenticationStateTOTPRequired,
 		LoginChallengeToken:     admincommon.AdminLoginChallengeToken(token),
 		LoginChallengeExpiresAt: expiresAt,
 		EffectiveLanguage:       admincommon.LanguageCode(adminUser.EffectiveLanguage),

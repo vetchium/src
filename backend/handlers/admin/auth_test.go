@@ -104,7 +104,8 @@ func TestLoginPasswordOnly(t *testing.T) {
 	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
 		t.Fatal(err)
 	}
-	if payload.AuthenticationState != "authenticated" ||
+	wantState := adminauth.AuthenticationStateAuthenticated
+	if payload.AuthenticationState != wantState ||
 		len(payload.SessionToken) < 32 ||
 		payload.EffectiveLanguage != "en-US" ||
 		payload.EffectiveTimezone != "Asia/Kolkata" {
@@ -148,7 +149,8 @@ func TestLoginWithTOTPReturnsChallenge(t *testing.T) {
 	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
 		t.Fatal(err)
 	}
-	if payload.AuthenticationState != "totp_required" ||
+	wantState := adminauth.AuthenticationStateTOTPRequired
+	if payload.AuthenticationState != wantState ||
 		payload.LoginChallengeExpiresAt != now.Add(loginChallengeTTL) {
 		t.Fatalf("response = %+v", payload)
 	}

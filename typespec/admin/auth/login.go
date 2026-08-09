@@ -30,13 +30,20 @@ func (r LoginRequest) Validate() []string {
 	return fields
 }
 
+type AuthenticationState string
+
+const (
+	AuthenticationStateAuthenticated AuthenticationState = "authenticated"
+	AuthenticationStateTOTPRequired  AuthenticationState = "totp_required"
+)
+
 type LoginAuthenticatedResponse struct {
-	AuthenticationState string `json:"authentication_state"`
+	AuthenticationState AuthenticationState `json:"authentication_state"`
 	admincommon.AuthenticatedSessionResponse
 }
 
 type LoginTOTPRequiredResponse struct {
-	AuthenticationState     string                               `json:"authentication_state"`
+	AuthenticationState     AuthenticationState                  `json:"authentication_state"`
 	LoginChallengeToken     admincommon.AdminLoginChallengeToken `json:"login_challenge_token"`
 	LoginChallengeExpiresAt time.Time                            `json:"login_challenge_expires_at"`
 	EffectiveLanguage       admincommon.LanguageCode             `json:"effective_language"`
