@@ -41,6 +41,18 @@ contract consumed by backend and future UI implementations.
 - Test normalization without mutating the original request and cover every
   validation rule, including combinations of invalid fields.
 
+## API styles
+- Do not use query parameters for the backend APIs, unless the link will
+  be sent as an email link and will need to be handled from the front-end UI
+- Prefer to use POST with body instead of GET with path parameters for the
+  backend APIs. For the front-end paths, path parameters are preferable.
+- Use Keyset pagination for all APIs that return a list 
+  or enumeration of objects.
+- Error responses of APIs should be RFC 9457 compliant.
+- Decide the APIs based on how the frontend (web portals and apps) would
+  want to consume data. Machine/Bot accessible APIs can be later created
+  separately if needed.
+
 ## Verification
 
 For Go-only changes, run from the repository root:
