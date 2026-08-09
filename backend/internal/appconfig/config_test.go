@@ -2,7 +2,6 @@ package appconfig
 
 import (
 	"fmt"
-	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -25,13 +24,6 @@ func TestLoadFile(t *testing.T) {
 	if cfg.TenantID != "sgp" || cfg.Env != EnvironmentDev ||
 		cfg.AdminAPIServer.AdminSessionTTL != 24*time.Hour {
 		t.Fatalf("config = %+v, want tenant sgp and admin-session TTL 24h", cfg)
-	}
-	if len(cfg.AdminAPIServer.TrustedProxyCIDRs) != 1 ||
-		!cfg.AdminAPIServer.TrustedProxyCIDRs[0].Contains(net.ParseIP("172.20.0.1")) {
-		t.Fatalf(
-			"trusted proxy CIDRs = %+v, want configured Docker proxy range",
-			cfg.AdminAPIServer.TrustedProxyCIDRs,
-		)
 	}
 	if cfg.Workers.RetryBackoffLimit != 5*time.Minute ||
 		cfg.Workers.PruneAdminSessionsTimer != time.Hour ||
@@ -180,8 +172,7 @@ func TestLoadFileRequiresPositiveDurations(t *testing.T) {
     "pruneAdminEphemeralDataTimer": "1h"
   },
   "admin-api-server": {
-    "adminSessionTTL": "24h",
-    "trustedProxyCIDRs": ["172.16.0.0/12"]
+    "adminSessionTTL": "24h"
   },
   "hub-api-server": {},
   "orgs-api-server": {},
@@ -255,8 +246,7 @@ func writeConfig(t *testing.T, passwordFile, extraWorkerField string) string {
     "pruneAdminEphemeralDataTimer": "1h"%s
   },
   "admin-api-server": {
-    "adminSessionTTL": "24h",
-    "trustedProxyCIDRs": ["172.16.0.0/12"]
+    "adminSessionTTL": "24h"
   },
   "hub-api-server": {},
   "orgs-api-server": {},

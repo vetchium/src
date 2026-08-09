@@ -35,12 +35,6 @@ func Login(s *adminapi.Server) http.HandlerFunc {
 			s.ValidationFailed(ctx, w, fields)
 			return
 		}
-		if !allowAdminRequest(
-			s, w, r, "login:"+string(request.EmailAddress),
-		) || !allowAdminExpensiveRequest(s, w, r) {
-			return
-		}
-
 		adminUser, err := s.Queries.GetAdminUserForLogin(
 			ctx, string(request.EmailAddress),
 		)

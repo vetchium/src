@@ -15,8 +15,7 @@
     "pruneAdminEphemeralDataTimer": "5m"
   },
   "admin-api-server": {
-    "adminSessionTTL": "24h",
-    "trustedProxyCIDRs": ["10.0.0.0/8"]
+    "adminSessionTTL": "24h"
   },
   "hub-api-server": {},
   "orgs-api-server": {},

@@ -34,13 +34,6 @@ func InviteUser(s *adminapi.Server) http.HandlerFunc {
 		}
 		identity, _ := middleware.AdminIdentityFromContext(r.Context())
 		binding := adminapi.FormatUUID(identity.UserID)
-		if !allowAdminRequest(
-			s, w, r, "invite-user-email:"+string(request.EmailAddress),
-		) || !allowAdminRateLimit(
-			s, w, r, "invite-user-actor:"+binding, 100,
-		) {
-			return
-		}
 		now := s.CurrentTime()
 		runIdempotent(
 			s, w, r, "admin-invite-user", binding, key, request,
@@ -125,10 +118,6 @@ func CompleteSetup(s *adminapi.Server) http.HandlerFunc {
 		binding := base64.RawURLEncoding.EncodeToString(adminapi.TokenHash(
 			string(request.InvitationToken),
 		))
-		if !allowAdminRequest(s, w, r, "complete-setup:"+binding) ||
-			!allowAdminExpensiveRequest(s, w, r) {
-			return
-		}
 		runIdempotent(
 			s, w, r, "admin-complete-setup", binding, key, request,
 			s.CurrentTime().Add(24*time.Hour),

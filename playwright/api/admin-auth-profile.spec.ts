@@ -87,34 +87,6 @@ test.describe("Admin authentication", () => {
     await expectProblem(trailing, 400, "vetchium-problem-details/invalid-json");
   });
 
-  test("login rate limiting is isolated by normalized email", async ({
-    adminAPI,
-    ownedEmail,
-  }) => {
-    const email_address = ownedEmail();
-    for (let attempt = 0; attempt < 5; attempt += 1) {
-      const response = await adminAPI.post("/login", {
-        email_address,
-        password: "wrong",
-      });
-      await expectProblem(
-        response,
-        401,
-        "vetchium-problem-details/invalid-credentials",
-      );
-    }
-    const limited = await adminAPI.post("/login", {
-      email_address,
-      password: "wrong",
-    });
-    await expectProblem(
-      limited,
-      429,
-      "vetchium-problem-details/rate-limit-exceeded",
-    );
-    expect(Number(limited.headers()["retry-after"])).toBeGreaterThan(0);
-  });
-
   test("logout is anonymous, idempotent, and invalidates a supplied session", async ({
     adminAPI,
     superadminToken,

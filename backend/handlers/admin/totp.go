@@ -53,9 +53,6 @@ func VerifyTFA(s *adminapi.Server) http.HandlerFunc {
 		binding := base64.RawURLEncoding.EncodeToString(adminapi.TokenHash(
 			string(request.LoginChallengeToken),
 		))
-		if !allowAdminRequest(s, w, r, "login-tfa:"+binding) {
-			return
-		}
 		now := s.CurrentTime()
 		replayExpiresAt := now.Add(5 * time.Minute)
 		if sessionExpiry := now.Add(s.AdminSessionTTL); sessionExpiry.Before(
@@ -144,9 +141,6 @@ func StartTOTPEnrollment(s *adminapi.Server) http.HandlerFunc {
 		}
 		identity, _ := middleware.AdminIdentityFromContext(r.Context())
 		binding := adminapi.FormatUUID(identity.UserID)
-		if !allowAdminRequest(s, w, r, "start-totp:"+binding) {
-			return
-		}
 		now := s.CurrentTime()
 		runIdempotent(
 			s, w, r, "admin-start-totp-enrollment", binding, key,
@@ -227,9 +221,6 @@ func ConfirmTOTPEnrollment(s *adminapi.Server) http.HandlerFunc {
 			base64.RawURLEncoding.EncodeToString(adminapi.TokenHash(
 				string(request.TOTPEnrollmentToken),
 			))
-		if !allowAdminRequest(s, w, r, "confirm-totp:"+binding) {
-			return
-		}
 		now := s.CurrentTime()
 		runIdempotent(
 			s, w, r, "admin-confirm-totp-enrollment", binding, key,
@@ -322,9 +313,6 @@ func VerifyRecoveryCode(s *adminapi.Server) http.HandlerFunc {
 		binding := base64.RawURLEncoding.EncodeToString(adminapi.TokenHash(
 			string(request.LoginChallengeToken),
 		))
-		if !allowAdminRequest(s, w, r, "login-recovery:"+binding) {
-			return
-		}
 		now := s.CurrentTime()
 		replayExpiresAt := now.Add(5 * time.Minute)
 		if sessionExpiry := now.Add(s.AdminSessionTTL); sessionExpiry.Before(
@@ -420,9 +408,6 @@ func RegenerateTOTPRecoveryCodes(s *adminapi.Server) http.HandlerFunc {
 		}
 		identity, _ := middleware.AdminIdentityFromContext(r.Context())
 		binding := adminapi.FormatUUID(identity.UserID)
-		if !allowAdminRequest(s, w, r, "regenerate-recovery:"+binding) {
-			return
-		}
 		runIdempotent(
 			s, w, r, "admin-regenerate-totp-recovery-codes", binding,
 			key, struct{}{}, s.CurrentTime().Add(5*time.Minute),

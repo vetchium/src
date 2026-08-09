@@ -1,8 +1,6 @@
 package adminapi
 
 import (
-	"net"
-	"sync"
 	"time"
 
 	"backend/internal/apiserver"
@@ -15,13 +13,10 @@ type Server struct {
 	Queries sqlc.Querier
 
 	// Values below come from the shared application config.
-	TenantID          string
-	AdminSessionTTL   time.Duration
-	TrustedProxyCIDRs []net.IPNet
-	CredentialKey     [32]byte
-	Now               func() time.Time
-	rateLimitMu       sync.Mutex
-	rateLimits        map[string]rateLimitEntry
+	TenantID        string
+	AdminSessionTTL time.Duration
+	CredentialKey   [32]byte
+	Now             func() time.Time
 }
 
 func (s *Server) CurrentTime() time.Time {

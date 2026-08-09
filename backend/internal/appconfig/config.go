@@ -47,8 +47,7 @@ type Database struct {
 }
 
 type AdminAPIServer struct {
-	AdminSessionTTL   time.Duration
-	TrustedProxyCIDRs []net.IPNet
+	AdminSessionTTL time.Duration
 }
 
 type Workers struct {
@@ -80,8 +79,7 @@ type fileDatabase struct {
 }
 
 type fileAdminAPIServer struct {
-	AdminSessionTTL   string   `json:"adminSessionTTL"`
-	TrustedProxyCIDRs []string `json:"trustedProxyCIDRs"`
+	AdminSessionTTL string `json:"adminSessionTTL"`
 }
 
 type fileWorkers struct {
@@ -184,22 +182,6 @@ func LoadFile(path string) (Config, error) {
 	if err != nil {
 		return Config{}, configError(path, err)
 	}
-	trustedProxyCIDRs := make([]net.IPNet, 0, len(raw.AdminAPIServer.TrustedProxyCIDRs))
-	if len(raw.AdminAPIServer.TrustedProxyCIDRs) == 0 {
-		return Config{}, configError(
-			path, fmt.Errorf("admin-api-server.trustedProxyCIDRs must not be empty"),
-		)
-	}
-	for _, value := range raw.AdminAPIServer.TrustedProxyCIDRs {
-		_, network, parseErr := net.ParseCIDR(value)
-		if parseErr != nil {
-			return Config{}, configError(path, fmt.Errorf(
-				"parse admin-api-server.trustedProxyCIDRs entry %q: %w",
-				value, parseErr,
-			))
-		}
-		trustedProxyCIDRs = append(trustedProxyCIDRs, *network)
-	}
 	retryBackoffLimit, err := positiveDuration(
 		"workers.retryBackoffLimit",
 		raw.Workers.RetryBackoffLimit,
@@ -234,8 +216,7 @@ func LoadFile(path string) (Config, error) {
 			SSLMode:      raw.Database.SSLMode,
 		},
 		AdminAPIServer: AdminAPIServer{
-			AdminSessionTTL:   adminSessionTTL,
-			TrustedProxyCIDRs: trustedProxyCIDRs,
+			AdminSessionTTL: adminSessionTTL,
 		},
 		Workers: Workers{
 			RetryBackoffLimit:            retryBackoffLimit,

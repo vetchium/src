@@ -28,11 +28,6 @@ func RequestPasswordReset(s *adminapi.Server) http.HandlerFunc {
 			return
 		}
 		request = request.Normalize()
-		if !allowAdminRequest(
-			s, w, r, "password-reset-request:"+string(request.EmailAddress),
-		) {
-			return
-		}
 		token, tokenHash, err := adminapi.NewToken()
 		if err != nil {
 			s.InternalError(r.Context(), w, "generate password reset token", err)
@@ -94,10 +89,6 @@ func CompletePasswordReset(s *adminapi.Server) http.HandlerFunc {
 		binding := base64.RawURLEncoding.EncodeToString(adminapi.TokenHash(
 			string(request.ResetToken),
 		))
-		if !allowAdminRequest(s, w, r, "password-reset-complete:"+binding) ||
-			!allowAdminExpensiveRequest(s, w, r) {
-			return
-		}
 		runIdempotent(
 			s, w, r, "admin-complete-password-reset", binding, key,
 			request, s.CurrentTime().Add(24*time.Hour),
@@ -160,12 +151,6 @@ func ChangePassword(s *adminapi.Server) http.HandlerFunc {
 			return
 		}
 		identity, _ := middleware.AdminIdentityFromContext(r.Context())
-		if !allowAdminRequest(
-			s, w, r,
-			"change-password:"+adminapi.FormatUUID(identity.UserID),
-		) || !allowAdminExpensiveRequest(s, w, r) {
-			return
-		}
 		hash, err := adminapi.HashPassword(string(request.NewPassword))
 		if err != nil {
 			s.InternalError(r.Context(), w, "hash changed password", err)
