@@ -53,23 +53,120 @@ func (ns NullVetchiumAdminUserState) Value() (driver.Value, error) {
 	return string(ns.VetchiumAdminUserState), nil
 }
 
+type VetchiumAdminCompanySetting struct {
+	Singleton       bool               `json:"singleton"`
+	DefaultLanguage string             `json:"default_language"`
+	DefaultTimezone string             `json:"default_timezone"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
+type VetchiumAdminDisplayName struct {
+	AdminUserID  pgtype.UUID `json:"admin_user_id"`
+	LanguageCode string      `json:"language_code"`
+	DisplayName  string      `json:"display_name"`
+}
+
+type VetchiumAdminEmailOutbox struct {
+	AdminEmailOutboxID    pgtype.UUID        `json:"admin_email_outbox_id"`
+	Kind                  string             `json:"kind"`
+	RecipientEmailAddress string             `json:"recipient_email_address"`
+	PayloadCiphertext     []byte             `json:"payload_ciphertext"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	SentAt                pgtype.Timestamptz `json:"sent_at"`
+}
+
+type VetchiumAdminIdempotencyLedger struct {
+	Operation          string             `json:"operation"`
+	BindingID          string             `json:"binding_id"`
+	IdempotencyKey     string             `json:"idempotency_key"`
+	RequestDigest      []byte             `json:"request_digest"`
+	ResponseStatus     pgtype.Int4        `json:"response_status"`
+	ResponseCiphertext []byte             `json:"response_ciphertext"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	ExpiresAt          pgtype.Timestamptz `json:"expires_at"`
+}
+
+type VetchiumAdminInvitation struct {
+	AdminInvitationID pgtype.UUID        `json:"admin_invitation_id"`
+	EmailAddress      string             `json:"email_address"`
+	TokenHash         []byte             `json:"token_hash"`
+	InvitedBy         pgtype.UUID        `json:"invited_by"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	ExpiresAt         pgtype.Timestamptz `json:"expires_at"`
+	ConsumedAt        pgtype.Timestamptz `json:"consumed_at"`
+	Active            bool               `json:"active"`
+}
+
+type VetchiumAdminLoginChallenge struct {
+	AdminLoginChallengeID pgtype.UUID        `json:"admin_login_challenge_id"`
+	AdminUserID           pgtype.UUID        `json:"admin_user_id"`
+	TokenHash             []byte             `json:"token_hash"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	ExpiresAt             pgtype.Timestamptz `json:"expires_at"`
+	ConsumedAt            pgtype.Timestamptz `json:"consumed_at"`
+	Active                bool               `json:"active"`
+}
+
+type VetchiumAdminPasswordResetToken struct {
+	AdminPasswordResetTokenID pgtype.UUID        `json:"admin_password_reset_token_id"`
+	AdminUserID               pgtype.UUID        `json:"admin_user_id"`
+	TokenHash                 []byte             `json:"token_hash"`
+	CreatedAt                 pgtype.Timestamptz `json:"created_at"`
+	ExpiresAt                 pgtype.Timestamptz `json:"expires_at"`
+	ConsumedAt                pgtype.Timestamptz `json:"consumed_at"`
+	Active                    bool               `json:"active"`
+}
+
+type VetchiumAdminPermission struct {
+	AdminUserID pgtype.UUID        `json:"admin_user_id"`
+	Permission  string             `json:"permission"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
 type VetchiumAdminSession struct {
 	AdminSessionID   pgtype.UUID        `json:"admin_session_id"`
 	AdminUserID      pgtype.UUID        `json:"admin_user_id"`
 	SessionTokenHash []byte             `json:"session_token_hash"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 	ExpiresAt        pgtype.Timestamptz `json:"expires_at"`
+	AuthenticatedAt  pgtype.Timestamptz `json:"authenticated_at"`
+	LastTotpTimestep pgtype.Int8        `json:"last_totp_timestep"`
+}
+
+type VetchiumAdminTotpEnrollment struct {
+	AdminTotpEnrollmentID pgtype.UUID        `json:"admin_totp_enrollment_id"`
+	AdminUserID           pgtype.UUID        `json:"admin_user_id"`
+	TokenHash             []byte             `json:"token_hash"`
+	SecretCiphertext      []byte             `json:"secret_ciphertext"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	ExpiresAt             pgtype.Timestamptz `json:"expires_at"`
+	ConsumedAt            pgtype.Timestamptz `json:"consumed_at"`
+	Active                bool               `json:"active"`
+}
+
+type VetchiumAdminTotpRecoveryCode struct {
+	AdminUserID pgtype.UUID        `json:"admin_user_id"`
+	CodeHash    []byte             `json:"code_hash"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	ConsumedAt  pgtype.Timestamptz `json:"consumed_at"`
 }
 
 type VetchiumAdminUser struct {
-	AdminUserID    pgtype.UUID            `json:"admin_user_id"`
-	EmailAddress   string                 `json:"email_address"`
-	DisplayName    string                 `json:"display_name"`
-	PasswordHash   string                 `json:"password_hash"`
-	AdminUserState VetchiumAdminUserState `json:"admin_user_state"`
-	LastLoginAt    pgtype.Timestamptz     `json:"last_login_at"`
-	CreatedAt      pgtype.Timestamptz     `json:"created_at"`
-	UpdatedAt      pgtype.Timestamptz     `json:"updated_at"`
+	AdminUserID                pgtype.UUID            `json:"admin_user_id"`
+	EmailAddress               string                 `json:"email_address"`
+	DisplayName                string                 `json:"display_name"`
+	PasswordHash               string                 `json:"password_hash"`
+	AdminUserState             VetchiumAdminUserState `json:"admin_user_state"`
+	LastLoginAt                pgtype.Timestamptz     `json:"last_login_at"`
+	CreatedAt                  pgtype.Timestamptz     `json:"created_at"`
+	UpdatedAt                  pgtype.Timestamptz     `json:"updated_at"`
+	IsSuperadmin               bool                   `json:"is_superadmin"`
+	PrimaryDisplayNameLanguage string                 `json:"primary_display_name_language"`
+	PreferredLanguage          pgtype.Text            `json:"preferred_language"`
+	PreferredTimezone          pgtype.Text            `json:"preferred_timezone"`
+	TotpSecretCiphertext       []byte                 `json:"totp_secret_ciphertext"`
+	TotpEnabled                bool                   `json:"totp_enabled"`
+	TotpLastTimestep           pgtype.Int8            `json:"totp_last_timestep"`
 }
 
 type VetchiumHubUser struct {

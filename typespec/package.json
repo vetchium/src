@@ -7,9 +7,30 @@
     "node": ">=22.13.0"
   },
   "exports": {
+    "./admin/admin": "./admin/admin.ts",
     "./admin/auth": "./admin/auth.ts",
+    "./admin/auth/login": "./admin/auth/login.ts",
+    "./admin/auth/password": "./admin/auth/password.ts",
+    "./admin/auth/totp": "./admin/auth/totp.ts",
+    "./admin/authorization/management": "./admin/authorization/management.ts",
+    "./admin/authorization/types": "./admin/authorization/types.ts",
+    "./admin/common/types": "./admin/common/types.ts",
+    "./admin/company/regional": "./admin/company/regional.ts",
     "./admin/user/user": "./admin/user/user.ts",
+    "./admin/users/invitations": "./admin/users/invitations.ts",
+    "./admin/users/management": "./admin/users/management.ts",
+    "./admin/users/profile": "./admin/users/profile.ts",
+    "./common/authentication": "./common/authentication.ts",
     "./common/common": "./common/common.ts",
+    "./common/idempotency": "./common/idempotency.ts",
+    "./common/localization": "./common/localization.ts",
+    "./common/pagination": "./common/pagination.ts",
+    "./common/security-effects": "./common/security-effects.ts",
+    "./problem/admin/authentication": "./problem/admin/authentication.ts",
+    "./problem/admin/authorization": "./problem/admin/authorization.ts",
+    "./problem/admin/totp": "./problem/admin/totp.ts",
+    "./problem/admin/users": "./problem/admin/users.ts",
+    "./problem/common": "./problem/common.ts",
     "./problem/details": "./problem/details.ts"
   },
   "files": [
@@ -19,11 +40,13 @@
     "!**/*.test.ts"
   ],
   "scripts": {
-    "check:contract-files": "node scripts/check-contract-files.mjs",
+    "check:contract-files": "node scripts/check-contract-files.mjs && node scripts/generate-canonical-time-zones.mjs --check && node scripts/generate-canonical-locales.mjs --check",
     "compile": "tsp compile .",
     "format": "biome format --write --config-path=../biome.json .",
+    "generate:timezones": "node scripts/generate-canonical-time-zones.mjs",
+    "generate:locales": "node scripts/generate-canonical-locales.mjs",
     "format:check": "biome format --config-path=../biome.json .",
-    "test:ts": "node --experimental-strip-types --test admin/auth.test.ts",
+    "test:ts": "node --experimental-strip-types --test admin/*.test.ts common/*.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

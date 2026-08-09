@@ -120,5 +120,6 @@ interface PasswordOperations {
     | Vetchium.Problem.InvalidJSONErrorResponse
     | Vetchium.Problem.ValidationFailedErrorResponse
     | Vetchium.Problem.AdminAuthenticationOrRecentRequiredErrorResponse
+    | Vetchium.Problem.RateLimitExceededErrorResponse
     | Vetchium.Problem.InternalServerErrorResponse;
 }

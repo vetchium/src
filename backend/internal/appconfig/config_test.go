@@ -2,6 +2,7 @@ package appconfig
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -25,8 +26,16 @@ func TestLoadFile(t *testing.T) {
 		cfg.AdminAPIServer.AdminSessionTTL != 24*time.Hour {
 		t.Fatalf("config = %+v, want tenant sgp and admin-session TTL 24h", cfg)
 	}
+	if len(cfg.AdminAPIServer.TrustedProxyCIDRs) != 1 ||
+		!cfg.AdminAPIServer.TrustedProxyCIDRs[0].Contains(net.ParseIP("172.20.0.1")) {
+		t.Fatalf(
+			"trusted proxy CIDRs = %+v, want configured Docker proxy range",
+			cfg.AdminAPIServer.TrustedProxyCIDRs,
+		)
+	}
 	if cfg.Workers.RetryBackoffLimit != 5*time.Minute ||
-		cfg.Workers.PruneAdminSessionsTimer != time.Hour {
+		cfg.Workers.PruneAdminSessionsTimer != time.Hour ||
+		cfg.Workers.PruneAdminEphemeralDataTimer != time.Hour {
 		t.Fatalf(
 			"workers config = %+v, want retry limit 5m and prune interval 1h",
 			cfg.Workers,
@@ -66,6 +75,35 @@ func TestLoadUsesConfiguredPathAndDatabaseOverrides(t *testing.T) {
 	}
 	if cfg.Database.Name != "overridden_db" || cfg.Database.SSLMode != "require" {
 		t.Fatalf("database config = %+v, want deployment overrides", cfg.Database)
+	}
+}
+
+func TestAdminCredentialSecretUsesConfiguredFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "admin-credential-key")
+	if err := os.WriteFile(path, []byte("separate-secret\r\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("ADMIN_CREDENTIAL_KEY_FILE", path)
+
+	secret, err := AdminCredentialSecret()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if secret != "separate-secret" {
+		t.Fatalf("AdminCredentialSecret() = %q, want trimmed secret", secret)
+	}
+}
+
+func TestAdminCredentialSecretRejectsEmptyFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "admin-credential-key")
+	if err := os.WriteFile(path, []byte("\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("ADMIN_CREDENTIAL_KEY_FILE", path)
+
+	_, err := AdminCredentialSecret()
+	if err == nil || !strings.Contains(err.Error(), "is empty") {
+		t.Fatalf("AdminCredentialSecret() error = %v, want empty-file error", err)
 	}
 }
 
@@ -138,9 +176,13 @@ func TestLoadFileRequiresPositiveDurations(t *testing.T) {
   },
   "workers": {
     "retryBackoffLimit": "0s",
-    "pruneAdminSessionsTimer": "1h"
+    "pruneAdminSessionsTimer": "1h",
+    "pruneAdminEphemeralDataTimer": "1h"
   },
-  "admin-api-server": {"adminSessionTTL": "24h"},
+  "admin-api-server": {
+    "adminSessionTTL": "24h",
+    "trustedProxyCIDRs": ["172.16.0.0/12"]
+  },
   "hub-api-server": {},
   "orgs-api-server": {},
   "mcp-server": {}
@@ -209,9 +251,13 @@ func writeConfig(t *testing.T, passwordFile, extraWorkerField string) string {
   },
   "workers": {
     "retryBackoffLimit": "5m",
-    "pruneAdminSessionsTimer": "1h"%s
+    "pruneAdminSessionsTimer": "1h",
+    "pruneAdminEphemeralDataTimer": "1h"%s
   },
-  "admin-api-server": {"adminSessionTTL": "24h"},
+  "admin-api-server": {
+    "adminSessionTTL": "24h",
+    "trustedProxyCIDRs": ["172.16.0.0/12"]
+  },
   "hub-api-server": {},
   "orgs-api-server": {},
   "mcp-server": {}

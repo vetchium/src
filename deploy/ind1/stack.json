@@ -216,7 +216,7 @@
         "PGDATABASE": "${POSTGRES_DB:?set POSTGRES_DB}",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
       },
-      "secrets": ["app_postgres_password"],
+      "secrets": ["app_postgres_password", "admin_credential_key"],
       "image": "${REGISTRY:-ghcr.io/vetchium}/admin-api:${TAG:?set TAG}",
       "networks": ["admin_api_access", "backend"]
     },
@@ -599,6 +599,10 @@
     "app_postgres_password": {
       "external": true,
       "name": "ind1_app_postgres_password"
+    },
+    "admin_credential_key": {
+      "external": true,
+      "name": "ind1_admin_credential_key"
     }
   }
 }

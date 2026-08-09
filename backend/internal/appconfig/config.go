@@ -15,6 +15,7 @@ import (
 )
 
 const defaultPath = "/etc/vetchium/config.json"
+const defaultAdminCredentialKeyPath = "/run/secrets/admin_credential_key"
 
 type Config struct {
 	TenantID       string
@@ -46,12 +47,14 @@ type Database struct {
 }
 
 type AdminAPIServer struct {
-	AdminSessionTTL time.Duration
+	AdminSessionTTL   time.Duration
+	TrustedProxyCIDRs []net.IPNet
 }
 
 type Workers struct {
-	RetryBackoffLimit       time.Duration
-	PruneAdminSessionsTimer time.Duration
+	RetryBackoffLimit            time.Duration
+	PruneAdminSessionsTimer      time.Duration
+	PruneAdminEphemeralDataTimer time.Duration
 }
 
 type Server struct{}
@@ -77,12 +80,14 @@ type fileDatabase struct {
 }
 
 type fileAdminAPIServer struct {
-	AdminSessionTTL string `json:"adminSessionTTL"`
+	AdminSessionTTL   string   `json:"adminSessionTTL"`
+	TrustedProxyCIDRs []string `json:"trustedProxyCIDRs"`
 }
 
 type fileWorkers struct {
-	RetryBackoffLimit       string `json:"retryBackoffLimit"`
-	PruneAdminSessionsTimer string `json:"pruneAdminSessionsTimer"`
+	RetryBackoffLimit            string `json:"retryBackoffLimit"`
+	PruneAdminSessionsTimer      string `json:"pruneAdminSessionsTimer"`
+	PruneAdminEphemeralDataTimer string `json:"pruneAdminEphemeralDataTimer"`
 }
 
 func Load() (Config, error) {
@@ -179,6 +184,22 @@ func LoadFile(path string) (Config, error) {
 	if err != nil {
 		return Config{}, configError(path, err)
 	}
+	trustedProxyCIDRs := make([]net.IPNet, 0, len(raw.AdminAPIServer.TrustedProxyCIDRs))
+	if len(raw.AdminAPIServer.TrustedProxyCIDRs) == 0 {
+		return Config{}, configError(
+			path, fmt.Errorf("admin-api-server.trustedProxyCIDRs must not be empty"),
+		)
+	}
+	for _, value := range raw.AdminAPIServer.TrustedProxyCIDRs {
+		_, network, parseErr := net.ParseCIDR(value)
+		if parseErr != nil {
+			return Config{}, configError(path, fmt.Errorf(
+				"parse admin-api-server.trustedProxyCIDRs entry %q: %w",
+				value, parseErr,
+			))
+		}
+		trustedProxyCIDRs = append(trustedProxyCIDRs, *network)
+	}
 	retryBackoffLimit, err := positiveDuration(
 		"workers.retryBackoffLimit",
 		raw.Workers.RetryBackoffLimit,
@@ -189,6 +210,13 @@ func LoadFile(path string) (Config, error) {
 	pruneTimer, err := positiveDuration(
 		"workers.pruneAdminSessionsTimer",
 		raw.Workers.PruneAdminSessionsTimer,
+	)
+	if err != nil {
+		return Config{}, configError(path, err)
+	}
+	pruneEphemeralTimer, err := positiveDuration(
+		"workers.pruneAdminEphemeralDataTimer",
+		raw.Workers.PruneAdminEphemeralDataTimer,
 	)
 	if err != nil {
 		return Config{}, configError(path, err)
@@ -206,11 +234,13 @@ func LoadFile(path string) (Config, error) {
 			SSLMode:      raw.Database.SSLMode,
 		},
 		AdminAPIServer: AdminAPIServer{
-			AdminSessionTTL: adminSessionTTL,
+			AdminSessionTTL:   adminSessionTTL,
+			TrustedProxyCIDRs: trustedProxyCIDRs,
 		},
 		Workers: Workers{
-			RetryBackoffLimit:       retryBackoffLimit,
-			PruneAdminSessionsTimer: pruneTimer,
+			RetryBackoffLimit:            retryBackoffLimit,
+			PruneAdminSessionsTimer:      pruneTimer,
+			PruneAdminEphemeralDataTimer: pruneEphemeralTimer,
 		},
 		HubAPIServer:  Server{},
 		OrgsAPIServer: Server{},
@@ -219,14 +249,10 @@ func LoadFile(path string) (Config, error) {
 }
 
 func (d Database) URL() (string, error) {
-	value, err := os.ReadFile(d.PasswordFile)
+	password, err := d.Password()
 	if err != nil {
-		return "", fmt.Errorf(
-			"read database password file %q: %w",
-			d.PasswordFile, err,
-		)
+		return "", err
 	}
-	password := strings.TrimRight(string(value), "\r\n")
 
 	u := &url.URL{
 		Scheme: "postgres",
@@ -238,6 +264,33 @@ func (d Database) URL() (string, error) {
 	query.Set("sslmode", d.SSLMode)
 	u.RawQuery = query.Encode()
 	return u.String(), nil
+}
+
+func (d Database) Password() (string, error) {
+	value, err := os.ReadFile(d.PasswordFile)
+	if err != nil {
+		return "", fmt.Errorf(
+			"read database password file %q: %w",
+			d.PasswordFile, err,
+		)
+	}
+	return strings.TrimRight(string(value), "\r\n"), nil
+}
+
+func AdminCredentialSecret() (string, error) {
+	path := os.Getenv("ADMIN_CREDENTIAL_KEY_FILE")
+	if path == "" {
+		path = defaultAdminCredentialKeyPath
+	}
+	value, err := os.ReadFile(path)
+	if err != nil {
+		return "", fmt.Errorf("read admin credential key file %q: %w", path, err)
+	}
+	secret := strings.TrimRight(string(value), "\r\n")
+	if secret == "" {
+		return "", fmt.Errorf("admin credential key file %q is empty", path)
+	}
+	return secret, nil
 }
 
 func required(name, value string) error {

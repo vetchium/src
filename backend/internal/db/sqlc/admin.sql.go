@@ -14,7 +14,29 @@ import (
 const authenticateAdminSession = `-- name: AuthenticateAdminSession :one
 SELECT
     u.admin_user_id,
-    s.admin_session_id
+    s.admin_session_id,
+    s.authenticated_at,
+    u.is_superadmin,
+    CASE
+        WHEN u.is_superadmin THEN ARRAY[
+            'admin:view_users',
+            'admin:manage_users'
+        ]::text[]
+        ELSE ARRAY(
+            SELECT permission
+            FROM (
+                SELECT p.permission
+                FROM vetchium.admin_permissions AS p
+                WHERE p.admin_user_id = u.admin_user_id
+                UNION
+                SELECT 'admin:view_users'
+                FROM vetchium.admin_permissions AS p
+                WHERE p.admin_user_id = u.admin_user_id
+                  AND p.permission = 'admin:manage_users'
+            ) AS effective_permissions
+            ORDER BY permission
+        )::text[]
+    END AS permissions
 FROM vetchium.admin_sessions AS s
 JOIN vetchium.admin_users AS u USING (admin_user_id)
 WHERE s.session_token_hash = $1
@@ -23,14 +45,140 @@ WHERE s.session_token_hash = $1
 `
 
 type AuthenticateAdminSessionRow struct {
-	AdminUserID    pgtype.UUID `json:"admin_user_id"`
-	AdminSessionID pgtype.UUID `json:"admin_session_id"`
+	AdminUserID     pgtype.UUID        `json:"admin_user_id"`
+	AdminSessionID  pgtype.UUID        `json:"admin_session_id"`
+	AuthenticatedAt pgtype.Timestamptz `json:"authenticated_at"`
+	IsSuperadmin    bool               `json:"is_superadmin"`
+	Permissions     []string           `json:"permissions"`
 }
 
 func (q *Queries) AuthenticateAdminSession(ctx context.Context, sessionTokenHash []byte) (AuthenticateAdminSessionRow, error) {
 	row := q.db.QueryRow(ctx, authenticateAdminSession, sessionTokenHash)
 	var i AuthenticateAdminSessionRow
-	err := row.Scan(&i.AdminUserID, &i.AdminSessionID)
+	err := row.Scan(
+		&i.AdminUserID,
+		&i.AdminSessionID,
+		&i.AuthenticatedAt,
+		&i.IsSuperadmin,
+		&i.Permissions,
+	)
+	return i, err
+}
+
+const completeAdminTOTPLogin = `-- name: CompleteAdminTOTPLogin :one
+WITH accepted_timestep AS (
+    UPDATE vetchium.admin_users AS u
+    SET totp_last_timestep = $3,
+        last_login_at = now(),
+        updated_at = now()
+    WHERE u.admin_user_id = $2
+      AND u.admin_user_state = 'active'
+      AND u.totp_enabled
+      AND (u.totp_last_timestep IS NULL OR u.totp_last_timestep < $3)
+    RETURNING u.admin_user_id
+), consumed AS (
+    UPDATE vetchium.admin_login_challenges AS c
+    SET consumed_at = now(),
+        active = false
+    FROM accepted_timestep AS u
+    WHERE c.admin_login_challenge_id = $1
+      AND c.admin_user_id = u.admin_user_id
+      AND c.active
+      AND c.consumed_at IS NULL
+      AND c.expires_at > now()
+    RETURNING c.admin_user_id
+)
+INSERT INTO vetchium.admin_sessions (
+    session_token_hash,
+    admin_user_id,
+    expires_at,
+    authenticated_at,
+    last_totp_timestep
+)
+SELECT $4, admin_user_id, $5, now(), $3
+FROM consumed
+RETURNING admin_session_id, created_at, expires_at, authenticated_at
+`
+
+type CompleteAdminTOTPLoginParams struct {
+	AdminLoginChallengeID pgtype.UUID        `json:"admin_login_challenge_id"`
+	AdminUserID           pgtype.UUID        `json:"admin_user_id"`
+	LastTotpTimestep      pgtype.Int8        `json:"last_totp_timestep"`
+	SessionTokenHash      []byte             `json:"session_token_hash"`
+	ExpiresAt             pgtype.Timestamptz `json:"expires_at"`
+}
+
+type CompleteAdminTOTPLoginRow struct {
+	AdminSessionID  pgtype.UUID        `json:"admin_session_id"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	ExpiresAt       pgtype.Timestamptz `json:"expires_at"`
+	AuthenticatedAt pgtype.Timestamptz `json:"authenticated_at"`
+}
+
+func (q *Queries) CompleteAdminTOTPLogin(ctx context.Context, arg CompleteAdminTOTPLoginParams) (CompleteAdminTOTPLoginRow, error) {
+	row := q.db.QueryRow(ctx, completeAdminTOTPLogin,
+		arg.AdminLoginChallengeID,
+		arg.AdminUserID,
+		arg.LastTotpTimestep,
+		arg.SessionTokenHash,
+		arg.ExpiresAt,
+	)
+	var i CompleteAdminTOTPLoginRow
+	err := row.Scan(
+		&i.AdminSessionID,
+		&i.CreatedAt,
+		&i.ExpiresAt,
+		&i.AuthenticatedAt,
+	)
+	return i, err
+}
+
+const createAdminLoginChallenge = `-- name: CreateAdminLoginChallenge :one
+WITH eligible_user AS (
+    SELECT u.admin_user_id
+    FROM vetchium.admin_users AS u
+    WHERE u.admin_user_id = $3
+      AND u.password_hash = $4
+      AND u.admin_user_state = 'active'
+      AND u.totp_enabled
+    FOR UPDATE
+)
+INSERT INTO vetchium.admin_login_challenges (
+    admin_user_id,
+    token_hash,
+    expires_at
+)
+SELECT admin_user_id, $1, $2
+FROM eligible_user
+ON CONFLICT (admin_user_id) WHERE active DO UPDATE
+SET token_hash = EXCLUDED.token_hash,
+    created_at = now(),
+    expires_at = EXCLUDED.expires_at,
+    consumed_at = NULL
+RETURNING admin_login_challenge_id, expires_at
+`
+
+type CreateAdminLoginChallengeParams struct {
+	TokenHash            []byte             `json:"token_hash"`
+	ExpiresAt            pgtype.Timestamptz `json:"expires_at"`
+	AdminUserID          pgtype.UUID        `json:"admin_user_id"`
+	VerifiedPasswordHash string             `json:"verified_password_hash"`
+}
+
+type CreateAdminLoginChallengeRow struct {
+	AdminLoginChallengeID pgtype.UUID        `json:"admin_login_challenge_id"`
+	ExpiresAt             pgtype.Timestamptz `json:"expires_at"`
+}
+
+func (q *Queries) CreateAdminLoginChallenge(ctx context.Context, arg CreateAdminLoginChallengeParams) (CreateAdminLoginChallengeRow, error) {
+	row := q.db.QueryRow(ctx, createAdminLoginChallenge,
+		arg.TokenHash,
+		arg.ExpiresAt,
+		arg.AdminUserID,
+		arg.VerifiedPasswordHash,
+	)
+	var i CreateAdminLoginChallengeRow
+	err := row.Scan(&i.AdminLoginChallengeID, &i.ExpiresAt)
 	return i, err
 }
 
@@ -41,34 +189,49 @@ WITH updated_admin_user AS (
         updated_at = now()
     WHERE u.admin_user_id = $2
       AND u.admin_user_state = 'active'
+      AND u.password_hash = $4
+      AND NOT u.totp_enabled
     RETURNING u.admin_user_id
 )
 INSERT INTO vetchium.admin_sessions (
     session_token_hash,
     admin_user_id,
-    expires_at
+    expires_at,
+    authenticated_at
 )
-SELECT $1, u.admin_user_id, $3
+SELECT $1, u.admin_user_id, $3, now()
 FROM updated_admin_user AS u
-RETURNING admin_session_id, created_at, expires_at
+RETURNING admin_session_id, created_at, expires_at, authenticated_at
 `
 
 type CreateAdminSessionParams struct {
-	SessionTokenHash []byte             `json:"session_token_hash"`
-	AdminUserID      pgtype.UUID        `json:"admin_user_id"`
-	ExpiresAt        pgtype.Timestamptz `json:"expires_at"`
+	SessionTokenHash     []byte             `json:"session_token_hash"`
+	AdminUserID          pgtype.UUID        `json:"admin_user_id"`
+	ExpiresAt            pgtype.Timestamptz `json:"expires_at"`
+	VerifiedPasswordHash string             `json:"verified_password_hash"`
 }
 
 type CreateAdminSessionRow struct {
-	AdminSessionID pgtype.UUID        `json:"admin_session_id"`
-	CreatedAt      pgtype.Timestamptz `json:"created_at"`
-	ExpiresAt      pgtype.Timestamptz `json:"expires_at"`
+	AdminSessionID  pgtype.UUID        `json:"admin_session_id"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	ExpiresAt       pgtype.Timestamptz `json:"expires_at"`
+	AuthenticatedAt pgtype.Timestamptz `json:"authenticated_at"`
 }
 
 func (q *Queries) CreateAdminSession(ctx context.Context, arg CreateAdminSessionParams) (CreateAdminSessionRow, error) {
-	row := q.db.QueryRow(ctx, createAdminSession, arg.SessionTokenHash, arg.AdminUserID, arg.ExpiresAt)
+	row := q.db.QueryRow(ctx, createAdminSession,
+		arg.SessionTokenHash,
+		arg.AdminUserID,
+		arg.ExpiresAt,
+		arg.VerifiedPasswordHash,
+	)
 	var i CreateAdminSessionRow
-	err := row.Scan(&i.AdminSessionID, &i.CreatedAt, &i.ExpiresAt)
+	err := row.Scan(
+		&i.AdminSessionID,
+		&i.CreatedAt,
+		&i.ExpiresAt,
+		&i.AuthenticatedAt,
+	)
 	return i, err
 }
 
@@ -91,6 +254,19 @@ func (q *Queries) DeleteAdminSession(ctx context.Context, arg DeleteAdminSession
 	return result.RowsAffected(), nil
 }
 
+const deleteAdminSessionByTokenHash = `-- name: DeleteAdminSessionByTokenHash :execrows
+DELETE FROM vetchium.admin_sessions
+WHERE session_token_hash = $1
+`
+
+func (q *Queries) DeleteAdminSessionByTokenHash(ctx context.Context, sessionTokenHash []byte) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteAdminSessionByTokenHash, sessionTokenHash)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const deleteExpiredAdminSessions = `-- name: DeleteExpiredAdminSessions :execrows
 DELETE FROM vetchium.admin_sessions
 WHERE expires_at <= now()
@@ -104,17 +280,107 @@ func (q *Queries) DeleteExpiredAdminSessions(ctx context.Context) (int64, error)
 	return result.RowsAffected(), nil
 }
 
+const getAdminLoginChallenge = `-- name: GetAdminLoginChallenge :one
+SELECT
+    c.admin_login_challenge_id,
+    c.admin_user_id,
+    u.totp_secret_ciphertext,
+    u.admin_user_state,
+    COALESCE(u.preferred_language, s.default_language)::text AS effective_language,
+    COALESCE(u.preferred_timezone, s.default_timezone)::text AS effective_timezone
+FROM vetchium.admin_login_challenges AS c
+JOIN vetchium.admin_users AS u USING (admin_user_id)
+CROSS JOIN vetchium.admin_company_settings AS s
+WHERE c.token_hash = $1
+  AND c.active
+  AND c.consumed_at IS NULL
+  AND c.expires_at > now()
+  AND u.admin_user_state = 'active'
+  AND u.totp_enabled
+FOR UPDATE OF c
+`
+
+type GetAdminLoginChallengeRow struct {
+	AdminLoginChallengeID pgtype.UUID            `json:"admin_login_challenge_id"`
+	AdminUserID           pgtype.UUID            `json:"admin_user_id"`
+	TotpSecretCiphertext  []byte                 `json:"totp_secret_ciphertext"`
+	AdminUserState        VetchiumAdminUserState `json:"admin_user_state"`
+	EffectiveLanguage     string                 `json:"effective_language"`
+	EffectiveTimezone     string                 `json:"effective_timezone"`
+}
+
+func (q *Queries) GetAdminLoginChallenge(ctx context.Context, tokenHash []byte) (GetAdminLoginChallengeRow, error) {
+	row := q.db.QueryRow(ctx, getAdminLoginChallenge, tokenHash)
+	var i GetAdminLoginChallengeRow
+	err := row.Scan(
+		&i.AdminLoginChallengeID,
+		&i.AdminUserID,
+		&i.TotpSecretCiphertext,
+		&i.AdminUserState,
+		&i.EffectiveLanguage,
+		&i.EffectiveTimezone,
+	)
+	return i, err
+}
+
 const getAdminMyInfo = `-- name: GetAdminMyInfo :one
 SELECT
     u.admin_user_id,
     u.email_address,
-    u.display_name,
+    names.display_names::text AS display_names_json,
+    u.primary_display_name_language,
     u.admin_user_state,
-    u.last_login_at,
+    u.is_superadmin,
+    array_to_json(CASE WHEN u.is_superadmin THEN ARRAY[
+        'admin:view_users',
+        'admin:manage_users'
+    ]::text[] ELSE auth.permissions END)::text AS permissions_json,
+    u.totp_enabled,
+    recovery.remaining_codes AS recovery_codes_remaining,
+    u.preferred_language,
+    u.preferred_timezone,
+    COALESCE(u.preferred_language, c.default_language)::text AS effective_language,
+    COALESCE(u.preferred_timezone, c.default_timezone)::text AS effective_timezone,
     u.created_at,
     s.expires_at
 FROM vetchium.admin_sessions AS s
 JOIN vetchium.admin_users AS u USING (admin_user_id)
+CROSS JOIN vetchium.admin_company_settings AS c
+CROSS JOIN LATERAL (
+    SELECT COALESCE(
+        jsonb_agg(
+            jsonb_build_object(
+                'language_code', d.language_code,
+                'display_name', d.display_name
+            ) ORDER BY d.language_code
+        ),
+        '[]'::jsonb
+    ) AS display_names
+    FROM vetchium.admin_display_names AS d
+    WHERE d.admin_user_id = u.admin_user_id
+) AS names
+CROSS JOIN LATERAL (
+    SELECT ARRAY(
+        SELECT permission
+        FROM (
+            SELECT p.permission
+            FROM vetchium.admin_permissions AS p
+            WHERE p.admin_user_id = u.admin_user_id
+            UNION
+            SELECT 'admin:view_users'
+            FROM vetchium.admin_permissions AS p
+            WHERE p.admin_user_id = u.admin_user_id
+              AND p.permission = 'admin:manage_users'
+        ) AS effective_permissions
+        ORDER BY permission
+    )::text[] AS permissions
+) AS auth
+CROSS JOIN LATERAL (
+    SELECT count(*)::bigint AS remaining_codes
+    FROM vetchium.admin_totp_recovery_codes AS r
+    WHERE r.admin_user_id = u.admin_user_id
+      AND r.consumed_at IS NULL
+) AS recovery
 WHERE s.admin_session_id = $1
   AND u.admin_user_id = $2
   AND s.expires_at > now()
@@ -127,13 +393,21 @@ type GetAdminMyInfoParams struct {
 }
 
 type GetAdminMyInfoRow struct {
-	AdminUserID    pgtype.UUID            `json:"admin_user_id"`
-	EmailAddress   string                 `json:"email_address"`
-	DisplayName    string                 `json:"display_name"`
-	AdminUserState VetchiumAdminUserState `json:"admin_user_state"`
-	LastLoginAt    pgtype.Timestamptz     `json:"last_login_at"`
-	CreatedAt      pgtype.Timestamptz     `json:"created_at"`
-	ExpiresAt      pgtype.Timestamptz     `json:"expires_at"`
+	AdminUserID                pgtype.UUID            `json:"admin_user_id"`
+	EmailAddress               string                 `json:"email_address"`
+	DisplayNamesJson           string                 `json:"display_names_json"`
+	PrimaryDisplayNameLanguage string                 `json:"primary_display_name_language"`
+	AdminUserState             VetchiumAdminUserState `json:"admin_user_state"`
+	IsSuperadmin               bool                   `json:"is_superadmin"`
+	PermissionsJson            string                 `json:"permissions_json"`
+	TotpEnabled                bool                   `json:"totp_enabled"`
+	RecoveryCodesRemaining     int64                  `json:"recovery_codes_remaining"`
+	PreferredLanguage          pgtype.Text            `json:"preferred_language"`
+	PreferredTimezone          pgtype.Text            `json:"preferred_timezone"`
+	EffectiveLanguage          string                 `json:"effective_language"`
+	EffectiveTimezone          string                 `json:"effective_timezone"`
+	CreatedAt                  pgtype.Timestamptz     `json:"created_at"`
+	ExpiresAt                  pgtype.Timestamptz     `json:"expires_at"`
 }
 
 func (q *Queries) GetAdminMyInfo(ctx context.Context, arg GetAdminMyInfoParams) (GetAdminMyInfoRow, error) {
@@ -142,9 +416,17 @@ func (q *Queries) GetAdminMyInfo(ctx context.Context, arg GetAdminMyInfoParams) 
 	err := row.Scan(
 		&i.AdminUserID,
 		&i.EmailAddress,
-		&i.DisplayName,
+		&i.DisplayNamesJson,
+		&i.PrimaryDisplayNameLanguage,
 		&i.AdminUserState,
-		&i.LastLoginAt,
+		&i.IsSuperadmin,
+		&i.PermissionsJson,
+		&i.TotpEnabled,
+		&i.RecoveryCodesRemaining,
+		&i.PreferredLanguage,
+		&i.PreferredTimezone,
+		&i.EffectiveLanguage,
+		&i.EffectiveTimezone,
 		&i.CreatedAt,
 		&i.ExpiresAt,
 	)
@@ -153,21 +435,28 @@ func (q *Queries) GetAdminMyInfo(ctx context.Context, arg GetAdminMyInfoParams) 
 
 const getAdminUserForLogin = `-- name: GetAdminUserForLogin :one
 SELECT
-    admin_user_id,
-    email_address,
-    display_name,
-    password_hash,
-    admin_user_state
-FROM vetchium.admin_users
-WHERE email_address = $1
+    u.admin_user_id,
+    u.email_address,
+    u.password_hash,
+    u.admin_user_state,
+    u.totp_enabled,
+    u.totp_secret_ciphertext,
+    COALESCE(u.preferred_language, c.default_language)::text AS effective_language,
+    COALESCE(u.preferred_timezone, c.default_timezone)::text AS effective_timezone
+FROM vetchium.admin_users AS u
+CROSS JOIN vetchium.admin_company_settings AS c
+WHERE u.email_address = $1
 `
 
 type GetAdminUserForLoginRow struct {
-	AdminUserID    pgtype.UUID            `json:"admin_user_id"`
-	EmailAddress   string                 `json:"email_address"`
-	DisplayName    string                 `json:"display_name"`
-	PasswordHash   string                 `json:"password_hash"`
-	AdminUserState VetchiumAdminUserState `json:"admin_user_state"`
+	AdminUserID          pgtype.UUID            `json:"admin_user_id"`
+	EmailAddress         string                 `json:"email_address"`
+	PasswordHash         string                 `json:"password_hash"`
+	AdminUserState       VetchiumAdminUserState `json:"admin_user_state"`
+	TotpEnabled          bool                   `json:"totp_enabled"`
+	TotpSecretCiphertext []byte                 `json:"totp_secret_ciphertext"`
+	EffectiveLanguage    string                 `json:"effective_language"`
+	EffectiveTimezone    string                 `json:"effective_timezone"`
 }
 
 func (q *Queries) GetAdminUserForLogin(ctx context.Context, emailAddress string) (GetAdminUserForLoginRow, error) {
@@ -176,9 +465,28 @@ func (q *Queries) GetAdminUserForLogin(ctx context.Context, emailAddress string)
 	err := row.Scan(
 		&i.AdminUserID,
 		&i.EmailAddress,
-		&i.DisplayName,
 		&i.PasswordHash,
 		&i.AdminUserState,
+		&i.TotpEnabled,
+		&i.TotpSecretCiphertext,
+		&i.EffectiveLanguage,
+		&i.EffectiveTimezone,
 	)
 	return i, err
+}
+
+const resolveAdminLoginChallengeUser = `-- name: ResolveAdminLoginChallengeUser :one
+SELECT c.admin_user_id
+FROM vetchium.admin_login_challenges AS c
+WHERE c.token_hash = $1
+  AND c.active
+  AND c.consumed_at IS NULL
+  AND c.expires_at > now()
+`
+
+func (q *Queries) ResolveAdminLoginChallengeUser(ctx context.Context, tokenHash []byte) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, resolveAdminLoginChallengeUser, tokenHash)
+	var admin_user_id pgtype.UUID
+	err := row.Scan(&admin_user_id)
+	return admin_user_id, err
 }

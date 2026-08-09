@@ -55,3 +55,30 @@ Each `dev-seed/<tenant>.sql` file creates one local administrator:
 
 These credentials are fixtures loaded only by the development seed containers.
 Production environments must provision their first administrator explicitly.
+
+## Admin API superadmin bootstrap
+
+Migration `00002_admin_api.sql` preserves superadmin access automatically only
+when an existing tenant has exactly one administrator. When a tenant already
+has multiple administrators, it does not guess which principal to elevate.
+After the migration and before exposing the Admin API, an operator must choose
+the bootstrap account explicitly while connected as the migration owner:
+
+```sql
+BEGIN;
+UPDATE vetchium.admin_users
+SET is_superadmin = (email_address = 'chosen-admin@example.com'),
+    updated_at = now();
+DO $$
+BEGIN
+    IF (SELECT count(*) FROM vetchium.admin_users
+        WHERE is_superadmin AND admin_user_state = 'active') <> 1 THEN
+        RAISE EXCEPTION 'exactly one active bootstrap superadmin is required';
+    END IF;
+END
+$$;
+COMMIT;
+```
+
+Replace the example address with the explicitly approved active administrator.
+The transaction rolls back if it does not select exactly one active account.

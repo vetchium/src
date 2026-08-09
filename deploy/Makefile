@@ -46,6 +46,11 @@ deploy:
 		app_pw=$$(printf 'vetchium_app:%s' "$$pw" | sha256sum | cut -d ' ' -f1); \
 		printf '%s' "$$app_pw" | docker secret create "$$app_secret" - >/dev/null; \
 	fi
+	@if ! docker secret inspect "$(REGION)_admin_credential_key" >/dev/null 2>&1; then \
+		credential_key=$$(openssl rand -hex 32); \
+		printf '%s' "$$credential_key" | \
+			docker secret create "$(REGION)_admin_credential_key" - >/dev/null; \
+	fi
 
 	@set -e; \
 	traefik_hash=$$(sha256sum $(REGION)/traefik.json | cut -c1-12); \

@@ -1,0 +1,35 @@
+package common
+
+type SecurityEffect string
+
+const (
+	CreateLoginChallenge          SecurityEffect = "create-login-challenge"
+	ConsumeLoginChallenge         SecurityEffect = "consume-login-challenge"
+	InvalidateLoginChallenges     SecurityEffect = "invalidate-login-challenges"
+	RejectTOTPReplay              SecurityEffect = "reject-totp-replay"
+	CreateTOTPEnrollment          SecurityEffect = "create-totp-enrollment"
+	ConsumeTOTPEnrollment         SecurityEffect = "consume-totp-enrollment"
+	InvalidateTOTPEnrollments     SecurityEffect = "invalidate-totp-enrollments"
+	EnableTOTP                    SecurityEffect = "enable-totp"
+	DisableTOTP                   SecurityEffect = "disable-totp"
+	GenerateRecoveryCodes         SecurityEffect = "generate-recovery-codes"
+	ConsumeRecoveryCode           SecurityEffect = "consume-recovery-code"
+	InvalidateRecoveryCodes       SecurityEffect = "invalidate-recovery-codes"
+	RotatePassword                SecurityEffect = "rotate-password"
+	CreatePasswordResetToken      SecurityEffect = "create-password-reset-token"
+	InvalidatePasswordResetTokens SecurityEffect = "invalidate-password-reset-tokens"
+	QueuePasswordResetEmail       SecurityEffect = "queue-password-reset-email"
+	CreateAdminInvitation         SecurityEffect = "create-admin-invitation"
+	ConsumeAdminInvitation        SecurityEffect = "consume-admin-invitation"
+	QueueAdminInvitationEmail     SecurityEffect = "queue-admin-invitation-email"
+	CreateAdminUser               SecurityEffect = "create-admin-user"
+	RevokeOtherSessions           SecurityEffect = "revoke-other-sessions"
+	RevokeAllSessions             SecurityEffect = "revoke-all-sessions"
+	DisableAdminUser              SecurityEffect = "disable-admin-user"
+	EnableAdminUser               SecurityEffect = "enable-admin-user"
+	GrantAdminPermission          SecurityEffect = "grant-admin-permission"
+	RevokeAdminPermission         SecurityEffect = "revoke-admin-permission"
+	ClearDirectPermissions        SecurityEffect = "clear-direct-permissions"
+	PromoteToSuperadmin           SecurityEffect = "promote-to-superadmin"
+	DemoteFromSuperadmin          SecurityEffect = "demote-from-superadmin"
+)

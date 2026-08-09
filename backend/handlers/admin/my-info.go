@@ -7,9 +7,12 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	adminspec "github.com/vetchium/src/typespec/admin"
-	adminuser "github.com/vetchium/src/typespec/admin/user"
+	"github.com/vetchium/src/typespec/admin/authorization"
+	admincommon "github.com/vetchium/src/typespec/admin/common"
+	"github.com/vetchium/src/typespec/admin/user"
+	"github.com/vetchium/src/typespec/admin/users"
 	"github.com/vetchium/src/typespec/common"
+	adminproblem "github.com/vetchium/src/typespec/problem/admin"
 
 	"backend/internal/adminapi"
 	"backend/internal/db/sqlc"
@@ -20,55 +23,82 @@ func MyInfo(s *adminapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		identity, ok := middleware.AdminIdentityFromContext(r.Context())
 		if !ok {
-			s.Unauthorized(w)
+			s.Problem(
+				r.Context(), w,
+				adminproblem.AdminAuthenticationRequiredError,
+				`Bearer realm="admin"`,
+			)
 			return
 		}
-
-		admin, err := s.Queries.GetAdminMyInfo(
-			r.Context(),
-			sqlc.GetAdminMyInfoParams{
+		row, err := s.Queries.GetAdminMyInfo(
+			r.Context(), sqlc.GetAdminMyInfoParams{
 				AdminSessionID: identity.SessionID,
 				AdminUserID:    identity.UserID,
 			},
 		)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				s.WarnContext(
-					r.Context(), "admin session not found",
-					"event", "authentication_failed",
-					"reason", "session_not_found",
-					"error", err,
+				s.Problem(
+					r.Context(), w,
+					adminproblem.AdminAuthenticationRequiredError,
+					`Bearer realm="admin"`,
 				)
-				s.Unauthorized(w)
 				return
 			}
 			s.InternalError(r.Context(), w, "get admin my-info", err)
 			return
 		}
 
-		response := adminspec.MyInfoResponse{
-			AdminUserID:      admin.AdminUserID.String(),
-			EmailAddress:     common.EmailAddress(admin.EmailAddress),
-			DisplayName:      admin.DisplayName,
-			AdminUserState:   adminuser.State(admin.AdminUserState),
-			CreatedAt:        admin.CreatedAt.Time,
-			SessionExpiresAt: admin.ExpiresAt.Time,
-			TenantID:         s.TenantID,
+		displayNames := make([]common.LocalizedDisplayName, 0)
+		if err := json.Unmarshal(
+			[]byte(row.DisplayNamesJson), &displayNames,
+		); err != nil {
+			s.InternalError(r.Context(), w, "decode admin display names", err)
+			return
 		}
-		if admin.LastLoginAt.Valid {
-			lastLoginAt := admin.LastLoginAt.Time
-			response.LastLoginAt = &lastLoginAt
+		var permissionValues []string
+		if err := json.Unmarshal(
+			[]byte(row.PermissionsJson), &permissionValues,
+		); err != nil {
+			s.InternalError(r.Context(), w, "decode admin permissions", err)
+			return
 		}
-
-		w.Header().Set("Content-Type", "application/json")
-		w.Header().Set("X-Content-Type-Options", "nosniff")
-		w.WriteHeader(http.StatusOK)
-		if err := json.NewEncoder(w).Encode(response); err != nil {
-			s.ErrorContext(
-				r.Context(), "encode admin my-info response",
-				"event", "response_encode_error",
-				"error", err,
-			)
+		permissions := make([]authorization.AdminPermissionID, len(permissionValues))
+		for index, permission := range permissionValues {
+			permissions[index] = authorization.AdminPermissionID(permission)
 		}
+		response := users.MyInfoResponse{
+			AdminUserID: admincommon.AdminUserID(
+				adminapi.FormatUUID(row.AdminUserID),
+			),
+			EmailAddress:               common.EmailAddress(row.EmailAddress),
+			DisplayNames:               displayNames,
+			PrimaryDisplayNameLanguage: common.RegionalLanguageCode(row.PrimaryDisplayNameLanguage),
+			State:                      user.State(row.AdminUserState),
+			AdminAuthorization: authorization.AdminAuthorization{
+				IsSuperadmin: row.IsSuperadmin,
+				Permissions:  permissions,
+			},
+			TOTPEnabled: row.TotpEnabled,
+			RecoveryCodesRemaining: common.TOTPRecoveryCodeCount(
+				row.RecoveryCodesRemaining,
+			),
+			EffectiveLanguage: admincommon.LanguageCode(
+				row.EffectiveLanguage,
+			),
+			EffectiveTimezone: common.TimeZoneID(row.EffectiveTimezone),
+			CreatedAt:         row.CreatedAt.Time,
+			SessionExpiresAt:  row.ExpiresAt.Time,
+			TenantID:          s.TenantID,
+		}
+		if row.PreferredLanguage.Valid {
+			value := admincommon.LanguageCode(row.PreferredLanguage.String)
+			response.PreferredLanguage = &value
+		}
+		if row.PreferredTimezone.Valid {
+			value := common.TimeZoneID(row.PreferredTimezone.String)
+			response.PreferredTimezone = &value
+		}
+		s.JSON(r.Context(), w, http.StatusOK, response)
 	}
 }

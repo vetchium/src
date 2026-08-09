@@ -1,136 +1,175 @@
 package admin
 
 import (
-	"crypto/rand"
-	"crypto/sha256"
-	"encoding/base64"
-	"encoding/json"
 	"errors"
-	mrand "math/rand/v2"
 	"net/http"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/vetchium/src/typespec/admin"
+	adminauth "github.com/vetchium/src/typespec/admin/auth"
+	admincommon "github.com/vetchium/src/typespec/admin/common"
+	"github.com/vetchium/src/typespec/common"
+	adminproblem "github.com/vetchium/src/typespec/problem/admin"
 
 	"golang.org/x/crypto/bcrypt"
 
 	"backend/internal/adminapi"
+	"backend/internal/apiserver"
 	"backend/internal/db/sqlc"
 )
+
+const loginChallengeTTL = 5 * time.Minute
 
 func Login(s *adminapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
-		var request admin.LoginRequest
-		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		var request adminauth.LoginRequest
+		if err := apiserver.DecodeJSON(r, &request); err != nil {
 			s.InvalidJSON(ctx, w, err)
 			return
 		}
-
 		request = request.Normalize()
-
-		invalidFields := request.Validate()
-		if len(invalidFields) != 0 {
-			s.DebugContext(ctx, "invalid req", "fields", invalidFields)
-			s.ValidationFailed(ctx, w, invalidFields)
+		if fields := request.Validate(); len(fields) != 0 {
+			s.ValidationFailed(ctx, w, fields)
+			return
+		}
+		if !allowAdminRequest(
+			s, w, r, "login:"+string(request.EmailAddress),
+		) || !allowAdminExpensiveRequest(s, w, r) {
 			return
 		}
 
-		emailAddress := string(request.EmailAddress)
-
-		// Sleep for random time to prevent timing attacks
-		time.Sleep(time.Duration(mrand.IntN(5)) * time.Second)
-
-		adminUser, err := s.Queries.GetAdminUserForLogin(ctx, emailAddress)
+		adminUser, err := s.Queries.GetAdminUserForLogin(
+			ctx, string(request.EmailAddress),
+		)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				s.WarnContext(
-					ctx, "admin login failed",
-					"event", "authentication_failed",
-					"reason", "user_not_found",
-					"error", err,
+				adminapi.CompareUnknownPassword(string(request.Password))
+				s.Problem(
+					ctx, w, adminproblem.InvalidCredentialsError,
+					`VetchiumAdminLogin realm="admin"`,
 				)
-				s.Unauthorized(w)
 				return
 			}
-			s.InternalError(ctx, w, "get admin user", err)
+			s.InternalError(ctx, w, "get admin user for login", err)
 			return
 		}
-
-		if err := bcrypt.CompareHashAndPassword(
-			[]byte(adminUser.PasswordHash), []byte(request.Password),
+		if err := adminapi.ComparePassword(
+			adminUser.PasswordHash, string(request.Password),
 		); err != nil {
 			if !errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
 				s.InternalError(ctx, w, "compare admin password", err)
 				return
 			}
-			s.WarnContext(
-				ctx, "admin login failed",
-				"event", "authentication_failed",
-				"reason", "invalid_password",
-				"error", err,
+			s.Problem(
+				ctx, w, adminproblem.InvalidCredentialsError,
+				`VetchiumAdminLogin realm="admin"`,
 			)
-			s.Unauthorized(w)
 			return
 		}
-
 		if adminUser.AdminUserState != sqlc.VetchiumAdminUserStateActive {
-			s.DebugContext(ctx, "disabled user")
-			w.WriteHeader(http.StatusForbidden)
+			s.Problem(ctx, w, adminproblem.AdminUserDisabledError)
 			return
-		}
-
-		secret := make([]byte, 32)
-		if _, err := rand.Read(secret); err != nil {
-			s.InternalError(ctx, w, "generate session token", err)
-			return
-		}
-		// Only the token hash is stored. A database disclosure therefore does
-		// not hand out usable sessions.
-		token := base64.RawURLEncoding.EncodeToString(secret)
-		tokenHash := sha256.Sum256([]byte(token))
-
-		expiresAt := time.Now().UTC().Add(s.AdminSessionTTL)
-		session, err := s.Queries.CreateAdminSession(
-			ctx, sqlc.CreateAdminSessionParams{
-				SessionTokenHash: tokenHash[:],
-				AdminUserID:      adminUser.AdminUserID,
-				ExpiresAt: pgtype.Timestamptz{
-					Time:  expiresAt,
-					Valid: true,
-				},
-			},
-		)
-		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				// The account was active when checked, but it became
-				// unavailable before the session was created.
-				s.WarnContext(
-					ctx, "admin session creation rejected",
-					"event", "authentication_failed",
-					"reason", "user_unavailable",
-					"error", err,
-				)
-				w.WriteHeader(http.StatusForbidden)
-				return
-			}
-			s.InternalError(ctx, w, "create admin session", err)
-			return
-		}
-		if session.ExpiresAt.Valid {
-			expiresAt = session.ExpiresAt.Time
 		}
 
 		w.Header().Set("Cache-Control", "no-store")
-		w.Header().Set("Content-Type", "application/json")
-		w.Header().Set("X-Content-Type-Options", "nosniff")
-		if err := json.NewEncoder(w).Encode(admin.LoginResponse{
-			SessionToken: token, ExpiresAt: expiresAt,
-		}); err != nil {
-			s.InternalError(ctx, w, "encode admin login response", err)
+		if adminUser.TotpEnabled {
+			loginWithTOTP(s, w, r, adminUser)
+			return
 		}
+		loginWithoutTOTP(s, w, r, adminUser)
 	}
+}
+
+func loginWithoutTOTP(
+	s *adminapi.Server, w http.ResponseWriter, r *http.Request,
+	adminUser sqlc.GetAdminUserForLoginRow,
+) {
+	token, tokenHash, err := adminapi.NewToken()
+	if err != nil {
+		s.InternalError(r.Context(), w, "generate admin session token", err)
+		return
+	}
+	expiresAt := s.CurrentTime().Add(s.AdminSessionTTL)
+	session, err := s.Queries.CreateAdminSession(
+		r.Context(), sqlc.CreateAdminSessionParams{
+			SessionTokenHash:     tokenHash,
+			AdminUserID:          adminUser.AdminUserID,
+			ExpiresAt:            adminapi.Timestamp(expiresAt),
+			VerifiedPasswordHash: adminUser.PasswordHash,
+		},
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			s.Problem(
+				r.Context(), w, adminproblem.InvalidCredentialsError,
+				`VetchiumAdminLogin realm="admin"`,
+			)
+			return
+		}
+		s.InternalError(r.Context(), w, "create admin session", err)
+		return
+	}
+	if session.ExpiresAt.Valid {
+		expiresAt = session.ExpiresAt.Time
+	}
+	s.JSON(r.Context(), w, http.StatusOK, adminauth.LoginAuthenticatedResponse{
+		AuthenticationState: "authenticated",
+		AuthenticatedSessionResponse: admincommon.AuthenticatedSessionResponse{
+			SessionToken:      admincommon.AdminSessionToken(token),
+			SessionExpiresAt:  expiresAt,
+			EffectiveLanguage: admincommon.LanguageCode(adminUser.EffectiveLanguage),
+			EffectiveTimezone: common.TimeZoneID(adminUser.EffectiveTimezone),
+		},
+	})
+}
+
+func loginWithTOTP(
+	s *adminapi.Server, w http.ResponseWriter, r *http.Request,
+	adminUser sqlc.GetAdminUserForLoginRow,
+) {
+	token, tokenHash, err := adminapi.NewToken()
+	if err != nil {
+		s.InternalError(r.Context(), w, "generate login challenge token", err)
+		return
+	}
+	expiresAt := s.CurrentTime().Add(loginChallengeTTL)
+	challenge, err := withAdminCredentialLock(
+		s, r, adminCredentialLock{userID: adminUser.AdminUserID},
+		func(q sqlc.Querier) (sqlc.CreateAdminLoginChallengeRow, error) {
+			return q.CreateAdminLoginChallenge(
+				r.Context(), sqlc.CreateAdminLoginChallengeParams{
+					AdminUserID:          adminUser.AdminUserID,
+					TokenHash:            tokenHash,
+					VerifiedPasswordHash: adminUser.PasswordHash,
+					ExpiresAt: pgtype.Timestamptz{
+						Time: expiresAt, Valid: true,
+					},
+				},
+			)
+		},
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			s.Problem(
+				r.Context(), w, adminproblem.InvalidCredentialsError,
+				`VetchiumAdminLogin realm="admin"`,
+			)
+			return
+		}
+		s.InternalError(r.Context(), w, "create login challenge", err)
+		return
+	}
+	if challenge.ExpiresAt.Valid {
+		expiresAt = challenge.ExpiresAt.Time
+	}
+	s.JSON(r.Context(), w, http.StatusOK, adminauth.LoginTOTPRequiredResponse{
+		AuthenticationState:     "totp_required",
+		LoginChallengeToken:     admincommon.AdminLoginChallengeToken(token),
+		LoginChallengeExpiresAt: expiresAt,
+		EffectiveLanguage:       admincommon.LanguageCode(adminUser.EffectiveLanguage),
+		EffectiveTimezone:       common.TimeZoneID(adminUser.EffectiveTimezone),
+	})
 }

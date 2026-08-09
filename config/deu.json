@@ -11,10 +11,12 @@
   },
   "workers": {
     "retryBackoffLimit": "5m",
-    "pruneAdminSessionsTimer": "5m"
+    "pruneAdminSessionsTimer": "5m",
+    "pruneAdminEphemeralDataTimer": "5m"
   },
   "admin-api-server": {
-    "adminSessionTTL": "24h"
+    "adminSessionTTL": "24h",
+    "trustedProxyCIDRs": ["172.16.0.0/12"]
   },
   "hub-api-server": {},
   "orgs-api-server": {},

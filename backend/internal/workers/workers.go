@@ -38,6 +38,11 @@ func New(db *pgxpool.Pool, log *slog.Logger, config appconfig.Workers) *Worker {
 			interval: config.PruneAdminSessionsTimer,
 			run:      w.pruneAdminSessions,
 		},
+		{
+			name:     "prune-admin-ephemeral-data",
+			interval: config.PruneAdminEphemeralDataTimer,
+			run:      w.pruneAdminEphemeralData,
+		},
 	}
 	return w
 }

@@ -10,8 +10,10 @@ TAG       ?= dev
 PLATFORMS ?= linux/amd64,linux/arm64
 BUILDER   := vetchium
 APP_POSTGRES_PASSWORD ?= app_pgpassword
+ADMIN_CREDENTIAL_KEY  ?= dev_admin_credential_key
 DEV_SECRETS_DIR       := .dev-secrets
 APP_PASSWORD_FILE     := $(DEV_SECRETS_DIR)/app_postgres_password
+ADMIN_KEY_FILE        := $(DEV_SECRETS_DIR)/admin_credential_key
 SQLC                   := go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.29.0
 GO_MODULES             := backend typespec
 GOTESTFLAGS            ?=
@@ -38,6 +40,13 @@ dev-secrets:
 			{ echo "APP_POSTGRES_PASSWORD differs from the initialized development secret; run make clean before changing it"; exit 1; }; \
 	else \
 		umask 077; printf '%s' "$$APP_POSTGRES_PASSWORD" > "$(APP_PASSWORD_FILE)"; \
+	fi
+	@if [ -f "$(ADMIN_KEY_FILE)" ]; then \
+		current=$$(cat "$(ADMIN_KEY_FILE)"); \
+		test "$$current" = "$$ADMIN_CREDENTIAL_KEY" || \
+			{ echo "ADMIN_CREDENTIAL_KEY differs from the initialized development secret; run make clean before changing it"; exit 1; }; \
+	else \
+		umask 077; printf '%s' "$$ADMIN_CREDENTIAL_KEY" > "$(ADMIN_KEY_FILE)"; \
 	fi
 
 sqlc:
@@ -147,5 +156,5 @@ publish:
 
 clean:
 	docker compose -f docker-compose.json down --remove-orphans --volumes
-	rm -f "$(APP_PASSWORD_FILE)"
+	rm -f "$(APP_PASSWORD_FILE)" "$(ADMIN_KEY_FILE)"
 	-rmdir "$(DEV_SECRETS_DIR)"

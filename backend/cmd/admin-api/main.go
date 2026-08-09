@@ -44,6 +44,10 @@ func run(log *slog.Logger) error {
 	if err != nil {
 		return err
 	}
+	credentialSecret, err := appconfig.AdminCredentialSecret()
+	if err != nil {
+		return err
+	}
 	log = log.With("tenant", cfg.TenantID)
 	slog.SetDefault(log)
 
@@ -59,10 +63,14 @@ func run(log *slog.Logger) error {
 	defer pool.Close()
 
 	s := &adminapi.Server{
-		Runtime:         apiserver.New(pool, log),
-		TenantID:        cfg.TenantID,
-		Queries:         dbsqlc.New(pool),
-		AdminSessionTTL: cfg.AdminAPIServer.AdminSessionTTL,
+		Runtime:           apiserver.New(pool, log),
+		TenantID:          cfg.TenantID,
+		Queries:           dbsqlc.New(pool),
+		AdminSessionTTL:   cfg.AdminAPIServer.AdminSessionTTL,
+		TrustedProxyCIDRs: cfg.AdminAPIServer.TrustedProxyCIDRs,
+		CredentialKey: adminapi.DeriveCredentialKey(
+			cfg.TenantID, credentialSecret,
+		),
 	}
 	mux := http.NewServeMux()
 	routes.RegisterAdminRoutes(mux, s)

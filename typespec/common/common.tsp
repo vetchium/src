@@ -3,7 +3,9 @@ namespace Vetchium;
 /**
  * A canonical email address accepted by Vetchium APIs. Clients send a trimmed
  * value; servers defensively remove surrounding whitespace and lowercase it
- * before validation and storage.
+ * before validation and storage. The accepted form is an ASCII dot-atom local
+ * part of at most 64 characters plus DNS-style domain labels; the complete
+ * normalized address is at most 254 characters.
  */
 @format("email")
 scalar EmailAddress extends string;

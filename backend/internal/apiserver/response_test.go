@@ -23,14 +23,16 @@ func TestUnauthorized(t *testing.T) {
 		t.Fatalf("status = %d, want 401", recorder.Code)
 	}
 	challenge := recorder.Header().Get("WWW-Authenticate")
-	if challenge != `Bearer realm="login"` {
+	if challenge != `Bearer realm="admin"` {
 		t.Fatalf("WWW-Authenticate = %q", challenge)
 	}
-	if recorder.Body.Len() != 0 {
-		t.Fatalf("body = %q, want empty", recorder.Body.String())
+	var details problemspec.Details
+	if err := json.NewDecoder(recorder.Body).Decode(&details); err != nil {
+		t.Fatal(err)
 	}
-	if got := recorder.Header().Get("Content-Type"); got != "" {
-		t.Fatalf("Content-Type = %q, want empty", got)
+	if details.Type !=
+		"vetchium-problem-details/admin-authentication-required" {
+		t.Fatalf("problem = %+v", details)
 	}
 }
 
@@ -78,7 +80,7 @@ func TestInternalErrorLogsEncodingFailure(t *testing.T) {
 		context.Background(), writer, "test operation",
 		errors.New("original error"),
 	)
-	if !bytes.Contains(logs.Bytes(), []byte("encode internal error response")) {
+	if !bytes.Contains(logs.Bytes(), []byte("encode problem response")) {
 		t.Fatalf("log = %q", logs.String())
 	}
 }
@@ -121,7 +123,7 @@ func TestInvalidJSONLogsEncodingFailure(t *testing.T) {
 	runtime.InvalidJSON(
 		context.Background(), writer, errors.New("unexpected EOF"),
 	)
-	if !bytes.Contains(logs.Bytes(), []byte("encode invalid JSON response")) {
+	if !bytes.Contains(logs.Bytes(), []byte("encode problem response")) {
 		t.Fatalf("log = %q", logs.String())
 	}
 }
@@ -161,7 +163,7 @@ func TestValidationFailedLogsEncodingFailure(t *testing.T) {
 	runtime.ValidationFailed(
 		context.Background(), writer, []string{"email_address"},
 	)
-	if !bytes.Contains(logs.Bytes(), []byte("encode validation failed response")) {
+	if !bytes.Contains(logs.Bytes(), []byte("encode problem response")) {
 		t.Fatalf("log = %q", logs.String())
 	}
 }

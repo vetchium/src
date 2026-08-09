@@ -86,6 +86,9 @@
   "secrets": {
     "app_postgres_password": {
       "file": "./.dev-secrets/app_postgres_password"
+    },
+    "admin_credential_key": {
+      "file": "./.dev-secrets/admin_credential_key"
     }
   },
   "services": {
@@ -121,6 +124,10 @@
         {
           "source": "app_postgres_password",
           "target": "/run/secrets/app_postgres_password"
+        },
+        {
+          "source": "admin_credential_key",
+          "target": "/run/secrets/admin_credential_key"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -157,6 +164,10 @@
         {
           "source": "app_postgres_password",
           "target": "/run/secrets/app_postgres_password"
+        },
+        {
+          "source": "admin_credential_key",
+          "target": "/run/secrets/admin_credential_key"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -193,6 +204,10 @@
         {
           "source": "app_postgres_password",
           "target": "/run/secrets/app_postgres_password"
+        },
+        {
+          "source": "admin_credential_key",
+          "target": "/run/secrets/admin_credential_key"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -229,6 +244,10 @@
         {
           "source": "app_postgres_password",
           "target": "/run/secrets/app_postgres_password"
+        },
+        {
+          "source": "admin_credential_key",
+          "target": "/run/secrets/admin_credential_key"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
