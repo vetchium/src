@@ -32,6 +32,11 @@ func TestDecodeJSON(t *testing.T) {
 			body:      `{"value":"ok","extra":true}`,
 			wantError: `json: unknown field "extra"`,
 		},
+		{
+			name: "trailing JSON value", contentType: "application/json",
+			body:      `{"value":"ok"} {}`,
+			wantError: "multiple JSON values",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

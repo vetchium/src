@@ -35,8 +35,9 @@ Use it together with `go.md`. Also read `database.md` for any database access.
 - Decode every JSON request body in admin, hub, and org portal handlers with
   `apiserver.DecodeJSON`; do not construct an endpoint-local `json.Decoder`.
   The helper enforces the shared `application/json` Content-Type requirement
-  and rejects unknown fields. Request-body size limits are ingress concerns and
-  must not be added to this helper.
+  and rejects unknown fields, trailing data, and multiple JSON values.
+  Request-body size limits are ingress concerns and must not be added to this
+  helper.
 - Keep handler flow explicit: decode, normalize, validate, call dependencies,
   check state, and encode the typed response. Validate before database calls or
   other side effects.
