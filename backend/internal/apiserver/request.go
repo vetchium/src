@@ -33,14 +33,22 @@ func DecodeJSON(r *http.Request, destination any) error {
 func (s *Runtime) JSON(
 	ctx context.Context, w http.ResponseWriter, status int, value any,
 ) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("X-Content-Type-Options", "nosniff")
-	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(value); err != nil {
+	b, err := json.Marshal(value)
+	if err != nil {
 		s.ErrorContext(
 			ctx, "encode JSON response",
 			"event", "response_encode_error",
 			"error", err,
 		)
+		s.InternalError(ctx, w, "JSON Marshal", err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.WriteHeader(status)
+	_, err = w.Write(b)
+	if err != nil {
+		s.InternalError(ctx, w, "JSON Marshal", err)
 	}
 }
