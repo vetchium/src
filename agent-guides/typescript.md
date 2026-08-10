@@ -32,8 +32,10 @@ the wire types under `typespec/` and tests under `playwright/`.
   Biome configuration unless the package genuinely requires different rules.
 - Every Node package that owns TypeScript must pin `@biomejs/biome` in
   `devDependencies` and expose `format` and `format:check` npm scripts.
-- Run `npm run format` after changing TypeScript and before verification. Do
-  not hand-format around Biome output.
+- Run the owning package's `npm run format` after changing TypeScript and
+  before verification. Do not invoke `biome format` directly: the package
+  script uses `biome check --write` so it also organizes imports and applies
+  safe lint fixes. Do not hand-format around Biome output.
 
 ## Verification
 

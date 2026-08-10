@@ -1,15 +1,14 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-
-import {
-  validateConfirmTOTPEnrollmentRequest,
-  validateVerifyRecoveryCodeRequest,
-} from "./auth/totp.ts";
 import {
   validateChangePasswordRequest,
   validateCompletePasswordResetRequest,
   validateRequestPasswordResetRequest,
 } from "./auth/password.ts";
+import {
+  validateConfirmTOTPEnrollmentRequest,
+  validateVerifyRecoveryCodeRequest,
+} from "./auth/totp.ts";
 import {
   validateGrantPermissionRequest,
   validatePromoteToSuperadminRequest,

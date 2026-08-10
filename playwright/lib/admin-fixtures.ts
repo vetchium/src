@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { expect, test as base } from "@playwright/test";
+import { test as base, expect } from "@playwright/test";
 import type { AdminUserID } from "vetchium-specs/admin/types";
 import type {
   CompleteSetupResponse,
@@ -7,8 +7,8 @@ import type {
 } from "vetchium-specs/admin/users/invitations";
 import { AdminAPI, idempotencyKey, responseJSON } from "./admin-api.ts";
 import {
-  cleanupAdminIdempotency,
   cleanupAdmin,
+  cleanupAdminIdempotency,
   createSeededSuperadminSession,
   emailCredential,
 } from "./admin-db.ts";
@@ -44,7 +44,7 @@ export const test = base.extend<AdminFixtures>({
     await use(token);
     await adminAPI.post("/logout", undefined, { token });
   },
-  ownedEmail: async ({}, use) => {
+  ownedEmail: async (_args, use) => {
     const emails = new Set<string>();
     await use(() => {
       const email = `e2e+${randomUUID()}@example.test`;

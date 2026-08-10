@@ -42,10 +42,10 @@
   "scripts": {
     "check:contract-files": "node scripts/check-contract-files.mjs && node scripts/generate-canonical-time-zones.mjs --check && node scripts/generate-canonical-locales.mjs --check",
     "compile": "tsp compile .",
-    "format": "biome format --write --config-path=../biome.json .",
+    "format": "biome check --write --config-path=../biome.json .",
     "generate:timezones": "node scripts/generate-canonical-time-zones.mjs",
     "generate:locales": "node scripts/generate-canonical-locales.mjs",
-    "format:check": "biome format --config-path=../biome.json .",
+    "format:check": "biome check --config-path=../biome.json .",
     "test:ts": "node --experimental-strip-types --test admin/*.test.ts common/*.test.ts",
     "typecheck": "tsc --noEmit"
   },

@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+  type LoginRequest,
   normalizeLoginRequest,
   validateLoginRequest,
-  type LoginRequest,
 } from "./auth/login.ts";
 
 test("normalizeLoginRequest returns a normalized copy", () => {

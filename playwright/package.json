@@ -7,8 +7,8 @@
     "node": ">=22.13.0"
   },
   "scripts": {
-    "format": "biome format --write --config-path=../biome.json .",
-    "format:check": "biome format --config-path=../biome.json .",
+    "format": "biome check --write --config-path=../biome.json .",
+    "format:check": "biome check --config-path=../biome.json .",
     "test": "playwright test --pass-with-no-tests",
     "test:api": "playwright test --project=api --pass-with-no-tests",
     "test:ui": "playwright test --project=chromium --pass-with-no-tests",

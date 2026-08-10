@@ -1,12 +1,12 @@
+import { execFile, execFileSync, spawn } from "node:child_process";
 import {
   createDecipheriv,
-  createHmac,
   createHash,
+  createHmac,
   randomBytes,
 } from "node:crypto";
-import { execFile, execFileSync, spawn } from "node:child_process";
-import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const repositoryRoot = resolve(
   dirname(fileURLToPath(import.meta.url)),

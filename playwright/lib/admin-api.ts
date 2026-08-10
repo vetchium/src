@@ -1,9 +1,9 @@
+import { randomBytes } from "node:crypto";
 import {
-  expect,
   type APIRequestContext,
   type APIResponse,
+  expect,
 } from "@playwright/test";
-import { randomBytes } from "node:crypto";
 import {
   AuthenticationStateAuthenticated,
   type LoginResponse,

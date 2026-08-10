@@ -9,7 +9,7 @@ import type {
   TimeZoneID,
 } from "../../common/localization.ts";
 import { isLanguageCode, isTimeZoneID } from "../../common/localization.ts";
-import { isAdminUserID, type AdminUserID } from "../types.ts";
+import { type AdminUserID, isAdminUserID } from "../types.ts";
 import { normalizeDisplayNames, validateDisplayNames } from "./validation.ts";
 
 export type AdminInvitationID = string;

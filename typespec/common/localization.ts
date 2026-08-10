@@ -1,8 +1,8 @@
-import { canonicalTimeZoneIDs } from "./canonical-time-zones.generated.ts";
 import {
   canonicalLanguageSubtags,
   canonicalRegionSubtags,
 } from "./canonical-locales.generated.ts";
+import { canonicalTimeZoneIDs } from "./canonical-time-zones.generated.ts";
 
 export type LanguageCode = "en-US" | "de-DE" | "ta-IN";
 
