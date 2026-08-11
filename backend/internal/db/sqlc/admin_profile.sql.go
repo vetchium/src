@@ -48,22 +48,30 @@ func (q *Queries) SetAdminCompanyRegionalDefaults(ctx context.Context, arg SetAd
 }
 
 const setAdminDisplayNames = `-- name: SetAdminDisplayNames :execrows
-WITH input AS (
+WITH target AS MATERIALIZED (
+    SELECT u.admin_user_id
+    FROM vetchium.admin_users AS u
+    WHERE u.admin_user_id = $2
+      AND u.admin_user_state = 'active'
+    FOR UPDATE
+), input AS (
     SELECT
         unnest($3::text[]) AS language_code,
         unnest($4::text[]) AS display_name
 ), deleted AS (
-    DELETE FROM vetchium.admin_display_names
-    WHERE admin_user_id = $2
-    RETURNING admin_user_id
+    DELETE FROM vetchium.admin_display_names AS d
+    USING target AS t
+    WHERE d.admin_user_id = t.admin_user_id
+    RETURNING d.admin_user_id
 ), inserted AS (
     INSERT INTO vetchium.admin_display_names (
         admin_user_id,
         language_code,
         display_name
     )
-    SELECT $2, language_code, display_name
-    FROM input
+    SELECT t.admin_user_id, i.language_code, i.display_name
+    FROM target AS t
+    CROSS JOIN input AS i
     CROSS JOIN (SELECT count(*) FROM deleted) AS deletion_barrier
     RETURNING admin_user_id
 )
@@ -75,8 +83,9 @@ SET primary_display_name_language = $1,
         WHERE language_code = $1
     ),
     updated_at = now()
-WHERE u.admin_user_id = $2
-  AND u.admin_user_state = 'active'
+FROM target AS t
+CROSS JOIN (SELECT count(*) FROM inserted) AS insertion_barrier
+WHERE u.admin_user_id = t.admin_user_id
 `
 
 type SetAdminDisplayNamesParams struct {

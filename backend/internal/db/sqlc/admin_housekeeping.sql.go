@@ -147,7 +147,6 @@ func (q *Queries) PruneConsumedAdminTOTPRecoveryCodes(ctx context.Context) (int6
 }
 
 const pruneExpiredAdminIdempotency = `-- name: PruneExpiredAdminIdempotency :execrows
-
 WITH candidates AS MATERIALIZED (
     SELECT operation, binding_id, idempotency_key
     FROM vetchium.admin_idempotency_ledger AS candidate
@@ -163,10 +162,33 @@ WHERE ledger.operation = candidates.operation
   AND ledger.idempotency_key = candidates.idempotency_key
 `
 
-// Housekeeping deletes at most one batch per table and worker run so a large
-// backlog cannot monopolize the database. Subsequent runs drain the backlog.
 func (q *Queries) PruneExpiredAdminIdempotency(ctx context.Context) (int64, error) {
 	result, err := q.db.Exec(ctx, pruneExpiredAdminIdempotency)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const pruneExpiredAdminSessions = `-- name: PruneExpiredAdminSessions :execrows
+
+WITH candidates AS MATERIALIZED (
+    SELECT admin_session_id
+    FROM vetchium.admin_sessions AS candidate
+    WHERE expires_at <= now()
+    ORDER BY expires_at
+    FOR UPDATE SKIP LOCKED
+    LIMIT 1000
+)
+DELETE FROM vetchium.admin_sessions AS session
+USING candidates
+WHERE session.admin_session_id = candidates.admin_session_id
+`
+
+// Housekeeping deletes at most one batch per table and worker run so a large
+// backlog cannot monopolize the database. Subsequent runs drain the backlog.
+func (q *Queries) PruneExpiredAdminSessions(ctx context.Context) (int64, error) {
+	result, err := q.db.Exec(ctx, pruneExpiredAdminSessions)
 	if err != nil {
 		return 0, err
 	}

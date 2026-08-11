@@ -1,6 +1,19 @@
 -- Housekeeping deletes at most one batch per table and worker run so a large
 -- backlog cannot monopolize the database. Subsequent runs drain the backlog.
 
+-- name: PruneExpiredAdminSessions :execrows
+WITH candidates AS MATERIALIZED (
+    SELECT admin_session_id
+    FROM vetchium.admin_sessions AS candidate
+    WHERE expires_at <= now()
+    ORDER BY expires_at
+    FOR UPDATE SKIP LOCKED
+    LIMIT 1000
+)
+DELETE FROM vetchium.admin_sessions AS session
+USING candidates
+WHERE session.admin_session_id = candidates.admin_session_id;
+
 -- name: PruneExpiredAdminIdempotency :execrows
 WITH candidates AS MATERIALIZED (
     SELECT operation, binding_id, idempotency_key

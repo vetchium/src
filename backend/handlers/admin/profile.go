@@ -6,6 +6,7 @@ import (
 
 	"github.com/vetchium/src/typespec/admin/users"
 	"github.com/vetchium/src/typespec/common"
+	adminproblem "github.com/vetchium/src/typespec/problem/admin"
 
 	"backend/internal/adminapi"
 	"backend/internal/apiserver"
@@ -130,7 +131,7 @@ func SetDisplayNames(s *adminapi.Server) http.HandlerFunc {
 			displayNames[index] = string(displayName.DisplayName)
 		}
 		identity, _ := middleware.AdminIdentityFromContext(r.Context())
-		_, err := s.Queries.SetAdminDisplayNames(
+		updated, err := s.Queries.SetAdminDisplayNames(
 			r.Context(), sqlc.SetAdminDisplayNamesParams{
 				PrimaryLanguage:   string(request.PrimaryDisplayNameLanguage),
 				TargetAdminUserID: identity.UserID,
@@ -140,6 +141,14 @@ func SetDisplayNames(s *adminapi.Server) http.HandlerFunc {
 		)
 		if err != nil {
 			s.InternalError(r.Context(), w, "set admin display names", err)
+			return
+		}
+		if updated == 0 {
+			s.Problem(
+				r.Context(), w,
+				adminproblem.AdminAuthenticationRequiredError,
+				adminapi.BearerChallenge,
+			)
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)

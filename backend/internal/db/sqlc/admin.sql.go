@@ -267,19 +267,6 @@ func (q *Queries) DeleteAdminSessionByTokenHash(ctx context.Context, sessionToke
 	return result.RowsAffected(), nil
 }
 
-const deleteExpiredAdminSessions = `-- name: DeleteExpiredAdminSessions :execrows
-DELETE FROM vetchium.admin_sessions
-WHERE expires_at <= now()
-`
-
-func (q *Queries) DeleteExpiredAdminSessions(ctx context.Context) (int64, error) {
-	result, err := q.db.Exec(ctx, deleteExpiredAdminSessions)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
-}
-
 const getAdminLoginChallenge = `-- name: GetAdminLoginChallenge :one
 SELECT
     c.admin_login_challenge_id,

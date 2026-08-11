@@ -221,7 +221,3 @@ WHERE admin_session_id = $1
 -- name: DeleteAdminSessionByTokenHash :execrows
 DELETE FROM vetchium.admin_sessions
 WHERE session_token_hash = $1;
-
--- name: DeleteExpiredAdminSessions :execrows
-DELETE FROM vetchium.admin_sessions
-WHERE expires_at <= now();

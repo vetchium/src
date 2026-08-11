@@ -30,7 +30,6 @@ type Querier interface {
 	DeleteAdminSession(ctx context.Context, arg DeleteAdminSessionParams) (int64, error)
 	DeleteAdminSessionByTokenHash(ctx context.Context, sessionTokenHash []byte) (int64, error)
 	DeleteExpiredAdminIdempotency(ctx context.Context, arg DeleteExpiredAdminIdempotencyParams) error
-	DeleteExpiredAdminSessions(ctx context.Context) (int64, error)
 	DemoteAdminFromSuperadmin(ctx context.Context, arg DemoteAdminFromSuperadminParams) (string, error)
 	DisableAdminTOTP(ctx context.Context, arg DisableAdminTOTPParams) (bool, error)
 	DisableAdminUser(ctx context.Context, arg DisableAdminUserParams) (string, error)
@@ -56,9 +55,10 @@ type Querier interface {
 	PruneAdminPasswordResets(ctx context.Context) (int64, error)
 	PruneAdminTOTPEnrollments(ctx context.Context) (int64, error)
 	PruneConsumedAdminTOTPRecoveryCodes(ctx context.Context) (int64, error)
+	PruneExpiredAdminIdempotency(ctx context.Context) (int64, error)
 	// Housekeeping deletes at most one batch per table and worker run so a large
 	// backlog cannot monopolize the database. Subsequent runs drain the backlog.
-	PruneExpiredAdminIdempotency(ctx context.Context) (int64, error)
+	PruneExpiredAdminSessions(ctx context.Context) (int64, error)
 	RegenerateAdminTOTPRecoveryCodes(ctx context.Context, arg RegenerateAdminTOTPRecoveryCodesParams) (bool, error)
 	ResolveAdminLoginChallengeUser(ctx context.Context, tokenHash []byte) (pgtype.UUID, error)
 	ResolveAdminPasswordResetUser(ctx context.Context, resetTokenHash []byte) (pgtype.UUID, error)

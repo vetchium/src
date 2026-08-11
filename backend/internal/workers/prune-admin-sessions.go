@@ -6,7 +6,7 @@ import (
 )
 
 func (w *Worker) pruneAdminSessions(ctx context.Context) error {
-	deleted, err := w.queries.DeleteExpiredAdminSessions(ctx)
+	deleted, err := w.queries.PruneExpiredAdminSessions(ctx)
 	if err != nil {
 		return fmt.Errorf("delete expired admin sessions: %w", err)
 	}

@@ -44,7 +44,7 @@ export const test = base.extend<AdminFixtures>({
     await use(token);
     await adminAPI.post("/logout", undefined, { token });
   },
-  ownedEmail: async (_args, use) => {
+  ownedEmail: async ({ request: _request }, use) => {
     const emails = new Set<string>();
     await use(() => {
       const email = `e2e+${randomUUID()}@example.test`;
