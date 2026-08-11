@@ -12,7 +12,7 @@
   "workers": {
     "retryBackoffLimit": "5m",
     "pruneAdminSessionsTimer": "5m",
-    "pruneAdminEphemeralDataTimer": "5m"
+    "pruneEphemeralDataTimer": "5m"
   },
   "admin-api-server": {
     "adminSessionTTL": "24h"

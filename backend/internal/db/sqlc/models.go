@@ -75,17 +75,6 @@ type VetchiumAdminEmailOutbox struct {
 	SentAt                pgtype.Timestamptz `json:"sent_at"`
 }
 
-type VetchiumAdminIdempotencyLedger struct {
-	Operation          string             `json:"operation"`
-	BindingID          string             `json:"binding_id"`
-	IdempotencyKey     string             `json:"idempotency_key"`
-	RequestDigest      []byte             `json:"request_digest"`
-	ResponseStatus     pgtype.Int4        `json:"response_status"`
-	ResponseCiphertext []byte             `json:"response_ciphertext"`
-	CreatedAt          pgtype.Timestamptz `json:"created_at"`
-	ExpiresAt          pgtype.Timestamptz `json:"expires_at"`
-}
-
 type VetchiumAdminInvitation struct {
 	AdminInvitationID pgtype.UUID        `json:"admin_invitation_id"`
 	EmailAddress      string             `json:"email_address"`
@@ -157,9 +146,6 @@ type VetchiumAdminUser struct {
 	DisplayName                string                 `json:"display_name"`
 	PasswordHash               string                 `json:"password_hash"`
 	AdminUserState             VetchiumAdminUserState `json:"admin_user_state"`
-	LastLoginAt                pgtype.Timestamptz     `json:"last_login_at"`
-	CreatedAt                  pgtype.Timestamptz     `json:"created_at"`
-	UpdatedAt                  pgtype.Timestamptz     `json:"updated_at"`
 	IsSuperadmin               bool                   `json:"is_superadmin"`
 	PrimaryDisplayNameLanguage string                 `json:"primary_display_name_language"`
 	PreferredLanguage          pgtype.Text            `json:"preferred_language"`
@@ -167,6 +153,9 @@ type VetchiumAdminUser struct {
 	TotpSecretCiphertext       []byte                 `json:"totp_secret_ciphertext"`
 	TotpEnabled                bool                   `json:"totp_enabled"`
 	TotpLastTimestep           pgtype.Int8            `json:"totp_last_timestep"`
+	LastLoginAt                pgtype.Timestamptz     `json:"last_login_at"`
+	CreatedAt                  pgtype.Timestamptz     `json:"created_at"`
+	UpdatedAt                  pgtype.Timestamptz     `json:"updated_at"`
 }
 
 type VetchiumHubUser struct {
@@ -175,6 +164,17 @@ type VetchiumHubUser struct {
 	OrgID     int64              `json:"org_id"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+type VetchiumIdempotencyLedger struct {
+	Operation          string             `json:"operation"`
+	BindingID          string             `json:"binding_id"`
+	IdempotencyKey     string             `json:"idempotency_key"`
+	RequestDigest      []byte             `json:"request_digest"`
+	ResponseStatus     pgtype.Int4        `json:"response_status"`
+	ResponseCiphertext []byte             `json:"response_ciphertext"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	ExpiresAt          pgtype.Timestamptz `json:"expires_at"`
 }
 
 type VetchiumOrg struct {

@@ -24,10 +24,6 @@ func (s *ephemeralStubQuerier) result(name string) (int64, error) {
 	return 1, nil
 }
 
-func (s *ephemeralStubQuerier) PruneExpiredAdminIdempotency(context.Context) (int64, error) {
-	return s.result("idempotency")
-}
-
 func (s *ephemeralStubQuerier) PruneAdminLoginChallenges(context.Context) (int64, error) {
 	return s.result("login challenges")
 }
@@ -61,11 +57,11 @@ func TestPruneAdminEphemeralDataRunsEveryBoundedDeletion(t *testing.T) {
 	if err := worker.pruneAdminEphemeralData(context.Background()); err != nil {
 		t.Fatalf("pruneAdminEphemeralData() = %v", err)
 	}
-	if got, want := len(queries.calls), 7; got != want {
+	if got, want := len(queries.calls), 6; got != want {
 		t.Fatalf("delete calls = %d, want %d: %v", got, want, queries.calls)
 	}
-	if got := bytes.Count(logs.Bytes(), []byte("count=1")); got != 7 {
-		t.Fatalf("count logs = %d, want 7: %q", got, logs.String())
+	if got := bytes.Count(logs.Bytes(), []byte("count=1")); got != 6 {
+		t.Fatalf("count logs = %d, want 6: %q", got, logs.String())
 	}
 }
 
@@ -78,7 +74,7 @@ func TestPruneAdminEphemeralDataStopsAndWrapsErrors(t *testing.T) {
 	if err == nil || err.Error() != "prune admin TOTP enrollments: database unavailable" {
 		t.Fatalf("pruneAdminEphemeralData() = %v", err)
 	}
-	if got, want := len(queries.calls), 3; got != want {
+	if got, want := len(queries.calls), 2; got != want {
 		t.Fatalf("delete calls before error = %d, want %d", got, want)
 	}
 }

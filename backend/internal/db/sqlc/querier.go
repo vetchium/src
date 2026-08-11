@@ -14,38 +14,38 @@ type Querier interface {
 	AdminTOTPEnabled(ctx context.Context, adminUserID pgtype.UUID) (bool, error)
 	AuthenticateAdminSession(ctx context.Context, sessionTokenHash []byte) (AuthenticateAdminSessionRow, error)
 	ChangeAdminPassword(ctx context.Context, arg ChangeAdminPasswordParams) (bool, error)
-	CompleteAdminIdempotency(ctx context.Context, arg CompleteAdminIdempotencyParams) error
 	CompleteAdminPasswordReset(ctx context.Context, arg CompleteAdminPasswordResetParams) (bool, error)
 	CompleteAdminRecoveryCodeLogin(ctx context.Context, arg CompleteAdminRecoveryCodeLoginParams) (CompleteAdminRecoveryCodeLoginRow, error)
 	CompleteAdminSetup(ctx context.Context, arg CompleteAdminSetupParams) (CompleteAdminSetupRow, error)
 	CompleteAdminTOTPLogin(ctx context.Context, arg CompleteAdminTOTPLoginParams) (CompleteAdminTOTPLoginRow, error)
+	CompleteIdempotency(ctx context.Context, arg CompleteIdempotencyParams) error
 	ConfirmAdminTOTPEnrollment(ctx context.Context, arg ConfirmAdminTOTPEnrollmentParams) (pgtype.Bool, error)
-	CreateAdminIdempotency(ctx context.Context, arg CreateAdminIdempotencyParams) error
 	CreateAdminInvitation(ctx context.Context, arg CreateAdminInvitationParams) (CreateAdminInvitationRow, error)
 	CreateAdminLoginChallenge(ctx context.Context, arg CreateAdminLoginChallengeParams) (CreateAdminLoginChallengeRow, error)
 	CreateAdminPasswordReset(ctx context.Context, arg CreateAdminPasswordResetParams) (bool, error)
 	CreateAdminSession(ctx context.Context, arg CreateAdminSessionParams) (CreateAdminSessionRow, error)
 	CreateAdminTOTPEnrollment(ctx context.Context, arg CreateAdminTOTPEnrollmentParams) (CreateAdminTOTPEnrollmentRow, error)
-	DeleteAdminIdempotency(ctx context.Context, arg DeleteAdminIdempotencyParams) error
+	CreateIdempotency(ctx context.Context, arg CreateIdempotencyParams) error
 	DeleteAdminSession(ctx context.Context, arg DeleteAdminSessionParams) (int64, error)
 	DeleteAdminSessionByTokenHash(ctx context.Context, sessionTokenHash []byte) (int64, error)
-	DeleteExpiredAdminIdempotency(ctx context.Context, arg DeleteExpiredAdminIdempotencyParams) error
+	DeleteExpiredIdempotency(ctx context.Context, arg DeleteExpiredIdempotencyParams) error
+	DeleteIdempotency(ctx context.Context, arg DeleteIdempotencyParams) error
 	DemoteAdminFromSuperadmin(ctx context.Context, arg DemoteAdminFromSuperadminParams) (string, error)
 	DisableAdminTOTP(ctx context.Context, arg DisableAdminTOTPParams) (bool, error)
 	DisableAdminUser(ctx context.Context, arg DisableAdminUserParams) (string, error)
 	EnableAdminUser(ctx context.Context, arg EnableAdminUserParams) (string, error)
 	GetAdminCompanyRegionalDefaults(ctx context.Context) (GetAdminCompanyRegionalDefaultsRow, error)
-	GetAdminIdempotency(ctx context.Context, arg GetAdminIdempotencyParams) (GetAdminIdempotencyRow, error)
 	GetAdminLoginChallenge(ctx context.Context, tokenHash []byte) (GetAdminLoginChallengeRow, error)
 	GetAdminMyInfo(ctx context.Context, arg GetAdminMyInfoParams) (GetAdminMyInfoRow, error)
 	GetAdminTOTPEnrollment(ctx context.Context, arg GetAdminTOTPEnrollmentParams) (GetAdminTOTPEnrollmentRow, error)
 	GetAdminUserForLogin(ctx context.Context, emailAddress string) (GetAdminUserForLoginRow, error)
+	GetIdempotency(ctx context.Context, arg GetIdempotencyParams) (GetIdempotencyRow, error)
 	GrantAdminPermission(ctx context.Context, arg GrantAdminPermissionParams) (string, error)
 	ListAdminUsers(ctx context.Context, arg ListAdminUsersParams) ([]ListAdminUsersRow, error)
 	LockAdminEmailCredentialMutation(ctx context.Context, emailAddress string) (pgtype.UUID, error)
-	LockAdminIdempotency(ctx context.Context, dollar_1 string) error
 	LockAdminSuperadminInvariant(ctx context.Context) error
 	LockAdminUserCredentialMutation(ctx context.Context, adminUserID pgtype.UUID) (pgtype.UUID, error)
+	LockIdempotency(ctx context.Context, dollar_1 string) error
 	PromoteAdminToSuperadmin(ctx context.Context, targetAdminUserID pgtype.UUID) (string, error)
 	// Outbox ciphertext is retained no longer than the maximum usable lifetime of
 	// the credential it contains, whether delivery succeeded or not.
@@ -55,10 +55,10 @@ type Querier interface {
 	PruneAdminPasswordResets(ctx context.Context) (int64, error)
 	PruneAdminTOTPEnrollments(ctx context.Context) (int64, error)
 	PruneConsumedAdminTOTPRecoveryCodes(ctx context.Context) (int64, error)
-	PruneExpiredAdminIdempotency(ctx context.Context) (int64, error)
 	// Housekeeping deletes at most one batch per table and worker run so a large
 	// backlog cannot monopolize the database. Subsequent runs drain the backlog.
 	PruneExpiredAdminSessions(ctx context.Context) (int64, error)
+	PruneExpiredIdempotency(ctx context.Context) (int64, error)
 	RegenerateAdminTOTPRecoveryCodes(ctx context.Context, arg RegenerateAdminTOTPRecoveryCodesParams) (bool, error)
 	ResolveAdminLoginChallengeUser(ctx context.Context, tokenHash []byte) (pgtype.UUID, error)
 	ResolveAdminPasswordResetUser(ctx context.Context, resetTokenHash []byte) (pgtype.UUID, error)

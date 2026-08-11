@@ -36,7 +36,7 @@ func InviteUser(s *adminapi.Server) http.HandlerFunc {
 		binding := adminapi.FormatUUID(identity.UserID)
 		now := s.CurrentTime()
 		runIdempotent(
-			s, w, r, "admin-invite-user", binding, key, request,
+			s, w, r, "admin:invite-user", binding, key, request,
 			now.Add(adminInvitationTTL),
 			func(q *sqlc.Queries) (
 				idempotentResult[users.InviteUserResponse],
@@ -119,7 +119,7 @@ func CompleteSetup(s *adminapi.Server) http.HandlerFunc {
 			string(request.InvitationToken),
 		))
 		runIdempotent(
-			s, w, r, "admin-complete-setup", binding, key, request,
+			s, w, r, "admin:complete-setup", binding, key, request,
 			s.CurrentTime().Add(24*time.Hour),
 			func(q *sqlc.Queries) (
 				idempotentResult[users.CompleteSetupResponse],

@@ -90,7 +90,7 @@ func CompletePasswordReset(s *adminapi.Server) http.HandlerFunc {
 			string(request.ResetToken),
 		))
 		runIdempotent(
-			s, w, r, "admin-complete-password-reset", binding, key,
+			s, w, r, "admin:complete-password-reset", binding, key,
 			request, s.CurrentTime().Add(24*time.Hour),
 			func(q *sqlc.Queries) (
 				idempotentResult[struct{}], *apiProblem, error,

@@ -42,7 +42,7 @@ test.describe("Admin TOTP", () => {
         })
       ).status(),
     ).toBe(200);
-    const operation = "admin-start-totp-enrollment";
+    const operation = "admin:start-totp-enrollment";
     expect(adminIdempotencyCiphertextLength(operation, key)).toBeGreaterThan(0);
     expireAdminIdempotency(operation, key);
 
@@ -357,7 +357,7 @@ test.describe("Admin TOTP", () => {
     );
     const expiries = sessionAndReplayExpiry(
       recovered.session_token,
-      "admin-login-recovery-code",
+      "admin:login-recovery-code",
       recoveryKey,
     );
     expect(Math.abs(expiries.replay - expiries.session)).toBeLessThan(1000);

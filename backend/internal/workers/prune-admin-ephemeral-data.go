@@ -12,7 +12,6 @@ type adminEphemeralDelete struct {
 
 func (w *Worker) pruneAdminEphemeralData(ctx context.Context) error {
 	deletes := []adminEphemeralDelete{
-		{"idempotency rows", w.queries.PruneExpiredAdminIdempotency},
 		{"login challenges", w.queries.PruneAdminLoginChallenges},
 		{"TOTP enrollments", w.queries.PruneAdminTOTPEnrollments},
 		{"password resets", w.queries.PruneAdminPasswordResets},

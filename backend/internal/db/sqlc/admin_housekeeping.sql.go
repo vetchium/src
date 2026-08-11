@@ -146,30 +146,6 @@ func (q *Queries) PruneConsumedAdminTOTPRecoveryCodes(ctx context.Context) (int6
 	return result.RowsAffected(), nil
 }
 
-const pruneExpiredAdminIdempotency = `-- name: PruneExpiredAdminIdempotency :execrows
-WITH candidates AS MATERIALIZED (
-    SELECT operation, binding_id, idempotency_key
-    FROM vetchium.admin_idempotency_ledger AS candidate
-    WHERE expires_at <= now()
-    ORDER BY expires_at
-    FOR UPDATE SKIP LOCKED
-    LIMIT 1000
-)
-DELETE FROM vetchium.admin_idempotency_ledger AS ledger
-USING candidates
-WHERE ledger.operation = candidates.operation
-  AND ledger.binding_id = candidates.binding_id
-  AND ledger.idempotency_key = candidates.idempotency_key
-`
-
-func (q *Queries) PruneExpiredAdminIdempotency(ctx context.Context) (int64, error) {
-	result, err := q.db.Exec(ctx, pruneExpiredAdminIdempotency)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
-}
-
 const pruneExpiredAdminSessions = `-- name: PruneExpiredAdminSessions :execrows
 
 WITH candidates AS MATERIALIZED (

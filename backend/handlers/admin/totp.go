@@ -60,7 +60,7 @@ func VerifyTFA(s *adminapi.Server) http.HandlerFunc {
 			replayExpiresAt = sessionExpiry
 		}
 		runIdempotent(
-			s, w, r, "admin-login-tfa", binding, key, request,
+			s, w, r, "admin:login-tfa", binding, key, request,
 			replayExpiresAt,
 			func(q *sqlc.Queries) (
 				idempotentResult[adminauth.AuthenticatedSessionResponse],
@@ -142,7 +142,7 @@ func StartTOTPEnrollment(s *adminapi.Server) http.HandlerFunc {
 		binding := adminapi.FormatUUID(identity.UserID)
 		now := s.CurrentTime()
 		runIdempotent(
-			s, w, r, "admin-start-totp-enrollment", binding, key,
+			s, w, r, "admin:start-totp-enrollment", binding, key,
 			struct{}{}, now.Add(totpEnrollmentTTL),
 			func(q *sqlc.Queries) (
 				idempotentResult[adminauth.StartTOTPEnrollmentResponse],
@@ -222,7 +222,7 @@ func ConfirmTOTPEnrollment(s *adminapi.Server) http.HandlerFunc {
 			))
 		now := s.CurrentTime()
 		runIdempotent(
-			s, w, r, "admin-confirm-totp-enrollment", binding, key,
+			s, w, r, "admin:confirm-totp-enrollment", binding, key,
 			request, now.Add(totpEnrollmentTTL),
 			func(q *sqlc.Queries) (
 				idempotentResult[adminauth.ConfirmTOTPEnrollmentResponse],
@@ -320,7 +320,7 @@ func VerifyRecoveryCode(s *adminapi.Server) http.HandlerFunc {
 			replayExpiresAt = sessionExpiry
 		}
 		runIdempotent(
-			s, w, r, "admin-login-recovery-code", binding, key, request,
+			s, w, r, "admin:login-recovery-code", binding, key, request,
 			replayExpiresAt,
 			func(q *sqlc.Queries) (
 				idempotentResult[adminauth.VerifyRecoveryCodeResponse],
@@ -408,7 +408,7 @@ func RegenerateTOTPRecoveryCodes(s *adminapi.Server) http.HandlerFunc {
 		identity, _ := middleware.AdminIdentityFromContext(r.Context())
 		binding := adminapi.FormatUUID(identity.UserID)
 		runIdempotent(
-			s, w, r, "admin-regenerate-totp-recovery-codes", binding,
+			s, w, r, "admin:regenerate-totp-recovery-codes", binding,
 			key, struct{}{}, s.CurrentTime().Add(5*time.Minute),
 			func(q *sqlc.Queries) (
 				idempotentResult[adminauth.RegenerateTOTPRecoveryCodesResponse],

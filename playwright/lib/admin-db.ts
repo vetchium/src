@@ -89,7 +89,7 @@ function dockerComposeAsync(args: string[], timeout = 10_000): Promise<string> {
   });
 }
 
-function runMigration(databaseName: string, version: 1 | 2): void {
+function runMigration(databaseName: string): void {
   if (!/^e2e_migration_[a-f0-9]{32}$/.test(databaseName)) {
     throw new Error(
       `refusing to migrate unsafe test database: ${databaseName}`,
@@ -102,101 +102,8 @@ function runMigration(databaseName: string, version: 1 | 2): void {
     "-e",
     `GOOSE_DBSTRING=postgres://pguser:pgpassword@db-sgp:5432/${databaseName}?sslmode=disable`,
     "migrate-sgp",
-    "up-to",
-    String(version),
+    "up",
   ]);
-}
-
-export function legacySessionUpgradeAuthenticationTimes(): {
-  authenticatedAt: number;
-  createdAt: number;
-} {
-  const databaseName = `e2e_migration_${randomBytes(16).toString("hex")}`;
-  dockerCompose([
-    "exec",
-    "-T",
-    "db-sgp",
-    "env",
-    "PGPASSWORD=pgpassword",
-    "createdb",
-    "-U",
-    "pguser",
-    databaseName,
-  ]);
-  try {
-    runMigration(databaseName, 1);
-    const psqlPrefix = [
-      "exec",
-      "-T",
-      "db-sgp",
-      "env",
-      "PGPASSWORD=pgpassword",
-      "psql",
-      "-U",
-      "pguser",
-      "-d",
-      databaseName,
-      "-v",
-      "ON_ERROR_STOP=1",
-      "-Atqc",
-    ];
-    dockerCompose([
-      ...psqlPrefix,
-      `
-        INSERT INTO vetchium.admin_users (
-          email_address, display_name, password_hash, created_at, updated_at
-        ) VALUES (
-          'legacy@example.test', 'Legacy Admin', 'unused-test-hash',
-          now() - interval '2 hours', now() - interval '2 hours'
-        );
-        INSERT INTO vetchium.admin_sessions (
-          admin_user_id, session_token_hash, created_at, expires_at
-        ) SELECT
-          admin_user_id, decode(repeat('00', 32), 'hex'),
-          now() - interval '1 hour', now() + interval '1 hour'
-        FROM vetchium.admin_users
-        WHERE email_address = 'legacy@example.test';
-      `,
-    ]);
-    runMigration(databaseName, 2);
-    const value = dockerCompose([
-      ...psqlPrefix,
-      `
-        SELECT
-          extract(epoch FROM created_at)::text || '|' ||
-          extract(epoch FROM authenticated_at)::text
-        FROM vetchium.admin_sessions;
-      `,
-    ]);
-    const parts = value.split("|").map(Number);
-    const createdAt = parts[0];
-    const authenticatedAt = parts[1];
-    if (
-      createdAt === undefined ||
-      authenticatedAt === undefined ||
-      !Number.isFinite(createdAt) ||
-      !Number.isFinite(authenticatedAt)
-    ) {
-      throw new Error(`migration probe returned invalid timestamps: ${value}`);
-    }
-    return {
-      createdAt: createdAt * 1000,
-      authenticatedAt: authenticatedAt * 1000,
-    };
-  } finally {
-    dockerCompose([
-      "exec",
-      "-T",
-      "db-sgp",
-      "env",
-      "PGPASSWORD=pgpassword",
-      "dropdb",
-      "-U",
-      "pguser",
-      "--force",
-      databaseName,
-    ]);
-  }
 }
 
 export async function credentialRefreshPruneRace(): Promise<{
@@ -263,7 +170,7 @@ export async function credentialRefreshPruneRace(): Promise<{
     });
   });
   try {
-    runMigration(databaseName, 2);
+    runMigration(databaseName);
     const ready = new Promise<void>((resolvePromise, reject) => {
       const timeout = setTimeout(
         () =>
@@ -297,11 +204,11 @@ export async function credentialRefreshPruneRace(): Promise<{
       ) SELECT admin_user_id, decode(repeat('11', 32), 'hex'),
           now() - interval '2 hours', now() - interval '1 hour'
         FROM vetchium.admin_users WHERE email_address = 'race@example.test';
-      INSERT INTO vetchium.admin_idempotency_ledger (
+      INSERT INTO vetchium.idempotency_ledger (
         operation, binding_id, idempotency_key, request_digest,
         created_at, expires_at
       ) VALUES (
-        'admin-race-probe', 'race-binding', 'e2e-race-probe-key-000001',
+        'admin:race-probe', 'race-binding', 'e2e-race-probe-key-000001',
         decode(repeat('33', 32), 'hex'),
         now() - interval '2 hours', now() - interval '1 hour'
       );
@@ -312,19 +219,19 @@ export async function credentialRefreshPruneRace(): Promise<{
       WHERE token_hash = decode(repeat('11', 32), 'hex')
       FOR UPDATE;
       SELECT operation
-      FROM vetchium.admin_idempotency_ledger
-      WHERE operation = 'admin-race-probe'
+      FROM vetchium.idempotency_ledger
+      WHERE operation = 'admin:race-probe'
       FOR UPDATE;
       UPDATE vetchium.admin_password_reset_tokens
       SET token_hash = decode(repeat('22', 32), 'hex'),
           created_at = now(), expires_at = now() + interval '30 minutes'
       WHERE token_hash = decode(repeat('11', 32), 'hex');
-      DELETE FROM vetchium.admin_idempotency_ledger
-      WHERE operation = 'admin-race-probe';
-      INSERT INTO vetchium.admin_idempotency_ledger (
+      DELETE FROM vetchium.idempotency_ledger
+      WHERE operation = 'admin:race-probe';
+      INSERT INTO vetchium.idempotency_ledger (
         operation, binding_id, idempotency_key, request_digest, expires_at
       ) VALUES (
-        'admin-race-probe', 'race-binding', 'e2e-race-probe-key-000001',
+        'admin:race-probe', 'race-binding', 'e2e-race-probe-key-000001',
         decode(repeat('44', 32), 'hex'), now() + interval '1 hour'
       );
       SELECT '${marker}';
@@ -361,13 +268,13 @@ export async function credentialRefreshPruneRace(): Promise<{
           RETURNING 1
         ), idempotency_candidates AS MATERIALIZED (
           SELECT operation, binding_id, idempotency_key
-          FROM vetchium.admin_idempotency_ledger
+          FROM vetchium.idempotency_ledger
           WHERE expires_at <= now()
           ORDER BY expires_at
           FOR UPDATE SKIP LOCKED
           LIMIT 1000
         ), idempotency_deleted AS (
-          DELETE FROM vetchium.admin_idempotency_ledger AS ledger
+          DELETE FROM vetchium.idempotency_ledger AS ledger
           USING idempotency_candidates AS candidate
           WHERE ledger.operation = candidate.operation
             AND ledger.binding_id = candidate.binding_id
@@ -399,8 +306,8 @@ export async function credentialRefreshPruneRace(): Promise<{
           (SELECT count(*) FROM vetchium.admin_password_reset_tokens
             WHERE token_hash = decode(repeat('22', 32), 'hex')
               AND expires_at > now())::text || '|' ||
-          (SELECT count(*) FROM vetchium.admin_idempotency_ledger
-            WHERE operation = 'admin-race-probe'
+          (SELECT count(*) FROM vetchium.idempotency_ledger
+            WHERE operation = 'admin:race-probe'
               AND request_digest = decode(repeat('44', 32), 'hex')
               AND expires_at > now())::text;
       `,
@@ -504,7 +411,7 @@ export async function stalePasswordLoginCreationRace(): Promise<{
     "pguser",
     databaseName,
   ]);
-  runMigration(databaseName, 2);
+  runMigration(databaseName);
 
   let changeExited = false;
   const change = spawn(
@@ -892,7 +799,7 @@ export async function staleCredentialReplacementRace(
     "pguser",
     databaseName,
   ]);
-  runMigration(databaseName, 2);
+  runMigration(databaseName);
   const replacement = spawn(
     "docker",
     [
@@ -1069,7 +976,7 @@ export function cleanupAdminIdempotency(keys: Iterable<string>): void {
     }
   }
   sqlScalar(`
-    DELETE FROM vetchium.admin_idempotency_ledger
+    DELETE FROM vetchium.idempotency_ledger
     WHERE idempotency_key IN (${uniqueKeys.map(sqlLiteral).join(", ")});
   `);
 }
@@ -1123,7 +1030,7 @@ export function sessionAndReplayExpiry(
   if (!/^[A-Za-z0-9_-]{43}$/.test(sessionToken)) {
     throw new Error("refusing to inspect a malformed session token");
   }
-  if (!/^admin-[a-z-]+$/.test(operation) || !/^e2e-[A-Za-z0-9_-]+$/.test(key)) {
+  if (!/^admin:[a-z-]+$/.test(operation) || !/^e2e-[A-Za-z0-9_-]+$/.test(key)) {
     throw new Error("refusing to inspect malformed idempotency identifiers");
   }
   const tokenHash = createHash("sha256").update(sessionToken).digest("hex");
@@ -1132,7 +1039,7 @@ export function sessionAndReplayExpiry(
       extract(epoch FROM s.expires_at)::text || '|' ||
       extract(epoch FROM i.expires_at)::text
     FROM vetchium.admin_sessions AS s
-    CROSS JOIN vetchium.admin_idempotency_ledger AS i
+    CROSS JOIN vetchium.idempotency_ledger AS i
     WHERE s.session_token_hash = decode('${tokenHash}', 'hex')
       AND i.operation = ${sqlLiteral(operation)}
       AND i.idempotency_key = ${sqlLiteral(key)};
@@ -1155,12 +1062,12 @@ export function adminIdempotencyCiphertextLength(
   operation: string,
   key: string,
 ): number | undefined {
-  if (!/^admin-[a-z-]+$/.test(operation) || !/^e2e-[A-Za-z0-9_-]+$/.test(key)) {
+  if (!/^admin:[a-z-]+$/.test(operation) || !/^e2e-[A-Za-z0-9_-]+$/.test(key)) {
     throw new Error("refusing to inspect malformed idempotency identifiers");
   }
   const value = sqlScalar(`
     SELECT octet_length(response_ciphertext)::text
-    FROM vetchium.admin_idempotency_ledger
+    FROM vetchium.idempotency_ledger
     WHERE operation = ${sqlLiteral(operation)}
       AND idempotency_key = ${sqlLiteral(key)};
   `);
@@ -1168,11 +1075,11 @@ export function adminIdempotencyCiphertextLength(
 }
 
 export function expireAdminIdempotency(operation: string, key: string): void {
-  if (!/^admin-[a-z-]+$/.test(operation) || !/^e2e-[A-Za-z0-9_-]+$/.test(key)) {
+  if (!/^admin:[a-z-]+$/.test(operation) || !/^e2e-[A-Za-z0-9_-]+$/.test(key)) {
     throw new Error("refusing to expire malformed idempotency identifiers");
   }
   sqlScalar(`
-    UPDATE vetchium.admin_idempotency_ledger
+    UPDATE vetchium.idempotency_ledger
     SET created_at = now() - interval '2 minutes',
         expires_at = now() - interval '1 minute'
     WHERE operation = ${sqlLiteral(operation)}

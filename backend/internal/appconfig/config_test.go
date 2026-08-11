@@ -27,7 +27,7 @@ func TestLoadFile(t *testing.T) {
 	}
 	if cfg.Workers.RetryBackoffLimit != 5*time.Minute ||
 		cfg.Workers.PruneAdminSessionsTimer != time.Hour ||
-		cfg.Workers.PruneAdminEphemeralDataTimer != time.Hour {
+		cfg.Workers.PruneEphemeralDataTimer != time.Hour {
 		t.Fatalf(
 			"workers config = %+v, want retry limit 5m and prune interval 1h",
 			cfg.Workers,
@@ -169,7 +169,7 @@ func TestLoadFileRequiresPositiveDurations(t *testing.T) {
   "workers": {
     "retryBackoffLimit": "0s",
     "pruneAdminSessionsTimer": "1h",
-    "pruneAdminEphemeralDataTimer": "1h"
+    "pruneEphemeralDataTimer": "1h"
   },
   "admin-api-server": {
     "adminSessionTTL": "24h"
@@ -243,7 +243,7 @@ func writeConfig(t *testing.T, passwordFile, extraWorkerField string) string {
   "workers": {
     "retryBackoffLimit": "5m",
     "pruneAdminSessionsTimer": "1h",
-    "pruneAdminEphemeralDataTimer": "1h"%s
+    "pruneEphemeralDataTimer": "1h"%s
   },
   "admin-api-server": {
     "adminSessionTTL": "24h"

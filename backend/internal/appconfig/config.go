@@ -51,9 +51,9 @@ type AdminAPIServer struct {
 }
 
 type Workers struct {
-	RetryBackoffLimit            time.Duration
-	PruneAdminSessionsTimer      time.Duration
-	PruneAdminEphemeralDataTimer time.Duration
+	RetryBackoffLimit       time.Duration
+	PruneAdminSessionsTimer time.Duration
+	PruneEphemeralDataTimer time.Duration
 }
 
 type Server struct{}
@@ -83,9 +83,9 @@ type fileAdminAPIServer struct {
 }
 
 type fileWorkers struct {
-	RetryBackoffLimit            string `json:"retryBackoffLimit"`
-	PruneAdminSessionsTimer      string `json:"pruneAdminSessionsTimer"`
-	PruneAdminEphemeralDataTimer string `json:"pruneAdminEphemeralDataTimer"`
+	RetryBackoffLimit       string `json:"retryBackoffLimit"`
+	PruneAdminSessionsTimer string `json:"pruneAdminSessionsTimer"`
+	PruneEphemeralDataTimer string `json:"pruneEphemeralDataTimer"`
 }
 
 func Load() (Config, error) {
@@ -197,8 +197,8 @@ func LoadFile(path string) (Config, error) {
 		return Config{}, configError(path, err)
 	}
 	pruneEphemeralTimer, err := positiveDuration(
-		"workers.pruneAdminEphemeralDataTimer",
-		raw.Workers.PruneAdminEphemeralDataTimer,
+		"workers.pruneEphemeralDataTimer",
+		raw.Workers.PruneEphemeralDataTimer,
 	)
 	if err != nil {
 		return Config{}, configError(path, err)
@@ -219,9 +219,9 @@ func LoadFile(path string) (Config, error) {
 			AdminSessionTTL: adminSessionTTL,
 		},
 		Workers: Workers{
-			RetryBackoffLimit:            retryBackoffLimit,
-			PruneAdminSessionsTimer:      pruneTimer,
-			PruneAdminEphemeralDataTimer: pruneEphemeralTimer,
+			RetryBackoffLimit:       retryBackoffLimit,
+			PruneAdminSessionsTimer: pruneTimer,
+			PruneEphemeralDataTimer: pruneEphemeralTimer,
 		},
 		HubAPIServer:  Server{},
 		OrgsAPIServer: Server{},
