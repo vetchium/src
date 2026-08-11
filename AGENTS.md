@@ -1,7 +1,54 @@
 # Vetchium Agent Guidance Router
 
+Vetchium is a professional social networking and jobs platform.
+
+Vetchium runs one isolated stack per tenant. The current tenants are `sgp`,
+`usa1`, `deu`, `ind1` and more can be added in future.
+
+Each tenant has a tenant-local database, a bunch of backend services,
+a S3 compatible object store and three frontend portals.
+
+## Backend
+
+The backend is one Go module with six command directories and six independent
+container images:
+
+- `admin-api`, `hub-api`, and `orgs-api` — stateless, portal-specific browser
+  APIs. Traefik routes each portal hostname's `/api` requests to its matching
+  API over a dedicated private network.
+- `mesh-api` — stateless tenant-to-tenant API. It is attached only to the
+  private mesh and tenant backend networks and never publishes a host port.
+- `mcp-server` — stateless MCP `2026-07-28` over Streamable HTTP. It has a
+  dedicated access network so an authenticated public route can be added
+  without placing it on general portal ingress.
+- `workers` — periodic background work. Each tenant runs one replica.
+
+The backend commands share database, configuration, and domain packages under
+`backend/internal/`, but build as separate executables under `backend/cmd/`.
+Every backend process reads the same per-tenant JSON file from
+`/etc/vetchium/config.json`; Docker Compose mounts the development files under
+`config/`, and production mounts each region's `deploy/<region>/config.json`.
+The database password remains a separate secret file referenced by that JSON.
+
+## Frontend
+
+- `admin-ui` is the admin portal that talks only to the `admin-api` server of
+  the same tenant where it is deployed. It is used by the Administrators of
+  the Tenant.
+- `hub-ui` is the portal used by Hub Users who are the individual users of the
+  platform; who write posts, apply to Openings, connect with other individuals,
+  go through the hiring process, etc. This portal talks to the `hub-api` server
+  of the same Tenant.
+- `orgs-ui` is the portal used by the Organizations that want to be on the
+  Vetchium platform. These Organizations create Posts, Job Openings, go through
+  the hiring process for Applicants, etc. This portal talks to the `orgs-api`
+  server of the same Tenant.
+
 `AGENTS.md` files define scope and route agents to shared guidance. The
 substantive conventions live once under `agent-guides/`.
+
+`agent-guides/glossary.md` contains the definitions of some of the terms that
+will be used in prompts, specifications, UIs related to the Vetchium platform.
 
 Before changing files, read every guide that applies:
 

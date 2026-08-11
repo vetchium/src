@@ -89,3 +89,14 @@ make sqlc-verify
 
 Review generated diffs for unexpected method, parameter, nullability, or model
 changes.
+
+## Things to Avoid
+- Do not add any ALTER TABLE, UPDATE statements. This entire project is still
+  heavily under development. It is not yet in Production. There is no need to
+  migrate any existing data when the schema is changed. All the database data
+  can be assumed to be thrown away if there is a cleaner solution.
+- Do not add any database indexes for performance. We will complete the entire
+  project and will profile the queries and the required indexes before we go to
+  production. Do not optimize prematurely. If there are indexes needed for some
+  constraint enforcement, and there is no way to achieve them without creating
+  indexes, those cases are exempted. 

@@ -7,31 +7,6 @@
 - [**The Vetchi flower**](https://ta.wikipedia.org/wiki/%E0%AE%B5%E0%AF%86%E0%AE%9F%E0%AF%8D%E0%AE%9A%E0%AE%BF), identified with [Ixora](https://en.wikipedia.org/wiki/Ixora), a flowering shrub native to Southern India.
 - [**வெட்சித் திணை** (_Vetchi thinai_)](https://ta.wikipedia.org/wiki/%E0%AE%B5%E0%AF%86%E0%AE%9F%E0%AF%8D%E0%AE%9A%E0%AE%BF%E0%AE%A4%E0%AF%8D_%E0%AE%A4%E0%AE%BF%E0%AE%A3%E0%AF%88), **`ஆநிரை கவர்தல் வெட்சி`** a theme in classical Tamil _puram_ poetry in which warriors seize Cattle (Wealth) from a rival land.
 
-## Multi-tenant Federated Architecture
-
-Vetchium runs one isolated stack per tenant (`sgp`, `usa1`, `deu`, `ind1`): a
-tenant-local database, six backend runtime roles, and three browser portals.
-
-The backend is one Go module with six command directories and six independent
-container images:
-
-- `admin-api`, `hub-api`, and `orgs-api` — stateless, portal-specific browser
-  APIs. Traefik routes each portal hostname's `/api` requests to its matching
-  API over a dedicated private network.
-- `mesh-api` — stateless tenant-to-tenant API. It is attached only to the
-  private mesh and tenant backend networks and never publishes a host port.
-- `mcp-server` — stateless MCP `2026-07-28` over Streamable HTTP. It has a
-  dedicated access network so an authenticated public route can be added
-  without placing it on general portal ingress.
-- `workers` — periodic background work. Each tenant runs one replica.
-
-The backend commands share database, configuration, and domain packages under
-`backend/internal/`, but build as separate executables under `backend/cmd/`.
-Every backend process reads the same per-tenant JSON file from
-`/etc/vetchium/config.json`; Docker Compose mounts the development files under
-`config/`, and production mounts each region's `deploy/<region>/config.json`.
-The database password remains a separate secret file referenced by that JSON.
-
 ## Request paths and networks
 
 ```text
