@@ -5,7 +5,7 @@ This guide applies to API and UI tests under `playwright/`.
 ## Test layout
 
 - Put API tests in `playwright/api/` and browser tests in `playwright/ui/`.
-- Import all wire types from `vetchium-specs`; inspect the matching `.tsp` and
+- Import all wire types from `typespec`; inspect the matching `.tsp` and
   `.ts` files before writing requests or response assertions.
 - Give API clients a typed method for valid payloads. When validation behavior
   requires malformed input, expose a clearly named raw method accepting

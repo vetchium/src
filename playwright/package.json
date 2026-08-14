@@ -15,7 +15,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "vetchium-specs": "file:../typespec"
+    "typespec": "file:../typespec"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.7",

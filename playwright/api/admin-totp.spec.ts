@@ -3,14 +3,14 @@ import {
   AuthenticationStateAuthenticated,
   AuthenticationStateTOTPRequired,
   type LoginTOTPRequiredResponse,
-} from "vetchium-specs/admin/auth/login";
+} from "typespec/admin/auth/login";
 import type {
   ConfirmTOTPEnrollmentResponse,
   RegenerateTOTPRecoveryCodesResponse,
   StartTOTPEnrollmentResponse,
   VerifyRecoveryCodeResponse,
-} from "vetchium-specs/admin/auth/totp";
-import type { AuthenticatedSessionResponse } from "vetchium-specs/admin/auth/types";
+} from "typespec/admin/auth/totp";
+import type { AuthenticatedSessionResponse } from "typespec/admin/auth/types";
 import {
   expectProblem,
   idempotencyKey,

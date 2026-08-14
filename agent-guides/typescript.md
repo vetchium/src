@@ -8,7 +8,7 @@ the wire types under `typespec/` and tests under `playwright/`.
 - Keep strict TypeScript enabled. Do not introduce `any`; use `unknown` and
   narrow it when a test intentionally sends an invalid payload.
 - Import API request, response, enum, and problem types from
-  `vetchium-specs/<path>`. Do not reconstruct wire types in a UI, API client,
+  `typespec/<path>`. Do not reconstruct wire types in a UI, API client,
   fixture, or test.
 - Use `import type` when an import is erased at runtime.
 - Preserve JSON names, casing, required fields, optionality, nullability, and

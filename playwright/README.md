@@ -1,8 +1,6 @@
 # Vetchium Playwright tests
 
-This module owns API tests under `api/` and browser tests under `ui/`. Both
-suites consume wire types from the local `vetchium-specs` package in
-`../typespec`.
+This module owns API tests under `api/` and browser tests under `ui/`.
 
 Use Node.js 22.13 or newer.
 

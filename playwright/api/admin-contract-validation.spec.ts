@@ -1,6 +1,6 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import type { APIRequestContext, APIResponse } from "@playwright/test";
-import type { MyInfoResponse } from "vetchium-specs/admin/users/profile";
+import type { MyInfoResponse } from "typespec/admin/users/profile";
 import {
   ADMIN_PATH,
   expectProblem,

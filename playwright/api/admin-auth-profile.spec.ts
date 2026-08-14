@@ -1,9 +1,9 @@
 import {
   AuthenticationStateAuthenticated,
   type LoginAuthenticatedResponse,
-} from "vetchium-specs/admin/auth/login";
-import type { CompanyRegionalDefaultsResponse } from "vetchium-specs/admin/company/regional";
-import type { MyInfoResponse } from "vetchium-specs/admin/users/profile";
+} from "typespec/admin/auth/login";
+import type { CompanyRegionalDefaultsResponse } from "typespec/admin/company/regional";
+import type { MyInfoResponse } from "typespec/admin/users/profile";
 import { expectProblem, responseJSON } from "../lib/admin-api.ts";
 import { expect, test } from "../lib/admin-fixtures.ts";
 

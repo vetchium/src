@@ -19,7 +19,8 @@ GO_MODULES             := backend typespec
 GOTESTFLAGS            ?=
 
 .PHONY: check dev dev-secrets sqlc sqlc-verify test test-dependencies \
-	test-environment test-stack test-static-ready test-go typespec-deps \
+	test-environment test-stack test-static-ready test-go admin-ui-deps \
+	admin-ui-check admin-ui-check-ready typespec-deps \
 	typespec-check \
 	typespec-check-ready typespec-test playwright-deps playwright-browser \
 	playwright-browser-ready playwright-check playwright-check-ready \
@@ -69,9 +70,10 @@ test:
 	$(MAKE) --no-print-directory test-stack
 	$(MAKE) --no-print-directory playwright-test-run
 
-test-dependencies: typespec-deps playwright-deps
+test-dependencies: admin-ui-deps typespec-deps playwright-deps
 
-test-static-ready: test-go typespec-check-ready playwright-check-ready
+test-static-ready: test-go admin-ui-check-ready typespec-check-ready \
+	playwright-check-ready
 
 test-environment:
 	$(MAKE) --no-print-directory playwright-deps
@@ -101,6 +103,16 @@ test-go:
 
 # `check` remains an alias for the complete repository test suite.
 check: test
+
+admin-ui-deps:
+	cd admin-ui && npm ci
+
+admin-ui-check-ready:
+	cd admin-ui && npm run format:check
+	cd admin-ui && npm run typecheck
+	cd admin-ui && npm run build
+
+admin-ui-check: admin-ui-deps admin-ui-check-ready
 
 typespec-deps:
 	cd typespec && npm ci

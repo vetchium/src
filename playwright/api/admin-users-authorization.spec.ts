@@ -2,8 +2,8 @@ import { randomBytes, randomUUID } from "node:crypto";
 import type {
   CompleteSetupResponse,
   InviteUserResponse,
-} from "vetchium-specs/admin/users/invitations";
-import type { ListUsersResponse } from "vetchium-specs/admin/users/management";
+} from "typespec/admin/users/invitations";
+import type { ListUsersResponse } from "typespec/admin/users/management";
 import {
   expectProblem,
   idempotencyKey,

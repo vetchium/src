@@ -1,10 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { test as base, expect } from "@playwright/test";
-import type { AdminUserID } from "vetchium-specs/admin/types";
+import type { AdminUserID } from "typespec/admin/types";
 import type {
   CompleteSetupResponse,
   InviteUserResponse,
-} from "vetchium-specs/admin/users/invitations";
+} from "typespec/admin/users/invitations";
 import { AdminAPI, idempotencyKey, responseJSON } from "./admin-api.ts";
 import {
   cleanupAdmin,
