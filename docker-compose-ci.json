@@ -254,7 +254,8 @@
     },
     "admin-ui-deu": {
       "build": {
-        "context": "admin-ui"
+        "context": ".",
+        "dockerfile": "admin-ui/Dockerfile"
       },
       "networks": {
         "deu_ingress": null
@@ -264,7 +265,8 @@
     },
     "admin-ui-ind1": {
       "build": {
-        "context": "admin-ui"
+        "context": ".",
+        "dockerfile": "admin-ui/Dockerfile"
       },
       "networks": {
         "ind1_ingress": null
@@ -274,7 +276,8 @@
     },
     "admin-ui-sgp": {
       "build": {
-        "context": "admin-ui"
+        "context": ".",
+        "dockerfile": "admin-ui/Dockerfile"
       },
       "networks": {
         "sgp_ingress": null
@@ -284,7 +287,8 @@
     },
     "admin-ui-usa1": {
       "build": {
-        "context": "admin-ui"
+        "context": ".",
+        "dockerfile": "admin-ui/Dockerfile"
       },
       "networks": {
         "usa1_ingress": null

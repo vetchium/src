@@ -4,10 +4,12 @@ FROM node:24.12.0-alpine@sha256:c921b97d4b74f51744057454b306b418cf693865e73b8100
 
 WORKDIR /app
 
-COPY package.json package-lock.json ./
+COPY admin-ui/package.json admin-ui/package-lock.json ./admin-ui/
+WORKDIR /app/admin-ui
 RUN --mount=type=cache,target=/root/.npm npm ci
 
-COPY . .
+COPY admin-ui/ ./
+COPY typespec/ /app/typespec/
 RUN npm run build
 
 # nginx-unprivileged runs the master process as an unprivileged user and listens
@@ -16,8 +18,8 @@ RUN npm run build
 # multi-platform digest so rebuilding a release uses the same base image.
 FROM nginxinc/nginx-unprivileged:1.29-alpine@sha256:0c79d56aee561a1d81c63f00eee5fb5fe29279560cdc55e91425133104c7fbe6
 
-COPY --chown=nginx:nginx nginx.conf /etc/nginx/conf.d/default.conf
-COPY --from=build --chown=nginx:nginx /app/dist/ /usr/share/nginx/html/
+COPY --chown=nginx:nginx admin-ui/nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build --chown=nginx:nginx /app/admin-ui/dist/ /usr/share/nginx/html/
 
 EXPOSE 8080
 

@@ -35,7 +35,7 @@ and the mounted runtime secret as one explicit operation.
 Each `dev-seed/<tenant>.sql` file creates one local administrator:
 
 - email: `admin@<tenant>.example`
-- password: `dev_admin_password`
+- password: `DevPassword123$`
 
 These credentials are fixtures loaded only by the development seed containers.
 Production environments must provision their first administrator explicitly.

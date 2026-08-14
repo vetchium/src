@@ -3,6 +3,7 @@ import { App as AntApp, ConfigProvider } from "antd";
 import enUS from "antd/locale/en_US";
 import type { PropsWithChildren } from "react";
 import { useState } from "react";
+import { AuthProvider } from "../auth/AuthContext";
 
 export function AppProviders({ children }: PropsWithChildren) {
   const [queryClient] = useState(
@@ -21,9 +22,11 @@ export function AppProviders({ children }: PropsWithChildren) {
   return (
     <ConfigProvider locale={enUS}>
       <AntApp>
-        <QueryClientProvider client={queryClient}>
-          {children}
-        </QueryClientProvider>
+        <AuthProvider>
+          <QueryClientProvider client={queryClient}>
+            {children}
+          </QueryClientProvider>
+        </AuthProvider>
       </AntApp>
     </ConfigProvider>
   );

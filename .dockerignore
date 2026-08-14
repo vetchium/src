@@ -4,11 +4,13 @@
 !typespec/
 !typespec/go.mod
 !typespec/admin/
-!typespec/admin/*.go
+!typespec/admin/**
 !typespec/common/
-!typespec/common/*.go
+!typespec/common/**
 !typespec/problem/
-!typespec/problem/*.go
+!typespec/problem/**
+!admin-ui/
+!admin-ui/**
 !db/
 !db/migrations/
 !db/migrations/**
@@ -16,3 +18,8 @@
 # Backend images regenerate this package from SQL sources. Never copy the
 # committed editor-friendly output into the build context.
 backend/internal/db/sqlc/
+admin-ui/node_modules/
+admin-ui/dist/
+admin-ui/*.tsbuildinfo
+typespec/node_modules/
+typespec/tsp-output/
