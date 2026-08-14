@@ -27,6 +27,10 @@ import {
 } from "../lib/admin-db.ts";
 import { expect, test } from "../lib/admin-fixtures.ts";
 
+function differentTOTP(code: string): string {
+  return ((Number(code) + 1) % 1_000_000).toString().padStart(6, "0");
+}
+
 test.describe("Admin TOTP", () => {
   test("housekeeping deletes expired replay ciphertext containing enrollment secrets", async ({
     adminAPI,
@@ -180,6 +184,45 @@ test.describe("Admin TOTP", () => {
     ]);
   });
 
+  test("confirmation idempotency keys reject a changed request body", async ({
+    adminAPI,
+    createAdmin,
+  }) => {
+    const admin = await createAdmin();
+    const enrollment = await responseJSON<StartTOTPEnrollmentResponse>(
+      await adminAPI.post("/start-totp-enrollment", undefined, {
+        token: admin.sessionToken,
+        idempotencyKey: idempotencyKey(),
+      }),
+    );
+    const totpCode = currentTOTP(enrollment.manual_entry_key);
+    const key = idempotencyKey();
+    expect(
+      (
+        await adminAPI.post(
+          "/confirm-totp-enrollment",
+          {
+            totp_enrollment_token: enrollment.totp_enrollment_token,
+            totp_code: totpCode,
+          },
+          { token: admin.sessionToken, idempotencyKey: key },
+        )
+      ).status(),
+    ).toBe(200);
+    await expectProblem(
+      await adminAPI.post(
+        "/confirm-totp-enrollment",
+        {
+          totp_enrollment_token: enrollment.totp_enrollment_token,
+          totp_code: differentTOTP(totpCode),
+        },
+        { token: admin.sessionToken, idempotencyKey: key },
+      ),
+      409,
+      "vetchium-problem-details/idempotency-key-conflict",
+    );
+  });
+
   test("TOTP login consumes a challenge, supports exact replay, and rejects timestep replay", async ({
     adminAPI,
     createAdmin,
@@ -312,6 +355,64 @@ test.describe("Admin TOTP", () => {
     expect(verifications.map((response) => response.status()).sort()).toEqual([
       200, 401,
     ]);
+  });
+
+  test("TOTP login idempotency keys reject a changed request body", async ({
+    adminAPI,
+    createAdmin,
+  }) => {
+    const admin = await createAdmin();
+    const enrollment = await responseJSON<StartTOTPEnrollmentResponse>(
+      await adminAPI.post("/start-totp-enrollment", undefined, {
+        token: admin.sessionToken,
+        idempotencyKey: idempotencyKey(),
+      }),
+    );
+    expect(
+      (
+        await adminAPI.post(
+          "/confirm-totp-enrollment",
+          {
+            totp_enrollment_token: enrollment.totp_enrollment_token,
+            totp_code: currentTOTP(enrollment.manual_entry_key),
+          },
+          { token: admin.sessionToken, idempotencyKey: idempotencyKey() },
+        )
+      ).status(),
+    ).toBe(200);
+    const login = (await adminAPI.login(
+      admin.emailAddress,
+      admin.password,
+    )) as LoginTOTPRequiredResponse;
+    const totpCode = currentTOTP(
+      enrollment.manual_entry_key,
+      Date.now() + 30_000,
+    );
+    const key = idempotencyKey();
+    expect(
+      (
+        await adminAPI.post(
+          "/login/tfa",
+          {
+            login_challenge_token: login.login_challenge_token,
+            totp_code: totpCode,
+          },
+          { idempotencyKey: key },
+        )
+      ).status(),
+    ).toBe(200);
+    await expectProblem(
+      await adminAPI.post(
+        "/login/tfa",
+        {
+          login_challenge_token: login.login_challenge_token,
+          totp_code: differentTOTP(totpCode),
+        },
+        { idempotencyKey: key },
+      ),
+      409,
+      "vetchium-problem-details/idempotency-key-conflict",
+    );
   });
 
   test("a recovery code authenticates once and reports the remaining inventory", async ({

@@ -12,6 +12,7 @@ import {
 import {
   activeSuperadminCount,
   ageAdminInvitation,
+  ageSession,
   createIsolatedSuperadmin,
   emailCredential,
   restoreIsolatedSuperadminTest,
@@ -136,6 +137,58 @@ test.describe("Admin invitations", () => {
     await adminAPI.passwordSession(emailAddress, password);
   });
 
+  test("complete-setup idempotency keys reject a changed request body", async ({
+    adminAPI,
+    superadminToken,
+    ownedEmail,
+  }) => {
+    const emailAddress = ownedEmail();
+    expect(
+      (
+        await adminAPI.post(
+          "/invite-user",
+          { email_address: emailAddress },
+          { token: superadminToken, idempotencyKey: idempotencyKey() },
+        )
+      ).status(),
+    ).toBe(201);
+    const invitationToken = emailCredential(
+      emailAddress,
+      "invitation",
+      "invitation_token",
+    );
+    const key = idempotencyKey();
+    const request = {
+      invitation_token: invitationToken,
+      password: `Complete!${randomUUID()}-password`,
+      display_names: [
+        { language_code: "en-US", display_name: "Original Name" },
+      ],
+      primary_display_name_language: "en-US",
+    };
+    expect(
+      (
+        await adminAPI.post("/complete-setup", request, {
+          idempotencyKey: key,
+        })
+      ).status(),
+    ).toBe(201);
+    await expectProblem(
+      await adminAPI.post(
+        "/complete-setup",
+        {
+          ...request,
+          display_names: [
+            { language_code: "en-US", display_name: "Changed Name" },
+          ],
+        },
+        { idempotencyKey: key },
+      ),
+      409,
+      "vetchium-problem-details/idempotency-key-conflict",
+    );
+  });
+
   test("pending and existing users receive distinct conflicts", async ({
     adminAPI,
     createAdmin,
@@ -216,6 +269,7 @@ test.describe("Admin invitations", () => {
     adminAPI,
     createAdmin,
     ownedEmail,
+    superadminToken,
   }) => {
     const regular = await createAdmin();
     await expectProblem(
@@ -231,10 +285,11 @@ test.describe("Admin invitations", () => {
       await adminAPI.post(
         "/invite-user",
         { email_address: ownedEmail() },
-        { token: regular.sessionToken, idempotencyKey: "too-short" },
+        { token: superadminToken, idempotencyKey: "too-short" },
       ),
-      403,
-      "vetchium-problem-details/admin-permission-required",
+      400,
+      "vetchium-problem-details/validation-failed",
+      ["Idempotency-Key"],
     );
   });
 });
@@ -463,6 +518,15 @@ test.describe("Admin listing and lifecycle", () => {
     );
     await expectProblem(
       await adminAPI.post(
+        "/disable-user",
+        { admin_user_id: randomUUID() },
+        { token: superadminToken },
+      ),
+      404,
+      "vetchium-problem-details/admin-user-not-found",
+    );
+    await expectProblem(
+      await adminAPI.post(
         "/enable-user",
         { admin_user_id: randomUUID() },
         { token: superadminToken },
@@ -506,6 +570,82 @@ test.describe("Admin listing and lifecycle", () => {
 });
 
 test.describe("Admin authorization management", () => {
+  test("authorization mutations require superadmin and report missing targets", async ({
+    adminAPI,
+    createAdmin,
+    superadminToken,
+  }) => {
+    const regular = await createAdmin();
+    const mutations = [
+      {
+        path: "/grant-permission",
+        body: {
+          admin_user_id: randomUUID(),
+          permission: "admin:view_users",
+        },
+      },
+      {
+        path: "/revoke-permission",
+        body: {
+          admin_user_id: randomUUID(),
+          permission: "admin:view_users",
+        },
+      },
+      {
+        path: "/promote-to-superadmin",
+        body: { admin_user_id: randomUUID() },
+      },
+      {
+        path: "/demote-from-superadmin",
+        body: { admin_user_id: randomUUID() },
+      },
+    ];
+
+    for (const mutation of mutations) {
+      await expectProblem(
+        await adminAPI.post(mutation.path, mutation.body, {
+          token: regular.sessionToken,
+        }),
+        403,
+        "vetchium-problem-details/superadmin-required",
+      );
+      await expectProblem(
+        await adminAPI.post(mutation.path, mutation.body, {
+          token: superadminToken,
+        }),
+        404,
+        "vetchium-problem-details/admin-user-not-found",
+      );
+    }
+  });
+
+  test("recent-authentication mutations reject an aged superadmin session", async ({
+    adminAPI,
+    superadminToken,
+  }) => {
+    ageSession(superadminToken);
+    for (const { path, body } of [
+      { path: "/start-totp-enrollment", body: undefined },
+      { path: "/regenerate-totp-recovery-codes", body: undefined },
+      { path: "/promote-to-superadmin", body: { admin_user_id: randomUUID() } },
+      {
+        path: "/demote-from-superadmin",
+        body: { admin_user_id: randomUUID() },
+      },
+    ]) {
+      await expectProblem(
+        await adminAPI.post(path, body, {
+          token: superadminToken,
+          ...(path.includes("totp")
+            ? { idempotencyKey: idempotencyKey() }
+            : {}),
+        }),
+        401,
+        "vetchium-problem-details/recent-authentication-required",
+      );
+    }
+  });
+
   test("manage-users grant implies view-users and dependency ordering is enforced", async ({
     adminAPI,
     createAdmin,
