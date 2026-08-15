@@ -5,6 +5,7 @@ enum SecurityEffect {
   CreateLoginChallenge: "create-login-challenge",
   ConsumeLoginChallenge: "consume-login-challenge",
   InvalidateLoginChallenges: "invalidate-login-challenges",
+  RefreshSessionAuthentication: "refresh-session-authentication",
   RejectTOTPReplay: "reject-totp-replay",
   CreateTOTPEnrollment: "create-totp-enrollment",
   ConsumeTOTPEnrollment: "consume-totp-enrollment",

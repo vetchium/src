@@ -12,6 +12,20 @@ export interface LoginRequest {
   password: Password;
 }
 
+export interface ReauthenticateRequest {
+  password: Password;
+}
+
+export function validateReauthenticateRequest(
+  request: ReauthenticateRequest,
+): string[] {
+  return request.password.length === 0 ? ["password"] : [];
+}
+
+export interface ReauthenticateResponse {
+  session_authenticated_at: string;
+}
+
 export function normalizeLoginRequest(request: LoginRequest): LoginRequest {
   return {
     ...request,

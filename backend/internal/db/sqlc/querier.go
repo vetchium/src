@@ -36,6 +36,7 @@ type Querier interface {
 	EnableAdminUser(ctx context.Context, arg EnableAdminUserParams) (string, error)
 	GetAdminLoginChallenge(ctx context.Context, tokenHash []byte) (GetAdminLoginChallengeRow, error)
 	GetAdminMyInfo(ctx context.Context, arg GetAdminMyInfoParams) (GetAdminMyInfoRow, error)
+	GetAdminPasswordForReauthentication(ctx context.Context, arg GetAdminPasswordForReauthenticationParams) (string, error)
 	GetAdminTOTPEnrollment(ctx context.Context, arg GetAdminTOTPEnrollmentParams) (GetAdminTOTPEnrollmentRow, error)
 	GetAdminUserForLogin(ctx context.Context, emailAddress string) (GetAdminUserForLoginRow, error)
 	GetIdempotency(ctx context.Context, arg GetIdempotencyParams) (GetIdempotencyRow, error)
@@ -58,6 +59,7 @@ type Querier interface {
 	// backlog cannot monopolize the database. Subsequent runs drain the backlog.
 	PruneExpiredAdminSessions(ctx context.Context) (int64, error)
 	PruneExpiredIdempotency(ctx context.Context) (int64, error)
+	ReauthenticateAdminSession(ctx context.Context, arg ReauthenticateAdminSessionParams) (pgtype.Timestamptz, error)
 	RegenerateAdminTOTPRecoveryCodes(ctx context.Context, arg RegenerateAdminTOTPRecoveryCodesParams) (bool, error)
 	ResolveAdminLoginChallengeUser(ctx context.Context, tokenHash []byte) (pgtype.UUID, error)
 	ResolveAdminPasswordResetUser(ctx context.Context, resetTokenHash []byte) (pgtype.UUID, error)

@@ -77,3 +77,12 @@ func TestLoginRequestValidate(t *testing.T) {
 		})
 	}
 }
+
+func TestReauthenticateRequestValidate(t *testing.T) {
+	if fields := (ReauthenticateRequest{}).Validate(); !slices.Equal(fields, []string{"password"}) {
+		t.Fatalf("empty password fields = %v", fields)
+	}
+	if fields := (ReauthenticateRequest{Password: "current-password"}).Validate(); len(fields) != 0 {
+		t.Fatalf("valid password fields = %v", fields)
+	}
+}

@@ -4,6 +4,7 @@ import { Route, Routes } from "react-router";
 import { AppShell } from "../components/common/AppShell";
 import { ProtectedRoute } from "../components/common/ProtectedRoute";
 import { PublicShell } from "../components/common/PublicShell";
+import { RecentAuthenticationRoute } from "../components/common/RecentAuthenticationRoute";
 
 const CompleteSetupPage = lazy(() =>
   import("../pages/CompleteSetupPage").then(({ CompleteSetupPage }) => ({
@@ -31,6 +32,11 @@ const NotFoundPage = lazy(() =>
 const ProfilePage = lazy(() =>
   import("../pages/ProfilePage").then(({ ProfilePage }) => ({
     default: ProfilePage,
+  })),
+);
+const ReauthenticatePage = lazy(() =>
+  import("../pages/ReauthenticatePage").then(({ ReauthenticatePage }) => ({
+    default: ReauthenticatePage,
   })),
 );
 const SecurityPage = lazy(() =>
@@ -106,6 +112,16 @@ export function App() {
         />
       </Route>
       <Route element={<ProtectedRoute />}>
+        <Route element={<PublicShell />}>
+          <Route
+            path="reauthenticate"
+            element={
+              <Page>
+                <ReauthenticatePage />
+              </Page>
+            }
+          />
+        </Route>
         <Route element={<AppShell />}>
           <Route
             index
@@ -131,14 +147,16 @@ export function App() {
               </Page>
             }
           />
-          <Route
-            path="settings/security"
-            element={
-              <Page>
-                <SecurityPage />
-              </Page>
-            }
-          />
+          <Route element={<RecentAuthenticationRoute />}>
+            <Route
+              path="settings/security"
+              element={
+                <Page>
+                  <SecurityPage />
+                </Page>
+              }
+            />
+          </Route>
         </Route>
       </Route>
       <Route element={<PublicShell />}>

@@ -10,6 +10,13 @@ var InvalidCredentialsError = problem.Details{
 	Detail: "The supplied credentials are invalid",
 }
 
+var IncorrectPasswordError = problem.Details{
+	Type:   "vetchium-problem-details/incorrect-password",
+	Title:  "Incorrect password",
+	Status: 422,
+	Detail: "The password did not verify for the authenticated admin user",
+}
+
 var AdminUserDisabledError = problem.Details{
 	Type:   "vetchium-problem-details/admin-user-disabled",
 	Title:  "Admin user disabled",

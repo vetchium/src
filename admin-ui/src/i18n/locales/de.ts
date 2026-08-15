@@ -229,6 +229,14 @@ export const de = {
     description:
       "Diese Aktion erfordert eine Anmeldung aus den letzten fünf Minuten. Melden Sie sich erneut an und versuchen Sie es noch einmal.",
     action: "Erneut anmelden",
+    documentTitle: "Zugriff bestätigen | Vetchium Admin",
+    pageTitle: "Zugriff bestätigen",
+    pageDescription:
+      "Geben Sie Ihr Passwort erneut ein, um zu dieser vertraulichen Seite zu gelangen. Ihre aktuelle Sitzung bleibt aktiv, wenn Sie abbrechen.",
+    account: "Angemeldet als {{email}}",
+    confirm: "Zugriff bestätigen",
+    cancel: "Abbrechen",
+    error: "Das Passwort wurde nicht akzeptiert. Versuchen Sie es erneut.",
   },
   security: {
     title: "Sicherheit",

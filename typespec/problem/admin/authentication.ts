@@ -7,6 +7,13 @@ export const InvalidCredentialsError: Readonly<Details> = {
   detail: "The supplied credentials are invalid",
 };
 
+export const IncorrectPasswordError: Readonly<Details> = {
+  type: "vetchium-problem-details/incorrect-password",
+  title: "Incorrect password",
+  status: 422,
+  detail: "The password did not verify for the authenticated admin user",
+};
+
 export const AdminUserDisabledError: Readonly<Details> = {
   type: "vetchium-problem-details/admin-user-disabled",
   title: "Admin user disabled",

@@ -67,9 +67,26 @@ Use it together with `go.md`. Also read `database.md` for any database access.
 
 ## Backend tests and verification
 
-- Cover success and relevant malformed JSON, validation, authentication,
-  authorization, missing-resource, conflict, invalid-state, and
-  dependency-failure paths.
+- Treat the TypeSpec response union as a mandatory test matrix whenever a
+  handler is added or changed. Add or update automated tests in the same
+  change for every declared success and error status, including malformed
+  JSON, validation, authentication, authorization, missing-resource,
+  conflict, invalid-state, and concurrency outcomes. A shared middleware or
+  table-driven test may cover a response only when it explicitly includes the
+  endpoint and exercises the same externally observable behavior.
+- Cover every materially distinct handler-owned branch that maps to a response,
+  including `pgx.ErrNoRows` results caused by atomic state predicates or a
+  state change between dependent calls. Inject deterministic dependency
+  failures for `5xx` paths where practical; if a declared response cannot be
+  produced or tested by the implementation and deployed middleware, document
+  the concrete reason before considering the handler complete. Keep responses
+  owned by planned or deployed shared ingress middleware, such as `429` source
+  rate limits, in the contract and add their integration coverage when that
+  middleware becomes available in the test topology; do not remove them merely
+  because an application handler cannot produce them directly.
+- Do not consider a new or changed handler complete when only its happy path is
+  tested. Backend unit tests do not replace the portal-level API coverage
+  required by `playwright.md`.
 - Assert status, response headers, body shape, and important structured log
   attributes where those are part of the behavior.
 - Do not add test fixtures to production migrations.

@@ -217,6 +217,14 @@ export const en = {
     description:
       "This action needs a sign in from the last five minutes. Sign in again and retry.",
     action: "Sign in again",
+    documentTitle: "Confirm access | Vetchium Admin",
+    pageTitle: "Confirm access",
+    pageDescription:
+      "Re-enter your password to continue to this sensitive page. Your current session remains active if you cancel.",
+    account: "Signed in as {{email}}",
+    confirm: "Confirm access",
+    cancel: "Cancel",
+    error: "That password was not accepted. Try again.",
   },
   security: {
     title: "Security",

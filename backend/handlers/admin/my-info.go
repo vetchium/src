@@ -83,10 +83,11 @@ func MyInfo(s *adminapi.Server) http.HandlerFunc {
 			RecoveryCodesRemaining: common.TOTPRecoveryCodeCount(
 				row.RecoveryCodesRemaining,
 			),
-			PreferredLanguage: common.FrontendLocale(row.PreferredLanguage),
-			CreatedAt:         row.CreatedAt.Time.UTC(),
-			SessionExpiresAt:  row.ExpiresAt.Time.UTC(),
-			TenantID:          s.TenantID,
+			PreferredLanguage:      common.FrontendLocale(row.PreferredLanguage),
+			CreatedAt:              row.CreatedAt.Time.UTC(),
+			SessionAuthenticatedAt: identity.AuthenticatedAt.UTC(),
+			SessionExpiresAt:       row.ExpiresAt.Time.UTC(),
+			TenantID:               s.TenantID,
 		}
 		s.JSON(r.Context(), w, http.StatusOK, response)
 	}

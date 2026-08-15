@@ -406,6 +406,28 @@ func (q *Queries) GetAdminMyInfo(ctx context.Context, arg GetAdminMyInfoParams) 
 	return i, err
 }
 
+const getAdminPasswordForReauthentication = `-- name: GetAdminPasswordForReauthentication :one
+SELECT u.password_hash
+FROM vetchium.admin_sessions AS s
+JOIN vetchium.admin_users AS u USING (admin_user_id)
+WHERE s.admin_session_id = $1
+  AND s.admin_user_id = $2
+  AND s.expires_at > now()
+  AND u.admin_user_state = 'active'
+`
+
+type GetAdminPasswordForReauthenticationParams struct {
+	AdminSessionID pgtype.UUID `json:"admin_session_id"`
+	AdminUserID    pgtype.UUID `json:"admin_user_id"`
+}
+
+func (q *Queries) GetAdminPasswordForReauthentication(ctx context.Context, arg GetAdminPasswordForReauthenticationParams) (string, error) {
+	row := q.db.QueryRow(ctx, getAdminPasswordForReauthentication, arg.AdminSessionID, arg.AdminUserID)
+	var password_hash string
+	err := row.Scan(&password_hash)
+	return password_hash, err
+}
+
 const getAdminUserForLogin = `-- name: GetAdminUserForLogin :one
 SELECT
     u.admin_user_id,
@@ -442,6 +464,32 @@ func (q *Queries) GetAdminUserForLogin(ctx context.Context, emailAddress string)
 		&i.PreferredLanguage,
 	)
 	return i, err
+}
+
+const reauthenticateAdminSession = `-- name: ReauthenticateAdminSession :one
+UPDATE vetchium.admin_sessions AS s
+SET authenticated_at = now()
+FROM vetchium.admin_users AS u
+WHERE s.admin_session_id = $1
+  AND s.admin_user_id = $2
+  AND s.expires_at > now()
+  AND u.admin_user_id = s.admin_user_id
+  AND u.admin_user_state = 'active'
+  AND u.password_hash = $3
+RETURNING s.authenticated_at
+`
+
+type ReauthenticateAdminSessionParams struct {
+	AdminSessionID       pgtype.UUID `json:"admin_session_id"`
+	AdminUserID          pgtype.UUID `json:"admin_user_id"`
+	VerifiedPasswordHash string      `json:"verified_password_hash"`
+}
+
+func (q *Queries) ReauthenticateAdminSession(ctx context.Context, arg ReauthenticateAdminSessionParams) (pgtype.Timestamptz, error) {
+	row := q.db.QueryRow(ctx, reauthenticateAdminSession, arg.AdminSessionID, arg.AdminUserID, arg.VerifiedPasswordHash)
+	var authenticated_at pgtype.Timestamptz
+	err := row.Scan(&authenticated_at)
+	return authenticated_at, err
 }
 
 const resolveAdminLoginChallengeUser = `-- name: ResolveAdminLoginChallengeUser :one

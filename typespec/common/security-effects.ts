@@ -2,6 +2,7 @@ export type SecurityEffect =
   | "create-login-challenge"
   | "consume-login-challenge"
   | "invalidate-login-challenges"
+  | "refresh-session-authentication"
   | "reject-totp-replay"
   | "create-totp-enrollment"
   | "consume-totp-enrollment"

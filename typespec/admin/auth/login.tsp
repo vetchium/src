@@ -23,6 +23,17 @@ model LoginRequest {
   password: Password;
 }
 
+/** Confirm that the authenticated admin still controls the current account. */
+model ReauthenticateRequest {
+  /** Must be non-empty and is verified against the current account. */
+  password: Password;
+}
+
+/** The refreshed full-authentication time for the existing bearer session. */
+model ReauthenticateResponse {
+  session_authenticated_at: utcDateTime;
+}
+
 /** Closed vocabulary for the outcome of successful password authentication. */
 enum AuthenticationState {
   Authenticated: "authenticated",
@@ -83,6 +94,31 @@ interface LoginOperations {
     | Vetchium.Problem.ValidationFailedErrorResponse
     | Vetchium.Problem.InvalidCredentialsErrorResponse
     | Vetchium.Problem.AdminUserDisabledErrorResponse
+    | Vetchium.Problem.RateLimitExceededErrorResponse
+    | Vetchium.Problem.InternalServerErrorResponse;
+
+  /**
+   * Confirm access with the current account's password without replacing or
+   * invalidating the bearer session. Public ingress owns enforcement of the
+   * declared rate-limit response.
+   */
+  @route("/reauthenticate")
+  @post
+  @useAuth(BearerAuth)
+  @TypeSpec.OpenAPI.extension(
+    "x-vetchium-security-effects",
+    #[Vetchium.SecurityEffect.RefreshSessionAuthentication]
+  )
+  reauthenticate(@body request: ReauthenticateRequest):
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: ReauthenticateResponse;
+      }
+    | Vetchium.Problem.InvalidJSONErrorResponse
+    | Vetchium.Problem.ValidationFailedErrorResponse
+    | Vetchium.Problem.IncorrectPasswordErrorResponse
+    | Vetchium.Problem.AdminAuthenticationRequiredErrorResponse
     | Vetchium.Problem.RateLimitExceededErrorResponse
     | Vetchium.Problem.InternalServerErrorResponse;
 

@@ -65,6 +65,7 @@ export interface MyInfoResponse extends AdminAuthorization {
   recovery_codes_remaining: TOTPRecoveryCodeCount;
   preferred_language: FrontendLocale;
   created_at: string;
+  session_authenticated_at: string;
   session_expires_at: string;
   tenant_id: string;
 }

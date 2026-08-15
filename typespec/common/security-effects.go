@@ -6,6 +6,7 @@ const (
 	CreateLoginChallenge          SecurityEffect = "create-login-challenge"
 	ConsumeLoginChallenge         SecurityEffect = "consume-login-challenge"
 	InvalidateLoginChallenges     SecurityEffect = "invalidate-login-challenges"
+	RefreshSessionAuthentication  SecurityEffect = "refresh-session-authentication"
 	RejectTOTPReplay              SecurityEffect = "reject-totp-replay"
 	CreateTOTPEnrollment          SecurityEffect = "create-totp-enrollment"
 	ConsumeTOTPEnrollment         SecurityEffect = "consume-totp-enrollment"

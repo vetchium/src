@@ -10,6 +10,27 @@ SELECT
 FROM vetchium.admin_users AS u
 WHERE u.email_address = $1;
 
+-- name: GetAdminPasswordForReauthentication :one
+SELECT u.password_hash
+FROM vetchium.admin_sessions AS s
+JOIN vetchium.admin_users AS u USING (admin_user_id)
+WHERE s.admin_session_id = sqlc.arg(admin_session_id)
+  AND s.admin_user_id = sqlc.arg(admin_user_id)
+  AND s.expires_at > now()
+  AND u.admin_user_state = 'active';
+
+-- name: ReauthenticateAdminSession :one
+UPDATE vetchium.admin_sessions AS s
+SET authenticated_at = now()
+FROM vetchium.admin_users AS u
+WHERE s.admin_session_id = sqlc.arg(admin_session_id)
+  AND s.admin_user_id = sqlc.arg(admin_user_id)
+  AND s.expires_at > now()
+  AND u.admin_user_id = s.admin_user_id
+  AND u.admin_user_state = 'active'
+  AND u.password_hash = sqlc.arg(verified_password_hash)
+RETURNING s.authenticated_at;
+
 -- name: CreateAdminSession :one
 WITH updated_admin_user AS (
     UPDATE vetchium.admin_users AS u

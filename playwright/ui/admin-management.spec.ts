@@ -189,21 +189,130 @@ test("an administrator can manage two-factor authentication and use a recovery c
   await expect(page.getByText("Disabled", { exact: true })).toBeVisible();
 });
 
-test("recent-authentication failures preserve the session and explain how to continue", async ({
+test("the security page asks for a fresh sign in before showing sensitive settings", async ({
   createAdmin,
   page,
 }) => {
   const admin = await createAdmin();
-  ageSession(admin.sessionToken);
+  await page.addInitScript(
+    ({ sessionToken, timeOffsetMilliseconds }) => {
+      const actualDateNow = Date.now.bind(Date);
+      sessionStorage.setItem("vetchium.admin.session-token", sessionToken);
+      if (sessionStorage.getItem("vetchium.test.time-offset-ms") === null) {
+        sessionStorage.setItem(
+          "vetchium.test.time-offset-ms",
+          String(timeOffsetMilliseconds),
+        );
+      }
+      Date.now = () =>
+        actualDateNow() +
+        Number(sessionStorage.getItem("vetchium.test.time-offset-ms") ?? "0");
+    },
+    {
+      sessionToken: admin.sessionToken,
+      timeOffsetMilliseconds: 3 * 60 * 1000 + 30 * 1000,
+    },
+  );
+
+  await page.goto("/settings/security");
+  await expect(page).toHaveURL(/\/settings\/security$/);
+  await expect(page.getByRole("heading", { name: "Security" })).toBeVisible();
+
+  await page.evaluate(() => {
+    sessionStorage.setItem(
+      "vetchium.test.time-offset-ms",
+      String(4 * 60 * 1000 + 10 * 1000),
+    );
+  });
+  await page.reload();
+  await expect(page).toHaveURL(
+    /\/reauthenticate\?returnTo=%2Fsettings%2Fsecurity$/,
+  );
+  await expect(
+    page.getByRole("heading", { name: "Security" }),
+  ).not.toBeVisible();
+  await expect(
+    page.getByText(`Signed in as ${admin.emailAddress}`),
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: "Cancel" }).click();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
+
+  await page.getByRole("menuitem", { name: "Security" }).click();
+  await expect(page).toHaveURL(
+    /\/reauthenticate\?returnTo=%2Fsettings%2Fsecurity$/,
+  );
+  await page.getByRole("button", { name: "Confirm access" }).click();
+  await expect(page.getByText("This field is required.")).toBeVisible();
+  await expect(page).toHaveURL(/\/reauthenticate/);
+
+  await page.getByLabel("Password", { exact: true }).fill("incorrect-password");
+  await page.getByRole("button", { name: "Confirm access" }).click();
+  await expect(
+    page.getByRole("alert").filter({ hasText: "password was not accepted" }),
+  ).toBeVisible();
+  await expect(page).toHaveURL(/\/reauthenticate/);
+
+  await page.evaluate(() => {
+    sessionStorage.removeItem("vetchium.test.time-offset-ms");
+  });
+  await page.getByLabel("Password", { exact: true }).fill(admin.password);
+  await page.getByRole("button", { name: "Confirm access" }).click();
+  await expect(page).toHaveURL(/\/settings\/security$/);
+  await expect(page.getByRole("heading", { name: "Security" })).toBeVisible();
+});
+
+test("access confirmation rejects an external return location", async ({
+  createAdmin,
+  page,
+}) => {
+  const admin = await createAdmin();
   await page.addInitScript((sessionToken) => {
     sessionStorage.setItem("vetchium.admin.session-token", sessionToken);
   }, admin.sessionToken);
 
-  await page.goto("/settings/security");
-  await page.getByRole("button", { name: "Set up authenticator" }).click();
+  await page.goto(
+    "/reauthenticate?returnTo=https%3A%2F%2Fattacker.example%2Fsecurity",
+  );
+  await page.getByLabel("Password", { exact: true }).fill(admin.password);
+  await page.getByRole("button", { name: "Confirm access" }).click();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
+});
+
+test("a server freshness rejection offers confirmation without signing out", async ({
+  createAdmin,
+  page,
+  superadminToken,
+}) => {
+  const target = await createAdmin();
+  await page.addInitScript((sessionToken) => {
+    sessionStorage.setItem("vetchium.admin.session-token", sessionToken);
+  }, superadminToken);
+  await page.goto("/users");
+  await page
+    .getByRole("textbox", { name: "Email address" })
+    .fill(target.emailAddress);
+  await page.getByRole("button", { name: "Apply filters" }).click();
+  const targetRow = page
+    .getByRole("row")
+    .filter({ hasText: target.emailAddress });
+  await targetRow.getByRole("button", { name: "Manage access" }).click();
+
+  ageSession(superadminToken);
+  const accessDialog = page.getByRole("dialog", { name: "Manage access" });
+  await accessDialog.getByRole("switch", { name: "Superadmin" }).click();
   await expect(
-    page.getByRole("alert").filter({ hasText: "Sign in again to continue" }),
+    accessDialog
+      .getByRole("alert")
+      .filter({ hasText: "Sign in again to continue" }),
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
-  await expect(page).toHaveURL(/\/settings\/security$/);
+
+  await accessDialog.getByRole("button", { name: "Sign in again" }).click();
+  await expect(page).toHaveURL(/\/reauthenticate\?returnTo=%2Fusers$/);
+  await page.getByRole("button", { name: "Cancel" }).click();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
 });

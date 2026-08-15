@@ -53,6 +53,10 @@ model MyInfoResponse {
 
   preferred_language: FrontendLocale;
   created_at: utcDateTime;
+
+  /** When full authentication for the current session completed. */
+  session_authenticated_at: utcDateTime;
+
   session_expires_at: utcDateTime;
   tenant_id: string;
 }

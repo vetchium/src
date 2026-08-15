@@ -12,6 +12,21 @@ type LoginRequest struct {
 	Password     common.Password     `json:"password"`
 }
 
+type ReauthenticateRequest struct {
+	Password common.Password `json:"password"`
+}
+
+func (r ReauthenticateRequest) Validate() []string {
+	if r.Password == "" {
+		return []string{"password"}
+	}
+	return []string{}
+}
+
+type ReauthenticateResponse struct {
+	SessionAuthenticatedAt time.Time `json:"session_authenticated_at"`
+}
+
 func (r LoginRequest) Normalize() LoginRequest {
 	r.EmailAddress = common.NormalizeEmailAddress(r.EmailAddress)
 	return r

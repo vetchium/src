@@ -57,6 +57,7 @@ type MyInfoResponse struct {
 	RecoveryCodesRemaining common.TOTPRecoveryCodeCount `json:"recovery_codes_remaining"`
 	PreferredLanguage      common.FrontendLocale        `json:"preferred_language"`
 	CreatedAt              time.Time                    `json:"created_at"`
+	SessionAuthenticatedAt time.Time                    `json:"session_authenticated_at"`
 	SessionExpiresAt       time.Time                    `json:"session_expires_at"`
 	TenantID               string                       `json:"tenant_id"`
 }

@@ -18,6 +18,11 @@ interface BodyEndpoint {
 
 const bodyEndpoints: BodyEndpoint[] = [
   {
+    path: "/reauthenticate",
+    body: { password: "current-password" },
+    authenticated: true,
+  },
+  {
     path: "/login/tfa",
     body: { login_challenge_token: "x".repeat(32), totp_code: "000000" },
     idempotent: true,
@@ -117,6 +122,7 @@ const bodyEndpoints: BodyEndpoint[] = [
 ];
 
 const protectedPostEndpoints = [
+  "/reauthenticate",
   "/change-password",
   "/start-totp-enrollment",
   "/confirm-totp-enrollment",

@@ -17,9 +17,68 @@ import (
 	"backend/internal/adminapi"
 	"backend/internal/apiserver"
 	"backend/internal/db/sqlc"
+	"backend/internal/middleware"
 )
 
 const loginChallengeTTL = 5 * time.Minute
+
+func Reauthenticate(s *adminapi.Server) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		var request adminauth.ReauthenticateRequest
+		if err := apiserver.DecodeJSON(r, &request); err != nil {
+			s.InvalidJSON(ctx, w, err)
+			return
+		}
+		if fields := request.Validate(); len(fields) != 0 {
+			s.ValidationFailed(ctx, w, fields)
+			return
+		}
+		identity, _ := middleware.AdminIdentityFromContext(ctx)
+		passwordHash, err := s.Queries.GetAdminPasswordForReauthentication(
+			ctx, sqlc.GetAdminPasswordForReauthenticationParams{
+				AdminSessionID: identity.SessionID,
+				AdminUserID:    identity.UserID,
+			},
+		)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				s.Problem(ctx, w, adminproblem.IncorrectPasswordError)
+				return
+			}
+			s.InternalError(ctx, w, "get admin password for reauthentication", err)
+			return
+		}
+		if err := adminapi.ComparePassword(
+			passwordHash, string(request.Password),
+		); err != nil {
+			if !errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
+				s.InternalError(ctx, w, "compare admin password", err)
+				return
+			}
+			s.Problem(ctx, w, adminproblem.IncorrectPasswordError)
+			return
+		}
+		authenticatedAt, err := s.Queries.ReauthenticateAdminSession(
+			ctx, sqlc.ReauthenticateAdminSessionParams{
+				AdminSessionID:       identity.SessionID,
+				AdminUserID:          identity.UserID,
+				VerifiedPasswordHash: passwordHash,
+			},
+		)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				s.Problem(ctx, w, adminproblem.IncorrectPasswordError)
+				return
+			}
+			s.InternalError(ctx, w, "reauthenticate admin session", err)
+			return
+		}
+		s.JSON(ctx, w, http.StatusOK, adminauth.ReauthenticateResponse{
+			SessionAuthenticatedAt: authenticatedAt.Time.UTC(),
+		})
+	}
+}
 
 func Login(s *adminapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

@@ -1,6 +1,8 @@
 import type {
   LoginRequest,
   LoginResponse,
+  ReauthenticateRequest,
+  ReauthenticateResponse,
   VerifyTFARequest,
 } from "../../../../typespec/admin/auth/login.ts";
 import type {
@@ -25,6 +27,15 @@ function jsonBody(value: unknown): string {
 
 export function login(request: LoginRequest): Promise<LoginResponse> {
   return requestJson("/admin/login", {
+    method: "POST",
+    body: jsonBody(request),
+  });
+}
+
+export function reauthenticate(
+  request: ReauthenticateRequest,
+): Promise<ReauthenticateResponse> {
+  return requestJson("/admin/reauthenticate", {
     method: "POST",
     body: jsonBody(request),
   });

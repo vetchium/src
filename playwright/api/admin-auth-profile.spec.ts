@@ -1,9 +1,11 @@
 import {
   AuthenticationStateAuthenticated,
   type LoginAuthenticatedResponse,
+  type ReauthenticateResponse,
 } from "typespec/admin/auth/login";
 import type { MyInfoResponse } from "typespec/admin/users/profile";
 import { expectProblem, responseJSON } from "../lib/admin-api.ts";
+import { ageSession } from "../lib/admin-db.ts";
 import { expect, test } from "../lib/admin-fixtures.ts";
 
 test.describe("Admin authentication", () => {
@@ -117,6 +119,102 @@ test.describe("Admin authentication", () => {
     );
     expect(denied.headers()["www-authenticate"]).toBe('Bearer realm="admin"');
   });
+
+  test("reauthentication refreshes the current session without replacing it", async ({
+    adminAPI,
+    createAdmin,
+  }) => {
+    const admin = await createAdmin();
+    ageSession(admin.sessionToken);
+
+    await expectProblem(
+      await adminAPI.post(
+        "/reauthenticate",
+        { password: "incorrect-password" },
+        { token: admin.sessionToken },
+      ),
+      422,
+      "vetchium-problem-details/incorrect-password",
+    );
+    expect((await adminAPI.get("/my-info", admin.sessionToken)).status()).toBe(
+      200,
+    );
+
+    const response = await adminAPI.post(
+      "/reauthenticate",
+      { password: admin.password },
+      { token: admin.sessionToken },
+    );
+    expect(response.status()).toBe(200);
+    expect(response.headers()["cache-control"]).toBe("no-store");
+    const refreshed = await responseJSON<ReauthenticateResponse>(response);
+    expect(refreshed.session_authenticated_at).toMatch(/Z$/);
+
+    const info = await responseJSON<MyInfoResponse>(
+      await adminAPI.get("/my-info", admin.sessionToken),
+    );
+    expect(info.session_authenticated_at).toBe(
+      refreshed.session_authenticated_at,
+    );
+  });
+
+  test("reauthentication rejects an empty password through the HTTP contract", async ({
+    adminAPI,
+    createAdmin,
+  }) => {
+    const admin = await createAdmin();
+    await expectProblem(
+      await adminAPI.post(
+        "/reauthenticate",
+        { password: "" },
+        { token: admin.sessionToken },
+      ),
+      400,
+      "vetchium-problem-details/validation-failed",
+      ["password"],
+    );
+  });
+
+  test("reauthentication requires a live bearer session", async ({
+    adminAPI,
+    createAdmin,
+  }) => {
+    for (const token of [undefined, "unknown-session"]) {
+      const response = await adminAPI.post(
+        "/reauthenticate",
+        { password: "password" },
+        token === undefined ? {} : { token },
+      );
+      await expectProblem(
+        response,
+        401,
+        "vetchium-problem-details/admin-authentication-required",
+      );
+      expect(response.headers()["www-authenticate"]).toBe(
+        'Bearer realm="admin"',
+      );
+    }
+
+    const admin = await createAdmin();
+    expect(
+      (
+        await adminAPI.post("/logout", undefined, {
+          token: admin.sessionToken,
+        })
+      ).status(),
+    ).toBe(204);
+    const revoked = await adminAPI.post(
+      "/reauthenticate",
+      { password: admin.password },
+      { token: admin.sessionToken },
+    );
+    await expectProblem(
+      revoked,
+      401,
+      "vetchium-problem-details/admin-authentication-required",
+    );
+    expect(revoked.headers()["www-authenticate"]).toBe('Bearer realm="admin"');
+  });
 });
 
 test.describe("Admin profile", () => {
@@ -143,6 +241,10 @@ test.describe("Admin profile", () => {
       tenant_id: "sgp",
     });
     expect(body.created_at).toMatch(/Z$/);
+    expect(body.session_authenticated_at).toMatch(/Z$/);
+    expect(Date.parse(body.session_authenticated_at)).toBeLessThanOrEqual(
+      Date.now(),
+    );
     expect(body.session_expires_at).toMatch(/Z$/);
   });
 

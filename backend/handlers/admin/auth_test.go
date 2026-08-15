@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"testing"
 	"time"
 
@@ -20,13 +22,23 @@ import (
 	"backend/internal/adminapi"
 	"backend/internal/apiserver"
 	"backend/internal/db/sqlc"
+	"backend/internal/middleware"
 )
 
 type adminDBStub struct {
 	sqlc.Querier
+	authenticateSession func(context.Context, []byte) (
+		sqlc.AuthenticateAdminSessionRow, error,
+	)
 	getAdminUserForLogin func(context.Context, string) (
 		sqlc.GetAdminUserForLoginRow, error,
 	)
+	getPasswordForReauthentication func(
+		context.Context, sqlc.GetAdminPasswordForReauthenticationParams,
+	) (string, error)
+	reauthenticateSession func(
+		context.Context, sqlc.ReauthenticateAdminSessionParams,
+	) (pgtype.Timestamptz, error)
 	createAdminSession func(context.Context, sqlc.CreateAdminSessionParams) (
 		sqlc.CreateAdminSessionRow, error,
 	)
@@ -36,10 +48,28 @@ type adminDBStub struct {
 	deleteSessionByToken func(context.Context, []byte) (int64, error)
 }
 
+func (s *adminDBStub) AuthenticateAdminSession(
+	ctx context.Context, tokenHash []byte,
+) (sqlc.AuthenticateAdminSessionRow, error) {
+	return s.authenticateSession(ctx, tokenHash)
+}
+
 func (s *adminDBStub) GetAdminUserForLogin(
 	ctx context.Context, email string,
 ) (sqlc.GetAdminUserForLoginRow, error) {
 	return s.getAdminUserForLogin(ctx, email)
+}
+
+func (s *adminDBStub) GetAdminPasswordForReauthentication(
+	ctx context.Context, arg sqlc.GetAdminPasswordForReauthenticationParams,
+) (string, error) {
+	return s.getPasswordForReauthentication(ctx, arg)
+}
+
+func (s *adminDBStub) ReauthenticateAdminSession(
+	ctx context.Context, arg sqlc.ReauthenticateAdminSessionParams,
+) (pgtype.Timestamptz, error) {
+	return s.reauthenticateSession(ctx, arg)
 }
 
 func (s *adminDBStub) CreateAdminSession(
@@ -108,6 +138,244 @@ func TestLoginPasswordOnly(t *testing.T) {
 		len(payload.SessionToken) < 32 ||
 		payload.PreferredLanguage != "en-US" {
 		t.Fatalf("response = %+v", payload)
+	}
+}
+
+func TestReauthenticateRefreshesCurrentSession(t *testing.T) {
+	now := time.Date(2026, 8, 15, 12, 0, 0, 0, time.UTC)
+	passwordHash, err := adminapi.HashPassword("correct horse battery staple")
+	if err != nil {
+		t.Fatal(err)
+	}
+	userID := testUUID(10)
+	sessionID := testUUID(11)
+	db := &adminDBStub{}
+	db.authenticateSession = func(
+		_ context.Context, tokenHash []byte,
+	) (sqlc.AuthenticateAdminSessionRow, error) {
+		if len(tokenHash) != 32 {
+			t.Fatalf("token hash length = %d", len(tokenHash))
+		}
+		return sqlc.AuthenticateAdminSessionRow{
+			AdminUserID: userID, AdminSessionID: sessionID,
+			AuthenticatedAt: adminapi.Timestamp(now.Add(-10 * time.Minute)),
+			Permissions:     []string{},
+		}, nil
+	}
+	db.getPasswordForReauthentication = func(
+		_ context.Context, arg sqlc.GetAdminPasswordForReauthenticationParams,
+	) (string, error) {
+		if arg.AdminUserID != userID || arg.AdminSessionID != sessionID {
+			t.Fatalf("password lookup params = %+v", arg)
+		}
+		return passwordHash, nil
+	}
+	db.reauthenticateSession = func(
+		_ context.Context, arg sqlc.ReauthenticateAdminSessionParams,
+	) (pgtype.Timestamptz, error) {
+		if arg.AdminUserID != userID || arg.AdminSessionID != sessionID ||
+			arg.VerifiedPasswordHash != passwordHash {
+			t.Fatalf("reauthentication params = %+v", arg)
+		}
+		return adminapi.Timestamp(now), nil
+	}
+
+	server := testAdminServer(db, now)
+	handler := middleware.AdminAuth(server)(Reauthenticate(server))
+	request := httptest.NewRequest(
+		http.MethodPost, "/api/admin/reauthenticate",
+		bytes.NewBufferString(`{"password":"correct horse battery staple"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Authorization", "Bearer current-session")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+	var payload adminauth.ReauthenticateResponse
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatal(err)
+	}
+	if payload.SessionAuthenticatedAt != now {
+		t.Fatalf("authenticated at = %v, want %v", payload.SessionAuthenticatedAt, now)
+	}
+}
+
+func TestReauthenticateRequiresCurrentSession(t *testing.T) {
+	db := &adminDBStub{}
+	db.authenticateSession = func(
+		context.Context, []byte,
+	) (sqlc.AuthenticateAdminSessionRow, error) {
+		return sqlc.AuthenticateAdminSessionRow{}, pgx.ErrNoRows
+	}
+	server := testAdminServer(db, time.Now())
+	handler := middleware.AdminAuth(server)(Reauthenticate(server))
+
+	for _, authorization := range []string{
+		"", "Basic credentials", "Bearer unknown-session",
+	} {
+		request := httptest.NewRequest(
+			http.MethodPost, "/api/admin/reauthenticate",
+			bytes.NewBufferString(`{"password":"password"}`),
+		)
+		request.Header.Set("Content-Type", "application/json")
+		request.Header.Set("Authorization", authorization)
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+
+		assertProblemResponse(
+			t, response, http.StatusUnauthorized,
+			"vetchium-problem-details/admin-authentication-required", nil,
+		)
+		challenge := response.Header().Get("WWW-Authenticate")
+		if challenge != adminapi.BearerChallenge {
+			t.Fatalf("WWW-Authenticate = %q", challenge)
+		}
+	}
+}
+
+func TestReauthenticateFailureResponses(t *testing.T) {
+	now := time.Date(2026, 8, 15, 12, 0, 0, 0, time.UTC)
+	passwordHash, err := adminapi.HashPassword("correct password")
+	if err != nil {
+		t.Fatal(err)
+	}
+	databaseError := errors.New("database unavailable")
+	tests := []struct {
+		name              string
+		body              string
+		passwordHash      string
+		passwordError     error
+		reauthenticateErr error
+		status            int
+		problemType       string
+		fields            []string
+	}{
+		{
+			name: "malformed JSON", body: `{`,
+			status:      http.StatusBadRequest,
+			problemType: "vetchium-problem-details/invalid-json",
+		},
+		{
+			name: "empty password", body: `{"password":""}`,
+			status:      http.StatusBadRequest,
+			problemType: "vetchium-problem-details/validation-failed",
+			fields:      []string{"password"},
+		},
+		{
+			name:          "account or session is no longer eligible",
+			body:          `{"password":"correct password"}`,
+			passwordError: pgx.ErrNoRows,
+			status:        http.StatusUnprocessableEntity,
+			problemType:   "vetchium-problem-details/incorrect-password",
+		},
+		{
+			name:         "incorrect password",
+			body:         `{"password":"incorrect password"}`,
+			passwordHash: passwordHash,
+			status:       http.StatusUnprocessableEntity,
+			problemType:  "vetchium-problem-details/incorrect-password",
+		},
+		{
+			name:              "session changes after password verification",
+			body:              `{"password":"correct password"}`,
+			passwordHash:      passwordHash,
+			reauthenticateErr: pgx.ErrNoRows,
+			status:            http.StatusUnprocessableEntity,
+			problemType:       "vetchium-problem-details/incorrect-password",
+		},
+		{
+			name:          "password lookup dependency failure",
+			body:          `{"password":"correct password"}`,
+			passwordError: databaseError,
+			status:        http.StatusInternalServerError,
+			problemType:   "vetchium-problem-details/internal-server-error",
+		},
+		{
+			name:         "invalid stored password hash",
+			body:         `{"password":"correct password"}`,
+			passwordHash: "not-a-password-hash",
+			status:       http.StatusInternalServerError,
+			problemType:  "vetchium-problem-details/internal-server-error",
+		},
+		{
+			name:              "session update dependency failure",
+			body:              `{"password":"correct password"}`,
+			passwordHash:      passwordHash,
+			reauthenticateErr: databaseError,
+			status:            http.StatusInternalServerError,
+			problemType:       "vetchium-problem-details/internal-server-error",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			db := &adminDBStub{}
+			db.authenticateSession = func(
+				context.Context, []byte,
+			) (sqlc.AuthenticateAdminSessionRow, error) {
+				return sqlc.AuthenticateAdminSessionRow{
+					AdminUserID:     testUUID(10),
+					AdminSessionID:  testUUID(11),
+					AuthenticatedAt: adminapi.Timestamp(now),
+					Permissions:     []string{},
+				}, nil
+			}
+			db.getPasswordForReauthentication = func(
+				context.Context,
+				sqlc.GetAdminPasswordForReauthenticationParams,
+			) (string, error) {
+				return tt.passwordHash, tt.passwordError
+			}
+			db.reauthenticateSession = func(
+				context.Context, sqlc.ReauthenticateAdminSessionParams,
+			) (pgtype.Timestamptz, error) {
+				return pgtype.Timestamptz{}, tt.reauthenticateErr
+			}
+			request := httptest.NewRequest(
+				http.MethodPost, "/api/admin/reauthenticate",
+				bytes.NewBufferString(tt.body),
+			)
+			request.Header.Set("Content-Type", "application/json")
+			request.Header.Set("Authorization", "Bearer current-session")
+			response := httptest.NewRecorder()
+			server := testAdminServer(db, now)
+			handler := middleware.AdminAuth(server)(Reauthenticate(server))
+			handler.ServeHTTP(response, request)
+
+			assertProblemResponse(
+				t, response, tt.status, tt.problemType, tt.fields,
+			)
+		})
+	}
+}
+
+func assertProblemResponse(
+	t *testing.T,
+	response *httptest.ResponseRecorder,
+	status int,
+	problemType string,
+	fields []string,
+) {
+	t.Helper()
+	if response.Code != status {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+	contentType := response.Header().Get("Content-Type")
+	if contentType != problem.MediaType {
+		t.Fatalf("Content-Type = %q", contentType)
+	}
+	var details problem.Details
+	if err := json.NewDecoder(response.Body).Decode(&details); err != nil {
+		t.Fatal(err)
+	}
+	if details.Type != problemType || details.Status != status {
+		t.Fatalf("problem = %+v", details)
+	}
+	if fields != nil && !slices.Equal(details.Fields, fields) {
+		t.Fatalf("fields = %v, want %v", details.Fields, fields)
 	}
 }
 

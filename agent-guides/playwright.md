@@ -51,6 +51,31 @@ on another worker, in any order, and more than once because of retries.
   permitted for isolated setup and cleanup, not as a substitute for the
   behavior under test.
 
+## Required change coverage
+
+- Every new or changed API implementation must add or update tests under
+  `playwright/api/` in the same change. Exercise every non-`5xx` response in
+  the TypeSpec response union and assert its status, stable problem type,
+  required headers, and response body. Shared table-driven contract tests count
+  only when they explicitly enumerate the endpoint. Add a `5xx` integration
+  case when the failure can be injected reliably without weakening isolation.
+  A response owned by planned ingress middleware remains in the contract; note
+  why it cannot yet be exercised and add its Playwright coverage when that
+  middleware is present in the test topology.
+- API tests must cover the successful state transition and important negative
+  invariants, such as preserving an existing session or leaving persistent
+  state unchanged after rejection. Handler unit tests alone are not sufficient
+  because they do not verify routing, middleware, encoding, or the deployed
+  database predicates.
+- Every new or changed UI behavior must add or update tests under
+  `playwright/ui/` in the same change. Cover the primary success path and every
+  applicable validation, server-error, cancel/back, route-guard, session-state,
+  and security-boundary path. Test both sides of time or permission boundaries
+  with a safe margin so wall-clock scheduling cannot make the test flaky.
+- Before declaring the implementation complete, review the contract and the
+  changed UI as a response/behavior matrix and account for every row with a
+  named test. Do not use the total test count as evidence of coverage.
+
 ## Verification
 
 Run the complete self-contained suite from the repository root:

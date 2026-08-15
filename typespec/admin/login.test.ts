@@ -5,6 +5,7 @@ import {
   type LoginRequest,
   normalizeLoginRequest,
   validateLoginRequest,
+  validateReauthenticateRequest,
 } from "./auth/login.ts";
 
 test("normalizeLoginRequest returns a normalized copy", () => {
@@ -38,6 +39,16 @@ test("validateLoginRequest normalizes before validation", () => {
       email_address: " ADMIN@example.com ",
       password: "password",
     }),
+    [],
+  );
+});
+
+test("validateReauthenticateRequest requires the current password", () => {
+  assert.deepEqual(validateReauthenticateRequest({ password: "" }), [
+    "password",
+  ]);
+  assert.deepEqual(
+    validateReauthenticateRequest({ password: "current-password" }),
     [],
   );
 });

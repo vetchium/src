@@ -25,6 +25,10 @@ func RegisterAdminRoutes(mux *http.ServeMux, s *adminapi.Server) {
 	)
 
 	mux.HandleFunc("POST /api/admin/login", admin.Login(s))
+	mux.Handle(
+		"POST /api/admin/reauthenticate",
+		adminAuth(admin.Reauthenticate(s)),
+	)
 	mux.HandleFunc("POST /api/admin/login/tfa", admin.VerifyTFA(s))
 	mux.HandleFunc("POST /api/admin/login/recovery-code", admin.VerifyRecoveryCode(s))
 	mux.HandleFunc("POST /api/admin/logout", admin.Logout(s))

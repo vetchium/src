@@ -14,6 +14,18 @@ alias InvalidCredentialsErrorResponse = AuthenticationResponse<
   typeof InvalidCredentialsError
 >;
 
+const IncorrectPasswordError = #{
+  type: "vetchium-problem-details/incorrect-password",
+  title: "Incorrect password",
+  status: 422,
+  detail: "The password did not verify for the authenticated admin user",
+};
+
+alias IncorrectPasswordErrorResponse = Response<
+  422,
+  typeof IncorrectPasswordError
+>;
+
 const AdminUserDisabledError = #{
   type: "vetchium-problem-details/admin-user-disabled",
   title: "Admin user disabled",
