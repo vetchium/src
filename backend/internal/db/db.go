@@ -24,6 +24,7 @@ func Connect(
 	if poolConfig.PingTimeout == 0 {
 		poolConfig.PingTimeout = databaseConnectTimeout
 	}
+	poolConfig.ConnConfig.RuntimeParams["timezone"] = "UTC"
 
 	pool, err := pgxpool.NewWithConfig(ctx, poolConfig)
 	if err != nil {

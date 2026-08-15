@@ -23,6 +23,7 @@ import type {
   ListUsersRequest,
 } from "../../../typespec/admin/users/management.ts";
 import type { PaginationKey } from "../../../typespec/common/pagination.ts";
+import { intlLocale } from "../app/preferences";
 import { useMyInfoQuery } from "../features/profile/queries";
 import { listUsers } from "../features/users/api";
 
@@ -97,7 +98,7 @@ export function UsersPage() {
       render: (_, user) =>
         user.last_login_at === undefined
           ? t("common.never")
-          : new Intl.DateTimeFormat(i18n.language, {
+          : new Intl.DateTimeFormat(intlLocale(i18n.language), {
               dateStyle: "medium",
               timeStyle: "short",
             }).format(new Date(user.last_login_at)),

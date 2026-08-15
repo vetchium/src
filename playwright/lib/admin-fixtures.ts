@@ -83,7 +83,6 @@ export const test = base.extend<AdminFixtures>({
           ],
           primary_display_name_language: "en-US",
           preferred_language: "en-US",
-          preferred_timezone: "Etc/UTC",
         },
         { idempotencyKey: idempotencyKey() },
       );

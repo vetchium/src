@@ -41,8 +41,7 @@ CREATE TABLE vetchium.admin_users (
     admin_user_state vetchium.admin_user_state NOT NULL DEFAULT 'active',
     is_superadmin boolean NOT NULL DEFAULT false,
     primary_display_name_language text NOT NULL DEFAULT 'en-US',
-    preferred_language text,
-    preferred_timezone text,
+    preferred_language text NOT NULL DEFAULT 'en-US',
     totp_secret_ciphertext bytea,
     totp_enabled boolean NOT NULL DEFAULT false,
     totp_last_timestep bigint,
@@ -64,8 +63,7 @@ CREATE TABLE vetchium.admin_users (
         updated_at >= created_at
     ),
     CONSTRAINT admin_users_preferred_language_check CHECK (
-        preferred_language IS NULL OR
-        preferred_language IN ('en-US', 'de-DE', 'ta-IN')
+        preferred_language IN ('en-US', 'ta', 'de_DE')
     ),
     CONSTRAINT admin_users_totp_consistent CHECK (
         totp_enabled = (totp_secret_ciphertext IS NOT NULL)
@@ -94,17 +92,6 @@ CREATE TABLE vetchium.admin_sessions (
 
 CREATE INDEX admin_sessions_expires_at_idx
     ON vetchium.admin_sessions (expires_at);
-
-CREATE TABLE vetchium.admin_company_settings (
-    singleton boolean PRIMARY KEY DEFAULT true CHECK (singleton),
-    default_language text NOT NULL DEFAULT 'en-US' CHECK (
-        default_language IN ('en-US', 'de-DE', 'ta-IN')
-    ),
-    default_timezone text NOT NULL DEFAULT 'Etc/UTC',
-    updated_at timestamptz NOT NULL DEFAULT now()
-);
-
-INSERT INTO vetchium.admin_company_settings (singleton) VALUES (true);
 
 CREATE TABLE vetchium.admin_display_names (
     admin_user_id uuid NOT NULL REFERENCES vetchium.admin_users (admin_user_id)
@@ -274,7 +261,6 @@ DROP TABLE IF EXISTS vetchium.admin_totp_enrollments;
 DROP TABLE IF EXISTS vetchium.admin_login_challenges;
 DROP TABLE IF EXISTS vetchium.admin_permissions;
 DROP TABLE IF EXISTS vetchium.admin_display_names;
-DROP TABLE IF EXISTS vetchium.admin_company_settings;
 DROP TABLE IF EXISTS vetchium.admin_sessions;
 DROP TABLE IF EXISTS vetchium.admin_users;
 DROP TYPE IF EXISTS vetchium.admin_user_state;

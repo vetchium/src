@@ -1,25 +1,6 @@
--- name: GetAdminCompanyRegionalDefaults :one
-SELECT default_language, default_timezone
-FROM vetchium.admin_company_settings
-WHERE singleton;
-
--- name: SetAdminCompanyRegionalDefaults :exec
-UPDATE vetchium.admin_company_settings
-SET default_language = $1,
-    default_timezone = $2,
-    updated_at = now()
-WHERE singleton;
-
 -- name: SetAdminPreferredLanguage :execrows
 UPDATE vetchium.admin_users AS u
 SET preferred_language = $2,
-    updated_at = now()
-WHERE admin_user_id = $1
-  AND admin_user_state = 'active';
-
--- name: SetAdminPreferredTimezone :execrows
-UPDATE vetchium.admin_users
-SET preferred_timezone = $2,
     updated_at = now()
 WHERE admin_user_id = $1
   AND admin_user_state = 'active';

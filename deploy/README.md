@@ -24,7 +24,9 @@ The Makefile initializes Swarm when necessary and creates the tenant database
 secrets on first use. Tags must be immutable; `latest` and `dev` are rejected.
 `POSTGRES_USER` and `POSTGRES_DB` are required. `REGISTRY` defaults to
 `ghcr.io/vetchium`, `HTTP_PORT` defaults to `80`, and `PGSSLMODE` defaults to
-`disable` until PostgreSQL TLS is configured. Each region's `config.json`
+`disable` until PostgreSQL TLS is configured. `ADMIN_UI_DEFAULT_LANGUAGE`
+selects the Admin portal locale used by browsers that have no saved locale;
+the supported values are `en-US`, `ta`, and `de_DE`. Each region's `config.json`
 contains the shared non-secret configuration for every backend program and is
 mounted read-only at `/etc/vetchium/config.json`. `POSTGRES_DB` and `PGSSLMODE`
 remain deployment-time overrides so existing installations can select their

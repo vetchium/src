@@ -2,7 +2,6 @@ import type { TOTPCode } from "../../common/authentication.ts";
 import { isOpaqueToken, isTOTPCode } from "../../common/authentication.ts";
 import type { EmailAddress, Password } from "../../common/common.ts";
 import { isEmailAddress, normalizeEmailAddress } from "../../common/common.ts";
-import type { LanguageCode, TimeZoneID } from "../../common/localization.ts";
 import type {
   AdminLoginChallengeToken,
   AuthenticatedSessionResponse,
@@ -48,8 +47,6 @@ export interface LoginTOTPRequiredResponse {
   authentication_state: typeof AuthenticationStateTOTPRequired;
   login_challenge_token: AdminLoginChallengeToken;
   login_challenge_expires_at: string;
-  effective_language: LanguageCode;
-  effective_timezone: TimeZoneID;
 }
 
 export type LoginResponse =

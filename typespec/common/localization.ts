@@ -2,16 +2,14 @@ import {
   canonicalLanguageSubtags,
   canonicalRegionSubtags,
 } from "./canonical-locales.generated.ts";
-import { canonicalTimeZoneIDs } from "./canonical-time-zones.generated.ts";
 
-export type LanguageCode = "en-US" | "de-DE" | "ta-IN";
+export type FrontendLocale = "en-US" | "ta" | "de_DE";
 
-export const EnglishUnitedStates: LanguageCode = "en-US";
-export const GermanGermany: LanguageCode = "de-DE";
-export const TamilIndia: LanguageCode = "ta-IN";
+export const EnglishUnitedStates: FrontendLocale = "en-US";
+export const Tamil: FrontendLocale = "ta";
+export const German: FrontendLocale = "de_DE";
 
 export type RegionalLanguageCode = string;
-export type TimeZoneID = string;
 export type DisplayName = string;
 
 export interface LocalizedDisplayName {
@@ -19,8 +17,8 @@ export interface LocalizedDisplayName {
   display_name: DisplayName;
 }
 
-export function isLanguageCode(value: LanguageCode): boolean {
-  return value === "en-US" || value === "de-DE" || value === "ta-IN";
+export function isFrontendLocale(value: unknown): value is FrontendLocale {
+  return value === "en-US" || value === "ta" || value === "de_DE";
 }
 
 export function isRegionalLanguageCode(value: RegionalLanguageCode): boolean {
@@ -29,13 +27,6 @@ export function isRegionalLanguageCode(value: RegionalLanguageCode): boolean {
     canonicalLanguageSubtags.has(value.slice(0, 2)) &&
     canonicalRegionSubtags.has(value.slice(3))
   );
-}
-
-export function isTimeZoneID(value: TimeZoneID): boolean {
-  if (value.length < 1 || value.length > 255 || !value.includes("/")) {
-    return false;
-  }
-  return canonicalTimeZoneIDs.has(value);
 }
 
 export function normalizeDisplayName(value: DisplayName): DisplayName {

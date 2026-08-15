@@ -1,28 +1,32 @@
-import { Flex, Layout, Space, Tag, Typography } from "antd";
+import { Button, Flex, Layout, Typography } from "antd";
 import { useTranslation } from "react-i18next";
-import { Link, Outlet } from "react-router";
+import { Outlet, useNavigate } from "react-router";
+import { HeaderControls } from "./HeaderControls";
 
 const { Header, Content, Footer } = Layout;
 
 export function PublicShell() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   return (
     <Layout className="app-layout">
       <title>{t("shell.documentTitle")}</title>
       <Header>
-        <Flex className="app-header-content" align="center">
-          <Link
-            className="brand-link"
-            to="/login"
+        <Flex
+          className="app-header-content"
+          align="center"
+          justify="space-between"
+        >
+          <Button
+            shape="round"
+            size="large"
+            ghost
             aria-label={t("shell.homeLabel")}
+            onClick={() => navigate("/login")}
           >
-            <Space>
-              <span>{t("shell.brand")}</span>
-              <Tag variant="filled" color="green">
-                {t("shell.portal")}
-              </Tag>
-            </Space>
-          </Link>
+            {t("shell.logo")}
+          </Button>
+          <HeaderControls />
         </Flex>
       </Header>
       <Flex

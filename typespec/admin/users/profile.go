@@ -10,25 +10,12 @@ import (
 )
 
 type SetPreferredLanguageRequest struct {
-	PreferredLanguage *common.LanguageCode `json:"preferred_language"`
+	PreferredLanguage common.FrontendLocale `json:"preferred_language"`
 }
 
 func (r SetPreferredLanguageRequest) Validate() []string {
-	if r.PreferredLanguage != nil &&
-		!common.IsLanguageCode(*r.PreferredLanguage) {
+	if !common.IsFrontendLocale(r.PreferredLanguage) {
 		return []string{"preferred_language"}
-	}
-	return []string{}
-}
-
-type SetPreferredTimezoneRequest struct {
-	PreferredTimezone *common.TimeZoneID `json:"preferred_timezone"`
-}
-
-func (r SetPreferredTimezoneRequest) Validate() []string {
-	if r.PreferredTimezone != nil &&
-		!common.IsTimeZoneID(*r.PreferredTimezone) {
-		return []string{"preferred_timezone"}
 	}
 	return []string{}
 }
@@ -68,10 +55,7 @@ type MyInfoResponse struct {
 	authorization.AdminAuthorization
 	TOTPEnabled            bool                         `json:"totp_enabled"`
 	RecoveryCodesRemaining common.TOTPRecoveryCodeCount `json:"recovery_codes_remaining"`
-	PreferredLanguage      *common.LanguageCode         `json:"preferred_language,omitempty"`
-	PreferredTimezone      *common.TimeZoneID           `json:"preferred_timezone,omitempty"`
-	EffectiveLanguage      common.LanguageCode          `json:"effective_language"`
-	EffectiveTimezone      common.TimeZoneID            `json:"effective_timezone"`
+	PreferredLanguage      common.FrontendLocale        `json:"preferred_language"`
 	CreatedAt              time.Time                    `json:"created_at"`
 	SessionExpiresAt       time.Time                    `json:"session_expires_at"`
 	TenantID               string                       `json:"tenant_id"`

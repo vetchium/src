@@ -53,11 +53,8 @@ model CompleteSetupRequest {
   /** Must identify one language_code in display_names. */
   primary_display_name_language: RegionalLanguageCode;
 
-  /** When absent, the company default remains effective. */
-  preferred_language?: LanguageCode;
-
-  /** When absent, the company default remains effective. */
-  preferred_timezone?: TimeZoneID;
+  /** Initial user-interface locale selected in the browser. */
+  preferred_language: FrontendLocale;
 }
 
 /** Identity created after an invitation is consumed. */
@@ -69,8 +66,8 @@ model CompleteSetupResponse {
 @tag("Admin invitations")
 interface InvitationOperations {
   /**
-   * Create an invitation and queue its email using company regional defaults.
-   * The admin user is not created until setup completes.
+   * Create an invitation and queue its email. The admin user is not created
+   * until setup completes.
    */
   @route("/invite-user")
   @post

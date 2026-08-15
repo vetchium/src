@@ -8,16 +8,6 @@
   margin: 0 auto;
 }
 
-.brand-link,
-.header-action {
-  color: white;
-}
-
-.brand-link {
-  font-size: 18px;
-  font-weight: 600;
-}
-
 .app-content {
   width: min(100%, 1200px);
   min-height: 640px;

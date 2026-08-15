@@ -34,7 +34,6 @@ type Querier interface {
 	DisableAdminTOTP(ctx context.Context, arg DisableAdminTOTPParams) (bool, error)
 	DisableAdminUser(ctx context.Context, arg DisableAdminUserParams) (string, error)
 	EnableAdminUser(ctx context.Context, arg EnableAdminUserParams) (string, error)
-	GetAdminCompanyRegionalDefaults(ctx context.Context) (GetAdminCompanyRegionalDefaultsRow, error)
 	GetAdminLoginChallenge(ctx context.Context, tokenHash []byte) (GetAdminLoginChallengeRow, error)
 	GetAdminMyInfo(ctx context.Context, arg GetAdminMyInfoParams) (GetAdminMyInfoRow, error)
 	GetAdminTOTPEnrollment(ctx context.Context, arg GetAdminTOTPEnrollmentParams) (GetAdminTOTPEnrollmentRow, error)
@@ -63,10 +62,8 @@ type Querier interface {
 	ResolveAdminLoginChallengeUser(ctx context.Context, tokenHash []byte) (pgtype.UUID, error)
 	ResolveAdminPasswordResetUser(ctx context.Context, resetTokenHash []byte) (pgtype.UUID, error)
 	RevokeAdminPermission(ctx context.Context, arg RevokeAdminPermissionParams) (string, error)
-	SetAdminCompanyRegionalDefaults(ctx context.Context, arg SetAdminCompanyRegionalDefaultsParams) error
 	SetAdminDisplayNames(ctx context.Context, arg SetAdminDisplayNamesParams) (int64, error)
 	SetAdminPreferredLanguage(ctx context.Context, arg SetAdminPreferredLanguageParams) (int64, error)
-	SetAdminPreferredTimezone(ctx context.Context, arg SetAdminPreferredTimezoneParams) (int64, error)
 }
 
 var _ Querier = (*Queries)(nil)

@@ -83,21 +83,10 @@ func MyInfo(s *adminapi.Server) http.HandlerFunc {
 			RecoveryCodesRemaining: common.TOTPRecoveryCodeCount(
 				row.RecoveryCodesRemaining,
 			),
-			EffectiveLanguage: common.LanguageCode(
-				row.EffectiveLanguage,
-			),
-			EffectiveTimezone: common.TimeZoneID(row.EffectiveTimezone),
-			CreatedAt:         row.CreatedAt.Time,
-			SessionExpiresAt:  row.ExpiresAt.Time,
+			PreferredLanguage: common.FrontendLocale(row.PreferredLanguage),
+			CreatedAt:         row.CreatedAt.Time.UTC(),
+			SessionExpiresAt:  row.ExpiresAt.Time.UTC(),
 			TenantID:          s.TenantID,
-		}
-		if row.PreferredLanguage.Valid {
-			value := common.LanguageCode(row.PreferredLanguage.String)
-			response.PreferredLanguage = &value
-		}
-		if row.PreferredTimezone.Valid {
-			value := common.TimeZoneID(row.PreferredTimezone.String)
-			response.PreferredTimezone = &value
 		}
 		s.JSON(r.Context(), w, http.StatusOK, response)
 	}

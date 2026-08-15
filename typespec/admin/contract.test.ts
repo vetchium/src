@@ -13,7 +13,6 @@ import {
   validateGrantPermissionRequest,
   validatePromoteToSuperadminRequest,
 } from "./authorization/management.ts";
-import { validateSetCompanyRegionalDefaultsRequest } from "./company/regional.ts";
 import {
   normalizeCompleteSetupRequest,
   validateCompleteSetupRequest,
@@ -27,7 +26,6 @@ import {
   normalizeSetDisplayNamesRequest,
   validateSetDisplayNamesRequest,
   validateSetPreferredLanguageRequest,
-  validateSetPreferredTimezoneRequest,
 } from "./users/profile.ts";
 
 const uuid = "11111111-1111-4111-8111-111111111111";
@@ -64,7 +62,7 @@ test("password and TOTP requests report all invalid JSON members", () => {
   );
 });
 
-test("authorization and company requests validate identifiers and enums", () => {
+test("authorization requests validate identifiers and enums", () => {
   assert.deepEqual(
     validateGrantPermissionRequest({
       admin_user_id: "bad",
@@ -75,13 +73,6 @@ test("authorization and company requests validate identifiers and enums", () => 
   assert.deepEqual(
     validatePromoteToSuperadminRequest({ admin_user_id: uuid }),
     [],
-  );
-  assert.deepEqual(
-    validateSetCompanyRegionalDefaultsRequest({
-      default_language: "fr-FR" as "en-US",
-      default_timezone: "UTC",
-    }),
-    ["default_language", "default_timezone"],
   );
 });
 
@@ -94,8 +85,7 @@ test("complete setup normalizes a deep copy and validates coupled names", () => 
       { language_code: "ta-IN", display_name: " நிர்வாகி " },
     ],
     primary_display_name_language: "en-US",
-    preferred_language: "ta-IN" as const,
-    preferred_timezone: "Asia/Kolkata",
+    preferred_language: "ta" as const,
   };
   const normalized = normalizeCompleteSetupRequest(request);
   assert.equal(normalized.display_names[0]?.display_name, "Admin");
@@ -111,14 +101,8 @@ test("complete setup normalizes a deep copy and validates coupled names", () => 
       ],
       primary_display_name_language: "ta-IN",
       preferred_language: "fr-FR" as "en-US",
-      preferred_timezone: "US/Eastern",
     }),
-    [
-      "display_names",
-      "primary_display_name_language",
-      "preferred_language",
-      "preferred_timezone",
-    ],
+    ["display_names", "primary_display_name_language", "preferred_language"],
   );
   assert.deepEqual(
     validateInviteUserRequest({ email_address: "USER@example.com" }),
@@ -126,7 +110,7 @@ test("complete setup normalizes a deep copy and validates coupled names", () => 
   );
 });
 
-test("list and profile validators cover defaults, bounds, and nullable values", () => {
+test("list and profile validators cover defaults and bounds", () => {
   assert.deepEqual(validateListUsersRequest({}), []);
   assert.deepEqual(
     validateListUsersRequest({
@@ -150,11 +134,7 @@ test("list and profile validators cover defaults, bounds, and nullable values", 
     "admin_user_id",
   ]);
   assert.deepEqual(
-    validateSetPreferredLanguageRequest({ preferred_language: null }),
-    [],
-  );
-  assert.deepEqual(
-    validateSetPreferredTimezoneRequest({ preferred_timezone: null }),
+    validateSetPreferredLanguageRequest({ preferred_language: "de_DE" }),
     [],
   );
 });

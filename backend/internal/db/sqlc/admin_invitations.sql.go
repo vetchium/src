@@ -31,8 +31,7 @@ WITH invitation AS (
         display_name,
         password_hash,
         primary_display_name_language,
-        preferred_language,
-        preferred_timezone
+        preferred_language
     )
     SELECT
         $2,
@@ -40,8 +39,7 @@ WITH invitation AS (
         $3,
         $4,
         $5,
-        $6,
-        $7
+        $6
     FROM invitation
     WHERE NOT EXISTS (SELECT 1 FROM existing_user)
     ON CONFLICT (email_address) DO NOTHING
@@ -59,8 +57,8 @@ WITH invitation AS (
     FROM inserted_user AS u
     CROSS JOIN LATERAL (
         SELECT
-            unnest($8::text[]) AS language_code,
-            unnest($9::text[]) AS display_name
+            unnest($7::text[]) AS language_code,
+            unnest($8::text[]) AS display_name
     ) AS names
     RETURNING admin_user_id
 ), consumed AS (
@@ -90,8 +88,7 @@ type CompleteAdminSetupParams struct {
 	PrimaryDisplayName  string      `json:"primary_display_name"`
 	PasswordHash        string      `json:"password_hash"`
 	PrimaryLanguage     string      `json:"primary_language"`
-	PreferredLanguage   pgtype.Text `json:"preferred_language"`
-	PreferredTimezone   pgtype.Text `json:"preferred_timezone"`
+	PreferredLanguage   string      `json:"preferred_language"`
 	LanguageCodes       []string    `json:"language_codes"`
 	DisplayNames        []string    `json:"display_names"`
 }
@@ -109,7 +106,6 @@ func (q *Queries) CompleteAdminSetup(ctx context.Context, arg CompleteAdminSetup
 		arg.PasswordHash,
 		arg.PrimaryLanguage,
 		arg.PreferredLanguage,
-		arg.PreferredTimezone,
 		arg.LanguageCodes,
 		arg.DisplayNames,
 	)

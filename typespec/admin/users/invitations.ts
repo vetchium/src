@@ -3,12 +3,11 @@ import { isNewPassword, isOpaqueToken } from "../../common/authentication.ts";
 import type { EmailAddress } from "../../common/common.ts";
 import { isEmailAddress, normalizeEmailAddress } from "../../common/common.ts";
 import type {
-  LanguageCode,
+  FrontendLocale,
   LocalizedDisplayName,
   RegionalLanguageCode,
-  TimeZoneID,
 } from "../../common/localization.ts";
-import { isLanguageCode, isTimeZoneID } from "../../common/localization.ts";
+import { isFrontendLocale } from "../../common/localization.ts";
 import { type AdminUserID, isAdminUserID } from "../types.ts";
 import { normalizeDisplayNames, validateDisplayNames } from "./validation.ts";
 
@@ -50,8 +49,7 @@ export interface CompleteSetupRequest {
   password: NewPassword;
   display_names: LocalizedDisplayName[];
   primary_display_name_language: RegionalLanguageCode;
-  preferred_language?: LanguageCode;
-  preferred_timezone?: TimeZoneID;
+  preferred_language: FrontendLocale;
 }
 
 export function normalizeCompleteSetupRequest(
@@ -84,17 +82,8 @@ export function validateCompleteSetupRequest(
   if (!displayNames.primaryPresent) {
     fields.push("primary_display_name_language");
   }
-  if (
-    normalized.preferred_language !== undefined &&
-    !isLanguageCode(normalized.preferred_language)
-  ) {
+  if (!isFrontendLocale(normalized.preferred_language)) {
     fields.push("preferred_language");
-  }
-  if (
-    normalized.preferred_timezone !== undefined &&
-    !isTimeZoneID(normalized.preferred_timezone)
-  ) {
-    fields.push("preferred_timezone");
   }
   return fields;
 }

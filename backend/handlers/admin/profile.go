@@ -1,11 +1,9 @@
 package admin
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/vetchium/src/typespec/admin/users"
-	"github.com/vetchium/src/typespec/common"
 	adminproblem "github.com/vetchium/src/typespec/problem/admin"
 
 	"backend/internal/adminapi"
@@ -16,96 +14,24 @@ import (
 
 func SetPreferredLanguage(s *adminapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var wire struct {
-			PreferredLanguage json.RawMessage `json:"preferred_language"`
-		}
-		if err := apiserver.DecodeJSON(r, &wire); err != nil ||
-			wire.PreferredLanguage == nil {
-			if err == nil {
-				err = errMissingField("preferred_language")
-			}
+		var request users.SetPreferredLanguageRequest
+		if err := apiserver.DecodeJSON(r, &request); err != nil {
 			s.InvalidJSON(r.Context(), w, err)
 			return
-		}
-		var value *common.LanguageCode
-		if string(wire.PreferredLanguage) != "null" {
-			var language common.LanguageCode
-			if err := json.Unmarshal(wire.PreferredLanguage, &language); err != nil {
-				s.InvalidJSON(r.Context(), w, err)
-				return
-			}
-			value = &language
-		}
-		request := users.SetPreferredLanguageRequest{
-			PreferredLanguage: value,
 		}
 		if fields := request.Validate(); len(fields) != 0 {
 			s.ValidationFailed(r.Context(), w, fields)
 			return
 		}
 		identity, _ := middleware.AdminIdentityFromContext(r.Context())
-		var textValue *string
-		if value != nil {
-			text := string(*value)
-			textValue = &text
-		}
 		_, err := s.Queries.SetAdminPreferredLanguage(
 			r.Context(), sqlc.SetAdminPreferredLanguageParams{
 				AdminUserID:       identity.UserID,
-				PreferredLanguage: adminapi.Text(textValue),
+				PreferredLanguage: string(request.PreferredLanguage),
 			},
 		)
 		if err != nil {
 			s.InternalError(r.Context(), w, "set preferred language", err)
-			return
-		}
-		w.WriteHeader(http.StatusNoContent)
-	}
-}
-
-func SetPreferredTimezone(s *adminapi.Server) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		var wire struct {
-			PreferredTimezone json.RawMessage `json:"preferred_timezone"`
-		}
-		if err := apiserver.DecodeJSON(r, &wire); err != nil ||
-			wire.PreferredTimezone == nil {
-			if err == nil {
-				err = errMissingField("preferred_timezone")
-			}
-			s.InvalidJSON(r.Context(), w, err)
-			return
-		}
-		var value *common.TimeZoneID
-		if string(wire.PreferredTimezone) != "null" {
-			var timezone common.TimeZoneID
-			if err := json.Unmarshal(wire.PreferredTimezone, &timezone); err != nil {
-				s.InvalidJSON(r.Context(), w, err)
-				return
-			}
-			value = &timezone
-		}
-		request := users.SetPreferredTimezoneRequest{
-			PreferredTimezone: value,
-		}
-		if fields := request.Validate(); len(fields) != 0 {
-			s.ValidationFailed(r.Context(), w, fields)
-			return
-		}
-		identity, _ := middleware.AdminIdentityFromContext(r.Context())
-		var textValue *string
-		if value != nil {
-			text := string(*value)
-			textValue = &text
-		}
-		_, err := s.Queries.SetAdminPreferredTimezone(
-			r.Context(), sqlc.SetAdminPreferredTimezoneParams{
-				AdminUserID:       identity.UserID,
-				PreferredTimezone: adminapi.Text(textValue),
-			},
-		)
-		if err != nil {
-			s.InternalError(r.Context(), w, "set preferred timezone", err)
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
@@ -153,14 +79,4 @@ func SetDisplayNames(s *adminapi.Server) http.HandlerFunc {
 		}
 		w.WriteHeader(http.StatusNoContent)
 	}
-}
-
-type missingFieldError string
-
-func (e missingFieldError) Error() string {
-	return "missing JSON field " + string(e)
-}
-
-func errMissingField(field string) error {
-	return missingFieldError(field)
 }

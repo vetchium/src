@@ -14,16 +14,9 @@ using TypeSpec.Http;
 
 namespace Vetchium.Admin;
 
-/** Set or clear the current admin's language override. */
+/** Set the current admin's preferred user-interface locale. */
 model SetPreferredLanguageRequest {
-  /** Null clears the override and restores the company default. */
-  preferred_language: LanguageCode | null;
-}
-
-/** Set or clear the current admin's timezone override. */
-model SetPreferredTimezoneRequest {
-  /** Null clears the override and restores the company default. */
-  preferred_timezone: TimeZoneID | null;
+  preferred_language: FrontendLocale;
 }
 
 /** Atomically replace the current admin's localized display names. */
@@ -58,18 +51,7 @@ model MyInfoResponse {
   /** Zero when TOTP is disabled. */
   recovery_codes_remaining: Vetchium.Authentication.TOTPRecoveryCodeCount;
 
-  /** Absent when the company default is inherited. */
-  preferred_language?: LanguageCode;
-
-  /** Absent when the company default is inherited. */
-  preferred_timezone?: TimeZoneID;
-
-  /** The user override when present; otherwise the company default. */
-  effective_language: LanguageCode;
-
-  /** The user override when present; otherwise the company default. */
-  effective_timezone: TimeZoneID;
-
+  preferred_language: FrontendLocale;
   created_at: utcDateTime;
   session_expires_at: utcDateTime;
   tenant_id: string;
@@ -91,25 +73,11 @@ interface ProfileOperations {
     | Vetchium.Problem.AdminAuthenticationRequiredErrorResponse
     | Vetchium.Problem.InternalServerErrorResponse;
 
-  /** Set or clear the current admin's preferred language. */
+  /** Set the current admin's preferred user-interface locale. */
   @route("/set-preferred-language")
   @post
   @useAuth(BearerAuth)
   setPreferredLanguage(@body request: SetPreferredLanguageRequest):
-    | {
-        @statusCode status_code: 204;
-        @header("Cache-Control") cache_control: "no-store";
-      }
-    | Vetchium.Problem.InvalidJSONErrorResponse
-    | Vetchium.Problem.ValidationFailedErrorResponse
-    | Vetchium.Problem.AdminAuthenticationRequiredErrorResponse
-    | Vetchium.Problem.InternalServerErrorResponse;
-
-  /** Set or clear the current admin's preferred timezone. */
-  @route("/set-preferred-timezone")
-  @post
-  @useAuth(BearerAuth)
-  setPreferredTimezone(@body request: SetPreferredTimezoneRequest):
     | {
         @statusCode status_code: 204;
         @header("Cache-Control") cache_control: "no-store";

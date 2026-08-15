@@ -1,56 +1,24 @@
 import { useMutation } from "@tanstack/react-query";
-import {
-  Alert,
-  Button,
-  Card,
-  Form,
-  Input,
-  Select,
-  Space,
-  Typography,
-} from "antd";
-import { useEffect } from "react";
+import { Alert, Button, Card, Form, Input, Space, Typography } from "antd";
 import { useTranslation } from "react-i18next";
 import { Link, useSearchParams } from "react-router";
-import type {
-  LanguageCode,
-  TimeZoneID,
-} from "../../../typespec/common/localization.ts";
+import type { RegionalLanguageCode } from "../../../typespec/common/localization.ts";
+import { usePreferences } from "../app/PreferencesContext";
 import { completeSetup } from "../features/auth/api";
-import { useCompanyRegionalDefaultsQuery } from "../features/company/queries";
 
 interface SetupForm {
   password: string;
   confirm_password: string;
   display_name: string;
-  language: LanguageCode;
-  timezone: TimeZoneID;
+  display_name_language: RegionalLanguageCode;
 }
 
 export function CompleteSetupPage() {
   const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const token = searchParams.get("token");
-  const defaults = useCompanyRegionalDefaultsQuery();
+  const preferences = usePreferences();
   const mutation = useMutation({ mutationFn: completeSetup });
-  const [form] = Form.useForm<SetupForm>();
-  const languageOptions = ["en-US", "de-DE", "ta-IN"].map((value) => ({
-    value,
-    label: t(`languages.${value}`),
-  }));
-
-  useEffect(() => {
-    if (
-      defaults.data === undefined ||
-      form.isFieldsTouched(["language", "timezone"])
-    ) {
-      return;
-    }
-    form.setFieldsValue({
-      language: defaults.data.default_language,
-      timezone: defaults.data.default_timezone,
-    });
-  }, [defaults.data, form]);
 
   const submit = (values: SetupForm) => {
     if (token === null) return;
@@ -58,11 +26,13 @@ export function CompleteSetupPage() {
       invitation_token: token,
       password: values.password,
       display_names: [
-        { language_code: values.language, display_name: values.display_name },
+        {
+          language_code: values.display_name_language,
+          display_name: values.display_name,
+        },
       ],
-      primary_display_name_language: values.language,
-      preferred_language: values.language,
-      preferred_timezone: values.timezone,
+      primary_display_name_language: values.display_name_language,
+      preferred_language: preferences.language,
     });
   };
 
@@ -89,12 +59,15 @@ export function CompleteSetupPage() {
         ) : null}
         {!mutation.isSuccess && token !== null ? (
           <Form<SetupForm>
-            form={form}
             layout="vertical"
             onFinish={submit}
             initialValues={{
-              language: defaults.data?.default_language ?? "en-US",
-              timezone: defaults.data?.default_timezone ?? "Asia/Kolkata",
+              display_name_language:
+                preferences.language === "ta"
+                  ? "ta-IN"
+                  : preferences.language === "de_DE"
+                    ? "de-DE"
+                    : "en-US",
             }}
           >
             <Form.Item
@@ -105,18 +78,17 @@ export function CompleteSetupPage() {
               <Input autoComplete="name" maxLength={200} />
             </Form.Item>
             <Form.Item
-              name="language"
-              label={t("fields.language")}
-              rules={[{ required: true }]}
+              name="display_name_language"
+              label={t("fields.languageCode")}
+              rules={[
+                {
+                  required: true,
+                  pattern: /^[a-z]{2}-[A-Z]{2}$/,
+                  message: t("validation.languageCode"),
+                },
+              ]}
             >
-              <Select options={languageOptions} />
-            </Form.Item>
-            <Form.Item
-              name="timezone"
-              label={t("fields.timezone")}
-              rules={[{ required: true, message: t("validation.required") }]}
-            >
-              <Input />
+              <Input placeholder={t("profile.languageCodePlaceholder")} />
             </Form.Item>
             <Form.Item
               name="password"

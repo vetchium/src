@@ -1,0 +1,160 @@
+export const de = {
+  shell: {
+    documentTitle: "Vetchium-Administration",
+    brand: "Vetchium",
+    logo: "Vetchium Admin",
+    homeLabel: "Startseite der Vetchium-Administration",
+    portal: "Administration",
+    footer: "Administration der Vetchium-Instanz",
+    logout: "Abmelden",
+  },
+  navigation: {
+    overview: "Übersicht",
+    users: "Administratoren",
+    profile: "Mein Profil",
+  },
+  theme: {
+    dark: "Dunkel",
+    light: "Hell",
+    toggleLabel: "Zwischen hellem und dunklem Modus wechseln",
+  },
+  language: {
+    changeError:
+      "Die Sprache konnte nicht geändert werden. Bitte erneut versuchen.",
+    selectorLabel: "Sprache auswählen",
+  },
+  common: {
+    backToLogin: "Zurück zur Anmeldung",
+    disabled: "Deaktiviert",
+    enabled: "Aktiviert",
+    loadError: "Diese Informationen konnten nicht geladen werden.",
+    next: "Weiter",
+    never: "Nie",
+    previous: "Zurück",
+    remove: "Entfernen",
+    requestError:
+      "Die Anfrage konnte nicht abgeschlossen werden. Bitte erneut versuchen.",
+    retry: "Erneut versuchen",
+    save: "Änderungen speichern",
+  },
+  fields: {
+    access: "Zugriff",
+    accountType: "Kontotyp",
+    confirmPassword: "Passwort bestätigen",
+    displayName: "Anzeigename",
+    email: "E-Mail-Adresse",
+    language: "Sprache",
+    languageCode: "Sprachcode",
+    lastLogin: "Letzte Anmeldung",
+    name: "Name",
+    newPassword: "Neues Passwort",
+    password: "Passwort",
+    permission: "Berechtigung",
+    recoveryCode: "Wiederherstellungscode",
+    sessionExpires: "Sitzung läuft ab",
+    state: "Status",
+    tenant: "Instanz",
+    totpCode: "Sechsstelliger Code",
+    twoFactor: "Zwei-Faktor-Authentifizierung",
+  },
+  validation: {
+    email: "Geben Sie eine gültige E-Mail-Adresse ein.",
+    languageCode: "Verwenden Sie einen regionalen Sprachcode wie de-DE.",
+    newPassword: "Verwenden Sie ein Passwort mit mindestens 15 Zeichen.",
+    passwordMatch: "Die Passwörter stimmen nicht überein.",
+    required: "Dieses Feld ist erforderlich.",
+    totpCode: "Geben Sie den sechsstelligen Code ein.",
+  },
+  languages: {
+    "en-US": "English US",
+    ta: "தமிழ்",
+    de_DE: "Deutsch",
+  },
+  states: { active: "Aktiv", disabled: "Deaktiviert" },
+  permissions: {
+    "admin:view_users": "Administratoren anzeigen",
+    "admin:manage_users": "Administratoren verwalten",
+  },
+  login: {
+    documentTitle: "Anmelden | Vetchium-Administration",
+    title: "Anmelden",
+    description: "Verwenden Sie Ihr Administratorkonto für diese Instanz.",
+    action: "Anmelden",
+    error: "Die E-Mail-Adresse oder das Passwort wurde nicht akzeptiert.",
+    forgotPassword: "Passwort vergessen?",
+  },
+  twoFactor: {
+    documentTitle: "Zwei-Faktor-Prüfung | Vetchium-Administration",
+    title: "Identität bestätigen",
+    description:
+      "Geben Sie einen Code aus Ihrer Authenticator-App oder einen Wiederherstellungscode ein.",
+    authenticator: "Authenticator",
+    recovery: "Wiederherstellungscode",
+    action: "Bestätigen",
+    error: "Der Code wurde nicht akzeptiert oder die Anmeldung ist abgelaufen.",
+    restart: "Anmeldung neu starten",
+  },
+  forgotPassword: {
+    documentTitle: "Passwort zurücksetzen | Vetchium-Administration",
+    title: "Passwort vergessen?",
+    description:
+      "Geben Sie Ihre E-Mail-Adresse ein. Falls das Konto berechtigt ist, senden wir Anweisungen zum Zurücksetzen.",
+    action: "Anweisungen senden",
+    success:
+      "Falls das Konto berechtigt ist, wurden Anweisungen zum Zurücksetzen gesendet.",
+  },
+  resetPassword: {
+    documentTitle: "Neues Passwort wählen | Vetchium-Administration",
+    title: "Neues Passwort wählen",
+    missingToken:
+      "Dieser Link zum Zurücksetzen des Passworts ist unvollständig.",
+    success: "Ihr Passwort wurde geändert. Sie können sich jetzt anmelden.",
+    error: "Dieser Link ist ungültig oder abgelaufen.",
+    action: "Passwort ändern",
+  },
+  completeSetup: {
+    documentTitle: "Kontoeinrichtung abschließen | Vetchium-Administration",
+    title: "Kontoeinrichtung abschließen",
+    description:
+      "Vervollständigen Sie Ihr Profil und erstellen Sie ein sicheres Passwort.",
+    missingToken: "Dieser Einladungslink ist unvollständig.",
+    success: "Ihr Administratorkonto ist bereit.",
+    error:
+      "Diese Einladung ist ungültig, abgelaufen oder wurde bereits verwendet.",
+    action: "Konto erstellen",
+    signIn: "Weiter zur Anmeldung",
+  },
+  home: {
+    title: "Willkommen, {{name}}",
+    description: "Ihr Administratorkonto und die aktuelle Instanzsitzung.",
+    accountCard: "Kontoübersicht",
+    superadmin: "Superadministrator",
+    noPermissions: "Keine administrativen Berechtigungen",
+  },
+  users: {
+    title: "Administratoren",
+    description:
+      "Aktive und deaktivierte Administratorkonten dieser Instanz durchsuchen.",
+    filters: "Filter",
+    applyFilters: "Filter anwenden",
+    regularAdmin: "Administrator",
+    page: "Seite {{page}}",
+  },
+  profile: {
+    title: "Mein Profil",
+    description:
+      "Verwalten Sie die Anzeige Ihres Namens im Administrationsportal.",
+    namesCard: "Anzeigenamen",
+    primaryLanguage: "Primäre Sprache des Anzeigenamens",
+    languageCodePlaceholder: "de-DE",
+    addName: "Weitere Sprache hinzufügen",
+    saved: "Profil aktualisiert.",
+    saveError:
+      "Ihr Profil konnte nicht aktualisiert werden. Prüfen Sie die Werte und versuchen Sie es erneut.",
+  },
+  notFound: {
+    title: "404",
+    description: "Die angeforderte Seite ist nicht verfügbar.",
+    action: "Zur Startseite",
+  },
+} as const;

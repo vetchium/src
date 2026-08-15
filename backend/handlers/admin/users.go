@@ -83,7 +83,7 @@ func ListUsers(s *adminapi.Server) http.HandlerFunc {
 		if hasMore {
 			last := rows[len(rows)-1]
 			payload, err := json.Marshal(adminUsersPaginationPayload{
-				BeforeCreatedAt: last.CreatedAt.Time,
+				BeforeCreatedAt: last.CreatedAt.Time.UTC(),
 				BeforeUserID:    adminapi.FormatUUID(last.AdminUserID),
 				FiltersHash:     filtersHash,
 			})
@@ -288,10 +288,10 @@ func adminUserSummary(
 			Permissions:  permissions,
 		},
 		TOTPEnabled: row.TotpEnabled,
-		CreatedAt:   row.CreatedAt.Time,
+		CreatedAt:   row.CreatedAt.Time.UTC(),
 	}
 	if row.LastLoginAt.Valid {
-		lastLoginAt := row.LastLoginAt.Time
+		lastLoginAt := row.LastLoginAt.Time.UTC()
 		result.LastLoginAt = &lastLoginAt
 	}
 	return result, nil

@@ -269,7 +269,7 @@ func Int64(value int64) pgtype.Int8 {
 }
 
 func Timestamp(value time.Time) pgtype.Timestamptz {
-	return pgtype.Timestamptz{Time: value, Valid: true}
+	return pgtype.Timestamptz{Time: value.UTC(), Valid: true}
 }
 
 func Text(value *string) pgtype.Text {

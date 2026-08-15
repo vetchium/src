@@ -273,11 +273,9 @@ SELECT
     c.admin_user_id,
     u.totp_secret_ciphertext,
     u.admin_user_state,
-    COALESCE(u.preferred_language, s.default_language)::text AS effective_language,
-    COALESCE(u.preferred_timezone, s.default_timezone)::text AS effective_timezone
+    u.preferred_language
 FROM vetchium.admin_login_challenges AS c
 JOIN vetchium.admin_users AS u USING (admin_user_id)
-CROSS JOIN vetchium.admin_company_settings AS s
 WHERE c.token_hash = $1
   AND c.active
   AND c.consumed_at IS NULL
@@ -292,8 +290,7 @@ type GetAdminLoginChallengeRow struct {
 	AdminUserID           pgtype.UUID            `json:"admin_user_id"`
 	TotpSecretCiphertext  []byte                 `json:"totp_secret_ciphertext"`
 	AdminUserState        VetchiumAdminUserState `json:"admin_user_state"`
-	EffectiveLanguage     string                 `json:"effective_language"`
-	EffectiveTimezone     string                 `json:"effective_timezone"`
+	PreferredLanguage     string                 `json:"preferred_language"`
 }
 
 func (q *Queries) GetAdminLoginChallenge(ctx context.Context, tokenHash []byte) (GetAdminLoginChallengeRow, error) {
@@ -304,8 +301,7 @@ func (q *Queries) GetAdminLoginChallenge(ctx context.Context, tokenHash []byte) 
 		&i.AdminUserID,
 		&i.TotpSecretCiphertext,
 		&i.AdminUserState,
-		&i.EffectiveLanguage,
-		&i.EffectiveTimezone,
+		&i.PreferredLanguage,
 	)
 	return i, err
 }
@@ -325,14 +321,10 @@ SELECT
     u.totp_enabled,
     recovery.remaining_codes AS recovery_codes_remaining,
     u.preferred_language,
-    u.preferred_timezone,
-    COALESCE(u.preferred_language, c.default_language)::text AS effective_language,
-    COALESCE(u.preferred_timezone, c.default_timezone)::text AS effective_timezone,
     u.created_at,
     s.expires_at
 FROM vetchium.admin_sessions AS s
 JOIN vetchium.admin_users AS u USING (admin_user_id)
-CROSS JOIN vetchium.admin_company_settings AS c
 CROSS JOIN LATERAL (
     SELECT COALESCE(
         jsonb_agg(
@@ -389,10 +381,7 @@ type GetAdminMyInfoRow struct {
 	PermissionsJson            string                 `json:"permissions_json"`
 	TotpEnabled                bool                   `json:"totp_enabled"`
 	RecoveryCodesRemaining     int64                  `json:"recovery_codes_remaining"`
-	PreferredLanguage          pgtype.Text            `json:"preferred_language"`
-	PreferredTimezone          pgtype.Text            `json:"preferred_timezone"`
-	EffectiveLanguage          string                 `json:"effective_language"`
-	EffectiveTimezone          string                 `json:"effective_timezone"`
+	PreferredLanguage          string                 `json:"preferred_language"`
 	CreatedAt                  pgtype.Timestamptz     `json:"created_at"`
 	ExpiresAt                  pgtype.Timestamptz     `json:"expires_at"`
 }
@@ -411,9 +400,6 @@ func (q *Queries) GetAdminMyInfo(ctx context.Context, arg GetAdminMyInfoParams) 
 		&i.TotpEnabled,
 		&i.RecoveryCodesRemaining,
 		&i.PreferredLanguage,
-		&i.PreferredTimezone,
-		&i.EffectiveLanguage,
-		&i.EffectiveTimezone,
 		&i.CreatedAt,
 		&i.ExpiresAt,
 	)
@@ -428,10 +414,8 @@ SELECT
     u.admin_user_state,
     u.totp_enabled,
     u.totp_secret_ciphertext,
-    COALESCE(u.preferred_language, c.default_language)::text AS effective_language,
-    COALESCE(u.preferred_timezone, c.default_timezone)::text AS effective_timezone
+    u.preferred_language
 FROM vetchium.admin_users AS u
-CROSS JOIN vetchium.admin_company_settings AS c
 WHERE u.email_address = $1
 `
 
@@ -442,8 +426,7 @@ type GetAdminUserForLoginRow struct {
 	AdminUserState       VetchiumAdminUserState `json:"admin_user_state"`
 	TotpEnabled          bool                   `json:"totp_enabled"`
 	TotpSecretCiphertext []byte                 `json:"totp_secret_ciphertext"`
-	EffectiveLanguage    string                 `json:"effective_language"`
-	EffectiveTimezone    string                 `json:"effective_timezone"`
+	PreferredLanguage    string                 `json:"preferred_language"`
 }
 
 func (q *Queries) GetAdminUserForLogin(ctx context.Context, emailAddress string) (GetAdminUserForLoginRow, error) {
@@ -456,8 +439,7 @@ func (q *Queries) GetAdminUserForLogin(ctx context.Context, emailAddress string)
 		&i.AdminUserState,
 		&i.TotpEnabled,
 		&i.TotpSecretCiphertext,
-		&i.EffectiveLanguage,
-		&i.EffectiveTimezone,
+		&i.PreferredLanguage,
 	)
 	return i, err
 }

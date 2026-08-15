@@ -2,7 +2,6 @@ import {
   AuthenticationStateAuthenticated,
   type LoginAuthenticatedResponse,
 } from "typespec/admin/auth/login";
-import type { CompanyRegionalDefaultsResponse } from "typespec/admin/company/regional";
 import type { MyInfoResponse } from "typespec/admin/users/profile";
 import { expectProblem, responseJSON } from "../lib/admin-api.ts";
 import { expect, test } from "../lib/admin-fixtures.ts";
@@ -120,19 +119,7 @@ test.describe("Admin authentication", () => {
   });
 });
 
-test.describe("Admin profile and company defaults", () => {
-  test("company defaults are public and cacheable", async ({ adminAPI }) => {
-    const response = await adminAPI.get("/company-regional-defaults");
-    expect(response.status()).toBe(200);
-    expect(response.headers()["cache-control"]).toBe("public, max-age=300");
-    expect(
-      await responseJSON<CompanyRegionalDefaultsResponse>(response),
-    ).toEqual({
-      default_language: "en-US",
-      default_timezone: "Etc/UTC",
-    });
-  });
-
+test.describe("Admin profile", () => {
   test("my-info exposes identity, effective preferences, authorization, and session", async ({
     adminAPI,
     createAdmin,
@@ -153,14 +140,13 @@ test.describe("Admin profile and company defaults", () => {
       totp_enabled: false,
       recovery_codes_remaining: 0,
       preferred_language: "en-US",
-      preferred_timezone: "Etc/UTC",
-      effective_language: "en-US",
-      effective_timezone: "Etc/UTC",
       tenant_id: "sgp",
     });
+    expect(body.created_at).toMatch(/Z$/);
+    expect(body.session_expires_at).toMatch(/Z$/);
   });
 
-  test("preference setters accept supported values and null inheritance", async ({
+  test("the language setter persists every supported UI locale", async ({
     adminAPI,
     createAdmin,
   }) => {
@@ -169,54 +155,18 @@ test.describe("Admin profile and company defaults", () => {
       (
         await adminAPI.post(
           "/set-preferred-language",
-          { preferred_language: "de-DE" },
+          { preferred_language: "de_DE" },
           { token: admin.sessionToken },
         )
       ).status(),
     ).toBe(204);
-    expect(
-      (
-        await adminAPI.post(
-          "/set-preferred-timezone",
-          { preferred_timezone: "Asia/Kolkata" },
-          { token: admin.sessionToken },
-        )
-      ).status(),
-    ).toBe(204);
-    let info = await responseJSON<MyInfoResponse>(
+    const info = await responseJSON<MyInfoResponse>(
       await adminAPI.get("/my-info", admin.sessionToken),
     );
-    expect(info.effective_language).toBe("de-DE");
-    expect(info.effective_timezone).toBe("Asia/Kolkata");
-
-    expect(
-      (
-        await adminAPI.post(
-          "/set-preferred-language",
-          { preferred_language: null },
-          { token: admin.sessionToken },
-        )
-      ).status(),
-    ).toBe(204);
-    expect(
-      (
-        await adminAPI.post(
-          "/set-preferred-timezone",
-          { preferred_timezone: null },
-          { token: admin.sessionToken },
-        )
-      ).status(),
-    ).toBe(204);
-    info = await responseJSON<MyInfoResponse>(
-      await adminAPI.get("/my-info", admin.sessionToken),
-    );
-    expect(info.preferred_language).toBeUndefined();
-    expect(info.preferred_timezone).toBeUndefined();
-    expect(info.effective_language).toBe("en-US");
-    expect(info.effective_timezone).toBe("Etc/UTC");
+    expect(info.preferred_language).toBe("de_DE");
   });
 
-  test("profile setters reject unsupported locale, timezone aliases, and invalid display names", async ({
+  test("profile setters reject unsupported locale and invalid display names", async ({
     adminAPI,
     createAdmin,
   }) => {
@@ -231,18 +181,6 @@ test.describe("Admin profile and company defaults", () => {
       "vetchium-problem-details/validation-failed",
       ["preferred_language"],
     );
-    for (const preferred_timezone of ["US/Eastern", "Etc/GMT+5"]) {
-      await expectProblem(
-        await adminAPI.post(
-          "/set-preferred-timezone",
-          { preferred_timezone },
-          { token: admin.sessionToken },
-        ),
-        400,
-        "vetchium-problem-details/validation-failed",
-        ["preferred_timezone"],
-      );
-    }
     await expectProblem(
       await adminAPI.post(
         "/set-display-names",
@@ -286,31 +224,5 @@ test.describe("Admin profile and company defaults", () => {
       { language_code: "en-US", display_name: "English Name" },
     ]);
     expect(info.primary_display_name_language).toBe("de-DE");
-  });
-
-  test("only superadmins can replace company defaults", async ({
-    adminAPI,
-    createAdmin,
-    superadminToken,
-  }) => {
-    const regular = await createAdmin();
-    await expectProblem(
-      await adminAPI.post(
-        "/set-company-regional-defaults",
-        { default_language: "en-US", default_timezone: "Etc/UTC" },
-        { token: regular.sessionToken },
-      ),
-      403,
-      "vetchium-problem-details/superadmin-required",
-    );
-    expect(
-      (
-        await adminAPI.post(
-          "/set-company-regional-defaults",
-          { default_language: "en-US", default_timezone: "Etc/UTC" },
-          { token: superadminToken },
-        )
-      ).status(),
-    ).toBe(204);
   });
 });

@@ -45,8 +45,6 @@ type LoginTOTPRequiredResponse struct {
 	AuthenticationState     AuthenticationState      `json:"authentication_state"`
 	LoginChallengeToken     AdminLoginChallengeToken `json:"login_challenge_token"`
 	LoginChallengeExpiresAt time.Time                `json:"login_challenge_expires_at"`
-	EffectiveLanguage       common.LanguageCode      `json:"effective_language"`
-	EffectiveTimezone       common.TimeZoneID        `json:"effective_timezone"`
 }
 
 type VerifyTFARequest struct {

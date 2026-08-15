@@ -47,6 +47,10 @@ code, and transaction boundaries.
 
 ## Writes and transactions
 
+- Store timestamp instants in `timestamptz` columns and keep every database
+  connection's session timezone set to UTC. Do not persist local wall-clock
+  timestamps or timezone offsets as substitutes for an instant. Use plain
+  `timestamp` only when the domain value is intentionally not an instant.
 - Perform all writes for one logical operation in one sqlc call whenever
   PostgreSQL can express the operation clearly. Prefer an atomic statement with
   CTEs, state predicates, and `RETURNING`.
@@ -99,4 +103,4 @@ changes.
   project and will profile the queries and the required indexes before we go to
   production. Do not optimize prematurely. If there are indexes needed for some
   constraint enforcement, and there is no way to achieve them without creating
-  indexes, those cases are exempted. 
+  indexes, those cases are exempted.

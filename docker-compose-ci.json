@@ -257,6 +257,9 @@
         "context": ".",
         "dockerfile": "admin-ui/Dockerfile"
       },
+      "environment": {
+        "VETCHIUM_DEFAULT_LANGUAGE": "de_DE"
+      },
       "networks": {
         "deu_ingress": null
       },
@@ -267,6 +270,9 @@
       "build": {
         "context": ".",
         "dockerfile": "admin-ui/Dockerfile"
+      },
+      "environment": {
+        "VETCHIUM_DEFAULT_LANGUAGE": "en-US"
       },
       "networks": {
         "ind1_ingress": null
@@ -279,6 +285,9 @@
         "context": ".",
         "dockerfile": "admin-ui/Dockerfile"
       },
+      "environment": {
+        "VETCHIUM_DEFAULT_LANGUAGE": "en-US"
+      },
       "networks": {
         "sgp_ingress": null
       },
@@ -289,6 +298,9 @@
       "build": {
         "context": ".",
         "dockerfile": "admin-ui/Dockerfile"
+      },
+      "environment": {
+        "VETCHIUM_DEFAULT_LANGUAGE": "en-US"
       },
       "networks": {
         "usa1_ingress": null

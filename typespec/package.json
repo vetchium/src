@@ -14,7 +14,6 @@
     "./admin/auth/types": "./admin/auth/types.ts",
     "./admin/authorization/management": "./admin/authorization/management.ts",
     "./admin/authorization/types": "./admin/authorization/types.ts",
-    "./admin/company/regional": "./admin/company/regional.ts",
     "./admin/user/user": "./admin/user/user.ts",
     "./admin/users/invitations": "./admin/users/invitations.ts",
     "./admin/users/management": "./admin/users/management.ts",
@@ -40,10 +39,9 @@
     "!**/*.test.ts"
   ],
   "scripts": {
-    "check:contract-files": "node scripts/check-contract-files.mjs && node scripts/generate-canonical-time-zones.mjs --check && node scripts/generate-canonical-locales.mjs --check",
+    "check:contract-files": "node scripts/check-contract-files.mjs && node scripts/generate-canonical-locales.mjs --check",
     "compile": "tsp compile .",
     "format": "biome check --write --config-path=../biome.json .",
-    "generate:timezones": "node scripts/generate-canonical-time-zones.mjs",
     "generate:locales": "node scripts/generate-canonical-locales.mjs",
     "format:check": "biome check --config-path=../biome.json .",
     "test:ts": "node --experimental-strip-types --test admin/*.test.ts common/*.test.ts",

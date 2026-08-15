@@ -12,9 +12,8 @@ import { isEmailAddress } from "./common.ts";
 import { isIdempotencyKey } from "./idempotency.ts";
 import {
   isDisplayName,
-  isLanguageCode,
+  isFrontendLocale,
   isRegionalLanguageCode,
-  isTimeZoneID,
   normalizeDisplayName,
 } from "./localization.ts";
 import { isPageSize, isPaginationKey } from "./pagination.ts";
@@ -51,32 +50,16 @@ test("idempotency key validator enforces URL-safe ASCII and length", () => {
 });
 
 test("localization validators require canonical registered identifiers", () => {
-  assert.equal(isLanguageCode("en-US"), true);
-  assert.equal(isLanguageCode("de-DE"), true);
-  assert.equal(isLanguageCode("ta-IN"), true);
-  assert.equal(isLanguageCode("fr-FR" as "en-US"), false);
+  assert.equal(isFrontendLocale("en-US"), true);
+  assert.equal(isFrontendLocale("ta"), true);
+  assert.equal(isFrontendLocale("de_DE"), true);
+  assert.equal(isFrontendLocale("fr-FR"), false);
   assert.equal(isRegionalLanguageCode("en-US"), true);
   assert.equal(isRegionalLanguageCode("bn-IN"), true);
   assert.equal(isRegionalLanguageCode("en-us"), false);
   assert.equal(isRegionalLanguageCode("zz-ZZ"), false);
   assert.equal(isRegionalLanguageCode("en-XA"), false);
   assert.equal(isRegionalLanguageCode("en-AA"), false);
-  assert.equal(isTimeZoneID("Asia/Kolkata"), true);
-  assert.equal(isTimeZoneID("Etc/UTC"), true);
-  assert.equal(isTimeZoneID("US/Eastern"), false);
-  assert.equal(isTimeZoneID("Asia/Saigon"), false);
-  assert.equal(isTimeZoneID("Asia/Chungking"), false);
-  assert.equal(isTimeZoneID("Australia/ACT"), false);
-  assert.equal(isTimeZoneID("America/Catamarca"), false);
-  assert.equal(isTimeZoneID("America/Indianapolis"), false);
-  assert.equal(isTimeZoneID("Australia/Canberra"), false);
-  assert.equal(isTimeZoneID("Europe/Uzhgorod"), false);
-  assert.equal(isTimeZoneID("America/Atka"), false);
-  assert.equal(isTimeZoneID("America/Ensenada"), false);
-  assert.equal(isTimeZoneID("Europe/Nicosia"), false);
-  assert.equal(isTimeZoneID("Etc/GMT+5"), false);
-  assert.equal(isTimeZoneID("UTC"), false);
-  assert.equal(isTimeZoneID("+05:30"), false);
   assert.equal(normalizeDisplayName("  நிர்வாகி  "), "நிர்வாகி");
   assert.equal(isDisplayName("  நிர்வாகி  "), true);
   assert.equal(isDisplayName("   "), false);

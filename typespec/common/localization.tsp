@@ -1,10 +1,10 @@
 namespace Vetchium;
 
-/** Languages supported throughout Vetchium portals. */
-enum LanguageCode {
+/** Locales with translated user-interface strings in Vetchium portals. */
+enum FrontendLocale {
   EnglishUnitedStates: "en-US",
-  GermanGermany: "de-DE",
-  TamilIndia: "ta-IN",
+  Tamil: "ta",
+  German: "de_DE",
 }
 
 /**
@@ -17,16 +17,6 @@ enum LanguageCode {
 )
 @format("bcp47-language-region")
 scalar RegionalLanguageCode extends string;
-
-/**
- * An IANA Time Zone Database canonical identifier, such as Asia/Kolkata.
- * Abbreviations, fixed offsets, unknown identifiers, and deprecated aliases
- * are not accepted.
- */
-@minLength(1)
-@maxLength(255)
-@format("iana-time-zone")
-scalar TimeZoneID extends string;
 
 /** A non-empty, Unicode display name after surrounding whitespace is removed. */
 @minLength(1)

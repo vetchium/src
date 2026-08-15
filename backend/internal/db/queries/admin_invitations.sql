@@ -71,8 +71,7 @@ WITH invitation AS (
         display_name,
         password_hash,
         primary_display_name_language,
-        preferred_language,
-        preferred_timezone
+        preferred_language
     )
     SELECT
         sqlc.arg(new_admin_user_id),
@@ -80,8 +79,7 @@ WITH invitation AS (
         sqlc.arg(primary_display_name),
         sqlc.arg(password_hash),
         sqlc.arg(primary_language),
-        sqlc.narg(preferred_language),
-        sqlc.narg(preferred_timezone)
+        sqlc.arg(preferred_language)
     FROM invitation
     WHERE NOT EXISTS (SELECT 1 FROM existing_user)
     ON CONFLICT (email_address) DO NOTHING

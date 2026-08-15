@@ -41,6 +41,9 @@ contract consumed by backend and future UI implementations.
   contract file.
 - TypeScript wire types represent `utcDateTime` as RFC 3339 strings because
   that is the JSON representation. They must not expose `Date` on the wire.
+- Model every timestamp returned by an API as `utcDateTime`. Implementations
+  must encode these values with a UTC offset (`Z`), never a local or caller
+  supplied offset.
 - All `.tsp` files should be formatted with `tsp format` command
   after the changes are written.
 

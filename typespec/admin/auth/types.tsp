@@ -9,10 +9,9 @@ scalar AdminSessionToken extends Vetchium.Authentication.OpaqueToken;
 /** An opaque, short-lived credential for finishing an admin login. */
 scalar AdminLoginChallengeToken extends Vetchium.Authentication.OpaqueToken;
 
-/** Session and resolved regional preferences returned after authentication. */
+/** Session and user-interface locale returned after authentication. */
 model AuthenticatedSessionResponse {
   session_token: AdminSessionToken;
   session_expires_at: utcDateTime;
-  effective_language: LanguageCode;
-  effective_timezone: TimeZoneID;
+  preferred_language: FrontendLocale;
 }

@@ -78,8 +78,7 @@ func TestLoginPasswordOnly(t *testing.T) {
 			AdminUserID:       userID,
 			PasswordHash:      passwordHash,
 			AdminUserState:    sqlc.VetchiumAdminUserStateActive,
-			EffectiveLanguage: "en-US",
-			EffectiveTimezone: "Asia/Kolkata",
+			PreferredLanguage: "en-US",
 		}, nil
 	}
 	db.createAdminSession = func(
@@ -107,8 +106,7 @@ func TestLoginPasswordOnly(t *testing.T) {
 	wantState := adminauth.AuthenticationStateAuthenticated
 	if payload.AuthenticationState != wantState ||
 		len(payload.SessionToken) < 32 ||
-		payload.EffectiveLanguage != "en-US" ||
-		payload.EffectiveTimezone != "Asia/Kolkata" {
+		payload.PreferredLanguage != "en-US" {
 		t.Fatalf("response = %+v", payload)
 	}
 }
@@ -128,8 +126,7 @@ func TestLoginWithTOTPReturnsChallenge(t *testing.T) {
 			PasswordHash:      passwordHash,
 			AdminUserState:    sqlc.VetchiumAdminUserStateActive,
 			TotpEnabled:       true,
-			EffectiveLanguage: "de-DE",
-			EffectiveTimezone: "Europe/Berlin",
+			PreferredLanguage: "de_DE",
 		}, nil
 	}
 	db.createLoginChallenge = func(

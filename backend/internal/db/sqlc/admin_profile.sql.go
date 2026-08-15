@@ -11,42 +11,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const getAdminCompanyRegionalDefaults = `-- name: GetAdminCompanyRegionalDefaults :one
-SELECT default_language, default_timezone
-FROM vetchium.admin_company_settings
-WHERE singleton
-`
-
-type GetAdminCompanyRegionalDefaultsRow struct {
-	DefaultLanguage string `json:"default_language"`
-	DefaultTimezone string `json:"default_timezone"`
-}
-
-func (q *Queries) GetAdminCompanyRegionalDefaults(ctx context.Context) (GetAdminCompanyRegionalDefaultsRow, error) {
-	row := q.db.QueryRow(ctx, getAdminCompanyRegionalDefaults)
-	var i GetAdminCompanyRegionalDefaultsRow
-	err := row.Scan(&i.DefaultLanguage, &i.DefaultTimezone)
-	return i, err
-}
-
-const setAdminCompanyRegionalDefaults = `-- name: SetAdminCompanyRegionalDefaults :exec
-UPDATE vetchium.admin_company_settings
-SET default_language = $1,
-    default_timezone = $2,
-    updated_at = now()
-WHERE singleton
-`
-
-type SetAdminCompanyRegionalDefaultsParams struct {
-	DefaultLanguage string `json:"default_language"`
-	DefaultTimezone string `json:"default_timezone"`
-}
-
-func (q *Queries) SetAdminCompanyRegionalDefaults(ctx context.Context, arg SetAdminCompanyRegionalDefaultsParams) error {
-	_, err := q.db.Exec(ctx, setAdminCompanyRegionalDefaults, arg.DefaultLanguage, arg.DefaultTimezone)
-	return err
-}
-
 const setAdminDisplayNames = `-- name: SetAdminDisplayNames :execrows
 WITH target AS MATERIALIZED (
     SELECT u.admin_user_id
@@ -118,32 +82,11 @@ WHERE admin_user_id = $1
 
 type SetAdminPreferredLanguageParams struct {
 	AdminUserID       pgtype.UUID `json:"admin_user_id"`
-	PreferredLanguage pgtype.Text `json:"preferred_language"`
+	PreferredLanguage string      `json:"preferred_language"`
 }
 
 func (q *Queries) SetAdminPreferredLanguage(ctx context.Context, arg SetAdminPreferredLanguageParams) (int64, error) {
 	result, err := q.db.Exec(ctx, setAdminPreferredLanguage, arg.AdminUserID, arg.PreferredLanguage)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
-}
-
-const setAdminPreferredTimezone = `-- name: SetAdminPreferredTimezone :execrows
-UPDATE vetchium.admin_users
-SET preferred_timezone = $2,
-    updated_at = now()
-WHERE admin_user_id = $1
-  AND admin_user_state = 'active'
-`
-
-type SetAdminPreferredTimezoneParams struct {
-	AdminUserID       pgtype.UUID `json:"admin_user_id"`
-	PreferredTimezone pgtype.Text `json:"preferred_timezone"`
-}
-
-func (q *Queries) SetAdminPreferredTimezone(ctx context.Context, arg SetAdminPreferredTimezoneParams) (int64, error) {
-	result, err := q.db.Exec(ctx, setAdminPreferredTimezone, arg.AdminUserID, arg.PreferredTimezone)
 	if err != nil {
 		return 0, err
 	}

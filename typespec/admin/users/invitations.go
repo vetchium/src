@@ -37,8 +37,7 @@ type CompleteSetupRequest struct {
 	Password                   common.NewPassword            `json:"password"`
 	DisplayNames               []common.LocalizedDisplayName `json:"display_names"`
 	PrimaryDisplayNameLanguage common.RegionalLanguageCode   `json:"primary_display_name_language"`
-	PreferredLanguage          *common.LanguageCode          `json:"preferred_language,omitempty"`
-	PreferredTimezone          *common.TimeZoneID            `json:"preferred_timezone,omitempty"`
+	PreferredLanguage          common.FrontendLocale         `json:"preferred_language"`
 }
 
 func (r CompleteSetupRequest) Normalize() CompleteSetupRequest {
@@ -65,13 +64,8 @@ func (r CompleteSetupRequest) Validate() []string {
 		!primaryPresent {
 		fields = append(fields, "primary_display_name_language")
 	}
-	if r.PreferredLanguage != nil &&
-		!common.IsLanguageCode(*r.PreferredLanguage) {
+	if !common.IsFrontendLocale(r.PreferredLanguage) {
 		fields = append(fields, "preferred_language")
-	}
-	if r.PreferredTimezone != nil &&
-		!common.IsTimeZoneID(*r.PreferredTimezone) {
-		fields = append(fields, "preferred_timezone")
 	}
 	return fields
 }

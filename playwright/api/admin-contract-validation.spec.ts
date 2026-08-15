@@ -54,11 +54,6 @@ const bodyEndpoints: BodyEndpoint[] = [
     authenticated: true,
   },
   {
-    path: "/set-company-regional-defaults",
-    body: { default_language: "en-US", default_timezone: "Etc/UTC" },
-    authenticated: true,
-  },
-  {
     path: "/grant-permission",
     body: { admin_user_id: randomUUID(), permission: "admin:view_users" },
     authenticated: true,
@@ -91,6 +86,7 @@ const bodyEndpoints: BodyEndpoint[] = [
       password: "Unique!password-value",
       display_names: [{ language_code: "en-US", display_name: "JSON Test" }],
       primary_display_name_language: "en-US",
+      preferred_language: "en-US",
     },
     idempotent: true,
   },
@@ -111,11 +107,6 @@ const bodyEndpoints: BodyEndpoint[] = [
     authenticated: true,
   },
   {
-    path: "/set-preferred-timezone",
-    body: { preferred_timezone: "Etc/UTC" },
-    authenticated: true,
-  },
-  {
     path: "/set-display-names",
     body: {
       display_names: [{ language_code: "en-US", display_name: "JSON Test" }],
@@ -131,7 +122,6 @@ const protectedPostEndpoints = [
   "/confirm-totp-enrollment",
   "/disable-totp",
   "/regenerate-totp-recovery-codes",
-  "/set-company-regional-defaults",
   "/grant-permission",
   "/revoke-permission",
   "/promote-to-superadmin",
@@ -141,7 +131,6 @@ const protectedPostEndpoints = [
   "/disable-user",
   "/enable-user",
   "/set-preferred-language",
-  "/set-preferred-timezone",
   "/set-display-names",
 ] as const;
 

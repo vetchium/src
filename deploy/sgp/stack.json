@@ -524,7 +524,11 @@
         }
       },
       "image": "${REGISTRY:-ghcr.io/vetchium}/admin-ui:${TAG:?set TAG}",
+      "environment": {
+        "VETCHIUM_DEFAULT_LANGUAGE": "${ADMIN_UI_DEFAULT_LANGUAGE:-en-US}"
+      },
       "read_only": true,
+      "tmpfs": ["/tmp"],
       "networks": ["ingress"],
       "healthcheck": {
         "test": [

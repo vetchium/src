@@ -6,8 +6,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgtype"
-
 	adminspec "github.com/vetchium/src/typespec/admin"
 	"github.com/vetchium/src/typespec/admin/users"
 	adminproblem "github.com/vetchium/src/typespec/problem/admin"
@@ -94,7 +92,7 @@ func InviteUser(s *adminapi.Server) http.HandlerFunc {
 						AdminInvitationID: users.AdminInvitationID(
 							adminapi.FormatUUID(row.AdminInvitationID),
 						),
-						ExpiresAt: expiresAt,
+						ExpiresAt: expiresAt.UTC(),
 					},
 				}, nil, nil
 			},
@@ -153,16 +151,7 @@ func CompleteSetup(s *adminapi.Server) http.HandlerFunc {
 					PrimaryLanguage:    string(request.PrimaryDisplayNameLanguage),
 					LanguageCodes:      languageCodes,
 					DisplayNames:       displayNames,
-				}
-				if request.PreferredLanguage != nil {
-					params.PreferredLanguage = pgtype.Text{
-						String: string(*request.PreferredLanguage), Valid: true,
-					}
-				}
-				if request.PreferredTimezone != nil {
-					params.PreferredTimezone = pgtype.Text{
-						String: string(*request.PreferredTimezone), Valid: true,
-					}
+					PreferredLanguage:  string(request.PreferredLanguage),
 				}
 				row, err := q.CompleteAdminSetup(r.Context(), params)
 				if err != nil {

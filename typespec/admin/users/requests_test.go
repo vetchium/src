@@ -8,8 +8,6 @@ import (
 )
 
 func TestCompleteSetupNormalizeAndValidate(t *testing.T) {
-	language := common.TamilIndia
-	timezone := common.TimeZoneID("Asia/Kolkata")
 	request := CompleteSetupRequest{
 		InvitationToken: "tttttttttttttttttttttttttttttttt",
 		Password:        "a sufficiently long password",
@@ -18,8 +16,7 @@ func TestCompleteSetupNormalizeAndValidate(t *testing.T) {
 			{LanguageCode: "ta-IN", DisplayName: " நிர்வாகி "},
 		},
 		PrimaryDisplayNameLanguage: "en-US",
-		PreferredLanguage:          &language,
-		PreferredTimezone:          &timezone,
+		PreferredLanguage:          common.Tamil,
 	}
 	normalized := request.Normalize()
 	if normalized.DisplayNames[0].DisplayName != "Admin" ||
@@ -35,13 +32,10 @@ func TestCompleteSetupNormalizeAndValidate(t *testing.T) {
 		{LanguageCode: "en-US", DisplayName: "Duplicate"},
 	}
 	normalized.PrimaryDisplayNameLanguage = "ta-IN"
-	invalidLanguage := common.LanguageCode("fr-FR")
-	invalidTimezone := common.TimeZoneID("US/Eastern")
-	normalized.PreferredLanguage = &invalidLanguage
-	normalized.PreferredTimezone = &invalidTimezone
+	normalized.PreferredLanguage = common.FrontendLocale("fr-FR")
 	want := []string{
 		"display_names", "primary_display_name_language",
-		"preferred_language", "preferred_timezone",
+		"preferred_language",
 	}
 	if fields := normalized.Validate(); !slices.Equal(fields, want) {
 		t.Fatalf("Validate() = %v, want %v", fields, want)

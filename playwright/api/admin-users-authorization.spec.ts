@@ -126,7 +126,6 @@ test.describe("Admin invitations", () => {
         ],
         primary_display_name_language: "en-US",
         preferred_language: "en-US",
-        preferred_timezone: "Etc/UTC",
       },
       { idempotencyKey: idempotencyKey() },
     );
@@ -165,6 +164,7 @@ test.describe("Admin invitations", () => {
         { language_code: "en-US", display_name: "Original Name" },
       ],
       primary_display_name_language: "en-US",
+      preferred_language: "en-US",
     };
     expect(
       (
@@ -241,6 +241,7 @@ test.describe("Admin invitations", () => {
             { language_code: "en-US", display_name: "Invalid Token" },
           ],
           primary_display_name_language: "en-US",
+          preferred_language: "en-US",
         },
         { idempotencyKey: idempotencyKey() },
       ),
@@ -256,6 +257,7 @@ test.describe("Admin invitations", () => {
           password: "short",
           display_names: [],
           primary_display_name_language: "en-US",
+          preferred_language: "en-US",
         },
         { idempotencyKey: idempotencyKey() },
       ),

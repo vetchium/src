@@ -40,8 +40,6 @@ model LoginTOTPRequiredResponse {
   authentication_state: AuthenticationState.TOTPRequired;
   login_challenge_token: AdminLoginChallengeToken;
   login_challenge_expires_at: utcDateTime;
-  effective_language: LanguageCode;
-  effective_timezone: TimeZoneID;
 }
 
 /** The next state after successful password authentication. */

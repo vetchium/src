@@ -6,10 +6,8 @@ SELECT
     u.admin_user_state,
     u.totp_enabled,
     u.totp_secret_ciphertext,
-    COALESCE(u.preferred_language, c.default_language)::text AS effective_language,
-    COALESCE(u.preferred_timezone, c.default_timezone)::text AS effective_timezone
+    u.preferred_language
 FROM vetchium.admin_users AS u
-CROSS JOIN vetchium.admin_company_settings AS c
 WHERE u.email_address = $1;
 
 -- name: CreateAdminSession :one
@@ -71,11 +69,9 @@ SELECT
     c.admin_user_id,
     u.totp_secret_ciphertext,
     u.admin_user_state,
-    COALESCE(u.preferred_language, s.default_language)::text AS effective_language,
-    COALESCE(u.preferred_timezone, s.default_timezone)::text AS effective_timezone
+    u.preferred_language
 FROM vetchium.admin_login_challenges AS c
 JOIN vetchium.admin_users AS u USING (admin_user_id)
-CROSS JOIN vetchium.admin_company_settings AS s
 WHERE c.token_hash = $1
   AND c.active
   AND c.consumed_at IS NULL
@@ -165,14 +161,10 @@ SELECT
     u.totp_enabled,
     recovery.remaining_codes AS recovery_codes_remaining,
     u.preferred_language,
-    u.preferred_timezone,
-    COALESCE(u.preferred_language, c.default_language)::text AS effective_language,
-    COALESCE(u.preferred_timezone, c.default_timezone)::text AS effective_timezone,
     u.created_at,
     s.expires_at
 FROM vetchium.admin_sessions AS s
 JOIN vetchium.admin_users AS u USING (admin_user_id)
-CROSS JOIN vetchium.admin_company_settings AS c
 CROSS JOIN LATERAL (
     SELECT COALESCE(
         jsonb_agg(

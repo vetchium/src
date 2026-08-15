@@ -31,7 +31,7 @@ func Ping(s *hubapi.Server) http.HandlerFunc {
 			Portal:       "hub",
 			Tenant:       s.TenantID,
 			Nonce:        nonce,
-			DatabaseTime: databaseTime,
+			DatabaseTime: databaseTime.UTC(),
 		}); err != nil {
 			s.ErrorContext(
 				r.Context(), "encode hub ping response",

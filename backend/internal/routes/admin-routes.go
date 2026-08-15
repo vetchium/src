@@ -56,14 +56,6 @@ func RegisterAdminRoutes(mux *http.ServeMux, s *adminapi.Server) {
 		"POST /api/admin/regenerate-totp-recovery-codes",
 		adminAuth(recentAuth(admin.RegenerateTOTPRecoveryCodes(s))),
 	)
-	mux.HandleFunc(
-		"GET /api/admin/company-regional-defaults",
-		admin.CompanyRegionalDefaults(s),
-	)
-	mux.Handle(
-		"POST /api/admin/set-company-regional-defaults",
-		adminAuth(superadmin(admin.SetCompanyRegionalDefaults(s))),
-	)
 	mux.Handle(
 		"POST /api/admin/grant-permission",
 		adminAuth(superadmin(admin.GrantPermission(s))),
@@ -101,10 +93,6 @@ func RegisterAdminRoutes(mux *http.ServeMux, s *adminapi.Server) {
 	mux.Handle(
 		"POST /api/admin/set-preferred-language",
 		adminAuth(admin.SetPreferredLanguage(s)),
-	)
-	mux.Handle(
-		"POST /api/admin/set-preferred-timezone",
-		adminAuth(admin.SetPreferredTimezone(s)),
 	)
 	mux.Handle(
 		"POST /api/admin/set-display-names",

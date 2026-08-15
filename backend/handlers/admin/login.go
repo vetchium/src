@@ -112,9 +112,8 @@ func loginWithoutTOTP(
 		AuthenticationState: adminauth.AuthenticationStateAuthenticated,
 		AuthenticatedSessionResponse: adminauth.AuthenticatedSessionResponse{
 			SessionToken:      adminauth.AdminSessionToken(token),
-			SessionExpiresAt:  expiresAt,
-			EffectiveLanguage: common.LanguageCode(adminUser.EffectiveLanguage),
-			EffectiveTimezone: common.TimeZoneID(adminUser.EffectiveTimezone),
+			SessionExpiresAt:  expiresAt.UTC(),
+			PreferredLanguage: common.FrontendLocale(adminUser.PreferredLanguage),
 		},
 	})
 }
@@ -161,8 +160,6 @@ func loginWithTOTP(
 	s.JSON(r.Context(), w, http.StatusOK, adminauth.LoginTOTPRequiredResponse{
 		AuthenticationState:     adminauth.AuthenticationStateTOTPRequired,
 		LoginChallengeToken:     adminauth.AdminLoginChallengeToken(token),
-		LoginChallengeExpiresAt: expiresAt,
-		EffectiveLanguage:       common.LanguageCode(adminUser.EffectiveLanguage),
-		EffectiveTimezone:       common.TimeZoneID(adminUser.EffectiveTimezone),
+		LoginChallengeExpiresAt: expiresAt.UTC(),
 	})
 }

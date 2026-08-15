@@ -23,6 +23,9 @@ not apply to generated Go output such as `backend/internal/db/sqlc/*.go`.
 
 ## Implementation practices
 
+- Normalize every timestamp exposed by an API response to UTC before encoding
+  it. A `time.Time` with a non-UTC location must call `UTC()` at the response
+  boundary even when it represents the same instant.
 - Represent closed string vocabularies, including wire enums and discriminator
   values, with a named string type and a typed constant for every allowed
   value. Use those constants when constructing or comparing values instead of

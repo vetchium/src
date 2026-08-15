@@ -1,8 +1,11 @@
-import { Button, Flex, Layout, Menu, Space, Tag, Typography } from "antd";
+import { Button, Flex, Layout, Menu, Typography } from "antd";
+import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, Outlet, useLocation, useNavigate } from "react-router";
+import { Outlet, useLocation, useNavigate } from "react-router";
+import { usePreferences } from "../../app/PreferencesContext";
 import { useAuth } from "../../auth/AuthContext";
 import { useMyInfoQuery } from "../../features/profile/queries";
+import { HeaderControls } from "./HeaderControls";
 
 const { Header, Content, Footer, Sider } = Layout;
 
@@ -11,7 +14,13 @@ export function AppShell() {
   const navigate = useNavigate();
   const location = useLocation();
   const auth = useAuth();
+  const preferences = usePreferences();
   const { data: me } = useMyInfoQuery();
+  useEffect(() => {
+    if (me !== undefined && me.preferred_language !== preferences.language) {
+      preferences.setLanguage(me.preferred_language);
+    }
+  }, [me, preferences]);
   const canViewUsers =
     me?.is_superadmin === true ||
     me?.permissions.includes("admin:view_users") === true;
@@ -35,25 +44,25 @@ export function AppShell() {
           align="center"
           justify="space-between"
         >
-          <Link className="brand-link" to="/" aria-label={t("shell.homeLabel")}>
-            <Space>
-              <span>{t("shell.brand")}</span>
-              <Tag variant="filled" color="green">
-                {t("shell.portal")}
-              </Tag>
-            </Space>
-          </Link>
           <Button
-            type="text"
-            className="header-action"
-            onClick={() => void signOut()}
+            shape="round"
+            size="large"
+            ghost
+            aria-label={t("shell.homeLabel")}
+            onClick={() => navigate("/")}
           >
-            {t("shell.logout")}
+            {t("shell.logo")}
           </Button>
+          <Flex gap="small" align="center">
+            <HeaderControls />
+            <Button ghost onClick={() => void signOut()}>
+              {t("shell.logout")}
+            </Button>
+          </Flex>
         </Flex>
       </Header>
       <Layout>
-        <Sider breakpoint="lg" collapsedWidth="0" theme="light">
+        <Sider breakpoint="lg" collapsedWidth="0" theme={preferences.themeMode}>
           <Menu
             mode="inline"
             selectedKeys={[selectedKey]}

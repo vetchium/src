@@ -122,9 +122,8 @@ func VerifyTFA(s *adminapi.Server) http.HandlerFunc {
 					status: http.StatusOK,
 					body: adminauth.AuthenticatedSessionResponse{
 						SessionToken:      adminauth.AdminSessionToken(token),
-						SessionExpiresAt:  expiresAt,
-						EffectiveLanguage: common.LanguageCode(challenge.EffectiveLanguage),
-						EffectiveTimezone: common.TimeZoneID(challenge.EffectiveTimezone),
+						SessionExpiresAt:  expiresAt.UTC(),
+						PreferredLanguage: common.FrontendLocale(challenge.PreferredLanguage),
 					},
 				}, nil, nil
 			},
@@ -195,7 +194,7 @@ func StartTOTPEnrollment(s *adminapi.Server) http.HandlerFunc {
 						),
 						ManualEntryKey: common.TOTPManualEntryKey(secret),
 						Configuration:  common.StandardTOTPConfiguration(),
-						ExpiresAt:      expiresAt,
+						ExpiresAt:      expiresAt.UTC(),
 					},
 				}, nil, nil
 			},
@@ -370,9 +369,8 @@ func VerifyRecoveryCode(s *adminapi.Server) http.HandlerFunc {
 					body: adminauth.VerifyRecoveryCodeResponse{
 						AuthenticatedSessionResponse: adminauth.AuthenticatedSessionResponse{
 							SessionToken:      adminauth.AdminSessionToken(token),
-							SessionExpiresAt:  expiresAt,
-							EffectiveLanguage: common.LanguageCode(challenge.EffectiveLanguage),
-							EffectiveTimezone: common.TimeZoneID(challenge.EffectiveTimezone),
+							SessionExpiresAt:  expiresAt.UTC(),
+							PreferredLanguage: common.FrontendLocale(challenge.PreferredLanguage),
 						},
 						RemainingRecoveryCodes: common.TOTPRecoveryCodeCount(session.RemainingCodes),
 					},

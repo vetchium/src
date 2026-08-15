@@ -2,6 +2,7 @@ export const en = {
   shell: {
     documentTitle: "Vetchium Admin",
     brand: "Vetchium",
+    logo: "Vetchium Admin",
     homeLabel: "Vetchium admin home",
     portal: "Admin",
     footer: "Vetchium tenant administration",
@@ -11,6 +12,15 @@ export const en = {
     overview: "Overview",
     users: "Administrators",
     profile: "My profile",
+  },
+  theme: {
+    dark: "Dark",
+    light: "Light",
+    toggleLabel: "Switch light or dark mode",
+  },
+  language: {
+    changeError: "The language could not be changed. Please try again.",
+    selectorLabel: "Select language",
   },
   common: {
     backToLogin: "Back to sign in",
@@ -42,7 +52,6 @@ export const en = {
     sessionExpires: "Session expires",
     state: "State",
     tenant: "Tenant",
-    timezone: "Time zone",
     totpCode: "Six-digit code",
     twoFactor: "Two-factor authentication",
   },
@@ -55,9 +64,9 @@ export const en = {
     totpCode: "Enter the six-digit code.",
   },
   languages: {
-    "en-US": "English (United States)",
-    "de-DE": "German (Germany)",
-    "ta-IN": "Tamil (India)",
+    "en-US": "English US",
+    ta: "தமிழ்",
+    de_DE: "Deutsch",
   },
   states: { active: "Active", disabled: "Disabled" },
   permissions: {
@@ -127,16 +136,11 @@ export const en = {
   },
   profile: {
     title: "My profile",
-    description:
-      "Manage how your name, language, and time zone appear in the admin portal.",
+    description: "Manage how your name appears in the admin portal.",
     namesCard: "Display names",
-    preferencesCard: "Regional preferences",
     primaryLanguage: "Primary display-name language",
     languageCodePlaceholder: "en-US",
     addName: "Add another language",
-    companyDefault: "Company default ({{value}})",
-    timezoneHelp:
-      "Leave empty to inherit the company default. Current effective value: {{value}}.",
     saved: "Profile updated.",
     saveError:
       "Your profile could not be updated. Check the values and try again.",

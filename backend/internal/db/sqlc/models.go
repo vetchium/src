@@ -53,13 +53,6 @@ func (ns NullVetchiumAdminUserState) Value() (driver.Value, error) {
 	return string(ns.VetchiumAdminUserState), nil
 }
 
-type VetchiumAdminCompanySetting struct {
-	Singleton       bool               `json:"singleton"`
-	DefaultLanguage string             `json:"default_language"`
-	DefaultTimezone string             `json:"default_timezone"`
-	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
-}
-
 type VetchiumAdminDisplayName struct {
 	AdminUserID  pgtype.UUID `json:"admin_user_id"`
 	LanguageCode string      `json:"language_code"`
@@ -148,8 +141,7 @@ type VetchiumAdminUser struct {
 	AdminUserState             VetchiumAdminUserState `json:"admin_user_state"`
 	IsSuperadmin               bool                   `json:"is_superadmin"`
 	PrimaryDisplayNameLanguage string                 `json:"primary_display_name_language"`
-	PreferredLanguage          pgtype.Text            `json:"preferred_language"`
-	PreferredTimezone          pgtype.Text            `json:"preferred_timezone"`
+	PreferredLanguage          string                 `json:"preferred_language"`
 	TotpSecretCiphertext       []byte                 `json:"totp_secret_ciphertext"`
 	TotpEnabled                bool                   `json:"totp_enabled"`
 	TotpLastTimestep           pgtype.Int8            `json:"totp_last_timestep"`

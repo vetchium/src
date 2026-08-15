@@ -31,7 +31,7 @@ func Ping(s *orgsapi.Server) http.HandlerFunc {
 			Portal:       "org",
 			Tenant:       s.TenantID,
 			Nonce:        nonce,
-			DatabaseTime: databaseTime,
+			DatabaseTime: databaseTime.UTC(),
 		}); err != nil {
 			s.ErrorContext(
 				r.Context(), "encode org ping response",

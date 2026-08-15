@@ -1,41 +1,26 @@
 import type { TOTPRecoveryCodeCount } from "../../common/authentication.ts";
 import type { EmailAddress } from "../../common/common.ts";
 import type {
-  LanguageCode,
+  FrontendLocale,
   LocalizedDisplayName,
   RegionalLanguageCode,
-  TimeZoneID,
 } from "../../common/localization.ts";
-import { isLanguageCode, isTimeZoneID } from "../../common/localization.ts";
+import { isFrontendLocale } from "../../common/localization.ts";
 import type { AdminAuthorization } from "../authorization/types.ts";
 import type { AdminUserID } from "../types.ts";
 import type { State } from "../user/user.ts";
 import { normalizeDisplayNames, validateDisplayNames } from "./validation.ts";
 
 export interface SetPreferredLanguageRequest {
-  preferred_language: LanguageCode | null;
+  preferred_language: FrontendLocale;
 }
 
 export function validateSetPreferredLanguageRequest(
   request: SetPreferredLanguageRequest,
 ): string[] {
-  return request.preferred_language === null ||
-    isLanguageCode(request.preferred_language)
+  return isFrontendLocale(request.preferred_language)
     ? []
     : ["preferred_language"];
-}
-
-export interface SetPreferredTimezoneRequest {
-  preferred_timezone: TimeZoneID | null;
-}
-
-export function validateSetPreferredTimezoneRequest(
-  request: SetPreferredTimezoneRequest,
-): string[] {
-  return request.preferred_timezone === null ||
-    isTimeZoneID(request.preferred_timezone)
-    ? []
-    : ["preferred_timezone"];
 }
 
 export interface SetDisplayNamesRequest {
@@ -78,10 +63,7 @@ export interface MyInfoResponse extends AdminAuthorization {
   state: State;
   totp_enabled: boolean;
   recovery_codes_remaining: TOTPRecoveryCodeCount;
-  preferred_language?: LanguageCode;
-  preferred_timezone?: TimeZoneID;
-  effective_language: LanguageCode;
-  effective_timezone: TimeZoneID;
+  preferred_language: FrontendLocale;
   created_at: string;
   session_expires_at: string;
   tenant_id: string;
