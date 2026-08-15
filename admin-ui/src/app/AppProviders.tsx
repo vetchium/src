@@ -21,13 +21,6 @@ function ThemedApplication({ children }: PropsWithChildren) {
         algorithm:
           themeMode === "dark" ? theme.darkAlgorithm : theme.defaultAlgorithm,
         token: { colorPrimary: primaryColor },
-        components: {
-          Button: {
-            defaultGhostBorderColor: "#ffffff",
-            defaultGhostColor: "#ffffff",
-          },
-          Layout: { headerBg: primaryColor },
-        },
       }}
     >
       <AntApp>

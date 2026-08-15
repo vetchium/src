@@ -2,13 +2,15 @@ export const de = {
   shell: {
     documentTitle: "Vetchium-Administration",
     brand: "Vetchium",
-    logo: "Vetchium Admin",
+    monogram: "V",
     homeLabel: "Startseite der Vetchium-Administration",
     portal: "Administration",
     footer: "Administration der Vetchium-Instanz",
     logout: "Abmelden",
   },
   navigation: {
+    menu: "Navigation",
+    openMenu: "Navigation öffnen",
     overview: "Übersicht",
     users: "Administratoren",
     profile: "Mein Profil",
@@ -22,6 +24,11 @@ export const de = {
     changeError:
       "Die Sprache konnte nicht geändert werden. Bitte erneut versuchen.",
     selectorLabel: "Sprache auswählen",
+  },
+  languageShort: {
+    "en-US": "EN",
+    ta: "TA",
+    de_DE: "DE",
   },
   common: {
     backToLogin: "Zurück zur Anmeldung",

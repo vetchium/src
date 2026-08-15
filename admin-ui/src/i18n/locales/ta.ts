@@ -2,13 +2,15 @@ export const ta = {
   shell: {
     documentTitle: "Vetchium நிர்வாகம்",
     brand: "Vetchium",
-    logo: "Vetchium நிர்வாகம்",
+    monogram: "V",
     homeLabel: "Vetchium நிர்வாக முகப்பு",
     portal: "நிர்வாகம்",
     footer: "Vetchium தள நிர்வாகம்",
     logout: "வெளியேறு",
   },
   navigation: {
+    menu: "வழிசெலுத்தல்",
+    openMenu: "வழிசெலுத்தலைத் திறக்கவும்",
     overview: "மேலோட்டம்",
     users: "நிர்வாகிகள்",
     profile: "என் சுயவிவரம்",
@@ -21,6 +23,11 @@ export const ta = {
   language: {
     changeError: "மொழியை மாற்ற முடியவில்லை. மீண்டும் முயற்சிக்கவும்.",
     selectorLabel: "மொழியைத் தேர்ந்தெடுக்கவும்",
+  },
+  languageShort: {
+    "en-US": "EN",
+    ta: "TA",
+    de_DE: "DE",
   },
   common: {
     backToLogin: "உள்நுழைவுக்குத் திரும்பு",

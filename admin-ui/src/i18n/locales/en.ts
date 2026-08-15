@@ -2,13 +2,15 @@ export const en = {
   shell: {
     documentTitle: "Vetchium Admin",
     brand: "Vetchium",
-    logo: "Vetchium Admin",
+    monogram: "V",
     homeLabel: "Vetchium admin home",
     portal: "Admin",
     footer: "Vetchium tenant administration",
     logout: "Sign out",
   },
   navigation: {
+    menu: "Navigation",
+    openMenu: "Open navigation",
     overview: "Overview",
     users: "Administrators",
     profile: "My profile",
@@ -21,6 +23,11 @@ export const en = {
   language: {
     changeError: "The language could not be changed. Please try again.",
     selectorLabel: "Select language",
+  },
+  languageShort: {
+    "en-US": "EN",
+    ta: "TA",
+    de_DE: "DE",
   },
   common: {
     backToLogin: "Back to sign in",

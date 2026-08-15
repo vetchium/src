@@ -1,10 +1,11 @@
-import { Card, Descriptions, Space, Tag, Typography } from "antd";
+import { Card, Descriptions, Grid, Space, Tag, Typography } from "antd";
 import { useTranslation } from "react-i18next";
 import { intlLocale } from "../app/preferences";
 import { useMyInfoQuery } from "../features/profile/queries";
 
 export function HomePage() {
   const { t, i18n } = useTranslation();
+  const screens = Grid.useBreakpoint();
   const { data: me } = useMyInfoQuery();
   if (me === undefined) return null;
   const primaryName =
@@ -32,6 +33,7 @@ export function HomePage() {
       <Card title={t("home.accountCard")}>
         <Descriptions
           column={{ xs: 1, sm: 2 }}
+          layout={screens.sm === true ? "horizontal" : "vertical"}
           items={[
             {
               key: "email",

@@ -1,18 +1,20 @@
-import { Button, Flex, Layout, Menu, Typography } from "antd";
-import { useEffect } from "react";
+import { Drawer, Flex, Grid, Layout, Menu, Typography } from "antd";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Outlet, useLocation, useNavigate } from "react-router";
 import { usePreferences } from "../../app/PreferencesContext";
 import { useAuth } from "../../auth/AuthContext";
 import { useMyInfoQuery } from "../../features/profile/queries";
-import { HeaderControls } from "./HeaderControls";
+import { AppHeader } from "./AppHeader";
 
-const { Header, Content, Footer, Sider } = Layout;
+const { Content, Footer, Sider } = Layout;
 
 export function AppShell() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
+  const screens = Grid.useBreakpoint();
+  const [navigationOpen, setNavigationOpen] = useState(false);
   const auth = useAuth();
   const preferences = usePreferences();
   const { data: me } = useMyInfoQuery();
@@ -29,6 +31,16 @@ export function AppShell() {
     : location.pathname.startsWith("/settings/profile")
       ? "/settings/profile"
       : "/";
+  const navigationItems = [
+    { key: "/", label: t("navigation.overview") },
+    ...(canViewUsers ? [{ key: "/users", label: t("navigation.users") }] : []),
+    { key: "/settings/profile", label: t("navigation.profile") },
+  ];
+
+  const navigateFromMenu = (path: string) => {
+    setNavigationOpen(false);
+    navigate(path);
+  };
 
   const signOut = async () => {
     await auth.logout();
@@ -38,44 +50,37 @@ export function AppShell() {
   return (
     <Layout className="app-layout">
       <title>{t("shell.documentTitle")}</title>
-      <Header>
-        <Flex
-          className="app-header-content"
-          align="center"
-          justify="space-between"
-        >
-          <Button
-            shape="round"
-            size="large"
-            ghost
-            aria-label={t("shell.homeLabel")}
-            onClick={() => navigate("/")}
-          >
-            {t("shell.logo")}
-          </Button>
-          <Flex gap="small" align="center">
-            <HeaderControls />
-            <Button ghost onClick={() => void signOut()}>
-              {t("shell.logout")}
-            </Button>
-          </Flex>
-        </Flex>
-      </Header>
+      <AppHeader
+        homePath="/"
+        onOpenNavigation={() => setNavigationOpen(true)}
+        onSignOut={() => void signOut()}
+      />
+      <Drawer
+        title={t("navigation.menu")}
+        placement="left"
+        size={280}
+        open={screens.lg !== true && navigationOpen}
+        styles={{ body: { padding: 0 } }}
+        onClose={() => setNavigationOpen(false)}
+      >
+        <Menu
+          mode="inline"
+          selectedKeys={[selectedKey]}
+          items={navigationItems}
+          onClick={({ key }) => navigateFromMenu(key)}
+        />
+      </Drawer>
       <Layout>
-        <Sider breakpoint="lg" collapsedWidth="0" theme={preferences.themeMode}>
-          <Menu
-            mode="inline"
-            selectedKeys={[selectedKey]}
-            items={[
-              { key: "/", label: t("navigation.overview") },
-              ...(canViewUsers
-                ? [{ key: "/users", label: t("navigation.users") }]
-                : []),
-              { key: "/settings/profile", label: t("navigation.profile") },
-            ]}
-            onClick={({ key }) => navigate(key)}
-          />
-        </Sider>
+        {screens.lg === true ? (
+          <Sider theme={preferences.themeMode}>
+            <Menu
+              mode="inline"
+              selectedKeys={[selectedKey]}
+              items={navigationItems}
+              onClick={({ key }) => navigateFromMenu(key)}
+            />
+          </Sider>
+        ) : null}
         <Flex
           component={Content}
           className="app-content"
