@@ -1,13 +1,16 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Alert,
+  App,
   Button,
   Card,
   Flex,
   Form,
   Input,
+  Popconfirm,
   Select,
   Space,
+  Spin,
   Table,
   Tag,
   Typography,
@@ -23,9 +26,19 @@ import type {
   ListUsersRequest,
 } from "../../../typespec/admin/users/management.ts";
 import type { PaginationKey } from "../../../typespec/common/pagination.ts";
+import { SuperadminRequiredError } from "../../../typespec/problem/admin/authorization.ts";
+import {
+  AdminUserNotFoundError,
+  CannotDisableCurrentAdminError,
+  LastActiveSuperadminError,
+} from "../../../typespec/problem/admin/users.ts";
+import { problemTranslationKey } from "../api/problems";
 import { intlLocale } from "../app/preferences";
+import { UserAccessModal } from "../features/authorization/UserAccessModal";
 import { useMyInfoQuery } from "../features/profile/queries";
-import { listUsers } from "../features/users/api";
+import { disableUser, enableUser } from "../features/users/api";
+import { InviteUserModal } from "../features/users/InviteUserModal";
+import { usersQueryKey, useUsersQuery } from "../features/users/queries";
 
 interface UserFilters {
   email?: string;
@@ -35,14 +48,25 @@ interface UserFilters {
   isSuperadmin?: boolean;
 }
 
+const stateProblems = {
+  [AdminUserNotFoundError.type]: "users.errors.notFound",
+  [CannotDisableCurrentAdminError.type]: "users.errors.cannotDisableSelf",
+  [LastActiveSuperadminError.type]: "users.errors.lastSuperadmin",
+  [SuperadminRequiredError.type]: "users.errors.superadminRequired",
+};
+
 export function UsersPage() {
   const { t, i18n } = useTranslation();
+  const { message } = App.useApp();
+  const queryClient = useQueryClient();
   const { data: me } = useMyInfoQuery();
   const [filters, setFilters] = useState<UserFilters>({});
   const [pageKeys, setPageKeys] = useState<Array<PaginationKey | undefined>>([
     undefined,
   ]);
   const [pageIndex, setPageIndex] = useState(0);
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [accessUserID, setAccessUserID] = useState<string | null>(null);
   const request: ListUsersRequest = {
     limit: 25,
     pagination_key: pageKeys[pageIndex],
@@ -52,16 +76,50 @@ export function UsersPage() {
     filter_permission: filters.permission,
     filter_is_superadmin: filters.isSuperadmin,
   };
-  const query = useQuery({
-    queryKey: ["admin", "users", request],
-    queryFn: () => listUsers(request),
-    placeholderData: (previous) => previous,
+  const query = useUsersQuery(request);
+  const stateMutation = useMutation({
+    mutationFn: ({ user }: { user: AdminUserSummary }) =>
+      user.state === "active"
+        ? disableUser({ admin_user_id: user.admin_user_id })
+        : enableUser({ admin_user_id: user.admin_user_id }),
   });
   const allowed =
     me?.is_superadmin === true ||
     me?.permissions.includes("admin:view_users") === true;
 
+  // A direct visit starts with an empty query cache. Wait for the identity
+  // request before deciding whether to redirect; `undefined` is not evidence
+  // that the administrator lacks access.
+  if (me === undefined) return <Spin size="large" />;
   if (!allowed) return <Navigate replace to="/" />;
+
+  const canManageUsers =
+    me?.is_superadmin === true ||
+    me?.permissions.includes("admin:manage_users") === true;
+  const canManageAccess = me?.is_superadmin === true;
+  // Both state mutations reject a superadmin target unless the actor is one
+  // too, and neither accepts the actor's own account.
+  const canChangeState = (user: AdminUserSummary) =>
+    canManageUsers &&
+    !stateMutation.isPending &&
+    user.admin_user_id !== me?.admin_user_id &&
+    (!user.is_superadmin || canManageAccess);
+
+  const setState = async (user: AdminUserSummary) => {
+    const disabling = user.state === "active";
+    try {
+      await stateMutation.mutateAsync({ user });
+      void message.success(
+        t(disabling ? "users.disable.done" : "users.enable.done"),
+      );
+    } catch (error) {
+      void message.error(t(problemTranslationKey(error, stateProblems)));
+    } finally {
+      // Also on failure: a state change that commits and loses its response
+      // would otherwise leave the row offering the action it just performed.
+      void queryClient.invalidateQueries({ queryKey: usersQueryKey });
+    }
+  };
 
   const columns: ColumnsType<AdminUserSummary> = [
     {
@@ -103,6 +161,56 @@ export function UsersPage() {
               timeStyle: "short",
             }).format(new Date(user.last_login_at)),
     },
+    ...(canManageUsers || canManageAccess
+      ? [
+          {
+            title: t("fields.actions"),
+            key: "actions",
+            render: (_: unknown, user: AdminUserSummary) => (
+              <Space wrap>
+                {canManageUsers ? (
+                  <Popconfirm
+                    title={t(
+                      user.state === "active"
+                        ? "users.disable.confirm"
+                        : "users.enable.confirm",
+                    )}
+                    okText={t("common.confirm")}
+                    cancelText={t("common.cancel")}
+                    disabled={!canChangeState(user)}
+                    onConfirm={() => void setState(user)}
+                  >
+                    <Button
+                      size="small"
+                      danger={user.state === "active"}
+                      disabled={!canChangeState(user)}
+                      loading={
+                        stateMutation.isPending &&
+                        stateMutation.variables?.user.admin_user_id ===
+                          user.admin_user_id
+                      }
+                    >
+                      {t(
+                        user.state === "active"
+                          ? "users.disable.action"
+                          : "users.enable.action",
+                      )}
+                    </Button>
+                  </Popconfirm>
+                ) : null}
+                {canManageAccess ? (
+                  <Button
+                    size="small"
+                    onClick={() => setAccessUserID(user.admin_user_id)}
+                  >
+                    {t("users.access.action")}
+                  </Button>
+                ) : null}
+              </Space>
+            ),
+          },
+        ]
+      : []),
   ];
 
   const applyFilters = (values: UserFilters) => {
@@ -116,23 +224,33 @@ export function UsersPage() {
     setPageKeys((keys) => [...keys.slice(0, pageIndex + 1), nextKey]);
     setPageIndex((index) => index + 1);
   };
+  const users = query.data?.users ?? [];
+  const accessUser =
+    users.find((user) => user.admin_user_id === accessUserID) ?? null;
 
   return (
     <Space orientation="vertical" size="large" className="full-width">
-      <div>
-        <Typography.Title level={1}>{t("users.title")}</Typography.Title>
-        <Typography.Text type="secondary">
-          {t("users.description")}
-        </Typography.Text>
-      </div>
+      <Flex align="flex-start" justify="space-between" gap="middle" wrap>
+        <div>
+          <Typography.Title level={1}>{t("users.title")}</Typography.Title>
+          <Typography.Text type="secondary">
+            {t("users.description")}
+          </Typography.Text>
+        </div>
+        {canManageUsers ? (
+          <Button type="primary" onClick={() => setInviteOpen(true)}>
+            {t("users.invite.action")}
+          </Button>
+        ) : null}
+      </Flex>
       <Card title={t("users.filters")}>
         <Form<UserFilters> layout="vertical" onFinish={applyFilters}>
           <Flex gap="middle" wrap>
             <Form.Item name="email" label={t("fields.email")}>
-              <Input allowClear />
+              <Input allowClear maxLength={320} />
             </Form.Item>
             <Form.Item name="displayName" label={t("fields.displayName")}>
-              <Input allowClear />
+              <Input allowClear maxLength={320} />
             </Form.Item>
             <Form.Item name="state" label={t("fields.state")}>
               <Select
@@ -182,10 +300,10 @@ export function UsersPage() {
       <Table<AdminUserSummary>
         rowKey="admin_user_id"
         columns={columns}
-        dataSource={query.data?.users ?? []}
+        dataSource={users}
         loading={query.isPending || query.isFetching}
         pagination={false}
-        scroll={{ x: 900 }}
+        scroll={{ x: 1100 }}
       />
       <Flex justify="space-between" align="center">
         <Button
@@ -204,6 +322,11 @@ export function UsersPage() {
           {t("common.next")}
         </Button>
       </Flex>
+      <InviteUserModal open={inviteOpen} onClose={() => setInviteOpen(false)} />
+      <UserAccessModal
+        user={accessUser}
+        onClose={() => setAccessUserID(null)}
+      />
     </Space>
   );
 }

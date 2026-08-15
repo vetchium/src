@@ -16,14 +16,11 @@ import type {
   CompleteSetupRequest,
   CompleteSetupResponse,
 } from "../../../../typespec/admin/users/invitations.ts";
-import { requestJson, requestVoid } from "../../api/client";
+import type { IdempotencyKey } from "../../../../typespec/common/idempotency.ts";
+import { idempotencyHeaders, requestJson, requestVoid } from "../../api/client";
 
 function jsonBody(value: unknown): string {
   return JSON.stringify(value);
-}
-
-function idempotencyHeaders(): HeadersInit {
-  return { "Idempotency-Key": crypto.randomUUID() };
 }
 
 export function login(request: LoginRequest): Promise<LoginResponse> {
@@ -35,20 +32,22 @@ export function login(request: LoginRequest): Promise<LoginResponse> {
 
 export function verifyTFA(
   request: VerifyTFARequest,
+  idempotencyKey: IdempotencyKey,
 ): Promise<AuthenticatedSessionResponse> {
   return requestJson("/admin/login/tfa", {
     method: "POST",
-    headers: idempotencyHeaders(),
+    headers: idempotencyHeaders(idempotencyKey),
     body: jsonBody(request),
   });
 }
 
 export function verifyRecoveryCode(
   request: VerifyRecoveryCodeRequest,
+  idempotencyKey: IdempotencyKey,
 ): Promise<VerifyRecoveryCodeResponse> {
   return requestJson("/admin/login/recovery-code", {
     method: "POST",
-    headers: idempotencyHeaders(),
+    headers: idempotencyHeaders(idempotencyKey),
     body: jsonBody(request),
   });
 }
@@ -68,20 +67,22 @@ export function requestPasswordReset(
 
 export function completePasswordReset(
   request: CompletePasswordResetRequest,
+  idempotencyKey: IdempotencyKey,
 ): Promise<void> {
   return requestVoid("/admin/complete-password-reset", {
     method: "POST",
-    headers: idempotencyHeaders(),
+    headers: idempotencyHeaders(idempotencyKey),
     body: jsonBody(request),
   });
 }
 
 export function completeSetup(
   request: CompleteSetupRequest,
+  idempotencyKey: IdempotencyKey,
 ): Promise<CompleteSetupResponse> {
   return requestJson("/admin/complete-setup", {
     method: "POST",
-    headers: idempotencyHeaders(),
+    headers: idempotencyHeaders(idempotencyKey),
     body: jsonBody(request),
   });
 }

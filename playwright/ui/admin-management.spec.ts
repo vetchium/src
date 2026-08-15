@@ -1,0 +1,209 @@
+import type { Page } from "@playwright/test";
+import type { ListUsersResponse } from "typespec/admin/users/management";
+import { responseJSON } from "../lib/admin-api.ts";
+import { ageSession, currentTOTP } from "../lib/admin-db.ts";
+import {
+  expect,
+  SEEDED_ADMIN_EMAIL,
+  SEEDED_ADMIN_PASSWORD,
+  test,
+} from "../lib/admin-fixtures.ts";
+
+async function signIn(
+  page: Page,
+  emailAddress: string,
+  password: string,
+  returnTo = "/",
+  twoFactorExpected = false,
+): Promise<void> {
+  await page.goto(`/login?returnTo=${encodeURIComponent(returnTo)}`);
+  await page.getByRole("textbox", { name: "Email address" }).fill(emailAddress);
+  await page.getByLabel("Password", { exact: true }).fill(password);
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page).toHaveURL(
+    twoFactorExpected
+      ? /\/login\/two-factor/
+      : new RegExp(`${returnTo.replaceAll("/", "\\/")}$`),
+  );
+}
+
+test("an authorized administrator can open the users deep link", async ({
+  adminAPI,
+  createAdmin,
+  page,
+  superadminToken,
+}) => {
+  const admin = await createAdmin();
+  const grant = await adminAPI.post(
+    "/grant-permission",
+    {
+      admin_user_id: admin.adminUserID,
+      permission: "admin:view_users",
+    },
+    { token: superadminToken },
+  );
+  expect(grant.status(), await grant.text()).toBe(204);
+
+  await signIn(page, admin.emailAddress, admin.password, "/users");
+  await expect(
+    page.getByRole("heading", { name: "Administrators" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("cell", { name: admin.emailAddress, exact: true }),
+  ).toBeVisible();
+});
+
+test("a superadmin can invite and manage administrators", async ({
+  adminAPI,
+  createAdmin,
+  ownedEmail,
+  page,
+  superadminToken,
+}) => {
+  const target = await createAdmin({ displayName: "UI managed administrator" });
+  const invitationEmail = ownedEmail();
+  await signIn(page, SEEDED_ADMIN_EMAIL, SEEDED_ADMIN_PASSWORD, "/users");
+
+  await page
+    .getByRole("textbox", { name: "Email address" })
+    .fill(target.emailAddress);
+  await page.getByRole("button", { name: "Apply filters" }).click();
+  const targetRow = page
+    .getByRole("row")
+    .filter({ hasText: target.emailAddress });
+  await expect(targetRow).toBeVisible();
+
+  await targetRow.getByRole("button", { name: "Manage access" }).click();
+  const accessDialog = page.getByRole("dialog", { name: "Manage access" });
+  const viewUsers = accessDialog.getByRole("switch", {
+    name: "View administrators",
+  });
+  await viewUsers.click();
+  await expect(viewUsers).toHaveAttribute("aria-checked", "true");
+  await viewUsers.click();
+  await expect(viewUsers).toHaveAttribute("aria-checked", "false");
+
+  const superadmin = accessDialog.getByRole("switch", { name: "Superadmin" });
+  await superadmin.click();
+  await expect(superadmin).toHaveAttribute("aria-checked", "true");
+  await superadmin.click();
+  await expect(superadmin).toHaveAttribute("aria-checked", "false");
+  await accessDialog.getByRole("button", { name: "Close" }).last().click();
+
+  await targetRow.getByRole("button", { name: "Disable" }).click();
+  await page.getByRole("button", { name: "Confirm" }).click();
+  await expect(targetRow.getByRole("button", { name: "Enable" })).toBeVisible();
+  await targetRow.getByRole("button", { name: "Enable" }).click();
+  await page.getByRole("button", { name: "Confirm" }).click();
+  await expect(
+    targetRow.getByRole("button", { name: "Disable" }),
+  ).toBeVisible();
+
+  const listed = await adminAPI.post(
+    "/list-users",
+    { filter_email_address: target.emailAddress },
+    { token: superadminToken },
+  );
+  expect(listed.status(), await listed.text()).toBe(200);
+  expect((await responseJSON<ListUsersResponse>(listed)).users).toMatchObject([
+    {
+      admin_user_id: target.adminUserID,
+      is_superadmin: false,
+      permissions: [],
+      state: "active",
+    },
+  ]);
+
+  await page.getByRole("button", { name: "Invite administrator" }).click();
+  const inviteDialog = page.getByRole("dialog", {
+    name: "Invite an administrator",
+  });
+  await inviteDialog
+    .getByRole("textbox", { name: "Email address" })
+    .fill(invitationEmail);
+  await inviteDialog
+    .getByRole("button", { name: "Invite administrator" })
+    .click();
+  await expect(
+    page.getByText(`Invitation sent to ${invitationEmail}.`),
+  ).toBeVisible();
+});
+
+test("an administrator can manage two-factor authentication and use a recovery code", async ({
+  createAdmin,
+  page,
+}) => {
+  const admin = await createAdmin();
+  const replacementPassword = `${admin.password}-replacement`;
+  await signIn(page, admin.emailAddress, admin.password, "/settings/security");
+
+  await page
+    .getByLabel("New password", { exact: true })
+    .fill(replacementPassword);
+  await page
+    .getByLabel("Confirm password", { exact: true })
+    .fill(replacementPassword);
+  await page.getByRole("button", { name: "Change password" }).click();
+  await expect(page.getByText("Your password has been changed.")).toBeVisible();
+
+  await page.getByRole("button", { name: "Set up authenticator" }).click();
+  const manualKey = await page
+    .getByText(/^[A-Z2-7]{32}$/, { exact: true })
+    .innerText();
+  await page
+    .getByRole("textbox", { name: "Six-digit code" })
+    .fill(currentTOTP(manualKey));
+  await page.getByRole("button", { name: "Confirm and enable" }).click();
+
+  const recoveryDialog = page.getByRole("dialog", { name: "Recovery codes" });
+  await expect(recoveryDialog.locator("code")).toHaveCount(10);
+  const recoveryCode = await recoveryDialog.locator("code").first().innerText();
+  await recoveryDialog.press("Escape");
+  await expect(recoveryDialog).toBeVisible();
+  await recoveryDialog
+    .getByRole("button", { name: "I have saved these codes" })
+    .click();
+
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await signIn(page, admin.emailAddress, replacementPassword, "/", true);
+  await page
+    .getByRole("radiogroup")
+    .getByText("Recovery code", { exact: true })
+    .click();
+  await page.getByRole("textbox", { name: "Recovery code" }).fill(recoveryCode);
+  await page.getByRole("button", { name: "Verify" }).click();
+  await expect(page).toHaveURL(/\/$/);
+
+  await page.getByRole("menuitem", { name: "Security" }).click();
+  await expect(page.getByTestId("recovery-codes-remaining")).toHaveText("9");
+  await page.getByRole("button", { name: "Regenerate recovery codes" }).click();
+  await page.getByRole("button", { name: "Confirm" }).click();
+  await page
+    .getByRole("dialog", { name: "Recovery codes" })
+    .getByRole("button", { name: "I have saved these codes" })
+    .click();
+  await page
+    .getByRole("button", { name: "Turn off two-factor authentication" })
+    .click();
+  await page.getByRole("button", { name: "Confirm" }).click();
+  await expect(page.getByText("Disabled", { exact: true })).toBeVisible();
+});
+
+test("recent-authentication failures preserve the session and explain how to continue", async ({
+  createAdmin,
+  page,
+}) => {
+  const admin = await createAdmin();
+  ageSession(admin.sessionToken);
+  await page.addInitScript((sessionToken) => {
+    sessionStorage.setItem("vetchium.admin.session-token", sessionToken);
+  }, admin.sessionToken);
+
+  await page.goto("/settings/security");
+  await page.getByRole("button", { name: "Set up authenticator" }).click();
+  await expect(
+    page.getByRole("alert").filter({ hasText: "Sign in again to continue" }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
+  await expect(page).toHaveURL(/\/settings\/security$/);
+});

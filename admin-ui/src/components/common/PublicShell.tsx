@@ -1,16 +1,31 @@
-import { Flex, Layout, Typography } from "antd";
+import { App, Flex, Layout, Typography } from "antd";
 import { useTranslation } from "react-i18next";
-import { Outlet } from "react-router";
+import { Outlet, useNavigate } from "react-router";
+import { usePendingOperations } from "../../app/PendingOperationContext";
 import { AppHeader } from "./AppHeader";
 
 const { Content, Footer } = Layout;
 
 export function PublicShell() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const { message } = App.useApp();
+  const { pending } = usePendingOperations();
+
+  // Sign in, password reset and account setup each consume a one-time
+  // credential, so leaving mid-request loses the only account of what it did.
+  const navigateHome = () => {
+    if (pending) {
+      void message.warning(t("shell.operationInProgress"));
+      return;
+    }
+    navigate("/login");
+  };
+
   return (
     <Layout className="app-layout">
       <title>{t("shell.documentTitle")}</title>
-      <AppHeader homePath="/login" />
+      <AppHeader homePath="/login" onNavigateHome={navigateHome} />
       <Flex
         component={Content}
         className="public-content"

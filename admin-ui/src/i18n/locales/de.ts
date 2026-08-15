@@ -7,6 +7,8 @@ export const de = {
     portal: "Administration",
     footer: "Administration der Vetchium-Instanz",
     logout: "Abmelden",
+    operationInProgress:
+      "Schließen Sie den laufenden Vorgang ab, bevor Sie diese Seite verlassen.",
   },
   navigation: {
     menu: "Navigation",
@@ -14,6 +16,7 @@ export const de = {
     overview: "Übersicht",
     users: "Administratoren",
     profile: "Mein Profil",
+    security: "Sicherheit",
   },
   theme: {
     dark: "Dunkel",
@@ -32,8 +35,13 @@ export const de = {
   },
   common: {
     backToLogin: "Zurück zur Anmeldung",
+    cancel: "Abbrechen",
+    close: "Schließen",
+    confirm: "Bestätigen",
     disabled: "Deaktiviert",
     enabled: "Aktiviert",
+    idempotencyConflict:
+      "Diese Aktion wurde bereits mit anderen Angaben gesendet. Laden Sie die Seite neu und versuchen Sie es erneut.",
     loadError: "Diese Informationen konnten nicht geladen werden.",
     next: "Weiter",
     never: "Nie",
@@ -47,6 +55,7 @@ export const de = {
   fields: {
     access: "Zugriff",
     accountType: "Kontotyp",
+    actions: "Aktionen",
     confirmPassword: "Passwort bestätigen",
     displayName: "Anzeigename",
     email: "E-Mail-Adresse",
@@ -58,6 +67,7 @@ export const de = {
     password: "Passwort",
     permission: "Berechtigung",
     recoveryCode: "Wiederherstellungscode",
+    recoveryCodes: "Verbleibende Wiederherstellungscodes",
     sessionExpires: "Sitzung läuft ab",
     state: "Status",
     tenant: "Instanz",
@@ -65,10 +75,13 @@ export const de = {
     twoFactor: "Zwei-Faktor-Authentifizierung",
   },
   validation: {
+    displayName: "Verwenden Sie einen Anzeigenamen mit 1 bis 200 Zeichen.",
     email: "Geben Sie eine gültige E-Mail-Adresse ein.",
     languageCode: "Verwenden Sie einen regionalen Sprachcode wie de-DE.",
-    newPassword: "Verwenden Sie ein Passwort mit mindestens 15 Zeichen.",
+    newPassword:
+      "Verwenden Sie 15 bis 128 Zeichen und vermeiden Sie häufig verwendete Passwortphrasen.",
     passwordMatch: "Die Passwörter stimmen nicht überein.",
+    recoveryCode: "Geben Sie einen gültigen Wiederherstellungscode ein.",
     required: "Dieses Feld ist erforderlich.",
     totpCode: "Geben Sie den sechsstelligen Code ein.",
   },
@@ -146,6 +159,58 @@ export const de = {
     applyFilters: "Filter anwenden",
     regularAdmin: "Administrator",
     page: "Seite {{page}}",
+    invite: {
+      action: "Administrator einladen",
+      title: "Administrator einladen",
+      sent: "Einladung an {{email}} gesendet. Sie läuft am {{expiresAt}} ab.",
+      errors: {
+        alreadyExists:
+          "Ein Administrator verwendet diese E-Mail-Adresse bereits.",
+        alreadyPending:
+          "Für diese E-Mail-Adresse ist bereits eine Einladung offen.",
+      },
+    },
+    disable: {
+      action: "Deaktivieren",
+      confirm: "Diesen Administrator deaktivieren?",
+      done: "Der Administrator ist jetzt deaktiviert.",
+    },
+    enable: {
+      action: "Aktivieren",
+      confirm: "Diesen Administrator aktivieren?",
+      done: "Der Administrator ist jetzt aktiv.",
+    },
+    access: {
+      action: "Zugriff verwalten",
+      title: "Zugriff verwalten",
+      superadminHint:
+        "Superadministratoren besitzen alle Berechtigungen und können andere Administratoren verwalten.",
+      permissions: "Berechtigungen",
+      permissionsHint:
+        "Erteilen Sie nur die Berechtigungen, die dieser Administrator benötigt.",
+      permissionsSuperadminHint:
+        "Superadministratoren besitzen bereits alle Berechtigungen. Stufen Sie das Konto herab, um einzelne Berechtigungen zu erteilen.",
+      granted: "Die Berechtigung wurde erteilt.",
+      revoked: "Die Berechtigung wurde entzogen.",
+      promoted: "Der Administrator ist jetzt Superadministrator.",
+      demoted: "Der Administrator ist kein Superadministrator mehr.",
+      errors: {
+        notApplicable:
+          "Einzelne Berechtigungen gelten nicht für ein Superadministratorkonto.",
+        dependencyConflict:
+          "Eine andere erteilte Berechtigung hängt von dieser ab. Entziehen Sie zuerst jene Berechtigung.",
+        cannotDemoteSelf:
+          "Sie können Ihr eigenes Superadministratorkonto nicht herabstufen.",
+      },
+    },
+    errors: {
+      notFound: "Dieser Administrator existiert nicht mehr.",
+      cannotDisableSelf: "Sie können Ihr eigenes Konto nicht deaktivieren.",
+      lastSuperadmin:
+        "Diese Instanz muss mindestens einen aktiven Superadministrator behalten.",
+      superadminRequired:
+        "Nur ein Superadministrator kann den Status eines Superadministratorkontos ändern.",
+    },
   },
   profile: {
     title: "Mein Profil",
@@ -158,6 +223,67 @@ export const de = {
     saved: "Profil aktualisiert.",
     saveError:
       "Ihr Profil konnte nicht aktualisiert werden. Prüfen Sie die Werte und versuchen Sie es erneut.",
+  },
+  reauthentication: {
+    title: "Zum Fortfahren erneut anmelden",
+    description:
+      "Diese Aktion erfordert eine Anmeldung aus den letzten fünf Minuten. Melden Sie sich erneut an und versuchen Sie es noch einmal.",
+    action: "Erneut anmelden",
+  },
+  security: {
+    title: "Sicherheit",
+    description:
+      "Verwalten Sie Ihr Passwort und die Zwei-Faktor-Authentifizierung für diese Instanz.",
+    password: {
+      card: "Passwort",
+      description:
+        "Beim Ändern des Passworts werden alle anderen Sitzungen dieses Kontos abgemeldet.",
+      action: "Passwort ändern",
+      changed: "Ihr Passwort wurde geändert.",
+    },
+    twoFactor: {
+      card: "Zwei-Faktor-Authentifizierung",
+      description:
+        "Eine Authenticator-App erzeugt einen sechsstelligen Code, der bei jeder Anmeldung erforderlich ist.",
+      start: "Authenticator einrichten",
+      scan: "Scannen Sie diesen Code mit Ihrer Authenticator-App.",
+      qrLabel: "Code zur Authenticator-Einrichtung",
+      manualKey: "Schlüssel zur manuellen Eingabe",
+      algorithm: "Algorithmus",
+      digits: "Stellen",
+      period: "Codeintervall",
+      seconds: "{{seconds}} Sekunden",
+      enrollmentExpires: "Einrichtung läuft ab",
+      confirm: "Bestätigen und aktivieren",
+      disable: "Zwei-Faktor-Authentifizierung deaktivieren",
+      disableConfirm: "Zwei-Faktor-Authentifizierung deaktivieren?",
+      disableWarning:
+        "Ihr Konto ist dann nur durch das Passwort geschützt, und alle anderen Sitzungen werden abgemeldet.",
+      enabled: "Die Zwei-Faktor-Authentifizierung ist jetzt aktiviert.",
+      disabled: "Die Zwei-Faktor-Authentifizierung ist jetzt deaktiviert.",
+      errors: {
+        alreadyEnabled:
+          "Die Zwei-Faktor-Authentifizierung ist für dieses Konto bereits aktiviert.",
+        incorrectCode:
+          "Dieser Code stimmte nicht. Versuchen Sie es mit dem nächsten.",
+        invalidEnrollment:
+          "Diese Einrichtung ist abgelaufen. Starten Sie sie erneut.",
+        notEnabled:
+          "Die Zwei-Faktor-Authentifizierung muss aktiviert sein, bevor Wiederherstellungscodes ausgestellt werden können.",
+      },
+    },
+    recoveryCodes: {
+      title: "Wiederherstellungscodes",
+      warning: "Speichern Sie diese Codes jetzt.",
+      description:
+        "Jeder Code meldet Sie einmal an, falls Sie Ihren Authenticator verlieren. Sie werden nur dieses eine Mal angezeigt, und frühere Codes gelten nicht mehr.",
+      copyAll: "Alle Codes kopieren",
+      saved: "Ich habe diese Codes gespeichert",
+      regenerate: "Wiederherstellungscodes neu erzeugen",
+      regenerateConfirm:
+        "Wiederherstellungscodes ersetzen? Die aktuellen Codes gelten dann nicht mehr.",
+      regenerated: "Neue Wiederherstellungscodes wurden ausgestellt.",
+    },
   },
   notFound: {
     title: "404",

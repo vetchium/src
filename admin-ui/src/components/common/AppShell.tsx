@@ -1,7 +1,8 @@
-import { Drawer, Flex, Grid, Layout, Menu, Typography } from "antd";
+import { App, Drawer, Flex, Grid, Layout, Menu, Typography } from "antd";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Outlet, useLocation, useNavigate } from "react-router";
+import { usePendingOperations } from "../../app/PendingOperationContext";
 import { usePreferences } from "../../app/PreferencesContext";
 import { useAuth } from "../../auth/AuthContext";
 import { useMyInfoQuery } from "../../features/profile/queries";
@@ -17,6 +18,8 @@ export function AppShell() {
   const [navigationOpen, setNavigationOpen] = useState(false);
   const auth = useAuth();
   const preferences = usePreferences();
+  const { message } = App.useApp();
+  const { pending } = usePendingOperations();
   const { data: me } = useMyInfoQuery();
   useEffect(() => {
     if (me !== undefined && me.preferred_language !== preferences.language) {
@@ -30,19 +33,38 @@ export function AppShell() {
     ? "/users"
     : location.pathname.startsWith("/settings/profile")
       ? "/settings/profile"
-      : "/";
+      : location.pathname.startsWith("/settings/security")
+        ? "/settings/security"
+        : "/";
   const navigationItems = [
     { key: "/", label: t("navigation.overview") },
     ...(canViewUsers ? [{ key: "/users", label: t("navigation.users") }] : []),
     { key: "/settings/profile", label: t("navigation.profile") },
+    { key: "/settings/security", label: t("navigation.security") },
   ];
 
+  // Leaving mid-operation would discard a one-time secret the user has not
+  // been shown yet, so the shell refuses to move until it settles.
+  const heldBack = () => {
+    if (!pending) {
+      return false;
+    }
+    void message.warning(t("shell.operationInProgress"));
+    return true;
+  };
+
   const navigateFromMenu = (path: string) => {
+    if (heldBack()) {
+      return;
+    }
     setNavigationOpen(false);
     navigate(path);
   };
 
   const signOut = async () => {
+    if (heldBack()) {
+      return;
+    }
     await auth.logout();
     navigate("/login", { replace: true });
   };
@@ -52,6 +74,7 @@ export function AppShell() {
       <title>{t("shell.documentTitle")}</title>
       <AppHeader
         homePath="/"
+        onNavigateHome={() => navigateFromMenu("/")}
         onOpenNavigation={() => setNavigationOpen(true)}
         onSignOut={() => void signOut()}
       />

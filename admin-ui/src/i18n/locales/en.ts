@@ -7,6 +7,8 @@ export const en = {
     portal: "Admin",
     footer: "Vetchium tenant administration",
     logout: "Sign out",
+    operationInProgress:
+      "Finish the operation in progress before leaving this page.",
   },
   navigation: {
     menu: "Navigation",
@@ -14,6 +16,7 @@ export const en = {
     overview: "Overview",
     users: "Administrators",
     profile: "My profile",
+    security: "Security",
   },
   theme: {
     dark: "Dark",
@@ -31,8 +34,13 @@ export const en = {
   },
   common: {
     backToLogin: "Back to sign in",
+    cancel: "Cancel",
+    close: "Close",
+    confirm: "Confirm",
     disabled: "Disabled",
     enabled: "Enabled",
+    idempotencyConflict:
+      "This action was already submitted with different details. Reload the page and try again.",
     loadError: "We could not load this information.",
     next: "Next",
     never: "Never",
@@ -45,6 +53,7 @@ export const en = {
   fields: {
     access: "Access",
     accountType: "Account type",
+    actions: "Actions",
     confirmPassword: "Confirm password",
     displayName: "Display name",
     email: "Email address",
@@ -56,6 +65,7 @@ export const en = {
     password: "Password",
     permission: "Permission",
     recoveryCode: "Recovery code",
+    recoveryCodes: "Recovery codes remaining",
     sessionExpires: "Session expires",
     state: "State",
     tenant: "Tenant",
@@ -63,10 +73,13 @@ export const en = {
     twoFactor: "Two-factor authentication",
   },
   validation: {
+    displayName: "Use a display name between 1 and 200 characters.",
     email: "Enter a valid email address.",
     languageCode: "Use a regional language code such as en-US.",
-    newPassword: "Use a password of at least 15 characters.",
+    newPassword:
+      "Use 15 to 128 characters and avoid commonly used password phrases.",
     passwordMatch: "The passwords do not match.",
+    recoveryCode: "Enter a valid recovery code.",
     required: "This field is required.",
     totpCode: "Enter the six-digit code.",
   },
@@ -140,6 +153,53 @@ export const en = {
     applyFilters: "Apply filters",
     regularAdmin: "Regular administrator",
     page: "Page {{page}}",
+    invite: {
+      action: "Invite administrator",
+      title: "Invite an administrator",
+      sent: "Invitation sent to {{email}}. It expires on {{expiresAt}}.",
+      errors: {
+        alreadyExists: "An administrator already uses that email address.",
+        alreadyPending: "An invitation for that email address is still open.",
+      },
+    },
+    disable: {
+      action: "Disable",
+      confirm: "Disable this administrator?",
+      done: "The administrator is now disabled.",
+    },
+    enable: {
+      action: "Enable",
+      confirm: "Enable this administrator?",
+      done: "The administrator is now active.",
+    },
+    access: {
+      action: "Manage access",
+      title: "Manage access",
+      superadminHint:
+        "Superadmins hold every permission and can manage other administrators.",
+      permissions: "Permissions",
+      permissionsHint: "Grant only the permissions this administrator needs.",
+      permissionsSuperadminHint:
+        "Superadmins already hold every permission. Demote the account to grant individual permissions.",
+      granted: "The permission was granted.",
+      revoked: "The permission was revoked.",
+      promoted: "The administrator is now a superadmin.",
+      demoted: "The administrator is no longer a superadmin.",
+      errors: {
+        notApplicable:
+          "Individual permissions do not apply to a superadmin account.",
+        dependencyConflict:
+          "Another granted permission depends on this one. Revoke that permission first.",
+        cannotDemoteSelf: "You cannot demote your own superadmin account.",
+      },
+    },
+    errors: {
+      notFound: "That administrator no longer exists.",
+      cannotDisableSelf: "You cannot disable your own account.",
+      lastSuperadmin: "This tenant must keep at least one active superadmin.",
+      superadminRequired:
+        "Only a superadmin can change the state of a superadmin account.",
+    },
   },
   profile: {
     title: "My profile",
@@ -151,6 +211,65 @@ export const en = {
     saved: "Profile updated.",
     saveError:
       "Your profile could not be updated. Check the values and try again.",
+  },
+  reauthentication: {
+    title: "Sign in again to continue",
+    description:
+      "This action needs a sign in from the last five minutes. Sign in again and retry.",
+    action: "Sign in again",
+  },
+  security: {
+    title: "Security",
+    description:
+      "Manage your password and two-factor authentication for this tenant.",
+    password: {
+      card: "Password",
+      description:
+        "Changing your password signs out every other session on this account.",
+      action: "Change password",
+      changed: "Your password has been changed.",
+    },
+    twoFactor: {
+      card: "Two-factor authentication",
+      description:
+        "An authenticator app produces a six-digit code that is required at every sign in.",
+      start: "Set up authenticator",
+      scan: "Scan this code with your authenticator app.",
+      qrLabel: "Authenticator enrolment code",
+      manualKey: "Manual entry key",
+      algorithm: "Algorithm",
+      digits: "Digits",
+      period: "Code interval",
+      seconds: "{{seconds}} seconds",
+      enrollmentExpires: "Setup expires",
+      confirm: "Confirm and enable",
+      disable: "Turn off two-factor authentication",
+      disableConfirm: "Turn off two-factor authentication?",
+      disableWarning:
+        "Your account will be protected by the password alone, and every other session is signed out.",
+      enabled: "Two-factor authentication is now enabled.",
+      disabled: "Two-factor authentication is now disabled.",
+      errors: {
+        alreadyEnabled:
+          "Two-factor authentication is already enabled for this account.",
+        incorrectCode: "That code did not match. Try the next one.",
+        invalidEnrollment: "This setup expired. Start it again.",
+        notEnabled:
+          "Two-factor authentication must be enabled before recovery codes can be issued.",
+      },
+    },
+    recoveryCodes: {
+      title: "Recovery codes",
+      warning: "Save these codes now.",
+      description:
+        "Each code signs you in once if you lose your authenticator. They are shown only this once, and any earlier codes no longer work.",
+      copyAll: "Copy every code",
+      saved: "I have saved these codes",
+      regenerate: "Regenerate recovery codes",
+      regenerateConfirm:
+        "Replace your recovery codes? The current codes stop working.",
+      regenerated: "New recovery codes have been issued.",
+    },
   },
   notFound: {
     title: "404",

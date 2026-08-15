@@ -67,6 +67,15 @@ export function HomePage() {
                 ? t("common.enabled")
                 : t("common.disabled"),
             },
+            ...(me.totp_enabled
+              ? [
+                  {
+                    key: "recoveryCodes",
+                    label: t("fields.recoveryCodes"),
+                    children: me.recovery_codes_remaining,
+                  },
+                ]
+              : []),
             {
               key: "expires",
               label: t("fields.sessionExpires"),

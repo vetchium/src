@@ -33,6 +33,11 @@ const ProfilePage = lazy(() =>
     default: ProfilePage,
   })),
 );
+const SecurityPage = lazy(() =>
+  import("../pages/SecurityPage").then(({ SecurityPage }) => ({
+    default: SecurityPage,
+  })),
+);
 const ResetPasswordPage = lazy(() =>
   import("../pages/ResetPasswordPage").then(({ ResetPasswordPage }) => ({
     default: ResetPasswordPage,
@@ -123,6 +128,14 @@ export function App() {
             element={
               <Page>
                 <ProfilePage />
+              </Page>
+            }
+          />
+          <Route
+            path="settings/security"
+            element={
+              <Page>
+                <SecurityPage />
               </Page>
             }
           />
