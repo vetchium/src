@@ -71,7 +71,6 @@ export function LoginPage() {
     try {
       response = await mutation.mutateAsync(request);
     } catch {
-      // The mutation state renders the translated failure alert.
       return;
     }
     if (response.authentication_state === "totp_required") {

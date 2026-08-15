@@ -43,8 +43,6 @@ export function AppShell() {
     { key: "/settings/security", label: t("navigation.security") },
   ];
 
-  // Leaving mid-operation would discard a one-time secret the user has not
-  // been shown yet, so the shell refuses to move until it settles.
   const heldBack = () => {
     if (!pending) {
       return false;

@@ -68,7 +68,6 @@ function ResetPasswordOperation({ token }: { token: string }) {
       // answering 401 and tearing the session down through the usual path.
       queryClient.clear();
     } catch {
-      // Rendered from mutation.isError.
     } finally {
       release();
     }

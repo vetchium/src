@@ -89,7 +89,6 @@ function CompleteSetupOperation({ token }: { token: string }) {
         }),
       );
     } catch {
-      // Rendered from mutation.isError.
     } finally {
       release();
     }

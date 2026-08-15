@@ -2,6 +2,7 @@ import { Spin } from "antd";
 import { Navigate, Outlet, useLocation } from "react-router";
 import { useMyInfoQuery } from "../../features/profile/queries";
 
+// Keep one minute of the backend's five-minute freshness window in reserve.
 const SECURITY_PAGE_AUTHENTICATION_MAXIMUM_AGE_MS = 4 * 60 * 1000;
 
 function authenticationIsRecent(authenticatedAt: string): boolean {
@@ -13,7 +14,6 @@ function authenticationIsRecent(authenticatedAt: string): boolean {
   );
 }
 
-/** Keeps one minute of the backend's five-minute freshness window in reserve. */
 export function RecentAuthenticationRoute() {
   const { data: me } = useMyInfoQuery();
   const location = useLocation();

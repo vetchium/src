@@ -12,8 +12,6 @@ export function PublicShell() {
   const { message } = App.useApp();
   const { pending } = usePendingOperations();
 
-  // Sign in, password reset and account setup each consume a one-time
-  // credential, so leaving mid-request loses the only account of what it did.
   const navigateHome = () => {
     if (pending) {
       void message.warning(t("shell.operationInProgress"));

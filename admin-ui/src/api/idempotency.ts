@@ -26,9 +26,7 @@ function storeKey(name: string, key: IdempotencyKey): void {
 function forgetKey(name: string): void {
   try {
     globalThis.sessionStorage?.removeItem(name);
-  } catch {
-    // As above.
-  }
+  } catch {}
 }
 
 /**

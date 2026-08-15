@@ -19,7 +19,6 @@ import { usePreferences } from "../app/PreferencesContext";
 import { logout as logoutRequest } from "../features/auth/api";
 import { clearSessionToken, getSessionToken, setSessionToken } from "./session";
 
-/** Identifies one sign-in attempt for as long as the tab lives. */
 export type LoginAttempt = number;
 
 export interface LoginAttemptOwner {
@@ -29,7 +28,6 @@ export interface LoginAttemptOwner {
 
 interface AuthContextValue {
   authenticated: boolean;
-  /** The session a caller is acting on behalf of, to hand back later. */
   sessionToken: AdminSessionToken | null;
   pendingChallenge: LoginTOTPRequiredResponse | null;
   clearChallenge: () => void;

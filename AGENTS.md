@@ -86,6 +86,10 @@ More specific guides take precedence over general guides.
   and test changes.
 - Do not hand-edit generated artifacts when a source file and generator are
   available.
+- Keep source comments purposeful. Do not add namesake comments that merely
+  restate an identifier, function signature, or adjacent code. Use comments to
+  explain non-obvious intent, invariants, tradeoffs, external requirements, or
+  reasoning the code cannot express.
 - Add shared language or tool conventions to one guide rather than copying them
   into multiple scoped routers.
 - Add UI guides and scoped routers when work begins in `admin-ui/`, `hub-ui/`,

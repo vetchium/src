@@ -93,7 +93,6 @@ export function TwoFactorPage() {
     try {
       session = await mutation.mutateAsync(values);
     } catch {
-      // The mutation state renders the translated failure alert.
       return;
     } finally {
       release();

@@ -56,7 +56,6 @@ export function usePendingOperations(): PendingOperationValue {
   return value;
 }
 
-/** Holds the portal in place for as long as `active` stays true. */
 export function useHoldNavigation(active: boolean): void {
   const { hold } = usePendingOperations();
   useEffect(() => {
