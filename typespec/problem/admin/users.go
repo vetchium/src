@@ -16,13 +16,6 @@ var CannotDisableCurrentAdminError = problem.Details{
 	Detail: "An admin cannot disable their own account",
 }
 
-var LastActiveSuperadminError = problem.Details{
-	Type:   "vetchium-problem-details/last-active-superadmin",
-	Title:  "Last active superadmin",
-	Status: 409,
-	Detail: "The operation would leave no active superadmin",
-}
-
 var AdminUserAlreadyExistsError = problem.Details{
 	Type:   "vetchium-problem-details/admin-user-already-exists",
 	Title:  "Admin user already exists",

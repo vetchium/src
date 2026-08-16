@@ -10,15 +10,27 @@ import (
 )
 
 type AdminUserFilterText string
+type AdminAccessLevel string
+type AdminLastLoginFilter string
+
+const (
+	AccessManager AdminAccessLevel = "manager"
+	AccessViewer  AdminAccessLevel = "viewer"
+	AccessNone    AdminAccessLevel = "none"
+
+	LastLoginNever          AdminLastLoginFilter = "never"
+	LastLoginInactive30Days AdminLastLoginFilter = "inactive_30_days"
+	LastLoginInactive90Days AdminLastLoginFilter = "inactive_90_days"
+)
 
 type ListUsersRequest struct {
-	Limit              *common.PageSize               `json:"limit,omitempty"`
-	PaginationKey      *common.PaginationKey          `json:"pagination_key,omitempty"`
-	FilterEmailAddress *AdminUserFilterText           `json:"filter_email_address,omitempty"`
-	FilterDisplayName  *AdminUserFilterText           `json:"filter_display_name,omitempty"`
-	FilterState        *user.State                    `json:"filter_state,omitempty"`
-	FilterIsSuperadmin *bool                          `json:"filter_is_superadmin,omitempty"`
-	FilterPermission   *authorization.AdminPermission `json:"filter_permission,omitempty"`
+	Limit             *common.PageSize      `json:"limit,omitempty"`
+	PaginationKey     *common.PaginationKey `json:"pagination_key,omitempty"`
+	FilterSearch      *AdminUserFilterText  `json:"filter_search,omitempty"`
+	FilterState       *user.State           `json:"filter_state,omitempty"`
+	FilterAccess      *AdminAccessLevel     `json:"filter_access,omitempty"`
+	FilterTOTPEnabled *bool                 `json:"filter_totp_enabled,omitempty"`
+	FilterLastLogin   *AdminLastLoginFilter `json:"filter_last_login,omitempty"`
 }
 
 func (r ListUsersRequest) EffectiveLimit() common.PageSize {
@@ -29,7 +41,7 @@ func (r ListUsersRequest) EffectiveLimit() common.PageSize {
 }
 
 func (r ListUsersRequest) Validate() []string {
-	fields := make([]string, 0, 6)
+	fields := make([]string, 0, 7)
 	if !common.IsPageSize(r.EffectiveLimit()) {
 		fields = append(fields, "limit")
 	}
@@ -37,23 +49,30 @@ func (r ListUsersRequest) Validate() []string {
 		!common.IsPaginationKey(*r.PaginationKey) {
 		fields = append(fields, "pagination_key")
 	}
-	if r.FilterEmailAddress != nil &&
-		!isAdminUserFilterText(*r.FilterEmailAddress) {
-		fields = append(fields, "filter_email_address")
-	}
-	if r.FilterDisplayName != nil &&
-		!isAdminUserFilterText(*r.FilterDisplayName) {
-		fields = append(fields, "filter_display_name")
+	if r.FilterSearch != nil && !isAdminUserFilterText(*r.FilterSearch) {
+		fields = append(fields, "filter_search")
 	}
 	if r.FilterState != nil &&
 		*r.FilterState != user.Active && *r.FilterState != user.Disabled {
 		fields = append(fields, "filter_state")
 	}
-	if r.FilterPermission != nil &&
-		!authorization.IsAdminPermission(*r.FilterPermission) {
-		fields = append(fields, "filter_permission")
+	if r.FilterAccess != nil && !isAdminAccessLevel(*r.FilterAccess) {
+		fields = append(fields, "filter_access")
+	}
+	if r.FilterLastLogin != nil &&
+		!isAdminLastLoginFilter(*r.FilterLastLogin) {
+		fields = append(fields, "filter_last_login")
 	}
 	return fields
+}
+
+func isAdminAccessLevel(value AdminAccessLevel) bool {
+	return value == AccessManager || value == AccessViewer || value == AccessNone
+}
+
+func isAdminLastLoginFilter(value AdminLastLoginFilter) bool {
+	return value == LastLoginNever || value == LastLoginInactive30Days ||
+		value == LastLoginInactive90Days
 }
 
 func isAdminUserFilterText(value AdminUserFilterText) bool {

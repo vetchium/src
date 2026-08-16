@@ -9,10 +9,7 @@ import {
   validateConfirmTOTPEnrollmentRequest,
   validateVerifyRecoveryCodeRequest,
 } from "./auth/totp.ts";
-import {
-  validateGrantPermissionRequest,
-  validatePromoteToSuperadminRequest,
-} from "./authorization/management.ts";
+import { validateSetPermissionsRequest } from "./authorization/management.ts";
 import {
   normalizeCompleteSetupRequest,
   validateCompleteSetupRequest,
@@ -64,14 +61,17 @@ test("password and TOTP requests report all invalid JSON members", () => {
 
 test("authorization requests validate identifiers and enums", () => {
   assert.deepEqual(
-    validateGrantPermissionRequest({
+    validateSetPermissionsRequest({
       admin_user_id: "bad",
-      permission: "unknown" as "admin:view_users",
+      permissions: ["admin:view_users", "unknown" as "admin:view_users"],
     }),
-    ["admin_user_id", "permission"],
+    ["admin_user_id", "permissions"],
   );
   assert.deepEqual(
-    validatePromoteToSuperadminRequest({ admin_user_id: uuid }),
+    validateSetPermissionsRequest({
+      admin_user_id: uuid,
+      permissions: ["admin:manage_users"],
+    }),
     [],
   );
 });
@@ -108,6 +108,13 @@ test("complete setup normalizes a deep copy and validates coupled names", () => 
     validateInviteUserRequest({ email_address: "USER@example.com" }),
     [],
   );
+  assert.deepEqual(
+    validateInviteUserRequest({
+      email_address: "user@example.com",
+      permissions: ["admin:view_users", "admin:view_users"],
+    }),
+    ["permissions"],
+  );
 });
 
 test("list and profile validators cover defaults and bounds", () => {
@@ -116,18 +123,18 @@ test("list and profile validators cover defaults and bounds", () => {
     validateListUsersRequest({
       limit: 101,
       pagination_key: "",
-      filter_email_address: "",
-      filter_display_name: "x".repeat(321),
+      filter_search: "",
       filter_state: "deleted" as "active",
-      filter_permission: "unknown" as "admin:view_users",
+      filter_access: "owner" as "manager",
+      filter_last_login: "recent" as "never",
     }),
     [
       "limit",
       "pagination_key",
-      "filter_email_address",
-      "filter_display_name",
+      "filter_search",
       "filter_state",
-      "filter_permission",
+      "filter_access",
+      "filter_last_login",
     ],
   );
   assert.deepEqual(validateDisableUserRequest({ admin_user_id: "bad" }), [

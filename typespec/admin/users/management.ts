@@ -5,25 +5,26 @@ import type {
 } from "../../common/localization.ts";
 import type { PageSize, PaginationKey } from "../../common/pagination.ts";
 import { isPageSize, isPaginationKey } from "../../common/pagination.ts";
-import type {
-  AdminAuthorization,
-  AdminPermission,
-} from "../authorization/types.ts";
-import { isAdminPermission } from "../authorization/types.ts";
+import type { AdminAuthorization } from "../authorization/types.ts";
 import type { AdminUserID } from "../types.ts";
 import { isAdminUserID } from "../types.ts";
 import type { State } from "../user/user.ts";
 
 export type AdminUserFilterText = string;
+export type AdminAccessLevel = "manager" | "viewer" | "none";
+export type AdminLastLoginFilter =
+  | "never"
+  | "inactive_30_days"
+  | "inactive_90_days";
 
 export interface ListUsersRequest {
   limit?: PageSize;
   pagination_key?: PaginationKey;
-  filter_email_address?: AdminUserFilterText;
-  filter_display_name?: AdminUserFilterText;
+  filter_search?: AdminUserFilterText;
   filter_state?: State;
-  filter_is_superadmin?: boolean;
-  filter_permission?: AdminPermission;
+  filter_access?: AdminAccessLevel;
+  filter_totp_enabled?: boolean;
+  filter_last_login?: AdminLastLoginFilter;
 }
 
 export function effectiveListUsersLimit(request: ListUsersRequest): PageSize {
@@ -42,16 +43,10 @@ export function validateListUsersRequest(request: ListUsersRequest): string[] {
     fields.push("pagination_key");
   }
   if (
-    request.filter_email_address !== undefined &&
-    !isAdminUserFilterText(request.filter_email_address)
+    request.filter_search !== undefined &&
+    !isAdminUserFilterText(request.filter_search)
   ) {
-    fields.push("filter_email_address");
-  }
-  if (
-    request.filter_display_name !== undefined &&
-    !isAdminUserFilterText(request.filter_display_name)
-  ) {
-    fields.push("filter_display_name");
+    fields.push("filter_search");
   }
   if (
     request.filter_state !== undefined &&
@@ -61,10 +56,20 @@ export function validateListUsersRequest(request: ListUsersRequest): string[] {
     fields.push("filter_state");
   }
   if (
-    request.filter_permission !== undefined &&
-    !isAdminPermission(request.filter_permission)
+    request.filter_access !== undefined &&
+    request.filter_access !== "manager" &&
+    request.filter_access !== "viewer" &&
+    request.filter_access !== "none"
   ) {
-    fields.push("filter_permission");
+    fields.push("filter_access");
+  }
+  if (
+    request.filter_last_login !== undefined &&
+    request.filter_last_login !== "never" &&
+    request.filter_last_login !== "inactive_30_days" &&
+    request.filter_last_login !== "inactive_90_days"
+  ) {
+    fields.push("filter_last_login");
   }
   return fields;
 }

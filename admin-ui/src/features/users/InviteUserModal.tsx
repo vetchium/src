@@ -1,7 +1,11 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { App, Form, Input, Modal } from "antd";
+import { App, Form, Input, Modal, Radio, Space, Typography } from "antd";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
+import {
+  ManageUsers,
+  ViewUsers,
+} from "../../../../typespec/admin/authorization/types.ts";
 import type { InviteUserRequest } from "../../../../typespec/admin/users/invitations.ts";
 import {
   normalizeInviteUserRequest,
@@ -22,6 +26,11 @@ interface InviteUserModalProps {
   onClose: () => void;
 }
 
+interface InviteFormValues {
+  email_address: string;
+  access_level: "manager" | "viewer" | "none";
+}
+
 const inviteProblems = {
   [AdminUserAlreadyExistsError.type]: "users.invite.errors.alreadyExists",
   [AdminInvitationAlreadyPendingError.type]:
@@ -32,7 +41,7 @@ export function InviteUserModal({ open, onClose }: InviteUserModalProps) {
   const { t, i18n } = useTranslation();
   const { message } = App.useApp();
   const queryClient = useQueryClient();
-  const [form] = Form.useForm<InviteUserRequest>();
+  const [form] = Form.useForm<InviteFormValues>();
   const invitationKey = useIdempotencyKey();
   const mutation = useMutation({
     mutationFn: (request: InviteUserRequest) =>
@@ -53,8 +62,17 @@ export function InviteUserModal({ open, onClose }: InviteUserModalProps) {
     }
   }, [open, form, resetMutation, invitationKey]);
 
-  const submit = async (values: InviteUserRequest) => {
-    const request = normalizeInviteUserRequest(values);
+  const submit = async (values: InviteFormValues) => {
+    const permissions =
+      values.access_level === "manager"
+        ? [ManageUsers]
+        : values.access_level === "viewer"
+          ? [ViewUsers]
+          : [];
+    const request = normalizeInviteUserRequest({
+      email_address: values.email_address,
+      permissions,
+    });
     try {
       const response = await mutation.mutateAsync(request);
       // Closing happens before anything else is awaited: isPending has already
@@ -103,9 +121,10 @@ export function InviteUserModal({ open, onClose }: InviteUserModalProps) {
         }
       }}
     >
-      <Form<InviteUserRequest>
+      <Form<InviteFormValues>
         form={form}
         layout="vertical"
+        initialValues={{ access_level: "viewer" }}
         onFinish={(values) => void submit(values)}
       >
         <Form.Item
@@ -124,6 +143,43 @@ export function InviteUserModal({ open, onClose }: InviteUserModalProps) {
           ]}
         >
           <Input autoComplete="off" />
+        </Form.Item>
+        <Form.Item
+          name="access_level"
+          label={t("users.invite.accessLevel")}
+          rules={[{ required: true, message: t("validation.required") }]}
+        >
+          <Radio.Group className="access-level-options">
+            <Space orientation="vertical" size="middle">
+              <Radio value="manager">
+                <Typography.Text strong>
+                  {t("users.access.levels.manager.title")}
+                </Typography.Text>
+                <br />
+                <Typography.Text type="secondary">
+                  {t("users.access.levels.manager.description")}
+                </Typography.Text>
+              </Radio>
+              <Radio value="viewer">
+                <Typography.Text strong>
+                  {t("users.access.levels.viewer.title")}
+                </Typography.Text>
+                <br />
+                <Typography.Text type="secondary">
+                  {t("users.access.levels.viewer.description")}
+                </Typography.Text>
+              </Radio>
+              <Radio value="none">
+                <Typography.Text strong>
+                  {t("users.access.levels.none.title")}
+                </Typography.Text>
+                <br />
+                <Typography.Text type="secondary">
+                  {t("users.access.levels.none.description")}
+                </Typography.Text>
+              </Radio>
+            </Space>
+          </Radio.Group>
         </Form.Item>
       </Form>
     </Modal>

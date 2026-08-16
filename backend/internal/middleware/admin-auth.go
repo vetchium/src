@@ -22,7 +22,6 @@ type AdminIdentity struct {
 	UserID          pgtype.UUID
 	SessionID       pgtype.UUID
 	AuthenticatedAt time.Time
-	IsSuperadmin    bool
 	Permissions     []string
 }
 
@@ -65,7 +64,6 @@ func AdminAuth(s *adminapi.Server) func(http.Handler) http.Handler {
 				UserID:          session.AdminUserID,
 				SessionID:       session.AdminSessionID,
 				AuthenticatedAt: session.AuthenticatedAt.Time,
-				IsSuperadmin:    session.IsSuperadmin,
 				Permissions:     session.Permissions,
 			}
 			ctx = context.WithValue(ctx, adminIdentityContextKey{}, identity)
@@ -89,34 +87,10 @@ func RequireAdminPermission(
 				)
 				return
 			}
-			if !identity.IsSuperadmin &&
-				!containsPermission(identity.Permissions, permission) {
+			if !containsPermission(identity.Permissions, permission) {
 				s.Problem(
 					r.Context(), w,
 					adminproblem.AdminPermissionRequiredError,
-				)
-				return
-			}
-			next.ServeHTTP(w, r)
-		})
-	}
-}
-
-func RequireSuperadmin(s *adminapi.Server) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			identity, ok := AdminIdentityFromContext(r.Context())
-			if !ok {
-				s.Problem(
-					r.Context(), w,
-					adminproblem.AdminAuthenticationRequiredError,
-					adminapi.BearerChallenge,
-				)
-				return
-			}
-			if !identity.IsSuperadmin {
-				s.Problem(
-					r.Context(), w, adminproblem.SuperadminRequiredError,
 				)
 				return
 			}

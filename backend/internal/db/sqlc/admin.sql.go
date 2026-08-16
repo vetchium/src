@@ -16,27 +16,20 @@ SELECT
     u.admin_user_id,
     s.admin_session_id,
     s.authenticated_at,
-    u.is_superadmin,
-    CASE
-        WHEN u.is_superadmin THEN ARRAY[
-            'admin:view_users',
-            'admin:manage_users'
-        ]::text[]
-        ELSE ARRAY(
-            SELECT permission
-            FROM (
-                SELECT p.permission
-                FROM vetchium.admin_permissions AS p
-                WHERE p.admin_user_id = u.admin_user_id
-                UNION
-                SELECT 'admin:view_users'
-                FROM vetchium.admin_permissions AS p
-                WHERE p.admin_user_id = u.admin_user_id
-                  AND p.permission = 'admin:manage_users'
-            ) AS effective_permissions
-            ORDER BY permission
-        )::text[]
-    END AS permissions
+    ARRAY(
+        SELECT permission
+        FROM (
+            SELECT p.permission
+            FROM vetchium.admin_permissions AS p
+            WHERE p.admin_user_id = u.admin_user_id
+            UNION
+            SELECT 'admin:view_users'
+            FROM vetchium.admin_permissions AS p
+            WHERE p.admin_user_id = u.admin_user_id
+              AND p.permission = 'admin:manage_users'
+        ) AS effective_permissions
+        ORDER BY permission
+    )::text[] AS permissions
 FROM vetchium.admin_sessions AS s
 JOIN vetchium.admin_users AS u USING (admin_user_id)
 WHERE s.session_token_hash = $1
@@ -48,7 +41,6 @@ type AuthenticateAdminSessionRow struct {
 	AdminUserID     pgtype.UUID        `json:"admin_user_id"`
 	AdminSessionID  pgtype.UUID        `json:"admin_session_id"`
 	AuthenticatedAt pgtype.Timestamptz `json:"authenticated_at"`
-	IsSuperadmin    bool               `json:"is_superadmin"`
 	Permissions     []string           `json:"permissions"`
 }
 
@@ -59,7 +51,6 @@ func (q *Queries) AuthenticateAdminSession(ctx context.Context, sessionTokenHash
 		&i.AdminUserID,
 		&i.AdminSessionID,
 		&i.AuthenticatedAt,
-		&i.IsSuperadmin,
 		&i.Permissions,
 	)
 	return i, err
@@ -313,11 +304,7 @@ SELECT
     names.display_names::text AS display_names_json,
     u.primary_display_name_language,
     u.admin_user_state,
-    u.is_superadmin,
-    array_to_json(CASE WHEN u.is_superadmin THEN ARRAY[
-        'admin:view_users',
-        'admin:manage_users'
-    ]::text[] ELSE auth.permissions END)::text AS permissions_json,
+    array_to_json(auth.permissions)::text AS permissions_json,
     u.totp_enabled,
     recovery.remaining_codes AS recovery_codes_remaining,
     u.preferred_language,
@@ -377,7 +364,6 @@ type GetAdminMyInfoRow struct {
 	DisplayNamesJson           string                 `json:"display_names_json"`
 	PrimaryDisplayNameLanguage string                 `json:"primary_display_name_language"`
 	AdminUserState             VetchiumAdminUserState `json:"admin_user_state"`
-	IsSuperadmin               bool                   `json:"is_superadmin"`
 	PermissionsJson            string                 `json:"permissions_json"`
 	TotpEnabled                bool                   `json:"totp_enabled"`
 	RecoveryCodesRemaining     int64                  `json:"recovery_codes_remaining"`
@@ -395,7 +381,6 @@ func (q *Queries) GetAdminMyInfo(ctx context.Context, arg GetAdminMyInfoParams) 
 		&i.DisplayNamesJson,
 		&i.PrimaryDisplayNameLanguage,
 		&i.AdminUserState,
-		&i.IsSuperadmin,
 		&i.PermissionsJson,
 		&i.TotpEnabled,
 		&i.RecoveryCodesRemaining,

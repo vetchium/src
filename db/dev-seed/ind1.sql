@@ -20,22 +20,25 @@ INSERT INTO vetchium.admin_users (
     display_name,
     password_hash,
     admin_user_state,
-    is_superadmin,
     primary_display_name_language
 ) VALUES (
     'admin@ind1.example',
     'ind1 Administrator',
     '$2a$10$7YcuXQJ0D7dW107.o2iwWe1NrtR4GXuN1qsEHnK7ovp8/aViyq7.S',
     'active',
-    true,
     'en-US'
 )
 ON CONFLICT (email_address) DO UPDATE SET
-    password_hash = EXCLUDED.password_hash,
-    is_superadmin = true;
+    password_hash = EXCLUDED.password_hash;
 
 INSERT INTO vetchium.admin_display_names (admin_user_id, language_code, display_name)
 SELECT admin_user_id, primary_display_name_language, display_name
 FROM vetchium.admin_users
 WHERE email_address = 'admin@ind1.example'
 ON CONFLICT (admin_user_id, language_code) DO NOTHING;
+
+INSERT INTO vetchium.admin_permissions (admin_user_id, permission)
+SELECT admin_user_id, 'admin:manage_users'
+FROM vetchium.admin_users
+WHERE email_address = 'admin@ind1.example'
+ON CONFLICT (admin_user_id, permission) DO NOTHING;

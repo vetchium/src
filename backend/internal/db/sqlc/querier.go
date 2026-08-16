@@ -30,23 +30,19 @@ type Querier interface {
 	DeleteAdminSessionByTokenHash(ctx context.Context, sessionTokenHash []byte) (int64, error)
 	DeleteExpiredIdempotency(ctx context.Context, arg DeleteExpiredIdempotencyParams) error
 	DeleteIdempotency(ctx context.Context, arg DeleteIdempotencyParams) error
-	DemoteAdminFromSuperadmin(ctx context.Context, arg DemoteAdminFromSuperadminParams) (string, error)
 	DisableAdminTOTP(ctx context.Context, arg DisableAdminTOTPParams) (bool, error)
 	DisableAdminUser(ctx context.Context, arg DisableAdminUserParams) (string, error)
-	EnableAdminUser(ctx context.Context, arg EnableAdminUserParams) (string, error)
+	EnableAdminUser(ctx context.Context, targetAdminUserID pgtype.UUID) (string, error)
 	GetAdminLoginChallenge(ctx context.Context, tokenHash []byte) (GetAdminLoginChallengeRow, error)
 	GetAdminMyInfo(ctx context.Context, arg GetAdminMyInfoParams) (GetAdminMyInfoRow, error)
 	GetAdminPasswordForReauthentication(ctx context.Context, arg GetAdminPasswordForReauthenticationParams) (string, error)
 	GetAdminTOTPEnrollment(ctx context.Context, arg GetAdminTOTPEnrollmentParams) (GetAdminTOTPEnrollmentRow, error)
 	GetAdminUserForLogin(ctx context.Context, emailAddress string) (GetAdminUserForLoginRow, error)
 	GetIdempotency(ctx context.Context, arg GetIdempotencyParams) (GetIdempotencyRow, error)
-	GrantAdminPermission(ctx context.Context, arg GrantAdminPermissionParams) (string, error)
 	ListAdminUsers(ctx context.Context, arg ListAdminUsersParams) ([]ListAdminUsersRow, error)
 	LockAdminEmailCredentialMutation(ctx context.Context, emailAddress string) (pgtype.UUID, error)
-	LockAdminSuperadminInvariant(ctx context.Context) error
 	LockAdminUserCredentialMutation(ctx context.Context, adminUserID pgtype.UUID) (pgtype.UUID, error)
 	LockIdempotency(ctx context.Context, dollar_1 string) error
-	PromoteAdminToSuperadmin(ctx context.Context, targetAdminUserID pgtype.UUID) (string, error)
 	// Outbox ciphertext is retained no longer than the maximum usable lifetime of
 	// the credential it contains, whether delivery succeeded or not.
 	PruneAdminEmailOutbox(ctx context.Context) (int64, error)
@@ -63,8 +59,8 @@ type Querier interface {
 	RegenerateAdminTOTPRecoveryCodes(ctx context.Context, arg RegenerateAdminTOTPRecoveryCodesParams) (bool, error)
 	ResolveAdminLoginChallengeUser(ctx context.Context, tokenHash []byte) (pgtype.UUID, error)
 	ResolveAdminPasswordResetUser(ctx context.Context, resetTokenHash []byte) (pgtype.UUID, error)
-	RevokeAdminPermission(ctx context.Context, arg RevokeAdminPermissionParams) (string, error)
 	SetAdminDisplayNames(ctx context.Context, arg SetAdminDisplayNamesParams) (int64, error)
+	SetAdminPermissions(ctx context.Context, arg SetAdminPermissionsParams) (string, error)
 	SetAdminPreferredLanguage(ctx context.Context, arg SetAdminPreferredLanguageParams) (int64, error)
 }
 

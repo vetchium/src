@@ -23,6 +23,20 @@ namespace Vetchium.Admin;
 @maxLength(320)
 scalar AdminUserFilterText extends string;
 
+/** Mutually exclusive access levels presented by the administrator UI. */
+enum AdminAccessLevel {
+  Manager: "manager",
+  Viewer: "viewer",
+  None: "none",
+}
+
+/** Useful administrator-account activity windows. */
+enum AdminLastLoginFilter {
+  Never: "never",
+  Inactive30Days: "inactive_30_days",
+  Inactive90Days: "inactive_90_days",
+}
+
 /** Filter and continue a stable keyset-ordered admin-user listing. */
 model ListUsersRequest {
   /** Defaults to 50. */
@@ -31,15 +45,13 @@ model ListUsersRequest {
   /** Signed opaque key bound to normalized filters and the stable ordering. */
   pagination_key?: PaginationKey;
 
-  /** Case-insensitive partial match against normalized email addresses. */
-  filter_email_address?: AdminUserFilterText;
-
-  /** Case-insensitive match against any localized display-name variant. */
-  filter_display_name?: AdminUserFilterText;
+  /** Case-insensitive partial match against email or any display name. */
+  filter_search?: AdminUserFilterText;
 
   filter_state?: Vetchium.Admin.User.State;
-  filter_is_superadmin?: boolean;
-  filter_permission?: AdminPermission;
+  filter_access?: AdminAccessLevel;
+  filter_totp_enabled?: boolean;
+  filter_last_login?: AdminLastLoginFilter;
 }
 
 /** Admin-user data required by user-management screens. */
@@ -123,10 +135,6 @@ interface UserManagementOperations {
     "admin:manage_users"
   )
   @TypeSpec.OpenAPI.extension(
-    "x-vetchium-target-superadmin-requires-superadmin",
-    true
-  )
-  @TypeSpec.OpenAPI.extension(
     "x-vetchium-security-effects",
     #[
       Vetchium.SecurityEffect.DisableAdminUser,
@@ -145,10 +153,8 @@ interface UserManagementOperations {
     | Vetchium.Problem.ValidationFailedErrorResponse
     | Vetchium.Problem.AdminAuthenticationRequiredErrorResponse
     | Vetchium.Problem.AdminPermissionRequiredErrorResponse
-    | Vetchium.Problem.SuperadminRequiredErrorResponse
     | Vetchium.Problem.AdminUserNotFoundErrorResponse
     | Vetchium.Problem.CannotDisableCurrentAdminErrorResponse
-    | Vetchium.Problem.LastActiveSuperadminErrorResponse
     | Vetchium.Problem.InternalServerErrorResponse;
 
   /** Enable an admin without restoring previously revoked sessions. */
@@ -158,10 +164,6 @@ interface UserManagementOperations {
   @TypeSpec.OpenAPI.extension(
     "x-vetchium-required-permission",
     "admin:manage_users"
-  )
-  @TypeSpec.OpenAPI.extension(
-    "x-vetchium-target-superadmin-requires-superadmin",
-    true
   )
   @TypeSpec.OpenAPI.extension(
     "x-vetchium-security-effects",
@@ -176,7 +178,6 @@ interface UserManagementOperations {
     | Vetchium.Problem.ValidationFailedErrorResponse
     | Vetchium.Problem.AdminAuthenticationRequiredErrorResponse
     | Vetchium.Problem.AdminPermissionRequiredErrorResponse
-    | Vetchium.Problem.SuperadminRequiredErrorResponse
     | Vetchium.Problem.AdminUserNotFoundErrorResponse
     | Vetchium.Problem.InternalServerErrorResponse;
 }

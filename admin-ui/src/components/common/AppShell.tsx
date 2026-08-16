@@ -26,9 +26,7 @@ export function AppShell() {
       preferences.setLanguage(me.preferred_language);
     }
   }, [me, preferences]);
-  const canViewUsers =
-    me?.is_superadmin === true ||
-    me?.permissions.includes("admin:view_users") === true;
+  const canViewUsers = me?.permissions.includes("admin:view_users") === true;
   const selectedKey = location.pathname.startsWith("/users")
     ? "/users"
     : location.pathname.startsWith("/settings/profile")

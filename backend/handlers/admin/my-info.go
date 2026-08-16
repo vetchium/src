@@ -76,8 +76,7 @@ func MyInfo(s *adminapi.Server) http.HandlerFunc {
 			PrimaryDisplayNameLanguage: common.RegionalLanguageCode(row.PrimaryDisplayNameLanguage),
 			State:                      user.State(row.AdminUserState),
 			AdminAuthorization: authorization.AdminAuthorization{
-				IsSuperadmin: row.IsSuperadmin,
-				Permissions:  permissions,
+				Permissions: permissions,
 			},
 			TOTPEnabled: row.TotpEnabled,
 			RecoveryCodesRemaining: common.TOTPRecoveryCodeCount(

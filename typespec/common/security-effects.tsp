@@ -27,9 +27,5 @@ enum SecurityEffect {
   RevokeAllSessions: "revoke-all-sessions",
   DisableAdminUser: "disable-admin-user",
   EnableAdminUser: "enable-admin-user",
-  GrantAdminPermission: "grant-admin-permission",
-  RevokeAdminPermission: "revoke-admin-permission",
-  ClearDirectPermissions: "clear-direct-permissions",
-  PromoteToSuperadmin: "promote-to-superadmin",
-  DemoteFromSuperadmin: "demote-from-superadmin",
+  ReplaceAdminPermissions: "replace-admin-permissions",
 }

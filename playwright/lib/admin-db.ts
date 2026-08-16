@@ -196,8 +196,8 @@ export async function credentialRefreshPruneRace(): Promise<{
     });
     session.stdin.write(`
       INSERT INTO vetchium.admin_users (
-        email_address, display_name, password_hash, is_superadmin
-      ) VALUES ('race@example.test', 'Race Admin', 'unused-test-hash', true);
+        email_address, display_name, password_hash
+      ) VALUES ('race@example.test', 'Race Admin', 'unused-test-hash');
       BEGIN;
       INSERT INTO vetchium.admin_password_reset_tokens (
         admin_user_id, token_hash, created_at, expires_at
@@ -486,10 +486,10 @@ export async function stalePasswordLoginCreationRace(): Promise<{
     });
     change.stdin.write(`
       INSERT INTO vetchium.admin_users (
-        email_address, display_name, password_hash, is_superadmin
+        email_address, display_name, password_hash
       ) VALUES
-        ('direct-race@example.test', 'Direct Race', 'verified-old-hash', true),
-        ('totp-race@example.test', 'TOTP Race', 'verified-old-hash', true);
+        ('direct-race@example.test', 'Direct Race', 'verified-old-hash'),
+        ('totp-race@example.test', 'TOTP Race', 'verified-old-hash');
       UPDATE vetchium.admin_users
       SET totp_secret_ciphertext = decode('01', 'hex'), totp_enabled = true
       WHERE email_address = 'totp-race@example.test';
@@ -873,9 +873,9 @@ export async function staleCredentialReplacementRace(
     });
     replacement.stdin.write(`
       INSERT INTO vetchium.admin_users (
-        email_address, display_name, password_hash, is_superadmin
+        email_address, display_name, password_hash
       ) VALUES (
-        ${sqlLiteral(email)}, 'Credential Race', 'original-password-hash', true
+        ${sqlLiteral(email)}, 'Credential Race', 'original-password-hash'
       );
       ${setupSQL}
       BEGIN;
@@ -1087,7 +1087,7 @@ export function expireAdminIdempotency(operation: string, key: string): void {
   `);
 }
 
-export function createSeededSuperadminSession(): string {
+export function createSeededManagerSession(): string {
   const token = randomBytes(32).toString("base64url");
   const tokenHash = createHash("sha256").update(token).digest("hex");
   const inserted = sqlScalar(`
@@ -1096,87 +1096,16 @@ export function createSeededSuperadminSession(): string {
     )
     SELECT admin_user_id, decode('${tokenHash}', 'hex'), now(), now() + interval '15 minutes'
     FROM vetchium.admin_users
-    WHERE email_address = 'admin@sgp.example' AND is_superadmin
+    WHERE email_address = 'admin@sgp.example'
+      AND EXISTS (
+        SELECT 1 FROM vetchium.admin_permissions AS permission
+        WHERE permission.admin_user_id = admin_users.admin_user_id
+          AND permission.permission = 'admin:manage_users'
+      )
     RETURNING admin_session_id;
   `);
-  if (inserted.length === 0)
-    throw new Error("seeded superadmin is unavailable");
+  if (inserted.length === 0) throw new Error("seeded manager is unavailable");
   return token;
-}
-
-export interface IsolatedSuperadmin {
-  adminUserID: string;
-  sessionToken: string;
-}
-
-export function createIsolatedSuperadmin(
-  tenant: "deu",
-  emailAddress: string,
-): IsolatedSuperadmin {
-  assertOwnedEmail(emailAddress);
-  const adminUserID = randomBytes(16)
-    .toString("hex")
-    .replace(/^(........)(....)(....)(....)(............)$/, "$1-$2-$3-$4-$5");
-  const sessionToken = randomBytes(32).toString("base64url");
-  const tokenHash = createHash("sha256").update(sessionToken).digest("hex");
-  sqlScalarForTenant(
-    tenant,
-    `
-      INSERT INTO vetchium.admin_users (
-        admin_user_id, email_address, display_name, password_hash,
-        admin_user_state, is_superadmin, primary_display_name_language
-      ) VALUES (
-        '${adminUserID}', ${sqlLiteral(emailAddress)}, 'Isolated Superadmin',
-        '$2a$10$r43DzlK2Kl9W9kvE6DfAkegUKSJd0g7ZiuOFi3Ozzcem5V83lLsUC',
-        'active', true, 'en-US'
-      );
-      INSERT INTO vetchium.admin_display_names (
-        admin_user_id, language_code, display_name
-      ) VALUES ('${adminUserID}', 'en-US', 'Isolated Superadmin');
-      INSERT INTO vetchium.admin_sessions (
-        admin_user_id, session_token_hash, authenticated_at, expires_at
-      ) VALUES (
-        '${adminUserID}', decode('${tokenHash}', 'hex'), now(),
-        now() + interval '15 minutes'
-      );
-    `,
-  );
-  return { adminUserID, sessionToken };
-}
-
-export function tenantBootstrapAdminID(tenant: "deu"): string {
-  return sqlScalarForTenant(
-    tenant,
-    `SELECT admin_user_id FROM vetchium.admin_users
-     WHERE email_address = 'admin@${tenant}.example';`,
-  );
-}
-
-export function activeSuperadminCount(tenant: "deu"): number {
-  return Number(
-    sqlScalarForTenant(
-      tenant,
-      `SELECT count(*) FROM vetchium.admin_users
-       WHERE is_superadmin AND admin_user_state = 'active';`,
-    ),
-  );
-}
-
-export function restoreIsolatedSuperadminTest(
-  tenant: "deu",
-  emailAddresses: string[],
-): void {
-  for (const emailAddress of emailAddresses) assertOwnedEmail(emailAddress);
-  sqlScalarForTenant(
-    tenant,
-    `
-      UPDATE vetchium.admin_users
-      SET is_superadmin = true
-      WHERE email_address = 'admin@${tenant}.example';
-      DELETE FROM vetchium.admin_users
-      WHERE email_address IN (${emailAddresses.map(sqlLiteral).join(", ")});
-    `,
-  );
 }
 
 function credentialKey(): Buffer {

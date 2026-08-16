@@ -28,9 +28,5 @@ const (
 	RevokeAllSessions             SecurityEffect = "revoke-all-sessions"
 	DisableAdminUser              SecurityEffect = "disable-admin-user"
 	EnableAdminUser               SecurityEffect = "enable-admin-user"
-	GrantAdminPermission          SecurityEffect = "grant-admin-permission"
-	RevokeAdminPermission         SecurityEffect = "revoke-admin-permission"
-	ClearDirectPermissions        SecurityEffect = "clear-direct-permissions"
-	PromoteToSuperadmin           SecurityEffect = "promote-to-superadmin"
-	DemoteFromSuperadmin          SecurityEffect = "demote-from-superadmin"
+	ReplaceAdminPermissions       SecurityEffect = "replace-admin-permissions"
 )

@@ -21,9 +21,6 @@ scalar AdminPermissionID extends string;
 
 /** Effective authorization available to an admin user. */
 model AdminAuthorization {
-  /** Superadmins implicitly possess every current and future permission. */
-  is_superadmin: boolean;
-
   /** Effective permissions, including permissions implied by other grants. */
   permissions: AdminPermissionID[];
 }

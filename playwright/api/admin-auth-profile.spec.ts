@@ -93,7 +93,7 @@ test.describe("Admin authentication", () => {
 
   test("logout is anonymous, idempotent, and invalidates a supplied session", async ({
     adminAPI,
-    superadminToken,
+    managerToken,
   }) => {
     expect((await adminAPI.post("/logout")).status()).toBe(204);
     expect(
@@ -103,15 +103,15 @@ test.describe("Admin authentication", () => {
     ).toBe(204);
     expect(
       (
-        await adminAPI.post("/logout", undefined, { token: superadminToken })
+        await adminAPI.post("/logout", undefined, { token: managerToken })
       ).status(),
     ).toBe(204);
     expect(
       (
-        await adminAPI.post("/logout", undefined, { token: superadminToken })
+        await adminAPI.post("/logout", undefined, { token: managerToken })
       ).status(),
     ).toBe(204);
-    const denied = await adminAPI.get("/my-info", superadminToken);
+    const denied = await adminAPI.get("/my-info", managerToken);
     await expectProblem(
       denied,
       401,
@@ -233,7 +233,6 @@ test.describe("Admin profile", () => {
       display_names: [{ language_code: "en-US", display_name: "Profile Test" }],
       primary_display_name_language: "en-US",
       state: "active",
-      is_superadmin: false,
       permissions: [],
       totp_enabled: false,
       recovery_codes_remaining: 0,

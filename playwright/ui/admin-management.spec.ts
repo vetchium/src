@@ -31,16 +31,16 @@ test("an authorized administrator can open the users deep link", async ({
   adminAPI,
   createAdmin,
   page,
-  superadminToken,
+  managerToken,
 }) => {
   const admin = await createAdmin();
   const grant = await adminAPI.post(
-    "/grant-permission",
+    "/set-user-permissions",
     {
       admin_user_id: admin.adminUserID,
-      permission: "admin:view_users",
+      permissions: ["admin:view_users"],
     },
-    { token: superadminToken },
+    { token: managerToken },
   );
   expect(grant.status(), await grant.text()).toBe(204);
 
@@ -49,67 +49,66 @@ test("an authorized administrator can open the users deep link", async ({
     page.getByRole("heading", { name: "Administrators" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("cell", { name: admin.emailAddress, exact: true }),
+    page.getByRole("row").filter({ hasText: admin.emailAddress }),
   ).toBeVisible();
 });
 
-test("a superadmin can invite and manage administrators", async ({
+test("a manager can find, secure, and manage administrators", async ({
   adminAPI,
   createAdmin,
   ownedEmail,
   page,
-  superadminToken,
+  managerToken,
 }) => {
   const target = await createAdmin({ displayName: "UI managed administrator" });
   const invitationEmail = ownedEmail();
   await signIn(page, SEEDED_ADMIN_EMAIL, SEEDED_ADMIN_PASSWORD, "/users");
 
   await page
-    .getByRole("textbox", { name: "Email address" })
+    .getByRole("searchbox", { name: "Search by name or email address" })
     .fill(target.emailAddress);
-  await page.getByRole("button", { name: "Apply filters" }).click();
+  await page.getByRole("button", { name: "Search" }).click();
   const targetRow = page
     .getByRole("row")
     .filter({ hasText: target.emailAddress });
   await expect(targetRow).toBeVisible();
 
-  await targetRow.getByRole("button", { name: "Manage access" }).click();
+  await targetRow
+    .getByRole("button", { name: "Actions for UI managed administrator" })
+    .click();
+  await page.getByRole("menuitem", { name: "Manage access" }).click();
   const accessDialog = page.getByRole("dialog", { name: "Manage access" });
-  const viewUsers = accessDialog.getByRole("switch", {
-    name: "View administrators",
-  });
-  await viewUsers.click();
-  await expect(viewUsers).toHaveAttribute("aria-checked", "true");
-  await viewUsers.click();
-  await expect(viewUsers).toHaveAttribute("aria-checked", "false");
-
-  const superadmin = accessDialog.getByRole("switch", { name: "Superadmin" });
-  await superadmin.click();
-  await expect(superadmin).toHaveAttribute("aria-checked", "true");
-  await superadmin.click();
-  await expect(superadmin).toHaveAttribute("aria-checked", "false");
+  const viewer = accessDialog.getByRole("radio", { name: /Viewer/ });
+  await viewer.click();
+  await expect(viewer).toBeChecked();
+  const manager = accessDialog.getByRole("radio", { name: /Manager/ });
+  await manager.click();
+  await expect(manager).toBeChecked();
   await accessDialog.getByRole("button", { name: "Close" }).last().click();
 
-  await targetRow.getByRole("button", { name: "Disable" }).click();
-  await page.getByRole("button", { name: "Confirm" }).click();
-  await expect(targetRow.getByRole("button", { name: "Enable" })).toBeVisible();
-  await targetRow.getByRole("button", { name: "Enable" }).click();
-  await page.getByRole("button", { name: "Confirm" }).click();
-  await expect(
-    targetRow.getByRole("button", { name: "Disable" }),
-  ).toBeVisible();
+  await targetRow
+    .getByRole("button", { name: "Actions for UI managed administrator" })
+    .click();
+  await page.getByRole("menuitem", { name: "Disable" }).click();
+  await page.getByRole("button", { name: "Disable" }).last().click();
+  await expect(targetRow.getByText("Disabled", { exact: true })).toBeVisible();
+  await targetRow
+    .getByRole("button", { name: "Actions for UI managed administrator" })
+    .click();
+  await page.getByRole("menuitem", { name: "Enable" }).click();
+  await page.getByRole("button", { name: "Enable" }).last().click();
+  await expect(targetRow.getByText("Active", { exact: true })).toBeVisible();
 
   const listed = await adminAPI.post(
     "/list-users",
-    { filter_email_address: target.emailAddress },
-    { token: superadminToken },
+    { filter_search: target.emailAddress },
+    { token: managerToken },
   );
   expect(listed.status(), await listed.text()).toBe(200);
   expect((await responseJSON<ListUsersResponse>(listed)).users).toMatchObject([
     {
       admin_user_id: target.adminUserID,
-      is_superadmin: false,
-      permissions: [],
+      permissions: ["admin:manage_users", "admin:view_users"],
       state: "active",
     },
   ]);
@@ -121,11 +120,12 @@ test("a superadmin can invite and manage administrators", async ({
   await inviteDialog
     .getByRole("textbox", { name: "Email address" })
     .fill(invitationEmail);
+  await inviteDialog.getByRole("radio", { name: /Manager/ }).click();
   await inviteDialog
     .getByRole("button", { name: "Invite administrator" })
     .click();
   await expect(
-    page.getByText(`Invitation sent to ${invitationEmail}.`),
+    page.getByText(`Invitation sent to ${invitationEmail}`),
   ).toBeVisible();
 });
 
@@ -284,25 +284,26 @@ test("access confirmation rejects an external return location", async ({
 test("a server freshness rejection offers confirmation without signing out", async ({
   createAdmin,
   page,
-  superadminToken,
+  managerToken,
 }) => {
   const target = await createAdmin();
   await page.addInitScript((sessionToken) => {
     sessionStorage.setItem("vetchium.admin.session-token", sessionToken);
-  }, superadminToken);
+  }, managerToken);
   await page.goto("/users");
   await page
-    .getByRole("textbox", { name: "Email address" })
+    .getByRole("searchbox", { name: "Search by name or email address" })
     .fill(target.emailAddress);
-  await page.getByRole("button", { name: "Apply filters" }).click();
+  await page.getByRole("button", { name: "Search" }).click();
   const targetRow = page
     .getByRole("row")
     .filter({ hasText: target.emailAddress });
-  await targetRow.getByRole("button", { name: "Manage access" }).click();
+  await targetRow.getByRole("button", { name: /Actions for/ }).click();
+  await page.getByRole("menuitem", { name: "Manage access" }).click();
 
-  ageSession(superadminToken);
+  ageSession(managerToken);
   const accessDialog = page.getByRole("dialog", { name: "Manage access" });
-  await accessDialog.getByRole("switch", { name: "Superadmin" }).click();
+  await accessDialog.getByRole("radio", { name: /Manager/ }).click();
   await expect(
     accessDialog
       .getByRole("alert")

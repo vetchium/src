@@ -1,13 +1,18 @@
+import {
+  MoreOutlined,
+  SearchOutlined,
+  UserAddOutlined,
+} from "@ant-design/icons";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Alert,
   App,
   Button,
   Card,
+  Dropdown,
   Flex,
-  Form,
   Input,
-  Popconfirm,
+  Segmented,
   Select,
   Space,
   Spin,
@@ -19,18 +24,21 @@ import type { ColumnsType } from "antd/es/table";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Navigate } from "react-router";
-import type { AdminPermission } from "../../../typespec/admin/authorization/types.ts";
+import {
+  ManageUsers,
+  ViewUsers,
+} from "../../../typespec/admin/authorization/types.ts";
 import type { State } from "../../../typespec/admin/user/user.ts";
 import type {
+  AdminAccessLevel,
+  AdminLastLoginFilter,
   AdminUserSummary,
   ListUsersRequest,
 } from "../../../typespec/admin/users/management.ts";
 import type { PaginationKey } from "../../../typespec/common/pagination.ts";
-import { SuperadminRequiredError } from "../../../typespec/problem/admin/authorization.ts";
 import {
   AdminUserNotFoundError,
   CannotDisableCurrentAdminError,
-  LastActiveSuperadminError,
 } from "../../../typespec/problem/admin/users.ts";
 import { problemTranslationKey } from "../api/problems";
 import { intlLocale } from "../app/preferences";
@@ -41,26 +49,31 @@ import { InviteUserModal } from "../features/users/InviteUserModal";
 import { usersQueryKey, useUsersQuery } from "../features/users/queries";
 
 interface UserFilters {
-  email?: string;
-  displayName?: string;
+  search?: string;
   state?: State;
-  permission?: AdminPermission;
-  isSuperadmin?: boolean;
+  access?: AdminAccessLevel;
+  totpEnabled?: boolean;
+  lastLogin?: AdminLastLoginFilter;
 }
 
 const stateProblems = {
   [AdminUserNotFoundError.type]: "users.errors.notFound",
   [CannotDisableCurrentAdminError.type]: "users.errors.cannotDisableSelf",
-  [LastActiveSuperadminError.type]: "users.errors.lastSuperadmin",
-  [SuperadminRequiredError.type]: "users.errors.superadminRequired",
 };
+
+function userAccessLevel(user: AdminUserSummary): AdminAccessLevel {
+  if (user.permissions.includes(ManageUsers)) return "manager";
+  if (user.permissions.includes(ViewUsers)) return "viewer";
+  return "none";
+}
 
 export function UsersPage() {
   const { t, i18n } = useTranslation();
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const queryClient = useQueryClient();
   const { data: me } = useMyInfoQuery();
   const [filters, setFilters] = useState<UserFilters>({});
+  const [search, setSearch] = useState("");
   const [pageKeys, setPageKeys] = useState<Array<PaginationKey | undefined>>([
     undefined,
   ]);
@@ -70,11 +83,11 @@ export function UsersPage() {
   const request: ListUsersRequest = {
     limit: 25,
     pagination_key: pageKeys[pageIndex],
-    filter_email_address: filters.email || undefined,
-    filter_display_name: filters.displayName || undefined,
+    filter_search: filters.search || undefined,
     filter_state: filters.state,
-    filter_permission: filters.permission,
-    filter_is_superadmin: filters.isSuperadmin,
+    filter_access: filters.access,
+    filter_totp_enabled: filters.totpEnabled,
+    filter_last_login: filters.lastLogin,
   };
   const query = useUsersQuery(request);
   const stateMutation = useMutation({
@@ -83,27 +96,28 @@ export function UsersPage() {
         ? disableUser({ admin_user_id: user.admin_user_id })
         : enableUser({ admin_user_id: user.admin_user_id }),
   });
-  const allowed =
-    me?.is_superadmin === true ||
-    me?.permissions.includes("admin:view_users") === true;
 
-  // A direct visit starts with an empty query cache. Wait for the identity
-  // request before deciding whether to redirect; `undefined` is not evidence
-  // that the administrator lacks access.
+  const allowed = me?.permissions.includes(ViewUsers) === true;
   if (me === undefined) return <Spin size="large" />;
   if (!allowed) return <Navigate replace to="/" />;
 
-  const canManageUsers =
-    me?.is_superadmin === true ||
-    me?.permissions.includes("admin:manage_users") === true;
-  const canManageAccess = me?.is_superadmin === true;
-  // Both state mutations reject a superadmin target unless the actor is one
-  // too, and neither accepts the actor's own account.
-  const canChangeState = (user: AdminUserSummary) =>
-    canManageUsers &&
-    !stateMutation.isPending &&
-    user.admin_user_id !== me?.admin_user_id &&
-    (!user.is_superadmin || canManageAccess);
+  const canManageUsers = me.permissions.includes(ManageUsers);
+  const resetPagination = () => {
+    setPageKeys([undefined]);
+    setPageIndex(0);
+  };
+  const updateFilters = (patch: Partial<UserFilters>) => {
+    setFilters((current) => ({ ...current, ...patch }));
+    resetPagination();
+  };
+  const clearFilters = () => {
+    setSearch("");
+    setFilters({});
+    resetPagination();
+  };
+  const hasFilters = Object.values(filters).some(
+    (value) => value !== undefined,
+  );
 
   const setState = async (user: AdminUserSummary) => {
     const disabling = user.state === "active";
@@ -115,25 +129,44 @@ export function UsersPage() {
     } catch (error) {
       void message.error(t(problemTranslationKey(error, stateProblems)));
     } finally {
-      // Also on failure: a state change that commits and loses its response
-      // would otherwise leave the row offering the action it just performed.
       void queryClient.invalidateQueries({ queryKey: usersQueryKey });
     }
   };
 
+  const confirmStateChange = (user: AdminUserSummary) => {
+    const disabling = user.state === "active";
+    modal.confirm({
+      title: t(disabling ? "users.disable.confirm" : "users.enable.confirm"),
+      content: disabling ? t("users.disable.effect") : t("users.enable.effect"),
+      okText: t(disabling ? "users.disable.action" : "users.enable.action"),
+      cancelText: t("common.cancel"),
+      okButtonProps: { danger: disabling },
+      onOk: () => setState(user),
+    });
+  };
+
+  const displayName = (user: AdminUserSummary) =>
+    user.display_names.find(
+      (name) => name.language_code === user.primary_display_name_language,
+    )?.display_name ?? user.email_address;
+
   const columns: ColumnsType<AdminUserSummary> = [
     {
-      title: t("fields.name"),
-      key: "name",
-      render: (_, user) =>
-        user.display_names.find(
-          (name) => name.language_code === user.primary_display_name_language,
-        )?.display_name ?? user.email_address,
+      title: t("fields.administrator"),
+      key: "administrator",
+      render: (_, user) => (
+        <Space orientation="vertical" size={0}>
+          <Typography.Text strong>{displayName(user)}</Typography.Text>
+          <Typography.Text type="secondary" copyable>
+            {user.email_address}
+          </Typography.Text>
+        </Space>
+      ),
     },
-    { title: t("fields.email"), dataIndex: "email_address", key: "email" },
     {
       title: t("fields.state"),
       key: "state",
+      width: 120,
       render: (_, user) => (
         <Tag color={user.state === "active" ? "green" : "default"}>
           {t(`states.${user.state}`)}
@@ -143,16 +176,32 @@ export function UsersPage() {
     {
       title: t("fields.access"),
       key: "access",
-      render: (_, user) =>
-        user.is_superadmin
-          ? t("home.superadmin")
-          : user.permissions
-              .map((permission) => t(`permissions.${permission}`))
-              .join(", ") || t("home.noPermissions"),
+      width: 160,
+      render: (_, user) => {
+        const level = userAccessLevel(user);
+        return (
+          <Tag color={level === "manager" ? "blue" : undefined}>
+            {t(`users.access.levels.${level}.title`)}
+          </Tag>
+        );
+      },
+    },
+    {
+      title: t("fields.twoFactor"),
+      key: "twoFactor",
+      width: 140,
+      responsive: ["md"],
+      render: (_, user) => (
+        <Tag color={user.totp_enabled ? "green" : "orange"}>
+          {t(user.totp_enabled ? "common.enabled" : "common.notEnabled")}
+        </Tag>
+      ),
     },
     {
       title: t("fields.lastLogin"),
       key: "lastLogin",
+      width: 190,
+      responsive: ["lg"],
       render: (_, user) =>
         user.last_login_at === undefined
           ? t("common.never")
@@ -161,63 +210,54 @@ export function UsersPage() {
               timeStyle: "short",
             }).format(new Date(user.last_login_at)),
     },
-    ...(canManageUsers || canManageAccess
+    ...(canManageUsers
       ? [
           {
             title: t("fields.actions"),
             key: "actions",
+            width: 88,
+            align: "center" as const,
             render: (_: unknown, user: AdminUserSummary) => (
-              <Space wrap>
-                {canManageUsers ? (
-                  <Popconfirm
-                    title={t(
-                      user.state === "active"
-                        ? "users.disable.confirm"
-                        : "users.enable.confirm",
-                    )}
-                    okText={t("common.confirm")}
-                    cancelText={t("common.cancel")}
-                    disabled={!canChangeState(user)}
-                    onConfirm={() => void setState(user)}
-                  >
-                    <Button
-                      size="small"
-                      danger={user.state === "active"}
-                      disabled={!canChangeState(user)}
-                      loading={
-                        stateMutation.isPending &&
-                        stateMutation.variables?.user.admin_user_id ===
-                          user.admin_user_id
-                      }
-                    >
-                      {t(
+              <Dropdown
+                trigger={["click"]}
+                menu={{
+                  items: [
+                    {
+                      key: "access",
+                      label: t("users.access.action"),
+                    },
+                    { type: "divider" },
+                    {
+                      key: "state",
+                      danger: user.state === "active",
+                      disabled: user.admin_user_id === me.admin_user_id,
+                      label: t(
                         user.state === "active"
                           ? "users.disable.action"
                           : "users.enable.action",
-                      )}
-                    </Button>
-                  </Popconfirm>
-                ) : null}
-                {canManageAccess ? (
-                  <Button
-                    size="small"
-                    onClick={() => setAccessUserID(user.admin_user_id)}
-                  >
-                    {t("users.access.action")}
-                  </Button>
-                ) : null}
-              </Space>
+                      ),
+                    },
+                  ],
+                  onClick: ({ key }) => {
+                    if (key === "access") setAccessUserID(user.admin_user_id);
+                    if (key === "state") confirmStateChange(user);
+                  },
+                }}
+              >
+                <Button
+                  type="text"
+                  icon={<MoreOutlined />}
+                  aria-label={t("users.actionsFor", {
+                    name: displayName(user),
+                  })}
+                />
+              </Dropdown>
             ),
           },
         ]
       : []),
   ];
 
-  const applyFilters = (values: UserFilters) => {
-    setFilters(values);
-    setPageKeys([undefined]);
-    setPageIndex(0);
-  };
   const next = () => {
     const nextKey = query.data?.next_pagination_key;
     if (nextKey === undefined) return;
@@ -238,62 +278,157 @@ export function UsersPage() {
           </Typography.Text>
         </div>
         {canManageUsers ? (
-          <Button type="primary" onClick={() => setInviteOpen(true)}>
+          <Button
+            type="primary"
+            icon={<UserAddOutlined />}
+            onClick={() => setInviteOpen(true)}
+          >
             {t("users.invite.action")}
           </Button>
         ) : null}
       </Flex>
-      <Card title={t("users.filters")}>
-        <Form<UserFilters> layout="vertical" onFinish={applyFilters}>
-          <Flex gap="middle" wrap>
-            <Form.Item name="email" label={t("fields.email")}>
-              <Input allowClear maxLength={320} />
-            </Form.Item>
-            <Form.Item name="displayName" label={t("fields.displayName")}>
-              <Input allowClear maxLength={320} />
-            </Form.Item>
-            <Form.Item name="state" label={t("fields.state")}>
-              <Select
-                allowClear
-                className="filter-select"
-                options={[
-                  { value: "active", label: t("states.active") },
-                  { value: "disabled", label: t("states.disabled") },
-                ]}
-              />
-            </Form.Item>
-            <Form.Item name="permission" label={t("fields.permission")}>
-              <Select
-                allowClear
-                className="filter-select"
-                options={[
-                  {
-                    value: "admin:view_users",
-                    label: t("permissions.admin:view_users"),
-                  },
-                  {
-                    value: "admin:manage_users",
-                    label: t("permissions.admin:manage_users"),
-                  },
-                ]}
-              />
-            </Form.Item>
-            <Form.Item name="isSuperadmin" label={t("fields.accountType")}>
-              <Select
-                allowClear
-                className="filter-select"
-                options={[
-                  { value: true, label: t("home.superadmin") },
-                  { value: false, label: t("users.regularAdmin") },
-                ]}
-              />
-            </Form.Item>
+
+      <Card className="administrator-toolbar">
+        <Space orientation="vertical" size="middle" className="full-width">
+          <Flex gap="middle" align="center" wrap>
+            <Input.Search
+              className="administrator-search"
+              allowClear
+              value={search}
+              enterButton={<SearchOutlined aria-label={t("common.search")} />}
+              placeholder={t("users.searchPlaceholder")}
+              aria-label={t("users.searchPlaceholder")}
+              onChange={(event) => {
+                setSearch(event.target.value);
+                if (event.target.value === "")
+                  updateFilters({ search: undefined });
+              }}
+              onSearch={(value) =>
+                updateFilters({ search: value.trim() || undefined })
+              }
+            />
+            <Segmented
+              aria-label={t("users.statusFilter")}
+              value={filters.state ?? "all"}
+              options={[
+                { value: "all", label: t("common.all") },
+                { value: "active", label: t("states.active") },
+                { value: "disabled", label: t("states.disabled") },
+              ]}
+              onChange={(value) =>
+                updateFilters({
+                  state: value === "all" ? undefined : (value as State),
+                })
+              }
+            />
           </Flex>
-          <Button type="primary" htmlType="submit">
-            {t("users.applyFilters")}
-          </Button>
-        </Form>
+          <Flex gap="small" align="center" wrap>
+            <Typography.Text type="secondary">
+              {t("users.needsAttention")}
+            </Typography.Text>
+            <Button
+              size="small"
+              type={filters.totpEnabled === false ? "primary" : "default"}
+              onClick={() =>
+                updateFilters({
+                  totpEnabled:
+                    filters.totpEnabled === false ? undefined : false,
+                })
+              }
+            >
+              {t("users.quickFilters.noTwoFactor")}
+            </Button>
+            <Button
+              size="small"
+              type={filters.lastLogin === "never" ? "primary" : "default"}
+              onClick={() =>
+                updateFilters({
+                  lastLogin:
+                    filters.lastLogin === "never" ? undefined : "never",
+                })
+              }
+            >
+              {t("users.quickFilters.neverSignedIn")}
+            </Button>
+            <Button
+              size="small"
+              type={
+                filters.lastLogin === "inactive_90_days" ? "primary" : "default"
+              }
+              onClick={() =>
+                updateFilters({
+                  lastLogin:
+                    filters.lastLogin === "inactive_90_days"
+                      ? undefined
+                      : "inactive_90_days",
+                })
+              }
+            >
+              {t("users.quickFilters.dormant")}
+            </Button>
+            <Button
+              size="small"
+              type={filters.access === "none" ? "primary" : "default"}
+              onClick={() =>
+                updateFilters({
+                  access: filters.access === "none" ? undefined : "none",
+                })
+              }
+            >
+              {t("users.quickFilters.noAccess")}
+            </Button>
+          </Flex>
+          <Flex gap="small" align="center" wrap>
+            <Select<AdminAccessLevel>
+              allowClear
+              className="filter-select"
+              value={filters.access}
+              placeholder={t("users.filters.access")}
+              aria-label={t("users.filters.access")}
+              options={[
+                {
+                  value: "manager",
+                  label: t("users.access.levels.manager.title"),
+                },
+                {
+                  value: "viewer",
+                  label: t("users.access.levels.viewer.title"),
+                },
+                {
+                  value: "none",
+                  label: t("users.access.levels.none.title"),
+                },
+              ]}
+              onChange={(value) => updateFilters({ access: value })}
+            />
+            <Select<AdminLastLoginFilter>
+              allowClear
+              className="filter-select"
+              value={filters.lastLogin}
+              placeholder={t("users.filters.activity")}
+              aria-label={t("users.filters.activity")}
+              options={[
+                { value: "never", label: t("users.activity.never") },
+                {
+                  value: "inactive_30_days",
+                  label: t("users.activity.inactive30"),
+                },
+                {
+                  value: "inactive_90_days",
+                  label: t("users.activity.inactive90"),
+                },
+              ]}
+              onChange={(value) => updateFilters({ lastLogin: value })}
+            />
+            {hasFilters ? (
+              <Button type="link" onClick={clearFilters}>
+                {t("users.clearFilters")}
+              </Button>
+            ) : null}
+          </Flex>
+        </Space>
       </Card>
+
       {query.isError ? (
         <Alert type="error" title={t("common.loadError")} />
       ) : null}
@@ -303,7 +438,12 @@ export function UsersPage() {
         dataSource={users}
         loading={query.isPending || query.isFetching}
         pagination={false}
-        scroll={{ x: 1100 }}
+        scroll={{ x: 760 }}
+        locale={{
+          emptyText: hasFilters
+            ? t("users.empty.filtered")
+            : t("users.empty.default"),
+        }}
       />
       <Flex justify="space-between" align="center">
         <Button
@@ -312,7 +452,7 @@ export function UsersPage() {
         >
           {t("common.previous")}
         </Button>
-        <Typography.Text>
+        <Typography.Text type="secondary">
           {t("users.page", { page: pageIndex + 1 })}
         </Typography.Text>
         <Button

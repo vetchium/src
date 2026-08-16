@@ -9,7 +9,7 @@ import { AdminAPI, idempotencyKey, responseJSON } from "./admin-api.ts";
 import {
   cleanupAdmin,
   cleanupAdminIdempotency,
-  createSeededSuperadminSession,
+  createSeededManagerSession,
   emailCredential,
 } from "./admin-db.ts";
 
@@ -25,7 +25,7 @@ export interface CreatedAdmin {
 
 interface AdminFixtures {
   adminAPI: AdminAPI;
-  superadminToken: string;
+  managerToken: string;
   ownedEmail: () => string;
   createAdmin: (options?: {
     displayName?: string;
@@ -39,8 +39,8 @@ export const test = base.extend<AdminFixtures>({
     await use(new AdminAPI(request, (key) => keys.add(key)));
     cleanupAdminIdempotency(keys);
   },
-  superadminToken: async ({ adminAPI }, use) => {
-    const token = createSeededSuperadminSession();
+  managerToken: async ({ adminAPI }, use) => {
+    const token = createSeededManagerSession();
     await use(token);
     await adminAPI.post("/logout", undefined, { token });
   },
@@ -53,14 +53,14 @@ export const test = base.extend<AdminFixtures>({
     });
     for (const email of emails) cleanupAdmin(email);
   },
-  createAdmin: async ({ adminAPI, superadminToken, ownedEmail }, use) => {
+  createAdmin: async ({ adminAPI, managerToken, ownedEmail }, use) => {
     await use(async (options = {}) => {
       const emailAddress = ownedEmail();
       const password = options.password ?? `Vetchium!${randomUUID()}-password`;
       const invitation = await adminAPI.post(
         "/invite-user",
-        { email_address: emailAddress },
-        { token: superadminToken, idempotencyKey: idempotencyKey() },
+        { email_address: emailAddress, permissions: [] },
+        { token: managerToken, idempotencyKey: idempotencyKey() },
       );
       expect(invitation.status(), await invitation.text()).toBe(201);
       const invitationBody = await responseJSON<InviteUserResponse>(invitation);

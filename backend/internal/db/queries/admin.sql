@@ -140,27 +140,20 @@ SELECT
     u.admin_user_id,
     s.admin_session_id,
     s.authenticated_at,
-    u.is_superadmin,
-    CASE
-        WHEN u.is_superadmin THEN ARRAY[
-            'admin:view_users',
-            'admin:manage_users'
-        ]::text[]
-        ELSE ARRAY(
-            SELECT permission
-            FROM (
-                SELECT p.permission
-                FROM vetchium.admin_permissions AS p
-                WHERE p.admin_user_id = u.admin_user_id
-                UNION
-                SELECT 'admin:view_users'
-                FROM vetchium.admin_permissions AS p
-                WHERE p.admin_user_id = u.admin_user_id
-                  AND p.permission = 'admin:manage_users'
-            ) AS effective_permissions
-            ORDER BY permission
-        )::text[]
-    END AS permissions
+    ARRAY(
+        SELECT permission
+        FROM (
+            SELECT p.permission
+            FROM vetchium.admin_permissions AS p
+            WHERE p.admin_user_id = u.admin_user_id
+            UNION
+            SELECT 'admin:view_users'
+            FROM vetchium.admin_permissions AS p
+            WHERE p.admin_user_id = u.admin_user_id
+              AND p.permission = 'admin:manage_users'
+        ) AS effective_permissions
+        ORDER BY permission
+    )::text[] AS permissions
 FROM vetchium.admin_sessions AS s
 JOIN vetchium.admin_users AS u USING (admin_user_id)
 WHERE s.session_token_hash = $1
@@ -174,11 +167,7 @@ SELECT
     names.display_names::text AS display_names_json,
     u.primary_display_name_language,
     u.admin_user_state,
-    u.is_superadmin,
-    array_to_json(CASE WHEN u.is_superadmin THEN ARRAY[
-        'admin:view_users',
-        'admin:manage_users'
-    ]::text[] ELSE auth.permissions END)::text AS permissions_json,
+    array_to_json(auth.permissions)::text AS permissions_json,
     u.totp_enabled,
     recovery.remaining_codes AS recovery_codes_remaining,
     u.preferred_language,

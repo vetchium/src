@@ -5,6 +5,7 @@ import (
 	"time"
 
 	adminspec "github.com/vetchium/src/typespec/admin"
+	"github.com/vetchium/src/typespec/admin/authorization"
 	"github.com/vetchium/src/typespec/common"
 )
 
@@ -12,7 +13,8 @@ type AdminInvitationID string
 type AdminInvitationToken common.OpaqueToken
 
 type InviteUserRequest struct {
-	EmailAddress common.EmailAddress `json:"email_address"`
+	EmailAddress common.EmailAddress             `json:"email_address"`
+	Permissions  []authorization.AdminPermission `json:"permissions,omitempty"`
 }
 
 func (r InviteUserRequest) Normalize() InviteUserRequest {
@@ -21,10 +23,14 @@ func (r InviteUserRequest) Normalize() InviteUserRequest {
 }
 
 func (r InviteUserRequest) Validate() []string {
+	fields := make([]string, 0, 2)
 	if !common.IsEmailAddress(r.Normalize().EmailAddress) {
-		return []string{"email_address"}
+		fields = append(fields, "email_address")
 	}
-	return []string{}
+	if !authorization.ValidatePermissions(r.Permissions) {
+		fields = append(fields, "permissions")
+	}
+	return fields
 }
 
 type InviteUserResponse struct {

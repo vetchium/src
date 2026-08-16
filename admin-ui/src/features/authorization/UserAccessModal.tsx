@@ -1,166 +1,72 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  App,
-  Descriptions,
-  Flex,
-  Modal,
-  Space,
-  Switch,
-  Tag,
-  Typography,
-} from "antd";
+import { App, Descriptions, Modal, Radio, Space, Tag, Typography } from "antd";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import type { AdminPermission } from "../../../../typespec/admin/authorization/types.ts";
 import {
   ManageUsers,
   ViewUsers,
 } from "../../../../typespec/admin/authorization/types.ts";
 import type { AdminUserSummary } from "../../../../typespec/admin/users/management.ts";
-import {
-  CannotDemoteCurrentSuperadminError,
-  PermissionDependencyConflictError,
-  PermissionNotApplicableError,
-  SuperadminRequiredError,
-} from "../../../../typespec/problem/admin/authorization.ts";
-import {
-  AdminUserNotFoundError,
-  LastActiveSuperadminError,
-} from "../../../../typespec/problem/admin/users.ts";
+import { AdminUserNotFoundError } from "../../../../typespec/problem/admin/users.ts";
 import { isRecentAuthenticationRequired } from "../../api/client";
 import { problemTranslationKey } from "../../api/problems";
 import { ReauthenticationAlert } from "../../components/common/ReauthenticationAlert";
 import { myInfoQueryKey } from "../profile/queries";
 import { usersQueryKey } from "../users/queries";
-import {
-  demoteFromSuperadmin,
-  grantPermission,
-  promoteToSuperadmin,
-  revokePermission,
-} from "./api";
+import { setPermissions } from "./api";
+
+type AccessLevel = "manager" | "viewer" | "none";
 
 interface UserAccessModalProps {
   user: AdminUserSummary | null;
   onClose: () => void;
 }
 
-const managedPermissions: AdminPermission[] = [ViewUsers, ManageUsers];
-
 const accessProblems = {
   [AdminUserNotFoundError.type]: "users.errors.notFound",
-  [PermissionNotApplicableError.type]: "users.access.errors.notApplicable",
-  [PermissionDependencyConflictError.type]:
-    "users.access.errors.dependencyConflict",
-  [CannotDemoteCurrentSuperadminError.type]:
-    "users.access.errors.cannotDemoteSelf",
-  [LastActiveSuperadminError.type]: "users.errors.lastSuperadmin",
-  [SuperadminRequiredError.type]: "users.errors.superadminRequired",
 };
+
+function accessLevel(user: AdminUserSummary): AccessLevel {
+  if (user.permissions.includes(ManageUsers)) return "manager";
+  if (user.permissions.includes(ViewUsers)) return "viewer";
+  return "none";
+}
 
 export function UserAccessModal({ user, onClose }: UserAccessModalProps) {
   const { t } = useTranslation();
   const { message } = App.useApp();
   const queryClient = useQueryClient();
-  const permissionMutation = useMutation({
-    mutationFn: ({
-      permission,
-      granted,
-      adminUserID,
-    }: {
-      permission: AdminPermission;
-      granted: boolean;
-      adminUserID: string;
-    }) =>
-      granted
-        ? grantPermission({ admin_user_id: adminUserID, permission })
-        : revokePermission({ admin_user_id: adminUserID, permission }),
-  });
-  const superadminMutation = useMutation({
-    mutationFn: ({
-      promoted,
-      adminUserID,
-    }: {
-      promoted: boolean;
-      adminUserID: string;
-    }) =>
-      promoted
-        ? promoteToSuperadmin({ admin_user_id: adminUserID })
-        : demoteFromSuperadmin({ admin_user_id: adminUserID }),
-  });
-
-  // Promotion clears the direct permissions, so the two mutations can undo one
-  // another if they overlap, and closing mid-flight would let the settled
-  // request report against whichever administrator the modal has been reopened
-  // for since. One flag closes both races.
-  const busy = permissionMutation.isPending || superadminMutation.isPending;
-
-  // The modal outlives the row it was opened from, so a failure recorded for
-  // one administrator must not surface while another one is being edited.
+  const mutation = useMutation({ mutationFn: setPermissions });
   const targetID = user?.admin_user_id ?? null;
-  const resetPermissionMutation = permissionMutation.reset;
-  const resetSuperadminMutation = superadminMutation.reset;
-  useEffect(() => {
-    if (targetID === null) return;
-    resetPermissionMutation();
-    resetSuperadminMutation();
-  }, [targetID, resetPermissionMutation, resetSuperadminMutation]);
+  const resetMutation = mutation.reset;
 
-  // Reconciled after every attempt, not only after a success: a mutation that
-  // commits and then loses its response would otherwise leave the switches
-  // showing the access the administrator no longer has, and a retry of a
-  // promotion or demotion repeats its side effects on permissions and sessions.
+  useEffect(() => {
+    if (targetID !== null) resetMutation();
+  }, [targetID, resetMutation]);
+
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: usersQueryKey });
     void queryClient.invalidateQueries({ queryKey: myInfoQueryKey });
   };
 
-  const reportFailure = (error: unknown) => {
-    if (!isRecentAuthenticationRequired(error)) {
-      void message.error(t(problemTranslationKey(error, accessProblems)));
-    }
-  };
-
-  // Only promote and demote sit behind the step-up middleware today, but
-  // reportFailure suppresses the toast for either mutation, so both must be
-  // able to raise the alert that replaces it.
-  const stepUpRequired = [
-    superadminMutation.error,
-    permissionMutation.error,
-  ].some(isRecentAuthenticationRequired);
-
-  const setPermission = async (
-    permission: AdminPermission,
-    granted: boolean,
-  ) => {
-    if (user === null || busy) return;
+  const setAccess = async (level: AccessLevel) => {
+    if (user === null || mutation.isPending) return;
+    const permissions =
+      level === "manager"
+        ? [ManageUsers]
+        : level === "viewer"
+          ? [ViewUsers]
+          : [];
     try {
-      await permissionMutation.mutateAsync({
-        permission,
-        granted,
-        adminUserID: user.admin_user_id,
+      await mutation.mutateAsync({
+        admin_user_id: user.admin_user_id,
+        permissions,
       });
-      void message.success(
-        t(granted ? "users.access.granted" : "users.access.revoked"),
-      );
+      void message.success(t("users.access.saved"));
     } catch (error) {
-      reportFailure(error);
-    } finally {
-      refresh();
-    }
-  };
-
-  const setSuperadmin = async (promoted: boolean) => {
-    if (user === null || busy) return;
-    try {
-      await superadminMutation.mutateAsync({
-        promoted,
-        adminUserID: user.admin_user_id,
-      });
-      void message.success(
-        t(promoted ? "users.access.promoted" : "users.access.demoted"),
-      );
-    } catch (error) {
-      reportFailure(error);
+      if (!isRecentAuthenticationRequired(error)) {
+        void message.error(t(problemTranslationKey(error, accessProblems)));
+      }
     } finally {
       refresh();
     }
@@ -178,21 +84,22 @@ export function UserAccessModal({ user, onClose }: UserAccessModalProps) {
       title={t("users.access.title")}
       okText={t("common.close")}
       footer={(_, { OkBtn }) => <OkBtn />}
-      closable={!busy}
-      keyboard={!busy}
-      mask={{ closable: !busy }}
-      okButtonProps={{ disabled: busy }}
+      closable={!mutation.isPending}
+      keyboard={!mutation.isPending}
+      mask={{ closable: !mutation.isPending }}
+      okButtonProps={{ disabled: mutation.isPending }}
       onOk={() => {
-        if (!busy) onClose();
+        if (!mutation.isPending) onClose();
       }}
       onCancel={() => {
-        if (!busy) onClose();
+        if (!mutation.isPending) onClose();
       }}
     >
       {user === null ? null : (
-        <Space orientation="vertical" size="middle" className="full-width">
+        <Space orientation="vertical" size="large" className="full-width">
           <Descriptions
             column={1}
+            size="small"
             items={[
               {
                 key: "name",
@@ -205,65 +112,79 @@ export function UserAccessModal({ user, onClose }: UserAccessModalProps) {
                 children: user.email_address,
               },
               {
-                key: "state",
-                label: t("fields.state"),
+                key: "security",
+                label: t("fields.twoFactor"),
                 children: (
-                  <Tag color={user.state === "active" ? "green" : "default"}>
-                    {t(`states.${user.state}`)}
+                  <Tag color={user.totp_enabled ? "green" : "orange"}>
+                    {t(
+                      user.totp_enabled ? "common.enabled" : "common.disabled",
+                    )}
                   </Tag>
                 ),
               },
             ]}
           />
-          {stepUpRequired ? <ReauthenticationAlert /> : null}
-          <Flex align="center" justify="space-between" gap="middle">
-            <div>
-              <Typography.Text strong>{t("home.superadmin")}</Typography.Text>
-              <br />
-              <Typography.Text type="secondary">
-                {t("users.access.superadminHint")}
-              </Typography.Text>
-            </div>
-            <Switch
-              checked={user.is_superadmin}
-              disabled={busy}
-              loading={superadminMutation.isPending}
-              aria-label={t("home.superadmin")}
-              onChange={(checked) => void setSuperadmin(checked)}
-            />
-          </Flex>
+          {isRecentAuthenticationRequired(mutation.error) ? (
+            <ReauthenticationAlert />
+          ) : null}
           <div>
-            <Typography.Text strong>
-              {t("users.access.permissions")}
-            </Typography.Text>
-            <br />
-            <Typography.Text type="secondary">
-              {user.is_superadmin
-                ? t("users.access.permissionsSuperadminHint")
-                : t("users.access.permissionsHint")}
-            </Typography.Text>
+            <Typography.Title level={5}>
+              {t("users.access.chooseLevel")}
+            </Typography.Title>
+            <Typography.Paragraph type="secondary">
+              {t("users.access.chooseLevelHint")}
+            </Typography.Paragraph>
+            <Radio.Group
+              className="access-level-options"
+              value={accessLevel(user)}
+              disabled={mutation.isPending}
+              onChange={(event) => void setAccess(event.target.value)}
+              options={[
+                {
+                  value: "manager",
+                  label: (
+                    <span>
+                      <Typography.Text strong>
+                        {t("users.access.levels.manager.title")}
+                      </Typography.Text>
+                      <br />
+                      <Typography.Text type="secondary">
+                        {t("users.access.levels.manager.description")}
+                      </Typography.Text>
+                    </span>
+                  ),
+                },
+                {
+                  value: "viewer",
+                  label: (
+                    <span>
+                      <Typography.Text strong>
+                        {t("users.access.levels.viewer.title")}
+                      </Typography.Text>
+                      <br />
+                      <Typography.Text type="secondary">
+                        {t("users.access.levels.viewer.description")}
+                      </Typography.Text>
+                    </span>
+                  ),
+                },
+                {
+                  value: "none",
+                  label: (
+                    <span>
+                      <Typography.Text strong>
+                        {t("users.access.levels.none.title")}
+                      </Typography.Text>
+                      <br />
+                      <Typography.Text type="secondary">
+                        {t("users.access.levels.none.description")}
+                      </Typography.Text>
+                    </span>
+                  ),
+                },
+              ]}
+            />
           </div>
-          {managedPermissions.map((permission) => (
-            <Flex
-              key={permission}
-              align="center"
-              justify="space-between"
-              gap="middle"
-            >
-              <Typography.Text>
-                {t(`permissions.${permission}`)}
-              </Typography.Text>
-              <Switch
-                checked={
-                  user.is_superadmin || user.permissions.includes(permission)
-                }
-                disabled={user.is_superadmin || busy}
-                loading={permissionMutation.isPending}
-                aria-label={t(`permissions.${permission}`)}
-                onChange={(checked) => void setPermission(permission, checked)}
-              />
-            </Flex>
-          ))}
         </Space>
       )}
     </Modal>

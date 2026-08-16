@@ -34,6 +34,7 @@ export const de = {
     de_DE: "DE",
   },
   common: {
+    all: "Alle",
     backToLogin: "Zurück zur Anmeldung",
     cancel: "Abbrechen",
     close: "Schließen",
@@ -45,14 +46,17 @@ export const de = {
     loadError: "Diese Informationen konnten nicht geladen werden.",
     next: "Weiter",
     never: "Nie",
+    notEnabled: "Nicht eingerichtet",
     previous: "Zurück",
     remove: "Entfernen",
     requestError:
       "Die Anfrage konnte nicht abgeschlossen werden. Bitte erneut versuchen.",
     retry: "Erneut versuchen",
+    search: "Suchen",
     save: "Änderungen speichern",
   },
   fields: {
+    administrator: "Administrator",
     access: "Zugriff",
     accountType: "Kontotyp",
     actions: "Aktionen",
@@ -148,20 +152,41 @@ export const de = {
     title: "Willkommen, {{name}}",
     description: "Ihr Administratorkonto und die aktuelle Instanzsitzung.",
     accountCard: "Kontoübersicht",
-    superadmin: "Superadministrator",
     noPermissions: "Keine administrativen Berechtigungen",
   },
   users: {
     title: "Administratoren",
     description:
-      "Aktive und deaktivierte Administratorkonten dieser Instanz durchsuchen.",
-    filters: "Filter",
-    applyFilters: "Filter anwenden",
-    regularAdmin: "Administrator",
+      "Verwalten Sie den administrativen Zugriff und prüfen Sie die Kontosicherheit.",
+    searchPlaceholder: "Nach Name oder E-Mail-Adresse suchen",
+    statusFilter: "Kontostatus",
+    needsAttention: "Aufmerksamkeit erforderlich",
+    clearFilters: "Filter zurücksetzen",
+    actionsFor: "Aktionen für {{name}}",
     page: "Seite {{page}}",
+    filters: {
+      access: "Zugriffsstufe",
+      activity: "Anmeldeaktivität",
+    },
+    quickFilters: {
+      noTwoFactor: "Keine Zwei-Faktor-Authentifizierung",
+      neverSignedIn: "Nie angemeldet",
+      dormant: "Seit 90 Tagen inaktiv",
+      noAccess: "Kein zugewiesener Zugriff",
+    },
+    activity: {
+      never: "Nie angemeldet",
+      inactive30: "Seit 30 Tagen inaktiv",
+      inactive90: "Seit 90 Tagen inaktiv",
+    },
+    empty: {
+      default: "Es wurden noch keine Administratoren hinzugefügt.",
+      filtered: "Keine Administratoren entsprechen diesen Filtern.",
+    },
     invite: {
       action: "Administrator einladen",
       title: "Administrator einladen",
+      accessLevel: "Anfänglicher Zugriff",
       sent: "Einladung an {{email}} gesendet. Sie läuft am {{expiresAt}} ab.",
       errors: {
         alreadyExists:
@@ -173,43 +198,45 @@ export const de = {
     disable: {
       action: "Deaktivieren",
       confirm: "Diesen Administrator deaktivieren?",
+      effect:
+        "Die Person wird sofort abgemeldet und kann sich bis zur Aktivierung nicht erneut anmelden.",
       done: "Der Administrator ist jetzt deaktiviert.",
     },
     enable: {
       action: "Aktivieren",
       confirm: "Diesen Administrator aktivieren?",
+      effect:
+        "Die Person kann sich mit ihrem vorhandenen Zugriff wieder anmelden.",
       done: "Der Administrator ist jetzt aktiv.",
     },
     access: {
       action: "Zugriff verwalten",
       title: "Zugriff verwalten",
-      superadminHint:
-        "Superadministratoren besitzen alle Berechtigungen und können andere Administratoren verwalten.",
-      permissions: "Berechtigungen",
-      permissionsHint:
-        "Erteilen Sie nur die Berechtigungen, die dieser Administrator benötigt.",
-      permissionsSuperadminHint:
-        "Superadministratoren besitzen bereits alle Berechtigungen. Stufen Sie das Konto herab, um einzelne Berechtigungen zu erteilen.",
-      granted: "Die Berechtigung wurde erteilt.",
-      revoked: "Die Berechtigung wurde entzogen.",
-      promoted: "Der Administrator ist jetzt Superadministrator.",
-      demoted: "Der Administrator ist kein Superadministrator mehr.",
-      errors: {
-        notApplicable:
-          "Einzelne Berechtigungen gelten nicht für ein Superadministratorkonto.",
-        dependencyConflict:
-          "Eine andere erteilte Berechtigung hängt von dieser ab. Entziehen Sie zuerst jene Berechtigung.",
-        cannotDemoteSelf:
-          "Sie können Ihr eigenes Superadministratorkonto nicht herabstufen.",
+      chooseLevel: "Zugriffsstufe auswählen",
+      chooseLevelHint:
+        "Zugriffsänderungen gelten sofort. Managerzugriff kann bei Bedarf über die Datenbank der Instanz wiederhergestellt werden.",
+      saved: "Administratorzugriff aktualisiert.",
+      levels: {
+        manager: {
+          title: "Manager",
+          description:
+            "Kann Administratoren einladen, aktivieren, deaktivieren und deren Zugriff ändern.",
+        },
+        viewer: {
+          title: "Betrachter",
+          description:
+            "Kann Administratorkonten und deren Sicherheitsstatus prüfen.",
+        },
+        none: {
+          title: "Kein zugewiesener Zugriff",
+          description:
+            "Kann nur das eigene Profil und die eigenen Sicherheitseinstellungen verwenden.",
+        },
       },
     },
     errors: {
       notFound: "Dieser Administrator existiert nicht mehr.",
       cannotDisableSelf: "Sie können Ihr eigenes Konto nicht deaktivieren.",
-      lastSuperadmin:
-        "Diese Instanz muss mindestens einen aktiven Superadministrator behalten.",
-      superadminRequired:
-        "Nur ein Superadministrator kann den Status eines Superadministratorkontos ändern.",
     },
   },
   profile: {

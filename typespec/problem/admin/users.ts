@@ -14,13 +14,6 @@ export const CannotDisableCurrentAdminError: Readonly<Details> = {
   detail: "An admin cannot disable their own account",
 };
 
-export const LastActiveSuperadminError: Readonly<Details> = {
-  type: "vetchium-problem-details/last-active-superadmin",
-  title: "Last active superadmin",
-  status: 409,
-  detail: "The operation would leave no active superadmin",
-};
-
 export const AdminUserAlreadyExistsError: Readonly<Details> = {
   type: "vetchium-problem-details/admin-user-already-exists",
   title: "Admin user already exists",

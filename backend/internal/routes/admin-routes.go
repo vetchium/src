@@ -16,7 +16,6 @@ func RegisterAdminRoutes(mux *http.ServeMux, s *adminapi.Server) {
 	recentAuth := middleware.RequireRecentAdminAuthentication(
 		s, 5*time.Minute,
 	)
-	superadmin := middleware.RequireSuperadmin(s)
 	viewUsers := middleware.RequireAdminPermission(
 		s, string(authorization.ViewUsers),
 	)
@@ -61,20 +60,8 @@ func RegisterAdminRoutes(mux *http.ServeMux, s *adminapi.Server) {
 		adminAuth(recentAuth(admin.RegenerateTOTPRecoveryCodes(s))),
 	)
 	mux.Handle(
-		"POST /api/admin/grant-permission",
-		adminAuth(superadmin(admin.GrantPermission(s))),
-	)
-	mux.Handle(
-		"POST /api/admin/revoke-permission",
-		adminAuth(superadmin(admin.RevokePermission(s))),
-	)
-	mux.Handle(
-		"POST /api/admin/promote-to-superadmin",
-		adminAuth(superadmin(recentAuth(admin.PromoteToSuperadmin(s)))),
-	)
-	mux.Handle(
-		"POST /api/admin/demote-from-superadmin",
-		adminAuth(superadmin(recentAuth(admin.DemoteFromSuperadmin(s)))),
+		"POST /api/admin/set-user-permissions",
+		adminAuth(manageUsers(recentAuth(admin.SetPermissions(s)))),
 	)
 	mux.Handle(
 		"POST /api/admin/invite-user",

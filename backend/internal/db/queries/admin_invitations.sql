@@ -8,6 +8,7 @@ WITH existing_user AS (
         admin_invitation_id,
         email_address,
         token_hash,
+        permissions,
         invited_by,
         expires_at
     )
@@ -15,12 +16,14 @@ WITH existing_user AS (
         sqlc.arg(admin_invitation_id),
         sqlc.arg(target_email_address),
         sqlc.arg(token_hash),
+        sqlc.arg(permissions)::text[],
         sqlc.arg(invited_by),
         sqlc.arg(expires_at)
     WHERE NOT EXISTS (SELECT 1 FROM existing_user)
     ON CONFLICT (email_address) WHERE active DO UPDATE
     SET admin_invitation_id = EXCLUDED.admin_invitation_id,
         token_hash = EXCLUDED.token_hash,
+        permissions = EXCLUDED.permissions,
         invited_by = EXCLUDED.invited_by,
         created_at = EXCLUDED.created_at,
         expires_at = EXCLUDED.expires_at,
@@ -53,7 +56,7 @@ SELECT
 
 -- name: CompleteAdminSetup :one
 WITH invitation AS (
-    SELECT i.admin_invitation_id, i.email_address
+    SELECT i.admin_invitation_id, i.email_address, i.permissions
     FROM vetchium.admin_invitations AS i
     WHERE i.token_hash = sqlc.arg(invitation_token_hash)
       AND i.active
@@ -100,6 +103,13 @@ WITH invitation AS (
             unnest(sqlc.arg(language_codes)::text[]) AS language_code,
             unnest(sqlc.arg(display_names)::text[]) AS display_name
     ) AS names
+    RETURNING admin_user_id
+), permissions AS (
+    INSERT INTO vetchium.admin_permissions (admin_user_id, permission)
+    SELECT u.admin_user_id, requested.permission
+    FROM inserted_user AS u
+    CROSS JOIN invitation
+    CROSS JOIN unnest(invitation.permissions) AS requested(permission)
     RETURNING admin_user_id
 ), consumed AS (
     UPDATE vetchium.admin_invitations

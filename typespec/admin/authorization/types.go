@@ -10,10 +10,20 @@ const (
 )
 
 type AdminAuthorization struct {
-	IsSuperadmin bool                `json:"is_superadmin"`
-	Permissions  []AdminPermissionID `json:"permissions"`
+	Permissions []AdminPermissionID `json:"permissions"`
 }
 
 func IsAdminPermission(value AdminPermission) bool {
 	return value == ViewUsers || value == ManageUsers
+}
+
+func ValidatePermissions(values []AdminPermission) bool {
+	seen := make(map[AdminPermission]bool, len(values))
+	for _, value := range values {
+		if !IsAdminPermission(value) || seen[value] {
+			return false
+		}
+		seen[value] = true
+	}
+	return true
 }

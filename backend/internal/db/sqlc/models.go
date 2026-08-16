@@ -72,6 +72,7 @@ type VetchiumAdminInvitation struct {
 	AdminInvitationID pgtype.UUID        `json:"admin_invitation_id"`
 	EmailAddress      string             `json:"email_address"`
 	TokenHash         []byte             `json:"token_hash"`
+	Permissions       []string           `json:"permissions"`
 	InvitedBy         pgtype.UUID        `json:"invited_by"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	ExpiresAt         pgtype.Timestamptz `json:"expires_at"`
@@ -139,7 +140,6 @@ type VetchiumAdminUser struct {
 	DisplayName                string                 `json:"display_name"`
 	PasswordHash               string                 `json:"password_hash"`
 	AdminUserState             VetchiumAdminUserState `json:"admin_user_state"`
-	IsSuperadmin               bool                   `json:"is_superadmin"`
 	PrimaryDisplayNameLanguage string                 `json:"primary_display_name_language"`
 	PreferredLanguage          string                 `json:"preferred_language"`
 	TotpSecretCiphertext       []byte                 `json:"totp_secret_ciphertext"`

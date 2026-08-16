@@ -26,6 +26,10 @@ func InviteUser(s *adminapi.Server) http.HandlerFunc {
 			return
 		}
 		request = request.Normalize()
+		permissions := make([]string, len(request.Permissions))
+		for index, permission := range request.Permissions {
+			permissions[index] = string(permission)
+		}
 		key, ok := idempotencyKey(s, w, r)
 		if !ok {
 			return
@@ -67,6 +71,7 @@ func InviteUser(s *adminapi.Server) http.HandlerFunc {
 						TargetEmailAddress: string(request.EmailAddress),
 						AdminInvitationID:  invitationID,
 						TokenHash:          tokenHash,
+						Permissions:        permissions,
 						InvitedBy:          identity.UserID,
 						ExpiresAt:          adminapi.Timestamp(expiresAt),
 						PayloadCiphertext:  ciphertext,

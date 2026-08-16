@@ -33,6 +33,7 @@ export const en = {
     de_DE: "DE",
   },
   common: {
+    all: "All",
     backToLogin: "Back to sign in",
     cancel: "Cancel",
     close: "Close",
@@ -44,13 +45,16 @@ export const en = {
     loadError: "We could not load this information.",
     next: "Next",
     never: "Never",
+    notEnabled: "Not enabled",
     previous: "Previous",
     remove: "Remove",
     requestError: "The request could not be completed. Please try again.",
     retry: "Try again",
+    search: "Search",
     save: "Save changes",
   },
   fields: {
+    administrator: "Administrator",
     access: "Access",
     accountType: "Account type",
     actions: "Actions",
@@ -142,20 +146,41 @@ export const en = {
     title: "Welcome, {{name}}",
     description: "Your administrator account and current tenant session.",
     accountCard: "Account overview",
-    superadmin: "Superadmin",
     noPermissions: "No administrative permissions",
   },
   users: {
     title: "Administrators",
     description:
-      "Browse active and disabled administrator accounts in this tenant.",
-    filters: "Filters",
-    applyFilters: "Apply filters",
-    regularAdmin: "Regular administrator",
+      "Manage who can administer this tenant and review account security.",
+    searchPlaceholder: "Search by name or email address",
+    statusFilter: "Account status",
+    needsAttention: "Needs attention",
+    clearFilters: "Clear filters",
+    actionsFor: "Actions for {{name}}",
     page: "Page {{page}}",
+    filters: {
+      access: "Access level",
+      activity: "Sign-in activity",
+    },
+    quickFilters: {
+      noTwoFactor: "No two-factor authentication",
+      neverSignedIn: "Never signed in",
+      dormant: "Dormant for 90 days",
+      noAccess: "No assigned access",
+    },
+    activity: {
+      never: "Never signed in",
+      inactive30: "Inactive for 30 days",
+      inactive90: "Inactive for 90 days",
+    },
+    empty: {
+      default: "No administrators have been added yet.",
+      filtered: "No administrators match these filters.",
+    },
     invite: {
       action: "Invite administrator",
       title: "Invite an administrator",
+      accessLevel: "Initial access",
       sent: "Invitation sent to {{email}}. It expires on {{expiresAt}}.",
       errors: {
         alreadyExists: "An administrator already uses that email address.",
@@ -165,40 +190,42 @@ export const en = {
     disable: {
       action: "Disable",
       confirm: "Disable this administrator?",
+      effect:
+        "They will be signed out immediately and will not be able to sign in again until enabled.",
       done: "The administrator is now disabled.",
     },
     enable: {
       action: "Enable",
       confirm: "Enable this administrator?",
+      effect: "They will be able to sign in again with their existing access.",
       done: "The administrator is now active.",
     },
     access: {
       action: "Manage access",
       title: "Manage access",
-      superadminHint:
-        "Superadmins hold every permission and can manage other administrators.",
-      permissions: "Permissions",
-      permissionsHint: "Grant only the permissions this administrator needs.",
-      permissionsSuperadminHint:
-        "Superadmins already hold every permission. Demote the account to grant individual permissions.",
-      granted: "The permission was granted.",
-      revoked: "The permission was revoked.",
-      promoted: "The administrator is now a superadmin.",
-      demoted: "The administrator is no longer a superadmin.",
-      errors: {
-        notApplicable:
-          "Individual permissions do not apply to a superadmin account.",
-        dependencyConflict:
-          "Another granted permission depends on this one. Revoke that permission first.",
-        cannotDemoteSelf: "You cannot demote your own superadmin account.",
+      chooseLevel: "Choose an access level",
+      chooseLevelHint:
+        "Access changes take effect immediately. You can recover manager access through the tenant database if needed.",
+      saved: "Administrator access updated.",
+      levels: {
+        manager: {
+          title: "Manager",
+          description:
+            "Can invite, enable, disable, and change access for administrators.",
+        },
+        viewer: {
+          title: "Viewer",
+          description: "Can review administrator accounts and security status.",
+        },
+        none: {
+          title: "No assigned access",
+          description: "Can use only their own profile and security settings.",
+        },
       },
     },
     errors: {
       notFound: "That administrator no longer exists.",
       cannotDisableSelf: "You cannot disable your own account.",
-      lastSuperadmin: "This tenant must keep at least one active superadmin.",
-      superadminRequired:
-        "Only a superadmin can change the state of a superadmin account.",
     },
   },
   profile: {

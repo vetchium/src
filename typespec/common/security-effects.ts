@@ -24,8 +24,4 @@ export type SecurityEffect =
   | "revoke-all-sessions"
   | "disable-admin-user"
   | "enable-admin-user"
-  | "grant-admin-permission"
-  | "revoke-admin-permission"
-  | "clear-direct-permissions"
-  | "promote-to-superadmin"
-  | "demote-from-superadmin";
+  | "replace-admin-permissions";

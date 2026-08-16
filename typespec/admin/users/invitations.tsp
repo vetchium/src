@@ -12,6 +12,7 @@ import "../../problem/admin/users.tsp";
 import "../../problem/common.tsp";
 import "../../problem/details.tsp";
 import "../types.tsp";
+import "../authorization/types.tsp";
 
 using TypeSpec.Http;
 
@@ -24,10 +25,14 @@ scalar AdminInvitationID extends string;
 /** An opaque credential delivered in an admin invitation email. */
 scalar AdminInvitationToken extends Vetchium.Authentication.OpaqueToken;
 
-/** Invite a regular admin with no initial permissions. */
+/** Invite an administrator with their intended initial access. */
 model InviteUserRequest {
   /** Lowercased after surrounding whitespace is removed. */
   email_address: EmailAddress;
+
+  @maxItems(2)
+  @TypeSpec.OpenAPI.extension("x-vetchium-unique-items", true)
+  permissions?: AdminPermission[];
 }
 
 /** Metadata for a newly queued admin invitation. */
@@ -116,7 +121,7 @@ interface InvitationOperations {
     | Vetchium.Problem.RateLimitExceededErrorResponse
     | Vetchium.Problem.InternalServerErrorResponse;
 
-  /** Consume an invitation and create an active regular admin without a session. */
+  /** Consume an invitation and create an active admin without a session. */
   @route("/complete-setup")
   @post
   @TypeSpec.OpenAPI.extension("x-vetchium-idempotency-replay-seconds", 86400)

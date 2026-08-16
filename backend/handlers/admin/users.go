@@ -110,15 +110,10 @@ func DisableUser(s *adminapi.Server) http.HandlerFunc {
 		}
 		targetID, _ := adminapi.ParseUUID(string(request.AdminUserID))
 		identity, _ := middleware.AdminIdentityFromContext(r.Context())
-		result, err := withAdminSuperadminInvariant(
-			r.Context(), s, func(q *sqlc.Queries) (string, error) {
-				return q.DisableAdminUser(
-					r.Context(), sqlc.DisableAdminUserParams{
-						TargetAdminUserID: targetID,
-						ActorAdminUserID:  identity.UserID,
-						ActorIsSuperadmin: identity.IsSuperadmin,
-					},
-				)
+		result, err := s.Queries.DisableAdminUser(
+			r.Context(), sqlc.DisableAdminUserParams{
+				TargetAdminUserID: targetID,
+				ActorAdminUserID:  identity.UserID,
 			},
 		)
 		if err != nil {
@@ -141,13 +136,7 @@ func EnableUser(s *adminapi.Server) http.HandlerFunc {
 			return
 		}
 		targetID, _ := adminapi.ParseUUID(string(request.AdminUserID))
-		identity, _ := middleware.AdminIdentityFromContext(r.Context())
-		result, err := s.Queries.EnableAdminUser(
-			r.Context(), sqlc.EnableAdminUserParams{
-				TargetAdminUserID: targetID,
-				ActorIsSuperadmin: identity.IsSuperadmin,
-			},
-		)
+		result, err := s.Queries.EnableAdminUser(r.Context(), targetID)
 		if err != nil {
 			s.InternalError(r.Context(), w, "enable admin user", err)
 			return
@@ -168,10 +157,6 @@ func writeAdminUserMutationProblem(
 		s.Problem(r.Context(), w, adminproblem.AdminUserNotFoundError)
 	case "self":
 		s.Problem(r.Context(), w, adminproblem.CannotDisableCurrentAdminError)
-	case "superadmin_required":
-		s.Problem(r.Context(), w, adminproblem.SuperadminRequiredError)
-	case "last_superadmin":
-		s.Problem(r.Context(), w, adminproblem.LastActiveSuperadminError)
 	default:
 		return false
 	}
@@ -181,14 +166,9 @@ func writeAdminUserMutationProblem(
 func applyListUsersFilters(
 	params *sqlc.ListAdminUsersParams, request users.ListUsersRequest,
 ) {
-	if request.FilterEmailAddress != nil {
-		params.FilterEmailAddress = adminapi.Text(pointer(
-			strings.ToLower(string(*request.FilterEmailAddress)),
-		))
-	}
-	if request.FilterDisplayName != nil {
-		params.FilterDisplayName = adminapi.Text(pointer(
-			strings.ToLower(string(*request.FilterDisplayName)),
+	if request.FilterSearch != nil {
+		params.FilterSearch = adminapi.Text(pointer(
+			strings.ToLower(string(*request.FilterSearch)),
 		))
 	}
 	if request.FilterState != nil {
@@ -197,27 +177,32 @@ func applyListUsersFilters(
 			Valid:                  true,
 		}
 	}
-	params.FilterIsSuperadmin = adminapi.Bool(request.FilterIsSuperadmin)
-	if request.FilterPermission != nil {
-		params.FilterPermission = adminapi.Text(pointer(
-			string(*request.FilterPermission),
+	if request.FilterAccess != nil {
+		params.FilterAccess = adminapi.Text(pointer(
+			string(*request.FilterAccess),
+		))
+	}
+	params.FilterTotpEnabled = adminapi.Bool(request.FilterTOTPEnabled)
+	if request.FilterLastLogin != nil {
+		params.FilterLastLogin = adminapi.Text(pointer(
+			string(*request.FilterLastLogin),
 		))
 	}
 }
 
 func listUsersFiltersHash(request users.ListUsersRequest) (string, error) {
 	payload, err := json.Marshal(struct {
-		EmailAddress *users.AdminUserFilterText     `json:"email_address"`
-		DisplayName  *users.AdminUserFilterText     `json:"display_name"`
-		State        *user.State                    `json:"state"`
-		Superadmin   *bool                          `json:"superadmin"`
-		Permission   *authorization.AdminPermission `json:"permission"`
+		Search      *users.AdminUserFilterText  `json:"search"`
+		State       *user.State                 `json:"state"`
+		Access      *users.AdminAccessLevel     `json:"access"`
+		TOTPEnabled *bool                       `json:"totp_enabled"`
+		LastLogin   *users.AdminLastLoginFilter `json:"last_login"`
 	}{
-		EmailAddress: normalizeFilter(request.FilterEmailAddress),
-		DisplayName:  normalizeFilter(request.FilterDisplayName),
-		State:        request.FilterState,
-		Superadmin:   request.FilterIsSuperadmin,
-		Permission:   request.FilterPermission,
+		Search:      normalizeFilter(request.FilterSearch),
+		State:       request.FilterState,
+		Access:      request.FilterAccess,
+		TOTPEnabled: request.FilterTOTPEnabled,
+		LastLogin:   request.FilterLastLogin,
 	})
 	if err != nil {
 		return "", err
@@ -284,8 +269,7 @@ func adminUserSummary(
 		PrimaryDisplayNameLanguage: common.RegionalLanguageCode(row.PrimaryDisplayNameLanguage),
 		State:                      user.State(row.AdminUserState),
 		AdminAuthorization: authorization.AdminAuthorization{
-			IsSuperadmin: row.IsSuperadmin,
-			Permissions:  permissions,
+			Permissions: permissions,
 		},
 		TOTPEnabled: row.TotpEnabled,
 		CreatedAt:   row.CreatedAt.Time.UTC(),

@@ -8,6 +8,10 @@ import type {
   RegionalLanguageCode,
 } from "../../common/localization.ts";
 import { isFrontendLocale } from "../../common/localization.ts";
+import {
+  type AdminPermission,
+  validatePermissions,
+} from "../authorization/types.ts";
 import { type AdminUserID, isAdminUserID } from "../types.ts";
 import { normalizeDisplayNames, validateDisplayNames } from "./validation.ts";
 
@@ -20,6 +24,7 @@ export function isAdminInvitationID(value: AdminInvitationID): boolean {
 
 export interface InviteUserRequest {
   email_address: EmailAddress;
+  permissions?: AdminPermission[];
 }
 
 export function normalizeInviteUserRequest(
@@ -34,9 +39,17 @@ export function normalizeInviteUserRequest(
 export function validateInviteUserRequest(
   request: InviteUserRequest,
 ): string[] {
-  return isEmailAddress(normalizeInviteUserRequest(request).email_address)
-    ? []
-    : ["email_address"];
+  const fields: string[] = [];
+  if (!isEmailAddress(normalizeInviteUserRequest(request).email_address)) {
+    fields.push("email_address");
+  }
+  if (
+    request.permissions !== undefined &&
+    !validatePermissions(request.permissions)
+  ) {
+    fields.push("permissions");
+  }
+  return fields;
 }
 
 export interface InviteUserResponse {

@@ -1,5 +1,9 @@
 import { Card, Descriptions, Grid, Space, Tag, Typography } from "antd";
 import { useTranslation } from "react-i18next";
+import {
+  ManageUsers,
+  ViewUsers,
+} from "../../../typespec/admin/authorization/types.ts";
 import { intlLocale } from "../app/preferences";
 import { useMyInfoQuery } from "../features/profile/queries";
 
@@ -12,13 +16,11 @@ export function HomePage() {
     me.display_names.find(
       (name) => name.language_code === me.primary_display_name_language,
     )?.display_name ?? me.email_address;
-  const authorization = me.is_superadmin
-    ? t("home.superadmin")
-    : me.permissions.length > 0
-      ? me.permissions
-          .map((permission) => t(`permissions.${permission}`))
-          .join(", ")
-      : t("home.noPermissions");
+  const authorization = me.permissions.includes(ManageUsers)
+    ? t("users.access.levels.manager.title")
+    : me.permissions.includes(ViewUsers)
+      ? t("users.access.levels.viewer.title")
+      : t("users.access.levels.none.title");
 
   return (
     <Space orientation="vertical" size="large" className="full-width">

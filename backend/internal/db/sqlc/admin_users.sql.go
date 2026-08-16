@@ -13,31 +13,15 @@ import (
 
 const disableAdminUser = `-- name: DisableAdminUser :one
 WITH target AS (
-    SELECT u.admin_user_id, u.admin_user_state, u.is_superadmin
+    SELECT u.admin_user_id
     FROM vetchium.admin_users AS u
     WHERE u.admin_user_id = $1::uuid
-    FOR UPDATE
-), active_superadmins AS (
-    SELECT count(*)::bigint AS count
-    FROM vetchium.admin_users
-    WHERE is_superadmin
-      AND admin_user_state = 'active'
 ), updated AS (
     UPDATE vetchium.admin_users
     SET admin_user_state = 'disabled',
         updated_at = now()
     WHERE admin_user_id = $1::uuid
       AND admin_user_id <> $2::uuid
-      AND (
-          NOT EXISTS (SELECT 1 FROM target WHERE is_superadmin) OR
-          $3::boolean
-      )
-      AND (
-          NOT EXISTS (
-              SELECT 1 FROM target
-              WHERE is_superadmin AND admin_user_state = 'active'
-          ) OR (SELECT count FROM active_superadmins) > 1
-      )
     RETURNING admin_user_id
 ), sessions AS (
     DELETE FROM vetchium.admin_sessions
@@ -62,12 +46,6 @@ SELECT CASE
     WHEN NOT EXISTS (SELECT 1 FROM target) THEN 'not_found'
     WHEN $1::uuid =
         $2::uuid THEN 'self'
-    WHEN EXISTS (SELECT 1 FROM target WHERE is_superadmin) AND
-        NOT $3::boolean THEN 'superadmin_required'
-    WHEN EXISTS (
-        SELECT 1 FROM target
-        WHERE is_superadmin AND admin_user_state = 'active'
-    ) AND (SELECT count FROM active_superadmins) <= 1 THEN 'last_superadmin'
     ELSE 'ok'
 END::text AS result
 `
@@ -75,11 +53,10 @@ END::text AS result
 type DisableAdminUserParams struct {
 	TargetAdminUserID pgtype.UUID `json:"target_admin_user_id"`
 	ActorAdminUserID  pgtype.UUID `json:"actor_admin_user_id"`
-	ActorIsSuperadmin bool        `json:"actor_is_superadmin"`
 }
 
 func (q *Queries) DisableAdminUser(ctx context.Context, arg DisableAdminUserParams) (string, error) {
-	row := q.db.QueryRow(ctx, disableAdminUser, arg.TargetAdminUserID, arg.ActorAdminUserID, arg.ActorIsSuperadmin)
+	row := q.db.QueryRow(ctx, disableAdminUser, arg.TargetAdminUserID, arg.ActorAdminUserID)
 	var result string
 	err := row.Scan(&result)
 	return result, err
@@ -87,35 +64,24 @@ func (q *Queries) DisableAdminUser(ctx context.Context, arg DisableAdminUserPara
 
 const enableAdminUser = `-- name: EnableAdminUser :one
 WITH target AS (
-    SELECT u.admin_user_id, u.is_superadmin
+    SELECT u.admin_user_id
     FROM vetchium.admin_users AS u
-    WHERE u.admin_user_id = $2
+    WHERE u.admin_user_id = $1
 ), updated AS (
     UPDATE vetchium.admin_users
     SET admin_user_state = 'active',
         updated_at = now()
-    WHERE admin_user_id = $2
-      AND (
-          NOT EXISTS (SELECT 1 FROM target WHERE is_superadmin) OR
-          $1::boolean
-      )
+    WHERE admin_user_id = $1
     RETURNING admin_user_id
 )
 SELECT CASE
     WHEN NOT EXISTS (SELECT 1 FROM target) THEN 'not_found'
-    WHEN EXISTS (SELECT 1 FROM target WHERE is_superadmin) AND
-        NOT $1::boolean THEN 'superadmin_required'
     ELSE 'ok'
 END::text AS result
 `
 
-type EnableAdminUserParams struct {
-	ActorIsSuperadmin bool        `json:"actor_is_superadmin"`
-	TargetAdminUserID pgtype.UUID `json:"target_admin_user_id"`
-}
-
-func (q *Queries) EnableAdminUser(ctx context.Context, arg EnableAdminUserParams) (string, error) {
-	row := q.db.QueryRow(ctx, enableAdminUser, arg.ActorIsSuperadmin, arg.TargetAdminUserID)
+func (q *Queries) EnableAdminUser(ctx context.Context, targetAdminUserID pgtype.UUID) (string, error) {
+	row := q.db.QueryRow(ctx, enableAdminUser, targetAdminUserID)
 	var result string
 	err := row.Scan(&result)
 	return result, err
@@ -128,14 +94,7 @@ SELECT
     names.display_names::text AS display_names_json,
     u.primary_display_name_language,
     u.admin_user_state,
-    u.is_superadmin,
-    (CASE
-        WHEN u.is_superadmin THEN ARRAY[
-            'admin:view_users',
-            'admin:manage_users'
-        ]::text[]
-        ELSE auth.permissions
-    END)::text[] AS permissions,
+    auth.permissions::text[] AS permissions,
     u.totp_enabled,
     u.last_login_at,
     u.created_at
@@ -171,30 +130,41 @@ CROSS JOIN LATERAL (
 ) AS auth
 WHERE (
         $1::text IS NULL OR
-        u.email_address ILIKE '%' || $1::text || '%'
-    )
-  AND (
-        $2::text IS NULL OR
+        u.email_address ILIKE '%' || $1::text || '%' OR
         EXISTS (
             SELECT 1
             FROM vetchium.admin_display_names AS d
             WHERE d.admin_user_id = u.admin_user_id
               AND d.display_name ILIKE
-                  '%' || $2::text || '%'
+                  '%' || $1::text || '%'
         )
     )
   AND (
-        $3::vetchium.admin_user_state IS NULL OR
-        u.admin_user_state = $3::vetchium.admin_user_state
+        $2::vetchium.admin_user_state IS NULL OR
+        u.admin_user_state = $2::vetchium.admin_user_state
+    )
+  AND (
+        $3::text IS NULL OR
+        $3::text = 'manager' AND
+            'admin:manage_users' = ANY(auth.permissions) OR
+        $3::text = 'viewer' AND
+            'admin:view_users' = ANY(auth.permissions) AND
+            NOT 'admin:manage_users' = ANY(auth.permissions) OR
+        $3::text = 'none' AND
+            cardinality(auth.permissions) = 0
     )
   AND (
         $4::boolean IS NULL OR
-        u.is_superadmin = $4::boolean
+        u.totp_enabled = $4::boolean
     )
   AND (
         $5::text IS NULL OR
-        u.is_superadmin OR
-        $5::text = ANY(auth.permissions)
+        $5::text = 'never' AND
+            u.last_login_at IS NULL OR
+        $5::text = 'inactive_30_days' AND
+            u.last_login_at < now() - interval '30 days' OR
+        $5::text = 'inactive_90_days' AND
+            u.last_login_at < now() - interval '90 days'
     )
   AND (
         $6::timestamptz IS NULL OR
@@ -208,14 +178,14 @@ LIMIT $8
 `
 
 type ListAdminUsersParams struct {
-	FilterEmailAddress pgtype.Text                `json:"filter_email_address"`
-	FilterDisplayName  pgtype.Text                `json:"filter_display_name"`
-	FilterState        NullVetchiumAdminUserState `json:"filter_state"`
-	FilterIsSuperadmin pgtype.Bool                `json:"filter_is_superadmin"`
-	FilterPermission   pgtype.Text                `json:"filter_permission"`
-	BeforeCreatedAt    pgtype.Timestamptz         `json:"before_created_at"`
-	BeforeAdminUserID  pgtype.UUID                `json:"before_admin_user_id"`
-	PageLimit          int32                      `json:"page_limit"`
+	FilterSearch      pgtype.Text                `json:"filter_search"`
+	FilterState       NullVetchiumAdminUserState `json:"filter_state"`
+	FilterAccess      pgtype.Text                `json:"filter_access"`
+	FilterTotpEnabled pgtype.Bool                `json:"filter_totp_enabled"`
+	FilterLastLogin   pgtype.Text                `json:"filter_last_login"`
+	BeforeCreatedAt   pgtype.Timestamptz         `json:"before_created_at"`
+	BeforeAdminUserID pgtype.UUID                `json:"before_admin_user_id"`
+	PageLimit         int32                      `json:"page_limit"`
 }
 
 type ListAdminUsersRow struct {
@@ -224,7 +194,6 @@ type ListAdminUsersRow struct {
 	DisplayNamesJson           string                 `json:"display_names_json"`
 	PrimaryDisplayNameLanguage string                 `json:"primary_display_name_language"`
 	AdminUserState             VetchiumAdminUserState `json:"admin_user_state"`
-	IsSuperadmin               bool                   `json:"is_superadmin"`
 	Permissions                []string               `json:"permissions"`
 	TotpEnabled                bool                   `json:"totp_enabled"`
 	LastLoginAt                pgtype.Timestamptz     `json:"last_login_at"`
@@ -233,11 +202,11 @@ type ListAdminUsersRow struct {
 
 func (q *Queries) ListAdminUsers(ctx context.Context, arg ListAdminUsersParams) ([]ListAdminUsersRow, error) {
 	rows, err := q.db.Query(ctx, listAdminUsers,
-		arg.FilterEmailAddress,
-		arg.FilterDisplayName,
+		arg.FilterSearch,
 		arg.FilterState,
-		arg.FilterIsSuperadmin,
-		arg.FilterPermission,
+		arg.FilterAccess,
+		arg.FilterTotpEnabled,
+		arg.FilterLastLogin,
 		arg.BeforeCreatedAt,
 		arg.BeforeAdminUserID,
 		arg.PageLimit,
@@ -255,7 +224,6 @@ func (q *Queries) ListAdminUsers(ctx context.Context, arg ListAdminUsersParams) 
 			&i.DisplayNamesJson,
 			&i.PrimaryDisplayNameLanguage,
 			&i.AdminUserState,
-			&i.IsSuperadmin,
 			&i.Permissions,
 			&i.TotpEnabled,
 			&i.LastLoginAt,

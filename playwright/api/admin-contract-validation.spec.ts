@@ -59,23 +59,8 @@ const bodyEndpoints: BodyEndpoint[] = [
     authenticated: true,
   },
   {
-    path: "/grant-permission",
-    body: { admin_user_id: randomUUID(), permission: "admin:view_users" },
-    authenticated: true,
-  },
-  {
-    path: "/revoke-permission",
-    body: { admin_user_id: randomUUID(), permission: "admin:view_users" },
-    authenticated: true,
-  },
-  {
-    path: "/promote-to-superadmin",
-    body: { admin_user_id: randomUUID() },
-    authenticated: true,
-  },
-  {
-    path: "/demote-from-superadmin",
-    body: { admin_user_id: randomUUID() },
+    path: "/set-user-permissions",
+    body: { admin_user_id: randomUUID(), permissions: ["admin:view_users"] },
     authenticated: true,
   },
   {
@@ -128,10 +113,7 @@ const protectedPostEndpoints = [
   "/confirm-totp-enrollment",
   "/disable-totp",
   "/regenerate-totp-recovery-codes",
-  "/grant-permission",
-  "/revoke-permission",
-  "/promote-to-superadmin",
-  "/demote-from-superadmin",
+  "/set-user-permissions",
   "/invite-user",
   "/list-users",
   "/disable-user",
@@ -176,16 +158,16 @@ test.describe("Admin contract validation", () => {
 
   test("every JSON-body endpoint rejects malformed, unknown, and trailing JSON", async ({
     request,
-    superadminToken,
+    managerToken,
   }) => {
     for (const endpoint of bodyEndpoints) {
       await expectProblem(
-        await rawPost(request, endpoint, superadminToken, Buffer.from("{")),
+        await rawPost(request, endpoint, managerToken, Buffer.from("{")),
         400,
         "vetchium-problem-details/invalid-json",
       );
       await expectProblem(
-        await rawPost(request, endpoint, superadminToken, {
+        await rawPost(request, endpoint, managerToken, {
           ...endpoint.body,
           unknown_contract_member: true,
         }),
@@ -196,7 +178,7 @@ test.describe("Admin contract validation", () => {
         await rawPost(
           request,
           endpoint,
-          superadminToken,
+          managerToken,
           Buffer.from(`${JSON.stringify(endpoint.body)} {}`),
         ),
         400,
@@ -351,12 +333,12 @@ test.describe("Admin contract validation", () => {
 
   test("list-users returns an empty array and enforces scalar boundaries", async ({
     adminAPI,
-    superadminToken,
+    managerToken,
   }) => {
     const empty = await adminAPI.post(
       "/list-users",
-      { filter_email_address: `absent-${randomUUID()}@example.test` },
-      { token: superadminToken },
+      { filter_search: `absent-${randomUUID()}@example.test` },
+      { token: managerToken },
     );
     expect(empty.status()).toBe(200);
     expect(await responseJSON(empty)).toEqual({ users: [] });
@@ -364,65 +346,47 @@ test.describe("Admin contract validation", () => {
     for (const limit of [1, 100]) {
       expect(
         (
-          await adminAPI.post(
-            "/list-users",
-            { limit },
-            { token: superadminToken },
-          )
+          await adminAPI.post("/list-users", { limit }, { token: managerToken })
         ).status(),
       ).toBe(200);
     }
     for (const limit of [0, 101]) {
       await expectProblem(
-        await adminAPI.post(
-          "/list-users",
-          { limit },
-          { token: superadminToken },
-        ),
+        await adminAPI.post("/list-users", { limit }, { token: managerToken }),
         400,
         "vetchium-problem-details/validation-failed",
         ["limit"],
       );
     }
     for (const length of [1, 320]) {
-      for (const filter of [
-        "filter_display_name",
-        "filter_email_address",
-      ] as const) {
-        expect(
-          (
-            await adminAPI.post(
-              "/list-users",
-              { [filter]: "z".repeat(length) },
-              { token: superadminToken },
-            )
-          ).status(),
-        ).toBe(200);
-      }
-    }
-    for (const length of [0, 321]) {
-      for (const filter of [
-        "filter_display_name",
-        "filter_email_address",
-      ] as const) {
-        await expectProblem(
+      expect(
+        (
           await adminAPI.post(
             "/list-users",
-            { [filter]: "z".repeat(length) },
-            { token: superadminToken },
-          ),
-          400,
-          "vetchium-problem-details/validation-failed",
-          [filter],
-        );
-      }
+            { filter_search: "z".repeat(length) },
+            { token: managerToken },
+          )
+        ).status(),
+      ).toBe(200);
+    }
+    for (const length of [0, 321]) {
+      await expectProblem(
+        await adminAPI.post(
+          "/list-users",
+          { filter_search: "z".repeat(length) },
+          { token: managerToken },
+        ),
+        400,
+        "vetchium-problem-details/validation-failed",
+        ["filter_search"],
+      );
     }
     for (const length of [1, 4096]) {
       await expectProblem(
         await adminAPI.post(
           "/list-users",
           { pagination_key: "x".repeat(length) },
-          { token: superadminToken },
+          { token: managerToken },
         ),
         400,
         "vetchium-problem-details/invalid-pagination-key",
@@ -433,7 +397,7 @@ test.describe("Admin contract validation", () => {
         await adminAPI.post(
           "/list-users",
           { pagination_key: "x".repeat(length) },
-          { token: superadminToken },
+          { token: managerToken },
         ),
         400,
         "vetchium-problem-details/validation-failed",
@@ -444,19 +408,14 @@ test.describe("Admin contract validation", () => {
 
   test("lifecycle and authorization inputs reject invalid UUIDs and enums", async ({
     adminAPI,
-    superadminToken,
+    managerToken,
   }) => {
-    for (const path of [
-      "/disable-user",
-      "/enable-user",
-      "/promote-to-superadmin",
-      "/demote-from-superadmin",
-    ]) {
+    for (const path of ["/disable-user", "/enable-user"]) {
       await expectProblem(
         await adminAPI.post(
           path,
           { admin_user_id: "not-a-uuid" },
-          { token: superadminToken },
+          { token: managerToken },
         ),
         400,
         "vetchium-problem-details/validation-failed",
@@ -464,38 +423,37 @@ test.describe("Admin contract validation", () => {
       );
     }
 
-    for (const path of ["/grant-permission", "/revoke-permission"]) {
-      await expectProblem(
-        await adminAPI.post(
-          path,
-          { admin_user_id: "not-a-uuid", permission: "admin:view_users" },
-          { token: superadminToken },
-        ),
-        400,
-        "vetchium-problem-details/validation-failed",
-        ["admin_user_id"],
-      );
-      await expectProblem(
-        await adminAPI.post(
-          path,
-          { admin_user_id: randomUUID(), permission: "admin:unknown" },
-          { token: superadminToken },
-        ),
-        400,
-        "vetchium-problem-details/validation-failed",
-        ["permission"],
-      );
-    }
+    await expectProblem(
+      await adminAPI.post(
+        "/set-user-permissions",
+        { admin_user_id: "not-a-uuid", permissions: ["admin:view_users"] },
+        { token: managerToken },
+      ),
+      400,
+      "vetchium-problem-details/validation-failed",
+      ["admin_user_id"],
+    );
+    await expectProblem(
+      await adminAPI.post(
+        "/set-user-permissions",
+        { admin_user_id: randomUUID(), permissions: ["admin:unknown"] },
+        { token: managerToken },
+      ),
+      400,
+      "vetchium-problem-details/validation-failed",
+      ["permissions"],
+    );
 
     for (const [field, value] of [
       ["filter_state", "pending"],
-      ["filter_permission", "admin:unknown"],
+      ["filter_access", "owner"],
+      ["filter_last_login", "recent"],
     ] as const) {
       await expectProblem(
         await adminAPI.post(
           "/list-users",
           { [field]: value },
-          { token: superadminToken },
+          { token: managerToken },
         ),
         400,
         "vetchium-problem-details/validation-failed",

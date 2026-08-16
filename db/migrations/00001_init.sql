@@ -39,7 +39,6 @@ CREATE TABLE vetchium.admin_users (
     display_name text NOT NULL,
     password_hash text NOT NULL,
     admin_user_state vetchium.admin_user_state NOT NULL DEFAULT 'active',
-    is_superadmin boolean NOT NULL DEFAULT false,
     primary_display_name_language text NOT NULL DEFAULT 'en-US',
     preferred_language text NOT NULL DEFAULT 'en-US',
     totp_secret_ciphertext bytea,
@@ -178,6 +177,12 @@ CREATE TABLE vetchium.admin_invitations (
         length(email_address) > 0
     ),
     token_hash bytea NOT NULL UNIQUE CHECK (octet_length(token_hash) = 32),
+    permissions text[] NOT NULL DEFAULT '{}'::text[] CHECK (
+        permissions <@ ARRAY[
+            'admin:view_users',
+            'admin:manage_users'
+        ]::text[]
+    ),
     invited_by uuid NOT NULL REFERENCES vetchium.admin_users (admin_user_id),
     created_at timestamptz NOT NULL DEFAULT now(),
     expires_at timestamptz NOT NULL,

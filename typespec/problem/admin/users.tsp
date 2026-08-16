@@ -26,18 +26,6 @@ alias CannotDisableCurrentAdminErrorResponse = Response<
   typeof CannotDisableCurrentAdminError
 >;
 
-const LastActiveSuperadminError = #{
-  type: "vetchium-problem-details/last-active-superadmin",
-  title: "Last active superadmin",
-  status: 409,
-  detail: "The operation would leave no active superadmin",
-};
-
-alias LastActiveSuperadminErrorResponse = Response<
-  409,
-  typeof LastActiveSuperadminError
->;
-
 const AdminUserAlreadyExistsError = #{
   type: "vetchium-problem-details/admin-user-already-exists",
   title: "Admin user already exists",
