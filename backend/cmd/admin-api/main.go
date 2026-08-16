@@ -22,6 +22,13 @@ import (
 const address = ":8080"
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "healthcheck" {
+		if err := apiserver.SelfCheck(address); err != nil {
+			os.Exit(1)
+		}
+		return
+	}
+
 	handlerOptions := &slog.HandlerOptions{AddSource: true}
 	handler := slog.NewJSONHandler(os.Stdout, handlerOptions)
 	log := slog.New(handler).With("component", "admin-api")

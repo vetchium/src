@@ -8,10 +8,13 @@ import (
 
 	"backend/handlers/admin"
 	"backend/internal/adminapi"
+	"backend/internal/apiserver"
 	"backend/internal/middleware"
 )
 
 func RegisterAdminRoutes(mux *http.ServeMux, s *adminapi.Server) {
+	mux.HandleFunc("GET /healthz", apiserver.HealthCheck)
+
 	adminAuth := middleware.AdminAuth(s)
 	recentAuth := middleware.RequireRecentAdminAuthentication(
 		s, 5*time.Minute,

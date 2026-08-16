@@ -84,10 +84,16 @@ Run the complete self-contained suite from the repository root:
 make test
 ```
 
-This performs clean npm installs and all server-independent checks first. It
-then installs Chromium, recreates and waits for every service from the
-standalone `docker-compose-ci.json`, and runs Playwright last. To run
-Playwright directly after that environment is prepared, execute:
+This tears down any existing dev stack, then runs every independent unit —
+Go tests, the admin-ui/TypeSpec/Playwright installs and lint/typecheck steps,
+Chromium installation, and recreating and waiting for every service from the
+standalone `docker-compose-ci.json` — in parallel, and runs Playwright last
+once the CI stack reports healthy and Chromium is installed. Every API server
+in the CI stack answers `GET /healthz` once it has finished starting, and
+`docker compose ... --wait` blocks on that health check, so Playwright never
+starts against a container that is merely running but not yet serving
+requests. To run Playwright directly after that environment is prepared,
+execute:
 
 ```sh
 cd playwright

@@ -39,6 +39,9 @@ FROM gcr.io/distroless/static-debian12:nonroot@sha256:f5b485ea962d9bd1186b2f6b3a
 USER nonroot:nonroot
 EXPOSE 8080
 
+HEALTHCHECK --interval=5s --timeout=2s --start-period=5s --retries=5 \
+    CMD ["/service", "healthcheck"]
+
 ENTRYPOINT ["/service"]
 
 FROM runtime AS admin-api
@@ -58,3 +61,4 @@ COPY --from=build /out/mcp-server /service
 
 FROM runtime AS workers
 COPY --from=build /out/workers /service
+HEALTHCHECK NONE

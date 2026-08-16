@@ -114,6 +114,13 @@
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
       },
+      "healthcheck": {
+        "interval": "5s",
+        "retries": 10,
+        "start_period": "5s",
+        "test": ["CMD", "/service", "healthcheck"],
+        "timeout": "2s"
+      },
       "networks": {
         "deu_admin_api_access": null,
         "deu_backend": null
@@ -153,6 +160,13 @@
       "environment": {
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
+      },
+      "healthcheck": {
+        "interval": "5s",
+        "retries": 10,
+        "start_period": "5s",
+        "test": ["CMD", "/service", "healthcheck"],
+        "timeout": "2s"
       },
       "networks": {
         "ind1_admin_api_access": null,
@@ -194,6 +208,13 @@
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
       },
+      "healthcheck": {
+        "interval": "5s",
+        "retries": 10,
+        "start_period": "5s",
+        "test": ["CMD", "/service", "healthcheck"],
+        "timeout": "2s"
+      },
       "networks": {
         "sgp_admin_api_access": null,
         "sgp_backend": null
@@ -233,6 +254,13 @@
       "environment": {
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
+      },
+      "healthcheck": {
+        "interval": "5s",
+        "retries": 10,
+        "start_period": "5s",
+        "test": ["CMD", "/service", "healthcheck"],
+        "timeout": "2s"
       },
       "networks": {
         "usa1_admin_api_access": null,
@@ -617,6 +645,13 @@
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
       },
+      "healthcheck": {
+        "interval": "5s",
+        "retries": 10,
+        "start_period": "5s",
+        "test": ["CMD", "/service", "healthcheck"],
+        "timeout": "2s"
+      },
       "networks": {
         "deu_backend": null,
         "deu_hub_api_access": null
@@ -647,6 +682,13 @@
       "environment": {
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
+      },
+      "healthcheck": {
+        "interval": "5s",
+        "retries": 10,
+        "start_period": "5s",
+        "test": ["CMD", "/service", "healthcheck"],
+        "timeout": "2s"
       },
       "networks": {
         "ind1_backend": null,
@@ -679,6 +721,13 @@
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
       },
+      "healthcheck": {
+        "interval": "5s",
+        "retries": 10,
+        "start_period": "5s",
+        "test": ["CMD", "/service", "healthcheck"],
+        "timeout": "2s"
+      },
       "networks": {
         "sgp_backend": null,
         "sgp_hub_api_access": null
@@ -709,6 +758,13 @@
       "environment": {
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
+      },
+      "healthcheck": {
+        "interval": "5s",
+        "retries": 10,
+        "start_period": "5s",
+        "test": ["CMD", "/service", "healthcheck"],
+        "timeout": "2s"
       },
       "networks": {
         "usa1_backend": null,
@@ -781,6 +837,13 @@
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
       },
+      "healthcheck": {
+        "interval": "5s",
+        "retries": 10,
+        "start_period": "5s",
+        "test": ["CMD", "/service", "healthcheck"],
+        "timeout": "2s"
+      },
       "networks": {
         "deu_backend": {},
         "deu_mcp_access": {
@@ -813,6 +876,13 @@
       "environment": {
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
+      },
+      "healthcheck": {
+        "interval": "5s",
+        "retries": 10,
+        "start_period": "5s",
+        "test": ["CMD", "/service", "healthcheck"],
+        "timeout": "2s"
       },
       "networks": {
         "ind1_backend": {},
@@ -847,6 +917,13 @@
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
       },
+      "healthcheck": {
+        "interval": "5s",
+        "retries": 10,
+        "start_period": "5s",
+        "test": ["CMD", "/service", "healthcheck"],
+        "timeout": "2s"
+      },
       "networks": {
         "sgp_backend": {},
         "sgp_mcp_access": {
@@ -879,6 +956,13 @@
       "environment": {
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
+      },
+      "healthcheck": {
+        "interval": "5s",
+        "retries": 10,
+        "start_period": "5s",
+        "test": ["CMD", "/service", "healthcheck"],
+        "timeout": "2s"
       },
       "networks": {
         "usa1_backend": {},
@@ -913,6 +997,13 @@
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
       },
+      "healthcheck": {
+        "interval": "5s",
+        "retries": 10,
+        "start_period": "5s",
+        "test": ["CMD", "/service", "healthcheck"],
+        "timeout": "2s"
+      },
       "networks": {
         "deu_backend": null,
         "mesh": null
@@ -943,6 +1034,13 @@
       "environment": {
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
+      },
+      "healthcheck": {
+        "interval": "5s",
+        "retries": 10,
+        "start_period": "5s",
+        "test": ["CMD", "/service", "healthcheck"],
+        "timeout": "2s"
       },
       "networks": {
         "ind1_backend": null,
@@ -975,6 +1073,13 @@
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
       },
+      "healthcheck": {
+        "interval": "5s",
+        "retries": 10,
+        "start_period": "5s",
+        "test": ["CMD", "/service", "healthcheck"],
+        "timeout": "2s"
+      },
       "networks": {
         "mesh": null,
         "sgp_backend": null
@@ -1005,6 +1110,13 @@
       "environment": {
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
+      },
+      "healthcheck": {
+        "interval": "5s",
+        "retries": 10,
+        "start_period": "5s",
+        "test": ["CMD", "/service", "healthcheck"],
+        "timeout": "2s"
       },
       "networks": {
         "mesh": null,
@@ -1117,6 +1229,13 @@
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
       },
+      "healthcheck": {
+        "interval": "5s",
+        "retries": 10,
+        "start_period": "5s",
+        "test": ["CMD", "/service", "healthcheck"],
+        "timeout": "2s"
+      },
       "networks": {
         "deu_backend": null,
         "deu_orgs_api_access": null
@@ -1147,6 +1266,13 @@
       "environment": {
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
+      },
+      "healthcheck": {
+        "interval": "5s",
+        "retries": 10,
+        "start_period": "5s",
+        "test": ["CMD", "/service", "healthcheck"],
+        "timeout": "2s"
       },
       "networks": {
         "ind1_backend": null,
@@ -1179,6 +1305,13 @@
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
       },
+      "healthcheck": {
+        "interval": "5s",
+        "retries": 10,
+        "start_period": "5s",
+        "test": ["CMD", "/service", "healthcheck"],
+        "timeout": "2s"
+      },
       "networks": {
         "sgp_backend": null,
         "sgp_orgs_api_access": null
@@ -1209,6 +1342,13 @@
       "environment": {
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
+      },
+      "healthcheck": {
+        "interval": "5s",
+        "retries": 10,
+        "start_period": "5s",
+        "test": ["CMD", "/service", "healthcheck"],
+        "timeout": "2s"
       },
       "networks": {
         "usa1_backend": null,

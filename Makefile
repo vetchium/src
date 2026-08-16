@@ -17,6 +17,8 @@ ADMIN_KEY_FILE        := $(DEV_SECRETS_DIR)/admin_credential_key
 SQLC                   := go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.29.0
 GO_MODULES             := backend typespec
 GOTESTFLAGS            ?=
+# nproc covers Linux; the sysctl fallback covers macOS.
+JOBS ?= $(shell nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
 
 .PHONY: check dev dev-secrets sqlc sqlc-verify test test-dependencies \
 	test-environment test-stack test-static-ready test-go admin-ui-deps \
@@ -60,15 +62,9 @@ sqlc-verify: sqlc
 		exit 1; \
 	}
 
-# Install dependencies and fail fast on every server-independent check before
-# spending time rebuilding the CI stack. Recipe steps preserve this ordering
-# even when the caller enables parallel Make execution.
-test:
-	$(MAKE) --no-print-directory test-dependencies
-	$(MAKE) --no-print-directory test-static-ready
-	$(MAKE) --no-print-directory playwright-browser-ready
-	$(MAKE) --no-print-directory test-stack
-	$(MAKE) --no-print-directory playwright-test-run
+test: clean
+	$(MAKE) --no-print-directory -j$(JOBS) test-go admin-ui-check-ready \
+		typespec-check-ready playwright-test-run
 
 test-dependencies: admin-ui-deps typespec-deps playwright-deps
 
@@ -76,9 +72,7 @@ test-static-ready: test-go admin-ui-check-ready typespec-check-ready \
 	playwright-check-ready
 
 test-environment:
-	$(MAKE) --no-print-directory playwright-deps
-	$(MAKE) --no-print-directory playwright-browser-ready
-	$(MAKE) --no-print-directory test-stack
+	$(MAKE) --no-print-directory -j$(JOBS) playwright-browser-ready test-stack
 
 test-stack: dev-secrets
 	@attempt=1; \
@@ -107,50 +101,46 @@ check: test
 admin-ui-deps:
 	cd admin-ui && npm ci
 
-admin-ui-check-ready:
+admin-ui-check-ready: admin-ui-deps
 	cd admin-ui && npm run format:check
 	cd admin-ui && npm run typecheck
 	cd admin-ui && npm run build
 
-admin-ui-check: admin-ui-deps admin-ui-check-ready
+admin-ui-check: admin-ui-check-ready
 
 typespec-deps:
 	cd typespec && npm ci
 
-typespec-check-ready:
+typespec-check-ready: typespec-deps
 	cd typespec && npm run check:contract-files
 	cd typespec && npm run format:check
 	cd typespec && npm run typecheck
 	cd typespec && npm run test:ts
 	cd typespec && npm run compile
 
-typespec-check: typespec-deps typespec-check-ready
+typespec-check: typespec-check-ready
 
 typespec-test: typespec-check
 
 playwright-deps:
 	cd playwright && npm ci
 
-playwright-browser: playwright-deps playwright-browser-ready
+playwright-browser: playwright-browser-ready
 
-playwright-browser-ready:
+playwright-browser-ready: playwright-deps
 	cd playwright && npx playwright install chromium
 
-playwright-check-ready:
+playwright-check-ready: playwright-deps
 	cd playwright && npm run format:check
 	cd playwright && npm run typecheck
 
-playwright-check: playwright-deps playwright-check-ready
+playwright-check: playwright-check-ready
 
-playwright-test-run:
+playwright-test-run: playwright-check-ready playwright-browser-ready test-stack
 	cd playwright && npm test
 
 playwright-test:
-	$(MAKE) --no-print-directory playwright-deps
-	$(MAKE) --no-print-directory playwright-check-ready
-	$(MAKE) --no-print-directory playwright-browser-ready
-	$(MAKE) --no-print-directory test-stack
-	$(MAKE) --no-print-directory playwright-test-run
+	$(MAKE) --no-print-directory -j$(JOBS) playwright-test-run
 
 # Build validation; keep results only in BuildKit's cache.
 docker:

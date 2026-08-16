@@ -6,12 +6,15 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"backend/internal/apiserver"
 	"backend/internal/mcpserver"
 	"backend/internal/version"
 	"backend/tools"
 )
 
 func RegisterMCPRoutes(mux *http.ServeMux, s *mcpserver.Server) {
+	mux.HandleFunc("GET /healthz", apiserver.HealthCheck)
+
 	log := s.With("subsystem", "mcp")
 	instructions := fmt.Sprintf(
 		"Read-only access to the %q tenant.", s.TenantID,
