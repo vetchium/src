@@ -43,7 +43,7 @@ Bring up the development environment:
 make [dev]
 ```
 
-Bring up the test environment and run all the tests:
+Bring up the test environment and run all the tests. Note that if all tests succeed, `make test` will automatically run `make clean` to clean up the environment. If any test fails, it will leave the setup hanging for inspection without cleanup:
 
 ```bash
 make test

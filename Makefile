@@ -19,6 +19,14 @@ GO_MODULES             := backend typespec
 GOTESTFLAGS            ?=
 # nproc covers Linux; the sysctl fallback covers macOS.
 JOBS ?= $(shell nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
+WAIT_TIMEOUT ?= 300
+
+# `docker compose up --wait` with no service arguments waits on every service,
+# and it fails outright on any service that has no health state instead of
+# settling for "running". The workers are background job loops that serve no
+# requests, so they carry no health check and must be excluded from the wait.
+# Compose has no per-service opt-out, so the wait set is named explicitly.
+serving_services = $$(docker compose -f $(1) config --services | grep -v '^workers-')
 
 .PHONY: check dev dev-secrets sqlc sqlc-verify test test-dependencies \
 	test-environment test-stack test-static-ready test-go admin-ui-deps \
@@ -29,7 +37,9 @@ JOBS ?= $(shell nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
 	playwright-test playwright-test-run docker publish clean
 
 dev: dev-secrets
-	docker compose -f docker-compose.json up --build -d --wait
+	docker compose -f docker-compose.json up --build -d --remove-orphans
+	docker compose -f docker-compose.json up -d --wait \
+		--wait-timeout $(WAIT_TIMEOUT) $(call serving_services,docker-compose.json)
 	@echo
 	@for t in sgp usa1 deu ind1; do \
 		for p in orgs hub admin; do echo "  http://$$p-ui.$$t.localhost/"; done; \
@@ -63,8 +73,10 @@ sqlc-verify: sqlc
 	}
 
 test: clean
-	$(MAKE) --no-print-directory -j$(JOBS) test-go admin-ui-check-ready \
-		typespec-check-ready playwright-test-run
+	$(MAKE) --no-print-directory -j$(JOBS) test-static-ready playwright-browser-ready
+	$(MAKE) --no-print-directory test-stack
+	$(MAKE) --no-print-directory playwright-test-run
+	$(MAKE) --no-print-directory clean
 
 test-dependencies: admin-ui-deps typespec-deps playwright-deps
 
@@ -72,12 +84,14 @@ test-static-ready: test-go admin-ui-check-ready typespec-check-ready \
 	playwright-check-ready
 
 test-environment:
-	$(MAKE) --no-print-directory -j$(JOBS) playwright-browser-ready test-stack
+	$(MAKE) --no-print-directory playwright-browser-ready
+	$(MAKE) --no-print-directory test-stack
 
 test-stack: dev-secrets
 	@attempt=1; \
-	until docker compose -f docker-compose-ci.json up --build \
-		--force-recreate --remove-orphans -d --wait; do \
+	until docker compose -f docker-compose-ci.json up --build --force-recreate --remove-orphans -d && \
+		docker compose -f docker-compose-ci.json up -d --wait \
+		--wait-timeout $(WAIT_TIMEOUT) $(call serving_services,docker-compose-ci.json); do \
 		if [ "$$attempt" -ge 3 ]; then \
 			echo "CI stack failed after $$attempt attempts"; \
 			exit 1; \
@@ -89,7 +103,7 @@ test-stack: dev-secrets
 
 # Unit tests for every Go module; no database or running stack needed.
 # Pass extra flags with e.g. make test-go GOTESTFLAGS='-race -count=1'.
-test-go:
+test-go: typespec-deps
 	@for m in $(GO_MODULES); do \
 		echo "==> $$m"; \
 		(cd "$$m" && go test $(GOTESTFLAGS) ./...); \
@@ -136,11 +150,13 @@ playwright-check-ready: playwright-deps
 
 playwright-check: playwright-check-ready
 
-playwright-test-run: playwright-check-ready playwright-browser-ready test-stack
+playwright-test-run:
 	cd playwright && npm test
 
 playwright-test:
-	$(MAKE) --no-print-directory -j$(JOBS) playwright-test-run
+	$(MAKE) --no-print-directory -j$(JOBS) playwright-check-ready playwright-browser-ready
+	$(MAKE) --no-print-directory test-stack
+	$(MAKE) --no-print-directory playwright-test-run
 
 # Build validation; keep results only in BuildKit's cache.
 docker:
