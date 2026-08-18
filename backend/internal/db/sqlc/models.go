@@ -59,6 +59,11 @@ type VetchiumAdminDisplayName struct {
 	DisplayName  string      `json:"display_name"`
 }
 
+type VetchiumAdminEffectivePermission struct {
+	AdminUserID pgtype.UUID `json:"admin_user_id"`
+	Permission  string      `json:"permission"`
+}
+
 type VetchiumAdminEmailOutbox struct {
 	AdminEmailOutboxID    pgtype.UUID        `json:"admin_email_outbox_id"`
 	Kind                  string             `json:"kind"`
@@ -104,6 +109,15 @@ type VetchiumAdminPermission struct {
 	AdminUserID pgtype.UUID        `json:"admin_user_id"`
 	Permission  string             `json:"permission"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
+type VetchiumAdminPermissionCatalog struct {
+	Permission string `json:"permission"`
+}
+
+type VetchiumAdminPermissionImplication struct {
+	Permission        string `json:"permission"`
+	ImpliedPermission string `json:"implied_permission"`
 }
 
 type VetchiumAdminSession struct {

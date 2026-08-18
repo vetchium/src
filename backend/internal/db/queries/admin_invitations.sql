@@ -105,11 +105,16 @@ WITH invitation AS (
     ) AS names
     RETURNING admin_user_id
 ), permissions AS (
+    -- An invitation issued before a permission was retired must still be
+    -- consumable, so a stored permission the catalog no longer defines is
+    -- dropped rather than failing the grant.
     INSERT INTO vetchium.admin_permissions (admin_user_id, permission)
-    SELECT u.admin_user_id, requested.permission
+    SELECT u.admin_user_id, catalog.permission
     FROM inserted_user AS u
     CROSS JOIN invitation
     CROSS JOIN unnest(invitation.permissions) AS requested(permission)
+    JOIN vetchium.admin_permission_catalog AS catalog
+        ON catalog.permission = requested.permission
     RETURNING admin_user_id
 ), consumed AS (
     UPDATE vetchium.admin_invitations

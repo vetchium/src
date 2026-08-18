@@ -4,7 +4,9 @@ import type {
   InviteUserResponse,
 } from "typespec/admin/users/invitations";
 import type { ListUsersResponse } from "typespec/admin/users/management";
+import type { MyInfoResponse } from "typespec/admin/users/profile";
 import {
+  AdminAPI,
   expectProblem,
   idempotencyKey,
   responseJSON,
@@ -12,7 +14,11 @@ import {
 import {
   ageAdminInvitation,
   ageSession,
+  createSeededManagerSession,
   emailCredential,
+  ISOLATED_TENANT,
+  isolatedTenantBaseURL,
+  seededManagerGrants,
 } from "../lib/admin-db.ts";
 import { expect, test } from "../lib/admin-fixtures.ts";
 
@@ -61,7 +67,10 @@ test.describe("Admin invitations", () => {
     const listed = await responseJSON<ListUsersResponse>(
       await adminAPI.post(
         "/list-users",
-        { filter_search: emailAddress, filter_access: "manager" },
+        {
+          filter_search: emailAddress,
+          filter_permissions: ["admin:manage_users"],
+        },
         { token: managerToken },
       ),
     );
@@ -271,7 +280,7 @@ test.describe("Admin listing and lifecycle", () => {
         {
           filter_search: target.emailAddress.toUpperCase(),
           filter_state: "active",
-          filter_access: "viewer",
+          filter_permissions: ["admin:view_users"],
           filter_totp_enabled: false,
         },
         { token: managerToken },
@@ -417,7 +426,10 @@ test.describe("Admin access management", () => {
     const viewer = await responseJSON<ListUsersResponse>(
       await adminAPI.post(
         "/list-users",
-        { filter_search: target.emailAddress, filter_access: "viewer" },
+        {
+          filter_search: target.emailAddress,
+          filter_permissions: ["admin:view_users"],
+        },
         { token: managerToken },
       ),
     );
@@ -514,5 +526,243 @@ test.describe("Admin access management", () => {
       400,
       "vetchium-problem-details/invalid-pagination-key",
     );
+  });
+});
+
+test.describe("Admin permission vocabulary", () => {
+  test("a permission this API version does not define is refused everywhere", async ({
+    adminAPI,
+    createAdmin,
+    managerToken,
+    ownedEmail,
+  }) => {
+    const target = await createAdmin();
+    await expectProblem(
+      await adminAPI.post(
+        "/set-user-permissions",
+        {
+          admin_user_id: target.adminUserID,
+          permissions: ["admin:view_users", "admin:manage_domains"],
+        },
+        { token: managerToken },
+      ),
+      400,
+      "vetchium-problem-details/validation-failed",
+      ["permissions"],
+    );
+    await expectProblem(
+      await adminAPI.post(
+        "/invite-user",
+        {
+          email_address: ownedEmail(),
+          permissions: ["admin:manage_domains"],
+        },
+        { token: managerToken, idempotencyKey: idempotencyKey() },
+      ),
+      400,
+      "vetchium-problem-details/validation-failed",
+      ["permissions"],
+    );
+    await expectProblem(
+      await adminAPI.post(
+        "/list-users",
+        { filter_permissions: ["admin:view_users", "admin:view_users"] },
+        { token: managerToken },
+      ),
+      400,
+      "vetchium-problem-details/validation-failed",
+      ["filter_permissions"],
+    );
+
+    const listed = await responseJSON<ListUsersResponse>(
+      await adminAPI.post(
+        "/list-users",
+        { filter_search: target.emailAddress },
+        { token: managerToken },
+      ),
+    );
+    expect(listed.users[0]?.permissions).toEqual([]);
+  });
+
+  test("permission filters match implied grants and unassigned administrators", async ({
+    adminAPI,
+    createAdmin,
+    managerToken,
+  }) => {
+    const manager = await createAdmin({ displayName: "Filter Manager" });
+    const unassigned = await createAdmin({ displayName: "Filter Unassigned" });
+    expect(
+      (
+        await adminAPI.post(
+          "/set-user-permissions",
+          {
+            admin_user_id: manager.adminUserID,
+            permissions: ["admin:manage_users"],
+          },
+          { token: managerToken },
+        )
+      ).status(),
+    ).toBe(204);
+
+    const impliedMatch = await responseJSON<ListUsersResponse>(
+      await adminAPI.post(
+        "/list-users",
+        {
+          filter_search: manager.emailAddress,
+          filter_permissions: ["admin:view_users"],
+        },
+        { token: managerToken },
+      ),
+    );
+    expect(impliedMatch.users.map((user) => user.admin_user_id)).toEqual([
+      manager.adminUserID,
+    ]);
+
+    const both = await responseJSON<ListUsersResponse>(
+      await adminAPI.post(
+        "/list-users",
+        {
+          filter_search: manager.emailAddress,
+          filter_permissions: ["admin:view_users", "admin:manage_users"],
+        },
+        { token: managerToken },
+      ),
+    );
+    expect(both.users.map((user) => user.admin_user_id)).toEqual([
+      manager.adminUserID,
+    ]);
+
+    const excluded = await responseJSON<ListUsersResponse>(
+      await adminAPI.post(
+        "/list-users",
+        {
+          filter_search: unassigned.emailAddress,
+          filter_permissions: ["admin:view_users"],
+        },
+        { token: managerToken },
+      ),
+    );
+    expect(excluded.users).toEqual([]);
+
+    const withoutPermissions = await responseJSON<ListUsersResponse>(
+      await adminAPI.post(
+        "/list-users",
+        {
+          filter_search: unassigned.emailAddress,
+          filter_no_permissions: true,
+        },
+        { token: managerToken },
+      ),
+    );
+    expect(withoutPermissions.users.map((user) => user.admin_user_id)).toEqual([
+      unassigned.adminUserID,
+    ]);
+
+    const managerExcluded = await responseJSON<ListUsersResponse>(
+      await adminAPI.post(
+        "/list-users",
+        { filter_search: manager.emailAddress, filter_no_permissions: true },
+        { token: managerToken },
+      ),
+    );
+    expect(managerExcluded.users).toEqual([]);
+  });
+
+  test("granting a permission that another grant implies stores one grant", async ({
+    adminAPI,
+    createAdmin,
+    managerToken,
+  }) => {
+    const target = await createAdmin();
+    expect(
+      (
+        await adminAPI.post(
+          "/set-user-permissions",
+          {
+            admin_user_id: target.adminUserID,
+            permissions: ["admin:view_users", "admin:manage_users"],
+          },
+          { token: managerToken },
+        )
+      ).status(),
+    ).toBe(204);
+    const listed = await responseJSON<ListUsersResponse>(
+      await adminAPI.post(
+        "/list-users",
+        { filter_search: target.emailAddress },
+        { token: managerToken },
+      ),
+    );
+    expect(listed.users[0]?.permissions).toEqual([
+      "admin:manage_users",
+      "admin:view_users",
+    ]);
+
+    expect(
+      (
+        await adminAPI.post(
+          "/set-user-permissions",
+          {
+            admin_user_id: target.adminUserID,
+            permissions: ["admin:view_users"],
+          },
+          { token: managerToken },
+        )
+      ).status(),
+    ).toBe(204);
+    const reduced = await responseJSON<ListUsersResponse>(
+      await adminAPI.post(
+        "/list-users",
+        { filter_search: target.emailAddress },
+        { token: managerToken },
+      ),
+    );
+    expect(reduced.users[0]?.permissions).toEqual(["admin:view_users"]);
+  });
+});
+
+test.describe("Admin management continuity", () => {
+  // Runs against a tenant no other test touches: the invariant is tenant-wide
+  // and cannot be observed where parallel tests create their own managers.
+  test("the last administrator able to manage administrators keeps it", async ({
+    playwright,
+  }) => {
+    const context = await playwright.request.newContext({
+      baseURL: isolatedTenantBaseURL(),
+    });
+    const isolatedAPI = new AdminAPI(context);
+    const token = createSeededManagerSession(ISOLATED_TENANT);
+    try {
+      const me = await responseJSON<MyInfoResponse>(
+        await isolatedAPI.get("/my-info", token),
+      );
+      expect(me.permissions).toContain("admin:manage_users");
+
+      for (const permissions of [[], ["admin:view_users"]]) {
+        await expectProblem(
+          await isolatedAPI.post(
+            "/set-user-permissions",
+            { admin_user_id: me.admin_user_id, permissions },
+            { token },
+          ),
+          409,
+          "vetchium-problem-details/last-admin-manager",
+        );
+      }
+
+      expect(seededManagerGrants(ISOLATED_TENANT)).toEqual([
+        "admin:manage_users",
+      ]);
+      const retained = await responseJSON<MyInfoResponse>(
+        await isolatedAPI.get("/my-info", token),
+      );
+      expect(retained.permissions).toEqual([
+        "admin:manage_users",
+        "admin:view_users",
+      ]);
+    } finally {
+      await isolatedAPI.post("/logout", undefined, { token });
+      await context.dispose();
+    }
   });
 });

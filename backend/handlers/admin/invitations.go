@@ -7,6 +7,7 @@ import (
 	"time"
 
 	adminspec "github.com/vetchium/src/typespec/admin"
+	"github.com/vetchium/src/typespec/admin/authorization"
 	"github.com/vetchium/src/typespec/admin/users"
 	adminproblem "github.com/vetchium/src/typespec/problem/admin"
 
@@ -26,8 +27,9 @@ func InviteUser(s *adminapi.Server) http.HandlerFunc {
 			return
 		}
 		request = request.Normalize()
-		permissions := make([]string, len(request.Permissions))
-		for index, permission := range request.Permissions {
+		granted := authorization.DirectPermissions(request.Permissions)
+		permissions := make([]string, len(granted))
+		for index, permission := range granted {
 			permissions[index] = string(permission)
 		}
 		key, ok := idempotencyKey(s, w, r)

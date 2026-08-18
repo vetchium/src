@@ -28,3 +28,10 @@ export const AdminInvitationAlreadyPendingError: Readonly<Details> = {
   detail:
     "A non-expired invitation already exists for the normalized email address",
 };
+
+export const LastAdminManagerError: Readonly<Details> = {
+  type: "vetchium-problem-details/last-admin-manager",
+  title: "Last admin manager",
+  status: 409,
+  detail: "At least one active admin must keep admin:manage_users",
+};

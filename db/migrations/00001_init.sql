@@ -102,15 +102,56 @@ CREATE TABLE vetchium.admin_display_names (
     PRIMARY KEY (admin_user_id, language_code)
 );
 
+-- Reference data rather than a CHECK constraint so a new permission is one
+-- inserted row instead of a constraint rewrite, and so grants, invitations and
+-- implications can all be validated against one list.
+CREATE TABLE vetchium.admin_permission_catalog (
+    permission text PRIMARY KEY CHECK (permission LIKE 'admin:%')
+);
+
+INSERT INTO vetchium.admin_permission_catalog (permission)
+VALUES
+    ('admin:view_users'),
+    ('admin:manage_users');
+
+-- A grant of permission also confers implied_permission. Implications are
+-- resolved on read by vetchium.admin_effective_permissions and are never
+-- stored as grants of their own.
+CREATE TABLE vetchium.admin_permission_implications (
+    permission text NOT NULL
+        REFERENCES vetchium.admin_permission_catalog (permission),
+    implied_permission text NOT NULL
+        REFERENCES vetchium.admin_permission_catalog (permission),
+    PRIMARY KEY (permission, implied_permission),
+    CONSTRAINT admin_permission_implications_not_self CHECK (
+        permission <> implied_permission
+    )
+);
+
+INSERT INTO vetchium.admin_permission_implications (
+    permission, implied_permission
+)
+VALUES ('admin:manage_users', 'admin:view_users');
+
 CREATE TABLE vetchium.admin_permissions (
     admin_user_id uuid NOT NULL REFERENCES vetchium.admin_users (admin_user_id)
         ON DELETE CASCADE,
-    permission text NOT NULL CHECK (
-        permission IN ('admin:view_users', 'admin:manage_users')
-    ),
+    permission text NOT NULL
+        REFERENCES vetchium.admin_permission_catalog (permission),
     created_at timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (admin_user_id, permission)
 );
+
+-- One hop of implication is resolved. A chained implication would need a
+-- recursive expansion here and in the contract's matching helper.
+CREATE VIEW vetchium.admin_effective_permissions AS
+SELECT p.admin_user_id, p.permission
+FROM vetchium.admin_permissions AS p
+UNION
+SELECT p.admin_user_id, i.implied_permission
+FROM vetchium.admin_permissions AS p
+JOIN vetchium.admin_permission_implications AS i
+    ON i.permission = p.permission;
 
 CREATE TABLE vetchium.admin_login_challenges (
     admin_login_challenge_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -177,12 +218,9 @@ CREATE TABLE vetchium.admin_invitations (
         length(email_address) > 0
     ),
     token_hash bytea NOT NULL UNIQUE CHECK (octet_length(token_hash) = 32),
-    permissions text[] NOT NULL DEFAULT '{}'::text[] CHECK (
-        permissions <@ ARRAY[
-            'admin:view_users',
-            'admin:manage_users'
-        ]::text[]
-    ),
+    -- An array cannot carry a foreign key, so membership is enforced when the
+    -- invitation is created and again when its grants are inserted.
+    permissions text[] NOT NULL DEFAULT '{}'::text[],
     invited_by uuid NOT NULL REFERENCES vetchium.admin_users (admin_user_id),
     created_at timestamptz NOT NULL DEFAULT now(),
     expires_at timestamptz NOT NULL,
@@ -264,7 +302,10 @@ DROP TABLE IF EXISTS vetchium.admin_invitations;
 DROP TABLE IF EXISTS vetchium.admin_totp_recovery_codes;
 DROP TABLE IF EXISTS vetchium.admin_totp_enrollments;
 DROP TABLE IF EXISTS vetchium.admin_login_challenges;
+DROP VIEW IF EXISTS vetchium.admin_effective_permissions;
 DROP TABLE IF EXISTS vetchium.admin_permissions;
+DROP TABLE IF EXISTS vetchium.admin_permission_implications;
+DROP TABLE IF EXISTS vetchium.admin_permission_catalog;
 DROP TABLE IF EXISTS vetchium.admin_display_names;
 DROP TABLE IF EXISTS vetchium.admin_sessions;
 DROP TABLE IF EXISTS vetchium.admin_users;

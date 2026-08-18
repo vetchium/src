@@ -5,13 +5,16 @@ import type {
 } from "../../common/localization.ts";
 import type { PageSize, PaginationKey } from "../../common/pagination.ts";
 import { isPageSize, isPaginationKey } from "../../common/pagination.ts";
-import type { AdminAuthorization } from "../authorization/types.ts";
+import type {
+  AdminAuthorization,
+  AdminPermissionID,
+} from "../authorization/types.ts";
+import { validatePermissions } from "../authorization/types.ts";
 import type { AdminUserID } from "../types.ts";
 import { isAdminUserID } from "../types.ts";
 import type { State } from "../user/user.ts";
 
 export type AdminUserFilterText = string;
-export type AdminAccessLevel = "manager" | "viewer" | "none";
 export type AdminLastLoginFilter =
   | "never"
   | "inactive_30_days"
@@ -22,7 +25,8 @@ export interface ListUsersRequest {
   pagination_key?: PaginationKey;
   filter_search?: AdminUserFilterText;
   filter_state?: State;
-  filter_access?: AdminAccessLevel;
+  filter_permissions?: AdminPermissionID[];
+  filter_no_permissions?: boolean;
   filter_totp_enabled?: boolean;
   filter_last_login?: AdminLastLoginFilter;
 }
@@ -56,12 +60,10 @@ export function validateListUsersRequest(request: ListUsersRequest): string[] {
     fields.push("filter_state");
   }
   if (
-    request.filter_access !== undefined &&
-    request.filter_access !== "manager" &&
-    request.filter_access !== "viewer" &&
-    request.filter_access !== "none"
+    request.filter_permissions !== undefined &&
+    !validatePermissions(request.filter_permissions)
   ) {
-    fields.push("filter_access");
+    fields.push("filter_permissions");
   }
   if (
     request.filter_last_login !== undefined &&

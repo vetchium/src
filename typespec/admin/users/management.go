@@ -10,27 +10,23 @@ import (
 )
 
 type AdminUserFilterText string
-type AdminAccessLevel string
 type AdminLastLoginFilter string
 
 const (
-	AccessManager AdminAccessLevel = "manager"
-	AccessViewer  AdminAccessLevel = "viewer"
-	AccessNone    AdminAccessLevel = "none"
-
 	LastLoginNever          AdminLastLoginFilter = "never"
 	LastLoginInactive30Days AdminLastLoginFilter = "inactive_30_days"
 	LastLoginInactive90Days AdminLastLoginFilter = "inactive_90_days"
 )
 
 type ListUsersRequest struct {
-	Limit             *common.PageSize      `json:"limit,omitempty"`
-	PaginationKey     *common.PaginationKey `json:"pagination_key,omitempty"`
-	FilterSearch      *AdminUserFilterText  `json:"filter_search,omitempty"`
-	FilterState       *user.State           `json:"filter_state,omitempty"`
-	FilterAccess      *AdminAccessLevel     `json:"filter_access,omitempty"`
-	FilterTOTPEnabled *bool                 `json:"filter_totp_enabled,omitempty"`
-	FilterLastLogin   *AdminLastLoginFilter `json:"filter_last_login,omitempty"`
+	Limit               *common.PageSize                  `json:"limit,omitempty"`
+	PaginationKey       *common.PaginationKey             `json:"pagination_key,omitempty"`
+	FilterSearch        *AdminUserFilterText              `json:"filter_search,omitempty"`
+	FilterState         *user.State                       `json:"filter_state,omitempty"`
+	FilterPermissions   []authorization.AdminPermissionID `json:"filter_permissions,omitempty"`
+	FilterNoPermissions *bool                             `json:"filter_no_permissions,omitempty"`
+	FilterTOTPEnabled   *bool                             `json:"filter_totp_enabled,omitempty"`
+	FilterLastLogin     *AdminLastLoginFilter             `json:"filter_last_login,omitempty"`
 }
 
 func (r ListUsersRequest) EffectiveLimit() common.PageSize {
@@ -56,18 +52,14 @@ func (r ListUsersRequest) Validate() []string {
 		*r.FilterState != user.Active && *r.FilterState != user.Disabled {
 		fields = append(fields, "filter_state")
 	}
-	if r.FilterAccess != nil && !isAdminAccessLevel(*r.FilterAccess) {
-		fields = append(fields, "filter_access")
+	if !authorization.ValidatePermissions(r.FilterPermissions) {
+		fields = append(fields, "filter_permissions")
 	}
 	if r.FilterLastLogin != nil &&
 		!isAdminLastLoginFilter(*r.FilterLastLogin) {
 		fields = append(fields, "filter_last_login")
 	}
 	return fields
-}
-
-func isAdminAccessLevel(value AdminAccessLevel) bool {
-	return value == AccessManager || value == AccessViewer || value == AccessNone
 }
 
 func isAdminLastLoginFilter(value AdminLastLoginFilter) bool {

@@ -141,18 +141,10 @@ SELECT
     s.admin_session_id,
     s.authenticated_at,
     ARRAY(
-        SELECT permission
-        FROM (
-            SELECT p.permission
-            FROM vetchium.admin_permissions AS p
-            WHERE p.admin_user_id = u.admin_user_id
-            UNION
-            SELECT 'admin:view_users'
-            FROM vetchium.admin_permissions AS p
-            WHERE p.admin_user_id = u.admin_user_id
-              AND p.permission = 'admin:manage_users'
-        ) AS effective_permissions
-        ORDER BY permission
+        SELECT e.permission
+        FROM vetchium.admin_effective_permissions AS e
+        WHERE e.admin_user_id = u.admin_user_id
+        ORDER BY e.permission
     )::text[] AS permissions
 FROM vetchium.admin_sessions AS s
 JOIN vetchium.admin_users AS u USING (admin_user_id)
@@ -190,18 +182,10 @@ CROSS JOIN LATERAL (
 ) AS names
 CROSS JOIN LATERAL (
     SELECT ARRAY(
-        SELECT permission
-        FROM (
-            SELECT p.permission
-            FROM vetchium.admin_permissions AS p
-            WHERE p.admin_user_id = u.admin_user_id
-            UNION
-            SELECT 'admin:view_users'
-            FROM vetchium.admin_permissions AS p
-            WHERE p.admin_user_id = u.admin_user_id
-              AND p.permission = 'admin:manage_users'
-        ) AS effective_permissions
-        ORDER BY permission
+        SELECT e.permission
+        FROM vetchium.admin_effective_permissions AS e
+        WHERE e.admin_user_id = u.admin_user_id
+        ORDER BY e.permission
     )::text[] AS permissions
 ) AS auth
 CROSS JOIN LATERAL (

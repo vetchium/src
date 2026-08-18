@@ -55,6 +55,8 @@ Before changing files, read every guide that applies:
 - Maintained Go code: [`go.md`](agent-guides/go.md)
 - Backend API servers and workers:
   [`backend.md`](agent-guides/backend.md)
+- Permissions, their enforcement, and the screens that present them:
+  [`authorization.md`](agent-guides/authorization.md)
 - Database access, queries, sqlc, or transactions:
   [`database.md`](agent-guides/database.md)
 - TypeSpec contracts and matching wire types:
@@ -65,8 +67,10 @@ Before changing files, read every guide that applies:
   [`playwright.md`](agent-guides/playwright.md)
 
 Guides compose. For example, a backend handler that uses PostgreSQL requires
-`go.md`, `backend.md`, and `database.md`. A hand-maintained Go wire type under
-`typespec/` requires `go.md` and `typespec.md`.
+`go.md`, `backend.md`, and `database.md`, and adding a permission to the admin
+portal requires `authorization.md`, `typespec.md`, `database.md`, and `ui.md`.
+A hand-maintained Go wire type under `typespec/` requires `go.md` and
+`typespec.md`.
 
 Scoped routers make these requirements visible near the code:
 

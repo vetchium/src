@@ -13,8 +13,8 @@ type AdminInvitationID string
 type AdminInvitationToken common.OpaqueToken
 
 type InviteUserRequest struct {
-	EmailAddress common.EmailAddress             `json:"email_address"`
-	Permissions  []authorization.AdminPermission `json:"permissions,omitempty"`
+	EmailAddress common.EmailAddress               `json:"email_address"`
+	Permissions  []authorization.AdminPermissionID `json:"permissions,omitempty"`
 }
 
 func (r InviteUserRequest) Normalize() InviteUserRequest {

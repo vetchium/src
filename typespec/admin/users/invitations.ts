@@ -9,7 +9,7 @@ import type {
 } from "../../common/localization.ts";
 import { isFrontendLocale } from "../../common/localization.ts";
 import {
-  type AdminPermission,
+  type AdminPermissionID,
   validatePermissions,
 } from "../authorization/types.ts";
 import { type AdminUserID, isAdminUserID } from "../types.ts";
@@ -24,7 +24,7 @@ export function isAdminInvitationID(value: AdminInvitationID): boolean {
 
 export interface InviteUserRequest {
   email_address: EmailAddress;
-  permissions?: AdminPermission[];
+  permissions?: AdminPermissionID[];
 }
 
 export function normalizeInviteUserRequest(

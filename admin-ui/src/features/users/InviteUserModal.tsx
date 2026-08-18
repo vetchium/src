@@ -1,11 +1,9 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { App, Form, Input, Modal, Radio, Space, Typography } from "antd";
+import { App, Form, Input, Modal } from "antd";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  ManageUsers,
-  ViewUsers,
-} from "../../../../typespec/admin/authorization/types.ts";
+import type { AdminPermissionID } from "../../../../typespec/admin/authorization/types.ts";
+import { ViewUsers } from "../../../../typespec/admin/authorization/types.ts";
 import type { InviteUserRequest } from "../../../../typespec/admin/users/invitations.ts";
 import {
   normalizeInviteUserRequest,
@@ -18,6 +16,8 @@ import {
 import { useIdempotencyKey } from "../../api/idempotency";
 import { problemTranslationKey } from "../../api/problems";
 import { intlLocale } from "../../app/preferences";
+import { PermissionTable } from "../authorization/PermissionTable";
+import { permissionGrants } from "../authorization/permissions";
 import { inviteUser } from "./api";
 import { usersQueryKey } from "./queries";
 
@@ -28,7 +28,7 @@ interface InviteUserModalProps {
 
 interface InviteFormValues {
   email_address: string;
-  access_level: "manager" | "viewer" | "none";
+  permissions: AdminPermissionID[];
 }
 
 const inviteProblems = {
@@ -63,15 +63,9 @@ export function InviteUserModal({ open, onClose }: InviteUserModalProps) {
   }, [open, form, resetMutation, invitationKey]);
 
   const submit = async (values: InviteFormValues) => {
-    const permissions =
-      values.access_level === "manager"
-        ? [ManageUsers]
-        : values.access_level === "viewer"
-          ? [ViewUsers]
-          : [];
     const request = normalizeInviteUserRequest({
       email_address: values.email_address,
-      permissions,
+      permissions: permissionGrants(values.permissions),
     });
     try {
       const response = await mutation.mutateAsync(request);
@@ -124,7 +118,7 @@ export function InviteUserModal({ open, onClose }: InviteUserModalProps) {
       <Form<InviteFormValues>
         form={form}
         layout="vertical"
-        initialValues={{ access_level: "viewer" }}
+        initialValues={{ permissions: [ViewUsers] }}
         onFinish={(values) => void submit(values)}
       >
         <Form.Item
@@ -145,41 +139,11 @@ export function InviteUserModal({ open, onClose }: InviteUserModalProps) {
           <Input autoComplete="off" />
         </Form.Item>
         <Form.Item
-          name="access_level"
-          label={t("users.invite.accessLevel")}
-          rules={[{ required: true, message: t("validation.required") }]}
+          name="permissions"
+          label={t("users.invite.permissions")}
+          extra={t("users.invite.permissionsHint")}
         >
-          <Radio.Group className="access-level-options">
-            <Space orientation="vertical" size="middle">
-              <Radio value="manager">
-                <Typography.Text strong>
-                  {t("users.access.levels.manager.title")}
-                </Typography.Text>
-                <br />
-                <Typography.Text type="secondary">
-                  {t("users.access.levels.manager.description")}
-                </Typography.Text>
-              </Radio>
-              <Radio value="viewer">
-                <Typography.Text strong>
-                  {t("users.access.levels.viewer.title")}
-                </Typography.Text>
-                <br />
-                <Typography.Text type="secondary">
-                  {t("users.access.levels.viewer.description")}
-                </Typography.Text>
-              </Radio>
-              <Radio value="none">
-                <Typography.Text strong>
-                  {t("users.access.levels.none.title")}
-                </Typography.Text>
-                <br />
-                <Typography.Text type="secondary">
-                  {t("users.access.levels.none.description")}
-                </Typography.Text>
-              </Radio>
-            </Space>
-          </Radio.Group>
+          <PermissionTable disabled={mutation.isPending} />
         </Form.Item>
       </Form>
     </Modal>

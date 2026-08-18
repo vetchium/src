@@ -69,6 +69,7 @@ export const de = {
     name: "Name",
     newPassword: "Neues Passwort",
     password: "Passwort",
+    granted: "Erteilt",
     permission: "Berechtigung",
     recoveryCode: "Wiederherstellungscode",
     recoveryCodes: "Verbleibende Wiederherstellungscodes",
@@ -96,8 +97,21 @@ export const de = {
   },
   states: { active: "Aktiv", disabled: "Deaktiviert" },
   permissions: {
-    "admin:view_users": "Administratoren anzeigen",
-    "admin:manage_users": "Administratoren verwalten",
+    "admin:view_users": {
+      name: "Administratoren anzeigen",
+      description:
+        "Administratorkonten, deren Zugriff und Sicherheitsstatus prüfen.",
+    },
+    "admin:manage_users": {
+      name: "Administratoren verwalten",
+      description:
+        "Administratoren einladen, aktivieren oder deaktivieren und deren Rechte ändern.",
+    },
+    unknown: {
+      description:
+        "Diese Berechtigung kam nach diesem Portal hinzu. Sie bleibt erhalten, solange Sie sie nicht abschalten.",
+    },
+    includedBy: "Enthalten in {{permission}}",
   },
   login: {
     documentTitle: "Anmelden | Vetchium-Administration",
@@ -165,7 +179,7 @@ export const de = {
     actionsFor: "Aktionen für {{name}}",
     page: "Seite {{page}}",
     filters: {
-      access: "Zugriffsstufe",
+      permissions: "Berechtigungen",
       activity: "Anmeldeaktivität",
     },
     quickFilters: {
@@ -186,7 +200,9 @@ export const de = {
     invite: {
       action: "Administrator einladen",
       title: "Administrator einladen",
-      accessLevel: "Anfänglicher Zugriff",
+      permissions: "Anfängliche Berechtigungen",
+      permissionsHint:
+        "Der eingeladene Administrator startet mit den hier erteilten Berechtigungen.",
       sent: "Einladung an {{email}} gesendet. Sie läuft am {{expiresAt}} ab.",
       errors: {
         alreadyExists:
@@ -212,31 +228,20 @@ export const de = {
     access: {
       action: "Zugriff verwalten",
       title: "Zugriff verwalten",
-      chooseLevel: "Zugriffsstufe auswählen",
-      chooseLevelHint:
-        "Zugriffsänderungen gelten sofort. Managerzugriff kann bei Bedarf über die Datenbank der Instanz wiederhergestellt werden.",
+      none: "Kein zugewiesener Zugriff",
+      choosePermissions: "Berechtigungen auswählen",
+      choosePermissionsHint:
+        "Änderungen gelten ab der nächsten Anfrage des Administrators. Eine Berechtigung, die eine andere bereits enthält, kann nicht einzeln abgeschaltet werden.",
       saved: "Administratorzugriff aktualisiert.",
-      levels: {
-        manager: {
-          title: "Manager",
-          description:
-            "Kann Administratoren einladen, aktivieren, deaktivieren und deren Zugriff ändern.",
-        },
-        viewer: {
-          title: "Betrachter",
-          description:
-            "Kann Administratorkonten und deren Sicherheitsstatus prüfen.",
-        },
-        none: {
-          title: "Kein zugewiesener Zugriff",
-          description:
-            "Kann nur das eigene Profil und die eigenen Sicherheitseinstellungen verwenden.",
-        },
-      },
+      selfWarning: "Sie ändern Ihren eigenen Zugriff",
+      selfWarningDetail:
+        "Wenn Sie sich selbst eine Berechtigung entziehen, gilt das sofort und ein anderer Administrator muss sie wieder erteilen.",
     },
     errors: {
       notFound: "Dieser Administrator existiert nicht mehr.",
       cannotDisableSelf: "Sie können Ihr eigenes Konto nicht deaktivieren.",
+      lastManager:
+        "Mindestens ein aktiver Administrator muss die Berechtigung zum Verwalten von Administratoren behalten.",
     },
   },
   profile: {

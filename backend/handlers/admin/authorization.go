@@ -20,22 +20,27 @@ func SetPermissions(s *adminapi.Server) http.HandlerFunc {
 			return
 		}
 		userID, _ := adminapi.ParseUUID(string(request.AdminUserID))
-		permissions := make([]string, len(request.Permissions))
-		for index, permission := range request.Permissions {
-			permissions[index] = string(permission)
+		permissions := authorization.DirectPermissions(request.Permissions)
+		stored := make([]string, len(permissions))
+		for index, permission := range permissions {
+			stored[index] = string(permission)
 		}
 		result, err := s.Queries.SetAdminPermissions(
 			r.Context(), sqlc.SetAdminPermissionsParams{
 				TargetAdminUserID: userID,
-				Permissions:       permissions,
+				Permissions:       stored,
 			},
 		)
 		if err != nil {
 			s.InternalError(r.Context(), w, "set admin permissions", err)
 			return
 		}
-		if result == "not_found" {
+		switch result {
+		case "not_found":
 			s.Problem(r.Context(), w, adminproblem.AdminUserNotFoundError)
+			return
+		case "last_manager":
+			s.Problem(r.Context(), w, adminproblem.LastAdminManagerError)
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)

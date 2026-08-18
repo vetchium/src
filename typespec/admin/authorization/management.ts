@@ -1,9 +1,9 @@
 import { type AdminUserID, isAdminUserID } from "../types.ts";
-import { type AdminPermission, validatePermissions } from "./types.ts";
+import { type AdminPermissionID, validatePermissions } from "./types.ts";
 
 export interface SetPermissionsRequest {
   admin_user_id: AdminUserID;
-  permissions: AdminPermission[];
+  permissions: AdminPermissionID[];
 }
 
 export function validateSetPermissionsRequest(

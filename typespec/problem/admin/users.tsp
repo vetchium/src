@@ -49,3 +49,15 @@ alias AdminInvitationAlreadyPendingErrorResponse = Response<
   409,
   typeof AdminInvitationAlreadyPendingError
 >;
+
+const LastAdminManagerError = #{
+  type: "vetchium-problem-details/last-admin-manager",
+  title: "Last admin manager",
+  status: 409,
+  detail: "At least one active admin must keep admin:manage_users",
+};
+
+alias LastAdminManagerErrorResponse = Response<
+  409,
+  typeof LastAdminManagerError
+>;

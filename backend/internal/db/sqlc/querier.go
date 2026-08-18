@@ -31,6 +31,10 @@ type Querier interface {
 	DeleteExpiredIdempotency(ctx context.Context, arg DeleteExpiredIdempotencyParams) error
 	DeleteIdempotency(ctx context.Context, arg DeleteIdempotencyParams) error
 	DisableAdminTOTP(ctx context.Context, arg DisableAdminTOTPParams) (bool, error)
+	// The update refuses to leave a tenant without an active administrator able to
+	// manage administrators, the state no remaining principal could undo. The
+	// caller holding that permission is normally the one who satisfies the
+	// predicate, so this stops a lockout reached any other way.
 	DisableAdminUser(ctx context.Context, arg DisableAdminUserParams) (string, error)
 	EnableAdminUser(ctx context.Context, targetAdminUserID pgtype.UUID) (string, error)
 	GetAdminLoginChallenge(ctx context.Context, tokenHash []byte) (GetAdminLoginChallengeRow, error)
@@ -60,6 +64,9 @@ type Querier interface {
 	ResolveAdminLoginChallengeUser(ctx context.Context, tokenHash []byte) (pgtype.UUID, error)
 	ResolveAdminPasswordResetUser(ctx context.Context, resetTokenHash []byte) (pgtype.UUID, error)
 	SetAdminDisplayNames(ctx context.Context, arg SetAdminDisplayNamesParams) (int64, error)
+	// Refused when the replacement would remove the last active administrator
+	// able to manage administrators, which no remaining principal could undo. A
+	// tenant that already has none is not held to the invariant it has lost.
 	SetAdminPermissions(ctx context.Context, arg SetAdminPermissionsParams) (string, error)
 	SetAdminPreferredLanguage(ctx context.Context, arg SetAdminPreferredLanguageParams) (int64, error)
 }

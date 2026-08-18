@@ -24,13 +24,14 @@ import type { ColumnsType } from "antd/es/table";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Navigate } from "react-router";
+import type { AdminPermissionID } from "../../../typespec/admin/authorization/types.ts";
 import {
+  AdminPermissions,
   ManageUsers,
   ViewUsers,
 } from "../../../typespec/admin/authorization/types.ts";
 import type { State } from "../../../typespec/admin/user/user.ts";
 import type {
-  AdminAccessLevel,
   AdminLastLoginFilter,
   AdminUserSummary,
   ListUsersRequest,
@@ -39,9 +40,14 @@ import type { PaginationKey } from "../../../typespec/common/pagination.ts";
 import {
   AdminUserNotFoundError,
   CannotDisableCurrentAdminError,
+  LastAdminManagerError,
 } from "../../../typespec/problem/admin/users.ts";
 import { problemTranslationKey } from "../api/problems";
 import { intlLocale } from "../app/preferences";
+import {
+  permissionNameKey,
+  permissionRows,
+} from "../features/authorization/permissions";
 import { UserAccessModal } from "../features/authorization/UserAccessModal";
 import { useMyInfoQuery } from "../features/profile/queries";
 import { disableUser, enableUser } from "../features/users/api";
@@ -51,7 +57,8 @@ import { usersQueryKey, useUsersQuery } from "../features/users/queries";
 interface UserFilters {
   search?: string;
   state?: State;
-  access?: AdminAccessLevel;
+  permissions?: AdminPermissionID[];
+  noPermissions?: boolean;
   totpEnabled?: boolean;
   lastLogin?: AdminLastLoginFilter;
 }
@@ -59,13 +66,8 @@ interface UserFilters {
 const stateProblems = {
   [AdminUserNotFoundError.type]: "users.errors.notFound",
   [CannotDisableCurrentAdminError.type]: "users.errors.cannotDisableSelf",
+  [LastAdminManagerError.type]: "users.errors.lastManager",
 };
-
-function userAccessLevel(user: AdminUserSummary): AdminAccessLevel {
-  if (user.permissions.includes(ManageUsers)) return "manager";
-  if (user.permissions.includes(ViewUsers)) return "viewer";
-  return "none";
-}
 
 export function UsersPage() {
   const { t, i18n } = useTranslation();
@@ -85,7 +87,8 @@ export function UsersPage() {
     pagination_key: pageKeys[pageIndex],
     filter_search: filters.search || undefined,
     filter_state: filters.state,
-    filter_access: filters.access,
+    filter_permissions: filters.permissions,
+    filter_no_permissions: filters.noPermissions,
     filter_totp_enabled: filters.totpEnabled,
     filter_last_login: filters.lastLogin,
   };
@@ -176,15 +179,28 @@ export function UsersPage() {
     {
       title: t("fields.access"),
       key: "access",
-      width: 160,
-      render: (_, user) => {
-        const level = userAccessLevel(user);
-        return (
-          <Tag color={level === "manager" ? "blue" : undefined}>
-            {t(`users.access.levels.${level}.title`)}
-          </Tag>
-        );
-      },
+      width: 260,
+      render: (_, user) =>
+        user.permissions.length === 0 ? (
+          <Typography.Text type="secondary">
+            {t("users.access.none")}
+          </Typography.Text>
+        ) : (
+          <Space size={[0, 4]} wrap>
+            {permissionRows(user.permissions)
+              .filter((row) => row.selected)
+              .map((row) => (
+                <Tag
+                  key={row.permission}
+                  color={row.impliedBy.length === 0 ? "blue" : undefined}
+                >
+                  {row.defined
+                    ? t(permissionNameKey(row.permission))
+                    : row.permission}
+                </Tag>
+              ))}
+          </Space>
+        ),
     },
     {
       title: t("fields.twoFactor"),
@@ -368,10 +384,12 @@ export function UsersPage() {
             </Button>
             <Button
               size="small"
-              type={filters.access === "none" ? "primary" : "default"}
+              type={filters.noPermissions === true ? "primary" : "default"}
               onClick={() =>
                 updateFilters({
-                  access: filters.access === "none" ? undefined : "none",
+                  noPermissions:
+                    filters.noPermissions === true ? undefined : true,
+                  permissions: undefined,
                 })
               }
             >
@@ -379,27 +397,23 @@ export function UsersPage() {
             </Button>
           </Flex>
           <Flex gap="small" align="center" wrap>
-            <Select<AdminAccessLevel>
+            <Select<AdminPermissionID[]>
               allowClear
+              mode="multiple"
               className="filter-select"
-              value={filters.access}
-              placeholder={t("users.filters.access")}
-              aria-label={t("users.filters.access")}
-              options={[
-                {
-                  value: "manager",
-                  label: t("users.access.levels.manager.title"),
-                },
-                {
-                  value: "viewer",
-                  label: t("users.access.levels.viewer.title"),
-                },
-                {
-                  value: "none",
-                  label: t("users.access.levels.none.title"),
-                },
-              ]}
-              onChange={(value) => updateFilters({ access: value })}
+              value={filters.permissions}
+              placeholder={t("users.filters.permissions")}
+              aria-label={t("users.filters.permissions")}
+              options={AdminPermissions.map((permission) => ({
+                value: permission,
+                label: t(permissionNameKey(permission)),
+              }))}
+              onChange={(value) =>
+                updateFilters({
+                  permissions: value.length === 0 ? undefined : value,
+                  noPermissions: undefined,
+                })
+              }
             />
             <Select<AdminLastLoginFilter>
               allowClear
@@ -464,7 +478,9 @@ export function UsersPage() {
       </Flex>
       <InviteUserModal open={inviteOpen} onClose={() => setInviteOpen(false)} />
       <UserAccessModal
+        key={accessUserID ?? "closed"}
         user={accessUser}
+        editingSelf={accessUserID === me.admin_user_id}
         onClose={() => setAccessUserID(null)}
       />
     </Space>

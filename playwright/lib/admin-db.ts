@@ -1087,25 +1087,51 @@ export function expireAdminIdempotency(operation: string, key: string): void {
   `);
 }
 
-export function createSeededManagerSession(): string {
+export function createSeededManagerSession(tenant: TestTenant = "sgp"): string {
   const token = randomBytes(32).toString("base64url");
   const tokenHash = createHash("sha256").update(token).digest("hex");
-  const inserted = sqlScalar(`
+  const inserted = sqlScalarForTenant(
+    tenant,
+    `
     INSERT INTO vetchium.admin_sessions (
       admin_user_id, session_token_hash, authenticated_at, expires_at
     )
     SELECT admin_user_id, decode('${tokenHash}', 'hex'), now(), now() + interval '15 minutes'
     FROM vetchium.admin_users
-    WHERE email_address = 'admin@sgp.example'
+    WHERE email_address = 'admin@${tenant}.example'
       AND EXISTS (
         SELECT 1 FROM vetchium.admin_permissions AS permission
         WHERE permission.admin_user_id = admin_users.admin_user_id
           AND permission.permission = 'admin:manage_users'
       )
     RETURNING admin_session_id;
-  `);
+  `,
+  );
   if (inserted.length === 0) throw new Error("seeded manager is unavailable");
   return token;
+}
+
+/**
+ * The seeded administrator of a tenant no other test touches. A tenant-wide
+ * invariant such as keeping one administrator able to manage administrators
+ * cannot be exercised where parallel tests create administrators of their own.
+ */
+export const ISOLATED_TENANT = "deu" satisfies TestTenant;
+
+export function isolatedTenantBaseURL(): string {
+  return `http://admin-ui.${ISOLATED_TENANT}.localhost`;
+}
+
+/** The permissions stored as grants, without the ones they imply. */
+export function seededManagerGrants(tenant: TestTenant): string[] {
+  const grants = sqlScalarForTenant(
+    tenant,
+    `SELECT permission FROM vetchium.admin_permissions AS p
+     JOIN vetchium.admin_users AS u USING (admin_user_id)
+     WHERE u.email_address = 'admin@${tenant}.example'
+     ORDER BY permission;`,
+  );
+  return grants.length === 0 ? [] : grants.split("\n");
 }
 
 function credentialKey(): Buffer {

@@ -2,6 +2,7 @@ import { App, Drawer, Flex, Grid, Layout, Menu, Typography } from "antd";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Outlet, useLocation, useNavigate } from "react-router";
+import { ViewUsers } from "../../../../typespec/admin/authorization/types.ts";
 import { usePendingOperations } from "../../app/PendingOperationContext";
 import { usePreferences } from "../../app/PreferencesContext";
 import { useAuth } from "../../auth/AuthContext";
@@ -26,7 +27,7 @@ export function AppShell() {
       preferences.setLanguage(me.preferred_language);
     }
   }, [me, preferences]);
-  const canViewUsers = me?.permissions.includes("admin:view_users") === true;
+  const canViewUsers = me?.permissions.includes(ViewUsers) === true;
   const selectedKey = location.pathname.startsWith("/users")
     ? "/users"
     : location.pathname.startsWith("/settings/profile")

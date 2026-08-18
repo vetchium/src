@@ -11,11 +11,21 @@ enum AdminPermission {
 /**
  * An extensible effective-permission identifier returned to clients. Values
  * unknown to an older client must be preserved or ignored, not rejected.
+ *
+ * `x-vetchium-permission-implications` maps a granted permission to the
+ * permissions it confers. A grant is stored directly; the implied permissions
+ * are added by the API when it reports effective permissions. Clients that
+ * present permissions must apply the same map so an implied permission is
+ * shown as held rather than as separately grantable.
  */
 @format("vetchium-admin-permission")
 @TypeSpec.OpenAPI.extension(
   "x-vetchium-known-values",
   #["admin:view_users", "admin:manage_users"]
+)
+@TypeSpec.OpenAPI.extension(
+  "x-vetchium-permission-implications",
+  #{ `admin:manage_users`: #["admin:view_users"] }
 )
 scalar AdminPermissionID extends string;
 

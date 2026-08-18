@@ -22,6 +22,15 @@ WITH target AS (
         updated_at = now()
     WHERE admin_user_id = $1::uuid
       AND admin_user_id <> $2::uuid
+      AND EXISTS (
+            SELECT 1
+            FROM vetchium.admin_effective_permissions AS e
+            JOIN vetchium.admin_users AS remaining USING (admin_user_id)
+            WHERE e.permission = 'admin:manage_users'
+              AND remaining.admin_user_state = 'active'
+              AND remaining.admin_user_id <>
+                  $1::uuid
+        )
     RETURNING admin_user_id
 ), sessions AS (
     DELETE FROM vetchium.admin_sessions
@@ -46,6 +55,7 @@ SELECT CASE
     WHEN NOT EXISTS (SELECT 1 FROM target) THEN 'not_found'
     WHEN $1::uuid =
         $2::uuid THEN 'self'
+    WHEN NOT EXISTS (SELECT 1 FROM updated) THEN 'last_manager'
     ELSE 'ok'
 END::text AS result
 `
@@ -55,6 +65,10 @@ type DisableAdminUserParams struct {
 	ActorAdminUserID  pgtype.UUID `json:"actor_admin_user_id"`
 }
 
+// The update refuses to leave a tenant without an active administrator able to
+// manage administrators, the state no remaining principal could undo. The
+// caller holding that permission is normally the one who satisfies the
+// predicate, so this stops a lockout reached any other way.
 func (q *Queries) DisableAdminUser(ctx context.Context, arg DisableAdminUserParams) (string, error) {
 	row := q.db.QueryRow(ctx, disableAdminUser, arg.TargetAdminUserID, arg.ActorAdminUserID)
 	var result string
@@ -114,18 +128,10 @@ CROSS JOIN LATERAL (
 ) AS names
 CROSS JOIN LATERAL (
     SELECT ARRAY(
-        SELECT permission
-        FROM (
-            SELECT p.permission
-            FROM vetchium.admin_permissions AS p
-            WHERE p.admin_user_id = u.admin_user_id
-            UNION
-            SELECT 'admin:view_users'
-            FROM vetchium.admin_permissions AS p
-            WHERE p.admin_user_id = u.admin_user_id
-              AND p.permission = 'admin:manage_users'
-        ) AS effective_permissions
-        ORDER BY permission
+        SELECT e.permission
+        FROM vetchium.admin_effective_permissions AS e
+        WHERE e.admin_user_id = u.admin_user_id
+        ORDER BY e.permission
     )::text[] AS permissions
 ) AS auth
 WHERE (
@@ -144,48 +150,47 @@ WHERE (
         u.admin_user_state = $2::vetchium.admin_user_state
     )
   AND (
-        $3::text IS NULL OR
-        $3::text = 'manager' AND
-            'admin:manage_users' = ANY(auth.permissions) OR
-        $3::text = 'viewer' AND
-            'admin:view_users' = ANY(auth.permissions) AND
-            NOT 'admin:manage_users' = ANY(auth.permissions) OR
-        $3::text = 'none' AND
-            cardinality(auth.permissions) = 0
+        $3::text[] IS NULL OR
+        auth.permissions @> $3::text[]
     )
   AND (
-        $4::boolean IS NULL OR
-        u.totp_enabled = $4::boolean
+        NOT coalesce($4::boolean, false) OR
+        cardinality(auth.permissions) = 0
     )
   AND (
-        $5::text IS NULL OR
-        $5::text = 'never' AND
+        $5::boolean IS NULL OR
+        u.totp_enabled = $5::boolean
+    )
+  AND (
+        $6::text IS NULL OR
+        $6::text = 'never' AND
             u.last_login_at IS NULL OR
-        $5::text = 'inactive_30_days' AND
+        $6::text = 'inactive_30_days' AND
             u.last_login_at < now() - interval '30 days' OR
-        $5::text = 'inactive_90_days' AND
+        $6::text = 'inactive_90_days' AND
             u.last_login_at < now() - interval '90 days'
     )
   AND (
-        $6::timestamptz IS NULL OR
+        $7::timestamptz IS NULL OR
         (u.created_at, u.admin_user_id) < (
-            $6::timestamptz,
-            $7::uuid
+            $7::timestamptz,
+            $8::uuid
         )
     )
 ORDER BY u.created_at DESC, u.admin_user_id DESC
-LIMIT $8
+LIMIT $9
 `
 
 type ListAdminUsersParams struct {
-	FilterSearch      pgtype.Text                `json:"filter_search"`
-	FilterState       NullVetchiumAdminUserState `json:"filter_state"`
-	FilterAccess      pgtype.Text                `json:"filter_access"`
-	FilterTotpEnabled pgtype.Bool                `json:"filter_totp_enabled"`
-	FilterLastLogin   pgtype.Text                `json:"filter_last_login"`
-	BeforeCreatedAt   pgtype.Timestamptz         `json:"before_created_at"`
-	BeforeAdminUserID pgtype.UUID                `json:"before_admin_user_id"`
-	PageLimit         int32                      `json:"page_limit"`
+	FilterSearch        pgtype.Text                `json:"filter_search"`
+	FilterState         NullVetchiumAdminUserState `json:"filter_state"`
+	FilterPermissions   []string                   `json:"filter_permissions"`
+	FilterNoPermissions pgtype.Bool                `json:"filter_no_permissions"`
+	FilterTotpEnabled   pgtype.Bool                `json:"filter_totp_enabled"`
+	FilterLastLogin     pgtype.Text                `json:"filter_last_login"`
+	BeforeCreatedAt     pgtype.Timestamptz         `json:"before_created_at"`
+	BeforeAdminUserID   pgtype.UUID                `json:"before_admin_user_id"`
+	PageLimit           int32                      `json:"page_limit"`
 }
 
 type ListAdminUsersRow struct {
@@ -204,7 +209,8 @@ func (q *Queries) ListAdminUsers(ctx context.Context, arg ListAdminUsersParams) 
 	rows, err := q.db.Query(ctx, listAdminUsers,
 		arg.FilterSearch,
 		arg.FilterState,
-		arg.FilterAccess,
+		arg.FilterPermissions,
+		arg.FilterNoPermissions,
 		arg.FilterTotpEnabled,
 		arg.FilterLastLogin,
 		arg.BeforeCreatedAt,

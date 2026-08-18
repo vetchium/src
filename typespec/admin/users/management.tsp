@@ -23,13 +23,6 @@ namespace Vetchium.Admin;
 @maxLength(320)
 scalar AdminUserFilterText extends string;
 
-/** Mutually exclusive access levels presented by the administrator UI. */
-enum AdminAccessLevel {
-  Manager: "manager",
-  Viewer: "viewer",
-  None: "none",
-}
-
 /** Useful administrator-account activity windows. */
 enum AdminLastLoginFilter {
   Never: "never",
@@ -49,7 +42,17 @@ model ListUsersRequest {
   filter_search?: AdminUserFilterText;
 
   filter_state?: Vetchium.Admin.User.State;
-  filter_access?: AdminAccessLevel;
+
+  /**
+   * Match admins whose effective permissions include every listed permission.
+   * Every value must be a permission this API version defines.
+   */
+  @TypeSpec.OpenAPI.extension("x-vetchium-unique-items", true)
+  filter_permissions?: AdminPermissionID[];
+
+  /** When true, match only admins holding no permission at all. */
+  filter_no_permissions?: boolean;
+
   filter_totp_enabled?: boolean;
   filter_last_login?: AdminLastLoginFilter;
 }
@@ -126,7 +129,13 @@ interface UserManagementOperations {
     | Vetchium.Problem.AdminPermissionRequiredErrorResponse
     | Vetchium.Problem.InternalServerErrorResponse;
 
-  /** Disable an admin and immediately revoke authentication credentials. */
+  /**
+   * Disable an admin and immediately revoke authentication credentials.
+   * Refused when it would leave no active admin holding admin:manage_users.
+   * A caller of this operation holds that permission and cannot target
+   * themselves, so the refusal guards state reached outside this API rather
+   * than an ordinary request, and Playwright cannot provoke it.
+   */
   @route("/disable-user")
   @post
   @useAuth(BearerAuth)
@@ -155,6 +164,7 @@ interface UserManagementOperations {
     | Vetchium.Problem.AdminPermissionRequiredErrorResponse
     | Vetchium.Problem.AdminUserNotFoundErrorResponse
     | Vetchium.Problem.CannotDisableCurrentAdminErrorResponse
+    | Vetchium.Problem.LastAdminManagerErrorResponse
     | Vetchium.Problem.InternalServerErrorResponse;
 
   /** Enable an admin without restoring previously revoked sessions. */

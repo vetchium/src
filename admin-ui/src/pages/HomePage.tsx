@@ -1,10 +1,10 @@
 import { Card, Descriptions, Grid, Space, Tag, Typography } from "antd";
 import { useTranslation } from "react-i18next";
-import {
-  ManageUsers,
-  ViewUsers,
-} from "../../../typespec/admin/authorization/types.ts";
 import { intlLocale } from "../app/preferences";
+import {
+  permissionNameKey,
+  permissionRows,
+} from "../features/authorization/permissions";
 import { useMyInfoQuery } from "../features/profile/queries";
 
 export function HomePage() {
@@ -16,11 +16,7 @@ export function HomePage() {
     me.display_names.find(
       (name) => name.language_code === me.primary_display_name_language,
     )?.display_name ?? me.email_address;
-  const authorization = me.permissions.includes(ManageUsers)
-    ? t("users.access.levels.manager.title")
-    : me.permissions.includes(ViewUsers)
-      ? t("users.access.levels.viewer.title")
-      : t("users.access.levels.none.title");
+  const granted = permissionRows(me.permissions).filter((row) => row.selected);
 
   return (
     <Space orientation="vertical" size="large" className="full-width">
@@ -50,7 +46,23 @@ export function HomePage() {
             {
               key: "authorization",
               label: t("fields.access"),
-              children: authorization,
+              children:
+                granted.length === 0 ? (
+                  t("users.access.none")
+                ) : (
+                  <Space size={[0, 4]} wrap>
+                    {granted.map((row) => (
+                      <Tag
+                        key={row.permission}
+                        color={row.impliedBy.length === 0 ? "blue" : undefined}
+                      >
+                        {row.defined
+                          ? t(permissionNameKey(row.permission))
+                          : row.permission}
+                      </Tag>
+                    ))}
+                  </Space>
+                ),
             },
             {
               key: "state",

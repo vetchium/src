@@ -4,7 +4,7 @@ import adminspec "github.com/vetchium/src/typespec/admin"
 
 type SetPermissionsRequest struct {
 	AdminUserID adminspec.AdminUserID `json:"admin_user_id"`
-	Permissions []AdminPermission     `json:"permissions"`
+	Permissions []AdminPermissionID   `json:"permissions"`
 }
 
 func (r SetPermissionsRequest) Validate() []string {

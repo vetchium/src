@@ -30,3 +30,10 @@ var AdminInvitationAlreadyPendingError = problem.Details{
 	Detail: "A non-expired invitation already exists for the normalized " +
 		"email address",
 }
+
+var LastAdminManagerError = problem.Details{
+	Type:   "vetchium-problem-details/last-admin-manager",
+	Title:  "Last admin manager",
+	Status: 409,
+	Detail: "At least one active admin must keep admin:manage_users",
+}

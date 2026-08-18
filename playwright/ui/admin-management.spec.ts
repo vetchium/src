@@ -1,7 +1,13 @@
 import type { Page } from "@playwright/test";
 import type { ListUsersResponse } from "typespec/admin/users/management";
 import { responseJSON } from "../lib/admin-api.ts";
-import { ageSession, currentTOTP } from "../lib/admin-db.ts";
+import {
+  ageSession,
+  currentTOTP,
+  ISOLATED_TENANT,
+  isolatedTenantBaseURL,
+  seededManagerGrants,
+} from "../lib/admin-db.ts";
 import {
   expect,
   SEEDED_ADMIN_EMAIL,
@@ -78,13 +84,29 @@ test("a manager can find, secure, and manage administrators", async ({
     .click();
   await page.getByRole("menuitem", { name: "Manage access" }).click();
   const accessDialog = page.getByRole("dialog", { name: "Manage access" });
-  const viewer = accessDialog.getByRole("radio", { name: /Viewer/ });
-  await viewer.click();
-  await expect(viewer).toBeChecked();
-  const manager = accessDialog.getByRole("radio", { name: /Manager/ });
-  await manager.click();
-  await expect(manager).toBeChecked();
-  await accessDialog.getByRole("button", { name: "Close" }).last().click();
+  const viewPermission = accessDialog.getByRole("switch", {
+    name: "View administrators",
+  });
+  const managePermission = accessDialog.getByRole("switch", {
+    name: "Manage administrators",
+  });
+  const saveAccess = accessDialog.getByRole("button", { name: "Save changes" });
+  await expect(saveAccess).toBeDisabled();
+  await viewPermission.click();
+  await expect(viewPermission).toBeChecked();
+  await expect(saveAccess).toBeEnabled();
+
+  await managePermission.click();
+  await expect(managePermission).toBeChecked();
+  await expect(viewPermission).toBeChecked();
+  await expect(viewPermission).toBeDisabled();
+  await expect(accessDialog.getByText("Included by")).toBeVisible();
+  await saveAccess.click();
+  await expect(page.getByText("Administrator access updated.")).toBeVisible();
+  await expect(accessDialog).not.toBeVisible();
+  await expect(
+    targetRow.getByText("Manage administrators", { exact: true }),
+  ).toBeVisible();
 
   await targetRow
     .getByRole("button", { name: "Actions for UI managed administrator" })
@@ -120,7 +142,9 @@ test("a manager can find, secure, and manage administrators", async ({
   await inviteDialog
     .getByRole("textbox", { name: "Email address" })
     .fill(invitationEmail);
-  await inviteDialog.getByRole("radio", { name: /Manager/ }).click();
+  await inviteDialog
+    .getByRole("switch", { name: "Manage administrators" })
+    .click();
   await inviteDialog
     .getByRole("button", { name: "Invite administrator" })
     .click();
@@ -303,7 +327,10 @@ test("a server freshness rejection offers confirmation without signing out", asy
 
   ageSession(managerToken);
   const accessDialog = page.getByRole("dialog", { name: "Manage access" });
-  await accessDialog.getByRole("radio", { name: /Manager/ }).click();
+  await accessDialog
+    .getByRole("switch", { name: "Manage administrators" })
+    .click();
+  await accessDialog.getByRole("button", { name: "Save changes" }).click();
   await expect(
     accessDialog
       .getByRole("alert")
@@ -316,4 +343,55 @@ test("a server freshness rejection offers confirmation without signing out", asy
   await page.getByRole("button", { name: "Cancel" }).click();
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
+});
+
+// Runs against a tenant no other test touches, and only attempts refused
+// changes, so the tenant-wide invariant stays observable under fullyParallel.
+test("the last manager is warned about, and stopped from, removing their own access", async ({
+  page,
+}) => {
+  // That tenant's portal defaults to German, and this test locates controls by
+  // their English names.
+  await page.addInitScript(() => {
+    localStorage.setItem("vetchium.language", "en-US");
+  });
+  await page.goto(`${isolatedTenantBaseURL()}/login`);
+  await page
+    .getByRole("textbox", { name: "Email address" })
+    .fill(`admin@${ISOLATED_TENANT}.example`);
+  await page
+    .getByLabel("Password", { exact: true })
+    .fill(SEEDED_ADMIN_PASSWORD);
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await page.getByRole("menuitem", { name: "Administrators" }).click();
+
+  const ownRow = page
+    .getByRole("row")
+    .filter({ hasText: `admin@${ISOLATED_TENANT}.example` });
+  await ownRow.getByRole("button", { name: /Actions for/ }).click();
+  await page.getByRole("menuitem", { name: "Manage access" }).click();
+
+  const accessDialog = page.getByRole("dialog", { name: "Manage access" });
+  await expect(
+    accessDialog
+      .getByRole("alert")
+      .filter({ hasText: "You are changing your own access" }),
+  ).toBeVisible();
+  await accessDialog
+    .getByRole("switch", { name: "Manage administrators" })
+    .click();
+  await accessDialog.getByRole("button", { name: "Save changes" }).click();
+
+  await expect(
+    page.getByText(
+      "At least one active administrator has to keep the permission to manage administrators.",
+    ),
+  ).toBeVisible();
+  expect(seededManagerGrants(ISOLATED_TENANT)).toEqual(["admin:manage_users"]);
+
+  await accessDialog.getByRole("button", { name: "Cancel" }).click();
+  await expect(accessDialog).not.toBeVisible();
+  await expect(
+    ownRow.getByText("Manage administrators", { exact: true }),
+  ).toBeVisible();
 });

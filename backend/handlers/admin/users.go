@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -157,6 +158,8 @@ func writeAdminUserMutationProblem(
 		s.Problem(r.Context(), w, adminproblem.AdminUserNotFoundError)
 	case "self":
 		s.Problem(r.Context(), w, adminproblem.CannotDisableCurrentAdminError)
+	case "last_manager":
+		s.Problem(r.Context(), w, adminproblem.LastAdminManagerError)
 	default:
 		return false
 	}
@@ -177,11 +180,13 @@ func applyListUsersFilters(
 			Valid:                  true,
 		}
 	}
-	if request.FilterAccess != nil {
-		params.FilterAccess = adminapi.Text(pointer(
-			string(*request.FilterAccess),
-		))
+	if len(request.FilterPermissions) != 0 {
+		params.FilterPermissions = make([]string, len(request.FilterPermissions))
+		for index, permission := range request.FilterPermissions {
+			params.FilterPermissions[index] = string(permission)
+		}
 	}
+	params.FilterNoPermissions = adminapi.Bool(request.FilterNoPermissions)
 	params.FilterTotpEnabled = adminapi.Bool(request.FilterTOTPEnabled)
 	if request.FilterLastLogin != nil {
 		params.FilterLastLogin = adminapi.Text(pointer(
@@ -191,18 +196,21 @@ func applyListUsersFilters(
 }
 
 func listUsersFiltersHash(request users.ListUsersRequest) (string, error) {
+	permissions := slices.Sorted(slices.Values(request.FilterPermissions))
 	payload, err := json.Marshal(struct {
-		Search      *users.AdminUserFilterText  `json:"search"`
-		State       *user.State                 `json:"state"`
-		Access      *users.AdminAccessLevel     `json:"access"`
-		TOTPEnabled *bool                       `json:"totp_enabled"`
-		LastLogin   *users.AdminLastLoginFilter `json:"last_login"`
+		Search        *users.AdminUserFilterText        `json:"search"`
+		State         *user.State                       `json:"state"`
+		Permissions   []authorization.AdminPermissionID `json:"permissions"`
+		NoPermissions *bool                             `json:"no_permissions"`
+		TOTPEnabled   *bool                             `json:"totp_enabled"`
+		LastLogin     *users.AdminLastLoginFilter       `json:"last_login"`
 	}{
-		Search:      normalizeFilter(request.FilterSearch),
-		State:       request.FilterState,
-		Access:      request.FilterAccess,
-		TOTPEnabled: request.FilterTOTPEnabled,
-		LastLogin:   request.FilterLastLogin,
+		Search:        normalizeFilter(request.FilterSearch),
+		State:         request.FilterState,
+		Permissions:   permissions,
+		NoPermissions: request.FilterNoPermissions,
+		TOTPEnabled:   request.FilterTOTPEnabled,
+		LastLogin:     request.FilterLastLogin,
 	})
 	if err != nil {
 		return "", err

@@ -30,9 +30,12 @@ model InviteUserRequest {
   /** Lowercased after surrounding whitespace is removed. */
   email_address: EmailAddress;
 
-  @maxItems(2)
+  /**
+   * Directly assigned permissions the invited admin starts with. Every value
+   * must be a permission this API version defines.
+   */
   @TypeSpec.OpenAPI.extension("x-vetchium-unique-items", true)
-  permissions?: AdminPermission[];
+  permissions?: AdminPermissionID[];
 }
 
 /** Metadata for a newly queued admin invitation. */

@@ -67,6 +67,7 @@ export const en = {
     name: "Name",
     newPassword: "New password",
     password: "Password",
+    granted: "Granted",
     permission: "Permission",
     recoveryCode: "Recovery code",
     recoveryCodes: "Recovery codes remaining",
@@ -94,8 +95,21 @@ export const en = {
   },
   states: { active: "Active", disabled: "Disabled" },
   permissions: {
-    "admin:view_users": "View administrators",
-    "admin:manage_users": "Manage administrators",
+    "admin:view_users": {
+      name: "View administrators",
+      description:
+        "Review administrator accounts, their access and their security status.",
+    },
+    "admin:manage_users": {
+      name: "Manage administrators",
+      description:
+        "Invite administrators, enable or disable them, and change what they can do.",
+    },
+    unknown: {
+      description:
+        "This permission was added after this portal was built. It is kept as it is unless you turn it off.",
+    },
+    includedBy: "Included by {{permission}}",
   },
   login: {
     documentTitle: "Sign in | Vetchium Admin",
@@ -159,7 +173,7 @@ export const en = {
     actionsFor: "Actions for {{name}}",
     page: "Page {{page}}",
     filters: {
-      access: "Access level",
+      permissions: "Permissions",
       activity: "Sign-in activity",
     },
     quickFilters: {
@@ -180,7 +194,9 @@ export const en = {
     invite: {
       action: "Invite administrator",
       title: "Invite an administrator",
-      accessLevel: "Initial access",
+      permissions: "Initial permissions",
+      permissionsHint:
+        "The invited administrator starts with the permissions granted here.",
       sent: "Invitation sent to {{email}}. It expires on {{expiresAt}}.",
       errors: {
         alreadyExists: "An administrator already uses that email address.",
@@ -203,29 +219,20 @@ export const en = {
     access: {
       action: "Manage access",
       title: "Manage access",
-      chooseLevel: "Choose an access level",
-      chooseLevelHint:
-        "Access changes take effect immediately. You can recover manager access through the tenant database if needed.",
+      none: "No assigned access",
+      choosePermissions: "Choose permissions",
+      choosePermissionsHint:
+        "Changes take effect on the administrator's next request. A permission another one already includes cannot be turned off on its own.",
       saved: "Administrator access updated.",
-      levels: {
-        manager: {
-          title: "Manager",
-          description:
-            "Can invite, enable, disable, and change access for administrators.",
-        },
-        viewer: {
-          title: "Viewer",
-          description: "Can review administrator accounts and security status.",
-        },
-        none: {
-          title: "No assigned access",
-          description: "Can use only their own profile and security settings.",
-        },
-      },
+      selfWarning: "You are changing your own access",
+      selfWarningDetail:
+        "Removing a permission from yourself takes effect immediately and another administrator has to grant it back.",
     },
     errors: {
       notFound: "That administrator no longer exists.",
       cannotDisableSelf: "You cannot disable your own account.",
+      lastManager:
+        "At least one active administrator has to keep the permission to manage administrators.",
     },
   },
   profile: {

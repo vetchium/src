@@ -11,6 +11,15 @@ import {
 } from "./auth/totp.ts";
 import { validateSetPermissionsRequest } from "./authorization/management.ts";
 import {
+  AdminPermissions,
+  directPermissions,
+  effectivePermissions,
+  impliedPermissions,
+  isAdminPermission,
+  ManageUsers,
+  ViewUsers,
+} from "./authorization/types.ts";
+import {
   normalizeCompleteSetupRequest,
   validateCompleteSetupRequest,
   validateInviteUserRequest,
@@ -63,9 +72,16 @@ test("authorization requests validate identifiers and enums", () => {
   assert.deepEqual(
     validateSetPermissionsRequest({
       admin_user_id: "bad",
-      permissions: ["admin:view_users", "unknown" as "admin:view_users"],
+      permissions: ["admin:view_users", "admin:manage_domains"],
     }),
     ["admin_user_id", "permissions"],
+  );
+  assert.deepEqual(
+    validateSetPermissionsRequest({
+      admin_user_id: uuid,
+      permissions: ["admin:view_users", "admin:view_users"],
+    }),
+    ["permissions"],
   );
   assert.deepEqual(
     validateSetPermissionsRequest({
@@ -125,7 +141,7 @@ test("list and profile validators cover defaults and bounds", () => {
       pagination_key: "",
       filter_search: "",
       filter_state: "deleted" as "active",
-      filter_access: "owner" as "manager",
+      filter_permissions: ["admin:manage_domains"],
       filter_last_login: "recent" as "never",
     }),
     [
@@ -133,7 +149,7 @@ test("list and profile validators cover defaults and bounds", () => {
       "pagination_key",
       "filter_search",
       "filter_state",
-      "filter_access",
+      "filter_permissions",
       "filter_last_login",
     ],
   );
@@ -162,4 +178,39 @@ test("display-name request normalization is immutable and primary-aware", () => 
     }),
     ["display_names", "primary_display_name_language"],
   );
+});
+
+test("permission implications resolve the same way in every consumer", () => {
+  assert.deepEqual([...AdminPermissions], [ViewUsers, ManageUsers]);
+  assert.ok(isAdminPermission(ManageUsers));
+  assert.ok(!isAdminPermission("admin:manage_domains"));
+  assert.deepEqual([...impliedPermissions(ManageUsers)], [ViewUsers]);
+  assert.deepEqual([...impliedPermissions(ViewUsers)], []);
+  assert.deepEqual([...impliedPermissions("admin:manage_domains")], []);
+
+  assert.deepEqual(effectivePermissions([]), []);
+  assert.deepEqual(effectivePermissions([ManageUsers]), [
+    ManageUsers,
+    ViewUsers,
+  ]);
+  assert.deepEqual(effectivePermissions([ViewUsers, ManageUsers]), [
+    ManageUsers,
+    ViewUsers,
+  ]);
+
+  assert.deepEqual(directPermissions([ViewUsers, ManageUsers]), [ManageUsers]);
+  assert.deepEqual(directPermissions([ViewUsers]), [ViewUsers]);
+});
+
+test("permissions an older portal does not define survive a round trip", () => {
+  const held = ["admin:view_domains", ManageUsers, ViewUsers];
+  assert.deepEqual(directPermissions(held), [
+    ManageUsers,
+    "admin:view_domains",
+  ]);
+  assert.deepEqual(effectivePermissions(directPermissions(held)), [
+    ManageUsers,
+    "admin:view_domains",
+    ViewUsers,
+  ]);
 });

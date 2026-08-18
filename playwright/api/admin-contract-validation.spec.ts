@@ -446,7 +446,7 @@ test.describe("Admin contract validation", () => {
 
     for (const [field, value] of [
       ["filter_state", "pending"],
-      ["filter_access", "owner"],
+      ["filter_permissions", ["admin:manage_domains"]],
       ["filter_last_login", "recent"],
     ] as const) {
       await expectProblem(

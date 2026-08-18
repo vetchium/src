@@ -1,67 +1,62 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { App, Descriptions, Modal, Radio, Space, Tag, Typography } from "antd";
-import { useEffect } from "react";
+import { Alert, App, Descriptions, Modal, Space, Tag, Typography } from "antd";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  ManageUsers,
-  ViewUsers,
-} from "../../../../typespec/admin/authorization/types.ts";
+import type { AdminPermissionID } from "../../../../typespec/admin/authorization/types.ts";
 import type { AdminUserSummary } from "../../../../typespec/admin/users/management.ts";
-import { AdminUserNotFoundError } from "../../../../typespec/problem/admin/users.ts";
+import {
+  AdminUserNotFoundError,
+  LastAdminManagerError,
+} from "../../../../typespec/problem/admin/users.ts";
 import { isRecentAuthenticationRequired } from "../../api/client";
 import { problemTranslationKey } from "../../api/problems";
 import { ReauthenticationAlert } from "../../components/common/ReauthenticationAlert";
 import { myInfoQueryKey } from "../profile/queries";
 import { usersQueryKey } from "../users/queries";
 import { setPermissions } from "./api";
-
-type AccessLevel = "manager" | "viewer" | "none";
+import { PermissionTable } from "./PermissionTable";
+import { permissionGrants, samePermissions } from "./permissions";
 
 interface UserAccessModalProps {
   user: AdminUserSummary | null;
+  editingSelf: boolean;
   onClose: () => void;
 }
 
 const accessProblems = {
   [AdminUserNotFoundError.type]: "users.errors.notFound",
+  [LastAdminManagerError.type]: "users.errors.lastManager",
 };
 
-function accessLevel(user: AdminUserSummary): AccessLevel {
-  if (user.permissions.includes(ManageUsers)) return "manager";
-  if (user.permissions.includes(ViewUsers)) return "viewer";
-  return "none";
-}
-
-export function UserAccessModal({ user, onClose }: UserAccessModalProps) {
+export function UserAccessModal({
+  user,
+  editingSelf,
+  onClose,
+}: UserAccessModalProps) {
   const { t } = useTranslation();
   const { message } = App.useApp();
   const queryClient = useQueryClient();
   const mutation = useMutation({ mutationFn: setPermissions });
-  const targetID = user?.admin_user_id ?? null;
-  const resetMutation = mutation.reset;
-
-  useEffect(() => {
-    if (targetID !== null) resetMutation();
-  }, [targetID, resetMutation]);
+  // Seeded once for the administrator this modal was mounted for, so a list
+  // refresh arriving while it is open cannot overwrite unsaved edits. The
+  // caller remounts the modal per target.
+  const [draft, setDraft] = useState<AdminPermissionID[]>(
+    user?.permissions ?? [],
+  );
 
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: usersQueryKey });
     void queryClient.invalidateQueries({ queryKey: myInfoQueryKey });
   };
 
-  const setAccess = async (level: AccessLevel) => {
+  const save = async () => {
     if (user === null || mutation.isPending) return;
-    const permissions =
-      level === "manager"
-        ? [ManageUsers]
-        : level === "viewer"
-          ? [ViewUsers]
-          : [];
     try {
       await mutation.mutateAsync({
         admin_user_id: user.admin_user_id,
-        permissions,
+        permissions: permissionGrants(draft),
       });
+      onClose();
       void message.success(t("users.access.saved"));
     } catch (error) {
       if (!isRecentAuthenticationRequired(error)) {
@@ -76,21 +71,23 @@ export function UserAccessModal({ user, onClose }: UserAccessModalProps) {
     user?.display_names.find(
       (name) => name.language_code === user.primary_display_name_language,
     )?.display_name ?? user?.email_address;
+  const changed = user !== null && !samePermissions(draft, user.permissions);
 
   return (
     <Modal
       open={user !== null}
       destroyOnHidden
+      width={640}
       title={t("users.access.title")}
-      okText={t("common.close")}
-      footer={(_, { OkBtn }) => <OkBtn />}
+      okText={t("common.save")}
+      cancelText={t("common.cancel")}
+      confirmLoading={mutation.isPending}
+      okButtonProps={{ disabled: !changed }}
+      cancelButtonProps={{ disabled: mutation.isPending }}
       closable={!mutation.isPending}
       keyboard={!mutation.isPending}
       mask={{ closable: !mutation.isPending }}
-      okButtonProps={{ disabled: mutation.isPending }}
-      onOk={() => {
-        if (!mutation.isPending) onClose();
-      }}
+      onOk={() => void save()}
       onCancel={() => {
         if (!mutation.isPending) onClose();
       }}
@@ -127,62 +124,25 @@ export function UserAccessModal({ user, onClose }: UserAccessModalProps) {
           {isRecentAuthenticationRequired(mutation.error) ? (
             <ReauthenticationAlert />
           ) : null}
+          {editingSelf ? (
+            <Alert
+              type="warning"
+              showIcon
+              title={t("users.access.selfWarning")}
+              description={t("users.access.selfWarningDetail")}
+            />
+          ) : null}
           <div>
             <Typography.Title level={5}>
-              {t("users.access.chooseLevel")}
+              {t("users.access.choosePermissions")}
             </Typography.Title>
             <Typography.Paragraph type="secondary">
-              {t("users.access.chooseLevelHint")}
+              {t("users.access.choosePermissionsHint")}
             </Typography.Paragraph>
-            <Radio.Group
-              className="access-level-options"
-              value={accessLevel(user)}
+            <PermissionTable
+              value={draft}
               disabled={mutation.isPending}
-              onChange={(event) => void setAccess(event.target.value)}
-              options={[
-                {
-                  value: "manager",
-                  label: (
-                    <span>
-                      <Typography.Text strong>
-                        {t("users.access.levels.manager.title")}
-                      </Typography.Text>
-                      <br />
-                      <Typography.Text type="secondary">
-                        {t("users.access.levels.manager.description")}
-                      </Typography.Text>
-                    </span>
-                  ),
-                },
-                {
-                  value: "viewer",
-                  label: (
-                    <span>
-                      <Typography.Text strong>
-                        {t("users.access.levels.viewer.title")}
-                      </Typography.Text>
-                      <br />
-                      <Typography.Text type="secondary">
-                        {t("users.access.levels.viewer.description")}
-                      </Typography.Text>
-                    </span>
-                  ),
-                },
-                {
-                  value: "none",
-                  label: (
-                    <span>
-                      <Typography.Text strong>
-                        {t("users.access.levels.none.title")}
-                      </Typography.Text>
-                      <br />
-                      <Typography.Text type="secondary">
-                        {t("users.access.levels.none.description")}
-                      </Typography.Text>
-                    </span>
-                  ),
-                },
-              ]}
+              onChange={setDraft}
             />
           </div>
         </Space>
