@@ -85,10 +85,10 @@ test("a manager can find, secure, and manage administrators", async ({
   await page.getByRole("menuitem", { name: "Manage access" }).click();
   const accessDialog = page.getByRole("dialog", { name: "Manage access" });
   const viewPermission = accessDialog.getByRole("switch", {
-    name: "View administrators",
+    name: "VIEW_ADMINISTRATORS",
   });
   const managePermission = accessDialog.getByRole("switch", {
-    name: "Manage administrators",
+    name: "MANAGE_ADMINISTRATORS",
   });
   const saveAccess = accessDialog.getByRole("button", { name: "Save changes" });
   await expect(saveAccess).toBeDisabled();
@@ -105,7 +105,7 @@ test("a manager can find, secure, and manage administrators", async ({
   await expect(page.getByText("Administrator access updated.")).toBeVisible();
   await expect(accessDialog).not.toBeVisible();
   await expect(
-    targetRow.getByText("Manage administrators", { exact: true }),
+    targetRow.getByText("MANAGE_ADMINISTRATORS", { exact: true }),
   ).toBeVisible();
 
   await targetRow
@@ -143,7 +143,7 @@ test("a manager can find, secure, and manage administrators", async ({
     .getByRole("textbox", { name: "Email address" })
     .fill(invitationEmail);
   await inviteDialog
-    .getByRole("switch", { name: "Manage administrators" })
+    .getByRole("switch", { name: "MANAGE_ADMINISTRATORS" })
     .click();
   await inviteDialog
     .getByRole("button", { name: "Invite administrator" })
@@ -328,7 +328,7 @@ test("a server freshness rejection offers confirmation without signing out", asy
   ageSession(managerToken);
   const accessDialog = page.getByRole("dialog", { name: "Manage access" });
   await accessDialog
-    .getByRole("switch", { name: "Manage administrators" })
+    .getByRole("switch", { name: "MANAGE_ADMINISTRATORS" })
     .click();
   await accessDialog.getByRole("button", { name: "Save changes" }).click();
   await expect(
@@ -378,7 +378,7 @@ test("the last manager is warned about, and stopped from, removing their own acc
       .filter({ hasText: "You are changing your own access" }),
   ).toBeVisible();
   await accessDialog
-    .getByRole("switch", { name: "Manage administrators" })
+    .getByRole("switch", { name: "MANAGE_ADMINISTRATORS" })
     .click();
   await accessDialog.getByRole("button", { name: "Save changes" }).click();
 
@@ -392,6 +392,6 @@ test("the last manager is warned about, and stopped from, removing their own acc
   await accessDialog.getByRole("button", { name: "Cancel" }).click();
   await expect(accessDialog).not.toBeVisible();
   await expect(
-    ownRow.getByText("Manage administrators", { exact: true }),
+    ownRow.getByText("MANAGE_ADMINISTRATORS", { exact: true }),
   ).toBeVisible();
 });

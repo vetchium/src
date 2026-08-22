@@ -98,12 +98,12 @@ export const de = {
   states: { active: "Aktiv", disabled: "Deaktiviert" },
   permissions: {
     "admin:view_users": {
-      name: "Administratoren anzeigen",
+      name: "ADMINISTRATOREN_ANZEIGEN",
       description:
         "Administratorkonten, deren Zugriff und Sicherheitsstatus prüfen.",
     },
     "admin:manage_users": {
-      name: "Administratoren verwalten",
+      name: "ADMINISTRATOREN_VERWALTEN",
       description:
         "Administratoren einladen, aktivieren oder deaktivieren und deren Rechte ändern.",
     },

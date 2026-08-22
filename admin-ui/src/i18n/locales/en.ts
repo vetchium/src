@@ -96,12 +96,12 @@ export const en = {
   states: { active: "Active", disabled: "Disabled" },
   permissions: {
     "admin:view_users": {
-      name: "View administrators",
+      name: "VIEW_ADMINISTRATORS",
       description:
         "Review administrator accounts, their access and their security status.",
     },
     "admin:manage_users": {
-      name: "Manage administrators",
+      name: "MANAGE_ADMINISTRATORS",
       description:
         "Invite administrators, enable or disable them, and change what they can do.",
     },

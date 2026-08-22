@@ -27,6 +27,8 @@ export function PermissionTable({
 }: PermissionTableProps) {
   const { t } = useTranslation();
   const rows = permissionRows(value);
+  const permissionLabel = (row: PermissionRow) =>
+    row.defined ? t(permissionNameKey(row.permission)) : row.permission;
 
   const columns: ColumnsType<PermissionRow> = [
     {
@@ -34,11 +36,7 @@ export function PermissionTable({
       key: "permission",
       render: (_, row) => (
         <Space orientation="vertical" size={0}>
-          <Typography.Text strong>
-            {row.defined
-              ? t(permissionNameKey(row.permission))
-              : row.permission}
-          </Typography.Text>
+          <Tag>{permissionLabel(row)}</Tag>
           <Typography.Text type="secondary">
             {row.defined
               ? t(permissionDescriptionKey(row.permission))
@@ -63,9 +61,7 @@ export function PermissionTable({
         <Switch
           checked={row.selected || row.impliedBy.length > 0}
           disabled={disabled || row.impliedBy.length > 0}
-          aria-label={
-            row.defined ? t(permissionNameKey(row.permission)) : row.permission
-          }
+          aria-label={permissionLabel(row)}
           onChange={(granted) =>
             onChange?.(togglePermission(value, row.permission, granted))
           }

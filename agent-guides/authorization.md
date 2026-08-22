@@ -48,6 +48,11 @@ generalized instead.
 - Screens are built from the catalog, not from a fixed list of access levels.
   A named tier such as "manager" or "viewer" stops describing anything once a
   second unrelated permission exists.
+- A defined permission is labelled with its translated name. Permission names
+  use uppercase, underscore-separated jargon such as `MANAGE_ADMINISTRATORS`
+  wherever the language has uppercase forms. A permission this portal does not
+  define is labelled with its complete raw identifier so it stays visible and
+  unambiguous.
 
 ## Lockout invariants
 

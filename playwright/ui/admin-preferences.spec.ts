@@ -70,6 +70,41 @@ test("login replaces the local language and authenticated changes reach the serv
   );
 });
 
+test("permission tags use the authenticated user's language", async ({
+  adminAPI,
+  createAdmin,
+  managerToken,
+  page,
+}) => {
+  const admin = await createAdmin();
+  const grant = await adminAPI.post(
+    "/set-user-permissions",
+    {
+      admin_user_id: admin.adminUserID,
+      permissions: ["admin:view_users"],
+    },
+    { token: managerToken },
+  );
+  expect(grant.status(), await grant.text()).toBe(204);
+
+  await page.addInitScript((sessionToken) => {
+    sessionStorage.setItem("vetchium.admin.session-token", sessionToken);
+  }, admin.sessionToken);
+  await page.goto("/");
+  await expect(
+    page.getByText("VIEW_ADMINISTRATORS", { exact: true }),
+  ).toBeVisible();
+
+  await page.getByRole("combobox", { name: "Select language" }).click();
+  await page.getByRole("option", { name: "Deutsch" }).click();
+  await expect(
+    page.getByText("ADMINISTRATOREN_ANZEIGEN", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("VIEW_ADMINISTRATORS", { exact: true }),
+  ).not.toBeVisible();
+});
+
 test("authenticated header remains usable on a 320px viewport", async ({
   createAdmin,
   page,

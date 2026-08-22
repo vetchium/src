@@ -32,10 +32,25 @@ and the mounted runtime secret as one explicit operation.
 
 ## Development admin credentials
 
-Each `dev-seed/<tenant>.sql` file creates one local administrator:
+Each `dev-seed/<tenant>.sql` file creates several local administrators, one per
+combination of access and account state the admin portal has to present. They
+all share the password `DevPassword123$`:
 
-- email: `admin@<tenant>.example`
-- password: `DevPassword123$`
+| Email | Access | State |
+| --- | --- | --- |
+| `admin@<tenant>.example` | `admin:manage_users` | active |
+| `manager@<tenant>.example` | `admin:manage_users` | active |
+| `viewer@<tenant>.example` | `admin:view_users` | active |
+| `newcomer@<tenant>.example` | none | active |
+| `retired@<tenant>.example` | `admin:view_users` | disabled |
+
+The `deu` tenant is the exception: it has no `manager@deu.example`, because
+Playwright uses that tenant to observe the invariant that a tenant always keeps
+an administrator able to manage administrators, and a second such administrator
+would make the refusal impossible to provoke.
+
+Re-running a seed restores the fixture password and leaves the state and the
+access an administrator has been given since untouched.
 
 These credentials are fixtures loaded only by the development seed containers.
 Production environments must provision their first administrator explicitly.
@@ -43,7 +58,7 @@ Production environments must provision their first administrator explicitly.
 ## Admin API manager bootstrap and recovery
 
 The development seeds grant `admin:manage_users` to their tenant's seeded
-administrator. Production environments provision or recover an administrator
+administrators. Production environments provision or recover an administrator
 explicitly while connected as the migration owner:
 
 ```sql
