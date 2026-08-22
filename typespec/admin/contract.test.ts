@@ -29,8 +29,8 @@ import {
   validateListUsersRequest,
 } from "./users/management.ts";
 import {
-  normalizeSetDisplayNamesRequest,
-  validateSetDisplayNamesRequest,
+  normalizeSetDisplayNameRequest,
+  validateSetDisplayNameRequest,
   validateSetPreferredLanguageRequest,
 } from "./users/profile.ts";
 
@@ -92,33 +92,25 @@ test("authorization requests validate identifiers and enums", () => {
   );
 });
 
-test("complete setup normalizes a deep copy and validates coupled names", () => {
+test("complete setup normalizes and validates the display name", () => {
   const request = {
     invitation_token: token,
     password: "a sufficiently long password",
-    display_names: [
-      { language_code: "en-US", display_name: "  Admin  " },
-      { language_code: "ta-IN", display_name: " நிர்வாகி " },
-    ],
-    primary_display_name_language: "en-US",
+    display_name: "  நிர்வாகி  ",
     preferred_language: "ta" as const,
   };
   const normalized = normalizeCompleteSetupRequest(request);
-  assert.equal(normalized.display_names[0]?.display_name, "Admin");
-  assert.equal(request.display_names[0]?.display_name, "  Admin  ");
+  assert.equal(normalized.display_name, "நிர்வாகி");
+  assert.equal(request.display_name, "  நிர்வாகி  ");
   assert.deepEqual(validateCompleteSetupRequest(normalized), []);
 
   assert.deepEqual(
     validateCompleteSetupRequest({
       ...normalized,
-      display_names: [
-        { language_code: "en-US", display_name: "Admin" },
-        { language_code: "en-US", display_name: "Duplicate" },
-      ],
-      primary_display_name_language: "ta-IN",
+      display_name: " ",
       preferred_language: "fr-FR" as "en-US",
     }),
-    ["display_names", "primary_display_name_language", "preferred_language"],
+    ["display_name", "preferred_language"],
   );
   assert.deepEqual(
     validateInviteUserRequest({ email_address: "USER@example.com" }),
@@ -162,22 +154,15 @@ test("list and profile validators cover defaults and bounds", () => {
   );
 });
 
-test("display-name request normalization is immutable and primary-aware", () => {
-  const request = {
-    display_names: [{ language_code: "en-US", display_name: " Admin " }],
-    primary_display_name_language: "en-US",
-  };
-  const normalized = normalizeSetDisplayNamesRequest(request);
-  assert.equal(normalized.display_names[0]?.display_name, "Admin");
-  assert.equal(request.display_names[0]?.display_name, " Admin ");
-  assert.deepEqual(validateSetDisplayNamesRequest(normalized), []);
-  assert.deepEqual(
-    validateSetDisplayNamesRequest({
-      display_names: [],
-      primary_display_name_language: "en-US",
-    }),
-    ["display_names", "primary_display_name_language"],
-  );
+test("display-name request normalization is immutable", () => {
+  const request = { display_name: " Admin " };
+  const normalized = normalizeSetDisplayNameRequest(request);
+  assert.equal(normalized.display_name, "Admin");
+  assert.equal(request.display_name, " Admin ");
+  assert.deepEqual(validateSetDisplayNameRequest(normalized), []);
+  assert.deepEqual(validateSetDisplayNameRequest({ display_name: " " }), [
+    "display_name",
+  ]);
 });
 
 test("permission implications resolve the same way in every consumer", () => {

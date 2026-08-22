@@ -48,18 +48,7 @@ model InviteUserResponse {
 model CompleteSetupRequest {
   invitation_token: AdminInvitationToken;
   password: Vetchium.Authentication.NewPassword;
-
-  /** Must have unique language codes and always encode as an array. */
-  @minItems(1)
-  @TypeSpec.OpenAPI.extension("x-vetchium-unique-by", "language_code")
-  @TypeSpec.OpenAPI.extension(
-    "x-vetchium-primary-field",
-    "primary_display_name_language"
-  )
-  display_names: LocalizedDisplayName[];
-
-  /** Must identify one language_code in display_names. */
-  primary_display_name_language: RegionalLanguageCode;
+  display_name: DisplayName;
 
   /** Initial user-interface locale selected in the browser. */
   preferred_language: FrontendLocale;

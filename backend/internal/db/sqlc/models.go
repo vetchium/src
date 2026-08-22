@@ -53,12 +53,6 @@ func (ns NullVetchiumAdminUserState) Value() (driver.Value, error) {
 	return string(ns.VetchiumAdminUserState), nil
 }
 
-type VetchiumAdminDisplayName struct {
-	AdminUserID  pgtype.UUID `json:"admin_user_id"`
-	LanguageCode string      `json:"language_code"`
-	DisplayName  string      `json:"display_name"`
-}
-
 type VetchiumAdminEffectivePermission struct {
 	AdminUserID pgtype.UUID `json:"admin_user_id"`
 	Permission  string      `json:"permission"`
@@ -149,19 +143,18 @@ type VetchiumAdminTotpRecoveryCode struct {
 }
 
 type VetchiumAdminUser struct {
-	AdminUserID                pgtype.UUID            `json:"admin_user_id"`
-	EmailAddress               string                 `json:"email_address"`
-	DisplayName                string                 `json:"display_name"`
-	PasswordHash               string                 `json:"password_hash"`
-	AdminUserState             VetchiumAdminUserState `json:"admin_user_state"`
-	PrimaryDisplayNameLanguage string                 `json:"primary_display_name_language"`
-	PreferredLanguage          string                 `json:"preferred_language"`
-	TotpSecretCiphertext       []byte                 `json:"totp_secret_ciphertext"`
-	TotpEnabled                bool                   `json:"totp_enabled"`
-	TotpLastTimestep           pgtype.Int8            `json:"totp_last_timestep"`
-	LastLoginAt                pgtype.Timestamptz     `json:"last_login_at"`
-	CreatedAt                  pgtype.Timestamptz     `json:"created_at"`
-	UpdatedAt                  pgtype.Timestamptz     `json:"updated_at"`
+	AdminUserID          pgtype.UUID            `json:"admin_user_id"`
+	EmailAddress         string                 `json:"email_address"`
+	DisplayName          string                 `json:"display_name"`
+	PasswordHash         string                 `json:"password_hash"`
+	AdminUserState       VetchiumAdminUserState `json:"admin_user_state"`
+	PreferredLanguage    string                 `json:"preferred_language"`
+	TotpSecretCiphertext []byte                 `json:"totp_secret_ciphertext"`
+	TotpEnabled          bool                   `json:"totp_enabled"`
+	TotpLastTimestep     pgtype.Int8            `json:"totp_last_timestep"`
+	LastLoginAt          pgtype.Timestamptz     `json:"last_login_at"`
+	CreatedAt            pgtype.Timestamptz     `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz     `json:"updated_at"`
 }
 
 type VetchiumHubUser struct {

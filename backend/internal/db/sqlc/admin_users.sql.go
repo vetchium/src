@@ -105,27 +105,13 @@ const listAdminUsers = `-- name: ListAdminUsers :many
 SELECT
     u.admin_user_id,
     u.email_address,
-    names.display_names::text AS display_names_json,
-    u.primary_display_name_language,
+    u.display_name,
     u.admin_user_state,
     auth.permissions::text[] AS permissions,
     u.totp_enabled,
     u.last_login_at,
     u.created_at
 FROM vetchium.admin_users AS u
-CROSS JOIN LATERAL (
-    SELECT COALESCE(
-        jsonb_agg(
-            jsonb_build_object(
-                'language_code', d.language_code,
-                'display_name', d.display_name
-            ) ORDER BY d.language_code
-        ),
-        '[]'::jsonb
-    ) AS display_names
-    FROM vetchium.admin_display_names AS d
-    WHERE d.admin_user_id = u.admin_user_id
-) AS names
 CROSS JOIN LATERAL (
     SELECT ARRAY(
         SELECT e.permission
@@ -137,13 +123,7 @@ CROSS JOIN LATERAL (
 WHERE (
         $1::text IS NULL OR
         u.email_address ILIKE '%' || $1::text || '%' OR
-        EXISTS (
-            SELECT 1
-            FROM vetchium.admin_display_names AS d
-            WHERE d.admin_user_id = u.admin_user_id
-              AND d.display_name ILIKE
-                  '%' || $1::text || '%'
-        )
+        u.display_name ILIKE '%' || $1::text || '%'
     )
   AND (
         $2::vetchium.admin_user_state IS NULL OR
@@ -194,15 +174,14 @@ type ListAdminUsersParams struct {
 }
 
 type ListAdminUsersRow struct {
-	AdminUserID                pgtype.UUID            `json:"admin_user_id"`
-	EmailAddress               string                 `json:"email_address"`
-	DisplayNamesJson           string                 `json:"display_names_json"`
-	PrimaryDisplayNameLanguage string                 `json:"primary_display_name_language"`
-	AdminUserState             VetchiumAdminUserState `json:"admin_user_state"`
-	Permissions                []string               `json:"permissions"`
-	TotpEnabled                bool                   `json:"totp_enabled"`
-	LastLoginAt                pgtype.Timestamptz     `json:"last_login_at"`
-	CreatedAt                  pgtype.Timestamptz     `json:"created_at"`
+	AdminUserID    pgtype.UUID            `json:"admin_user_id"`
+	EmailAddress   string                 `json:"email_address"`
+	DisplayName    string                 `json:"display_name"`
+	AdminUserState VetchiumAdminUserState `json:"admin_user_state"`
+	Permissions    []string               `json:"permissions"`
+	TotpEnabled    bool                   `json:"totp_enabled"`
+	LastLoginAt    pgtype.Timestamptz     `json:"last_login_at"`
+	CreatedAt      pgtype.Timestamptz     `json:"created_at"`
 }
 
 func (q *Queries) ListAdminUsers(ctx context.Context, arg ListAdminUsersParams) ([]ListAdminUsersRow, error) {
@@ -227,8 +206,7 @@ func (q *Queries) ListAdminUsers(ctx context.Context, arg ListAdminUsersParams) 
 		if err := rows.Scan(
 			&i.AdminUserID,
 			&i.EmailAddress,
-			&i.DisplayNamesJson,
-			&i.PrimaryDisplayNameLanguage,
+			&i.DisplayName,
 			&i.AdminUserState,
 			&i.Permissions,
 			&i.TotpEnabled,

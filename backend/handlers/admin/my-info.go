@@ -49,13 +49,6 @@ func MyInfo(s *adminapi.Server) http.HandlerFunc {
 			return
 		}
 
-		displayNames := make([]common.LocalizedDisplayName, 0)
-		if err := json.Unmarshal(
-			[]byte(row.DisplayNamesJson), &displayNames,
-		); err != nil {
-			s.InternalError(r.Context(), w, "decode admin display names", err)
-			return
-		}
 		var permissionValues []string
 		if err := json.Unmarshal(
 			[]byte(row.PermissionsJson), &permissionValues,
@@ -71,10 +64,9 @@ func MyInfo(s *adminapi.Server) http.HandlerFunc {
 			AdminUserID: adminspec.AdminUserID(
 				adminapi.FormatUUID(row.AdminUserID),
 			),
-			EmailAddress:               common.EmailAddress(row.EmailAddress),
-			DisplayNames:               displayNames,
-			PrimaryDisplayNameLanguage: common.RegionalLanguageCode(row.PrimaryDisplayNameLanguage),
-			State:                      user.State(row.AdminUserState),
+			EmailAddress: common.EmailAddress(row.EmailAddress),
+			DisplayName:  common.DisplayName(row.DisplayName),
+			State:        user.State(row.AdminUserState),
 			AdminAuthorization: authorization.AdminAuthorization{
 				Permissions: permissions,
 			},

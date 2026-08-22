@@ -63,7 +63,7 @@ type Querier interface {
 	RegenerateAdminTOTPRecoveryCodes(ctx context.Context, arg RegenerateAdminTOTPRecoveryCodesParams) (bool, error)
 	ResolveAdminLoginChallengeUser(ctx context.Context, tokenHash []byte) (pgtype.UUID, error)
 	ResolveAdminPasswordResetUser(ctx context.Context, resetTokenHash []byte) (pgtype.UUID, error)
-	SetAdminDisplayNames(ctx context.Context, arg SetAdminDisplayNamesParams) (int64, error)
+	SetAdminDisplayName(ctx context.Context, arg SetAdminDisplayNameParams) (int64, error)
 	// Refused when the replacement would remove the last active administrator
 	// able to manage administrators, which no remaining principal could undo. A
 	// tenant that already has none is not held to the invariant it has lost.

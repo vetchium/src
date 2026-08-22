@@ -1,15 +1,14 @@
 import type { TOTPRecoveryCodeCount } from "../../common/authentication.ts";
 import type { EmailAddress } from "../../common/common.ts";
-import type {
-  FrontendLocale,
-  LocalizedDisplayName,
-  RegionalLanguageCode,
+import type { DisplayName, FrontendLocale } from "../../common/localization.ts";
+import {
+  isDisplayName,
+  isFrontendLocale,
+  normalizeDisplayName,
 } from "../../common/localization.ts";
-import { isFrontendLocale } from "../../common/localization.ts";
 import type { AdminAuthorization } from "../authorization/types.ts";
 import type { AdminUserID } from "../types.ts";
 import type { State } from "../user/user.ts";
-import { normalizeDisplayNames, validateDisplayNames } from "./validation.ts";
 
 export interface SetPreferredLanguageRequest {
   preferred_language: FrontendLocale;
@@ -23,43 +22,31 @@ export function validateSetPreferredLanguageRequest(
     : ["preferred_language"];
 }
 
-export interface SetDisplayNamesRequest {
-  display_names: LocalizedDisplayName[];
-  primary_display_name_language: RegionalLanguageCode;
+export interface SetDisplayNameRequest {
+  display_name: DisplayName;
 }
 
-export function normalizeSetDisplayNamesRequest(
-  request: SetDisplayNamesRequest,
-): SetDisplayNamesRequest {
+export function normalizeSetDisplayNameRequest(
+  request: SetDisplayNameRequest,
+): SetDisplayNameRequest {
   return {
     ...request,
-    display_names: normalizeDisplayNames(request.display_names),
+    display_name: normalizeDisplayName(request.display_name),
   };
 }
 
-export function validateSetDisplayNamesRequest(
-  request: SetDisplayNamesRequest,
+export function validateSetDisplayNameRequest(
+  request: SetDisplayNameRequest,
 ): string[] {
-  const normalized = normalizeSetDisplayNamesRequest(request);
-  const validation = validateDisplayNames(
-    normalized.display_names,
-    normalized.primary_display_name_language,
-  );
-  const fields: string[] = [];
-  if (!validation.valid) {
-    fields.push("display_names");
-  }
-  if (!validation.primaryPresent) {
-    fields.push("primary_display_name_language");
-  }
-  return fields;
+  return isDisplayName(normalizeSetDisplayNameRequest(request).display_name)
+    ? []
+    : ["display_name"];
 }
 
 export interface MyInfoResponse extends AdminAuthorization {
   admin_user_id: AdminUserID;
   email_address: EmailAddress;
-  display_names: LocalizedDisplayName[];
-  primary_display_name_language: RegionalLanguageCode;
+  display_name: DisplayName;
   state: State;
   totp_enabled: boolean;
   recovery_codes_remaining: TOTPRecoveryCodeCount;

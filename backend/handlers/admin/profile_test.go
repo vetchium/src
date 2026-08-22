@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -21,7 +22,8 @@ import (
 type profileDBStub struct {
 	sqlc.Querier
 	updated int64
-	params  sqlc.SetAdminDisplayNamesParams
+	params  sqlc.SetAdminDisplayNameParams
+	err     error
 }
 
 func (s *profileDBStub) AuthenticateAdminSession(
@@ -35,22 +37,61 @@ func (s *profileDBStub) AuthenticateAdminSession(
 	}, nil
 }
 
-func (s *profileDBStub) SetAdminDisplayNames(
-	_ context.Context, params sqlc.SetAdminDisplayNamesParams,
+func (s *profileDBStub) SetAdminDisplayName(
+	_ context.Context, params sqlc.SetAdminDisplayNameParams,
 ) (int64, error) {
 	s.params = params
-	return s.updated, nil
+	return s.updated, s.err
 }
 
-func TestSetDisplayNamesHandlesConcurrentDisable(t *testing.T) {
+func TestSetDisplayNameRejectsInvalidRequests(t *testing.T) {
+	db := &profileDBStub{updated: 1}
+	server := testAdminServer(db, time.Now())
+	handler := middleware.AdminAuth(server)(SetDisplayName(server))
+	tests := []struct {
+		body        string
+		problemType string
+		fields      []string
+	}{
+		{body: `{`, problemType: problem.InvalidJSONError.Type},
+		{
+			body:        `{"display_name":" "}`,
+			problemType: problem.ValidationFailedError.Type,
+			fields:      []string{"display_name"},
+		},
+		{
+			body:        `{"display_name":"Administrator","extra":true}`,
+			problemType: problem.InvalidJSONError.Type,
+		},
+	}
+	for _, tt := range tests {
+		response := performAuthenticatedJSONRequest(handler, tt.body)
+		assertProblemResponse(
+			t, response, http.StatusBadRequest, tt.problemType, tt.fields,
+		)
+	}
+}
+
+func TestSetDisplayNameHandlesDependencyFailure(t *testing.T) {
+	db := &profileDBStub{updated: 1, err: errors.New("database unavailable")}
+	server := testAdminServer(db, time.Now())
+	handler := middleware.AdminAuth(server)(SetDisplayName(server))
+	response := performAuthenticatedJSONRequest(
+		handler, `{"display_name":"Administrator"}`,
+	)
+	assertProblemResponse(
+		t, response, http.StatusInternalServerError,
+		problem.InternalServerError.Type, nil,
+	)
+}
+
+func TestSetDisplayNameHandlesConcurrentDisable(t *testing.T) {
 	db := &profileDBStub{updated: 0}
 	server := testAdminServer(db, time.Now())
-	handler := middleware.AdminAuth(server)(SetDisplayNames(server))
+	handler := middleware.AdminAuth(server)(SetDisplayName(server))
 	response := performAuthenticatedJSONRequest(
 		handler,
-		`{"display_names":[{"language_code":"en-US",`+
-			`"display_name":"Administrator"}],`+
-			`"primary_display_name_language":"en-US"}`,
+		`{"display_name":"Administrator"}`,
 	)
 
 	if response.Code != http.StatusUnauthorized {
@@ -71,22 +112,20 @@ func TestSetDisplayNamesHandlesConcurrentDisable(t *testing.T) {
 	}
 }
 
-func TestSetDisplayNamesReturnsSuccessAfterUpdate(t *testing.T) {
+func TestSetDisplayNameReturnsSuccessAfterUpdate(t *testing.T) {
 	db := &profileDBStub{updated: 1}
 	server := testAdminServer(db, time.Now())
-	handler := middleware.AdminAuth(server)(SetDisplayNames(server))
+	handler := middleware.AdminAuth(server)(SetDisplayName(server))
 	response := performAuthenticatedJSONRequest(
 		handler,
-		`{"display_names":[{"language_code":"en-US",`+
-			`"display_name":"  Administrator  "}],`+
-			`"primary_display_name_language":"en-US"}`,
+		`{"display_name":"  Administrator  "}`,
 	)
 
 	if response.Code != http.StatusNoContent {
 		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
 	}
-	if got, want := db.params.DisplayNames, []string{"Administrator"}; len(got) != 1 || got[0] != want[0] {
-		t.Fatalf("display names = %v, want %v", got, want)
+	if got, want := db.params.DisplayName, "Administrator"; got != want {
+		t.Fatalf("display name = %q, want %q", got, want)
 	}
 }
 
@@ -94,7 +133,7 @@ func performAuthenticatedJSONRequest(
 	handler http.Handler, body string,
 ) *httptest.ResponseRecorder {
 	request := httptest.NewRequest(
-		http.MethodPost, "/api/admin/set-display-names",
+		http.MethodPost, "/api/admin/set-display-name",
 		bytes.NewBufferString(body),
 	)
 	request.Header.Set("Content-Type", "application/json")

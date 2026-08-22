@@ -30,7 +30,6 @@ WITH invitation AS (
         email_address,
         display_name,
         password_hash,
-        primary_display_name_language,
         preferred_language
     )
     SELECT
@@ -38,28 +37,10 @@ WITH invitation AS (
         email_address,
         $3,
         $4,
-        $5,
-        $6
+        $5
     FROM invitation
     WHERE NOT EXISTS (SELECT 1 FROM existing_user)
     ON CONFLICT (email_address) DO NOTHING
-    RETURNING admin_user_id
-), names AS (
-    INSERT INTO vetchium.admin_display_names (
-        admin_user_id,
-        language_code,
-        display_name
-    )
-    SELECT
-        u.admin_user_id,
-        names.language_code,
-        names.display_name
-    FROM inserted_user AS u
-    CROSS JOIN LATERAL (
-        SELECT
-            unnest($7::text[]) AS language_code,
-            unnest($8::text[]) AS display_name
-    ) AS names
     RETURNING admin_user_id
 ), permissions AS (
     -- An invitation issued before a permission was retired must still be
@@ -81,7 +62,6 @@ WITH invitation AS (
         SELECT admin_invitation_id FROM invitation
     )
       AND EXISTS (SELECT 1 FROM inserted_user)
-      AND EXISTS (SELECT 1 FROM names)
     RETURNING admin_invitation_id
 )
 SELECT
@@ -97,12 +77,9 @@ SELECT
 type CompleteAdminSetupParams struct {
 	InvitationTokenHash []byte      `json:"invitation_token_hash"`
 	NewAdminUserID      pgtype.UUID `json:"new_admin_user_id"`
-	PrimaryDisplayName  string      `json:"primary_display_name"`
+	DisplayName         string      `json:"display_name"`
 	PasswordHash        string      `json:"password_hash"`
-	PrimaryLanguage     string      `json:"primary_language"`
 	PreferredLanguage   string      `json:"preferred_language"`
-	LanguageCodes       []string    `json:"language_codes"`
-	DisplayNames        []string    `json:"display_names"`
 }
 
 type CompleteAdminSetupRow struct {
@@ -114,12 +91,9 @@ func (q *Queries) CompleteAdminSetup(ctx context.Context, arg CompleteAdminSetup
 	row := q.db.QueryRow(ctx, completeAdminSetup,
 		arg.InvitationTokenHash,
 		arg.NewAdminUserID,
-		arg.PrimaryDisplayName,
+		arg.DisplayName,
 		arg.PasswordHash,
-		arg.PrimaryLanguage,
 		arg.PreferredLanguage,
-		arg.LanguageCodes,
-		arg.DisplayNames,
 	)
 	var i CompleteAdminSetupRow
 	err := row.Scan(&i.Result, &i.AdminUserID)

@@ -148,18 +148,13 @@ export function UsersPage() {
     });
   };
 
-  const displayName = (user: AdminUserSummary) =>
-    user.display_names.find(
-      (name) => name.language_code === user.primary_display_name_language,
-    )?.display_name ?? user.email_address;
-
   const columns: ColumnsType<AdminUserSummary> = [
     {
       title: t("fields.administrator"),
       key: "administrator",
       render: (_, user) => (
         <Space orientation="vertical" size={0}>
-          <Typography.Text strong>{displayName(user)}</Typography.Text>
+          <Typography.Text strong>{user.display_name}</Typography.Text>
           <Typography.Text type="secondary" copyable>
             {user.email_address}
           </Typography.Text>
@@ -264,7 +259,7 @@ export function UsersPage() {
                   type="text"
                   icon={<MoreOutlined />}
                   aria-label={t("users.actionsFor", {
-                    name: displayName(user),
+                    name: user.display_name,
                   })}
                 />
               </Dropdown>

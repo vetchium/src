@@ -74,12 +74,7 @@ func ListUsers(s *adminapi.Server) http.HandlerFunc {
 			Users: make([]users.AdminUserSummary, 0, len(rows)),
 		}
 		for _, row := range rows {
-			summary, err := adminUserSummary(row)
-			if err != nil {
-				s.InternalError(r.Context(), w, "decode admin user summary", err)
-				return
-			}
-			response.Users = append(response.Users, summary)
+			response.Users = append(response.Users, adminUserSummary(row))
 		}
 		if hasMore {
 			last := rows[len(rows)-1]
@@ -257,13 +252,7 @@ func applyAdminUsersPaginationKey(
 
 func adminUserSummary(
 	row sqlc.ListAdminUsersRow,
-) (users.AdminUserSummary, error) {
-	displayNames := make([]common.LocalizedDisplayName, 0)
-	if err := json.Unmarshal(
-		[]byte(row.DisplayNamesJson), &displayNames,
-	); err != nil {
-		return users.AdminUserSummary{}, err
-	}
+) users.AdminUserSummary {
 	permissions := make([]authorization.AdminPermissionID, len(row.Permissions))
 	for index, permission := range row.Permissions {
 		permissions[index] = authorization.AdminPermissionID(permission)
@@ -272,10 +261,9 @@ func adminUserSummary(
 		AdminUserID: adminspec.AdminUserID(
 			adminapi.FormatUUID(row.AdminUserID),
 		),
-		EmailAddress:               common.EmailAddress(row.EmailAddress),
-		DisplayNames:               displayNames,
-		PrimaryDisplayNameLanguage: common.RegionalLanguageCode(row.PrimaryDisplayNameLanguage),
-		State:                      user.State(row.AdminUserState),
+		EmailAddress: common.EmailAddress(row.EmailAddress),
+		DisplayName:  common.DisplayName(row.DisplayName),
+		State:        user.State(row.AdminUserState),
 		AdminAuthorization: authorization.AdminAuthorization{
 			Permissions: permissions,
 		},
@@ -286,7 +274,7 @@ func adminUserSummary(
 		lastLoginAt := row.LastLoginAt.Time.UTC()
 		result.LastLoginAt = &lastLoginAt
 	}
-	return result, nil
+	return result
 }
 
 func pointer[T any](value T) *T {

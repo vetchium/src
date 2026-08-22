@@ -38,9 +38,9 @@ func SetPreferredLanguage(s *adminapi.Server) http.HandlerFunc {
 	}
 }
 
-func SetDisplayNames(s *adminapi.Server) http.HandlerFunc {
+func SetDisplayName(s *adminapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var request users.SetDisplayNamesRequest
+		var request users.SetDisplayNameRequest
 		if err := apiserver.DecodeJSON(r, &request); err != nil {
 			s.InvalidJSON(r.Context(), w, err)
 			return
@@ -50,23 +50,15 @@ func SetDisplayNames(s *adminapi.Server) http.HandlerFunc {
 			s.ValidationFailed(r.Context(), w, fields)
 			return
 		}
-		languageCodes := make([]string, len(request.DisplayNames))
-		displayNames := make([]string, len(request.DisplayNames))
-		for index, displayName := range request.DisplayNames {
-			languageCodes[index] = string(displayName.LanguageCode)
-			displayNames[index] = string(displayName.DisplayName)
-		}
 		identity, _ := middleware.AdminIdentityFromContext(r.Context())
-		updated, err := s.Queries.SetAdminDisplayNames(
-			r.Context(), sqlc.SetAdminDisplayNamesParams{
-				PrimaryLanguage:   string(request.PrimaryDisplayNameLanguage),
+		updated, err := s.Queries.SetAdminDisplayName(
+			r.Context(), sqlc.SetAdminDisplayNameParams{
 				TargetAdminUserID: identity.UserID,
-				LanguageCodes:     languageCodes,
-				DisplayNames:      displayNames,
+				DisplayName:       string(request.DisplayName),
 			},
 		)
 		if err != nil {
-			s.InternalError(r.Context(), w, "set admin display names", err)
+			s.InternalError(r.Context(), w, "set admin display name", err)
 			return
 		}
 		if updated == 0 {

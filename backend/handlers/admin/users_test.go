@@ -55,14 +55,12 @@ var testNow = time.Date(2026, 8, 18, 10, 0, 0, 0, time.UTC)
 
 func adminUserRow(permissions ...string) sqlc.ListAdminUsersRow {
 	return sqlc.ListAdminUsersRow{
-		AdminUserID:  testUUID(20),
-		EmailAddress: "admin@example.com",
-		DisplayNamesJson: `[{"language_code":"en-US",` +
-			`"display_name":"Administrator"}]`,
-		PrimaryDisplayNameLanguage: "en-US",
-		AdminUserState:             sqlc.VetchiumAdminUserStateActive,
-		Permissions:                permissions,
-		CreatedAt:                  pgtype.Timestamptz{Time: testNow, Valid: true},
+		AdminUserID:    testUUID(20),
+		EmailAddress:   "admin@example.com",
+		DisplayName:    "Administrator",
+		AdminUserState: sqlc.VetchiumAdminUserStateActive,
+		Permissions:    permissions,
+		CreatedAt:      pgtype.Timestamptz{Time: testNow, Valid: true},
 	}
 }
 

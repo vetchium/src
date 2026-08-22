@@ -1,8 +1,5 @@
 import type { EmailAddress } from "../../common/common.ts";
-import type {
-  LocalizedDisplayName,
-  RegionalLanguageCode,
-} from "../../common/localization.ts";
+import type { DisplayName } from "../../common/localization.ts";
 import type { PageSize, PaginationKey } from "../../common/pagination.ts";
 import { isPageSize, isPaginationKey } from "../../common/pagination.ts";
 import type {
@@ -84,8 +81,7 @@ function isAdminUserFilterText(value: AdminUserFilterText): boolean {
 export interface AdminUserSummary extends AdminAuthorization {
   admin_user_id: AdminUserID;
   email_address: EmailAddress;
-  display_names: LocalizedDisplayName[];
-  primary_display_name_language: RegionalLanguageCode;
+  display_name: DisplayName;
   state: State;
   totp_enabled: boolean;
   last_login_at?: string;

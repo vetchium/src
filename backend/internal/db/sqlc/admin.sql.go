@@ -293,8 +293,7 @@ const getAdminMyInfo = `-- name: GetAdminMyInfo :one
 SELECT
     u.admin_user_id,
     u.email_address,
-    names.display_names::text AS display_names_json,
-    u.primary_display_name_language,
+    u.display_name,
     u.admin_user_state,
     array_to_json(auth.permissions)::text AS permissions_json,
     u.totp_enabled,
@@ -304,19 +303,6 @@ SELECT
     s.expires_at
 FROM vetchium.admin_sessions AS s
 JOIN vetchium.admin_users AS u USING (admin_user_id)
-CROSS JOIN LATERAL (
-    SELECT COALESCE(
-        jsonb_agg(
-            jsonb_build_object(
-                'language_code', d.language_code,
-                'display_name', d.display_name
-            ) ORDER BY d.language_code
-        ),
-        '[]'::jsonb
-    ) AS display_names
-    FROM vetchium.admin_display_names AS d
-    WHERE d.admin_user_id = u.admin_user_id
-) AS names
 CROSS JOIN LATERAL (
     SELECT ARRAY(
         SELECT e.permission
@@ -343,17 +329,16 @@ type GetAdminMyInfoParams struct {
 }
 
 type GetAdminMyInfoRow struct {
-	AdminUserID                pgtype.UUID            `json:"admin_user_id"`
-	EmailAddress               string                 `json:"email_address"`
-	DisplayNamesJson           string                 `json:"display_names_json"`
-	PrimaryDisplayNameLanguage string                 `json:"primary_display_name_language"`
-	AdminUserState             VetchiumAdminUserState `json:"admin_user_state"`
-	PermissionsJson            string                 `json:"permissions_json"`
-	TotpEnabled                bool                   `json:"totp_enabled"`
-	RecoveryCodesRemaining     int64                  `json:"recovery_codes_remaining"`
-	PreferredLanguage          string                 `json:"preferred_language"`
-	CreatedAt                  pgtype.Timestamptz     `json:"created_at"`
-	ExpiresAt                  pgtype.Timestamptz     `json:"expires_at"`
+	AdminUserID            pgtype.UUID            `json:"admin_user_id"`
+	EmailAddress           string                 `json:"email_address"`
+	DisplayName            string                 `json:"display_name"`
+	AdminUserState         VetchiumAdminUserState `json:"admin_user_state"`
+	PermissionsJson        string                 `json:"permissions_json"`
+	TotpEnabled            bool                   `json:"totp_enabled"`
+	RecoveryCodesRemaining int64                  `json:"recovery_codes_remaining"`
+	PreferredLanguage      string                 `json:"preferred_language"`
+	CreatedAt              pgtype.Timestamptz     `json:"created_at"`
+	ExpiresAt              pgtype.Timestamptz     `json:"expires_at"`
 }
 
 func (q *Queries) GetAdminMyInfo(ctx context.Context, arg GetAdminMyInfoParams) (GetAdminMyInfoRow, error) {
@@ -362,8 +347,7 @@ func (q *Queries) GetAdminMyInfo(ctx context.Context, arg GetAdminMyInfoParams) 
 	err := row.Scan(
 		&i.AdminUserID,
 		&i.EmailAddress,
-		&i.DisplayNamesJson,
-		&i.PrimaryDisplayNameLanguage,
+		&i.DisplayName,
 		&i.AdminUserState,
 		&i.PermissionsJson,
 		&i.TotpEnabled,

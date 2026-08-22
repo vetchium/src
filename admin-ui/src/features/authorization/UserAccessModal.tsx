@@ -67,10 +67,6 @@ export function UserAccessModal({
     }
   };
 
-  const displayName =
-    user?.display_names.find(
-      (name) => name.language_code === user.primary_display_name_language,
-    )?.display_name ?? user?.email_address;
   const changed = user !== null && !samePermissions(draft, user.permissions);
 
   return (
@@ -101,7 +97,7 @@ export function UserAccessModal({
               {
                 key: "name",
                 label: t("fields.name"),
-                children: displayName,
+                children: user.display_name,
               },
               {
                 key: "email",

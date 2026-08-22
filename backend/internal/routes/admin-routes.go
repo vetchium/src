@@ -89,7 +89,7 @@ func RegisterAdminRoutes(mux *http.ServeMux, s *adminapi.Server) {
 		adminAuth(admin.SetPreferredLanguage(s)),
 	)
 	mux.Handle(
-		"POST /api/admin/set-display-names",
-		adminAuth(admin.SetDisplayNames(s)),
+		"POST /api/admin/set-display-name",
+		adminAuth(admin.SetDisplayName(s)),
 	)
 }

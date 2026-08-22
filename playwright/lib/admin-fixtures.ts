@@ -75,13 +75,7 @@ export const test = base.extend<AdminFixtures>({
         {
           invitation_token: invitationToken,
           password,
-          display_names: [
-            {
-              language_code: "en-US",
-              display_name: options.displayName ?? `E2E ${emailAddress}`,
-            },
-          ],
-          primary_display_name_language: "en-US",
+          display_name: options.displayName ?? `E2E ${emailAddress}`,
           preferred_language: "en-US",
         },
         { idempotencyKey: idempotencyKey() },

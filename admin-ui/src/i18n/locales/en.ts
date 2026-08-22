@@ -59,10 +59,8 @@ export const en = {
     accountType: "Account type",
     actions: "Actions",
     confirmPassword: "Confirm password",
-    displayName: "Display name",
     email: "Email address",
     language: "Language",
-    languageCode: "Language code",
     lastLogin: "Last sign in",
     name: "Name",
     newPassword: "New password",
@@ -78,9 +76,8 @@ export const en = {
     twoFactor: "Two-factor authentication",
   },
   validation: {
-    displayName: "Use a display name between 1 and 200 characters.",
+    displayName: "Use a name between 1 and 200 characters.",
     email: "Enter a valid email address.",
-    languageCode: "Use a regional language code such as en-US.",
     newPassword:
       "Use 15 to 128 characters and avoid commonly used password phrases.",
     passwordMatch: "The passwords do not match.",
@@ -238,10 +235,9 @@ export const en = {
   profile: {
     title: "My profile",
     description: "Manage how your name appears in the admin portal.",
-    namesCard: "Display names",
-    primaryLanguage: "Primary display-name language",
-    languageCodePlaceholder: "en-US",
-    addName: "Add another language",
+    nameCard: "Name",
+    nameHint:
+      "Enter the name you use professionally. You can use any language or writing system.",
     saved: "Profile updated.",
     saveError:
       "Your profile could not be updated. Check the values and try again.",

@@ -26,11 +26,6 @@ func TestScalarValidationBoundaries(t *testing.T) {
 		{"Tamil locale", IsFrontendLocale("ta"), true},
 		{"German locale", IsFrontendLocale("de_DE"), true},
 		{"unsupported locale", IsFrontendLocale("fr-FR"), false},
-		{"language", IsRegionalLanguageCode("bn-IN"), true},
-		{"language casing", IsRegionalLanguageCode("en-us"), false},
-		{"unknown language", IsRegionalLanguageCode("zz-ZZ"), false},
-		{"private region", IsRegionalLanguageCode("en-XA"), false},
-		{"private reserved region", IsRegionalLanguageCode("en-AA"), false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -11,61 +11,21 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const setAdminDisplayNames = `-- name: SetAdminDisplayNames :execrows
-WITH target AS MATERIALIZED (
-    SELECT u.admin_user_id
-    FROM vetchium.admin_users AS u
-    WHERE u.admin_user_id = $2
-      AND u.admin_user_state = 'active'
-    FOR UPDATE
-), input AS (
-    SELECT
-        unnest($3::text[]) AS language_code,
-        unnest($4::text[]) AS display_name
-), deleted AS (
-    DELETE FROM vetchium.admin_display_names AS d
-    USING target AS t
-    WHERE d.admin_user_id = t.admin_user_id
-    RETURNING d.admin_user_id
-), inserted AS (
-    INSERT INTO vetchium.admin_display_names (
-        admin_user_id,
-        language_code,
-        display_name
-    )
-    SELECT t.admin_user_id, i.language_code, i.display_name
-    FROM target AS t
-    CROSS JOIN input AS i
-    CROSS JOIN (SELECT count(*) FROM deleted) AS deletion_barrier
-    RETURNING admin_user_id
-)
+const setAdminDisplayName = `-- name: SetAdminDisplayName :execrows
 UPDATE vetchium.admin_users AS u
-SET primary_display_name_language = $1,
-    display_name = (
-        SELECT display_name
-        FROM input
-        WHERE language_code = $1
-    ),
+SET display_name = $1,
     updated_at = now()
-FROM target AS t
-CROSS JOIN (SELECT count(*) FROM inserted) AS insertion_barrier
-WHERE u.admin_user_id = t.admin_user_id
+WHERE u.admin_user_id = $2
+  AND u.admin_user_state = 'active'
 `
 
-type SetAdminDisplayNamesParams struct {
-	PrimaryLanguage   string      `json:"primary_language"`
+type SetAdminDisplayNameParams struct {
+	DisplayName       string      `json:"display_name"`
 	TargetAdminUserID pgtype.UUID `json:"target_admin_user_id"`
-	LanguageCodes     []string    `json:"language_codes"`
-	DisplayNames      []string    `json:"display_names"`
 }
 
-func (q *Queries) SetAdminDisplayNames(ctx context.Context, arg SetAdminDisplayNamesParams) (int64, error) {
-	result, err := q.db.Exec(ctx, setAdminDisplayNames,
-		arg.PrimaryLanguage,
-		arg.TargetAdminUserID,
-		arg.LanguageCodes,
-		arg.DisplayNames,
-	)
+func (q *Queries) SetAdminDisplayName(ctx context.Context, arg SetAdminDisplayNameParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setAdminDisplayName, arg.DisplayName, arg.TargetAdminUserID)
 	if err != nil {
 		return 0, err
 	}

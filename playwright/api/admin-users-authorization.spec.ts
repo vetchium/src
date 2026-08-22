@@ -52,10 +52,7 @@ test.describe("Admin invitations", () => {
           "invitation_token",
         ),
         password,
-        display_names: [
-          { language_code: "en-US", display_name: "Initial Manager" },
-        ],
-        primary_display_name_language: "en-US",
+        display_name: "Initial Manager",
         preferred_language: "en-US",
       },
       { idempotencyKey: idempotencyKey() },
@@ -78,6 +75,7 @@ test.describe("Admin invitations", () => {
       {
         admin_user_id: adminUserID,
         email_address: emailAddress,
+        display_name: "Initial Manager",
         permissions: ["admin:manage_users", "admin:view_users"],
       },
     ]);
@@ -129,6 +127,24 @@ test.describe("Admin invitations", () => {
     );
   });
 
+  test("account setup rejects a blank display name", async ({ adminAPI }) => {
+    await expectProblem(
+      await adminAPI.post(
+        "/complete-setup",
+        {
+          invitation_token: "x".repeat(32),
+          password: `Valid!${randomUUID()}-password`,
+          display_name: " ",
+          preferred_language: "en-US",
+        },
+        { idempotencyKey: idempotencyKey() },
+      ),
+      400,
+      "vetchium-problem-details/validation-failed",
+      ["display_name"],
+    );
+  });
+
   test("an expired invitation is replaced and only the new token is accepted", async ({
     adminAPI,
     managerToken,
@@ -172,10 +188,7 @@ test.describe("Admin invitations", () => {
         {
           invitation_token: expiredToken,
           password: `Expired!${randomUUID()}-password`,
-          display_names: [
-            { language_code: "en-US", display_name: "Expired Invite" },
-          ],
-          primary_display_name_language: "en-US",
+          display_name: "Expired Invite",
           preferred_language: "en-US",
         },
         { idempotencyKey: idempotencyKey() },

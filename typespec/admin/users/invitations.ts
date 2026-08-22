@@ -2,18 +2,17 @@ import type { NewPassword, OpaqueToken } from "../../common/authentication.ts";
 import { isNewPassword, isOpaqueToken } from "../../common/authentication.ts";
 import type { EmailAddress } from "../../common/common.ts";
 import { isEmailAddress, normalizeEmailAddress } from "../../common/common.ts";
-import type {
-  FrontendLocale,
-  LocalizedDisplayName,
-  RegionalLanguageCode,
+import type { DisplayName, FrontendLocale } from "../../common/localization.ts";
+import {
+  isDisplayName,
+  isFrontendLocale,
+  normalizeDisplayName,
 } from "../../common/localization.ts";
-import { isFrontendLocale } from "../../common/localization.ts";
 import {
   type AdminPermissionID,
   validatePermissions,
 } from "../authorization/types.ts";
 import { type AdminUserID, isAdminUserID } from "../types.ts";
-import { normalizeDisplayNames, validateDisplayNames } from "./validation.ts";
 
 export type AdminInvitationID = string;
 export type AdminInvitationToken = OpaqueToken;
@@ -60,8 +59,7 @@ export interface InviteUserResponse {
 export interface CompleteSetupRequest {
   invitation_token: AdminInvitationToken;
   password: NewPassword;
-  display_names: LocalizedDisplayName[];
-  primary_display_name_language: RegionalLanguageCode;
+  display_name: DisplayName;
   preferred_language: FrontendLocale;
 }
 
@@ -70,7 +68,7 @@ export function normalizeCompleteSetupRequest(
 ): CompleteSetupRequest {
   return {
     ...request,
-    display_names: normalizeDisplayNames(request.display_names),
+    display_name: normalizeDisplayName(request.display_name),
   };
 }
 
@@ -85,15 +83,8 @@ export function validateCompleteSetupRequest(
   if (!isNewPassword(normalized.password)) {
     fields.push("password");
   }
-  const displayNames = validateDisplayNames(
-    normalized.display_names,
-    normalized.primary_display_name_language,
-  );
-  if (!displayNames.valid) {
-    fields.push("display_names");
-  }
-  if (!displayNames.primaryPresent) {
-    fields.push("primary_display_name_language");
+  if (!isDisplayName(normalized.display_name)) {
+    fields.push("display_name");
   }
   if (!isFrontendLocale(normalized.preferred_language)) {
     fields.push("preferred_language");

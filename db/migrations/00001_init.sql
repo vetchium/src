@@ -39,7 +39,6 @@ CREATE TABLE vetchium.admin_users (
     display_name text NOT NULL,
     password_hash text NOT NULL,
     admin_user_state vetchium.admin_user_state NOT NULL DEFAULT 'active',
-    primary_display_name_language text NOT NULL DEFAULT 'en-US',
     preferred_language text NOT NULL DEFAULT 'en-US',
     totp_secret_ciphertext bytea,
     totp_enabled boolean NOT NULL DEFAULT false,
@@ -52,8 +51,8 @@ CREATE TABLE vetchium.admin_users (
         email_address = lower(btrim(email_address)) AND
         length(email_address) > 0
     ),
-    CONSTRAINT admin_users_display_name_not_blank CHECK (
-        length(btrim(display_name)) > 0
+    CONSTRAINT admin_users_display_name_length CHECK (
+        length(btrim(display_name)) BETWEEN 1 AND 200
     ),
     CONSTRAINT admin_users_password_hash_not_blank CHECK (
         length(password_hash) > 0
@@ -91,16 +90,6 @@ CREATE TABLE vetchium.admin_sessions (
 
 CREATE INDEX admin_sessions_expires_at_idx
     ON vetchium.admin_sessions (expires_at);
-
-CREATE TABLE vetchium.admin_display_names (
-    admin_user_id uuid NOT NULL REFERENCES vetchium.admin_users (admin_user_id)
-        ON DELETE CASCADE,
-    language_code text NOT NULL,
-    display_name text NOT NULL CHECK (
-        length(btrim(display_name)) BETWEEN 1 AND 200
-    ),
-    PRIMARY KEY (admin_user_id, language_code)
-);
 
 -- Reference data rather than a CHECK constraint so a new permission is one
 -- inserted row instead of a constraint rewrite, and so grants, invitations and
@@ -306,7 +295,6 @@ DROP VIEW IF EXISTS vetchium.admin_effective_permissions;
 DROP TABLE IF EXISTS vetchium.admin_permissions;
 DROP TABLE IF EXISTS vetchium.admin_permission_implications;
 DROP TABLE IF EXISTS vetchium.admin_permission_catalog;
-DROP TABLE IF EXISTS vetchium.admin_display_names;
 DROP TABLE IF EXISTS vetchium.admin_sessions;
 DROP TABLE IF EXISTS vetchium.admin_users;
 DROP TYPE IF EXISTS vetchium.admin_user_state;

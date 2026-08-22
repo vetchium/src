@@ -16,7 +16,7 @@ ON CONFLICT (username) DO NOTHING;
 
 -- Local-only administrators, one for each combination of access and account
 -- state a portal has to present. Their shared password is documented in
--- db/README.md. The temporary table keeps the three writes below driven by one
+-- db/README.md. The temporary table keeps the two writes below driven by one
 -- list, so seeding another administrator is one row.
 CREATE TEMP TABLE seeded_admins (
     email_address text PRIMARY KEY,
@@ -45,26 +45,16 @@ INSERT INTO vetchium.admin_users (
     email_address,
     display_name,
     password_hash,
-    admin_user_state,
-    primary_display_name_language
+    admin_user_state
 )
 SELECT
     email_address,
     display_name,
     '$2a$10$7YcuXQJ0D7dW107.o2iwWe1NrtR4GXuN1qsEHnK7ovp8/aViyq7.S',
-    admin_user_state,
-    'en-US'
+    admin_user_state
 FROM seeded_admins
 ON CONFLICT (email_address) DO UPDATE SET
     password_hash = EXCLUDED.password_hash;
-
-INSERT INTO vetchium.admin_display_names (
-    admin_user_id, language_code, display_name
-)
-SELECT u.admin_user_id, u.primary_display_name_language, u.display_name
-FROM vetchium.admin_users AS u
-JOIN seeded_admins AS s USING (email_address)
-ON CONFLICT (admin_user_id, language_code) DO NOTHING;
 
 INSERT INTO vetchium.admin_permissions (admin_user_id, permission)
 SELECT u.admin_user_id, granted.permission

@@ -230,8 +230,7 @@ test.describe("Admin profile", () => {
     expect(body).toMatchObject({
       admin_user_id: admin.adminUserID,
       email_address: admin.emailAddress,
-      display_names: [{ language_code: "en-US", display_name: "Profile Test" }],
-      primary_display_name_language: "en-US",
+      display_name: "Profile Test",
       state: "active",
       permissions: [],
       totp_enabled: false,
@@ -267,7 +266,7 @@ test.describe("Admin profile", () => {
     expect(info.preferred_language).toBe("de_DE");
   });
 
-  test("profile setters reject unsupported locale and invalid display names", async ({
+  test("profile setters reject unsupported locale and invalid display name", async ({
     adminAPI,
     createAdmin,
   }) => {
@@ -284,46 +283,30 @@ test.describe("Admin profile", () => {
     );
     await expectProblem(
       await adminAPI.post(
-        "/set-display-names",
-        {
-          display_names: [
-            { language_code: "en-US", display_name: "One" },
-            { language_code: "en-US", display_name: "Two" },
-          ],
-          primary_display_name_language: "de-DE",
-        },
+        "/set-display-name",
+        { display_name: " " },
         { token: admin.sessionToken },
       ),
       400,
       "vetchium-problem-details/validation-failed",
-      ["display_names", "primary_display_name_language"],
+      ["display_name"],
     );
   });
 
-  test("display names are atomically normalized and replaced", async ({
+  test("display name is normalized and replaced", async ({
     adminAPI,
     createAdmin,
   }) => {
     const admin = await createAdmin();
     const response = await adminAPI.post(
-      "/set-display-names",
-      {
-        display_names: [
-          { language_code: "en-US", display_name: "  English Name  " },
-          { language_code: "de-DE", display_name: " Deutscher Name " },
-        ],
-        primary_display_name_language: "de-DE",
-      },
+      "/set-display-name",
+      { display_name: "  நிர்வாகி  " },
       { token: admin.sessionToken },
     );
     expect(response.status()).toBe(204);
     const info = await responseJSON<MyInfoResponse>(
       await adminAPI.get("/my-info", admin.sessionToken),
     );
-    expect(info.display_names).toEqual([
-      { language_code: "de-DE", display_name: "Deutscher Name" },
-      { language_code: "en-US", display_name: "English Name" },
-    ]);
-    expect(info.primary_display_name_language).toBe("de-DE");
+    expect(info.display_name).toBe("நிர்வாகி");
   });
 });

@@ -13,7 +13,6 @@ import { isIdempotencyKey } from "./idempotency.ts";
 import {
   isDisplayName,
   isFrontendLocale,
-  isRegionalLanguageCode,
   normalizeDisplayName,
 } from "./localization.ts";
 import { isPageSize, isPaginationKey } from "./pagination.ts";
@@ -49,17 +48,11 @@ test("idempotency key validator enforces URL-safe ASCII and length", () => {
   assert.equal(isIdempotencyKey("a".repeat(129)), false);
 });
 
-test("localization validators require canonical registered identifiers", () => {
+test("localization validators cover supported interfaces and Unicode names", () => {
   assert.equal(isFrontendLocale("en-US"), true);
   assert.equal(isFrontendLocale("ta"), true);
   assert.equal(isFrontendLocale("de_DE"), true);
   assert.equal(isFrontendLocale("fr-FR"), false);
-  assert.equal(isRegionalLanguageCode("en-US"), true);
-  assert.equal(isRegionalLanguageCode("bn-IN"), true);
-  assert.equal(isRegionalLanguageCode("en-us"), false);
-  assert.equal(isRegionalLanguageCode("zz-ZZ"), false);
-  assert.equal(isRegionalLanguageCode("en-XA"), false);
-  assert.equal(isRegionalLanguageCode("en-AA"), false);
   assert.equal(normalizeDisplayName("  நிர்வாகி  "), "நிர்வாகி");
   assert.equal(isDisplayName("  நிர்வாகி  "), true);
   assert.equal(isDisplayName("   "), false);

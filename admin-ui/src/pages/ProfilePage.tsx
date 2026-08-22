@@ -1,18 +1,22 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { App, Button, Card, Form, Input, Space, Typography } from "antd";
 import { useTranslation } from "react-i18next";
-import type { SetDisplayNamesRequest } from "../../../typespec/admin/users/profile.ts";
-import type { LocalizedDisplayName } from "../../../typespec/common/localization.ts";
-import { setDisplayNames } from "../features/profile/api";
+import {
+  normalizeSetDisplayNameRequest,
+  type SetDisplayNameRequest,
+} from "../../../typespec/admin/users/profile.ts";
+import { isDisplayName } from "../../../typespec/common/localization.ts";
+import { setDisplayName } from "../features/profile/api";
 import { myInfoQueryKey, useMyInfoQuery } from "../features/profile/queries";
 
-interface DisplayNamesForm extends SetDisplayNamesRequest {}
+interface DisplayNameForm extends SetDisplayNameRequest {}
 export function ProfilePage() {
   const { t } = useTranslation();
   const { message } = App.useApp();
   const queryClient = useQueryClient();
   const { data: me } = useMyInfoQuery();
-  const namesMutation = useMutation({ mutationFn: setDisplayNames });
+  const nameMutation = useMutation({ mutationFn: setDisplayName });
+  const [form] = Form.useForm<DisplayNameForm>();
   if (me === undefined) return null;
 
   const saved = async () => {
@@ -24,9 +28,11 @@ export function ProfilePage() {
     void message.error(t("profile.saveError"));
   };
 
-  const saveNames = async (values: DisplayNamesForm) => {
+  const saveName = async (values: DisplayNameForm) => {
     try {
-      await namesMutation.mutateAsync(values);
+      const normalized = normalizeSetDisplayNameRequest(values);
+      await nameMutation.mutateAsync(normalized);
+      form.setFieldsValue(normalized);
       await saved();
     } catch {
       saveFailed();
@@ -41,78 +47,35 @@ export function ProfilePage() {
           {t("profile.description")}
         </Typography.Text>
       </div>
-      <Card title={t("profile.namesCard")}>
-        <Form<DisplayNamesForm>
+      <Card title={t("profile.nameCard")}>
+        <Form<DisplayNameForm>
+          form={form}
           layout="vertical"
           initialValues={{
-            display_names: me.display_names,
-            primary_display_name_language: me.primary_display_name_language,
+            display_name: me.display_name,
           }}
-          onFinish={(values) => void saveNames(values)}
+          onFinish={(values) => void saveName(values)}
         >
-          <Form.List name="display_names">
-            {(fields, { add, remove }) => (
-              <Space orientation="vertical" className="full-width">
-                {fields.map((field) => (
-                  <Space key={field.key} align="baseline" wrap>
-                    <Form.Item
-                      {...field}
-                      name={[field.name, "language_code"]}
-                      label={t("fields.languageCode")}
-                      rules={[
-                        {
-                          required: true,
-                          pattern: /^[a-z]{2}-[A-Z]{2}$/,
-                          message: t("validation.languageCode"),
-                        },
-                      ]}
-                    >
-                      <Input
-                        placeholder={t("profile.languageCodePlaceholder")}
-                      />
-                    </Form.Item>
-                    <Form.Item
-                      {...field}
-                      name={[field.name, "display_name"]}
-                      label={t("fields.displayName")}
-                      rules={[
-                        { required: true, message: t("validation.required") },
-                      ]}
-                    >
-                      <Input maxLength={200} />
-                    </Form.Item>
-                    <Button
-                      disabled={fields.length === 1}
-                      onClick={() => remove(field.name)}
-                    >
-                      {t("common.remove")}
-                    </Button>
-                  </Space>
-                ))}
-                <Button
-                  onClick={() =>
-                    add({
-                      language_code: "",
-                      display_name: "",
-                    } satisfies LocalizedDisplayName)
-                  }
-                >
-                  {t("profile.addName")}
-                </Button>
-              </Space>
-            )}
-          </Form.List>
           <Form.Item
-            name="primary_display_name_language"
-            label={t("profile.primaryLanguage")}
-            rules={[{ required: true, message: t("validation.required") }]}
+            name="display_name"
+            label={t("fields.name")}
+            extra={t("profile.nameHint")}
+            rules={[
+              { required: true, message: t("validation.required") },
+              {
+                validator: (_: unknown, value: string | undefined) =>
+                  value === undefined || value === "" || isDisplayName(value)
+                    ? Promise.resolve()
+                    : Promise.reject(new Error(t("validation.displayName"))),
+              },
+            ]}
           >
-            <Input placeholder={t("profile.languageCodePlaceholder")} />
+            <Input autoComplete="name" maxLength={200} />
           </Form.Item>
           <Button
             type="primary"
             htmlType="submit"
-            loading={namesMutation.isPending}
+            loading={nameMutation.isPending}
           >
             {t("common.save")}
           </Button>

@@ -20,38 +20,28 @@ func (r SetPreferredLanguageRequest) Validate() []string {
 	return []string{}
 }
 
-type SetDisplayNamesRequest struct {
-	DisplayNames               []common.LocalizedDisplayName `json:"display_names"`
-	PrimaryDisplayNameLanguage common.RegionalLanguageCode   `json:"primary_display_name_language"`
+type SetDisplayNameRequest struct {
+	DisplayName common.DisplayName `json:"display_name"`
 }
 
-func (r SetDisplayNamesRequest) Normalize() SetDisplayNamesRequest {
-	r.DisplayNames = normalizeDisplayNames(r.DisplayNames)
+func (r SetDisplayNameRequest) Normalize() SetDisplayNameRequest {
+	r.DisplayName = common.NormalizeDisplayName(r.DisplayName)
 	return r
 }
 
-func (r SetDisplayNamesRequest) Validate() []string {
+func (r SetDisplayNameRequest) Validate() []string {
 	r = r.Normalize()
-	valid, primaryPresent := validateDisplayNames(
-		r.DisplayNames, r.PrimaryDisplayNameLanguage,
-	)
-	fields := make([]string, 0, 2)
-	if !valid {
-		fields = append(fields, "display_names")
+	if !common.IsDisplayName(r.DisplayName) {
+		return []string{"display_name"}
 	}
-	if !common.IsRegionalLanguageCode(r.PrimaryDisplayNameLanguage) ||
-		!primaryPresent {
-		fields = append(fields, "primary_display_name_language")
-	}
-	return fields
+	return []string{}
 }
 
 type MyInfoResponse struct {
-	AdminUserID                adminspec.AdminUserID         `json:"admin_user_id"`
-	EmailAddress               common.EmailAddress           `json:"email_address"`
-	DisplayNames               []common.LocalizedDisplayName `json:"display_names"`
-	PrimaryDisplayNameLanguage common.RegionalLanguageCode   `json:"primary_display_name_language"`
-	State                      user.State                    `json:"state"`
+	AdminUserID  adminspec.AdminUserID `json:"admin_user_id"`
+	EmailAddress common.EmailAddress   `json:"email_address"`
+	DisplayName  common.DisplayName    `json:"display_name"`
+	State        user.State            `json:"state"`
 	authorization.AdminAuthorization
 	TOTPEnabled            bool                         `json:"totp_enabled"`
 	RecoveryCodesRemaining common.TOTPRecoveryCodeCount `json:"recovery_codes_remaining"`

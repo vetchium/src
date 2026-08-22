@@ -12,17 +12,13 @@ export function HomePage() {
   const screens = Grid.useBreakpoint();
   const { data: me } = useMyInfoQuery();
   if (me === undefined) return null;
-  const primaryName =
-    me.display_names.find(
-      (name) => name.language_code === me.primary_display_name_language,
-    )?.display_name ?? me.email_address;
   const granted = permissionRows(me.permissions).filter((row) => row.selected);
 
   return (
     <Space orientation="vertical" size="large" className="full-width">
       <div>
         <Typography.Title level={1}>
-          {t("home.title", { name: primaryName })}
+          {t("home.title", { name: me.display_name })}
         </Typography.Title>
         <Typography.Text type="secondary">
           {t("home.description")}

@@ -38,7 +38,7 @@ model ListUsersRequest {
   /** Signed opaque key bound to normalized filters and the stable ordering. */
   pagination_key?: PaginationKey;
 
-  /** Case-insensitive partial match against email or any display name. */
+  /** Case-insensitive partial match against email or display name. */
   filter_search?: AdminUserFilterText;
 
   filter_state?: Vetchium.Admin.User.State;
@@ -61,12 +61,7 @@ model ListUsersRequest {
 model AdminUserSummary {
   admin_user_id: AdminUserID;
   email_address: EmailAddress;
-
-  @minItems(1)
-  @TypeSpec.OpenAPI.extension("x-vetchium-unique-by", "language_code")
-  display_names: LocalizedDisplayName[];
-
-  primary_display_name_language: RegionalLanguageCode;
+  display_name: DisplayName;
   state: Vetchium.Admin.User.State;
   ...AdminAuthorization;
   totp_enabled: boolean;

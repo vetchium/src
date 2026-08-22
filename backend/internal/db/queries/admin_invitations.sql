@@ -73,36 +73,17 @@ WITH invitation AS (
         email_address,
         display_name,
         password_hash,
-        primary_display_name_language,
         preferred_language
     )
     SELECT
         sqlc.arg(new_admin_user_id),
         email_address,
-        sqlc.arg(primary_display_name),
+        sqlc.arg(display_name),
         sqlc.arg(password_hash),
-        sqlc.arg(primary_language),
         sqlc.arg(preferred_language)
     FROM invitation
     WHERE NOT EXISTS (SELECT 1 FROM existing_user)
     ON CONFLICT (email_address) DO NOTHING
-    RETURNING admin_user_id
-), names AS (
-    INSERT INTO vetchium.admin_display_names (
-        admin_user_id,
-        language_code,
-        display_name
-    )
-    SELECT
-        u.admin_user_id,
-        names.language_code,
-        names.display_name
-    FROM inserted_user AS u
-    CROSS JOIN LATERAL (
-        SELECT
-            unnest(sqlc.arg(language_codes)::text[]) AS language_code,
-            unnest(sqlc.arg(display_names)::text[]) AS display_name
-    ) AS names
     RETURNING admin_user_id
 ), permissions AS (
     -- An invitation issued before a permission was retired must still be
@@ -124,7 +105,6 @@ WITH invitation AS (
         SELECT admin_invitation_id FROM invitation
     )
       AND EXISTS (SELECT 1 FROM inserted_user)
-      AND EXISTS (SELECT 1 FROM names)
     RETURNING admin_invitation_id
 )
 SELECT

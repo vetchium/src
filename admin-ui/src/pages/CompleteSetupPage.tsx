@@ -7,11 +7,7 @@ import {
   normalizeCompleteSetupRequest,
 } from "../../../typespec/admin/users/invitations.ts";
 import { isNewPassword } from "../../../typespec/common/authentication.ts";
-import {
-  isDisplayName,
-  isRegionalLanguageCode,
-  type RegionalLanguageCode,
-} from "../../../typespec/common/localization.ts";
+import { isDisplayName } from "../../../typespec/common/localization.ts";
 import { useIdempotencyKey } from "../api/idempotency";
 import { problemTranslationKey } from "../api/problems";
 import { usePendingOperations } from "../app/PendingOperationContext";
@@ -22,7 +18,6 @@ interface SetupForm {
   password: string;
   confirm_password: string;
   display_name: string;
-  display_name_language: RegionalLanguageCode;
 }
 
 export function CompleteSetupPage() {
@@ -78,13 +73,7 @@ function CompleteSetupOperation({ token }: { token: string }) {
         normalizeCompleteSetupRequest({
           invitation_token: token,
           password: values.password,
-          display_names: [
-            {
-              language_code: values.display_name_language,
-              display_name: values.display_name,
-            },
-          ],
-          primary_display_name_language: values.display_name_language,
+          display_name: values.display_name,
           preferred_language: preferences.language,
         }),
       );
@@ -111,18 +100,11 @@ function CompleteSetupOperation({ token }: { token: string }) {
         <Form<SetupForm>
           layout="vertical"
           onFinish={(values) => void submit(values)}
-          initialValues={{
-            display_name_language:
-              preferences.language === "ta"
-                ? "ta-IN"
-                : preferences.language === "de_DE"
-                  ? "de-DE"
-                  : "en-US",
-          }}
         >
           <Form.Item
             name="display_name"
-            label={t("fields.displayName")}
+            label={t("fields.name")}
+            extra={t("profile.nameHint")}
             rules={[
               { required: true, message: t("validation.required") },
               {
@@ -134,23 +116,6 @@ function CompleteSetupOperation({ token }: { token: string }) {
             ]}
           >
             <Input autoComplete="name" maxLength={200} />
-          </Form.Item>
-          <Form.Item
-            name="display_name_language"
-            label={t("fields.languageCode")}
-            rules={[
-              { required: true, message: t("validation.required") },
-              {
-                validator: (_: unknown, value: string | undefined) =>
-                  value === undefined ||
-                  value === "" ||
-                  isRegionalLanguageCode(value)
-                    ? Promise.resolve()
-                    : Promise.reject(new Error(t("validation.languageCode"))),
-              },
-            ]}
-          >
-            <Input placeholder={t("profile.languageCodePlaceholder")} />
           </Form.Item>
           <Form.Item
             name="password"

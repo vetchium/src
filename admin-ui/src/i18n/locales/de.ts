@@ -61,10 +61,8 @@ export const de = {
     accountType: "Kontotyp",
     actions: "Aktionen",
     confirmPassword: "Passwort bestätigen",
-    displayName: "Anzeigename",
     email: "E-Mail-Adresse",
     language: "Sprache",
-    languageCode: "Sprachcode",
     lastLogin: "Letzte Anmeldung",
     name: "Name",
     newPassword: "Neues Passwort",
@@ -80,9 +78,8 @@ export const de = {
     twoFactor: "Zwei-Faktor-Authentifizierung",
   },
   validation: {
-    displayName: "Verwenden Sie einen Anzeigenamen mit 1 bis 200 Zeichen.",
+    displayName: "Verwenden Sie einen Namen mit 1 bis 200 Zeichen.",
     email: "Geben Sie eine gültige E-Mail-Adresse ein.",
-    languageCode: "Verwenden Sie einen regionalen Sprachcode wie de-DE.",
     newPassword:
       "Verwenden Sie 15 bis 128 Zeichen und vermeiden Sie häufig verwendete Passwortphrasen.",
     passwordMatch: "Die Passwörter stimmen nicht überein.",
@@ -248,10 +245,9 @@ export const de = {
     title: "Mein Profil",
     description:
       "Verwalten Sie die Anzeige Ihres Namens im Administrationsportal.",
-    namesCard: "Anzeigenamen",
-    primaryLanguage: "Primäre Sprache des Anzeigenamens",
-    languageCodePlaceholder: "de-DE",
-    addName: "Weitere Sprache hinzufügen",
+    nameCard: "Name",
+    nameHint:
+      "Geben Sie den Namen ein, den Sie beruflich verwenden. Sie können jede Sprache oder Schrift verwenden.",
     saved: "Profil aktualisiert.",
     saveError:
       "Ihr Profil konnte nicht aktualisiert werden. Prüfen Sie die Werte und versuchen Sie es erneut.",

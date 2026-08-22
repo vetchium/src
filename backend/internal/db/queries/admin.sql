@@ -156,8 +156,7 @@ WHERE s.session_token_hash = $1
 SELECT
     u.admin_user_id,
     u.email_address,
-    names.display_names::text AS display_names_json,
-    u.primary_display_name_language,
+    u.display_name,
     u.admin_user_state,
     array_to_json(auth.permissions)::text AS permissions_json,
     u.totp_enabled,
@@ -167,19 +166,6 @@ SELECT
     s.expires_at
 FROM vetchium.admin_sessions AS s
 JOIN vetchium.admin_users AS u USING (admin_user_id)
-CROSS JOIN LATERAL (
-    SELECT COALESCE(
-        jsonb_agg(
-            jsonb_build_object(
-                'language_code', d.language_code,
-                'display_name', d.display_name
-            ) ORDER BY d.language_code
-        ),
-        '[]'::jsonb
-    ) AS display_names
-    FROM vetchium.admin_display_names AS d
-    WHERE d.admin_user_id = u.admin_user_id
-) AS names
 CROSS JOIN LATERAL (
     SELECT ARRAY(
         SELECT e.permission

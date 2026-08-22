@@ -74,8 +74,7 @@ const bodyEndpoints: BodyEndpoint[] = [
     body: {
       invitation_token: "x".repeat(32),
       password: "Unique!password-value",
-      display_names: [{ language_code: "en-US", display_name: "JSON Test" }],
-      primary_display_name_language: "en-US",
+      display_name: "JSON Test",
       preferred_language: "en-US",
     },
     idempotent: true,
@@ -97,11 +96,8 @@ const bodyEndpoints: BodyEndpoint[] = [
     authenticated: true,
   },
   {
-    path: "/set-display-names",
-    body: {
-      display_names: [{ language_code: "en-US", display_name: "JSON Test" }],
-      primary_display_name_language: "en-US",
-    },
+    path: "/set-display-name",
+    body: { display_name: "JSON Test" },
     authenticated: true,
   },
 ];
@@ -119,7 +115,7 @@ const protectedPostEndpoints = [
   "/disable-user",
   "/enable-user",
   "/set-preferred-language",
-  "/set-display-names",
+  "/set-display-name",
 ] as const;
 
 function rawPost(
@@ -462,43 +458,33 @@ test.describe("Admin contract validation", () => {
     }
   });
 
-  test("display names accept exact 1 and 200 character boundaries", async ({
+  test("display name accepts exact 1 and 200 character boundaries", async ({
     adminAPI,
     createAdmin,
   }) => {
     const admin = await createAdmin();
     for (const length of [1, 200]) {
       const response = await adminAPI.post(
-        "/set-display-names",
-        {
-          display_names: [
-            { language_code: "en-US", display_name: "x".repeat(length) },
-          ],
-          primary_display_name_language: "en-US",
-        },
+        "/set-display-name",
+        { display_name: "x".repeat(length) },
         { token: admin.sessionToken },
       );
       expect(response.status()).toBe(204);
       const info = await responseJSON<MyInfoResponse>(
         await adminAPI.get("/my-info", admin.sessionToken),
       );
-      expect(info.display_names[0]?.display_name).toHaveLength(length);
+      expect(info.display_name).toHaveLength(length);
     }
     for (const length of [0, 201]) {
       await expectProblem(
         await adminAPI.post(
-          "/set-display-names",
-          {
-            display_names: [
-              { language_code: "en-US", display_name: "x".repeat(length) },
-            ],
-            primary_display_name_language: "en-US",
-          },
+          "/set-display-name",
+          { display_name: "x".repeat(length) },
           { token: admin.sessionToken },
         ),
         400,
         "vetchium-problem-details/validation-failed",
-        ["display_names"],
+        ["display_name"],
       );
     }
   });

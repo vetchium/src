@@ -73,11 +73,10 @@ func isAdminUserFilterText(value AdminUserFilterText) bool {
 }
 
 type AdminUserSummary struct {
-	AdminUserID                adminspec.AdminUserID         `json:"admin_user_id"`
-	EmailAddress               common.EmailAddress           `json:"email_address"`
-	DisplayNames               []common.LocalizedDisplayName `json:"display_names"`
-	PrimaryDisplayNameLanguage common.RegionalLanguageCode   `json:"primary_display_name_language"`
-	State                      user.State                    `json:"state"`
+	AdminUserID  adminspec.AdminUserID `json:"admin_user_id"`
+	EmailAddress common.EmailAddress   `json:"email_address"`
+	DisplayName  common.DisplayName    `json:"display_name"`
+	State        user.State            `json:"state"`
 	authorization.AdminAuthorization
 	TOTPEnabled bool       `json:"totp_enabled"`
 	LastLoginAt *time.Time `json:"last_login_at,omitempty"`

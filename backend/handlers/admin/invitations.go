@@ -138,27 +138,14 @@ func CompleteSetup(s *adminapi.Server) http.HandlerFunc {
 				if err != nil {
 					return idempotentResult[users.CompleteSetupResponse]{}, nil, err
 				}
-				languageCodes := make([]string, len(request.DisplayNames))
-				displayNames := make([]string, len(request.DisplayNames))
-				primaryDisplayName := ""
-				for index, displayName := range request.DisplayNames {
-					languageCodes[index] = string(displayName.LanguageCode)
-					displayNames[index] = string(displayName.DisplayName)
-					if displayName.LanguageCode == request.PrimaryDisplayNameLanguage {
-						primaryDisplayName = string(displayName.DisplayName)
-					}
-				}
 				params := sqlc.CompleteAdminSetupParams{
 					InvitationTokenHash: adminapi.TokenHash(
 						string(request.InvitationToken),
 					),
-					NewAdminUserID:     newUserID,
-					PrimaryDisplayName: primaryDisplayName,
-					PasswordHash:       passwordHash,
-					PrimaryLanguage:    string(request.PrimaryDisplayNameLanguage),
-					LanguageCodes:      languageCodes,
-					DisplayNames:       displayNames,
-					PreferredLanguage:  string(request.PreferredLanguage),
+					NewAdminUserID:    newUserID,
+					DisplayName:       string(request.DisplayName),
+					PasswordHash:      passwordHash,
+					PreferredLanguage: string(request.PreferredLanguage),
 				}
 				row, err := q.CompleteAdminSetup(r.Context(), params)
 				if err != nil {
