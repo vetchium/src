@@ -1,0 +1,161 @@
+package hubsignupdomains
+
+import (
+	"slices"
+	"strings"
+	"testing"
+
+	"github.com/vetchium/src/typespec/common"
+)
+
+func TestDomainNameNormalizationAndValidation(t *testing.T) {
+	valid := []string{
+		"example.com",
+		"jobs.example.co.in",
+		"xn--bcher-kva.example",
+		"a-b.example",
+		strings.Repeat("a", 63) + ".example",
+	}
+	for _, value := range valid {
+		if !IsDomainName(DomainName(value)) {
+			t.Errorf("IsDomainName(%q) = false", value)
+		}
+	}
+	if normalized := NormalizeDomainName("  EXAMPLE.COM.  "); normalized != "example.com" {
+		t.Fatalf("NormalizeDomainName() = %q", normalized)
+	}
+
+	invalid := []string{
+		"",
+		"localhost",
+		"*.example.com",
+		"user@example.com",
+		"https://example.com",
+		"example.com:443",
+		"127.0.0.1",
+		"example.123",
+		"example..com",
+		"-example.com",
+		"example-.com",
+		"example.c_m",
+		"bücher.example",
+		strings.Repeat("a", 64) + ".example",
+		strings.Repeat("a", 246) + ".example",
+	}
+	for _, value := range invalid {
+		if IsDomainName(DomainName(value)) {
+			t.Errorf("IsDomainName(%q) = true", value)
+		}
+	}
+}
+
+func TestRequestsNormalizeWithoutMutationAndReportAllFields(t *testing.T) {
+	state := Active
+	create := CreateRequest{Domain: " EXAMPLE.COM. ", State: &state}
+	normalizedCreate := create.Normalize()
+	if create.Domain != " EXAMPLE.COM. " ||
+		normalizedCreate.Domain != "example.com" {
+		t.Fatalf("create normalization mutated input: %#v %#v",
+			create, normalizedCreate)
+	}
+	if fields := normalizedCreate.Validate(); len(fields) != 0 {
+		t.Fatalf("valid create fields = %v", fields)
+	}
+	comment := DisableComment("  Vendor contract ended  ")
+	disabledState := Disabled
+	disabledCreate := CreateRequest{
+		Domain: "example.org", State: &disabledState, DisabledComment: &comment,
+	}
+	normalizedDisabledCreate := disabledCreate.Normalize()
+	if *disabledCreate.DisabledComment != "  Vendor contract ended  " ||
+		*normalizedDisabledCreate.DisabledComment != "Vendor contract ended" ||
+		len(normalizedDisabledCreate.Validate()) != 0 {
+		t.Fatalf("disabled create normalization = %#v %#v",
+			disabledCreate, normalizedDisabledCreate)
+	}
+
+	badState := State("retired")
+	create = CreateRequest{Domain: "bad", State: &badState}
+	if fields := create.Validate(); !slices.Equal(
+		fields, []string{"domain", "state"},
+	) {
+		t.Fatalf("CreateRequest.Validate() = %v", fields)
+	}
+
+	update := UpdateRequest{
+		HubSignupDomainID: "bad",
+		Domain:            "not-a-domain",
+		State:             badState,
+	}
+	if fields := update.Validate(); !slices.Equal(fields, []string{
+		"hub_signup_domain_id", "domain", "state",
+	}) {
+		t.Fatalf("UpdateRequest.Validate() = %v", fields)
+	}
+
+	missingComment := UpdateRequest{
+		HubSignupDomainID: "11111111-1111-4111-8111-111111111111",
+		Domain:            "example.com",
+		State:             Disabled,
+	}
+	if fields := missingComment.Validate(); !slices.Equal(
+		fields, []string{"disabled_comment"},
+	) {
+		t.Fatalf("missing disable comment fields = %v", fields)
+	}
+	activeWithComment := missingComment
+	activeWithComment.State = Active
+	activeWithComment.DisabledComment = &comment
+	if fields := activeWithComment.Validate(); !slices.Equal(
+		fields, []string{"disabled_comment"},
+	) {
+		t.Fatalf("active disable comment fields = %v", fields)
+	}
+	tooLong := DisableComment(strings.Repeat("界", 501))
+	missingComment.DisabledComment = &tooLong
+	if fields := missingComment.Validate(); !slices.Equal(
+		fields, []string{"disabled_comment"},
+	) {
+		t.Fatalf("long disable comment fields = %v", fields)
+	}
+}
+
+func TestListRequestDefaultsNormalizationAndBounds(t *testing.T) {
+	request := ListRequest{}
+	if request.EffectiveLimit() != 50 || len(request.Validate()) != 0 {
+		t.Fatalf("default list request = %#v", request)
+	}
+	search := DomainFilterText("  EXAMPLE  ")
+	request.FilterSearch = &search
+	if fields := request.Validate(); len(fields) != 0 {
+		t.Fatalf("uppercase search fields = %v", fields)
+	}
+	normalized := request.Normalize()
+	if *request.FilterSearch != "  EXAMPLE  " ||
+		*normalized.FilterSearch != "example" {
+		t.Fatalf("list normalization mutated input: %#v %#v", request, normalized)
+	}
+
+	zero := commonPageSize(0)
+	emptyKey := commonPaginationKey("")
+	emptySearch := DomainFilterText("%")
+	badState := State("retired")
+	request = ListRequest{
+		Limit:         &zero,
+		PaginationKey: &emptyKey,
+		FilterSearch:  &emptySearch,
+		FilterState:   &badState,
+	}
+	want := []string{"limit", "pagination_key", "filter_search", "filter_state"}
+	if fields := request.Validate(); !slices.Equal(fields, want) {
+		t.Fatalf("ListRequest.Validate() = %v, want %v", fields, want)
+	}
+}
+
+func commonPageSize(value int32) common.PageSize {
+	return common.PageSize(value)
+}
+
+func commonPaginationKey(value string) common.PaginationKey {
+	return common.PaginationKey(value)
+}

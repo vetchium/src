@@ -29,9 +29,9 @@ INSERT INTO seeded_admins (
     email_address, display_name, admin_user_state, permissions
 ) VALUES
     ('admin@sgp.example', 'sgp Administrator', 'active',
-        ARRAY['admin:manage_users']),
+        ARRAY['admin:manage_users', 'admin:manage_hub_signup_domains']),
     ('manager@sgp.example', 'sgp Access Manager', 'active',
-        ARRAY['admin:manage_users']),
+        ARRAY['admin:manage_users', 'admin:manage_hub_signup_domains']),
     ('viewer@sgp.example', 'sgp Access Reviewer', 'active',
         ARRAY['admin:view_users']),
     ('newcomer@sgp.example', 'sgp Unassigned Administrator', 'active',

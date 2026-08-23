@@ -25,6 +25,12 @@ func RegisterAdminRoutes(mux *http.ServeMux, s *adminapi.Server) {
 	manageUsers := middleware.RequireAdminPermission(
 		s, string(authorization.ManageUsers),
 	)
+	viewHubSignupDomains := middleware.RequireAdminPermission(
+		s, string(authorization.ViewHubSignupDomains),
+	)
+	manageHubSignupDomains := middleware.RequireAdminPermission(
+		s, string(authorization.ManageHubSignupDomains),
+	)
 
 	mux.HandleFunc("POST /api/admin/login", admin.Login(s))
 	mux.Handle(
@@ -82,6 +88,18 @@ func RegisterAdminRoutes(mux *http.ServeMux, s *adminapi.Server) {
 	mux.Handle(
 		"POST /api/admin/enable-user",
 		adminAuth(manageUsers(admin.EnableUser(s))),
+	)
+	mux.Handle(
+		"POST /api/admin/list-hub-signup-domains",
+		adminAuth(viewHubSignupDomains(admin.ListHubSignupDomains(s))),
+	)
+	mux.Handle(
+		"POST /api/admin/create-hub-signup-domain",
+		adminAuth(manageHubSignupDomains(admin.CreateHubSignupDomain(s))),
+	)
+	mux.Handle(
+		"POST /api/admin/update-hub-signup-domain",
+		adminAuth(manageHubSignupDomains(admin.UpdateHubSignupDomain(s))),
 	)
 	mux.Handle("GET /api/admin/my-info", adminAuth(admin.MyInfo(s)))
 	mux.Handle(

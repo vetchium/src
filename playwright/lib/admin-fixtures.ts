@@ -9,6 +9,7 @@ import { AdminAPI, idempotencyKey, responseJSON } from "./admin-api.ts";
 import {
   cleanupAdmin,
   cleanupAdminIdempotency,
+  cleanupHubSignupDomain,
   createSeededManagerSession,
   emailCredential,
 } from "./admin-db.ts";
@@ -27,6 +28,7 @@ interface AdminFixtures {
   adminAPI: AdminAPI;
   managerToken: string;
   ownedEmail: () => string;
+  ownedDomain: (label?: string) => string;
   createAdmin: (options?: {
     displayName?: string;
     password?: string;
@@ -52,6 +54,18 @@ export const test = base.extend<AdminFixtures>({
       return email;
     });
     for (const email of emails) cleanupAdmin(email);
+  },
+  ownedDomain: async ({ request: _request }, use) => {
+    const domains = new Set<string>();
+    await use((label = "domain") => {
+      if (!/^[a-z0-9-]{1,16}$/.test(label)) {
+        throw new Error(`invalid test-domain label: ${label}`);
+      }
+      const domain = `e2e-${label}-${randomUUID()}.example.test`;
+      domains.add(domain);
+      return domain;
+    });
+    for (const domain of domains) cleanupHubSignupDomain(domain);
   },
   createAdmin: async ({ adminAPI, managerToken, ownedEmail }, use) => {
     await use(async (options = {}) => {

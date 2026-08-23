@@ -15,6 +15,7 @@ export const de = {
     openMenu: "Navigation öffnen",
     overview: "Übersicht",
     users: "Administratoren",
+    hubSignupDomains: "Hub-Anmeldedomänen",
     profile: "Mein Profil",
     security: "Sicherheit",
   },
@@ -46,6 +47,7 @@ export const de = {
     loadError: "Diese Informationen konnten nicht geladen werden.",
     next: "Weiter",
     never: "Nie",
+    notApplicable: "Nicht zutreffend",
     notEnabled: "Nicht eingerichtet",
     previous: "Zurück",
     remove: "Entfernen",
@@ -62,6 +64,7 @@ export const de = {
     actions: "Aktionen",
     confirmPassword: "Passwort bestätigen",
     email: "E-Mail-Adresse",
+    domain: "Domäne",
     language: "Sprache",
     lastLogin: "Letzte Anmeldung",
     name: "Name",
@@ -76,10 +79,14 @@ export const de = {
     tenant: "Instanz",
     totpCode: "Sechsstelliger Code",
     twoFactor: "Zwei-Faktor-Authentifizierung",
+    updated: "Aktualisiert",
   },
   validation: {
     displayName: "Verwenden Sie einen Namen mit 1 bis 200 Zeichen.",
     email: "Geben Sie eine gültige E-Mail-Adresse ein.",
+    domain:
+      "Geben Sie eine genaue Domäne wie example.com ein, ohne E-Mail-Adresse, Platzhalter oder URL.",
+    disableComment: "Geben Sie einen Kommentar mit 1 bis 500 Zeichen ein.",
     newPassword:
       "Verwenden Sie 15 bis 128 Zeichen und vermeiden Sie häufig verwendete Passwortphrasen.",
     passwordMatch: "Die Passwörter stimmen nicht überein.",
@@ -103,6 +110,16 @@ export const de = {
       name: "ADMINISTRATOREN_VERWALTEN",
       description:
         "Administratoren einladen, aktivieren oder deaktivieren und deren Rechte ändern.",
+    },
+    "admin:view_hub_signup_domains": {
+      name: "HUB_ANMELDEDOMÄNEN_ANZEIGEN",
+      description:
+        "Unternehmensdomänen prüfen, die für neue Hub-Benutzeranmeldungen zugelassen sind.",
+    },
+    "admin:manage_hub_signup_domains": {
+      name: "HUB_ANMELDEDOMÄNEN_VERWALTEN",
+      description:
+        "Unternehmensdomänen für neue Hub-Benutzeranmeldungen hinzufügen, bearbeiten, deaktivieren und reaktivieren.",
     },
     unknown: {
       description:
@@ -239,6 +256,47 @@ export const de = {
       cannotDisableSelf: "Sie können Ihr eigenes Konto nicht deaktivieren.",
       lastManager:
         "Mindestens ein aktiver Administrator muss die Berechtigung zum Verwalten von Administratoren behalten.",
+    },
+  },
+  hubSignupDomains: {
+    title: "Hub-Anmeldedomänen",
+    description:
+      "Legen Sie fest, welche genauen Unternehmensdomänen dieser Mandant bei aktivierter Hub-Anmeldung akzeptiert.",
+    searchPlaceholder: "Domänen suchen",
+    stateFilter: "Domänenstatus",
+    page: "Seite {{page}}",
+    scope: {
+      title: "Dies steuert nur zukünftige Anmeldungen",
+      description:
+        "Änderungen an dieser Liste deaktivieren keine bestehenden Hub-Benutzer. Postfachprüfung und Hub-Anmeldung werden separat umgesetzt.",
+    },
+    empty: {
+      default: "Es wurden noch keine Hub-Anmeldedomänen hinzugefügt.",
+      filtered: "Keine Hub-Anmeldedomänen entsprechen diesen Filtern.",
+    },
+    form: {
+      domainHint:
+        "Verwenden Sie eine genaue Unternehmensdomäne. Platzhalter, URLs, E-Mail-Adressen, IP-Adressen und Unicode-Eingaben werden nicht akzeptiert. Verwenden Sie Punycode für internationalisierte Domänen.",
+      domainPlaceholder: "example.com",
+      disabledCommentLabel: "Deaktivierungskommentar",
+      disabledCommentHint:
+        "Begründen Sie die Deaktivierung dieser Domäne. Der Kommentar ist erforderlich und für Domänenadministratoren sichtbar.",
+    },
+    create: {
+      action: "Domäne hinzufügen",
+      title: "Hub-Anmeldedomäne hinzufügen",
+      done: "Hub-Anmeldedomäne hinzugefügt.",
+    },
+    edit: {
+      title: "Hub-Anmeldedomäne bearbeiten",
+      for: "{{domain}} bearbeiten",
+      done: "Hub-Anmeldedomäne aktualisiert.",
+    },
+    errors: {
+      alreadyExists:
+        "Diese Domäne befindet sich bereits in der Zulassungsliste dieses Mandanten.",
+      notFound:
+        "Dieser Domäneneintrag existiert nicht mehr. Laden Sie die Seite neu und versuchen Sie es erneut.",
     },
   },
   profile: {

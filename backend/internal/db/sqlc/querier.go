@@ -25,6 +25,7 @@ type Querier interface {
 	CreateAdminPasswordReset(ctx context.Context, arg CreateAdminPasswordResetParams) (bool, error)
 	CreateAdminSession(ctx context.Context, arg CreateAdminSessionParams) (CreateAdminSessionRow, error)
 	CreateAdminTOTPEnrollment(ctx context.Context, arg CreateAdminTOTPEnrollmentParams) (CreateAdminTOTPEnrollmentRow, error)
+	CreateHubSignupDomain(ctx context.Context, arg CreateHubSignupDomainParams) (CreateHubSignupDomainRow, error)
 	CreateIdempotency(ctx context.Context, arg CreateIdempotencyParams) error
 	DeleteAdminSession(ctx context.Context, arg DeleteAdminSessionParams) (int64, error)
 	DeleteAdminSessionByTokenHash(ctx context.Context, sessionTokenHash []byte) (int64, error)
@@ -44,6 +45,7 @@ type Querier interface {
 	GetAdminUserForLogin(ctx context.Context, emailAddress string) (GetAdminUserForLoginRow, error)
 	GetIdempotency(ctx context.Context, arg GetIdempotencyParams) (GetIdempotencyRow, error)
 	ListAdminUsers(ctx context.Context, arg ListAdminUsersParams) ([]ListAdminUsersRow, error)
+	ListHubSignupDomains(ctx context.Context, arg ListHubSignupDomainsParams) ([]ListHubSignupDomainsRow, error)
 	LockAdminEmailCredentialMutation(ctx context.Context, emailAddress string) (pgtype.UUID, error)
 	LockAdminUserCredentialMutation(ctx context.Context, adminUserID pgtype.UUID) (pgtype.UUID, error)
 	LockIdempotency(ctx context.Context, dollar_1 string) error
@@ -69,6 +71,7 @@ type Querier interface {
 	// tenant that already has none is not held to the invariant it has lost.
 	SetAdminPermissions(ctx context.Context, arg SetAdminPermissionsParams) (string, error)
 	SetAdminPreferredLanguage(ctx context.Context, arg SetAdminPreferredLanguageParams) (int64, error)
+	UpdateHubSignupDomain(ctx context.Context, arg UpdateHubSignupDomainParams) (UpdateHubSignupDomainRow, error)
 }
 
 var _ Querier = (*Queries)(nil)

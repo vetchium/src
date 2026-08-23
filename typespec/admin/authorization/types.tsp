@@ -6,6 +6,8 @@ namespace Vetchium.Admin;
 enum AdminPermission {
   ViewUsers: "admin:view_users",
   ManageUsers: "admin:manage_users",
+  ViewHubSignupDomains: "admin:view_hub_signup_domains",
+  ManageHubSignupDomains: "admin:manage_hub_signup_domains",
 }
 
 /**
@@ -21,11 +23,19 @@ enum AdminPermission {
 @format("vetchium-admin-permission")
 @TypeSpec.OpenAPI.extension(
   "x-vetchium-known-values",
-  #["admin:view_users", "admin:manage_users"]
+  #[
+    "admin:view_users",
+    "admin:manage_users",
+    "admin:view_hub_signup_domains",
+    "admin:manage_hub_signup_domains"
+  ]
 )
 @TypeSpec.OpenAPI.extension(
   "x-vetchium-permission-implications",
-  #{ `admin:manage_users`: #["admin:view_users"] }
+  #{
+    `admin:manage_users`: #["admin:view_users"],
+    `admin:manage_hub_signup_domains`: #["admin:view_hub_signup_domains"],
+  }
 )
 scalar AdminPermissionID extends string;
 

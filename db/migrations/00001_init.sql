@@ -101,7 +101,9 @@ CREATE TABLE vetchium.admin_permission_catalog (
 INSERT INTO vetchium.admin_permission_catalog (permission)
 VALUES
     ('admin:view_users'),
-    ('admin:manage_users');
+    ('admin:manage_users'),
+    ('admin:view_hub_signup_domains'),
+    ('admin:manage_hub_signup_domains');
 
 -- A grant of permission also confers implied_permission. Implications are
 -- resolved on read by vetchium.admin_effective_permissions and are never
@@ -120,7 +122,9 @@ CREATE TABLE vetchium.admin_permission_implications (
 INSERT INTO vetchium.admin_permission_implications (
     permission, implied_permission
 )
-VALUES ('admin:manage_users', 'admin:view_users');
+VALUES
+    ('admin:manage_users', 'admin:view_users'),
+    ('admin:manage_hub_signup_domains', 'admin:view_hub_signup_domains');
 
 CREATE TABLE vetchium.admin_permissions (
     admin_user_id uuid NOT NULL REFERENCES vetchium.admin_users (admin_user_id)
@@ -141,6 +145,41 @@ SELECT p.admin_user_id, i.implied_permission
 FROM vetchium.admin_permissions AS p
 JOIN vetchium.admin_permission_implications AS i
     ON i.permission = p.permission;
+
+CREATE TYPE vetchium.hub_signup_domain_state AS ENUM (
+    'active',
+    'disabled'
+);
+
+CREATE TABLE vetchium.hub_signup_domains (
+    hub_signup_domain_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    domain text NOT NULL,
+    hub_signup_domain_state vetchium.hub_signup_domain_state NOT NULL
+        DEFAULT 'active',
+    disabled_comment text,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT hub_signup_domains_domain_key UNIQUE (domain),
+    CONSTRAINT hub_signup_domains_domain_normalized CHECK (
+        domain = lower(btrim(domain)) AND
+        char_length(domain) BETWEEN 3 AND 253 AND
+        domain ~ '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$' AND
+        domain ~ '\.[a-z0-9-]*[a-z][a-z0-9-]*$'
+    ),
+    CONSTRAINT hub_signup_domains_disabled_comment_matches_state CHECK (
+        (
+            hub_signup_domain_state = 'active' AND
+            disabled_comment IS NULL
+        ) OR (
+            hub_signup_domain_state = 'disabled' AND
+            disabled_comment = btrim(disabled_comment) AND
+            char_length(disabled_comment) BETWEEN 1 AND 500
+        )
+    ),
+    CONSTRAINT hub_signup_domains_timestamps_ordered CHECK (
+        updated_at >= created_at
+    )
+);
 
 CREATE TABLE vetchium.admin_login_challenges (
     admin_login_challenge_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -291,6 +330,8 @@ DROP TABLE IF EXISTS vetchium.admin_invitations;
 DROP TABLE IF EXISTS vetchium.admin_totp_recovery_codes;
 DROP TABLE IF EXISTS vetchium.admin_totp_enrollments;
 DROP TABLE IF EXISTS vetchium.admin_login_challenges;
+DROP TABLE IF EXISTS vetchium.hub_signup_domains;
+DROP TYPE IF EXISTS vetchium.hub_signup_domain_state;
 DROP VIEW IF EXISTS vetchium.admin_effective_permissions;
 DROP TABLE IF EXISTS vetchium.admin_permissions;
 DROP TABLE IF EXISTS vetchium.admin_permission_implications;

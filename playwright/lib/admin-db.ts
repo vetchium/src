@@ -22,6 +22,14 @@ function assertOwnedEmail(emailAddress: string): void {
   }
 }
 
+function assertOwnedDomain(domain: string): void {
+  if (!/^e2e-[a-z0-9-]+\.example\.test$/.test(domain)) {
+    throw new Error(
+      `refusing database operation for non-test domain: ${domain}`,
+    );
+  }
+}
+
 function sqlLiteral(value: string): string {
   return `'${value.replaceAll("'", "''")}'`;
 }
@@ -965,6 +973,18 @@ export function cleanupAdmin(emailAddress: string): void {
     DELETE FROM vetchium.admin_invitations WHERE email_address = ${email};
     DELETE FROM vetchium.admin_users WHERE email_address = ${email};
   `);
+}
+
+export function cleanupHubSignupDomain(
+  domain: string,
+  tenant: TestTenant = "sgp",
+): void {
+  assertOwnedDomain(domain);
+  sqlScalarForTenant(
+    tenant,
+    `DELETE FROM vetchium.hub_signup_domains
+     WHERE domain = ${sqlLiteral(domain)};`,
+  );
 }
 
 export function cleanupAdminIdempotency(keys: Iterable<string>): void {

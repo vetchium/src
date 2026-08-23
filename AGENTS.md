@@ -84,6 +84,8 @@ More specific guides take precedence over general guides.
 
 ## Repository-wide expectations
 
+- Before calling any coding activity done, complete the review gate in
+  [`review.md`](agent-guides/review.md).
 - Keep changes focused and preserve unrelated work already present in the
   worktree.
 - Use the commands documented in every applicable guide to format, regenerate,

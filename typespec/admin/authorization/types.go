@@ -7,16 +7,24 @@ type AdminPermission string
 type AdminPermissionID string
 
 const (
-	ViewUsers   AdminPermission = "admin:view_users"
-	ManageUsers AdminPermission = "admin:manage_users"
+	ViewUsers              AdminPermission = "admin:view_users"
+	ManageUsers            AdminPermission = "admin:manage_users"
+	ViewHubSignupDomains   AdminPermission = "admin:view_hub_signup_domains"
+	ManageHubSignupDomains AdminPermission = "admin:manage_hub_signup_domains"
 )
 
 // adminPermissions is ordered the way portals present permissions rather than
 // lexically, so a permission and the permissions it implies stay adjacent.
-var adminPermissions = []AdminPermission{ViewUsers, ManageUsers}
+var adminPermissions = []AdminPermission{
+	ViewUsers,
+	ManageUsers,
+	ViewHubSignupDomains,
+	ManageHubSignupDomains,
+}
 
 var permissionImplications = map[AdminPermission][]AdminPermission{
-	ManageUsers: {ViewUsers},
+	ManageUsers:            {ViewUsers},
+	ManageHubSignupDomains: {ViewHubSignupDomains},
 }
 
 // AdminPermissions returns every permission this contract version defines.

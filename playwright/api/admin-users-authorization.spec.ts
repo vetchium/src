@@ -764,13 +764,16 @@ test.describe("Admin management continuity", () => {
       }
 
       expect(seededManagerGrants(ISOLATED_TENANT)).toEqual([
+        "admin:manage_hub_signup_domains",
         "admin:manage_users",
       ]);
       const retained = await responseJSON<MyInfoResponse>(
         await isolatedAPI.get("/my-info", token),
       );
       expect(retained.permissions).toEqual([
+        "admin:manage_hub_signup_domains",
         "admin:manage_users",
+        "admin:view_hub_signup_domains",
         "admin:view_users",
       ]);
     } finally {

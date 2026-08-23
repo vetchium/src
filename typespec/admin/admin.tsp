@@ -3,6 +3,7 @@ import "./auth/login.tsp";
 import "./auth/password.tsp";
 import "./auth/totp.tsp";
 import "./authorization/management.tsp";
+import "./hub-signup-domains/domains.tsp";
 import "./users/invitations.tsp";
 import "./users/management.tsp";
 import "./users/profile.tsp";

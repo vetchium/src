@@ -16,9 +16,19 @@ import {
   effectivePermissions,
   impliedPermissions,
   isAdminPermission,
+  ManageHubSignupDomains,
   ManageUsers,
+  ViewHubSignupDomains,
   ViewUsers,
 } from "./authorization/types.ts";
+import {
+  isDomainName,
+  normalizeCreateRequest as normalizeCreateDomainRequest,
+  normalizeListRequest as normalizeDomainListRequest,
+  validateCreateRequest as validateCreateDomainRequest,
+  validateListRequest as validateDomainListRequest,
+  validateUpdateRequest as validateUpdateDomainRequest,
+} from "./hub-signup-domains/domains.ts";
 import {
   normalizeCompleteSetupRequest,
   validateCompleteSetupRequest,
@@ -166,11 +176,18 @@ test("display-name request normalization is immutable", () => {
 });
 
 test("permission implications resolve the same way in every consumer", () => {
-  assert.deepEqual([...AdminPermissions], [ViewUsers, ManageUsers]);
+  assert.deepEqual(
+    [...AdminPermissions],
+    [ViewUsers, ManageUsers, ViewHubSignupDomains, ManageHubSignupDomains],
+  );
   assert.ok(isAdminPermission(ManageUsers));
   assert.ok(!isAdminPermission("admin:manage_domains"));
   assert.deepEqual([...impliedPermissions(ManageUsers)], [ViewUsers]);
   assert.deepEqual([...impliedPermissions(ViewUsers)], []);
+  assert.deepEqual(
+    [...impliedPermissions(ManageHubSignupDomains)],
+    [ViewHubSignupDomains],
+  );
   assert.deepEqual([...impliedPermissions("admin:manage_domains")], []);
 
   assert.deepEqual(effectivePermissions([]), []);
@@ -185,6 +202,105 @@ test("permission implications resolve the same way in every consumer", () => {
 
   assert.deepEqual(directPermissions([ViewUsers, ManageUsers]), [ManageUsers]);
   assert.deepEqual(directPermissions([ViewUsers]), [ViewUsers]);
+});
+
+test("Hub signup domain requests normalize and validate exact domains", () => {
+  const create = { domain: "  EXAMPLE.COM.  ", state: "active" as const };
+  const normalized = normalizeCreateDomainRequest(create);
+  assert.equal(normalized.domain, "example.com");
+  assert.equal(create.domain, "  EXAMPLE.COM.  ");
+  assert.deepEqual(validateCreateDomainRequest(normalized), []);
+
+  const disabledCreate = {
+    domain: "example.org",
+    state: "disabled" as const,
+    disabled_comment: "  Vendor contract ended  ",
+  };
+  const normalizedDisabled = normalizeCreateDomainRequest(disabledCreate);
+  assert.equal(normalizedDisabled.disabled_comment, "Vendor contract ended");
+  assert.equal(disabledCreate.disabled_comment, "  Vendor contract ended  ");
+  assert.deepEqual(validateCreateDomainRequest(normalizedDisabled), []);
+
+  for (const domain of [
+    "example.com",
+    "jobs.example.co.in",
+    "xn--bcher-kva.example",
+  ]) {
+    assert.equal(isDomainName(domain), true, domain);
+  }
+  for (const domain of [
+    "localhost",
+    "*.example.com",
+    "user@example.com",
+    "https://example.com",
+    "127.0.0.1",
+    "example.123",
+    "example..com",
+    "bücher.example",
+    `${"a".repeat(64)}.example`,
+  ]) {
+    assert.equal(isDomainName(domain), false, domain);
+  }
+
+  assert.deepEqual(
+    validateCreateDomainRequest({
+      domain: "bad",
+      state: "retired" as "active",
+    }),
+    ["domain", "state"],
+  );
+  assert.deepEqual(
+    validateUpdateDomainRequest({
+      hub_signup_domain_id: "bad",
+      domain: "bad",
+      state: "retired" as "active",
+    }),
+    ["hub_signup_domain_id", "domain", "state"],
+  );
+  assert.deepEqual(
+    validateUpdateDomainRequest({
+      hub_signup_domain_id: uuid,
+      domain: "example.com",
+      state: "disabled",
+    }),
+    ["disabled_comment"],
+  );
+  assert.deepEqual(
+    validateUpdateDomainRequest({
+      hub_signup_domain_id: uuid,
+      domain: "example.com",
+      state: "active",
+      disabled_comment: "No longer needed",
+    }),
+    ["disabled_comment"],
+  );
+  assert.deepEqual(
+    validateUpdateDomainRequest({
+      hub_signup_domain_id: uuid,
+      domain: "example.com",
+      state: "disabled",
+      disabled_comment: "界".repeat(501),
+    }),
+    ["disabled_comment"],
+  );
+});
+
+test("Hub signup domain listing validates defaults, filters, and pagination", () => {
+  assert.deepEqual(validateDomainListRequest({}), []);
+  const request = { filter_search: "  EXAMPLE  " };
+  assert.deepEqual(validateDomainListRequest(request), []);
+  const normalized = normalizeDomainListRequest(request);
+  assert.equal(normalized.filter_search, "example");
+  assert.equal(request.filter_search, "  EXAMPLE  ");
+  assert.deepEqual(
+    validateDomainListRequest({
+      limit: 101,
+      pagination_key: "",
+      filter_search: "%",
+      filter_state: "retired" as "active",
+    }),
+    ["limit", "pagination_key", "filter_search", "filter_state"],
+  );
 });
 
 test("permissions an older portal does not define survive a round trip", () => {

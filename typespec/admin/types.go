@@ -1,8 +1,13 @@
 package admin
 
 type AdminUserID string
+type HubSignupDomainID string
 
 func IsAdminUserID(value AdminUserID) bool {
+	return isUUID(string(value))
+}
+
+func IsHubSignupDomainID(value HubSignupDomainID) bool {
 	return isUUID(string(value))
 }
 

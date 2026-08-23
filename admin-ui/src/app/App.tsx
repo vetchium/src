@@ -19,6 +19,11 @@ const ForgotPasswordPage = lazy(() =>
 const HomePage = lazy(() =>
   import("../pages/HomePage").then(({ HomePage }) => ({ default: HomePage })),
 );
+const HubSignupDomainsPage = lazy(() =>
+  import("../pages/HubSignupDomainsPage").then(({ HubSignupDomainsPage }) => ({
+    default: HubSignupDomainsPage,
+  })),
+);
 const LoginPage = lazy(() =>
   import("../pages/LoginPage").then(({ LoginPage }) => ({
     default: LoginPage,
@@ -136,6 +141,14 @@ export function App() {
             element={
               <Page>
                 <UsersPage />
+              </Page>
+            }
+          />
+          <Route
+            path="hub-signup-domains"
+            element={
+              <Page>
+                <HubSignupDomainsPage />
               </Page>
             }
           />

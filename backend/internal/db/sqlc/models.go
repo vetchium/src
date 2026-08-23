@@ -53,6 +53,48 @@ func (ns NullVetchiumAdminUserState) Value() (driver.Value, error) {
 	return string(ns.VetchiumAdminUserState), nil
 }
 
+type VetchiumHubSignupDomainState string
+
+const (
+	VetchiumHubSignupDomainStateActive   VetchiumHubSignupDomainState = "active"
+	VetchiumHubSignupDomainStateDisabled VetchiumHubSignupDomainState = "disabled"
+)
+
+func (e *VetchiumHubSignupDomainState) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = VetchiumHubSignupDomainState(s)
+	case string:
+		*e = VetchiumHubSignupDomainState(s)
+	default:
+		return fmt.Errorf("unsupported scan type for VetchiumHubSignupDomainState: %T", src)
+	}
+	return nil
+}
+
+type NullVetchiumHubSignupDomainState struct {
+	VetchiumHubSignupDomainState VetchiumHubSignupDomainState `json:"vetchium_hub_signup_domain_state"`
+	Valid                        bool                         `json:"valid"` // Valid is true if VetchiumHubSignupDomainState is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullVetchiumHubSignupDomainState) Scan(value interface{}) error {
+	if value == nil {
+		ns.VetchiumHubSignupDomainState, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.VetchiumHubSignupDomainState.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullVetchiumHubSignupDomainState) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.VetchiumHubSignupDomainState), nil
+}
+
 type VetchiumAdminEffectivePermission struct {
 	AdminUserID pgtype.UUID `json:"admin_user_id"`
 	Permission  string      `json:"permission"`
@@ -155,6 +197,15 @@ type VetchiumAdminUser struct {
 	LastLoginAt          pgtype.Timestamptz     `json:"last_login_at"`
 	CreatedAt            pgtype.Timestamptz     `json:"created_at"`
 	UpdatedAt            pgtype.Timestamptz     `json:"updated_at"`
+}
+
+type VetchiumHubSignupDomain struct {
+	HubSignupDomainID    pgtype.UUID                  `json:"hub_signup_domain_id"`
+	Domain               string                       `json:"domain"`
+	HubSignupDomainState VetchiumHubSignupDomainState `json:"hub_signup_domain_state"`
+	DisabledComment      pgtype.Text                  `json:"disabled_comment"`
+	CreatedAt            pgtype.Timestamptz           `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz           `json:"updated_at"`
 }
 
 type VetchiumHubUser struct {

@@ -2,7 +2,10 @@ import { App, Drawer, Flex, Grid, Layout, Menu, Typography } from "antd";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Outlet, useLocation, useNavigate } from "react-router";
-import { ViewUsers } from "../../../../typespec/admin/authorization/types.ts";
+import {
+  ViewHubSignupDomains,
+  ViewUsers,
+} from "../../../../typespec/admin/authorization/types.ts";
 import { usePendingOperations } from "../../app/PendingOperationContext";
 import { usePreferences } from "../../app/PreferencesContext";
 import { useAuth } from "../../auth/AuthContext";
@@ -28,16 +31,28 @@ export function AppShell() {
     }
   }, [me, preferences]);
   const canViewUsers = me?.permissions.includes(ViewUsers) === true;
+  const canViewHubSignupDomains =
+    me?.permissions.includes(ViewHubSignupDomains) === true;
   const selectedKey = location.pathname.startsWith("/users")
     ? "/users"
-    : location.pathname.startsWith("/settings/profile")
-      ? "/settings/profile"
-      : location.pathname.startsWith("/settings/security")
-        ? "/settings/security"
-        : "/";
+    : location.pathname.startsWith("/hub-signup-domains")
+      ? "/hub-signup-domains"
+      : location.pathname.startsWith("/settings/profile")
+        ? "/settings/profile"
+        : location.pathname.startsWith("/settings/security")
+          ? "/settings/security"
+          : "/";
   const navigationItems = [
     { key: "/", label: t("navigation.overview") },
     ...(canViewUsers ? [{ key: "/users", label: t("navigation.users") }] : []),
+    ...(canViewHubSignupDomains
+      ? [
+          {
+            key: "/hub-signup-domains",
+            label: t("navigation.hubSignupDomains"),
+          },
+        ]
+      : []),
     { key: "/settings/profile", label: t("navigation.profile") },
     { key: "/settings/security", label: t("navigation.security") },
   ];

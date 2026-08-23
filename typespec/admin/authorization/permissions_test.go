@@ -19,6 +19,13 @@ func TestAdminPermissionsIsIndependentOfCallers(t *testing.T) {
 	if len(Implies(ViewUsers)) != 0 {
 		t.Fatalf("Implies(ViewUsers) = %v", Implies(ViewUsers))
 	}
+	if !slices.Equal(
+		Implies(ManageHubSignupDomains),
+		[]AdminPermission{ViewHubSignupDomains},
+	) {
+		t.Fatalf("Implies(ManageHubSignupDomains) = %v",
+			Implies(ManageHubSignupDomains))
+	}
 }
 
 func TestEffectivePermissionsResolvesImplications(t *testing.T) {
@@ -48,6 +55,14 @@ func TestEffectivePermissionsResolvesImplications(t *testing.T) {
 			name:   "unknown identifiers are preserved",
 			direct: []AdminPermissionID{"admin:manage_domains"},
 			want:   []AdminPermissionID{"admin:manage_domains"},
+		},
+		{
+			name:   "manage signup domains implies view",
+			direct: []AdminPermissionID{"admin:manage_hub_signup_domains"},
+			want: []AdminPermissionID{
+				"admin:manage_hub_signup_domains",
+				"admin:view_hub_signup_domains",
+			},
 		},
 	}
 	for _, testCase := range cases {
@@ -113,6 +128,8 @@ func TestValidatePermissionsRejectsUnknownAndDuplicate(t *testing.T) {
 			name: "every defined permission",
 			values: []AdminPermissionID{
 				"admin:view_users", "admin:manage_users",
+				"admin:view_hub_signup_domains",
+				"admin:manage_hub_signup_domains",
 			},
 			want: true,
 		},

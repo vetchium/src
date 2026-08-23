@@ -15,6 +15,7 @@ export const en = {
     openMenu: "Open navigation",
     overview: "Overview",
     users: "Administrators",
+    hubSignupDomains: "Hub signup domains",
     profile: "My profile",
     security: "Security",
   },
@@ -45,6 +46,7 @@ export const en = {
     loadError: "We could not load this information.",
     next: "Next",
     never: "Never",
+    notApplicable: "Not applicable",
     notEnabled: "Not enabled",
     previous: "Previous",
     remove: "Remove",
@@ -60,6 +62,7 @@ export const en = {
     actions: "Actions",
     confirmPassword: "Confirm password",
     email: "Email address",
+    domain: "Domain",
     language: "Language",
     lastLogin: "Last sign in",
     name: "Name",
@@ -74,10 +77,14 @@ export const en = {
     tenant: "Tenant",
     totpCode: "Six-digit code",
     twoFactor: "Two-factor authentication",
+    updated: "Updated",
   },
   validation: {
     displayName: "Use a name between 1 and 200 characters.",
     email: "Enter a valid email address.",
+    domain:
+      "Enter an exact domain such as example.com, without an email address, wildcard, or URL.",
+    disableComment: "Enter a comment between 1 and 500 characters.",
     newPassword:
       "Use 15 to 128 characters and avoid commonly used password phrases.",
     passwordMatch: "The passwords do not match.",
@@ -101,6 +108,16 @@ export const en = {
       name: "MANAGE_ADMINISTRATORS",
       description:
         "Invite administrators, enable or disable them, and change what they can do.",
+    },
+    "admin:view_hub_signup_domains": {
+      name: "VIEW_HUB_SIGNUP_DOMAINS",
+      description:
+        "Review the corporate email domains accepted for new Hub user signups.",
+    },
+    "admin:manage_hub_signup_domains": {
+      name: "MANAGE_HUB_SIGNUP_DOMAINS",
+      description:
+        "Add, edit, disable, and reactivate corporate email domains accepted for new Hub user signups.",
     },
     unknown: {
       description:
@@ -230,6 +247,45 @@ export const en = {
       cannotDisableSelf: "You cannot disable your own account.",
       lastManager:
         "At least one active administrator has to keep the permission to manage administrators.",
+    },
+  },
+  hubSignupDomains: {
+    title: "Hub signup domains",
+    description:
+      "Control which exact corporate email domains this tenant will accept when Hub signup is enabled.",
+    searchPlaceholder: "Search domains",
+    stateFilter: "Domain state",
+    page: "Page {{page}}",
+    scope: {
+      title: "This controls future signups only",
+      description:
+        "Changing this list does not disable existing Hub users. Mailbox verification and Hub signup will be implemented separately.",
+    },
+    empty: {
+      default: "No Hub signup domains have been added yet.",
+      filtered: "No Hub signup domains match these filters.",
+    },
+    form: {
+      domainHint:
+        "Use an exact corporate domain. Wildcards, URLs, email addresses, IP addresses, and Unicode input are not accepted. Use Punycode for an internationalized domain.",
+      domainPlaceholder: "example.com",
+      disabledCommentLabel: "Disable comment",
+      disabledCommentHint:
+        "Explain why this domain is being disabled. The comment is required and visible to domain administrators.",
+    },
+    create: {
+      action: "Add domain",
+      title: "Add a Hub signup domain",
+      done: "Hub signup domain added.",
+    },
+    edit: {
+      title: "Edit Hub signup domain",
+      for: "Edit {{domain}}",
+      done: "Hub signup domain updated.",
+    },
+    errors: {
+      alreadyExists: "That domain is already in this tenant's allowlist.",
+      notFound: "That domain entry no longer exists. Reload and try again.",
     },
   },
   profile: {

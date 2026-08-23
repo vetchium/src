@@ -29,9 +29,9 @@ INSERT INTO seeded_admins (
     email_address, display_name, admin_user_state, permissions
 ) VALUES
     ('admin@usa1.example', 'usa1 Administrator', 'active',
-        ARRAY['admin:manage_users']),
+        ARRAY['admin:manage_users', 'admin:manage_hub_signup_domains']),
     ('manager@usa1.example', 'usa1 Access Manager', 'active',
-        ARRAY['admin:manage_users']),
+        ARRAY['admin:manage_users', 'admin:manage_hub_signup_domains']),
     ('viewer@usa1.example', 'usa1 Access Reviewer', 'active',
         ARRAY['admin:view_users']),
     ('newcomer@usa1.example', 'usa1 Unassigned Administrator', 'active',

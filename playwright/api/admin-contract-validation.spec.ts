@@ -80,6 +80,21 @@ const bodyEndpoints: BodyEndpoint[] = [
     idempotent: true,
   },
   { path: "/list-users", body: {}, authenticated: true },
+  { path: "/list-hub-signup-domains", body: {}, authenticated: true },
+  {
+    path: "/create-hub-signup-domain",
+    body: { domain: "e2e-json.example.test" },
+    authenticated: true,
+  },
+  {
+    path: "/update-hub-signup-domain",
+    body: {
+      hub_signup_domain_id: randomUUID(),
+      domain: "e2e-json.example.test",
+      state: "active",
+    },
+    authenticated: true,
+  },
   {
     path: "/disable-user",
     body: { admin_user_id: randomUUID() },
@@ -112,6 +127,9 @@ const protectedPostEndpoints = [
   "/set-user-permissions",
   "/invite-user",
   "/list-users",
+  "/list-hub-signup-domains",
+  "/create-hub-signup-domain",
+  "/update-hub-signup-domain",
   "/disable-user",
   "/enable-user",
   "/set-preferred-language",
