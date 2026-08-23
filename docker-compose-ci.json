@@ -782,7 +782,11 @@
     },
     "hub-ui-deu": {
       "build": {
-        "context": "hub-ui"
+        "context": ".",
+        "dockerfile": "hub-ui/Dockerfile"
+      },
+      "environment": {
+        "VETCHIUM_DEFAULT_LANGUAGE": "de_DE"
       },
       "networks": {
         "deu_ingress": null
@@ -792,7 +796,11 @@
     },
     "hub-ui-ind1": {
       "build": {
-        "context": "hub-ui"
+        "context": ".",
+        "dockerfile": "hub-ui/Dockerfile"
+      },
+      "environment": {
+        "VETCHIUM_DEFAULT_LANGUAGE": "en-US"
       },
       "networks": {
         "ind1_ingress": null
@@ -802,7 +810,11 @@
     },
     "hub-ui-sgp": {
       "build": {
-        "context": "hub-ui"
+        "context": ".",
+        "dockerfile": "hub-ui/Dockerfile"
+      },
+      "environment": {
+        "VETCHIUM_DEFAULT_LANGUAGE": "en-US"
       },
       "networks": {
         "sgp_ingress": null
@@ -812,7 +824,11 @@
     },
     "hub-ui-usa1": {
       "build": {
-        "context": "hub-ui"
+        "context": ".",
+        "dockerfile": "hub-ui/Dockerfile"
+      },
+      "environment": {
+        "VETCHIUM_DEFAULT_LANGUAGE": "en-US"
       },
       "networks": {
         "usa1_ingress": null

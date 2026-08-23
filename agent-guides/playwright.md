@@ -85,7 +85,7 @@ make test
 ```
 
 This tears down any existing dev stack, then runs every independent unit —
-Go tests, the admin-ui/TypeSpec/Playwright installs and lint/typecheck steps,
+Go tests, the portal/TypeSpec/Playwright installs and lint/typecheck steps,
 Chromium installation, and recreating and waiting for every service from the
 standalone `docker-compose-ci.json` — in parallel, and runs Playwright last
 once the CI stack reports healthy and Chromium is installed. Every API server

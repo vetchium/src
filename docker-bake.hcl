@@ -88,7 +88,8 @@ target "orgs-ui" {
 
 target "hub-ui" {
   inherits = ["_common"]
-  context = "hub-ui"
+  context = "."
+  dockerfile = "hub-ui/Dockerfile"
   tags    = ["${REGISTRY}/hub-ui:${TAG}"]
 }
 

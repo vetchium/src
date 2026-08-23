@@ -42,8 +42,8 @@ serving_services = $$(docker compose -f $(1) config --services | grep -v '^worke
 .PHONY: check dev dev-secrets sqlc sqlc-vet sqlc-verify sql-lint sql-check \
 	test test-dependencies test-environment test-stack test-static-ready \
 	test-go test-go-static test-go-lint test-go-vuln coverage-summary \
-	admin-ui-deps \
-	admin-ui-check admin-ui-check-ready typespec-deps \
+	admin-ui-deps admin-ui-check admin-ui-check-ready \
+	hub-ui-deps hub-ui-check hub-ui-check-ready typespec-deps \
 	typespec-check \
 	typespec-check-ready typespec-test playwright-deps playwright-browser \
 	playwright-browser-ready playwright-check playwright-check-ready \
@@ -108,10 +108,11 @@ test: clean
 	$(MAKE) --no-print-directory coverage-summary
 	$(MAKE) --no-print-directory api-coverage-report
 
-test-dependencies: admin-ui-deps typespec-deps playwright-deps
+test-dependencies: admin-ui-deps hub-ui-deps typespec-deps playwright-deps
 
 test-static-ready: test-go test-go-static test-go-lint test-go-vuln \
-	admin-ui-check-ready typespec-check-ready playwright-check-ready
+	admin-ui-check-ready hub-ui-check-ready typespec-check-ready \
+	playwright-check-ready
 
 test-environment:
 	$(MAKE) --no-print-directory playwright-browser-ready
@@ -206,6 +207,17 @@ admin-ui-check-ready: admin-ui-deps
 	cd admin-ui && npm run build
 
 admin-ui-check: admin-ui-check-ready
+
+hub-ui-deps:
+	cd hub-ui && npm ci
+
+hub-ui-check-ready: hub-ui-deps
+	cd hub-ui && npm run format:check
+	cd hub-ui && npm run typecheck
+	cd hub-ui && npm audit --audit-level=high
+	cd hub-ui && npm run build
+
+hub-ui-check: hub-ui-check-ready
 
 typespec-deps:
 	cd typespec && npm ci

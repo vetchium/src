@@ -480,7 +480,11 @@
         }
       },
       "image": "${REGISTRY:-ghcr.io/vetchium}/hub-ui:${TAG:?set TAG}",
+      "environment": {
+        "VETCHIUM_DEFAULT_LANGUAGE": "${HUB_UI_DEFAULT_LANGUAGE:-en-US}"
+      },
       "read_only": true,
+      "tmpfs": ["/tmp"],
       "networks": ["ingress"],
       "healthcheck": {
         "test": [

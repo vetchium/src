@@ -84,6 +84,9 @@ More specific guides take precedence over general guides.
 
 ## Repository-wide expectations
 
+- Agents may run `make test` and `make clean` without asking for confirmation.
+  Development containers, volumes, secrets, coverage output, and database data
+  are disposable and may be removed and recreated by these commands.
 - Before calling any coding activity done, complete the review gate in
   [`review.md`](agent-guides/review.md).
 - Keep changes focused and preserve unrelated work already present in the

@@ -1,0 +1,30 @@
+.app-layout {
+  min-height: 100vh;
+}
+
+.app-content {
+  width: min(100%, 1280px);
+  min-height: 640px;
+  margin: 0 auto;
+  padding: 40px 24px;
+}
+
+.public-content {
+  min-height: 640px;
+  padding: 48px 24px;
+}
+
+.auth-card {
+  width: min(100%, 440px);
+}
+
+.full-width {
+  width: 100%;
+}
+
+@media (max-width: 576px) {
+  .app-content,
+  .public-content {
+    padding: 24px 16px;
+  }
+}
