@@ -34,6 +34,10 @@ verification output; a summary written from memory is not a review.
   concurrent requests can pass application checks at the same time.
 - Review transaction boundaries, idempotency, foreign keys, uniqueness,
   lifecycle behavior, and query plans where they matter.
+- For every database write, verify that the same transaction appends the
+  durable audit event required by `database.md`, including safe actor, entity,
+  change, and correlation context. Check rollback, retry, bulk-write, and
+  sensitive-data behavior; application logs do not satisfy this requirement.
 - Do not hand-edit generated files. Review the source and regenerated output
   together.
 

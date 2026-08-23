@@ -56,6 +56,9 @@ Use it together with `go.md`. Also read `database.md` for any database access.
 - Use structured logging with stable event and attribute names. Expected,
   handled failures belong at debug or warning level; unexpected operational
   failures belong at error level.
+- Structured application logs are operational telemetry, not the durable audit
+  trail for database changes. Follow `database.md` for every write, including
+  actor and correlation propagation into the transaction that changes state.
 - Log successful state changes only when they are operationally useful. Include
   stable identifiers rather than entire request or response payloads.
 - Never log passwords, session tokens, authentication codes, database secrets,
