@@ -104,7 +104,14 @@ npm test
 ```
 
 `make playwright-test` performs the same automatic environment setup and runs
-only Playwright.
+only Playwright. Both Make targets finish with an API contract coverage report
+derived from requests made through the Playwright request fixture and browser
+responses. Review operation, status-class, total status, and RFC problem-type
+variant coverage together with the endpoint-level gaps. Coverage gaps are
+reported for follow-up; observed non-404 behavior that is absent from the
+generated OpenAPI contract, undeclared statuses, and undeclared problem types
+fail the run. A request to an intentionally unsupported path that returns 404
+is listed separately as a non-contract probe.
 
 ## CI Compose topology
 

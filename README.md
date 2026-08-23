@@ -37,13 +37,19 @@ origin policy. Do not attach `mcp-server` directly to `*_ingress`.
 
 ## Development
 
-Bring up the development environment:
+Clean and bring up the development environment:
 
 ```bash
 make [dev]
 ```
 
-Bring up the test environment and run all the tests. Note that if all tests succeed, `make test` will automatically run `make clean` to clean up the environment. If any test fails, it will leave the setup hanging for inspection without cleanup:
+Clean and bring up the test environment; run the Go, TypeScript, React,
+PostgreSQL, sqlc, dependency, and vulnerability checks and tests; then report
+the per-module and aggregate Go statement coverage. The final report also
+compares the API responses exercised by Playwright with the generated OpenAPI
+contract, including operation, 2xx/4xx/5xx status, and RFC problem-type
+coverage, followed by the exact remaining gaps. Go tests always run with the
+race detector. The test environment is left running afterward for inspection:
 
 ```bash
 make test

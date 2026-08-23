@@ -54,6 +54,7 @@ interface AuthorizationManagementOperations {
     | Vetchium.Problem.InvalidJSONErrorResponse
     | Vetchium.Problem.ValidationFailedErrorResponse
     | Vetchium.Problem.AdminAuthenticationOrRecentRequiredErrorResponse
+    | Vetchium.Problem.AdminPermissionRequiredErrorResponse
     | Vetchium.Problem.AdminUserNotFoundErrorResponse
     | Vetchium.Problem.LastAdminManagerErrorResponse
     | Vetchium.Problem.InternalServerErrorResponse;

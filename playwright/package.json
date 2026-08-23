@@ -9,8 +9,10 @@
   "scripts": {
     "format": "biome check --write --config-path=../biome.json .",
     "format:check": "biome check --config-path=../biome.json .",
+    "coverage:api": "node --experimental-strip-types scripts/api-coverage-report.ts",
     "test": "playwright test --pass-with-no-tests",
     "test:api": "playwright test --project=api --pass-with-no-tests",
+    "test:coverage-api": "node --experimental-strip-types --test scripts/api-coverage-report.test.ts",
     "test:ui": "playwright test --project=chromium --pass-with-no-tests",
     "typecheck": "tsc --noEmit"
   },

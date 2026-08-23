@@ -21,6 +21,6 @@ func registerEcho(server *mcp.Server) {
 	}, func(
 		_ context.Context, _ *mcp.CallToolRequest, input echoInput,
 	) (*mcp.CallToolResult, echoOutput, error) {
-		return nil, echoOutput{Message: input.Message}, nil
+		return nil, echoOutput(input), nil
 	})
 }

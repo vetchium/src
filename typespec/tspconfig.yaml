@@ -3,5 +3,6 @@ emit:
 options:
   "@typespec/openapi3":
     emitter-output-dir: "{output-dir}/schema"
+    file-type: json
     openapi-versions:
       - 3.1.0

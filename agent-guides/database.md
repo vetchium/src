@@ -88,8 +88,13 @@ Run from the repository root:
 ```sh
 make sqlc
 make sqlc-verify
+make sql-check
 (cd backend && go test ./...)
 ```
+
+`make sql-check` runs sqlc's query vetting, verifies generated output, and uses
+the pinned SQLFluff PostgreSQL linter for structural rules that complement
+sqlc's parser.
 
 Review generated diffs for unexpected method, parameter, nullability, or model
 changes.

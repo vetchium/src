@@ -22,9 +22,11 @@ func isUUID(value string) bool {
 				return false
 			}
 		default:
-			if !((character >= '0' && character <= '9') ||
-				(character >= 'a' && character <= 'f') ||
-				(character >= 'A' && character <= 'F')) {
+			switch {
+			case character >= '0' && character <= '9':
+			case character >= 'a' && character <= 'f':
+			case character >= 'A' && character <= 'F':
+			default:
 				return false
 			}
 		}

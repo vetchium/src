@@ -32,6 +32,8 @@ the wire types under `typespec/` and tests under `playwright/`.
   Biome configuration unless the package genuinely requires different rules.
 - Every Node package that owns TypeScript must pin `@biomejs/biome` in
   `devDependencies` and expose `format` and `format:check` npm scripts.
+- Keep Biome's recommended rules enabled. Use its recommended React and test
+  domains so Hooks, JSX, and test-specific correctness rules are checked.
 - Run the owning package's `npm run format` after changing TypeScript and
   before verification. Do not invoke `biome format` directly: the package
   script uses `biome check --write` so it also organizes imports and applies
@@ -47,6 +49,9 @@ cd typespec && npm run typecheck
 cd playwright && npm run format:check
 cd playwright && npm run typecheck
 ```
+
+The complete package checks also run `npm audit --audit-level=high` against
+each locked dependency tree.
 
 Run `make test` from the repository root for all TypeScript tests and every
 other repository suite.
