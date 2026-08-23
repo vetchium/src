@@ -58,7 +58,10 @@ model RegenerateTOTPRecoveryCodesResponse {
 @route("/api/admin")
 @tag("Admin TOTP")
 interface TOTPOperations {
-  /** Begin a ten-minute TOTP enrollment using a recently authenticated session. */
+  /**
+   * Begin a ten-minute TOTP enrollment using a recently authenticated session.
+   * The empty request makes every same-binding idempotency retry an exact replay.
+   */
   @route("/start-totp-enrollment")
   @post
   @useAuth(BearerAuth)
@@ -98,11 +101,13 @@ interface TOTPOperations {
       }
     | Vetchium.Problem.AdminAuthenticationOrRecentRequiredErrorResponse
     | Vetchium.Problem.TOTPAlreadyEnabledErrorResponse
-    | Vetchium.Problem.IdempotencyKeyConflictErrorResponse
     | Vetchium.Problem.RateLimitExceededErrorResponse
     | Vetchium.Problem.InternalServerErrorResponse;
 
-  /** Confirm enrollment, enable TOTP, and return ten recovery codes. */
+  /**
+   * Confirm enrollment, enable TOTP, and return ten recovery codes. Success
+   * consumes the enrollment, so later confirmation attempts are invalid.
+   */
   @route("/confirm-totp-enrollment")
   @post
   @useAuth(BearerAuth)
@@ -144,7 +149,6 @@ interface TOTPOperations {
     | Vetchium.Problem.ValidationFailedErrorResponse
     | Vetchium.Problem.AdminAuthenticationRequiredErrorResponse
     | Vetchium.Problem.InvalidTOTPEnrollmentErrorResponse
-    | Vetchium.Problem.TOTPAlreadyEnabledErrorResponse
     | Vetchium.Problem.IncorrectTOTPCodeErrorResponse
     | Vetchium.Problem.IdempotencyKeyConflictErrorResponse
     | Vetchium.Problem.RateLimitExceededErrorResponse
@@ -218,7 +222,10 @@ interface TOTPOperations {
     | Vetchium.Problem.AdminAuthenticationOrRecentRequiredErrorResponse
     | Vetchium.Problem.InternalServerErrorResponse;
 
-  /** Replace every recovery code using a recently authenticated session. */
+  /**
+   * Replace every recovery code using a recently authenticated session. The
+   * empty request makes every same-binding idempotency retry an exact replay.
+   */
   @route("/regenerate-totp-recovery-codes")
   @post
   @useAuth(BearerAuth)
@@ -255,7 +262,6 @@ interface TOTPOperations {
       }
     | Vetchium.Problem.AdminAuthenticationOrRecentRequiredErrorResponse
     | Vetchium.Problem.TOTPNotEnabledErrorResponse
-    | Vetchium.Problem.IdempotencyKeyConflictErrorResponse
     | Vetchium.Problem.RateLimitExceededErrorResponse
     | Vetchium.Problem.InternalServerErrorResponse;
 }

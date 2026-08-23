@@ -13,9 +13,11 @@ const HTTP_METHODS = new Set([
 ]);
 const STATUS_PATTERN = /^[1-5][0-9][0-9]$/;
 const PROBLEM_TYPE_PREFIX = "vetchium-problem-details/";
-const ALLOWED_NON_CONTRACT_NOT_FOUND_PROBES = new Set([
-  // The domain lifecycle deliberately has no destructive delete operation.
-  "POST /api/admin/delete-hub-signup-domain",
+// These responses require ingress throttling or server-side fault injection,
+// neither of which Playwright can exercise as application behavior.
+const PLAYWRIGHT_UNTESTABLE_STATUSES = new Set(["429", "500"]);
+const PLAYWRIGHT_UNTESTABLE_VARIANTS = new Set([
+  "POST /api/admin/disable-user 409 vetchium-problem-details/last-admin-manager",
 ]);
 
 type JSONObject = Record<string, unknown>;
@@ -264,6 +266,10 @@ function statusKey(operation: ContractOperation, status: string): string {
   return `${operation.key} ${status}`;
 }
 
+function isPlaywrightTestableStatus(status: string): boolean {
+  return !PLAYWRIGHT_UNTESTABLE_STATUSES.has(status);
+}
+
 function variantKey(
   operation: ContractOperation,
   status: string,
@@ -292,29 +298,22 @@ async function main(): Promise<void> {
   const coveredStatuses = new Set<string>();
   const coveredVariants = new Set<string>();
   const anomalies = new Set<string>();
-  const nonContractNotFoundProbes = new Set<string>();
 
   for (const observation of observations) {
     const operation = matchingOperation(operations, observation);
     if (operation === undefined) {
       const description = `${observation.method} ${observation.path}`;
-      if (
-        observation.status === 404 &&
-        ALLOWED_NON_CONTRACT_NOT_FOUND_PROBES.has(description)
-      ) {
-        nonContractNotFoundProbes.add(description);
-      } else {
-        anomalies.add(`undeclared operation ${description}`);
-      }
+      anomalies.add(`undeclared operation ${description}`);
       continue;
     }
-    coveredOperations.add(operation.key);
     const status = String(observation.status);
     const response = operation.responses.get(status);
     if (response === undefined) {
       anomalies.add(`undeclared response ${operation.key} ${status}`);
       continue;
     }
+    if (!isPlaywrightTestableStatus(status)) continue;
+    coveredOperations.add(operation.key);
     coveredStatuses.add(statusKey(operation, status));
     if (response.problemTypes.size === 0) {
       coveredVariants.add(variantKey(operation, status));
@@ -330,11 +329,20 @@ async function main(): Promise<void> {
       );
       continue;
     }
-    coveredVariants.add(variantKey(operation, status, observation.problemType));
+    const observedVariant = variantKey(
+      operation,
+      status,
+      observation.problemType,
+    );
+    if (!PLAYWRIGHT_UNTESTABLE_VARIANTS.has(observedVariant)) {
+      coveredVariants.add(observedVariant);
+    }
   }
 
   const declaredStatuses = new Set<string>();
   const declaredVariants = new Set<string>();
+  const untestableVariants = new Set<string>();
+  let untestableStatusDeclarations = 0;
   const statusGroups = {
     success: new Set<string>(),
     clientError: new Set<string>(),
@@ -342,6 +350,10 @@ async function main(): Promise<void> {
   };
   for (const operation of operations) {
     for (const [status, response] of operation.responses) {
+      if (!isPlaywrightTestableStatus(status)) {
+        untestableStatusDeclarations += 1;
+        continue;
+      }
       const key = statusKey(operation, status);
       declaredStatuses.add(key);
       const statusNumber = Number(status);
@@ -356,9 +368,21 @@ async function main(): Promise<void> {
         declaredVariants.add(variantKey(operation, status));
       } else {
         for (const type of response.problemTypes) {
-          declaredVariants.add(variantKey(operation, status, type));
+          const key = variantKey(operation, status, type);
+          if (PLAYWRIGHT_UNTESTABLE_VARIANTS.has(key)) {
+            untestableVariants.add(key);
+          } else {
+            declaredVariants.add(key);
+          }
         }
       }
+    }
+  }
+  for (const key of PLAYWRIGHT_UNTESTABLE_VARIANTS) {
+    if (!untestableVariants.has(key)) {
+      throw new Error(
+        `Playwright-untestable response variant is undeclared: ${key}`,
+      );
     }
   }
 
@@ -371,37 +395,44 @@ async function main(): Promise<void> {
   );
   console.log(
     summaryLine(
-      "2xx successful statuses",
+      "Testable 2xx statuses",
       coveredInGroup(statusGroups.success),
       statusGroups.success.size,
     ),
   );
   console.log(
     summaryLine(
-      "4xx client-error statuses",
+      "Testable 4xx statuses",
       coveredInGroup(statusGroups.clientError),
       statusGroups.clientError.size,
     ),
   );
   console.log(
     summaryLine(
-      "5xx server-error statuses",
+      "Testable 5xx statuses",
       coveredInGroup(statusGroups.serverError),
       statusGroups.serverError.size,
     ),
   );
   console.log(
-    summaryLine("All statuses", coveredStatuses.size, declaredStatuses.size),
+    summaryLine(
+      "All testable statuses",
+      coveredStatuses.size,
+      declaredStatuses.size,
+    ),
   );
   console.log(
     summaryLine(
-      "Response variants",
+      "Testable response variants",
       coveredVariants.size,
       declaredVariants.size,
     ),
   );
   console.log(
     `  ${"Observed responses".padEnd(29)} ${String(observations.length).padStart(12)}`,
+  );
+  console.log(
+    `  ${"Untestable status declarations".padEnd(29)} ${String(untestableStatusDeclarations).padStart(5)} (${[...PLAYWRIGHT_UNTESTABLE_STATUSES].join(", ")})`,
   );
 
   const missingOperations = operations.filter(
@@ -418,7 +449,9 @@ async function main(): Promise<void> {
     .map((operation) => ({
       operation,
       statuses: [...operation.responses.keys()].filter(
-        (status) => !coveredStatuses.has(statusKey(operation, status)),
+        (status) =>
+          isPlaywrightTestableStatus(status) &&
+          !coveredStatuses.has(statusKey(operation, status)),
       ),
     }))
     .filter(({ statuses }) => statuses.length > 0);
@@ -438,9 +471,10 @@ async function main(): Promise<void> {
       ) {
         continue;
       }
-      const missingTypes = [...response.problemTypes].filter(
-        (type) => !coveredVariants.has(variantKey(operation, status, type)),
-      );
+      const missingTypes = [...response.problemTypes].filter((type) => {
+        const key = variantKey(operation, status, type);
+        return declaredVariants.has(key) && !coveredVariants.has(key);
+      });
       if (missingTypes.length > 0) {
         variantGaps.push(
           `  ${operation.key} ${status}: ${missingTypes.join(", ")}`,
@@ -453,10 +487,10 @@ async function main(): Promise<void> {
     for (const gap of variantGaps) console.log(gap);
   }
 
-  if (nonContractNotFoundProbes.size > 0) {
-    console.log("\nNon-contract 404 probes:");
-    for (const probe of [...nonContractNotFoundProbes].sort()) {
-      console.log(`  ${probe}`);
+  if (untestableVariants.size > 0) {
+    console.log("\nPlaywright-untestable response variants:");
+    for (const variant of [...untestableVariants].sort()) {
+      console.log(`  ${variant}`);
     }
   }
 

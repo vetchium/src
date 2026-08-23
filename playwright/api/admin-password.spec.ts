@@ -239,4 +239,21 @@ test.describe("Admin password management", () => {
       200,
     );
   });
+
+  test("change password validates the replacement password", async ({
+    adminAPI,
+    createAdmin,
+  }) => {
+    const admin = await createAdmin();
+    await expectProblem(
+      await adminAPI.post(
+        "/change-password",
+        { new_password: "too-short" },
+        { token: admin.sessionToken },
+      ),
+      400,
+      "vetchium-problem-details/validation-failed",
+      ["new_password"],
+    );
+  });
 });

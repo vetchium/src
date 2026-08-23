@@ -14,6 +14,7 @@ import {
 import {
   ageAdminInvitation,
   ageSession,
+  createAdminForPendingInvitation,
   createSeededManagerSession,
   emailCredential,
   ISOLATED_TENANT,
@@ -43,20 +44,20 @@ test.describe("Admin invitations", () => {
     expect(invitationBody.admin_invitation_id).toMatch(/^[0-9a-f-]{36}$/);
 
     const password = `Invited!${randomUUID()}-password`;
-    const setup = await adminAPI.post(
-      "/complete-setup",
-      {
-        invitation_token: emailCredential(
-          emailAddress,
-          "invitation",
-          "invitation_token",
-        ),
-        password,
-        display_name: "Initial Manager",
-        preferred_language: "en-US",
-      },
-      { idempotencyKey: idempotencyKey() },
-    );
+    const setupRequest = {
+      invitation_token: emailCredential(
+        emailAddress,
+        "invitation",
+        "invitation_token",
+      ),
+      password,
+      display_name: "Initial Manager",
+      preferred_language: "en-US" as const,
+    };
+    const setupKey = idempotencyKey();
+    const setup = await adminAPI.post("/complete-setup", setupRequest, {
+      idempotencyKey: setupKey,
+    });
     expect(setup.status(), await setup.text()).toBe(201);
     const { admin_user_id: adminUserID } =
       await responseJSON<CompleteSetupResponse>(setup);
@@ -79,6 +80,15 @@ test.describe("Admin invitations", () => {
         permissions: ["admin:manage_users", "admin:view_users"],
       },
     ]);
+    await expectProblem(
+      await adminAPI.post(
+        "/complete-setup",
+        { ...setupRequest, display_name: "Changed Setup" },
+        { idempotencyKey: setupKey },
+      ),
+      409,
+      "vetchium-problem-details/idempotency-key-conflict",
+    );
     await adminAPI.passwordSession(emailAddress, password);
   });
 
@@ -214,6 +224,61 @@ test.describe("Admin invitations", () => {
       "vetchium-problem-details/admin-permission-required",
     );
   });
+
+  test("an existing administrator cannot be invited", async ({
+    adminAPI,
+    createAdmin,
+    managerToken,
+  }) => {
+    const existing = await createAdmin();
+    await expectProblem(
+      await adminAPI.post(
+        "/invite-user",
+        { email_address: existing.emailAddress, permissions: [] },
+        { token: managerToken, idempotencyKey: idempotencyKey() },
+      ),
+      409,
+      "vetchium-problem-details/admin-user-already-exists",
+    );
+  });
+
+  test("setup refuses an invitation whose email became occupied", async ({
+    adminAPI,
+    managerToken,
+    ownedEmail,
+  }) => {
+    const emailAddress = ownedEmail();
+    expect(
+      (
+        await adminAPI.post(
+          "/invite-user",
+          { email_address: emailAddress, permissions: [] },
+          { token: managerToken, idempotencyKey: idempotencyKey() },
+        )
+      ).status(),
+    ).toBe(201);
+    const invitationToken = emailCredential(
+      emailAddress,
+      "invitation",
+      "invitation_token",
+    );
+    createAdminForPendingInvitation(emailAddress);
+
+    await expectProblem(
+      await adminAPI.post(
+        "/complete-setup",
+        {
+          invitation_token: invitationToken,
+          password: `Occupied!${randomUUID()}-password`,
+          display_name: "Occupied Setup",
+          preferred_language: "en-US",
+        },
+        { idempotencyKey: idempotencyKey() },
+      ),
+      409,
+      "vetchium-problem-details/admin-user-already-exists",
+    );
+  });
 });
 
 test.describe("Admin listing and lifecycle", () => {
@@ -314,6 +379,25 @@ test.describe("Admin listing and lifecycle", () => {
       403,
       "vetchium-problem-details/admin-permission-required",
     );
+  });
+
+  test("manager access is required to disable or enable administrators", async ({
+    adminAPI,
+    createAdmin,
+  }) => {
+    const actor = await createAdmin();
+    const target = await createAdmin();
+    for (const path of ["/disable-user", "/enable-user"] as const) {
+      await expectProblem(
+        await adminAPI.post(
+          path,
+          { admin_user_id: target.adminUserID },
+          { token: actor.sessionToken },
+        ),
+        403,
+        "vetchium-problem-details/admin-permission-required",
+      );
+    }
   });
 
   test("disable revokes sessions and enable does not restore them", async ({

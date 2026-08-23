@@ -32,6 +32,42 @@ const openAPI = {
               },
             },
           },
+          "429": {
+            description: "Rate limited",
+            content: {
+              "application/problem+json": {
+                schema: { $ref: "#/components/schemas/RateLimited" },
+              },
+            },
+          },
+          "500": {
+            description: "Internal server error",
+            content: {
+              "application/problem+json": {
+                schema: { $ref: "#/components/schemas/InternalError" },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/admin/disable-user": {
+      post: {
+        operationId: "AdminUsers_disableUser",
+        responses: {
+          "409": {
+            description: "Mutation refused",
+            content: {
+              "application/problem+json": {
+                schema: {
+                  anyOf: [
+                    { $ref: "#/components/schemas/CannotDisableCurrentAdmin" },
+                    { $ref: "#/components/schemas/LastAdminManager" },
+                  ],
+                },
+              },
+            },
+          },
         },
       },
     },
@@ -44,6 +80,42 @@ const openAPI = {
           type: {
             type: "string",
             enum: ["vetchium-problem-details/widget-not-found"],
+          },
+        },
+      },
+      RateLimited: {
+        type: "object",
+        properties: {
+          type: {
+            type: "string",
+            enum: ["vetchium-problem-details/rate-limit-exceeded"],
+          },
+        },
+      },
+      InternalError: {
+        type: "object",
+        properties: {
+          type: {
+            type: "string",
+            enum: ["vetchium-problem-details/internal-server-error"],
+          },
+        },
+      },
+      CannotDisableCurrentAdmin: {
+        type: "object",
+        properties: {
+          type: {
+            type: "string",
+            enum: ["vetchium-problem-details/cannot-disable-current-admin"],
+          },
+        },
+      },
+      LastAdminManager: {
+        type: "object",
+        properties: {
+          type: {
+            type: "string",
+            enum: ["vetchium-problem-details/last-admin-manager"],
           },
         },
       },
@@ -77,7 +149,7 @@ async function runReport(observations: unknown[]) {
   return result;
 }
 
-test("reports operation, status, variant, and non-contract 404 coverage", async () => {
+test("reports testable coverage and exact Playwright exemptions", async () => {
   const result = await runReport([
     { method: "GET", path: "/api/widgets/one", status: 200 },
     {
@@ -88,19 +160,26 @@ test("reports operation, status, variant, and non-contract 404 coverage", async 
     },
     {
       method: "POST",
-      path: "/api/admin/delete-hub-signup-domain",
-      status: 404,
+      path: "/api/admin/disable-user",
+      status: 409,
+      problemType: "vetchium-problem-details/cannot-disable-current-admin",
     },
   ]);
 
   assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /Operations\s+100\.0% \(1\/1\)/);
-  assert.match(result.stdout, /All statuses\s+100\.0% \(2\/2\)/);
-  assert.match(result.stdout, /Response variants\s+100\.0% \(2\/2\)/);
+  assert.match(result.stdout, /Operations\s+100\.0% \(2\/2\)/);
+  assert.match(result.stdout, /All testable statuses\s+100\.0% \(3\/3\)/);
+  assert.match(result.stdout, /Testable response variants\s+100\.0% \(3\/3\)/);
   assert.match(
     result.stdout,
-    /Non-contract 404 probes:\s+POST \/api\/admin\/delete-hub-signup-domain/,
+    /Untestable status declarations\s+2 \(429, 500\)/,
   );
+  assert.doesNotMatch(result.stdout, /Missing declared statuses/);
+  assert.match(
+    result.stdout,
+    /Playwright-untestable response variants:\s+POST \/api\/admin\/disable-user 409 vetchium-problem-details\/last-admin-manager/,
+  );
+  assert.doesNotMatch(result.stdout, /Missing response variants/);
   assert.match(result.stdout, /Contract mismatches: none/);
 });
 

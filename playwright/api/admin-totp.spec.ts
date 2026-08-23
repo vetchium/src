@@ -88,11 +88,24 @@ test.describe("Admin TOTP", () => {
     );
 
     const confirmationKey = idempotencyKey();
+    const totpCode = currentTOTP(enrollment.manual_entry_key);
+    await expectProblem(
+      await adminAPI.post(
+        "/confirm-totp-enrollment",
+        {
+          totp_enrollment_token: enrollment.totp_enrollment_token,
+          totp_code: differentTOTP(totpCode),
+        },
+        { token: admin.sessionToken, idempotencyKey: idempotencyKey() },
+      ),
+      422,
+      "vetchium-problem-details/incorrect-totp-code",
+    );
     const confirmation = await adminAPI.post(
       "/confirm-totp-enrollment",
       {
         totp_enrollment_token: enrollment.totp_enrollment_token,
-        totp_code: currentTOTP(enrollment.manual_entry_key),
+        totp_code: totpCode,
       },
       { token: admin.sessionToken, idempotencyKey: confirmationKey },
     );
@@ -108,7 +121,7 @@ test.describe("Admin TOTP", () => {
       "/confirm-totp-enrollment",
       {
         totp_enrollment_token: enrollment.totp_enrollment_token,
-        totp_code: currentTOTP(enrollment.manual_entry_key),
+        totp_code: totpCode,
       },
       { token: admin.sessionToken, idempotencyKey: confirmationKey },
     );
@@ -120,7 +133,7 @@ test.describe("Admin TOTP", () => {
         "/confirm-totp-enrollment",
         {
           totp_enrollment_token: enrollment.totp_enrollment_token,
-          totp_code: currentTOTP(enrollment.manual_entry_key),
+          totp_code: totpCode,
         },
         { token: admin.sessionToken, idempotencyKey: idempotencyKey() },
       ),
@@ -574,6 +587,14 @@ test.describe("Admin TOTP", () => {
     ).toBe(200);
     ageSession(admin.sessionToken);
     await expectProblem(
+      await adminAPI.post("/regenerate-totp-recovery-codes", undefined, {
+        token: admin.sessionToken,
+        idempotencyKey: idempotencyKey(),
+      }),
+      401,
+      "vetchium-problem-details/recent-authentication-required",
+    );
+    await expectProblem(
       await adminAPI.post("/disable-totp", undefined, {
         token: admin.sessionToken,
       }),
@@ -610,6 +631,22 @@ test.describe("Admin TOTP", () => {
     );
   });
 
+  test("starting enrollment requires recent authentication", async ({
+    adminAPI,
+    createAdmin,
+  }) => {
+    const admin = await createAdmin();
+    ageSession(admin.sessionToken);
+    await expectProblem(
+      await adminAPI.post("/start-totp-enrollment", undefined, {
+        token: admin.sessionToken,
+        idempotencyKey: idempotencyKey(),
+      }),
+      401,
+      "vetchium-problem-details/recent-authentication-required",
+    );
+  });
+
   test("TOTP endpoints validate credential shapes before consuming state", async ({
     adminAPI,
     createAdmin,
@@ -624,6 +661,16 @@ test.describe("Admin TOTP", () => {
       400,
       "vetchium-problem-details/validation-failed",
       ["totp_enrollment_token", "totp_code"],
+    );
+    await expectProblem(
+      await adminAPI.post(
+        "/login/tfa",
+        { login_challenge_token: "bad", totp_code: "123" },
+        { idempotencyKey: idempotencyKey() },
+      ),
+      400,
+      "vetchium-problem-details/validation-failed",
+      ["login_challenge_token", "totp_code"],
     );
     await expectProblem(
       await adminAPI.post(

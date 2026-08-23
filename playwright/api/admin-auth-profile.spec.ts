@@ -49,6 +49,31 @@ test.describe("Admin authentication", () => {
     }
   });
 
+  test("a disabled administrator receives the declared login response", async ({
+    adminAPI,
+    createAdmin,
+    managerToken,
+  }) => {
+    const admin = await createAdmin();
+    expect(
+      (
+        await adminAPI.post(
+          "/disable-user",
+          { admin_user_id: admin.adminUserID },
+          { token: managerToken },
+        )
+      ).status(),
+    ).toBe(204);
+    await expectProblem(
+      await adminAPI.post("/login", {
+        email_address: admin.emailAddress,
+        password: admin.password,
+      }),
+      403,
+      "vetchium-problem-details/admin-user-disabled",
+    );
+  });
+
   test("login rejects malformed, unknown, trailing, and structurally invalid JSON", async ({
     request,
   }) => {

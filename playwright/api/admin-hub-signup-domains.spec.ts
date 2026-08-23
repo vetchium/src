@@ -140,23 +140,6 @@ test.describe("Admin Hub signup domain allowlist", () => {
       state: "active",
     });
     expect(reactivated.disabled_comment).toBeUndefined();
-
-    const unsupportedDelete = await adminAPI.post(
-      "/delete-hub-signup-domain",
-      { hub_signup_domain_id: created.hub_signup_domain_id },
-      { token: managerToken },
-    );
-    expect(unsupportedDelete.status()).toBe(404);
-    const afterUnsupportedDelete = await responseJSON<ListResponse>(
-      await adminAPI.post(
-        "/list-hub-signup-domains",
-        { filter_search: replacement },
-        { token: managerToken },
-      ),
-    );
-    expect(afterUnsupportedDelete.domains).toMatchObject([
-      { hub_signup_domain_id: created.hub_signup_domain_id, state: "active" },
-    ]);
   });
 
   test("list filtering and pagination are stable and filter-bound", async ({

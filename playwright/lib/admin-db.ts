@@ -975,6 +975,17 @@ export function cleanupAdmin(emailAddress: string): void {
   `);
 }
 
+export function createAdminForPendingInvitation(emailAddress: string): void {
+  assertOwnedEmail(emailAddress);
+  sqlScalar(`
+    INSERT INTO vetchium.admin_users (
+      email_address, display_name, password_hash
+    ) VALUES (
+      ${sqlLiteral(emailAddress)}, 'Concurrent Setup', 'unused-test-hash'
+    );
+  `);
+}
+
 export function cleanupHubSignupDomain(
   domain: string,
   tenant: TestTenant = "sgp",
