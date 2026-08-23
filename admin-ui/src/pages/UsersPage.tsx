@@ -187,7 +187,7 @@ export function UsersPage() {
               .map((row) => (
                 <Tag
                   key={row.permission}
-                  color={row.impliedBy.length === 0 ? "blue" : undefined}
+                  color={row.impliedBy.length === 0 ? "blue" : "purple"}
                 >
                   {row.defined
                     ? t(permissionNameKey(row.permission))
