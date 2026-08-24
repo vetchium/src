@@ -13,7 +13,26 @@ REGISTRY  ?= ghcr.io/vetchium
 HTTP_PORT ?= 80
 PGSSLMODE ?= disable
 
-.PHONY: deploy
+.PHONY: deploy deploy-global-coordinator
+
+deploy-global-coordinator:
+	@test -n "$(TAG)" || { echo "TAG is required, e.g. TAG=v1.2.3"; exit 1; }
+	@test -n "$(GLOBAL_COORDINATOR_CREDENTIAL)" || { echo "GLOBAL_COORDINATOR_CREDENTIAL is required"; exit 1; }
+	@test "$${#GLOBAL_COORDINATOR_CREDENTIAL}" -ge 32 || { echo "GLOBAL_COORDINATOR_CREDENTIAL must contain at least 32 bytes"; exit 1; }
+	@case "$(TAG)" in dev|latest) echo "refusing floating tag $(TAG)"; exit 1;; esac
+	@docker info --format '{{.Swarm.LocalNodeState}}' | grep -qx active || docker swarm init >/dev/null
+	@docker info --format '{{.Swarm.ControlAvailable}}' | grep -qx true || \
+		{ echo "this host is a swarm worker, not a manager"; exit 1; }
+	@if ! docker secret inspect global_coordinator_credential >/dev/null 2>&1; then \
+		printf '%s' "$(GLOBAL_COORDINATOR_CREDENTIAL)" | \
+			docker secret create global_coordinator_credential - >/dev/null; \
+	fi
+	@config_hash=$$(sha256sum global-coordinator/config.json | cut -c1-12); \
+	GLOBAL_COORDINATOR_CONFIG_HASH=$$config_hash REGISTRY=$(REGISTRY) TAG=$(TAG) \
+		GLOBAL_COORDINATOR_PORT=$(GLOBAL_COORDINATOR_PORT) \
+		docker stack deploy --compose-file global-coordinator/stack.json \
+		--with-registry-auth --prune --detach=false global-coordinator
+	@echo "global-coordinator is running $(TAG)"
 
 deploy:
 	@test -n "$(REGION)" || { echo "REGION is required, e.g. REGION=sgp"; exit 1; }
@@ -21,6 +40,8 @@ deploy:
 	@test -n "$(TAG)" || { echo "TAG is required, e.g. TAG=v1.2.3"; exit 1; }
 	@test -n "$(POSTGRES_USER)" || { echo "POSTGRES_USER is required"; exit 1; }
 	@test -n "$(POSTGRES_DB)" || { echo "POSTGRES_DB is required"; exit 1; }
+	@test -n "$(GLOBAL_COORDINATOR_CREDENTIAL)" || { echo "GLOBAL_COORDINATOR_CREDENTIAL is required"; exit 1; }
+	@test "$${#GLOBAL_COORDINATOR_CREDENTIAL}" -ge 32 || { echo "GLOBAL_COORDINATOR_CREDENTIAL must contain at least 32 bytes"; exit 1; }
 	@case "$(TAG)" in dev|latest) echo "refusing floating tag $(TAG)"; exit 1;; esac
 
 	@docker info --format '{{.Swarm.LocalNodeState}}' | grep -qx active || docker swarm init >/dev/null
@@ -50,6 +71,10 @@ deploy:
 		credential_key=$$(openssl rand -hex 32); \
 		printf '%s' "$$credential_key" | \
 			docker secret create "$(REGION)_admin_credential_key" - >/dev/null; \
+	fi
+	@if ! docker secret inspect "$(REGION)_global_coordinator_credential" >/dev/null 2>&1; then \
+		printf '%s' "$(GLOBAL_COORDINATOR_CREDENTIAL)" | \
+			docker secret create "$(REGION)_global_coordinator_credential" - >/dev/null; \
 	fi
 
 	@set -e; \

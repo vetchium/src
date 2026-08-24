@@ -17,6 +17,11 @@
   "admin-api-server": {
     "adminSessionTTL": "24h"
   },
+  "global-coordinator": {
+    "baseURL": "http://global-coordinator:8080",
+    "credentialFile": "/run/secrets/global_coordinator_credential",
+    "requestTimeout": "5s"
+  },
   "hub-api-server": {},
   "orgs-api-server": {},
   "mcp-server": {}

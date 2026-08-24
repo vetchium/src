@@ -11,9 +11,11 @@ PLATFORMS ?= linux/amd64,linux/arm64
 BUILDER   := vetchium
 APP_POSTGRES_PASSWORD ?= app_pgpassword
 ADMIN_CREDENTIAL_KEY  ?= dev_admin_credential_key
+GLOBAL_COORDINATOR_CREDENTIAL ?= dev_global_coordinator_credential_32_bytes
 DEV_SECRETS_DIR       := .dev-secrets
 APP_PASSWORD_FILE     := $(DEV_SECRETS_DIR)/app_postgres_password
 ADMIN_KEY_FILE        := $(DEV_SECRETS_DIR)/admin_credential_key
+COORDINATOR_KEY_FILE  := $(DEV_SECRETS_DIR)/global_coordinator_credential
 SQLC                   := go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.29.0
 GOVULNCHECK             := go run golang.org/x/vuln/cmd/govulncheck@v1.7.0
 # The v2.12.2 image was built with Go 1.26 and rejects Go 1.27 modules. Build
@@ -75,6 +77,13 @@ dev-secrets:
 			{ echo "ADMIN_CREDENTIAL_KEY differs from the initialized development secret; run make clean before changing it"; exit 1; }; \
 	else \
 		umask 077; printf '%s' "$$ADMIN_CREDENTIAL_KEY" > "$(ADMIN_KEY_FILE)"; \
+	fi
+	@if [ -f "$(COORDINATOR_KEY_FILE)" ]; then \
+		current=$$(cat "$(COORDINATOR_KEY_FILE)"); \
+		test "$$current" = "$$GLOBAL_COORDINATOR_CREDENTIAL" || \
+			{ echo "GLOBAL_COORDINATOR_CREDENTIAL differs from the initialized development secret; run make clean before changing it"; exit 1; }; \
+	else \
+		umask 077; printf '%s' "$$GLOBAL_COORDINATOR_CREDENTIAL" > "$(COORDINATOR_KEY_FILE)"; \
 	fi
 
 sqlc:
@@ -289,6 +298,6 @@ publish:
 
 clean:
 	docker compose -f docker-compose.json down --remove-orphans --volumes
-	rm -f "$(APP_PASSWORD_FILE)" "$(ADMIN_KEY_FILE)"
+	rm -f "$(APP_PASSWORD_FILE)" "$(ADMIN_KEY_FILE)" "$(COORDINATOR_KEY_FILE)"
 	-rmdir "$(DEV_SECRETS_DIR)"
 	rm -rf "$(COVERAGE_DIR)"

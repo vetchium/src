@@ -5,6 +5,11 @@ tenant stack contains PostgreSQL, Traefik, three portals, and six backend
 services: `admin-api`, `hub-api`, `orgs-api`, `mesh-api`, `mcp-server`, and
 `workers`.
 
+`global-coordinator/stack.json` is a separate singleton deployment. It has no
+database and currently exposes only authenticated short-ID generation. Its
+small state volume stores the last allocated counter so normal restarts cannot
+reuse an identifier.
+
 Images are pulled from the configured registry. Nothing is built from this
 directory.
 
@@ -20,6 +25,13 @@ vi sgp/traefik.json            # replace example hostnames if needed
 make deploy REGION=sgp TAG=v1.2.3
 ```
 
+Deploy the coordinator once on its designated host with the same bearer
+credential that is distributed as a Docker secret to tenant callers:
+
+```bash
+make deploy-global-coordinator TAG=v1.2.3
+```
+
 The Makefile initializes Swarm when necessary and creates the tenant database
 secrets on first use. Tags must be immutable; `latest` and `dev` are rejected.
 `POSTGRES_USER` and `POSTGRES_DB` are required. `REGISTRY` defaults to
@@ -32,6 +44,16 @@ mounted read-only at `/etc/vetchium/config.json`. `POSTGRES_DB` and `PGSSLMODE`
 remain deployment-time overrides so existing installations can select their
 database and TLS policy without rewriting the file. The content hash in the
 Swarm config name causes the backend services to roll when the file changes.
+
+Each tenant's `global-coordinator.baseURL` must resolve to the coordinator over
+the operator's private HTTP network. Do not expose the coordinator directly to
+the public Internet. The singleton must retain its named state volume and use
+stop-first updates; do not scale it horizontally. Restrict each tenant's
+`global_coordinator_egress` network at the host firewall to the configured
+coordinator destination. Losing the state volume removes the no-reuse
+guarantee, so back it up and restore it with the service. Docker secrets are
+immutable; credential rotation requires coordinated replacement of the global
+and per-tenant secrets before their services are redeployed.
 
 For an existing stack, migrations run before `docker stack deploy`. A failed
 migration leaves the running stack untouched. On the first deployment, the

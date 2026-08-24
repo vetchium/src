@@ -1,6 +1,9 @@
 {
   "name": "vetchium",
   "configs": {
+    "global_coordinator_config": {
+      "file": "./config/global-coordinator.json"
+    },
     "app_config_deu": {
       "file": "./config/deu.json"
     },
@@ -50,6 +53,7 @@
     "mesh": {
       "internal": true
     },
+    "global_coordinator_access": {},
     "sgp_admin_api_access": {
       "internal": true
     },
@@ -89,9 +93,49 @@
     },
     "admin_credential_key": {
       "file": "./.dev-secrets/admin_credential_key"
+    },
+    "global_coordinator_credential": {
+      "file": "./.dev-secrets/global_coordinator_credential"
     }
   },
   "services": {
+    "global-coordinator": {
+      "build": {
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
+        "target": "global-coordinator"
+      },
+      "configs": [
+        {
+          "source": "global_coordinator_config",
+          "target": "/etc/vetchium/global-coordinator.json"
+        }
+      ],
+      "healthcheck": {
+        "interval": "5s",
+        "retries": 10,
+        "start_period": "5s",
+        "test": ["CMD", "/service", "healthcheck"],
+        "timeout": "2s"
+      },
+      "networks": {
+        "global_coordinator_access": null,
+        "deu_backend": {"aliases": ["global-coordinator"]},
+        "ind1_backend": {"aliases": ["global-coordinator"]},
+        "sgp_backend": {"aliases": ["global-coordinator"]},
+        "usa1_backend": {"aliases": ["global-coordinator"]}
+      },
+      "ports": [
+        "${GLOBAL_COORDINATOR_BIND:-127.0.0.1}:${GLOBAL_COORDINATOR_PORT:-18080}:8080"
+      ],
+      "read_only": true,
+      "restart": "unless-stopped",
+      "secrets": ["global_coordinator_credential"],
+      "security_opt": ["no-new-privileges:true"],
+      "volumes": [
+        "global-coordinator-state:/var/lib/vetchium-global-coordinator"
+      ]
+    },
     "admin-api-deu": {
       "build": {
         "context": ".",
@@ -135,6 +179,10 @@
         {
           "source": "admin_credential_key",
           "target": "/run/secrets/admin_credential_key"
+        },
+        {
+          "source": "global_coordinator_credential",
+          "target": "/run/secrets/global_coordinator_credential"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -182,6 +230,10 @@
         {
           "source": "admin_credential_key",
           "target": "/run/secrets/admin_credential_key"
+        },
+        {
+          "source": "global_coordinator_credential",
+          "target": "/run/secrets/global_coordinator_credential"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -229,6 +281,10 @@
         {
           "source": "admin_credential_key",
           "target": "/run/secrets/admin_credential_key"
+        },
+        {
+          "source": "global_coordinator_credential",
+          "target": "/run/secrets/global_coordinator_credential"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -276,6 +332,10 @@
         {
           "source": "admin_credential_key",
           "target": "/run/secrets/admin_credential_key"
+        },
+        {
+          "source": "global_coordinator_credential",
+          "target": "/run/secrets/global_coordinator_credential"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -662,6 +722,10 @@
         {
           "source": "app_postgres_password",
           "target": "/run/secrets/app_postgres_password"
+        },
+        {
+          "source": "global_coordinator_credential",
+          "target": "/run/secrets/global_coordinator_credential"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -700,6 +764,10 @@
         {
           "source": "app_postgres_password",
           "target": "/run/secrets/app_postgres_password"
+        },
+        {
+          "source": "global_coordinator_credential",
+          "target": "/run/secrets/global_coordinator_credential"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -738,6 +806,10 @@
         {
           "source": "app_postgres_password",
           "target": "/run/secrets/app_postgres_password"
+        },
+        {
+          "source": "global_coordinator_credential",
+          "target": "/run/secrets/global_coordinator_credential"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -776,6 +848,10 @@
         {
           "source": "app_postgres_password",
           "target": "/run/secrets/app_postgres_password"
+        },
+        {
+          "source": "global_coordinator_credential",
+          "target": "/run/secrets/global_coordinator_credential"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -872,6 +948,10 @@
         {
           "source": "app_postgres_password",
           "target": "/run/secrets/app_postgres_password"
+        },
+        {
+          "source": "global_coordinator_credential",
+          "target": "/run/secrets/global_coordinator_credential"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -912,6 +992,10 @@
         {
           "source": "app_postgres_password",
           "target": "/run/secrets/app_postgres_password"
+        },
+        {
+          "source": "global_coordinator_credential",
+          "target": "/run/secrets/global_coordinator_credential"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -952,6 +1036,10 @@
         {
           "source": "app_postgres_password",
           "target": "/run/secrets/app_postgres_password"
+        },
+        {
+          "source": "global_coordinator_credential",
+          "target": "/run/secrets/global_coordinator_credential"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -992,6 +1080,10 @@
         {
           "source": "app_postgres_password",
           "target": "/run/secrets/app_postgres_password"
+        },
+        {
+          "source": "global_coordinator_credential",
+          "target": "/run/secrets/global_coordinator_credential"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -1030,6 +1122,10 @@
         {
           "source": "app_postgres_password",
           "target": "/run/secrets/app_postgres_password"
+        },
+        {
+          "source": "global_coordinator_credential",
+          "target": "/run/secrets/global_coordinator_credential"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -1068,6 +1164,10 @@
         {
           "source": "app_postgres_password",
           "target": "/run/secrets/app_postgres_password"
+        },
+        {
+          "source": "global_coordinator_credential",
+          "target": "/run/secrets/global_coordinator_credential"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -1106,6 +1206,10 @@
         {
           "source": "app_postgres_password",
           "target": "/run/secrets/app_postgres_password"
+        },
+        {
+          "source": "global_coordinator_credential",
+          "target": "/run/secrets/global_coordinator_credential"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -1144,6 +1248,10 @@
         {
           "source": "app_postgres_password",
           "target": "/run/secrets/app_postgres_password"
+        },
+        {
+          "source": "global_coordinator_credential",
+          "target": "/run/secrets/global_coordinator_credential"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -1262,6 +1370,10 @@
         {
           "source": "app_postgres_password",
           "target": "/run/secrets/app_postgres_password"
+        },
+        {
+          "source": "global_coordinator_credential",
+          "target": "/run/secrets/global_coordinator_credential"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -1300,6 +1412,10 @@
         {
           "source": "app_postgres_password",
           "target": "/run/secrets/app_postgres_password"
+        },
+        {
+          "source": "global_coordinator_credential",
+          "target": "/run/secrets/global_coordinator_credential"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -1338,6 +1454,10 @@
         {
           "source": "app_postgres_password",
           "target": "/run/secrets/app_postgres_password"
+        },
+        {
+          "source": "global_coordinator_credential",
+          "target": "/run/secrets/global_coordinator_credential"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -1376,6 +1496,10 @@
         {
           "source": "app_postgres_password",
           "target": "/run/secrets/app_postgres_password"
+        },
+        {
+          "source": "global_coordinator_credential",
+          "target": "/run/secrets/global_coordinator_credential"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -1878,6 +2002,7 @@
     }
   },
   "volumes": {
+    "global-coordinator-state": {},
     "pgdata-deu": {},
     "pgdata-ind1": {},
     "pgdata-sgp": {},

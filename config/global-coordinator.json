@@ -1,0 +1,5 @@
+{
+  "env": "dev",
+  "credentialFile": "/run/secrets/global_coordinator_credential",
+  "stateFile": "/var/lib/vetchium-global-coordinator/last-id"
+}

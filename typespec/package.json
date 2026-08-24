@@ -26,17 +26,20 @@
     "./common/localization": "./common/localization.ts",
     "./common/pagination": "./common/pagination.ts",
     "./common/security-effects": "./common/security-effects.ts",
+    "./global-coordinator/global-coordinator": "./global-coordinator/global-coordinator.ts",
     "./problem/admin/authentication": "./problem/admin/authentication.ts",
     "./problem/admin/authorization": "./problem/admin/authorization.ts",
     "./problem/admin/hub-signup-domains": "./problem/admin/hub-signup-domains.ts",
     "./problem/admin/totp": "./problem/admin/totp.ts",
     "./problem/admin/users": "./problem/admin/users.ts",
     "./problem/common": "./problem/common.ts",
-    "./problem/details": "./problem/details.ts"
+    "./problem/details": "./problem/details.ts",
+    "./problem/global-coordinator/authentication": "./problem/global-coordinator/authentication.ts"
   },
   "files": [
     "admin/**/*.ts",
     "common/**/*.ts",
+    "global-coordinator/**/*.ts",
     "problem/**/*.ts",
     "!**/*.test.ts"
   ],
@@ -45,7 +48,7 @@
     "compile": "tsp compile .",
     "format": "biome check --write --config-path=../biome.json .",
     "format:check": "biome check --config-path=../biome.json .",
-    "test:ts": "node --experimental-strip-types --test admin/*.test.ts common/*.test.ts",
+    "test:ts": "node --experimental-strip-types --test admin/*.test.ts common/*.test.ts global-coordinator/*.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

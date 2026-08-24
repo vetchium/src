@@ -1,0 +1,69 @@
+{
+  "services": {
+    "global-coordinator": {
+      "image": "${REGISTRY:-ghcr.io/vetchium}/global-coordinator:${TAG:?set TAG}",
+      "configs": [
+        {
+          "source": "global_coordinator_config",
+          "target": "/etc/vetchium/global-coordinator.json"
+        }
+      ],
+      "secrets": ["global_coordinator_credential"],
+      "ports": [
+        {
+          "target": 8080,
+          "published": "${GLOBAL_COORDINATOR_PORT:-8080}",
+          "protocol": "tcp",
+          "mode": "host"
+        }
+      ],
+      "volumes": [
+        "global-coordinator-state:/var/lib/vetchium-global-coordinator"
+      ],
+      "read_only": true,
+      "healthcheck": {
+        "test": ["CMD", "/service", "healthcheck"],
+        "interval": "10s",
+        "timeout": "3s",
+        "retries": 3,
+        "start_period": "10s"
+      },
+      "deploy": {
+        "replicas": 1,
+        "update_config": {
+          "order": "stop-first",
+          "failure_action": "rollback",
+          "parallelism": 1,
+          "monitor": "30s"
+        },
+        "rollback_config": {
+          "order": "stop-first",
+          "parallelism": 1
+        },
+        "restart_policy": {
+          "condition": "any",
+          "delay": "5s"
+        },
+        "resources": {
+          "limits": {"memory": "128M"},
+          "reservations": {"memory": "32M"}
+        }
+      }
+    }
+  },
+  "configs": {
+    "global_coordinator_config": {
+      "file": "./config.json",
+      "name": "global-coordinator-${GLOBAL_COORDINATOR_CONFIG_HASH:?run via make}"
+    }
+  },
+  "secrets": {
+    "global_coordinator_credential": {
+      "external": true,
+      "name": "global_coordinator_credential"
+    }
+  },
+  "volumes": {
+    "global-coordinator-state": {}
+  }
+}

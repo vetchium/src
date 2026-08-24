@@ -18,6 +18,7 @@ group "default" {
     "mesh-api",
     "mcp-server",
     "workers",
+    "global-coordinator",
     "migrate",
     "orgs-ui",
     "hub-ui",
@@ -72,6 +73,12 @@ target "workers" {
   inherits = ["_backend"]
   target  = "workers"
   tags    = ["${REGISTRY}/workers:${TAG}"]
+}
+
+target "global-coordinator" {
+  inherits = ["_backend"]
+  target  = "global-coordinator"
+  tags    = ["${REGISTRY}/global-coordinator:${TAG}"]
 }
 
 target "migrate" {

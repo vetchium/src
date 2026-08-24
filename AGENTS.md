@@ -10,8 +10,8 @@ a S3 compatible object store and three frontend portals.
 
 ## Backend
 
-The backend is one Go module with six command directories and six independent
-container images:
+The backend is one Go module with seven command directories and seven
+independent container images:
 
 - `admin-api`, `hub-api`, and `orgs-api` — stateless, portal-specific browser
   APIs. Traefik routes each portal hostname's `/api` requests to its matching
@@ -22,13 +22,18 @@ container images:
   dedicated access network so an authenticated public route can be added
   without placing it on general portal ingress.
 - `workers` — periodic background work. Each tenant runs one replica.
+- `global-coordinator` — a database-free singleton outside the tenant stacks.
+  Tenant APIs call its authenticated HTTP endpoint to allocate globally unique
+  short IDs; its durable state volume prevents counter reuse across restarts.
 
-The backend commands share database, configuration, and domain packages under
-`backend/internal/`, but build as separate executables under `backend/cmd/`.
-Every backend process reads the same per-tenant JSON file from
+The tenant backend commands share database, configuration, and domain packages
+under `backend/internal/`, but build as separate executables under
+`backend/cmd/`. Every tenant backend process reads the same per-tenant JSON file from
 `/etc/vetchium/config.json`; Docker Compose mounts the development files under
 `config/`, and production mounts each region's `deploy/<region>/config.json`.
 The database password remains a separate secret file referenced by that JSON.
+The global coordinator instead reads its own non-tenant JSON manifest from
+`/etc/vetchium/global-coordinator.json`.
 
 ## Frontend
 

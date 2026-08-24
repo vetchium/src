@@ -18,14 +18,15 @@ const defaultPath = "/etc/vetchium/config.json"
 const defaultAdminCredentialKeyPath = "/run/secrets/admin_credential_key"
 
 type Config struct {
-	TenantID       string
-	Env            Environment
-	Database       Database
-	Workers        Workers
-	AdminAPIServer AdminAPIServer
-	HubAPIServer   Server
-	OrgsAPIServer  Server
-	MCPServer      Server
+	TenantID          string
+	Env               Environment
+	Database          Database
+	Workers           Workers
+	AdminAPIServer    AdminAPIServer
+	GlobalCoordinator GlobalCoordinator
+	HubAPIServer      Server
+	OrgsAPIServer     Server
+	MCPServer         Server
 }
 
 type Environment string
@@ -56,17 +57,30 @@ type Workers struct {
 	PruneEphemeralDataTimer time.Duration
 }
 
+type GlobalCoordinator struct {
+	BaseURL        string
+	CredentialFile string
+	RequestTimeout time.Duration
+}
+
 type Server struct{}
 
 type fileConfig struct {
-	TenantID       string              `json:"tenantId"`
-	Env            string              `json:"env"`
-	Database       fileDatabase        `json:"database"`
-	Workers        fileWorkers         `json:"workers"`
-	AdminAPIServer *fileAdminAPIServer `json:"admin-api-server"`
-	HubAPIServer   *Server             `json:"hub-api-server"`
-	OrgsAPIServer  *Server             `json:"orgs-api-server"`
-	MCPServer      *Server             `json:"mcp-server"`
+	TenantID          string                 `json:"tenantId"`
+	Env               string                 `json:"env"`
+	Database          fileDatabase           `json:"database"`
+	Workers           fileWorkers            `json:"workers"`
+	AdminAPIServer    *fileAdminAPIServer    `json:"admin-api-server"`
+	GlobalCoordinator *fileGlobalCoordinator `json:"global-coordinator"`
+	HubAPIServer      *Server                `json:"hub-api-server"`
+	OrgsAPIServer     *Server                `json:"orgs-api-server"`
+	MCPServer         *Server                `json:"mcp-server"`
+}
+
+type fileGlobalCoordinator struct {
+	BaseURL        string `json:"baseURL"`
+	CredentialFile string `json:"credentialFile"`
+	RequestTimeout string `json:"requestTimeout"`
 }
 
 type fileDatabase struct {
@@ -174,6 +188,35 @@ func LoadFile(path string) (Config, error) {
 		err := fmt.Errorf("missing mcp-server")
 		return Config{}, configError(path, err)
 	}
+	if raw.GlobalCoordinator == nil {
+		err := fmt.Errorf("missing global-coordinator")
+		return Config{}, configError(path, err)
+	}
+	coordinatorURL, err := url.Parse(raw.GlobalCoordinator.BaseURL)
+	if err != nil || coordinatorURL.Scheme == "" || coordinatorURL.Host == "" ||
+		(coordinatorURL.Scheme != "http" && coordinatorURL.Scheme != "https") ||
+		coordinatorURL.User != nil || coordinatorURL.RawQuery != "" ||
+		coordinatorURL.Fragment != "" {
+		err := fmt.Errorf("global-coordinator.baseURL must be an HTTP(S) origin")
+		return Config{}, configError(path, err)
+	}
+	if coordinatorURL.Path != "" && coordinatorURL.Path != "/" {
+		err := fmt.Errorf("global-coordinator.baseURL must not contain a path")
+		return Config{}, configError(path, err)
+	}
+	if err := required(
+		"global-coordinator.credentialFile",
+		raw.GlobalCoordinator.CredentialFile,
+	); err != nil {
+		return Config{}, configError(path, err)
+	}
+	coordinatorTimeout, err := positiveDuration(
+		"global-coordinator.requestTimeout",
+		raw.GlobalCoordinator.RequestTimeout,
+	)
+	if err != nil {
+		return Config{}, configError(path, err)
+	}
 
 	adminSessionTTL, err := positiveDuration(
 		"admin-api-server.adminSessionTTL",
@@ -218,6 +261,11 @@ func LoadFile(path string) (Config, error) {
 		AdminAPIServer: AdminAPIServer{
 			AdminSessionTTL: adminSessionTTL,
 		},
+		GlobalCoordinator: GlobalCoordinator{
+			BaseURL:        strings.TrimRight(coordinatorURL.String(), "/"),
+			CredentialFile: raw.GlobalCoordinator.CredentialFile,
+			RequestTimeout: coordinatorTimeout,
+		},
 		Workers: Workers{
 			RetryBackoffLimit:       retryBackoffLimit,
 			PruneAdminSessionsTimer: pruneTimer,
@@ -227,6 +275,24 @@ func LoadFile(path string) (Config, error) {
 		OrgsAPIServer: Server{},
 		MCPServer:     Server{},
 	}, nil
+}
+
+func (c GlobalCoordinator) Credential() (string, error) {
+	value, err := os.ReadFile(c.CredentialFile)
+	if err != nil {
+		return "", fmt.Errorf(
+			"read global coordinator credential file %q: %w",
+			c.CredentialFile, err,
+		)
+	}
+	credential := strings.TrimRight(string(value), "\r\n")
+	if len(credential) < 32 {
+		return "", fmt.Errorf(
+			"global coordinator credential file %q must contain at least 32 bytes",
+			c.CredentialFile,
+		)
+	}
+	return credential, nil
 }
 
 func (d Database) URL() (string, error) {

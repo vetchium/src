@@ -33,6 +33,10 @@ func TestLoadFile(t *testing.T) {
 			cfg.Workers,
 		)
 	}
+	if cfg.GlobalCoordinator.BaseURL != "http://global-coordinator:8080" ||
+		cfg.GlobalCoordinator.RequestTimeout != 5*time.Second {
+		t.Fatalf("global coordinator config = %+v", cfg.GlobalCoordinator)
+	}
 
 	databaseURL, err := cfg.Database.URL()
 	if err != nil {
@@ -129,6 +133,28 @@ func TestLoadFileRejectsUnknownEnvironment(t *testing.T) {
 	}
 }
 
+func TestLoadFileRejectsCoordinatorURLCredentials(t *testing.T) {
+	passwordFile := filepath.Join(t.TempDir(), "password")
+	path := writeConfig(t, passwordFile, "")
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	contents = []byte(strings.Replace(
+		string(contents),
+		"http://global-coordinator:8080",
+		"http://credential@global-coordinator:8080",
+		1,
+	))
+	if err := os.WriteFile(path, contents, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err = LoadFile(path)
+	if err == nil || !strings.Contains(err.Error(), "must be an HTTP(S) origin") {
+		t.Fatalf("LoadFile() error = %v, want coordinator origin error", err)
+	}
+}
+
 func TestLoadFileAcceptsCIEnvironment(t *testing.T) {
 	passwordFile := filepath.Join(t.TempDir(), "password")
 	path := writeConfig(t, passwordFile, "")
@@ -173,6 +199,11 @@ func TestLoadFileRequiresPositiveDurations(t *testing.T) {
   },
   "admin-api-server": {
     "adminSessionTTL": "24h"
+  },
+  "global-coordinator": {
+    "baseURL": "http://global-coordinator:8080",
+    "credentialFile": "/run/secrets/global_coordinator_credential",
+    "requestTimeout": "5s"
   },
   "hub-api-server": {},
   "orgs-api-server": {},
@@ -247,6 +278,11 @@ func writeConfig(t *testing.T, passwordFile, extraWorkerField string) string {
   },
   "admin-api-server": {
     "adminSessionTTL": "24h"
+  },
+  "global-coordinator": {
+    "baseURL": "http://global-coordinator:8080",
+    "credentialFile": "/run/secrets/global_coordinator_credential",
+    "requestTimeout": "5s"
   },
   "hub-api-server": {},
   "orgs-api-server": {},

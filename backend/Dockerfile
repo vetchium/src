@@ -32,7 +32,9 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X backend/internal/version.Value=${VERSION}" -o /out/orgs-api ./cmd/orgs-api && \
     CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X backend/internal/version.Value=${VERSION}" -o /out/mesh-api ./cmd/mesh-api && \
     CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X backend/internal/version.Value=${VERSION}" -o /out/mcp-server ./cmd/mcp-server && \
-    CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X backend/internal/version.Value=${VERSION}" -o /out/workers ./cmd/workers
+    CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X backend/internal/version.Value=${VERSION}" -o /out/workers ./cmd/workers && \
+    CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X backend/internal/version.Value=${VERSION}" -o /out/global-coordinator ./cmd/global-coordinator && \
+    mkdir /out/global-coordinator-state
 
 FROM gcr.io/distroless/static-debian12:nonroot@sha256:f5b485ea962d9bd1186b2f6b3a061191539b905b82ec395de78cbfae51f20e35 AS runtime
 
@@ -62,3 +64,7 @@ COPY --from=build /out/mcp-server /service
 FROM runtime AS workers
 COPY --from=build /out/workers /service
 HEALTHCHECK NONE
+
+FROM runtime AS global-coordinator
+COPY --from=build /out/global-coordinator /service
+COPY --from=build --chown=nonroot:nonroot /out/global-coordinator-state /var/lib/vetchium-global-coordinator

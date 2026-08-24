@@ -60,7 +60,7 @@
       "PGDATABASE": "${POSTGRES_DB:?set POSTGRES_DB}",
       "PGSSLMODE": "${PGSSLMODE:-disable}"
     },
-    "secrets": ["app_postgres_password"]
+    "secrets": ["app_postgres_password", "global_coordinator_credential"]
   },
   "services": {
     "traefik": {
@@ -216,9 +216,9 @@
         "PGDATABASE": "${POSTGRES_DB:?set POSTGRES_DB}",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
       },
-      "secrets": ["app_postgres_password", "admin_credential_key"],
+      "secrets": ["app_postgres_password", "admin_credential_key", "global_coordinator_credential"],
       "image": "${REGISTRY:-ghcr.io/vetchium}/admin-api:${TAG:?set TAG}",
-      "networks": ["admin_api_access", "backend"]
+      "networks": ["admin_api_access", "backend", "global_coordinator_egress"]
     },
     "hub-api": {
       "deploy": {
@@ -253,9 +253,9 @@
         "PGDATABASE": "${POSTGRES_DB:?set POSTGRES_DB}",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
       },
-      "secrets": ["app_postgres_password"],
+      "secrets": ["app_postgres_password", "global_coordinator_credential"],
       "image": "${REGISTRY:-ghcr.io/vetchium}/hub-api:${TAG:?set TAG}",
-      "networks": ["hub_api_access", "backend"]
+      "networks": ["hub_api_access", "backend", "global_coordinator_egress"]
     },
     "orgs-api": {
       "deploy": {
@@ -290,9 +290,9 @@
         "PGDATABASE": "${POSTGRES_DB:?set POSTGRES_DB}",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
       },
-      "secrets": ["app_postgres_password"],
+      "secrets": ["app_postgres_password", "global_coordinator_credential"],
       "image": "${REGISTRY:-ghcr.io/vetchium}/orgs-api:${TAG:?set TAG}",
-      "networks": ["orgs_api_access", "backend"]
+      "networks": ["orgs_api_access", "backend", "global_coordinator_egress"]
     },
     "mesh-api": {
       "deploy": {
@@ -327,9 +327,9 @@
         "PGDATABASE": "${POSTGRES_DB:?set POSTGRES_DB}",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
       },
-      "secrets": ["app_postgres_password"],
+      "secrets": ["app_postgres_password", "global_coordinator_credential"],
       "image": "${REGISTRY:-ghcr.io/vetchium}/mesh-api:${TAG:?set TAG}",
-      "networks": ["mesh", "backend"]
+      "networks": ["mesh", "backend", "global_coordinator_egress"]
     },
     "mcp-server": {
       "deploy": {
@@ -364,9 +364,9 @@
         "PGDATABASE": "${POSTGRES_DB:?set POSTGRES_DB}",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
       },
-      "secrets": ["app_postgres_password"],
+      "secrets": ["app_postgres_password", "global_coordinator_credential"],
       "image": "${REGISTRY:-ghcr.io/vetchium}/mcp-server:${TAG:?set TAG}",
-      "networks": ["mcp_access", "backend"]
+      "networks": ["mcp_access", "backend", "global_coordinator_egress"]
     },
     "workers": {
       "deploy": {
@@ -404,9 +404,9 @@
         "PGDATABASE": "${POSTGRES_DB:?set POSTGRES_DB}",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
       },
-      "secrets": ["app_postgres_password"],
+      "secrets": ["app_postgres_password", "global_coordinator_credential"],
       "image": "${REGISTRY:-ghcr.io/vetchium}/workers:${TAG:?set TAG}",
-      "networks": ["backend"]
+      "networks": ["backend", "global_coordinator_egress"]
     },
     "orgs-ui": {
       "deploy": {
@@ -578,6 +578,9 @@
       "driver": "overlay",
       "internal": true,
       "attachable": true
+    },
+    "global_coordinator_egress": {
+      "driver": "overlay"
     }
   },
   "volumes": {
@@ -611,6 +614,10 @@
     "admin_credential_key": {
       "external": true,
       "name": "sgp_admin_credential_key"
+    },
+    "global_coordinator_credential": {
+      "external": true,
+      "name": "sgp_global_coordinator_credential"
     }
   }
 }

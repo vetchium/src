@@ -3,6 +3,7 @@ import "@typespec/openapi3";
 
 import "./common/common.tsp";
 import "./admin/admin.tsp";
+import "./global-coordinator/global-coordinator.tsp";
 
 using TypeSpec.Http;
 
