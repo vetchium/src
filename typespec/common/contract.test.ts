@@ -51,7 +51,7 @@ test("idempotency key validator enforces URL-safe ASCII and length", () => {
 test("localization validators cover supported interfaces and Unicode names", () => {
   assert.equal(isFrontendLocale("en-US"), true);
   assert.equal(isFrontendLocale("ta"), true);
-  assert.equal(isFrontendLocale("de_DE"), true);
+  assert.equal(isFrontendLocale("de-DE"), true);
   assert.equal(isFrontendLocale("fr-FR"), false);
   assert.equal(normalizeDisplayName("  நிர்வாகி  "), "நிர்வாகி");
   assert.equal(isDisplayName("  நிர்வாகி  "), true);

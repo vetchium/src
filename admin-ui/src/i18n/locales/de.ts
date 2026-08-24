@@ -32,7 +32,7 @@ export const de = {
   languageShort: {
     "en-US": "EN",
     ta: "TA",
-    de_DE: "DE",
+    "de-DE": "DE",
   },
   common: {
     all: "Alle",
@@ -97,7 +97,7 @@ export const de = {
   languages: {
     "en-US": "English US",
     ta: "தமிழ்",
-    de_DE: "Deutsch",
+    "de-DE": "Deutsch",
   },
   states: { active: "Aktiv", disabled: "Deaktiviert" },
   permissions: {

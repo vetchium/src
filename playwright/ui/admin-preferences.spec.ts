@@ -59,7 +59,7 @@ test("login replaces the local language and authenticated changes reach the serv
       const response = await adminAPI.get("/my-info", admin.sessionToken);
       return (await responseJSON<MyInfoResponse>(response)).preferred_language;
     })
-    .toBe("de_DE");
+    .toBe("de-DE");
 
   await page.getByRole("button", { name: "Abmelden" }).click();
   await expect(page.getByRole("heading", { name: "Anmelden" })).toBeVisible();

@@ -11,10 +11,12 @@ PLATFORMS ?= linux/amd64,linux/arm64
 BUILDER   := vetchium
 APP_POSTGRES_PASSWORD ?= app_pgpassword
 ADMIN_CREDENTIAL_KEY  ?= dev_admin_credential_key
+HUB_CREDENTIAL_KEY    ?= dev_hub_credential_key
 GLOBAL_COORDINATOR_CREDENTIAL ?= dev_global_coordinator_credential_32_bytes
 DEV_SECRETS_DIR       := .dev-secrets
 APP_PASSWORD_FILE     := $(DEV_SECRETS_DIR)/app_postgres_password
 ADMIN_KEY_FILE        := $(DEV_SECRETS_DIR)/admin_credential_key
+HUB_KEY_FILE          := $(DEV_SECRETS_DIR)/hub_credential_key
 COORDINATOR_KEY_FILE  := $(DEV_SECRETS_DIR)/global_coordinator_credential
 SQLC                   := go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.29.0
 GOVULNCHECK             := go run golang.org/x/vuln/cmd/govulncheck@v1.7.0
@@ -78,6 +80,13 @@ dev-secrets:
 	else \
 		umask 077; printf '%s' "$$ADMIN_CREDENTIAL_KEY" > "$(ADMIN_KEY_FILE)"; \
 	fi
+	@if [ -f "$(HUB_KEY_FILE)" ]; then \
+		current=$$(cat "$(HUB_KEY_FILE)"); \
+		test "$$current" = "$$HUB_CREDENTIAL_KEY" || \
+			{ echo "HUB_CREDENTIAL_KEY differs from the initialized development secret; run make clean before changing it"; exit 1; }; \
+	else \
+		umask 077; printf '%s' "$$HUB_CREDENTIAL_KEY" > "$(HUB_KEY_FILE)"; \
+	fi
 	@if [ -f "$(COORDINATOR_KEY_FILE)" ]; then \
 		current=$$(cat "$(COORDINATOR_KEY_FILE)"); \
 		test "$$current" = "$$GLOBAL_COORDINATOR_CREDENTIAL" || \
@@ -92,9 +101,13 @@ sqlc:
 sqlc-vet:
 	cd backend && $(SQLC) vet
 
-sqlc-verify: sqlc
-	@test -z "$$(git status --porcelain -- backend/internal/db/sqlc)" || { \
-		git status --short -- backend/internal/db/sqlc; \
+sqlc-verify:
+	@set -e; \
+	verification_dir=$$(mktemp -d); \
+	trap 'rm -rf "$$verification_dir"' EXIT; \
+	cp -R backend/internal/db/sqlc/. "$$verification_dir/"; \
+	$(MAKE) --no-print-directory sqlc; \
+	diff -ru "$$verification_dir" backend/internal/db/sqlc || { \
 		echo "generated sqlc code is stale; run 'make sqlc' and commit it"; \
 		exit 1; \
 	}
@@ -298,6 +311,7 @@ publish:
 
 clean:
 	docker compose -f docker-compose.json down --remove-orphans --volumes
-	rm -f "$(APP_PASSWORD_FILE)" "$(ADMIN_KEY_FILE)" "$(COORDINATOR_KEY_FILE)"
+	rm -f "$(APP_PASSWORD_FILE)" "$(ADMIN_KEY_FILE)" "$(HUB_KEY_FILE)" \
+		"$(COORDINATOR_KEY_FILE)"
 	-rmdir "$(DEV_SECRETS_DIR)"
 	rm -rf "$(COVERAGE_DIR)"

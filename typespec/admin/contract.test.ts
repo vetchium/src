@@ -159,7 +159,7 @@ test("list and profile validators cover defaults and bounds", () => {
     "admin_user_id",
   ]);
   assert.deepEqual(
-    validateSetPreferredLanguageRequest({ preferred_language: "de_DE" }),
+    validateSetPreferredLanguageRequest({ preferred_language: "de-DE" }),
     [],
   );
 });

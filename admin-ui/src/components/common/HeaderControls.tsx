@@ -19,7 +19,7 @@ import {
   myInfoQueryKey,
 } from "../../features/profile/queries";
 
-const languages: FrontendLocale[] = ["en-US", "ta", "de_DE"];
+const languages: FrontendLocale[] = ["en-US", "ta", "de-DE"];
 
 interface HeaderControlsProps {
   onSignOut?: () => void;

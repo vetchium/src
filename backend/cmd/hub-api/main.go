@@ -13,6 +13,8 @@ import (
 	"backend/internal/apiserver"
 	"backend/internal/appconfig"
 	"backend/internal/db"
+	dbsqlc "backend/internal/db/sqlc"
+	"backend/internal/globalcoordinatorclient"
 	"backend/internal/hubapi"
 	"backend/internal/middleware"
 	"backend/internal/routes"
@@ -50,6 +52,16 @@ func run(log *slog.Logger) error {
 	if err != nil {
 		return err
 	}
+	credentialSecret, err := appconfig.HubCredentialSecret()
+	if err != nil {
+		return err
+	}
+	coordinator, err := globalcoordinatorclient.NewFromConfig(
+		cfg.GlobalCoordinator,
+	)
+	if err != nil {
+		return err
+	}
 	log = log.With("tenant", cfg.TenantID)
 	slog.SetDefault(log)
 
@@ -65,8 +77,16 @@ func run(log *slog.Logger) error {
 	defer pool.Close()
 
 	s := &hubapi.Server{
-		Runtime:  apiserver.New(pool, log),
-		TenantID: cfg.TenantID,
+		Runtime:              apiserver.New(pool, log),
+		Queries:              dbsqlc.New(pool),
+		Coordinator:          coordinator,
+		TenantID:             cfg.TenantID,
+		SessionTTL:           cfg.HubAPIServer.SessionTTL,
+		RememberedSessionTTL: cfg.HubAPIServer.RememberedSessionTTL,
+		PublicBaseURL:        cfg.HubAPIServer.PublicBaseURL,
+		CredentialKey: hubapi.DeriveCredentialKey(
+			cfg.TenantID, credentialSecret,
+		),
 	}
 	mux := http.NewServeMux()
 	routes.RegisterHubRoutes(mux, s)

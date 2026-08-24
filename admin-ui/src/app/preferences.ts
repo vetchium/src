@@ -58,9 +58,9 @@ export function storeThemeMode(themeMode: ThemeMode): void {
 }
 
 export function htmlLanguage(language: FrontendLocale): string {
-  return language === "de_DE" ? "de-DE" : language;
+  return language === "de-DE" ? "de-DE" : language;
 }
 
 export function intlLocale(language: string): string {
-  return language === "de_DE" ? "de-DE" : language;
+  return language === "de-DE" ? "de-DE" : language;
 }

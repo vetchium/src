@@ -258,7 +258,7 @@
         "PGDATABASE": "${POSTGRES_DB:?set POSTGRES_DB}",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
       },
-      "secrets": ["app_postgres_password", "global_coordinator_credential"],
+      "secrets": ["app_postgres_password", "hub_credential_key", "global_coordinator_credential"],
       "image": "${REGISTRY:-ghcr.io/vetchium}/hub-api:${TAG:?set TAG}",
       "networks": ["hub_api_access", "backend", "global_coordinator_egress"]
     },
@@ -409,9 +409,9 @@
         "PGDATABASE": "${POSTGRES_DB:?set POSTGRES_DB}",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
       },
-      "secrets": ["app_postgres_password", "global_coordinator_credential"],
+      "secrets": ["app_postgres_password", "hub_credential_key", "smtp_username", "smtp_password"],
       "image": "${REGISTRY:-ghcr.io/vetchium}/workers:${TAG:?set TAG}",
-      "networks": ["backend", "global_coordinator_egress"]
+      "networks": ["backend", "smtp_egress"]
     },
     "orgs-ui": {
       "deploy": {
@@ -486,7 +486,7 @@
       },
       "image": "${REGISTRY:-ghcr.io/vetchium}/hub-ui:${TAG:?set TAG}",
       "environment": {
-        "VETCHIUM_DEFAULT_LANGUAGE": "${HUB_UI_DEFAULT_LANGUAGE:-de_DE}"
+        "VETCHIUM_DEFAULT_LANGUAGE": "${HUB_UI_DEFAULT_LANGUAGE:-de-DE}"
       },
       "read_only": true,
       "tmpfs": ["/tmp"],
@@ -534,7 +534,7 @@
       },
       "image": "${REGISTRY:-ghcr.io/vetchium}/admin-ui:${TAG:?set TAG}",
       "environment": {
-        "VETCHIUM_DEFAULT_LANGUAGE": "${ADMIN_UI_DEFAULT_LANGUAGE:-de_DE}"
+        "VETCHIUM_DEFAULT_LANGUAGE": "${ADMIN_UI_DEFAULT_LANGUAGE:-de-DE}"
       },
       "read_only": true,
       "tmpfs": ["/tmp"],
@@ -586,6 +586,9 @@
     },
     "global_coordinator_egress": {
       "driver": "overlay"
+    },
+    "smtp_egress": {
+      "driver": "overlay"
     }
   },
   "volumes": {
@@ -619,6 +622,18 @@
     "admin_credential_key": {
       "external": true,
       "name": "deu_admin_credential_key"
+    },
+    "hub_credential_key": {
+      "external": true,
+      "name": "deu_hub_credential_key"
+    },
+    "smtp_username": {
+      "external": true,
+      "name": "deu_smtp_username"
+    },
+    "smtp_password": {
+      "external": true,
+      "name": "deu_smtp_password"
     },
     "global_coordinator_credential": {
       "external": true,

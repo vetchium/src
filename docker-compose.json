@@ -53,6 +53,7 @@
     "mesh": {
       "internal": true
     },
+    "mailpit_access": {},
     "global_coordinator_access": {},
     "sgp_admin_api_access": {
       "internal": true
@@ -94,11 +95,36 @@
     "admin_credential_key": {
       "file": "./.dev-secrets/admin_credential_key"
     },
+    "hub_credential_key": {
+      "file": "./.dev-secrets/hub_credential_key"
+    },
     "global_coordinator_credential": {
       "file": "./.dev-secrets/global_coordinator_credential"
     }
   },
   "services": {
+    "mailpit": {
+      "image": "axllent/mailpit:v1.31.0@sha256:c96991d9bef73594c246d89ca81411d4e916f03e76a7d2d72fa2ab5dd3c9ce24",
+      "healthcheck": {
+        "interval": "5s",
+        "retries": 10,
+        "start_period": "5s",
+        "test": ["CMD", "/mailpit", "readyz"],
+        "timeout": "2s"
+      },
+      "networks": {
+        "deu_backend": {"aliases": ["mailpit"]},
+        "ind1_backend": {"aliases": ["mailpit"]},
+        "mailpit_access": null,
+        "sgp_backend": {"aliases": ["mailpit"]},
+        "usa1_backend": {"aliases": ["mailpit"]}
+      },
+      "ports": ["${MAILPIT_BIND:-127.0.0.1}:${MAILPIT_PORT:-18025}:8025"],
+      "read_only": true,
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"],
+      "tmpfs": ["/tmp:rw,noexec,nosuid,nodev,size=64m"]
+    },
     "global-coordinator": {
       "build": {
         "context": ".",
@@ -346,7 +372,7 @@
         "dockerfile": "admin-ui/Dockerfile"
       },
       "environment": {
-        "VETCHIUM_DEFAULT_LANGUAGE": "${ADMIN_UI_DEU_DEFAULT_LANGUAGE:-de_DE}"
+        "VETCHIUM_DEFAULT_LANGUAGE": "${ADMIN_UI_DEU_DEFAULT_LANGUAGE:-de-DE}"
       },
       "networks": {
         "deu_ingress": null
@@ -726,6 +752,10 @@
         {
           "source": "global_coordinator_credential",
           "target": "/run/secrets/global_coordinator_credential"
+        },
+        {
+          "source": "hub_credential_key",
+          "target": "/run/secrets/hub_credential_key"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -768,6 +798,10 @@
         {
           "source": "global_coordinator_credential",
           "target": "/run/secrets/global_coordinator_credential"
+        },
+        {
+          "source": "hub_credential_key",
+          "target": "/run/secrets/hub_credential_key"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -810,6 +844,10 @@
         {
           "source": "global_coordinator_credential",
           "target": "/run/secrets/global_coordinator_credential"
+        },
+        {
+          "source": "hub_credential_key",
+          "target": "/run/secrets/hub_credential_key"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -852,6 +890,10 @@
         {
           "source": "global_coordinator_credential",
           "target": "/run/secrets/global_coordinator_credential"
+        },
+        {
+          "source": "hub_credential_key",
+          "target": "/run/secrets/hub_credential_key"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -862,7 +904,7 @@
         "dockerfile": "hub-ui/Dockerfile"
       },
       "environment": {
-        "VETCHIUM_DEFAULT_LANGUAGE": "${HUB_UI_DEU_DEFAULT_LANGUAGE:-de_DE}"
+        "VETCHIUM_DEFAULT_LANGUAGE": "${HUB_UI_DEU_DEFAULT_LANGUAGE:-de-DE}"
       },
       "networks": {
         "deu_ingress": null
@@ -1867,6 +1909,10 @@
         "target": "workers"
       },
       "depends_on": {
+        "mailpit": {
+          "condition": "service_healthy",
+          "required": true
+        },
         "seed-deu": {
           "condition": "service_completed_successfully",
           "required": true
@@ -1891,6 +1937,10 @@
         {
           "source": "app_postgres_password",
           "target": "/run/secrets/app_postgres_password"
+        },
+        {
+          "source": "hub_credential_key",
+          "target": "/run/secrets/hub_credential_key"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -1902,6 +1952,10 @@
         "target": "workers"
       },
       "depends_on": {
+        "mailpit": {
+          "condition": "service_healthy",
+          "required": true
+        },
         "seed-ind1": {
           "condition": "service_completed_successfully",
           "required": true
@@ -1926,6 +1980,10 @@
         {
           "source": "app_postgres_password",
           "target": "/run/secrets/app_postgres_password"
+        },
+        {
+          "source": "hub_credential_key",
+          "target": "/run/secrets/hub_credential_key"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -1937,6 +1995,10 @@
         "target": "workers"
       },
       "depends_on": {
+        "mailpit": {
+          "condition": "service_healthy",
+          "required": true
+        },
         "seed-sgp": {
           "condition": "service_completed_successfully",
           "required": true
@@ -1961,6 +2023,10 @@
         {
           "source": "app_postgres_password",
           "target": "/run/secrets/app_postgres_password"
+        },
+        {
+          "source": "hub_credential_key",
+          "target": "/run/secrets/hub_credential_key"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -1972,6 +2038,10 @@
         "target": "workers"
       },
       "depends_on": {
+        "mailpit": {
+          "condition": "service_healthy",
+          "required": true
+        },
         "seed-usa1": {
           "condition": "service_completed_successfully",
           "required": true
@@ -1996,6 +2066,10 @@
         {
           "source": "app_postgres_password",
           "target": "/run/secrets/app_postgres_password"
+        },
+        {
+          "source": "hub_credential_key",
+          "target": "/run/secrets/hub_credential_key"
         }
       ],
       "security_opt": ["no-new-privileges:true"]

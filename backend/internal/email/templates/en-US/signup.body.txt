@@ -1,0 +1,9 @@
+Hello {{.DisplayName}},
+
+Use this link to verify your email address and complete your Vetchium signup:
+
+{{.ActionURL}}
+
+This link expires at {{.ExpiresAt.UTC.Format "02 Jan 2006 15:04 UTC"}}.
+
+If you did not request this signup, you can ignore this email.

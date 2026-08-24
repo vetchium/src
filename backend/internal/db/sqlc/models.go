@@ -95,6 +95,48 @@ func (ns NullVetchiumHubSignupDomainState) Value() (driver.Value, error) {
 	return string(ns.VetchiumHubSignupDomainState), nil
 }
 
+type VetchiumHubUserState string
+
+const (
+	VetchiumHubUserStateActive   VetchiumHubUserState = "active"
+	VetchiumHubUserStateDisabled VetchiumHubUserState = "disabled"
+)
+
+func (e *VetchiumHubUserState) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = VetchiumHubUserState(s)
+	case string:
+		*e = VetchiumHubUserState(s)
+	default:
+		return fmt.Errorf("unsupported scan type for VetchiumHubUserState: %T", src)
+	}
+	return nil
+}
+
+type NullVetchiumHubUserState struct {
+	VetchiumHubUserState VetchiumHubUserState `json:"vetchium_hub_user_state"`
+	Valid                bool                 `json:"valid"` // Valid is true if VetchiumHubUserState is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullVetchiumHubUserState) Scan(value interface{}) error {
+	if value == nil {
+		ns.VetchiumHubUserState, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.VetchiumHubUserState.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullVetchiumHubUserState) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.VetchiumHubUserState), nil
+}
+
 type VetchiumAdminEffectivePermission struct {
 	AdminUserID pgtype.UUID `json:"admin_user_id"`
 	Permission  string      `json:"permission"`
@@ -199,6 +241,66 @@ type VetchiumAdminUser struct {
 	UpdatedAt            pgtype.Timestamptz     `json:"updated_at"`
 }
 
+type VetchiumAuditEvent struct {
+	AuditEventID   pgtype.UUID        `json:"audit_event_id"`
+	TenantID       string             `json:"tenant_id"`
+	Action         string             `json:"action"`
+	EntityType     string             `json:"entity_type"`
+	EntityID       string             `json:"entity_id"`
+	ActorType      string             `json:"actor_type"`
+	ActorID        pgtype.Text        `json:"actor_id"`
+	Source         string             `json:"source"`
+	IdempotencyKey pgtype.Text        `json:"idempotency_key"`
+	Payload        []byte             `json:"payload"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
+type VetchiumHubEmailOutbox struct {
+	HubEmailOutboxID      pgtype.UUID        `json:"hub_email_outbox_id"`
+	Kind                  string             `json:"kind"`
+	RecipientEmailAddress string             `json:"recipient_email_address"`
+	PreferredLanguage     string             `json:"preferred_language"`
+	PayloadCiphertext     []byte             `json:"payload_ciphertext"`
+	AttemptCount          int32              `json:"attempt_count"`
+	NextAttemptAt         pgtype.Timestamptz `json:"next_attempt_at"`
+	LeaseToken            pgtype.UUID        `json:"lease_token"`
+	LeasedUntil           pgtype.Timestamptz `json:"leased_until"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	SentAt                pgtype.Timestamptz `json:"sent_at"`
+	FailedAt              pgtype.Timestamptz `json:"failed_at"`
+}
+
+type VetchiumHubLoginChallenge struct {
+	HubLoginChallengeID pgtype.UUID        `json:"hub_login_challenge_id"`
+	HubUserDid          pgtype.UUID        `json:"hub_user_did"`
+	TokenHash           []byte             `json:"token_hash"`
+	Remembered          bool               `json:"remembered"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	ExpiresAt           pgtype.Timestamptz `json:"expires_at"`
+	ConsumedAt          pgtype.Timestamptz `json:"consumed_at"`
+	Active              bool               `json:"active"`
+}
+
+type VetchiumHubPasswordResetToken struct {
+	HubPasswordResetTokenID pgtype.UUID        `json:"hub_password_reset_token_id"`
+	HubUserDid              pgtype.UUID        `json:"hub_user_did"`
+	TokenHash               []byte             `json:"token_hash"`
+	CreatedAt               pgtype.Timestamptz `json:"created_at"`
+	ExpiresAt               pgtype.Timestamptz `json:"expires_at"`
+	ConsumedAt              pgtype.Timestamptz `json:"consumed_at"`
+	Active                  bool               `json:"active"`
+}
+
+type VetchiumHubSession struct {
+	HubSessionID     pgtype.UUID        `json:"hub_session_id"`
+	HubUserDid       pgtype.UUID        `json:"hub_user_did"`
+	SessionTokenHash []byte             `json:"session_token_hash"`
+	AuthenticatedAt  pgtype.Timestamptz `json:"authenticated_at"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	ExpiresAt        pgtype.Timestamptz `json:"expires_at"`
+	Remembered       bool               `json:"remembered"`
+}
+
 type VetchiumHubSignupDomain struct {
 	HubSignupDomainID    pgtype.UUID                  `json:"hub_signup_domain_id"`
 	Domain               string                       `json:"domain"`
@@ -208,12 +310,52 @@ type VetchiumHubSignupDomain struct {
 	UpdatedAt            pgtype.Timestamptz           `json:"updated_at"`
 }
 
+type VetchiumHubSignupRequest struct {
+	HubSignupRequestID pgtype.UUID        `json:"hub_signup_request_id"`
+	EmailAddress       string             `json:"email_address"`
+	DisplayName        string             `json:"display_name"`
+	PreferredLanguage  string             `json:"preferred_language"`
+	ResidentCountry    string             `json:"resident_country"`
+	TokenHash          []byte             `json:"token_hash"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	ExpiresAt          pgtype.Timestamptz `json:"expires_at"`
+	ConsumedAt         pgtype.Timestamptz `json:"consumed_at"`
+	Active             bool               `json:"active"`
+}
+
+type VetchiumHubTotpEnrollment struct {
+	HubTotpEnrollmentID pgtype.UUID        `json:"hub_totp_enrollment_id"`
+	HubUserDid          pgtype.UUID        `json:"hub_user_did"`
+	TokenHash           []byte             `json:"token_hash"`
+	SecretCiphertext    []byte             `json:"secret_ciphertext"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	ExpiresAt           pgtype.Timestamptz `json:"expires_at"`
+	ConsumedAt          pgtype.Timestamptz `json:"consumed_at"`
+	Active              bool               `json:"active"`
+}
+
+type VetchiumHubTotpRecoveryCode struct {
+	HubUserDid pgtype.UUID        `json:"hub_user_did"`
+	CodeHash   []byte             `json:"code_hash"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	ConsumedAt pgtype.Timestamptz `json:"consumed_at"`
+}
+
 type VetchiumHubUser struct {
-	ID        int64              `json:"id"`
-	Username  string             `json:"username"`
-	OrgID     int64              `json:"org_id"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+	HubUserDid           pgtype.UUID          `json:"hub_user_did"`
+	Handle               string               `json:"handle"`
+	EmailAddress         string               `json:"email_address"`
+	DisplayName          string               `json:"display_name"`
+	PasswordHash         string               `json:"password_hash"`
+	HubUserState         VetchiumHubUserState `json:"hub_user_state"`
+	PreferredLanguage    string               `json:"preferred_language"`
+	ResidentCountry      string               `json:"resident_country"`
+	TotpSecretCiphertext []byte               `json:"totp_secret_ciphertext"`
+	TotpEnabled          bool                 `json:"totp_enabled"`
+	TotpLastTimestep     pgtype.Int8          `json:"totp_last_timestep"`
+	LastLoginAt          pgtype.Timestamptz   `json:"last_login_at"`
+	CreatedAt            pgtype.Timestamptz   `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz   `json:"updated_at"`
 }
 
 type VetchiumIdempotencyLedger struct {

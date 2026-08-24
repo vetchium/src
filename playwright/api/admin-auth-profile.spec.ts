@@ -280,7 +280,7 @@ test.describe("Admin profile", () => {
       (
         await adminAPI.post(
           "/set-preferred-language",
-          { preferred_language: "de_DE" },
+          { preferred_language: "de-DE" },
           { token: admin.sessionToken },
         )
       ).status(),
@@ -288,7 +288,7 @@ test.describe("Admin profile", () => {
     const info = await responseJSON<MyInfoResponse>(
       await adminAPI.get("/my-info", admin.sessionToken),
     );
-    expect(info.preferred_language).toBe("de_DE");
+    expect(info.preferred_language).toBe("de-DE");
   });
 
   test("profile setters reject unsupported locale and invalid display name", async ({

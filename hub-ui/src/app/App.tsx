@@ -14,6 +14,31 @@ const LoginPage = lazy(() =>
     default: LoginPage,
   })),
 );
+const SignupPage = lazy(() =>
+  import("../pages/SignupPage").then(({ SignupPage }) => ({
+    default: SignupPage,
+  })),
+);
+const CompleteSignupPage = lazy(() =>
+  import("../pages/CompleteSignupPage").then(({ CompleteSignupPage }) => ({
+    default: CompleteSignupPage,
+  })),
+);
+const ForgotPasswordPage = lazy(() =>
+  import("../pages/ForgotPasswordPage").then(({ ForgotPasswordPage }) => ({
+    default: ForgotPasswordPage,
+  })),
+);
+const ResetPasswordPage = lazy(() =>
+  import("../pages/ResetPasswordPage").then(({ ResetPasswordPage }) => ({
+    default: ResetPasswordPage,
+  })),
+);
+const SettingsPage = lazy(() =>
+  import("../pages/SettingsPage").then(({ SettingsPage }) => ({
+    default: SettingsPage,
+  })),
+);
 
 function Page({ children }: { children: React.ReactNode }) {
   return (
@@ -42,6 +67,38 @@ export function App() {
     <Routes>
       <Route element={<PublicShell />}>
         <Route path="login" element={<LoginRoute />} />
+        <Route
+          path="signup"
+          element={
+            <Page>
+              <SignupPage />
+            </Page>
+          }
+        />
+        <Route
+          path="complete-signup"
+          element={
+            <Page>
+              <CompleteSignupPage />
+            </Page>
+          }
+        />
+        <Route
+          path="forgot-password"
+          element={
+            <Page>
+              <ForgotPasswordPage />
+            </Page>
+          }
+        />
+        <Route
+          path="reset-password"
+          element={
+            <Page>
+              <ResetPasswordPage />
+            </Page>
+          }
+        />
       </Route>
       <Route element={<ProtectedRoute />}>
         <Route element={<AppShell />}>
@@ -50,6 +107,14 @@ export function App() {
             element={
               <Page>
                 <HomePage />
+              </Page>
+            }
+          />
+          <Route
+            path="settings"
+            element={
+              <Page>
+                <SettingsPage />
               </Page>
             }
           />

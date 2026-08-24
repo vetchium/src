@@ -394,7 +394,7 @@ func TestLoginWithTOTPReturnsChallenge(t *testing.T) {
 			PasswordHash:      passwordHash,
 			AdminUserState:    sqlc.VetchiumAdminUserStateActive,
 			TotpEnabled:       true,
-			PreferredLanguage: "de_DE",
+			PreferredLanguage: "de-DE",
 		}, nil
 	}
 	db.createLoginChallenge = func(

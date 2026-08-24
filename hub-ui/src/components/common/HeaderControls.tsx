@@ -12,7 +12,7 @@ import {
 } from "../../../../typespec/common/localization.ts";
 import { usePreferences } from "../../app/PreferencesContext";
 
-const languages: FrontendLocale[] = ["en-US", "ta", "de_DE"];
+const languages: FrontendLocale[] = ["en-US", "ta", "de-DE"];
 
 interface HeaderControlsProps {
   onSignOut?: () => void;
@@ -31,7 +31,6 @@ export function HeaderControls({ onSignOut }: HeaderControlsProps) {
         aria-label={t("language.selectorLabel")}
         prefix={<GlobalOutlined />}
         placement="bottomRight"
-        popupMatchSelectWidth={false}
         style={{ width: compact ? 88 : 160 }}
         options={languages.map((language) => ({
           value: language,

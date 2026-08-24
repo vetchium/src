@@ -21,14 +21,23 @@ type periodicJob struct {
 // Worker owns the dependencies and periodic jobs for the worker process.
 type Worker struct {
 	queries           sqlc.Querier
+	hubEmailQueries   hubEmailQueries
+	hubEmailDelivery  *HubEmailDelivery
 	log               *slog.Logger
 	retryBackoffLimit time.Duration
 	jobs              []periodicJob
 }
 
-func New(db *pgxpool.Pool, log *slog.Logger, config appconfig.Workers) *Worker {
+func New(
+	db *pgxpool.Pool,
+	log *slog.Logger,
+	config appconfig.Workers,
+	hubEmailDelivery ...*HubEmailDelivery,
+) *Worker {
+	queries := sqlc.New(db)
 	w := &Worker{
-		queries:           sqlc.New(db),
+		queries:           queries,
+		hubEmailQueries:   queries,
 		log:               log,
 		retryBackoffLimit: config.RetryBackoffLimit,
 	}
@@ -48,6 +57,14 @@ func New(db *pgxpool.Pool, log *slog.Logger, config appconfig.Workers) *Worker {
 			interval: config.PruneEphemeralDataTimer,
 			run:      w.pruneIdempotency,
 		},
+	}
+	if len(hubEmailDelivery) > 0 && hubEmailDelivery[0] != nil {
+		w.hubEmailDelivery = hubEmailDelivery[0]
+		w.jobs = append(w.jobs, periodicJob{
+			name:     "deliver-hub-email",
+			interval: config.DeliverHubEmailTimer,
+			run:      w.deliverHubEmail,
+		})
 	}
 	return w
 }

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/mail"
 	"net/url"
 	"os"
 	"strconv"
@@ -16,6 +17,7 @@ import (
 
 const defaultPath = "/etc/vetchium/config.json"
 const defaultAdminCredentialKeyPath = "/run/secrets/admin_credential_key"
+const defaultHubCredentialKeyPath = "/run/secrets/hub_credential_key"
 
 type Config struct {
 	TenantID          string
@@ -24,7 +26,8 @@ type Config struct {
 	Workers           Workers
 	AdminAPIServer    AdminAPIServer
 	GlobalCoordinator GlobalCoordinator
-	HubAPIServer      Server
+	HubAPIServer      HubAPIServer
+	SMTP              SMTP
 	OrgsAPIServer     Server
 	MCPServer         Server
 }
@@ -55,7 +58,35 @@ type Workers struct {
 	RetryBackoffLimit       time.Duration
 	PruneAdminSessionsTimer time.Duration
 	PruneEphemeralDataTimer time.Duration
+	DeliverHubEmailTimer    time.Duration
+	HubEmailLeaseTTL        time.Duration
+	HubEmailMaxAttempts     int
 }
+
+type HubAPIServer struct {
+	SessionTTL           time.Duration
+	RememberedSessionTTL time.Duration
+	PublicBaseURL        string
+}
+
+type SMTP struct {
+	Host              string
+	Port              uint16
+	FromAddress       string
+	FromName          string
+	UsernameFile      string
+	PasswordFile      string
+	StartTLS          StartTLSMode
+	ConnectionTimeout time.Duration
+}
+
+type StartTLSMode string
+
+const (
+	StartTLSDisabled      StartTLSMode = "disabled"
+	StartTLSOpportunistic StartTLSMode = "opportunistic"
+	StartTLSRequired      StartTLSMode = "required"
+)
 
 type GlobalCoordinator struct {
 	BaseURL        string
@@ -72,7 +103,8 @@ type fileConfig struct {
 	Workers           fileWorkers            `json:"workers"`
 	AdminAPIServer    *fileAdminAPIServer    `json:"admin-api-server"`
 	GlobalCoordinator *fileGlobalCoordinator `json:"global-coordinator"`
-	HubAPIServer      *Server                `json:"hub-api-server"`
+	HubAPIServer      *fileHubAPIServer      `json:"hub-api-server"`
+	SMTP              *fileSMTP              `json:"smtp"`
 	OrgsAPIServer     *Server                `json:"orgs-api-server"`
 	MCPServer         *Server                `json:"mcp-server"`
 }
@@ -100,6 +132,26 @@ type fileWorkers struct {
 	RetryBackoffLimit       string `json:"retryBackoffLimit"`
 	PruneAdminSessionsTimer string `json:"pruneAdminSessionsTimer"`
 	PruneEphemeralDataTimer string `json:"pruneEphemeralDataTimer"`
+	DeliverHubEmailTimer    string `json:"deliverHubEmailTimer"`
+	HubEmailLeaseTTL        string `json:"hubEmailLeaseTTL"`
+	HubEmailMaxAttempts     int    `json:"hubEmailMaxAttempts"`
+}
+
+type fileHubAPIServer struct {
+	SessionTTL           string `json:"sessionTTL"`
+	RememberedSessionTTL string `json:"rememberedSessionTTL"`
+	PublicBaseURL        string `json:"publicBaseURL"`
+}
+
+type fileSMTP struct {
+	Host              string `json:"host"`
+	Port              int    `json:"port"`
+	FromAddress       string `json:"fromAddress"`
+	FromName          string `json:"fromName"`
+	UsernameFile      string `json:"usernameFile"`
+	PasswordFile      string `json:"passwordFile"`
+	StartTLS          string `json:"startTLS"`
+	ConnectionTimeout string `json:"connectionTimeout"`
 }
 
 func Load() (Config, error) {
@@ -180,6 +232,10 @@ func LoadFile(path string) (Config, error) {
 		err := fmt.Errorf("missing hub-api-server")
 		return Config{}, configError(path, err)
 	}
+	if raw.SMTP == nil {
+		err := fmt.Errorf("missing smtp")
+		return Config{}, configError(path, err)
+	}
 	if raw.OrgsAPIServer == nil {
 		err := fmt.Errorf("missing orgs-api-server")
 		return Config{}, configError(path, err)
@@ -225,6 +281,31 @@ func LoadFile(path string) (Config, error) {
 	if err != nil {
 		return Config{}, configError(path, err)
 	}
+	hubSessionTTL, err := positiveDuration(
+		"hub-api-server.sessionTTL", raw.HubAPIServer.SessionTTL,
+	)
+	if err != nil {
+		return Config{}, configError(path, err)
+	}
+	rememberedSessionTTL, err := positiveDuration(
+		"hub-api-server.rememberedSessionTTL",
+		raw.HubAPIServer.RememberedSessionTTL,
+	)
+	if err != nil {
+		return Config{}, configError(path, err)
+	}
+	if rememberedSessionTTL <= hubSessionTTL {
+		err := fmt.Errorf(
+			"hub-api-server.rememberedSessionTTL must exceed sessionTTL",
+		)
+		return Config{}, configError(path, err)
+	}
+	hubBaseURL, err := httpOrigin(
+		"hub-api-server.publicBaseURL", raw.HubAPIServer.PublicBaseURL,
+	)
+	if err != nil {
+		return Config{}, configError(path, err)
+	}
 	retryBackoffLimit, err := positiveDuration(
 		"workers.retryBackoffLimit",
 		raw.Workers.RetryBackoffLimit,
@@ -243,6 +324,27 @@ func LoadFile(path string) (Config, error) {
 		"workers.pruneEphemeralDataTimer",
 		raw.Workers.PruneEphemeralDataTimer,
 	)
+	if err != nil {
+		return Config{}, configError(path, err)
+	}
+	deliverHubEmailTimer, err := positiveDuration(
+		"workers.deliverHubEmailTimer", raw.Workers.DeliverHubEmailTimer,
+	)
+	if err != nil {
+		return Config{}, configError(path, err)
+	}
+	hubEmailLeaseTTL, err := positiveDuration(
+		"workers.hubEmailLeaseTTL", raw.Workers.HubEmailLeaseTTL,
+	)
+	if err != nil {
+		return Config{}, configError(path, err)
+	}
+	if raw.Workers.HubEmailMaxAttempts < 1 ||
+		raw.Workers.HubEmailMaxAttempts > 20 {
+		err := fmt.Errorf("workers.hubEmailMaxAttempts must be between 1 and 20")
+		return Config{}, configError(path, err)
+	}
+	smtp, err := parseSMTP(*raw.SMTP)
 	if err != nil {
 		return Config{}, configError(path, err)
 	}
@@ -270,8 +372,16 @@ func LoadFile(path string) (Config, error) {
 			RetryBackoffLimit:       retryBackoffLimit,
 			PruneAdminSessionsTimer: pruneTimer,
 			PruneEphemeralDataTimer: pruneEphemeralTimer,
+			DeliverHubEmailTimer:    deliverHubEmailTimer,
+			HubEmailLeaseTTL:        hubEmailLeaseTTL,
+			HubEmailMaxAttempts:     raw.Workers.HubEmailMaxAttempts,
 		},
-		HubAPIServer:  Server{},
+		HubAPIServer: HubAPIServer{
+			SessionTTL:           hubSessionTTL,
+			RememberedSessionTTL: rememberedSessionTTL,
+			PublicBaseURL:        hubBaseURL,
+		},
+		SMTP:          smtp,
 		OrgsAPIServer: Server{},
 		MCPServer:     Server{},
 	}, nil
@@ -329,15 +439,119 @@ func AdminCredentialSecret() (string, error) {
 	if path == "" {
 		path = defaultAdminCredentialKeyPath
 	}
+	return credentialSecret("admin", path)
+}
+
+func HubCredentialSecret() (string, error) {
+	path := os.Getenv("HUB_CREDENTIAL_KEY_FILE")
+	if path == "" {
+		path = defaultHubCredentialKeyPath
+	}
+	return credentialSecret("hub", path)
+}
+
+func credentialSecret(kind, path string) (string, error) {
 	value, err := os.ReadFile(path)
 	if err != nil {
-		return "", fmt.Errorf("read admin credential key file %q: %w", path, err)
+		return "", fmt.Errorf(
+			"read %s credential key file %q: %w", kind, path, err,
+		)
 	}
 	secret := strings.TrimRight(string(value), "\r\n")
 	if secret == "" {
-		return "", fmt.Errorf("admin credential key file %q is empty", path)
+		return "", fmt.Errorf("%s credential key file %q is empty", kind, path)
 	}
 	return secret, nil
+}
+
+func (s SMTP) Credentials() (string, string, error) {
+	if s.UsernameFile == "" {
+		return "", "", nil
+	}
+	username, err := readTrimmedSecret("SMTP username", s.UsernameFile)
+	if err != nil {
+		return "", "", err
+	}
+	password, err := readTrimmedSecret("SMTP password", s.PasswordFile)
+	if err != nil {
+		return "", "", err
+	}
+	return username, password, nil
+}
+
+func readTrimmedSecret(kind, path string) (string, error) {
+	value, err := os.ReadFile(path)
+	if err != nil {
+		return "", fmt.Errorf("read %s file %q: %w", kind, path, err)
+	}
+	secret := strings.TrimRight(string(value), "\r\n")
+	if secret == "" {
+		return "", fmt.Errorf("%s file %q is empty", kind, path)
+	}
+	return secret, nil
+}
+
+func parseSMTP(raw fileSMTP) (SMTP, error) {
+	if err := required("smtp.host", raw.Host); err != nil {
+		return SMTP{}, err
+	}
+	if raw.Port < 1 || raw.Port > 65535 {
+		return SMTP{}, fmt.Errorf("smtp.port must be between 1 and 65535")
+	}
+	if err := required("smtp.fromAddress", raw.FromAddress); err != nil {
+		return SMTP{}, err
+	}
+	address, err := mail.ParseAddress(raw.FromAddress)
+	if err != nil || address.Address != raw.FromAddress {
+		return SMTP{}, fmt.Errorf("smtp.fromAddress must be a bare email address")
+	}
+	if err := required("smtp.fromName", raw.FromName); err != nil {
+		return SMTP{}, err
+	}
+	if strings.ContainsAny(raw.FromName, "\r\n") {
+		return SMTP{}, fmt.Errorf("smtp.fromName must not contain line breaks")
+	}
+	if (raw.UsernameFile == "") != (raw.PasswordFile == "") {
+		return SMTP{}, fmt.Errorf(
+			"smtp.usernameFile and smtp.passwordFile must both be set or empty",
+		)
+	}
+	startTLS := StartTLSMode(raw.StartTLS)
+	switch startTLS {
+	case StartTLSDisabled, StartTLSOpportunistic, StartTLSRequired:
+	default:
+		return SMTP{}, fmt.Errorf(
+			"smtp.startTLS must be disabled, opportunistic, or required",
+		)
+	}
+	if raw.UsernameFile != "" && startTLS != StartTLSRequired {
+		return SMTP{}, fmt.Errorf(
+			"smtp.startTLS must be required when credentials are configured",
+		)
+	}
+	timeout, err := positiveDuration(
+		"smtp.connectionTimeout", raw.ConnectionTimeout,
+	)
+	if err != nil {
+		return SMTP{}, err
+	}
+	return SMTP{
+		Host: raw.Host, Port: uint16(raw.Port),
+		FromAddress: raw.FromAddress, FromName: raw.FromName,
+		UsernameFile: raw.UsernameFile, PasswordFile: raw.PasswordFile,
+		StartTLS: startTLS, ConnectionTimeout: timeout,
+	}, nil
+}
+
+func httpOrigin(name, value string) (string, error) {
+	parsed, err := url.Parse(value)
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" ||
+		(parsed.Scheme != "http" && parsed.Scheme != "https") ||
+		parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" ||
+		(parsed.Path != "" && parsed.Path != "/") {
+		return "", fmt.Errorf("%s must be an HTTP(S) origin", name)
+	}
+	return strings.TrimRight(parsed.String(), "/"), nil
 }
 
 func required(name, value string) error {

@@ -27,6 +27,14 @@
     "./common/pagination": "./common/pagination.ts",
     "./common/security-effects": "./common/security-effects.ts",
     "./global-coordinator/global-coordinator": "./global-coordinator/global-coordinator.ts",
+    "./hub/hub": "./hub/hub.ts",
+    "./hub/auth/login": "./hub/auth/login.ts",
+    "./hub/auth/password": "./hub/auth/password.ts",
+    "./hub/auth/signup": "./hub/auth/signup.ts",
+    "./hub/auth/totp": "./hub/auth/totp.ts",
+    "./hub/auth/types": "./hub/auth/types.ts",
+    "./hub/types": "./hub/types.ts",
+    "./hub/users/profile": "./hub/users/profile.ts",
     "./problem/admin/authentication": "./problem/admin/authentication.ts",
     "./problem/admin/authorization": "./problem/admin/authorization.ts",
     "./problem/admin/hub-signup-domains": "./problem/admin/hub-signup-domains.ts",
@@ -35,11 +43,15 @@
     "./problem/common": "./problem/common.ts",
     "./problem/details": "./problem/details.ts",
     "./problem/global-coordinator/authentication": "./problem/global-coordinator/authentication.ts"
+    ,"./problem/hub/authentication": "./problem/hub/authentication.ts"
+    ,"./problem/hub/signup": "./problem/hub/signup.ts"
+    ,"./problem/hub/totp": "./problem/hub/totp.ts"
   },
   "files": [
     "admin/**/*.ts",
     "common/**/*.ts",
     "global-coordinator/**/*.ts",
+    "hub/**/*.ts",
     "problem/**/*.ts",
     "!**/*.test.ts"
   ],
@@ -48,7 +60,7 @@
     "compile": "tsp compile .",
     "format": "biome check --write --config-path=../biome.json .",
     "format:check": "biome check --config-path=../biome.json .",
-    "test:ts": "node --experimental-strip-types --test admin/*.test.ts common/*.test.ts global-coordinator/*.test.ts",
+    "test:ts": "node --experimental-strip-types --test admin/*.test.ts common/*.test.ts global-coordinator/*.test.ts hub/*.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

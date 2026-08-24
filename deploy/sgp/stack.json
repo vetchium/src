@@ -253,7 +253,7 @@
         "PGDATABASE": "${POSTGRES_DB:?set POSTGRES_DB}",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
       },
-      "secrets": ["app_postgres_password", "global_coordinator_credential"],
+      "secrets": ["app_postgres_password", "hub_credential_key", "global_coordinator_credential"],
       "image": "${REGISTRY:-ghcr.io/vetchium}/hub-api:${TAG:?set TAG}",
       "networks": ["hub_api_access", "backend", "global_coordinator_egress"]
     },
@@ -404,9 +404,9 @@
         "PGDATABASE": "${POSTGRES_DB:?set POSTGRES_DB}",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
       },
-      "secrets": ["app_postgres_password", "global_coordinator_credential"],
+      "secrets": ["app_postgres_password", "hub_credential_key", "smtp_username", "smtp_password"],
       "image": "${REGISTRY:-ghcr.io/vetchium}/workers:${TAG:?set TAG}",
-      "networks": ["backend", "global_coordinator_egress"]
+      "networks": ["backend", "smtp_egress"]
     },
     "orgs-ui": {
       "deploy": {
@@ -581,6 +581,9 @@
     },
     "global_coordinator_egress": {
       "driver": "overlay"
+    },
+    "smtp_egress": {
+      "driver": "overlay"
     }
   },
   "volumes": {
@@ -614,6 +617,18 @@
     "admin_credential_key": {
       "external": true,
       "name": "sgp_admin_credential_key"
+    },
+    "hub_credential_key": {
+      "external": true,
+      "name": "sgp_hub_credential_key"
+    },
+    "smtp_username": {
+      "external": true,
+      "name": "sgp_smtp_username"
+    },
+    "smtp_password": {
+      "external": true,
+      "name": "sgp_smtp_password"
     },
     "global_coordinator_credential": {
       "external": true,

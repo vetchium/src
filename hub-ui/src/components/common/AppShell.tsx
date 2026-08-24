@@ -1,4 +1,4 @@
-import { HomeOutlined } from "@ant-design/icons";
+import { HomeOutlined, SettingOutlined } from "@ant-design/icons";
 import { Drawer, Flex, Grid, Layout, Menu, Typography } from "antd";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -17,9 +17,16 @@ export function AppShell() {
   const preferences = usePreferences();
   const auth = useAuth();
   const [navigationOpen, setNavigationOpen] = useState(false);
-  const selectedKey = location.pathname === "/" ? "/" : "";
+  const selectedKey = location.pathname.startsWith("/settings")
+    ? "/settings"
+    : "/";
   const navigationItems = [
     { key: "/", icon: <HomeOutlined />, label: t("navigation.home") },
+    {
+      key: "/settings",
+      icon: <SettingOutlined />,
+      label: t("navigation.settings"),
+    },
   ];
 
   const navigateFromMenu = (path: string) => {
@@ -33,7 +40,7 @@ export function AppShell() {
       <AppHeader
         onOpenNavigation={() => setNavigationOpen(true)}
         onSignOut={() => {
-          auth.logout();
+          void auth.signOut();
           navigate("/login", { replace: true });
         }}
       />

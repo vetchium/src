@@ -14,7 +14,7 @@ const primaryColor = "#0f766e";
 
 function ThemedApplication({ children }: PropsWithChildren) {
   const { language, themeMode } = usePreferences();
-  const locale = language === "ta" ? taIN : language === "de_DE" ? deDE : enUS;
+  const locale = language === "ta" ? taIN : language === "de-DE" ? deDE : enUS;
 
   return (
     <ConfigProvider

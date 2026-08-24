@@ -24,13 +24,35 @@ func TestScalarValidationBoundaries(t *testing.T) {
 		{"password unicode", IsNewPassword(NewPassword("🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂")), true},
 		{"English locale", IsFrontendLocale("en-US"), true},
 		{"Tamil locale", IsFrontendLocale("ta"), true},
-		{"German locale", IsFrontendLocale("de_DE"), true},
+		{"German locale", IsFrontendLocale("de-DE"), true},
 		{"unsupported locale", IsFrontendLocale("fr-FR"), false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.got != tt.want {
 				t.Fatalf("got %v, want %v", tt.got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsCountryCode(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name  string
+		value CountryCode
+		want  bool
+	}{
+		{"India", "IND", true},
+		{"Singapore", "SGP", true},
+		{"lowercase", "ind", false},
+		{"unknown", "ZZZ", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if got := IsCountryCode(tt.value); got != tt.want {
+				t.Fatalf("IsCountryCode(%q) = %v, want %v", tt.value, got, tt.want)
 			}
 		})
 	}

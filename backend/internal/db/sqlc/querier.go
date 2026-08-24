@@ -13,23 +13,37 @@ import (
 type Querier interface {
 	AdminTOTPEnabled(ctx context.Context, adminUserID pgtype.UUID) (bool, error)
 	AuthenticateAdminSession(ctx context.Context, sessionTokenHash []byte) (AuthenticateAdminSessionRow, error)
+	AuthenticateHubSession(ctx context.Context, sessionTokenHash []byte) (AuthenticateHubSessionRow, error)
 	ChangeAdminPassword(ctx context.Context, arg ChangeAdminPasswordParams) (bool, error)
+	ChangeHubPassword(ctx context.Context, arg ChangeHubPasswordParams) (bool, error)
+	ClaimHubEmail(ctx context.Context, arg ClaimHubEmailParams) (ClaimHubEmailRow, error)
 	CompleteAdminPasswordReset(ctx context.Context, arg CompleteAdminPasswordResetParams) (bool, error)
 	CompleteAdminRecoveryCodeLogin(ctx context.Context, arg CompleteAdminRecoveryCodeLoginParams) (CompleteAdminRecoveryCodeLoginRow, error)
 	CompleteAdminSetup(ctx context.Context, arg CompleteAdminSetupParams) (CompleteAdminSetupRow, error)
 	CompleteAdminTOTPLogin(ctx context.Context, arg CompleteAdminTOTPLoginParams) (CompleteAdminTOTPLoginRow, error)
+	CompleteHubPasswordReset(ctx context.Context, arg CompleteHubPasswordResetParams) (bool, error)
+	CompleteHubRecoveryCodeLogin(ctx context.Context, arg CompleteHubRecoveryCodeLoginParams) (CompleteHubRecoveryCodeLoginRow, error)
+	CompleteHubSignup(ctx context.Context, arg CompleteHubSignupParams) (CompleteHubSignupRow, error)
+	CompleteHubTOTPLogin(ctx context.Context, arg CompleteHubTOTPLoginParams) (CompleteHubTOTPLoginRow, error)
 	CompleteIdempotency(ctx context.Context, arg CompleteIdempotencyParams) error
 	ConfirmAdminTOTPEnrollment(ctx context.Context, arg ConfirmAdminTOTPEnrollmentParams) (pgtype.Bool, error)
+	ConfirmHubTOTPEnrollment(ctx context.Context, arg ConfirmHubTOTPEnrollmentParams) (bool, error)
 	CreateAdminInvitation(ctx context.Context, arg CreateAdminInvitationParams) (CreateAdminInvitationRow, error)
 	CreateAdminLoginChallenge(ctx context.Context, arg CreateAdminLoginChallengeParams) (CreateAdminLoginChallengeRow, error)
 	CreateAdminPasswordReset(ctx context.Context, arg CreateAdminPasswordResetParams) (bool, error)
 	CreateAdminSession(ctx context.Context, arg CreateAdminSessionParams) (CreateAdminSessionRow, error)
 	CreateAdminTOTPEnrollment(ctx context.Context, arg CreateAdminTOTPEnrollmentParams) (CreateAdminTOTPEnrollmentRow, error)
+	CreateHubLoginChallenge(ctx context.Context, arg CreateHubLoginChallengeParams) (CreateHubLoginChallengeRow, error)
+	CreateHubPasswordReset(ctx context.Context, arg CreateHubPasswordResetParams) (bool, error)
+	CreateHubSession(ctx context.Context, arg CreateHubSessionParams) (CreateHubSessionRow, error)
 	CreateHubSignupDomain(ctx context.Context, arg CreateHubSignupDomainParams) (CreateHubSignupDomainRow, error)
+	CreateHubSignupRequest(ctx context.Context, arg CreateHubSignupRequestParams) (string, error)
+	CreateHubTOTPEnrollment(ctx context.Context, arg CreateHubTOTPEnrollmentParams) (CreateHubTOTPEnrollmentRow, error)
 	CreateIdempotency(ctx context.Context, arg CreateIdempotencyParams) error
 	DeleteAdminSession(ctx context.Context, arg DeleteAdminSessionParams) (int64, error)
 	DeleteAdminSessionByTokenHash(ctx context.Context, sessionTokenHash []byte) (int64, error)
 	DeleteExpiredIdempotency(ctx context.Context, arg DeleteExpiredIdempotencyParams) error
+	DeleteHubSessionByTokenHash(ctx context.Context, arg DeleteHubSessionByTokenHashParams) error
 	DeleteIdempotency(ctx context.Context, arg DeleteIdempotencyParams) error
 	DisableAdminTOTP(ctx context.Context, arg DisableAdminTOTPParams) (bool, error)
 	// The update refuses to leave a tenant without an active administrator able to
@@ -37,18 +51,29 @@ type Querier interface {
 	// caller holding that permission is normally the one who satisfies the
 	// predicate, so this stops a lockout reached any other way.
 	DisableAdminUser(ctx context.Context, arg DisableAdminUserParams) (string, error)
+	DisableHubTOTP(ctx context.Context, arg DisableHubTOTPParams) (bool, error)
 	EnableAdminUser(ctx context.Context, targetAdminUserID pgtype.UUID) (string, error)
 	GetAdminLoginChallenge(ctx context.Context, tokenHash []byte) (GetAdminLoginChallengeRow, error)
 	GetAdminMyInfo(ctx context.Context, arg GetAdminMyInfoParams) (GetAdminMyInfoRow, error)
 	GetAdminPasswordForReauthentication(ctx context.Context, arg GetAdminPasswordForReauthenticationParams) (string, error)
 	GetAdminTOTPEnrollment(ctx context.Context, arg GetAdminTOTPEnrollmentParams) (GetAdminTOTPEnrollmentRow, error)
 	GetAdminUserForLogin(ctx context.Context, emailAddress string) (GetAdminUserForLoginRow, error)
+	GetHubLoginChallenge(ctx context.Context, tokenHash []byte) (GetHubLoginChallengeRow, error)
+	GetHubMyInfo(ctx context.Context, arg GetHubMyInfoParams) (GetHubMyInfoRow, error)
+	GetHubPasswordForReauthentication(ctx context.Context, arg GetHubPasswordForReauthenticationParams) (string, error)
+	GetHubTOTPEnrollment(ctx context.Context, arg GetHubTOTPEnrollmentParams) (GetHubTOTPEnrollmentRow, error)
+	GetHubUserForLogin(ctx context.Context, emailAddress string) (GetHubUserForLoginRow, error)
 	GetIdempotency(ctx context.Context, arg GetIdempotencyParams) (GetIdempotencyRow, error)
+	HubTOTPEnabled(ctx context.Context, hubUserDid pgtype.UUID) (bool, error)
 	ListAdminUsers(ctx context.Context, arg ListAdminUsersParams) ([]ListAdminUsersRow, error)
 	ListHubSignupDomains(ctx context.Context, arg ListHubSignupDomainsParams) ([]ListHubSignupDomainsRow, error)
 	LockAdminEmailCredentialMutation(ctx context.Context, emailAddress string) (pgtype.UUID, error)
 	LockAdminUserCredentialMutation(ctx context.Context, adminUserID pgtype.UUID) (pgtype.UUID, error)
+	LockHubEmailCredentialMutation(ctx context.Context, emailAddress string) (pgtype.UUID, error)
+	LockHubUserCredentialMutation(ctx context.Context, hubUserDid pgtype.UUID) (pgtype.UUID, error)
 	LockIdempotency(ctx context.Context, dollar_1 string) error
+	MarkHubEmailFailed(ctx context.Context, arg MarkHubEmailFailedParams) (bool, error)
+	MarkHubEmailSent(ctx context.Context, arg MarkHubEmailSentParams) (bool, error)
 	// Outbox ciphertext is retained no longer than the maximum usable lifetime of
 	// the credential it contains, whether delivery succeeded or not.
 	PruneAdminEmailOutbox(ctx context.Context) (int64, error)
@@ -62,15 +87,23 @@ type Querier interface {
 	PruneExpiredAdminSessions(ctx context.Context) (int64, error)
 	PruneExpiredIdempotency(ctx context.Context) (int64, error)
 	ReauthenticateAdminSession(ctx context.Context, arg ReauthenticateAdminSessionParams) (pgtype.Timestamptz, error)
+	ReauthenticateHubSession(ctx context.Context, arg ReauthenticateHubSessionParams) (pgtype.Timestamptz, error)
 	RegenerateAdminTOTPRecoveryCodes(ctx context.Context, arg RegenerateAdminTOTPRecoveryCodesParams) (bool, error)
+	RegenerateHubTOTPRecoveryCodes(ctx context.Context, arg RegenerateHubTOTPRecoveryCodesParams) (bool, error)
 	ResolveAdminLoginChallengeUser(ctx context.Context, tokenHash []byte) (pgtype.UUID, error)
 	ResolveAdminPasswordResetUser(ctx context.Context, resetTokenHash []byte) (pgtype.UUID, error)
+	ResolveHubLoginChallengeUser(ctx context.Context, tokenHash []byte) (pgtype.UUID, error)
+	ResolveHubPasswordResetUser(ctx context.Context, tokenHash []byte) (pgtype.UUID, error)
+	ResolveHubSignupForCompletion(ctx context.Context, tokenHash []byte) (ResolveHubSignupForCompletionRow, error)
+	ScheduleHubEmailRetry(ctx context.Context, arg ScheduleHubEmailRetryParams) (bool, error)
 	SetAdminDisplayName(ctx context.Context, arg SetAdminDisplayNameParams) (int64, error)
 	// Refused when the replacement would remove the last active administrator
 	// able to manage administrators, which no remaining principal could undo. A
 	// tenant that already has none is not held to the invariant it has lost.
 	SetAdminPermissions(ctx context.Context, arg SetAdminPermissionsParams) (string, error)
 	SetAdminPreferredLanguage(ctx context.Context, arg SetAdminPreferredLanguageParams) (int64, error)
+	SetHubPreferredLanguage(ctx context.Context, arg SetHubPreferredLanguageParams) (bool, error)
+	SetHubResidentCountry(ctx context.Context, arg SetHubResidentCountryParams) (bool, error)
 	UpdateHubSignupDomain(ctx context.Context, arg UpdateHubSignupDomainParams) (UpdateHubSignupDomainRow, error)
 }
 

@@ -37,6 +37,15 @@ func TestLoadFile(t *testing.T) {
 		cfg.GlobalCoordinator.RequestTimeout != 5*time.Second {
 		t.Fatalf("global coordinator config = %+v", cfg.GlobalCoordinator)
 	}
+	if cfg.HubAPIServer.SessionTTL != 24*time.Hour ||
+		cfg.HubAPIServer.RememberedSessionTTL != 6360*time.Hour ||
+		cfg.HubAPIServer.PublicBaseURL != "http://hub-ui.sgp.localhost" {
+		t.Fatalf("hub API config = %+v", cfg.HubAPIServer)
+	}
+	if cfg.SMTP.Host != "mailpit" || cfg.SMTP.Port != 1025 ||
+		cfg.SMTP.StartTLS != StartTLSDisabled {
+		t.Fatalf("SMTP config = %+v", cfg.SMTP)
+	}
 
 	databaseURL, err := cfg.Database.URL()
 	if err != nil {
@@ -100,6 +109,45 @@ func TestAdminCredentialSecretRejectsEmptyFile(t *testing.T) {
 	_, err := AdminCredentialSecret()
 	if err == nil || !strings.Contains(err.Error(), "is empty") {
 		t.Fatalf("AdminCredentialSecret() error = %v, want empty-file error", err)
+	}
+}
+
+func TestHubCredentialSecretUsesConfiguredFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "hub-credential-key")
+	if err := os.WriteFile(path, []byte("hub-secret\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("HUB_CREDENTIAL_KEY_FILE", path)
+
+	secret, err := HubCredentialSecret()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if secret != "hub-secret" {
+		t.Fatalf("HubCredentialSecret() = %q, want trimmed secret", secret)
+	}
+}
+
+func TestParseSMTPRequiresTLSForCredentials(t *testing.T) {
+	for _, mode := range []StartTLSMode{
+		StartTLSDisabled,
+		StartTLSOpportunistic,
+	} {
+		t.Run(string(mode), func(t *testing.T) {
+			_, err := parseSMTP(fileSMTP{
+				Host: "smtp.example.com", Port: 587,
+				FromAddress: "noreply@example.com", FromName: "Vetchium",
+				UsernameFile:      "/run/secrets/smtp_username",
+				PasswordFile:      "/run/secrets/smtp_password",
+				StartTLS:          string(mode),
+				ConnectionTimeout: "10s",
+			})
+			if err == nil || !strings.Contains(err.Error(), "must be required") {
+				t.Fatalf(
+					"parseSMTP() error = %v, want TLS-required error", err,
+				)
+			}
+		})
 	}
 }
 
@@ -195,7 +243,10 @@ func TestLoadFileRequiresPositiveDurations(t *testing.T) {
   "workers": {
     "retryBackoffLimit": "0s",
     "pruneAdminSessionsTimer": "1h",
-    "pruneEphemeralDataTimer": "1h"
+    "pruneEphemeralDataTimer": "1h",
+    "deliverHubEmailTimer": "1s",
+    "hubEmailLeaseTTL": "1m",
+    "hubEmailMaxAttempts": 5
   },
   "admin-api-server": {
     "adminSessionTTL": "24h"
@@ -205,7 +256,21 @@ func TestLoadFileRequiresPositiveDurations(t *testing.T) {
     "credentialFile": "/run/secrets/global_coordinator_credential",
     "requestTimeout": "5s"
   },
-  "hub-api-server": {},
+  "hub-api-server": {
+    "sessionTTL": "24h",
+    "rememberedSessionTTL": "6360h",
+    "publicBaseURL": "http://hub-ui.sgp.localhost"
+  },
+  "smtp": {
+    "host": "mailpit",
+    "port": 1025,
+    "fromAddress": "no-reply@vetchium.local",
+    "fromName": "Vetchium",
+    "usernameFile": "",
+    "passwordFile": "",
+    "startTLS": "disabled",
+    "connectionTimeout": "5s"
+  },
   "orgs-api-server": {},
   "mcp-server": {}
 }`, passwordFile)
@@ -274,7 +339,10 @@ func writeConfig(t *testing.T, passwordFile, extraWorkerField string) string {
   "workers": {
     "retryBackoffLimit": "5m",
     "pruneAdminSessionsTimer": "1h",
-    "pruneEphemeralDataTimer": "1h"%s
+    "pruneEphemeralDataTimer": "1h",
+    "deliverHubEmailTimer": "1s",
+    "hubEmailLeaseTTL": "1m",
+    "hubEmailMaxAttempts": 5%s
   },
   "admin-api-server": {
     "adminSessionTTL": "24h"
@@ -284,7 +352,21 @@ func writeConfig(t *testing.T, passwordFile, extraWorkerField string) string {
     "credentialFile": "/run/secrets/global_coordinator_credential",
     "requestTimeout": "5s"
   },
-  "hub-api-server": {},
+  "hub-api-server": {
+    "sessionTTL": "24h",
+    "rememberedSessionTTL": "6360h",
+    "publicBaseURL": "http://hub-ui.sgp.localhost"
+  },
+  "smtp": {
+    "host": "mailpit",
+    "port": 1025,
+    "fromAddress": "no-reply@vetchium.local",
+    "fromName": "Vetchium",
+    "usernameFile": "",
+    "passwordFile": "",
+    "startTLS": "disabled",
+    "connectionTimeout": "5s"
+  },
   "orgs-api-server": {},
   "mcp-server": {}
 }`, passwordFile, extraWorkerField)

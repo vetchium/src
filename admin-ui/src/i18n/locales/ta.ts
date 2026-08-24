@@ -31,7 +31,7 @@ export const ta = {
   languageShort: {
     "en-US": "EN",
     ta: "TA",
-    de_DE: "DE",
+    "de-DE": "DE",
   },
   common: {
     all: "அனைத்தும்",
@@ -95,7 +95,7 @@ export const ta = {
   languages: {
     "en-US": "English US",
     ta: "தமிழ்",
-    de_DE: "Deutsch",
+    "de-DE": "Deutsch",
   },
   states: { active: "செயலில்", disabled: "முடக்கப்பட்டது" },
   permissions: {

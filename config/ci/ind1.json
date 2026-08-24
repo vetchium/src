@@ -12,7 +12,10 @@
   "workers": {
     "retryBackoffLimit": "10s",
     "pruneAdminSessionsTimer": "10s",
-    "pruneEphemeralDataTimer": "10s"
+    "pruneEphemeralDataTimer": "10s",
+    "deliverHubEmailTimer": "250ms",
+    "hubEmailLeaseTTL": "10s",
+    "hubEmailMaxAttempts": 5
   },
   "admin-api-server": {
     "adminSessionTTL": "30s"
@@ -22,7 +25,21 @@
     "credentialFile": "/run/secrets/global_coordinator_credential",
     "requestTimeout": "5s"
   },
-  "hub-api-server": {},
+  "hub-api-server": {
+    "sessionTTL": "24h",
+    "rememberedSessionTTL": "6360h",
+    "publicBaseURL": "http://hub-ui.ind1.localhost"
+  },
+  "smtp": {
+    "host": "mailpit",
+    "port": 1025,
+    "fromAddress": "no-reply@vetchium.local",
+    "fromName": "Vetchium",
+    "usernameFile": "",
+    "passwordFile": "",
+    "startTLS": "disabled",
+    "connectionTimeout": "5s"
+  },
   "orgs-api-server": {},
   "mcp-server": {}
 }

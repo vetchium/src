@@ -1,0 +1,9 @@
+Hallo {{.DisplayName}},
+
+Verwenden Sie diesen Link, um Ihre E-Mail-Adresse zu bestätigen und Ihre Vetchium-Registrierung abzuschließen:
+
+{{.ActionURL}}
+
+Dieser Link ist bis zum {{.ExpiresAt.UTC.Format "02.01.2006 um 15:04 UTC"}} gültig.
+
+Falls Sie diese Registrierung nicht angefordert haben, können Sie diese E-Mail ignorieren.

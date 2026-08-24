@@ -15,7 +15,7 @@ void i18n.use(initReactI18next).init({
     ta: {
       translation: ta,
     },
-    de_DE: {
+    "de-DE": {
       translation: de,
     },
   },

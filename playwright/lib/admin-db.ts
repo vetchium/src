@@ -30,6 +30,14 @@ function assertOwnedDomain(domain: string): void {
   }
 }
 
+function assertOwnedHubEmail(emailAddress: string): void {
+  if (!/^e2e\+[a-f0-9-]+@e2e-[a-z0-9-]+\.example\.test$/.test(emailAddress)) {
+    throw new Error(
+      `refusing Hub database operation for non-test email: ${emailAddress}`,
+    );
+  }
+}
+
 function sqlLiteral(value: string): string {
   return `'${value.replaceAll("'", "''")}'`;
 }
@@ -998,6 +1006,46 @@ export function cleanupHubSignupDomain(
   );
 }
 
+export function cleanupHubUser(emailAddress: string): void {
+  assertOwnedHubEmail(emailAddress);
+  const email = sqlLiteral(emailAddress);
+  sqlScalar(`
+    DELETE FROM vetchium.hub_email_outbox
+    WHERE recipient_email_address = ${email};
+    DELETE FROM vetchium.hub_signup_requests
+    WHERE email_address = ${email};
+    DELETE FROM vetchium.hub_users
+    WHERE email_address = ${email};
+    DELETE FROM vetchium.idempotency_ledger
+    WHERE binding_id = ${email};
+  `);
+}
+
+export function ageHubSession(token: string): void {
+  if (!/^[A-Za-z0-9_-]{43}$/.test(token)) {
+    throw new Error("refusing to age a malformed Hub session token");
+  }
+  const tokenHash = createHash("sha256").update(token).digest("hex");
+  sqlScalar(`
+    UPDATE vetchium.hub_sessions
+    SET created_at = now() - interval '7 minutes',
+        authenticated_at = now() - interval '6 minutes'
+    WHERE session_token_hash = decode('${tokenHash}', 'hex');
+  `);
+}
+
+export function setHubUserState(
+  emailAddress: string,
+  state: "active" | "disabled",
+): void {
+  assertOwnedHubEmail(emailAddress);
+  sqlScalar(`
+    UPDATE vetchium.hub_users
+    SET hub_user_state = ${sqlLiteral(state)}, updated_at = now()
+    WHERE email_address = ${sqlLiteral(emailAddress)};
+  `);
+}
+
 export function cleanupAdminIdempotency(keys: Iterable<string>): void {
   const uniqueKeys = [...new Set(keys)];
   if (uniqueKeys.length === 0) return;
@@ -1010,6 +1058,10 @@ export function cleanupAdminIdempotency(keys: Iterable<string>): void {
     DELETE FROM vetchium.idempotency_ledger
     WHERE idempotency_key IN (${uniqueKeys.map(sqlLiteral).join(", ")});
   `);
+}
+
+export function cleanupHubIdempotency(keys: Iterable<string>): void {
+  cleanupAdminIdempotency(keys);
 }
 
 export function ageAdminInvitation(emailAddress: string): void {
