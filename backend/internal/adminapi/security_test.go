@@ -2,8 +2,30 @@ package adminapi
 
 import (
 	"bytes"
+	"encoding/hex"
+	"strings"
 	"testing"
 )
+
+func TestNewTokenUsesLowercaseHexAndMatchingDigest(t *testing.T) {
+	token, digest, err := NewToken()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(token) != 64 || token != strings.ToLower(token) {
+		t.Fatalf("token = %q, want 64 lowercase hexadecimal characters", token)
+	}
+	decoded, err := hex.DecodeString(token)
+	if err != nil {
+		t.Fatalf("token is not hexadecimal: %v", err)
+	}
+	if len(decoded) != 32 {
+		t.Fatalf("decoded token length = %d, want 32", len(decoded))
+	}
+	if !bytes.Equal(digest, TokenHash(token)) {
+		t.Fatal("returned token digest does not match TokenHash")
+	}
+}
 
 func TestCredentialEncryptionIsVersionedAndPurposeSeparated(t *testing.T) {
 	root := DeriveCredentialKey("sgp", "deployment-secret")

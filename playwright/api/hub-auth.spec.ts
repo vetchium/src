@@ -46,7 +46,7 @@ async function latestEmailText(
 }
 
 function actionToken(body: string, path: string): string {
-  const match = body.match(new RegExp(`${path}\\?token=([A-Za-z0-9_-]+)`));
+  const match = body.match(new RegExp(`${path}\\?token=([0-9a-f]{64})`));
   if (!match?.[1]) throw new Error(`email did not contain ${path} token`);
   return match[1];
 }

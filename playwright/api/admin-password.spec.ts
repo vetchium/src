@@ -17,7 +17,7 @@ test.describe("Admin password management", () => {
     expect(existingResponse.headers()["cache-control"]).toBe("no-store");
     expect(
       emailCredential(existing.emailAddress, "password-reset", "reset_token"),
-    ).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    ).toMatch(/^[0-9a-f]{64}$/);
 
     const unknownResponse = await adminAPI.post("/request-password-reset", {
       email_address: ownedEmail(),
@@ -103,7 +103,7 @@ test.describe("Admin password management", () => {
       admin.emailAddress,
       newPassword,
     );
-    expect(replacement.session_token).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(replacement.session_token).toMatch(/^[0-9a-f]{64}$/);
     const oldPassword = await adminAPI.post("/login", {
       email_address: admin.emailAddress,
       password: admin.password,

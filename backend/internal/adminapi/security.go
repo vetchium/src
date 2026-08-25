@@ -51,7 +51,7 @@ func NewToken() (string, []byte, error) {
 	if _, err := rand.Read(secret); err != nil {
 		return "", nil, fmt.Errorf("generate token: %w", err)
 	}
-	token := base64.RawURLEncoding.EncodeToString(secret)
+	token := hex.EncodeToString(secret)
 	digest := sha256.Sum256([]byte(token))
 	return token, digest[:], nil
 }

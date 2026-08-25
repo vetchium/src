@@ -22,7 +22,7 @@ test.describe("Admin authentication", () => {
     expect(response.headers()["cache-control"]).toBe("no-store");
     const body = await responseJSON<LoginAuthenticatedResponse>(response);
     expect(body.authentication_state).toBe(AuthenticationStateAuthenticated);
-    expect(body.session_token).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(body.session_token).toMatch(/^[0-9a-f]{64}$/);
     expect(Date.parse(body.session_expires_at)).toBeGreaterThan(Date.now());
     await adminAPI.post("/logout", undefined, { token: body.session_token });
   });

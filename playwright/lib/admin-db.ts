@@ -1022,7 +1022,7 @@ export function cleanupHubUser(emailAddress: string): void {
 }
 
 export function ageHubSession(token: string): void {
-  if (!/^[A-Za-z0-9_-]{43}$/.test(token)) {
+  if (!/^(?:[0-9a-f]{64}|[A-Za-z0-9_-]{43})$/.test(token)) {
     throw new Error("refusing to age a malformed Hub session token");
   }
   const tokenHash = createHash("sha256").update(token).digest("hex");
@@ -1075,7 +1075,7 @@ export function ageAdminInvitation(emailAddress: string): void {
 }
 
 export function ageSession(token: string): void {
-  if (!/^[A-Za-z0-9_-]{43}$/.test(token)) {
+  if (!/^(?:[0-9a-f]{64}|[A-Za-z0-9_-]{43})$/.test(token)) {
     throw new Error("refusing to age a malformed session token");
   }
   const tokenHash = createHash("sha256").update(token).digest("hex");
@@ -1110,7 +1110,7 @@ export function sessionAndReplayExpiry(
   operation: string,
   key: string,
 ): { session: number; replay: number } {
-  if (!/^[A-Za-z0-9_-]{43}$/.test(sessionToken)) {
+  if (!/^(?:[0-9a-f]{64}|[A-Za-z0-9_-]{43})$/.test(sessionToken)) {
     throw new Error("refusing to inspect a malformed session token");
   }
   if (!/^admin:[a-z-]+$/.test(operation) || !/^e2e-[A-Za-z0-9_-]+$/.test(key)) {
@@ -1171,6 +1171,7 @@ export function expireAdminIdempotency(operation: string, key: string): void {
 }
 
 export function createSeededManagerSession(tenant: TestTenant = "sgp"): string {
+  // Exercise compatibility with sessions issued before hexadecimal encoding.
   const token = randomBytes(32).toString("base64url");
   const tokenHash = createHash("sha256").update(token).digest("hex");
   const inserted = sqlScalarForTenant(

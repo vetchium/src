@@ -279,7 +279,7 @@ test.describe("Admin TOTP", () => {
     );
     expect(verified.status()).toBe(200);
     const session = await responseJSON<AuthenticatedSessionResponse>(verified);
-    expect(session.session_token).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(session.session_token).toMatch(/^[0-9a-f]{64}$/);
     const replay = await adminAPI.post(
       "/login/tfa",
       {
