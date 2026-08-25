@@ -18,6 +18,8 @@ import {
   cleanupHubIdempotency,
   cleanupHubUser,
   currentTOTP,
+  hubAuditEventsByIdempotencyKey,
+  hubAuditEventsForActor,
   setHubUserState,
 } from "../lib/admin-db.ts";
 import { expect, test } from "../lib/admin-fixtures.ts";
@@ -401,6 +403,7 @@ test("Hub signup, sessions, profile, passwords, and TFA work together", async ({
     const challenge =
       await responseJSON<LoginTOTPRequiredResponse>(challengeResponse);
     expect(challenge.authentication_state).toBe("totp_required");
+    const incorrectTFAKey = hubIdempotencyKey();
     await expectProblem(
       await hub.post(
         "/login/tfa",
@@ -408,11 +411,12 @@ test("Hub signup, sessions, profile, passwords, and TFA work together", async ({
           login_challenge_token: challenge.login_challenge_token,
           totp_code: "000000",
         },
-        { idempotencyKey: hubIdempotencyKey() },
+        { idempotencyKey: incorrectTFAKey },
       ),
       422,
       "vetchium-problem-details/hub-incorrect-totp-code",
     );
+    expect(hubAuditEventsByIdempotencyKey(incorrectTFAKey)).toEqual([]);
     const tfaKey = hubIdempotencyKey();
     const tfaCode = currentTOTP(enrollment.manual_entry_key);
     const tfaSessionResponse = await hub.post(
@@ -428,6 +432,23 @@ test("Hub signup, sessions, profile, passwords, and TFA work together", async ({
     );
     const tfaSession =
       await responseJSON<AuthenticatedSessionResponse>(tfaSessionResponse);
+    const tfaAuditEvents = hubAuditEventsByIdempotencyKey(tfaKey);
+    expect(tfaAuditEvents).toHaveLength(1);
+    expect(tfaAuditEvents[0]).toMatchObject({
+      tenant_id: "sgp",
+      action: "hub.session.created-with-totp",
+      entity_type: "hub_session",
+      entity_id: expect.stringMatching(/^[0-9a-f-]{36}$/),
+      actor_type: "hub_user",
+      actor_id: completed.hub_user_did,
+      source: "hub-api",
+      idempotency_key: tfaKey,
+      payload: { remembered: false },
+    });
+    expect(tfaAuditEvents[0]?.payload).toEqual({ remembered: false });
+    expect(Number.isNaN(Date.parse(tfaAuditEvents[0]?.created_at ?? ""))).toBe(
+      false,
+    );
     await expectProblem(
       await hub.post(
         "/login/tfa",
@@ -440,6 +461,7 @@ test("Hub signup, sessions, profile, passwords, and TFA work together", async ({
       409,
       "vetchium-problem-details/idempotency-key-conflict",
     );
+    expect(hubAuditEventsByIdempotencyKey(tfaKey)).toHaveLength(1);
 
     const recoveryChallenge = await responseJSON<LoginTOTPRequiredResponse>(
       await hub.post("/login", {
@@ -447,6 +469,7 @@ test("Hub signup, sessions, profile, passwords, and TFA work together", async ({
         password: changedPassword,
       }),
     );
+    const incorrectRecoveryKey = hubIdempotencyKey();
     await expectProblem(
       await hub.post(
         "/login/recovery-code",
@@ -454,11 +477,12 @@ test("Hub signup, sessions, profile, passwords, and TFA work together", async ({
           login_challenge_token: recoveryChallenge.login_challenge_token,
           recovery_code: "INVALID-CODE",
         },
-        { idempotencyKey: hubIdempotencyKey() },
+        { idempotencyKey: incorrectRecoveryKey },
       ),
       422,
       "vetchium-problem-details/hub-incorrect-recovery-code",
     );
+    expect(hubAuditEventsByIdempotencyKey(incorrectRecoveryKey)).toEqual([]);
     const recoveryKey = hubIdempotencyKey();
     const recoveryResponse = await hub.post(
       "/login/recovery-code",
@@ -474,6 +498,57 @@ test("Hub signup, sessions, profile, passwords, and TFA work together", async ({
     expect(recovery.remaining_recovery_codes).toBe(
       confirmation.recovery_codes.length - 1,
     );
+    const recoveryAuditEvents = hubAuditEventsByIdempotencyKey(recoveryKey);
+    expect(recoveryAuditEvents).toHaveLength(1);
+    expect(recoveryAuditEvents[0]).toMatchObject({
+      tenant_id: "sgp",
+      action: "hub.session.created-with-recovery-code",
+      entity_type: "hub_session",
+      entity_id: expect.stringMatching(/^[0-9a-f-]{36}$/),
+      actor_type: "hub_user",
+      actor_id: completed.hub_user_did,
+      source: "hub-api",
+      idempotency_key: recoveryKey,
+      payload: { remembered: false },
+    });
+    expect(recoveryAuditEvents[0]?.payload).toEqual({ remembered: false });
+    expect(
+      Number.isNaN(Date.parse(recoveryAuditEvents[0]?.created_at ?? "")),
+    ).toBe(false);
+    const challengeAuditEvents = hubAuditEventsForActor(
+      completed.hub_user_did,
+      "hub.login-challenge.created",
+    );
+    expect(challengeAuditEvents).toHaveLength(2);
+    for (const event of challengeAuditEvents) {
+      expect(event).toMatchObject({
+        tenant_id: "sgp",
+        action: "hub.login-challenge.created",
+        entity_type: "hub_login_challenge",
+        entity_id: expect.stringMatching(/^[0-9a-f-]{36}$/),
+        actor_type: "hub_user",
+        actor_id: completed.hub_user_did,
+        source: "hub-api",
+        idempotency_key: null,
+        payload: { remembered: false },
+      });
+      expect(event.payload).toEqual({ remembered: false });
+      expect(Number.isNaN(Date.parse(event.created_at))).toBe(false);
+    }
+    const signInAuditText = JSON.stringify([
+      ...challengeAuditEvents,
+      ...tfaAuditEvents,
+      ...recoveryAuditEvents,
+    ]);
+    for (const sensitiveValue of [
+      changedPassword,
+      challenge.login_challenge_token,
+      recoveryChallenge.login_challenge_token,
+      tfaCode,
+      confirmation.recovery_codes[0],
+    ]) {
+      expect(signInAuditText).not.toContain(sensitiveValue);
+    }
     await expectProblem(
       await hub.post(
         "/login/recovery-code",
@@ -486,6 +561,7 @@ test("Hub signup, sessions, profile, passwords, and TFA work together", async ({
       409,
       "vetchium-problem-details/idempotency-key-conflict",
     );
+    expect(hubAuditEventsByIdempotencyKey(recoveryKey)).toHaveLength(1);
 
     const regeneratedResponse = await hub.post(
       "/regenerate-totp-recovery-codes",

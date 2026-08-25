@@ -1064,6 +1064,244 @@ export function cleanupHubIdempotency(keys: Iterable<string>): void {
   cleanupAdminIdempotency(keys);
 }
 
+export interface AuditEvent {
+  audit_event_id: string;
+  tenant_id: string;
+  action: string;
+  entity_type: string;
+  entity_id: string;
+  actor_type: string;
+  actor_id: string | null;
+  source: string;
+  idempotency_key: string | null;
+  payload: Record<string, unknown>;
+  created_at: string;
+}
+
+function parseAuditEvents(value: string): AuditEvent[] {
+  const parsed: unknown = JSON.parse(value);
+  if (!Array.isArray(parsed)) {
+    throw new Error("audit-event query did not return an array");
+  }
+  return parsed as AuditEvent[];
+}
+
+function auditEventJSON(where: string): AuditEvent[] {
+  const value = sqlScalar(`
+    SELECT COALESCE(
+      jsonb_agg(
+        jsonb_build_object(
+          'audit_event_id', audit_event_id,
+          'tenant_id', tenant_id,
+          'action', action,
+          'entity_type', entity_type,
+          'entity_id', entity_id,
+          'actor_type', actor_type,
+          'actor_id', actor_id,
+          'source', source,
+          'idempotency_key', idempotency_key,
+          'payload', payload,
+          'created_at', created_at
+        ) ORDER BY created_at, audit_event_id
+      ),
+      '[]'::jsonb
+    )::text
+    FROM vetchium.audit_events
+    WHERE ${where};
+  `);
+  return parseAuditEvents(value);
+}
+
+function assertHubAuditAction(action: string): void {
+  if (!/^hub\.[a-z0-9.-]+$/.test(action)) {
+    throw new Error(
+      `refusing to inspect malformed Hub audit action: ${action}`,
+    );
+  }
+}
+
+function assertHubUserDID(hubUserDID: string): void {
+  if (
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(
+      hubUserDID,
+    )
+  ) {
+    throw new Error(
+      `refusing to inspect malformed Hub user DID: ${hubUserDID}`,
+    );
+  }
+}
+
+function assertHubIdempotencyKey(key: string): void {
+  if (!/^e2e-[A-Za-z0-9_-]{22,124}$/.test(key)) {
+    throw new Error(
+      `refusing to inspect malformed Hub idempotency key: ${key}`,
+    );
+  }
+}
+
+export function hubAuditEventsByIdempotencyKey(key: string): AuditEvent[] {
+  assertHubIdempotencyKey(key);
+  return auditEventJSON(`idempotency_key = ${sqlLiteral(key)}`);
+}
+
+export function hubAuditEventsForActor(
+  hubUserDID: string,
+  action: string,
+): AuditEvent[] {
+  assertHubUserDID(hubUserDID);
+  assertHubAuditAction(action);
+  return auditEventJSON(
+    `actor_id = ${sqlLiteral(hubUserDID)} AND action = ${sqlLiteral(action)}`,
+  );
+}
+
+export function hubSessionCount(hubUserDID: string): number {
+  assertHubUserDID(hubUserDID);
+  return Number(
+    sqlScalar(`
+      SELECT count(*)::text
+      FROM vetchium.hub_sessions
+      WHERE hub_user_did = ${sqlLiteral(hubUserDID)}::uuid;
+    `),
+  );
+}
+
+export function hubPasswordHash(emailAddress: string): string {
+  assertOwnedHubEmail(emailAddress);
+  return sqlScalar(`
+    SELECT password_hash
+    FROM vetchium.hub_users
+    WHERE email_address = ${sqlLiteral(emailAddress)};
+  `);
+}
+
+export function hubSignupArtifactCounts(
+  emailAddress: string,
+  key: string,
+): {
+  auditEvents: number;
+  idempotencyRows: number;
+  outboxItems: number;
+  signupRequests: number;
+} {
+  assertOwnedHubEmail(emailAddress);
+  assertHubIdempotencyKey(key);
+  const value = sqlScalar(`
+    SELECT
+      (SELECT count(*) FROM vetchium.audit_events
+        WHERE idempotency_key = ${sqlLiteral(key)})::text || '|' ||
+      (SELECT count(*) FROM vetchium.idempotency_ledger
+        WHERE idempotency_key = ${sqlLiteral(key)})::text || '|' ||
+      (SELECT count(*) FROM vetchium.hub_email_outbox
+        WHERE recipient_email_address = ${sqlLiteral(emailAddress)})::text || '|' ||
+      (SELECT count(*) FROM vetchium.hub_signup_requests
+        WHERE email_address = ${sqlLiteral(emailAddress)})::text;
+  `);
+  const [auditEvents, idempotencyRows, outboxItems, signupRequests] = value
+    .split("|")
+    .map(Number);
+  if (
+    auditEvents === undefined ||
+    idempotencyRows === undefined ||
+    outboxItems === undefined ||
+    signupRequests === undefined
+  ) {
+    throw new Error(`invalid Hub signup artifact counts: ${value}`);
+  }
+  return { auditEvents, idempotencyRows, outboxItems, signupRequests };
+}
+
+export function hubSignupCompletionArtifactCounts(
+  emailAddress: string,
+  key: string,
+): {
+  activeSignupRequests: number;
+  auditEvents: number;
+  hubUsers: number;
+  idempotencyRows: number;
+} {
+  assertOwnedHubEmail(emailAddress);
+  assertHubIdempotencyKey(key);
+  const value = sqlScalar(`
+    SELECT
+      (SELECT count(*) FROM vetchium.hub_signup_requests
+        WHERE email_address = ${sqlLiteral(emailAddress)}
+          AND active AND consumed_at IS NULL)::text || '|' ||
+      (SELECT count(*) FROM vetchium.audit_events
+        WHERE idempotency_key = ${sqlLiteral(key)})::text || '|' ||
+      (SELECT count(*) FROM vetchium.hub_users
+        WHERE email_address = ${sqlLiteral(emailAddress)})::text || '|' ||
+      (SELECT count(*) FROM vetchium.idempotency_ledger
+        WHERE idempotency_key = ${sqlLiteral(key)})::text;
+  `);
+  const [activeSignupRequests, auditEvents, hubUsers, idempotencyRows] = value
+    .split("|")
+    .map(Number);
+  if (
+    activeSignupRequests === undefined ||
+    auditEvents === undefined ||
+    hubUsers === undefined ||
+    idempotencyRows === undefined
+  ) {
+    throw new Error(`invalid Hub signup completion counts: ${value}`);
+  }
+  return { activeSignupRequests, auditEvents, hubUsers, idempotencyRows };
+}
+
+export function installHubAuditInsertFailure(match: {
+  action: string;
+  actorID?: string;
+  idempotencyKey?: string;
+}): () => void {
+  assertHubAuditAction(match.action);
+  if (match.actorID !== undefined) assertHubUserDID(match.actorID);
+  if (match.idempotencyKey !== undefined) {
+    assertHubIdempotencyKey(match.idempotencyKey);
+  }
+  if (match.actorID === undefined && match.idempotencyKey === undefined) {
+    throw new Error("audit failure must be scoped to a test-owned identifier");
+  }
+
+  const suffix = randomBytes(8).toString("hex");
+  const functionName = `e2e_fail_hub_audit_${suffix}`;
+  const triggerName = `e2e_fail_hub_audit_${suffix}`;
+  const predicates = [`NEW.action = ${sqlLiteral(match.action)}`];
+  if (match.actorID !== undefined) {
+    predicates.push(`NEW.actor_id = ${sqlLiteral(match.actorID)}`);
+  }
+  if (match.idempotencyKey !== undefined) {
+    predicates.push(
+      `NEW.idempotency_key = ${sqlLiteral(match.idempotencyKey)}`,
+    );
+  }
+  sqlScalar(`
+    CREATE FUNCTION vetchium.${functionName}()
+    RETURNS trigger
+    LANGUAGE plpgsql
+    AS $function$
+    BEGIN
+      RAISE EXCEPTION 'injected Hub audit failure';
+    END
+    $function$;
+    CREATE TRIGGER ${triggerName}
+    BEFORE INSERT ON vetchium.audit_events
+    FOR EACH ROW
+    WHEN (${predicates.join(" AND ")})
+    EXECUTE FUNCTION vetchium.${functionName}();
+  `);
+
+  let installed = true;
+  return () => {
+    if (!installed) return;
+    sqlScalar(`
+      DROP TRIGGER ${triggerName} ON vetchium.audit_events;
+      DROP FUNCTION vetchium.${functionName}();
+    `);
+    installed = false;
+  };
+}
+
 export function ageAdminInvitation(emailAddress: string): void {
   assertOwnedEmail(emailAddress);
   sqlScalar(`
