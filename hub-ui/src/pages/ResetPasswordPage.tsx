@@ -4,6 +4,8 @@ import { useTranslation } from "react-i18next";
 import { Link, useSearchParams } from "react-router";
 import { isNewPassword } from "../../../typespec/common/authentication.ts";
 import { hubAPI } from "../api/hub";
+import { useIdempotencyKey } from "../api/idempotency";
+import { usePendingOperations } from "../app/PendingOperationContext";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
 
 interface ResetValues {
@@ -15,12 +17,24 @@ export function ResetPasswordPage() {
   const { t } = useTranslation();
   const [search] = useSearchParams();
   const token = search.get("token") ?? "";
+  const key = useIdempotencyKey(`hub-password-reset:${token}`);
+  const { hold } = usePendingOperations();
   const reset = useMutation({
-    mutationFn: (values: ResetValues) =>
-      hubAPI.completePasswordReset({
-        reset_token: token,
-        new_password: values.new_password,
-      }),
+    mutationFn: async (values: ResetValues) => {
+      const release = hold();
+      try {
+        return await hubAPI.completePasswordReset(
+          {
+            reset_token: token,
+            new_password: values.new_password,
+          },
+          key.current(),
+        );
+      } finally {
+        release();
+      }
+    },
+    onSuccess: () => key.rotate(),
   });
   return (
     <Card className="auth-card">

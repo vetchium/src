@@ -4,6 +4,8 @@ import { useTranslation } from "react-i18next";
 import { Link, useSearchParams } from "react-router";
 import { isNewPassword } from "../../../typespec/common/authentication.ts";
 import { hubAPI } from "../api/hub";
+import { useIdempotencyKey } from "../api/idempotency";
+import { usePendingOperations } from "../app/PendingOperationContext";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
 
 interface PasswordValues {
@@ -15,9 +17,21 @@ export function CompleteSignupPage() {
   const { t } = useTranslation();
   const [search] = useSearchParams();
   const token = search.get("token") ?? "";
+  const key = useIdempotencyKey(`hub-complete-signup:${token}`);
+  const { hold } = usePendingOperations();
   const complete = useMutation({
-    mutationFn: (values: PasswordValues) =>
-      hubAPI.completeSignup({ signup_token: token, password: values.password }),
+    mutationFn: async (values: PasswordValues) => {
+      const release = hold();
+      try {
+        return await hubAPI.completeSignup(
+          { signup_token: token, password: values.password },
+          key.current(),
+        );
+      } finally {
+        release();
+      }
+    },
+    onSuccess: () => key.rotate(),
   });
 
   return (

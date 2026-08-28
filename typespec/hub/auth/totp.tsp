@@ -66,7 +66,6 @@ interface TOTPOperations {
       }
     | Vetchium.Problem.HubAuthenticationOrRecentRequiredErrorResponse
     | Vetchium.Problem.HubTOTPAlreadyEnabledErrorResponse
-    | Vetchium.Problem.IdempotencyKeyConflictErrorResponse
     | Vetchium.Problem.RateLimitExceededErrorResponse
     | Vetchium.Problem.InternalServerErrorResponse;
 
@@ -139,7 +138,6 @@ interface TOTPOperations {
       }
     | Vetchium.Problem.HubAuthenticationOrRecentRequiredErrorResponse
     | Vetchium.Problem.HubTOTPNotEnabledErrorResponse
-    | Vetchium.Problem.IdempotencyKeyConflictErrorResponse
     | Vetchium.Problem.RateLimitExceededErrorResponse
     | Vetchium.Problem.InternalServerErrorResponse;
 }

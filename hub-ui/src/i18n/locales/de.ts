@@ -6,12 +6,15 @@ export const de = {
     homeLabel: "Vetchium-Startseite",
     footer: "Vetchium",
     logout: "Abmelden",
+    operationInProgress:
+      "Schließen Sie den laufenden Vorgang ab, bevor Sie diese Seite verlassen.",
   },
   navigation: {
     menu: "Navigation",
     openMenu: "Navigation öffnen",
     home: "Startseite",
-    settings: "Einstellungen",
+    profile: "Mein Profil",
+    security: "Sicherheit",
   },
   theme: {
     toggleLabel: "Zwischen hellem und dunklem Modus wechseln",
@@ -42,6 +45,8 @@ export const de = {
     recoveryCode: "Wiederherstellungscode",
     handle: "Handle",
     did: "Profil-ID",
+    twoFactor: "Zwei-Faktor-Authentifizierung",
+    recoveryCodes: "Verbleibende Wiederherstellungscodes",
   },
   login: {
     documentTitle: "Anmelden | Vetchium",
@@ -56,6 +61,16 @@ export const de = {
     forgotPassword: "Passwort vergessen?",
     noAccount: "Neu bei Vetchium?",
     signup: "Konto erstellen",
+  },
+  twoFactor: {
+    documentTitle: "Zwei-Faktor-Prüfung | Vetchium",
+    title: "Identität bestätigen",
+    description:
+      "Geben Sie einen Authenticator-Code oder einen Wiederherstellungscode ein.",
+    authenticator: "Authenticator",
+    recovery: "Wiederherstellungscode",
+    action: "Prüfen und anmelden",
+    restart: "Anmeldung neu starten",
   },
   signup: {
     documentTitle: "Konto erstellen | Vetchium",
@@ -92,6 +107,12 @@ export const de = {
   common: {
     backToSignin: "Zurück zur Anmeldung",
     continueToSignin: "Weiter zur Anmeldung",
+    cancel: "Abbrechen",
+    confirm: "Bestätigen",
+    disabled: "Deaktiviert",
+    enabled: "Aktiviert",
+    loadError: "Diese Informationen konnten nicht geladen werden.",
+    retry: "Erneut versuchen",
   },
   validation: {
     required: "Dieses Feld ist erforderlich.",
@@ -102,6 +123,7 @@ export const de = {
       "Verwenden Sie 15 bis 128 Zeichen und vermeiden Sie häufige Passwörter.",
     passwordMatch: "Die Passwörter stimmen nicht überein.",
     totp: "Geben Sie den sechsstelligen Authenticator-Code ein.",
+    recoveryCode: "Geben Sie einen gültigen Wiederherstellungscode ein.",
   },
   errors: {
     generic: "Ein Fehler ist aufgetreten. Versuchen Sie es erneut.",
@@ -120,14 +142,36 @@ export const de = {
       "Der Anmeldeversuch ist abgelaufen. Beginnen Sie erneut.",
     recentAuthenticationRequired: "Geben Sie Ihr Passwort erneut ein.",
     rateLimited: "Zu viele Versuche. Warten Sie und versuchen Sie es erneut.",
-  },
-  settings: {
-    documentTitle: "Einstellungen | Vetchium",
-    title: "Einstellungen",
-    saved: "Ihre Einstellung wurde gespeichert.",
+    idempotencyConflict:
+      "Diese Aktion wurde bereits mit anderen Angaben gesendet. Laden Sie die Seite neu und versuchen Sie es erneut.",
+    totpAlreadyEnabled:
+      "Die Zwei-Faktor-Authentifizierung ist bereits aktiviert.",
+    totpNotEnabled: "Die Zwei-Faktor-Authentifizierung ist nicht aktiviert.",
+    invalidEnrollment: "Diese Einrichtung ist abgelaufen. Beginnen Sie erneut.",
   },
   profile: {
-    title: "Profileinstellungen",
+    documentTitle: "Mein Profil | Vetchium",
+    title: "Mein Profil",
+    description: "Prüfen Sie Ihre Identität und wählen Sie Ihre Einstellungen.",
+    identity: "Kontoidentität",
+    preferences: "Einstellungen",
+    saved: "Ihre Einstellung wurde gespeichert.",
+  },
+  security: {
+    documentTitle: "Sicherheit | Vetchium",
+    title: "Sicherheit",
+    description: "Verwalten Sie Passwort und Zwei-Faktor-Authentifizierung.",
+  },
+  reauthentication: {
+    documentTitle: "Identität bestätigen | Vetchium",
+    title: "Identität bestätigen",
+    description: "Melden Sie sich vor sensiblen Änderungen erneut an.",
+    action: "Erneut anmelden",
+    pageTitle: "Passwort bestätigen",
+    pageDescription: "Dies schützt sensible Kontoänderungen.",
+    account: "Angemeldet als {{email}}",
+    confirm: "Passwort bestätigen",
+    error: "Das Passwort wurde nicht akzeptiert.",
   },
   passwordChange: {
     title: "Passwort ändern",
@@ -145,12 +189,35 @@ export const de = {
     confirm: "Authenticator bestätigen",
     disable: "Authenticator deaktivieren",
     disabled: "Die Zwei-Faktor-Authentifizierung wurde deaktiviert.",
+    enabled: "Die Zwei-Faktor-Authentifizierung wurde aktiviert.",
+    regenerated: "Neue Wiederherstellungscodes wurden erstellt.",
     regenerate: "Wiederherstellungscodes ersetzen",
+    regenerateConfirm: "Alle vorhandenen Wiederherstellungscodes ersetzen?",
+    disableConfirm: "Zwei-Faktor-Authentifizierung deaktivieren?",
+    disableWarning:
+      "Authenticator- und Wiederherstellungscodes werden bei der Anmeldung nicht mehr verlangt.",
     enrollmentInstructions:
       "Fügen Sie diesen Schlüssel Ihrer Authenticator-App hinzu und geben Sie danach den sechsstelligen Code ein.",
-    saveRecoveryCodes:
-      "Speichern Sie diese Wiederherstellungscodes jetzt. Jeder Code kann nur einmal verwendet werden.",
-    remaining: "Verbleibende Wiederherstellungscodes: {{count}}",
+    qrLabel: "QR-Code zur Authenticator-Einrichtung",
+    manualKey: "Schlüssel zur manuellen Eingabe",
+    algorithm: "Algorithmus",
+    digits: "Stellen",
+    period: "Aktualisierungsintervall",
+    seconds: "{{seconds}} Sekunden",
+    expires: "Einrichtung läuft ab",
+  },
+  recoveryCodes: {
+    title: "Wiederherstellungscodes",
+    warning: "Speichern Sie diese Wiederherstellungscodes jetzt.",
+    description:
+      "Jeder Code funktioniert einmal. Vorhandene Codes wurden ersetzt und können nicht erneut angezeigt werden.",
+    copyAll: "Alle Wiederherstellungscodes kopieren",
+    saved: "Ich habe die Codes gespeichert",
+  },
+  notFound: {
+    title: "Seite nicht gefunden",
+    description: "Die angeforderte Seite existiert nicht.",
+    action: "Zur Startseite",
   },
   home: {
     documentTitle: "Startseite | Vetchium",

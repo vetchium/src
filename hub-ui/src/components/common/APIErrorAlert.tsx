@@ -20,6 +20,13 @@ const problemKeys: Record<string, string> = {
   "vetchium-problem-details/hub-recent-authentication-required":
     "errors.recentAuthenticationRequired",
   "vetchium-problem-details/rate-limit-exceeded": "errors.rateLimited",
+  "vetchium-problem-details/idempotency-key-conflict":
+    "errors.idempotencyConflict",
+  "vetchium-problem-details/hub-totp-already-enabled":
+    "errors.totpAlreadyEnabled",
+  "vetchium-problem-details/hub-totp-not-enabled": "errors.totpNotEnabled",
+  "vetchium-problem-details/hub-invalid-totp-enrollment":
+    "errors.invalidEnrollment",
 };
 
 export function APIErrorAlert({ error }: { error: unknown }) {

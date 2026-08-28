@@ -16,11 +16,18 @@ import { HeaderControls } from "./HeaderControls";
 const { Header } = Layout;
 
 interface AppHeaderProps {
+  homePath?: string;
+  onNavigateHome?: () => void;
   onOpenNavigation?: () => void;
   onSignOut?: () => void;
 }
 
-export function AppHeader({ onOpenNavigation, onSignOut }: AppHeaderProps) {
+export function AppHeader({
+  homePath = "/",
+  onNavigateHome,
+  onOpenNavigation,
+  onSignOut,
+}: AppHeaderProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const screens = Grid.useBreakpoint();
@@ -66,7 +73,11 @@ export function AppHeader({ onOpenNavigation, onSignOut }: AppHeaderProps) {
             size="large"
             aria-label={t("shell.homeLabel")}
             style={{ height: 48, paddingInline: compactBrand ? 4 : 8 }}
-            onClick={() => navigate("/")}
+            onClick={() =>
+              onNavigateHome === undefined
+                ? navigate(homePath)
+                : onNavigateHome()
+            }
           >
             <Flex align="center" gap="small" wrap={false}>
               <Avatar

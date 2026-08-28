@@ -172,6 +172,24 @@ test("Hub signup, sessions, profile, passwords, and TFA work together", async ({
     expect(first.authentication_state).toBe("authenticated");
     if (first.authentication_state !== "authenticated")
       throw new Error("unexpected TFA");
+
+    const malformedProtectedRequests = [
+      ["/reauthenticate", false],
+      ["/change-password", false],
+      ["/set-preferred-language", false],
+      ["/set-resident-country", false],
+      ["/confirm-totp-enrollment", true],
+    ] as const;
+    for (const [path, idempotent] of malformedProtectedRequests) {
+      await expectProblem(
+        await hub.postRaw(path, "{", {
+          token: first.session_token,
+          ...(idempotent ? { idempotencyKey: hubIdempotencyKey() } : {}),
+        }),
+        400,
+        "vetchium-problem-details/invalid-json",
+      );
+    }
     expect(Date.parse(first.session_expires_at) - Date.now()).toBeGreaterThan(
       23 * 60 * 60 * 1000,
     );
@@ -257,6 +275,20 @@ test("Hub signup, sessions, profile, passwords, and TFA work together", async ({
     ).toBe(204);
 
     ageHubSession(first.session_token);
+    for (const [path, idempotent] of [
+      ["/start-totp-enrollment", true],
+      ["/disable-totp", false],
+      ["/regenerate-totp-recovery-codes", true],
+    ] as const) {
+      await expectProblem(
+        await hub.post(path, undefined, {
+          token: first.session_token,
+          ...(idempotent ? { idempotencyKey: hubIdempotencyKey() } : {}),
+        }),
+        401,
+        "vetchium-problem-details/hub-recent-authentication-required",
+      );
+    }
     await expectProblem(
       await hub.post(
         "/change-password",
@@ -648,13 +680,23 @@ test("Hub authentication endpoints reject malformed and unauthenticated requests
   const hub = new HubAPI(request);
   const validPassword = `Valid!${randomUUID()}-password`;
   try {
-    await expectProblem(
-      await hub.postRaw("/request-signup", "{", {
-        idempotencyKey: hubIdempotencyKey(),
-      }),
-      400,
-      "vetchium-problem-details/invalid-json",
-    );
+    for (const [path, idempotent] of [
+      ["/request-signup", true],
+      ["/login", false],
+      ["/complete-signup", true],
+      ["/request-password-reset", true],
+      ["/complete-password-reset", true],
+      ["/login/tfa", true],
+      ["/login/recovery-code", true],
+    ] as const) {
+      await expectProblem(
+        await hub.postRaw(path, "{", {
+          ...(idempotent ? { idempotencyKey: hubIdempotencyKey() } : {}),
+        }),
+        400,
+        "vetchium-problem-details/invalid-json",
+      );
+    }
 
     const malformedAnonymousRequests = [
       ["/login", false],

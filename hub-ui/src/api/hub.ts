@@ -1,3 +1,4 @@
+import type { IdempotencyKey } from "../../../typespec/common/idempotency.ts";
 import type {
   LoginRequest,
   LoginResponse,
@@ -34,38 +35,50 @@ import { apiRequest } from "./client";
 const base = "/api/hub";
 
 export const hubAPI = {
-  requestSignup: (body: RequestSignupRequest) =>
-    apiRequest<void>(`${base}/request-signup`, { body, idempotent: true }),
-  completeSignup: (body: CompleteSignupRequest) =>
+  requestSignup: (body: RequestSignupRequest, idempotencyKey: IdempotencyKey) =>
+    apiRequest<void>(`${base}/request-signup`, { body, idempotencyKey }),
+  completeSignup: (
+    body: CompleteSignupRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
     apiRequest<CompleteSignupResponse>(`${base}/complete-signup`, {
       body,
-      idempotent: true,
+      idempotencyKey,
     }),
   login: (body: LoginRequest) =>
     apiRequest<LoginResponse>(`${base}/login`, { body }),
-  verifyTFA: (body: VerifyTFARequest) =>
+  verifyTFA: (body: VerifyTFARequest, idempotencyKey: IdempotencyKey) =>
     apiRequest<AuthenticatedSessionResponse>(`${base}/login/tfa`, {
       body,
-      idempotent: true,
+      idempotencyKey,
     }),
-  verifyRecoveryCode: (body: VerifyRecoveryCodeRequest) =>
+  verifyRecoveryCode: (
+    body: VerifyRecoveryCodeRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
     apiRequest<VerifyRecoveryCodeResponse>(`${base}/login/recovery-code`, {
       body,
-      idempotent: true,
+      idempotencyKey,
     }),
   logout: (token: string) =>
     apiRequest<void>(`${base}/logout`, { method: "POST", token }),
   reauthenticate: (body: ReauthenticateRequest) =>
     apiRequest<ReauthenticateResponse>(`${base}/reauthenticate`, { body }),
-  requestPasswordReset: (body: RequestPasswordResetRequest) =>
+  requestPasswordReset: (
+    body: RequestPasswordResetRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
     apiRequest<void>(`${base}/request-password-reset`, {
       body,
-      idempotent: true,
+      idempotencyKey,
     }),
-  completePasswordReset: (body: CompletePasswordResetRequest) =>
+  completePasswordReset: (
+    body: CompletePasswordResetRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
     apiRequest<void>(`${base}/complete-password-reset`, {
       body,
-      idempotent: true,
+      idempotencyKey,
     }),
   changePassword: (body: ChangePasswordRequest) =>
     apiRequest<void>(`${base}/change-password`, { body }),
@@ -74,24 +87,27 @@ export const hubAPI = {
     apiRequest<void>(`${base}/set-preferred-language`, { body }),
   setResidentCountry: (body: SetResidentCountryRequest) =>
     apiRequest<void>(`${base}/set-resident-country`, { body }),
-  startTOTPEnrollment: () =>
+  startTOTPEnrollment: (idempotencyKey: IdempotencyKey) =>
     apiRequest<StartTOTPEnrollmentResponse>(`${base}/start-totp-enrollment`, {
       method: "POST",
-      idempotent: true,
+      idempotencyKey,
     }),
-  confirmTOTPEnrollment: (body: ConfirmTOTPEnrollmentRequest) =>
+  confirmTOTPEnrollment: (
+    body: ConfirmTOTPEnrollmentRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
     apiRequest<ConfirmTOTPEnrollmentResponse>(
       `${base}/confirm-totp-enrollment`,
       {
         body,
-        idempotent: true,
+        idempotencyKey,
       },
     ),
   disableTOTP: () =>
     apiRequest<void>(`${base}/disable-totp`, { method: "POST" }),
-  regenerateRecoveryCodes: () =>
+  regenerateRecoveryCodes: (idempotencyKey: IdempotencyKey) =>
     apiRequest<RegenerateTOTPRecoveryCodesResponse>(
       `${base}/regenerate-totp-recovery-codes`,
-      { method: "POST", idempotent: true },
+      { method: "POST", idempotencyKey },
     ),
 };

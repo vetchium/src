@@ -14,6 +14,8 @@ import { Link } from "react-router";
 import type { FrontendLocale } from "../../../typespec/common/localization.ts";
 import { countryCodeValues } from "../../../typespec/common/localization.ts";
 import { hubAPI } from "../api/hub";
+import { useIdempotencyKey } from "../api/idempotency";
+import { usePreferences } from "../app/PreferencesContext";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
 
 const languages: FrontendLocale[] = ["en-US", "ta", "de-DE"];
@@ -27,7 +29,13 @@ interface SignupValues {
 
 export function SignupPage() {
   const { t } = useTranslation();
-  const signup = useMutation({ mutationFn: hubAPI.requestSignup });
+  const preferences = usePreferences();
+  const key = useIdempotencyKey();
+  const signup = useMutation({
+    mutationFn: (request: SignupValues) =>
+      hubAPI.requestSignup(request, key.current()),
+    onSuccess: () => key.rotate(),
+  });
 
   return (
     <Card className="auth-card">
@@ -49,7 +57,7 @@ export function SignupPage() {
             <APIErrorAlert error={signup.error} />
             <Form<SignupValues>
               layout="vertical"
-              initialValues={{ preferred_language: "en-US" }}
+              initialValues={{ preferred_language: preferences.language }}
               onFinish={(values) => signup.mutate(values)}
             >
               <Form.Item

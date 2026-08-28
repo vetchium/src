@@ -1,24 +1,11 @@
 import { Spin } from "antd";
 import { lazy, Suspense } from "react";
-import { Navigate, Route, Routes } from "react-router";
-import { useAuth } from "../auth/AuthContext";
+import { Route, Routes } from "react-router";
 import { AppShell } from "../components/common/AppShell";
 import { ProtectedRoute } from "../components/common/ProtectedRoute";
 import { PublicShell } from "../components/common/PublicShell";
+import { RecentAuthenticationRoute } from "../components/common/RecentAuthenticationRoute";
 
-const HomePage = lazy(() =>
-  import("../pages/HomePage").then(({ HomePage }) => ({ default: HomePage })),
-);
-const LoginPage = lazy(() =>
-  import("../pages/LoginPage").then(({ LoginPage }) => ({
-    default: LoginPage,
-  })),
-);
-const SignupPage = lazy(() =>
-  import("../pages/SignupPage").then(({ SignupPage }) => ({
-    default: SignupPage,
-  })),
-);
 const CompleteSignupPage = lazy(() =>
   import("../pages/CompleteSignupPage").then(({ CompleteSignupPage }) => ({
     default: CompleteSignupPage,
@@ -29,14 +16,47 @@ const ForgotPasswordPage = lazy(() =>
     default: ForgotPasswordPage,
   })),
 );
+const HomePage = lazy(() =>
+  import("../pages/HomePage").then(({ HomePage }) => ({ default: HomePage })),
+);
+const LoginPage = lazy(() =>
+  import("../pages/LoginPage").then(({ LoginPage }) => ({
+    default: LoginPage,
+  })),
+);
+const NotFoundPage = lazy(() =>
+  import("../pages/NotFoundPage").then(({ NotFoundPage }) => ({
+    default: NotFoundPage,
+  })),
+);
+const ProfilePage = lazy(() =>
+  import("../pages/ProfilePage").then(({ ProfilePage }) => ({
+    default: ProfilePage,
+  })),
+);
+const ReauthenticatePage = lazy(() =>
+  import("../pages/ReauthenticatePage").then(({ ReauthenticatePage }) => ({
+    default: ReauthenticatePage,
+  })),
+);
 const ResetPasswordPage = lazy(() =>
   import("../pages/ResetPasswordPage").then(({ ResetPasswordPage }) => ({
     default: ResetPasswordPage,
   })),
 );
-const SettingsPage = lazy(() =>
-  import("../pages/SettingsPage").then(({ SettingsPage }) => ({
-    default: SettingsPage,
+const SecurityPage = lazy(() =>
+  import("../pages/SecurityPage").then(({ SecurityPage }) => ({
+    default: SecurityPage,
+  })),
+);
+const SignupPage = lazy(() =>
+  import("../pages/SignupPage").then(({ SignupPage }) => ({
+    default: SignupPage,
+  })),
+);
+const TwoFactorPage = lazy(() =>
+  import("../pages/TwoFactorPage").then(({ TwoFactorPage }) => ({
+    default: TwoFactorPage,
   })),
 );
 
@@ -46,27 +66,26 @@ function Page({ children }: { children: React.ReactNode }) {
   );
 }
 
-function EntryRoute() {
-  const { authenticated } = useAuth();
-  return <Navigate to={authenticated ? "/" : "/login"} replace />;
-}
-
-function LoginRoute() {
-  const { authenticated } = useAuth();
-  return authenticated ? (
-    <Navigate to="/" replace />
-  ) : (
-    <Page>
-      <LoginPage />
-    </Page>
-  );
-}
-
 export function App() {
   return (
     <Routes>
       <Route element={<PublicShell />}>
-        <Route path="login" element={<LoginRoute />} />
+        <Route
+          path="login"
+          element={
+            <Page>
+              <LoginPage />
+            </Page>
+          }
+        />
+        <Route
+          path="login/two-factor"
+          element={
+            <Page>
+              <TwoFactorPage />
+            </Page>
+          }
+        />
         <Route
           path="signup"
           element={
@@ -101,6 +120,16 @@ export function App() {
         />
       </Route>
       <Route element={<ProtectedRoute />}>
+        <Route element={<PublicShell />}>
+          <Route
+            path="reauthenticate"
+            element={
+              <Page>
+                <ReauthenticatePage />
+              </Page>
+            }
+          />
+        </Route>
         <Route element={<AppShell />}>
           <Route
             index
@@ -111,16 +140,35 @@ export function App() {
             }
           />
           <Route
-            path="settings"
+            path="settings/profile"
             element={
               <Page>
-                <SettingsPage />
+                <ProfilePage />
               </Page>
             }
           />
+          <Route element={<RecentAuthenticationRoute />}>
+            <Route
+              path="settings/security"
+              element={
+                <Page>
+                  <SecurityPage />
+                </Page>
+              }
+            />
+          </Route>
         </Route>
       </Route>
-      <Route path="*" element={<EntryRoute />} />
+      <Route element={<PublicShell />}>
+        <Route
+          path="*"
+          element={
+            <Page>
+              <NotFoundPage />
+            </Page>
+          }
+        />
+      </Route>
     </Routes>
   );
 }

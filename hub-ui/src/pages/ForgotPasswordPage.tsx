@@ -3,11 +3,17 @@ import { Alert, Button, Card, Form, Input, Space, Typography } from "antd";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { hubAPI } from "../api/hub";
+import { useIdempotencyKey } from "../api/idempotency";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
 
 export function ForgotPasswordPage() {
   const { t } = useTranslation();
-  const request = useMutation({ mutationFn: hubAPI.requestPasswordReset });
+  const key = useIdempotencyKey();
+  const request = useMutation({
+    mutationFn: (body: { email_address: string }) =>
+      hubAPI.requestPasswordReset(body, key.current()),
+    onSuccess: () => key.rotate(),
+  });
   return (
     <Card className="auth-card">
       <title>{t("forgotPassword.documentTitle")}</title>

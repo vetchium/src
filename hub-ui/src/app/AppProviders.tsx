@@ -6,6 +6,8 @@ import taIN from "antd/locale/ta_IN";
 import type { PropsWithChildren } from "react";
 import { useState } from "react";
 import { AuthProvider } from "../auth/AuthContext";
+import { RecoveryCodesProvider } from "../features/security/RecoveryCodesContext";
+import { PendingOperationProvider } from "./PendingOperationContext";
 import { PreferencesProvider, usePreferences } from "./PreferencesContext";
 
 const primaryColor = "#2563eb";
@@ -24,7 +26,11 @@ function ThemedApplication({ children }: PropsWithChildren) {
       }}
     >
       <AntApp>
-        <AuthProvider>{children}</AuthProvider>
+        <PendingOperationProvider>
+          <AuthProvider>
+            <RecoveryCodesProvider>{children}</RecoveryCodesProvider>
+          </AuthProvider>
+        </PendingOperationProvider>
       </AntApp>
     </ConfigProvider>
   );

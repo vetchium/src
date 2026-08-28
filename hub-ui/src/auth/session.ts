@@ -1,4 +1,10 @@
+import { isOpaqueToken } from "../../../typespec/common/authentication.ts";
+import {
+  isCountryCode,
+  isFrontendLocale,
+} from "../../../typespec/common/localization.ts";
 import type { AuthenticatedSessionResponse } from "../../../typespec/hub/auth/types.ts";
+import { isHubHandle, isHubUserDID } from "../../../typespec/hub/types.ts";
 
 const sessionKey = "vetchium.hub.session";
 
@@ -12,8 +18,18 @@ function parseSession(value: string | null): StoredSession | null {
     const session = JSON.parse(value) as Partial<StoredSession>;
     if (
       typeof session.session_token !== "string" ||
+      !isOpaqueToken(session.session_token) ||
       typeof session.session_expires_at !== "string" ||
-      new Date(session.session_expires_at).getTime() <= Date.now()
+      !Number.isFinite(Date.parse(session.session_expires_at)) ||
+      Date.parse(session.session_expires_at) <= Date.now() ||
+      !isFrontendLocale(session.preferred_language) ||
+      typeof session.resident_country !== "string" ||
+      !isCountryCode(session.resident_country) ||
+      typeof session.hub_user_did !== "string" ||
+      !isHubUserDID(session.hub_user_did) ||
+      typeof session.handle !== "string" ||
+      !isHubHandle(session.handle) ||
+      typeof session.remembered !== "boolean"
     ) {
       return null;
     }

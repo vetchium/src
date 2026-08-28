@@ -106,5 +106,5 @@ More specific guides take precedence over general guides.
   reasoning the code cannot express.
 - Add shared language or tool conventions to one guide rather than copying them
   into multiple scoped routers.
-- Add UI guides and scoped routers when work begins in `admin-ui/`, `hub-ui/`,
-  or `orgs-ui/`. UI guidance is intentionally not defined yet.
+- Keep shared UI conventions in `agent-guides/ui.md` and scoped routers in
+  each implemented portal.
