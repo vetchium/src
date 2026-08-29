@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"backend/internal/credentials"
 	"backend/internal/db/sqlc"
 	"backend/internal/email"
 	"backend/internal/hubapi"
@@ -121,7 +122,7 @@ func testEmailWorker(
 	if err != nil {
 		t.Fatal(err)
 	}
-	ciphertext, err := hubapi.Encrypt(outboxKey, payload)
+	ciphertext, err := credentials.Encrypt(outboxKey, payload)
 	if err != nil {
 		t.Fatal(err)
 	}

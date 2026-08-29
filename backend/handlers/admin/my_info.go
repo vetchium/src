@@ -16,6 +16,7 @@ import (
 
 	"backend/internal/adminapi"
 	"backend/internal/db/sqlc"
+	"backend/internal/dbvalue"
 	"backend/internal/middleware"
 )
 
@@ -62,7 +63,7 @@ func MyInfo(s *adminapi.Server) http.HandlerFunc {
 		}
 		response := users.MyInfoResponse{
 			AdminUserID: adminspec.AdminUserID(
-				adminapi.FormatUUID(row.AdminUserID),
+				dbvalue.FormatUUID(row.AdminUserID),
 			),
 			EmailAddress: common.EmailAddress(row.EmailAddress),
 			DisplayName:  common.DisplayName(row.DisplayName),

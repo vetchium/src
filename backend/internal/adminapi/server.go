@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"backend/internal/apiserver"
+	"backend/internal/credentials"
 	"backend/internal/db/sqlc"
 )
 
@@ -43,9 +44,9 @@ func (s *Server) HandlerQueries() sqlc.Querier {
 }
 
 func (s *Server) EncryptIdempotency(plaintext []byte) ([]byte, error) {
-	return Encrypt(s.CredentialSubkey("idempotency"), plaintext)
+	return credentials.Encrypt(s.CredentialSubkey("idempotency"), plaintext)
 }
 
 func (s *Server) DecryptIdempotency(ciphertext []byte) ([]byte, error) {
-	return Decrypt(s.CredentialSubkey("idempotency"), ciphertext)
+	return credentials.Decrypt(s.CredentialSubkey("idempotency"), ciphertext)
 }

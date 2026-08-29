@@ -7,12 +7,14 @@ import (
 
 	coordinatorspec "github.com/vetchium/src/typespec/global-coordinator"
 	"github.com/vetchium/src/typespec/hub"
+
+	"backend/internal/dbvalue"
 )
 
-func TestNewUUIDv7(t *testing.T) {
+func TestGeneratedIdentifierIsAHubUserDID(t *testing.T) {
 	t.Parallel()
 	now := time.Date(2026, time.August, 24, 12, 0, 0, 0, time.UTC)
-	value, err := NewUUIDv7(now)
+	value, err := dbvalue.NewUUIDv7(now)
 	if err != nil {
 		t.Fatal(err)
 	}

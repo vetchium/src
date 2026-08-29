@@ -12,9 +12,10 @@ import (
 
 	"github.com/vetchium/src/typespec/common"
 
+	"backend/internal/credentials"
 	"backend/internal/db/sqlc"
+	"backend/internal/dbvalue"
 	"backend/internal/email"
-	"backend/internal/hubapi"
 )
 
 const maxHubEmailBatchSize = 100
@@ -66,7 +67,7 @@ func (w *Worker) deliverHubEmail(ctx context.Context) error {
 
 func (w *Worker) deliverNextHubEmail(ctx context.Context) (bool, error) {
 	delivery := w.hubEmailDelivery
-	leaseToken, err := hubapi.NewUUID()
+	leaseToken, err := dbvalue.NewUUID()
 	if err != nil {
 		return false, err
 	}
@@ -74,7 +75,7 @@ func (w *Worker) deliverNextHubEmail(ctx context.Context) (bool, error) {
 	row, err := w.hubEmailQueries.ClaimHubEmail(
 		ctx, sqlc.ClaimHubEmailParams{
 			LeaseToken:  leaseToken,
-			LeasedUntil: hubapi.Timestamp(now.Add(delivery.LeaseTTL)),
+			LeasedUntil: dbvalue.Timestamp(now.Add(delivery.LeaseTTL)),
 			TenantID:    delivery.TenantID,
 		},
 	)
@@ -89,7 +90,7 @@ func (w *Worker) deliverNextHubEmail(ctx context.Context) (bool, error) {
 		w.log.Warn(
 			"Hub email delivery attempt failed",
 			"event", "hub_email_delivery_failed",
-			"outboxID", hubapi.FormatUUID(row.HubEmailOutboxID),
+			"outboxID", dbvalue.FormatUUID(row.HubEmailOutboxID),
 			"attempt", row.AttemptCount,
 			"error", err,
 		)
@@ -120,7 +121,7 @@ func (w *Worker) sendClaimedHubEmail(
 	ctx context.Context, row sqlc.ClaimHubEmailRow,
 ) error {
 	delivery := w.hubEmailDelivery
-	plaintext, err := hubapi.Decrypt(delivery.OutboxKey, row.PayloadCiphertext)
+	plaintext, err := credentials.Decrypt(delivery.OutboxKey, row.PayloadCiphertext)
 	if err != nil {
 		return fmt.Errorf("decrypt email payload: %w", err)
 	}
@@ -145,7 +146,7 @@ func (w *Worker) sendClaimedHubEmail(
 		return err
 	}
 	message.To = row.RecipientEmailAddress
-	message.MessageID = "hub-" + hubapi.FormatUUID(row.HubEmailOutboxID) +
+	message.MessageID = "hub-" + dbvalue.FormatUUID(row.HubEmailOutboxID) +
 		"@" + delivery.TenantID + ".vetchium"
 	return delivery.Sender.Send(ctx, message)
 }
@@ -176,7 +177,7 @@ func (w *Worker) recordHubEmailFailure(
 	retryDelay := time.Minute << min(row.AttemptCount-1, 10)
 	marked, err := w.hubEmailQueries.ScheduleHubEmailRetry(
 		ctx, sqlc.ScheduleHubEmailRetryParams{
-			NextAttemptAt:    hubapi.Timestamp(now.Add(retryDelay)),
+			NextAttemptAt:    dbvalue.Timestamp(now.Add(retryDelay)),
 			HubEmailOutboxID: row.HubEmailOutboxID,
 			LeaseToken:       leaseToken,
 			TenantID:         delivery.TenantID,

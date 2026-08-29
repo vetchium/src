@@ -14,7 +14,9 @@ import (
 	adminproblem "github.com/vetchium/src/typespec/problem/admin"
 
 	"backend/internal/adminapi"
+	"backend/internal/credentials"
 	"backend/internal/db/sqlc"
+	"backend/internal/dbvalue"
 	"backend/internal/handlerauth"
 	"backend/internal/middleware"
 )
@@ -50,7 +52,7 @@ func VerifyTFA(s *adminapi.Server) http.HandlerFunc {
 		if !ok {
 			return
 		}
-		binding := base64.RawURLEncoding.EncodeToString(adminapi.TokenHash(
+		binding := base64.RawURLEncoding.EncodeToString(credentials.TokenHash(
 			string(request.LoginChallengeToken),
 		))
 		now := s.CurrentTime()
@@ -62,7 +64,7 @@ func VerifyTFA(s *adminapi.Server) http.HandlerFunc {
 				*handlerauth.Problem, error,
 			) {
 				challenge, err := getLockedAdminLoginChallenge(
-					r.Context(), q, adminapi.TokenHash(
+					r.Context(), q, credentials.TokenHash(
 						string(request.LoginChallengeToken),
 					),
 				)
@@ -75,20 +77,20 @@ func VerifyTFA(s *adminapi.Server) http.HandlerFunc {
 				if err != nil {
 					return handlerauth.Result[adminauth.AuthenticatedSessionResponse]{}, nil, err
 				}
-				secret, err := adminapi.Decrypt(
+				secret, err := credentials.Decrypt(
 					s.CredentialSubkey("totp"), challenge.TotpSecretCiphertext,
 				)
 				if err != nil {
 					return handlerauth.Result[adminauth.AuthenticatedSessionResponse]{}, nil, err
 				}
-				timestep, valid := adminapi.VerifyTOTP(
+				timestep, valid := credentials.VerifyTOTP(
 					string(secret), string(request.TOTPCode), now,
 				)
 				if !valid {
 					return handlerauth.Result[adminauth.AuthenticatedSessionResponse]{},
 						&handlerauth.Problem{Details: adminproblem.IncorrectTOTPCodeError}, nil
 				}
-				token, tokenHash, err := adminapi.NewToken()
+				token, tokenHash, err := credentials.NewToken()
 				if err != nil {
 					return handlerauth.Result[adminauth.AuthenticatedSessionResponse]{}, nil, err
 				}
@@ -97,13 +99,11 @@ func VerifyTFA(s *adminapi.Server) http.HandlerFunc {
 					r.Context(), sqlc.CompleteAdminTOTPLoginParams{
 						AdminLoginChallengeID: challenge.AdminLoginChallengeID,
 						AdminUserID:           challenge.AdminUserID,
-						LastTotpTimestep:      adminapi.Int64(timestep),
+						LastTotpTimestep:      dbvalue.Int64(timestep),
 						SessionTokenHash:      tokenHash,
-						ExpiresAt:             adminapi.Timestamp(expiresAt),
+						ExpiresAt:             dbvalue.Timestamp(expiresAt),
 						TenantID:              s.TenantID,
-						IdempotencyKey: adminapi.Text(
-							pointer(string(key)),
-						),
+						IdempotencyKey:        dbvalue.Text(string(key)),
 					},
 				)
 				if errors.Is(err, pgx.ErrNoRows) {
@@ -136,7 +136,7 @@ func StartTOTPEnrollment(s *adminapi.Server) http.HandlerFunc {
 			return
 		}
 		identity, _ := middleware.AdminIdentityFromContext(r.Context())
-		binding := adminapi.FormatUUID(identity.UserID)
+		binding := dbvalue.FormatUUID(identity.UserID)
 		now := s.CurrentTime()
 		handlerauth.RunIdempotent(
 			s, w, r, "admin:start-totp-enrollment", binding, key,
@@ -150,17 +150,17 @@ func StartTOTPEnrollment(s *adminapi.Server) http.HandlerFunc {
 				); err != nil {
 					return handlerauth.Result[adminauth.StartTOTPEnrollmentResponse]{}, nil, err
 				}
-				secret, err := adminapi.NewTOTPSecret()
+				secret, err := credentials.NewTOTPSecret()
 				if err != nil {
 					return handlerauth.Result[adminauth.StartTOTPEnrollmentResponse]{}, nil, err
 				}
-				ciphertext, err := adminapi.Encrypt(
+				ciphertext, err := credentials.Encrypt(
 					s.CredentialSubkey("totp"), []byte(secret),
 				)
 				if err != nil {
 					return handlerauth.Result[adminauth.StartTOTPEnrollmentResponse]{}, nil, err
 				}
-				token, tokenHash, err := adminapi.NewToken()
+				token, tokenHash, err := credentials.NewToken()
 				if err != nil {
 					return handlerauth.Result[adminauth.StartTOTPEnrollmentResponse]{}, nil, err
 				}
@@ -170,11 +170,9 @@ func StartTOTPEnrollment(s *adminapi.Server) http.HandlerFunc {
 						TargetAdminUserID: identity.UserID,
 						TokenHash:         tokenHash,
 						SecretCiphertext:  ciphertext,
-						ExpiresAt:         adminapi.Timestamp(expiresAt),
+						ExpiresAt:         dbvalue.Timestamp(expiresAt),
 						TenantID:          s.TenantID,
-						IdempotencyKey: adminapi.Text(
-							pointer(string(key)),
-						),
+						IdempotencyKey:    dbvalue.Text(string(key)),
 					},
 				)
 				if errors.Is(err, pgx.ErrNoRows) {
@@ -191,7 +189,7 @@ func StartTOTPEnrollment(s *adminapi.Server) http.HandlerFunc {
 					Status: http.StatusOK,
 					Body: adminauth.StartTOTPEnrollmentResponse{
 						TOTPEnrollmentToken: common.TOTPEnrollmentToken(token),
-						ProvisioningURI: adminapi.TOTPProvisioningURI(
+						ProvisioningURI: credentials.TOTPProvisioningURI(
 							binding, "Vetchium "+s.TenantID, secret,
 						),
 						ManualEntryKey: common.TOTPManualEntryKey(secret),
@@ -217,8 +215,8 @@ func ConfirmTOTPEnrollment(s *adminapi.Server) http.HandlerFunc {
 			return
 		}
 		identity, _ := middleware.AdminIdentityFromContext(r.Context())
-		binding := adminapi.FormatUUID(identity.UserID) + ":" +
-			base64.RawURLEncoding.EncodeToString(adminapi.TokenHash(
+		binding := dbvalue.FormatUUID(identity.UserID) + ":" +
+			base64.RawURLEncoding.EncodeToString(credentials.TokenHash(
 				string(request.TOTPEnrollmentToken),
 			))
 		now := s.CurrentTime()
@@ -236,7 +234,7 @@ func ConfirmTOTPEnrollment(s *adminapi.Server) http.HandlerFunc {
 				}
 				enrollment, err := q.GetAdminTOTPEnrollment(
 					r.Context(), sqlc.GetAdminTOTPEnrollmentParams{
-						TokenHash: adminapi.TokenHash(
+						TokenHash: credentials.TokenHash(
 							string(request.TOTPEnrollmentToken),
 						),
 						TargetAdminUserID: identity.UserID,
@@ -249,20 +247,20 @@ func ConfirmTOTPEnrollment(s *adminapi.Server) http.HandlerFunc {
 				if err != nil {
 					return handlerauth.Result[adminauth.ConfirmTOTPEnrollmentResponse]{}, nil, err
 				}
-				secret, err := adminapi.Decrypt(
+				secret, err := credentials.Decrypt(
 					s.CredentialSubkey("totp"), enrollment.SecretCiphertext,
 				)
 				if err != nil {
 					return handlerauth.Result[adminauth.ConfirmTOTPEnrollmentResponse]{}, nil, err
 				}
-				timestep, valid := adminapi.VerifyTOTP(
+				timestep, valid := credentials.VerifyTOTP(
 					string(secret), string(request.TOTPCode), now,
 				)
 				if !valid {
 					return handlerauth.Result[adminauth.ConfirmTOTPEnrollmentResponse]{},
 						&handlerauth.Problem{Details: adminproblem.IncorrectTOTPCodeError}, nil
 				}
-				codes, hashes, err := adminapi.NewRecoveryCodes()
+				codes, hashes, err := credentials.NewRecoveryCodes()
 				if err != nil {
 					return handlerauth.Result[adminauth.ConfirmTOTPEnrollmentResponse]{}, nil, err
 				}
@@ -271,13 +269,11 @@ func ConfirmTOTPEnrollment(s *adminapi.Server) http.HandlerFunc {
 						TargetEnrollmentID:    enrollment.AdminTotpEnrollmentID,
 						TargetAdminUserID:     identity.UserID,
 						SecretCiphertext:      enrollment.SecretCiphertext,
-						TotpTimestep:          adminapi.Int64(timestep),
+						TotpTimestep:          dbvalue.Int64(timestep),
 						RecoveryCodeHashes:    hashes,
 						CurrentAdminSessionID: identity.SessionID,
 						TenantID:              s.TenantID,
-						IdempotencyKey: adminapi.Text(
-							pointer(string(key)),
-						),
+						IdempotencyKey:        dbvalue.Text(string(key)),
 					},
 				)
 				if err != nil {
@@ -314,7 +310,7 @@ func VerifyRecoveryCode(s *adminapi.Server) http.HandlerFunc {
 		if !ok {
 			return
 		}
-		binding := base64.RawURLEncoding.EncodeToString(adminapi.TokenHash(
+		binding := base64.RawURLEncoding.EncodeToString(credentials.TokenHash(
 			string(request.LoginChallengeToken),
 		))
 		now := s.CurrentTime()
@@ -326,7 +322,7 @@ func VerifyRecoveryCode(s *adminapi.Server) http.HandlerFunc {
 				*handlerauth.Problem, error,
 			) {
 				challenge, err := getLockedAdminLoginChallenge(
-					r.Context(), q, adminapi.TokenHash(
+					r.Context(), q, credentials.TokenHash(
 						string(request.LoginChallengeToken),
 					),
 				)
@@ -339,7 +335,7 @@ func VerifyRecoveryCode(s *adminapi.Server) http.HandlerFunc {
 				if err != nil {
 					return handlerauth.Result[adminauth.VerifyRecoveryCodeResponse]{}, nil, err
 				}
-				token, tokenHash, err := adminapi.NewToken()
+				token, tokenHash, err := credentials.NewToken()
 				if err != nil {
 					return handlerauth.Result[adminauth.VerifyRecoveryCodeResponse]{}, nil, err
 				}
@@ -347,14 +343,12 @@ func VerifyRecoveryCode(s *adminapi.Server) http.HandlerFunc {
 				session, err := q.CompleteAdminRecoveryCodeLogin(
 					r.Context(), sqlc.CompleteAdminRecoveryCodeLoginParams{
 						TargetAdminUserID:     challenge.AdminUserID,
-						RecoveryCodeHash:      adminapi.RecoveryCodeHash(string(request.RecoveryCode)),
+						RecoveryCodeHash:      credentials.RecoveryCodeHash(string(request.RecoveryCode)),
 						AdminLoginChallengeID: challenge.AdminLoginChallengeID,
 						SessionTokenHash:      tokenHash,
-						SessionExpiresAt:      adminapi.Timestamp(expiresAt),
+						SessionExpiresAt:      dbvalue.Timestamp(expiresAt),
 						TenantID:              s.TenantID,
-						IdempotencyKey: adminapi.Text(
-							pointer(string(key)),
-						),
+						IdempotencyKey:        dbvalue.Text(string(key)),
 					},
 				)
 				if errors.Is(err, pgx.ErrNoRows) {
@@ -408,7 +402,7 @@ func RegenerateTOTPRecoveryCodes(s *adminapi.Server) http.HandlerFunc {
 			return
 		}
 		identity, _ := middleware.AdminIdentityFromContext(r.Context())
-		binding := adminapi.FormatUUID(identity.UserID)
+		binding := dbvalue.FormatUUID(identity.UserID)
 		handlerauth.RunIdempotent(
 			s, w, r, "admin:regenerate-totp-recovery-codes", binding,
 			key, struct{}{}, s.CurrentTime().Add(5*time.Minute),
@@ -416,7 +410,7 @@ func RegenerateTOTPRecoveryCodes(s *adminapi.Server) http.HandlerFunc {
 				handlerauth.Result[adminauth.RegenerateTOTPRecoveryCodesResponse],
 				*handlerauth.Problem, error,
 			) {
-				codes, hashes, err := adminapi.NewRecoveryCodes()
+				codes, hashes, err := credentials.NewRecoveryCodes()
 				if err != nil {
 					return handlerauth.Result[adminauth.RegenerateTOTPRecoveryCodesResponse]{}, nil, err
 				}
@@ -426,9 +420,7 @@ func RegenerateTOTPRecoveryCodes(s *adminapi.Server) http.HandlerFunc {
 						RecoveryCodeHashes:    hashes,
 						CurrentAdminSessionID: identity.SessionID,
 						TenantID:              s.TenantID,
-						IdempotencyKey: adminapi.Text(
-							pointer(string(key)),
-						),
+						IdempotencyKey:        dbvalue.Text(string(key)),
 					},
 				)
 				if err != nil {

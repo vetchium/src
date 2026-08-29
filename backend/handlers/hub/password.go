@@ -13,7 +13,9 @@ import (
 	hubauth "github.com/vetchium/src/typespec/hub/auth"
 	hubproblem "github.com/vetchium/src/typespec/problem/hub"
 
+	"backend/internal/credentials"
 	"backend/internal/db/sqlc"
+	"backend/internal/dbvalue"
 	"backend/internal/handlerauth"
 	"backend/internal/hubapi"
 	"backend/internal/middleware"
@@ -47,7 +49,7 @@ func RequestPasswordReset(s *hubapi.Server) http.HandlerFunc {
 			func(q *sqlc.Queries) (
 				handlerauth.Result[struct{}], *handlerauth.Problem, error,
 			) {
-				token, tokenHash, err := hubapi.NewToken()
+				token, tokenHash, err := credentials.NewToken()
 				if err != nil {
 					return handlerauth.Result[struct{}]{}, nil, err
 				}
@@ -60,7 +62,7 @@ func RequestPasswordReset(s *hubapi.Server) http.HandlerFunc {
 				if err != nil {
 					return handlerauth.Result[struct{}]{}, nil, err
 				}
-				ciphertext, err := hubapi.Encrypt(
+				ciphertext, err := credentials.Encrypt(
 					s.CredentialSubkey("outbox"), payload,
 				)
 				if err != nil {
@@ -69,9 +71,9 @@ func RequestPasswordReset(s *hubapi.Server) http.HandlerFunc {
 				_, err = q.CreateHubPasswordReset(
 					r.Context(), sqlc.CreateHubPasswordResetParams{
 						EmailAddress: emailAddress, TokenHash: tokenHash,
-						ExpiresAt:         hubapi.Timestamp(expiresAt),
+						ExpiresAt:         dbvalue.Timestamp(expiresAt),
 						PayloadCiphertext: ciphertext, TenantID: s.TenantID,
-						IdempotencyKey: hubapi.Text(string(key)),
+						IdempotencyKey: dbvalue.Text(string(key)),
 					},
 				)
 				if err != nil {
@@ -97,7 +99,7 @@ func CompletePasswordReset(s *hubapi.Server) http.HandlerFunc {
 		if !ok {
 			return
 		}
-		resetHash := hubapi.TokenHash(string(request.ResetToken))
+		resetHash := credentials.TokenHash(string(request.ResetToken))
 		binding := base64.RawURLEncoding.EncodeToString(resetHash)
 		handlerauth.RunIdempotent(
 			s, w, r, "hub:complete-password-reset", binding, key,
@@ -122,7 +124,7 @@ func CompletePasswordReset(s *hubapi.Server) http.HandlerFunc {
 				); err != nil {
 					return handlerauth.Result[struct{}]{}, nil, err
 				}
-				hash, err := hubapi.HashPassword(string(request.NewPassword))
+				hash, err := credentials.HashPassword(string(request.NewPassword))
 				if err != nil {
 					return handlerauth.Result[struct{}]{}, nil, err
 				}
@@ -131,7 +133,7 @@ func CompletePasswordReset(s *hubapi.Server) http.HandlerFunc {
 						ResetTokenHash: resetHash,
 						PasswordHash:   hash,
 						TenantID:       s.TenantID,
-						IdempotencyKey: hubapi.Text(string(key)),
+						IdempotencyKey: dbvalue.Text(string(key)),
 					},
 				)
 				if err != nil {
@@ -160,7 +162,7 @@ func ChangePassword(s *hubapi.Server) http.HandlerFunc {
 			return
 		}
 		identity, _ := middleware.HubIdentityFromContext(r.Context())
-		hash, err := hubapi.HashPassword(string(request.NewPassword))
+		hash, err := credentials.HashPassword(string(request.NewPassword))
 		if err != nil {
 			s.InternalError(r.Context(), w, "hash changed Hub password", err)
 			return

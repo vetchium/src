@@ -17,6 +17,7 @@ import (
 	"github.com/vetchium/src/typespec/problem"
 
 	"backend/internal/apiserver"
+	"backend/internal/credentials"
 	"backend/internal/db/sqlc"
 	"backend/internal/hubapi"
 )
@@ -43,7 +44,7 @@ func (s *hubDBStub) CreateHubSession(
 
 func TestLoginSessionDurations(t *testing.T) {
 	now := time.Date(2026, 8, 25, 10, 0, 0, 0, time.UTC)
-	passwordHash, err := hubapi.HashPassword("long and unique password")
+	passwordHash, err := credentials.HashPassword("long and unique password")
 	if err != nil {
 		t.Fatal(err)
 	}

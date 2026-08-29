@@ -13,7 +13,9 @@ import (
 	hubauth "github.com/vetchium/src/typespec/hub/auth"
 	hubproblem "github.com/vetchium/src/typespec/problem/hub"
 
+	"backend/internal/credentials"
 	"backend/internal/db/sqlc"
+	"backend/internal/dbvalue"
 	"backend/internal/handlerauth"
 	"backend/internal/hubapi"
 	"backend/internal/middleware"
@@ -47,7 +49,7 @@ func VerifyTFA(s *hubapi.Server) http.HandlerFunc {
 		if !ok {
 			return
 		}
-		tokenHash := hubapi.TokenHash(string(request.LoginChallengeToken))
+		tokenHash := credentials.TokenHash(string(request.LoginChallengeToken))
 		binding := base64.RawURLEncoding.EncodeToString(tokenHash)
 		now := s.CurrentTime()
 		handlerauth.RunIdempotent(
@@ -69,35 +71,35 @@ func VerifyTFA(s *hubapi.Server) http.HandlerFunc {
 				if err != nil {
 					return handlerauth.Result[hubauth.AuthenticatedSessionResponse]{}, nil, err
 				}
-				secret, err := hubapi.Decrypt(
+				secret, err := credentials.Decrypt(
 					s.CredentialSubkey("totp"),
 					challenge.TotpSecretCiphertext,
 				)
 				if err != nil {
 					return handlerauth.Result[hubauth.AuthenticatedSessionResponse]{}, nil, err
 				}
-				timestep, valid := hubapi.VerifyTOTP(
+				timestep, valid := credentials.VerifyTOTP(
 					string(secret), string(request.TOTPCode), now,
 				)
 				if !valid {
 					return handlerauth.Result[hubauth.AuthenticatedSessionResponse]{},
 						&handlerauth.Problem{Details: hubproblem.IncorrectTOTPCodeError}, nil
 				}
-				token, sessionHash, err := hubapi.NewToken()
+				token, sessionHash, err := credentials.NewToken()
 				if err != nil {
 					return handlerauth.Result[hubauth.AuthenticatedSessionResponse]{}, nil, err
 				}
 				expiresAt := now.Add(s.SessionDuration(challenge.Remembered))
 				session, err := q.CompleteHubTOTPLogin(
 					r.Context(), sqlc.CompleteHubTOTPLoginParams{
-						LastTotpTimestep:    hubapi.Int64(timestep),
+						LastTotpTimestep:    dbvalue.Int64(timestep),
 						HubUserDid:          challenge.HubUserDid,
 						HubLoginChallengeID: challenge.HubLoginChallengeID,
 						SessionTokenHash:    sessionHash,
-						ExpiresAt:           hubapi.Timestamp(expiresAt),
+						ExpiresAt:           dbvalue.Timestamp(expiresAt),
 						Remembered:          challenge.Remembered,
 						TenantID:            s.TenantID,
-						IdempotencyKey:      hubapi.Text(string(key)),
+						IdempotencyKey:      dbvalue.Text(string(key)),
 					},
 				)
 				if errors.Is(err, pgx.ErrNoRows) {
@@ -130,7 +132,7 @@ func StartTOTPEnrollment(s *hubapi.Server) http.HandlerFunc {
 			return
 		}
 		identity, _ := middleware.HubIdentityFromContext(r.Context())
-		binding := hubapi.FormatUUID(identity.UserDID)
+		binding := dbvalue.FormatUUID(identity.UserDID)
 		now := s.CurrentTime()
 		handlerauth.RunIdempotent(
 			s, w, r, "hub:start-totp-enrollment", binding, key,
@@ -144,17 +146,17 @@ func StartTOTPEnrollment(s *hubapi.Server) http.HandlerFunc {
 				); err != nil {
 					return handlerauth.Result[hubauth.StartTOTPEnrollmentResponse]{}, nil, err
 				}
-				secret, err := hubapi.NewTOTPSecret()
+				secret, err := credentials.NewTOTPSecret()
 				if err != nil {
 					return handlerauth.Result[hubauth.StartTOTPEnrollmentResponse]{}, nil, err
 				}
-				ciphertext, err := hubapi.Encrypt(
+				ciphertext, err := credentials.Encrypt(
 					s.CredentialSubkey("totp"), []byte(secret),
 				)
 				if err != nil {
 					return handlerauth.Result[hubauth.StartTOTPEnrollmentResponse]{}, nil, err
 				}
-				token, tokenHash, err := hubapi.NewToken()
+				token, tokenHash, err := credentials.NewToken()
 				if err != nil {
 					return handlerauth.Result[hubauth.StartTOTPEnrollmentResponse]{}, nil, err
 				}
@@ -164,9 +166,9 @@ func StartTOTPEnrollment(s *hubapi.Server) http.HandlerFunc {
 						HubUserDid:       identity.UserDID,
 						TokenHash:        tokenHash,
 						SecretCiphertext: ciphertext,
-						ExpiresAt:        hubapi.Timestamp(expiresAt),
+						ExpiresAt:        dbvalue.Timestamp(expiresAt),
 						TenantID:         s.TenantID,
-						IdempotencyKey:   hubapi.Text(string(key)),
+						IdempotencyKey:   dbvalue.Text(string(key)),
 					},
 				)
 				if errors.Is(err, pgx.ErrNoRows) {
@@ -183,7 +185,7 @@ func StartTOTPEnrollment(s *hubapi.Server) http.HandlerFunc {
 					Status: http.StatusOK,
 					Body: hubauth.StartTOTPEnrollmentResponse{
 						TOTPEnrollmentToken: common.TOTPEnrollmentToken(token),
-						ProvisioningURI: hubapi.TOTPProvisioningURI(
+						ProvisioningURI: credentials.TOTPProvisioningURI(
 							binding, "Vetchium "+s.TenantID, secret,
 						),
 						ManualEntryKey: common.TOTPManualEntryKey(secret),
@@ -209,8 +211,8 @@ func ConfirmTOTPEnrollment(s *hubapi.Server) http.HandlerFunc {
 			return
 		}
 		identity, _ := middleware.HubIdentityFromContext(r.Context())
-		binding := hubapi.FormatUUID(identity.UserDID) + ":" +
-			base64.RawURLEncoding.EncodeToString(hubapi.TokenHash(
+		binding := dbvalue.FormatUUID(identity.UserDID) + ":" +
+			base64.RawURLEncoding.EncodeToString(credentials.TokenHash(
 				string(request.TOTPEnrollmentToken),
 			))
 		now := s.CurrentTime()
@@ -228,7 +230,7 @@ func ConfirmTOTPEnrollment(s *hubapi.Server) http.HandlerFunc {
 				}
 				enrollment, err := q.GetHubTOTPEnrollment(
 					r.Context(), sqlc.GetHubTOTPEnrollmentParams{
-						TokenHash: hubapi.TokenHash(
+						TokenHash: credentials.TokenHash(
 							string(request.TOTPEnrollmentToken),
 						),
 						HubUserDid: identity.UserDID,
@@ -241,20 +243,20 @@ func ConfirmTOTPEnrollment(s *hubapi.Server) http.HandlerFunc {
 				if err != nil {
 					return handlerauth.Result[hubauth.ConfirmTOTPEnrollmentResponse]{}, nil, err
 				}
-				secret, err := hubapi.Decrypt(
+				secret, err := credentials.Decrypt(
 					s.CredentialSubkey("totp"), enrollment.SecretCiphertext,
 				)
 				if err != nil {
 					return handlerauth.Result[hubauth.ConfirmTOTPEnrollmentResponse]{}, nil, err
 				}
-				timestep, valid := hubapi.VerifyTOTP(
+				timestep, valid := credentials.VerifyTOTP(
 					string(secret), string(request.TOTPCode), now,
 				)
 				if !valid {
 					return handlerauth.Result[hubauth.ConfirmTOTPEnrollmentResponse]{},
 						&handlerauth.Problem{Details: hubproblem.IncorrectTOTPCodeError}, nil
 				}
-				codes, hashes, err := hubapi.NewRecoveryCodes()
+				codes, hashes, err := credentials.NewRecoveryCodes()
 				if err != nil {
 					return handlerauth.Result[hubauth.ConfirmTOTPEnrollmentResponse]{}, nil, err
 				}
@@ -263,11 +265,11 @@ func ConfirmTOTPEnrollment(s *hubapi.Server) http.HandlerFunc {
 						HubTotpEnrollmentID: enrollment.HubTotpEnrollmentID,
 						HubUserDid:          identity.UserDID,
 						SecretCiphertext:    enrollment.SecretCiphertext,
-						TotpTimestep:        hubapi.Int64(timestep),
+						TotpTimestep:        dbvalue.Int64(timestep),
 						RecoveryCodeHashes:  hashes,
 						CurrentHubSessionID: identity.SessionID,
 						TenantID:            s.TenantID,
-						IdempotencyKey:      hubapi.Text(string(key)),
+						IdempotencyKey:      dbvalue.Text(string(key)),
 					},
 				)
 				if err != nil {
@@ -304,7 +306,7 @@ func VerifyRecoveryCode(s *hubapi.Server) http.HandlerFunc {
 		if !ok {
 			return
 		}
-		tokenHash := hubapi.TokenHash(string(request.LoginChallengeToken))
+		tokenHash := credentials.TokenHash(string(request.LoginChallengeToken))
 		binding := base64.RawURLEncoding.EncodeToString(tokenHash)
 		now := s.CurrentTime()
 		handlerauth.RunIdempotent(
@@ -326,7 +328,7 @@ func VerifyRecoveryCode(s *hubapi.Server) http.HandlerFunc {
 				if err != nil {
 					return handlerauth.Result[hubauth.VerifyRecoveryCodeResponse]{}, nil, err
 				}
-				token, sessionHash, err := hubapi.NewToken()
+				token, sessionHash, err := credentials.NewToken()
 				if err != nil {
 					return handlerauth.Result[hubauth.VerifyRecoveryCodeResponse]{}, nil, err
 				}
@@ -334,15 +336,15 @@ func VerifyRecoveryCode(s *hubapi.Server) http.HandlerFunc {
 				session, err := q.CompleteHubRecoveryCodeLogin(
 					r.Context(), sqlc.CompleteHubRecoveryCodeLoginParams{
 						HubUserDid: challenge.HubUserDid,
-						RecoveryCodeHash: hubapi.RecoveryCodeHash(
+						RecoveryCodeHash: credentials.RecoveryCodeHash(
 							string(request.RecoveryCode),
 						),
 						HubLoginChallengeID: challenge.HubLoginChallengeID,
 						SessionTokenHash:    sessionHash,
-						ExpiresAt:           hubapi.Timestamp(expiresAt),
+						ExpiresAt:           dbvalue.Timestamp(expiresAt),
 						Remembered:          challenge.Remembered,
 						TenantID:            s.TenantID,
-						IdempotencyKey:      hubapi.Text(string(key)),
+						IdempotencyKey:      dbvalue.Text(string(key)),
 					},
 				)
 				if errors.Is(err, pgx.ErrNoRows) {
@@ -412,7 +414,7 @@ func RegenerateTOTPRecoveryCodes(s *hubapi.Server) http.HandlerFunc {
 			return
 		}
 		identity, _ := middleware.HubIdentityFromContext(r.Context())
-		binding := hubapi.FormatUUID(identity.UserDID)
+		binding := dbvalue.FormatUUID(identity.UserDID)
 		handlerauth.RunIdempotent(
 			s, w, r, "hub:regenerate-totp-recovery-codes", binding,
 			key, struct{}{}, s.CurrentTime().Add(5*time.Minute),
@@ -437,7 +439,7 @@ func RegenerateTOTPRecoveryCodes(s *hubapi.Server) http.HandlerFunc {
 					return handlerauth.Result[hubauth.RegenerateTOTPRecoveryCodesResponse]{},
 						&handlerauth.Problem{Details: hubproblem.TOTPNotEnabledError}, nil
 				}
-				codes, hashes, err := hubapi.NewRecoveryCodes()
+				codes, hashes, err := credentials.NewRecoveryCodes()
 				if err != nil {
 					return handlerauth.Result[hubauth.RegenerateTOTPRecoveryCodesResponse]{}, nil, err
 				}
@@ -447,7 +449,7 @@ func RegenerateTOTPRecoveryCodes(s *hubapi.Server) http.HandlerFunc {
 						RecoveryCodeHashes:  hashes,
 						CurrentHubSessionID: identity.SessionID,
 						TenantID:            s.TenantID,
-						IdempotencyKey:      hubapi.Text(string(key)),
+						IdempotencyKey:      dbvalue.Text(string(key)),
 					},
 				)
 				if err != nil {

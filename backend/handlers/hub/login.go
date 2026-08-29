@@ -15,7 +15,9 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
+	"backend/internal/credentials"
 	"backend/internal/db/sqlc"
+	"backend/internal/dbvalue"
 	"backend/internal/handlerauth"
 	"backend/internal/hubapi"
 	"backend/internal/middleware"
@@ -37,7 +39,7 @@ func Login(s *hubapi.Server) http.HandlerFunc {
 		)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				hubapi.CompareUnknownPassword(string(request.Password))
+				credentials.CompareUnknownPassword(string(request.Password))
 				s.Problem(
 					r.Context(), w, hubproblem.InvalidCredentialsError,
 					hubapi.LoginChallenge,
@@ -47,7 +49,7 @@ func Login(s *hubapi.Server) http.HandlerFunc {
 			s.InternalError(r.Context(), w, "get Hub user for login", err)
 			return
 		}
-		if err := hubapi.ComparePassword(
+		if err := credentials.ComparePassword(
 			user.PasswordHash, string(request.Password),
 		); err != nil {
 			if !errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
@@ -77,7 +79,7 @@ func loginWithoutTOTP(
 	s *hubapi.Server, w http.ResponseWriter, r *http.Request,
 	user sqlc.GetHubUserForLoginRow, remembered bool,
 ) {
-	token, tokenHash, err := hubapi.NewToken()
+	token, tokenHash, err := credentials.NewToken()
 	if err != nil {
 		s.InternalError(r.Context(), w, "generate Hub session token", err)
 		return
@@ -88,7 +90,7 @@ func loginWithoutTOTP(
 			HubUserDid:           user.HubUserDid,
 			VerifiedPasswordHash: user.PasswordHash,
 			SessionTokenHash:     tokenHash,
-			ExpiresAt:            hubapi.Timestamp(expiresAt),
+			ExpiresAt:            dbvalue.Timestamp(expiresAt),
 			Remembered:           remembered,
 			TenantID:             s.TenantID,
 		},
@@ -120,7 +122,7 @@ func loginWithTOTP(
 	s *hubapi.Server, w http.ResponseWriter, r *http.Request,
 	user sqlc.GetHubUserForLoginRow, remembered bool,
 ) {
-	token, tokenHash, err := hubapi.NewToken()
+	token, tokenHash, err := credentials.NewToken()
 	if err != nil {
 		s.InternalError(r.Context(), w, "generate Hub login challenge", err)
 		return
@@ -137,7 +139,7 @@ func loginWithTOTP(
 					VerifiedPasswordHash: user.PasswordHash,
 					TokenHash:            tokenHash,
 					Remembered:           remembered,
-					ExpiresAt:            hubapi.Timestamp(expiresAt),
+					ExpiresAt:            dbvalue.Timestamp(expiresAt),
 					TenantID:             s.TenantID,
 				},
 			)
@@ -187,7 +189,7 @@ func Reauthenticate(s *hubapi.Server) http.HandlerFunc {
 			s.InternalError(r.Context(), w, "get Hub password", err)
 			return
 		}
-		if err := hubapi.ComparePassword(
+		if err := credentials.ComparePassword(
 			passwordHash, string(request.Password),
 		); err != nil {
 			if !errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
@@ -228,7 +230,7 @@ func authenticatedSessionResponse(
 		SessionExpiresAt:  expiresAt.UTC(),
 		PreferredLanguage: common.FrontendLocale(preferredLanguage),
 		ResidentCountry:   common.CountryCode(residentCountry),
-		HubUserDID:        hubspec.HubUserDID(hubapi.FormatUUID(did)),
+		HubUserDID:        hubspec.HubUserDID(dbvalue.FormatUUID(did)),
 		Handle:            hubspec.HubHandle(handle),
 	}
 }

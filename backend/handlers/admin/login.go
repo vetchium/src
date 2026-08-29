@@ -15,7 +15,9 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"backend/internal/adminapi"
+	"backend/internal/credentials"
 	"backend/internal/db/sqlc"
+	"backend/internal/dbvalue"
 	"backend/internal/handlerauth"
 	"backend/internal/middleware"
 )
@@ -46,7 +48,7 @@ func Reauthenticate(s *adminapi.Server) http.HandlerFunc {
 			s.InternalError(ctx, w, "get admin password for reauthentication", err)
 			return
 		}
-		if err := adminapi.ComparePassword(
+		if err := credentials.ComparePassword(
 			passwordHash, string(request.Password),
 		); err != nil {
 			if !errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
@@ -93,7 +95,7 @@ func Login(s *adminapi.Server) http.HandlerFunc {
 		)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				adminapi.CompareUnknownPassword(string(request.Password))
+				credentials.CompareUnknownPassword(string(request.Password))
 				s.Problem(
 					ctx, w, adminproblem.InvalidCredentialsError,
 					adminapi.LoginChallenge,
@@ -103,7 +105,7 @@ func Login(s *adminapi.Server) http.HandlerFunc {
 			s.InternalError(ctx, w, "get admin user for login", err)
 			return
 		}
-		if err := adminapi.ComparePassword(
+		if err := credentials.ComparePassword(
 			adminUser.PasswordHash, string(request.Password),
 		); err != nil {
 			if !errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
@@ -134,7 +136,7 @@ func loginWithoutTOTP(
 	s *adminapi.Server, w http.ResponseWriter, r *http.Request,
 	adminUser sqlc.GetAdminUserForLoginRow,
 ) {
-	token, tokenHash, err := adminapi.NewToken()
+	token, tokenHash, err := credentials.NewToken()
 	if err != nil {
 		s.InternalError(r.Context(), w, "generate admin session token", err)
 		return
@@ -144,7 +146,7 @@ func loginWithoutTOTP(
 		r.Context(), sqlc.CreateAdminSessionParams{
 			SessionTokenHash:     tokenHash,
 			AdminUserID:          adminUser.AdminUserID,
-			ExpiresAt:            adminapi.Timestamp(expiresAt),
+			ExpiresAt:            dbvalue.Timestamp(expiresAt),
 			VerifiedPasswordHash: adminUser.PasswordHash,
 			TenantID:             s.TenantID,
 		},
@@ -177,7 +179,7 @@ func loginWithTOTP(
 	s *adminapi.Server, w http.ResponseWriter, r *http.Request,
 	adminUser sqlc.GetAdminUserForLoginRow,
 ) {
-	token, tokenHash, err := adminapi.NewToken()
+	token, tokenHash, err := credentials.NewToken()
 	if err != nil {
 		s.InternalError(r.Context(), w, "generate login challenge token", err)
 		return

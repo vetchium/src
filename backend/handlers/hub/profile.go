@@ -12,6 +12,7 @@ import (
 	hubproblem "github.com/vetchium/src/typespec/problem/hub"
 
 	"backend/internal/db/sqlc"
+	"backend/internal/dbvalue"
 	"backend/internal/handlerauth"
 	"backend/internal/hubapi"
 	"backend/internal/middleware"
@@ -40,7 +41,7 @@ func MyInfo(s *hubapi.Server) http.HandlerFunc {
 		}
 		s.JSON(r.Context(), w, http.StatusOK, hubusers.MyInfoResponse{
 			HubUserDID: hubspec.HubUserDID(
-				hubapi.FormatUUID(row.HubUserDid),
+				dbvalue.FormatUUID(row.HubUserDid),
 			),
 			Handle:                 hubspec.HubHandle(row.Handle),
 			EmailAddress:           common.EmailAddress(row.EmailAddress),

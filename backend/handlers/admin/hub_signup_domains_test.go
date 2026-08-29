@@ -22,6 +22,7 @@ import (
 
 	"backend/internal/adminapi"
 	"backend/internal/db/sqlc"
+	"backend/internal/dbvalue"
 	"backend/internal/middleware"
 )
 
@@ -364,7 +365,7 @@ func TestUpdateHubSignupDomainHandlesEveryOutcome(t *testing.T) {
 	handler := hubSignupDomainHandler(
 		db, authorization.ManageHubSignupDomains, UpdateHubSignupDomain,
 	)
-	id := adminapi.FormatUUID(row.HubSignupDomainID)
+	id := dbvalue.FormatUUID(row.HubSignupDomainID)
 	body := `{"hub_signup_domain_id":"` + id +
 		`","domain":" UPDATED.EXAMPLE. ","state":"disabled",` +
 		`"disabled_comment":"  Partner access suspended  "}`

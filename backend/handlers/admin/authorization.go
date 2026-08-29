@@ -8,6 +8,7 @@ import (
 
 	"backend/internal/adminapi"
 	"backend/internal/db/sqlc"
+	"backend/internal/dbvalue"
 	"backend/internal/handlerauth"
 	"backend/internal/middleware"
 )
@@ -20,7 +21,7 @@ func SetPermissions(s *adminapi.Server) http.HandlerFunc {
 		}) {
 			return
 		}
-		userID, _ := adminapi.ParseUUID(string(request.AdminUserID))
+		userID, _ := dbvalue.ParseUUID(string(request.AdminUserID))
 		permissions := authorization.DirectPermissions(request.Permissions)
 		stored := make([]string, len(permissions))
 		for index, permission := range permissions {

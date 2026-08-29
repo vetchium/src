@@ -21,7 +21,9 @@ import (
 
 	"backend/internal/adminapi"
 	"backend/internal/apiserver"
+	"backend/internal/credentials"
 	"backend/internal/db/sqlc"
+	"backend/internal/dbvalue"
 	"backend/internal/middleware"
 )
 
@@ -94,7 +96,7 @@ func (s *adminDBStub) DeleteAdminSessionByTokenHash(
 
 func TestLoginPasswordOnly(t *testing.T) {
 	now := time.Date(2026, 8, 9, 10, 0, 0, 0, time.UTC)
-	passwordHash, err := adminapi.HashPassword("correct horse battery staple")
+	passwordHash, err := credentials.HashPassword("correct horse battery staple")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -145,7 +147,7 @@ func TestLoginPasswordOnly(t *testing.T) {
 
 func TestReauthenticateRefreshesCurrentSession(t *testing.T) {
 	now := time.Date(2026, 8, 15, 12, 0, 0, 0, time.UTC)
-	passwordHash, err := adminapi.HashPassword("correct horse battery staple")
+	passwordHash, err := credentials.HashPassword("correct horse battery staple")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -160,7 +162,7 @@ func TestReauthenticateRefreshesCurrentSession(t *testing.T) {
 		}
 		return sqlc.AuthenticateAdminSessionRow{
 			AdminUserID: userID, AdminSessionID: sessionID,
-			AuthenticatedAt: adminapi.Timestamp(now.Add(-10 * time.Minute)),
+			AuthenticatedAt: dbvalue.Timestamp(now.Add(-10 * time.Minute)),
 			Permissions:     []string{},
 		}, nil
 	}
@@ -179,7 +181,7 @@ func TestReauthenticateRefreshesCurrentSession(t *testing.T) {
 			arg.VerifiedPasswordHash != passwordHash {
 			t.Fatalf("reauthentication params = %+v", arg)
 		}
-		return adminapi.Timestamp(now), nil
+		return dbvalue.Timestamp(now), nil
 	}
 
 	server := testAdminServer(db, now)
@@ -240,7 +242,7 @@ func TestReauthenticateRequiresCurrentSession(t *testing.T) {
 
 func TestReauthenticateFailureResponses(t *testing.T) {
 	now := time.Date(2026, 8, 15, 12, 0, 0, 0, time.UTC)
-	passwordHash, err := adminapi.HashPassword("correct password")
+	passwordHash, err := credentials.HashPassword("correct password")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -321,7 +323,7 @@ func TestReauthenticateFailureResponses(t *testing.T) {
 				return sqlc.AuthenticateAdminSessionRow{
 					AdminUserID:     testUUID(10),
 					AdminSessionID:  testUUID(11),
-					AuthenticatedAt: adminapi.Timestamp(now),
+					AuthenticatedAt: dbvalue.Timestamp(now),
 					Permissions:     []string{},
 				}, nil
 			}
@@ -383,7 +385,7 @@ func assertProblemResponse(
 
 func TestLoginWithTOTPReturnsChallenge(t *testing.T) {
 	now := time.Date(2026, 8, 9, 10, 0, 0, 0, time.UTC)
-	passwordHash, err := adminapi.HashPassword("correct horse battery staple")
+	passwordHash, err := credentials.HashPassword("correct horse battery staple")
 	if err != nil {
 		t.Fatal(err)
 	}

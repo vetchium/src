@@ -15,7 +15,9 @@ import (
 	hubauth "github.com/vetchium/src/typespec/hub/auth"
 	hubproblem "github.com/vetchium/src/typespec/problem/hub"
 
+	"backend/internal/credentials"
 	"backend/internal/db/sqlc"
+	"backend/internal/dbvalue"
 	"backend/internal/handlerauth"
 	"backend/internal/hubapi"
 )
@@ -50,11 +52,11 @@ func RequestSignup(s *hubapi.Server) http.HandlerFunc {
 			func(q *sqlc.Queries) (
 				handlerauth.Result[struct{}], *handlerauth.Problem, error,
 			) {
-				token, tokenHash, err := hubapi.NewToken()
+				token, tokenHash, err := credentials.NewToken()
 				if err != nil {
 					return handlerauth.Result[struct{}]{}, nil, err
 				}
-				requestID, err := hubapi.NewUUID()
+				requestID, err := dbvalue.NewUUID()
 				if err != nil {
 					return handlerauth.Result[struct{}]{}, nil, err
 				}
@@ -68,7 +70,7 @@ func RequestSignup(s *hubapi.Server) http.HandlerFunc {
 				if err != nil {
 					return handlerauth.Result[struct{}]{}, nil, err
 				}
-				ciphertext, err := hubapi.Encrypt(
+				ciphertext, err := credentials.Encrypt(
 					s.CredentialSubkey("outbox"), payload,
 				)
 				if err != nil {
@@ -83,10 +85,10 @@ func RequestSignup(s *hubapi.Server) http.HandlerFunc {
 						PreferredLanguage:  string(request.PreferredLanguage),
 						ResidentCountry:    string(request.ResidentCountry),
 						TokenHash:          tokenHash,
-						ExpiresAt:          hubapi.Timestamp(expiresAt),
+						ExpiresAt:          dbvalue.Timestamp(expiresAt),
 						PayloadCiphertext:  ciphertext,
 						TenantID:           s.TenantID,
-						IdempotencyKey:     hubapi.Text(string(key)),
+						IdempotencyKey:     dbvalue.Text(string(key)),
 					},
 				)
 				if err != nil {
@@ -117,7 +119,7 @@ func CompleteSignup(s *hubapi.Server) http.HandlerFunc {
 		if !ok {
 			return
 		}
-		tokenHash := hubapi.TokenHash(string(request.SignupToken))
+		tokenHash := credentials.TokenHash(string(request.SignupToken))
 		binding := base64.RawURLEncoding.EncodeToString(tokenHash)
 		handlerauth.RunIdempotent(
 			s, w, r, "hub:complete-signup", binding, key, request,
@@ -138,7 +140,7 @@ func CompleteSignup(s *hubapi.Server) http.HandlerFunc {
 				if err != nil {
 					return handlerauth.Result[hubauth.CompleteSignupResponse]{}, nil, err
 				}
-				passwordHash, err := hubapi.HashPassword(string(request.Password))
+				passwordHash, err := credentials.HashPassword(string(request.Password))
 				if err != nil {
 					return handlerauth.Result[hubauth.CompleteSignupResponse]{}, nil, err
 				}
@@ -146,7 +148,7 @@ func CompleteSignup(s *hubapi.Server) http.HandlerFunc {
 				if err != nil {
 					return handlerauth.Result[hubauth.CompleteSignupResponse]{}, nil, err
 				}
-				did, err := hubapi.NewUUIDv7(s.CurrentTime())
+				did, err := dbvalue.NewUUIDv7(s.CurrentTime())
 				if err != nil {
 					return handlerauth.Result[hubauth.CompleteSignupResponse]{}, nil, err
 				}
@@ -158,7 +160,7 @@ func CompleteSignup(s *hubapi.Server) http.HandlerFunc {
 						Handle:             string(handle),
 						PasswordHash:       passwordHash,
 						TenantID:           s.TenantID,
-						IdempotencyKey:     hubapi.Text(string(key)),
+						IdempotencyKey:     dbvalue.Text(string(key)),
 					},
 				)
 				if errors.Is(err, pgx.ErrNoRows) {
@@ -174,7 +176,7 @@ func CompleteSignup(s *hubapi.Server) http.HandlerFunc {
 					Status: http.StatusCreated,
 					Body: hubauth.CompleteSignupResponse{
 						HubUserDID: hubspec.HubUserDID(
-							hubapi.FormatUUID(created.HubUserDid),
+							dbvalue.FormatUUID(created.HubUserDid),
 						),
 						Handle: hubspec.HubHandle(created.Handle),
 					},

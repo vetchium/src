@@ -18,7 +18,9 @@ import (
 	adminproblem "github.com/vetchium/src/typespec/problem/admin"
 
 	"backend/internal/adminapi"
+	"backend/internal/credentials"
 	"backend/internal/db/sqlc"
+	"backend/internal/dbvalue"
 	"backend/internal/handlerauth"
 )
 
@@ -48,9 +50,7 @@ func ListHubSignupDomains(s *adminapi.Server) http.HandlerFunc {
 			PageLimit: int32(request.EffectiveLimit()) + 1,
 		}
 		if request.FilterSearch != nil {
-			params.FilterSearch = adminapi.Text(pointer(
-				string(*request.FilterSearch),
-			))
+			params.FilterSearch = dbvalue.Text(string(*request.FilterSearch))
 		}
 		if request.FilterState != nil {
 			params.FilterState = sqlc.NullVetchiumHubSignupDomainState{
@@ -93,7 +93,7 @@ func ListHubSignupDomains(s *adminapi.Server) http.HandlerFunc {
 			last := rows[len(rows)-1]
 			payload, err := json.Marshal(hubSignupDomainsPaginationPayload{
 				BeforeCreatedAt: last.CreatedAt.Time.UTC(),
-				BeforeDomainID: adminapi.FormatUUID(
+				BeforeDomainID: dbvalue.FormatUUID(
 					last.HubSignupDomainID,
 				),
 				FiltersHash: filtersHash,
@@ -102,7 +102,7 @@ func ListHubSignupDomains(s *adminapi.Server) http.HandlerFunc {
 				s.InternalError(r.Context(), w, "encode pagination key", err)
 				return
 			}
-			key := common.PaginationKey(adminapi.SignValue(
+			key := common.PaginationKey(credentials.SignValue(
 				s.CredentialSubkey("pagination"),
 				hubSignupDomainsPaginationPurpose,
 				payload,
@@ -122,7 +122,7 @@ func CreateHubSignupDomain(s *adminapi.Server) http.HandlerFunc {
 		}) {
 			return
 		}
-		domainID, err := adminapi.NewUUID()
+		domainID, err := dbvalue.NewUUID()
 		if err != nil {
 			s.InternalError(r.Context(), w, "create Hub signup domain ID", err)
 			return
@@ -170,7 +170,7 @@ func UpdateHubSignupDomain(s *adminapi.Server) http.HandlerFunc {
 		}) {
 			return
 		}
-		domainID, _ := adminapi.ParseUUID(string(request.HubSignupDomainID))
+		domainID, _ := dbvalue.ParseUUID(string(request.HubSignupDomainID))
 		row, err := s.Queries.UpdateHubSignupDomain(
 			r.Context(), sqlc.UpdateHubSignupDomainParams{
 				TargetDomainID: domainID,
@@ -236,7 +236,7 @@ func hubSignupDomain(
 ) hubsignupdomains.Domain {
 	result := hubsignupdomains.Domain{
 		HubSignupDomainID: adminspec.HubSignupDomainID(
-			adminapi.FormatUUID(domainID),
+			dbvalue.FormatUUID(domainID),
 		),
 		Domain:    hubsignupdomains.DomainName(domain),
 		State:     hubsignupdomains.State(state),
@@ -272,7 +272,7 @@ func hubSignupDomainsFiltersHash(
 	if err != nil {
 		return "", err
 	}
-	digest := adminapi.CanonicalDigest(payload)
+	digest := credentials.CanonicalDigest(payload)
 	return base64.RawURLEncoding.EncodeToString(digest[:]), nil
 }
 
@@ -282,7 +282,7 @@ func applyHubSignupDomainsPaginationKey(
 	key string,
 	filtersHash string,
 ) bool {
-	payload, ok := adminapi.VerifySignedValue(
+	payload, ok := credentials.VerifySignedValue(
 		s.CredentialSubkey("pagination"),
 		hubSignupDomainsPaginationPurpose,
 		key,
@@ -297,11 +297,11 @@ func applyHubSignupDomainsPaginationKey(
 		decoded.BeforeCreatedAt.IsZero() {
 		return false
 	}
-	domainID, err := adminapi.ParseUUID(decoded.BeforeDomainID)
+	domainID, err := dbvalue.ParseUUID(decoded.BeforeDomainID)
 	if err != nil {
 		return false
 	}
-	params.BeforeCreatedAt = adminapi.Timestamp(decoded.BeforeCreatedAt)
+	params.BeforeCreatedAt = dbvalue.Timestamp(decoded.BeforeCreatedAt)
 	params.BeforeDomainID = domainID
 	return true
 }

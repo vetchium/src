@@ -19,7 +19,9 @@ import (
 	adminproblem "github.com/vetchium/src/typespec/problem/admin"
 
 	"backend/internal/adminapi"
+	"backend/internal/credentials"
 	"backend/internal/db/sqlc"
+	"backend/internal/dbvalue"
 	"backend/internal/handlerauth"
 	"backend/internal/middleware"
 )
@@ -77,14 +79,14 @@ func ListUsers(s *adminapi.Server) http.HandlerFunc {
 			last := rows[len(rows)-1]
 			payload, err := json.Marshal(adminUsersPaginationPayload{
 				BeforeCreatedAt: last.CreatedAt.Time.UTC(),
-				BeforeUserID:    adminapi.FormatUUID(last.AdminUserID),
+				BeforeUserID:    dbvalue.FormatUUID(last.AdminUserID),
 				FiltersHash:     filtersHash,
 			})
 			if err != nil {
 				s.InternalError(r.Context(), w, "encode pagination key", err)
 				return
 			}
-			key := common.PaginationKey(adminapi.SignValue(
+			key := common.PaginationKey(credentials.SignValue(
 				s.CredentialSubkey("pagination"), adminUsersPaginationPurpose, payload,
 			))
 			response.NextPaginationKey = &key
@@ -101,7 +103,7 @@ func DisableUser(s *adminapi.Server) http.HandlerFunc {
 		}) {
 			return
 		}
-		targetID, _ := adminapi.ParseUUID(string(request.AdminUserID))
+		targetID, _ := dbvalue.ParseUUID(string(request.AdminUserID))
 		identity, _ := middleware.AdminIdentityFromContext(r.Context())
 		result, err := s.Queries.DisableAdminUser(
 			r.Context(), sqlc.DisableAdminUserParams{
@@ -129,7 +131,7 @@ func EnableUser(s *adminapi.Server) http.HandlerFunc {
 		}) {
 			return
 		}
-		targetID, _ := adminapi.ParseUUID(string(request.AdminUserID))
+		targetID, _ := dbvalue.ParseUUID(string(request.AdminUserID))
 		identity, _ := middleware.AdminIdentityFromContext(r.Context())
 		result, err := s.Queries.EnableAdminUser(
 			r.Context(), sqlc.EnableAdminUserParams{
@@ -170,9 +172,9 @@ func applyListUsersFilters(
 	params *sqlc.ListAdminUsersParams, request users.ListUsersRequest,
 ) {
 	if request.FilterSearch != nil {
-		params.FilterSearch = adminapi.Text(pointer(
+		params.FilterSearch = dbvalue.Text(
 			strings.ToLower(string(*request.FilterSearch)),
-		))
+		)
 	}
 	if request.FilterState != nil {
 		params.FilterState = sqlc.NullVetchiumAdminUserState{
@@ -186,12 +188,10 @@ func applyListUsersFilters(
 			params.FilterPermissions[index] = string(permission)
 		}
 	}
-	params.FilterNoPermissions = adminapi.Bool(request.FilterNoPermissions)
-	params.FilterTotpEnabled = adminapi.Bool(request.FilterTOTPEnabled)
+	params.FilterNoPermissions = dbvalue.NullBool(request.FilterNoPermissions)
+	params.FilterTotpEnabled = dbvalue.NullBool(request.FilterTOTPEnabled)
 	if request.FilterLastLogin != nil {
-		params.FilterLastLogin = adminapi.Text(pointer(
-			string(*request.FilterLastLogin),
-		))
+		params.FilterLastLogin = dbvalue.Text(string(*request.FilterLastLogin))
 	}
 }
 
@@ -215,7 +215,7 @@ func listUsersFiltersHash(request users.ListUsersRequest) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	digest := adminapi.CanonicalDigest(payload)
+	digest := credentials.CanonicalDigest(payload)
 	return base64.RawURLEncoding.EncodeToString(digest[:]), nil
 }
 
@@ -233,7 +233,7 @@ func applyAdminUsersPaginationKey(
 	s *adminapi.Server, params *sqlc.ListAdminUsersParams,
 	key, filtersHash string,
 ) bool {
-	payload, ok := adminapi.VerifySignedValue(
+	payload, ok := credentials.VerifySignedValue(
 		s.CredentialSubkey("pagination"), adminUsersPaginationPurpose, key,
 	)
 	if !ok {
@@ -244,7 +244,7 @@ func applyAdminUsersPaginationKey(
 		decoded.FiltersHash != filtersHash || decoded.BeforeCreatedAt.IsZero() {
 		return false
 	}
-	userID, err := adminapi.ParseUUID(decoded.BeforeUserID)
+	userID, err := dbvalue.ParseUUID(decoded.BeforeUserID)
 	if err != nil {
 		return false
 	}
@@ -264,7 +264,7 @@ func adminUserSummary(
 	}
 	result := users.AdminUserSummary{
 		AdminUserID: adminspec.AdminUserID(
-			adminapi.FormatUUID(row.AdminUserID),
+			dbvalue.FormatUUID(row.AdminUserID),
 		),
 		EmailAddress: common.EmailAddress(row.EmailAddress),
 		DisplayName:  common.DisplayName(row.DisplayName),
@@ -280,8 +280,4 @@ func adminUserSummary(
 		result.LastLoginAt = &lastLoginAt
 	}
 	return result
-}
-
-func pointer[T any](value T) *T {
-	return &value
 }

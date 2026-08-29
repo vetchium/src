@@ -5,17 +5,18 @@ import (
 	"strings"
 
 	"backend/internal/adminapi"
+	"backend/internal/credentials"
 	"backend/internal/db/sqlc"
 )
 
 func Logout(s *adminapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		credentials := strings.Fields(r.Header.Get("Authorization"))
-		if len(credentials) == 2 &&
-			strings.EqualFold(credentials[0], "Bearer") {
+		bearer := strings.Fields(r.Header.Get("Authorization"))
+		if len(bearer) == 2 &&
+			strings.EqualFold(bearer[0], "Bearer") {
 			_, err := s.Queries.DeleteAdminSessionByTokenHash(
 				r.Context(), sqlc.DeleteAdminSessionByTokenHashParams{
-					SessionTokenHash: adminapi.TokenHash(credentials[1]),
+					SessionTokenHash: credentials.TokenHash(bearer[1]),
 					TenantID:         s.TenantID,
 				},
 			)

@@ -12,6 +12,18 @@ Use it together with `go.md`. Also read `database.md` for any database access.
 - `internal/middleware/` owns cross-cutting request behavior.
 - `internal/db/queries/` contains hand-maintained sqlc queries. Generated Go
   database access lives in `internal/db/sqlc/`.
+- Portal packages own only what is specific to their portal.
+  `internal/adminapi/`, `internal/hubapi/`, and `internal/orgsapi/`, together
+  with their handler packages under `handlers/`, must never import one
+  another. Behavior that more than one portal needs belongs in a
+  portal-agnostic package under `internal/`, so a third portal adopts it
+  without copying or reaching into a sibling. `internal/credentials/` owns
+  secret handling, `internal/dbvalue/` owns pgtype conversions and identifier
+  generation, `internal/handlerauth/` owns shared handler support, and
+  `internal/apiserver/` owns shared HTTP behavior. Anything a portal package
+  still exports must differ by portal, such as the credential domain that
+  separates one portal's derived keys from another's. `internal/architecture/`
+  enforces this boundary as a test.
 - `typespec/` is a separate contract module. Backend code consumes its exported
   API types through the replacement in `backend/go.mod`.
 - Use lower camelCase for JSON application-config keys at every nesting level.
@@ -37,6 +49,19 @@ Use it together with `go.md`. Also read `database.md` for any database access.
   shared across replicas nor durable across restarts. If application-specific
   abuse protection is explicitly required, establish its owner and distributed
   state design before implementation.
+
+## Deployment topology
+
+- `docker-compose.json` and `docker-compose-ci.json` are intentionally near
+  duplicates. They describe the same topology for two environments and stay
+  separate on purpose: each file is readable and diffable on its own, and a
+  change to one environment cannot silently alter the other. Do not merge them,
+  generate them from a shared template, or report the repetition between them
+  as a defect. Apply a topology change to both files.
+- Per-tenant service blocks repeat inside each compose file for the same
+  reason. Adding a tenant means copying its block for every service.
+- `deploy/` holds the production stacks and is maintained separately from this
+  guide's scope. Leave it alone unless a task names it.
 
 ## API handlers
 

@@ -13,7 +13,9 @@ import (
 	adminproblem "github.com/vetchium/src/typespec/problem/admin"
 
 	"backend/internal/adminapi"
+	"backend/internal/credentials"
 	"backend/internal/db/sqlc"
+	"backend/internal/dbvalue"
 	"backend/internal/handlerauth"
 	"backend/internal/middleware"
 )
@@ -29,7 +31,7 @@ func RequestPasswordReset(s *adminapi.Server) http.HandlerFunc {
 			return
 		}
 		request = request.Normalize()
-		token, tokenHash, err := adminapi.NewToken()
+		token, tokenHash, err := credentials.NewToken()
 		if err != nil {
 			s.InternalError(r.Context(), w, "generate password reset token", err)
 			return
@@ -42,7 +44,7 @@ func RequestPasswordReset(s *adminapi.Server) http.HandlerFunc {
 			s.InternalError(r.Context(), w, "encode password reset email", err)
 			return
 		}
-		ciphertext, err := adminapi.Encrypt(
+		ciphertext, err := credentials.Encrypt(
 			s.CredentialSubkey("outbox"), payload,
 		)
 		if err != nil {
@@ -58,7 +60,7 @@ func RequestPasswordReset(s *adminapi.Server) http.HandlerFunc {
 					r.Context(), sqlc.CreateAdminPasswordResetParams{
 						RequestEmailAddress: string(request.EmailAddress),
 						TokenHash:           tokenHash,
-						ExpiresAt: adminapi.Timestamp(
+						ExpiresAt: dbvalue.Timestamp(
 							s.CurrentTime().Add(passwordResetTTL),
 						),
 						PayloadCiphertext: ciphertext,
@@ -88,7 +90,7 @@ func CompletePasswordReset(s *adminapi.Server) http.HandlerFunc {
 		if !ok {
 			return
 		}
-		binding := base64.RawURLEncoding.EncodeToString(adminapi.TokenHash(
+		binding := base64.RawURLEncoding.EncodeToString(credentials.TokenHash(
 			string(request.ResetToken),
 		))
 		handlerauth.RunIdempotent(
@@ -97,11 +99,11 @@ func CompletePasswordReset(s *adminapi.Server) http.HandlerFunc {
 			func(q *sqlc.Queries) (
 				handlerauth.Result[struct{}], *handlerauth.Problem, error,
 			) {
-				hash, err := adminapi.HashPassword(string(request.NewPassword))
+				hash, err := credentials.HashPassword(string(request.NewPassword))
 				if err != nil {
 					return handlerauth.Result[struct{}]{}, nil, err
 				}
-				resetTokenHash := adminapi.TokenHash(
+				resetTokenHash := credentials.TokenHash(
 					string(request.ResetToken),
 				)
 				adminUserID, err := q.ResolveAdminPasswordResetUser(
@@ -126,9 +128,7 @@ func CompletePasswordReset(s *adminapi.Server) http.HandlerFunc {
 						ResetTokenHash: resetTokenHash,
 						PasswordHash:   hash,
 						TenantID:       s.TenantID,
-						IdempotencyKey: adminapi.Text(
-							pointer(string(key)),
-						),
+						IdempotencyKey: dbvalue.Text(string(key)),
 					},
 				)
 				if err != nil {
@@ -157,7 +157,7 @@ func ChangePassword(s *adminapi.Server) http.HandlerFunc {
 			return
 		}
 		identity, _ := middleware.AdminIdentityFromContext(r.Context())
-		hash, err := adminapi.HashPassword(string(request.NewPassword))
+		hash, err := credentials.HashPassword(string(request.NewPassword))
 		if err != nil {
 			s.InternalError(r.Context(), w, "hash changed password", err)
 			return

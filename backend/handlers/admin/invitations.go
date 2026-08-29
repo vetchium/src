@@ -12,7 +12,9 @@ import (
 	adminproblem "github.com/vetchium/src/typespec/problem/admin"
 
 	"backend/internal/adminapi"
+	"backend/internal/credentials"
 	"backend/internal/db/sqlc"
+	"backend/internal/dbvalue"
 	"backend/internal/handlerauth"
 	"backend/internal/middleware"
 )
@@ -38,7 +40,7 @@ func InviteUser(s *adminapi.Server) http.HandlerFunc {
 			return
 		}
 		identity, _ := middleware.AdminIdentityFromContext(r.Context())
-		binding := adminapi.FormatUUID(identity.UserID)
+		binding := dbvalue.FormatUUID(identity.UserID)
 		now := s.CurrentTime()
 		handlerauth.RunIdempotent(
 			s, w, r, "admin:invite-user", binding, key, request,
@@ -47,11 +49,11 @@ func InviteUser(s *adminapi.Server) http.HandlerFunc {
 				handlerauth.Result[users.InviteUserResponse],
 				*handlerauth.Problem, error,
 			) {
-				token, tokenHash, err := adminapi.NewToken()
+				token, tokenHash, err := credentials.NewToken()
 				if err != nil {
 					return handlerauth.Result[users.InviteUserResponse]{}, nil, err
 				}
-				invitationID, err := adminapi.NewUUID()
+				invitationID, err := dbvalue.NewUUID()
 				if err != nil {
 					return handlerauth.Result[users.InviteUserResponse]{}, nil, err
 				}
@@ -62,7 +64,7 @@ func InviteUser(s *adminapi.Server) http.HandlerFunc {
 				if err != nil {
 					return handlerauth.Result[users.InviteUserResponse]{}, nil, err
 				}
-				ciphertext, err := adminapi.Encrypt(
+				ciphertext, err := credentials.Encrypt(
 					s.CredentialSubkey("outbox"), payload,
 				)
 				if err != nil {
@@ -76,12 +78,10 @@ func InviteUser(s *adminapi.Server) http.HandlerFunc {
 						TokenHash:          tokenHash,
 						Permissions:        permissions,
 						InvitedBy:          identity.UserID,
-						ExpiresAt:          adminapi.Timestamp(expiresAt),
+						ExpiresAt:          dbvalue.Timestamp(expiresAt),
 						PayloadCiphertext:  ciphertext,
 						TenantID:           s.TenantID,
-						IdempotencyKey: adminapi.Text(
-							pointer(string(key)),
-						),
+						IdempotencyKey:     dbvalue.Text(string(key)),
 					},
 				)
 				if err != nil {
@@ -102,7 +102,7 @@ func InviteUser(s *adminapi.Server) http.HandlerFunc {
 					Status: http.StatusCreated,
 					Body: users.InviteUserResponse{
 						AdminInvitationID: users.AdminInvitationID(
-							adminapi.FormatUUID(row.AdminInvitationID),
+							dbvalue.FormatUUID(row.AdminInvitationID),
 						),
 						ExpiresAt: expiresAt.UTC(),
 					},
@@ -125,7 +125,7 @@ func CompleteSetup(s *adminapi.Server) http.HandlerFunc {
 		if !ok {
 			return
 		}
-		binding := base64.RawURLEncoding.EncodeToString(adminapi.TokenHash(
+		binding := base64.RawURLEncoding.EncodeToString(credentials.TokenHash(
 			string(request.InvitationToken),
 		))
 		handlerauth.RunIdempotent(
@@ -135,16 +135,16 @@ func CompleteSetup(s *adminapi.Server) http.HandlerFunc {
 				handlerauth.Result[users.CompleteSetupResponse],
 				*handlerauth.Problem, error,
 			) {
-				passwordHash, err := adminapi.HashPassword(string(request.Password))
+				passwordHash, err := credentials.HashPassword(string(request.Password))
 				if err != nil {
 					return handlerauth.Result[users.CompleteSetupResponse]{}, nil, err
 				}
-				newUserID, err := adminapi.NewUUID()
+				newUserID, err := dbvalue.NewUUID()
 				if err != nil {
 					return handlerauth.Result[users.CompleteSetupResponse]{}, nil, err
 				}
 				params := sqlc.CompleteAdminSetupParams{
-					InvitationTokenHash: adminapi.TokenHash(
+					InvitationTokenHash: credentials.TokenHash(
 						string(request.InvitationToken),
 					),
 					NewAdminUserID:    newUserID,
@@ -152,9 +152,7 @@ func CompleteSetup(s *adminapi.Server) http.HandlerFunc {
 					PasswordHash:      passwordHash,
 					PreferredLanguage: string(request.PreferredLanguage),
 					TenantID:          s.TenantID,
-					IdempotencyKey: adminapi.Text(
-						pointer(string(key)),
-					),
+					IdempotencyKey:    dbvalue.Text(string(key)),
 				}
 				row, err := q.CompleteAdminSetup(r.Context(), params)
 				if err != nil {
@@ -175,7 +173,7 @@ func CompleteSetup(s *adminapi.Server) http.HandlerFunc {
 					Status: http.StatusCreated,
 					Body: users.CompleteSetupResponse{
 						AdminUserID: adminspec.AdminUserID(
-							adminapi.FormatUUID(row.AdminUserID),
+							dbvalue.FormatUUID(row.AdminUserID),
 						),
 					},
 				}, nil, nil
