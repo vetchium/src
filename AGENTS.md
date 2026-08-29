@@ -5,8 +5,10 @@ Vetchium is a professional social networking and jobs platform.
 Vetchium runs one isolated stack per tenant. The current tenants are `sgp`,
 `usa1`, `deu`, `ind1` and more can be added in future.
 
-Each tenant has a tenant-local database, a bunch of backend services,
-a S3 compatible object store and three frontend portals.
+Each tenant has a tenant-local database, a bunch of backend services and
+three frontend portals. A tenant-local S3 compatible object store is planned;
+no such service is deployed yet, so nothing in this repository may assume one
+exists.
 
 ## Backend
 

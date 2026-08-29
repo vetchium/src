@@ -1,5 +1,5 @@
 {
-  "name": "vetchium-admin-ui",
+  "name": "@vetchium/admin-ui",
   "version": "0.1.0",
   "private": true,
   "type": "module",

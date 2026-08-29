@@ -24,6 +24,17 @@ the wire types under `typespec/` and tests under `playwright/`.
 - Prefer small exported interfaces and literal unions. Do not add UI-only or
   test-only convenience fields to shared wire types.
 
+## Workspaces
+
+- Name every npm workspace under the `@vetchium/` scope, the way
+  `@vetchium/admin-ui`, `@vetchium/hub-ui`, `@vetchium/portal-ui`, and
+  `@vetchium/playwright` do. The contract package is the one exception: it is
+  named `typespec` because that is the bare specifier every consumer imports
+  from, and renaming it would change every contract import in the repository.
+- Keep `engines`, `packageManager`, and shared tool versions aligned across
+  workspaces. A workspace running a different Biome or TypeScript than its
+  siblings can accept code the others reject.
+
 ## Formatting
 
 - Format every `.ts` and `.tsx` file with Biome. Do not use Prettier or another
