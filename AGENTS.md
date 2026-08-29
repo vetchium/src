@@ -57,6 +57,8 @@ will be used in prompts, specifications, UIs related to the Vetchium platform.
 
 Before changing files, read every guide that applies:
 
+- Product terminology and domain vocabulary:
+  [`glossary.md`](agent-guides/glossary.md)
 - Maintained Go code: [`go.md`](agent-guides/go.md)
 - Backend API servers and workers:
   [`backend.md`](agent-guides/backend.md)
@@ -68,6 +70,7 @@ Before changing files, read every guide that applies:
   [`typespec.md`](agent-guides/typespec.md)
 - Hand-maintained TypeScript:
   [`typescript.md`](agent-guides/typescript.md)
+- Portal user interfaces: [`ui.md`](agent-guides/ui.md)
 - Playwright API and UI tests:
   [`playwright.md`](agent-guides/playwright.md)
 
@@ -83,6 +86,8 @@ Scoped routers make these requirements visible near the code:
 - [`backend/internal/db/AGENTS.md`](backend/internal/db/AGENTS.md)
 - [`typespec/AGENTS.md`](typespec/AGENTS.md)
 - [`playwright/AGENTS.md`](playwright/AGENTS.md)
+- [`admin-ui/AGENTS.md`](admin-ui/AGENTS.md)
+- [`hub-ui/AGENTS.md`](hub-ui/AGENTS.md)
 
 The nearest scoped `AGENTS.md` takes precedence when instructions conflict.
 More specific guides take precedence over general guides.
