@@ -101,6 +101,44 @@ func TestLoginSessionDurations(t *testing.T) {
 	}
 }
 
+func TestTOTPLoginReplayExpiryDoesNotOutliveAnySession(t *testing.T) {
+	now := time.Date(2026, 8, 29, 10, 0, 0, 0, time.UTC)
+	for _, test := range []struct {
+		name                 string
+		sessionTTL           time.Duration
+		rememberedSessionTTL time.Duration
+		want                 time.Time
+	}{
+		{
+			name:                 "ordinary replay window",
+			sessionTTL:           time.Hour,
+			rememberedSessionTTL: 24 * time.Hour,
+			want:                 now.Add(5 * time.Minute),
+		},
+		{
+			name:                 "short browser session",
+			sessionTTL:           30 * time.Second,
+			rememberedSessionTTL: 24 * time.Hour,
+			want:                 now.Add(30 * time.Second),
+		},
+		{
+			name:                 "short remembered session",
+			sessionTTL:           time.Hour,
+			rememberedSessionTTL: 45 * time.Second,
+			want:                 now.Add(45 * time.Second),
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			server := hubTestServer(&hubDBStub{}, now)
+			server.SessionTTL = test.sessionTTL
+			server.RememberedSessionTTL = test.rememberedSessionTTL
+			if got := loginReplayExpiresAt(server, now); got != test.want {
+				t.Fatalf("replay expiry = %v, want %v", got, test.want)
+			}
+		})
+	}
+}
+
 func TestLoginValidatesRequest(t *testing.T) {
 	response := hubJSONRequest(
 		t, Login(hubTestServer(&hubDBStub{}, time.Now())),
