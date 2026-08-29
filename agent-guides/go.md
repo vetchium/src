@@ -6,8 +6,13 @@ not apply to generated Go output such as `backend/internal/db/sqlc/*.go`.
 ## Formatting and imports
 
 - Name Go source files in lowercase snake_case. Preserve the conventional
-  `_test.go` suffix, and keep command directory names aligned with their
-  executable and container image names even when those names contain hyphens.
+  `_test.go` suffix. Directory names follow what the directory already answers
+  to elsewhere, so hyphens stay in two cases: `backend/cmd/<name>/` matches its
+  executable and container image name, and a directory under `typespec/` matches
+  the contract path its `.tsp` file defines. A hyphenated contract directory
+  still holds snake_case Go files, as `typespec/admin/hub-signup-domains/`
+  does — the sibling check in `typespec/scripts/check-contract-files.mjs`
+  expects that pairing.
 - Run `gofmt` on every changed Go file.
 - Group imports by domain. Put standard-library imports first, then
   non-standard modules grouped by module owner or domain in lexical order, and
