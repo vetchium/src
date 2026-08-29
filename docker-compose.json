@@ -113,11 +113,11 @@
         "timeout": "2s"
       },
       "networks": {
-        "deu_backend": {"aliases": ["mailpit"]},
-        "ind1_backend": {"aliases": ["mailpit"]},
+        "deu_backend": { "aliases": ["mailpit"] },
+        "ind1_backend": { "aliases": ["mailpit"] },
         "mailpit_access": null,
-        "sgp_backend": {"aliases": ["mailpit"]},
-        "usa1_backend": {"aliases": ["mailpit"]}
+        "sgp_backend": { "aliases": ["mailpit"] },
+        "usa1_backend": { "aliases": ["mailpit"] }
       },
       "ports": ["${MAILPIT_BIND:-127.0.0.1}:${MAILPIT_PORT:-18025}:8025"],
       "read_only": true,
@@ -146,10 +146,10 @@
       },
       "networks": {
         "global_coordinator_access": null,
-        "deu_backend": {"aliases": ["global-coordinator"]},
-        "ind1_backend": {"aliases": ["global-coordinator"]},
-        "sgp_backend": {"aliases": ["global-coordinator"]},
-        "usa1_backend": {"aliases": ["global-coordinator"]}
+        "deu_backend": { "aliases": ["global-coordinator"] },
+        "ind1_backend": { "aliases": ["global-coordinator"] },
+        "sgp_backend": { "aliases": ["global-coordinator"] },
+        "usa1_backend": { "aliases": ["global-coordinator"] }
       },
       "ports": [
         "${GLOBAL_COORDINATOR_BIND:-127.0.0.1}:${GLOBAL_COORDINATOR_PORT:-18080}:8080"
@@ -726,7 +726,9 @@
           "required": true
         }
       },
-      "configs": [{"source": "app_config_deu", "target": "/etc/vetchium/config.json"}],
+      "configs": [
+        { "source": "app_config_deu", "target": "/etc/vetchium/config.json" }
+      ],
       "environment": {
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
@@ -772,7 +774,9 @@
           "required": true
         }
       },
-      "configs": [{"source": "app_config_ind1", "target": "/etc/vetchium/config.json"}],
+      "configs": [
+        { "source": "app_config_ind1", "target": "/etc/vetchium/config.json" }
+      ],
       "environment": {
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
@@ -818,7 +822,9 @@
           "required": true
         }
       },
-      "configs": [{"source": "app_config_sgp", "target": "/etc/vetchium/config.json"}],
+      "configs": [
+        { "source": "app_config_sgp", "target": "/etc/vetchium/config.json" }
+      ],
       "environment": {
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
@@ -864,7 +870,9 @@
           "required": true
         }
       },
-      "configs": [{"source": "app_config_usa1", "target": "/etc/vetchium/config.json"}],
+      "configs": [
+        { "source": "app_config_usa1", "target": "/etc/vetchium/config.json" }
+      ],
       "environment": {
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
@@ -966,7 +974,9 @@
           "required": true
         }
       },
-      "configs": [{"source": "app_config_deu", "target": "/etc/vetchium/config.json"}],
+      "configs": [
+        { "source": "app_config_deu", "target": "/etc/vetchium/config.json" }
+      ],
       "environment": {
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
@@ -1010,7 +1020,9 @@
           "required": true
         }
       },
-      "configs": [{"source": "app_config_ind1", "target": "/etc/vetchium/config.json"}],
+      "configs": [
+        { "source": "app_config_ind1", "target": "/etc/vetchium/config.json" }
+      ],
       "environment": {
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
@@ -1054,7 +1066,9 @@
           "required": true
         }
       },
-      "configs": [{"source": "app_config_sgp", "target": "/etc/vetchium/config.json"}],
+      "configs": [
+        { "source": "app_config_sgp", "target": "/etc/vetchium/config.json" }
+      ],
       "environment": {
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
@@ -1098,7 +1112,9 @@
           "required": true
         }
       },
-      "configs": [{"source": "app_config_usa1", "target": "/etc/vetchium/config.json"}],
+      "configs": [
+        { "source": "app_config_usa1", "target": "/etc/vetchium/config.json" }
+      ],
       "environment": {
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
@@ -1142,7 +1158,9 @@
           "required": true
         }
       },
-      "configs": [{"source": "app_config_deu", "target": "/etc/vetchium/config.json"}],
+      "configs": [
+        { "source": "app_config_deu", "target": "/etc/vetchium/config.json" }
+      ],
       "environment": {
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
@@ -1184,7 +1202,9 @@
           "required": true
         }
       },
-      "configs": [{"source": "app_config_ind1", "target": "/etc/vetchium/config.json"}],
+      "configs": [
+        { "source": "app_config_ind1", "target": "/etc/vetchium/config.json" }
+      ],
       "environment": {
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
@@ -1226,7 +1246,9 @@
           "required": true
         }
       },
-      "configs": [{"source": "app_config_sgp", "target": "/etc/vetchium/config.json"}],
+      "configs": [
+        { "source": "app_config_sgp", "target": "/etc/vetchium/config.json" }
+      ],
       "environment": {
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
@@ -1268,7 +1290,9 @@
           "required": true
         }
       },
-      "configs": [{"source": "app_config_usa1", "target": "/etc/vetchium/config.json"}],
+      "configs": [
+        { "source": "app_config_usa1", "target": "/etc/vetchium/config.json" }
+      ],
       "environment": {
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
@@ -1390,7 +1414,9 @@
           "required": true
         }
       },
-      "configs": [{"source": "app_config_deu", "target": "/etc/vetchium/config.json"}],
+      "configs": [
+        { "source": "app_config_deu", "target": "/etc/vetchium/config.json" }
+      ],
       "environment": {
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
@@ -1432,7 +1458,9 @@
           "required": true
         }
       },
-      "configs": [{"source": "app_config_ind1", "target": "/etc/vetchium/config.json"}],
+      "configs": [
+        { "source": "app_config_ind1", "target": "/etc/vetchium/config.json" }
+      ],
       "environment": {
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
@@ -1474,7 +1502,9 @@
           "required": true
         }
       },
-      "configs": [{"source": "app_config_sgp", "target": "/etc/vetchium/config.json"}],
+      "configs": [
+        { "source": "app_config_sgp", "target": "/etc/vetchium/config.json" }
+      ],
       "environment": {
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
@@ -1516,7 +1546,9 @@
           "required": true
         }
       },
-      "configs": [{"source": "app_config_usa1", "target": "/etc/vetchium/config.json"}],
+      "configs": [
+        { "source": "app_config_usa1", "target": "/etc/vetchium/config.json" }
+      ],
       "environment": {
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
         "PGSSLMODE": "${PGSSLMODE:-disable}"

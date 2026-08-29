@@ -55,7 +55,9 @@
       }
     },
     "read_only": true,
-    "configs": [{"source": "app_config", "target": "/etc/vetchium/config.json"}],
+    "configs": [
+      { "source": "app_config", "target": "/etc/vetchium/config.json" }
+    ],
     "environment": {
       "PGDATABASE": "${POSTGRES_DB:?set POSTGRES_DB}",
       "PGSSLMODE": "${PGSSLMODE:-disable}"
@@ -211,12 +213,18 @@
         }
       },
       "read_only": true,
-      "configs": [{"source": "app_config", "target": "/etc/vetchium/config.json"}],
+      "configs": [
+        { "source": "app_config", "target": "/etc/vetchium/config.json" }
+      ],
       "environment": {
         "PGDATABASE": "${POSTGRES_DB:?set POSTGRES_DB}",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
       },
-      "secrets": ["app_postgres_password", "admin_credential_key", "global_coordinator_credential"],
+      "secrets": [
+        "app_postgres_password",
+        "admin_credential_key",
+        "global_coordinator_credential"
+      ],
       "image": "${REGISTRY:-ghcr.io/vetchium}/admin-api:${TAG:?set TAG}",
       "networks": ["admin_api_access", "backend", "global_coordinator_egress"]
     },
@@ -248,12 +256,18 @@
         }
       },
       "read_only": true,
-      "configs": [{"source": "app_config", "target": "/etc/vetchium/config.json"}],
+      "configs": [
+        { "source": "app_config", "target": "/etc/vetchium/config.json" }
+      ],
       "environment": {
         "PGDATABASE": "${POSTGRES_DB:?set POSTGRES_DB}",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
       },
-      "secrets": ["app_postgres_password", "hub_credential_key", "global_coordinator_credential"],
+      "secrets": [
+        "app_postgres_password",
+        "hub_credential_key",
+        "global_coordinator_credential"
+      ],
       "image": "${REGISTRY:-ghcr.io/vetchium}/hub-api:${TAG:?set TAG}",
       "networks": ["hub_api_access", "backend", "global_coordinator_egress"]
     },
@@ -285,7 +299,9 @@
         }
       },
       "read_only": true,
-      "configs": [{"source": "app_config", "target": "/etc/vetchium/config.json"}],
+      "configs": [
+        { "source": "app_config", "target": "/etc/vetchium/config.json" }
+      ],
       "environment": {
         "PGDATABASE": "${POSTGRES_DB:?set POSTGRES_DB}",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
@@ -322,7 +338,9 @@
         }
       },
       "read_only": true,
-      "configs": [{"source": "app_config", "target": "/etc/vetchium/config.json"}],
+      "configs": [
+        { "source": "app_config", "target": "/etc/vetchium/config.json" }
+      ],
       "environment": {
         "PGDATABASE": "${POSTGRES_DB:?set POSTGRES_DB}",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
@@ -359,7 +377,9 @@
         }
       },
       "read_only": true,
-      "configs": [{"source": "app_config", "target": "/etc/vetchium/config.json"}],
+      "configs": [
+        { "source": "app_config", "target": "/etc/vetchium/config.json" }
+      ],
       "environment": {
         "PGDATABASE": "${POSTGRES_DB:?set POSTGRES_DB}",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
@@ -404,7 +424,12 @@
         "PGDATABASE": "${POSTGRES_DB:?set POSTGRES_DB}",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
       },
-      "secrets": ["app_postgres_password", "hub_credential_key", "smtp_username", "smtp_password"],
+      "secrets": [
+        "app_postgres_password",
+        "hub_credential_key",
+        "smtp_username",
+        "smtp_password"
+      ],
       "image": "${REGISTRY:-ghcr.io/vetchium}/workers:${TAG:?set TAG}",
       "networks": ["backend", "smtp_egress"]
     },

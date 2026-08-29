@@ -9,7 +9,9 @@
       "**/*.mts",
       "**/*.cts",
       "**/*.tsx",
+      "**/*.json",
       "!!**/node_modules",
+      "!!**/package-lock.json",
       "!!**/tsp-output",
       "!!**/test-results",
       "!!**/playwright-report"
@@ -31,7 +33,7 @@
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true
+      "preset": "recommended"
     },
     "domains": {
       "react": "recommended",
