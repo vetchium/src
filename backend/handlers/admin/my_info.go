@@ -9,7 +9,6 @@ import (
 
 	adminspec "github.com/vetchium/src/typespec/admin"
 	"github.com/vetchium/src/typespec/admin/authorization"
-	"github.com/vetchium/src/typespec/admin/user"
 	"github.com/vetchium/src/typespec/admin/users"
 	"github.com/vetchium/src/typespec/common"
 	adminproblem "github.com/vetchium/src/typespec/problem/admin"
@@ -67,7 +66,7 @@ func MyInfo(s *adminapi.Server) http.HandlerFunc {
 			),
 			EmailAddress: common.EmailAddress(row.EmailAddress),
 			DisplayName:  common.DisplayName(row.DisplayName),
-			State:        user.State(row.AdminUserState),
+			State:        users.AdminUserState(row.AdminUserState),
 			AdminAuthorization: authorization.AdminAuthorization{
 				Permissions: permissions,
 			},

@@ -12,7 +12,6 @@ import (
 
 	adminspec "github.com/vetchium/src/typespec/admin"
 	"github.com/vetchium/src/typespec/admin/authorization"
-	"github.com/vetchium/src/typespec/admin/user"
 	"github.com/vetchium/src/typespec/admin/users"
 	"github.com/vetchium/src/typespec/common"
 	"github.com/vetchium/src/typespec/problem"
@@ -199,7 +198,7 @@ func listUsersFiltersHash(request users.ListUsersRequest) (string, error) {
 	permissions := slices.Sorted(slices.Values(request.FilterPermissions))
 	payload, err := json.Marshal(struct {
 		Search        *users.AdminUserFilterText        `json:"search"`
-		State         *user.State                       `json:"state"`
+		State         *users.AdminUserState             `json:"state"`
 		Permissions   []authorization.AdminPermissionID `json:"permissions"`
 		NoPermissions *bool                             `json:"no_permissions"`
 		TOTPEnabled   *bool                             `json:"totp_enabled"`
@@ -268,7 +267,7 @@ func adminUserSummary(
 		),
 		EmailAddress: common.EmailAddress(row.EmailAddress),
 		DisplayName:  common.DisplayName(row.DisplayName),
-		State:        user.State(row.AdminUserState),
+		State:        users.AdminUserState(row.AdminUserState),
 		AdminAuthorization: authorization.AdminAuthorization{
 			Permissions: permissions,
 		},

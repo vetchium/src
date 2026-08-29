@@ -30,12 +30,12 @@ import {
   ManageUsers,
   ViewUsers,
 } from "typespec/admin/authorization/types";
-import type { State } from "typespec/admin/user/user";
 import type {
   AdminLastLoginFilter,
   AdminUserSummary,
   ListUsersRequest,
 } from "typespec/admin/users/management";
+import type { AdminUserState } from "typespec/admin/users/state";
 import type { PaginationKey } from "typespec/common/pagination";
 import {
   AdminUserNotFoundError,
@@ -56,7 +56,7 @@ import { usersQueryKey, useUsersQuery } from "../features/users/queries";
 
 interface UserFilters {
   search?: string;
-  state?: State;
+  state?: AdminUserState;
   permissions?: AdminPermissionID[];
   noPermissions?: boolean;
   totpEnabled?: boolean;
@@ -328,7 +328,8 @@ export function UsersPage() {
               ]}
               onChange={(value) =>
                 updateFilters({
-                  state: value === "all" ? undefined : (value as State),
+                  state:
+                    value === "all" ? undefined : (value as AdminUserState),
                 })
               }
             />

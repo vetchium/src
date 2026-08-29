@@ -12,7 +12,7 @@ import "../../problem/common.tsp";
 import "../../problem/details.tsp";
 import "../authorization/types.tsp";
 import "../types.tsp";
-import "../user/user.tsp";
+import "./state.tsp";
 
 using TypeSpec.Http;
 
@@ -41,7 +41,7 @@ model ListUsersRequest {
   /** Case-insensitive partial match against email or display name. */
   filter_search?: AdminUserFilterText;
 
-  filter_state?: Vetchium.Admin.User.State;
+  filter_state?: AdminUserState;
 
   /**
    * Match admins whose effective permissions include every listed permission.
@@ -62,7 +62,7 @@ model AdminUserSummary {
   admin_user_id: AdminUserID;
   email_address: EmailAddress;
   display_name: DisplayName;
-  state: Vetchium.Admin.User.State;
+  state: AdminUserState;
   ...AdminAuthorization;
   totp_enabled: boolean;
   last_login_at?: utcDateTime;

@@ -8,7 +8,7 @@ import "../../problem/admin/authentication.tsp";
 import "../../problem/details.tsp";
 import "../authorization/types.tsp";
 import "../types.tsp";
-import "../user/user.tsp";
+import "./state.tsp";
 
 using TypeSpec.Http;
 
@@ -29,7 +29,7 @@ model MyInfoResponse {
   admin_user_id: AdminUserID;
   email_address: EmailAddress;
   display_name: DisplayName;
-  state: Vetchium.Admin.User.State;
+  state: AdminUserState;
   ...AdminAuthorization;
   totp_enabled: boolean;
 

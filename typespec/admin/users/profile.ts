@@ -8,7 +8,7 @@ import {
 } from "../../common/localization.ts";
 import type { AdminAuthorization } from "../authorization/types.ts";
 import type { AdminUserID } from "../types.ts";
-import type { State } from "../user/user.ts";
+import type { AdminUserState } from "./state.ts";
 
 export interface SetPreferredLanguageRequest {
   preferred_language: FrontendLocale;
@@ -47,7 +47,7 @@ export interface MyInfoResponse extends AdminAuthorization {
   admin_user_id: AdminUserID;
   email_address: EmailAddress;
   display_name: DisplayName;
-  state: State;
+  state: AdminUserState;
   totp_enabled: boolean;
   recovery_codes_remaining: TOTPRecoveryCodeCount;
   preferred_language: FrontendLocale;

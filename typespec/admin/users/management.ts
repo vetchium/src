@@ -9,7 +9,7 @@ import type {
 import { validatePermissions } from "../authorization/types.ts";
 import type { AdminUserID } from "../types.ts";
 import { isAdminUserID } from "../types.ts";
-import type { State } from "../user/user.ts";
+import type { AdminUserState } from "./state.ts";
 
 export type AdminUserFilterText = string;
 export type AdminLastLoginFilter =
@@ -21,7 +21,7 @@ export interface ListUsersRequest {
   limit?: PageSize;
   pagination_key?: PaginationKey;
   filter_search?: AdminUserFilterText;
-  filter_state?: State;
+  filter_state?: AdminUserState;
   filter_permissions?: AdminPermissionID[];
   filter_no_permissions?: boolean;
   filter_totp_enabled?: boolean;
@@ -82,7 +82,7 @@ export interface AdminUserSummary extends AdminAuthorization {
   admin_user_id: AdminUserID;
   email_address: EmailAddress;
   display_name: DisplayName;
-  state: State;
+  state: AdminUserState;
   totp_enabled: boolean;
   last_login_at?: string;
   created_at: string;

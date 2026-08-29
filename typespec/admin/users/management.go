@@ -5,7 +5,6 @@ import (
 
 	adminspec "github.com/vetchium/src/typespec/admin"
 	"github.com/vetchium/src/typespec/admin/authorization"
-	"github.com/vetchium/src/typespec/admin/user"
 	"github.com/vetchium/src/typespec/common"
 )
 
@@ -22,7 +21,7 @@ type ListUsersRequest struct {
 	Limit               *common.PageSize                  `json:"limit,omitempty"`
 	PaginationKey       *common.PaginationKey             `json:"pagination_key,omitempty"`
 	FilterSearch        *AdminUserFilterText              `json:"filter_search,omitempty"`
-	FilterState         *user.State                       `json:"filter_state,omitempty"`
+	FilterState         *AdminUserState                   `json:"filter_state,omitempty"`
 	FilterPermissions   []authorization.AdminPermissionID `json:"filter_permissions,omitempty"`
 	FilterNoPermissions *bool                             `json:"filter_no_permissions,omitempty"`
 	FilterTOTPEnabled   *bool                             `json:"filter_totp_enabled,omitempty"`
@@ -49,7 +48,7 @@ func (r ListUsersRequest) Validate() []string {
 		fields = append(fields, "filter_search")
 	}
 	if r.FilterState != nil &&
-		*r.FilterState != user.Active && *r.FilterState != user.Disabled {
+		*r.FilterState != Active && *r.FilterState != Disabled {
 		fields = append(fields, "filter_state")
 	}
 	if !authorization.ValidatePermissions(r.FilterPermissions) {
@@ -76,7 +75,7 @@ type AdminUserSummary struct {
 	AdminUserID  adminspec.AdminUserID `json:"admin_user_id"`
 	EmailAddress common.EmailAddress   `json:"email_address"`
 	DisplayName  common.DisplayName    `json:"display_name"`
-	State        user.State            `json:"state"`
+	State        AdminUserState        `json:"state"`
 	authorization.AdminAuthorization
 	TOTPEnabled bool       `json:"totp_enabled"`
 	LastLoginAt *time.Time `json:"last_login_at,omitempty"`

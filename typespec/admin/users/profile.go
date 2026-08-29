@@ -5,7 +5,6 @@ import (
 
 	adminspec "github.com/vetchium/src/typespec/admin"
 	"github.com/vetchium/src/typespec/admin/authorization"
-	"github.com/vetchium/src/typespec/admin/user"
 	"github.com/vetchium/src/typespec/common"
 )
 
@@ -41,7 +40,7 @@ type MyInfoResponse struct {
 	AdminUserID  adminspec.AdminUserID `json:"admin_user_id"`
 	EmailAddress common.EmailAddress   `json:"email_address"`
 	DisplayName  common.DisplayName    `json:"display_name"`
-	State        user.State            `json:"state"`
+	State        AdminUserState        `json:"state"`
 	authorization.AdminAuthorization
 	TOTPEnabled            bool                         `json:"totp_enabled"`
 	RecoveryCodesRemaining common.TOTPRecoveryCodeCount `json:"recovery_codes_remaining"`
