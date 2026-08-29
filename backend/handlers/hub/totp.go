@@ -21,15 +21,6 @@ import (
 
 const totpEnrollmentTTL = 10 * time.Minute
 
-func loginReplayExpiresAt(s *hubapi.Server, now time.Time) time.Time {
-	replayExpiresAt := now.Add(5 * time.Minute)
-	sessionExpiry := now.Add(s.SessionDurations.Shortest())
-	if sessionExpiry.Before(replayExpiresAt) {
-		replayExpiresAt = sessionExpiry
-	}
-	return replayExpiresAt
-}
-
 func getLockedHubLoginChallenge(
 	ctx context.Context, q *sqlc.Queries, tokenHash []byte,
 ) (sqlc.GetHubLoginChallengeRow, error) {
@@ -61,7 +52,7 @@ func VerifyTFA(s *hubapi.Server) http.HandlerFunc {
 		now := s.CurrentTime()
 		handlerauth.RunIdempotent(
 			s, w, r, "hub:login-tfa", binding, key, request,
-			loginReplayExpiresAt(s, now),
+			handlerauth.LoginReplayExpiresAt(s.SessionDurations, now),
 			func(q *sqlc.Queries) (
 				handlerauth.Result[hubauth.AuthenticatedSessionResponse],
 				*handlerauth.Problem, error,
@@ -318,7 +309,7 @@ func VerifyRecoveryCode(s *hubapi.Server) http.HandlerFunc {
 		now := s.CurrentTime()
 		handlerauth.RunIdempotent(
 			s, w, r, "hub:login-recovery-code", binding, key, request,
-			loginReplayExpiresAt(s, now),
+			handlerauth.LoginReplayExpiresAt(s.SessionDurations, now),
 			func(q *sqlc.Queries) (
 				handlerauth.Result[hubauth.VerifyRecoveryCodeResponse],
 				*handlerauth.Problem, error,

@@ -54,15 +54,9 @@ func VerifyTFA(s *adminapi.Server) http.HandlerFunc {
 			string(request.LoginChallengeToken),
 		))
 		now := s.CurrentTime()
-		replayExpiresAt := now.Add(5 * time.Minute)
-		if sessionExpiry := now.Add(s.SessionDuration(false)); sessionExpiry.Before(
-			replayExpiresAt,
-		) {
-			replayExpiresAt = sessionExpiry
-		}
 		handlerauth.RunIdempotent(
 			s, w, r, "admin:login-tfa", binding, key, request,
-			replayExpiresAt,
+			handlerauth.LoginReplayExpiresAt(s.SessionDurations, now),
 			func(q *sqlc.Queries) (
 				handlerauth.Result[adminauth.AuthenticatedSessionResponse],
 				*handlerauth.Problem, error,
@@ -324,15 +318,9 @@ func VerifyRecoveryCode(s *adminapi.Server) http.HandlerFunc {
 			string(request.LoginChallengeToken),
 		))
 		now := s.CurrentTime()
-		replayExpiresAt := now.Add(5 * time.Minute)
-		if sessionExpiry := now.Add(s.SessionDuration(false)); sessionExpiry.Before(
-			replayExpiresAt,
-		) {
-			replayExpiresAt = sessionExpiry
-		}
 		handlerauth.RunIdempotent(
 			s, w, r, "admin:login-recovery-code", binding, key, request,
-			replayExpiresAt,
+			handlerauth.LoginReplayExpiresAt(s.SessionDurations, now),
 			func(q *sqlc.Queries) (
 				handlerauth.Result[adminauth.VerifyRecoveryCodeResponse],
 				*handlerauth.Problem, error,
