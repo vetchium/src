@@ -258,6 +258,7 @@ typespec-deps:
 
 typespec-check-ready: typespec-deps
 	cd typespec && npm run check:contract-files
+	cd typespec && npm run test:contract-files
 	cd typespec && npm run format:check
 	cd typespec && npm run typecheck
 	cd typespec && npm run test:ts

@@ -60,6 +60,7 @@
     "compile": "tsp compile .",
     "format": "biome check --write --config-path=../biome.json .",
     "format:check": "biome check --config-path=../biome.json .",
+    "test:contract-files": "node --test scripts/check-contract-files.test.mjs",
     "test:ts": "node --experimental-strip-types --test admin/*.test.ts common/*.test.ts global-coordinator/*.test.ts hub/*.test.ts",
     "typecheck": "tsc --noEmit"
   },
