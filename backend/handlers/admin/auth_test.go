@@ -45,7 +45,9 @@ type adminDBStub struct {
 	createLoginChallenge func(
 		context.Context, sqlc.CreateAdminLoginChallengeParams,
 	) (sqlc.CreateAdminLoginChallengeRow, error)
-	deleteSessionByToken func(context.Context, []byte) (int64, error)
+	deleteSessionByToken func(
+		context.Context, sqlc.DeleteAdminSessionByTokenHashParams,
+	) (int64, error)
 }
 
 func (s *adminDBStub) AuthenticateAdminSession(
@@ -85,9 +87,9 @@ func (s *adminDBStub) CreateAdminLoginChallenge(
 }
 
 func (s *adminDBStub) DeleteAdminSessionByTokenHash(
-	ctx context.Context, hash []byte,
+	ctx context.Context, params sqlc.DeleteAdminSessionByTokenHashParams,
 ) (int64, error) {
-	return s.deleteSessionByToken(ctx, hash)
+	return s.deleteSessionByToken(ctx, params)
 }
 
 func TestLoginPasswordOnly(t *testing.T) {
@@ -481,10 +483,13 @@ func TestLoginFailuresUseStableProblems(t *testing.T) {
 
 func TestLogoutIsAnonymousAndIdempotent(t *testing.T) {
 	db := &adminDBStub{deleteSessionByToken: func(
-		_ context.Context, hash []byte,
+		_ context.Context, params sqlc.DeleteAdminSessionByTokenHashParams,
 	) (int64, error) {
-		if len(hash) != 32 {
-			t.Fatalf("hash length = %d", len(hash))
+		if len(params.SessionTokenHash) != 32 {
+			t.Fatalf("hash length = %d", len(params.SessionTokenHash))
+		}
+		if params.TenantID != "test" {
+			t.Fatalf("tenant ID = %q", params.TenantID)
 		}
 		return 0, nil
 	}}

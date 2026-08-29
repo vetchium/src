@@ -32,6 +32,23 @@ WITH target AS (
     FROM permitted
     CROSS JOIN unnest(sqlc.arg(permissions)::text[]) AS requested(permission)
     RETURNING admin_user_id
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, payload
+    )
+    SELECT
+        sqlc.arg(tenant_id),
+        'admin.permissions.set',
+        'admin_user',
+        admin_user_id::text,
+        'admin',
+        sqlc.arg(actor_admin_user_id)::uuid::text,
+        'admin-api',
+        jsonb_build_object(
+            'permissions', to_jsonb(sqlc.arg(permissions)::text[])
+        )
+    FROM permitted
 )
 SELECT CASE
     WHEN NOT EXISTS (SELECT 1 FROM target) THEN 'not_found'

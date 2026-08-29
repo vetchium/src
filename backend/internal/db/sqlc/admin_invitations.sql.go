@@ -63,6 +63,27 @@ WITH invitation AS (
     )
       AND EXISTS (SELECT 1 FROM inserted_user)
     RETURNING admin_invitation_id
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, idempotency_key, payload
+    )
+    SELECT
+        $6,
+        'admin.user.created',
+        'admin_user',
+        admin_user_id::text,
+        'anonymous',
+        NULL,
+        'admin-api',
+        $7,
+        jsonb_build_object(
+            'invitation_id', invitation.admin_invitation_id,
+            'permissions', to_jsonb(invitation.permissions)
+        )
+    FROM inserted_user
+    CROSS JOIN invitation
+    WHERE EXISTS (SELECT 1 FROM consumed)
 )
 SELECT
     CASE
@@ -80,6 +101,8 @@ type CompleteAdminSetupParams struct {
 	DisplayName         string      `json:"display_name"`
 	PasswordHash        string      `json:"password_hash"`
 	PreferredLanguage   string      `json:"preferred_language"`
+	TenantID            string      `json:"tenant_id"`
+	IdempotencyKey      pgtype.Text `json:"idempotency_key"`
 }
 
 type CompleteAdminSetupRow struct {
@@ -94,6 +117,8 @@ func (q *Queries) CompleteAdminSetup(ctx context.Context, arg CompleteAdminSetup
 		arg.DisplayName,
 		arg.PasswordHash,
 		arg.PreferredLanguage,
+		arg.TenantID,
+		arg.IdempotencyKey,
 	)
 	var i CompleteAdminSetupRow
 	err := row.Scan(&i.Result, &i.AdminUserID)
@@ -145,6 +170,25 @@ WITH existing_user AS (
         $7
     FROM upserted
     RETURNING admin_email_outbox_id
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, idempotency_key, payload
+    )
+    SELECT
+        $8,
+        'admin.invitation.created',
+        'admin_invitation',
+        admin_invitation_id::text,
+        'admin',
+        $5::text,
+        'admin-api',
+        $9,
+        jsonb_build_object(
+            'permissions', to_jsonb($4::text[]),
+            'email_queued', EXISTS (SELECT 1 FROM outbox)
+        )
+    FROM upserted
 )
 SELECT
     CASE
@@ -165,6 +209,8 @@ type CreateAdminInvitationParams struct {
 	InvitedBy          pgtype.UUID        `json:"invited_by"`
 	ExpiresAt          pgtype.Timestamptz `json:"expires_at"`
 	PayloadCiphertext  []byte             `json:"payload_ciphertext"`
+	TenantID           string             `json:"tenant_id"`
+	IdempotencyKey     pgtype.Text        `json:"idempotency_key"`
 }
 
 type CreateAdminInvitationRow struct {
@@ -183,6 +229,8 @@ func (q *Queries) CreateAdminInvitation(ctx context.Context, arg CreateAdminInvi
 		arg.InvitedBy,
 		arg.ExpiresAt,
 		arg.PayloadCiphertext,
+		arg.TenantID,
+		arg.IdempotencyKey,
 	)
 	var i CreateAdminInvitationRow
 	err := row.Scan(

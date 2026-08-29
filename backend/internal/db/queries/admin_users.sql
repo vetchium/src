@@ -100,6 +100,24 @@ WITH target AS (
     SET active = false
     WHERE admin_user_id IN (SELECT admin_user_id FROM updated)
       AND active
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, payload
+    )
+    SELECT
+        sqlc.arg(tenant_id),
+        'admin.user.disabled',
+        'admin_user',
+        admin_user_id::text,
+        'admin',
+        sqlc.arg(actor_admin_user_id)::uuid::text,
+        'admin-api',
+        jsonb_build_object(
+            'state', 'disabled',
+            'sessions_revoked', true
+        )
+    FROM updated
 )
 SELECT CASE
     WHEN NOT EXISTS (SELECT 1 FROM target) THEN 'not_found'
@@ -120,6 +138,21 @@ WITH target AS (
         updated_at = now()
     WHERE admin_user_id = sqlc.arg(target_admin_user_id)
     RETURNING admin_user_id
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, payload
+    )
+    SELECT
+        sqlc.arg(tenant_id),
+        'admin.user.enabled',
+        'admin_user',
+        admin_user_id::text,
+        'admin',
+        sqlc.arg(actor_admin_user_id)::uuid::text,
+        'admin-api',
+        jsonb_build_object('state', 'active')
+    FROM updated
 )
 SELECT CASE
     WHEN NOT EXISTS (SELECT 1 FROM target) THEN 'not_found'

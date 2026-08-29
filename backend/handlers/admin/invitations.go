@@ -77,6 +77,10 @@ func InviteUser(s *adminapi.Server) http.HandlerFunc {
 						InvitedBy:          identity.UserID,
 						ExpiresAt:          adminapi.Timestamp(expiresAt),
 						PayloadCiphertext:  ciphertext,
+						TenantID:           s.TenantID,
+						IdempotencyKey: adminapi.Text(
+							pointer(string(key)),
+						),
 					},
 				)
 				if err != nil {
@@ -146,6 +150,10 @@ func CompleteSetup(s *adminapi.Server) http.HandlerFunc {
 					DisplayName:       string(request.DisplayName),
 					PasswordHash:      passwordHash,
 					PreferredLanguage: string(request.PreferredLanguage),
+					TenantID:          s.TenantID,
+					IdempotencyKey: adminapi.Text(
+						pointer(string(key)),
+					),
 				}
 				row, err := q.CompleteAdminSetup(r.Context(), params)
 				if err != nil {

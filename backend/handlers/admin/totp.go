@@ -106,6 +106,10 @@ func VerifyTFA(s *adminapi.Server) http.HandlerFunc {
 						LastTotpTimestep:      adminapi.Int64(timestep),
 						SessionTokenHash:      tokenHash,
 						ExpiresAt:             adminapi.Timestamp(expiresAt),
+						TenantID:              s.TenantID,
+						IdempotencyKey: adminapi.Text(
+							pointer(string(key)),
+						),
 					},
 				)
 				if errors.Is(err, pgx.ErrNoRows) {
@@ -173,6 +177,10 @@ func StartTOTPEnrollment(s *adminapi.Server) http.HandlerFunc {
 						TokenHash:         tokenHash,
 						SecretCiphertext:  ciphertext,
 						ExpiresAt:         adminapi.Timestamp(expiresAt),
+						TenantID:          s.TenantID,
+						IdempotencyKey: adminapi.Text(
+							pointer(string(key)),
+						),
 					},
 				)
 				if errors.Is(err, pgx.ErrNoRows) {
@@ -272,12 +280,16 @@ func ConfirmTOTPEnrollment(s *adminapi.Server) http.HandlerFunc {
 						TotpTimestep:          adminapi.Int64(timestep),
 						RecoveryCodeHashes:    hashes,
 						CurrentAdminSessionID: identity.SessionID,
+						TenantID:              s.TenantID,
+						IdempotencyKey: adminapi.Text(
+							pointer(string(key)),
+						),
 					},
 				)
 				if err != nil {
 					return idempotentResult[adminauth.ConfirmTOTPEnrollmentResponse]{}, nil, err
 				}
-				if !confirmed.Valid || !confirmed.Bool {
+				if !confirmed {
 					return idempotentResult[adminauth.ConfirmTOTPEnrollmentResponse]{},
 						&apiProblem{details: adminproblem.InvalidTOTPEnrollmentError}, nil
 				}
@@ -352,6 +364,10 @@ func VerifyRecoveryCode(s *adminapi.Server) http.HandlerFunc {
 						AdminLoginChallengeID: challenge.AdminLoginChallengeID,
 						SessionTokenHash:      tokenHash,
 						SessionExpiresAt:      adminapi.Timestamp(expiresAt),
+						TenantID:              s.TenantID,
+						IdempotencyKey: adminapi.Text(
+							pointer(string(key)),
+						),
 					},
 				)
 				if errors.Is(err, pgx.ErrNoRows) {
@@ -387,6 +403,7 @@ func DisableTOTP(s *adminapi.Server) http.HandlerFunc {
 			r.Context(), sqlc.DisableAdminTOTPParams{
 				TargetAdminUserID:     identity.UserID,
 				CurrentAdminSessionID: identity.SessionID,
+				TenantID:              s.TenantID,
 			},
 		)
 		if err != nil {
@@ -421,6 +438,10 @@ func RegenerateTOTPRecoveryCodes(s *adminapi.Server) http.HandlerFunc {
 						TargetAdminUserID:     identity.UserID,
 						RecoveryCodeHashes:    hashes,
 						CurrentAdminSessionID: identity.SessionID,
+						TenantID:              s.TenantID,
+						IdempotencyKey: adminapi.Text(
+							pointer(string(key)),
+						),
 					},
 				)
 				if err != nil {

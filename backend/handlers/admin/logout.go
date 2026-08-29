@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"backend/internal/adminapi"
+	"backend/internal/db/sqlc"
 )
 
 func Logout(s *adminapi.Server) http.HandlerFunc {
@@ -13,7 +14,10 @@ func Logout(s *adminapi.Server) http.HandlerFunc {
 		if len(credentials) == 2 &&
 			strings.EqualFold(credentials[0], "Bearer") {
 			_, err := s.Queries.DeleteAdminSessionByTokenHash(
-				r.Context(), adminapi.TokenHash(credentials[1]),
+				r.Context(), sqlc.DeleteAdminSessionByTokenHashParams{
+					SessionTokenHash: adminapi.TokenHash(credentials[1]),
+					TenantID:         s.TenantID,
+				},
 			)
 			if err != nil {
 				s.InternalError(r.Context(), w, "delete admin session", err)

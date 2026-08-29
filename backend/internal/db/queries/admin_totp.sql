@@ -25,6 +25,22 @@ WITH eligible_user AS (
         expires_at = EXCLUDED.expires_at,
         consumed_at = NULL
     RETURNING admin_totp_enrollment_id, expires_at
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, idempotency_key, payload
+    )
+    SELECT
+        sqlc.arg(tenant_id),
+        'admin.totp-enrollment.started',
+        'admin_totp_enrollment',
+        admin_totp_enrollment_id::text,
+        'admin',
+        sqlc.arg(target_admin_user_id)::text,
+        'admin-api',
+        sqlc.arg(idempotency_key),
+        jsonb_build_object('expires_at', expires_at)
+    FROM inserted
 )
 SELECT admin_totp_enrollment_id, expires_at
 FROM inserted;
@@ -94,10 +110,27 @@ WITH enrollment AS (
     SET active = false
     WHERE admin_user_id IN (SELECT admin_user_id FROM updated)
       AND active
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, idempotency_key, payload
+    )
+    SELECT
+        sqlc.arg(tenant_id),
+        'admin.totp.enabled',
+        'admin_user',
+        admin_user_id::text,
+        'admin',
+        admin_user_id::text,
+        'admin-api',
+        sqlc.arg(idempotency_key),
+        jsonb_build_object('recovery_codes_created', 10)
+    FROM consumed
+    WHERE (SELECT count(*) FROM inserted_codes) = 10
+    RETURNING audit_event_id
 )
 SELECT
-    EXISTS (SELECT 1 FROM consumed) AND
-    (SELECT count(*) FROM inserted_codes) = 10 AS confirmed;
+    EXISTS (SELECT 1 FROM audit) AS confirmed;
 
 -- name: CompleteAdminRecoveryCodeLogin :one
 WITH consumed_code AS (
@@ -140,6 +173,22 @@ WITH consumed_code AS (
     FROM updated_user
     RETURNING admin_session_id, created_at, expires_at, authenticated_at,
         admin_user_id
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, idempotency_key, payload
+    )
+    SELECT
+        sqlc.arg(tenant_id),
+        'admin.session.created-with-recovery-code',
+        'admin_session',
+        admin_session_id::text,
+        'admin',
+        admin_user_id::text,
+        'admin-api',
+        sqlc.arg(idempotency_key),
+        jsonb_build_object('authentication_method', 'recovery-code')
+    FROM session
 )
 SELECT
     session.admin_session_id,
@@ -182,8 +231,24 @@ WITH updated AS (
     DELETE FROM vetchium.admin_sessions
     WHERE admin_user_id IN (SELECT admin_user_id FROM updated)
       AND admin_session_id <> sqlc.arg(current_admin_session_id)
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, payload
+    )
+    SELECT
+        sqlc.arg(tenant_id),
+        'admin.totp.disabled',
+        'admin_user',
+        admin_user_id::text,
+        'admin',
+        admin_user_id::text,
+        'admin-api',
+        jsonb_build_object('other_sessions_revoked', true)
+    FROM updated
+    RETURNING audit_event_id
 )
-SELECT EXISTS (SELECT 1 FROM updated) AS disabled;
+SELECT EXISTS (SELECT 1 FROM audit) AS disabled;
 
 -- name: AdminTOTPEnabled :one
 SELECT totp_enabled
@@ -220,5 +285,23 @@ WITH eligible_user AS (
     SET active = false
     WHERE admin_user_id IN (SELECT admin_user_id FROM eligible_user)
       AND active
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, idempotency_key, payload
+    )
+    SELECT
+        sqlc.arg(tenant_id),
+        'admin.totp.recovery-codes-regenerated',
+        'admin_user',
+        admin_user_id::text,
+        'admin',
+        admin_user_id::text,
+        'admin-api',
+        sqlc.arg(idempotency_key),
+        jsonb_build_object('recovery_codes_created', 10)
+    FROM eligible_user
+    WHERE (SELECT count(*) FROM inserted_codes) = 10
+    RETURNING audit_event_id
 )
-SELECT (SELECT count(*) FROM inserted_codes) = 10 AS regenerated;
+SELECT EXISTS (SELECT 1 FROM audit) AS regenerated;

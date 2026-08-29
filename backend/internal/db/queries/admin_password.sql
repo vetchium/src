@@ -20,7 +20,7 @@ WITH eligible_user AS (
         created_at = now(),
         expires_at = EXCLUDED.expires_at,
         consumed_at = NULL
-    RETURNING admin_password_reset_token_id
+    RETURNING admin_password_reset_token_id, admin_user_id
 ), outbox AS (
     INSERT INTO vetchium.admin_email_outbox (
         kind,
@@ -34,6 +34,21 @@ WITH eligible_user AS (
     FROM eligible_user
     WHERE EXISTS (SELECT 1 FROM inserted)
     RETURNING admin_email_outbox_id
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, payload
+    )
+    SELECT
+        sqlc.arg(tenant_id),
+        'admin.password-reset.requested',
+        'admin_password_reset',
+        admin_password_reset_token_id::text,
+        'anonymous',
+        NULL,
+        'admin-api',
+        jsonb_build_object('email_queued', EXISTS (SELECT 1 FROM outbox))
+    FROM inserted
 )
 SELECT EXISTS (SELECT 1 FROM outbox) AS queued;
 
@@ -84,6 +99,25 @@ WITH token AS (
     SET active = false
     WHERE admin_user_id IN (SELECT admin_user_id FROM updated)
       AND active
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, idempotency_key, payload
+    )
+    SELECT
+        sqlc.arg(tenant_id),
+        'admin.password.reset',
+        'admin_user',
+        admin_user_id::text,
+        'anonymous',
+        NULL,
+        'admin-api',
+        sqlc.arg(idempotency_key),
+        jsonb_build_object(
+            'password_changed', true,
+            'all_sessions_revoked', true
+        )
+    FROM consumed
 )
 SELECT EXISTS (SELECT 1 FROM consumed) AS completed;
 
@@ -109,5 +143,23 @@ WITH updated AS (
     SET active = false
     WHERE admin_user_id IN (SELECT admin_user_id FROM updated)
       AND active
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, payload
+    )
+    SELECT
+        sqlc.arg(tenant_id),
+        'admin.password.changed',
+        'admin_user',
+        admin_user_id::text,
+        'admin',
+        admin_user_id::text,
+        'admin-api',
+        jsonb_build_object(
+            'password_changed', true,
+            'other_sessions_revoked', true
+        )
+    FROM updated
 )
 SELECT EXISTS (SELECT 1 FROM updated) AS changed;

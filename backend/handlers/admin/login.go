@@ -64,6 +64,7 @@ func Reauthenticate(s *adminapi.Server) http.HandlerFunc {
 				AdminSessionID:       identity.SessionID,
 				AdminUserID:          identity.UserID,
 				VerifiedPasswordHash: passwordHash,
+				TenantID:             s.TenantID,
 			},
 		)
 		if err != nil {
@@ -151,6 +152,7 @@ func loginWithoutTOTP(
 			AdminUserID:          adminUser.AdminUserID,
 			ExpiresAt:            adminapi.Timestamp(expiresAt),
 			VerifiedPasswordHash: adminUser.PasswordHash,
+			TenantID:             s.TenantID,
 		},
 	)
 	if err != nil {
@@ -198,6 +200,7 @@ func loginWithTOTP(
 					ExpiresAt: pgtype.Timestamptz{
 						Time: expiresAt, Valid: true,
 					},
+					TenantID: s.TenantID,
 				},
 			)
 		},

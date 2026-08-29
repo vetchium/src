@@ -28,6 +28,7 @@ func SetPreferredLanguage(s *adminapi.Server) http.HandlerFunc {
 			r.Context(), sqlc.SetAdminPreferredLanguageParams{
 				AdminUserID:       identity.UserID,
 				PreferredLanguage: string(request.PreferredLanguage),
+				TenantID:          s.TenantID,
 			},
 		)
 		if err != nil {
@@ -55,6 +56,7 @@ func SetDisplayName(s *adminapi.Server) http.HandlerFunc {
 			r.Context(), sqlc.SetAdminDisplayNameParams{
 				TargetAdminUserID: identity.UserID,
 				DisplayName:       string(request.DisplayName),
+				TenantID:          s.TenantID,
 			},
 		)
 		if err != nil {

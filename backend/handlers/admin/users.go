@@ -110,6 +110,7 @@ func DisableUser(s *adminapi.Server) http.HandlerFunc {
 			r.Context(), sqlc.DisableAdminUserParams{
 				TargetAdminUserID: targetID,
 				ActorAdminUserID:  identity.UserID,
+				TenantID:          s.TenantID,
 			},
 		)
 		if err != nil {
@@ -132,7 +133,14 @@ func EnableUser(s *adminapi.Server) http.HandlerFunc {
 			return
 		}
 		targetID, _ := adminapi.ParseUUID(string(request.AdminUserID))
-		result, err := s.Queries.EnableAdminUser(r.Context(), targetID)
+		identity, _ := middleware.AdminIdentityFromContext(r.Context())
+		result, err := s.Queries.EnableAdminUser(
+			r.Context(), sqlc.EnableAdminUserParams{
+				TargetAdminUserID: targetID,
+				TenantID:          s.TenantID,
+				ActorAdminUserID:  identity.UserID,
+			},
+		)
 		if err != nil {
 			s.InternalError(r.Context(), w, "enable admin user", err)
 			return

@@ -61,6 +61,7 @@ func RequestPasswordReset(s *adminapi.Server) http.HandlerFunc {
 							s.CurrentTime().Add(passwordResetTTL),
 						),
 						PayloadCiphertext: ciphertext,
+						TenantID:          s.TenantID,
 					},
 				)
 			},
@@ -123,6 +124,10 @@ func CompletePasswordReset(s *adminapi.Server) http.HandlerFunc {
 					r.Context(), sqlc.CompleteAdminPasswordResetParams{
 						ResetTokenHash: resetTokenHash,
 						PasswordHash:   hash,
+						TenantID:       s.TenantID,
+						IdempotencyKey: adminapi.Text(
+							pointer(string(key)),
+						),
 					},
 				)
 				if err != nil {
@@ -161,6 +166,7 @@ func ChangePassword(s *adminapi.Server) http.HandlerFunc {
 				PasswordHash:          hash,
 				TargetAdminUserID:     identity.UserID,
 				CurrentAdminSessionID: identity.SessionID,
+				TenantID:              s.TenantID,
 			},
 		)
 		if err != nil {

@@ -9,6 +9,7 @@ import (
 	"backend/internal/adminapi"
 	"backend/internal/apiserver"
 	"backend/internal/db/sqlc"
+	"backend/internal/middleware"
 )
 
 func SetPermissions(s *adminapi.Server) http.HandlerFunc {
@@ -25,10 +26,13 @@ func SetPermissions(s *adminapi.Server) http.HandlerFunc {
 		for index, permission := range permissions {
 			stored[index] = string(permission)
 		}
+		identity, _ := middleware.AdminIdentityFromContext(r.Context())
 		result, err := s.Queries.SetAdminPermissions(
 			r.Context(), sqlc.SetAdminPermissionsParams{
 				TargetAdminUserID: userID,
 				Permissions:       stored,
+				TenantID:          s.TenantID,
+				ActorAdminUserID:  identity.UserID,
 			},
 		)
 		if err != nil {

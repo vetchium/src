@@ -51,44 +51,74 @@ func (q *Queries) AuthenticateAdminSession(ctx context.Context, sessionTokenHash
 const completeAdminTOTPLogin = `-- name: CompleteAdminTOTPLogin :one
 WITH accepted_timestep AS (
     UPDATE vetchium.admin_users AS u
-    SET totp_last_timestep = $3,
+    SET totp_last_timestep = $1,
         last_login_at = now(),
         updated_at = now()
     WHERE u.admin_user_id = $2
       AND u.admin_user_state = 'active'
       AND u.totp_enabled
-      AND (u.totp_last_timestep IS NULL OR u.totp_last_timestep < $3)
+      AND (
+          u.totp_last_timestep IS NULL OR
+          u.totp_last_timestep < $1
+      )
     RETURNING u.admin_user_id
 ), consumed AS (
     UPDATE vetchium.admin_login_challenges AS c
     SET consumed_at = now(),
         active = false
     FROM accepted_timestep AS u
-    WHERE c.admin_login_challenge_id = $1
+    WHERE c.admin_login_challenge_id = $3
       AND c.admin_user_id = u.admin_user_id
       AND c.active
       AND c.consumed_at IS NULL
       AND c.expires_at > now()
     RETURNING c.admin_user_id
+), session AS (
+    INSERT INTO vetchium.admin_sessions (
+        session_token_hash,
+        admin_user_id,
+        expires_at,
+        authenticated_at,
+        last_totp_timestep
+    )
+    SELECT
+        $4,
+        admin_user_id,
+        $5,
+        now(),
+        $1
+    FROM consumed
+    RETURNING admin_session_id, admin_user_id, created_at, expires_at,
+        authenticated_at
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, idempotency_key, payload
+    )
+    SELECT
+        $6,
+        'admin.session.created-with-totp',
+        'admin_session',
+        admin_session_id::text,
+        'admin',
+        admin_user_id::text,
+        'admin-api',
+        $7,
+        jsonb_build_object('authentication_method', 'totp')
+    FROM session
 )
-INSERT INTO vetchium.admin_sessions (
-    session_token_hash,
-    admin_user_id,
-    expires_at,
-    authenticated_at,
-    last_totp_timestep
-)
-SELECT $4, admin_user_id, $5, now(), $3
-FROM consumed
-RETURNING admin_session_id, created_at, expires_at, authenticated_at
+SELECT admin_session_id, created_at, expires_at, authenticated_at
+FROM session
 `
 
 type CompleteAdminTOTPLoginParams struct {
-	AdminLoginChallengeID pgtype.UUID        `json:"admin_login_challenge_id"`
-	AdminUserID           pgtype.UUID        `json:"admin_user_id"`
 	LastTotpTimestep      pgtype.Int8        `json:"last_totp_timestep"`
+	AdminUserID           pgtype.UUID        `json:"admin_user_id"`
+	AdminLoginChallengeID pgtype.UUID        `json:"admin_login_challenge_id"`
 	SessionTokenHash      []byte             `json:"session_token_hash"`
 	ExpiresAt             pgtype.Timestamptz `json:"expires_at"`
+	TenantID              string             `json:"tenant_id"`
+	IdempotencyKey        pgtype.Text        `json:"idempotency_key"`
 }
 
 type CompleteAdminTOTPLoginRow struct {
@@ -100,11 +130,13 @@ type CompleteAdminTOTPLoginRow struct {
 
 func (q *Queries) CompleteAdminTOTPLogin(ctx context.Context, arg CompleteAdminTOTPLoginParams) (CompleteAdminTOTPLoginRow, error) {
 	row := q.db.QueryRow(ctx, completeAdminTOTPLogin,
-		arg.AdminLoginChallengeID,
-		arg.AdminUserID,
 		arg.LastTotpTimestep,
+		arg.AdminUserID,
+		arg.AdminLoginChallengeID,
 		arg.SessionTokenHash,
 		arg.ExpiresAt,
+		arg.TenantID,
+		arg.IdempotencyKey,
 	)
 	var i CompleteAdminTOTPLoginRow
 	err := row.Scan(
@@ -120,32 +152,50 @@ const createAdminLoginChallenge = `-- name: CreateAdminLoginChallenge :one
 WITH eligible_user AS (
     SELECT u.admin_user_id
     FROM vetchium.admin_users AS u
-    WHERE u.admin_user_id = $3
-      AND u.password_hash = $4
+    WHERE u.admin_user_id = $1
+      AND u.password_hash = $2
       AND u.admin_user_state = 'active'
       AND u.totp_enabled
     FOR UPDATE
+), challenge AS (
+    INSERT INTO vetchium.admin_login_challenges (
+        admin_user_id,
+        token_hash,
+        expires_at
+    )
+    SELECT admin_user_id, $3, $4
+    FROM eligible_user
+    ON CONFLICT (admin_user_id) WHERE active DO UPDATE
+    SET token_hash = EXCLUDED.token_hash,
+        created_at = now(),
+        expires_at = EXCLUDED.expires_at,
+        consumed_at = NULL
+    RETURNING admin_login_challenge_id, admin_user_id, expires_at
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, payload
+    )
+    SELECT
+        $5,
+        'admin.login-challenge.created',
+        'admin_login_challenge',
+        admin_login_challenge_id::text,
+        'admin',
+        admin_user_id::text,
+        'admin-api',
+        jsonb_build_object('expires_at', expires_at)
+    FROM challenge
 )
-INSERT INTO vetchium.admin_login_challenges (
-    admin_user_id,
-    token_hash,
-    expires_at
-)
-SELECT admin_user_id, $1, $2
-FROM eligible_user
-ON CONFLICT (admin_user_id) WHERE active DO UPDATE
-SET token_hash = EXCLUDED.token_hash,
-    created_at = now(),
-    expires_at = EXCLUDED.expires_at,
-    consumed_at = NULL
-RETURNING admin_login_challenge_id, expires_at
+SELECT admin_login_challenge_id, expires_at FROM challenge
 `
 
 type CreateAdminLoginChallengeParams struct {
-	TokenHash            []byte             `json:"token_hash"`
-	ExpiresAt            pgtype.Timestamptz `json:"expires_at"`
 	AdminUserID          pgtype.UUID        `json:"admin_user_id"`
 	VerifiedPasswordHash string             `json:"verified_password_hash"`
+	TokenHash            []byte             `json:"token_hash"`
+	ExpiresAt            pgtype.Timestamptz `json:"expires_at"`
+	TenantID             string             `json:"tenant_id"`
 }
 
 type CreateAdminLoginChallengeRow struct {
@@ -155,10 +205,11 @@ type CreateAdminLoginChallengeRow struct {
 
 func (q *Queries) CreateAdminLoginChallenge(ctx context.Context, arg CreateAdminLoginChallengeParams) (CreateAdminLoginChallengeRow, error) {
 	row := q.db.QueryRow(ctx, createAdminLoginChallenge,
-		arg.TokenHash,
-		arg.ExpiresAt,
 		arg.AdminUserID,
 		arg.VerifiedPasswordHash,
+		arg.TokenHash,
+		arg.ExpiresAt,
+		arg.TenantID,
 	)
 	var i CreateAdminLoginChallengeRow
 	err := row.Scan(&i.AdminLoginChallengeID, &i.ExpiresAt)
@@ -170,28 +221,52 @@ WITH updated_admin_user AS (
     UPDATE vetchium.admin_users AS u
     SET last_login_at = now(),
         updated_at = now()
-    WHERE u.admin_user_id = $2
+    WHERE u.admin_user_id = $1
       AND u.admin_user_state = 'active'
-      AND u.password_hash = $4
+      AND u.password_hash = $2
       AND NOT u.totp_enabled
     RETURNING u.admin_user_id
+), session AS (
+    INSERT INTO vetchium.admin_sessions (
+        session_token_hash,
+        admin_user_id,
+        expires_at,
+        authenticated_at
+    )
+    SELECT
+        $3,
+        u.admin_user_id,
+        $4,
+        now()
+    FROM updated_admin_user AS u
+    RETURNING admin_session_id, admin_user_id, created_at, expires_at,
+        authenticated_at
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, payload
+    )
+    SELECT
+        $5,
+        'admin.session.created',
+        'admin_session',
+        admin_session_id::text,
+        'admin',
+        admin_user_id::text,
+        'admin-api',
+        jsonb_build_object('authentication_method', 'password')
+    FROM session
 )
-INSERT INTO vetchium.admin_sessions (
-    session_token_hash,
-    admin_user_id,
-    expires_at,
-    authenticated_at
-)
-SELECT $1, u.admin_user_id, $3, now()
-FROM updated_admin_user AS u
-RETURNING admin_session_id, created_at, expires_at, authenticated_at
+SELECT admin_session_id, created_at, expires_at, authenticated_at
+FROM session
 `
 
 type CreateAdminSessionParams struct {
-	SessionTokenHash     []byte             `json:"session_token_hash"`
 	AdminUserID          pgtype.UUID        `json:"admin_user_id"`
-	ExpiresAt            pgtype.Timestamptz `json:"expires_at"`
 	VerifiedPasswordHash string             `json:"verified_password_hash"`
+	SessionTokenHash     []byte             `json:"session_token_hash"`
+	ExpiresAt            pgtype.Timestamptz `json:"expires_at"`
+	TenantID             string             `json:"tenant_id"`
 }
 
 type CreateAdminSessionRow struct {
@@ -203,10 +278,11 @@ type CreateAdminSessionRow struct {
 
 func (q *Queries) CreateAdminSession(ctx context.Context, arg CreateAdminSessionParams) (CreateAdminSessionRow, error) {
 	row := q.db.QueryRow(ctx, createAdminSession,
-		arg.SessionTokenHash,
 		arg.AdminUserID,
-		arg.ExpiresAt,
 		arg.VerifiedPasswordHash,
+		arg.SessionTokenHash,
+		arg.ExpiresAt,
+		arg.TenantID,
 	)
 	var i CreateAdminSessionRow
 	err := row.Scan(
@@ -218,36 +294,78 @@ func (q *Queries) CreateAdminSession(ctx context.Context, arg CreateAdminSession
 	return i, err
 }
 
-const deleteAdminSession = `-- name: DeleteAdminSession :execrows
-DELETE FROM vetchium.admin_sessions
-WHERE admin_session_id = $1
-  AND admin_user_id = $2
+const deleteAdminSession = `-- name: DeleteAdminSession :one
+WITH deleted AS (
+    DELETE FROM vetchium.admin_sessions
+    WHERE admin_session_id = $1
+      AND admin_user_id = $2
+    RETURNING admin_session_id, admin_user_id
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, payload
+    )
+    SELECT
+        $3,
+        'admin.session.revoked',
+        'admin_session',
+        admin_session_id::text,
+        'admin',
+        admin_user_id::text,
+        'admin-api',
+        jsonb_build_object('reason', 'explicit-revocation')
+    FROM deleted
+)
+SELECT count(*)::bigint FROM deleted
 `
 
 type DeleteAdminSessionParams struct {
 	AdminSessionID pgtype.UUID `json:"admin_session_id"`
 	AdminUserID    pgtype.UUID `json:"admin_user_id"`
+	TenantID       string      `json:"tenant_id"`
 }
 
 func (q *Queries) DeleteAdminSession(ctx context.Context, arg DeleteAdminSessionParams) (int64, error) {
-	result, err := q.db.Exec(ctx, deleteAdminSession, arg.AdminSessionID, arg.AdminUserID)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
+	row := q.db.QueryRow(ctx, deleteAdminSession, arg.AdminSessionID, arg.AdminUserID, arg.TenantID)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
 }
 
-const deleteAdminSessionByTokenHash = `-- name: DeleteAdminSessionByTokenHash :execrows
-DELETE FROM vetchium.admin_sessions
-WHERE session_token_hash = $1
+const deleteAdminSessionByTokenHash = `-- name: DeleteAdminSessionByTokenHash :one
+WITH deleted AS (
+    DELETE FROM vetchium.admin_sessions
+    WHERE session_token_hash = $1
+    RETURNING admin_session_id, admin_user_id
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, payload
+    )
+    SELECT
+        $2,
+        'admin.session.revoked',
+        'admin_session',
+        admin_session_id::text,
+        'admin',
+        admin_user_id::text,
+        'admin-api',
+        jsonb_build_object('reason', 'logout')
+    FROM deleted
+)
+SELECT count(*)::bigint FROM deleted
 `
 
-func (q *Queries) DeleteAdminSessionByTokenHash(ctx context.Context, sessionTokenHash []byte) (int64, error) {
-	result, err := q.db.Exec(ctx, deleteAdminSessionByTokenHash, sessionTokenHash)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
+type DeleteAdminSessionByTokenHashParams struct {
+	SessionTokenHash []byte `json:"session_token_hash"`
+	TenantID         string `json:"tenant_id"`
+}
+
+func (q *Queries) DeleteAdminSessionByTokenHash(ctx context.Context, arg DeleteAdminSessionByTokenHashParams) (int64, error) {
+	row := q.db.QueryRow(ctx, deleteAdminSessionByTokenHash, arg.SessionTokenHash, arg.TenantID)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
 }
 
 const getAdminLoginChallenge = `-- name: GetAdminLoginChallenge :one
@@ -420,26 +538,50 @@ func (q *Queries) GetAdminUserForLogin(ctx context.Context, emailAddress string)
 }
 
 const reauthenticateAdminSession = `-- name: ReauthenticateAdminSession :one
-UPDATE vetchium.admin_sessions AS s
-SET authenticated_at = now()
-FROM vetchium.admin_users AS u
-WHERE s.admin_session_id = $1
-  AND s.admin_user_id = $2
-  AND s.expires_at > now()
-  AND u.admin_user_id = s.admin_user_id
-  AND u.admin_user_state = 'active'
-  AND u.password_hash = $3
-RETURNING s.authenticated_at
+WITH updated AS (
+    UPDATE vetchium.admin_sessions AS s
+    SET authenticated_at = now()
+    FROM vetchium.admin_users AS u
+    WHERE s.admin_session_id = $1
+      AND s.admin_user_id = $2
+      AND s.expires_at > now()
+      AND u.admin_user_id = s.admin_user_id
+      AND u.admin_user_state = 'active'
+      AND u.password_hash = $3
+    RETURNING s.admin_session_id, s.admin_user_id, s.authenticated_at
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, payload
+    )
+    SELECT
+        $4,
+        'admin.session.reauthenticated',
+        'admin_session',
+        admin_session_id::text,
+        'admin',
+        admin_user_id::text,
+        'admin-api',
+        jsonb_build_object('authentication_refreshed', true)
+    FROM updated
+)
+SELECT authenticated_at FROM updated
 `
 
 type ReauthenticateAdminSessionParams struct {
 	AdminSessionID       pgtype.UUID `json:"admin_session_id"`
 	AdminUserID          pgtype.UUID `json:"admin_user_id"`
 	VerifiedPasswordHash string      `json:"verified_password_hash"`
+	TenantID             string      `json:"tenant_id"`
 }
 
 func (q *Queries) ReauthenticateAdminSession(ctx context.Context, arg ReauthenticateAdminSessionParams) (pgtype.Timestamptz, error) {
-	row := q.db.QueryRow(ctx, reauthenticateAdminSession, arg.AdminSessionID, arg.AdminUserID, arg.VerifiedPasswordHash)
+	row := q.db.QueryRow(ctx, reauthenticateAdminSession,
+		arg.AdminSessionID,
+		arg.AdminUserID,
+		arg.VerifiedPasswordHash,
+		arg.TenantID,
+	)
 	var authenticated_at pgtype.Timestamptz
 	err := row.Scan(&authenticated_at)
 	return authenticated_at, err

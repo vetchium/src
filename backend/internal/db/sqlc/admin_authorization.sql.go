@@ -42,6 +42,23 @@ WITH target AS (
     FROM permitted
     CROSS JOIN unnest($2::text[]) AS requested(permission)
     RETURNING admin_user_id
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, payload
+    )
+    SELECT
+        $3,
+        'admin.permissions.set',
+        'admin_user',
+        admin_user_id::text,
+        'admin',
+        $4::uuid::text,
+        'admin-api',
+        jsonb_build_object(
+            'permissions', to_jsonb($2::text[])
+        )
+    FROM permitted
 )
 SELECT CASE
     WHEN NOT EXISTS (SELECT 1 FROM target) THEN 'not_found'
@@ -53,13 +70,20 @@ END::text AS result
 type SetAdminPermissionsParams struct {
 	TargetAdminUserID pgtype.UUID `json:"target_admin_user_id"`
 	Permissions       []string    `json:"permissions"`
+	TenantID          string      `json:"tenant_id"`
+	ActorAdminUserID  pgtype.UUID `json:"actor_admin_user_id"`
 }
 
 // Refused when the replacement would remove the last active administrator
 // able to manage administrators, which no remaining principal could undo. A
 // tenant that already has none is not held to the invariant it has lost.
 func (q *Queries) SetAdminPermissions(ctx context.Context, arg SetAdminPermissionsParams) (string, error) {
-	row := q.db.QueryRow(ctx, setAdminPermissions, arg.TargetAdminUserID, arg.Permissions)
+	row := q.db.QueryRow(ctx, setAdminPermissions,
+		arg.TargetAdminUserID,
+		arg.Permissions,
+		arg.TenantID,
+		arg.ActorAdminUserID,
+	)
 	var result string
 	err := row.Scan(&result)
 	return result, err

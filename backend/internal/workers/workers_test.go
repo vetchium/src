@@ -17,7 +17,7 @@ func TestNewUsesConfiguredJobInterval(t *testing.T) {
 	const interval = 15 * time.Minute
 	const retryBackoffLimit = 30 * time.Second
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	worker := New(nil, log, appconfig.Workers{
+	worker := New(nil, log, "test", appconfig.Workers{
 		RetryBackoffLimit:       retryBackoffLimit,
 		PruneAdminSessionsTimer: interval,
 		PruneEphemeralDataTimer: interval,
@@ -259,5 +259,7 @@ func TestNextBackoffStartsAtOneSecondAndCapsAtLimit(t *testing.T) {
 }
 
 func newTestWorker(log *slog.Logger) *Worker {
-	return &Worker{log: log, retryBackoffLimit: time.Millisecond}
+	return &Worker{
+		log: log, tenantID: "test", retryBackoffLimit: time.Millisecond,
+	}
 }
