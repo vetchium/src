@@ -17,15 +17,15 @@
     "hubEmailLeaseTTL": "1m",
     "hubEmailMaxAttempts": 5
   },
-  "admin-api-server": {
-    "adminSessionTTL": "24h"
+  "adminAPIServer": {
+    "sessionTTL": "24h"
   },
-  "global-coordinator": {
+  "globalCoordinator": {
     "baseURL": "http://global-coordinator.internal:8080",
     "credentialFile": "/run/secrets/global_coordinator_credential",
     "requestTimeout": "5s"
   },
-  "hub-api-server": {
+  "hubAPIServer": {
     "sessionTTL": "24h",
     "rememberedSessionTTL": "6360h",
     "publicBaseURL": "https://hub.ind1.vetchium.com"
@@ -40,6 +40,6 @@
     "startTLS": "required",
     "connectionTimeout": "10s"
   },
-  "orgs-api-server": {},
-  "mcp-server": {}
+  "orgsAPIServer": {},
+  "mcpServer": {}
 }

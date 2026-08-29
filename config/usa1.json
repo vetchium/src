@@ -17,15 +17,15 @@
     "hubEmailLeaseTTL": "1m",
     "hubEmailMaxAttempts": 5
   },
-  "admin-api-server": {
-    "adminSessionTTL": "24h"
+  "adminAPIServer": {
+    "sessionTTL": "24h"
   },
-  "global-coordinator": {
+  "globalCoordinator": {
     "baseURL": "http://global-coordinator:8080",
     "credentialFile": "/run/secrets/global_coordinator_credential",
     "requestTimeout": "5s"
   },
-  "hub-api-server": {
+  "hubAPIServer": {
     "sessionTTL": "24h",
     "rememberedSessionTTL": "6360h",
     "publicBaseURL": "http://hub-ui.usa1.localhost"
@@ -40,6 +40,6 @@
     "startTLS": "disabled",
     "connectionTimeout": "5s"
   },
-  "orgs-api-server": {},
-  "mcp-server": {}
+  "orgsAPIServer": {},
+  "mcpServer": {}
 }

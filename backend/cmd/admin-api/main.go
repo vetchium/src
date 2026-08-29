@@ -74,7 +74,7 @@ func run(log *slog.Logger) error {
 		TenantID: cfg.TenantID,
 		Queries:  dbsqlc.New(pool),
 		SessionDurations: apiserver.SessionDurations{
-			Default: cfg.AdminAPIServer.AdminSessionTTL,
+			Default: cfg.AdminAPIServer.SessionTTL,
 		},
 		CredentialKey: adminapi.DeriveCredentialKey(
 			cfg.TenantID, credentialSecret,

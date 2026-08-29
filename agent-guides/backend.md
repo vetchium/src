@@ -14,6 +14,10 @@ Use it together with `go.md`. Also read `database.md` for any database access.
   database access lives in `internal/db/sqlc/`.
 - `typespec/` is a separate contract module. Backend code consumes its exported
   API types through the replacement in `backend/go.mod`.
+- Use lower camelCase for JSON application-config keys at every nesting level.
+  Name portal server sections `adminAPIServer`, `hubAPIServer`, and
+  `orgsAPIServer`; use the shared `sessionTTL` key for each portal's ordinary
+  session lifetime.
 - Keep controls in the layer that owns them. Generic public-ingress concerns
   such as source rate limits, request-body size limits, and proxy trust belong
   in Traefik or deployment configuration by default. Do not duplicate them in
